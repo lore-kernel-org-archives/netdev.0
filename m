@@ -1,47 +1,46 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH 3/3] chelsio: more receive cleanup
-Date: Fri, 15 Dec 2006 17:28:00 -0800
-Message-ID: <20061215172800.52713c89@freekitty>
-References: <20061215190716.956791000@osdl.org>
-	<20061215190813.803776000@osdl.org>
-	<20061215201019.GA11385@electric-eye.fr.zoreil.com>
-	<20061215145533.4cda3f23@freekitty>
-	<20061216002604.GA11284@electric-eye.fr.zoreil.com>
+From: Alex Romosan <romosan@sycorax.lbl.gov>
+Subject: Re: 2.6.20-rc1 sky2 problems (regression?)
+Date: Fri, 15 Dec 2006 17:53:11 -0800
+Message-ID: <87odq4y5bs.fsf@sycorax.lbl.gov>
+References: <87mz5qnf5q.fsf@sycorax.lbl.gov>
+	<E1Gv2kS-0002QY-00@gondolin.me.apana.org.au>
+	<20061214192218.35a7f8e1@localhost.localdomain>
+	<878xh9rf06.fsf@sycorax.lbl.gov> <20061215172520.62022520@freekitty>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.25]:34005 "EHLO smtp.osdl.org"
+Received: from sycorax.lbl.gov ([128.3.5.196]:3678 "EHLO sycorax.lbl.gov"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030528AbWLPB2L (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Dec 2006 20:28:11 -0500
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20061216002604.GA11284@electric-eye.fr.zoreil.com>
+	id S1753222AbWLPBxS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Dec 2006 20:53:18 -0500
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20061215172520.62022520@freekitty> (message from Stephen
+	Hemminger on Fri, 15 Dec 2006 17:25:20 -0800)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 16 Dec 2006 01:26:04 +0100
-Francois Romieu <romieu@fr.zoreil.com> wrote:
+Stephen Hemminger <shemminger@osdl.org> writes:
 
-> Stephen Hemminger <shemminger@osdl.org> :
-> > Francois Romieu <romieu@fr.zoreil.com> wrote:
-> [...]
-> > Why, you can't predict copybreak on off
-> 
-> Plain gut feeling. I'd rather spend extra cycles on small packets (whose
-> allocation is already optimized) and keep the normal packets less expensive
-> on a 10Gb/s network card.
+> I fixed a bunch of stuff (see ChangeLog) and made a 2.6.19 or later
+> version see:
+> 	http://developer.osdl.org/shemminger/prototypes/sk98lin-8.41.tar.gz
 >
+> It is too noisy in the console log, because it shows how many times
+> the driver dope slaps itself senseless...  Basically every 250ms when
+> it is idle it resets, sorry it's the kind of code you right to "make it work"
+> and ship it which is why vendor drivers suck.
 
-Likely/unlikely is an optimization that doesn't make a big difference and
-I would rather the compiler choose unless it is something obvious like
-an error path or external interrupt (like PHY).
+i'll give it a try on monday when i go back to work. in the meantime
+i've been running with my "fixed" version of the vendor driver and so
+far it's been working without any problems (i've been transferring
+lots of data in and out of the computer the whole day). if there is
+anything i can do to help debug the kernel sky2 driver let me know.
 
-There was some discussion on LKML, which I mostly forgot, that hinted that
-on some architectures using likely/unlikely incorrectly could have a major
-hit.
-
+--alex--
 
 -- 
-Stephen Hemminger <shemminger@osdl.org>
+| I believe the moment is at hand when, by a paranoiac and active |
+|  advance of the mind, it will be possible (simultaneously with  |
+|  automatism and other passive states) to systematize confusion  |
+|  and thus to help to discredit completely the world of reality. |
