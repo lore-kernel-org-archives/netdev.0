@@ -1,40 +1,41 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [S2IO] De-typedef driver
-Date: Sat, 16 Dec 2006 11:39:46 -0500
-Message-ID: <45842152.10408@garzik.org>
-References: <78C9135A3D2ECE4B8162EBDCE82CAD77010097D1@nekter>
+Subject: Re: [Fwd: Re: wan/pc300 bug found]
+Date: Sat, 16 Dec 2006 11:50:11 -0500
+Message-ID: <458423C3.2080002@garzik.org>
+References: <4559D5BF.3080605@garzik.org> <m3k61ydnv4.fsf@defiant.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Ralf Baechle <ralf@linux-mips.org>, netdev@vger.kernel.org
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
+	Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:34820 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:34896 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1161122AbWLPQjx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 16 Dec 2006 11:39:53 -0500
-To: Ramkrishna Vepa <Ramkrishna.Vepa@neterion.com>
-In-Reply-To: <78C9135A3D2ECE4B8162EBDCE82CAD77010097D1@nekter>
+	id S1161191AbWLPQuQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 16 Dec 2006 11:50:16 -0500
+To: Krzysztof Halasa <khc@pm.waw.pl>
+In-Reply-To: <m3k61ydnv4.fsf@defiant.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ramkrishna Vepa wrote:
->> I stomped over the s2io driver when doing an allyesconfig build for
-> IP27
->> where there was a namespace collision between the IP27 code and the
-> s2io
->> driver which both use a nic_t.  I decieded both were broken, IP27
-> should
->> not export the type and s2io was a totally typedef polluted piece of
-> code.
->> So here's the s2io part of the fix.
-> [Ram] Agreed this is a problem. Please leave the typedef but change
-> nic_t to xframe_t. This will make it unique and is a much simpler
-> change.
+Krzysztof Halasa wrote:
+> Jeff Garzik <jeff@garzik.org> writes:
+> 
+>> FYI...  I'm certainly willing to remove pc300, if nobody wants it.
+>>
+>> But I am unsure whether this is a case of "vendor doesn't care" or
+>> "users don't care", which are two very different things...
+> 
+> I have a driver for PC300/RSV (dual V.35 + V.24) for years. I'm told
+> it works with X.21 version too. If someone has a spare T1/E1 card
+> (non-returnable donation only) I can try to add support as well.
+> 
+> T1/E1 is too complicated to maintain without the actual hardware.
+> 
+> Perhaps we should add my driver to the tree, mark the old one as
+> obsolete and look for angry reports from T1/E1 users?
 
-More simple yes, but not any closer to the Linux kernel (and POSIX) 
-preferred style.
-
-Most kernel devs' brains work better after applying Ralf's patch...
+No objections...
 
 	Jeff
 
