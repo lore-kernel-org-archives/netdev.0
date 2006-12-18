@@ -1,150 +1,62 @@
 From: Horms <horms@verge.net.au>
-Subject: Re: [PATCH] [IPVS] transparent proxying
-Date: Mon, 18 Dec 2006 12:19:32 +0900
-Message-ID: <20061218031931.GA1075@verge.net.au>
-References: <20061129062126.GP25535@verge.net.au> <20061129141523.GD8693@postel.suug.ch> <20061129144620.GA5978@verge.net.au>
+Subject: [PATCH] [IPVS] replace if .. goto with while
+Date: Mon, 18 Dec 2006 12:11:11 +0900
+Message-ID: <20061218031110.GA32036@verge.net.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Julian Anastasov <ja@ssi.bg>,
+Cc: David Miller <davem@davemloft.net>,
 	Wensong Zhan <wensong@linux-vs.org>,
-	Joseph Mack NA3T <jmack@wm7d.net>,
-	Jinhua Luo <home_king@163.com>
+	Julian Anastasov <ja@ssi.bg>,
+	Roberto Nibali <ratz@drugphish.ch>,
+	Joseph Mack NA3T <jmack@wm7d.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from koto.vergenet.net ([210.128.90.7]:46500 "EHLO koto.vergenet.net"
+Received: from koto.vergenet.net ([210.128.90.7]:46514 "EHLO koto.vergenet.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752563AbWLRDYx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 17 Dec 2006 22:24:53 -0500
-To: Thomas Graf <tgraf@suug.ch>
+	id S1752663AbWLRDgB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 17 Dec 2006 22:36:01 -0500
+To: netdev@vger.kernel.org
 Content-Disposition: inline
-In-Reply-To: <20061129144620.GA5978@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 29, 2006 at 11:46:22PM +0900, Horms wrote:
-> On Wed, Nov 29, 2006 at 03:15:23PM +0100, Thomas Graf wrote:
+I guess that this code used to be more complex, but replacing
+the goto with a while seems to make things a bit more readable.
+Or in other words, two fairly gratuitous goto are removed.
 
-[split]
+On a related note, I wonder if there should be a limit to how
+many times it tries.
 
-> > This patch seems to be based on an old tree, I've renamed nfmark
-> > to mark in net-2.6.20. The term fwmark and nfmark shouldn't be
-> > used anymore.
-> 
-> Sorry, I based this patch on Linus's tree. I'll port it to net-2.6.20.
+Signed-Off-By: Simon Horman <horms@verge.net.au>
 
-This took too long for me to get around to :(
-Am I correct in thinking I just need to replace fwmark with mark?
-If so, the updated version is below.
-
--- 
-Horms
-  H: http://www.vergenet.net/~horms/
-  W: http://www.valinux.co.jp/en/
-
-[IPVS] transparent proxying
-
-Patch from home_king <home_king@163.com> to allow a web cluseter using
-transparent proxying. It works by simply grabing packets that have the
-fwmark set and have not already been processed by ipvs (ip_vs_out) and
-throwing them into ip_vs_in.
-
-See: http://archive.linuxvirtualserver.org/html/lvs-users/2006-11/msg00261.html
-
-Normally LVS packets are processed by ip_vs_in fron on the INPUT chain,
-and packets that are processed in this way never show up on the FORWARD
-chain, so they won't hit this rule.
-
-This patch seems like a good precursor to moving LVS permanantly to
-the FORWARD chain. As I'm struggling to think how it could break things.
-
-Reformated to use tabs for indentation (instead of 4 spaces)
-Reformated to be < 80 columns wide
-Updated fwmark to mark
-
-Cc: Jinhua Luo <home_king@163.com>
-Signed-off-by: Simon Horman <horms@verge.net.au>
-Index: net-2.6/net/ipv4/ipvs/ip_vs_core.c
+Index: linux-2.6/net/ipv4/ipvs/ip_vs_sync.c
 ===================================================================
---- net-2.6.orig/net/ipv4/ipvs/ip_vs_core.c	2006-12-18 11:46:10.000000000 +0900
-+++ net-2.6/net/ipv4/ipvs/ip_vs_core.c	2006-12-18 12:13:32.000000000 +0900
-@@ -23,7 +23,9 @@
-  * Changes:
-  *	Paul `Rusty' Russell		properly handle non-linear skbs
-  *	Harald Welte			don't use nfcache
-- *
-+ *	Jinhua Luo                      redirect packets with fwmark on
-+ *					NF_IP_FORWARD chain to ip_vs_in(),
-+ *					mainly for transparent cache cluster
-  */
+--- linux-2.6.orig/net/ipv4/ipvs/ip_vs_sync.c	2006-11-29 09:50:37.000000000 +0900
++++ linux-2.6/net/ipv4/ipvs/ip_vs_sync.c	2006-11-29 10:03:11.000000000 +0900
+@@ -822,12 +822,10 @@
  
- #include <linux/module.h>
-@@ -1070,6 +1072,26 @@
- 	return ip_vs_in_icmp(pskb, &r, hooknum);
- }
- 
-+/*
-+ * 	This is hooked into the NF_IP_FORWARD. It catches
-+ * 	packets that have not already been handled by ipvs (out)
-+ * 	and have a fwmark set. This is to allow transparent proxying
-+ * 	of fwmark virtual services.
-+ *
-+ * 	It will not process packets that are handled by ipvs (in)
-+ * 	as they never traverse the NF_IP_FORWARD.
-+ */
-+static unsigned int
-+ip_vs_forward_with_fwmark(unsigned int hooknum, struct sk_buff **pskb,
-+			  const struct net_device *in,
-+			  const struct net_device *out,
-+			  int (*okfn)(struct sk_buff *))
-+{
-+	if ((*pskb)->ipvs_property || ! (*pskb)->mark)
-+		return NF_ACCEPT;
-+
-+	return ip_vs_in(hooknum, pskb, in, out, okfn);
-+}
- 
- /* After packet filtering, forward packet through VS/DR, VS/TUN,
-    or VS/NAT(change destination), so that filtering rules can be
-@@ -1082,6 +1104,16 @@
- 	.priority       = 100,
- };
- 
-+/* Allow transparent proxying by fishing packets
-+ * out of the forward chain. */
-+static struct nf_hook_ops ip_vs_forward_with_fwmark_ops = {
-+	.hook		= ip_vs_forward_with_fwmark,
-+	.owner		= THIS_MODULE,
-+	.pf		= PF_INET,
-+	.hooknum	= NF_IP_FORWARD,
-+	.priority	= 101,
-+};
-+
- /* After packet filtering, change source only for VS/NAT */
- static struct nf_hook_ops ip_vs_out_ops = {
- 	.hook		= ip_vs_out,
-@@ -1160,9 +1192,17 @@
- 		goto cleanup_postroutingops;
+ 	/* fork the sync thread here, then the parent process of the
+ 	   sync thread is the init process after this thread exits. */
+-  repeat:
+-	if ((pid = kernel_thread(sync_thread, startup, 0)) < 0) {
++	while ((pid = kernel_thread(sync_thread, startup, 0)) < 0) {
+ 		IP_VS_ERR("could not create sync_thread due to %d... "
+ 			  "retrying.\n", pid);
+ 		msleep_interruptible(1000);
+-		goto repeat;
  	}
  
-+	ret = nf_register_hook(&ip_vs_forward_with_fwmark_ops);
-+	if (ret < 0) {
-+		IP_VS_ERR("can't register forward_with_fwmark hook.\n");
-+		goto cleanup_forwardicmpops;
-+	}
-+
- 	IP_VS_INFO("ipvs loaded.\n");
- 	return ret;
+ 	return 0;
+@@ -856,12 +854,10 @@
+ 		ip_vs_backup_syncid = syncid;
+ 	}
  
-+  cleanup_forwardicmpops:
-+	nf_unregister_hook(&ip_vs_forward_icmp_ops);
-   cleanup_postroutingops:
- 	nf_unregister_hook(&ip_vs_post_routing_ops);
-   cleanup_outops:
-@@ -1182,6 +1222,7 @@
+-  repeat:
+-	if ((pid = kernel_thread(fork_sync_thread, &startup, 0)) < 0) {
++	while ((pid = kernel_thread(fork_sync_thread, &startup, 0)) < 0) {
+ 		IP_VS_ERR("could not create fork_sync_thread due to %d... "
+ 			  "retrying.\n", pid);
+ 		msleep_interruptible(1000);
+-		goto repeat;
+ 	}
  
- static void __exit ip_vs_cleanup(void)
- {
-+	nf_unregister_hook(&ip_vs_forward_with_fwmark_ops);
- 	nf_unregister_hook(&ip_vs_forward_icmp_ops);
- 	nf_unregister_hook(&ip_vs_post_routing_ops);
- 	nf_unregister_hook(&ip_vs_out_ops);
+ 	wait_for_completion(&startup);
