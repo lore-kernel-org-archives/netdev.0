@@ -1,58 +1,47 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [ANN] Acrypto asynchronous crypto layer 2.6.19 release.
-Date: Mon, 18 Dec 2006 16:13:57 +0300
-Message-ID: <20061218131356.GA11186@2ka.mipt.ru>
-References: <20061216191521.GA26549@2ka.mipt.ru> <4586458E.6000503@dungeon.inka.de> <20061218095740.GA5219@2ka.mipt.ru> <458690EA.2000405@ciphirelabs.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: linux-crypto@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+From: "Amit S. Kale" <amitkale@netxen.com>
+Subject: [PATCH 2/8] NetXen: driver reload fix for newer firmware.
+Date: Mon, 18 Dec 2006 05:51:29 -0800
+Message-ID: <200612181351.kBIDpTJc012150@dut39.unminc.com>
+Cc: amitkale@netxen.com, brazilnut@us.ibm.com, jeff@garzik.org,
+	netxenproj@linsyssoft.com, rob@netxen.com, sanjeev@netxen.com,
+	wendyx@us.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:55517 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753974AbWLRNOI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Dec 2006 08:14:08 -0500
-To: Andreas Jellinghaus <aj@ciphirelabs.com>
-Content-Disposition: inline
-In-Reply-To: <458690EA.2000405@ciphirelabs.com>
+Received: from 66-126-254-34.unm.net ([66.126.254.34]:4198 "EHLO
+	nxmail.netxen.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754063AbWLROWx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Dec 2006 09:22:53 -0500
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 18, 2006 at 02:00:26PM +0100, Andreas Jellinghaus (aj@ciphirelabs.com) wrote:
-> Evgeniy Polyakov wrote:
-> >Actually I do not recall what is 'size retrictions' - if you talk about
-> >possibility to use software crypto provider, which supports one cipher
-> >in a time, then yes, but it is intended to be used with hardware though.
-> >Otherwise I do not recall any problems pointed to me.
-> 
-> sorry, "size restriction" was the wrong term. acrypto only supports
-> "sync provider only supports AES-128 in CBC mode, so if you try
-> different ciphers, there can be some problems."
+Signed-off-by: Amit S. Kale <amitkale@netxen.com>
 
-You can change it in async_provider in compilation time or I can create
-module version. There is an item in related todo list to use crypto
-contexts, they were created exactly for such kind of things (actually
-for hardware devices which do not support realtime key changes).
+netxen_nic_main.c |    7 +++++++
+ 1 files changed, 7 insertions(+)
 
-> and I'm using dm-crypto with aes-cbc-essiv:sha256 and your acrypto patch
-> breaks this setup - not only acrypto doesn't provide crypto capability 
-> for my setup, but with this patch it is not offered by the old mechanism
-> either, so my system has no way to decrypt the root partition. note:
-> that was with the 2.6.18 patch, no idea if it is different now.
-> 
-> so while the patch adds new features, it also removes some features -
-> not sure if always (via patch) or via compile option or via module
-> load. also I'm not sure if acrypto can be disabled via kernel command
-> line to get the old behaviour (including aes-cbc-essiv:sha256 support
-> for dm-crypt).
-> 
-> would be nice to track those issues, so people testing your patch
-> are aware of the situation.
 
-I will change acrypto software crypto provider, but right now, yes,
-software crypto only supports one mode.
-
-> Regards, Andreas
-
--- 
-	Evgeniy Polyakov
+diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
+index d8b1daf..f2b3fbc 100644
+--- a/drivers/net/netxen/netxen_nic_main.c
++++ b/drivers/net/netxen/netxen_nic_main.c
+@@ -446,6 +446,11 @@ netxen_nic_probe(struct pci_dev *pdev, c
+ 		adapter->port[i] = port;
+ 	}
+ 
++	writel(0, NETXEN_CRB_NORMALIZE(adapter, CRB_CMDPEG_STATE));
++	netxen_pinit_from_rom(adapter, 0);
++	udelay(500);
++	netxen_load_firmware(adapter);
++	netxen_phantom_init(adapter, NETXEN_NIC_PEG_TUNE);
+ 	/*
+ 	 * delay a while to ensure that the Pegs are up & running.
+ 	 * Otherwise, we might see some flaky behaviour.
+@@ -533,6 +538,8 @@ static void __devexit netxen_nic_remove(
+ 
+ 	netxen_nic_stop_all_ports(adapter);
+ 	/* leave the hw in the same state as reboot */
++	netxen_pinit_from_rom(adapter, 0);
++	writel(0, NETXEN_CRB_NORMALIZE(adapter, CRB_CMDPEG_STATE));
+ 	netxen_load_firmware(adapter);
+ 	netxen_free_adapter_offload(adapter);
+ 
