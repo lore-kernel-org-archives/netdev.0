@@ -1,49 +1,150 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH]Fix BUG of ip_rt_send_redirect()
-Date: Mon, 18 Dec 2006 14:02:43 +1100
-Message-ID: <20061218030243.GB7902@gondor.apana.org.au>
-References: <1164787726.14560.11.camel@localhost.localdomain>
+From: Horms <horms@verge.net.au>
+Subject: Re: [PATCH] [IPVS] transparent proxying
+Date: Mon, 18 Dec 2006 12:19:32 +0900
+Message-ID: <20061218031931.GA1075@verge.net.au>
+References: <20061129062126.GP25535@verge.net.au> <20061129141523.GD8693@postel.suug.ch> <20061129144620.GA5978@verge.net.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Julian Anastasov <ja@ssi.bg>,
+	Wensong Zhan <wensong@linux-vs.org>,
+	Joseph Mack NA3T <jmack@wm7d.net>,
+	Jinhua Luo <home_king@163.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:1093 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752139AbWLRDCw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Dec 2006 22:02:52 -0500
-To: Li Yewang <lyw@nanjing-fnst.com>
+Received: from koto.vergenet.net ([210.128.90.7]:46500 "EHLO koto.vergenet.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752563AbWLRDYx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 17 Dec 2006 22:24:53 -0500
+To: Thomas Graf <tgraf@suug.ch>
 Content-Disposition: inline
-In-Reply-To: <1164787726.14560.11.camel@localhost.localdomain>
+In-Reply-To: <20061129144620.GA5978@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 29, 2006 at 04:08:45PM +0800, Li Yewang wrote:
+On Wed, Nov 29, 2006 at 11:46:22PM +0900, Horms wrote:
+> On Wed, Nov 29, 2006 at 03:15:23PM +0100, Thomas Graf wrote:
+
+[split]
+
+> > This patch seems to be based on an old tree, I've renamed nfmark
+> > to mark in net-2.6.20. The term fwmark and nfmark shouldn't be
+> > used anymore.
 > 
-> --- linux-2.6.19/net/ipv4/route.c.org 2006-12-05 10:47:02.402147160
-> +0800
-> +++ linux-2.6.19/net/ipv4/route.c 2006-12-05 10:48:26.339386760 +0800
-> @@ -1327,7 +1327,8 @@ void ip_rt_send_redirect(struct sk_buff 
->   /* Check for load limit; set rate_last to the latest sent
->    * redirect.
->    */
-> - if (time_after(jiffies,
-> + if (rt->u.dst.rate_last == 0 ||
-> +     time_after(jiffies,
->           (rt->u.dst.rate_last +
->     (ip_rt_redirect_load << rt->u.dst.rate_tokens)))) {
->    icmp_send(skb, ICMP_REDIRECT, ICMP_REDIR_HOST, rt->rt_gateway);
+> Sorry, I based this patch on Linus's tree. I'll port it to net-2.6.20.
 
-Since rate_last can also be zero if jiffies == 0 (OK that's
-extremely unlikely but I'm feeling picky today :), how about
-checking rate_tokens instead? The value of rate_last can only
-be relevant if rate_tokens is non-zero.
+This took too long for me to get around to :(
+Am I correct in thinking I just need to replace fwmark with mark?
+If so, the updated version is below.
 
-BTW, please also check the other spots where rate_last/rate_token
-is used.  They might need a similar fix.
-
-Cheers,
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Horms
+  H: http://www.vergenet.net/~horms/
+  W: http://www.valinux.co.jp/en/
+
+[IPVS] transparent proxying
+
+Patch from home_king <home_king@163.com> to allow a web cluseter using
+transparent proxying. It works by simply grabing packets that have the
+fwmark set and have not already been processed by ipvs (ip_vs_out) and
+throwing them into ip_vs_in.
+
+See: http://archive.linuxvirtualserver.org/html/lvs-users/2006-11/msg00261.html
+
+Normally LVS packets are processed by ip_vs_in fron on the INPUT chain,
+and packets that are processed in this way never show up on the FORWARD
+chain, so they won't hit this rule.
+
+This patch seems like a good precursor to moving LVS permanantly to
+the FORWARD chain. As I'm struggling to think how it could break things.
+
+Reformated to use tabs for indentation (instead of 4 spaces)
+Reformated to be < 80 columns wide
+Updated fwmark to mark
+
+Cc: Jinhua Luo <home_king@163.com>
+Signed-off-by: Simon Horman <horms@verge.net.au>
+Index: net-2.6/net/ipv4/ipvs/ip_vs_core.c
+===================================================================
+--- net-2.6.orig/net/ipv4/ipvs/ip_vs_core.c	2006-12-18 11:46:10.000000000 +0900
++++ net-2.6/net/ipv4/ipvs/ip_vs_core.c	2006-12-18 12:13:32.000000000 +0900
+@@ -23,7 +23,9 @@
+  * Changes:
+  *	Paul `Rusty' Russell		properly handle non-linear skbs
+  *	Harald Welte			don't use nfcache
+- *
++ *	Jinhua Luo                      redirect packets with fwmark on
++ *					NF_IP_FORWARD chain to ip_vs_in(),
++ *					mainly for transparent cache cluster
+  */
+ 
+ #include <linux/module.h>
+@@ -1070,6 +1072,26 @@
+ 	return ip_vs_in_icmp(pskb, &r, hooknum);
+ }
+ 
++/*
++ * 	This is hooked into the NF_IP_FORWARD. It catches
++ * 	packets that have not already been handled by ipvs (out)
++ * 	and have a fwmark set. This is to allow transparent proxying
++ * 	of fwmark virtual services.
++ *
++ * 	It will not process packets that are handled by ipvs (in)
++ * 	as they never traverse the NF_IP_FORWARD.
++ */
++static unsigned int
++ip_vs_forward_with_fwmark(unsigned int hooknum, struct sk_buff **pskb,
++			  const struct net_device *in,
++			  const struct net_device *out,
++			  int (*okfn)(struct sk_buff *))
++{
++	if ((*pskb)->ipvs_property || ! (*pskb)->mark)
++		return NF_ACCEPT;
++
++	return ip_vs_in(hooknum, pskb, in, out, okfn);
++}
+ 
+ /* After packet filtering, forward packet through VS/DR, VS/TUN,
+    or VS/NAT(change destination), so that filtering rules can be
+@@ -1082,6 +1104,16 @@
+ 	.priority       = 100,
+ };
+ 
++/* Allow transparent proxying by fishing packets
++ * out of the forward chain. */
++static struct nf_hook_ops ip_vs_forward_with_fwmark_ops = {
++	.hook		= ip_vs_forward_with_fwmark,
++	.owner		= THIS_MODULE,
++	.pf		= PF_INET,
++	.hooknum	= NF_IP_FORWARD,
++	.priority	= 101,
++};
++
+ /* After packet filtering, change source only for VS/NAT */
+ static struct nf_hook_ops ip_vs_out_ops = {
+ 	.hook		= ip_vs_out,
+@@ -1160,9 +1192,17 @@
+ 		goto cleanup_postroutingops;
+ 	}
+ 
++	ret = nf_register_hook(&ip_vs_forward_with_fwmark_ops);
++	if (ret < 0) {
++		IP_VS_ERR("can't register forward_with_fwmark hook.\n");
++		goto cleanup_forwardicmpops;
++	}
++
+ 	IP_VS_INFO("ipvs loaded.\n");
+ 	return ret;
+ 
++  cleanup_forwardicmpops:
++	nf_unregister_hook(&ip_vs_forward_icmp_ops);
+   cleanup_postroutingops:
+ 	nf_unregister_hook(&ip_vs_post_routing_ops);
+   cleanup_outops:
+@@ -1182,6 +1222,7 @@
+ 
+ static void __exit ip_vs_cleanup(void)
+ {
++	nf_unregister_hook(&ip_vs_forward_with_fwmark_ops);
+ 	nf_unregister_hook(&ip_vs_forward_icmp_ops);
+ 	nf_unregister_hook(&ip_vs_post_routing_ops);
+ 	nf_unregister_hook(&ip_vs_out_ops);
