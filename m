@@ -1,61 +1,23 @@
-From: Li Yewang <lyw@nanjing-fnst.com>
-Subject: Re:[PATCH]Fix BUG of ip_rt_send_redirect()
-Date: Wed, 29 Nov 2006 16:51:31 +0800
-Message-ID: <1164790291.14696.5.camel@localhost.localdomain>
+From: Andreas Jellinghaus <aj@dungeon.inka.de>
+Subject: Re: [ANN] Acrypto asynchronous crypto layer 2.6.19 release.
+Date: Mon, 18 Dec 2006 08:38:54 +0100
+Message-ID: <4586458E.6000503__1785.58058473772$1166428529$gmane$org@dungeon.inka.de>
+References: <20061216191521.GA26549@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=KOI8-R; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: linux-crypto@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [221.6.14.228] ([221.6.14.228]:46184 "EHLO proxy.fnst.com.cn"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753312AbWLRF7r (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Dec 2006 00:59:47 -0500
-To: herbert@gondor.apana.org.au
+Received: from quechua.inka.de ([193.197.184.2]:57591 "EHLO mail.inka.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753440AbWLRHzU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Dec 2006 02:55:20 -0500
+In-Reply-To: <20061216191521.GA26549@2ka.mipt.ru>
+To: unlisted-recipients:; (no To-header on input)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+Does acrypto still have the same size restrictions
+I ran into with the last release?
 
-> 
-> Since rate_last can also be zero if jiffies == 0 (OK that's
-> extremely unlikely but I'm feeling picky today :), how about
-> checking rate_tokens instead? The value of rate_last can only
-> be relevant if rate_tokens is non-zero.
-> 
-> BTW, please also check the other spots where rate_last/rate_token
-> is used.  They might need a similar fix.
-> 
-> Cheers,
-
-Mr Herbert Xu
-
-According to your advice, I have made another patch for the redirect
-bug.
-
-I have also checked other spots where rate_last/rate_tokens is used.
-Those places need not be fixed.
-
-Following is my patch:
-
-signed-off-by: Li Yewang<lyw@nanjing-fnst.com>
-
---- linux-2.6.19.1/net/ipv4/route.c     2006-12-12 03:32:54.000000000
-+0800
-+++ linux-2.6.19.1/net/ipv4/route.org.c 2006-11-29 16:14:34.592058480
-+0800
-@@ -1327,7 +1327,8 @@ void ip_rt_send_redirect(struct sk_buff
-        /* Check for load limit; set rate_last to the latest sent
-         * redirect.
-         */
--       if (time_after(jiffies,
-+       if (rt->u.dst.rate_tokens == 0 ||
-+            time_after(jiffies,
-                       (rt->u.dst.rate_last +
-                        (ip_rt_redirect_load << rt-
->u.dst.rate_tokens)))) {
-                icmp_send(skb, ICMP_REDIRECT, ICMP_REDIR_HOST, rt-
->rt_gateway);
-
-
-
+Thanks, Andreas
