@@ -1,147 +1,400 @@
-From: "Joakim Tjernlund" <joakim.tjernlund@transmode.se>
-Subject: OOPS, bug in geth.c ?
-Date: Mon, 18 Dec 2006 16:00:06 +0100
-Message-ID: <F6AD7E21CDF4E145A44F61F43EE6D939BA72B5@tmnt04.transmode.se>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+From: Kumar Gala <galak@kernel.crashing.org>
+Subject: Re: [PATCH] Fix phy_read/write redefinition errors in ucc_geth_phy.c
+Date: Mon, 18 Dec 2006 10:24:20 -0600
+Message-ID: <375EF617-A51E-455A-9575-AF4E561B91BC@kernel.crashing.org>
+References: <11660513361799-git-send-email-timur@freescale.com> <11660513372040-git-send-email-timur@freescale.com>
+Mime-Version: 1.0 (Apple Message framework v752.2)
+Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-content-class: urn:content-classes:message
-To: "Timur Tabi" <timur@freescale.com>,
-	<netdev@vger.kernel.org>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Cc: Netdev <netdev@vger.kernel.org>, Timur Tabi <timur@freescale.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nommos.sslcatacombnetworking.com ([67.18.224.114]:41874 "EHLO
+	nommos.sslcatacombnetworking.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754224AbWLRQYH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Dec 2006 11:24:07 -0500
+In-Reply-To: <11660513372040-git-send-email-timur@freescale.com>
+To: Jeff Garzik <jgarzik@pobox.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Someone just looped the ethernet in the lab and this 
-happend in my 2.6.19-rc5 when booting. After 180 seconds the
-system tried to restart but that resulted in another OOPS and so on.
+Jeff,
 
- Jocke
+Can you pickup this patch for 2.6.20.  It addresses a name conflict  
+issue with the phylib and the phy handling in the ucc driver.
 
-NETDEV WATCHDOG: eth0: transmit timed out
-Badness in free_irq at kernel/irq/manage.c:353
-Call Trace:
-[C038B860] [C000860C] show_stack+0x48/0x194 (unreliable)
-[C038B890] [C000E0D0] program_check_exception+0x344/0x594
-[C038B8D0] [C000F764] ret_from_except_full+0x0/0x4c
---- Exception: 700 at free_irq+0x20/0x110
-    LR = ucc_geth_stop+0x94/0x104
-[C038B990] [C0021514] tasklet_action+0x78/0xe4 (unreliable)
-[C038B9B0] [C011BE9C] ucc_geth_stop+0x94/0x104
-[C038B9D0] [C011D834] ucc_geth_timeout+0x5c/0x8c
-[C038B9E0] [C0163670] dev_watchdog+0xa0/0x108
-[C038BA00] [C002513C] run_timer_softirq+0xe8/0x1b8
-[C038BA40] [C0021184] __do_softirq+0x80/0xe4
-[C038BA70] [C00057D4] do_softirq+0x58/0x60
-[C038BA80] [C0021230] irq_exit+0x48/0x58
-[C038BA90] [C000572C] do_IRQ+0x84/0xd4
-[C038BAA0] [C000F7B0] ret_from_except+0x0/0x14
---- Exception: 501 at jffs2_scan_medium+0xae4/0xf90
-    LR = jffs2_scan_medium+0x190/0xf90
-[C038BBE0] [C00D6148] jffs2_do_mount_fs+0x1b4/0x6f8
-[C038BC10] [C00D80C4] jffs2_do_fill_super+0xc0/0x224
-[C038BC30] [C00D8870] jffs2_get_sb_mtd+0xe0/0x168
-[C038BC70] [C00D8AB0] jffs2_get_sb+0x140/0x1e8
-[C038BD00] [C005C7C4] vfs_kern_mount+0x5c/0xbc
-[C038BD20] [C005C860] do_kern_mount+0x3c/0x60
-[C038BD40] [C0073978] do_mount+0x39c/0x68c
-[C038BEC0] [C0074004] sys_mount+0x98/0xe8
-[C038BEF0] [C01F8880] do_mount_root+0x2c/0xc4
-[C038BF10] [C01F89DC] mount_block_root+0xc4/0x24c
-[C038BF60] [C01F8E90] prepare_namespace+0xec/0x1b4
-[C038BF80] [C0003B30] init+0x260/0x2f0
-[C038BFF0] [C000FF48] kernel_thread+0x44/0x60
-Badness in free_irq at kernel/irq/manage.c:353
-Call Trace:
-[C038B860] [C000860C] show_stack+0x48/0x194 (unreliable)
-[C038B890] [C000E0D0] program_check_exception+0x344/0x594
-[C038B8D0] [C000F764] ret_from_except_full+0x0/0x4c
---- Exception: 700 at free_irq+0x20/0x110
-    LR = ucc_geth_stop+0xb4/0x104
-[C038B990] [C003AFD0] free_irq+0xc0/0x110 (unreliable)
-[C038B9B0] [C011BEBC] ucc_geth_stop+0xb4/0x104
-[C038B9D0] [C011D834] ucc_geth_timeout+0x5c/0x8c
-[C038B9E0] [C0163670] dev_watchdog+0xa0/0x108
-[C038BA00] [C002513C] run_timer_softirq+0xe8/0x1b8
-[C038BA40] [C0021184] __do_softirq+0x80/0xe4
-[C038BA70] [C00057D4] do_softirq+0x58/0x60
-[C038BA80] [C0021230] irq_exit+0x48/0x58
-[C038BA90] [C000572C] do_IRQ+0x84/0xd4
-[C038BAA0] [C000F7B0] ret_from_except+0x0/0x14
---- Exception: 501 at jffs2_scan_medium+0xae4/0xf90
-    LR = jffs2_scan_medium+0x190/0xf90
-[C038BBE0] [C00D6148] jffs2_do_mount_fs+0x1b4/0x6f8
-[C038BC10] [C00D80C4] jffs2_do_fill_super+0xc0/0x224
-[C038BC30] [C00D8870] jffs2_get_sb_mtd+0xe0/0x168
-[C038BC70] [C00D8AB0] jffs2_get_sb+0x140/0x1e8
-[C038BD00] [C005C7C4] vfs_kern_mount+0x5c/0xbc
-[C038BD20] [C005C860] do_kern_mount+0x3c/0x60
-[C038BD40] [C0073978] do_mount+0x39c/0x68c
-[C038BEC0] [C0074004] sys_mount+0x98/0xe8
-[C038BEF0] [C01F8880] do_mount_root+0x2c/0xc4
-[C038BF10] [C01F89DC] mount_block_root+0xc4/0x24c
-[C038BF60] [C01F8E90] prepare_namespace+0xec/0x1b4
-[C038BF80] [C0003B30] init+0x260/0x2f0
-[C038BFF0] [C000FF48] kernel_thread+0x44/0x60
-kernel BUG in __get_vm_area_node at mm/vmalloc.c:171!
-Oops: Exception in kernel mode, sig: 5 [#1]
+thanks
 
-NIP: C0050F1C LR: C0011198 CTR: 00000000
-REGS: c038b860 TRAP: 0700   Not tainted  (2.6.19-rc5)
-MSR: 00029032 <EE,ME,IR,DR>  CR: 24022044  XER: 00000000
-TASK = c07fbb40[1] 'swapper' THREAD: c038a000
-GPR00: 00000100 C038B910 C07FBB40 00001000 00000001 C9000000 FDEFB000
-FFFFFFFF
-GPR08: 000000D0 C038A000 00000030 00000000 C025B508 10078B2C 0FFFCA00
-007FFF94
-GPR16: 00000000 00000000 0000000A 0360000C 00000000 000001B0 03600000
-00000000
-GPR24: 0000C000 C0250000 00000001 FDEFB000 00000001 00000000 00001000
-C0266F80
-NIP [C0050F1C] __get_vm_area_node+0x2c/0x1c0
-LR [C0011198] __ioremap+0x144/0x184
-Call Trace:
-[C038B910] [C0263E84] 0xc0263e84 (unreliable)
-[C038B930] [C0011198] __ioremap+0x144/0x184
-[C038B960] [C0015A5C] ucc_fast_init+0x100/0x470
-[C038B980] [C011C168] ucc_geth_startup+0x25c/0x18c4
-[C038B9D0] [C011D83C] ucc_geth_timeout+0x64/0x8c
-[C038B9E0] [C0163670] dev_watchdog+0xa0/0x108
-[C038BA00] [C002513C] run_timer_softirq+0xe8/0x1b8
-[C038BA40] [C0021184] __do_softirq+0x80/0xe4
-[C038BA70] [C00057D4] do_softirq+0x58/0x60
-[C038BA80] [C0021230] irq_exit+0x48/0x58
-[C038BA90] [C000572C] do_IRQ+0x84/0xd4
-[C038BAA0] [C000F7B0] ret_from_except+0x0/0x14
---- Exception: 501 at jffs2_scan_medium+0xae4/0xf90
-    LR = jffs2_scan_medium+0x190/0xf90
-[C038BBE0] [C00D6148] jffs2_do_mount_fs+0x1b4/0x6f8
-[C038BC10] [C00D80C4] jffs2_do_fill_super+0xc0/0x224
-[C038BC30] [C00D8870] jffs2_get_sb_mtd+0xe0/0x168
-[C038BC70] [C00D8AB0] jffs2_get_sb+0x140/0x1e8
-[C038BD00] [C005C7C4] vfs_kern_mount+0x5c/0xbc
-[C038BD20] [C005C860] do_kern_mount+0x3c/0x60
-[C038BD40] [C0073978] do_mount+0x39c/0x68c
-[C038BEC0] [C0074004] sys_mount+0x98/0xe8
-[C038BEF0] [C01F8880] do_mount_root+0x2c/0xc4
-[C038BF10] [C01F89DC] mount_block_root+0xc4/0x24c
-[C038BF60] [C01F8E90] prepare_namespace+0xec/0x1b4
-[C038BF80] [C0003B30] init+0x260/0x2f0
-[C038BFF0] [C000FF48] kernel_thread+0x44/0x60
-Instruction dump:
-4bffff20 7c0802a6 9421ffe0 bf410008 54290024 7c7e1b78 7c9a2378 90010024
-7cdb3378 3b800001 8009000c 5400012e <0f000000> 70800001 41820020
-7c600034
- <0>Kernel panic - not syncing: Fatal exception in interrupt
- <0>Rebooting in 180 seconds..<2>kernel BUG in __get_vm_area_node at 
-mm/vmalloc.c:171!
-Oops: Exception in kernel mode, sig: 5 [#2]
+- k
+
+On Dec 13, 2006, at 5:08 PM, timur@freescale.com wrote:
+
+> From: Timur Tabi <timur@freescale.com>
+>
+> The local versions of phy_read() and phy_write() in ucc_geth_phy.c  
+> conflict
+> with the prototypes in include/linux/phy.h, so this patch renames  
+> them,
+> moves them to the top of the file (while eliminating the redundant  
+> prototype),
+> and makes them static.
+>
+> Signed-off-by: Timur Tabi <timur@freescale.com>
+> Signed-off-by: Kumar Gala <galak@kernel.crashing.org>
+>
+> ---
+>  drivers/net/ucc_geth_phy.c |  134 +++++++++++++++++++++ 
+> +----------------------
+>  1 files changed, 66 insertions(+), 68 deletions(-)
+>
+> diff --git a/drivers/net/ucc_geth_phy.c b/drivers/net/ucc_geth_phy.c
+> index 5360ec0..3c86592 100644
+> --- a/drivers/net/ucc_geth_phy.c
+> +++ b/drivers/net/ucc_geth_phy.c
+> @@ -68,8 +68,31 @@ static int gbit_config_aneg(struct ugeth
+>  static int genmii_config_aneg(struct ugeth_mii_info *mii_info);
+>  static int genmii_update_link(struct ugeth_mii_info *mii_info);
+>  static int genmii_read_status(struct ugeth_mii_info *mii_info);
+> -u16 phy_read(struct ugeth_mii_info *mii_info, u16 regnum);
+> -void phy_write(struct ugeth_mii_info *mii_info, u16 regnum, u16 val);
+> +
+> +static u16 ucc_geth_phy_read(struct ugeth_mii_info *mii_info, u16  
+> regnum)
+> +{
+> +	u16 retval;
+> +	unsigned long flags;
+> +
+> +	ugphy_vdbg("%s: IN", __FUNCTION__);
+> +
+> +	spin_lock_irqsave(&mii_info->mdio_lock, flags);
+> +	retval = mii_info->mdio_read(mii_info->dev, mii_info->mii_id,  
+> regnum);
+> +	spin_unlock_irqrestore(&mii_info->mdio_lock, flags);
+> +
+> +	return retval;
+> +}
+> +
+> +static void ucc_geth_phy_write(struct ugeth_mii_info *mii_info,  
+> u16 regnum, u16 val)
+> +{
+> +	unsigned long flags;
+> +
+> +	ugphy_vdbg("%s: IN", __FUNCTION__);
+> +
+> +	spin_lock_irqsave(&mii_info->mdio_lock, flags);
+> +	mii_info->mdio_write(mii_info->dev, mii_info->mii_id, regnum, val);
+> +	spin_unlock_irqrestore(&mii_info->mdio_lock, flags);
+> +}
+>
+>  /* Write value to the PHY for this device to the register at  
+> regnum, */
+>  /* waiting until the write is done before it returns.  All PHY */
+> @@ -184,7 +207,7 @@ static void config_genmii_advert(struct
+>  	advertise = mii_info->advertising;
+>
+>  	/* Setup standard advertisement */
+> -	adv = phy_read(mii_info, MII_ADVERTISE);
+> +	adv = ucc_geth_phy_read(mii_info, MII_ADVERTISE);
+>  	adv &= ~(ADVERTISE_ALL | ADVERTISE_100BASE4);
+>  	if (advertise & ADVERTISED_10baseT_Half)
+>  		adv |= ADVERTISE_10HALF;
+> @@ -194,7 +217,7 @@ static void config_genmii_advert(struct
+>  		adv |= ADVERTISE_100HALF;
+>  	if (advertise & ADVERTISED_100baseT_Full)
+>  		adv |= ADVERTISE_100FULL;
+> -	phy_write(mii_info, MII_ADVERTISE, adv);
+> +	ucc_geth_phy_write(mii_info, MII_ADVERTISE, adv);
+>  }
+>
+>  static void genmii_setup_forced(struct ugeth_mii_info *mii_info)
+> @@ -204,7 +227,7 @@ static void genmii_setup_forced(struct u
+>
+>  	ugphy_vdbg("%s: IN", __FUNCTION__);
+>
+> -	ctrl = phy_read(mii_info, MII_BMCR);
+> +	ctrl = ucc_geth_phy_read(mii_info, MII_BMCR);
+>
+>  	ctrl &=
+>  	    ~(BMCR_FULLDPLX | BMCR_SPEED100 | BMCR_SPEED1000 |  
+> BMCR_ANENABLE);
+> @@ -234,7 +257,7 @@ static void genmii_setup_forced(struct u
+>  		break;
+>  	}
+>
+> -	phy_write(mii_info, MII_BMCR, ctrl);
+> +	ucc_geth_phy_write(mii_info, MII_BMCR, ctrl);
+>  }
+>
+>  /* Enable and Restart Autonegotiation */
+> @@ -244,9 +267,9 @@ static void genmii_restart_aneg(struct u
+>
+>  	ugphy_vdbg("%s: IN", __FUNCTION__);
+>
+> -	ctl = phy_read(mii_info, MII_BMCR);
+> +	ctl = ucc_geth_phy_read(mii_info, MII_BMCR);
+>  	ctl |= (BMCR_ANENABLE | BMCR_ANRESTART);
+> -	phy_write(mii_info, MII_BMCR, ctl);
+> +	ucc_geth_phy_write(mii_info, MII_BMCR, ctl);
+>  }
+>
+>  static int gbit_config_aneg(struct ugeth_mii_info *mii_info)
+> @@ -261,14 +284,14 @@ static int gbit_config_aneg(struct ugeth
+>  		config_genmii_advert(mii_info);
+>  		advertise = mii_info->advertising;
+>
+> -		adv = phy_read(mii_info, MII_1000BASETCONTROL);
+> +		adv = ucc_geth_phy_read(mii_info, MII_1000BASETCONTROL);
+>  		adv &= ~(MII_1000BASETCONTROL_FULLDUPLEXCAP |
+>  			 MII_1000BASETCONTROL_HALFDUPLEXCAP);
+>  		if (advertise & SUPPORTED_1000baseT_Half)
+>  			adv |= MII_1000BASETCONTROL_HALFDUPLEXCAP;
+>  		if (advertise & SUPPORTED_1000baseT_Full)
+>  			adv |= MII_1000BASETCONTROL_FULLDUPLEXCAP;
+> -		phy_write(mii_info, MII_1000BASETCONTROL, adv);
+> +		ucc_geth_phy_write(mii_info, MII_1000BASETCONTROL, adv);
+>
+>  		/* Start/Restart aneg */
+>  		genmii_restart_aneg(mii_info);
+> @@ -298,10 +321,10 @@ static int genmii_update_link(struct uge
+>  	ugphy_vdbg("%s: IN", __FUNCTION__);
+>
+>  	/* Do a fake read */
+> -	phy_read(mii_info, MII_BMSR);
+> +	ucc_geth_phy_read(mii_info, MII_BMSR);
+>
+>  	/* Read link and autonegotiation status */
+> -	status = phy_read(mii_info, MII_BMSR);
+> +	status = ucc_geth_phy_read(mii_info, MII_BMSR);
+>  	if ((status & BMSR_LSTATUS) == 0)
+>  		mii_info->link = 0;
+>  	else
+> @@ -329,7 +352,7 @@ static int genmii_read_status(struct uge
+>  		return err;
+>
+>  	if (mii_info->autoneg) {
+> -		status = phy_read(mii_info, MII_LPA);
+> +		status = ucc_geth_phy_read(mii_info, MII_LPA);
+>
+>  		if (status & (LPA_10FULL | LPA_100FULL))
+>  			mii_info->duplex = DUPLEX_FULL;
+> @@ -352,9 +375,9 @@ static int marvell_init(struct ugeth_mii
+>  {
+>  	ugphy_vdbg("%s: IN", __FUNCTION__);
+>
+> -	phy_write(mii_info, 0x14, 0x0cd2);
+> -	phy_write(mii_info, MII_BMCR,
+> -		  phy_read(mii_info, MII_BMCR) | BMCR_RESET);
+> +	ucc_geth_phy_write(mii_info, 0x14, 0x0cd2);
+> +	ucc_geth_phy_write(mii_info, MII_BMCR,
+> +		  ucc_geth_phy_read(mii_info, MII_BMCR) | BMCR_RESET);
+>  	msleep(4000);
+>
+>  	return 0;
+> @@ -367,13 +390,13 @@ static int marvell_config_aneg(struct ug
+>  	/* The Marvell PHY has an errata which requires
+>  	 * that certain registers get written in order
+>  	 * to restart autonegotiation */
+> -	phy_write(mii_info, MII_BMCR, BMCR_RESET);
+> +	ucc_geth_phy_write(mii_info, MII_BMCR, BMCR_RESET);
+>
+> -	phy_write(mii_info, 0x1d, 0x1f);
+> -	phy_write(mii_info, 0x1e, 0x200c);
+> -	phy_write(mii_info, 0x1d, 0x5);
+> -	phy_write(mii_info, 0x1e, 0);
+> -	phy_write(mii_info, 0x1e, 0x100);
+> +	ucc_geth_phy_write(mii_info, 0x1d, 0x1f);
+> +	ucc_geth_phy_write(mii_info, 0x1e, 0x200c);
+> +	ucc_geth_phy_write(mii_info, 0x1d, 0x5);
+> +	ucc_geth_phy_write(mii_info, 0x1e, 0);
+> +	ucc_geth_phy_write(mii_info, 0x1e, 0x100);
+>
+>  	gbit_config_aneg(mii_info);
+>
+> @@ -398,7 +421,7 @@ static int marvell_read_status(struct ug
+>  	 * are as set */
+>  	if (mii_info->autoneg && mii_info->link) {
+>  		int speed;
+> -		status = phy_read(mii_info, MII_M1011_PHY_SPEC_STATUS);
+> +		status = ucc_geth_phy_read(mii_info, MII_M1011_PHY_SPEC_STATUS);
+>
+>  		/* Get the duplexity */
+>  		if (status & MII_M1011_PHY_SPEC_STATUS_FULLDUPLEX)
+> @@ -430,7 +453,7 @@ static int marvell_ack_interrupt(struct
+>  	ugphy_vdbg("%s: IN", __FUNCTION__);
+>
+>  	/* Clear the interrupts by reading the reg */
+> -	phy_read(mii_info, MII_M1011_IEVENT);
+> +	ucc_geth_phy_read(mii_info, MII_M1011_IEVENT);
+>
+>  	return 0;
+>  }
+> @@ -440,9 +463,9 @@ static int marvell_config_intr(struct ug
+>  	ugphy_vdbg("%s: IN", __FUNCTION__);
+>
+>  	if (mii_info->interrupts == MII_INTERRUPT_ENABLED)
+> -		phy_write(mii_info, MII_M1011_IMASK, MII_M1011_IMASK_INIT);
+> +		ucc_geth_phy_write(mii_info, MII_M1011_IMASK,  
+> MII_M1011_IMASK_INIT);
+>  	else
+> -		phy_write(mii_info, MII_M1011_IMASK, MII_M1011_IMASK_CLEAR);
+> +		ucc_geth_phy_write(mii_info, MII_M1011_IMASK,  
+> MII_M1011_IMASK_CLEAR);
+>
+>  	return 0;
+>  }
+> @@ -451,9 +474,9 @@ static int cis820x_init(struct ugeth_mii
+>  {
+>  	ugphy_vdbg("%s: IN", __FUNCTION__);
+>
+> -	phy_write(mii_info, MII_CIS8201_AUX_CONSTAT,
+> +	ucc_geth_phy_write(mii_info, MII_CIS8201_AUX_CONSTAT,
+>  		  MII_CIS8201_AUXCONSTAT_INIT);
+> -	phy_write(mii_info, MII_CIS8201_EXT_CON1, MII_CIS8201_EXTCON1_INIT);
+> +	ucc_geth_phy_write(mii_info, MII_CIS8201_EXT_CON1,  
+> MII_CIS8201_EXTCON1_INIT);
+>
+>  	return 0;
+>  }
+> @@ -477,7 +500,7 @@ static int cis820x_read_status(struct ug
+>  	if (mii_info->autoneg && mii_info->link) {
+>  		int speed;
+>
+> -		status = phy_read(mii_info, MII_CIS8201_AUX_CONSTAT);
+> +		status = ucc_geth_phy_read(mii_info, MII_CIS8201_AUX_CONSTAT);
+>  		if (status & MII_CIS8201_AUXCONSTAT_DUPLEX)
+>  			mii_info->duplex = DUPLEX_FULL;
+>  		else
+> @@ -505,7 +528,7 @@ static int cis820x_ack_interrupt(struct
+>  {
+>  	ugphy_vdbg("%s: IN", __FUNCTION__);
+>
+> -	phy_read(mii_info, MII_CIS8201_ISTAT);
+> +	ucc_geth_phy_read(mii_info, MII_CIS8201_ISTAT);
+>
+>  	return 0;
+>  }
+> @@ -515,9 +538,9 @@ static int cis820x_config_intr(struct ug
+>  	ugphy_vdbg("%s: IN", __FUNCTION__);
+>
+>  	if (mii_info->interrupts == MII_INTERRUPT_ENABLED)
+> -		phy_write(mii_info, MII_CIS8201_IMASK, MII_CIS8201_IMASK_MASK);
+> +		ucc_geth_phy_write(mii_info, MII_CIS8201_IMASK,  
+> MII_CIS8201_IMASK_MASK);
+>  	else
+> -		phy_write(mii_info, MII_CIS8201_IMASK, 0);
+> +		ucc_geth_phy_write(mii_info, MII_CIS8201_IMASK, 0);
+>
+>  	return 0;
+>  }
+> @@ -541,7 +564,7 @@ static int dm9161_read_status(struct uge
+>  	/* If we aren't autonegotiating, assume speeds
+>  	 * are as set */
+>  	if (mii_info->autoneg && mii_info->link) {
+> -		status = phy_read(mii_info, MII_DM9161_SCSR);
+> +		status = ucc_geth_phy_read(mii_info, MII_DM9161_SCSR);
+>  		if (status & (MII_DM9161_SCSR_100F | MII_DM9161_SCSR_100H))
+>  			mii_info->speed = SPEED_100;
+>  		else
+> @@ -572,7 +595,7 @@ static void dm9161_timer(unsigned long d
+>  {
+>  	struct ugeth_mii_info *mii_info = (struct ugeth_mii_info *)data;
+>  	struct dm9161_private *priv = mii_info->priv;
+> -	u16 status = phy_read(mii_info, MII_BMSR);
+> +	u16 status = ucc_geth_phy_read(mii_info, MII_BMSR);
+>
+>  	ugphy_vdbg("%s: IN", __FUNCTION__);
+>
+> @@ -599,11 +622,11 @@ static int dm9161_init(struct ugeth_mii_
+>  	/* Reset is not done yet */
+>  	priv->resetdone = 0;
+>
+> -	phy_write(mii_info, MII_BMCR,
+> -		  phy_read(mii_info, MII_BMCR) | BMCR_RESET);
+> +	ucc_geth_phy_write(mii_info, MII_BMCR,
+> +		  ucc_geth_phy_read(mii_info, MII_BMCR) | BMCR_RESET);
+>
+> -	phy_write(mii_info, MII_BMCR,
+> -		  phy_read(mii_info, MII_BMCR) & ~BMCR_ISOLATE);
+> +	ucc_geth_phy_write(mii_info, MII_BMCR,
+> +		  ucc_geth_phy_read(mii_info, MII_BMCR) & ~BMCR_ISOLATE);
+>
+>  	config_genmii_advert(mii_info);
+>  	/* Start/Restart aneg */
+> @@ -634,7 +657,7 @@ static int dm9161_ack_interrupt(struct u
+>  	ugphy_vdbg("%s: IN", __FUNCTION__);
+>
+>  	/* Clear the interrupts by reading the reg */
+> -	phy_read(mii_info, MII_DM9161_INTR);
+> +	ucc_geth_phy_read(mii_info, MII_DM9161_INTR);
+>
+>
+>  	return 0;
+> @@ -645,9 +668,9 @@ static int dm9161_config_intr(struct uge
+>  	ugphy_vdbg("%s: IN", __FUNCTION__);
+>
+>  	if (mii_info->interrupts == MII_INTERRUPT_ENABLED)
+> -		phy_write(mii_info, MII_DM9161_INTR, MII_DM9161_INTR_INIT);
+> +		ucc_geth_phy_write(mii_info, MII_DM9161_INTR,  
+> MII_DM9161_INTR_INIT);
+>  	else
+> -		phy_write(mii_info, MII_DM9161_INTR, MII_DM9161_INTR_STOP);
+> +		ucc_geth_phy_write(mii_info, MII_DM9161_INTR,  
+> MII_DM9161_INTR_STOP);
+>
+>  	return 0;
+>  }
+> @@ -718,31 +741,6 @@ static struct phy_info *phy_info[] = {
+>  	NULL
+>  };
+>
+> -u16 phy_read(struct ugeth_mii_info *mii_info, u16 regnum)
+> -{
+> -	u16 retval;
+> -	unsigned long flags;
+> -
+> -	ugphy_vdbg("%s: IN", __FUNCTION__);
+> -
+> -	spin_lock_irqsave(&mii_info->mdio_lock, flags);
+> -	retval = mii_info->mdio_read(mii_info->dev, mii_info->mii_id,  
+> regnum);
+> -	spin_unlock_irqrestore(&mii_info->mdio_lock, flags);
+> -
+> -	return retval;
+> -}
+> -
+> -void phy_write(struct ugeth_mii_info *mii_info, u16 regnum, u16 val)
+> -{
+> -	unsigned long flags;
+> -
+> -	ugphy_vdbg("%s: IN", __FUNCTION__);
+> -
+> -	spin_lock_irqsave(&mii_info->mdio_lock, flags);
+> -	mii_info->mdio_write(mii_info->dev, mii_info->mii_id, regnum, val);
+> -	spin_unlock_irqrestore(&mii_info->mdio_lock, flags);
+> -}
+> -
+>  /* Use the PHY ID registers to determine what type of PHY is attached
+>   * to device dev.  return a struct phy_info structure describing  
+> that PHY
+>   */
+> @@ -757,11 +755,11 @@ struct phy_info *get_phy_info(struct uge
+>  	ugphy_vdbg("%s: IN", __FUNCTION__);
+>
+>  	/* Grab the bits from PHYIR1, and put them in the upper half */
+> -	phy_reg = phy_read(mii_info, MII_PHYSID1);
+> +	phy_reg = ucc_geth_phy_read(mii_info, MII_PHYSID1);
+>  	phy_ID = (phy_reg & 0xffff) << 16;
+>
+>  	/* Grab the bits from PHYIR2, and put them in the lower half */
+> -	phy_reg = phy_read(mii_info, MII_PHYSID2);
+> +	phy_reg = ucc_geth_phy_read(mii_info, MII_PHYSID2);
+>  	phy_ID |= (phy_reg & 0xffff);
+>
+>  	/* loop through all the known PHY types, and find one that */
+> -- 
+> 1.4.4
+>
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
