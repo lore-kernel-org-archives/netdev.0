@@ -1,83 +1,147 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Bug#396185: sky2 freezes in 2.6.17-2-686. Maintainer confirms that it should be fixed in 2.6.19-git tree.
-Date: Mon, 18 Dec 2006 09:17:28 -0800
-Message-ID: <20061218091728.2e1cf58b@freekitty>
-References: <20061031073030.6658.11274.reportbug@kano.factory.vocord.ru>
-	<20061031085716.GW13178@baikonur.stro.at>
-	<20061031093051.GA3323@2ka.mipt.ru>
-	<20061031093455.GX13178@baikonur.stro.at>
-	<20061031094424.GA19052@2ka.mipt.ru>
-	<20061116173532.GA10653@2ka.mipt.ru>
-	<20061116093821.318efbe6@freekitty>
-	<20061118112134.GI4213@nancy>
-	<20061118112527.GA25624@2ka.mipt.ru>
-	<20061129052948.GC13488@2ka.mipt.ru>
-	<20061217141547.GA23387@2ka.mipt.ru>
-Reply-To: Stephen Hemminger <shemminger@osdl.org>,
-	396185@bugs.debian.org
+From: "Joakim Tjernlund" <joakim.tjernlund@transmode.se>
+Subject: OOPS, bug in geth.c ?
+Date: Mon, 18 Dec 2006 16:00:06 +0100
+Message-ID: <F6AD7E21CDF4E145A44F61F43EE6D939BA72B5@tmnt04.transmode.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: maximilian attems <maks@sternwelten.at>, 396185@bugs.debian.org,
-	netdev@vger.kernel.org
-Return-path: <bounce-debian-bugs-dist=glddb-debian-bugs-dist=m.gmane.org@lists.debian.org>
-Resent-Message-ID: <handler.396185.B396185.116646845821854@bugs.debian.org>
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-In-Reply-To: <20061217141547.GA23387@2ka.mipt.ru>
-List-Post: <mailto:debian-bugs-dist@lists.debian.org>
-List-Help: <mailto:debian-bugs-dist-request@lists.debian.org?subject=help>
-List-Subscribe: <mailto:debian-bugs-dist-request@lists.debian.org?subject=subscribe>
-List-Unsubscribe: <mailto:debian-bugs-dist-request@lists.debian.org?subject=unsubscribe>
+Cc: linuxppc-dev@ozlabs.org
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+content-class: urn:content-classes:message
+To: "Timur Tabi" <timur@freescale.com>,
+	<netdev@vger.kernel.org>
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 17 Dec 2006 17:15:47 +0300
-Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
+Someone just looped the ethernet in the lab and this 
+happend in my 2.6.19-rc5 when booting. After 180 seconds the
+system tried to restart but that resulted in another OOPS and so on.
 
-> On Wed, Nov 29, 2006 at 08:29:48AM +0300, Evgeniy Polyakov (johnpol@2ka.mipt.ru) wrote:
-> > > > > > > > > > > Here is link to discussion:
-> > > > > > > > > > > http://marc.theaimsgroup.com/?l=linux-netdev&m=116227512815783&w=2
-> > > > > > > > > > > 
-> > > > > > > > > > 
-> > > > > > > > > > can you try the linux-image 2.6.18, they are in unstable
-> > > > > > > > > > and the etch release images.
-> > > > > > 
-> > > > > > 2.6.18-1-686 kernel still allows to freeze sky2.
-> > > > > 
-> > > > > Fix didn't go in until 2.6.18.2
-> > > > 
-> > > > fix is in the 2.6.18-2-686 linux image, you'd better update
-> > > > your test box.
-> > > 
-> > > Just for clarification: there are at least two bugs described - one in
-> > > the above link, and this new one. The former could only be fixed by
-> > > reboot, the latter - by rmmod/modprobe sequence. The former had special
-> > > info in dmesg, the latter does not.
-> > > 
-> > > Hopefully they both are fixed in 2.6.18-2.
-> > > I will set it up as soon as time permits (it is my main desktop, which
-> > > is rarely turned off) and report if problem still persists.
-> > 
-> > Bug still exists in 2.6.18-2 (package version 5).
-> > Can be 'fixed' by rmmod/modprobe sequence though.
-> > Is not easily reproducible.
-> 
-> Bug with freeze also exists in 2.6.18-3 (package version 2.6.18-7) - no
-> messages in dmesg, no interrupts.
-> It is dual lan board with only one port being used.
-> rmmod/modprobe sequence brings NIC back to working mode.
-> 
+ Jocke
 
-What are the statistics (ethtool -S eth0) after the hang.
-One user reported a single pause frame being sent. I have can't reproduce
-a hang with similar hardware, so am beginning to wonder if the problem is
-pause negotiation, and interoperability problems??  Maybe the receiver gets
-overloaded and sends one pause frame, but the switch can't really do flow
-control and gets stuck.  I do stress tests with either a direct connect cable,
-or with a switch that does flow control and lots of packets and see the driver/hardware
-successfully doing flow control.
+NETDEV WATCHDOG: eth0: transmit timed out
+Badness in free_irq at kernel/irq/manage.c:353
+Call Trace:
+[C038B860] [C000860C] show_stack+0x48/0x194 (unreliable)
+[C038B890] [C000E0D0] program_check_exception+0x344/0x594
+[C038B8D0] [C000F764] ret_from_except_full+0x0/0x4c
+--- Exception: 700 at free_irq+0x20/0x110
+    LR = ucc_geth_stop+0x94/0x104
+[C038B990] [C0021514] tasklet_action+0x78/0xe4 (unreliable)
+[C038B9B0] [C011BE9C] ucc_geth_stop+0x94/0x104
+[C038B9D0] [C011D834] ucc_geth_timeout+0x5c/0x8c
+[C038B9E0] [C0163670] dev_watchdog+0xa0/0x108
+[C038BA00] [C002513C] run_timer_softirq+0xe8/0x1b8
+[C038BA40] [C0021184] __do_softirq+0x80/0xe4
+[C038BA70] [C00057D4] do_softirq+0x58/0x60
+[C038BA80] [C0021230] irq_exit+0x48/0x58
+[C038BA90] [C000572C] do_IRQ+0x84/0xd4
+[C038BAA0] [C000F7B0] ret_from_except+0x0/0x14
+--- Exception: 501 at jffs2_scan_medium+0xae4/0xf90
+    LR = jffs2_scan_medium+0x190/0xf90
+[C038BBE0] [C00D6148] jffs2_do_mount_fs+0x1b4/0x6f8
+[C038BC10] [C00D80C4] jffs2_do_fill_super+0xc0/0x224
+[C038BC30] [C00D8870] jffs2_get_sb_mtd+0xe0/0x168
+[C038BC70] [C00D8AB0] jffs2_get_sb+0x140/0x1e8
+[C038BD00] [C005C7C4] vfs_kern_mount+0x5c/0xbc
+[C038BD20] [C005C860] do_kern_mount+0x3c/0x60
+[C038BD40] [C0073978] do_mount+0x39c/0x68c
+[C038BEC0] [C0074004] sys_mount+0x98/0xe8
+[C038BEF0] [C01F8880] do_mount_root+0x2c/0xc4
+[C038BF10] [C01F89DC] mount_block_root+0xc4/0x24c
+[C038BF60] [C01F8E90] prepare_namespace+0xec/0x1b4
+[C038BF80] [C0003B30] init+0x260/0x2f0
+[C038BFF0] [C000FF48] kernel_thread+0x44/0x60
+Badness in free_irq at kernel/irq/manage.c:353
+Call Trace:
+[C038B860] [C000860C] show_stack+0x48/0x194 (unreliable)
+[C038B890] [C000E0D0] program_check_exception+0x344/0x594
+[C038B8D0] [C000F764] ret_from_except_full+0x0/0x4c
+--- Exception: 700 at free_irq+0x20/0x110
+    LR = ucc_geth_stop+0xb4/0x104
+[C038B990] [C003AFD0] free_irq+0xc0/0x110 (unreliable)
+[C038B9B0] [C011BEBC] ucc_geth_stop+0xb4/0x104
+[C038B9D0] [C011D834] ucc_geth_timeout+0x5c/0x8c
+[C038B9E0] [C0163670] dev_watchdog+0xa0/0x108
+[C038BA00] [C002513C] run_timer_softirq+0xe8/0x1b8
+[C038BA40] [C0021184] __do_softirq+0x80/0xe4
+[C038BA70] [C00057D4] do_softirq+0x58/0x60
+[C038BA80] [C0021230] irq_exit+0x48/0x58
+[C038BA90] [C000572C] do_IRQ+0x84/0xd4
+[C038BAA0] [C000F7B0] ret_from_except+0x0/0x14
+--- Exception: 501 at jffs2_scan_medium+0xae4/0xf90
+    LR = jffs2_scan_medium+0x190/0xf90
+[C038BBE0] [C00D6148] jffs2_do_mount_fs+0x1b4/0x6f8
+[C038BC10] [C00D80C4] jffs2_do_fill_super+0xc0/0x224
+[C038BC30] [C00D8870] jffs2_get_sb_mtd+0xe0/0x168
+[C038BC70] [C00D8AB0] jffs2_get_sb+0x140/0x1e8
+[C038BD00] [C005C7C4] vfs_kern_mount+0x5c/0xbc
+[C038BD20] [C005C860] do_kern_mount+0x3c/0x60
+[C038BD40] [C0073978] do_mount+0x39c/0x68c
+[C038BEC0] [C0074004] sys_mount+0x98/0xe8
+[C038BEF0] [C01F8880] do_mount_root+0x2c/0xc4
+[C038BF10] [C01F89DC] mount_block_root+0xc4/0x24c
+[C038BF60] [C01F8E90] prepare_namespace+0xec/0x1b4
+[C038BF80] [C0003B30] init+0x260/0x2f0
+[C038BFF0] [C000FF48] kernel_thread+0x44/0x60
+kernel BUG in __get_vm_area_node at mm/vmalloc.c:171!
+Oops: Exception in kernel mode, sig: 5 [#1]
 
-
-
-
--- 
-Stephen Hemminger <shemminger@osdl.org>
+NIP: C0050F1C LR: C0011198 CTR: 00000000
+REGS: c038b860 TRAP: 0700   Not tainted  (2.6.19-rc5)
+MSR: 00029032 <EE,ME,IR,DR>  CR: 24022044  XER: 00000000
+TASK = c07fbb40[1] 'swapper' THREAD: c038a000
+GPR00: 00000100 C038B910 C07FBB40 00001000 00000001 C9000000 FDEFB000
+FFFFFFFF
+GPR08: 000000D0 C038A000 00000030 00000000 C025B508 10078B2C 0FFFCA00
+007FFF94
+GPR16: 00000000 00000000 0000000A 0360000C 00000000 000001B0 03600000
+00000000
+GPR24: 0000C000 C0250000 00000001 FDEFB000 00000001 00000000 00001000
+C0266F80
+NIP [C0050F1C] __get_vm_area_node+0x2c/0x1c0
+LR [C0011198] __ioremap+0x144/0x184
+Call Trace:
+[C038B910] [C0263E84] 0xc0263e84 (unreliable)
+[C038B930] [C0011198] __ioremap+0x144/0x184
+[C038B960] [C0015A5C] ucc_fast_init+0x100/0x470
+[C038B980] [C011C168] ucc_geth_startup+0x25c/0x18c4
+[C038B9D0] [C011D83C] ucc_geth_timeout+0x64/0x8c
+[C038B9E0] [C0163670] dev_watchdog+0xa0/0x108
+[C038BA00] [C002513C] run_timer_softirq+0xe8/0x1b8
+[C038BA40] [C0021184] __do_softirq+0x80/0xe4
+[C038BA70] [C00057D4] do_softirq+0x58/0x60
+[C038BA80] [C0021230] irq_exit+0x48/0x58
+[C038BA90] [C000572C] do_IRQ+0x84/0xd4
+[C038BAA0] [C000F7B0] ret_from_except+0x0/0x14
+--- Exception: 501 at jffs2_scan_medium+0xae4/0xf90
+    LR = jffs2_scan_medium+0x190/0xf90
+[C038BBE0] [C00D6148] jffs2_do_mount_fs+0x1b4/0x6f8
+[C038BC10] [C00D80C4] jffs2_do_fill_super+0xc0/0x224
+[C038BC30] [C00D8870] jffs2_get_sb_mtd+0xe0/0x168
+[C038BC70] [C00D8AB0] jffs2_get_sb+0x140/0x1e8
+[C038BD00] [C005C7C4] vfs_kern_mount+0x5c/0xbc
+[C038BD20] [C005C860] do_kern_mount+0x3c/0x60
+[C038BD40] [C0073978] do_mount+0x39c/0x68c
+[C038BEC0] [C0074004] sys_mount+0x98/0xe8
+[C038BEF0] [C01F8880] do_mount_root+0x2c/0xc4
+[C038BF10] [C01F89DC] mount_block_root+0xc4/0x24c
+[C038BF60] [C01F8E90] prepare_namespace+0xec/0x1b4
+[C038BF80] [C0003B30] init+0x260/0x2f0
+[C038BFF0] [C000FF48] kernel_thread+0x44/0x60
+Instruction dump:
+4bffff20 7c0802a6 9421ffe0 bf410008 54290024 7c7e1b78 7c9a2378 90010024
+7cdb3378 3b800001 8009000c 5400012e <0f000000> 70800001 41820020
+7c600034
+ <0>Kernel panic - not syncing: Fatal exception in interrupt
+ <0>Rebooting in 180 seconds..<2>kernel BUG in __get_vm_area_node at 
+mm/vmalloc.c:171!
+Oops: Exception in kernel mode, sig: 5 [#2]
