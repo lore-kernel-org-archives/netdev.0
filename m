@@ -1,25 +1,29 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [1/1] connector: replace delayed work with usual work queue.
-Date: Mon, 18 Dec 2006 01:55:07 -0800 (PST)
-Message-ID: <20061218.015507.30173642.davem@davemloft.net>
-References: <20061218094435.GA22620@2ka.mipt.ru>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [ANN] Acrypto asynchronous crypto layer 2.6.19 release.
+Date: Mon, 18 Dec 2006 12:57:40 +0300
+Message-ID: <20061218095740.GA5219@2ka.mipt.ru>
+References: <20061216191521.GA26549@2ka.mipt.ru> <4586458E.6000503@dungeon.inka.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44839
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753666AbWLRJzI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Dec 2006 04:55:08 -0500
-To: johnpol@2ka.mipt.ru
-In-Reply-To: <20061218094435.GA22620@2ka.mipt.ru>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=koi8-r
+Cc: linux-crypto@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-crypto-owner@vger.kernel.org>
+To: Andreas Jellinghaus <aj@dungeon.inka.de>
+Content-Disposition: inline
+In-Reply-To: <4586458E.6000503@dungeon.inka.de>
+Sender: linux-crypto-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Date: Mon, 18 Dec 2006 12:44:35 +0300
+On Mon, Dec 18, 2006 at 08:38:54AM +0100, Andreas Jellinghaus (aj@dungeon.inka.de) wrote:
+> Does acrypto still have the same size restrictions
+> I ran into with the last release?
 
-> Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Actually I do not recall what is 'size retrictions' - if you talk about
+possibility to use software crypto provider, which supports one cipher
+in a time, then yes, but it is intended to be used with hardware though.
+Otherwise I do not recall any problems pointed to me.
 
-Applied, thanks Evegniy.
+> Thanks, Andreas
+
+-- 
+	Evgeniy Polyakov
