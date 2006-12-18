@@ -1,60 +1,84 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: [PATCH] r8169: use the broken_parity_status field in pci_dev
-Date: Mon, 18 Dec 2006 01:08:07 +0100
-Message-ID: <20061218000807.GM23747@xi.wantstofly.org>
-References: <20061217230419.GB26485@electric-eye.fr.zoreil.com>
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: Re: [2.6 patch] net/sctp/: make 2 functions static
+Date: Sun, 17 Dec 2006 16:40:28 -0800
+Message-ID: <4585E37C.7040105@us.ibm.com>
+References: <20061216135703.GE3388@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jeff@garzik.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: lksctp-developers@lists.sourceforge.net,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alephnull.demon.nl ([83.160.184.112]:33097 "EHLO
-	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753280AbWLRAIK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Dec 2006 19:08:10 -0500
-To: Francois Romieu <romieu@fr.zoreil.com>
-Content-Disposition: inline
-In-Reply-To: <20061217230419.GB26485@electric-eye.fr.zoreil.com>
+Received: from e5.ny.us.ibm.com ([32.97.182.145]:42174 "EHLO e5.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753302AbWLRAkh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 17 Dec 2006 19:40:37 -0500
+To: Adrian Bunk <bunk@stusta.de>
+In-Reply-To: <20061216135703.GE3388@stusta.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 18, 2006 at 12:04:19AM +0100, Francois Romieu wrote:
+Adrian Bunk wrote:
+> This patch makes the following needlessly global functions static:
+> - ipv6.c: sctp_inet6addr_event()
+> - protocol.c: sctp_inetaddr_event()
+>
+> Signed-off-by: Adrian Bunk <bunk@stusta.de>
+>
+>   
+Acked-by: Sridhar Samudrala <sri@us.ibm.com>
 
-> The former option is removed and platform code can now specify the
-> expected behavior.
+Thanks
+Sridhar
+> ---
+>
+>  include/net/sctp/sctp.h |    2 --
+>  net/sctp/ipv6.c         |    4 ++--
+>  net/sctp/protocol.c     |    4 ++--
+>  3 files changed, 4 insertions(+), 6 deletions(-)
+>
+> --- linux-2.6.20-rc1-mm1/net/sctp/ipv6.c.old	2006-12-16 01:05:15.000000000 +0100
+> +++ linux-2.6.20-rc1-mm1/net/sctp/ipv6.c	2006-12-16 01:05:40.000000000 +0100
+> @@ -79,8 +79,8 @@
+>  #include <asm/uaccess.h>
+>
+>  /* Event handler for inet6 address addition/deletion events.  */
+> -int sctp_inet6addr_event(struct notifier_block *this, unsigned long ev,
+> -                        void *ptr)
+> +static int sctp_inet6addr_event(struct notifier_block *this, unsigned long ev,
+> +				void *ptr)
+>  {
+>  	struct inet6_ifaddr *ifa = (struct inet6_ifaddr *)ptr;
+>  	struct sctp_sockaddr_entry *addr;
+> --- linux-2.6.20-rc1-mm1/include/net/sctp/sctp.h.old	2006-12-16 01:05:47.000000000 +0100
+> +++ linux-2.6.20-rc1-mm1/include/net/sctp/sctp.h	2006-12-16 01:05:53.000000000 +0100
+> @@ -128,8 +128,6 @@
+>  				     int flags);
+>  extern struct sctp_pf *sctp_get_pf_specific(sa_family_t family);
+>  extern int sctp_register_pf(struct sctp_pf *, sa_family_t);
+> -int sctp_inetaddr_event(struct notifier_block *this, unsigned long ev,
+> -                        void *ptr);
+>
+>  /*
+>   * sctp/socket.c
+> --- linux-2.6.20-rc1-mm1/net/sctp/protocol.c.old	2006-12-16 01:05:59.000000000 +0100
+> +++ linux-2.6.20-rc1-mm1/net/sctp/protocol.c	2006-12-16 01:06:07.000000000 +0100
+> @@ -601,8 +601,8 @@
+>  }
+>
+>  /* Event handler for inet address addition/deletion events.  */
+> -int sctp_inetaddr_event(struct notifier_block *this, unsigned long ev,
+> -                        void *ptr)
+> +static int sctp_inetaddr_event(struct notifier_block *this, unsigned long ev,
+> +			       void *ptr)
+>  {
+>  	struct in_ifaddr *ifa = (struct in_ifaddr *)ptr;
+>  	struct sctp_sockaddr_entry *addr;
+>
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>   
 
-Thanks a lot.
 
-FYI, I submitted this patch for the n2100 side:
-
-
-Index: linux-2.6.19/arch/arm/mach-iop32x/n2100.c
-===================================================================
---- linux-2.6.19.orig/arch/arm/mach-iop32x/n2100.c
-+++ linux-2.6.19/arch/arm/mach-iop32x/n2100.c
-@@ -123,9 +123,26 @@ static struct hw_pci n2100_pci __initdat
- 
- static int __init n2100_pci_init(void)
- {
--	if (machine_is_n2100())
-+	if (machine_is_n2100()) {
-+		int i;
-+
- 		pci_common_init(&n2100_pci);
- 
-+		/*
-+		 * Both r8169 chips on the n2100 exhibit PCI parity
-+		 * problems.  Set the ->broken_parity_status flag for
-+		 * both ports so that the r8169 driver knows it should
-+		 * ignore error interrupts.
-+		 */
-+		for (i = 1; i <= 2; i++) {
-+			struct pci_dev *dev;
-+
-+			dev = pci_get_bus_and_slot(0, PCI_DEVFN(i, 0));
-+			if (dev != NULL)
-+				dev->broken_parity_status = 1;
-+		}
-+	}
-+
- 	return 0;
- }
