@@ -1,57 +1,99 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [PATCH 0/2] A bugfix patchset for NetLabel
-Date: Mon, 18 Dec 2006 11:24:37 -0500
-Message-ID: <4586C0C5.4010502@hp.com>
-References: <20061215214926.018950000@hp.com> <XMMS.LNX.4.64.0612151840370.26929@d.namei>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+From: Kumar Gala <galak@kernel.crashing.org>
+Subject: Re: [PATCH] Update ucc_geth.c for new workqueue structure
+Date: Mon, 18 Dec 2006 10:23:30 -0600
+Message-ID: <95B08418-3C70-4985-B26C-DDE1400ABADA@kernel.crashing.org>
+References: <11660513361799-git-send-email-timur@freescale.com> <11660513372040-git-send-email-timur@freescale.com> <11660513393811-git-send-email-timur@freescale.com>
+Mime-Version: 1.0 (Apple Message framework v752.2)
+Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov
+Cc: Netdev <netdev@vger.kernel.org>, Timur Tabi <timur@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel7.hp.com ([156.153.255.213]:35280 "EHLO atlrel7.hp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754227AbWLRQYk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Dec 2006 11:24:40 -0500
-To: James Morris <jmorris@namei.org>
-In-Reply-To: <XMMS.LNX.4.64.0612151840370.26929@d.namei>
+Received: from nommos.sslcatacombnetworking.com ([67.18.224.114]:41818 "EHLO
+	nommos.sslcatacombnetworking.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754221AbWLRQX3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Dec 2006 11:23:29 -0500
+In-Reply-To: <11660513393811-git-send-email-timur@freescale.com>
+To: Jeff Garzik <jgarzik@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-James Morris wrote:
-> On Fri, 15 Dec 2006, paul.moore@hp.com wrote:
->  
->>This patch set fixes two bugs that were found recently when adding new CIPSOv4
->>DOI definitions.  These patches are pretty small and have been tested by a few
->>different people on several different platforms.
-> 
-> Applied to git://git.infradead.org/~jmorris/selinux-2.6#fixes
+Jeff,
 
-Thanks.
+Can you pickup this patch for 2.6.20 as it fixes a compile issue due  
+to the workqueue changes.
 
->>Please apply these for 2.6.20 and they should probably be pushed to the 2.6.19
->>stable tree as well; is there anything special I need to do for that?
-> 
-> I'm not sure that they qualify.
-> 
-> The first is a privileged operation, right?
+- kumar
 
-Yes it is, you need CAP_NET_ADMIN.  I guess this probably isn't that important
-for 2.6.19 then ...
+On Dec 13, 2006, at 5:08 PM, timur@freescale.com wrote:
 
-> For the second, what are the implications of mapping to zero?
-> 
-> Also review Documentation/stable_kernel_rules.txt.
+> From: Timur Tabi <timur@freescale.com>
+>
+> The workqueue interface changed with David Howell's patch on  
+> 11/22/2006
+> (SHA 65f27f38446e1976cc98fd3004b110fedcddd189).  Several drivers were
+> updated with that patch to handle the new interface, but ucc_geth.c
+> was not one of them.  This patch updates ucc_geth.c to support the new
+> model.
+>
+> A compiler warning in set_mac_addr() was also fixed.
+>
+> Signed-off-by: Timur Tabi <timur@freescale.com>
+> Signed-off-by: Kumar Gala <galak@kernel.crashing.org>
+>
+> ---
+>  drivers/net/ucc_geth.c |   12 +++++++-----
+>  1 files changed, 7 insertions(+), 5 deletions(-)
+>
+> diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
+> index 1f05511..d33bb0c 100644
+> --- a/drivers/net/ucc_geth.c
+> +++ b/drivers/net/ucc_geth.c
+> @@ -29,6 +29,7 @@
+>  #include <linux/fsl_devices.h>
+>  #include <linux/ethtool.h>
+>  #include <linux/mii.h>
+> +#include <linux/workqueue.h>
+>
+>  #include <asm/of_platform.h>
+>  #include <asm/uaccess.h>
+> @@ -472,7 +473,7 @@ static void put_enet_addr_container(stru
+>  	kfree(enet_addr_cont);
+>  }
+>
+> -static int set_mac_addr(__be16 __iomem *reg, u8 *mac)
+> +static void set_mac_addr(__be16 __iomem *reg, u8 *mac)
+>  {
+>  	out_be16(&reg[0], ((u16)mac[5] << 8) | mac[4]);
+>  	out_be16(&reg[1], ((u16)mac[3] << 8) | mac[2]);
+> @@ -3918,10 +3919,11 @@ static irqreturn_t phy_interrupt(int irq
+>  }
+>
+>  /* Scheduled by the phy_interrupt/timer to handle PHY changes */
+> -static void ugeth_phy_change(void *data)
+> +static void ugeth_phy_change(struct work_struct *work)
+>  {
+> -	struct net_device *dev = (struct net_device *)data;
+> -	struct ucc_geth_private *ugeth = netdev_priv(dev);
+> +	struct ucc_geth_private *ugeth =
+> +		container_of(work, struct ucc_geth_private, tq);
+> +	struct net_device *dev = ugeth->dev;
+>  	struct ucc_geth *ug_regs;
+>  	int result = 0;
+>
+> @@ -4078,7 +4080,7 @@ static int ucc_geth_open(struct net_devi
+>  #endif				/* CONFIG_UGETH_NAPI */
+>
+>  	/* Set up the PHY change work queue */
+> -	INIT_WORK(&ugeth->tq, ugeth_phy_change, dev);
+> +	INIT_WORK(&ugeth->tq, ugeth_phy_change);
+>
+>  	init_timer(&ugeth->phy_info_timer);
+>  	ugeth->phy_info_timer.function = &ugeth_phy_startup_timer;
+> -- 
+> 1.4.4
+>
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-[Thanks for the pointer, didn't know that file was there]
-
-... however, I still think this might qualify for the 2.6.19 stable kernel.
-When a MLS sensitivity level or category maps to zero then whenever the NetLabel
-subsystem is called to resolve the security attributes of a packet it will, in
-certain configurations, return security attributes/contexts which are incorrect.
-
-Please let me know if you think that has merit for the stable tree and I'll send
-the patch to the stable mailing list.
-
--- 
-paul moore
-linux security @ hp
