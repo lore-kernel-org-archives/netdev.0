@@ -1,45 +1,44 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [1/1] connector: fix compilation breakage introduced recently.
-Date: Mon, 18 Dec 2006 12:04:12 +0300
-Message-ID: <20061218090412.GB21778@2ka.mipt.ru>
-References: <20061217112946.GA15926@2ka.mipt.ru> <20061217.170958.85671867.davem@davemloft.net>
+From: Zhu Yi <yi.zhu@intel.com>
+Subject: RE: [PATCH 6/6] d80211: add sysfs interface for QoS functions
+Date: Mon, 18 Dec 2006 17:18:53 +0800
+Message-ID: <1166433533.10342.42.camel@debian.sh.intel.com>
+References: <C86180A8C204554D8A3323D8F6B0A29F01A1A8B4@dhost002-46.dex002.intermedia.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: toralf.foerster@gmx.de, netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:56699 "EHLO 2ka.mipt.ru"
+Received: from mga02.intel.com ([134.134.136.20]:29570 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753563AbWLRJEg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Dec 2006 04:04:36 -0500
-To: David Miller <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20061217.170958.85671867.davem@davemloft.net>
+	id S1753604AbWLRJVo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Dec 2006 04:21:44 -0500
+To: Simon Barber <simon@devicescape.com>
+In-Reply-To: <C86180A8C204554D8A3323D8F6B0A29F01A1A8B4@dhost002-46.dex002.intermedia.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Dec 17, 2006 at 05:09:58PM -0800, David Miller (davem@davemloft=
-=2Enet) wrote:
-> From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-> Date: Sun, 17 Dec 2006 14:29:46 +0300
->=20
-> > Linus has changed work queue structure and has not tested it with
-> > connector compiled in, his changes break the build.
-> >=20
-> > Attached patch fixes compilation error.
-> >=20
-> > Patch is against commit 99f5e9718185f07458ae70c2282c2153a2256c91.
-> >=20
-> > Thanks to Toralf F=C3=B6rster for pointing this out.
-> >=20
-> > Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
->=20
-> Applied, thanks Evgeniy.
+On Thu, 2006-12-14 at 21:35 -0800, Simon Barber wrote:
+> This is all part of the client MLME - it would be much better to add
+> this functionality to wpa_supplicant, rather than adding it to the
+> kernel. Nothing here needs to be in the kernel for any reason.
 
-Thanks.
-I will send a patch on top of this to replace delayed work with usual w=
-ork
-queue today.
+Theoretically, the whole network stack can be put into userspace. But we
+gain performance and userspace tool independency from implementing it in
+the kernel. Currently d80211 handles beacon, associate response and
+other MLMEs, I see no reason why they need to be in the kernel according
+to your point.
 
---=20
-	Evgeniy Polyakov
+IMHO, for the MLME handling, if it involves policy or decision making
+from the user, it should be done by the userspace, otherwise we
+implement it in the kernel for better performance and userspace tool
+independency.
+
+Thanks,
+-yi
+
+> The client MLME functions that are in the kernel were put in there for
+> test and debugging convenience only - the right client MLME to use is
+> the one in wpa_supplicant. Especially with all the new and very
+> complex
+> MLME functions that are being added to 802.11 we do not want this huge
+> amount of code in the kernel when it does not need to be there.
