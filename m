@@ -1,62 +1,73 @@
-From: Horms <horms@verge.net.au>
-Subject: [PATCH] [IPVS] replace if .. goto with while
-Date: Mon, 18 Dec 2006 12:11:11 +0900
-Message-ID: <20061218031110.GA32036@verge.net.au>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [2.6 patch] net/irda/: proper prototypes
+Date: Mon, 18 Dec 2006 04:46:26 +0100
+Message-ID: <20061218034626.GY10316@stusta.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Wensong Zhan <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>,
-	Roberto Nibali <ratz@drugphish.ch>,
-	Joseph Mack NA3T <jmack@wm7d.net>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from koto.vergenet.net ([210.128.90.7]:46514 "EHLO koto.vergenet.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752663AbWLRDgB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 17 Dec 2006 22:36:01 -0500
-To: netdev@vger.kernel.org
+Received: from mailout.stusta.mhn.de ([141.84.69.5]:4283 "HELO
+	mailout.stusta.mhn.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1752711AbWLRDq0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Dec 2006 22:46:26 -0500
+To: samuel@sortiz.org
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I guess that this code used to be more complex, but replacing
-the goto with a while seems to make things a bit more readable.
-Or in other words, two fairly gratuitous goto are removed.
+This patch adds proper prototypes for some functions in
+include/net/irda/irda.h
 
-On a related note, I wonder if there should be a limit to how
-many times it tries.
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
-Signed-Off-By: Simon Horman <horms@verge.net.au>
+---
 
-Index: linux-2.6/net/ipv4/ipvs/ip_vs_sync.c
-===================================================================
---- linux-2.6.orig/net/ipv4/ipvs/ip_vs_sync.c	2006-11-29 09:50:37.000000000 +0900
-+++ linux-2.6/net/ipv4/ipvs/ip_vs_sync.c	2006-11-29 10:03:11.000000000 +0900
-@@ -822,12 +822,10 @@
+ include/net/irda/irda.h |   15 +++++++++++++++
+ net/irda/irmod.c        |   13 -------------
+ 2 files changed, 15 insertions(+), 13 deletions(-)
+
+--- linux-2.6.20-rc1-mm1/include/net/irda/irda.h.old	2006-12-18 02:49:02.000000000 +0100
++++ linux-2.6.20-rc1-mm1/include/net/irda/irda.h	2006-12-18 02:58:02.000000000 +0100
+@@ -113,4 +113,19 @@
+ #define IAS_IRCOMM_ID 0x2343
+ #define IAS_IRLPT_ID  0x9876
  
- 	/* fork the sync thread here, then the parent process of the
- 	   sync thread is the init process after this thread exits. */
--  repeat:
--	if ((pid = kernel_thread(sync_thread, startup, 0)) < 0) {
-+	while ((pid = kernel_thread(sync_thread, startup, 0)) < 0) {
- 		IP_VS_ERR("could not create sync_thread due to %d... "
- 			  "retrying.\n", pid);
- 		msleep_interruptible(1000);
--		goto repeat;
- 	}
++struct net_device;
++struct packet_type;
++
++void irda_proc_register(void);
++void irda_proc_unregister(void);
++
++int irda_sysctl_register(void);
++void irda_sysctl_unregister(void);
++
++int irsock_init(void);
++void irsock_cleanup(void);
++
++int irlap_driver_rcv(struct sk_buff *skb, struct net_device *dev,
++		     struct packet_type *ptype, struct net_device *orig_dev);
++
+ #endif /* NET_IRDA_H */
+--- linux-2.6.20-rc1-mm1/net/irda/irmod.c.old	2006-12-18 02:52:18.000000000 +0100
++++ linux-2.6.20-rc1-mm1/net/irda/irmod.c	2006-12-18 02:53:59.000000000 +0100
+@@ -42,19 +42,6 @@
+ #include <net/irda/irttp.h>		/* irttp_init */
+ #include <net/irda/irda_device.h>	/* irda_device_init */
  
- 	return 0;
-@@ -856,12 +854,10 @@
- 		ip_vs_backup_syncid = syncid;
- 	}
- 
--  repeat:
--	if ((pid = kernel_thread(fork_sync_thread, &startup, 0)) < 0) {
-+	while ((pid = kernel_thread(fork_sync_thread, &startup, 0)) < 0) {
- 		IP_VS_ERR("could not create fork_sync_thread due to %d... "
- 			  "retrying.\n", pid);
- 		msleep_interruptible(1000);
--		goto repeat;
- 	}
- 
- 	wait_for_completion(&startup);
+-/* irproc.c */
+-extern void irda_proc_register(void);
+-extern void irda_proc_unregister(void);
+-/* irsysctl.c */
+-extern int  irda_sysctl_register(void);
+-extern void irda_sysctl_unregister(void);
+-/* af_irda.c */
+-extern int  irsock_init(void);
+-extern void irsock_cleanup(void);
+-/* irlap_frame.c */
+-extern int  irlap_driver_rcv(struct sk_buff *, struct net_device *, 
+-			     struct packet_type *, struct net_device *);
+-
+ /*
+  * Module parameters
+  */
+
