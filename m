@@ -1,76 +1,38 @@
-From: Akinobu Mita <akinobu.mita@gmail.com>
-Subject: [PATCH] irlan: handle out of memory errors
-Date: Tue, 19 Dec 2006 17:56:01 +0900
-Message-ID: <20061219085601.GL4049@APFDCB5C>
+From: Andreas Jellinghaus <aj@ciphirelabs.com>
+Subject: Re: [ANN] Acrypto asynchronous crypto layer 2.6.19 release.
+Date: Tue, 19 Dec 2006 11:51:01 +0100
+Message-ID: <4587C415.9020706@ciphirelabs.com>
+References: <20061216191521.GA26549@2ka.mipt.ru> <4586458E.6000503@dungeon.inka.de> <20061218095740.GA5219@2ka.mipt.ru> <458690EA.2000405@ciphirelabs.com> <20061218131356.GA11186@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Samuel Ortiz <samuel@sortiz.org>
+Content-Type: text/plain; charset=KOI8-R; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-crypto@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.231]:19294 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932085AbWLSI4y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Dec 2006 03:56:54 -0500
-Received: by wx-out-0506.google.com with SMTP id h27so1616072wxd
-        for <netdev@vger.kernel.org>; Tue, 19 Dec 2006 00:56:54 -0800 (PST)
-To: netdev@vger.kernel.org
-Content-Disposition: inline
+Received: from mx1.ciphirelabs.net ([217.72.114.64]:45318 "EHLO
+	mx1.ciphirelabs.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932778AbWLSKvU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Dec 2006 05:51:20 -0500
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+In-Reply-To: <20061218131356.GA11186@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch checks return values:
+Evgeniy Polyakov wrote:
+> You can change it in async_provider in compilation time or I can create
+> module version. There is an item in related todo list to use crypto
+> contexts, they were created exactly for such kind of things (actually
+> for hardware devices which do not support realtime key changes).
 
-- irlmp_register_client()
-- irlmp_register_service()
-- irlan_open()
+ok, what do I need to change to get aes-cbc-essiv:sha256 support
+so I can use acrypto with my current dm-crypt'ed partitions?
 
-Cc: Samuel Ortiz <samuel@sortiz.org>
-Signed-off-by: Akinobu Mita <akinobu.mita@gmail.com>
+>> would be nice to track those issues, so people testing your patch
+>> are aware of the situation.
+> 
+> I will change acrypto software crypto provider, but right now, yes,
+> software crypto only supports one mode.
 
----
- net/irda/irlan/irlan_common.c |   23 ++++++++++++++++++++---
- 1 file changed, 20 insertions(+), 3 deletions(-)
+ok, thanks.
 
-Index: 2.6-mm/net/irda/irlan/irlan_common.c
-===================================================================
---- 2.6-mm.orig/net/irda/irlan/irlan_common.c
-+++ 2.6-mm/net/irda/irlan/irlan_common.c
-@@ -144,12 +144,18 @@ static int __init irlan_init(void)
- 	/* Register with IrLMP as a client */
- 	ckey = irlmp_register_client(hints, &irlan_client_discovery_indication,
- 				     NULL, NULL);
--	
-+	if (!ckey)
-+		goto err_ckey;
-+
- 	/* Register with IrLMP as a service */
-- 	skey = irlmp_register_service(hints);
-+	skey = irlmp_register_service(hints);
-+	if (!skey)
-+		goto err_skey;
- 
- 	/* Start the master IrLAN instance (the only one for now) */
-- 	new = irlan_open(DEV_ADDR_ANY, DEV_ADDR_ANY);
-+	new = irlan_open(DEV_ADDR_ANY, DEV_ADDR_ANY);
-+	if (!new)
-+		goto err_open;
- 
- 	/* The master will only open its (listen) control TSAP */
- 	irlan_provider_open_ctrl_tsap(new);
-@@ -158,6 +164,17 @@ static int __init irlan_init(void)
- 	irlmp_discovery_request(DISCOVERY_DEFAULT_SLOTS);
- 
- 	return 0;
-+
-+err_open:
-+	irlmp_unregister_service(skey);
-+err_skey:
-+	irlmp_unregister_client(ckey);
-+err_ckey:
-+#ifdef CONFIG_PROC_FS
-+	remove_proc_entry("irlan", proc_irda);
-+#endif /* CONFIG_PROC_FS */
-+
-+	return -ENOMEM;
- }
- 
- static void __exit irlan_cleanup(void) 
+Regards, Andreas
