@@ -1,115 +1,76 @@
 From: Akinobu Mita <akinobu.mita@gmail.com>
-Subject: [PATCH] irda: handle out of memory errors
-Date: Tue, 19 Dec 2006 17:55:09 +0900
-Message-ID: <20061219085509.GK4049@APFDCB5C>
+Subject: [PATCH] irlan: handle out of memory errors
+Date: Tue, 19 Dec 2006 17:56:01 +0900
+Message-ID: <20061219085601.GL4049@APFDCB5C>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Samuel Ortiz <samuel@sortiz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.244]:56532 "EHLO
-	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932694AbWLSI4E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Dec 2006 03:56:04 -0500
-Received: by an-out-0708.google.com with SMTP id b33so497353ana
-        for <netdev@vger.kernel.org>; Tue, 19 Dec 2006 00:56:02 -0800 (PST)
+Received: from wx-out-0506.google.com ([66.249.82.231]:19294 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932085AbWLSI4y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Dec 2006 03:56:54 -0500
+Received: by wx-out-0506.google.com with SMTP id h27so1616072wxd
+        for <netdev@vger.kernel.org>; Tue, 19 Dec 2006 00:56:54 -0800 (PST)
 To: netdev@vger.kernel.org
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch checks return value of memory allocation functions
-for irda subsystem and fixes memory leaks in error cases.
+This patch checks return values:
+
+- irlmp_register_client()
+- irlmp_register_service()
+- irlan_open()
 
 Cc: Samuel Ortiz <samuel@sortiz.org>
 Signed-off-by: Akinobu Mita <akinobu.mita@gmail.com>
 
 ---
- net/irda/irias_object.c |   40 ++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 40 insertions(+)
+ net/irda/irlan/irlan_common.c |   23 ++++++++++++++++++++---
+ 1 file changed, 20 insertions(+), 3 deletions(-)
 
-Index: 2.6-mm/net/irda/irias_object.c
+Index: 2.6-mm/net/irda/irlan/irlan_common.c
 ===================================================================
---- 2.6-mm.orig/net/irda/irias_object.c
-+++ 2.6-mm/net/irda/irias_object.c
-@@ -91,6 +91,12 @@ struct ias_object *irias_new_object( cha
- 
- 	obj->magic = IAS_OBJECT_MAGIC;
- 	obj->name = strndup(name, IAS_MAX_CLASSNAME);
-+	if (!obj->name) {
-+		IRDA_WARNING("%s(), Unable to allocate name!\n",
-+			     __FUNCTION__);
-+		kfree(obj);
-+		return NULL;
-+	}
- 	obj->id = id;
- 
- 	/* Locking notes : the attrib spinlock has lower precendence
-@@ -101,6 +107,7 @@ struct ias_object *irias_new_object( cha
- 	if (obj->attribs == NULL) {
- 		IRDA_WARNING("%s(), Unable to allocate attribs!\n",
- 			     __FUNCTION__);
-+		kfree(obj->name);
- 		kfree(obj);
- 		return NULL;
- 	}
-@@ -357,6 +364,15 @@ void irias_add_integer_attrib(struct ias
- 
- 	/* Insert value */
- 	attrib->value = irias_new_integer_value(value);
-+	if (!attrib->name || !attrib->value) {
-+		IRDA_WARNING("%s: Unable to allocate attribute!\n",
-+			     __FUNCTION__);
-+		if (attrib->value)
-+			irias_delete_value(attrib->value);
-+		kfree(attrib->name);
-+		kfree(attrib);
-+		return;
-+	}
- 
- 	irias_add_attrib(obj, attrib, owner);
- }
-@@ -391,6 +407,15 @@ void irias_add_octseq_attrib(struct ias_
- 	attrib->name = strndup(name, IAS_MAX_ATTRIBNAME);
- 
- 	attrib->value = irias_new_octseq_value( octets, len);
-+	if (!attrib->name || !attrib->value) {
-+		IRDA_WARNING("%s: Unable to allocate attribute!\n",
-+			     __FUNCTION__);
-+		if (attrib->value)
-+			irias_delete_value(attrib->value);
-+		kfree(attrib->name);
-+		kfree(attrib);
-+		return;
-+	}
- 
- 	irias_add_attrib(obj, attrib, owner);
- }
-@@ -424,6 +449,15 @@ void irias_add_string_attrib(struct ias_
- 	attrib->name = strndup(name, IAS_MAX_ATTRIBNAME);
- 
- 	attrib->value = irias_new_string_value(value);
-+	if (!attrib->name || !attrib->value) {
-+		IRDA_WARNING("%s: Unable to allocate attribute!\n",
-+			     __FUNCTION__);
-+		if (attrib->value)
-+			irias_delete_value(attrib->value);
-+		kfree(attrib->name);
-+		kfree(attrib);
-+		return;
-+	}
- 
- 	irias_add_attrib(obj, attrib, owner);
- }
-@@ -473,6 +507,12 @@ struct ias_value *irias_new_string_value
- 	value->type = IAS_STRING;
- 	value->charset = CS_ASCII;
- 	value->t.string = strndup(string, IAS_MAX_STRING);
-+	if (!value->t.string) {
-+		IRDA_WARNING("%s: Unable to kmalloc!\n", __FUNCTION__);
-+		kfree(value);
-+		return NULL;
-+	}
+--- 2.6-mm.orig/net/irda/irlan/irlan_common.c
++++ 2.6-mm/net/irda/irlan/irlan_common.c
+@@ -144,12 +144,18 @@ static int __init irlan_init(void)
+ 	/* Register with IrLMP as a client */
+ 	ckey = irlmp_register_client(hints, &irlan_client_discovery_indication,
+ 				     NULL, NULL);
+-	
++	if (!ckey)
++		goto err_ckey;
 +
- 	value->len = strlen(value->t.string);
+ 	/* Register with IrLMP as a service */
+- 	skey = irlmp_register_service(hints);
++	skey = irlmp_register_service(hints);
++	if (!skey)
++		goto err_skey;
  
- 	return value;
+ 	/* Start the master IrLAN instance (the only one for now) */
+- 	new = irlan_open(DEV_ADDR_ANY, DEV_ADDR_ANY);
++	new = irlan_open(DEV_ADDR_ANY, DEV_ADDR_ANY);
++	if (!new)
++		goto err_open;
+ 
+ 	/* The master will only open its (listen) control TSAP */
+ 	irlan_provider_open_ctrl_tsap(new);
+@@ -158,6 +164,17 @@ static int __init irlan_init(void)
+ 	irlmp_discovery_request(DISCOVERY_DEFAULT_SLOTS);
+ 
+ 	return 0;
++
++err_open:
++	irlmp_unregister_service(skey);
++err_skey:
++	irlmp_unregister_client(ckey);
++err_ckey:
++#ifdef CONFIG_PROC_FS
++	remove_proc_entry("irlan", proc_irda);
++#endif /* CONFIG_PROC_FS */
++
++	return -ENOMEM;
+ }
+ 
+ static void __exit irlan_cleanup(void) 
