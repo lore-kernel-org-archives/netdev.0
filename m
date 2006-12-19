@@ -1,82 +1,38 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: Bug 7596 - Potential performance bottleneck for Linxu TCP
-Date: Tue, 19 Dec 2006 10:37:56 -0800
-Message-ID: <20061219103756.38f7426c@freekitty>
-References: <HNEBLGGMEGLPMPPDOPMGKEAJCGAA.wenji@fnal.gov>
-	<20061129154200.c4db558c.akpm@osdl.org>
-	<20061130063252.GC2003@elte.hu>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>, wenji@fnal.gov,
-	netdev@vger.kernel.org, davem@davemloft.net,
-	linux-kernel@vger.kernel.org
+From: Ron Mercer <ron.mercer@qlogic.com>
+Subject: [PATCH 4/5] qla3xxx: Remove NETIF_F_LLTX from driver features.
+Date: Tue, 19 Dec 2006 10:22:38 -0800
+Message-ID: <11665525601338-git-send-email-ron.mercer@qlogic.com>
+References: <20061219181855.GA8179@linux-7mw0.qlogic.org>
+Cc: ron.mercer@qlogic.com, benjamin.li@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.25]:52479 "EHLO smtp.osdl.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932872AbWLSSVM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Dec 2006 13:21:12 -0500
-To: Ingo Molnar <mingo@elte.hu>
-In-Reply-To: <20061130063252.GC2003@elte.hu>
+Received: from avexch1.qlogic.com ([198.70.193.115]:53404 "EHLO
+	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932884AbWLSSdF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Dec 2006 13:33:05 -0500
+To: netdev@vger.kernel.org
+In-Reply-To: <20061219181855.GA8179@linux-7mw0.qlogic.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I noticed this bit of discussion in tcp_recvmsg. It implies that a better
-queuing policy would be good. But it is confusing English (Alexey?) so
-not sure where to start.
+The TX locking was removed some time ago but this flag was overlooked.
 
+Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
+---
+ drivers/net/qla3xxx.c |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
 
-> 		if (!sysctl_tcp_low_latency && tp->ucopy.task == user_recv) {
-> 			/* Install new reader */
-> 			if (!user_recv && !(flags & (MSG_TRUNC | MSG_PEEK))) {
-> 				user_recv = current;
-> 				tp->ucopy.task = user_recv;
-> 				tp->ucopy.iov = msg->msg_iov;
-> 			}
-> 
-> 			tp->ucopy.len = len;
-> 
-> 			BUG_TRAP(tp->copied_seq == tp->rcv_nxt ||
-> 				 (flags & (MSG_PEEK | MSG_TRUNC)));
-> 
-> 			/* Ugly... If prequeue is not empty, we have to
-> 			 * process it before releasing socket, otherwise
-> 			 * order will be broken at second iteration.
-> 			 * More elegant solution is required!!!
-> 			 *
-> 			 * Look: we have the following (pseudo)queues:
-> 			 *
-> 			 * 1. packets in flight
-> 			 * 2. backlog
-> 			 * 3. prequeue
-> 			 * 4. receive_queue
-> 			 *
-> 			 * Each queue can be processed only if the next ones
-> 			 * are empty. At this point we have empty receive_queue.
-> 			 * But prequeue _can_ be not empty after 2nd iteration,
-> 			 * when we jumped to start of loop because backlog
-> 			 * processing added something to receive_queue.
-> 			 * We cannot release_sock(), because backlog contains
-> 			 * packets arrived _after_ prequeued ones.
-> 			 *
-> 			 * Shortly, algorithm is clear --- to process all
-> 			 * the queues in order. We could make it more directly,
-> 			 * requeueing packets from backlog to prequeue, if
-> 			 * is not empty. It is more elegant, but eats cycles,
-> 			 * unfortunately.
-> 			 */
-> 			if (!skb_queue_empty(&tp->ucopy.prequeue))
-> 				goto do_prequeue;
-> 
-> 			/* __ Set realtime policy in scheduler __ */
-> 		}
-> 
-> 		if (copied >= target) {
-> 			/* Do not sleep, just process backlog. */
-> 			release_sock(sk);
-> 			lock_sock(sk);
-> 		} else
-> 		
-
+diff --git a/drivers/net/qla3xxx.c b/drivers/net/qla3xxx.c
+index 5aef8aa..24205c6 100644
+--- a/drivers/net/qla3xxx.c
++++ b/drivers/net/qla3xxx.c
+@@ -3630,7 +3630,6 @@ static int __devinit ql3xxx_probe(struct
+ 
+ 	qdev->msg_enable = netif_msg_init(debug, default_msg);
+ 
+-	ndev->features |= NETIF_F_LLTX;
+ 	if (pci_using_dac)
+ 		ndev->features |= NETIF_F_HIGHDMA;
+ 	if (qdev->device_id == QL3032_DEVICE_ID)
 -- 
-Stephen Hemminger <shemminger@osdl.org>
+1.4.2.rc2-dirty
+
