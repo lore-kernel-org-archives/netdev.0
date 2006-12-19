@@ -1,71 +1,144 @@
 From: akpm@osdl.org
-Subject: [patch 1/7] 8139too: force media setting cleanup
-Date: Tue, 19 Dec 2006 13:08:42 -0800
-Message-ID: <200612192108.kBJL8gkx010484@shell0.pdx.osdl.net>
-Cc: netdev@vger.kernel.org, akpm@osdl.org, leewkb@yahoo.com
+Subject: [patch 7/7] netpoll: drivers must not enable IRQ unconditionally in their NAPI handler
+Date: Tue, 19 Dec 2006 13:08:51 -0800
+Message-ID: <200612192108.kBJL8pQo010507@shell0.pdx.osdl.net>
+Cc: netdev@vger.kernel.org, akpm@osdl.org, romieu@fr.zoreil.com,
+	aabdulla@nvidia.com, shemminger@osdl.org, zambrano@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.25]:35345 "EHLO smtp.osdl.org"
+Received: from smtp.osdl.org ([65.172.181.25]:35435 "EHLO smtp.osdl.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932838AbWLSVIz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Dec 2006 16:08:55 -0500
+	id S932973AbWLSVJ3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Dec 2006 16:09:29 -0500
 To: jeff@garzik.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Bernard Lee <leewkb@yahoo.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
 
-Setting bit 4 & 5 alone in 8139too module media option does not really
-force 100Mbps full-duplex mode.  When media option bit 0-3 is cleared,
-8139too module does not force media setting.  Therefore, bit 0-3 requires
-to be set for bit 4 & 5 to take effect.  The hidden bit 0-3 setting is not
-stated in module description.
+net/core/netpoll.c::netpoll_send_skb() calls the poll handler when it is
+available.  As netconsole can be used from almost any context, IRQ must not
+be enabled blindly in the NAPI handler of a driver which supports netpoll.
 
-It can be fixed by changing rtl8139_private structure default_port bitfield
-from 4-bit to 6-bit.
+b57bd06655a028aba7b92e1c19c2093e7fcfb341 fixed the issue for the
+8139too.c driver.
 
-Besides, module media bit 9 is a duplicate of bit 4 (full-duplex).  It is
-suggested that bit 9 is freed.  A remark is added to module description
-that bit 0 can be used to force setting.  It helps to clarify 10Mbps
-half-duplex mode.
-
-Signed-off-by: Bernard Lee <leewkb@yahoo.com>
-Cc: Jeff Garzik <jeff@garzik.org>
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+Cc: Stephen Hemminger <shemminger@osdl.org>
+Cc: Ayaz Abdulla <aabdulla@nvidia.com>
+Cc: Gary Zambrano <zambrano@broadcom.com>
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- drivers/net/8139too.c |    8 ++++----
- 1 files changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/8139cp.c    |    6 ++++--
+ drivers/net/b44.c       |    6 ++++--
+ drivers/net/forcedeth.c |   11 +++++++----
+ drivers/net/skge.c      |    5 +++--
+ 4 files changed, 18 insertions(+), 10 deletions(-)
 
-diff -puN drivers/net/8139too.c~8139too-force-media-setting-fix drivers/net/8139too.c
---- a/drivers/net/8139too.c~8139too-force-media-setting-fix
-+++ a/drivers/net/8139too.c
-@@ -586,7 +586,7 @@ struct rtl8139_private {
- 	signed char phys[4];		/* MII device addresses. */
- 	char twistie, twist_row, twist_col;	/* Twister tune state. */
- 	unsigned int watchdog_fired : 1;
--	unsigned int default_port : 4;	/* Last dev->if_port value. */
-+	unsigned int default_port : 6;	/* Last dev->if_port value. */
- 	unsigned int have_thread : 1;
- 	spinlock_t lock;
- 	spinlock_t rx_lock;
-@@ -612,7 +612,7 @@ module_param_array(full_duplex, int, NUL
- module_param(debug, int, 0);
- MODULE_PARM_DESC (debug, "8139too bitmapped message enable number");
- MODULE_PARM_DESC (multicast_filter_limit, "8139too maximum number of filtered multicast addresses");
--MODULE_PARM_DESC (media, "8139too: Bits 4+9: force full duplex, bit 5: 100Mbps");
-+MODULE_PARM_DESC (media, "8139too: bit 0: force setting, bit 4: full duplex, bit 5: 100Mbps");
- MODULE_PARM_DESC (full_duplex, "8139too: Force full duplex for board(s) (1)");
+diff -puN drivers/net/8139cp.c~netpoll-drivers-must-not-enable-irq-unconditionally-in-their-napi-handler drivers/net/8139cp.c
+--- a/drivers/net/8139cp.c~netpoll-drivers-must-not-enable-irq-unconditionally-in-their-napi-handler
++++ a/drivers/net/8139cp.c
+@@ -617,13 +617,15 @@ rx_next:
+ 	 * this round of polling
+ 	 */
+ 	if (rx_work) {
++		unsigned long flags;
++
+ 		if (cpr16(IntrStatus) & cp_rx_intr_mask)
+ 			goto rx_status_loop;
  
- static int read_eeprom (void __iomem *ioaddr, int location, int addr_len);
-@@ -1068,8 +1068,8 @@ static int __devinit rtl8139_init_one (s
- 	/* The lower four bits are the media type. */
- 	option = (board_idx >= MAX_UNITS) ? 0 : media[board_idx];
- 	if (option > 0) {
--		tp->mii.full_duplex = (option & 0x210) ? 1 : 0;
--		tp->default_port = option & 0xFF;
-+		tp->mii.full_duplex = (option & 0x10) ? 1 : 0;
-+		tp->default_port = option & 0x3F;
- 		if (tp->default_port)
- 			tp->mii.force_media = 1;
+-		local_irq_disable();
++		local_irq_save(flags);
+ 		cpw16_f(IntrMask, cp_intr_mask);
+ 		__netif_rx_complete(dev);
+-		local_irq_enable();
++		local_irq_restore(flags);
+ 
+ 		return 0;	/* done */
  	}
+diff -puN drivers/net/b44.c~netpoll-drivers-must-not-enable-irq-unconditionally-in-their-napi-handler drivers/net/b44.c
+--- a/drivers/net/b44.c~netpoll-drivers-must-not-enable-irq-unconditionally-in-their-napi-handler
++++ a/drivers/net/b44.c
+@@ -879,12 +879,14 @@ static int b44_poll(struct net_device *n
+ 	}
+ 
+ 	if (bp->istat & ISTAT_ERRORS) {
+-		spin_lock_irq(&bp->lock);
++		unsigned long flags;
++
++		spin_lock_irqsave(&bp->lock, flags);
+ 		b44_halt(bp);
+ 		b44_init_rings(bp);
+ 		b44_init_hw(bp, 1);
+ 		netif_wake_queue(bp->dev);
+-		spin_unlock_irq(&bp->lock);
++		spin_unlock_irqrestore(&bp->lock, flags);
+ 		done = 1;
+ 	}
+ 
+diff -puN drivers/net/forcedeth.c~netpoll-drivers-must-not-enable-irq-unconditionally-in-their-napi-handler drivers/net/forcedeth.c
+--- a/drivers/net/forcedeth.c~netpoll-drivers-must-not-enable-irq-unconditionally-in-their-napi-handler
++++ a/drivers/net/forcedeth.c
+@@ -2576,14 +2576,15 @@ static int nv_napi_poll(struct net_devic
+ 	int pkts, limit = min(*budget, dev->quota);
+ 	struct fe_priv *np = netdev_priv(dev);
+ 	u8 __iomem *base = get_hwbase(dev);
++	unsigned long flags;
+ 
+ 	pkts = nv_rx_process(dev, limit);
+ 
+ 	if (nv_alloc_rx(dev)) {
+-		spin_lock_irq(&np->lock);
++		spin_lock_irqsave(&np->lock, flags);
+ 		if (!np->in_shutdown)
+ 			mod_timer(&np->oom_kick, jiffies + OOM_REFILL);
+-		spin_unlock_irq(&np->lock);
++		spin_unlock_irqrestore(&np->lock, flags);
+ 	}
+ 
+ 	if (pkts < limit) {
+@@ -2591,13 +2592,15 @@ static int nv_napi_poll(struct net_devic
+ 		netif_rx_complete(dev);
+ 
+ 		/* re-enable receive interrupts */
+-		spin_lock_irq(&np->lock);
++		spin_lock_irqsave(&np->lock, flags);
++
+ 		np->irqmask |= NVREG_IRQ_RX_ALL;
+ 		if (np->msi_flags & NV_MSI_X_ENABLED)
+ 			writel(NVREG_IRQ_RX_ALL, base + NvRegIrqMask);
+ 		else
+ 			writel(np->irqmask, base + NvRegIrqMask);
+-		spin_unlock_irq(&np->lock);
++
++		spin_unlock_irqrestore(&np->lock, flags);
+ 		return 0;
+ 	} else {
+ 		/* used up our quantum, so reschedule */
+diff -puN drivers/net/skge.c~netpoll-drivers-must-not-enable-irq-unconditionally-in-their-napi-handler drivers/net/skge.c
+--- a/drivers/net/skge.c~netpoll-drivers-must-not-enable-irq-unconditionally-in-their-napi-handler
++++ a/drivers/net/skge.c
+@@ -2920,6 +2920,7 @@ static int skge_poll(struct net_device *
+ 	struct skge_hw *hw = skge->hw;
+ 	struct skge_ring *ring = &skge->rx_ring;
+ 	struct skge_element *e;
++	unsigned long flags;
+ 	int to_do = min(dev->quota, *budget);
+ 	int work_done = 0;
+ 
+@@ -2957,12 +2958,12 @@ static int skge_poll(struct net_device *
+ 	if (work_done >=  to_do)
+ 		return 1; /* not done */
+ 
+-	spin_lock_irq(&hw->hw_lock);
++	spin_lock_irqsave(&hw->hw_lock, flags);
+ 	__netif_rx_complete(dev);
+ 	hw->intr_mask |= irqmask[skge->port];
+   	skge_write32(hw, B0_IMSK, hw->intr_mask);
+ 	skge_read32(hw, B0_IMSK);
+-	spin_unlock_irq(&hw->hw_lock);
++	spin_unlock_irqrestore(&hw->hw_lock, flags);
+ 
+ 	return 0;
+ }
 _
