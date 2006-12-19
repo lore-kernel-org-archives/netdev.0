@@ -1,53 +1,112 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [ANN] Acrypto asynchronous crypto layer 2.6.19 release.
-Date: Tue, 19 Dec 2006 13:59:16 +0300
-Message-ID: <20061219105916.GA22473@2ka.mipt.ru>
-References: <20061216191521.GA26549@2ka.mipt.ru> <4586458E.6000503@dungeon.inka.de> <20061218095740.GA5219@2ka.mipt.ru> <458690EA.2000405@ciphirelabs.com> <20061218131356.GA11186@2ka.mipt.ru> <4587C415.9020706@ciphirelabs.com>
+From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
+Subject: BUG: NAPI mode broken in ucc_geth
+Date: Tue, 19 Dec 2006 15:48:23 +0100
+Message-ID: <1166539703.30422.111.camel@gentoo-jocke.transmode.se>
+Reply-To: joakim.tjernlund@transmode.se
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: linux-crypto@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: 'linuxppc-dev Development' <linuxppc-dev@ozlabs.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:36082 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932783AbWLSK7Y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Dec 2006 05:59:24 -0500
-To: Andreas Jellinghaus <aj@ciphirelabs.com>
-Content-Disposition: inline
-In-Reply-To: <4587C415.9020706@ciphirelabs.com>
+Received: from 147.175.241.83.in-addr.dgcsystems.net ([83.241.175.147]:28074
+	"EHLO tmnt04.transmode.se" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S932819AbWLSOsZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Dec 2006 09:48:25 -0500
+To: Timur Tabi <timur@freescale.com>, Netdev <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Dec 19, 2006 at 11:51:01AM +0100, Andreas Jellinghaus (aj@ciphirelabs.com) wrote:
-> Evgeniy Polyakov wrote:
-> >You can change it in async_provider in compilation time or I can create
-> >module version. There is an item in related todo list to use crypto
-> >contexts, they were created exactly for such kind of things (actually
-> >for hardware devices which do not support realtime key changes).
-> 
-> ok, what do I need to change to get aes-cbc-essiv:sha256 support
-> so I can use acrypto with my current dm-crypt'ed partitions?
+Enabling NAPI for ucc_geth results in:
+Looking up port of RPC 100003/2 on 192.168.1.15
+NETDEV WATCHDOG: eth1: transmit timed out
+------------[ cut here ]------------
+Badness at c003af24 [verbose debug info unavailable]
+Call Trace:
+[C0247C00] [C00085B8] show_stack+0x48/0x194 (unreliable)
+[C0247C30] [C00F19AC] report_bug+0x84/0xac
+[C0247C40] [C000DD28] program_check_exception+0xe0/0x538
+[C0247C80] [C000F78C] ret_from_except_full+0x0/0x4c
+--- Exception: 700 at free_irq+0x20/0x110
+    LR = ucc_geth_stop+0x98/0x108
+[C0247D40] [C0017B34] __wake_up_common+0x58/0x94 (unreliable)
+[C0247D60] [C011C4C8] ucc_geth_stop+0x98/0x108
+[C0247D80] [C011DF1C] ucc_geth_timeout+0x5c/0x8c
+[C0247D90] [C0164864] dev_watchdog+0xa0/0x108
+[C0247DB0] [C002523C] run_timer_softirq+0xe4/0x1bc
+[C0247DF0] [C00212C4] __do_softirq+0x80/0xe4
+[C0247E20] [C0005778] do_softirq+0x58/0x60
+[C0247E30] [C0021370] irq_exit+0x48/0x58
+[C0247E40] [C000C398] timer_interrupt+0x26c/0x5fc
+[C0247EE0] [C000F7D8] ret_from_except+0x0/0x14
+--- Exception: 901 at cpu_idle+0xc8/0xf0
+    LR = cpu_idle+0xec/0xf0
+[C0247FC0] [C000388C] rest_init+0x28/0x38
+[C0247FD0] [C02116AC] start_kernel+0x1d8/0x228
+[C0247FF0] [00003438] 0x3438
+Trying to free already-free IRQ 34
+------------[ cut here ]------------
+Badness at c003af24 [verbose debug info unavailable]
+Call Trace:
+[C0247C00] [C00085B8] show_stack+0x48/0x194 (unreliable)
+[C0247C30] [C00F19AC] report_bug+0x84/0xac
+[C0247C40] [C000DD28] program_check_exception+0xe0/0x538
+[C0247C80] [C000F78C] ret_from_except_full+0x0/0x4c
+--- Exception: 700 at free_irq+0x20/0x110
+    LR = ucc_geth_stop+0xb8/0x108
+[C0247D40] [C003AFE8] free_irq+0xe4/0x110 (unreliable)
+[C0247D60] [C011C4E8] ucc_geth_stop+0xb8/0x108
+[C0247D80] [C011DF1C] ucc_geth_timeout+0x5c/0x8c
+[C0247D90] [C0164864] dev_watchdog+0xa0/0x108
+[C0247DB0] [C002523C] run_timer_softirq+0xe4/0x1bc
+[C0247DF0] [C00212C4] __do_softirq+0x80/0xe4
+[C0247E20] [C0005778] do_softirq+0x58/0x60
+[C0247E30] [C0021370] irq_exit+0x48/0x58
+[C0247E40] [C000C398] timer_interrupt+0x26c/0x5fc
+[C0247EE0] [C000F7D8] ret_from_except+0x0/0x14
+--- Exception: 901 at cpu_idle+0xc8/0xf0
+    LR = cpu_idle+0xec/0xf0
+[C0247FC0] [C000388C] rest_init+0x28/0x38
+[C0247FD0] [C02116AC] start_kernel+0x1d8/0x228
+[C0247FF0] [00003438] 0x3438
+------------[ cut here ]------------
+Kernel BUG at c00513cc [verbose debug info unavailable]
+Oops: Exception in kernel mode, sig: 5 [#1]
 
-For AES CBC only set of supported operations should be extended.
-Something like patch below:
-
-diff --git a/acrypto/async_provider.c b/acrypto/async_provider.c
-index ac11708..186cc5c 100644
---- a/acrypto/async_provider.c
-+++ b/acrypto/async_provider.c
-@@ -48,6 +48,12 @@ static struct acrypto_capability prov_caps[] = {
- 		
- 		{ACRYPTO_OP_ENCRYPT, ACRYPTO_TYPE_AES_128, ACRYPTO_MODE_CBC, 1000},
- 		{ACRYPTO_OP_DECRYPT, ACRYPTO_TYPE_AES_128, ACRYPTO_MODE_CBC, 1000},
-+		
-+		{ACRYPTO_OP_ENCRYPT, ACRYPTO_TYPE_AES_192, ACRYPTO_MODE_CBC, 1000},
-+		{ACRYPTO_OP_DECRYPT, ACRYPTO_TYPE_AES_192, ACRYPTO_MODE_CBC, 1000},
-+		
-+		{ACRYPTO_OP_ENCRYPT, ACRYPTO_TYPE_AES_256, ACRYPTO_MODE_CBC, 1000},
-+		{ACRYPTO_OP_DECRYPT, ACRYPTO_TYPE_AES_256, ACRYPTO_MODE_CBC, 1000},
- };
- static int prov_cap_number = sizeof(prov_caps)/sizeof(prov_caps[0]);
- 
-
--- 
-	Evgeniy Polyakov
+NIP: C00513CC LR: C001145C CTR: 00000000
+REGS: c0247c00 TRAP: 0700   Not tainted  (2.6.19)
+MSR: 00029032 <EE,ME,IR,DR>  CR: 24028044  XER: 00000000
+TASK = c0234088[0] 'swapper' THREAD: c0246000
+GPR00: 00000100 C0247CB0 C0234088 00001000 00000001 C9000000 FDEFB000
+FFFFFFFF 
+GPR08: 000000D0 C0246000 00000030 00000000 C025766C E0110000 C0253120
+007FFF00 
+GPR16: 0FFF7B68 00000000 00000002 C0250000 C0247EF0 00000000 3238BE5C
+C0250000 
+GPR24: C0247D38 C0250000 00000001 FDEFB000 00001000 00000001 00001000
+C0263124 
+NIP [C00513CC] __get_vm_area_node+0x2c/0x1c0
+LR [C001145C] __ioremap+0x128/0x168
+Call Trace:
+[C0247CB0] [C00F271C] idr_remove+0x1c4/0x234 (unreliable)
+[C0247CD0] [C001145C] __ioremap+0x128/0x168
+[C0247D00] [C0015D1C] ucc_fast_init+0xf4/0x484
+[C0247D30] [C011C794] ucc_geth_startup+0x25c/0x1980
+[C0247D80] [C011DF24] ucc_geth_timeout+0x64/0x8c
+[C0247D90] [C0164864] dev_watchdog+0xa0/0x108
+[C0247DB0] [C002523C] run_timer_softirq+0xe4/0x1bc
+[C0247DF0] [C00212C4] __do_softirq+0x80/0xe4
+[C0247E20] [C0005778] do_softirq+0x58/0x60
+[C0247E30] [C0021370] irq_exit+0x48/0x58
+[C0247E40] [C000C398] timer_interrupt+0x26c/0x5fc
+[C0247EE0] [C000F7D8] ret_from_except+0x0/0x14
+--- Exception: 901 at cpu_idle+0xc8/0xf0
+    LR = cpu_idle+0xec/0xf0
+[C0247FC0] [C000388C] rest_init+0x28/0x38
+[C0247FD0] [C02116AC] start_kernel+0x1d8/0x228
+[C0247FF0] [00003438] 0x3438
+Instruction dump:
+4bffff20 7c0802a6 9421ffe0 bf410008 7c7e1b78 7c9a2378 7cdb3378 90010024 
+3ba00001 54290024 8009000c 5400012e <0f000000> 70800001 41820020
+7c600034 
+ <0>Kernel panic - not syncing: Fatal exception in interrupt
+ <0>Rebooting in 180 seconds..
