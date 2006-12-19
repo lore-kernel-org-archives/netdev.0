@@ -1,108 +1,59 @@
-From: Divy Le Ray <divy@chelsio.com>
-Subject: Re: [PATCH 2/10] cxgb3 - main source file
-Date: Wed, 20 Dec 2006 15:43:24 -0800
-Message-ID: <4589CA9C.80007@chelsio.com>
-References: <20061220124134.6299.29373.stgit@localhost.localdomain> <1166623330.3365.1397.camel@laptopd505.fenrus.org>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: Network drivers that don't suspend on interface down
+Date: Tue, 19 Dec 2006 15:51:33 -0800
+Message-ID: <20061219155133.20132824@freekitty>
+References: <20061219185223.GA13256@srcf.ucam.org>
+	<200612191959.43019.david-b@pacbell.net>
+	<20061220042648.GA19814@srcf.ucam.org>
+	<200612192114.49920.david-b@pacbell.net>
+	<20061220053417.GA29877@suse.de>
+	<20061220055209.GA20483@srcf.ucam.org>
+	<1166601025.3365.1345.camel@laptopd505.fenrus.org>
+	<20061220125314.GA24188@srcf.ucam.org>
+	<1166621931.3365.1384.camel@laptopd505.fenrus.org>
+	<20061220143134.GA25462@srcf.ucam.org>
+	<1166629900.3365.1428.camel@laptopd505.fenrus.org>
+	<20061220144906.7863bcd3@dxpl.pdx.osdl.net>
+	<4589C945.3050105@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Divy Le Ray <None@chelsio.com>, jeff@garzik.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	swise@opengridcomputing.com
+Cc: Arjan van de Ven <arjan@infradead.org>,
+	Matthew Garrett <mjg59@srcf.ucam.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.22.49.110]:32151 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965159AbWLTXnh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Dec 2006 18:43:37 -0500
-To: Arjan van de Ven <arjan@infradead.org>
-In-Reply-To: <1166623330.3365.1397.camel@laptopd505.fenrus.org>
+Received: from smtp.osdl.org ([65.172.181.25]:49773 "EHLO smtp.osdl.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1161025AbWLTXwP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Dec 2006 18:52:15 -0500
+To: Rick Jones <rick.jones2@hp.com>
+In-Reply-To: <4589C945.3050105@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Arjan,
+On Wed, 20 Dec 2006 15:37:41 -0800
+Rick Jones <rick.jones2@hp.com> wrote:
 
-Thanks for the review. Please see my replies inline.
+> > There are two different problems:
+> > 
+> > 1) Behavior seems to be different depending on device driver
+> >    author. We should document the expected semantics better.
+> > 
+> >    IMHO:
+> > 	When device is down, it should:
+> > 	 a) use as few resources as possible:
+> > 	       - not grab memory for buffers
+> > 	       - not assign IRQ unless it could get one
+> > 	       - turn off all power consumption possible
+> > 	 b) allow setting parameters like speed/duplex/autonegotiation,
+> >             ring buffers, ... with ethtool, and remember the state
+> > 	 c) not accept data coming in, and drop packets queued
+> 
+> What implications does c have for something like tcpdump?
+> 
+> rick jones
 
-Arjan van de Ven wrote:
->> +/*
->> + * Interrupt handler for asynchronous events used with MSI-X.
->> + */
->> +static irqreturn_t t3_async_intr_handler(int irq, void *cookie)
->> +{
->> +	t3_slow_intr_handler(cookie);
->> +	return IRQ_HANDLED;
->> +}
->
-> this looks very wrong; why is t3_slow_intr_handler a void rather than
-> returning IRQ_HANDLED etc? And why wrap around it ?
-t3_slow_intr_handler() processes non-data events such as board errors.
-In line interupt and MSI mode, the intr handler deals with both data
-and non-data events and calls t3_slow_intr_handler for the latter.
-In MSI-X mode, t3_async_intr_handler() is registered to deal with these
-non-data interrupts exclusively.
+None, you can bring up the device without actually assigning an address to it.
 
->> +
->> +static ssize_t attr_show(struct class_device *cd, char *buf,
->> +			 ssize_t(*format) (struct adapter *, char *))
->> +{
->> +	ssize_t len;
->> +	struct adapter *adap = to_net_dev(cd)->priv;
->> +
->> +	/* Synchronize with ioctls that may shut down the device */
->> +	rtnl_lock();
->> +	len = (*format) (adap, buf);
->> +	rtnl_unlock();
->> +	return len;
->> +}
->
-> I'm usually kind of nervous with drivers taking the rtnl_lock; to me
-> that sounds like a layering violation.. why shouldn't your attributes
-> etc live in the net layer instead?
-
-These attributes are really device specific.
-The net layer does not support device specific attributes.
-
->> +#ifdef ETHTOOL_GPERMADDR
->> +	.get_perm_addr = ethtool_op_get_perm_addr
->> +#endif
->
-> what is this ifdef for?
-it will be removed.
->> +static int cxgb_extension_ioctl(struct net_device *dev, void __user *useraddr)
->> +{
->> +	int ret;
->> +	u32 cmd;
->> +	struct adapter *adapter = dev->priv;
->> +
->> +	if (copy_from_user(&cmd, useraddr, sizeof(cmd)))
->> +		return -EFAULT;
->> +
->> +	switch (cmd) {
->> +	case CHELSIO_SETREG:{
->
-> what are these for ?
-They are used to parameter the HW:
-register access, configuration of queue sets, on board memory 
-configuration,
-firmware load, etc ...
->> +
->> +	/*
->> +	 * Can't use pci_request_regions() here because some kernels want to
->> +	 * request the MSI-X BAR in pci_enable_msix.
->
-> are these "some kernels" actual current mainline kernels?
-Will fix both comment and related code.
->> +	if (!pci_set_dma_mask(pdev, DMA_64BIT_MASK)) {
->> +		pci_using_dac = 1;
->> +		err = pci_set_consistent_dma_mask(pdev, DMA_64BIT_MASK);
->> +		if (err) {
->> +			dev_err(&pdev->dev, "unable to obtain 64-bit DMA for "
->> +			       "coherent allocations\n");
->> +			goto out_release_regions;
->
-> this looks wrong; if you can't get 64 bit coherent allocs but can get 32
-> bit ones.. why error out ?
-This is how most of the existing drivers behave.
-
-Cheers,
-Divy
+-- 
+Stephen Hemminger <shemminger@osdl.org>
