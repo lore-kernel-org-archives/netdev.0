@@ -1,58 +1,58 @@
 From: akpm@osdl.org
-Subject: [patch 5/7] ep93xx: some minor cleanups to the ep93xx eth driver
-Date: Tue, 19 Dec 2006 13:08:48 -0800
-Message-ID: <200612192108.kBJL8ndY010501@shell0.pdx.osdl.net>
-Cc: netdev@vger.kernel.org, akpm@osdl.org, burman.yan@gmail.com,
-	rmk@arm.linux.org.uk
+Subject: [patch 6/7] PHY probe not working properly for ibm_emac (PPC4xx)
+Date: Tue, 19 Dec 2006 13:08:49 -0800
+Message-ID: <200612192108.kBJL8oDM010504@shell0.pdx.osdl.net>
+Cc: netdev@vger.kernel.org, akpm@osdl.org, hynek@swac.cz
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.25]:35447 "EHLO smtp.osdl.org"
+Received: from smtp.osdl.org ([65.172.181.25]:35438 "EHLO smtp.osdl.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932977AbWLSVJe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Dec 2006 16:09:34 -0500
+	id S932974AbWLSVJa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Dec 2006 16:09:30 -0500
 To: jeff@garzik.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Yan Burman <burman.yan@gmail.com>
+From: Hynek Petrak <hynek@swac.cz>
 
-Small cleanup in the Cirrus Logic EP93xx ethernet driver: Check for NULL
-pointer before dereferencing it instead of after.  Remove unreferenced
-variable.
+I have a system with AMCC PowerPC 405EP and PHY Intel LXT971A.  Linux
+2.6.18.3 is not able to detect the PHY ID correctly.  The PHY ID
+detected is 0, but should be 0x1d.
 
-Signed-off-by: Yan Burman <burman.yan@gmail.com>
+This is because phy_read() (__emac_mdio_read() resp.) from
+drivers/net/ibm_emac/ibm_emac_core.c might return -ETIMEDOUT or
+-EREMOTEIO on error.  This is ignored inside the
+
+int mii_phy_probe(struct mii_phy *phy, int address)
+from drivers/net/ibm_emac/ibm_emac_phy.c
+
+as the return value is assigned to an u32 variable.
+
 Cc: Jeff Garzik <jeff@garzik.org>
-Cc: Russell King <rmk@arm.linux.org.uk>
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- drivers/net/arm/ep93xx_eth.c |    4 +---
- 1 files changed, 1 insertion(+), 3 deletions(-)
+ drivers/net/ibm_emac/ibm_emac_phy.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletion(-)
 
-diff -puN drivers/net/arm/ep93xx_eth.c~ep93xx-some-minor-cleanups-to-the-ep93xx-eth-driver drivers/net/arm/ep93xx_eth.c
---- a/drivers/net/arm/ep93xx_eth.c~ep93xx-some-minor-cleanups-to-the-ep93xx-eth-driver
-+++ a/drivers/net/arm/ep93xx_eth.c
-@@ -780,12 +780,10 @@ static struct ethtool_ops ep93xx_ethtool
- struct net_device *ep93xx_dev_alloc(struct ep93xx_eth_data *data)
+diff -puN drivers/net/ibm_emac/ibm_emac_phy.c~problem-phy-probe-not-working-properly-for-ibm_emac-ppc4xx drivers/net/ibm_emac/ibm_emac_phy.c
+--- a/drivers/net/ibm_emac/ibm_emac_phy.c~problem-phy-probe-not-working-properly-for-ibm_emac-ppc4xx
++++ a/drivers/net/ibm_emac/ibm_emac_phy.c
+@@ -309,7 +309,7 @@ int mii_phy_probe(struct mii_phy *phy, i
  {
- 	struct net_device *dev;
--	struct ep93xx_priv *ep;
+ 	struct mii_phy_def *def;
+ 	int i;
+-	u32 id;
++	int id;
  
- 	dev = alloc_etherdev(sizeof(struct ep93xx_priv));
- 	if (dev == NULL)
- 		return NULL;
--	ep = netdev_priv(dev);
+ 	phy->autoneg = AUTONEG_DISABLE;
+ 	phy->advertising = 0;
+@@ -324,6 +324,8 @@ int mii_phy_probe(struct mii_phy *phy, i
  
- 	memcpy(dev->dev_addr, data->dev_addr, ETH_ALEN);
- 
-@@ -840,9 +838,9 @@ static int ep93xx_eth_probe(struct platf
- 	struct ep93xx_priv *ep;
- 	int err;
- 
--	data = pdev->dev.platform_data;
- 	if (pdev == NULL)
- 		return -ENODEV;
-+	data = pdev->dev.platform_data;
- 
- 	dev = ep93xx_dev_alloc(data);
- 	if (dev == NULL) {
+ 	/* Read ID and find matching entry */
+ 	id = (phy_read(phy, MII_PHYSID1) << 16) | phy_read(phy, MII_PHYSID2);
++	if (id < 0)
++		return -ENODEV;
+ 	for (i = 0; (def = mii_phy_table[i]) != NULL; i++)
+ 		if ((id & def->phy_id_mask) == def->phy_id)
+ 			break;
 _
