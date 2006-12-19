@@ -1,45 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH]Fix BUG of ip_rt_send_redirect()
-Date: Mon, 18 Dec 2006 18:13:54 -0800 (PST)
-Message-ID: <20061218.181354.28800773.davem@davemloft.net>
-References: <1166492725.3180.18.camel@localhost.localdomain>
+From: Zhu Yi <yi.zhu@intel.com>
+Subject: Re: [PATCH] ieee80211: WLAN_GET_SEQ_SEQ fix
+Date: Tue, 19 Dec 2006 11:16:57 +0800
+Message-ID: <1166498217.10342.49.camel@debian.sh.intel.com>
+References: <20061218092613.GA27091@mail.intel.com>
+	 <4586C6D1.5060607@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49669
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S932647AbWLSCOT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Dec 2006 21:14:19 -0500
-To: lyw@nanjing-fnst.com
-In-Reply-To: <1166492725.3180.18.camel@localhost.localdomain>
+Received: from mga02.intel.com ([134.134.136.20]:1530 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752301AbWLSDTq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Dec 2006 22:19:46 -0500
+To: Larry Finger <larry.finger@lwfinger.net>
+In-Reply-To: <4586C6D1.5060607@lwfinger.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Li Yewang <lyw@nanjing-fnst.com>
-Date: Tue, 19 Dec 2006 09:45:25 +0800
+On Mon, 2006-12-18 at 10:50 -0600, Larry Finger wrote:
+> 
+> Shouldn't this fix have some commit message like "The
+> WLAN_GET_SEQ_SEQ(seq) macro in ieee80211 is 
+> selecting the wrong region."? That said, the fix conforms with the
+> IEEE802.11 specs.
+> 
+> Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net> 
 
-> David Miller <davem@davemloft.net> wrote:
-> 
-> > Applied, but I had to fix many errors in your patch by hand.
-> > Please take care of these details next time.
-> > 
-> > Here, your email client wrapped the lines in the patch, corrupting it.
-> > 
-> > Please use real tab characters, when necessary, in the indentation of
-> > new code lines that you add, not just spaces.
-> > 
-> > Thank you.
-> 
-> Mr David Miller
-> 
-> I have made another patch file about the ip_rt_send_redirect().
-> This patch has not wrapped lines, and can be patched into the kernel.
-> 
-> Following is my patch:
-> 
-> signed-off-by: Li Yewang <lyw@nanjing-fnst.com>
+OK. I thought it was obvious.
 
-I said I already fixed the patch up for you when I applied
-it, you didn't need to redo it.
+Thanks,
+-yi
