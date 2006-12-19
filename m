@@ -1,108 +1,48 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: [PATCH] via-velocity uses INET interfaces
-Date: Mon, 18 Dec 2006 21:21:10 -0800
-Message-ID: <20061218212110.45afff00.randy.dunlap@oracle.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: Bug#396185: sky2 freezes in 2.6.17-2-686. Maintainer confirms that it should be fixed in 2.6.19-git tree.
+Date: Tue, 19 Dec 2006 08:38:59 +0300
+Message-ID: <20061219053858.GB28980@2ka.mipt.ru>
+References: <20061031093051.GA3323@2ka.mipt.ru> <20061031093455.GX13178@baikonur.stro.at> <20061031094424.GA19052@2ka.mipt.ru> <20061116173532.GA10653@2ka.mipt.ru> <20061116093821.318efbe6@freekitty> <20061118112134.GI4213@nancy> <20061118112527.GA25624@2ka.mipt.ru> <20061129052948.GC13488@2ka.mipt.ru> <20061217141547.GA23387@2ka.mipt.ru> <20061218091728.2e1cf58b@freekitty>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: jgarzik <jgarzik@pobox.com>
+Content-Type: text/plain; charset=koi8-r
+Cc: maximilian attems <maks@sternwelten.at>, 396185@bugs.debian.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from agminet02.oracle.com ([141.146.126.229]:63706 "EHLO
-	agminet02.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752530AbWLSF2f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Dec 2006 00:28:35 -0500
-Received: from agminet01.oracle.com (agminet01.oracle.com [141.146.126.228])
-	by agminet02.oracle.com (Switch-3.2.4/Switch-3.1.7) with ESMTP id kBJ5SX8v014323
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Mon, 18 Dec 2006 23:28:33 -0600
-To: netdev <netdev@vger.kernel.org>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:55630 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752532AbWLSFjf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Dec 2006 00:39:35 -0500
+To: Stephen Hemminger <shemminger@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20061218091728.2e1cf58b@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Randy Dunlap <randy.dunlap@oracle.com>
-
-via-velocity doesn't build when CONFIG_INET=n:
-
-drivers/built-in.o: In function `velocity_unregister_notifier':
-via-velocity.c:(.text+0xe9b46): undefined reference to `unregister_inetaddr_notifier'
-drivers/built-in.o: In function `velocity_init_module':
-via-velocity.c:(.init.text+0xa027): undefined reference to `register_inetaddr_notifier'
-
-I wanted to make this change in drivers/net/Kconfig, but
-this isn't legal kconfig language:
-
- config VIA_VELOCITY
-        tristate "VIA Velocity support"
-        depends on NET_PCI && PCI
-+       depends on INET if PM
-        select CRC32
-        select CRC_CCITT
-        select MII
-
-so fix it in via-velocity.c instead.
-Builds with all 4 combinations of CONFIG_NET & CONFIG_PM.
-
-Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
----
- drivers/net/via-velocity.c |   18 +++++++++++++-----
- 1 file changed, 13 insertions(+), 5 deletions(-)
-
---- linux-2620-rc1g4.orig/drivers/net/via-velocity.c
-+++ linux-2620-rc1g4/drivers/net/via-velocity.c
-@@ -265,15 +265,19 @@ static int velocity_set_media_mode(struc
- static int velocity_suspend(struct pci_dev *pdev, pm_message_t state);
- static int velocity_resume(struct pci_dev *pdev);
+On Mon, Dec 18, 2006 at 09:17:28AM -0800, Stephen Hemminger (shemminger@osdl.org) wrote:
+> > Bug with freeze also exists in 2.6.18-3 (package version 2.6.18-7) - no
+> > messages in dmesg, no interrupts.
+> > It is dual lan board with only one port being used.
+> > rmmod/modprobe sequence brings NIC back to working mode.
+> > 
+> 
+> What are the statistics (ethtool -S eth0) after the hang.
+> One user reported a single pause frame being sent. I have can't reproduce
+> a hang with similar hardware, so am beginning to wonder if the problem is
+> pause negotiation, and interoperability problems??  Maybe the receiver gets
+> overloaded and sends one pause frame, but the switch can't really do flow
+> control and gets stuck.  I do stress tests with either a direct connect cable,
+> or with a switch that does flow control and lots of packets and see the driver/hardware
+> successfully doing flow control.
  
-+static DEFINE_SPINLOCK(velocity_dev_list_lock);
-+static LIST_HEAD(velocity_dev_list);
-+
-+#endif
-+
-+#if defined(CONFIG_PM) && defined(CONFIG_INET)
-+
- static int velocity_netdev_event(struct notifier_block *nb, unsigned long notification, void *ptr);
- 
- static struct notifier_block velocity_inetaddr_notifier = {
-       .notifier_call	= velocity_netdev_event,
- };
- 
--static DEFINE_SPINLOCK(velocity_dev_list_lock);
--static LIST_HEAD(velocity_dev_list);
--
- static void velocity_register_notifier(void)
- {
- 	register_inetaddr_notifier(&velocity_inetaddr_notifier);
-@@ -284,12 +288,12 @@ static void velocity_unregister_notifier
- 	unregister_inetaddr_notifier(&velocity_inetaddr_notifier);
- }
- 
--#else				/* CONFIG_PM */
-+#else
- 
- #define velocity_register_notifier()	do {} while (0)
- #define velocity_unregister_notifier()	do {} while (0)
- 
--#endif				/* !CONFIG_PM */
-+#endif
- 
- /*
-  *	Internal board variants. At the moment we have only one
-@@ -3292,6 +3296,8 @@ static int velocity_resume(struct pci_de
- 	return 0;
- }
- 
-+#ifdef CONFIG_INET
-+
- static int velocity_netdev_event(struct notifier_block *nb, unsigned long notification, void *ptr)
- {
- 	struct in_ifaddr *ifa = (struct in_ifaddr *) ptr;
-@@ -3312,4 +3318,6 @@ static int velocity_netdev_event(struct 
- 	}
- 	return NOTIFY_DONE;
- }
-+
-+#endif
- #endif
+Load was quite small - no huge transfers, just usual couple of ssh
+sessions to read mails, web. Switch is dlink dgs-1216t gigabit one which
+supports flow control (according to dlink spec).
 
+I will dump statistic and registers next time it happens - I do not know
+how to reproduce it on demand.
+ 
+> -- 
+> Stephen Hemminger <shemminger@osdl.org>
 
----
+-- 
+	Evgeniy Polyakov
