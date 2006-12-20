@@ -1,65 +1,58 @@
-From: Michael Wu <flamingice@sourmilk.net>
-Subject: [PATCH] d80211: allow migration to ieee80211_dev
-Date: Wed, 20 Dec 2006 01:31:17 -0500
-Message-ID: <200612200131.22776.flamingice@sourmilk.net>
+From: Ayaz Abdulla <aabdulla@nvidia.com>
+Subject: [PATCH] forcedeth: modified comment header
+Date: Tue, 19 Dec 2006 23:33:32 -0500
+Message-ID: <4588BD1C.1010308@nvidia.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart6047511.lIr4HQNP25";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: John Linville <linville@tuxdriver.com>, netdev@vger.kernel.org
+Content-Type: multipart/mixed;
+ boundary="------------030603060507000401020903"
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.rutgers.edu ([128.6.72.243]:20129 "EHLO
-	annwn14.rutgers.edu" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S964913AbWLTGbo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Dec 2006 01:31:44 -0500
-To: Jiri Benc <jbenc@suse.cz>
+Received: from hqemgate02.nvidia.com ([216.228.112.143]:8402 "EHLO
+	HQEMGATE02.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964905AbWLTGeK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Dec 2006 01:34:10 -0500
+To: Jeff Garzik <jgarzik@pobox.com>,
+	Manfred Spraul <manfred@colorfullife.com>,
+	Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart6047511.lIr4HQNP25
+This is a multi-part message in MIME format.
+--------------030603060507000401020903
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+
+This patch removes comment that forcedeth is not supported by NVIDIA.
+
+Signed-Off-By: Ayaz Abdulla <aabdulla@nvidia.com>
+
+
+--------------030603060507000401020903
 Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+ name="patch-forcedeth-header"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="patch-forcedeth-header"
 
-d80211: allow migration to ieee80211_dev
+--- orig-2.6/drivers/net/forcedeth.c	2006-12-19 23:16:38.000000000 -0500
++++ new-2.6/drivers/net/forcedeth.c	2006-12-19 23:19:28.000000000 -0500
+@@ -3,8 +3,7 @@
+  *
+  * Note: This driver is a cleanroom reimplementation based on reverse
+  *      engineered documentation written by Carl-Daniel Hailfinger
+- *      and Andrew de Quincey. It's neither supported nor endorsed
+- *      by NVIDIA Corp. Use at your own risk.
++ *      and Andrew de Quincey.
+  *
+  * NVIDIA, nForce and other NVIDIA marks are trademarks or registered
+  * trademarks of NVIDIA Corporation in the United States and other
+@@ -14,7 +13,7 @@
+  * Copyright (C) 2004 Andrew de Quincey (wol support)
+  * Copyright (C) 2004 Carl-Daniel Hailfinger (invalid MAC handling, insane
+  *		IRQ rate fixes, bigendian fixes, cleanups, verification)
+- * Copyright (c) 2004 NVIDIA Corporation
++ * Copyright (c) 2004,5,6 NVIDIA Corporation
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
 
-This patch allows drivers to switch from ieee80211_hw to ieee80211_dev befo=
-re=20
-we really rename ieee80211_hw and break everything.
-
-Signed-off-by: Michael Wu <flamingice@sourmilk.net>
-=2D--
-
- include/net/d80211.h |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
-
-diff --git a/include/net/d80211.h b/include/net/d80211.h
-index 65a5d36..f5de509 100644
-=2D-- a/include/net/d80211.h
-+++ b/include/net/d80211.h
-@@ -452,6 +452,9 @@ typedef enum {
- 	SET_KEY, DISABLE_KEY, REMOVE_ALL_KEYS,
- } set_key_cmd;
-=20
-+/* Will go away once ieee80211_hw is really renamed to ieee80211_dev.
-+   Please use ieee80211_dev in your driver. */
-+#define ieee80211_dev ieee80211_hw
- /* This is driver-visible part of the per-hw state the stack keeps. */
- struct ieee80211_hw {
- 	/* these are assigned by d80211, don't write */
-
---nextPart6047511.lIr4HQNP25
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2 (GNU/Linux)
-
-iD8DBQBFiNi6T3Oqt9AH4aERAu7OAJ9v67qm6sd9HYPM1C5D4OaGiK8xOgCeKwbe
-IYnurMAMp02s4iIYMXrjHiM=
-=XtI5
------END PGP SIGNATURE-----
-
---nextPart6047511.lIr4HQNP25--
+--------------030603060507000401020903--
