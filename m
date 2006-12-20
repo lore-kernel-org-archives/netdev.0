@@ -1,53 +1,70 @@
-From: "Maciej W. Rozycki" <macro@linux-mips.org>
-Subject: [PATCH 2.6.20-rc1 04/10] EISA registration with !CONFIG_EISA
-Date: Wed, 20 Dec 2006 12:01:49 +0000 (GMT)
-Message-ID: <Pine.LNX.4.64N.0612191816460.20895@blysk.ds.pg.gda.pl>
+From: Jiri Benc <jbenc@suse.cz>
+Subject: Re: [PATCH] d80211: fix softlockup in hw_scan card when rmmod
+Date: Wed, 20 Dec 2006 13:21:06 +0100
+Message-ID: <20061220132106.4634f818@griffin.suse.cz>
+References: <1166597031.22413.11.camel@devlinux-hong>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: linux-mips@linux-mips.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <linux-mips-bounce@linux-mips.org>
-To: Andrew Morton <akpm@osdl.org>, Jeff Garzik <jgarzik@pobox.com>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from styx.suse.cz ([82.119.242.94]:36857 "EHLO mail.suse.cz"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754806AbWLTMUQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Dec 2006 07:20:16 -0500
+To: Hong Liu <hong.liu@intel.com>
+In-Reply-To: <1166597031.22413.11.camel@devlinux-hong>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
- This is a change for the EISA bus support to permit drivers to call 
-un/registration functions even if EISA support has not been enabled.  This 
-is similar to what PCI (and now TC) does and reduces the need for #ifdef 
-clutter.
+On Wed, 20 Dec 2006 14:43:51 +0800, Hong Liu wrote:
+> The local->scan_work.data is not clear after scan is completed.
+> 
+> This will cause softlockup when removing driver module because 
+> the local->scan_work is not initialized for hw_scan card
+> and we are trying to cancel the scan_work with an uninitialized timer_list.
 
-Signed-off-by: Maciej W. Rozycki <macro@linux-mips.org>
+I think this is a better fix:
 ---
+Subject: [PATCH] d80211: do not cancel uninitialized work
 
- This is required by the updated defxx driver.
+When ops->hw_scan is set, scan_work is never initialized thus canceling it
+causes weird problems.
 
- Please apply.
+Signed-off-by: Jiri Benc <jbenc@suse.cz>
 
-  Maciej
+---
+ net/d80211/ieee80211.c |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
 
-patch-mips-2.6.18-20060920-eisa-register-0
-diff -up --recursive --new-file linux-mips-2.6.18-20060920.macro/include/linux/eisa.h linux-mips-2.6.18-20060920/include/linux/eisa.h
---- linux-mips-2.6.18-20060920.macro/include/linux/eisa.h	2003-10-10 04:00:31.000000000 +0000
-+++ linux-mips-2.6.18-20060920/include/linux/eisa.h	2006-12-14 22:43:31.000000000 +0000
-@@ -67,10 +67,20 @@ struct eisa_driver {
+--- dscape.orig/net/d80211/ieee80211.c
++++ dscape/net/d80211/ieee80211.c
+@@ -2082,7 +2082,8 @@ void ieee80211_if_shutdown(struct net_de
+ 	case IEEE80211_IF_TYPE_IBSS:
+ 		sdata->u.sta.state = IEEE80211_DISABLED;
+ 		cancel_delayed_work(&sdata->u.sta.work);
+-		if (local->scan_work.data == sdata->dev) {
++		if (!local->ops->hw_scan &&
++		    local->scan_work.data == sdata->dev) {
+ 			local->sta_scanning = 0;
+ 			cancel_delayed_work(&local->scan_work);
+ 			flush_scheduled_work();
+@@ -4660,7 +4661,7 @@ void ieee80211_unregister_hw(struct ieee
  
- #define to_eisa_driver(drv) container_of(drv,struct eisa_driver, driver)
- 
-+/* These external functions are only available when EISA support is enabled. */
-+#ifdef CONFIG_EISA
-+
- extern struct bus_type eisa_bus_type;
- int eisa_driver_register (struct eisa_driver *edrv);
- void eisa_driver_unregister (struct eisa_driver *edrv);
- 
-+#else /* !CONFIG_EISA */
-+
-+static inline int eisa_driver_register (struct eisa_driver *edrv) { return 0; }
-+static inline void eisa_driver_unregister (struct eisa_driver *edrv) { }
-+
-+#endif /* !CONFIG_EISA */
-+
- /* Mimics pci.h... */
- static inline void *eisa_get_drvdata (struct eisa_device *edev)
- {
+ 	if (local->stat_time)
+ 		del_timer_sync(&local->stat_timer);
+-	if (local->scan_work.data) {
++	if (!local->ops->hw_scan && local->scan_work.data) {
+ 		local->sta_scanning = 0;
+ 		cancel_delayed_work(&local->scan_work);
+ 		flush_scheduled_work();
+
+
+Thanks,
+
+ Jiri
+
+-- 
+Jiri Benc
+SUSE Labs
