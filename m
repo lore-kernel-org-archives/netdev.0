@@ -1,36 +1,37 @@
-From: Hong Liu <hong.liu@intel.com>
-Subject: [PATCH] d80211: fix get_tsf call
-Date: Wed, 20 Dec 2006 16:04:25 +0800
-Message-ID: <1166601865.22609.1.camel@devlinux-hong>
+From: Zhu Yi <yi.zhu@intel.com>
+Subject: [PATCH] ipw2100: Fix dropping fragmented small packet problem
+Date: Wed, 20 Dec 2006 16:11:58 +0800
+Message-ID: <20061220081158.GA28311@mail.intel.com>
+Reply-To: yi.zhu@intel.com
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga02.intel.com ([134.134.136.20]:10469 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S964921AbWLTIOu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Dec 2006 03:14:50 -0500
-To: Jiri Benc <jbenc@suse.cz>
+	id S964927AbWLTIO4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Dec 2006 03:14:56 -0500
+To: netdev@vger.kernel.org, "John W. Linville" <linville@tuxdriver.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-get_tsf passes the wrong pointer to driver.
+The rx_data.header struct is ieee80211_hdr_4addr. If a wireless frame uses
+ieee80211_hdr_3addr header and is less than 6 bytes, it will be discarded.
+This is not likely going to happen for normal packets (since there is TCP, IP
+headers). But if fragmentation is used, there will be such small trailing
+packets. And they will be lost for ever.
 
+Signed-off-by: Zhu Yi <yi.zhu@intel.com>
 
-Signed-off-by: Hong Liu <hong.liu@intel.com>
-
-diff --git a/net/d80211/ieee80211_sta.c b/net/d80211/ieee80211_sta.c
-index 3b55427..e48295e 100644
---- a/net/d80211/ieee80211_sta.c
-+++ b/net/d80211/ieee80211_sta.c
-@@ -2482,7 +2482,7 @@ #ifdef CONFIG_D80211_IBSS_DEBUG
- 		static unsigned long last_tsf_debug = 0;
- 		u64 tsf;
- 		if (local->ops->get_tsf)
--			tsf = local->ops->get_tsf(local->mdev);
-+			tsf = local->ops->get_tsf(local_to_hw(local));
- 		else
- 			tsf = -1LLU;
- 		if (time_after(jiffies, last_tsf_debug + 5 * HZ)) {
+diff -urp ipw2100-1.2.1/ipw2100.c ipw2100-1.2.1-frag/ipw2100.c
+--- ipw2100-1.2.1/ipw2100.c	2006-02-22 02:46:17.000000000 +0800
++++ ipw2100-1.2.1-frag/ipw2100.c	2006-12-15 17:16:15.000000000 +0800
+@@ -2658,7 +2658,7 @@ static void __ipw2100_rx_process(struct 
+ 				break;
+ 			}
+ #endif
+-			if (stats.len < sizeof(u->rx_data.header))
++			if (stats.len < sizeof(struct ieee80211_hdr_3addr))
+ 				break;
+ 			switch (WLAN_FC_GET_TYPE(u->rx_data.header.frame_ctl)) {
+ 			case IEEE80211_FTYPE_MGMT:
