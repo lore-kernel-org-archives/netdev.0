@@ -1,73 +1,92 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][RFC] tcp: fix ambiguity in the `before' relation
-Date: Wed, 20 Dec 2006 10:31:12 -0800 (PST)
-Message-ID: <20061220.103112.85414445.davem@davemloft.net>
-References: <200612141507.06888@strip-the-willow>
+Subject: Re: [PATCH 3/4] net: move softnet_data
+Date: Wed, 20 Dec 2006 10:39:58 -0800 (PST)
+Message-ID: <20061220.103958.72709464.davem@davemloft.net>
+References: <20061214204814.631279000@osdl.org>
+	<20061214204900.958451000@osdl.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: Text/Plain; charset=iso-2022-jp-2
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37341
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43270
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1030266AbWLTSbU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Dec 2006 13:31:20 -0500
-To: gerrit@erg.abdn.ac.uk
-In-Reply-To: <200612141507.06888@strip-the-willow>
+	by vger.kernel.org with ESMTP id S1030272AbWLTSj7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Dec 2006 13:39:59 -0500
+To: shemminger@osdl.org
+In-Reply-To: <20061214204900.958451000@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Date: Thu, 14 Dec 2006 15:07:06 +0000
+From: Stephen Hemminger <shemminger@osdl.org>
+Date: Thu, 14 Dec 2006 12:48:17 -0800
 
-> While looking at DCCP sequence numbers, I stumbled over a problem with
-> the following definition of before in tcp.h:
+> Make softnet_data local to dev.c.  
 > 
-> static inline int before(__u32 seq1, __u32 seq2)
-> {
->         return (__s32)(seq1-seq2) < 0;
-> }
-> 
-> Problem: This definition suffers from an an ambiguity, i.e. always
->                    
->            before(a, (a + 2^31) % 2^32)) = 1
->            before((a + 2^31) % 2^32), a) = 1
+> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+
+Slight mistake here, I think:
+
+> +#ifdef CONFIG_NETPOLL
+> +extern void		netpoll_do_completion(void);
+> +#endif
+
+Ok.
+
+> --- linux-2.6.20-rc1.orig/net/core/dev.c
+> +++ linux-2.6.20-rc1/net/core/dev.c
+ ...
+> @@ -1673,6 +1686,34 @@ static inline struct net_device *skb_bon
+>  	return dev;
+>  }
 >  
->          In text: when the difference between a and b amounts to 2^31,
->          a is always considered `before' b, the function can not decide. 
->          The reason is that implicitly 0 is `before' 1 ... 2^31-1 ... 2^31
->       
-> Solution: There is a simple fix, by defining before in such a way that 
->           0 is no longer `before' 2^31, i.e. 0 `before' 1 ... 2^31-1
->           By not using the middle between 0 and 2^32, before can be made 
->           unambiguous. 
->           This is achieved by testing whether seq2-seq1 > 0 (using signed
->           32-bit arithmetic).
-> 
-> I attach a patch to codify this. Also the `after' relation is basically 
-> a redefinition of `before', it is now defined as a macro after before.
-> 
-> Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+> +#ifdef CONFIG_NETPOLL
+> +void netpoll_do_completion(void)
+> +{
 
-Applied, thanks Gerrit.
+Ok.
 
-I went over this patch and analysis a dozen times, because I
-couldn't believe something like this has been broken for
-so long :-)
+> --- linux-2.6.20-rc1.orig/net/core/netpoll.c
+> +++ linux-2.6.20-rc1/net/core/netpoll.c
+  ...
+> @@ -181,7 +180,7 @@ static void refill_skbs(void)
+>  	spin_unlock_irqrestore(&skb_pool.lock, flags);
+>  }
+>  
+> -static void zap_completion_queue(void)
+> +static void netpoll_do_completion(void)
+>  {
+>  	unsigned long flags;
+>  	struct softnet_data *sd = &get_cpu_var(softnet_data);
+> @@ -212,7 +211,7 @@ static struct sk_buff *find_skb(struct n
+>  	int count = 0;
+>  	struct sk_buff *skb;
+>  
+> -	zap_completion_queue();
+> +	netpoll_do_completion();
+>  	refill_skbs();
+>  repeat:
 
-Even BSD suffers of this issue, since the beginning.  See
-SEQ_LT() in tcp_seq.h, and it seems that BSD's timestamp
-sequence checking has the issue too (see TSTMP_LT() macro
-in OpenBSD's tcp_input.c)
+-ENOTESTED, I think this makes netpoll_do_completion() call itself,
+ie. the local static version here, not the one you are exporting from
+net/core/dev.c
 
-It seems that our PAWS timestamp checks are ok because we do:
+Because of the extern you added, I can't see how the compiler
+didn't complain loudly about this mismatch.
 
-(s32)(tp->rx_opt.ts_recent - tp->rx_opt.rcv_tsval) > TCP_PAWS_WINDOW
+I had to see this, so I compiled it myself, and it doesn't even
+build:
 
-and
+  CC      net/core/netpoll.o
+net/core/netpoll.c:184: error: static declaration of $,1rx(Bnetpoll_do_completion$,1ry(B follows non-static declaration
+include/linux/netdevice.h:604: error: previous declaration of $,1rx(Bnetpoll_do_completion$,1ry(B was here
+net/core/netpoll.c: In function $,1rx(Bnetpoll_do_completion$,1ry(B:
+net/core/netpoll.c:186: error: $,1rx(Bper_cpu__softnet_data$,1ry(B undeclared (first use in this function)
+net/core/netpoll.c:186: error: (Each undeclared identifier is reported only once
+net/core/netpoll.c:186: error: for each function it appears in.)
+net/core/netpoll.c:188: error: dereferencing pointer to incomplete type
+net/core/netpoll.c:192: error: dereferencing pointer to incomplete type
+net/core/netpoll.c:193: error: dereferencing pointer to incomplete type
 
-(s32)(tp->rx_opt.rcv_tsval - tp->rx_opt.ts_recent) >= 0
-
-Thanks again Gerrit.
-
+Stephen... come on :-)
 
