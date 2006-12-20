@@ -1,108 +1,35 @@
-From: Mike Frysinger <vapier@gentoo.org>
-Subject: [patch] handle pktgen setup in newer kernels in iputils/ipg
-Date: Wed, 20 Dec 2006 10:09:03 -0500
-Message-ID: <200612201009.04138.vapier@gentoo.org>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: [patch] use socklen_t in iputils rather than just int
+Date: Thu, 21 Dec 2006 00:12:42 +0900 (JST)
+Message-ID: <20061221.001242.07124353.yoshfuji@linux-ipv6.org>
+References: <200612201000.32723.vapier@gentoo.org>
 Mime-Version: 1.0
-Content-Type: Multipart/Mixed;
-  boundary="Boundary-00=_QIViFzf+MbU8EpN"
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.gentoo.org ([140.211.166.183]:55020 "EHLO smtp.gentoo.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965119AbWLTPJB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Dec 2006 10:09:01 -0500
-Received: from home.wh0rd.org (pool-141-154-225-206.bos.east.verizon.net [141.154.225.206])
-	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	by smtp.gentoo.org (Postfix) with ESMTP id 2944B6476B
-	for <netdev@vger.kernel.org>; Wed, 20 Dec 2006 15:08:54 +0000 (UTC)
-To: netdev@vger.kernel.org
+Received: from yue.linux-ipv6.org ([203.178.140.15]:41174 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965124AbWLTPMK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Dec 2006 10:12:10 -0500
+To: vapier@gentoo.org
+In-Reply-To: <200612201000.32723.vapier@gentoo.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Boundary-00=_QIViFzf+MbU8EpN
-Content-Type: multipart/signed;
-  boundary="nextPart1989247.H7Xo9HdZQs";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
+In article <200612201000.32723.vapier@gentoo.org> (at Wed, 20 Dec 2006 10:00:32 -0500), Mike Frysinger <vapier@gentoo.org> says:
 
---nextPart1989247.H7Xo9HdZQs
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+> a bunch of places in iputils utilize "int" lengths when in reality they should 
+> be using socklen_t
 
-the ipg script only works with the old "pg3" module and not the new "pktgen=
-"=20
-module ... attached patch updates the ipg script to support both
-=2Dmike
+Patch applied.  Thanks.
 
---nextPart1989247.H7Xo9HdZQs
-Content-Type: application/pgp-signature
+Please add some prefix in subject, please;
+e.g. Subject: [IPUTILS] Use socklen_t in all the right places.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.5 (GNU/Linux)
+Regards,
 
-iD8DBQBFiVIQK9sYciBdMQMRAthTAJ9gYoMQqag09jocyhA2Ia1wVmgJUgCdGH9k
-DYIxuuJhsQBZ1GljiAErlDs=
-=TQtq
------END PGP SIGNATURE-----
-
---nextPart1989247.H7Xo9HdZQs--
-
---Boundary-00=_QIViFzf+MbU8EpN
-Content-Type: text/x-diff;
-  charset="us-ascii";
-  name="iputils-ipg-tweaks.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
-	filename="iputils-ipg-tweaks.patch"
-
-Only load modules if kernel supports modules and try a little bit
-harder to locate the pg directory in /proc with newer kernels.
-
-Signed-off-by: Mike Frysinger <vapier@gentoo.org>
-
---- a/ipg
-+++ b/ipg
-@@ -1,21 +1,32 @@
- #! /bin/bash
- 
--modprobe pg3
-+if [ -e /proc/modules ] ; then
-+	modprobe pg3 >& /dev/null
-+	modprobe pktgen >& /dev/null
-+fi
-+
-+for PGDEV in /proc/net/pg /proc/net/pktgen/pg0 / ; do
-+	[ -e ${PGDEV} ] && break
-+done
-+if [ "${PGDEV}" = "/" ] ; then
-+	echo "Could not locate pg in /proc/net" 1>&2
-+	exit 1
-+fi
- 
- function pgset() {
-     local result
- 
--    echo $1 > /proc/net/pg
-+    echo $1 > ${PGDEV}
- 
--    result=`cat /proc/net/pg | fgrep "Result: OK:"`
-+    result=`cat ${PGDEV} | fgrep "Result: OK:"`
-     if [ "$result" = "" ]; then
--         cat /proc/net/pg | fgrep Result:
-+         cat ${PGDEV} | fgrep Result:
-     fi
- }
- 
- function pg() {
--    echo inject > /proc/net/pg
--    cat /proc/net/pg
-+    echo inject > ${PGDEV}
-+    cat ${PGDEV}
- }
- 
- pgset "odev eth0"
-
---Boundary-00=_QIViFzf+MbU8EpN--
+-- 
+YOSHIFUJI Hideaki @ USAGI Project  <yoshfuji@linux-ipv6.org>
+GPG-FP  : 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
