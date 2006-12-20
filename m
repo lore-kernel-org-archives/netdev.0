@@ -1,107 +1,36 @@
-From: Mike Frysinger <vapier@gentoo.org>
-Subject: [patch/iputils] tweak makefile to be more flexible
-Date: Wed, 20 Dec 2006 10:23:58 -0500
-Message-ID: <200612201023.59455.vapier@gentoo.org>
+From: Olivier Galibert <galibert@pobox.com>
+Subject: Re: Network drivers that don't suspend on interface down
+Date: Wed, 20 Dec 2006 16:27:01 +0100
+Message-ID: <20061220152701.GA22928@dspnet.fr.eu.org>
+References: <20061219185223.GA13256@srcf.ucam.org> <200612191959.43019.david-b@pacbell.net> <20061220042648.GA19814@srcf.ucam.org> <200612192114.49920.david-b@pacbell.net> <20061220053417.GA29877@suse.de> <20061220055209.GA20483@srcf.ucam.org> <1166601025.3365.1345.camel@laptopd505.fenrus.org> <20061220125314.GA24188@srcf.ucam.org> <1166621931.3365.1384.camel@laptopd505.fenrus.org>
 Mime-Version: 1.0
-Content-Type: Multipart/Mixed;
-  boundary="Boundary-00=_PWViF4u5oM3Osnz"
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.gentoo.org ([140.211.166.183]:37227 "EHLO smtp.gentoo.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965129AbWLTPXy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Dec 2006 10:23:54 -0500
-Received: from home.wh0rd.org (pool-141-154-225-206.bos.east.verizon.net [141.154.225.206])
-	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	by smtp.gentoo.org (Postfix) with ESMTP id B77DE649DA
-	for <netdev@vger.kernel.org>; Wed, 20 Dec 2006 15:23:47 +0000 (UTC)
-To: netdev@vger.kernel.org
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Matthew Garrett <mjg59@srcf.ucam.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965135AbWLTP1F@vger.kernel.org>
+To: Arjan van de Ven <arjan@infradead.org>
+Content-Disposition: inline
+In-Reply-To: <1166621931.3365.1384.camel@laptopd505.fenrus.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Boundary-00=_PWViF4u5oM3Osnz
-Content-Type: multipart/signed;
-  boundary="nextPart4879543.jKogtMC1jc";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
+On Wed, Dec 20, 2006 at 02:38:51PM +0100, Arjan van de Ven wrote:
+> [1] What kind of latency would be allowed? Would an implementation be
+> allowed to power up the phy say once per minute or once per 5 minutes to
+> see if there is link? The implementation could do this progressively;
+> first poll every X seconds, then after an hour, every minute etc.
 
---nextPart4879543.jKogtMC1jc
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+I suspect that the hard maximum latency is the time needed by the user
+to start the network himself, be it opening a root xterm and doing the
+appropriate invocation or pulling up and clicking where appropriate in
+a GUI.  That's probably around 5 seconds.  Over that, and they won't
+even notice there is an autodetection running.
 
-this patch tweaks the makefile so that it respects user environment variabl=
-es=20
-such as CC/CFLAGS/etc... and cleans out some cruft that is no longer utiliz=
-ed
-=2Dmike
+But still, 5 seconds is probably too much too, because it's going to
+look like it's unreliable.  The user has to see something happen
+within half-a-second or so, otherwise he's going to start doing it by
+hand.  The "see" part is distribution/desktop-dependant and not the
+kernel problem, but the top chrono happens when the rj45 is plugged
+in.
 
---nextPart4879543.jKogtMC1jc
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.5 (GNU/Linux)
-
-iD8DBQBFiVWPK9sYciBdMQMRAvBxAJ40WiBfFAZUXWsSRdSobG8gJ6t1iQCgh60i
-9OQsxID/VPCIeQJOx08pRg4=
-=I+/n
------END PGP SIGNATURE-----
-
---nextPart4879543.jKogtMC1jc--
-
---Boundary-00=_PWViF4u5oM3Osnz
-Content-Type: text/x-diff;
-  charset="us-ascii";
-  name="iputils-makefile.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
-	filename="iputils-makefile.patch"
-
-Respect user environment variables.
-
-Signed-off-by: Mike Frysinger <vapier@gentoo.org>
-
-diff --git a/Makefile b/Makefile
-index 54c1de5..7a7b045 100644
---- a/Makefile
-+++ b/Makefile
-@@ -1,20 +1,18 @@
- # Path to parent kernel include files directory
- LIBC_INCLUDE=/usr/include
- 
--DEFINES= 
--
- #options if you have a bind>=4.9.4 libresolv (or, maybe, glibc)
- LDLIBS=-lresolv
--ADDLIB=
- 
- #options if you compile with libc5, and without a bind>=4.9.4 libresolv
- # NOT AVAILABLE. Please, use libresolv.
- 
--CC=gcc
-+CC ?= gcc
- # What a pity, all new gccs are buggy and -Werror does not work. Sigh.
- #CCOPT=-D_GNU_SOURCE -O2 -Wstrict-prototypes -Wall -g -Werror
--CCOPT=-D_GNU_SOURCE -O2 -Wstrict-prototypes -Wall -g
--CFLAGS=$(CCOPT) $(GLIBCFIX) $(DEFINES) 
-+CFLAGS ?= -O2 -g
-+CFLAGS += -Wstrict-prototypes -Wall
-+CPPFLAGS += -D_GNU_SOURCE
- 
- IPV4_TARGETS=tracepath ping clockdiff rdisc arping tftpd rarpd
- IPV6_TARGETS=tracepath6 traceroute6 ping6
-@@ -33,9 +31,8 @@ ping.o ping6.o ping_common.o: ping_common.h
- tftpd.o tftpsubs.o: tftp.h
- 
- rdisc_srv: rdisc_srv.o
--
- rdisc_srv.o: rdisc.c
--	$(CC) $(CFLAGS) -DRDISC_SERVER -o rdisc_srv.o rdisc.c
-+	$(CC) $(CFLAGS) $(CPPFLAGS) -DRDISC_SERVER -o rdisc_srv.o rdisc.c
- 
- 
- check-kernel:
-
---Boundary-00=_PWViF4u5oM3Osnz--
+  OG.
