@@ -1,43 +1,35 @@
-From: Arjan van de Ven <arjan@infradead.org>
+From: "Maciej W. Rozycki" <macro@linux-mips.org>
 Subject: Re: Network drivers that don't suspend on interface down
-Date: Wed, 20 Dec 2006 16:51:39 +0100
-Message-ID: <1166629900.3365.1428.camel@laptopd505.fenrus.org>
-References: <20061219185223.GA13256@srcf.ucam.org>
-	 <200612191959.43019.david-b@pacbell.net>
-	 <20061220042648.GA19814@srcf.ucam.org>
-	 <200612192114.49920.david-b@pacbell.net> <20061220053417.GA29877@suse.de>
-	 <20061220055209.GA20483@srcf.ucam.org>
-	 <1166601025.3365.1345.camel@laptopd505.fenrus.org>
-	 <20061220125314.GA24188@srcf.ucam.org>
-	 <1166621931.3365.1384.camel@laptopd505.fenrus.org>
-	 <20061220143134.GA25462@srcf.ucam.org>
+Date: Wed, 20 Dec 2006 16:04:00 +0000 (GMT)
+Message-ID: <Pine.LNX.4.64N.0612201558250.11005@blysk.ds.pg.gda.pl>
+References: <20061219185223.GA13256@srcf.ucam.org> <200612191959.43019.david-b@pacbell.net>
+ <20061220042648.GA19814@srcf.ucam.org> <200612192114.49920.david-b@pacbell.net>
+ <20061220053417.GA29877@suse.de> <20061220055209.GA20483@srcf.ucam.org>
+ <1166601025.3365.1345.camel@laptopd505.fenrus.org> <20061220125314.GA24188@srcf.ucam.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:47198 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754812AbWLTPvm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Dec 2006 10:51:42 -0500
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Arjan van de Ven <arjan@infradead.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965143AbWLTQEI@vger.kernel.org>
 To: Matthew Garrett <mjg59@srcf.ucam.org>
-In-Reply-To: <20061220143134.GA25462@srcf.ucam.org>
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <20061220125314.GA24188@srcf.ucam.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Wed, 20 Dec 2006, Matthew Garrett wrote:
 
-> Yeah, I guess that's a problem. From a user perspective, the 
-> functionality is only really useful if the latency is very small. I 
-> think where possible we'd want to power down the chip while keeping the 
-> phy up, but it would be nice to know how much power that would actually 
-> cost us.
+> As far as I can tell, the following network devices don't put the 
+> hardware into D3 on interface down:
+[...]
+> defxx
 
+ No support in the hardware for that.  Even revision 3 of the board which 
+is the last one and the only to support PCI 2.2 says:
 
-I'm no expert but afaik the PHY is the power hungry part, the rest is
-peanuts. So if we can get the PHY to sleep most of the time that would
-be great.
+Capabilities: [50] Power Management version 2
+        Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0-,D1-,D2-,D3hot-,D3cold-)
+        Status: D0 PME-Enable- DSel=0 DScale=0 PME-
 
--- 
-if you want to mail me at work (you don't), use arjan (at) linux.intel.com
-Test the interaction between Linux and your BIOS via http://www.linuxfirmwarekit.org
+;-)
 
+  Maciej
