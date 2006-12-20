@@ -1,92 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/4] net: move softnet_data
-Date: Wed, 20 Dec 2006 10:39:58 -0800 (PST)
-Message-ID: <20061220.103958.72709464.davem@davemloft.net>
-References: <20061214204814.631279000@osdl.org>
-	<20061214204900.958451000@osdl.org>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp-2
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+From: Steve Wise <swise@opengridcomputing.com>
+Subject: [PATCH  v5 00/13] iw_cxgb3 - Chelsio T3 RDMA Driver
+Date: Wed, 20 Dec 2006 13:17:54 -0600
+Message-ID: <20061220191754.19316.4914.stgit@dell3.ogc.int>
+Content-Type: text/plain; charset=utf-8; format=fixed
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, openib-general@openib.org,
+	linux-kernel@vger.kernel.org, jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43270
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1030272AbWLTSj7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Dec 2006 13:39:59 -0500
-To: shemminger@osdl.org
-In-Reply-To: <20061214204900.958451000@osdl.org>
+Received: from rrcs-24-153-217-226.sw.biz.rr.com ([24.153.217.226]:38346 "EHLO
+	smtp.opengridcomputing.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1030291AbWLTTRz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Dec 2006 14:17:55 -0500
+To: rdreier@cisco.com
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@osdl.org>
-Date: Thu, 14 Dec 2006 12:48:17 -0800
 
-> Make softnet_data local to dev.c.  
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+Roland, 
 
-Slight mistake here, I think:
+I think this is ready to go once the ethernet driver is pulled in by Jeff.  
 
-> +#ifdef CONFIG_NETPOLL
-> +extern void		netpoll_do_completion(void);
-> +#endif
+Also: I'm gone after today returning Wednesday Jan 3rd.  I'll address any
+new issues when I return.  
 
-Ok.
+Cheers!
 
-> --- linux-2.6.20-rc1.orig/net/core/dev.c
-> +++ linux-2.6.20-rc1/net/core/dev.c
- ...
-> @@ -1673,6 +1686,34 @@ static inline struct net_device *skb_bon
->  	return dev;
->  }
->  
-> +#ifdef CONFIG_NETPOLL
-> +void netpoll_do_completion(void)
-> +{
+Steve.
 
-Ok.
+----
 
-> --- linux-2.6.20-rc1.orig/net/core/netpoll.c
-> +++ linux-2.6.20-rc1/net/core/netpoll.c
-  ...
-> @@ -181,7 +180,7 @@ static void refill_skbs(void)
->  	spin_unlock_irqrestore(&skb_pool.lock, flags);
->  }
->  
-> -static void zap_completion_queue(void)
-> +static void netpoll_do_completion(void)
->  {
->  	unsigned long flags;
->  	struct softnet_data *sd = &get_cpu_var(softnet_data);
-> @@ -212,7 +211,7 @@ static struct sk_buff *find_skb(struct n
->  	int count = 0;
->  	struct sk_buff *skb;
->  
-> -	zap_completion_queue();
-> +	netpoll_do_completion();
->  	refill_skbs();
->  repeat:
+Version 5 changes:
 
--ENOTESTED, I think this makes netpoll_do_completion() call itself,
-ie. the local static version here, not the one you are exporting from
-net/core/dev.c
+- BugFix: fixed broken endpoint state serialization
+- Merged up to linus's tree as of 12/18/2006 (2.6.20-rc1)
+- Removed all blank characters at the end of lines
 
-Because of the extern you added, I can't see how the compiler
-didn't complain loudly about this mismatch.
+The following series implements the Chelsio T3 iWARP/RDMA Driver to
+be considered for inclusion in 2.6.20.  It depends on the Chelsio T3
+Ethernet driver which is also under review now for 2.6.20. 
 
-I had to see this, so I compiled it myself, and it doesn't even
-build:
+The latest Chelsio T3 Ethernet driver patch can be pulled from:
 
-  CC      net/core/netpoll.o
-net/core/netpoll.c:184: error: static declaration of $,1rx(Bnetpoll_do_completion$,1ry(B follows non-static declaration
-include/linux/netdevice.h:604: error: previous declaration of $,1rx(Bnetpoll_do_completion$,1ry(B was here
-net/core/netpoll.c: In function $,1rx(Bnetpoll_do_completion$,1ry(B:
-net/core/netpoll.c:186: error: $,1rx(Bper_cpu__softnet_data$,1ry(B undeclared (first use in this function)
-net/core/netpoll.c:186: error: (Each undeclared identifier is reported only once
-net/core/netpoll.c:186: error: for each function it appears in.)
-net/core/netpoll.c:188: error: dereferencing pointer to incomplete type
-net/core/netpoll.c:192: error: dereferencing pointer to incomplete type
-net/core/netpoll.c:193: error: dereferencing pointer to incomplete type
+  http://service.chelsio.com/kernel.org/cxgb3.patch.bz2
 
-Stephen... come on :-)
+This T3 iWARP/RDMA Driver patch series can be pulled from:
 
+  http://www.opengridcomputing.com/downloads/iw_cxgb3_patches_v5.tar.bz2
+
+A complete GIT kernel tree with all the T3 drivers can be pulled from:
+
+  git://staging.openfabrics.org/~swise/cxgb3.git
