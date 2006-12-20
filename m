@@ -1,38 +1,36 @@
-From: Pekka Savola <pekkas@netcore.fi>
-Subject: ND unsolicited NAs when address is added?
-Date: Wed, 20 Dec 2006 12:22:56 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0612201213530.22453@netcore.fi>
+From: "Maciej W. Rozycki" <macro@linux-mips.org>
+Subject: [PATCH 2.6.20-rc1 00/10] TURBOchannel update to the driver model
+Date: Wed, 20 Dec 2006 12:01:19 +0000 (GMT)
+Message-ID: <Pine.LNX.4.64N.0612182115550.10069@blysk.ds.pg.gda.pl>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from netcore.fi ([193.94.160.1]:60024 "EHLO netcore.fi"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932749AbWLTKgZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Dec 2006 05:36:25 -0500
-Received: from localhost (pekkas@localhost)
-	by netcore.fi (8.12.11.20060614/8.12.11) with ESMTP id kBKAMuA3022621
-	for <netdev@vger.kernel.org>; Wed, 20 Dec 2006 12:22:56 +0200
-To: netdev@vger.kernel.org
-Sender: netdev-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-mips@linux-mips.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-fbdev-devel@lists.sourceforge.net,
+	linux-scsi@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754627AbWLTMB2@vger.kernel.org>
+To: Andrew Morton <akpm@osdl.org>, Ralf Baechle <ralf@linux-mips.org>,
+	Jeff Garzik <jgarzik@pobox.com>,
+	Antonino Daplas <adaplas@pol.net>, James.Bottomley@SteelEye.com
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Hello,
 
-RFC2461 specifies in section 7.2.6 that a host may send unsolicited 
-NA(s) for example when its link layer address changes or IP address is 
-added to inform the neighbors that their ND cache may need to be 
-updated.
+ It has been much longer than expected, but finally it is here!  This 
+series of patches converts support for the TURBOchannel bus to the driver 
+model.  As a nice side effect, the generic part of the code is now really 
+generic, that is no more dependencies on MIPS specifics under drivers/tc/ 
+and platform specific code for MIPS got moved where it belongs.  As to 
+whether other relevant platforms will add TURBOchannel support or not I 
+cannot tell right now. ;-)
 
-Some current routers (probably) erroneously depend on this to reduce 
-the "downtime" if an IP address is moved from one host to another 
-(otherwise they'll continue to forward packets to the old link-layer 
-address until their ND cache timeouts).
+ All the changes have been successfully tested with a DECstation 5000/133 
+and the necessary bits of additional hardware as appropriate.  Where 
+drivers supporting different bus attachments were concerned, they were 
+built for configurations enabling all the other buses supported and 
+run-time checked if possible.
 
-I tested this behaviour on Linux 2.6.18 and FreeBSD 6.2 and neither 
-sends these unsolicited NAs when an IP address is configured.  Is 
-there a reason not to add this optimization?
+ And last but not least, thanks to James Simmons for beginning this work a 
+while ago as his code was great to start with.
 
--- 
-Pekka Savola                 "You each name yourselves king, yet the
-Netcore Oy                    kingdom bleeds."
-Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
+  Maciej
