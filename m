@@ -1,91 +1,69 @@
-From: Matthew Garrett <mjg59@srcf.ucam.org>
-Subject: Network drivers that don't suspend on interface down
-Date: Wed, 20 Dec 2006 12:53:14 +0000
-Message-ID: <20061220125314.GA24188@srcf.ucam.org>
-References: <20061219185223.GA13256@srcf.ucam.org> <200612191959.43019.david-b@pacbell.net> <20061220042648.GA19814@srcf.ucam.org> <200612192114.49920.david-b@pacbell.net> <20061220053417.GA29877@suse.de> <20061220055209.GA20483@srcf.ucam.org> <1166601025.3365.1345.camel@laptopd505.fenrus.org>
+From: Arjan van de Ven <arjan@infradead.org>
+Subject: Re: Network drivers that don't suspend on interface down
+Date: Wed, 20 Dec 2006 14:38:51 +0100
+Message-ID: <1166621931.3365.1384.camel@laptopd505.fenrus.org>
+References: <20061219185223.GA13256@srcf.ucam.org>
+	 <200612191959.43019.david-b@pacbell.net>
+	 <20061220042648.GA19814@srcf.ucam.org>
+	 <200612192114.49920.david-b@pacbell.net> <20061220053417.GA29877@suse.de>
+	 <20061220055209.GA20483@srcf.ucam.org>
+	 <1166601025.3365.1345.camel@laptopd505.fenrus.org>
+	 <20061220125314.GA24188@srcf.ucam.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965040AbWLTMxe@vger.kernel.org>
-To: Arjan van de Ven <arjan@infradead.org>
-Content-Disposition: inline
-In-Reply-To: <1166601025.3365.1345.camel@laptopd505.fenrus.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from pentafluge.infradead.org ([213.146.154.40]:46142 "EHLO
+	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965050AbWLTNiy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Dec 2006 08:38:54 -0500
+To: Matthew Garrett <mjg59@srcf.ucam.org>
+In-Reply-To: <20061220125314.GA24188@srcf.ucam.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 20, 2006 at 08:50:24AM +0100, Arjan van de Ven wrote:
+about your driver list;
+do you have an idea of what the top 5 relevant ones would be?
+I'd be surprised if the top 5 together had less than 95% market share,
+so if we fix those we'd be mostly done already.
 
-(Adding netdev - context is the altering of the runtime power 
-management interface, with the effect that it's no longer possible for 
-userspace to request that drivers suspend a device, so Arjan has 
-suggested that we do it via other existing interfaces)
+> The situation is more complicated for wireless. Userspace expects to be 
+> able to get scan results from the card even if the interface is down.
 
-> > Seriously. How many pieces of userspace-visible functionality have 
-> > recently been removed without there being any sort of alternative?
-> 
-> There IS an alternative, you're using it for networking:
->  
-> You *down the interface*.
-> 
-> If there's a NIC that doesn't support that let us (or preferably netdev)
-> know and it'll get fixed quickly I'm sure.
+if it's down userspace cannot currently expect this (if it does it's
+broken), just as it currently can't expect link notifications when the
+interface is down. It needs to have the interface up for this. 
+(but point taken for a 3rd state)
 
-As far as I can tell, the following network devices don't put the 
-hardware into D3 on interface down:
+>  In 
+> that case, I'm pretty sure we need a third state rather than just "up" 
+> or "down".
 
-3c59x
-8139too
-acenic
-amd8111e
-b44
-cassini
-defxx
-dl2k
-e100
-e1000
-epic100
-fealnx
-forcedeth
-hamachi
-hp100
-ioc3-eth
-natsemi
-ne2k-pci
-ns83820
-pcnet32
-qla3xxx
-rtl8169
-rrunner
-s2io
-saa9730
-sis190
-sis900
-skge
-sky2
-spider_net
-starfire
-sundance
-sungem
-sunhme
-tc35815
-tlan
-via-rhine
-yellowfin
+so what do you want from this 3rd state? rough guess based on what I
+think the desktop wants (so please correct/append)
 
-while these ones do:
+In the third state you 
+* don't expect to get or send "regular" packets
+* don't have a dhcp lease or anything like that
+* you do expect to get link change notification [1]
+* you do expect to be able to scan for access points [2]
 
-bnx2
-tg3
-typhoon
-via-velocity
+open questions
+* what if you get a WOL event?
 
-tulip is somewhere in between - it puts the chip in a lower power state, 
-but not D3. It's possible that some of the other drivers do something 
-similar, but nothing leapt out at me.
 
-The situation is more complicated for wireless. Userspace expects to be 
-able to get scan results from the card even if the interface is down. In 
-that case, I'm pretty sure we need a third state rather than just "up" 
-or "down".
+
+[1] What kind of latency would be allowed? Would an implementation be
+allowed to power up the phy say once per minute or once per 5 minutes to
+see if there is link? The implementation could do this progressively;
+first poll every X seconds, then after an hour, every minute etc.
+
+[2] would it be permissible to temporarily power up the device on scan?
+Eg how frequently does the desktop expect to poll for scanning, and what
+kind of latency would be tolerable?
+
 -- 
-Matthew Garrett | mjg59@srcf.ucam.org
+if you want to mail me at work (you don't), use arjan (at) linux.intel.com
+Test the interaction between Linux and your BIOS via http://www.linuxfirmwarekit.org
+
