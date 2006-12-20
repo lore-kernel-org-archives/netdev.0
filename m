@@ -1,42 +1,26 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [PATCH][RFC] tcp: fix ambiguity in the `before' relation
-Date: Wed, 20 Dec 2006 20:01:00 +0000
-Message-ID: <20061220200100.GA27176@infradead.org>
-References: <200612141507.06888@strip-the-willow>
+From: Benny Amorsen <benny+usenet@amorsen.dk>
+Subject: Re: Network drivers that don't suspend on interface down
+Date: 20 Dec 2006 21:40:23 +0100
+Message-ID: <m3ac1icnd4.fsf@ursa.amorsen.dk>
+References: <200612191959.43019.david-b@pacbell.net> <20061220042648.GA19814@srcf.ucam.org> <200612192114.49920.david-b@pacbell.net> <20061220053417.GA29877@suse.de> <20061220055209.GA20483@srcf.ucam.org> <1166601025.3365.1345.camel@laptopd505.fenrus.org> <20061220125314.GA24188@srcf.ucam.org> <1166621931.3365.1384.camel@laptopd505.fenrus.org> <20061220152701.GA22928@dspnet.fr.eu.org> <1166628858.3365.1425.camel@laptopd505.fenrus.org> <20061220164054.GA27938@dspnet.fr.eu.org> <1166635300.3365.1442.camel@laptopd505.fenrus.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:54238 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030342AbWLTUBD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Dec 2006 15:01:03 -0500
-To: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Content-Disposition: inline
-In-Reply-To: <200612141507.06888@strip-the-willow>
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932701AbWLTUkx@vger.kernel.org>
+To: linux-kernel@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 14, 2006 at 03:07:06PM +0000, Gerrit Renker wrote:
-> diff --git a/include/net/tcp.h b/include/net/tcp.h
-> index c99774f..b7d8317 100644
-> --- a/include/net/tcp.h
-> +++ b/include/net/tcp.h
-> @@ -242,14 +242,9 @@ extern int tcp_memory_pressure;
->  
->  static inline int before(__u32 seq1, __u32 seq2)
->  {
-> -        return (__s32)(seq1-seq2) < 0;
-> +        return (__s32)(seq2-seq1) > 0;
->  }
-> -
-> -static inline int after(__u32 seq1, __u32 seq2)
-> -{
-> -	return (__s32)(seq2-seq1) < 0;
-> -}
-> -
-> +#define after(seq2, seq1) 	before(seq1, seq2)
+>>>>> "AvdV" == Arjan van de Ven <arjan@infradead.org> writes:
 
-Btw, these macfox/inlines are named quite a bit too generic for
-something that is in tcp.h
+AvdV> even if you have NO power savings you still don't meet your
+AvdV> criteria. That's basic ethernet for you....
 
+AvdV> That's what I was trying to say; your criteria is unrealistic
+AvdV> regardless of what the kernel does, ethernet already dictates 30
+AvdV> to 45 seconds there.
+
+Can you get to such high numbers without STP?
+
+
+/Benny
