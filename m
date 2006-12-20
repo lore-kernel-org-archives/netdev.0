@@ -1,32 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [2.6 patch] drivers/atm/fore200e.c: cleanups
-Date: Tue, 19 Dec 2006 19:36:46 -0800 (PST)
-Message-ID: <20061219.193646.122617749.davem@davemloft.net>
-References: <20061219041258.GC6993@stusta.de>
+From: Benjamin Herrenschmidt <benh@au1.ibm.com>
+Subject: netif_poll_enable() & barrier
+Date: Wed, 20 Dec 2006 14:44:12 +1100
+Message-ID: <1166586252.19254.118.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: chas@cmf.nrl.navy.mil, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Cc: Linux Kernel list <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49995
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S964834AbWLTDgr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Dec 2006 22:36:47 -0500
-To: bunk@stusta.de
-In-Reply-To: <20061219041258.GC6993@stusta.de>
+Received: from ausmtp04.au.ibm.com ([202.81.18.152]:34761 "EHLO
+	ausmtp04.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964861AbWLTDqC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Dec 2006 22:46:02 -0500
+To: "David S. Miller" <davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Adrian Bunk <bunk@stusta.de>
-Date: Tue, 19 Dec 2006 05:12:58 +0100
+Hi !
 
-> This patch contains the following transformations from custom functions 
-> to standard kernel version:
-> - fore200e_kmalloc() -> kzalloc()
-> - fore200e_kfree() -> kfree()
-> - fore200e_swap() -> cpu_to_be32()
-> 
-> Signed-off-by: Adrian Bunk <bunk@stusta.de>
+I stumbled accross what might be a bug on out of order architecture:
 
-Looks good, applied, thanks Adrian.
+netif_poll_enable() only does a clear_bit(). However,
+netif_poll_disable/enable pairs are often used as simili-spinlocks.
+
+(netif_poll_enable() has pretty much spin_lock semantics except that it
+schedules instead of looping).
+
+Thus, shouldn't netif_poll_disable() do an smp_wmb(); before clearing
+the bit to make sure that any stores done within the poll-disabled
+section are properly visible to the rest of the system before clearing
+the bit ?
+
+Cheers,
+Ben.
+
+
