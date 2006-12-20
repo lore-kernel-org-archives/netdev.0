@@ -1,77 +1,32 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: Network drivers that don't suspend on interface down
-Date: Wed, 20 Dec 2006 14:49:06 -0800
-Message-ID: <20061220144906.7863bcd3@dxpl.pdx.osdl.net>
-References: <20061219185223.GA13256@srcf.ucam.org>
-	<200612191959.43019.david-b@pacbell.net>
-	<20061220042648.GA19814@srcf.ucam.org>
-	<200612192114.49920.david-b@pacbell.net>
-	<20061220053417.GA29877@suse.de>
-	<20061220055209.GA20483@srcf.ucam.org>
-	<1166601025.3365.1345.camel@laptopd505.fenrus.org>
-	<20061220125314.GA24188@srcf.ucam.org>
-	<1166621931.3365.1384.camel@laptopd505.fenrus.org>
-	<20061220143134.GA25462@srcf.ucam.org>
-	<1166629900.3365.1428.camel@laptopd505.fenrus.org>
+From: Divy Le Ray <divy@chelsio.com>
+Subject: Re: [PATCH 4/10] cxgb3 - HW access routines - part 2
+Date: Wed, 20 Dec 2006 15:00:24 -0800
+Message-ID: <4589C088.7020107@chelsio.com>
+References: <200612201242.kBKCgaVU006331@localhost.localdomain> <1166623459.3365.1399.camel@laptopd505.fenrus.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Matthew Garrett <mjg59@srcf.ucam.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Cc: jeff@garzik.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, swise@opengridcomputing.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.25]:46335 "EHLO smtp.osdl.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030411AbWLTWtP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Dec 2006 17:49:15 -0500
+Received: from stargate.chelsio.com ([12.22.49.110]:6193 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161001AbWLTXAl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Dec 2006 18:00:41 -0500
 To: Arjan van de Ven <arjan@infradead.org>
-In-Reply-To: <1166629900.3365.1428.camel@laptopd505.fenrus.org>
+In-Reply-To: <1166623459.3365.1399.camel@laptopd505.fenrus.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 20 Dec 2006 16:51:39 +0100
-Arjan van de Ven <arjan@infradead.org> wrote:
-
-> 
-> > Yeah, I guess that's a problem. From a user perspective, the 
-> > functionality is only really useful if the latency is very small. I 
-> > think where possible we'd want to power down the chip while keeping the 
-> > phy up, but it would be nice to know how much power that would actually 
-> > cost us.
-> 
-> 
-> I'm no expert but afaik the PHY is the power hungry part, the rest is
-> peanuts. So if we can get the PHY to sleep most of the time that would
-> be great.
-> 
-
-There are two different problems:
-
-1) Behavior seems to be different depending on device driver
-   author. We should document the expected semantics better.
-
-   IMHO:
-	When device is down, it should:
-	 a) use as few resources as possible:
-	       - not grab memory for buffers
-	       - not assign IRQ unless it could get one
-	       - turn off all power consumption possible
-	 b) allow setting parameters like speed/duplex/autonegotiation,
-            ring buffers, ... with ethtool, and remember the state
-	 c) not accept data coming in, and drop packets queued
-
-	When device is up, it should:
-	 a) Start negotiation if needed
-	 b) Not bring up carrier till it is ready
-	 c) Allow reconfiguration
-
-	Wake on Lan should be disabled by default, until changed.
-	
-2) Network device infrastructure should make it easier for devices:
-    bring interface down on suspend and bring it up after resume
-    (if it was running when suspended). This would allow many devices to
-    have no suspend/resume hook; except those that have some better power
-    control over hardware.
-
-
-
-	
+Arjan van de Ven wrote:
+>> +void t3_port_intr_disable(struct adapter *adapter, int idx)
+>> +{
+>> +	struct cphy *phy = &adap2pinfo(adapter, idx)->phy;
+>> +
+>> +	t3_write_reg(adapter, XGM_REG(A_XGM_INT_ENABLE, idx), 0);
+>> +	phy->ops->intr_disable(phy);
+>>     
+>
+> you seem to be missing a pci posting flush here....
+>   
+Thanks for catching this. Will fix.
