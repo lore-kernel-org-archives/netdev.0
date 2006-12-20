@@ -1,26 +1,32 @@
-From: Benny Amorsen <benny+usenet@amorsen.dk>
+From: Stefan Rompf <stefan@loplof.de>
 Subject: Re: Network drivers that don't suspend on interface down
-Date: 20 Dec 2006 21:40:23 +0100
-Message-ID: <m3ac1icnd4.fsf@ursa.amorsen.dk>
-References: <200612191959.43019.david-b@pacbell.net> <20061220042648.GA19814@srcf.ucam.org> <200612192114.49920.david-b@pacbell.net> <20061220053417.GA29877@suse.de> <20061220055209.GA20483@srcf.ucam.org> <1166601025.3365.1345.camel@laptopd505.fenrus.org> <20061220125314.GA24188@srcf.ucam.org> <1166621931.3365.1384.camel@laptopd505.fenrus.org> <20061220152701.GA22928@dspnet.fr.eu.org> <1166628858.3365.1425.camel@laptopd505.fenrus.org> <20061220164054.GA27938@dspnet.fr.eu.org> <1166635300.3365.1442.camel@laptopd505.fenrus.org>
+Date: Wed, 20 Dec 2006 22:15:44 +0100 (MET)
+Message-ID: <200612202217.31066.stefan@loplof.de>
+References: <20061219185223.GA13256@srcf.ucam.org>
+ <20061220152701.GA22928@dspnet.fr.eu.org>
+ <1166628858.3365.1425.camel@laptopd505.fenrus.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932701AbWLTUkx@vger.kernel.org>
-To: linux-kernel@vger.kernel.org
+Content-Type: text/plain;  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Olivier Galibert <galibert@pobox.com>,
+	Matthew Garrett <mjg59@srcf.ucam.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030362AbWLTVWi@vger.kernel.org>
+To: Arjan van de Ven <arjan@infradead.org>
+In-Reply-To: <1166628858.3365.1425.camel@laptopd505.fenrus.org>
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->>>>> "AvdV" == Arjan van de Ven <arjan@infradead.org> writes:
+Am Mittwoch, 20. Dezember 2006 16:34 schrieb Arjan van de Ven:
 
-AvdV> even if you have NO power savings you still don't meet your
-AvdV> criteria. That's basic ethernet for you....
+> 5 seconds is unfair and unrealistic though. The *hardware* negotiation
+> before link is seen can easily take upto 45 seconds already.
+> That's a network topology/hardware issue (spanning tree fun) that
+> software or even the hardware in your PC can do nothing about.
 
-AvdV> That's what I was trying to say; your criteria is unrealistic
-AvdV> regardless of what the kernel does, ethernet already dictates 30
-AvdV> to 45 seconds there.
+Spanning tree decides whether or not a port forwards traffic. It has nothing 
+to do with link beat detection and autonegotation, so it shouldn't be an 
+issue here.
 
-Can you get to such high numbers without STP?
-
-
-/Benny
+Stefan
