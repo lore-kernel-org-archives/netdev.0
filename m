@@ -1,95 +1,250 @@
-From: Matthew Garrett <mjg59@srcf.ucam.org>
-Subject: Re: Network drivers that don't suspend on interface down
-Date: Wed, 20 Dec 2006 14:31:35 +0000
-Message-ID: <20061220143134.GA25462@srcf.ucam.org>
-References: <20061219185223.GA13256@srcf.ucam.org> <200612191959.43019.david-b@pacbell.net> <20061220042648.GA19814@srcf.ucam.org> <200612192114.49920.david-b@pacbell.net> <20061220053417.GA29877@suse.de> <20061220055209.GA20483@srcf.ucam.org> <1166601025.3365.1345.camel@laptopd505.fenrus.org> <20061220125314.GA24188@srcf.ucam.org> <1166621931.3365.1384.camel@laptopd505.fenrus.org>
+From: Mike Frysinger <vapier@gentoo.org>
+Subject: [patch] use socklen_t in iputils rather than just int
+Date: Wed, 20 Dec 2006 10:00:32 -0500
+Message-ID: <200612201000.32723.vapier@gentoo.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: Multipart/Mixed;
+  boundary="Boundary-00=_QAViFRM33gZ6O7t"
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cavan.codon.org.uk ([217.147.92.49]:53639 "EHLO
-	vavatch.codon.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965091AbWLTObt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Dec 2006 09:31:49 -0500
-To: Arjan van de Ven <arjan@infradead.org>
-Content-Disposition: inline
-In-Reply-To: <1166621931.3365.1384.camel@laptopd505.fenrus.org>
+Received: from smtp.gentoo.org ([140.211.166.183]:59953 "EHLO smtp.gentoo.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965122AbWLTPA0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Dec 2006 10:00:26 -0500
+Received: from home.wh0rd.org (pool-141-154-225-206.bos.east.verizon.net [141.154.225.206])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by smtp.gentoo.org (Postfix) with ESMTP id 67EEB6475C
+	for <netdev@vger.kernel.org>; Wed, 20 Dec 2006 15:00:24 +0000 (UTC)
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 20, 2006 at 02:38:51PM +0100, Arjan van de Ven wrote:
-> about your driver list;
-> do you have an idea of what the top 5 relevant ones would be?
-> I'd be surprised if the top 5 together had less than 95% market share,
-> so if we fix those we'd be mostly done already.
+--Boundary-00=_QAViFRM33gZ6O7t
+Content-Type: multipart/signed;
+  boundary="nextPart1502851.sM3WCzLqNn";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
 
-In terms of what I've seen on vaguely modern hardware, I'd guess at 
-e1000 and sky2 as the top ones. b44 is still common in cheaper hardware, 
-with via-rhine appearing at the very low end. I'll try to grep through 
-our hardware database results to get a stronger idea about percentages.
+--nextPart1502851.sM3WCzLqNn
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-> > The situation is more complicated for wireless. Userspace expects to be 
-> > able to get scan results from the card even if the interface is down.
-> 
-> if it's down userspace cannot currently expect this (if it does it's
-> broken), just as it currently can't expect link notifications when the
-> interface is down. It needs to have the interface up for this. 
-> (but point taken for a 3rd state)
+a bunch of places in iputils utilize "int" lengths when in reality they sho=
+uld=20
+be using socklen_t
+=2Dmike
 
-The documentation for what userspace can legitimately expect of the 
-kernel is distinctly lacking, and as far as I can tell most of the 
-common drivers support scanning while the interface is down. It would be 
-immensely helpful if we could have a better idea of which kernel 
-behaviour is deliberate, and which bits of kernel functionality are 
-accidental and might go away at any time. Right now, I have various 
-scripts depending on this behaviour because there's absolutely no 
-indication that I'm not supposed to be.
+--nextPart1502851.sM3WCzLqNn
+Content-Type: application/pgp-signature
 
-(Of course, I may have missed it somewhere - I've never been able to 
-find terribly comprehensive documentation on WE)
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.5 (GNU/Linux)
 
-> so what do you want from this 3rd state? rough guess based on what I
-> think the desktop wants (so please correct/append)
+iD8DBQBFiVAQK9sYciBdMQMRAmZRAJ4ioYmtpw8T0kapy6TfwAw74OE1igCcCY5l
+BkGM6UFJCFouDNZB3JhyZhM=
+=DQT3
+-----END PGP SIGNATURE-----
 
-Just to be clear: in this world view, "down" maps to "fully powered 
-down", so this third state is a "low power consumption mode"? If so:
+--nextPart1502851.sM3WCzLqNn--
 
-> In the third state you 
-> * don't expect to get or send "regular" packets
-> * don't have a dhcp lease or anything like that
-> * you do expect to get link change notification [1]
-> * you do expect to be able to scan for access points [2]
+--Boundary-00=_QAViFRM33gZ6O7t
+Content-Type: text/x-diff;
+  charset="us-ascii";
+  name="iputils-socklen.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+	filename="iputils-socklen.patch"
 
-Yes, I think that's a fair summary. 
+Use socklen_t in all the right places.
 
-> open questions
-> * what if you get a WOL event?
+Signed-off-by: Mike Frysinger <vapier@gentoo.org>
 
-In an ideal world, I think the information would be passed to userspace 
-and it would get to make the distinction. I appreciate that the hardware 
-may have different ideas about what's appropriate...
-
-> [1] What kind of latency would be allowed? Would an implementation be
-> allowed to power up the phy say once per minute or once per 5 minutes to
-> see if there is link? The implementation could do this progressively;
-> first poll every X seconds, then after an hour, every minute etc.
-
-Yeah, I guess that's a problem. From a user perspective, the 
-functionality is only really useful if the latency is very small. I 
-think where possible we'd want to power down the chip while keeping the 
-phy up, but it would be nice to know how much power that would actually 
-cost us.
-
-(We have a similar issue when it comes to stuff like monitor hotplug - 
-it's the sort of thing that many users are willing to accept losing some 
-battery for, and there probably isn't a single right answer)
+diff --git a/arping.c b/arping.c
+index 73a7e6f..86f1607 100644
+--- a/arping.c
++++ b/arping.c
+@@ -439,7 +439,7 @@ main(int argc, char **argv)
+ 			}
+ 		} else if (!dad) {
+ 			int on = 1;
+-			int alen = sizeof(saddr);
++			socklen_t alen = sizeof(saddr);
  
-> [2] would it be permissible to temporarily power up the device on scan?
-> Eg how frequently does the desktop expect to poll for scanning, and what
-> kind of latency would be tolerable?
+ 			saddr.sin_port = htons(1025);
+ 			saddr.sin_addr = dst;
+@@ -468,7 +468,7 @@ main(int argc, char **argv)
+ 	}
+ 
+ 	if (1) {
+-		int alen = sizeof(me);
++		socklen_t alen = sizeof(me);
+ 		if (getsockname(s, (struct sockaddr*)&me, &alen) == -1) {
+ 			perror("getsockname");
+ 			exit(2);
+@@ -500,9 +500,9 @@ main(int argc, char **argv)
+ 
+ 	while(1) {
+ 		sigset_t sset, osset;
+-		char packet[4096];
++		unsigned char packet[4096];
+ 		struct sockaddr_ll from;
+-		int alen = sizeof(from);
++		socklen_t alen = sizeof(from);
+ 		int cc;
+ 
+ 		if ((cc = recvfrom(s, packet, sizeof(packet), 0,
+diff --git a/clockdiff.c b/clockdiff.c
+index 009eed4..e17e0b8 100644
+--- a/clockdiff.c
++++ b/clockdiff.c
+@@ -121,7 +121,7 @@ long rtt_sigma = 0;
+ int
+ measure(struct sockaddr_in * addr)
+ {
+-	int length;
++	socklen_t length;
+ 	int msgcount;
+ 	int cc, count;
+ 	fd_set ready;
+@@ -299,7 +299,7 @@ char *myname, *hisname;
+ int
+ measure_opt(struct sockaddr_in * addr)
+ {
+-	int length;
++	socklen_t length;
+ 	int msgcount;
+ 	int cc, count;
+ 	fd_set ready;
+@@ -602,7 +602,7 @@ main(int argc, char *argv[])
+ 	}
+ 	if (ip_opt_len) {
+ 		struct sockaddr_in myaddr;
+-		int addrlen = sizeof(myaddr);
++		socklen_t addrlen = sizeof(myaddr);
+ 		unsigned char rspace[ip_opt_len];
+ 
+ 	        bzero(rspace, sizeof(rspace));
+diff --git a/ping.c b/ping.c
+index 825f85b..561e71a 100644
+--- a/ping.c
++++ b/ping.c
+@@ -259,7 +259,7 @@ main(int argc, char **argv)
+ 	}
+ 
+ 	if (source.sin_addr.s_addr == 0) {
+-		int alen;
++		socklen_t alen;
+ 		struct sockaddr_in dst = whereto;
+ 		int probe_fd = socket(AF_INET, SOCK_DGRAM, 0);
+ 
+diff --git a/ping6.c b/ping6.c
+index 5aef459..d85a659 100644
+--- a/ping6.c
++++ b/ping6.c
+@@ -344,7 +344,7 @@ int main(int argc, char *argv[])
+ 	hostname = target;
+ 
+ 	if (ipv6_addr_any(&source.sin6_addr)) {
+-		int alen;
++		socklen_t alen;
+ 		int probe_fd = socket(AF_INET6, SOCK_DGRAM, 0);
+ 
+ 		if (probe_fd < 0) {
+diff --git a/ping_common.c b/ping_common.c
+index dd111f7..acd9b8e 100644
+--- a/ping_common.c
++++ b/ping_common.c
+@@ -67,7 +67,7 @@ static void fill(char *patp)
+ 	int ii, jj, kk;
+ 	int pat[16];
+ 	char *cp;
+-	char *bp = outpack+8;
++	u_char *bp = outpack+8;
+ 
+ 	for (cp = patp; *cp; cp++) {
+ 		if (!isxdigit(*cp)) {
+@@ -393,7 +393,7 @@ resend:
+ void sock_setbufs(int icmp_sock, int alloc)
+ {
+ 	int rcvbuf, hold;
+-	int tmplen = sizeof(hold);
++	socklen_t tmplen = sizeof(hold);
+ 
+ 	if (!sndbuf)
+ 		sndbuf = alloc;
+@@ -464,7 +464,7 @@ void setup(int icmp_sock)
+ 
+ 	if (!(options & F_PINGFILLED)) {
+ 		int i;
+-		char *p = outpack+8;
++		u_char *p = outpack+8;
+ 
+ 		/* Do not forget about case of small datalen,
+ 		 * fill timestamp area too!
+diff --git a/rarpd.c b/rarpd.c
+index 5cb0ab8..65fd57f 100644
+--- a/rarpd.c
++++ b/rarpd.c
+@@ -417,7 +417,7 @@ void serve_it(int fd)
+ {
+ 	unsigned char buf[1024];
+ 	struct sockaddr_ll sll;
+-	int sll_len = sizeof(sll);
++	socklen_t sll_len = sizeof(sll);
+ 	struct arphdr *a = (struct arphdr*)buf;
+ 	struct rarp_map *rmap;
+ 	unsigned char *ptr;
+diff --git a/rdisc.c b/rdisc.c
+index 5f598e2..dc52b3e 100644
+--- a/rdisc.c
++++ b/rdisc.c
+@@ -451,7 +451,7 @@ next:
+ 	for (;;) {
+ 		u_char	packet[MAXPACKET];
+ 		int len = sizeof (packet);
+-		int fromlen = sizeof (from);
++		socklen_t fromlen = sizeof (from);
+ 		int cc;
+ 
+ 		cc=recvfrom(s, (char *)packet, len, 0, 
+diff --git a/tftpd.c b/tftpd.c
+index 301151e..39f2164 100644
+--- a/tftpd.c
++++ b/tftpd.c
+@@ -88,7 +88,7 @@ union {
+ 	struct	sockaddr_in  sin;
+ 	struct	sockaddr_in6 sin6;
+ } from;
+-int	fromlen;
++socklen_t	fromlen;
+ 
+ #define MAXARG	1
+ char	*dirs[MAXARG+1];
+@@ -148,7 +148,8 @@ int main(int ac, char **av)
+ 	 */
+ 	{
+ 		int pid;
+-		int i, j;
++		int i;
++		socklen_t j;
+ 
+ 		for (i = 1; i < 20; i++) {
+ 		    pid = fork();
+diff --git a/traceroute6.c b/traceroute6.c
+index fdb631f..114cb0a 100644
+--- a/traceroute6.c
++++ b/traceroute6.c
+@@ -510,7 +510,7 @@ int main(int argc, char *argv[])
+ 				  (char *)&on, sizeof(on));
+ 
+ 	if (source == NULL) {
+-		int alen;
++		socklen_t alen;
+ 		int probe_fd = socket(AF_INET6, SOCK_DGRAM, 0);
+ 
+ 		if (probe_fd < 0) {
 
-network-manager's behaviour when the interface is inactive is to scan 
-every 2 minutes. I don't think latency is too much of an issue.
-
--- 
-Matthew Garrett | mjg59@srcf.ucam.org
+--Boundary-00=_QAViFRM33gZ6O7t--
