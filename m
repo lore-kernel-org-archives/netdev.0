@@ -1,64 +1,73 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: Network drivers that don't suspend on interface down
-Date: Wed, 20 Dec 2006 13:12:51 -0500
-Message-ID: <1166638371.2798.26.camel@localhost.localdomain>
-References: <20061219185223.GA13256@srcf.ucam.org>
-	 <200612191959.43019.david-b@pacbell.net>
-	 <20061220042648.GA19814@srcf.ucam.org>
-	 <200612192114.49920.david-b@pacbell.net> <20061220053417.GA29877@suse.de>
-	 <20061220055209.GA20483@srcf.ucam.org>
-	 <1166601025.3365.1345.camel@laptopd505.fenrus.org>
-	 <20061220125314.GA24188@srcf.ucam.org>
-	 <20061220150009.1d697f15@griffin.suse.cz>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH][RFC] tcp: fix ambiguity in the `before' relation
+Date: Wed, 20 Dec 2006 10:31:12 -0800 (PST)
+Message-ID: <20061220.103112.85414445.davem@davemloft.net>
+References: <200612141507.06888@strip-the-willow>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Matthew Garrett <mjg59@srcf.ucam.org>,
-	Arjan van de Ven <arjan@infradead.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:41806 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030227AbWLTSLU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Dec 2006 13:11:20 -0500
-To: Jiri Benc <jbenc@suse.cz>
-In-Reply-To: <20061220150009.1d697f15@griffin.suse.cz>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37341
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1030266AbWLTSbU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Dec 2006 13:31:20 -0500
+To: gerrit@erg.abdn.ac.uk
+In-Reply-To: <200612141507.06888@strip-the-willow>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2006-12-20 at 15:00 +0100, Jiri Benc wrote:
-> On Wed, 20 Dec 2006 12:53:14 +0000, Matthew Garrett wrote:
-> > The situation is more complicated for wireless. Userspace expects to be 
-> > able to get scan results from the card even if the interface is down.
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Date: Thu, 14 Dec 2006 15:07:06 +0000
+
+> While looking at DCCP sequence numbers, I stumbled over a problem with
+> the following definition of before in tcp.h:
 > 
-> User space should get an error when trying to get scan results from the
-> interface that is down. Some drivers are broken and don't do this but
-> when they're fixed there is no problem here.
-
-Entirely correct.  If the card is DOWN, the radio should be off (both TX
-& RX) and it should be in max power save mode.  If userspace expects to
-be able to get the card to do _anything_ when it's down, that's just
-110% wrong.  You can't get link events for many wired cards when they
-are down, so I fail to see where userspace could expect to do anything
-with a wireless card when it's down too.
-
-> > In that case, I'm pretty sure we need a third state rather than just
-> > "up" or "down".
+> static inline int before(__u32 seq1, __u32 seq2)
+> {
+>         return (__s32)(seq1-seq2) < 0;
+> }
 > 
-> We have that third state, it's IFF_DORMANT. Not supported yet by any
-> wireless driver/stack, unfortunately.
-
-So we have 3 states?  What purpose does DORMANT serve and what is
-allowed in DORMANT?
-
-Also, how does rfkill fit into this?  rfkill implies killing TX, but do
-we have the granularity to still receive while the transmit paths are
-powered down?
-
-Dan
-
-> Thanks,
+> Problem: This definition suffers from an an ambiguity, i.e. always
+>                    
+>            before(a, (a + 2^31) % 2^32)) = 1
+>            before((a + 2^31) % 2^32), a) = 1
+>  
+>          In text: when the difference between a and b amounts to 2^31,
+>          a is always considered `before' b, the function can not decide. 
+>          The reason is that implicitly 0 is `before' 1 ... 2^31-1 ... 2^31
+>       
+> Solution: There is a simple fix, by defining before in such a way that 
+>           0 is no longer `before' 2^31, i.e. 0 `before' 1 ... 2^31-1
+>           By not using the middle between 0 and 2^32, before can be made 
+>           unambiguous. 
+>           This is achieved by testing whether seq2-seq1 > 0 (using signed
+>           32-bit arithmetic).
 > 
->  Jiri
+> I attach a patch to codify this. Also the `after' relation is basically 
+> a redefinition of `before', it is now defined as a macro after before.
 > 
+> Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+
+Applied, thanks Gerrit.
+
+I went over this patch and analysis a dozen times, because I
+couldn't believe something like this has been broken for
+so long :-)
+
+Even BSD suffers of this issue, since the beginning.  See
+SEQ_LT() in tcp_seq.h, and it seems that BSD's timestamp
+sequence checking has the issue too (see TSTMP_LT() macro
+in OpenBSD's tcp_input.c)
+
+It seems that our PAWS timestamp checks are ok because we do:
+
+(s32)(tp->rx_opt.ts_recent - tp->rx_opt.rcv_tsval) > TCP_PAWS_WINDOW
+
+and
+
+(s32)(tp->rx_opt.rcv_tsval - tp->rx_opt.ts_recent) >= 0
+
+Thanks again Gerrit.
+
 
