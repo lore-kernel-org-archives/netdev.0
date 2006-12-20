@@ -1,7 +1,7 @@
 From: "Steve Wise" <swise@opengridcomputing.com>
-Subject: [PATCH v5 07/13] iw_cxgb3 Async Event Handler
-Date: Wed, 20 Dec 2006 13:21:25 -0600
-Message-ID: <20061220192125.19316.92319.stgit@dell3.ogc.int>
+Subject: [PATCH v5 08/13] iw_cxgb3 Memory Registration
+Date: Wed, 20 Dec 2006 13:21:55 -0600
+Message-ID: <20061220192155.19316.73702.stgit@dell3.ogc.int>
 References: <20061220191754.19316.4914.stgit@dell3.ogc.int>
 Mime-Version: 1.0
 Content-Type: text/plain;
@@ -26,20 +26,20 @@ Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
 
-Code to handle async events coming from the T3 RDMA Core.
+Functions to register memory regions.
 
 Signed-off-by: Steve Wise <swise@opengridcomputing.com>
 ---
 
- drivers/infiniband/hw/cxgb3/iwch_ev.c |  231 +++++++++++++++++++++++++++++++++
- 1 files changed, 231 insertions(+), 0 deletions(-)
+ drivers/infiniband/hw/cxgb3/iwch_mem.c |  170 ++++++++++++++++++++++++++++++++
+ 1 files changed, 170 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/infiniband/hw/cxgb3/iwch_ev.c b/drivers/infiniband/hw/cxgb3/iwch_ev.c
+diff --git a/drivers/infiniband/hw/cxgb3/iwch_mem.c b/drivers/infiniband/hw/cxgb3/iwch_mem.c
 new file mode 100644
-index 0000000..646f612
+index 0000000..5909ec5
 --- /dev/null
-+++ b/drivers/infiniband/hw/cxgb3/iwch_ev.c
-@@ -0,0 +1,231 @@
++++ b/drivers/infiniband/hw/cxgb3/iwch_mem.c
+@@ -0,0 +1,170 @@
 +/*
 + * Copyright (c) 2006 Chelsio, Inc. All rights reserved.
 + * Copyright (c) 2006 Open Grid Computing, Inc. All rights reserved.
@@ -72,202 +72,141 @@ index 0000000..646f612
 + * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 + * SOFTWARE.
 + */
-+#include <linux/slab.h>
-+#include <linux/mman.h>
-+#include <net/sock.h>
-+#include "iwch_provider.h"
-+#include "iwch.h"
-+#include "iwch_cm.h"
++#include <asm/byteorder.h>
++
++#include <rdma/iw_cm.h>
++#include <rdma/ib_verbs.h>
++
 +#include "cxio_hal.h"
-+#include "cxio_wr.h"
++#include "iwch.h"
++#include "iwch_provider.h"
 +
-+static void post_qp_event(struct iwch_dev *rnicp, struct iwch_cq *chp,
-+			  struct respQ_msg_t *rsp_msg,
-+			  enum ib_event_type ib_event,
-+			  int send_term)
++int iwch_register_mem(struct iwch_dev *rhp, struct iwch_pd *php,
++					struct iwch_mr *mhp,
++					int shift,
++					__be64 *page_list)
 +{
-+	struct ib_event event;
-+	struct iwch_qp_attributes attrs;
-+	struct iwch_qp *qhp;
++	u32 stag;
++	u32 mmid;
 +
-+	printk(KERN_ERR "%s - AE qpid 0x%x opcode %d status 0x%x "
-+	       "type %d wrid.hi 0x%x wrid.lo 0x%x \n", __FUNCTION__,
-+	       CQE_QPID(rsp_msg->cqe), CQE_OPCODE(rsp_msg->cqe),
-+	       CQE_STATUS(rsp_msg->cqe), CQE_TYPE(rsp_msg->cqe),
-+	       CQE_WRID_HI(rsp_msg->cqe), CQE_WRID_LOW(rsp_msg->cqe));
 +
-+	spin_lock(&rnicp->lock);
-+	qhp = get_qhp(rnicp, CQE_QPID(rsp_msg->cqe));
-+
-+	if (!qhp) {
-+		printk(KERN_ERR "%s unaffiliated error 0x%x qpid 0x%x\n",
-+		       __FUNCTION__, CQE_STATUS(rsp_msg->cqe),
-+		       CQE_QPID(rsp_msg->cqe));
-+		spin_unlock(&rnicp->lock);
-+		return;
-+	}
-+
-+	if ((qhp->attr.state == IWCH_QP_STATE_ERROR) ||
-+	    (qhp->attr.state == IWCH_QP_STATE_TERMINATE)) {
-+		PDBG("%s AE received after RTS - "
-+		     "qp state %d qpid 0x%x status 0x%x\n", __FUNCTION__,
-+		     qhp->attr.state, qhp->wq.qpid, CQE_STATUS(rsp_msg->cqe));
-+		spin_unlock(&rnicp->lock);
-+		return;
-+	}
-+
-+	atomic_inc(&qhp->refcnt);
-+	spin_unlock(&rnicp->lock);
-+
-+	event.event = ib_event;
-+	event.device = chp->ibcq.device;
-+	if (ib_event == IB_EVENT_CQ_ERR)
-+		event.element.cq = &chp->ibcq;
-+	else
-+		event.element.qp = &qhp->ibqp;
-+
-+	if (qhp->ibqp.event_handler)
-+		(*qhp->ibqp.event_handler)(&event, qhp->ibqp.qp_context);
-+
-+	if (qhp->attr.state == IWCH_QP_STATE_RTS) {
-+		attrs.next_state = IWCH_QP_STATE_TERMINATE;
-+		iwch_modify_qp(qhp->rhp, qhp, IWCH_QP_ATTR_NEXT_STATE,
-+			       &attrs, 1);
-+		if (send_term)
-+			iwch_post_terminate(qhp, rsp_msg);
-+	}
-+
-+	if (atomic_dec_and_test(&qhp->refcnt))
-+		wake_up(&qhp->wait);
++	if (cxio_register_phys_mem(&rhp->rdev,
++				   &stag, mhp->attr.pdid,
++				   mhp->attr.perms,
++				   mhp->attr.zbva,
++				   mhp->attr.va_fbo,
++				   mhp->attr.len,
++				   shift-12,
++				   page_list,
++				   &mhp->attr.pbl_size, &mhp->attr.pbl_addr))
++		return -ENOMEM;
++	mhp->attr.state = 1;
++	mhp->attr.stag = stag;
++	mmid = stag >> 8;
++	mhp->ibmr.rkey = mhp->ibmr.lkey = stag;
++	insert_handle(rhp, &rhp->mmidr, mhp, mmid);
++	PDBG("%s mmid 0x%x mhp %p\n", __FUNCTION__, mmid, mhp);
++	return 0;
 +}
 +
-+void iwch_ev_dispatch(struct cxio_rdev *rdev_p, struct sk_buff *skb)
++int iwch_reregister_mem(struct iwch_dev *rhp, struct iwch_pd *php,
++					struct iwch_mr *mhp,
++					int shift,
++					__be64 *page_list,
++					int npages)
 +{
-+	struct iwch_dev *rnicp;
-+	struct respQ_msg_t *rsp_msg = (struct respQ_msg_t *) skb->data;
-+	struct iwch_cq *chp;
-+	struct iwch_qp *qhp;
-+	u32 cqid = RSPQ_CQID(rsp_msg);
++	u32 stag;
++	u32 mmid;
 +
-+	rnicp = (struct iwch_dev *) rdev_p->ulp;
-+	spin_lock(&rnicp->lock);
-+	chp = get_chp(rnicp, cqid);
-+	qhp = get_qhp(rnicp, CQE_QPID(rsp_msg->cqe));
-+	if (!chp || !qhp) {
-+		printk(KERN_ERR MOD "BAD AE cqid 0x%x qpid 0x%x opcode %d "
-+		       "status 0x%x type %d wrid.hi 0x%x wrid.lo 0x%x \n",
-+		       cqid, CQE_QPID(rsp_msg->cqe),
-+		       CQE_OPCODE(rsp_msg->cqe), CQE_STATUS(rsp_msg->cqe),
-+		       CQE_TYPE(rsp_msg->cqe), CQE_WRID_HI(rsp_msg->cqe),
-+		       CQE_WRID_LOW(rsp_msg->cqe));
-+		spin_unlock(&rnicp->lock);
-+		goto out;
-+	}
-+	iwch_qp_add_ref(&qhp->ibqp);
-+	atomic_inc(&chp->refcnt);
-+	spin_unlock(&rnicp->lock);
 +
-+	/*
-+	 * 1) completion of our sending a TERMINATE.
-+	 * 2) incoming TERMINATE message.
-+	 */
-+	if ((CQE_OPCODE(rsp_msg->cqe) == T3_TERMINATE) &&
-+	    (CQE_STATUS(rsp_msg->cqe) == 0)) {
-+		if (SQ_TYPE(rsp_msg->cqe)) {
-+			PDBG("%s QPID 0x%x ep %p disconnecting\n",
-+			     __FUNCTION__, qhp->wq.qpid, qhp->ep);
-+			iwch_ep_disconnect(qhp->ep, 0, GFP_ATOMIC);
-+		} else {
-+			PDBG("%s post REQ_ERR AE QPID 0x%x\n", __FUNCTION__,
-+			     qhp->wq.qpid);
-+			post_qp_event(rnicp, chp, rsp_msg,
-+				      IB_EVENT_QP_REQ_ERR, 0);
-+			iwch_ep_disconnect(qhp->ep, 0, GFP_ATOMIC);
-+		}
-+		goto done;
-+	}
++	/* We could support this... */
++	if (npages > mhp->attr.pbl_size)
++		return -ENOMEM;
 +
-+	/* Bad incoming Read request */
-+	if (SQ_TYPE(rsp_msg->cqe) &&
-+	    (CQE_OPCODE(rsp_msg->cqe) == T3_READ_RESP)) {
-+		post_qp_event(rnicp, chp, rsp_msg, IB_EVENT_QP_REQ_ERR, 1);
-+		goto done;
-+	}
++	stag = mhp->attr.stag;
++	if (cxio_reregister_phys_mem(&rhp->rdev,
++				   &stag, mhp->attr.pdid,
++				   mhp->attr.perms,
++				   mhp->attr.zbva,
++				   mhp->attr.va_fbo,
++				   mhp->attr.len,
++				   shift-12,
++				   page_list,
++				   &mhp->attr.pbl_size, &mhp->attr.pbl_addr))
++		return -ENOMEM;
++	mhp->attr.state = 1;
++	mhp->attr.stag = stag;
++	mmid = stag >> 8;
++	mhp->ibmr.rkey = mhp->ibmr.lkey = stag;
++	insert_handle(rhp, &rhp->mmidr, mhp, mmid);
++	PDBG("%s mmid 0x%x mhp %p\n", __FUNCTION__, mmid, mhp);
++	return 0;
++}
 +
-+	/* Bad incoming write */
-+	if (RQ_TYPE(rsp_msg->cqe) &&
-+	    (CQE_OPCODE(rsp_msg->cqe) == T3_RDMA_WRITE)) {
-+		post_qp_event(rnicp, chp, rsp_msg, IB_EVENT_QP_REQ_ERR, 1);
-+		goto done;
++int build_phys_page_list(struct ib_phys_buf *buffer_list,
++					int num_phys_buf,
++					u64 *iova_start,
++					u64 *total_size,
++					int *npages,
++					int *shift,
++					__be64 **page_list)
++{
++	u64 mask;
++	int i, j, n;
++
++	mask = 0;
++	*total_size = 0;
++	for (i = 0; i < num_phys_buf; ++i) {
++		if (i != 0 && buffer_list[i].addr & ~PAGE_MASK)
++			return -EINVAL;
++		if (i != 0 && i != num_phys_buf - 1 &&
++		    (buffer_list[i].size & ~PAGE_MASK))
++			return -EINVAL;
++		*total_size += buffer_list[i].size;
++		if (i > 0)
++			mask |= buffer_list[i].addr;
 +	}
 +
-+	switch (CQE_STATUS(rsp_msg->cqe)) {
++	if (*total_size > 0xFFFFFFFFULL)
++		return -ENOMEM;
 +
-+	/* Completion Events */
-+	case TPT_ERR_SUCCESS:
++	/* Find largest page shift we can use to cover buffers */
++	for (*shift = PAGE_SHIFT; *shift < 27; ++(*shift))
++		if (num_phys_buf > 1) {
++			if ((1ULL << *shift) & mask)
++				break;
++		} else
++			if (1ULL << *shift >=
++			    buffer_list[0].size +
++			    (buffer_list[0].addr & ((1ULL << *shift) - 1)))
++				break;
 +
-+		/*
-+		 * Confirm the destination entry if this is a RECV completion.
-+		 */
-+		if (qhp->ep && SQ_TYPE(rsp_msg->cqe))
-+			dst_confirm(qhp->ep->dst);
-+		(*chp->ibcq.comp_handler)(&chp->ibcq, chp->ibcq.cq_context);
-+		break;
++	buffer_list[0].size += buffer_list[0].addr & ((1ULL << *shift) - 1);
++	buffer_list[0].addr &= ~0ull << *shift;
 +
-+	case TPT_ERR_STAG:
-+	case TPT_ERR_PDID:
-+	case TPT_ERR_QPID:
-+	case TPT_ERR_ACCESS:
-+	case TPT_ERR_WRAP:
-+	case TPT_ERR_BOUND:
-+	case TPT_ERR_INVALIDATE_SHARED_MR:
-+	case TPT_ERR_INVALIDATE_MR_WITH_MW_BOUND:
-+		printk(KERN_ERR "%s - CQE Err qpid 0x%x opcode %d status 0x%x "
-+		       "type %d wrid.hi 0x%x wrid.lo 0x%x \n", __FUNCTION__,
-+		       CQE_QPID(rsp_msg->cqe), CQE_OPCODE(rsp_msg->cqe),
-+		       CQE_STATUS(rsp_msg->cqe), CQE_TYPE(rsp_msg->cqe),
-+		       CQE_WRID_HI(rsp_msg->cqe), CQE_WRID_LOW(rsp_msg->cqe));
-+		(*chp->ibcq.comp_handler)(&chp->ibcq, chp->ibcq.cq_context);
-+		post_qp_event(rnicp, chp, rsp_msg, IB_EVENT_QP_ACCESS_ERR, 1);
-+		break;
++	*npages = 0;
++	for (i = 0; i < num_phys_buf; ++i)
++		*npages += (buffer_list[i].size +
++			(1ULL << *shift) - 1) >> *shift;
 +
-+	/* Device Fatal Errors */
-+	case TPT_ERR_ECC:
-+	case TPT_ERR_ECC_PSTAG:
-+	case TPT_ERR_INTERNAL_ERR:
-+		post_qp_event(rnicp, chp, rsp_msg, IB_EVENT_DEVICE_FATAL, 1);
-+		break;
-+	
-+	/* QP Fatal Errors */
-+	case TPT_ERR_OUT_OF_RQE:
-+	case TPT_ERR_PBL_ADDR_BOUND:
-+	case TPT_ERR_CRC:
-+	case TPT_ERR_MARKER:
-+	case TPT_ERR_PDU_LEN_ERR:
-+	case TPT_ERR_DDP_VERSION:
-+	case TPT_ERR_RDMA_VERSION:
-+	case TPT_ERR_OPCODE:
-+	case TPT_ERR_DDP_QUEUE_NUM:
-+	case TPT_ERR_MSN:
-+	case TPT_ERR_TBIT:
-+	case TPT_ERR_MO:
-+	case TPT_ERR_MSN_GAP:
-+	case TPT_ERR_MSN_RANGE:
-+	case TPT_ERR_RQE_ADDR_BOUND:
-+	case TPT_ERR_IRD_OVERFLOW:
-+		post_qp_event(rnicp, chp, rsp_msg, IB_EVENT_QP_FATAL, 1);
-+		break;
++	if (!*npages)
++		return -EINVAL;
 +
-+	default:
-+		printk(KERN_ERR MOD "Unknown T3 status 0x%x QPID 0x%x\n",
-+		       CQE_STATUS(rsp_msg->cqe), qhp->wq.qpid);
-+		post_qp_event(rnicp, chp, rsp_msg, IB_EVENT_QP_FATAL, 1);
-+		break;
-+	}
-+done:
-+	if (atomic_dec_and_test(&chp->refcnt))
-+                wake_up(&chp->wait);
-+	iwch_qp_rem_ref(&qhp->ibqp);
-+out:
-+	dev_kfree_skb_irq(skb);
++	*page_list = kmalloc(sizeof(u64) * *npages, GFP_KERNEL);
++	if (!*page_list)
++		return -ENOMEM;
++
++	n = 0;
++	for (i = 0; i < num_phys_buf; ++i)
++		for (j = 0;
++		     j < (buffer_list[i].size + (1ULL << *shift) - 1) >> *shift;
++		     ++j)
++			(*page_list)[n++] = cpu_to_be64(buffer_list[i].addr +
++			    ((u64) j << *shift));
++
++	PDBG("%s va 0x%llx mask 0x%llx shift %d len %lld pbl_size %d\n",
++	     __FUNCTION__, *iova_start, mask, *shift, *total_size, *npages);
++
++	return 0;
++
 +}
