@@ -1,35 +1,49 @@
-From: "Maciej W. Rozycki" <macro@linux-mips.org>
+From: Olivier Galibert <galibert@pobox.com>
 Subject: Re: Network drivers that don't suspend on interface down
-Date: Wed, 20 Dec 2006 16:04:00 +0000 (GMT)
-Message-ID: <Pine.LNX.4.64N.0612201558250.11005@blysk.ds.pg.gda.pl>
-References: <20061219185223.GA13256@srcf.ucam.org> <200612191959.43019.david-b@pacbell.net>
- <20061220042648.GA19814@srcf.ucam.org> <200612192114.49920.david-b@pacbell.net>
- <20061220053417.GA29877@suse.de> <20061220055209.GA20483@srcf.ucam.org>
- <1166601025.3365.1345.camel@laptopd505.fenrus.org> <20061220125314.GA24188@srcf.ucam.org>
+Date: Wed, 20 Dec 2006 17:40:54 +0100
+Message-ID: <20061220164054.GA27938@dspnet.fr.eu.org>
+References: <200612191959.43019.david-b@pacbell.net> <20061220042648.GA19814@srcf.ucam.org> <200612192114.49920.david-b@pacbell.net> <20061220053417.GA29877@suse.de> <20061220055209.GA20483@srcf.ucam.org> <1166601025.3365.1345.camel@laptopd505.fenrus.org> <20061220125314.GA24188@srcf.ucam.org> <1166621931.3365.1384.camel@laptopd505.fenrus.org> <20061220152701.GA22928@dspnet.fr.eu.org> <1166628858.3365.1425.camel@laptopd505.fenrus.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Arjan van de Ven <arjan@infradead.org>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Matthew Garrett <mjg59@srcf.ucam.org>,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965143AbWLTQEI@vger.kernel.org>
-To: Matthew Garrett <mjg59@srcf.ucam.org>
-In-Reply-To: <20061220125314.GA24188@srcf.ucam.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dspnet.fr.eu.org ([213.186.44.138]:3034 "EHLO dspnet.fr.eu.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1030205AbWLTQk4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Dec 2006 11:40:56 -0500
+To: Arjan van de Ven <arjan@infradead.org>
+Content-Disposition: inline
+In-Reply-To: <1166628858.3365.1425.camel@laptopd505.fenrus.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 20 Dec 2006, Matthew Garrett wrote:
+On Wed, Dec 20, 2006 at 04:34:17PM +0100, Arjan van de Ven wrote:
+> 5 seconds is unfair and unrealistic though. The *hardware* negotiation
+> before link is seen can easily take upto 45 seconds already.
+> That's a network topology/hardware issue (spanning tree fun) that
+> software or even the hardware in your PC can do nothing about.
 
-> As far as I can tell, the following network devices don't put the 
-> hardware into D3 on interface down:
-[...]
-> defxx
+It's about ergonomics, not technical capabilities or fairness.
 
- No support in the hardware for that.  Even revision 3 of the board which 
-is the last one and the only to support PCI 2.2 says:
 
-Capabilities: [50] Power Management version 2
-        Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0-,D1-,D2-,D3hot-,D3cold-)
-        Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+> this means that the "power up time" needs to be at least 45 seconds, if
+> it's then down 5 seconds inbetween... that's not real power savings.
 
-;-)
+Then that means you can't have usable autodetection and power savings
+at the same time.  That's a pefectly acceptable answer, you just have
+to give the choice between the two to the user.  From the kernel
+p.o.v, it just means that you probably need 3 modes:
+1- active and exchanging packets
 
-  Maciej
+2- inactive but waiting for plugging and able to tell something is
+   going on fast (like 0.5s fast)
+
+3- powered off
+
+and they probably already exist (UP+addr/procmisc. set, UP and DOWN).
+And if the second mode can't be lower power than the first, that's
+just life.  An hypothetical mode 4 identical to 2 without the "fast"
+part is just not worth bothering with.
+
+  OG.
