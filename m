@@ -1,60 +1,63 @@
-From: Daniel Drake <dsd@gentoo.org>
+From: Dan Williams <dcbw@redhat.com>
 Subject: Re: Network drivers that don't suspend on interface down
-Date: Wed, 20 Dec 2006 22:08:22 -0500
-Message-ID: <4589FAA6.509@gentoo.org>
-References: <20061220042648.GA19814@srcf.ucam.org> <20061220144906.7863bcd3@dxpl.pdx.osdl.net> <20061221011209.GA32625@srcf.ucam.org> <200612202105.31093.flamingice@sourmilk.net> <20061221021832.GA723@srcf.ucam.org> <4589F39C.7010201@gentoo.org> <20061221024533.GA1025@srcf.ucam.org>
+Date: Wed, 20 Dec 2006 22:14:08 -0500
+Message-ID: <1166670848.23168.21.camel@localhost.localdomain>
+References: <20061220042648.GA19814@srcf.ucam.org>
+	 <20061220144906.7863bcd3@dxpl.pdx.osdl.net>
+	 <20061221011209.GA32625@srcf.ucam.org>
+	 <200612202105.31093.flamingice@sourmilk.net>
+	 <20061221021832.GA723@srcf.ucam.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: Michael Wu <flamingice@sourmilk.net>,
 	Stephen Hemminger <shemminger@osdl.org>,
 	Arjan van de Ven <arjan@infradead.org>,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp111.iad.emailsrvr.com ([207.97.245.111]:37513 "EHLO
-	smtp111.iad.emailsrvr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161171AbWLUDHj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Dec 2006 22:07:39 -0500
+Received: from mx1.redhat.com ([66.187.233.31]:48803 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1422632AbWLUDMB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Dec 2006 22:12:01 -0500
 To: Matthew Garrett <mjg59@srcf.ucam.org>
-In-Reply-To: <20061221024533.GA1025@srcf.ucam.org>
+In-Reply-To: <20061221021832.GA723@srcf.ucam.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Matthew Garrett wrote:
->> There are additional implementation problems: scanning requires 2 
->> different ioctl calls: siwscan, then several giwscan. If you want the 
->> driver to effectively temporarily bring the interface up when userspace 
->> requests a scan but the interface was down, then how does the driver 
->> know when to bring it down again?
+On Thu, 2006-12-21 at 02:18 +0000, Matthew Garrett wrote:
+> On Wed, Dec 20, 2006 at 09:05:27PM -0500, Michael Wu wrote:
 > 
-> Hm. Does the spec not set any upper bound on how long it might take for 
-> APs to respond? I'm afraid that my 802.11 knowledge is pretty slim. 
+> > Softmac isn't the only wireless code that likes to be configured after going 
+> > up first. Configuring after the card goes up has generally been more 
+> > reliable, though that should not be necessary and is a bug IMHO. 
+> 
+> Ok, that's nice to know. 
+> 
+> > In order to scan, we need to have the radio on and we need to be able to send 
+> > and receive. What are you gonna turn off?
+> 
+> The obvious route would be to power the card down, but come back up 
+> every two minutes to perform a scan, or if userspace explicitly requests 
+> one. Would this cause problems in some cases?
 
-I'm not sure, but thats not entirely relevant either.  The time it takes 
-for the AP to respond is not related to the delay between userspace 
-sending the siwscan and giwscan ioctls (unless you're thinking of 
-userspace being too quick, but GIWSCAN already returns -EINPROGRESS when 
-appropriate so this is detectable)
+Seriously, having all these different capabilities when the card is
+"down" is just madness.  Down == Down!!!  Furthermore, every card is
+going to support some other subset of capabilities when it's "down".
+When you bring "up" prism54 fullmac card, you have to power up the
+hardware, reload the firmware, let the firmware boot, and then talk to
+it.  Doing that every 2 minutes is just a waste of time, effort, and
+power.
 
-> Picking a number out of thin air would be one answer, but clearly less 
-> than ideal. This may be a case of us not being able to satisfy everyone, 
-> and so just having to force the user to choose between low power or 
-> wireless scanning.
+If you want to scan, just bring the darn card up to do it.  It's so much
+simpler that way, and I just don't see what having all this "every 2
+minutes do a scan" policy really buys us.  That doesn't belong in the
+kernel.  If something wants to scan, userspace can wake the card up and
+do the scan.  It's userspace that's using the scan results to configure
+the card anyway, so userspace can do the scan.
 
-I think it's reasonable to keep the interface down, but then when the 
-user does want to connect, bring the interface up, scan, present scan 
-results. Scanning is quick, there would be minimal wait needed here.
+Simple == good.  Down == down.  Lets just agree on that and save
+ourselves a lot of pain.
 
-Alternatively, if you do want to prepare scan results in the background 
-every 2 minutes, use a sequence something like:
+Dan
 
-- bring interface up
-- siwscan
-- giwscan [...]
-- bring interface down
-- repeat after 2 mins
 
-If this kind of thing was implemented at the driver level, in most cases 
-it would be identical to doing the above anyway.
-
-Daniel
