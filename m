@@ -1,60 +1,50 @@
 From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [PATCH 2.6.20-rc1 01/10] TURBOchannel update to the driver
- model
-Date: Wed, 20 Dec 2006 20:54:06 -0800
-Message-ID: <20061220205406.0061081c.akpm@osdl.org>
-References: <Pine.LNX.4.64N.0612201139080.11005@blysk.ds.pg.gda.pl>
+Subject: Re: [PATCH 2.6.20-rc1 05/10] if_fddi.h: Add a missing inclusion
+Date: Wed, 20 Dec 2006 20:55:55 -0800
+Message-ID: <20061220205555.9a48c327.akpm@osdl.org>
+References: <Pine.LNX.4.64N.0612201113410.11005@blysk.ds.pg.gda.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Ralf Baechle <ralf@linux-mips.org>,
-	Jeff Garzik <jgarzik@pobox.com>,
-	Antonino Daplas <adaplas@pol.net>,
-	James.Bottomley@SteelEye.com, linux-mips@linux-mips.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-fbdev-devel@lists.sourceforge.net, linux-scsi@vger.kernel.org
+Cc: Jeff Garzik <jgarzik@pobox.com>, linux-mips@linux-mips.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.25]:37888 "EHLO smtp.osdl.org"
+Received: from smtp.osdl.org ([65.172.181.25]:37971 "EHLO smtp.osdl.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1422712AbWLUEyZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Dec 2006 23:54:25 -0500
+	id S1422695AbWLUE4F (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Dec 2006 23:56:05 -0500
 To: "Maciej W. Rozycki" <macro@linux-mips.org>
-In-Reply-To: <Pine.LNX.4.64N.0612201139080.11005@blysk.ds.pg.gda.pl>
+In-Reply-To: <Pine.LNX.4.64N.0612201113410.11005@blysk.ds.pg.gda.pl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 20 Dec 2006 12:01:30 +0000 (GMT)
+On Wed, 20 Dec 2006 12:01:55 +0000 (GMT)
 "Maciej W. Rozycki" <macro@linux-mips.org> wrote:
 
-> +/**
-> + * tc_register_driver - register a new TC driver
-> + * @drv: the driver structure to register
-> + *
-> + * Adds the driver structure to the list of registered drivers
-> + * Returns a negative value on error, otherwise 0.
-> + * If no error occurred, the driver remains registered even if
-> + * no device was claimed during registration.
-> + */
-> +int tc_register_driver(struct tc_driver *tdrv)
-> +{
-> +	return driver_register(&tdrv->driver);
-> +}
-> +EXPORT_SYMBOL(tc_register_driver);
+>  This is a change to include <linux/netdevice.h> in <linux/if_fddi.h> 
+> which is needed for "struct fddi_statistics".
+> 
+> Signed-off-by: Maciej W. Rozycki <macro@linux-mips.org>
+> ---
+> 
+>  Please apply.
+> 
+>   Maciej
+> 
+> patch-mips-2.6.18-20060920-if_fddi-netdev-0
+> diff -up --recursive --new-file linux-mips-2.6.18-20060920.macro/include/linux/if_fddi.h linux-mips-2.6.18-20060920/include/linux/if_fddi.h
+> --- linux-mips-2.6.18-20060920.macro/include/linux/if_fddi.h	2006-09-20 20:51:20.000000000 +0000
+> +++ linux-mips-2.6.18-20060920/include/linux/if_fddi.h	2006-12-14 04:36:58.000000000 +0000
+> @@ -103,6 +103,8 @@ struct fddihdr
+>  	} __attribute__ ((packed));
+>  
+>  #ifdef __KERNEL__
+> +#include <linux/netdevice.h>
 > +
-> +/**
-> + * tc_unregister_driver - unregister a TC driver
-> + * @drv: the driver structure to unregister
-> + *
-> + * Deletes the driver structure from the list of registered TC drivers,
-> + * gives it a chance to clean up by calling its remove() function for
-> + * each device it was responsible for, and marks those devices as
-> + * driverless.
-> + */
-> +void tc_unregister_driver(struct tc_driver *tdrv)
-> +{
-> +	driver_unregister(&tdrv->driver);
-> +}
-> +EXPORT_SYMBOL(tc_unregister_driver);
+>  /* Define FDDI statistics structure */
+>  struct fddi_statistics {
+>  
 
-I spose making these inline would save a bit of code, stack space and 
-a couple of exports.
+I'll treat this a a bugfix, unrelated to the turbochannel changes.
+
+Which may be wrong, but I doubt it.
