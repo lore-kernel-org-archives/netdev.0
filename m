@@ -1,39 +1,51 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: Network drivers that don't suspend on interface down
-Date: Wed, 20 Dec 2006 15:37:41 -0800
-Message-ID: <4589C945.3050105@hp.com>
-References: <20061219185223.GA13256@srcf.ucam.org>	<200612191959.43019.david-b@pacbell.net>	<20061220042648.GA19814@srcf.ucam.org>	<200612192114.49920.david-b@pacbell.net>	<20061220053417.GA29877@suse.de>	<20061220055209.GA20483@srcf.ucam.org>	<1166601025.3365.1345.camel@laptopd505.fenrus.org>	<20061220125314.GA24188@srcf.ucam.org>	<1166621931.3365.1384.camel@laptopd505.fenrus.org>	<20061220143134.GA25462@srcf.ucam.org>	<1166629900.3365.1428.camel@laptopd505.fenrus.org> <20061220144906.7863bcd3@dxpl.pdx.osdl.net>
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: [PATCH 1/4][SCTP]: Don't export include/linux/sctp.h to userspace.
+Date: Wed, 20 Dec 2006 16:00:39 -0800
+Message-ID: <1166659239.5722.15.camel@w-sridhar2.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Arjan van de Ven <arjan@infradead.org>,
-	Matthew Garrett <mjg59@srcf.ucam.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel11.hp.com ([156.153.255.246]:34094 "EHLO palrel11.hp.com"
+Received: from e5.ny.us.ibm.com ([32.97.182.145]:35370 "EHLO e5.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1161034AbWLTXzl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Dec 2006 18:55:41 -0500
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20061220144906.7863bcd3@dxpl.pdx.osdl.net>
+	id S964855AbWLUAAn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Dec 2006 19:00:43 -0500
+Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
+	by e5.ny.us.ibm.com (8.13.8/8.12.11) with ESMTP id kBL00ftp002156
+	for <netdev@vger.kernel.org>; Wed, 20 Dec 2006 19:00:41 -0500
+Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
+	by d01relay04.pok.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id kBL00fIw213276
+	for <netdev@vger.kernel.org>; Wed, 20 Dec 2006 19:00:41 -0500
+Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
+	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id kBL00fa0025173
+	for <netdev@vger.kernel.org>; Wed, 20 Dec 2006 19:00:41 -0500
+To: davem@davemloft.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> There are two different problems:
-> 
-> 1) Behavior seems to be different depending on device driver
->    author. We should document the expected semantics better.
-> 
->    IMHO:
-> 	When device is down, it should:
-> 	 a) use as few resources as possible:
-> 	       - not grab memory for buffers
-> 	       - not assign IRQ unless it could get one
-> 	       - turn off all power consumption possible
-> 	 b) allow setting parameters like speed/duplex/autonegotiation,
->             ring buffers, ... with ethtool, and remember the state
-> 	 c) not accept data coming in, and drop packets queued
+[SCTP]: Don't export include/linux/sctp.h to userspace.
 
-What implications does c have for something like tcpdump?
+This file contains protocol definitions and there are no SCTP apps that use
+this file.
 
-rick jones
+Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
+
+---
+ include/linux/Kbuild |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
+
+diff --git a/include/linux/Kbuild b/include/linux/Kbuild
+index a1b04d8..f2d75f3 100644
+--- a/include/linux/Kbuild
++++ b/include/linux/Kbuild
+@@ -138,7 +138,6 @@ header-y += radeonfb.h
+ header-y += raw.h
+ header-y += resource.h
+ header-y += rose.h
+-header-y += sctp.h
+ header-y += smbno.h
+ header-y += snmp.h
+ header-y += sockios.h
+
+
