@@ -1,29 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/4][SCTP]: Fix typo adaption -> adaptation as per the
- latest API draft.
-Date: Wed, 20 Dec 2006 16:07:21 -0800 (PST)
-Message-ID: <20061220.160721.03992153.davem@davemloft.net>
-References: <1166659250.5722.16.camel@w-sridhar2.beaverton.ibm.com>
+Subject: Re: [PATCH 3/4][SCTP]: Implement SCTP_FRAGMENT_INTERLEAVE socket
+ option.
+Date: Wed, 20 Dec 2006 16:08:00 -0800 (PST)
+Message-ID: <20061220.160800.30171139.davem@davemloft.net>
+References: <1166659257.5722.17.camel@w-sridhar2.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36095
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36099
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1161057AbWLUAHW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Dec 2006 19:07:22 -0500
+	by vger.kernel.org with ESMTP id S1161059AbWLUAIB convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Dec 2006 19:08:01 -0500
 To: sri@us.ibm.com
-In-Reply-To: <1166659250.5722.16.camel@w-sridhar2.beaverton.ibm.com>
+In-Reply-To: <1166659257.5722.17.camel@w-sridhar2.beaverton.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Sridhar Samudrala <sri@us.ibm.com>
-Date: Wed, 20 Dec 2006 16:00:50 -0800
+=46rom: Sridhar Samudrala <sri@us.ibm.com>
+Date: Wed, 20 Dec 2006 16:00:57 -0800
 
-> [SCTP]: Fix typo adaption -> adaptation as per the latest API draft.
-> 
-> Signed-off-by: Ivan Skytte Jorgensen <isj-sctp@i1.dk>
+> [SCTP]: Implement SCTP_FRAGMENT_INTERLEAVE socket option.
+>=20
+> This option was introduced in draft-ietf-tsvwg-sctpsocket-13.  It
+> prevents head-of-line blocking in the case of one-to-many endpoint.
+> Applications enabling this option really must enable SCTP_SNDRCV even=
+t
+> so that they would know where the data belongs.  Based on an
+> earlier patch by Ivan Skytte J=F8rgensen.
+>=20
+> Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
 > Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
 
-Applied, thanks Sridhar.
+The merge window for 2.6.20 features is closed, therefore I cannot
+merge this now.  Please resubmit during the 2.6.21 merge window, thank
+you.
