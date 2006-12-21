@@ -1,32 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 4/4][SCTP]: make 2 functions static
-Date: Wed, 20 Dec 2006 16:08:32 -0800 (PST)
-Message-ID: <20061220.160832.122606408.davem@davemloft.net>
-References: <1166659266.5722.18.camel@w-sridhar2.beaverton.ibm.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: Network drivers that don't suspend on interface down
+Date: Thu, 21 Dec 2006 01:11:12 +0100
+Message-ID: <20061221001111.GA4016@electric-eye.fr.zoreil.com>
+References: <20061220042648.GA19814@srcf.ucam.org> <200612192114.49920.david-b@pacbell.net> <20061220053417.GA29877@suse.de> <20061220055209.GA20483@srcf.ucam.org> <1166601025.3365.1345.camel@laptopd505.fenrus.org> <20061220125314.GA24188@srcf.ucam.org> <1166621931.3365.1384.camel@laptopd505.fenrus.org> <20061220143134.GA25462@srcf.ucam.org> <1166629900.3365.1428.camel@laptopd505.fenrus.org> <20061220144906.7863bcd3@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net
+Content-Type: text/plain; charset=us-ascii
+Cc: Arjan van de Ven <arjan@infradead.org>,
+	Matthew Garrett <mjg59@srcf.ucam.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36103
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1161062AbWLUAId (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Dec 2006 19:08:33 -0500
-To: sri@us.ibm.com
-In-Reply-To: <1166659266.5722.18.camel@w-sridhar2.beaverton.ibm.com>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:39088 "EHLO
+	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1161076AbWLUAO3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Dec 2006 19:14:29 -0500
+To: Stephen Hemminger <shemminger@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20061220144906.7863bcd3@dxpl.pdx.osdl.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Sridhar Samudrala <sri@us.ibm.com>
-Date: Wed, 20 Dec 2006 16:01:06 -0800
+Stephen Hemminger <shemminger@osdl.org> :
+[...]
+>    IMHO:
+> 	When device is down, it should:
+> 	 a) use as few resources as possible:
+> 	       - not grab memory for buffers
+> 	       - not assign IRQ unless it could get one
+> 	       - turn off all power consumption possible
+> 	 b) allow setting parameters like speed/duplex/autonegotiation,
+>             ring buffers, ... with ethtool, and remember the state
+> 	 c) not accept data coming in, and drop packets queued
 
-> [SCTP]: make 2 functions static
-> 
-> This patch makes the following needlessly global functions static:
-> - ipv6.c: sctp_inet6addr_event()
-> - protocol.c: sctp_inetaddr_event()
-> 
-> Signed-off-by: Adrian Bunk <bunk@stusta.de>
-> Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
+<nit>
+Imho speed/duplex/autoneg is not the business of the device: they belong
+to the phy and it's up to it to decide if its state allows to set the
+requested parameters or not.
+</nit>
 
-Applied, thanks a lot.
+-- 
+Ueimor
