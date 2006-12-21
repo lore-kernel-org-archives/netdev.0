@@ -1,93 +1,69 @@
-From: Keiichi KII <k-keiichi@bx.jp.nec.com>
-Subject: [RFC][PATCH 2.6.19 take2 5/5] add "add" element in /sys/class/misc/netconsole
-Date: Thu, 21 Dec 2006 19:13:49 +0900
-Message-ID: <458A5E5D.4020505@bx.jp.nec.com>
-References: <458A5AAE.30209@bx.jp.nec.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [take28-resend_1->0 0/8] kevent: Generic event handling mechanism.
+Date: Thu, 21 Dec 2006 13:35:39 +0300
+Message-ID: <20061221103539.GA4099@2ka.mipt.ru>
+References: <3154985aa0591036@2ka.mipt.ru> <11666924573643@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=koi8-r
+Cc: David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	Chase Venters <chase.venters@clientec.com>,
+	Johann Borck <johann.borck@densedata.com>,
+	Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from TYO202.gate.nec.co.jp ([202.32.8.206]:64736 "EHLO
-	tyo202.gate.nec.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1422939AbWLUKN7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Dec 2006 05:13:59 -0500
-To: mpm@selenic.com
-In-Reply-To: <458A5AAE.30209@bx.jp.nec.com>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:35832 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965202AbWLUKhl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Dec 2006 05:37:41 -0500
+To: linux-kernel@vger.kernel.org
+Content-Disposition: inline
+In-Reply-To: <11666924573643@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Keiichi KII <k-keiichi@bx.jp.nec.com>
+On Thu, Dec 21, 2006 at 12:14:17PM +0300, Evgeniy Polyakov (johnpol@2ka.mipt.ru) wrote:
+> 
+> Generic event handling mechanism.
+> 
+> Kevent is a generic subsytem which allows to handle event notifications.
+> It supports both level and edge triggered events. It is similar to
+> poll/epoll in some cases, but it is more scalable, it is faster and
+> allows to work with essentially eny kind of events.
+> 
+> Events are provided into kernel through control syscall and can be read
+> back through ring buffer or using usual syscalls.
+> Kevent update (i.e. readiness switching) happens directly from internals
+> of the appropriate state machine of the underlying subsytem (like
+> network, filesystem, timer or any other).
+> 
+> Homepage:
+> http://tservice.net.ru/~s0mbre/old/?section=projects&item=kevent
+> 
+> Documentation page:
+> http://linux-net.osdl.org/index.php/Kevent
+> 
+> Consider for inclusion.
 
-This patch contains the following changes.
+Due to this stall kevent inclusion into lighttpd CVS tree is postponed.
 
-To add port dynamically, create "add" element in /sys/class/misc/netconsole.
+The last version will be released saturday or sunday, and looking into
+overhelming flow of feedback comments on this feature, project will not
+be released to linux-kernel@, after this I will
+complete netchannels support and start kevent based AIO project - mostly
+network AIO with new design, which is based on set of entities, which
+can describe set of tasks which should be performed
+asynchronously (from user point of view, although read and write
+obviously must be done after open and before close), for example syscall
+which gets as parameter destination socket and local filename (with
+optional offset and length fields), which will asynchronously from user
+point of view open a file and transfer requested part to the destination
+socket and then return opened file descriptor (or it can be closed if
+requested). Similar mechanism can be done for read/write calls.
 
-ex)
-   echo "@/eth0,@192.168.0.1/" > /sys/class/misc/netconsole/add
-   then the port is added with the settings sending kernel messages
-   to 192.168.0.1 using eth0 device.
-
--+- /sys/class/misc/
- |-+- netconsole/
-   |--- add       [-w-------]  If you write parameter(network interface name
-   |                           or one config parameter of netconsole), The
-   |                            port related its config is added
-   |--- port1/
-   |--- port2/
-   ...
-
-Signed-off-by: Keiichi KII <k-keiichi@bx.jp.nec.com>
----
-[changes]
-1. remove unneccesary cast.
-2. change config parameter for "add" element.
-
---- linux-2.6.19/drivers/net/netconsole.c	2006-12-21 18:39:12.719185750 +0900
-+++ enhanced-netconsole/drivers/net/netconsole.c.add	2006-12-21 18:39:05.046706250 +0900
-@@ -338,6 +338,30 @@ static struct miscdevice netconsole_misc
- 	.name = "netconsole",
- };
- 
-+static ssize_t store_miscdev_add(struct class_device *cdev,
-+					const char *buf, size_t count)
-+{
-+	char *target_param;
-+
-+	target_param = kmalloc(count+1, GFP_KERNEL);
-+	if (!target_param) {
-+		printk(KERN_ERR "netconsole: kmalloc() failed!\n");
-+		return -ENOMEM;
-+	}
-+
-+	strcpy(target_param, buf);
-+	if (target_param[count - 1] == '\n')
-+		target_param[count - 1] = '\0';
-+
-+	printk(KERN_INFO "netconsole: config = [%s]\n", target_param);
-+	add_target(target_param);
-+	kfree(target_param);
-+
-+	return count;
-+}
-+
-+static CLASS_DEVICE_ATTR(add, S_IWUSR, NULL, store_miscdev_add);
-+
- static struct netpoll np = {
- 	.name = "netconsole",
- 	.dev_name = "eth0",
-@@ -467,6 +491,9 @@ static int __init init_netconsole(void)
- 
- 	register_console(&netconsole);
- 
-+	class_device_create_file(netconsole_miscdev.class,
-+				 &class_device_attr_add);
-+
- 	if(!strlen(config)) {
- 		printk(KERN_ERR "netconsole: not configured\n");
- 		return 0;
+Interested parties will be able to apply patches for theirs own kernels.
 
 -- 
-Keiichi KII
-NEC Corporation OSS Promotion Center
-E-mail: k-keiichi@bx.jp.nec.com
+	Evgeniy Polyakov
