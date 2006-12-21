@@ -1,50 +1,46 @@
-From: Valdis.Kletnieks@vt.edu
-Subject: Re: Network drivers that don't suspend on interface down
-Date: Thu, 21 Dec 2006 13:27:55 -0500
-Message-ID: <200612211827.kBLIRtqC025054@turing-police.cc.vt.edu>
-References: <20061219185223.GA13256@srcf.ucam.org> <200612191959.43019.david-b@pacbell.net> <20061220042648.GA19814@srcf.ucam.org> <200612192114.49920.david-b@pacbell.net> <20061220053417.GA29877@suse.de> <20061220055209.GA20483@srcf.ucam.org> <1166601025.3365.1345.camel@laptopd505.fenrus.org> <20061220125314.GA24188@srcf.ucam.org> <20061220150009.1d697f15@griffin.suse.cz> <1166638371.2798.26.camel@localhost.localdomain> <20061221011526.GB32625@srcf.ucam.org>
-            <1166670411.23168.13.camel@localhost.localdomain>
+From: Ivo van Doorn <ivdoorn@gmail.com>
+Subject: Re: [PATCH] eeprom_93cx6: Add write support
+Date: Thu, 21 Dec 2006 19:54:06 +0100
+Message-ID: <200612211954.08123.IvDoorn@gmail.com>
+References: <200612131956.51000.IvDoorn@gmail.com> <20061213190651.GF26412@csclub.uwaterloo.ca> <a32f33a40612202322v349caae9j9078bb590239c999@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="==_Exmh_1166725675_12674P";
-	 micalg=pgp-sha1; protocol="application/pgp-signature"
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Matthew Garrett <mjg59@srcf.ucam.org>, Jiri Benc <jbenc@suse.cz>,
-	Arjan van de Ven <arjan@infradead.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1423019AbWLUSaJ@vger.kernel.org>
-To: Dan Williams <dcbw@redhat.com>
-In-Reply-To: Your message of "Wed, 20 Dec 2006 22:06:51 EST."
-             <1166670411.23168.13.camel@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: "Lennart Sorensen" <lsorense@csclub.uwaterloo.ca>,
+	netdev@vger.kernel.org, "Michael Wu" <flamingice@sourmilk.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nf-out-0910.google.com ([64.233.182.184]:41200 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1423012AbWLUSyh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Dec 2006 13:54:37 -0500
+Received: by nf-out-0910.google.com with SMTP id o25so3143083nfa
+        for <netdev@vger.kernel.org>; Thu, 21 Dec 2006 10:54:35 -0800 (PST)
+To: "John W. Linville" <linville@tuxdriver.com>
+In-Reply-To: <a32f33a40612202322v349caae9j9078bb590239c999@mail.gmail.com>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---==_Exmh_1166725675_12674P
-Content-Type: text/plain; charset=us-ascii
+Hi,
 
-On Wed, 20 Dec 2006 22:06:51 EST, Dan Williams said:
-> It's also complicated because some switches are supposed to rfkill both
-> an 802.11 module _and_ a bluetooth module at the same time, or I guess
-> some laptops may even have one rfkill switch for each wireless device.
+> > This patch addes support for writing to the eeprom,
+> > this also moves some duplicate code into seperate functions.
+> 
+> John: Do you want me to merge this path with the eeprom merge patch,
+> and move the patch that moves rt2x00 to use this eeprom module into a
+> separate patch or all these 2 patches good enough?
 
-On my Dell D820, it's bios-selectable if the switch is enabled, or if
-it controls just the 802.11 card, or 802.11 and bluetooth, or just bluetooth,
-or 802.11 and mobile broadband, or ...
+I shouldn't write mails while tired. Let met explain myself. ;)
+eeprom_93cx6 has now 2 patches pending:
+ 1 - move eeprom_93cx6 out of rt2x00 and into /lib
+ 2 - add write support for eeprom_93cx6
 
-This way lies madness. :)
+Should patch 1 be split into a patch to add eeprom_93cx6
+to the /lib folder and a seperate patch to remove the module
+from rt2x00?
 
-(Oddest part - said bios config screen offers the choices for bluetooth
-and mobile broadband even though the hardware config doesn't include it. ;)
+And while redoing the patch, merge patch 2 with the patch to add
+eeprom_93cx6 to /lib?
 
---==_Exmh_1166725675_12674P
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.6 (GNU/Linux)
-Comment: Exmh version 2.5 07/13/2001
-
-iD8DBQFFitIrcC3lWbTT17ARAmxaAKDaqP5WCL22hXx/TKkLUzP65rrkXgCg6jtv
-Pq2mF9jGpOFxCv3vsP2cFc8=
-=+ohu
------END PGP SIGNATURE-----
-
---==_Exmh_1166725675_12674P--
+Ivo
