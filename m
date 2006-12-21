@@ -1,63 +1,54 @@
-From: Michael Wu <flamingice@sourmilk.net>
+From: "Jesse Brandeburg" <jesse.brandeburg@gmail.com>
 Subject: Re: Network drivers that don't suspend on interface down
-Date: Wed, 20 Dec 2006 21:05:27 -0500
-Message-ID: <200612202105.31093.flamingice@sourmilk.net>
-References: <20061220042648.GA19814@srcf.ucam.org> <20061220144906.7863bcd3@dxpl.pdx.osdl.net> <20061221011209.GA32625@srcf.ucam.org>
+Date: Wed, 20 Dec 2006 18:10:49 -0800
+Message-ID: <4807377b0612201810t66218e4u4089df818129f1ce@mail.gmail.com>
+References: <20061219185223.GA13256@srcf.ucam.org>
+	 <20061220042648.GA19814@srcf.ucam.org>
+	 <200612192114.49920.david-b@pacbell.net>
+	 <20061220053417.GA29877@suse.de>
+	 <20061220055209.GA20483@srcf.ucam.org>
+	 <1166601025.3365.1345.camel@laptopd505.fenrus.org>
+	 <20061220125314.GA24188@srcf.ucam.org>
+	 <1166621931.3365.1384.camel@laptopd505.fenrus.org>
+	 <20061220143134.GA25462@srcf.ucam.org>
+	 <1166629900.3365.1428.camel@laptopd505.fenrus.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart4356205.82yB7HVHTv";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@osdl.org>,
-	Arjan van de Ven <arjan@infradead.org>,
+Cc: "Matthew Garrett" <mjg59@srcf.ucam.org>,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.rutgers.edu ([128.6.72.243]:12977 "EHLO
-	annwn14.rutgers.edu" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1161138AbWLUCFv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Dec 2006 21:05:51 -0500
-To: Matthew Garrett <mjg59@srcf.ucam.org>
-In-Reply-To: <20061221011209.GA32625@srcf.ucam.org>
+Received: from ug-out-1314.google.com ([66.249.92.169]:11021 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161143AbWLUCKw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Dec 2006 21:10:52 -0500
+Received: by ug-out-1314.google.com with SMTP id 44so2449169uga
+        for <netdev@vger.kernel.org>; Wed, 20 Dec 2006 18:10:49 -0800 (PST)
+To: "Arjan van de Ven" <arjan@infradead.org>
+In-Reply-To: <1166629900.3365.1428.camel@laptopd505.fenrus.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart4356205.82yB7HVHTv
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
-
-On Wednesday 20 December 2006 20:12, Matthew Garrett wrote:
-> Veering off at something of a tangent - how much of this should be true
-> for wireless devices? Softmac seems to be unhappy about setting the
-> essid unless the card is up, which breaks various assumptions...
+On 12/20/06, Arjan van de Ven <arjan@infradead.org> wrote:
 >
-Softmac isn't the only wireless code that likes to be configured after goin=
-g=20
-up first. Configuring after the card goes up has generally been more=20
-reliable, though that should not be necessary and is a bug IMHO.=20
-
-> Beyond that, I think your descriptions of up and down states make sense
-> for userspace. As Arjan suggests, there's then the intermediate state of
-> "disable as much as possible while still providing scanning and link
-> detection".
+> > Yeah, I guess that's a problem. From a user perspective, the
+> > functionality is only really useful if the latency is very small. I
+> > think where possible we'd want to power down the chip while keeping the
+> > phy up, but it would be nice to know how much power that would actually
+> > cost us.
 >
-In order to scan, we need to have the radio on and we need to be able to se=
-nd=20
-and receive. What are you gonna turn off?
+> I'm no expert but afaik the PHY is the power hungry part, the rest is
+> peanuts. So if we can get the PHY to sleep most of the time that would
+> be great.
 
-=2DMichael Wu
+The MAC uses some part of power, but FYI at least e1000 already does
+phy power management when IF_DOWN, if wake on lan isn't enabled, smbus
+isn't enabled, etc etc.  If we started using D3 power management its
+possible a whole bunch of code would go away out of e1000.
 
---nextPart4356205.82yB7HVHTv
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2 (GNU/Linux)
-
-iD8DBQBFievrT3Oqt9AH4aERAkq6AJ9XIautZ/Kw9l/wGKN0aoVyh0xVoQCeM7OL
-t8i3j+Z2tEYPAMH9LjD/5Io=
-=BpWz
------END PGP SIGNATURE-----
-
---nextPart4356205.82yB7HVHTv--
+Is there some reason why we can't have the OS just do the D3
+transition for all drivers that register support?  I mean, this power
+management using D states is actually driver *independent* and at
+least way back in the day was supposed to be implemented for "OS power
+management"
