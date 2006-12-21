@@ -1,45 +1,55 @@
-From: Matthew Garrett <mjg59@srcf.ucam.org>
+From: Michael Wu <flamingice@sourmilk.net>
 Subject: Re: Network drivers that don't suspend on interface down
-Date: Thu, 21 Dec 2006 01:15:26 +0000
-Message-ID: <20061221011526.GB32625@srcf.ucam.org>
-References: <20061219185223.GA13256@srcf.ucam.org> <200612191959.43019.david-b@pacbell.net> <20061220042648.GA19814@srcf.ucam.org> <200612192114.49920.david-b@pacbell.net> <20061220053417.GA29877@suse.de> <20061220055209.GA20483@srcf.ucam.org> <1166601025.3365.1345.camel@laptopd505.fenrus.org> <20061220125314.GA24188@srcf.ucam.org> <20061220150009.1d697f15@griffin.suse.cz> <1166638371.2798.26.camel@localhost.localdomain>
+Date: Wed, 20 Dec 2006 20:57:05 -0500
+Message-ID: <200612202057.09545.flamingice@sourmilk.net>
+References: <20061219185223.GA13256@srcf.ucam.org> <1166638371.2798.26.camel@localhost.localdomain> <20061221011526.GB32625@srcf.ucam.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Benc <jbenc@suse.cz>, Arjan van de Ven <arjan@infradead.org>,
+Content-Type: multipart/signed;
+  boundary="nextPart12965929.GjvsYcSQMa";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
+Cc: Dan Williams <dcbw@redhat.com>, Jiri Benc <jbenc@suse.cz>,
+	Arjan van de Ven <arjan@infradead.org>,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cavan.codon.org.uk ([217.147.92.49]:40984 "EHLO
-	vavatch.codon.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161113AbWLUBPk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Dec 2006 20:15:40 -0500
-To: Dan Williams <dcbw@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <1166638371.2798.26.camel@localhost.localdomain>
+Received: from smtp.rutgers.edu ([128.6.72.243]:58738 "EHLO
+	annwn14.rutgers.edu" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1161134AbWLUB53 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Dec 2006 20:57:29 -0500
+To: Matthew Garrett <mjg59@srcf.ucam.org>
+In-Reply-To: <20061221011526.GB32625@srcf.ucam.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 20, 2006 at 01:12:51PM -0500, Dan Williams wrote:
+--nextPart12965929.GjvsYcSQMa
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-> Entirely correct.  If the card is DOWN, the radio should be off (both TX
-> & RX) and it should be in max power save mode.  If userspace expects to
-> be able to get the card to do _anything_ when it's down, that's just
-> 110% wrong.  You can't get link events for many wired cards when they
-> are down, so I fail to see where userspace could expect to do anything
-> with a wireless card when it's down too.
+On Wednesday 20 December 2006 20:15, Matthew Garrett wrote:
+> Because it works on the common hardware? If there's documentation about
+> what userspace can legitimately expect, then I'm happy to defer to that.
+> But in the absence of any indication as to what functionality users can
+> depend on, deciding that existing functionality is a bug is, well,
+> impolite.
+>
+No, it's absolutely a bug. It just so happens that some drivers incorrectly=
+=20
+allowed it.
 
-Because it works on the common hardware? If there's documentation about 
-what userspace can legitimately expect, then I'm happy to defer to that. 
-But in the absence of any indication as to what functionality users can 
-depend on, deciding that existing functionality is a bug is, well, 
-impolite.
+=2DMichael Wu
 
-> Also, how does rfkill fit into this?  rfkill implies killing TX, but do
-> we have the granularity to still receive while the transmit paths are
-> powered down?
+--nextPart12965929.GjvsYcSQMa
+Content-Type: application/pgp-signature
 
-Is rfkill not just primarily an interface for us getting events when the 
-radio changes state? Every time I read up on it I get a little more 
-confused - some time I really need to make sense of it...
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.2 (GNU/Linux)
 
--- 
-Matthew Garrett | mjg59@srcf.ucam.org
+iD8DBQBFien1T3Oqt9AH4aERAidHAKCekXO7SiOHvqXnZRyoRABKTiXnkgCfeI2g
+rgqrbYoK7HmyZ7V0cmoEPT0=
+=swlF
+-----END PGP SIGNATURE-----
+
+--nextPart12965929.GjvsYcSQMa--
