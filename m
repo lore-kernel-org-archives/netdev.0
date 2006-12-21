@@ -1,50 +1,46 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [PATCH 2.6.20-rc1 05/10] if_fddi.h: Add a missing inclusion
-Date: Wed, 20 Dec 2006 20:55:55 -0800
-Message-ID: <20061220205555.9a48c327.akpm@osdl.org>
-References: <Pine.LNX.4.64N.0612201113410.11005@blysk.ds.pg.gda.pl>
+From: David Brownell <david-b@pacbell.net>
+Subject: Re: Network drivers that don't suspend on interface down
+Date: Wed, 20 Dec 2006 21:25:10 -0800
+Message-ID: <200612202125.10865.david-b@pacbell.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>, linux-mips@linux-mips.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.25]:37971 "EHLO smtp.osdl.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1422695AbWLUE4F (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Dec 2006 23:56:05 -0500
-To: "Maciej W. Rozycki" <macro@linux-mips.org>
-In-Reply-To: <Pine.LNX.4.64N.0612201113410.11005@blysk.ds.pg.gda.pl>
-Sender: netdev-owner@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Matthew Garrett <mjg59@srcf.ucam.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1422764AbWLUGiH@vger.kernel.org>
+To: Stephen Hemminger <shemminger@osdl.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 20 Dec 2006 12:01:55 +0000 (GMT)
-"Maciej W. Rozycki" <macro@linux-mips.org> wrote:
+Hmm, this reminds me of a thread from last summer, following up on
+some PM discussions at OLS.  Thread "Runtime power management for
+network interfaces", at the end of July.
 
->  This is a change to include <linux/netdevice.h> in <linux/if_fddi.h> 
-> which is needed for "struct fddi_statistics".
-> 
-> Signed-off-by: Maciej W. Rozycki <macro@linux-mips.org>
-> ---
-> 
->  Please apply.
-> 
->   Maciej
-> 
-> patch-mips-2.6.18-20060920-if_fddi-netdev-0
-> diff -up --recursive --new-file linux-mips-2.6.18-20060920.macro/include/linux/if_fddi.h linux-mips-2.6.18-20060920/include/linux/if_fddi.h
-> --- linux-mips-2.6.18-20060920.macro/include/linux/if_fddi.h	2006-09-20 20:51:20.000000000 +0000
-> +++ linux-mips-2.6.18-20060920/include/linux/if_fddi.h	2006-12-14 04:36:58.000000000 +0000
-> @@ -103,6 +103,8 @@ struct fddihdr
->  	} __attribute__ ((packed));
->  
->  #ifdef __KERNEL__
-> +#include <linux/netdevice.h>
-> +
->  /* Define FDDI statistics structure */
->  struct fddi_statistics {
->  
 
-I'll treat this a a bugfix, unrelated to the turbochannel changes.
+> 2) Network device infrastructure should make it easier for devices:
+>     bring interface down on suspend and bring it up after resume
+>     (if it was running when suspended). This would allow many devices to
+>     have no suspend/resume hook; except those that have some better power
+>     control over hardware.
 
-Which may be wrong, but I doubt it.
+The _intent_ of the class suspend() and resume() methods is to let
+infrastructure (the network stack was explicitly mentioned!) handle
+pretty much everything except putting the hardware in low power
+modes ... which last step might, for PCI devices at least, most
+naturally be done in suspend_late().  That way it'd be decoupled
+cleanly from anything else.
+
+Now, I recently tried refreshing a patch that used those class
+suspend() and resume() methods, and for some reason they're not
+getting called.  I believe they used to get called, although it's
+true their parameter wasn't very useful ... it was called with the
+underlying device, not the class_device holding state that the
+class driver manages.
+
+I just wanted to point out that yes, this ground has been covered
+before, with some agreement on that approach.  It'd be good to see
+it pursued.  :)
+
+- Dave
