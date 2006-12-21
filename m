@@ -1,132 +1,119 @@
-From: "Alex Deucher" <alexdeucher@gmail.com>
-Subject: Re: Marvell Libertas wifi
-Date: Thu, 21 Dec 2006 12:08:31 -0500
-Message-ID: <a728f9f90612210908y17f5d012p8c690651ec0c6312@mail.gmail.com>
-References: <a728f9f90612070932x72e1d25u82ed3ea92984ccfc@mail.gmail.com>
-	 <1165527420.5482.26.camel@localhost.localdomain>
-	 <a728f9f90612072203h77cb388eq465ad7487c7452b0@mail.gmail.com>
-	 <1165583844.3075.10.camel@localhost.localdomain>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: Network drivers that don't suspend on interface down
+Date: Thu, 21 Dec 2006 12:16:06 -0500
+Message-ID: <1166721367.3067.10.camel@localhost.localdomain>
+References: <20061220042648.GA19814@srcf.ucam.org>
+	 <200612192114.49920.david-b@pacbell.net> <20061220053417.GA29877@suse.de>
+	 <20061220055209.GA20483@srcf.ucam.org>
+	 <1166601025.3365.1345.camel@laptopd505.fenrus.org>
+	 <20061220125314.GA24188@srcf.ucam.org>
+	 <20061220150009.1d697f15@griffin.suse.cz>
+	 <1166638371.2798.26.camel@localhost.localdomain>
+	 <20061221011526.GB32625@srcf.ucam.org>
+	 <1166670411.23168.13.camel@localhost.localdomain>
+	 <20061221031418.GA1277@srcf.ucam.org>
+	 <1166671967.23168.40.camel@localhost.localdomain>
+	 <Pine.LNX.4.64.0612211359400.30016@mercury.sdinet.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: Matthew Garrett <mjg59@srcf.ucam.org>, Jiri Benc <jbenc@suse.cz>,
+	Arjan van de Ven <arjan@infradead.org>,
+	Linux-Kernel-Mailinglist <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.178]:2141 "EHLO
-	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1422986AbWLURIc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Dec 2006 12:08:32 -0500
-Received: by py-out-1112.google.com with SMTP id a29so1437916pyi
-        for <netdev@vger.kernel.org>; Thu, 21 Dec 2006 09:08:31 -0800 (PST)
-To: "Dan Williams" <dcbw@redhat.com>
-In-Reply-To: <1165583844.3075.10.camel@localhost.localdomain>
-Content-Disposition: inline
+Received: from mx1.redhat.com ([66.187.233.31]:52935 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1422978AbWLUROJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Dec 2006 12:14:09 -0500
+To: Sven-Haegar Koch <haegar@sdinet.de>
+In-Reply-To: <Pine.LNX.4.64.0612211359400.30016@mercury.sdinet.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 12/8/06, Dan Williams <dcbw@redhat.com> wrote:
-> On Fri, 2006-12-08 at 01:03 -0500, Alex Deucher wrote:
-> > On 12/7/06, Dan Williams <dcbw@redhat.com> wrote:
-> > > On Thu, 2006-12-07 at 12:32 -0500, Alex Deucher wrote:
-> > > > I just wanted to check on the status of the libertas driver from
-> > > > Marvell for the OLPC project.  I haven't really been able to find out
-> > >
-> > > The driver needs quite a bit of love.  It's only been used for embedded
-> > > devices so far and has quite a few NDIS-isms sprinkled throughout.  It's
-> > > also something like 30,000 LoC, which is completely bogus.  There's no
-> > > reason it should be that large given that it's a FullMAC-type part.
-> > >
-> > > We're slowly working on cleaning it up for submission to the kernel.
-> > > That process will probably take until after the holidays.  We are
-> > > removing unused code/defines, cleaning up WEXT compliance, making
-> > > operations like association and scanning asynchronous, converting
-> > > private IOCTLs to debugfs, fixing the power-saving code, and adding
-> > > draft 802.11s wireless mesh functionality to the firmware and the
-> > > driver.
-> > >
-> > > Are you developing a device based on the 8388?  AFAIK, the chip does not
-> > > appear in any consumer devices that are generally available to the
-> > > public, and certainly isn't sold to Linksys or DLink for consumer USB
-> > > dongles.  It does show up in embedded situations like the Nokia N80
-> > > mobile phone and a few other small gadgets like that.
-> > >
-> > > > much about this driver other than the commits to the olpc and
-> > > > infradead libertas git trees.  The olpc laptop uses the usb interface
-> > >
-> > > Correct; the 8388 module is connected directly to the USB traces coming
-> > > out of the 5536 Geode companion chip on the OLPC motherboard.
-> > >
-> > > > and that seems to be what is supported at the moment (although some
-> > > > comments in the code allude to pci and sdio interfaces as well).  Does
-> > >
-> > > Yes; the part evidently has other interface variants, though code for
-> > > those variants was not provided in the initial driver sources which
-> > > Marvell GPL-ed in April.
-> > >
-> > > > anyone know what the plan is for merging this driver into mainline?
-> > > > What about pci support?  Did Marvell donate any code for the PCI
-> > > > interface? If not how hard would it be to add PCI support?  I
-> > >
-> > > No code for PCI was donated, and we don't have any 8388 PCI cards at
-> > > OLPC.
-> > >
-> > > > requested databooks from Marvell months ago, but never got anywhere.
-> > > > I'd like to see better support for this chip and would be willing to
-> > > > help out.  Any updates would be much appreciated.
-> > >
-> > > Be aware that I _think_ there are a few chips in the Libertas line; we
-> > > are using the 8388.  The current driver only supports that specific
-> > > part.
-> > >
-> > > That said, if you've got hardware, we'd love patches, certainly accept
-> > > patches that provided PCI support and fixed bugs in the driver.  We may
-> > > also be able to provide USB 8388 reference dongles for people willing to
-> > > help out with the development of the driver.
-> > >
+On Thu, 2006-12-21 at 14:19 +0100, Sven-Haegar Koch wrote:
+> On Wed, 20 Dec 2006, Dan Williams wrote:
+> 
+> >> If we define interface down as meaning that the device is powered down
+> >> and the radio switched off, then (b) and (c) would presumably just need
+> >> to ensure that the interface is downed. (a) is a slightly more special
+> >> case - if the switch disables the radio, I guess we then want the driver
+> >> to down the interface as well.
 > >
-> > Yes, that appears to be the case.  I just wasn't sure how
-> > similar/dissimilar they are.  I have a 11ab:1fa7 on my motherboard,
-> > and I've seen quite a few Marvel chips floating around on cardbus and
-> > pci cards.  I'm hoping the cores are pretty similar and one could just
-> > add some pci glue to make the olpc driver work.  Does anyone at the
-> > olpc have any contacts at Marvell that could clarify the situation or
-> > might know if they are willing to release the code for the pci
-> > variants, etc.?
->
-> What's the numbers on the chip?  We know that the _8338_ part (which
-> may/may not be part of the Libertas family, we're not sure) doesn't
-> work, and that's shipping on USB dongles from Linksys.  If you could get
-> a bit more info off the surface of the chip, that would help.  The 8338
-> part, for example, has a different firmware load sequence and a
-> different sized RAM than the 8388 which we're using, and is incompatible
-> with the current driver.
-
-FWIW, I just noticed openbsd has a driver (malo) for the pci/cardbus
-marvell variants:
-http://www.openbsd.org/cgi-bin/man.cgi?query=malo&sektion=4&format=html
-It claims to support the 88W8310 and 88W8335.
-
->From the blog entry below it looks like they used the linux driver as
-a reference.  Not sure if they used mrv8k or the olpc driver.
-http://undeadly.org/cgi?action=article&sid=20061120180656
-
-Is anyone familiar with this driver?
-
-Alex
-
->
-> Dan
->
-> > Thanks,
+> > Correct.
 > >
-> > Alex
+> >> In the (a) case, drivers should presumably refuse to bring the interface
+> >> up if the radio is disabled?
 > >
-> > > Cheers,
-> > > Dan
-> > >
-> > > > Thanks,
-> > > >
-> > > > Alex
-> > > >
-> > > > PS, please CC: me on replies as I'm not on this list.
->
->
+> > Right; the driver simply can't do anything about it, because the switch
+> > is hardwired to the card and either the card's firmware takes care of
+> > it, or the chipset takes care of it.  The driver has no say whatsoever
+> > in the state of the card's radio for this case.  I tend to think this
+> > case is on it's way out in the same way that fullmac cards are falling
+> > out of favor (ie, do everything in software and save $$$), but they are
+> > around and we need to support them.
+> >
+> > In this case, down really does mean down too.  The driver cannot honor
+> > requests to set SSID, frequency, etc, because it's simply not possible
+> > at that time.
+> 
+> What do you mean with this exactly?
+> Should the user not be able to set these values, or should the driver not 
+> be able to activate them?
+> 
+> I think it is correct when the driver does not activate them, but I think 
+> the user should be able to configure them, have them stored inside 
+> cfg80211/the driver, and have them activated/used when uping the 
+> interface, or when the rfkill switch has been deactivated. Otherwise it 
+> will get impossible to boot with rfkill disabled, toggle the switch later 
+> on and have everything working.
+
+This would be an optimization.  You could possibly _set_ values, but
+obviously an 'associate' command would fail, and so it should.  But
+there's really not that much of a point to doing this, because cfg80211
+should support "packaging" up all the config for a particular
+association request into one call, and then just blasting that to the
+card.  Ideally configuration wouldn't be pushed to the card piecemeal.
+As WEXT stands right now, setting the SSID on the card is essentially
+the "associate" command, which obviously wouldn't work when the card is
+down.  cfg80211 can fix that, you're right.
+
+> And another side to this:
+> if a disabled rfkill switch downs the interface (opposed to just 
+> disabling it but staying "ifconfig up") - what happens to the ip config 
+> of this interface? What reconfigures the needed routes when a re-enabled 
+> rfkill switch reactivates the interface? Will manual route add and 
+> ifconfig statements be impossible and we'll get forced to use some crappy 
+> distri-scripts and daemons for it?
+
+For anything other than unencrypted and WEP-only networks, you already
+need a userspace program to configure your wireless card.  Dynamic WEP,
+LEAP, WPA, WPA2, 802.1x all require much, much more handshake and
+validation that should _ever_ be in a driver.  You should _never_, ever
+be configuring your wireless card with module parameters.  I'm sure
+something like iwconfig would be fine to configure your card with.
+
+When the card goes down, it normally looses it's association to the
+access point anyway, and you need to start the assocaition and
+authentication over completely.  At that point, it's no longer
+guaranteed that you could ever get a previous IP address back.
+
+What does downing an ethernet device do?  It clears out routes
+associated with that device, and clears assigned addresses (I think?).
+Wireless is and should not be any different here.  When you bring the
+device back up, you need to go through some amount of renegotiation
+anyway.
+
+> And third point just coming to my mind:
+> how is changing the mac address of the card supposed to work? Chaning it 
+> through ifconfig only works when the interface is downed, so the newly 
+> wanted mac address has to be saved somewhere before the interface is 
+> reenabled and reinitialized on the next "ifconfig up".
+> (And I think it is an absolute requirement that NO packet with the 
+> old/default mac address may be sent into the air whatsoever)
+
+That's how it should work.  If you want to change the MAC address, the
+card shouldn't probably be down.
+
+Dan
+
