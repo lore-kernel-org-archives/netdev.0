@@ -1,110 +1,69 @@
 From: Dan Williams <dcbw@redhat.com>
 Subject: Re: Network drivers that don't suspend on interface down
-Date: Wed, 20 Dec 2006 22:29:09 -0500
-Message-ID: <1166671750.23168.35.camel@localhost.localdomain>
+Date: Wed, 20 Dec 2006 22:32:47 -0500
+Message-ID: <1166671967.23168.40.camel@localhost.localdomain>
 References: <20061220042648.GA19814@srcf.ucam.org>
-	 <20061220144906.7863bcd3@dxpl.pdx.osdl.net>
-	 <20061221011209.GA32625@srcf.ucam.org>
-	 <200612202105.31093.flamingice@sourmilk.net>
-	 <20061221021832.GA723@srcf.ucam.org> <4589F39C.7010201@gentoo.org>
-	 <20061221024533.GA1025@srcf.ucam.org>  <4589FAA6.509@gentoo.org>
+	 <200612192114.49920.david-b@pacbell.net> <20061220053417.GA29877@suse.de>
+	 <20061220055209.GA20483@srcf.ucam.org>
+	 <1166601025.3365.1345.camel@laptopd505.fenrus.org>
+	 <20061220125314.GA24188@srcf.ucam.org>
+	 <20061220150009.1d697f15@griffin.suse.cz>
+	 <1166638371.2798.26.camel@localhost.localdomain>
+	 <20061221011526.GB32625@srcf.ucam.org>
+	 <1166670411.23168.13.camel@localhost.localdomain>
+	 <20061221031418.GA1277@srcf.ucam.org>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Matthew Garrett <mjg59@srcf.ucam.org>,
-	Michael Wu <flamingice@sourmilk.net>,
-	Stephen Hemminger <shemminger@osdl.org>,
-	Arjan van de Ven <arjan@infradead.org>,
+Cc: Jiri Benc <jbenc@suse.cz>, Arjan van de Ven <arjan@infradead.org>,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:52082 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([66.187.233.31]:53427 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1422654AbWLUD1J (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Dec 2006 22:27:09 -0500
-To: Daniel Drake <dsd@gentoo.org>
-In-Reply-To: <4589FAA6.509@gentoo.org>
+	id S1422656AbWLUDan (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Dec 2006 22:30:43 -0500
+To: Matthew Garrett <mjg59@srcf.ucam.org>
+In-Reply-To: <20061221031418.GA1277@srcf.ucam.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2006-12-20 at 22:08 -0500, Daniel Drake wrote:
-> Matthew Garrett wrote:
-> >> There are additional implementation problems: scanning requires 2 
-> >> different ioctl calls: siwscan, then several giwscan. If you want the 
-> >> driver to effectively temporarily bring the interface up when userspace 
-> >> requests a scan but the interface was down, then how does the driver 
-> >> know when to bring it down again?
+On Thu, 2006-12-21 at 03:14 +0000, Matthew Garrett wrote:
+> On Wed, Dec 20, 2006 at 10:06:51PM -0500, Dan Williams wrote:
+> 
+> > a) tied to the wireless hardware, switch kills hardware directly
+> > b) tied to wireless hardware, but driver handles the kill request
+> > c) just another key, a separate key driver handles the event and asks
+> > the wireless driver to kill the card
 > > 
-> > Hm. Does the spec not set any upper bound on how long it might take for 
-> > APs to respond? I'm afraid that my 802.11 knowledge is pretty slim. 
+> > It's also complicated because some switches are supposed to rfkill both
+> > an 802.11 module _and_ a bluetooth module at the same time, or I guess
+> > some laptops may even have one rfkill switch for each wireless device.
+> > Furthermore, some people want to 'softkill' the hardware via software
+> > without pushing the key, which is a subset of (b) or (c) above.
 > 
-> I'm not sure, but thats not entirely relevant either.  The time it takes 
-> for the AP to respond is not related to the delay between userspace 
-> sending the siwscan and giwscan ioctls (unless you're thinking of 
-> userspace being too quick, but GIWSCAN already returns -EINPROGRESS when 
-> appropriate so this is detectable)
+> If we define interface down as meaning that the device is powered down 
+> and the radio switched off, then (b) and (c) would presumably just need 
+> to ensure that the interface is downed. (a) is a slightly more special 
+> case - if the switch disables the radio, I guess we then want the driver 
+> to down the interface as well.
 
-Channel dwell time for a passive scan is usually around 100ms - 250ms,
-depending on how accurate you want your scan results (== wait longer),
-and how much power you want to save (== don't wait long).
+Correct.
 
-Correct userspace apps should:
+> In the (a) case, drivers should presumably refuse to bring the interface 
+> up if the radio is disabled?
 
-1) Set a timer for, say, 8 seconds
-2) Issue an SIWSCAN command
-3) Wait for the GIWSCAN netlink event from the card, get results via
-GIWSCAN command when it comes; cancel the timer from (2)
-4) If the timer fires because no GIWSCAN event was received, try to get
-scan results via GIWSCAN command from the driver anyway
+Right; the driver simply can't do anything about it, because the switch
+is hardwired to the card and either the card's firmware takes care of
+it, or the chipset takes care of it.  The driver has no say whatsoever
+in the state of the card's radio for this case.  I tend to think this
+case is on it's way out in the same way that fullmac cards are falling
+out of favor (ie, do everything in software and save $$$), but they are
+around and we need to support them.
 
-<rant>
-Note that NDIS requires a driver to return _something_ within 2 seconds
-of a scan request.  Even if you're an 802.11a card (madwifi *cough*, I'm
-starting a new thing where I cough after...).  So it's certainly
-possible to return scan results in a timely manner, since the Windows
-drivers for these cards are obviously doing it just fine.
-
-Drivers should buffer scan results from past scans, age them
-appropriately, and purge them when they get too old.  Drivers should
-never, ever, clear the scan result list when SIWSCAN or GIWSCAN is
-called, because that means there's a window when a scan result request
-from some other app could illegitimately return no BSSID records.
-</rant>
-
-> > Picking a number out of thin air would be one answer, but clearly less 
-> > than ideal. This may be a case of us not being able to satisfy everyone, 
-> > and so just having to force the user to choose between low power or 
-> > wireless scanning.
-> 
-> I think it's reasonable to keep the interface down, but then when the 
-> user does want to connect, bring the interface up, scan, present scan 
-> results. Scanning is quick, there would be minimal wait needed here.
-
-Unless you're madwifi *cough* and then you may have to wait up to _14_
-seconds for a full scan of all a/bg channels.  That's just insane.  I
-have no idea why that's the case (or at least was up to earlier this
-year) but it's just unacceptable.
-
-> Alternatively, if you do want to prepare scan results in the background 
-> every 2 minutes, use a sequence something like:
-> 
-> - bring interface up
-> - siwscan
-> - giwscan [...]
-> - bring interface down
-> - repeat after 2 mins
-> 
-> If this kind of thing was implemented at the driver level, in most cases 
-> it would be identical to doing the above anyway.
-
-Right.  It should 100% be in userspace and not in the drivers.  Who says
-2 minutes is the right interval?  Putting that stuff, and the get/set
-commands for changing that interval, in the driver is just plain wrong.
+In this case, down really does mean down too.  The driver cannot honor
+requests to set SSID, frequency, etc, because it's simply not possible
+at that time.
 
 Dan
 
-> Daniel
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
