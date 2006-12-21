@@ -1,52 +1,40 @@
-From: Matthew Garrett <mjg59@srcf.ucam.org>
+From: Dan Williams <dcbw@redhat.com>
 Subject: Re: Network drivers that don't suspend on interface down
-Date: Thu, 21 Dec 2006 02:45:33 +0000
-Message-ID: <20061221024533.GA1025@srcf.ucam.org>
-References: <20061220042648.GA19814@srcf.ucam.org> <20061220144906.7863bcd3@dxpl.pdx.osdl.net> <20061221011209.GA32625@srcf.ucam.org> <200612202105.31093.flamingice@sourmilk.net> <20061221021832.GA723@srcf.ucam.org> <4589F39C.7010201@gentoo.org>
+Date: Wed, 20 Dec 2006 22:02:18 -0500
+Message-ID: <1166670138.23168.7.camel@localhost.localdomain>
+References: <20061219185223.GA13256@srcf.ucam.org>
+	 <1166638371.2798.26.camel@localhost.localdomain>
+	 <20061221011526.GB32625@srcf.ucam.org>
+	 <200612202057.09545.flamingice@sourmilk.net>
+	 <20061221022053.GB723@srcf.ucam.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Michael Wu <flamingice@sourmilk.net>,
-	Stephen Hemminger <shemminger@osdl.org>,
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Michael Wu <flamingice@sourmilk.net>, Jiri Benc <jbenc@suse.cz>,
 	Arjan van de Ven <arjan@infradead.org>,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cavan.codon.org.uk ([217.147.92.49]:48932 "EHLO
-	vavatch.codon.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161153AbWLUCpu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Dec 2006 21:45:50 -0500
-To: Daniel Drake <dsd@gentoo.org>
-Content-Disposition: inline
-In-Reply-To: <4589F39C.7010201@gentoo.org>
+Received: from mx1.redhat.com ([66.187.233.31]:46212 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1161164AbWLUDAR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Dec 2006 22:00:17 -0500
+To: Matthew Garrett <mjg59@srcf.ucam.org>
+In-Reply-To: <20061221022053.GB723@srcf.ucam.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 20, 2006 at 09:38:20PM -0500, Daniel Drake wrote:
+On Thu, 2006-12-21 at 02:20 +0000, Matthew Garrett wrote:
+> On Wed, Dec 20, 2006 at 08:57:05PM -0500, Michael Wu wrote:
+> 
+> (allowing scanning while the interface is down)
+> 
+> > No, it's absolutely a bug. It just so happens that some drivers incorrectly 
+> > allowed it.
+> 
+> Ok. Would it be reasonable to add warnings to any devices that allow it?
 
-> I don't think that supporting scanning when the interface is supposed to 
-> be disabled is sensible. If you want to scan, you are simply sending and 
-> receiving frames, it's no different from having the interface up and 
-> sending/receiving data frames.
+Quite reasonable.
 
->From a usability point of view, it's helpful to power the card down as 
-much as possible while it's not being actively used. However, it's also 
-helpful to be able to provide a list of available wireless networks, 
-though some degree of latency would be acceptable in that. These two 
-desires are obviously not entirely compatible with one another, so it 
-would be helpful if there was some means of providing an intermediate 
-state.
+Dan
 
-> There are additional implementation problems: scanning requires 2 
-> different ioctl calls: siwscan, then several giwscan. If you want the 
-> driver to effectively temporarily bring the interface up when userspace 
-> requests a scan but the interface was down, then how does the driver 
-> know when to bring it down again?
 
-Hm. Does the spec not set any upper bound on how long it might take for 
-APs to respond? I'm afraid that my 802.11 knowledge is pretty slim. 
-Picking a number out of thin air would be one answer, but clearly less 
-than ideal. This may be a case of us not being able to satisfy everyone, 
-and so just having to force the user to choose between low power or 
-wireless scanning.
-
--- 
-Matthew Garrett | mjg59@srcf.ucam.org
