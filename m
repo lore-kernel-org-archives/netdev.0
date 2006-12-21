@@ -1,61 +1,42 @@
-From: Andrew Morton <akpm@osdl.org>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [Bugme-new] [Bug 7724] New: asm/types.h should define __u64 if
  isoc99
-Date: Thu, 21 Dec 2006 12:49:54 -0800
-Message-ID: <20061221124954.6bb415e9.akpm@osdl.org>
+Date: Thu, 21 Dec 2006 12:58:50 -0800 (PST)
+Message-ID: <20061221.125850.125884789.davem@davemloft.net>
 References: <200612211617.kBLGHAAg028181@fire-2.osdl.org>
+	<20061221124954.6bb415e9.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "bugme-daemon@kernel-bugs.osdl.org"
-	<bugme-daemon@bugzilla.kernel.org>, uberlord@gentoo.org
+Cc: netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
+	uberlord@gentoo.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.25]:39247 "EHLO smtp.osdl.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1423085AbWLUUuK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Dec 2006 15:50:10 -0500
-To: netdev@vger.kernel.org
-In-Reply-To: <200612211617.kBLGHAAg028181@fire-2.osdl.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37495
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1423096AbWLUU6w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Dec 2006 15:58:52 -0500
+To: akpm@osdl.org
+In-Reply-To: <20061221124954.6bb415e9.akpm@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 21 Dec 2006 08:17:10 -0800
-bugme-daemon@bugzilla.kernel.org wrote:
+From: Andrew Morton <akpm@osdl.org>
+Date: Thu, 21 Dec 2006 12:49:54 -0800
 
-> http://bugzilla.kernel.org/show_bug.cgi?id=7724
-> 
->            Summary: asm/types.h should define __u64 if isoc99
->     Kernel Version: 2.6.19
->             Status: NEW
->           Severity: blocking
->              Owner: other_other@kernel-bugs.osdl.org
->          Submitter: uberlord@gentoo.org
-> 
-> 
-> Most recent kernel where this bug did *NOT* occur:
-> Distribution: Gentoo
-> Hardware Environment: n/a
-> Software Environment: 2.6.18 kernels and lower
-> Problem Description:
-> 
-> Steps to reproduce:
-> Download dhcpcd-3.0.7 from http://dhcpcd.berlios.de/
-> extract it and type 'make'
-> Watch it fail with this error
-> cc -D_BSD_SOURCE -O2 -pipe -pedantic -std=c99 -Wall -Wunused -Wimplicit
-> -Wshadow -Wformat=2 -Wmissing-declarations -Wno-missing-prototypes
-> -Wwrite-strings -Wbad-function-cast -Wnested-externs -Wcomment -Winline
-> -Wchar-subscripts -Wcast-align -Wno-format-nonliteral -Wsequence-point -Wextra
-> -Wdeclaration-after-statement -c interface.c
-> In file included from /usr/include/linux/rtnetlink.h:5,
->                  from interface.c:33:
-> /usr/include/linux/if_link.h:43: error: expected specifier-qualifier-list
-> before ___u64_
-> In file included from /usr/include/linux/rtnetlink.h:7,
->                  from interface.c:33:
-> /usr/include/linux/neighbour.h:92: error: expected specifier-qualifier-list
-> before ___u64_
-> make: *** [interface.o] Error 1
-> 
+> >            Summary: asm/types.h should define __u64 if isoc99
 
+Platform specific bug, and has nothing to do with networking.
 
+This problem will occur with any user visible interface definition
+that uses __u64, and there are several both in and outside the
+networking.
+
+x86 and perhaps others protect the __u64 definition with:
+
+	defined(__GNUC__) && !defined(__STRICT_ANSI__)
+
+for whatever reason, probably to avoid "long long" or something like
+that.  But even that theory makes no sense.
+
+I do not make this protection on any of the sparc ports, even 32-bit
+sparc, for example, so I find it really strange that x86 does this.
