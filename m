@@ -1,34 +1,78 @@
-From: "Ivo Van Doorn" <ivdoorn@gmail.com>
-Subject: Re: [PATCH] eeprom_93cx6: Add write support
-Date: Thu, 21 Dec 2006 08:22:12 +0100
-Message-ID: <a32f33a40612202322v349caae9j9078bb590239c999@mail.gmail.com>
-References: <200612131956.51000.IvDoorn@gmail.com>
-	 <20061213190651.GF26412@csclub.uwaterloo.ca>
+From: David Brownell <david-b@pacbell.net>
+Subject: Re: Network drivers that don't suspend on interface down
+Date: Thu, 21 Dec 2006 00:11:24 -0800
+Message-ID: <200612210011.25229.david-b@pacbell.net>
+References: <200612202125.10865.david-b@pacbell.net> <458A32FF.1010700@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "Lennart Sorensen" <lsorense@csclub.uwaterloo.ca>,
-	netdev@vger.kernel.org, "Michael Wu" <flamingice@sourmilk.net>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Matthew Garrett <mjg59@srcf.ucam.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.168]:44103 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1422777AbWLUHWO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Dec 2006 02:22:14 -0500
-Received: by ug-out-1314.google.com with SMTP id 44so2527470uga
-        for <netdev@vger.kernel.org>; Wed, 20 Dec 2006 23:22:13 -0800 (PST)
-To: "John W. Linville" <linville@tuxdriver.com>
-In-Reply-To: <20061213190651.GF26412@csclub.uwaterloo.ca>
+Received: from smtp110.sbc.mail.mud.yahoo.com ([68.142.198.209]:33681 "HELO
+	smtp110.sbc.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1422685AbWLUIL2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Dec 2006 03:11:28 -0500
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <458A32FF.1010700@osdl.org>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Wednesday 20 December 2006 11:08 pm, Stephen Hemminger wrote:
+> David Brownell wrote:
+> > Hmm, this reminds me of a thread from last summer, following up on
+> > some PM discussions at OLS.  Thread "Runtime power management for
+> > network interfaces", at the end of July.
+> >
+> >
+> >   
+> >> 2) Network device infrastructure should make it easier for devices:
+> >>     bring interface down on suspend and bring it up after resume
+> >>     (if it was running when suspended). This would allow many devices to
+> >>     have no suspend/resume hook; except those that have some better power
+> >>     control over hardware.
+> >>     
+> >
+> > The _intent_ of the class suspend() and resume() methods is to let
+> > infrastructure (the network stack was explicitly mentioned!) handle
+> > pretty much everything except putting the hardware in low power
+> > modes ... which last step might, for PCI devices at least, most
+> > naturally be done in suspend_late().  That way it'd be decoupled
+> > cleanly from anything else.
+> >   
+> The class methods don't work right for that because the physical class 
+> (PCI) gets called before the virtual class  (network devices).
 
-> This patch addes support for writing to the eeprom,
-> this also moves some duplicate code into seperate functions.
+I'd say they don't work just now because the virtual class code just
+doesn't get called ... at least, without someone setting up a field
+(device.class) that's flagged as "optional" and might be disappearing.
 
-John: Do you want me to merge this path with the eeprom merge patch,
-and move the patch that moves rt2x00 to use this eeprom module into a
-separate patch or all these 2 patches good enough?
+But if you read the PM code, you'll observe that the class suspend
+method gets called BEFORE the bus/device suspend method.  And that's
+how it's documented in Documentation/power/devices.txt too.
 
-Ivo
+
+... However notice that "interface down" operations won't have that
+particular problem, they have net_device.class_dev.dev already ready
+for whatever PM operation is appropriate.
+
+- Dave
+
+
+> > Now, I recently tried refreshing a patch that used those class
+> > suspend() and resume() methods, and for some reason they're not
+> > getting called.  I believe they used to get called, although it's
+> > true their parameter wasn't very useful ... it was called with the
+> > underlying device, not the class_device holding state that the
+> > class driver manages.
+> >
+> > I just wanted to point out that yes, this ground has been covered
+> > before, with some agreement on that approach.  It'd be good to see
+> > it pursued.  :)
+> >
+> > - Dave
+> >
+> >   
+> 
