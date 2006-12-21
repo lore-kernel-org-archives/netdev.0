@@ -1,72 +1,60 @@
-From: Dan Williams <dcbw@redhat.com>
+From: Daniel Drake <dsd@gentoo.org>
 Subject: Re: Network drivers that don't suspend on interface down
-Date: Wed, 20 Dec 2006 22:06:51 -0500
-Message-ID: <1166670411.23168.13.camel@localhost.localdomain>
-References: <20061219185223.GA13256@srcf.ucam.org>
-	 <200612191959.43019.david-b@pacbell.net>
-	 <20061220042648.GA19814@srcf.ucam.org>
-	 <200612192114.49920.david-b@pacbell.net> <20061220053417.GA29877@suse.de>
-	 <20061220055209.GA20483@srcf.ucam.org>
-	 <1166601025.3365.1345.camel@laptopd505.fenrus.org>
-	 <20061220125314.GA24188@srcf.ucam.org>
-	 <20061220150009.1d697f15@griffin.suse.cz>
-	 <1166638371.2798.26.camel@localhost.localdomain>
-	 <20061221011526.GB32625@srcf.ucam.org>
+Date: Wed, 20 Dec 2006 22:08:22 -0500
+Message-ID: <4589FAA6.509@gentoo.org>
+References: <20061220042648.GA19814@srcf.ucam.org> <20061220144906.7863bcd3@dxpl.pdx.osdl.net> <20061221011209.GA32625@srcf.ucam.org> <200612202105.31093.flamingice@sourmilk.net> <20061221021832.GA723@srcf.ucam.org> <4589F39C.7010201@gentoo.org> <20061221024533.GA1025@srcf.ucam.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jiri Benc <jbenc@suse.cz>, Arjan van de Ven <arjan@infradead.org>,
+Cc: Michael Wu <flamingice@sourmilk.net>,
+	Stephen Hemminger <shemminger@osdl.org>,
+	Arjan van de Ven <arjan@infradead.org>,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:47548 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1161169AbWLUDEn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Dec 2006 22:04:43 -0500
+Received: from smtp111.iad.emailsrvr.com ([207.97.245.111]:37513 "EHLO
+	smtp111.iad.emailsrvr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161171AbWLUDHj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Dec 2006 22:07:39 -0500
 To: Matthew Garrett <mjg59@srcf.ucam.org>
-In-Reply-To: <20061221011526.GB32625@srcf.ucam.org>
+In-Reply-To: <20061221024533.GA1025@srcf.ucam.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2006-12-21 at 01:15 +0000, Matthew Garrett wrote:
-> On Wed, Dec 20, 2006 at 01:12:51PM -0500, Dan Williams wrote:
+Matthew Garrett wrote:
+>> There are additional implementation problems: scanning requires 2 
+>> different ioctl calls: siwscan, then several giwscan. If you want the 
+>> driver to effectively temporarily bring the interface up when userspace 
+>> requests a scan but the interface was down, then how does the driver 
+>> know when to bring it down again?
 > 
-> > Entirely correct.  If the card is DOWN, the radio should be off (both TX
-> > & RX) and it should be in max power save mode.  If userspace expects to
-> > be able to get the card to do _anything_ when it's down, that's just
-> > 110% wrong.  You can't get link events for many wired cards when they
-> > are down, so I fail to see where userspace could expect to do anything
-> > with a wireless card when it's down too.
-> 
-> Because it works on the common hardware? If there's documentation about 
-> what userspace can legitimately expect, then I'm happy to defer to that. 
-> But in the absence of any indication as to what functionality users can 
-> depend on, deciding that existing functionality is a bug is, well, 
-> impolite.
-> 
-> > Also, how does rfkill fit into this?  rfkill implies killing TX, but do
-> > we have the granularity to still receive while the transmit paths are
-> > powered down?
-> 
-> Is rfkill not just primarily an interface for us getting events when the 
-> radio changes state? Every time I read up on it I get a little more 
-> confused - some time I really need to make sense of it...
+> Hm. Does the spec not set any upper bound on how long it might take for 
+> APs to respond? I'm afraid that my 802.11 knowledge is pretty slim. 
 
-That's OK, it's really complicated.  There are 3 cases of rfkill
-switches AFAICT:
+I'm not sure, but thats not entirely relevant either.  The time it takes 
+for the AP to respond is not related to the delay between userspace 
+sending the siwscan and giwscan ioctls (unless you're thinking of 
+userspace being too quick, but GIWSCAN already returns -EINPROGRESS when 
+appropriate so this is detectable)
 
-a) tied to the wireless hardware, switch kills hardware directly
-b) tied to wireless hardware, but driver handles the kill request
-c) just another key, a separate key driver handles the event and asks
-the wireless driver to kill the card
+> Picking a number out of thin air would be one answer, but clearly less 
+> than ideal. This may be a case of us not being able to satisfy everyone, 
+> and so just having to force the user to choose between low power or 
+> wireless scanning.
 
-It's also complicated because some switches are supposed to rfkill both
-an 802.11 module _and_ a bluetooth module at the same time, or I guess
-some laptops may even have one rfkill switch for each wireless device.
-Furthermore, some people want to 'softkill' the hardware via software
-without pushing the key, which is a subset of (b) or (c) above.
+I think it's reasonable to keep the interface down, but then when the 
+user does want to connect, bring the interface up, scan, present scan 
+results. Scanning is quick, there would be minimal wait needed here.
 
-It sucks.  But we _need_ a unified interface to handle it.
+Alternatively, if you do want to prepare scan results in the background 
+every 2 minutes, use a sequence something like:
 
-Dan
+- bring interface up
+- siwscan
+- giwscan [...]
+- bring interface down
+- repeat after 2 mins
 
+If this kind of thing was implemented at the driver level, in most cases 
+it would be identical to doing the above anyway.
 
+Daniel
