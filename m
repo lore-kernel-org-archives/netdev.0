@@ -1,37 +1,64 @@
 From: Keiichi KII <k-keiichi@bx.jp.nec.com>
-Subject: [RFC][PATCH 2.6.19 take2 0/5] proposal for dynamic configurable netconsole
-Date: Thu, 21 Dec 2006 18:58:06 +0900
-Message-ID: <458A5AAE.30209@bx.jp.nec.com>
+Subject: [RFC][PATCH 2.6.19 take2 1/5] marking __init and remove drop initialization
+Date: Thu, 21 Dec 2006 19:03:23 +0900
+Message-ID: <458A5BEB.8090400@bx.jp.nec.com>
+References: <458A5AAE.30209@bx.jp.nec.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965190AbWLUJ6Z@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from TYO202.gate.nec.co.jp ([202.32.8.206]:60203 "EHLO
+	tyo202.gate.nec.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1422932AbWLUKD3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Dec 2006 05:03:29 -0500
 To: mpm@selenic.com
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <458A5AAE.30209@bx.jp.nec.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Keiichi KII <k-keiichi@bx.jp.nec.com>
 
-The netconsole is a very useful module for collecting kernel message under
-certain circumstances(e.g. disk logging fails, serial port is unavailable).
-
-But current netconsole is not flexible. For example, if you want to change ip
-address for logging agent, in the case of built-in netconsole, you can't change
-config except for changing boot parameter and rebooting your system, or in the
-case of module netconsole, you need to reload netconsole module.
-
-So, I propose the following extended features for netconsole.
-
-1) support for multiple logging agents.
-2) add interface to access each parameter of netconsole
-   using sysfs.
-
-This patch is for linux-2.6.19 and is divided to each function.
-Your comments are very welcome.
+This patch contains the following cleanups.
+ - add __init for initialization functions(option_setup() and
+   init_netconsole()).
+ - remove "drop" initialization in the netpoll structure.
 
 Signed-off-by: Keiichi KII <k-keiichi@bx.jp.nec.com>
 ---
+[changes]
+1. stop to use anoymous enum.
+2. remove unrelated changes(formatting changes).
+
+--- linux-2.6.19/drivers/net/netconsole.c	2006-12-21 18:26:04.017895000 +0900
++++ enhanced-netconsole/drivers/net/netconsole.c.cleanup	2006-12-21 18:38:34.080771000 +0900
+@@ -60,7 +60,6 @@ static struct netpoll np = {
+ 	.local_port = 6665,
+ 	.remote_port = 6666,
+ 	.remote_mac = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+-	.drop = netpoll_queue,
+ };
+ static int configured = 0;
+ 
+@@ -92,7 +91,7 @@ static struct console netconsole = {
+ 	.write = write_msg
+ };
+ 
+-static int option_setup(char *opt)
++static int __init option_setup(char *opt)
+ {
+ 	configured = !netpoll_parse_options(&np, opt);
+ 	return 1;
+@@ -100,7 +99,7 @@ static int option_setup(char *opt)
+ 
+ __setup("netconsole=", option_setup);
+ 
+-static int init_netconsole(void)
++static int __init init_netconsole(void)
+ {
+ 	if(strlen(config))
+ 		option_setup(config);
+
 -- 
 Keiichi KII
 NEC Corporation OSS Promotion Center
