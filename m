@@ -1,49 +1,43 @@
-From: Matt Domsch <Matt_Domsch@dell.com>
-Subject: Re: Network drivers that don't suspend on interface down
-Date: Thu, 21 Dec 2006 19:25:55 -0600
-Message-ID: <20061222012554.GA28632@lists.us.dell.com>
-References: <200612192114.49920.david-b@pacbell.net> <20061220053417.GA29877@suse.de> <20061220055209.GA20483@srcf.ucam.org> <1166601025.3365.1345.camel@laptopd505.fenrus.org> <20061220125314.GA24188@srcf.ucam.org> <20061220150009.1d697f15@griffin.suse.cz> <1166638371.2798.26.camel@localhost.localdomain> <20061221011526.GB32625@srcf.ucam.org> <1166670411.23168.13.camel@localhost.localdomain> <200612211827.kBLIRtqC025054@turing-police.cc.vt.edu>
+From: Pavel Roskin <proski@gnu.org>
+Subject: Re: [PATCH] fix cfg80211 WE compat code
+Date: Thu, 21 Dec 2006 21:53:52 -0500
+Message-ID: <1166756032.2262.10.camel@dv>
+References: <1165654123.2816.29.camel@portland.localdomain>
+	 <20061209160640.GA3365@tuxdriver.com>
+	 <87hcw49rg8.fsf@briny.internal.ondioline.org>
+	 <20061210031202.6rgqw4go8ck48kks@webmail.spamcop.net>
+	 <1165756653.3131.1.camel@johannes.berg>
+	 <20061210110802.kq50mvc4s00s0skw@webmail.spamcop.net>
+	 <1165767697.3131.29.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Dan Williams <dcbw@redhat.com>,
-	Matthew Garrett <mjg59@srcf.ucam.org>,
-	Jiri Benc <jbenc@suse.cz>,
-	Arjan van de Ven <arjan@infradead.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Paul Collins <paul@briny.ondioline.org>,
+	"John W. Linville" <linville@tuxdriver.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ausc60ps301.us.dell.com ([143.166.148.206]:2337 "EHLO
-	ausc60ps301.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1945907AbWLVBfT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Dec 2006 20:35:19 -0500
-To: Valdis.Kletnieks@vt.edu
-Content-Disposition: inline
-In-Reply-To: <200612211827.kBLIRtqC025054@turing-police.cc.vt.edu>
+Received: from fencepost.gnu.org ([199.232.76.164]:40575 "EHLO
+	fencepost.gnu.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1945919AbWLVCyA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Dec 2006 21:54:00 -0500
+Received: from proski by fencepost.gnu.org with local (Exim 4.60)
+	(envelope-from <proski@gnu.org>)
+	id 1GxaXj-0006nj-Pv
+	for netdev@vger.kernel.org; Thu, 21 Dec 2006 21:53:55 -0500
+To: Johannes Berg <johannes@sipsolutions.net>
+In-Reply-To: <1165767697.3131.29.camel@johannes.berg>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 21, 2006 at 01:27:55PM -0500, Valdis.Kletnieks@vt.edu wrote:
-> On Wed, 20 Dec 2006 22:06:51 EST, Dan Williams said:
-> > It's also complicated because some switches are supposed to rfkill both
-> > an 802.11 module _and_ a bluetooth module at the same time, or I guess
-> > some laptops may even have one rfkill switch for each wireless device.
-> 
-> On my Dell D820, it's bios-selectable if the switch is enabled, or if
-> it controls just the 802.11 card, or 802.11 and bluetooth, or just bluetooth,
-> or 802.11 and mobile broadband, or ...
-> 
-> This way lies madness. :)
-> 
-> (Oddest part - said bios config screen offers the choices for bluetooth
-> and mobile broadband even though the hardware config doesn't include it. ;)
+On Sun, 2006-12-10 at 17:21 +0100, Johannes Berg wrote:
+> John, please apply this to wireless-dev if Pavel says it works (I think
+> it should).
 
-In this case changing the UI based on presence (and thus the printed
-docs etc.) winds up being difficult.  Think of it as an embedded
-advertisement - you too could have bluetooth and mobile broadband... :-)
+Yes, it's working for me.  Please apply the patch.
 
--Matt
+Sorry for answering so late.
 
 -- 
-Matt Domsch
-Software Architect
-Dell Linux Solutions linux.dell.com & www.dell.com/linux
-Linux on Dell mailing lists @ http://lists.us.dell.com
+Regards,
+Pavel Roskin
+
+
