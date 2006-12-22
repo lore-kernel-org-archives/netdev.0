@@ -1,51 +1,53 @@
-From: Pavel Roskin <proski@gnu.org>
-Subject: Re: [PATCH] fix cfg80211 WE compat code
-Date: Fri, 22 Dec 2006 00:30:46 -0500
-Message-ID: <1166765446.8216.3.camel@dv>
-References: <1165654123.2816.29.camel@portland.localdomain>
-	 <20061209160640.GA3365@tuxdriver.com>
-	 <87hcw49rg8.fsf@briny.internal.ondioline.org>
-	 <20061210031202.6rgqw4go8ck48kks@webmail.spamcop.net>
-	 <1165756653.3131.1.camel@johannes.berg>
-	 <20061210110802.kq50mvc4s00s0skw@webmail.spamcop.net>
-	 <1165767697.3131.29.camel@johannes.berg>  <1166756032.2262.10.camel@dv>
+From: Divy Le Ray <divy@chelsio.com>
+Subject: Re: [PATCH 2/10] cxgb3 - main source file
+Date: Thu, 21 Dec 2006 23:17:59 -0800
+Message-ID: <458B86A7.6030402@chelsio.com>
+References: <20061220124134.6299.29373.stgit@localhost.localdomain>	 <1166623330.3365.1397.camel@laptopd505.fenrus.org>	 <4589CA9C.80007@chelsio.com> <1166688978.3365.1472.camel@laptopd505.fenrus.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Paul Collins <paul@briny.ondioline.org>,
-	"John W. Linville" <linville@tuxdriver.com>, netdev@vger.kernel.org
+Cc: Divy Le Ray <None@chelsio.com>, jeff@garzik.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	swise@opengridcomputing.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fencepost.gnu.org ([199.232.76.164]:49346 "EHLO
-	fencepost.gnu.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1945940AbWLVFay (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Dec 2006 00:30:54 -0500
-Received: from proski by fencepost.gnu.org with local (Exim 4.60)
-	(envelope-from <proski@gnu.org>)
-	id 1Gxcza-0007pM-Ru
-	for netdev@vger.kernel.org; Fri, 22 Dec 2006 00:30:50 -0500
-To: Johannes Berg <johannes@sipsolutions.net>
-In-Reply-To: <1166756032.2262.10.camel@dv>
+Received: from stargate.chelsio.com ([12.22.49.110]:24981 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1945956AbWLVHSR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Dec 2006 02:18:17 -0500
+To: Arjan van de Ven <arjan@infradead.org>
+In-Reply-To: <1166688978.3365.1472.camel@laptopd505.fenrus.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2006-12-21 at 21:53 -0500, Pavel Roskin wrote:
-> On Sun, 2006-12-10 at 17:21 +0100, Johannes Berg wrote:
-> > John, please apply this to wireless-dev if Pavel says it works (I think
-> > it should).
-> 
-> Yes, it's working for me.  Please apply the patch.
+Arjan van de Ven wrote:
+>> They are used to parameter the HW:
+>> register access,
+>
+> ethtool supports that, so shouldn't be an ioctl for sure
+>
+>>  configuration of queue sets, on board memory 
+>> configuration,
+>
+> I'm sure ethtool can do that too
+>
+>> firmware load, etc ...
+>
+> and for this we have request_firmware() interface. 
+>
+> adding device specific ioctl that duplicate functionality that exists or
+> should exist in a generic way isn't really acceptable for 2.6 kernels
+> anymore....
+>
+Arjan,
 
-Actually, iwpriv without arguments is still hosed.  In this case,
-cfg80211_wext_ioctl() returns -EOPNOTSUPP.
+The driver implements all the ethtool operations that apply to it.
+The GETREG ioctl is left for debug purposes:
+get_regs doesn't return clear-on-read registers while GETREG does.
 
-I also noticed that cfg80211_wext_ioctl() sometimes returns 0 although
-no drivers I'm using are cfg80211 capable.
+Using request_firmware assumes that the driver knows the FW file name
+and the driver initiates the load. That's not our model where we work
+with different FWs, don't know what the names are, and the user 
+initiates the load.
 
-It looks like we need a better solution.  I'll try to be more responsive
-when it comes to testing.
-
--- 
-Regards,
-Pavel Roskin
-
-
+Cheers,
+Divy
