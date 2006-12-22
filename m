@@ -1,17 +1,17 @@
 From: Keiichi KII <k-keiichi@bx.jp.nec.com>
-Subject: [RFC][PATCH -mm 4/5] switch function of netpoll
-Date: Fri, 22 Dec 2006 21:15:59 +0900
-Message-ID: <458BCC7F.20608@bx.jp.nec.com>
+Subject: [RFC][PATCH -mm 5/5] add "add" element in /sys/class/misc/netconsole
+Date: Fri, 22 Dec 2006 21:18:10 +0900
+Message-ID: <458BCD02.3010101@bx.jp.nec.com>
 References: <458BC905.7050003@bx.jp.nec.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from TYO201.gate.nec.co.jp ([202.32.8.193]:43593 "EHLO
+Received: from TYO201.gate.nec.co.jp ([202.32.8.193]:44530 "EHLO
 	tyo201.gate.nec.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1422889AbWLVMQH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Dec 2006 07:16:07 -0500
+	with ESMTP id S964975AbWLVMSU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Dec 2006 07:18:20 -0500
 To: mpm@selenic.com
 In-Reply-To: <458BC905.7050003@bx.jp.nec.com>
 Sender: netdev-owner@vger.kernel.org
@@ -19,186 +19,73 @@ List-Id: netdev.vger.kernel.org
 
 From: Keiichi KII <k-keiichi@bx.jp.nec.com>
 
-This patch contains switch function of netpoll.
+This patch contains the following changes.
 
-If "enabled" attribute of certain port is '1', this port is used
-and the configurations of this port are uable to change.
+To add port dynamically, create "add" element in /sys/class/misc/netconsole.
 
-If "enabled" attribute of certain port is '0', this port isn't used
-and the configurations of this port are able to change.
+ex)
+   echo "@/eth0,@192.168.0.1/" > /sys/class/misc/netconsole/add
+   then the port is added with the settings sending kernel messages
+   to 192.168.0.1 using eth0 device.
 
 -+- /sys/class/misc/
-|-+- netconsole/
-  |-+- port1/
-  | |--- id          [r--r--r--]  id
-  | |--- enabled     [rw-r--r--]  0: disable 1: enable, writable
-  | ...
-  |--- port2/
-  ...
+ |-+- netconsole/
+   |--- add       [-w-------]  If you write parameter(network interface name
+   |                           or one config parameter of netconsole), The
+   |                            port related its config is added
+   |--- port1/
+   |--- port2/
+   ...
 
 Signed-off-by: Keiichi KII <k-keiichi@bx.jp.nec.com>
 ---
 [changes]
-1. change active/inactive netpoll from list management to flag management.
-2. change the name of switch from "enable" to "enabled".
-3. return proper error value.
+1. remove unneccesary cast.
+2. change config parameter for "add" element.
 
---- linux-mm/drivers/net/netconsole.c	2006-12-22 20:54:54.495677500 +0900
-+++ enhanced-netconsole/drivers/net/netconsole.c.switch	2006-12-22 16:12:54.746259250 +0900
-@@ -60,6 +60,7 @@ struct netconsole_target {
- 	struct list_head list;
- 	struct kobject obj;
- 	int id;
-+	int enabled;
- 	struct netpoll np;
+--- linux-mm/drivers/net/netconsole.c	2006-12-22 20:54:54.531679750 +0900
++++ enhanced-netconsole/drivers/net/netconsole.c.add	2006-12-22 16:13:02.062716500 +0900
+@@ -338,6 +338,30 @@ static struct miscdevice netconsole_misc
+ 	.name = "netconsole",
  };
  
-@@ -131,10 +132,19 @@ static ssize_t show_remote_mac(struct ne
- 		       nt->np.remote_mac[4], nt->np.remote_mac[5]);
- }
- 
-+static ssize_t show_enabled(struct netconsole_target *nt, char *buf)
++static ssize_t store_miscdev_add(struct class_device *cdev,
++					const char *buf, size_t count)
 +{
-+	return sprintf(buf, "%d\n", nt->enabled);
-+}
++	char *target_param;
 +
- static ssize_t store_local_port(struct netconsole_target *nt, const char *buf,
- 				size_t count)
- {
- 	spin_lock(&target_list_lock);
-+	if (nt->enabled) {
-+		spin_unlock(&target_list_lock);
-+		return -EINVAL;
++	target_param = kmalloc(count+1, GFP_KERNEL);
++	if (!target_param) {
++		printk(KERN_ERR "netconsole: kmalloc() failed!\n");
++		return -ENOMEM;
 +	}
- 	nt->np.local_port = simple_strtol(buf, NULL, 10);
- 	spin_unlock(&target_list_lock);
- 
-@@ -145,6 +155,10 @@ static ssize_t store_remote_port(struct 
- 				size_t count)
- {
- 	spin_lock(&target_list_lock);
-+	if (nt->enabled) {
-+		spin_unlock(&target_list_lock);
-+		return -EINVAL;
-+	}
- 	nt->np.remote_port = simple_strtol(buf, NULL, 10);
- 	spin_unlock(&target_list_lock);
- 
-@@ -155,6 +169,10 @@ static ssize_t store_local_ip(struct net
- 			      size_t count)
- {
- 	spin_lock(&target_list_lock);
-+	if (nt->enabled) {
-+		spin_unlock(&target_list_lock);
-+		return -EINVAL;
-+	}
- 	nt->np.local_ip = ntohl(in_aton(buf));
- 	spin_unlock(&target_list_lock);
- 
-@@ -165,6 +183,10 @@ static ssize_t store_remote_ip(struct ne
- 			       size_t count)
- {
- 	spin_lock(&target_list_lock);
-+	if (nt->enabled) {
-+		spin_unlock(&target_list_lock);
-+		return -EINVAL;
-+	}
- 	nt->np.remote_ip = ntohl(in_aton(buf));
- 	spin_unlock(&target_list_lock);
- 
-@@ -189,12 +211,39 @@ static ssize_t store_remote_mac(struct n
- 		cur = delim + 1;
- 	}
- 	spin_lock(&target_list_lock);
-+	if (nt->enabled) {
-+		spin_unlock(&target_list_lock);
-+		return -EINVAL;
-+	}
- 	memcpy(nt->np.remote_mac, input_mac, MAC_ADDR_DIGIT);
- 	spin_unlock(&target_list_lock);
- 
- 	return count;
- }
- 
-+static ssize_t store_enabled(struct netconsole_target *nt, const char *buf,
-+			    size_t count)
-+{
-+	int enabled = 0;
 +
-+	if (count >= 2 && (count != 2 || buf[count - 1] != '\n')) {
-+		printk(KERN_ERR "netconsole: invalid argument: %s\n", buf);
-+		return -EINVAL;
-+	} else if (strncmp(buf, "1", 1) == 0) {
-+		enabled = 1;
-+	} else if(strncmp(buf, "0", 1) == 0) {
-+		enabled = 0;
-+	} else {
-+		printk(KERN_ERR "netconsole: invalid argument: %s\n", buf);
-+		return -EINVAL;
-+	}
-+	spin_lock(&target_list_lock);
-+	nt->enabled = enabled;
-+	spin_unlock(&target_list_lock);
++	strcpy(target_param, buf);
++	if (target_param[count - 1] == '\n')
++		target_param[count - 1] = '\0';
++
++	printk(KERN_INFO "netconsole: config = [%s]\n", target_param);
++	add_target(target_param);
++	kfree(target_param);
 +
 +	return count;
 +}
 +
- static ssize_t store_remove(struct netconsole_target *nt, const char *buf,
- 			    size_t count)
- {
-@@ -219,6 +268,8 @@ static NETCON_CLASS_ATTR(remote_ip, S_IR
- static NETCON_CLASS_ATTR(local_mac, S_IRUGO, show_local_mac, NULL);
- static NETCON_CLASS_ATTR(remote_mac, S_IRUGO | S_IWUSR,
- 			 show_remote_mac, store_remote_mac);
-+static NETCON_CLASS_ATTR(enabled, S_IRUGO | S_IWUSR,
-+			 show_enabled, store_enabled);
- static NETCON_CLASS_ATTR(remove, S_IWUSR, NULL, store_remove);
++static CLASS_DEVICE_ATTR(add, S_IWUSR, NULL, store_miscdev_add);
++
+ static struct netpoll np = {
+ 	.name = "netconsole",
+ 	.dev_name = "eth0",
+@@ -467,6 +491,9 @@ static int __init init_netconsole(void)
  
- static struct attribute *target_attrs[] = {
-@@ -230,6 +281,7 @@ static struct attribute *target_attrs[] 
- 	&target_attr_remote_ip.attr,
- 	&target_attr_local_mac.attr,
- 	&target_attr_remote_mac.attr,
-+	&target_attr_enabled.attr,
- 	&target_attr_remove.attr,
- 	NULL
- };
-@@ -245,7 +297,7 @@ static ssize_t show_target_attr(struct k
- 	if (na->show)
- 		return na->show(nt, buffer);
- 	else
--		return -EACCES;
-+		return -EINVAL;
- }
+ 	register_console(&netconsole);
  
- static ssize_t store_target_attr(struct kobject *kobj,
-@@ -259,7 +311,7 @@ static ssize_t store_target_attr(struct 
- 	if (na->store)
- 		return na->store(nt, buffer, count);
- 	else
--		return -EACCES;
-+		return -EINVAL;
- }
- 
- static void release_target(struct kobject *kobj)
-@@ -325,6 +377,7 @@ static int add_target(char* target_confi
- 
- 	atomic_inc(&target_count);
- 	new_target->id = atomic_read(&target_count);
-+	new_target->enabled = 1;
- 
- 	printk(KERN_INFO "netconsole: add target: "
- 	       "remote ip_addr=%d.%d.%d.%d remote port=%d\n",
-@@ -371,7 +424,8 @@ static void write_msg(struct console *co
- 	for(left = len; left; ) {
- 		frag = min(left, MAX_PRINT_CHUNK);
- 		list_for_each_entry(target, &target_list, list) {
--			netpoll_send_udp(&target->np, msg, frag);
-+			if (target->enabled)
-+				netpoll_send_udp(&target->np, msg, frag);
- 		}
- 		msg += frag;
- 		left -= frag;
++	class_device_create_file(netconsole_miscdev.class,
++				 &class_device_attr_add);
++
+ 	if(!strlen(config)) {
+ 		printk(KERN_ERR "netconsole: not configured\n");
+ 		return 0;
 
 -- 
 Keiichi KII
