@@ -1,50 +1,44 @@
-From: Arjan van de Ven <arjan@infradead.org>
-Subject: Re: [PATCH 2/10] cxgb3 - main source file
-Date: Fri, 22 Dec 2006 12:26:03 +0100
-Message-ID: <1166786763.3365.1549.camel@laptopd505.fenrus.org>
-References: <20061220124134.6299.29373.stgit@localhost.localdomain>
-	 <1166623330.3365.1397.camel@laptopd505.fenrus.org>
-	 <4589CA9C.80007@chelsio.com>
-	 <1166688978.3365.1472.camel@laptopd505.fenrus.org>
-	 <458B86A7.6030402@chelsio.com>
+From: Keiichi KII <k-keiichi@bx.jp.nec.com>
+Subject: [RFC][PATCH -mm 0/5] proposal for dynamic configurable netconsole
+Date: Fri, 22 Dec 2006 21:01:09 +0900
+Message-ID: <458BC905.7050003@bx.jp.nec.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
-Cc: Divy Le Ray <None@chelsio.com>, jeff@garzik.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	swise@opengridcomputing.com
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:38468 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1946041AbWLVL0e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Dec 2006 06:26:34 -0500
-To: Divy Le Ray <divy@chelsio.com>
-In-Reply-To: <458B86A7.6030402@chelsio.com>
+Received: from TYO201.gate.nec.co.jp ([202.32.8.193]:38013 "EHLO
+	tyo201.gate.nec.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964838AbWLVMB2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Dec 2006 07:01:28 -0500
+To: mpm@selenic.com
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Keiichi KII <k-keiichi@bx.jp.nec.com>
 
-> Using request_firmware assumes that the driver knows the FW file name
+The netconsole is a very useful module for collecting kernel message under
+certain circumstances(e.g. disk logging fails, serial port is unavailable).
 
-no it knows an ALIAS for it.
+But current netconsole is not flexible. For example, if you want to change ip
+address for logging agent, in the case of built-in netconsole, you can't change
+config except for changing boot parameter and rebooting your system, or in the
+case of module netconsole, you need to reload netconsole module.
 
-> and the driver initiates the load. That's not our model where we work
-> with different FWs, don't know what the names are,
+So, I propose the following extended features for netconsole.
 
-you can have the user make a symlink to the one he wants. No Big Deal.
+1) support for multiple logging agents.
+2) add interface to access each parameter of netconsole
+   using sysfs.
 
+This patch is for linux-2.6.20-rc1-mm1 and is divided to each function.
+Your comments are very welcome.
 
->  and the user 
-> initiates the load.
-
-that sounds broken, but you can have a sysfs parameter for "load now";
-cpu microcode has something like that as well..
-
-but are you really sure you don't want to just do the load at "up"
-time ?
-
-
+Signed-off-by: Keiichi KII <k-keiichi@bx.jp.nec.com>
+---
+[changes]
+1. change kernel base from 2.6.19 to 2.6.20-rc1-mm1.
 -- 
-if you want to mail me at work (you don't), use arjan (at) linux.intel.com
-Test the interaction between Linux and your BIOS via http://www.linuxfirmwarekit.org
-
+Keiichi KII
+NEC Corporation OSS Promotion Center
+E-mail: k-keiichi@bx.jp.nec.com
