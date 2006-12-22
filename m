@@ -1,29 +1,28 @@
 From: "mohamed Abbas" <mabbashome@gmail.com>
-Subject: Fwd: d80211 and SMP
-Date: Fri, 22 Dec 2006 13:57:04 -0800
-Message-ID: <6f2b01960612221357l1446e101v7a7cb3509ff42b46@mail.gmail.com>
-References: <6f2b01960612221354q4fc95738ic9db678aa3249c94@mail.gmail.com>
+Subject: d80211 and SMP issues
+Date: Fri, 22 Dec 2006 14:17:19 -0800
+Message-ID: <6f2b01960612221417u2af34543u4d0e8870a36f1eb9@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.170]:19730 "EHLO
+Received: from ug-out-1314.google.com ([66.249.92.169]:44405 "EHLO
 	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752928AbWLVV5G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Dec 2006 16:57:06 -0500
-Received: by ug-out-1314.google.com with SMTP id 44so3094641uga
-        for <netdev@vger.kernel.org>; Fri, 22 Dec 2006 13:57:05 -0800 (PST)
+	with ESMTP id S1753083AbWLVWRV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Dec 2006 17:17:21 -0500
+Received: by ug-out-1314.google.com with SMTP id 44so3099045uga
+        for <netdev@vger.kernel.org>; Fri, 22 Dec 2006 14:17:20 -0800 (PST)
 To: netdev@vger.kernel.org
-In-Reply-To: <6f2b01960612221354q4fc95738ic9db678aa3249c94@mail.gmail.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Hi
+Sorry if you receive this email twice, my email is acting a little weird.
 I was looking at SMP issues in d80211 stack, below in my finding.
 I  did  change the d80211 stack to  add SMP safety code. I will email
 these patches later after I update them with what ever feedback I will
- get back.
+get back.
 
 The D80211 stack has many entry points; this could leads to race
 conditions and use of invalid pointers. This document will point out
@@ -52,7 +51,7 @@ D80211 threads and entry points.
   appropriate function according to the state.  These functions are
   supposed to be mutually exclusive, however they are also called from
   other threads. We need partial locking in these function to keep a
-   valid state across concurrent execution. A new spinlock called
+  valid state across concurrent execution. A new spinlock called
   local->ifsta_state_lock was added to protect state's shared data.
 * ieee80211_sta_scan_work. This function is SMP safe.
 * sta_info_proc_add_task, this function is SMP safe.
@@ -76,7 +75,7 @@ access, change or allocate pointer then unlock. The thread that is going
 to access this pointer needs to lock it first, check pointer if it is a
 valid to use, use the pointer.  It must keep the lock for as long as it
 is using the pointer, then unlock.  The other shared data type is
-  groups of data that are used together, like essid and essid_length.
+groups of data that are used together, like essid and essid_length.
 These groupings must be locked any time any part of that data is
 used or changed by any thread.
 
