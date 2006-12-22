@@ -1,34 +1,50 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] igmp: spin_lock_bh in timer (Re: BUG: soft lockup detected on CPU#0!)
-Date: Fri, 22 Dec 2006 22:16:30 +1100
-Message-ID: <E1GxiO6-0004kx-00@gondolin.me.apana.org.au>
-References: <20061222071308.GA1791@ff.dom.local>
-Cc: greearb@candelatech.com, netdev@vger.kernel.org,
-	davem@davemloft.net
+From: Arjan van de Ven <arjan@infradead.org>
+Subject: Re: [PATCH 2/10] cxgb3 - main source file
+Date: Fri, 22 Dec 2006 12:26:03 +0100
+Message-ID: <1166786763.3365.1549.camel@laptopd505.fenrus.org>
+References: <20061220124134.6299.29373.stgit@localhost.localdomain>
+	 <1166623330.3365.1397.camel@laptopd505.fenrus.org>
+	 <4589CA9C.80007@chelsio.com>
+	 <1166688978.3365.1472.camel@laptopd505.fenrus.org>
+	 <458B86A7.6030402@chelsio.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Divy Le Ray <None@chelsio.com>, jeff@garzik.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	swise@opengridcomputing.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:3890 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1946042AbWLVLQ5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Dec 2006 06:16:57 -0500
-To: jarkao2@o2.pl (Jarek Poplawski)
-In-Reply-To: <20061222071308.GA1791@ff.dom.local>
+Received: from pentafluge.infradead.org ([213.146.154.40]:38468 "EHLO
+	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1946041AbWLVL0e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Dec 2006 06:26:34 -0500
+To: Divy Le Ray <divy@chelsio.com>
+In-Reply-To: <458B86A7.6030402@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jarek Poplawski <jarkao2@o2.pl> wrote:
->
-> [PATCH] igmp: spin_lock_bh in timer
-> 
-> igmp_timer_expire() uses spin_lock(&im->lock)
-> but this lock is also taken by other igmp timers,
-> so it should be changed to bh version.
 
-When you're in a timer BH is already disabled.  So this patch
-is redundant.
+> Using request_firmware assumes that the driver knows the FW file name
 
-Thanks,
+no it knows an ALIAS for it.
+
+> and the driver initiates the load. That's not our model where we work
+> with different FWs, don't know what the names are,
+
+you can have the user make a symlink to the one he wants. No Big Deal.
+
+
+>  and the user 
+> initiates the load.
+
+that sounds broken, but you can have a sysfs parameter for "load now";
+cpu microcode has something like that as well..
+
+but are you really sure you don't want to just do the load at "up"
+time ?
+
+
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+if you want to mail me at work (you don't), use arjan (at) linux.intel.com
+Test the interaction between Linux and your BIOS via http://www.linuxfirmwarekit.org
+
