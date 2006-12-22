@@ -1,53 +1,32 @@
 From: Divy Le Ray <divy@chelsio.com>
-Subject: Re: [PATCH 2/10] cxgb3 - main source file
-Date: Thu, 21 Dec 2006 23:17:59 -0800
-Message-ID: <458B86A7.6030402@chelsio.com>
-References: <20061220124134.6299.29373.stgit@localhost.localdomain>	 <1166623330.3365.1397.camel@laptopd505.fenrus.org>	 <4589CA9C.80007@chelsio.com> <1166688978.3365.1472.camel@laptopd505.fenrus.org>
+Subject: [PATCH 0/10] cxgb3: Chelsio T3 1G/10G ethernet device driver
+Date: Thu, 21 Dec 2006 23:19:32 -0800
+Message-ID: <458B8704.6060607@chelsio.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Divy Le Ray <None@chelsio.com>, jeff@garzik.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	swise@opengridcomputing.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.22.49.110]:24981 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1945956AbWLVHSR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Dec 2006 02:18:17 -0500
-To: Arjan van de Ven <arjan@infradead.org>
-In-Reply-To: <1166688978.3365.1472.camel@laptopd505.fenrus.org>
-Sender: netdev-owner@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Steve Wise <swise@opengridcomputing.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1945966AbWLVHTq@vger.kernel.org>
+To: Jeff Garzik <jeff@garzik.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Arjan van de Ven wrote:
->> They are used to parameter the HW:
->> register access,
->
-> ethtool supports that, so shouldn't be an ioctl for sure
->
->>  configuration of queue sets, on board memory 
->> configuration,
->
-> I'm sure ethtool can do that too
->
->> firmware load, etc ...
->
-> and for this we have request_firmware() interface. 
->
-> adding device specific ioctl that duplicate functionality that exists or
-> should exist in a generic way isn't really acceptable for 2.6 kernels
-> anymore....
->
-Arjan,
+Jeff,
 
-The driver implements all the ethtool operations that apply to it.
-The GETREG ioctl is left for debug purposes:
-get_regs doesn't return clear-on-read registers while GETREG does.
+I resubmit the patch supporting the latest Chelsio T3 adapter.
+It incorporates Arjan's feedbacks:
+- remove unnecessary ifdefs
+- updates the pci ressource managment
+- add flush after register write.
 
-Using request_firmware assumes that the driver knows the FW file name
-and the driver initiates the load. That's not our model where we work
-with different FWs, don't know what the names are, and the user 
-initiates the load.
+It is built against Linus'tree.
+
+A corresponding monolithic patch is available at this URL:
+http://service.chelsio.com/kernel.org/cxgb3.patch.bz2
+
+This driver is required by the Chelsio T3 RDMA driver
+which was updated on 12/20/2006.
 
 Cheers,
 Divy
