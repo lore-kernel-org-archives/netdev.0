@@ -1,43 +1,56 @@
-From: Pavel Roskin <proski@gnu.org>
-Subject: Re: [PATCH] fix cfg80211 WE compat code
-Date: Thu, 21 Dec 2006 21:53:52 -0500
-Message-ID: <1166756032.2262.10.camel@dv>
-References: <1165654123.2816.29.camel@portland.localdomain>
-	 <20061209160640.GA3365@tuxdriver.com>
-	 <87hcw49rg8.fsf@briny.internal.ondioline.org>
-	 <20061210031202.6rgqw4go8ck48kks@webmail.spamcop.net>
-	 <1165756653.3131.1.camel@johannes.berg>
-	 <20061210110802.kq50mvc4s00s0skw@webmail.spamcop.net>
-	 <1165767697.3131.29.camel@johannes.berg>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Generic PHY lib vs. locking
+Date: Fri, 22 Dec 2006 15:07:53 +1100
+Message-ID: <1166760473.6673.85.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Paul Collins <paul@briny.ondioline.org>,
-	"John W. Linville" <linville@tuxdriver.com>, netdev@vger.kernel.org
+Cc: Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fencepost.gnu.org ([199.232.76.164]:40575 "EHLO
-	fencepost.gnu.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1945919AbWLVCyA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Dec 2006 21:54:00 -0500
-Received: from proski by fencepost.gnu.org with local (Exim 4.60)
-	(envelope-from <proski@gnu.org>)
-	id 1GxaXj-0006nj-Pv
-	for netdev@vger.kernel.org; Thu, 21 Dec 2006 21:53:55 -0500
-To: Johannes Berg <johannes@sipsolutions.net>
-In-Reply-To: <1165767697.3131.29.camel@johannes.berg>
+Received: from gate.crashing.org ([63.228.1.57]:52058 "EHLO gate.crashing.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754447AbWLVEH5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Dec 2006 23:07:57 -0500
+To: Andy Fleming <afleming@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 2006-12-10 at 17:21 +0100, Johannes Berg wrote:
-> John, please apply this to wireless-dev if Pavel says it works (I think
-> it should).
+Hi Andy !
 
-Yes, it's working for me.  Please apply the patch.
+I've been looking at porting various drivers (EMAC, sungem,
+spider_net, ...) to the generic PHY stuff. However, I have one
+significant problem here.
 
-Sorry for answering so late.
+One of the things I've been trying to do lately with EMAC and that I
+plan to do with others, is to have the PHY polling entirely operate at
+task level (along with other "slow" parts of the network driver like
+timeout handling etc...).
 
--- 
-Regards,
-Pavel Roskin
+This makes a lot of locking easier, allowing to use mutexes instead of
+locks (less latencies), allowing to sleep waiting for MDIO operations to
+complete, etc... it's generall all benefit.
+
+It's especially useful in a case like EMAC where several EMACs can share
+MDIO lines, so we need exclusive access, and that might involve even a
+second layer of exclusion for access to the RGMII or ZMII layer. mutexes
+are really the best approach for that sort of non-speed critical
+activities.
+
+However, the generic PHY layer defeats that by it's heavy usage of
+spin_lock_bh and timer.
+
+One solution would be to change it to use a mutex instead of a lock as
+well, though that would change the requirements of where phy_start/stop
+can be called, and use a delayed work queue instead of a timer.
+
+I could do all of these changes provided everybody agrees, though I
+suppose all existing network drivers using that PHY layer might need to
+be adapted. How many do we have nowadays ?
+
+Also, I see your comments about not calling flush_scheduled_work() in
+phy_stop() because of rtnl_lock()... What is the problem here ?
+dev_close() ?
+
+Ben.
 
 
