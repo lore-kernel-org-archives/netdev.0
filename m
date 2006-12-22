@@ -1,93 +1,37 @@
-From: Keiichi KII <k-keiichi@bx.jp.nec.com>
-Subject: [RFC][PATCH -mm 5/5] add "add" element in /sys/class/misc/netconsole
-Date: Fri, 22 Dec 2006 21:18:10 +0900
-Message-ID: <458BCD02.3010101@bx.jp.nec.com>
-References: <458BC905.7050003@bx.jp.nec.com>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: [PATCH] igmp: spin_lock_bh in timer (Re: BUG: soft lockup detected on CPU#0!)
+Date: Fri, 22 Dec 2006 13:53:27 +0100
+Message-ID: <20061222125327.GA3138@ff.dom.local>
+References: <20061222071308.GA1791@ff.dom.local> <E1GxiO6-0004kx-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: greearb@candelatech.com, netdev@vger.kernel.org,
+	davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from TYO201.gate.nec.co.jp ([202.32.8.193]:44530 "EHLO
-	tyo201.gate.nec.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964975AbWLVMSU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Dec 2006 07:18:20 -0500
-To: mpm@selenic.com
-In-Reply-To: <458BC905.7050003@bx.jp.nec.com>
+Received: from mx10.go2.pl ([193.17.41.74]:41117 "EHLO poczta.o2.pl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754822AbWLVMwT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 22 Dec 2006 07:52:19 -0500
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Disposition: inline
+In-Reply-To: <E1GxiO6-0004kx-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Keiichi KII <k-keiichi@bx.jp.nec.com>
+On Fri, Dec 22, 2006 at 10:16:30PM +1100, Herbert Xu wrote:
+> Jarek Poplawski <jarkao2@o2.pl> wrote:
+> >
+> > [PATCH] igmp: spin_lock_bh in timer
+> > 
+> > igmp_timer_expire() uses spin_lock(&im->lock)
+> > but this lock is also taken by other igmp timers,
+> > so it should be changed to bh version.
+> 
+> When you're in a timer BH is already disabled.  So this patch
+> is redundant.
 
-This patch contains the following changes.
+Yes, I recognized this "after the damage was done".
 
-To add port dynamically, create "add" element in /sys/class/misc/netconsole.
+Thanks and regards,
 
-ex)
-   echo "@/eth0,@192.168.0.1/" > /sys/class/misc/netconsole/add
-   then the port is added with the settings sending kernel messages
-   to 192.168.0.1 using eth0 device.
-
--+- /sys/class/misc/
- |-+- netconsole/
-   |--- add       [-w-------]  If you write parameter(network interface name
-   |                           or one config parameter of netconsole), The
-   |                            port related its config is added
-   |--- port1/
-   |--- port2/
-   ...
-
-Signed-off-by: Keiichi KII <k-keiichi@bx.jp.nec.com>
----
-[changes]
-1. remove unneccesary cast.
-2. change config parameter for "add" element.
-
---- linux-mm/drivers/net/netconsole.c	2006-12-22 20:54:54.531679750 +0900
-+++ enhanced-netconsole/drivers/net/netconsole.c.add	2006-12-22 16:13:02.062716500 +0900
-@@ -338,6 +338,30 @@ static struct miscdevice netconsole_misc
- 	.name = "netconsole",
- };
- 
-+static ssize_t store_miscdev_add(struct class_device *cdev,
-+					const char *buf, size_t count)
-+{
-+	char *target_param;
-+
-+	target_param = kmalloc(count+1, GFP_KERNEL);
-+	if (!target_param) {
-+		printk(KERN_ERR "netconsole: kmalloc() failed!\n");
-+		return -ENOMEM;
-+	}
-+
-+	strcpy(target_param, buf);
-+	if (target_param[count - 1] == '\n')
-+		target_param[count - 1] = '\0';
-+
-+	printk(KERN_INFO "netconsole: config = [%s]\n", target_param);
-+	add_target(target_param);
-+	kfree(target_param);
-+
-+	return count;
-+}
-+
-+static CLASS_DEVICE_ATTR(add, S_IWUSR, NULL, store_miscdev_add);
-+
- static struct netpoll np = {
- 	.name = "netconsole",
- 	.dev_name = "eth0",
-@@ -467,6 +491,9 @@ static int __init init_netconsole(void)
- 
- 	register_console(&netconsole);
- 
-+	class_device_create_file(netconsole_miscdev.class,
-+				 &class_device_attr_add);
-+
- 	if(!strlen(config)) {
- 		printk(KERN_ERR "netconsole: not configured\n");
- 		return 0;
-
--- 
-Keiichi KII
-NEC Corporation OSS Promotion Center
-E-mail: k-keiichi@bx.jp.nec.com
+Jarek P.
