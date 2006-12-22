@@ -1,65 +1,88 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH] igmp: spin_lock_bh in timer (Re: BUG: soft lockup detected
- on CPU#0!)
-Date: Fri, 22 Dec 2006 06:05:18 -0800
-Message-ID: <458BE61E.9030004@candelatech.com>
-References: <45889C53.8000307@candelatech.com> <20061222071308.GA1791@ff.dom.local> <20061222074209.GA2148@ff.dom.local>
+From: Peter Korsgaard <jacmet@sunsite.dk>
+Subject: [PATCH] Fix up smc911x after work_struct changes
+Date: Fri, 22 Dec 2006 15:30:01 +0100
+Message-ID: <87k60kf1g6.fsf@vps.korsgaard.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: jeff@garzik.org, dustin@sensoria.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:57044 "EHLO ns2.lanforge.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1422999AbWLVOF1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 Dec 2006 09:05:27 -0500
-To: Jarek Poplawski <jarkao2@o2.pl>
-In-Reply-To: <20061222074209.GA2148@ff.dom.local>
+Received: from vps.korsgaard.com ([64.79.194.204]:44114 "EHLO
+	vps.korsgaard.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1423143AbWLVO6J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Dec 2006 09:58:09 -0500
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jarek Poplawski wrote:
-> On Fri, Dec 22, 2006 at 08:13:08AM +0100, Jarek Poplawski wrote:
->> On 20-12-2006 03:13, Ben Greear wrote:
->>> This is from 2.6.18.2 kernel with my patch set.  The MAC-VLANs are in 
->>> active use.
->>>  From the backtrace, I am thinking this might be a generic problem, 
->>> however.
->>>
->>> Any ideas about what this could be?  It seems to be reproducible every 
->>> day or
-> ...
->> If it doesn't help, I hope lockdep will be more
->> precise when you'll upgrade to 2.6.19 or higher.
-> 
-> ... or when you enable lockdep in 2.6.18 (I've
-> forgotten it's there alredy!).
+Fix up the smc911x driver after the work_struct changes.
 
-I got lucky..the system was available by ssh still.  I see this in the boot logs..I assume
-this means lockdep is enabled?  Should I have expected to see a lockdep trace in the case of
-his soft-lockup then?
+Signed-off-by: Peter Korsgaard <jacmet@sunsite.dk>
 
-.....
-Dec 19 04:33:48 localhost kernel: Lock dependency validator: Copyright (c) 2006 Red Hat, Inc., Ingo MolnarDec 19 04:33:48 localhost kernel: ... 
-MAX_LOCKDEP_SUBCLASSES:    8
-Dec 19 04:33:48 localhost kernel: ... MAX_LOCK_DEPTH:          30
-Dec 19 04:33:48 localhost kernel: ... MAX_LOCKDEP_KEYS:        2048
-Dec 19 04:33:48 localhost kernel: ... CLASSHASH_SIZE:           1024
-Dec 19 04:33:48 localhost kernel: ... MAX_LOCKDEP_ENTRIES:     8192
-Dec 19 04:33:48 localhost kernel: ... MAX_LOCKDEP_CHAINS:      8192
-Dec 19 04:33:48 localhost kernel: ... CHAINHASH_SIZE:          4096
-Dec 19 04:33:48 localhost kernel:  memory used by lock dependency info: 696 kB
-Dec 19 04:33:48 localhost kernel:  per task-struct memory footprint: 1200 bytes
-Dec 19 04:33:48 localhost kernel: ------------------------
-Dec 19 04:33:48 localhost kernel: | Locking API testsuite:
-....
-
-
-> 
-> Jarek P.
-
+diff -urpN linux-2.6.20-rc1/drivers/net/smc911x.c linux-2.6.20-rc1.new/drivers/net/smc911x.c
+--- linux-2.6.20-rc1/drivers/net/smc911x.c	2006-11-29 22:57:37.000000000 +0100
++++ linux-2.6.20-rc1.new/drivers/net/smc911x.c	2006-12-22 15:13:15.000000000 +0100
+@@ -123,6 +123,9 @@ struct smc911x_local {
+ 	 */
+ 	struct net_device_stats stats;
+ 
++	/* parent net device for easy reference in _phy_configure */
++	struct net_device *dev;
++
+ 	/* version/revision of the SMC911x chip */
+ 	u16 version;
+ 	u16 revision;
+@@ -948,10 +951,11 @@ static void smc911x_phy_check_media(stru
+  * of autonegotiation.)  If the RPC ANEG bit is cleared, the selection
+  * is controlled by the RPC SPEED and RPC DPLX bits.
+  */
+-static void smc911x_phy_configure(void *data)
++static void smc911x_phy_configure(struct work_struct *work)
+ {
+-	struct net_device *dev = data;
+-	struct smc911x_local *lp = netdev_priv(dev);
++	struct smc911x_local *lp =
++	  container_of(work, struct smc911x_local, phy_configure);
++	struct net_device *dev = lp->dev;
+ 	unsigned long ioaddr = dev->base_addr;
+ 	int phyaddr = lp->mii.phy_id;
+ 	int my_phy_caps; /* My PHY capabilities */
+@@ -1495,6 +1499,8 @@ static void smc911x_set_multicast_list(s
+ static int
+ smc911x_open(struct net_device *dev)
+ {
++	struct smc911x_local *lp = netdev_priv(dev);
++
+ 	DBG(SMC_DEBUG_FUNC, "%s: --> %s\n", dev->name, __FUNCTION__);
+ 
+ 	/*
+@@ -1511,7 +1517,7 @@ smc911x_open(struct net_device *dev)
+ 	smc911x_reset(dev);
+ 
+ 	/* Configure the PHY, initialize the link state */
+-	smc911x_phy_configure(dev);
++	smc911x_phy_configure(&lp->phy_configure);
+ 
+ 	/* Turn on Tx + Rx */
+ 	smc911x_enable(dev);
+@@ -2060,7 +2066,8 @@ static int __init smc911x_probe(struct n
+ 	dev->poll_controller = smc911x_poll_controller;
+ #endif
+ 
+-	INIT_WORK(&lp->phy_configure, smc911x_phy_configure, dev);
++	INIT_WORK(&lp->phy_configure, smc911x_phy_configure);
++	lp->dev = dev;
+ 	lp->mii.phy_id_mask = 0x1f;
+ 	lp->mii.reg_num_mask = 0x1f;
+ 	lp->mii.force_media = 0;
+@@ -2275,7 +2282,7 @@ static int smc911x_drv_resume(struct pla
+ 			smc911x_reset(ndev);
+ 			smc911x_enable(ndev);
+ 			if (lp->phy_type != 0)
+-				smc911x_phy_configure(ndev);
++				smc911x_phy_configure(&lp->phy_configure);
+ 			netif_device_attach(ndev);
+ 		}
+ 	}
 
 -- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
-
+Bye, Peter Korsgaard
