@@ -1,61 +1,34 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH] fix cfg80211 WE compat code
-Date: Fri, 22 Dec 2006 12:04:45 +0100
-Message-ID: <1166785486.6916.26.camel@johannes.berg>
-References: <1165654123.2816.29.camel@portland.localdomain>
-	 <20061209160640.GA3365@tuxdriver.com>
-	 <87hcw49rg8.fsf@briny.internal.ondioline.org>
-	 <20061210031202.6rgqw4go8ck48kks@webmail.spamcop.net>
-	 <1165756653.3131.1.camel@johannes.berg>
-	 <20061210110802.kq50mvc4s00s0skw@webmail.spamcop.net>
-	 <1165767697.3131.29.camel@johannes.berg>  <1166756032.2262.10.camel@dv>
-	 <1166765446.8216.3.camel@dv>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-R50lg1YEbU8R6UIF7Lr9"
-Cc: Paul Collins <paul@briny.ondioline.org>,
-	"John W. Linville" <linville@tuxdriver.com>, netdev@vger.kernel.org
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] igmp: spin_lock_bh in timer (Re: BUG: soft lockup detected on CPU#0!)
+Date: Fri, 22 Dec 2006 22:16:30 +1100
+Message-ID: <E1GxiO6-0004kx-00@gondolin.me.apana.org.au>
+References: <20061222071308.GA1791@ff.dom.local>
+Cc: greearb@candelatech.com, netdev@vger.kernel.org,
+	davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:41489 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1946036AbWLVLFO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Dec 2006 06:05:14 -0500
-To: Pavel Roskin <proski@gnu.org>
-In-Reply-To: <1166765446.8216.3.camel@dv>
+Received: from rhun.apana.org.au ([64.62.148.172]:3890 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1946042AbWLVLQ5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Dec 2006 06:16:57 -0500
+To: jarkao2@o2.pl (Jarek Poplawski)
+In-Reply-To: <20061222071308.GA1791@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Jarek Poplawski <jarkao2@o2.pl> wrote:
+>
+> [PATCH] igmp: spin_lock_bh in timer
+> 
+> igmp_timer_expire() uses spin_lock(&im->lock)
+> but this lock is also taken by other igmp timers,
+> so it should be changed to bh version.
 
---=-R50lg1YEbU8R6UIF7Lr9
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+When you're in a timer BH is already disabled.  So this patch
+is redundant.
 
-On Fri, 2006-12-22 at 00:30 -0500, Pavel Roskin wrote:
-
-> Actually, iwpriv without arguments is still hosed.  In this case,
-> cfg80211_wext_ioctl() returns -EOPNOTSUPP.
-
-Ahrg, right, probably caused by me ripping out large chunks of code of
-of the base function after copying it as the cfg80211 compat code...
-I'll have to take a look.
-
-> I also noticed that cfg80211_wext_ioctl() sometimes returns 0 although
-> no drivers I'm using are cfg80211 capable.
-
-Now that really shouldn't happen.
-
-johannes
-
---=-R50lg1YEbU8R6UIF7Lr9
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iD8DBQBFi7vN/ETPhpq3jKURAiXbAKCtBBXB12dr5DR12h8jsnoMUTyRqQCcC3s8
-bbHpuyKsaAQRxwWHLWg0hN8=
-=TNfU
------END PGP SIGNATURE-----
-
---=-R50lg1YEbU8R6UIF7Lr9--
-
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
