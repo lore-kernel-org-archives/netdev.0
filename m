@@ -1,34 +1,53 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [dropped? patch] netdev: fix smc911 compile error
-Date: Sat, 23 Dec 2006 15:33:53 -0500
-Message-ID: <458D92B1.5090303@pobox.com>
-References: <200612231501_MC3-1-D628-DCA5@compuserve.com>
+From: dean gaudet <dean@arctic.org>
+Subject: Re: [patch] ifb double-counts packets
+Date: Sat, 23 Dec 2006 13:58:24 -0800 (PST)
+Message-ID: <Pine.LNX.4.64.0612231355290.29784@twinlark.arctic.org>
+References: <Pine.LNX.4.64.0612230232410.29784@twinlark.arctic.org>
+ <1166880592.3763.3.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:57008 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753712AbWLWUd4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 23 Dec 2006 15:33:56 -0500
-To: Chuck Ebbert <76306.1226@compuserve.com>
-In-Reply-To: <200612231501_MC3-1-D628-DCA5@compuserve.com>
+Received: from twinlark.arctic.org ([207.29.250.54]:60744 "EHLO
+	twinlark.arctic.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753792AbWLWV6Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Dec 2006 16:58:25 -0500
+To: jamal <hadi@cyberus.ca>
+In-Reply-To: <1166880592.3763.3.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Chuck Ebbert wrote:
-> From: Vitaly Wool <vitalywool@gmail.com>
+On Sat, 23 Dec 2006, jamal wrote:
+
+> On Sat, 2006-23-12 at 02:35 -0800, dean gaudet wrote:
+> > it seems that ifb counts packets twice... both at xmit time and also in 
+> > the tasklet.  i'm not sure which one of the two to drop, but here's a 
+> > patch for dropping the counting at xmit time.
 > 
-> Fix compilation failure for smc911x.c when NET_POLL_CONTROLLER is set.
+> Good catch but not quite right. The correct way to do it is to increment
+> the rx_ counters instead of tx_ right at the top of  ifb_xmit().
 > 
-> Signed-off-by: Vitaly Wool <vitalywool@gmail.com>
-> ---
-> Is not upstream and doesn't seem to be in upstream-fixes either.
+> Do you wanna resubmit your patch with these chmages and hopefully tested
+> for your situation?
 
-It's in Linus's upstream.  netdev-2.6.git#upstream is a few days behind.
+heh yeah that makes more sense :)
 
-	Jeff
+-dean
 
+Signed-off-by: dean gaudet <dean@arctic.org>
 
-
+Index: linux/drivers/net/ifb.c
+===================================================================
+--- linux.orig/drivers/net/ifb.c	2006-11-29 13:57:37.000000000 -0800
++++ linux/drivers/net/ifb.c	2006-12-23 13:52:39.000000000 -0800
+@@ -154,8 +154,8 @@
+ 	int ret = 0;
+ 	u32 from = G_TC_FROM(skb->tc_verd);
+ 
+-	stats->tx_packets++;
+-	stats->tx_bytes+=skb->len;
++	stats->rx_packets++;
++	stats->rx_bytes+=skb->len;
+ 
+ 	if (!from || !skb->input_dev) {
+ dropped:
