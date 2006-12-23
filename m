@@ -1,92 +1,216 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Pull request for 'r8169-upstream-20061223-00' tag
-Date: Sat, 23 Dec 2006 17:49:11 +0100
-Message-ID: <20061223164911.GA16360@electric-eye.fr.zoreil.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: [take29 6/8] kevent: Pipe notifications.
+Date: Sat, 23 Dec 2006 19:51:41 +0300
+Message-ID: <11668927012450@2ka.mipt.ru>
+References: <1166892701836@2ka.mipt.ru>
+Reply-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, akpm@osdl.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	Andrew Morton <akpm@osdl.org>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	Chase Venters <chase.venters@clientec.com>,
+	Johann Borck <johann.borck@densedata.com>,
+	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
+	Jamal Hadi Salim <hadi@cyberus.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:46298 "EHLO
-	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753585AbWLWQum (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 23 Dec 2006 11:50:42 -0500
-To: Jeff Garzik <jeff@garzik.org>
-Content-Disposition: inline
+Received: from dea.vocord.ru ([217.67.177.50]:33157 "EHLO
+	kano.factory.vocord.ru" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753595AbWLWQwI convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Dec 2006 11:52:08 -0500
+In-Reply-To: <1166892701836@2ka.mipt.ru>
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Please pull from tag 'r8169-upstream-20061223-00' in repository
 
-git://electric-eye.fr.zoreil.com/home/romieu/linux-2.6.git tag r8169-upstream-20061223-00
+Pipe notifications.
 
-to get the changes below.
 
-PS: the same changes are available in branch 'r8169' which forked from
-the main trunk at 18ed1c051317ac3a685120cead2adb192b802347 so that
-akpm's scripts pull everything automatically during xmas.
-
-Distance from 'netdev-2.6/upstream-fixes'
------------------------------------------
-
-7e5571a2c58313b995003d787e527f792dea3c62
-50deea7d262363894f2e13345979a38e3d93b1bb
-18d6ba1273df62f13a70eed8dbeae7c5d59ab6e2 <- current 'upstream-fixes' at korg
-
-Diffstat
---------
-
- drivers/net/r8169.c |    6 +-----
- 1 files changed, 1 insertions(+), 5 deletions(-)
-
-Shortlog
---------
-
-Francois Romieu:
-      r8169: remove extraneous Cmd{Tx/Rx}Enb write
-
-Lennert Buytenhek:
-      r8169: use the broken_parity_status field in pci_dev
-
-Patch
------
-
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index f83b41d..577babd 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -225,7 +225,6 @@ MODULE_DEVICE_TABLE(pci, rtl8169_pci_tbl
+diff --git a/fs/pipe.c b/fs/pipe.c
+index f3b6f71..aeaee9c 100644
+--- a/fs/pipe.c
++++ b/fs/pipe.c
+@@ -16,6 +16,7 @@
+ #include <linux/uio.h>
+ #include <linux/highmem.h>
+ #include <linux/pagemap.h>
++#include <linux/kevent.h>
  
- static int rx_copybreak = 200;
- static int use_dac;
--static int ignore_parity_err;
- static struct {
- 	u32 msg_enable;
- } debug = { -1 };
-@@ -471,8 +470,6 @@ module_param(use_dac, int, 0);
- MODULE_PARM_DESC(use_dac, "Enable PCI DAC. Unsafe on 32 bit PCI slot.");
- module_param_named(debug, debug.msg_enable, int, 0);
- MODULE_PARM_DESC(debug, "Debug verbosity level (0=none, ..., 16=all)");
--module_param_named(ignore_parity_err, ignore_parity_err, bool, 0);
--MODULE_PARM_DESC(ignore_parity_err, "Ignore PCI parity error as target. Default: false");
- MODULE_LICENSE("GPL");
- MODULE_VERSION(RTL8169_VERSION);
+ #include <asm/uaccess.h>
+ #include <asm/ioctls.h>
+@@ -312,6 +313,7 @@ redo:
+ 			break;
+ 		}
+ 		if (do_wakeup) {
++			kevent_pipe_notify(inode, KEVENT_SOCKET_SEND);
+ 			wake_up_interruptible_sync(&pipe->wait);
+  			kill_fasync(&pipe->fasync_writers, SIGIO, POLL_OUT);
+ 		}
+@@ -321,6 +323,7 @@ redo:
  
-@@ -1885,7 +1882,6 @@ static void rtl8169_hw_start(struct net_
- 	    (tp->mac_version == RTL_GIGA_MAC_VER_02) ||
- 	    (tp->mac_version == RTL_GIGA_MAC_VER_03) ||
- 	    (tp->mac_version == RTL_GIGA_MAC_VER_04))
--		RTL_W8(ChipCmd, CmdTxEnb | CmdRxEnb);
- 		rtl8169_set_rx_tx_config_registers(tp);
- 
- 	cmd = RTL_R16(CPlusCmd);
-@@ -2388,7 +2384,7 @@ static void rtl8169_pcierr_interrupt(str
- 	 *
- 	 * Feel free to adjust to your needs.
- 	 */
--	if (ignore_parity_err)
-+	if (pdev->broken_parity_status)
- 		pci_cmd &= ~PCI_COMMAND_PARITY;
- 	else
- 		pci_cmd |= PCI_COMMAND_SERR | PCI_COMMAND_PARITY;
--- 
-Ueimor
+ 	/* Signal writers asynchronously that there is more room. */
+ 	if (do_wakeup) {
++		kevent_pipe_notify(inode, KEVENT_SOCKET_SEND);
+ 		wake_up_interruptible(&pipe->wait);
+ 		kill_fasync(&pipe->fasync_writers, SIGIO, POLL_OUT);
+ 	}
+@@ -490,6 +493,7 @@ redo2:
+ 			break;
+ 		}
+ 		if (do_wakeup) {
++			kevent_pipe_notify(inode, KEVENT_SOCKET_RECV);
+ 			wake_up_interruptible_sync(&pipe->wait);
+ 			kill_fasync(&pipe->fasync_readers, SIGIO, POLL_IN);
+ 			do_wakeup = 0;
+@@ -501,6 +505,7 @@ redo2:
+ out:
+ 	mutex_unlock(&inode->i_mutex);
+ 	if (do_wakeup) {
++		kevent_pipe_notify(inode, KEVENT_SOCKET_RECV);
+ 		wake_up_interruptible(&pipe->wait);
+ 		kill_fasync(&pipe->fasync_readers, SIGIO, POLL_IN);
+ 	}
+@@ -605,6 +610,7 @@ pipe_release(struct inode *inode, int decr, int decw)
+ 		free_pipe_info(inode);
+ 	} else {
+ 		wake_up_interruptible(&pipe->wait);
++		kevent_pipe_notify(inode, KEVENT_SOCKET_SEND|KEVENT_SOCKET_RECV);
+ 		kill_fasync(&pipe->fasync_readers, SIGIO, POLL_IN);
+ 		kill_fasync(&pipe->fasync_writers, SIGIO, POLL_OUT);
+ 	}
+diff --git a/kernel/kevent/kevent_pipe.c b/kernel/kevent/kevent_pipe.c
+new file mode 100644
+index 0000000..91dc1eb
+--- /dev/null
++++ b/kernel/kevent/kevent_pipe.c
+@@ -0,0 +1,123 @@
++/*
++ * 	kevent_pipe.c
++ * 
++ * 2006 Copyright (c) Evgeniy Polyakov <johnpol@2ka.mipt.ru>
++ * All rights reserved.
++ * 
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
++ */
++
++#include <linux/kernel.h>
++#include <linux/types.h>
++#include <linux/slab.h>
++#include <linux/spinlock.h>
++#include <linux/file.h>
++#include <linux/fs.h>
++#include <linux/kevent.h>
++#include <linux/pipe_fs_i.h>
++
++static int kevent_pipe_callback(struct kevent *k)
++{
++	struct inode *inode = k->st->origin;
++	struct pipe_inode_info *pipe = inode->i_pipe;
++	int nrbufs = pipe->nrbufs;
++
++	if (k->event.event & KEVENT_SOCKET_RECV && nrbufs > 0) {
++		if (!pipe->writers)
++			return -1;
++		return 1;
++	}
++	
++	if (k->event.event & KEVENT_SOCKET_SEND && nrbufs < PIPE_BUFFERS) {
++		if (!pipe->readers)
++			return -1;
++		return 1;
++	}
++
++	return 0;
++}
++
++int kevent_pipe_enqueue(struct kevent *k)
++{
++	struct file *pipe;
++	int err = -EBADF;
++	struct inode *inode;
++
++	pipe = fget(k->event.id.raw[0]);
++	if (!pipe)
++		goto err_out_exit;
++
++	inode = igrab(pipe->f_dentry->d_inode);
++	if (!inode)
++		goto err_out_fput;
++
++	err = -EINVAL;
++	if (!S_ISFIFO(inode->i_mode))
++		goto err_out_iput;
++
++	err = kevent_storage_enqueue(&inode->st, k);
++	if (err)
++		goto err_out_iput;
++
++	if (k->event.req_flags & KEVENT_REQ_ALWAYS_QUEUE) {
++		kevent_requeue(k);
++		err = 0;
++	} else {
++		err = k->callbacks.callback(k);
++		if (err)
++			goto err_out_dequeue;
++	}
++
++	fput(pipe);
++
++	return err;
++
++err_out_dequeue:
++	kevent_storage_dequeue(k->st, k);
++err_out_iput:
++	iput(inode);
++err_out_fput:
++	fput(pipe);
++err_out_exit:
++	return err;
++}
++
++int kevent_pipe_dequeue(struct kevent *k)
++{
++	struct inode *inode = k->st->origin;
++
++	kevent_storage_dequeue(k->st, k);
++	iput(inode);
++
++	return 0;
++}
++
++void kevent_pipe_notify(struct inode *inode, u32 event)
++{
++	kevent_storage_ready(&inode->st, NULL, event);
++}
++
++static int __init kevent_init_pipe(void)
++{
++	struct kevent_callbacks sc = {
++		.callback = &kevent_pipe_callback,
++		.enqueue = &kevent_pipe_enqueue,
++		.dequeue = &kevent_pipe_dequeue,
++		.flags = 0,
++	};
++
++	return kevent_add_callbacks(&sc, KEVENT_PIPE);
++}
++module_init(kevent_init_pipe);
+
