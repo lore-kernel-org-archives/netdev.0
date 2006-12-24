@@ -1,126 +1,102 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: Re: [RFC][PATCH -mm 3/5] add interface for netconsole using sysfs
-Date: Sat, 23 Dec 2006 21:34:26 -0800
-Message-ID: <20061223213426.aa80907e.randy.dunlap@oracle.com>
-References: <458BC905.7050003@bx.jp.nec.com>
-	<458BCC2C.9070802@bx.jp.nec.com>
+From: "Michael S. Tsirkin" <mst@mellanox.co.il>
+Subject: Re: [PATCH  v4 01/13] Linux RDMA Core Changes
+Date: Sun, 24 Dec 2006 10:49:25 +0200
+Message-ID: <20061224084925.GD15106@mellanox.co.il>
+References: <20061214135233.21159.78613.stgit@dell3.ogc.int>
+ <20061214135303.21159.61880.stgit@dell3.ogc.int>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+ charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mpm@selenic.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from agminet01.oracle.com ([141.146.126.228]:43530 "EHLO
-	agminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754074AbWLXFdc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Dec 2006 00:33:32 -0500
-To: Keiichi KII <k-keiichi@bx.jp.nec.com>
-In-Reply-To: <458BCC2C.9070802@bx.jp.nec.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org,
+	rdreier@cisco.com,
+	linux-kernel@vger.kernel.org,
+	openib-general@openib.org
+Return-path: <openib-general-bounces@openib.org>
+To: "Steve Wise" <swise@opengridcomputing.com>
+In-Reply-To: <20061214135303.21159.61880.stgit@dell3.ogc.int>
+List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
+ <mailto:openib-general-request@openib.org?subject=unsubscribe>
+List-Archive: <http://openib.org/pipermail/openib-general>
+List-Post: <mailto:openib-general@openib.org>
+List-Help: <mailto:openib-general-request@openib.org?subject=help>
+List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
+ <mailto:openib-general-request@openib.org?subject=subscribe>
+Sender: openib-general-bounces@openib.org
+Errors-To: openib-general-bounces@openib.org
+Content-Disposition: inline
 List-Id: netdev.vger.kernel.org
 
-On Fri, 22 Dec 2006 21:14:36 +0900 Keiichi KII wrote:
-
-> From: Keiichi KII <k-keiichi@bx.jp.nec.com>
-> 
-> ---
-> [changes]
-> 1. expand macro code as far as possible.
-> 2. follow kernel coding style.
-> 3. print proper output messeage.
-> 4. attach proper label for printk.
-> 5. integrate netpoll_lock and netcon_target_list_lock into common spinlock.
-> 6. return proper error value.
-> 
-> --- linux-mm/drivers/net/netconsole.c	2006-12-22 20:54:54.431673500 +0900
-> +++ enhanced-netconsole/drivers/net/netconsole.c.sysfs	2006-12-22 16:12:47.925833000 +0900
-> @@ -56,18 +58,234 @@ MODULE_PARM_DESC(netconsole, " netconsol
+> diff --git a/drivers/infiniband/hw/mthca/mthca_cq.c b/drivers/infiniband/hw/mthca/mthca_cq.c
+> index 283d50b..15cbd49 100644
+> --- a/drivers/infiniband/hw/mthca/mthca_cq.c
+> +++ b/drivers/infiniband/hw/mthca/mthca_cq.c
+> @@ -722,7 +722,8 @@ repoll:
+>  	return err == 0 || err == -EAGAIN ? npolled : err;
+>  }
 >  
->  struct netconsole_target {
->  	struct list_head list;
-> +	struct kobject obj;
->  	int id;
->  	struct netpoll np;
->  };
+> -int mthca_tavor_arm_cq(struct ib_cq *cq, enum ib_cq_notify notify)
+> +int mthca_tavor_arm_cq(struct ib_cq *cq, enum ib_cq_notify notify, 
+> +		       struct ib_udata *udata)
+>  {
+>  	__be32 doorbell[2];
 >  
-> +#define MAX_PRINT_CHUNK 1000
-> +#define CONFIG_SEPARATOR ":"
-> +#define MAC_ADDR_DIGIT 6
-
-Can you use ETH_ALEN from if_ether.h instead of MAC_ADDR_DIGIT ?
-
-> +
-> +struct target_attr {
-> +	struct attribute attr;
-> +	ssize_t (*show)(struct netconsole_target*, char*);
-> +	ssize_t (*store)(struct netconsole_target*, const char*,
-> +			 size_t count);
-> +};
-> +
->  static int add_target(char* target_config);
-> +static void setup_target_sysfs(struct netconsole_target *nt);
->  static void cleanup_netconsole(void);
->  static void delete_target(struct netconsole_target *nt);
+> @@ -739,7 +740,8 @@ int mthca_tavor_arm_cq(struct ib_cq *cq,
+>  	return 0;
+>  }
 >  
-> +static int miscdev_configured = 0;
-
-Don't init static data to 0 or NULL.
-It's done for us.
-
->  static LIST_HEAD(target_list);
+> -int mthca_arbel_arm_cq(struct ib_cq *ibcq, enum ib_cq_notify notify)
+> +int mthca_arbel_arm_cq(struct ib_cq *ibcq, enum ib_cq_notify notify,
+> +		       struct ib_udata *udata)
+>  {
+>  	struct mthca_cq *cq = to_mcq(ibcq);
+>  	__be32 doorbell[2];
+> diff --git a/drivers/infiniband/hw/mthca/mthca_dev.h b/drivers/infiniband/hw/mthca/mthca_dev.h
+> index fe5cecf..6b9ccf6 100644
+> --- a/drivers/infiniband/hw/mthca/mthca_dev.h
+> +++ b/drivers/infiniband/hw/mthca/mthca_dev.h
+> @@ -493,8 +493,8 @@ void mthca_unmap_eq_icm(struct mthca_dev
 >  
->  static DEFINE_SPINLOCK(target_list_lock);
+>  int mthca_poll_cq(struct ib_cq *ibcq, int num_entries,
+>  		  struct ib_wc *entry);
+> -int mthca_tavor_arm_cq(struct ib_cq *cq, enum ib_cq_notify notify);
+> -int mthca_arbel_arm_cq(struct ib_cq *cq, enum ib_cq_notify notify);
+> +int mthca_tavor_arm_cq(struct ib_cq *cq, enum ib_cq_notify notify, struct ib_udata *udata);
+> +int mthca_arbel_arm_cq(struct ib_cq *cq, enum ib_cq_notify notify, struct ib_udata *udata);
+>  int mthca_init_cq(struct mthca_dev *dev, int nent,
+>  		  struct mthca_ucontext *ctx, u32 pdn,
+>  		  struct mthca_cq *cq);
+> diff --git a/include/rdma/ib_verbs.h b/include/rdma/ib_verbs.h
+> index 8eacc35..e3e1a2c 100644
+> --- a/include/rdma/ib_verbs.h
+> +++ b/include/rdma/ib_verbs.h
+> @@ -941,7 +941,8 @@ struct ib_device {
+>  					      struct ib_wc *wc);
+>  	int                        (*peek_cq)(struct ib_cq *cq, int wc_cnt);
+>  	int                        (*req_notify_cq)(struct ib_cq *cq,
+> -						    enum ib_cq_notify cq_notify);
+> +						    enum ib_cq_notify cq_notify,
+> +						    struct ib_udata *udata);
+>  	int                        (*req_ncomp_notif)(struct ib_cq *cq,
+>  						      int wc_cnt);
+>  	struct ib_mr *             (*get_dma_mr)(struct ib_pd *pd,
+> @@ -1373,7 +1374,7 @@ int ib_peek_cq(struct ib_cq *cq, int wc_
+>  static inline int ib_req_notify_cq(struct ib_cq *cq,
+>  				   enum ib_cq_notify cq_notify)
+>  {
+> -	return cq->device->req_notify_cq(cq, cq_notify);
+> +	return cq->device->req_notify_cq(cq, cq_notify, NULL);
+>  }
 >  
-> +static ssize_t show_local_ip(struct netconsole_target *nt, char *buf)
-> +{
-> +	return sprintf(buf, "%d.%d.%d.%d\n", HIPQUAD(nt->np.local_ip));
+>  /**
 
-I don't understand the use of HIPQUAD() here instead of
-NIPQUAD().  Explain?
+Can't say I like this adding overhead in data path operations (and note this
+can't be optimized out). And kernel consumers work without passing it in, so it
+hurts kernel code even for Chelsio. Granted, the cost is small here, but these
+things do tend to add up.
 
-Also, NIPQUAD_FMT (in kernel.h) uses "%u.%u.%u.%u".
-This should probably be the same.
-Or just use:	NIPQUAD_FMT "\n"
+It seems all Chelsio needs is to pass in a consumer index - so, how about a new
+entry point? Something like void set_cq_udata(struct ib_cq *cq, struct ib_udata *udata)?
 
-> +}
-> +
-> +static ssize_t show_remote_ip(struct netconsole_target *nt, char *buf)
-> +{
-> +	return sprintf(buf, "%d.%d.%d.%d\n", HIPQUAD(nt->np.remote_ip));
-> +}
-> +
-> +
-> +static ssize_t store_remote_mac(struct netconsole_target *nt, const char *buf,
-> +			       size_t count)
-> +{
-> +	unsigned char input_mac[MAC_ADDR_DIGIT] =
-> +		{0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
-> +	const char *cur = buf;
-> +	char *delim;
-> +	int i = 0;
-> +
-> +	for(i=0; i < MAC_ADDR_DIGIT; i++) {
-
-	for (i = 0; i < MAC_ADDR_DIGIT; i++) {
-
-> +		input_mac[i] = simple_strtol(cur, NULL, 16);
-> +		if (i != MAC_ADDR_DIGIT - 1 &&
-> +		    (delim = strchr(cur, ':')) == NULL) {
-> +			return -EINVAL;
-
-No braces on one-line "blocks", please.
-
-> +		}
-> +		cur = delim + 1;
-> +	}
-> +	spin_lock(&target_list_lock);
-> +	memcpy(nt->np.remote_mac, input_mac, MAC_ADDR_DIGIT);
-> +	spin_unlock(&target_list_lock);
-> +
-> +	return count;
-> +}
-> +
-> +
-
----
-~Randy
+-- 
+MST
