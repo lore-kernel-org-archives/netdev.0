@@ -1,70 +1,52 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: bcm43xx-softmac broken on 2.6.20-rc2
-Date: Sun, 24 Dec 2006 09:51:50 -0600
-Message-ID: <458EA216.7000101@lwfinger.net>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: selinux networking: sleeping functin called from invalid
+ context in 2.6.20-rc[12]
+Date: Sun, 24 Dec 2006 16:25:11 -0800
+Message-ID: <20061224162511.eaac4a89.akpm@osdl.org>
+References: <20061225052124.A10323@freya>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>, torvalds@osdl.org
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Paul Moore <paul.moore@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtiwmhc11.worldnet.att.net ([204.127.131.115]:65503 "EHLO
-	mtiwmhc11.worldnet.att.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752165AbWLXPv6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Dec 2006 10:51:58 -0500
-To: Broadcom Linux <bcm43xx-dev@lists.berlios.de>,
-	netdev <netdev@vger.kernel.org>
+Received: from smtp.osdl.org ([65.172.181.25]:38816 "EHLO smtp.osdl.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753231AbWLYAZ3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 24 Dec 2006 19:25:29 -0500
+To: "Adam J. Richter" <adam@yggdrasil.com>
+In-Reply-To: <20061225052124.A10323@freya>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a heads-up for anyone wishing to use bcm43xx-softmac on Linus's git tree, which is now at
-v2.6.20-rc2. There are two serious bugs in that code. Fixes are found below.
+On Mon, 25 Dec 2006 05:21:24 +0800
+"Adam J. Richter" <adam@yggdrasil.com> wrote:
 
-The first bug is the result of changes in work queues. The second is the result of a typo that locks 
-a mutex when it should unlock it.
+> 	Under 2.6.20-rc1 and 2.6.20-rc2, I get the following complaint
+> for several network programs running on my system:
+> 
+> [  156.381868] BUG: sleeping function called from invalid context at net/core/sock.c:1523
+> [  156.381876] in_atomic():1, irqs_disabled():0
+> [  156.381881] no locks held by kio_http/9693.
+> [  156.381886]  [<c01057a2>] show_trace_log_lvl+0x1a/0x2f
+> [  156.381900]  [<c0105dab>] show_trace+0x12/0x14
+> [  156.381908]  [<c0105e48>] dump_stack+0x16/0x18
+> [  156.381917]  [<c011e30f>] __might_sleep+0xe5/0xeb
+> [  156.381926]  [<c025942a>] lock_sock_nested+0x1d/0xc4
+> [  156.381937]  [<c01cc570>] selinux_netlbl_inode_permission+0x5a/0x8e
+> [  156.381946]  [<c01c2505>] selinux_file_permission+0x96/0x9b
+> [  156.381954]  [<c0175a0a>] vfs_write+0x8d/0x167
+> [  156.381962]  [<c017605a>] sys_write+0x3f/0x63
+> [  156.381971]  [<c01040c0>] syscall_call+0x7/0xb
+> [  156.381980]  =======================
+> 
 
-These fixes have been pushed up stream, but neither has made it to Linus.
+There's a glaring bug in selinux_netlbl_inode_permission() - taking
+lock_sock() inside rcu_read_lock().
 
-Larry
----
+I would again draw attention to Documentation/SubmitChecklist.  In
+particular please always always always enable all kernel debugging options
+when developing and testing new kernel code.  And everything else in that
+file, too.
 
-diff --git a/net/ieee80211/softmac/ieee80211softmac_assoc.c 
-b/net/ieee80211/softmac/ieee80211softmac_assoc.c
-index eec1a1d..a824852 100644
---- a/net/ieee80211/softmac/ieee80211softmac_assoc.c
-+++ b/net/ieee80211/softmac/ieee80211softmac_assoc.c
-@@ -167,7 +167,7 @@ static void
-  ieee80211softmac_assoc_notify_scan(struct net_device *dev, int event_type, void *context)
-  {
-  	struct ieee80211softmac_device *mac = ieee80211_priv(dev);
--	ieee80211softmac_assoc_work((void*)mac);
-+	ieee80211softmac_assoc_work(&mac->associnfo.work.work);
-  }
-
-  static void
-@@ -177,7 +177,7 @@ ieee80211softmac_assoc_notify_auth(struc
-
-  	switch (event_type) {
-  	case IEEE80211SOFTMAC_EVENT_AUTHENTICATED:
--		ieee80211softmac_assoc_work((void*)mac);
-+		ieee80211softmac_assoc_work(&mac->associnfo.work.work);
-  		break;
-  	case IEEE80211SOFTMAC_EVENT_AUTH_FAILED:
-  	case IEEE80211SOFTMAC_EVENT_AUTH_TIMEOUT:
-
-
-
-
-Index: linux-2.6/net/ieee80211/softmac/ieee80211softmac_wx.c
-===================================================================
---- linux-2.6.orig/net/ieee80211/softmac/ieee80211softmac_wx.c
-+++ linux-2.6/net/ieee80211/softmac/ieee80211softmac_wx.c
-@@ -463,7 +463,7 @@ ieee80211softmac_wx_get_genie(struct net
-  			err = -E2BIG;
-  	}
-  	spin_unlock_irqrestore(&mac->lock, flags);
--	mutex_lock(&mac->associnfo.mutex);
-+	mutex_unlock(&mac->associnfo.mutex);
-
-  	return err;
-  }
-
+<guesses that this was tested on ia64>
