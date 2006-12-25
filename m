@@ -1,52 +1,54 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: selinux networking: sleeping functin called from invalid
- context in 2.6.20-rc[12]
-Date: Sun, 24 Dec 2006 16:25:11 -0800
-Message-ID: <20061224162511.eaac4a89.akpm@osdl.org>
-References: <20061225052124.A10323@freya>
+From: Arjan van de Ven <arjan@infradead.org>
+Subject: Re: Network card IRQ balancing with Intel 5000 series chipsets
+Date: Mon, 25 Dec 2006 10:35:03 +0100
+Message-ID: <1167039303.3281.1574.camel@laptopd505.fenrus.org>
+References: <7e63f56c0612240134s452f6510h8483fb31e5efe799@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Paul Moore <paul.moore@hp.com>
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.25]:38816 "EHLO smtp.osdl.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753231AbWLYAZ3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 24 Dec 2006 19:25:29 -0500
-To: "Adam J. Richter" <adam@yggdrasil.com>
-In-Reply-To: <20061225052124.A10323@freya>
+Received: from pentafluge.infradead.org ([213.146.154.40]:40986 "EHLO
+	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754366AbWLYJfH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Dec 2006 04:35:07 -0500
+To: Robert Iakobashvili <coroberti@gmail.com>
+In-Reply-To: <7e63f56c0612240134s452f6510h8483fb31e5efe799@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 25 Dec 2006 05:21:24 +0800
-"Adam J. Richter" <adam@yggdrasil.com> wrote:
-
-> 	Under 2.6.20-rc1 and 2.6.20-rc2, I get the following complaint
-> for several network programs running on my system:
+On Sun, 2006-12-24 at 11:34 +0200, Robert Iakobashvili wrote:
+> Sorry for repeating, now in text mode.
 > 
-> [  156.381868] BUG: sleeping function called from invalid context at net/core/sock.c:1523
-> [  156.381876] in_atomic():1, irqs_disabled():0
-> [  156.381881] no locks held by kio_http/9693.
-> [  156.381886]  [<c01057a2>] show_trace_log_lvl+0x1a/0x2f
-> [  156.381900]  [<c0105dab>] show_trace+0x12/0x14
-> [  156.381908]  [<c0105e48>] dump_stack+0x16/0x18
-> [  156.381917]  [<c011e30f>] __might_sleep+0xe5/0xeb
-> [  156.381926]  [<c025942a>] lock_sock_nested+0x1d/0xc4
-> [  156.381937]  [<c01cc570>] selinux_netlbl_inode_permission+0x5a/0x8e
-> [  156.381946]  [<c01c2505>] selinux_file_permission+0x96/0x9b
-> [  156.381954]  [<c0175a0a>] vfs_write+0x8d/0x167
-> [  156.381962]  [<c017605a>] sys_write+0x3f/0x63
-> [  156.381971]  [<c01040c0>] syscall_call+0x7/0xb
-> [  156.381980]  =======================
+> Is there a way to balance IRQs from a network card among Intel CPU cores
+> with Intel 5000 series chipset?
 > 
+> We tried the Broadcom network card (lspci is below) both in MSI and
+> io-apic mode, but found that the card interrupt may be moved to
+> another logical CPU, but not balanced among CPUs/cores.
+> 
+> Is that a policy of Intel chipset, that linux cannot overwrite? Can it
+> be configured
+> somewhere and by which tools?
 
-There's a glaring bug in selinux_netlbl_inode_permission() - taking
-lock_sock() inside rcu_read_lock().
+first of all please don't use the in-kernel irqbalancer, use the
+userspace one from www.irqbalance.org instead... 
 
-I would again draw attention to Documentation/SubmitChecklist.  In
-particular please always always always enable all kernel debugging options
-when developing and testing new kernel code.  And everything else in that
-file, too.
+Am I understanding you correctly that you want to spread the load of the
+networking IRQ roughly equally over 2 cpus (or cores or ..)?
+If so, that is very very suboptimal, especially for networking (since
+suddenly a lot of packet processing gets to deal with out of order
+receives and cross-cpu reassembly).
 
-<guesses that this was tested on ia64>
+As for the chipset capability; the behavior of the chipset you have is
+to prefer the first cpu of the programmed affinity mask. There are some
+ways to play with that but doing it on the granularity you seem to want
+is both not practical and too expensive anyway....
+
+Greetings,
+    Arjan van de Ven
+
+-- 
+if you want to mail me at work (you don't), use arjan (at) linux.intel.com
+Test the interaction between Linux and your BIOS via http://www.linuxfirmwarekit.org
+
