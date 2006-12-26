@@ -1,41 +1,32 @@
-From: Andreas Schwab <schwab@suse.de>
-Subject: Re: bcm43xx-softmac broken on 2.6.20-rc2
-Date: Tue, 26 Dec 2006 17:28:49 +0100
-Message-ID: <jelkku62pq.fsf@sykes.suse.de>
-References: <458EA216.7000101@lwfinger.net>
-	<20061226154524.GB12583@outpost.ds9a.nl>
-	<45914CAF.1070907@lwfinger.net>
+From: Chris Snook <csnook@redhat.com>
+Subject: [ANNOUNCE] new home for atl1 driver
+Date: Tue, 26 Dec 2006 12:14:16 -0500
+Message-ID: <45915868.5050701@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: bert hubert <bert.hubert@netherlabs.nl>,
-	Broadcom Linux <bcm43xx-dev@lists.berlios.de>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>, torvalds@osdl.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jay Cliburn <jacliburn@bellsouth.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns1.suse.de ([195.135.220.2]:48882 "EHLO mx1.suse.de"
+Received: from mx1.redhat.com ([66.187.233.31]:45150 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932707AbWLZQ24 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Dec 2006 11:28:56 -0500
-To: Larry Finger <larry.finger@lwfinger.net>
-In-Reply-To: <45914CAF.1070907@lwfinger.net> (Larry Finger's message of "Tue,
-	26 Dec 2006 10:24:15 -0600")
+	id S932721AbWLZROW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Dec 2006 12:14:22 -0500
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Larry Finger <larry.finger@lwfinger.net> writes:
+Happy Boxing Day!
 
-> The patch does not apply because your mailer is breaking the white sp=
-ace and substituting spaces for=20
-> tabs.
+	If you just turned on your shiny new box and discovered that it's got 
+an Attansic L1 gigabit ethernet chip in it, and can't get Linux to 
+recognize it, fear not.  Jay and I are still working on getting the 
+driver ready for merging.  A lot of the fancy stuff is un(der)tested, 
+but if you're just doing basic desktop stuff with it, it works just fine.
 
-No, it does not apply because it was space-stuffed.
+	We've started up a sourceforge project for it, at http://atl1.sf.net/ 
+More content coming soon.  If you're a user and want to be informed of 
+our progress, subscribe to the atl1-users list.  If you want to help out 
+with development and/or testing, please subscribe to the atl1-devel 
+list, and say hi.
 
-Andreas.
-
---=20
-Andreas Schwab, SuSE Labs, schwab@suse.de
-SuSE Linux Products GmbH, Maxfeldstra=DFe 5, 90409 N=FCrnberg, Germany
-PGP key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4=
-ED5
-"And now for something completely different."
+	-- Chris
