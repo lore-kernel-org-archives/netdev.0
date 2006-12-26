@@ -1,52 +1,50 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] smc911x
-Date: Tue, 26 Dec 2006 16:30:22 -0500
-Message-ID: <4591946E.2000404@garzik.org>
-References: <45881B41.1070109@freescale.com>
+Subject: Re: [PATCH 0/5] qla3xxx:resubmit support for Qlogic 4032 and fixes.
+Date: Tue, 26 Dec 2006 16:34:27 -0500
+Message-ID: <45919563.9030304@garzik.org>
+References: <20061219181855.GA8179@linux-7mw0.qlogic.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:41475 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:41492 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932795AbWLZVa1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Dec 2006 16:30:27 -0500
-To: Pierre TARDY <pierre.tardy@freescale.com>
-In-Reply-To: <45881B41.1070109@freescale.com>
+	id S932810AbWLZVe3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Dec 2006 16:34:29 -0500
+To: ron.mercer@qlogic.com
+In-Reply-To: <20061219181855.GA8179@linux-7mw0.qlogic.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Pierre TARDY wrote:
-> Attached a patch on smc911x driver, which corrects obvious errors in the 
-> 16bit chips support of this driver.
+Ron Mercer wrote:
+> These 5 patches were submitted on Dec 5th (1&2) and Dec 11th (3-5).  They add/fix the following
 > 
-> Please note that this driver still do NOT support 16bit chips (9115 and 
-> 9117), as it claims to, there may be mistakes in the data fifo 
-> managment, this patch enable the driver to init the chip, but the data 
-> is then corrupted.
+> 1. Add support for Qlogic 4032 chip.
+> 2. Change minor version for 4032 support.
+> 3. Add delay when accessing NVRAM.
+> 4. Remove NETIF_F_LLTX flag from features.  It was left over from the early driver and shouldn't be there.
+> 5. Fix rx checksum warning.
 > 
-> I managed to make my chip work with the driver smsc911x (out of the 
-> box), from smsc, which has been refused to be included in the kernel tree.
-> http://thread.gmane.org/gmane.linux.network.general/10498/focus=40384
+> We didn't get any feedback on any of these previously posted patches and couldn't find a tree where they were added.  We've build and tested them on 2.6.20-rc1.
 > 
-> I think it my be a good idea to reconsider this choice
-> - smsc911x has more chance to be supported as it has originally been 
-> made by the manufacturer of the chip.
-> - smc911x is mono chip (do not work with 9117 at least), mono arch and 
-> mono plateform (restricted to PXA), while smsc911x has been tested on 
-> various chips by smsc
-> 
-> The only thing that is missing in smsc911x is dma support, which is very 
-> architecture dependant ( There is one way to do dma with the pxa, 
-> another on the freescale mxc plateforms, another on the x86..)
+> These patches must be applied in order.
 
-ACK the patch, but please follow standard patch format 
-(http://linux.yyz.us/patch-format.html), chiefly you should always 
-include a Signed-off-by line, and avoid MIME attachments.
+Please:
+
+1) Fix your Mail-Followup-To header, so that it doesn't cause CC's to be 
+trimmed.
+
+2) Re-order the patches so that bug fixes come first.  Otherwise this 
+entire patchset must go into netdev-2.6.git#upstream, because patch #1 
+is not a bug fix and we are in a bug-fixes-only cycle.
+
+3) Regarding patch #3:  have you verified that a missing PCI flush was 
+not the cause of your problems?  It seems like udelay(1) could be removed?
+
+ACK the other stuff
 
 	Jeff
-
 
 
 
