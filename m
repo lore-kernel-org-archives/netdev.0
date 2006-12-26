@@ -1,55 +1,60 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: Network card IRQ balancing with Intel 5000 series chipsets
-Date: Tue, 26 Dec 2006 17:11:29 -0500
-Message-ID: <1167171089.3746.23.camel@localhost>
-References: <7e63f56c0612240134s452f6510h8483fb31e5efe799@mail.gmail.com>
-	 <1167039303.3281.1574.camel@laptopd505.fenrus.org>
-	 <7e63f56c0612250326td172f28n532435b23d18b69f@mail.gmail.com>
-	 <1167046499.3281.1623.camel@laptopd505.fenrus.org>
-	 <7e63f56c0612250454g5520bd6aja0fb9ab2656ff74e@mail.gmail.com>
-	 <1167158658.3746.12.camel@localhost>
-	 <7e63f56c0612261151y7aa95954hb2a1d47ce130c38d@mail.gmail.com>
-Reply-To: hadi@cyberus.ca
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Pull request for 'r8169-upstream-fixes-20061226-00' tag
+Date: Tue, 26 Dec 2006 23:31:59 +0100
+Message-ID: <20061226223159.GA21314@electric-eye.fr.zoreil.com>
+References: <20061223164911.GA16360@electric-eye.fr.zoreil.com> <459195A1.2010907@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Arjan van de Ven <arjan@infradead.org>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, akpm@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.230]:3573 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932823AbWLZWLd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Dec 2006 17:11:33 -0500
-Received: by wx-out-0506.google.com with SMTP id h27so3992986wxd
-        for <netdev@vger.kernel.org>; Tue, 26 Dec 2006 14:11:32 -0800 (PST)
-To: Robert Iakobashvili <coroberti@gmail.com>
-In-Reply-To: <7e63f56c0612261151y7aa95954hb2a1d47ce130c38d@mail.gmail.com>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:36439 "EHLO
+	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932825AbWLZWew (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Dec 2006 17:34:52 -0500
+To: Jeff Garzik <jeff@garzik.org>
+Content-Disposition: inline
+In-Reply-To: <459195A1.2010907@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2006-26-12 at 21:51 +0200, Robert Iakobashvili wrote:
+Please pull from tag 'r8169-upstream-fixes-20061226-00' in repository
 
-BTW, turn on PCI-E on in the kernel build and do cat /proc/interupts to
-see what i mean.
+git://electric-eye.fr.zoreil.com/home/romieu/linux-2.6.git tag r8169-upstream-fixes-20061226-00
 
-> In meanwhile I have removed all userland processes from CPU0,
-> that handles network card interrupts and all packet-processing (kernel-space).
-> 
-> Still, it should be some way of CPU-scaling; even for the case of the
-> only network card.
+to get the changes below.
 
-The best way to achieve such balancing is to have the network card help
-and essentially be able to select the CPU to notify while at the same
-time considering:
-a) avoiding any packet reordering - which restricts a flow to be
-processed to a single CPU at least within a timeframe
-b) be per-CPU-load-aware - which means to busy out only CPUs which are
-less utilized
+Distance from 'netdev-2.6-upstream-fixes'
+-----------------------------------------
 
-Various such schemes have been discussed here but no vendor is making
-such nics today (search Daves Blog - he did discuss this at one point or
-other).
+81f4e6c190a0fa016fd7eecaf76a5f95d121afc2
+87046e5062c483820f20c1fa6ed0826bb38fd4f0 <- netdev-2.6-upstream-fixes
 
+Diffstat
+--------
 
-cheers,
-jamal
+ drivers/net/r8169.c |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
 
+Shortlog
+--------
+
+Francois Romieu:
+      r8169: extraneous Cmd{Tx/Rx}Enb write
+
+Patch
+-----
+
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index 1489100..577babd 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -1882,7 +1882,6 @@ static void rtl8169_hw_start(struct net_
+ 	    (tp->mac_version == RTL_GIGA_MAC_VER_02) ||
+ 	    (tp->mac_version == RTL_GIGA_MAC_VER_03) ||
+ 	    (tp->mac_version == RTL_GIGA_MAC_VER_04))
+-		RTL_W8(ChipCmd, CmdTxEnb | CmdRxEnb);
+ 		rtl8169_set_rx_tx_config_registers(tp);
+ 
+ 	cmd = RTL_R16(CPlusCmd);
+-- 
+Ueimor
