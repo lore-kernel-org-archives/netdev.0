@@ -1,39 +1,32 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [patch 4/7] remove the broken SKMC driver
-Date: Tue, 26 Dec 2006 16:42:15 -0500
-Message-ID: <45919737.5000506@garzik.org>
-References: <200612192108.kBJL8m4D010498@shell0.pdx.osdl.net>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: [patch 5/7] ep93xx: some minor cleanups to the ep93xx eth driver
+Date: Tue, 26 Dec 2006 22:42:27 +0100
+Message-ID: <20061226214227.GB23313@xi.wantstofly.org>
+References: <200612192108.kBJL8ndY010501@shell0.pdx.osdl.net> <459196FD.7000600@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bunk@stusta.de
+Content-Type: text/plain; charset=us-ascii
+Cc: akpm@osdl.org, netdev@vger.kernel.org, burman.yan@gmail.com,
+	rmk@arm.linux.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:41574 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932808AbWLZVmR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Dec 2006 16:42:17 -0500
-To: akpm@osdl.org
-In-Reply-To: <200612192108.kBJL8m4D010498@shell0.pdx.osdl.net>
+Received: from alephnull.demon.nl ([83.160.184.112]:47786 "EHLO
+	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932817AbWLZVm3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Dec 2006 16:42:29 -0500
+To: Jeff Garzik <jeff@garzik.org>
+Content-Disposition: inline
+In-Reply-To: <459196FD.7000600@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-akpm@osdl.org wrote:
-> From: Adrian Bunk <bunk@stusta.de>
-> 
-> The SKMC driver has:
-> - already been marked as BROKEN in 2.6.0 three years ago and
-> - is still marked as BROKEN.
-> 
-> Drivers that had been marked as BROKEN for such a long time seem to be
-> unlikely to be revived in the forseeable future.
-> 
-> But if anyone wants to ever revive this driver, the code is still
-> present in the older kernel releases.
-> 
-> Signed-off-by: Adrian Bunk <bunk@stusta.de>
-> Cc: Jeff Garzik <jeff@garzik.org>
-> Signed-off-by: Andrew Morton <akpm@osdl.org>
+On Tue, Dec 26, 2006 at 04:41:17PM -0500, Jeff Garzik wrote:
 
-applied
+> >Small cleanup in the Cirrus Logic EP93xx ethernet driver: Check for NULL
+> >pointer before dereferencing it instead of after.  Remove unreferenced
+> >variable.
+> >
+> >Signed-off-by: Yan Burman <burman.yan@gmail.com>
+> >Cc: Jeff Garzik <jeff@garzik.org>
+> >Cc: Russell King <rmk@arm.linux.org.uk>
+> >Signed-off-by: Andrew Morton <akpm@osdl.org>
 
-
+Why wasn't I CC'ed on this?
