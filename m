@@ -1,74 +1,70 @@
-From: "Robert Iakobashvili" <coroberti@gmail.com>
-Subject: Re: Network card IRQ balancing with Intel 5000 series chipsets
-Date: Mon, 25 Dec 2006 14:54:45 +0200
-Message-ID: <7e63f56c0612250454g5520bd6aja0fb9ab2656ff74e@mail.gmail.com>
-References: <7e63f56c0612240134s452f6510h8483fb31e5efe799@mail.gmail.com>
-	 <1167039303.3281.1574.camel@laptopd505.fenrus.org>
-	 <7e63f56c0612250326td172f28n532435b23d18b69f@mail.gmail.com>
-	 <1167046499.3281.1623.camel@laptopd505.fenrus.org>
+From: Keiichi KII <k-keiichi@bx.jp.nec.com>
+Subject: Re: [RFC][PATCH -mm 0/5] proposal for dynamic configurable netconsole
+Date: Tue, 26 Dec 2006 13:52:54 +0900
+Message-ID: <4590AAA6.1010106@bx.jp.nec.com>
+References: <458BC905.7050003@bx.jp.nec.com> <20061222103615.6e074f4e@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: mpm@selenic.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.191]:63891 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754474AbWLYMyr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Dec 2006 07:54:47 -0500
-Received: by nf-out-0910.google.com with SMTP id o25so4469254nfa
-        for <netdev@vger.kernel.org>; Mon, 25 Dec 2006 04:54:45 -0800 (PST)
-To: "Arjan van de Ven" <arjan@infradead.org>
-In-Reply-To: <1167046499.3281.1623.camel@laptopd505.fenrus.org>
-Content-Disposition: inline
+Received: from TYO201.gate.nec.co.jp ([202.32.8.193]:62952 "EHLO
+	tyo201.gate.nec.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932069AbWLZExQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Dec 2006 23:53:16 -0500
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20061222103615.6e074f4e@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Arjan,
+Thank you for your comments.
 
-On 12/25/06, Arjan van de Ven <arjan@infradead.org> wrote:
-> On Mon, 2006-12-25 at 13:26 +0200, Robert Iakobashvili wrote:
-> >
-> > > Am I understanding you correctly that you want to spread the load of the
-> > > networking IRQ roughly equally over 2 cpus (or cores or ..)?
-> >
-> > Yes, 4 cores.
-> >
-> > > If so, that is very very suboptimal, especially for networking (since
-> > > suddenly a lot of packet processing gets to deal with out of order
-> > > receives and cross-cpu reassembly).
-> >
-> > Agree. Unfortunately, we have a flow of small RTP packets with heavy
-> > processing and both Rx and Tx component on a single network card.
-> > The application is not too much sensitive to the out of order, etc.
-> > Thus, there 3 cores are actually doing nothing, whereas the CPU0
-> > is overloaded, preventing system CPU scaling.
->
-> in principle the actual work should still be spread over the cores;
-> unless you do everything in kernel space that is..
+>> So, I propose the following extended features for netconsole.
+>>
+>> 1) support for multiple logging agents.
+>> 2) add interface to access each parameter of netconsole
+>>    using sysfs.
+>>
+>> This patch is for linux-2.6.20-rc1-mm1 and is divided to each function.
+>> Your comments are very welcome.
+> 
+> Rather than extending the existing kludge with module parameter, to
+> sysfs. I would rather see a better API for this. Please build think
+> about doing a better API with a basic set of ioctl's. Some additional
 
-This is the case. The processing is in kernel.
+What advantage do we use a set of ioctl's compared to sysfs?
+I think that sysfs is easier and more readable than the ioctl's 
+to change configurations(IP address and port number and so on).
 
-> > Agree, that providing CPU affinity for a network interrupt is a rather
-> > reasonable default.
-> > However, should a chipset manufacture take from us the very freedom of
-> > tuning, freedom of choice?
->
-> it can still be done using the TPR (Thread Priority Register) of the
-> APIC. It's just... not there in Linux (other OSes do use this).
+ex)
+# cat /sys/class/misc/netconsole/port1/remote_ip
+192.168.0.1
+# echo 172.16.0.1 > /sys/class/misc/netconsole/port1/remote_ip
+# cat /sys/class/misc/netconsole/port1/remote_ip
+172.16.0.1
 
-Interesting.
-Have you any specific pointers for doing it (beyond Internet search)?
-Your input would be very much appreciated.
-Thank you.
+And the sysfs doesn't need to create access program such as the ioctl's.
+If you change configurations related to netconsole through the sysfs interface, 
+a simple script file including a set of commands such as above echo 
+will help you set up automatically.
 
+> things:
+> 	- shouldn't just be IPV4 specific, should handle IPV6 as well
+
+I would like to implement handling IPV6 on demand in the future.
+
+> 	- shouldn't specify MAC address, it can do network discovery/arp to
+> 	  find that when adding addresses
+
+I think a userland application would rather find target MAC address and 
+change it through the sysfs.
 
 -- 
-Sincerely,
-Robert Iakobashvili,
-coroberti %x40 gmail %x2e com
-...................................................................
-Navigare necesse est, vivere non est necesse
-...................................................................
-http://sourceforge.net/projects/curl-loader
-A powerful open-source HTTP/S, FTP/S traffic
-generating, loading and testing tool.
+Keiichi KII
+NEC Corporation OSS Promotion Center
+E-mail: k-keiichi@bx.jp.nec.com
+
+
+
+
