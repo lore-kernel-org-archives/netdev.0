@@ -1,68 +1,75 @@
-From: "Nick Kossifidis" <mickflemm@gmail.com>
-Subject: d80211 constants inside d80211_common.h
-Date: Wed, 27 Dec 2006 10:32:52 +0200
-Message-ID: <40f31dec0612270032g284160a8q2c6f190b4296a455@mail.gmail.com>
+From: Divy Le Ray <divy@chelsio.com>
+Subject: Re: [PATCH 1/10] cxgb3 - main header files
+Date: Wed, 27 Dec 2006 00:52:02 -0800
+Message-ID: <45923432.9040607@chelsio.com>
+References: <20061220124125.6286.17148.stgit@localhost.localdomain> <45918CA4.3020601@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David Kimdon" <david.kimdon@devicescape.com>,
-	linville@tuxdriver.com, jbenc@suse.cz
+Cc: Divy Le Ray <None@chelsio.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, swise@opengridcomputing.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.225]:63585 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753606AbWL0Icw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Dec 2006 03:32:52 -0500
-Received: by wx-out-0506.google.com with SMTP id h27so4142988wxd
-        for <netdev@vger.kernel.org>; Wed, 27 Dec 2006 00:32:52 -0800 (PST)
-To: netdev@vger.kernel.org
-Content-Disposition: inline
+Received: from stargate.chelsio.com ([12.22.49.110]:26311 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753632AbWL0IwN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Dec 2006 03:52:13 -0500
+To: Jeff Garzik <jeff@garzik.org>
+In-Reply-To: <45918CA4.3020601@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-ieee80211_msg_type, ieee80211_phytype and ieee80211_ssi_type should be
-in capitals as they are constants and must not be mistaken for vars...
+Jeff,
 
+You can grab the monolithic patch at this URL:
+http://service.chelsio.com/kernel.org/cxgb3.patch.bz2
 
-enum ieee80211_msg_type {
-        IEEE80211_MSG_NORMAL            = 0,
-        IEEE80211_MSG_TX_CALLBACK_ACK   = 1,
-        IEEE80211_MSG_TX_CALLBACK_FAIL  = 2,
-        IEEE80211_MSG_PASSIVE_SCAN      = 3,
-        IEEE80211_MSG_WEP_FRAME_UNKNOWN_KEY = 4,
-        IEEE80211_MSG_MICHAEL_MIC_FAIL  = 5,
-        /* hole at 6, was monitor but never sent to userspace */
-        IEEE80211_MSG_STA_NOT_ASSOC     = 7,
-        IEEE80211_MSG_SET_AID_FOR_STA   = 8 /* used by Intersil MVC driver */,
-        IEEE80211_MSG_KEY_THRESHOLD_NOTIFICATION = 9,
-        IEEE80211_MSG_RADAR             = 11,
-};
+This patch adds support for the latest 1G/10G Chelsio adapter, T3.
+It is required by the T3 RDMA driver Steve Wise submitted.
 
+Here is a brief description of its content:
 
-enum ieee80211_phytype {
-        IEEE80211_PHYTYPE_FHSS_DOT11_97  = 1,
-        IEEE80211_PHYTYPE_DSSS_DOT11_97  = 2,
-        IEEE80211_PHYTYPE_IRBASEBAND     = 3,
-        IEEE80211_PHYTYPE_DSSS_DOT11_B   = 4,
-        IEEE80211_PHYTYPE_PBCC_DOT11_B   = 5,
-        IEEE80211_PHYTYPE_OFDM_DOT11_G   = 6,
-        IEEE80211_PHYTYPE_PBCC_DOT11_G   = 7,
-        IEEE80211_PHYTYPE_OFDM_DOT11_A   = 8,
-        IEEE80211_PHYTYPE_DSSS_DOT11_TURBOG = 255,
-        IEEE80211_PHYTYPE_DSSS_DOT11_TURBO = 256,
-};
+ drivers/net/cxgb3/adapter.h,
+ drivers/net/cxgb3/common.h,
+ drivers/net/cxgb3/cxgb3_ioctl.h,
+ drivers/net/cxgb3/firmware_exports.h:
+     main header files
 
+ drivers/net/cxgb3/cxgb3_main.c
+     main source file
 
-enum ieee80211_ssi_type {
-        IEEE80211_SSI_NONE = 0,
-        IEEE80211_SSI_NORM = 1, /* normalized, 0-1000 */
-        IEEE80211_SSI_DBM = 2,
-        IEEE80211_SSI_RAW = 3, /* raw SSI */
-};
+ drivers/net/cxgb3/t3_hw.c
+     HW access routines
 
-I did a grep inside drivers/net/wireless/d80211/* and they are not
-used yet in drivers. Can you plz fix it before drivers start using
-them ?
+ drivers/net/cxgb3/sge.c,
+ drivers/net/cxgb3/sge_defs.h
+     scatter/gather engine
 
+ drivers/net/cxgb3/ael1002.c,
+ drivers/net/cxgb3/mc5.c,
+ drivers/net/cxgb3/vsc8211.c,
+ drivers/net/cxgb3/xgmac.c
+     on board memory, MAC and PHY management
 
-Thanx for your time
-Nick
+ drivers/net/cxgb3/cxgb3_ctl_defs.h,
+ drivers/net/cxgb3/cxgb3_defs.h,
+ drivers/net/cxgb3/cxgb3_offload.h,
+ drivers/net/cxgb3/l2t.h, 
+ drivers/net/cxgb3/t3_cpl.h,
+ drivers/net/cxgb3/t3cdev.h
+     offload operations header files
+
+ drivers/net/cxgb3/cxgb3_offload.c,
+ drivers/net/cxgb3/l2t.c
+     offload capabilities
+
+ drivers/net/cxgb3/regs.h
+     register definitions
+
+ drivers/net/Kconfig
+ drivers/net/Makefile
+ drivers/net/cxgb3/Makefile
+ drivers/net/cxgb3/version.h
+     build files and versioning
+
+Signed-off-by: Divy Le Ray <divy@chelsio.com>
+---
