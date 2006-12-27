@@ -1,86 +1,52 @@
-From: Arjan van de Ven <arjan@infradead.org>
-Subject: Re: Network card IRQ balancing with Intel 5000 series chipsets
-Date: Wed, 27 Dec 2006 16:06:47 +0100
-Message-ID: <1167232007.3281.3931.camel@laptopd505.fenrus.org>
-References: <7e63f56c0612240134s452f6510h8483fb31e5efe799@mail.gmail.com>
-	 <1167039303.3281.1574.camel@laptopd505.fenrus.org>
-	 <7e63f56c0612250326td172f28n532435b23d18b69f@mail.gmail.com>
-	 <1167046499.3281.1623.camel@laptopd505.fenrus.org>
-	 <7e63f56c0612250454g5520bd6aja0fb9ab2656ff74e@mail.gmail.com>
-	 <1167158658.3746.12.camel@localhost>
-	 <1167170793.3281.3209.camel@laptopd505.fenrus.org>
-	 <1167173199.3746.45.camel@localhost>
-	 <1167179309.3281.3342.camel@laptopd505.fenrus.org>
-	 <1167191279.3746.60.camel@localhost>
-	 <1167224888.3281.3876.camel@laptopd505.fenrus.org>
-	 <1167230668.3807.37.camel@localhost>
+From: Michael Wu <flamingice@sourmilk.net>
+Subject: Re: d80211 constants inside d80211_common.h
+Date: Wed, 27 Dec 2006 11:07:38 -0500
+Message-ID: <200612271107.45572.flamingice@sourmilk.net>
+References: <40f31dec0612270032g284160a8q2c6f190b4296a455@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: multipart/signed;
+  boundary="nextPart5868658.34m3AdINCr";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-Cc: Robert Iakobashvili <coroberti@gmail.com>, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org,
+	"David Kimdon" <david.kimdon@devicescape.com>,
+	linville@tuxdriver.com, jbenc@suse.cz
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:48754 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932857AbWL0PGw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Dec 2006 10:06:52 -0500
-To: hadi@cyberus.ca
-In-Reply-To: <1167230668.3807.37.camel@localhost>
+Received: from server8.tchmachines.com ([216.180.241.250]:40203 "EHLO
+	server8.tchmachines.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932978AbWL0QIS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Dec 2006 11:08:18 -0500
+To: "Nick Kossifidis" <mickflemm@gmail.com>
+In-Reply-To: <40f31dec0612270032g284160a8q2c6f190b4296a455@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2006-12-27 at 09:44 -0500, jamal wrote:
-> On Wed, 2006-27-12 at 14:08 +0100, Arjan van de Ven wrote:
-> 
-> > sure; however the kernel doesn't provide more accurate information
-> > currently (and I doubt it could even, it's not so easy to figure out
-> > which interface triggered the softirq if 2 interfaces share the cpu, and
-> > then, how much work came from which etc).
-> > 
-> 
-> If you sample CPU use and in between two samples you are able to know
-> which nic is tied to which CPU, how much cycles such cpu consumed in
-> user vs kernel, and how many packets were seen on such nic; then you
-> should have the info necessary to make a decision, no?
+--nextPart5868658.34m3AdINCr
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-Note that getting softirq time itself isn't a problem, that is available
-actually. (it's not very accurate but that's another kettle of fish
-entirely)
+On Wednesday 27 December 2006 03:32, Nick Kossifidis wrote:
+> I did a grep inside drivers/net/wireless/d80211/* and they are not
+> used yet in drivers. Can you plz fix it before drivers start using
+> them ?
+Already fixed, just waiting for wireless-dev to get it.
 
-But... No that isn't better than packet counts.
-Cases where it simply breaks 
-1) you have more nics than cpus, so you HAVE to have sharing 
-2) Other loads going on than just pure networking (storage but also
-timers and .. and ..)
+http://kernel.org/git/?p=linux/kernel/git/jbenc/dscape.git;a=commitdiff;h=4ae94181f808da96352478c6d4102e3b0b5dfaac
 
-And neither is even remotely artificial. 
+-Michael Wu
 
-> Yes, I know it is
-> a handwave on my part and it is complex but by the same token, I would
-> suspect each kind of IO derived work (which results in interupts) will
-> have more inputs that could help you make a proper decision than a mere
-> glance of the interupts. I understand for example the SCSI subsystem
-> these days behaves very much like NAPI.
+--nextPart5868658.34m3AdINCr
+Content-Type: application/pgp-signature
 
-the difference between scsi and networking is that the work scsi does
-per "sector" is orders and orders of magnitude less than what networking
-does. SCSI does it's work mostly per "transfer" not per sector, and if
-you're busy you tend to get larger transfers as well (megabytes is not
-special). SCSI also doesn't look at the payload at all, unlike
-networking (where there are those pesky headers every 1500 bytes or less
-that the kernel needs to look at :)
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.2 (GNU/Linux)
 
+iD8DBQBFkppRT3Oqt9AH4aERAr/HAJ42+3Wbzdh8wuvaZkkxglmvAA7g6QCfe3B4
+aUpak2+XvnabaDaOyKjHft0=
+=AZOf
+-----END PGP SIGNATURE-----
 
-> It is certainly much more promising now than before. Most people will
-> probably have symettrical type of apps, so it should work for them.
-> For someone like myself i will still not use it because i typically dont
-> have symettrical loads.
-
-unless you have more nics than you have cpus, irqbalance will do the
-right thing anyway (it'll tend to not share or move networking
-interrupts). And once you have more nics than you have cpus.... see
-above.
-
--- 
-if you want to mail me at work (you don't), use arjan (at) linux.intel.com
-Test the interaction between Linux and your BIOS via http://www.linuxfirmwarekit.org
-
+--nextPart5868658.34m3AdINCr--
