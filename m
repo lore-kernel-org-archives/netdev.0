@@ -1,81 +1,48 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH] igmp: spin_lock_bh in timer (Re: BUG: soft lockup detected
- on CPU#0!)
-Date: Wed, 27 Dec 2006 08:16:10 -0800
-Message-ID: <45929C4A.5000008@candelatech.com>
-References: <45889C53.8000307@candelatech.com> <20061222071308.GA1791@ff.dom.local> <20061222074209.GA2148@ff.dom.local> <458BE61E.9030004@candelatech.com> <20061227082400.GA2070@ff.dom.local>
+From: "Nick Kossifidis" <mickflemm@gmail.com>
+Subject: Re: d80211 constants inside d80211_common.h
+Date: Wed, 27 Dec 2006 19:26:01 +0200
+Message-ID: <40f31dec0612270926m6447309do7cbf78b28ee904ae@mail.gmail.com>
+References: <40f31dec0612270032g284160a8q2c6f190b4296a455@mail.gmail.com>
+	 <200612271107.45572.flamingice@sourmilk.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org,
+	"David Kimdon" <david.kimdon@devicescape.com>,
+	linville@tuxdriver.com, jbenc@suse.cz
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:51290 "EHLO ns2.lanforge.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932987AbWL0QQo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Dec 2006 11:16:44 -0500
-To: Jarek Poplawski <jarkao2@o2.pl>
-In-Reply-To: <20061227082400.GA2070@ff.dom.local>
+Received: from wx-out-0506.google.com ([66.249.82.225]:54079 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933004AbWL0R0E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Dec 2006 12:26:04 -0500
+Received: by wx-out-0506.google.com with SMTP id h27so4284857wxd
+        for <netdev@vger.kernel.org>; Wed, 27 Dec 2006 09:26:01 -0800 (PST)
+To: "Michael Wu" <flamingice@sourmilk.net>
+In-Reply-To: <200612271107.45572.flamingice@sourmilk.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jarek Poplawski wrote:
-> On Fri, Dec 22, 2006 at 06:05:18AM -0800, Ben Greear wrote:
->> Jarek Poplawski wrote:
->>> On Fri, Dec 22, 2006 at 08:13:08AM +0100, Jarek Poplawski wrote:
->>>> On 20-12-2006 03:13, Ben Greear wrote:
->>>>> This is from 2.6.18.2 kernel with my patch set.  The MAC-VLANs are in 
->>>>> active use.
->>>>> From the backtrace, I am thinking this might be a generic problem, 
->>>>> however.
->>>>>
->>>>> Any ideas about what this could be?  It seems to be reproducible every 
->>>>> day or
->>> ...
->>>> If it doesn't help, I hope lockdep will be more
->>>> precise when you'll upgrade to 2.6.19 or higher.
->>> ... or when you enable lockdep in 2.6.18 (I've
->>> forgotten it's there alredy!).
->> I got lucky..the system was available by ssh still.  I see this in the boot 
->> logs..I assume
->> this means lockdep is enabled?  Should I have expected to see a lockdep 
->> trace in the case of
->> his soft-lockup then?
->>
->> .....
->> Dec 19 04:33:48 localhost kernel: Lock dependency validator: Copyright (c) 
->> 2006 Red Hat, Inc., Ingo MolnarDec 19 04:33:48 localhost kernel: ... 
->> MAX_LOCKDEP_SUBCLASSES:    8
-> 
-> Yes, you got it enabled in the config.
-> 
-> If there is no message later about validator
-> turning off and no warnings which could point
-> at lockdep then it is working.
-> 
-> But then, IMHO, there is rather small probability
-> this bug is really from lockup. Another possibility
-> is hardware irqs (timer in particular) are turned
-> off by something (maybe those hacks?) for extremely
-> long time (~10 sec.). 
+We need those definitions for setting up the rate tables in dadwifi,
+phytypes are needed inside drivers, take a look here ->
+http://madwifi.org/browser/branches/dadwifi-openhal/openhal/ar5xxx.h?rev=1867
 
-The system hangs and does not recover (well, a few processes
-continue on the other processor for a few minutes before they
-too deadlock...)
-
-I am guessing this problem has been around for a while, but it
-is only triggered when interfaces are created, and probably only
-when UDP traffic is already running heavily on the system.  Most
-systems w/out virtual devices will not trigger this sort of
-race.
-
-Ben
-
->  
-> Regards,
-> Jarek P.
+Even if it does get out, constants should be in capitals.
 
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+Thanx for your time
+Nick
 
+2006/12/27, Michael Wu <flamingice@sourmilk.net>:
+> On Wednesday 27 December 2006 03:32, Nick Kossifidis wrote:
+> > I did a grep inside drivers/net/wireless/d80211/* and they are not
+> > used yet in drivers. Can you plz fix it before drivers start using
+> > them ?
+> Already fixed, just waiting for wireless-dev to get it.
+>
+> http://kernel.org/git/?p=linux/kernel/git/jbenc/dscape.git;a=commitdiff;h=4ae94181f808da96352478c6d4102e3b0b5dfaac
+>
+> -Michael Wu
+>
+>
+>
