@@ -1,33 +1,72 @@
-From: "Leonid Grossman" <Leonid.Grossman@neterion.com>
-Subject: [ANNOUNCE] 10GbE Xframe-II ASIC Programming Manual
-Date: Wed, 27 Dec 2006 14:15:28 -0500
-Message-ID: <78C9135A3D2ECE4B8162EBDCE82CAD7701080E4D@nekter>
+From: Ulrich Drepper <drepper@redhat.com>
+Subject: Re: [take24 0/6] kevent: Generic event handling mechanism.
+Date: Wed, 27 Dec 2006 12:45:50 -0800
+Message-ID: <4592DB7E.4090100@redhat.com>
+References: <45633049.2000209@redhat.com> <20061121174334.GA25518@2ka.mipt.ru> <4563FD53.7030307@redhat.com> <20061122120933.GA32681@2ka.mipt.ru> <20061122121516.GA7229@2ka.mipt.ru> <4564CE00.9030904@redhat.com> <20061123122225.GD20294@2ka.mipt.ru> <456605EA.5060601@redhat.com> <20061124105856.GE13600@2ka.mipt.ru> <456B2D2B.9080502@redhat.com> <20061128101327.GE15083@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enigBE7C558334F8510731A0E4AA"
+Cc: David Miller <davem@davemloft.net>, Andrew Morton <akpm@osdl.org>,
+	netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	Chase Venters <chase.venters@clientec.com>,
+	Johann Borck <johann.borck@densedata.com>,
+	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
+	Alexander Viro <aviro@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from barracuda.s2io.com ([72.1.205.138]:60031 "EHLO
-	barracuda.s2io.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754706AbWL0TPj convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Dec 2006 14:15:39 -0500
-Received: from owa.neterion.com (unknown [72.1.205.142])
-	by barracuda.s2io.com (Spam Firewall) with ESMTP id 5667620048B2
-	for <netdev@vger.kernel.org>; Wed, 27 Dec 2006 14:15:39 -0500 (EST)
-Content-class: urn:content-classes:message
-To: <netdev@vger.kernel.org>
+Received: from mx1.redhat.com ([66.187.233.31]:48018 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754771AbWL0UsE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Dec 2006 15:48:04 -0500
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+In-Reply-To: <20061128101327.GE15083@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The ASIC Programming Manual (aka Device Driver Guide) got updated to
-match current feature set of s2io driver, and posted at
-http://trac.neterion.com/cgi-bin/trac.cgi/wiki/TitleIndex?anonymous
-under "Documentation Download" (Xframe_II_OSDDG_2.1_LE.pdf). 
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enigBE7C558334F8510731A0E4AA
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-Some noteworthy updates include Chapter C Application notes on features
-like interrupt moderation and multi-queue receive traffic steering. Only
-little endian file is posted at present; if someone is interested in big
-endian flavor of the register map please e-mail to support@neterion.com,
-and we will generate and post the BE pdf.
+Evgeniy Polyakov wrote:
+> Why do we want to inject _ready_ event, when it is possible to mark
+> event as ready and wakeup thread parked in syscall?
+
+Going back to this old one:
+
+How do you want to mark an event ready if you don't want to introduce
+yet another layer of data structures?  The event notification happens
+through entries in the ring buffer.  Userlevel code should never add
+anything to the ring buffer directly, this would mean huge
+synchronization problems.  Yes, one could add additional data structures
+accompanying the ring buffer which can specify userlevel-generated
+events.  But this is a) clumsy and b) a pain to use when the same ring
+buffer is used in multiple threads (you'd have to have another shared
+memory segment).
+
+It's much cleaner if the userlevel code can get the kernel to inject a
+userlevel-generated event.  This is the equivalent of userlevel code
+generating a signal with kill().
+
+--=20
+=E2=9E=A7 Ulrich Drepper =E2=9E=A7 Red Hat, Inc. =E2=9E=A7 444 Castro St =
+=E2=9E=A7 Mountain View, CA =E2=9D=96
 
 
+--------------enigBE7C558334F8510731A0E4AA
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.6 (GNU/Linux)
+Comment: Using GnuPG with Fedora - http://enigmail.mozdev.org
+
+iD8DBQFFktuC2ijCOnn/RHQRAjSfAJwJmugiHdUzbJJz9VusJKmnQa6GOwCfQM5g
+hH6mMw12XZTvxTzJigN7Z2k=
+=4XJb
+-----END PGP SIGNATURE-----
+
+--------------enigBE7C558334F8510731A0E4AA--
