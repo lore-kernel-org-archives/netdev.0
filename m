@@ -1,72 +1,53 @@
-From: Ulrich Drepper <drepper@redhat.com>
-Subject: Re: [take24 0/6] kevent: Generic event handling mechanism.
-Date: Wed, 27 Dec 2006 12:45:50 -0800
-Message-ID: <4592DB7E.4090100@redhat.com>
-References: <45633049.2000209@redhat.com> <20061121174334.GA25518@2ka.mipt.ru> <4563FD53.7030307@redhat.com> <20061122120933.GA32681@2ka.mipt.ru> <20061122121516.GA7229@2ka.mipt.ru> <4564CE00.9030904@redhat.com> <20061123122225.GD20294@2ka.mipt.ru> <456605EA.5060601@redhat.com> <20061124105856.GE13600@2ka.mipt.ru> <456B2D2B.9080502@redhat.com> <20061128101327.GE15083@2ka.mipt.ru>
+From: "Nick Kossifidis" <mickflemm@gmail.com>
+Subject: Re: d80211 constants inside d80211_common.h
+Date: Wed, 27 Dec 2006 22:58:14 +0200
+Message-ID: <40f31dec0612271258w6f1f4503h7a2c1919d6521b66@mail.gmail.com>
+References: <40f31dec0612270032g284160a8q2c6f190b4296a455@mail.gmail.com>
+	 <200612271107.45572.flamingice@sourmilk.net>
+	 <40f31dec0612270926m6447309do7cbf78b28ee904ae@mail.gmail.com>
+	 <200612271412.20125.flamingice@sourmilk.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enigBE7C558334F8510731A0E4AA"
-Cc: David Miller <davem@davemloft.net>, Andrew Morton <akpm@osdl.org>,
-	netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	Chase Venters <chase.venters@clientec.com>,
-	Johann Borck <johann.borck@densedata.com>,
-	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
-	Alexander Viro <aviro@redhat.com>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	"David Kimdon" <david.kimdon@devicescape.com>,
+	linville@tuxdriver.com, jbenc@suse.cz
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:48018 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754771AbWL0UsE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Dec 2006 15:48:04 -0500
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-In-Reply-To: <20061128101327.GE15083@2ka.mipt.ru>
+Received: from wx-out-0506.google.com ([66.249.82.230]:21616 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754781AbWL0U6P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Dec 2006 15:58:15 -0500
+Received: by wx-out-0506.google.com with SMTP id h27so4342499wxd
+        for <netdev@vger.kernel.org>; Wed, 27 Dec 2006 12:58:14 -0800 (PST)
+To: "Michael Wu" <flamingice@sourmilk.net>
+In-Reply-To: <200612271412.20125.flamingice@sourmilk.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enigBE7C558334F8510731A0E4AA
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-
-Evgeniy Polyakov wrote:
-> Why do we want to inject _ready_ event, when it is possible to mark
-> event as ready and wakeup thread parked in syscall?
-
-Going back to this old one:
-
-How do you want to mark an event ready if you don't want to introduce
-yet another layer of data structures?  The event notification happens
-through entries in the ring buffer.  Userlevel code should never add
-anything to the ring buffer directly, this would mean huge
-synchronization problems.  Yes, one could add additional data structures
-accompanying the ring buffer which can specify userlevel-generated
-events.  But this is a) clumsy and b) a pain to use when the same ring
-buffer is used in multiple threads (you'd have to have another shared
-memory segment).
-
-It's much cleaner if the userlevel code can get the kernel to inject a
-userlevel-generated event.  This is the equivalent of userlevel code
-generating a signal with kill().
-
---=20
-=E2=9E=A7 Ulrich Drepper =E2=9E=A7 Red Hat, Inc. =E2=9E=A7 444 Castro St =
-=E2=9E=A7 Mountain View, CA =E2=9D=96
+Thank you, i'll use directly IEEE80211_RATE_* ;-)
 
 
---------------enigBE7C558334F8510731A0E4AA
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
+Nick
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.6 (GNU/Linux)
-Comment: Using GnuPG with Fedora - http://enigmail.mozdev.org
-
-iD8DBQFFktuC2ijCOnn/RHQRAjSfAJwJmugiHdUzbJJz9VusJKmnQa6GOwCfQM5g
-hH6mMw12XZTvxTzJigN7Z2k=
-=4XJb
------END PGP SIGNATURE-----
-
---------------enigBE7C558334F8510731A0E4AA--
+2006/12/27, Michael Wu <flamingice@sourmilk.net>:
+> On Wednesday 27 December 2006 12:26, Nick Kossifidis wrote:
+> > We need those definitions for setting up the rate tables in dadwifi,
+> > phytypes are needed inside drivers, take a look here ->
+> > http://madwifi.org/browser/branches/dadwifi-openhal/openhal/ar5xxx.h?rev=18
+> >67
+> >
+> MODE_IEEE80211A/B/G and IEEE80211_RATE_* not enough? The definitions in
+> d80211_common.h are used for communications with userspace, not drivers. If
+> you are using the ieee80211_phytype_* in things that are passed to d80211, it
+> is wrong. If you are not, you can switch to MODE_IEEE80211A/B/G and
+> IEEE80211_RATE_*, though I think MODE_IEEE80211A/B/G should be all you need.
+>
+> > Even if it does get out, constants should be in capitals.
+> >
+> Sure. Submit a patch. :)
+>
+> -Michael Wu
+>
+>
+>
