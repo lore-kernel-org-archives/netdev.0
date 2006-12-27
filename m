@@ -1,62 +1,68 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: [PATCH] igmp: spin_lock_bh in timer (Re: BUG: soft lockup detected on CPU#0!)
-Date: Wed, 27 Dec 2006 09:24:00 +0100
-Message-ID: <20061227082400.GA2070@ff.dom.local>
-References: <45889C53.8000307@candelatech.com> <20061222071308.GA1791@ff.dom.local> <20061222074209.GA2148@ff.dom.local> <458BE61E.9030004@candelatech.com>
+From: "Nick Kossifidis" <mickflemm@gmail.com>
+Subject: d80211 constants inside d80211_common.h
+Date: Wed, 27 Dec 2006 10:32:52 +0200
+Message-ID: <40f31dec0612270032g284160a8q2c6f190b4296a455@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David Kimdon" <david.kimdon@devicescape.com>,
+	linville@tuxdriver.com, jbenc@suse.cz
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.go2.pl ([193.17.41.42]:53249 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752165AbWL0IWk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Dec 2006 03:22:40 -0500
-To: Ben Greear <greearb@candelatech.com>
+Received: from wx-out-0506.google.com ([66.249.82.225]:63585 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753606AbWL0Icw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Dec 2006 03:32:52 -0500
+Received: by wx-out-0506.google.com with SMTP id h27so4142988wxd
+        for <netdev@vger.kernel.org>; Wed, 27 Dec 2006 00:32:52 -0800 (PST)
+To: netdev@vger.kernel.org
 Content-Disposition: inline
-In-Reply-To: <458BE61E.9030004@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Dec 22, 2006 at 06:05:18AM -0800, Ben Greear wrote:
-> Jarek Poplawski wrote:
-> >On Fri, Dec 22, 2006 at 08:13:08AM +0100, Jarek Poplawski wrote:
-> >>On 20-12-2006 03:13, Ben Greear wrote:
-> >>>This is from 2.6.18.2 kernel with my patch set.  The MAC-VLANs are in 
-> >>>active use.
-> >>> From the backtrace, I am thinking this might be a generic problem, 
-> >>>however.
-> >>>
-> >>>Any ideas about what this could be?  It seems to be reproducible every 
-> >>>day or
-> >...
-> >>If it doesn't help, I hope lockdep will be more
-> >>precise when you'll upgrade to 2.6.19 or higher.
-> >
-> >... or when you enable lockdep in 2.6.18 (I've
-> >forgotten it's there alredy!).
-> 
-> I got lucky..the system was available by ssh still.  I see this in the boot 
-> logs..I assume
-> this means lockdep is enabled?  Should I have expected to see a lockdep 
-> trace in the case of
-> his soft-lockup then?
-> 
-> .....
-> Dec 19 04:33:48 localhost kernel: Lock dependency validator: Copyright (c) 
-> 2006 Red Hat, Inc., Ingo MolnarDec 19 04:33:48 localhost kernel: ... 
-> MAX_LOCKDEP_SUBCLASSES:    8
+ieee80211_msg_type, ieee80211_phytype and ieee80211_ssi_type should be
+in capitals as they are constants and must not be mistaken for vars...
 
-Yes, you got it enabled in the config.
 
-If there is no message later about validator
-turning off and no warnings which could point
-at lockdep then it is working.
+enum ieee80211_msg_type {
+        IEEE80211_MSG_NORMAL            = 0,
+        IEEE80211_MSG_TX_CALLBACK_ACK   = 1,
+        IEEE80211_MSG_TX_CALLBACK_FAIL  = 2,
+        IEEE80211_MSG_PASSIVE_SCAN      = 3,
+        IEEE80211_MSG_WEP_FRAME_UNKNOWN_KEY = 4,
+        IEEE80211_MSG_MICHAEL_MIC_FAIL  = 5,
+        /* hole at 6, was monitor but never sent to userspace */
+        IEEE80211_MSG_STA_NOT_ASSOC     = 7,
+        IEEE80211_MSG_SET_AID_FOR_STA   = 8 /* used by Intersil MVC driver */,
+        IEEE80211_MSG_KEY_THRESHOLD_NOTIFICATION = 9,
+        IEEE80211_MSG_RADAR             = 11,
+};
 
-But then, IMHO, there is rather small probability
-this bug is really from lockup. Another possibility
-is hardware irqs (timer in particular) are turned
-off by something (maybe those hacks?) for extremely
-long time (~10 sec.). 
- 
-Regards,
-Jarek P.
+
+enum ieee80211_phytype {
+        IEEE80211_PHYTYPE_FHSS_DOT11_97  = 1,
+        IEEE80211_PHYTYPE_DSSS_DOT11_97  = 2,
+        IEEE80211_PHYTYPE_IRBASEBAND     = 3,
+        IEEE80211_PHYTYPE_DSSS_DOT11_B   = 4,
+        IEEE80211_PHYTYPE_PBCC_DOT11_B   = 5,
+        IEEE80211_PHYTYPE_OFDM_DOT11_G   = 6,
+        IEEE80211_PHYTYPE_PBCC_DOT11_G   = 7,
+        IEEE80211_PHYTYPE_OFDM_DOT11_A   = 8,
+        IEEE80211_PHYTYPE_DSSS_DOT11_TURBOG = 255,
+        IEEE80211_PHYTYPE_DSSS_DOT11_TURBO = 256,
+};
+
+
+enum ieee80211_ssi_type {
+        IEEE80211_SSI_NONE = 0,
+        IEEE80211_SSI_NORM = 1, /* normalized, 0-1000 */
+        IEEE80211_SSI_DBM = 2,
+        IEEE80211_SSI_RAW = 3, /* raw SSI */
+};
+
+I did a grep inside drivers/net/wireless/d80211/* and they are not
+used yet in drivers. Can you plz fix it before drivers start using
+them ?
+
+
+Thanx for your time
+Nick
