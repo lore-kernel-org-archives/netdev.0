@@ -1,46 +1,65 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: Network card IRQ balancing with Intel 5000 series chipsets
-Date: Tue, 26 Dec 2006 22:47:59 -0500
-Message-ID: <1167191279.3746.60.camel@localhost>
-References: <7e63f56c0612240134s452f6510h8483fb31e5efe799@mail.gmail.com>
-	 <1167039303.3281.1574.camel@laptopd505.fenrus.org>
-	 <7e63f56c0612250326td172f28n532435b23d18b69f@mail.gmail.com>
-	 <1167046499.3281.1623.camel@laptopd505.fenrus.org>
-	 <7e63f56c0612250454g5520bd6aja0fb9ab2656ff74e@mail.gmail.com>
-	 <1167158658.3746.12.camel@localhost>
-	 <1167170793.3281.3209.camel@laptopd505.fenrus.org>
-	 <1167173199.3746.45.camel@localhost>
-	 <1167179309.3281.3342.camel@laptopd505.fenrus.org>
-Reply-To: hadi@cyberus.ca
+From: Masahide NAKAMURA <nakam@linux-ipv6.org>
+Subject: Re: [PATCH 2/2] [IPV6] RAW: Add checksum default defines for mobility
+ header.
+Date: Wed, 27 Dec 2006 13:57:23 +0900
+Message-ID: <4591FD33.3070205@linux-ipv6.org>
+References: <11653130071739-git-send-email-nakam@linux-ipv6.org>	<20061205.200242.01826773.yoshfuji@linux-ipv6.org>	<20061210.225055.45514229.davem@davemloft.net> <20061227.111429.51867516.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Robert Iakobashvili <coroberti@gmail.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.226]:10696 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932897AbWL0DsC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Dec 2006 22:48:02 -0500
-Received: by wx-out-0506.google.com with SMTP id h27so4074330wxd
-        for <netdev@vger.kernel.org>; Tue, 26 Dec 2006 19:48:02 -0800 (PST)
-To: Arjan van de Ven <arjan@infradead.org>
-In-Reply-To: <1167179309.3281.3342.camel@laptopd505.fenrus.org>
+Received: from [203.178.140.9] ([203.178.140.9]:34365 "EHLO mail.gomagoma.org"
+	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S932914AbWL0F0T (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Dec 2006 00:26:19 -0500
+To: =?windows-1252?Q?YOSHIFUJI_Hideaki_/_=3F=3F=3F=3F?=
+	<yoshfuji@linux-ipv6.org>
+In-Reply-To: <20061227.111429.51867516.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2006-27-12 at 01:28 +0100, Arjan van de Ven wrote:
-
-> current irqbalance accounts for napi by using the number of packets as
-> indicator for load, not the number of interrupts. (for network
-> interrupts obviously)
+YOSHIFUJI Hideaki / ???? wrote:
+> If it is okay to defer the checksumming after checking the next header
+> protocol, we can omit the checksumming in mip6_mh_filter(), and
+> leave it to rawv6_rcv() and rawv6_recvmsg().
 > 
+> 
+> Anyway, we have 4 options.
+> 
+> 1. IPV6_CHECKSUM default for IPPROTO_MH == 4
+>    omit checksumming in mip6_mh_filter()
+> 2. IPV6_CHECKSUM default for IPPROTO_MH == -1
+>    omit checksumming in mip6_mh_filter()
+> 3. IPV6_CHECKSUM for IPPROTO_MH == 4
+>    always perform checksumming in mip6_mh_filter()
+> 4. IPV6_CHECKSUM default for IPPROTO_MH == -1
+>    always perform checksumming in mip6_mh_filter()
+> 
+> Current behavior is 4, but it is not appropriate.
+> I guess 1 is the way to go.
 
-Sounds a lot more promising.
-Although still insufficient in certain cases. All flows are not equal; as an
-example, an IPSEC flow with 1000 packets bound to one CPU  will likely
-utilize more cycles than 5000 packets that are being plain forwarded on
-another CPU.
+I would like to have 1, too.
 
-cheers,
-jamal
+> Another question may arise; is it okay to change the default if the
+> raw socket for Mobility Header is NOT for user-space daemon? or,
 
+For such application (if any), it has used setsockopt = 4 or hasn't used it
+for inbound checksum. Those code should work with the kernel change then I
+can not find any issue here. Do you have anything else to be discussed?
+
+> is it okay to have two different default value depending on CONFIG_IPV6_MIP6?
+> If we take these question seriously, we should take 2.
+
+We have a solution here, to remove "ifdef CONFIG_IPV6_MIP6" from
+rawv6_init_sk() to have the same default value = 4 for IPPROTO_MH
+regardless user config.
+
+BTW ICMPv6 default is on and offset = 2. It is better idea for me
+to have the similar design for both MH and ICMPv6 as raw socket stuff
+than you pointed.
+
+Regards,
+
+-- 
+Masahide NAKAMURA
