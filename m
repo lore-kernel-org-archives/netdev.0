@@ -1,112 +1,46 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH 2/2] [IPV6] RAW: Add checksum default defines for
- mobility header.
-Date: Wed, 27 Dec 2006 11:14:29 +0900 (JST)
-Message-ID: <20061227.111429.51867516.yoshfuji@linux-ipv6.org>
-References: <11653130071739-git-send-email-nakam@linux-ipv6.org>
-	<20061205.200242.01826773.yoshfuji@linux-ipv6.org>
-	<20061210.225055.45514229.davem@davemloft.net>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: Network card IRQ balancing with Intel 5000 series chipsets
+Date: Tue, 26 Dec 2006 22:47:59 -0500
+Message-ID: <1167191279.3746.60.camel@localhost>
+References: <7e63f56c0612240134s452f6510h8483fb31e5efe799@mail.gmail.com>
+	 <1167039303.3281.1574.camel@laptopd505.fenrus.org>
+	 <7e63f56c0612250326td172f28n532435b23d18b69f@mail.gmail.com>
+	 <1167046499.3281.1623.camel@laptopd505.fenrus.org>
+	 <7e63f56c0612250454g5520bd6aja0fb9ab2656ff74e@mail.gmail.com>
+	 <1167158658.3746.12.camel@localhost>
+	 <1167170793.3281.3209.camel@laptopd505.fenrus.org>
+	 <1167173199.3746.45.camel@localhost>
+	 <1167179309.3281.3342.camel@laptopd505.fenrus.org>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: nakam@linux-ipv6.org, netdev@vger.kernel.org,
-	yoshfuji@linux-ipv6.org
+Cc: Robert Iakobashvili <coroberti@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:41311 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932888AbWL0CN4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Dec 2006 21:13:56 -0500
-To: davem@davemloft.net
-In-Reply-To: <20061210.225055.45514229.davem@davemloft.net>
+Received: from wx-out-0506.google.com ([66.249.82.226]:10696 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932897AbWL0DsC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Dec 2006 22:48:02 -0500
+Received: by wx-out-0506.google.com with SMTP id h27so4074330wxd
+        for <netdev@vger.kernel.org>; Tue, 26 Dec 2006 19:48:02 -0800 (PST)
+To: Arjan van de Ven <arjan@infradead.org>
+In-Reply-To: <1167179309.3281.3342.camel@laptopd505.fenrus.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Happy Holidays!
+On Wed, 2006-27-12 at 01:28 +0100, Arjan van de Ven wrote:
 
-In article <20061210.225055.45514229.davem@davemloft.net> (at Sun, 10 Dec 2006 22:50:55 -0800 (PST)), David Miller <davem@davemloft.net> says:
-
-> From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-> Date: Tue, 05 Dec 2006 20:02:42 +0900 (JST)
+> current irqbalance accounts for napi by using the number of packets as
+> indicator for load, not the number of interrupts. (for network
+> interrupts obviously)
 > 
-> > In article <11653130071739-git-send-email-nakam@linux-ipv6.org> (at Tue,  5 Dec 2006 19:03:27 +0900), Masahide NAKAMURA <nakam@linux-ipv6.org> says:
-> > 
-> > > Add checksum default defines for mobility header(MH).
-> > > As the result kernel's behavior is to handle MH checksum
-> > > as default.
-> > 
-> > I'd like to hold this on.  I need to check RFC.
-> 
-> Is there any resolution about this?
 
-Sorry to have kept you waiting.
+Sounds a lot more promising.
+Although still insufficient in certain cases. All flows are not equal; as an
+example, an IPSEC flow with 1000 packets bound to one CPU  will likely
+utilize more cycles than 5000 packets that are being plain forwarded on
+another CPU.
 
+cheers,
+jamal
 
-According to RFC4584 (Extension to Sockets API for Mobile IPv6) Section 6.1
-(Receiving and Sending Mobility Header Messages), an implementation that
-supports the Mobile IPv6 API must implement Mobility Header API checksum
-calculations by default at the kernel.  This is true in our kernel so far
-because we always performs it in net/ipv6/raw.c:mip6_mh_filter().
-However, the default value for IPV6_CHECKSUM socket option was not 4
-but -1, which is inconsistent.
-
-So, the proposed patch tried changing the default for IPV6_CHECKSUM.
-
-But, wait... currently, we cannot disable checksumming by IPV6_CHECKSUM
-for IPPROTO_MH sockets while we can do it for IPPROTO_ICMPV6 sockets.
-This is still not good.
-
-
-RFC3775 Section 9.2 (Processing Mobility Headers) says that
-Mobile IPv6 implementation must observe the following items:
-
-	- Checksum (-> silently discard)
-		Note: calculated by the common IPv6 checksum algorithm and
-		its offset in MH is 4.
-	- MH Type (-> Binding Error)
-	- Payload protocol (-> ICMPv6 Parameter Problem)
-	- Length (-> ICMPv6 Parameter Problem)
-
-	Note: The order of these checks is not specified.
-
-In Linux, mip6_mh_filter() performs basic checks for Mobile Header,
-which corresponds to RFC3775 Section 9.2:
-	- Length (depends on MH type)
-	- Checksum
-	- Payload protocol
-
-	Note: MH is checked in user-space daemon, to send BE.
-
-If it is okay to defer the checksumming after checking the next header
-protocol, we can omit the checksumming in mip6_mh_filter(), and
-leave it to rawv6_rcv() and rawv6_recvmsg().
-
-
-Anyway, we have 4 options.
-
-1. IPV6_CHECKSUM default for IPPROTO_MH == 4
-   omit checksumming in mip6_mh_filter()
-2. IPV6_CHECKSUM default for IPPROTO_MH == -1
-   omit checksumming in mip6_mh_filter()
-3. IPV6_CHECKSUM for IPPROTO_MH == 4
-   always perform checksumming in mip6_mh_filter()
-4. IPV6_CHECKSUM default for IPPROTO_MH == -1
-   always perform checksumming in mip6_mh_filter()
-
-Current behavior is 4, but it is not appropriate.
-I guess 1 is the way to go.
-
-Another question may arise; is it okay to change the default if the
-raw socket for Mobility Header is NOT for user-space daemon? or,
-is it okay to have two different default value depending on CONFIG_IPV6_MIP6?
-If we take these question seriously, we should take 2.
-
-Note: in any case, all IPPROTO_MH raw socket users should explicitly set
-IPV6_CHECKSUM socket option.
-
-
-Opinions? Objections?
-
--- 
-YOSHIFUJI Hideaki @ USAGI Project  <yoshfuji@linux-ipv6.org>
-GPG-FP  : 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
