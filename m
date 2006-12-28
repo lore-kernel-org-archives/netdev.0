@@ -1,32 +1,93 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: Generic PHY lib vs. locking
-Date: Fri, 29 Dec 2006 07:22:10 +1100
-Message-ID: <1167337330.23340.64.camel@localhost.localdomain>
-References: <1166760473.6673.85.camel@localhost.localdomain>
-	 <34B0D342-2B8E-4BF8-A568-7071D3695FB0@freescale.com>
+From: "Leonid Grossman" <Leonid.Grossman@neterion.com>
+Subject: one vs. two drivers for an iWARP-capable
+ Ethernet NIC
+Date: Thu, 28 Dec 2006 16:24:09 -0500
+Message-ID: <78C9135A3D2ECE4B8162EBDCE82CAD77010FB433@nekter>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:58033 "EHLO gate.crashing.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754944AbWL1UWQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Dec 2006 15:22:16 -0500
-To: Andy Fleming <afleming@freescale.com>
-In-Reply-To: <34B0D342-2B8E-4BF8-A568-7071D3695FB0@freescale.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: multipart/mixed;
+ boundary="===============1350876625=="
+Cc: netdev@vger.kernel.org,
+	openib-general@openib.org
+Return-path: <openib-general-bounces@openib.org>
+Content-class: urn:content-classes:message
+To: "Jeff Garzik" <jgarzik@pobox.com>,
+	rdreier@cisco.com
+List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
+ <mailto:openib-general-request@openib.org?subject=unsubscribe>
+List-Archive: <http://openib.org/pipermail/openib-general>
+List-Post: <mailto:openib-general@openib.org>
+List-Help: <mailto:openib-general-request@openib.org?subject=help>
+List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
+ <mailto:openib-general-request@openib.org?subject=subscribe>
+Sender: openib-general-bounces@openib.org
+Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
+This is a multi-part message in MIME format.
 
-> Great!  At last glance, only gianfar, fs_enet, and au1000_eth.  There  
-> are one or two others that haven't gone in, yet.  My hope is that  
-> your changes will not require any changes to the drivers, but I'll  
-> leave that to your discretion.
+--===============1350876625==
+Content-class: urn:content-classes:message
+Content-Type: multipart/alternative;
+ boundary="----_=_NextPart_001_01C72AC6.8549B3C7"
+Content-Transfer-Encoding: 7bit
 
-Unfortunately, it will probably have an impact on them. I'll have a
-look.
+This is a multi-part message in MIME format.
 
-Ben.
+------_=_NextPart_001_01C72AC6.8549B3C7
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: quoted-printable
+
+Jeff/Roland/all,
+What is the preferred submission driver model for an iWARP-capable
+Ethernet NIC - two separate drivers (Ethernet and OpenFabrics) that
+interact with each other, or a single driver that supports both
+OpenFabrics and Ethernet interfaces?
+For our hardware we can go either way, although in case of separate
+drivers the interface between the two would get somewhat artificial...
+=20
+Thanks, Leonid
+
+------_=_NextPart_001_01C72AC6.8549B3C7
+Content-Type: text/html;
+ charset=us-ascii
+Content-Transfer-Encoding: quoted-printable
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<HTML><HEAD>
+<META http-equiv=3DContent-Type content=3D"text/html; =
+charset=3Dus-ascii">
+<META content=3D"MSHTML 6.00.5730.11" name=3DGENERATOR></HEAD>
+<BODY>
+<DIV><FONT face=3DArial size=3D2><SPAN=20
+class=3D328335505-28122006>Jeff/Roland/all,</SPAN></FONT></DIV>
+<DIV><FONT face=3DArial size=3D2><SPAN class=3D328335505-28122006>What =
+is the=20
+preferred submission driver model for an iWARP-capable Ethernet NIC =
+-&nbsp;two=20
+separate drivers (Ethernet and OpenFabrics) that interact with each =
+other, or a=20
+single driver that supports both&nbsp;OpenFabrics and&nbsp;Ethernet=20
+interfaces?</SPAN></FONT></DIV>
+<DIV><FONT face=3DArial size=3D2><SPAN class=3D328335505-28122006>For=20
+our&nbsp;hardware we can go either way, although in case =
+of&nbsp;separate=20
+drivers the interface between the two&nbsp;would&nbsp;get&nbsp;somewhat=20
+artificial...</SPAN></FONT></DIV>
+<DIV><FONT face=3DArial size=3D2><SPAN=20
+class=3D328335505-28122006></SPAN></FONT>&nbsp;</DIV>
+<DIV><FONT face=3DArial size=3D2><SPAN =
+class=3D328335505-28122006>Thanks,=20
+Leonid</SPAN></FONT></DIV></BODY></HTML>
+
+------_=_NextPart_001_01C72AC6.8549B3C7--
+
+--===============1350876625==
+MIME-Version: 1.0
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
 
+--===============1350876625==--
