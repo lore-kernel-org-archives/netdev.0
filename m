@@ -1,88 +1,161 @@
-From: Heiko Carstens <heiko.carstens@de.ibm.com>
-Subject: [patch] qeth: fix uaccess handling and get rid of unused variable
-Date: Thu, 28 Dec 2006 13:05:36 +0100
-Message-ID: <20061228120536.GA9790@osiris.boeblingen.de.ibm.com>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: [PATCH] tipc: checking returns and Re: Possible Circular Locking in TIPC
+Date: Thu, 28 Dec 2006 13:17:02 +0100
+Message-ID: <20061228121702.GA5076@ff.dom.local>
+References: <1166797726.18915.4.camel@alice>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate5.uk.ibm.com ([195.212.29.138]:49626 "EHLO
-	mtagate5.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753274AbWL1MFk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Dec 2006 07:05:40 -0500
-Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
-	by mtagate5.uk.ibm.com (8.13.8/8.13.8) with ESMTP id kBSC5cPP138560
-	for <netdev@vger.kernel.org>; Thu, 28 Dec 2006 12:05:38 GMT
-Received: from d06av02.portsmouth.uk.ibm.com (d06av02.portsmouth.uk.ibm.com [9.149.37.228])
-	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id kBSC5cWr1732786
-	for <netdev@vger.kernel.org>; Thu, 28 Dec 2006 12:05:38 GMT
-Received: from d06av02.portsmouth.uk.ibm.com (loopback [127.0.0.1])
-	by d06av02.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id kBSC5bhc007004
-	for <netdev@vger.kernel.org>; Thu, 28 Dec 2006 12:05:37 GMT
-To: Andrew Morton <akpm@osdl.org>, Jeff Garzik <jgarzik@pobox.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Frank Pavlic <fpavlic@de.ibm.com>
+Cc: Per Liden <per.liden@ericsson.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754831AbWL1MPm@vger.kernel.org>
+To: Eric Sesterhenn <snakebyte@gmx.de>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <1166797726.18915.4.camel@alice>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Heiko Carstens <heiko.carstens@de.ibm.com>
+On 22-12-2006 15:28, Eric Sesterhenn wrote:
+> hi,
+> 
+> while running my usual stuff on 2.6.20-rc1-git5, sfuzz (http://www.digitaldwarf.be/products/sfuzz.c)
+> did the following, to produce the lockdep warning below:
+...
+> Here is the stacktrace:
+> 
+> [  313.239556] =======================================================
+> [  313.239718] [ INFO: possible circular locking dependency detected ]
+> [  313.239795] 2.6.20-rc1-git5 #26
+> [  313.239858] -------------------------------------------------------
+> [  313.239929] sfuzz/4133 is trying to acquire lock:
+> [  313.239996]  (ref_table_lock){-+..}, at: [<c04cd0a9>] tipc_ref_discard+0x29/0xe0
+> [  313.241101] 
+> [  313.241105] but task is already holding lock:
+> [  313.241225]  (&table[i].lock){-+..}, at: [<c04cb7c0>] tipc_deleteport+0x40/0x1a0
+> [  313.241524] 
+> [  313.241528] which lock already depends on the new lock.
+> [  313.241535] 
+> [  313.241709] 
+> [  313.241713] the existing dependency chain (in reverse order) is:
+> [  313.241837] 
+> [  313.241841] -> #1 (&table[i].lock){-+..}:
+> [  313.242096]        [<c01366c5>] __lock_acquire+0xd05/0xde0
+> [  313.242562]        [<c0136809>] lock_acquire+0x69/0xa0
+> [  313.243013]        [<c04d4040>] _spin_lock_bh+0x40/0x60
+> [  313.243476]        [<c04cd1cb>] tipc_ref_acquire+0x6b/0xe0
+> [  313.244115]        [<c04cac73>] tipc_createport_raw+0x33/0x260
+> [  313.244562]        [<c04cbe21>] tipc_createport+0x41/0x120
+> [  313.245007]        [<c04c57ec>] tipc_subscr_start+0xcc/0x120
+> [  313.245458]        [<c04bdb56>] process_signal_queue+0x56/0xa0
+> [  313.245906]        [<c011ea18>] tasklet_action+0x38/0x80
+> [  313.246361]        [<c011ecbb>] __do_softirq+0x5b/0xc0
+> [  313.246817]        [<c01060e8>] do_softirq+0x88/0xe0
+> [  313.247450]        [<ffffffff>] 0xffffffff
+> [  313.247894] 
+> [  313.247898] -> #0 (ref_table_lock){-+..}:
+> [  313.248155]        [<c0136415>] __lock_acquire+0xa55/0xde0
+> [  313.248601]        [<c0136809>] lock_acquire+0x69/0xa0
+> [  313.249037]        [<c04d4100>] _write_lock_bh+0x40/0x60
+> [  313.249486]        [<c04cd0a9>] tipc_ref_discard+0x29/0xe0
+> [  313.249922]        [<c04cb7da>] tipc_deleteport+0x5a/0x1a0
+> [  313.250543]        [<c04cd4f8>] tipc_create+0x58/0x160
+> [  313.250980]        [<c0431cb2>] __sock_create+0x112/0x280
+> [  313.251422]        [<c0431e5a>] sock_create+0x1a/0x20
+> [  313.251863]        [<c04320fb>] sys_socket+0x1b/0x40
+> [  313.252301]        [<c0432a72>] sys_socketcall+0x92/0x260
+> [  313.252738]        [<c0102fd0>] syscall_call+0x7/0xb
+> [  313.253175]        [<ffffffff>] 0xffffffff
+> [  313.253778] 
+> [  313.253782] other info that might help us debug this:
+> [  313.253790] 
+> [  313.253956] 1 lock held by sfuzz/4133:
+> [  313.254019]  #0:  (&table[i].lock){-+..}, at: [<c04cb7c0>] tipc_deleteport+0x40/0x1a0
+> [  313.254346] 
+> [  313.254351] stack backtrace:
+> [  313.254470]  [<c01045da>] show_trace_log_lvl+0x1a/0x40
+> [  313.254594]  [<c0104d72>] show_trace+0x12/0x20
+> [  313.254711]  [<c0104e79>] dump_stack+0x19/0x20
+> [  313.254829]  [<c013480f>] print_circular_bug_tail+0x6f/0x80
+> [  313.254952]  [<c0136415>] __lock_acquire+0xa55/0xde0
+> [  313.255070]  [<c0136809>] lock_acquire+0x69/0xa0
+> [  313.255188]  [<c04d4100>] _write_lock_bh+0x40/0x60
+> [  313.255315]  [<c04cd0a9>] tipc_ref_discard+0x29/0xe0
+> [  313.255435]  [<c04cb7da>] tipc_deleteport+0x5a/0x1a0
+> [  313.255565]  [<c04cd4f8>] tipc_create+0x58/0x160
+> [  313.255687]  [<c0431cb2>] __sock_create+0x112/0x280
+> [  313.255811]  [<c0431e5a>] sock_create+0x1a/0x20
+> [  313.255942]  [<c04320fb>] sys_socket+0x1b/0x40
+> [  313.256059]  [<c0432a72>] sys_socketcall+0x92/0x260
+> [  313.256179]  [<c0102fd0>] syscall_call+0x7/0xb
+> [  313.256300]  =======================
+> 
+> Greetings, Eric
 
-[patch] qeth: fix uaccess handling and get rid of unused variable
+Hello,
 
-drivers/s390/net/qeth_main.c: In function `qeth_process_inbound_buffer':
-drivers/s390/net/qeth_main.c:2563: warning: unused variable `vlan_addr'
+Maybe I misinterpret this but, IMHO lockdep
+complains about locks acquired in different
+order: tipc_ref_acquire() gets ref_table_lock 
+and then tipc_ret_table.entries[index]->lock,
+but tipc_deleteport() inversely (with:
+tipc_port_lock() and tipc_ref_discard()).
+I hope maintainers will decide the correct
+order.
 
-include/asm/uaccess.h: In function `qeth_do_ioctl':
-drivers/s390/net/qeth_main.c:4847: warning:
- ignoring return value of `copy_to_user'
-drivers/s390/net/qeth_main.c:4849: warning:
- ignoring return value of `copy_to_user'
-drivers/s390/net/qeth_main.c:4996: warning:
- ignoring return value of `copy_to_user'
+Btw. there is a problem with tipc_ref_discard():
+it should be called with tipc_port_lock, but
+how to discard a ref if this lock can't be
+acquired? Is it OK to call it without the lock
+like in subscr_named_msg_event()?
 
-Cc: Frank Pavlic <fpavlic@de.ibm.com>
-Signed-off-by: Heiko Carstens <heiko.carstens@de.ibm.com>
+Btw. #2: during this checking I've found
+two places where return values from
+tipc_ref_lock() and tipc_port_lock() are not 
+checked, so I attach a patch proposal for
+this (compiled but not tested):
+
+Regards,
+Jarek P.
 ---
- drivers/s390/net/qeth_main.c |   13 ++++++++-----
- 1 files changed, 8 insertions(+), 5 deletions(-)
 
-Index: linux-2.6/drivers/s390/net/qeth_main.c
-===================================================================
---- linux-2.6.orig/drivers/s390/net/qeth_main.c
-+++ linux-2.6/drivers/s390/net/qeth_main.c
-@@ -2560,7 +2560,6 @@ qeth_process_inbound_buffer(struct qeth_
- 	int offset;
- 	int rxrc;
- 	__u16 vlan_tag = 0;
--	__u16 *vlan_addr;
- 
- 	/* get first element of current buffer */
- 	element = (struct qdio_buffer_element *)&buf->buffer->element[0];
-@@ -4844,9 +4843,11 @@ qeth_arp_query(struct qeth_card *card, c
- 			   "(0x%x/%d)\n",
- 			   QETH_CARD_IFNAME(card), qeth_arp_get_error_cause(&rc),
- 			   tmp, tmp);
--		copy_to_user(udata, qinfo.udata, 4);
-+		if (copy_to_user(udata, qinfo.udata, 4))
-+			rc = -EFAULT;
- 	} else {
--		copy_to_user(udata, qinfo.udata, qinfo.udata_len);
-+		if (copy_to_user(udata, qinfo.udata, qinfo.udata_len))
-+			rc = -EFAULT;
+[PATCH] tipc: checking returns from locking functions
+
+Checking of return values from tipc_ref_lock()
+and tipc_port_lock() added in 2 places. 
+
+Signed-off-by: Jarek Poplawski <jarkao2@o2.pl>
+---
+
+diff -Nurp linux-2.6.20-rc2-/net/tipc/port.c linux-2.6.20-rc2/net/tipc/port.c
+--- linux-2.6.20-rc2-/net/tipc/port.c	2006-11-29 22:57:37.000000000 +0100
++++ linux-2.6.20-rc2/net/tipc/port.c	2006-12-28 11:05:17.000000000 +0100
+@@ -238,7 +238,12 @@ u32 tipc_createport_raw(void *usr_handle
+ 		return 0;
  	}
- 	kfree(qinfo.udata);
- 	return rc;
-@@ -4992,8 +4993,10 @@ qeth_snmp_command(struct qeth_card *card
- 	if (rc)
- 		PRINT_WARN("SNMP command failed on %s: (0x%x)\n",
- 			   QETH_CARD_IFNAME(card), rc);
--	 else
--		copy_to_user(udata, qinfo.udata, qinfo.udata_len);
-+	else {
-+		if (copy_to_user(udata, qinfo.udata, qinfo.udata_len))
-+			rc = -EFAULT;
-+	}
  
- 	kfree(ureq);
- 	kfree(qinfo.udata);
+-	tipc_port_lock(ref);
++	if (!tipc_port_lock(ref)) {
++		tipc_ref_discard(ref);
++		warn("Port creation failed, reference table invalid\n");
++		kfree(p_ptr);
++		return 0;
++	}
+ 	p_ptr->publ.ref = ref;
+ 	msg = &p_ptr->publ.phdr;
+ 	msg_init(msg, DATA_LOW, TIPC_NAMED_MSG, TIPC_OK, LONG_H_SIZE, 0);
+diff -Nurp linux-2.6.20-rc2-/net/tipc/subscr.c linux-2.6.20-rc2/net/tipc/subscr.c
+--- linux-2.6.20-rc2-/net/tipc/subscr.c	2006-12-18 09:01:04.000000000 +0100
++++ linux-2.6.20-rc2/net/tipc/subscr.c	2006-12-28 11:31:27.000000000 +0100
+@@ -499,7 +499,12 @@ static void subscr_named_msg_event(void 
+ 
+ 	/* Add subscriber to topology server's subscriber list */
+ 
+-	tipc_ref_lock(subscriber->ref);
++	if (!tipc_ref_lock(subscriber->ref)) {
++		warn("Subscriber rejected, unable to find port\n");
++		tipc_ref_discard(subscriber->ref);
++		kfree(subscriber);
++		return;
++	}
+ 	spin_lock_bh(&topsrv.lock);
+ 	list_add(&subscriber->subscriber_list, &topsrv.subscriber_list);
+ 	spin_unlock_bh(&topsrv.lock);
