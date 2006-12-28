@@ -1,102 +1,89 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: 2.6.20-rc2: known unfixed regressions
-Date: Thu, 28 Dec 2006 23:39:09 +0100
-Message-ID: <20061228223909.GK20714@stusta.de>
-References: <Pine.LNX.4.64.0612232043030.3671@woody.osdl.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Ben Castricum <mail0612@bencastricum.nl>,
-	Greg Kroah-Hartman <gregkh@suse.de>,
-	linux-pci@atrey.karlin.mff.cuni.cz,
-	Berthold Cogel <cogel@rrz.uni-koeln.de>,
-	Ben Collins <ben.collins@ubuntu.com>,
-	Daniel Holbach <daniel.holbach@ubuntu.com>,
-	Komuro <komurojun-mbn@nifty.com>, Michael Reske <micha@gmx.com>,
-	Ayaz Abdulla <aabdulla@nvidia.com>, jgarzik@pobox.com,
-	netdev@vger.kernel.org,
-	Tobias Diedrich <ranma+kernel@tdiedrich.de>,
-	Andi Kleen <ak@suse.de>, Yinghai Lu <yinghai.lu@amd.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>, discuss@x86-64.org,
-	Alessandro Suardi <alessandro.suardi@gmail.com>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Steve Wise <swise@opengridcomputing.com>,
-	linux-ide@vger.kernel.org
+From: Andy Fleming <afleming@FREESCALE.COM>
+Subject: Re: Generic PHY lib vs. locking
+Date: Thu, 28 Dec 2006 12:55:02 -0600
+Message-ID: <34B0D342-2B8E-4BF8-A568-7071D3695FB0@freescale.com>
+References: <1166760473.6673.85.camel@localhost.localdomain>
+Mime-Version: 1.0 (Apple Message framework v752.2)
+Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from emailhub.stusta.mhn.de ([141.84.69.5]:1518 "HELO
-	mailout.stusta.mhn.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S965035AbWL1WjI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Dec 2006 17:39:08 -0500
-To: Linus Torvalds <torvalds@osdl.org>, Andrew Morton <akpm@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0612232043030.3671@woody.osdl.org>
+Received: from az33egw02.freescale.net ([192.88.158.103]:47018 "EHLO
+	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755011AbWL2Bcm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Dec 2006 20:32:42 -0500
+In-Reply-To: <1166760473.6673.85.camel@localhost.localdomain>
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This email lists some known regressions in 2.6.20-rc2 compared to 2.6.19.
 
-If you find your name in the Cc header, you are either submitter of one
-of the bugs, maintainer of an affectected subsystem or driver, a patch
-of you caused a breakage or I'm considering you in any other way possibly
-involved with one or more of these issues.
+On Dec 21, 2006, at 22:07, Benjamin Herrenschmidt wrote:
 
-Due to the huge amount of recipients, please trim the Cc when answering.
-
-
-Subject    : PCI_MULTITHREAD_PROBE breakage
-References : http://lkml.org/lkml/2006/12/12/21
-Submitter  : Ben Castricum <mail0612@bencastricum.nl>
-Caused-By  : Greg Kroah-Hartman <gregkh@suse.de>
-             commit 009af1ff78bfc30b9a27807dd0207fc32848218a
-Status     : known to break many drivers; revert?
-
-
-Subject    : Acer Extensa 3002 WLMi: 'shutdown -h now' reboots the system
-References : http://lkml.org/lkml/2006/12/25/40
-Submitter  : Berthold Cogel <cogel@rrz.uni-koeln.de>
-Status     : unknown
-
-
-Subject    : i386: Oops in __find_get_block()
-References : http://lkml.org/lkml/2006/12/16/138
-Submitter  : Ben Collins <ben.collins@ubuntu.com>
-             Daniel Holbach <daniel.holbach@ubuntu.com>
-Status     : unknown
+> Hi Andy !
+>
+> I've been looking at porting various drivers (EMAC, sungem,
+> spider_net, ...) to the generic PHY stuff. However, I have one
+> significant problem here.
+>
+> One of the things I've been trying to do lately with EMAC and that I
+> plan to do with others, is to have the PHY polling entirely operate at
+> task level (along with other "slow" parts of the network driver like
+> timeout handling etc...).
+>
+> This makes a lot of locking easier, allowing to use mutexes instead of
+> locks (less latencies), allowing to sleep waiting for MDIO  
+> operations to
+> complete, etc... it's generall all benefit.
+>
+> It's especially useful in a case like EMAC where several EMACs can  
+> share
+> MDIO lines, so we need exclusive access, and that might involve even a
+> second layer of exclusion for access to the RGMII or ZMII layer.  
+> mutexes
+> are really the best approach for that sort of non-speed critical
+> activities.
 
 
-Subject    : ftp: get or put stops during file-transfer
-References : http://lkml.org/lkml/2006/12/16/174
-Submitter  : Komuro <komurojun-mbn@nifty.com>
-Status     : unknown
+This sounds good to me.  It was an eventual goal, but I wasn't  
+familiar enough with the non-spin-lock locking rules to confidently  
+implement it.
 
 
-Subject    : forcedeth.c 0.59: problem with sideband managment
-References : http://bugzilla.kernel.org/show_bug.cgi?id=7684
-Submitter  : Michael Reske <micha@gmx.com>
-Handled-By : Ayaz Abdulla <aabdulla@nvidia.com>
-Status     : problem is being debugged
+>
+> However, the generic PHY layer defeats that by it's heavy usage of
+> spin_lock_bh and timer.
+>
+> One solution would be to change it to use a mutex instead of a lock as
+> well, though that would change the requirements of where phy_start/ 
+> stop
+> can be called, and use a delayed work queue instead of a timer.
+>
+> I could do all of these changes provided everybody agrees, though I
+> suppose all existing network drivers using that PHY layer might  
+> need to
+> be adapted. How many do we have nowadays ?
 
 
-Subject    : x86_64 boot failure: "IO-APIC + timer doesn't work"
-References : http://lkml.org/lkml/2006/12/16/101
-Submitter  : Tobias Diedrich <ranma+kernel@tdiedrich.de>
-Caused-By  : Andi Kleen <ak@suse.de>
-             commit b026872601976f666bae77b609dc490d1834bf77
-Handled-By : Yinghai Lu <yinghai.lu@amd.com>
-             "Eric W. Biederman" <ebiederm@xmission.com>
-Status     : problem is being debugged
+Great!  At last glance, only gianfar, fs_enet, and au1000_eth.  There  
+are one or two others that haven't gone in, yet.  My hope is that  
+your changes will not require any changes to the drivers, but I'll  
+leave that to your discretion.
 
 
-Subject    : kernel panics on boot (libata-sff)
-References : http://lkml.org/lkml/2006/12/3/99
-             http://lkml.org/lkml/2006/12/14/153
-             http://lkml.org/lkml/2006/12/24/33
-Submitter  : Alessandro Suardi <alessandro.suardi@gmail.com>
-Caused-By  : Alan Cox <alan@lxorguk.ukuu.org.uk>
-             commit 368c73d4f689dae0807d0a2aa74c61fd2b9b075f
-Handled-By : Alan Cox <alan@lxorguk.ukuu.org.uk>
-             Steve Wise <swise@opengridcomputing.com>
-             Alessandro Suardi <alessandro.suardi@gmail.com>
-Status     : people are working on a fix
+>
+> Also, I see your comments about not calling flush_scheduled_work() in
+> phy_stop() because of rtnl_lock()... What is the problem here ?
+> dev_close() ?
 
 
+Yup.  However, I think a reasonable solution was proposed.  The  
+problem is that flush_scheduled_work() actually does all the  
+scheduled work.  And if it happens with rtnl_lock() held, and some of  
+the scheduled work grabs rtnl_lock(), we deadlock.  But another  
+function was proposed, and I believe committed to the tree, which  
+only deletes or does the work you own, and therefore lets you avoid  
+that problem (assuming you know that your code doesn't grab such  
+locks), and also lets you free memory.
+
+Andy
