@@ -1,33 +1,44 @@
-From: James Simmons <jsimmons@infradead.org>
-Subject: Re: [PATCH 2.6.20-rc1 00/10] TURBOchannel update to the driver model
-Date: Wed, 27 Dec 2006 22:19:19 +0000 (GMT)
-Message-ID: <Pine.LNX.4.64.0612272207010.19264@pentafluge.infradead.org>
-References: <Pine.LNX.4.64N.0612182115550.10069@blysk.ds.pg.gda.pl>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: Please pull 'upstream' branch of wireless-2.6
+Date: Wed, 27 Dec 2006 19:10:57 -0500
+Message-ID: <20061228001051.GA3443@tuxdriver.com>
+References: <20061221030340.GA9277@tuxdriver.com> <20061221030503.GB9277@tuxdriver.com> <4591969A.1040403@garzik.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Andrew Morton <akpm@osdl.org>, Ralf Baechle <ralf@linux-mips.org>,
-	Jeff Garzik <jgarzik@pobox.com>,
-	Antonino Daplas <adaplas@pol.net>,
-	James.Bottomley@SteelEye.com, linux-mips@linux-mips.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org,
-	Linux Fbdev development list
-	<linux-fbdev-devel@lists.sourceforge.net>,
-	linux-scsi@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:58932 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964777AbWL0WTb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Dec 2006 17:19:31 -0500
-To: "Maciej W. Rozycki" <macro@linux-mips.org>
-In-Reply-To: <Pine.LNX.4.64N.0612182115550.10069@blysk.ds.pg.gda.pl>
+Received: from ra.tuxdriver.com ([70.61.120.52]:3406 "EHLO ra.tuxdriver.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S964825AbWL1Acy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Dec 2006 19:32:54 -0500
+To: Jeff Garzik <jeff@garzik.org>
+Content-Disposition: inline
+In-Reply-To: <4591969A.1040403@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Tue, Dec 26, 2006 at 04:39:38PM -0500, Jeff Garzik wrote:
+> John W. Linville wrote:
+> >The following changes since commit 
+> >0c234ae655a45ac3ee53a25b2e56e9bb6c27d71d:
+> >  Ulrich Kunitz (1):
+> >        ieee80211softmac: Fix mutex_lock at exit of 
+> >        ieee80211_softmac_get_genie
+> >
+> >are found in the git repository at:
+> >
+> >  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git 
+> >  upstream
+> >
+> >Roy Marples (1):
+> >      prism54: set carrier flags correctly
+> 
+> Why is this not #upstream-fixes material?  What's the impact?
 
->  And last but not least, thanks to James Simmons for beginning this work a 
-> while ago as his code was great to start with.
+Just being cautious, really.  I have no objection if you want to pull
+it as a fix.
 
-Wow!! I thought the work was dropped along time ago. Thanks for bring it 
-back. 
-  
+John
+-- 
+John W. Linville
+linville@tuxdriver.com
