@@ -1,99 +1,165 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: [PATCH] igmp: spin_lock_bh in timer (Re: BUG: soft lockup detected on CPU#0!)
-Date: Fri, 29 Dec 2006 12:16:21 +0100
-Message-ID: <20061229111621.GB1628@ff.dom.local>
-References: <45889C53.8000307@candelatech.com> <20061222071308.GA1791@ff.dom.local> <20061222074209.GA2148@ff.dom.local> <458BE61E.9030004@candelatech.com> <20061227082400.GA2070@ff.dom.local> <45929C4A.5000008@candelatech.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: [take30 5/9] kevent: Timer notifications.
+Date: Fri, 29 Dec 2006 15:25:57 +0300
+Message-ID: <11673951571994@2ka.mipt.ru>
+References: <1167395157672@2ka.mipt.ru>
+Reply-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	Andrew Morton <akpm@osdl.org>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	Chase Venters <chase.venters@clientec.com>,
+	Johann Borck <johann.borck@densedata.com>,
+	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
+	Jamal Hadi Salim <hadi@cyberus.ca>,
+	Ingo Molnar <mingo@elte.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx10.go2.pl ([193.17.41.74]:52348 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751732AbWL2LO5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Dec 2006 06:14:57 -0500
-To: Ben Greear <greearb@candelatech.com>
-Content-Disposition: inline
-In-Reply-To: <45929C4A.5000008@candelatech.com>
+Received: from dea.vocord.ru ([217.67.177.50]:40697 "EHLO
+	kano.factory.vocord.ru" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752326AbWL2M0l convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Dec 2006 07:26:41 -0500
+In-Reply-To: <1167395157672@2ka.mipt.ru>
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 27, 2006 at 08:16:10AM -0800, Ben Greear wrote:
-> Jarek Poplawski wrote:
-> >On Fri, Dec 22, 2006 at 06:05:18AM -0800, Ben Greear wrote:
-> >>Jarek Poplawski wrote:
-> >>>On Fri, Dec 22, 2006 at 08:13:08AM +0100, Jarek Poplawski wrote:
-> >>>>On 20-12-2006 03:13, Ben Greear wrote:
-> >>>>>This is from 2.6.18.2 kernel with my patch set.  The MAC-VLANs are in 
-> >>>>>active use.
-> >>>>>From the backtrace, I am thinking this might be a generic problem, 
-> >>>>>however.
-> >>>>>
-> >>>>>Any ideas about what this could be?  It seems to be reproducible every 
-> >>>>>day or
-> >>>...
-> >>>>If it doesn't help, I hope lockdep will be more
-> >>>>precise when you'll upgrade to 2.6.19 or higher.
-> >>>... or when you enable lockdep in 2.6.18 (I've
-> >>>forgotten it's there alredy!).
-> >>I got lucky..the system was available by ssh still.  I see this in the 
-> >>boot logs..I assume
-> >>this means lockdep is enabled?  Should I have expected to see a lockdep 
-> >>trace in the case of
-> >>his soft-lockup then?
-> >>
-> >>.....
-> >>Dec 19 04:33:48 localhost kernel: Lock dependency validator: Copyright 
-> >>(c) 2006 Red Hat, Inc., Ingo MolnarDec 19 04:33:48 localhost kernel: ... 
-> >>MAX_LOCKDEP_SUBCLASSES:    8
-> >
-> >Yes, you got it enabled in the config.
-> >
-> >If there is no message later about validator
-> >turning off and no warnings which could point
-> >at lockdep then it is working.
-> >
-> >But then, IMHO, there is rather small probability
-> >this bug is really from lockup. Another possibility
-> >is hardware irqs (timer in particular) are turned
-> >off by something (maybe those hacks?) for extremely
-> >long time (~10 sec.). 
-> 
-> The system hangs and does not recover (well, a few processes
-> continue on the other processor for a few minutes before they
-> too deadlock...)
-> 
-> I am guessing this problem has been around for a while, but it
-> is only triggered when interfaces are created, and probably only
-> when UDP traffic is already running heavily on the system.  Most
-> systems w/out virtual devices will not trigger this sort of
-> race.
 
-I'd one more look at this considering the info about
-creating interfaces and here are some of my doubts on
-possible races (I hope you'll forgive me if I totaly
-miss some point):
+Timer notifications.
 
-- During register procedure the real device seems to
-be up and running; vlan_rx_register is used but I see
-drivers differ here: some of them do netif_stop and
-disable irqs while others only lock. It seems they
-can start do vlan_hwaccel_rx directly after
-this (sometimes even during registration if
-irq will happen).
+Timer notifications can be used for fine grained per-process time 
+management, since interval timers are very inconvenient to use, 
+and they are limited.
 
-- vlan_hwaccel_rx is checking skb_bond_should_drop
-but I'm not sure it is really useful here, so
-probably at least broadcasts and multicasts can
-use netif_rx even before vlan_dev is up (and your
-log accidentally shows multicast receive).
+This subsystem uses high-resolution timers.
+id.raw[0] is used as number of seconds
+id.raw[1] is used as number of nanoseconds
 
-- Preemption is blocked for quite a long time in
-vlan_skb_recv and during netif_receive; I guess 
-this could be also possible reason of triggering
-the softlockup bug. I wonder if lowering the
-value of netdev_max_backlog wouldn't improve
-scheduling times.
+Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 
-Happy New Year,
+diff --git a/kernel/kevent/kevent_timer.c b/kernel/kevent/kevent_timer.c
+new file mode 100644
+index 0000000..c21a155
+--- /dev/null
++++ b/kernel/kevent/kevent_timer.c
+@@ -0,0 +1,114 @@
++/*
++ * 2006 Copyright (c) Evgeniy Polyakov <johnpol@2ka.mipt.ru>
++ * All rights reserved.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
++ */
++
++#include <linux/kernel.h>
++#include <linux/types.h>
++#include <linux/list.h>
++#include <linux/slab.h>
++#include <linux/spinlock.h>
++#include <linux/hrtimer.h>
++#include <linux/jiffies.h>
++#include <linux/kevent.h>
++
++struct kevent_timer
++{
++	struct hrtimer		ktimer;
++	struct kevent_storage	ktimer_storage;
++	struct kevent		*ktimer_event;
++};
++
++static int kevent_timer_func(struct hrtimer *timer)
++{
++	struct kevent_timer *t = container_of(timer, struct kevent_timer, ktimer);
++	struct kevent *k = t->ktimer_event;
++
++	kevent_storage_ready(&t->ktimer_storage, NULL, KEVENT_MASK_ALL);
++	hrtimer_forward(timer, timer->base->softirq_time,
++			ktime_set(k->event.id.raw[0], k->event.id.raw[1]));
++	return HRTIMER_RESTART;
++}
++
++static struct lock_class_key kevent_timer_key;
++
++static int kevent_timer_enqueue(struct kevent *k)
++{
++	int err;
++	struct kevent_timer *t;
++
++	t = kmalloc(sizeof(struct kevent_timer), GFP_KERNEL);
++	if (!t)
++		return -ENOMEM;
++
++	hrtimer_init(&t->ktimer, CLOCK_MONOTONIC, HRTIMER_REL);
++	t->ktimer.expires = ktime_set(k->event.id.raw[0], k->event.id.raw[1]);
++	t->ktimer.function = kevent_timer_func;
++	t->ktimer_event = k;
++
++	err = kevent_storage_init(&t->ktimer, &t->ktimer_storage);
++	if (err)
++		goto err_out_free;
++	lockdep_set_class(&t->ktimer_storage.lock, &kevent_timer_key);
++
++	err = kevent_storage_enqueue(&t->ktimer_storage, k);
++	if (err)
++		goto err_out_st_fini;
++
++	hrtimer_start(&t->ktimer, t->ktimer.expires, HRTIMER_REL);
++
++	return 0;
++
++err_out_st_fini:
++	kevent_storage_fini(&t->ktimer_storage);
++err_out_free:
++	kfree(t);
++
++	return err;
++}
++
++static int kevent_timer_dequeue(struct kevent *k)
++{
++	struct kevent_storage *st = k->st;
++	struct kevent_timer *t = container_of(st, struct kevent_timer, ktimer_storage);
++
++	hrtimer_cancel(&t->ktimer);
++	kevent_storage_dequeue(st, k);
++	kfree(t);
++
++	return 0;
++}
++
++static int kevent_timer_callback(struct kevent *k)
++{
++	k->event.ret_data[0] = jiffies_to_msecs(jiffies);
++	return 1;
++}
++
++static int __init kevent_init_timer(void)
++{
++	struct kevent_callbacks tc = {
++		.callback = &kevent_timer_callback,
++		.enqueue = &kevent_timer_enqueue,
++		.dequeue = &kevent_timer_dequeue,
++		.flags = 0,
++	};
++
++	return kevent_add_callbacks(&tc, KEVENT_TIMER);
++}
++module_init(kevent_init_timer);
++
 
-Jarek P.
