@@ -1,52 +1,46 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [take29 0/8] kevent: Generic event handling mechanism.
-Date: Fri, 29 Dec 2006 14:24:39 +0100
-Message-ID: <20061229132439.GA30005@elte.hu>
-References: <3154985aa0591036@2ka.mipt.ru> <11668927001365@2ka.mipt.ru> <20061228160137.GA19301@elte.hu> <20061229085503.GB13816@2ka.mipt.ru> <20061229125427.GA23893@elte.hu> <20061229131452.GA5641@2ka.mipt.ru>
+From: Roger While <simrw@sim-basis.de>
+Subject: Re. Please pull 'upstream' branch of wireless-2.6
+Date: Fri, 29 Dec 2006 11:28:10 +0100
+Message-ID: <6.1.1.1.2.20061229110738.02b325c8@192.168.6.12>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Ulrich Drepper <drepper@redhat.com>,
-	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	Chase Venters <chase.venters@clientec.com>,
-	Johann Borck <johann.borck@densedata.com>,
-	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
-	Jamal Hadi Salim <hadi@cyberus.ca>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753233AbWL2N2K@vger.kernel.org>
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Content-Disposition: inline
-In-Reply-To: <20061229131452.GA5641@2ka.mipt.ru>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"; format=flowed
+Cc: linville@tuxdriver.com, jeff@garzik.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailout04.sul.t-online.com ([194.25.134.18]:51891 "EHLO
+	mailout04.sul.t-online.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754144AbWL2NtF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Dec 2006 08:49:05 -0500
+To: netdev@vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-* Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
+> > Roy Marples (1):
+> >       prism54: set carrier flags correctly
+>
+>Why is this not #upstream-fixes material?  What's the impact?
 
-> > (rarer things like mouse/input events can stay with poll 
-> > notifications)
-> > 
-> > and it is /especially/ important to include block IO events in 
-> > kevents to be able to judge its performance and scalability relative 
-> > to the async IO API and infrastructure.
-> 
-> Yes, async IO is a significant part, and will be implemented, IMHO, 
-> new design I highlighted in linux-fsdevel@ in AIO related thread is 
-> the way to go (at least I will imlement it that way).
+Actually, I think the patch is incorrect.
+At best it is insufficient and at worst it
+stops the driver working correctly.
 
-yes. Note that a prototype exists already: take a look at Tux's "work 
-atom" infrastructure of how you can build a relatively straightforward 
-state-machine that can be programmed and can be driven even from IRQ 
-contexts. Via that i implemented fully asynchronous IO for networking 5 
-years ago, and programmed it to handle HTTP and FTP protocol server 
-logic, fully asynchronously. (For block IO it also does emulation of 
-event handling via the 'cachemiss' kernel threads. State-machine driven 
-filesystems are quite hard - but not impossible in the long run.)
+I can't see why we do carrier_off after start_queue in the open.
+Other drivers (eg. ipw2100) do carrier_on.
 
-It would be a natural thing to extend that fundamental concept to 
-user-space as well. /That/ i'd call a generic, grounds-up event handling 
-infrastructure. That would be a worthwile unification point for all 
-existing IO APIs.
+We should also look at other places where eg. stop_queue
+is called and do a carrier_off eg. the close routine.
+(Amongst others)
 
-	Ingo
+Also according to Documentation/networking/operstates.txt
+(netif_carrier_on/off) -
+"It is guaranteed that only the driver has write access,
+  however, if different layers of the driver manipulate the same flag,
+  the driver has to provide the synchronisation needed."
+
+The trap routine in isl_ioctl.c however is lockless.
+Assuming that the doc is correct, I would have thought
+that putting carrier_on/off here is buggy or ?
+
+Roger While
+
+
