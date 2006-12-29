@@ -1,79 +1,246 @@
-From: "Robert Iakobashvili" <coroberti@gmail.com>
-Subject: Re: Network card IRQ balancing with Intel 5000 series chipsets
-Date: Fri, 29 Dec 2006 19:36:19 +0200
-Message-ID: <7e63f56c0612290936n25186dc1sd96f32bacbb5a674@mail.gmail.com>
-References: <7e63f56c0612240134s452f6510h8483fb31e5efe799@mail.gmail.com>
-	 <7e63f56c0612250454g5520bd6aja0fb9ab2656ff74e@mail.gmail.com>
-	 <1167158658.3746.12.camel@localhost>
-	 <1167170793.3281.3209.camel@laptopd505.fenrus.org>
-	 <1167173199.3746.45.camel@localhost>
-	 <1167179309.3281.3342.camel@laptopd505.fenrus.org>
-	 <1167191279.3746.60.camel@localhost>
-	 <7e63f56c0612262309p5337a753q3b1748910fce70b5@mail.gmail.com>
-	 <1167229879.3807.24.camel@localhost>
-	 <Pine.LNX.4.64.0612290255501.12445@bizon.gios.gov.pl>
+From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Subject: [PATCH] bcm43xx: Interrogate hardware-enable switch and update
+ LEDs
+Date: Fri, 29 Dec 2006 14:00:01 -0600
+Message-ID: <459573c1.dAoB7uQ5YZxgTh00%Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: jamal <hadi@cyberus.ca>, "Arjan van de Ven" <arjan@infradead.org>,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.175]:19508 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965027AbWL2RgV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Dec 2006 12:36:21 -0500
-Received: by ug-out-1314.google.com with SMTP id 44so4441179uga
-        for <netdev@vger.kernel.org>; Fri, 29 Dec 2006 09:36:20 -0800 (PST)
-To: "Krzysztof Oledzki" <olel@ans.pl>
-In-Reply-To: <Pine.LNX.4.64.0612290255501.12445@bizon.gios.gov.pl>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+	Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+To: John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
+List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi Krzysztof,
+The current bcm43xx driver ignores any wireless-enable switches on mini-PCI
+and mini-PCI-E cards. This patch implements a new routine to interrogate the
+radio hardware enabled bit in the interface, logs the initial state and any
+changes in the switch (if debugging enabled), activates the LED to show the
+state, and changes the periodic work handler to provide 1 second response
+to switch changes and to account for changes in the periodic work specs.
 
-On 12/29/06, Krzysztof Oledzki <olel@ans.pl> wrote:
->
->
-> On Wed, 27 Dec 2006, jamal wrote:
->
-> > On Wed, 2006-27-12 at 09:09 +0200, Robert Iakobashvili wrote:
-> >
-> >>
-> >> My scenario is treatment of RTP packets in kernel space with a single network
-> >> card (both Rx and Tx). The default of the Intel 5000 series chipset is
-> >> affinity of each
-> >> network card to a certain CPU. Currently, neither with irqbalance nor
-> >> with kernel
-> >> irq-balancing (MSI and io-apic attempted) I do not find a way to
-> >> balance that irq.
-> >
-> > In the near future, when the NIC vendors wake up[1] because CPU vendors
-> > - including big bad Intel -  are going to be putting out a large number
-> > of hardware threads, you should be able to do more clever things with
-> > such a setup. At the moment, just tie it to a single CPU and have your
-> > other processes that are related running/bound on the other cores so you
-> > can utilize them. OTOH, you say you are only using 30% of the one CPU,
-> > so it may not be a big deal to tie your single nic to on cpu.
->
-> Anyway, it seems that with more advanced firewalls/routers kernel spends
-> most of a time in IPSec/crypto code, netfilter conntrack and iptables
-> rules/extensions, routing lookups, etc and not in hardware IRQ handler.
-> So, it would be nice if this part coulde done by all CPUs.
+Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+---
 
+John,
 
-Do you mean, that it should be an option to configure BH soft-irq handling
-to make packet processing balanced among several CPUs?
-There is an issue of packet order, isn't it?
+This should be applied to wireless-2.6. It is a new feature and is
+not appropriate for 2.6.20-rcX. These changes have been tested on
+a PCMCIA card with no wireless switch, A BCM4306 mini-PCI card, and
+a BCM4311 mini-PCIE card.
 
+Larry
 
--- 
-Sincerely,
-Robert Iakobashvili,
-coroberti %x40 gmail %x2e com
-...................................................................
-Navigare necesse est, vivere non est necesse
-...................................................................
-http://sourceforge.net/projects/curl-loader
-A powerful open-source HTTP/S, FTP/S traffic
-generating, loading and testing tool.
+Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.c
++++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+@@ -2441,6 +2441,9 @@ static int bcm43xx_chip_init(struct bcm4
+ 	if (err)
+ 		goto err_gpio_cleanup;
+ 	bcm43xx_radio_turn_on(bcm);
++	bcm->radio_hw_enable = bcm43xx_is_hw_radio_enabled(bcm);
++	dprintk(KERN_INFO PFX "Radio %s by hardware\n",
++		(bcm->radio_hw_enable == 0) ? "disabled" : "enabled");
+ 
+ 	bcm43xx_write16(bcm, 0x03E6, 0x0000);
+ 	err = bcm43xx_phy_init(bcm);
+@@ -3174,9 +3177,24 @@ static void bcm43xx_periodic_every30sec(
+ 
+ static void bcm43xx_periodic_every15sec(struct bcm43xx_private *bcm)
+ {
++	bcm43xx_phy_xmitpower(bcm); //FIXME: unless scanning?
++	//TODO for APHY (temperature?)
++}
++
++static void bcm43xx_periodic_every1sec(struct bcm43xx_private *bcm)
++{
+ 	struct bcm43xx_phyinfo *phy = bcm43xx_current_phy(bcm);
+ 	struct bcm43xx_radioinfo *radio = bcm43xx_current_radio(bcm);
++	int radio_hw_enable;
+ 
++	/* check if radio hardware enabled status changed */
++	radio_hw_enable = bcm43xx_is_hw_radio_enabled(bcm);
++	if (unlikely(bcm->radio_hw_enable != radio_hw_enable)) {
++		bcm->radio_hw_enable = radio_hw_enable;
++		dprintk(KERN_INFO PFX "Radio hardware status changed to %s\n",
++		       (radio_hw_enable == 0) ? "disabled" : "enabled");
++		bcm43xx_leds_update(bcm, 0);
++	}
+ 	if (phy->type == BCM43xx_PHYTYPE_G) {
+ 		//TODO: update_aci_moving_average
+ 		if (radio->aci_enable && radio->aci_wlan_automatic) {
+@@ -3200,21 +3218,21 @@ static void bcm43xx_periodic_every15sec(
+ 			//TODO: implement rev1 workaround
+ 		}
+ 	}
+-	bcm43xx_phy_xmitpower(bcm); //FIXME: unless scanning?
+-	//TODO for APHY (temperature?)
+ }
+ 
+ static void do_periodic_work(struct bcm43xx_private *bcm)
+ {
+-	if (bcm->periodic_state % 8 == 0)
++	if (bcm->periodic_state % 120 == 0)
+ 		bcm43xx_periodic_every120sec(bcm);
+-	if (bcm->periodic_state % 4 == 0)
++	if (bcm->periodic_state % 60 == 0)
+ 		bcm43xx_periodic_every60sec(bcm);
+-	if (bcm->periodic_state % 2 == 0)
++	if (bcm->periodic_state % 30 == 0)
+ 		bcm43xx_periodic_every30sec(bcm);
+-	bcm43xx_periodic_every15sec(bcm);
++	if (bcm->periodic_state % 15 == 0)
++		bcm43xx_periodic_every15sec(bcm);
++	bcm43xx_periodic_every1sec(bcm);
+ 
+-	schedule_delayed_work(&bcm->periodic_work, HZ * 15);
++	schedule_delayed_work(&bcm->periodic_work, HZ);
+ }
+ 
+ static void bcm43xx_periodic_work_handler(struct work_struct *work)
+@@ -3227,7 +3245,7 @@ static void bcm43xx_periodic_work_handle
+ 	unsigned long orig_trans_start = 0;
+ 
+ 	mutex_lock(&bcm->mutex);
+-	if (unlikely(bcm->periodic_state % 4 == 0)) {
++	if (unlikely(bcm->periodic_state % 60 == 0)) {
+ 		/* Periodic work will take a long time, so we want it to
+ 		 * be preemtible.
+ 		 */
+@@ -3259,7 +3277,7 @@ static void bcm43xx_periodic_work_handle
+ 
+ 	do_periodic_work(bcm);
+ 
+-	if (unlikely(bcm->periodic_state % 4 == 0)) {
++	if (unlikely(bcm->periodic_state % 60 == 0)) {
+ 		spin_lock_irqsave(&bcm->irq_lock, flags);
+ 		tasklet_enable(&bcm->isr_tasklet);
+ 		bcm43xx_interrupt_enable(bcm, savedirqs);
+Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_radio.h
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_radio.h
++++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_radio.h
+@@ -65,6 +65,22 @@ void bcm43xx_radio_init2060(struct bcm43
+ void bcm43xx_radio_turn_on(struct bcm43xx_private *bcm);
+ void bcm43xx_radio_turn_off(struct bcm43xx_private *bcm);
+ 
++static inline
++int bcm43xx_is_hw_radio_enabled(struct bcm43xx_private *bcm)
++{
++	/* function to return state of hardware enable of radio
++	 * returns 0 if radio disabled, 1 if radio enabled
++	 */
++	if (likely(bcm->current_core->rev >= 3))
++		return ((bcm43xx_read32(bcm, BCM43xx_MMIO_RADIO_HWENABLED_HI)
++					& BCM43xx_MMIO_RADIO_HWENABLED_HI_MASK)
++					== 0) ? 1 : 0;
++	else
++		return ((bcm43xx_read16(bcm, BCM43xx_MMIO_RADIO_HWENABLED_LO)
++					& BCM43xx_MMIO_RADIO_HWENABLED_LO_MASK)
++					== 0) ? 0 : 1;
++}
++
+ int bcm43xx_radio_selectchannel(struct bcm43xx_private *bcm, u8 channel,
+ 				int synthetic_pu_workaround);
+ 
+Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx.h
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx.h
++++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx.h
+@@ -352,6 +352,10 @@
+ #define BCM43xx_UCODEFLAG_UNKPACTRL	0x0040
+ #define BCM43xx_UCODEFLAG_JAPAN		0x0080
+ 
++/* Hardware Radio Enable masks */
++#define BCM43xx_MMIO_RADIO_HWENABLED_HI_MASK (1 << 16)
++#define BCM43xx_MMIO_RADIO_HWENABLED_LO_MASK (1 << 4)
++
+ /* Generic-Interrupt reasons. */
+ #define BCM43xx_IRQ_READY		(1 << 0)
+ #define BCM43xx_IRQ_BEACON		(1 << 1)
+@@ -758,7 +762,8 @@ struct bcm43xx_private {
+ 	    bad_frames_preempt:1,	/* Use "Bad Frames Preemption" (default off) */
+ 	    reg124_set_0x4:1,		/* Some variable to keep track of IRQ stuff. */
+ 	    short_preamble:1,		/* TRUE, if short preamble is enabled. */
+-	    firmware_norelease:1;	/* Do not release the firmware. Used on suspend. */
++	    firmware_norelease:1,	/* Do not release the firmware. Used on suspend. */
++	    radio_hw_enable:1;		/* TRUE if radio is hardware enabled */
+ 
+ 	struct bcm43xx_stats stats;
+ 
+Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_leds.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_leds.c
++++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_leds.c
+@@ -26,6 +26,7 @@
+ */
+ 
+ #include "bcm43xx_leds.h"
++#include "bcm43xx_radio.h"
+ #include "bcm43xx.h"
+ 
+ #include <asm/bitops.h>
+@@ -108,6 +109,7 @@ static void bcm43xx_led_init_hardcoded(s
+ 	switch (led_index) {
+ 	case 0:
+ 		led->behaviour = BCM43xx_LED_ACTIVITY;
++		led->activelow = 1;
+ 		if (bcm->board_vendor == PCI_VENDOR_ID_COMPAQ)
+ 			led->behaviour = BCM43xx_LED_RADIO_ALL;
+ 		break;
+@@ -199,20 +201,21 @@ void bcm43xx_leds_update(struct bcm43xx_
+ 			turn_on = activity;
+ 			break;
+ 		case BCM43xx_LED_RADIO_ALL:
+-			turn_on = radio->enabled;
++			turn_on = radio->enabled && bcm43xx_is_hw_radio_enabled(bcm);
+ 			break;
+ 		case BCM43xx_LED_RADIO_A:
+ 		case BCM43xx_LED_BCM4303_2:
+-			turn_on = (radio->enabled && phy->type == BCM43xx_PHYTYPE_A);
++			turn_on = (radio->enabled && bcm43xx_is_hw_radio_enabled(bcm) &&
++				   phy->type == BCM43xx_PHYTYPE_A);
+ 			break;
+ 		case BCM43xx_LED_RADIO_B:
+ 		case BCM43xx_LED_BCM4303_1:
+-			turn_on = (radio->enabled &&
++			turn_on = (radio->enabled && bcm43xx_is_hw_radio_enabled(bcm) &&
+ 				   (phy->type == BCM43xx_PHYTYPE_B ||
+ 				    phy->type == BCM43xx_PHYTYPE_G));
+ 			break;
+ 		case BCM43xx_LED_MODE_BG:
+-			if (phy->type == BCM43xx_PHYTYPE_G &&
++			if (phy->type == BCM43xx_PHYTYPE_G && bcm43xx_is_hw_radio_enabled(bcm) &&
+ 			    1/*FIXME: using G rates.*/)
+ 				turn_on = 1;
+ 			break;
+Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_radio.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_radio.c
++++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_radio.c
+@@ -1981,6 +1981,7 @@ void bcm43xx_radio_turn_on(struct bcm43x
+ 	}
+ 	radio->enabled = 1;
+ 	dprintk(KERN_INFO PFX "Radio turned on\n");
++	bcm43xx_leds_update(bcm, 0);
+ }
+ 	
+ void bcm43xx_radio_turn_off(struct bcm43xx_private *bcm)
+@@ -2001,6 +2002,7 @@ void bcm43xx_radio_turn_off(struct bcm43
+ 		bcm43xx_phy_write(bcm, 0x0015, 0xAA00);
+ 	radio->enabled = 0;
+ 	dprintk(KERN_INFO PFX "Radio turned off\n");
++	bcm43xx_leds_update(bcm, 0);
+ }
+ 
+ void bcm43xx_radio_clear_tssi(struct bcm43xx_private *bcm)
