@@ -1,115 +1,88 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: 2.6.20-rc2: known unfixed regressions (v2)
-Date: Sun, 31 Dec 2006 01:47:19 +0100
-Message-ID: <20061231004719.GG20714@stusta.de>
-References: <Pine.LNX.4.64.0612232043030.3671@woody.osdl.org>
+From: dean gaudet <dean@arctic.org>
+Subject: TCP_DEFER_ACCEPT brokenness?
+Date: Sat, 30 Dec 2006 18:50:43 -0800 (PST)
+Message-ID: <Pine.LNX.4.64.0612301758160.27326@twinlark.arctic.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Florin Iucha <florin@iucha.net>, gregkh@suse.de,
-	linux-usb-devel@lists.sourceforge.net, dmitry.torokhov@gmail.com,
-	linux-input@atrey.karlin.mff.cuni.cz,
-	Jon Smirl <jonsmirl@gmail.com>,
-	Ismail =?iso-8859-1?Q?D=F6nmez?= <ismail@pardus.org.tr>,
-	perex@suse.cz, alsa-devel@alsa-project.org,
-	"Horst H. von Brand" <vonbrand@inf.utfsm.cl>, davem@davemloft.net,
-	sparclinux@vger.kernel.org, Komuro <komurojun-mbn@nifty.com>,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
-	netdev@vger.kernel.org, Michael Reske <micha@gmx.com>,
-	Ayaz Abdulla <aabdulla@nvidia.com>,
-	Tobias Diedrich <ranma+kernel@tdiedrich.de>,
-	Andi Kleen <ak@suse.de>, Yinghai Lu <yinghai.lu@amd.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>, mingo@redhat.com,
-	Alessandro Suardi <alessandro.suardi@gmail.com>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>, linux-ide@vger.kern
-Return-path: <linux-ide-owner@vger.kernel.org>
-To: Linus Torvalds <torvalds@osdl.org>, Andrew Morton <akpm@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0612232043030.3671@woody.osdl.org>
-Sender: linux-ide-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: mtk-manpages@gmx.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from twinlark.arctic.org ([207.29.250.54]:34952 "EHLO
+	twinlark.arctic.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932085AbWLaCuo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 Dec 2006 21:50:44 -0500
+To: netdev@vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This email lists some known regressions in 2.6.20-rc2 compared to 2.6.1=
-9
-that are not yet fixed in Linus' tree.
+hi... i'm having troubles matching up the tcp(7) man page description of 
+TCP_DEFER_ACCEPT versus some comments in the kernel (2.6.20-rc2) versus 
+how the kernel actually acts.
 
-If you find your name in the Cc header, you are either submitter of one
-of the bugs, maintainer of an affectected subsystem or driver, a patch
-of you caused a breakage or I'm considering you in any other way possib=
-ly
-involved with one or more of these issues.
+the man page says this:
 
-Due to the huge amount of recipients, please trim the Cc when answering=
-=2E
+   TCP_DEFER_ACCEPT
+        Allows a listener to be awakened only when data arrives on
+        the socket.  Takes an integer value (seconds), this can bound
+        the maximum number of attempts TCP will make to complete the
+        connection.  This option should not be used in code intended to
+        be portable.
 
+which is a bit confusing because it talks both about seconds and
+"attempts".  (and doesn't mention what happens when the timeout finishes
+-- i could see dropping the socket or passing it to userland anyhow as
+possibilities... but in fact the socket is dropped).
 
-Subject    : USB keyboard unresponsive after some time
-References : http://lkml.org/lkml/2006/12/25/35
-             http://lkml.org/lkml/2006/12/26/106
-Submitter  : Florin Iucha <florin@iucha.net>
-Status     : unknown
+the setsockopt code in tcp.c does this:
 
+        case TCP_DEFER_ACCEPT:
+                icsk->icsk_accept_queue.rskq_defer_accept = 0;
+                if (val > 0) {
+                        /* Translate value in seconds to number of
+                         * retransmits */
+                        while (icsk->icsk_accept_queue.rskq_defer_accept < 32 &&
+                               val > ((TCP_TIMEOUT_INIT / HZ) <<
+                                       icsk->icsk_accept_queue.rskq_defer_accept))
+                                icsk->icsk_accept_queue.rskq_defer_accept++;
+                        icsk->icsk_accept_queue.rskq_defer_accept++;
+                }
+                break;
 
-Subject    : BUG: scheduling while atomic
-References : http://lkml.org/lkml/2006/12/26/105
-Submitter  : Jon Smirl <jonsmirl@gmail.com>
-Status     : unknown
+so at least the comment agrees with the man page -- however the code
+doesn't... the code finds the least n such that val < (3<<n)...  but these
+are timeouts and they're cumulative -- it would be more appropriate to
+search for least n such that
 
+        val < (3<<0) + (3<<1) + (3<<2) + ... + (3<<n)
 
-Subject    : ALSA: No sound in KDE with intel hda
-References : http://lkml.org/lkml/2006/12/30/73
-Submitter  : Ismail D=F6nmez <ismail@pardus.org.tr>
-Status     : unknown
+but that's not all that's wrong... i'm not sure why, for val == 1 it
+computes n=0 correctly (verified with getsockopt) but then it defers
+way more timeouts than 2.  here's a tcpdump example where the timeout
+was set to 1:
 
-
-Subject    : SPARC64: Can't mount /
-References : http://lkml.org/lkml/2006/12/13/181
-Submitter  : Horst H. von Brand <vonbrand@inf.utfsm.cl>
-Status     : unknown
-
-
-Subject    : ftp: get or put stops during file-transfer
-References : http://lkml.org/lkml/2006/12/16/174
-Submitter  : Komuro <komurojun-mbn@nifty.com>
-Caused-By  : YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-             commit cfb6eeb4c860592edd123fdea908d23c6ad1c7dc
-Handled-By : YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Status     : problem is being debugged
-
-
-Subject    : forcedeth.c 0.59: problem with sideband managment
-References : http://bugzilla.kernel.org/show_bug.cgi?id=3D7684
-Submitter  : Michael Reske <micha@gmx.com>
-Handled-By : Ayaz Abdulla <aabdulla@nvidia.com>
-Status     : problem is being debugged
-
-
-Subject    : x86_64 boot failure: "IO-APIC + timer doesn't work"
-References : http://lkml.org/lkml/2006/12/16/101
-Submitter  : Tobias Diedrich <ranma+kernel@tdiedrich.de>
-Caused-By  : Andi Kleen <ak@suse.de>
-             commit b026872601976f666bae77b609dc490d1834bf77
-Handled-By : Yinghai Lu <yinghai.lu@amd.com>
-             Eric W. Biederman <ebiederm@xmission.com>
-Status     : problem is being debugged
+1167532741.446027 IP 127.0.0.1.56733 > 127.0.0.1.53846: S 1792609127:1792609127(0) win 32792 <mss 16396,sackOK,timestamp 249615 0,nop,wscale 5>
+1167532741.446899 IP 127.0.0.1.53846 > 127.0.0.1.56733: S 1785169552:1785169552(0) ack 1792609128 win 32768 <mss 16396,sackOK,timestamp 249616 249615,nop,wscale 5>
+1167532741.446122 IP 127.0.0.1.56733 > 127.0.0.1.53846: . ack 1 win 1025 <nop,nop,timestamp 249616 249616>
+1167532745.249902 IP 127.0.0.1.53846 > 127.0.0.1.56733: S 1785169552:1785169552(0) ack 1792609128 win 32768 <mss 16396,sackOK,timestamp 250566 249616,nop,wscale 5>
+1167532745.249912 IP 127.0.0.1.56733 > 127.0.0.1.53846: . ack 1 win 1025 <nop,nop,timestamp 250566 250566,nop,nop,sack 1 {0:1}>
+1167532751.648046 IP 127.0.0.1.53846 > 127.0.0.1.56733: S 1785169552:1785169552(0) ack 1792609128 win 32768 <mss 16396,sackOK,timestamp 252166 250566,nop,wscale 5>
+1167532751.648058 IP 127.0.0.1.56733 > 127.0.0.1.53846: . ack 1 win 1025 <nop,nop,timestamp 252166 252166,nop,nop,sack 1 {0:1}>
+1167532764.448456 IP 127.0.0.1.53846 > 127.0.0.1.56733: S 1785169552:1785169552(0) ack 1792609128 win 32768 <mss 16396,sackOK,timestamp 255366 252166,nop,wscale 5>
+1167532764.448473 IP 127.0.0.1.56733 > 127.0.0.1.53846: . ack 1 win 1025 <nop,nop,timestamp 255366 255366,nop,nop,sack 1 {0:1}>
+1167532788.452409 IP 127.0.0.1.53846 > 127.0.0.1.56733: S 1785169552:1785169552(0) ack 1792609128 win 32768 <mss 16396,sackOK,timestamp 261366 255366,nop,wscale 5>
+1167532788.452430 IP 127.0.0.1.56733 > 127.0.0.1.53846: . ack 1 win 1025 <nop,nop,timestamp 261366 261366,nop,nop,sack 1 {0:1}>
+1167532836.453520 IP 127.0.0.1.53846 > 127.0.0.1.56733: S 1785169552:1785169552(0) ack 1792609128 win 32768 <mss 16396,sackOK,timestamp 273366 261366,nop,wscale 5>
+1167532836.453539 IP 127.0.0.1.56733 > 127.0.0.1.53846: . ack 1 win 1025 <nop,nop,timestamp 273366 273366,nop,nop,sack 1 {0:1}>
 
 
-Subject    : kernel panics on boot (libata-sff)
-References : http://lkml.org/lkml/2006/12/3/99
-             http://lkml.org/lkml/2006/12/14/153
-             http://lkml.org/lkml/2006/12/24/33
-Submitter  : Alessandro Suardi <alessandro.suardi@gmail.com>
-Caused-By  : Alan Cox <alan@lxorguk.ukuu.org.uk>
-             commit 368c73d4f689dae0807d0a2aa74c61fd2b9b075f
-Handled-By : Alan Cox <alan@lxorguk.ukuu.org.uk>
-Status     : people are working on a fix
+now honestly i don't mind if 1s works correctly (because
+apache 2.2.x is broken and sets TCP_DEFER_ACCEPT to 1 ... see
+<http://issues.apache.org/bugzilla/show_bug.cgi?id=41270>).
 
+but even if i use more reasonable timeouts like 30s it doesn't
+behave as expected based on the docs.
 
-Subject    : Acer Extensa 3002 WLMi: 'shutdown -h now' reboots the syst=
-em
-References : http://lkml.org/lkml/2006/12/25/40
-Submitter  : Berthold Cogel <cogel@rrz.uni-koeln.de>
-Status     : submitter was asked for more information
+not sure which way this should be resolved -- or how long the code has 
+been like this...  perhaps the current behaviour should just become the 
+documented behaviour (whatever the current behaviour is :).
 
-
+-dean
