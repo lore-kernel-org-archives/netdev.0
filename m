@@ -1,91 +1,115 @@
-From: Komuro <komurojun-mbn@nifty.com>
-Subject: Re: [BUG KERNEL 2.6.20-rc1] ftp: get or put stops during
- file-transfer
-Date: Sun, 31 Dec 2006 18:42:47 +0900
-Message-ID: <20061231184247.0b68cede.komurojun-mbn@nifty.com>
-References: <20061230185043.d31d2104.komurojun-mbn@nifty.com>
-	<20061230.102358.106876516.yoshfuji@linux-ipv6.org>
-	<20061230205931.9e430173.komurojun-mbn@nifty.com>
-	<20061230.231952.16573563.yoshfuji@linux-ipv6.org>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: 2.6.20-rc2: known unfixed regressions (v2)
+Date: Sun, 31 Dec 2006 01:47:19 +0100
+Message-ID: <20061231004719.GG20714@stusta.de>
+References: <Pine.LNX.4.64.0612232043030.3671@woody.osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: bunk@stusta.de, jgarzik@pobox.com, viro@ftp.linux.org.uk,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userg500.nifty.com ([202.248.238.80]:18979 "EHLO
-	userg500.nifty.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932233AbWLaAnm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 Dec 2006 19:43:42 -0500
-To: YOSHIFUJI Hideaki / =?ISO-2022-JP?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-In-Reply-To: <20061230.231952.16573563.yoshfuji@linux-ipv6.org>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Florin Iucha <florin@iucha.net>, gregkh@suse.de,
+	linux-usb-devel@lists.sourceforge.net, dmitry.torokhov@gmail.com,
+	linux-input@atrey.karlin.mff.cuni.cz,
+	Jon Smirl <jonsmirl@gmail.com>,
+	Ismail =?iso-8859-1?Q?D=F6nmez?= <ismail@pardus.org.tr>,
+	perex@suse.cz, alsa-devel@alsa-project.org,
+	"Horst H. von Brand" <vonbrand@inf.utfsm.cl>, davem@davemloft.net,
+	sparclinux@vger.kernel.org, Komuro <komurojun-mbn@nifty.com>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+	netdev@vger.kernel.org, Michael Reske <micha@gmx.com>,
+	Ayaz Abdulla <aabdulla@nvidia.com>,
+	Tobias Diedrich <ranma+kernel@tdiedrich.de>,
+	Andi Kleen <ak@suse.de>, Yinghai Lu <yinghai.lu@amd.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>, mingo@redhat.com,
+	Alessandro Suardi <alessandro.suardi@gmail.com>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>, linux-ide@vger.kern
+Return-path: <linux-ide-owner@vger.kernel.org>
+To: Linus Torvalds <torvalds@osdl.org>, Andrew Morton <akpm@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.64.0612232043030.3671@woody.osdl.org>
+Sender: linux-ide-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+This email lists some known regressions in 2.6.20-rc2 compared to 2.6.1=
+9
+that are not yet fixed in Linus' tree.
 
-> Can you reproduce it with other ftp client and/or server?
- 
-O.K. I wiil try to test other ftp client and server.
- 
+If you find your name in the Cc header, you are either submitter of one
+of the bugs, maintainer of an affectected subsystem or driver, a patch
+of you caused a breakage or I'm considering you in any other way possib=
+ly
+involved with one or more of these issues.
 
-> Please provide the output of "netstat -na" command during the
-> transfer, and the output of "lsmod | grep conntrack" (just for
-> sure).
-
-Please see the output of "netstat -na" when stuck. (below)
-
-CONFIG_NETFILER is diabled in my test configuration
-,conntrack modules is not loaded.
-(CONFIG_IP_DCCP, CONFIG_IP_SCTP, CONFIG_TIPC, CONFIG_IPV6 is
-also disabled) 
-
- 
-> What kind of mode do you use? e.g. PORT/EPRT/LPRT/PASV/EPSV/LPSV
-
-PASV mode.
- 
-> When the transfer get stuck, are other communication still working?
-
-Other communication works properly.
-Actually, I can start other ftp session on other console of the same PC.
-
-> Are there any workaround?
-> e.g. stop-start vsftpd cycle, ifdown-ifup cycle, rmmod/insmod cycle etc.
-
-I only need to do the killall command.
+Due to the huge amount of recipients, please trim the Cc when answering=
+=2E
 
 
->> output of netstat -na
-
-Active Internet connections (servers and established)
-Proto Recv-Q Send-Q Local Address               Foreign Address             State      
-tcp        0      0 0.0.0.0:873                 0.0.0.0:*                   LISTEN      
-tcp        0      0 0.0.0.0:111                 0.0.0.0:*                   LISTEN      
-tcp        0      0 192.168.0.6:35737           192.168.0.2:26827           TIME_WAIT   
-tcp        0      0 192.168.0.6:51036           192.168.0.2:21              ESTABLISHED 
-udp        0      0 0.0.0.0:68                  0.0.0.0:*                               
-udp        0      0 0.0.0.0:867                 0.0.0.0:*                               
-udp        0      0 0.0.0.0:870                 0.0.0.0:*                               
-udp        0      0 0.0.0.0:111                 0.0.0.0:*                               
-Active UNIX domain sockets (servers and established)
-Proto RefCnt Flags       Type       State         I-Node Path
-unix  2      [ ACC ]     STREAM     LISTENING     5056   /tmp/.font-unix/fs7100
-unix  2      [ ]         DGRAM                    1234   @/org/kernel/udev/udevd
-unix  5      [ ]         DGRAM                    4748   /dev/log
-unix  2      [ ACC ]     STREAM     LISTENING     4917   /var/run/dbus/system_bus_socket
-unix  2      [ ACC ]     STREAM     LISTENING     4989   /var/run/acpid.socket
-unix  2      [ ]         DGRAM                    5390   
-unix  3      [ ]         STREAM     CONNECTED     4920   
-unix  3      [ ]         STREAM     CONNECTED     4919   
-unix  2      [ ]         DGRAM                    4866   
-unix  2      [ ]         DGRAM                    4756   
+Subject    : USB keyboard unresponsive after some time
+References : http://lkml.org/lkml/2006/12/25/35
+             http://lkml.org/lkml/2006/12/26/106
+Submitter  : Florin Iucha <florin@iucha.net>
+Status     : unknown
 
 
+Subject    : BUG: scheduling while atomic
+References : http://lkml.org/lkml/2006/12/26/105
+Submitter  : Jon Smirl <jonsmirl@gmail.com>
+Status     : unknown
 
-Thanks,
 
-Best Regards
-Komuro
+Subject    : ALSA: No sound in KDE with intel hda
+References : http://lkml.org/lkml/2006/12/30/73
+Submitter  : Ismail D=F6nmez <ismail@pardus.org.tr>
+Status     : unknown
+
+
+Subject    : SPARC64: Can't mount /
+References : http://lkml.org/lkml/2006/12/13/181
+Submitter  : Horst H. von Brand <vonbrand@inf.utfsm.cl>
+Status     : unknown
+
+
+Subject    : ftp: get or put stops during file-transfer
+References : http://lkml.org/lkml/2006/12/16/174
+Submitter  : Komuro <komurojun-mbn@nifty.com>
+Caused-By  : YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+             commit cfb6eeb4c860592edd123fdea908d23c6ad1c7dc
+Handled-By : YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Status     : problem is being debugged
+
+
+Subject    : forcedeth.c 0.59: problem with sideband managment
+References : http://bugzilla.kernel.org/show_bug.cgi?id=3D7684
+Submitter  : Michael Reske <micha@gmx.com>
+Handled-By : Ayaz Abdulla <aabdulla@nvidia.com>
+Status     : problem is being debugged
+
+
+Subject    : x86_64 boot failure: "IO-APIC + timer doesn't work"
+References : http://lkml.org/lkml/2006/12/16/101
+Submitter  : Tobias Diedrich <ranma+kernel@tdiedrich.de>
+Caused-By  : Andi Kleen <ak@suse.de>
+             commit b026872601976f666bae77b609dc490d1834bf77
+Handled-By : Yinghai Lu <yinghai.lu@amd.com>
+             Eric W. Biederman <ebiederm@xmission.com>
+Status     : problem is being debugged
+
+
+Subject    : kernel panics on boot (libata-sff)
+References : http://lkml.org/lkml/2006/12/3/99
+             http://lkml.org/lkml/2006/12/14/153
+             http://lkml.org/lkml/2006/12/24/33
+Submitter  : Alessandro Suardi <alessandro.suardi@gmail.com>
+Caused-By  : Alan Cox <alan@lxorguk.ukuu.org.uk>
+             commit 368c73d4f689dae0807d0a2aa74c61fd2b9b075f
+Handled-By : Alan Cox <alan@lxorguk.ukuu.org.uk>
+Status     : people are working on a fix
+
+
+Subject    : Acer Extensa 3002 WLMi: 'shutdown -h now' reboots the syst=
+em
+References : http://lkml.org/lkml/2006/12/25/40
+Submitter  : Berthold Cogel <cogel@rrz.uni-koeln.de>
+Status     : submitter was asked for more information
+
 
