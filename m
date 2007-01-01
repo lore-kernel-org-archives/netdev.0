@@ -1,33 +1,49 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: Network card IRQ balancing with Intel 5000 series chipsets
-Date: Tue, 02 Jan 2007 09:57:56 -0800
-Message-ID: <459A9D24.8000807@hp.com>
-References: <7e63f56c0612240134s452f6510h8483fb31e5efe799@mail.gmail.com>	<1167039303.3281.1574.camel@laptopd505.fenrus.org>	<7e63f56c0612250326td172f28n532435b23d18b69f@mail.gmail.com>	<1167046499.3281.1623.camel@laptopd505.fenrus.org>	<7e63f56c0612250454g5520bd6aja0fb9ab2656ff74e@mail.gmail.com>	<1167158658.3746.12.camel@localhost>	<1167170793.3281.3209.camel@laptopd505.fenrus.org>	<1167173199.3746.45.camel@localhost> <1167179309.3281.3342.camel@laptopd505.fenrus.org>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [patch 0/6] sky2 driver update (v1.11)
+Date: Mon, 1 Jan 2007 10:36:44 -0800
+Message-ID: <20070101103644.02544c46@freekitty>
+References: <20061220210632.183204605@osdl.org>
+	<459197B8.6010403@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, Robert Iakobashvili <coroberti@gmail.com>,
-	netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel12.hp.com ([156.153.255.237]:56594 "EHLO palrel12.hp.com"
+Received: from smtp.osdl.org ([65.172.181.25]:50224 "EHLO smtp.osdl.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932695AbXABR55 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Jan 2007 12:57:57 -0500
-To: Arjan van de Ven <arjan@infradead.org>
-In-Reply-To: <1167179309.3281.3342.camel@laptopd505.fenrus.org>
+	id S1752789AbXABSim (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Jan 2007 13:38:42 -0500
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <459197B8.6010403@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->>With NAPI, if i have a few interupts it likely implies i have a huge
->>network load (and therefore CPU use) and would be much more happier if
->>you didnt start moving more interupt load to that already loaded CPU....
-> 
-> 
-> current irqbalance accounts for napi by using the number of packets as
-> indicator for load, not the number of interrupts. (for network
-> interrupts obviously)
+On Tue, 26 Dec 2006 16:44:24 -0500
+Jeff Garzik <jgarzik@pobox.com> wrote:
 
-And hopefully some knowledge of NUMA so it doesn't "balance" the 
-interrupts of a NIC to some far-off (topology-wise) CPU...
+> Stephen Hemminger wrote:
+> > Patches are in order of severity. 1-3 are bug fixes, 4 is a cleanup
+> > of the power state code, and 5 adds wake on lan support.
+> > 
+> > IMHO, it is bad security policy to allow wake on lan to enabled by default.
+> > The sky2 driver doesn't do WOL until enabled with ethtool.
+> 
+> While in general I agree with you on the security principle, this seems 
+> like it might break working setups.
+> 
+> WOL is a partnership between the motherboard and NIC.  The motherboard 
+> must support WOL, or its useless.  And since the motherboard must 
+> support WOL, it normally has an on/off switch in BIOS.
+> 
+> As such, you're overriding the admin's chosen BIOS setting here.
+> 
+> 	Jeff
 
-rick jones
+But there is no way to read the BIOS settings.
+
+If BIOS was being smart enough to actually, setup the chip, then I can
+look at chip registers on startup and see if it is enabled there.
+
+
+-- 
+Stephen Hemminger <shemminger@osdl.org>
