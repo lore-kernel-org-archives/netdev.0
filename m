@@ -1,49 +1,38 @@
-From: Komuro <komurojun-mbn@nifty.com>
-Subject: Re: [BUG KERNEL 2.6.20-rc1] ftp: get or put stops during
- file-transfer
-Date: Tue, 2 Jan 2007 02:18:42 +0900
-Message-ID: <20070102021842.4fd202c7.komurojun-mbn@nifty.com>
-References: <20061230185043.d31d2104.komurojun-mbn@nifty.com>
-	<20061230.102358.106876516.yoshfuji@linux-ipv6.org>
-	<20061230205931.9e430173.komurojun-mbn@nifty.com>
-	<20061230.231952.16573563.yoshfuji@linux-ipv6.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net/core/flow.c: compare data with memcmp
+Date: Mon, 01 Jan 2007 00:49:05 -0800 (PST)
+Message-ID: <20070101.004905.98552337.davem@davemloft.net>
+References: <80ec54e90612310837y786fd764oc18bf37c8f0b2b8c@mail.gmail.com>
+	<20061231.123715.115911390.davem@davemloft.net>
+	<80ec54e90612312347w2b906e5eg725a7761110c6897@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: bunk@stusta.de, jgarzik@pobox.com, viro@ftp.linux.org.uk,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	davem@davemloft.net
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, kernel-janitors@lists.osdl.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userg504.nifty.com ([202.248.238.84]:56664 "EHLO
-	userg504.nifty.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933252AbXAAITX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jan 2007 03:19:23 -0500
-To: YOSHIFUJI Hideaki / =?ISO-2022-JP?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-In-Reply-To: <20061230.231952.16573563.yoshfuji@linux-ipv6.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40338
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S933258AbXAAItH convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Jan 2007 03:49:07 -0500
+To: daniel.marjamaki@gmail.com
+In-Reply-To: <80ec54e90612312347w2b906e5eg725a7761110c6897@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+=46rom: "Daniel_Marjam=E4ki" <daniel.marjamaki@gmail.com>
+Date: Mon, 1 Jan 2007 08:47:48 +0100
 
-> 
-> Can you reproduce it with other ftp client and/or server?
+> So you mean that in this particular case it's faster with a handcoded
+> comparison than memcmp? Because both key1 and key2 are located at
+> word-aligned addresses?
+> That's fascinating.
 
-I tried the proftpd-1.3.0a-1.fc6(kernel version is 2.6.19).
-The ftp stop problem does not happen.
+Essentially, yes.
 
-Therefore, this problem is reproduced when
-client's kernel-version is 2.6.20-rc1 or later
-and server is vsftpd.
-Server's kernel-version is not related with this problem.
+However, I wonder.  GCC should be able to see this also, and
+if it expands the memset() inline the code emitted should be
+very similar.
 
-The ftp-stop-problem happens on client's PC.
-
-Please advise.
-
-Best Regards
-Komuro
-
-
-
- 
-
+It is something to investigate on a few cpu types, for sure.
