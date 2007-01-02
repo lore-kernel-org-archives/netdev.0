@@ -1,32 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: selinux networking: sleeping functin called from invalid
- context in 2.6.20-rc[12]
-Date: Tue, 02 Jan 2007 15:37:54 -0800 (PST)
-Message-ID: <20070102.153754.08319614.davem@davemloft.net>
-References: <20061224162511.eaac4a89.akpm@osdl.org>
-	<20070102155826.A14811@freya>
-	<200701021625.24694.paul.moore@hp.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: BUG: soft lockup detected on CPU#0!  (2.6.18.2 plus hacks)
+Date: Tue, 02 Jan 2007 15:43:47 -0800
+Message-ID: <459AEE33.7080702@candelatech.com>
+References: <OFB8CE3E37.99FD5849-ON88257257.0080FAE8-88257257.00819B15@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: adam@yggdrasil.com, akpm@osdl.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
+Cc: jarkao2@o2.pl, NetDev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39380
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752334AbXABXhy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jan 2007 18:37:54 -0500
-To: paul.moore@hp.com
-In-Reply-To: <200701021625.24694.paul.moore@hp.com>
+Received: from ns2.lanforge.com ([66.165.47.211]:42415 "EHLO ns2.lanforge.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752710AbXABXn5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Jan 2007 18:43:57 -0500
+To: David Stevens <dlstevens@us.ibm.com>
+In-Reply-To: <OFB8CE3E37.99FD5849-ON88257257.0080FAE8-88257257.00819B15@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Paul Moore <paul.moore@hp.com>
-Date: Tue, 2 Jan 2007 16:25:24 -0500
+David Stevens wrote:
+> I've looked at this a little too -- it'd be nice to know who holds
+> the write lock.
+> 
+> I see ip_mc_destroy_dev() is bouncing through the lock for
+> each multicast address, though it starts at the beginning of
+> the list each time. I don't see a problem with it, but it'd be
+> simpler if it acquired the write lock once, grabbed and nulled
+> the list, released the lock and then called igmp_group_dropped()
+> & ip_ma_put() on each address from the local list copy.
+> 
+> Are you destroying/creating interfaces or doing a lot of multicasting at
+> the time? How many group memberships do you have?
 
-> I'm sorry I just saw this mail (mail not sent directly to me get
-> shuffled off to a folder).  I agree with your patch, I think
-> dropping and then re-taking the RCU lock is the best way to go,
-> although I'm curious to see what others have to say.
+Lots and lots of interfaces were being created...at least 200 mac-vlans (out-of tree patch
+somewhat similar to 802.1q vlans.)  The avahi-daemon process was running, and it appears
+to be adding a multicast to each interface.  It was spewing failure messages in /var/log/messages,
+probably because it can't handle so many interfaces.
 
-I think this is fine too.
+Other than that, there is no (known) multicast traffic being generated.
+
+This bug was reported to me by a user in Australia, and we have not yet
+attempted to recreate this locally, so I am not certain exactly what it
+takes to trigger this bug.
+
+Thanks,
+Ben
+
+
+
+> 
+>                                         +-DLS
+
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
+
