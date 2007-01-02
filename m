@@ -1,59 +1,98 @@
-From: Tino Keitel <tino.keitel@tikei.de>
-Subject: Re: [patch 0/6] sky2 driver update (v1.11)
-Date: Tue, 2 Jan 2007 20:10:15 +0100
-Message-ID: <20070102191015.GA5758@dose.home.local>
-References: <20061220210632.183204605@osdl.org> <459197B8.6010403@pobox.com> <20070101103644.02544c46@freekitty>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: 2.6.20-rc3: known unfixed regressions
+Date: Tue, 2 Jan 2007 20:16:06 +0100
+Message-ID: <20070102191606.GU20714@stusta.de>
+References: <Pine.LNX.4.64.0612311710430.4473@woody.osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eazy.amigager.de ([213.239.192.238]:57312 "EHLO
-	eazy.amigager.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754911AbXABTKR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jan 2007 14:10:17 -0500
-Received: from dose.home.local (port-212-202-201-86.dynamic.qsc.de [212.202.201.86])
-	by eazy.amigager.de (Postfix) with ESMTP id 6AF4D25C406
-	for <netdev@vger.kernel.org>; Tue,  2 Jan 2007 20:10:14 +0100 (CET)
-Received: from scorpion by dose.home.local with local (Exim 4.63)
-	(envelope-from <tino.keitel@tikei.de>)
-	id 1H1p1b-0001VW-32
-	for netdev@vger.kernel.org; Tue, 02 Jan 2007 20:10:15 +0100
-To: netdev@vger.kernel.org
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Steve Youngs <steve@youngs.au.com>,
+	Berthold Cogel <cogel@rrz.uni-koeln.de>, len.brown@intel.com,
+	linux-acpi@vger.kernel.org, Florin Iucha <florin@iucha.net>,
+	greg@kroah.com, linux-usb-devel@lists.sourceforge.net,
+	dmitry.torokhov@gmail.com, linux-input@atrey.karlin.mff.cuni.cz,
+	Jon Smirl <jonsmirl@gmail.com>,
+	"Horst H. von Brand" <vonbrand@inf.utfsm.cl>, davem@davemloft.net,
+	sparclinux@vger.kernel.org, Komuro <komurojun-mbn@nifty.com>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+	netdev@vger.kernel.org, Michael Reske <micha@gmx.com>,
+	Ayaz Abdulla <aabdulla@nvidia.com>,
+	Jeff Garzik <jeff@garzik.org>,
+	Tobias Diedrich <ranma+kernel@tdiedrich.de>,
+	Andi Kleen <ak@suse.de>, Yinghai Lu <yinghai.lu@amd.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>, discuss@x86-64.org
+Return-path: <sparclinux-owner@vger.kernel.org>
+To: Linus Torvalds <torvalds@osdl.org>, Andrew Morton <akpm@osdl.org>
 Content-Disposition: inline
-In-Reply-To: <20070101103644.02544c46@freekitty>
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <Pine.LNX.4.64.0612311710430.4473@woody.osdl.org>
+Sender: sparclinux-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 01, 2007 at 10:36:44 -0800, Stephen Hemminger wrote:
-> On Tue, 26 Dec 2006 16:44:24 -0500
-> Jeff Garzik <jgarzik@pobox.com> wrote:
-> 
-> > Stephen Hemminger wrote:
-> > > Patches are in order of severity. 1-3 are bug fixes, 4 is a cleanup
-> > > of the power state code, and 5 adds wake on lan support.
-> > > 
-> > > IMHO, it is bad security policy to allow wake on lan to enabled by default.
-> > > The sky2 driver doesn't do WOL until enabled with ethtool.
-> > 
-> > While in general I agree with you on the security principle, this seems 
-> > like it might break working setups.
-> > 
-> > WOL is a partnership between the motherboard and NIC.  The motherboard 
-> > must support WOL, or its useless.  And since the motherboard must 
-> > support WOL, it normally has an on/off switch in BIOS.
-> > 
-> > As such, you're overriding the admin's chosen BIOS setting here.
-> > 
-> > 	Jeff
-> 
-> But there is no way to read the BIOS settings.
-> 
-> If BIOS was being smart enough to actually, setup the chip, then I can
-> look at chip registers on startup and see if it is enabled there.
+This email lists some known regressions in 2.6.20-rc3 compared to 2.6.19
+that are not yet fixed in Linus' tree.
 
-Some computers even don't have such a BIOS settings (like my Mac mini).
+If you find your name in the Cc header, you are either submitter of one
+of the bugs, maintainer of an affectected subsystem or driver, a patch
+of you caused a breakage or I'm considering you in any other way possibly
+involved with one or more of these issues.
 
-Btw., I just built 2.6.20-rc3 with patches 4 and 5 and wake on LAN now
-works. Thanks for your work.
+Due to the huge amount of recipients, please trim the Cc when answering.
 
-Regards,
-Tino
+
+Subject    : kernel immediately reboots
+References : http://lkml.org/lkml/2007/1/2/15
+Submitter  : Steve Youngs <steve@youngs.au.com>
+Status     : unknown
+
+
+Subject    : Acer Extensa 3002 WLMi: 'shutdown -h now' reboots the system
+References : http://lkml.org/lkml/2006/12/25/40
+Submitter  : Berthold Cogel <cogel@rrz.uni-koeln.de>
+Status     : unknown
+
+
+Subject    : USB keyboard unresponsive after some time
+References : http://lkml.org/lkml/2006/12/25/35
+             http://lkml.org/lkml/2006/12/26/106
+Submitter  : Florin Iucha <florin@iucha.net>
+Status     : unknown
+
+
+Subject    : BUG: scheduling while atomic
+References : http://lkml.org/lkml/2006/12/26/105
+Submitter  : Jon Smirl <jonsmirl@gmail.com>
+Status     : unknown
+
+
+Subject    : SPARC64: Can't mount /
+References : http://lkml.org/lkml/2006/12/13/181
+Submitter  : Horst H. von Brand <vonbrand@inf.utfsm.cl>
+Status     : unknown
+
+
+Subject    : ftp: get or put stops during file-transfer
+References : http://lkml.org/lkml/2006/12/16/174
+Submitter  : Komuro <komurojun-mbn@nifty.com>
+Caused-By  : YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+             commit cfb6eeb4c860592edd123fdea908d23c6ad1c7dc
+Handled-By : YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Status     : problem is being debugged
+
+
+Subject    : forcedeth.c 0.59: problem with sideband managment
+References : http://bugzilla.kernel.org/show_bug.cgi?id=7684
+Submitter  : Michael Reske <micha@gmx.com>
+Handled-By : Ayaz Abdulla <aabdulla@nvidia.com>
+Status     : problem is being debugged
+
+
+Subject    : x86_64 boot failure: "IO-APIC + timer doesn't work"
+References : http://lkml.org/lkml/2006/12/16/101
+Submitter  : Tobias Diedrich <ranma+kernel@tdiedrich.de>
+Caused-By  : Andi Kleen <ak@suse.de>
+             commit b026872601976f666bae77b609dc490d1834bf77
+Handled-By : Yinghai Lu <yinghai.lu@amd.com>
+             Eric W. Biederman <ebiederm@xmission.com>
+Status     : problem is being debugged
+
+
