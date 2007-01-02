@@ -1,342 +1,142 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pktgen
-Date: Mon, 01 Jan 2007 20:53:26 -0800 (PST)
-Message-ID: <20070101.205326.07639283.davem@davemloft.net>
-References: <456F15F7.3000700@candelatech.com>
-	<20061130.201423.118625277.davem@davemloft.net>
-	<17775.58441.678623.396102@robur.slu.se>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: BUG: soft lockup detected on CPU#0!  (2.6.18.2 plus hacks)
+Date: Mon, 01 Jan 2007 21:00:05 -0800
+Message-ID: <4599E6D5.6050207@candelatech.com>
+References: <45889C53.8000307@candelatech.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: greearb@candelatech.com, adobriyan@gmail.com, pavol.gono@gmail.com,
-	netdev@vger.kernel.org
+Cc: jarkao2@o2.pl
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43256
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755261AbXABExc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jan 2007 23:53:32 -0500
-To: Robert.Olsson@data.slu.se
-In-Reply-To: <17775.58441.678623.396102@robur.slu.se>
+Received: from ns2.lanforge.com ([66.165.47.211]:59262 "EHLO ns2.lanforge.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755262AbXABE6U (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Jan 2007 23:58:20 -0500
+To: NetDev <netdev@vger.kernel.org>
+In-Reply-To: <45889C53.8000307@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Date: Fri, 1 Dec 2006 09:14:01 +0100
+I finally had time to look through the code in this backtrace in 
+detail.  I think it *could*
+be a race between ip_rcv and inetdev_init, but I am not certain.  Other 
+than that, I'm real
+low on ideas.  I found a few more stack trace debugging options to 
+enable..perhaps that
+will give a better backtrace if we can reproduce it again.
 
-> 
-> David Miller writes:
-> 
->  > Agreed.
->  > 
->  > Robert, please fix this by using a completion so that we can
->  > wait for the threads to start up, something like this:
-> 
-> Included. It passes my test but Alexey and others test.
+I do have lock-debugging enabled, so it should have caught this if was 
+an un-initialized access
+problem, however.
 
-Ok, I'm going to put Robert's version of the fix into 2.6.19
-and previous -stable branches.
+More details below inline.
 
-But for 2.6.20 I'd like to do the following, based upon
-Christoph's suggestion to convert to kthread.
+Ben Greear wrote:
+> This is from 2.6.18.2 kernel with my patch set.  The MAC-VLANs are in 
+> active use.
+> From the backtrace, I am thinking this might be a generic problem, 
+> however.
+>
+> Any ideas about what this could be?  It seems to be reproducible every 
+> day or
+> two, but no known way to make it happen quickly...
+>
+> Kernel is SMP, PREEMPT.
+>
+>
+> Dec 19 04:49:33 localhost kernel: BUG: soft lockup detected on CPU#0!
+> Dec 19 04:49:33 localhost kernel:  [<78104252>] show_trace+0x12/0x20
+> Dec 19 04:49:33 localhost kernel:  [<78104929>] dump_stack+0x19/0x20
+> Dec 19 04:49:33 localhost kernel:  [<7814c88b>] softlockup_tick+0x9b/0xd0
+> Dec 19 04:49:33 localhost kernel:  [<7812a992>] 
+> run_local_timers+0x12/0x20
+> Dec 19 04:49:33 localhost kernel:  [<7812ac08>] 
+> update_process_times+0x38/0x80
+> Dec 19 04:49:33 localhost kernel:  [<78112796>] 
+> smp_apic_timer_interrupt+0x66/0x70
+> Dec 19 04:49:33 localhost kernel:  [<78103baa>] 
+> apic_timer_interrupt+0x2a/0x30
+> Dec 19 04:49:33 localhost kernel:  [<78354e8c>] _read_lock+0x3c/0x50
+ > Dec 19 04:49:33 localhost kernel:  [<78331f42>] ip_check_mc+0x22/0xb0
+This is blocked on:
+igmp.c:    read_lock(&in_dev->mc_list_lock);
 
-Can folks please give this a spin?  I've tested that the
-module loads and unloads properly, the threads startup
-and shutdown, but that's it.
+> Dec 19 04:49:33 localhost kernel:  [<783068bf>] 
+> ip_route_input+0x17f/0xef0
+route.c:            int our = ip_check_mc(in_dev, daddr, saddr, 
+skb->nh.iph->protocol);
+> Dec 19 04:49:33 localhost kernel:  [<78309c59>] ip_rcv+0x349/0x580
+?? Called by a macro maybe?  Can't find an obvious call to the 
+ip_route_input.
+> Dec 19 04:49:33 localhost kernel:  [<782ec98d>] 
+> netif_receive_skb+0x36d/0x3b0
+> Dec 19 04:49:33 localhost kernel:  [<782ee50c>] 
+> process_backlog+0x9c/0x130
+> Dec 19 04:49:33 localhost kernel:  [<782ee795>] net_rx_action+0xc5/0x1f0
+> Dec 19 04:49:33 localhost kernel:  [<78125e58>] __do_softirq+0x88/0x110
+> Dec 19 04:49:33 localhost kernel:  [<78125f59>] do_softirq+0x79/0x80
+> Dec 19 04:49:33 localhost kernel:  [<781260ed>] irq_exit+0x5d/0x60
+> Dec 19 04:49:33 localhost kernel:  [<78105a6d>] do_IRQ+0x4d/0xa0
+> Dec 19 04:49:33 localhost kernel:  [<78103ae9>] 
+> common_interrupt+0x25/0x2c
+> Dec 19 04:49:33 localhost kernel:  [<78354c45>] _spin_lock+0x35/0x50
+> Dec 19 04:49:33 localhost kernel:  [<781aab1d>] proc_register+0x2d/0x110
+> Dec 19 04:49:33 localhost kernel:  [<781ab23d>] 
+> create_proc_entry+0x5d/0xd0
+> Dec 19 04:49:33 localhost kernel:  [<7812873b>] 
+> register_proc_table+0x6b/0x110
+> Dec 19 04:49:33 localhost kernel:  [<78128771>] 
+> register_proc_table+0xa1/0x110
+> Dec 19 04:49:33 localhost last message repeated 3 times
+> Dec 19 04:49:33 localhost kernel:  [<7812886d>] 
+> register_sysctl_table+0x8d/0xc0
+> Dec 19 04:49:33 localhost kernel:  [<7832f0c9>] 
+> devinet_sysctl_register+0x109/0x150
 
-Thanks!
+This devinet_sysctl_register is called right before the ip_mc_init_dev 
+call is made, and
+that call is used to initialize the multicast lock that is blocked on at 
+the top of this backtrace.
+This *could* be the race, but only if the entities in question are the 
+same thing.  I don't see
+any way to determine whether they are or not based on the backtrace.
 
-commit b3010a665cc33596fbf4be3fc6c3c5c80aeefb65
-Author: David S. Miller <davem@sunset.davemloft.net>
-Date:   Mon Jan 1 20:51:53 2007 -0800
+I looked through all of the uses of the mc_list_lock, and the places 
+where it does a write_lock
+are few and appear to be correct with no possibility of deadlocking.  If 
+a lock was un-initialized, then
+that could perhaps explain why it is able to deadlock (though, that 
+should have triggered a different
+bug report since I have spin/rw-lock debugging enabled.)
 
-    [PKTGEN]: Convert to kthread API.
-    
-    Based upon a suggestion from Christoph Hellwig.
-    
-    This fixes various races in module load/unload handling
-    too.
-    
-    Signed-off-by: David S. Miller <davem@davemloft.net>
+> Dec 19 04:49:33 localhost kernel:  [<7832f2ea>] inetdev_init+0xea/0x160
+> Dec 19 04:49:33 localhost kernel:  [<7832fa2e>] 
+> inet_rtm_newaddr+0x16e/0x190
+> Dec 19 04:49:33 localhost kernel:  [<782f58a9>] 
+> rtnetlink_rcv_msg+0x169/0x230
+> Dec 19 04:49:33 localhost kernel:  [<78300ed0>] 
+> netlink_run_queue+0x90/0x140
+> Dec 19 04:49:33 localhost kernel:  [<782f56dc>] rtnetlink_rcv+0x2c/0x50
+> Dec 19 04:49:33 localhost kernel:  [<783014a5>] 
+> netlink_data_ready+0x15/0x60
+> Dec 19 04:49:33 localhost kernel:  [<78300167>] netlink_sendskb+0x27/0x50
+> Dec 19 04:49:33 localhost kernel:  [<78300bab>] 
+> netlink_unicast+0x15b/0x1f0
+> Dec 19 04:49:33 localhost kernel:  [<783013ab>] 
+> netlink_sendmsg+0x20b/0x2f0
+> Dec 19 04:49:33 localhost kernel:  [<782e12bc>] sock_sendmsg+0xfc/0x120
+> Dec 19 04:49:33 localhost kernel:  [<782e1a5a>] sys_sendmsg+0x10a/0x220
+> Dec 19 04:49:33 localhost kernel:  [<782e3311>] 
+> sys_socketcall+0x261/0x290
+> Dec 19 04:49:33 localhost kernel:  [<7810307d>] 
+> sysenter_past_esp+0x56/0x8d
+> Dec 19 04:52:17 localhost sshd[32311]: gethostby*.getanswer: asked for 
+> "203.60.60.10.in-addr.arpa IN PTR", got type "A"
+>
 
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index 1897a3a..04d4b93 100644
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -148,6 +148,7 @@
- #include <linux/seq_file.h>
- #include <linux/wait.h>
- #include <linux/etherdevice.h>
-+#include <linux/kthread.h>
- #include <net/checksum.h>
- #include <net/ipv6.h>
- #include <net/addrconf.h>
-@@ -360,8 +361,7 @@ struct pktgen_thread {
- 	spinlock_t if_lock;
- 	struct list_head if_list;	/* All device here */
- 	struct list_head th_list;
--	int removed;
--	char name[32];
-+	struct task_struct *tsk;
- 	char result[512];
- 	u32 max_before_softirq;	/* We'll call do_softirq to prevent starvation. */
- 
-@@ -1689,7 +1689,7 @@ static int pktgen_thread_show(struct seq_file *seq, void *v)
- 	BUG_ON(!t);
- 
- 	seq_printf(seq, "Name: %s  max_before_softirq: %d\n",
--		   t->name, t->max_before_softirq);
-+		   t->tsk->comm, t->max_before_softirq);
- 
- 	seq_printf(seq, "Running: ");
- 
-@@ -3112,7 +3112,7 @@ static void pktgen_rem_thread(struct pktgen_thread *t)
- {
- 	/* Remove from the thread list */
- 
--	remove_proc_entry(t->name, pg_proc_dir);
-+	remove_proc_entry(t->tsk->comm, pg_proc_dir);
- 
- 	mutex_lock(&pktgen_thread_lock);
- 
-@@ -3260,58 +3260,40 @@ out:;
-  * Main loop of the thread goes here
-  */
- 
--static void pktgen_thread_worker(struct pktgen_thread *t)
-+static int pktgen_thread_worker(void *arg)
- {
- 	DEFINE_WAIT(wait);
-+	struct pktgen_thread *t = arg;
- 	struct pktgen_dev *pkt_dev = NULL;
- 	int cpu = t->cpu;
--	sigset_t tmpsig;
- 	u32 max_before_softirq;
- 	u32 tx_since_softirq = 0;
- 
--	daemonize("pktgen/%d", cpu);
--
--	/* Block all signals except SIGKILL, SIGSTOP and SIGTERM */
--
--	spin_lock_irq(&current->sighand->siglock);
--	tmpsig = current->blocked;
--	siginitsetinv(&current->blocked,
--		      sigmask(SIGKILL) | sigmask(SIGSTOP) | sigmask(SIGTERM));
--
--	recalc_sigpending();
--	spin_unlock_irq(&current->sighand->siglock);
--
--	/* Migrate to the right CPU */
--	set_cpus_allowed(current, cpumask_of_cpu(cpu));
--	if (smp_processor_id() != cpu)
--		BUG();
-+	BUG_ON(smp_processor_id() != cpu);
- 
- 	init_waitqueue_head(&t->queue);
- 
--	t->control &= ~(T_TERMINATE);
--	t->control &= ~(T_RUN);
--	t->control &= ~(T_STOP);
--	t->control &= ~(T_REMDEVALL);
--	t->control &= ~(T_REMDEV);
--
- 	t->pid = current->pid;
- 
- 	PG_DEBUG(printk("pktgen: starting pktgen/%d:  pid=%d\n", cpu, current->pid));
- 
- 	max_before_softirq = t->max_before_softirq;
- 
--	__set_current_state(TASK_INTERRUPTIBLE);
--	mb();
-+	set_current_state(TASK_INTERRUPTIBLE);
- 
--	while (1) {
--
--		__set_current_state(TASK_RUNNING);
-+	while (!kthread_should_stop()) {
-+		pkt_dev = next_to_run(t);
- 
--		/*
--		 * Get next dev to xmit -- if any.
--		 */
-+		if (!pkt_dev &&
-+		    (t->control & (T_STOP | T_RUN | T_REMDEVALL | T_REMDEV))
-+		    == 0) {
-+			prepare_to_wait(&(t->queue), &wait,
-+					TASK_INTERRUPTIBLE);
-+			schedule_timeout(HZ / 10);
-+			finish_wait(&(t->queue), &wait);
-+		}
- 
--		pkt_dev = next_to_run(t);
-+		__set_current_state(TASK_RUNNING);
- 
- 		if (pkt_dev) {
- 
-@@ -3329,21 +3311,8 @@ static void pktgen_thread_worker(struct pktgen_thread *t)
- 					do_softirq();
- 				tx_since_softirq = 0;
- 			}
--		} else {
--			prepare_to_wait(&(t->queue), &wait, TASK_INTERRUPTIBLE);
--			schedule_timeout(HZ / 10);
--			finish_wait(&(t->queue), &wait);
- 		}
- 
--		/*
--		 * Back from sleep, either due to the timeout or signal.
--		 * We check if we have any "posted" work for us.
--		 */
--
--		if (t->control & T_TERMINATE || signal_pending(current))
--			/* we received a request to terminate ourself */
--			break;
--
- 		if (t->control & T_STOP) {
- 			pktgen_stop(t);
- 			t->control &= ~(T_STOP);
-@@ -3364,20 +3333,19 @@ static void pktgen_thread_worker(struct pktgen_thread *t)
- 			t->control &= ~(T_REMDEV);
- 		}
- 
--		if (need_resched())
--			schedule();
-+		set_current_state(TASK_INTERRUPTIBLE);
- 	}
- 
--	PG_DEBUG(printk("pktgen: %s stopping all device\n", t->name));
-+	PG_DEBUG(printk("pktgen: %s stopping all device\n", t->tsk->comm));
- 	pktgen_stop(t);
- 
--	PG_DEBUG(printk("pktgen: %s removing all device\n", t->name));
-+	PG_DEBUG(printk("pktgen: %s removing all device\n", t->tsk->comm));
- 	pktgen_rem_all_ifs(t);
- 
--	PG_DEBUG(printk("pktgen: %s removing thread.\n", t->name));
-+	PG_DEBUG(printk("pktgen: %s removing thread.\n", t->tsk->comm));
- 	pktgen_rem_thread(t);
- 
--	t->removed = 1;
-+	return 0;
- }
- 
- static struct pktgen_dev *pktgen_find_dev(struct pktgen_thread *t,
-@@ -3495,37 +3463,11 @@ static int pktgen_add_device(struct pktgen_thread *t, const char *ifname)
- 	return add_dev_to_thread(t, pkt_dev);
- }
- 
--static struct pktgen_thread *__init pktgen_find_thread(const char *name)
-+static int __init pktgen_create_thread(int cpu)
- {
- 	struct pktgen_thread *t;
--
--	mutex_lock(&pktgen_thread_lock);
--
--	list_for_each_entry(t, &pktgen_threads, th_list)
--		if (strcmp(t->name, name) == 0) {
--			mutex_unlock(&pktgen_thread_lock);
--			return t;
--		}
--
--	mutex_unlock(&pktgen_thread_lock);
--	return NULL;
--}
--
--static int __init pktgen_create_thread(const char *name, int cpu)
--{
--	int err;
--	struct pktgen_thread *t = NULL;
- 	struct proc_dir_entry *pe;
--
--	if (strlen(name) > 31) {
--		printk("pktgen: ERROR:  Thread name cannot be more than 31 characters.\n");
--		return -EINVAL;
--	}
--
--	if (pktgen_find_thread(name)) {
--		printk("pktgen: ERROR: thread: %s already exists\n", name);
--		return -EINVAL;
--	}
-+	struct task_struct *p;
- 
- 	t = kzalloc(sizeof(struct pktgen_thread), GFP_KERNEL);
- 	if (!t) {
-@@ -3533,14 +3475,29 @@ static int __init pktgen_create_thread(const char *name, int cpu)
- 		return -ENOMEM;
- 	}
- 
--	strcpy(t->name, name);
- 	spin_lock_init(&t->if_lock);
- 	t->cpu = cpu;
- 
--	pe = create_proc_entry(t->name, 0600, pg_proc_dir);
-+	INIT_LIST_HEAD(&t->if_list);
-+
-+	list_add_tail(&t->th_list, &pktgen_threads);
-+
-+	p = kthread_create(pktgen_thread_worker, t, "kpktgend_%d", cpu);
-+	if (IS_ERR(p)) {
-+		printk("pktgen: kernel_thread() failed for cpu %d\n", t->cpu);
-+		list_del(&t->th_list);
-+		kfree(t);
-+		return PTR_ERR(p);
-+	}
-+	kthread_bind(p, cpu);
-+	t->tsk = p;
-+
-+	pe = create_proc_entry(t->tsk->comm, 0600, pg_proc_dir);
- 	if (!pe) {
- 		printk("pktgen: cannot create %s/%s procfs entry.\n",
--		       PG_PROC_DIR, t->name);
-+		       PG_PROC_DIR, t->tsk->comm);
-+		kthread_stop(p);
-+		list_del(&t->th_list);
- 		kfree(t);
- 		return -EINVAL;
- 	}
-@@ -3548,21 +3505,7 @@ static int __init pktgen_create_thread(const char *name, int cpu)
- 	pe->proc_fops = &pktgen_thread_fops;
- 	pe->data = t;
- 
--	INIT_LIST_HEAD(&t->if_list);
--
--	list_add_tail(&t->th_list, &pktgen_threads);
--
--	t->removed = 0;
--
--	err = kernel_thread((void *)pktgen_thread_worker, (void *)t,
--			  CLONE_FS | CLONE_FILES | CLONE_SIGHAND);
--	if (err < 0) {
--		printk("pktgen: kernel_thread() failed for cpu %d\n", t->cpu);
--		remove_proc_entry(t->name, pg_proc_dir);
--		list_del(&t->th_list);
--		kfree(t);
--		return err;
--	}
-+	wake_up_process(p);
- 
- 	return 0;
- }
-@@ -3643,10 +3586,8 @@ static int __init pg_init(void)
- 
- 	for_each_online_cpu(cpu) {
- 		int err;
--		char buf[30];
- 
--		sprintf(buf, "kpktgend_%i", cpu);
--		err = pktgen_create_thread(buf, cpu);
-+		err = pktgen_create_thread(cpu);
- 		if (err)
- 			printk("pktgen: WARNING: Cannot create thread for cpu %d (%d)\n",
- 					cpu, err);
-@@ -3674,9 +3615,8 @@ static void __exit pg_cleanup(void)
- 
- 	list_for_each_safe(q, n, &pktgen_threads) {
- 		t = list_entry(q, struct pktgen_thread, th_list);
--		t->control |= (T_TERMINATE);
--
--		wait_event_interruptible_timeout(queue, (t->removed == 1), HZ);
-+		kthread_stop(t->tsk);
-+		kfree(t);
- 	}
- 
- 	/* Un-register us from receiving netdevice events */
+
+-- 
+Ben Greear <greearb@candelatech.com> 
+Candela Technologies Inc  http://www.candelatech.com
+
+
