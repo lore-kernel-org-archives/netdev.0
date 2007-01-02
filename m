@@ -1,35 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] xfrm_user: avoid pointless void ** casts
-Date: Tue, 02 Jan 2007 15:23:51 -0800 (PST)
-Message-ID: <20070102.152351.59657454.davem@davemloft.net>
-References: <20070102143906.GA13970@lst.de>
+Subject: Re: [PATCH] net: af_netlink module_put cleanup
+Date: Tue, 02 Jan 2007 15:25:09 -0800 (PST)
+Message-ID: <20070102.152509.48799363.davem@davemloft.net>
+References: <200701021347.37952.m.kozlowski@tuxland.pl>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: jgarzik@pobox.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36732
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36737
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751336AbXABXXw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jan 2007 18:23:52 -0500
-To: hch@lst.de
-In-Reply-To: <20070102143906.GA13970@lst.de>
+	by vger.kernel.org with ESMTP id S1752326AbXABXZK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jan 2007 18:25:10 -0500
+To: m.kozlowski@tuxland.pl
+In-Reply-To: <200701021347.37952.m.kozlowski@tuxland.pl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Christoph Hellwig <hch@lst.de>
-Date: Tue, 2 Jan 2007 15:39:06 +0100
+From: Mariusz Kozlowski <m.kozlowski@tuxland.pl>
+Date: Tue, 2 Jan 2007 13:47:37 +0100
 
-> All ->doit handlers want a struct rtattr **, so pass down the right
-> type.
+> Hello,
 > 
+> 	This patch removes redundant argument check for module_put().
 > 
-> Signed-off-by: Christoph Hellwig <hch@lst.de>
-
-This code was just trying to mirror the typing used by
-struct rtnetlink_link's ->doit() method.
-
-But of course you're right in that here the type is always
-the same.
+> Signed-off-by: Mariusz Kozlowski <m.kozlowski@tuxland.pl>
 
 Applied, thanks.
