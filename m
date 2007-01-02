@@ -1,72 +1,82 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: 2.6.20-rc3: known regressions with patches available (part 2)
-Date: Tue, 2 Jan 2007 20:30:01 +0100
-Message-ID: <20070102193001.GW20714@stusta.de>
-References: <Pine.LNX.4.64.0612311710430.4473@woody.osdl.org>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: [patch] selinux: fix selinux_netlbl_inode_permission() locking
+Date: Tue, 2 Jan 2007 21:09:31 +0100
+Message-ID: <20070102200931.GA25789@elte.hu>
+References: <20061225052124.A10323@freya> <20061224162511.eaac4a89.akpm@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	"Adam J. Richter" <adam@yggdrasil.com>,
+Cc: "Adam J. Richter" <adam@yggdrasil.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	Paul Moore <paul.moore@hp.com>,
-	Parag Warudkar <paragw@paragw.zapto.org>, sds@tycho.nsa.gov,
-	jmorris@namei.org, netdev@vger.kernel.org,
-	Alessandro Suardi <alessandro.suardi@gmail.com>,
-	Theodore Tso <tytso@mit.edu>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Jeff Garzik <jeff@garzik.org>, linux-ide@vger.kernel.org,
-	Ben Castricum <mail0612@bencastricum.nl>,
-	Greg Kroah-Hartman <gregkh@suse.de>,
-	linux-pci@atrey.karlin.mff.cuni.cz
+	Linus Torvalds <torvalds@osdl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout.stusta.mhn.de ([141.84.69.5]:2427 "HELO
-	mailout.stusta.mhn.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S964929AbXABT37 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Jan 2007 14:29:59 -0500
-To: Linus Torvalds <torvalds@osdl.org>, Andrew Morton <akpm@osdl.org>
+Received: from mx2.mail.elte.hu ([157.181.151.9]:43592 "EHLO mx2.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755319AbXABUNK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Jan 2007 15:13:10 -0500
+To: Andrew Morton <akpm@osdl.org>
 Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0612311710430.4473@woody.osdl.org>
+In-Reply-To: <20061224162511.eaac4a89.akpm@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This email lists some known regressions in 2.6.20-rc3 compared to 2.6.19
-with patches available
 
-If you find your name in the Cc header, you are either submitter of one
-of the bugs, maintainer of an affectected subsystem or driver, a patch
-of you caused a breakage or I'm considering you in any other way possibly
-involved with one or more of these issues.
+* Andrew Morton <akpm@osdl.org> wrote:
 
-Due to the huge amount of recipients, please trim the Cc when answering.
+> There's a glaring bug in selinux_netlbl_inode_permission() - taking 
+> lock_sock() inside rcu_read_lock().
 
+Note that the bug is still in -rc3, and is easily triggerable via a 
+default FC6 bootup. It's fixed by the (slightly modified) patch from 
+Parag Warudkar below that i have in the -rt tree.
 
-Subject    : selinux networking: sleeping function called from invalid context
-References : http://lkml.org/lkml/2006/12/24/78
-Submitter  : Adam J. Richter <adam@yggdrasil.com>
-Caused-By  : Paul Moore <paul.moore@hp.com>
-Handled-By : Parag Warudkar <paragw@paragw.zapto.org>
-Patch      : http://lkml.org/lkml/2006/12/24/89
-Status     : patch available
+Note that this bug became visible due to the recent __resched_legal() 
+fix, which bug made most of our atomicity debugging checks ineffective. 
+About half a dozen separate atomicity bugs triggered in -rt when i fixed 
+the __resched_legal() bug, so i'd expect some more to trigger upstream 
+too.
 
+	Ingo
 
-Subject    : kernel panics on boot (libata-sff)
-References : http://lkml.org/lkml/2006/12/3/99
-             http://lkml.org/lkml/2006/12/14/153
-             http://lkml.org/lkml/2006/12/24/33
-             http://lkml.org/lkml/2007/1/1/84
-Submitter  : Alessandro Suardi <alessandro.suardi@gmail.com>
-             Theodore Tso <tytso@mit.edu>
-Caused-By  : Alan Cox <alan@lxorguk.ukuu.org.uk>
-             commit 368c73d4f689dae0807d0a2aa74c61fd2b9b075f
-Handled-By : Alan Cox <alan@lxorguk.ukuu.org.uk>
-             Jeff Garzik <jeff@garzik.org>
-Patch      : http://lkml.org/lkml/2007/1/2/64
-Status     : patch available
+------------------------>
+Subject: [patch] selinux: fix selinux_netlbl_inode_permission() locking
+From: Parag Warudkar <paragw@paragw.zapto.org>
 
+do not call a sleeping lock API in an RCU read section.
+lock_sock_nested can sleep, its BH counterpart doesn't. 
+selinux_netlbl_inode_permission() needs to use the BH counterpart
+unconditionally.
 
-Subject    : PCI_MULTITHREAD_PROBE breakage
-References : http://lkml.org/lkml/2006/12/12/21
-Submitter  : Ben Castricum <mail0612@bencastricum.nl>
-Caused-By  : Greg Kroah-Hartman <gregkh@suse.de>
-             commit 009af1ff78bfc30b9a27807dd0207fc32848218a
-Handled-By : Greg Kroah-Hartman <gregkh@suse.de>
-Status     : patch available
+Compile tested.
+
+From: Ingo Molnar <mingo@elte.hu>
+
+added BH disabling, because this function can be called from non-atomic
+contexts too, so a naked bh_lock_sock() would be deadlock-prone.
+
+Boot-tested the resulting kernel.
+
+Signed-off-by: Parag Warudkar <paragw@paragw.zapto.org>
+Signed-off-by: Ingo Molnar <mingo@elte.hu>
+---
+ security/selinux/ss/services.c |    6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+Index: linux/security/selinux/ss/services.c
+===================================================================
+--- linux.orig/security/selinux/ss/services.c
++++ linux/security/selinux/ss/services.c
+@@ -2660,9 +2660,11 @@ int selinux_netlbl_inode_permission(stru
+ 		rcu_read_unlock();
+ 		return 0;
+ 	}
+-	lock_sock(sock->sk);
++	local_bh_disable();
++	bh_lock_sock_nested(sock->sk);
+ 	rc = selinux_netlbl_socket_setsid(sock, sksec->sid);
+-	release_sock(sock->sk);
++	bh_unlock_sock(sock->sk);
++	local_bh_enable();
+ 	rcu_read_unlock();
+ 
+ 	return rc;
