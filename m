@@ -1,42 +1,36 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: BUG: soft lockup detected on CPU#0!  (2.6.18.2 plus hacks)
-Date: Tue, 2 Jan 2007 15:35:39 -0800
-Message-ID: <OFB8CE3E37.99FD5849-ON88257257.0080FAE8-88257257.00819B15@us.ibm.com>
-References: <4599E6D5.6050207@candelatech.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net/core/flow.c: compare data with memcmp
+Date: Tue, 02 Jan 2007 15:36:26 -0800 (PST)
+Message-ID: <20070102.153626.14976011.davem@davemloft.net>
+References: <20061231.123715.115911390.davem@davemloft.net>
+	<80ec54e90612312347w2b906e5eg725a7761110c6897@mail.gmail.com>
+	<80ec54e90701010116u27d02341kb2be785f17f18e3d@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: jarkao2@o2.pl, NetDev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e34.co.us.ibm.com ([32.97.110.152]:40086 "EHLO
-	e34.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752486AbXABXft (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jan 2007 18:35:49 -0500
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e34.co.us.ibm.com (8.13.8/8.12.11) with ESMTP id l02NZhvj024057
-	for <netdev@vger.kernel.org>; Tue, 2 Jan 2007 18:35:43 -0500
-Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
-	by d03relay04.boulder.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id l02NZhcD531818
-	for <netdev@vger.kernel.org>; Tue, 2 Jan 2007 16:35:43 -0700
-Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av03.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l02NZgQO017030
-	for <netdev@vger.kernel.org>; Tue, 2 Jan 2007 16:35:42 -0700
-In-Reply-To: <4599E6D5.6050207@candelatech.com>
-To: Ben Greear <greearb@candelatech.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, kernel-janitors@lists.osdl.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964913AbXABXg2@vger.kernel.org>
+To: daniel.marjamaki@gmail.com
+In-Reply-To: <80ec54e90701010116u27d02341kb2be785f17f18e3d@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I've looked at this a little too -- it'd be nice to know who holds
-the write lock.
+=46rom: "Daniel_Marjam=E4ki" <daniel.marjamaki@gmail.com>
+Date: Mon, 1 Jan 2007 10:16:02 +0100
 
-I see ip_mc_destroy_dev() is bouncing through the lock for
-each multicast address, though it starts at the beginning of
-the list each time. I don't see a problem with it, but it'd be
-simpler if it acquired the write lock once, grabbed and nulled
-the list, released the lock and then called igmp_group_dropped()
-& ip_ma_put() on each address from the local list copy.
+> I have done a little testing on my own. My results is that memcpy is
+> many times faster even with aligned data.
 
-Are you destroying/creating interfaces or doing a lot of multicasting at
-the time? How many group memberships do you have?
+Your test program doesn't make any measurements, from where did
+you get these "results"?
 
-                                        +-DLS
+Also, your test program is broken because in the memcmp() case GCC
+totally optimizes away the call to memcmp() because it can see the
+comparison data at compile time and therefore it computes the memcmp()
+result at compile time.  There are no memcmp() calls made at all by
+your program.
 
+You should look at the assembler code emitted by a test program
+that is measuring performance, in detail, to make sure the test
+program really is doing what you think it is.
