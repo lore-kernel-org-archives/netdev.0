@@ -1,164 +1,49 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: BUG: soft lockup detected on CPU#0!  (2.6.18.2 plus hacks)
-Date: Tue, 2 Jan 2007 08:39:09 +0100
-Message-ID: <20070102073909.GA1712@ff.dom.local>
-References: <45889C53.8000307@candelatech.com> <4599E6D5.6050207@candelatech.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: ifb error path loop fix
+Date: Mon, 01 Jan 2007 23:51:32 -0800 (PST)
+Message-ID: <20070101.235132.85409619.davem@davemloft.net>
+References: <200701020055.51805.m.kozlowski@tuxland.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: NetDev <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: hadi@cyberus.ca, netdev@vger.kernel.org, jeff@garzik.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx10.go2.pl ([193.17.41.74]:35338 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932939AbXABHhe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Jan 2007 02:37:34 -0500
-To: Ben Greear <greearb@candelatech.com>
-Content-Disposition: inline
-In-Reply-To: <4599E6D5.6050207@candelatech.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36925
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S932947AbXABHvd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jan 2007 02:51:33 -0500
+To: m.kozlowski@tuxland.pl
+In-Reply-To: <200701020055.51805.m.kozlowski@tuxland.pl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 01, 2007 at 09:00:05PM -0800, Ben Greear wrote:
-> I finally had time to look through the code in this backtrace in 
-> detail.  I think it *could*
-> be a race between ip_rcv and inetdev_init, but I am not certain.  Other 
-> than that, I'm real
-> low on ideas.  I found a few more stack trace debugging options to 
-> enable..perhaps that
-> will give a better backtrace if we can reproduce it again.
-> 
-> I do have lock-debugging enabled, so it should have caught this if was 
-> an un-initialized access
-> problem, however.
-> 
-> More details below inline.
-> 
-> Ben Greear wrote:
-> >This is from 2.6.18.2 kernel with my patch set.  The MAC-VLANs are in 
-> >active use.
-> >From the backtrace, I am thinking this might be a generic problem, 
-> >however.
-> >
-> >Any ideas about what this could be?  It seems to be reproducible every 
-> >day or
-> >two, but no known way to make it happen quickly...
-> >
-> >Kernel is SMP, PREEMPT.
-> >
-> >
-> >Dec 19 04:49:33 localhost kernel: BUG: soft lockup detected on CPU#0!
-> >Dec 19 04:49:33 localhost kernel:  [<78104252>] show_trace+0x12/0x20
-> >Dec 19 04:49:33 localhost kernel:  [<78104929>] dump_stack+0x19/0x20
-> >Dec 19 04:49:33 localhost kernel:  [<7814c88b>] softlockup_tick+0x9b/0xd0
-> >Dec 19 04:49:33 localhost kernel:  [<7812a992>] 
-> >run_local_timers+0x12/0x20
-> >Dec 19 04:49:33 localhost kernel:  [<7812ac08>] 
-> >update_process_times+0x38/0x80
-> >Dec 19 04:49:33 localhost kernel:  [<78112796>] 
-> >smp_apic_timer_interrupt+0x66/0x70
-> >Dec 19 04:49:33 localhost kernel:  [<78103baa>] 
-> >apic_timer_interrupt+0x2a/0x30
-> >Dec 19 04:49:33 localhost kernel:  [<78354e8c>] _read_lock+0x3c/0x50
-> > Dec 19 04:49:33 localhost kernel:  [<78331f42>] ip_check_mc+0x22/0xb0
-> This is blocked on:
-> igmp.c:    read_lock(&in_dev->mc_list_lock);
-> 
-> >Dec 19 04:49:33 localhost kernel:  [<783068bf>] 
-> >ip_route_input+0x17f/0xef0
-> route.c:            int our = ip_check_mc(in_dev, daddr, saddr, 
-> skb->nh.iph->protocol);
-> >Dec 19 04:49:33 localhost kernel:  [<78309c59>] ip_rcv+0x349/0x580
-> ?? Called by a macro maybe?  Can't find an obvious call to the 
+From: Mariusz Kozlowski <m.kozlowski@tuxland.pl>
+Date: Tue, 2 Jan 2007 00:55:51 +0100
 
-Probably deliver_skb.
+> On error we should start freeing resources at [i-1] not [i-2].
+> 
+> Signed-off-by: Mariusz Kozlowski <m.kozlowski@tuxland.pl>
 
-> ip_route_input.
-> >Dec 19 04:49:33 localhost kernel:  [<782ec98d>] 
-> >netif_receive_skb+0x36d/0x3b0
-> >Dec 19 04:49:33 localhost kernel:  [<782ee50c>] 
-> >process_backlog+0x9c/0x130
-> >Dec 19 04:49:33 localhost kernel:  [<782ee795>] net_rx_action+0xc5/0x1f0
-> >Dec 19 04:49:33 localhost kernel:  [<78125e58>] __do_softirq+0x88/0x110
-> >Dec 19 04:49:33 localhost kernel:  [<78125f59>] do_softirq+0x79/0x80
-> >Dec 19 04:49:33 localhost kernel:  [<781260ed>] irq_exit+0x5d/0x60
-> >Dec 19 04:49:33 localhost kernel:  [<78105a6d>] do_IRQ+0x4d/0xa0
-> >Dec 19 04:49:33 localhost kernel:  [<78103ae9>] 
-> >common_interrupt+0x25/0x2c
-> >Dec 19 04:49:33 localhost kernel:  [<78354c45>] _spin_lock+0x35/0x50
-> >Dec 19 04:49:33 localhost kernel:  [<781aab1d>] proc_register+0x2d/0x110
-> >Dec 19 04:49:33 localhost kernel:  [<781ab23d>] 
-> >create_proc_entry+0x5d/0xd0
-> >Dec 19 04:49:33 localhost kernel:  [<7812873b>] 
-> >register_proc_table+0x6b/0x110
-> >Dec 19 04:49:33 localhost kernel:  [<78128771>] 
-> >register_proc_table+0xa1/0x110
-> >Dec 19 04:49:33 localhost last message repeated 3 times
-> >Dec 19 04:49:33 localhost kernel:  [<7812886d>] 
-> >register_sysctl_table+0x8d/0xc0
-> >Dec 19 04:49:33 localhost kernel:  [<7832f0c9>] 
-> >devinet_sysctl_register+0x109/0x150
-> 
-> This devinet_sysctl_register is called right before the ip_mc_init_dev 
-> call is made, and
-> that call is used to initialize the multicast lock that is blocked on at 
-> the top of this backtrace.
-> This *could* be the race, but only if the entities in question are the 
-> same thing.  I don't see
-> any way to determine whether they are or not based on the backtrace.
-> 
-> I looked through all of the uses of the mc_list_lock, and the places 
-> where it does a write_lock
-> are few and appear to be correct with no possibility of deadlocking.  If 
-> a lock was un-initialized, then
-> that could perhaps explain why it is able to deadlock (though, that 
-> should have triggered a different
-> bug report since I have spin/rw-lock debugging enabled.)
-> 
+Patch applied, thanks Mariusz.
 
-It is hard to say what kind of bug to expect
-because at the same time other net_rx_action
-with the same vlan dev could take place on
-other processor and this inetdev_init could
-do more.
+> diff -upr linux-2.6.20-rc2-mm1-a/drivers/net/ifb.c linux-2.6.20-rc2-mm1-b/drivers/net/ifb.c
+> --- linux-2.6.20-rc2-mm1-a/drivers/net/ifb.c	2006-12-24 05:00:32.000000000 +0100
+> +++ linux-2.6.20-rc2-mm1-b/drivers/net/ifb.c	2007-01-02 00:25:34.000000000 +0100
+> @@ -271,8 +271,7 @@ static int __init ifb_init_module(void)
+>  	for (i = 0; i < numifbs && !err; i++)
+>  		err = ifb_init_one(i);
+>  	if (err) {
+> -		i--;
+> -		while (--i >= 0)
+> +		while (i--)
+>  			ifb_free_one(i);
+>  	}
 
-The main thing is the possibility of processing
-skb with not entirely open source dev which isn't
-expected (and checked) by receive functions.
-I think the easiest way to convince yourself is
-to add temporarily IFF_UP flag checking with
-dropping at the beginning of netif_receive_skb and
-__vlan_hwaccel_rx.
+One could argue from a defensive programming perspective that
+this bug comes from the fact that the ifb_init_one() loop
+advances state before checking for errors ('i' is advanced before
+the 'err' check due to the loop construct), and that's why the
+error recovery code had to be coded specially :-)
 
-Jarek P.
-
-> >Dec 19 04:49:33 localhost kernel:  [<7832f2ea>] inetdev_init+0xea/0x160
-> >Dec 19 04:49:33 localhost kernel:  [<7832fa2e>] 
-> >inet_rtm_newaddr+0x16e/0x190
-> >Dec 19 04:49:33 localhost kernel:  [<782f58a9>] 
-> >rtnetlink_rcv_msg+0x169/0x230
-> >Dec 19 04:49:33 localhost kernel:  [<78300ed0>] 
-> >netlink_run_queue+0x90/0x140
-> >Dec 19 04:49:33 localhost kernel:  [<782f56dc>] rtnetlink_rcv+0x2c/0x50
-> >Dec 19 04:49:33 localhost kernel:  [<783014a5>] 
-> >netlink_data_ready+0x15/0x60
-> >Dec 19 04:49:33 localhost kernel:  [<78300167>] netlink_sendskb+0x27/0x50
-> >Dec 19 04:49:33 localhost kernel:  [<78300bab>] 
-> >netlink_unicast+0x15b/0x1f0
-> >Dec 19 04:49:33 localhost kernel:  [<783013ab>] 
-> >netlink_sendmsg+0x20b/0x2f0
-> >Dec 19 04:49:33 localhost kernel:  [<782e12bc>] sock_sendmsg+0xfc/0x120
-> >Dec 19 04:49:33 localhost kernel:  [<782e1a5a>] sys_sendmsg+0x10a/0x220
-> >Dec 19 04:49:33 localhost kernel:  [<782e3311>] 
-> >sys_socketcall+0x261/0x290
-> >Dec 19 04:49:33 localhost kernel:  [<7810307d>] 
-> >sysenter_past_esp+0x56/0x8d
-> >Dec 19 04:52:17 localhost sshd[32311]: gethostby*.getanswer: asked for 
-> >"203.60.60.10.in-addr.arpa IN PTR", got type "A"
-> >
-> 
-> 
-> -- 
-> Ben Greear <greearb@candelatech.com> 
-> Candela Technologies Inc  http://www.candelatech.com
-> 
-> 
-> 
+Anyways, your fix is of course fine and I've applied it.
