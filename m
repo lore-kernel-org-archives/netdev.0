@@ -1,58 +1,52 @@
-From: "Michael S. Tsirkin" <mst@mellanox.co.il>
-Subject: Re: [PATCH  v4 01/13] Linux RDMA Core Changes
-Date: Wed, 3 Jan 2007 17:18:23 +0200
-Message-ID: <20070103151823.GR6019@mellanox.co.il>
-References: <1167836172.4187.9.camel@stevo-desktop> <20070103150013.GO6019@mellanox.co.il> <1167836841.4187.18.camel@stevo-desktop>
-Reply-To: "Michael S. Tsirkin" <mst@mellanox.co.il>
+From: KOVACS Krisztian <hidden@balabit.hu>
+Subject: [PATCH/RFC 00/10] Transparent proxying patches version 4
+Date: Wed, 03 Jan 2007 17:33:57 +0100
+Message-ID: <20070103163357.14635.37754.stgit@nienna.balabit>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Roland Dreier <rdreier@cisco.com>,
-	linux-kernel@vger.kernel.org, openib-general@openib.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from dev.mellanox.co.il ([194.90.237.44]:36510 "EHLO
-	dev.mellanox.co.il" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750844AbXACPUY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jan 2007 10:20:24 -0500
-To: Steve Wise <swise@opengridcomputing.com>
-Content-Disposition: inline
-In-Reply-To: <1167836841.4187.18.camel@stevo-desktop>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: netfilter-devel@lists.netfilter.org, netdev@vger.kernel.org
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-> > > > No, it won't need 2 transitions - just an extra function call,
-> > > > so it won't hurt performance - it would improve performance.
-> > > > 
-> > > > ib_uverbs_req_notify_cq would call
-> > > > 
-> > > > 	ib_uverbs_req_notify_cq()
-> > > > 	{
-> > > > 			ib_set_cq_udata(cq, udata)
-> > > > 			ib_req_notify_cq(cq, cmd.solicited_only ?
-> > > > 				IB_CQ_SOLICITED : IB_CQ_NEXT_COMP);
-> > > > 	}
-> > > > 
-> > > 
-> > > ib_set_cq_udata() would transition into the kernel to pass in the
-> > > consumer's index.  In addition, ib_req_notify_cq would also transition
-> > > into the kernel since its not a bypass function for chelsio.
-> > 
-> > We misunderstand each other.
-> > 
-> > ib_uverbs_req_notify_cq is in drivers/infiniband/core/uverbs_cmd.c -
-> > all this code runs inside the IB_USER_VERBS_CMD_REQ_NOTIFY_CQ command,
-> > so there is a single user to kernel transition.
-> > 
-> 
-> Oh I see. 
-> 
-> This seems like a lot of extra code to avoid passing one extra arg to
-> the driver's req_notify_cq verb.  I'd appreciate other folk's input on
-> how important they think this is.  
->
-> If you insist, then I'll run some tests specifically in kernel mode and
-> see how this affects mthca's req_notify performance.
+The following set of patches implement transparent proxying support
+loosely modeled on the Linux 2.2 transparent proxying functionality.
 
-This might be an interesting datapoint.
+In the last few years we've been maintaining a set of patches
+implementing Netfilter NAT to provide similar functionality. However,
+as time passed, more and more bugs surfaced, some of which were not
+possible to fix using that approach. Also, those patches required
+modification of user-space application code and the "API" provided was
+neither clean nor easy to use.
+
+So instead of using NAT to dynamically redirect traffic to local
+addresses, we now rely on "native" non-locally-bound sockets and do
+early socket lookups for inbound IPv4 packets. These lookups are done
+in a separate Netfilter/iptables module, so there are only negligible
+performance implications of building transparent proxying support as a
+module and then not loading it.
+
+Small modifications were also necessary in IP/TCP/UDP core code to
+support the Netfilter modules. All those have been functionally split
+out into stand-alone patches among which there are no direct
+dependencies. Among these changes are ones which I think might be
+potentially risky, especially the core IPv4 routing code changes.
+
+Also please note that at the moment only IPv4 support is implemented,
+but opposed to the NAT-based approach taken by older TProxy versions
+IPv6 support is possible this way.
+
+Comments welcome...
 
 -- 
-MST
+ Regards,
+  Krisztian Kovacs
