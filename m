@@ -1,77 +1,36 @@
-From: "Michael S. Tsirkin" <mst@mellanox.co.il>
-Subject: Re: [PATCH  v4 01/13] Linux RDMA Core Changes
-Date: Wed, 3 Jan 2007 21:33:24 +0200
-Message-ID: <20070103193324.GD29003@mellanox.co.il>
-References: <1167851839.4187.36.camel@stevo-desktop>
-Reply-To: "Michael S. Tsirkin" <mst@mellanox.co.il>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: [PATCH/RFC 00/10] Transparent proxying patches version 4
+Date: Wed, 3 Jan 2007 20:33:27 +0100
+Message-ID: <20070103193327.GA8331@xi.wantstofly.org>
+References: <20070103163357.14635.37754.stgit@nienna.balabit>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Roland Dreier <rdreier@cisco.com>,
-	linux-kernel@vger.kernel.org, openib-general@openib.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751091AbXACTdJ@vger.kernel.org>
-To: Steve Wise <swise@opengridcomputing.com>
+Cc: netfilter-devel@lists.netfilter.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from alephnull.demon.nl ([83.160.184.112]:55907 "EHLO
+	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751099AbXACTda (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jan 2007 14:33:30 -0500
+To: KOVACS Krisztian <hidden@balabit.hu>
 Content-Disposition: inline
-In-Reply-To: <1167851839.4187.36.camel@stevo-desktop>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <20070103163357.14635.37754.stgit@nienna.balabit>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> Without extra param (1000 iterations in cycles): 
-> 	ave 101.283 min 91 max 247
-> With extra param (1000 iterations in cycles):
-> 	ave 103.311 min 91 max 221
+On Wed, Jan 03, 2007 at 05:33:57PM +0100, KOVACS Krisztian wrote:
 
-A 2% hit then. Not huge, but 0 either.
+> The following set of patches implement transparent proxying support
+> loosely modeled on the Linux 2.2 transparent proxying functionality.
 
-> Convert cycles to ns (3466.727 MHz CPU):
-> 
-> Without: 101.283 / 3466.727 = .02922us == 29.22ns
-> With:    103.311 / 3466.727 = .02980us == 29.80ns
-> 
-> So I measure a .58ns average increase for passing in the additional
-> parameter.
+In a transparent http proxy server I wrote a while ago, we used to use
+tproxy for making outgoing connections appear to be originating from a
+foreign IP address, but moved to inserting an iptables nat rule from
+the proxy app every time an outgoing connection needs to be made, due
+to the pain of having to patch in the tproxy patches every time we
+needed to do a kernel update.
 
-That depends on CPU speed though. Percentage is likely to be more universal.
+I'd love to see working tproxy functionality merged upstream for that
+reason alone.
 
-> Here is a snipit of the test:
-> 
->         spin_lock_irq(&lock);
->         do_gettimeofday(&start_tv);
->         for (i=0; i<1000; i++) {
->                 cycles_start[i] = get_cycles();
->                 ib_req_notify_cq(cb->cq, IB_CQ_NEXT_COMP);
->                 cycles_stop[i] = get_cycles();
->         }
->         do_gettimeofday(&stop_tv);
->         spin_unlock_irq(&lock);
-> 
->         if (stop_tv.tv_usec < start_tv.tv_usec) {
->                 stop_tv.tv_usec += 1000000;
->                 stop_tv.tv_sec  -= 1;
->         }
-> 
->         for (i=0; i < 1000; i++) {
->                 cycles_t v = cycles_stop[i] - cycles_start[i];
->                 sum += v;
->                 if (v > max)
->                         max = v;
->                 if (min == 0 || v < min)
->                         min = v;
->         }
-> 
->         printk(KERN_ERR PFX "FOO delta sec %lu usec %lu sum %llu min %llu max %llu\n",
->                 stop_tv.tv_sec - start_tv.tv_sec,
->                 stop_tv.tv_usec - start_tv.tv_usec,
->                 (unsigned long long)sum, (unsigned long long)min,
->                 (unsigned long long)max);
-
-Good job, the test looks good, thanks.
-
-So what does this tell you?
-To me it looks like there's a measurable speed difference,
-and so we should find a way (e.g. what I proposed) to enable chelsio userspace
-without adding overhead to other low level drivers or indeed chelsio kernel level code.
-
-What do you think? Roland?
-
--- 
-MST
+I'd also love to see the old tproxy API go away entirely.  It was
+always a bit of a pain to use.
