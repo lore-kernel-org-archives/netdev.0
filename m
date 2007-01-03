@@ -1,7 +1,7 @@
 From: Ivo van Doorn <ivdoorn@gmail.com>
-Subject: [PATCH RESEND 1/4] eeprom_93cx6
-Date: Wed, 3 Jan 2007 21:29:35 +0100
-Message-ID: <200701032129.35572.IvDoorn@gmail.com>
+Subject: [PATCH RESEND 4/4] rt2x00 should use generic crc-itu-t
+Date: Wed, 3 Jan 2007 21:29:36 +0100
+Message-ID: <200701032129.37078.IvDoorn@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="us-ascii"
@@ -10,478 +10,182 @@ Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from nf-out-0910.google.com ([64.233.182.188]:54978 "EHLO
 	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932085AbXACUaI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jan 2007 15:30:08 -0500
+	with ESMTP id S932089AbXACUaL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jan 2007 15:30:11 -0500
 Received: by nf-out-0910.google.com with SMTP id o25so7801018nfa
-        for <netdev@vger.kernel.org>; Wed, 03 Jan 2007 12:30:07 -0800 (PST)
+        for <netdev@vger.kernel.org>; Wed, 03 Jan 2007 12:30:11 -0800 (PST)
 To: "John W. Linville" <linville@tuxdriver.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds the eeprom_93cx6 module to the lib folder.
-This module provides a generic approach for reading and
-writing words from the eeprom chipsets 93c46 and 93c66.
+This patch removes the crc-itu-t files from rt2x00
+and makes sure rt2x00 will use the generic crc-itu-t
+implementation inside the lib folder.
 
 Signed-off-by Ivo van Doorn <IvDoorn@gmail.com>
 
 ---
 
-diff -rNU3 wireless-dev/include/linux/eeprom_93cx6.h wireless-dev_eeprom/include/linux/eeprom_93cx6.h
---- wireless-dev/include/linux/eeprom_93cx6.h	1970-01-01 01:00:00.000000000 +0100
-+++ wireless-dev_eeprom/include/linux/eeprom_93cx6.h	2006-12-30 16:49:02.000000000 +0100
-@@ -0,0 +1,77 @@
-+/*
-+	Copyright (C) 2004 - 2006 rt2x00 SourceForge Project
-+	<http://rt2x00.serialmonkey.com>
-+
-+	This program is free software; you can redistribute it and/or modify
-+	it under the terms of the GNU General Public License as published by
-+	the Free Software Foundation; either version 2 of the License, or
-+	(at your option) any later version.
-+
-+	This program is distributed in the hope that it will be useful,
-+	but WITHOUT ANY WARRANTY; without even the implied warranty of
-+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-+	GNU General Public License for more details.
-+
-+	You should have received a copy of the GNU General Public License
-+	along with this program; if not, write to the
-+	Free Software Foundation, Inc.,
-+	59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-+ */
-+
-+/*
-+	Module: eeprom_93cx6
-+	Abstract: EEPROM reader datastructures for 93cx6 chipsets.
-+	Supported chipsets: 93c46 & 93c66.
-+ */
-+
-+/*
-+ * EEPROM operation defines.
-+ */
-+#define PCI_EEPROM_WIDTH_93C46	6
-+#define PCI_EEPROM_WIDTH_93C66	8
-+#define PCI_EEPROM_WIDTH_OPCODE	3
-+#define PCI_EEPROM_WRITE_OPCODE	0x05
-+#define PCI_EEPROM_READ_OPCODE	0x06
-+#define PCI_EEPROM_EWDS_OPCODE	0x10
-+#define PCI_EEPROM_EWEN_OPCODE	0x13
-+
-+/**
-+ * struct eeprom_93cx6 - control structure for setting the commands
-+ * for reading the eeprom data.
-+ * @data: private pointer for the driver.
-+ * @register_read(struct eeprom_93cx6 *eeprom): handler to
-+ * read the eeprom register, this function should set all reg_* fields.
-+ * @register_write(struct eeprom_93cx6 *eeprom): handler to
-+ * write to the eeprom register by using all reg_* fields.
-+ * @width: eeprom width, should be one of the PCI_EEPROM_WIDTH_* defines
-+ * @reg_data_in: register field to indicate data input
-+ * @reg_data_out: register field to indicate data output
-+ * @reg_data_clock: register field to set the data clock
-+ * @reg_chip_select: register field to set the chip select
-+ *
-+ * This structure is used for the communication between the driver
-+ * and the eeprom_93cx6 handlers for reading the eeprom.
-+ */
-+struct eeprom_93cx6 {
-+	void *data;
-+
-+	void (*register_read)(struct eeprom_93cx6 *eeprom);
-+	void (*register_write)(struct eeprom_93cx6 *eeprom);
-+
-+	int width;
-+
-+	char reg_data_in;
-+	char reg_data_out;
-+	char reg_data_clock;
-+	char reg_chip_select;
-+};
-+
-+extern void eeprom_93cx6_read(struct eeprom_93cx6 *eeprom,
-+	const u8 word, __le16 *data);
-+extern void eeprom_93cx6_multiread(struct eeprom_93cx6 *eeprom,
-+	const u8 word, __le16 *data, const u16 words);
-+
-+extern void eeprom_93cx6_write(struct eeprom_93cx6 *eeprom,
-+	const u8 word, __le16 *data);
-+extern void eeprom_93cx6_multiwrite(struct eeprom_93cx6 *eeprom,
-+	const u8 word, __le16 *data, const u16 words);
-diff -rNU3 wireless-dev/lib/Kconfig wireless-dev_eeprom/lib/Kconfig
---- wireless-dev/lib/Kconfig	2007-01-03 20:54:00.000000000 +0100
-+++ wireless-dev_eeprom/lib/Kconfig	2007-01-03 21:04:42.000000000 +0100
-@@ -38,6 +38,14 @@
- 	  require M here.  See Castagnoli93.
- 	  Module will be libcrc32c.
+diff -rNU3 wireless-dev/drivers/net/wireless/d80211/rt2x00/Kconfig wireless-dev_crc/drivers/net/wireless/d80211/rt2x00/Kconfig
+--- wireless-dev/drivers/net/wireless/d80211/rt2x00/Kconfig	2007-01-03 21:02:41.000000000 +0100
++++ wireless-dev_crc/drivers/net/wireless/d80211/rt2x00/Kconfig	2007-01-03 21:14:18.000000000 +0100
+@@ -81,11 +81,3 @@
+ 	depends on RT73USB
+ 	---help---
+ 	Enable debugging output.
+-
+-config CRC_ITU_T
+-	tristate "CRC ITU-T V.41 functions"
+-	help
+-	  This option is provided for the case where no in-kernel-tree
+-	  modules require CRC ITU-T V.41 functions, but a module built outside
+-	  the kernel tree does. Such modules that use library CRC ITU-T V.41
+-	  functions require M here.
+diff -rNU3 wireless-dev/drivers/net/wireless/d80211/rt2x00/Makefile wireless-dev_crc/drivers/net/wireless/d80211/rt2x00/Makefile
+--- wireless-dev/drivers/net/wireless/d80211/rt2x00/Makefile	2007-01-03 21:08:49.000000000 +0100
++++ wireless-dev_crc/drivers/net/wireless/d80211/rt2x00/Makefile	2007-01-03 21:14:26.000000000 +0100
+@@ -3,4 +3,3 @@
+ obj-$(CONFIG_RT61PCI)		+= rt61pci.o
+ obj-$(CONFIG_RT2500USB)		+= rt2500usb.o
+ obj-$(CONFIG_RT73USB)		+= rt73usb.o
+-obj-$(CONFIG_CRC_ITU_T)		+= crc-itu-t.o
+diff -rNU3 wireless-dev/drivers/net/wireless/d80211/rt2x00/crc-itu-t.c wireless-dev_crc/drivers/net/wireless/d80211/rt2x00/crc-itu-t.c
+--- wireless-dev/drivers/net/wireless/d80211/rt2x00/crc-itu-t.c	2007-01-03 20:53:57.000000000 +0100
++++ wireless-dev_crc/drivers/net/wireless/d80211/rt2x00/crc-itu-t.c	1970-01-01 01:00:00.000000000 +0100
+@@ -1,66 +0,0 @@
+-/*
+- *	crc-itu-t.c
+- *
+- * This source code is licensed under the GNU General Public License,
+- * Version 2. See the file COPYING for more details.
+- */
+-
+-#include <linux/types.h>
+-#include <linux/module.h>
+-
+-#include "crc-itu-t.h"
+-
+-MODULE_AUTHOR("http://rt2x00.serialmonkey.com");
+-MODULE_DESCRIPTION("CRC ITU-T V.41 calculations");
+-MODULE_LICENSE("GPL");
+-
+-/** CRC table for the CRC ITU-T V.41 0x0x1021 (x^16 + x^12 + x^15 + 1) */
+-const u16 crc_itu_t_table[256] = {
+-	0x0000, 0x1021, 0x2042, 0x3063, 0x4084, 0x50a5, 0x60c6, 0x70e7,
+-	0x8108, 0x9129, 0xa14a, 0xb16b, 0xc18c, 0xd1ad, 0xe1ce, 0xf1ef,
+-	0x1231, 0x0210, 0x3273, 0x2252, 0x52b5, 0x4294, 0x72f7, 0x62d6,
+-	0x9339, 0x8318, 0xb37b, 0xa35a, 0xd3bd, 0xc39c, 0xf3ff, 0xe3de,
+-	0x2462, 0x3443, 0x0420, 0x1401, 0x64e6, 0x74c7, 0x44a4, 0x5485,
+-	0xa56a, 0xb54b, 0x8528, 0x9509, 0xe5ee, 0xf5cf, 0xc5ac, 0xd58d,
+-	0x3653, 0x2672, 0x1611, 0x0630, 0x76d7, 0x66f6, 0x5695, 0x46b4,
+-	0xb75b, 0xa77a, 0x9719, 0x8738, 0xf7df, 0xe7fe, 0xd79d, 0xc7bc,
+-	0x48c4, 0x58e5, 0x6886, 0x78a7, 0x0840, 0x1861, 0x2802, 0x3823,
+-	0xc9cc, 0xd9ed, 0xe98e, 0xf9af, 0x8948, 0x9969, 0xa90a, 0xb92b,
+-	0x5af5, 0x4ad4, 0x7ab7, 0x6a96, 0x1a71, 0x0a50, 0x3a33, 0x2a12,
+-	0xdbfd, 0xcbdc, 0xfbbf, 0xeb9e, 0x9b79, 0x8b58, 0xbb3b, 0xab1a,
+-	0x6ca6, 0x7c87, 0x4ce4, 0x5cc5, 0x2c22, 0x3c03, 0x0c60, 0x1c41,
+-	0xedae, 0xfd8f, 0xcdec, 0xddcd, 0xad2a, 0xbd0b, 0x8d68, 0x9d49,
+-	0x7e97, 0x6eb6, 0x5ed5, 0x4ef4, 0x3e13, 0x2e32, 0x1e51, 0x0e70,
+-	0xff9f, 0xefbe, 0xdfdd, 0xcffc, 0xbf1b, 0xaf3a, 0x9f59, 0x8f78,
+-	0x9188, 0x81a9, 0xb1ca, 0xa1eb, 0xd10c, 0xc12d, 0xf14e, 0xe16f,
+-	0x1080, 0x00a1, 0x30c2, 0x20e3, 0x5004, 0x4025, 0x7046, 0x6067,
+-	0x83b9, 0x9398, 0xa3fb, 0xb3da, 0xc33d, 0xd31c, 0xe37f, 0xf35e,
+-	0x02b1, 0x1290, 0x22f3, 0x32d2, 0x4235, 0x5214, 0x6277, 0x7256,
+-	0xb5ea, 0xa5cb, 0x95a8, 0x8589, 0xf56e, 0xe54f, 0xd52c, 0xc50d,
+-	0x34e2, 0x24c3, 0x14a0, 0x0481, 0x7466, 0x6447, 0x5424, 0x4405,
+-	0xa7db, 0xb7fa, 0x8799, 0x97b8, 0xe75f, 0xf77e, 0xc71d, 0xd73c,
+-	0x26d3, 0x36f2, 0x0691, 0x16b0, 0x6657, 0x7676, 0x4615, 0x5634,
+-	0xd94c, 0xc96d, 0xf90e, 0xe92f, 0x99c8, 0x89e9, 0xb98a, 0xa9ab,
+-	0x5844, 0x4865, 0x7806, 0x6827, 0x18c0, 0x08e1, 0x3882, 0x28a3,
+-	0xcb7d, 0xdb5c, 0xeb3f, 0xfb1e, 0x8bf9, 0x9bd8, 0xabbb, 0xbb9a,
+-	0x4a75, 0x5a54, 0x6a37, 0x7a16, 0x0af1, 0x1ad0, 0x2ab3, 0x3a92,
+-	0xfd2e, 0xed0f, 0xdd6c, 0xcd4d, 0xbdaa, 0xad8b, 0x9de8, 0x8dc9,
+-	0x7c26, 0x6c07, 0x5c64, 0x4c45, 0x3ca2, 0x2c83, 0x1ce0, 0x0cc1,
+-	0xef1f, 0xff3e, 0xcf5d, 0xdf7c, 0xaf9b, 0xbfba, 0x8fd9, 0x9ff8,
+-	0x6e17, 0x7e36, 0x4e55, 0x5e74, 0x2e93, 0x3eb2, 0x0ed1, 0x1ef0
+-};
+-EXPORT_SYMBOL(crc_itu_t_table);
+-
+-/**
+- * crc_itu_t - Compute the CRC-ITU-T for the data buffer
+- * @crc: previous CRC value
+- * @buffer: data pointer
+- * @len: number of bytes in the buffer
+- */
+-u16 crc_itu_t(u16 crc, const u8 *buffer, size_t len)
+-{
+-	while (len--)
+-		crc = crc_itu_t_byte(crc, *buffer++);
+-	return crc;
+-}
+-EXPORT_SYMBOL(crc_itu_t);
+diff -rNU3 wireless-dev/drivers/net/wireless/d80211/rt2x00/crc-itu-t.h wireless-dev_crc/drivers/net/wireless/d80211/rt2x00/crc-itu-t.h
+--- wireless-dev/drivers/net/wireless/d80211/rt2x00/crc-itu-t.h	2007-01-03 20:53:57.000000000 +0100
++++ wireless-dev_crc/drivers/net/wireless/d80211/rt2x00/crc-itu-t.h	1970-01-01 01:00:00.000000000 +0100
+@@ -1,27 +0,0 @@
+-/*
+- *	crc-itu-t.h - CRC ITU-T V.41 routine
+- *
+- * Implements the standard CRC ITU-T V.41:
+- *   Width 16
+- *   Poly  0x1021 (x^16 + x^12 + x^15 + 1)
+- *   Init  0
+- *
+- * This source code is licensed under the GNU General Public License,
+- * Version 2. See the file COPYING for more details.
+- */
+-
+-#ifndef CRC_ITU_T_H
+-#define CRC_ITU_T_H
+-
+-#include <linux/types.h>
+-
+-extern u16 const crc_itu_t_table[256];
+-
+-extern u16 crc_itu_t(u16 crc, const u8 *buffer, size_t len);
+-
+-static inline u16 crc_itu_t_byte(u16 crc, const u8 data)
+-{
+-	return (crc << 8) ^ crc_itu_t_table[((crc >> 8) ^ data) & 0xff];
+-}
+-
+-#endif /* CRC_ITU_T_H */
+diff -rNU3 wireless-dev/drivers/net/wireless/d80211/rt2x00/rt61pci.c wireless-dev_crc/drivers/net/wireless/d80211/rt2x00/rt61pci.c
+--- wireless-dev/drivers/net/wireless/d80211/rt2x00/rt61pci.c	2007-01-03 21:03:29.000000000 +0100
++++ wireless-dev_crc/drivers/net/wireless/d80211/rt2x00/rt61pci.c	2007-01-03 21:15:03.000000000 +0100
+@@ -37,6 +37,7 @@
+ #include <linux/wireless.h>
+ #include <linux/eeprom_93cx6.h>
+ #include <linux/firmware.h>
++#include <linux/crc-itu-t.h>
  
-+config EEPROM_93CX6
-+	tristate "EEPROM 93CX6 support"
-+	---help---
-+	This is a driver for the EEPROM chipsets 93c46 and 93c66.
-+	The driver supports both read as well as write commands.
-+
-+	When compiled as a module, this driver will be called "eeprom_93c6.ko".
-+
- config AUDIT_GENERIC
- 	bool
- 	depends on AUDIT && !AUDIT_ARCH
-diff -rNU3 wireless-dev/lib/Makefile wireless-dev_eeprom/lib/Makefile
---- wireless-dev/lib/Makefile	2007-01-03 20:54:00.000000000 +0100
-+++ wireless-dev_eeprom/lib/Makefile	2007-01-03 21:05:01.000000000 +0100
-@@ -53,6 +53,8 @@
- obj-$(CONFIG_SMP) += percpu_counter.o
- obj-$(CONFIG_AUDIT_GENERIC) += audit.o
+ #include <net/iw_handler.h>
+ #include <net/d80211.h>
+@@ -55,7 +56,6 @@
+ #include "rt2x00.h"
+ #include "rt2x00pci.h"
+ #include "rt61pci.h"
+-#include "crc-itu-t.h"
  
-+obj-$(CONFIG_EEPROM_93CX6) += eeprom_93cx6.o
-+
- obj-$(CONFIG_SWIOTLB) += swiotlb.o
+ /*
+  * Register access.
+diff -rNU3 wireless-dev/drivers/net/wireless/d80211/rt2x00/rt73usb.c wireless-dev_crc/drivers/net/wireless/d80211/rt2x00/rt73usb.c
+--- wireless-dev/drivers/net/wireless/d80211/rt2x00/rt73usb.c	2007-01-03 20:53:57.000000000 +0100
++++ wireless-dev_crc/drivers/net/wireless/d80211/rt2x00/rt73usb.c	2007-01-03 21:15:08.000000000 +0100
+@@ -35,6 +35,7 @@
+ #include <linux/etherdevice.h>
+ #include <linux/wireless.h>
+ #include <linux/firmware.h>
++#include <linux/crc-itu-t.h>
  
- hostprogs-y	:= gen_crc32table
-diff -rNU3 wireless-dev/lib/eeprom_93cx6.c wireless-dev_eeprom/lib/eeprom_93cx6.c
---- wireless-dev/lib/eeprom_93cx6.c	1970-01-01 01:00:00.000000000 +0100
-+++ wireless-dev_eeprom/lib/eeprom_93cx6.c	2006-12-30 16:49:02.000000000 +0100
-@@ -0,0 +1,343 @@
-+/*
-+	Copyright (C) 2004 - 2006 rt2x00 SourceForge Project
-+	<http://rt2x00.serialmonkey.com>
-+
-+	This program is free software; you can redistribute it and/or modify
-+	it under the terms of the GNU General Public License as published by
-+	the Free Software Foundation; either version 2 of the License, or
-+	(at your option) any later version.
-+
-+	This program is distributed in the hope that it will be useful,
-+	but WITHOUT ANY WARRANTY; without even the implied warranty of
-+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-+	GNU General Public License for more details.
-+
-+	You should have received a copy of the GNU General Public License
-+	along with this program; if not, write to the
-+	Free Software Foundation, Inc.,
-+	59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-+ */
-+
-+/*
-+	Module: eeprom_93cx6
-+	Abstract: EEPROM reader routines for 93cx6 chipsets.
-+	Supported chipsets: 93c46 & 93c66.
-+ */
-+
-+#include <linux/kernel.h>
-+#include <linux/module.h>
-+#include <linux/version.h>
-+#include <linux/delay.h>
-+#include <linux/eeprom_93cx6.h>
-+
-+MODULE_AUTHOR("http://rt2x00.serialmonkey.com");
-+MODULE_VERSION("1.0");
-+MODULE_DESCRIPTION("EEPROM 93cx6 chip driver");
-+MODULE_LICENSE("GPL");
-+
-+static inline void eeprom_93cx6_pulse_high(struct eeprom_93cx6 *eeprom)
-+{
-+	eeprom->reg_data_clock = 1;
-+	eeprom->register_write(eeprom);
-+	udelay(1);
-+}
-+
-+static inline void eeprom_93cx6_pulse_low(struct eeprom_93cx6 *eeprom)
-+{
-+	eeprom->reg_data_clock = 0;
-+	eeprom->register_write(eeprom);
-+	udelay(1);
-+}
-+
-+static void eeprom_93cx6_startup(struct eeprom_93cx6 *eeprom)
-+{
-+	/*
-+	 * Clear all flags, and enable chip select.
-+	 */
-+	eeprom->register_read(eeprom);
-+	eeprom->reg_data_in = 0;
-+	eeprom->reg_data_out = 0;
-+	eeprom->reg_data_clock = 0;
-+	eeprom->reg_chip_select = 1;
-+	eeprom->register_write(eeprom);
-+
-+	/*
-+	 * kick a pulse.
-+	 */
-+	eeprom_93cx6_pulse_high(eeprom);
-+	eeprom_93cx6_pulse_low(eeprom);
-+}
-+
-+static void eeprom_93cx6_cleanup(struct eeprom_93cx6 *eeprom)
-+{
-+	/*
-+	 * Clear chip_select and data_in flags.
-+	 */
-+	eeprom->register_read(eeprom);
-+	eeprom->reg_data_in = 0;
-+	eeprom->reg_chip_select = 0;
-+	eeprom->register_write(eeprom);
-+
-+	/*
-+	 * kick a pulse.
-+	 */
-+	eeprom_93cx6_pulse_high(eeprom);
-+	eeprom_93cx6_pulse_low(eeprom);
-+}
-+
-+static void eeprom_93cx6_write_bits(struct eeprom_93cx6 *eeprom,
-+	const u16 data, const u16 count)
-+{
-+	unsigned int i;
-+
-+	eeprom->register_read(eeprom);
-+
-+	/*
-+	 * Clear data flags.
-+	 */
-+	eeprom->reg_data_in = 0;
-+	eeprom->reg_data_out = 0;
-+
-+	/*
-+	 * Start writing all bits.
-+	 */
-+	for (i = count; i > 0; i--) {
-+		/*
-+		 * Check if this bit needs to be set.
-+		 */
-+		eeprom->reg_data_in = !!(data & (1 << (i - 1)));
-+
-+		/*
-+		 * Write the bit to the eeprom register.
-+		 */
-+		eeprom->register_write(eeprom);
-+
-+		/*
-+		 * Kick a pulse.
-+		 */
-+		eeprom_93cx6_pulse_high(eeprom);
-+		eeprom_93cx6_pulse_low(eeprom);
-+	}
-+
-+	eeprom->reg_data_in = 0;
-+	eeprom->register_write(eeprom);
-+}
-+
-+static void eeprom_93cx6_read_bits(struct eeprom_93cx6 *eeprom,
-+	u16 *data, const u16 count)
-+{
-+	unsigned int i;
-+
-+	eeprom->register_read(eeprom);
-+
-+	/*
-+	 * Clear data flags.
-+	 */
-+	eeprom->reg_data_in = 0;
-+	eeprom->reg_data_out = 0;
-+
-+	/*
-+	 * Start reading all bits.
-+	 */
-+	for (i = count; i > 0; i--) {
-+		eeprom_93cx6_pulse_high(eeprom);
-+
-+		eeprom->register_read(eeprom);
-+
-+		/*
-+		 * Clear data_in flag.
-+		 */
-+		eeprom->reg_data_in = 0;
-+
-+		/*
-+		 * Read if the bit has been set.
-+		 */
-+		if (eeprom->reg_data_out)
-+			*data |= (1 << (i - 1));
-+
-+		eeprom_93cx6_pulse_low(eeprom);
-+	}
-+}
-+
-+static void eeprom_93cx6_ewen(struct eeprom_93cx6 *eeprom)
-+{
-+	/*
-+	 * Initialize the eeprom register
-+	 */
-+	eeprom_93cx6_startup(eeprom);
-+
-+	/*
-+	 * Select the read opcode and the word to be read.
-+	 */
-+	eeprom_93cx6_write_bits(eeprom, PCI_EEPROM_EWEN_OPCODE, 5);
-+	eeprom_93cx6_write_bits(eeprom, 0, 6);
-+
-+	/*
-+	 * Cleanup eeprom register.
-+	 */
-+	eeprom_93cx6_cleanup(eeprom);
-+}
-+
-+static void eeprom_93cx6_ewds(struct eeprom_93cx6 *eeprom)
-+{
-+	/*
-+	 * Initialize the eeprom register
-+	 */
-+	eeprom_93cx6_startup(eeprom);
-+
-+	/*
-+	 * Select the read opcode and the word to be read.
-+	 */
-+	eeprom_93cx6_write_bits(eeprom, PCI_EEPROM_EWDS_OPCODE, 5);
-+	eeprom_93cx6_write_bits(eeprom, 0, 6);
-+
-+	/*
-+	 * Cleanup eeprom register.
-+	 */
-+	eeprom_93cx6_cleanup(eeprom);
-+}
-+
-+/**
-+ * eeprom_93cx6_read - Read multiple words from eeprom
-+ * @eeprom: Pointer to eeprom structure
-+ * @word: Word index from where we should start reading
-+ * @data: target pointer where the information will have to be stored
-+ *
-+ * This function will read the eeprom data as little endian word
-+ * into the given data pointer.
-+ */
-+void eeprom_93cx6_read(struct eeprom_93cx6 *eeprom, const u8 word,
-+	__le16 *data)
-+{
-+	u16 command;
-+	u16 buffer = 0;
-+
-+	/*
-+	 * Initialize the eeprom register
-+	 */
-+	eeprom_93cx6_startup(eeprom);
-+
-+	/*
-+	 * Select the read opcode and the word to be read.
-+	 */
-+	command = (PCI_EEPROM_READ_OPCODE << eeprom->width) | word;
-+	eeprom_93cx6_write_bits(eeprom, command,
-+		PCI_EEPROM_WIDTH_OPCODE + eeprom->width);
-+
-+	/*
-+	 * Read the requested 16 bits.
-+	 */
-+	eeprom_93cx6_read_bits(eeprom, &buffer, 16);
-+
-+	/*
-+	 * Cleanup eeprom register.
-+	 */
-+	eeprom_93cx6_cleanup(eeprom);
-+
-+	/*
-+	 * The data from the eeprom is stored as little endian,
-+	 * so we don't need to byteorder. To prevent sparse from
-+	 * complaining we need to force the type to __le16.
-+	 */
-+	*data = (__force __le16)buffer;
-+}
-+EXPORT_SYMBOL_GPL(eeprom_93cx6_read);
-+
-+/**
-+ * eeprom_93cx6_multiread - Read multiple words from eeprom
-+ * @eeprom: Pointer to eeprom structure
-+ * @word: Word index from where we should start reading
-+ * @data: target pointer where the information will have to be stored
-+ * @words: Number of words that should be read.
-+ *
-+ * This function will read all requested words from the eeprom,
-+ * this is done by calling eeprom_93cx6_read() multiple times.
-+ */
-+void eeprom_93cx6_multiread(struct eeprom_93cx6 *eeprom, const u8 word,
-+	__le16 *data, const u16 words)
-+{
-+	unsigned int i;
-+
-+	for (i = 0; i < words; i++)
-+		eeprom_93cx6_read(eeprom, word + i, data++);
-+}
-+EXPORT_SYMBOL_GPL(eeprom_93cx6_multiread);
-+
-+/**
-+ * eeprom_93cx6_write - Write multiple words to the eeprom
-+ * @eeprom: Pointer to eeprom structure
-+ * @word: Word index from where we should start writing
-+ * @data: Pointer where the information will be read from
-+ *
-+ * This function will write the eeprom data as little endian word
-+ * from the given data pointer.
-+ */
-+void eeprom_93cx6_write(struct eeprom_93cx6 *eeprom, const u8 word,
-+	__le16 *data)
-+{
-+	u16 command;
-+
-+	/*
-+	 * select the ewen opcode.
-+	 */
-+	eeprom_93cx6_ewen(eeprom);
-+
-+	/*
-+	 * Initialize the eeprom register
-+	 */
-+	eeprom_93cx6_startup(eeprom);
-+
-+	/*
-+	 * Select the write opcode and the word to be read.
-+	 */
-+	command = (PCI_EEPROM_WRITE_OPCODE << eeprom->width) | word;
-+	eeprom_93cx6_write_bits(eeprom, command,
-+		PCI_EEPROM_WIDTH_OPCODE + eeprom->width);
-+
-+	/*
-+	 * Write the requested 16 bits.
-+	 */
-+	eeprom_93cx6_write_bits(eeprom, (__force u16)*data, 16);
-+
-+	/*
-+	 * Cleanup eeprom register.
-+	 */
-+	eeprom_93cx6_cleanup(eeprom);
-+
-+	/*
-+	 * Take a short break.
-+	 */
-+	msleep(10000);
-+
-+	/*
-+	 * select the ewen opcode.
-+	 */
-+	eeprom_93cx6_ewds(eeprom);
-+
-+	/*
-+	 * Cleanup eeprom register.
-+	 */
-+	eeprom_93cx6_cleanup(eeprom);
-+}
-+EXPORT_SYMBOL_GPL(eeprom_93cx6_write);
-+
-+
-+/**
-+ * eeprom_93cx6_multiwrite - Write multiple words to the eeprom
-+ * @eeprom: Pointer to eeprom structure
-+ * @word: Word index from where we should start writing
-+ * @data: Pointer where the information will be read from
-+ * @words: Number of words that should be written.
-+ *
-+ * This function will write all requested words to the eeprom,
-+ * this is done by calling eeprom_93cx6_write() multiple times.
-+ */
-+void eeprom_93cx6_multiwrite(struct eeprom_93cx6 *eeprom, const u8 word,
-+	__le16 *data, const u16 words)
-+{
-+	unsigned int i;
-+
-+	for (i = 0; i < words; i++)
-+		eeprom_93cx6_write(eeprom, word + i, data++);
-+}
-+EXPORT_SYMBOL_GPL(eeprom_93cx6_multiwrite);
+ #include <net/iw_handler.h>
+ #include <net/d80211.h>
+@@ -51,7 +52,6 @@
+ #include "rt2x00.h"
+ #include "rt2x00usb.h"
+ #include "rt73usb.h"
+-#include "crc-itu-t.h"
+ 
+ /*
+  * Register access.
