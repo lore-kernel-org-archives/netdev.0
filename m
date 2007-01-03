@@ -1,42 +1,41 @@
-From: Len Brown <lenb@kernel.org>
-Subject: Re: 2.6.19 and up to 2.6.20-rc2 Ethernet problems x86_64
-Date: Wed, 3 Jan 2007 01:17:31 -0500
-Message-ID: <200701030117.31737.lenb@kernel.org>
-References: <459A7D46.5000509@blueyonder.co.uk> <200701021159.24945.lenb@kernel.org> <459AE34D.8040709@blueyonder.co.uk>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [PATCH] sungem: PHY updates & pause fixes
+Date: Wed, 03 Jan 2007 17:20:05 +1100
+Message-ID: <1167805205.6165.141.camel@localhost.localdomain>
+References: <1167800285.6165.105.camel@localhost.localdomain>
+	 <20070102.211158.35016452.davem@davemloft.net>
+	 <1167801614.6165.117.camel@localhost.localdomain>
+	 <20070102.212605.15263907.davem@davemloft.net>
+	 <1167802802.6165.129.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-acpi@vger.kernel.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hera.kernel.org ([140.211.167.34]:54620 "EHLO hera.kernel.org"
+Received: from gate.crashing.org ([63.228.1.57]:55071 "EHLO gate.crashing.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754420AbXACGSF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Jan 2007 01:18:05 -0500
-To: g3vbv@blueyonder.co.uk
-In-Reply-To: <459AE34D.8040709@blueyonder.co.uk>
-Content-Disposition: inline
+	id S1754423AbXACGUL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Jan 2007 01:20:11 -0500
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <1167802802.6165.129.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+> The one with only asym. support is a big Cisco Catalyst 3350 (well.. big
+> but not that many ports :-)
 
-> ..same problem with 2.6.20-rc3. Last worked with 
-> 2.6.19-rc6-git12, so it was 2.6.19 where it failed.
+Ok, I got in the config of the switch with somebody who knows how to
+speak ciscong, and it seems that it defaults to flow control "desired"
+for send and "off" for receive on all ports, which means it will indeed
+only advertise support for asymetrical flow control.
 
+We've changed the setting for the port on which my sungem g5 is
+connected to "desired" on both send and receive, and it now advertises
+flow control on both, and sungem does pick it up properly.
 
-> Attaching both case1 normal, case2 acpi=noirq. With acpi=noirq ethernet 
-> doesn't get configured, route -n says it's an Unsupported operation, 
-> ifconfig only shows for localhost, ifconfig eth0 192.168.10.5 also 
-> complains of a config error.
+So it's indeed the default setting of those cisco switches that seem to
+not quite match what drivers like sungem or tg3 like.
 
-It seems that the "acpi=noirq" (and probably also the acpi=off) case
-is simply an additional broken case, not a success case to compare to.
+Ben.
 
-The thing we really want to compare is dmesg and /proc/interrupts
-from 2.6.19-rc6-git12, and the broken current release.
-Perhaps you can put that info in the bug report when you file it.
-
-thanks,
--Len
 
