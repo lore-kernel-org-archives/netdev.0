@@ -1,52 +1,41 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: 2.6.19 and up to  2.6.20-rc2 Ethernet problems x86_64
-Date: Wed, 3 Jan 2007 11:48:14 +0100
-Message-ID: <20070103104814.GA2629@ff.dom.local>
-References: <20061229063254.GA1628@ff.dom.local> <4595CD1B.2020102@blueyonder.co.uk> <20070102115050.GA3449@ff.dom.local> <459A7AF1.5060702@blueyonder.co.uk>
+From: "Evandro Clivatti Dall'Agnol" <evandrocd@gmail.com>
+Subject: about tty line discipline and pppd
+Date: Wed, 3 Jan 2007 11:12:20 -0200
+Message-ID: <3209d0d50701030512jbb14da8y9803d7c54821ddf0@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, g3vbv@blueyonder.co.uk,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from poczta.o2.pl ([193.17.41.142]:48955 "EHLO poczta.o2.pl"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750710AbXACKqh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Jan 2007 05:46:37 -0500
-To: Sid Boyce <sboyce@blueyonder.co.uk>
+Received: from ug-out-1314.google.com ([66.249.92.168]:27002 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750754AbXACNMV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jan 2007 08:12:21 -0500
+Received: by ug-out-1314.google.com with SMTP id 44so5165010uga
+        for <netdev@vger.kernel.org>; Wed, 03 Jan 2007 05:12:20 -0800 (PST)
+To: netdev@vger.kernel.org
 Content-Disposition: inline
-In-Reply-To: <459A7AF1.5060702@blueyonder.co.uk>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 02, 2007 at 03:32:01PM +0000, Sid Boyce wrote:
-> Jarek Poplawski wrote:
-...
-> >If you could send full ifconfig, route -n (or ip route
-> >if you use additional tables) and tcpdump (all packets)
-> >from both boxes while pinging each other and a few words
-> >how it is connected (other cards, other active boxes in
-> >the network?) maybe something more could be found.
-...
-> Everything is fine with a eepro100 on the 64x2 box that gave the same
-> problem with a nVidia Corporation MCP51 Ethernet Controller (rev a1)
-> using the forcedeth module. On the x86_64 laptop the problem is with a
-> Broadcom NetXtreme BCM5788 using the tg3 module. Switching back to a
-> 2.6.18.2 kernel, there is no problem.
-> With all configurations of cards on both, route -n is the same on all
-> kernels and instantly reports back. With >=2.6.19 on the laptop, netstat
-> -r takes a very long time before returning the information ~30 seconds,
-> instantly on 2.6.18.2.
+Hi all, I need your advice, please.
 
-This could be a problem with DNS. Could you do all tests
-(including pinging) with -n option?
+Situation:
+I have two ppc processors with their SMC2 ports connected to each
+other port. Saying 'y' to SMC2 support on kernel 2.4, I can "echo foo
+>> /dev/ttyS1" in one processor while "cat /dev/ttyS1" on the other
+and the "foo" text appears.
 
-I've read your other message on netdev and see you
-have firewall working and addresses from various 
-networks in logs. I think it would be much easier
-to exclude possible network config errors and try
-to isolate pinging problems by connecting (with
-switch or even crossed cable if possible) only 2
-boxes with firewalls and other net devices disabled
-and try to repeat this pinging with tcpdumps.
+Question:
+I want to exchange data between these two processors through sockets
+interface. The right way to do that is writing a "tty line discipline"
+driver?
 
-Jarek P.
+Another question:
+I tried without sucess to setup pppd on this line, the more close to a
+working pppd I got was issuing "stty -F /dev/ttyS1 -echo raw", so the
+pppd appears to send the LCP packets and the other peer receive them
+while I watch through "cat /dev/ttyS1" but pppd itself doesn't work.
+Do you have some advice on this situation too?
+
+Thanks in advance,
+Evandro Clivatti Dall'Agnol
