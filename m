@@ -1,84 +1,49 @@
-From: Steve Wise <swise@opengridcomputing.com>
-Subject: Re: [PATCH  v4 01/13] Linux RDMA Core Changes
-Date: Wed, 03 Jan 2007 14:20:18 -0600
-Message-ID: <1167855618.4187.65.camel@stevo-desktop>
-References: <1167851839.4187.36.camel@stevo-desktop>
-	 <20070103193324.GD29003@mellanox.co.il>
+From: Ivo van Doorn <ivdoorn@gmail.com>
+Subject: [PATCH RESEND 0/4]
+Date: Wed, 3 Jan 2007 21:29:34 +0100
+Message-ID: <200701032129.34879.IvDoorn@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Roland Dreier <rdreier@cisco.com>,
-	linux-kernel@vger.kernel.org, openib-general@openib.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rrcs-24-153-217-226.sw.biz.rr.com ([24.153.217.226]:37338 "EHLO
-	smtp.opengridcomputing.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932078AbXACUUS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jan 2007 15:20:18 -0500
-To: "Michael S. Tsirkin" <mst@mellanox.co.il>
-In-Reply-To: <20070103193324.GD29003@mellanox.co.il>
+Received: from nf-out-0910.google.com ([64.233.182.191]:55122 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932080AbXACUaH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jan 2007 15:30:07 -0500
+Received: by nf-out-0910.google.com with SMTP id o25so7801012nfa
+        for <netdev@vger.kernel.org>; Wed, 03 Jan 2007 12:30:05 -0800 (PST)
+To: "John W. Linville" <linville@tuxdriver.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2007-01-03 at 21:33 +0200, Michael S. Tsirkin wrote:
-> > Without extra param (1000 iterations in cycles): 
-> > 	ave 101.283 min 91 max 247
-> > With extra param (1000 iterations in cycles):
-> > 	ave 103.311 min 91 max 221
-> 
-> A 2% hit then. Not huge, but 0 either.
-> 
-> > Convert cycles to ns (3466.727 MHz CPU):
-> > 
-> > Without: 101.283 / 3466.727 = .02922us == 29.22ns
-> > With:    103.311 / 3466.727 = .02980us == 29.80ns
-> > 
-> > So I measure a .58ns average increase for passing in the additional
-> > parameter.
-> 
-> That depends on CPU speed though. Percentage is likely to be more universal.
-> 
-> > Here is a snipit of the test:
-> > 
-> >         spin_lock_irq(&lock);
-> >         do_gettimeofday(&start_tv);
-> >         for (i=0; i<1000; i++) {
-> >                 cycles_start[i] = get_cycles();
-> >                 ib_req_notify_cq(cb->cq, IB_CQ_NEXT_COMP);
-> >                 cycles_stop[i] = get_cycles();
-> >         }
-> >         do_gettimeofday(&stop_tv);
-> >         spin_unlock_irq(&lock);
-> > 
-> >         if (stop_tv.tv_usec < start_tv.tv_usec) {
-> >                 stop_tv.tv_usec += 1000000;
-> >                 stop_tv.tv_sec  -= 1;
-> >         }
-> > 
-> >         for (i=0; i < 1000; i++) {
-> >                 cycles_t v = cycles_stop[i] - cycles_start[i];
-> >                 sum += v;
-> >                 if (v > max)
-> >                         max = v;
-> >                 if (min == 0 || v < min)
-> >                         min = v;
-> >         }
-> > 
-> >         printk(KERN_ERR PFX "FOO delta sec %lu usec %lu sum %llu min %llu max %llu\n",
-> >                 stop_tv.tv_sec - start_tv.tv_sec,
-> >                 stop_tv.tv_usec - start_tv.tv_usec,
-> >                 (unsigned long long)sum, (unsigned long long)min,
-> >                 (unsigned long long)max);
-> 
-> Good job, the test looks good, thanks.
-> 
-> So what does this tell you?
-> To me it looks like there's a measurable speed difference,
-> and so we should find a way (e.g. what I proposed) to enable chelsio userspace
-> without adding overhead to other low level drivers or indeed chelsio kernel level code.
-> 
-> What do you think? Roland?
-> 
+Hi John,
 
-I think having a 2nd function to set the udata seems onerous.
+These patches have been send during 2006 but never
+have been applied or rejected. Even after sending requests
+for updates on these patches.
+So I have no idea if you had rejected them, simply
+overlooked them, or if they are still in your pending list.
 
+Short summary of which patches are being resend:
 
+- crc-itu-t
+This has been send to the list during the summer around
+the same time as the initial patch for rfkill. It had also been
+send to the linux-kernel list with a CC to you with a request
+for comment.
+
+- eeprom_93cx6
+This has been send to the list1 or 2 months ago. After the
+initial patch a feature request for eeprom write support was
+made. Those 2 patches have now been merged into a single patch.
+
+Both of the libraries come from rt2x00, and this patch merely
+moves them to the location for more generic routines.
+Both the crc as the eeprom handling can be used by different
+drivers (some drivers also use the same implementation, which
+in my opinion would jusitify these 2 modules to be in the lib folder).
+
+Ivo
