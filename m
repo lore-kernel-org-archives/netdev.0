@@ -1,47 +1,46 @@
 From: Jiri Benc <jbenc@suse.cz>
-Subject: [PATCH 12/12] d80211: Reinit keys on mode change
-Date: Wed,  3 Jan 2007 19:05:20 +0100 (CET)
-Message-ID: <20070103180520.9BD953AA7E9@silver.suse.cz>
+Subject: [PATCH 11/12] d80211: inhibit duplicate authentication requests when setting bssid
+Date: Wed,  3 Jan 2007 19:05:19 +0100 (CET)
+Message-ID: <20070103180519.9015D3AA7F4@silver.suse.cz>
 References: <20070103190418.710197000.midnight@suse.cz>
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:42230 "EHLO silver.suse.cz"
+Received: from styx.suse.cz ([82.119.242.94]:42228 "EHLO silver.suse.cz"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751037AbXACSFZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Jan 2007 13:05:25 -0500
+	id S1751012AbXACSFX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Jan 2007 13:05:23 -0500
 To: "John W. Linville" <linville@tuxdriver.com>
 In-Reply-To: <20070103190418.710197000.midnight@suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jan Kiszka <jan.kiszka@web.de>
+From: David Kimdon <david.kimdon@devicescape.com>
 
-Switching the interface mode with some encryption keys set and then later
-touching any key, triggers an oops because ieee80211_if_reinit fails to
-NULL'ify the related pointers after free'ing the key on mode change. Long
-explanation, simple fix below.
+If we are already authenticating don't send another authentication
+request.
 
-Signed-off-by: Jan Kiszka <jan.kiszka@web.de>
+Signed-off-by: David Kimdon <david.kimdon@devicescape.com>
 Signed-off-by: Jiri Benc <jbenc@suse.cz>
 
 ---
 
- net/d80211/ieee80211_iface.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+ net/d80211/ieee80211_sta.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-ff6a6797032d232d07be32594fdd7369cd927382
-diff --git a/net/d80211/ieee80211_iface.c b/net/d80211/ieee80211_iface.c
-index cb1da56..1a0b8cd 100644
---- a/net/d80211/ieee80211_iface.c
-+++ b/net/d80211/ieee80211_iface.c
-@@ -231,6 +231,7 @@ #if 0
- 					    local->keys[i], 0);
- #endif
- 		ieee80211_key_free(sdata->keys[i]);
-+		sdata->keys[i] = NULL;
- 	}
+ca363cfd2c934d40dd0c24a52e58921d355b3c01
+diff --git a/net/d80211/ieee80211_sta.c b/net/d80211/ieee80211_sta.c
+index 77a8308..32c2bbe 100644
+--- a/net/d80211/ieee80211_sta.c
++++ b/net/d80211/ieee80211_sta.c
+@@ -2354,7 +2354,7 @@ int ieee80211_sta_set_bssid(struct net_d
+ 		ifsta->bssid_set = 0;
+ 	else
+ 		ifsta->bssid_set = 1;
+-	if (ifsta->ssid_set)
++	if (ifsta->ssid_set && ifsta->state != IEEE80211_AUTHENTICATE)
+ 		ieee80211_sta_new_auth(dev, ifsta);
  
- 	/* Shouldn't be necessary but won't hurt */
+ 	return 0;
 -- 
 1.3.0
 
