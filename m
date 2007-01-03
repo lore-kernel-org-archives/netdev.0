@@ -1,95 +1,77 @@
-From: Steve Wise <swise@opengridcomputing.com>
+From: "Michael S. Tsirkin" <mst@mellanox.co.il>
 Subject: Re: [PATCH  v4 01/13] Linux RDMA Core Changes
-Date: Wed, 03 Jan 2007 13:17:19 -0600
-Message-ID: <1167851839.4187.36.camel@stevo-desktop>
-References: <1167836172.4187.9.camel@stevo-desktop>
-	 <20070103150013.GO6019@mellanox.co.il>
-	 <1167836841.4187.18.camel@stevo-desktop>
-	 <20070103151823.GR6019@mellanox.co.il>
+Date: Wed, 3 Jan 2007 21:33:24 +0200
+Message-ID: <20070103193324.GD29003@mellanox.co.il>
+References: <1167851839.4187.36.camel@stevo-desktop>
+Reply-To: "Michael S. Tsirkin" <mst@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, Roland Dreier <rdreier@cisco.com>,
 	linux-kernel@vger.kernel.org, openib-general@openib.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rrcs-24-153-217-226.sw.biz.rr.com ([24.153.217.226]:34768 "EHLO
-	smtp.opengridcomputing.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751062AbXACTRU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jan 2007 14:17:20 -0500
-To: "Michael S. Tsirkin" <mst@mellanox.co.il>
-In-Reply-To: <20070103151823.GR6019@mellanox.co.il>
-Sender: netdev-owner@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751091AbXACTdJ@vger.kernel.org>
+To: Steve Wise <swise@opengridcomputing.com>
+Content-Disposition: inline
+In-Reply-To: <1167851839.4187.36.camel@stevo-desktop>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> > > > ib_set_cq_udata() would transition into the kernel to pass in the
-> > > > consumer's index.  In addition, ib_req_notify_cq would also transition
-> > > > into the kernel since its not a bypass function for chelsio.
-> > > 
-> > > We misunderstand each other.
-> > > 
-> > > ib_uverbs_req_notify_cq is in drivers/infiniband/core/uverbs_cmd.c -
-> > > all this code runs inside the IB_USER_VERBS_CMD_REQ_NOTIFY_CQ command,
-> > > so there is a single user to kernel transition.
-> > > 
-> > 
-> > Oh I see. 
-> > 
-> > This seems like a lot of extra code to avoid passing one extra arg to
-> > the driver's req_notify_cq verb.  I'd appreciate other folk's input on
-> > how important they think this is.  
-> >
-> > If you insist, then I'll run some tests specifically in kernel mode and
-> > see how this affects mthca's req_notify performance.
+> Without extra param (1000 iterations in cycles): 
+> 	ave 101.283 min 91 max 247
+> With extra param (1000 iterations in cycles):
+> 	ave 103.311 min 91 max 221
+
+A 2% hit then. Not huge, but 0 either.
+
+> Convert cycles to ns (3466.727 MHz CPU):
 > 
-> This might be an interesting datapoint.
+> Without: 101.283 / 3466.727 = .02922us == 29.22ns
+> With:    103.311 / 3466.727 = .02980us == 29.80ns
 > 
+> So I measure a .58ns average increase for passing in the additional
+> parameter.
 
-Here's what I measured:
+That depends on CPU speed though. Percentage is likely to be more universal.
 
-Without extra param (1000 iterations in cycles): 
-	ave 101.283 min 91 max 247
-With extra param (1000 iterations in cycles):
-	ave 103.311 min 91 max 221
+> Here is a snipit of the test:
+> 
+>         spin_lock_irq(&lock);
+>         do_gettimeofday(&start_tv);
+>         for (i=0; i<1000; i++) {
+>                 cycles_start[i] = get_cycles();
+>                 ib_req_notify_cq(cb->cq, IB_CQ_NEXT_COMP);
+>                 cycles_stop[i] = get_cycles();
+>         }
+>         do_gettimeofday(&stop_tv);
+>         spin_unlock_irq(&lock);
+> 
+>         if (stop_tv.tv_usec < start_tv.tv_usec) {
+>                 stop_tv.tv_usec += 1000000;
+>                 stop_tv.tv_sec  -= 1;
+>         }
+> 
+>         for (i=0; i < 1000; i++) {
+>                 cycles_t v = cycles_stop[i] - cycles_start[i];
+>                 sum += v;
+>                 if (v > max)
+>                         max = v;
+>                 if (min == 0 || v < min)
+>                         min = v;
+>         }
+> 
+>         printk(KERN_ERR PFX "FOO delta sec %lu usec %lu sum %llu min %llu max %llu\n",
+>                 stop_tv.tv_sec - start_tv.tv_sec,
+>                 stop_tv.tv_usec - start_tv.tv_usec,
+>                 (unsigned long long)sum, (unsigned long long)min,
+>                 (unsigned long long)max);
 
-Convert cycles to ns (3466.727 MHz CPU):
+Good job, the test looks good, thanks.
 
-Without: 101.283 / 3466.727 = .02922us == 29.22ns
-With:    103.311 / 3466.727 = .02980us == 29.80ns
+So what does this tell you?
+To me it looks like there's a measurable speed difference,
+and so we should find a way (e.g. what I proposed) to enable chelsio userspace
+without adding overhead to other low level drivers or indeed chelsio kernel level code.
 
-So I measure a .58ns average increase for passing in the additional
-parameter.
+What do you think? Roland?
 
-Here is a snipit of the test:
-
-        spin_lock_irq(&lock);
-        do_gettimeofday(&start_tv);
-        for (i=0; i<1000; i++) {
-                cycles_start[i] = get_cycles();
-                ib_req_notify_cq(cb->cq, IB_CQ_NEXT_COMP);
-                cycles_stop[i] = get_cycles();
-        }
-        do_gettimeofday(&stop_tv);
-        spin_unlock_irq(&lock);
-
-        if (stop_tv.tv_usec < start_tv.tv_usec) {
-                stop_tv.tv_usec += 1000000;
-                stop_tv.tv_sec  -= 1;
-        }
-
-        for (i=0; i < 1000; i++) {
-                cycles_t v = cycles_stop[i] - cycles_start[i];
-                sum += v;
-                if (v > max)
-                        max = v;
-                if (min == 0 || v < min)
-                        min = v;
-        }
-
-        printk(KERN_ERR PFX "FOO delta sec %lu usec %lu sum %llu min %llu max %llu\n",
-                stop_tv.tv_sec - start_tv.tv_sec,
-                stop_tv.tv_usec - start_tv.tv_usec,
-                (unsigned long long)sum, (unsigned long long)min,
-                (unsigned long long)max);
-
-
-
+-- 
+MST
