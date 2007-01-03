@@ -1,68 +1,47 @@
-From: Steve Wise <swise@opengridcomputing.com>
+From: "Michael S. Tsirkin" <mst@mellanox.co.il>
 Subject: Re: [PATCH  v4 01/13] Linux RDMA Core Changes
-Date: Wed, 03 Jan 2007 08:56:12 -0600
-Message-ID: <1167836172.4187.9.camel@stevo-desktop>
-References: <1167834348.4187.3.camel@stevo-desktop>
-	 <20070103144153.GN6019@mellanox.co.il>
+Date: Wed, 3 Jan 2007 17:00:13 +0200
+Message-ID: <20070103150013.GO6019@mellanox.co.il>
+References: <1167836172.4187.9.camel@stevo-desktop>
+Reply-To: "Michael S. Tsirkin" <mst@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: Roland Dreier <rdreier@cisco.com>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org, openib-general@openib.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750826AbXACO4N@vger.kernel.org>
-To: "Michael S. Tsirkin" <mst@mellanox.co.il>
-In-Reply-To: <20070103144153.GN6019@mellanox.co.il>
-Sender: linux-kernel-owner@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dev.mellanox.co.il ([194.90.237.44]:36493 "EHLO
+	dev.mellanox.co.il" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750787AbXACPCQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jan 2007 10:02:16 -0500
+To: Steve Wise <swise@opengridcomputing.com>
+Content-Disposition: inline
+In-Reply-To: <1167836172.4187.9.camel@stevo-desktop>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> > > 
-> > > It seems all Chelsio needs is to pass in a consumer index - so, how about a new
-> > > entry point? Something like void set_cq_udata(struct ib_cq *cq, struct ib_udata *udata)?
-> > > 
 > > 
-> > Adding a new entry point would hurt chelsio's user mode performance if
-> > if then requires 2 kernel transitions to rearm the cq.  
+> > No, it won't need 2 transitions - just an extra function call,
+> > so it won't hurt performance - it would improve performance.
+> > 
+> > ib_uverbs_req_notify_cq would call
+> > 
+> > 	ib_uverbs_req_notify_cq()
+> > 	{
+> > 			ib_set_cq_udata(cq, udata)
+> > 			ib_req_notify_cq(cq, cmd.solicited_only ?
+> > 				IB_CQ_SOLICITED : IB_CQ_NEXT_COMP);
+> > 	}
+> > 
 > 
-> No, it won't need 2 transitions - just an extra function call,
-> so it won't hurt performance - it would improve performance.
-> 
-> ib_uverbs_req_notify_cq would call
-> 
-> 	ib_uverbs_req_notify_cq()
-> 	{
-> 			ib_set_cq_udata(cq, udata)
-> 			ib_req_notify_cq(cq, cmd.solicited_only ?
-> 				IB_CQ_SOLICITED : IB_CQ_NEXT_COMP);
-> 	}
-> 
+> ib_set_cq_udata() would transition into the kernel to pass in the
+> consumer's index.  In addition, ib_req_notify_cq would also transition
+> into the kernel since its not a bypass function for chelsio.
 
-ib_set_cq_udata() would transition into the kernel to pass in the
-consumer's index.  In addition, ib_req_notify_cq would also transition
-into the kernel since its not a bypass function for chelsio.
+We misunderstand each other.
 
-> This way kernel consumers don't incur any overhead,
-> and in userspace users extra function call is dwarfed
-> by system call overhead.
-> 
-> > Passing in user data is sort of SOP for these sorts of verbs.  
-> 
-> I don't see other examples. Where we did pass extra user data
-> is in non-data pass verbs such as create QP.
-> 
-> This is most inner tight loop in many ULPs, so we should be very careful
-> about adding code there - these things do add up.
-> See recent IRQ API update in kernel.
+ib_uverbs_req_notify_cq is in drivers/infiniband/core/uverbs_cmd.c -
+all this code runs inside the IB_USER_VERBS_CMD_REQ_NOTIFY_CQ command,
+so there is a single user to kernel transition.
 
-Roland, do you have any comments on this?  You previously indicated
-these patches were good to go once chelsio's ethernet driver gets pulled
-in. 
-
-> > How much does passing one more param cost for kernel users?  
-> 
-> Donnu. I just reviewed the code.
-> It really should be up to patch submitter to check the performance
-> effect of his patch, if there might be any.
-
-I've run this code with mthca and didn't notice any performance
-degradation, but I wasn't specifically measuring cq_poll overhead in a
-tight loop...
+-- 
+MST
