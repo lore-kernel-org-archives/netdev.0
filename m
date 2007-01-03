@@ -1,149 +1,74 @@
-From: KOVACS Krisztian <hidden@balabit.hu>
-Subject: [PATCH/RFC 10/10] iptables tproxy match
-Date: Wed, 03 Jan 2007 17:38:58 +0100
-Message-ID: <20070103163858.14635.7249.stgit@nienna.balabit>
-References: <20070103163357.14635.37754.stgit@nienna.balabit>
+From: Sid Boyce <g3vbv@blueyonder.co.uk>
+Subject: Re: 2.6.19 and up to  2.6.20-rc2 Ethernet problems x86_64
+Date: Wed, 03 Jan 2007 16:53:58 +0000
+Message-ID: <459BDFA6.4070109@blueyonder.co.uk>
+References: <20061229063254.GA1628@ff.dom.local> <4595CD1B.2020102@blueyonder.co.uk> <20070102115050.GA3449@ff.dom.local> <459A7AF1.5060702@blueyonder.co.uk> <20070103104814.GA2629@ff.dom.local>
+Reply-To: g3vbv@blueyonder.co.uk
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: netfilter-devel@lists.netfilter.org, netdev@vger.kernel.org
-In-Reply-To: <20070103163357.14635.37754.stgit@nienna.balabit>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out4.blueyonder.co.uk ([195.188.213.7]:60765 "EHLO
+	smtp-out4.blueyonder.co.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750932AbXACQyD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jan 2007 11:54:03 -0500
+To: Jarek Poplawski <jarkao2@o2.pl>
+In-Reply-To: <20070103104814.GA2629@ff.dom.local>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Implements an iptables module which matches packets which have the
-tproxy flag set, that is, packets diverted in the tproxy table.
+Jarek Poplawski wrote:
+> On Tue, Jan 02, 2007 at 03:32:01PM +0000, Sid Boyce wrote:
+>> Jarek Poplawski wrote:
+> ...
+>>> If you could send full ifconfig, route -n (or ip route
+>>> if you use additional tables) and tcpdump (all packets)
+>> >from both boxes while pinging each other and a few words
+>>> how it is connected (other cards, other active boxes in
+>>> the network?) maybe something more could be found.
+> ...
+>> Everything is fine with a eepro100 on the 64x2 box that gave the same
+>> problem with a nVidia Corporation MCP51 Ethernet Controller (rev a1)
+>> using the forcedeth module. On the x86_64 laptop the problem is with a
+>> Broadcom NetXtreme BCM5788 using the tg3 module. Switching back to a
+>> 2.6.18.2 kernel, there is no problem.
+>> With all configurations of cards on both, route -n is the same on all
+>> kernels and instantly reports back. With >=2.6.19 on the laptop, netstat
+>> -r takes a very long time before returning the information ~30 seconds,
+>> instantly on 2.6.18.2.
+> 
+> This could be a problem with DNS. Could you do all tests
+> (including pinging) with -n option?
+> 
+> I've read your other message on netdev and see you
+> have firewall working and addresses from various 
+> networks in logs. I think it would be much easier
+> to exclude possible network config errors and try
+> to isolate pinging problems by connecting (with
+> switch or even crossed cable if possible) only 2
+> boxes with firewalls and other net devices disabled
+> and try to repeat this pinging with tcpdumps.
+> 
+> Jarek P.
+> 
+>
+It seems >=2.6.19 and the SuSEfirewall are incompatible.
 
-Signed-off-by: KOVACS Krisztian <hidden@balabit.hu>
+Turning off the firewall on the laptop cured the problem using 
+2.6.20-rc2 and 2.6.20-rc3. I thought it was off. On the 64x2 box, the 
+firewall is turned off, so I shall have to reconfigure the network to 
+use the Gigabit ethernet instead of the eepro100 in case I turned it off 
+after seeing the bug on that box, but didn't stop the firewall.
+There is still the problem where the ethernet doesn't get configured 
+with acpi=off which I shall post to the acpi devel list, but this is not 
+a showstopper for me. ifconfig eth0 192.168.10.5 returns SIOCSIFFLAGS: 
+Function not implemented.
+Thanks and Regards
+Sid.
+-- 
+Sid Boyce ... Hamradio License G3VBV, Licensed Private Pilot
+Emeritus IBM/Amdahl Mainframes and Sun/Fujitsu Servers Tech Support 
+Specialist, Cricket Coach
+Microsoft Windows Free Zone - Linux used for all Computing Tasks
 
----
-
- net/netfilter/Kconfig     |    9 +++++
- net/netfilter/Makefile    |    1 +
- net/netfilter/xt_tproxy.c |   77 +++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 87 insertions(+), 0 deletions(-)
-
-diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
-index 1b853c3..76c6f14 100644
---- a/net/netfilter/Kconfig
-+++ b/net/netfilter/Kconfig
-@@ -559,6 +559,15 @@ config NETFILTER_XT_MATCH_QUOTA
- 	  If you want to compile it as a module, say M here and read
- 	  <file:Documentation/modules.txt>.  If unsure, say `N'.
- 
-+config NETFILTER_XT_MATCH_TPROXY
-+	tristate '"tproxy" match support'
-+	depends on NETFILTER_XTABLES
-+	help
-+	  This option adds a `tproxy' match, which allows you to match
-+	  packets which have been diverted to local sockets by TProxy.
-+
-+	  To compile it as a module, choose M here.  If unsure, say N.
-+
- config NETFILTER_XT_MATCH_REALM
- 	tristate  '"realm" match support'
- 	depends on NETFILTER_XTABLES
-diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
-index 5dc5574..4a83585 100644
---- a/net/netfilter/Makefile
-+++ b/net/netfilter/Makefile
-@@ -62,6 +62,7 @@ obj-$(CONFIG_NETFILTER_XT_MATCH_MARK) +=
- obj-$(CONFIG_NETFILTER_XT_MATCH_MULTIPORT) += xt_multiport.o
- obj-$(CONFIG_NETFILTER_XT_MATCH_POLICY) += xt_policy.o
- obj-$(CONFIG_NETFILTER_XT_MATCH_PKTTYPE) += xt_pkttype.o
-+obj-$(CONFIG_NETFILTER_XT_MATCH_TPROXY) += xt_tproxy.o
- obj-$(CONFIG_NETFILTER_XT_MATCH_QUOTA) += xt_quota.o
- obj-$(CONFIG_NETFILTER_XT_MATCH_REALM) += xt_realm.o
- obj-$(CONFIG_NETFILTER_XT_MATCH_SCTP) += xt_sctp.o
-diff --git a/net/netfilter/xt_tproxy.c b/net/netfilter/xt_tproxy.c
-new file mode 100644
-index 0000000..53f8bee
---- /dev/null
-+++ b/net/netfilter/xt_tproxy.c
-@@ -0,0 +1,77 @@
-+/*
-+ * Transparent proxy support for Linux/iptables
-+ *
-+ * Copyright (c) 2007 BalaBit IT Ltd.
-+ * Author: Krisztian Kovacs
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 as
-+ * published by the Free Software Foundation.
-+ *
-+ */
-+
-+#include <linux/module.h>
-+#include <linux/skbuff.h>
-+
-+#include <linux/netfilter/x_tables.h>
-+
-+static int
-+match(const struct sk_buff *skb,
-+      const struct net_device *in,
-+      const struct net_device *out,
-+      const struct xt_match *match,
-+      const void *matchinfo,
-+      int offset,
-+      unsigned int protoff,
-+      int *hotdrop)
-+{
-+	return skb->ip_tproxy;
-+}
-+
-+static int
-+check(const char *tablename,
-+      const void *entry,
-+      const struct xt_match *match,
-+      void *matchinfo,
-+      unsigned int hook_mask)
-+{
-+	return 1;
-+}
-+
-+static struct xt_match tproxy_matches[] = {
-+	{
-+		.name		= "tproxy",
-+		.match		= match,
-+		.matchsize	= 0,
-+		.checkentry	= check,
-+		.family		= AF_INET,
-+		.me		= THIS_MODULE,
-+	},
-+	{
-+		.name		= "tproxy",
-+		.match		= match,
-+		.matchsize	= 0,
-+		.checkentry	= check,
-+		.family		= AF_INET6,
-+		.me		= THIS_MODULE,
-+	},
-+};
-+
-+static int __init xt_tproxy_init(void)
-+{
-+	return xt_register_matches(tproxy_matches, ARRAY_SIZE(tproxy_matches));
-+}
-+
-+static void __exit xt_tproxy_fini(void)
-+{
-+	xt_unregister_matches(tproxy_matches, ARRAY_SIZE(tproxy_matches));
-+}
-+
-+module_init(xt_tproxy_init);
-+module_exit(xt_tproxy_fini);
-+
-+MODULE_LICENSE("GPL");
-+MODULE_AUTHOR("Krisztian Kovacs <hidden@balabit.hu>");
-+MODULE_DESCRIPTION("iptables tproxy match module");
-+MODULE_ALIAS("ipt_tproxy");
-+MODULE_ALIAS("ip6t_tproxy");
