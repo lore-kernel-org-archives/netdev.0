@@ -1,13 +1,13 @@
 From: Masahide NAKAMURA <nakam@linux-ipv6.org>
 Subject: [IPV6] RAW: Add checksum default defines for MH.
-Date: Wed,  3 Jan 2007 18:57:48 +0900
-Message-ID: <11678182681435-git-send-email-nakam@linux-ipv6.org>
+Date: Wed,  3 Jan 2007 18:32:22 +0900
+Message-ID: <11678167423123-git-send-email-nakam@linux-ipv6.org>
 Cc: netdev@vger.kernel.org, Masahide NAKAMURA <nakam@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usagi020.linux-ipv6.org ([203.178.140.20]:55820 "EHLO
+Received: from usagi020.linux-ipv6.org ([203.178.140.20]:34215 "EHLO
 	neptune.linux-ipv6.org" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S1750695AbXACKEj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jan 2007 05:04:39 -0500
+	with ESMTP id S1750701AbXACKMw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jan 2007 05:12:52 -0500
 To: davem@davemloft.net, yoshfuji@linux-ipv6.org,
 	takamiya@po.ntts.co.jp
 In-Reply-To: 4591FD33.3070205@linux-ipv6.org
