@@ -1,74 +1,66 @@
-From: Sid Boyce <g3vbv@blueyonder.co.uk>
-Subject: Re: 2.6.19 and up to  2.6.20-rc2 Ethernet problems x86_64
-Date: Wed, 03 Jan 2007 16:53:58 +0000
-Message-ID: <459BDFA6.4070109@blueyonder.co.uk>
-References: <20061229063254.GA1628@ff.dom.local> <4595CD1B.2020102@blueyonder.co.uk> <20070102115050.GA3449@ff.dom.local> <459A7AF1.5060702@blueyonder.co.uk> <20070103104814.GA2629@ff.dom.local>
-Reply-To: g3vbv@blueyonder.co.uk
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: BUG: soft lockup detected on CPU#0!  (2.6.18.2 plus hacks)
+Date: Wed, 03 Jan 2007 08:53:22 -0800
+Message-ID: <459BDF82.9000901@candelatech.com>
+References: <4599E6D5.6050207@candelatech.com> <OFB8CE3E37.99FD5849-ON88257257.0080FAE8-88257257.00819B15@us.ibm.com> <20070103080711.GA1747@ff.dom.local> <20070103082826.GB1747@ff.dom.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Cc: David Stevens <dlstevens@us.ibm.com>,
+	NetDev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.blueyonder.co.uk ([195.188.213.7]:60765 "EHLO
-	smtp-out4.blueyonder.co.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750932AbXACQyD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jan 2007 11:54:03 -0500
+Received: from ns2.lanforge.com ([66.165.47.211]:59699 "EHLO ns2.lanforge.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750956AbXACQ6s (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Jan 2007 11:58:48 -0500
 To: Jarek Poplawski <jarkao2@o2.pl>
-In-Reply-To: <20070103104814.GA2629@ff.dom.local>
+In-Reply-To: <20070103082826.GB1747@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Jarek Poplawski wrote:
-> On Tue, Jan 02, 2007 at 03:32:01PM +0000, Sid Boyce wrote:
->> Jarek Poplawski wrote:
-> ...
->>> If you could send full ifconfig, route -n (or ip route
->>> if you use additional tables) and tcpdump (all packets)
->> >from both boxes while pinging each other and a few words
->>> how it is connected (other cards, other active boxes in
->>> the network?) maybe something more could be found.
-> ...
->> Everything is fine with a eepro100 on the 64x2 box that gave the same
->> problem with a nVidia Corporation MCP51 Ethernet Controller (rev a1)
->> using the forcedeth module. On the x86_64 laptop the problem is with a
->> Broadcom NetXtreme BCM5788 using the tg3 module. Switching back to a
->> 2.6.18.2 kernel, there is no problem.
->> With all configurations of cards on both, route -n is the same on all
->> kernels and instantly reports back. With >=2.6.19 on the laptop, netstat
->> -r takes a very long time before returning the information ~30 seconds,
->> instantly on 2.6.18.2.
-> 
-> This could be a problem with DNS. Could you do all tests
-> (including pinging) with -n option?
-> 
-> I've read your other message on netdev and see you
-> have firewall working and addresses from various 
-> networks in logs. I think it would be much easier
-> to exclude possible network config errors and try
-> to isolate pinging problems by connecting (with
-> switch or even crossed cable if possible) only 2
-> boxes with firewalls and other net devices disabled
-> and try to repeat this pinging with tcpdumps.
-> 
-> Jarek P.
-> 
+> On Wed, Jan 03, 2007 at 09:07:11AM +0100, Jarek Poplawski wrote:
+>   
+>> On Tue, Jan 02, 2007 at 03:35:39PM -0800, David Stevens wrote:
+>>     
+>>> I've looked at this a little too -- it'd be nice to know who holds
+>>> the write lock.
+>>>       
+>> If you mean mc_list_lock - probably nobody - it's
+>> not initialized (so the timers) for this in_device
+>>     
 >
-It seems >=2.6.19 and the SuSEfirewall are incompatible.
+> I should say: "... probably not initialized ...".
+>   
+That should print out the debugging when you access an un-initialized 
+lock, and I did not
+see that print-out in the logs.   I looked at the code and could not 
+explain how it could
+be accessed un-initialized, so I'm not certain this is the problem.
 
-Turning off the firewall on the laptop cured the problem using 
-2.6.20-rc2 and 2.6.20-rc3. I thought it was off. On the 64x2 box, the 
-firewall is turned off, so I shall have to reconfigure the network to 
-use the Gigabit ethernet instead of the eepro100 in case I turned it off 
-after seeing the bug on that box, but didn't stop the firewall.
-There is still the problem where the ethernet doesn't get configured 
-with acpi=off which I shall post to the acpi devel list, but this is not 
-a showstopper for me. ifconfig eth0 192.168.10.5 returns SIOCSIFFLAGS: 
-Function not implemented.
-Thanks and Regards
-Sid.
+If I can reproduce this in a controlled manner, I'll add debugging to 
+print out who is holding
+the lock (if anyone), as well as make sure it is initialized before the 
+blocking method initializes
+it.  It will likely be a few days before we can set up something to 
+reproduce it, however.
+
+If you can explain any code path that could leave the lock 
+uninitialized, then that would be a
+big help...but it looked ok to me...
+
+Ben
+
+> Jarek P. 
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>   
+
+
 -- 
-Sid Boyce ... Hamradio License G3VBV, Licensed Private Pilot
-Emeritus IBM/Amdahl Mainframes and Sun/Fujitsu Servers Tech Support 
-Specialist, Cricket Coach
-Microsoft Windows Free Zone - Linux used for all Computing Tasks
+Ben Greear <greearb@candelatech.com> 
+Candela Technologies Inc  http://www.candelatech.com
+
 
