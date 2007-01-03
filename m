@@ -1,7 +1,7 @@
 From: KOVACS Krisztian <hidden@balabit.hu>
-Subject: [PATCH/RFC 06/10] Create a tproxy flag in struct sk_buff
-Date: Wed, 03 Jan 2007 17:36:58 +0100
-Message-ID: <20070103163658.14635.64205.stgit@nienna.balabit>
+Subject: [PATCH/RFC 05/10] Remove local address check on IP output
+Date: Wed, 03 Jan 2007 17:36:28 +0100
+Message-ID: <20070103163627.14635.88250.stgit@nienna.balabit>
 References: <20070103163357.14635.37754.stgit@nienna.balabit>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -20,28 +20,52 @@ Sender: netfilter-devel-bounces@lists.netfilter.org
 Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-We would like to be able to match on whether or not a given packet has
-been diverted by tproxy. To make this possible we need a flag in
-sk_buff.
+ip_route_output() contains a check to make sure that no flows with
+non-local source IP addresses are routed. Unfortunately this check
+makes it completely impossible to use non-local bound sockets as no
+outbound packets will make through the stack.
+
+This patch moves the interface lookup to the multicast-specific code
+path as that is the only real user of the interface data looked up.
 
 Signed-off-by: KOVACS Krisztian <hidden@balabit.hu>
 
 ---
 
- include/linux/skbuff.h |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+ net/ipv4/route.c |   13 +++++--------
+ 1 files changed, 5 insertions(+), 8 deletions(-)
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 4ff3940..6d7f5c7 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -284,7 +284,8 @@ struct sk_buff {
- 				nfctinfo:3;
- 	__u8			pkt_type:3,
- 				fclone:2,
--				ipvs_property:1;
-+				ipvs_property:1,
-+				ip_tproxy:1;
- 	__be16			protocol;
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 537b976..bb1158a 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -2498,11 +2498,6 @@ #endif
+ 		    ZERONET(oldflp->fl4_src))
+ 			goto out;
  
- 	void			(*destructor)(struct sk_buff *skb);
+-		/* It is equivalent to inet_addr_type(saddr) == RTN_LOCAL */
+-		dev_out = ip_dev_find(oldflp->fl4_src);
+-		if (dev_out == NULL)
+-			goto out;
+-
+ 		/* I removed check for oif == dev_out->oif here.
+ 		   It was wrong for two reasons:
+ 		   1. ip_dev_find(saddr) can return wrong iface, if saddr is
+@@ -2528,12 +2523,14 @@ #endif
+ 			   Luckily, this hack is good workaround.
+ 			 */
+ 
++			/* It is equivalent to inet_addr_type(saddr) == RTN_LOCAL */
++			dev_out = ip_dev_find(oldflp->fl4_src);
++			if (dev_out == NULL)
++				goto out;
++
+ 			fl.oif = dev_out->ifindex;
+ 			goto make_route;
+ 		}
+-		if (dev_out)
+-			dev_put(dev_out);
+-		dev_out = NULL;
+ 	}
+ 
+ 
