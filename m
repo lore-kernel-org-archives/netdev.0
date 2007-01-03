@@ -1,43 +1,57 @@
-From: Eric Piel <Eric.Piel@tremplin-utc.net>
-Subject: Re: [2.6 patch] the scheduled eepro100 removal
-Date: Wed, 03 Jan 2007 01:07:56 +0100
-Message-ID: <459AF3DC.1040305@tremplin-utc.net>
-References: <20070102215726.GC20714@stusta.de>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: Please pull 'upstream' branch of wireless-2.6
+Date: Tue, 2 Jan 2007 21:04:17 -0500
+Message-ID: <20070103020411.GA5661@tuxdriver.com>
+References: <20061221030340.GA9277@tuxdriver.com> <20061221030503.GB9277@tuxdriver.com> <4591969A.1040403@garzik.org> <20061228001051.GA3443@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: jgarzik@pobox.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, saw@saw.sw.com.sg
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, uberlord@gentoo.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postfix1-g20.free.fr ([212.27.60.42]:43282 "EHLO
-	postfix1-g20.free.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752313AbXACAKA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jan 2007 19:10:00 -0500
-To: Adrian Bunk <bunk@stusta.de>
-In-Reply-To: <20070102215726.GC20714@stusta.de>
+Received: from ra.tuxdriver.com ([70.61.120.52]:4881 "EHLO ra.tuxdriver.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753852AbXACCc5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Jan 2007 21:32:57 -0500
+To: Jeff Garzik <jeff@garzik.org>
+Content-Disposition: inline
+In-Reply-To: <20061228001051.GA3443@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-02.01.2007 22:57, Adrian Bunk wrote/a =E9crit:
-> This patch contains the scheduled removal of the eepro100 driver.
+On Wed, Dec 27, 2006 at 07:10:57PM -0500, John W. Linville wrote:
+> On Tue, Dec 26, 2006 at 04:39:38PM -0500, Jeff Garzik wrote:
+> > John W. Linville wrote:
+> > >The following changes since commit 
+> > >0c234ae655a45ac3ee53a25b2e56e9bb6c27d71d:
+> > >  Ulrich Kunitz (1):
+> > >        ieee80211softmac: Fix mutex_lock at exit of 
+> > >        ieee80211_softmac_get_genie
+> > >
+> > >are found in the git repository at:
+> > >
+> > >  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git 
+> > >  upstream
+> > >
+> > >Roy Marples (1):
+> > >      prism54: set carrier flags correctly
+> > 
+> > Why is this not #upstream-fixes material?  What's the impact?
+> 
+> Just being cautious, really.  I have no objection if you want to pull
+> it as a fix.
 
-Hi, I've been using e100 for years with no problem, however more by=20
-curiosity than necessity I'd like to know how will be handled the=20
-devices which are (supposedly) supported by eepro100 and not by e100?
+After further review...
 
-According to "modinfo eepro100" and "modinfo e100" those devices IDs ar=
-e=20
-only matched by eepro100:
-+alias:          pci:v00008086d00001035sv
-+alias:          pci:v00008086d00001036sv
-+alias:          pci:v00008086d00001037sv
-+alias:          pci:v00008086d00001227sv
-+alias:          pci:v00008086d00005200sv
-+alias:          pci:v00008086d00005201sv
+Jeff, it looks like you have not pulled this one so far.  Based on
+the commentary from Roger While [1], lets hold-off on this one.
 
-Are they matched by some joker rule that I haven't noticed in e100, or=20
-is support for them really going to disappear?
+Roy, please consider refactoring your patch based on Roger's comments.
 
-See you,
-Eric
+Thanks,
+
+John
+
+[1] http://marc.10east.com/?l=linux-netdev&m=116740017623597&w=2
+
+-- 
+John W. Linville
+linville@tuxdriver.com
