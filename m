@@ -1,100 +1,135 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: BUG: soft lockup detected on CPU#0!  (2.6.18.2 plus hacks)
-Date: Wed, 03 Jan 2007 15:35:20 -0800
-Message-ID: <459C3DB8.6090603@candelatech.com>
-References: <OF68896635.077F2C1B-ON88257258.007F0BD8-88257258.007F8A72@us.ibm.com>
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: Re: [PATCH] tipc: checking returns and Re: Possible Circular Locking
+ in TIPC
+Date: Wed, 03 Jan 2007 23:16:59 +0000
+Message-ID: <459C396B.1090508@ericsson.com>
+References: <20061228121702.GA5076@ff.dom.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jarkao2@o2.pl, NetDev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
+Cc: Eric Sesterhenn <snakebyte@gmx.de>,
+	Per Liden <per.liden@ericsson.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	"'tipc-discussion@lists.sourceforge.net'"
+	<tipc-discussion@lists.sourceforge.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:49216 "EHLO ns2.lanforge.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932182AbXACXfw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Jan 2007 18:35:52 -0500
-To: David Stevens <dlstevens@us.ibm.com>
-In-Reply-To: <OF68896635.077F2C1B-ON88257258.007F0BD8-88257258.007F8A72@us.ibm.com>
+Received: from mailgw4.ericsson.se ([193.180.251.62]:57463 "EHLO
+	mailgw4.ericsson.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932117AbXACXhv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jan 2007 18:37:51 -0500
+To: Jarek Poplawski <jarkao2@o2.pl>
+In-Reply-To: <20061228121702.GA5076@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Stevens wrote:
-> Ben,
->         Here's a patch that I think will fix it, assuming the receive is 
-> on the
-> same device as the initialization. Can you try this out?
+See my comments below.
+Regards
+///jon
 
-We are attempting to reproduce this now...as soon as we can reproduce,
-I'll apply this and see if that fixes the problem.  This race is evidently
-quite difficult to hit, so I'm not sure how long this will take.
+Jarek Poplawski wrote:
 
-Perhaps someone like DaveM could review the patch for logical correctness
-and go ahead and apply anyway if it is more correct?  I confuse myself often
-enough trying to deal with the network stack locking that I should probably
-not be the final arbiter of this patch :)
+> ..........
+>
+>Maybe I misinterpret this but, IMHO lockdep
+>complains about locks acquired in different
+>order: tipc_ref_acquire() gets ref_table_lock 
+>and then tipc_ret_table.entries[index]->lock,
+>but tipc_deleteport() inversely (with:
+>tipc_port_lock() and tipc_ref_discard()).
+>I hope maintainers will decide the correct
+>order.
+>  
+>
+This order is correct. There can never be parallel access to the
+same _instance_ of tipc_ret_table.entries[index]->lock from
+the two functions you mention.
+Note that tipc_deleteport() takes as argument the reference (=index)
+returned from tipc_ref_acquire(), so  it can not be (and is not) called
+until and unless the latter function has returned a valid reference.
+As a parallel, you can't do free() on a memory chunk until
+malloc() has given you a pointer to it.
 
-Thanks,
-Ben
+>Btw. there is a problem with tipc_ref_discard():
+>it should be called with tipc_port_lock, but
+>how to discard a ref if this lock can't be
+>acquired? Is it OK to call it without the lock
+>like in subscr_named_msg_event()?
+>  
+>
+I suspect you are mixing up things here. 
+We are handling two different reference entries and two
+different locks in this function.
+One reference entry points to a subscription instance, and its
+reference (index) is obtainable from subscriber->ref. So, we
+could easily lock the entry if needed. However, in this
+particular case it is unnecessary, since there is no chance that
+anybody else could have obtained the new reference, and
+hence no risk for race conditions.
+The other reference entry was intended to point to a new port,
+but, since we didn't obtain any reference in the first place,
+there is no port to delete and no reference to discard.
 
+
+>Btw. #2: during this checking I've found
+>two places where return values from
+>tipc_ref_lock() and tipc_port_lock() are not 
+>checked, so I attach a patch proposal for
+>this (compiled but not tested):
+>  
+>
+Thanks. 
+
+>Regards,
+>Jarek P.
+>---
+>
+>[PATCH] tipc: checking returns from locking functions
+>
+>Checking of return values from tipc_ref_lock()
+>and tipc_port_lock() added in 2 places. 
+>
+>Signed-off-by: Jarek Poplawski <jarkao2@o2.pl>
+>---
+>
+>diff -Nurp linux-2.6.20-rc2-/net/tipc/port.c linux-2.6.20-rc2/net/tipc/port.c
+>--- linux-2.6.20-rc2-/net/tipc/port.c	2006-11-29 22:57:37.000000000 +0100
+>+++ linux-2.6.20-rc2/net/tipc/port.c	2006-12-28 11:05:17.000000000 +0100
+>@@ -238,7 +238,12 @@ u32 tipc_createport_raw(void *usr_handle
+> 		return 0;
+> 	}
 > 
->                                                 +-DLS
-> [inline for viewing, attached for applying]
+>-	tipc_port_lock(ref);
+>+	if (!tipc_port_lock(ref)) {
+>+		tipc_ref_discard(ref);
+>+		warn("Port creation failed, reference table invalid\n");
+>+		kfree(p_ptr);
+>+		return 0;
+>+	}
+> 	p_ptr->publ.ref = ref;
+> 	msg = &p_ptr->publ.phdr;
+> 	msg_init(msg, DATA_LOW, TIPC_NAMED_MSG, TIPC_OK, LONG_H_SIZE, 0);
+>diff -Nurp linux-2.6.20-rc2-/net/tipc/subscr.c linux-2.6.20-rc2/net/tipc/subscr.c
+>--- linux-2.6.20-rc2-/net/tipc/subscr.c	2006-12-18 09:01:04.000000000 +0100
+>+++ linux-2.6.20-rc2/net/tipc/subscr.c	2006-12-28 11:31:27.000000000 +0100
+>@@ -499,7 +499,12 @@ static void subscr_named_msg_event(void 
 > 
-> Signed-off-by: David L Stevens <dlstevens@us.ibm.com>
+> 	/* Add subscriber to topology server's subscriber list */
 > 
-> diff -ruNp linux-2.6.19.1/net/ipv4/devinet.c 
-> linux-2.6.19.1T1/net/ipv4/devinet.c
-> --- linux-2.6.19.1/net/ipv4/devinet.c   2006-12-11 11:32:53.000000000 
-> -0800
-> +++ linux-2.6.19.1T1/net/ipv4/devinet.c 2007-01-03 14:37:56.000000000 
-> -0800
-> @@ -165,9 +165,8 @@ struct in_device *inetdev_init(struct ne
->                               NET_IPV4_NEIGH, "ipv4", NULL, NULL);
->  #endif
+>-	tipc_ref_lock(subscriber->ref);
+>+	if (!tipc_ref_lock(subscriber->ref)) {
+>+		warn("Subscriber rejected, unable to find port\n");
+>+		tipc_ref_discard(subscriber->ref);
+>+		kfree(subscriber);
+>+		return;
+>+	}
+> 	spin_lock_bh(&topsrv.lock);
+> 	list_add(&subscriber->subscriber_list, &topsrv.subscriber_list);
+> 	spin_unlock_bh(&topsrv.lock);
+>-
+>To unsubscribe from this list: send the line "unsubscribe netdev" in
+>the body of a message to majordomo@vger.kernel.org
+>More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
 >  
-> -       /* Account for reference dev->ip_ptr */
-> +       /* Account for reference dev->ip_ptr (below) */
->         in_dev_hold(in_dev);
-> -       rcu_assign_pointer(dev->ip_ptr, in_dev);
->  
->  #ifdef CONFIG_SYSCTL
->         devinet_sysctl_register(in_dev, &in_dev->cnf);
-> @@ -176,6 +175,8 @@ struct in_device *inetdev_init(struct ne
->         if (dev->flags & IFF_UP)
->                 ip_mc_up(in_dev);
->  out:
-> +       /* we can receive as soon as ip_ptr is set -- do this last */
-> +       rcu_assign_pointer(dev->ip_ptr, in_dev);
->         return in_dev;
->  out_kfree:
->         kfree(in_dev);
-> diff -ruNp linux-2.6.19.1/net/ipv6/addrconf.c 
-> linux-2.6.19.1T1/net/ipv6/addrconf.c
-> --- linux-2.6.19.1/net/ipv6/addrconf.c  2006-12-11 11:32:53.000000000 
-> -0800
-> +++ linux-2.6.19.1T1/net/ipv6/addrconf.c        2007-01-03 
-> 14:47:07.000000000 -0800
-> @@ -413,8 +413,6 @@ static struct inet6_dev * ipv6_add_dev(s
->         if (netif_carrier_ok(dev))
->                 ndev->if_flags |= IF_READY;
->  
-> -       /* protected by rtnl_lock */
-> -       rcu_assign_pointer(dev->ip6_ptr, ndev);
->  
->         ipv6_mc_init_dev(ndev);
->         ndev->tstamp = jiffies;
-> @@ -425,6 +423,8 @@ static struct inet6_dev * ipv6_add_dev(s
->                               NULL);
->         addrconf_sysctl_register(ndev, &ndev->cnf);
->  #endif
-> +       /* protected by rtnl_lock */
-> +       rcu_assign_pointer(dev->ip6_ptr, ndev);
->         return ndev;
->  }
->  
-
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+>
 
