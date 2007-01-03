@@ -1,36 +1,45 @@
-From: Jan Kiszka <jan.kiszka@web.de>
-Subject: Re: [2.6 patch] the scheduled eepro100 removal
-Date: Wed, 03 Jan 2007 10:10:50 +0100
-Message-ID: <459B731A.301@web.de>
-References: <20070102215726.GC20714@stusta.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, saw@saw.sw.com.sg,
-	Auke Kok <auke-jan.h.kok@intel.com>
+From: Masahide NAKAMURA <nakam@linux-ipv6.org>
+Subject: [IP] TUNNEL: Fix to be built with user application.
+Date: Wed,  3 Jan 2007 18:42:53 +0900
+Message-ID: <11678173731728-git-send-email-nakam@linux-ipv6.org>
+Cc: netdev@vger.kernel.org, Masahide NAKAMURA <nakam@linux-ipv6.org>,
+	TAKAMIYA Noriaki <takamiya@po.ntts.co.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fmmailgate01.web.de ([217.72.192.221]:49040 "EHLO
-	fmmailgate01.web.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755005AbXACJKw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jan 2007 04:10:52 -0500
-To: Adrian Bunk <bunk@stusta.de>
-In-Reply-To: <20070102215726.GC20714@stusta.de>
+Received: from usagi020.linux-ipv6.org ([203.178.140.20]:45830 "EHLO
+	neptune.linux-ipv6.org" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S1749667AbXACJto (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jan 2007 04:49:44 -0500
+To: davem@davemloft.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Adrian Bunk wrote:
-> This patch contains the scheduled removal of the eepro100 driver.
-> 
+include/linux/if_tunnel.h is broken for user application
+because it was changed to use __be32 which is required
+to include linux/types.h in advance but didn't.
 
-I'm sorry to disturb the schedule, but I'm not sure right now if this
-pending issue of the e100 was meanwhile solved or declared a non-issue:
+(This issue is found when building MIPL2 daemon. We are not sure this
+is the last header to be fixed about __be32.)
 
-http://lkml.org/lkml/2006/9/8/105
+Signed-off-by: Masahide NAKAMURA <nakam@linux-ipv6.org>
+Signed-off-by: TAKAMIYA Noriaki <takamiya@po.ntts.co.jp>
 
-Auke, can you confirm that it makes sense to re-test? IIRC, our private
-thread ended without resolution after I discovered that the chip
-revision makes the difference for me. Looked like it is either handled
-incorrectly by e100 or screwed up on that board.
+---
+ include/linux/if_tunnel.h |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-Jan
+diff --git a/include/linux/if_tunnel.h b/include/linux/if_tunnel.h
+index 8de079b..660b501 100644
+--- a/include/linux/if_tunnel.h
++++ b/include/linux/if_tunnel.h
+@@ -1,6 +1,8 @@
+ #ifndef _IF_TUNNEL_H_
+ #define _IF_TUNNEL_H_
+ 
++#include <linux/types.h>
++
+ #define SIOCGETTUNNEL   (SIOCDEVPRIVATE + 0)
+ #define SIOCADDTUNNEL   (SIOCDEVPRIVATE + 1)
+ #define SIOCDELTUNNEL   (SIOCDEVPRIVATE + 2)
+-- 
+1.4.2
+
