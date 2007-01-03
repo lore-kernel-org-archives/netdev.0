@@ -1,83 +1,56 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: 2.6.20-rc3: known regressions with patches (v2)
-Date: Wed, 3 Jan 2007 22:04:00 +0100
-Message-ID: <20070103210400.GL20714@stusta.de>
-References: <Pine.LNX.4.64.0612311710430.4473@woody.osdl.org>
+From: Steve Wise <swise@opengridcomputing.com>
+Subject: Re: [openib-general] [PATCH  v4 01/13] Linux RDMA Core Changes
+Date: Wed, 03 Jan 2007 15:22:00 -0600
+Message-ID: <1167859320.4187.81.camel@stevo-desktop>
+References: <1167851839.4187.36.camel@stevo-desktop>
+	 <20070103193324.GD29003@mellanox.co.il>
+	 <1167855618.4187.65.camel@stevo-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Andrey Borzenkov <arvidjaar@mail.ru>,
-	Robert Hancock <hancockr@shaw.ca>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>, pavel@suse.cz,
-	linux-pm@osdl.org, Laurent Riffard <laurent.riffard@free.fr>,
-	Christoph Hellwig <hch@lst.de>, petero2@telia.com,
-	Michael Reske <micha@gmx.com>,
-	Ayaz Abdulla <aabdulla@nvidia.com>, jgarzik@pobox.com,
-	netdev@vger.kernel.org, Marcel Holtmann <marcel@holtmann.org>,
-	bluez-devel@lists.sf.net, Ben Castricum <mail0612@bencastricum.nl>,
-	Greg Kroah-Hartman <gregkh@suse.de>,
-	linux-pci@atrey.karlin.mff.cuni.cz
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Roland Dreier <rdreier@cisco.com>,
+	linux-kernel@vger.kernel.org, openib-general@openib.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from emailhub.stusta.mhn.de ([141.84.69.5]:4785 "HELO
-	mailout.stusta.mhn.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S932122AbXACVD6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Jan 2007 16:03:58 -0500
-To: Linus Torvalds <torvalds@osdl.org>, Andrew Morton <akpm@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0612311710430.4473@woody.osdl.org>
+Received: from rrcs-24-153-217-226.sw.biz.rr.com ([24.153.217.226]:37226 "EHLO
+	smtp.opengridcomputing.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932147AbXACVWE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jan 2007 16:22:04 -0500
+To: "Michael S. Tsirkin" <mst@mellanox.co.il>
+In-Reply-To: <1167855618.4187.65.camel@stevo-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This email lists some known regressions in 2.6.20-rc3 compared to 2.6.19
-with patches available.
+> > 
+> > So what does this tell you?
+> > To me it looks like there's a measurable speed difference,
+> > and so we should find a way (e.g. what I proposed) to enable chelsio userspace
+> > without adding overhead to other low level drivers or indeed chelsio kernel level code.
+> > 
+> > What do you think? Roland?
+> > 
+> 
+> I think having a 2nd function to set the udata seems onerous.
+> 
+> 
 
-If you find your name in the Cc header, you are either submitter of one
-of the bugs, maintainer of an affectected subsystem or driver, a patch
-of you caused a breakage or I'm considering you in any other way possibly
-involved with one or more of these issues.
+Roland, 
 
-Due to the huge amount of recipients, please trim the Cc when answering.
+If you think I should not add the udata parameter to the req_notify_cq()
+provider verb, then I can rework the chelsio driver:
 
+1) at cq creation time, pass the virtual address of the u32 used by the
+library to track the current cq index.  That way the chelsio kernel
+driver can save the address in its kernel cq context for later use.
 
-Subject    : suspend to disk no longer works
-References : http://lkml.org/lkml/2007/1/1/72
-             http://lkml.org/lkml/2006/12/31/13
-Submitter  : Andrey Borzenkov <arvidjaar@mail.ru>
-             Robert Hancock <hancockr@shaw.ca>
-Handled-By : Rafael J. Wysocki <rjw@sisk.pl>
-Patch      : http://lkml.org/lkml/2007/1/1/117
-Status     : patch available
+2) change chelsio's req_notify_cq() to copy in the current cq index
+value directly for rearming.
 
+This puts all the burden on the chelsio driver, which is apparently the
+only one that needs this functionality.  
 
-Subject    : BUG at drivers/scsi/scsi_lib.c:1118 by "pktsetup dvd /dev/sr0"
-References : http://bugzilla.kernel.org/show_bug.cgi?id=7667
-Submitter  : Laurent Riffard <laurent.riffard@free.fr>
-Caused-By  : Christoph Hellwig <hch@lst.de>
-             commit 3b00315799d78f76531b71435fbc2643cd71ae4c
-Handled-By : Christoph Hellwig <hch@lst.de>
-Patch      : http://bugzilla.kernel.org/show_bug.cgi?id=7667
-Status     : patch available
+Lemme know.
 
-
-Subject    : forcedeth.c 0.59: problem with sideband managment
-References : http://bugzilla.kernel.org/show_bug.cgi?id=7684
-Submitter  : Michael Reske <micha@gmx.com>
-Handled-By : Ayaz Abdulla <aabdulla@nvidia.com>
-Status     : patch available
+Steve.
 
 
-Subject    : bluetooth oopses because of multiple kobject_add()
-References : http://lkml.org/lkml/2007/1/2/101
-Submitter  : Pavel Machek <pavel@ucw.cz>
-Handled-By : Marcel Holtmann <marcel@holtmann.org>
-Patch      : http://lkml.org/lkml/2007/1/2/147
-Status     : patch available
 
-
-Subject    : PCI_MULTITHREAD_PROBE breakage
-References : http://lkml.org/lkml/2006/12/12/21
-Submitter  : Ben Castricum <mail0612@bencastricum.nl>
-Caused-By  : Greg Kroah-Hartman <gregkh@suse.de>
-             commit 009af1ff78bfc30b9a27807dd0207fc32848218a
-Handled-By : Greg Kroah-Hartman <gregkh@suse.de>
-Status     : patch available
