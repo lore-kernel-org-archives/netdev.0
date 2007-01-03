@@ -1,52 +1,50 @@
-From: Horms <horms@verge.net.au>
-Subject: Re: [PATCH] [IPVS] replace if .. goto with while
-Date: Wed, 3 Jan 2007 22:37:51 +0900
-Message-ID: <20070103133741.GA2570@verge.net.au>
-References: <20061218031110.GA32036@verge.net.au> <20070102.003839.08324311.davem@davemloft.net>
+From: Steve Wise <swise@opengridcomputing.com>
+Subject: Re: [PATCH  v4 01/13] Linux RDMA Core Changes
+Date: Wed, 03 Jan 2007 08:25:48 -0600
+Message-ID: <1167834348.4187.3.camel@stevo-desktop>
+References: <20061214135233.21159.78613.stgit@dell3.ogc.int>
+	 <20061214135303.21159.61880.stgit@dell3.ogc.int>
+	 <20061224084925.GD15106@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, wensong@linux-vs.org, ja@ssi.bg,
-	ratz@drugphish.ch, jmack@wm7d.net
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: rdreier@cisco.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, openib-general@openib.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from koto.vergenet.net ([210.128.90.7]:55101 "EHLO koto.vergenet.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750790AbXACN7D (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Jan 2007 08:59:03 -0500
-To: David Miller <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20070102.003839.08324311.davem@davemloft.net>
+Received: from rrcs-24-153-217-226.sw.biz.rr.com ([24.153.217.226]:43423 "EHLO
+	smtp.opengridcomputing.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750818AbXACOZs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jan 2007 09:25:48 -0500
+To: "Michael S. Tsirkin" <mst@mellanox.co.il>
+In-Reply-To: <20061224084925.GD15106@mellanox.co.il>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 02, 2007 at 12:38:39AM -0800, David Miller wrote:
-> From: Horms <horms@verge.net.au>
-> Date: Mon, 18 Dec 2006 12:11:11 +0900
+> > @@ -1373,7 +1374,7 @@ int ib_peek_cq(struct ib_cq *cq, int wc_
+> >  static inline int ib_req_notify_cq(struct ib_cq *cq,
+> >  				   enum ib_cq_notify cq_notify)
+> >  {
+> > -	return cq->device->req_notify_cq(cq, cq_notify);
+> > +	return cq->device->req_notify_cq(cq, cq_notify, NULL);
+> >  }
+> >  
+> >  /**
 > 
-> > I guess that this code used to be more complex, but replacing
-> > the goto with a while seems to make things a bit more readable.
-> > Or in other words, two fairly gratuitous goto are removed.
-> > 
-> > On a related note, I wonder if there should be a limit to how
-> > many times it tries.
-> > 
-> > Signed-Off-By: Simon Horman <horms@verge.net.au>
+> Can't say I like this adding overhead in data path operations (and note this
+> can't be optimized out). And kernel consumers work without passing it in, so it
+> hurts kernel code even for Chelsio. Granted, the cost is small here, but these
+> things do tend to add up.
 > 
-> Yes, there should be, something like a limit of one. :-)
+> It seems all Chelsio needs is to pass in a consumer index - so, how about a new
+> entry point? Something like void set_cq_udata(struct ib_cq *cq, struct ib_udata *udata)?
 > 
-> There is no reason to loop on something like this, just
-> return a failure immediately if creating the kernel thread
-> fails.
 
-Will do.
+Adding a new entry point would hurt chelsio's user mode performance if
+if then requires 2 kernel transitions to rearm the cq.  
 
-> As a side note, if it's easy you might want to convert this
-> over the the include/linux/kthread.h interfaces.  I just did
-> this for pktgen tonight and it cleaned a lot of stuff up.
+Passing in user data is sort of SOP for these sorts of verbs.  
 
-Thanks, I will look into it.
+How much does passing one more param cost for kernel users?  
 
--- 
-Horms
-  H: http://www.vergenet.net/~horms/
-  W: http://www.valinux.co.jp/en/
+
 
