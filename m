@@ -1,38 +1,85 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: BUG: soft lockup detected on CPU#0!  (2.6.18.2 plus hacks)
-Date: Wed, 3 Jan 2007 14:14:58 -0800
-Message-ID: <OFD014A990.71736F9E-ON88257258.0079E460-88257258.007A382C@us.ibm.com>
-References: <4599E6D5.6050207@candelatech.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Pull request for 'qla3xxx-upstream-fixes-20070103-00' tag
+Date: Wed, 3 Jan 2007 23:36:53 +0100
+Message-ID: <20070103223653.GA10018@electric-eye.fr.zoreil.com>
+References: <20061219181855.GA8179@linux-7mw0.qlogic.org> <45919563.9030304@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: jarkao2@o2.pl, NetDev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: ron.mercer@qlogic.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e36.co.us.ibm.com ([32.97.110.154]:52712 "EHLO
-	e36.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932147AbXACWPB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jan 2007 17:15:01 -0500
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e36.co.us.ibm.com (8.13.8/8.12.11) with ESMTP id l03MF00E022383
-	for <netdev@vger.kernel.org>; Wed, 3 Jan 2007 17:15:00 -0500
-Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
-	by d03relay04.boulder.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id l03MExJJ506988
-	for <netdev@vger.kernel.org>; Wed, 3 Jan 2007 15:14:59 -0700
-Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av03.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l03MExMA027569
-	for <netdev@vger.kernel.org>; Wed, 3 Jan 2007 15:14:59 -0700
-In-Reply-To: <4599E6D5.6050207@candelatech.com>
-To: Ben Greear <greearb@candelatech.com>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:39680 "EHLO
+	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932164AbXACWjW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Jan 2007 17:39:22 -0500
+To: Jeff Garzik <jeff@garzik.org>
+Content-Disposition: inline
+In-Reply-To: <45919563.9030304@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ben & Jarek,
-        Your analysis looks correct to me. It seems to me the problem is 
-that
-we don't want the in_device to be searchable until after the 
-initialization is done.
-What about moving the initialization of dev->ip_ptr in inetdev_init() to 
-after the
-"out" label?
 
-                                                        +-DLS
+Please pull from tag 'qla3xxx-upstream-fixes-20070103-00' in repository
 
+git://electric-eye.fr.zoreil.com/home/romieu/linux-2.6.git tag qla3xxx-upstream-fixes-20070103-00
+
+to get the changes below.
+
+Distance from 'netdev-2.6-upstream-fixes'
+-----------------------------------------
+
+736272c636cea8593e0907a8c44ec411710c06c1
+81f4e6c190a0fa016fd7eecaf76a5f95d121afc2 <- netdev-2.6-upstrem-fixes
+
+Diffstat
+--------
+
+ drivers/net/qla3xxx.c |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
+
+Shortlog
+--------
+
+Ron Mercer:
+      qla3xxx: Remove NETIF_F_LLTX from driver features
+
+Patch
+-----
+
+diff --git a/drivers/net/qla3xxx.c b/drivers/net/qla3xxx.c
+index d79d141..36e0830 100644
+--- a/drivers/net/qla3xxx.c
++++ b/drivers/net/qla3xxx.c
+@@ -3370,7 +3370,6 @@ static int __devinit ql3xxx_probe(struct
+ 	SET_MODULE_OWNER(ndev);
+ 	SET_NETDEV_DEV(ndev, &pdev->dev);
+ 
+-	ndev->features = NETIF_F_LLTX;
+ 	if (pci_using_dac)
+ 		ndev->features |= NETIF_F_HIGHDMA;
+ 
+--- 
+Regarding:
+
+Jeff Garzik <jeff@garzik.org> :
+> Ron Mercer wrote:
+> >These 5 patches were submitted on Dec 5th (1&2) and Dec 11th (3-5).  They 
+> >add/fix the following
+> >
+> >1. Add support for Qlogic 4032 chip.
+> >2. Change minor version for 4032 support.
+> >3. Add delay when accessing NVRAM.
+> >4. Remove NETIF_F_LLTX flag from features.  It was left over from the 
+> >early driver and shouldn't be there.
+> >5. Fix rx checksum warning.
+[...]
+> 2) Re-order the patches so that bug fixes come first.  Otherwise this 
+> entire patchset must go into netdev-2.6.git#upstream, because patch #1 
+> is not a bug fix and we are in a bug-fixes-only cycle.
+
+Patch #5 fixes #1. Both can be merged and actually are in the 'qla3xxx' branch
+at git://electric-eye.fr.zoreil.com/home/romieu/linux-2.6.git. This branch is
+against plain Linus's 'master'. The serie is not ready for submission yet but
+the very first patches match Ron's ones.
+
+-- 
+Ueimor
