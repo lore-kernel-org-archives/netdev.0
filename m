@@ -1,57 +1,43 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: BUG: soft lockup detected on CPU#0!  (2.6.18.2 plus hacks)
-Date: Tue, 02 Jan 2007 15:43:47 -0800
-Message-ID: <459AEE33.7080702@candelatech.com>
-References: <OFB8CE3E37.99FD5849-ON88257257.0080FAE8-88257257.00819B15@us.ibm.com>
+From: Eric Piel <Eric.Piel@tremplin-utc.net>
+Subject: Re: [2.6 patch] the scheduled eepro100 removal
+Date: Wed, 03 Jan 2007 01:07:56 +0100
+Message-ID: <459AF3DC.1040305@tremplin-utc.net>
+References: <20070102215726.GC20714@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: jarkao2@o2.pl, NetDev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: jgarzik@pobox.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, saw@saw.sw.com.sg
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:42415 "EHLO ns2.lanforge.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752710AbXABXn5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Jan 2007 18:43:57 -0500
-To: David Stevens <dlstevens@us.ibm.com>
-In-Reply-To: <OFB8CE3E37.99FD5849-ON88257257.0080FAE8-88257257.00819B15@us.ibm.com>
+Received: from postfix1-g20.free.fr ([212.27.60.42]:43282 "EHLO
+	postfix1-g20.free.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752313AbXACAKA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jan 2007 19:10:00 -0500
+To: Adrian Bunk <bunk@stusta.de>
+In-Reply-To: <20070102215726.GC20714@stusta.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Stevens wrote:
-> I've looked at this a little too -- it'd be nice to know who holds
-> the write lock.
-> 
-> I see ip_mc_destroy_dev() is bouncing through the lock for
-> each multicast address, though it starts at the beginning of
-> the list each time. I don't see a problem with it, but it'd be
-> simpler if it acquired the write lock once, grabbed and nulled
-> the list, released the lock and then called igmp_group_dropped()
-> & ip_ma_put() on each address from the local list copy.
-> 
-> Are you destroying/creating interfaces or doing a lot of multicasting at
-> the time? How many group memberships do you have?
+02.01.2007 22:57, Adrian Bunk wrote/a =E9crit:
+> This patch contains the scheduled removal of the eepro100 driver.
 
-Lots and lots of interfaces were being created...at least 200 mac-vlans (out-of tree patch
-somewhat similar to 802.1q vlans.)  The avahi-daemon process was running, and it appears
-to be adding a multicast to each interface.  It was spewing failure messages in /var/log/messages,
-probably because it can't handle so many interfaces.
+Hi, I've been using e100 for years with no problem, however more by=20
+curiosity than necessity I'd like to know how will be handled the=20
+devices which are (supposedly) supported by eepro100 and not by e100?
 
-Other than that, there is no (known) multicast traffic being generated.
+According to "modinfo eepro100" and "modinfo e100" those devices IDs ar=
+e=20
+only matched by eepro100:
++alias:          pci:v00008086d00001035sv
++alias:          pci:v00008086d00001036sv
++alias:          pci:v00008086d00001037sv
++alias:          pci:v00008086d00001227sv
++alias:          pci:v00008086d00005200sv
++alias:          pci:v00008086d00005201sv
 
-This bug was reported to me by a user in Australia, and we have not yet
-attempted to recreate this locally, so I am not certain exactly what it
-takes to trigger this bug.
+Are they matched by some joker rule that I haven't noticed in e100, or=20
+is support for them really going to disappear?
 
-Thanks,
-Ben
-
-
-
-> 
->                                         +-DLS
-
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
-
+See you,
+Eric
