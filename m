@@ -1,54 +1,47 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH] sungem: PHY updates & pause fixes
-Date: Wed, 03 Jan 2007 16:20:14 +1100
-Message-ID: <1167801614.6165.117.camel@localhost.localdomain>
+Date: Tue, 02 Jan 2007 21:26:05 -0800 (PST)
+Message-ID: <20070102.212605.15263907.davem@davemloft.net>
 References: <1167800285.6165.105.camel@localhost.localdomain>
-	 <20070102.211158.35016452.davem@davemloft.net>
+	<20070102.211158.35016452.davem@davemloft.net>
+	<1167801614.6165.117.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:33982 "EHLO gate.crashing.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752423AbXACFUU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Jan 2007 00:20:20 -0500
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20070102.211158.35016452.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42704
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753113AbXACF0I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jan 2007 00:26:08 -0500
+To: benh@kernel.crashing.org
+In-Reply-To: <1167801614.6165.117.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Date: Wed, 03 Jan 2007 16:20:14 +1100
 
-> Thanks for finding these bugs, although that's really strange pause
-> behavior you are seeing on your switches.
+> Now, I cross-over with a TG3 and I get:
 > 
-> By default, we advertise PAUSE but not ASYM PAUSE in the tg3 driver,
-> and I get flow control on every switch I have here.
+>  - I advertise 0x5e1 (hopefully same value)
+>  - I read in LPA 0xc5e1 from the TG3
+> (and that other register tells me Rx and Tx pause can be enabled).
 
-Yeah, that's strange. I still have the debug values at hand:
+Does flow control get enabled with the TG3 on these
+switches?  Just curious.
 
- - I advertise 0x5e1
- - I read in LPA 0xc9e1 from the switch
-(and my bcm PHY tells me Rx and Tx pause disabled in a separate
-register)
+> > You should try to use flow control, even slower than 1000Mbit links.
+> 
+> Sorry, not sure I parse ;-) You mean allowing pause on 10 and 100 as
+> well ? I sure can, it's easy to fix.
 
-Now, I cross-over with a TG3 and I get:
+That's correct.
 
- - I advertise 0x5e1 (hopefully same value)
- - I read in LPA 0xc5e1 from the TG3
-(and that other register tells me Rx and Tx pause can be enabled).
+> > That's the only problem I can see, would you mind fixing that and
+> > I'll put your change into my net-2.6 tree and perhaps play around
+> > with PAUSE on my switches here?
+> 
+> Sure will do.
 
-> You should try to use flow control, even slower than 1000Mbit links.
-
-Sorry, not sure I parse ;-) You mean allowing pause on 10 and 100 as
-well ? I sure can, it's easy to fix.
-
-> That's the only problem I can see, would you mind fixing that and
-> I'll put your change into my net-2.6 tree and perhaps play around
-> with PAUSE on my switches here?
-
-Sure will do.
-
-Ben.
-
-
+Thanks a lot.
