@@ -1,104 +1,52 @@
-From: Masahide NAKAMURA <nakam@linux-ipv6.org>
-Subject: [IPV6] RAW: Add checksum default defines for MH.
-Date: Wed,  3 Jan 2007 18:32:22 +0900
-Message-ID: <11678167423123-git-send-email-nakam@linux-ipv6.org>
-Cc: netdev@vger.kernel.org, Masahide NAKAMURA <nakam@linux-ipv6.org>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: 2.6.19 and up to  2.6.20-rc2 Ethernet problems x86_64
+Date: Wed, 3 Jan 2007 11:48:14 +0100
+Message-ID: <20070103104814.GA2629@ff.dom.local>
+References: <20061229063254.GA1628@ff.dom.local> <4595CD1B.2020102@blueyonder.co.uk> <20070102115050.GA3449@ff.dom.local> <459A7AF1.5060702@blueyonder.co.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, g3vbv@blueyonder.co.uk,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usagi020.linux-ipv6.org ([203.178.140.20]:34215 "EHLO
-	neptune.linux-ipv6.org" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S1750701AbXACKMw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jan 2007 05:12:52 -0500
-To: davem@davemloft.net, yoshfuji@linux-ipv6.org,
-	takamiya@po.ntts.co.jp
-In-Reply-To: 4591FD33.3070205@linux-ipv6.org
-References: 4591FD33.3070205@linux-ipv6.org
+Received: from poczta.o2.pl ([193.17.41.142]:48955 "EHLO poczta.o2.pl"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750710AbXACKqh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Jan 2007 05:46:37 -0500
+To: Sid Boyce <sboyce@blueyonder.co.uk>
+Content-Disposition: inline
+In-Reply-To: <459A7AF1.5060702@blueyonder.co.uk>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add checksum default defines for mobility header(MH) which
-goes through raw socket. As the result kernel's behavior is
-to handle MH checksum as default.
+On Tue, Jan 02, 2007 at 03:32:01PM +0000, Sid Boyce wrote:
+> Jarek Poplawski wrote:
+...
+> >If you could send full ifconfig, route -n (or ip route
+> >if you use additional tables) and tcpdump (all packets)
+> >from both boxes while pinging each other and a few words
+> >how it is connected (other cards, other active boxes in
+> >the network?) maybe something more could be found.
+...
+> Everything is fine with a eepro100 on the 64x2 box that gave the same
+> problem with a nVidia Corporation MCP51 Ethernet Controller (rev a1)
+> using the forcedeth module. On the x86_64 laptop the problem is with a
+> Broadcom NetXtreme BCM5788 using the tg3 module. Switching back to a
+> 2.6.18.2 kernel, there is no problem.
+> With all configurations of cards on both, route -n is the same on all
+> kernels and instantly reports back. With >=2.6.19 on the laptop, netstat
+> -r takes a very long time before returning the information ~30 seconds,
+> instantly on 2.6.18.2.
 
-This patch also removes verifying inbound MH checksum at
-mip6_mh_filter() since it did not consider user specified
-checksum offset and was redundant check with raw socket code.
+This could be a problem with DNS. Could you do all tests
+(including pinging) with -n option?
 
-Signed-off-by: Masahide NAKAMURA <nakam@linux-ipv6.org>
----
- net/ipv6/mip6.c |   26 --------------------------
- net/ipv6/raw.c  |   13 +++++++++++--
- 2 files changed, 11 insertions(+), 28 deletions(-)
+I've read your other message on netdev and see you
+have firewall working and addresses from various 
+networks in logs. I think it would be much easier
+to exclude possible network config errors and try
+to isolate pinging problems by connecting (with
+switch or even crossed cable if possible) only 2
+boxes with firewalls and other net devices disabled
+and try to repeat this pinging with tcpdumps.
 
-diff --git a/net/ipv6/mip6.c b/net/ipv6/mip6.c
-index be7dd7d..681bb07 100644
---- a/net/ipv6/mip6.c
-+++ b/net/ipv6/mip6.c
-@@ -89,7 +89,6 @@ static int mip6_mh_len(int type)
- int mip6_mh_filter(struct sock *sk, struct sk_buff *skb)
- {
- 	struct ip6_mh *mh;
--	int mhlen;
- 
- 	if (!pskb_may_pull(skb, (skb->h.raw - skb->data) + 8) ||
- 	    !pskb_may_pull(skb, (skb->h.raw - skb->data) + ((skb->h.raw[1] + 1) << 3)))
-@@ -103,31 +102,6 @@ int mip6_mh_filter(struct sock *sk, stru
- 		mip6_param_prob(skb, 0, (&mh->ip6mh_hdrlen) - skb->nh.raw);
- 		return -1;
- 	}
--	mhlen = (mh->ip6mh_hdrlen + 1) << 3;
--
--	if (skb->ip_summed == CHECKSUM_COMPLETE) {
--		skb->ip_summed = CHECKSUM_UNNECESSARY;
--		if (csum_ipv6_magic(&skb->nh.ipv6h->saddr,
--				    &skb->nh.ipv6h->daddr,
--				    mhlen, IPPROTO_MH,
--				    skb->csum)) {
--			LIMIT_NETDEBUG(KERN_DEBUG "mip6: MH hw checksum failed\n");
--			skb->ip_summed = CHECKSUM_NONE;
--		}
--	}
--	if (skb->ip_summed == CHECKSUM_NONE) {
--		if (csum_ipv6_magic(&skb->nh.ipv6h->saddr,
--				    &skb->nh.ipv6h->daddr,
--				    mhlen, IPPROTO_MH,
--				    skb_checksum(skb, 0, mhlen, 0))) {
--			LIMIT_NETDEBUG(KERN_DEBUG "mip6: MH checksum failed "
--				       "[" NIP6_FMT " > " NIP6_FMT "]\n",
--				       NIP6(skb->nh.ipv6h->saddr),
--				       NIP6(skb->nh.ipv6h->daddr));
--			return -1;
--		}
--		skb->ip_summed = CHECKSUM_UNNECESSARY;
--	}
- 
- 	if (mh->ip6mh_proto != IPPROTO_NONE) {
- 		LIMIT_NETDEBUG(KERN_DEBUG "mip6: MH invalid payload proto = %d\n",
-diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
-index 4ae1b19..4b83e69 100644
---- a/net/ipv6/raw.c
-+++ b/net/ipv6/raw.c
-@@ -1094,10 +1094,19 @@ static void rawv6_close(struct sock *sk,
- 
- static int rawv6_init_sk(struct sock *sk)
- {
--	if (inet_sk(sk)->num == IPPROTO_ICMPV6) {
--		struct raw6_sock *rp = raw6_sk(sk);
-+	struct raw6_sock *rp = raw6_sk(sk);
-+
-+	switch (inet_sk(sk)->num) {
-+	case IPPROTO_ICMPV6:
- 		rp->checksum = 1;
- 		rp->offset   = 2;
-+		break;
-+	case IPPROTO_MH:
-+		rp->checksum = 1;
-+		rp->offset   = 4;
-+		break;
-+	default:
-+		break;
- 	}
- 	return(0);
- }
--- 
-1.4.2
-
+Jarek P.
