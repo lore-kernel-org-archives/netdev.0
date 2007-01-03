@@ -1,135 +1,69 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: Re: [PATCH] tipc: checking returns and Re: Possible Circular Locking
- in TIPC
-Date: Wed, 03 Jan 2007 23:16:59 +0000
-Message-ID: <459C396B.1090508@ericsson.com>
-References: <20061228121702.GA5076@ff.dom.local>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Fw: Intermittent SCTP multihoming breakage
+Date: Wed, 3 Jan 2007 15:46:34 -0800
+Message-ID: <20070103154634.b40d9cde.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Eric Sesterhenn <snakebyte@gmx.de>,
-	Per Liden <per.liden@ericsson.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	"'tipc-discussion@lists.sourceforge.net'"
-	<tipc-discussion@lists.sourceforge.net>
+Cc: netdev@vger.kernel.org, Steve Hill <steve.hill@dialogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw4.ericsson.se ([193.180.251.62]:57463 "EHLO
-	mailgw4.ericsson.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932117AbXACXhv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jan 2007 18:37:51 -0500
-To: Jarek Poplawski <jarkao2@o2.pl>
-In-Reply-To: <20061228121702.GA5076@ff.dom.local>
+Received: from smtp.osdl.org ([65.172.181.25]:32818 "EHLO smtp.osdl.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932197AbXACXqj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Jan 2007 18:46:39 -0500
+To: sri@us.ibm.com
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-See my comments below.
-Regards
-///jon
-
-Jarek Poplawski wrote:
-
-> ..........
->
->Maybe I misinterpret this but, IMHO lockdep
->complains about locks acquired in different
->order: tipc_ref_acquire() gets ref_table_lock 
->and then tipc_ret_table.entries[index]->lock,
->but tipc_deleteport() inversely (with:
->tipc_port_lock() and tipc_ref_discard()).
->I hope maintainers will decide the correct
->order.
->  
->
-This order is correct. There can never be parallel access to the
-same _instance_ of tipc_ret_table.entries[index]->lock from
-the two functions you mention.
-Note that tipc_deleteport() takes as argument the reference (=index)
-returned from tipc_ref_acquire(), so  it can not be (and is not) called
-until and unless the latter function has returned a valid reference.
-As a parallel, you can't do free() on a memory chunk until
-malloc() has given you a pointer to it.
-
->Btw. there is a problem with tipc_ref_discard():
->it should be called with tipc_port_lock, but
->how to discard a ref if this lock can't be
->acquired? Is it OK to call it without the lock
->like in subscr_named_msg_event()?
->  
->
-I suspect you are mixing up things here. 
-We are handling two different reference entries and two
-different locks in this function.
-One reference entry points to a subscription instance, and its
-reference (index) is obtainable from subscriber->ref. So, we
-could easily lock the entry if needed. However, in this
-particular case it is unnecessary, since there is no chance that
-anybody else could have obtained the new reference, and
-hence no risk for race conditions.
-The other reference entry was intended to point to a new port,
-but, since we didn't obtain any reference in the first place,
-there is no port to delete and no reference to discard.
 
 
->Btw. #2: during this checking I've found
->two places where return values from
->tipc_ref_lock() and tipc_port_lock() are not 
->checked, so I attach a patch proposal for
->this (compiled but not tested):
->  
->
-Thanks. 
+Begin forwarded message:
 
->Regards,
->Jarek P.
->---
->
->[PATCH] tipc: checking returns from locking functions
->
->Checking of return values from tipc_ref_lock()
->and tipc_port_lock() added in 2 places. 
->
->Signed-off-by: Jarek Poplawski <jarkao2@o2.pl>
->---
->
->diff -Nurp linux-2.6.20-rc2-/net/tipc/port.c linux-2.6.20-rc2/net/tipc/port.c
->--- linux-2.6.20-rc2-/net/tipc/port.c	2006-11-29 22:57:37.000000000 +0100
->+++ linux-2.6.20-rc2/net/tipc/port.c	2006-12-28 11:05:17.000000000 +0100
->@@ -238,7 +238,12 @@ u32 tipc_createport_raw(void *usr_handle
-> 		return 0;
-> 	}
-> 
->-	tipc_port_lock(ref);
->+	if (!tipc_port_lock(ref)) {
->+		tipc_ref_discard(ref);
->+		warn("Port creation failed, reference table invalid\n");
->+		kfree(p_ptr);
->+		return 0;
->+	}
-> 	p_ptr->publ.ref = ref;
-> 	msg = &p_ptr->publ.phdr;
-> 	msg_init(msg, DATA_LOW, TIPC_NAMED_MSG, TIPC_OK, LONG_H_SIZE, 0);
->diff -Nurp linux-2.6.20-rc2-/net/tipc/subscr.c linux-2.6.20-rc2/net/tipc/subscr.c
->--- linux-2.6.20-rc2-/net/tipc/subscr.c	2006-12-18 09:01:04.000000000 +0100
->+++ linux-2.6.20-rc2/net/tipc/subscr.c	2006-12-28 11:31:27.000000000 +0100
->@@ -499,7 +499,12 @@ static void subscr_named_msg_event(void 
-> 
-> 	/* Add subscriber to topology server's subscriber list */
-> 
->-	tipc_ref_lock(subscriber->ref);
->+	if (!tipc_ref_lock(subscriber->ref)) {
->+		warn("Subscriber rejected, unable to find port\n");
->+		tipc_ref_discard(subscriber->ref);
->+		kfree(subscriber);
->+		return;
->+	}
-> 	spin_lock_bh(&topsrv.lock);
-> 	list_add(&subscriber->subscriber_list, &topsrv.subscriber_list);
-> 	spin_unlock_bh(&topsrv.lock);
->-
->To unsubscribe from this list: send the line "unsubscribe netdev" in
->the body of a message to majordomo@vger.kernel.org
->More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
->  
->
+Date: Wed, 3 Jan 2007 11:54:26 +0000
+From: Steve Hill <steve.hill@dialogic.com>
+To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+Subject: Intermittent SCTP multihoming breakage
 
+
+
+Apologies if I'm posting to the wrong list - the lksctp lists seem to be a
+bit dead these days and a bit of Googling seemed to inidicate that SCTP
+developemnt discussions might have moved here.
+
+I'm running under the 2.6.16.1 kernel and have an intermittent problem
+with the SCTP stack.  Having reviewed the git logs I can't see any
+indication that the problem has been fixed in more recent kernels, but it
+is very difficult to test since it is so intermittent.
+
+I am running a multihomed connection between 2 machines, (2 NICs on
+each machine, so 2 paths for the connection) and tcpdump shows heartbeat
+requests and acks on both paths.  Putting data over the link correctly
+sends it over the first path.
+
+If I drop the traffic on one of the NICs then most of the time it
+correctly fails over the the second path and I see the data being sent
+and acknowledged correctly on the second path.  However, I also
+intermittently see two failure conditions:
+
+1. Sometimes, just after failing over to the second path I see an ABORT.
+2. More frequently, the association stays up indefinately, with heartbeat
+requests and acks on the second path, but no data chunks are sent even
+though the transmit queue on the transmitting end appears to be full and
+the socket is blocking writes.
+
+I have been adding debugging to the kernel in an attempt to track down the
+source of the second failure condition, and I am wondering if anyone else
+has seen similar behaviour?
+
+-- 
+ - Steve Hill
+   Software Engineer
+   Dialogic
+   Fordingbridge, Hampshire, UK
+   +44-1425-651392
+   steve.hill@dialogic.com
+-
+To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Please read the FAQ at  http://www.tux.org/lkml/
