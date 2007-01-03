@@ -1,84 +1,31 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: removing gotos considered harmful...
-Date: Wed, 3 Jan 2007 08:08:08 +0000
-Message-ID: <200701030808.08182@strip-the-willow>
-References: <20061222.120432.55508411.davem@davemloft.net>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: BUG: soft lockup detected on CPU#0!  (2.6.18.2 plus hacks)
+Date: Wed, 3 Jan 2007 09:28:26 +0100
+Message-ID: <20070103082826.GB1747@ff.dom.local>
+References: <4599E6D5.6050207@candelatech.com> <OFB8CE3E37.99FD5849-ON88257257.0080FAE8-88257257.00819B15@us.ibm.com> <20070103080711.GA1747@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, arnaldo.melo@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Ben Greear <greearb@candelatech.com>,
+	NetDev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:45034 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755007AbXACIHS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Jan 2007 03:07:18 -0500
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20061222.120432.55508411.davem@davemloft.net>
+Received: from poczta.o2.pl ([193.17.41.142]:36965 "EHLO poczta.o2.pl"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755024AbXACI0t (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Jan 2007 03:26:49 -0500
+To: David Stevens <dlstevens@us.ibm.com>
 Content-Disposition: inline
+In-Reply-To: <20070103080711.GA1747@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Dave,
+On Wed, Jan 03, 2007 at 09:07:11AM +0100, Jarek Poplawski wrote:
+> On Tue, Jan 02, 2007 at 03:35:39PM -0800, David Stevens wrote:
+> > I've looked at this a little too -- it'd be nice to know who holds
+> > the write lock.
+> 
+> If you mean mc_list_lock - probably nobody - it's
+> not initialized (so the timers) for this in_device
 
-first of all - I take my hat off to such astuteness in the light of a mailing
-list with an average of 100 postings per day and a massive throughput of patch
-submissions. It is clearly awesome to be able to relate individual changes
-in light of such a massive flood of patches.
+I should say: "... probably not initialized ...".
 
-However, I would also like to plead non-guilty. I have checked - what you
-are quoting is not the original patch. If you look at e.g. 2.6.17-mm1, the 
-previous code had the form (this is copied from 2.6.17-mm1 original):
-
-			size = 0;
-			sk_for_each(sk2, node, list)
-				if (++size >= best_size_so_far)
-					goto next;
-			best_size_so_far = size;
-			best = result;
-		next:;
-
-  
-|  and this got converted into:
-|  
-|  			sk_for_each(sk2, node, head)
-|  				if (++size < best_size_so_far) {
-|  					best_size_so_far = size;
-|  					best = result;
-|  				}
-|  
-|  Which does something very very different from the original.
-===> Sorry, I fail to see where the two differ. They have the same postcondition
-     upon loop exit; sk2, node, size, and head are not referenced anywhere in the 
-     code that follows.
-     
-
-  
-|  Signed-off-by: David S. Miller <davem@davemloft.net>
-|  
-|  diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-|  index 9e1bd37..404dd21 100644
-|  --- a/net/ipv4/udp.c
-|  +++ b/net/ipv4/udp.c
-|  @@ -167,11 +167,14 @@ int udp_get_port(struct sock *sk, unsigned short snum,
-|   				goto gotit;
-|   			}
-|   			size = 0;
-|  -			sk_for_each(sk2, node, head)
-|  -				if (++size < best_size_so_far) {
-|  -					best_size_so_far = size;
-|  -					best = result;
-|  -				}
-|  +			sk_for_each(sk2, node, head) {
-|  +				if (++size >= best_size_so_far)
-|  +					goto next;
-|  +			}
-|  +			best_size_so_far = size;
-|  +			best = result;
-|  +		next:
-|  +			;
-|   		}
-|   		result = best;
-|   		for(i = 0; i < (1 << 16) / UDP_HTABLE_SIZE; i++, result += UDP_HTABLE_SIZE) {
-|  
-|  
+Jarek P. 
