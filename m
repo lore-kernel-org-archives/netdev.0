@@ -1,42 +1,34 @@
 From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: BUG: soft lockup detected on CPU#0!  (2.6.18.2 plus hacks)
-Date: Thu, 4 Jan 2007 12:04:35 +0100
-Message-ID: <20070104110435.GA3175@ff.dom.local>
-References: <OF02F7C182.A05F7E5A-ON88257259.001B0EFA-88257259.001E96CF@us.ibm.com> <E1H2M3X-0001HE-00@gondolin.me.apana.org.au> <20070104080351.GA1740@ff.dom.local> <20070104082930.GB7006@gondor.apana.org.au> <20070104085014.GA2500@ff.dom.local> <20070104102707.GA7662@gondor.apana.org.au>
+Subject: Re: 2.6.19 and up to  2.6.20-rc2 Ethernet problems x86_64
+Date: Thu, 4 Jan 2007 12:46:14 +0100
+Message-ID: <20070104114614.GB3175@ff.dom.local>
+References: <20061229063254.GA1628@ff.dom.local> <4595CD1B.2020102@blueyonder.co.uk> <20070102115050.GA3449@ff.dom.local> <459A7AF1.5060702@blueyonder.co.uk> <20070103104814.GA2629@ff.dom.local> <459BDFA6.4070109@blueyonder.co.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Stevens <dlstevens@us.ibm.com>, greearb@candelatech.com,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx10.go2.pl ([193.17.41.74]:46642 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932368AbXADLCz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Jan 2007 06:02:55 -0500
-To: Herbert Xu <herbert.xu@redhat.com>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964801AbXADLof@vger.kernel.org>
+To: Sid Boyce <g3vbv@blueyonder.co.uk>
 Content-Disposition: inline
-In-Reply-To: <20070104102707.GA7662@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <459BDFA6.4070109@blueyonder.co.uk>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 04, 2007 at 09:27:07PM +1100, Herbert Xu wrote:
-> On Thu, Jan 04, 2007 at 09:50:14AM +0100, Jarek Poplawski wrote:
-> > 
-> > Could you explain? I can see some inet_rtm_newaddr
-> > interrupted. For me it could be e.g.:
-> > 
-> > after
-> > vconfig add eth0 9
-> > 
-> > ip addr add dev eth0.9 ...
-> 
-> Whether eth0.9 is up or not does not affect this at all.  The spin
-> locks are initialised (and used) when the first IPv4 address is added,
-> not when the device comes up.
+On Wed, Jan 03, 2007 at 04:53:58PM +0000, Sid Boyce wrote:
+...
+> It seems >=2.6.19 and the SuSEfirewall are incompatible.
 
-I understand this. I consider IFF_UP as a sign all 
-initialisations (open functions including) are
-completed and there is permission for working (so
-logically, if I would do eth0.9 down all traffic
-should be stopped, what probably isn't true now).
+Actually, many programs could be incomapatible with
+newer kernel versions, so sometimes upgrades or at
+least recompilations are needed. 
+  
+...
+> There is still the problem where the ethernet doesn't get configured 
+> with acpi=off which I shall post to the acpi devel list, but this is not 
+> a showstopper for me. ifconfig eth0 192.168.10.5 returns SIOCSIFFLAGS: 
 
+I don't know acpi enough but as far as I know
+some mainboards can't work properly with acpi
+off, so it's probably not a bug.
+
+Cheers,
 Jarek P. 
