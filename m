@@ -1,117 +1,76 @@
-From: "Javi Roman" <javiroman@kernel-labs.org>
-Subject: egress path understanding
-Date: Thu, 4 Jan 2007 10:41:34 +0100
-Message-ID: <12c2e32e0701040141l15fba8d7g54db1849c0abe766@mail.gmail.com>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: Re: removing gotos considered harmful...
+Date: Thu, 4 Jan 2007 10:02:59 +0000
+Message-ID: <200701041002.59906@strip-the-willow>
+References: <20061222.120432.55508411.davem@davemloft.net> <200701030808.08182@strip-the-willow> <20070103.172548.17866275.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.187]:43432 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932354AbXADJlm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jan 2007 04:41:42 -0500
-Received: by nf-out-0910.google.com with SMTP id o25so8003685nfa
-        for <netdev@vger.kernel.org>; Thu, 04 Jan 2007 01:41:34 -0800 (PST)
-To: netdev <netdev@vger.kernel.org>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:62716 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S932340AbXADKCv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Jan 2007 05:02:51 -0500
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20070103.172548.17866275.davem@davemloft.net>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi all,
+|  > previous code had the form (this is copied from 2.6.17-mm1 original):
+|  > 
+|  > 			size = 0;
+|  > 			sk_for_each(sk2, node, list)
+|  > 				if (++size >= best_size_so_far)
+|  > 					goto next;
+|  > 			best_size_so_far = size;
+|  > 			best = result;
+|  > 		next:;
+|  > 
+|  > |  and this got converted into:
+|  > |  
+|  > |  			sk_for_each(sk2, node, head)
+|  > |  				if (++size < best_size_so_far) {
+|  > |  					best_size_so_far = size;
+|  > |  					best = result;
+|  > |  				}
+|  > |  
+|  > |  Which does something very very different from the original.
+|  >
+|  > ===> Sorry, I fail to see where the two differ. They have the same postcondition
+|  >      upon loop exit; sk2, node, size, and head are not referenced anywhere in the 
+|  >      code that follows.
+|  >      
+|  
+|  Please go buy a pair of glasses then :-)
+|  
+|  They are not at all the same.  Consider in what circumstances the two
+|  variables "best_size_so_far" and "best" get updated in the two cases,
+|  it's massively different.
+|  
+|  You _ALWAYS_ update those two variables in your version if the loop
+|  executes at least once, that's wrong and that's not what the original
+|  code was trying to do.
+|  
+|  It ONLY wants to update those two variables when we walk
+|  a complete hash chain which is smaller than "best_size_so_far".
+|  
+|  The fact that you continue to try and defend your version shows
+|  that you really had no idea what you were doing when you made this
+|  change.
+|  
+|  You added an exploitable hole to our UDP protocol implementation
+|  because you didn't understand this snippet of code and wanted to
+|  'clean up the logic'.
+|  
+|  
+You are right, I made a stupid error by considering a single construct out of context.
 
-(sorry for newbie question)
+I only understood fully what you were saying above after doing a lengthy paper-and-pencil
+analysis of the entire algorithm: the exploit is in the assignment of `best', I was arguing
+about `best_size_so_far', which is of no consequence here. 
 
-I'm trying to learn the networking code of an ancient 2.4.18 vanilla kernel.
-
-I understand that the egress path of network packet (socket buffer) as
-general behaviour, goes through the method hard_start_xmit() within of
-the driver layer. This method is the responsible of putting the
-network packet into the output buffers of the network device. When the
-physical transmmission is completed the device raises an interrupt and
-the interrupt handler of the device is called.
-
-The typical interrupt handler is a function running in interrupt
-context, so needs to be as quick as possible, and because this
-function has to free the skb buffer (to deallocate the sk_buff
-structure associated with sucessfully transmitted buffer), the task is
-delegated to softirq (NET_TX_SOFTIRQ) by means of function
-dev_kfree_skb_irq():
-
-static inline void dev_kfree_skb_irq(struct sk_buff *skb)
-{
-        if (atomic_dec_and_test(&skb->users)) {
-                int cpu =smp_processor_id();
-                unsigned long flags;
-
-#ifdef CONFIG_PROC_FS
-                softirq_stats.raise_from_kfree_skb_cont++;
-#endif
-                local_irq_save(flags);
-                skb->next = softnet_data[cpu].completion_queue;
-                softnet_data[cpu].completion_queue = skb;
-                cpu_raise_softirq(cpu, NET_TX_SOFTIRQ);
-                local_irq_restore(flags);
-        }
-}
-
-When do_softirq() is called the funcion associated with
-NET_TX_SOFTIRQ, net_tx_action() is called:
-
-static void net_tx_action(struct softirq_action *h)
-{
-        int cpu = smp_processor_id();
-
-        if (softnet_data[cpu].completion_queue) {
-                struct sk_buff *clist;
-
-                local_irq_disable();
-                clist = softnet_data[cpu].completion_queue;
-                softnet_data[cpu].completion_queue = NULL;
-                local_irq_enable();
-
-                while (clist != NULL) {
-                        struct sk_buff *skb = clist;
-                        clist = clist->next;
-#ifdef CONFIG_PROC_FS
-                        softirq_stats.tx_completion_cont++;
-#endif
-                        BUG_TRAP(atomic_read(&skb->users) == 0);
-                        __kfree_skb(skb);
-                }
-        }
-
-..... [snip]
-
-}
-
-How you can see, I have put some counters in order to trace the
-execution of networking code by means of the file:
-/proc/net/softirq_stat. The oputput of this file is the following when
-I test the kernel:
-
-# cat /proc/net/softirq_stat
-raise_from_netif_cont: 0
-raise_from_kfree_skb_cont: 0
-(qdisc_restart) hard_start_xmit_cont: 5869
-(qdisc_restart) xmit_lock_grabbed_cont: 0
-tx_completion_cont: 5869
-tx_output_cont: 142
-
-OK, the important fields of this output are tx_completion_cont and
-raise_from_kfree_skb_cont. We can see that every packet passed to
-hard_start_xmit_cont (in qdisc_restart) is freed with net_tx_action,
-so the counter hard_start_xmit_cont and tx_completion_cont show the
-same values. But I cannot understand why the counter
-raise_from_kfree_skb_cont is zero!!!
-
-I guess the code path must pass through of dev_kfree_skb_irq() in
-order to raise the softirq with cpu_raise_softirq(cpu,
-NET_TX_SOFTIRQ), so it's possible to execute net_tx_action() later.
-
-I don't know if I don't understand the therory or I have an error in
-the code. Please can anybody advice me about this behaviour?
-
-Thanks a lot, and sorry for my english.
-
---
-Javi Roman
+I apologise for the regression that this caused - in future submissions I make sure that I
+do the paper and pencil analysis before. Thanks for patience with the explanation. 
