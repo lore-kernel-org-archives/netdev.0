@@ -1,54 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sungem: PHY updates & pause fixes
-Date: Wed, 03 Jan 2007 18:55:21 -0800 (PST)
-Message-ID: <20070103.185521.64808473.davem@davemloft.net>
-References: <1167801614.6165.117.camel@localhost.localdomain>
-	<20070102.212605.15263907.davem@davemloft.net>
-	<1167802802.6165.129.camel@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+From: Daniel Drake <dsd@gentoo.org>
+Subject: [PATCH] zd1211rw: Add ID for ZyXEL ZyAIR G-220 v2
+Date: Thu,  4 Jan 2007 03:33:54 +0000 (GMT)
+Message-ID: <20070104033354.D33EC7B40A0@zog.reactivated.net>
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35551
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S932243AbXADCzV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jan 2007 21:55:21 -0500
-To: benh@kernel.crashing.org
-In-Reply-To: <1167802802.6165.129.camel@localhost.localdomain>
+Received: from mtaout02-winn.ispmail.ntl.com ([81.103.221.48]:36948 "EHLO
+	mtaout02-winn.ispmail.ntl.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932245AbXADDd6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jan 2007 22:33:58 -0500
+To: linville@tuxdriver.com
+Cc: kune@deine-taler.de
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Date: Wed, 03 Jan 2007 16:40:02 +1100
+Tested by Marijn Schouten
+zd1211b chip 0586:340f v4810 high 00-13-49 AL2230_RF pa0 g---
+FCC ID: I88G220V2
 
-> On the quad G5 which has tg3, I get "Flow control is on for TX and on
-> for RX". Let me double check if I'm on the same switch...
-> 
-> Heh ! It's not :-)
-> 
-> If I switch the cables, then pause is enabled on the sungem box and
-> disabled (both Tx and Rx) on tg3, so at least the behaviour is
-> consistent and follow the switches. Let me check the switch models...
-> 
-> The one with only asym. support is a big Cisco Catalyst 3350 (well.. big
-> but not that many ports :-)
-> 
-> The one with "classic" pause support is a tiny Netgear GS116
-> 
-> It's possible that the cisco is just misconfigured though, I'll have to
-> ask Keith when he's around tomorrow to take a peek at the mgmnt
-> interface.
+Signed-off-by: Daniel Drake <dsd@gentoo.org>
+---
+ zd_usb.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-Thanks for tracking this down :-)
-
-> > > > You should try to use flow control, even slower than 1000Mbit links.
-> > > 
-> > > Sorry, not sure I parse ;-) You mean allowing pause on 10 and 100 as
-> > > well ? I sure can, it's easy to fix.
-> > 
-> > That's correct.
-> 
-> On it's way.
-
-I've applied that patch, thanks.
+Index: linux/drivers/net/wireless/zd1211rw/zd_usb.c
+===================================================================
+--- linux.orig/drivers/net/wireless/zd1211rw/zd_usb.c
++++ linux/drivers/net/wireless/zd1211rw/zd_usb.c
+@@ -61,6 +61,7 @@ static struct usb_device_id usb_ids[] = 
+ 	{ USB_DEVICE(0x083a, 0x4505), .driver_info = DEVICE_ZD1211B },
+ 	{ USB_DEVICE(0x0471, 0x1236), .driver_info = DEVICE_ZD1211B },
+ 	{ USB_DEVICE(0x13b1, 0x0024), .driver_info = DEVICE_ZD1211B },
++	{ USB_DEVICE(0x0586, 0x340f), .driver_info = DEVICE_ZD1211B },
+ 	/* "Driverless" devices that need ejecting */
+ 	{ USB_DEVICE(0x0ace, 0x2011), .driver_info = DEVICE_INSTALLER },
+ 	{}
