@@ -1,51 +1,36 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [PATCH] sungem: PHY updates & pause fixes
-Date: Fri, 05 Jan 2007 08:15:31 +1100
-Message-ID: <1167945331.5273.8.camel@localhost.localdomain>
-References: <1167802802.6165.129.camel@localhost.localdomain>
-	 <20070103.185521.64808473.davem@davemloft.net>
-	 <5cac192f0701041206x421824e9oedcd6a8e5c814f8b@mail.gmail.com>
-	 <20070104.122716.58455250.davem@davemloft.net>
-	 <5cac192f0701041257i61e85239y638637a615d421fd@mail.gmail.com>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [openib-general] [PATCH  v4 01/13] Linux RDMA Core Changes
+Date: Thu, 04 Jan 2007 13:34:27 -0800
+Message-ID: <adawt424gt8.fsf@cisco.com>
+References: <1167851839.4187.36.camel@stevo-desktop>
+	<20070103193324.GD29003@mellanox.co.il>
+	<1167855618.4187.65.camel@stevo-desktop>
+	<1167859320.4187.81.camel@stevo-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:49888 "EHLO gate.crashing.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030191AbXADVPj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Jan 2007 16:15:39 -0500
-To: Eric Lemoine <eric.lemoine@gmail.com>
-In-Reply-To: <5cac192f0701041257i61e85239y638637a615d421fd@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "Michael S. Tsirkin" <mst@mellanox.co.il>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, openib-general@openib.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965077AbXADVef@vger.kernel.org>
+To: Steve Wise <swise@opengridcomputing.com>
+In-Reply-To: <1167859320.4187.81.camel@stevo-desktop> (Steve Wise's message of "Wed, 03 Jan 2007 15:22:00 -0600")
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2007-01-04 at 21:57 +0100, Eric Lemoine wrote:
-> On 1/4/07, David Miller <davem@davemloft.net> wrote:
-> > From: "Eric Lemoine" <eric.lemoine@gmail.com>
-> > Date: Thu, 4 Jan 2007 21:06:48 +0100
-> >
-> > > On 1/4/07, David Miller <davem@davemloft.net> wrote:
-> > > > I've applied that patch, thanks.
-> > >
-> > > David, I suppose you've applied the locking patch as well...
-> >
-> > No, not yet.
-> >
-> > Your locking patches are definitely 2.6.21 material, but
-> > Ben's changes fix PAUSE handling bugs so I want to
-> > put his patch into 2.6.20
-> >
-> > I'll put your locking bits into 2.6.21, don't worry :-)
-> 
-> I'm relieved now :-)
-> 
-> I was asking because Ben said his patch applied on top of mine.
+OK, I'm back from vacation today.
 
-Well, I did it with yours applied already but it seems like they don't
-really conflict so they can be applied pretty much in any order.
+Anyway I don't have a definitive statement on this right now.  I guess
+I agree that I don't like having an extra parameter to a function that
+should be pretty fast (although req notify isn't quite as hot as
+something like posting a send request or polling a cq), given that it
+adds measurable overhead.  (And I am surprised that the overhead is
+measurable, since 3 arguments still fit in registers, but OK).
 
-Ben.
+I also agree that adding an extra entry point just to pass in the user
+data is ugly, and also racy.
 
+Giving the kernel driver a pointer it can read seems OK I guess,
+although it's a little ugly to have a backdoor channel like that.
 
+I'm somewhat surprised the driver has to go into the kernel to rearm a
+CQ -- what makes the operation need kernel privileges?  (Sorry for not
+reading the code)
