@@ -1,32 +1,119 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] INET: fix incorrect "inet_sock->is_icsk" assignment
-Date: Thu, 04 Jan 2007 21:42:04 -0800 (PST)
-Message-ID: <20070104.214204.55835976.davem@davemloft.net>
-References: <20070104200437.008980288@hp.com>
-	<20070104.165735.102614518.davem@davemloft.net>
-	<39e6f6c70701041832u6e1d8c86w4728ac605f7449e3@mail.gmail.com>
+From: javiroman@kernel-labs.org
+Subject: egress path understanding
+Date: Thu, 4 Jan 2007 05:42:31 -0500 (EST)
+Message-ID: <22194.80.59.183.97.1167907351.squirrel@www.kernel-labs.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: paul.moore@hp.com, netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48659
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1030341AbXAEFmH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Jan 2007 00:42:07 -0500
-To: arnaldo.melo@gmail.com
-In-Reply-To: <39e6f6c70701041832u6e1d8c86w4728ac605f7449e3@mail.gmail.com>
+Received: from madrid.hostgo.com ([64.71.164.66]:54335 "EHLO madrid.hostgo.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1030347AbXAEF5z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Jan 2007 00:57:55 -0500
+Received: from kernella by madrid.hostgo.com with local (Exim 4.63)
+	(envelope-from <javiroman@kernel-labs.org>)
+	id 1H2Q3L-0001KD-CA
+	for netdev@vger.kernel.org; Thu, 04 Jan 2007 05:42:31 -0500
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Arnaldo Carvalho de Melo" <arnaldo.melo@gmail.com>
-Date: Fri, 5 Jan 2007 00:32:31 -0200
+Hi all,
 
-> I expected a warning since the and operation clearly could yield a
-> value that would overflow, just like in the constant case...
+(sorry for newbie question)
 
-It sounds stupid, but once you introduce variables and not
-everything is constance, GCC currently can't make the analysis.
+I'm trying to learn the networking code of an ancient 2.4.18 vanilla kernel.
 
-It's an interesting class of bugs to detect automatically, for
-sure :-)
+I understand that the egress path of network packet (socket buffer) as
+general behaviour, goes through the method hard_start_xmit() within of
+the driver layer. This method is the responsible of putting the
+network packet into the output buffers of the network device. When the
+physical transmmission is completed the device raises an interrupt and
+the interrupt handler of the device is called.
+
+The typical interrupt handler is a function running in interrupt
+context, so needs to be as quick as possible, and because this
+function has to free the skb buffer (to deallocate the sk_buff
+structure associated with sucessfully transmitted buffer), the task is
+delegated to softirq (NET_TX_SOFTIRQ) by means of function
+dev_kfree_skb_irq():
+
+static inline void dev_kfree_skb_irq(struct sk_buff *skb)
+{
+        if (atomic_dec_and_test(&skb->users)) {
+                int cpu =smp_processor_id();
+                unsigned long flags;
+
+#ifdef CONFIG_PROC_FS
+                softirq_stats.raise_from_kfree_skb_cont++;
+#endif
+                local_irq_save(flags);
+                skb->next = softnet_data[cpu].completion_queue;
+                softnet_data[cpu].completion_queue = skb;
+                cpu_raise_softirq(cpu, NET_TX_SOFTIRQ);
+                local_irq_restore(flags);
+        }
+}
+
+When do_softirq() is called the funcion associated with
+NET_TX_SOFTIRQ, net_tx_action() is called:
+
+static void net_tx_action(struct softirq_action *h)
+{
+        int cpu = smp_processor_id();
+
+        if (softnet_data[cpu].completion_queue) {
+                struct sk_buff *clist;
+
+                local_irq_disable();
+                clist = softnet_data[cpu].completion_queue;
+                softnet_data[cpu].completion_queue = NULL;
+                local_irq_enable();
+
+                while (clist != NULL) {
+                        struct sk_buff *skb = clist;
+                        clist = clist->next;
+#ifdef CONFIG_PROC_FS
+                        softirq_stats.tx_completion_cont++;
+#endif
+                        BUG_TRAP(atomic_read(&skb->users) == 0);
+                        __kfree_skb(skb);
+                }
+        }
+
+..... [snip]
+
+}
+
+How you can see, I have put some counters in order to trace the
+execution of networking code by means of the file:
+/proc/net/softirq_stat. The oputput of this file is the following when
+I test the kernel:
+
+# cat /proc/net/softirq_stat
+raise_from_netif_cont: 0
+raise_from_kfree_skb_cont: 0
+(qdisc_restart) hard_start_xmit_cont: 5869
+(qdisc_restart) xmit_lock_grabbed_cont: 0
+tx_completion_cont: 5869
+tx_output_cont: 142
+
+OK, the important fields of this output are tx_completion_cont and
+raise_from_kfree_skb_cont. We can see that every packet passed to
+hard_start_xmit_cont (in qdisc_restart) is freed with net_tx_action,
+so the counter hard_start_xmit_cont and tx_completion_cont show the
+same values. But I cannot understand why the counter
+raise_from_kfree_skb_cont is zero!!!
+
+I guess the code path must pass through of dev_kfree_skb_irq() in
+order to raise the softirq with cpu_raise_softirq(cpu,
+NET_TX_SOFTIRQ), so it's possible to execute net_tx_action() later.
+
+I don't know if I don't understand the therory or I have an error in
+the code. Please can anybody advice me about this behaviour?
+
+Thanks a lot, and sorry for my english.
+
+--
+Javi Roman
+
