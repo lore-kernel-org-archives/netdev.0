@@ -1,39 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] fib6: Fix fn->leaf == NULL race when inserting new
- nodes in fib6 tree
-Date: Thu, 04 Jan 2007 12:24:49 -0800 (PST)
-Message-ID: <20070104.122449.119276319.davem@davemloft.net>
-References: <20070104093921.GC8693@postel.suug.ch>
-	<20070104192147.GD8693@postel.suug.ch>
+Subject: Re: [PATCH] tcp: revert to old definition of `before'
+Date: Thu, 04 Jan 2007 12:25:36 -0800 (PST)
+Message-ID: <20070104.122536.53337620.davem@davemloft.net>
+References: <200701041254.55007@strip-the-willow>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58987
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58993
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S965081AbXADUYu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jan 2007 15:24:50 -0500
-To: tgraf@suug.ch
-In-Reply-To: <20070104192147.GD8693@postel.suug.ch>
+	by vger.kernel.org with ESMTP id S1030181AbXADUZg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jan 2007 15:25:36 -0500
+To: gerrit@erg.abdn.ac.uk
+In-Reply-To: <200701041254.55007@strip-the-willow>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Thomas Graf <tgraf@suug.ch>
-Date: Thu, 4 Jan 2007 20:21:47 +0100
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Date: Thu, 4 Jan 2007 12:54:54 +0000
 
-> * Thomas Graf <tgraf@suug.ch> 2007-01-04 10:39
-> > When inserting new nodes into a fib6 tree, the leaf pointer
-> > is first to NULL and later corrected when the key gets
-> > assigned. However, the tree is not locked for this period
-> > of time, therefore nodes with an invalid leaf pointer
-> > are accessible. Lookups that occur during this period of time
-> > expect a valid leaf pointer and thus crash.
-> > 
-> > This patch sets the leaf pointer to ip6_null_entry during
-> > this critical period of time.
+> Hi Dave,
 > 
-> Ignore this patch for now, the description is certainly inaccurate
-> even though it seems to fix the issue.
+> as per earlier email, can you please revert the definition of the
+> TCP `before' relation: there is code which implicitly depends on it.
+> 
+> Furthermore, this definition appears in textbooks such as Stevens
+> and therefore, even if the newer definition may have nicer properties,
+> it is safer to stick with the old one.
 
-Ok, no problem.
+No problem, patch applied, thanks Gerrit.
