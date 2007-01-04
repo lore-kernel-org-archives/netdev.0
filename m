@@ -1,59 +1,90 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [Bugme-new] [Bug 7770] New: Network connection randomly drops
-Date: Thu, 4 Jan 2007 09:25:02 -0800
-Message-ID: <20070104092502.279e1a5c.akpm@osdl.org>
-References: <200701041649.l04GnnjW021531@fire-2.osdl.org>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: 2.6.20-rc3: known unfixed regressions (v3)
+Date: Thu, 4 Jan 2007 18:46:32 +0100
+Message-ID: <20070104174632.GC20714@stusta.de>
+References: <Pine.LNX.4.64.0612311710430.4473@woody.osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "bugme-daemon@kernel-bugs.osdl.org"
-	<bugme-daemon@bugzilla.kernel.org>, prusnik@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:39201 "EHLO smtp.osdl.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750943AbXADRmo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Jan 2007 12:42:44 -0500
-To: netdev@vger.kernel.org
-In-Reply-To: <200701041649.l04GnnjW021531@fire-2.osdl.org>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Jon Smirl <jonsmirl@gmail.com>,
+	Damien Wyart <damien.wyart@free.fr>,
+	Aaron Sethman <androsyn@ratbox.org>, alan@lxorguk.ukuu.org.uk,
+	linux-ide@vger.kernel.org, Berthold Cogel <cogel@rrz.uni-koeln.de>,
+	len.brown@intel.com, linux-acpi@vger.kernel.org,
+	Florin Iucha <florin@iucha.net>, greg@kroah.com,
+	linux-usb-devel@lists.sourceforge.net, dmitry.torokhov@gmail.com,
+	linux-input@atrey.karlin.mff.cuni.cz, James.Bottomley@SteelEye.com,
+	linux-scsi@vger.kernel.org, Komuro <komurojun-mbn@nifty.com>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+	netdev@vger.kernel.org,
+	Tobias Diedrich <ranma+kernel@tdiedrich.de>,
+	Andi Kleen <ak@suse.de>, Yinghai Lu <yinghai.lu@amd.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>, discuss@x86-64.org,
+	mingo@redhat.com
+Return-path: <linux-ide-owner@vger.kernel.org>
+To: Linus Torvalds <torvalds@osdl.org>, Andrew Morton <akpm@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.64.0612311710430.4473@woody.osdl.org>
+Sender: linux-ide-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 4 Jan 2007 08:49:49 -0800
-bugme-daemon@bugzilla.kernel.org wrote:
+This email lists some known regressions in 2.6.20-rc3 compared to 2.6.19
+that are not yet fixed in Linus' tree.
 
-> http://bugzilla.kernel.org/show_bug.cgi?id=7770
-> 
->            Summary: Network connection randomly drops
->     Kernel Version: 2.6.19 onward
->             Status: NEW
->           Severity: normal
->              Owner: acme@conectiva.com.br
->          Submitter: prusnik@gmail.com
-> 
-> 
-> Most recent kernel where this bug did *NOT* occur: 2.6.19-rc4
-> Distribution: ubuntu 6.10, 64 bit
-> Hardware Environment: ASUS M2N-E (MCP55), AMD X2 4200+
-> Software Environment: normal linux distro with a custom kernel
-> Problem Description:
-> It started when I compiled the stable 2.6.19 kernel (first after rc4). The
-> network connection to the router just dropped and I can find no reason why it is
-> so. I have to revive the connection via /etc/init.d/networking restart command
-> and the connection is there again. At first I was doing remote connection
-> (tsclient in ubuntu) on another ubuntu dapper machine. The connection would
-> randomly terminate. I assumed it was the program, but then I did a further test.
-> I used mc (midnight commander) to copy some large files (a couple ubuntu iso-s)
->  to this machine (which acts as a file server) via NFS (and via router) and
-> back. The connection would drop! The event is more frequent if I transfer the
-> files from that computer than vice versa.
-> I then rerun linux with 2.6.19-rc4 kernel and transfers were stable without a
-> single connection drop. I then assumed it should be the newer forcedeth driver
-> to blame but apparently it isn't. I put the 0.57 driver into the 2.6.20-rc3 and
-> the problem persists. I even tried this patch from the bug #7684 but this didn't
-> help either.
-> 
-> Steps to reproduce:
-> Hopefully with this hardware I mentioned, plain ubuntu 6.10 64 bit installation
-> with a kernel higher than 2.6.19-rc4. Config and other status files are in the
-> attachment.
-> 
+If you find your name in the Cc header, you are either submitter of one
+of the bugs, maintainer of an affectected subsystem or driver, a patch
+of you caused a breakage or I'm considering you in any other way possibly
+involved with one or more of these issues.
+
+Due to the huge amount of recipients, please trim the Cc when answering.
+
+
+Subject    : BUG: scheduling while atomic: hald-addon-stor/...
+             cdrom_{open,release,ioctl} in trace
+References : http://lkml.org/lkml/2006/12/26/105
+             http://lkml.org/lkml/2006/12/29/22
+             http://lkml.org/lkml/2006/12/31/133
+Submitter  : Jon Smirl <jonsmirl@gmail.com>
+             Damien Wyart <damien.wyart@free.fr>
+             Aaron Sethman <androsyn@ratbox.org>
+Status     : unknown
+
+
+Subject    : Acer Extensa 3002 WLMi: 'shutdown -h now' reboots the system
+References : http://lkml.org/lkml/2006/12/25/40
+Submitter  : Berthold Cogel <cogel@rrz.uni-koeln.de>
+Status     : unknown
+
+
+Subject    : USB keyboard unresponsive after some time
+References : http://lkml.org/lkml/2006/12/25/35
+             http://lkml.org/lkml/2006/12/26/106
+Submitter  : Florin Iucha <florin@iucha.net>
+Status     : unknown
+
+
+Subject    : SPARC64: Can't mount /  (CONFIG_SCSI_SCAN_ASYNC=y ?)
+References : http://lkml.org/lkml/2006/12/13/181
+             http://lkml.org/lkml/2007/01/04/75
+Submitter  : Horst H. von Brand <vonbrand@inf.utfsm.cl>
+Status     : unknown
+
+
+Subject    : ftp: get or put stops during file-transfer
+References : http://lkml.org/lkml/2006/12/16/174
+Submitter  : Komuro <komurojun-mbn@nifty.com>
+Caused-By  : YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+             commit cfb6eeb4c860592edd123fdea908d23c6ad1c7dc
+Handled-By : YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Status     : problem is being debugged
+
+
+Subject    : x86_64 boot failure: "IO-APIC + timer doesn't work"
+References : http://lkml.org/lkml/2006/12/16/101
+             http://lkml.org/lkml/2007/1/3/9
+Submitter  : Tobias Diedrich <ranma+kernel@tdiedrich.de>
+Caused-By  : Andi Kleen <ak@suse.de>
+             commit b026872601976f666bae77b609dc490d1834bf77
+Handled-By : Yinghai Lu <yinghai.lu@amd.com>
+             Eric W. Biederman <ebiederm@xmission.com>
+Status     : patches are being discussed
