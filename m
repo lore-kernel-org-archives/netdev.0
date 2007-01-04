@@ -1,39 +1,70 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: BUG: soft lockup detected on CPU#0!  (2.6.18.2 plus hacks)
-Date: Thu, 04 Jan 2007 12:14:00 +1100
-Message-ID: <E1H2HBA-0008L4-00@gondolin.me.apana.org.au>
-References: <459C520B.3010406@candelatech.com>
-Cc: herbert@gondor.apana.org.au, dlstevens@us.ibm.com, jarkao2@o2.pl,
-	netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: removing gotos considered harmful...
+Date: Wed, 03 Jan 2007 17:25:48 -0800 (PST)
+Message-ID: <20070103.172548.17866275.davem@davemloft.net>
+References: <20061222.120432.55508411.davem@davemloft.net>
+	<200701030808.08182@strip-the-willow>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, arnaldo.melo@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:3879 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932232AbXADBOJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jan 2007 20:14:09 -0500
-To: greearb@candelatech.com (Ben Greear)
-In-Reply-To: <459C520B.3010406@candelatech.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48035
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S932234AbXADBZt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jan 2007 20:25:49 -0500
+To: gerrit@erg.abdn.ac.uk
+In-Reply-To: <200701030808.08182@strip-the-willow>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ben Greear <greearb@candelatech.com> wrote:
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Date: Wed, 3 Jan 2007 08:08:08 +0000
+
+> However, I would also like to plead non-guilty. I have checked - what you
+> are quoting is not the original patch. If you look at e.g. 2.6.17-mm1, the 
+> previous code had the form (this is copied from 2.6.17-mm1 original):
 > 
-> I'm not sure if it helps..but I did notice that 'ip' was using 99% of the
-> CPU on the system.  Could this be because it was spinning trying to acquire
-> the read-lock?  When I ran 'ifconfig -a', that process hung, and at that point
-> the system was rebooted.  Before I ran ifconfig, 'top' and 'ls' and similar
-> apps were responding fine, and I was logged in over ssh from the US to Australia, so
-> it's basic networking was functioning.
+> 			size = 0;
+> 			sk_for_each(sk2, node, list)
+> 				if (++size >= best_size_so_far)
+> 					goto next;
+> 			best_size_so_far = size;
+> 			best = result;
+> 		next:;
+> 
+> |  and this got converted into:
+> |  
+> |  			sk_for_each(sk2, node, head)
+> |  				if (++size < best_size_so_far) {
+> |  					best_size_so_far = size;
+> |  					best = result;
+> |  				}
+> |  
+> |  Which does something very very different from the original.
+>
+> ===> Sorry, I fail to see where the two differ. They have the same postcondition
+>      upon loop exit; sk2, node, size, and head are not referenced anywhere in the 
+>      code that follows.
+>      
 
-That's understandable because we were stuck in the softirq handler while
-holding the rtnl lock.  The rtnl lock is what's preventing those commands
-from executing.
+Please go buy a pair of glasses then :-)
 
-What we need to figure out is whether the rtnl lock is a coincidence or
-a cause.
+They are not at all the same.  Consider in what circumstances the two
+variables "best_size_so_far" and "best" get updated in the two cases,
+it's massively different.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+You _ALWAYS_ update those two variables in your version if the loop
+executes at least once, that's wrong and that's not what the original
+code was trying to do.
+
+It ONLY wants to update those two variables when we walk
+a complete hash chain which is smaller than "best_size_so_far".
+
+The fact that you continue to try and defend your version shows
+that you really had no idea what you were doing when you made this
+change.
+
+You added an exploitable hole to our UDP protocol implementation
+because you didn't understand this snippet of code and wanted to
+'clean up the logic'.
