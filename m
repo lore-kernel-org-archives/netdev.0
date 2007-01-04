@@ -1,40 +1,37 @@
-From: "Adam J. Richter" <adam@yggdrasil.com>
-Subject: Re: selinux networking: sleeping functin called from invalid context in 2.6.20-rc[12]
-Date: Thu, 4 Jan 2007 19:32:11 +0800
-Message-ID: <200701041132.l04BWBpD012314@freya.yggdrasil.com>
-Cc: akpm@osdl.org, davem@davemloft.net, mingo@elte.hu,
-	netdev@vger.kernel.org
+From: KOVACS Krisztian <hidden@balabit.hu>
+Subject: Re: [PATCH/RFC 00/10] Transparent proxying patches version 4
+Date: Thu, 4 Jan 2007 13:13:27 +0100
+Message-ID: <200701041313.27894@nienna>
+References: <20070103163357.14635.37754.stgit@nienna.balabit> <20070103193327.GA8331@xi.wantstofly.org>
+Mime-Version: 1.0
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netfilter-devel@lists.netfilter.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [221.219.161.71] ([221.219.161.71]:34279 "EHLO
-	freya.yggdrasil.com" rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S964794AbXADL5w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jan 2007 06:57:52 -0500
-To: paul.moore@hp.com
+Received: from www.balabit.hu ([212.92.18.33]:4232 "EHLO lists.balabit.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S964805AbXADMNy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Jan 2007 07:13:54 -0500
+Received: from balabit.hu (unknown [10.80.0.254])
+	by lists.balabit.hu (Postfix) with ESMTP id D5C4F4C124
+	for <netdev@vger.kernel.org>; Thu,  4 Jan 2007 13:13:49 +0100 (CET)
+To: Lennert Buytenhek <buytenh@wantstofly.org>
+In-Reply-To: <20070103193327.GA8331@xi.wantstofly.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 3 Jan 2007 15:46:31 -0500, Paul Moore wrote:
->This makes me believe that Ingo's patch (which I see is now in Linus' and 
->Andrew's trees) is the way to go and not the lock re-order approach in Adam's 
->patch.  I'm going to continue to look into this, almost more for my own 
->education than anything else, but I thought I would mention this lock 
->dependency message as it seemed relevant to the discussion.
 
-	Both Ingo's patch and mine preserved the lock order, in a
-sense: take the read_read_lock first, and avoid locking the socket if
-possible.  Ingo's patch avoided unlocking and relocking by using some
-facilities that I must admit my prior ignorance of.  So, I agree that
-if both patches are "correct", then Ingo's is better.
+  Hi,
 
-	I have been running Ingo's patch for the past ~1.5 days, and
-as far as I can tell it seems to be no worse than mine.
+On Wednesday 03 January 2007 20:33, Lennert Buytenhek wrote:
+> I'd also love to see the old tproxy API go away entirely.  It was
+> always a bit of a pain to use.
 
-	The reason for such a guarded description as "no worse than
-mine" is that I have been experiencing occasoinal system hangs that
-started in 2.6.20-rc1 without any patch, which I have observed in
-2.6.20-rc3 with my patch, and also 2.6.20-rc3 with Ingo's patch.
-These hangs may be completly unrelated to this selinux issue though
-and it may be days before get around to studying it more carefully, so
-I'm happy to see Ingo's patch integrated now.
+  It's gone with these patches: all you need is to bind() to foreign 
+addresses, like in the Linux 2.2 days.
 
-Adam
+-- 
+ Regards,
+  Krisztian Kovacs
