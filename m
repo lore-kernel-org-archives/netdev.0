@@ -1,78 +1,62 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH][RFC] tcp: fix ambiguity in the `before' relation
-Date: Thu, 04 Jan 2007 11:15:40 +1100
-Message-ID: <E1H2GGi-0008E5-00@gondolin.me.apana.org.au>
-References: <200701030856.19416@strip-the-willow>
-Cc: herbert@gondor.apana.org.au, davem@davemloft.net,
-	netdev@vger.kernel.org
+From: Ron Mercer <ron.mercer@qlogic.com>
+Subject: Re: [PATCH 0/5] qla3xxx:resubmit support for Qlogic 4032 and fixes.
+Date: Wed, 3 Jan 2007 16:25:03 -0800
+Message-ID: <20070104002503.GB22318@linux-7mw0.qlogic.org>
+References: <20061219181855.GA8179@linux-7mw0.qlogic.org> <45919563.9030304@garzik.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, ron.mercer@qlogic.com, romieu@fr.zoreil.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:3497 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932180AbXADAPz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jan 2007 19:15:55 -0500
-To: gerrit@erg.abdn.ac.uk (Gerrit Renker)
-In-Reply-To: <200701030856.19416@strip-the-willow>
+Received: from avexch1.qlogic.com ([198.70.193.115]:45355 "EHLO
+	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932189AbXADAZG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jan 2007 19:25:06 -0500
+To: Jeff Garzik <jeff@garzik.org>
+Content-Disposition: inline
+In-Reply-To: <45919563.9030304@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Gerrit Renker <gerrit@erg.abdn.ac.uk> wrote:
->
-> |  Prior to the patch, we have values x and y such that both
-> |  before(x, y) and before(y, x) are true.  Now for those same
-> |  values both before(x, y) and before(y, x) are false.
-> |
-> |  It's still as ambiguous as ever.  Surely to resolve the
-> |  ambiguity we want to make before(x, y) = !before(y, x), no?
->
-> Please let me restate:
-> Ambiguity here means that for those numbers x,y such that  (x + 2^31) % 2^32) = y
-> before(x, y) = 1 and before(y, x) = 1. With the previous implementation, one could 
-> not tell the difference here: and there are 2^32 such cases where this occurs.
+Re-organized previous 5 patches into 3 patches.
+
+1. Bug fix - remove NETIF_F_LLTX flag from features.
+2. Bug fix - Add delay to NVRAM access.  See patch for detailed answer to your questions.
+3. Combined patches 1 and 5 that add new chip support (and fixed bug in first 1/5 patch).
+(removed patch 2/5 as unecessary)
+
+Ron
+
+> Ron Mercer wrote:
+> >These 5 patches were submitted on Dec 5th (1&2) and Dec 11th (3-5).  They 
+> >add/fix the following
+> >
+> >1. Add support for Qlogic 4032 chip.
+> >2. Change minor version for 4032 support.
+> >3. Add delay when accessing NVRAM.
+> >4. Remove NETIF_F_LLTX flag from features.  It was left over from the 
+> >early driver and shouldn't be there.
+> >5. Fix rx checksum warning.
+> >
+> >We didn't get any feedback on any of these previously posted patches and 
+> >couldn't find a tree where they were added.  We've build and tested them 
+> >on 2.6.20-rc1.
+> >
+> >These patches must be applied in order.
 > 
-> With the implementation now, the output of before(x,y) is reliable: it returns true
-> if (and only if) x is indeed `before' y.
-
-Sorry but I don't think you've answered my question.
-
-Let y = (x + 2^31) % 2^32, how is making
-
-	before(x, y) == before(y, x) == 0
-
-any better than
-
-	before(x, y) == before(y, x) == 1
-
-For an unambiguous before, we must have before(x, y) != before(y, x)
-if x != y.
-
-For a more concrete example, look at the code in tcp_ack:
-
-        /* If the ack is newer than sent or older than previous acks
-         * then we can probably ignore it.
-         */
-        if (after(ack, tp->snd_nxt))
-                goto uninteresting_ack;
-
-        if (before(ack, prior_snd_una))
-                goto old_ack;
-
-Here we have two checks that weed out cases that we do not wish to
-process.  When all data have been acknowledged, we have
-
-	snd_nxt == snd_una
-
-At this point, we only want the value of ack == snd_nxt == snd_una
-to pass this check.  With your change, the value snd_nxt + 2^31 can
-also pass this check, which may have security implications.
-
-Granted I have not looked at other checks in the TCP path that may
-prevent this code from being invoked in that case.  However, this
-does illustrate the need to audit every single before/after check
-if they were ambiguous.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> Please:
+> 
+> 1) Fix your Mail-Followup-To header, so that it doesn't cause CC's to be 
+> trimmed.
+> 
+> 2) Re-order the patches so that bug fixes come first.  Otherwise this 
+> entire patchset must go into netdev-2.6.git#upstream, because patch #1 
+> is not a bug fix and we are in a bug-fixes-only cycle.
+> 
+> 3) Regarding patch #3:  have you verified that a missing PCI flush was 
+> not the cause of your problems?  It seems like udelay(1) could be removed?
+> 
+> ACK the other stuff
+> 
+> 	Jeff
+> 
+> 
