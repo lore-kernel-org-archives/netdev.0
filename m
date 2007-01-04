@@ -1,52 +1,40 @@
-From: Steve Wise <swise@opengridcomputing.com>
-Subject: Re: [openib-general] [PATCH  v4 01/13] Linux RDMA Core Changes
-Date: Thu, 04 Jan 2007 15:49:31 -0600
-Message-ID: <1167947371.3071.59.camel@stevo-desktop>
-References: <1167851839.4187.36.camel@stevo-desktop>
-	 <20070103193324.GD29003@mellanox.co.il>
-	 <1167855618.4187.65.camel@stevo-desktop>
-	 <1167859320.4187.81.camel@stevo-desktop>  <adawt424gt8.fsf@cisco.com>
+From: =?ISO-8859-1?Q?D=E2niel?= Fraga <fragabr@gmail.com>
+Subject: Re: Davicom Ethernet (onboard) with many Tx timeouts...
+Date: Thu, 4 Jan 2007 20:55:22 -0200
+Message-ID: <q7d074-4s6.ln1@tux.abusar.org>
+References: <4jut64-6m7.ln1@tux.abusar.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@mellanox.co.il>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, openib-general@openib.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rrcs-24-153-217-226.sw.biz.rr.com ([24.153.217.226]:55473 "EHLO
-	smtp.opengridcomputing.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1030191AbXADVtb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jan 2007 16:49:31 -0500
-To: Roland Dreier <rdreier@cisco.com>
-In-Reply-To: <adawt424gt8.fsf@cisco.com>
+Received: from main.gmane.org ([80.91.229.2]:59377 "EHLO ciao.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S964820AbXADW5P convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jan 2007 17:57:15 -0500
+Received: from list by ciao.gmane.org with local (Exim 4.43)
+	id 1H2bWE-0006cZ-JV
+	for netdev@vger.kernel.org; Thu, 04 Jan 2007 23:57:06 +0100
+Received: from 200-207-206-233.dsl.telesp.net.br ([200.207.206.233])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Thu, 04 Jan 2007 23:57:06 +0100
+Received: from fragabr by 200-207-206-233.dsl.telesp.net.br with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Thu, 04 Jan 2007 23:57:06 +0100
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2007-01-04 at 13:34 -0800, Roland Dreier wrote:
-> OK, I'm back from vacation today.
-> 
-> Anyway I don't have a definitive statement on this right now.  I guess
-> I agree that I don't like having an extra parameter to a function that
-> should be pretty fast (although req notify isn't quite as hot as
-> something like posting a send request or polling a cq), given that it
-> adds measurable overhead.  (And I am surprised that the overhead is
-> measurable, since 3 arguments still fit in registers, but OK).
-> 
-> I also agree that adding an extra entry point just to pass in the user
-> data is ugly, and also racy.
-> 
-> Giving the kernel driver a pointer it can read seems OK I guess,
-> although it's a little ugly to have a backdoor channel like that.
-> 
-> I'm somewhat surprised the driver has to go into the kernel to rearm a
-> CQ -- what makes the operation need kernel privileges?  (Sorry for not
-> reading the code)
-> -
+On Wed, 3 Jan 2007 22:33:08 -0200
+D=E2niel Fraga <fragabr@gmail.com> wrote:
 
-Rearming the CQ requires reading and writing to a global adapter
-register that is shared and thus needs to be protected.  They didn't
-architect the rearm to be a direct user operation.
+> Jan  3 22:10:13 belforts vmunix: eth0: Tx timeout - resetting
 
-Steve.
+	Solved by forcing 10Mbps full duplex, using "options dmfe
+mode=3D4" in /etc/modprobe.conf.
 
-
+--=20
+http://u-br.net
+Linux 2.6.19: Avast! A bilge rat!
+Sao Paulo - SP
 
