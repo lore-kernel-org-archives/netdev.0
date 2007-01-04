@@ -1,34 +1,39 @@
-From: "Eric Lemoine" <eric.lemoine@gmail.com>
-Subject: Re: [PATCH] sungem: PHY updates & pause fixes
-Date: Thu, 4 Jan 2007 21:06:48 +0100
-Message-ID: <5cac192f0701041206x421824e9oedcd6a8e5c814f8b@mail.gmail.com>
-References: <1167801614.6165.117.camel@localhost.localdomain>
-	 <20070102.212605.15263907.davem@davemloft.net>
-	 <1167802802.6165.129.camel@localhost.localdomain>
-	 <20070103.185521.64808473.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] fib6: Fix fn->leaf == NULL race when inserting new
+ nodes in fib6 tree
+Date: Thu, 04 Jan 2007 12:24:49 -0800 (PST)
+Message-ID: <20070104.122449.119276319.davem@davemloft.net>
+References: <20070104093921.GC8693@postel.suug.ch>
+	<20070104192147.GD8693@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: benh@kernel.crashing.org, netdev@vger.kernel.org
+Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.249]:47114 "EHLO
-	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965063AbXADUGt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jan 2007 15:06:49 -0500
-Received: by an-out-0708.google.com with SMTP id b33so269373ana
-        for <netdev@vger.kernel.org>; Thu, 04 Jan 2007 12:06:49 -0800 (PST)
-To: "David Miller" <davem@davemloft.net>
-In-Reply-To: <20070103.185521.64808473.davem@davemloft.net>
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58987
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S965081AbXADUYu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jan 2007 15:24:50 -0500
+To: tgraf@suug.ch
+In-Reply-To: <20070104192147.GD8693@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 1/4/07, David Miller <davem@davemloft.net> wrote:
-> I've applied that patch, thanks.
+From: Thomas Graf <tgraf@suug.ch>
+Date: Thu, 4 Jan 2007 20:21:47 +0100
 
-David, I suppose you've applied the locking patch as well...
+> * Thomas Graf <tgraf@suug.ch> 2007-01-04 10:39
+> > When inserting new nodes into a fib6 tree, the leaf pointer
+> > is first to NULL and later corrected when the key gets
+> > assigned. However, the tree is not locked for this period
+> > of time, therefore nodes with an invalid leaf pointer
+> > are accessible. Lookups that occur during this period of time
+> > expect a valid leaf pointer and thus crash.
+> > 
+> > This patch sets the leaf pointer to ip6_null_entry during
+> > this critical period of time.
+> 
+> Ignore this patch for now, the description is certainly inaccurate
+> even though it seems to fix the issue.
 
-
-
--- 
-Eric
+Ok, no problem.
