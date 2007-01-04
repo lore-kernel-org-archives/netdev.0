@@ -1,81 +1,70 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: Re: [PATCH] tipc: checking returns and Re: Possible Circular Locking
- in TIPC
-Date: Thu, 04 Jan 2007 16:16:20 +0000
-Message-ID: <459D2854.1000405@ericsson.com>
-References: <20061228121702.GA5076@ff.dom.local> <459C396B.1090508@ericsson.com> <20070104122843.GC3175@ff.dom.local>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: BUG: soft lockup detected on CPU#0!  (2.6.18.2 plus hacks)
+Date: Thu, 04 Jan 2007 09:04:29 -0800
+Message-ID: <459D339D.7010603@candelatech.com>
+References: <OF02F7C182.A05F7E5A-ON88257259.001B0EFA-88257259.001E96CF@us.ibm.com> <E1H2M3X-0001HE-00@gondolin.me.apana.org.au> <20070104080351.GA1740@ff.dom.local> <20070104082930.GB7006@gondor.apana.org.au> <20070104085014.GA2500@ff.dom.local> <20070104102707.GA7662@gondor.apana.org.au> <20070104110435.GA3175@ff.dom.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Eric Sesterhenn <snakebyte@gmx.de>,
-	Per Liden <per.liden@ericsson.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	"'tipc-discussion@lists.sourceforge.net'"
-	<tipc-discussion@lists.sourceforge.net>
+Cc: Herbert Xu <herbert.xu@redhat.com>,
+	David Stevens <dlstevens@us.ibm.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw4.ericsson.se ([193.180.251.62]:58404 "EHLO
-	mailgw4.ericsson.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965011AbXADQQz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jan 2007 11:16:55 -0500
+Received: from ns2.lanforge.com ([66.165.47.211]:56576 "EHLO ns2.lanforge.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932241AbXADRDV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Jan 2007 12:03:21 -0500
 To: Jarek Poplawski <jarkao2@o2.pl>
-In-Reply-To: <20070104122843.GC3175@ff.dom.local>
+In-Reply-To: <20070104110435.GA3175@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Regards
-///jon
-
 Jarek Poplawski wrote:
-
->
->I know lockdep is sometimes
->too careful but nevertheless some change is needed
->to fix a real bug or give additional information
->to lockdep. 
->  
->
-I don't know lockdep well enough yet, but I will try to find out if that
-is possible.
-
->  
->
->>>Btw. there is a problem with tipc_ref_discard():
->>>it should be called with tipc_port_lock, but
->>>how to discard a ref if this lock can't be
->>>acquired? Is it OK to call it without the lock
->>>like in subscr_named_msg_event()?
+> On Thu, Jan 04, 2007 at 09:27:07PM +1100, Herbert Xu wrote:
+>   
+>> On Thu, Jan 04, 2007 at 09:50:14AM +0100, Jarek Poplawski wrote:
+>>     
+>>> Could you explain? I can see some inet_rtm_newaddr
+>>> interrupted. For me it could be e.g.:
 >>>
+>>> after
+>>> vconfig add eth0 9
 >>>
->>>      
->>>
->>I suspect you are mixing up things here. 
->>We are handling two different reference entries and two
->>different locks in this function.
->>One reference entry points to a subscription instance, and its
->>reference (index) is obtainable from subscriber->ref. So, we
->>could easily lock the entry if needed. However, in this
->>particular case it is unnecessary, since there is no chance that
->>anybody else could have obtained the new reference, and
->>hence no risk for race conditions.
->>The other reference entry was intended to point to a new port,
->>but, since we didn't obtain any reference in the first place,
->>there is no port to delete and no reference to discard.
->>    
->>
+>>> ip addr add dev eth0.9 ...
+>>>       
+>> Whether eth0.9 is up or not does not affect this at all.  The spin
+>> locks are initialised (and used) when the first IPv4 address is added,
+>> not when the device comes up.
+>>     
 >
->I admit I don't know this program and I hope I
->didn't mislead anybody with my message. I only
->tried to point at some doubts and maybe this
->function could be better commented about when
->the lock is needed.
->  
->
-Agreed.
+> I understand this. I consider IFF_UP as a sign all 
+> initialisations (open functions including) are
+> completed and there is permission for working (so
+> logically, if I would do eth0.9 down all traffic
+> should be stopped, what probably isn't true now).
+>   
+It is certainly valid for an interface to be IF_UP, but have no IP 
+address.  My application
+does bring the network device up before it assigns the IP, for instance.
 
->Thanks for explanations & best regards,
->
->Jarek P.
->
->  
->
+There may be other issues with IF_UP, but that could be handled with a 
+different
+investigation.  If you have a particular test case that fails with 
+802.1Q VLANs, then
+I will be happy to work on it...
+
+Thanks,
+Ben
+
+> Jarek P. 
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>   
+
+
+-- 
+Ben Greear <greearb@candelatech.com> 
+Candela Technologies Inc  http://www.candelatech.com
+
 
