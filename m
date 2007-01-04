@@ -1,53 +1,46 @@
-From: Steve Wise <swise@opengridcomputing.com>
-Subject: Re: [PATCH  v4 01/13] Linux RDMA Core Changes
-Date: Thu, 04 Jan 2007 08:07:10 -0600
-Message-ID: <1167919630.3071.8.camel@stevo-desktop>
-References: <1167851839.4187.36.camel@stevo-desktop>
-	 <20070103193324.GD29003@mellanox.co.il>
-	 <1167855618.4187.65.camel@stevo-desktop>
-	 <1167859320.4187.81.camel@stevo-desktop>
-	 <20070104050722.GA9900@mellanox.co.il>
+From: Pierre TARDY <pierre.tardy@freescale.com>
+Subject: Re: [PATCH] SMSC LAN911x and LAN921x vendor driver
+Date: Thu, 04 Jan 2007 15:42:55 +0100
+Message-ID: <459D126F.5080300@freescale.com>
+References: <11674964822991-git-send-email-steve.glendinning@smsc.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Roland Dreier <rdreier@cisco.com>,
-	linux-kernel@vger.kernel.org, openib-general@openib.org
+Cc: netdev@vger.kernel.org, Ian Saturley <ian.saturley@smsc.com>,
+	Bahadir Balban <bahadir.balban@arm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rrcs-24-153-217-226.sw.biz.rr.com ([24.153.217.226]:38076 "EHLO
-	smtp.opengridcomputing.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S964863AbXADOHM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jan 2007 09:07:12 -0500
-To: "Michael S. Tsirkin" <mst@mellanox.co.il>
-In-Reply-To: <20070104050722.GA9900@mellanox.co.il>
+Received: from de01egw02.freescale.net ([192.88.165.103]:33404 "EHLO
+	de01egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964881AbXADOnI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jan 2007 09:43:08 -0500
+To: Steve Glendinning <steve.glendinning@smsc.com>
+In-Reply-To: <11674964822991-git-send-email-steve.glendinning@smsc.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2007-01-04 at 07:07 +0200, Michael S. Tsirkin wrote:
-> > If you think I should not add the udata parameter to the req_notify_cq()
-> > provider verb, then I can rework the chelsio driver:
-> > 
-> > 1) at cq creation time, pass the virtual address of the u32 used by the
-> > library to track the current cq index.  That way the chelsio kernel
-> > driver can save the address in its kernel cq context for later use.
-> > 
-> > 2) change chelsio's req_notify_cq() to copy in the current cq index
-> > value directly for rearming.
-> > 
-> > This puts all the burden on the chelsio driver, which is apparently the
-> > only one that needs this functionality.  
-> 
-> Good thinking, I haven't thought of this approach.
-> 
-> This way there won't be any API/core changes and no changes to
-> other low level drivers, correct? And for chelsio, there's no overhead
-> as compared to code you posted.
-> 
-> Sounds good.
-> 
+Steve Glendinning wrote:
+> Attached is a driver for SMSC's LAN911x and LAN921x families of embedded
+> ethernet controllers.  There is an existing smc911x driver in the tree;
+> this is intended to replace it.
+>
+> This driver contains workarounds for all known hardware issues, and has
+> been tested on all flavours of the chip on multiple architectures.
+>
+> Dustin McIntire (the author of the smc911x driver) has expressed his
+> support for switching to this driver.
+>
+> Signed-off-by: Steve Glendinning <steve.glendinning@smsc.com>
+>   
+This patch has just been tested on my Freescale mx31 board, with a 
+smsc9117, and Linux version 2.6.16.19.
+I agree to include it in mainstream.
+old smc911x is restricted to one architecture (PXA) and one chip (9118).
 
-I still want to hear from Roland on this before I go to the effort of
-reworking all this...
+Acked-by: Pierre Tardy <tardyp@gmail.com>
 
 
-Steve.
+
+
+-- 
+Pierre Tardy
 
