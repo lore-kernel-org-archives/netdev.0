@@ -1,70 +1,59 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: BUG: soft lockup detected on CPU#0!  (2.6.18.2 plus hacks)
-Date: Thu, 04 Jan 2007 09:04:29 -0800
-Message-ID: <459D339D.7010603@candelatech.com>
-References: <OF02F7C182.A05F7E5A-ON88257259.001B0EFA-88257259.001E96CF@us.ibm.com> <E1H2M3X-0001HE-00@gondolin.me.apana.org.au> <20070104080351.GA1740@ff.dom.local> <20070104082930.GB7006@gondor.apana.org.au> <20070104085014.GA2500@ff.dom.local> <20070104102707.GA7662@gondor.apana.org.au> <20070104110435.GA3175@ff.dom.local>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: [Bugme-new] [Bug 7770] New: Network connection randomly drops
+Date: Thu, 4 Jan 2007 09:25:02 -0800
+Message-ID: <20070104092502.279e1a5c.akpm@osdl.org>
+References: <200701041649.l04GnnjW021531@fire-2.osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert.xu@redhat.com>,
-	David Stevens <dlstevens@us.ibm.com>, netdev@vger.kernel.org
+Cc: "bugme-daemon@kernel-bugs.osdl.org"
+	<bugme-daemon@bugzilla.kernel.org>, prusnik@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:56576 "EHLO ns2.lanforge.com"
+Received: from smtp.osdl.org ([65.172.181.24]:39201 "EHLO smtp.osdl.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932241AbXADRDV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Jan 2007 12:03:21 -0500
-To: Jarek Poplawski <jarkao2@o2.pl>
-In-Reply-To: <20070104110435.GA3175@ff.dom.local>
+	id S1750943AbXADRmo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Jan 2007 12:42:44 -0500
+To: netdev@vger.kernel.org
+In-Reply-To: <200701041649.l04GnnjW021531@fire-2.osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jarek Poplawski wrote:
-> On Thu, Jan 04, 2007 at 09:27:07PM +1100, Herbert Xu wrote:
->   
->> On Thu, Jan 04, 2007 at 09:50:14AM +0100, Jarek Poplawski wrote:
->>     
->>> Could you explain? I can see some inet_rtm_newaddr
->>> interrupted. For me it could be e.g.:
->>>
->>> after
->>> vconfig add eth0 9
->>>
->>> ip addr add dev eth0.9 ...
->>>       
->> Whether eth0.9 is up or not does not affect this at all.  The spin
->> locks are initialised (and used) when the first IPv4 address is added,
->> not when the device comes up.
->>     
->
-> I understand this. I consider IFF_UP as a sign all 
-> initialisations (open functions including) are
-> completed and there is permission for working (so
-> logically, if I would do eth0.9 down all traffic
-> should be stopped, what probably isn't true now).
->   
-It is certainly valid for an interface to be IF_UP, but have no IP 
-address.  My application
-does bring the network device up before it assigns the IP, for instance.
+On Thu, 4 Jan 2007 08:49:49 -0800
+bugme-daemon@bugzilla.kernel.org wrote:
 
-There may be other issues with IF_UP, but that could be handled with a 
-different
-investigation.  If you have a particular test case that fails with 
-802.1Q VLANs, then
-I will be happy to work on it...
-
-Thanks,
-Ben
-
-> Jarek P. 
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->   
-
-
--- 
-Ben Greear <greearb@candelatech.com> 
-Candela Technologies Inc  http://www.candelatech.com
-
-
+> http://bugzilla.kernel.org/show_bug.cgi?id=7770
+> 
+>            Summary: Network connection randomly drops
+>     Kernel Version: 2.6.19 onward
+>             Status: NEW
+>           Severity: normal
+>              Owner: acme@conectiva.com.br
+>          Submitter: prusnik@gmail.com
+> 
+> 
+> Most recent kernel where this bug did *NOT* occur: 2.6.19-rc4
+> Distribution: ubuntu 6.10, 64 bit
+> Hardware Environment: ASUS M2N-E (MCP55), AMD X2 4200+
+> Software Environment: normal linux distro with a custom kernel
+> Problem Description:
+> It started when I compiled the stable 2.6.19 kernel (first after rc4). The
+> network connection to the router just dropped and I can find no reason why it is
+> so. I have to revive the connection via /etc/init.d/networking restart command
+> and the connection is there again. At first I was doing remote connection
+> (tsclient in ubuntu) on another ubuntu dapper machine. The connection would
+> randomly terminate. I assumed it was the program, but then I did a further test.
+> I used mc (midnight commander) to copy some large files (a couple ubuntu iso-s)
+>  to this machine (which acts as a file server) via NFS (and via router) and
+> back. The connection would drop! The event is more frequent if I transfer the
+> files from that computer than vice versa.
+> I then rerun linux with 2.6.19-rc4 kernel and transfers were stable without a
+> single connection drop. I then assumed it should be the newer forcedeth driver
+> to blame but apparently it isn't. I put the 0.57 driver into the 2.6.20-rc3 and
+> the problem persists. I even tried this patch from the bug #7684 but this didn't
+> help either.
+> 
+> Steps to reproduce:
+> Hopefully with this hardware I mentioned, plain ubuntu 6.10 64 bit installation
+> with a kernel higher than 2.6.19-rc4. Config and other status files are in the
+> attachment.
+> 
