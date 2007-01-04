@@ -1,25 +1,54 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [2.6 patch] proper prototype for x25_init_timers()
-Date: Wed, 03 Jan 2007 18:49:32 -0800 (PST)
-Message-ID: <20070103.184932.56812245.davem@davemloft.net>
-References: <20070103230928.GP20714@stusta.de>
+Subject: Re: [PATCH] sungem: PHY updates & pause fixes
+Date: Wed, 03 Jan 2007 18:55:21 -0800 (PST)
+Message-ID: <20070103.185521.64808473.davem@davemloft.net>
+References: <1167801614.6165.117.camel@localhost.localdomain>
+	<20070102.212605.15263907.davem@davemloft.net>
+	<1167802802.6165.129.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eis@baty.hanse.de,
-	linux-kernel@vger.kernel.org, linux-x25@vger.kernel.org
-Return-path: <linux-x25-owner@vger.kernel.org>
-To: bunk@stusta.de
-In-Reply-To: <20070103230928.GP20714@stusta.de>
-Sender: linux-x25-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35551
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S932243AbXADCzV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jan 2007 21:55:21 -0500
+To: benh@kernel.crashing.org
+In-Reply-To: <1167802802.6165.129.camel@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Adrian Bunk <bunk@stusta.de>
-Date: Thu, 4 Jan 2007 00:09:28 +0100
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Date: Wed, 03 Jan 2007 16:40:02 +1100
 
-> This patch adds a proper prototype for x25_init_timers() in 
-> include/net/x25.h
+> On the quad G5 which has tg3, I get "Flow control is on for TX and on
+> for RX". Let me double check if I'm on the same switch...
 > 
-> Signed-off-by: Adrian Bunk <bunk@stusta.de>
+> Heh ! It's not :-)
+> 
+> If I switch the cables, then pause is enabled on the sungem box and
+> disabled (both Tx and Rx) on tg3, so at least the behaviour is
+> consistent and follow the switches. Let me check the switch models...
+> 
+> The one with only asym. support is a big Cisco Catalyst 3350 (well.. big
+> but not that many ports :-)
+> 
+> The one with "classic" pause support is a tiny Netgear GS116
+> 
+> It's possible that the cisco is just misconfigured though, I'll have to
+> ask Keith when he's around tomorrow to take a peek at the mgmnt
+> interface.
 
-Applied, thanks Adrian.
+Thanks for tracking this down :-)
+
+> > > > You should try to use flow control, even slower than 1000Mbit links.
+> > > 
+> > > Sorry, not sure I parse ;-) You mean allowing pause on 10 and 100 as
+> > > well ? I sure can, it's easy to fix.
+> > 
+> > That's correct.
+> 
+> On it's way.
+
+I've applied that patch, thanks.
