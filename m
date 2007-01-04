@@ -1,43 +1,52 @@
-From: "Roland Dreier" <rdreier@cisco.com>
-Subject: Re: one vs. two drivers for an iWARP-capable
- Ethernet NIC
-Date: Thu, 04 Jan 2007 13:45:59 -0800
-Message-ID: <adabqle4ga0.fsf@cisco.com>
-References: <78C9135A3D2ECE4B8162EBDCE82CAD77010FB436@nekter>
+From: Steve Wise <swise@opengridcomputing.com>
+Subject: Re: [openib-general] [PATCH  v4 01/13] Linux RDMA Core Changes
+Date: Thu, 04 Jan 2007 15:49:31 -0600
+Message-ID: <1167947371.3071.59.camel@stevo-desktop>
+References: <1167851839.4187.36.camel@stevo-desktop>
+	 <20070103193324.GD29003@mellanox.co.il>
+	 <1167855618.4187.65.camel@stevo-desktop>
+	 <1167859320.4187.81.camel@stevo-desktop>  <adawt424gt8.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	"Jeff Garzik" <jgarzik@pobox.com>,
-	openib-general@openib.org
-Return-path: <openib-general-bounces@openib.org>
-To: "Leonid Grossman" <Leonid.Grossman@neterion.com>
-In-Reply-To: <78C9135A3D2ECE4B8162EBDCE82CAD77010FB436@nekter> (Leonid
- Grossman's message of "Thu, 28 Dec 2006 16:31:13 -0500")
-List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
- <mailto:openib-general-request@openib.org?subject=unsubscribe>
-List-Archive: <http://openib.org/pipermail/openib-general>
-List-Post: <mailto:openib-general@openib.org>
-List-Help: <mailto:openib-general-request@openib.org?subject=help>
-List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
- <mailto:openib-general-request@openib.org?subject=subscribe>
-Sender: openib-general-bounces@openib.org
-Errors-To: openib-general-bounces@openib.org
+Cc: "Michael S. Tsirkin" <mst@mellanox.co.il>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, openib-general@openib.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rrcs-24-153-217-226.sw.biz.rr.com ([24.153.217.226]:55473 "EHLO
+	smtp.opengridcomputing.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1030191AbXADVtb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jan 2007 16:49:31 -0500
+To: Roland Dreier <rdreier@cisco.com>
+In-Reply-To: <adawt424gt8.fsf@cisco.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
- > Jeff/Roland/all,
- > What is the preferred submission driver model for an iWARP-capable
- > Ethernet NIC - two separate drivers (Ethernet and OpenFabrics) that
- > interact with each other, or a single driver that supports both
- > OpenFabrics and Ethernet interfaces?
+On Thu, 2007-01-04 at 13:34 -0800, Roland Dreier wrote:
+> OK, I'm back from vacation today.
+> 
+> Anyway I don't have a definitive statement on this right now.  I guess
+> I agree that I don't like having an extra parameter to a function that
+> should be pretty fast (although req notify isn't quite as hot as
+> something like posting a send request or polling a cq), given that it
+> adds measurable overhead.  (And I am surprised that the overhead is
+> measurable, since 3 arguments still fit in registers, but OK).
+> 
+> I also agree that adding an extra entry point just to pass in the user
+> data is ugly, and also racy.
+> 
+> Giving the kernel driver a pointer it can read seems OK I guess,
+> although it's a little ugly to have a backdoor channel like that.
+> 
+> I'm somewhat surprised the driver has to go into the kernel to rearm a
+> CQ -- what makes the operation need kernel privileges?  (Sorry for not
+> reading the code)
+> -
 
-Let's not use the term "OpenFabrics interface."  Let's just call the
-two interfaces RDMA and ethernet (or L2 NIC if you like).
+Rearming the CQ requires reading and writing to a global adapter
+register that is shared and thus needs to be protected.  They didn't
+architect the rearm to be a direct user operation.
 
-Anyway my preference would be for the cleanest possible driver.  If
-your driver is not naturally divided into two separate parts then it's
-fine to have a unified driver.  We already have examples of both:
-amso1100 is unified and the Chelsio T3 driver is split.
+Steve.
 
- - R.
+
+
