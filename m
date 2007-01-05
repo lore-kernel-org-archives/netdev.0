@@ -1,50 +1,44 @@
 From: "Paul Moore" <paul.moore@hp.com>
-Subject: [PATCH 2/2] NetLabel: correct CIPSO tag handling when adding new DOI definitions
-Date: Fri, 05 Jan 2007 15:08:22 -0500
-Message-ID: <20070105201639.625399003@hp.com>
+Subject: [PATCH 1/2] NetLabel: correct locking in selinux_netlbl_socket_setsid()
+Date: Fri, 05 Jan 2007 15:08:21 -0500
+Message-ID: <20070105201637.494749925@hp.com>
 References: <20070105200820.975960210@hp.com>
 Cc: Paul Moore <paul.moore@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel6.hp.com ([156.153.255.205]:60818 "EHLO atlrel6.hp.com"
+Received: from atlrel8.hp.com ([156.153.255.206]:53217 "EHLO atlrel8.hp.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750729AbXAEURF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Jan 2007 15:17:05 -0500
+	id S1750718AbXAEUQz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Jan 2007 15:16:55 -0500
 To: netdev@vger.kernel.org, selinux@tycho.nsa.gov
-Content-Disposition: inline; filename=netlabel-cipso_add_fix
+Content-Disposition: inline; filename=netlabel-softirq_lock_safety
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The current netlbl_cipsov4_add_common() function has two problems which are
-fixed with this patch.  The first is an off-by-one bug where it is possibile to
-overflow the doi_def->tags[] array.  The second is a bug where the same 
-doi_def->tags[] array was not always fully initialized, which caused sporadic
-failures.
+The spinlock protecting the update of the "sksec->nlbl_state" variable is not
+currently softirq safe which can lead to problems.  This patch fixes this by
+changing the spin_{un}lock() functions into spin_{un}lock_bh() functions.
 
 Signed-off-by: Paul Moore <paul.moore@hp.com>
 ---
- net/netlabel/netlabel_cipso_v4.c |    6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ security/selinux/ss/services.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Index: net-2.6.20_bugfix_3/net/netlabel/netlabel_cipso_v4.c
+Index: net-2.6.20_bugfix_3/security/selinux/ss/services.c
 ===================================================================
---- net-2.6.20_bugfix_3.orig/net/netlabel/netlabel_cipso_v4.c
-+++ net-2.6.20_bugfix_3/net/netlabel/netlabel_cipso_v4.c
-@@ -130,12 +130,12 @@ static int netlbl_cipsov4_add_common(str
+--- net-2.6.20_bugfix_3.orig/security/selinux/ss/services.c
++++ net-2.6.20_bugfix_3/security/selinux/ss/services.c
+@@ -2492,9 +2492,9 @@ static int selinux_netlbl_socket_setsid(
  
- 	nla_for_each_nested(nla, info->attrs[NLBL_CIPSOV4_A_TAGLST], nla_rem)
- 		if (nla->nla_type == NLBL_CIPSOV4_A_TAG) {
--			if (iter > CIPSO_V4_TAG_MAXCNT)
-+			if (iter >= CIPSO_V4_TAG_MAXCNT)
- 				return -EINVAL;
- 			doi_def->tags[iter++] = nla_get_u8(nla);
- 		}
--	if (iter < CIPSO_V4_TAG_MAXCNT)
--		doi_def->tags[iter] = CIPSO_V4_TAG_INVALID;
-+	while (iter < CIPSO_V4_TAG_MAXCNT)
-+		doi_def->tags[iter++] = CIPSO_V4_TAG_INVALID;
+ 	rc = netlbl_socket_setattr(sock, &secattr);
+ 	if (rc == 0) {
+-		spin_lock(&sksec->nlbl_lock);
++		spin_lock_bh(&sksec->nlbl_lock);
+ 		sksec->nlbl_state = NLBL_LABELED;
+-		spin_unlock(&sksec->nlbl_lock);
++		spin_unlock_bh(&sksec->nlbl_lock);
+ 	}
  
- 	return 0;
- }
+ netlbl_socket_setsid_return:
 
 --
 paul moore
