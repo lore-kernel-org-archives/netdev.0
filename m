@@ -1,119 +1,57 @@
-From: javiroman@kernel-labs.org
-Subject: egress path understanding
-Date: Thu, 4 Jan 2007 05:42:31 -0500 (EST)
-Message-ID: <22194.80.59.183.97.1167907351.squirrel@www.kernel-labs.org>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: BUG: soft lockup detected on CPU#0! (2.6.18.2 plus hacks)
+Date: Fri, 5 Jan 2007 07:38:44 +0100
+Message-ID: <20070105063844.GA1675@ff.dom.local>
+References: <OF02F7C182.A05F7E5A-ON88257259.001B0EFA-88257259.001E96CF@us.ibm.com> <E1H2M3X-0001HE-00@gondolin.me.apana.org.au> <20070104.123333.91315611.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
+Content-Type: text/plain; charset=us-ascii
+Cc: herbert@gondor.apana.org.au, dlstevens@us.ibm.com,
+	greearb@candelatech.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from madrid.hostgo.com ([64.71.164.66]:54335 "EHLO madrid.hostgo.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030347AbXAEF5z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Jan 2007 00:57:55 -0500
-Received: from kernella by madrid.hostgo.com with local (Exim 4.63)
-	(envelope-from <javiroman@kernel-labs.org>)
-	id 1H2Q3L-0001KD-CA
-	for netdev@vger.kernel.org; Thu, 04 Jan 2007 05:42:31 -0500
-To: netdev@vger.kernel.org
+Received: from poczta.o2.pl ([193.17.41.142]:36623 "EHLO poczta.o2.pl"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1030352AbXAEGhD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Jan 2007 01:37:03 -0500
+To: David Miller <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20070104.123333.91315611.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi all,
+On Thu, Jan 04, 2007 at 12:33:33PM -0800, David Miller wrote:
+> From: Herbert Xu <herbert@gondor.apana.org.au>
+> Date: Thu, 04 Jan 2007 17:26:27 +1100
+> 
+> > David Stevens <dlstevens@us.ibm.com> wrote:
+> > >        You're right, I don't know whether it'll fix the problem Ben saw
+> > > or not, but it looks like the original code can do a receive before the
+> > > in_device is fully initialized, and that, of course, is bad.
+> > >        If the device for ip_rcv() is not the same one we were
+> > > initializing when the receive interrupted, then the patch should have
+> > > no effect either way -- I don't think it'll hide other problems.
+> > >        If it's hard to reproduce (which I guess is true), then you're
+> > > right, no soft lockup doesn't really tell us if it's fixed or not.
+> > 
+> > Actually I missed your point that the multicast locks aren't even
+> > initialised at that point.  So this does explain the soft lock-up
+> > and therefore your patch is clearly the correct solution.
+> 
+> I agree too, therefore I've added David's patch as below.
+> 
+> I'll push this to the -stable branches as well.  This fix is
+> correct even if it does not entirely clear up the soft lockup
+> bug being discussed in this thread, but I think it will :-)
 
-(sorry for newbie question)
+After rethinking I came to similar conclusion.  I've
+thought the changes are done only to fix this particular
+bug but now I see the previous order wasn't right
+particularly considering RCU.
 
-I'm trying to learn the networking code of an ancient 2.4.18 vanilla kernel.
+So, I apologize to David L Stevens for my harsh words.
 
-I understand that the egress path of network packet (socket buffer) as
-general behaviour, goes through the method hard_start_xmit() within of
-the driver layer. This method is the responsible of putting the
-network packet into the output buffers of the network device. When the
-physical transmmission is completed the device raises an interrupt and
-the interrupt handler of the device is called.
+I'd only suggest to change "goto out;" to
+"return NULL;" at the end of inetdev_init because
+now RCU is engaged unnecessarily.
 
-The typical interrupt handler is a function running in interrupt
-context, so needs to be as quick as possible, and because this
-function has to free the skb buffer (to deallocate the sk_buff
-structure associated with sucessfully transmitted buffer), the task is
-delegated to softirq (NET_TX_SOFTIRQ) by means of function
-dev_kfree_skb_irq():
-
-static inline void dev_kfree_skb_irq(struct sk_buff *skb)
-{
-        if (atomic_dec_and_test(&skb->users)) {
-                int cpu =smp_processor_id();
-                unsigned long flags;
-
-#ifdef CONFIG_PROC_FS
-                softirq_stats.raise_from_kfree_skb_cont++;
-#endif
-                local_irq_save(flags);
-                skb->next = softnet_data[cpu].completion_queue;
-                softnet_data[cpu].completion_queue = skb;
-                cpu_raise_softirq(cpu, NET_TX_SOFTIRQ);
-                local_irq_restore(flags);
-        }
-}
-
-When do_softirq() is called the funcion associated with
-NET_TX_SOFTIRQ, net_tx_action() is called:
-
-static void net_tx_action(struct softirq_action *h)
-{
-        int cpu = smp_processor_id();
-
-        if (softnet_data[cpu].completion_queue) {
-                struct sk_buff *clist;
-
-                local_irq_disable();
-                clist = softnet_data[cpu].completion_queue;
-                softnet_data[cpu].completion_queue = NULL;
-                local_irq_enable();
-
-                while (clist != NULL) {
-                        struct sk_buff *skb = clist;
-                        clist = clist->next;
-#ifdef CONFIG_PROC_FS
-                        softirq_stats.tx_completion_cont++;
-#endif
-                        BUG_TRAP(atomic_read(&skb->users) == 0);
-                        __kfree_skb(skb);
-                }
-        }
-
-..... [snip]
-
-}
-
-How you can see, I have put some counters in order to trace the
-execution of networking code by means of the file:
-/proc/net/softirq_stat. The oputput of this file is the following when
-I test the kernel:
-
-# cat /proc/net/softirq_stat
-raise_from_netif_cont: 0
-raise_from_kfree_skb_cont: 0
-(qdisc_restart) hard_start_xmit_cont: 5869
-(qdisc_restart) xmit_lock_grabbed_cont: 0
-tx_completion_cont: 5869
-tx_output_cont: 142
-
-OK, the important fields of this output are tx_completion_cont and
-raise_from_kfree_skb_cont. We can see that every packet passed to
-hard_start_xmit_cont (in qdisc_restart) is freed with net_tx_action,
-so the counter hard_start_xmit_cont and tx_completion_cont show the
-same values. But I cannot understand why the counter
-raise_from_kfree_skb_cont is zero!!!
-
-I guess the code path must pass through of dev_kfree_skb_irq() in
-order to raise the softirq with cpu_raise_softirq(cpu,
-NET_TX_SOFTIRQ), so it's possible to execute net_tx_action() later.
-
-I don't know if I don't understand the therory or I have an error in
-the code. Please can anybody advice me about this behaviour?
-
-Thanks a lot, and sorry for my english.
-
---
-Javi Roman
-
+Regards,
+Jarek P.
