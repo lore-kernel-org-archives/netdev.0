@@ -1,67 +1,70 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: BUG: soft lockup detected on CPU#0!  (2.6.18.2 plus hacks)
-Date: Fri, 5 Jan 2007 14:55:05 +0100
-Message-ID: <20070105135504.GB3764@ff.dom.local>
-References: <OF02F7C182.A05F7E5A-ON88257259.001B0EFA-88257259.001E96CF@us.ibm.com> <E1H2M3X-0001HE-00@gondolin.me.apana.org.au> <20070104080351.GA1740@ff.dom.local> <20070104082930.GB7006@gondor.apana.org.au> <20070104085014.GA2500@ff.dom.local> <20070104102707.GA7662@gondor.apana.org.au> <20070104110435.GA3175@ff.dom.local> <459D339D.7010603@candelatech.com>
+From: Steve Wise <swise@opengridcomputing.com>
+Subject: Re: [openib-general] [PATCH  v4 01/13] Linux RDMA Core Changes
+Date: Fri, 05 Jan 2007 08:22:25 -0600
+Message-ID: <1168006945.10259.17.camel@stevo-desktop>
+References: <1167851839.4187.36.camel@stevo-desktop>
+	 <20070103193324.GD29003@mellanox.co.il>
+	 <1167855618.4187.65.camel@stevo-desktop>
+	 <1167859320.4187.81.camel@stevo-desktop>  <adawt424gt8.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Herbert Xu <herbert.xu@redhat.com>,
-	David Stevens <dlstevens@us.ibm.com>, netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "Michael S. Tsirkin" <mst@mellanox.co.il>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, openib-general@openib.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx10.go2.pl ([193.17.41.74]:43326 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1161097AbXAENxY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Jan 2007 08:53:24 -0500
-To: Ben Greear <greearb@candelatech.com>
-Content-Disposition: inline
-In-Reply-To: <459D339D.7010603@candelatech.com>
+Received: from rrcs-24-153-217-226.sw.biz.rr.com ([24.153.217.226]:32822 "EHLO
+	smtp.opengridcomputing.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1161108AbXAEOWZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Jan 2007 09:22:25 -0500
+To: Roland Dreier <rdreier@cisco.com>
+In-Reply-To: <adawt424gt8.fsf@cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 04, 2007 at 09:04:29AM -0800, Ben Greear wrote:
-> Jarek Poplawski wrote:
-> >On Thu, Jan 04, 2007 at 09:27:07PM +1100, Herbert Xu wrote:
-> >  
-> >>On Thu, Jan 04, 2007 at 09:50:14AM +0100, Jarek Poplawski wrote:
-> >>    
-> >>>Could you explain? I can see some inet_rtm_newaddr
-> >>>interrupted. For me it could be e.g.:
-> >>>
-> >>>after
-> >>>vconfig add eth0 9
-> >>>
-> >>>ip addr add dev eth0.9 ...
-> >>>      
-> >>Whether eth0.9 is up or not does not affect this at all.  The spin
-> >>locks are initialised (and used) when the first IPv4 address is added,
-> >>not when the device comes up.
-> >>    
-> >
-> >I understand this. I consider IFF_UP as a sign all 
-> >initialisations (open functions including) are
-> >completed and there is permission for working (so
-> >logically, if I would do eth0.9 down all traffic
-> >should be stopped, what probably isn't true now).
-> >  
-> It is certainly valid for an interface to be IF_UP, but have no IP 
-> address.  My application
-> does bring the network device up before it assigns the IP, for instance.
+On Thu, 2007-01-04 at 13:34 -0800, Roland Dreier wrote:
+> OK, I'm back from vacation today.
+> 
+> Anyway I don't have a definitive statement on this right now.  I guess
+> I agree that I don't like having an extra parameter to a function that
+> should be pretty fast (although req notify isn't quite as hot as
+> something like posting a send request or polling a cq), given that it
+> adds measurable overhead.  (And I am surprised that the overhead is
+> measurable, since 3 arguments still fit in registers, but OK).
+> 
+> I also agree that adding an extra entry point just to pass in the user
+> data is ugly, and also racy.
+> 
+> Giving the kernel driver a pointer it can read seems OK I guess,
+> although it's a little ugly to have a backdoor channel like that.
+> 
 
-Yes, but I think in any case it isn't races safe
-now with vlans. I thought more about the reverse
-situation where skb->dev !IFF_UP could be
-unnecessarily processed. But the same should be
-valid according to the rest of initializations
-which are done during address assigning. 
+Another alternative is for the cq-index u32 memory to be allocated by
+the kernel and mapped into the user process.  So the lib can read/write
+it, and the kernel can read it directly.  This is the fastest way
+perfwise, but I didn't want to do it because of the page granularity of
+mapping.  IE it would require a page of address space (and backing
+memory I guess) just for 1 u32.  The CQ element array memory is already
+allocated this way (and its DMA coherent too), but I didn't want to
+overload that memory with this extra variable either.  Mapping just
+seemed ugly and wasteful to me. 
 
-> There may be other issues with IF_UP, but that could be handled with a 
-> different
-> investigation.  If you have a particular test case that fails with 
-> 802.1Q VLANs, then
-> I will be happy to work on it...
+So given 3 approaches:
 
-Sorry, I even didn't use this yet... 
+1) allow user data to be passed into ib_req_notify_cq() via the standard
+uverbs mechanisms.
 
-Wish you sunny weekend,
+2) hide this in the chelsio driver and have the driver copyin the info
+directly.
 
-Jarek P.
+3) allocate the memory for this in the kernel and map it to the user
+process.
+
+I chose 1 because it seemed the cleanest from an architecture point of
+view and I didn't think it would impact performance much.
+
+
+Steve.
+
+
+
+
