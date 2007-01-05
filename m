@@ -1,145 +1,62 @@
-From: "Thibaut VARENE" <T-Bone@parisc-linux.org>
-Subject: kernel BUG in eth_alloc_tx_desc_index at drivers/net/mv643xx_eth.c:1069!
-Date: Fri, 5 Jan 2007 20:03:44 +0100
-Message-ID: <7d01f9f00701051103q3ee6ed35q9fd0f778a18061b8@mail.gmail.com>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: [PATCH] devinet: inetdev_init out label moved after RCU assignment
+Date: Fri, 5 Jan 2007 11:52:54 -0800
+Message-ID: <OFD7E91556.4F418D4A-ON8825725A.006CFD29-8825725A.006D366F@us.ibm.com>
+References: <20070105111910.GA3650@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="----=_Part_30378_16263342.1168023824707"
+Content-Type: text/plain; charset="US-ASCII"
+Cc: David Miller <davem@davemloft.net>, greearb@candelatech.com,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wr-out-0506.google.com ([64.233.184.227]:23683 "EHLO
-	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1422674AbXAETDq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Jan 2007 14:03:46 -0500
-Received: by wr-out-0506.google.com with SMTP id 68so1131156wri
-        for <netdev@vger.kernel.org>; Fri, 05 Jan 2007 11:03:45 -0800 (PST)
-To: netdev@vger.kernel.org
+Received: from e31.co.us.ibm.com ([32.97.110.149]:49618 "EHLO
+	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750866AbXAETxF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Jan 2007 14:53:05 -0500
+Received: from westrelay02.boulder.ibm.com (westrelay02.boulder.ibm.com [9.17.195.11])
+	by e31.co.us.ibm.com (8.13.8/8.12.11) with ESMTP id l05JqxT5011729
+	for <netdev@vger.kernel.org>; Fri, 5 Jan 2007 14:52:59 -0500
+Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
+	by westrelay02.boulder.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id l05JqxAi555060
+	for <netdev@vger.kernel.org>; Fri, 5 Jan 2007 12:52:59 -0700
+Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av03.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l05Jqw4J020621
+	for <netdev@vger.kernel.org>; Fri, 5 Jan 2007 12:52:59 -0700
+In-Reply-To: <20070105111910.GA3650@ff.dom.local>
+To: Jarek Poplawski <jarkao2@o2.pl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-------=_Part_30378_16263342.1168023824707
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+Yeah, sure.
 
-Hi,
+                +-DLS
 
-I've been experiencing this bug on my Pegasos II (PPC G4 1GHz, 512M
-RAM) box for a while: I can reliably kill my machine in about half an
-hour while watching some video read from a remote nfs volume (hence
-the "mplayer" task in the following dump). It was relatively uneasy to
-get proper debug info as the crash happens while video was playing on
-the screen, but it's there anyway :)
+Acked-by: David L Stevens <dlstevens@us.ibm.com>
 
-This particular dump comes from kernel 2.6.19-ck2 but I reproduced the
-bug with vanilla 2.6.19 too, so the bug lives in mainline. I'm not
-really familiar with that particular code, but I'd gladly provide as
-much debug info as I can.
+> Signed-off-by: Jarek Poplawski <jarkao2@o2.pl>
+> 
+> ---
+> 
+> diff -Nurp linux-2.6.20-rc3-/net/ipv4/devinet.c 
+linux-2.6.20-rc3/net/ipv4/devinet.c
+> --- linux-2.6.20-rc3-/net/ipv4/devinet.c   2007-01-05 11:53:16.000000000 
++0100
+> +++ linux-2.6.20-rc3/net/ipv4/devinet.c   2007-01-05 11:55:32.000000000 
++0100
+> @@ -174,9 +174,10 @@ struct in_device *inetdev_init(struct ne
+>     ip_mc_init_dev(in_dev);
+>     if (dev->flags & IFF_UP)
+>        ip_mc_up(in_dev);
+> -out:
+> +
+>     /* we can receive as soon as ip_ptr is set -- do this last */
+>     rcu_assign_pointer(dev->ip_ptr, in_dev);
+> +out:
+>     return in_dev;
+>  out_kfree:
+>     kfree(in_dev);
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-The box is hooked to a gigabit switch and the NIC is configured as
-gigabit too. Interestingly, when I reboot immediately after the crash,
-the NIC gets a bogus MAC address, and I have to reboot again to get
-back to normal.
-
-HTH
-
-T-Bone
-
--- 
-Thibaut VARENE
-http://www.parisc-linux.org/~varenet/
-
-------=_Part_30378_16263342.1168023824707
-Content-Type: text/plain; name=panicdump.txt; charset=ANSI_X3.4-1968
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_1vlkg92
-Content-Disposition: attachment; filename="panicdump.txt"
-
-a2VybmVsIEJVRyBpbiBldGhfYWxsb2NfdHhfZGVzY19pbmRleCBhdCBkcml2ZXJzL25ldC9tdjY0
-M3h4X2V0aC5jOjEwNjkhICAgICAgICAKT29wczogRXhjZXB0aW9uIGluIGtlcm5lbCBtb2RlLCBz
-aWc6IDUgWyMxXSAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKUFJFRU1QVCAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAKTW9kdWxlcyBsaW5rZWQgaW46IG5mcyBsb2NrZCBzdW5ycGMgZWVwcm9t
-IHNicDIgc2NzaV9tb2QgZXRoMTM5NCB1aGNpX2hjZCBvaGNpMTQKTklQOiBDMDIwRjBFMCBMUjog
-QzAyMTBDNTQgQ1RSOiBDMDIxMEI5OCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAKUkVHUzogYzdmNmY2NzAgVFJBUDogMDcwMCAgIE5vdCB0YWludGVkICAoMi42LjE5LWNr
-MikgICAgICAgICAgICAgICAgICAgICAgICAgICAKTVNSOiAwMDAyMTAzMiA8TUUsSVIsRFI+ICBD
-UjogMjQwMjI0ODggIFhFUjogMDAwMDAwMDAgICAgICAgICAgICAgICAgICAgICAgICAgICAKVEFT
-SyA9IGM0OWE4ZDEwWzIyMjddICdtcGxheWVyJyBUSFJFQUQ6IGM3ZjZlMDAwICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAKR1BSMDA6IDAwMDAwMDAwIEM3RjZGNzIwIEM0OUE4RDEwIERG
-RjQxMjYwIERGRjQxMDAwIDAwMDAwMDBCIENFMENGOTMyIDAwMDAwMDAwICAKR1BSMDg6IDAwMDAw
-Q0VBIDAwMDAwMDAxIDAwMDAxMDAwIDAwMDAwQ0VCIDQ0MDIyNDIyIDEwODVGOUI4IEM1MEIwMzY4
-IDAwMDBCMjQxICAKR1BSMTY6IEM3RjZGRDI4IDAwMDBCMjQwIDAwMDAwMDAwIERGRjQxMkRDIEMw
-MzgwMDAwIDAwMDA5MDMyIDAwMDAwNDAwIEM3RjZFMDAwICAKR1BSMjQ6IDAwMDAwMDAwIDAwMDAw
-MDAwIERGRjQxMDAwIEM3RjZFMDAwIEMwMjEwQjk4IENFMEVBQzgwIERGRjQxMjYwIENFMENGOTAw
-ICAKTklQIFtDMDIwRjBFMF0gZXRoX2FsbG9jX3R4X2Rlc2NfaW5kZXgrMHg0NC8weDUwICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAKTFIgW0MwMjEwQzU0XSBtdjY0M3h4X2V0aF9zdGFy
-dF94bWl0KzB4YmMvMHgzYjggICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKQ2FsbCBU
-cmFjZTogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAKW0M3RjZGNzIwXSBbQ0UwQ0Y5MzBdIDB4Y2UwY2Y5MzAgKHVucmVs
-aWFibGUpICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKW0M3RjZGNzYwXSBbQzAy
-OTk3MTRdIGRldl9oYXJkX3N0YXJ0X3htaXQrMHgxZDQvMHgyYzggICAgICAgICAgICAgICAgICAg
-ICAgICAgICAKW0M3RjZGNzgwXSBbQzAyOUMwRTBdIGRldl9xdWV1ZV94bWl0KzB4MmJjLzB4MzM0
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKW0M3RjZGN0EwXSBbQzAyQjZFMUNdIGlw
-X291dHB1dCsweDEyNC8weDI0OCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAK
-W0M3RjZGN0MwXSBbQzAyQjdFNTRdIGlwX3F1ZXVlX3htaXQrMHgxN2MvMHg0MDQgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAKW0M3RjZGODMwXSBbQzAyQzkxQkNdIHRjcF90cmFuc21p
-dF9za2IrMHgzOGMvMHg3ZGMgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKW0M3RjZGODYw
-XSBbQzAyQzY1RTRdIF9fdGNwX2Fja19zbmRfY2hlY2srMHg2NC8weGJjICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAKW0M3RjZGODcwXSBbQzAyQzgxMDBdIHRjcF9yY3ZfZXN0YWJsaXNoZWQr
-MHg1ZDQvMHg5ODAgICAgICAgICAgICAgICAgICAgICAgICAgICAKW0M3RjZGOEEwXSBbQzAyQ0VE
-Q0NdIHRjcF92NF9kb19yY3YrMHhkOC8weDNlNCAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAKW0M3RjZGOEQwXSBbQzAyRDE2MTBdIHRjcF92NF9yY3YrMHg3ODgvMHg5OGMgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKW0M3RjZGOTAwXSBbQzAyQjI1OTRdIGlwX2xv
-Y2FsX2RlbGl2ZXIrMHhlNC8weDFhNCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKW0M3
-RjZGOTIwXSBbQzAyQjJBNTBdIGlwX3JjdisweDI4OC8weDQ2YyAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAKW0M3RjZGOTUwXSBbQzAyOTkzMDhdIG5ldGlmX3JlY2VpdmVf
-c2tiKzB4MjE0LzB4MzA0ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKW0M3RjZGOTgwXSBb
-QzAyMTFDQkNdIG12NjQzeHhfcG9sbCsweDQxYy8weDQ4YyAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAKW0M3RjZGOUQwXSBbQzAyOUI1NTBdIG5ldF9yeF9hY3Rpb24rMHg5OC8weDIw
-MCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKW0M3RjZGQTAwXSBbQzAwMjY5NThd
-IF9fZG9fc29mdGlycSsweDgwLzB4ZjQgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAKW0M3RjZGQTMwXSBbQzAwMDY5MzBdIGRvX3NvZnRpcnErMHg1OC8weDVjICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAKW0M3RjZGQTQwXSBbQzAwMjY0MDhdIGlycV9leGl0
-KzB4NjAvMHg4MCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKW0M3RjZG
-QTUwXSBbQzAwMDY5RENdIGRvX0lSUSsweGE4LzB4YzggICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAKW0M3RjZGQTYwXSBbQzAwMTI0OThdIHJldF9mcm9tX2V4Y2VwdCsw
-eDAvMHgxNCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKLS0tIEV4Y2VwdGlvbjog
-NTAxIGF0IF9fa21hbGxvYysweDMwLzB4YzAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAKICAgIExSID0gcnBjX21hbGxvYysweDQ4LzB4YWMgW3N1bnJwY10gICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKW0M3RjZGQjIwXSBbQzNENzI1MDhdIDB4
-YzNkNzI1MDggKHVucmVsaWFibGUpICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAK
-W0M3RjZGQjMwXSBbRTJBODhFMThdIHJwY19tYWxsb2MrMHg0OC8weGFjIFtzdW5ycGNdICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAKW0M3RjZGQjQwXSBbRTJBODM1RjhdIGNhbGxfYWxsb2Nh
-dGUrMHg4OC8weDEwOCBbc3VucnBjXSAgICAgICAgICAgICAgICAgICAgICAgICAKW0M3RjZGQjYw
-XSBbRTJBODk1NTRdIF9fcnBjX2V4ZWN1dGUrMHg5NC8weDI0OCBbc3VucnBjXSAgICAgICAgICAg
-ICAgICAgICAgICAgICAKW0M3RjZGQjgwXSBbRTJCMEVFQjBdIG5mc19leGVjdXRlX3JlYWQrMHg0
-MC8weDY0IFtuZnNdICAgICAgICAgICAgICAgICAgICAgICAgICAKW0M3RjZGQkIwXSBbRTJCMEY2
-QTRdIG5mc19wYWdlaW5fb25lKzB4MmEwLzB4MzAwIFtuZnNdICAgICAgICAgICAgICAgICAgICAg
-ICAgICAKW0M3RjZGQkYwXSBbRTJCMEZBOUNdIG5mc19yZWFkcGFnZXMrMHgxMTgvMHgxZjggW25m
-c10gICAgICAgICAgICAgICAgICAgICAgICAgICAKW0M3RjZGQzQwXSBbQzAwNTIxRENdIF9fZG9f
-cGFnZV9jYWNoZV9yZWFkYWhlYWQrMHgxZTgvMHgzMTggICAgICAgICAgICAgICAgICAgICAKW0M3
-RjZGQ0QwXSBbQzAwNTIzOTBdIGJsb2NrYWJsZV9wYWdlX2NhY2hlX3JlYWRhaGVhZCsweDg0LzB4
-MTE0ICAgICAgICAgICAgICAgICAKW0M3RjZGQ0YwXSBbQzAwNTI0QTRdIG1ha2VfYWhlYWRfd2lu
-ZG93KzB4ODQvMHhkNCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKW0M3RjZGRDAwXSBb
-QzAwNTI1QUNdIHBhZ2VfY2FjaGVfcmVhZGFoZWFkKzB4YjgvMHgyMjAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAKW0M3RjZGRDIwXSBbQzAwNEIwMENdIGRvX2dlbmVyaWNfbWFwcGluZ19yZWFk
-KzB4NTc0LzB4NWU4ICAgICAgICAgICAgICAgICAgICAgICAKW0M3RjZGREMwXSBbQzAwNEQ2MjRd
-IGdlbmVyaWNfZmlsZV9haW9fcmVhZCsweDEyMC8weDI3NCAgICAgICAgICAgICAgICAgICAgICAg
-ICAKW0M3RjZGRTAwXSBbRTJCMDZGMDBdIG5mc19maWxlX3JlYWQrMHhjNC8weGU0IFtuZnNdICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAKW0M3RjZGRTMwXSBbQzAwNkVCNTBdIGRvX3N5bmNf
-cmVhZCsweGM0LzB4MTM4ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKW0M3RjZG
-RUYwXSBbQzAwNkY3MzRdIHZmc19yZWFkKzB4YzQvMHgxYTQgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAKW0M3RjZGRjEwXSBbQzAwNkZDMjRdIHN5c19yZWFkKzB4NGMvMHg5
-MCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKW0M3RjZGRjQwXSBbQzAw
-MTFERjBdIHJldF9mcm9tX3N5c2NhbGwrMHgwLzB4MzggICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAKLS0tIEV4Y2VwdGlvbjogYzAxIGF0IDB4ZjRmNTRkOCAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgIExSID0gMHgxMDFlODNhOCAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAK
-SW5zdHJ1Y3Rpb24gZHVtcDogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAKNTQwMGZmZmUgMGYwMDAwMDAgODEwMzAwMjAgODEyMzAw
-MjQgMzk2ODAwMDEgN2MwYjUzZDYgN2MwMDUxZDYgN2Q2MDU4NTAgICAgICAgICAKN2Q2OTRhNzgg
-OTE2MzAwMjAgN2QyOTAwMzQgNTUyOWQ5N2UgPDBmMDkwMDAwPiA3ZDAzNDM3OCA0ZTgwMDAyMCAy
-Zjg0MDAwMSAgICAgICAKIDwwPktlcm5lbCBwYW5pYyAtIG5vdCBzeW5jaW5nOiBGYXRhbCBleGNl
-cHRpb24gaW4gaW50ZXJydXB0ICAgICAgICAgICAgICAgICAgICAKIDwwPlJlYm9vdGluZyBpbiAx
-ODAgc2Vjb25kcy4uCg==
-------=_Part_30378_16263342.1168023824707--
