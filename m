@@ -1,62 +1,109 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: Re: [PATCH] tipc: checking returns and Re: Possible Circular Locking
- in TIPC
-Date: Fri, 05 Jan 2007 17:22:52 +0000
-Message-ID: <459E896C.4050309@ericsson.com>
-References: <20061228121702.GA5076@ff.dom.local> <459C396B.1090508@ericsson.com> <20070104122843.GC3175@ff.dom.local> <459D2854.1000405@ericsson.com> <20070105075857.GB1675@ff.dom.local>
+From: "Felix Marti" <felix@chelsio.com>
+Subject: Re: [PATCH  v4 01/13] Linux RDMA Core Changes
+Date: Fri, 5 Jan 2007 09:32:19 -0800
+Message-ID: <8A71B368A89016469F72CD08050AD334F3BE50@maui.asicdesigners.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+ charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Eric Sesterhenn <snakebyte@gmx.de>,
-	Per Liden <per.liden@ericsson.com>, netdev@vger.kernel.org,
+Cc: netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org,
-	"'tipc-discussion@lists.sourceforge.net'"
-	<tipc-discussion@lists.sourceforge.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1422641AbXAER0Q@vger.kernel.org>
-To: Jarek Poplawski <jarkao2@o2.pl>
-In-Reply-To: <20070105075857.GB1675@ff.dom.local>
-Sender: linux-kernel-owner@vger.kernel.org
+	openib-general@openib.org
+Return-path: <openib-general-bounces@openib.org>
+Content-class: urn:content-classes:message
+To: "Steve Wise" <swise@opengridcomputing.com>,
+	"Roland Dreier" <rdreier@cisco.com>
+List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
+ <mailto:openib-general-request@openib.org?subject=unsubscribe>
+List-Archive: <http://openib.org/pipermail/openib-general>
+List-Post: <mailto:openib-general@openib.org>
+List-Help: <mailto:openib-general-request@openib.org?subject=help>
+List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
+ <mailto:openib-general-request@openib.org?subject=subscribe>
+Sender: openib-general-bounces@openib.org
+Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-Jarek Poplawski wrote:
 
->
->If you are sure there is no circular locking possible
->between these two functions and this entry->lock here
->isn't endangered by other functions, you could try to
->make lockdep "silent" like this: 
->
->
->        write_lock_bh(&ref_table_lock);
->        if (tipc_ref_table.first_free) {
->                index = tipc_ref_table.first_free;
->                entry = &(tipc_ref_table.entries[index]);
->                index_mask = tipc_ref_table.index_mask;
->                /* take lock in case a previous user of entry still holds it */
->
->-                spin_lock_bh(&entry->lock, );
->+		local_bh_disable();
->+		spin_lock_nested(&entry->lock, SINGLE_DEPTH_NESTING);
->
->                next_plus_upper = entry->data.next_plus_upper;
->                tipc_ref_table.first_free = next_plus_upper & index_mask;
->                reference = (next_plus_upper & ~index_mask) + index;
->                entry->data.reference = reference;
->                entry->object = object;
->                if (lock != 0)
->                        *lock = &entry->lock;
->
->/* may stay as is or: */
->-                spin_unlock_bh(&entry->lock);
->+		spin_unlock(&entry->lock);
->+		local_bh_enable();
->
->        }
->        write_unlock_bh(&ref_table_lock);
->
->
->  
->
-Looks like an acceptable solution. I will try this.
-Thanks
-///Jon
+
+> -----Original Message-----
+> From: openib-general-bounces@openib.org [mailto:openib-general-
+> bounces@openib.org] On Behalf Of Steve Wise
+> Sent: Friday, January 05, 2007 6:22 AM
+> To: Roland Dreier
+> Cc: linux-kernel@vger.kernel.org; openib-general@openib.org;
+> netdev@vger.kernel.org
+> Subject: Re: [openib-general] [PATCH v4 01/13] Linux RDMA Core Changes
+> 
+> On Thu, 2007-01-04 at 13:34 -0800, Roland Dreier wrote:
+> > OK, I'm back from vacation today.
+> >
+> > Anyway I don't have a definitive statement on this right now.  I
+guess
+> > I agree that I don't like having an extra parameter to a function
+that
+> > should be pretty fast (although req notify isn't quite as hot as
+> > something like posting a send request or polling a cq), given that
+it
+> > adds measurable overhead.  (And I am surprised that the overhead is
+> > measurable, since 3 arguments still fit in registers, but OK).
+> >
+> > I also agree that adding an extra entry point just to pass in the
+user
+> > data is ugly, and also racy.
+> >
+> > Giving the kernel driver a pointer it can read seems OK I guess,
+> > although it's a little ugly to have a backdoor channel like that.
+> >
+> 
+> Another alternative is for the cq-index u32 memory to be allocated by
+> the kernel and mapped into the user process.  So the lib can
+read/write
+> it, and the kernel can read it directly.  This is the fastest way
+> perfwise, but I didn't want to do it because of the page granularity
+of
+> mapping.  IE it would require a page of address space (and backing
+> memory I guess) just for 1 u32.  The CQ element array memory is
+already
+> allocated this way (and its DMA coherent too), but I didn't want to
+> overload that memory with this extra variable either.  Mapping just
+> seemed ugly and wasteful to me.
+> 
+> So given 3 approaches:
+> 
+> 1) allow user data to be passed into ib_req_notify_cq() via the
+standard
+> uverbs mechanisms.
+> 
+> 2) hide this in the chelsio driver and have the driver copyin the info
+> directly.
+> 
+> 3) allocate the memory for this in the kernel and map it to the user
+> process.
+> 
+> I chose 1 because it seemed the cleanest from an architecture point of
+> view and I didn't think it would impact performance much.
+
+[Felix Marti] In addition, is arming the CQ really in the performance
+path? - Don't apps poll the CQ as long as there are pending CQEs and
+only arm the CQ for notification once there is nothing left to do? If
+this is the case, it would mean that we waste a few cycles 'idle'
+cycles. Steve, next to the micro benchmark that you did, did you run any
+performance benchmark that actually moves traffic? If so, did you see a
+difference in performance?
+
+> 
+> 
+> Steve.
+> 
+> 
+> 
+> 
+> 
+> _______________________________________________
+> openib-general mailing list
+> openib-general@openib.org
+> http://openib.org/mailman/listinfo/openib-general
+> 
+> To unsubscribe, please visit
+http://openib.org/mailman/listinfo/openib-general
