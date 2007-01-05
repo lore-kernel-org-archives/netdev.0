@@ -1,75 +1,57 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: [PATCH] tipc: checking returns and Re: Possible Circular Locking in TIPC
-Date: Fri, 5 Jan 2007 08:58:57 +0100
-Message-ID: <20070105075857.GB1675@ff.dom.local>
-References: <20061228121702.GA5076@ff.dom.local> <459C396B.1090508@ericsson.com> <20070104122843.GC3175@ff.dom.local> <459D2854.1000405@ericsson.com>
+From: Sid Boyce <g3vbv@blueyonder.co.uk>
+Subject: Re: 2.6.19 and up to 2.6.20-rc2 Ethernet problems x86_64
+Date: Fri, 05 Jan 2007 09:09:53 +0000
+Message-ID: <459E15E1.3010708@blueyonder.co.uk>
+References: <459A7D46.5000509@blueyonder.co.uk> <200701021159.24945.lenb@kernel.org> <459AE34D.8040709@blueyonder.co.uk> <200701030117.31737.lenb@kernel.org>
+Reply-To: g3vbv@blueyonder.co.uk
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Sesterhenn <snakebyte@gmx.de>,
-	Per Liden <per.liden@ericsson.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	"'tipc-discussion\@lists\.sourceforge\.net'"
-	<tipc-discussion@lists.sourceforge.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx10.go2.pl ([193.17.41.74]:51974 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1161019AbXAEH5P (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Jan 2007 02:57:15 -0500
-To: Jon Maloy <jon.maloy@ericsson.com>
-Content-Disposition: inline
-In-Reply-To: <459D2854.1000405@ericsson.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-acpi@vger.kernel.org
+Return-path: <linux-acpi-owner@vger.kernel.org>
+To: Len Brown <lenb@kernel.org>
+In-Reply-To: <200701030117.31737.lenb@kernel.org>
+Sender: linux-acpi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 04, 2007 at 04:16:20PM +0000, Jon Maloy wrote:
-> Regards
-> ///jon
-> 
-> Jarek Poplawski wrote:
-> 
-> >
-> >I know lockdep is sometimes
-> >too careful but nevertheless some change is needed
-> >to fix a real bug or give additional information
-> >to lockdep. 
-> > 
-> >
-> I don't know lockdep well enough yet, but I will try to find out if that
-> is possible.
+Len Brown wrote:
+>> ..same problem with 2.6.20-rc3. Last worked with 
+>> 2.6.19-rc6-git12, so it was 2.6.19 where it failed.
+>>     
+>
+>
+>   
+>> Attaching both case1 normal, case2 acpi=noirq. With acpi=noirq ethernet 
+>> doesn't get configured, route -n says it's an Unsupported operation, 
+>> ifconfig only shows for localhost, ifconfig eth0 192.168.10.5 also 
+>> complains of a config error.
+>>     
+>
+> It seems that the "acpi=noirq" (and probably also the acpi=off) case
+> is simply an additional broken case, not a success case to compare to.
+>
+> The thing we really want to compare is dmesg and /proc/interrupts
+> from 2.6.19-rc6-git12, and the broken current release.
+> Perhaps you can put that info in the bug report when you file it.
+>
+> thanks,
+> -Len
+>
+>
+>
+>   
+2.6.19-rc6-git12 fails in exactly the same way, from /var/log/messages 
+it seems 2.6.19-rc6 19/11/06 first saw the problem, details later when I 
+boot 2.6.19-rc5.
+If I boot an affected kernel with the SuSEfirewall2 enabled and then 
+stop the firewall, the problems goes away.
+Regards
+Sid.
 
-If you are sure there is no circular locking possible
-between these two functions and this entry->lock here
-isn't endangered by other functions, you could try to
-make lockdep "silent" like this: 
-
-
-        write_lock_bh(&ref_table_lock);
-        if (tipc_ref_table.first_free) {
-                index = tipc_ref_table.first_free;
-                entry = &(tipc_ref_table.entries[index]);
-                index_mask = tipc_ref_table.index_mask;
-                /* take lock in case a previous user of entry still holds it */
-
--                spin_lock_bh(&entry->lock, );
-+		local_bh_disable();
-+		spin_lock_nested(&entry->lock, SINGLE_DEPTH_NESTING);
-
-                next_plus_upper = entry->data.next_plus_upper;
-                tipc_ref_table.first_free = next_plus_upper & index_mask;
-                reference = (next_plus_upper & ~index_mask) + index;
-                entry->data.reference = reference;
-                entry->object = object;
-                if (lock != 0)
-                        *lock = &entry->lock;
-
-/* may stay as is or: */
--                spin_unlock_bh(&entry->lock);
-+		spin_unlock(&entry->lock);
-+		local_bh_enable();
-
-        }
-        write_unlock_bh(&ref_table_lock);
+-- 
+Sid Boyce ... Hamradio License G3VBV, Licensed Private Pilot
+Emeritus IBM/Amdahl Mainframes and Sun/Fujitsu Servers Tech Support Specialist, Cricket Coach
+Microsoft Windows Free Zone - Linux used for all Computing Tasks
 
 
-Cheers,
-Jarek P.
