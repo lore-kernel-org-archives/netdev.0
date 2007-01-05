@@ -1,98 +1,145 @@
-From: Steve Wise <swise@opengridcomputing.com>
-Subject: RE: [openib-general] [PATCH  v4 01/13] Linux RDMA Core Changes
-Date: Fri, 05 Jan 2007 12:59:59 -0600
-Message-ID: <1168023599.14028.38.camel@stevo-desktop>
-References: <8A71B368A89016469F72CD08050AD334F3BE50@maui.asicdesigners.com>
+From: "Thibaut VARENE" <T-Bone@parisc-linux.org>
+Subject: kernel BUG in eth_alloc_tx_desc_index at drivers/net/mv643xx_eth.c:1069!
+Date: Fri, 5 Jan 2007 20:03:44 +0100
+Message-ID: <7d01f9f00701051103q3ee6ed35q9fd0f778a18061b8@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Roland Dreier <rdreier@cisco.com>, linux-kernel@vger.kernel.org,
-	openib-general@openib.org, netdev@vger.kernel.org
+Content-Type: multipart/mixed;
+	boundary="----=_Part_30378_16263342.1168023824707"
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rrcs-24-153-217-226.sw.biz.rr.com ([24.153.217.226]:42654 "EHLO
-	smtp.opengridcomputing.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1422673AbXAES77 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Jan 2007 13:59:59 -0500
-To: Felix Marti <felix@chelsio.com>
-In-Reply-To: <8A71B368A89016469F72CD08050AD334F3BE50@maui.asicdesigners.com>
+Received: from wr-out-0506.google.com ([64.233.184.227]:23683 "EHLO
+	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1422674AbXAETDq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Jan 2007 14:03:46 -0500
+Received: by wr-out-0506.google.com with SMTP id 68so1131156wri
+        for <netdev@vger.kernel.org>; Fri, 05 Jan 2007 11:03:45 -0800 (PST)
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2007-01-05 at 09:32 -0800, Felix Marti wrote:
-> 
-> > -----Original Message-----
-> > From: openib-general-bounces@openib.org [mailto:openib-general-
-> > bounces@openib.org] On Behalf Of Steve Wise
-> > Sent: Friday, January 05, 2007 6:22 AM
-> > To: Roland Dreier
-> > Cc: linux-kernel@vger.kernel.org; openib-general@openib.org;
-> > netdev@vger.kernel.org
-> > Subject: Re: [openib-general] [PATCH v4 01/13] Linux RDMA Core Changes
-> > 
-> > On Thu, 2007-01-04 at 13:34 -0800, Roland Dreier wrote:
-> > > OK, I'm back from vacation today.
-> > >
-> > > Anyway I don't have a definitive statement on this right now.  I
-> guess
-> > > I agree that I don't like having an extra parameter to a function
-> that
-> > > should be pretty fast (although req notify isn't quite as hot as
-> > > something like posting a send request or polling a cq), given that
-> it
-> > > adds measurable overhead.  (And I am surprised that the overhead is
-> > > measurable, since 3 arguments still fit in registers, but OK).
-> > >
-> > > I also agree that adding an extra entry point just to pass in the
-> user
-> > > data is ugly, and also racy.
-> > >
-> > > Giving the kernel driver a pointer it can read seems OK I guess,
-> > > although it's a little ugly to have a backdoor channel like that.
-> > >
-> > 
-> > Another alternative is for the cq-index u32 memory to be allocated by
-> > the kernel and mapped into the user process.  So the lib can
-> read/write
-> > it, and the kernel can read it directly.  This is the fastest way
-> > perfwise, but I didn't want to do it because of the page granularity
-> of
-> > mapping.  IE it would require a page of address space (and backing
-> > memory I guess) just for 1 u32.  The CQ element array memory is
-> already
-> > allocated this way (and its DMA coherent too), but I didn't want to
-> > overload that memory with this extra variable either.  Mapping just
-> > seemed ugly and wasteful to me.
-> > 
-> > So given 3 approaches:
-> > 
-> > 1) allow user data to be passed into ib_req_notify_cq() via the
-> standard
-> > uverbs mechanisms.
-> > 
-> > 2) hide this in the chelsio driver and have the driver copyin the info
-> > directly.
-> > 
-> > 3) allocate the memory for this in the kernel and map it to the user
-> > process.
-> > 
-> > I chose 1 because it seemed the cleanest from an architecture point of
-> > view and I didn't think it would impact performance much.
-> 
-> [Felix Marti] In addition, is arming the CQ really in the performance
-> path? - Don't apps poll the CQ as long as there are pending CQEs and
-> only arm the CQ for notification once there is nothing left to do? If
-> this is the case, it would mean that we waste a few cycles 'idle'
-> cycles. 
+------=_Part_30378_16263342.1168023824707
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-I tend to agree.  This shouldn't be the hot perf path like
-post_send/recv and poll.
+Hi,
 
-> Steve, next to the micro benchmark that you did, did you run any
-> performance benchmark that actually moves traffic? If so, did you see a
-> difference in performance?
-> 
+I've been experiencing this bug on my Pegasos II (PPC G4 1GHz, 512M
+RAM) box for a while: I can reliably kill my machine in about half an
+hour while watching some video read from a remote nfs volume (hence
+the "mplayer" task in the following dump). It was relatively uneasy to
+get proper debug info as the crash happens while video was playing on
+the screen, but it's there anyway :)
 
-No.  But I didn't explicitly measure with and without this one single
-change.
+This particular dump comes from kernel 2.6.19-ck2 but I reproduced the
+bug with vanilla 2.6.19 too, so the bug lives in mainline. I'm not
+really familiar with that particular code, but I'd gladly provide as
+much debug info as I can.
 
+The box is hooked to a gigabit switch and the NIC is configured as
+gigabit too. Interestingly, when I reboot immediately after the crash,
+the NIC gets a bogus MAC address, and I have to reboot again to get
+back to normal.
 
+HTH
+
+T-Bone
+
+-- 
+Thibaut VARENE
+http://www.parisc-linux.org/~varenet/
+
+------=_Part_30378_16263342.1168023824707
+Content-Type: text/plain; name=panicdump.txt; charset=ANSI_X3.4-1968
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_1vlkg92
+Content-Disposition: attachment; filename="panicdump.txt"
+
+a2VybmVsIEJVRyBpbiBldGhfYWxsb2NfdHhfZGVzY19pbmRleCBhdCBkcml2ZXJzL25ldC9tdjY0
+M3h4X2V0aC5jOjEwNjkhICAgICAgICAKT29wczogRXhjZXB0aW9uIGluIGtlcm5lbCBtb2RlLCBz
+aWc6IDUgWyMxXSAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKUFJFRU1QVCAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAKTW9kdWxlcyBsaW5rZWQgaW46IG5mcyBsb2NrZCBzdW5ycGMgZWVwcm9t
+IHNicDIgc2NzaV9tb2QgZXRoMTM5NCB1aGNpX2hjZCBvaGNpMTQKTklQOiBDMDIwRjBFMCBMUjog
+QzAyMTBDNTQgQ1RSOiBDMDIxMEI5OCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAKUkVHUzogYzdmNmY2NzAgVFJBUDogMDcwMCAgIE5vdCB0YWludGVkICAoMi42LjE5LWNr
+MikgICAgICAgICAgICAgICAgICAgICAgICAgICAKTVNSOiAwMDAyMTAzMiA8TUUsSVIsRFI+ICBD
+UjogMjQwMjI0ODggIFhFUjogMDAwMDAwMDAgICAgICAgICAgICAgICAgICAgICAgICAgICAKVEFT
+SyA9IGM0OWE4ZDEwWzIyMjddICdtcGxheWVyJyBUSFJFQUQ6IGM3ZjZlMDAwICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAKR1BSMDA6IDAwMDAwMDAwIEM3RjZGNzIwIEM0OUE4RDEwIERG
+RjQxMjYwIERGRjQxMDAwIDAwMDAwMDBCIENFMENGOTMyIDAwMDAwMDAwICAKR1BSMDg6IDAwMDAw
+Q0VBIDAwMDAwMDAxIDAwMDAxMDAwIDAwMDAwQ0VCIDQ0MDIyNDIyIDEwODVGOUI4IEM1MEIwMzY4
+IDAwMDBCMjQxICAKR1BSMTY6IEM3RjZGRDI4IDAwMDBCMjQwIDAwMDAwMDAwIERGRjQxMkRDIEMw
+MzgwMDAwIDAwMDA5MDMyIDAwMDAwNDAwIEM3RjZFMDAwICAKR1BSMjQ6IDAwMDAwMDAwIDAwMDAw
+MDAwIERGRjQxMDAwIEM3RjZFMDAwIEMwMjEwQjk4IENFMEVBQzgwIERGRjQxMjYwIENFMENGOTAw
+ICAKTklQIFtDMDIwRjBFMF0gZXRoX2FsbG9jX3R4X2Rlc2NfaW5kZXgrMHg0NC8weDUwICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAKTFIgW0MwMjEwQzU0XSBtdjY0M3h4X2V0aF9zdGFy
+dF94bWl0KzB4YmMvMHgzYjggICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKQ2FsbCBU
+cmFjZTogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAKW0M3RjZGNzIwXSBbQ0UwQ0Y5MzBdIDB4Y2UwY2Y5MzAgKHVucmVs
+aWFibGUpICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKW0M3RjZGNzYwXSBbQzAy
+OTk3MTRdIGRldl9oYXJkX3N0YXJ0X3htaXQrMHgxZDQvMHgyYzggICAgICAgICAgICAgICAgICAg
+ICAgICAgICAKW0M3RjZGNzgwXSBbQzAyOUMwRTBdIGRldl9xdWV1ZV94bWl0KzB4MmJjLzB4MzM0
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKW0M3RjZGN0EwXSBbQzAyQjZFMUNdIGlw
+X291dHB1dCsweDEyNC8weDI0OCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAK
+W0M3RjZGN0MwXSBbQzAyQjdFNTRdIGlwX3F1ZXVlX3htaXQrMHgxN2MvMHg0MDQgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAKW0M3RjZGODMwXSBbQzAyQzkxQkNdIHRjcF90cmFuc21p
+dF9za2IrMHgzOGMvMHg3ZGMgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKW0M3RjZGODYw
+XSBbQzAyQzY1RTRdIF9fdGNwX2Fja19zbmRfY2hlY2srMHg2NC8weGJjICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAKW0M3RjZGODcwXSBbQzAyQzgxMDBdIHRjcF9yY3ZfZXN0YWJsaXNoZWQr
+MHg1ZDQvMHg5ODAgICAgICAgICAgICAgICAgICAgICAgICAgICAKW0M3RjZGOEEwXSBbQzAyQ0VE
+Q0NdIHRjcF92NF9kb19yY3YrMHhkOC8weDNlNCAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAKW0M3RjZGOEQwXSBbQzAyRDE2MTBdIHRjcF92NF9yY3YrMHg3ODgvMHg5OGMgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKW0M3RjZGOTAwXSBbQzAyQjI1OTRdIGlwX2xv
+Y2FsX2RlbGl2ZXIrMHhlNC8weDFhNCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKW0M3
+RjZGOTIwXSBbQzAyQjJBNTBdIGlwX3JjdisweDI4OC8weDQ2YyAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAKW0M3RjZGOTUwXSBbQzAyOTkzMDhdIG5ldGlmX3JlY2VpdmVf
+c2tiKzB4MjE0LzB4MzA0ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKW0M3RjZGOTgwXSBb
+QzAyMTFDQkNdIG12NjQzeHhfcG9sbCsweDQxYy8weDQ4YyAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAKW0M3RjZGOUQwXSBbQzAyOUI1NTBdIG5ldF9yeF9hY3Rpb24rMHg5OC8weDIw
+MCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKW0M3RjZGQTAwXSBbQzAwMjY5NThd
+IF9fZG9fc29mdGlycSsweDgwLzB4ZjQgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAKW0M3RjZGQTMwXSBbQzAwMDY5MzBdIGRvX3NvZnRpcnErMHg1OC8weDVjICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAKW0M3RjZGQTQwXSBbQzAwMjY0MDhdIGlycV9leGl0
+KzB4NjAvMHg4MCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKW0M3RjZG
+QTUwXSBbQzAwMDY5RENdIGRvX0lSUSsweGE4LzB4YzggICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAKW0M3RjZGQTYwXSBbQzAwMTI0OThdIHJldF9mcm9tX2V4Y2VwdCsw
+eDAvMHgxNCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKLS0tIEV4Y2VwdGlvbjog
+NTAxIGF0IF9fa21hbGxvYysweDMwLzB4YzAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAKICAgIExSID0gcnBjX21hbGxvYysweDQ4LzB4YWMgW3N1bnJwY10gICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKW0M3RjZGQjIwXSBbQzNENzI1MDhdIDB4
+YzNkNzI1MDggKHVucmVsaWFibGUpICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAK
+W0M3RjZGQjMwXSBbRTJBODhFMThdIHJwY19tYWxsb2MrMHg0OC8weGFjIFtzdW5ycGNdICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAKW0M3RjZGQjQwXSBbRTJBODM1RjhdIGNhbGxfYWxsb2Nh
+dGUrMHg4OC8weDEwOCBbc3VucnBjXSAgICAgICAgICAgICAgICAgICAgICAgICAKW0M3RjZGQjYw
+XSBbRTJBODk1NTRdIF9fcnBjX2V4ZWN1dGUrMHg5NC8weDI0OCBbc3VucnBjXSAgICAgICAgICAg
+ICAgICAgICAgICAgICAKW0M3RjZGQjgwXSBbRTJCMEVFQjBdIG5mc19leGVjdXRlX3JlYWQrMHg0
+MC8weDY0IFtuZnNdICAgICAgICAgICAgICAgICAgICAgICAgICAKW0M3RjZGQkIwXSBbRTJCMEY2
+QTRdIG5mc19wYWdlaW5fb25lKzB4MmEwLzB4MzAwIFtuZnNdICAgICAgICAgICAgICAgICAgICAg
+ICAgICAKW0M3RjZGQkYwXSBbRTJCMEZBOUNdIG5mc19yZWFkcGFnZXMrMHgxMTgvMHgxZjggW25m
+c10gICAgICAgICAgICAgICAgICAgICAgICAgICAKW0M3RjZGQzQwXSBbQzAwNTIxRENdIF9fZG9f
+cGFnZV9jYWNoZV9yZWFkYWhlYWQrMHgxZTgvMHgzMTggICAgICAgICAgICAgICAgICAgICAKW0M3
+RjZGQ0QwXSBbQzAwNTIzOTBdIGJsb2NrYWJsZV9wYWdlX2NhY2hlX3JlYWRhaGVhZCsweDg0LzB4
+MTE0ICAgICAgICAgICAgICAgICAKW0M3RjZGQ0YwXSBbQzAwNTI0QTRdIG1ha2VfYWhlYWRfd2lu
+ZG93KzB4ODQvMHhkNCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKW0M3RjZGRDAwXSBb
+QzAwNTI1QUNdIHBhZ2VfY2FjaGVfcmVhZGFoZWFkKzB4YjgvMHgyMjAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAKW0M3RjZGRDIwXSBbQzAwNEIwMENdIGRvX2dlbmVyaWNfbWFwcGluZ19yZWFk
+KzB4NTc0LzB4NWU4ICAgICAgICAgICAgICAgICAgICAgICAKW0M3RjZGREMwXSBbQzAwNEQ2MjRd
+IGdlbmVyaWNfZmlsZV9haW9fcmVhZCsweDEyMC8weDI3NCAgICAgICAgICAgICAgICAgICAgICAg
+ICAKW0M3RjZGRTAwXSBbRTJCMDZGMDBdIG5mc19maWxlX3JlYWQrMHhjNC8weGU0IFtuZnNdICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAKW0M3RjZGRTMwXSBbQzAwNkVCNTBdIGRvX3N5bmNf
+cmVhZCsweGM0LzB4MTM4ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKW0M3RjZG
+RUYwXSBbQzAwNkY3MzRdIHZmc19yZWFkKzB4YzQvMHgxYTQgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAKW0M3RjZGRjEwXSBbQzAwNkZDMjRdIHN5c19yZWFkKzB4NGMvMHg5
+MCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKW0M3RjZGRjQwXSBbQzAw
+MTFERjBdIHJldF9mcm9tX3N5c2NhbGwrMHgwLzB4MzggICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAKLS0tIEV4Y2VwdGlvbjogYzAxIGF0IDB4ZjRmNTRkOCAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgIExSID0gMHgxMDFlODNhOCAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAK
+SW5zdHJ1Y3Rpb24gZHVtcDogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAKNTQwMGZmZmUgMGYwMDAwMDAgODEwMzAwMjAgODEyMzAw
+MjQgMzk2ODAwMDEgN2MwYjUzZDYgN2MwMDUxZDYgN2Q2MDU4NTAgICAgICAgICAKN2Q2OTRhNzgg
+OTE2MzAwMjAgN2QyOTAwMzQgNTUyOWQ5N2UgPDBmMDkwMDAwPiA3ZDAzNDM3OCA0ZTgwMDAyMCAy
+Zjg0MDAwMSAgICAgICAKIDwwPktlcm5lbCBwYW5pYyAtIG5vdCBzeW5jaW5nOiBGYXRhbCBleGNl
+cHRpb24gaW4gaW50ZXJydXB0ICAgICAgICAgICAgICAgICAgICAKIDwwPlJlYm9vdGluZyBpbiAx
+ODAgc2Vjb25kcy4uCg==
+------=_Part_30378_16263342.1168023824707--
