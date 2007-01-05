@@ -1,41 +1,32 @@
-From: Herbert Xu <herbert.xu@redhat.com>
-Subject: Re: [PATCH][RFC] tcp: fix ambiguity in the `before' relation
-Date: Fri, 5 Jan 2007 14:59:04 +1100
-Message-ID: <20070105035904.GB18653@gondor.apana.org.au>
-References: <E1H2GGi-0008E5-00@gondolin.me.apana.org.au> <200701041249.02459@strip-the-willow>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] INET: fix incorrect "inet_sock->is_icsk" assignment
+Date: Thu, 04 Jan 2007 21:42:04 -0800 (PST)
+Message-ID: <20070104.214204.55835976.davem@davemloft.net>
+References: <20070104200437.008980288@hp.com>
+	<20070104.165735.102614518.davem@davemloft.net>
+	<39e6f6c70701041832u6e1d8c86w4728ac605f7449e3@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: paul.moore@hp.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:4477 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1030313AbXAED7g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jan 2007 22:59:36 -0500
-To: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Content-Disposition: inline
-In-Reply-To: <200701041249.02459@strip-the-willow>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48659
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1030341AbXAEFmH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Jan 2007 00:42:07 -0500
+To: arnaldo.melo@gmail.com
+In-Reply-To: <39e6f6c70701041832u6e1d8c86w4728ac605f7449e3@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 04, 2007 at 12:49:02PM +0000, Gerrit Renker wrote:
-> 
-> The key point where the new definition differs from the old is that _the relation_
-> before(x,y) is unambiguous: the case "before(x,y) && before(y,x)" will no longer occur.
+From: "Arnaldo Carvalho de Melo" <arnaldo.melo@gmail.com>
+Date: Fri, 5 Jan 2007 00:32:31 -0200
 
-This is highly dependent on how the before macro is used in actual code.
-There is nothing to suggest that this change won't create new security
-holes in DCCP or any other protocol that uses this macro.  The only
-way to be sure is to audit every single use.
+> I expected a warning since the and operation clearly could yield a
+> value that would overflow, just like in the constant case...
 
-So I think we need to do one of two things:
+It sounds stupid, but once you introduce variables and not
+everything is constance, GCC currently can't make the analysis.
 
-1) Audit every single before/after check to ensure that it works
-correctly with the new definition.
-2) Change before/after such that before(x, x+2^31) == !before(x+2^31, x).
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+It's an interesting class of bugs to detect automatically, for
+sure :-)
