@@ -1,70 +1,59 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: [PATCH RESEND] 3 ixgb fixes, please pull
-Date: Sat, 06 Jan 2007 10:06:41 -0800
-Message-ID: <459FE531.2080604@intel.com>
+From: Gertjan van Wingerde <gwingerde@kpnplanet.nl>
+Subject: Re: [PATCH] d80211: Only free WEP crypto ciphers when they have been
+ allocated correctly.
+Date: Sat, 06 Jan 2007 19:14:27 +0100
+Message-ID: <459FE703.4080800@kpnplanet.nl>
+References: <459FD5C4.9070301@kpnplanet.nl> <200701061229.16632.flamingice@sourmilk.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Kok, Auke" <auke-jan.h.kok@intel.com>,
-	"Kok, Auke" <auke@foo-projects.org>,
-	"Ronciak, John" <john.ronciak@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:6731 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751443AbXAFSGo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 6 Jan 2007 13:06:44 -0500
-To: "Garzik, Jeff" <jgarzik@pobox.com>
+Received: from CPEXFE-VOIP04.KPNplanet.nl ([194.151.105.222]:55894 "EHLO
+	cpexfe-voip04.KPNplanet.nl" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751445AbXAFSPG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 6 Jan 2007 13:15:06 -0500
+To: Michael Wu <flamingice@sourmilk.net>, Jiri Benc <jbenc@suse.cz>,
+	netdev@vger.kernel.org
+In-Reply-To: <200701061229.16632.flamingice@sourmilk.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Michael Wu wrote:
+> On Saturday 06 January 2007 12:00, Gertjan van Wingerde wrote:
+>   
+>> The d80211 stack still tries to free the WEP crypto ciphers, even when
+>> allocating them previously has failed. 
+>>     
+> Actually, the code might not even have tried to allocate them. The ciphers are 
+> guaranteed to be allocated when the device is registered however, so we 
+> should be able to free it safely on unregister.
+>
+> Signed-off-by: Michael Wu <flamingice@sourmilk.net>
+> ---
+>
+>  net/d80211/ieee80211.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+>
+> diff --git a/net/d80211/ieee80211.c b/net/d80211/ieee80211.c
+> index 6e10db5..926d160 100644
+> --- a/net/d80211/ieee80211.c
+> +++ b/net/d80211/ieee80211.c
+> @@ -4715,6 +4715,7 @@ void ieee80211_unregister_hw(struct ieee
+>  	skb_queue_purge(&local->skb_queue_unreliable);
+>  
+>  	ieee80211_dev_free_index(local);
+> +	ieee80211_wep_free(local);
+>  	ieee80211_led_exit(local);
+>  }
+>  EXPORT_SYMBOL(ieee80211_unregister_hw);
+> @@ -4724,7 +4725,6 @@ void ieee80211_free_hw(struct ieee80211_
+>  	struct ieee80211_local *local = hw_to_local(hw);
+>  
+>  	ieee80211_if_free(local->mdev);
+> -	ieee80211_wep_free(local);
+>  	ieee80211_dev_free(local);
+>  }
+>  EXPORT_SYMBOL(ieee80211_free_hw);
+OK. Your patch fixes the issue I've seen as well, and seems a bit cleaner.
 
-Hi,
-
-
-These 3 patches were earlier submitted and ACKed by Jeff Garzik on 12/08, 12/11. They 
-were part of a larger submission that also included e1000 patches. The ixgb patches 
-still need to be merged. The spurious NETIF_F_TSO flags were removed from patch "Fix 
-early TSO completion" as requested.
-
-These patches apply against netdev-2.6 #upstream-fixes commit
-81f4e6c190a0fa016fd7eecaf76a5f95d121afc2. Please pull:
-
-git pull git://lost.foo-projects.org/~ahkok/git/netdev-2.6 upstream-fixes
-
-to receive them.
-
-Cheers,
-
-Auke
-
-see also:
-
-http://marc.theaimsgroup.com/?l=linux-netdev&m=116584793808733&w=2
-http://marc.theaimsgroup.com/?l=linux-netdev&m=116584793729158&w=2
-http://marc.theaimsgroup.com/?l=linux-netdev&m=116593164226253&w=2
-
----
-Jesse Brandeburg <jesse.brandeburg@intel.com>
-     ixgb: Fix early TSO completion
-     ixgb: Maybe stop TX if not enough free descriptors
-
-Aaron Salter <aaron.k.salter@intel.com>
-     ixgb: Write RA register high word first, increment version
-
-
----
-  drivers/net/ixgb/ixgb.h         |    1
-  drivers/net/ixgb/ixgb_ethtool.c |    1
-  drivers/net/ixgb/ixgb_hw.c      |    3 +-
-  drivers/net/ixgb/ixgb_main.c    |   60 ++++++++++++++++++++++++++++++++++++----
-  4 files changed, 58 insertions(+), 7 deletions(-)
-
-
----
-Auke Kok <auke-jan.h.kok@intel.com>
--
-To unsubscribe from this list: send the line "unsubscribe netdev" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Acked-by: Gertjan van Wingerde <gwingerde@kpnplanet.nl>
