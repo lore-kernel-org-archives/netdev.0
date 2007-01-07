@@ -1,49 +1,83 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: [PATCH] netfilter: ipt_MASQUERADE: NULL check in device_cmp [BUG] panic 2.6.20-rc3 in nf_conntrack
-Date: Mon, 8 Jan 2007 09:13:15 +0100
-Message-ID: <20070108081314.GB1665@ff.dom.local>
-References: <20070101214000.4573f575.akpm@osdl.org> <20070104135155.GA4682@ff.dom.local>
+From: Harald Welte <laforge@netfilter.org>
+Subject: Re: [PATCH/RFC 00/10] Transparent proxying patches version 4
+Date: Mon, 8 Jan 2007 00:58:42 +0100
+Message-ID: <20070107235842.GU15618@prithivi.gnumonks.org>
+References: <20070103163357.14635.37754.stgit@nienna.balabit> <20070107141134.GA13543@prithivi.gnumonks.org> <20070107161106.GA13717@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: =?us-ascii?B?PT9JU08tODg1OS0yP1E/TWFsdGVfU2Nocj1GNmRlcj89?=
-	<MalteSch@gmx.de>, netdev@vger.kernel.org,
-	netfilter-devel@lists.netfilter.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="tfmLD+Hxjexp/STe"
+Cc: KOVACS Krisztian <hidden@balabit.hu>,
+	netfilter-devel@lists.netfilter.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx10.go2.pl ([193.17.41.74]:56980 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932588AbXAHIL0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Jan 2007 03:11:26 -0500
-To: Andrew Morton <akpm@osdl.org>
+Received: from ganesha.gnumonks.org ([213.95.27.120]:34767 "EHLO
+	ganesha.gnumonks.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932229AbXAHIwL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jan 2007 03:52:11 -0500
+Received: from uucp by ganesha.gnumonks.org with local-bsmtp (Exim 4.50)
+	id 1H3qEj-0000x5-NK
+	for netdev@vger.kernel.org; Mon, 08 Jan 2007 09:52:09 +0100
+To: Lennert Buytenhek <buytenh@wantstofly.org>
 Content-Disposition: inline
-In-Reply-To: <20070104135155.GA4682@ff.dom.local>
+In-Reply-To: <20070107161106.GA13717@xi.wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 04, 2007 at 02:51:55PM +0100, Jarek Poplawski wrote:
-> 
-> Hello,
-> 
-> Below I attach a patch proposal.
 
-It seems I wasted some time...
+--tfmLD+Hxjexp/STe
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-I wonder if there is any reason to forward netfilter
-bugs to netdev if patches from netfilter aren't cc-d
-here? It seems netfilter is really independent from
-net.
+On Sun, Jan 07, 2007 at 05:11:06PM +0100, Lennert Buytenhek wrote:
+> On Sun, Jan 07, 2007 at 03:11:34PM +0100, Harald Welte wrote:
+>=20
+> > > So instead of using NAT to dynamically redirect traffic to local
+> > > addresses, we now rely on "native" non-locally-bound sockets and do
+> > > early socket lookups for inbound IPv4 packets.=20
+> >=20
+> > It's good to see a solid implementation of this 'old idea'. =20
+> >=20
+> > Just as a quick historical note to netdev:  This is the way how the
+> > netfilter project  advised the balabit guys to implement fully
+> > transparent proxy support, after having seen the complexity of the old
+> > nat-based TPROXY patches.
+>=20
+> Didn't rusty tell the balabit guys to use the NAT approach?
 
-Before sending the patch I did some seeking by subject
-on both lists and found nothing. Now I see it was in
-netfilter-devel, but wasn't even titled as patch
-and no "masquerade" in title also. Maybe I should
-check netfilter svn also but can't find it yet... 
+that was originally, way back.  It turned out to be a bad idea, after
+all... way too complex.  At least that's how I look at it.  Too sad :(
 
-Of course I'll try to remember to ignore such messages
-next time, but others may be tricked.
+Rusty and me then had the idea about the routing based approach at some
+point, if I remember correctly.  We talked about it with Krisztian and
+Balazs at least on one occasion.
 
-Regards,
-Jarek P.
+All that isn't really important.  All I wanted to say was:
 
-PS: After some confusion I've also found a good side:
-other systems will wet themselves when they see
-linux has such work resources it can fix bugs twice. 
+"I (and AFAIR the netfilter core team) believe this is the way to
+implement good support for transparent proxying.  It's already the
+second completely independent implementation, let's merge it after all."
+
+--=20
+- Harald Welte <laforge@netfilter.org>                 http://netfilter.org/
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D
+  "Fragmentation is like classful addressing -- an interesting early
+   architectural error that shows how much experimentation was going
+   on while IP was being designed."                    -- Paul Vixie
+
+--tfmLD+Hxjexp/STe
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.6 (GNU/Linux)
+
+iD8DBQFFoYkyXaXGVTD0i/8RArN9AJ4l2HFAYKyA4eu9WaX7eYoXN6jxSACfb/a1
+YRMMeX8/cYJ5jVvfYl1QiBM=
+=ChP0
+-----END PGP SIGNATURE-----
+
+--tfmLD+Hxjexp/STe--
