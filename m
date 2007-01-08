@@ -1,46 +1,40 @@
-From: KOVACS Krisztian <hidden@balabit.hu>
-Subject: Re: [PATCH/RFC 00/10] Transparent proxying patches version 4
-Date: Mon, 8 Jan 2007 21:30:02 +0100
-Message-ID: <200701082130.02948@nessa>
-References: <20070103163357.14635.37754.stgit@nienna.balabit> <20070103172301.GA27191@2ka.mipt.ru>
-Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="koi8-r"
+From: Kumar Gala <galak@kernel.crashing.org>
+Subject: Re: [git patches] net driver fixes
+Date: Mon, 8 Jan 2007 15:17:18 -0600
+Message-ID: <FBDB5150-A11D-44C7-9EF8-AE3BB6C92785@kernel.crashing.org>
+References: <989B956029373F45A0B8AF02970818900865B5@zch01exm26.fsl.freescale.net> <45A22DA8.2030308@garzik.org>
+Mime-Version: 1.0 (Apple Message framework v752.2)
+Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>, netdev@vger.kernel.org
+Cc: Li Yang-r58472 <LeoLi@freescale.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from viefep13-int.chello.at ([213.46.255.15]:38101 "EHLO
-	viefep16-int.chello.at" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932648AbXAHUaK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jan 2007 15:30:10 -0500
-To: netfilter-devel@lists.netfilter.org
-In-Reply-To: <20070103172301.GA27191@2ka.mipt.ru>
-Content-Disposition: inline
+Received: from nommos.sslcatacombnetworking.com ([67.18.224.114]:52382 "EHLO
+	nommos.sslcatacombnetworking.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750976AbXAHVRW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jan 2007 16:17:22 -0500
+In-Reply-To: <45A22DA8.2030308@garzik.org>
+To: Jeff Garzik <jeff@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-  Hi Evgeniy,
+On Jan 8, 2007, at 5:40 AM, Jeff Garzik wrote:
 
-On Wednesday 03 January 2007 18:23, Evgeniy Polyakov wrote:
-> Out of curiosity, would you use netchannels [1] if the implementation
-> will be much broader? Since what you have created works exactly like
-> netchannels netfilter NAT target (although it does not change ports,
-> but it can be trivially extended), but without all existing netfilter
-> overhead and without hacks in core TCP/UDP/IP/route code.
+> Li Yang-r58472 wrote:
+>> Hi Jeff,
+>> Could you apply the updates for ucc_geth driver?
+>> The patches from Timur that make the driver compile correctly on  
+>> 2.6.20.
+>> [PATCH] Fix phy_read/write redefinition errors in ucc_geth_phy.c
+>> [PATCH] Update ucc_geth.c for new workqueue structure
+>> The patch from Ahmed that cleans up some unnecessary casts.
+>> [PATCH 2.6.20-rc3] UCC Ether driver: kmalloc casting cleanups
+>
+> I don't have any of these in my queue.
 
-  Indeed, a netchannels based implementation would be very nice. Combined 
-with a userspace network stack I think this could be a very powerful 
-tool, especially for people doing dirty tricks -- like transparent 
-proxying in our case.
+Here's links to the orig patches:
 
-  However, I think that adopting netchannels now would be an enormous work 
-on our part. Of course, personally I'm really interested in netchannels 
-and the related projects, but I agree with Harald that we still have a 
-long way to go before being able to switch to netchannels. And I 
-definitely _hate_ the previous incarnations of our tproxy patches enough 
-that even this patchset seems acceptable for me. ;)
+http://marc.theaimsgroup.com/?l=linux-netdev&m=116605401912152&w=2
+http://marc.theaimsgroup.com/?l=linux-netdev&m=116605366909148&w=2
 
--- 
- Regards,
-  Krisztian Kovacs
+- k
