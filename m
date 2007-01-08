@@ -1,44 +1,42 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [BNX2 4/4]: Update version and reldate.
-Date: Mon, 08 Jan 2007 16:04:24 -0800
-Message-ID: <1168301064.4430.15.camel@rh4>
-References: <1168300618.4430.10.camel@rh4>
+From: James Morris <jmorris@namei.org>
+Subject: [GIT][Netlabel] Pull request
+Date: Mon, 8 Jan 2007 18:24:41 -0500 (EST)
+Message-ID: <Pine.LNX.4.64.0701081823390.23051@d.namei>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:3613 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1161198AbXAHXRh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Jan 2007 18:17:37 -0500
-To: davem@davemloft.net
-In-Reply-To: <1168300618.4430.10.camel@rh4>
+Received: from mail1.sea5.speakeasy.net ([69.17.117.3]:34652 "EHLO
+	mail1.sea5.speakeasy.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750968AbXAHXYo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jan 2007 18:24:44 -0500
+To: "David S. Miller" <davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Sorry, the date was wrong on the one sent earlier.
-
-[BNX2]: Update version and reldate.
-
-Update version to 1.5.3.
-
-Signed-off-by: Michael Chan <mchan@broadcom.com>
-
-diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-index 08a77a3..6494f5b 100644
---- a/drivers/net/bnx2.c
-+++ b/drivers/net/bnx2.c
-@@ -57,8 +57,8 @@
- 
- #define DRV_MODULE_NAME		"bnx2"
- #define PFX DRV_MODULE_NAME	": "
--#define DRV_MODULE_VERSION	"1.5.2"
--#define DRV_MODULE_RELDATE	"December 13, 2006"
-+#define DRV_MODULE_VERSION	"1.5.3"
-+#define DRV_MODULE_RELDATE	"January 8, 2007"
- 
- #define RUN_AT(x) (jiffies + (x))
- 
+Dave, please pull per below.
 
 
+
+The following changes since commit bf81b46482c0fa8ea638e409d39768ea92a6b0f0:
+  Linus Torvalds:
+        Linux 2.6.20-rc4
+
+are found in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/jmorris/selinux-2.6.git#for-davem
+
+Paul Moore:
+      NetLabel: correct locking in selinux_netlbl_socket_setsid()
+      NetLabel: correct CIPSO tag handling when adding new DOI definitions
+
+ net/netlabel/netlabel_cipso_v4.c |    6 +++---
+ security/selinux/ss/services.c   |    4 ++--
+ 2 files changed, 5 insertions(+), 5 deletions(-)
+
+
+
+
+-- 
+James Morris
+<jmorris@namei.org>
