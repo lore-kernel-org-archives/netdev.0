@@ -1,63 +1,73 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Question on advanced routing and/or virtual routers.
-Date: Mon, 08 Jan 2007 09:08:08 -0800
-Message-ID: <45A27A78.8010200@candelatech.com>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: BUG: soft lockup detected on CPU#0! (2.6.18.2 plus hacks)
+Date: Mon, 8 Jan 2007 10:03:50 -0800
+Message-ID: <20070108100350.1187a3dc@freekitty>
+References: <OF02F7C182.A05F7E5A-ON88257259.001B0EFA-88257259.001E96CF@us.ibm.com>
+	<E1H2M3X-0001HE-00@gondolin.me.apana.org.au>
+	<20070104.123333.91315611.davem@davemloft.net>
+	<459EB627.5040606@candelatech.com>
+	<20070108065346.GA1665@ff.dom.local>
+	<45A277E6.6000904@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
+Cc: Jarek Poplawski <jarkao2@o2.pl>,
+	David Miller <davem@davemloft.net>,
+	herbert@gondor.apana.org.au, dlstevens@us.ibm.com,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:45356 "EHLO ns2.lanforge.com"
+Received: from smtp.osdl.org ([65.172.181.24]:60016 "EHLO smtp.osdl.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750918AbXAHRGO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Jan 2007 12:06:14 -0500
-Received: from [71.112.210.101] (pool-71-112-210-101.sttlwa.dsl-w.verizon.net [71.112.210.101])
-	(authenticated bits=0)
-	by ns2.lanforge.com (8.13.4/8.13.4) with ESMTP id l08H6Crt022637
-	for <netdev@vger.kernel.org>; Mon, 8 Jan 2007 09:06:13 -0800
-To: netdev@vger.kernel.org
+	id S1422697AbXAHSHS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Jan 2007 13:07:18 -0500
+To: Ben Greear <greearb@candelatech.com>
+In-Reply-To: <45A277E6.6000904@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello!
+On Mon, 08 Jan 2007 08:57:10 -0800
+Ben Greear <greearb@candelatech.com> wrote:
 
-I am curious if a single machine can be made to look like several 
-routers.  Please consider the following
-configuration:
+> Jarek Poplawski wrote:
+> > On Fri, Jan 05, 2007 at 12:33:43PM -0800, Ben Greear wrote:
+> > ...
+> >   
+> >> So, I do believe this was the problem we were hitting, and it seems fixed.
+> >>     
+> >
+> > Congratulations!
+> >
+> > But I can see one strange thing in vlan.c:
+> >
+> > /* Must be invoked with RCU read lock (no preempt) */
+> > static struct vlan_group *__vlan_find_group(int real_dev_ifindex)
+> > ...
+> >  * Must be invoked with RCU read lock (no preempt)
+> >  */
+> > struct net_device *__find_vlan_dev(struct net_device *real_dev,
+> > ...
+> >
+> > But later in this file no sign of disabling preemption
+> > for these calls and for hlist_add_head_rcu and hlist_del_rcu.
+> >
+> > I can't imagine how this works?
 
-Linux Router-A has 4 ethernet interfaces.  PC-A is connected to eth0 and 
-has IP 192.168.0.2.
-eth0 on Router-A has IP 192.168.0.1/24
-eth1 has IP 192.168.1.1/24, and eth1 is connected directly to eth2
-eth2 has IP 192.168.2.1/24
-eth3 is connected 'upstream' and has IP 192.168.3.1/24
+Preempt is already disabled on the receive path.
 
-I would like for PC-A to be able to ping 192.168.0.1 and 192.168.1.1 as 
-normal.
-The part I'm not sure how to make work is that I want to be able to ping 
-192.168.2.1 and
-have the packet route out of eth1 and into eth2 (PC-A -> eth0 -> eth1 -> 
-eth2), and have the return packet follow the
-eth2 -> eth1 -> eth0 -> PC-A path.  A trace-route from PC-A should show 
-each of these hops (or, at least eth0 and eth2.)
+> >   
+> Perhaps...I didn't RCU-ify VLANs, but I can take a look.
+> 
+> For the record, the soft lockup was using MAC-VLANs, not 802.1Q VLANs, 
+> so it wouldn't
+> have been affected by bugs in VLANs one way or the other.
+> 
+> Ben
+> 
+> > Jarek P. 
+> >   
+> 
+> 
 
-The eventual goal is to have arbitrary numbers of 'routers' in a single 
-Linux machine for emulation
-purposes.
-
-I was thinking that I might could accomplish this using multiple routing 
-tables and perhaps
-specific subnet routes for each each virtual router, specifying which 
-interface the packets should
-leave in order to find the next hop.
-
-Has anyone tried something similar to this or have ideas for how to best 
-proceed?
-
-Thanks,
-Ben
 
 -- 
-Ben Greear <greearb@candelatech.com> 
-Candela Technologies Inc  http://www.candelatech.com
-
-
+Stephen Hemminger <shemminger@osdl.org>
