@@ -1,42 +1,59 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: BUG: soft lockup detected on CPU#0! (2.6.18.2 plus hacks)
-Date: Mon, 8 Jan 2007 07:53:46 +0100
-Message-ID: <20070108065346.GA1665@ff.dom.local>
-References: <OF02F7C182.A05F7E5A-ON88257259.001B0EFA-88257259.001E96CF@us.ibm.com> <E1H2M3X-0001HE-00@gondolin.me.apana.org.au> <20070104.123333.91315611.davem@davemloft.net> <459EB627.5040606@candelatech.com>
+From: "Li Yang-r58472" <LeoLi@freescale.com>
+Subject: RE: [PATCH 2.6.20-rc3] UCC Ether driver: kmalloc casting cleanups
+Date: Mon, 8 Jan 2007 15:28:20 +0800
+Message-ID: <989B956029373F45A0B8AF029708189008656E@zch01exm26.fsl.freescale.net>
+References: <20070108042657.GA18610@Ahmed>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, herbert@gondor.apana.org.au,
-	dlstevens@us.ibm.com, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from poczta.o2.pl ([193.17.41.142]:35242 "EHLO poczta.o2.pl"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751463AbXAHGv5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Jan 2007 01:51:57 -0500
-To: Ben Greear <greearb@candelatech.com>
-Content-Disposition: inline
-In-Reply-To: <459EB627.5040606@candelatech.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain;
+	charset="US-ASCII"
+Content-Transfer-Encoding: 8BIT
+Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751469AbXAHH1P@vger.kernel.org>
+Content-class: urn:content-classes:message
+In-Reply-To: <20070108042657.GA18610@Ahmed>
+To: "Ahmed S. Darwish" <darwish.07@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jan 05, 2007 at 12:33:43PM -0800, Ben Greear wrote:
-...
-> So, I do believe this was the problem we were hitting, and it seems fixed.
+> -----Original Message-----
+> From: Ahmed S. Darwish [mailto:darwish.07@gmail.com]
+> Sent: Monday, January 08, 2007 12:27 PM
+> To: Li Yang-r58472
+> Cc: linux-kernel@vger.kernel.org; netdev@vger.kernel.org
+> Subject: Re: [PATCH 2.6.20-rc3] UCC Ether driver: kmalloc casting
+cleanups
+> 
+> On Mon, Jan 08, 2007 at 11:12:28AM +0800, Li Yang-r58472 wrote:
+> > > From: Ahmed S. Darwish [mailto:darwish.07@gmail.com]
+> > >
+> > > Hi,
+> > > A kmalloc casting cleanup patch.
+> > > Signed-off-by: Ahmed Darwish <darwish.07@gmail.com>
+> 
+> [..]
+> 
+> > > -				(u32) (kmalloc((u32) (length + align),
+> > > -				GFP_KERNEL));
+> > > +				kmalloc((u32) (length + align),
+GFP_KERNEL);
+> > > +
+> > >  			if (ugeth->tx_bd_ring_offset[j] != 0)
+> > >  				ugeth->p_tx_bd_ring[j] =
+> 
+> [..]
+> 
+> > > -			    (u32) (kmalloc((u32) (length + align),
+GFP_KERNEL));
+> > > +				kmalloc((u32) (length + align),
+GFP_KERNEL);
+> >
+> > NACK about the 2 clean-ups above.  Cast from pointer to integer is
+> > required here.
+> 
+> Are the casts from pointer to integer just needed to suppress gcc
+> warnings or there's something technically important about them ?
 
-Congratulations!
+It is to suppress the warnings.  IMHO, most type casts are not
+technically important but for sanity check.
 
-But I can see one strange thing in vlan.c:
-
-/* Must be invoked with RCU read lock (no preempt) */
-static struct vlan_group *__vlan_find_group(int real_dev_ifindex)
-...
- * Must be invoked with RCU read lock (no preempt)
- */
-struct net_device *__find_vlan_dev(struct net_device *real_dev,
-...
-
-But later in this file no sign of disabling preemption
-for these calls and for hlist_add_head_rcu and hlist_del_rcu.
-
-I can't imagine how this works?
-
-Jarek P. 
+- Leo
