@@ -1,18 +1,18 @@
 From: "Ahmed S. Darwish" <darwish.07@gmail.com>
 Subject: Re: [PATCH 2.6.20-rc3] UCC Ether driver: kmalloc casting cleanups
-Date: Mon, 8 Jan 2007 06:26:57 +0200
-Message-ID: <20070108042657.GA18610@Ahmed>
+Date: Mon, 8 Jan 2007 06:54:28 +0200
+Message-ID: <20070108045428.GB18610@Ahmed>
 References: <20070106131832.GE19020@Ahmed> <989B956029373F45A0B8AF029708189006134E@zch01exm26.fsl.freescale.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.186]:38694 "EHLO
+Received: from nf-out-0910.google.com ([64.233.182.185]:3495 "EHLO
 	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030498AbXAHE1a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Jan 2007 23:27:30 -0500
-Received: by nf-out-0910.google.com with SMTP id o25so9369993nfa
-        for <netdev@vger.kernel.org>; Sun, 07 Jan 2007 20:27:29 -0800 (PST)
+	with ESMTP id S1030546AbXAHEy5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Jan 2007 23:54:57 -0500
+Received: by nf-out-0910.google.com with SMTP id o25so9376902nfa
+        for <netdev@vger.kernel.org>; Sun, 07 Jan 2007 20:54:56 -0800 (PST)
 To: Li Yang-r58472 <LeoLi@freescale.com>
 Content-Disposition: inline
 In-Reply-To: <989B956029373F45A0B8AF029708189006134E@zch01exm26.fsl.freescale.net>
@@ -20,33 +20,74 @@ Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 On Mon, Jan 08, 2007 at 11:12:28AM +0800, Li Yang-r58472 wrote:
-> > From: Ahmed S. Darwish [mailto:darwish.07@gmail.com]
-> > 
-> > Hi,
-> > A kmalloc casting cleanup patch.
-> > Signed-off-by: Ahmed Darwish <darwish.07@gmail.com>
-
-[..]
-
-> > -				(u32) (kmalloc((u32) (length + align),
-> > -				GFP_KERNEL));
-> > +				kmalloc((u32) (length + align), GFP_KERNEL);
-> > +
-> >  			if (ugeth->tx_bd_ring_offset[j] != 0)
-> >  				ugeth->p_tx_bd_ring[j] =
-
-[..]
-
-> > -			    (u32) (kmalloc((u32) (length + align), GFP_KERNEL));
-> > +				kmalloc((u32) (length + align), GFP_KERNEL);
-> 
+>
 > NACK about the 2 clean-ups above.  Cast from pointer to integer is
 > required here.
+> 
 
-Are the casts from pointer to integer just needed to suppress gcc 
-warnings or there's something technically important about them ?
+Hi, here's the modified patch.
 
-I'll send the modified patch without the NACKed parts in minutes ..
+A patch to switch kmalloc to kzalloc and clean some redundant kmalloc
+casts.
+
+Signed-off-by: Ahmed S. Darwish <darwish.07@gmail.com>
+---
+diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
+index 8243150..0f58f5f 100644
+--- a/drivers/net/ucc_geth.c
++++ b/drivers/net/ucc_geth.c
+@@ -2926,10 +2926,9 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+ 	/* Init Tx bds */
+ 	for (j = 0; j < ug_info->numQueuesTx; j++) {
+ 		/* Setup the skbuff rings */
+-		ugeth->tx_skbuff[j] =
+-		    (struct sk_buff **)kmalloc(sizeof(struct sk_buff *) *
+-					       ugeth->ug_info->bdRingLenTx[j],
+-					       GFP_KERNEL);
++		ugeth->tx_skbuff[j] = kmalloc(sizeof(struct sk_buff *) *
++					      ugeth->ug_info->bdRingLenTx[j],
++					      GFP_KERNEL);
+ 
+ 		if (ugeth->tx_skbuff[j] == NULL) {
+ 			ugeth_err("%s: Could not allocate tx_skbuff",
+@@ -2958,10 +2957,9 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+ 	/* Init Rx bds */
+ 	for (j = 0; j < ug_info->numQueuesRx; j++) {
+ 		/* Setup the skbuff rings */
+-		ugeth->rx_skbuff[j] =
+-		    (struct sk_buff **)kmalloc(sizeof(struct sk_buff *) *
+-					       ugeth->ug_info->bdRingLenRx[j],
+-					       GFP_KERNEL);
++		ugeth->rx_skbuff[j] = kmalloc(sizeof(struct sk_buff *) *
++					      ugeth->ug_info->bdRingLenRx[j],
++					      GFP_KERNEL);
+ 
+ 		if (ugeth->rx_skbuff[j] == NULL) {
+ 			ugeth_err("%s: Could not allocate rx_skbuff",
+@@ -3450,19 +3448,16 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+ 	 * resource.
+ 	 * This shadow structure keeps a copy of what was done so that the
+ 	 * allocated resources can be released when the channel is freed.
++	 * *p_init_enet_param_shadow is zeroed by kzalloc
+ 	 */
+-	if (!(ugeth->p_init_enet_param_shadow =
+-	     (struct ucc_geth_init_pram *) kmalloc(sizeof(struct ucc_geth_init_pram),
+-					      GFP_KERNEL))) {
++	if (!(ugeth->p_init_enet_param_shadow = 
++	      kzalloc(sizeof(struct ucc_geth_init_pram), GFP_KERNEL))) {
+ 		ugeth_err
+ 		    ("%s: Can not allocate memory for"
+ 			" p_UccInitEnetParamShadows.", __FUNCTION__);
+ 		ucc_geth_memclean(ugeth);
+ 		return -ENOMEM;
+ 	}
+-	/* Zero out *p_init_enet_param_shadow */
+-	memset((char *)ugeth->p_init_enet_param_shadow,
+-	       0, sizeof(struct ucc_geth_init_pram));
+ 
+ 	/* Fill shadow InitEnet command parameter structure */
+ 
+
 
 -- 
 Ahmed S. Darwish
