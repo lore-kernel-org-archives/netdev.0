@@ -1,37 +1,35 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [git patches] net driver fixes
-Date: Mon, 08 Jan 2007 06:40:24 -0500
-Message-ID: <45A22DA8.2030308@garzik.org>
-References: <989B956029373F45A0B8AF02970818900865B5@zch01exm26.fsl.freescale.net>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: [PATCH] INET: fix incorrect "inet_sock->is_icsk" assignment
+Date: Mon, 8 Jan 2007 14:25:48 +0100
+Message-ID: <20070108132548.GA2324@ff.dom.local>
+References: <20070104200437.008980288@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:54078 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1161241AbXAHLk3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Jan 2007 06:40:29 -0500
-To: Li Yang-r58472 <LeoLi@freescale.com>
-In-Reply-To: <989B956029373F45A0B8AF02970818900865B5@zch01exm26.fsl.freescale.net>
+Received: from mx2.go2.pl ([193.17.41.42]:59504 "EHLO poczta.o2.pl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751527AbXAHNX7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Jan 2007 08:23:59 -0500
+To: Paul Moore <paul.moore@hp.com>
+Content-Disposition: inline
+In-Reply-To: <20070104200437.008980288@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Li Yang-r58472 wrote:
-> Hi Jeff,
-> 
-> Could you apply the updates for ucc_geth driver?
-> 
-> The patches from Timur that make the driver compile correctly on 2.6.20.
-> [PATCH] Fix phy_read/write redefinition errors in ucc_geth_phy.c
-> [PATCH] Update ucc_geth.c for new workqueue structure
-> 
-> The patch from Ahmed that cleans up some unnecessary casts.
-> [PATCH 2.6.20-rc3] UCC Ether driver: kmalloc casting cleanups
+On 04-01-2007 21:04, Paul Moore wrote:
+...
+> +++ net-2.6.20_bugfix_2/net/ipv4/af_inet.c
+> @@ -305,7 +305,7 @@ lookup_protocol:
+>  		sk->sk_reuse = 1;
+>  
+>  	inet = inet_sk(sk);
+> -	inet->is_icsk = INET_PROTOSW_ICSK & answer_flags;
+> +	inet->is_icsk = (INET_PROTOSW_ICSK & answer_flags) == INET_PROTOSW_ICSK;
 
-I don't have any of these in my queue.
+Isn't this more readable like this?:
+ 
+inet->is_icsk = (INET_PROTOSW_ICSK & answer_flags) != 0;
 
-	Jeff
-
-
-
+Regards,
+Jarek P.
