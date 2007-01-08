@@ -1,39 +1,217 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH 1/3] chelsio: error path fix
-Date: Mon, 8 Jan 2007 11:24:26 -0800
-Message-ID: <20070108112426.2a5e43fa@dxpl.pdx.osdl.net>
-References: <20061215190716.956791000@osdl.org>
-	<4591912E.60402@pobox.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: [take31 6/10] kevent: Pipe notifications.
+Date: Mon, 8 Jan 2007 22:25:59 +0300
+Message-ID: <11682843593690@2ka.mipt.ru>
+References: <1168284359747@2ka.mipt.ru>
+Reply-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Transfer-Encoding: 7BIT
+Cc: David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	Andrew Morton <akpm@osdl.org>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	Chase Venters <chase.venters@clientec.com>,
+	Johann Borck <johann.borck@densedata.com>,
+	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
+	Jamal Hadi Salim <hadi@cyberus.ca>,
+	Ingo Molnar <mingo@elte.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:37320 "EHLO smtp.osdl.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1161232AbXAHT1C (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Jan 2007 14:27:02 -0500
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <4591912E.60402@pobox.com>
+Received: from dea.vocord.ru ([217.67.177.50]:59600 "EHLO
+	kano.factory.vocord.ru" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1161290AbXAHT1M convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jan 2007 14:27:12 -0500
+In-Reply-To: <1168284359747@2ka.mipt.ru>
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Fix handling of allocation failure.
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+Pipe notifications.
 
---- netdev-2.6.orig/drivers/net/chelsio/my3126.c
-+++ netdev-2.6/drivers/net/chelsio/my3126.c
-@@ -170,9 +170,10 @@ static struct cphy *my3126_phy_create(ad
- {
- 	struct cphy *cphy = kzalloc(sizeof (*cphy), GFP_KERNEL);
+
+diff --git a/fs/pipe.c b/fs/pipe.c
+index 68090e8..0c75bf1 100644
+--- a/fs/pipe.c
++++ b/fs/pipe.c
+@@ -16,6 +16,7 @@
+ #include <linux/uio.h>
+ #include <linux/highmem.h>
+ #include <linux/pagemap.h>
++#include <linux/kevent.h>
  
--	if (cphy)
--		cphy_init(cphy, adapter, phy_addr, &my3126_ops, mdio_ops);
-+	if (!cphy)
-+		return NULL;
+ #include <asm/uaccess.h>
+ #include <asm/ioctls.h>
+@@ -313,6 +314,7 @@ redo:
+ 			break;
+ 		}
+ 		if (do_wakeup) {
++			kevent_pipe_notify(inode, KEVENT_SOCKET_SEND);
+ 			wake_up_interruptible_sync(&pipe->wait);
+  			kill_fasync(&pipe->fasync_writers, SIGIO, POLL_OUT);
+ 		}
+@@ -322,6 +324,7 @@ redo:
  
-+	cphy_init(cphy, adapter, phy_addr, &my3126_ops, mdio_ops);
- 	INIT_DELAYED_WORK(&cphy->phy_update, my3216_poll);
- 	cphy->bmsr = 0;
- 
+ 	/* Signal writers asynchronously that there is more room. */
+ 	if (do_wakeup) {
++		kevent_pipe_notify(inode, KEVENT_SOCKET_SEND);
+ 		wake_up_interruptible(&pipe->wait);
+ 		kill_fasync(&pipe->fasync_writers, SIGIO, POLL_OUT);
+ 	}
+@@ -484,6 +487,7 @@ redo2:
+ 			break;
+ 		}
+ 		if (do_wakeup) {
++			kevent_pipe_notify(inode, KEVENT_SOCKET_RECV);
+ 			wake_up_interruptible_sync(&pipe->wait);
+ 			kill_fasync(&pipe->fasync_readers, SIGIO, POLL_IN);
+ 			do_wakeup = 0;
+@@ -495,6 +499,7 @@ redo2:
+ out:
+ 	mutex_unlock(&inode->i_mutex);
+ 	if (do_wakeup) {
++		kevent_pipe_notify(inode, KEVENT_SOCKET_RECV);
+ 		wake_up_interruptible(&pipe->wait);
+ 		kill_fasync(&pipe->fasync_readers, SIGIO, POLL_IN);
+ 	}
+@@ -590,6 +595,7 @@ pipe_release(struct inode *inode, int decr, int decw)
+ 		free_pipe_info(inode);
+ 	} else {
+ 		wake_up_interruptible(&pipe->wait);
++		kevent_pipe_notify(inode, KEVENT_SOCKET_SEND|KEVENT_SOCKET_RECV);
+ 		kill_fasync(&pipe->fasync_readers, SIGIO, POLL_IN);
+ 		kill_fasync(&pipe->fasync_writers, SIGIO, POLL_OUT);
+ 	}
+diff --git a/kernel/kevent/kevent_pipe.c b/kernel/kevent/kevent_pipe.c
+new file mode 100644
+index 0000000..91dc1eb
+--- /dev/null
++++ b/kernel/kevent/kevent_pipe.c
+@@ -0,0 +1,123 @@
++/*
++ * 	kevent_pipe.c
++ * 
++ * 2006 Copyright (c) Evgeniy Polyakov <johnpol@2ka.mipt.ru>
++ * All rights reserved.
++ * 
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
++ */
++
++#include <linux/kernel.h>
++#include <linux/types.h>
++#include <linux/slab.h>
++#include <linux/spinlock.h>
++#include <linux/file.h>
++#include <linux/fs.h>
++#include <linux/kevent.h>
++#include <linux/pipe_fs_i.h>
++
++static int kevent_pipe_callback(struct kevent *k)
++{
++	struct inode *inode = k->st->origin;
++	struct pipe_inode_info *pipe = inode->i_pipe;
++	int nrbufs = pipe->nrbufs;
++
++	if (k->event.event & KEVENT_SOCKET_RECV && nrbufs > 0) {
++		if (!pipe->writers)
++			return -1;
++		return 1;
++	}
++	
++	if (k->event.event & KEVENT_SOCKET_SEND && nrbufs < PIPE_BUFFERS) {
++		if (!pipe->readers)
++			return -1;
++		return 1;
++	}
++
++	return 0;
++}
++
++int kevent_pipe_enqueue(struct kevent *k)
++{
++	struct file *pipe;
++	int err = -EBADF;
++	struct inode *inode;
++
++	pipe = fget(k->event.id.raw[0]);
++	if (!pipe)
++		goto err_out_exit;
++
++	inode = igrab(pipe->f_dentry->d_inode);
++	if (!inode)
++		goto err_out_fput;
++
++	err = -EINVAL;
++	if (!S_ISFIFO(inode->i_mode))
++		goto err_out_iput;
++
++	err = kevent_storage_enqueue(&inode->st, k);
++	if (err)
++		goto err_out_iput;
++
++	if (k->event.req_flags & KEVENT_REQ_ALWAYS_QUEUE) {
++		kevent_requeue(k);
++		err = 0;
++	} else {
++		err = k->callbacks.callback(k);
++		if (err)
++			goto err_out_dequeue;
++	}
++
++	fput(pipe);
++
++	return err;
++
++err_out_dequeue:
++	kevent_storage_dequeue(k->st, k);
++err_out_iput:
++	iput(inode);
++err_out_fput:
++	fput(pipe);
++err_out_exit:
++	return err;
++}
++
++int kevent_pipe_dequeue(struct kevent *k)
++{
++	struct inode *inode = k->st->origin;
++
++	kevent_storage_dequeue(k->st, k);
++	iput(inode);
++
++	return 0;
++}
++
++void kevent_pipe_notify(struct inode *inode, u32 event)
++{
++	kevent_storage_ready(&inode->st, NULL, event);
++}
++
++static int __init kevent_init_pipe(void)
++{
++	struct kevent_callbacks sc = {
++		.callback = &kevent_pipe_callback,
++		.enqueue = &kevent_pipe_enqueue,
++		.dequeue = &kevent_pipe_dequeue,
++		.flags = 0,
++	};
++
++	return kevent_add_callbacks(&sc, KEVENT_PIPE);
++}
++module_init(kevent_init_pipe);
+
