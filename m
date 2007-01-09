@@ -1,70 +1,52 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 1/5] s390: qeth driver fixes
-Date: Tue, 09 Jan 2007 02:23:23 -0500
-Message-ID: <45A342EB.2020200@pobox.com>
-References: <20070108162934.GA21639@de.ibm.com>
+From: "Li Yang-r58472" <LeoLi@freescale.com>
+Subject: RE: [PATCH] ucc_geth: kmalloc casting cleanups
+Date: Tue, 9 Jan 2007 15:39:53 +0800
+Message-ID: <989B956029373F45A0B8AF0297081890086680@zch01exm26.fsl.freescale.net>
+References: <45A3412C.2050008@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain;
+	charset="US-ASCII"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>, <galak@kernel.crashing.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:60503 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751128AbXAIHX3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Jan 2007 02:23:29 -0500
-To: Frank Pavlic <fpavlic@de.ibm.com>
-In-Reply-To: <20070108162934.GA21639@de.ibm.com>
+Received: from az33egw01.freescale.net ([192.88.158.102]:43237 "EHLO
+	az33egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751142AbXAIHis convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jan 2007 02:38:48 -0500
+Received: from az33smr01.freescale.net (az33smr01.freescale.net [10.64.34.199])
+	by az33egw01.freescale.net (8.12.11/az33egw01) with ESMTP id l097clHH003306
+	for <netdev@vger.kernel.org>; Tue, 9 Jan 2007 00:38:47 -0700 (MST)
+Received: from zch01exm26.fsl.freescale.net (zch01exm26.ap.freescale.net [10.192.129.221])
+	by az33smr01.freescale.net (8.13.1/8.13.0) with ESMTP id l097cjaa020980
+	for <netdev@vger.kernel.org>; Tue, 9 Jan 2007 01:38:46 -0600 (CST)
+Content-class: urn:content-classes:message
+In-Reply-To: <45A3412C.2050008@garzik.org>
+To: "Jeff Garzik" <jeff@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Frank Pavlic wrote:
-> Hi ,
+> -----Original Message-----
+> From: Jeff Garzik [mailto:jeff@garzik.org]
+> Sent: Tuesday, January 09, 2007 3:16 PM
+> To: Li Yang-r58472
+> Cc: netdev@vger.kernel.org; galak@kernel.crashing.org
+> Subject: Re: [PATCH] ucc_geth: kmalloc casting cleanups
 > 
-> please apply following 5 patches for s390 network device drivers.
-> Sorry for the fifth patch containing some lines which just remove
-> whitespaces. Another patch will follow in the next couple of days
-> with more whitespace and coding style cleanups in drivers/s390/net.
+> Li Yang wrote:
+> > From: Ahmed S. Darwish <darwish.07@gmail.com>
+> >
+> > Switch kmalloc to kzalloc and clean some redundant kmalloc
+> > casts.
+> >
+> > Signed-off-by: Ahmed S. Darwish <darwish.07@gmail.com>
+> > Signed-off-by: Li Yang <leoli@freescale.com>
+> > ---
 > 
-> Thank you 
 > 
-> Frank
-> 
-> [PATCH 1/5] s390: qeth driver fixes
-> 
-> From: Frank Blaschka <Frank.Blaschka@de.ibm.com>
-> From: Ursula Braun <braunu@de.ibm.com>
->         - VLAN header reordering did not work on packets
->           received through qeth interface in layer 2 mode.
->           This caused dhcpcd not to work with VLAN devices.
-> 	- set qeth performance statistics initally inactive
-> 
-> Signed-off-by: Frank Pavlic <fpavlic@de.ibm.com>
+> I should wait for Kumar to resend ucc_geth fixes before applying this,
+> right?
 
-applied patches 1-4 of 5.  patch #5 failed to apply, and also, it's not 
-really appropriate for the current release candidate bugfix window.
+Ok.  The patch is based on 2.6.20-rc3, but I think it can still apply.
+If not, please ping me.
 
-Also:
-
-1) Please include notes to me and reviewers following the "---" marker. 
-  Everything before the "---" is copied /verbatim/ into the kernel 
-changelog.  Everything after "---", except the patch itself, is ignored.
-
-I had to hand-edit each of your patches, to remove the "Hi , ... Frank" 
-paragraph and the "[PATCH 1/5] S390: ..." from the body of each email.
-
-2) Your subject line should be more descriptive.  The subject line is 
-used to generate a one-line summary.  You can see how your subject lines 
-are vague:
-
-	[PATCH] s390: qeth driver fixes
-	[PATCH] s390: qeth driver fixes
-	[PATCH] s390: qeth driver fixes
-
-Here, I had to hand-edit each email subject line to be more descriptive.
-
-3) In general, review Documentation/SubmittingPatches and 
-http://linux.yyz.us/patch-format.html
-
-	Jeff
-
-
+- Leo
