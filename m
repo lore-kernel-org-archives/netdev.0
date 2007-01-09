@@ -1,94 +1,45 @@
-From: Ingo Oeser <netdev@axxeo.de>
-Subject: Re: [PATCH 3/3] chelsio: more rx speedup
-Date: Tue, 9 Jan 2007 09:42:03 +0100
-Message-ID: <200701090942.04197.netdev@axxeo.de>
-References: <20061215190716.956791000@osdl.org> <20070108112524.730e89f0@dxpl.pdx.osdl.net> <20070108112612.5f947357@dxpl.pdx.osdl.net>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [git patches] net driver fixes
+Date: Tue, 09 Jan 2007 02:46:23 -0500
+Message-ID: <45A3484F.1030303@garzik.org>
+References: <989B956029373F45A0B8AF02970818900865B5@zch01exm26.fsl.freescale.net> <45A22DA8.2030308@garzik.org> <FBDB5150-A11D-44C7-9EF8-AE3BB6C92785@kernel.crashing.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
+Cc: Li Yang-r58472 <LeoLi@freescale.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.axxeo.de ([82.100.226.146]:59972 "EHLO mail.axxeo.de"
+Received: from srv5.dvmed.net ([207.36.208.214]:60987 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751134AbXAIImR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Jan 2007 03:42:17 -0500
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20070108112612.5f947357@dxpl.pdx.osdl.net>
-Content-Disposition: inline
+	id S1751156AbXAII7G (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Jan 2007 03:59:06 -0500
+To: Kumar Gala <galak@kernel.crashing.org>
+In-Reply-To: <FBDB5150-A11D-44C7-9EF8-AE3BB6C92785@kernel.crashing.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Stephen,
+Kumar Gala wrote:
+> 
+> On Jan 8, 2007, at 5:40 AM, Jeff Garzik wrote:
+> 
+>> Li Yang-r58472 wrote:
+>>> Hi Jeff,
+>>> Could you apply the updates for ucc_geth driver?
+>>> The patches from Timur that make the driver compile correctly on 2.6.20.
+>>> [PATCH] Fix phy_read/write redefinition errors in ucc_geth_phy.c
+>>> [PATCH] Update ucc_geth.c for new workqueue structure
+>>> The patch from Ahmed that cleans up some unnecessary casts.
+>>> [PATCH 2.6.20-rc3] UCC Ether driver: kmalloc casting cleanups
+>>
+>> I don't have any of these in my queue.
+> 
+> Here's links to the orig patches:
+> 
+> http://marc.theaimsgroup.com/?l=linux-netdev&m=116605401912152&w=2
+> http://marc.theaimsgroup.com/?l=linux-netdev&m=116605366909148&w=2
 
-Stephen Hemminger schrieb:
-> --- netdev-2.6.orig/drivers/net/chelsio/sge.c
-> +++ netdev-2.6/drivers/net/chelsio/sge.c
-[...]
-> @@ -1043,45 +1046,42 @@ static void recycle_fl_buf(struct freelQ
->   *	be copied but there is no memory for the copy.
->   */
->  static inline struct sk_buff *get_packet(struct pci_dev *pdev,
-> -					 struct freelQ *fl, unsigned int len,
-> -					 int dma_pad, int skb_pad,
-> -					 unsigned int copy_thres,
-> -					 unsigned int drop_thres)
-> +					 struct freelQ *fl, unsigned int len)
->  {
->  	struct sk_buff *skb;
-> -	struct freelQ_ce *ce = &fl->centries[fl->cidx];
-> +	const struct freelQ_ce *ce = &fl->centries[fl->cidx];
->  
-> -	if (len < copy_thres) {
-> -		skb = alloc_skb(len + skb_pad, GFP_ATOMIC);
-> -		if (likely(skb != NULL)) {
-> -			skb_reserve(skb, skb_pad);
-> -			skb_put(skb, len);
-> -			pci_dma_sync_single_for_cpu(pdev,
-> -					    pci_unmap_addr(ce, dma_addr),
-> -					    pci_unmap_len(ce, dma_len),
-> -					    PCI_DMA_FROMDEVICE);
-> -			memcpy(skb->data, ce->skb->data + dma_pad, len);
-> -			pci_dma_sync_single_for_device(pdev,
-> +	if (len < copybreak) {
-> +		skb = alloc_skb(len + 2, GFP_ATOMIC);
-> +		if (!skb)
-> +			goto use_orig_buf;
-> +
-> +		skb_reserve(skb, 2);	/* align IP header */
+Please resend...  git-am doesn't apply HTML patches unfortunately, nor URLs.
 
-Please use NET_IP_ALIGN here:
-
-+		skb = alloc_skb(len + NET_IP_ALIGN, GFP_ATOMIC);
-+		if (!skb)
-+			goto use_orig_buf;
-+
-+		skb_reserve(skb, NET_IP_ALIGN);
-
-> +		skb_put(skb, len);
-> +		pci_dma_sync_single_for_cpu(pdev,
->  					    pci_unmap_addr(ce, dma_addr),
->  					    pci_unmap_len(ce, dma_len),
->  					    PCI_DMA_FROMDEVICE);
-> -		} else if (!drop_thres)
-> -			goto use_orig_buf;
-> -
-> +		memcpy(skb->data, ce->skb->data, len);
-> +		pci_dma_sync_single_for_device(pdev,
-> +					       pci_unmap_addr(ce, dma_addr),
-> +					       pci_unmap_len(ce, dma_len),
-> +					       PCI_DMA_FROMDEVICE);
->  		recycle_fl_buf(fl, fl->cidx);
->  		return skb;
->  	}
->  
-> -	if (fl->credits < drop_thres) {
-> +use_orig_buf:
-> +	if (fl->credits < 2) {
-
-Why 2? What does this magic number mean?
+	Jeff
 
 
-Regards
 
-Ingo Oeser
