@@ -1,47 +1,40 @@
-From: Steve Wise <swise@opengridcomputing.com>
-Subject: Re: [PATCH 1/10] cxgb3 - main header files
-Date: Tue, 09 Jan 2007 08:46:53 -0600
-Message-ID: <1168354013.4628.14.camel@stevo-desktop>
-References: <20061220124125.6286.17148.stgit@localhost.localdomain>
-	 <45918CA4.3020601@garzik.org> <45A36C22.6010009@chelsio.com>
-	 <45A36E59.30500@garzik.org> <1168349908.4628.3.camel@stevo-desktop>
-	 <20070109135725.GF16107@mellanox.co.il>
+From: "Arnaldo Carvalho de Melo" <arnaldo.melo@gmail.com>
+Subject: Re: [PATCH] INET: fix incorrect "inet_sock->is_icsk" assignment
+Date: Tue, 9 Jan 2007 12:52:43 -0200
+Message-ID: <39e6f6c70701090652w2c42fc9eo7768c145ac16f745@mail.gmail.com>
+References: <20070108132548.GA2324@ff.dom.local>
+	 <200701080947.29270.paul.moore@hp.com>
+	 <20070109084322.GB1703@ff.dom.local>
+	 <200701090926.47206.paul.moore@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Roland Dreier <rdreier@cisco.com>, netdev@vger.kernel.org,
-	openib-general <openib-general@openib.org>,
-	linux-kernel@vger.kernel.org, Divy Le Ray <divy@chelsio.com>
+Cc: "Jarek Poplawski" <jarkao2@o2.pl>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rrcs-24-153-217-226.sw.biz.rr.com ([24.153.217.226]:37706 "EHLO
-	smtp.opengridcomputing.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751181AbXAIOqx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jan 2007 09:46:53 -0500
-To: "Michael S. Tsirkin" <mst@mellanox.co.il>
-In-Reply-To: <20070109135725.GF16107@mellanox.co.il>
+Received: from wr-out-0506.google.com ([64.233.184.226]:25296 "EHLO
+	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932119AbXAIOwo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jan 2007 09:52:44 -0500
+Received: by wr-out-0506.google.com with SMTP id 71so1455284wri
+        for <netdev@vger.kernel.org>; Tue, 09 Jan 2007 06:52:44 -0800 (PST)
+To: "Paul Moore" <paul.moore@hp.com>
+In-Reply-To: <200701090926.47206.paul.moore@hp.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2007-01-09 at 15:57 +0200, Michael S. Tsirkin wrote:
-> > We also need to decide on the ib_req_notify_cq() issue.  
-> 
-> Let's clarify - do you oppose doing copy_from_user from a fixed
-> address passed in during setup?
-> 
+On 1/9/07, Paul Moore <paul.moore@hp.com> wrote:
+> On Tuesday 09 January 2007 3:43 am, Jarek Poplawski wrote:
+> > ... But if you consider this code will probably become classical
+> > and will be read, quoted and teached next 1000 years, then the style
+> > could matter...
+>
+> This from the guy who believes "Justin Timberlake rocks!" ;)
+>
+> All right, you convinced me, I'll send out a patch to the patch later today.
 
-So far its been you and I arguing over this issue.  Before I go
-implement it and retest everything, I'd like some indication that anyone
-else thinks its the right thing to do vs adding the extra parameter to
-ib_req_notify_cq().
+/me grins
 
-> If OK with you, this seems the best way as it is the least controversial
-> and least disruptive one.
-> 
+I see I don't have to worry that much with style nitpicking, keep it up!
 
-In the interest of expediting this I'll go implement it...
-
-Steve.
-
-
-
-
+- Arnaldo
