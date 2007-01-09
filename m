@@ -1,131 +1,248 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: [PATCH -MM] e1000: rewrite hardware initialization code
-Date: Tue, 09 Jan 2007 09:36:29 -0800
-Message-ID: <45A3D29D.1000202@intel.com>
+From: "Thibaut VARENE" <T-Bone@parisc-linux.org>
+Subject: Re: kernel BUG in eth_alloc_tx_desc_index at drivers/net/mv643xx_eth.c:1069!
+Date: Tue, 9 Jan 2007 18:44:49 +0100
+Message-ID: <7d01f9f00701090944o62f39fb4yfaa5449c2d2d010d@mail.gmail.com>
+References: <7d01f9f00701051103q3ee6ed35q9fd0f778a18061b8@mail.gmail.com>
+	 <20070109092602.GC1703@ff.dom.local>
+	 <7d01f9f00701090227v60b37e5dy6afbf70ccde58bf2@mail.gmail.com>
+	 <20070109130220.GA4060@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>, NetDev <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Arjan van de Ven <arjan@linux.intel.com>
+Content-Type: multipart/mixed;
+	boundary="----=_Part_88024_24589567.1168364689522"
+Cc: netdev@vger.kernel.org, dale@farnsworth.org, mlachwani@mvista.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:19105 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932302AbXAIRgk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Jan 2007 12:36:40 -0500
-To: Andrew Morton <akpm@osdl.org>
+Received: from ug-out-1314.google.com ([66.249.92.173]:60162 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932294AbXAIRow (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jan 2007 12:44:52 -0500
+Received: by ug-out-1314.google.com with SMTP id 44so6634808uga
+        for <netdev@vger.kernel.org>; Tue, 09 Jan 2007 09:44:50 -0800 (PST)
+To: "Jarek Poplawski" <jarkao2@o2.pl>
+In-Reply-To: <20070109130220.GA4060@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+------=_Part_88024_24589567.1168364689522
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-Andrew, All,
+On 1/9/07, Jarek Poplawski <jarkao2@o2.pl> wrote:
+> On Tue, Jan 09, 2007 at 11:27:59AM +0100, Thibaut VARENE wrote:
+> ...
+> > I suspected both and changed both the disk and the ram for quality
+> > parts, that I tested afterwards. Both passed thorough tests.
+> >
+> > Finally, using the other NIC on the box (a VIA Rhine II, 100Mbps),
+> > works absolutely fine.
+>
+> If you are not tired, I'd suggest two more tests:
 
-This patch contains a major rewrite to the e1000 driver that groups and separates e1000 
-hardware by chipset family. It abstracts the hardware specific code into an API that 
-will allow us to continue to maintain the complex e1000 driver and add new hardware 
-support to it without touching code that affects older chipsets. It de-complexifies a 
-significant part of the e1000 driver.
+I volunteered to help :)
 
-This is the first and largest part of e1000 changes that have been long overdue. Thanks 
-to Jeb Cramer working on this, as well as our validation team, this code is getting 
-ready for general consumption. We hope to get started on adding a better way of handling 
-feature flags and workarounds to the complex e1000 driver quickly.
+For the sake of testing up-to-date code, I performed the following
+tests with 2.6.20-rc4.
 
-We're submitting this code to -mm for obvious reasons: we are still testing the code and 
-want the community feedback on this large change, while giving the linux community an 
-early chance to test and use the new driver before it goes mainstream.
+First test was the usual nfs video playback. Crashdump is
+panic-2.6.20-rc4-nfs.txt. Went down in about 20mn.
 
-The patch addresses the following issues:
+> - as above but with NIC set to 100Mbps also,
 
-* separates hardware-specific code by chipset family and provides a single API for all 
-chipsets (effectively a lib-e1000)
-* maintains a single driver for the user, no external changes
-* will allow the user in the future to select specific hardware support instead of all
+Couldn't crash the machine (or at least it didn't happen in the time
+frame I was willing to wait for doing ftp downloads, ~20mn). One note
+though:
 
-Some cosmetic changes were also made. This driver adds more header and code files to 
-separate the new parts of the code (chipsets, api, nvm, mac & phy layers). All 
-whitespace was changed to linux indentation and integer data types were converted to 
-{u,s}{8,16,32,64} types instead of uintNN_t types.
+The throughput of the card was terribly sucky when set in 100-FD: I
+couldn't get more than 5,5MB/s doing ftp get writing to /dev/null (to
+rule out disk perf), ie, half the max link speed, though the /only/
+thing I changed in the setup was the link speed (same switch - made
+sure it properly detected link speed/duplex, same file server, same
+everything else).
 
-The total size of the patch is 1.2mb plaintext, and too large to post to any of the 
-lists. I've provided several ways of receiving the patch:
+When configured in 1000-FD, still writing to /dev/null I could get
+about 60MB/s. Again half link speed, but there, I suppose that the
+remote fileserver couldn't pull data faster from the disks :)
 
-(1)
-     git-pull git://lost.foo-projects.org/~ahkok/git/linux-2.6 e1000
+> - long downloading but without nfs e.g. ftp
 
-The patch here applies against 2.6.20-rc3-mm1.
+That was fast and easy. In 1000-FD, I took down the box in 2s (after
+downloading 90MB). Crashdump is panic-2.6.20-rc4-ftp.txt
 
-(2)
-     http://foo-projects.org/~sofar/e1000_hw_init_layer_rewrite.patch     (1.2mb)
-or
-     http://foo-projects.org/~sofar/e1000_hw_init_layer_rewrite.patch.bz2  (162k)
+> (btw. there were some patches after 2.6.19
+> for rpc memory races).
 
+It seems that's something else. I think I also reproduced the bug
+while surfing the internet with firefox, but I didn't have serial line
+hooked to capture a dump, unfortunately.
 
-I'll gladly e-mail the patch to anyone who wishes to receive it by e-mail.
+> PS: Maintainers were cc-ed, I hope?
 
-Andrew, please pull from our git tree listed above to receive the patch. I expect in the 
-coming few weeks to provide updates to this patch as issues that come up are resolved.
+Now they are :)
 
-Cheers,
+HTH
 
-Auke
+T-Bone
 
+-- 
+Thibaut VARENE
+http://www.parisc-linux.org/~varenet/
 
+------=_Part_88024_24589567.1168364689522
+Content-Type: text/plain; name=panic-2.6.20-rc4-ftp.txt;
+	charset=ANSI_X3.4-1968
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_27bhd7
+Content-Disposition: attachment; filename="panic-2.6.20-rc4-ftp.txt"
 
----
-e1000: rewrite of HW code library
+RGViaWFuIEdOVS9MaW51eCA0LjAgQWx1Y2FyZCB0dHlTMCAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKQWx1Y2FyZCBs
+b2dpbjogLS0tLS0tLS0tLS0tWyBjdXQgaGVyZSBdLS0tLS0tLS0tLS0tICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAKa2VybmVsIEJVRyBhdCBkcml2ZXJzL25ldC9tdjY0M3h4X2V0aC5jOjEw
+NzEhICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKT29wczogRXhjZXB0aW9uIGlu
+IGtlcm5lbCBtb2RlLCBzaWc6IDUgWyMxXSAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAKUFJFRU1QVCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKTW9kdWxlcyBsaW5rZWQgaW46IGVlcHJvbSBz
+YnAyIHNjc2lfbW9kIGV0aDEzOTQgdWhjaV9oY2Qgb2hjaTEzOTQgcGFycG9ydF9wYyBwYWUKTklQ
+OiBDMDIxMEI0MCBMUjogQzAyMTI2REMgQ1RSOiBDMDIxMjYyMCAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAKUkVHUzogZGEyNDdhYzAgVFJBUDogMDcwMCAgIE5vdCB0YWlu
+dGVkICAoMi42LjIwLXJjNCkgICAgICAgICAgICAgICAgICAgICAgICAgICAKTVNSOiAwMDAyMTAz
+MiA8TUUsSVIsRFI+ICBDUjogMjgyMjI0ODggIFhFUjogMDAwMDAwMDAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAKVEFTSyA9IGRiODJhMDUwWzE3ODBdICduY2Z0cCcgVEhSRUFEOiBkYTI0NjAw
+MCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKR1BSMDA6IDAwMDAwMDAwIERBMjQ3
+QjcwIERCODJBMDUwIENGQjE0MjYwIENGQjE0MDAwIDAwMDAwMDBCIERFRDVGRDcyIDAwMDAwMDAw
+ICAKR1BSMDg6IDAwMDAwODE5IDAwMDAwMDAxIDAwMDAxMDAwIDAwMDAwODFBIDQ4MjIyNDIyIDEw
+MDU2Q0QwIDI4MDA0NDIyIEMwM0Q5QkY4ICAKR1BSMTY6IDAwMDAwMDAwIDAwMDAwMDAwIDAwMDAw
+MDAwIERBMjQ2MDAwIDAwMDAwMDAxIENGQjE0MkJDIDAwMDA5MDMyIDAwMDAwMDAwICAKR1BSMjQ6
+IDAwMDAwMDAwIDAwMDAwMDAwIEMwM0UwMDAwIENGQjE0MDAwIEMwMjEyNjIwIERFREZEMTYwIENG
+QjE0MjYwIERFRDVGRDQwICAKTklQIFtDMDIxMEI0MF0gZXRoX2FsbG9jX3R4X2Rlc2NfaW5kZXgr
+MHg0NC8weDUwICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKTFIgW0MwMjEyNkRDXSBt
+djY0M3h4X2V0aF9zdGFydF94bWl0KzB4YmMvMHgzYjggICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAKQ2FsbCBUcmFjZTogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKW0RBMjQ3QjcwXSBbREVENUZENzBdIDB4
+ZGVkNWZkNzAgKHVucmVsaWFibGUpICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAK
+W0RBMjQ3QkIwXSBbQzAyOUYyNThdIGRldl9oYXJkX3N0YXJ0X3htaXQrMHgxZDQvMHgyYzggICAg
+ICAgICAgICAgICAgICAgICAgICAgICAKW0RBMjQ3QkQwXSBbQzAyQTFCRjRdIGRldl9xdWV1ZV94
+bWl0KzB4MmJjLzB4MzM0ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKW0RBMjQ3QkYw
+XSBbQzAyQkM4QThdIGlwX291dHB1dCsweDEyMC8weDI0NCAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAKW0RBMjQ3QzEwXSBbQzAyQkQ4RENdIGlwX3F1ZXVlX3htaXQrMHgxN2Mv
+MHg0MDggICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKW0RBMjQ3QzgwXSBbQzAyQ0VC
+MUNdIHRjcF90cmFuc21pdF9za2IrMHgzNTgvMHg3YmMgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAKW0RBMjQ3Q0MwXSBbQzAyQ0JGODBdIF9fdGNwX2Fja19zbmRfY2hlY2srMHg2NC8weGJj
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKW0RBMjQ3Q0QwXSBbQzAyQ0RBOTRdIHRjcF9y
+Y3ZfZXN0YWJsaXNoZWQrMHg1ZDQvMHg5ODAgICAgICAgICAgICAgICAgICAgICAgICAgICAKW0RB
+MjQ3RDAwXSBbQzAyRDQ3NjRdIHRjcF92NF9kb19yY3YrMHhlMC8weDNjMCAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAKW0RBMjQ3RDMwXSBbQzAyOTRCNThdIHJlbGVhc2Vfc29jaysw
+eDdjLzB4ZjQgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKW0RBMjQ3RDUwXSBb
+QzAyQzVDMUNdIHRjcF9yZWN2bXNnKzB4NGM4LzB4YmNjICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAKW0RBMjQ3REIwXSBbQzAyOTQ0OTBdIHNvY2tfY29tbW9uX3JlY3Ztc2crMHgz
+Yy8weDYwICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKW0RBMjQ3REQwXSBbQzAyOTIwRTRd
+IHNvY2tfYWlvX3JlYWQrMHgxMGMvMHgxMTQgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAKW0RBMjQ3RTMwXSBbQzAwNkYyMTBdIGRvX3N5bmNfcmVhZCsweGM0LzB4MTM4ICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAKW0RBMjQ3RUYwXSBbQzAwNkZFQ0NdIHZmc19yZWFk
+KzB4MTljLzB4MWE0ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKW0RBMjQ3
+RjEwXSBbQzAwNzAyRTRdIHN5c19yZWFkKzB4NGMvMHg5MCAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAKW0RBMjQ3RjQwXSBbQzAwMTIyRUNdIHJldF9mcm9tX3N5c2NhbGwr
+MHgwLzB4MzggICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKLS0tIEV4Y2VwdGlvbjog
+YzAxIGF0IDB4ZmY1YmE5OCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAKICAgIExSID0gMHgxMDAzMmZjMCAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKSW5zdHJ1Y3Rpb24gZHVtcDogICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAK
+NTQwMGZmZmUgMGYwMDAwMDAgODEwMzAwMjAgODEyMzAwMjQgMzk2ODAwMDEgN2MwYjUzZDYgN2Mw
+MDUxZDYgN2Q2MDU4NTAgICAgICAgICAKN2Q2OTRhNzggOTE2MzAwMjAgN2QyOTAwMzQgNTUyOWQ5
+N2UgPDBmMDkwMDAwPiA3ZDAzNDM3OCA0ZTgwMDAyMCAyZjg0MDAwMSAgICAgICAKIDwwPktlcm5l
+bCBwYW5pYyAtIG5vdCBzeW5jaW5nOiBGYXRhbCBleGNlcHRpb24gaW4gaW50ZXJydXB0ICAgICAg
+ICAgICAgICAgICAgICAKIDwwPlJlYm9vdGluZyBpbiAxODAgc2Vjb25kcy4uPDQ+YXRrYmQuYzog
+U3B1cmlvdXMgQUNLIG9uIGlzYTAwNjAvc2VyaW8wLiBTb21lIC4KYXRrYmQuYzogU3B1cmlvdXMg
+QUNLIG9uIGlzYTAwNjAvc2VyaW8wLiBTb21lIHByb2dyYW0gbWlnaHQgYmUgdHJ5aW5nIGFjY2Vz
+cyBoYS4KYXRrYmQuYzogU3B1cmlvdXMgQUNLIG9uIGlzYTAwNjAvc2VyaW8wLiBTb21lIHByb2dy
+YW0gbWlnaHQgYmUgdHJ5aW5nIGFjY2VzcyBoYS4KYXRrYmQuYzogU3B1cmlvdXMgQUNLIG9uIGlz
+YTAwNjAvc2VyaW8wLiBTb21lIHByb2dyYW0gbWlnaHQgYmUgdHJ5aW5nIGFjY2VzcyBoYS4KYXRr
+YmQuYzogU3B1cmlvdXMgQUNLIG9uIGlzYTAwNjAvc2VyaW8wLiBTb21lIHByb2dyYW0gbWlnaHQg
+YmUgdHJ5aW5nIGFjY2VzcyBoYS4K
+------=_Part_88024_24589567.1168364689522
+Content-Type: text/plain; name="panic-2.6.20-rc4-nfs.txt"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="panic-2.6.20-rc4-nfs.txt"
+X-Attachment-Id: f_27hrqc
 
-From: Jeb Cramer <cramerj@intel.com>
-
-This rewrite of the hardware initialization code splits up the driver
-low-level initialization code per chipset family. Several families exist
-with different initialization code per chipset, revision, and this allows
-us later to select only enable certain devices in the driver. The current
-code enables all previous drivers and thus doesn't change anything to the
-user, but is radically different internally.
-
-Mac and phy layers are also split, and everything is grouped in an API
-layer that the driver uses to interface the hardware.
-
-Support was added for a PCI-e 4-port Fibre version of the PRO/1000 PT quad
-port adapter (device 0x10a5). MTU changes on a downed interface require
-a phy commit to enact the new size immediately.
-
-Signed-off-by: Jeb Cramer <cramerj@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
----
-
-  drivers/net/e1000/Makefile            |   19
-  drivers/net/e1000/e1000.h             |   95
-  drivers/net/e1000/e1000_80003es2lan.c | 1330 +++++
-  drivers/net/e1000/e1000_80003es2lan.h |   89
-  drivers/net/e1000/e1000_82540.c       |  586 ++
-  drivers/net/e1000/e1000_82541.c       | 1164 ++++
-  drivers/net/e1000/e1000_82541.h       |   86
-  drivers/net/e1000/e1000_82542.c       |  466 ++
-  drivers/net/e1000/e1000_82543.c       | 1397 +++++
-  drivers/net/e1000/e1000_82543.h       |   45
-  drivers/net/e1000/e1000_82571.c       | 1132 ++++
-  drivers/net/e1000/e1000_82571.h       |   42
-  drivers/net/e1000/e1000_api.c         | 1077 ++++
-  drivers/net/e1000/e1000_api.h         |  159 +
-  drivers/net/e1000/e1000_defines.h     | 1289 +++++
-  drivers/net/e1000/e1000_ethtool.c     |  470 +-
-  drivers/net/e1000/e1000_hw.c          | 9038 ---------------------------------
-  drivers/net/e1000/e1000_hw.h          | 3859 ++------------
-  drivers/net/e1000/e1000_ich8lan.c     | 2353 +++++++++
-  drivers/net/e1000/e1000_ich8lan.h     |  108
-  drivers/net/e1000/e1000_mac.c         | 1921 +++++++
-  drivers/net/e1000/e1000_mac.h         |   84
-  drivers/net/e1000/e1000_main.c        | 1002 ++--
-  drivers/net/e1000/e1000_manage.c      |  387 +
-  drivers/net/e1000/e1000_manage.h      |   83
-  drivers/net/e1000/e1000_nvm.c         |  860 +++
-  drivers/net/e1000/e1000_nvm.h         |   61
-  drivers/net/e1000/e1000_osdep.h       |   56
-  drivers/net/e1000/e1000_param.c       |  115
-  drivers/net/e1000/e1000_phy.c         | 1932 +++++++
-  drivers/net/e1000/e1000_phy.h         |  157 +
-  drivers/net/e1000/e1000_regs.h        |  236 +
-  32 files changed, 18538 insertions(+), 13160 deletions(-)
+RGViaWFuIEdOVS9MaW51eCA0LjAgQWx1Y2FyZCB0dHlTMCAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKQWx1Y2FyZCBs
+b2dpbjogW2RybV0gU2V0dGluZyBHQVJUIGxvY2F0aW9uIGJhc2VkIG9uIG5ldyBtZW1vcnkgbWFw
+ICAgICAgICAgICAgICAKW2RybV0gTG9hZGluZyBSMjAwIE1pY3JvY29kZSAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKW2RybV0gd3JpdGViYWNrIHRl
+c3Qgc3VjY2VlZGVkIGluIDEgdXNlY3MgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAKLS0tLS0tLS0tLS0tWyBjdXQgaGVyZSBdLS0tLS0tLS0tLS0tICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKa2VybmVsIEJVRyBhdCBkcml2ZXJzL25ldC9t
+djY0M3h4X2V0aC5jOjEwNzEhICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKT29w
+czogRXhjZXB0aW9uIGluIGtlcm5lbCBtb2RlLCBzaWc6IDUgWyMxXSAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAKUFJFRU1QVCAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKTW9kdWxlcyBsaW5r
+ZWQgaW46IG5mcyBsb2NrZCBzdW5ycGMgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAKTklQOiBDMDIxMEI0MCBMUjogQzAyMTI2REMgQ1RSOiBDMDIxMjYyMCAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKUkVHUzogZDg5NjFhYTAgVFJBUDog
+MDcwMCAgIE5vdCB0YWludGVkICAoMi42LjIwLXJjNCkgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAKTVNSOiAwMDAyMTAzMiA8TUUsSVIsRFI+ICBDUjogMjQwMjIwODggIFhFUjogMDAwMDAwMDAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAKVEFTSyA9IGRmZmQ5MWUwWzM4NzldICdycGNpb2Qv
+MCcgVEhSRUFEOiBkODk2MDAwMCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKR1BSMDA6
+IDAwMDAwMDAwIEQ4OTYxQjUwIERGRkQ5MUUwIENGQjFFMjYwIENGQjFFMDAwIDAwMDAwMDBCIERF
+Q0E5MUIyIDAwMDAwMDAwICAKR1BSMDg6IDAwMDAwQjZBIDAwMDAwMDAxIDAwMDAxMDAwIDAwMDAw
+QjZCIDQ0MDIyMDIyIEZGRjA0NUI0IDAwOUI1MkI0IDAxN0ZGQTdDICAKR1BSMTY6IDAwOUI1MkFD
+IDAxN0ZGQTgwIDAwOUI0RTY4IEQ4OTYwMDAwIEMwM0IwMDAwIENGQjFFMkJDIDAwMDA5MDMyIDAw
+MDAwMDAwICAKR1BSMjQ6IDAwMDAwMDAwIDAwMDAwMDAwIEMwM0UwMDAwIENGQjFFMDAwIEMwMjEy
+NjIwIERGMDAzM0EwIENGQjFFMjYwIERFQ0E5MTgwICAKTklQIFtDMDIxMEI0MF0gZXRoX2FsbG9j
+X3R4X2Rlc2NfaW5kZXgrMHg0NC8weDUwICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAK
+TFIgW0MwMjEyNkRDXSBtdjY0M3h4X2V0aF9zdGFydF94bWl0KzB4YmMvMHgzYjggICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAKQ2FsbCBUcmFjZTogICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKW0Q4OTYxQjUw
+XSBbREVDQTkxQjBdIDB4ZGVjYTkxYjAgKHVucmVsaWFibGUpICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAKW0Q4OTYxQjkwXSBbQzAyOUYyNThdIGRldl9oYXJkX3N0YXJ0X3htaXQr
+MHgxZDQvMHgyYzggICAgICAgICAgICAgICAgICAgICAgICAgICAKW0Q4OTYxQkIwXSBbQzAyQTFC
+RjRdIGRldl9xdWV1ZV94bWl0KzB4MmJjLzB4MzM0ICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAKW0Q4OTYxQkQwXSBbQzAyQkM4QThdIGlwX291dHB1dCsweDEyMC8weDI0NCAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKW0Q4OTYxQkYwXSBbQzAyQkQ4RENdIGlwX3F1
+ZXVlX3htaXQrMHgxN2MvMHg0MDggICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKW0Q4
+OTYxQzYwXSBbQzAyQ0VCMUNdIHRjcF90cmFuc21pdF9za2IrMHgzNTgvMHg3YmMgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAKW0Q4OTYxQ0EwXSBbQzAyQ0JGODBdIF9fdGNwX2Fja19zbmRf
+Y2hlY2srMHg2NC8weGJjICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKW0Q4OTYxQ0IwXSBb
+QzAyQ0RBOTRdIHRjcF9yY3ZfZXN0YWJsaXNoZWQrMHg1ZDQvMHg5ODAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAKW0Q4OTYxQ0UwXSBbQzAyRDQ3NjRdIHRjcF92NF9kb19yY3YrMHhlMC8weDNj
+MCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKW0Q4OTYxRDEwXSBbQzAyRDZGMkNd
+IHRjcF92NF9yY3YrMHg3NjAvMHg5NDAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAKW0Q4OTYxRDQwXSBbQzAyQjgwNUNdIGlwX2xvY2FsX2RlbGl2ZXIrMHhlNC8weDFhNCAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAKW0Q4OTYxRDYwXSBbQzAyQjg1MThdIGlwX3Jjdisw
+eDI4OC8weDQ2YyAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKW0Q4OTYx
+RDkwXSBbQzAyOUVFNENdIG5ldGlmX3JlY2VpdmVfc2tiKzB4MjE0LzB4MzA0ICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAKW0Q4OTYxREMwXSBbQzAyMTM3NDRdIG12NjQzeHhfcG9sbCsweDQx
+Yy8weDQ4YyAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKW0Q4OTYxRTEwXSBbQzAy
+QTEwNjRdIG5ldF9yeF9hY3Rpb24rMHg5OC8weDIwMCAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAKW0Q4OTYxRTQwXSBbQzAwMjZENDhdIF9fZG9fc29mdGlycSsweDgwLzB4ZjQgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKW0Q4OTYxRTcwXSBbQzAwMDY4RjRdIGRv
+X3NvZnRpcnErMHg1OC8weDVjICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAK
+W0Q4OTYxRTgwXSBbQzAwMjY3RkNdIGlycV9leGl0KzB4NjAvMHg4MCAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAKW0Q4OTYxRTkwXSBbQzAwMDY5QTBdIGRvX0lSUSsweGE4
+LzB4YzggICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKW0Q4OTYxRUEw
+XSBbQzAwMTI5OTRdIHJldF9mcm9tX2V4Y2VwdCsweDAvMHgxNCAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAKLS0tIEV4Y2VwdGlvbjogNTAxIGF0IGFkZF93YWl0X3F1ZXVlKzB4NTAv
+MHg4NCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgIExSID0gd29ya2VyX3Ro
+cmVhZCsweDEwMC8weDE1NCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAKW0Q4OTYxRjYwXSBbRDk4OENFMjhdIDB4ZDk4OGNlMjggKHVucmVsaWFibGUpICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKW0Q4OTYxRjcwXSBbQzAwMzVBQjRdIHdvcmtl
+cl90aHJlYWQrMHgxMDAvMHgxNTQgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKW0Q4
+OTYxRkMwXSBbQzAwMzlCNENdIGt0aHJlYWQrMHhjMC8weGZjICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAKW0Q4OTYxRkYwXSBbQzAwMTMxQzRdIGtlcm5lbF90aHJlYWQr
+MHg0NC8weDYwICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKSW5zdHJ1Y3Rpb24g
+ZHVtcDogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAKNTQwMGZmZmUgMGYwMDAwMDAgODEwMzAwMjAgODEyMzAwMjQgMzk2ODAwMDEg
+N2MwYjUzZDYgN2MwMDUxZDYgN2Q2MDU4NTAgICAgICAgICAKN2Q2OTRhNzggOTE2MzAwMjAgN2Qy
+OTAwMzQgNTUyOWQ5N2UgPDBmMDkwMDAwPiA3ZDAzNDM3OCA0ZTgwMDAyMCAyZjg0MDAwMSAgICAg
+ICAKIDwwPktlcm5lbCBwYW5pYyAtIG5vdCBzeW5jaW5nOiBGYXRhbCBleGNlcHRpb24gaW4gaW50
+ZXJydXB0ICAgICAgICAgICAgICAgICAgICAKIDwwPlJlYm9vdGluZyBpbiAxODAgc2Vjb25kcy4u
+PDQ+YXRrYmQuYzogU3B1cmlvdXMgQUNLIG9uIGlzYTAwNjAvc2VyaW8wLiBTb21lIC4KYXRrYmQu
+YzogU3B1cmlvdXMgQUNLIG9uIGlzYTAwNjAvc2VyaW8wLiBTb21lIHByb2dyYW0gbWlnaHQgYmUg
+dHJ5aW5nIGFjY2VzcyBoYS4KYXRrYmQuYzogU3B1cmlvdXMgQUNLIG9uIGlzYTAwNjAvc2VyaW8w
+LiBTb21lIHByb2dyYW0gbWlnaHQgYmUgdHJ5aW5nIGFjY2VzcyBoYS4KYXRrYmQuYzogU3B1cmlv
+dXMgQUNLIG9uIGlzYTAwNjAvc2VyaW8wLiBTb21lIHByb2dyYW0gbWlnaHQgYmUgdHJ5aW5nIGFj
+Y2VzcyBoYS4K
+------=_Part_88024_24589567.1168364689522--
