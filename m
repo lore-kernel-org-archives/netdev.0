@@ -1,82 +1,61 @@
-From: timur@freescale.com
-Subject: [PATCH] Update ucc_geth.c for new workqueue structure
-Date: Tue,  9 Jan 2007 12:31:38 -0600
-Message-ID: <11683674984043-git-send-email-timur@freescale.com>
-Cc: Timur Tabi <timur@freescale.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from de01egw02.freescale.net ([192.88.165.103]:32833 "EHLO
-	de01egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932244AbXAISbl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jan 2007 13:31:41 -0500
-Received: from de01smr01.freescale.net (de01smr01.freescale.net [10.208.0.31])
-	by de01egw02.freescale.net (8.12.11/de01egw02) with ESMTP id l09IVest008086
-	for <netdev@vger.kernel.org>; Tue, 9 Jan 2007 11:31:40 -0700 (MST)
-To: netdev@vger.kernel.org
-Sender: netdev-owner@vger.kernel.org
+From: "Caitlin Bestler" <caitlinb@broadcom.com>
+Subject: Re: [PATCH 1/10] cxgb3 - main header files
+Date: Tue, 9 Jan 2007 10:29:12 -0800
+Message-ID: <54AD0F12E08D1541B826BE97C98F99F1EE6B67@NT-SJCA-0751.brcm.ad.broadcom.com>
+References: <20070109135725.GF16107@mellanox.co.il>
+Mime-Version: 1.0
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	"Roland Dreier" <rdreier@cisco.com>,
+	"openib-general" <openib-general@openib.org>,
+	linux-kernel@vger.kernel.org,
+	"Divy Le Ray" <divy@chelsio.com>
+Return-path: <openib-general-bounces@openib.org>
+Content-class: urn:content-classes:message
+In-Reply-To: <20070109135725.GF16107@mellanox.co.il>
+To: "Michael S. Tsirkin" <mst@mellanox.co.il>,
+	"Steve Wise" <swise@opengridcomputing.com>
+List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
+ <mailto:openib-general-request@openib.org?subject=unsubscribe>
+List-Archive: <http://openib.org/pipermail/openib-general>
+List-Post: <mailto:openib-general@openib.org>
+List-Help: <mailto:openib-general-request@openib.org?subject=help>
+List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
+ <mailto:openib-general-request@openib.org?subject=subscribe>
+Sender: openib-general-bounces@openib.org
+Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-From: Timur Tabi <timur@freescale.com>
-
-The workqueue interface changed with David Howell's patch on 11/22/2006
-(SHA 65f27f38446e1976cc98fd3004b110fedcddd189).  Several drivers were
-updated with that patch to handle the new interface, but ucc_geth.c
-was not one of them.  This patch updates ucc_geth.c to support the new
-model.
-
-A compiler warning in set_mac_addr() was also fixed.
-
-Signed-off-by: Timur Tabi <timur@freescale.com>
-Signed-off-by: Kumar Gala <galak@kernel.crashing.org>
-
----
- drivers/net/ucc_geth.c |   12 +++++++-----
- 1 files changed, 7 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
-index 1f05511..d33bb0c 100644
---- a/drivers/net/ucc_geth.c
-+++ b/drivers/net/ucc_geth.c
-@@ -29,6 +29,7 @@
- #include <linux/fsl_devices.h>
- #include <linux/ethtool.h>
- #include <linux/mii.h>
-+#include <linux/workqueue.h>
  
- #include <asm/of_platform.h>
- #include <asm/uaccess.h>
-@@ -472,7 +473,7 @@ static void put_enet_addr_container(stru
- 	kfree(enet_addr_cont);
- }
- 
--static int set_mac_addr(__be16 __iomem *reg, u8 *mac)
-+static void set_mac_addr(__be16 __iomem *reg, u8 *mac)
- {
- 	out_be16(&reg[0], ((u16)mac[5] << 8) | mac[4]);
- 	out_be16(&reg[1], ((u16)mac[3] << 8) | mac[2]);
-@@ -3918,10 +3919,11 @@ static irqreturn_t phy_interrupt(int irq
- }
- 
- /* Scheduled by the phy_interrupt/timer to handle PHY changes */
--static void ugeth_phy_change(void *data)
-+static void ugeth_phy_change(struct work_struct *work)
- {
--	struct net_device *dev = (struct net_device *)data;
--	struct ucc_geth_private *ugeth = netdev_priv(dev);
-+	struct ucc_geth_private *ugeth =
-+		container_of(work, struct ucc_geth_private, tq);
-+	struct net_device *dev = ugeth->dev;
- 	struct ucc_geth *ug_regs;
- 	int result = 0;
- 
-@@ -4078,7 +4080,7 @@ static int ucc_geth_open(struct net_devi
- #endif				/* CONFIG_UGETH_NAPI */
- 
- 	/* Set up the PHY change work queue */
--	INIT_WORK(&ugeth->tq, ugeth_phy_change, dev);
-+	INIT_WORK(&ugeth->tq, ugeth_phy_change);
- 
- 	init_timer(&ugeth->phy_info_timer);
- 	ugeth->phy_info_timer.function = &ugeth_phy_startup_timer;
--- 
-1.4.4
 
+> -----Original Message-----
+> From: openib-general-bounces@openib.org 
+> [mailto:openib-general-bounces@openib.org] On Behalf Of 
+> Michael S. Tsirkin
+> Sent: Tuesday, January 09, 2007 5:57 AM
+> To: Steve Wise
+> Cc: netdev@vger.kernel.org; Roland Dreier; Divy Le Ray; 
+> linux-kernel@vger.kernel.org; openib-general
+> Subject: Re: [openib-general] [PATCH 1/10] cxgb3 - main header files
+> 
+> > We also need to decide on the ib_req_notify_cq() issue.  
+> 
+> Let's clarify - do you oppose doing copy_from_user from a 
+> fixed address passed in during setup?
+> 
+> If OK with you, this seems the best way as it is the least 
+> controversial and least disruptive one.
+> 
+To clarfiy my understanding of this issue:
+
+A device MAY implement ib_req_notify_cq by updating
+a location directly from user mode. Any of the techniques
+that apply to other user allocated objects, such as 
+the Send Queue, can be applied here.
+
+Even those the proposed changes would be about as
+low impact and benign as possible, the fact that there
+are valid solutions without an API changes leans heavily
+towards using those solutions.
