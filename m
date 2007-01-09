@@ -1,48 +1,33 @@
-From: rbj2@njit.edu
-Subject: RED + ECN not working
-Date: Tue, 09 Jan 2007 11:08:04 -0500 (EST)
-Message-ID: <1168358884.45a3bde4a14b9@webmail.njit.edu>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [PATCH 1/10] cxgb3 - main header files
+Date: Tue, 09 Jan 2007 08:28:59 -0800
+Message-ID: <adamz4scgfo.fsf@cisco.com>
+References: <20061220124125.6286.17148.stgit@localhost.localdomain>
+	<45918CA4.3020601@garzik.org> <45A36C22.6010009@chelsio.com>
+	<45A36E59.30500@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: rbj2@njit.edu
+Content-Type: text/plain; charset=us-ascii
+Cc: Divy Le Ray <divy@chelsio.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, swise@opengridcomputing.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw4.njit.edu ([128.235.251.32]:42211 "EHLO
-	mail-gw4.njit.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932176AbXAIQIL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jan 2007 11:08:11 -0500
-To: netdev@vger.kernel.org
+Received: from sj-iport-1-in.cisco.com ([171.71.176.70]:4641 "EHLO
+	sj-iport-1.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932208AbXAIQ3O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jan 2007 11:29:14 -0500
+To: Jeff Garzik <jeff@garzik.org>
+In-Reply-To: <45A36E59.30500@garzik.org> (Jeff Garzik's message of "Tue, 09 Jan 2007 05:28:41 -0500")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+ > > You can grab the monolithic patch at this URL:
+ > > http://service.chelsio.com/kernel.org/cxgb3.patch.bz2
+ > 
+ > this is in my queue, thanks.  Sorry I didn't indicate that earlier.
 
-I have been trying to get the RED qdisc and ECN to work for the past few weeks
-and all my experiments have failed. Here is the setup I am using. 
+When do you plan to merge it?  For 2.6.20 or .21?
 
-Src -- R1 -- R2 -- Dst
-
-Between Src and R1 is a 100Mbps link and between R1 and R2 a 10Mbps link. I set up
-the qdisc at R1 as follows
-
-tc qdisc add dev eth3 root handle 1: prio
-tc qdisc add dev eth3 parent 1:1 handle 10: sfq
-tc qdisc add dev eth3 parent 1:2 handle 20: sfq
-tc qdisc add dev eth3 parent 1:3 handle 30: red limit 10000 min 3000 max 5000
-avpkt 1000 burst 5 probability 0.5 bandwidth 256kbit ecn
-
-I also inserted printk statments inside the code to print the calculate queue average (RED param), the 
-backlog (Qdisc param) and the queue length (sk_buff_head param). I also inserted print statements for 
-each action of RED i.e. DONT_MARK, PROB_MARK, HARD_MARK and DROP.
-
-For the purpose of my experiments, I transferred a 25 MB file. I also did 100 simultaneous TCP 
-transfers for 2 mins using ipref. In all cases none of the packets were either marked or dropped by the 
-RED code. This was verified by the print statements in the logs. For all runs, qavg and backlog were 0 
-and qlen was 1. 
-
-I have even tried classless red and got same results. Does anyone know whether RED+ECN work ? Any 
-tests and setups that someone has used and got successful results ? I would really appreciate any input 
-or suggestions on this.
+I'm trying to understand when the RDMA stuff that depends on the
+ethernet driver can be merged.
 
 Thanks,
-Rahul.
+  Roland
