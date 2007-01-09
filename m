@@ -1,34 +1,35 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
+From: Krzysztof Halasa <khc@pm.waw.pl>
 Subject: Re: [PATCH -MM] e1000: rewrite hardware initialization code
-Date: Tue, 09 Jan 2007 11:10:55 -0800
-Message-ID: <45A3E8BF.8080401@intel.com>
-References: <45A3D29D.1000202@intel.com> <20070109104525.b0f17316.akpm@osdl.org>
+Date: Tue, 09 Jan 2007 20:16:27 +0100
+Message-ID: <m3fyakau44.fsf@defiant.localdomain>
+References: <45A3D29D.1000202@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Auke Kok <auke-jan.h.kok@intel.com>,
-	Jeff Garzik <jgarzik@pobox.com>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@osdl.org>, Jeff Garzik <jgarzik@pobox.com>,
 	NetDev <netdev@vger.kernel.org>,
 	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
 	Arjan van de Ven <arjan@linux.intel.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750896AbXAITLN@vger.kernel.org>
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20070109104525.b0f17316.akpm@osdl.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750846AbXAITQa@vger.kernel.org>
+To: Auke Kok <auke-jan.h.kok@intel.com>
+In-Reply-To: <45A3D29D.1000202@intel.com> (Auke Kok's message of "Tue, 09 Jan 2007 09:36:29 -0800")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andrew Morton wrote:
-> On Tue, 09 Jan 2007 09:36:29 -0800
-> Auke Kok <auke-jan.h.kok@intel.com> wrote:
-> 
->>      git-pull git://lost.foo-projects.org/~ahkok/git/linux-2.6 e1000
-> 
-> That tree appears to be based on the -mm git tree?
-> 
-> That's a somewhat unusual thing to do - a tree which is based on current
-> Linus mainline would be preferred, please.  Or on Jeff's netdev tree.
+Auke Kok <auke-jan.h.kok@intel.com> writes:
 
-those are not in sync atm, but I'll get you one against Jeff's upstream tree, that'll 
-take a minute, or five.
+>  drivers/net/e1000/Makefile            |   19
+>  drivers/net/e1000/e1000.h             |   95
+>  drivers/net/e1000/e1000_80003es2lan.c | 1330 +++++
+>  drivers/net/e1000/e1000_80003es2lan.h |   89
+>  drivers/net/e1000/e1000_82540.c       |  586 ++
+>  drivers/net/e1000/e1000_82541.c       | 1164 ++++
+>  drivers/net/e1000/e1000_82541.h       |   86
+>  drivers/net/e1000/e1000_82542.c       |  466 ++
+>  drivers/net/e1000/e1000_82543.c       | 1397 +++++
+>  drivers/net/e1000/e1000_82543.h       |   45
+>  drivers/net/e1000/e1000_82571.c       | 1132 ++++
+>  drivers/net/e1000/e1000_82571.h       |   42
 
-Auke
+Perhaps the "e1000_" prefix could be dropped as redundant?
+-- 
+Krzysztof Halasa
