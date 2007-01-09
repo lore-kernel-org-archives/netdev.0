@@ -1,35 +1,49 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
+From: Randy Dunlap <randy.dunlap@oracle.com>
 Subject: Re: [PATCH -MM] e1000: rewrite hardware initialization code
-Date: Tue, 09 Jan 2007 20:16:27 +0100
-Message-ID: <m3fyakau44.fsf@defiant.localdomain>
+Date: Tue, 9 Jan 2007 11:24:16 -0800
+Message-ID: <20070109112416.266efb84.randy.dunlap@oracle.com>
 References: <45A3D29D.1000202@intel.com>
+	<m3fyakau44.fsf@defiant.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@osdl.org>, Jeff Garzik <jgarzik@pobox.com>,
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Auke Kok <auke-jan.h.kok@intel.com>, Andrew Morton <akpm@osdl.org>,
+	Jeff Garzik <jgarzik@pobox.com>,
 	NetDev <netdev@vger.kernel.org>,
 	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
 	Arjan van de Ven <arjan@linux.intel.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750846AbXAITQa@vger.kernel.org>
-To: Auke Kok <auke-jan.h.kok@intel.com>
-In-Reply-To: <45A3D29D.1000202@intel.com> (Auke Kok's message of "Tue, 09 Jan 2007 09:36:29 -0800")
-Sender: linux-kernel-owner@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from agminet01.oracle.com ([141.146.126.228]:25999 "EHLO
+	agminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932096AbXAIT03 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jan 2007 14:26:29 -0500
+To: Krzysztof Halasa <khc@pm.waw.pl>
+In-Reply-To: <m3fyakau44.fsf@defiant.localdomain>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Auke Kok <auke-jan.h.kok@intel.com> writes:
+On Tue, 09 Jan 2007 20:16:27 +0100 Krzysztof Halasa wrote:
 
->  drivers/net/e1000/Makefile            |   19
->  drivers/net/e1000/e1000.h             |   95
->  drivers/net/e1000/e1000_80003es2lan.c | 1330 +++++
->  drivers/net/e1000/e1000_80003es2lan.h |   89
->  drivers/net/e1000/e1000_82540.c       |  586 ++
->  drivers/net/e1000/e1000_82541.c       | 1164 ++++
->  drivers/net/e1000/e1000_82541.h       |   86
->  drivers/net/e1000/e1000_82542.c       |  466 ++
->  drivers/net/e1000/e1000_82543.c       | 1397 +++++
->  drivers/net/e1000/e1000_82543.h       |   45
->  drivers/net/e1000/e1000_82571.c       | 1132 ++++
->  drivers/net/e1000/e1000_82571.h       |   42
+> Auke Kok <auke-jan.h.kok@intel.com> writes:
+> 
+> >  drivers/net/e1000/Makefile            |   19
+> >  drivers/net/e1000/e1000.h             |   95
+> >  drivers/net/e1000/e1000_80003es2lan.c | 1330 +++++
+> >  drivers/net/e1000/e1000_80003es2lan.h |   89
+> >  drivers/net/e1000/e1000_82540.c       |  586 ++
+> >  drivers/net/e1000/e1000_82541.c       | 1164 ++++
+> >  drivers/net/e1000/e1000_82541.h       |   86
+> >  drivers/net/e1000/e1000_82542.c       |  466 ++
+> >  drivers/net/e1000/e1000_82543.c       | 1397 +++++
+> >  drivers/net/e1000/e1000_82543.h       |   45
+> >  drivers/net/e1000/e1000_82571.c       | 1132 ++++
+> >  drivers/net/e1000/e1000_82571.h       |   42
+> 
+> Perhaps the "e1000_" prefix could be dropped as redundant?
+> -- 
 
-Perhaps the "e1000_" prefix could be dropped as redundant?
--- 
-Krzysztof Halasa
+Yes, that suggestion would agree with what Linus told us about
+usb file names 7 years ago.  (huh?  that long?)
+
+---
+~Randy
