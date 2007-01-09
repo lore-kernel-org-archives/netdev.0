@@ -1,77 +1,48 @@
-From: Dmitriy Monakhov <dmonakhov@sw.ru>
-Subject: Re: [PATCH 5/5] fixing errors handling during pci_driver resume stage [serial]
-Date: Tue, 09 Jan 2007 18:02:44 +0300
-Message-ID: <87y7ocqm3v.fsf@sw.ru>
-References: <87ps9omv3t.fsf@sw.ru>
-	<20070109122752.GA26337@flint.arm.linux.org.uk>
+From: rbj2@njit.edu
+Subject: RED + ECN not working
+Date: Tue, 09 Jan 2007 11:08:04 -0500 (EST)
+Message-ID: <1168358884.45a3bde4a14b9@webmail.njit.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, Andrew Morton <akpm@osdl.org>,
-	devel@openvz.org, linux-pci@atrey.karlin.mff.cuni.cz,
-	netdev@vger.kernel.org, linux-scsi@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932135AbXAIPCw@vger.kernel.org>
-To: Dmitriy Monakhov <dmonakhov@openvz.org>
-In-Reply-To: <20070109122752.GA26337@flint.arm.linux.org.uk> (Russell King's message of "Tue, 9 Jan 2007 12:27:53 +0000")
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: rbj2@njit.edu
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gw4.njit.edu ([128.235.251.32]:42211 "EHLO
+	mail-gw4.njit.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932176AbXAIQIL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jan 2007 11:08:11 -0500
+To: netdev@vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Russell King <rmk+lkml@arm.linux.org.uk> writes:
+Hello,
 
-> On Tue, Jan 09, 2007 at 12:01:58PM +0300, Dmitriy Monakhov wrote:
->> serial pci drivers have to return correct error code during resume stage in
->> case of errors.
->
-> Sigh.  *hate* *hate* *hate*.
->
->> diff --git a/drivers/serial/8250_pci.c b/drivers/serial/8250_pci.c
->> index 52e2e64..e26e4a6 100644
->> --- a/drivers/serial/8250_pci.c
->> +++ b/drivers/serial/8250_pci.c
->> @@ -1805,6 +1805,7 @@ static int pciserial_suspend_one(struct
->>  static int pciserial_resume_one(struct pci_dev *dev)
->>  {
->>  	struct serial_private *priv = pci_get_drvdata(dev);
->> +	int err;
->>  
->>  	pci_set_power_state(dev, PCI_D0);
->>  	pci_restore_state(dev);
->> @@ -1813,7 +1814,12 @@ static int pciserial_resume_one(struct p
->>  		/*
->>  		 * The device may have been disabled.  Re-enable it.
->>  		 */
->> -		pci_enable_device(dev);
->> +		err = pci_enable_device(dev);
->> +		if (err) {
->> +			dev_err(&dev->dev, "Cannot enable PCI device, "
->> +				"aborting.\n");
->> +			return err;
->> +		}
->>  
->>  		pciserial_resume_ports(priv);
->>  	}
->
-> So if pci_enable_device() fails, what do we do with the still suspended
-> serial port?  Does it clean up that state?  Probably not.
->
-> Look, merely going around bunging this stupid "oh lets propagate the
-> error" crap into the kernel doesn't actually fix _anything_.  In fact
-> it potentially _hides_ the warnings produced by __must_check which
-> give a hint that _something_ needs to be done to _properly_ fix the
-> problem.
->
-> And by "properly", I mean not just merely propagating the error.
->
-> In this particular case, the above may result in resources not being
-> freed.
-Yep 100% true. But the question is _HOW_? We want shutdown not enabled device.
-Is it safe just call pciserial_remove_ports() for this device? 
->
-> -- 
-> Russell King
->  Linux kernel    2.6 ARM Linux   - http://www.arm.linux.org.uk/
->  maintainer of:
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+I have been trying to get the RED qdisc and ECN to work for the past few weeks
+and all my experiments have failed. Here is the setup I am using. 
+
+Src -- R1 -- R2 -- Dst
+
+Between Src and R1 is a 100Mbps link and between R1 and R2 a 10Mbps link. I set up
+the qdisc at R1 as follows
+
+tc qdisc add dev eth3 root handle 1: prio
+tc qdisc add dev eth3 parent 1:1 handle 10: sfq
+tc qdisc add dev eth3 parent 1:2 handle 20: sfq
+tc qdisc add dev eth3 parent 1:3 handle 30: red limit 10000 min 3000 max 5000
+avpkt 1000 burst 5 probability 0.5 bandwidth 256kbit ecn
+
+I also inserted printk statments inside the code to print the calculate queue average (RED param), the 
+backlog (Qdisc param) and the queue length (sk_buff_head param). I also inserted print statements for 
+each action of RED i.e. DONT_MARK, PROB_MARK, HARD_MARK and DROP.
+
+For the purpose of my experiments, I transferred a 25 MB file. I also did 100 simultaneous TCP 
+transfers for 2 mins using ipref. In all cases none of the packets were either marked or dropped by the 
+RED code. This was verified by the print statements in the logs. For all runs, qavg and backlog were 0 
+and qlen was 1. 
+
+I have even tried classless red and got same results. Does anyone know whether RED+ECN work ? Any 
+tests and setups that someone has used and got successful results ? I would really appreciate any input 
+or suggestions on this.
+
+Thanks,
+Rahul.
