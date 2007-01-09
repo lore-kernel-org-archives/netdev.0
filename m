@@ -1,313 +1,103 @@
-From: Ayaz Abdulla <aabdulla@nvidia.com>
-Subject: [PATCH 9/12] forcedeth: irq data path optimization
-Date: Tue, 09 Jan 2007 13:30:25 -0500
-Message-ID: <45A3DF41.6060808@nvidia.com>
-Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------010301030106060608070405"
+From: Joy Latten <latten@austin.ibm.com>
+Subject: Re: [patch]net/xfrm:fix crash in ipsec audit logging
+Date: Tue, 9 Jan 2007 15:53:08 -0600
+Message-ID: <200701092153.l09Lr8vr026631@faith.austin.ibm.com>
+Cc: davem@davemloft.net, mingo@elte.hu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hqemgate02.nvidia.com ([216.228.112.143]:2662 "EHLO
-	HQEMGATE02.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932402AbXAIVYA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jan 2007 16:24:00 -0500
-To: Jeff Garzik <jgarzik@pobox.com>,
-	Manfred Spraul <manfred@colorfullife.com>,
-	Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org
+Received: from e36.co.us.ibm.com ([32.97.110.154]:59867 "EHLO
+	e36.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932437AbXAIWHn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jan 2007 17:07:43 -0500
+Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
+	by e36.co.us.ibm.com (8.13.8/8.12.11) with ESMTP id l09M7ehW026941
+	for <netdev@vger.kernel.org>; Tue, 9 Jan 2007 17:07:40 -0500
+Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
+	by d03relay04.boulder.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id l09M7eeM523874
+	for <netdev@vger.kernel.org>; Tue, 9 Jan 2007 15:07:40 -0700
+Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av02.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l09M7dwX014665
+	for <netdev@vger.kernel.org>; Tue, 9 Jan 2007 15:07:40 -0700
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------010301030106060608070405
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+On Tue, 2006-12-26 at 13:37 -0500, jamal wrote:
+>On Tue, 2006-26-12 at 18:56 +0100, Ingo Molnar wrote:
+> 
+> 
+> > +	xfrm_audit_log(NETLINK_CB(skb).loginuid, NETLINK_CB(skb).sid,
+> > +		       AUDIT_MAC_IPSEC_DELSPD, delete, xp, NULL);
+> > +
+> >  	if (!delete) {
+> >  		struct sk_buff *resp_skb;
+> 
+> 
+> You could move the call into the else from above if (!delete) maybe?
+> Otherwise you have to add back the "if (delete)" check since that
+> function could be used to either retrieve (which is not subject to an
+> audit) or delete an xp.
+> 
+> cheers,
+> jamal
+>  
 
-This patch optimizes the irq data paths and cleans up the code.
+My apologies as I am just reading my email.
 
-Signed-Off-By: Ayaz Abdulla <aabdulla@nvidia.com>
+Yes, I think in the else part of the "if (!delete)".
 
+I also added a check to xfrm_audit_log() such that if both xfrm
+and policy are NULL, we return. There isn't anything to audit
+since we are only auditing creation and deletion of xfrm and 
+policy.
 
+Ingo, could you try this patch and let me know if everything works ok
+for you. I have built and test in my environment, but not tested as
+you are using it.  
 
---------------010301030106060608070405
-Content-Type: text/plain;
- name="patch-irq-opti-cleanup"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="patch-irq-opti-cleanup"
+Regards,
+Joy
 
---- orig/drivers/net/forcedeth.c	2007-01-08 20:33:47.000000000 -0500
-+++ new/drivers/net/forcedeth.c	2007-01-08 20:33:39.000000000 -0500
-@@ -2777,7 +2777,6 @@
- 			events = readl(base + NvRegMSIXIrqStatus) & NVREG_IRQSTAT_MASK;
- 			writel(NVREG_IRQSTAT_MASK, base + NvRegMSIXIrqStatus);
- 		}
--		pci_push(base);
- 		dprintk(KERN_DEBUG "%s: irq: %08x\n", dev->name, events);
- 		if (!(events & np->irqmask))
- 			break;
-@@ -2786,22 +2785,46 @@
- 		nv_tx_done(dev);
- 		spin_unlock(&np->lock);
+Signed-off-by: Joy Latten <latten@austin.ibm.com>
+
+--------------------------------------------------------------------------
+
+diff -urpN linux-2.6.19.orig/net/xfrm/xfrm_policy.c linux-2.6.19/net/xfrm/xfrm_policy.c
+--- linux-2.6.19.orig/net/xfrm/xfrm_policy.c	2007-01-02 14:24:14.000000000 -0600
++++ linux-2.6.19/net/xfrm/xfrm_policy.c	2007-01-02 14:28:24.000000000 -0600
+@@ -2003,6 +2003,9 @@ void xfrm_audit_log(uid_t auid, u32 sid,
+ 	if (audit_enabled == 0)
+ 		return;
  
--		if (events & NVREG_IRQ_LINK) {
-+#ifdef CONFIG_FORCEDETH_NAPI
-+		if (events & NVREG_IRQ_RX_ALL) {
-+			netif_rx_schedule(dev);
++	if ((x == NULL) && (xp == NULL))
++		return;
 +
-+			/* Disable furthur receive irq's */
-+			spin_lock(&np->lock);
-+			np->irqmask &= ~NVREG_IRQ_RX_ALL;
+ 	audit_buf = audit_log_start(current->audit_context, GFP_ATOMIC, type);
+ 	if (audit_buf == NULL)
+ 	return;
+diff -urpN linux-2.6.19.orig/net/xfrm/xfrm_user.c linux-2.6.19/net/xfrm/xfrm_user.c
+--- linux-2.6.19.orig/net/xfrm/xfrm_user.c	2007-01-02 14:24:14.000000000 -0600
++++ linux-2.6.19/net/xfrm/xfrm_user.c	2007-01-02 14:28:14.000000000 -0600
+@@ -1268,10 +1268,6 @@ static int xfrm_get_policy(struct sk_buf
+ 		xp = xfrm_policy_bysel_ctx(type, p->dir, &p->sel, tmp.security, delete);
+ 		security_xfrm_policy_free(&tmp);
+ 	}
+-	if (delete)
+-		xfrm_audit_log(NETLINK_CB(skb).loginuid, NETLINK_CB(skb).sid,
+-			       AUDIT_MAC_IPSEC_DELSPD, (xp) ? 1 : 0, xp, NULL);
+-
+ 	if (xp == NULL)
+ 		return -ENOENT;
+ 
+@@ -1289,6 +1285,10 @@ static int xfrm_get_policy(struct sk_buf
+ 	} else {
+ 		if ((err = security_xfrm_policy_delete(xp)) != 0)
+ 			goto out;
 +
-+			if (np->msi_flags & NV_MSI_X_ENABLED)
-+				writel(NVREG_IRQ_RX_ALL, base + NvRegIrqMask);
-+			else
-+				writel(np->irqmask, base + NvRegIrqMask);
-+			spin_unlock(&np->lock);
-+		}
-+#else
-+		if (nv_rx_process(dev, dev->weight)) {
-+			if (unlikely(nv_alloc_rx(dev))) {
-+				spin_lock(&np->lock);
-+				if (!np->in_shutdown)
-+					mod_timer(&np->oom_kick, jiffies + OOM_REFILL);
-+				spin_unlock(&np->lock);
-+			}
-+		}
-+#endif
-+		if (unlikely(events & NVREG_IRQ_LINK)) {
- 			spin_lock(&np->lock);
- 			nv_link_irq(dev);
- 			spin_unlock(&np->lock);
- 		}
--		if (np->need_linktimer && time_after(jiffies, np->link_timeout)) {
-+		if (unlikely(np->need_linktimer && time_after(jiffies, np->link_timeout))) {
- 			spin_lock(&np->lock);
- 			nv_linkchange(dev);
- 			spin_unlock(&np->lock);
- 			np->link_timeout = jiffies + LINK_TIMEOUT;
- 		}
--		if (events & (NVREG_IRQ_TX_ERR)) {
-+		if (unlikely(events & (NVREG_IRQ_TX_ERR))) {
- 			dprintk(KERN_DEBUG "%s: received irq with events 0x%x. Probably TX fail.\n",
- 						dev->name, events);
- 		}
--		if (events & (NVREG_IRQ_UNKNOWN)) {
-+		if (unlikely(events & (NVREG_IRQ_UNKNOWN))) {
- 			printk(KERN_DEBUG "%s: received irq with unknown events 0x%x. Please report\n",
- 						dev->name, events);
- 		}
-@@ -2822,30 +2845,7 @@
- 			spin_unlock(&np->lock);
- 			break;
- 		}
--#ifdef CONFIG_FORCEDETH_NAPI
--		if (events & NVREG_IRQ_RX_ALL) {
--			netif_rx_schedule(dev);
--
--			/* Disable furthur receive irq's */
--			spin_lock(&np->lock);
--			np->irqmask &= ~NVREG_IRQ_RX_ALL;
--
--			if (np->msi_flags & NV_MSI_X_ENABLED)
--				writel(NVREG_IRQ_RX_ALL, base + NvRegIrqMask);
--			else
--				writel(np->irqmask, base + NvRegIrqMask);
--			spin_unlock(&np->lock);
--		}
--#else
--		nv_rx_process(dev, dev->weight);
--		if (nv_alloc_rx(dev)) {
--			spin_lock(&np->lock);
--			if (!np->in_shutdown)
--				mod_timer(&np->oom_kick, jiffies + OOM_REFILL);
--			spin_unlock(&np->lock);
--		}
--#endif
--		if (i > max_interrupt_work) {
-+		if (unlikely(i > max_interrupt_work)) {
- 			spin_lock(&np->lock);
- 			/* disable interrupts on the nic */
- 			if (!(np->msi_flags & NV_MSI_X_ENABLED))
-@@ -2869,6 +2869,13 @@
- 	return IRQ_RETVAL(i);
- }
- 
-+#define TX_WORK_PER_LOOP  64
-+#define RX_WORK_PER_LOOP  64
-+/**
-+ * All _optimized functions are used to help increase performance
-+ * (reduce CPU and increase throughput). They use descripter version 3,
-+ * compiler directives, and reduce memory accesses.
-+ */
- static irqreturn_t nv_nic_irq_optimized(int foo, void *data)
- {
- 	struct net_device *dev = (struct net_device *) data;
-@@ -2887,7 +2894,6 @@
- 			events = readl(base + NvRegMSIXIrqStatus) & NVREG_IRQSTAT_MASK;
- 			writel(NVREG_IRQSTAT_MASK, base + NvRegMSIXIrqStatus);
- 		}
--		pci_push(base);
- 		dprintk(KERN_DEBUG "%s: irq: %08x\n", dev->name, events);
- 		if (!(events & np->irqmask))
- 			break;
-@@ -2896,22 +2902,46 @@
- 		nv_tx_done_optimized(dev);
- 		spin_unlock(&np->lock);
- 
--		if (events & NVREG_IRQ_LINK) {
-+#ifdef CONFIG_FORCEDETH_NAPI
-+		if (events & NVREG_IRQ_RX_ALL) {
-+			netif_rx_schedule(dev);
++		xfrm_audit_log(NETLINK_CB(skb).loginuid, NETLINK_CB(skb).sid,
++			       AUDIT_MAC_IPSEC_DELSPD, (xp) ? 1 : 0, xp, NULL);
 +
-+			/* Disable furthur receive irq's */
-+			spin_lock(&np->lock);
-+			np->irqmask &= ~NVREG_IRQ_RX_ALL;
-+
-+			if (np->msi_flags & NV_MSI_X_ENABLED)
-+				writel(NVREG_IRQ_RX_ALL, base + NvRegIrqMask);
-+			else
-+				writel(np->irqmask, base + NvRegIrqMask);
-+			spin_unlock(&np->lock);
-+		}
-+#else
-+		if (nv_rx_process_optimized(dev, dev->weight)) {
-+			if (unlikely(nv_alloc_rx_optimized(dev))) {
-+				spin_lock(&np->lock);
-+				if (!np->in_shutdown)
-+					mod_timer(&np->oom_kick, jiffies + OOM_REFILL);
-+				spin_unlock(&np->lock);
-+			}
-+		}
-+#endif
-+		if (unlikely(events & NVREG_IRQ_LINK)) {
- 			spin_lock(&np->lock);
- 			nv_link_irq(dev);
- 			spin_unlock(&np->lock);
- 		}
--		if (np->need_linktimer && time_after(jiffies, np->link_timeout)) {
-+		if (unlikely(np->need_linktimer && time_after(jiffies, np->link_timeout))) {
- 			spin_lock(&np->lock);
- 			nv_linkchange(dev);
- 			spin_unlock(&np->lock);
- 			np->link_timeout = jiffies + LINK_TIMEOUT;
- 		}
--		if (events & (NVREG_IRQ_TX_ERR)) {
-+		if (unlikely(events & (NVREG_IRQ_TX_ERR))) {
- 			dprintk(KERN_DEBUG "%s: received irq with events 0x%x. Probably TX fail.\n",
- 						dev->name, events);
- 		}
--		if (events & (NVREG_IRQ_UNKNOWN)) {
-+		if (unlikely(events & (NVREG_IRQ_UNKNOWN))) {
- 			printk(KERN_DEBUG "%s: received irq with unknown events 0x%x. Please report\n",
- 						dev->name, events);
- 		}
-@@ -2933,30 +2963,7 @@
- 			break;
- 		}
- 
--#ifdef CONFIG_FORCEDETH_NAPI
--		if (events & NVREG_IRQ_RX_ALL) {
--			netif_rx_schedule(dev);
--
--			/* Disable furthur receive irq's */
--			spin_lock(&np->lock);
--			np->irqmask &= ~NVREG_IRQ_RX_ALL;
--
--			if (np->msi_flags & NV_MSI_X_ENABLED)
--				writel(NVREG_IRQ_RX_ALL, base + NvRegIrqMask);
--			else
--				writel(np->irqmask, base + NvRegIrqMask);
--			spin_unlock(&np->lock);
--		}
--#else
--		nv_rx_process_optimized(dev, dev->weight);
--		if (nv_alloc_rx_optimized(dev)) {
--			spin_lock(&np->lock);
--			if (!np->in_shutdown)
--				mod_timer(&np->oom_kick, jiffies + OOM_REFILL);
--			spin_unlock(&np->lock);
--		}
--#endif
--		if (i > max_interrupt_work) {
-+		if (unlikely(i > max_interrupt_work)) {
- 			spin_lock(&np->lock);
- 			/* disable interrupts on the nic */
- 			if (!(np->msi_flags & NV_MSI_X_ENABLED))
-@@ -2994,7 +3001,6 @@
- 	for (i=0; ; i++) {
- 		events = readl(base + NvRegMSIXIrqStatus) & NVREG_IRQ_TX_ALL;
- 		writel(NVREG_IRQ_TX_ALL, base + NvRegMSIXIrqStatus);
--		pci_push(base);
- 		dprintk(KERN_DEBUG "%s: tx irq: %08x\n", dev->name, events);
- 		if (!(events & np->irqmask))
- 			break;
-@@ -3003,11 +3009,11 @@
- 		nv_tx_done_optimized(dev);
- 		spin_unlock_irqrestore(&np->lock, flags);
- 
--		if (events & (NVREG_IRQ_TX_ERR)) {
-+		if (unlikely(events & (NVREG_IRQ_TX_ERR))) {
- 			dprintk(KERN_DEBUG "%s: received irq with events 0x%x. Probably TX fail.\n",
- 						dev->name, events);
- 		}
--		if (i > max_interrupt_work) {
-+		if (unlikely(i > max_interrupt_work)) {
- 			spin_lock_irqsave(&np->lock, flags);
- 			/* disable interrupts on the nic */
- 			writel(NVREG_IRQ_TX_ALL, base + NvRegIrqMask);
-@@ -3105,20 +3111,20 @@
- 	for (i=0; ; i++) {
- 		events = readl(base + NvRegMSIXIrqStatus) & NVREG_IRQ_RX_ALL;
- 		writel(NVREG_IRQ_RX_ALL, base + NvRegMSIXIrqStatus);
--		pci_push(base);
- 		dprintk(KERN_DEBUG "%s: rx irq: %08x\n", dev->name, events);
- 		if (!(events & np->irqmask))
- 			break;
- 
--		nv_rx_process_optimized(dev, dev->weight);
--		if (nv_alloc_rx_optimized(dev)) {
--			spin_lock_irqsave(&np->lock, flags);
--			if (!np->in_shutdown)
--				mod_timer(&np->oom_kick, jiffies + OOM_REFILL);
--			spin_unlock_irqrestore(&np->lock, flags);
-+		if (nv_rx_process_optimized(dev, dev->weight)) {
-+			if (unlikely(nv_alloc_rx_optimized(dev))) {
-+				spin_lock_irqsave(&np->lock, flags);
-+				if (!np->in_shutdown)
-+					mod_timer(&np->oom_kick, jiffies + OOM_REFILL);
-+				spin_unlock_irqrestore(&np->lock, flags);
-+			}
- 		}
- 
--		if (i > max_interrupt_work) {
-+		if (unlikely(i > max_interrupt_work)) {
- 			spin_lock_irqsave(&np->lock, flags);
- 			/* disable interrupts on the nic */
- 			writel(NVREG_IRQ_RX_ALL, base + NvRegIrqMask);
-@@ -3153,7 +3159,6 @@
- 	for (i=0; ; i++) {
- 		events = readl(base + NvRegMSIXIrqStatus) & NVREG_IRQ_OTHER;
- 		writel(NVREG_IRQ_OTHER, base + NvRegMSIXIrqStatus);
--		pci_push(base);
- 		dprintk(KERN_DEBUG "%s: irq: %08x\n", dev->name, events);
- 		if (!(events & np->irqmask))
- 			break;
-@@ -3187,7 +3192,7 @@
- 			printk(KERN_DEBUG "%s: received irq with unknown events 0x%x. Please report\n",
- 						dev->name, events);
- 		}
--		if (i > max_interrupt_work) {
-+		if (unlikely(i > max_interrupt_work)) {
- 			spin_lock_irqsave(&np->lock, flags);
- 			/* disable interrupts on the nic */
- 			writel(NVREG_IRQ_OTHER, base + NvRegIrqMask);
-@@ -4969,7 +4974,7 @@
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	dev->poll_controller = nv_poll_controller;
- #endif
--	dev->weight = 64;
-+	dev->weight = RX_WORK_PER_LOOP;
- #ifdef CONFIG_FORCEDETH_NAPI
- 	dev->poll = nv_napi_poll;
- #endif
+ 		c.data.byid = p->index;
+ 		c.event = nlh->nlmsg_type;
+ 		c.seq = nlh->nlmsg_seq;
 
---------------010301030106060608070405--
+. 
