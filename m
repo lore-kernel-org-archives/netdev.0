@@ -1,107 +1,68 @@
 From: Dmitriy Monakhov <dmonakhov@openvz.org>
-Subject: [PATCH 5/5] fixing errors handling during pci_driver resume stage [serial]
-Date: Tue, 09 Jan 2007 12:01:58 +0300
-Message-ID: <87ps9omv3t.fsf@sw.ru>
+Subject: [PATCH 3/5] fixing errors handling during pci_driver resume stage [fusion]
+Date: Tue, 09 Jan 2007 12:01:37 +0300
+Message-ID: <87slekmv4e.fsf@sw.ru>
 Mime-Version: 1.0
 Content-Type: multipart/mixed; boundary="=-=-="
 Cc: Andrew Morton <akpm@osdl.org>, devel@openvz.org,
 	linux-pci@atrey.karlin.mff.cuni.cz, netdev@vger.kernel.org,
 	linux-scsi@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.233.200]:35402 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751194AbXAIJBx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Jan 2007 04:01:53 -0500
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751185AbXAIJBr@vger.kernel.org>
 To: linux-kernel@vger.kernel.org
-Sender: netdev-owner@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 --=-=-=
 
-serial pci drivers have to return correct error code during resume stage in
+fusion pci drivers have to return correct error code during resume stage in
 case of errors.
 Signed-off-by: Dmitriy Monakhov <dmonakhov@openvz.org>
 -----
 
 --=-=-=
-Content-Disposition: inline; filename=diff-pci-serial
+Content-Disposition: inline; filename=diff-pci-fusion
 
-diff --git a/drivers/parport/parport_serial.c b/drivers/parport/parport_serial.c
-index 78c0a26..1e14906 100644
---- a/drivers/parport/parport_serial.c
-+++ b/drivers/parport/parport_serial.c
-@@ -392,6 +392,7 @@ static int parport_serial_pci_suspend(st
- static int parport_serial_pci_resume(struct pci_dev *dev)
+diff --git a/drivers/message/fusion/mptbase.c b/drivers/message/fusion/mptbase.c
+index 6e068cf..51a3621 100644
+--- a/drivers/message/fusion/mptbase.c
++++ b/drivers/message/fusion/mptbase.c
+@@ -1524,7 +1524,7 @@ mpt_resume(struct pci_dev *pdev)
  {
- 	struct parport_serial_private *priv = pci_get_drvdata(dev);
-+	int err;
+ 	MPT_ADAPTER *ioc = pci_get_drvdata(pdev);
+ 	u32 device_state = pdev->current_state;
+-	int recovery_state;
++	int recovery_state, err;
  
- 	pci_set_power_state(dev, PCI_D0);
- 	pci_restore_state(dev);
-@@ -399,7 +400,11 @@ static int parport_serial_pci_resume(str
- 	/*
- 	 * The device may have been disabled.  Re-enable it.
- 	 */
--	pci_enable_device(dev);
-+	err = pci_enable_device(dev);
+ 	printk(MYIOC_s_INFO_FMT
+ 	"pci-resume: pdev=0x%p, slot=%s, Previous operating state [D%d]\n",
+@@ -1532,7 +1532,11 @@ mpt_resume(struct pci_dev *pdev)
+ 
+ 	pci_set_power_state(pdev, 0);
+ 	pci_restore_state(pdev);
+-	pci_enable_device(pdev);
++	err = pci_enable_device(pdev);
 +	if (err) {
-+		dev_err(&dev->dev, "Cannot enable PCI device, aborting.\n");
++		dev_err(&pdev->dev, "Cannot enable PCI device, aborting.\n");
 +		return err;
 +	}
  
- 	if (priv->serial)
- 		pciserial_resume_ports(priv->serial);
-diff --git a/drivers/serial/8250_pci.c b/drivers/serial/8250_pci.c
-index 52e2e64..e26e4a6 100644
---- a/drivers/serial/8250_pci.c
-+++ b/drivers/serial/8250_pci.c
-@@ -1805,6 +1805,7 @@ static int pciserial_suspend_one(struct
- static int pciserial_resume_one(struct pci_dev *dev)
- {
- 	struct serial_private *priv = pci_get_drvdata(dev);
+ 	/* enable interrupts */
+ 	CHIPREG_WRITE32(&ioc->chip->IntMask, MPI_HIM_DIM);
+diff --git a/drivers/message/fusion/mptscsih.c b/drivers/message/fusion/mptscsih.c
+index 2c72c36..5324866 100644
+--- a/drivers/message/fusion/mptscsih.c
++++ b/drivers/message/fusion/mptscsih.c
+@@ -1120,8 +1120,10 @@ mptscsih_resume(struct pci_dev *pdev)
+ 	MPT_ADAPTER 		*ioc = pci_get_drvdata(pdev);
+ 	struct Scsi_Host 	*host = ioc->sh;
+ 	MPT_SCSI_HOST		*hd;
 +	int err;
  
- 	pci_set_power_state(dev, PCI_D0);
- 	pci_restore_state(dev);
-@@ -1813,7 +1814,12 @@ static int pciserial_resume_one(struct p
- 		/*
- 		 * The device may have been disabled.  Re-enable it.
- 		 */
--		pci_enable_device(dev);
-+		err = pci_enable_device(dev);
-+		if (err) {
-+			dev_err(&dev->dev, "Cannot enable PCI device, "
-+				"aborting.\n");
-+			return err;
-+		}
+-	mpt_resume(pdev);
++	if ((err = mpt_resume(pdev)))
++		return err;
  
- 		pciserial_resume_ports(priv);
- 	}
-diff --git a/drivers/serial/serial_txx9.c b/drivers/serial/serial_txx9.c
-index 7186a82..583cdc8 100644
---- a/drivers/serial/serial_txx9.c
-+++ b/drivers/serial/serial_txx9.c
-@@ -1132,12 +1132,19 @@ static int pciserial_txx9_suspend_one(st
- static int pciserial_txx9_resume_one(struct pci_dev *dev)
- {
- 	int line = (int)(long)pci_get_drvdata(dev);
-+	int err;
- 
- 	pci_set_power_state(dev, PCI_D0);
- 	pci_restore_state(dev);
- 
- 	if (line) {
--		pci_enable_device(dev);
-+		err = pci_enable_device(dev);
-+		if (err) {
-+			dev_err(&dev->dev, "Cannot enable PCI device, "
-+				"aborting.\n");
-+			return err;
-+		}
-+
- 		serial_txx9_resume_port(line);
- 	}
- 	return 0;
+ 	if(!host)
+ 		return 0;
 
 --=-=-=--
-
