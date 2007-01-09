@@ -1,38 +1,32 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 1/5] s390: qeth driver fixes
-Date: Tue, 09 Jan 2007 08:45:44 -0500
-Message-ID: <45A39C88.5070606@pobox.com>
-References: <20070108162934.GA21639@de.ibm.com> <45A342EB.2020200@pobox.com> <20070109133922.GA21804@de.ibm.com>
+From: "Michael S. Tsirkin" <mst@mellanox.co.il>
+Subject: Re: [PATCH 1/10] cxgb3 - main header files
+Date: Tue, 9 Jan 2007 15:57:25 +0200
+Message-ID: <20070109135725.GF16107@mellanox.co.il>
+References: <20061220124125.6286.17148.stgit@localhost.localdomain> <45918CA4.3020601@garzik.org> <45A36C22.6010009@chelsio.com> <45A36E59.30500@garzik.org> <1168349908.4628.3.camel@stevo-desktop>
+Reply-To: "Michael S. Tsirkin" <mst@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Roland Dreier <rdreier@cisco.com>, netdev@vger.kernel.org,
+	openib-general <openib-general@openib.org>,
+	linux-kernel@vger.kernel.org, Divy Le Ray <divy@chelsio.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:34520 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751399AbXAINpt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Jan 2007 08:45:49 -0500
-To: Frank Pavlic <fpavlic@de.ibm.com>
-In-Reply-To: <20070109133922.GA21804@de.ibm.com>
+Received: from dev.mellanox.co.il ([194.90.237.44]:36992 "EHLO
+	dev.mellanox.co.il" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932092AbXAIOAE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jan 2007 09:00:04 -0500
+To: Steve Wise <swise@opengridcomputing.com>
+Content-Disposition: inline
+In-Reply-To: <1168349908.4628.3.camel@stevo-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Frank Pavlic wrote:
-> Sorry for the trouble and also thank you very much
-> for having done the extra work. I made the patches
-> using git-format-patch so seems that I have to review
-> them more carefully or I still haven't understand to use
-> git-format-patch properly. 
-> In any case I will read the documents you mentioned 
-> once again to keep such points in mind...
+> We also need to decide on the ib_req_notify_cq() issue.  
 
-If you are using git, maybe its as simple as checking in each patch with 
-a unique first-line (== one-line summary)?
+Let's clarify - do you oppose doing copy_from_user from a fixed
+address passed in during setup?
 
-Also, if you so choose, you are welcome to submit changes directly via 
-git to me, just like Martin Schwidefsky does with the main S/390 changes.
+If OK with you, this seems the best way as it is the least controversial
+and least disruptive one.
 
-	Jeff
-
-
-
+-- 
+MST
