@@ -1,42 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] devinet: inetdev_init out label moved after RCU
- assignment
-Date: Tue, 09 Jan 2007 14:38:39 -0800 (PST)
-Message-ID: <20070109.143839.45514202.davem@davemloft.net>
-References: <20070105093846.GA21000@gondor.apana.org.au>
-	<20070105111910.GA3650@ff.dom.local>
-	<20070105112353.GA21638@gondor.apana.org.au>
+From: Jan Kiszka <jan.kiszka@web.de>
+Subject: Re: [PATCH] d80211: don't symlink empty default keys
+Date: Tue, 09 Jan 2007 23:43:58 +0100
+Message-ID: <45A41AAE.4040606@web.de>
+References: <45A4183E.4010401@web.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jarkao2@o2.pl, dlstevens@us.ibm.com, greearb@candelatech.com,
-	netdev@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig80192F3163EDF5BD9A08F181"
+Cc: netdev@vger.kernel.org, Ivo Van Doorn <ivdoorn@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59699
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S932472AbXAIWik (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jan 2007 17:38:40 -0500
-To: herbert@gondor.apana.org.au
-In-Reply-To: <20070105112353.GA21638@gondor.apana.org.au>
+Received: from fmmailgate01.web.de ([217.72.192.221]:48055 "EHLO
+	fmmailgate01.web.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932483AbXAIWoE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jan 2007 17:44:04 -0500
+To: Jiri Benc <jbenc@suse.cz>
+In-Reply-To: <45A4183E.4010401@web.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Fri, 5 Jan 2007 22:23:53 +1100
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig80192F3163EDF5BD9A08F181
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-> On Fri, Jan 05, 2007 at 12:19:10PM +0100, Jarek Poplawski wrote:
-> > 
-> > Why me? (I didn't spoil this!)
-> 
-> You spotted the problem, so it's only fair that you get the credit :)
-> 
-> > Subject: [PATCH] devinet: inetdev_init out label moved after RCU assignment
-> > 
-> > inetdev_init out label moved after RCU assignment
-> > (final suggestion by Herbert Xu)
-> > 
-> > Signed-off-by: Jarek Poplawski <jarkao2@o2.pl>
-> 
-> Thanks, looks good to me.
+Jan Kiszka wrote:
+> This gets rid of annoying
+>=20
+> wlan0: cannot create symlink to default key
+>=20
+> in my syslog with latest rt2x00. The patch takes care that in case of
+> (key/old_key =3D=3D NULL && set_tx_key) the existing default key symlin=
+k is
+> removed correctly. Moreover, it tests for key!=3DNULL before trying to =
+register
+> a new default link.
+>=20
 
-Applied, thanks everyone.
+Grr, just noticed that the subject was still only reflecting one part of
+the patch. Let's call it "fix default key symlink creation/cleanup".
+
+Jan
+
+
+--------------enig80192F3163EDF5BD9A08F181
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.5 (GNU/Linux)
+Comment: Using GnuPG with SUSE - http://enigmail.mozdev.org
+
+iD8DBQFFpBquniDOoMHTA+kRAhnhAJ0XFK+ejV6qxtw9m6a17kYInbgE5wCfUI/W
+041XkLtKEs/foC0Sv+vO5H0=
+=3PY0
+-----END PGP SIGNATURE-----
+
+--------------enig80192F3163EDF5BD9A08F181--
