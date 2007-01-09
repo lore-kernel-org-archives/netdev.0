@@ -1,49 +1,33 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 1/10] cxgb3 - main header files
-Date: Tue, 09 Jan 2007 05:28:41 -0500
-Message-ID: <45A36E59.30500@garzik.org>
-References: <20061220124125.6286.17148.stgit@localhost.localdomain> <45918CA4.3020601@garzik.org> <45A36C22.6010009@chelsio.com>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: kernel BUG in eth_alloc_tx_desc_index at drivers/net/mv643xx_eth.c:1069!
+Date: Tue, 9 Jan 2007 11:52:44 +0100
+Message-ID: <20070109105244.GD1703@ff.dom.local>
+References: <7d01f9f00701051103q3ee6ed35q9fd0f778a18061b8@mail.gmail.com> <20070109092602.GC1703@ff.dom.local> <7d01f9f00701090227v60b37e5dy6afbf70ccde58bf2@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	swise@opengridcomputing.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:33464 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751272AbXAIK2n (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Jan 2007 05:28:43 -0500
-To: Divy Le Ray <divy@chelsio.com>
-In-Reply-To: <45A36C22.6010009@chelsio.com>
+Received: from poczta.o2.pl ([193.17.41.142]:58543 "EHLO poczta.o2.pl"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751332AbXAIKuw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Jan 2007 05:50:52 -0500
+To: Thibaut VARENE <T-Bone@parisc-linux.org>
+Content-Disposition: inline
+In-Reply-To: <7d01f9f00701090227v60b37e5dy6afbf70ccde58bf2@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Divy Le Ray wrote:
-> Jeff Garzik wrote:
->> Divy Le Ray wrote:
->>> From: Divy Le Ray <divy@chelsio.com>
->>>
->>> This patch implements the main header files of
->>> the Chelsio T3 network driver.
->>>
->>> Signed-off-by: Divy Le Ray <divy@chelsio.com>
->>
->> Once you think it's ready, email me a URL to a single patch that adds 
->> the driver to the latest linux-2.6.git kernel.  Include in the email a 
->> description of the driver and signed-off-by line, which will get 
->> directly included in the git changelog.
->>
->> Adding new drivers is a bit special, because we want to merge it as a 
->> single changeset, but that would create a patch too large to review on 
->> the common kernel mailing lists.
-> Jeff,
-> 
-> You can grab the monolithic patch at this URL:
-> http://service.chelsio.com/kernel.org/cxgb3.patch.bz2
+On Tue, Jan 09, 2007 at 11:27:59AM +0100, Thibaut VARENE wrote:
+...
+> I suspected both and changed both the disk and the ram for quality
+> parts, that I tested afterwards. Both passed thorough tests.
 
-this is in my queue, thanks.  Sorry I didn't indicate that earlier.
+You wrote about half an hour, so overheating was also
+considered, I presume.
 
-	Jeff
+> Finally, using the other NIC on the box (a VIA Rhine II, 100Mbps),
+> works absolutely fine.
 
-
-
+So it looks like the card/driver (or maybe this specimen?).
+ 
+Jarek P.
