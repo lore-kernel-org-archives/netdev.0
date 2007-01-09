@@ -1,31 +1,36 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] forcedeth: sideband management fix
-Date: Tue, 09 Jan 2007 02:14:47 -0500
-Message-ID: <45A340E7.7000406@pobox.com>
-References: <3E548BEA.1040101@nvidia.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] ucc_geth: kmalloc casting cleanups
+Date: Tue, 09 Jan 2007 02:15:56 -0500
+Message-ID: <45A3412C.2050008@garzik.org>
+References: <45A3105B.7090302@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Manfred Spraul <manfred@colorfullife.com>,
-	Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, galak@kernel.crashing.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:60453 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:60466 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751125AbXAIHPF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Jan 2007 02:15:05 -0500
-To: Ayaz Abdulla <aabdulla@nvidia.com>
-In-Reply-To: <3E548BEA.1040101@nvidia.com>
+	id S1751127AbXAIHP7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Jan 2007 02:15:59 -0500
+To: Li Yang <leoli@freescale.com>
+In-Reply-To: <45A3105B.7090302@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ayaz Abdulla wrote:
-> This patch contains a fix that implements proper communication with the 
-> sideband management unit. Also, it makes sure that the speed is 
-> correctly set for gigabit phys in the case where sideband mgmt unit 
-> initialized the phy. Refer to bug #7684 for more details.
+Li Yang wrote:
+> From: Ahmed S. Darwish <darwish.07@gmail.com>
 > 
-> Signed-Off-By: Ayaz Abdulla <aabdulla@nvidia.com>
+> Switch kmalloc to kzalloc and clean some redundant kmalloc
+> casts.
+> 
+> Signed-off-by: Ahmed S. Darwish <darwish.07@gmail.com>
+> Signed-off-by: Li Yang <leoli@freescale.com>
+> ---
 
-applied
+
+I should wait for Kumar to resend ucc_geth fixes before applying this, 
+right?
+
+	Jeff
 
 
