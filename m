@@ -1,32 +1,51 @@
-From: "Michael S. Tsirkin" <mst@mellanox.co.il>
-Subject: Re: [PATCH 1/10] cxgb3 - main header files
-Date: Tue, 9 Jan 2007 15:57:25 +0200
-Message-ID: <20070109135725.GF16107@mellanox.co.il>
-References: <20061220124125.6286.17148.stgit@localhost.localdomain> <45918CA4.3020601@garzik.org> <45A36C22.6010009@chelsio.com> <45A36E59.30500@garzik.org> <1168349908.4628.3.camel@stevo-desktop>
-Reply-To: "Michael S. Tsirkin" <mst@mellanox.co.il>
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: Re: Using 802.11x wireless usb device on MIPS platform
+Date: Tue, 9 Jan 2007 14:09:31 +0000
+Message-ID: <20070109140931.GB6614@linux-mips.org>
+References: <1cf601c73399$2ab7cd10$106215ac@realtek.com.tw>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Roland Dreier <rdreier@cisco.com>, netdev@vger.kernel.org,
-	openib-general <openib-general@openib.org>,
-	linux-kernel@vger.kernel.org, Divy Le Ray <divy@chelsio.com>
+Cc: linux-mips@linux-mips.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dev.mellanox.co.il ([194.90.237.44]:36992 "EHLO
-	dev.mellanox.co.il" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932092AbXAIOAE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jan 2007 09:00:04 -0500
-To: Steve Wise <swise@opengridcomputing.com>
+Received: from wf1.mips-uk.com ([194.74.144.154]:47562 "EHLO
+	dl5rb.ham-radio-op.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S932104AbXAIOIt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jan 2007 09:08:49 -0500
+To: colin <colin@realtek.com.tw>
 Content-Disposition: inline
-In-Reply-To: <1168349908.4628.3.camel@stevo-desktop>
+In-Reply-To: <1cf601c73399$2ab7cd10$106215ac@realtek.com.tw>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> We also need to decide on the ib_req_notify_cq() issue.  
+On Tue, Jan 09, 2007 at 10:52:14AM +0800, colin wrote:
 
-Let's clarify - do you oppose doing copy_from_user from a fixed
-address passed in during setup?
+> I have used two 802.11x wireless usb devices successfully on MIPS platform.
+> One is realtek 8187 and the other one is ralink 2571.
+> I would like to put them into kernel tree and then I found that there are
+> not many 802.11x devices supported in Linux.
 
-If OK with you, this seems the best way as it is the least controversial
-and least disruptive one.
+If you want to submit a driver to the kernel, please post it to
+netdev@vger.kernel.org.  Don't expect a driver to be just accepted; it
+will go through a thorough review and after all the issues have been
+resolved it will be accepted.
 
--- 
-MST
+> Moreover, there is no any wireless usb device supported.
+
+Wireless support under Linux is suffering from several problems:
+
+ o some core require microcode to be loaded but the vendor does not
+   give such permission.
+ o lack of documentation, sometimes for paranoid or bogus legal reasons or
+   "intellectual property" concerns.
+
+At times it really seems vendors are working to maximize pain for the user ...
+
+> It is also very strange that 8187 and 2571 both have their own ieee802.11x
+> stack and crypt drivers. It seems that Linux doesn't offer them.
+> I am wondering why Linux is so complex in 802.11x.
+
+Well, for one thing because 802.11 is complex.  The Linux wireless support
+has gone through several generations; some of the wireless work was for
+one or the other reason never integrated in the kernel.org kernel.
+
+  Ralf
