@@ -1,63 +1,38 @@
-From: Steve Wise <swise@opengridcomputing.com>
-Subject: Re: [PATCH 1/10] cxgb3 - main header files
-Date: Tue, 09 Jan 2007 07:38:28 -0600
-Message-ID: <1168349908.4628.3.camel@stevo-desktop>
-References: <20061220124125.6286.17148.stgit@localhost.localdomain>
-	 <45918CA4.3020601@garzik.org> <45A36C22.6010009@chelsio.com>
-	 <45A36E59.30500@garzik.org>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH 1/5] s390: qeth driver fixes
+Date: Tue, 09 Jan 2007 08:45:44 -0500
+Message-ID: <45A39C88.5070606@pobox.com>
+References: <20070108162934.GA21639@de.ibm.com> <45A342EB.2020200@pobox.com> <20070109133922.GA21804@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Divy Le Ray <divy@chelsio.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	openib-general <openib-general@openib.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932076AbXAINia@vger.kernel.org>
-To: Roland Dreier <rdreier@cisco.com>
-In-Reply-To: <45A36E59.30500@garzik.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:34520 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751399AbXAINpt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Jan 2007 08:45:49 -0500
+To: Frank Pavlic <fpavlic@de.ibm.com>
+In-Reply-To: <20070109133922.GA21804@de.ibm.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Roland,
+Frank Pavlic wrote:
+> Sorry for the trouble and also thank you very much
+> for having done the extra work. I made the patches
+> using git-format-patch so seems that I have to review
+> them more carefully or I still haven't understand to use
+> git-format-patch properly. 
+> In any case I will read the documents you mentioned 
+> once again to keep such points in mind...
 
-The T3 Ethernet driver is queued for inclusion into Jeff's tree.  
+If you are using git, maybe its as simple as checking in each patch with 
+a unique first-line (== one-line summary)?
 
-How do you want to merge in the RDMA driver?  I can give you a single
-monolithic patch if you want.  
+Also, if you so choose, you are welcome to submit changes directly via 
+git to me, just like Martin Schwidefsky does with the main S/390 changes.
 
-We also need to decide on the ib_req_notify_cq() issue.  
-
-
-Steve.
+	Jeff
 
 
 
-On Tue, 2007-01-09 at 05:28 -0500, Jeff Garzik wrote:
-> Divy Le Ray wrote:
-> > Jeff Garzik wrote:
-> >> Divy Le Ray wrote:
-> >>> From: Divy Le Ray <divy@chelsio.com>
-> >>>
-> >>> This patch implements the main header files of
-> >>> the Chelsio T3 network driver.
-> >>>
-> >>> Signed-off-by: Divy Le Ray <divy@chelsio.com>
-> >>
-> >> Once you think it's ready, email me a URL to a single patch that adds 
-> >> the driver to the latest linux-2.6.git kernel.  Include in the email a 
-> >> description of the driver and signed-off-by line, which will get 
-> >> directly included in the git changelog.
-> >>
-> >> Adding new drivers is a bit special, because we want to merge it as a 
-> >> single changeset, but that would create a patch too large to review on 
-> >> the common kernel mailing lists.
-> > Jeff,
-> > 
-> > You can grab the monolithic patch at this URL:
-> > http://service.chelsio.com/kernel.org/cxgb3.patch.bz2
-> 
-> this is in my queue, thanks.  Sorry I didn't indicate that earlier.
-> 
-> 	Jeff
-> 
-> 
-> 
