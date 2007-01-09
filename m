@@ -1,35 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] INET: style updates for the inet_sock->is_icsk
- assignment fix
-Date: Tue, 09 Jan 2007 14:37:23 -0800 (PST)
-Message-ID: <20070109.143723.89062707.davem@davemloft.net>
-References: <20070109175144.787024589@flek.zko.hp.com>
-	<39e6f6c70701091045v2b5b1eeck350c71f5a4c91db1@mail.gmail.com>
+Subject: Re: [PATCH] devinet: inetdev_init out label moved after RCU
+ assignment
+Date: Tue, 09 Jan 2007 14:38:39 -0800 (PST)
+Message-ID: <20070109.143839.45514202.davem@davemloft.net>
+References: <20070105093846.GA21000@gondor.apana.org.au>
+	<20070105111910.GA3650@ff.dom.local>
+	<20070105112353.GA21638@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: paul.moore@hp.com, netdev@vger.kernel.org, jarkao2@o2.pl
+Cc: jarkao2@o2.pl, dlstevens@us.ibm.com, greearb@candelatech.com,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59694
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59699
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S932368AbXAIWhY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jan 2007 17:37:24 -0500
-To: arnaldo.melo@gmail.com
-In-Reply-To: <39e6f6c70701091045v2b5b1eeck350c71f5a4c91db1@mail.gmail.com>
+	by vger.kernel.org with ESMTP id S932472AbXAIWik (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jan 2007 17:38:40 -0500
+To: herbert@gondor.apana.org.au
+In-Reply-To: <20070105112353.GA21638@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Arnaldo Carvalho de Melo" <arnaldo.melo@gmail.com>
-Date: Tue, 9 Jan 2007 16:45:12 -0200
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Fri, 5 Jan 2007 22:23:53 +1100
 
-> On 1/9/07, Paul Moore <paul.moore@hp.com> wrote:
-> > A quick patch to change the inet_sock->is_icsk assignment to better fit with
-> > existing kernel coding style.
-> >
-> > Signed-off-by: Paul Moore <paul.moore@hp.com>
-> > Cc: Jarek Poplawski <jarkao2@o2.pl>
-> > Cc: Arnaldo Carvalho de Melo <arnaldo.melo@gmail.com>
+> On Fri, Jan 05, 2007 at 12:19:10PM +0100, Jarek Poplawski wrote:
+> > 
+> > Why me? (I didn't spoil this!)
 > 
-> Signed-off-by: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+> You spotted the problem, so it's only fair that you get the credit :)
+> 
+> > Subject: [PATCH] devinet: inetdev_init out label moved after RCU assignment
+> > 
+> > inetdev_init out label moved after RCU assignment
+> > (final suggestion by Herbert Xu)
+> > 
+> > Signed-off-by: Jarek Poplawski <jarkao2@o2.pl>
+> 
+> Thanks, looks good to me.
 
-Ok, the style police win :)
+Applied, thanks everyone.
