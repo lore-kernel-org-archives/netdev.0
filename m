@@ -1,54 +1,55 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: Re: [PATCH -MM] e1000: rewrite hardware initialization code
-Date: Tue, 09 Jan 2007 11:45:48 -0800
-Message-ID: <45A3F0EC.3040404@intel.com>
-References: <45A3D29D.1000202@intel.com>	<m3fyakau44.fsf@defiant.localdomain> <20070109112416.266efb84.randy.dunlap@oracle.com>
+From: Gavin McCullagh <gavin.mccullagh@nuim.ie>
+Subject: fixing opt-ack DoS against TCP stack
+Date: Tue, 09 Jan 2007 14:24:38 +0000
+Message-ID: <20070109142437.GF31536@nuim.ie>
+Reply-To: Gavin McCullagh <gavin.mccullagh@nuim.ie>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Krzysztof Halasa <khc@pm.waw.pl>,
-	Auke Kok <auke-jan.h.kok@intel.com>,
-	Andrew Morton <akpm@osdl.org>, Jeff Garzik <jgarzik@pobox.com>,
-	NetDev <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Arjan van de Ven <arjan@linux.intel.com>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7BIT
+Cc: Douglas Leith <doug.leith@nuim.ie>,
+	David Malone <David.Malone@nuim.ie>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:41572 "EHLO mga02.intel.com"
+Received: from mail.nuim.ie ([149.157.1.19]:64935 "EHLO LARCH.MAY.IE"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932118AbXAITpu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Jan 2007 14:45:50 -0500
-To: Randy Dunlap <randy.dunlap@oracle.com>
-In-Reply-To: <20070109112416.266efb84.randy.dunlap@oracle.com>
+	id S932335AbXAIUF4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Jan 2007 15:05:56 -0500
+Received: from retina-bcl.hamilton.local ([149.157.192.252])
+ by NUIM.IE (PMDF V6.2-X17 #30789) with ESMTPA id <01MBQ8LEPEBA00V8K9@NUIM.IE>
+ for netdev@vger.kernel.org; Tue, 09 Jan 2007 14:25:01 +0000 (GMT)
+To: netdev@vger.kernel.org
+Content-disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Randy Dunlap wrote:
-> On Tue, 09 Jan 2007 20:16:27 +0100 Krzysztof Halasa wrote:
-> 
->> Auke Kok <auke-jan.h.kok@intel.com> writes:
->>
->>>  drivers/net/e1000/Makefile            |   19
->>>  drivers/net/e1000/e1000.h             |   95
->>>  drivers/net/e1000/e1000_80003es2lan.c | 1330 +++++
->>>  drivers/net/e1000/e1000_80003es2lan.h |   89
->>>  drivers/net/e1000/e1000_82540.c       |  586 ++
->>>  drivers/net/e1000/e1000_82541.c       | 1164 ++++
->>>  drivers/net/e1000/e1000_82541.h       |   86
->>>  drivers/net/e1000/e1000_82542.c       |  466 ++
->>>  drivers/net/e1000/e1000_82543.c       | 1397 +++++
->>>  drivers/net/e1000/e1000_82543.h       |   45
->>>  drivers/net/e1000/e1000_82571.c       | 1132 ++++
->>>  drivers/net/e1000/e1000_82571.h       |   42
->> Perhaps the "e1000_" prefix could be dropped as redundant?
->> -- 
-> 
-> Yes, that suggestion would agree with what Linus told us about
-> usb file names 7 years ago.  (huh?  that long?)
+Hi,
 
+recently, a few of us came up with a novel (or so we thought) DoS attack
+against TCP.  We spent some time implementing and testing it and found it
+to work worryingly well.
 
-You'll have to excuse me that I don't remember that anymore, but I'll note the 
-suggestion and see what the team thinks.
+It turns out that we are not the first to come across this attack.  Rob
+Sherwood and colleagues in Maryland were a year or two ahead of us.  They
+have published a paper entitled "Misbehaving TCP Receivers Can Cause
+Internet-Wide Congestion Collapse".
 
-Thanks,
+	http://www.cs.umd.edu/~capveg/optack/optack-ccs05.pdf
+	http://www.cs.umd.edu/~capveg/
+	http://www.kb.cert.org/vuls/id/102014
 
-Auke
+Linux appears not to have implemented any fix for this vulnerability,
+although Rob Sherwood wrote a patch against 2.4.24.
+
+	http://www.cs.umd.edu/~capveg/optack/optack.patch
+
+There seems to be a brief mention of it on the fedora-security list but I
+can't find much discussion of it in linux circles otherwise.
+
+	http://www.spinics.net/linux/fedora/fedora-security/msg00426.html
+	http://www.securityfocus.com/bid/15468/
+
+Is there some reason that this fix was not accepted or has this just
+slipped under people's radars?  Should some fix not be implemented?  The
+issue seems even more severe with the larger buffer sizes now in use.
+
+Gavin
+
