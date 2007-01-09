@@ -1,39 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT][Netlabel] Pull request
-Date: Mon, 08 Jan 2007 19:55:13 -0800 (PST)
-Message-ID: <20070108.195513.115932473.davem@davemloft.net>
-References: <Pine.LNX.4.64.0701081823390.23051@d.namei>
+Subject: Re: [BNX2 1/4]: Don't apply CRC PHY workaround to 5709.
+Date: Mon, 08 Jan 2007 19:56:43 -0800 (PST)
+Message-ID: <20070108.195643.67561534.davem@davemloft.net>
+References: <1168300581.4430.7.camel@rh4>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49783
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49786
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750727AbXAIDzO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jan 2007 22:55:14 -0500
-To: jmorris@namei.org
-In-Reply-To: <Pine.LNX.4.64.0701081823390.23051@d.namei>
+	by vger.kernel.org with ESMTP id S1750721AbXAID4n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jan 2007 22:56:43 -0500
+To: mchan@broadcom.com
+In-Reply-To: <1168300581.4430.7.camel@rh4>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: James Morris <jmorris@namei.org>
-Date: Mon, 8 Jan 2007 18:24:41 -0500 (EST)
+From: "Michael Chan" <mchan@broadcom.com>
+Date: Mon, 08 Jan 2007 15:56:21 -0800
 
-> The following changes since commit bf81b46482c0fa8ea638e409d39768ea92a6b0f0:
->   Linus Torvalds:
->         Linux 2.6.20-rc4
+> [BNX2]: Don't apply CRC PHY workaround to 5709.
 > 
-> are found in the git repository at:
+> The workaround is only needed on 5706/5708 and cannot be applied on
+> 5709.
 > 
->   git://git.kernel.org/pub/scm/linux/kernel/git/jmorris/selinux-2.6.git#for-davem
-> 
-> Paul Moore:
->       NetLabel: correct locking in selinux_netlbl_socket_setsid()
->       NetLabel: correct CIPSO tag handling when adding new DOI definitions
-> 
->  net/netlabel/netlabel_cipso_v4.c |    6 +++---
->  security/selinux/ss/services.c   |    4 ++--
->  2 files changed, 5 insertions(+), 5 deletions(-)
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
 
-Pulled, thanks a lot James.
+Applied.
