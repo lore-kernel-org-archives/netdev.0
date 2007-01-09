@@ -1,91 +1,34 @@
-From: Jan Kiszka <jan.kiszka@web.de>
-Subject: [PATCH] d80211: don't symlink empty default keys
-Date: Tue, 09 Jan 2007 23:33:34 +0100
-Message-ID: <45A4183E.4010401@web.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] [SCTP]: Fix err_hdr assignment in sctp_init_cause.
+Date: Tue, 09 Jan 2007 14:36:28 -0800 (PST)
+Message-ID: <20070109.143628.104034780.davem@davemloft.net>
+References: <1168370809.24896.20.camel@w-sridhar2.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enigA6A90330DC2C535CE07298F0"
-Cc: netdev@vger.kernel.org, Ivo Van Doorn <ivdoorn@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fmmailgate02.web.de ([217.72.192.227]:51895 "EHLO
-	fmmailgate02.web.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932479AbXAIWdh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jan 2007 17:33:37 -0500
-To: Jiri Benc <jbenc@suse.cz>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59689
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S932417AbXAIWg3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jan 2007 17:36:29 -0500
+To: sri@us.ibm.com
+In-Reply-To: <1168370809.24896.20.camel@w-sridhar2.beaverton.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enigA6A90330DC2C535CE07298F0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+From: Sridhar Samudrala <sri@us.ibm.com>
+Date: Tue, 09 Jan 2007 11:26:49 -0800
 
-This gets rid of annoying
+> [SCTP]: Fix err_hdr assignment in sctp_init_cause.
+> 
+> The subh->err_hdr should point to the error header, not the data.
+> 
+> Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
+> Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
 
-wlan0: cannot create symlink to default key
+Applied, thanks Sridahr.
 
-in my syslog with latest rt2x00. The patch takes care that in case of
-(key/old_key =3D=3D NULL && set_tx_key) the existing default key symlink =
-is
-removed correctly. Moreover, it tests for key!=3DNULL before trying to re=
-gister
-a new default link.
+Do we need this for the 2.6.x -stable branches too?
 
-Signed-off-by: Jan Kiszka <jan.kiszka@web.de>
-
----
- ieee80211/ieee80211_ioctl.c |    6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
-
-Index: rt2x00/ieee80211/ieee80211_ioctl.c
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
---- rt2x00.orig/ieee80211/ieee80211_ioctl.c
-+++ rt2x00/ieee80211/ieee80211_ioctl.c
-@@ -629,7 +629,7 @@ static int ieee80211_set_encryption(stru
- 		}
- 		kfree(keyconf);
-=20
--		if (key && sdata->default_key =3D=3D key) {
-+		if (set_tx_key || (key && sdata->default_key =3D=3D key)) {
- 			ieee80211_key_sysfs_remove_default(sdata);
- 			sdata->default_key =3D NULL;
- 		}
-@@ -673,7 +673,7 @@ static int ieee80211_set_encryption(stru
- 			}
- 		}
-=20
--		if (old_key && sdata->default_key =3D=3D old_key) {
-+		if (set_tx_key || (old_key && sdata->default_key =3D=3D old_key)) {
- 			ieee80211_key_sysfs_remove_default(sdata);
- 			sdata->default_key =3D NULL;
- 		}
-@@ -700,7 +700,7 @@ static int ieee80211_set_encryption(stru
-=20
- 	if (set_tx_key || (!sta && !sdata->default_key && key)) {
- 		sdata->default_key =3D key;
--		if (ieee80211_key_sysfs_add_default(sdata))
-+		if (key && ieee80211_key_sysfs_add_default(sdata))
- 			printk(KERN_WARNING "%s: cannot create symlink to "
- 			       "default key\n", dev->name);
- 		if (local->ops->set_key_idx &&
-
-
-
---------------enigA6A90330DC2C535CE07298F0
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.5 (GNU/Linux)
-Comment: Using GnuPG with SUSE - http://enigmail.mozdev.org
-
-iD8DBQFFpBg+niDOoMHTA+kRAqyYAJ4u0BEgT/l+LXI0nPghi1SPdueG0gCdEEIv
-llT0ZADlVu2vjS6rqY5Pm6I=
-=Ssn2
------END PGP SIGNATURE-----
-
---------------enigA6A90330DC2C535CE07298F0--
+Thanks again.
