@@ -1,103 +1,97 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH] Re: [BUG KERNEL 2.6.20-rc1] ftp: get or put stops
- during file-transfer
-Date: Tue, 09 Jan 2007 14:22:44 +0900 (JST)
-Message-ID: <20070109.142244.31020926.yoshfuji@linux-ipv6.org>
-References: <20070104122330.GA2233@craigdell.detnet.com>
-	<20070109.102453.32711440.yoshfuji@linux-ipv6.org>
-	<20070109051139.GA2229@craigdell.detnet.com>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: 2.6.20-rc4: known regressions with patches (v2)
+Date: Tue, 9 Jan 2007 06:51:01 +0100
+Message-ID: <20070109055101.GH25007@stusta.de>
+References: <Pine.LNX.4.64.0701062216210.3661@woody.osdl.org>
 Mime-Version: 1.0
-Content-Type: Multipart/Mixed;
- boundary="--Next_Part(Tue_Jan__9_14_22_44_2007_334)--"
-Content-Transfer-Encoding: 7bit
-Cc: craig@codefountain.com, davem@davemloft.net,
-	komurojun-mbn@nifty.com, bunk@stusta.de, jgarzik@pobox.com,
-	viro@ftp.linux.org.uk, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Sami Farin <7atbggg02@sneakemail.com>,
+	David Chinner <dgc@sgi.com>, xfs-masters@oss.sgi.com,
+	Pavel Machek <pavel@ucw.cz>,
+	Marcel Holtmann <marcel@holtmann.org>,
+	bluez-devel@lists.sf.net, netdev@vger.kernel.org,
+	Komuro <komurojun-mbn@nifty.com>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+	Craig Schlenter <craig@codefountain.com>,
+	Peter Osterlund <petero2@telia.com>,
+	Patrick McHardy <kaber@trash.net>,
+	netfilter-devel@lists.netfilter.org, Michael Reske <micha@gmx.com>,
+	Ayaz Abdulla <aabdulla@nvidia.com>, jgarzik@pobox.com,
+	Brice Goglin <brice@myri.com>,
+	Robert Hancock <hancockr@shaw.ca>, gregkh@suse.de,
+	linux-pci@atrey.karlin.mff.cuni.cz
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:45328 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751049AbXAIFVz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jan 2007 00:21:55 -0500
-To: davem@davemloft.net
-In-Reply-To: <20070109051139.GA2229@craigdell.detnet.com>
+Received: from emailhub.stusta.mhn.de ([141.84.69.5]:4452 "HELO
+	mailout.stusta.mhn.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1751093AbXAIFu6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jan 2007 00:50:58 -0500
+To: Linus Torvalds <torvalds@osdl.org>, Andrew Morton <akpm@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.64.0701062216210.3661@woody.osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-----Next_Part(Tue_Jan__9_14_22_44_2007_334)--
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+This email lists some known regressions in 2.6.20-rc4 compared to 2.6.19
+with patches available.
 
-Dave, please apply.  Thank you.
+If you find your name in the Cc header, you are either submitter of one
+of the bugs, maintainer of an affectected subsystem or driver, a patch
+of you caused a breakage or I'm considering you in any other way possibly
+involved with one or more of these issues.
 
-In article <20070109051139.GA2229@craigdell.detnet.com> (at Tue, 9 Jan 2007 07:11:39 +0200), Craig Schlenter <craig@codefountain.com> says:
+Due to the huge amount of recipients, please trim the Cc when answering.
 
-> All credit goes to Komuro <komurojun-mbn@nifty.com> for tracking
-> this down. The patch is untested but it looks *cough* obviously
-> correct.
-> 
-> Signed-off-by: Craig Schlenter <craig@codefountain.com>
-Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 
-----Next_Part(Tue_Jan__9_14_22_44_2007_334)--
-Content-Type: Message/Rfc822
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+Subject    : BUG: at mm/truncate.c:60 cancel_dirty_page()  (XFS)
+References : http://lkml.org/lkml/2007/1/5/308
+Submitter  : Sami Farin <7atbggg02@sneakemail.com>
+Handled-By : David Chinner <dgc@sgi.com>
+Patch      : http://lkml.org/lkml/2007/1/7/201
+Status     : patch available
 
-Return-Path: <craig@codefountain.com>
-X-Original-To: yoshfuji@yue.st-paulia.net
-Delivered-To: yoshfuji@yue.st-paulia.net
-Received: from sapphire.st-paulia.net (unknown [IPv6:2001:200:1b0:1000:201:80ff:fe5c:5cf])
-	by yue.st-paulia.net (Postfix) with ESMTP id 359CC33B40
-	for <yoshfuji@yue.st-paulia.net>; Tue,  9 Jan 2007 14:15:28 +0900 (JST)
-Received: by sapphire.st-paulia.net (Postfix)
-	id 3058B23CDD; Tue,  9 Jan 2007 14:06:02 +0900 (JST)
-Delivered-To: yoshfuji@sapphire.st-paulia.net
-Received: from nezu.linux-ipv6.org (unknown [IPv6:2001:200:0:1c01:20f:1fff:fe67:32e9])
-	by sapphire.st-paulia.net (Postfix) with ESMTP id 0685123CA4
-	for <yoshfuji@sapphire.st-paulia.net>; Tue,  9 Jan 2007 14:05:59 +0900 (JST)
-Received: from craigdell.detnet.com (myw-stp-196-34-113-243.sentechsa.net [196.34.113.243])
-	by nezu.linux-ipv6.org (8.13.4/8.13.4/Debian-3sarge3) with ESMTP id l095EPFC016814
-	for <yoshfuji@linux-ipv6.org>; Tue, 9 Jan 2007 14:14:27 +0900
-Received: from craigdell.detnet.com (craigdell.detnet.com [127.0.0.1])
-	by craigdell.detnet.com (8.13.8/8.13.8) with ESMTP id l095BucK002873;
-	Tue, 9 Jan 2007 07:11:56 +0200
-Received: (from craig@localhost)
-	by craigdell.detnet.com (8.13.8/8.13.8/Submit) id l095BeQm002869;
-	Tue, 9 Jan 2007 07:11:40 +0200
-X-Authentication-Warning: craigdell.detnet.com: craig set sender to craig@codefountain.com using -f
-Date: Tue, 9 Jan 2007 07:11:39 +0200
-From: Craig Schlenter <craig@codefountain.com>
-To: YOSHIFUJI Hideaki / =?utf-8?B?5ZCJ6Jek6Iux5piO?= <yoshfuji@linux-ipv6.org>,
-	davem@davemloft.net
-Cc: komurojun-mbn@nifty.com, bunk@stusta.de, jgarzik@pobox.com,
-	viro@ftp.linux.org.uk, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-Subject: [PATCH] Re: [BUG KERNEL 2.6.20-rc1] ftp: get or put stops during file-transfer
-Message-ID: <20070109051139.GA2229@craigdell.detnet.com>
-References: <20061230.231952.16573563.yoshfuji@linux-ipv6.org> <20070105054546.953196e5.komurojun-mbn@nifty.com> <20070104122330.GA2233@craigdell.detnet.com> <20070109.102453.32711440.yoshfuji@linux-ipv6.org>
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
-In-Reply-To: <20070109.102453.32711440.yoshfuji@linux-ipv6.org>
-User-Agent: Mutt/1.4.2.2i
-Mime-Version: 1.0 (modified by Mew)
-Content-Transfer-Encoding: base64 (modified by Mew)
 
-SGkgRGF2ZQ0KDQpZT1NISUZVSkkgSGlkZWFraSAvIOWQieiXpOiLseaYjiBoYXMgc3VnZ2VzdGVk
-IHRoYXQgSSBzZW5kIHRoZSBwYXRjaA0KYmVsb3cgdG8gZml4IHRoZSBmdHAgc3RhbGxzIHByZXNl
-bnQgaW4gdGhlIGN1cnJlbnQga2VybmVscy4NCg0KQWxsIGNyZWRpdCBnb2VzIHRvIEtvbXVybyA8
-a29tdXJvanVuLW1ibkBuaWZ0eS5jb20+IGZvciB0cmFja2luZw0KdGhpcyBkb3duLiBUaGUgcGF0
-Y2ggaXMgdW50ZXN0ZWQgYnV0IGl0IGxvb2tzICpjb3VnaCogb2J2aW91c2x5DQpjb3JyZWN0Lg0K
-DQpTaWduZWQtb2ZmLWJ5OiBDcmFpZyBTY2hsZW50ZXIgPGNyYWlnQGNvZGVmb3VudGFpbi5jb20+
-DQoNClRoYW5rIHlvdSENCg0KLS1DcmFpZw0KDQpkaWZmIC0tZ2l0IGEvbmV0L2lwdjQvdGNwX2lw
-djQuYyBiL25ldC9pcHY0L3RjcF9pcHY0LmMNCmluZGV4IGJmN2EyMjQuLjEyZGU5MGEgMTAwNjQ0
-DQotLS0gYS9uZXQvaXB2NC90Y3BfaXB2NC5jDQorKysgYi9uZXQvaXB2NC90Y3BfaXB2NC5jDQpA
-QCAtNjQ4LDcgKzY0OCw3IEBAIHN0YXRpYyB2b2lkIHRjcF92NF9zZW5kX2FjayhzdHJ1Y3QgdGNw
-X3RpbWV3YWl0X3NvY2sgKnR3c2ssDQogCQkJCSAgIFRDUE9MRU5fVElNRVNUQU1QKTsNCiAJCXJl
-cC5vcHRbMV0gPSBodG9ubCh0Y3BfdGltZV9zdGFtcCk7DQogCQlyZXAub3B0WzJdID0gaHRvbmwo
-dHMpOw0KLQkJYXJnLmlvdlswXS5pb3ZfbGVuID0gVENQT0xFTl9UU1RBTVBfQUxJR05FRDsNCisJ
-CWFyZy5pb3ZbMF0uaW92X2xlbiArPSBUQ1BPTEVOX1RTVEFNUF9BTElHTkVEOw0KIAl9DQogDQog
-CS8qIFN3YXAgdGhlIHNlbmQgYW5kIHRoZSByZWNlaXZlLiAqLw0K
+Subject    : bluetooth oopses because of multiple kobject_add()
+References : http://lkml.org/lkml/2007/1/2/101
+Submitter  : Pavel Machek <pavel@ucw.cz>
+Handled-By : Marcel Holtmann <marcel@holtmann.org>
+Patch      : http://lkml.org/lkml/2007/1/2/147
+Status     : patch available
 
-----Next_Part(Tue_Jan__9_14_22_44_2007_334)----
+
+Subject    : ftp: get or put stops during file-transfer
+References : http://lkml.org/lkml/2006/12/16/174
+Submitter  : Komuro <komurojun-mbn@nifty.com>
+Caused-By  : YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+             commit cfb6eeb4c860592edd123fdea908d23c6ad1c7dc
+Handled-By : Craig Schlenter <craig@codefountain.com>
+             YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Patch      : http://lkml.org/lkml/2007/1/9/5
+Status     : patch available
+
+
+Subject    : nf_conntrack_netbios_ns.c causes Oops
+References : http://lkml.org/lkml/2007/1/7/188
+Submitter  : Peter Osterlund <petero2@telia.com>
+Caused-By  : Patrick McHardy <kaber@trash.net>
+             commit 92703eee4ccde3c55ee067a89c373e8a51a8adf9
+Handled-By : Patrick McHardy <kaber@trash.net>
+Patch      : http://lkml.org/lkml/2007/1/8/290
+Status     : patch available
+
+
+Subject    : forcedeth.c 0.59: problem with sideband managment
+References : http://bugzilla.kernel.org/show_bug.cgi?id=7684
+Submitter  : Michael Reske <micha@gmx.com>
+Handled-By : Ayaz Abdulla <aabdulla@nvidia.com>
+Patch      : http://bugzilla.kernel.org/show_bug.cgi?id=7684
+Status     : patch available
+
+
+Subject    : nVidia CK804 chipset: not detecting HT MSI capabilities
+References : http://lkml.org/lkml/2007/1/5/215
+Submitter  : Brice Goglin <brice@myri.com>
+             Robert Hancock <hancockr@shaw.ca>
+Handled-By : Brice Goglin <brice@myri.com>
+Patch      : http://lkml.org/lkml/2007/1/5/215
+Status     : patch available
