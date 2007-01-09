@@ -1,38 +1,53 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: kernel BUG in eth_alloc_tx_desc_index at drivers/net/mv643xx_eth.c:1069!
-Date: Tue, 9 Jan 2007 14:02:20 +0100
-Message-ID: <20070109130220.GA4060@ff.dom.local>
-References: <7d01f9f00701051103q3ee6ed35q9fd0f778a18061b8@mail.gmail.com> <20070109092602.GC1703@ff.dom.local> <7d01f9f00701090227v60b37e5dy6afbf70ccde58bf2@mail.gmail.com>
+From: Komuro <komurojun-mbn@nifty.com>
+Subject: Re: [BUG KERNEL 2.6.20-rc1] ftp: get or put stops during
+ file-transfer
+Date: Wed, 10 Jan 2007 07:01:27 +0900
+Message-ID: <20070110070127.350d6742.komurojun-mbn@nifty.com>
+References: <20061230185043.d31d2104.komurojun-mbn@nifty.com>
+	<20061230.102358.106876516.yoshfuji@linux-ipv6.org>
+	<20061230205931.9e430173.komurojun-mbn@nifty.com>
+	<20061230.231952.16573563.yoshfuji@linux-ipv6.org>
+	<20070105054546.953196e5.komurojun-mbn@nifty.com>
+	<20070104122330.GA2233@craigdell.detnet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: YOSHIFUJI Hideaki / =?ISO-2022-JP?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>, bunk@stusta.de, jgarzik@pobox.com,
+	viro@ftp.linux.org.uk, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx10.go2.pl ([193.17.41.74]:58487 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751384AbXAINA2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Jan 2007 08:00:28 -0500
-To: Thibaut VARENE <T-Bone@parisc-linux.org>
-Content-Disposition: inline
-In-Reply-To: <7d01f9f00701090227v60b37e5dy6afbf70ccde58bf2@mail.gmail.com>
+Received: from userg501.nifty.com ([202.248.238.81]:17947 "EHLO
+	userg501.nifty.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751387AbXAINCJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jan 2007 08:02:09 -0500
+To: Craig Schlenter <craig@codefountain.com>
+In-Reply-To: <20070104122330.GA2233@craigdell.detnet.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 09, 2007 at 11:27:59AM +0100, Thibaut VARENE wrote:
-...
-> I suspected both and changed both the disk and the ram for quality
-> parts, that I tested afterwards. Both passed thorough tests.
+On Thu, 4 Jan 2007 14:23:30 +0200
+Craig Schlenter <craig@codefountain.com> wrote:
+
+
+> > --- linux-2.6.20-rc3/net/ipv4/tcp_ipv4.c.orig	2007-01-03 11:50:04.000000000 +0900
+> > +++ linux-2.6.20-rc3/net/ipv4/tcp_ipv4.c	2007-01-03 15:30:44.000000000 +0900
+> > @@ -648,7 +648,7 @@ static void tcp_v4_send_ack(struct tcp_t
+> >  				   TCPOLEN_TIMESTAMP);
+> >  		rep.opt[1] = htonl(tcp_time_stamp);
+> >  		rep.opt[2] = htonl(ts);
+> > -		arg.iov[0].iov_len = TCPOLEN_TSTAMP_ALIGNED;
+> > +		arg.iov[0].iov_len = sizeof(rep);
 > 
-> Finally, using the other NIC on the box (a VIA Rhine II, 100Mbps),
-> works absolutely fine.
+> Perhaps this was supposed to be
+>                 arg.iov[0].iov_len += TCPOLEN_TSTAMP_ALIGNED;
+> 
+> That's what the ipv6 stuff does in places.
 
-If you are not tired, I'd suggest two more tests:
+It works properly.
+Thanks!
 
-- as above but with NIC set to 100Mbps also,
 
-- long downloading but without nfs e.g. ftp
-(btw. there were some patches after 2.6.19
-for rpc memory races).
+Best Regards
+Komuro
 
-Jarek P.
-
-PS: Maintainers were cc-ed, I hope?
