@@ -1,61 +1,31 @@
-From: "Caitlin Bestler" <caitlinb@broadcom.com>
-Subject: Re: [PATCH 1/10] cxgb3 - main header files
-Date: Tue, 9 Jan 2007 10:29:12 -0800
-Message-ID: <54AD0F12E08D1541B826BE97C98F99F1EE6B67@NT-SJCA-0751.brcm.ad.broadcom.com>
-References: <20070109135725.GF16107@mellanox.co.il>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH 1/5]  fixing errors handling during pci_driver resume
+ stage [net]
+Date: Tue, 9 Jan 2007 10:35:30 -0800
+Message-ID: <20070109103530.2f10f823@freekitty>
+References: <87vejgmv51.fsf@sw.ru>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	"Roland Dreier" <rdreier@cisco.com>,
-	"openib-general" <openib-general@openib.org>,
-	linux-kernel@vger.kernel.org,
-	"Divy Le Ray" <divy@chelsio.com>
-Return-path: <openib-general-bounces@openib.org>
-Content-class: urn:content-classes:message
-In-Reply-To: <20070109135725.GF16107@mellanox.co.il>
-To: "Michael S. Tsirkin" <mst@mellanox.co.il>,
-	"Steve Wise" <swise@opengridcomputing.com>
-List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
- <mailto:openib-general-request@openib.org?subject=unsubscribe>
-List-Archive: <http://openib.org/pipermail/openib-general>
-List-Post: <mailto:openib-general@openib.org>
-List-Help: <mailto:openib-general-request@openib.org?subject=help>
-List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
- <mailto:openib-general-request@openib.org?subject=subscribe>
-Sender: openib-general-bounces@openib.org
-Errors-To: openib-general-bounces@openib.org
+Cc: linux-kernel@vger.kernel.org, Andrew Morton <akpm@osdl.org>,
+	devel@openvz.org, linux-pci@atrey.karlin.mff.cuni.cz,
+	netdev@vger.kernel.org, linux-scsi@vger.kernel.org
+Return-path: <linux-scsi-owner@vger.kernel.org>
+To: Dmitriy Monakhov <dmonakhov@openvz.org>
+In-Reply-To: <87vejgmv51.fsf@sw.ru>
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
- 
+On Tue, 09 Jan 2007 12:01:14 +0300
+Dmitriy Monakhov <dmonakhov@openvz.org> wrote:
 
-> -----Original Message-----
-> From: openib-general-bounces@openib.org 
-> [mailto:openib-general-bounces@openib.org] On Behalf Of 
-> Michael S. Tsirkin
-> Sent: Tuesday, January 09, 2007 5:57 AM
-> To: Steve Wise
-> Cc: netdev@vger.kernel.org; Roland Dreier; Divy Le Ray; 
-> linux-kernel@vger.kernel.org; openib-general
-> Subject: Re: [openib-general] [PATCH 1/10] cxgb3 - main header files
-> 
-> > We also need to decide on the ib_req_notify_cq() issue.  
-> 
-> Let's clarify - do you oppose doing copy_from_user from a 
-> fixed address passed in during setup?
-> 
-> If OK with you, this seems the best way as it is the least 
-> controversial and least disruptive one.
-> 
-To clarfiy my understanding of this issue:
+> network pci drivers have to return correct error code during resume stage in
+> case of errors.
+> Signed-off-by: Dmitriy Monakhov <dmonakhov@openvz.org>
+> -----
 
-A device MAY implement ib_req_notify_cq by updating
-a location directly from user mode. Any of the techniques
-that apply to other user allocated objects, such as 
-the Send Queue, can be applied here.
+Please don't introduce one dev_err() call into a device driver if all the other
+error printout's use a different interface.
 
-Even those the proposed changes would be about as
-low impact and benign as possible, the fact that there
-are valid solutions without an API changes leans heavily
-towards using those solutions.
+-- 
+Stephen Hemminger <shemminger@osdl.org>
