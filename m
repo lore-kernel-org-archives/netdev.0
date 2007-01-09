@@ -1,40 +1,77 @@
-From: "Arnaldo Carvalho de Melo" <arnaldo.melo@gmail.com>
-Subject: Re: [PATCH] INET: fix incorrect "inet_sock->is_icsk" assignment
-Date: Tue, 9 Jan 2007 12:52:43 -0200
-Message-ID: <39e6f6c70701090652w2c42fc9eo7768c145ac16f745@mail.gmail.com>
-References: <20070108132548.GA2324@ff.dom.local>
-	 <200701080947.29270.paul.moore@hp.com>
-	 <20070109084322.GB1703@ff.dom.local>
-	 <200701090926.47206.paul.moore@hp.com>
+From: Dmitriy Monakhov <dmonakhov@sw.ru>
+Subject: Re: [PATCH 5/5] fixing errors handling during pci_driver resume stage [serial]
+Date: Tue, 09 Jan 2007 18:02:44 +0300
+Message-ID: <87y7ocqm3v.fsf@sw.ru>
+References: <87ps9omv3t.fsf@sw.ru>
+	<20070109122752.GA26337@flint.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Jarek Poplawski" <jarkao2@o2.pl>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wr-out-0506.google.com ([64.233.184.226]:25296 "EHLO
-	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932119AbXAIOwo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jan 2007 09:52:44 -0500
-Received: by wr-out-0506.google.com with SMTP id 71so1455284wri
-        for <netdev@vger.kernel.org>; Tue, 09 Jan 2007 06:52:44 -0800 (PST)
-To: "Paul Moore" <paul.moore@hp.com>
-In-Reply-To: <200701090926.47206.paul.moore@hp.com>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, Andrew Morton <akpm@osdl.org>,
+	devel@openvz.org, linux-pci@atrey.karlin.mff.cuni.cz,
+	netdev@vger.kernel.org, linux-scsi@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932135AbXAIPCw@vger.kernel.org>
+To: Dmitriy Monakhov <dmonakhov@openvz.org>
+In-Reply-To: <20070109122752.GA26337@flint.arm.linux.org.uk> (Russell King's message of "Tue, 9 Jan 2007 12:27:53 +0000")
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 1/9/07, Paul Moore <paul.moore@hp.com> wrote:
-> On Tuesday 09 January 2007 3:43 am, Jarek Poplawski wrote:
-> > ... But if you consider this code will probably become classical
-> > and will be read, quoted and teached next 1000 years, then the style
-> > could matter...
+Russell King <rmk+lkml@arm.linux.org.uk> writes:
+
+> On Tue, Jan 09, 2007 at 12:01:58PM +0300, Dmitriy Monakhov wrote:
+>> serial pci drivers have to return correct error code during resume stage in
+>> case of errors.
 >
-> This from the guy who believes "Justin Timberlake rocks!" ;)
+> Sigh.  *hate* *hate* *hate*.
 >
-> All right, you convinced me, I'll send out a patch to the patch later today.
-
-/me grins
-
-I see I don't have to worry that much with style nitpicking, keep it up!
-
-- Arnaldo
+>> diff --git a/drivers/serial/8250_pci.c b/drivers/serial/8250_pci.c
+>> index 52e2e64..e26e4a6 100644
+>> --- a/drivers/serial/8250_pci.c
+>> +++ b/drivers/serial/8250_pci.c
+>> @@ -1805,6 +1805,7 @@ static int pciserial_suspend_one(struct
+>>  static int pciserial_resume_one(struct pci_dev *dev)
+>>  {
+>>  	struct serial_private *priv = pci_get_drvdata(dev);
+>> +	int err;
+>>  
+>>  	pci_set_power_state(dev, PCI_D0);
+>>  	pci_restore_state(dev);
+>> @@ -1813,7 +1814,12 @@ static int pciserial_resume_one(struct p
+>>  		/*
+>>  		 * The device may have been disabled.  Re-enable it.
+>>  		 */
+>> -		pci_enable_device(dev);
+>> +		err = pci_enable_device(dev);
+>> +		if (err) {
+>> +			dev_err(&dev->dev, "Cannot enable PCI device, "
+>> +				"aborting.\n");
+>> +			return err;
+>> +		}
+>>  
+>>  		pciserial_resume_ports(priv);
+>>  	}
+>
+> So if pci_enable_device() fails, what do we do with the still suspended
+> serial port?  Does it clean up that state?  Probably not.
+>
+> Look, merely going around bunging this stupid "oh lets propagate the
+> error" crap into the kernel doesn't actually fix _anything_.  In fact
+> it potentially _hides_ the warnings produced by __must_check which
+> give a hint that _something_ needs to be done to _properly_ fix the
+> problem.
+>
+> And by "properly", I mean not just merely propagating the error.
+>
+> In this particular case, the above may result in resources not being
+> freed.
+Yep 100% true. But the question is _HOW_? We want shutdown not enabled device.
+Is it safe just call pciserial_remove_ports() for this device? 
+>
+> -- 
+> Russell King
+>  Linux kernel    2.6 ARM Linux   - http://www.arm.linux.org.uk/
+>  maintainer of:
+> -
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
