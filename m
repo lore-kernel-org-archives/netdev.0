@@ -1,132 +1,37 @@
-From: Dmitriy Monakhov <dmonakhov@openvz.org>
-Subject: [PATCH 2/5] fixing errors handling during pci_driver resume stage [ata]
-Date: Tue, 09 Jan 2007 12:01:28 +0300
-Message-ID: <87tzz0mv4n.fsf@sw.ru>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: kernel BUG in eth_alloc_tx_desc_index at drivers/net/mv643xx_eth.c:1069!
+Date: Tue, 9 Jan 2007 10:26:02 +0100
+Message-ID: <20070109092602.GC1703@ff.dom.local>
+References: <7d01f9f00701051103q3ee6ed35q9fd0f778a18061b8@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-=-="
-Cc: Andrew Morton <akpm@osdl.org>, devel@openvz.org,
-	linux-pci@atrey.karlin.mff.cuni.cz, netdev@vger.kernel.org,
-	linux-scsi@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.233.200]:44896 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751184AbXAIJBW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Jan 2007 04:01:22 -0500
-To: linux-kernel@vger.kernel.org
+Received: from poczta.o2.pl ([193.17.41.142]:32817 "EHLO poczta.o2.pl"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751229AbXAIJYL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Jan 2007 04:24:11 -0500
+To: Thibaut VARENE <T-Bone@parisc-linux.org>
+Content-Disposition: inline
+In-Reply-To: <7d01f9f00701051103q3ee6ed35q9fd0f778a18061b8@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---=-=-=
+On 05-01-2007 20:03, Thibaut VARENE wrote:
+> Hi,
+> 
+> I've been experiencing this bug on my Pegasos II (PPC G4 1GHz, 512M
+...
+> [C7F6FA60] [C0012498] ret_from_except+0x0/0x14                                  
+> --- Exception: 501 at __kmalloc+0x30/0xc0                                       
+>     LR = rpc_malloc+0x48/0xac [sunrpc]                                          
+> [C7F6FB20] [C3D72508] 0xc3d72508 (unreliable)                                   
+> [C7F6FB30] [E2A88E18] rpc_malloc+0x48/0xac [sunrpc]                             
+> [C7F6FB40] [E2A835F8] call_allocate+0x88/0x108 [sunrpc]                         
+> [C7F6FB60] [E2A89554] __rpc_execute+0x94/0x248 [sunrpc]                         
 
-ata pci drivers have to return correct error code during resume stage in
-case of errors.
-Signed-off-by: Dmitriy Monakhov <dmonakhov@openvz.org>
------
+Aren't there any other warnings displayed before?
+No problems with memory or disk?
 
---=-=-=
-Content-Disposition: inline; filename=diff-pci-ata
-
-diff --git a/drivers/ata/ahci.c b/drivers/ata/ahci.c
-index b517d24..0656334 100644
---- a/drivers/ata/ahci.c
-+++ b/drivers/ata/ahci.c
-@@ -1372,7 +1372,9 @@ static int ahci_pci_device_resume(struct
- 	void __iomem *mmio = host->mmio_base;
- 	int rc;
- 
--	ata_pci_device_do_resume(pdev);
-+	rc = ata_pci_device_do_resume(pdev);
-+	if (rc)
-+		return rc;
- 
- 	if (pdev->dev.power.power_state.event == PM_EVENT_SUSPEND) {
- 		rc = ahci_reset_controller(mmio, pdev);
-diff --git a/drivers/ata/libata-core.c b/drivers/ata/libata-core.c
-index 0d51d13..3d6729d 100644
---- a/drivers/ata/libata-core.c
-+++ b/drivers/ata/libata-core.c
-@@ -6221,12 +6221,19 @@ void ata_pci_device_do_suspend(struct pc
- 	}
- }
- 
--void ata_pci_device_do_resume(struct pci_dev *pdev)
-+int ata_pci_device_do_resume(struct pci_dev *pdev)
- {
-+	int ret = 0; 
- 	pci_set_power_state(pdev, PCI_D0);
- 	pci_restore_state(pdev);
--	pci_enable_device(pdev);
-+	ret = pci_enable_device(pdev);
-+	if (ret) {
-+		dev_err(&pdev->dev, "Cannot enable PCI device, aborting.\n");
-+		return ret;
-+	}
-+	
- 	pci_set_master(pdev);
-+	return ret;
- }
- 
- int ata_pci_device_suspend(struct pci_dev *pdev, pm_message_t mesg)
-@@ -6246,8 +6253,10 @@ int ata_pci_device_suspend(struct pci_de
- int ata_pci_device_resume(struct pci_dev *pdev)
- {
- 	struct ata_host *host = dev_get_drvdata(&pdev->dev);
-+	int err;
- 
--	ata_pci_device_do_resume(pdev);
-+	if ((err = ata_pci_device_do_resume(pdev)))
-+		return err;
- 	ata_host_resume(host);
- 	return 0;
- }
-diff --git a/drivers/ata/sata_sil.c b/drivers/ata/sata_sil.c
-index 7808d03..8451143 100644
---- a/drivers/ata/sata_sil.c
-+++ b/drivers/ata/sata_sil.c
-@@ -710,8 +710,12 @@ err_out:
- static int sil_pci_device_resume(struct pci_dev *pdev)
- {
- 	struct ata_host *host = dev_get_drvdata(&pdev->dev);
-+	int err;
-+
-+	err = ata_pci_device_do_resume(pdev);
-+	if (err)
-+		return err;
- 
--	ata_pci_device_do_resume(pdev);
- 	sil_init_controller(pdev, host->n_ports, host->ports[0]->flags,
- 			    host->mmio_base);
- 	ata_host_resume(host);
-diff --git a/drivers/ata/sata_sil24.c b/drivers/ata/sata_sil24.c
-index 5aa288d..be6971a 100644
---- a/drivers/ata/sata_sil24.c
-+++ b/drivers/ata/sata_sil24.c
-@@ -1200,8 +1200,11 @@ static int sil24_pci_device_resume(struc
- {
- 	struct ata_host *host = dev_get_drvdata(&pdev->dev);
- 	struct sil24_host_priv *hpriv = host->private_data;
-+	int err;
- 
--	ata_pci_device_do_resume(pdev);
-+	err = ata_pci_device_do_resume(pdev);
-+	if (err)
-+		return err;
- 
- 	if (pdev->dev.power.power_state.event == PM_EVENT_SUSPEND)
- 		writel(HOST_CTRL_GLOBAL_RST, hpriv->host_base + HOST_CTRL);
-diff --git a/include/linux/libata.h b/include/linux/libata.h
-index ab27548..283ca72 100644
---- a/include/linux/libata.h
-+++ b/include/linux/libata.h
-@@ -719,7 +719,7 @@ extern int ata_pci_init_one (struct pci_
- 			     unsigned int n_ports);
- extern void ata_pci_remove_one (struct pci_dev *pdev);
- extern void ata_pci_device_do_suspend(struct pci_dev *pdev, pm_message_t mesg);
--extern void ata_pci_device_do_resume(struct pci_dev *pdev);
-+extern int ata_pci_device_do_resume(struct pci_dev *pdev);
- extern int ata_pci_device_suspend(struct pci_dev *pdev, pm_message_t mesg);
- extern int ata_pci_device_resume(struct pci_dev *pdev);
- extern int ata_pci_clear_simplex(struct pci_dev *pdev);
-
---=-=-=--
-
+Regards,
+Jarek P. 
