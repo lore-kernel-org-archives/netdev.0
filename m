@@ -1,62 +1,34 @@
-From: Michael Wu <flamingice@sourmilk.net>
-Subject: Re: Using 802.11x wireless usb device on MIPS platform
-Date: Tue, 9 Jan 2007 13:52:50 -0500
-Message-ID: <200701091352.54273.flamingice@sourmilk.net>
-References: <1cf601c73399$2ab7cd10$106215ac@realtek.com.tw> <20070109140931.GB6614@linux-mips.org>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: Re: [PATCH -MM] e1000: rewrite hardware initialization code
+Date: Tue, 09 Jan 2007 11:10:55 -0800
+Message-ID: <45A3E8BF.8080401@intel.com>
+References: <45A3D29D.1000202@intel.com> <20070109104525.b0f17316.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart1544725.6kS19maBtC";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Ralf Baechle <ralf@linux-mips.org>, linux-mips@linux-mips.org,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from server8.tchmachines.com ([216.180.241.250]:37002 "EHLO
-	server8.tchmachines.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932373AbXAISx1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jan 2007 13:53:27 -0500
-To: colin <colin@realtek.com.tw>
-In-Reply-To: <20070109140931.GB6614@linux-mips.org>
-Sender: netdev-owner@vger.kernel.org
+Cc: Auke Kok <auke-jan.h.kok@intel.com>,
+	Jeff Garzik <jgarzik@pobox.com>,
+	NetDev <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Arjan van de Ven <arjan@linux.intel.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750896AbXAITLN@vger.kernel.org>
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20070109104525.b0f17316.akpm@osdl.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart1544725.6kS19maBtC
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+Andrew Morton wrote:
+> On Tue, 09 Jan 2007 09:36:29 -0800
+> Auke Kok <auke-jan.h.kok@intel.com> wrote:
+> 
+>>      git-pull git://lost.foo-projects.org/~ahkok/git/linux-2.6 e1000
+> 
+> That tree appears to be based on the -mm git tree?
+> 
+> That's a somewhat unusual thing to do - a tree which is based on current
+> Linus mainline would be preferred, please.  Or on Jeff's netdev tree.
 
-On Tuesday 09 January 2007 09:09, Ralf Baechle wrote:
-> On Tue, Jan 09, 2007 at 10:52:14AM +0800, colin wrote:
-> > I have used two 802.11x wireless usb devices successfully on MIPS
-> > platform. One is realtek 8187 and the other one is ralink 2571.
-> > I would like to put them into kernel tree and then I found that there a=
-re
-> > not many 802.11x devices supported in Linux.
->
-Please see the wireless-dev tree. There is a driver for the ralink 2571 in=
-=20
-there which will be merged along with a number of other wireless drivers wh=
-en=20
-the devicescape 802.11 (d80211) wireless stack is sufficiently polished. Ne=
-w=20
-softmac wireless drivers should be based on that stack if possible. I am=20
-working on a d80211 version of the rtl8187/rtl8185 driver right now, which =
-is=20
-I think is the last linux 802.11g driver which needs to be ported.
+those are not in sync atm, but I'll get you one against Jeff's upstream tree, that'll 
+take a minute, or five.
 
-=2DMichael Wu
-
---nextPart1544725.6kS19maBtC
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2 (GNU/Linux)
-
-iD8DBQBFo+SGT3Oqt9AH4aERAiKcAJ9Ua4Wl3GTfo3nL1hI3QtXUrKrFTQCgsdJU
-iMtgf0yzbkZqB1OitK0m76Y=
-=z9X/
------END PGP SIGNATURE-----
-
---nextPart1544725.6kS19maBtC--
+Auke
