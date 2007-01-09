@@ -1,73 +1,31 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH -MM] e1000: rewrite hardware initialization code
-Date: Tue, 9 Jan 2007 10:33:09 -0800
-Message-ID: <20070109103309.0b872a53@freekitty>
-References: <45A3D29D.1000202@intel.com>
+From: "Arnaldo Carvalho de Melo" <arnaldo.melo@gmail.com>
+Subject: Re: [PATCH] INET: style updates for the inet_sock->is_icsk assignment fix
+Date: Tue, 9 Jan 2007 16:45:12 -0200
+Message-ID: <39e6f6c70701091045v2b5b1eeck350c71f5a4c91db1@mail.gmail.com>
+References: <20070109175144.787024589@flek.zko.hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>, Jeff Garzik <jgarzik@pobox.com>,
-	NetDev <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Arjan van de Ven <arjan@linux.intel.com>
+Cc: netdev@vger.kernel.org, "Jarek Poplawski" <jarkao2@o2.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:60086 "EHLO smtp.osdl.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932351AbXAIShK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Jan 2007 13:37:10 -0500
-To: Auke Kok <auke-jan.h.kok@intel.com>
-In-Reply-To: <45A3D29D.1000202@intel.com>
+Received: from wr-out-0506.google.com ([64.233.184.225]:2945 "EHLO
+	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932352AbXAISpN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jan 2007 13:45:13 -0500
+Received: by wr-out-0506.google.com with SMTP id i21so2954282wra
+        for <netdev@vger.kernel.org>; Tue, 09 Jan 2007 10:45:12 -0800 (PST)
+To: "Paul Moore" <paul.moore@hp.com>
+In-Reply-To: <20070109175144.787024589@flek.zko.hp.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 09 Jan 2007 09:36:29 -0800
-Auke Kok <auke-jan.h.kok@intel.com> wrote:
+On 1/9/07, Paul Moore <paul.moore@hp.com> wrote:
+> A quick patch to change the inet_sock->is_icsk assignment to better fit with
+> existing kernel coding style.
+>
+> Signed-off-by: Paul Moore <paul.moore@hp.com>
+> Cc: Jarek Poplawski <jarkao2@o2.pl>
+> Cc: Arnaldo Carvalho de Melo <arnaldo.melo@gmail.com>
 
-> 
-> Andrew, All,
-> 
-> This patch contains a major rewrite to the e1000 driver that groups and separates e1000 
-> hardware by chipset family. It abstracts the hardware specific code into an API that 
-> will allow us to continue to maintain the complex e1000 driver and add new hardware 
-> support to it without touching code that affects older chipsets. 
-
-Thats good. but:
-
->   drivers/net/e1000/Makefile            |   19
->   drivers/net/e1000/e1000.h             |   95
->   drivers/net/e1000/e1000_80003es2lan.c | 1330 +++++
->   drivers/net/e1000/e1000_80003es2lan.h |   89
->   drivers/net/e1000/e1000_82540.c       |  586 ++
->   drivers/net/e1000/e1000_82541.c       | 1164 ++++
->   drivers/net/e1000/e1000_82541.h       |   86
->   drivers/net/e1000/e1000_82542.c       |  466 ++
->   drivers/net/e1000/e1000_82543.c       | 1397 +++++
->   drivers/net/e1000/e1000_82543.h       |   45
->   drivers/net/e1000/e1000_82571.c       | 1132 ++++
->   drivers/net/e1000/e1000_82571.h       |   42
->   drivers/net/e1000/e1000_api.c         | 1077 ++++
->   drivers/net/e1000/e1000_api.h         |  159 +
->   drivers/net/e1000/e1000_defines.h     | 1289 +++++
->   drivers/net/e1000/e1000_ethtool.c     |  470 +-
->   drivers/net/e1000/e1000_hw.c          | 9038 ---------------------------------
->   drivers/net/e1000/e1000_hw.h          | 3859 ++------------
->   drivers/net/e1000/e1000_ich8lan.c     | 2353 +++++++++
->   drivers/net/e1000/e1000_ich8lan.h     |  108
->   drivers/net/e1000/e1000_mac.c         | 1921 +++++++
->   drivers/net/e1000/e1000_mac.h         |   84
->   drivers/net/e1000/e1000_main.c        | 1002 ++--
->   drivers/net/e1000/e1000_manage.c      |  387 +
->   drivers/net/e1000/e1000_manage.h      |   83
->   drivers/net/e1000/e1000_nvm.c         |  860 +++
->   drivers/net/e1000/e1000_nvm.h         |   61
->   drivers/net/e1000/e1000_osdep.h       |   56
->   drivers/net/e1000/e1000_param.c       |  115
->   drivers/net/e1000/e1000_phy.c         | 1932 +++++++
->   drivers/net/e1000/e1000_phy.h         |  157 +
->   drivers/net/e1000/e1000_regs.h        |  236 +
->   32 files changed, 18538 insertions(+), 13160 deletions(-)
-
-Is lots of little files really progress?
-
--- 
-Stephen Hemminger <shemminger@osdl.org>
+Signed-off-by: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
