@@ -1,52 +1,59 @@
-From: "Li Yang-r58472" <LeoLi@freescale.com>
-Subject: RE: [PATCH] ucc_geth: kmalloc casting cleanups
-Date: Tue, 9 Jan 2007 15:39:53 +0800
-Message-ID: <989B956029373F45A0B8AF0297081890086680@zch01exm26.fsl.freescale.net>
-References: <45A3412C.2050008@garzik.org>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: BUG: soft lockup detected on CPU#0! (2.6.18.2 plus hacks)
+Date: Tue, 9 Jan 2007 09:10:45 +0100
+Message-ID: <20070109081045.GA1703@ff.dom.local>
+References: <OF02F7C182.A05F7E5A-ON88257259.001B0EFA-88257259.001E96CF@us.ibm.com> <E1H2M3X-0001HE-00@gondolin.me.apana.org.au> <20070104.123333.91315611.davem@davemloft.net> <459EB627.5040606@candelatech.com> <20070108065346.GA1665@ff.dom.local> <45A277E6.6000904@candelatech.com> <20070108100350.1187a3dc@freekitty>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>, <galak@kernel.crashing.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ben Greear <greearb@candelatech.com>,
+	David Miller <davem@davemloft.net>,
+	herbert@gondor.apana.org.au, dlstevens@us.ibm.com,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from az33egw01.freescale.net ([192.88.158.102]:43237 "EHLO
-	az33egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751142AbXAIHis convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jan 2007 02:38:48 -0500
-Received: from az33smr01.freescale.net (az33smr01.freescale.net [10.64.34.199])
-	by az33egw01.freescale.net (8.12.11/az33egw01) with ESMTP id l097clHH003306
-	for <netdev@vger.kernel.org>; Tue, 9 Jan 2007 00:38:47 -0700 (MST)
-Received: from zch01exm26.fsl.freescale.net (zch01exm26.ap.freescale.net [10.192.129.221])
-	by az33smr01.freescale.net (8.13.1/8.13.0) with ESMTP id l097cjaa020980
-	for <netdev@vger.kernel.org>; Tue, 9 Jan 2007 01:38:46 -0600 (CST)
-Content-class: urn:content-classes:message
-In-Reply-To: <45A3412C.2050008@garzik.org>
-To: "Jeff Garzik" <jeff@garzik.org>
+Received: from mx10.go2.pl ([193.17.41.74]:42621 "EHLO poczta.o2.pl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751147AbXAIIIy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Jan 2007 03:08:54 -0500
+To: Stephen Hemminger <shemminger@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20070108100350.1187a3dc@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: Jeff Garzik [mailto:jeff@garzik.org]
-> Sent: Tuesday, January 09, 2007 3:16 PM
-> To: Li Yang-r58472
-> Cc: netdev@vger.kernel.org; galak@kernel.crashing.org
-> Subject: Re: [PATCH] ucc_geth: kmalloc casting cleanups
+On Mon, Jan 08, 2007 at 10:03:50AM -0800, Stephen Hemminger wrote:
+> On Mon, 08 Jan 2007 08:57:10 -0800
+> Ben Greear <greearb@candelatech.com> wrote:
 > 
-> Li Yang wrote:
-> > From: Ahmed S. Darwish <darwish.07@gmail.com>
-> >
-> > Switch kmalloc to kzalloc and clean some redundant kmalloc
-> > casts.
-> >
-> > Signed-off-by: Ahmed S. Darwish <darwish.07@gmail.com>
-> > Signed-off-by: Li Yang <leoli@freescale.com>
-> > ---
+> > Jarek Poplawski wrote:
+> > > On Fri, Jan 05, 2007 at 12:33:43PM -0800, Ben Greear wrote:
+> > > ...
+> > >   
+> > >> So, I do believe this was the problem we were hitting, and it seems fixed.
+> > >>     
+> > >
+> > > Congratulations!
+> > >
+> > > But I can see one strange thing in vlan.c:
+> > >
+> > > /* Must be invoked with RCU read lock (no preempt) */
+> > > static struct vlan_group *__vlan_find_group(int real_dev_ifindex)
+> > > ...
+> > >  * Must be invoked with RCU read lock (no preempt)
+> > >  */
+> > > struct net_device *__find_vlan_dev(struct net_device *real_dev,
+> > > ...
+> > >
+> > > But later in this file no sign of disabling preemption
+> > > for these calls and for hlist_add_head_rcu and hlist_del_rcu.
+> > >
+> > > I can't imagine how this works?
 > 
-> 
-> I should wait for Kumar to resend ucc_geth fixes before applying this,
-> right?
+> Preempt is already disabled on the receive path.
 
-Ok.  The patch is based on 2.6.20-rc3, but I think it can still apply.
-If not, please ping me.
+I'm not sure you're talking about the same thing -
+there is blocking possible inside register_vlan_dev
+and unregister_vlan_dev, grp pointer is held during
+this blocking - I've thought it's only possible in
+sleepable RCU...
 
-- Leo
+Jarek P.
