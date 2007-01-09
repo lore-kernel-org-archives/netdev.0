@@ -1,15 +1,15 @@
 From: Ayaz Abdulla <aabdulla@nvidia.com>
-Subject: [PATCH 6/12] forcedeth: tx limiting
-Date: Tue, 09 Jan 2007 13:30:18 -0500
-Message-ID: <45A3DF3A.9020502@nvidia.com>
+Subject: [PATCH 3/12] forcedeth: tx locking
+Date: Tue, 09 Jan 2007 13:30:10 -0500
+Message-ID: <45A3DF32.3090909@nvidia.com>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------010207070004010905090403"
+ boundary="------------030109000204040806000409"
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hqemgate01.nvidia.com ([216.228.112.170]:5618 "EHLO
+Received: from hqemgate01.nvidia.com ([216.228.112.170]:5483 "EHLO
 	HQEMGATE01.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932414AbXAIVXx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jan 2007 16:23:53 -0500
+	with ESMTP id S932404AbXAIVXp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jan 2007 16:23:45 -0500
 To: Jeff Garzik <jgarzik@pobox.com>,
 	Manfred Spraul <manfred@colorfullife.com>,
 	Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org
@@ -17,131 +17,64 @@ Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
---------------010207070004010905090403
+--------------030109000204040806000409
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 
-This patch optimizes the logic for tx limiting. It adds a flag to check 
-on the completion side instead of recalculating the number of empty 
-slots. Also, it removes the fields that were previous used for limiting 
-since they have no value.
+This patch reduces the amount of code within the lock to only the 
+critical sections.
 
 Signed-Off-By: Ayaz Abdulla <aabdulla@nvidia.com>
 
 
---------------010207070004010905090403
+--------------030109000204040806000409
 Content-Type: text/plain;
- name="patch-tx-limiting"
+ name="patch-tx-locking"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline;
- filename="patch-tx-limiting"
+ filename="patch-tx-locking"
 
---- orig/drivers/net/forcedeth.c	2007-01-08 11:12:15.000000000 -0500
-+++ new/drivers/net/forcedeth.c	2007-01-08 11:12:10.000000000 -0500
-@@ -518,12 +518,6 @@
- #define TX_RING_MIN		64
- #define RING_MAX_DESC_VER_1	1024
- #define RING_MAX_DESC_VER_2_3	16384
--/*
-- * Difference between the get and put pointers for the tx ring.
-- * This is used to throttle the amount of data outstanding in the
-- * tx ring.
-- */
--#define TX_LIMIT_DIFFERENCE	1
- 
- /* rx/tx mac addr + type + vlan + align + slack*/
- #define NV_RX_HEADERS		(64)
-@@ -777,8 +771,7 @@
- 	union ring_type tx_ring;
- 	u32 tx_flags;
- 	int tx_ring_size;
--	int tx_limit_start;
--	int tx_limit_stop;
-+	int tx_stop;
- 
- 	/* vlan fields */
- 	struct vlan_group *vlangrp;
-@@ -1583,9 +1576,10 @@
+--- orig/drivers/net/forcedeth.c	2007-01-07 22:30:08.000000000 -0500
++++ new/drivers/net/forcedeth.c	2007-01-07 22:30:02.000000000 -0500
+@@ -1569,12 +1569,11 @@
+ 			   ((skb_shinfo(skb)->frags[i].size & (NV_TX2_TSO_MAX_SIZE-1)) ? 1 : 0);
  	}
  
+-	spin_lock_irq(&np->lock);
+-
  	empty_slots = nv_get_empty_tx_slots(np);
--	if ((empty_slots - np->tx_limit_stop) <= entries) {
-+	if (empty_slots <= entries) {
- 		spin_lock_irq(&np->lock);
+ 	if ((empty_slots - np->tx_limit_stop) <= entries) {
+-		spin_unlock_irq(&np->lock);
++		spin_lock_irq(&np->lock);
  		netif_stop_queue(dev);
-+		np->tx_stop = 1;
- 		spin_unlock_irq(&np->lock);
++		spin_unlock_irq(&np->lock);
  		return NETDEV_TX_BUSY;
  	}
-@@ -1704,9 +1698,10 @@
+ 
+@@ -1669,6 +1668,8 @@
+ 		tx_flags_vlan = NV_TX3_VLAN_TAG_PRESENT | vlan_tx_tag_get(skb);
  	}
  
- 	empty_slots = nv_get_empty_tx_slots(np);
--	if ((empty_slots - np->tx_limit_stop) <= entries) {
-+	if (empty_slots <= entries) {
- 		spin_lock_irq(&np->lock);
- 		netif_stop_queue(dev);
-+		np->tx_stop = 1;
- 		spin_unlock_irq(&np->lock);
- 		return NETDEV_TX_BUSY;
- 	}
-@@ -1813,6 +1808,7 @@
- 	struct fe_priv *np = netdev_priv(dev);
- 	u32 flags;
- 	struct sk_buff *skb;
-+	struct ring_desc* orig_get_tx = np->get_tx.orig;
- 
-  	while (np->get_tx.orig != np->put_tx.orig) {
- 		flags = le32_to_cpu(np->get_tx.orig->flaglen);
-@@ -1858,8 +1854,10 @@
- 		if (np->get_tx_ctx++ == np->last_tx_ctx)
- 			np->get_tx_ctx = np->first_tx_ctx;
- 	}
--	if (nv_get_empty_tx_slots(np) > np->tx_limit_start)
-+	if ((np->tx_stop == 1) && (np->get_tx.orig != orig_get_tx)) {
-+		np->tx_stop = 0;
- 		netif_wake_queue(dev);
-+	}
- }
- 
- static void nv_tx_done_optimized(struct net_device *dev)
-@@ -1867,6 +1865,7 @@
- 	struct fe_priv *np = netdev_priv(dev);
- 	u32 flags;
- 	struct sk_buff *skb;
-+	struct ring_desc_ex* orig_get_tx = np->get_tx.ex;
- 
-  	while (np->get_tx.ex == np->put_tx.ex) {
- 		flags = le32_to_cpu(np->get_tx.ex->flaglen);
-@@ -1895,8 +1894,10 @@
- 		if (np->get_tx_ctx++ == np->last_tx_ctx)
- 			np->get_tx_ctx = np->first_tx_ctx;
- 	}
--	if (nv_get_empty_tx_slots(np) > np->tx_limit_start)
-+	if ((np->tx_stop == 1) && (np->get_tx.ex != orig_get_tx)) {
-+		np->tx_stop = 0;
- 		netif_wake_queue(dev);
-+	}
- }
- 
- /*
-@@ -4001,8 +4002,6 @@
- 	/* set new values */
- 	np->rx_ring_size = ring->rx_pending;
- 	np->tx_ring_size = ring->tx_pending;
--	np->tx_limit_stop = TX_LIMIT_DIFFERENCE;
--	np->tx_limit_start = TX_LIMIT_DIFFERENCE;
++	spin_lock_irq(&np->lock);
++
+ 	/* set tx flags */
  	if (np->desc_ver == DESC_VER_1 || np->desc_ver == DESC_VER_2) {
- 		np->rx_ring.orig = (struct ring_desc*)rxtx_ring;
- 		np->tx_ring.orig = &np->rx_ring.orig[np->rx_ring_size];
-@@ -4967,8 +4966,6 @@
+ 		start_tx.orig->flaglen |= cpu_to_le32(tx_flags | tx_flags_extra);
+@@ -1679,6 +1680,7 @@
+ 		np->put_tx.ex = put_tx.ex;
+ 	}
  
- 	np->rx_ring_size = RX_RING_DEFAULT;
- 	np->tx_ring_size = TX_RING_DEFAULT;
--	np->tx_limit_stop = TX_LIMIT_DIFFERENCE;
--	np->tx_limit_start = TX_LIMIT_DIFFERENCE;
++	spin_unlock_irq(&np->lock);
  
- 	if (np->desc_ver == DESC_VER_1 || np->desc_ver == DESC_VER_2) {
- 		np->rx_ring.orig = pci_alloc_consistent(pci_dev,
+ 	dprintk(KERN_DEBUG "%s: nv_start_xmit: entries %d queued for transmission. tx_flags_extra: %x\n",
+ 		dev->name, entries, tx_flags_extra);
+@@ -1693,7 +1695,6 @@
+ 	}
+ 
+ 	dev->trans_start = jiffies;
+-	spin_unlock_irq(&np->lock);
+ 	writel(NVREG_TXRXCTL_KICK|np->txrxctl_bits, get_hwbase(dev) + NvRegTxRxControl);
+ 	pci_push(get_hwbase(dev));
+ 	return NETDEV_TX_OK;
 
---------------010207070004010905090403--
+--------------030109000204040806000409--
