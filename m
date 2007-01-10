@@ -1,71 +1,63 @@
-From: Dmitriy Monakhov <dmonakhov@openvz.org>
-Subject: [PATCH] Broadcom 4400 resume small fix (v2)
-Date: Wed, 10 Jan 2007 20:13:37 +0300
-Message-ID: <87bql6ztxa.fsf@sw.ru>
+From: "Venkat Yekkirala" <vyekkirala@trustedcs.com>
+Subject: RE: [IPSEC] flow: Cache negative results
+Date: Wed, 10 Jan 2007 11:41:07 -0600
+Message-ID: <001301c734de$8252b170$cc0a010a@tcssec.com>
+References: <Pine.LNX.4.64.0701100913050.8582@d.namei>
+Reply-To: <vyekkirala@trustedcs.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-=-="
-Cc: netdev@vger.kernel.org, jeff@garzik.org,
-	Gary Zambrano <zambrano@broadcom.com>,
-	Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	"Paul Moore" <paul.moore@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.233.200]:3489 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S964969AbXAJRNq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Jan 2007 12:13:46 -0500
-To: linux-kernel@vger.kernel.org
+Received: from tcsfw4.tcs-sec.com ([65.127.223.133]:35673 "EHLO
+	tcsfw4.tcs-sec.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964950AbXAJRlj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jan 2007 12:41:39 -0500
+To: "'James Morris'" <jmorris@namei.org>,
+	"Herbert Xu" <herbert.xu@redhat.com>
+In-Reply-To: <Pine.LNX.4.64.0701100913050.8582@d.namei>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---=-=-=
+> > This patch causes security policy denials to be cached instead of
+> > causing a relookup every time.
 
-Changes from v1:
-- Fix according to Francois Romieu comments.
+Only, on a security policy denial (-ESRCH from the LSM hook), a 0
+is returned by the resolver to signify no applicable policy since
+a negative result is akin to no policy. And I see the "no policy"
+case is already cached.
 
-LOG:
-Some issues in b44_resume().
-- Return value of pci_enable_device() was ignored.
-- If request_irq() has failed we have to just disable device and exit.
+I think what may have gotten us here is the comment:
 
-Signed-off-by: Dmitriy Monakhov <dmonakhov@openvz.org>
--------
+                       if (err) {
+                                /* Force security policy check on next
+lookup */
+                                *head = fle->next;
+                                flow_entry_kill(cpu, fle);
+                        } else {
 
---=-=-=
-Content-Disposition: inline; filename=diff-ms-net-b44-resume-fix
+But the error we would be looking at here would be a non-denial
+related error (neither positive nor negative) that the security
+server may have run into, in which case we would in fact want to
+attempt a full-lookup again the next time.
 
-diff --git a/drivers/net/b44.c b/drivers/net/b44.c
-index 5eb2ec6..42c57bf 100644
---- a/drivers/net/b44.c
-+++ b/drivers/net/b44.c
-@@ -2315,16 +2315,27 @@ static int b44_resume(struct pci_dev *pd
- {
- 	struct net_device *dev = pci_get_drvdata(pdev);
- 	struct b44 *bp = netdev_priv(dev);
-+	int rc = 0;
- 
- 	pci_restore_state(pdev);
--	pci_enable_device(pdev);
-+	rc = pci_enable_device(pdev);
-+	if (rc) {
-+		printk(KERN_ERR PFX "%s: pci_enable_device failed\n",
-+			dev->name);
-+		return rc;
-+	}
-+
- 	pci_set_master(pdev);
- 
- 	if (!netif_running(dev))
- 		return 0;
- 
--	if (request_irq(dev->irq, b44_interrupt, IRQF_SHARED, dev->name, dev))
-+	rc = request_irq(dev->irq, b44_interrupt, IRQF_SHARED, dev->name, dev);
-+	if (rc) {
- 		printk(KERN_ERR PFX "%s: request_irq failed\n", dev->name);
-+		pci_disable_device(pdev);
-+		return rc;
-+	}
- 
- 	spin_lock_irq(&bp->lock);
- 
+<snip>
+> > So if the security folks actually care about this, they'd need to
+> > flush the flow cache whenever a relevant change is made to the
+> > security database.
 
---=-=-=--
+Sure. Will look into this.
+
+> >
+> > This patch also happens to fix a nasty bug where if an expiring
+> > flow entry that's not at the head happens to trigger a security
+> > denial, all entries before it are removed from the cache and
+> > leaked.
+
+I think just leaving the flow_entry as it is will take care of it.
+
+IOW, no entry_killing nor messing with it's object/reference. This
+should naturally cause us to invoke the resolver again the next time.
 
