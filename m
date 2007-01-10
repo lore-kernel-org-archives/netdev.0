@@ -1,59 +1,55 @@
-From: "Simon Barber" <simon@devicescape.com>
-Subject: RE: d80211: How does TX flow control work?
-Date: Wed, 10 Jan 2007 10:29:34 -0800
-Message-ID: <C86180A8C204554D8A3323D8F6B0A29F01AF6471@dhost002-46.dex002.intermedia.net>
-References: <20070110192012.341b2612@griffin.suse.cz>
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: Re: [PATCH] [SCTP]: Fix err_hdr assignment in sctp_init_cause.
+Date: Wed, 10 Jan 2007 11:29:24 -0800
+Message-ID: <1168457364.8248.6.camel@w-sridhar2.beaverton.ibm.com>
+References: <1168370809.24896.20.camel@w-sridhar2.beaverton.ibm.com>
+	 <20070109.143628.104034780.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>, "Ivo Van Doorn" <ivdoorn@gmail.com>,
-	<rt2400-devel@lists.sourceforge.net>,
-	"Jouni Malinen" <jkm@devicescape.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dhost002-46.dex002.intermedia.net ([64.78.21.140]:31788 "EHLO
-	dhost002-46.dex002.intermedia.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S964984AbXAJS26 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Jan 2007 13:28:58 -0500
-Content-class: urn:content-classes:message
-In-Reply-To: <20070110192012.341b2612@griffin.suse.cz>
-To: "Jiri Benc" <jbenc@suse.cz>, "Jan Kiszka" <jan.kiszka@web.de>
+Received: from e4.ny.us.ibm.com ([32.97.182.144]:52508 "EHLO e4.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965033AbXAJT3f (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Jan 2007 14:29:35 -0500
+Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
+	by e4.ny.us.ibm.com (8.13.8/8.12.11) with ESMTP id l0AJTTG0020251
+	for <netdev@vger.kernel.org>; Wed, 10 Jan 2007 14:29:29 -0500
+Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
+	by d01relay04.pok.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id l0AJTTY4299946
+	for <netdev@vger.kernel.org>; Wed, 10 Jan 2007 14:29:29 -0500
+Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
+	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l0AJTS6X006091
+	for <netdev@vger.kernel.org>; Wed, 10 Jan 2007 14:29:28 -0500
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20070109.143628.104034780.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Scratches head -- this is from memory when I was thinking about this
-problem a long time ago... I think we can return an error in the qdisc
-destructor function - making sure legitimate interface removal is not
-the cause of the qdisc deletion first of course.
+On Tue, 2007-01-09 at 14:36 -0800, David Miller wrote:
+> From: Sridhar Samudrala <sri@us.ibm.com>
+> Date: Tue, 09 Jan 2007 11:26:49 -0800
+> 
+> > [SCTP]: Fix err_hdr assignment in sctp_init_cause.
+> >
+> > The subh->err_hdr should point to the error header, not the data.
+> >
+> > Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
+> > Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
+> 
+> Applied, thanks Sridahr.
+> 
+> Do we need this for the 2.6.x -stable branches too?
 
-Simon 
+This bug was found during code review and is not critical
+as err_hdr is not really used in the send path currently,
+although this may change in future.
 
------Original Message-----
-From: Jiri Benc [mailto:jbenc@suse.cz] 
-Sent: Wednesday, January 10, 2007 6:20 PM
-To: Jan Kiszka
-Cc: netdev@vger.kernel.org; Ivo Van Doorn;
-rt2400-devel@lists.sourceforge.net; Jouni Malinen; Simon Barber
-Subject: Re: d80211: How does TX flow control work?
+So we don't need this for -stable branches.
 
-On Mon, 08 Jan 2007 21:18:48 +0100, Jan Kiszka wrote:
-> The actual problem was meanwhile identified: shorewall happened to 
-> overwrite the queueing discipline of wmaster0 with pfifo_fast. I found
+Thanks
+Sridhar
 
-> the magic knob to tell shorewall to no longer do this (at least until 
-> I want to manage traffic control that way...), but I still wonder if 
-> it is an acceptable situation. Currently, the user can intentionally 
-> or accidentally screw up the stack this way.
 
-Hm, we probably need a way to tell the kernel not to remove 802.11
-qdisc. Jouni, Simon, is that possible or do we need to patch NET_SCHED
-code?
 
-Thanks,
-
- Jiri
-
---
-Jiri Benc
-SUSE Labs
