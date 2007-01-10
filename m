@@ -1,64 +1,40 @@
-From: Balazs Scheidler <bazsi@balabit.hu>
-Subject: Re: [PATCH/RFC 01/10] Implement local diversion of IPv4 skbs
-Date: Wed, 10 Jan 2007 10:31:55 +0100
-Message-ID: <1168421515.6746.14.camel@bzorp.balabit>
-References: <20070103163357.14635.37754.stgit@nienna.balabit>
-	<20070103163427.14635.49596.stgit@nienna.balabit>
-	<45A48BD6.5010507@trash.net>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: [PATCH] INET: fix incorrect "inet_sock->is_icsk" assignment
+Date: Wed, 10 Jan 2007 11:01:45 +0100
+Message-ID: <20070110100145.GA2611@ff.dom.local>
+References: <20070108132548.GA2324@ff.dom.local> <200701080947.29270.paul.moore@hp.com> <20070109084322.GB1703@ff.dom.local> <200701090926.47206.paul.moore@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
-	KOVACS Krisztian <hidden@balabit.hu>
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <45A48BD6.5010507@trash.net>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx10.go2.pl ([193.17.41.74]:49065 "EHLO poczta.o2.pl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S932772AbXAJJ7v (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Jan 2007 04:59:51 -0500
+To: Paul Moore <paul.moore@hp.com>
+Content-Disposition: inline
+In-Reply-To: <200701090926.47206.paul.moore@hp.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2007-01-10 at 07:46 +0100, Patrick McHardy wrote:
-> KOVACS Krisztian wrote:
-
-> > +			rth->u.dst.lastuse = jiffies;
-> > +			dst_hold(&rth->u.dst);
-> > +			rth->u.dst.__use++;
-> > +			RT_CACHE_STAT_INC(in_hit);
-> > +			rcu_read_unlock();
-> > +
-> > +			dst_release(skb->dst);
-> > +			skb->dst = (struct dst_entry*)rth;
-> > +
-> > +			if (sk) {
-> > +				sock_hold(sk);
-> > +				skb->sk = sk;
+On Tue, Jan 09, 2007 at 09:26:46AM -0500, Paul Moore wrote:
+> On Tuesday 09 January 2007 3:43 am, Jarek Poplawski wrote:
+> > ... But if you consider this code will probably become classical
+> > and will be read, quoted and teached next 1000 years, then the style
+> > could matter... 
 > 
-> This looks racy, the socket could be closed between the lookup and
-> the actual use. Why do you need the socket lookup at all, can't
-> you just divert all packets selected by iptables?
+> This from the guy who believes "Justin Timberlake rocks!" ;)
 > 
-> I'm wondering if it would be possible to use normal input routing
-> combined with netfilter marks to do the diversion ..
-> 
+> All right, you convinced me, I'll send out a patch to the patch later today.
 
-The problem is that userspace proxies open ports dynamically (think of
-FTP data channels), you cannot add iptables rule for every such
-redirection. So one rule for every dynamic redirection is a no-go.
+I'm terribly sorry, I didn't expected any messing now!
+I rather thought about some preferences for the future.
 
-If we'd add a single rule, which would do some kind of lookup and then
-mark packets, would again introduce a state inside tproxy that'd need to
-be synchronized with the socket table. We explicitly wanted to avoid
-such tables.
+Justin really rocks (now), in particular, as an example 
+to the popular HOWTO. Jennifer Lopez, Snoop Dogg or 50
+Cent as well. But for an IEEE document: Pink Floyd, Led
+Zeppelin or Jimi Hendrix would be more appropriate,
+probably, and obviously they also rock more!
 
-And additionally, using the mark this way would prevent the admin to use
-it they way he/she likes. 
-
--- 
-Bazsi
+Cheers,
+Jarek P. 
