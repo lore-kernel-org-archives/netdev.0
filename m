@@ -1,108 +1,52 @@
-From: Christian Praehauser <cpraehaus@cosy.sbg.ac.at>
-Subject: [2.4 PATCH] ethernet (net/ethernet/eth.c): eth_header() may produce
- invalid packets (with dest. addr. = 00:00:00:00:00:00)
-Date: Wed, 10 Jan 2007 12:53:31 +0100
-Message-ID: <45A4D3BB.9080304@cosy.sbg.ac.at>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH/RFC 01/10] Implement local diversion of IPv4 skbs
+Date: Wed, 10 Jan 2007 13:32:24 +0100
+Message-ID: <45A4DCD8.2080103@trash.net>
+References: <20070103163357.14635.37754.stgit@nienna.balabit>	<20070103163427.14635.49596.stgit@nienna.balabit>	<45A48BD6.5010507@trash.net> <1168421515.6746.14.camel@bzorp.balabit>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, netdev@vger.kernel.org,
-	wtarreau@hera.kernel.org
+Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
+	KOVACS Krisztian <hidden@balabit.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dobermann.cosy.sbg.ac.at ([141.201.2.56]:45856 "EHLO
-	dobermann.cosy.sbg.ac.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932793AbXAJMWV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jan 2007 07:22:21 -0500
-To: davem@davemloft.net
+Received: from stinky.trash.net ([213.144.137.162]:33743 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932783AbXAJMc1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jan 2007 07:32:27 -0500
+To: Balazs Scheidler <bazsi@balabit.hu>
+In-Reply-To: <1168421515.6746.14.camel@bzorp.balabit>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello, and sorry for bothering you with a patch you've already seen ;-).
+Balazs Scheidler wrote:
+> On Wed, 2007-01-10 at 07:46 +0100, Patrick McHardy wrote:
+> 
+>>I'm wondering if it would be possible to use normal input routing
+>>combined with netfilter marks to do the diversion ..
+>
+> 
+> The problem is that userspace proxies open ports dynamically (think of
+> FTP data channels), you cannot add iptables rule for every such
+> redirection. So one rule for every dynamic redirection is a no-go.
+> 
+> If we'd add a single rule, which would do some kind of lookup and then
+> mark packets, would again introduce a state inside tproxy that'd need to
+> be synchronized with the socket table. We explicitly wanted to avoid
+> such tables.
 
-From: Christian Praehauser, Department of Computer Sciences, University of Salzburg
+How exactly are dynamic ports handled? Do you just add a catch-all rule
+that filters based on socket lookups?
 
-This patch fixes a problem which has already been corrected in Linux-2.6.16 but was not back-ported to the 2.4 series. It is essentially the 
-same as the patch for 2.6.16. An excerpt from the ChangeLog for Linux 2.6.16 is included below.
+In that case you could do something like this:
 
-What is not described in the patch description for 2.6.16 is that this problem also arises when transmitting IP multicast packets. If you 
-send an IP multicast stream over an ethernet network interface ethX and turn off ARP on ethX then Linux will produce an ethernet frame with 
-a dest. addresses of 00:00:00:00:00:00 (which is invalid). As IP multicast addresses are directly mapped to HW (MAC) addresses without 
-invoking any ARP protocol mechanisms - for IP4 this mapping is performed by the function ip_eth_mc_map - it makes perfect sense to do this 
-even if ARP is disabled. Further, this problem may occur periodically, everytime the corresponding struct dst_entry is garbage-collected 
-(e.g. ~ every 10 minutes).
+ip route add local default dev lo scope host table 1
+ip rule add fwmark 0x1 lookup 1
 
- >
- >     [NET] ethernet: Fix first packet goes out with MAC 00:00:00:00:00:00
- >         When you turn off ARP on a netdevice then the first packet always goes
- >     out with a dstMAC of all zeroes. This is because the first packet is
- >     used to resolve ARP entries. Even though the ARP entry may be resolved
- >     (I tried by setting a static ARP entry for a host i was pinging from),
- >     it gets overwritten by virtue of having the netdevice disabling ARP.
- >         Subsequent packets go out fine with correct dstMAC address (which may
- >     be why people have ignored reporting this issue).
- >         To cut the story short:         the culprit code is in net/ethernet/eth.c::eth_header()
- >         ----
- >             /*
- >              *      Anyway, the loopback-device should never use this
- >     function...
- >              */
- >                 if (dev->flags & (IFF_LOOPBACK|IFF_NOARP))
- >             {
- >                     memset(eth->h_dest, 0, dev->addr_len);
- >                     return ETH_HLEN;
- >             }
- >             if(daddr)
- >             {
- >                     memcpy(eth->h_dest,daddr,dev->addr_len);
- >                     return ETH_HLEN;
- >             }
- >         ----
- >         Note how the h_dest is being reset when device has IFF_NOARP.
- >         As a note:
- >     All devices including loopback pass a daddr. loopback in fact passes
- >     a 0 all the time ;->     This means i can delete the check totaly or i can remove the IFF_NOARP
- >         Alexey says:
- >     --------------------
- >     I think, it was me who did this crap. It was so long ago I do not remember
- >     why it was made.
- >         I remember some troubles with dummy device. It tried to resolve
- >     addresses, apparently, without success and generated errors instead of
- >     blackholing. I think the problem was eventually solved at neighbour
- >     level.
- >         After some thinking I suspect the deletion of this chunk could change
- >     behaviour of some parts which do not use neighbour cache f.e. packet
- >     socket.
- >         I think safer approach would be to move this chunk after if (daddr).
- >     And the possibility to remove this completely could be analyzed later.
- >     --------------------
+and still use the socket lookups for marking, which would (without the
+socket caching) remove the need for this patch entirely.
 
-Signed-off-by: Christian Praehauser <cpraehaus@cosy.sbg.ac.at>
+> And additionally, using the mark this way would prevent the admin to use
+> it they way he/she likes. 
 
---- net/ethernet/eth.c.orig     2007-01-10 12:14:23.000000000 +0100
-+++ net/ethernet/eth.c  2007-01-10 12:14:57.000000000 +0100
-@@ -96,6 +96,12 @@
-         else
-                 memcpy(eth->h_source,dev->dev_addr,dev->addr_len);
-
-+       if(daddr)
-+       {
-+               memcpy(eth->h_dest,daddr,dev->addr_len);
-+               return dev->hard_header_len;
-+       }
-+
-         /*
-          *      Anyway, the loopback-device should never use this function...
-          */
-@@ -106,12 +112,6 @@
-                 return(dev->hard_header_len);
-         }
-
--       if(daddr)
--       {
--               memcpy(eth->h_dest,daddr,dev->addr_len);
--               return dev->hard_header_len;
--       }
--
-         return -dev->hard_header_len;
-  }
-
+We support bitwise use of the mark everywhere in current kernels, so
+that shouldn't be a problem anymore.
