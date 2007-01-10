@@ -1,42 +1,47 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: [PATCH] INET: fix incorrect "inet_sock->is_icsk" assignment
-Date: Wed, 10 Jan 2007 14:31:51 +0100
-Message-ID: <20070110133151.GA4013@ff.dom.local>
-References: <20070108132548.GA2324@ff.dom.local> <200701090926.47206.paul.moore@hp.com> <20070110100145.GA2611@ff.dom.local> <200701100813.57939.paul.moore@hp.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH/RFC 01/10] Implement local diversion of IPv4 skbs
+Date: Wed, 10 Jan 2007 14:42:52 +0100
+Message-ID: <45A4ED5C.5020800@trash.net>
+References: <20070103163357.14635.37754.stgit@nienna.balabit> <1168421515.6746.14.camel@bzorp.balabit> <45A4DCD8.2080103@trash.net> <200701101427.32243.netdev@axxeo.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: Balazs Scheidler <bazsi@balabit.hu>, netdev@vger.kernel.org,
+	netfilter-devel@lists.netfilter.org,
+	KOVACS Krisztian <hidden@balabit.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.go2.pl ([193.17.41.42]:44347 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932596AbXAJN36 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Jan 2007 08:29:58 -0500
-To: Paul Moore <paul.moore@hp.com>
-Content-Disposition: inline
-In-Reply-To: <200701100813.57939.paul.moore@hp.com>
+Received: from stinky.trash.net ([213.144.137.162]:34997 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932545AbXAJNm5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jan 2007 08:42:57 -0500
+To: Ingo Oeser <netdev@axxeo.de>
+In-Reply-To: <200701101427.32243.netdev@axxeo.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 10, 2007 at 08:13:57AM -0500, Paul Moore wrote:
-> On Wednesday 10 January 2007 5:01 am, Jarek Poplawski wrote:
-> > On Tue, Jan 09, 2007 at 09:26:46AM -0500, Paul Moore wrote:
-> > > On Tuesday 09 January 2007 3:43 am, Jarek Poplawski wrote:
-> > > > ... But if you consider this code will probably become classical
-> > > > and will be read, quoted and teached next 1000 years, then the style
-> > > > could matter...
-> > >
-> > > This from the guy who believes "Justin Timberlake rocks!" ;)
-> > >
-> > > All right, you convinced me, I'll send out a patch to the patch later
-> > > today.
-> >
-> > I'm terribly sorry, I didn't expected any messing now!
-> > I rather thought about some preferences for the future.
+Ingo Oeser wrote:
+> Patrick McHardy schrieb:
 > 
-> No need to apologize, it was a trivial fix and I figured I might as well take 
-> care of now ... however, some of your taste in music does require an 
-> apology ;)
+>>We support bitwise use of the mark everywhere in current kernels, so
+>>that shouldn't be a problem anymore.
+> 
+> 
+> For firewall mark based policy routing to work, one must still disable 
+> rp_filter, because this lookup doesn't take the mark into account[1].
 
-All right, you convinced me too. I change 50 Cent to Busta Rhymes!
+If distributions wouldn't enable it by default there would be no need
+to disable it again :)
 
-Jarek P.  
+> So this statement is not quite true, although I believe you are probably right 
+> for this case.
+> 
+> BTW: This rp_filter=0 requirement isn't even officially documented 
+> 	(e.g. in the LARTC).
+
+The kernel defaults to rp_filter = 0.
+
+> [1] But does take TOS into account for historic (???) reasons.
+
+With TOS the assumption of symetry is a bit more realistic than
+with fwmarks, but it will probably still not work properly if
+you actually use routing by TOS value.
