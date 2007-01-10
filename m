@@ -1,74 +1,107 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: IrDA spams logfiles - since 2.6.19
-Date: Wed, 10 Jan 2007 15:26:07 -0800 (PST)
-Message-ID: <20070110.152607.125896247.davem@davemloft.net>
-References: <20070107005150.GE22817@gamma.logic.tuwien.ac.at>
+From: Herbert Xu <herbert.xu@redhat.com>
+Subject: Re: [IPSEC] flow: Cache negative results
+Date: Thu, 11 Jan 2007 10:27:13 +1100
+Message-ID: <20070110232713.GA13180@gondor.apana.org.au>
+References: <20070110204922.GA1652@gondor.apana.org.au> <001601c734fb$89ed3b90$cc0a010a@tcssec.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: 'James Morris' <jmorris@namei.org>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Paul Moore <paul.moore@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57956
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S965240AbXAJX0I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jan 2007 18:26:08 -0500
-To: avl@logic.at
-In-Reply-To: <20070107005150.GE22817@gamma.logic.tuwien.ac.at>
+Received: from rhun.apana.org.au ([64.62.148.172]:3419 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S965244AbXAJX1X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jan 2007 18:27:23 -0500
+To: Venkat Yekkirala <vyekkirala@trustedcs.com>
+Content-Disposition: inline
+In-Reply-To: <001601c734fb$89ed3b90$cc0a010a@tcssec.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Andreas Leitgeb <avl@logic.at>
-Date: Sun, 7 Jan 2007 01:51:50 +0100
-
-> As soon as I load the irda-usb module with the device plugged,
-> I get lots of messages of following kind into the logs:
->   irda_usb_hard_xmit(), Insuficient skb headroom.
-> (the "Insuficient"-typo is original)
-> about 7 in a second, then a 2-secs pause. Repeating 
-> until the irda-usb module is removed again.
+On Wed, Jan 10, 2007 at 03:08:55PM -0600, Venkat Yekkirala wrote:
 > 
-> I then looked up the kernel-source for that particular 
-> typo'ed word, and added some info to the log:
->   drivers/net/irda/irda-usb.c:448:
->         if (skb_headroom(skb) < self->header_length) {
->                 IRDA_DEBUG(0, "%s(), Insuficient skb headroom. %d / %d \n",
->                      __FUNCTION__, skb_headroom(skb) , self->header_length);
->         ...
-> Which came out as:
->   irda_usb_hard_xmit(), Insuficient skb headroom. 0 / 1
-> Thus, while self->header_length == USB_IRDA_HEADER,
-> I didn't yet understand the meaning of fields
->   ->data and ->head of the skb.
-> 
-> I don't know, if the warning itself is right or wrong,
-> because other than the spamming of logs, transferring
-> data over irda appears to work just fine.
+> I was talking about this (the latter) as well. Currently, on a proper
+> "negative", -ESRCH is returned by security_xfrm_policy_lookup(), and
+> this comes back up as a 0 from resolver(), correctly indicating NO
+> applicable
+> xfrm policy (after taking security into account). But if
+> security_xfrm_policy_lookup()
+> were to return anything other than a zero or -ESRCH, such as -ENOMEM,
+> you will see it come back up as such (as -ENOMEM) from resolver(),
+> and in this case, it's neither a positive nor a negative, just an error.
+> Hence a full lookup would be in order, the next time round.
 
-The warning is a bit extreme because the skb_cow() call does fix
-things up and makes space available.
+OK, I see that now.  The EACCES error is translated to ESRCH in
+the security layer.
 
-But it's not the most efficient thing in the world, so it's good
-that we know about this so we can have a closer work.
+> Also, I would fix the other bug you had noted, by something like:
 
-I want to remove that warning, but first let's figure out what the
-call chain is that causes skb_headroom() to end up being zero.
+I agree.
 
-Can you get us some logs this debugging patch?  Thanks.
+[IPSEC] flow: Fix potential memory leak
 
-Please make sure CONFIG_BUG is enabled in your kernel config.
-You should get a stack backtrace in your logs when the event
-happens.
+When old flow cache entries that are not at the head of their chain
+trigger a transient security error they get unlinked along with all
+the entries preceding them in the chain.  The preceding entries are
+not freed correctly.
 
-diff --git a/drivers/net/irda/irda-usb.c b/drivers/net/irda/irda-usb.c
-index 3ca1082..2017024 100644
---- a/drivers/net/irda/irda-usb.c
-+++ b/drivers/net/irda/irda-usb.c
-@@ -446,7 +446,7 @@ static int irda_usb_hard_xmit(struct sk_buff *skb, struct net_device *netdev)
- 	 * Also, we don't use directly skb_cow(), because it require
- 	 * headroom >= 16, which force unnecessary copies - Jean II */
- 	if (skb_headroom(skb) < self->header_length) {
--		IRDA_DEBUG(0, "%s(), Insuficient skb headroom.\n", __FUNCTION__);
-+		WARN_ON(1);
- 		if (skb_cow(skb, self->header_length)) {
- 			IRDA_WARNING("%s(), failed skb_cow() !!!\n", __FUNCTION__);
- 			goto drop;
+This patch fixes this by simply leaving the entry around.  It's based
+on a suggestion by Venkat Yekkirala.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+ 
+> I am planning to test and submit a patch to SELinux
+> to invoke flow_cache_flush() on policy reloads tomorrow.
+
+flow_cache_flush() shouldn't be used by SELinux.  You probably
+want to increase the genid instead.
+
+BTW, we should probably add some code to deal with overflows in
+genid.  With the recent improvements in policy update speeds, it
+could be conceivable for an overflow to occur.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+diff --git a/net/core/flow.c b/net/core/flow.c
+index d137f97..5d25697 100644
+--- a/net/core/flow.c
++++ b/net/core/flow.c
+@@ -231,22 +231,16 @@ nocache:
+ 
+ 		err = resolver(key, family, dir, &obj, &obj_ref);
+ 
+-		if (fle) {
+-			if (err) {
+-				/* Force security policy check on next lookup */
+-				*head = fle->next;
+-				flow_entry_kill(cpu, fle);
+-			} else {
+-				fle->genid = atomic_read(&flow_cache_genid);
+-
+-				if (fle->object)
+-					atomic_dec(fle->object_ref);
+-
+-				fle->object = obj;
+-				fle->object_ref = obj_ref;
+-				if (obj)
+-					atomic_inc(fle->object_ref);
+-			}
++		if (fle && !err) {
++			fle->genid = atomic_read(&flow_cache_genid);
++
++			if (fle->object)
++				atomic_dec(fle->object_ref);
++
++			fle->object = obj;
++			fle->object_ref = obj_ref;
++			if (obj)
++				atomic_inc(fle->object_ref);
+ 		}
+ 		local_bh_enable();
+ 
