@@ -1,347 +1,42 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: [take32 3/10] kevent: poll/select() notifications.
-Date: Wed, 10 Jan 2007 11:16:40 +0300
-Message-ID: <11684170002998@2ka.mipt.ru>
-References: <11684170001683@2ka.mipt.ru>
-Reply-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+From: Ingo Oeser <netdev@axxeo.de>
+Subject: Re: [PATCH 3/3] chelsio: more rx speedup
+Date: Wed, 10 Jan 2007 09:30:12 +0100
+Message-ID: <200701100930.12798.netdev@axxeo.de>
+References: <20061215190716.956791000@osdl.org> <200701090942.04197.netdev@axxeo.de> <20070109102647.05d92861@freekitty>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: David Miller <davem@davemloft.net>,
-	Ulrich Drepper <drepper@redhat.com>,
-	Andrew Morton <akpm@osdl.org>,
-	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	Chase Venters <chase.venters@clientec.com>,
-	Johann Borck <johann.borck@densedata.com>,
-	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
-	Jamal Hadi Salim <hadi@cyberus.ca>,
-	Ingo Molnar <mingo@elte.hu>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932743AbXAJISp@vger.kernel.org>
-In-Reply-To: <11684170001683@2ka.mipt.ru>
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.axxeo.de ([82.100.226.146]:60775 "EHLO mail.axxeo.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932742AbXAJIaa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Jan 2007 03:30:30 -0500
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20070109102647.05d92861@freekitty>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Stephen Hemminger schrieb:
+> On Tue, 9 Jan 2007 09:42:03 +0100
+> Ingo Oeser <netdev@axxeo.de> wrote:
+> > Stephen Hemminger schrieb:
+> > > --- netdev-2.6.orig/drivers/net/chelsio/sge.c
+> > > +++ netdev-2.6/drivers/net/chelsio/sge.c
+> > Please use NET_IP_ALIGN here:
+> 
+> Wrong, NET_IP_ALIGN is intended to deal with platforms where alignment of DMA is more
+> important of alignment of structures.  Therefore if data is copied, it should
+> always be 2.
 
-poll/select() notifications.
+Ah! Thanks for clearing this up. These magic numbers always make my head spin
+so I tried to come up with sth. useful :-)
 
-This patch includes generic poll/select notifications.
-kevent_poll works simialr to epoll and has the same issues (callback
-is invoked not from internal state machine of the caller, but through
-process awake, a lot of allocations and so on).
+If this pattern is present in many drivers, we might have a define or helper for this.
 
-Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mitp.ru>
 
-diff --git a/fs/file_table.c b/fs/file_table.c
-index 4c17a18..46f458c 100644
---- a/fs/file_table.c
-+++ b/fs/file_table.c
-@@ -20,6 +20,7 @@
- #include <linux/cdev.h>
- #include <linux/fsnotify.h>
- #include <linux/sysctl.h>
-+#include <linux/kevent.h>
- #include <linux/percpu_counter.h>
- 
- #include <asm/atomic.h>
-@@ -119,6 +120,7 @@ struct file *get_empty_filp(void)
- 	f->f_uid = tsk->fsuid;
- 	f->f_gid = tsk->fsgid;
- 	eventpoll_init_file(f);
-+	kevent_init_file(f);
- 	/* f->f_version: 0 */
- 	return f;
- 
-@@ -164,6 +166,7 @@ void fastcall __fput(struct file *file)
- 	 * in the file cleanup chain.
- 	 */
- 	eventpoll_release(file);
-+	kevent_cleanup_file(file);
- 	locks_remove_flock(file);
- 
- 	if (file->f_op && file->f_op->release)
-diff --git a/include/linux/fs.h b/include/linux/fs.h
-index 186da81..59e6069 100644
---- a/include/linux/fs.h
-+++ b/include/linux/fs.h
-@@ -280,6 +280,7 @@ extern int dir_notify_enable;
- #include <linux/init.h>
- #include <linux/pid.h>
- #include <linux/mutex.h>
-+#include <linux/kevent_storage.h>
- 
- #include <asm/atomic.h>
- #include <asm/semaphore.h>
-@@ -408,6 +409,8 @@ struct address_space_operations {
- 
- 	int (*readpages)(struct file *filp, struct address_space *mapping,
- 			struct list_head *pages, unsigned nr_pages);
-+	int (*aio_readpages)(struct file *filp, struct address_space *mapping,
-+			struct list_head *pages, unsigned nr_pages, void *priv);
- 
- 	/*
- 	 * ext3 requires that a successful prepare_write() call be followed
-@@ -578,6 +581,10 @@ struct inode {
- 	struct mutex		inotify_mutex;	/* protects the watches list */
- #endif
- 
-+#if defined CONFIG_KEVENT_SOCKET || defined CONFIG_KEVENT_PIPE
-+	struct kevent_storage	st;
-+#endif
-+
- 	unsigned long		i_state;
- 	unsigned long		dirtied_when;	/* jiffies of first dirtying */
- 
-@@ -737,6 +744,9 @@ struct file {
- 	struct list_head	f_ep_links;
- 	spinlock_t		f_ep_lock;
- #endif /* #ifdef CONFIG_EPOLL */
-+#ifdef CONFIG_KEVENT_POLL
-+	struct kevent_storage	st;
-+#endif
- 	struct address_space	*f_mapping;
- };
- extern spinlock_t files_lock;
-diff --git a/kernel/kevent/kevent_poll.c b/kernel/kevent/kevent_poll.c
-new file mode 100644
-index 0000000..58129fa
---- /dev/null
-+++ b/kernel/kevent/kevent_poll.c
-@@ -0,0 +1,234 @@
-+/*
-+ * 2006 Copyright (c) Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-+ * All rights reserved.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ */
-+
-+#include <linux/kernel.h>
-+#include <linux/types.h>
-+#include <linux/list.h>
-+#include <linux/slab.h>
-+#include <linux/spinlock.h>
-+#include <linux/timer.h>
-+#include <linux/file.h>
-+#include <linux/kevent.h>
-+#include <linux/poll.h>
-+#include <linux/fs.h>
-+
-+static struct kmem_cache *kevent_poll_container_cache;
-+static struct kmem_cache *kevent_poll_priv_cache;
-+
-+struct kevent_poll_ctl
-+{
-+	struct poll_table_struct 	pt;
-+	struct kevent			*k;
-+};
-+
-+struct kevent_poll_wait_container
-+{
-+	struct list_head		container_entry;
-+	wait_queue_head_t		*whead;
-+	wait_queue_t			wait;
-+	struct kevent			*k;
-+};
-+
-+struct kevent_poll_private
-+{
-+	struct list_head		container_list;
-+	spinlock_t			container_lock;
-+};
-+
-+static int kevent_poll_enqueue(struct kevent *k);
-+static int kevent_poll_dequeue(struct kevent *k);
-+static int kevent_poll_callback(struct kevent *k);
-+
-+static int kevent_poll_wait_callback(wait_queue_t *wait,
-+		unsigned mode, int sync, void *key)
-+{
-+	struct kevent_poll_wait_container *cont =
-+		container_of(wait, struct kevent_poll_wait_container, wait);
-+	struct kevent *k = cont->k;
-+
-+	kevent_storage_ready(k->st, NULL, KEVENT_MASK_ALL);
-+	return 0;
-+}
-+
-+static void kevent_poll_qproc(struct file *file, wait_queue_head_t *whead,
-+		struct poll_table_struct *poll_table)
-+{
-+	struct kevent *k =
-+		container_of(poll_table, struct kevent_poll_ctl, pt)->k;
-+	struct kevent_poll_private *priv = k->priv;
-+	struct kevent_poll_wait_container *cont;
-+	unsigned long flags;
-+
-+	cont = kmem_cache_alloc(kevent_poll_container_cache, GFP_KERNEL);
-+	if (!cont) {
-+		kevent_break(k);
-+		return;
-+	}
-+
-+	cont->k = k;
-+	init_waitqueue_func_entry(&cont->wait, kevent_poll_wait_callback);
-+	cont->whead = whead;
-+
-+	spin_lock_irqsave(&priv->container_lock, flags);
-+	list_add_tail(&cont->container_entry, &priv->container_list);
-+	spin_unlock_irqrestore(&priv->container_lock, flags);
-+
-+	add_wait_queue(whead, &cont->wait);
-+}
-+
-+static int kevent_poll_enqueue(struct kevent *k)
-+{
-+	struct file *file;
-+	int err;
-+	unsigned int revents;
-+	unsigned long flags;
-+	struct kevent_poll_ctl ctl;
-+	struct kevent_poll_private *priv;
-+
-+	file = fget(k->event.id.raw[0]);
-+	if (!file)
-+		return -EBADF;
-+	
-+	err = -EINVAL;
-+	if (!file->f_op || !file->f_op->poll)
-+		goto err_out_fput;
-+	
-+	err = -ENOMEM;
-+	priv = kmem_cache_alloc(kevent_poll_priv_cache, GFP_KERNEL);
-+	if (!priv)
-+		goto err_out_fput;
-+
-+	spin_lock_init(&priv->container_lock);
-+	INIT_LIST_HEAD(&priv->container_list);
-+
-+	k->priv = priv;
-+
-+	ctl.k = k;
-+	init_poll_funcptr(&ctl.pt, &kevent_poll_qproc);
-+	
-+	err = kevent_storage_enqueue(&file->st, k);
-+	if (err)
-+		goto err_out_free;
-+
-+	revents = file->f_op->poll(file, &ctl.pt);
-+	if (k->event.req_flags & KEVENT_REQ_ALWAYS_QUEUE) {
-+		kevent_requeue(k);
-+	} else {
-+		if (revents & k->event.event) {
-+			err = 1;
-+			goto out_dequeue;
-+		}
-+	}
-+
-+	spin_lock_irqsave(&k->ulock, flags);
-+	k->event.req_flags |= KEVENT_REQ_LAST_CHECK;
-+	spin_unlock_irqrestore(&k->ulock, flags);
-+
-+	return 0;
-+
-+out_dequeue:
-+	kevent_storage_dequeue(k->st, k);
-+err_out_free:
-+	kmem_cache_free(kevent_poll_priv_cache, priv);
-+err_out_fput:
-+	fput(file);
-+	return err;
-+}
-+
-+static int kevent_poll_dequeue(struct kevent *k)
-+{
-+	struct file *file = k->st->origin;
-+	struct kevent_poll_private *priv = k->priv;
-+	struct kevent_poll_wait_container *w, *n;
-+	unsigned long flags;
-+
-+	kevent_storage_dequeue(k->st, k);
-+
-+	spin_lock_irqsave(&priv->container_lock, flags);
-+	list_for_each_entry_safe(w, n, &priv->container_list, container_entry) {
-+		list_del(&w->container_entry);
-+		remove_wait_queue(w->whead, &w->wait);
-+		kmem_cache_free(kevent_poll_container_cache, w);
-+	}
-+	spin_unlock_irqrestore(&priv->container_lock, flags);
-+
-+	kmem_cache_free(kevent_poll_priv_cache, priv);
-+	k->priv = NULL;
-+
-+	fput(file);
-+
-+	return 0;
-+}
-+
-+static int kevent_poll_callback(struct kevent *k)
-+{
-+	if (k->event.req_flags & KEVENT_REQ_LAST_CHECK) {
-+		return 1;
-+	} else {
-+		struct file *file = k->st->origin;
-+		unsigned int revents = file->f_op->poll(file, NULL);
-+
-+		k->event.ret_data[0] = revents & k->event.event;
-+
-+		return (revents & k->event.event);
-+	}
-+}
-+
-+static int __init kevent_poll_sys_init(void)
-+{
-+	struct kevent_callbacks pc = {
-+		.callback = &kevent_poll_callback,
-+		.enqueue = &kevent_poll_enqueue,
-+		.dequeue = &kevent_poll_dequeue,
-+		.flags = 0,
-+	};
-+
-+	kevent_poll_container_cache = kmem_cache_create("kevent_poll_container_cache",
-+			sizeof(struct kevent_poll_wait_container), 0, 0, NULL, NULL);
-+	if (!kevent_poll_container_cache) {
-+		printk(KERN_ERR "Failed to create kevent poll container cache.\n");
-+		return -ENOMEM;
-+	}
-+
-+	kevent_poll_priv_cache = kmem_cache_create("kevent_poll_priv_cache",
-+			sizeof(struct kevent_poll_private), 0, 0, NULL, NULL);
-+	if (!kevent_poll_priv_cache) {
-+		printk(KERN_ERR "Failed to create kevent poll private data cache.\n");
-+		kmem_cache_destroy(kevent_poll_container_cache);
-+		kevent_poll_container_cache = NULL;
-+		return -ENOMEM;
-+	}
-+
-+	kevent_add_callbacks(&pc, KEVENT_POLL);
-+
-+	printk(KERN_INFO "Kevent poll()/select() subsystem has been initialized.\n");
-+	return 0;
-+}
-+
-+static struct lock_class_key kevent_poll_key;
-+
-+void kevent_poll_reinit(struct file *file)
-+{
-+	lockdep_set_class(&file->st.lock, &kevent_poll_key);
-+}
-+
-+static void __exit kevent_poll_sys_fini(void)
-+{
-+	kmem_cache_destroy(kevent_poll_priv_cache);
-+	kmem_cache_destroy(kevent_poll_container_cache);
-+}
-+
-+module_init(kevent_poll_sys_init);
-+module_exit(kevent_poll_sys_fini);
+Regards
+
+Ingo Oeser
