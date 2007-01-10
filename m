@@ -1,56 +1,24 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH/RFC 05/10] Remove local address check on IP output
-Date: Wed, 10 Jan 2007 07:47:07 +0100
-Message-ID: <45A48BEB.2070207@trash.net>
-References: <20070103163357.14635.37754.stgit@nienna.balabit>
-	<20070103163627.14635.88250.stgit@nienna.balabit>
+From: "mohamed Abbas" <mabbashome@gmail.com>
+Subject: d80211: 80211n
+Date: Tue, 9 Jan 2007 22:56:51 -0800
+Message-ID: <6f2b01960701092256u70438c01ob2aea7cd1c0da90c@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: KOVACS Krisztian <hidden@balabit.hu>
-In-Reply-To: <20070103163627.14635.88250.stgit@nienna.balabit>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ug-out-1314.google.com ([66.249.92.172]:58293 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932669AbXAJG5A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jan 2007 01:57:00 -0500
+Received: by ug-out-1314.google.com with SMTP id 44so16285uga
+        for <netdev@vger.kernel.org>; Tue, 09 Jan 2007 22:56:58 -0800 (PST)
+To: netdev@vger.kernel.org
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-KOVACS Krisztian wrote:
-> ip_route_output() contains a check to make sure that no flows with
-> non-local source IP addresses are routed. Unfortunately this check
-> makes it completely impossible to use non-local bound sockets as no
-> outbound packets will make through the stack.
-> 
-> This patch moves the interface lookup to the multicast-specific code
-> path as that is the only real user of the interface data looked up.
-> 
-> Signed-off-by: KOVACS Krisztian <hidden@balabit.hu>
-> 
-> ---
-> 
->  net/ipv4/route.c |   13 +++++--------
->  1 files changed, 5 insertions(+), 8 deletions(-)
-> 
-> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-> index 537b976..bb1158a 100644
-> --- a/net/ipv4/route.c
-> +++ b/net/ipv4/route.c
-> @@ -2498,11 +2498,6 @@ #endif
->  		    ZERONET(oldflp->fl4_src))
->  			goto out;
->  
-> -		/* It is equivalent to inet_addr_type(saddr) == RTN_LOCAL */
-> -		dev_out = ip_dev_find(oldflp->fl4_src);
-> -		if (dev_out == NULL)
-> -			goto out;
-> -
-
-I'm not sure how exactly this is used by applications, but couldn't you
-restrict this to sockets without freebind?
+is there any one working on the implementation of 11n to d80211 stack?
+I have been trying to add 11n support to d80211 stack and wondering if
+someone else doing the same so we can coordinate our work. I was able
+to parse and add IE information, handling Rx aggregation and handling
+11n action frame.
