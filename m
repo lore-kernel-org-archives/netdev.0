@@ -1,101 +1,42 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH/RFC 09/10] iptables TPROXY target
-Date: Wed, 10 Jan 2007 13:45:12 +0100
-Message-ID: <45A4DFD8.3050008@trash.net>
-References: <20070103163357.14635.37754.stgit@nienna.balabit> <20070103163828.14635.74153.stgit@nienna.balabit>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: BUG: soft lockup detected on CPU#0! (2.6.18.2 plus hacks)
+Date: Wed, 10 Jan 2007 13:50:48 +0100
+Message-ID: <20070110125048.GB2611@ff.dom.local>
+References: <OF02F7C182.A05F7E5A-ON88257259.001B0EFA-88257259.001E96CF@us.ibm.com> <E1H2M3X-0001HE-00@gondolin.me.apana.org.au> <20070104.123333.91315611.davem@davemloft.net> <459EB627.5040606@candelatech.com> <20070108065346.GA1665@ff.dom.local> <45A277E6.6000904@candelatech.com> <20070108100350.1187a3dc@freekitty> <20070109081045.GA1703@ff.dom.local> <20070110090411.GA1589@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@lists.netfilter.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Ben Greear <greearb@candelatech.com>,
+	David Miller <davem@davemloft.net>,
+	herbert@gondor.apana.org.au, dlstevens@us.ibm.com,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:33967 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932803AbXAJMpO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jan 2007 07:45:14 -0500
-To: KOVACS Krisztian <hidden@balabit.hu>
-In-Reply-To: <20070103163828.14635.74153.stgit@nienna.balabit>
+Received: from mx2.go2.pl ([193.17.41.42]:38410 "EHLO poczta.o2.pl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S932787AbXAJMsy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Jan 2007 07:48:54 -0500
+To: Stephen Hemminger <shemminger@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20070110090411.GA1589@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-KOVACS Krisztian wrote:
+On Wed, Jan 10, 2007 at 10:04:11AM +0100, Jarek Poplawski wrote:
+...
+> It looks like you're talking about the right thing
+> and I'm a fool again! Now I try to find why I even 
+> had to pay for this. I read again and again adequate
+> chapters from R. Love and C. Benvenuti's books, see
+> a lot about kernel preemption in 2.6, but can't see
+> anything about preemption disabled in ioctls - maybe
+> I'm blind or they are badly translated. Now I look
+> into "Linux Device Drivers", see ch. 6 about ioctls,
+> blocking I/O and RCU, but nothing about preemption
+> disabled again. Maybe this is omited because it's
+> obvious to people who started hacking with earlier
+> kernels?
 
-> diff --git a/net/ipv4/netfilter/ipt_TPROXY.c b/net/ipv4/netfilter/ipt_TPROXY.c
-> new file mode 100644
-> index 0000000..6f64717
-> --- /dev/null
-> +++ b/net/ipv4/netfilter/ipt_TPROXY.c
+... or maybe it's even more complicated...
 
-> +static unsigned int
-> +target(struct sk_buff **pskb,
-> +       const struct net_device *in,
-> +       const struct net_device *out,
-> +       unsigned int hooknum,
-> +       const struct xt_target *target,
-> +       const void *targinfo)
-> +{
-> +	const struct iphdr *iph = (*pskb)->nh.iph;
-> +	unsigned int verdict = NF_ACCEPT;
-> +	struct sk_buff *skb = *pskb;
-> +	struct udphdr _hdr, *hp;
-> +	struct sock *sk;
-> +
-> +	/* TCP/UDP only */
-> +	if ((iph->protocol != IPPROTO_TCP) &&
-> +	    (iph->protocol != IPPROTO_UDP))
-> +		return NF_ACCEPT;
-> +
-> +	if (in == NULL)
-> +		return NF_ACCEPT;
-> +
-> +	if ((skb->dst != NULL) || (skb->ip_tproxy == 1))
-> +		return NF_ACCEPT;
-> +
-> +	hp = skb_header_pointer(*pskb, iph->ihl * 4, sizeof(_hdr), &_hdr);
-> +	if (hp == NULL)
-> +		return NF_DROP;
-> +
-> +	sk = ip_tproxy_get_sock(iph->protocol,
-> +				iph->saddr, iph->daddr,
-> +				hp->source, hp->dest, in);
-> +	if (sk != NULL) {
-> +		if (ip_tproxy_do_divert(skb, sk, 0, in) < 0)
-> +			verdict = NF_DROP;
-> +		sock_put(sk);
+For the time being, I revoke my critique of these books.
 
-Missing time wait socket handling.
-
-> +	}
-> +
-> +	return verdict;
-> +}
-> +
-> +static int
-> +checkentry(const char *tablename,
-> +	   const void *e,
-> +	   const struct xt_target *target,
-> +           void *targinfo,
-> +           unsigned int hook_mask)
-> +{
-> +	/* checks are now done by the x_tables core based on
-> +	 * information specified in the ipt_target structure */
-> +	return 1;
-> +}
-
-The function is optional, you can simply delete it.
-
-> +
-> +static struct ipt_target ipt_tproxy_reg = {
-> +	.name		= "TPROXY",
-> +	.target		= target,
-> +	.targetsize	= sizeof(struct ipt_tproxy_target_info),
-> +	.table		= "tproxy",
-> +	.checkentry	= checkentry,
-> +	.me		= THIS_MODULE,
-> +};
-> +
-> +static int __init init(void)
-> +{
-> +	if (ipt_register_target(&ipt_tproxy_reg))
-> +		return -EINVAL;
-
-This should return the result of ipt_register_target.
+Jarek P. 
