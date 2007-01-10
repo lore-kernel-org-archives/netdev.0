@@ -1,73 +1,95 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [take32 0/10] kevent: Generic event handling mechanism.
-Date: Wed, 10 Jan 2007 06:56:40 -0500
-Message-ID: <45A4D478.2030200@garzik.org>
-References: <11684170003907@2ka.mipt.ru> <45A4C9DE.8020605@garzik.org> <20070110113051.GA4950@2ka.mipt.ru>
+From: Steve Hill <steve.hill@dialogic.com>
+Subject: Re: Fw: Intermittent SCTP multihoming breakage
+Date: Wed, 10 Jan 2007 11:55:58 +0000
+Message-ID: <Pine.CYG.4.58.0701040913300.3128@shill1-mobl.eicon.com>
+References: <20070103154634.b40d9cde.akpm@osdl.org>
+ <1167872389.8646.25.camel@w-sridhar2.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=KOI8-R; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Ulrich Drepper <drepper@redhat.com>,
-	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	Chase Venters <chase.venters@clientec.com>,
-	Johann Borck <johann.borck@densedata.com>,
-	linux-kernel@vger.kernel.org, Jamal Hadi Salim <hadi@cyberus.ca>,
-	Ingo Molnar <mingo@elte.hu>, linux-fsdevel@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org,
+	lksctp-developers@lists.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:42652 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932754AbXAJL46 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Jan 2007 06:56:58 -0500
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-In-Reply-To: <20070110113051.GA4950@2ka.mipt.ru>
+Received: from eiconmtl.eicon.com ([192.219.17.124]:50815 "EHLO
+	EICONMTL.eicon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932725AbXAJMJY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jan 2007 07:09:24 -0500
+To: Sridhar Samudrala <sri@us.ibm.com>
+In-Reply-To: <1167872389.8646.25.camel@w-sridhar2.beaverton.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Evgeniy Polyakov wrote:
-> On Wed, Jan 10, 2007 at 06:11:26AM -0500, Jeff Garzik (jeff@garzik.org) wrote:
->> Once the rate of change slows, Andrew should IMO definitely pick this up.
-> 
-> There are _tons_ of ideas to implement with kevent - so if we want, rate
-> will not slow down. As you can see, from take26 I only send new
-> features: signals, posix timers, AIO, userspace notifications, various
-> flags and the like. I test it on my machines (recently one them died, so
-> only amd64 right now (running kernel) and i386 compile-only)
-> and some bug-fixes withoout any additioanl feature requests (almost,
-> Ingo asked for AIO before New Year), but broader testing is welcome
-> indeed.
+On Wed, 3 Jan 2007, Sridhar Samudrala wrote:
 
-If the rate doesn't slow (if only artificially), people are discouraged 
-from reviewing, because it becomes a moving target.
+Sorry for the delay in replying.
 
+> No. lksctp-developers mailing list is still the best place for SCTP related
+> discussions. You can subscribe and look in the archives at
+>   http://lists.sourceforge.net/lists/listinfo/lksctp-developers
 
->> If you wanted to make this process automatic, create a git branch that 
->> Andrew and others can pull.
-> 
-> Exported git tree would be good, but I do not have enough disk space on
+Hmm, I had a look there and it seemed reasonably inactive and overrun by
+spam.. (And I've been unable to subscribe).
 
-Request an account on http://www.foo-projects.org/ which supports git. 
-The Intel guys use it to send me e1000/ixgb changes, for example.
+> How are the 2 machines connected? Are they connected directly or
+> via a router?
 
+They are currently connected together directly through crossover cables.
 
-> web-site, and do you really want to read comments written in bad english
-> with russian transliterated indecent words?
+> Do you see both the addresses when you do cat /proc/net/sctp/assocs
+> after the association is established on both the peers?
 
-The only thing exported to -mm is the code changes, as a patch.  git 
-merely automates the process, so that Andrew doesn't have to spend time 
-[that he doesn't have] tracking a project with a high rate of change.
+Yes, the contents of /proc/net/sctp/assocs looks correct.
 
+> How are you dropping traffic? You could try simulating failover by
+> bringing down the interface or physically removing the link.
 
->> I like the direction so far, and think it should be in -mm for wider 
->> testing and review.
-> 
-> It was there, but Andrew dropped it somewhere about take25 :)
+I have been using iptables to drop SCTP packets on both the INPUT and
+OUTPUT chains.  However, I get the same results if I just unplug the
+network cable (using iptables is easier for my testing since I don't have
+to crawl around behind the test systems :)
 
-Probably because it was a moving target with a high rate of change, 
-requiring time that Andrew did not have just to keep in sync and fix 
-build conflicts with other -mm patches.
+> > 1. Sometimes, just after failing over to the second path I see an ABORT.
+> This seems to indicate that somehow the app has terminated.
 
-	Jeff
+The abort _appears_ to be caused by a retransmit timer expiring, causing
+the SCTP stack to tear down the association.  However, I haven't done much
+investigation of this problem yet - I've been focussing on the second
+problem since it seems to happen more frequently.
 
+> > 2. More frequently, the association stays up indefinately, with heartbeat
+> > requests and acks on the second path, but no data chunks are sent even
+> > though the transmit queue on the transmitting end appears to be full and
+> > the socket is blocking writes.
+> This is strange. Can you collect tcpdump traces on sender and receiver when
+> this happens?
 
+I've taken dumps of the data on the wire for both paths:
+  http://www.nexusuk.org/~steve/sctp/path1.pcap
+  http://www.nexusuk.org/~steve/sctp/path2.pcap
+
+I can't see anything odd in the network traffic - it just stops as if it
+has no more data to send.  However, the socket appears to still be
+blocking so the application cannot give it any new data.
+
+This seems to be a problem with the abandonment functionality:
+1. Transmit chunk 1.  The transmitted list now contains chunk 1.
+2. Chunk 1 and it's retransmissions get lost on the network.
+3. Abandon chunk 1.  The transmitted list is now empty.
+4. Transmit chunk 2.  the transmitted list now contains chunk 2
+5. Receive a gap-ack for chunk 2, indicating that chunk 1 is missing.
+At this point, the T3 timer is disabled at the bottom of
+sctp_check_transmitted() since all the chunks in the transmitted queue are
+gap-acked.  The whole connection now stalls, waiting for the SACK for
+chunk 1 that will never arrive.
+
+It should be noted that this is not unordered data and I'm not clear on
+how abandoned chunks are supposed to be handled - I hadn't intentionally
+enabled the abandonment functionality, the timetolive was set on the
+transmitted chunks by accident.
+
+-- 
+ - Steve Hill
+   Software Engineer
+   Dialogic
+   Fordingbridge, Hampshire, UK
+   +44-1425-651392
+   steve.hill@dialogic.com
