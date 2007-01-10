@@ -1,95 +1,47 @@
-From: Steve Hill <steve.hill@dialogic.com>
-Subject: Re: Fw: Intermittent SCTP multihoming breakage
-Date: Wed, 10 Jan 2007 11:55:58 +0000
-Message-ID: <Pine.CYG.4.58.0701040913300.3128@shill1-mobl.eicon.com>
-References: <20070103154634.b40d9cde.akpm@osdl.org>
- <1167872389.8646.25.camel@w-sridhar2.beaverton.ibm.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [take32 0/10] kevent: Generic event handling mechanism.
+Date: Wed, 10 Jan 2007 15:14:09 +0300
+Message-ID: <20070110121409.GA28862@2ka.mipt.ru>
+References: <11684170003907@2ka.mipt.ru> <45A4C9DE.8020605@garzik.org> <20070110113051.GA4950@2ka.mipt.ru> <45A4D478.2030200@garzik.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org,
-	lksctp-developers@lists.sourceforge.net
+Content-Type: text/plain; charset=koi8-r
+Cc: David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	Chase Venters <chase.venters@clientec.com>,
+	Johann Borck <johann.borck@densedata.com>,
+	linux-kernel@vger.kernel.org, Jamal Hadi Salim <hadi@cyberus.ca>,
+	Ingo Molnar <mingo@elte.hu>, linux-fsdevel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eiconmtl.eicon.com ([192.219.17.124]:50815 "EHLO
-	EICONMTL.eicon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932725AbXAJMJY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jan 2007 07:09:24 -0500
-To: Sridhar Samudrala <sri@us.ibm.com>
-In-Reply-To: <1167872389.8646.25.camel@w-sridhar2.beaverton.ibm.com>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:54073 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932774AbXAJMQt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Jan 2007 07:16:49 -0500
+To: Jeff Garzik <jeff@garzik.org>
+Content-Disposition: inline
+In-Reply-To: <45A4D478.2030200@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 3 Jan 2007, Sridhar Samudrala wrote:
+On Wed, Jan 10, 2007 at 06:56:40AM -0500, Jeff Garzik (jeff@garzik.org) wrote:
+> >It was there, but Andrew dropped it somewhere about take25 :)
+> 
+> Probably because it was a moving target with a high rate of change, 
+> requiring time that Andrew did not have just to keep in sync and fix 
+> build conflicts with other -mm patches.
 
-Sorry for the delay in replying.
+Ok, I understood.
+Let's freeze kevent for a while and allow things to settle down, but...
 
-> No. lksctp-developers mailing list is still the best place for SCTP related
-> discussions. You can subscribe and look in the archives at
->   http://lists.sourceforge.net/lists/listinfo/lksctp-developers
+How can I detect that it is in use, since I get no feedback?
+I suppose that if Andrew will not pick it up, I will resend/push/pull 
+the latest set, but without new features implemented (or as addon), only
+bugfixes.
 
-Hmm, I had a look there and it seemed reasonably inactive and overrun by
-spam.. (And I've been unable to subscribe).
-
-> How are the 2 machines connected? Are they connected directly or
-> via a router?
-
-They are currently connected together directly through crossover cables.
-
-> Do you see both the addresses when you do cat /proc/net/sctp/assocs
-> after the association is established on both the peers?
-
-Yes, the contents of /proc/net/sctp/assocs looks correct.
-
-> How are you dropping traffic? You could try simulating failover by
-> bringing down the interface or physically removing the link.
-
-I have been using iptables to drop SCTP packets on both the INPUT and
-OUTPUT chains.  However, I get the same results if I just unplug the
-network cable (using iptables is easier for my testing since I don't have
-to crawl around behind the test systems :)
-
-> > 1. Sometimes, just after failing over to the second path I see an ABORT.
-> This seems to indicate that somehow the app has terminated.
-
-The abort _appears_ to be caused by a retransmit timer expiring, causing
-the SCTP stack to tear down the association.  However, I haven't done much
-investigation of this problem yet - I've been focussing on the second
-problem since it seems to happen more frequently.
-
-> > 2. More frequently, the association stays up indefinately, with heartbeat
-> > requests and acks on the second path, but no data chunks are sent even
-> > though the transmit queue on the transmitting end appears to be full and
-> > the socket is blocking writes.
-> This is strange. Can you collect tcpdump traces on sender and receiver when
-> this happens?
-
-I've taken dumps of the data on the wire for both paths:
-  http://www.nexusuk.org/~steve/sctp/path1.pcap
-  http://www.nexusuk.org/~steve/sctp/path2.pcap
-
-I can't see anything odd in the network traffic - it just stops as if it
-has no more data to send.  However, the socket appears to still be
-blocking so the application cannot give it any new data.
-
-This seems to be a problem with the abandonment functionality:
-1. Transmit chunk 1.  The transmitted list now contains chunk 1.
-2. Chunk 1 and it's retransmissions get lost on the network.
-3. Abandon chunk 1.  The transmitted list is now empty.
-4. Transmit chunk 2.  the transmitted list now contains chunk 2
-5. Receive a gap-ack for chunk 2, indicating that chunk 1 is missing.
-At this point, the T3 timer is disabled at the bottom of
-sctp_check_transmitted() since all the chunks in the transmitted queue are
-gap-acked.  The whole connection now stalls, waiting for the SACK for
-chunk 1 that will never arrive.
-
-It should be noted that this is not unordered data and I'm not clear on
-how abandoned chunks are supposed to be handled - I hadn't intentionally
-enabled the abandonment functionality, the timetolive was set on the
-transmitted chunks by accident.
+> 	Jeff
+> 
 
 -- 
- - Steve Hill
-   Software Engineer
-   Dialogic
-   Fordingbridge, Hampshire, UK
-   +44-1425-651392
-   steve.hill@dialogic.com
+	Evgeniy Polyakov
