@@ -1,105 +1,231 @@
-From: Michael Wu <flamingice@sourmilk.net>
-Subject: [PATCH] d80211: Fix __ieee80211_if_del on live interfaces
-Date: Wed, 10 Jan 2007 01:19:14 -0500
-Message-ID: <200701100119.19523.flamingice@sourmilk.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH/RFC 01/10] Implement local diversion of IPv4 skbs
+Date: Wed, 10 Jan 2007 07:46:46 +0100
+Message-ID: <45A48BD6.5010507@trash.net>
+References: <20070103163357.14635.37754.stgit@nienna.balabit>
+	<20070103163427.14635.49596.stgit@nienna.balabit>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart1449393.rhhnhEXfsI";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: John Linville <linville@tuxdriver.com>, netdev@vger.kernel.org,
-	Ulrich Kunitz <kune@deine-taler.de>,
-	Michael Buesch <mb@bu3sch.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from server8.tchmachines.com ([216.180.241.250]:46183 "EHLO
-	server8.tchmachines.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932614AbXAJGUF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jan 2007 01:20:05 -0500
-To: Jiri Benc <jbenc@suse.cz>
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: KOVACS Krisztian <hidden@balabit.hu>
+In-Reply-To: <20070103163427.14635.49596.stgit@nienna.balabit>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
---nextPart1449393.rhhnhEXfsI
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+KOVACS Krisztian wrote:
+> The input path for non-local bound sockets requires diverting certain
+> packets locally, even if their destination IP address is not
+> considered local. We achieve this by assigning a specially crafted dst
+> entry to these skbs, and optionally also attaching a socket to the skb
+> so that the upper layer code does not need to redo the socket lookup.
+> 
+> We also have to be able to differentiate between these fake entries
+> and "real" entries in the cache: it is perfectly legal that the
+> diversion is done only for certain TCP or UDP packets and not for all
+> packets of the flow. Since these special dst entries are used only by
+> the iptables tproxy code, and that code uses exclusively these
+> entries, simply flagging these entries as DST_DIVERTED is OK. All
+> other cache lookup paths skip diverted entries, while our new
+> ip_divert_local() function uses exclusively diverted dst entries.
+> 
+> Signed-off-by: KOVACS Krisztian <hidden@balabit.hu>
+> 
+> ---
+> 
+>  include/net/dst.h   |    1 
+>  include/net/route.h |    2 +
+>  net/ipv4/route.c    |  106 +++++++++++++++++++++++++++++++++++++++++++++++++++
+>  3 files changed, 108 insertions(+), 1 deletions(-)
+> 
+> diff --git a/include/net/dst.h b/include/net/dst.h
+> index 62b7e75..72b712c 100644
+> --- a/include/net/dst.h
+> +++ b/include/net/dst.h
+> @@ -50,6 +50,7 @@ #define DST_NOXFRM		2
+>  #define DST_NOPOLICY		4
+>  #define DST_NOHASH		8
+>  #define DST_BALANCED            0x10
+> +#define DST_DIVERTED		0x20
+>  	unsigned long		lastuse;
+>  	unsigned long		expires;
+>  
+> diff --git a/include/net/route.h b/include/net/route.h
+> index 486e37a..ee52393 100644
+> --- a/include/net/route.h
+> +++ b/include/net/route.h
+> @@ -126,6 +126,8 @@ extern int		ip_rt_ioctl(unsigned int cmd
+>  extern void		ip_rt_get_source(u8 *src, struct rtable *rt);
+>  extern int		ip_rt_dump(struct sk_buff *skb,  struct netlink_callback *cb);
+>  
+> +extern int		ip_divert_local(struct sk_buff *skb, const struct in_device *in, struct sock *sk);
+> +
+>  struct in_ifaddr;
+>  extern void fib_add_ifaddr(struct in_ifaddr *);
+>  
+> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+> index 2daa0dc..537b976 100644
+> --- a/net/ipv4/route.c
+> +++ b/net/ipv4/route.c
+> @@ -942,9 +942,11 @@ restart:
+>  	while ((rth = *rthp) != NULL) {
+>  #ifdef CONFIG_IP_ROUTE_MULTIPATH_CACHED
+>  		if (!(rth->u.dst.flags & DST_BALANCED) &&
+> +		    ((rt->u.dst.flags & DST_DIVERTED) == (rth->u.dst.flags & DST_DIVERTED)) &&
+>  		    compare_keys(&rth->fl, &rt->fl)) {
+>  #else
+> -		if (compare_keys(&rth->fl, &rt->fl)) {
+> +		if (((rt->u.dst.flags & DST_DIVERTED) == (rth->u.dst.flags & DST_DIVERTED)) &&
+> +		    compare_keys(&rth->fl, &rt->fl)) {
+>  #endif
+>  			/* Put it first */
+>  			*rthp = rth->u.rt_next;
+> @@ -1166,6 +1168,7 @@ void ip_rt_redirect(__be32 old_gw, __be3
+>  				if (rth->fl.fl4_dst != daddr ||
+>  				    rth->fl.fl4_src != skeys[i] ||
+>  				    rth->fl.oif != ikeys[k] ||
+> +				    (rth->u.dst.flags & DST_DIVERTED) ||
+>  				    rth->fl.iif != 0) {
+>  					rthp = &rth->u.rt_next;
+>  					continue;
+> @@ -1526,6 +1529,105 @@ static int ip_rt_bug(struct sk_buff *skb
+>  	return 0;
+>  }
+>  
+> +static void ip_divert_free_sock(struct sk_buff *skb)
+> +{
+> +	struct sock *sk = skb->sk;
+> +
+> +	skb->sk = NULL;
+> +	skb->destructor = NULL;
+> +	sock_put(sk);
+> +}
+> +
+> +int ip_divert_local(struct sk_buff *skb, const struct in_device *in, struct sock *sk)
+> +{
+> +	struct iphdr *iph = skb->nh.iph;
+> +	struct rtable *rth, *rtres;
+> +	unsigned hash;
+> +	const int iif = in->dev->ifindex;
+> +	u_int8_t tos;
+> +	int err;
+> +
+> +	/* look up hash first */
+> +	tos = iph->tos & IPTOS_RT_MASK;
+> +	hash = rt_hash_code(iph->daddr, iph->saddr ^ (iif << 5));
+> +
+> +	rcu_read_lock();
+> +	for (rth = rcu_dereference(rt_hash_table[hash].chain); rth;
+> +	     rth = rcu_dereference(rth->u.rt_next)) {
+> +		if (rth->fl.fl4_dst == iph->daddr &&
+> +		    rth->fl.fl4_src == iph->saddr &&
+> +		    rth->fl.iif == iif &&
+> +		    rth->fl.oif == 0 &&
+> +		    rth->fl.mark == skb->mark &&
+> +		    (rth->u.dst.flags & DST_DIVERTED) &&
+> +		    rth->fl.fl4_tos == tos) {
 
-d80211: Fix __ieee80211_if_del on live interfaces
+Mark and tos look unnecessary here since they don't affect the further
+processing of the packet.
 
-ieee80211_if_reinit is called in __ieee80211_if_del, which clears the
-contents of sdata->u. After that, unregister_netdevice is called. If the
-interface is still up, unregister_netdevice will end up calling dev->stop,
-and dev->stop expects the contents of sdata->u to be valid. Bad things
-typically happen at this point.
+> +			rth->u.dst.lastuse = jiffies;
+> +			dst_hold(&rth->u.dst);
+> +			rth->u.dst.__use++;
+> +			RT_CACHE_STAT_INC(in_hit);
+> +			rcu_read_unlock();
+> +
+> +			dst_release(skb->dst);
+> +			skb->dst = (struct dst_entry*)rth;
+> +
+> +			if (sk) {
+> +				sock_hold(sk);
+> +				skb->sk = sk;
 
-This patch fixes that by setting dev->uninit to ieee80211_if_reinit and
-eliminating the call to ieee80211_if_reinit in __ieee80211_if_del. This
-allows ieee80211_if_reinit to be called at a safer time. It also allows
-the removal of the call to ieee80211_if_shutdown in ieee80211_if_reinit
-because ieee80211_if_reinit now will never be called while the interface
-is up.
+This looks racy, the socket could be closed between the lookup and
+the actual use. Why do you need the socket lookup at all, can't
+you just divert all packets selected by iptables?
 
-Signed-off-by: Michael Wu <flamingice@sourmilk.net>
-=2D--
+I'm wondering if it would be possible to use normal input routing
+combined with netfilter marks to do the diversion ..
 
- net/d80211/ieee80211.c       |    2 ++
- net/d80211/ieee80211_iface.c |    4 ----
- 2 files changed, 2 insertions(+), 4 deletions(-)
-
-diff --git a/net/d80211/ieee80211.c b/net/d80211/ieee80211.c
-index 964fe45..2f1dce5 100644
-=2D-- a/net/d80211/ieee80211.c
-+++ b/net/d80211/ieee80211.c
-@@ -4324,6 +4324,7 @@ void ieee80211_if_setup(struct net_devic
- 	dev->open =3D ieee80211_open;
- 	dev->stop =3D ieee80211_stop;
- 	dev->tx_queue_len =3D 0;
-+	dev->uninit =3D ieee80211_if_reinit;
- 	dev->destructor =3D ieee80211_if_free;
- }
-=20
-@@ -4338,6 +4339,7 @@ void ieee80211_if_mgmt_setup(struct net_
- 	dev->type =3D ARPHRD_IEEE80211_PRISM;
- 	dev->hard_header_parse =3D header_parse_80211;
- 	dev->tx_queue_len =3D 0;
-+	dev->uninit =3D ieee80211_if_reinit;
- 	dev->destructor =3D ieee80211_if_free;
- }
-=20
-diff --git a/net/d80211/ieee80211_iface.c b/net/d80211/ieee80211_iface.c
-index cac0dd5..3b2d259 100644
-=2D-- a/net/d80211/ieee80211_iface.c
-+++ b/net/d80211/ieee80211_iface.c
-@@ -234,9 +234,6 @@ void ieee80211_if_reinit(struct net_devi
- 		sdata->keys[i] =3D NULL;
- 	}
-=20
-=2D	/* Shouldn't be necessary but won't hurt */
-=2D	ieee80211_if_shutdown(dev);
-=2D
- 	switch (sdata->type) {
- 	case IEEE80211_IF_TYPE_AP: {
- 		/* Remove all virtual interfaces that use this BSS
-@@ -311,7 +308,6 @@ void __ieee80211_if_del(struct ieee80211
- {
- 	struct net_device *dev =3D sdata->dev;
-=20
-=2D	ieee80211_if_reinit(dev);
- 	list_del(&sdata->list);
- 	ieee80211_sysfs_remove_netdevice(dev);
- 	unregister_netdevice(dev);
-
---nextPart1449393.rhhnhEXfsI
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2 (GNU/Linux)
-
-iD8DBQBFpIVnT3Oqt9AH4aERAlR7AJ4mWNmgd1kHegAtTwFxqMGsfF3OqwCfQ4mA
-gr4VjeMXcExIe0rwMO02cQk=
-=FHDo
------END PGP SIGNATURE-----
-
---nextPart1449393.rhhnhEXfsI--
+> +				skb->destructor = ip_divert_free_sock;
+> +			}
+> +
+> +			return 0;
+> +		}
+> +		RT_CACHE_STAT_INC(in_hlist_search);
+> +	}
+> +	rcu_read_unlock();
+> +
+> +	/* not found in cache, try to allocate a new dst entry */
+> +	rth = dst_alloc(&ipv4_dst_ops);
+> +	if (!rth)
+> +		return -ENOMEM;
+> +
+> +	rth->u.dst.output= ip_rt_bug;
+> +
+> +	atomic_set(&rth->u.dst.__refcnt, 1);
+> +	rth->u.dst.flags = DST_HOST | DST_DIVERTED;
+> +
+> +	if (in->cnf.no_policy)
+> +		rth->u.dst.flags |= DST_NOPOLICY;
+> +
+> +	rth->fl.fl4_dst = iph->daddr;
+> +	rth->rt_dst	= iph->daddr;
+> +	rth->fl.fl4_tos = iph->tos;
+> +	rth->fl.mark	= skb->mark;
+> +	rth->fl.fl4_src = iph->saddr;
+> +	rth->rt_src	= iph->saddr;
+> +	rth->rt_iif	=
+> +	rth->fl.iif	= skb->dev->ifindex;
+> +	rth->u.dst.dev	= &loopback_dev;
+> +	dev_hold(rth->u.dst.dev);
+> +	rth->idev	= in_dev_get(rth->u.dst.dev);
+> +	rth->rt_gateway = iph->daddr;
+> +	rth->rt_spec_dst= iph->daddr;
+> +	rth->u.dst.input= ip_local_deliver;
+> +	rth->rt_flags	= RTCF_LOCAL;
+> +	rth->rt_type	= RTN_LOCAL;
+> +
+> +	err = rt_intern_hash(hash, rth, &rtres);
+> +	if (err)
+> +		return err;
+> +
+> +	dst_release(skb->dst);
+> +	skb->dst = (struct dst_entry *) rth;
+> +
+> +	if (sk) {
+> +		sock_hold(sk);
+> +		skb->sk = sk;
+> +		skb->destructor = ip_divert_free_sock;
+> +	}
+> +
+> +	return 0;
+> +}
+> +
+>  /*
+>     We do not cache source address of outgoing interface,
+>     because it is used only by IP RR, TS and SRR options,
+> @@ -2104,6 +2206,7 @@ int ip_route_input(struct sk_buff *skb,
+>  		    rth->fl.fl4_src == saddr &&
+>  		    rth->fl.iif == iif &&
+>  		    rth->fl.oif == 0 &&
+> +		    !(rth->u.dst.flags & DST_DIVERTED) &&
+>  		    rth->fl.mark == skb->mark &&
+>  		    rth->fl.fl4_tos == tos) {
+>  			rth->u.dst.lastuse = jiffies;
+> @@ -3199,3 +3302,4 @@ #endif
+>  EXPORT_SYMBOL(__ip_select_ident);
+>  EXPORT_SYMBOL(ip_route_input);
+>  EXPORT_SYMBOL(ip_route_output_key);
+> +EXPORT_SYMBOL_GPL(ip_divert_local);
+> 
