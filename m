@@ -1,8 +1,8 @@
 From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: [take32 9/10] kevent: Private userspace notifications.
-Date: Wed, 10 Jan 2007 11:16:41 +0300
-Message-ID: <11684170011028@2ka.mipt.ru>
-References: <11684170003507@2ka.mipt.ru>
+Subject: [take32 6/10] kevent: Pipe notifications.
+Date: Wed, 10 Jan 2007 11:16:40 +0300
+Message-ID: <1168417000120@2ka.mipt.ru>
+References: <11684170001215@2ka.mipt.ru>
 Reply-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
@@ -19,28 +19,81 @@ Cc: David Miller <davem@davemloft.net>,
 	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
 	Jamal Hadi Salim <hadi@cyberus.ca>,
 	Ingo Molnar <mingo@elte.hu>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964782AbXAJITp@vger.kernel.org>
-In-Reply-To: <11684170003507@2ka.mipt.ru>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dea.vocord.ru ([217.67.177.50]:37723 "EHLO
+	kano.factory.vocord.ru" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S932723AbXAJISG convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jan 2007 03:18:06 -0500
+In-Reply-To: <11684170001215@2ka.mipt.ru>
 To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-Private userspace notifications.
+Pipe notifications.
 
-Allows to register notifications of any private userspace
-events over kevent. Events can be marked as readt using 
-kevent_ctl(KEVENT_READY) command.
 
-Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-
-diff --git a/kernel/kevent/kevent_unotify.c b/kernel/kevent/kevent_unotify.c
+diff --git a/fs/pipe.c b/fs/pipe.c
+index 68090e8..0c75bf1 100644
+--- a/fs/pipe.c
++++ b/fs/pipe.c
+@@ -16,6 +16,7 @@
+ #include <linux/uio.h>
+ #include <linux/highmem.h>
+ #include <linux/pagemap.h>
++#include <linux/kevent.h>
+ 
+ #include <asm/uaccess.h>
+ #include <asm/ioctls.h>
+@@ -313,6 +314,7 @@ redo:
+ 			break;
+ 		}
+ 		if (do_wakeup) {
++			kevent_pipe_notify(inode, KEVENT_SOCKET_SEND);
+ 			wake_up_interruptible_sync(&pipe->wait);
+  			kill_fasync(&pipe->fasync_writers, SIGIO, POLL_OUT);
+ 		}
+@@ -322,6 +324,7 @@ redo:
+ 
+ 	/* Signal writers asynchronously that there is more room. */
+ 	if (do_wakeup) {
++		kevent_pipe_notify(inode, KEVENT_SOCKET_SEND);
+ 		wake_up_interruptible(&pipe->wait);
+ 		kill_fasync(&pipe->fasync_writers, SIGIO, POLL_OUT);
+ 	}
+@@ -484,6 +487,7 @@ redo2:
+ 			break;
+ 		}
+ 		if (do_wakeup) {
++			kevent_pipe_notify(inode, KEVENT_SOCKET_RECV);
+ 			wake_up_interruptible_sync(&pipe->wait);
+ 			kill_fasync(&pipe->fasync_readers, SIGIO, POLL_IN);
+ 			do_wakeup = 0;
+@@ -495,6 +499,7 @@ redo2:
+ out:
+ 	mutex_unlock(&inode->i_mutex);
+ 	if (do_wakeup) {
++		kevent_pipe_notify(inode, KEVENT_SOCKET_RECV);
+ 		wake_up_interruptible(&pipe->wait);
+ 		kill_fasync(&pipe->fasync_readers, SIGIO, POLL_IN);
+ 	}
+@@ -590,6 +595,7 @@ pipe_release(struct inode *inode, int decr, int decw)
+ 		free_pipe_info(inode);
+ 	} else {
+ 		wake_up_interruptible(&pipe->wait);
++		kevent_pipe_notify(inode, KEVENT_SOCKET_SEND|KEVENT_SOCKET_RECV);
+ 		kill_fasync(&pipe->fasync_readers, SIGIO, POLL_IN);
+ 		kill_fasync(&pipe->fasync_writers, SIGIO, POLL_OUT);
+ 	}
+diff --git a/kernel/kevent/kevent_pipe.c b/kernel/kevent/kevent_pipe.c
 new file mode 100644
-index 0000000..618c09c
+index 0000000..91dc1eb
 --- /dev/null
-+++ b/kernel/kevent/kevent_unotify.c
-@@ -0,0 +1,62 @@
++++ b/kernel/kevent/kevent_pipe.c
+@@ -0,0 +1,123 @@
 +/*
++ * 	kevent_pipe.c
++ * 
 + * 2006 Copyright (c) Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 + * All rights reserved.
 + * 
@@ -60,45 +113,105 @@ index 0000000..618c09c
 + */
 +
 +#include <linux/kernel.h>
++#include <linux/types.h>
++#include <linux/slab.h>
++#include <linux/spinlock.h>
++#include <linux/file.h>
++#include <linux/fs.h>
 +#include <linux/kevent.h>
++#include <linux/pipe_fs_i.h>
 +
-+static int kevent_unotify_callback(struct kevent *k)
++static int kevent_pipe_callback(struct kevent *k)
 +{
-+	return 1;
-+}
++	struct inode *inode = k->st->origin;
++	struct pipe_inode_info *pipe = inode->i_pipe;
++	int nrbufs = pipe->nrbufs;
 +
-+int kevent_unotify_enqueue(struct kevent *k)
-+{
-+	int err;
-+
-+	err = kevent_storage_enqueue(&k->user->st, k);
-+	if (err)
-+		goto err_out_exit;
-+
-+	if (k->event.req_flags & KEVENT_REQ_ALWAYS_QUEUE)
-+		kevent_requeue(k);
++	if (k->event.event & KEVENT_SOCKET_RECV && nrbufs > 0) {
++		if (!pipe->writers)
++			return -1;
++		return 1;
++	}
++	
++	if (k->event.event & KEVENT_SOCKET_SEND && nrbufs < PIPE_BUFFERS) {
++		if (!pipe->readers)
++			return -1;
++		return 1;
++	}
 +
 +	return 0;
++}
 +
++int kevent_pipe_enqueue(struct kevent *k)
++{
++	struct file *pipe;
++	int err = -EBADF;
++	struct inode *inode;
++
++	pipe = fget(k->event.id.raw[0]);
++	if (!pipe)
++		goto err_out_exit;
++
++	inode = igrab(pipe->f_dentry->d_inode);
++	if (!inode)
++		goto err_out_fput;
++
++	err = -EINVAL;
++	if (!S_ISFIFO(inode->i_mode))
++		goto err_out_iput;
++
++	err = kevent_storage_enqueue(&inode->st, k);
++	if (err)
++		goto err_out_iput;
++
++	if (k->event.req_flags & KEVENT_REQ_ALWAYS_QUEUE) {
++		kevent_requeue(k);
++		err = 0;
++	} else {
++		err = k->callbacks.callback(k);
++		if (err)
++			goto err_out_dequeue;
++	}
++
++	fput(pipe);
++
++	return err;
++
++err_out_dequeue:
++	kevent_storage_dequeue(k->st, k);
++err_out_iput:
++	iput(inode);
++err_out_fput:
++	fput(pipe);
 +err_out_exit:
 +	return err;
 +}
 +
-+int kevent_unotify_dequeue(struct kevent *k)
++int kevent_pipe_dequeue(struct kevent *k)
 +{
++	struct inode *inode = k->st->origin;
++
 +	kevent_storage_dequeue(k->st, k);
++	iput(inode);
++
 +	return 0;
 +}
 +
-+static int __init kevent_init_unotify(void)
++void kevent_pipe_notify(struct inode *inode, u32 event)
++{
++	kevent_storage_ready(&inode->st, NULL, event);
++}
++
++static int __init kevent_init_pipe(void)
 +{
 +	struct kevent_callbacks sc = {
-+		.callback = &kevent_unotify_callback,
-+		.enqueue = &kevent_unotify_enqueue,
-+		.dequeue = &kevent_unotify_dequeue,
++		.callback = &kevent_pipe_callback,
++		.enqueue = &kevent_pipe_enqueue,
++		.dequeue = &kevent_pipe_dequeue,
 +		.flags = 0,
 +	};
 +
-+	return kevent_add_callbacks(&sc, KEVENT_UNOTIFY);
++	return kevent_add_callbacks(&sc, KEVENT_PIPE);
 +}
-+module_init(kevent_init_unotify);
++module_init(kevent_init_pipe);
+
