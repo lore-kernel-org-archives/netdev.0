@@ -1,47 +1,62 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH/RFC 01/10] Implement local diversion of IPv4 skbs
-Date: Wed, 10 Jan 2007 14:42:52 +0100
-Message-ID: <45A4ED5C.5020800@trash.net>
-References: <20070103163357.14635.37754.stgit@nienna.balabit> <1168421515.6746.14.camel@bzorp.balabit> <45A4DCD8.2080103@trash.net> <200701101427.32243.netdev@axxeo.de>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [IPSEC] flow: Cache negative results
+Date: Wed, 10 Jan 2007 09:15:15 -0500 (EST)
+Message-ID: <Pine.LNX.4.64.0701100913050.8582@d.namei>
+References: <20070110072251.GA27030@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: Balazs Scheidler <bazsi@balabit.hu>, netdev@vger.kernel.org,
-	netfilter-devel@lists.netfilter.org,
-	KOVACS Krisztian <hidden@balabit.hu>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Venkat Yekkirala <vyekkirala@TrustedCS.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Paul Moore <paul.moore@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:34997 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932545AbXAJNm5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jan 2007 08:42:57 -0500
-To: Ingo Oeser <netdev@axxeo.de>
-In-Reply-To: <200701101427.32243.netdev@axxeo.de>
+Received: from mail5.sea5.speakeasy.net ([69.17.117.7]:44970 "EHLO
+	mail5.sea5.speakeasy.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964874AbXAJOPS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jan 2007 09:15:18 -0500
+To: Herbert Xu <herbert.xu@redhat.com>
+In-Reply-To: <20070110072251.GA27030@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ingo Oeser wrote:
-> Patrick McHardy schrieb:
+On Wed, 10 Jan 2007, Herbert Xu wrote:
+
+> Hi:
 > 
->>We support bitwise use of the mark everywhere in current kernels, so
->>that shouldn't be a problem anymore.
+> [IPSEC] flow: Cache negative security checks
+
+We did some work in this part of the code a few months back -- IIRC it was 
+resolved correctly from a security point of view.
+
+(cc'ing Venkat & Paul for review).
+
 > 
+> This patch causes security policy denials to be cached instead of
+> causing a relookup every time.  This is OK because we already cache
+> positive security policy results which is strictly worse as far as
+> security is concerned.  In particular, if the security system (not
+> IPsec policies but the rules under security/) changes such that a
+> positive result turns negative (denial), we will ignore it and
+> continue to allow traffic through based on the cached policy.
 > 
-> For firewall mark based policy routing to work, one must still disable 
-> rp_filter, because this lookup doesn't take the mark into account[1].
-
-If distributions wouldn't enable it by default there would be no need
-to disable it again :)
-
-> So this statement is not quite true, although I believe you are probably right 
-> for this case.
+> So if the security folks actually care about this, they'd need to
+> flush the flow cache whenever a relevant change is made to the
+> security database.  Whether this is done or not does not affect
+> this patch.
 > 
-> BTW: This rp_filter=0 requirement isn't even officially documented 
-> 	(e.g. in the LARTC).
+> Given that we do want to cache positive results even in the presence
+> of SELinux (otherwise we might as well disable flow.c entirely), it
+> is natural to cache negative results too.
+> 
+> This patch also happens to fix a nasty bug where if an expiring
+> flow entry that's not at the head happens to trigger a security
+> denial, all entries before it are removed from the cache and
+> leaked.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> 
+> Cheers,
+> 
 
-The kernel defaults to rp_filter = 0.
-
-> [1] But does take TOS into account for historic (???) reasons.
-
-With TOS the assumption of symetry is a bit more realistic than
-with fwmarks, but it will probably still not work properly if
-you actually use routing by TOS value.
+-- 
+James Morris
+<jmorris@namei.org>
