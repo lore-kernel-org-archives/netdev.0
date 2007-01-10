@@ -1,45 +1,55 @@
-From: Dmitriy Monakhov <dmonakhov@sw.ru>
-Subject: Re: [PATCH 1/5]  fixing errors handling during pci_driver resume stage [net]
-Date: Wed, 10 Jan 2007 14:11:58 +0300
-Message-ID: <878xgb5e69.fsf@sw.ru>
-References: <87vejgmv51.fsf@sw.ru> <20070109103530.2f10f823@freekitty>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [take32 0/10] kevent: Generic event handling mechanism.
+Date: Wed, 10 Jan 2007 14:30:52 +0300
+Message-ID: <20070110113051.GA4950@2ka.mipt.ru>
+References: <11684170003907@2ka.mipt.ru> <45A4C9DE.8020605@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Dmitriy Monakhov <dmonakhov@openvz.org>,
-	linux-kernel@vger.kernel.org, Andrew Morton <akpm@osdl.org>,
-	devel@openvz.org, linux-pci@atrey.karlin.mff.cuni.cz,
-	netdev@vger.kernel.org, linux-scsi@vger.kernel.org
+Content-Type: text/plain; charset=koi8-r
+Cc: David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	Chase Venters <chase.venters@clientec.com>,
+	Johann Borck <johann.borck@densedata.com>,
+	linux-kernel@vger.kernel.org, Jamal Hadi Salim <hadi@cyberus.ca>,
+	Ingo Molnar <mingo@elte.hu>, linux-fsdevel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.233.200]:9013 "EHLO relay.sw.ru"
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:33015 "EHLO 2ka.mipt.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S964851AbXAJLL5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Jan 2007 06:11:57 -0500
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20070109103530.2f10f823@freekitty> (Stephen Hemminger's message of "Tue, 9 Jan 2007 10:35:30 -0800")
+	id S964859AbXAJLeI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Jan 2007 06:34:08 -0500
+To: Jeff Garzik <jeff@garzik.org>
+Content-Disposition: inline
+In-Reply-To: <45A4C9DE.8020605@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger <shemminger@osdl.org> writes:
+On Wed, Jan 10, 2007 at 06:11:26AM -0500, Jeff Garzik (jeff@garzik.org) wrote:
+> Once the rate of change slows, Andrew should IMO definitely pick this up.
 
-> On Tue, 09 Jan 2007 12:01:14 +0300
-> Dmitriy Monakhov <dmonakhov@openvz.org> wrote:
->
->> network pci drivers have to return correct error code during resume stage in
->> case of errors.
->> Signed-off-by: Dmitriy Monakhov <dmonakhov@openvz.org>
->> -----
->
-> Please don't introduce one dev_err() call into a device driver if all the other
-> error printout's use a different interface.
-Ok. It was wrong decision to fix all affected drivers in one patchset.
-Especially without respect to concrete driver specific.
-I'll try to rewrite it in more slowly but (i hope) more correct way    
->
-> -- 
-> Stephen Hemminger <shemminger@osdl.org>
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+There are _tons_ of ideas to implement with kevent - so if we want, rate
+will not slow down. As you can see, from take26 I only send new
+features: signals, posix timers, AIO, userspace notifications, various
+flags and the like. I test it on my machines (recently one them died, so
+only amd64 right now (running kernel) and i386 compile-only)
+and some bug-fixes withoout any additioanl feature requests (almost,
+Ingo asked for AIO before New Year), but broader testing is welcome
+indeed.
 
+> If you wanted to make this process automatic, create a git branch that 
+> Andrew and others can pull.
+
+Exported git tree would be good, but I do not have enough disk space on
+web-site, and do you really want to read comments written in bad english
+with russian transliterated indecent words?
+
+> I like the direction so far, and think it should be in -mm for wider 
+> testing and review.
+
+It was there, but Andrew dropped it somewhere about take25 :)
+
+> 	Jeff
+
+-- 
+	Evgeniy Polyakov
