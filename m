@@ -1,121 +1,94 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: Re: Fw: Intermittent SCTP multihoming breakage
-Date: Wed, 10 Jan 2007 12:10:12 -0800
-Message-ID: <1168459812.8248.24.camel@w-sridhar2.beaverton.ibm.com>
-References: <20070103154634.b40d9cde.akpm@osdl.org>
-	 <1167872389.8646.25.camel@w-sridhar2.beaverton.ibm.com>
-	 <Pine.CYG.4.58.0701040913300.3128@shill1-mobl.eicon.com>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: Re: [PATCH] d80211: Fix __ieee80211_if_del on live interfaces
+Date: Wed, 10 Jan 2007 21:09:23 +0100
+Message-ID: <200701102109.23565.mb@bu3sch.de>
+References: <200701100119.19523.flamingice@sourmilk.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+  charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net
+Cc: John Linville <linville@tuxdriver.com>, netdev@vger.kernel.org,
+	Ulrich Kunitz <kune@deine-taler.de>, Jiri Benc <jbenc@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e6.ny.us.ibm.com ([32.97.182.146]:33137 "EHLO e6.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965066AbXAJUKV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Jan 2007 15:10:21 -0500
-Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
-	by e6.ny.us.ibm.com (8.13.8/8.12.11) with ESMTP id l0AKAlwQ008199
-	for <netdev@vger.kernel.org>; Wed, 10 Jan 2007 15:10:47 -0500
-Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
-	by d01relay04.pok.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id l0AKADI1269904
-	for <netdev@vger.kernel.org>; Wed, 10 Jan 2007 15:10:13 -0500
-Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
-	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l0AKADdf008538
-	for <netdev@vger.kernel.org>; Wed, 10 Jan 2007 15:10:13 -0500
-To: Steve Hill <steve.hill@dialogic.com>
-In-Reply-To: <Pine.CYG.4.58.0701040913300.3128@shill1-mobl.eicon.com>
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:40184
+	"EHLO vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965068AbXAJUKo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jan 2007 15:10:44 -0500
+To: Michael Wu <flamingice@sourmilk.net>
+In-Reply-To: <200701100119.19523.flamingice@sourmilk.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2007-01-10 at 11:55 +0000, Steve Hill wrote:
-> On Wed, 3 Jan 2007, Sridhar Samudrala wrote:
+On Wednesday 10 January 2007 07:19, Michael Wu wrote:
+> d80211: Fix __ieee80211_if_del on live interfaces
 > 
-> Sorry for the delay in replying.
+> ieee80211_if_reinit is called in __ieee80211_if_del, which clears the
+> contents of sdata->u. After that, unregister_netdevice is called. If the
+> interface is still up, unregister_netdevice will end up calling dev->stop,
+> and dev->stop expects the contents of sdata->u to be valid. Bad things
+> typically happen at this point.
 > 
-> > No. lksctp-developers mailing list is still the best place for SCTP related
-> > discussions. You can subscribe and look in the archives at
-> >   http://lists.sourceforge.net/lists/listinfo/lksctp-developers
+> This patch fixes that by setting dev->uninit to ieee80211_if_reinit and
+> eliminating the call to ieee80211_if_reinit in __ieee80211_if_del. This
+> allows ieee80211_if_reinit to be called at a safer time. It also allows
+> the removal of the call to ieee80211_if_shutdown in ieee80211_if_reinit
+> because ieee80211_if_reinit now will never be called while the interface
+> is up.
 > 
-> Hmm, I had a look there and it seemed reasonably inactive and overrun by
-> spam.. (And I've been unable to subscribe).
+> Signed-off-by: Michael Wu <flamingice@sourmilk.net>
 
-It is not very active all the time, but you can see bursts of activity. 
-All the SCTP patches and issues get discussed there before being 
-submitted to netdev.
-I didn't realize that so much spam is getting on this list. I don't see
-any of it as my mailer's spam filters seem to be pretty effective. I will
-see if there is a way to set up spam filters on sourceforge lists.
+ACK, this fixes the lockup bug I recently reported.
 
-I haven't heard of any issues with subscription. Could you try again and
-let me know offline if you still have issues.
+> ---
+> 
+>  net/d80211/ieee80211.c       |    2 ++
+>  net/d80211/ieee80211_iface.c |    4 ----
+>  2 files changed, 2 insertions(+), 4 deletions(-)
+> 
+> diff --git a/net/d80211/ieee80211.c b/net/d80211/ieee80211.c
+> index 964fe45..2f1dce5 100644
+> --- a/net/d80211/ieee80211.c
+> +++ b/net/d80211/ieee80211.c
+> @@ -4324,6 +4324,7 @@ void ieee80211_if_setup(struct net_devic
+>  	dev->open = ieee80211_open;
+>  	dev->stop = ieee80211_stop;
+>  	dev->tx_queue_len = 0;
+> +	dev->uninit = ieee80211_if_reinit;
+>  	dev->destructor = ieee80211_if_free;
+>  }
+>  
+> @@ -4338,6 +4339,7 @@ void ieee80211_if_mgmt_setup(struct net_
+>  	dev->type = ARPHRD_IEEE80211_PRISM;
+>  	dev->hard_header_parse = header_parse_80211;
+>  	dev->tx_queue_len = 0;
+> +	dev->uninit = ieee80211_if_reinit;
+>  	dev->destructor = ieee80211_if_free;
+>  }
+>  
+> diff --git a/net/d80211/ieee80211_iface.c b/net/d80211/ieee80211_iface.c
+> index cac0dd5..3b2d259 100644
+> --- a/net/d80211/ieee80211_iface.c
+> +++ b/net/d80211/ieee80211_iface.c
+> @@ -234,9 +234,6 @@ void ieee80211_if_reinit(struct net_devi
+>  		sdata->keys[i] = NULL;
+>  	}
+>  
+> -	/* Shouldn't be necessary but won't hurt */
+> -	ieee80211_if_shutdown(dev);
+> -
+>  	switch (sdata->type) {
+>  	case IEEE80211_IF_TYPE_AP: {
+>  		/* Remove all virtual interfaces that use this BSS
+> @@ -311,7 +308,6 @@ void __ieee80211_if_del(struct ieee80211
+>  {
+>  	struct net_device *dev = sdata->dev;
+>  
+> -	ieee80211_if_reinit(dev);
+>  	list_del(&sdata->list);
+>  	ieee80211_sysfs_remove_netdevice(dev);
+>  	unregister_netdevice(dev);
+> 
 
-> 
-> > How are the 2 machines connected? Are they connected directly or
-> > via a router?
-> 
-> They are currently connected together directly through crossover cables.
-> 
-> > Do you see both the addresses when you do cat /proc/net/sctp/assocs
-> > after the association is established on both the peers?
-> 
-> Yes, the contents of /proc/net/sctp/assocs looks correct.
-> 
-> > How are you dropping traffic? You could try simulating failover by
-> > bringing down the interface or physically removing the link.
-> 
-> I have been using iptables to drop SCTP packets on both the INPUT and
-> OUTPUT chains.  However, I get the same results if I just unplug the
-> network cable (using iptables is easier for my testing since I don't have
-> to crawl around behind the test systems :)
-> 
-> > > 1. Sometimes, just after failing over to the second path I see an ABORT.
-> > This seems to indicate that somehow the app has terminated.
-> 
-> The abort _appears_ to be caused by a retransmit timer expiring, causing
-> the SCTP stack to tear down the association.  However, I haven't done much
-> investigation of this problem yet - I've been focussing on the second
-> problem since it seems to happen more frequently.
-> 
-> > > 2. More frequently, the association stays up indefinately, with heartbeat
-> > > requests and acks on the second path, but no data chunks are sent even
-> > > though the transmit queue on the transmitting end appears to be full and
-> > > the socket is blocking writes.
-> > This is strange. Can you collect tcpdump traces on sender and receiver when
-> > this happens?
-> 
-> I've taken dumps of the data on the wire for both paths:
->   http://www.nexusuk.org/~steve/sctp/path1.pcap
->   http://www.nexusuk.org/~steve/sctp/path2.pcap
-> 
-> I can't see anything odd in the network traffic - it just stops as if it
-> has no more data to send.  However, the socket appears to still be
-> blocking so the application cannot give it any new data.
-> 
-> This seems to be a problem with the abandonment functionality:
-> 1. Transmit chunk 1.  The transmitted list now contains chunk 1.
-> 2. Chunk 1 and it's retransmissions get lost on the network.
-> 3. Abandon chunk 1.  The transmitted list is now empty.
-> 4. Transmit chunk 2.  the transmitted list now contains chunk 2
-> 5. Receive a gap-ack for chunk 2, indicating that chunk 1 is missing.
-> At this point, the T3 timer is disabled at the bottom of
-> sctp_check_transmitted() since all the chunks in the transmitted queue are
-> gap-acked.  The whole connection now stalls, waiting for the SACK for
-> chunk 1 that will never arrive.
-> 
-> It should be noted that this is not unordered data and I'm not clear on
-> how abandoned chunks are supposed to be handled - I hadn't intentionally
-> enabled the abandonment functionality, the timetolive was set on the
-> transmitted chunks by accident.
-
-So looks like there may be an issue with PR-SCTP(partial reliability)
-support and packet loss. I will take a look into this.
-
-Do you still see this problem even if you don't set timetolive?
-If you don't need chunks to be expired, you can disable pr-sctp using 
-echo 0 > /proc/sys/net/sctp/prsctp-enable
-
-Thanks
-Sridhar
-
-
+-- 
+Greetings Michael.
