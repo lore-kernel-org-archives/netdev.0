@@ -1,128 +1,39 @@
-From: Jan Kiszka <jan.kiszka@web.de>
-Subject: [PATCH] d80211: fix default key symlink creation/cleanup
-Date: Wed, 10 Jan 2007 21:42:01 +0100
-Message-ID: <45A54F99.6030802@web.de>
+From: Herbert Xu <herbert.xu@redhat.com>
+Subject: Re: [IPSEC] flow: Cache negative results
+Date: Thu, 11 Jan 2007 07:49:22 +1100
+Message-ID: <20070110204922.GA1652@gondor.apana.org.au>
+References: <Pine.LNX.4.64.0701100913050.8582@d.namei> <001301c734de$8252b170$cc0a010a@tcssec.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig890FDB93850E3F7BCF6BBF7C"
-Cc: netdev <netdev@vger.kernel.org>, Ivo Van Doorn <ivdoorn@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: 'James Morris' <jmorris@namei.org>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Paul Moore <paul.moore@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fmmailgate02.web.de ([217.72.192.227]:58547 "EHLO
-	fmmailgate02.web.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965047AbXAJUmx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jan 2007 15:42:53 -0500
-To: Jiri Benc <jbenc@suse.cz>
+Received: from rhun.apana.org.au ([64.62.148.172]:1799 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S965028AbXAJUuH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jan 2007 15:50:07 -0500
+To: Venkat Yekkirala <vyekkirala@trustedcs.com>
+Content-Disposition: inline
+In-Reply-To: <001301c734de$8252b170$cc0a010a@tcssec.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig890FDB93850E3F7BCF6BBF7C
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: quoted-printable
+On Wed, Jan 10, 2007 at 11:41:07AM -0600, Venkat Yekkirala wrote:
+> 
+> Only, on a security policy denial (-ESRCH from the LSM hook), a 0
+> is returned by the resolver to signify no applicable policy since
+> a negative result is akin to no policy. And I see the "no policy"
+> case is already cached.
 
-Hi Jiri,
+I'm not talking about an xfrm policy lookup failure, that exists
+with or without SELinux.  I'm talking about an error returned from
+security_xfrm_policy_lookup(), i.e., whether a policy can be used
+or not.  For that case, we only cache positive results currently.
 
-here is the revised version of 'don't symlink empty default keys'. Run-te=
-sted
-and diff'ed against your repos.
-
-Jan
-
-
-----------
-
-This gets rid of annoying
-
-wlan0: cannot create symlink to default key
-
-in my syslog with latest rt2x00. The patch takes care to always delete an=
-
-existing symlink to the default key before trying to register a new one.
-Moreover, it avoids to call ieee80211_key_sysfs_add_default for a NULL ke=
-y.
-
-Signed-off-by: Jan Kiszka <jan.kiszka@web.de>
-
----
- net/d80211/ieee80211_ioctl.c     |    9 ++++-----
- net/d80211/ieee80211_sysfs_sta.c |    3 ++-
- 2 files changed, 6 insertions(+), 6 deletions(-)
-
-Index: linux-dscape/net/d80211/ieee80211_ioctl.c
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
---- linux-dscape.orig/net/d80211/ieee80211_ioctl.c
-+++ linux-dscape/net/d80211/ieee80211_ioctl.c
-@@ -627,7 +627,7 @@ static int ieee80211_set_encryption(stru
- 		}
- 		kfree(keyconf);
-=20
--		if (key && sdata->default_key =3D=3D key) {
-+		if (set_tx_key || sdata->default_key =3D=3D key) {
- 			ieee80211_key_sysfs_remove_default(sdata);
- 			sdata->default_key =3D NULL;
- 		}
-@@ -671,7 +671,7 @@ static int ieee80211_set_encryption(stru
- 			}
- 		}
-=20
--		if (old_key && sdata->default_key =3D=3D old_key) {
-+		if (set_tx_key || sdata->default_key =3D=3D old_key) {
- 			ieee80211_key_sysfs_remove_default(sdata);
- 			sdata->default_key =3D NULL;
- 		}
-@@ -698,7 +698,7 @@ static int ieee80211_set_encryption(stru
-=20
- 	if (set_tx_key || (!sta && !sdata->default_key && key)) {
- 		sdata->default_key =3D key;
--		if (ieee80211_key_sysfs_add_default(sdata))
-+		if (key && ieee80211_key_sysfs_add_default(sdata))
- 			printk(KERN_WARNING "%s: cannot create symlink to "
- 			       "default key\n", dev->name);
- 		if (local->ops->set_key_idx &&
-@@ -2892,8 +2892,7 @@ static int ieee80211_ioctl_siwencode(str
- 	else if (erq->length =3D=3D 0) {
- 		/* No key data - just set the default TX key index */
- 		if (sdata->default_key !=3D sdata->keys[idx]) {
--			if (sdata->default_key)
--				ieee80211_key_sysfs_remove_default(sdata);
-+			ieee80211_key_sysfs_remove_default(sdata);
- 			sdata->default_key =3D sdata->keys[idx];
- 			if (sdata->default_key)
- 				ieee80211_key_sysfs_add_default(sdata);
-Index: linux-dscape/net/d80211/ieee80211_sysfs_sta.c
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
---- linux-dscape.orig/net/d80211/ieee80211_sysfs_sta.c
-+++ linux-dscape/net/d80211/ieee80211_sysfs_sta.c
-@@ -433,5 +433,6 @@ int ieee80211_key_sysfs_add_default(stru
-=20
- void ieee80211_key_sysfs_remove_default(struct ieee80211_sub_if_data *sd=
-ata)
- {
--	sysfs_remove_link(&sdata->key_kset.kobj, "default");
-+	if (sdata->default_key)
-+		sysfs_remove_link(&sdata->key_kset.kobj, "default");
- }
-
-
-
-
---------------enig890FDB93850E3F7BCF6BBF7C
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.6 (MingW32)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
-
-iD8DBQFFpU+ZniDOoMHTA+kRAnp2AJwPiu/6fmxkO9PIfxojP/wx2XL0xACeKoxw
-8JKyF5kETE8oY5FS21AEeEA=
-=ExnN
------END PGP SIGNATURE-----
-
---------------enig890FDB93850E3F7BCF6BBF7C--
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
