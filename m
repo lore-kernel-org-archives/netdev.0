@@ -1,106 +1,74 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: Fw: Intermittent SCTP multihoming breakage
-Date: Wed, 10 Jan 2007 15:49:21 -0500
-Message-ID: <45A55151.2060401@hp.com>
-References: <20070103154634.b40d9cde.akpm@osdl.org> <1167872389.8646.25.camel@w-sridhar2.beaverton.ibm.com> <Pine.CYG.4.58.0701040913300.3128@shill1-mobl.eicon.com>
+From: "Venkat Yekkirala" <vyekkirala@trustedcs.com>
+Subject: RE: [IPSEC] flow: Cache negative results
+Date: Wed, 10 Jan 2007 15:08:55 -0600
+Message-ID: <001601c734fb$89ed3b90$cc0a010a@tcssec.com>
+References: <20070110204922.GA1652@gondor.apana.org.au>
+Reply-To: <vyekkirala@trustedcs.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain;
+	charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Sridhar Samudrala <sri@us.ibm.com>, Andrew Morton <akpm@osdl.org>,
-	netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net
+Cc: "'James Morris'" <jmorris@namei.org>,
+	"David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	"Paul Moore" <paul.moore@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel7.hp.com ([156.153.255.213]:57273 "EHLO atlrel7.hp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965092AbXAJVDd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Jan 2007 16:03:33 -0500
-To: Steve Hill <steve.hill@dialogic.com>
-In-Reply-To: <Pine.CYG.4.58.0701040913300.3128@shill1-mobl.eicon.com>
+Received: from tcsfw4.tcs-sec.com ([65.127.223.133]:17699 "EHLO
+	tcsfw4.tcs-sec.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965099AbXAJVJ0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jan 2007 16:09:26 -0500
+To: "'Herbert Xu'" <herbert.xu@redhat.com>
+In-Reply-To: <20070110204922.GA1652@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Steve Hill wrote:
-> On Wed, 3 Jan 2007, Sridhar Samudrala wrote:
-> 
-> Sorry for the delay in replying.
-> 
->> No. lksctp-developers mailing list is still the best place for SCTP related
->> discussions. You can subscribe and look in the archives at
->>   http://lists.sourceforge.net/lists/listinfo/lksctp-developers
-> 
-> Hmm, I had a look there and it seemed reasonably inactive and overrun by
-> spam.. (And I've been unable to subscribe).
-> 
->> How are the 2 machines connected? Are they connected directly or
->> via a router?
-> 
-> They are currently connected together directly through crossover cables.
-> 
->> Do you see both the addresses when you do cat /proc/net/sctp/assocs
->> after the association is established on both the peers?
-> 
-> Yes, the contents of /proc/net/sctp/assocs looks correct.
-> 
->> How are you dropping traffic? You could try simulating failover by
->> bringing down the interface or physically removing the link.
-> 
-> I have been using iptables to drop SCTP packets on both the INPUT and
-> OUTPUT chains.  However, I get the same results if I just unplug the
-> network cable (using iptables is easier for my testing since I don't have
-> to crawl around behind the test systems :)
-> 
->>> 1. Sometimes, just after failing over to the second path I see an ABORT.
->> This seems to indicate that somehow the app has terminated.
-> 
-> The abort _appears_ to be caused by a retransmit timer expiring, causing
-> the SCTP stack to tear down the association.  However, I haven't done much
-> investigation of this problem yet - I've been focussing on the second
-> problem since it seems to happen more frequently.
-> 
->>> 2. More frequently, the association stays up indefinately, with heartbeat
->>> requests and acks on the second path, but no data chunks are sent even
->>> though the transmit queue on the transmitting end appears to be full and
->>> the socket is blocking writes.
->> This is strange. Can you collect tcpdump traces on sender and receiver when
->> this happens?
-> 
-> I've taken dumps of the data on the wire for both paths:
->   http://www.nexusuk.org/~steve/sctp/path1.pcap
->   http://www.nexusuk.org/~steve/sctp/path2.pcap
+> > Only, on a security policy denial (-ESRCH from the LSM hook), a 0
+> > is returned by the resolver to signify no applicable policy since
+> > a negative result is akin to no policy. And I see the "no policy"
+> > case is already cached.
+>
+> I'm not talking about an xfrm policy lookup failure, that exists
+> with or without SELinux. I'm talking about an error returned from
+> security_xfrm_policy_lookup(), i.e., whether a policy can be used
+> or not.
 
-Taking a look at these it does appear to complete stall...  There are some
-rather interesting retransmission that don't look quite right...
+I was talking about this (the latter) as well. Currently, on a proper
+"negative", -ESRCH is returned by security_xfrm_policy_lookup(), and
+this comes back up as a 0 from resolver(), correctly indicating NO
+applicable
+xfrm policy (after taking security into account). But if
+security_xfrm_policy_lookup()
+were to return anything other than a zero or -ESRCH, such as -ENOMEM,
+you will see it come back up as such (as -ENOMEM) from resolver(),
+and in this case, it's neither a positive nor a negative, just an error.
+Hence a full lookup would be in order, the next time round.
 
-> 
-> I can't see anything odd in the network traffic - it just stops as if it
-> has no more data to send.  However, the socket appears to still be
-> blocking so the application cannot give it any new data.
-> 
-> This seems to be a problem with the abandonment functionality:
-> 1. Transmit chunk 1.  The transmitted list now contains chunk 1.
-> 2. Chunk 1 and it's retransmissions get lost on the network.
-> 3. Abandon chunk 1.  The transmitted list is now empty.
+>  For that case, we only cache positive results currently.
 
-This causes a FORWARD TSN chunk to be sent to the peer telling him
-to advance CTSN to that of chunk 1.
+Negatives are currently properly cached as NULL. Any errors
+returned from resolver() are true errors, not negatives. Hence,
+they needn't be cached.
 
-> 4. Transmit chunk 2.  the transmitted list now contains chunk 2
-> 5. Receive a gap-ack for chunk 2, indicating that chunk 1 is missing.
+Also, I would fix the other bug you had noted, by something like:
 
-Yes, but at this point, we will regenerate the FORWARD TSN since chunk1
-is still on the abandoned list.
+@@ -232,11 +232,7 @@ nocache:
+                err = resolver(key, family, dir, &obj, &obj_ref);
 
-> At this point, the T3 timer is disabled at the bottom of
-> sctp_check_transmitted() since all the chunks in the transmitted queue are
-> gap-acked.  The whole connection now stalls, waiting for the SACK for
-> chunk 1 that will never arrive.
-> 
+                if (fle) {
+-                       if (err) {
+-                               /* Force security policy check on next
+lookup */
+-                               *head = fle->next;
+-                               flow_entry_kill(cpu, fle);
+-                       } else {
++                       if (!err) {
+                                fle->genid = atomic_read(&flow_cache_genid);
 
-I'll look some more at this...
+                                if (fle->object)
 
--vlad
-> It should be noted that this is not unordered data and I'm not clear on
-> how abandoned chunks are supposed to be handled - I hadn't intentionally
-> enabled the abandonment functionality, the timetolive was set on the
-> transmitted chunks by accident.
-> 
+
+I am planning to test and submit a patch to SELinux
+to invoke flow_cache_flush() on policy reloads tomorrow.
+
+I believe changes to labels on SPD rules are already
+taken care of by checks involving flow_cache_genid.
 
