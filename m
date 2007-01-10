@@ -1,148 +1,228 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: Question on advanced routing and/or virtual routers.
-Date: Tue, 09 Jan 2007 18:53:03 -0800
-Message-ID: <45A4550F.4040802@candelatech.com>
-References: <45A27A78.8010200@candelatech.com> <20070108182327.GB19417@ventoux.cs.ubc.ca>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [PACKET]: Add PACKET_AUXDATA cmsg
+Date: Wed, 10 Jan 2007 13:54:35 +1100
+Message-ID: <20070110025435.GA19599@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:46638 "EHLO ns2.lanforge.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932685AbXAJCxW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Jan 2007 21:53:22 -0500
-To: Brendan Cully <brendan@kublai.com>
-In-Reply-To: <20070108182327.GB19417@ventoux.cs.ubc.ca>
+Received: from rhun.apana.org.au ([64.62.148.172]:3961 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S932690AbXAJCyj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jan 2007 21:54:39 -0500
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Brendan Cully wrote:
+Hi Dave:
 
-> I started something like this a while ago (posted at
-> <20051006215312.GD24375@zakopane.cs.ubc.ca> with a couple of replies
-> by Thomas Graf, but I can't seem to find it in the archives) but then
-> dropped the ball. It seems to work fairly well with a one-line kernel
-> patch to allow route lookup before the local address check. Oh, and I
-> didn't get traceroute working quite right either - I think there was
-> some trick to finding the source address for the generated reply.
-> 
-> I've got some info and code here: http://dsg.cs.ubc.ca/~brendan/remus/
+[PACKET]: Add optional checksum computation for recvmsg
 
-Thanks for the pointers!
+This patch is needed to make ISC's DHCP server (and probably other
+DHCP servers/clients using AF_PACKET) to be able to serve another
+client on the same Xen host.
 
-I took a look at this, and I think I'm starting to understand it.
-But, I am not sure why the patch is needed.  I was thinking that something
-like this should cause packets entering a particular interface to use
-a particular routing table.  However, this does not seem to work for me
-(without the patch).  I have yet to try with the patch.
+The problem is that packets between different domains on the same
+Xen host only have partial checksums.  Unfortunately this piece of
+information is not passed along in AF_PACKET unless you're using
+the mmap interface.  Since dhcpd doesn't support packet-mmap, UDP
+packets from the same host come out with apparently bogus checksums.
 
-I'm using my re-direct device patch, which is a pair of network devices
-that act like two ethernet interfaces connected with a cross-over cable.
-So, when you tx on A, the pkt is RX'd on B.
+This patch adds a mechanism for AF_PACKET recvmsg(2) to return the
+status along with the packet.  It does so by adding a new cmsg that
+contains this information along with some other relevant data such
+as the original packet length.
 
-I am trying to set up two 'routers':
+I didn't include the time stamp information since there is already
+a cmsg for that.
 
-router 1001:
-  rddA2:  10.0.3.1/24  -- connects to rddA1, which is in router 2
-  rddC1:  10.0.4.1/24  -- connects to rest of world...unused currently
+This patch also changes the mmap code to set the CSUMNOTREADY flag
+on all packets instead of just outoing packets on cooked sockets.
 
-router 1002:
-  rddA1:  10.0.3.2/24  -- connects to rddA2 in router 1
-  rddB1:  10.0.2.1/24  -- connects to private network...unused currently
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-
-I want any packets received on the rddA1 and rddB1 interfaces to use routing table 1002,
-and those received on rddA2 and rddC1 to use routing table 1001.
-
-It appears that the ping-response packets are using the local table,
-so matching by incoming device does not appear to be working as I expected.
-The ping requests are going out the right interface, so I think that matching
-on source IP addr is working.
-
-My ip route related commands:
-
-ip ru del from 10.0.3.1 lookup 1001
-ip ru del from 0/0 lookup 1001
-ip ru del from 10.0.4.1 lookup 1001
-ip ru del from 0/0 lookup 1001
-ip ru del from 10.0.2.1 lookup 1002
-ip ru del from 0/0 lookup 1002
-ip ru del from 10.0.3.2 lookup 1002
-ip ru del from 0/0 lookup 1002
-ip link set rddC1 down
-ip link set rddC1 up
-ip addr flush dev rddC1
-ip addr add 10.0.4.1/24 broadcast 10.0.4.255 dev rddC1
-ip rule add iif rddC1 lookup 1001
-ip rule add from 10.0.4.1/32 table 1001
-ip route add 10.0.4.0/24 via 10.0.4.2 table 1001
-ip link set rddA2 down
-ip link set rddA2 up
-ip addr flush dev rddA2
-ip addr add 10.0.3.1/24 broadcast 10.0.3.255 dev rddA2
-ip rule add iif rddA2 lookup 1001
-ip rule add from 10.0.3.1/32 table 1001
-ip route add 10.0.3.0/24 via 10.0.3.2 table 1001
-ip link set rddA1 down
-ip link set rddA1 up
-ip addr flush dev rddA1
-ip addr add 10.0.3.2/24 broadcast 10.0.3.255 dev rddA1
-ip rule add iif rddA1 lookup 1002
-ip rule add from 10.0.3.2/32 table 1002
-ip route add 10.0.3.0/24 via 10.0.3.1 table 1002
-ip link set rddB1 down
-ip link set rddB1 up
-ip addr flush dev rddB1
-ip addr add 10.0.2.1/24 broadcast 10.0.2.255 dev rddB1
-ip rule add iif rddB1 lookup 1002
-ip rule add from 10.0.2.1/32 table 1002
-ip route add 10.0.2.0/24 via 10.0.2.2 table 1002
-[root@lanforge-33-1E ~]# ping -I 10.0.3.1 10.0.3.2
-PING 10.0.3.2 (10.0.3.2) from 10.0.3.1 : 56(84) bytes of data.
-64 bytes from 10.0.3.2: icmp_seq=1 ttl=64 time=0.079 ms
-64 bytes from 10.0.3.2: icmp_seq=2 ttl=64 time=0.062 ms
-64 bytes from 10.0.3.2: icmp_seq=3 ttl=64 time=0.065 ms
-64 bytes from 10.0.3.2: icmp_seq=4 ttl=64 time=0.062 ms
-
-rddA2     Link encap:Ethernet  HWaddr 00:19:DC:3A:39:50
-           inet addr:10.0.3.1  Bcast:10.0.3.255  Mask:255.255.255.0
-           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-           RX packets:1 errors:0 dropped:0 overruns:0 frame:0
-           TX packets:45 errors:0 dropped:0 overruns:0 carrier:0
-           collisions:0 txqueuelen:0
-           RX bytes:42 (42.0 b)  TX bytes:4186 (4.0 KiB)
-
-[root@lanforge-33-1E ~]# ifconfig rddA1
-rddA1     Link encap:Ethernet  HWaddr 00:62:D5:12:AF:31
-           inet addr:10.0.3.2  Bcast:10.0.3.255  Mask:255.255.255.0
-           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-           RX packets:45 errors:0 dropped:0 overruns:0 frame:0
-           TX packets:1 errors:0 dropped:0 overruns:0 carrier:0
-           collisions:0 txqueuelen:0
-           RX bytes:4186 (4.0 KiB)  TX bytes:42 (42.0 b)
-
-
-For other's benefit, here is the patch suggested by Mr. Cully:
-
-
---- net/ipv4/fib_rules.c.orig   2005-08-02 16:19:50.441632971 -0700
-+++ net/ipv4/fib_rules.c        2005-08-02 16:20:06.844088253 -0700
-@@ -94,6 +94,7 @@
-  static struct fib_rule local_rule = {
-         .r_next =       &main_rule,
-         .r_clntref =    ATOMIC_INIT(2),
-+       .r_preference = 0x100,
-         .r_table =      RT_TABLE_LOCAL,
-         .r_action =     RTN_UNICAST,
-  };
-
-
-Thanks,
-Ben
-
-
+Cheers,
 -- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
-
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+diff --git a/include/linux/if_packet.h b/include/linux/if_packet.h
+index 99393ef..f3de05c 100644
+--- a/include/linux/if_packet.h
++++ b/include/linux/if_packet.h
+@@ -41,6 +41,7 @@ struct sockaddr_ll
+ #define PACKET_RX_RING			5
+ #define PACKET_STATISTICS		6
+ #define PACKET_COPY_THRESH		7
++#define PACKET_AUXDATA			8
+ 
+ struct tpacket_stats
+ {
+@@ -48,6 +49,15 @@ struct tpacket_stats
+ 	unsigned int	tp_drops;
+ };
+ 
++struct tpacket_auxdata
++{
++	__u32		tp_status;
++	__u32		tp_len;
++	__u32		tp_snaplen;
++	__u16		tp_mac;
++	__u16		tp_net;
++};
++
+ struct tpacket_hdr
+ {
+ 	unsigned long	tp_status;
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index da73e8a..dab117e 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -200,7 +200,8 @@ struct packet_sock {
+ #endif
+ 	struct packet_type	prot_hook;
+ 	spinlock_t		bind_lock;
+-	char			running;	/* prot_hook is attached*/
++	unsigned int		running:1,	/* prot_hook is attached*/
++				auxdata:1;
+ 	int			ifindex;	/* bound device		*/
+ 	__be16			num;
+ #ifdef CONFIG_PACKET_MULTICAST
+@@ -214,6 +215,8 @@ struct packet_sock {
+ #endif
+ };
+ 
++#define PACKET_SKB_CB(__skb)	((struct tpacket_auxdata *)((__skb)->cb))
++
+ #ifdef CONFIG_PACKET_MMAP
+ 
+ static inline char *packet_lookup_frame(struct packet_sock *po, unsigned int position)
+@@ -468,6 +471,7 @@ static int packet_rcv(struct sk_buff *skb, struct net_device *dev, struct packet
+ 	u8 * skb_head = skb->data;
+ 	int skb_len = skb->len;
+ 	unsigned snaplen;
++	struct tpacket_auxdata *aux;
+ 
+ 	if (skb->pkt_type == PACKET_LOOPBACK)
+ 		goto drop;
+@@ -526,6 +530,15 @@ static int packet_rcv(struct sk_buff *skb, struct net_device *dev, struct packet
+ 	if (dev->hard_header_parse)
+ 		sll->sll_halen = dev->hard_header_parse(skb, sll->sll_addr);
+ 
++	aux = PACKET_SKB_CB(skb);
++	aux->tp_status = TP_STATUS_USER;
++	if (skb->ip_summed == CHECKSUM_PARTIAL)
++		aux->tp_status |= TP_STATUS_CSUMNOTREADY;
++	aux->tp_len = skb->len;
++	aux->tp_snaplen = snaplen;
++	aux->tp_mac = 0;
++	aux->tp_net = skb->nh.raw - skb->data;
++
+ 	if (pskb_trim(skb, snaplen))
+ 		goto drop_n_acct;
+ 
+@@ -585,11 +598,12 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev, struct packe
+ 		else if (skb->pkt_type == PACKET_OUTGOING) {
+ 			/* Special case: outgoing packets have ll header at head */
+ 			skb_pull(skb, skb->nh.raw - skb->data);
+-			if (skb->ip_summed == CHECKSUM_PARTIAL)
+-				status |= TP_STATUS_CSUMNOTREADY;
+ 		}
+ 	}
+ 
++	if (skb->ip_summed == CHECKSUM_PARTIAL)
++		status |= TP_STATUS_CSUMNOTREADY;
++
+ 	snaplen = skb->len;
+ 
+ 	if (run_filter(skb, sk, &snaplen) < 0)
+@@ -1119,6 +1133,11 @@ static int packet_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 	if (msg->msg_name)
+ 		memcpy(msg->msg_name, skb->cb, msg->msg_namelen);
+ 
++	if (pkt_sk(sk)->auxdata) {
++		struct tpacket_auxdata *aux = PACKET_SKB_CB(skb);
++		put_cmsg(msg, SOL_PACKET, PACKET_AUXDATA, sizeof(*aux), aux);
++	}
++
+ 	/*
+ 	 *	Free or return the buffer as appropriate. Again this
+ 	 *	hides all the races and re-entrancy issues from us.
+@@ -1317,6 +1336,7 @@ static int
+ packet_setsockopt(struct socket *sock, int level, int optname, char __user *optval, int optlen)
+ {
+ 	struct sock *sk = sock->sk;
++	struct packet_sock *po = pkt_sk(sk);
+ 	int ret;
+ 
+ 	if (level != SOL_PACKET)
+@@ -1369,6 +1389,18 @@ packet_setsockopt(struct socket *sock, int level, int optname, char __user *optv
+ 		return 0;
+ 	}
+ #endif
++	case PACKET_AUXDATA:
++	{
++		int val;
++
++		if (optlen < sizeof(val))
++			return -EINVAL;
++		if (copy_from_user(&val, optval, sizeof(val)))
++			return -EFAULT;
++
++		po->auxdata = !!val;
++		return 0;
++	}
+ 	default:
+ 		return -ENOPROTOOPT;
+ 	}
+@@ -1378,8 +1410,11 @@ static int packet_getsockopt(struct socket *sock, int level, int optname,
+ 			     char __user *optval, int __user *optlen)
+ {
+ 	int len;
++	int val;
+ 	struct sock *sk = sock->sk;
+ 	struct packet_sock *po = pkt_sk(sk);
++	void *data;
++	struct tpacket_stats st;
+ 
+ 	if (level != SOL_PACKET)
+ 		return -ENOPROTOOPT;
+@@ -1392,9 +1427,6 @@ static int packet_getsockopt(struct socket *sock, int level, int optname,
+ 		
+ 	switch(optname)	{
+ 	case PACKET_STATISTICS:
+-	{
+-		struct tpacket_stats st;
+-
+ 		if (len > sizeof(struct tpacket_stats))
+ 			len = sizeof(struct tpacket_stats);
+ 		spin_lock_bh(&sk->sk_receive_queue.lock);
+@@ -1403,16 +1435,23 @@ static int packet_getsockopt(struct socket *sock, int level, int optname,
+ 		spin_unlock_bh(&sk->sk_receive_queue.lock);
+ 		st.tp_packets += st.tp_drops;
+ 
+-		if (copy_to_user(optval, &st, len))
+-			return -EFAULT;
++		data = &st;
++		break;
++	case PACKET_AUXDATA:
++		if (len > sizeof(int))
++			len = sizeof(int);
++		val = po->auxdata;
++
++		data = &val;
+ 		break;
+-	}
+ 	default:
+ 		return -ENOPROTOOPT;
+ 	}
+ 
+ 	if (put_user(len, optlen))
+ 		return -EFAULT;
++	if (copy_to_user(optval, data, len))
++		return -EFAULT;
+ 	return 0;
+ }
+ 
