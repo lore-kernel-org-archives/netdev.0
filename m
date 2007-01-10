@@ -1,99 +1,113 @@
-From: Bernhard Schmidt <berni@birkenwald.de>
-Subject: Re: [IPv6] PROBLEM? Network unreachable despite correct route
-Date: Wed, 10 Jan 2007 01:23:52 +0100
-Message-ID: <20070110002352.GA31743@obelix.birkenwald.de>
-References: <20070109193624.GA27718@obelix.birkenwald.de>
+From: Divy Le Ray <divy@chelsio.com>
+Subject: Re: [PATCH 3/3] chelsio: more rx speedup
+Date: Tue, 09 Jan 2007 18:08:07 -0800
+Message-ID: <45A44A87.7070202@chelsio.com>
+References: <20061215190716.956791000@osdl.org>	<20070108112524.730e89f0@dxpl.pdx.osdl.net>	<20070108112612.5f947357@dxpl.pdx.osdl.net>	<200701090942.04197.netdev@axxeo.de> <20070109102647.05d92861@freekitty>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Ingo Oeser <netdev@axxeo.de>, Jeff Garzik <jgarzik@pobox.com>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vs02.svr02.mucip.net ([83.170.6.69]:57448 "EHLO mx01.mucip.net"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932585AbXAJAX5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Jan 2007 19:23:57 -0500
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Content-Disposition: inline
-In-Reply-To: <20070109193624.GA27718@obelix.birkenwald.de>
+Received: from stargate.chelsio.com ([12.22.49.110]:23033 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932659AbXAJCI6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jan 2007 21:08:58 -0500
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20070109102647.05d92861@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 09, 2007 at 08:36:24PM +0100, Bernhard Schmidt wrote:
+Stephen Hemminger wrote:
+> On Tue, 9 Jan 2007 09:42:03 +0100
+> Ingo Oeser <netdev@axxeo.de> wrote:
+>
+>   
+>> Hi Stephen,
+>>
+>> Stephen Hemminger schrieb:
+>>     
+>>> --- netdev-2.6.orig/drivers/net/chelsio/sge.c
+>>> +++ netdev-2.6/drivers/net/chelsio/sge.c
+>>>       
+>> [...]
+>>     
+>>> @@ -1043,45 +1046,42 @@ static void recycle_fl_buf(struct freelQ
+>>>   *	be copied but there is no memory for the copy.
+>>>   */
+>>>  static inline struct sk_buff *get_packet(struct pci_dev *pdev,
+>>> -					 struct freelQ *fl, unsigned int len,
+>>> -					 int dma_pad, int skb_pad,
+>>> -					 unsigned int copy_thres,
+>>> -					 unsigned int drop_thres)
+>>> +					 struct freelQ *fl, unsigned int len)
+>>>  {
+>>>  	struct sk_buff *skb;
+>>> -	struct freelQ_ce *ce = &fl->centries[fl->cidx];
+>>> +	const struct freelQ_ce *ce = &fl->centries[fl->cidx];
+>>>  
+>>> -	if (len < copy_thres) {
+>>> -		skb = alloc_skb(len + skb_pad, GFP_ATOMIC);
+>>> -		if (likely(skb != NULL)) {
+>>> -			skb_reserve(skb, skb_pad);
+>>> -			skb_put(skb, len);
+>>> -			pci_dma_sync_single_for_cpu(pdev,
+>>> -					    pci_unmap_addr(ce, dma_addr),
+>>> -					    pci_unmap_len(ce, dma_len),
+>>> -					    PCI_DMA_FROMDEVICE);
+>>> -			memcpy(skb->data, ce->skb->data + dma_pad, len);
+>>> -			pci_dma_sync_single_for_device(pdev,
+>>> +	if (len < copybreak) {
+>>> +		skb = alloc_skb(len + 2, GFP_ATOMIC);
+>>> +		if (!skb)
+>>> +			goto use_orig_buf;
+>>> +
+>>> +		skb_reserve(skb, 2);	/* align IP header */
+>>>       
+>> Please use NET_IP_ALIGN here:
+>>     
+>
+> Wrong, NET_IP_ALIGN is intended to deal with platforms where alignment of DMA is more
+> important of alignment of structures.  Therefore if data is copied, it should
+> always be 2.
+>
+>   
+>> +		skb = alloc_skb(len + NET_IP_ALIGN, GFP_ATOMIC);
+>> +		if (!skb)
+>> +			goto use_orig_buf;
+>> +
+>> +		skb_reserve(skb, NET_IP_ALIGN);
+>>
+>>     
+>>> +		skb_put(skb, len);
+>>> +		pci_dma_sync_single_for_cpu(pdev,
+>>>  					    pci_unmap_addr(ce, dma_addr),
+>>>  					    pci_unmap_len(ce, dma_len),
+>>>  					    PCI_DMA_FROMDEVICE);
+>>> -		} else if (!drop_thres)
+>>> -			goto use_orig_buf;
+>>> -
+>>> +		memcpy(skb->data, ce->skb->data, len);
+>>> +		pci_dma_sync_single_for_device(pdev,
+>>> +					       pci_unmap_addr(ce, dma_addr),
+>>> +					       pci_unmap_len(ce, dma_len),
+>>> +					       PCI_DMA_FROMDEVICE);
+>>>  		recycle_fl_buf(fl, fl->cidx);
+>>>  		return skb;
+>>>  	}
+>>>  
+>>> -	if (fl->credits < drop_thres) {
+>>> +use_orig_buf:
+>>> +	if (fl->credits < 2) {
+>>>       
+>> Why 2? What does this magic number mean?
+>>     
+>
+> No idea, it was there in the original. (as a parameter).
+>
+>   
+The T2 HW behaves nicely when it is guaranteed to have 2 available 
+entries in the rx free list.
 
-Hi,
-
-I did some additional testing
-
-> I'm having a really ugly problem I'm trying to pinpoint, but failed so
-> far. I'm neither completely convinced it is not related to my local
-> setup(s), nor do I have any clue how this might be caused.
-[...]
-> - Dell OptiPlex GX<something> (P4 with HT, Single Core), SuSE 10.2,
->   distribution kernel 2.6.18.5-3-default, connected (tg3) to one
->   upstream Cisco 6500/Sup720, default route learned through stateless
->   autoconfiguration (RA)
-
-Running tcpdump on this (target) box shows that ICMPv6 echo requests
-(which is what mtr sends to the target box) are received by the box, but
-not replied to
-
-01:02:09.884692 IP6 2001:a60:f001:1:218:f3ff:fe66:xxxx > 2001:4ca0:0:f000:211:43ff:fe7e:yyyy: ICMP6, echo request, seq 54173, length 64
-01:02:09.884706 IP6 2001:4ca0:0:f000:211:43ff:fe7e:yyyy > 2001:a60:f001:1:218:f3ff:fe66:xxxx: ICMP6, echo reply, seq 54173, length 64
-01:02:10.428063 IP6 2001:a60:f001:1:218:f3ff:fe66:xxxx > 2001:4ca0:0:f000:211:43ff:fe7e:yyyy: ICMP6, echo request, seq 55453, length 64
-01:02:11.056871 IP6 2001:a60:f001:1:218:f3ff:fe66:xxxx > 2001:4ca0:0:f000:211:43ff:fe7e:yyyy: ICMP6, echo request, seq 56733, length 64
-01:02:11.700772 IP6 2001:a60:f001:1:218:f3ff:fe66:xxxx > 2001:4ca0:0:f000:211:43ff:fe7e:yyyy: ICMP6, echo request, seq 58013, length 64
-[...]
-01:02:17.301169 IP6 2001:a60:f001:1:218:f3ff:fe66:xxxx > 2001:4ca0:0:f000:211:43ff:fe7e:yyyy: ICMP6, echo request, seq 3998, length 64
-01:02:17.941020 IP6 2001:a60:f001:1:218:f3ff:fe66:xxxx > 2001:4ca0:0:f000:211:43ff:fe7e:yyyy: ICMP6, echo request, seq 5278, length 64
-01:02:18.581037 IP6 2001:a60:f001:1:218:f3ff:fe66:xxxx > 2001:4ca0:0:f000:211:43ff:fe7e:yyyy: ICMP6, echo request, seq 6558, length 64
-01:02:18.581050 IP6 2001:4ca0:0:f000:211:43ff:fe7e:yyyy > 2001:a60:f001:1:218:f3ff:fe66:xxxx: ICMP6, echo reply, seq 6558, length 64
-
-while this is happening, the SSH session (between the very same hosts) is
-perfectly fine. ip6_tables.ko is not loaded, there is no other ICMPv6 packet
-(e.g. neighbor solicitation or router advertisement) anywhere near the
-beginning of my problem. Incoming TCP SYN (an additional SSH session I
-tried to establish when I saw the box was not responding) are also 
-visible on the interface, but not answered.
-
-01:18:35.638744 IP6 2001:a60:f001:1:218:f3ff:fe66:xxxx.57045 > 2001:4ca0:0:f000:211:43ff:fe7e:yyyy.22: SWE 1448406153:1448406153(0) win 5760 <mss 1440,sackOK,timestamp 13958554 0,nop,wscale 2>
-01:18:35.701523 IP6 2001:a60:f001:1:218:f3ff:fe66:xxxx > 2001:4ca0:0:f000:211:43ff:fe7e:yyyy: ICMP6, echo request, seq 41148, length 64
-01:18:36.328728 IP6 2001:a60:f001:1:218:f3ff:fe66:xxxx > 2001:4ca0:0:f000:211:43ff:fe7e:yyyy: ICMP6, echo request, seq 42428, length 64
-
-I managed to pull ip -6 route, ip -6 neigh and ip -6 addr while the box
-was not responding:
-
-ip -6 route:
-2001:4ca0:0:f000::/64 dev eth0  proto kernel  metric 256  expires 86322sec mtu 1500 advmss 1440 fragtimeout 4294967295
-fe80::/64 dev eth0  metric 256  expires 21225804sec mtu 1500 advmss 1440 fragtimeout 4294967295
-ff00::/8 dev eth0  metric 256  expires 21225804sec mtu 1500 advmss 1440 fragtimeout 4294967295
-default via fe80::2d0:4ff:fe12:2400 dev eth0  proto kernel  metric 1024  expires 1717sec mtu 1500 advmss 1440 fragtimeout 64
-unreachable default dev lo  proto none  metric -1  error -101 fragtimeout 255
-
-ip -6 neigh:
-fe80::2d0:4ff:fe12:2400 dev eth0 lladdr 00:d0:04:12:24:00 router REACHABLE
-
-ip -6 addr:
-2: eth0: <BROADCAST,MULTICAST,NOTRAILERS,UP,10000> mtu 1500 qlen 1000
-    inet6 2001:4ca0:0:f000:211:43ff:fe7e:yyyy/64 scope global dynamic 
-       valid_lft 86318sec preferred_lft 14318sec
-    inet6 fe80::211:43ff:fe7e:yyyy/64 scope link 
-       valid_lft forever preferred_lft forever
-
-Nothing in dmesg or any file in /var/log (except the notorious "Network
-is unreachable" messages from OpenVPN).
-
-I was wrong before by the way, some outgoing connections from the affected
-machine still work, I was able to ping6, traceroute6 and telnet. At least
-on this particular machine, I am very sure I have seen "Network unreachable"
-on outgoing connects at some point.
-
-I'll try to downgrade this machine to 2.6.16 (and eventually upgrade to 
-2.6.19.1) and have a look whether the problem is gone.
-
-> - Dell PowerEdge 750 (P4 with HT), Debian Etch, self compiled kernel
->   2.6.17.11, connected (e1000) to two upstream Cisco 7200, default route
->   is learned from RIPng (Quagga), static addresses
-
-Still too soon to be absolutely sure, but I think the problem is gone
-since the upgrade to 2.6.19.1.
-
-Regards,
-Bernhard
+Cheers,
+Divy
