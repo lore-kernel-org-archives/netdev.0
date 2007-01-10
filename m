@@ -1,8 +1,8 @@
 From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: [take32 0/10] kevent: Generic event handling mechanism.
-Date: Wed, 10 Jan 2007 11:16:40 +0300
-Message-ID: <11684170003907@2ka.mipt.ru>
-References: <315adqaa0591036@2ka.mipt.ru>
+Subject: [take32 10/10] kevent: Kevent based AIO (aio_sendfile()).
+Date: Wed, 10 Jan 2007 11:16:41 +0300
+Message-ID: <11684170013159@2ka.mipt.ru>
+References: <11684170011028@2ka.mipt.ru>
 Reply-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
@@ -20,308 +20,1192 @@ Cc: David Miller <davem@davemloft.net>,
 	Jamal Hadi Salim <hadi@cyberus.ca>,
 	Ingo Molnar <mingo@elte.hu>, linux-fsdevel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dea.vocord.ru ([217.67.177.50]:37771 "EHLO
+Received: from dea.vocord.ru ([217.67.177.50]:37772 "EHLO
 	kano.factory.vocord.ru" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932740AbXAJIS7 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jan 2007 03:18:59 -0500
-In-Reply-To: <315adqaa0591036@2ka.mipt.ru>
+	with ESMTP id S932757AbXAJITB convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jan 2007 03:19:01 -0500
+In-Reply-To: <11684170011028@2ka.mipt.ru>
 To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-Generic event handling mechanism.
+Kevent based AIO (aio_sendfile()).
 
-Kevent is a generic subsytem which allows to handle event notifications.
-It supports both level and edge triggered events. It is similar to
-poll/epoll in some cases, but it is more scalable, it is faster and
-allows to work with essentially eny kind of events.
+aio_sendfile() contains of two major parts: AIO state machine and page 
+processing code. The former is just a small subsystem, which allows to 
+queue callback for theirs invocation in process' context on behalf of 
+pool of kernel threads. It allows to queue caches of callbacks to the 
+local thread or to any other specified. Each cache of callbacks is 
+processed until there are callbacks in it, callbacks can requeue 
+themselfs into the same cache.
 
-Events are provided into kernel through control syscall and can be read
-back through ring buffer or using usual syscalls.
-Kevent update (i.e. readiness switching) happens directly from internals
-of the appropriate state machine of the underlying subsytem (like
-network, filesystem, timer or any other).
+Real work is being done in page processing code - code which populates 
+pages into VFS cache and then sends pages to the destination socket 
+via ->sendpage(). Unlike previous aio_sendfile() implementation, new 
+one does not require low-level filesystem specific callbacks (->get_block())
+at all, instead I extended struct address_space_operations to contain new 
+member called ->aio_readpages(), which is exactly the same as ->readpage() 
+(read: mpage_readpages()) except different BIO allocation and sumbission 
+routines. I changed mpage_readpages() to provide mpage_alloc() and 
+mpage_bio_submit() to the new function called __mpage_readpages(), which is 
+exactly old mpage_readpages() with provided callback invocation instead of 
+usage for old functions. mpage_readpages_aio() provides kevent specific 
+callbacks, which calls old functions, but with different destructor callbacks,
+which are essentially the same, except that they reschedule AIO processing.
 
-Homepage:
-http://tservice.net.ru/~s0mbre/old/?section=projects&item=kevent
+Benchmarks of simple sendfile vs. aio_sendfile did not show noticeble
+win of any approach, but I want to notice, that my receiving side is 
+not that best in my case (I managed to create a test where usual
+senfile() stuck until signal received, the same hapend with aio_sendfile()
+too, but the latter can be buggy).
+It would be good to use it in lighttpd (I will create a patch after
+some feedback received and approach will be considered as good.
 
-Documentation page:
-http://linux-net.osdl.org/index.php/Kevent
-
-Consider for inclusion.
-
-With this release I start 3 days resending timeout - i.e. each third day 
-I will send either new version (if something new was requested and agreed 
-to be implemented) or resending with back counter started from three. When 
-back counter hits zero after three resendings I consider there is no interest 
-in subsystem and I will stop further sending. 
-
-I really doubt it is a good way to tell the world about my work, and I bet you 
-all tired from those pathos words, but I really would like to get some feedback,
-since I want to start to work on network AIO, but sending mails into 
-unfeedbackable 'destination' really does not motivate me for that.
-
-Thanks for understanding and your time.
-
-P.S. If you want to be removed from Cc: list just drop me a mail.
-
-Changes from 'take31' patchset:
- * Added aio_sendfile_path() - this syscall allows to asynchronosly transfer
-   file specified by provided pathname to destination socket.
-   Opened file descriptor is returned.
- * Added trivial scheduler which selects execution thread. It allows
-   to specify given thread 'by-hands', but since kaio provides '-1' it uses
-   round-robin to get processing thread. In theory it can be bound to
-   scheduler statistics or gamma-ray receiver data.
- * Number of bug fixes in kevent based AIO mpage_readpages().
-   
-   Benchmark of the 100 1Mb files transfer (files are in VFS already) using 
-   sync sendfile or this new version shows about 10Mb/sec performance win
-   for aio_sendfile_path().
-
-Changes from 'take30' patchset:
- * AIO state machine.
- * aio_sendfile() implementation.
- * moved kevent_user_get/kevent_user_put into header.
- * use *zalloc where needed.
-
-Changes from 'take29' patchset:
- * new private userspace notifications - allows to queue any userspace private 
- 	event and then mark it as ready using kevent_ctl(KEVENT_READY) command
- * KEVENT_REQ_READY flag - if set kevent will be marked as ready at enqueue time
- * port to 2.6.20-rc2 tree (54abb5fcdae74a811ed440ec6556cabc6b24f404 commit)
- * use struct kmem_cache instead of kmem_cache_t
- * added notificaion type into search key, this allows to have the same id for 
- 	different types of notifications
-
-Changes from 'take28' patchset:
- * optimized af_unix to use socket notifications
- * changed ALWAYS_QUEUE behaviour with poll/select notifications - previously
- 	kevent was not queued into poll wait queue when ALWAYS_QUEUE flag
-	is set
- * added KEVENT_POLL_POLLRDHUP definition into ukevent.h header
- * libevent-1.2 patch (Jamal, your request is completed, so I'm waiting two weeks
- 	before starting final countdown :)
-	All regression tests passed successfully except test_evbuffer(), which is
-	crashed on my amd64 linux 2.6 test machine for all types of notifications,
-	probably it was fixed in libevent-1.2a version, I did not check.
-	Patch and README can be found at project homepage.
-
-Changes from 'take27' patchset:
- * made kevent default yes in non embedded case.
- * added falgs to callback structures - currently used to check if kevent
- 	can be requested from kernelspace only (posix timers) or 
-	userspace (all others)
-
-Changes from 'take26' patchset:
- * made kevent visible in config only in case of embedded setup.
- * added comment about KEVENT_MAX number.
- * spell fix.
-
-Changes from 'take25' patchset:
- * use timespec as timeout parameter.
- * added high-resolution timer to handle absolute timeouts.
- * added flags to waiting and initialization syscalls.
- * kevent_commit() has new_uidx parameter.
- * kevent_wait() has old_uidx parameter, which, if not equal to u->uidx,
- 	results in immediate wakeup (usefull for the case when entries
-	are added asynchronously from kernel (not supported for now)).
- * added interface to mark any event as ready.
- * event POSIX timers support.
- * return -ENOSYS if there is no registered event type.
- * provided file descriptor must be checked for fifo type (spotted by Eric Dumazet).
- * signal notifications.
- * documentation update.
- * lighttpd patch updated (the latest benchmarks with lighttpd patch can be found in blog).
-
-Changes from 'take24' patchset:
- * new (old (new)) ring buffer implementation with kernel and user indexes.
- * added initialization syscall instead of opening /dev/kevent
- * kevent_commit() syscall to commit ring buffer entries
- * changed KEVENT_REQ_WAKEUP_ONE flag to KEVENT_REQ_WAKEUP_ALL, kevent wakes
-   only first thread always if that flag is not set
- * KEVENT_REQ_ALWAYS_QUEUE flag. If set, kevent will be queued into ready queue
-   instead of copying back to userspace when kevent is ready immediately when
-   it is added.
- * lighttpd patch (Hail! Although nothing really outstanding compared to epoll)
-
-Changes from 'take23' patchset:
- * kevent PIPE notifications
- * KEVENT_REQ_LAST_CHECK flag, which allows to perform last check at dequeueing time
- * fixed poll/select notifications (were broken due to tree manipulations)
- * made Documentation/kevent.txt look nice in 80-col terminal
- * fix for copy_to_user() failure report for the first kevent (Andrew Morton)
- * minor function renames
-
-Changes from 'take22' patchset:
- * new ring buffer implementation in process' memory
- * wakeup-one-thread flag
- * edge-triggered behaviour
-
-Changes from 'take21' patchset:
- * minor cleanups (different return values, removed unneded variables, whitespaces and so on)
- * fixed bug in kevent removal in case when kevent being removed
-   is the same as overflow_kevent (spotted by Eric Dumazet)
-
-Changes from 'take20' patchset:
- * new ring buffer implementation
- * removed artificial limit on possible number of kevents
-
-Changes from 'take19' patchset:
- * use __init instead of __devinit
- * removed 'default N' from config for user statistic
- * removed kevent_user_fini() since kevent can not be unloaded
- * use KERN_INFO for statistic output
-
-Changes from 'take18' patchset:
- * use __init instead of __devinit
- * removed 'default N' from config for user statistic
- * removed kevent_user_fini() since kevent can not be unloaded
- * use KERN_INFO for statistic output
-
-Changes from 'take17' patchset:
- * Use RB tree instead of hash table. 
-	At least for a web sever, frequency of addition/deletion of new kevent 
-	is comparable with number of search access, i.e. most of the time events 
-	are added, accesed only couple of times and then removed, so it justifies 
-	RB tree usage over AVL tree, since the latter does have much slower deletion 
-	time (max O(log(N)) compared to 3 ops), 
-	although faster search time (1.44*O(log(N)) vs. 2*O(log(N))). 
-	So for kevents I use RB tree for now and later, when my AVL tree implementation 
-	is ready, it will be possible to compare them.
- * Changed readiness check for socket notifications.
-
-With both above changes it is possible to achieve more than 3380 req/second compared to 2200, 
-sometimes 2500 req/second for epoll() for trivial web-server and httperf client on the same
-hardware.
-It is possible that above kevent limit is due to maximum allowed kevents in a time limit, which is
-4096 events.
-
-Changes from 'take16' patchset:
- * misc cleanups (__read_mostly, const ...)
- * created special macro which is used for mmap size (number of pages) calculation
- * export kevent_socket_notify(), since it is used in network protocols which can be 
-	built as modules (IPv6 for example)
-
-Changes from 'take15' patchset:
- * converted kevent_timer to high-resolution timers, this forces timer API update at
-	http://linux-net.osdl.org/index.php/Kevent
- * use struct ukevent* instead of void * in syscalls (documentation has been updated)
- * added warning in kevent_add_ukevent() if ring has broken index (for testing)
-
-Changes from 'take14' patchset:
- * added kevent_wait()
-    This syscall waits until either timeout expires or at least one event
-    becomes ready. It also commits that @num events from @start are processed
-    by userspace and thus can be be removed or rearmed (depending on it's flags).
-    It can be used for commit events read by userspace through mmap interface.
-    Example userspace code (evtest.c) can be found on project's homepage.
- * added socket notifications (send/recv/accept)
-
-Changes from 'take13' patchset:
- * do not get lock aroung user data check in __kevent_search()
- * fail early if there were no registered callbacks for given type of kevent
- * trailing whitespace cleanup
-
-Changes from 'take12' patchset:
- * remove non-chardev interface for initialization
- * use pointer to kevent_mring instead of unsigned longs
- * use aligned 64bit type in raw user data (can be used by high-res timer if needed)
- * simplified enqueue/dequeue callbacks and kevent initialization
- * use nanoseconds for timeout
- * put number of milliseconds into timer's return data
- * move some definitions into user-visible header
- * removed filenames from comments
-
-Changes from 'take11' patchset:
- * include missing headers into patchset
- * some trivial code cleanups (use goto instead of if/else games and so on)
- * some whitespace cleanups
- * check for ready_callback() callback before main loop which should save us some ticks
-
-Changes from 'take10' patchset:
- * removed non-existent prototypes
- * added helper function for kevent_registered_callbacks
- * fixed 80 lines comments issues
- * added shared between userspace and kernelspace header instead of embedd them in one
- * core restructuring to remove forward declarations
- * s o m e w h i t e s p a c e c o d y n g s t y l e c l e a n u p
- * use vm_insert_page() instead of remap_pfn_range()
-
-Changes from 'take9' patchset:
- * fixed ->nopage method
-
-Changes from 'take8' patchset:
- * fixed mmap release bug
- * use module_init() instead of late_initcall()
- * use better structures for timer notifications
-
-Changes from 'take7' patchset:
- * new mmap interface (not tested, waiting for other changes to be acked)
-	- use nopage() method to dynamically substitue pages
-	- allocate new page for events only when new added kevent requres it
-	- do not use ugly index dereferencing, use structure instead
-	- reduced amount of data in the ring (id and flags), 
-		maximum 12 pages on x86 per kevent fd
-
-Changes from 'take6' patchset:
- * a lot of comments!
- * do not use list poisoning for detection of the fact, that entry is in the list
- * return number of ready kevents even if copy*user() fails
- * strict check for number of kevents in syscall
- * use ARRAY_SIZE for array size calculation
- * changed superblock magic number
- * use SLAB_PANIC instead of direct panic() call
- * changed -E* return values
- * a lot of small cleanups and indent fixes
-
-Changes from 'take5' patchset:
- * removed compilation warnings about unused wariables when lockdep is not turned on
- * do not use internal socket structures, use appropriate (exported) wrappers instead
- * removed default 1 second timeout
- * removed AIO stuff from patchset
-
-Changes from 'take4' patchset:
- * use miscdevice instead of chardevice
- * comments fixes
-
-Changes from 'take3' patchset:
- * removed serializing mutex from kevent_user_wait()
- * moved storage list processing to RCU
- * removed lockdep screaming - all storage locks are initialized in the same function, so it was
-learned 
-	to differentiate between various cases
- * remove kevent from storage if is marked as broken after callback
- * fixed a typo in mmaped buffer implementation which would end up in wrong index calcualtion 
-
-Changes from 'take2' patchset:
- * split kevent_finish_user() to locked and unlocked variants
- * do not use KEVENT_STAT ifdefs, use inline functions instead
- * use array of callbacks of each type instead of each kevent callback initialization
- * changed name of ukevent guarding lock
- * use only one kevent lock in kevent_user for all hash buckets instead of per-bucket locks
- * do not use kevent_user_ctl structure instead provide needed arguments as syscall parameters
- * various indent cleanups
- * added optimisation, which is aimed to help when a lot of kevents are being copied from
-userspace
- * mapped buffer (initial) implementation (no userspace yet)
-
-Changes from 'take1' patchset:
- - rebased against 2.6.18-git tree
- - removed ioctl controlling
- - added new syscall kevent_get_events(int fd, unsigned int min_nr, unsigned int max_nr,
-			unsigned int timeout, void __user *buf, unsigned flags)
- - use old syscall kevent_ctl for creation/removing, modification and initial kevent 
-	initialization
- - use mutuxes instead of semaphores
- - added file descriptor check and return error if provided descriptor does not match
-	kevent file operations
- - various indent fixes
- - removed aio_sendfile() declarations.
-
-Thank you.
+AIO state machine is a base for network AIO (which becomes
+quite trivial), but I will not start implementation until
+roadback of kevent as a whole and AIO implementation become more clear.
 
 Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 
+diff --git a/fs/bio.c b/fs/bio.c
+index 7618bcb..291e7e8 100644
+--- a/fs/bio.c
++++ b/fs/bio.c
+@@ -120,7 +120,7 @@ void bio_free(struct bio *bio, struct bio_set *bio_set)
+ /*
+  * default destructor for a bio allocated with bio_alloc_bioset()
+  */
+-static void bio_fs_destructor(struct bio *bio)
++void bio_fs_destructor(struct bio *bio)
+ {
+ 	bio_free(bio, fs_bio_set);
+ }
+diff --git a/fs/ext3/inode.c b/fs/ext3/inode.c
+index beaf25f..f08c957 100644
+--- a/fs/ext3/inode.c
++++ b/fs/ext3/inode.c
+@@ -1650,6 +1650,13 @@ ext3_readpages(struct file *file, struct address_space *mapping,
+ 	return mpage_readpages(mapping, pages, nr_pages, ext3_get_block);
+ }
+ 
++static int
++ext3_readpages_aio(struct file *file, struct address_space *mapping,
++		struct list_head *pages, unsigned nr_pages, void *priv)
++{
++	return mpage_readpages_aio(mapping, pages, nr_pages, ext3_get_block, priv);
++}
++
+ static void ext3_invalidatepage(struct page *page, unsigned long offset)
+ {
+ 	journal_t *journal = EXT3_JOURNAL(page->mapping->host);
+@@ -1768,6 +1775,7 @@ static int ext3_journalled_set_page_dirty(struct page *page)
+ }
+ 
+ static const struct address_space_operations ext3_ordered_aops = {
++	.aio_readpages	= ext3_readpages_aio,
+ 	.readpage	= ext3_readpage,
+ 	.readpages	= ext3_readpages,
+ 	.writepage	= ext3_ordered_writepage,
+diff --git a/fs/mpage.c b/fs/mpage.c
+index 692a3e5..e5ba44b 100644
+--- a/fs/mpage.c
++++ b/fs/mpage.c
+@@ -102,7 +102,7 @@ static struct bio *mpage_bio_submit(int rw, struct bio *bio)
+ static struct bio *
+ mpage_alloc(struct block_device *bdev,
+ 		sector_t first_sector, int nr_vecs,
+-		gfp_t gfp_flags)
++		gfp_t gfp_flags, void *priv)
+ {
+ 	struct bio *bio;
+ 
+@@ -116,6 +116,7 @@ mpage_alloc(struct block_device *bdev,
+ 	if (bio) {
+ 		bio->bi_bdev = bdev;
+ 		bio->bi_sector = first_sector;
++		bio->bi_private = priv;
+ 	}
+ 	return bio;
+ }
+@@ -175,7 +176,10 @@ map_buffer_to_page(struct page *page, struct buffer_head *bh, int page_block)
+ static struct bio *
+ do_mpage_readpage(struct bio *bio, struct page *page, unsigned nr_pages,
+ 		sector_t *last_block_in_bio, struct buffer_head *map_bh,
+-		unsigned long *first_logical_block, get_block_t get_block)
++		unsigned long *first_logical_block, get_block_t get_block,
++		struct bio *(*alloc)(struct block_device *bdev, sector_t first_sector, 
++			int nr_vecs, gfp_t gfp_flags, void *priv),
++		struct bio *(*submit)(int rw, struct bio *bio), void *priv)
+ {
+ 	struct inode *inode = page->mapping->host;
+ 	const unsigned blkbits = inode->i_blkbits;
+@@ -302,25 +306,25 @@ do_mpage_readpage(struct bio *bio, struct page *page, unsigned nr_pages,
+ 	 * This page will go to BIO.  Do we need to send this BIO off first?
+ 	 */
+ 	if (bio && (*last_block_in_bio != blocks[0] - 1))
+-		bio = mpage_bio_submit(READ, bio);
++		bio = submit(READ, bio);
+ 
+ alloc_new:
+ 	if (bio == NULL) {
+-		bio = mpage_alloc(bdev, blocks[0] << (blkbits - 9),
++		bio = alloc(bdev, blocks[0] << (blkbits - 9),
+ 			  	min_t(int, nr_pages, bio_get_nr_vecs(bdev)),
+-				GFP_KERNEL);
++				GFP_KERNEL, priv);
+ 		if (bio == NULL)
+ 			goto confused;
+ 	}
+ 
+ 	length = first_hole << blkbits;
+ 	if (bio_add_page(bio, page, length, 0) < length) {
+-		bio = mpage_bio_submit(READ, bio);
++		bio = submit(READ, bio);
+ 		goto alloc_new;
+ 	}
+ 
+ 	if (buffer_boundary(map_bh) || (first_hole != blocks_per_page))
+-		bio = mpage_bio_submit(READ, bio);
++		bio = submit(READ, bio);
+ 	else
+ 		*last_block_in_bio = blocks[blocks_per_page - 1];
+ out:
+@@ -328,7 +332,7 @@ out:
+ 
+ confused:
+ 	if (bio)
+-		bio = mpage_bio_submit(READ, bio);
++		bio = submit(READ, bio);
+ 	if (!PageUptodate(page))
+ 	        block_read_full_page(page, get_block);
+ 	else
+@@ -336,6 +340,48 @@ confused:
+ 	goto out;
+ }
+ 
++int
++__mpage_readpages(struct address_space *mapping, struct list_head *pages,
++				unsigned nr_pages, get_block_t get_block,
++		struct bio *(*alloc)(struct block_device *bdev, sector_t first_sector, 
++			int nr_vecs, gfp_t gfp_flags, void *priv),
++		struct bio *(*submit)(int rw, struct bio *bio), 
++		void *priv)
++{
++	struct bio *bio = NULL;
++	unsigned page_idx;
++	sector_t last_block_in_bio = 0;
++	struct pagevec lru_pvec;
++	struct buffer_head map_bh;
++	unsigned long first_logical_block = 0;
++
++	clear_buffer_mapped(&map_bh);
++	pagevec_init(&lru_pvec, 0);
++	for (page_idx = 0; page_idx < nr_pages; page_idx++) {
++		struct page *page = list_entry(pages->prev, struct page, lru);
++
++		prefetchw(&page->flags);
++		list_del(&page->lru);
++		if (!add_to_page_cache(page, mapping,
++					page->index, GFP_KERNEL)) {
++			bio = do_mpage_readpage(bio, page,
++					nr_pages - page_idx,
++					&last_block_in_bio, &map_bh,
++					&first_logical_block,
++					get_block, alloc, submit, priv);
++			if (!pagevec_add(&lru_pvec, page))
++				__pagevec_lru_add(&lru_pvec);
++		} else {
++			page_cache_release(page);
++		}
++	}
++	pagevec_lru_add(&lru_pvec);
++	BUG_ON(!list_empty(pages));
++	if (bio)
++		submit(READ, bio);
++	return 0;
++}
++
+ /**
+  * mpage_readpages - populate an address space with some pages, and
+  *                       start reads against them.
+@@ -386,40 +432,28 @@ int
+ mpage_readpages(struct address_space *mapping, struct list_head *pages,
+ 				unsigned nr_pages, get_block_t get_block)
+ {
+-	struct bio *bio = NULL;
+-	unsigned page_idx;
+-	sector_t last_block_in_bio = 0;
+-	struct pagevec lru_pvec;
+-	struct buffer_head map_bh;
+-	unsigned long first_logical_block = 0;
++	return __mpage_readpages(mapping, pages, nr_pages, get_block,
++			mpage_alloc, mpage_bio_submit, NULL);
++}
++EXPORT_SYMBOL(mpage_readpages);
+ 
+-	clear_buffer_mapped(&map_bh);
+-	pagevec_init(&lru_pvec, 0);
+-	for (page_idx = 0; page_idx < nr_pages; page_idx++) {
+-		struct page *page = list_entry(pages->prev, struct page, lru);
++#ifdef CONFIG_KEVENT_AIO
++extern struct bio *kaio_mpage_alloc(struct block_device *bdev, sector_t first_sector, 
++		int nr_vecs, gfp_t gfp_flags, void *priv);
++extern struct bio *kaio_mpage_bio_submit(int rw, struct bio *bio);
++#else
++#define kaio_mpage_alloc	mpage_alloc
++#define kaio_mpage_bio_submit	mpage_bio_submit
++#endif
+ 
+-		prefetchw(&page->flags);
+-		list_del(&page->lru);
+-		if (!add_to_page_cache(page, mapping,
+-					page->index, GFP_KERNEL)) {
+-			bio = do_mpage_readpage(bio, page,
+-					nr_pages - page_idx,
+-					&last_block_in_bio, &map_bh,
+-					&first_logical_block,
+-					get_block);
+-			if (!pagevec_add(&lru_pvec, page))
+-				__pagevec_lru_add(&lru_pvec);
+-		} else {
+-			page_cache_release(page);
+-		}
+-	}
+-	pagevec_lru_add(&lru_pvec);
+-	BUG_ON(!list_empty(pages));
+-	if (bio)
+-		mpage_bio_submit(READ, bio);
+-	return 0;
++int
++mpage_readpages_aio(struct address_space *mapping, struct list_head *pages,
++				unsigned nr_pages, get_block_t get_block, void *priv)
++{
++	return __mpage_readpages(mapping, pages, nr_pages, get_block,
++			kaio_mpage_alloc, kaio_mpage_bio_submit, priv);
+ }
+-EXPORT_SYMBOL(mpage_readpages);
++EXPORT_SYMBOL(mpage_readpages_aio);
+ 
+ /*
+  * This isn't called much at all
+@@ -433,7 +467,8 @@ int mpage_readpage(struct page *page, get_block_t get_block)
+ 
+ 	clear_buffer_mapped(&map_bh);
+ 	bio = do_mpage_readpage(bio, page, 1, &last_block_in_bio,
+-			&map_bh, &first_logical_block, get_block);
++			&map_bh, &first_logical_block, get_block,
++			mpage_alloc, mpage_bio_submit, NULL);
+ 	if (bio)
+ 		mpage_bio_submit(READ, bio);
+ 	return 0;
+@@ -595,7 +630,7 @@ page_is_mapped:
+ alloc_new:
+ 	if (bio == NULL) {
+ 		bio = mpage_alloc(bdev, blocks[0] << (blkbits - 9),
+-				bio_get_nr_vecs(bdev), GFP_NOFS|__GFP_HIGH);
++				bio_get_nr_vecs(bdev), GFP_NOFS|__GFP_HIGH, NULL);
+ 		if (bio == NULL)
+ 			goto confused;
+ 	}
+diff --git a/include/linux/mpage.h b/include/linux/mpage.h
+index cc5fb75..accdbdd 100644
+--- a/include/linux/mpage.h
++++ b/include/linux/mpage.h
+@@ -16,6 +16,8 @@ typedef int (writepage_t)(struct page *page, struct writeback_control *wbc);
+ 
+ int mpage_readpages(struct address_space *mapping, struct list_head *pages,
+ 				unsigned nr_pages, get_block_t get_block);
++int mpage_readpages_aio(struct address_space *mapping, struct list_head *pages,
++				unsigned nr_pages, get_block_t get_block, void *priv);
+ int mpage_readpage(struct page *page, get_block_t get_block);
+ int mpage_writepages(struct address_space *mapping,
+ 		struct writeback_control *wbc, get_block_t get_block);
+diff --git a/kernel/kevent/kevent_aio.c b/kernel/kevent/kevent_aio.c
+new file mode 100644
+index 0000000..d4c1c5f
+--- /dev/null
++++ b/kernel/kevent/kevent_aio.c
+@@ -0,0 +1,881 @@
++/*
++ * 2006 Copyright (c) Evgeniy Polyakov <johnpol@2ka.mipt.ru>
++ * All rights reserved.
++ * 
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
++ */
++
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/types.h>
++#include <linux/spinlock.h>
++#include <linux/list.h>
++#include <linux/kthread.h>
++#include <linux/slab.h>
++#include <linux/bio.h>
++#include <linux/pagemap.h>
++#include <linux/file.h>
++#include <linux/swap.h>
++#include <linux/kevent.h>
++
++#define KAIO_CALL_NUM		8
++#define KAIO_THREAD_NUM		8
++
++//#define KEVENT_AIO_DEBUG
++
++#ifdef KEVENT_AIO_DEBUG
++#define dprintk(f, a...) printk(f, ##a)
++#else
++#define dprintk(f, a...) do {} while (0)
++#endif
++
++struct kaio_thread
++{
++	struct list_head	req_list;
++	spinlock_t		req_lock;
++	struct task_struct	*thread;
++	int			refcnt;
++	wait_queue_head_t 	wait;
++};
++
++extern struct file_operations kevent_user_fops;
++static DEFINE_PER_CPU(u32, kaio_req_counter);
++static DEFINE_PER_CPU(int, kaio_req_cpu);
++
++/*
++ * Array of working threads.
++ * It can only be accessed under RCU protection, 
++ * so threads reference counters are not atomic.
++ */
++static struct kaio_thread *kaio_threads[KAIO_THREAD_NUM] __read_mostly;
++static struct kmem_cache *kaio_req_cache __read_mostly;
++static struct kmem_cache *kaio_priv_cache __read_mostly;
++
++struct kaio_req;
++typedef int (* kaio_callback)(struct kaio_req *req, int direct);
++
++#define KAIO_REQ_PENDING	0
++
++/*
++ * Cache of kaio request callbacks.
++ * It is not allowed to change the same cache entry
++ * simultaneously (for example it is forbidden to add entries
++ * in parallel).
++ *
++ * When cache entry is scheduled for execution in one of the threads,
++ * it is forbidden to access it, since it will be freed when
++ * all callbacks have been invoked.
++ *
++ * It is possible to add callbacks into this cache from callbacks itself.
++ */
++struct kaio_req
++{
++	struct list_head	req_entry;
++	kaio_callback		call[KAIO_CALL_NUM];
++	int			read_idx, add_idx;
++	int			cpu;
++	long			flags;
++	atomic_t		refcnt;
++	void			(*destructor)(struct kaio_req *);
++	void			*priv;
++};
++
++/*
++ * Returns pointer to thread entry for given index.
++ * Must be called under RCU protection.
++ */
++static struct kaio_thread *kaio_get_thread(int cpu)
++{
++	struct kaio_thread *th;
++
++	if (cpu == -1) {
++#if 1
++		int *cnt = &__get_cpu_var(kaio_req_cpu);
++		cpu = *cnt;
++
++		*cnt = *cnt + 1;
++		if (*cnt >= KAIO_THREAD_NUM)
++			*cnt = 0;
++#else
++		cpu = 0;
++#endif
++	}
++
++	if (unlikely(cpu >= KAIO_THREAD_NUM || !kaio_threads[cpu]))
++		return NULL;
++
++	th = kaio_threads[cpu];
++	th->refcnt++;
++
++	return th;
++}
++
++/*
++ * Drops reference counter for given thread.
++ * Must be called under RCU protection.
++ */
++static inline void kaio_put_thread(struct kaio_thread *th)
++{
++	th->refcnt--;
++}
++
++void kaio_schedule_req(struct kaio_req *req)
++{
++	struct kaio_thread *th;
++	unsigned long flags;
++
++	rcu_read_lock();
++	th = kaio_get_thread(req->cpu);
++	if (!th) {
++		req->cpu = -1;
++		th = kaio_get_thread(-1);
++		BUG_ON(!th);
++	}
++
++	if (!test_and_set_bit(KAIO_REQ_PENDING, &req->flags)) {
++		spin_lock_irqsave(&th->req_lock, flags);
++		list_add_tail(&req->req_entry, &th->req_list);
++		spin_unlock_irqrestore(&th->req_lock, flags);
++	}
++
++	wake_up(&th->wait);
++
++	kaio_put_thread(th);
++	rcu_read_unlock();
++}
++
++EXPORT_SYMBOL_GPL(kaio_schedule_req);
++
++static inline void kaio_req_get(struct kaio_req *req)
++{
++	atomic_inc(&req->refcnt);
++}
++
++static inline int kaio_req_put(struct kaio_req *req)
++{
++	if (atomic_dec_and_test(&req->refcnt)) {
++		dprintk("%s: freeing req: %p, priv: %p.\n", __func__, req, req->priv);
++		if (req->destructor)
++			req->destructor(req);
++		kmem_cache_free(kaio_req_cache, req);
++		return 1;
++	}
++
++	return 0;
++}
++
++/*
++ * Append a call request into cache.
++ * Returns -EOVERFLOW in case cache is full, and 0 otherwise.
++ */
++int kaio_append_call(struct kaio_req *req, kaio_callback call)
++{
++	if ((req->add_idx + 1 == req->read_idx) ||
++			((req->add_idx + 1 == KAIO_CALL_NUM) && req->read_idx == 0))
++		return -EOVERFLOW;
++
++	req->call[req->add_idx] = call;
++
++	dprintk("%s: req: %p, read_idx: %d, add_idx: %d, call: %p [%p].\n",
++			__func__, req, req->read_idx, req->add_idx, 
++			req->call[req->read_idx], req->call[req->add_idx]);
++	if (++req->add_idx == KAIO_CALL_NUM)
++		req->add_idx = 0;
++
++	kaio_req_get(req);
++	
++	return 0;
++}
++
++EXPORT_SYMBOL_GPL(kaio_append_call);
++
++/*
++ * Adds one call request into given cache.
++ * If cache is NULL or full, allocate new one.
++ */
++struct kaio_req *kaio_add_call(struct kaio_req *req, kaio_callback call, int cpu, gfp_t gflags)
++{
++	if (req && !kaio_append_call(req, call)) {
++		kaio_schedule_req(req);
++		return req;
++	}
++
++	req = kmem_cache_alloc(kaio_req_cache, gflags);
++	if (!req)
++		return NULL;
++
++	memset(req->call, 0, sizeof(req->call));
++
++	req->destructor = NULL;
++	req->cpu = cpu;
++	req->call[0] = call;
++	req->add_idx = 1;
++	req->read_idx = 0;
++	req->flags = 0;
++	atomic_set(&req->refcnt, 1);
++
++	dprintk("%s: req: %p, call: %p [%p].\n", __func__, req, call, req->call[0]);
++
++	return req;
++}
++
++EXPORT_SYMBOL_GPL(kaio_add_call);
++
++/*
++ * Call appropriate callbacks in cache.
++ * This can only be called by working threads, which means that cache
++ * is filled (probably partially) and are not even accessible from
++ * the originator of requests, which means that cache will be freed
++ * when all callbacks are invoked.
++ *
++ * Callback itself can reschedule new callback into the same cache.
++ *
++ * If callback returns negative value, the whole cache will be freed.
++ * If positive value is returned, then further processing is stopped, 
++ * so cache can be queued into the end of the processing FIFO by callback.
++ * If zero is returned, next callback will be invoked if any.
++ */
++static int kaio_call(struct kaio_req *req)
++{
++	int err = -EINVAL;
++
++	if (likely(req->add_idx != req->read_idx)) {
++		dprintk("%s: req: %p, read_idx: %d, add_idx: %d, call: %p [%p].\n",
++				__func__, req, req->read_idx, req->add_idx, 
++				req->call[req->read_idx], req->call[0]);
++		err = (*req->call[req->read_idx])(req, 0);
++		if (++req->read_idx == KAIO_CALL_NUM)
++			req->read_idx = 0;
++
++		if (kaio_req_put(req))
++			err = 0;
++	}
++	return err;
++}
++
++static int kaio_thread_process(void *data)
++{
++	struct kaio_thread *th = data;
++	unsigned long flags;
++	struct kaio_req *req, *first;
++	DECLARE_WAITQUEUE(wait, current);
++	int err;
++
++	add_wait_queue_exclusive(&th->wait, &wait);
++
++	while (!kthread_should_stop()) {
++		first = req = NULL;
++		do {
++			req = NULL;
++			spin_lock_irqsave(&th->req_lock, flags);
++			if (!list_empty(&th->req_list)) {
++				req = list_entry(th->req_list.prev, struct kaio_req, req_entry);
++				if (first != req)
++					list_del(&req->req_entry);
++			}
++			spin_unlock_irqrestore(&th->req_lock, flags);
++				
++			if (!first)
++				first = req;
++			else if (first == req)
++				break;
++
++			if (req) {
++				err = 0;
++				while ((req->read_idx != req->add_idx) && !kthread_should_stop()) {
++					dprintk("%s: req: %p, read_idx: %d, add_idx: %d, err: %d.\n",
++							__func__, req, req->read_idx, req->add_idx, err);
++					err = kaio_call(req);
++					if (err != 0)
++						break;
++				}
++
++				if (err > 0) {
++					spin_lock_irqsave(&th->req_lock, flags);
++					list_add_tail(&req->req_entry, &th->req_list);
++					spin_unlock_irqrestore(&th->req_lock, flags);
++				}
++			}
++		} while (req);
++		__set_current_state(TASK_INTERRUPTIBLE);
++		schedule_timeout(HZ);
++		__set_current_state(TASK_RUNNING);
++	}
++	
++	remove_wait_queue(&th->wait, &wait);
++
++	return 0;
++}
++
++struct kaio_private
++{
++	union {
++		void 		*sptr;
++		__u64		sdata;
++	};
++	union {
++		void 		*dptr;
++		__u64		ddata;
++	};
++	__u64			offset, processed;
++	__u64			count, limit;
++	struct kevent_user	*kevent_user;
++};
++
++extern void bio_fs_destructor(struct bio *bio);
++
++static void kaio_bio_destructor(struct bio *bio)
++{
++	dprintk("%s: bio=%p, num=%u.\n", __func__, bio, bio->bi_vcnt);
++	bio_fs_destructor(bio);
++}
++
++static int kaio_read_send_pages(struct kaio_req *req, int direct);
++
++static int kaio_mpage_end_io_read(struct bio *bio, unsigned int bytes_done, int err)
++{
++	const int uptodate = test_bit(BIO_UPTODATE, &bio->bi_flags);
++	struct bio_vec *bvec = bio->bi_io_vec + bio->bi_vcnt - 1;
++	struct kaio_req *req = bio->bi_private;
++
++	if (bio->bi_size)
++		return 1;
++
++	do {
++		struct page *page = bvec->bv_page;
++
++		if (--bvec >= bio->bi_io_vec)
++			prefetchw(&bvec->bv_page->flags);
++
++		if (uptodate) {
++			SetPageUptodate(page);
++		} else {
++			ClearPageUptodate(page);
++			SetPageError(page);
++		}
++		unlock_page(page);
++	} while (bvec >= bio->bi_io_vec);
++
++	dprintk("%s: bio: %p, req: %p, pending: %d.\n", 
++			__func__, bio, req, test_bit(KAIO_REQ_PENDING, &req->flags));
++
++	kaio_append_call(req, kaio_read_send_pages);
++	kaio_req_put(req);
++	kaio_schedule_req(req);
++
++	bio_put(bio);
++	return 0;
++}
++
++struct bio *kaio_mpage_bio_submit(int rw, struct bio *bio)
++{
++	if (bio) {
++		bio->bi_end_io = kaio_mpage_end_io_read;
++		dprintk("%s: bio=%p, num=%u.\n", __func__, bio, bio->bi_vcnt);
++		submit_bio(READ, bio);
++	}
++	return NULL;
++}
++
++struct bio *kaio_mpage_alloc(struct block_device *bdev,
++		sector_t first_sector, int nr_vecs, gfp_t gfp_flags, void *priv)
++{
++	struct bio *bio;
++
++	bio = bio_alloc(gfp_flags, nr_vecs);
++
++	if (bio == NULL && (current->flags & PF_MEMALLOC)) {
++		while (!bio && (nr_vecs /= 2))
++			bio = bio_alloc(gfp_flags, nr_vecs);
++	}
++
++	if (bio) {
++		struct kaio_req *req = priv;
++
++		bio->bi_bdev = bdev;
++		bio->bi_sector = first_sector;
++		bio->bi_private = priv;
++		bio->bi_destructor = kaio_bio_destructor;
++		kaio_req_get(req);
++		dprintk("%s: bio: %p, req: %p, num: %d.\n", __func__, bio, priv, nr_vecs);
++	}
++	return bio;
++}
++
++static ssize_t kaio_vfs_read_actor(struct kaio_private *priv, struct page *page, size_t len)
++{
++	struct socket *sock = priv->dptr;
++	struct file *file = sock->file;
++	
++	return file->f_op->sendpage(file, page, 0, len, &file->f_pos, 1);
++}
++
++static int kaio_vfs_read(struct kaio_private *priv,
++		ssize_t (*actor)(struct kaio_private *, struct page *, size_t))
++{
++	struct address_space *mapping;
++	struct file *file = priv->sptr;
++	ssize_t actor_size;
++	loff_t isize;
++	int i = 0, pg_num;
++
++	mapping = file->f_mapping;
++	isize = i_size_read(file->f_dentry->d_inode);
++
++	if (priv->processed >= isize) {
++		priv->count = 0;
++		return 0;
++	}
++	priv->count = isize - priv->processed;
++	pg_num = ALIGN(min_t(u64, isize, priv->count), PAGE_SIZE) >> PAGE_SHIFT;
++	
++	dprintk("%s: start: priv: %p, ret: %d, num: %d, count: %Lu, offset: %Lu, processed: %Lu.\n", 
++			__func__, priv, i, pg_num, priv->count, priv->offset, priv->processed);
++
++	for (i=0; i<pg_num && priv->count; ++i) {
++		struct page *page;
++		size_t nr = PAGE_CACHE_SIZE;
++
++		page = find_get_page(mapping, priv->processed >> PAGE_CACHE_SHIFT);
++		if (unlikely(page == NULL))
++			break;
++		if (!PageUptodate(page)) {
++			dprintk("%s: %2d: page=%p, processed=%Lu, count=%Lu not uptodate.\n", 
++					__func__, i, page, priv->processed, priv->count);
++			page_cache_release(page);
++			break;
++		}
++
++		if (mapping_writably_mapped(mapping))
++			flush_dcache_page(page);
++
++		mark_page_accessed(page);
++
++		if (nr + priv->processed > isize)
++			nr = isize - priv->processed;
++		if (nr > priv->count)
++			nr = priv->count;
++
++		actor_size = actor(priv, page, nr);
++		if (actor_size < 0) {
++			page_cache_release(page);
++			i = (int)actor_size;
++			break;
++		}
++
++		page_cache_release(page);
++
++		priv->processed += actor_size;
++		priv->count -= actor_size;
++	}
++
++	if (!priv->count)
++		i = pg_num;
++
++	dprintk("%s: end: priv: %p, ret: %d, num: %d, count: %Lu, offset: %Lu, processed: %Lu.\n", 
++			__func__, priv, i, pg_num, priv->count, priv->offset, priv->processed);
++
++	return i;
++}
++
++static int kaio_read_send_pages(struct kaio_req *req, int direct)
++{
++	struct kaio_private *priv = req->priv;
++	struct file *file = priv->sptr;
++	struct address_space *mapping = file->f_mapping;
++	struct page *page;
++	int err, i, num;
++	u64 offset;
++	LIST_HEAD(page_pool);
++
++	err = kaio_vfs_read(priv, &kaio_vfs_read_actor);
++	if (err < 0)
++		return err;
++
++	if (err == 0) {
++		priv->limit >>= 1;
++	} else {
++		if (priv->limit)
++			priv->limit <<= 1;
++		else
++			priv->limit = 8;
++	}
++
++	if (priv->offset < priv->processed)
++		priv->offset = priv->processed;
++
++	if (!priv->count) {
++		kevent_storage_ready(&priv->kevent_user->st, NULL, KEVENT_MASK_ALL);
++		return 0;
++	}
++
++	if (priv->offset >= priv->processed + priv->count) {
++		kaio_append_call(req, kaio_read_send_pages);
++		return 0;
++	}
++
++	num = min_t(int, max_sane_readahead(priv->limit), 
++			ALIGN(priv->count, PAGE_SIZE) >> PAGE_SHIFT);
++
++	offset = priv->offset;
++	for (i=0; i<num; ++i) {
++		page = page_cache_alloc_cold(mapping);
++		if (!page)
++			break;
++
++		page->index = priv->offset >> PAGE_CACHE_SHIFT;
++		list_add(&page->lru, &page_pool);
++
++		priv->offset += PAGE_CACHE_SIZE;
++	}
++
++	dprintk("%s: submit: req: %p, priv: %p, offset: %Lu, num: %d, limit: %Lu.\n",
++			__func__, req, priv, offset, i, priv->limit);
++
++	err = mapping->a_ops->aio_readpages(file, mapping, &page_pool, i, req);
++	if (err) {
++		dprintk("%s: kevent_mpage_readpages failed: err=%d, count=%Lu.\n",
++				__func__, err, priv->count);
++		kaio_schedule_req(req);
++		return err;
++	}
++
++	return 1;
++}
++
++static int kaio_add_kevent(int fd, struct kaio_req *req)
++{
++	struct ukevent uk;
++	struct file *file;
++	struct kevent_user *u;
++	int err, need_fput = 0;
++	u32 *cnt;
++
++	file = fget_light(fd, &need_fput);
++	if (!file) {
++		err = -EBADF;
++		goto err_out;
++	}
++
++	if (file->f_op != &kevent_user_fops) {
++		err = -EINVAL;
++		goto err_out_fput;
++	}
++
++	u = file->private_data;
++
++	memset(&uk, 0, sizeof(struct ukevent));
++
++	uk.event = KEVENT_MASK_ALL;
++	uk.type = KEVENT_AIO;
++
++	preempt_disable();
++	uk.id.raw[0] = smp_processor_id();
++	cnt = &__get_cpu_var(kaio_req_counter);
++	uk.id.raw[1] = *cnt;
++	*cnt = *cnt + 1;
++	preempt_enable();
++
++	uk.req_flags = KEVENT_REQ_ONESHOT | KEVENT_REQ_ALWAYS_QUEUE;
++	uk.ptr = req;
++
++	err = kevent_user_add_ukevent(&uk, u);
++	if (err)
++		goto err_out_fput;
++
++	kevent_user_get(u);
++
++	fput_light(file, need_fput);
++
++	return 0;
++
++err_out_fput:
++	fput_light(file, need_fput);
++err_out:
++	return err;
++}
++
++static void kaio_destructor(struct kaio_req *req)
++{
++	struct kaio_private *priv = req->priv;
++	struct socket *sock = priv->dptr;
++	struct file *file = priv->sptr;
++
++	fput(file);
++	sockfd_put(sock);
++
++	kevent_storage_ready(&priv->kevent_user->st, NULL, KEVENT_MASK_ALL);
++	kevent_user_put(priv->kevent_user);
++
++	kmem_cache_free(kaio_priv_cache, req->priv);
++}
++
++static struct kaio_req *kaio_sendfile(int kevent_fd, int sock_fd, struct file *file, off_t offset, size_t count)
++{
++	struct kaio_req *req;
++	struct socket *sock;
++	struct kaio_private *priv;
++	int err;
++
++	sock = sockfd_lookup(sock_fd, &err);
++	if (!sock)
++		goto err_out_exit;
++
++	priv = kmem_cache_alloc(kaio_priv_cache, GFP_KERNEL);
++	if (!priv)
++		goto err_out_sput;
++
++	priv->sptr = file;
++	priv->dptr = sock;
++	priv->offset = offset;
++	priv->count = min_t(u64, i_size_read(file->f_dentry->d_inode), count);
++	priv->processed = offset;
++	priv->limit = 128;
++
++	req = kaio_add_call(NULL, &kaio_read_send_pages, -1, GFP_KERNEL);
++	if (!req)
++		goto err_out_free;
++
++	req->destructor = kaio_destructor;
++	req->priv = priv;
++
++	err = kaio_add_kevent(kevent_fd, req);
++
++	dprintk("%s: req: %p, priv: %p, call: %p [%p], offset: %Lu, processed: %Lu, count: %Lu, err: %d.\n",
++			__func__, req, priv, &kaio_read_send_pages, 
++			kaio_read_send_pages, priv->offset, priv->processed, priv->count, err);
++
++	if (err)
++		goto err_out_remove;
++
++	kaio_schedule_req(req);
++
++	return req;
++
++err_out_remove:
++	/* It is safe to just free the object since it is guaranteed that it was not
++	 * queued for processing.
++	 */
++	kmem_cache_free(kaio_req_cache, req);
++err_out_free:
++	kmem_cache_free(kaio_priv_cache, priv);
++err_out_sput:
++	sockfd_put(sock);
++err_out_exit:
++	return NULL;
++
++}
++
++asmlinkage long sys_aio_sendfile(int kevent_fd, int sock_fd, int in_fd, off_t offset, size_t count)
++{
++	struct kaio_req *req;
++	struct file *file;
++	int err;
++
++	file = fget(in_fd);
++	if (!file) {
++		err = -EBADF;
++		goto err_out_exit;
++	}
++
++	req = kaio_sendfile(kevent_fd, sock_fd, file, offset, count);
++	if (!req) {
++		err = -EINVAL;
++		goto err_out_fput;
++	}
++
++	return (long)req;
++
++err_out_fput:
++	fput(file);
++err_out_exit:
++	return err;
++}
++
++asmlinkage long sys_aio_sendfile_path(int kevent_fd, int sock_fd, char __user *filename, off_t offset, size_t count)
++{
++	char *tmp = getname(filename);
++	int fd = PTR_ERR(tmp);
++	int flags = O_RDONLY, err;
++	struct nameidata nd;
++	struct file *file;
++	struct kaio_req *req;
++
++	if (force_o_largefile())
++		flags = O_LARGEFILE;
++
++	if (IS_ERR(tmp)) {
++		err = fd;
++		goto err_out_exit;
++	}
++
++	fd = get_unused_fd();
++	if (fd < 0) {
++		err = fd;
++		goto err_out_put_name;
++	}
++
++	if ((flags+1) & O_ACCMODE)
++		flags++;
++
++	err = open_namei(AT_FDCWD, tmp, flags, 0400, &nd);
++	if (err)
++		goto err_out_fdput;
++
++	file = nameidata_to_filp(&nd, flags);
++	if (!file)
++		goto err_out_fdput;
++
++	/* One reference will be released in sys_close(), 
++	 * second one through req->destructor() 
++	 */
++	atomic_inc(&file->f_count);
++
++	req = kaio_sendfile(kevent_fd, sock_fd, file, offset, count);
++	if (!req) {
++		err = -EINVAL;
++		goto err_out_fput;
++	}
++
++	fd_install(fd, file);
++
++	return fd;
++
++err_out_fput:
++	fput(file);
++	fput(file);
++err_out_fdput:
++	put_unused_fd(fd);
++err_out_put_name:
++	putname(tmp);
++err_out_exit:
++	return err;
++}
++
++static int kevent_aio_callback(struct kevent *k)
++{
++	struct kaio_req *req = k->event.ptr;
++	struct kaio_private *priv = req->priv;
++
++	if (!priv->count) {
++		__u32 *processed = (__u32 *)&priv->processed;
++		k->event.ret_data[0] = processed[0];
++		k->event.ret_data[1] = processed[1];
++		return 1;
++	}
++
++	return 0;
++}
++
++int kevent_aio_enqueue(struct kevent *k)
++{
++	int err;
++	struct kaio_req *req = k->event.ptr;
++	struct kaio_private *priv = req->priv;
++
++	err = kevent_storage_enqueue(&k->user->st, k);
++	if (err)
++		goto err_out_exit;
++
++	priv->kevent_user = k->user;
++	if (k->event.req_flags & KEVENT_REQ_ALWAYS_QUEUE)
++		kevent_requeue(k);
++
++	return 0;
++
++err_out_exit:
++	return err;
++}
++
++int kevent_aio_dequeue(struct kevent *k)
++{
++	kevent_storage_dequeue(k->st, k);
++
++	return 0;
++}
++
++static void kaio_thread_stop(struct kaio_thread *th)
++{
++	kthread_stop(th->thread);
++	kfree(th);
++}
++
++static int kaio_thread_start(struct kaio_thread **thp, int num)
++{
++	struct kaio_thread *th;
++
++	th = kzalloc(sizeof(struct kaio_thread), GFP_KERNEL);
++	if (!th)
++		return -ENOMEM;
++
++	th->refcnt = 1;
++	spin_lock_init(&th->req_lock);
++	INIT_LIST_HEAD(&th->req_list);
++	init_waitqueue_head(&th->wait);
++
++	th->thread = kthread_run(kaio_thread_process, th, "kaio/%d", num);
++	if (IS_ERR(th->thread)) {
++		int err = PTR_ERR(th->thread);
++		kfree(th);
++		return err;
++	}
++
++	*thp = th;
++	wmb();
++
++	return 0;
++}
++
++static int __init kevent_init_aio(void)
++{
++	struct kevent_callbacks sc = {
++		.callback = &kevent_aio_callback,
++		.enqueue = &kevent_aio_enqueue,
++		.dequeue = &kevent_aio_dequeue,
++		.flags = 0,
++	};
++	int err, i;
++
++	kaio_req_cache = kmem_cache_create("kaio_req", sizeof(struct kaio_req), 
++			0, SLAB_PANIC, NULL, NULL);
++	kaio_priv_cache = kmem_cache_create("kaio_priv", sizeof(struct kaio_private), 
++			0, SLAB_PANIC, NULL, NULL);
++
++	memset(kaio_threads, 0, sizeof(kaio_threads));
++
++	for (i=0; i<KAIO_THREAD_NUM; ++i) {
++		err = kaio_thread_start(&kaio_threads[i], i);
++		if (err)
++			goto err_out_stop;
++	}
++
++	err = kevent_add_callbacks(&sc, KEVENT_AIO);
++	if (err)
++		goto err_out_stop;
++
++	return 0;
++
++err_out_stop:
++	while (--i >= 0) {
++		struct kaio_thread *th = kaio_threads[i];
++
++		kaio_threads[i] = NULL;
++		wmb();
++
++		kaio_thread_stop(th);
++	}
++	return err;
++}
++module_init(kevent_init_aio);
 
