@@ -1,17 +1,17 @@
 From: Ananda Raju <Ananda.Raju@neterion.com>
-Subject: [PATCH 2.6.20 3/5] s2io: updates for s2io driver.
-Date: Thu, 11 Jan 2007 02:50:43 -0500 (EST)
-Message-ID: <Pine.GSO.4.10.10701110247390.1618-100000@guinness>
+Subject: [PATCH 2.6.20 4/5] s2io: updates fro s2io driver.
+Date: Thu, 11 Jan 2007 02:52:44 -0500 (EST)
+Message-ID: <Pine.GSO.4.10.10701110250470.1618-100000@guinness>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: leonid.grossman@neterion.com, sivakumar.subramani@neterion.com,
 	alicia.pena@neterion.com, ananda.raju@neterion.com,
 	sreenivasa.honnur@netrion.com, ramkrishna.vepa@neterion.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from barracuda.s2io.com ([72.1.205.138]:57423 "EHLO
+Received: from barracuda.s2io.com ([72.1.205.138]:57438 "EHLO
 	barracuda.s2io.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965347AbXAKHvc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jan 2007 02:51:32 -0500
+	with ESMTP id S965317AbXAKHwq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jan 2007 02:52:46 -0500
 To: netdev@vger.kernel.org, jeff@garzik.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
@@ -20,118 +20,146 @@ Hello,
 
 List of changes in this patch:
 
-1. Fix for updating skb->truesize properly.
-2. Disable NAPI only if more than one ring configured in case of MSI/MSI-X
-   interrupts. Previously we were disabling NAPI irrespective of number of
-   rings when MSI/MSI-X interrupts were used.
-3. Code cleanup.
+1. Removed unused code in en_dis_able_nic_intrs(), TX_DMA_INTR, RX_DMA_INTR,
+   TX_XGXS_INTR, MC_INTR
 
 Signed-off-by: Sivakumar Subramani <sivakumar.subramani@neterion.com>
 ---
-diff -urpN patch2/drivers/net/s2io.c patch3/drivers/net/s2io.c
---- patch2/drivers/net/s2io.c	2007-01-08 17:51:20.000000000 +0530
-+++ patch3/drivers/net/s2io.c	2007-01-08 23:38:48.000000000 +0530
-@@ -459,7 +459,7 @@ static int init_shared_mem(struct s2io_n
- 	void *tmp_v_addr, *tmp_v_addr_next;
- 	dma_addr_t tmp_p_addr, tmp_p_addr_next;
- 	RxD_block_t *pre_rxd_blk = NULL;
--	int i, j, blk_cnt, rx_sz, tx_sz;
-+	int i, j, blk_cnt;
- 	int lst_size, lst_per_page;
- 	struct net_device *dev = nic->dev;
- 	unsigned long tmp;
-@@ -484,7 +484,6 @@ static int init_shared_mem(struct s2io_n
+diff -urpN patch3/drivers/net/s2io.c patch4/drivers/net/s2io.c
+--- patch3/drivers/net/s2io.c	2007-01-08 23:38:48.000000000 +0530
++++ patch4/drivers/net/s2io.c	2007-01-09 01:12:42.000000000 +0530
+@@ -1659,7 +1659,7 @@ static void en_dis_able_nic_intrs(struct
+ 	/*  PIC Interrupts */
+ 	if ((mask & (TX_PIC_INTR | RX_PIC_INTR))) {
+ 		/*  Enable PIC Intrs in the general intr mask register */
+-		val64 = TXPIC_INT_M | PIC_RX_INT_M;
++		val64 = TXPIC_INT_M;
+ 		if (flag == ENABLE_INTRS) {
+ 			temp64 = readq(&bar0->general_int_mask);
+ 			temp64 &= ~((u64) val64);
+@@ -1697,70 +1697,6 @@ static void en_dis_able_nic_intrs(struct
+ 		}
  	}
  
- 	lst_size = (sizeof(TxD_t) * config->max_txds);
--	tx_sz = lst_size * size;
- 	lst_per_page = PAGE_SIZE / lst_size;
- 
- 	for (i = 0; i < config->tx_fifo_num; i++) {
-@@ -584,7 +583,6 @@ static int init_shared_mem(struct s2io_n
- 		size = (size * (sizeof(RxD1_t)));
- 	else
- 		size = (size * (sizeof(RxD3_t)));
--	rx_sz = size;
- 
- 	for (i = 0; i < config->rx_ring_num; i++) {
- 		mac_control->rings[i].rx_curr_get_info.block_index = 0;
-@@ -625,6 +623,8 @@ static int init_shared_mem(struct s2io_n
- 			rx_blocks->rxds = kmalloc(sizeof(rxd_info_t)*
- 						  rxd_count[nic->rxd_mode],
- 						  GFP_KERNEL);
-+			if (!rx_blocks->rxds)
-+				return -ENOMEM;
- 			for (l=0; l<rxd_count[nic->rxd_mode];l++) {
- 				rx_blocks->rxds[l].virt_addr =
- 					rx_blocks->block_virt_addr +
-@@ -2260,6 +2260,7 @@ static int fill_rxd_3buf(nic_t *nic, RxD
- 		return -ENOMEM ;
+-	/*  DMA Interrupts */
+-	/*  Enabling/Disabling Tx DMA interrupts */
+-	if (mask & TX_DMA_INTR) {
+-		/* Enable TxDMA Intrs in the general intr mask register */
+-		val64 = TXDMA_INT_M;
+-		if (flag == ENABLE_INTRS) {
+-			temp64 = readq(&bar0->general_int_mask);
+-			temp64 &= ~((u64) val64);
+-			writeq(temp64, &bar0->general_int_mask);
+-			/*
+-			 * Keep all interrupts other than PFC interrupt
+-			 * and PCC interrupt disabled in DMA level.
+-			 */
+-			val64 = DISABLE_ALL_INTRS & ~(TXDMA_PFC_INT_M |
+-						      TXDMA_PCC_INT_M);
+-			writeq(val64, &bar0->txdma_int_mask);
+-			/*
+-			 * Enable only the MISC error 1 interrupt in PFC block
+-			 */
+-			val64 = DISABLE_ALL_INTRS & (~PFC_MISC_ERR_1);
+-			writeq(val64, &bar0->pfc_err_mask);
+-			/*
+-			 * Enable only the FB_ECC error interrupt in PCC block
+-			 */
+-			val64 = DISABLE_ALL_INTRS & (~PCC_FB_ECC_ERR);
+-			writeq(val64, &bar0->pcc_err_mask);
+-		} else if (flag == DISABLE_INTRS) {
+-			/*
+-			 * Disable TxDMA Intrs in the general intr mask
+-			 * register
+-			 */
+-			writeq(DISABLE_ALL_INTRS, &bar0->txdma_int_mask);
+-			writeq(DISABLE_ALL_INTRS, &bar0->pfc_err_mask);
+-			temp64 = readq(&bar0->general_int_mask);
+-			val64 |= temp64;
+-			writeq(val64, &bar0->general_int_mask);
+-		}
+-	}
+-
+-	/*  Enabling/Disabling Rx DMA interrupts */
+-	if (mask & RX_DMA_INTR) {
+-		/*  Enable RxDMA Intrs in the general intr mask register */
+-		val64 = RXDMA_INT_M;
+-		if (flag == ENABLE_INTRS) {
+-			temp64 = readq(&bar0->general_int_mask);
+-			temp64 &= ~((u64) val64);
+-			writeq(temp64, &bar0->general_int_mask);
+-			/*
+-			 * All RxDMA block interrupts are disabled for now
+-			 * TODO
+-			 */
+-			writeq(DISABLE_ALL_INTRS, &bar0->rxdma_int_mask);
+-		} else if (flag == DISABLE_INTRS) {
+-			/*
+-			 * Disable RxDMA Intrs in the general intr mask
+-			 * register
+-			 */
+-			writeq(DISABLE_ALL_INTRS, &bar0->rxdma_int_mask);
+-			temp64 = readq(&bar0->general_int_mask);
+-			val64 |= temp64;
+-			writeq(val64, &bar0->general_int_mask);
+-		}
+-	}
+-
+ 	/*  MAC Interrupts */
+ 	/*  Enabling/Disabling MAC interrupts */
+ 	if (mask & (TX_MAC_INTR | RX_MAC_INTR)) {
+@@ -1787,53 +1723,6 @@ static void en_dis_able_nic_intrs(struct
+ 		}
  	}
- 	frag_list = skb_shinfo(skb)->frag_list;
-+	skb->truesize += frag_list->truesize; //updating skb->truesize
- 	frag_list->next = NULL;
- 	tmp = (void *)ALIGN((long)frag_list->data, ALIGN_SIZE + 1);
- 	frag_list->data = tmp;
-@@ -3186,6 +3187,8 @@ static void alarm_intr_handler(struct s2
- 	register u64 val64 = 0, err_reg = 0;
- 	u64 cnt;
- 	int i;
-+	if (atomic_read(&nic->card_state) == CARD_DOWN)
-+		return;
- 	nic->mac_control.stats_info->sw_stat.ring_full_cnt = 0;
- 	/* Handling the XPAK counters update */
- 	if(nic->mac_control.stats_info->xpak_stat.xpak_timer_count < 72000) {
-@@ -6581,7 +6584,6 @@ static int rx_osm_handler(ring_info_t *r
- 			skb_put(skb, buf1_len);
- 			skb->len += buf2_len;
- 			skb->data_len += buf2_len;
--			skb->truesize += buf2_len;
- 			skb_put(skb_shinfo(skb)->frag_list, buf2_len);
- 			sp->stats.rx_bytes += buf1_len;
  
-@@ -6803,6 +6805,8 @@ static int s2io_verify_parm(struct pci_d
- 					"Defaulting to INTA\n");
- 		*dev_intr_type = INTA;
- 	}
-+	if ( (rx_ring_num > 1) && (*dev_intr_type != INTA) )
-+		napi = 0;
- 	if (rx_ring_mode > 3) {
- 		DBG_PRINT(ERR_DBG, "s2io: Requested ring mode not supported\n");
- 		DBG_PRINT(ERR_DBG, "s2io: Defaulting to 3-buffer mode\n");
-@@ -6999,7 +7003,7 @@ s2io_init_nic(struct pci_dev *pdev, cons
- 		goto mem_alloc_failed;
- 	}
- 
--	sp->bar0 = ioremap(pci_resource_start(pdev, 0),
-+	sp->bar0 = (caddr_t) ioremap(pci_resource_start(pdev, 0),
- 				     pci_resource_len(pdev, 0));
- 	if (!sp->bar0) {
- 		DBG_PRINT(ERR_DBG, "%s: Neterion: cannot remap io mem1\n",
-@@ -7008,7 +7012,7 @@ s2io_init_nic(struct pci_dev *pdev, cons
- 		goto bar0_remap_failed;
- 	}
- 
--	sp->bar1 = ioremap(pci_resource_start(pdev, 2),
-+	sp->bar1 = (caddr_t) ioremap(pci_resource_start(pdev, 2),
- 				     pci_resource_len(pdev, 2));
- 	if (!sp->bar1) {
- 		DBG_PRINT(ERR_DBG, "%s: Neterion: cannot remap io mem2\n",
-@@ -7324,7 +7328,7 @@ int __init s2io_starter(void)
-  * Description: This function is the cleanup routine for the driver. It unregist * ers the driver.
-  */
- 
--static void s2io_closer(void)
-+static __exit void s2io_closer(void)
- {
- 	pci_unregister_driver(&s2io_driver);
- 	DBG_PRINT(INIT_DBG, "cleanup done\n");
-@@ -7645,6 +7649,7 @@ static void lro_append_pkt(nic_t *sp, lr
- 		lro->last_frag->next = skb;
- 	else
- 		skb_shinfo(first)->frag_list = skb;
-+	first->truesize += skb->truesize;//updating skb->truesize
- 	lro->last_frag = skb;
- 	sp->mac_control.stats_info->sw_stat.clubbed_frms_cnt++;
- 	return;
+-	/*  XGXS Interrupts */
+-	if (mask & (TX_XGXS_INTR | RX_XGXS_INTR)) {
+-		val64 = TXXGXS_INT_M | RXXGXS_INT_M;
+-		if (flag == ENABLE_INTRS) {
+-			temp64 = readq(&bar0->general_int_mask);
+-			temp64 &= ~((u64) val64);
+-			writeq(temp64, &bar0->general_int_mask);
+-			/*
+-			 * All XGXS block error interrupts are disabled for now
+-			 * TODO
+-			 */
+-			writeq(DISABLE_ALL_INTRS, &bar0->xgxs_int_mask);
+-		} else if (flag == DISABLE_INTRS) {
+-			/*
+-			 * Disable MC Intrs in the general intr mask register
+-			 */
+-			writeq(DISABLE_ALL_INTRS, &bar0->xgxs_int_mask);
+-			temp64 = readq(&bar0->general_int_mask);
+-			val64 |= temp64;
+-			writeq(val64, &bar0->general_int_mask);
+-		}
+-	}
+-
+-	/*  Memory Controller(MC) interrupts */
+-	if (mask & MC_INTR) {
+-		val64 = MC_INT_M;
+-		if (flag == ENABLE_INTRS) {
+-			temp64 = readq(&bar0->general_int_mask);
+-			temp64 &= ~((u64) val64);
+-			writeq(temp64, &bar0->general_int_mask);
+-			/*
+-			 * Enable all MC Intrs.
+-			 */
+-			writeq(0x0, &bar0->mc_int_mask);
+-			writeq(0x0, &bar0->mc_err_mask);
+-		} else if (flag == DISABLE_INTRS) {
+-			/*
+-			 * Disable MC Intrs in the general intr mask register
+-			 */
+-			writeq(DISABLE_ALL_INTRS, &bar0->mc_int_mask);
+-			temp64 = readq(&bar0->general_int_mask);
+-			val64 |= temp64;
+-			writeq(val64, &bar0->general_int_mask);
+-		}
+-	}
+-
+-
+ 	/*  Tx traffic interrupts */
+ 	if (mask & TX_TRAFFIC_INTR) {
+ 		val64 = TXTRAFFIC_INT_M;
 
