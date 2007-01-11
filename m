@@ -1,69 +1,151 @@
 From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [PATCH 1/4] atl1: Build files for Attansic L1 driver
-Date: Thu, 11 Jan 2007 09:19:13 +0000
-Message-ID: <20070111091913.GA3141@infradead.org>
-References: <20070111004051.GB2624@osprey.hogchain.net>
+Subject: Re: [PATCH 2/4] atl1: Header files for Attansic L1 driver
+Date: Thu, 11 Jan 2007 09:27:04 +0000
+Message-ID: <20070111092704.GB3141@infradead.org>
+References: <20070111004137.GC2624@osprey.hogchain.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: jeff@garzik.org, shemminger@osdl.org, csnook@redhat.com,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	atl1-devel@lists.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:34613 "EHLO
+Received: from pentafluge.infradead.org ([213.146.154.40]:54148 "EHLO
 	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965337AbXAKJTf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jan 2007 04:19:35 -0500
+	with ESMTP id S965340AbXAKJ1P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jan 2007 04:27:15 -0500
 To: Jay Cliburn <jacliburn@bellsouth.net>
 Content-Disposition: inline
-In-Reply-To: <20070111004051.GB2624@osprey.hogchain.net>
+In-Reply-To: <20070111004137.GC2624@osprey.hogchain.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 10, 2007 at 06:40:51PM -0600, Jay Cliburn wrote:
-> --- /dev/null
-> +++ b/drivers/net/atl1/Makefile
-> @@ -0,0 +1,30 @@
-> +################################################################################
-> +#
-> +# Attansic L1 gigabit ethernet driver
-> +# Copyright(c) 2005 - 2006 Attansic Corporation.
-> +#
-> +# This program is free software; you can redistribute it and/or modify it
-> +# under the terms and conditions of the GNU General Public License,
-> +# version 2, as published by the Free Software Foundation.
-> +#
-> +# This program is distributed in the hope it will be useful, but WITHOUT
-> +# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-> +# FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-> +# more details.
-> +#
-> +# You should have received a copy of the GNU General Public License along with
-> +# this program; if not, write to the Free Software Foundation, Inc.,
-> +# 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
-> +#
-> +# The full GNU General Public License is included in this distribution in
-> +# the file called "COPYING".
-> +#
-> +################################################################################
+On Wed, Jan 10, 2007 at 06:41:37PM -0600, Jay Cliburn wrote:
+> +/**
+> + * atl1.h - atl1 main header
 
-I don't think anyone can claim copyright on two lines of actual kbuild code.
+Please remove these kind of comments, they get out of date far too soon
+and don't really help anything.  (Also everywhere else in the driver)
 
-> +#
-> +# Makefile for the Attansic L1 gigabit ethernet driver
-> +#
-
-This comment is antirely superflous.
-
-> +obj-$(CONFIG_ATL1) += atl1.o
+> +#include <linux/tcp.h>
+> +#include <linux/skbuff.h>
+> +#include <linux/netdevice.h>
+> +#include <linux/pci.h>
+> +#include <linux/spinlock_types.h>
+> +#include <linux/workqueue.h>
+> +#include <linux/timer.h>
+> +#include <linux/delay.h>
+> +#include <linux/if_vlan.h>
 > +
-> +atl1-objs := atl1_main.o atl1_hw.o atl1_ethtool.o atl1_param.o
+> +#include <asm/types.h>
 
-Thi should be atl1-y += ...
+Please always include <linux/types.h>
 
-In short the whole contents of this file should be:
+>
+> +#include <asm/atomic.h>
 
----------------- snip ----------------
-obj-$(CONFIG_ATL1)	+= atl1.o
-atl1-y			+= atl1_main.o atl1_hw.o atl1_ethtool.o atl1_param.o
----------------- snip ----------------
+Please only includ headers where you use them - that's mostly the .c
+files unless you have lots of inlines or complex structures in the headers.
+
+
+
+> +#ifdef NETIF_F_TSO
+> +#include <net/checksum.h>
+> +#endif
+> +
+> +#ifdef SIOCGMIIPHY
+> +#include <linux/mii.h>
+> +#endif
+> +
+> +#ifdef SIOCETHTOOL
+> +#include <linux/ethtool.h>
+> +#endif
+
+Please remove all these ifdefs.
+
+> +#define BAR_0	0
+
+This looks etirely superflous.
+
+> +#define usec_delay(x)	udelay(x)
+> +#ifndef msec_delay
+> +#define msec_delay(x)	do { if(in_interrupt()) { \
+> +			/* Don't mdelay in interrupt context!*/ \
+> +				BUG(); \
+> +			} else { \
+> +				msleep(x); \
+> +			}} while(0)
+> +/**
+> + * Some workarounds require millisecond delays and are run during interrupt
+> + * context.  Most notably, when establishing link, the phy may need tweaking
+> + * but cannot process phy register reads/writes faster than millisecond
+> + * intervals...and we establish link due to a "link status change" interrupt.
+> + **/
+> +#define msec_delay_irq(x) mdelay(x)
+> +#endif
+
+Please kill all these wrappers.
+
+> +} _ATL1_ATTRIB_PACK_;
+
+All your structs seems to be properly packed from a first sight.  Please
+doble-check this and get rid of the attribute packed.
+
+> +struct csum_param {
+> +	unsigned buf_len:14;
+> +	unsigned dma_int:1;
+> +	unsigned pkt_int:1;
+> +	u16 valan_tag;
+> +	unsigned eop:1;
+> +	/* command */
+> +	unsigned coalese:1;
+> +	unsigned ins_vlag:1;
+> +	unsigned custom_chksum:1;
+> +	unsigned segment:1;
+> +	unsigned ip_chksum:1;
+> +	unsigned tcp_chksum:1;
+> +	unsigned udp_chksum:1;
+> +	/* packet state */
+> +	unsigned vlan_tagged:1;
+> +	unsigned eth_type:1;
+> +	unsigned iphl:4;
+> +	unsigned:2;
+> +	unsigned payload_offset:8;
+> +	unsigned xsum_offset:8;
+> +} _ATL1_ATTRIB_PACK_;
+
+Bitfields should not be used for hardware datastructures ever.
+Please convert this to explicit masking and shifting.
+
+> +/* Structure containing variables used by the shared code */
+> +struct atl1_hw {
+> +	u8 __iomem *hw_addr;
+> +	void *back;
+
+This is definitly a kernel data structure.  Shouldn't it be in atl1.h
+instead of _hw.h?  Also does back really need to be a void pointer or
+can it be something typed?
+
+> +	u16 dev_rev;
+> +	u16 device_id;
+> +	u16 vendor_id;
+> +	u16 subsystem_id;
+> +	u16 subsystem_vendor_id;
+> +	u8 revision_id;
+
+Please just use the values from the pci_dev insead of duplicating them.
+
+> +/* formerly ATL1_WRITE_REG */
+> +static inline void atl1_write32(const struct atl1_hw *hw, int reg, u32 val)
+> +{
+> +        writel(val, hw->hw_addr + reg);
+> +}
+> +
+> +/* formerly ATL1_READ_REG */
+> +static inline u32 atl1_read32(const struct atl1_hw *hw, int reg)
+> +{
+> +        return readl(hw->hw_addr + reg);
+> +}
+
+Just kill all these wrappers.  Also you probably want to convert to
+pci_iomap + ioread*/iowrite*.
 
