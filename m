@@ -1,29 +1,40 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 1/4] atl1: Build files for Attansic L1 driver
-Date: Thu, 11 Jan 2007 04:49:27 -0500
-Message-ID: <45A60827.4010001@garzik.org>
-References: <20070111004051.GB2624@osprey.hogchain.net> <20070111091913.GA3141@infradead.org> <45A603FD.9090105@redhat.com>
+From: Steve Hill <steve.hill@dialogic.com>
+Subject: Re: Fw: Intermittent SCTP multihoming breakage
+Date: Thu, 11 Jan 2007 10:10:03 +0000
+Message-ID: <Pine.CYG.4.58.0701111007010.5484@shill1-mobl.eicon.com>
+References: <20070103154634.b40d9cde.akpm@osdl.org>
+ <1167872389.8646.25.camel@w-sridhar2.beaverton.ibm.com>
+ <Pine.CYG.4.58.0701040913300.3128@shill1-mobl.eicon.com>
+ <1168459812.8248.24.camel@w-sridhar2.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Christoph Hellwig <hch@infradead.org>,
-	Jay Cliburn <jacliburn@bellsouth.net>, shemminger@osdl.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	atl1-devel@lists.sourceforge.net
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:49310 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965339AbXAKJtl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Jan 2007 04:49:41 -0500
-To: Chris Snook <csnook@redhat.com>
-In-Reply-To: <45A603FD.9090105@redhat.com>
+Received: from eiconmtl.eicon.com ([192.219.17.124]:39447 "EHLO
+	EICONMTL.eicon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030250AbXAKKJX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jan 2007 05:09:23 -0500
+To: Sridhar Samudrala <sri@us.ibm.com>
+In-Reply-To: <1168459812.8248.24.camel@w-sridhar2.beaverton.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-FWIW Jay is not the vendor, just someone who is helping clean up an ugly 
-vendor driver.
+On Wed, 10 Jan 2007, Sridhar Samudrala wrote:
 
-	Jeff
+> So looks like there may be an issue with PR-SCTP(partial reliability)
+> support and packet loss. I will take a look into this.
+>
+> Do you still see this problem even if you don't set timetolive?
 
+No, the problem seems to go away if the timetolive is set to 0, so this is
+what I have now done since I had not intended to set the timetolive in the
+first place (but I thought it was still worth posting details of the
+problem since it does appear to be a bug).
 
-
+-- 
+ - Steve Hill
+   Software Engineer
+   Dialogic
+   Fordingbridge, Hampshire, UK
+   +44-1425-651392
+   steve.hill@dialogic.com
