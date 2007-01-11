@@ -1,30 +1,61 @@
-From: "Alexey Dobriyan" <adobriyan@gmail.com>
-Subject: Re: [2.6 patch] net/wanrouter/wanmain.c: cleanups
-Date: Thu, 11 Jan 2007 17:57:50 +0300
-Message-ID: <b6fcc0a0701110657j585aaf1fl599eb3c548ea7eb6@mail.gmail.com>
-References: <20070111134938.GH20027@stusta.de>
+From: "Or Gerlitz" <ogerlitz@voltaire.com>
+Subject: Re: [RFC] [PATCH V2 0/3] bonding support for
+ operation over IPoIB
+Date: Thu, 11 Jan 2007 17:03:13 +0200
+Message-ID: <45A651B1.9090402@voltaire.com>
+References: <Pine.LNX.4.64.0611301256130.26156@zuben>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+ charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Andrew Morton" <akpm@osdl.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.187]:7450 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030241AbXAKO5w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jan 2007 09:57:52 -0500
-Received: by nf-out-0910.google.com with SMTP id o25so922214nfa
-        for <netdev@vger.kernel.org>; Thu, 11 Jan 2007 06:57:50 -0800 (PST)
-To: "Adrian Bunk" <bunk@stusta.de>
-In-Reply-To: <20070111134938.GH20027@stusta.de>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org,
+	"Roland Dreier" <rdreier@cisco.com>,
+	openib-general@openib.org
+Return-path: <openib-general-bounces@openib.org>
+To: "Jay Vosburgh" <fubar@us.ibm.com>
+In-Reply-To: <Pine.LNX.4.64.0611301256130.26156@zuben>
+List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
+ <mailto:openib-general-request@openib.org?subject=unsubscribe>
+List-Archive: <http://openib.org/pipermail/openib-general>
+List-Post: <mailto:openib-general@openib.org>
+List-Help: <mailto:openib-general-request@openib.org?subject=help>
+List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
+ <mailto:openib-general-request@openib.org?subject=subscribe>
+Sender: openib-general-bounces@openib.org
+Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-On 1/11/07, Adrian Bunk <bunk@stusta.de> wrote:
-> This patch contains the following cleanups:
-> - make the following needlessly global functions static:
->   - lock_adapter_irq()
->   - unlock_adapter_irq()
+Or Gerlitz wrote:
+> This patch series is a second version (see below link to V1) of the suggested
+> changes to the bonding driver such that it would be able to support non ARPHRD_ETHER
+> netdevices for its High-Availability (active-backup) mode.
+> 
+> The motivation is to enable the bonding driver on its HA mode to work with the
+> IP over Infiniband (IPoIB) driver. With these patches I was able to enslave
+> IPoIB netdevices and run TCP, UDP, IP (UDP) Multicast and ICMP traffic with
+> fail-over and fail-back working fine. My working env was the net-2.6.20 git.
 
-These are 1:1 wrappers around spinlock_irqsave/restore. Just remove them.
+
+> These patches are not enough for configuration of IPoIB bonding through tools
+> (eg /sbin/ifenslave and /sbin/ifup) provided by packages such as sysconfig and
+> initscripts, specifically since these tools sets the bonding device to be UP
+> before enslaving anything. Once this patchset gets positive/feedback the next step
+> would be to look how to enhance the tools/packages so it would be possible to
+> bond/enslave with the modified code. As suggested by the bonding maintainer, this
+> step can potentially involve converting ifenslave to be a script based on the bonding
+> sysfs infrastructure rather on the somehow obsoleted Documentation/networking/ifenslave.c
+
+Jay,
+
+I would like to move forward and push the V2 patch series upstream 
+through netdev and then start working on the configuration tools etc 
+changes needed to support bonding IPoIB devices through non direct 
+bonding sysfs scripts... are you OK with that?
+
+If you agree to the push, who is doing this nowadays, is it Jeff Garzik 
+or David Miller?
+
+Roland - any other comments/concerns that you might have are very much 
+appreciated.
+
+Or.
