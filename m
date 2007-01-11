@@ -1,130 +1,47 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] net/wanrouter/wanmain.c: cleanups
-Date: Thu, 11 Jan 2007 14:49:38 +0100
-Message-ID: <20070111134938.GH20027@stusta.de>
+From: KOVACS Krisztian <hidden@balabit.hu>
+Subject: Re: [PATCH/RFC 01/10] Implement local diversion of IPv4 skbs
+Date: Thu, 11 Jan 2007 15:05:05 +0100
+Message-ID: <200701111505.07035@nienna>
+References: <20070103163357.14635.37754.stgit@nienna.balabit> <1168421515.6746.14.camel@bzorp.balabit> <45A4DCD8.2080103@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: 7bit
+Cc: Balazs Scheidler <bazsi@balabit.hu>, netdev@vger.kernel.org,
+	netfilter-devel@lists.netfilter.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from emailhub.stusta.mhn.de ([141.84.69.5]:4614 "HELO
-	mailout.stusta.mhn.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1030462AbXAKNte (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jan 2007 08:49:34 -0500
-To: Andrew Morton <akpm@osdl.org>
+Received: from www.balabit.hu ([212.92.18.33]:3533 "EHLO lists.balabit.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1030286AbXAKOFb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Jan 2007 09:05:31 -0500
+Received: from balabit.hu (unknown [10.80.0.254])
+	by lists.balabit.hu (Postfix) with ESMTP id 442144C16B
+	for <netdev@vger.kernel.org>; Thu, 11 Jan 2007 15:05:29 +0100 (CET)
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <45A4DCD8.2080103@trash.net>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch contains the following cleanups:
-- make the following needlessly global functions static:
-  - lock_adapter_irq()
-  - unlock_adapter_irq()
-- #if 0 the following unused global functions:
-  - wanrouter_encapsulate()
-  - wanrouter_type_trans()
 
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
+  Hi,
 
----
+On Wednesday 10 January 2007 13:32, Patrick McHardy wrote:
+> How exactly are dynamic ports handled? Do you just add a catch-all rule
+> that filters based on socket lookups?
+>
+> In that case you could do something like this:
+>
+> ip route add local default dev lo scope host table 1
+> ip rule add fwmark 0x1 lookup 1
+>
+> and still use the socket lookups for marking, which would (without the
+> socket caching) remove the need for this patch entirely.
 
-This patch was already sent on:
-- 12 Dec 2006
-- 30 Jun 2006
-- 5 Apr 2006
+  Ok, I'll try to address all the concerns raised on the list.
 
- include/linux/wanrouter.h |    8 --------
- net/wanrouter/wanmain.c   |   17 ++++++++---------
- 2 files changed, 8 insertions(+), 17 deletions(-)
+  Thanks a lot for the review and comments.
 
---- linux-2.6.17-rc1-mm1-full/include/linux/wanrouter.h.old	2006-04-05 17:03:07.000000000 +0200
-+++ linux-2.6.17-rc1-mm1-full/include/linux/wanrouter.h	2006-04-05 17:15:20.000000000 +0200
-@@ -516,9 +516,6 @@
- /* Public functions available for device drivers */
- extern int register_wan_device(struct wan_device *wandev);
- extern int unregister_wan_device(char *name);
--__be16 wanrouter_type_trans(struct sk_buff *skb, struct net_device *dev);
--int wanrouter_encapsulate(struct sk_buff *skb, struct net_device *dev,
--			  unsigned short type);
- 
- /* Proc interface functions. These must not be called by the drivers! */
- extern int wanrouter_proc_init(void);
-@@ -527,11 +524,6 @@
- extern int wanrouter_proc_delete(struct wan_device *wandev);
- extern int wanrouter_ioctl( struct inode *inode, struct file *file, unsigned int cmd, unsigned long arg);
- 
--extern void lock_adapter_irq(spinlock_t *lock, unsigned long *smp_flags);
--extern void unlock_adapter_irq(spinlock_t *lock, unsigned long *smp_flags);
--
--
--
- /* Public Data */
- /* list of registered devices */
- extern struct wan_device *wanrouter_router_devlist;
---- linux-2.6.17-rc1-mm1-full/net/wanrouter/wanmain.c.old	2006-04-05 17:03:39.000000000 +0200
-+++ linux-2.6.17-rc1-mm1-full/net/wanrouter/wanmain.c	2006-04-05 17:18:32.000000000 +0200
-@@ -144,8 +144,8 @@
- 
- static struct wan_device *wanrouter_find_device(char *name);
- static int wanrouter_delete_interface(struct wan_device *wandev, char *name);
--void lock_adapter_irq(spinlock_t *lock, unsigned long *smp_flags);
--void unlock_adapter_irq(spinlock_t *lock, unsigned long *smp_flags);
-+static void lock_adapter_irq(spinlock_t *lock, unsigned long *smp_flags);
-+static void unlock_adapter_irq(spinlock_t *lock, unsigned long *smp_flags);
- 
- 
- 
-@@ -162,8 +162,8 @@
-  *	Organize Unique Identifiers for encapsulation/decapsulation
-  */
- 
--static unsigned char wanrouter_oui_ether[] = { 0x00, 0x00, 0x00 };
- #if 0
-+static unsigned char wanrouter_oui_ether[] = { 0x00, 0x00, 0x00 };
- static unsigned char wanrouter_oui_802_2[] = { 0x00, 0x80, 0xC2 };
- #endif
- 
-@@ -304,6 +304,8 @@
- 	return 0;
- }
- 
-+#if 0
-+
- /*
-  *	Encapsulate packet.
-  *
-@@ -399,6 +401,7 @@
- 	return ethertype;
- }
- 
-+#endif  /*  0  */
- 
- /*
-  *	WAN device IOCTL.
-@@ -860,23 +863,19 @@
- 	return 0;
- }
- 
--void lock_adapter_irq(spinlock_t *lock, unsigned long *smp_flags)
-+static void lock_adapter_irq(spinlock_t *lock, unsigned long *smp_flags)
- {
-        	spin_lock_irqsave(lock, *smp_flags);
- }
- 
- 
--void unlock_adapter_irq(spinlock_t *lock, unsigned long *smp_flags)
-+static void unlock_adapter_irq(spinlock_t *lock, unsigned long *smp_flags)
- {
- 	spin_unlock_irqrestore(lock, *smp_flags);
- }
- 
- EXPORT_SYMBOL(register_wan_device);
- EXPORT_SYMBOL(unregister_wan_device);
--EXPORT_SYMBOL(wanrouter_encapsulate);
--EXPORT_SYMBOL(wanrouter_type_trans);
--EXPORT_SYMBOL(lock_adapter_irq);
--EXPORT_SYMBOL(unlock_adapter_irq);
- 
- MODULE_LICENSE("GPL");
- 
-
-
+-- 
+ Regards,
+  Krisztian Kovacs
