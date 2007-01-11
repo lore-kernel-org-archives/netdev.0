@@ -1,47 +1,30 @@
-From: KOVACS Krisztian <hidden@balabit.hu>
-Subject: Re: [PATCH/RFC 01/10] Implement local diversion of IPv4 skbs
-Date: Thu, 11 Jan 2007 15:05:05 +0100
-Message-ID: <200701111505.07035@nienna>
-References: <20070103163357.14635.37754.stgit@nienna.balabit> <1168421515.6746.14.camel@bzorp.balabit> <45A4DCD8.2080103@trash.net>
+From: "Alexey Dobriyan" <adobriyan@gmail.com>
+Subject: Re: [2.6 patch] net/wanrouter/wanmain.c: cleanups
+Date: Thu, 11 Jan 2007 17:57:50 +0300
+Message-ID: <b6fcc0a0701110657j585aaf1fl599eb3c548ea7eb6@mail.gmail.com>
+References: <20070111134938.GH20027@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-15"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Balazs Scheidler <bazsi@balabit.hu>, netdev@vger.kernel.org,
-	netfilter-devel@lists.netfilter.org
+Cc: "Andrew Morton" <akpm@osdl.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.balabit.hu ([212.92.18.33]:3533 "EHLO lists.balabit.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030286AbXAKOFb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Jan 2007 09:05:31 -0500
-Received: from balabit.hu (unknown [10.80.0.254])
-	by lists.balabit.hu (Postfix) with ESMTP id 442144C16B
-	for <netdev@vger.kernel.org>; Thu, 11 Jan 2007 15:05:29 +0100 (CET)
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <45A4DCD8.2080103@trash.net>
+Received: from nf-out-0910.google.com ([64.233.182.187]:7450 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030241AbXAKO5w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jan 2007 09:57:52 -0500
+Received: by nf-out-0910.google.com with SMTP id o25so922214nfa
+        for <netdev@vger.kernel.org>; Thu, 11 Jan 2007 06:57:50 -0800 (PST)
+To: "Adrian Bunk" <bunk@stusta.de>
+In-Reply-To: <20070111134938.GH20027@stusta.de>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On 1/11/07, Adrian Bunk <bunk@stusta.de> wrote:
+> This patch contains the following cleanups:
+> - make the following needlessly global functions static:
+>   - lock_adapter_irq()
+>   - unlock_adapter_irq()
 
-  Hi,
-
-On Wednesday 10 January 2007 13:32, Patrick McHardy wrote:
-> How exactly are dynamic ports handled? Do you just add a catch-all rule
-> that filters based on socket lookups?
->
-> In that case you could do something like this:
->
-> ip route add local default dev lo scope host table 1
-> ip rule add fwmark 0x1 lookup 1
->
-> and still use the socket lookups for marking, which would (without the
-> socket caching) remove the need for this patch entirely.
-
-  Ok, I'll try to address all the concerns raised on the list.
-
-  Thanks a lot for the review and comments.
-
--- 
- Regards,
-  Krisztian Kovacs
+These are 1:1 wrappers around spinlock_irqsave/restore. Just remove them.
