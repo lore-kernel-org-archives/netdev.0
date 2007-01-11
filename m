@@ -1,39 +1,66 @@
-From: Bernhard Schmidt <berni@birkenwald.de>
-Subject: Re: [IPv6] PROBLEM? Network unreachable despite correct route
-Date: Thu, 11 Jan 2007 14:08:16 +0100
-Message-ID: <45A636C0.6050507@birkenwald.de>
-References: <20070111125343.GB3561@ff.dom.local>
+From: Gavin McCullagh <gavin.mccullagh@nuim.ie>
+Subject: Re: fixing opt-ack DoS against TCP stack
+Date: Thu, 11 Jan 2007 13:19:08 +0000
+Message-ID: <20070111131908.GS31536@nuim.ie>
+References: <20070109103718.GE31536@nuim.ie> <20070109112656.1d6ee9ba@freekitty>
+Reply-To: Gavin McCullagh <gavin.mccullagh@nuim.ie>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7BIT
+Cc: David Malone <David.Malone@nuim.ie>,
+	Douglas Leith <doug.leith@nuim.ie>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vs02.svr02.mucip.net ([83.170.6.69]:43954 "EHLO mx01.mucip.net"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1030324AbXAKNIV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Jan 2007 08:08:21 -0500
-To: Jarek Poplawski <jarkao2@o2.pl>
-In-Reply-To: <20070111125343.GB3561@ff.dom.local>
+Received: from mail.nuim.ie ([149.157.1.19]:55404 "EHLO LARCH.MAY.IE"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1030352AbXAKNTL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Jan 2007 08:19:11 -0500
+Received: from retina-bcl.hamilton.local ([149.157.192.252])
+ by NUIM.IE (PMDF V6.2-X17 #30789) with ESMTPA id <01MBSYVX1KWQ00YBY6@NUIM.IE>
+ for netdev@vger.kernel.org; Thu, 11 Jan 2007 13:19:32 +0000 (GMT)
+In-reply-to: <20070109112656.1d6ee9ba@freekitty>
+To: netdev@vger.kernel.org
+Content-disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jarek Poplawski wrote:
+Hi,
 
->> ip -6 route:
->> 2001:4ca0:0:f000::/64 dev eth0  proto kernel  metric 256  expires 86322sec mtu 1500 advmss 1440 fragtimeout 4294967295
->> fe80::/64 dev eth0  metric 256  expires 21225804sec mtu 1500 advmss 1440 fragtimeout 4294967295
->> ff00::/8 dev eth0  metric 256  expires 21225804sec mtu 1500 advmss 1440 fragtimeout 4294967295
->> default via fe80::2d0:4ff:fe12:2400 dev eth0  proto kernel  metric 1024  expires 1717sec mtu 1500 advmss 1440 fragtimeout 64
->> unreachable default dev lo  proto none  metric -1  error -101 fragtimeout 255
-> Did you analyze this dev lo warning? 
+[ moving this to netdev as requested ]
 
-That one is default. Recent kernels (since 2.6.12 or so, I think when 
-the default on-link assumption was killed) have a default route pointing 
-to "unreachable default lo" on bootup. Routes learned from RA or added 
-statically are installed with a better metric and are preferred that way.
+On Tue, 09 Jan 2007, Stephen Hemminger wrote:
 
-I think the use is to have a Network unreachable returned immediately if 
-no IPv6 router is present.
+> Actually, this paper seems to be a zombified version of:
+> 	http://www.cs.ucsd.edu/~savage/papers/CCR99.pdf
 
-Regards,
-Bernhard
+Thanks.  In fairness to them, the emphasis is slightly different, Savage et
+al are more interested in improving a receiver's performance, whereas
+Sherwood seems more interested in a DoS attack.  However...
+
+> It is not clear that current Linux systems are prone to the attack for a
+> couple of reasons. First, Linux does more counts packets not bytes so
+> extra ack's would be ignored. Turning on ABC would also help.
+
+The issue I'm raising is not as much how you could artifically increase
+Cwnd by dividing ACKs or sending them early.  The issue as I see it is that
+if the receiver doesn't send dup acks, the sender never backs off and may
+eventually flood its own link.  As the receiver need only ACK the odd
+packet, the amplification can be substantial.
+
+As this issue is already moreorless solved (in the research sense), I'm not
+keen to spend a lot of time writing it up.  So, here's a quick throw
+together of a small example experiment I ran yesterday.
+
+	http://www.hamilton.ie/gavinmc/drop_dupack_attack/
+
+> Lastly, the patch looks like it could cause more problems. It probably would
+> break some application and other non-attacking TCP stacks. For this case, IMHO
+> we need to wait for more research. If you want to pursue the problem, it needs
+> to go through the RFC process.
+
+I must admit I didn't read the patch in detail.  As I understand it, the
+fix should (in principal) be compatible with other TCP stacks who should
+just see an odd extra dropped packet and react with a duplicate ack as
+usual.
+
+Gavin
+
