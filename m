@@ -1,48 +1,56 @@
-From: Zhu Yi <yi.zhu@intel.com>
-Subject: [PATCH] ipw2200: add iwconfig rts/frag auto support
-Date: Thu, 11 Jan 2007 17:32:54 +0800
-Message-ID: <1168507974.10342.530.camel@debian.sh.intel.com>
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: [PATCH 4/4] atl1: Ancillary C files for Attansic L1 driver
+Date: Thu, 11 Jan 2007 09:37:20 +0000
+Message-ID: <20070111093720.GD3141@infradead.org>
+References: <20070111004316.GE2624@osprey.hogchain.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: jeff@garzik.org, shemminger@osdl.org, csnook@redhat.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	atl1-devel@lists.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:41504 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965323AbXAKJeF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Jan 2007 04:34:05 -0500
-To: "John W.Linville" <linville@tuxdriver.com>
+Received: from pentafluge.infradead.org ([213.146.154.40]:35697 "EHLO
+	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965351AbXAKJh0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jan 2007 04:37:26 -0500
+To: Jay Cliburn <jacliburn@bellsouth.net>
+Content-Disposition: inline
+In-Reply-To: <20070111004316.GE2624@osprey.hogchain.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch add ipw2200 support for iwconfig rts/frag auto.
+> +#define ATL1_STATS_LEN sizeof(atl1_gstrings_stats) / sizeof(struct atl1_stats)
 
-Signed-off-by: Zhu Yi <yi.zhu@intel.com>
+Just use an opencoded ARRAY_SIZE().
 
----
+> +void atl1_read_pci_cfg(struct atl1_hw *hw, u32 reg, u16 * value)
+> +{
+> +        struct atl1_adapter *adapter = hw->back;
+> +        pci_read_config_word(adapter->pdev, reg, value);
+> +}
+> +
+> +void atl1_write_pci_cfg(struct atl1_hw *hw, u32 reg, u16 * value)
+> +{
+> +        struct atl1_adapter *adapter = hw->back;
+> +        pci_write_config_word(adapter->pdev, reg, *value);
+> +}
 
- ipw2200.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+Please just kill these types of wrappers and use pci_read_config_word/
+pci_write_config_word directly.
 
-diff -urp a/drivers/net/wireless/ipw2200.c
-b/drivers/net/wireless/ipw2200.c
---- a/drivers/net/wireless/ipw2200.c	2007-01-05 10:53:27.000000000 +0800
-+++ b/drivers/net/wireless/ipw2200.c	2007-01-11 17:42:05.000000000 +0800
-@@ -9381,7 +9381,7 @@ static int ipw_wx_set_rts(struct net_dev
- {
- 	struct ipw_priv *priv = ieee80211_priv(dev);
- 	mutex_lock(&priv->mutex);
--	if (wrqu->rts.disabled)
-+	if (wrqu->rts.disabled || !wrqu->rts.fixed)
- 		priv->rts_threshold = DEFAULT_RTS_THRESHOLD;
- 	else {
- 		if (wrqu->rts.value < MIN_RTS_THRESHOLD ||
-@@ -9470,7 +9470,7 @@ static int ipw_wx_set_frag(struct net_de
- {
- 	struct ipw_priv *priv = ieee80211_priv(dev);
- 	mutex_lock(&priv->mutex);
--	if (wrqu->frag.disabled)
-+	if (wrqu->frag.disabled || !wrqu->frag.fixed)
- 		priv->ieee->fts = DEFAULT_FTS;
- 	else {
- 		if (wrqu->frag.value < MIN_FRAG_THRESHOLD ||
+> +static inline bool atl1_eth_address_valid(u8 * p_addr)
+> +{
+> +	/* Invalid PermanentAddress ? */
+> +	if (((p_addr[0] == 0) &&
+> +	     (p_addr[1] == 0) &&
+> +	     (p_addr[2] == 0) &&
+> +	     (p_addr[3] == 0) && (p_addr[4] == 0) && (p_addr[5] == 0)
+> +	    ) || (p_addr[0] & 1)) 
+> +		/* Multicast address or Broadcast Address */
+> +		return false;
+> +
+> +	return true;
+> +}
+
+Don't we have a generic helper for this kind of thing?
+
