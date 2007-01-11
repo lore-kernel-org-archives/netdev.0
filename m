@@ -1,151 +1,51 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [PATCH 2/4] atl1: Header files for Attansic L1 driver
-Date: Thu, 11 Jan 2007 09:27:04 +0000
-Message-ID: <20070111092704.GB3141@infradead.org>
-References: <20070111004137.GC2624@osprey.hogchain.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: BUG: soft lockup detected on CPU#0! (2.6.18.2 plus hacks)
+Date: Thu, 11 Jan 2007 01:27:55 -0800 (PST)
+Message-ID: <20070111.012755.15271378.davem@davemloft.net>
+References: <20070111082958.GB1672@ff.dom.local>
+	<20070111083526.GC1672@ff.dom.local>
+	<20070111083934.GA2578@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jeff@garzik.org, shemminger@osdl.org, csnook@redhat.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	atl1-devel@lists.sourceforge.net
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@osdl.org, greearb@candelatech.com,
+	herbert@gondor.apana.org.au, dlstevens@us.ibm.com,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:54148 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965340AbXAKJ1P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jan 2007 04:27:15 -0500
-To: Jay Cliburn <jacliburn@bellsouth.net>
-Content-Disposition: inline
-In-Reply-To: <20070111004137.GC2624@osprey.hogchain.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50502
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S965345AbXAKJ14 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jan 2007 04:27:56 -0500
+To: jarkao2@o2.pl
+In-Reply-To: <20070111083934.GA2578@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 10, 2007 at 06:41:37PM -0600, Jay Cliburn wrote:
-> +/**
-> + * atl1.h - atl1 main header
+From: Jarek Poplawski <jarkao2@o2.pl>
+Date: Thu, 11 Jan 2007 09:39:34 +0100
 
-Please remove these kind of comments, they get out of date far too soon
-and don't really help anything.  (Also everywhere else in the driver)
+> Sure, but is this even legal to be preempted during
+> reading or modifying rcu list or be blocked while 
+> holding rcu protected pointer? Doesn't this disturb
+> rcu cycle and make possible memory release problems?
 
-> +#include <linux/tcp.h>
-> +#include <linux/skbuff.h>
-> +#include <linux/netdevice.h>
-> +#include <linux/pci.h>
-> +#include <linux/spinlock_types.h>
-> +#include <linux/workqueue.h>
-> +#include <linux/timer.h>
-> +#include <linux/delay.h>
-> +#include <linux/if_vlan.h>
-> +
-> +#include <asm/types.h>
+It's fine in this case.
 
-Please always include <linux/types.h>
+Since the list cannot be changed by anyone else, and the hash linked
+list (as seen by readers) is modified atomically by a single store, it
+all works out.
 
->
-> +#include <asm/atomic.h>
+Readers only look at foo->next in the hash traversal.  Since the
+preceeding element cannot change outside of the current writer,
+the ->next pointer to update is protected.
 
-Please only includ headers where you use them - that's mostly the .c
-files unless you have lots of inlines or complex structures in the headers.
+Readers therefore will either see the hash list with the entry or
+without.
 
+We then use call_rcu() to make sure any reading threads that happened
+to get a glimpse of the hash entry before the hlist_del_rcu()
+completed will go away and drop their references before we free that
+entry.
 
-
-> +#ifdef NETIF_F_TSO
-> +#include <net/checksum.h>
-> +#endif
-> +
-> +#ifdef SIOCGMIIPHY
-> +#include <linux/mii.h>
-> +#endif
-> +
-> +#ifdef SIOCETHTOOL
-> +#include <linux/ethtool.h>
-> +#endif
-
-Please remove all these ifdefs.
-
-> +#define BAR_0	0
-
-This looks etirely superflous.
-
-> +#define usec_delay(x)	udelay(x)
-> +#ifndef msec_delay
-> +#define msec_delay(x)	do { if(in_interrupt()) { \
-> +			/* Don't mdelay in interrupt context!*/ \
-> +				BUG(); \
-> +			} else { \
-> +				msleep(x); \
-> +			}} while(0)
-> +/**
-> + * Some workarounds require millisecond delays and are run during interrupt
-> + * context.  Most notably, when establishing link, the phy may need tweaking
-> + * but cannot process phy register reads/writes faster than millisecond
-> + * intervals...and we establish link due to a "link status change" interrupt.
-> + **/
-> +#define msec_delay_irq(x) mdelay(x)
-> +#endif
-
-Please kill all these wrappers.
-
-> +} _ATL1_ATTRIB_PACK_;
-
-All your structs seems to be properly packed from a first sight.  Please
-doble-check this and get rid of the attribute packed.
-
-> +struct csum_param {
-> +	unsigned buf_len:14;
-> +	unsigned dma_int:1;
-> +	unsigned pkt_int:1;
-> +	u16 valan_tag;
-> +	unsigned eop:1;
-> +	/* command */
-> +	unsigned coalese:1;
-> +	unsigned ins_vlag:1;
-> +	unsigned custom_chksum:1;
-> +	unsigned segment:1;
-> +	unsigned ip_chksum:1;
-> +	unsigned tcp_chksum:1;
-> +	unsigned udp_chksum:1;
-> +	/* packet state */
-> +	unsigned vlan_tagged:1;
-> +	unsigned eth_type:1;
-> +	unsigned iphl:4;
-> +	unsigned:2;
-> +	unsigned payload_offset:8;
-> +	unsigned xsum_offset:8;
-> +} _ATL1_ATTRIB_PACK_;
-
-Bitfields should not be used for hardware datastructures ever.
-Please convert this to explicit masking and shifting.
-
-> +/* Structure containing variables used by the shared code */
-> +struct atl1_hw {
-> +	u8 __iomem *hw_addr;
-> +	void *back;
-
-This is definitly a kernel data structure.  Shouldn't it be in atl1.h
-instead of _hw.h?  Also does back really need to be a void pointer or
-can it be something typed?
-
-> +	u16 dev_rev;
-> +	u16 device_id;
-> +	u16 vendor_id;
-> +	u16 subsystem_id;
-> +	u16 subsystem_vendor_id;
-> +	u8 revision_id;
-
-Please just use the values from the pci_dev insead of duplicating them.
-
-> +/* formerly ATL1_WRITE_REG */
-> +static inline void atl1_write32(const struct atl1_hw *hw, int reg, u32 val)
-> +{
-> +        writel(val, hw->hw_addr + reg);
-> +}
-> +
-> +/* formerly ATL1_READ_REG */
-> +static inline u32 atl1_read32(const struct atl1_hw *hw, int reg)
-> +{
-> +        return readl(hw->hw_addr + reg);
-> +}
-
-Just kill all these wrappers.  Also you probably want to convert to
-pci_iomap + ioread*/iowrite*.
+I really don't see any problem here. :-)
 
