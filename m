@@ -1,61 +1,32 @@
-From: "Or Gerlitz" <ogerlitz@voltaire.com>
-Subject: Re: [RFC] [PATCH V2 0/3] bonding support for
- operation over IPoIB
-Date: Thu, 11 Jan 2007 17:03:13 +0200
-Message-ID: <45A651B1.9090402@voltaire.com>
-References: <Pine.LNX.4.64.0611301256130.26156@zuben>
+From: Jay Cliburn <jacliburn@bellsouth.net>
+Subject: Re: [PATCH 2/4] atl1: Header files for Attansic L1 driver
+Date: Thu, 11 Jan 2007 10:53:30 -0600
+Message-ID: <20070111165330.GA6191@osprey.hogchain.net>
+References: <20070111004137.GC2624@osprey.hogchain.net> <20070111092704.GB3141@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	"Roland Dreier" <rdreier@cisco.com>,
-	openib-general@openib.org
-Return-path: <openib-general-bounces@openib.org>
-To: "Jay Vosburgh" <fubar@us.ibm.com>
-In-Reply-To: <Pine.LNX.4.64.0611301256130.26156@zuben>
-List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
- <mailto:openib-general-request@openib.org?subject=unsubscribe>
-List-Archive: <http://openib.org/pipermail/openib-general>
-List-Post: <mailto:openib-general@openib.org>
-List-Help: <mailto:openib-general-request@openib.org?subject=help>
-List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
- <mailto:openib-general-request@openib.org?subject=subscribe>
-Sender: openib-general-bounces@openib.org
-Errors-To: openib-general-bounces@openib.org
+Content-Type: text/plain; charset=us-ascii
+Cc: jeff@garzik.org, shemminger@osdl.org, csnook@redhat.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from imf21aec.mail.bellsouth.net ([205.152.59.69]:60183 "EHLO
+	imf21aec.mail.bellsouth.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750786AbXAKQxm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jan 2007 11:53:42 -0500
+To: Christoph Hellwig <hch@infradead.org>
+Content-Disposition: inline
+In-Reply-To: <20070111092704.GB3141@infradead.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Or Gerlitz wrote:
-> This patch series is a second version (see below link to V1) of the suggested
-> changes to the bonding driver such that it would be able to support non ARPHRD_ETHER
-> netdevices for its High-Availability (active-backup) mode.
+On Thu, Jan 11, 2007 at 09:27:04AM +0000, Christoph Hellwig wrote:
+> On Wed, Jan 10, 2007 at 06:41:37PM -0600, Jay Cliburn wrote:
+> > +/**
+> > + * atl1.h - atl1 main header
 > 
-> The motivation is to enable the bonding driver on its HA mode to work with the
-> IP over Infiniband (IPoIB) driver. With these patches I was able to enslave
-> IPoIB netdevices and run TCP, UDP, IP (UDP) Multicast and ICMP traffic with
-> fail-over and fail-back working fine. My working env was the net-2.6.20 git.
+> Please remove these kind of comments, they get out of date far too soon
+> and don't really help anything.  (Also everywhere else in the driver)
 
+Is your concern here with the filename portion of the comment only, or
+with the entire comment including the copyright and other material?
 
-> These patches are not enough for configuration of IPoIB bonding through tools
-> (eg /sbin/ifenslave and /sbin/ifup) provided by packages such as sysconfig and
-> initscripts, specifically since these tools sets the bonding device to be UP
-> before enslaving anything. Once this patchset gets positive/feedback the next step
-> would be to look how to enhance the tools/packages so it would be possible to
-> bond/enslave with the modified code. As suggested by the bonding maintainer, this
-> step can potentially involve converting ifenslave to be a script based on the bonding
-> sysfs infrastructure rather on the somehow obsoleted Documentation/networking/ifenslave.c
-
-Jay,
-
-I would like to move forward and push the V2 patch series upstream 
-through netdev and then start working on the configuration tools etc 
-changes needed to support bonding IPoIB devices through non direct 
-bonding sysfs scripts... are you OK with that?
-
-If you agree to the push, who is doing this nowadays, is it Jeff Garzik 
-or David Miller?
-
-Roland - any other comments/concerns that you might have are very much 
-appreciated.
-
-Or.
+Jay
