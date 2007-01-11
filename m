@@ -1,50 +1,130 @@
 From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] make hdlc_setup() static again
-Date: Thu, 11 Jan 2007 14:48:59 +0100
-Message-ID: <20070111134859.GD20027@stusta.de>
+Subject: [2.6 patch] net/wanrouter/wanmain.c: cleanups
+Date: Thu, 11 Jan 2007 14:49:38 +0100
+Message-ID: <20070111134938.GH20027@stusta.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Krzysztof Halasa <khc@pm.waw.pl>, Jeff Garzik <jeff@garzik.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout.stusta.mhn.de ([141.84.69.5]:4598 "HELO
+Received: from emailhub.stusta.mhn.de ([141.84.69.5]:4614 "HELO
 	mailout.stusta.mhn.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1030449AbXAKNsz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jan 2007 08:48:55 -0500
+	with SMTP id S1030462AbXAKNte (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jan 2007 08:49:34 -0500
 To: Andrew Morton <akpm@osdl.org>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-hdlc_setup was exported, but this export was never used.
-
-If a driver using it actually shows up it can still be exported again.
+This patch contains the following cleanups:
+- make the following needlessly global functions static:
+  - lock_adapter_irq()
+  - unlock_adapter_irq()
+- #if 0 the following unused global functions:
+  - wanrouter_encapsulate()
+  - wanrouter_type_trans()
 
 Signed-off-by: Adrian Bunk <bunk@stusta.de>
-Acked-by: Krzysztof Halasa <khc@pm.waw.pl>
 
 ---
 
 This patch was already sent on:
-- 25 Nov 2006
+- 12 Dec 2006
+- 30 Jun 2006
+- 5 Apr 2006
 
---- linux-2.6.19-rc6-mm1/drivers/net/wan/hdlc.c.old	2006-11-25 00:16:13.000000000 +0100
-+++ linux-2.6.19-rc6-mm1/drivers/net/wan/hdlc.c	2006-11-25 00:16:26.000000000 +0100
-@@ -222,7 +222,7 @@
- 	return -EINVAL;
+ include/linux/wanrouter.h |    8 --------
+ net/wanrouter/wanmain.c   |   17 ++++++++---------
+ 2 files changed, 8 insertions(+), 17 deletions(-)
+
+--- linux-2.6.17-rc1-mm1-full/include/linux/wanrouter.h.old	2006-04-05 17:03:07.000000000 +0200
++++ linux-2.6.17-rc1-mm1-full/include/linux/wanrouter.h	2006-04-05 17:15:20.000000000 +0200
+@@ -516,9 +516,6 @@
+ /* Public functions available for device drivers */
+ extern int register_wan_device(struct wan_device *wandev);
+ extern int unregister_wan_device(char *name);
+-__be16 wanrouter_type_trans(struct sk_buff *skb, struct net_device *dev);
+-int wanrouter_encapsulate(struct sk_buff *skb, struct net_device *dev,
+-			  unsigned short type);
+ 
+ /* Proc interface functions. These must not be called by the drivers! */
+ extern int wanrouter_proc_init(void);
+@@ -527,11 +524,6 @@
+ extern int wanrouter_proc_delete(struct wan_device *wandev);
+ extern int wanrouter_ioctl( struct inode *inode, struct file *file, unsigned int cmd, unsigned long arg);
+ 
+-extern void lock_adapter_irq(spinlock_t *lock, unsigned long *smp_flags);
+-extern void unlock_adapter_irq(spinlock_t *lock, unsigned long *smp_flags);
+-
+-
+-
+ /* Public Data */
+ /* list of registered devices */
+ extern struct wan_device *wanrouter_router_devlist;
+--- linux-2.6.17-rc1-mm1-full/net/wanrouter/wanmain.c.old	2006-04-05 17:03:39.000000000 +0200
++++ linux-2.6.17-rc1-mm1-full/net/wanrouter/wanmain.c	2006-04-05 17:18:32.000000000 +0200
+@@ -144,8 +144,8 @@
+ 
+ static struct wan_device *wanrouter_find_device(char *name);
+ static int wanrouter_delete_interface(struct wan_device *wandev, char *name);
+-void lock_adapter_irq(spinlock_t *lock, unsigned long *smp_flags);
+-void unlock_adapter_irq(spinlock_t *lock, unsigned long *smp_flags);
++static void lock_adapter_irq(spinlock_t *lock, unsigned long *smp_flags);
++static void unlock_adapter_irq(spinlock_t *lock, unsigned long *smp_flags);
+ 
+ 
+ 
+@@ -162,8 +162,8 @@
+  *	Organize Unique Identifiers for encapsulation/decapsulation
+  */
+ 
+-static unsigned char wanrouter_oui_ether[] = { 0x00, 0x00, 0x00 };
+ #if 0
++static unsigned char wanrouter_oui_ether[] = { 0x00, 0x00, 0x00 };
+ static unsigned char wanrouter_oui_802_2[] = { 0x00, 0x80, 0xC2 };
+ #endif
+ 
+@@ -304,6 +304,8 @@
+ 	return 0;
  }
  
--void hdlc_setup(struct net_device *dev)
-+static void hdlc_setup(struct net_device *dev)
- {
- 	hdlc_device *hdlc = dev_to_hdlc(dev);
++#if 0
++
+ /*
+  *	Encapsulate packet.
+  *
+@@ -399,6 +401,7 @@
+ 	return ethertype;
+ }
  
-@@ -325,7 +325,6 @@
- EXPORT_SYMBOL(hdlc_open);
- EXPORT_SYMBOL(hdlc_close);
- EXPORT_SYMBOL(hdlc_ioctl);
--EXPORT_SYMBOL(hdlc_setup);
- EXPORT_SYMBOL(alloc_hdlcdev);
- EXPORT_SYMBOL(unregister_hdlc_device);
- EXPORT_SYMBOL(register_hdlc_protocol);
++#endif  /*  0  */
+ 
+ /*
+  *	WAN device IOCTL.
+@@ -860,23 +863,19 @@
+ 	return 0;
+ }
+ 
+-void lock_adapter_irq(spinlock_t *lock, unsigned long *smp_flags)
++static void lock_adapter_irq(spinlock_t *lock, unsigned long *smp_flags)
+ {
+        	spin_lock_irqsave(lock, *smp_flags);
+ }
+ 
+ 
+-void unlock_adapter_irq(spinlock_t *lock, unsigned long *smp_flags)
++static void unlock_adapter_irq(spinlock_t *lock, unsigned long *smp_flags)
+ {
+ 	spin_unlock_irqrestore(lock, *smp_flags);
+ }
+ 
+ EXPORT_SYMBOL(register_wan_device);
+ EXPORT_SYMBOL(unregister_wan_device);
+-EXPORT_SYMBOL(wanrouter_encapsulate);
+-EXPORT_SYMBOL(wanrouter_type_trans);
+-EXPORT_SYMBOL(lock_adapter_irq);
+-EXPORT_SYMBOL(unlock_adapter_irq);
+ 
+ MODULE_LICENSE("GPL");
+ 
+
 
