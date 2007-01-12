@@ -1,17 +1,15 @@
-From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+From: "evan foss" <evanfoss-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Subject: Re: [PATCH V2] bcm43xx: Fix failure to deliver PCI-E interrupts
-Date: Fri, 12 Jan 2007 20:01:45 +0100
-Message-ID: <200701122001.45546.mb@bu3sch.de>
+Date: Fri, 12 Jan 2007 14:18:51 -0500
+Message-ID: <4a55afb80701121118r342ec98s8b3312b8c7e59e85@mail.gmail.com>
 References: <45a7ceb2.m02aaCgouBsadVk/%Larry.Finger@lwfinger.net>
-	<9b3e2dc20701121050p52e13d92r1ec78e1881bbed3@mail.gmail.com>
+	<200701121953.44630.mb@bu3sch.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
-	bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
 Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-To: "Stephen Sinclair" <radarsat1-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-In-Reply-To: <9b3e2dc20701121050p52e13d92r1ec78e1881bbed3-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+In-Reply-To: <200701121953.44630.mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
 Content-Disposition: inline
 List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
 	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
@@ -24,15 +22,24 @@ Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Friday 12 January 2007 19:50, Stephen Sinclair wrote:
-> > The PCI-E modifications to bcm43xx do not set up the interrupt vector
-> > correctly. Tested with BCM4311 (PCI-E) on x86_64 and BCM4306 (PCI) on i386.
-> 
-> This was successful for me.  My 4311 is now getting interrupts, and I
-> was able to successfully associate with an AP.  (i386)
+> This hunk is OK, but I just want to point out that bustype is
+> always equal to BCM43xx_BUSTYPE_PCI ;)
+> The 0x53 timeouts are for an SSB-BUS.
+> So strictly said this hunk is a NOP.
+>
+> The other hunks are OK, too. They fix real bugs.
+> Thanks for spotting them, Larry!
 
-That does the (i386) mean here?
-Were you able to accociate with your PCI or PCI-E card?
+So then what fixed int's for Stephen Sinclair? Or did they already
+work? I would gladly help test I knew it applied to me.
+
+>> The PCI-E modifications to bcm43xx do not set up the interrupt vector
+>> correctly. Tested with BCM4311 (PCI-E) on x86_64 and BCM4306 (PCI) on i386.
+>
+>This was successful for me.  My 4311 is now getting interrupts, and I
+>was able to successfully associate with an AP.  (i386)
+
 
 -- 
-Greetings Michael.
+http://www.coe.neu.edu/~efoss/
+http://evanfoss.googlepages.com/
