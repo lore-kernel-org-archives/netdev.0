@@ -1,36 +1,34 @@
-From: Larry Finger <larry.finger@lwfinger.net>
+From: "evan foss" <evanfoss@gmail.com>
 Subject: Re: [PATCH V2] bcm43xx: Fix failure to deliver PCI-E interrupts
-Date: Fri, 12 Jan 2007 13:30:32 -0600
-Message-ID: <45A7E1D8.40904@lwfinger.net>
-References: <45a7ceb2.m02aaCgouBsadVk/%Larry.Finger@lwfinger.net>	<200701121953.44630.mb@bu3sch.de> <4a55afb80701121118r342ec98s8b3312b8c7e59e85@mail.gmail.com>
+Date: Fri, 12 Jan 2007 17:59:15 -0500
+Message-ID: <4a55afb80701121459q4f23083t6f92a7e3bc85ccb1@mail.gmail.com>
+References: <45a7ceb2.m02aaCgouBsadVk/%Larry.Finger@lwfinger.net>
+	 <9b3e2dc20701121050p52e13d92r1ec78e1881bbed3@mail.gmail.com>
+	 <45A7F501.9080202@docksud.com.ar>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Bcm43xx-dev@lists.berlios.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtiwmhc11.worldnet.att.net ([204.127.131.115]:63249 "EHLO
-	mtiwmhc11.worldnet.att.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S964915AbXALTb5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Jan 2007 14:31:57 -0500
-To: evan foss <evanfoss@gmail.com>
-In-Reply-To: <4a55afb80701121118r342ec98s8b3312b8c7e59e85@mail.gmail.com>
+Received: from wr-out-0506.google.com ([64.233.184.224]:5079 "EHLO
+	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161159AbXALW7U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Jan 2007 17:59:20 -0500
+Received: by wr-out-0506.google.com with SMTP id 70so809952wra
+        for <netdev@vger.kernel.org>; Fri, 12 Jan 2007 14:59:20 -0800 (PST)
+To: netdev@vger.kernel.org, Bcm43xx-dev@lists.berlios.de
+In-Reply-To: <45A7F501.9080202@docksud.com.ar>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-evan foss wrote:
->> This hunk is OK, but I just want to point out that bustype is
->> always equal to BCM43xx_BUSTYPE_PCI ;)
->> The 0x53 timeouts are for an SSB-BUS.
->> So strictly said this hunk is a NOP.
->>
->> The other hunks are OK, too. They fix real bugs.
->> Thanks for spotting them, Larry!
-> 
-> So then what fixed int's for Stephen Sinclair? Or did they already
-> work? I would gladly help test I knew it applied to me.
+>You can get the 2.6.18 patches from
+ftp://lwfinger.dynalias.org/patches. You will need the PCI-E
+>patch for 2.6.18.1, and will probably want the
+patch_2.6.18.1_fix_leds and radio_hwenable_for_2.6.18
+>patches if your radio has a switch.
 
-The lack of int's was due to the bugs mentioned above. His interface didn't work until he applied
-the patch, which I hope fixes everyone's PCI-E problems. Please do test.
+Thank you I will try it when I get the time.
 
-Larry
-
+-- 
+http://www.coe.neu.edu/~efoss/
+http://evanfoss.googlepages.com/
