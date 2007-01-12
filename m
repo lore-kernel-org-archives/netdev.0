@@ -1,52 +1,155 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] ethtool: fix long statistics name
-Date: Thu, 11 Jan 2007 15:36:10 -0800
-Message-ID: <20070111153610.36d0f39a@freekitty>
+From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Subject: [PATCH] bcm43xx: Fix failure to deliver PCI-E interrupts
+Date: Thu, 11 Jan 2007 22:52:04 -0600
+Message-ID: <45a713f4.CVklfeegOYfmrIW+%Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:42848 "EHLO smtp.osdl.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932158AbXAKXgO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Jan 2007 18:36:14 -0500
-To: Jeff Garzik <jgarzik@pobox.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+	Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+To: John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
+List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Fix handling of statistics where the label is exactly 32 (ETH_GSTRING_LEN)
-characters long (observed with chelsio 10G driver). 
-Before it would print garbage because of going by end
-of string. Don't need to copy string, just use formats properly.
+The PCI-E modifications to bcm43xx do not set up the interrupt vector
+correctly.
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
 ---
- ethtool.c |   10 ++++------
- 1 files changed, 4 insertions(+), 6 deletions(-)
 
-diff --git a/ethtool.c b/ethtool.c
-index 6e68009..0a50144 100644
---- a/ethtool.c
-+++ b/ethtool.c
-@@ -1989,12 +1989,10 @@ static int do_gstats(int fd, struct ifre
- 	/* todo - pretty-print the strings per-driver */
- 	fprintf(stdout, "NIC statistics:\n");
- 	for (i = 0; i < n_stats; i++) {
--		char s[ETH_GSTRING_LEN];
--
--		strncpy(s, (const char *) &strings->data[i * ETH_GSTRING_LEN],
--			ETH_GSTRING_LEN);
--		fprintf(stdout, "     %s: %llu\n",
--			s, stats->data[i]);
-+		fprintf(stdout, "     %.*s: %llu\n",
-+			ETH_GSTRING_LEN, 
-+			&strings->data[i * ETH_GSTRING_LEN],
-+			stats->data[i]);
+John,
+
+This fix should be applied to wireless-2.6 _AND_ pushed upstream to
+2.6.20-rcX. Without this patch, none of the PCI-E interfaces will work.
+
+Larry
+
+
+Index: linux-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+===================================================================
+--- linux-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.c
++++ linux-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+@@ -2704,7 +2704,7 @@ static int bcm43xx_probe_cores(struct bc
+ 		sb_id_hi = bcm43xx_read32(bcm, BCM43xx_CIR_SB_ID_HI);
+ 
+ 		/* extract core_id, core_rev, core_vendor */
+-		core_id = (sb_id_hi & 0xFFF0) >> 4;
++		core_id = (sb_id_hi & 0x8FF0) >> 4;
+ 		core_rev = (sb_id_hi & 0xF);
+ 		core_vendor = (sb_id_hi & 0xFFFF0000) >> 16;
+ 
+@@ -2717,7 +2717,7 @@ static int bcm43xx_probe_cores(struct bc
+ 		case BCM43xx_COREID_PCIE:
+ 			core = &bcm->core_pci;
+ 			if (core->available) {
+-				printk(KERN_WARNING PFX "Multiple PCI cores found.\n");
++				printk(KERN_WARNING PFX "Multiple PCI/PCI-E cores found.\n");
+ 				continue;
+ 			}
+ 			break;
+@@ -2872,11 +2872,14 @@ static int bcm43xx_wireless_core_init(st
+ 	u32 sbimconfiglow;
+ 	u8 limit;
+ 
+-	if (bcm->core_pci.rev <= 5 && bcm->core_pci.id != BCM43xx_COREID_PCIE) {
++	if (bcm->core_pci.rev <= 5 && bcm->core_pci.id == BCM43xx_COREID_PCI) {
+ 		sbimconfiglow = bcm43xx_read32(bcm, BCM43xx_CIR_SBIMCONFIGLOW);
+ 		sbimconfiglow &= ~ BCM43xx_SBIMCONFIGLOW_REQUEST_TOUT_MASK;
+ 		sbimconfiglow &= ~ BCM43xx_SBIMCONFIGLOW_SERVICE_TOUT_MASK;
+-		sbimconfiglow |= 0x32;
++		if (bcm->bustype == BCM43xx_BUSTYPE_PCI)
++			sbimconfiglow |= 0x32;
++		else
++			sbimconfiglow |= 0x53;
+ 		bcm43xx_write32(bcm, BCM43xx_CIR_SBIMCONFIGLOW, sbimconfiglow);
  	}
- 	free(strings);
- 	free(stats);
--- 
-1.4.1
+ 
+@@ -3070,6 +3073,7 @@ static int bcm43xx_setup_backplane_pci_c
+ 	u32 backplane_flag_nr;
+ 	u32 value;
+ 	struct bcm43xx_coreinfo *old_core;
++	struct bcm43xx_coreinfo *pci_core = &bcm->core_pci ;
+ 	int err = 0;
+ 
+ 	value = bcm43xx_read32(bcm, BCM43xx_CIR_SBTPSFLAG);
+@@ -3080,26 +3084,22 @@ static int bcm43xx_setup_backplane_pci_c
+ 	if (err)
+ 		goto out;
+ 
+-	if (bcm->current_core->rev < 6 ||
+-		bcm->current_core->id == BCM43xx_COREID_PCI) {
+-		value = bcm43xx_read32(bcm, BCM43xx_CIR_SBINTVEC);
+-		value |= (1 << backplane_flag_nr);
+-		bcm43xx_write32(bcm, BCM43xx_CIR_SBINTVEC, value);
+-	} else {
++	if ((pci_core->rev >= 6) || (pci_core->id == BCM43xx_COREID_PCIE)) {
+ 		err = bcm43xx_pci_read_config32(bcm, BCM43xx_PCICFG_ICR, &value);
+-		if (err) {
+-			printk(KERN_ERR PFX "Error: ICR setup failure!\n");
++		if (err)
+ 			goto out_switch_back;
+-		}
+ 		value |= core_mask << 8;
+ 		err = bcm43xx_pci_write_config32(bcm, BCM43xx_PCICFG_ICR, value);
+-		if (err) {
+-			printk(KERN_ERR PFX "Error: ICR setup failure!\n");
++		if (err)
+ 			goto out_switch_back;
+-		}
++	} else {
++                err = -EINVAL;
++                value = bcm43xx_read32(bcm, BCM43xx_CIR_SBINTVEC);
++		value |= 1 << backplane_flag_nr;
++                bcm43xx_write32(bcm, BCM43xx_CIR_SBINTVEC, value);
+ 	}
+ 
+-	if (bcm->current_core->id == BCM43xx_COREID_PCI) {
++	if (pci_core->id == BCM43xx_COREID_PCI) {
+ 		value = bcm43xx_read32(bcm, BCM43xx_PCICORE_SBTOPCI2);
+ 		value |= BCM43xx_SBTOPCI2_PREFETCH | BCM43xx_SBTOPCI2_BURST;
+ 		bcm43xx_write32(bcm, BCM43xx_PCICORE_SBTOPCI2, value);
+@@ -3118,21 +3118,21 @@ static int bcm43xx_setup_backplane_pci_c
+ 			value |= BCM43xx_SBTOPCI2_MEMREAD_MULTI;
+ 			bcm43xx_write32(bcm, BCM43xx_PCICORE_SBTOPCI2, value);
+ 		}
+-	} else {
+-		if (bcm->current_core->rev == 0 || bcm->current_core->rev == 1) {
++	} else if (pci_core->id == BCM43xx_COREID_PCIE) {
++		if (pci_core->rev == 0 || pci_core->rev == 1) {
+ 			value = bcm43xx_pcie_reg_read(bcm, BCM43xx_PCIE_TLP_WORKAROUND);
+ 			value |= 0x8;
+ 			bcm43xx_pcie_reg_write(bcm, BCM43xx_PCIE_TLP_WORKAROUND,
+ 					       value);
+ 		}
+-		if (bcm->current_core->rev == 0) {
++		if (pci_core->rev == 0) {
+ 			bcm43xx_pcie_mdio_write(bcm, BCM43xx_MDIO_SERDES_RX,
+ 						BCM43xx_SERDES_RXTIMER, 0x8128);
+ 			bcm43xx_pcie_mdio_write(bcm, BCM43xx_MDIO_SERDES_RX,
+ 						BCM43xx_SERDES_CDR, 0x0100);
+ 			bcm43xx_pcie_mdio_write(bcm, BCM43xx_MDIO_SERDES_RX,
+ 						BCM43xx_SERDES_CDR_BW, 0x1466);
+-		} else if (bcm->current_core->rev == 1) {
++		} else if (pci_core->rev == 1) {
+ 			value = bcm43xx_pcie_reg_read(bcm, BCM43xx_PCIE_DLLP_LINKCTL);
+ 			value |= 0x40;
+ 			bcm43xx_pcie_reg_write(bcm, BCM43xx_PCIE_DLLP_LINKCTL,
+@@ -3141,6 +3141,7 @@ static int bcm43xx_setup_backplane_pci_c
+ 	}
+ out_switch_back:
+ 	err = bcm43xx_switch_core(bcm, old_core);
++	printk(KERN_ERR PFX "Error: ICR setup failure!\n");
+ out:
+ 	return err;
+ }
 
-
+---
