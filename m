@@ -1,81 +1,72 @@
-From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Subject: Re: What is in bcm43xx-wireless-dev.git?
-Date: Sat, 13 Jan 2007 20:51:52 +0100
-Message-ID: <200701132051.52559.mb@bu3sch.de>
-References: <20070113024543.aj2n40s4k0g0cgws@webmail.spamcop.net>
-	<200701131509.26877.mb@bu3sch.de>
-	<20070113143033.fi804so8ok04wc4k@webmail.spamcop.net>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: [Bugme-new] [Bug 7817] New: commit
+ edfe21a29b1dca9ce5a938317868066d2e21c385 breaks IPv6 address
+ autoconfiguration
+Date: Sat, 13 Jan 2007 13:45:06 -0800
+Message-ID: <20070113134506.6021cf79.akpm@osdl.org>
+References: <200701131344.l0DDidDq007345@fire-2.osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-To: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
-In-Reply-To: <20070113143033.fi804so8ok04wc4k-2RFepEojUI3Rd1RZctBqVdHuzzzSOjJt@public.gmane.org>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
-List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Cc: yoshfuji@linux-ipv6.org, gernoth@informatik.uni-erlangen.de,
+	"bugme-daemon@kernel-bugs.osdl.org"
+	<bugme-daemon@bugzilla.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.osdl.org ([65.172.181.24]:52703 "EHLO smtp.osdl.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750931AbXAMVpQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 13 Jan 2007 16:45:16 -0500
+To: netdev@vger.kernel.org
+In-Reply-To: <200701131344.l0DDidDq007345@fire-2.osdl.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Saturday 13 January 2007 20:30, Pavel Roskin wrote:
-> Quoting Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>:
+> On Sat, 13 Jan 2007 05:44:39 -0800 bugme-daemon@bugzilla.kernel.org wrote:
+> http://bugzilla.kernel.org/show_bug.cgi?id=7817
 > 
-> > I looked more closely at it, but I really can't see why it oopses.
-> > Any idea what's happening there?
+>            Summary: commit edfe21a29b1dca9ce5a938317868066d2e21c385 breaks
+>                     IPv6 address autoconfiguration
+>     Kernel Version: 2.6.19.2
+>             Status: NEW
+>           Severity: high
+>              Owner: yoshfuji@linux-ipv6.org
+>          Submitter: gernoth@informatik.uni-erlangen.de
 > 
-> I haven't looked at the code yet, but I tried to locate the bad commit.  I tried
-> commit a13f85d8a8eb40dfd157ab78c2fb91b5765b7b9d, which is your last merge, just
-> before the SSB changes.
-
-Yeah, sure. I know that this is the commit which introduced this.
-
-> The kernel doesn't oops anymore!  But it doesn't connect either.  I reconfigured
-> the AP to use WPA-PSK with TKIP.  MadWifi works with it, but bcm43xx fails in
-> the same configuration.  The wireless-dev tip has the same problem.
-
-Note that LO calibration is horribly broken in my tree.
-So you have a very weak signal, if any. My 4318 has no signal, for example.
-So basically don't expect to be able to transmit any data.
-This includes association.
-
-But I think you should be able to assoc with a plain linville tree.
-
-> So, the oops was introduced in the transition to the new SSB. 
-> bcm43xx_setup_dmaring(), which appears in the stack dump, is affected by the
-> patch.
-
-Yeah, but I don't see where we can get such an oops from :)
-
-> I'll try to look closely at the changes.  My immediate suspect is that we have
-> too many different fields called "dev".  All it takes is one cast to hide a
-> horrible mistake.  Although I think it would have affected you as well (unless
-
-We don't cast devs.
-
-> it's casts to/from integers, something that won't be a problem on 32-bit
-> kernels).
-
-dito.
-
-> > Well, ok. So it should work in my tree, too, once we fixed the DMA oops.
 > 
-> You mean there is a reason for me to think that your changes would fix
-> accociation to the AP?
-
-No.
-
-
-We oops in dma_alloc_coherent, right?
-Where can we get a NULL pointer there? I don't see it. Any idea?
-Also, regarding to the oops message, it's oopsing somewhere at
-the beginning of the function.
-
--- 
-Greetings Michael.
+> Most recent kernel where this bug did *NOT* occur: 2.6.19.1
+> Distribution: Debian Testing
+> Hardware Environment: About 100 different x86 boxes
+> Software Environment: no special software involved, just the kernel. No modules are loaded on the 
+> affected machines (everything needed is built into the kernel)
+> 
+> Problem Description:
+> After booting kernel 2.6.19.2 on our machines they no longer do IPv6 address autoconfiguration, 
+> although router advertisments can be seen on that interface:
+> 14:19:14.254410 fe80::212:1eff:fe08:e040 > ip6-allnodes: icmp6: router advertisement(chlim=64, 
+> pref=medium, router_ltime=1800, reachable_time=0, retrans_time=0)(src lladdr: 00:12:1e:08:e0:40)
+> [ndp opt] (len 56, hlim 255)
+> 
+> ip -6 addr output is:
+> 1: eth0: <BROADCAST,MULTICAST,UP,10000> mtu 1500 qlen 1000
+>     inet6 fe80::209:3dff:fe10:ccda/64 scope link
+>        valid_lft forever preferred_lft forever
+> 2: eth1: <BROADCAST,MULTICAST,UP,10000> mtu 1500 qlen 1000
+>     inet6 fe80::209:3dff:fe10:ccdb/64 scope link
+>        valid_lft forever preferred_lft forever
+> 3: lo: <LOOPBACK,UP,10000> mtu 16436
+>     inet6 ::1/128 scope host
+>        valid_lft forever preferred_lft forever
+> (eth0 sees the advertisments)
+> 
+> Manually setting the address and default-route works.
+> Reverting commit edfe21a29b1dca9ce5a938317868066d2e21c385 fixes this problem.
+> 
+> Steps to reproduce:
+> 1. Upgrade to 2.6.19.2
+> 2. Configure an interface for IPv4
+> 3. The linklocal IPv6 address for the interface appears in ip -6 addr
+> 4. Wait for a router advertisment
+> 5. No Global IPv6 address and no IPv6 default route is set
+> 
+> ------- You are receiving this mail because: -------
+> You are on the CC list for the bug, or are watching someone who is.
