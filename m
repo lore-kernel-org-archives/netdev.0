@@ -1,7 +1,7 @@
 From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: [PATCH 5/8] e1000: display flow control of link status at link up
-Date: Fri, 12 Jan 2007 16:37:49 -0800
-Message-ID: <20070113003749.16816.61771.stgit@gitlost.site>
+Subject: [PATCH 3/8] e1000: Fix MSI only interrupt handler routine
+Date: Fri, 12 Jan 2007 16:37:45 -0800
+Message-ID: <20070113003745.16816.56820.stgit@gitlost.site>
 References: <20070113003650.16816.34076.stgit@gitlost.site>
 Cc: netdev@vger.kernel.org,
 	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
@@ -9,9 +9,9 @@ Cc: netdev@vger.kernel.org,
 	"Kok, Auke" <auke@foo-projects.org>,
 	"Ronciak, John" <john.ronciak@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [63.64.152.142] ([63.64.152.142]:1200 "EHLO gitlost.site"
+Received: from [63.64.152.142] ([63.64.152.142]:1198 "EHLO gitlost.site"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1161184AbXAMAyL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1161179AbXAMAyL (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 12 Jan 2007 19:54:11 -0500
 To: "Garzik, Jeff" <jgarzik@pobox.com>
 In-Reply-To: <20070113003650.16816.34076.stgit@gitlost.site>
@@ -19,46 +19,113 @@ Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-Print RX/TX flow control setting at link up time to display the
-actual link FC properties instead of the advertised values.
+Unfortunately the read-free MSI interrupt handler needs to flush write
+the icr register and thus we can't be read-free. Our MSI irq routine
+thus becomes a lot more simpler since we don't need to track link state
+anymore.
 
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
 ---
 
- drivers/net/e1000/e1000_main.c |   15 +++++++++++----
- 1 files changed, 11 insertions(+), 4 deletions(-)
+ drivers/net/e1000/e1000.h      |    1 -
+ drivers/net/e1000/e1000_main.c |   60 +++++++++++++---------------------------
+ 2 files changed, 19 insertions(+), 42 deletions(-)
 
+diff --git a/drivers/net/e1000/e1000.h b/drivers/net/e1000/e1000.h
+index f091042..8e7acb0 100644
+--- a/drivers/net/e1000/e1000.h
++++ b/drivers/net/e1000/e1000.h
+@@ -257,7 +257,6 @@ struct e1000_adapter {
+ 	spinlock_t tx_queue_lock;
+ #endif
+ 	atomic_t irq_sem;
+-	unsigned int detect_link;
+ 	unsigned int total_tx_bytes;
+ 	unsigned int total_tx_packets;
+ 	unsigned int total_rx_bytes;
 diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-index ab1b40f..43dde27 100644
+index c6259c7..d408949 100644
 --- a/drivers/net/e1000/e1000_main.c
 +++ b/drivers/net/e1000/e1000_main.c
-@@ -2583,15 +2583,22 @@ e1000_watchdog(unsigned long data)
+@@ -3765,8 +3765,8 @@ e1000_update_stats(struct e1000_adapter *adapter)
+  * @data: pointer to a network interface device structure
+  **/
  
- 	if (link) {
- 		if (!netif_carrier_ok(netdev)) {
-+			uint32_t ctrl;
- 			boolean_t txb2b = 1;
- 			e1000_get_speed_and_duplex(&adapter->hw,
- 			                           &adapter->link_speed,
- 			                           &adapter->link_duplex);
+-static
+-irqreturn_t e1000_intr_msi(int irq, void *data)
++static irqreturn_t
++e1000_intr_msi(int irq, void *data)
+ {
+ 	struct net_device *netdev = data;
+ 	struct e1000_adapter *adapter = netdev_priv(netdev);
+@@ -3774,49 +3774,27 @@ irqreturn_t e1000_intr_msi(int irq, void *data)
+ #ifndef CONFIG_E1000_NAPI
+ 	int i;
+ #endif
++	uint32_t icr = E1000_READ_REG(hw, ICR);
  
--			DPRINTK(LINK, INFO, "NIC Link is Up %d Mbps %s\n",
--			       adapter->link_speed,
--			       adapter->link_duplex == FULL_DUPLEX ?
--			       "Full Duplex" : "Half Duplex");
-+			ctrl = E1000_READ_REG(&adapter->hw, CTRL);
-+			DPRINTK(LINK, INFO, "NIC Link is Up %d Mbps %s, "
-+			        "Flow Control: %s\n",
-+			        adapter->link_speed,
-+			        adapter->link_duplex == FULL_DUPLEX ?
-+			        "Full Duplex" : "Half Duplex",
-+			        ((ctrl & E1000_CTRL_TFCE) && (ctrl &
-+			        E1000_CTRL_RFCE)) ? "RX/TX" : ((ctrl &
-+			        E1000_CTRL_RFCE) ? "RX" : ((ctrl &
-+			        E1000_CTRL_TFCE) ? "TX" : "None" )));
+-	/* this code avoids the read of ICR but has to get 1000 interrupts
+-	 * at every link change event before it will notice the change */
+-	if (++adapter->detect_link >= 1000) {
+-		uint32_t icr = E1000_READ_REG(hw, ICR);
+ #ifdef CONFIG_E1000_NAPI
+-		/* read ICR disables interrupts using IAM, so keep up with our
+-		 * enable/disable accounting */
+-		atomic_inc(&adapter->irq_sem);
++	/* read ICR disables interrupts using IAM, so keep up with our
++	 * enable/disable accounting */
++	atomic_inc(&adapter->irq_sem);
+ #endif
+-		adapter->detect_link = 0;
+-		if ((icr & (E1000_ICR_RXSEQ | E1000_ICR_LSC)) &&
+-		    (icr & E1000_ICR_INT_ASSERTED)) {
+-			hw->get_link_status = 1;
+-			/* 80003ES2LAN workaround--
+-			* For packet buffer work-around on link down event;
+-			* disable receives here in the ISR and
+-			* reset adapter in watchdog
+-			*/
+-			if (netif_carrier_ok(netdev) &&
+-			    (adapter->hw.mac_type == e1000_80003es2lan)) {
+-				/* disable receives */
+-				uint32_t rctl = E1000_READ_REG(hw, RCTL);
+-				E1000_WRITE_REG(hw, RCTL, rctl & ~E1000_RCTL_EN);
+-			}
+-			/* guard against interrupt when we're going down */
+-			if (!test_bit(__E1000_DOWN, &adapter->flags))
+-				mod_timer(&adapter->watchdog_timer,
+-				          jiffies + 1);
++	if (icr & (E1000_ICR_RXSEQ | E1000_ICR_LSC)) {
++		hw->get_link_status = 1;
++		/* 80003ES2LAN workaround-- For packet buffer work-around on
++		 * link down event; disable receives here in the ISR and reset
++		 * adapter in watchdog */
++		if (netif_carrier_ok(netdev) &&
++		    (adapter->hw.mac_type == e1000_80003es2lan)) {
++			/* disable receives */
++			uint32_t rctl = E1000_READ_REG(hw, RCTL);
++			E1000_WRITE_REG(hw, RCTL, rctl & ~E1000_RCTL_EN);
+ 		}
+-	} else {
+-		E1000_WRITE_REG(hw, ICR, (0xffffffff & ~(E1000_ICR_RXSEQ |
+-		                                         E1000_ICR_LSC)));
+-		/* bummer we have to flush here, but things break otherwise as
+-		 * some event appears to be lost or delayed and throughput
+-		 * drops.  In almost all tests this flush is un-necessary */
+-		E1000_WRITE_FLUSH(hw);
+-#ifdef CONFIG_E1000_NAPI
+-		/* Interrupt Auto-Mask (IAM)...upon writing ICR, interrupts are
+-		 * masked.  No need for the IMC write, but it does mean we
+-		 * should account for it ASAP. */
+-		atomic_inc(&adapter->irq_sem);
+-#endif
++		/* guard against interrupt when we're going down */
++		if (!test_bit(__E1000_DOWN, &adapter->flags))
++			mod_timer(&adapter->watchdog_timer, jiffies + 1);
+ 	}
  
- 			/* tweak tx_queue_len according to speed/duplex
- 			 * and adjust the timeout factor */
+ #ifdef CONFIG_E1000_NAPI
 
 
 
