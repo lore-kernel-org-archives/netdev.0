@@ -1,89 +1,44 @@
-From: Li Yewang <lyw@nanjing-fnst.com>
-Subject: [patch]IPv6: fix BUG of ndisc_send_redirect()
-Date: Sat, 13 Jan 2007 17:12:40 +0800
-Message-ID: <1168679560.3639.11.camel@localhost.localdomain>
+From: Tino Keitel <tino.keitel@tikei.de>
+Subject: Re: [patch 0/6] sky2 driver update (v1.11)
+Date: Sat, 13 Jan 2007 14:03:29 +0100
+Message-ID: <20070113130329.GA9124@dose.home.local>
+References: <20061220210632.183204605@osdl.org> <459197B8.6010403@pobox.com> <20070101103644.02544c46@freekitty> <20070102191015.GA5758@dose.home.local>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [221.6.14.228] ([221.6.14.228]:45784 "EHLO proxy.fnst.com.cn"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751011AbXAMJ0n (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 13 Jan 2007 04:26:43 -0500
-Received: from 192.168.1.42 ([192.168.1.42])
-	by proxy.fnst.com.cn (8.12.11/8.12.11) with ESMTP id l0D9QKG2011942
-	for <netdev@vger.kernel.org>; Sat, 13 Jan 2007 17:26:22 +0800
-To: netdev@vger.kernel.org
+Received: from eazy.amigager.de ([213.239.192.238]:48226 "EHLO
+	eazy.amigager.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1422639AbXAMNDd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Jan 2007 08:03:33 -0500
+To: Stephen Hemminger <shemminger@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20070102191015.GA5758@dose.home.local>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi All
-  When I tested IPv6 redirect function about kernel 2.6.19.1, and found
-that the kernel can send redirect packets whose target address is global
-address, and the target is not the actual endpoint of communication.
+On Tue, Jan 02, 2007 at 20:10:15 +0100, Tino Keitel wrote:
 
-  But the criteria conform to RFC2461, the target address defines as
-following:
+[...]
 
-  Target Address An IP address that is a better first hop to use for
-                 he ICMP Destination Address.  When the target is
-                 the actual endpoint of communication, i.e., the
-                 destination is a neighbor, the Target Address field
-                 MUST contain the same value as the ICMP Destination
-                 Address field.  Otherwise the target is a better
-                 first-hop router and the Target Address MUST be the
-                 router's link-local address so that hosts can
-                 uniquely identify routers.
+> Btw., I just built 2.6.20-rc3 with patches 4 and 5 and wake on LAN now
+> works. Thanks for your work.
 
-According to this definition, when a router redirect to a host, the
-target address either the better first-hop router's link-local address
-or the same as the ICMP destination address field. But the function of
-ndisc_send_redirect() in net/ipv6/ndisc.c, does not check the target
-address correctly.
+Hi,
 
-There is another definition about receive Redirect message in RFC2461:
+I had some failures during resume from suspend with 2.6.20-rc3 and
+-rc4. I enabled pm_trace and it looks like the sky2 driver is the
+culprit:
 
-8.1.  Validation of Redirect Messages
+hash matches drivers/base/power/resume.c:56
+hash matches device 0000:01:00.0
 
-   A host MUST silently discard any received Redirect message that does
-   not satisfy all of the following validity checks:
-   ......
-   - The ICMP Target Address is either a link-local address (when
-     redirected to a router) or the same as the ICMP Destination
-     Address (when redirected to the on-link destination).
-   ......
+$ lspci | grep 01:00.0
+01:00.0 Ethernet controller: Marvell Technology Group Ltd. 88E8053
+PCI-E Gigabit Ethernet Controller (rev 22)
 
-And the receive redirect function of ndisc_redirect_rcv() implemented
-this definition, checks the target address correctly.
-    if (ipv6_addr_equal(dest, target)) {
-        on_link = 1;
-    } else if (!(ipv6_addr_type(target) & IPV6_ADDR_LINKLOCAL)) {
-        ND_PRINTK2(KERN_WARNING
-               "ICMPv6 Redirect: target address is not link-local.\n");
-        return;
-    }
+I removed the patches and had no resume failure so far.
 
-So, I think the send redirect function must check the target address
-also.
-
-signed-off-by: Li Yewang <lyw@nanjing-fnst.com>
-
---- a/net/ipv6/ndisc.c	2007-01-13 16:59:50.050650888 +0800
-+++ b/net/ipv6/ndisc.c	2007-01-13 17:02:02.362536424 +0800
-@@ -1412,6 +1412,13 @@ void ndisc_send_redirect(struct sk_buff 
-  		return;
-  	}
- 
-+	if (!ipv6_addr_equal(&skb->nh.ipv6h->daddr, target) &&
-+	    !(ipv6_addr_type(target) & IPV6_ADDR_LINKLOCAL)) {
-+		ND_PRINTK2(KERN_WARNING
-+			"ICMPv6 Redirect: target address is not link-local.\n");
-+		return;
-+	}
-+
- 	ndisc_flow_init(&fl, NDISC_REDIRECT, &saddr_buf, &skb->nh.ipv6h-
->saddr,
- 			dev->ifindex);
- 
-
+Regards,
+Tino
 
