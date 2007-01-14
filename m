@@ -1,119 +1,172 @@
-From: Harry Coin <hcoin@n4comm.com>
-Subject: e100.c patch to 2.6.18 fixing Wake on Lan (WOL)
-Date: Mon, 15 Jan 2007 11:43:34 -0600
-Message-ID: <4.3.2.7.2.20070115113616.03dcf4a8@www.n4comm.com>
-References: <4.3.2.7.2.20070115091058.063866c8@www.n4comm.com>
- <4.3.2.7.2.20070115091058.063866c8@www.n4comm.com> <1168876836.8922.1.camel@localhost.localdomain>
+From: Pavel Roskin <proski@gnu.org>
+Subject: Re: What is in bcm43xx-wireless-dev.git?
+Date: Sun, 14 Jan 2007 11:39:10 -0500
+Message-ID: <20070114113910.py9s0gggk8gwskwo@webmail.spamcop.net>
+References: <20070113024543.aj2n40s4k0g0cgws@webmail.spamcop.net>
+	<200701141115.43799.mb@bu3sch.de>
+	<20070114091812.hz2fokosw0o0cc0k@webmail.spamcop.net>
+	<200701141651.46705.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; format=flowed
+Content-Type: multipart/mixed; boundary="=_4a5qijdyp58g"
+Content-Transfer-Encoding: 7bit
+Cc: bcm43xx-dev@lists.berlios.de, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail14e.g14.rapidsite.net ([128.121.64.102]:17368 "HELO
-	mail14e.g14.rapidsite.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1751332AbXAORnr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jan 2007 12:43:47 -0500
-Received: from mx29.mlpsca01.us.mxservers.net (128.121.64.142)
-	by mail14e.g14.rapidsite.net (RS ver 1.0.95vs) with SMTP id 0-0118403025
-	for <netdev@vger.kernel.org>; Mon, 15 Jan 2007 12:43:46 -0500 (EST)
-To: netdev@vger.kernel.org
-In-Reply-To: <1168876836.8922.1.camel@localhost.localdomain>
-References: <4.3.2.7.2.20070115091058.063866c8@www.n4comm.com>
- <4.3.2.7.2.20070115091058.063866c8@www.n4comm.com>
+Received: from mailgate.cesmail.net ([216.154.195.36]:37150 "HELO
+	mailgate.cesmail.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1751331AbXANQjM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Jan 2007 11:39:12 -0500
+To: Michael Buesch <mb@bu3sch.de>
+In-Reply-To: <200701141651.46705.mb@bu3sch.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello from Iowa.
+This message is in MIME format.
 
-Below please find a fix to the Wake On Lan function in the e100.c (intel 
-10/100) driver.   With the original driver distributed in kernel 2.6.18 in 
-debian etch, wake on lan did not work.   This was tested on 14 dell 
-optiplexes with built-in ethernet chips in a totally diskless environment 
-(initramfs / pxelinux).  All operations were normal save wake on lan.
+--=_4a5qijdyp58g
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Disposition: inline
+Content-Transfer-Encoding: 7bit
 
-When WOL has been enabled with ethtools, the old driver assumes wrongly 
-that e100_configure will be called at least once with !netif_running.  Only 
-in that instance will it set the chip to notice 'magic' wol packets if the 
-ethtools -s wol g has been called prior.
+Quoting Michael Buesch <mb@bu3sch.de>:
 
-The old e100_down routine never does call e100_configure so that the driver 
-never does  turn off the 'disable WOL magic packet' bit.
-Neither does the .shutdown routine.   This fix tries to only enable the WOL 
-recognition only when e100_down is called for the last time
-before module unload or system shutdown, while leaving ifconfig down 
-untouched.    (testing for being run in the context of dev->stop).
+> Ok, nice.
+> Can you send me a complete dmesg log after you brought up the card
+> and tried to assoc/send some packets?
 
-Notice that the hw_reset routine is called in the old e100_down, and that 
-silently causes WOL to be reset.  In some attempt to avoid this debian (and 
-I don't know which other sysvinit tools) added a NETDOWN define to the 
-/etc/init.d/halt script, which when changed from the default=yes to 'no' 
-avoids the -i option to 'halt' leaving the e100 configured.
+Attached.
 
-With the below fix the default in /etc/init.d/halt is required, the define 
-change is not necessary, in fact it is important that halt call down for 
-wol to work.  (In the case of the old e100 driver it didn't matter either 
-way, as e100_configure was never called once the driver was stopped).
+--
+Regards,
+Pavel Roskin
 
-Notice that the binary /sbin/halt in debain etch has a bug and in fact 
-never does call ifdown, whether -i is or isn't specified.   Compiling from 
-the source by hand does work.  I have submitted a bug report for this.
+--=_4a5qijdyp58g
+Content-Type: text/x-log; charset="ISO-8859-1"; name="kernel.log"
+Content-Disposition: attachment; filename="kernel.log"
+Content-Transfer-Encoding: 7bit
 
-A further e100 fix I didn't add was for .shutdown to check whether the 
-driver was down and to call e100_down if it was still up.   That added fix 
-would make sure WOL would work no matter if the halt script did or didn't 
-down the driver before system shutdown.    I'm not sure what the 
-implications of my fix are in the context of sleep /resume.
+ACPI: PCI Interrupt 0000:0c:00.0[A] -> GSI 17 (level, low) -> IRQ 17
+PCI: Setting latency timer of device 0000:0c:00.0 to 64
+ssb: Sonics Silicon Backplane found on PCI device 0000:0c:00.0
+ssb: Core 0 found: ChipCommon (cc 0x800, rev 0x11, vendor 0x4243)
+ssb: Core 1 found: IEEE 802.11 (cc 0x812, rev 0x0A, vendor 0x4243)
+ssb: Core 2 found: USB 1.1 Host (cc 0x817, rev 0x03, vendor 0x4243)
+ssb: Core 3 found: PCI-E (cc 0x820, rev 0x01, vendor 0x4243)
+ssb: Switching to ChipCommon core, index 0
+ssb: Switching to PCI-E core, index 3
+ssb: PCIcore in client mode found
+wmaster0: Selected rate control algorithm 'simple'
+ssb: Switching to IEEE 802.11 core, index 1
+ssb: Switching to PCI-E core, index 3
+ssb: Switching to IEEE 802.11 core, index 1
+bcm43xx_d80211: Adding Interface type 2
+bcm43xx_d80211: Found PHY: Version 4, Type 2, Revision 8
+bcm43xx_d80211: Found Radio: Manuf 0x17F, Version 0x2050, Revision 2
+bcm43xx_d80211: Loading firmware version 351.126 (2006-07-29 05:54:02)
+ssb: Switching to ChipCommon core, index 0
+ssb: Switching to IEEE 802.11 core, index 1
+bcm43xx_d80211: Radio turned on
+bcm43xx_d80211: FIXME: Possibly broken code in bcm43xx_phy_initg() at drivers/net/wireless/d80211/bcm43xx/bcm43xx_phy.c:1650
+bcm43xx_d80211: Chip initialized
+bcm43xx_d80211: 32-bit DMA initialized
+bcm43xx_d80211: Wireless interface started
+wmaster0: Does not support passive scan, disabled
+wlan0: starting scan
+wlan0: scan completed
+bcm43xx_d80211: Using hardware based encryption for keyidx: 0, mac: ff:ff:ff:ff:ff:ff
+wlan0: Initial auth_alg=0
+wlan0: authenticate with AP 00:0f:66:2f:ef:59
+wlan0: authenticate with AP 00:0f:66:2f:ef:59
+wlan0: authenticate with AP 00:0f:66:2f:ef:59
+wlan0: authentication with AP 00:0f:66:2f:ef:59 timed out
+bcm43xx_d80211: Using hardware based encryption for keyidx: 0, mac: ff:ff:ff:ff:ff:ff
+wlan0: starting scan
+wlan0: scan completed
+bcm43xx_d80211: Using hardware based encryption for keyidx: 0, mac: ff:ff:ff:ff:ff:ff
+bcm43xx_d80211: Using hardware based encryption for keyidx: 0, mac: ff:ff:ff:ff:ff:ff
+wlan0: starting scan
+wlan0: scan completed
+bcm43xx_d80211: Using hardware based encryption for keyidx: 0, mac: ff:ff:ff:ff:ff:ff
+bcm43xx_d80211: Using hardware based encryption for keyidx: 0, mac: ff:ff:ff:ff:ff:ff
+wlan0: starting scan
+bcm43xx_d80211: Wireless interface stopped
+bcm43xx_d80211: Removing Interface type 2
+bcm43xx_d80211: DMA-32 0x0200 (RX) max used slots: 1/64
+bcm43xx_d80211: DMA-32 0x02A0 (TX) max used slots: 0/128
+bcm43xx_d80211: DMA-32 0x0280 (TX) max used slots: 0/128
+bcm43xx_d80211: DMA-32 0x0260 (TX) max used slots: 0/128
+bcm43xx_d80211: DMA-32 0x0240 (TX) max used slots: 0/128
+bcm43xx_d80211: DMA-32 0x0220 (TX) max used slots: 2/128
+bcm43xx_d80211: DMA-32 0x0200 (TX) max used slots: 0/128
+bcm43xx_d80211: Radio turned off
+ssb: Switching to ChipCommon core, index 0
+bcm43xx_d80211: Adding Interface type 2
+ssb: Switching to IEEE 802.11 core, index 1
+bcm43xx_d80211: Found PHY: Version 4, Type 2, Revision 8
+bcm43xx_d80211: Found Radio: Manuf 0x17F, Version 0x2050, Revision 2
+bcm43xx_d80211: Loading firmware version 351.126 (2006-07-29 05:54:02)
+ssb: Switching to ChipCommon core, index 0
+ssb: Switching to IEEE 802.11 core, index 1
+bcm43xx_d80211: Radio turned on
+bcm43xx_d80211: FIXME: Possibly broken code in bcm43xx_phy_initg() at drivers/net/wireless/d80211/bcm43xx/bcm43xx_phy.c:1650
+bcm43xx_d80211: Chip initialized
+bcm43xx_d80211: 32-bit DMA initialized
+bcm43xx_d80211: Wireless interface started
+wmaster0: Does not support passive scan, disabled
+bcm43xx_d80211: Using hardware based encryption for keyidx: 0, mac: ff:ff:ff:ff:ff:ff
+bcm43xx_d80211: Using hardware based encryption for keyidx: 0, mac: ff:ff:ff:ff:ff:ff
+wlan0: starting scan
+wlan0: scan completed
+bcm43xx_d80211: Using hardware based encryption for keyidx: 0, mac: ff:ff:ff:ff:ff:ff
+wlan0: starting scan
+wlan0: scan completed
+bcm43xx_d80211: Using hardware based encryption for keyidx: 0, mac: ff:ff:ff:ff:ff:ff
+wlan0: Initial auth_alg=0
+wlan0: authenticate with AP 00:0f:66:2f:ef:59
+wlan0: authenticate with AP 00:0f:66:2f:ef:59
+wlan0: authenticate with AP 00:0f:66:2f:ef:59
+wlan0: authentication with AP 00:0f:66:2f:ef:59 timed out
+bcm43xx_d80211: Using hardware based encryption for keyidx: 0, mac: ff:ff:ff:ff:ff:ff
+wlan0: starting scan
+wlan0: scan completed
+bcm43xx_d80211: Using hardware based encryption for keyidx: 0, mac: ff:ff:ff:ff:ff:ff
+bcm43xx_d80211: Using hardware based encryption for keyidx: 0, mac: ff:ff:ff:ff:ff:ff
+bcm43xx_d80211: Wireless interface stopped
+bcm43xx_d80211: Removing Interface type 2
+bcm43xx_d80211: DMA-32 0x0200 (RX) max used slots: 1/64
+bcm43xx_d80211: DMA-32 0x02A0 (TX) max used slots: 0/128
+bcm43xx_d80211: DMA-32 0x0280 (TX) max used slots: 0/128
+bcm43xx_d80211: DMA-32 0x0260 (TX) max used slots: 0/128
+bcm43xx_d80211: DMA-32 0x0240 (TX) max used slots: 0/128
+bcm43xx_d80211: DMA-32 0x0220 (TX) max used slots: 2/128
+bcm43xx_d80211: DMA-32 0x0200 (TX) max used slots: 0/128
+bcm43xx_d80211: Radio turned off
+ssb: Switching to ChipCommon core, index 0
 
-I have also submitted the above to the e1000 group at intel privately as 
-they are the 'maintainers', but this appears to be the only apropos open 
-group I thought to note he here as well.
+--=_4a5qijdyp58g
+Content-Type: text/x-log; charset="ISO-8859-1"; name="wpa_supplicant.log"
+Content-Disposition: attachment; filename="wpa_supplicant.log"
+Content-Transfer-Encoding: 7bit
 
-Thanks
+# ./wpa_supplicant -D wext -i wlan0 -c JEDI3.conf 
+ioctl[SIOCSIWAUTH]: Operation not supported
+WEXT auth param 4 value 0x0 - ioctl[SIOCSIWAUTH]: Operation not supported
+WEXT auth param 5 value 0x1 - Trying to associate with 00:0f:66:2f:ef:59 (SSID='JEDI' freq=2437 MHz)
+ioctl[SIOCSIWAUTH]: Operation not supported
+WEXT auth param 5 value 0x1 - ioctl[SIOCSIWMODE]: Device or resource busy
+Association request to the driver failed
+Authentication with 00:00:00:00:00:00 timed out.
+Trying to associate with 00:0f:66:2f:ef:59 (SSID='JEDI' freq=2437 MHz)
+ioctl[SIOCSIWAUTH]: Operation not supported
+WEXT auth param 5 value 0x1 - ioctl[SIOCSIWMODE]: Device or resource busy
+Association request to the driver failed
+Authentication with 00:00:00:00:00:00 timed out.
+Trying to associate with 00:0f:66:2f:ef:59 (SSID='JEDI' freq=2437 MHz)
+ioctl[SIOCSIWAUTH]: Operation not supported
+WEXT auth param 5 value 0x1 - ioctl[SIOCSIWMODE]: Device or resource busy
+Association request to the driver failed
+Authentication with 00:00:00:00:00:00 timed out.
+CTRL-EVENT-TERMINATING - signal 2 received
+ioctl[SIOCSIWAUTH]: Operation not supported
+WEXT auth param 5 value 0x0 - ioctl[SIOCSIWAUTH]: Operation not supported
 
-
-Harry Coin
-N4 Communications
-Bettendorf, Iowa
-Signed-off-by: Harry Coin hcoin@n4comm.com
-
-
-
---- drivers-orig/e100.c 2007-01-15 00:01:48.000000000 -0600
-+++ drivers-fixed/e100.c        2007-01-14 23:32:08.000000000 -0600
-@@ -2088,10 +2088,26 @@
-  static void e100_down(struct nic *nic)
-  {
--       /* wait here for poll to complete */
--       netif_poll_disable(nic->netdev);
--       netif_stop_queue(nic->netdev);
--       e100_hw_reset(nic);
-+    if ((!netif_running(nic->netdev)) && (nic->flags & wol_magic)) {
-+      /* if this is a device close, and not an ifdown, and wol is enabled, */
-+      /* then turn off the bit disabling wol magic packet recognition on */
-+      /* the chip.  Previously, WOL magic packet recognition was never */
-+      /* enabled as e100_down never called e100_configure when */
-+      /* nif_running was false.   So: */
-+      /* This makes the e100 not only work with WOL, but */
-+      /* also avoids having to edit the default NETDOWN variable */
-+      /* in /etc/init.d/halt from the default 'yes' to 'no'. */
-+      e100_exec_cb(nic, NULL, e100_configure);
-+         /* wait here for poll to complete */
-+         netif_poll_disable(nic->netdev);
-+         netif_stop_queue(nic->netdev);
-+      e100_disable_irq(nic);
-+    } else {
-+         /* wait here for poll to complete */
-+         netif_poll_disable(nic->netdev);
-+         netif_stop_queue(nic->netdev);
-+         e100_hw_reset(nic);
-+   }
-         free_irq(nic->pdev->irq, nic->netdev);
-         del_timer_sync(&nic->watchdog);
-         netif_carrier_off(nic->netdev);
-@@ -2099,6 +2115,7 @@
-         e100_rx_clean_list(nic);
-  }
-+
-  static void e100_tx_timeout(struct net_device *netdev)
-  {
-         struct nic *nic = netdev_priv(netdev);
-
-
+--=_4a5qijdyp58g--
