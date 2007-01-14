@@ -1,36 +1,49 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [patch]IPv6: fix BUG of ndisc_send_redirect()
-Date: Sun, 14 Jan 2007 23:13:27 +0900 (JST)
-Message-ID: <20070114.231327.101009448.yoshfuji@linux-ipv6.org>
-References: <1168679560.3639.11.camel@localhost.localdomain>
+From: Pavel Roskin <proski@gnu.org>
+Subject: Re: What is in bcm43xx-wireless-dev.git?
+Date: Sun, 14 Jan 2007 09:18:12 -0500
+Message-ID: <20070114091812.hz2fokosw0o0cc0k@webmail.spamcop.net>
+References: <20070113024543.aj2n40s4k0g0cgws@webmail.spamcop.net>
+	<200701132051.52559.mb@bu3sch.de>
+	<20070113211030.11zo8cokcsoskccg@webmail.spamcop.net>
+	<200701141115.43799.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+Cc: bcm43xx-dev@lists.berlios.de, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:45779 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751281AbXANOMc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Jan 2007 09:12:32 -0500
-To: lyw@nanjing-fnst.com
-In-Reply-To: <1168679560.3639.11.camel@localhost.localdomain>
+Received: from mailgate.cesmail.net ([216.154.195.36]:60030 "HELO
+	mailgate.cesmail.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1750896AbXANOSN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Jan 2007 09:18:13 -0500
+To: Michael Buesch <mb@bu3sch.de>
+In-Reply-To: <200701141115.43799.mb@bu3sch.de>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In article <1168679560.3639.11.camel@localhost.localdomain> (at Sat, 13 Jan 2007 17:12:40 +0800), Li Yewang <lyw@nanjing-fnst.com> says:
+Quoting Michael Buesch <mb@bu3sch.de>:
 
->   When I tested IPv6 redirect function about kernel 2.6.19.1, and found
-> that the kernel can send redirect packets whose target address is global
-> address, and the target is not the actual endpoint of communication.
-:
-> So, I think the send redirect function must check the target address
-> also.
+> Already done. Please pull my tree and check if it still crashes.
 
-It is not mandatory, however, it is better to do this.  I agree.
-(Note: In usual, we do not install gateway'ed route with global
-next-hop.)
+The crash is gone!  Thanks!  Still no association though.
 
-Acked-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> > Actually, I could scan, and I got 7 access points around.  Only one is in
+> my
+> > apartment.
+>
+> RX sensitivity is not quite as bad.
 
---yoshfuji
+I see, the problem must be on the tx side then.
+
+> Well, I don't really know what to do all about this.
+> It's strange. I have people reporting that exactly the same cards work
+> and people reporting that exactly the same cards don't work over and
+> over again.
+> So, well. What to do? :)
+
+I'll check in with a HostAP based AP and a separate sniffer, so I can see what's
+on the air and what the AP sees.
+
+--
+Regards,
+Pavel Roskin
