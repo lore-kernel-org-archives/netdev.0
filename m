@@ -1,100 +1,78 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: Re: watchdog timeout panic in e1000 driver
-Date: Mon, 15 Jan 2007 08:14:58 -0800
-Message-ID: <45ABA882.20806@intel.com>
-References: <36D9DB17C6DE9E40B059440DB8D95F52013ABFE9@orsmsx418.amr.corp.intel.com> <4562D207.60301@cj.jp.nec.com> <4573E6FD.3030905@cj.jp.nec.com> <4574C14E.2060108@intel.com> <457E610D.4060908@cj.jp.nec.com> <45872EAC.7050501@cj.jp.nec.com> <45AB4561.8040400@cj.jp.nec.com>
+From: Chris Lalancette <clalance@redhat.com>
+Subject: [PATCH]: 8139cp: Don't blindly enable interrupts in cp_start_xmit
+Date: Mon, 15 Jan 2007 11:40:09 -0500
+Message-ID: <45ABAE69.4070105@redhat.com>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------080207060601070403060706"
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	Shaw Vrana <shaw@vranix.com>, netdev@vger.kernel.org
+ boundary="------------060302050304070601040204"
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:9357 "EHLO mga01.intel.com"
+Received: from mx1.redhat.com ([66.187.233.31]:48636 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750922AbXAOQPI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Jan 2007 11:15:08 -0500
-To: Kenzo Iwami <k-iwami@cj.jp.nec.com>
-In-Reply-To: <45AB4561.8040400@cj.jp.nec.com>
+	id S1750981AbXAOQkO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Jan 2007 11:40:14 -0500
+To: jgarzik@pobox.com, romieu@fr.zoreil.com
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
---------------080207060601070403060706
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+--------------060302050304070601040204
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 
-Kenzo Iwami wrote:
-> With this patch applied, I confirmed that the system doesn't panic.
-> I think this patch can fix this problem.
-> Does this patch have problems.
+(trying again, this time to the correct maintainer)
 
-Kenzo,
+All,
+     Similar to this commit:
 
-thanks for staying patient while most of us were out or busy. Apart from acknowledging 
-that you might have fixed a problem with your patch, we're very reluctant to merge such 
-a huge change in our driver that touches much more cases then the one that seems to be 
-giving you problems.
+http://kernel.org/git/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=d15e9c4d9a75702b30e00cdf95c71c88e3f3f51e
 
-I've thought up a much more elegant solution that prevents the driver from asserting the 
-swfw semaphore during normal operations by checking the mac LU (link up) register in the 
-watchdog. This allows the watchdog task to bypass all PHY checking in case all link 
-statuses are OK, and thus removes the big problem that you are seeing.
+It's not safe in cp_start_xmit to blindly call spin_lock_irq and then spin_unlock_irq, since it may very well be the case that cp_start_xmit was called with interrupts already disabled (I came across this bug in the context of netdump in RedHat kernels, but the same issue holds, for example, in netconsole).  Therefore, replace all instances of spin_lock_irq and spin_unlock_irq with spin_lock_irqsave and spin_unlock_irqrestore, respectively, in cp_start_xmit().  I tested this against a fully-virtualized Xen guest, which happens to use the 8139cp driver to talk to the emulated hardware.  I don't have a real piece of 8139cp hardware to test on, so someone else will have to do that.
 
-Attached a version that should apply against most current trees. Please give it a try 
-and let us know if this also fixes the problem for you. I will most likely push this 
-patch to the netdev tree in any case.
+Signed-off-by: Chris Lalancette <clalance@redhat.com>
 
-Cheers,
-
-Auke
----
-
---------------080207060601070403060706
+--------------060302050304070601040204
 Content-Type: text/x-patch;
- name="e1000_git_link_check_for_change_only.patch"
+ name="linux-2.6.20-rc3-8139cp-xmit-irq-save.patch"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline;
- filename="e1000_git_link_check_for_change_only.patch"
+ filename="linux-2.6.20-rc3-8139cp-xmit-irq-save.patch"
 
-
-From: Auke Kok <auke-jan.h.kok@intel.com>
-
-e1000: Don't do PHY reads in watchdog unless link status is down
-
-The watchdog runs code that every 2 seconds performs several PHY reads
-that are locked with the swfw semaphore, causing the semaphore to be
-unavailable for a short time. This is completely unneeded in case the
-MAC detects PHY link up (LU).
-
-Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
-
----
- drivers/net/e1000/e1000_main.c |    5 +++++
- 1 file changed, 5 insertions(+)
-
-diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-index 34d8e5d..9660925 100644
---- a/drivers/net/e1000/e1000_main.c
-+++ b/drivers/net/e1000/e1000_main.c
-@@ -2556,6 +2556,10 @@ e1000_watchdog(unsigned long data)
- 	uint32_t link, tctl;
- 	int32_t ret_val;
+diff --git a/drivers/net/8139cp.c b/drivers/net/8139cp.c
+index e2cb19b..6f93a76 100644
+--- a/drivers/net/8139cp.c
++++ b/drivers/net/8139cp.c
+@@ -765,17 +765,18 @@ static int cp_start_xmit (struct sk_buff *skb, struct net_device *dev)
+ 	struct cp_private *cp = netdev_priv(dev);
+ 	unsigned entry;
+ 	u32 eor, flags;
++	unsigned long intr_flags;
+ #if CP_VLAN_TAG_USED
+ 	u32 vlan_tag = 0;
+ #endif
+ 	int mss = 0;
  
-+	if ((netif_carrier_ok(netdev)) &&
-+	    (E1000_READ_REG(&adapter->hw, STATUS) & E1000_STATUS_LU))
-+		goto link_up;
-+
- 	ret_val = e1000_check_for_link(&adapter->hw);
- 	if ((ret_val == E1000_ERR_PHY) &&
- 	    (adapter->hw.phy_type == e1000_phy_igp_3) &&
-@@ -2684,6 +2688,7 @@ e1000_watchdog(unsigned long data)
- 		e1000_smartspeed(adapter);
- 	}
+-	spin_lock_irq(&cp->lock);
++	spin_lock_irqsave(&cp->lock, intr_flags);
  
-+link_up:
- 	e1000_update_stats(adapter);
+ 	/* This is a hard error, log it. */
+ 	if (TX_BUFFS_AVAIL(cp) <= (skb_shinfo(skb)->nr_frags + 1)) {
+ 		netif_stop_queue(dev);
+-		spin_unlock_irq(&cp->lock);
++		spin_unlock_irqrestore(&cp->lock, intr_flags);
+ 		printk(KERN_ERR PFX "%s: BUG! Tx Ring full when queue awake!\n",
+ 		       dev->name);
+ 		return 1;
+@@ -908,7 +909,7 @@ static int cp_start_xmit (struct sk_buff *skb, struct net_device *dev)
+ 	if (TX_BUFFS_AVAIL(cp) <= (MAX_SKB_FRAGS + 1))
+ 		netif_stop_queue(dev);
  
- 	adapter->hw.tx_packet_delta = adapter->stats.tpt - adapter->tpt_old;
+-	spin_unlock_irq(&cp->lock);
++	spin_unlock_irqrestore(&cp->lock, intr_flags);
+ 
+ 	cpw8(TxPoll, NormalTxPoll);
+ 	dev->trans_start = jiffies;
 
---------------080207060601070403060706--
+
+
+--------------060302050304070601040204--
