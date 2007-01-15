@@ -1,62 +1,69 @@
-From: Tino Keitel <tino.keitel@tikei.de>
-Subject: Re: [patch 0/6] sky2 driver update (v1.11)
-Date: Mon, 15 Jan 2007 20:12:11 +0100
-Message-ID: <20070115191211.GA11018@dose.home.local>
-References: <20061220210632.183204605@osdl.org> <459197B8.6010403@pobox.com> <20070101103644.02544c46@freekitty> <20070102191015.GA5758@dose.home.local> <20070113130329.GA9124@dose.home.local> <20070115102149.1ce12188@freekitty>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: Re: e100.c patch to 2.6.18 fixing Wake on Lan (WOL)
+Date: Mon, 15 Jan 2007 11:42:36 -0800
+Message-ID: <45ABD92C.8090001@intel.com>
+References: <4.3.2.7.2.20070115113616.03dcf4a8@www.n4comm.com> <4.3.2.7.2.20070115091058.063866c8@www.n4comm.com> <4.3.2.7.2.20070115091058.063866c8@www.n4comm.com> <4.3.2.7.2.20070115113616.03dcf4a8@www.n4comm.com> <4.3.2.7.2.20070115131516.01ce9ec0@www.n4comm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eazy.amigager.de ([213.239.192.238]:52223 "EHLO
-	eazy.amigager.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751385AbXAOTMe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jan 2007 14:12:34 -0500
-To: Stephen Hemminger <shemminger@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20070115102149.1ce12188@freekitty>
+Received: from mga01.intel.com ([192.55.52.88]:28198 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751436AbXAOTmi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Jan 2007 14:42:38 -0500
+To: Harry Coin <hcoin@n4comm.com>
+In-Reply-To: <4.3.2.7.2.20070115131516.01ce9ec0@www.n4comm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 15, 2007 at 10:21:49 -0800, Stephen Hemminger wrote:
-> On Sat, 13 Jan 2007 14:03:29 +0100
-> Tino Keitel <tino.keitel@tikei.de> wrote:
+Harry Coin wrote:
+> At 10:19 AM 1/15/2007 -0800, Auke Kok wrote:
+>> Have you tried the version in 2.6.19?
 > 
-> > On Tue, Jan 02, 2007 at 20:10:15 +0100, Tino Keitel wrote:
-> > 
-> > [...]
-> > 
-> > > Btw., I just built 2.6.20-rc3 with patches 4 and 5 and wake on LAN now
-> > > works. Thanks for your work.
-> > 
-> > Hi,
-> > 
-> > I had some failures during resume from suspend with 2.6.20-rc3 and
-> > -rc4. I enabled pm_trace and it looks like the sky2 driver is the
-> > culprit:
-> > 
-> > hash matches drivers/base/power/resume.c:56
-> > hash matches device 0000:01:00.0
-> > 
-> > $ lspci | grep 01:00.0
-> > 01:00.0 Ethernet controller: Marvell Technology Group Ltd. 88E8053
-> > PCI-E Gigabit Ethernet Controller (rev 22)
-> > 
-> > I removed the patches and had no resume failure so far.
-> > 
-> > Regards,
-> > Tino
-> > 
+> I even tried copying and pasting the e100_down and the latest PM stuff 
+> from the newest e100.c version on sourceforge.   I admit to being 
+> defeated as to how to join a sourceforge group.   Too many hours writing 
+> Microsoft drivers  maybe?
+
+the list is open to posting, so that's fairly easy.
+
+> It comes down to this:
 > 
-> What kind of failures, did the system just not come up?
+> 1)  The e100_configure command is the only place that turns off the WOL 
+> disable bit.
+> 
+> 2)  That bit is only turned off if e100_configure is called after 
+> netif_running is false and wol is set.
+> 
+> 3)  e100_configure is not called at any point after dev->stop (the first 
+> moment netif_running is false) through the end of .shutdown.  Therefore 
+> WOL disable is always turned on, no matter the request by ethtools.
+> 
+> I sense there is a sense that if pci_enable_wake has been called 
+> properly, then all's well.   But on this board, there is a configuration 
+> bit that also has to be disabled, a but that is silently reset during a 
+> hw_reset, and hw_reset   __is__ called in e100_down.
+> 
+> Hence, the fix I submitted.   I know it isn't perfect because I'm not 
+> intimately familiar with the dynamics of this chip.   But I do know this:
+> 
+> 14 Dell Optiplex systems failed to WOL with the stock 2.6.18 distributed 
+> with debian etch.   After my patch is applied to e100.c, and no other 
+> changes from anything default in 2.6.18 and debian etch, it works 
+> perfectly every time.   I should have added that ACPI and lapic are in 
+> use, but that's the usual case.
 
-Yes, screen stayed dark and machine was dead. However, it was hardly
-reproducable. I set up a suspend/resume loop for an hour without
-failures. Then, when I just wanted to suspend for a while, resume
-failed.
+okay, I don't necesary meant that your patch is incorrect, however we need to make sure 
+that your patch doesn't break 2.6.19, because that code is already upstream.
 
-> Did you have WOL enabled or not?
+on top of that, both patches might be needed, and I suspect that is the case to keep 
+suspend and netconsole to keep working, so I would still like to ask you to test 2.6.19, 
+with and without your patch.
 
-I had WOL enabled.
+I'll do the same here and push your patch to Garzik if (after testing) we're both OK 
+with it.
 
-Regards,
-Tino
+Thanks,
+
+Auke
