@@ -1,30 +1,79 @@
-From: Jay Cliburn <jacliburn@bellsouth.net>
-Subject: Re: [PATCH 2/4] atl1: Header files for Attansic L1 driver
-Date: Mon, 15 Jan 2007 14:45:12 -0600
-Message-ID: <45ABE7D8.3030903@bellsouth.net>
-References: <20070111004137.GC2624@osprey.hogchain.net> <20070111092704.GB3141@infradead.org> <45ABD42D.1060901@bellsouth.net> <20070115203357.GA14200@electric-eye.fr.zoreil.com>
+From: Michael Tokarev <mjt@tls.msk.ru>
+Subject: Re: rare bad TCP checksum with 2.6.19?
+Date: Tue, 16 Jan 2007 00:46:08 +0300
+Message-ID: <45ABF620.3070405@tls.msk.ru>
+References: <E1H6OJU-0001EC-00@gondolin.me.apana.org.au> <45AB82F1.9000409@tls.msk.ru> <20070115201001.GA9510@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Christoph Hellwig <hch@infradead.org>, jeff@garzik.org,
-	shemminger@osdl.org, csnook@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, atl1-devel@lists.sourceforge.net
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751472AbXAOUpS@vger.kernel.org>
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20070115203357.GA14200@electric-eye.fr.zoreil.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from hobbit.corpit.ru ([81.13.94.6]:20202 "EHLO hobbit.corpit.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751125AbXAOVqN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Jan 2007 16:46:13 -0500
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20070115201001.GA9510@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Francois Romieu wrote:
-> Jay Cliburn <jacliburn@bellsouth.net> :
-> [...]
->> I welcome any comments on the rationality of this approach.
+Herbert Xu wrote:
+> On Mon, Jan 15, 2007 at 04:34:41PM +0300, Michael Tokarev wrote:
+[]
+>> So I guess the problem is not related to hw checksumming offloading.
 > 
-> An URL for the current version of the patch would be welcome too :o)
+> Nope, it just means that 8139too doesn't provide ethtool handlers to
+> disable checksum offloading.
 > 
+> So I suggest that you try doing the tcpdump on the receive side as
+> that should show the real checksum.
 
-Sorry.  Forgot to do that.  The current version may be found here:
+I'm doing the capture on an intermediate host - the whole day today ;)
 
-ftp://hogchain.net/pub/linux/m2v/attansic/kernel_driver/atl1-2.0.4/atl1-2.0.4-linux-2.6.20.rc5.patch.bz2
+> BTW, the reason tcpdump only shows some packets with bogus checksums
+> is because it cuts packets off at 100 bytes by default so for most
+> packets it can't verify the checksum at all.  If you run it with
+> -s 1600 you should see bogus checksums on every packet with payload.
 
-Jay
+And I'm capturing with -s 2000.  By the way, tcpdump just does not
+verify the cheksum of truncated (due to capture size) packets.  At
+least not the version I'm using (which is 3.9.5).
+
+Herbert, the problem IS real, it's not due to some bad behavior due
+to improper capturing or something like that.  Yes it's difficult to
+come to it, but it is real.
+
+I've saved quite alot of packets today, but it's all quite.. useless
+as the thing is difficult to hit.  Here's some traces made with the
+following filter:
+
+ proto TCP and tcp[tcpflags] & (tcp-fin|tcp-push) == (tcp-fin|tcp-push)
+
+(I've choosen FIN+PUSH because this combination is where the problem
+is seen most - to be fair, it looks like I haven't seen it with other
+flags).
+
+In there, some packets are ok, but some are not.  So - again, it seems
+like - I was wrong about 100% "hit ratio" -- ie, that the "bad checksum"
+is ALWAYS the case with packets where some data goes in FIN packets --
+this is incorrect, because the trace shows quite a few examples of right
+behavior.
+
+The trace is here: http://www.corpit.ru/mjt/bad-tcp-cksum-dmp.bin
+
+(it contains some data which it sholdn't - but I hope there's nothing
+confidential in there ;)
+
+So, after the whole day digging around, I still don't have any more-or-less
+clean way to reproduce it.  But I've noticied another thing as well: many
+different machines here, with different kernels, behave the same way.
+So it can't be a hardware problem for example.
+
+And only at VERY rare cases, the thing causes noticeable transfer slowdowns
+or stalls.  But some networks triggers those rare cases more often than others
+(so the only more or less sane conclusion I can come with is that it's
+somehow timing-related).
+
+Thanks!
+
+/mjt
