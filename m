@@ -1,32 +1,33 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH]: 8139cp: Don't blindly enable interrupts in cp_start_xmit
-Date: Tue, 16 Jan 2007 10:34:13 +1100
-Message-ID: <20070115233413.GA11037@gondor.apana.org.au>
-References: <45ABAE69.4070105@redhat.com> <20070115195635.GA14205@electric-eye.fr.zoreil.com>
+Subject: Re: rare bad TCP checksum with 2.6.19?
+Date: Tue, 16 Jan 2007 10:35:34 +1100
+Message-ID: <20070115233534.GB11037@gondor.apana.org.au>
+References: <E1H6OJU-0001EC-00@gondolin.me.apana.org.au> <45AB82F1.9000409@tls.msk.ru> <20070115201001.GA9510@gondor.apana.org.au> <45ABF620.3070405@tls.msk.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Chris Lalancette <clalance@redhat.com>, jgarzik@pobox.com,
-	netdev@vger.kernel.org, Ingo Molnar <mingo@elte.hu>
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:2153 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:2167 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932082AbXAOXen (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jan 2007 18:34:43 -0500
-To: Francois Romieu <romieu@fr.zoreil.com>
+	with ESMTP id S932119AbXAOXfg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jan 2007 18:35:36 -0500
+To: Michael Tokarev <mjt@tls.msk.ru>
 Content-Disposition: inline
-In-Reply-To: <20070115195635.GA14205@electric-eye.fr.zoreil.com>
+In-Reply-To: <45ABF620.3070405@tls.msk.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 15, 2007 at 08:56:35PM +0100, Francois Romieu wrote:
+On Tue, Jan 16, 2007 at 12:46:08AM +0300, Michael Tokarev wrote:
 > 
-> As I understand http://lkml.org/lkml/2006/12/12/239, something like the
-> patch below should had been sent instead. Herbert, ack/nak ?
+> I'm doing the capture on an intermediate host - the whole day today ;)
 
-Sorry, what I said in that thread is in error.  Netpoll may
-unfortunately call the transmit routine with IRQs off.  So
-the drivers can't currently use spin_lock_irq and must save
-the current flags instead.
+Cool, I was just trying to make sure :)
+ 
+> The trace is here: http://www.corpit.ru/mjt/bad-tcp-cksum-dmp.bin
+
+I'll take a look.
+
+Are you using anything extra like netfilter?
 
 Cheers,
 -- 
