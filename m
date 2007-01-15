@@ -1,61 +1,119 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: RED + ECN not working
-Date: Mon, 15 Jan 2007 09:38:48 +0100
-Message-ID: <20070115083848.GA1644@ff.dom.local>
-References: <1168358884.45a3bde4a14b9@webmail.njit.edu>
+From: Harry Coin <hcoin@n4comm.com>
+Subject: e100.c patch to 2.6.18 fixing Wake on Lan (WOL)
+Date: Mon, 15 Jan 2007 11:43:34 -0600
+Message-ID: <4.3.2.7.2.20070115113616.03dcf4a8@www.n4comm.com>
+References: <4.3.2.7.2.20070115091058.063866c8@www.n4comm.com>
+ <4.3.2.7.2.20070115091058.063866c8@www.n4comm.com> <1168876836.8922.1.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"; format=flowed
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.go2.pl ([193.17.41.42]:38830 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751826AbXAOIgo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Jan 2007 03:36:44 -0500
-To: rbj2@njit.edu
-Content-Disposition: inline
-In-Reply-To: <1168358884.45a3bde4a14b9@webmail.njit.edu>
+Received: from mail14e.g14.rapidsite.net ([128.121.64.102]:17368 "HELO
+	mail14e.g14.rapidsite.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1751332AbXAORnr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jan 2007 12:43:47 -0500
+Received: from mx29.mlpsca01.us.mxservers.net (128.121.64.142)
+	by mail14e.g14.rapidsite.net (RS ver 1.0.95vs) with SMTP id 0-0118403025
+	for <netdev@vger.kernel.org>; Mon, 15 Jan 2007 12:43:46 -0500 (EST)
+To: netdev@vger.kernel.org
+In-Reply-To: <1168876836.8922.1.camel@localhost.localdomain>
+References: <4.3.2.7.2.20070115091058.063866c8@www.n4comm.com>
+ <4.3.2.7.2.20070115091058.063866c8@www.n4comm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 09-01-2007 17:08, rbj2@njit.edu wrote:
-> Hello,
-> 
-> I have been trying to get the RED qdisc and ECN to work for the past few weeks
-> and all my experiments have failed. Here is the setup I am using. 
-> 
-> Src -- R1 -- R2 -- Dst
-> 
-> Between Src and R1 is a 100Mbps link and between R1 and R2 a 10Mbps link. I set up
-> the qdisc at R1 as follows
-> 
-> tc qdisc add dev eth3 root handle 1: prio
-> tc qdisc add dev eth3 parent 1:1 handle 10: sfq
-> tc qdisc add dev eth3 parent 1:2 handle 20: sfq
-> tc qdisc add dev eth3 parent 1:3 handle 30: red limit 10000 min 3000 max 5000
-> avpkt 1000 burst 5 probability 0.5 bandwidth 256kbit ecn
-> 
-> I also inserted printk statments inside the code to print the calculate queue average (RED param), the 
-> backlog (Qdisc param) and the queue length (sk_buff_head param). I also inserted print statements for 
-> each action of RED i.e. DONT_MARK, PROB_MARK, HARD_MARK and DROP.
-> 
-> For the purpose of my experiments, I transferred a 25 MB file. I also did 100 simultaneous TCP 
-> transfers for 2 mins using ipref. In all cases none of the packets were either marked or dropped by the 
-> RED code. This was verified by the print statements in the logs. For all runs, qavg and backlog were 0 
-> and qlen was 1. 
-> 
-> I have even tried classless red and got same results. Does anyone know whether RED+ECN work ? Any 
-> tests and setups that someone has used and got successful results ? I would really appreciate any input 
-> or suggestions on this.
+Hello from Iowa.
 
-Hi,
+Below please find a fix to the Wake On Lan function in the e100.c (intel 
+10/100) driver.   With the original driver distributed in kernel 2.6.18 in 
+debian etch, wake on lan did not work.   This was tested on 14 dell 
+optiplexes with built-in ethernet chips in a totally diskless environment 
+(initramfs / pxelinux).  All operations were normal save wake on lan.
 
-Did you try with lartc.org list? 
+When WOL has been enabled with ethtools, the old driver assumes wrongly 
+that e100_configure will be called at least once with !netif_running.  Only 
+in that instance will it set the chip to notice 'magic' wol packets if the 
+ethtools -s wol g has been called prior.
 
-And probably there could be more details, like:
-- where is eth3
-- tc -s -d qdisc show dev eth3 (before and after the transfer)
-- kernel and iproute versions
+The old e100_down routine never does call e100_configure so that the driver 
+never does  turn off the 'disable WOL magic packet' bit.
+Neither does the .shutdown routine.   This fix tries to only enable the WOL 
+recognition only when e100_down is called for the last time
+before module unload or system shutdown, while leaving ifconfig down 
+untouched.    (testing for being run in the context of dev->stop).
 
-Regards,
+Notice that the hw_reset routine is called in the old e100_down, and that 
+silently causes WOL to be reset.  In some attempt to avoid this debian (and 
+I don't know which other sysvinit tools) added a NETDOWN define to the 
+/etc/init.d/halt script, which when changed from the default=yes to 'no' 
+avoids the -i option to 'halt' leaving the e100 configured.
 
-Jarek P.
+With the below fix the default in /etc/init.d/halt is required, the define 
+change is not necessary, in fact it is important that halt call down for 
+wol to work.  (In the case of the old e100 driver it didn't matter either 
+way, as e100_configure was never called once the driver was stopped).
+
+Notice that the binary /sbin/halt in debain etch has a bug and in fact 
+never does call ifdown, whether -i is or isn't specified.   Compiling from 
+the source by hand does work.  I have submitted a bug report for this.
+
+A further e100 fix I didn't add was for .shutdown to check whether the 
+driver was down and to call e100_down if it was still up.   That added fix 
+would make sure WOL would work no matter if the halt script did or didn't 
+down the driver before system shutdown.    I'm not sure what the 
+implications of my fix are in the context of sleep /resume.
+
+I have also submitted the above to the e1000 group at intel privately as 
+they are the 'maintainers', but this appears to be the only apropos open 
+group I thought to note he here as well.
+
+Thanks
+
+
+Harry Coin
+N4 Communications
+Bettendorf, Iowa
+Signed-off-by: Harry Coin hcoin@n4comm.com
+
+
+
+--- drivers-orig/e100.c 2007-01-15 00:01:48.000000000 -0600
++++ drivers-fixed/e100.c        2007-01-14 23:32:08.000000000 -0600
+@@ -2088,10 +2088,26 @@
+  static void e100_down(struct nic *nic)
+  {
+-       /* wait here for poll to complete */
+-       netif_poll_disable(nic->netdev);
+-       netif_stop_queue(nic->netdev);
+-       e100_hw_reset(nic);
++    if ((!netif_running(nic->netdev)) && (nic->flags & wol_magic)) {
++      /* if this is a device close, and not an ifdown, and wol is enabled, */
++      /* then turn off the bit disabling wol magic packet recognition on */
++      /* the chip.  Previously, WOL magic packet recognition was never */
++      /* enabled as e100_down never called e100_configure when */
++      /* nif_running was false.   So: */
++      /* This makes the e100 not only work with WOL, but */
++      /* also avoids having to edit the default NETDOWN variable */
++      /* in /etc/init.d/halt from the default 'yes' to 'no'. */
++      e100_exec_cb(nic, NULL, e100_configure);
++         /* wait here for poll to complete */
++         netif_poll_disable(nic->netdev);
++         netif_stop_queue(nic->netdev);
++      e100_disable_irq(nic);
++    } else {
++         /* wait here for poll to complete */
++         netif_poll_disable(nic->netdev);
++         netif_stop_queue(nic->netdev);
++         e100_hw_reset(nic);
++   }
+         free_irq(nic->pdev->irq, nic->netdev);
+         del_timer_sync(&nic->watchdog);
+         netif_carrier_off(nic->netdev);
+@@ -2099,6 +2115,7 @@
+         e100_rx_clean_list(nic);
+  }
++
+  static void e100_tx_timeout(struct net_device *netdev)
+  {
+         struct nic *nic = netdev_priv(netdev);
+
+
