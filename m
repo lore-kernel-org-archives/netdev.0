@@ -1,35 +1,69 @@
-From: Michael Tokarev <mjt@tls.msk.ru>
-Subject: Re: rare bad TCP checksum with 2.6.19?
-Date: Mon, 15 Jan 2007 17:25:37 +0300
-Message-ID: <45AB8EE1.2010603@tls.msk.ru>
-References: <E1H6OJU-0001EC-00@gondolin.me.apana.org.au> <45AB82F1.9000409@tls.msk.ru>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH] Remove CONFIG_NET_WIRELESS
+Date: Mon, 15 Jan 2007 13:31:06 +0000
+Message-ID: <1168867866.3344.3.camel@johannes.berg>
+References: <45A91414.40107@gmail.com>
+	 <1168860268.3344.0.camel@johannes.berg>  <45AB79D1.2070002@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=KOI8-R
-Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-eCspZDEeqlLW78YTPYK2"
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	netdev <netdev@vger.kernel.org>, mb@bu3sch.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hobbit.corpit.ru ([81.13.94.6]:20839 "EHLO hobbit.corpit.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750729AbXAOOZl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Jan 2007 09:25:41 -0500
-In-Reply-To: <45AB82F1.9000409@tls.msk.ru>
-To: unlisted-recipients:; (no To-header on input)
+Received: from crystal.sipsolutions.net ([195.210.38.204]:43214 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932323AbXAONbR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jan 2007 08:31:17 -0500
+To: Maarten Lankhorst <m.b.lankhorst@gmail.com>
+In-Reply-To: <45AB79D1.2070002@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Michael Tokarev wrote:
-[]
-> And another thing I noticed.  Right now I'm experimenting with another
-> machine, running 2.6.17(.13) - it also shows similar behavior with bad
-> csums, but MUCH rarer than this 2.6.19.  Like this:
-> 
-> 16:29:32.490976 IP (tos 0x60, ttl  48, id 14110, offset 0, flags [DF], length: 80)
->  69.42.67.34.2612 > 81.13.94.6.1234: . [bad tcp cksum f4b4 (->c1cc)!] ack 93407 win 9821
->  <nop,nop,timestamp 1046528199 5497679,nop,nop,sack sack 3 {104991:109335}{110783:112231}{104991:109335} >
 
-This seems to be a tcpdump bug.  At least the same packet(s), on another machine
-(in-between the two), with updated tcpdump, shows as having correct checksum.
-After updating tcpdump on this machine, I'm not seeing this 'sack bad cksum'
-stuff anymore.
+--=-eCspZDEeqlLW78YTPYK2
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-/mjt
+On Mon, 2007-01-15 at 13:55 +0100, Maarten Lankhorst wrote:
+> Johannes Berg schreef:
+> > On Sat, 2007-01-13 at 18:17 +0100, Maarten Lankhorst wrote:
+> >  =20
+> >> Remove CONFIG_NET_WIRELESS
+> >> Nothing uses this, and it breaks the kernel build if a wireless device=
+ is used with a unsupported type of bus.
+> >> Verified this with a grep.
+> >>    =20
+> >
+> > I don't really care about the symbol and I'm in favour of removing it i=
+f
+> > it is useless, but I don't understand the rationale. How does enabling
+> > this cause anything to fail?
+> >
+> > johannes
+> >  =20
+> Enabling this doesn't cause anything to fail, but my wireless router
+> doesn't have a pci bus, but instead a native SSB, so CONFIG_NET_WIRELESS
+> isn't selected. This in turn causes wext-common.o to not be built, so I
+> get missing symbols and a build breakage. That's why I made
+> wext-common.o depend on CONFIG_WIRELESS_EXT instead of
+> CONFIG_NET_WIRELESS. Since nothing else uses CONFIG_NET_WIRELESS I
+> decided to kill that symbol.
+
+Ok, that makes sense to me. Let's put this in but with this better
+description rather than the original one.
+
+johannes
+
+--=-eCspZDEeqlLW78YTPYK2
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iD8DBQBFq4Ia/ETPhpq3jKURAoX2AJ9361hUvtrhSsTbZ5fRXtjTiri7ZACfWnJT
+3lC8kr7ktxeQ2FJaccoKkaQ=
+=N5vj
+-----END PGP SIGNATURE-----
+
+--=-eCspZDEeqlLW78YTPYK2--
+
