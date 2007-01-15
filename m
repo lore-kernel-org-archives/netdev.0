@@ -1,51 +1,29 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: rare bad TCP checksum with 2.6.19?
-Date: Tue, 16 Jan 2007 07:10:01 +1100
-Message-ID: <20070115201001.GA9510@gondor.apana.org.au>
-References: <E1H6OJU-0001EC-00@gondolin.me.apana.org.au> <45AB82F1.9000409@tls.msk.ru>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH 2/4] atl1: Header files for Attansic L1 driver
+Date: Mon, 15 Jan 2007 21:33:57 +0100
+Message-ID: <20070115203357.GA14200@electric-eye.fr.zoreil.com>
+References: <20070111004137.GC2624@osprey.hogchain.net> <20070111092704.GB3141@infradead.org> <45ABD42D.1060901@bellsouth.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Cc: Christoph Hellwig <hch@infradead.org>, jeff@garzik.org,
+	shemminger@osdl.org, csnook@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, atl1-devel@lists.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:1026 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751454AbXAOUKD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jan 2007 15:10:03 -0500
-To: Michael Tokarev <mjt@tls.msk.ru>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:59221 "EHLO
+	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751481AbXAOUhK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Jan 2007 15:37:10 -0500
+To: Jay Cliburn <jacliburn@bellsouth.net>
 Content-Disposition: inline
-In-Reply-To: <45AB82F1.9000409@tls.msk.ru>
+In-Reply-To: <45ABD42D.1060901@bellsouth.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 15, 2007 at 04:34:41PM +0300, Michael Tokarev wrote:
-> 
-> # ethtool -k eth0
-> Offload parameters for eth0:
-> Cannot get device rx csum settings: Operation not supported
-> Cannot get device tx csum settings: Operation not supported
-> Cannot get device scatter-gather settings: Operation not supported
-> Cannot get device tcp segmentation offload settings: Operation not supported
-> no offload info available
-> 
-> # ethtool -K eth0 rx off tx off tso off
-> Cannot set device rx csum settings: Operation not supported
-> 
-> So I guess the problem is not related to hw checksumming offloading.
+Jay Cliburn <jacliburn@bellsouth.net> :
+[...]
+> I welcome any comments on the rationality of this approach.
 
-Nope, it just means that 8139too doesn't provide ethtool handlers to
-disable checksum offloading.
+An URL for the current version of the patch would be welcome too :o)
 
-So I suggest that you try doing the tcpdump on the receive side as
-that should show the real checksum.
-
-BTW, the reason tcpdump only shows some packets with bogus checksums
-is because it cuts packets off at 100 bytes by default so for most
-packets it can't verify the checksum at all.  If you run it with
--s 1600 you should see bogus checksums on every packet with payload.
-
-Cheers,
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Ueimor
