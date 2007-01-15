@@ -1,63 +1,99 @@
-From: "Robert Iakobashvili" <coroberti@gmail.com>
-Subject: Re: Two Dual Core processors and NICS (not handling interrupts on one CPU/assigning a Two Dual Core processors and NICS (not handling interrupts on one CPU / assigning a CPU to a NIC)
-Date: Mon, 15 Jan 2007 11:58:12 +0200
-Message-ID: <7e63f56c0701150158r4e9b95ar996a33a5294cfa56@mail.gmail.com>
-References: <dac45060701150115y5308f7b5ka44f2ea4ae304d4b@mail.gmail.com>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: [IPROUTE 04/05]: Replace "usec" by "time" in function names
+Date: Mon, 15 Jan 2007 11:17:42 +0100
+Message-ID: <20070115101742.GB1644@ff.dom.local>
+References: <20070110100148.29356.49657.sendpatchset@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.173]:61931 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932166AbXAOJ6O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jan 2007 04:58:14 -0500
-Received: by ug-out-1314.google.com with SMTP id 44so1304341uga
-        for <netdev@vger.kernel.org>; Mon, 15 Jan 2007 01:58:12 -0800 (PST)
-To: "Mark Ryden" <markryde@gmail.com>
-In-Reply-To: <dac45060701150115y5308f7b5ka44f2ea4ae304d4b@mail.gmail.com>
+Received: from mx10.go2.pl ([193.17.41.74]:54523 "EHLO poczta.o2.pl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S932164AbXAOKPi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Jan 2007 05:15:38 -0500
+To: Patrick McHardy <kaber@trash.net>
 Content-Disposition: inline
+In-Reply-To: <20070110100148.29356.49657.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Mark,
+On 10-01-2007 11:01, Patrick McHardy wrote:
+> [IPROUTE]: Replace "usec" by "time" in function names
+> 
+> Rename functions containing "usec" since they don't necessarily return
+> usec units anymore.
+> 
+> Signed-off-by: Patrick McHardy <kaber@trash.net>
+> 
+> ---
+...
+> diff --git a/tc/q_cbq.c b/tc/q_cbq.c
+> index 0000a56..913b26a 100644
+> --- a/tc/q_cbq.c
+> +++ b/tc/q_cbq.c
+> @@ -500,17 +500,17 @@ static int cbq_print_opt(struct qdisc_ut
+>  	if (lss && show_details) {
+>  		fprintf(f, "\nlevel %u ewma %u avpkt %ub ", lss->level, lss->ewma_log, lss->avpkt);
+>  		if (lss->maxidle) {
+> -			fprintf(f, "maxidle %luus ", tc_core_tick2usec(lss->maxidle>>lss->ewma_log));
+> +			fprintf(f, "maxidle %luus ", tc_core_tick2time(lss->maxidle>>lss->ewma_log));
 
-On 1/15/07, Mark Ryden <markryde@gmail.com> wrote:
-> I have a machine with 2 dual core CPUs. This machine runs Fedora Core 6.
-> I have two Intel e1000 GigaBit network cards on this machine; I use bonding so
-> that the machine assigns the same IP address to both NICs ;
+If not necessarily usec, "%luus" could be misleading
+here and later. 
 
-> cat /proc/interrupts shops something like this:
->                                 CPU0       CPU1         CPU2         CPU3
->  50:    3359337          0          0          0         PCI-MSI  eth0
->  58:         49    3396136          0          0         PCI-MSI  eth1
->
->  CPU0 and CPU1 are of the first CPU as far as I understand ; so
->  this means as far as I understand that the second CPU (which has CPU3
-> and CPU4) does not handle
->  interrupts of the arrived packets; Can I somehow change it so the second
->  CPU will also handle network interrupts of receiving packets on the nic ?
->
-> Can I assign one CPU to  eth0 and the second CPU to eth1  ?
+...
+> diff --git a/tc/q_netem.c b/tc/q_netem.c
+> index cfd1799..24fb95e 100644
+> --- a/tc/q_netem.c
+> +++ b/tc/q_netem.c
+> @@ -108,15 +108,15 @@ static int get_ticks(__u32 *ticks, const
+>  {
+>  	unsigned t;
+>  
+> -	if(get_usecs(&t, str))
+> +	if(get_time(&t, str))
+>  		return -1;
+>  
+> -	if (tc_core_usec2big(t)) {
+> +	if (tc_core_time2big(t)) {
+>  		fprintf(stderr, "Illegal %d usecs (too large)\n", t);
 
-How it will help you?
-Y can set smp-affinity mask for each irq in /proc/<irq-number>/
-google for 'linux smp-affinity".
+Like above but usecs.
 
-The subject in more details is discussed in:
-http://linux-net.osdl.org/index.php/TODO#TCP
-and thread
-http://marc.theaimsgroup.com/?t=116695290600001&r=1&w=2, read from
-bottom.
+...
+> diff --git a/tc/tc_core.c b/tc/tc_core.c
+> index 07dc4ba..e27254e 100644
+> --- a/tc/tc_core.c
+> +++ b/tc/tc_core.c
+> @@ -27,21 +27,21 @@ static __u32 t2us=1;
+>  static __u32 us2t=1;
+>  static double tick_in_usec = 1;
+>  
+> -int tc_core_usec2big(long usec)
+> +int tc_core_time2big(long time)
+>  {
+> -	__u64 t = usec;
+> +	__u64 t = time;
+>  
+>  	t *= tick_in_usec;
+>  	return (t >> 32) != 0;
+>  }
+>  
+>  
+> -long tc_core_usec2tick(long usec)
+> +long tc_core_time2tick(long time)
+>  {
+> -	return usec*tick_in_usec;
+> +	return time*tick_in_usec;
+>  }
+>  
+> -long tc_core_tick2usec(long tick)
+> +long tc_core_tick2time(long tick)
+>  {
+>  	return tick/tick_in_usec;
+>  }
 
+Similarly (tick_in_time)?
 
--- 
-Sincerely,
-Robert Iakobashvili,
-coroberti %x40 gmail %x2e com
-...................................................................
-Navigare necesse est, vivere non est necesse
-...................................................................
-http://sourceforge.net/projects/curl-loader
-A powerful open-source HTTP/S, FTP/S traffic
-generating, loading and testing tool.
+Regards,
+Jarek P.
