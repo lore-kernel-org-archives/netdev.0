@@ -1,69 +1,83 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: Re: e100.c patch to 2.6.18 fixing Wake on Lan (WOL)
-Date: Mon, 15 Jan 2007 11:42:36 -0800
-Message-ID: <45ABD92C.8090001@intel.com>
-References: <4.3.2.7.2.20070115113616.03dcf4a8@www.n4comm.com> <4.3.2.7.2.20070115091058.063866c8@www.n4comm.com> <4.3.2.7.2.20070115091058.063866c8@www.n4comm.com> <4.3.2.7.2.20070115113616.03dcf4a8@www.n4comm.com> <4.3.2.7.2.20070115131516.01ce9ec0@www.n4comm.com>
+From: Maarten Lankhorst <m.b.lankhorst@gmail.com>
+Subject: Re: [PATCH] Remove CONFIG_NET_WIRELESS
+Date: Mon, 15 Jan 2007 20:24:21 +0100
+Message-ID: <45ABD4E5.6040707@gmail.com>
+References: <45A91414.40107@gmail.com>	<1168860268.3344.0.camel@johannes.berg>	<45AB79D1.2070002@gmail.com>	<1168867866.3344.3.camel@johannes.berg> <20070115154008.0dedf451@griffin.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	netdev <netdev@vger.kernel.org>, mb@bu3sch.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:28198 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751436AbXAOTmi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Jan 2007 14:42:38 -0500
-To: Harry Coin <hcoin@n4comm.com>
-In-Reply-To: <4.3.2.7.2.20070115131516.01ce9ec0@www.n4comm.com>
+Received: from mailserver.astro.rug.nl ([129.125.6.166]:55172 "EHLO
+	mailserver.astro.rug.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751436AbXAOT0K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jan 2007 14:26:10 -0500
+To: Jiri Benc <jbenc@suse.cz>
+In-Reply-To: <20070115154008.0dedf451@griffin.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Harry Coin wrote:
-> At 10:19 AM 1/15/2007 -0800, Auke Kok wrote:
->> Have you tried the version in 2.6.19?
-> 
-> I even tried copying and pasting the e100_down and the latest PM stuff 
-> from the newest e100.c version on sourceforge.   I admit to being 
-> defeated as to how to join a sourceforge group.   Too many hours writing 
-> Microsoft drivers  maybe?
+Jiri Benc schreef:
+> On Mon, 15 Jan 2007 13:31:06 +0000, Johannes Berg wrote:
+>   
+>> On Mon, 2007-01-15 at 13:55 +0100, Maarten Lankhorst wrote:
+>>     
+>>> Enabling this doesn't cause anything to fail, but my wireless router
+>>> doesn't have a pci bus, but instead a native SSB, so CONFIG_NET_WIRELESS
+>>> isn't selected. This in turn causes wext-common.o to not be built, so I
+>>> get missing symbols and a build breakage. That's why I made
+>>> wext-common.o depend on CONFIG_WIRELESS_EXT instead of
+>>> CONFIG_NET_WIRELESS. Since nothing else uses CONFIG_NET_WIRELESS I
+>>> decided to kill that symbol.
+>>>       
+>> Ok, that makes sense to me. Let's put this in but with this better
+>> description rather than the original one.
+>>     
+>
+> The original mail with patch apparently didn't get to netdev (I haven't
+> received it and it's not in netdev archive). Maarten, could you resend
+> it please?
+>
+> Thanks,
+>
+>  Jiri
+>
+>   
+Sorry, must have missed sending it to netdev, original message follows.
 
-the list is open to posting, so that's fairly easy.
+Remove CONFIG_NET_WIRELESS
+Nothing uses this, and it breaks the kernel build if a wireless device is used with a unsupported type of bus.
+Verified this with a grep.
 
-> It comes down to this:
-> 
-> 1)  The e100_configure command is the only place that turns off the WOL 
-> disable bit.
-> 
-> 2)  That bit is only turned off if e100_configure is called after 
-> netif_running is false and wol is set.
-> 
-> 3)  e100_configure is not called at any point after dev->stop (the first 
-> moment netif_running is false) through the end of .shutdown.  Therefore 
-> WOL disable is always turned on, no matter the request by ethtools.
-> 
-> I sense there is a sense that if pci_enable_wake has been called 
-> properly, then all's well.   But on this board, there is a configuration 
-> bit that also has to be disabled, a but that is silently reset during a 
-> hw_reset, and hw_reset   __is__ called in e100_down.
-> 
-> Hence, the fix I submitted.   I know it isn't perfect because I'm not 
-> intimately familiar with the dynamics of this chip.   But I do know this:
-> 
-> 14 Dell Optiplex systems failed to WOL with the stock 2.6.18 distributed 
-> with debian etch.   After my patch is applied to e100.c, and no other 
-> changes from anything default in 2.6.18 and debian etch, it works 
-> perfectly every time.   I should have added that ACPI and lapic are in 
-> use, but that's the usual case.
+Signed-off-by: Maarten Lankhorst <m.b.lankhorst@gmail.com>
 
-okay, I don't necesary meant that your patch is incorrect, however we need to make sure 
-that your patch doesn't break 2.6.19, because that code is already upstream.
+diff --git a/drivers/net/wireless/Kconfig b/drivers/net/wireless/Kconfig
+index 03dbe60..b9620c6 100644
+--- a/drivers/net/wireless/Kconfig
++++ b/drivers/net/wireless/Kconfig
+@@ -544,11 +544,5 @@ source "drivers/net/wireless/zd1211rw/Kc
+ 
+ source "drivers/net/wireless/d80211/Kconfig"
+ 
+-# yes, this works even when no drivers are selected
+-config NET_WIRELESS
+-	bool
+-	depends on NET_RADIO && (ISA || PCI || PPC_PMAC || PCMCIA)
+-	default y
+-
+ endmenu
+ 
+diff --git a/net/wireless/Makefile b/net/wireless/Makefile
+index f285440..44ae23a 100644
+--- a/net/wireless/Makefile
++++ b/net/wireless/Makefile
+@@ -12,5 +12,5 @@ obj-ny :=
+ 
+ # this needs to be compiled in...
+ obj-$(CONFIG_CFG80211_WEXT_COMPAT) += wext-compat.o
+-obj-$(CONFIG_CFG80211_WEXT_COMPAT)$(CONFIG_NET_WIRELESS) += wext-common.o
++obj-$(CONFIG_CFG80211_WEXT_COMPAT)$(CONFIG_WIRELESS_EXT) += wext-common.o
+ obj-y += $(obj-yy) $(obj-yn) $(obj-ny)
 
-on top of that, both patches might be needed, and I suspect that is the case to keep 
-suspend and netconsole to keep working, so I would still like to ask you to test 2.6.19, 
-with and without your patch.
-
-I'll do the same here and push your patch to Garzik if (after testing) we're both OK 
-with it.
-
-Thanks,
-
-Auke
