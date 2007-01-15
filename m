@@ -1,48 +1,42 @@
-From: Pekka Savola <pekkas@netcore.fi>
-Subject: Re: [Bugme-new] [Bug 7817] New: commit edfe21a29b1dca9ce5a938317868066d2e21c385
- breaks IPv6 address autoconfiguration
-Date: Mon, 15 Jan 2007 06:47:50 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0701150646250.4252@netcore.fi>
-References: <200701131344.l0DDidDq007345@fire-2.osdl.org>
- <20070113134506.6021cf79.akpm@osdl.org>
+From: Li Yewang <lyw@nanjing-fnst.com>
+Subject: Re: [patch]IPv6: fix BUG of ndisc_send_redirect()
+Date: Mon, 15 Jan 2007 09:35:05 +0800
+Message-ID: <45AADA49.6060800@nanjing-fnst.com>
+References: <1168679560.3639.11.camel@localhost.localdomain> <20070114.231327.101009448.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from netcore.fi ([193.94.160.1]:41222 "EHLO netcore.fi"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751806AbXAOErw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 14 Jan 2007 23:47:52 -0500
-Received: from localhost (pekkas@localhost)
-	by netcore.fi (8.12.11.20060614/8.12.11) with ESMTP id l0F4loxP004465
-	for <netdev@vger.kernel.org>; Mon, 15 Jan 2007 06:47:50 +0200
-To: netdev@vger.kernel.org
-In-Reply-To: <20070113134506.6021cf79.akpm@osdl.org>
+Received: from [221.6.14.228] ([221.6.14.228]:60027 "EHLO proxy.fnst.com.cn"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751776AbXAOBgQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 14 Jan 2007 20:36:16 -0500
+To: =?UTF-8?B?WU9TSElGVUpJIEhpZGVha2kgLyDlkInol6Toi7HmmI4=?=
+	<yoshfuji@linux-ipv6.org>
+In-Reply-To: <20070114.231327.101009448.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 13 Jan 2007, Andrew Morton wrote:
->> On Sat, 13 Jan 2007 05:44:39 -0800 bugme-daemon@bugzilla.kernel.org wrote:
->> http://bugzilla.kernel.org/show_bug.cgi?id=7817
->>
->>            Summary: commit edfe21a29b1dca9ce5a938317868066d2e21c385 breaks
->>                     IPv6 address autoconfiguration
->>     Kernel Version: 2.6.19.2
->>             Status: NEW
->>           Severity: high
->>              Owner: yoshfuji@linux-ipv6.org
->>          Submitter: gernoth@informatik.uni-erlangen.de
->>
->>
->> Most recent kernel where this bug did *NOT* occur: 2.6.19.1
->> Distribution: Debian Testing
->> Hardware Environment: About 100 different x86 boxes
->> Software Environment: no special software involved, just the kernel. No modules are loaded on the
->> affected machines (everything needed is built into the kernel)
->>
 
-I got hit by this as well.  2.6.20rc4-git4 is also affected.
+YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E says:
 
--- 
-Pekka Savola                 "You each name yourselves king, yet the
-Netcore Oy                    kingdom bleeds."
-Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
+> It is not mandatory, however, it is better to do this.  I agree.
+> (Note: In usual, we do not install gateway'ed route with global
+> next-hop.)
+
+   Yes, but if somebody set the route with global next-hop, or some
+   other reasons, the next-hop with global address. The kernel must
+   deal with this situation correctly. So, for the strongly of the
+   kernel, I think redirect function must check the target address
+   when send redirect packets.
+
+> Acked-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+>=20
+> --yoshfuji
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>=20
