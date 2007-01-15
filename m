@@ -1,43 +1,38 @@
-From: Maarten Lankhorst <m.b.lankhorst@gmail.com>
-Subject: Re: [PATCH] Remove CONFIG_NET_WIRELESS
-Date: Mon, 15 Jan 2007 13:55:45 +0100
-Message-ID: <45AB79D1.2070002@gmail.com>
-References: <45A91414.40107@gmail.com> <1168860268.3344.0.camel@johannes.berg>
+From: Kenzo Iwami <k-iwami@cj.jp.nec.com>
+Subject: Re: watchdog timeout panic in e1000 driver
+Date: Mon, 15 Jan 2007 18:12:01 +0900
+Message-ID: <45AB4561.8040400@cj.jp.nec.com>
+References: <36D9DB17C6DE9E40B059440DB8D95F52013ABFE9@orsmsx418.amr.corp.intel.com> <4562D207.60301@cj.jp.nec.com> <4573E6FD.3030905@cj.jp.nec.com> <4574C14E.2060108@intel.com> <457E610D.4060908@cj.jp.nec.com> <45872EAC.7050501@cj.jp.nec.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	netdev <netdev@vger.kernel.org>, mb@bu3sch.de
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	Shaw Vrana <shaw@vranix.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailserver.astro.rug.nl ([129.125.6.166]:39274 "EHLO
-	mailserver.astro.rug.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932312AbXAON2f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jan 2007 08:28:35 -0500
-To: Johannes Berg <johannes@sipsolutions.net>
-In-Reply-To: <1168860268.3344.0.camel@johannes.berg>
+Received: from TYO200.gate.nec.co.jp ([210.143.35.50]:59149 "EHLO
+	tyo200.gate.nec.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932136AbXAOJQV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jan 2007 04:16:21 -0500
+Received: from tyo201.gate.nec.co.jp ([10.7.69.201])
+	by tyo200.gate.nec.co.jp (8.13.8/8.13.4) with ESMTP id l0F9GIik026954
+	for <netdev@vger.kernel.org>; Mon, 15 Jan 2007 18:16:18 +0900 (JST)
+To: Auke Kok <auke-jan.h.kok@intel.com>
+In-Reply-To: <45872EAC.7050501@cj.jp.nec.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Johannes Berg schreef:
-> On Sat, 2007-01-13 at 18:17 +0100, Maarten Lankhorst wrote:
->   
->> Remove CONFIG_NET_WIRELESS
->> Nothing uses this, and it breaks the kernel build if a wireless device is used with a unsupported type of bus.
->> Verified this with a grep.
->>     
->
-> I don't really care about the symbol and I'm in favour of removing it if
-> it is useless, but I don't understand the rationale. How does enabling
-> this cause anything to fail?
->
-> johannes
->   
-Enabling this doesn't cause anything to fail, but my wireless router
-doesn't have a pci bus, but instead a native SSB, so CONFIG_NET_WIRELESS
-isn't selected. This in turn causes wext-common.o to not be built, so I
-get missing symbols and a build breakage. That's why I made
-wext-common.o depend on CONFIG_WIRELESS_EXT instead of
-CONFIG_NET_WIRELESS. Since nothing else uses CONFIG_NET_WIRELESS I
-decided to kill that symbol.
+Hi,
 
-maarten
+During the holiday season, I posted a patch that fixed this problem without
+using spinlocks nor disabling interrupts.
+  http://marc.theaimsgroup.com/?l=linux-netdev&m=116649413613845&w=2
+
+With this patch applied, I confirmed that the system doesn't panic.
+I think this patch can fix this problem.
+Does this patch have problems.
+
+I welcome any comments.
+
+--
+  Kenzo Iwami (k-iwami@cj.jp.nec.com)
