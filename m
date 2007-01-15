@@ -1,84 +1,62 @@
-From: Jay Cliburn <jacliburn@bellsouth.net>
-Subject: Re: [PATCH 2/4] atl1: Header files for Attansic L1 driver
-Date: Mon, 15 Jan 2007 13:21:17 -0600
-Message-ID: <45ABD42D.1060901@bellsouth.net>
-References: <20070111004137.GC2624@osprey.hogchain.net> <20070111092704.GB3141@infradead.org>
+From: Tino Keitel <tino.keitel@tikei.de>
+Subject: Re: [patch 0/6] sky2 driver update (v1.11)
+Date: Mon, 15 Jan 2007 20:12:11 +0100
+Message-ID: <20070115191211.GA11018@dose.home.local>
+References: <20061220210632.183204605@osdl.org> <459197B8.6010403@pobox.com> <20070101103644.02544c46@freekitty> <20070102191015.GA5758@dose.home.local> <20070113130329.GA9124@dose.home.local> <20070115102149.1ce12188@freekitty>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from imf25aec.mail.bellsouth.net ([205.152.59.73]:58348 "EHLO
-	imf25aec.mail.bellsouth.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751363AbXAOTVU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jan 2007 14:21:20 -0500
-To: Christoph Hellwig <hch@infradead.org>,
-	Jay Cliburn <jacliburn@bellsouth.net>, jeff@garzik.org,
-	shemminger@osdl.org, csnook@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, atl1-devel@lists.sourceforge.net
-In-Reply-To: <20070111092704.GB3141@infradead.org>
+Received: from eazy.amigager.de ([213.239.192.238]:52223 "EHLO
+	eazy.amigager.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751385AbXAOTMe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jan 2007 14:12:34 -0500
+To: Stephen Hemminger <shemminger@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20070115102149.1ce12188@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Christoph Hellwig wrote:
-> On Wed, Jan 10, 2007 at 06:41:37PM -0600, Jay Cliburn wrote:
-
->> +struct csum_param {
->> +	unsigned buf_len:14;
->> +	unsigned dma_int:1;
->> +	unsigned pkt_int:1;
->> +	u16 valan_tag;
->> +	unsigned eop:1;
->> +	/* command */
->> +	unsigned coalese:1;
->> +	unsigned ins_vlag:1;
->> +	unsigned custom_chksum:1;
->> +	unsigned segment:1;
->> +	unsigned ip_chksum:1;
->> +	unsigned tcp_chksum:1;
->> +	unsigned udp_chksum:1;
->> +	/* packet state */
->> +	unsigned vlan_tagged:1;
->> +	unsigned eth_type:1;
->> +	unsigned iphl:4;
->> +	unsigned:2;
->> +	unsigned payload_offset:8;
->> +	unsigned xsum_offset:8;
->> +} _ATL1_ATTRIB_PACK_;
+On Mon, Jan 15, 2007 at 10:21:49 -0800, Stephen Hemminger wrote:
+> On Sat, 13 Jan 2007 14:03:29 +0100
+> Tino Keitel <tino.keitel@tikei.de> wrote:
 > 
-> Bitfields should not be used for hardware datastructures ever.
-> Please convert this to explicit masking and shifting.
-
-
->> +/* formerly ATL1_WRITE_REG */
->> +static inline void atl1_write32(const struct atl1_hw *hw, int reg, u32 val)
->> +{
->> +        writel(val, hw->hw_addr + reg);
->> +}
->> +
->> +/* formerly ATL1_READ_REG */
->> +static inline u32 atl1_read32(const struct atl1_hw *hw, int reg)
->> +{
->> +        return readl(hw->hw_addr + reg);
->> +}
+> > On Tue, Jan 02, 2007 at 20:10:15 +0100, Tino Keitel wrote:
+> > 
+> > [...]
+> > 
+> > > Btw., I just built 2.6.20-rc3 with patches 4 and 5 and wake on LAN now
+> > > works. Thanks for your work.
+> > 
+> > Hi,
+> > 
+> > I had some failures during resume from suspend with 2.6.20-rc3 and
+> > -rc4. I enabled pm_trace and it looks like the sky2 driver is the
+> > culprit:
+> > 
+> > hash matches drivers/base/power/resume.c:56
+> > hash matches device 0000:01:00.0
+> > 
+> > $ lspci | grep 01:00.0
+> > 01:00.0 Ethernet controller: Marvell Technology Group Ltd. 88E8053
+> > PCI-E Gigabit Ethernet Controller (rev 22)
+> > 
+> > I removed the patches and had no resume failure so far.
+> > 
+> > Regards,
+> > Tino
+> > 
 > 
-> Just kill all these wrappers.  Also you probably want to convert to
-> pci_iomap + ioread*/iowrite*.
+> What kind of failures, did the system just not come up?
 
-Christoph et al.,
+Yes, screen stayed dark and machine was dead. However, it was hardly
+reproducable. I set up a suspend/resume loop for an hour without
+failures. Then, when I just wanted to suspend for a while, resume
+failed.
 
-I've incorporated all your comments except the two shown above.  I 
-killed the indicated atl1_write*/atl1_read* wrappers, but I'm not yet 
-familiar enough with pci_iomap/iowrite*/ioread* to make that particular 
-conversion, and I'm having trouble getting the bitfield struct converted 
-to shift/mask semantics (No matter how hard I try, I keep breaking the 
-transmit side of the adapter).
+> Did you have WOL enabled or not?
 
-I'd like to plead for relief on these two items and submit a new version 
-of the driver containing all your other comments.  I need help from a 
-more experienced netdev hacker, and in my mind, the best way to do that 
-is to get the driver in the kernel so more people can use it and 
-contribute changes and make improvements.
+I had WOL enabled.
 
-I welcome any comments on the rationality of this approach.
-
-Jay
+Regards,
+Tino
