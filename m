@@ -1,84 +1,78 @@
-From: Larry Finger <larry.finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Subject: Re: [PATCH V2] bcm43xx: Fix failure to deliver PCI-E interrupts
-Date: Sun, 14 Jan 2007 17:54:30 -0600
-Message-ID: <45AAC2B6.50902@lwfinger.net>
-References: <45a7ceb2.m02aaCgouBsadVk/%Larry.Finger@lwfinger.net>	<9b3e2dc20701121050p52e13d92r1ec78e1881bbed3@mail.gmail.com>	<45A7F501.9080202@docksud.com.ar>	<4a55afb80701121459q4f23083t6f92a7e3bc85ccb1@mail.gmail.com>
-	<4a55afb80701132228q2e264606mf8948a45507e59ea@mail.gmail.com>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: Re: Two Dual Core processors and NICS (not handling interrupts on
+ one CPU/assigning a Two Dual Core processors and NICS (not handling interrupts
+ on one CPU / assigning a CPU to a NIC)
+Date: Mon, 15 Jan 2007 08:52:05 -0800
+Message-ID: <45ABB135.1010202@intel.com>
+References: <dac45060701150115y5308f7b5ka44f2ea4ae304d4b@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-To: evan foss <evanfoss-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-In-Reply-To: <4a55afb80701132228q2e264606mf8948a45507e59ea-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
-List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Cc: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga03.intel.com ([143.182.124.21]:33908 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751018AbXAOQwG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Jan 2007 11:52:06 -0500
+To: Mark Ryden <markryde@gmail.com>
+In-Reply-To: <dac45060701150115y5308f7b5ka44f2ea4ae304d4b@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-evan foss wrote:
-> Results so far....
-> In a word Wow. It still doesn't work but I suspect that is could just
-> be my configuration. Power levels are not being reported correctly all
-> the time iwlist works but nothing else to my knowledge. I remember
-> there being talk of power level reporting patches. Is there anything I
-> can try adding. For the first time in a long time it does associate
-> with AP's but I can't dhcpcd eth1. I am using an access point next
-> door. Mine is down. I will test it with a good one at school on
-> Tuesday.
+Mark Ryden wrote:
+> Hello,
 > 
-> ####To recap I am on...
-> MFG: Compaq V3000 (V3019US)
-> CPU: AMD Turion 64 x2
-> Kernel: linux-2.6.18-gentoo-r2
-> 	I have SMP on and I am in 64 bit.
-> BCM Chip: BCM4311
-> BCM FW: V3 Sorry I don't recall exactly what version
 > 
-> ####Patches used
-> patch_2.6.18.1_fix_leds
-> patch_2.6.18.1_for_PCI-E
-> radio_hwenable_for_2.6.18
-
-To get signal levels reported correctly, you also need patch_2.6.18.1_signal_quality.
-
-> ####The following work
-> ifconfig eth1 up
-> iwconfig eth1 essid NAME channel #
-> kismet -c bcm43xx,eth1,bcm43xx
-> iwlist eth1 scan	<-the power levels are reported here
+> I have a machine with 2 dual core CPUs. This machine runs Fedora Core 6.
+> I have two Intel e1000 GigaBit network cards on this machine; I use 
+> bonding so
+> that the machine assigns the same IP address to both NICs ;
+> It seems to me that bonding is configured OK, bacuse when running:
+> "cat /proc/net/bonding/bond0"
+> I get:
 > 
-> ####The following don't work
-> iwconfig		<-the power levels are reported as always being 0
-> kismet			<-no power levels are reported
-> LED			<-always off (I have a slider switch on the front to turn radio on/off)
-
-This one needs watching. The LED has worked on previous computers.
-
-> dhcpcd eth1		<-low transmit power???
-
-Most likely. How far are you from the AP?
-
-> #####The following don't work but might be my fault (I will get back
-> to you later on these)
-> dhcpcd eth1
+> Ethernet Channel Bonding Driver: v3.0.3 (March 23, 2006)
 > 
-> #####example bad iwconfig power level reporting
-> eth1      IEEE 802.11b/g  ESSID:"linksys"  Nickname:"Broadcom 4311"
->           Mode:Managed  Frequency=2.437 GHz  Access Point: 00:16:B6:43:DE:C4
->           Bit Rate=1 Mb/s   Tx-Power=18 dBm
->           RTS thr:off   Fragment thr:off
->           Encryption key:off
->           Link Quality=0/100  Signal level=-256 dBm  Noise level=-256 dBm
->           Rx invalid nwid:0  Rx invalid crypt:0  Rx invalid frag:0
->           Tx excessive retries:0  Invalid misc:0   Missed beacon:0
+> Bonding Mode: load balancing (round-robin)
+> MII Status: up
+> MII Polling Interval (ms): 100
+> Up Delay (ms): 0
+> Down Delay (ms): 0
+> 
+> Slave Interface: eth0
+> MII Status: up
+> Link Failure Count: 1
+> Permanent HW addr: .....
+> 
+> Slave Interface: eth1
+> MII Status: up
+> Link Failure Count: 1
+> Permanent HW addr: ....
+> 
+> (And the Permanent HW addr is diffenet in these two entries).
+> 
+> I send a large amount of packets to this machine (more than 20,000 in
+> a second).
+> 
+> cat /proc/interrupts shops something like this:
+>                 CPU0       CPU1         CPU2         CPU3
+> 50:    3359337          0          0          0         PCI-MSI  eth0
+> 58:         49    3396136          0          0         PCI-MSI  eth1
+> 
+> CPU0 and CPU1 are of the first CPU as far as I understand ; so
+> this means as far as I understand that the second CPU (which has CPU3
+> and CPU4) does not handle
+> interrupts of the arrived packets; Can I somehow change it so the second
+> CPU will also handle network interrupts of receiving packets on the nic ?
+> 
+> Can I assign one CPU to  eth0 and the second CPU to eth1  ?
 
-The received signal and noise levels should be fixed by the patch listed above.
+you will most likely have better performance from the shared cache on the core 2 duo by 
+keeping it the way that it is right now - packets that need to transverse the bridge now 
+make the cpus happy because after receive the sending NIC already has the data in it's 
+cache. Moving one of the NICs over to cpu2/cpu3 would cause a cascade of cache misses 
+for every packet that passes across the two nics in the bridge.
 
-Larry
+Cheers,
+
+Auke
