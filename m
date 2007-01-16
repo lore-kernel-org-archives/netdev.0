@@ -1,48 +1,101 @@
-From: Ralf Baechle <ralf@linux-mips.org>
-Subject: Re: [PATCH 5/59] sysctl: rose remove unnecessary insert_at_head flag
-Date: Tue, 16 Jan 2007 17:36:51 +0000
-Message-ID: <20070116173651.GA9184@linux-mips.org>
-References: <m1ac0jc4no.fsf@ebiederm.dsl.xmission.com> <11689656191854-git-send-email-ebiederm@xmission.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 0/59] Cleanup sysctl
+Date: Tue, 16 Jan 2007 11:12:44 -0700
+Message-ID: <m164b6den7.fsf@ebiederm.dsl.xmission.com>
+References: <m1ac0jc4no.fsf@ebiederm.dsl.xmission.com>
+	<45AD02FF.605@zytor.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "<Andrew Morton" <akpm@osdl.org>, linux-kernel@vger.kernel.org,
-	containers@lists.osdl.org, netdev@vger.kernel.org,
-	xfs-masters@oss.sgi.com, xfs@oss.sgi.com,
-	linux-scsi@vger.kernel.org, James.Bottomley@SteelEye.com,
-	minyard@acm.org, openipmi-developer@lists.sourceforge.net,
-	tony.luck@intel.com, linux-mips@linux-mips.org,
-	schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
-	linux390@de.ibm.com, linux-390@vm.marist.edu, paulus@samba.org,
-	linuxppc-dev@ozlabs.org, lethal@linux-sh.org,
-	linuxsh-shmedia-dev@lists.sourceforge.net, ak@suse.de,
-	vojtech@suse.cz, clemens@ladisch.de, a.zummo@towertech.it,
-	rtc-linux@googlegroups.com, linux-parport@lists.infradead.org,
-	andrea@suse.de, tim@cyberelk.net, philb@gnu.org,
-	aharkes@cs.cmu.edu, coda@cs.cmu.edu,
-	codalist@TELEMANN.coda.cs.cmu.edu, aia21@cantab.net,
-	linux-ntfs-dev@lists.sourceforge.net, mark.fasheh@oracle.com,
-	kurt.hackel@oracle.
-Return-path: <linux-mips-bounce@linux-mips.org>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Content-Disposition: inline
-In-Reply-To: <11689656191854-git-send-email-ebiederm@xmission.com>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
+Cc: Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org,
+	Linux Containers <containers@lists.osdl.org>,
+	Tony Luck <tony.luck@intel.com>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:44980 "EHLO
+	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751623AbXAPSNs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jan 2007 13:13:48 -0500
+To: "H. Peter Anvin" <hpa@zytor.com>
+In-Reply-To: <45AD02FF.605@zytor.com> (H. Peter Anvin's message of "Tue, 16
+	Jan 2007 08:53:19 -0800")
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 16, 2007 at 09:39:10AM -0700, Eric W. Biederman wrote:
 
-Looks ok, for these:
+CC list trimmed.
 
-Subject: [PATCH 5/59] sysctl: rose remove unnecessary insert_at_head flag
-Subject: [PATCH 6/59] sysctl: netrom remove unnecessary insert_at_head flag
-Subject: [PATCH 11/59] sysctl: ax25 remove unnecessary insert_at_head flag
-Subject: [PATCH 30/59] sysctl: mips/au1000 Remove sys_sysctl support
-Subject: [PATCH 31/59] sysctl: C99 convert the ctl_tables in arch/mips/au1000/common/power.c
-Subject: [PATCH 32/59] sysctl: C99 convert arch/mips/lasat/sysctl.c and remove ABI breakage.
-Subject: [PATCH 43/59] sysctl: Remove sys_sysctl support from drivers/char/rtc.c
-Subject: [PATCH 55/59] sysctl: Remove insert_at_head from register_sysctl
+"H. Peter Anvin" <hpa@zytor.com> writes:
 
-Acked-by: Ralf Baechle <ralf@linux-mips.org>
+> Eric W. Biederman wrote:
+>>
+>> - Removal of sys_sysctl support where people had used conflicting sysctl
+>>   numbers. Trying to break glibc or other applications by changing the
+>>   ABI is not cool.  9 instances of this in the kernel seems a little
+>>   extreme.
+>>
+>
+> It would be highly advantageous if we could have a file that acts as a central
+> registry of architectural sysctl numbers *and have the numbers in the kernel
+> derived from there*.  As I've said before, I don't really think sys_sysctl is
+> any worse than ad hoc system calls (sys_mips and the like), but the real problem
+> is that there are architectural and non-archtectural numbers, and they're mixed
+> in all over the place.
 
-  Ralf
+Conflicting with generic sys_sysctl numbers is a problem.  Period.
+All of the conflicts were with the binary version of:
+/proc/sys/kernel or /proc/sys/dev/cdrom
+Which are respectively: 1 and 7/1.
+
+The conflicts were because people were simply not-trying.  I didn't
+look hard and scrutinize things I just stumbled on them while C99
+converting the tables.  So I could remove the stupid proc_dir_entry
+field from ctl_table.
+
+All you need for an architecture depending sys_sysctl is your own
+top level architectural number.  After that you get a unique path.
+It's easy.  If anyone had really cared these problems simply would
+not have happened because in most cases the conflicting sysctl
+were not exported to user space because they were masked, or
+similarly architecture entities like /proc/sys/kernel/ostype and
+/proc/sys/kernel/osrelease were masked.
+
+Currently I'm happy with the current maintenance situation if someone
+does not care to deal with the binary interface they don't have to.
+And we can just mark them CTL_UNNUMBERED in the table.  I would say
+that is the real problem with the entries I fixed, they didn't want
+to use the binary interface in the first place.
+
+> I think it would be fair to say that if they're not in <linux/sysctl.h> they're
+> not architectural, but that doesn't resolve the counterpositive (are there
+> sysctls in <linux/sysctl.h> which aren't architectural?  From the looks of it, I
+> would say yes.)  Non-architectural sysctl numbers should not be exported to
+> userspace, and should eventually be rejected by sys_sysctl.
+
+This last bit doesn't make much sense.  I believe you are saying all sysctl
+numbers should be per architecture.
+
+To your query about what the state of sys_sysctl is please go look
+there are only 79 instances of register_sysctl_table in the kernel.
+It's big but in an hour or two you can look at everything.  Or at least
+read my patchset.
+
+At this point there are no significant users of sysctl in the architecture
+code.  The only big user of sysctl is the network stack and it uses sysctl
+responsibly.  
+
+The biggest blunders in using sysctl happen in the per architecture code
+and it is very much because the people writing the code didn't even
+try to get the binary interface right.
+
+So I think making sysctl numbers per architecture is a hideous idea because
+that is not where the maintenance is happening, and instead it places a big
+burden on people who by the evidence don't care enough to get it right.
+
+I think a much better idea is to maintain the current situation and just
+insist that people use CTL_UNNUMBERED for their binary number when
+they don't care about the binary interface.  That is easy and it works.
+
+Personally I expect the binary interface to largely remain fixed with exactly
+the set of non-architectural numbers we have today with any new sysctl users
+not allocating a sysctl number.
+
+Eric
