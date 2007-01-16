@@ -1,7 +1,7 @@
 From: Nate Diller <nate@agami.com>
-Subject: [PATCH -mm 7/10][RFC] aio: make __blockdev_direct_IO use file_endio_t
+Subject: [PATCH -mm 8/10][RFC] aio: make direct_IO aops use file_endio_t
 Date: Mon, 15 Jan 2007 17:54:50 -0800
-Message-ID: <20070116015450.9764.99535.patchbomb.py@nate-64.agami.com>
+Message-ID: <20070116015450.9764.55919.patchbomb.py@nate-64.agami.com>
 References: <20070116015450.9764.37697.patchbomb.py@nate-64.agami.com>
 Cc: linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
 	netdev@vger.kernel.org, ocfs2-devel@oss.oracle.com,
@@ -20,508 +20,602 @@ In-Reply-To: <20070116015450.9764.37697.patchbomb.py@nate-64.agami.com>
 Sender: owner-linux-aio@kvack.org
 List-Id: netdev.vger.kernel.org
 
-This converts the internals of __blockdev_direct_IO in fs/direct-io.c to use
-a generic endio function, instead of directly calling aio_complete.  It also
-changes the semantics of dio_iodone to be more friendly to its only users,
-xfs and ocfs2.  This allows the caller to know how to release locks and tear
-down data structures on error.
-
-It also converts the _own_locking and _no_locking variants of
-blockdev_direct_IO to use a generic endio function.
+This converts the _locking variant of blockdev_direct_IO to use a generic
+endio function, and updates all the FS callsites.
 
 ---
 
- fs/direct-io.c              |   74 ++++++++++++++++++++++++++------------------
- fs/gfs2/ops_address.c       |    6 +--
- fs/ocfs2/aops.c             |   15 ++------
- fs/ocfs2/aops.h             |    8 ----
- fs/ocfs2/file.c             |   18 ++++------
- fs/ocfs2/inode.h            |    2 -
- fs/xfs/linux-2.6/xfs_aops.c |   33 +++++++------------
- include/linux/fs.h          |   57 ++++++++++++++++++---------------
- 8 files changed, 104 insertions(+), 109 deletions(-)
+ Documentation/filesystems/Locking |    5 +++--
+ Documentation/filesystems/vfs.txt |    5 +++--
+ fs/block_dev.c                    |    9 ++++-----
+ fs/ext2/inode.c                   |   12 +++++-------
+ fs/ext3/inode.c                   |   11 +++++------
+ fs/ext4/inode.c                   |   11 +++++------
+ fs/fat/inode.c                    |   12 ++++++------
+ fs/gfs2/ops_address.c             |    8 ++++----
+ fs/hfs/inode.c                    |   13 ++++++-------
+ fs/hfsplus/inode.c                |   13 ++++++-------
+ fs/jfs/inode.c                    |   12 +++++-------
+ fs/nfs/direct.c                   |    8 +++++---
+ fs/ocfs2/aops.c                   |    9 +++++----
+ fs/reiserfs/inode.c               |   13 +++++--------
+ fs/xfs/linux-2.6/xfs_aops.c       |   11 ++++++-----
+ fs/xfs/linux-2.6/xfs_lrw.c        |    4 ++--
+ include/linux/fs.h                |   28 +++++++++++++---------------
+ include/linux/nfs_fs.h            |    4 ++--
+ mm/filemap.c                      |   34 ++++++++++++++++++----------------
+ 19 files changed, 108 insertions(+), 114 deletions(-)
 
 ---
 
-diff -urpN -X dontdiff a/fs/direct-io.c b/fs/direct-io.c
---- a/fs/direct-io.c	2007-01-12 14:53:48.000000000 -0800
-+++ b/fs/direct-io.c	2007-01-12 15:06:44.000000000 -0800
-@@ -67,7 +67,7 @@ struct dio {
- 	struct bio *bio;		/* bio under assembly */
- 	struct inode *inode;
- 	int rw;
--	loff_t i_size;			/* i_size when submitted */
-+	unsigned max_to_read;		/* (i_size when submitted) - offset */
- 	int lock_type;			/* doesn't change */
- 	unsigned blkbits;		/* doesn't change */
- 	unsigned blkfactor;		/* When we're using an alignment which
-@@ -89,6 +89,7 @@ struct dio {
- 	int reap_counter;		/* rate limit reaping */
- 	get_block_t *get_block;		/* block mapping function */
- 	dio_iodone_t *end_io;		/* IO completion function */
-+	void *destructor_data;		/* private data for completion fn */
- 	sector_t final_block_in_bio;	/* current final block in bio + 1 */
- 	sector_t next_block_for_io;	/* next block to be put under IO,
- 					   in dio_blocks units */
-@@ -127,7 +128,8 @@ struct dio {
- 	struct task_struct *waiter;	/* waiting task (NULL if none) */
+diff -urpN -X dontdiff a/Documentation/filesystems/Locking b/Documentation/filesystems/Locking
+--- a/Documentation/filesystems/Locking	2007-01-12 20:26:06.000000000 -0800
++++ b/Documentation/filesystems/Locking	2007-01-12 20:42:37.000000000 -0800
+@@ -169,8 +169,9 @@ prototypes:
+ 	sector_t (*bmap)(struct address_space *, sector_t);
+ 	int (*invalidatepage) (struct page *, unsigned long);
+ 	int (*releasepage) (struct page *, int);
+-	int (*direct_IO)(int, struct kiocb *, const struct iovec *iov,
+-			loff_t offset, unsigned long nr_segs);
++	int (*direct_IO)(int, struct file *, const struct iovec *iov,
++			loff_t offset, unsigned long nr_segs,
++			file_endio_t *endio, void *endio_data);
+ 	int (*launder_page) (struct page *);
  
- 	/* AIO related stuff */
--	struct kiocb *iocb;		/* kiocb */
-+	file_endio_t *file_endio;	/* aio completion function */
-+	void *endio_data;		/* private data for aio completion */
- 	int is_async;			/* is IO async ? */
- 	int io_error;			/* IO error in completion path */
- 	ssize_t result;                 /* IO result */
-@@ -222,7 +224,7 @@ static struct page *dio_get_page(struct 
-  * filesystems can use it to hold additional state between get_block calls and
-  * dio_complete.
-  */
--static int dio_complete(struct dio *dio, loff_t offset, int ret)
-+static int dio_complete(struct dio *dio, int ret)
- {
- 	/*
- 	 * AIO submission can race with bio completion to get here while
-@@ -232,25 +234,21 @@ static int dio_complete(struct dio *dio,
- 	 */
- 	if (ret == -EIOCBQUEUED)
- 		ret = 0;
-+	if (ret == 0)
-+		ret = dio->page_errors;
-+	if (ret == 0)
-+		ret = dio->io_error;
- 
- 	if (dio->result) {
- 		/* Check for short read case */
--		if ((dio->rw == READ) && ((offset + dio->result) > dio->i_size))
--			dio->result = dio->i_size - offset;
-+		if ((dio->rw == READ) && (dio->result > dio->max_to_read))
-+			dio->result = dio->max_to_read;
- 	}
- 
--	if (dio->end_io && dio->result)
--		dio->end_io(dio->iocb, offset, dio->result,
--			    dio->map_bh.b_private);
- 	if (dio->lock_type == DIO_LOCKING)
- 		/* lockdep: non-owner release */
- 		up_read_non_owner(&dio->inode->i_alloc_sem);
- 
--	if (ret == 0)
--		ret = dio->page_errors;
--	if (ret == 0)
--		ret = dio->io_error;
--
- 	return ret;
+ locking rules:
+diff -urpN -X dontdiff a/Documentation/filesystems/vfs.txt b/Documentation/filesystems/vfs.txt
+--- a/Documentation/filesystems/vfs.txt	2007-01-12 20:26:06.000000000 -0800
++++ b/Documentation/filesystems/vfs.txt	2007-01-12 20:42:37.000000000 -0800
+@@ -537,8 +537,9 @@ struct address_space_operations {
+ 	sector_t (*bmap)(struct address_space *, sector_t);
+ 	int (*invalidatepage) (struct page *, unsigned long);
+ 	int (*releasepage) (struct page *, int);
+-	ssize_t (*direct_IO)(int, struct kiocb *, const struct iovec *iov,
+-			loff_t offset, unsigned long nr_segs);
++	ssize_t (*direct_IO)(int, struct file *, const struct iovec *iov,
++			loff_t offset, unsigned long nr_segs,
++			file_endio_t *endio, void *endio_data);
+ 	struct page* (*get_xip_page)(struct address_space *, sector_t,
+ 			int);
+ 	/* migrate the contents of a page to the specified target */
+diff -urpN -X dontdiff a/fs/block_dev.c b/fs/block_dev.c
+--- a/fs/block_dev.c	2007-01-12 20:29:02.000000000 -0800
++++ b/fs/block_dev.c	2007-01-12 20:42:37.000000000 -0800
+@@ -222,10 +222,11 @@ static void blk_unget_page(struct page *
  }
  
-@@ -277,8 +275,11 @@ static int dio_bio_end_aio(struct bio *b
- 	spin_unlock_irqrestore(&dio->bio_lock, flags);
+ static ssize_t
+-blkdev_direct_IO(int rw, struct kiocb *iocb, const struct iovec *iov,
+-		 loff_t pos, unsigned long nr_segs)
++blkdev_direct_IO(int rw, struct file *file, const struct iovec *iov,
++		 loff_t pos, unsigned long nr_segs, file_endio_t *endio,
++		 void *endio_data)
+ {
+-	struct inode *inode = iocb->ki_filp->f_mapping->host;
++	struct inode *inode = file->f_mapping->host;
+ 	unsigned blkbits = blksize_bits(bdev_hardsect_size(I_BDEV(inode)));
+ 	unsigned blocksize_mask = (1 << blkbits) - 1;
+ 	unsigned long seg = 0;	/* iov segment iterator */
+@@ -239,8 +240,6 @@ blkdev_direct_IO(int rw, struct kiocb *i
+ 	loff_t size;		/* size of block device */
+ 	struct bio *bio;
+ 	struct bdev_aio stack_io, *io;
+-	file_endio_t *endio = aio_complete;
+-	void *endio_data = iocb;
+ 	struct page *page;
+ 	struct pvec pvec;
  
- 	if (remaining == 0) {
--		int err = dio_complete(dio, dio->iocb->ki_pos, 0);
--		aio_complete(dio->iocb, dio->result, err);
-+		int err = dio_complete(dio, 0);
-+		if (dio->end_io)
-+			dio->end_io(dio->destructor_data, dio->result,
-+				    dio->map_bh.b_private);
-+		dio->file_endio(dio->endio_data, dio->result, err);
- 		kfree(dio);
+diff -urpN -X dontdiff a/fs/ext2/inode.c b/fs/ext2/inode.c
+--- a/fs/ext2/inode.c	2007-01-12 20:26:06.000000000 -0800
++++ b/fs/ext2/inode.c	2007-01-12 20:42:37.000000000 -0800
+@@ -752,14 +752,12 @@ static sector_t ext2_bmap(struct address
+ }
+ 
+ static ssize_t
+-ext2_direct_IO(int rw, struct kiocb *iocb, const struct iovec *iov,
+-			loff_t offset, unsigned long nr_segs)
++ext2_direct_IO(int rw, struct file *file, const struct iovec *iov,
++	       loff_t offset, unsigned long nr_segs, file_endio_t *endio,
++	       void *endio_data)
+ {
+-	struct file *file = iocb->ki_filp;
+-	struct inode *inode = file->f_mapping->host;
+-
+-	return blockdev_direct_IO(rw, iocb, inode, inode->i_sb->s_bdev, iov,
+-				offset, nr_segs, ext2_get_block, NULL);
++	return blockdev_direct_IO(rw, file, iov, offset, nr_segs,
++				  ext2_get_block, endio, endio_data);
+ }
+ 
+ static int
+diff -urpN -X dontdiff a/fs/ext3/inode.c b/fs/ext3/inode.c
+--- a/fs/ext3/inode.c	2007-01-12 20:26:06.000000000 -0800
++++ b/fs/ext3/inode.c	2007-01-12 20:42:37.000000000 -0800
+@@ -1681,11 +1681,11 @@ static int ext3_releasepage(struct page 
+  * If the O_DIRECT write is intantiating holes inside i_size and the machine
+  * crashes then stale disk data _may_ be exposed inside the file.
+  */
+-static ssize_t ext3_direct_IO(int rw, struct kiocb *iocb,
++static ssize_t ext3_direct_IO(int rw, struct file *file,
+ 			const struct iovec *iov, loff_t offset,
+-			unsigned long nr_segs)
++			unsigned long nr_segs, file_endio_t *endio,
++			void *endio_data)
+ {
+-	struct file *file = iocb->ki_filp;
+ 	struct inode *inode = file->f_mapping->host;
+ 	struct ext3_inode_info *ei = EXT3_I(inode);
+ 	handle_t *handle = NULL;
+@@ -1710,9 +1710,8 @@ static ssize_t ext3_direct_IO(int rw, st
+ 		}
  	}
  
-@@ -944,10 +945,11 @@ out:
-  * Releases both i_mutex and i_alloc_sem
-  */
- static ssize_t
--direct_io_worker(int rw, struct kiocb *iocb, struct inode *inode, 
-+direct_io_worker(int rw, struct file *file, struct inode *inode, 
- 	const struct iovec *iov, loff_t offset, unsigned long nr_segs, 
- 	unsigned blkbits, get_block_t get_block, dio_iodone_t end_io,
--	struct dio *dio)
-+	void *destructor_data, struct dio *dio, file_endio_t *file_endio,
-+	void *endio_data)
- {
- 	unsigned long user_addr; 
- 	unsigned long flags;
-@@ -971,6 +973,7 @@ direct_io_worker(int rw, struct kiocb *i
- 	dio->reap_counter = 0;
- 	dio->get_block = get_block;
- 	dio->end_io = end_io;
-+	dio->destructor_data = destructor_data;
- 	dio->map_bh.b_private = NULL;
- 	dio->final_block_in_bio = -1;
- 	dio->next_block_for_io = -1;
-@@ -978,8 +981,9 @@ direct_io_worker(int rw, struct kiocb *i
- 	dio->page_errors = 0;
- 	dio->io_error = 0;
- 	dio->result = 0;
--	dio->iocb = iocb;
--	dio->i_size = i_size_read(inode);
-+	dio->file_endio = file_endio;
-+	dio->endio_data = endio_data;
-+	dio->max_to_read = i_size_read(inode) - offset;
+-	ret = blockdev_direct_IO(rw, iocb, inode, inode->i_sb->s_bdev, iov,
+-				 offset, nr_segs,
+-				 ext3_get_block, NULL);
++	ret = blockdev_direct_IO(rw, file, iov, offset, nr_segs,
++				 ext3_get_block, endio, endio_data);
  
- 	spin_lock_init(&dio->bio_lock);
- 	dio->refcount = 1;
-@@ -1103,9 +1107,18 @@ direct_io_worker(int rw, struct kiocb *i
- 	spin_unlock_irqrestore(&dio->bio_lock, flags);
- 	BUG_ON(!dio->is_async && ret2 != 0);
- 	if (ret2 == 0) {
--		ret = dio_complete(dio, offset, ret);
--		if (ret == 0)
-+		ret = dio_complete(dio, ret);
-+		if (ret == 0) {
-+			/*
-+			 * we guarantee to call end_io unless we return a
-+			 * real error, ie. not -EIOCBQUEUED, which can never
-+			 * happen here, so call it unconditionally
-+			 */
-+			if (dio->end_io)
-+				dio->end_io(dio->destructor_data, dio->result,
-+					    dio->map_bh.b_private);
- 			ret = dio->result;	/* bytes transferred */
-+		}
- 		kfree(dio);
- 	} else
- 		BUG_ON(ret != -EIOCBQUEUED);
-@@ -1135,14 +1148,16 @@ direct_io_worker(int rw, struct kiocb *i
-  * Additional i_alloc_sem locking requirements described inline below.
+ 	/*
+ 	 * Reacquire the handle: ext3_get_block() can restart the transaction
+diff -urpN -X dontdiff a/fs/ext4/inode.c b/fs/ext4/inode.c
+--- a/fs/ext4/inode.c	2007-01-12 20:26:06.000000000 -0800
++++ b/fs/ext4/inode.c	2007-01-12 20:42:37.000000000 -0800
+@@ -1680,11 +1680,11 @@ static int ext4_releasepage(struct page 
+  * If the O_DIRECT write is intantiating holes inside i_size and the machine
+  * crashes then stale disk data _may_ be exposed inside the file.
   */
- ssize_t
--__blockdev_direct_IO(int rw, struct kiocb *iocb, struct inode *inode,
--	struct block_device *bdev, const struct iovec *iov, loff_t offset, 
--	unsigned long nr_segs, get_block_t get_block, dio_iodone_t end_io,
--	int dio_lock_type)
-+__blockdev_direct_IO(int rw, struct file *file, const struct iovec *iov,
-+	loff_t offset, unsigned long nr_segs, get_block_t get_block,
-+	dio_iodone_t end_io, void *destructor_data, file_endio_t *file_endio,
-+	void *endio_data, int dio_lock_type)
+-static ssize_t ext4_direct_IO(int rw, struct kiocb *iocb,
++static ssize_t ext4_direct_IO(int rw, struct file *file,
+ 			const struct iovec *iov, loff_t offset,
+-			unsigned long nr_segs)
++			unsigned long nr_segs, file_endio_t *endio,
++			void *endio_data)
  {
- 	int seg;
- 	size_t size;
- 	unsigned long addr;
-+	struct inode *inode = file->f_mapping->host;
-+	struct block_device *bdev = inode->i_sb->s_bdev;
- 	unsigned blkbits = inode->i_blkbits;
- 	unsigned bdev_blkbits = 0;
- 	unsigned blocksize_mask = (1 << blkbits) - 1;
-@@ -1202,7 +1217,7 @@ __blockdev_direct_IO(int rw, struct kioc
- 		if (rw == READ && end > offset) {
- 			struct address_space *mapping;
+-	struct file *file = iocb->ki_filp;
+ 	struct inode *inode = file->f_mapping->host;
+ 	struct ext4_inode_info *ei = EXT4_I(inode);
+ 	handle_t *handle = NULL;
+@@ -1709,9 +1709,8 @@ static ssize_t ext4_direct_IO(int rw, st
+ 		}
+ 	}
  
--			mapping = iocb->ki_filp->f_mapping;
-+			mapping = file->f_mapping;
- 			if (dio_lock_type != DIO_OWN_LOCKING) {
- 				mutex_lock(&inode->i_mutex);
- 				release_i_mutex = 1;
-@@ -1232,11 +1247,12 @@ __blockdev_direct_IO(int rw, struct kioc
- 	 * even for AIO, we need to wait for i/o to complete before
- 	 * returning in this case.
+-	ret = blockdev_direct_IO(rw, iocb, inode, inode->i_sb->s_bdev, iov,
+-				 offset, nr_segs,
+-				 ext4_get_block, NULL);
++	ret = blockdev_direct_IO(rw, file, iov, offset, nr_segs,
++				 ext4_get_block, endio, endio_data);
+ 
+ 	/*
+ 	 * Reacquire the handle: ext4_get_block() can restart the transaction
+diff -urpN -X dontdiff a/fs/fat/inode.c b/fs/fat/inode.c
+--- a/fs/fat/inode.c	2007-01-12 20:26:06.000000000 -0800
++++ b/fs/fat/inode.c	2007-01-12 20:42:37.000000000 -0800
+@@ -159,11 +159,11 @@ static int fat_commit_write(struct file 
+ 	return err;
+ }
+ 
+-static ssize_t fat_direct_IO(int rw, struct kiocb *iocb,
+-			     const struct iovec *iov,
+-			     loff_t offset, unsigned long nr_segs)
++static ssize_t fat_direct_IO(int rw, struct file *file,
++			     const struct iovec *iov, loff_t offset,
++			     unsigned long nr_segs, file_endio_t *endio,
++			     void *endio_data)
+ {
+-	struct file *file = iocb->ki_filp;
+ 	struct inode *inode = file->f_mapping->host;
+ 
+ 	if (rw == WRITE) {
+@@ -183,8 +183,8 @@ static ssize_t fat_direct_IO(int rw, str
+ 	 * FAT need to use the DIO_LOCKING for avoiding the race
+ 	 * condition of fat_get_block() and ->truncate().
  	 */
--	dio->is_async = !is_sync_kiocb(iocb) && !((rw & WRITE) &&
-+	dio->is_async = file_endio && !((rw & WRITE) &&
- 		(end > i_size_read(inode)));
+-	return blockdev_direct_IO(rw, iocb, inode, inode->i_sb->s_bdev, iov,
+-				  offset, nr_segs, fat_get_block, NULL);
++	return blockdev_direct_IO(rw, file, iov, offset, nr_segs,
++				  fat_get_block, endio, endio_data);
+ }
  
--	retval = direct_io_worker(rw, iocb, inode, iov, offset,
--				nr_segs, blkbits, get_block, end_io, dio);
-+	retval = direct_io_worker(rw, file, inode, iov, offset,
-+				nr_segs, blkbits, get_block, end_io,
-+				destructor_data, dio, file_endio, endio_data);
- 
- 	if (rw == READ && dio_lock_type == DIO_LOCKING)
- 		release_i_mutex = 0;
+ static sector_t _fat_bmap(struct address_space *mapping, sector_t block)
 diff -urpN -X dontdiff a/fs/gfs2/ops_address.c b/fs/gfs2/ops_address.c
---- a/fs/gfs2/ops_address.c	2007-01-12 11:19:45.000000000 -0800
-+++ b/fs/gfs2/ops_address.c	2007-01-12 15:06:44.000000000 -0800
-@@ -628,9 +628,9 @@ static ssize_t gfs2_direct_IO(int rw, st
- 	if (rv != 1)
- 		goto out; /* dio not valid, fall back to buffered i/o */
+--- a/fs/gfs2/ops_address.c	2007-01-12 20:57:42.000000000 -0800
++++ b/fs/gfs2/ops_address.c	2007-01-12 20:42:37.000000000 -0800
+@@ -602,11 +602,11 @@ static int gfs2_ok_for_dio(struct gfs2_i
  
--	rv = blockdev_direct_IO_no_locking(rw, iocb, inode, inode->i_sb->s_bdev,
--					   iov, offset, nr_segs,
--					   gfs2_get_block_direct, NULL);
-+	rv = blockdev_direct_IO_no_locking(rw, file, iov, offset, nr_segs,
-+					   gfs2_get_block_direct, NULL, NULL,
-+					   aio_complete, iocb);
+ 
+ 
+-static ssize_t gfs2_direct_IO(int rw, struct kiocb *iocb,
++static ssize_t gfs2_direct_IO(int rw, struct file *file,
+ 			      const struct iovec *iov, loff_t offset,
+-			      unsigned long nr_segs)
++			      unsigned long nr_segs, file_endio_t *endio,
++			      void *endio_data)
+ {
+-	struct file *file = iocb->ki_filp;
+ 	struct inode *inode = file->f_mapping->host;
+ 	struct gfs2_inode *ip = GFS2_I(inode);
+ 	struct gfs2_holder gh;
+@@ -630,7 +630,7 @@ static ssize_t gfs2_direct_IO(int rw, st
+ 
+ 	rv = blockdev_direct_IO_no_locking(rw, file, iov, offset, nr_segs,
+ 					   gfs2_get_block_direct, NULL, NULL,
+-					   aio_complete, iocb);
++					   endio, endio_data);
  out:
  	gfs2_glock_dq_m(1, &gh);
  	gfs2_holder_uninit(&gh);
-diff -urpN -X dontdiff a/fs/ocfs2/aops.c b/fs/ocfs2/aops.c
---- a/fs/ocfs2/aops.c	2007-01-12 11:19:45.000000000 -0800
-+++ b/fs/ocfs2/aops.c	2007-01-12 15:06:44.000000000 -0800
-@@ -600,16 +600,12 @@ bail:
-  * i_alloc_sem, we use the rw_lock DLM lock to protect io on one node from
-  * truncation on another.
-  */
--static void ocfs2_dio_end_io(struct kiocb *iocb,
--			     loff_t offset,
-+static void ocfs2_dio_end_io(void *destructor_data,
- 			     ssize_t bytes,
- 			     void *private)
- {
--	struct inode *inode = iocb->ki_filp->f_path.dentry->d_inode;
-+	struct inode *inode = destructor_data;
- 
--	/* this io's submitter should not have unlocked this before we could */
--	BUG_ON(!ocfs2_iocb_is_rw_locked(iocb));
--	ocfs2_iocb_clear_rw_locked(iocb);
- 	up_read(&inode->i_alloc_sem);
- 	ocfs2_rw_unlock(inode, 0);
+diff -urpN -X dontdiff a/fs/hfs/inode.c b/fs/hfs/inode.c
+--- a/fs/hfs/inode.c	2007-01-12 20:26:06.000000000 -0800
++++ b/fs/hfs/inode.c	2007-01-12 20:42:37.000000000 -0800
+@@ -98,14 +98,13 @@ static int hfs_releasepage(struct page *
+ 	return res ? try_to_free_buffers(page) : 0;
  }
-@@ -644,11 +640,10 @@ static ssize_t ocfs2_direct_IO(int rw,
- 	}
- 	ocfs2_data_unlock(inode, 0);
  
--	ret = blockdev_direct_IO_no_locking(rw, iocb, inode,
--					    inode->i_sb->s_bdev, iov, offset,
--					    nr_segs, 
-+	ret = blockdev_direct_IO_no_locking(rw, file, iov, offset, nr_segs,
+-static ssize_t hfs_direct_IO(int rw, struct kiocb *iocb,
+-		const struct iovec *iov, loff_t offset, unsigned long nr_segs)
++static ssize_t hfs_direct_IO(int rw, struct file *file,
++			     const struct iovec *iov, loff_t offset,
++			     unsigned long nr_segs, file_endio_t *endio,
++			     void *endio_data)
+ {
+-	struct file *file = iocb->ki_filp;
+-	struct inode *inode = file->f_path.dentry->d_inode->i_mapping->host;
+-
+-	return blockdev_direct_IO(rw, iocb, inode, inode->i_sb->s_bdev, iov,
+-				  offset, nr_segs, hfs_get_block, NULL);
++	return blockdev_direct_IO(rw, file, iov, offset, nr_segs,
++				  hfs_get_block, endio, endio_data);
+ }
+ 
+ static int hfs_writepages(struct address_space *mapping,
+diff -urpN -X dontdiff a/fs/hfsplus/inode.c b/fs/hfsplus/inode.c
+--- a/fs/hfsplus/inode.c	2007-01-12 20:26:06.000000000 -0800
++++ b/fs/hfsplus/inode.c	2007-01-12 20:42:37.000000000 -0800
+@@ -93,14 +93,13 @@ static int hfsplus_releasepage(struct pa
+ 	return res ? try_to_free_buffers(page) : 0;
+ }
+ 
+-static ssize_t hfsplus_direct_IO(int rw, struct kiocb *iocb,
+-		const struct iovec *iov, loff_t offset, unsigned long nr_segs)
++static ssize_t hfsplus_direct_IO(int rw, struct file *file,
++				 const struct iovec *iov,
++				 loff_t offset, unsigned long nr_segs,
++				 file_endio_t *endio, void *endio_data)
+ {
+-	struct file *file = iocb->ki_filp;
+-	struct inode *inode = file->f_path.dentry->d_inode->i_mapping->host;
+-
+-	return blockdev_direct_IO(rw, iocb, inode, inode->i_sb->s_bdev, iov,
+-				  offset, nr_segs, hfsplus_get_block, NULL);
++	return blockdev_direct_IO(rw, file, iov, offset, nr_segs,
++				  hfsplus_get_block, endio, endio_data);
+ }
+ 
+ static int hfsplus_writepages(struct address_space *mapping,
+diff -urpN -X dontdiff a/fs/jfs/inode.c b/fs/jfs/inode.c
+--- a/fs/jfs/inode.c	2007-01-12 20:26:06.000000000 -0800
++++ b/fs/jfs/inode.c	2007-01-12 20:42:37.000000000 -0800
+@@ -287,14 +287,12 @@ static sector_t jfs_bmap(struct address_
+ 	return generic_block_bmap(mapping, block, jfs_get_block);
+ }
+ 
+-static ssize_t jfs_direct_IO(int rw, struct kiocb *iocb,
+-	const struct iovec *iov, loff_t offset, unsigned long nr_segs)
++static ssize_t jfs_direct_IO(int rw, struct file *file,
++		const struct iovec *iov, loff_t offset, unsigned long nr_segs,
++		file_endio_t *endio, void *endio_data)
+ {
+-	struct file *file = iocb->ki_filp;
+-	struct inode *inode = file->f_mapping->host;
+-
+-	return blockdev_direct_IO(rw, iocb, inode, inode->i_sb->s_bdev, iov,
+-				offset, nr_segs, jfs_get_block, NULL);
++	return blockdev_direct_IO(rw, file, iov, offset, nr_segs,
++				  jfs_get_block, endio, endio_data);
+ }
+ 
+ const struct address_space_operations jfs_aops = {
+diff -urpN -X dontdiff a/fs/nfs/direct.c b/fs/nfs/direct.c
+--- a/fs/nfs/direct.c	2007-01-12 20:29:14.000000000 -0800
++++ b/fs/nfs/direct.c	2007-01-12 20:55:00.000000000 -0800
+@@ -104,7 +104,7 @@ static inline int put_dreq(struct nfs_di
+ /**
+  * nfs_direct_IO - NFS address space operation for direct I/O
+  * @rw: direction (read or write)
+- * @iocb: target I/O control block
++ * @file: target file
+  * @iov: array of vectors that define I/O buffer
+  * @pos: offset in file to begin the operation
+  * @nr_segs: size of iovec array
+@@ -114,10 +114,12 @@ static inline int put_dreq(struct nfs_di
+  * read and write requests before the VFS gets them, so this method
+  * should never be called.
+  */
+-ssize_t nfs_direct_IO(int rw, struct kiocb *iocb, const struct iovec *iov, loff_t pos, unsigned long nr_segs)
++ssize_t nfs_direct_IO(int rw, struct file *file, const struct iovec *iov,
++		      loff_t pos, unsigned long nr_segs,
++		      file_endio_t *endio, void *endio_data)
+ {
+ 	dprintk("NFS: nfs_direct_IO (%s) off/no(%Ld/%lu) EINVAL\n",
+-			iocb->ki_filp->f_path.dentry->d_name.name,
++			file->f_path.dentry->d_name.name,
+ 			(long long) pos, nr_segs);
+ 
+ 	return -EINVAL;
+diff -urpN -X dontdiff a/fs/ocfs2/aops.c b/fs/ocfs2/aops.c
+--- a/fs/ocfs2/aops.c	2007-01-12 20:57:42.000000000 -0800
++++ b/fs/ocfs2/aops.c	2007-01-12 20:42:37.000000000 -0800
+@@ -611,12 +611,13 @@ static void ocfs2_dio_end_io(void *destr
+ }
+ 
+ static ssize_t ocfs2_direct_IO(int rw,
+-			       struct kiocb *iocb,
++			       struct file *file,
+ 			       const struct iovec *iov,
+ 			       loff_t offset,
+-			       unsigned long nr_segs)
++			       unsigned long nr_segs,
++			       file_endio_t *endio,
++			       void *endio_data)
+ {
+-	struct file *file = iocb->ki_filp;
+ 	struct inode *inode = file->f_path.dentry->d_inode->i_mapping->host;
+ 	int ret;
+ 
+@@ -643,7 +644,7 @@ static ssize_t ocfs2_direct_IO(int rw,
+ 	ret = blockdev_direct_IO_no_locking(rw, file, iov, offset, nr_segs,
  					    ocfs2_direct_IO_get_blocks,
--					    ocfs2_dio_end_io);
-+					    ocfs2_dio_end_io, inode,
-+					    aio_complete, iocb);
+ 					    ocfs2_dio_end_io, inode,
+-					    aio_complete, iocb);
++					    endio, endio_data);
  out:
  	mlog_exit(ret);
  	return ret;
-diff -urpN -X dontdiff a/fs/ocfs2/aops.h b/fs/ocfs2/aops.h
---- a/fs/ocfs2/aops.h	2007-01-12 11:18:52.000000000 -0800
-+++ b/fs/ocfs2/aops.h	2007-01-12 15:06:44.000000000 -0800
-@@ -30,12 +30,4 @@ handle_t *ocfs2_start_walk_page_trans(st
- 							 unsigned from,
- 							 unsigned to);
+diff -urpN -X dontdiff a/fs/reiserfs/inode.c b/fs/reiserfs/inode.c
+--- a/fs/reiserfs/inode.c	2007-01-12 20:26:06.000000000 -0800
++++ b/fs/reiserfs/inode.c	2007-01-12 20:42:37.000000000 -0800
+@@ -2888,16 +2888,13 @@ static int reiserfs_releasepage(struct p
  
--/* all ocfs2_dio_end_io()'s fault */
--#define ocfs2_iocb_is_rw_locked(iocb) \
--	test_bit(0, (unsigned long *)&iocb->private)
--#define ocfs2_iocb_set_rw_locked(iocb) \
--	set_bit(0, (unsigned long *)&iocb->private)
--#define ocfs2_iocb_clear_rw_locked(iocb) \
--	clear_bit(0, (unsigned long *)&iocb->private)
--
- #endif /* OCFS2_FILE_H */
-diff -urpN -X dontdiff a/fs/ocfs2/file.c b/fs/ocfs2/file.c
---- a/fs/ocfs2/file.c	2007-01-12 14:23:40.000000000 -0800
-+++ b/fs/ocfs2/file.c	2007-01-12 15:06:44.000000000 -0800
-@@ -1183,9 +1183,6 @@ static ssize_t ocfs2_file_aio_write(stru
- 		goto out;
- 	}
- 
--	/* communicate with ocfs2_dio_end_io */
--	ocfs2_iocb_set_rw_locked(iocb);
--
- 	ret = generic_file_aio_write_nolock(iocb, iov, nr_segs, iocb->ki_pos);
- 
- 	/* buffered aio wouldn't have proper lock coverage today */
-@@ -1196,12 +1193,13 @@ static ssize_t ocfs2_file_aio_write(stru
- 	 * function pointer which is called when o_direct io completes so that
- 	 * it can unlock our rw lock.  (it's the clustered equivalent of
- 	 * i_alloc_sem; protects truncate from racing with pending ios).
--	 * Unfortunately there are error cases which call end_io and others
--	 * that don't.  so we don't have to unlock the rw_lock if either an
--	 * async dio is going to do it in the future or an end_io after an
--	 * error has already done it.
-+	 *
-+	 * The direct_IO code guarantees that it will call end_io unless it
-+	 * encountered a real error, ie. not -EIOCBQUEUED, so we don't have
-+	 * to unlock the rw_lock if either an async dio is going to do it in
-+	 * the future or an end_io has already done it.
- 	 */
--	if (ret == -EIOCBQUEUED || !ocfs2_iocb_is_rw_locked(iocb)) {
-+	if (ret >= 0 || ret == -EIOCBQUEUED) {
- 		rw_level = -1;
- 		have_alloc_sem = 0;
- 	}
-@@ -1322,8 +1320,6 @@ static ssize_t ocfs2_file_aio_read(struc
- 			goto bail;
- 		}
- 		rw_level = 0;
--		/* communicate with ocfs2_dio_end_io */
--		ocfs2_iocb_set_rw_locked(iocb);
- 	}
- 
- 	/*
-@@ -1350,7 +1346,7 @@ static ssize_t ocfs2_file_aio_read(struc
- 	BUG_ON(ret == -EIOCBQUEUED && !(filp->f_flags & O_DIRECT));
- 
- 	/* see ocfs2_file_aio_write */
--	if (ret == -EIOCBQUEUED || !ocfs2_iocb_is_rw_locked(iocb)) {
-+	if (ret >= 0 || ret == -EIOCBQUEUED) {
- 		rw_level = -1;
- 		have_alloc_sem = 0;
- 	}
-diff -urpN -X dontdiff a/fs/ocfs2/inode.h b/fs/ocfs2/inode.h
---- a/fs/ocfs2/inode.h	2007-01-12 11:18:52.000000000 -0800
-+++ b/fs/ocfs2/inode.h	2007-01-12 15:06:44.000000000 -0800
-@@ -139,8 +139,6 @@ void ocfs2_refresh_inode(struct inode *i
- int ocfs2_mark_inode_dirty(handle_t *handle,
- 			   struct inode *inode,
- 			   struct buffer_head *bh);
--int ocfs2_aio_read(struct file *file, struct kiocb *req, struct iocb *iocb);
--int ocfs2_aio_write(struct file *file, struct kiocb *req, struct iocb *iocb);
- 
- void ocfs2_set_inode_flags(struct inode *inode);
- 
-diff -urpN -X dontdiff a/fs/xfs/linux-2.6/xfs_aops.c b/fs/xfs/linux-2.6/xfs_aops.c
---- a/fs/xfs/linux-2.6/xfs_aops.c	2007-01-12 11:19:47.000000000 -0800
-+++ b/fs/xfs/linux-2.6/xfs_aops.c	2007-01-12 15:06:44.000000000 -0800
-@@ -1332,12 +1332,11 @@ xfs_get_blocks_direct(
- 
- STATIC void
- xfs_end_io_direct(
--	struct kiocb	*iocb,
--	loff_t		offset,
-+	void		*destructor_data,
- 	ssize_t		size,
- 	void		*private)
+ /* We thank Mingming Cao for helping us understand in great detail what
+    to do in this section of the code. */
+-static ssize_t reiserfs_direct_IO(int rw, struct kiocb *iocb,
++static ssize_t reiserfs_direct_IO(int rw, struct file *file,
+ 				  const struct iovec *iov, loff_t offset,
+-				  unsigned long nr_segs)
++				  unsigned long nr_segs, file_endio_t *endio,
++				  void *endio_data)
  {
--	xfs_ioend_t	*ioend = iocb->private;
-+	xfs_ioend_t	*ioend = destructor_data;
- 
- 	/*
- 	 * Non-NULL private data means we need to issue a transaction to
-@@ -1352,19 +1351,11 @@ xfs_end_io_direct(
- 	 * go away.
- 	 */
- 	if (private && size > 0) {
--		ioend->io_offset = offset;
- 		ioend->io_size = size;
- 		xfs_finish_ioend(ioend);
- 	} else {
- 		xfs_destroy_ioend(ioend);
- 	}
+-	struct file *file = iocb->ki_filp;
+-	struct inode *inode = file->f_mapping->host;
 -
--	/*
--	 * blockdev_direct_IO can return an error even after the I/O
--	 * completion handler was called.  Thus we need to protect
--	 * against double-freeing.
--	 */
--	iocb->private = NULL;
+-	return blockdev_direct_IO(rw, iocb, inode, inode->i_sb->s_bdev, iov,
+-				  offset, nr_segs,
+-				  reiserfs_get_blocks_direct_io, NULL);
++	return blockdev_direct_IO(rw, file, iov, offset, nr_segs,
++			reiserfs_get_blocks_direct_io, endio, endio_data);
  }
  
+ int reiserfs_setattr(struct dentry *dentry, struct iattr *attr)
+diff -urpN -X dontdiff a/fs/xfs/linux-2.6/xfs_aops.c b/fs/xfs/linux-2.6/xfs_aops.c
+--- a/fs/xfs/linux-2.6/xfs_aops.c	2007-01-12 20:57:42.000000000 -0800
++++ b/fs/xfs/linux-2.6/xfs_aops.c	2007-01-12 20:42:38.000000000 -0800
+@@ -1361,12 +1361,13 @@ xfs_end_io_direct(
  STATIC ssize_t
-@@ -1379,6 +1370,7 @@ xfs_vm_direct_IO(
+ xfs_vm_direct_IO(
+ 	int			rw,
+-	struct kiocb		*iocb,
++	struct file		*file,
+ 	const struct iovec	*iov,
+ 	loff_t			offset,
+-	unsigned long		nr_segs)
++	unsigned long		nr_segs,
++	file_endio_t		*endio,
++	void			*endio_data)
+ {
+-	struct file	*file = iocb->ki_filp;
  	struct inode	*inode = file->f_mapping->host;
  	bhv_vnode_t	*vp = vn_from_inode(inode);
  	xfs_iomap_t	iomap;
-+	xfs_ioend_t	*ioend;
- 	int		maps = 1;
- 	int		error;
- 	ssize_t		ret;
-@@ -1387,24 +1379,25 @@ xfs_vm_direct_IO(
- 	if (error)
- 		return -error;
- 
--	iocb->private = xfs_alloc_ioend(inode, IOMAP_UNWRITTEN);
-+	ioend = xfs_alloc_ioend(inode, IOMAP_UNWRITTEN);
-+	ioend->io_offset = offset;
- 
- 	if (rw == WRITE) {
--		ret = blockdev_direct_IO_own_locking(rw, iocb, inode,
--			iomap.iomap_target->bt_bdev,
-+		ret = blockdev_direct_IO_own_locking(rw, file,
+@@ -1387,13 +1388,13 @@ xfs_vm_direct_IO(
  			iov, offset, nr_segs,
  			xfs_get_blocks_direct,
--			xfs_end_io_direct);
-+			xfs_end_io_direct, ioend,
-+			aio_complete, iocb);
+ 			xfs_end_io_direct, ioend,
+-			aio_complete, iocb);
++			endio, endio_data);
  	} else {
--		ret = blockdev_direct_IO_no_locking(rw, iocb, inode,
--			iomap.iomap_target->bt_bdev,
-+		ret = blockdev_direct_IO_no_locking(rw, file,
+ 		ret = blockdev_direct_IO_no_locking(rw, file,
  			iov, offset, nr_segs,
  			xfs_get_blocks_direct,
--			xfs_end_io_direct);
-+			xfs_end_io_direct, ioend,
-+			aio_complete, iocb);
+ 			xfs_end_io_direct, ioend,
+-			aio_complete, iocb);
++			endio, endio_data);
  	}
  
--	if (unlikely(ret != -EIOCBQUEUED && iocb->private))
--		xfs_destroy_ioend(iocb->private);
-+	if (unlikely(ret < 0 && ret != -EIOCBQUEUED))
-+		xfs_destroy_ioend(ioend);
- 	return ret;
- }
+ 	if (unlikely(ret < 0 && ret != -EIOCBQUEUED))
+diff -urpN -X dontdiff a/fs/xfs/linux-2.6/xfs_lrw.c b/fs/xfs/linux-2.6/xfs_lrw.c
+--- a/fs/xfs/linux-2.6/xfs_lrw.c	2007-01-12 20:26:07.000000000 -0800
++++ b/fs/xfs/linux-2.6/xfs_lrw.c	2007-01-12 20:42:38.000000000 -0800
+@@ -836,8 +836,8 @@ retry:
  
+  		xfs_rw_enter_trace(XFS_DIOWR_ENTER, io, (void *)iovp, segs,
+ 				*offset, ioflags);
+-		ret = generic_file_direct_write(iocb, iovp,
+-				&segs, pos, offset, count, ocount);
++		ret = generic_file_direct_write(file, iovp, &segs, pos,
++				offset, count, ocount, aio_complete, iocb);
+ 
+ 		/*
+ 		 * direct-io write to a hole: fall through to buffered I/O
 diff -urpN -X dontdiff a/include/linux/fs.h b/include/linux/fs.h
---- a/include/linux/fs.h	2007-01-12 14:53:48.000000000 -0800
-+++ b/include/linux/fs.h	2007-01-12 15:06:44.000000000 -0800
-@@ -306,8 +306,8 @@ extern void __init files_init(unsigned l
- struct buffer_head;
- typedef int (get_block_t)(struct inode *inode, sector_t iblock,
- 			struct buffer_head *bh_result, int create);
--typedef void (dio_iodone_t)(struct kiocb *iocb, loff_t offset,
--			ssize_t bytes, void *private);
-+typedef void (dio_iodone_t)(void *destructor_data, ssize_t bytes,
-+			void *private);
+--- a/include/linux/fs.h	2007-01-12 20:57:42.000000000 -0800
++++ b/include/linux/fs.h	2007-01-12 20:42:38.000000000 -0800
+@@ -309,6 +309,8 @@ typedef int (get_block_t)(struct inode *
+ typedef void (dio_iodone_t)(void *destructor_data, ssize_t bytes,
+ 			void *private);
  
++typedef void (file_endio_t)(void *endio_data, ssize_t count, int err);
++
  /*
   * Attribute flags.  These should be or-ed together to figure out what
-@@ -1833,10 +1833,10 @@ static inline void do_generic_file_read(
+  * has been changed!
+@@ -421,8 +423,9 @@ struct address_space_operations {
+ 	sector_t (*bmap)(struct address_space *, sector_t);
+ 	void (*invalidatepage) (struct page *, unsigned long);
+ 	int (*releasepage) (struct page *, gfp_t);
+-	ssize_t (*direct_IO)(int, struct kiocb *, const struct iovec *iov,
+-			loff_t offset, unsigned long nr_segs);
++	ssize_t (*direct_IO)(int rw, struct file *file, const struct iovec *iov,
++			     loff_t offset, unsigned long nr_segs,
++			     file_endio_t *endio, void *endio_data);
+ 	struct page* (*get_xip_page)(struct address_space *, sector_t,
+ 			int);
+ 	/* migrate the contents of a page to the specified target */
+@@ -1109,8 +1112,6 @@ typedef int (*read_actor_t)(read_descrip
+ #define HAVE_COMPAT_IOCTL 1
+ #define HAVE_UNLOCKED_IOCTL 1
+ 
+-typedef void (file_endio_t)(void *endio_data, ssize_t count, int err);
+-
+ /*
+  * NOTE:
+  * read, write, poll, fsync, readv, writev, unlocked_ioctl and compat_ioctl
+@@ -1772,8 +1773,9 @@ extern ssize_t generic_file_aio_read(str
+ extern ssize_t generic_file_aio_write(struct kiocb *, const struct iovec *, unsigned long, loff_t);
+ extern ssize_t generic_file_aio_write_nolock(struct kiocb *, const struct iovec *,
+ 		unsigned long, loff_t);
+-extern ssize_t generic_file_direct_write(struct kiocb *, const struct iovec *,
+-		unsigned long *, loff_t, loff_t *, size_t, size_t);
++extern ssize_t generic_file_direct_write(struct file *, const struct iovec *,
++					unsigned long *, loff_t, loff_t *,
++					size_t, size_t, file_endio_t, void *);
+ extern ssize_t generic_file_buffered_write(struct kiocb *, const struct iovec *,
+ 		unsigned long, loff_t, loff_t *, size_t, ssize_t);
+ extern ssize_t do_sync_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos);
+@@ -1844,16 +1846,12 @@ enum {
+ 	DIO_OWN_LOCKING, /* filesystem locks buffered and direct internally */
+ };
+ 
+-static inline ssize_t blockdev_direct_IO(int rw, struct kiocb *iocb,
+-	struct inode *inode, struct block_device *bdev, const struct iovec *iov,
+-	loff_t offset, unsigned long nr_segs, get_block_t get_block,
+-	dio_iodone_t end_io)
+-{
+-	struct file *file = iocb->ki_filp;
+-	file_endio_t *file_endio = &aio_complete;
+-	void *endio_data = iocb;
++static inline ssize_t blockdev_direct_IO(int rw, struct file *file,
++	const struct iovec *iov, loff_t offset, unsigned long nr_segs,
++	get_block_t get_block, file_endio_t file_endio, void *endio_data)
++{
+ 	return __blockdev_direct_IO(rw, file, iov, offset, nr_segs, get_block,
+-			end_io, NULL, file_endio, endio_data, DIO_LOCKING);
++			NULL, NULL, file_endio, endio_data, DIO_LOCKING);
  }
  
- #ifdef CONFIG_BLOCK
--ssize_t __blockdev_direct_IO(int rw, struct kiocb *iocb, struct inode *inode,
--	struct block_device *bdev, const struct iovec *iov, loff_t offset,
--	unsigned long nr_segs, get_block_t get_block, dio_iodone_t end_io,
--	int lock_type);
-+ssize_t __blockdev_direct_IO(int rw, struct file *file,
-+	const struct iovec *iov, loff_t offset, unsigned long nr_segs,
-+	get_block_t get_block, dio_iodone_t end_io, void *destructor_data,
-+	file_endio_t *endio, void *endio_data, int lock_type);
+ static inline ssize_t blockdev_direct_IO_no_locking(int rw, struct file *file,
+diff -urpN -X dontdiff a/include/linux/nfs_fs.h b/include/linux/nfs_fs.h
+--- a/include/linux/nfs_fs.h	2007-01-12 20:29:14.000000000 -0800
++++ b/include/linux/nfs_fs.h	2007-01-12 20:42:38.000000000 -0800
+@@ -367,8 +367,8 @@ extern int nfs3_removexattr (struct dent
+ /*
+  * linux/fs/nfs/direct.c
+  */
+-extern ssize_t nfs_direct_IO(int, struct kiocb *, const struct iovec *, loff_t,
+-			unsigned long);
++extern ssize_t nfs_direct_IO(int, struct file *, const struct iovec *, loff_t,
++			unsigned long, file_endio_t, void *);
+ extern ssize_t nfs_file_direct_read(struct file *file,
+ 			const struct iovec *iov, unsigned long nr_segs,
+ 			loff_t *pos, file_endio_t *endio, void *endio_data);
+diff -urpN -X dontdiff a/mm/filemap.c b/mm/filemap.c
+--- a/mm/filemap.c	2007-01-12 20:26:07.000000000 -0800
++++ b/mm/filemap.c	2007-01-12 20:42:38.000000000 -0800
+@@ -41,8 +41,9 @@
+ #include <asm/mman.h>
  
- enum {
- 	DIO_LOCKING = 1, /* need locking between buffered and direct access */
-@@ -1849,26 +1849,31 @@ static inline ssize_t blockdev_direct_IO
- 	loff_t offset, unsigned long nr_segs, get_block_t get_block,
- 	dio_iodone_t end_io)
+ static ssize_t
+-generic_file_direct_IO(int rw, struct kiocb *iocb, const struct iovec *iov,
+-	loff_t offset, unsigned long nr_segs);
++generic_file_direct_IO(int rw, struct file *file, const struct iovec *iov,
++			loff_t offset, unsigned long nr_segs,
++			file_endio_t *endio, void *endio_data);
+ 
+ /*
+  * Shared mappings implemented 30.11.1994. It's not fully working yet,
+@@ -1223,8 +1224,8 @@ generic_file_aio_read(struct kiocb *iocb
+ 			goto out; /* skip atime */
+ 		size = i_size_read(inode);
+ 		if (pos < size) {
+-			retval = generic_file_direct_IO(READ, iocb,
+-						iov, pos, nr_segs);
++			retval = generic_file_direct_IO(READ, filp, iov, pos,
++						nr_segs, aio_complete, iocb);
+ 			if (retval > 0)
+ 				*ppos = pos + retval;
+ 		}
+@@ -2078,11 +2079,10 @@ inline int generic_write_checks(struct f
+ EXPORT_SYMBOL(generic_write_checks);
+ 
+ ssize_t
+-generic_file_direct_write(struct kiocb *iocb, const struct iovec *iov,
+-		unsigned long *nr_segs, loff_t pos, loff_t *ppos,
+-		size_t count, size_t ocount)
++generic_file_direct_write(struct file *file, const struct iovec *iov,
++		unsigned long *nr_segs, loff_t pos, loff_t *ppos, size_t count,
++		size_t ocount, file_endio_t *endio, void *endio_data)
  {
--	return __blockdev_direct_IO(rw, iocb, inode, bdev, iov, offset,
--				nr_segs, get_block, end_io, DIO_LOCKING);
--}
--
--static inline ssize_t blockdev_direct_IO_no_locking(int rw, struct kiocb *iocb,
--	struct inode *inode, struct block_device *bdev, const struct iovec *iov,
--	loff_t offset, unsigned long nr_segs, get_block_t get_block,
--	dio_iodone_t end_io)
--{
--	return __blockdev_direct_IO(rw, iocb, inode, bdev, iov, offset,
--				nr_segs, get_block, end_io, DIO_NO_LOCKING);
--}
--
--static inline ssize_t blockdev_direct_IO_own_locking(int rw, struct kiocb *iocb,
--	struct inode *inode, struct block_device *bdev, const struct iovec *iov,
--	loff_t offset, unsigned long nr_segs, get_block_t get_block,
--	dio_iodone_t end_io)
--{
--	return __blockdev_direct_IO(rw, iocb, inode, bdev, iov, offset,
--				nr_segs, get_block, end_io, DIO_OWN_LOCKING);
-+	struct file *file = iocb->ki_filp;
-+	file_endio_t *file_endio = &aio_complete;
-+	void *endio_data = iocb;
-+	return __blockdev_direct_IO(rw, file, iov, offset, nr_segs, get_block,
-+			end_io, NULL, file_endio, endio_data, DIO_LOCKING);
-+}
-+
-+static inline ssize_t blockdev_direct_IO_no_locking(int rw, struct file *file,
-+	const struct iovec *iov, loff_t offset, unsigned long nr_segs,
-+	get_block_t get_block, dio_iodone_t end_io, void *destructor_data,
-+	file_endio_t file_endio, void *endio_data)
-+{
-+	return __blockdev_direct_IO(rw, file, iov, offset, nr_segs, get_block,
-+				end_io, destructor_data, file_endio, endio_data,
-+				DIO_NO_LOCKING);
-+}
-+
-+static inline ssize_t blockdev_direct_IO_own_locking(int rw, struct file *file,
-+	const struct iovec *iov, loff_t offset, unsigned long nr_segs,
-+	get_block_t get_block, dio_iodone_t end_io, void *destructor_data,
-+	file_endio_t file_endio, void *endio_data)
-+{
-+	return __blockdev_direct_IO(rw, file, iov, offset, nr_segs, get_block,
-+				end_io, destructor_data, file_endio, endio_data,
-+				DIO_OWN_LOCKING);
- }
- #endif
+-	struct file	*file = iocb->ki_filp;
+ 	struct address_space *mapping = file->f_mapping;
+ 	struct inode	*inode = mapping->host;
+ 	ssize_t		written;
+@@ -2090,7 +2090,8 @@ generic_file_direct_write(struct kiocb *
+ 	if (count != ocount)
+ 		*nr_segs = iov_shorten((struct iovec *)iov, *nr_segs, count);
  
+-	written = generic_file_direct_IO(WRITE, iocb, iov, pos, *nr_segs);
++	written = generic_file_direct_IO(WRITE, file, iov, pos,
++					 *nr_segs, endio, endio_data);
+ 	if (written > 0) {
+ 		loff_t end = pos + written;
+ 		if (end > i_size_read(inode) && !S_ISBLK(inode->i_mode)) {
+@@ -2343,8 +2344,9 @@ __generic_file_aio_write_nolock(struct k
+ 		loff_t endbyte;
+ 		ssize_t written_buffered;
+ 
+-		written = generic_file_direct_write(iocb, iov, &nr_segs, pos,
+-							ppos, count, ocount);
++		written = generic_file_direct_write(file, iov, &nr_segs, pos,
++							ppos, count, ocount,
++							aio_complete, iocb);
+ 		if (written < 0 || written == count)
+ 			goto out;
+ 		/*
+@@ -2457,10 +2459,10 @@ EXPORT_SYMBOL(generic_file_aio_write);
+  * went wrong during pagecache shootdown.
+  */
+ static ssize_t
+-generic_file_direct_IO(int rw, struct kiocb *iocb, const struct iovec *iov,
+-	loff_t offset, unsigned long nr_segs)
++generic_file_direct_IO(int rw, struct file *file, const struct iovec *iov,
++	loff_t offset, unsigned long nr_segs,
++	file_endio_t *endio, void *endio_data)
+ {
+-	struct file *file = iocb->ki_filp;
+ 	struct address_space *mapping = file->f_mapping;
+ 	ssize_t retval;
+ 	size_t write_len = 0;
+@@ -2478,8 +2480,8 @@ generic_file_direct_IO(int rw, struct ki
+ 
+ 	retval = filemap_write_and_wait(mapping);
+ 	if (retval == 0) {
+-		retval = mapping->a_ops->direct_IO(rw, iocb, iov,
+-						offset, nr_segs);
++		retval = mapping->a_ops->direct_IO(rw, file, iov, offset,
++						nr_segs, endio, endio_data);
+ 		if (rw == WRITE && mapping->nrpages) {
+ 			pgoff_t end = (offset + write_len - 1)
+ 						>> PAGE_CACHE_SHIFT;
 
 --
 To unsubscribe, send a message with 'unsubscribe linux-aio' in
