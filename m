@@ -1,106 +1,55 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [Bugme-new] [Bug 7832] New: if i use iproute2 for network
- balancing
-Date: Tue, 16 Jan 2007 13:55:24 -0800
-Message-ID: <20070116135524.e0e39e5b.akpm@osdl.org>
-References: <200701161113.l0GBDZPW005410@fire-2.osdl.org>
+From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+Subject: Re: Can someone please try...
+Date: Tue, 16 Jan 2007 23:07:02 +0100
+Message-ID: <200701162307.02891.mb@bu3sch.de>
+References: <200701161806.02780.mb@bu3sch.de>
+	<200701162023.23919.mb@bu3sch.de> <1168984238.16115.9.camel@dv>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Chris Wedgwood <cw@f00f.org>,
-	"bugme-daemon@kernel-bugs.osdl.org"
-	<bugme-daemon@bugzilla.kernel.org>, gclarkx@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:48971 "EHLO smtp.osdl.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751300AbXAPVzr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Jan 2007 16:55:47 -0500
-To: netdev@vger.kernel.org
-In-Reply-To: <200701161113.l0GBDZPW005410@fire-2.osdl.org>
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+To: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
+In-Reply-To: <1168984238.16115.9.camel@dv>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
+List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-> On Tue, 16 Jan 2007 03:13:35 -0800 bugme-daemon@bugzilla.kernel.org wrote:
-> http://bugzilla.kernel.org/show_bug.cgi?id=7832
+On Tuesday 16 January 2007 22:50, Pavel Roskin wrote:
+> On Tue, 2007-01-16 at 20:23 +0100, Michael Buesch wrote:
 > 
->            Summary: if i use iproute2 for network balancing
->     Kernel Version: 2.6.19.1
->             Status: NEW
->           Severity: normal
->              Owner: acme@conectiva.com.br
->          Submitter: gclarkx@gmail.com
+> > A patch for that is already upstream.
 > 
+> I don't see it.  It's not in your tree yet.
+
+It is on its way upstream to linville.
+
+> > It's surprising that it doesn't happen for me, though.
+> > Neiter on PPC, nor on i386.
 > 
-> "Fedora Core4
-> Intel P4 2,4
+> It did happen for me on i386, as well as on x86_64.  The dump was for
+> x86_64, as evidenced by the register size.  Maybe you have less
+> debugging options enabled?
+
+All.
+
+> > Patch was
+> > [PATCH] bcm43xx-d80211: Fix DMA TX skb doublefree
 > 
-> /sbin/ip route change default equalize nexthop dev ppp0 nexthop dev ppp1
-> /sbin/ip route flush cache
-> "
-> 
-> 
-> Jan 16 13:00:21 server kernel: Oops: 0000 [#1]
-> Jan 16 13:00:21 server kernel: SMP
-> Jan 16 13:00:21 server kernel: CPU:    1
-> Jan 16 13:00:21 server kernel: EIP:    0060:[<c02cabb7>]    Not tainted VLI
-> Jan 16 13:00:21 server kernel: EFLAGS: 00010202   (2.6.19.1 #2)
-> Jan 16 13:00:21 server kernel: EIP is at __ip_route_output_key+0x4a7/0xc99
-> Jan 16 13:00:21 server kernel: eax: 0000002c   ebx: c0c46080   ecx: 00000001   
-> e                                                                             
-> dx: 00fe7d01
-> Jan 16 13:00:21 server kernel: esi: 00000000   edi: da6a3800   ebp: dd24fd68   
-> e                                                                             
-> sp: dd24fc58
-> Jan 16 13:00:21 server kernel: ds: 007b   es: 007b   ss: 0068
-> Jan 16 13:00:21 server kernel: Process cupsd (pid: 3581, ti=dd24e000 
-> task=de8be5                                                                    
->          70 task.ti=dd24e000)
-> Jan 16 13:00:21 server kernel: Stack: da4ce800 00000001 c03deb10 0000000a 
-> dd24fd                                                                         
->     b0 00000068 00000000 00000000
-> Jan 16 13:00:21 server kernel: c0c46080 02000246 da4c0e80 c011f400 da4ce800 
-> 0000                                                                           
->   0000 da9e5980 da6a3800
-> Jan 16 13:00:21 server kernel: 90000000 c045e140 da3f2c80 da3f2c80 da3f2c80 
-> 0000                                                                           
->   0040 c02d2e19 00000001
-> Jan 16 13:00:21 server kernel: Call Trace:
-> Jan 16 13:00:21 server kernel: [<c011f400>] __local_bh_enable+0x94/0xb3
-> Jan 16 13:00:21 server kernel: [<c02d2e19>] ip_mc_output+0x2f3/0x31e
-> Jan 16 13:00:21 server kernel: [<c02cb3bc>] ip_route_output_flow+0x13/0x57
-> Jan 16 13:00:21 server kernel: [<c02ea3e4>] udp_sendmsg+0x2bb/0x537
-> Jan 16 13:00:21 server kernel: [<c02af221>] skb_copy_datagram_iovec+0x53/0x1dc
-> Jan 16 13:00:21 server kernel: [<c02efb74>] inet_sendmsg+0x3b/0x45
-> Jan 16 13:00:21 server kernel: [<c02a8c75>] sock_sendmsg+0xd3/0xee
-> Jan 16 13:00:21 server kernel: [<c012b606>] autoremove_wake_function+0x0/0x35
-> Jan 16 13:00:21 server kernel: [<c0167ec2>] core_sys_select+0x1b0/0x2a7
-> Jan 16 13:00:21 server kernel: [<c02a9539>] sys_sendto+0x116/0x140
-> Jan 16 13:00:21 server kernel: [<c02a9bcd>] sys_getsockname+0x86/0xb0
-> Jan 16 13:00:21 server kernel: [<c02acae1>] skb_dequeue+0x39/0x3f
-> Jan 16 13:00:21 server kernel: [<c02ad903>] skb_queue_purge+0x11/0x17
-> Jan 16 13:00:21 server kernel: [<c02c61c9>] netlink_sock_destruct+0xe/0xe2
-> Jan 16 13:00:21 server kernel: [<c02aae38>] sk_free+0xbe/0xf3
-> Jan 16 13:00:21 server kernel: [<e08b2cc3>] rtl8139_interrupt+0x383/0x3c3 
-> [8139t                                                                         
->     oo]
-> 
-> Message from syslogd@server at Tue Jan 16 13:00:21 2007 ...
-> server kernel:  [<c0103cf5>] sysenter_past_esp+0x56/0x79
-> 
-> Message from syslogd@server at Tue Jan 16 13:00:21 2007 ...
-> server kernel:  =======================
-> 
-> Message from syslogd@server at Tue Jan 16 13:00:21 2007 ...
-> server kernel: Code: 24 20 00 00 00 00 c7 44 24 60 00 00 00 00 e9 19 04 00 00 
-> 0f                                                                             
->  b6 c2 8a 4c 24 60 6b c0 2c 03 84 24 b0 00 00 00 88 8c 24 a5 00 00 00 <8b> 40 
-> 68                                                                             
->  89 44 24 3c f0 ff 80 80 02 00 00 84 d2 74 3e 8b 44 24
-> 
-> Message from syslogd@server at Tue Jan 16 13:00:21 2007 ...
-> server kernel: EIP: [<c02cabb7>] __ip_route_output_key+0x4a7/0xc99 SS:ESP 
-> 0068:d                                                                         
->     d24fc58
-> 
-> ------- You are receiving this mail because: -------
-> You are on the CC list for the bug, or are watching someone who is.
+> Even with this hint, I cannot spot the bug immediately, so it would be
+> great if you sync the public repository soon.
+
+Linville has to put the patch into his tree first, so I can pull it.
+You can find the patch easily by searching bcm43xx-dev or netdev
+archives.
+
+-- 
+Greetings Michael.
