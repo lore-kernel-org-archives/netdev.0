@@ -1,7 +1,7 @@
 From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH 4/59] sysctl: sunrpc Don't unnecessarily set ctl_table->de
-Date: Tue, 16 Jan 2007 09:39:09 -0700
-Message-ID: <11689656151751-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH 6/59] sysctl: netrom remove unnecessary insert_at_head flag
+Date: Tue, 16 Jan 2007 09:39:11 -0700
+Message-ID: <11689656204073-git-send-email-ebiederm@xmission.com>
 References: <m1ac0jc4no.fsf@ebiederm.dsl.xmission.com>
 Cc: <linux-kernel@vger.kernel.org>, <containers@lists.osdl.org>,
 	<netdev@vger.kernel.org>, xfs-masters@oss.sgi.com, xfs@oss.sgi.com,
@@ -19,61 +19,35 @@ Cc: <linux-kernel@vger.kernel.org>, <containers@lists.osdl.org>,
 	coda@cs.cmu.edu, codalist@TELEMANN.coda.cs.cmu.edu,
 	aia21@cantab.net, linux-ntfs-dev@lists.sourceforge.net,
 	mark.fasheh@oracle.com, kurt.hackel@oracle.com,
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751586AbXAPQr0@vger.kernel.org>
+Return-path: <linux-mips-bounce@linux-mips.org>
 To: "<Andrew Morton" <akpm@osdl.org>
 In-Reply-To: <m1ac0jc4no.fsf@ebiederm.dsl.xmission.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
 List-Id: netdev.vger.kernel.org
 
 From: Eric W. Biederman <ebiederm@xmission.com> - unquoted
 
-We don't need this to prevent module unload races so remove
-the unnecessary code.
+The sysctl numbers used are unique so setting the insert_at_head
+flag serves no semantic purpose, so it is just confusing.
 
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 ---
- net/sunrpc/sysctl.c   |    8 +-------
- net/sunrpc/xprtsock.c |    7 +------
- 2 files changed, 2 insertions(+), 13 deletions(-)
+ net/netrom/sysctl_net_netrom.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/net/sunrpc/sysctl.c b/net/sunrpc/sysctl.c
-index 3852689..6a82ed2 100644
---- a/net/sunrpc/sysctl.c
-+++ b/net/sunrpc/sysctl.c
-@@ -35,14 +35,8 @@ static ctl_table		sunrpc_table[];
- void
- rpc_register_sysctl(void)
+diff --git a/net/netrom/sysctl_net_netrom.c b/net/netrom/sysctl_net_netrom.c
+index 6bb8dda..09f4246 100644
+--- a/net/netrom/sysctl_net_netrom.c
++++ b/net/netrom/sysctl_net_netrom.c
+@@ -192,7 +192,7 @@ static ctl_table nr_root_table[] = {
+ 
+ void __init nr_register_sysctl(void)
  {
--	if (!sunrpc_table_header) {
-+	if (!sunrpc_table_header)
- 		sunrpc_table_header = register_sysctl_table(sunrpc_table, 0);
--#ifdef CONFIG_PROC_FS
--		if (sunrpc_table[0].de)
--			sunrpc_table[0].de->owner = THIS_MODULE;
--#endif
--	}
--			
+-	nr_table_header = register_sysctl_table(nr_root_table, 1);
++	nr_table_header = register_sysctl_table(nr_root_table, 0);
  }
  
- void
-diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
-index 98d1af9..51964cf 100644
---- a/net/sunrpc/xprtsock.c
-+++ b/net/sunrpc/xprtsock.c
-@@ -1629,13 +1629,8 @@ struct rpc_xprt *xs_setup_tcp(struct sockaddr *addr, size_t addrlen, struct rpc_
- int init_socket_xprt(void)
- {
- #ifdef RPC_DEBUG
--	if (!sunrpc_table_header) {
-+	if (!sunrpc_table_header)
- 		sunrpc_table_header = register_sysctl_table(sunrpc_table, 0);
--#ifdef CONFIG_PROC_FS
--		if (sunrpc_table[0].de)
--			sunrpc_table[0].de->owner = THIS_MODULE;
--#endif
--	}
- #endif
- 
- 	return 0;
+ void nr_unregister_sysctl(void)
 -- 
 1.4.4.1.g278f
