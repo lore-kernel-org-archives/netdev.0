@@ -1,7 +1,7 @@
 From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH 24/59] sysctl: frv remove unnecessary insert_at_head flag
-Date: Tue, 16 Jan 2007 09:39:29 -0700
-Message-ID: <1168965642471-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH 17/59] sysctl: mac_hid remove unnecessary insert_at_head flag
+Date: Tue, 16 Jan 2007 09:39:22 -0700
+Message-ID: <11689656343467-git-send-email-ebiederm@xmission.com>
 References: <m1ac0jc4no.fsf@ebiederm.dsl.xmission.com>
 Cc: <linux-kernel@vger.kernel.org>, <containers@lists.osdl.org>,
 	<netdev@vger.kernel.org>, xfs-masters@oss.sgi.com, xfs@oss.sgi.com,
@@ -19,40 +19,33 @@ Cc: <linux-kernel@vger.kernel.org>, <containers@lists.osdl.org>,
 	coda@cs.cmu.edu, codalist@TELEMANN.coda.cs.cmu.edu,
 	aia21@cantab.net, linux-ntfs-dev@lists.sourceforge.net,
 	mark.fasheh@oracle.com, kurt.hackel@oracle.com,
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:46024 "EHLO
-	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751619AbXAPQt4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jan 2007 11:49:56 -0500
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751614AbXAPQr6@vger.kernel.org>
 To: "<Andrew Morton" <akpm@osdl.org>
 In-Reply-To: <m1ac0jc4no.fsf@ebiederm.dsl.xmission.com>
-Sender: netdev-owner@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Eric W. Biederman <ebiederm@xmission.com> - unquoted
 
-Since the binary sysctl numbers are unique putting the registered
-sysctls at the head of the sysctl list where they can override
-existing sysctls serves no useful purpose.
+With unique sysctl binary numbers setting insert_at_head is pointless.
 
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 ---
- arch/frv/kernel/sysctl.c |    2 +-
+ drivers/macintosh/mac_hid.c |    2 +-
  1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/arch/frv/kernel/sysctl.c b/arch/frv/kernel/sysctl.c
-index 2f4da32..37528eb 100644
---- a/arch/frv/kernel/sysctl.c
-+++ b/arch/frv/kernel/sysctl.c
-@@ -197,7 +197,7 @@ static struct ctl_table frv_dir_table[] =
-  */
- static int __init frv_sysctl_init(void)
- {
--	register_sysctl_table(frv_dir_table, 1);
-+	register_sysctl_table(frv_dir_table, 0);
- 	return 0;
- }
+diff --git a/drivers/macintosh/mac_hid.c b/drivers/macintosh/mac_hid.c
+index ee6b4ca..c676740 100644
+--- a/drivers/macintosh/mac_hid.c
++++ b/drivers/macintosh/mac_hid.c
+@@ -138,7 +138,7 @@ int __init mac_hid_init(void)
+ 		return err;
  
+ #if defined(CONFIG_SYSCTL)
+-	mac_hid_sysctl_header = register_sysctl_table(mac_hid_root_dir, 1);
++	mac_hid_sysctl_header = register_sysctl_table(mac_hid_root_dir, 0);
+ #endif /* CONFIG_SYSCTL */
+ 
+ 	return 0;
 -- 
 1.4.4.1.g278f
-
