@@ -1,83 +1,45 @@
-From: "Nate Diller" <nate.diller@gmail.com>
-Subject: Re: [PATCH -mm 4/10][RFC] aio: convert aio_complete to file_endio_t
-Date: Tue, 16 Jan 2007 01:21:24 -0800
-Message-ID: <5c49b0ed0701160121t7d65de92u74454f2debb86ea2@mail.gmail.com>
-References: <20070116015450.9764.38389.patchbomb.py@nate-64.agami.com>
-	 <200701152153.49260.david-b@pacbell.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [IPROUTE 01/05]: Use tc_calc_xmittime where appropriate
+Date: Tue, 16 Jan 2007 11:19:34 +0100
+Message-ID: <45ACA6B6.1090902@trash.net>
+References: <20070116085611.GA1003@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: "Nate Diller" <nate@agami.com>, "Andrew Morton" <akpm@osdl.org>,
-	"Alan Cox" <alan@lxorguk.ukuu.org.uk>,
-	"Trond Myklebust" <trond.myklebust@fys.uio.no>,
-	"Benjamin LaHaise" <bcrl@kvack.org>,
-	"Alexander Viro" <viro@zeniv.linux.org.uk>,
-	"Suparna Bhattacharya" <suparna@in.ibm.com>,
-	"Kenneth W Chen" <kenneth.w.chen@intel.com>,
-	"David Brownell" <dbrownell@users.sourceforge.net>,
-	"Christoph Hellwig" <hch@infradead.org>,
-	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	netdev@vger.kernel.org, ocfs2-devel@oss.oracle.com,
-	linux-aio@kvack.org, xfs-masters@oss.sgi.com
+Cc: netdev@vger.kernel.org, shemminger@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.189]:65432 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751305AbXAPJV0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jan 2007 04:21:26 -0500
-Received: by nf-out-0910.google.com with SMTP id o25so2328860nfa
-        for <netdev@vger.kernel.org>; Tue, 16 Jan 2007 01:21:24 -0800 (PST)
-To: "David Brownell" <david-b@pacbell.net>
-In-Reply-To: <200701152153.49260.david-b@pacbell.net>
-Content-Disposition: inline
+Received: from stinky.trash.net ([213.144.137.162]:47400 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750771AbXAPKTi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jan 2007 05:19:38 -0500
+To: Jarek Poplawski <jarkao2@o2.pl>
+In-Reply-To: <20070116085611.GA1003@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 1/15/07, David Brownell <david-b@pacbell.net> wrote:
-> On Monday 15 January 2007 5:54 pm, Nate Diller wrote:
-> > --- a/drivers/usb/gadget/inode.c      2007-01-12 14:42:29.000000000 -0800
-> > +++ b/drivers/usb/gadget/inode.c      2007-01-12 14:25:34.000000000 -0800
-> > @@ -559,35 +559,32 @@ static int ep_aio_cancel(struct kiocb *i
-> >       return value;
-> >  }
-> >
-> > -static ssize_t ep_aio_read_retry(struct kiocb *iocb)
-> > +static int ep_aio_read_retry(struct kiocb *iocb)
-> >  {
-> >       struct kiocb_priv       *priv = iocb->private;
-> > -     ssize_t                 len, total;
-> > -     int                     i;
-> > +     ssize_t                 total;
-> > +     int                     i, err = 0;
-> >
-> >       /* we "retry" to get the right mm context for this: */
-> >
-> >       /* copy stuff into user buffers */
-> >       total = priv->actual;
-> > -     len = 0;
-> >       for (i=0; i < priv->nr_segs; i++) {
-> >               ssize_t this = min((ssize_t)(priv->iv[i].iov_len), total);
-> >
-> >               if (copy_to_user(priv->iv[i].iov_base, priv->buf, this)) {
-> > -                     if (len == 0)
-> > -                             len = -EFAULT;
-> > +                     err = -EFAULT;
->
-> Discarding the capability to report partial success, e.g. that the first N
-> bytes were properly transferred?  I don't see any virtue in that change.
-> Quite the opposite in fact.
->
-> I think you're also expecting that if N bytes were requested, that's always
-> how many will be received.  That's not true for packetized I/O such as USB
-> isochronous transfers ... where it's quite legit (and in some cases routine)
-> for the other end to send packets that are shorter than the maximum allowed.
-> Sending a zero length packet is not the same as sending no packet at all,
-> for another example.
+Jarek Poplawski wrote:
+> On 10-01-2007 11:01, Patrick McHardy wrote:
+> 
+>>[IPROUTE]: Use tc_calc_xmittime where appropriate
+>>
+>>diff --git a/tc/tc_red.c b/tc/tc_red.c
+>>index 385e7af..8f9bde0 100644
+>>--- a/tc/tc_red.c
+>>+++ b/tc/tc_red.c
+>>@@ -71,7 +71,7 @@ int tc_red_eval_ewma(unsigned qmin, unsi
+>> 
+>> int tc_red_eval_idle_damping(int Wlog, unsigned avpkt, unsigned bps, __u8 *sbuf)
+>> {
+>>-	double xmit_time = tc_core_usec2tick(1000000*(double)avpkt/bps);
+>>+	double xmit_time = tc_calc_xmittime(bps, avpkt);
+> 
+> 
+> Return value changed to unsigned here.
+> (According to iproute2-2.6.19-061214.) 
 
-I will convert this (usb) code to use the standard completion path,
-which you will notice *gained* the ability to properly report both an
-error and a partial success as part of this patch.  In fact, fixing
-this up was my intention when I wrote this patch, and the later patch
-was a compromise intended to get this whole bundle out for review in a
-timely manner :)
 
-NATE
+Right, this changes it from long (tc_core_usec2tick) to unsigned
+int. It doesn't make any difference though, with 32 bit we can
+represent transmission times up to ~1 hour (for a single packet),
+which is far more than needed.
+
