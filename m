@@ -1,425 +1,151 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [IPROUTE 04/05]: Replace "usec" by "time" in function names
-Date: Tue, 16 Jan 2007 14:42:19 +0100
-Message-ID: <45ACD63B.2030704@trash.net>
-References: <20070115101742.GB1644@ff.dom.local>
+From: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Subject: Re: [PATCH 9/9] net: vm deadlock avoidance core
+Date: Tue, 16 Jan 2007 14:47:54 +0100
+Message-ID: <1168955274.22935.47.camel@twins>
+References: <20070116094557.494892000@taijtu.programming.kicks-ass.net>
+	 <20070116101816.115266000@taijtu.programming.kicks-ass.net>
+	 <20070116132503.GA23144@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------080906000808090107070505"
-Cc: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:51195 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750842AbXAPNmY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jan 2007 08:42:24 -0500
-To: Jarek Poplawski <jarkao2@o2.pl>
-In-Reply-To: <20070115101742.GB1644@ff.dom.local>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-mm@kvack.org, David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750983AbXAPNu2@vger.kernel.org>
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+In-Reply-To: <20070116132503.GA23144@2ka.mipt.ru>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------080906000808090107070505
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
+On Tue, 2007-01-16 at 16:25 +0300, Evgeniy Polyakov wrote:
+> On Tue, Jan 16, 2007 at 10:46:06AM +0100, Peter Zijlstra (a.p.zijlstra@chello.nl) wrote:
 
-Jarek Poplawski wrote:
-> On 10-01-2007 11:01, Patrick McHardy wrote:
+> > @@ -1767,10 +1767,23 @@ int netif_receive_skb(struct sk_buff *sk
+> >  	struct net_device *orig_dev;
+> >  	int ret = NET_RX_DROP;
+> >  	__be16 type;
+> > +	unsigned long pflags = current->flags;
+> > +
+> > +	/* Emergency skb are special, they should
+> > +	 *  - be delivered to SOCK_VMIO sockets only
+> > +	 *  - stay away from userspace
+> > +	 *  - have bounded memory usage
+> > +	 *
+> > +	 * Use PF_MEMALLOC as a poor mans memory pool - the grouping kind.
+> > +	 * This saves us from propagating the allocation context down to all
+> > +	 * allocation sites.
+> > +	 */
+> > +	if (unlikely(skb->emergency))
+> > +		current->flags |= PF_MEMALLOC;
 > 
->>[IPROUTE]: Replace "usec" by "time" in function names
->>
->>Rename functions containing "usec" since they don't necessarily return
->>usec units anymore.
->>
->>diff --git a/tc/q_cbq.c b/tc/q_cbq.c
->>index 0000a56..913b26a 100644
->>--- a/tc/q_cbq.c
->>+++ b/tc/q_cbq.c
->>@@ -500,17 +500,17 @@ static int cbq_print_opt(struct qdisc_ut
->> 	if (lss && show_details) {
->> 		fprintf(f, "\nlevel %u ewma %u avpkt %ub ", lss->level, lss->ewma_log, lss->avpkt);
->> 		if (lss->maxidle) {
->>-			fprintf(f, "maxidle %luus ", tc_core_tick2usec(lss->maxidle>>lss->ewma_log));
->>+			fprintf(f, "maxidle %luus ", tc_core_tick2time(lss->maxidle>>lss->ewma_log));
+> Access to 'current' in netif_receive_skb()???
+> Why do you want to work with, for example keventd?
+
+Can this run in keventd?
+
+I thought this was softirq context and thus this would either run in a
+borrowed context or in ksoftirqd. See patch 3/9.
+
+> > @@ -1798,6 +1811,8 @@ int netif_receive_skb(struct sk_buff *sk
+> >  		goto ncls;
+> >  	}
+> >  #endif
+> > +	if (unlikely(skb->emergency))
+> > +		goto skip_taps;
+> >  
+> >  	list_for_each_entry_rcu(ptype, &ptype_all, list) {
+> >  		if (!ptype->dev || ptype->dev == skb->dev) {
+> > @@ -1807,6 +1822,7 @@ int netif_receive_skb(struct sk_buff *sk
+> >  		}
+> >  	}
+> >  
+> > +skip_taps:
 > 
+> It is still a 'tap'.
+
+Not sure what you are saying, I thought this should stop delivery of
+skbs to taps?
+
+> >  #ifdef CONFIG_NET_CLS_ACT
+> >  	if (pt_prev) {
+> >  		ret = deliver_skb(skb, pt_prev, orig_dev);
+> > @@ -1819,15 +1835,26 @@ int netif_receive_skb(struct sk_buff *sk
+> >  
+> >  	if (ret == TC_ACT_SHOT || (ret == TC_ACT_STOLEN)) {
+> >  		kfree_skb(skb);
+> > -		goto out;
+> > +		goto unlock;
+> >  	}
+> >  
+> >  	skb->tc_verd = 0;
+> >  ncls:
+> >  #endif
+> >  
+> > +	if (unlikely(skb->emergency))
+> > +		switch(skb->protocol) {
+> > +			case __constant_htons(ETH_P_ARP):
+> > +			case __constant_htons(ETH_P_IP):
+> > +			case __constant_htons(ETH_P_IPV6):
+> > +				break;
 > 
-> If not necessarily usec, "%luus" could be misleading
-> here and later. 
+> Poor vlans and appletalk.
 
-The next patch replaces it by sprint_time.
+Yeah and all those other too, maybe some day.
 
->>diff --git a/tc/q_netem.c b/tc/q_netem.c
->>index cfd1799..24fb95e 100644
->>--- a/tc/q_netem.c
->>+++ b/tc/q_netem.c
->>@@ -108,15 +108,15 @@ static int get_ticks(__u32 *ticks, const
->> {
->> 	unsigned t;
->> 
->>-	if(get_usecs(&t, str))
->>+	if(get_time(&t, str))
->> 		return -1;
->> 
->>-	if (tc_core_usec2big(t)) {
->>+	if (tc_core_time2big(t)) {
->> 		fprintf(stderr, "Illegal %d usecs (too large)\n", t);
+> > Index: linux-2.6-git/net/ipv4/tcp_ipv4.c
+> > ===================================================================
+> > --- linux-2.6-git.orig/net/ipv4/tcp_ipv4.c	2007-01-12 12:20:07.000000000 +0100
+> > +++ linux-2.6-git/net/ipv4/tcp_ipv4.c	2007-01-12 12:21:14.000000000 +0100
+> > @@ -1604,6 +1604,22 @@ csum_err:
+> >  	goto discard;
+> >  }
+> >  
+> > +static int tcp_v4_backlog_rcv(struct sock *sk, struct sk_buff *skb)
+> > +{
+> > +	int ret;
+> > +	unsigned long pflags = current->flags;
+> > +	if (unlikely(skb->emergency)) {
+> > +		BUG_ON(!sk_has_vmio(sk)); /* we dropped those before queueing */
+> > +		if (!(pflags & PF_MEMALLOC))
+> > +			current->flags |= PF_MEMALLOC;
+> > +	}
+> > +
+> > +	ret = tcp_v4_do_rcv(sk, skb);
+> > +
+> > +	current->flags = pflags;
+> > +	return ret;
 > 
+> Why don't you want to just setup PF_MEMALLOC for the socket and all
+> related processes?
+
+I'm not understanding what you're saying here.
+
+I want grant the processing of skb->emergency packets access to the
+memory reserves.
+
+How would I set PF_MEMALLOC on a socket, its a process flag? And which
+related processes?
+
+> > +}
+> > +
+> >  /*
+> >   *	From tcp_input.c
+> >   */
+> > @@ -1654,6 +1670,15 @@ int tcp_v4_rcv(struct sk_buff *skb)
+> >  	if (!sk)
+> >  		goto no_tcp_socket;
+> >  
+> > +	if (unlikely(skb->emergency)) {
+> > +	       	if (!sk_has_vmio(sk))
+> > +			goto discard_and_relse;
+> > +		/*
+> > +		   decrease window size..
+> > +		   tcp_enter_quickack_mode(sk);
+> > +		*/
 > 
-> Like above but usecs.
+> How does this decrease window size?
+> Maybe ack scheduling would be better handled by inet_csk_schedule_ack()
+> or just directly send an ack, which in turn requires allocation, which
+> can be bound to this received frame processing...
 
-Fixed, thanks.
-
->>diff --git a/tc/tc_core.c b/tc/tc_core.c
->>index 07dc4ba..e27254e 100644
->>--- a/tc/tc_core.c
->>+++ b/tc/tc_core.c
->>@@ -27,21 +27,21 @@ static __u32 t2us=1;
->> static __u32 us2t=1;
->> static double tick_in_usec = 1;
->> 
->>-int tc_core_usec2big(long usec)
->>+int tc_core_time2big(long time)
->> {
->>-	__u64 t = usec;
->>+	__u64 t = time;
->> 
->> 	t *= tick_in_usec;
->> 	return (t >> 32) != 0;
->> }
->> 
->> 
->>-long tc_core_usec2tick(long usec)
->>+long tc_core_time2tick(long time)
->> {
->>-	return usec*tick_in_usec;
->>+	return time*tick_in_usec;
->> }
->> 
->>-long tc_core_tick2usec(long tick)
->>+long tc_core_tick2time(long tick)
->> {
->> 	return tick/tick_in_usec;
->> }
-> 
-> 
-> Similarly (tick_in_time)?
-
-Something like that will be done in a followup patch.
-
---------------080906000808090107070505
-Content-Type: text/x-diff;
- name="04.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="04.diff"
-
-[IPROUTE]: Replace "usec" by "time" in function names
-
-Rename functions containing "usec" since they don't necessarily return
-usec units anymore.
-
-Signed-off-by: Patrick McHardy <kaber@trash.net>
-
----
-commit 64f96b38ae91faad5baff052715114a0704a844e
-tree b5c87b9834652fa695c9b6463b05ec17754b7003
-parent df1c304ddaedfd5bfa6ca39cc66560c1618e2928
-author Patrick McHardy <kaber@trash.net> Tue, 16 Jan 2007 14:40:30 +0100
-committer Patrick McHardy <kaber@trash.net> Tue, 16 Jan 2007 14:40:30 +0100
-
- tc/m_estimator.c |    4 ++--
- tc/q_cbq.c       |    6 +++---
- tc/q_hfsc.c      |    6 +++---
- tc/q_netem.c     |    8 ++++----
- tc/q_tbf.c       |    8 ++++----
- tc/tc_cbq.c      |    4 ++--
- tc/tc_core.c     |   14 +++++++-------
- tc/tc_core.h     |    6 +++---
- tc/tc_util.c     |   14 +++++++-------
- tc/tc_util.h     |    6 +++---
- 10 files changed, 38 insertions(+), 38 deletions(-)
-
-diff --git a/tc/m_estimator.c b/tc/m_estimator.c
-index d931551..a9e5dbc 100644
---- a/tc/m_estimator.c
-+++ b/tc/m_estimator.c
-@@ -45,12 +45,12 @@ int parse_estimator(int *p_argc, char **
- 		duparg("estimator", *argv);
- 	if (matches(*argv, "help") == 0)
- 		est_help();
--	if (get_usecs(&A, *argv))
-+	if (get_time(&A, *argv))
- 		invarg("estimator", "invalid estimator interval");
- 	NEXT_ARG();
- 	if (matches(*argv, "help") == 0)
- 		est_help();
--	if (get_usecs(&time_const, *argv))
-+	if (get_time(&time_const, *argv))
- 		invarg("estimator", "invalid estimator time constant");
- 	if (tc_setup_estimator(A, time_const, est) < 0) {
- 		fprintf(stderr, "Error: estimator parameters are out of range.\n");
-diff --git a/tc/q_cbq.c b/tc/q_cbq.c
-index 0000a56..913b26a 100644
---- a/tc/q_cbq.c
-+++ b/tc/q_cbq.c
-@@ -500,17 +500,17 @@ static int cbq_print_opt(struct qdisc_ut
- 	if (lss && show_details) {
- 		fprintf(f, "\nlevel %u ewma %u avpkt %ub ", lss->level, lss->ewma_log, lss->avpkt);
- 		if (lss->maxidle) {
--			fprintf(f, "maxidle %luus ", tc_core_tick2usec(lss->maxidle>>lss->ewma_log));
-+			fprintf(f, "maxidle %luus ", tc_core_tick2time(lss->maxidle>>lss->ewma_log));
- 			if (show_raw)
- 				fprintf(f, "[%08x] ", lss->maxidle);
- 		}
- 		if (lss->minidle!=0x7fffffff) {
--			fprintf(f, "minidle %luus ", tc_core_tick2usec(lss->minidle>>lss->ewma_log));
-+			fprintf(f, "minidle %luus ", tc_core_tick2time(lss->minidle>>lss->ewma_log));
- 			if (show_raw)
- 				fprintf(f, "[%08x] ", lss->minidle);
- 		}
- 		if (lss->offtime) {
--			fprintf(f, "offtime %luus ", tc_core_tick2usec(lss->offtime));
-+			fprintf(f, "offtime %luus ", tc_core_tick2time(lss->offtime));
- 			if (show_raw)
- 				fprintf(f, "[%08x] ", lss->offtime);
- 		}
-diff --git a/tc/q_hfsc.c b/tc/q_hfsc.c
-index f7a30f2..b190c71 100644
---- a/tc/q_hfsc.c
-+++ b/tc/q_hfsc.c
-@@ -226,7 +226,7 @@ hfsc_print_sc(FILE *f, char *name, struc
- 
- 	fprintf(f, "%s ", name);
- 	fprintf(f, "m1 %s ", sprint_rate(sc->m1, b1));
--	fprintf(f, "d %s ", sprint_usecs(tc_core_ktime2time(sc->d), b1));
-+	fprintf(f, "d %s ", sprint_time(tc_core_ktime2time(sc->d), b1));
- 	fprintf(f, "m2 %s ", sprint_rate(sc->m2, b1));
- }
- 
-@@ -303,7 +303,7 @@ hfsc_get_sc1(int *argcp, char ***argvp, 
- 
- 	if (matches(*argv, "d") == 0) {
- 		NEXT_ARG();
--		if (get_usecs(&d, *argv) < 0) {
-+		if (get_time(&d, *argv) < 0) {
- 			explain1("d");
- 			return -1;
- 		}
-@@ -346,7 +346,7 @@ hfsc_get_sc2(int *argcp, char ***argvp, 
- 
- 	if (matches(*argv, "dmax") == 0) {
- 		NEXT_ARG();
--		if (get_usecs(&dmax, *argv) < 0) {
-+		if (get_time(&dmax, *argv) < 0) {
- 			explain1("dmax");
- 			return -1;
- 		}
-diff --git a/tc/q_netem.c b/tc/q_netem.c
-index cfd1799..6035c4f 100644
---- a/tc/q_netem.c
-+++ b/tc/q_netem.c
-@@ -108,15 +108,15 @@ static int get_ticks(__u32 *ticks, const
- {
- 	unsigned t;
- 
--	if(get_usecs(&t, str))
-+	if(get_time(&t, str))
- 		return -1;
- 
--	if (tc_core_usec2big(t)) {
--		fprintf(stderr, "Illegal %d usecs (too large)\n", t);
-+	if (tc_core_time2big(t)) {
-+		fprintf(stderr, "Illegal %u time (too large)\n", t);
- 		return -1;
- 	}
- 
--	*ticks = tc_core_usec2tick(t);
-+	*ticks = tc_core_time2tick(t);
- 	return 0;
- }
- 
-diff --git a/tc/q_tbf.c b/tc/q_tbf.c
-index 5ba3631..566afa0 100644
---- a/tc/q_tbf.c
-+++ b/tc/q_tbf.c
-@@ -67,7 +67,7 @@ static int tbf_parse_opt(struct qdisc_ut
- 				fprintf(stderr, "Double \"limit/latency\" spec\n");
- 				return -1;
- 			}
--			if (get_usecs(&latency, *argv)) {
-+			if (get_time(&latency, *argv)) {
- 				explain1("latency");
- 				return -1;
- 			}
-@@ -245,13 +245,13 @@ static int tbf_print_opt(struct qdisc_ut
- 	if (show_raw)
- 		fprintf(f, "limit %s ", sprint_size(qopt->limit, b1));
- 
--	latency = TIME_UNITS_PER_SEC*(qopt->limit/(double)qopt->rate.rate) - tc_core_tick2usec(qopt->buffer);
-+	latency = TIME_UNITS_PER_SEC*(qopt->limit/(double)qopt->rate.rate) - tc_core_tick2time(qopt->buffer);
- 	if (qopt->peakrate.rate) {
--		double lat2 = TIME_UNITS_PER_SEC*(qopt->limit/(double)qopt->peakrate.rate) - tc_core_tick2usec(qopt->mtu);
-+		double lat2 = TIME_UNITS_PER_SEC*(qopt->limit/(double)qopt->peakrate.rate) - tc_core_tick2time(qopt->mtu);
- 		if (lat2 > latency)
- 			latency = lat2;
- 	}
--	fprintf(f, "lat %s ", sprint_usecs(tc_core_tick2usec(latency), b1));
-+	fprintf(f, "lat %s ", sprint_time(tc_core_tick2time(latency), b1));
- 
- 	return 0;
- }
-diff --git a/tc/tc_cbq.c b/tc/tc_cbq.c
-index c7b3a2d..0bb262e 100644
---- a/tc/tc_cbq.c
-+++ b/tc/tc_cbq.c
-@@ -38,7 +38,7 @@ unsigned tc_cbq_calc_maxidle(unsigned bn
- 		if (vxmt > maxidle)
- 			maxidle = vxmt;
- 	}
--	return tc_core_usec2tick(maxidle*(1<<ewma_log)*TIME_UNITS_PER_SEC);
-+	return tc_core_time2tick(maxidle*(1<<ewma_log)*TIME_UNITS_PER_SEC);
- }
- 
- unsigned tc_cbq_calc_offtime(unsigned bndw, unsigned rate, unsigned avpkt,
-@@ -53,5 +53,5 @@ unsigned tc_cbq_calc_offtime(unsigned bn
- 		offtime *= pow(g, -(double)minburst) - 1;
- 	else
- 		offtime *= 1 + (pow(g, -(double)(minburst-1)) - 1)/(1-g);
--	return tc_core_usec2tick(offtime*TIME_UNITS_PER_SEC);
-+	return tc_core_time2tick(offtime*TIME_UNITS_PER_SEC);
- }
-diff --git a/tc/tc_core.c b/tc/tc_core.c
-index 07dc4ba..e27254e 100644
---- a/tc/tc_core.c
-+++ b/tc/tc_core.c
-@@ -27,21 +27,21 @@ static __u32 t2us=1;
- static __u32 us2t=1;
- static double tick_in_usec = 1;
- 
--int tc_core_usec2big(long usec)
-+int tc_core_time2big(long time)
- {
--	__u64 t = usec;
-+	__u64 t = time;
- 
- 	t *= tick_in_usec;
- 	return (t >> 32) != 0;
- }
- 
- 
--long tc_core_usec2tick(long usec)
-+long tc_core_time2tick(long time)
- {
--	return usec*tick_in_usec;
-+	return time*tick_in_usec;
- }
- 
--long tc_core_tick2usec(long tick)
-+long tc_core_tick2time(long tick)
- {
- 	return tick/tick_in_usec;
- }
-@@ -58,12 +58,12 @@ long tc_core_ktime2time(long ktime)
- 
- unsigned tc_calc_xmittime(unsigned rate, unsigned size)
- {
--	return tc_core_usec2tick(TIME_UNITS_PER_SEC*((double)size/rate));
-+	return tc_core_time2tick(TIME_UNITS_PER_SEC*((double)size/rate));
- }
- 
- unsigned tc_calc_xmitsize(unsigned rate, unsigned ticks)
- {
--	return ((double)rate*tc_core_tick2usec(ticks))/TIME_UNITS_PER_SEC;
-+	return ((double)rate*tc_core_tick2time(ticks))/TIME_UNITS_PER_SEC;
- }
- 
- /*
-diff --git a/tc/tc_core.h b/tc/tc_core.h
-index b31813d..a139da6 100644
---- a/tc/tc_core.h
-+++ b/tc/tc_core.h
-@@ -6,9 +6,9 @@ #include <linux/pkt_sched.h>
- 
- #define TIME_UNITS_PER_SEC	1000000
- 
--int  tc_core_usec2big(long usec);
--long tc_core_usec2tick(long usec);
--long tc_core_tick2usec(long tick);
-+int  tc_core_time2big(long time);
-+long tc_core_time2tick(long time);
-+long tc_core_tick2time(long tick);
- long tc_core_time2ktime(long time);
- long tc_core_ktime2time(long ktime);
- unsigned tc_calc_xmittime(unsigned rate, unsigned size);
-diff --git a/tc/tc_util.c b/tc/tc_util.c
-index 62113fc..b73fae9 100644
---- a/tc/tc_util.c
-+++ b/tc/tc_util.c
-@@ -209,7 +209,7 @@ char * sprint_rate(__u32 rate, char *buf
- 	return buf;
- }
- 
--int get_usecs(unsigned *usecs, const char *str)
-+int get_time(unsigned *time, const char *str)
- {
- 	double t;
- 	char *p;
-@@ -232,26 +232,26 @@ int get_usecs(unsigned *usecs, const cha
- 			return -1;
- 	}
- 
--	*usecs = t;
-+	*time = t;
- 	return 0;
- }
- 
- 
--void print_usecs(char *buf, int len, __u32 usec)
-+void print_time(char *buf, int len, __u32 time)
- {
--	double tmp = usec;
-+	double tmp = time;
- 
- 	if (tmp >= TIME_UNITS_PER_SEC)
- 		snprintf(buf, len, "%.1fs", tmp/TIME_UNITS_PER_SEC);
- 	else if (tmp >= TIME_UNITS_PER_SEC/1000)
- 		snprintf(buf, len, "%.1fms", tmp/(TIME_UNITS_PER_SEC/1000));
- 	else
--		snprintf(buf, len, "%uus", usec);
-+		snprintf(buf, len, "%uus", time);
- }
- 
--char * sprint_usecs(__u32 usecs, char *buf)
-+char * sprint_time(__u32 time, char *buf)
- {
--	print_usecs(buf, SPRINT_BSIZE-1, usecs);
-+	print_time(buf, SPRINT_BSIZE-1, time);
- 	return buf;
- }
- 
-diff --git a/tc/tc_util.h b/tc/tc_util.h
-index 0778693..b713cf1 100644
---- a/tc/tc_util.h
-+++ b/tc/tc_util.h
-@@ -46,17 +46,17 @@ extern int get_rate(unsigned *rate, cons
- extern int get_percent(unsigned *percent, const char *str);
- extern int get_size(unsigned *size, const char *str);
- extern int get_size_and_cell(unsigned *size, int *cell_log, char *str);
--extern int get_usecs(unsigned *usecs, const char *str);
-+extern int get_time(unsigned *time, const char *str);
- extern void print_rate(char *buf, int len, __u32 rate);
- extern void print_size(char *buf, int len, __u32 size);
- extern void print_percent(char *buf, int len, __u32 percent);
- extern void print_qdisc_handle(char *buf, int len, __u32 h);
--extern void print_usecs(char *buf, int len, __u32 usecs);
-+extern void print_time(char *buf, int len, __u32 time);
- extern char * sprint_rate(__u32 rate, char *buf);
- extern char * sprint_size(__u32 size, char *buf);
- extern char * sprint_qdisc_handle(__u32 h, char *buf);
- extern char * sprint_tc_classid(__u32 h, char *buf);
--extern char * sprint_usecs(__u32 usecs, char *buf);
-+extern char * sprint_time(__u32 time, char *buf);
- extern char * sprint_percent(__u32 percent, char *buf);
- 
- extern void print_tcstats_attr(FILE *fp, struct rtattr *tb[], char *prefix, struct rtattr **xstats);
-
---------------080906000808090107070505--
+It doesn't, I thought that it might be a good idea doing that, but never
+got around to actually figuring out how to do it.
