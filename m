@@ -1,7 +1,7 @@
 From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH 16/59] sysctl: md Remove unnecessary insert_at_head flag
-Date: Tue, 16 Jan 2007 09:39:21 -0700
-Message-ID: <1168965633112-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH 53/59] sysctl: Remove support for CTL_ANY
+Date: Tue, 16 Jan 2007 09:39:58 -0700
+Message-ID: <11689656972739-git-send-email-ebiederm@xmission.com>
 References: <m1ac0jc4no.fsf@ebiederm.dsl.xmission.com>
 Cc: <linux-kernel@vger.kernel.org>, <containers@lists.osdl.org>,
 	<netdev@vger.kernel.org>, xfs-masters@oss.sgi.com, xfs@oss.sgi.com,
@@ -19,7 +19,7 @@ Cc: <linux-kernel@vger.kernel.org>, <containers@lists.osdl.org>,
 	coda@cs.cmu.edu, codalist@TELEMANN.coda.cs.cmu.edu,
 	aia21@cantab.net, linux-ntfs-dev@lists.sourceforge.net,
 	mark.fasheh@oracle.com, kurt.hackel@oracle.com,
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751569AbXAPQpU@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751562AbXAPQqH@vger.kernel.org>
 To: "<Andrew Morton" <akpm@osdl.org>
 In-Reply-To: <m1ac0jc4no.fsf@ebiederm.dsl.xmission.com>
 Sender: linux-kernel-owner@vger.kernel.org
@@ -27,26 +27,42 @@ List-Id: netdev.vger.kernel.org
 
 From: Eric W. Biederman <ebiederm@xmission.com> - unquoted
 
-The sysctls used by the md driver are have unique binary numbers
-so remove the insert_at_head flag as it serves no useful purpose.
+There are currently no users in the kernel for CTL_ANY and it
+only has effect on the binary interface which is practically
+unused.
+
+So this complicates sysctl lookups for no good reason so just remove it.
 
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 ---
- drivers/md/md.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ include/linux/sysctl.h |    1 -
+ kernel/sysctl.c        |    2 +-
+ 2 files changed, 1 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/md/md.c b/drivers/md/md.c
-index d1cb45f..966e8be 100644
---- a/drivers/md/md.c
-+++ b/drivers/md/md.c
-@@ -5551,7 +5551,7 @@ static int __init md_init(void)
- 			    md_probe, NULL, NULL);
+diff --git a/include/linux/sysctl.h b/include/linux/sysctl.h
+index 63e1bac..c99e4bb 100644
+--- a/include/linux/sysctl.h
++++ b/include/linux/sysctl.h
+@@ -53,7 +53,6 @@ struct __sysctl_args {
  
- 	register_reboot_notifier(&md_notifier);
--	raid_table_header = register_sysctl_table(raid_root_table, 1);
-+	raid_table_header = register_sysctl_table(raid_root_table, 0);
- 
- 	md_geninit();
- 	return (0);
+ /* For internal pattern-matching use only: */
+ #ifdef __KERNEL__
+-#define CTL_ANY		-1	/* Matches any name */
+ #define CTL_NONE	0
+ #define CTL_UNNUMBERED	CTL_NONE	/* sysctl without a binary number */
+ #endif
+diff --git a/kernel/sysctl.c b/kernel/sysctl.c
+index 8da6647..e655b11 100644
+--- a/kernel/sysctl.c
++++ b/kernel/sysctl.c
+@@ -1166,7 +1166,7 @@ repeat:
+ 	for ( ; table->ctl_name || table->procname; table++) {
+ 		if (!table->ctl_name)
+ 			continue;
+-		if (n == table->ctl_name || table->ctl_name == CTL_ANY) {
++		if (n == table->ctl_name) {
+ 			int error;
+ 			if (table->child) {
+ 				if (ctl_perm(table, 001))
 -- 
 1.4.4.1.g278f
