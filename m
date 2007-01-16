@@ -1,36 +1,55 @@
-From: Andreas Schwab <schwab@suse.de>
-Subject: Re: Can someone please try...
-Date: Tue, 16 Jan 2007 20:00:55 +0100
-Message-ID: <jesleabxug.fsf@sykes.suse.de>
-References: <200701161806.02780.mb@bu3sch.de>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 0/59] Cleanup sysctl
+Date: Tue, 16 Jan 2007 12:03:36 -0700
+Message-ID: <m164b6bxpz.fsf@ebiederm.dsl.xmission.com>
+References: <m1ac0jc4no.fsf@ebiederm.dsl.xmission.com>
+	<45AD02FF.605@zytor.com> <m164b6den7.fsf@ebiederm.dsl.xmission.com>
+	<45AD1AD7.7030804@zytor.com>
+	<m1ac0iby5q.fsf@ebiederm.dsl.xmission.com>
+	<45AD2042.9090701@zytor.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: bcm43xx-dev@lists.berlios.de, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org,
+	Linux Containers <containers@lists.osdl.org>,
+	Tony Luck <tony.luck@intel.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns1.suse.de ([195.135.220.2]:52664 "EHLO mx1.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750965AbXAPTBd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Jan 2007 14:01:33 -0500
-To: Michael Buesch <mb@bu3sch.de>
-In-Reply-To: <200701161806.02780.mb@bu3sch.de> (Michael Buesch's message of
-	"Tue, 16 Jan 2007 18:06:02 +0100")
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:42506 "EHLO
+	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750949AbXAPTFM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jan 2007 14:05:12 -0500
+To: "H. Peter Anvin" <hpa@zytor.com>
+In-Reply-To: <45AD2042.9090701@zytor.com> (H. Peter Anvin's message of "Tue,
+	16 Jan 2007 10:58:10 -0800")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Michael Buesch <mb@bu3sch.de> writes:
+"H. Peter Anvin" <hpa@zytor.com> writes:
 
-> ...the bcm43xx driver in my tree with a 4318 chip?
-> The code there works excellent with my 4306 now, but I can't
-> get it to work with my 4318.
+> Eric W. Biederman wrote:
+>>>>
+>>> With "architectural" I mean "guaranteed to be stable" (as opposed to
+>>> "incidental").  Sorry for the confusion.
+>>
+>> Ok.  Then largely we are in agreement.  To implement that the rule is simple.
+>> If it isn't CTL_UNNUMBERED and the number is in Linus's tree, it is
+>> our responsibility to never change the meaning of that number.
+>>
+>> If a new sysctl entry is introduced it should be CTL_UNNUMBERED until
+>> it reaches Linus's tree to avoid conflicts.
+>>
+>> There is simply no point in having any kind of support for numbers
+>> whose meanings can change.
+>>
+>> Which is why I removed the few cases of binary number duplication I
+>> found.
+>>
+>
+> Agreed.  *Furthermore*, if the number isn't in <linux/sysctl.h> it shouldn't
+> exist anywhere else, either.
 
-Doesn't work for me either.  I cannot get it to associate to the AP.
+That would be a good habit.  Feel free to send the patches to ensure that
+is so.
 
-Andreas.
+I'm a practical fix it when it is in my way kind of guy ;)
 
---=20
-Andreas Schwab, SuSE Labs, schwab@suse.de
-SuSE Linux Products GmbH, Maxfeldstra=DFe 5, 90409 N=FCrnberg, Germany
-PGP key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4=
-ED5
-"And now for something completely different."
+Eric
