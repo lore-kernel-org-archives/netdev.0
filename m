@@ -1,7 +1,7 @@
 From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH 5/59] sysctl: rose remove unnecessary insert_at_head flag
-Date: Tue, 16 Jan 2007 09:39:10 -0700
-Message-ID: <11689656191854-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH 35/59] sysctl: C99 convert ctl_tables in arch/powerpc/kernel/idle.c
+Date: Tue, 16 Jan 2007 09:39:40 -0700
+Message-ID: <11689656593247-git-send-email-ebiederm@xmission.com>
 References: <m1ac0jc4no.fsf@ebiederm.dsl.xmission.com>
 Cc: <linux-kernel@vger.kernel.org>, <containers@lists.osdl.org>,
 	<netdev@vger.kernel.org>, xfs-masters@oss.sgi.com, xfs@oss.sgi.com,
@@ -19,35 +19,45 @@ Cc: <linux-kernel@vger.kernel.org>, <containers@lists.osdl.org>,
 	coda@cs.cmu.edu, codalist@TELEMANN.coda.cs.cmu.edu,
 	aia21@cantab.net, linux-ntfs-dev@lists.sourceforge.net,
 	mark.fasheh@oracle.com, kurt.hackel@oracle.com,
-Return-path: <linux-mips-bounce@linux-mips.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751567AbXAPQpx@vger.kernel.org>
 To: "<Andrew Morton" <akpm@osdl.org>
 In-Reply-To: <m1ac0jc4no.fsf@ebiederm.dsl.xmission.com>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Eric W. Biederman <ebiederm@xmission.com> - unquoted
 
-The sysctl numbers used are unique so setting the insert_at_head
-flag serves no semantic purpose.
+This was partially done already and there was no ABI breakage what
+a relief.
 
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 ---
- net/rose/sysctl_net_rose.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ arch/powerpc/kernel/idle.c |   11 ++++++++---
+ 1 files changed, 8 insertions(+), 3 deletions(-)
 
-diff --git a/net/rose/sysctl_net_rose.c b/net/rose/sysctl_net_rose.c
-index 8548c7c..0190a07 100644
---- a/net/rose/sysctl_net_rose.c
-+++ b/net/rose/sysctl_net_rose.c
-@@ -160,7 +160,7 @@ static ctl_table rose_root_table[] = {
+diff --git a/arch/powerpc/kernel/idle.c b/arch/powerpc/kernel/idle.c
+index 8994af3..8b27bb1 100644
+--- a/arch/powerpc/kernel/idle.c
++++ b/arch/powerpc/kernel/idle.c
+@@ -110,11 +110,16 @@ static ctl_table powersave_nap_ctl_table[]={
+ 		.mode		= 0644,
+ 		.proc_handler	= &proc_dointvec,
+ 	},
+-	{ 0, },
++	{}
+ };
+ static ctl_table powersave_nap_sysctl_root[] = {
+-	{ 1, "kernel", NULL, 0, 0755, powersave_nap_ctl_table, },
+- 	{ 0,},
++	{
++		.ctl_name	= CTL_KERN,
++		.procname	= "kernel",
++		.mode		= 0755,
++		.child		= powersave_nap_ctl_table,
++	},
++	{}
+ };
  
- void __init rose_register_sysctl(void)
- {
--	rose_table_header = register_sysctl_table(rose_root_table, 1);
-+	rose_table_header = register_sysctl_table(rose_root_table, 0);
- }
- 
- void rose_unregister_sysctl(void)
+ static int __init
 -- 
 1.4.4.1.g278f
