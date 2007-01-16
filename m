@@ -1,544 +1,425 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [PATCH 9/9] net: vm deadlock avoidance core
-Date: Tue, 16 Jan 2007 16:25:03 +0300
-Message-ID: <20070116132503.GA23144@2ka.mipt.ru>
-References: <20070116094557.494892000@taijtu.programming.kicks-ass.net> <20070116101816.115266000@taijtu.programming.kicks-ass.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [IPROUTE 04/05]: Replace "usec" by "time" in function names
+Date: Tue, 16 Jan 2007 14:42:19 +0100
+Message-ID: <45ACD63B.2030704@trash.net>
+References: <20070115101742.GB1644@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-mm@kvack.org, David Miller <davem@davemloft.net>
+Content-Type: multipart/mixed;
+ boundary="------------080906000808090107070505"
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:56717 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751041AbXAPNZm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Jan 2007 08:25:42 -0500
-To: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Content-Disposition: inline
-In-Reply-To: <20070116101816.115266000@taijtu.programming.kicks-ass.net>
+Received: from stinky.trash.net ([213.144.137.162]:51195 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750842AbXAPNmY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jan 2007 08:42:24 -0500
+To: Jarek Poplawski <jarkao2@o2.pl>
+In-Reply-To: <20070115101742.GB1644@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 16, 2007 at 10:46:06AM +0100, Peter Zijlstra (a.p.zijlstra@chello.nl) wrote:
-> In order to provide robust networked storage there must be a guarantee
-> of progress. That is, the storage device must never stall because of (physical)
-> OOM, because the device itself might be needed to get out of it (reclaim).
+This is a multi-part message in MIME format.
+--------------080906000808090107070505
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
 
+Jarek Poplawski wrote:
+> On 10-01-2007 11:01, Patrick McHardy wrote:
+> 
+>>[IPROUTE]: Replace "usec" by "time" in function names
+>>
+>>Rename functions containing "usec" since they don't necessarily return
+>>usec units anymore.
+>>
+>>diff --git a/tc/q_cbq.c b/tc/q_cbq.c
+>>index 0000a56..913b26a 100644
+>>--- a/tc/q_cbq.c
+>>+++ b/tc/q_cbq.c
+>>@@ -500,17 +500,17 @@ static int cbq_print_opt(struct qdisc_ut
+>> 	if (lss && show_details) {
+>> 		fprintf(f, "\nlevel %u ewma %u avpkt %ub ", lss->level, lss->ewma_log, lss->avpkt);
+>> 		if (lss->maxidle) {
+>>-			fprintf(f, "maxidle %luus ", tc_core_tick2usec(lss->maxidle>>lss->ewma_log));
+>>+			fprintf(f, "maxidle %luus ", tc_core_tick2time(lss->maxidle>>lss->ewma_log));
+> 
+> 
+> If not necessarily usec, "%luus" could be misleading
+> here and later. 
 
->  /* Used by processes to "lock" a socket state, so that
-> Index: linux-2.6-git/net/core/dev.c
-> ===================================================================
-> --- linux-2.6-git.orig/net/core/dev.c	2007-01-12 12:20:07.000000000 +0100
-> +++ linux-2.6-git/net/core/dev.c	2007-01-12 12:21:55.000000000 +0100
-> @@ -1767,10 +1767,23 @@ int netif_receive_skb(struct sk_buff *sk
->  	struct net_device *orig_dev;
->  	int ret = NET_RX_DROP;
->  	__be16 type;
-> +	unsigned long pflags = current->flags;
-> +
-> +	/* Emergency skb are special, they should
-> +	 *  - be delivered to SOCK_VMIO sockets only
-> +	 *  - stay away from userspace
-> +	 *  - have bounded memory usage
-> +	 *
-> +	 * Use PF_MEMALLOC as a poor mans memory pool - the grouping kind.
-> +	 * This saves us from propagating the allocation context down to all
-> +	 * allocation sites.
-> +	 */
-> +	if (unlikely(skb->emergency))
-> +		current->flags |= PF_MEMALLOC;
+The next patch replaces it by sprint_time.
 
-Access to 'current' in netif_receive_skb()???
-Why do you want to work with, for example keventd?
+>>diff --git a/tc/q_netem.c b/tc/q_netem.c
+>>index cfd1799..24fb95e 100644
+>>--- a/tc/q_netem.c
+>>+++ b/tc/q_netem.c
+>>@@ -108,15 +108,15 @@ static int get_ticks(__u32 *ticks, const
+>> {
+>> 	unsigned t;
+>> 
+>>-	if(get_usecs(&t, str))
+>>+	if(get_time(&t, str))
+>> 		return -1;
+>> 
+>>-	if (tc_core_usec2big(t)) {
+>>+	if (tc_core_time2big(t)) {
+>> 		fprintf(stderr, "Illegal %d usecs (too large)\n", t);
+> 
+> 
+> Like above but usecs.
 
->  	/* if we've gotten here through NAPI, check netpoll */
->  	if (skb->dev->poll && netpoll_rx(skb))
-> -		return NET_RX_DROP;
-> +		goto out;
->  
->  	if (!skb->tstamp.off_sec)
->  		net_timestamp(skb);
-> @@ -1781,7 +1794,7 @@ int netif_receive_skb(struct sk_buff *sk
->  	orig_dev = skb_bond(skb);
->  
->  	if (!orig_dev)
-> -		return NET_RX_DROP;
-> +		goto out;
->  
->  	__get_cpu_var(netdev_rx_stat).total++;
->  
-> @@ -1798,6 +1811,8 @@ int netif_receive_skb(struct sk_buff *sk
->  		goto ncls;
->  	}
->  #endif
-> +	if (unlikely(skb->emergency))
-> +		goto skip_taps;
->  
->  	list_for_each_entry_rcu(ptype, &ptype_all, list) {
->  		if (!ptype->dev || ptype->dev == skb->dev) {
-> @@ -1807,6 +1822,7 @@ int netif_receive_skb(struct sk_buff *sk
->  		}
->  	}
->  
-> +skip_taps:
+Fixed, thanks.
 
-It is still a 'tap'.
+>>diff --git a/tc/tc_core.c b/tc/tc_core.c
+>>index 07dc4ba..e27254e 100644
+>>--- a/tc/tc_core.c
+>>+++ b/tc/tc_core.c
+>>@@ -27,21 +27,21 @@ static __u32 t2us=1;
+>> static __u32 us2t=1;
+>> static double tick_in_usec = 1;
+>> 
+>>-int tc_core_usec2big(long usec)
+>>+int tc_core_time2big(long time)
+>> {
+>>-	__u64 t = usec;
+>>+	__u64 t = time;
+>> 
+>> 	t *= tick_in_usec;
+>> 	return (t >> 32) != 0;
+>> }
+>> 
+>> 
+>>-long tc_core_usec2tick(long usec)
+>>+long tc_core_time2tick(long time)
+>> {
+>>-	return usec*tick_in_usec;
+>>+	return time*tick_in_usec;
+>> }
+>> 
+>>-long tc_core_tick2usec(long tick)
+>>+long tc_core_tick2time(long tick)
+>> {
+>> 	return tick/tick_in_usec;
+>> }
+> 
+> 
+> Similarly (tick_in_time)?
 
->  #ifdef CONFIG_NET_CLS_ACT
->  	if (pt_prev) {
->  		ret = deliver_skb(skb, pt_prev, orig_dev);
-> @@ -1819,15 +1835,26 @@ int netif_receive_skb(struct sk_buff *sk
->  
->  	if (ret == TC_ACT_SHOT || (ret == TC_ACT_STOLEN)) {
->  		kfree_skb(skb);
-> -		goto out;
-> +		goto unlock;
->  	}
->  
->  	skb->tc_verd = 0;
->  ncls:
->  #endif
->  
-> +	if (unlikely(skb->emergency))
-> +		switch(skb->protocol) {
-> +			case __constant_htons(ETH_P_ARP):
-> +			case __constant_htons(ETH_P_IP):
-> +			case __constant_htons(ETH_P_IPV6):
-> +				break;
+Something like that will be done in a followup patch.
 
-Poor vlans and appletalk.
+--------------080906000808090107070505
+Content-Type: text/x-diff;
+ name="04.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="04.diff"
 
-> +			default:
-> +				goto drop;
-> +		}
-> +
->  	if (handle_bridge(&skb, &pt_prev, &ret, orig_dev))
-> -		goto out;
-> +		goto unlock;
->  
->  	type = skb->protocol;
->  	list_for_each_entry_rcu(ptype, &ptype_base[ntohs(type)&15], list) {
-> @@ -1842,6 +1869,7 @@ ncls:
->  	if (pt_prev) {
->  		ret = pt_prev->func(skb, skb->dev, pt_prev, orig_dev);
->  	} else {
-> +drop:
->  		kfree_skb(skb);
->  		/* Jamal, now you will not able to escape explaining
->  		 * me how you were going to use this. :-)
-> @@ -1849,8 +1877,10 @@ ncls:
->  		ret = NET_RX_DROP;
->  	}
->  
-> -out:
-> +unlock:
->  	rcu_read_unlock();
-> +out:
-> +	current->flags = pflags;
->  	return ret;
->  }
->  
-> Index: linux-2.6-git/net/core/skbuff.c
-> ===================================================================
-> --- linux-2.6-git.orig/net/core/skbuff.c	2007-01-12 12:20:07.000000000 +0100
-> +++ linux-2.6-git/net/core/skbuff.c	2007-01-12 13:29:51.000000000 +0100
-> @@ -142,28 +142,34 @@ EXPORT_SYMBOL(skb_truesize_bug);
->   *	%GFP_ATOMIC.
->   */
->  struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
-> -			    int fclone, int node)
-> +			    int flags, int node)
->  {
->  	struct kmem_cache *cache;
->  	struct skb_shared_info *shinfo;
->  	struct sk_buff *skb;
->  	u8 *data;
-> +	int emergency = 0;
->  
-> -	cache = fclone ? skbuff_fclone_cache : skbuff_head_cache;
-> +	size = SKB_DATA_ALIGN(size);
-> +	cache = (flags & SKB_ALLOC_FCLONE)
-> +		? skbuff_fclone_cache : skbuff_head_cache;
-> +	if (flags & SKB_ALLOC_RX)
-> +		gfp_mask |= __GFP_NOMEMALLOC|__GFP_NOWARN;
->  
-> +retry_alloc:
->  	/* Get the HEAD */
->  	skb = kmem_cache_alloc_node(cache, gfp_mask & ~__GFP_DMA, node);
->  	if (!skb)
-> -		goto out;
-> +		goto noskb;
->  
->  	/* Get the DATA. Size must match skb_add_mtu(). */
-> -	size = SKB_DATA_ALIGN(size);
->  	data = kmalloc_node_track_caller(size + sizeof(struct skb_shared_info),
->  			gfp_mask, node);
->  	if (!data)
->  		goto nodata;
->  
->  	memset(skb, 0, offsetof(struct sk_buff, truesize));
-> +	skb->emergency = emergency;
->  	skb->truesize = size + sizeof(struct sk_buff);
->  	atomic_set(&skb->users, 1);
->  	skb->head = data;
-> @@ -180,7 +186,7 @@ struct sk_buff *__alloc_skb(unsigned int
->  	shinfo->ip6_frag_id = 0;
->  	shinfo->frag_list = NULL;
->  
-> -	if (fclone) {
-> +	if (flags & SKB_ALLOC_FCLONE) {
->  		struct sk_buff *child = skb + 1;
->  		atomic_t *fclone_ref = (atomic_t *) (child + 1);
->  
-> @@ -188,12 +194,29 @@ struct sk_buff *__alloc_skb(unsigned int
->  		atomic_set(fclone_ref, 1);
->  
->  		child->fclone = SKB_FCLONE_UNAVAILABLE;
-> +		child->emergency = skb->emergency;
->  	}
->  out:
->  	return skb;
-> +
->  nodata:
->  	kmem_cache_free(cache, skb);
->  	skb = NULL;
-> +noskb:
-> +	/* Attempt emergency allocation when RX skb. */
-> +	if (likely(!(flags & SKB_ALLOC_RX) || !sk_vmio_socks()))
-> +		goto out;
-> +
-> +	if (!emergency) {
-> +		if (sk_emergency_skb_get()) {
-> +			gfp_mask &= ~(__GFP_NOMEMALLOC|__GFP_NOWARN);
-> +			gfp_mask |= __GFP_EMERGENCY;
-> +			emergency = 1;
-> +			goto retry_alloc;
-> +		}
-> +	} else
-> +		sk_emergency_skb_put();
-> +
->  	goto out;
->  }
->  
-> @@ -271,7 +294,7 @@ struct sk_buff *__netdev_alloc_skb(struc
->  	int node = dev->class_dev.dev ? dev_to_node(dev->class_dev.dev) : -1;
->  	struct sk_buff *skb;
->  
-> - 	skb = __alloc_skb(length + NET_SKB_PAD, gfp_mask, 0, node);
-> + 	skb = __alloc_skb(length + NET_SKB_PAD, gfp_mask, SKB_ALLOC_RX, node);
->  	if (likely(skb)) {
->  		skb_reserve(skb, NET_SKB_PAD);
->  		skb->dev = dev;
-> @@ -320,6 +343,8 @@ static void skb_release_data(struct sk_b
->  			skb_drop_fraglist(skb);
->  
->  		kfree(skb->head);
-> +		if (unlikely(skb->emergency))
-> +			sk_emergency_skb_put();
->  	}
->  }
->  
-> @@ -440,6 +465,9 @@ struct sk_buff *skb_clone(struct sk_buff
->  		n->fclone = SKB_FCLONE_CLONE;
->  		atomic_inc(fclone_ref);
->  	} else {
-> +		if (unlikely(skb->emergency))
-> +			gfp_mask |= __GFP_EMERGENCY;
-> +
->  		n = kmem_cache_alloc(skbuff_head_cache, gfp_mask);
->  		if (!n)
->  			return NULL;
-> @@ -474,6 +502,7 @@ struct sk_buff *skb_clone(struct sk_buff
->  #if defined(CONFIG_IP_VS) || defined(CONFIG_IP_VS_MODULE)
->  	C(ipvs_property);
->  #endif
-> +	C(emergency);
->  	C(protocol);
->  	n->destructor = NULL;
->  	C(mark);
-> @@ -689,12 +718,19 @@ int pskb_expand_head(struct sk_buff *skb
->  	u8 *data;
->  	int size = nhead + (skb->end - skb->head) + ntail;
->  	long off;
-> +	int emergency = 0;
->  
->  	if (skb_shared(skb))
->  		BUG();
->  
->  	size = SKB_DATA_ALIGN(size);
->  
-> +	if (unlikely(skb->emergency) && sk_emergency_skb_get()) {
-> +		gfp_mask |= __GFP_EMERGENCY;
-> +		emergency = 1;
-> +	} else
-> +		gfp_mask |= __GFP_NOMEMALLOC;
-> +
->  	data = kmalloc(size + sizeof(struct skb_shared_info), gfp_mask);
->  	if (!data)
->  		goto nodata;
-> @@ -727,6 +763,8 @@ int pskb_expand_head(struct sk_buff *skb
->  	return 0;
->  
->  nodata:
-> +	if (unlikely(emergency))
-> +		sk_emergency_skb_put();
->  	return -ENOMEM;
->  }
->  
-> Index: linux-2.6-git/net/core/sock.c
-> ===================================================================
-> --- linux-2.6-git.orig/net/core/sock.c	2007-01-12 12:20:07.000000000 +0100
-> +++ linux-2.6-git/net/core/sock.c	2007-01-12 12:21:14.000000000 +0100
-> @@ -196,6 +196,120 @@ __u32 sysctl_rmem_default __read_mostly 
->  /* Maximal space eaten by iovec or ancilliary data plus some space */
->  int sysctl_optmem_max __read_mostly = sizeof(unsigned long)*(2*UIO_MAXIOV+512);
->  
-> +static DEFINE_SPINLOCK(memalloc_lock);
-> +static int rx_net_reserve;
-> +
-> +atomic_t vmio_socks;
-> +atomic_t emergency_rx_skbs;
-> +
-> +static int ipfrag_threshold;
-> +
-> +#define ipfrag_mtu()	(1500) /* XXX: should be smallest mtu system wide */
-> +#define ipfrag_skbs()	(ipfrag_threshold / ipfrag_mtu())
-> +#define ipfrag_pages()	(ipfrag_threshold / (ipfrag_mtu() * (PAGE_SIZE / ipfrag_mtu())))
-> +
-> +static int iprt_pages;
-> +
-> +/*
-> + * is there room for another emergency skb.
-> + */
-> +int sk_emergency_skb_get(void)
-> +{
-> +	int nr = atomic_add_return(1, &emergency_rx_skbs);
-> +	int thresh = (3 * ipfrag_skbs()) / 2;
-> +	if (nr < thresh)
-> +		return 1;
-> +
-> +	atomic_dec(&emergency_rx_skbs);
-> +	return 0;
-> +}
-> +
-> +/**
-> + *	sk_adjust_memalloc - adjust the global memalloc reserve for critical RX
-> + *	@socks: number of new %SOCK_VMIO sockets
-> + *	@tx_resserve_pages: number of pages to (un)reserve for TX
-> + *
-> + *	This function adjusts the memalloc reserve based on system demand.
-> + *	The RX reserve is a limit, and only added once, not for each socket.
-> + *
-> + *	NOTE:
-> + *	   @tx_reserve_pages is an upper-bound of memory used for TX hence
-> + *	   we need not account the pages like we do for RX pages.
-> + */
-> +void sk_adjust_memalloc(int socks, int tx_reserve_pages)
-> +{
-> +	unsigned long flags;
-> +	int reserve = tx_reserve_pages;
-> +	int nr_socks;
-> +
-> +	spin_lock_irqsave(&memalloc_lock, flags);
-> +	nr_socks = atomic_add_return(socks, &vmio_socks);
-> +	BUG_ON(nr_socks < 0);
-> +
-> +	if (nr_socks) {
-> +		int rx_pages = 2 * ipfrag_pages() + iprt_pages;
-> +		reserve += rx_pages - rx_net_reserve;
-> +		rx_net_reserve = rx_pages;
-> +	} else {
-> +		reserve -= rx_net_reserve;
-> +		rx_net_reserve = 0;
-> +	}
-> +
-> +	if (reserve)
-> +		adjust_memalloc_reserve(reserve);
-> +	spin_unlock_irqrestore(&memalloc_lock, flags);
-> +}
-> +EXPORT_SYMBOL_GPL(sk_adjust_memalloc);
-> +
-> +/*
-> + * tiny helper function to track the total ipfragment memory
-> + * needed because of modular ipv6
-> + */
-> +void ipfrag_reserve_memory(int frags)
-> +{
-> +	ipfrag_threshold += frags;
-> +	sk_adjust_memalloc(0, 0);
-> +}
-> +EXPORT_SYMBOL_GPL(ipfrag_reserve_memory);
-> +
-> +void iprt_reserve_memory(int pages)
-> +{
-> +	iprt_pages += pages;
-> +	sk_adjust_memalloc(0, 0);
-> +}
-> +EXPORT_SYMBOL_GPL(iprt_reserve_memory);
-> +
-> +/**
-> + *	sk_set_vmio - sets %SOCK_VMIO
-> + *	@sk: socket to set it on
-> + *
-> + *	Set %SOCK_VMIO on a socket and increase the memalloc reserve
-> + *	accordingly.
-> + */
-> +int sk_set_vmio(struct sock *sk)
-> +{
-> +	int set = sock_flag(sk, SOCK_VMIO);
-> +	if (!set) {
-> +		sk_adjust_memalloc(1, 0);
-> +		sock_set_flag(sk, SOCK_VMIO);
-> +		sk->sk_allocation |= __GFP_EMERGENCY;
-> +	}
-> +	return !set;
-> +}
-> +EXPORT_SYMBOL_GPL(sk_set_vmio);
-> +
-> +int sk_clear_vmio(struct sock *sk)
-> +{
-> +	int set = sock_flag(sk, SOCK_VMIO);
-> +	if (set) {
-> +		sk_adjust_memalloc(-1, 0);
-> +		sock_reset_flag(sk, SOCK_VMIO);
-> +		sk->sk_allocation &= ~__GFP_EMERGENCY;
-> +	}
-> +	return set;
-> +}
-> +EXPORT_SYMBOL_GPL(sk_clear_vmio);
-> +
->  static int sock_set_timeout(long *timeo_p, char __user *optval, int optlen)
->  {
->  	struct timeval tv;
-> @@ -239,6 +353,12 @@ int sock_queue_rcv_skb(struct sock *sk, 
->  	int err = 0;
->  	int skb_len;
->  
-> +	if (unlikely(skb->emergency)) {
-> +		if (!sk_has_vmio(sk)) {
-> +			err = -ENOMEM;
-> +			goto out;
-> +		}
-> +	} else
->  	/* Cast skb->rcvbuf to unsigned... It's pointless, but reduces
->  	   number of warnings when compiling with -W --ANK
->  	 */
-> @@ -868,6 +988,7 @@ void sk_free(struct sock *sk)
->  	struct sk_filter *filter;
->  	struct module *owner = sk->sk_prot_creator->owner;
->  
-> +	sk_clear_vmio(sk);
->  	if (sk->sk_destruct)
->  		sk->sk_destruct(sk);
->  
-> Index: linux-2.6-git/net/ipv4/ipmr.c
-> ===================================================================
-> --- linux-2.6-git.orig/net/ipv4/ipmr.c	2007-01-12 12:20:08.000000000 +0100
-> +++ linux-2.6-git/net/ipv4/ipmr.c	2007-01-12 12:21:14.000000000 +0100
-> @@ -1340,6 +1340,9 @@ int ip_mr_input(struct sk_buff *skb)
->  	struct mfc_cache *cache;
->  	int local = ((struct rtable*)skb->dst)->rt_flags&RTCF_LOCAL;
->  
-> +	if (unlikely(skb->emergency))
-> +		goto drop;
-> +
->  	/* Packet is looped back after forward, it should not be
->  	   forwarded second time, but still can be delivered locally.
->  	 */
-> @@ -1411,6 +1414,7 @@ int ip_mr_input(struct sk_buff *skb)
->  dont_forward:
->  	if (local)
->  		return ip_local_deliver(skb);
-> +drop:
->  	kfree_skb(skb);
->  	return 0;
->  }
-> Index: linux-2.6-git/net/ipv4/sysctl_net_ipv4.c
-> ===================================================================
-> --- linux-2.6-git.orig/net/ipv4/sysctl_net_ipv4.c	2007-01-12 12:20:08.000000000 +0100
-> +++ linux-2.6-git/net/ipv4/sysctl_net_ipv4.c	2007-01-12 12:21:14.000000000 +0100
-> @@ -18,6 +18,7 @@
->  #include <net/route.h>
->  #include <net/tcp.h>
->  #include <net/cipso_ipv4.h>
-> +#include <net/sock.h>
->  
->  /* From af_inet.c */
->  extern int sysctl_ip_nonlocal_bind;
-> @@ -186,6 +187,17 @@ static int strategy_allowed_congestion_c
->  
->  }
->  
-> +int proc_dointvec_fragment(ctl_table *table, int write, struct file *filp,
-> +		     void __user *buffer, size_t *lenp, loff_t *ppos)
-> +{
-> +	int ret;
-> +	int old_thresh = *(int *)table->data;
-> +	ret = proc_dointvec(table,write,filp,buffer,lenp,ppos);
-> +	ipfrag_reserve_memory(*(int *)table->data - old_thresh);
-> +	return ret;
-> +}
-> +EXPORT_SYMBOL_GPL(proc_dointvec_fragment);
-> +
->  ctl_table ipv4_table[] = {
->          {
->  		.ctl_name	= NET_IPV4_TCP_TIMESTAMPS,
-> @@ -291,7 +303,7 @@ ctl_table ipv4_table[] = {
->  		.data		= &sysctl_ipfrag_high_thresh,
->  		.maxlen		= sizeof(int),
->  		.mode		= 0644,
-> -		.proc_handler	= &proc_dointvec
-> +		.proc_handler	= &proc_dointvec_fragment
->  	},
->  	{
->  		.ctl_name	= NET_IPV4_IPFRAG_LOW_THRESH,
-> Index: linux-2.6-git/net/ipv4/tcp_ipv4.c
-> ===================================================================
-> --- linux-2.6-git.orig/net/ipv4/tcp_ipv4.c	2007-01-12 12:20:07.000000000 +0100
-> +++ linux-2.6-git/net/ipv4/tcp_ipv4.c	2007-01-12 12:21:14.000000000 +0100
-> @@ -1604,6 +1604,22 @@ csum_err:
->  	goto discard;
->  }
->  
-> +static int tcp_v4_backlog_rcv(struct sock *sk, struct sk_buff *skb)
-> +{
-> +	int ret;
-> +	unsigned long pflags = current->flags;
-> +	if (unlikely(skb->emergency)) {
-> +		BUG_ON(!sk_has_vmio(sk)); /* we dropped those before queueing */
-> +		if (!(pflags & PF_MEMALLOC))
-> +			current->flags |= PF_MEMALLOC;
-> +	}
-> +
-> +	ret = tcp_v4_do_rcv(sk, skb);
-> +
-> +	current->flags = pflags;
-> +	return ret;
+[IPROUTE]: Replace "usec" by "time" in function names
 
-Why don't you want to just setup PF_MEMALLOC for the socket and all
-related processes?
+Rename functions containing "usec" since they don't necessarily return
+usec units anymore.
 
-> +}
-> +
->  /*
->   *	From tcp_input.c
->   */
-> @@ -1654,6 +1670,15 @@ int tcp_v4_rcv(struct sk_buff *skb)
->  	if (!sk)
->  		goto no_tcp_socket;
->  
-> +	if (unlikely(skb->emergency)) {
-> +	       	if (!sk_has_vmio(sk))
-> +			goto discard_and_relse;
-> +		/*
-> +		   decrease window size..
-> +		   tcp_enter_quickack_mode(sk);
-> +		*/
+Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-How does this decrease window size?
-Maybe ack scheduling would be better handled by inet_csk_schedule_ack()
-or just directly send an ack, which in turn requires allocation, which
-can be bound to this received frame processing...
+---
+commit 64f96b38ae91faad5baff052715114a0704a844e
+tree b5c87b9834652fa695c9b6463b05ec17754b7003
+parent df1c304ddaedfd5bfa6ca39cc66560c1618e2928
+author Patrick McHardy <kaber@trash.net> Tue, 16 Jan 2007 14:40:30 +0100
+committer Patrick McHardy <kaber@trash.net> Tue, 16 Jan 2007 14:40:30 +0100
 
+ tc/m_estimator.c |    4 ++--
+ tc/q_cbq.c       |    6 +++---
+ tc/q_hfsc.c      |    6 +++---
+ tc/q_netem.c     |    8 ++++----
+ tc/q_tbf.c       |    8 ++++----
+ tc/tc_cbq.c      |    4 ++--
+ tc/tc_core.c     |   14 +++++++-------
+ tc/tc_core.h     |    6 +++---
+ tc/tc_util.c     |   14 +++++++-------
+ tc/tc_util.h     |    6 +++---
+ 10 files changed, 38 insertions(+), 38 deletions(-)
 
--- 
-	Evgeniy Polyakov
+diff --git a/tc/m_estimator.c b/tc/m_estimator.c
+index d931551..a9e5dbc 100644
+--- a/tc/m_estimator.c
++++ b/tc/m_estimator.c
+@@ -45,12 +45,12 @@ int parse_estimator(int *p_argc, char **
+ 		duparg("estimator", *argv);
+ 	if (matches(*argv, "help") == 0)
+ 		est_help();
+-	if (get_usecs(&A, *argv))
++	if (get_time(&A, *argv))
+ 		invarg("estimator", "invalid estimator interval");
+ 	NEXT_ARG();
+ 	if (matches(*argv, "help") == 0)
+ 		est_help();
+-	if (get_usecs(&time_const, *argv))
++	if (get_time(&time_const, *argv))
+ 		invarg("estimator", "invalid estimator time constant");
+ 	if (tc_setup_estimator(A, time_const, est) < 0) {
+ 		fprintf(stderr, "Error: estimator parameters are out of range.\n");
+diff --git a/tc/q_cbq.c b/tc/q_cbq.c
+index 0000a56..913b26a 100644
+--- a/tc/q_cbq.c
++++ b/tc/q_cbq.c
+@@ -500,17 +500,17 @@ static int cbq_print_opt(struct qdisc_ut
+ 	if (lss && show_details) {
+ 		fprintf(f, "\nlevel %u ewma %u avpkt %ub ", lss->level, lss->ewma_log, lss->avpkt);
+ 		if (lss->maxidle) {
+-			fprintf(f, "maxidle %luus ", tc_core_tick2usec(lss->maxidle>>lss->ewma_log));
++			fprintf(f, "maxidle %luus ", tc_core_tick2time(lss->maxidle>>lss->ewma_log));
+ 			if (show_raw)
+ 				fprintf(f, "[%08x] ", lss->maxidle);
+ 		}
+ 		if (lss->minidle!=0x7fffffff) {
+-			fprintf(f, "minidle %luus ", tc_core_tick2usec(lss->minidle>>lss->ewma_log));
++			fprintf(f, "minidle %luus ", tc_core_tick2time(lss->minidle>>lss->ewma_log));
+ 			if (show_raw)
+ 				fprintf(f, "[%08x] ", lss->minidle);
+ 		}
+ 		if (lss->offtime) {
+-			fprintf(f, "offtime %luus ", tc_core_tick2usec(lss->offtime));
++			fprintf(f, "offtime %luus ", tc_core_tick2time(lss->offtime));
+ 			if (show_raw)
+ 				fprintf(f, "[%08x] ", lss->offtime);
+ 		}
+diff --git a/tc/q_hfsc.c b/tc/q_hfsc.c
+index f7a30f2..b190c71 100644
+--- a/tc/q_hfsc.c
++++ b/tc/q_hfsc.c
+@@ -226,7 +226,7 @@ hfsc_print_sc(FILE *f, char *name, struc
+ 
+ 	fprintf(f, "%s ", name);
+ 	fprintf(f, "m1 %s ", sprint_rate(sc->m1, b1));
+-	fprintf(f, "d %s ", sprint_usecs(tc_core_ktime2time(sc->d), b1));
++	fprintf(f, "d %s ", sprint_time(tc_core_ktime2time(sc->d), b1));
+ 	fprintf(f, "m2 %s ", sprint_rate(sc->m2, b1));
+ }
+ 
+@@ -303,7 +303,7 @@ hfsc_get_sc1(int *argcp, char ***argvp, 
+ 
+ 	if (matches(*argv, "d") == 0) {
+ 		NEXT_ARG();
+-		if (get_usecs(&d, *argv) < 0) {
++		if (get_time(&d, *argv) < 0) {
+ 			explain1("d");
+ 			return -1;
+ 		}
+@@ -346,7 +346,7 @@ hfsc_get_sc2(int *argcp, char ***argvp, 
+ 
+ 	if (matches(*argv, "dmax") == 0) {
+ 		NEXT_ARG();
+-		if (get_usecs(&dmax, *argv) < 0) {
++		if (get_time(&dmax, *argv) < 0) {
+ 			explain1("dmax");
+ 			return -1;
+ 		}
+diff --git a/tc/q_netem.c b/tc/q_netem.c
+index cfd1799..6035c4f 100644
+--- a/tc/q_netem.c
++++ b/tc/q_netem.c
+@@ -108,15 +108,15 @@ static int get_ticks(__u32 *ticks, const
+ {
+ 	unsigned t;
+ 
+-	if(get_usecs(&t, str))
++	if(get_time(&t, str))
+ 		return -1;
+ 
+-	if (tc_core_usec2big(t)) {
+-		fprintf(stderr, "Illegal %d usecs (too large)\n", t);
++	if (tc_core_time2big(t)) {
++		fprintf(stderr, "Illegal %u time (too large)\n", t);
+ 		return -1;
+ 	}
+ 
+-	*ticks = tc_core_usec2tick(t);
++	*ticks = tc_core_time2tick(t);
+ 	return 0;
+ }
+ 
+diff --git a/tc/q_tbf.c b/tc/q_tbf.c
+index 5ba3631..566afa0 100644
+--- a/tc/q_tbf.c
++++ b/tc/q_tbf.c
+@@ -67,7 +67,7 @@ static int tbf_parse_opt(struct qdisc_ut
+ 				fprintf(stderr, "Double \"limit/latency\" spec\n");
+ 				return -1;
+ 			}
+-			if (get_usecs(&latency, *argv)) {
++			if (get_time(&latency, *argv)) {
+ 				explain1("latency");
+ 				return -1;
+ 			}
+@@ -245,13 +245,13 @@ static int tbf_print_opt(struct qdisc_ut
+ 	if (show_raw)
+ 		fprintf(f, "limit %s ", sprint_size(qopt->limit, b1));
+ 
+-	latency = TIME_UNITS_PER_SEC*(qopt->limit/(double)qopt->rate.rate) - tc_core_tick2usec(qopt->buffer);
++	latency = TIME_UNITS_PER_SEC*(qopt->limit/(double)qopt->rate.rate) - tc_core_tick2time(qopt->buffer);
+ 	if (qopt->peakrate.rate) {
+-		double lat2 = TIME_UNITS_PER_SEC*(qopt->limit/(double)qopt->peakrate.rate) - tc_core_tick2usec(qopt->mtu);
++		double lat2 = TIME_UNITS_PER_SEC*(qopt->limit/(double)qopt->peakrate.rate) - tc_core_tick2time(qopt->mtu);
+ 		if (lat2 > latency)
+ 			latency = lat2;
+ 	}
+-	fprintf(f, "lat %s ", sprint_usecs(tc_core_tick2usec(latency), b1));
++	fprintf(f, "lat %s ", sprint_time(tc_core_tick2time(latency), b1));
+ 
+ 	return 0;
+ }
+diff --git a/tc/tc_cbq.c b/tc/tc_cbq.c
+index c7b3a2d..0bb262e 100644
+--- a/tc/tc_cbq.c
++++ b/tc/tc_cbq.c
+@@ -38,7 +38,7 @@ unsigned tc_cbq_calc_maxidle(unsigned bn
+ 		if (vxmt > maxidle)
+ 			maxidle = vxmt;
+ 	}
+-	return tc_core_usec2tick(maxidle*(1<<ewma_log)*TIME_UNITS_PER_SEC);
++	return tc_core_time2tick(maxidle*(1<<ewma_log)*TIME_UNITS_PER_SEC);
+ }
+ 
+ unsigned tc_cbq_calc_offtime(unsigned bndw, unsigned rate, unsigned avpkt,
+@@ -53,5 +53,5 @@ unsigned tc_cbq_calc_offtime(unsigned bn
+ 		offtime *= pow(g, -(double)minburst) - 1;
+ 	else
+ 		offtime *= 1 + (pow(g, -(double)(minburst-1)) - 1)/(1-g);
+-	return tc_core_usec2tick(offtime*TIME_UNITS_PER_SEC);
++	return tc_core_time2tick(offtime*TIME_UNITS_PER_SEC);
+ }
+diff --git a/tc/tc_core.c b/tc/tc_core.c
+index 07dc4ba..e27254e 100644
+--- a/tc/tc_core.c
++++ b/tc/tc_core.c
+@@ -27,21 +27,21 @@ static __u32 t2us=1;
+ static __u32 us2t=1;
+ static double tick_in_usec = 1;
+ 
+-int tc_core_usec2big(long usec)
++int tc_core_time2big(long time)
+ {
+-	__u64 t = usec;
++	__u64 t = time;
+ 
+ 	t *= tick_in_usec;
+ 	return (t >> 32) != 0;
+ }
+ 
+ 
+-long tc_core_usec2tick(long usec)
++long tc_core_time2tick(long time)
+ {
+-	return usec*tick_in_usec;
++	return time*tick_in_usec;
+ }
+ 
+-long tc_core_tick2usec(long tick)
++long tc_core_tick2time(long tick)
+ {
+ 	return tick/tick_in_usec;
+ }
+@@ -58,12 +58,12 @@ long tc_core_ktime2time(long ktime)
+ 
+ unsigned tc_calc_xmittime(unsigned rate, unsigned size)
+ {
+-	return tc_core_usec2tick(TIME_UNITS_PER_SEC*((double)size/rate));
++	return tc_core_time2tick(TIME_UNITS_PER_SEC*((double)size/rate));
+ }
+ 
+ unsigned tc_calc_xmitsize(unsigned rate, unsigned ticks)
+ {
+-	return ((double)rate*tc_core_tick2usec(ticks))/TIME_UNITS_PER_SEC;
++	return ((double)rate*tc_core_tick2time(ticks))/TIME_UNITS_PER_SEC;
+ }
+ 
+ /*
+diff --git a/tc/tc_core.h b/tc/tc_core.h
+index b31813d..a139da6 100644
+--- a/tc/tc_core.h
++++ b/tc/tc_core.h
+@@ -6,9 +6,9 @@ #include <linux/pkt_sched.h>
+ 
+ #define TIME_UNITS_PER_SEC	1000000
+ 
+-int  tc_core_usec2big(long usec);
+-long tc_core_usec2tick(long usec);
+-long tc_core_tick2usec(long tick);
++int  tc_core_time2big(long time);
++long tc_core_time2tick(long time);
++long tc_core_tick2time(long tick);
+ long tc_core_time2ktime(long time);
+ long tc_core_ktime2time(long ktime);
+ unsigned tc_calc_xmittime(unsigned rate, unsigned size);
+diff --git a/tc/tc_util.c b/tc/tc_util.c
+index 62113fc..b73fae9 100644
+--- a/tc/tc_util.c
++++ b/tc/tc_util.c
+@@ -209,7 +209,7 @@ char * sprint_rate(__u32 rate, char *buf
+ 	return buf;
+ }
+ 
+-int get_usecs(unsigned *usecs, const char *str)
++int get_time(unsigned *time, const char *str)
+ {
+ 	double t;
+ 	char *p;
+@@ -232,26 +232,26 @@ int get_usecs(unsigned *usecs, const cha
+ 			return -1;
+ 	}
+ 
+-	*usecs = t;
++	*time = t;
+ 	return 0;
+ }
+ 
+ 
+-void print_usecs(char *buf, int len, __u32 usec)
++void print_time(char *buf, int len, __u32 time)
+ {
+-	double tmp = usec;
++	double tmp = time;
+ 
+ 	if (tmp >= TIME_UNITS_PER_SEC)
+ 		snprintf(buf, len, "%.1fs", tmp/TIME_UNITS_PER_SEC);
+ 	else if (tmp >= TIME_UNITS_PER_SEC/1000)
+ 		snprintf(buf, len, "%.1fms", tmp/(TIME_UNITS_PER_SEC/1000));
+ 	else
+-		snprintf(buf, len, "%uus", usec);
++		snprintf(buf, len, "%uus", time);
+ }
+ 
+-char * sprint_usecs(__u32 usecs, char *buf)
++char * sprint_time(__u32 time, char *buf)
+ {
+-	print_usecs(buf, SPRINT_BSIZE-1, usecs);
++	print_time(buf, SPRINT_BSIZE-1, time);
+ 	return buf;
+ }
+ 
+diff --git a/tc/tc_util.h b/tc/tc_util.h
+index 0778693..b713cf1 100644
+--- a/tc/tc_util.h
++++ b/tc/tc_util.h
+@@ -46,17 +46,17 @@ extern int get_rate(unsigned *rate, cons
+ extern int get_percent(unsigned *percent, const char *str);
+ extern int get_size(unsigned *size, const char *str);
+ extern int get_size_and_cell(unsigned *size, int *cell_log, char *str);
+-extern int get_usecs(unsigned *usecs, const char *str);
++extern int get_time(unsigned *time, const char *str);
+ extern void print_rate(char *buf, int len, __u32 rate);
+ extern void print_size(char *buf, int len, __u32 size);
+ extern void print_percent(char *buf, int len, __u32 percent);
+ extern void print_qdisc_handle(char *buf, int len, __u32 h);
+-extern void print_usecs(char *buf, int len, __u32 usecs);
++extern void print_time(char *buf, int len, __u32 time);
+ extern char * sprint_rate(__u32 rate, char *buf);
+ extern char * sprint_size(__u32 size, char *buf);
+ extern char * sprint_qdisc_handle(__u32 h, char *buf);
+ extern char * sprint_tc_classid(__u32 h, char *buf);
+-extern char * sprint_usecs(__u32 usecs, char *buf);
++extern char * sprint_time(__u32 time, char *buf);
+ extern char * sprint_percent(__u32 percent, char *buf);
+ 
+ extern void print_tcstats_attr(FILE *fp, struct rtattr *tb[], char *prefix, struct rtattr **xstats);
+
+--------------080906000808090107070505--
