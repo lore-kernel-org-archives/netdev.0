@@ -1,7 +1,7 @@
 From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH 29/59] sysctl: C99 convert arch/ia64/kernel/perfmon and remove ABI breakage
-Date: Tue, 16 Jan 2007 09:39:34 -0700
-Message-ID: <1168965650735-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH 25/59] sysctl: C99 convert arch/frv/kernel/pm.c
+Date: Tue, 16 Jan 2007 09:39:30 -0700
+Message-ID: <11689656443582-git-send-email-ebiederm@xmission.com>
 References: <m1ac0jc4no.fsf@ebiederm.dsl.xmission.com>
 Cc: <linux-kernel@vger.kernel.org>, <containers@lists.osdl.org>,
 	<netdev@vger.kernel.org>, xfs-masters@oss.sgi.com, xfs@oss.sgi.com,
@@ -28,87 +28,75 @@ List-Id: netdev.vger.kernel.org
 
 From: Eric W. Biederman <ebiederm@xmission.com> - unquoted
 
-This convers the sysctl ctl_tables to use C99 initializers.
-While I was looking at it I discovered it was using a portion of
-the sysctl binary addresses space under CTL_KERN KERN_OSTYPE
-which was completely inappropriate.  So I completely removed
-all of the sysctl binary names, to remove and avoid the ABI conflict.
-
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 ---
- arch/ia64/kernel/perfmon.c |   56 ++++++++++++++++++++++++++++++++++++-------
- 1 files changed, 47 insertions(+), 9 deletions(-)
+ arch/frv/kernel/pm.c |   50 +++++++++++++++++++++++++++++++++++++++++++-------
+ 1 files changed, 43 insertions(+), 7 deletions(-)
 
-diff --git a/arch/ia64/kernel/perfmon.c b/arch/ia64/kernel/perfmon.c
-index aa94f60..8c679ab 100644
---- a/arch/ia64/kernel/perfmon.c
-+++ b/arch/ia64/kernel/perfmon.c
-@@ -521,19 +521,57 @@ pfm_sysctl_t pfm_sysctl;
- EXPORT_SYMBOL(pfm_sysctl);
+diff --git a/arch/frv/kernel/pm.c b/arch/frv/kernel/pm.c
+index c1840d6..aa50333 100644
+--- a/arch/frv/kernel/pm.c
++++ b/arch/frv/kernel/pm.c
+@@ -401,17 +401,53 @@ static int cm_sysctl(ctl_table *table, int __user *name, int nlen,
  
- static ctl_table pfm_ctl_table[]={
--	{1, "debug", &pfm_sysctl.debug, sizeof(int), 0666, NULL, &proc_dointvec, NULL,},
--	{2, "debug_ovfl", &pfm_sysctl.debug_ovfl, sizeof(int), 0666, NULL, &proc_dointvec, NULL,},
--	{3, "fastctxsw", &pfm_sysctl.fastctxsw, sizeof(int), 0600, NULL, &proc_dointvec, NULL,},
--	{4, "expert_mode", &pfm_sysctl.expert_mode, sizeof(int), 0600, NULL, &proc_dointvec, NULL,},
--	{ 0, },
+ static struct ctl_table pm_table[] =
+ {
+-	{CTL_PM_SUSPEND, "suspend", NULL, 0, 0200, NULL, &sysctl_pm_do_suspend},
+-	{CTL_PM_CMODE, "cmode", &clock_cmode_current, sizeof(int), 0644, NULL, &cmode_procctl, &cmode_sysctl, NULL},
+-	{CTL_PM_P0, "p0", &clock_p0_current, sizeof(int), 0644, NULL, &p0_procctl, &p0_sysctl, NULL},
+-	{CTL_PM_CM, "cm", &clock_cm_current, sizeof(int), 0644, NULL, &cm_procctl, &cm_sysctl, NULL},
+-	{0}
 +	{
-+		.ctl_name	= CTL_UNNUMBERED,
-+		.procname	= "debug",
-+		.data		= &pfm_sysctl.debug,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0666,
-+		.proc_handler	= &proc_dointvec,
++		.ctl_name	= CTL_PM_SUSPEND,
++		.procname	= "suspend",
++		.data		= NULL,
++		.maxlen		= 0,
++		.mode		= 0200,
++		.proc_handler	= &sysctl_pm_do_suspend,
 +	},
 +	{
-+		.ctl_name	= CTL_UNNUMBERED,
-+		.procname	= "debug_ovfl",
-+		.data		= &pfm_sysctl.debug_ovfl,
++		.ctl_name	= CTL_PM_CMODE,
++		.procname	= "cmode",
++		.data		= &clock_cmode_current,
 +		.maxlen		= sizeof(int),
-+		.mode		= 0666,
-+		.proc_handler	= &proc_dointvec,
++		.mode		= 0644,
++		.proc_handler	= &cmode_procctl,
++		.strategy	= &cmode_sysctl,
 +	},
 +	{
-+		.ctl_name	= CTL_UNNUMBERED,
-+		.procname	= "fastctxsw",
-+		.data		= &pfm_sysctl.fastctxsw,
++		.ctl_name	= CTL_PM_P0,
++		.procname	= "p0",
++		.data		= &clock_p0_current,
 +		.maxlen		= sizeof(int),
-+		.mode		= 0600,
-+		.proc_handler	=  &proc_dointvec,
++		.mode		= 0644,
++		.proc_handler	= &p0_procctl,
++		.strategy	= &p0_sysctl,
 +	},
 +	{
-+		.ctl_name	= CTL_UNNUMBERED,
-+		.procname	= "expert_mode",
-+		.data		= &pfm_sysctl.expert_mode,
++		.ctl_name	= CTL_PM_CM,
++		.procname	= "cm",
++		.data		= &clock_cm_current,
 +		.maxlen		= sizeof(int),
-+		.mode		= 0600,
-+		.proc_handler	= &proc_dointvec,
++		.mode		= 0644,
++		.proc_handler	= &cm_procctl,
++		.strategy	= &cm_sysctl,
 +	},
-+	{}
++	{ .ctl_name = 0}
  };
- static ctl_table pfm_sysctl_dir[] = {
--	{1, "perfmon", NULL, 0, 0755, pfm_ctl_table, },
-- 	{0,},
-+	{
-+		.ctl_name	= CTL_UNNUMBERED,
-+		.procname	= "perfmon",
-+		.mode		= 0755,
-+		.child		= pfm_ctl_table,
-+	},
-+ 	{}
- };
- static ctl_table pfm_sysctl_root[] = {
--	{1, "kernel", NULL, 0, 0755, pfm_sysctl_dir, },
-- 	{0,},
-+	{
-+		.ctl_name	= CTL_KERN,
-+		.procname	= "kernel",
-+		.mode		= 0755,
-+		.child		= pfm_sysctl_dir,
-+	},
-+ 	{}
- };
- static struct ctl_table_header *pfm_sysctl_header;
  
+ static struct ctl_table pm_dir_table[] =
+ {
+-	{CTL_PM, "pm", NULL, 0, 0555, pm_table},
+-	{0}
++	{
++		.ctl_name	= CTL_PM,
++		.procname	= "pm",
++		.mode		= 0555,
++		.child		= pm_table,
++	},
++	{ .ctl_name = 0}
+ };
+ 
+ /*
 -- 
 1.4.4.1.g278f
