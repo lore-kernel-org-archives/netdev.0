@@ -1,8 +1,8 @@
 From: David Brownell <david-b@pacbell.net>
-Subject: Re: [PATCH -mm 9/10][RFC] aio: usb gadget remove aio file ops
-Date: Mon, 15 Jan 2007 22:05:43 -0800
-Message-ID: <200701152205.46089.david-b@pacbell.net>
-References: <20070116015450.9764.62432.patchbomb.py@nate-64.agami.com>
+Subject: Re: [PATCH -mm 4/10][RFC] aio: convert aio_complete to file_endio_t
+Date: Mon, 15 Jan 2007 21:53:46 -0800
+Message-ID: <200701152153.49260.david-b@pacbell.net>
+References: <20070116015450.9764.38389.patchbomb.py@nate-64.agami.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="us-ascii"
@@ -20,107 +20,52 @@ Cc: Nate Diller <nate.diller@gmail.com>, Andrew Morton <akpm@osdl.org>,
 	netdev@vger.kernel.org, ocfs2-devel@oss.oracle.com,
 	linux-aio@kvack.org, xfs-masters@oss.sgi.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp113.sbc.mail.mud.yahoo.com ([68.142.198.212]:42558 "HELO
+Received: from smtp113.sbc.mail.mud.yahoo.com ([68.142.198.212]:42531 "HELO
 	smtp113.sbc.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S932436AbXAPHYw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jan 2007 02:24:52 -0500
+	by vger.kernel.org with SMTP id S932333AbXAPHYv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jan 2007 02:24:51 -0500
 To: Nate Diller <nate@agami.com>
-In-Reply-To: <20070116015450.9764.62432.patchbomb.py@nate-64.agami.com>
+In-Reply-To: <20070116015450.9764.38389.patchbomb.py@nate-64.agami.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 On Monday 15 January 2007 5:54 pm, Nate Diller wrote:
-> This removes the aio implementation from the usb gadget file system. 
+> --- a/drivers/usb/gadget/inode.c	2007-01-12 14:42:29.000000000 -0800
+> +++ b/drivers/usb/gadget/inode.c	2007-01-12 14:25:34.000000000 -0800
+> @@ -559,35 +559,32 @@ static int ep_aio_cancel(struct kiocb *i
+>  	return value;
+>  }
+>  
+> -static ssize_t ep_aio_read_retry(struct kiocb *iocb)
+> +static int ep_aio_read_retry(struct kiocb *iocb)
+>  {
+>  	struct kiocb_priv	*priv = iocb->private;
+> -	ssize_t			len, total;
+> -	int			i;
+> +	ssize_t			total;
+> +	int			i, err = 0;
+>  
+>    	/* we "retry" to get the right mm context for this: */
+>  
+>   	/* copy stuff into user buffers */
+>   	total = priv->actual;
+> - 	len = 0;
+>   	for (i=0; i < priv->nr_segs; i++) {
+>   		ssize_t this = min((ssize_t)(priv->iv[i].iov_len), total);
+>  
+>   		if (copy_to_user(priv->iv[i].iov_base, priv->buf, this)) {
+> - 			if (len == 0)
+> - 				len = -EFAULT;
+> + 			err = -EFAULT;
 
-NAK.  I see a deep mis-understanding here.
+Discarding the capability to report partial success, e.g. that the first N
+bytes were properly transferred?  I don't see any virtue in that change.
+Quite the opposite in fact.
 
-
-> Aside 
-> from making very creative (!) use of the aio retry path, it can't be of any
-> use performance-wise 
-
-Other than the basic win of letting one userspace thread keep an I/O
-stream active while at the same time processing the data it reads or
-writes??  That's the "async" part of AIO.
-
-There's a not-so-little thing called "I/O overlap" ... which is the only
-way to prevent wasting bandwidth between (non-cacheable) I/O requests,
-and thus is the only way to let userspace code achieve anything close
-to the maximum I/O bandwidth the hardware can achieve.
-
-We want to see the host side "usbfs" evolve to support AIO like this
-too, for the same reasons.  (Currently it has fairly ugly AIO code
-that looks unlike any other AIO code in Linux.  Recent updates to
-support a file-per-endpoint device model are a necessary precursor
-to switching over to standard AIO syscalls.)
-
-
-> because it always kmalloc()s a bounce buffer for the 
-> *whole* I/O size.
-
-By and large that's a negligible factor compared to being able to
-achieve I/O overlap.  ISTR the reason for not doing fancy DMA magic
-was that the cost of this style AIO was under 1 KByte object code
-on ARM, which was easy to justify ... while DMA magic to do that
-sort of stuff would be much fatter, as well as more error prone.
-
-(And that's why the "creative" use of the retry path.  As I've
-observed before, "retry" is a misnomer in the general sense of
-an async I/O framework.  It's more of a semi-completion callback;
-I/O can't in general be "retried" on error or fault, and even in
-the current usage it's not really a "retry".)
-
-
-Now that high speed peripheral hardware is becoming more common on
-embedded Linuxes -- TI has DaVinci, OMAP 2430, TUSB6010 (as found
-in the new Nokia 800 tablets); Atmel AVR32 AP7000; at least a couple
-parts that should be able to use the same musb_hdrc driver as those
-TI parts; and a few other chips I've heard of -- there may be some
-virtue in eliminating the memcpy, since those CPUs don't have many
-MIPS to waste.  (Iff the memcpy turns out to be a real issue...)
-
-
-> Perhaps the only reason to keep it around is the ability 
-> to cancel I/O requests, which only applies when using the user space async
-> I/O interface.  
-
-It's good to have almost the complete kernel API functionality
-exposed to userspace, and having I/O cancelation is an inevitable
-consequence of a complete AIO framework ... but that particular
-issue was not a driving concern.
-
-
-The reason for AIO is to have a *STANDARD* userspace interface
-for *ASYNC I/O* which otherwise can't exist.  You know, the kind
-of I/O interface that can't be implemented with read() and write()
-syscalls, which for non-buffered I/O necessarily preclude all I/O
-overlap.  AIO itself is a direct match to most I/O frameworks'
-primitives.  (AIOCB being directly analagous to peripheral side
-"struct usb_request" and host side "struct urb".)
-
-
-You know, I've always thought that one reason the AIO discussions
-seemed strange is that they weren't really focussed on I/O (the
-lowlevel after-the-caches stuff) so much as filesystems (several
-layers up in the stack, with intervening caching frameworks).
-
-The first several implementations of AIO that I saw were restricted
-to "real" I/O and not applicable to disk backed files.  So while I
-was glad the Linux approach didn't make that mistake, it's seemed
-that it might be wanting to make a converse mistake: neglecting I/O
-that isn't aimed at data stored on disks.
-
-
-> I highly doubt that is enough incentive to justify the extra 
-> complexity here or in user-space, so I think it's a safe bet to remove this. 
-> If that feature still desired, it would be possible to implement a sync
-> interface that does an interruptible sleep.
-
-What's needed is an async, non-sleeeping, interface ... with I/O
-overlap.  That's antithetical to using read()/write() calls, so
-your proposed approach couldn't possibly work.
-
-- Dave
-
-
+I think you're also expecting that if N bytes were requested, that's always
+how many will be received.  That's not true for packetized I/O such as USB
+isochronous transfers ... where it's quite legit (and in some cases routine)
+for the other end to send packets that are shorter than the maximum allowed.
+Sending a zero length packet is not the same as sending no packet at all,
+for another example.
