@@ -1,71 +1,48 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: Two Dual Core processors and NICS (not handling interrupts on
- one	CPU/assigning a Two Dual Core processors and NICS (not handling	interrupts
- on one CPU / assigning a CPU to a NIC)
-Date: Tue, 16 Jan 2007 09:34:34 -0800
-Message-ID: <45AD0CAA.7060601@hp.com>
-References: <dac45060701150115y5308f7b5ka44f2ea4ae304d4b@mail.gmail.com>
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: Re: [PATCH 5/59] sysctl: rose remove unnecessary insert_at_head flag
+Date: Tue, 16 Jan 2007 17:36:51 +0000
+Message-ID: <20070116173651.GA9184@linux-mips.org>
+References: <m1ac0jc4no.fsf@ebiederm.dsl.xmission.com> <11689656191854-git-send-email-ebiederm@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel10.hp.com ([156.153.255.245]:45398 "EHLO palrel10.hp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751948AbXAPReg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Jan 2007 12:34:36 -0500
-To: Mark Ryden <markryde@gmail.com>
-In-Reply-To: <dac45060701150115y5308f7b5ka44f2ea4ae304d4b@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "<Andrew Morton" <akpm@osdl.org>, linux-kernel@vger.kernel.org,
+	containers@lists.osdl.org, netdev@vger.kernel.org,
+	xfs-masters@oss.sgi.com, xfs@oss.sgi.com,
+	linux-scsi@vger.kernel.org, James.Bottomley@SteelEye.com,
+	minyard@acm.org, openipmi-developer@lists.sourceforge.net,
+	tony.luck@intel.com, linux-mips@linux-mips.org,
+	schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
+	linux390@de.ibm.com, linux-390@vm.marist.edu, paulus@samba.org,
+	linuxppc-dev@ozlabs.org, lethal@linux-sh.org,
+	linuxsh-shmedia-dev@lists.sourceforge.net, ak@suse.de,
+	vojtech@suse.cz, clemens@ladisch.de, a.zummo@towertech.it,
+	rtc-linux@googlegroups.com, linux-parport@lists.infradead.org,
+	andrea@suse.de, tim@cyberelk.net, philb@gnu.org,
+	aharkes@cs.cmu.edu, coda@cs.cmu.edu,
+	codalist@TELEMANN.coda.cs.cmu.edu, aia21@cantab.net,
+	linux-ntfs-dev@lists.sourceforge.net, mark.fasheh@oracle.com,
+	kurt.hackel@oracle.
+Return-path: <linux-mips-bounce@linux-mips.org>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Disposition: inline
+In-Reply-To: <11689656191854-git-send-email-ebiederm@xmission.com>
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
 List-Id: netdev.vger.kernel.org
 
-Mark Ryden wrote:
-> Hello,
-> 
-> 
-> I have a machine with 2 dual core CPUs. This machine runs Fedora Core 6.
-> I have two Intel e1000 GigaBit network cards on this machine; I use 
-> bonding so
-> that the machine assigns the same IP address to both NICs ;
-> It seems to me that bonding is configured OK, bacuse when running:
-> "cat /proc/net/bonding/bond0"
-> I get:
-> ...
-> Permanent HW addr: ....
-> 
-> (And the Permanent HW addr is diffenet in these two entries).
-> 
-> I send a large amount of packets to this machine (more than 20,000 in
-> a second).
+On Tue, Jan 16, 2007 at 09:39:10AM -0700, Eric W. Biederman wrote:
 
-Well, 20K a second is large in some contexts, but not in others :)
-> 
-> cat /proc/interrupts shops something like this:
->                 CPU0       CPU1         CPU2         CPU3
-> 50:    3359337          0          0          0         PCI-MSI  eth0
-> 58:         49    3396136          0          0         PCI-MSI  eth1
-> 
-> CPU0 and CPU1 are of the first CPU as far as I understand ; so this
-> means as far as I understand that the second CPU (which has CPU3 and
-> CPU4) does not handle interrupts of the arrived packets; Can I
-> somehow change it so the second
-> CPU will also handle network interrupts of receiving packets on the
-> nic ?
+Looks ok, for these:
 
-Actually, those could be different chips - it depends on the CPUs I 
-think, and I suppose the BIOS/OS.  On a Woodcrest system with which I've 
-been playing, CPUs 0 and 2 appear to be on the same die, then 1 and 
-three.   I ass-u-me-d the numbering was that way to get maximum 
-processor cache when saying "numcpu=N" for something less than the 
-number of cores in the system.
+Subject: [PATCH 5/59] sysctl: rose remove unnecessary insert_at_head flag
+Subject: [PATCH 6/59] sysctl: netrom remove unnecessary insert_at_head flag
+Subject: [PATCH 11/59] sysctl: ax25 remove unnecessary insert_at_head flag
+Subject: [PATCH 30/59] sysctl: mips/au1000 Remove sys_sysctl support
+Subject: [PATCH 31/59] sysctl: C99 convert the ctl_tables in arch/mips/au1000/common/power.c
+Subject: [PATCH 32/59] sysctl: C99 convert arch/mips/lasat/sysctl.c and remove ABI breakage.
+Subject: [PATCH 43/59] sysctl: Remove sys_sysctl support from drivers/char/rtc.c
+Subject: [PATCH 55/59] sysctl: Remove insert_at_head from register_sysctl
 
-NUMA considerations might come into play if this is Opteron (well, any 
-NUMA system really - larger IA64's, certain SPARC and Power systems 
-etc...).  In broad handwaving terms, one is better-off with the NICs 
-interrupts being handled by the topologically closest CPU.  (Not that 
-some irqbalancer programs recognize that just yet :)
+Acked-by: Ralf Baechle <ralf@linux-mips.org>
 
-Now, if both CPU0 and CPU1 are saturated it might make sense to put some 
-interrupts on 2 and/or 3.  One of those fun "it depends" situations.
-
-rick jones
+  Ralf
