@@ -1,7 +1,7 @@
 From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH 3/59] sysctl: sunrpc Remove unnecessary insert_at_head flag
-Date: Tue, 16 Jan 2007 09:39:08 -0700
-Message-ID: <11689656133336-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH 26/59] sysctl: C99 convert arch/frv/kernel/sysctl.c
+Date: Tue, 16 Jan 2007 09:39:31 -0700
+Message-ID: <11689656454112-git-send-email-ebiederm@xmission.com>
 References: <m1ac0jc4no.fsf@ebiederm.dsl.xmission.com>
 Cc: <linux-kernel@vger.kernel.org>, <containers@lists.osdl.org>,
 	<netdev@vger.kernel.org>, xfs-masters@oss.sgi.com, xfs@oss.sgi.com,
@@ -19,50 +19,67 @@ Cc: <linux-kernel@vger.kernel.org>, <containers@lists.osdl.org>,
 	coda@cs.cmu.edu, codalist@TELEMANN.coda.cs.cmu.edu,
 	aia21@cantab.net, linux-ntfs-dev@lists.sourceforge.net,
 	mark.fasheh@oracle.com, kurt.hackel@oracle.com,
-Return-path: <linux-mips-bounce@linux-mips.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751617AbXAPQsJ@vger.kernel.org>
 To: "<Andrew Morton" <akpm@osdl.org>
 In-Reply-To: <m1ac0jc4no.fsf@ebiederm.dsl.xmission.com>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Eric W. Biederman <ebiederm@xmission.com> - unquoted
 
-Because the sunrpc sysctls don't conflict with any other
-sysctls the setting the insert at head flag to register_sysctl
-has no semantic meaning.
-
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 ---
- net/sunrpc/sysctl.c   |    2 +-
- net/sunrpc/xprtsock.c |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ arch/frv/kernel/sysctl.c |   29 ++++++++++++++++++++++++-----
+ 1 files changed, 24 insertions(+), 5 deletions(-)
 
-diff --git a/net/sunrpc/sysctl.c b/net/sunrpc/sysctl.c
-index 82b2752..3852689 100644
---- a/net/sunrpc/sysctl.c
-+++ b/net/sunrpc/sysctl.c
-@@ -36,7 +36,7 @@ void
- rpc_register_sysctl(void)
+diff --git a/arch/frv/kernel/sysctl.c b/arch/frv/kernel/sysctl.c
+index 37528eb..577ad16 100644
+--- a/arch/frv/kernel/sysctl.c
++++ b/arch/frv/kernel/sysctl.c
+@@ -175,11 +175,25 @@ static int procctl_frv_pin_cxnr(ctl_table *table, int write, struct file *filp,
+  */
+ static struct ctl_table frv_table[] =
  {
- 	if (!sunrpc_table_header) {
--		sunrpc_table_header = register_sysctl_table(sunrpc_table, 1);
-+		sunrpc_table_header = register_sysctl_table(sunrpc_table, 0);
- #ifdef CONFIG_PROC_FS
- 		if (sunrpc_table[0].de)
- 			sunrpc_table[0].de->owner = THIS_MODULE;
-diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
-index 49cabff..98d1af9 100644
---- a/net/sunrpc/xprtsock.c
-+++ b/net/sunrpc/xprtsock.c
-@@ -1630,7 +1630,7 @@ int init_socket_xprt(void)
+-	{ 1, "cache-mode",	NULL, 0, 0644, NULL, &procctl_frv_cachemode },
++	{
++		.ctl_name 	= 1,
++		.procname 	= "cache-mode",
++		.data		= NULL,
++		.maxlen		= 0,
++		.mode		= 0644,
++		.proc_handler	= &procctl_frv_cachemode,
++	},
+ #ifdef CONFIG_MMU
+-	{ 2, "pin-cxnr",	NULL, 0, 0644, NULL, &procctl_frv_pin_cxnr },
++	{
++		.ctl_name	= 2,
++		.procname	= "pin-cxnr",
++		.data		= NULL,
++		.maxlen		= 0,
++		.mode		= 0644,
++		.proc_handler	= &procctl_frv_pin_cxnr
++	},
+ #endif
+-	{ 0 }
++	{}
+ };
+ 
+ /*
+@@ -188,8 +202,13 @@ static struct ctl_table frv_table[] =
+  */
+ static struct ctl_table frv_dir_table[] =
  {
- #ifdef RPC_DEBUG
- 	if (!sunrpc_table_header) {
--		sunrpc_table_header = register_sysctl_table(sunrpc_table, 1);
-+		sunrpc_table_header = register_sysctl_table(sunrpc_table, 0);
- #ifdef CONFIG_PROC_FS
- 		if (sunrpc_table[0].de)
- 			sunrpc_table[0].de->owner = THIS_MODULE;
+-	{CTL_FRV, "frv", NULL, 0, 0555, frv_table},
+-	{0}
++	{
++		.ctl_name	= CTL_FRV,
++		.procname	= "frv",
++		.mode 		= 0555,
++		.child		= frv_table
++	},
++	{}
+ };
+ 
+ /*
 -- 
 1.4.4.1.g278f
