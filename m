@@ -1,151 +1,61 @@
-From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: Re: [PATCH 9/9] net: vm deadlock avoidance core
-Date: Tue, 16 Jan 2007 14:47:54 +0100
-Message-ID: <1168955274.22935.47.camel@twins>
-References: <20070116094557.494892000@taijtu.programming.kicks-ass.net>
-	 <20070116101816.115266000@taijtu.programming.kicks-ass.net>
-	 <20070116132503.GA23144@2ka.mipt.ru>
+From: Michael Tokarev <mjt@tls.msk.ru>
+Subject: Re: rare bad TCP checksum with 2.6.19?
+Date: Tue, 16 Jan 2007 17:38:53 +0300
+Message-ID: <45ACE37D.6030807@tls.msk.ru>
+References: <E1H6OJU-0001EC-00@gondolin.me.apana.org.au> <45AB82F1.9000409@tls.msk.ru> <20070115201001.GA9510@gondor.apana.org.au> <45ABF620.3070405@tls.msk.ru> <20070116032739.GA12746@gondor.apana.org.au> <20070116033849.GA12856@gondor.apana.org.au> <45AC8813.9000204@tls.msk.ru> <20070116115053.GA16529@gondor.apana.org.au> <45ACC1DE.6090708@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-mm@kvack.org, David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750983AbXAPNu2@vger.kernel.org>
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-In-Reply-To: <20070116132503.GA23144@2ka.mipt.ru>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from hobbit.corpit.ru ([81.13.94.6]:20259 "EHLO hobbit.corpit.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751235AbXAPOi6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Jan 2007 09:38:58 -0500
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <45ACC1DE.6090708@trash.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2007-01-16 at 16:25 +0300, Evgeniy Polyakov wrote:
-> On Tue, Jan 16, 2007 at 10:46:06AM +0100, Peter Zijlstra (a.p.zijlstra@chello.nl) wrote:
-
-> > @@ -1767,10 +1767,23 @@ int netif_receive_skb(struct sk_buff *sk
-> >  	struct net_device *orig_dev;
-> >  	int ret = NET_RX_DROP;
-> >  	__be16 type;
-> > +	unsigned long pflags = current->flags;
-> > +
-> > +	/* Emergency skb are special, they should
-> > +	 *  - be delivered to SOCK_VMIO sockets only
-> > +	 *  - stay away from userspace
-> > +	 *  - have bounded memory usage
-> > +	 *
-> > +	 * Use PF_MEMALLOC as a poor mans memory pool - the grouping kind.
-> > +	 * This saves us from propagating the allocation context down to all
-> > +	 * allocation sites.
-> > +	 */
-> > +	if (unlikely(skb->emergency))
-> > +		current->flags |= PF_MEMALLOC;
+Patrick McHardy wrote:
+> Herbert Xu wrote:
+[]
+>> Since you're certain that this is being seen on the wire, one
+>> possibility is that we've got a bug somewhere that's zeroing
+>> skb->ip_summed on a packet with a partial checksum.
+>>
+>> One potential spot where this could happen is netfilter.
+>> Patrick, do you know of any recent changes (this is happening
+>> with 2.6.19) that might cause this?
 > 
-> Access to 'current' in netif_receive_skb()???
-> Why do you want to work with, for example keventd?
-
-Can this run in keventd?
-
-I thought this was softirq context and thus this would either run in a
-borrowed context or in ksoftirqd. See patch 3/9.
-
-> > @@ -1798,6 +1811,8 @@ int netif_receive_skb(struct sk_buff *sk
-> >  		goto ncls;
-> >  	}
-> >  #endif
-> > +	if (unlikely(skb->emergency))
-> > +		goto skip_taps;
-> >  
-> >  	list_for_each_entry_rcu(ptype, &ptype_all, list) {
-> >  		if (!ptype->dev || ptype->dev == skb->dev) {
-> > @@ -1807,6 +1822,7 @@ int netif_receive_skb(struct sk_buff *sk
-> >  		}
-> >  	}
-> >  
-> > +skip_taps:
+> The incremental HW checksum update stuff went in 2.6.19, so thats
+> a prime suspect. Can't see where this could be happening though.
 > 
-> It is still a 'tap'.
+> Michael, how exactly is netfilter involved in your setup?
 
-Not sure what you are saying, I thought this should stop delivery of
-skbs to taps?
+I think it doesn't involved.
 
-> >  #ifdef CONFIG_NET_CLS_ACT
-> >  	if (pt_prev) {
-> >  		ret = deliver_skb(skb, pt_prev, orig_dev);
-> > @@ -1819,15 +1835,26 @@ int netif_receive_skb(struct sk_buff *sk
-> >  
-> >  	if (ret == TC_ACT_SHOT || (ret == TC_ACT_STOLEN)) {
-> >  		kfree_skb(skb);
-> > -		goto out;
-> > +		goto unlock;
-> >  	}
-> >  
-> >  	skb->tc_verd = 0;
-> >  ncls:
-> >  #endif
-> >  
-> > +	if (unlikely(skb->emergency))
-> > +		switch(skb->protocol) {
-> > +			case __constant_htons(ETH_P_ARP):
-> > +			case __constant_htons(ETH_P_IP):
-> > +			case __constant_htons(ETH_P_IPV6):
-> > +				break;
-> 
-> Poor vlans and appletalk.
+The captures I did were done on a router box, which indeed has some
+netfilter stuff.  But:
 
-Yeah and all those other too, maybe some day.
+ 1) the capture has been done on an interface directly connected to
+   the segment where the "testing" machine is located (not on the
+   "external" interface)
 
-> > Index: linux-2.6-git/net/ipv4/tcp_ipv4.c
-> > ===================================================================
-> > --- linux-2.6-git.orig/net/ipv4/tcp_ipv4.c	2007-01-12 12:20:07.000000000 +0100
-> > +++ linux-2.6-git/net/ipv4/tcp_ipv4.c	2007-01-12 12:21:14.000000000 +0100
-> > @@ -1604,6 +1604,22 @@ csum_err:
-> >  	goto discard;
-> >  }
-> >  
-> > +static int tcp_v4_backlog_rcv(struct sock *sk, struct sk_buff *skb)
-> > +{
-> > +	int ret;
-> > +	unsigned long pflags = current->flags;
-> > +	if (unlikely(skb->emergency)) {
-> > +		BUG_ON(!sk_has_vmio(sk)); /* we dropped those before queueing */
-> > +		if (!(pflags & PF_MEMALLOC))
-> > +			current->flags |= PF_MEMALLOC;
-> > +	}
-> > +
-> > +	ret = tcp_v4_do_rcv(sk, skb);
-> > +
-> > +	current->flags = pflags;
-> > +	return ret;
-> 
-> Why don't you want to just setup PF_MEMALLOC for the socket and all
-> related processes?
+ 2) the "testing" machine itself does not have any netfilter modules
+   loaded
 
-I'm not understanding what you're saying here.
+ 3) the packets looks exactly the same in at least 3 places (modulo
+   the TTL values): on the sending machine, on the router (on the
+   interface connected to the sending machine - in those 2 places,
+   the TTL is the same), and at the receiving side, which is 20+
+   hops away.
 
-I want grant the processing of skb->emergency packets access to the
-memory reserves.
+ 4) I tried another machine today (upgraded from 2.6.17 to 2.6.19) -
+   stand-alone, without any netfilter modules loaded (but it's under
+   quite.. some load - see http://j.ns.dsbl.org/nsg/ -- with this load
+   it'll die right after iptables module loading, it's a 600MHz Celeron
+   box replying to 15000 DNS packets every secound) - it started showing
+   the same behavior.
 
-How would I set PF_MEMALLOC on a socket, its a process flag? And which
-related processes?
-
-> > +}
-> > +
-> >  /*
-> >   *	From tcp_input.c
-> >   */
-> > @@ -1654,6 +1670,15 @@ int tcp_v4_rcv(struct sk_buff *skb)
-> >  	if (!sk)
-> >  		goto no_tcp_socket;
-> >  
-> > +	if (unlikely(skb->emergency)) {
-> > +	       	if (!sk_has_vmio(sk))
-> > +			goto discard_and_relse;
-> > +		/*
-> > +		   decrease window size..
-> > +		   tcp_enter_quickack_mode(sk);
-> > +		*/
-> 
-> How does this decrease window size?
-> Maybe ack scheduling would be better handled by inet_csk_schedule_ack()
-> or just directly send an ack, which in turn requires allocation, which
-> can be bound to this received frame processing...
-
-It doesn't, I thought that it might be a good idea doing that, but never
-got around to actually figuring out how to do it.
+/mjt
