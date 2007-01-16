@@ -1,47 +1,57 @@
-From: Allen Parker <parker@isohunt.com>
-Subject: Re: intel 82571EB gigabit fails to see link on 2.6.20-rc5 in-tree
- e1000 driver (regression)
-Date: Tue, 16 Jan 2007 09:17:26 -0700
-Message-ID: <45ACFA96.4040902@isohunt.com>
-References: <45AC7CB2.1010202@isohunt.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: [PATCH 0/59] Cleanup sysctl
+Date: Tue, 16 Jan 2007 09:33:47 -0700
+Message-ID: <m1ac0jc4no.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751265AbXAPQT1@vger.kernel.org>
-To: linux-kernel@vger.kernel.org
-In-Reply-To: <45AC7CB2.1010202@isohunt.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: <linux-kernel@vger.kernel.org>,
+	Linux Containers <containers@lists.osdl.org>,
+	<netdev@vger.kernel.org>, xfs-masters@oss.sgi.com, xfs@oss.sgi.com,
+	linux-scsi@vger.kernel.org, James.Bottomley@SteelEye.com,
+	minyard@acm.org, openipmi-developer@lists.sourceforge.net,
+	<tony.luck@intel.com>, linux-mips@linux-mips.org,
+	ralf@linux-mips.org, schwidefsky@de.ibm.com,
+	heiko.carstens@de.ibm.com, linux390@de.ibm.com,
+	linux-390@vm.marist.edu, paulus@samba.org, linuxppc-dev@ozlabs.org,
+	lethal@linux-sh.org, lethal@linux-sh.org,
+	linuxsh-shmedia-dev@lists.sourceforge.net, <ak@suse.de>,
+	vojtech@suse.cz, clemens@ladisch.de, a.zummo@towertech.it,
+	rtc-linux@googlegroups.com, linux-parport@lists.infradead.org,
+	andrea@suse.de, tim@cyberelk.net, philb@gnu.org,
+	aharkes@cs.cmu.edu, coda@cs.cmu.edu,
+	codalist@TELEMANN.coda.cs.cmu.edu, aia21@cantab.net,
+	linux-ntfs-dev@lists.sourceforge.net, mark.fas
+Return-path: <linux-mips-bounce@linux-mips.org>
+To: Andrew Morton <akpm@osdl.org>
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
 List-Id: netdev.vger.kernel.org
 
-Allen Parker wrote:
-> I have a PCI-E pro/1000 MT Quad Port adapter, which works quite well 
-> under 2.6.19.2 but fails to see link under 2.6.20-rc5. Earlier today I 
-> reported this to e1000-devel@lists.sf.net, but thought I should get the 
-> word out in case someone else is testing this kernel on this nic chipset.
-> 
-> Due to changes between 2.6.19.2 and 2.6.20, Intel driver 7.3.20 will not 
-> compile for 2.6.20, nor will the 2.6.19.2 in-tree driver.
-> 
-<snip, worthless>
-Affected chipset:
-> lspci -nn output (quad port):
-> 09:00.0 Ethernet controller [0200]: Intel Corporation 82571EB Gigabit 
-> Ethernet Controller [8086:10a4] (rev 06)
-> lspci -nn output (dual port):
-> 07:00.0 Ethernet controller [0200]: Intel Corporation 82571EB Gigabit 
-> Ethernet Controller [8086:105e] (rev 06)
-<snip, readability>
 
->  From what I've been able to gather, other Intel Pro/1000 chipsets work 
-> fine in 2.6.20-rc5. If the e1000 guys need any assistance testing, I'll 
-> be more than happy to volunteer myself as a guinea pig for patches.
+There has not been much maintenance on sysctl in years, and as a result is
+there is a lot to do to allow future interesting work to happen, and being
+ambitious I'm trying to do it all at once :)
 
-I wasn't aware that I was supposed to post this as a regression, so 
-changed the subject, hoping that someone will pick this up and run with 
-it. Primary issue being that link is not seen on this chipset under 
-2.6.20-rc5 via in-tree e1000 driver, despite multiple cycles of ifconfig 
-$eth up && ethtool $eth | grep link && ifconfig $eth down. Tested on 2 
-machines with identical hardware.
+The patches in this series fall into several general categories.
 
-Allen Parker
+- Removal of useless attempts to override the standard sysctls
+
+- Registers of sysctl numbers in sysctl.h so someone else does not use
+  the magic number and conflict.
+
+- C99 conversions so it becomes possible to change the layout of 
+  struct ctl_table without breaking everything.
+
+- Removal of useless claims of module ownership, in the proc dir entries
+
+- Removal of sys_sysctl support where people had used conflicting sysctl
+  numbers. Trying to break glibc or other applications by changing the
+  ABI is not cool.  9 instances of this in the kernel seems a little
+  extreme.
+
+- General enhancements when I got the junk I could see out.
+
+Odds are I missed something, most of the cleanups are simply a result of
+me working on the sysctl core and glancing at the users and going: What?
+
+Eric
