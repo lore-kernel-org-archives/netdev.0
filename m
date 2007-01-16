@@ -1,7 +1,7 @@
 From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH 30/59] sysctl: mips/au1000 Remove sys_sysctl support
-Date: Tue, 16 Jan 2007 09:39:35 -0700
-Message-ID: <11689656521540-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH 3/59] sysctl: sunrpc Remove unnecessary insert_at_head flag
+Date: Tue, 16 Jan 2007 09:39:08 -0700
+Message-ID: <11689656133336-git-send-email-ebiederm@xmission.com>
 References: <m1ac0jc4no.fsf@ebiederm.dsl.xmission.com>
 Cc: <linux-kernel@vger.kernel.org>, <containers@lists.osdl.org>,
 	<netdev@vger.kernel.org>, xfs-masters@oss.sgi.com, xfs@oss.sgi.com,
@@ -28,62 +28,41 @@ List-Id: netdev.vger.kernel.org
 
 From: Eric W. Biederman <ebiederm@xmission.com> - unquoted
 
-The assignment of binary numbers for sys_sysctl use was in
-shambles and despite requiring methods.  Nothing was implemented
-on the sys_sysctl side.
-
-So this patch gives a mercy killing to the sys_sysctl support for
-powermanagment on mips/au1000.
+Because the sunrpc sysctls don't conflict with any other
+sysctls the setting the insert at head flag to register_sysctl
+has no semantic meaning.
 
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 ---
- arch/mips/au1000/common/power.c |   16 +++++-----------
- 1 files changed, 5 insertions(+), 11 deletions(-)
+ net/sunrpc/sysctl.c   |    2 +-
+ net/sunrpc/xprtsock.c |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/arch/mips/au1000/common/power.c b/arch/mips/au1000/common/power.c
-index 7504a63..b531ab7 100644
---- a/arch/mips/au1000/common/power.c
-+++ b/arch/mips/au1000/common/power.c
-@@ -62,12 +62,6 @@ extern unsigned long save_local_and_disable(int controller);
- extern void restore_local_and_enable(int controller, unsigned long mask);
- extern void local_enable_irq(unsigned int irq_nr);
- 
--/* Quick acpi hack. This will have to change! */
--#define	CTL_ACPI 9999
--#define	ACPI_S1_SLP_TYP 19
--#define	ACPI_SLEEP 21
--
--
- static DEFINE_SPINLOCK(pm_lock);
- 
- /* We need to save/restore a bunch of core registers that are
-@@ -425,14 +419,14 @@ static int pm_do_freq(ctl_table * ctl, int write, struct file *file,
- 
- 
- static struct ctl_table pm_table[] = {
--	{ACPI_S1_SLP_TYP, "suspend", NULL, 0, 0600, NULL, &pm_do_suspend},
--	{ACPI_SLEEP, "sleep", NULL, 0, 0600, NULL, &pm_do_sleep},
--	{CTL_ACPI, "freq", NULL, 0, 0600, NULL, &pm_do_freq},
-+	{CTL_UNNUMBERED, "suspend", NULL, 0, 0600, NULL, &pm_do_suspend},
-+	{CTL_UNNUMBERED, "sleep", NULL, 0, 0600, NULL, &pm_do_sleep},
-+	{CTL_UNNUMBERED, "freq", NULL, 0, 0600, NULL, &pm_do_freq},
- 	{0}
- };
- 
- static struct ctl_table pm_dir_table[] = {
--	{CTL_ACPI, "pm", NULL, 0, 0555, pm_table},
-+	{CTL_UNNUMBERED, "pm", NULL, 0, 0555, pm_table},
- 	{0}
- };
- 
-@@ -441,7 +435,7 @@ static struct ctl_table pm_dir_table[] = {
-  */
- static int __init pm_init(void)
+diff --git a/net/sunrpc/sysctl.c b/net/sunrpc/sysctl.c
+index 82b2752..3852689 100644
+--- a/net/sunrpc/sysctl.c
++++ b/net/sunrpc/sysctl.c
+@@ -36,7 +36,7 @@ void
+ rpc_register_sysctl(void)
  {
--	register_sysctl_table(pm_dir_table, 1);
-+	register_sysctl_table(pm_dir_table, 0);
- 	return 0;
- }
- 
+ 	if (!sunrpc_table_header) {
+-		sunrpc_table_header = register_sysctl_table(sunrpc_table, 1);
++		sunrpc_table_header = register_sysctl_table(sunrpc_table, 0);
+ #ifdef CONFIG_PROC_FS
+ 		if (sunrpc_table[0].de)
+ 			sunrpc_table[0].de->owner = THIS_MODULE;
+diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
+index 49cabff..98d1af9 100644
+--- a/net/sunrpc/xprtsock.c
++++ b/net/sunrpc/xprtsock.c
+@@ -1630,7 +1630,7 @@ int init_socket_xprt(void)
+ {
+ #ifdef RPC_DEBUG
+ 	if (!sunrpc_table_header) {
+-		sunrpc_table_header = register_sysctl_table(sunrpc_table, 1);
++		sunrpc_table_header = register_sysctl_table(sunrpc_table, 0);
+ #ifdef CONFIG_PROC_FS
+ 		if (sunrpc_table[0].de)
+ 			sunrpc_table[0].de->owner = THIS_MODULE;
 -- 
 1.4.4.1.g278f
