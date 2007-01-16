@@ -1,52 +1,39 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [PATCH -mm 2/10][RFC] aio: net use struct socket for io
-Date: Tue, 16 Jan 2007 13:24:21 +0300
-Message-ID: <20070116102421.GA17284@2ka.mipt.ru>
-References: <20070116015450.9764.37697.patchbomb.py@nate-64.agami.com> <20070116015450.9764.24404.patchbomb.py@nate-64.agami.com> <20070115214427.7fc55a6c@oldman>
+From: Marcus Better <marcus@better.se>
+Subject: [PATCH] nl80211: Allocate array of pointers for nla_parse
+Date: Tue, 16 Jan 2007 11:13:52 +0100
+Message-ID: <200701161113.52523.marcus@better.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: Nate Diller <nate@agami.com>, Nate Diller <nate.diller@gmail.com>,
-	Andrew Morton <akpm@osdl.org>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Trond Myklebust <trond.myklebust@fys.uio.no>,
-	Benjamin LaHaise <bcrl@kvack.org>,
-	Alexander Viro <viro@zeniv.linux.org.uk>,
-	Suparna Bhattacharya <suparna@in.ibm.com>,
-	Kenneth W Chen <kenneth.w.chen@intel.com>,
-	David Brownell <dbrownell@users.sourceforge.net>,
-	Christoph Hellwig <hch@infradead.org>,
-	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	netdev@vger.kernel.org, ocfs2-devel@oss.oracle.com,
-	linux-aio@kvack.org, xfs-masters@oss.sgi.com
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: johannes@sipsolutions.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:50088 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750915AbXAPKaG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Jan 2007 05:30:06 -0500
-To: Stephen Hemminger <shemminger@osdl.org>
+Received: from iggypop2.siwnet.net ([81.216.65.12]:63681 "EHLO
+	iggypop2.siwnet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750954AbXAPKj5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jan 2007 05:39:57 -0500
+Received: from localhost (localhost [127.0.0.1])
+	by iggypop2.siwnet.net (Postfix) with SMTP id D70C8205867
+	for <netdev@vger.kernel.org>; Tue, 16 Jan 2007 11:13:55 +0100 (CET)
+To: netdev@vger.kernel.org
 Content-Disposition: inline
-In-Reply-To: <20070115214427.7fc55a6c@oldman>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 15, 2007 at 09:44:27PM -0800, Stephen Hemminger (shemminger@osdl.org) wrote:
-> > The sendmsg and recvmsg socket operations take a kiocb pointer, but none of
-> > the functions actually use it.  There's really no need even theoretically,
-> > it's really quite ugly having it there at all.  Also, removing it will pave
-> > the way for a more generic completion path in the file_operations.
-> > 
-> > ---
-> 
-> Would getting rid of these make later implementation of AIO networking
-> harder?
+The code allocates an array of struct nlattr, but it seems to me that it should allocate an array of pointers.
 
-Depending on what AIO it will be.
-Mainstream AIO does stand on kiocb, but if socket operations will be
-extended to have additional async_read/write (like it as done in kevent
-AIO) there is no need to have this pointer in sync operations (until
-people want to have sync aio just as async with waiting for completion).
+Signed-off-by: Marcus Better <marcus@better.se>
 
-So, real question is, what next - how network AIO will be implemented?
-
+--- a/net/wireless/nl80211.c
++++ b/net/wireless/nl80211.c
+@@ -843,7 +843,7 @@ static int nl80211_initiate_scan(struct sk_buff *skb, struct genl_info *info)
+ 
+ 		channels = kmalloc(count * sizeof(struct scan_channel),
+ 				   GFP_KERNEL);
+-		tb = kmalloc((NL80211_ATTR_MAX+1) * sizeof(struct nlattr),
++		tb = kmalloc((NL80211_ATTR_MAX+1) * sizeof(struct nlattr *),
+ 			     GFP_KERNEL);
+ 
+ 		count = 0;
 -- 
-	Evgeniy Polyakov
+
