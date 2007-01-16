@@ -1,7 +1,7 @@
 From: Nate Diller <nate@agami.com>
-Subject: [PATCH -mm 4/10][RFC] aio: convert aio_complete to file_endio_t
+Subject: [PATCH -mm 6/10][RFC] aio: make nfs_directIO use file_endio_t
 Date: Mon, 15 Jan 2007 17:54:50 -0800
-Message-ID: <20070116015450.9764.38389.patchbomb.py@nate-64.agami.com>
+Message-ID: <20070116015450.9764.23733.patchbomb.py@nate-64.agami.com>
 References: <20070116015450.9764.37697.patchbomb.py@nate-64.agami.com>
 Cc: linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
 	netdev@vger.kernel.org, ocfs2-devel@oss.oracle.com,
@@ -20,427 +20,277 @@ In-Reply-To: <20070116015450.9764.37697.patchbomb.py@nate-64.agami.com>
 Sender: owner-linux-aio@kvack.org
 List-Id: netdev.vger.kernel.org
 
-Define a new function typedef for I/O completion at the file/iovec level --
-
-typedef void (file_endio_t)(void *endio_data, ssize_t count, int err);
-
-and convert aio_complete and all its callers to this new prototype.
+This converts the iternals of nfs's directIO support to use a generic endio
+function, instead of directly calling aio_complete.  It's pretty easy
+because it already has a pretty abstracted completion path.
 
 ---
 
- drivers/usb/gadget/inode.c |   24 +++++++-----------
- fs/aio.c                   |   59 ++++++++++++++++++++++++---------------------
- fs/block_dev.c             |    8 +-----
- fs/direct-io.c             |   18 +++++--------
- fs/nfs/direct.c            |    9 ++----
- include/linux/aio.h        |   11 +++-----
- include/linux/fs.h         |    2 +
- 7 files changed, 61 insertions(+), 70 deletions(-)
-
----
-
-diff -urpN -X dontdiff a/drivers/usb/gadget/inode.c b/drivers/usb/gadget/inode.c
---- a/drivers/usb/gadget/inode.c	2007-01-12 14:42:29.000000000 -0800
-+++ b/drivers/usb/gadget/inode.c	2007-01-12 14:25:34.000000000 -0800
-@@ -559,35 +559,32 @@ static int ep_aio_cancel(struct kiocb *i
- 	return value;
- }
- 
--static ssize_t ep_aio_read_retry(struct kiocb *iocb)
-+static int ep_aio_read_retry(struct kiocb *iocb)
- {
- 	struct kiocb_priv	*priv = iocb->private;
--	ssize_t			len, total;
--	int			i;
-+	ssize_t			total;
-+	int			i, err = 0;
- 
-   	/* we "retry" to get the right mm context for this: */
- 
-  	/* copy stuff into user buffers */
-  	total = priv->actual;
-- 	len = 0;
-  	for (i=0; i < priv->nr_segs; i++) {
-  		ssize_t this = min((ssize_t)(priv->iv[i].iov_len), total);
- 
-  		if (copy_to_user(priv->iv[i].iov_base, priv->buf, this)) {
-- 			if (len == 0)
-- 				len = -EFAULT;
-+ 			err = -EFAULT;
-  			break;
-  		}
- 
-  		total -= this;
-- 		len += this;
-  		if (total == 0)
-  			break;
-  	}
-   	kfree(priv->buf);
-   	kfree(priv);
-   	aio_put_req(iocb);
-- 	return len;
-+ 	return err;
- }
- 
- static void ep_aio_complete(struct usb_ep *ep, struct usb_request *req)
-@@ -610,9 +607,7 @@ static void ep_aio_complete(struct usb_e
- 		if (unlikely(kiocbIsCancelled(iocb)))
- 			aio_put_req(iocb);
- 		else
--			aio_complete(iocb,
--				req->actual ? req->actual : req->status,
--				req->status);
-+			aio_complete(iocb, req->actual, req->status);
- 	} else {
- 		/* retry() won't report both; so we hide some faults */
- 		if (unlikely(0 != req->status))
-@@ -702,16 +697,17 @@ ep_aio_read(struct kiocb *iocb, const st
- {
- 	struct ep_data		*epdata = iocb->ki_filp->private_data;
- 	char			*buf;
-+	size_t			len = iov_length(iov, nr_segs);
- 
- 	if (unlikely(epdata->desc.bEndpointAddress & USB_DIR_IN))
- 		return -EINVAL;
- 
--	buf = kmalloc(iocb->ki_left, GFP_KERNEL);
-+	buf = kmalloc(len, GFP_KERNEL);
- 	if (unlikely(!buf))
- 		return -ENOMEM;
- 
- 	iocb->ki_retry = ep_aio_read_retry;
--	return ep_aio_rwtail(iocb, buf, iocb->ki_left, epdata, iov, nr_segs);
-+	return ep_aio_rwtail(iocb, buf, len, epdata, iov, nr_segs);
- }
- 
- static ssize_t
-@@ -726,7 +722,7 @@ ep_aio_write(struct kiocb *iocb, const s
- 	if (unlikely(!(epdata->desc.bEndpointAddress & USB_DIR_IN)))
- 		return -EINVAL;
- 
--	buf = kmalloc(iocb->ki_left, GFP_KERNEL);
-+	buf = kmalloc(iov_length(iov, nr_segs), GFP_KERNEL);
- 	if (unlikely(!buf))
- 		return -ENOMEM;
- 
-diff -urpN -X dontdiff a/fs/aio.c b/fs/aio.c
---- a/fs/aio.c	2007-01-12 14:42:29.000000000 -0800
-+++ b/fs/aio.c	2007-01-12 14:29:20.000000000 -0800
-@@ -658,16 +658,16 @@ static inline int __queue_kicked_iocb(st
-  * simplifies the coding of individual aio operations as
-  * it avoids various potential races.
-  */
--static ssize_t aio_run_iocb(struct kiocb *iocb)
-+static void aio_run_iocb(struct kiocb *iocb)
- {
- 	struct kioctx	*ctx = iocb->ki_ctx;
--	ssize_t (*retry)(struct kiocb *);
-+	int (*retry)(struct kiocb *);
- 	wait_queue_t *io_wait = current->io_wait;
--	ssize_t ret;
-+	int err;
- 
- 	if (!(retry = iocb->ki_retry)) {
- 		printk("aio_run_iocb: iocb->ki_retry = NULL\n");
--		return 0;
-+		return;
- 	}
- 
- 	/*
-@@ -702,8 +702,8 @@ static ssize_t aio_run_iocb(struct kiocb
- 
- 	/* Quit retrying if the i/o has been cancelled */
- 	if (kiocbIsCancelled(iocb)) {
--		ret = -EINTR;
--		aio_complete(iocb, ret, 0);
-+		err = -EINTR;
-+		aio_complete(iocb, iocb->ki_nbytes - iocb->ki_left, err);
- 		/* must not access the iocb after this */
- 		goto out;
- 	}
-@@ -720,17 +720,17 @@ static ssize_t aio_run_iocb(struct kiocb
- 	 */
- 	BUG_ON(!is_sync_wait(current->io_wait));
- 	current->io_wait = &iocb->ki_wait.wait;
--	ret = retry(iocb);
-+	err = retry(iocb);
- 	current->io_wait = io_wait;
- 
--	if (ret != -EIOCBRETRY && ret != -EIOCBQUEUED) {
-+	if (err != -EIOCBRETRY && err != -EIOCBQUEUED) {
- 		BUG_ON(!list_empty(&iocb->ki_wait.wait.task_list));
--		aio_complete(iocb, ret, 0);
-+		aio_complete(iocb, iocb->ki_nbytes - iocb->ki_left, err);
- 	}
- out:
- 	spin_lock_irq(&ctx->ctx_lock);
- 
--	if (-EIOCBRETRY == ret) {
-+	if (-EIOCBRETRY == err) {
- 		/*
- 		 * OK, now that we are done with this iteration
- 		 * and know that there is more left to go,
-@@ -754,7 +754,6 @@ out:
- 			aio_queue_work(ctx);
- 		}
- 	}
--	return ret;
- }
- 
- /*
-@@ -918,19 +917,25 @@ EXPORT_SYMBOL(kick_iocb);
- 
- /* aio_complete
-  *	Called when the io request on the given iocb is complete.
-- *	Returns true if this is the last user of the request.  The 
-+ *	Frees ioctx if this is the last user of the request.  The 
-  *	only other user of the request can be the cancellation code.
-  */
--int fastcall aio_complete(struct kiocb *iocb, long res, long res2)
-+void fastcall aio_complete(void *endio_data, ssize_t count, int err)
- {
-+	struct kiocb *iocb = endio_data;
- 	struct kioctx	*ctx = iocb->ki_ctx;
- 	struct aio_ring_info	*info;
- 	struct aio_ring	*ring;
- 	struct io_event	*event;
- 	unsigned long	flags;
- 	unsigned long	tail;
-+	long		result;
- 	int		ret;
- 
-+	result = (long) err;
-+	if (!result)
-+		result = (long) count;
-+
- 	/*
- 	 * Special case handling for sync iocbs:
- 	 *  - events go directly into the iocb for fast handling
-@@ -940,10 +945,10 @@ int fastcall aio_complete(struct kiocb *
- 	 */
- 	if (is_sync_kiocb(iocb)) {
- 		BUG_ON(iocb->ki_users != 1);
--		iocb->ki_user_data = res;
-+		iocb->ki_user_data = result;
- 		iocb->ki_users = 0;
- 		wake_up_process(iocb->ki_obj.tsk);
--		return 1;
-+		return;
- 	}
- 
- 	info = &ctx->ring_info;
-@@ -975,12 +980,12 @@ int fastcall aio_complete(struct kiocb *
- 
- 	event->obj = (u64)(unsigned long)iocb->ki_obj.user;
- 	event->data = iocb->ki_user_data;
--	event->res = res;
--	event->res2 = res2;
-+	event->res = result;
-+	event->res2 = err;
- 
- 	dprintk("aio_complete: %p[%lu]: %p: %p %Lx %lx %lx\n",
- 		ctx, tail, iocb, iocb->ki_obj.user, iocb->ki_user_data,
--		res, res2);
-+		result, err);
- 
- 	/* after flagging the request as done, we
- 	 * must never even look at it again
-@@ -1002,7 +1007,7 @@ put_rq:
- 		wake_up(&ctx->wait);
- 
- 	spin_unlock_irqrestore(&ctx->ctx_lock, flags);
--	return ret;
-+	return;
- }
- 
- /* aio_read_evt
-@@ -1307,7 +1312,7 @@ static void aio_advance_iovec(struct kio
- 	BUG_ON(ret > 0 && iocb->ki_left == 0);
- }
- 
--static ssize_t aio_rw_vect_retry(struct kiocb *iocb)
-+static int aio_rw_vect_retry(struct kiocb *iocb)
- {
- 	struct file *file = iocb->ki_filp;
- 	struct address_space *mapping = file->f_mapping;
-@@ -1341,26 +1346,26 @@ static ssize_t aio_rw_vect_retry(struct 
- 
- 	/* This means we must have transferred all that we could */
- 	/* No need to retry anymore */
--	if ((ret == 0) || (iocb->ki_left == 0))
--		ret = iocb->ki_nbytes - iocb->ki_left;
-+	if (iocb->ki_left == 0)
-+		ret = 0;
- 
--	return ret;
-+	return (int) ret;
- }
- 
--static ssize_t aio_fdsync(struct kiocb *iocb)
-+static int aio_fdsync(struct kiocb *iocb)
- {
- 	struct file *file = iocb->ki_filp;
--	ssize_t ret = -EINVAL;
-+	int ret = -EINVAL;
- 
- 	if (file->f_op->aio_fsync)
- 		ret = file->f_op->aio_fsync(iocb, 1);
- 	return ret;
- }
- 
--static ssize_t aio_fsync(struct kiocb *iocb)
-+static int aio_fsync(struct kiocb *iocb)
- {
- 	struct file *file = iocb->ki_filp;
--	ssize_t ret = -EINVAL;
-+	int ret = -EINVAL;
- 
- 	if (file->f_op->aio_fsync)
- 		ret = file->f_op->aio_fsync(iocb, 0);
-diff -urpN -X dontdiff a/fs/block_dev.c b/fs/block_dev.c
---- a/fs/block_dev.c	2007-01-12 11:19:45.000000000 -0800
-+++ b/fs/block_dev.c	2007-01-12 14:42:05.000000000 -0800
-@@ -147,12 +147,8 @@ static int blk_end_aio(struct bio *bio, 
- 	if (error)
- 		iocb->ki_nbytes = -EIO;
- 
--	if (atomic_dec_and_test(bio_count)) {
--		if ((long)iocb->ki_nbytes < 0)
--			aio_complete(iocb, iocb->ki_nbytes, 0);
--		else
--			aio_complete(iocb, iocb->ki_left, 0);
--	}
-+	if (atomic_dec_and_test(bio_count))
-+		aio_complete(iocb, iocb->ki_left, iocb->ki_nbytes);
- 
- 	return 0;
- }
-diff -urpN -X dontdiff a/fs/direct-io.c b/fs/direct-io.c
---- a/fs/direct-io.c	2007-01-12 14:42:29.000000000 -0800
-+++ b/fs/direct-io.c	2007-01-12 14:25:34.000000000 -0800
-@@ -224,8 +224,6 @@ static struct page *dio_get_page(struct 
-  */
- static int dio_complete(struct dio *dio, loff_t offset, int ret)
- {
--	ssize_t transferred = 0;
--
- 	/*
- 	 * AIO submission can race with bio completion to get here while
- 	 * expecting to have the last io completed by bio completion.
-@@ -236,15 +234,13 @@ static int dio_complete(struct dio *dio,
- 		ret = 0;
- 
- 	if (dio->result) {
--		transferred = dio->result;
--
- 		/* Check for short read case */
--		if ((dio->rw == READ) && ((offset + transferred) > dio->i_size))
--			transferred = dio->i_size - offset;
-+		if ((dio->rw == READ) && ((offset + dio->result) > dio->i_size))
-+			dio->result = dio->i_size - offset;
- 	}
- 
- 	if (dio->end_io && dio->result)
--		dio->end_io(dio->iocb, offset, transferred,
-+		dio->end_io(dio->iocb, offset, dio->result,
- 			    dio->map_bh.b_private);
- 	if (dio->lock_type == DIO_LOCKING)
- 		/* lockdep: non-owner release */
-@@ -254,8 +250,6 @@ static int dio_complete(struct dio *dio,
- 		ret = dio->page_errors;
- 	if (ret == 0)
- 		ret = dio->io_error;
--	if (ret == 0)
--		ret = transferred;
- 
- 	return ret;
- }
-@@ -283,8 +277,8 @@ static int dio_bio_end_aio(struct bio *b
- 	spin_unlock_irqrestore(&dio->bio_lock, flags);
- 
- 	if (remaining == 0) {
--		int ret = dio_complete(dio, dio->iocb->ki_pos, 0);
--		aio_complete(dio->iocb, ret, 0);
-+		int err = dio_complete(dio, dio->iocb->ki_pos, 0);
-+		aio_complete(dio->iocb, dio->result, err);
- 		kfree(dio);
- 	}
- 
-@@ -1110,6 +1104,8 @@ direct_io_worker(int rw, struct kiocb *i
- 	BUG_ON(!dio->is_async && ret2 != 0);
- 	if (ret2 == 0) {
- 		ret = dio_complete(dio, offset, ret);
-+		if (ret == 0)
-+			ret = dio->result;	/* bytes transferred */
- 		kfree(dio);
- 	} else
- 		BUG_ON(ret != -EIOCBQUEUED);
 diff -urpN -X dontdiff a/fs/nfs/direct.c b/fs/nfs/direct.c
---- a/fs/nfs/direct.c	2007-01-12 11:18:52.000000000 -0800
-+++ b/fs/nfs/direct.c	2007-01-12 14:39:48.000000000 -0800
-@@ -200,12 +200,9 @@ out:
-  */
+--- a/fs/nfs/direct.c	2007-01-12 14:53:48.000000000 -0800
++++ b/fs/nfs/direct.c	2007-01-12 15:02:30.000000000 -0800
+@@ -68,7 +68,6 @@ struct nfs_direct_req {
+ 
+ 	/* I/O parameters */
+ 	struct nfs_open_context	*ctx;		/* file open context info */
+-	struct kiocb *		iocb;		/* controlling i/o request */
+ 	struct inode *		inode;		/* target file of i/o */
+ 
+ 	/* completion state */
+@@ -77,6 +76,8 @@ struct nfs_direct_req {
+ 	ssize_t			count,		/* bytes actually processed */
+ 				error;		/* any reported error */
+ 	struct completion	completion;	/* wait for i/o completion */
++	file_endio_t		*endio;		/* async completion function */
++	void			*endio_data;	/* private completion data */
+ 
+ 	/* commit state */
+ 	struct list_head	rewrite_list;	/* saved nfs_write_data structs */
+@@ -151,7 +152,7 @@ static inline struct nfs_direct_req *nfs
+ 	kref_get(&dreq->kref);
+ 	init_completion(&dreq->completion);
+ 	INIT_LIST_HEAD(&dreq->rewrite_list);
+-	dreq->iocb = NULL;
++	dreq->endio = NULL;
+ 	dreq->ctx = NULL;
+ 	spin_lock_init(&dreq->lock);
+ 	atomic_set(&dreq->io_count, 0);
+@@ -179,7 +180,7 @@ static ssize_t nfs_direct_wait(struct nf
+ 	ssize_t result = -EIOCBQUEUED;
+ 
+ 	/* Async requests don't wait here */
+-	if (dreq->iocb)
++	if (!dreq->endio)
+ 		goto out;
+ 
+ 	result = wait_for_completion_interruptible(&dreq->completion);
+@@ -194,14 +195,10 @@ out:
+ 	return (ssize_t) result;
+ }
+ 
+-/*
+- * Synchronous I/O uses a stack-allocated iocb.  Thus we can't trust
+- * the iocb is still valid here if this is a synchronous request.
+- */
  static void nfs_direct_complete(struct nfs_direct_req *dreq)
  {
--	if (dreq->iocb) {
--		long res = (long) dreq->error;
--		if (!res)
--			res = (long) dreq->count;
--		aio_complete(dreq->iocb, res, 0);
--	}
-+	if (dreq->iocb)
-+		aio_complete(dreq->iocb, dreq->count, dreq->error);
-+
+-	if (dreq->iocb)
+-		aio_complete(dreq->iocb, dreq->count, dreq->error);
++	if (dreq->endio)
++		dreq->endio(dreq->endio_data, dreq->count, dreq->error);
+ 
  	complete_all(&dreq->completion);
  
- 	kref_put(&dreq->kref, nfs_direct_req_release);
-diff -urpN -X dontdiff a/include/linux/aio.h b/include/linux/aio.h
---- a/include/linux/aio.h	2007-01-12 14:42:29.000000000 -0800
-+++ b/include/linux/aio.h	2007-01-12 14:25:34.000000000 -0800
-@@ -15,10 +15,9 @@
- struct kioctx;
+@@ -332,11 +329,13 @@ static ssize_t nfs_direct_read_schedule(
+ 	return result < 0 ? (ssize_t) result : -EFAULT;
+ }
  
- /* Notes on cancelling a kiocb:
-- *	If a kiocb is cancelled, aio_complete may return 0 to indicate 
-- *	that cancel has not yet disposed of the kiocb.  All cancel 
-- *	operations *must* call aio_put_req to dispose of the kiocb 
-- *	to guard against races with the completion code.
-+ *	If a kiocb is cancelled, aio_complete may not yet have disposed of
-+ *	the kiocb.  All cancel operations *must* call aio_put_req to dispose
-+ *	of the kiocb to guard against races with the completion code.
+-static ssize_t nfs_direct_read(struct kiocb *iocb, unsigned long user_addr, size_t count, loff_t pos)
++static ssize_t nfs_direct_read(struct file *file, unsigned long user_addr,
++			       size_t count, loff_t pos,
++			       file_endio_t *endio, void *endio_data)
+ {
+ 	ssize_t result = 0;
+ 	sigset_t oldset;
+-	struct inode *inode = iocb->ki_filp->f_mapping->host;
++	struct inode *inode = file->f_mapping->host;
+ 	struct rpc_clnt *clnt = NFS_CLIENT(inode);
+ 	struct nfs_direct_req *dreq;
+ 
+@@ -345,9 +344,9 @@ static ssize_t nfs_direct_read(struct ki
+ 		return -ENOMEM;
+ 
+ 	dreq->inode = inode;
+-	dreq->ctx = get_nfs_open_context((struct nfs_open_context *)iocb->ki_filp->private_data);
+-	if (!is_sync_kiocb(iocb))
+-		dreq->iocb = iocb;
++	dreq->ctx = get_nfs_open_context((struct nfs_open_context *)file->private_data);
++	dreq->endio = endio;
++	dreq->endio_data = endio_data;
+ 
+ 	nfs_add_stats(inode, NFSIOS_DIRECTREADBYTES, count);
+ 	rpc_clnt_sigmask(clnt, &oldset);
+@@ -663,11 +662,13 @@ static ssize_t nfs_direct_write_schedule
+ 	return result < 0 ? (ssize_t) result : -EFAULT;
+ }
+ 
+-static ssize_t nfs_direct_write(struct kiocb *iocb, unsigned long user_addr, size_t count, loff_t pos)
++static ssize_t nfs_direct_write(struct file *file, unsigned long user_addr,
++				size_t count, loff_t pos,
++				file_endio_t *endio, void *endio_data)
+ {
+ 	ssize_t result = 0;
+ 	sigset_t oldset;
+-	struct inode *inode = iocb->ki_filp->f_mapping->host;
++	struct inode *inode = file->f_mapping->host;
+ 	struct rpc_clnt *clnt = NFS_CLIENT(inode);
+ 	struct nfs_direct_req *dreq;
+ 	size_t wsize = NFS_SERVER(inode)->wsize;
+@@ -682,9 +683,9 @@ static ssize_t nfs_direct_write(struct k
+ 		sync = FLUSH_STABLE;
+ 
+ 	dreq->inode = inode;
+-	dreq->ctx = get_nfs_open_context((struct nfs_open_context *)iocb->ki_filp->private_data);
+-	if (!is_sync_kiocb(iocb))
+-		dreq->iocb = iocb;
++	dreq->ctx = get_nfs_open_context((struct nfs_open_context *)file->private_data);
++	dreq->endio = endio;
++	dreq->endio_data = endio_data;
+ 
+ 	nfs_add_stats(inode, NFSIOS_DIRECTWRITTENBYTES, count);
+ 
+@@ -701,10 +702,12 @@ static ssize_t nfs_direct_write(struct k
+ 
+ /**
+  * nfs_file_direct_read - file direct read operation for NFS files
+- * @iocb: target I/O control block
++ * @file: target file
+  * @iov: vector of user buffers into which to read data
+  * @nr_segs: size of iov vector
+  * @pos: byte offset in file where reading starts
++ * @endio: async I/O completion function
++ * @endio_data: private completion data
+  *
+  * We use this function for direct reads instead of calling
+  * generic_file_aio_read() in order to avoid gfar's check to see if
+@@ -720,11 +723,11 @@ static ssize_t nfs_direct_write(struct k
+  * client must read the updated atime from the server back into its
+  * cache.
   */
- #define KIOCB_C_CANCELLED	0x01
- #define KIOCB_C_COMPLETE	0x02
-@@ -98,7 +97,7 @@ struct kiocb {
- 	struct file		*ki_filp;
- 	struct kioctx		*ki_ctx;	/* may be NULL for sync ops */
- 	int			(*ki_cancel)(struct kiocb *, struct io_event *);
--	ssize_t			(*ki_retry)(struct kiocb *);
-+	int			(*ki_retry)(struct kiocb *);
- 	void			(*ki_dtor)(struct kiocb *);
+-ssize_t nfs_file_direct_read(struct kiocb *iocb, const struct iovec *iov,
+-				unsigned long nr_segs, loff_t pos)
++ssize_t nfs_file_direct_read(struct file *file, const struct iovec *iov,
++				unsigned long nr_segs, loff_t *pos,
++				file_endio_t *endio, void *endio_data)
+ {
+ 	ssize_t retval = -EINVAL;
+-	struct file *file = iocb->ki_filp;
+ 	struct address_space *mapping = file->f_mapping;
+ 	/* XXX: temporary */
+ 	const char __user *buf = iov[0].iov_base;
+@@ -733,7 +736,7 @@ ssize_t nfs_file_direct_read(struct kioc
+ 	dprintk("nfs: direct read(%s/%s, %lu@%Ld)\n",
+ 		file->f_path.dentry->d_parent->d_name.name,
+ 		file->f_path.dentry->d_name.name,
+-		(unsigned long) count, (long long) pos);
++		(unsigned long) count, (long long) *pos);
  
- 	union {
-@@ -208,7 +207,7 @@ extern unsigned aio_max_size;
- extern ssize_t FASTCALL(wait_on_sync_kiocb(struct kiocb *iocb));
- extern int FASTCALL(aio_put_req(struct kiocb *iocb));
- extern void FASTCALL(kick_iocb(struct kiocb *iocb));
--extern int FASTCALL(aio_complete(struct kiocb *iocb, long res, long res2));
-+extern void FASTCALL(aio_complete(void *endio_data, ssize_t count, int err));
- extern void FASTCALL(__put_ioctx(struct kioctx *ctx));
- struct mm_struct;
- extern void FASTCALL(exit_aio(struct mm_struct *mm));
-diff -urpN -X dontdiff a/include/linux/fs.h b/include/linux/fs.h
---- a/include/linux/fs.h	2007-01-12 14:42:29.000000000 -0800
-+++ b/include/linux/fs.h	2007-01-12 14:25:34.000000000 -0800
-@@ -1109,6 +1109,8 @@ typedef int (*read_actor_t)(read_descrip
- #define HAVE_COMPAT_IOCTL 1
- #define HAVE_UNLOCKED_IOCTL 1
+ 	if (nr_segs != 1)
+ 		return -EINVAL;
+@@ -751,9 +754,10 @@ ssize_t nfs_file_direct_read(struct kioc
+ 	if (retval)
+ 		goto out;
  
-+typedef void (file_endio_t)(void *endio_data, ssize_t count, int err);
-+
+-	retval = nfs_direct_read(iocb, (unsigned long) buf, count, pos);
++	retval = nfs_direct_read(file, (unsigned long) buf, count, *pos,
++				 endio, endio_data);
+ 	if (retval > 0)
+-		iocb->ki_pos = pos + retval;
++		*pos += retval;
+ 
+ out:
+ 	return retval;
+@@ -761,10 +765,12 @@ out:
+ 
+ /**
+  * nfs_file_direct_write - file direct write operation for NFS files
+- * @iocb: target I/O control block
++ * @file: target file
+  * @iov: vector of user buffers from which to write data
+  * @nr_segs: size of iov vector
+  * @pos: byte offset in file where writing starts
++ * @endio: async I/O completion function
++ * @endio_data: private completion data
+  *
+  * We use this function for direct writes instead of calling
+  * generic_file_aio_write() in order to avoid taking the inode
+@@ -784,11 +790,11 @@ out:
+  * Note that O_APPEND is not supported for NFS direct writes, as there
+  * is no atomic O_APPEND write facility in the NFS protocol.
+  */
+-ssize_t nfs_file_direct_write(struct kiocb *iocb, const struct iovec *iov,
+-				unsigned long nr_segs, loff_t pos)
++ssize_t nfs_file_direct_write(struct file *file, const struct iovec *iov,
++			      unsigned long nr_segs, loff_t *pos,
++			      file_endio_t *endio, void *endio_data)
+ {
+ 	ssize_t retval;
+-	struct file *file = iocb->ki_filp;
+ 	struct address_space *mapping = file->f_mapping;
+ 	/* XXX: temporary */
+ 	const char __user *buf = iov[0].iov_base;
+@@ -797,12 +803,12 @@ ssize_t nfs_file_direct_write(struct kio
+ 	dfprintk(VFS, "nfs: direct write(%s/%s, %lu@%Ld)\n",
+ 		file->f_path.dentry->d_parent->d_name.name,
+ 		file->f_path.dentry->d_name.name,
+-		(unsigned long) count, (long long) pos);
++		(unsigned long) count, (long long) *pos);
+ 
+ 	if (nr_segs != 1)
+ 		return -EINVAL;
+ 
+-	retval = generic_write_checks(file, &pos, &count, 0);
++	retval = generic_write_checks(file, pos, &count, 0);
+ 	if (retval)
+ 		goto out;
+ 
+@@ -821,10 +827,11 @@ ssize_t nfs_file_direct_write(struct kio
+ 	if (retval)
+ 		goto out;
+ 
+-	retval = nfs_direct_write(iocb, (unsigned long) buf, count, pos);
++	retval = nfs_direct_write(file, (unsigned long) buf, count, *pos,
++				  endio, endio_data);
+ 
+ 	if (retval > 0)
+-		iocb->ki_pos = pos + retval;
++		*pos += retval;
+ 
+ out:
+ 	return retval;
+diff -urpN -X dontdiff a/fs/nfs/file.c b/fs/nfs/file.c
+--- a/fs/nfs/file.c	2007-01-12 11:19:45.000000000 -0800
++++ b/fs/nfs/file.c	2007-01-12 15:01:17.000000000 -0800
+@@ -208,7 +208,8 @@ nfs_file_read(struct kiocb *iocb, const 
+ 
+ #ifdef CONFIG_NFS_DIRECTIO
+ 	if (iocb->ki_filp->f_flags & O_DIRECT)
+-		return nfs_file_direct_read(iocb, iov, nr_segs, pos);
++		return nfs_file_direct_read(iocb->ki_filp, iov, nr_segs,
++					    &iocb->ki_pos, aio_complete, iocb);
+ #endif
+ 
+ 	dfprintk(VFS, "nfs: read(%s/%s, %lu@%lu)\n",
+@@ -350,7 +351,8 @@ static ssize_t nfs_file_write(struct kio
+ 
+ #ifdef CONFIG_NFS_DIRECTIO
+ 	if (iocb->ki_filp->f_flags & O_DIRECT)
+-		return nfs_file_direct_write(iocb, iov, nr_segs, pos);
++		return nfs_file_direct_write(iocb->ki_filp, iov, nr_segs,
++					     &iocb->ki_pos, aio_complete, iocb);
+ #endif
+ 
+ 	dfprintk(VFS, "nfs: write(%s/%s(%ld), %lu@%Ld)\n",
+diff -urpN -X dontdiff a/include/linux/nfs_fs.h b/include/linux/nfs_fs.h
+--- a/include/linux/nfs_fs.h	2007-01-12 11:19:48.000000000 -0800
++++ b/include/linux/nfs_fs.h	2007-01-12 15:01:17.000000000 -0800
+@@ -369,12 +369,12 @@ extern int nfs3_removexattr (struct dent
+  */
+ extern ssize_t nfs_direct_IO(int, struct kiocb *, const struct iovec *, loff_t,
+ 			unsigned long);
+-extern ssize_t nfs_file_direct_read(struct kiocb *iocb,
++extern ssize_t nfs_file_direct_read(struct file *file,
+ 			const struct iovec *iov, unsigned long nr_segs,
+-			loff_t pos);
+-extern ssize_t nfs_file_direct_write(struct kiocb *iocb,
++			loff_t *pos, file_endio_t *endio, void *endio_data);
++extern ssize_t nfs_file_direct_write(struct file *file,
+ 			const struct iovec *iov, unsigned long nr_segs,
+-			loff_t pos);
++			loff_t *pos, file_endio_t *endio, void *endio_data);
+ 
  /*
-  * NOTE:
-  * read, write, poll, fsync, readv, writev, unlocked_ioctl and compat_ioctl
+  * linux/fs/nfs/dir.c
 
 --
 To unsubscribe, send a message with 'unsubscribe linux-aio' in
