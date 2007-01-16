@@ -1,7 +1,7 @@
 From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH 9/59] sysctl: decnet remove unnecessary insert_at_head flag
-Date: Tue, 16 Jan 2007 09:39:14 -0700
-Message-ID: <1168965624501-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH 1/59] sysctl x25: Remove unnecessary insert_at_head from register_sysctl_table.
+Date: Tue, 16 Jan 2007 09:39:06 -0700
+Message-ID: <11689656044103-git-send-email-ebiederm@xmission.com>
 References: <m1ac0jc4no.fsf@ebiederm.dsl.xmission.com>
 Cc: <linux-kernel@vger.kernel.org>, <containers@lists.osdl.org>,
 	<netdev@vger.kernel.org>, xfs-masters@oss.sgi.com, xfs@oss.sgi.com,
@@ -26,29 +26,27 @@ Sender: linux-mips-bounce@linux-mips.org
 Errors-to: linux-mips-bounce@linux-mips.org
 List-Id: netdev.vger.kernel.org
 
-From: Eric W. Biederman <ebiederm@xmission.com> - unquoted
-
-The sysctl numbers used are unique so setting the insert_at_head
-flag does not succeed in overriding any sysctls, and is just
-confusing because it doesn't.  Clear the flag.
+Since x25 uses unique binary numbers inserting yourself at the
+head of the search list for sysctls so you can override already
+registered sysctls is pointless.
 
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 ---
- net/decnet/sysctl_net_decnet.c |    2 +-
+ net/x25/sysctl_net_x25.c |    2 +-
  1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/net/decnet/sysctl_net_decnet.c b/net/decnet/sysctl_net_decnet.c
-index a4065eb..81469fd 100644
---- a/net/decnet/sysctl_net_decnet.c
-+++ b/net/decnet/sysctl_net_decnet.c
-@@ -491,7 +491,7 @@ static ctl_table dn_root_table[] = {
+diff --git a/net/x25/sysctl_net_x25.c b/net/x25/sysctl_net_x25.c
+index aabda59..94aff67 100644
+--- a/net/x25/sysctl_net_x25.c
++++ b/net/x25/sysctl_net_x25.c
+@@ -98,7 +98,7 @@ static struct ctl_table x25_root_table[] = {
  
- void dn_register_sysctl(void)
+ void __init x25_register_sysctl(void)
  {
--	dn_table_header = register_sysctl_table(dn_root_table, 1);
-+	dn_table_header = register_sysctl_table(dn_root_table, 0);
+-	x25_table_header = register_sysctl_table(x25_root_table, 1);
++	x25_table_header = register_sysctl_table(x25_root_table, 0);
  }
  
- void dn_unregister_sysctl(void)
+ void x25_unregister_sysctl(void)
 -- 
 1.4.4.1.g278f
