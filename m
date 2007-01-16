@@ -1,77 +1,52 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 4/9] mm: serialize access to min_free_kbytes
-Date: Tue, 16 Jan 2007 10:46:01 +0100
-Message-ID: <20070116101815.501185000@taijtu.programming.kicks-ass.net>
+Subject: [PATCH 8/9] slab: kmem_cache_objs_to_pages()
+Date: Tue, 16 Jan 2007 10:46:05 +0100
+Message-ID: <20070116101815.999600000@taijtu.programming.kicks-ass.net>
 References: <20070116094557.494892000@taijtu.programming.kicks-ass.net>
 Cc: David Miller <davem@davemloft.net>,
 	Peter Zijlstra <a.p.zijlstra@chello.nl>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750956AbXAPK2n@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750912AbXAPK2i@vger.kernel.org>
 To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	linux-mm@kvack.org
-Content-Disposition: inline; filename=setup_per_zone_pages_min.patch
+Content-Disposition: inline; filename=kmem_cache_objs_to_pages.patch
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-There is a small race between the procfs caller and the memory hotplug caller
-of setup_per_zone_pages_min(). Not a big deal, but the next patch will add yet
-another caller. Time to close the gap.
+Provide a method to calculate the number of pages needed to store a given
+number of slab objects (upper bound when considering possible partial and
+free slabs).
 
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
 ---
- mm/page_alloc.c |   16 +++++++++++++---
- 1 file changed, 13 insertions(+), 3 deletions(-)
+ include/linux/slab.h |    1 +
+ mm/slab.c            |    6 ++++++
+ 2 files changed, 7 insertions(+)
 
-Index: linux-2.6-git/mm/page_alloc.c
+Index: linux-2.6-git/include/linux/slab.h
 ===================================================================
---- linux-2.6-git.orig/mm/page_alloc.c	2007-01-15 09:58:49.000000000 +0100
-+++ linux-2.6-git/mm/page_alloc.c	2007-01-15 09:58:51.000000000 +0100
-@@ -95,6 +95,7 @@ static char * const zone_names[MAX_NR_ZO
- #endif
- };
- 
-+static DEFINE_SPINLOCK(min_free_lock);
- int min_free_kbytes = 1024;
- 
- unsigned long __meminitdata nr_kernel_pages;
-@@ -3074,12 +3075,12 @@ static void setup_per_zone_lowmem_reserv
- }
- 
- /**
-- * setup_per_zone_pages_min - called when min_free_kbytes changes.
-+ * __setup_per_zone_pages_min - called when min_free_kbytes changes.
-  *
-  * Ensures that the pages_{min,low,high} values for each zone are set correctly
-  * with respect to min_free_kbytes.
+--- linux-2.6-git.orig/include/linux/slab.h	2007-01-09 11:28:32.000000000 +0100
++++ linux-2.6-git/include/linux/slab.h	2007-01-09 11:30:16.000000000 +0100
+@@ -43,6 +43,7 @@ typedef struct kmem_cache kmem_cache_t _
   */
--void setup_per_zone_pages_min(void)
-+static void __setup_per_zone_pages_min(void)
- {
- 	unsigned long pages_min = min_free_kbytes >> (PAGE_SHIFT - 10);
- 	unsigned long lowmem_pages = 0;
-@@ -3133,6 +3134,15 @@ void setup_per_zone_pages_min(void)
- 	calculate_totalreserve_pages();
- }
+ void __init kmem_cache_init(void);
+ extern int slab_is_available(void);
++extern unsigned int kmem_cache_objs_to_pages(struct kmem_cache *, int);
  
-+void setup_per_zone_pages_min(void)
-+{
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&min_free_lock, flags);
-+	__setup_per_zone_pages_min();
-+	spin_unlock_irqrestore(&min_free_lock, flags);
-+}
-+
- /*
-  * Initialise min_free_kbytes.
-  *
-@@ -3168,7 +3178,7 @@ static int __init init_per_zone_pages_mi
- 		min_free_kbytes = 128;
- 	if (min_free_kbytes > 65536)
- 		min_free_kbytes = 65536;
--	setup_per_zone_pages_min();
-+	__setup_per_zone_pages_min();
- 	setup_per_zone_lowmem_reserve();
- 	return 0;
+ struct kmem_cache *kmem_cache_create(const char *, size_t, size_t,
+ 			unsigned long,
+Index: linux-2.6-git/mm/slab.c
+===================================================================
+--- linux-2.6-git.orig/mm/slab.c	2007-01-09 11:30:00.000000000 +0100
++++ linux-2.6-git/mm/slab.c	2007-01-09 11:30:16.000000000 +0100
+@@ -4482,3 +4482,9 @@ unsigned int ksize(const void *objp)
+ 
+ 	return obj_size(virt_to_cache(objp));
  }
++
++unsigned int kmem_cache_objs_to_pages(struct kmem_cache *cachep, int nr)
++{
++	return ((nr + cachep->num - 1) / cachep->num) << cachep->gfporder;
++}
++EXPORT_SYMBOL_GPL(kmem_cache_objs_to_pages);
 
 -- 
