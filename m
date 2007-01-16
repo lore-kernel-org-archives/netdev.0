@@ -1,39 +1,46 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 1/2] [IrDA] irda-usb TX path optimization
-Date: Tue, 16 Jan 2007 14:48:13 +1100
-Message-ID: <E1H6fIz-0003Ne-00@gondolin.me.apana.org.au>
-References: <20070115.193754.59662700.davem@davemloft.net>
-Cc: samuel@sortiz.org, avl@logic.at, netdev@vger.kernel.org,
-	irda-users@lists.sourceforge.net
+From: Noriaki TAKAMIYA <takamiya@po.ntts.co.jp>
+Subject: [PATCH] [IPV6] fixed the size of the netlink message notified by
+ inet6_rt_notify().
+Date: Tue, 16 Jan 2007 12:57:28 +0900 (JST)
+Message-ID: <20070116.125728.278729390.takamiya@po.ntts.co.jp>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: usagi-core@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:3162 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932209AbXAPDsu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jan 2007 22:48:50 -0500
-To: davem@davemloft.net (David Miller)
-In-Reply-To: <20070115.193754.59662700.davem@davemloft.net>
+Received: from mail2.ics.ntts.co.jp ([202.32.24.42]:60847 "EHLO
+	mail2.ics.ntts.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932247AbXAPD5u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jan 2007 22:57:50 -0500
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller <davem@davemloft.net> wrote:
-> 
-> Technically this is a bug fix too because once an SKB hits the
-> transmit function it should essentially be immutable, ie. you
-> shouldn't be writing to it.  tcpdump sniffers could be looking
-> at the SKB, as one example.
+Hi,
 
-We do have a way around that with skb_header_cloned.  In fact
-it looks like VLAN should use it as otherwise TCP packets will
-get copied unnecessarily.
+  I think the return value of rt6_nlmsg_size() should includes the
+  amount of RTA_METRICS.
 
-This is still not optimal for AF_PACKET users since they will
-still cause things like VLANs to do the copy even when it isn't
-necessary because it doesn't touch any part of the packet that
-AF_PACKET actually looks at.
+  Regards,
 
-Cheers,
+---
+ net/ipv6/route.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 8c3d568..5f0043c 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -2017,6 +2017,7 @@ static inline size_t rt6_nlmsg_size(void
+ 	       + nla_total_size(4) /* RTA_IIF */
+ 	       + nla_total_size(4) /* RTA_OIF */
+ 	       + nla_total_size(4) /* RTA_PRIORITY */
++	       + RTAX_MAX * nla_total_size(4) /* RTA_METRICS */
+ 	       + nla_total_size(sizeof(struct rta_cacheinfo));
+ }
+ 
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+1.4.4
+
+--
+Noriaki TAKAMIYA
