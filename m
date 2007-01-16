@@ -1,84 +1,77 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 3/9] mm: allow PF_MEMALLOC from softirq context
-Date: Tue, 16 Jan 2007 10:46:00 +0100
-Message-ID: <20070116101815.426856000@taijtu.programming.kicks-ass.net>
+Subject: [PATCH 4/9] mm: serialize access to min_free_kbytes
+Date: Tue, 16 Jan 2007 10:46:01 +0100
+Message-ID: <20070116101815.501185000@taijtu.programming.kicks-ass.net>
 References: <20070116094557.494892000@taijtu.programming.kicks-ass.net>
 Cc: David Miller <davem@davemloft.net>,
 	Peter Zijlstra <a.p.zijlstra@chello.nl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:43214 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750788AbXAPK2X (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Jan 2007 05:28:23 -0500
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750956AbXAPK2n@vger.kernel.org>
 To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	linux-mm@kvack.org
-Content-Disposition: inline; filename=PF_MEMALLOC-softirq.patch
-Sender: netdev-owner@vger.kernel.org
+Content-Disposition: inline; filename=setup_per_zone_pages_min.patch
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Allow PF_MEMALLOC to be set in softirq context. When running softirqs from
-a borrowed context save current->flags, ksoftirqd will have its own 
-task_struct.
+There is a small race between the procfs caller and the memory hotplug caller
+of setup_per_zone_pages_min(). Not a big deal, but the next patch will add yet
+another caller. Time to close the gap.
 
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
 ---
- kernel/softirq.c |    3 +++
- mm/internal.h    |   14 ++++++++------
- 2 files changed, 11 insertions(+), 6 deletions(-)
+ mm/page_alloc.c |   16 +++++++++++++---
+ 1 file changed, 13 insertions(+), 3 deletions(-)
 
-Index: linux-2.6-git/mm/internal.h
+Index: linux-2.6-git/mm/page_alloc.c
 ===================================================================
---- linux-2.6-git.orig/mm/internal.h	2006-12-14 10:02:52.000000000 +0100
-+++ linux-2.6-git/mm/internal.h	2006-12-14 10:10:09.000000000 +0100
-@@ -75,9 +75,10 @@ static int inline gfp_to_alloc_flags(gfp
- 		alloc_flags |= ALLOC_HARDER;
+--- linux-2.6-git.orig/mm/page_alloc.c	2007-01-15 09:58:49.000000000 +0100
++++ linux-2.6-git/mm/page_alloc.c	2007-01-15 09:58:51.000000000 +0100
+@@ -95,6 +95,7 @@ static char * const zone_names[MAX_NR_ZO
+ #endif
+ };
  
- 	if (likely(!(gfp_mask & __GFP_NOMEMALLOC))) {
--		if (!in_interrupt() &&
--		    ((p->flags & PF_MEMALLOC) ||
--		     unlikely(test_thread_flag(TIF_MEMDIE))))
-+		if (!in_irq() && (p->flags & PF_MEMALLOC))
-+			alloc_flags |= ALLOC_NO_WATERMARKS;
-+		else if (!in_interrupt() &&
-+				unlikely(test_thread_flag(TIF_MEMDIE)))
- 			alloc_flags |= ALLOC_NO_WATERMARKS;
- 	}
++static DEFINE_SPINLOCK(min_free_lock);
+ int min_free_kbytes = 1024;
  
-@@ -117,9 +118,10 @@ static inline int gfp_to_rank(gfp_t gfp_
- 	 */
- 
- 	if (likely(!(gfp_mask & __GFP_NOMEMALLOC))) {
--		if (!in_interrupt() &&
--		    ((current->flags & PF_MEMALLOC) ||
--		     unlikely(test_thread_flag(TIF_MEMDIE))))
-+		if (!in_irq() && (current->flags & PF_MEMALLOC))
-+			return 0;
-+		else if (!in_interrupt() &&
-+				unlikely(test_thread_flag(TIF_MEMDIE)))
- 			return 0;
- 	}
- 
-Index: linux-2.6-git/kernel/softirq.c
-===================================================================
---- linux-2.6-git.orig/kernel/softirq.c	2006-12-14 10:02:18.000000000 +0100
-+++ linux-2.6-git/kernel/softirq.c	2006-12-14 10:02:52.000000000 +0100
-@@ -209,6 +209,8 @@ asmlinkage void __do_softirq(void)
- 	__u32 pending;
- 	int max_restart = MAX_SOFTIRQ_RESTART;
- 	int cpu;
-+	unsigned long pflags = current->flags;
-+	current->flags &= ~PF_MEMALLOC;
- 
- 	pending = local_softirq_pending();
- 	account_system_vtime(current);
-@@ -247,6 +249,7 @@ restart:
- 
- 	account_system_vtime(current);
- 	_local_bh_enable();
-+	current->flags = pflags;
+ unsigned long __meminitdata nr_kernel_pages;
+@@ -3074,12 +3075,12 @@ static void setup_per_zone_lowmem_reserv
  }
  
- #ifndef __ARCH_HAS_DO_SOFTIRQ
+ /**
+- * setup_per_zone_pages_min - called when min_free_kbytes changes.
++ * __setup_per_zone_pages_min - called when min_free_kbytes changes.
+  *
+  * Ensures that the pages_{min,low,high} values for each zone are set correctly
+  * with respect to min_free_kbytes.
+  */
+-void setup_per_zone_pages_min(void)
++static void __setup_per_zone_pages_min(void)
+ {
+ 	unsigned long pages_min = min_free_kbytes >> (PAGE_SHIFT - 10);
+ 	unsigned long lowmem_pages = 0;
+@@ -3133,6 +3134,15 @@ void setup_per_zone_pages_min(void)
+ 	calculate_totalreserve_pages();
+ }
+ 
++void setup_per_zone_pages_min(void)
++{
++	unsigned long flags;
++
++	spin_lock_irqsave(&min_free_lock, flags);
++	__setup_per_zone_pages_min();
++	spin_unlock_irqrestore(&min_free_lock, flags);
++}
++
+ /*
+  * Initialise min_free_kbytes.
+  *
+@@ -3168,7 +3178,7 @@ static int __init init_per_zone_pages_mi
+ 		min_free_kbytes = 128;
+ 	if (min_free_kbytes > 65536)
+ 		min_free_kbytes = 65536;
+-	setup_per_zone_pages_min();
++	__setup_per_zone_pages_min();
+ 	setup_per_zone_lowmem_reserve();
+ 	return 0;
+ }
 
 -- 
-
