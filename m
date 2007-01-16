@@ -1,7 +1,7 @@
 From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH 34/59] sysctl: s390 Remove unnecessary use of insert_at_head
-Date: Tue, 16 Jan 2007 09:39:39 -0700
-Message-ID: <11689656581195-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH 46/59] sysctl: C99 convert coda ctl_tables and remove binary sysctls.
+Date: Tue, 16 Jan 2007 09:39:51 -0700
+Message-ID: <11689656751225-git-send-email-ebiederm@xmission.com>
 References: <m1ac0jc4no.fsf@ebiederm.dsl.xmission.com>
 Cc: <linux-kernel@vger.kernel.org>, <containers@lists.osdl.org>,
 	<netdev@vger.kernel.org>, xfs-masters@oss.sgi.com, xfs@oss.sgi.com,
@@ -28,60 +28,94 @@ List-Id: netdev.vger.kernel.org
 
 From: Eric W. Biederman <ebiederm@xmission.com> - unquoted
 
+Will converting the coda sysctl initializers I discovered that
+it is yet another user of sysctl that was stomping CTL_KERN.
+So off with it's sys_sysctl support since it wasn't done
+in a supportable way.
+
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 ---
- arch/s390/appldata/appldata_base.c |    4 ++--
- arch/s390/kernel/debug.c           |    2 +-
- arch/s390/mm/cmm.c                 |    2 +-
- 3 files changed, 4 insertions(+), 4 deletions(-)
+ fs/coda/sysctl.c |   58 ++++++++++++++++++++++++++++++++++++++++++++---------
+ 1 files changed, 48 insertions(+), 10 deletions(-)
 
-diff --git a/arch/s390/appldata/appldata_base.c b/arch/s390/appldata/appldata_base.c
-index b8c2372..cdc4109 100644
---- a/arch/s390/appldata/appldata_base.c
-+++ b/arch/s390/appldata/appldata_base.c
-@@ -506,7 +506,7 @@ int appldata_register_ops(struct appldata_ops *ops)
+diff --git a/fs/coda/sysctl.c b/fs/coda/sysctl.c
+index 1c82e9a..df682e2 100644
+--- a/fs/coda/sysctl.c
++++ b/fs/coda/sysctl.c
+@@ -32,8 +32,6 @@
  
- 	ops->ctl_table[3].ctl_name = 0;
+ static struct ctl_table_header *fs_table_header;
  
--	ops->sysctl_header = register_sysctl_table(ops->ctl_table,1);
-+	ops->sysctl_header = register_sysctl_table(ops->ctl_table,0);
+-#define FS_CODA         1       /* Coda file system */
+-
+ #define CODA_TIMEOUT    3       /* timeout on upcalls to become intrble */
+ #define CODA_HARD       5       /* mount type "hard" or "soft" */
+ #define CODA_VFS 	 6       /* vfs statistics */
+@@ -184,17 +182,57 @@ static int coda_cache_inv_stats_get_info( char * buffer, char ** start,
+ }
  
- 	P_INFO("%s-ops registered!\n", ops->name);
- 	return 0;
-@@ -606,7 +606,7 @@ static int __init appldata_init(void)
- 	/* Register cpu hotplug notifier */
- 	register_hotcpu_notifier(&appldata_nb);
+ static ctl_table coda_table[] = {
+- 	{CODA_TIMEOUT, "timeout", &coda_timeout, sizeof(int), 0644, NULL, &proc_dointvec},
+- 	{CODA_HARD, "hard", &coda_hard, sizeof(int), 0644, NULL, &proc_dointvec},
+- 	{CODA_VFS, "vfs_stats", NULL, 0, 0644, NULL, &do_reset_coda_vfs_stats},
+- 	{CODA_CACHE_INV, "cache_inv_stats", NULL, 0, 0644, NULL, &do_reset_coda_cache_inv_stats},
+- 	{CODA_FAKE_STATFS, "fake_statfs", &coda_fake_statfs, sizeof(int), 0600, NULL, &proc_dointvec},
+-	{ 0 }
++	{
++		.ctl_name	= CTL_UNNUMBERED,
++		.procname	= "timeout",
++		.data		= &coda_timeout,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= &proc_dointvec
++	},
++	{
++		.ctl_name	= CTL_UNNUMBERED,
++		.procname	= "hard",
++		.data		= &coda_hard,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= &proc_dointvec
++	},
++	{
++		.ctl_name	= CTL_UNNUMBERED,
++		.procname	= "vfs_stats",
++		.data		= NULL,
++		.maxlen		= 0,
++		.mode		= 0644,
++		.proc_handler	= &do_reset_coda_vfs_stats
++	},
++	{
++		.ctl_name	= CTL_UNNUMBERED,
++		.procname	= "cache_inv_stats",
++		.data		= NULL,
++		.maxlen		= 0,
++		.mode		= 0644,
++		.proc_handler	= &do_reset_coda_cache_inv_stats
++	},
++	{
++		.ctl_name	= CTL_UNNUMBERED,
++		.procname	= "fake_statfs",
++		.data		= &coda_fake_statfs,
++		.maxlen		= sizeof(int),
++		.mode		= 0600,
++		.proc_handler	= &proc_dointvec
++	},
++	{}
+ };
  
--	appldata_sysctl_header = register_sysctl_table(appldata_dir_table, 1);
-+	appldata_sysctl_header = register_sysctl_table(appldata_dir_table, 0);
- #ifdef MODULE
- 	appldata_dir_table[0].de->owner = THIS_MODULE;
- 	appldata_table[0].de->owner = THIS_MODULE;
-diff --git a/arch/s390/kernel/debug.c b/arch/s390/kernel/debug.c
-index c81f8e5..d38cb27 100644
---- a/arch/s390/kernel/debug.c
-+++ b/arch/s390/kernel/debug.c
-@@ -1053,7 +1053,7 @@ __init debug_init(void)
- {
- 	int rc = 0;
+ static ctl_table fs_table[] = {
+-       {FS_CODA, "coda",    NULL, 0, 0555, coda_table},
+-       {0}
++	{
++		.ctl_name	= CTL_UNNUMBERED,
++		.procname	= "coda",
++		.mode		= 0555,
++		.child		= coda_table
++	},
++	{}
+ };
  
--	s390dbf_sysctl_header = register_sysctl_table(s390dbf_dir_table, 1);
-+	s390dbf_sysctl_header = register_sysctl_table(s390dbf_dir_table, 0);
- 	down(&debug_lock);
- 	debug_debugfs_root_entry = debugfs_create_dir(DEBUG_DIR_ROOT,NULL);
- 	printk(KERN_INFO "debug: Initialization complete\n");
-diff --git a/arch/s390/mm/cmm.c b/arch/s390/mm/cmm.c
-index df733d5..5f83a3f 100644
---- a/arch/s390/mm/cmm.c
-+++ b/arch/s390/mm/cmm.c
-@@ -418,7 +418,7 @@ cmm_init (void)
- 	int rc = -ENOMEM;
  
- #ifdef CONFIG_CMM_PROC
--	cmm_sysctl_header = register_sysctl_table(cmm_dir_table, 1);
-+	cmm_sysctl_header = register_sysctl_table(cmm_dir_table, 0);
- 	if (!cmm_sysctl_header)
- 		goto out;
- #endif
 -- 
 1.4.4.1.g278f
