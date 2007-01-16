@@ -1,7 +1,7 @@
 From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH 25/59] sysctl: C99 convert arch/frv/kernel/pm.c
-Date: Tue, 16 Jan 2007 09:39:30 -0700
-Message-ID: <11689656443582-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH 33/59] sysctl: s390 move sysctl definitions to sysctl.h
+Date: Tue, 16 Jan 2007 09:39:38 -0700
+Message-ID: <11689656572714-git-send-email-ebiederm@xmission.com>
 References: <m1ac0jc4no.fsf@ebiederm.dsl.xmission.com>
 Cc: <linux-kernel@vger.kernel.org>, <containers@lists.osdl.org>,
 	<netdev@vger.kernel.org>, xfs-masters@oss.sgi.com, xfs@oss.sgi.com,
@@ -28,75 +28,83 @@ List-Id: netdev.vger.kernel.org
 
 From: Eric W. Biederman <ebiederm@xmission.com> - unquoted
 
+We need to have the the definition of all top level sysctl
+directories registers in sysctl.h so we don't conflict by
+accident and cause abi problems.
+
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 ---
- arch/frv/kernel/pm.c |   50 +++++++++++++++++++++++++++++++++++++++++++-------
- 1 files changed, 43 insertions(+), 7 deletions(-)
+ arch/s390/appldata/appldata.h |    3 +--
+ arch/s390/kernel/debug.c      |    1 -
+ arch/s390/mm/cmm.c            |    4 ----
+ include/linux/sysctl.h        |    7 +++++++
+ 4 files changed, 8 insertions(+), 7 deletions(-)
 
-diff --git a/arch/frv/kernel/pm.c b/arch/frv/kernel/pm.c
-index c1840d6..aa50333 100644
---- a/arch/frv/kernel/pm.c
-+++ b/arch/frv/kernel/pm.c
-@@ -401,17 +401,53 @@ static int cm_sysctl(ctl_table *table, int __user *name, int nlen,
+diff --git a/arch/s390/appldata/appldata.h b/arch/s390/appldata/appldata.h
+index 0429481..4069b81 100644
+--- a/arch/s390/appldata/appldata.h
++++ b/arch/s390/appldata/appldata.h
+@@ -21,8 +21,7 @@
+ #define APPLDATA_RECORD_NET_SUM_ID	0x03	/* must be < 256 !     */
+ #define APPLDATA_RECORD_PROC_ID		0x04
  
- static struct ctl_table pm_table[] =
- {
--	{CTL_PM_SUSPEND, "suspend", NULL, 0, 0200, NULL, &sysctl_pm_do_suspend},
--	{CTL_PM_CMODE, "cmode", &clock_cmode_current, sizeof(int), 0644, NULL, &cmode_procctl, &cmode_sysctl, NULL},
--	{CTL_PM_P0, "p0", &clock_p0_current, sizeof(int), 0644, NULL, &p0_procctl, &p0_sysctl, NULL},
--	{CTL_PM_CM, "cm", &clock_cm_current, sizeof(int), 0644, NULL, &cm_procctl, &cm_sysctl, NULL},
--	{0}
-+	{
-+		.ctl_name	= CTL_PM_SUSPEND,
-+		.procname	= "suspend",
-+		.data		= NULL,
-+		.maxlen		= 0,
-+		.mode		= 0200,
-+		.proc_handler	= &sysctl_pm_do_suspend,
-+	},
-+	{
-+		.ctl_name	= CTL_PM_CMODE,
-+		.procname	= "cmode",
-+		.data		= &clock_cmode_current,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= &cmode_procctl,
-+		.strategy	= &cmode_sysctl,
-+	},
-+	{
-+		.ctl_name	= CTL_PM_P0,
-+		.procname	= "p0",
-+		.data		= &clock_p0_current,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= &p0_procctl,
-+		.strategy	= &p0_sysctl,
-+	},
-+	{
-+		.ctl_name	= CTL_PM_CM,
-+		.procname	= "cm",
-+		.data		= &clock_cm_current,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= &cm_procctl,
-+		.strategy	= &cm_sysctl,
-+	},
-+	{ .ctl_name = 0}
+-#define CTL_APPLDATA 		2120	/* sysctl IDs, must be unique */
+-#define CTL_APPLDATA_TIMER 	2121
++#define CTL_APPLDATA_TIMER 	2121	/* sysctl IDs, must be unique */
+ #define CTL_APPLDATA_INTERVAL 	2122
+ #define CTL_APPLDATA_MEM	2123
+ #define CTL_APPLDATA_OS		2124
+diff --git a/arch/s390/kernel/debug.c b/arch/s390/kernel/debug.c
+index bb57bc0..c81f8e5 100644
+--- a/arch/s390/kernel/debug.c
++++ b/arch/s390/kernel/debug.c
+@@ -852,7 +852,6 @@ debug_finish_entry(debug_info_t * id, debug_entry_t* active, int level,
+ static int debug_stoppable=1;
+ static int debug_active=1;
+ 
+-#define CTL_S390DBF 5677
+ #define CTL_S390DBF_STOPPABLE 5678
+ #define CTL_S390DBF_ACTIVE 5679
+ 
+diff --git a/arch/s390/mm/cmm.c b/arch/s390/mm/cmm.c
+index 607f50e..df733d5 100644
+--- a/arch/s390/mm/cmm.c
++++ b/arch/s390/mm/cmm.c
+@@ -256,10 +256,6 @@ cmm_skip_blanks(char *cp, char **endp)
+ }
+ 
+ #ifdef CONFIG_CMM_PROC
+-/* These will someday get removed. */
+-#define VM_CMM_PAGES		1111
+-#define VM_CMM_TIMED_PAGES	1112
+-#define VM_CMM_TIMEOUT		1113
+ 
+ static struct ctl_table cmm_table[];
+ 
+diff --git a/include/linux/sysctl.h b/include/linux/sysctl.h
+index 71c16b4..56d0161 100644
+--- a/include/linux/sysctl.h
++++ b/include/linux/sysctl.h
+@@ -73,6 +73,8 @@ enum
+ 	CTL_SUNRPC=7249,	/* sunrpc debug */
+ 	CTL_PM=9899,		/* frv power management */
+ 	CTL_FRV=9898,		/* frv specific sysctls */
++	CTL_S390DBF=5677,	/* s390 debug */
++	CTL_APPLDATA=2120,	/* s390 appldata */
  };
  
- static struct ctl_table pm_dir_table[] =
- {
--	{CTL_PM, "pm", NULL, 0, 0555, pm_table},
--	{0}
-+	{
-+		.ctl_name	= CTL_PM,
-+		.procname	= "pm",
-+		.mode		= 0555,
-+		.child		= pm_table,
-+	},
-+	{ .ctl_name = 0}
+ /* CTL_BUS names: */
+@@ -205,6 +207,11 @@ enum
+ 	VM_PANIC_ON_OOM=33,	/* panic at out-of-memory */
+ 	VM_VDSO_ENABLED=34,	/* map VDSO into new processes? */
+ 	VM_MIN_SLAB=35,		 /* Percent pages ignored by zone reclaim */
++
++	/* s390 vm cmm sysctls */
++	VM_CMM_PAGES=1111,
++	VM_CMM_TIMED_PAGES=1112,
++	VM_CMM_TIMEOUT=1113,
  };
  
- /*
+ 
 -- 
 1.4.4.1.g278f
