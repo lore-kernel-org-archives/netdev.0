@@ -1,61 +1,343 @@
 From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH 13/59] sysctl: xfs remove unnecessary insert_at_head flag
-Date: Tue, 16 Jan 2007 09:39:18 -0700
-Message-ID: <11689656291632-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH 45/59] sysctl: C99 convert ctl_tables in drivers/parport/procfs.c
+Date: Tue, 16 Jan 2007 09:39:50 -0700
+Message-ID: <11689656733768-git-send-email-ebiederm@xmission.com>
 References: <m1ac0jc4no.fsf@ebiederm.dsl.xmission.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: linux-mips@linux-mips.org, linux-parport@lists.infradead.org,
-	heiko.carstens@de.ibm.com, ak@suse.de, linuxppc-dev@ozlabs.org,
-	paulus@samba.org, aharkes@cs.cmu.edu, schwidefsky@de.ibm.com,
-	tim@cyberelk.net, rtc-linux@googlegroups.com,
-	linux-scsi@vger.kernel.org, kurt.hackel@oracle.com,
-	coda@cs.cmu.edu, vojtech@suse.cz,
-	linuxsh-shmedia-dev@lists.sourceforge.net,
-	James.Bottomley@SteelEye.com, clemens@ladisch.de,
-	xfs@oss.sgi.com, xfs-masters@oss.sgi.com, andrea@suse.de,
-	openipmi-developer@lists.sourceforge.net,
-	linux-390@vm.marist.edu, codalist@TELEMANN.coda.cs.cmu.edu,
-	a.zummo@towertech.it, tony.luck@intel.com,
-	linux-ntfs-dev@lists.sourceforge.net, netdev@vger.kernel.org,
-	aia21@cantab.net, linux-kernel@vger.kernel.org,
-	ralf@linux-mips.org, lethal@linux-sh.org,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	containers@lists.osdl.org, linux390@de.ibm.com, philb@gnu.org
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+Cc: <linux-kernel@vger.kernel.org>, <containers@lists.osdl.org>,
+	<netdev@vger.kernel.org>, xfs-masters@oss.sgi.com, xfs@oss.sgi.com,
+	linux-scsi@vger.kernel.org, James.Bottomley@SteelEye.com,
+	minyard@acm.org, openipmi-developer@lists.sourceforge.net,
+	<tony.luck@intel.com>, linux-mips@linux-mips.org,
+	ralf@linux-mips.org, schwidefsky@de.ibm.com,
+	heiko.carstens@de.ibm.com, linux390@de.ibm.com,
+	linux-390@vm.marist.edu, paulus@samba.org, linuxppc-dev@ozlabs.org,
+	lethal@linux-sh.org, linuxsh-shmedia-dev@lists.sourceforge.net,
+	<ak@suse.de>, vojtech@suse.cz, clemens@ladisch.de,
+	a.zummo@towertech.it, rtc-linux@googlegroups.com,
+	linux-parport@lists.infradead.org, andrea@suse.de,
+	tim@cyberelk.net, philb@gnu.org, aharkes@cs.cmu.edu,
+	coda@cs.cmu.edu, codalist@TELEMANN.coda.cs.cmu.edu,
+	aia21@cantab.net, linux-ntfs-dev@lists.sourceforge.net,
+	mark.fasheh@oracle.com, kurt.hackel@oracle.com,
+Return-path: <linux-mips-bounce@linux-mips.org>
 To: "<Andrew Morton" <akpm@osdl.org>
 In-Reply-To: <m1ac0jc4no.fsf@ebiederm.dsl.xmission.com>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
 List-Id: netdev.vger.kernel.org
 
 From: Eric W. Biederman <ebiederm@xmission.com> - unquoted
 
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 ---
- fs/xfs/linux-2.6/xfs_sysctl.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ drivers/parport/procfs.c |  264 +++++++++++++++++++++++++++++++++-------------
+ 1 files changed, 189 insertions(+), 75 deletions(-)
 
-diff --git a/fs/xfs/linux-2.6/xfs_sysctl.c b/fs/xfs/linux-2.6/xfs_sysctl.c
-index af24653..af777e9 100644
---- a/fs/xfs/linux-2.6/xfs_sysctl.c
-+++ b/fs/xfs/linux-2.6/xfs_sysctl.c
-@@ -149,7 +149,7 @@ STATIC ctl_table xfs_root_table[] = {
- void
- xfs_sysctl_register(void)
- {
--	xfs_table_header = register_sysctl_table(xfs_root_table, 1);
-+	xfs_table_header = register_sysctl_table(xfs_root_table, 0);
+diff --git a/drivers/parport/procfs.c b/drivers/parport/procfs.c
+index 2e744a2..5337789 100644
+--- a/drivers/parport/procfs.c
++++ b/drivers/parport/procfs.c
+@@ -233,12 +233,12 @@ static int do_hardware_modes (ctl_table *table, int write,
+ 	return copy_to_user(result, buffer, len) ? -EFAULT : 0;
  }
  
- void
+-#define PARPORT_PORT_DIR(child) { 0, NULL, NULL, 0, 0555, child }
+-#define PARPORT_PARPORT_DIR(child) { DEV_PARPORT, "parport", \
+-                                     NULL, 0, 0555, child }
+-#define PARPORT_DEV_DIR(child) { CTL_DEV, "dev", NULL, 0, 0555, child }
+-#define PARPORT_DEVICES_ROOT_DIR  { DEV_PARPORT_DEVICES, "devices", \
+-                                    NULL, 0, 0555, NULL }
++#define PARPORT_PORT_DIR(CHILD) { .ctl_name = 0, .procname = NULL, .mode = 0555, .child = CHILD }
++#define PARPORT_PARPORT_DIR(CHILD) { .ctl_name = DEV_PARPORT, .procname = "parport", \
++                                     .mode = 0555, .child = CHILD }
++#define PARPORT_DEV_DIR(CHILD) { .ctl_name = CTL_DEV, .procname = "dev", .mode = 0555, .child = CHILD }
++#define PARPORT_DEVICES_ROOT_DIR  { .ctl_name = DEV_PARPORT_DEVICES, .procname = "devices", \
++                                    .mode = 0555, .child = NULL }
+ 
+ static const unsigned long parport_min_timeslice_value =
+ PARPORT_MIN_TIMESLICE_VALUE;
+@@ -263,50 +263,118 @@ struct parport_sysctl_table {
+ };
+ 
+ static const struct parport_sysctl_table parport_sysctl_template = {
+-	NULL,
++	.sysctl_header = NULL,
+         {
+-		{ DEV_PARPORT_SPINTIME, "spintime",
+-		  NULL, sizeof(int), 0644, NULL,
+-		  &proc_dointvec_minmax, NULL, NULL,
+-		  (void*) &parport_min_spintime_value,
+-		  (void*) &parport_max_spintime_value },
+-		{ DEV_PARPORT_BASE_ADDR, "base-addr",
+-		  NULL, 0, 0444, NULL,
+-		  &do_hardware_base_addr },
+-		{ DEV_PARPORT_IRQ, "irq",
+-		  NULL, 0, 0444, NULL,
+-		  &do_hardware_irq },
+-		{ DEV_PARPORT_DMA, "dma",
+-		  NULL, 0, 0444, NULL,
+-		  &do_hardware_dma },
+-		{ DEV_PARPORT_MODES, "modes",
+-		  NULL, 0, 0444, NULL,
+-		  &do_hardware_modes },
++		{
++			.ctl_name	= DEV_PARPORT_SPINTIME,
++			.procname	= "spintime",
++			.data		= NULL,
++			.maxlen		= sizeof(int),
++			.mode		= 0644,
++			.proc_handler	= &proc_dointvec_minmax,
++			.extra1		= (void*) &parport_min_spintime_value,
++			.extra2		= (void*) &parport_max_spintime_value
++		},
++		{
++			.ctl_name	= DEV_PARPORT_BASE_ADDR,
++			.procname	= "base-addr",
++			.data		= NULL,
++			.maxlen		= 0,
++			.mode		= 0444,
++			.proc_handler	= &do_hardware_base_addr
++		},
++		{
++			.ctl_name	= DEV_PARPORT_IRQ,
++			.procname	= "irq",
++			.data		= NULL,
++			.maxlen		= 0,
++			.mode		= 0444,
++			.proc_handler	= &do_hardware_irq
++		},
++		{
++			.ctl_name	= DEV_PARPORT_DMA,
++			.procname	= "dma",
++			.data		= NULL,
++			.maxlen		= 0,
++			.mode		= 0444,
++			.proc_handler	= &do_hardware_dma
++		},
++		{
++			.ctl_name	= DEV_PARPORT_MODES,
++			.procname	= "modes",
++			.data		= NULL,
++			.maxlen		= 0,
++			.mode		= 0444,
++			.proc_handler	= &do_hardware_modes
++		},
+ 		PARPORT_DEVICES_ROOT_DIR,
+ #ifdef CONFIG_PARPORT_1284
+-		{ DEV_PARPORT_AUTOPROBE, "autoprobe",
+-		  NULL, 0, 0444, NULL,
+-		  &do_autoprobe },
+-		{ DEV_PARPORT_AUTOPROBE + 1, "autoprobe0",
+-		 NULL, 0, 0444, NULL,
+-		 &do_autoprobe },
+-		{ DEV_PARPORT_AUTOPROBE + 2, "autoprobe1",
+-		  NULL, 0, 0444, NULL,
+-		  &do_autoprobe },
+-		{ DEV_PARPORT_AUTOPROBE + 3, "autoprobe2",
+-		  NULL, 0, 0444, NULL,
+-		  &do_autoprobe },
+-		{ DEV_PARPORT_AUTOPROBE + 4, "autoprobe3",
+-		  NULL, 0, 0444, NULL,
+-		  &do_autoprobe },
++		{
++			.ctl_name	= DEV_PARPORT_AUTOPROBE,
++			.procname	= "autoprobe",
++			.data		= NULL,
++			.maxlen		= 0,
++			.mode		= 0444,
++			.proc_handler	= &do_autoprobe
++		},
++		{
++			.ctl_name	= DEV_PARPORT_AUTOPROBE + 1,
++			.procname	= "autoprobe0",
++			.data		= NULL,
++			.maxlen		= 0,
++			.maxlen		= 0444,
++			.proc_handler	=  &do_autoprobe
++		},
++		{
++			.ctl_name	= DEV_PARPORT_AUTOPROBE + 2,
++			.procname	= "autoprobe1",
++			.data		= NULL,
++			.maxlen		= 0,
++			.mode		= 0444,
++			.proc_handler	= &do_autoprobe
++		},
++		{
++			.ctl_name	= DEV_PARPORT_AUTOPROBE + 3,
++			.procname	= "autoprobe2",
++			.data		= NULL,
++			.maxlen		= 0,
++			.mode		= 0444,
++			.proc_handler	= &do_autoprobe
++		},
++		{
++			.ctl_name	= DEV_PARPORT_AUTOPROBE + 4,
++			.procname	= "autoprobe3",
++			.data		= NULL,
++			.maxlen		= 0,
++			.mode		= 0444,
++			.proc_handler	= &do_autoprobe
++		},
+ #endif /* IEEE 1284 support */
+-		{0}
++		{}
+ 	},
+-	{ {DEV_PARPORT_DEVICES_ACTIVE, "active", NULL, 0, 0444, NULL,
+-	  &do_active_device }, {0}},
+-	{ PARPORT_PORT_DIR(NULL), {0}},
+-	{ PARPORT_PARPORT_DIR(NULL), {0}},
+-	{ PARPORT_DEV_DIR(NULL), {0}}
++	{
++		{
++			.ctl_name	= DEV_PARPORT_DEVICES_ACTIVE,
++			.procname	= "active",
++			.data		= NULL,
++			.maxlen		= 0,
++			.mode		= 0444,
++			.proc_handler	= &do_active_device
++		},
++		{}
++	},
++	{
++		PARPORT_PORT_DIR(NULL),
++		{}
++	},
++	{
++		PARPORT_PARPORT_DIR(NULL),
++		{}
++	},
++	{
++		PARPORT_DEV_DIR(NULL),
++		{}
++	}
+ };
+ 
+ struct parport_device_sysctl_table
+@@ -322,19 +390,46 @@ struct parport_device_sysctl_table
+ 
+ static const struct parport_device_sysctl_table
+ parport_device_sysctl_template = {
+-	NULL,
++	.sysctl_header = NULL,
++	{
++		{
++			.ctl_name 	= DEV_PARPORT_DEVICE_TIMESLICE,
++			.procname 	= "timeslice",
++			.data		= NULL,
++			.maxlen		= sizeof(int),
++			.mode		= 0644,
++			.proc_handler	= &proc_doulongvec_ms_jiffies_minmax,
++			.extra1		= (void*) &parport_min_timeslice_value,
++			.extra2		= (void*) &parport_max_timeslice_value
++		},
++	},
++	{
++		{
++			.ctl_name	= 0,
++			.procname	= NULL,
++			.data		= NULL,
++			.maxlen		= 0,
++			.mode		= 0555,
++			.child		= NULL
++		},
++		{}
++	},
+ 	{
+-		{ DEV_PARPORT_DEVICE_TIMESLICE, "timeslice",
+-		  NULL, sizeof(int), 0644, NULL,
+-		  &proc_doulongvec_ms_jiffies_minmax, NULL, NULL,
+-		  (void*) &parport_min_timeslice_value,
+-		  (void*) &parport_max_timeslice_value },
++		PARPORT_DEVICES_ROOT_DIR,
++		{}
++	},
++	{
++		PARPORT_PORT_DIR(NULL),
++		{}
+ 	},
+-	{ {0, NULL, NULL, 0, 0555, NULL}, {0}},
+-	{ PARPORT_DEVICES_ROOT_DIR, {0}},
+-	{ PARPORT_PORT_DIR(NULL), {0}},
+-	{ PARPORT_PARPORT_DIR(NULL), {0}},
+-	{ PARPORT_DEV_DIR(NULL), {0}}
++	{
++		PARPORT_PARPORT_DIR(NULL),
++		{}
++	},
++	{
++		PARPORT_DEV_DIR(NULL),
++		{}
++	}
+ };
+ 
+ struct parport_default_sysctl_table
+@@ -351,28 +446,47 @@ extern int parport_default_spintime;
+ 
+ static struct parport_default_sysctl_table
+ parport_default_sysctl_table = {
+-	NULL,
++	.sysctl_header	= NULL,
++	{
++		{
++			.ctl_name	= DEV_PARPORT_DEFAULT_TIMESLICE,
++			.procname	= "timeslice",
++			.data		= &parport_default_timeslice,
++			.maxlen		= sizeof(parport_default_timeslice),
++			.mode		= 0644,
++			.proc_handler	= &proc_doulongvec_ms_jiffies_minmax,
++			.extra1		= (void*) &parport_min_timeslice_value,
++			.extra2		= (void*) &parport_max_timeslice_value
++		},
++		{
++			.ctl_name	= DEV_PARPORT_DEFAULT_SPINTIME,
++			.procname	= "spintime",
++			.data		= &parport_default_spintime,
++			.maxlen		= sizeof(parport_default_spintime),
++			.mode		= 0644,
++			.proc_handler	= &proc_dointvec_minmax,
++			.extra1		= (void*) &parport_min_spintime_value,
++			.extra2		= (void*) &parport_max_spintime_value
++		},
++		{}
++	},
+ 	{
+-		{ DEV_PARPORT_DEFAULT_TIMESLICE, "timeslice",
+-		  &parport_default_timeslice,
+-		  sizeof(parport_default_timeslice), 0644, NULL,
+-		  &proc_doulongvec_ms_jiffies_minmax, NULL, NULL,
+-		  (void*) &parport_min_timeslice_value,
+-		  (void*) &parport_max_timeslice_value },
+-		{ DEV_PARPORT_DEFAULT_SPINTIME, "spintime",
+-		  &parport_default_spintime,
+-		  sizeof(parport_default_spintime), 0644, NULL,
+-		  &proc_dointvec_minmax, NULL, NULL,
+-		  (void*) &parport_min_spintime_value,
+-		  (void*) &parport_max_spintime_value },
+-		{0}
++		{
++			.ctl_name	= DEV_PARPORT_DEFAULT,
++			.procname	= "default",
++			.mode		= 0555,
++			.child		= parport_default_sysctl_table.vars
++		},
++		{}
+ 	},
+-	{ { DEV_PARPORT_DEFAULT, "default", NULL, 0, 0555,
+-	    parport_default_sysctl_table.vars },{0}},
+ 	{
+-	PARPORT_PARPORT_DIR(parport_default_sysctl_table.default_dir), 
+-	{0}},
+-	{ PARPORT_DEV_DIR(parport_default_sysctl_table.parport_dir), {0}}
++		PARPORT_PARPORT_DIR(parport_default_sysctl_table.default_dir), 
++		{}
++	},
++	{
++		PARPORT_DEV_DIR(parport_default_sysctl_table.parport_dir), 
++		{}
++	}
+ };
+ 
+ 
 -- 
 1.4.4.1.g278f
