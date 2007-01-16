@@ -1,59 +1,162 @@
-From: Chris Lalancette <clalance@redhat.com>
-Subject: Re: [PATCH]: 8139cp: Don't blindly enable interrupts in cp_start_xmit
-Date: Tue, 16 Jan 2007 09:44:06 -0500
-Message-ID: <45ACE4B6.3040809@redhat.com>
-References: <45ABAE69.4070105@redhat.com> <20070115195635.GA14205@electric-eye.fr.zoreil.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [PATCH 9/9] net: vm deadlock avoidance core
+Date: Tue, 16 Jan 2007 18:33:15 +0300
+Message-ID: <20070116153315.GB710@2ka.mipt.ru>
+References: <20070116094557.494892000@taijtu.programming.kicks-ass.net> <20070116101816.115266000@taijtu.programming.kicks-ass.net> <20070116132503.GA23144@2ka.mipt.ru> <1168955274.22935.47.camel@twins>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, netdev@vger.kernel.org,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Ingo Molnar <mingo@elte.hu>
+Content-Type: text/plain; charset=koi8-r
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-mm@kvack.org, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:47229 "EHLO mx1.redhat.com"
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:47560 "EHLO 2ka.mipt.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751155AbXAPOoh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Jan 2007 09:44:37 -0500
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20070115195635.GA14205@electric-eye.fr.zoreil.com>
+	id S1751251AbXAPPeT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Jan 2007 10:34:19 -0500
+To: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Content-Disposition: inline
+In-Reply-To: <1168955274.22935.47.camel@twins>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Francois Romieu wrote:
-> Chris Lalancette <clalance@redhat.com> :
-> [...]
+On Tue, Jan 16, 2007 at 02:47:54PM +0100, Peter Zijlstra (a.p.zijlstra@chello.nl) wrote:
+> > > +	if (unlikely(skb->emergency))
+> > > +		current->flags |= PF_MEMALLOC;
+> > 
+> > Access to 'current' in netif_receive_skb()???
+> > Why do you want to work with, for example keventd?
 > 
->>     Similar to this commit:
->>
->>http://kernel.org/git/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=d15e9c4d9a75702b30e00cdf95c71c88e3f3f51e
->>
->>It's not safe in cp_start_xmit to blindly call spin_lock_irq and then
->>spin_unlock_irq, since it may very well be the case that cp_start_xmit
->>was called with interrupts already disabled (I came across this bug in
->>the context of netdump in RedHat kernels, but the same issue holds, for
->>example, in netconsole).  Therefore, replace all instances of spin_lock_irq
->>and spin_unlock_irq with spin_lock_irqsave and spin_unlock_irqrestore,
->>respectively, in cp_start_xmit().  I tested this against a fully-virtualized
->>Xen guest, which happens to use the 8139cp driver to talk to the emulated
->>hardware.  I don't have a real piece of 8139cp hardware to test on, so
->>someone else will have to do that.
-> 
-> 
-> (message reformated to fit in 80 columns, please fix your mailer)
-> 
-> As I understand http://lkml.org/lkml/2006/12/12/239, something like the
-> patch below should had been sent instead. Herbert, ack/nak ?
-> 
+> Can this run in keventd?
 
-Francois,
-     Thanks for the comments.  While the patch you sent will help, there are
-still other places that will have problems.  For example, in netpoll_send_skb,
-we call local_irq_save(flags), then call dev->hard_start_xmit(), and then call
-local_irq_restore(flags).  This is a similar situation to what I described
-above; we will re-enable interrupts in cp_start_xmit(), when netpoll_send_skb
-doesn't expect that, and will probably run into issues.
-     Is there a problem with changing cp_start_xmit to use the
-spin_lock_irqsave(), besides the extra instructions it needs?
+Initial netchannel implementation by Kelly Daly (IBM) worked in keventd
+(or dedicated kernel thread, I do not recall).
 
-Thanks,
-Chris Lalancette
+> I thought this was softirq context and thus this would either run in a
+> borrowed context or in ksoftirqd. See patch 3/9.
+
+And how are you going to access 'current' in softirq?
+
+netif_receive_skb() can also be called from a lot of other places
+including keventd and/or different context - it is permitted to call it
+everywhere to process packet.
+
+I meant that you break the rule accessing 'current' in that context.
+
+> > > @@ -1798,6 +1811,8 @@ int netif_receive_skb(struct sk_buff *sk
+> > >  		goto ncls;
+> > >  	}
+> > >  #endif
+> > > +	if (unlikely(skb->emergency))
+> > > +		goto skip_taps;
+> > >  
+> > >  	list_for_each_entry_rcu(ptype, &ptype_all, list) {
+> > >  		if (!ptype->dev || ptype->dev == skb->dev) {
+> > > @@ -1807,6 +1822,7 @@ int netif_receive_skb(struct sk_buff *sk
+> > >  		}
+> > >  	}
+> > >  
+> > > +skip_taps:
+> > 
+> > It is still a 'tap'.
+> 
+> Not sure what you are saying, I thought this should stop delivery of
+> skbs to taps?
+
+Ingres filter can do whatever it wants with skb at that point, likely
+you want to skip that hunk too.
+
+> > >  #ifdef CONFIG_NET_CLS_ACT
+> > >  	if (pt_prev) {
+> > >  		ret = deliver_skb(skb, pt_prev, orig_dev);
+> > > @@ -1819,15 +1835,26 @@ int netif_receive_skb(struct sk_buff *sk
+> > >  
+> > >  	if (ret == TC_ACT_SHOT || (ret == TC_ACT_STOLEN)) {
+> > >  		kfree_skb(skb);
+> > > -		goto out;
+> > > +		goto unlock;
+> > >  	}
+> > >  
+> > >  	skb->tc_verd = 0;
+> > >  ncls:
+> > >  #endif
+> > >  
+> > > +	if (unlikely(skb->emergency))
+> > > +		switch(skb->protocol) {
+> > > +			case __constant_htons(ETH_P_ARP):
+> > > +			case __constant_htons(ETH_P_IP):
+> > > +			case __constant_htons(ETH_P_IPV6):
+> > > +				break;
+> > 
+> > Poor vlans and appletalk.
+> 
+> Yeah and all those other too, maybe some day.
+> 
+> > > Index: linux-2.6-git/net/ipv4/tcp_ipv4.c
+> > > ===================================================================
+> > > --- linux-2.6-git.orig/net/ipv4/tcp_ipv4.c	2007-01-12 12:20:07.000000000 +0100
+> > > +++ linux-2.6-git/net/ipv4/tcp_ipv4.c	2007-01-12 12:21:14.000000000 +0100
+> > > @@ -1604,6 +1604,22 @@ csum_err:
+> > >  	goto discard;
+> > >  }
+> > >  
+> > > +static int tcp_v4_backlog_rcv(struct sock *sk, struct sk_buff *skb)
+> > > +{
+> > > +	int ret;
+> > > +	unsigned long pflags = current->flags;
+> > > +	if (unlikely(skb->emergency)) {
+> > > +		BUG_ON(!sk_has_vmio(sk)); /* we dropped those before queueing */
+> > > +		if (!(pflags & PF_MEMALLOC))
+> > > +			current->flags |= PF_MEMALLOC;
+> > > +	}
+> > > +
+> > > +	ret = tcp_v4_do_rcv(sk, skb);
+> > > +
+> > > +	current->flags = pflags;
+> > > +	return ret;
+> > 
+> > Why don't you want to just setup PF_MEMALLOC for the socket and all
+> > related processes?
+> 
+> I'm not understanding what you're saying here.
+> 
+> I want grant the processing of skb->emergency packets access to the
+> memory reserves.
+> 
+> How would I set PF_MEMALLOC on a socket, its a process flag? And which
+> related processes?
+
+You use special flag for sockets to mark them as capable of
+'reserve-eating', too many flags are a bit confusing.
+
+I meant that you can just mark process which created such socket as
+PF_MEMALLOC, and clone that flag on forks and other relatest calls without 
+all that checks for 'current' in different places.
+
+> > > +}
+> > > +
+> > >  /*
+> > >   *	From tcp_input.c
+> > >   */
+> > > @@ -1654,6 +1670,15 @@ int tcp_v4_rcv(struct sk_buff *skb)
+> > >  	if (!sk)
+> > >  		goto no_tcp_socket;
+> > >  
+> > > +	if (unlikely(skb->emergency)) {
+> > > +	       	if (!sk_has_vmio(sk))
+> > > +			goto discard_and_relse;
+> > > +		/*
+> > > +		   decrease window size..
+> > > +		   tcp_enter_quickack_mode(sk);
+> > > +		*/
+> > 
+> > How does this decrease window size?
+> > Maybe ack scheduling would be better handled by inet_csk_schedule_ack()
+> > or just directly send an ack, which in turn requires allocation, which
+> > can be bound to this received frame processing...
+> 
+> It doesn't, I thought that it might be a good idea doing that, but never
+> got around to actually figuring out how to do it.
+
+tcp_send_ack()?
+
+-- 
+	Evgeniy Polyakov
