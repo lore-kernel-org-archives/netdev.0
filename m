@@ -1,7 +1,7 @@
 From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH 38/59] sysctl: x86_64 Remove unnecessary use of insert_at_head
-Date: Tue, 16 Jan 2007 09:39:43 -0700
-Message-ID: <1168965663675-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH 39/59] sysctl: C99 convert ctl_tables in arch/x86_64/ia32/ia32_binfmt.c
+Date: Tue, 16 Jan 2007 09:39:44 -0700
+Message-ID: <1168965664873-git-send-email-ebiederm@xmission.com>
 References: <m1ac0jc4no.fsf@ebiederm.dsl.xmission.com>
 Cc: <linux-kernel@vger.kernel.org>, <containers@lists.osdl.org>,
 	<netdev@vger.kernel.org>, xfs-masters@oss.sgi.com, xfs@oss.sgi.com,
@@ -28,40 +28,51 @@ List-Id: netdev.vger.kernel.org
 
 From: Eric W. Biederman <ebiederm@xmission.com> - unquoted
 
-The only sysctl x86_64 provides are not provided elsewhere,
-so insert_at_head is unnecessary.
-
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 ---
- arch/x86_64/ia32/ia32_binfmt.c |    2 +-
- arch/x86_64/mm/init.c          |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ arch/x86_64/ia32/ia32_binfmt.c |   30 ++++++++++++++++++++----------
+ 1 files changed, 20 insertions(+), 10 deletions(-)
 
 diff --git a/arch/x86_64/ia32/ia32_binfmt.c b/arch/x86_64/ia32/ia32_binfmt.c
-index 543ef4f..75677ad 100644
+index 75677ad..644b203 100644
 --- a/arch/x86_64/ia32/ia32_binfmt.c
 +++ b/arch/x86_64/ia32/ia32_binfmt.c
-@@ -408,7 +408,7 @@ static ctl_table abi_root_table2[] = {
+@@ -395,16 +395,26 @@ EXPORT_SYMBOL(ia32_setup_arg_pages);
+ #include <linux/sysctl.h>
+ 
+ static ctl_table abi_table2[] = {
+-	{ 99, "vsyscall32", &sysctl_vsyscall32, sizeof(int), 0644, NULL,
+-	  proc_dointvec },
+-	{ 0, }
+-}; 
+-
+-static ctl_table abi_root_table2[] = { 
+-	{ .ctl_name = CTL_ABI, .procname = "abi", .mode = 0555, 
+-	  .child = abi_table2 }, 
+-	{ 0 }, 
+-}; 
++	{
++		.ctl_name	= 99,
++		.procname	= "vsyscall32",
++		.data		= &sysctl_vsyscall32,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= proc_dointvec
++	},
++	{}
++};
++
++static ctl_table abi_root_table2[] = {
++	{
++		.ctl_name = CTL_ABI,
++		.procname = "abi",
++		.mode = 0555,
++		.child = abi_table2
++	},
++	{}
++};
  
  static __init int ia32_binfmt_init(void)
  { 
--	register_sysctl_table(abi_root_table2, 1);
-+	register_sysctl_table(abi_root_table2, 0);
- 	return 0;
- }
- __initcall(ia32_binfmt_init);
-diff --git a/arch/x86_64/mm/init.c b/arch/x86_64/mm/init.c
-index 2968b90..65aa66c 100644
---- a/arch/x86_64/mm/init.c
-+++ b/arch/x86_64/mm/init.c
-@@ -724,7 +724,7 @@ static ctl_table debug_root_table2[] = {
- 
- static __init int x8664_sysctl_init(void)
- { 
--	register_sysctl_table(debug_root_table2, 1);
-+	register_sysctl_table(debug_root_table2, 0);
- 	return 0;
- }
- __initcall(x8664_sysctl_init);
 -- 
 1.4.4.1.g278f
