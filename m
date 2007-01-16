@@ -1,55 +1,71 @@
-From: "H. Peter Anvin" <hpa@zytor.com>
-Subject: Re: [PATCH 0/59] Cleanup sysctl
-Date: Tue, 16 Jan 2007 08:53:19 -0800
-Message-ID: <45AD02FF.605@zytor.com>
-References: <m1ac0jc4no.fsf@ebiederm.dsl.xmission.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: Two Dual Core processors and NICS (not handling interrupts on
+ one	CPU/assigning a Two Dual Core processors and NICS (not handling	interrupts
+ on one CPU / assigning a CPU to a NIC)
+Date: Tue, 16 Jan 2007 09:34:34 -0800
+Message-ID: <45AD0CAA.7060601@hp.com>
+References: <dac45060701150115y5308f7b5ka44f2ea4ae304d4b@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org,
-	Linux Containers <containers@lists.osdl.org>,
-	netdev@vger.kernel.org, xfs-masters@oss.sgi.com, xfs@oss.sgi.com,
-	linux-scsi@vger.kernel.org, James.Bottomley@SteelEye.com,
-	minyard@acm.org, openipmi-developer@lists.sourceforge.net,
-	tony.luck@intel.com, linux-mips@linux-mips.org,
-	ralf@linux-mips.org, schwidefsky@de.ibm.com,
-	heiko.carstens@de.ibm.com, linux390@de.ibm.com,
-	linux-390@vm.marist.edu, paulus@samba.org, linuxppc-dev@ozlabs.org,
-	lethal@linux-sh.org, linuxsh-shmedia-dev@lists.sourceforge.net,
-	ak@suse.de, vojtech@suse.cz, clemens@ladisch.de,
-	a.zummo@towertech.it, rtc-linux@googlegroups.com,
-	linux-parport@lists.infradead.org, andrea@suse.de,
-	tim@cyberelk.net, philb@gnu.org, aharkes@cs.cmu.edu,
-	coda@cs.cmu.edu, codalist@TELEMANN.coda.cs.cmu.edu,
-	aia21@cantab.net, linux-ntfs-dev@lists.sourceforge.net,
-	mark.f
-Return-path: <linux-mips-bounce@linux-mips.org>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-In-Reply-To: <m1ac0jc4no.fsf@ebiederm.dsl.xmission.com>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
+Cc: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from palrel10.hp.com ([156.153.255.245]:45398 "EHLO palrel10.hp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751948AbXAPReg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Jan 2007 12:34:36 -0500
+To: Mark Ryden <markryde@gmail.com>
+In-Reply-To: <dac45060701150115y5308f7b5ka44f2ea4ae304d4b@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Eric W. Biederman wrote:
+Mark Ryden wrote:
+> Hello,
 > 
-> - Removal of sys_sysctl support where people had used conflicting sysctl
->   numbers. Trying to break glibc or other applications by changing the
->   ABI is not cool.  9 instances of this in the kernel seems a little
->   extreme.
 > 
+> I have a machine with 2 dual core CPUs. This machine runs Fedora Core 6.
+> I have two Intel e1000 GigaBit network cards on this machine; I use 
+> bonding so
+> that the machine assigns the same IP address to both NICs ;
+> It seems to me that bonding is configured OK, bacuse when running:
+> "cat /proc/net/bonding/bond0"
+> I get:
+> ...
+> Permanent HW addr: ....
+> 
+> (And the Permanent HW addr is diffenet in these two entries).
+> 
+> I send a large amount of packets to this machine (more than 20,000 in
+> a second).
 
-It would be highly advantageous if we could have a file that acts as a 
-central registry of architectural sysctl numbers *and have the numbers 
-in the kernel derived from there*.  As I've said before, I don't really 
-think sys_sysctl is any worse than ad hoc system calls (sys_mips and the 
-like), but the real problem is that there are architectural and 
-non-archtectural numbers, and they're mixed in all over the place.
+Well, 20K a second is large in some contexts, but not in others :)
+> 
+> cat /proc/interrupts shops something like this:
+>                 CPU0       CPU1         CPU2         CPU3
+> 50:    3359337          0          0          0         PCI-MSI  eth0
+> 58:         49    3396136          0          0         PCI-MSI  eth1
+> 
+> CPU0 and CPU1 are of the first CPU as far as I understand ; so this
+> means as far as I understand that the second CPU (which has CPU3 and
+> CPU4) does not handle interrupts of the arrived packets; Can I
+> somehow change it so the second
+> CPU will also handle network interrupts of receiving packets on the
+> nic ?
 
-I think it would be fair to say that if they're not in <linux/sysctl.h> 
-they're not architectural, but that doesn't resolve the counterpositive 
-(are there sysctls in <linux/sysctl.h> which aren't architectural?  From 
-the looks of it, I would say yes.)  Non-architectural sysctl numbers 
-should not be exported to userspace, and should eventually be rejected 
-by sys_sysctl.
+Actually, those could be different chips - it depends on the CPUs I 
+think, and I suppose the BIOS/OS.  On a Woodcrest system with which I've 
+been playing, CPUs 0 and 2 appear to be on the same die, then 1 and 
+three.   I ass-u-me-d the numbering was that way to get maximum 
+processor cache when saying "numcpu=N" for something less than the 
+number of cores in the system.
 
-	-hpa
+NUMA considerations might come into play if this is Opteron (well, any 
+NUMA system really - larger IA64's, certain SPARC and Power systems 
+etc...).  In broad handwaving terms, one is better-off with the NICs 
+interrupts being handled by the topologically closest CPU.  (Not that 
+some irqbalancer programs recognize that just yet :)
+
+Now, if both CPU0 and CPU1 are saturated it might make sense to put some 
+interrupts on 2 and/or 3.  One of those fun "it depends" situations.
+
+rick jones
