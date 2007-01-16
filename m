@@ -1,49 +1,76 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: [IPROUTE 01/05]: Use tc_calc_xmittime where appropriate
-Date: Tue, 16 Jan 2007 13:48:51 +0100
-Message-ID: <20070116124851.GC1003@ff.dom.local>
-References: <20070116085611.GA1003@ff.dom.local> <45ACA6B6.1090902@trash.net> <20070116110244.GB1003@ff.dom.local> <45ACC504.4060208@trash.net>
+From: KOVACS Krisztian <hidden@balabit.hu>
+Subject: Re: [PATCH/RFC 01/10] Implement local diversion of IPv4 skbs
+Date: Tue, 16 Jan 2007 13:49:20 +0100
+Message-ID: <200701161349.21381@nienna>
+References: <20070103163357.14635.37754.stgit@nienna.balabit> <200701101117.47576@nienna> <45A4D9DB.4000809@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, shemminger@osdl.org
+Content-Type: text/plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: 7bit
+Cc: netfilter-devel@lists.netfilter.org, netdev@vger.kernel.org,
+	Balazs Scheidler <bazsi@balabit.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.go2.pl ([193.17.41.42]:37685 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751066AbXAPMqn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Jan 2007 07:46:43 -0500
+Received: from www.balabit.hu ([212.92.18.33]:3382 "EHLO lists.balabit.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750749AbXAPMte (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Jan 2007 07:49:34 -0500
+Received: from balabit.hu (unknown [10.80.0.254])
+	by lists.balabit.hu (Postfix) with ESMTP id 077AF4C168
+	for <netdev@vger.kernel.org>; Tue, 16 Jan 2007 13:49:33 +0100 (CET)
 To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <45A4D9DB.4000809@trash.net>
 Content-Disposition: inline
-In-Reply-To: <45ACC504.4060208@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 16, 2007 at 01:28:52PM +0100, Patrick McHardy wrote:
-> Jarek Poplawski wrote:
-> > On Tue, Jan 16, 2007 at 11:19:34AM +0100, Patrick McHardy wrote:
-> > ...
-> > 
-> >>Right, this changes it from long (tc_core_usec2tick) to unsigned
-> >>int. It doesn't make any difference though, ... 
-> > 
-> > 
-> > ... if we count out reading_time_2tick, of course.
-> 
-> And this is a problem why? In the worst case (NET_SCH_CLK_CPU,
-> max rate 1/0.5us) it allows us to represent a transmission time
-> of 2^32/1000000/2s (where 2 is tick_in_usec), which is roughly
-> 2147s.
-> 
-> If you still have doubts, please use numbers to demonstrate the
-> problem.
 
-Sorry, I probably forgot to add "the face".
+  Hi,
 
-The only problem is that when reading a patch you have
-to guess if this was considered by the author or as in
-other place to check all next uses of double variable
-to see they actually always store unsigned.
+On Wednesday 10 January 2007 13:19, Patrick McHardy wrote:
+> >   Of course it's true that doing early lookups and storing that
+> > reference in the skb widens the window considerably, but I think this
+> > race is already handled. Or is there anything I don't see?
+>
+> You're right, it seems to be handled properly (except I think there is
+> a race between sk_common_release calling xfrm_sk_free_policy and f.e.
+> udp calling __xfrm_policy_check, will look into that).
+>
+> It probably shouldn't be cached anyway, with nf_queue for example
+> the window could be _really_ large.
 
-But probably I should correct readability of my posts,
-too.
+  Patrick, I seem to be out of ideas how this could be done 
+without "caching" the socket lookup. The problem is that it's not only 
+caching in some cases. For example we can do something like this:
 
-Jarek P.
+  iptables -t tproxy -A PREROUTING -s X -d Y -p tcp --dport 80 \
+           -j TPROXY --to proxy_ip:proxy_port
+
+  In this case the TPROXY target does a socket lookup for 
+proxy_ip:proxy_port and stores that socket reference in skb->sk. 
+Obviously if you don't do this then TCP will do a lookup on the packet's 
+original destination address/port and it won't work.
+
+  Unfortunately I don't see any way how this could be solved without 
+storing the result of the lookup... So while I agree that having that 
+socket reference in the skb is risky, as previously skb->sk was unused on 
+the input path, I simply don't have any other idea. (Unless your load 
+iptable_tproxy skb->sk==NULL on input is still true with these patches, 
+so I think there should be absolutely no problems with tproxy unused.)
+
+  Other possible problems which came to my mind:
+
+- The previous version was missing IPv4 fragment reassembly: we obviously 
+need this to be able to do socket lookups, so now I've added this to 
+iptable_tproxy.
+- IP_FREEBIND does not require NET_ADMIN capability, combined with the 
+relaxed source address on ip_output() this means that we provide a way to 
+do IPv4 address forging for unprivileged users. As we must not break 
+anything it looks like we need a separate socket option for disabling 
+output source address checks (this would obviously require NET_ADMIN).
+
+  Thoughts? I'd be especially interested in any ideas wrt. the socket 
+reference problems, as the other two seems to be easier to solve.
+
+-- 
+ Regards,
+  Krisztian Kovacs
