@@ -1,7 +1,7 @@
 From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH 12/59] sysctl: atalk remove unnecessary insert_at_head flag
-Date: Tue, 16 Jan 2007 09:39:17 -0700
-Message-ID: <11689656281139-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH 40/59] sysctl: C99 convert ctl_tables in arch/x86_64/kernel/vsyscall.c
+Date: Tue, 16 Jan 2007 09:39:45 -0700
+Message-ID: <11689656651135-git-send-email-ebiederm@xmission.com>
 References: <m1ac0jc4no.fsf@ebiederm.dsl.xmission.com>
 Cc: <linux-kernel@vger.kernel.org>, <containers@lists.osdl.org>,
 	<netdev@vger.kernel.org>, xfs-masters@oss.sgi.com, xfs@oss.sgi.com,
@@ -19,32 +19,42 @@ Cc: <linux-kernel@vger.kernel.org>, <containers@lists.osdl.org>,
 	coda@cs.cmu.edu, codalist@TELEMANN.coda.cs.cmu.edu,
 	aia21@cantab.net, linux-ntfs-dev@lists.sourceforge.net,
 	mark.fasheh@oracle.com, kurt.hackel@oracle.com,
-Return-path: <linux-mips-bounce@linux-mips.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751572AbXAPQpD@vger.kernel.org>
 To: "<Andrew Morton" <akpm@osdl.org>
 In-Reply-To: <m1ac0jc4no.fsf@ebiederm.dsl.xmission.com>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Eric W. Biederman <ebiederm@xmission.com> - unquoted
 
+Basically everything was done but I removed all element
+initializers from the trailing entries to make it clear
+the entire last entry should be zero filled.
+
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 ---
- net/appletalk/sysctl_net_atalk.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ arch/x86_64/kernel/vsyscall.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/appletalk/sysctl_net_atalk.c b/net/appletalk/sysctl_net_atalk.c
-index 40b0af7..4f806b6 100644
---- a/net/appletalk/sysctl_net_atalk.c
-+++ b/net/appletalk/sysctl_net_atalk.c
-@@ -73,7 +73,7 @@ static struct ctl_table_header *atalk_table_header;
+diff --git a/arch/x86_64/kernel/vsyscall.c b/arch/x86_64/kernel/vsyscall.c
+index 2433d6f..c0e2b48 100644
+--- a/arch/x86_64/kernel/vsyscall.c
++++ b/arch/x86_64/kernel/vsyscall.c
+@@ -235,13 +235,13 @@ static ctl_table kernel_table2[] = {
+ 	  .data = &sysctl_vsyscall, .maxlen = sizeof(int), .mode = 0644,
+ 	  .strategy = vsyscall_sysctl_nostrat,
+ 	  .proc_handler = vsyscall_sysctl_change },
+-	{ 0, }
++	{}
+ };
  
- void atalk_register_sysctl(void)
- {
--	atalk_table_header = register_sysctl_table(atalk_root_table, 1);
-+	atalk_table_header = register_sysctl_table(atalk_root_table, 0);
- }
+ static ctl_table kernel_root_table2[] = {
+ 	{ .ctl_name = CTL_KERN, .procname = "kernel", .mode = 0555,
+ 	  .child = kernel_table2 },
+-	{ 0 },
++	{}
+ };
  
- void atalk_unregister_sysctl(void)
+ #endif
 -- 
 1.4.4.1.g278f
