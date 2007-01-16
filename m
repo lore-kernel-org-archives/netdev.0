@@ -1,7 +1,7 @@
 From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH 26/59] sysctl: C99 convert arch/frv/kernel/sysctl.c
-Date: Tue, 16 Jan 2007 09:39:31 -0700
-Message-ID: <11689656454112-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH 24/59] sysctl: frv remove unnecessary insert_at_head flag
+Date: Tue, 16 Jan 2007 09:39:29 -0700
+Message-ID: <1168965642471-git-send-email-ebiederm@xmission.com>
 References: <m1ac0jc4no.fsf@ebiederm.dsl.xmission.com>
 Cc: <linux-kernel@vger.kernel.org>, <containers@lists.osdl.org>,
 	<netdev@vger.kernel.org>, xfs-masters@oss.sgi.com, xfs@oss.sgi.com,
@@ -19,67 +19,40 @@ Cc: <linux-kernel@vger.kernel.org>, <containers@lists.osdl.org>,
 	coda@cs.cmu.edu, codalist@TELEMANN.coda.cs.cmu.edu,
 	aia21@cantab.net, linux-ntfs-dev@lists.sourceforge.net,
 	mark.fasheh@oracle.com, kurt.hackel@oracle.com,
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751617AbXAPQsJ@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:46024 "EHLO
+	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751619AbXAPQt4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jan 2007 11:49:56 -0500
 To: "<Andrew Morton" <akpm@osdl.org>
 In-Reply-To: <m1ac0jc4no.fsf@ebiederm.dsl.xmission.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Eric W. Biederman <ebiederm@xmission.com> - unquoted
 
+Since the binary sysctl numbers are unique putting the registered
+sysctls at the head of the sysctl list where they can override
+existing sysctls serves no useful purpose.
+
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 ---
- arch/frv/kernel/sysctl.c |   29 ++++++++++++++++++++++++-----
- 1 files changed, 24 insertions(+), 5 deletions(-)
+ arch/frv/kernel/sysctl.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
 diff --git a/arch/frv/kernel/sysctl.c b/arch/frv/kernel/sysctl.c
-index 37528eb..577ad16 100644
+index 2f4da32..37528eb 100644
 --- a/arch/frv/kernel/sysctl.c
 +++ b/arch/frv/kernel/sysctl.c
-@@ -175,11 +175,25 @@ static int procctl_frv_pin_cxnr(ctl_table *table, int write, struct file *filp,
+@@ -197,7 +197,7 @@ static struct ctl_table frv_dir_table[] =
   */
- static struct ctl_table frv_table[] =
+ static int __init frv_sysctl_init(void)
  {
--	{ 1, "cache-mode",	NULL, 0, 0644, NULL, &procctl_frv_cachemode },
-+	{
-+		.ctl_name 	= 1,
-+		.procname 	= "cache-mode",
-+		.data		= NULL,
-+		.maxlen		= 0,
-+		.mode		= 0644,
-+		.proc_handler	= &procctl_frv_cachemode,
-+	},
- #ifdef CONFIG_MMU
--	{ 2, "pin-cxnr",	NULL, 0, 0644, NULL, &procctl_frv_pin_cxnr },
-+	{
-+		.ctl_name	= 2,
-+		.procname	= "pin-cxnr",
-+		.data		= NULL,
-+		.maxlen		= 0,
-+		.mode		= 0644,
-+		.proc_handler	= &procctl_frv_pin_cxnr
-+	},
- #endif
--	{ 0 }
-+	{}
- };
+-	register_sysctl_table(frv_dir_table, 1);
++	register_sysctl_table(frv_dir_table, 0);
+ 	return 0;
+ }
  
- /*
-@@ -188,8 +202,13 @@ static struct ctl_table frv_table[] =
-  */
- static struct ctl_table frv_dir_table[] =
- {
--	{CTL_FRV, "frv", NULL, 0, 0555, frv_table},
--	{0}
-+	{
-+		.ctl_name	= CTL_FRV,
-+		.procname	= "frv",
-+		.mode 		= 0555,
-+		.child		= frv_table
-+	},
-+	{}
- };
- 
- /*
 -- 
 1.4.4.1.g278f
+
