@@ -1,7 +1,7 @@
 From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH 28/59] sysctl: C99 Convert arch/ia64/sn/kernel/xpc_main.c
-Date: Tue, 16 Jan 2007 09:39:33 -0700
-Message-ID: <11689656481444-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH 37/59] sysctl: C99 convert arch/sh64/kernel/traps.c and remove ABI breakage.
+Date: Tue, 16 Jan 2007 09:39:42 -0700
+Message-ID: <11689656622749-git-send-email-ebiederm@xmission.com>
 References: <m1ac0jc4no.fsf@ebiederm.dsl.xmission.com>
 Cc: <linux-kernel@vger.kernel.org>, <containers@lists.osdl.org>,
 	<netdev@vger.kernel.org>, xfs-masters@oss.sgi.com, xfs@oss.sgi.com,
@@ -28,120 +28,86 @@ List-Id: netdev.vger.kernel.org
 
 From: Eric W. Biederman <ebiederm@xmission.com> - unquoted
 
+While doing the C99 conversion I notices that the top level sh64
+directory was using the binary number for CTL_KERN.  That is a
+no-no so I removed the support for the sysctl binary interface
+only leaving sysctl /proc support.
+
+At least the sysctl tables were placed at the end of
+the list so user space did not see this mistake.
+
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 ---
- arch/ia64/sn/kernel/xpc_main.c |   86 +++++++++++++++++----------------------
- 1 files changed, 38 insertions(+), 48 deletions(-)
+ arch/sh64/kernel/traps.c |   49 +++++++++++++++++++++++++++++++++++----------
+ 1 files changed, 38 insertions(+), 11 deletions(-)
 
-diff --git a/arch/ia64/sn/kernel/xpc_main.c b/arch/ia64/sn/kernel/xpc_main.c
-index 24adb75..e04f7b5 100644
---- a/arch/ia64/sn/kernel/xpc_main.c
-+++ b/arch/ia64/sn/kernel/xpc_main.c
-@@ -101,67 +101,57 @@ static int xpc_disengage_request_max_timelimit = 120;
+diff --git a/arch/sh64/kernel/traps.c b/arch/sh64/kernel/traps.c
+index 224b7f5..02cca74 100644
+--- a/arch/sh64/kernel/traps.c
++++ b/arch/sh64/kernel/traps.c
+@@ -910,25 +910,52 @@ static int misaligned_fixup(struct pt_regs *regs)
+ }
  
- static ctl_table xpc_sys_xpc_hb_dir[] = {
- 	{
--		CTL_UNNUMBERED,
--		"hb_interval",
--		&xpc_hb_interval,
--		sizeof(int),
--		0644,
--		NULL,
--		&proc_dointvec_minmax,
--		&sysctl_intvec,
--		NULL,
--		&xpc_hb_min_interval,
--		&xpc_hb_max_interval
-+		.ctl_name 	= CTL_UNNUMBERED,
-+		.procname	= "hb_interval",
-+		.data		= &xpc_hb_interval,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= &proc_dointvec_minmax,
-+		.strategy	= &sysctl_intvec,
-+		.extra1		= &xpc_hb_min_interval,
-+		.extra2		= &xpc_hb_max_interval
- 	},
- 	{
--		CTL_UNNUMBERED,
--		"hb_check_interval",
--		&xpc_hb_check_interval,
--		sizeof(int),
--		0644,
--		NULL,
--		&proc_dointvec_minmax,
--		&sysctl_intvec,
--		NULL,
--		&xpc_hb_check_min_interval,
--		&xpc_hb_check_max_interval
+ static ctl_table unaligned_table[] = {
+-	{1, "kernel_reports", &kernel_mode_unaligned_fixup_count,
+-		sizeof(int), 0644, NULL, &proc_dointvec},
++	{
 +		.ctl_name	= CTL_UNNUMBERED,
-+		.procname	= "hb_check_interval",
-+		.data		= &xpc_hb_check_interval,
++		.procname	= "kernel_reports",
++		.data		= &kernel_mode_unaligned_fixup_count,
 +		.maxlen		= sizeof(int),
 +		.mode		= 0644,
-+		.proc_handler	= &proc_dointvec_minmax,
-+		.strategy	= &sysctl_intvec,
-+		.extra1		= &xpc_hb_check_min_interval,
-+		.extra2		= &xpc_hb_check_max_interval
- 	},
++		.proc_handler	= &proc_dointvec
++	},
+ #if defined(CONFIG_SH64_USER_MISALIGNED_FIXUP)
+-	{2, "user_reports", &user_mode_unaligned_fixup_count,
+-		sizeof(int), 0644, NULL, &proc_dointvec},
+-	{3, "user_enable", &user_mode_unaligned_fixup_enable,
+-		sizeof(int), 0644, NULL, &proc_dointvec},
++	{
++		.ctl_name	= CTL_UNNUMBERED,
++		.procname	= "user_reports",
++		.data		= &user_mode_unaligned_fixup_count,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= &proc_dointvec
++	},
++	{
++		.ctl_name	= CTL_UNNUMBERED,
++		.procname	= "user_enable",
++		.data		= &user_mode_unaligned_fixup_enable,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= &proc_dointvec},
+ #endif
 -	{0}
 +	{}
  };
- static ctl_table xpc_sys_xpc_dir[] = {
- 	{
--		CTL_UNNUMBERED,
--		"hb",
--		NULL,
--		0,
--		0555,
--		xpc_sys_xpc_hb_dir
-+		.ctl_name	= CTL_UNNUMBERED,
-+		.procname	= "hb",
-+		.mode		= 0555,
-+		.child		= xpc_sys_xpc_hb_dir
- 	},
- 	{
--		CTL_UNNUMBERED,
--		"disengage_request_timelimit",
--		&xpc_disengage_request_timelimit,
--		sizeof(int),
--		0644,
--		NULL,
--		&proc_dointvec_minmax,
--		&sysctl_intvec,
--		NULL,
--		&xpc_disengage_request_min_timelimit,
--		&xpc_disengage_request_max_timelimit
-+		.ctl_name	= CTL_UNNUMBERED,
-+		.procname	= "disengage_request_timelimit",
-+		.data		= &xpc_disengage_request_timelimit,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= &proc_dointvec_minmax,
-+		.strategy	= &sysctl_intvec,
-+		.extra1		= &xpc_disengage_request_min_timelimit,
-+		.extra2		= &xpc_disengage_request_max_timelimit
- 	},
--	{0}
-+	{}
- };
- static ctl_table xpc_sys_dir[] = {
- 	{
--		CTL_UNNUMBERED,
--		"xpc",
--		NULL,
--		0,
--		0555,
--		xpc_sys_xpc_dir
-+		.ctl_name	= CTL_UNNUMBERED,
-+		.procname	= "xpc",
-+		.mode		= 0555,
-+		.child		= xpc_sys_xpc_dir
- 	},
--	{0}
-+	{}
- };
- static struct ctl_table_header *xpc_sysctl;
  
+ static ctl_table unaligned_root[] = {
+-	{1, "unaligned_fixup", NULL, 0, 0555, unaligned_table},
+-	{0}
++	{
++		.ctl_name	= CTL_UNNUMBERED,
++		.procname	= "unaligned_fixup",
++		.mode		= 0555,
++		unaligned_table
++	},
++	{}
+ };
+ 
+ static ctl_table sh64_root[] = {
+-	{1, "sh64", NULL, 0, 0555, unaligned_root},
+-	{0}
++	{
++		.ctl_name	= CTL_UNNUMBERED,
++		.procname	= "sh64",
++		.mode		= 0555,
++		.child		= unaligned_root
++	},
++	{}
+ };
+ static struct ctl_table_header *sysctl_header;
+ static int __init init_sysctl(void)
 -- 
 1.4.4.1.g278f
