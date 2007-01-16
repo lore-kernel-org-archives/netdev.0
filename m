@@ -1,59 +1,27 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH] nl80211: Allocate array of pointers for nla_parse
-Date: Tue, 16 Jan 2007 10:42:18 +0000
-Message-ID: <1168944139.9175.3.camel@johannes.berg>
-References: <200701161113.52523.marcus@better.se>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: [IPROUTE 01/05]: Use tc_calc_xmittime where appropriate
+Date: Tue, 16 Jan 2007 12:02:44 +0100
+Message-ID: <20070116110244.GB1003@ff.dom.local>
+References: <20070116085611.GA1003@ff.dom.local> <45ACA6B6.1090902@trash.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-uasRC8JyVaBqoDDAhv9l"
-Cc: netdev@vger.kernel.org, "John W. Linville" <linville@tuxdriver.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, shemminger@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:50292 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751001AbXAPKma (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jan 2007 05:42:30 -0500
-To: Marcus Better <marcus@better.se>
-In-Reply-To: <200701161113.52523.marcus@better.se>
+Received: from poczta.o2.pl ([193.17.41.142]:59008 "EHLO poczta.o2.pl"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750771AbXAPLAh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Jan 2007 06:00:37 -0500
+To: Patrick McHardy <kaber@trash.net>
+Content-Disposition: inline
+In-Reply-To: <45ACA6B6.1090902@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Tue, Jan 16, 2007 at 11:19:34AM +0100, Patrick McHardy wrote:
+...
+> Right, this changes it from long (tc_core_usec2tick) to unsigned
+> int. It doesn't make any difference though, ... 
 
---=-uasRC8JyVaBqoDDAhv9l
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+... if we count out reading_time_2tick, of course.
 
-On Tue, 2007-01-16 at 11:13 +0100, Marcus Better wrote:
-> The code allocates an array of struct nlattr, but it seems to me that it =
-should allocate an array of pointers.
->=20
-> Signed-off-by: Marcus Better <marcus@better.se>
-
-Yup.
-Acked-by: Johannes Berg <johannes@sipsolutions.net>
-
-> --- a/net/wireless/nl80211.c
-> +++ b/net/wireless/nl80211.c
-> @@ -843,7 +843,7 @@ static int nl80211_initiate_scan(struct sk_buff *skb,=
- struct genl_info *info)
-> =20
->  		channels =3D kmalloc(count * sizeof(struct scan_channel),
->  				   GFP_KERNEL);
-> -		tb =3D kmalloc((NL80211_ATTR_MAX+1) * sizeof(struct nlattr),
-> +		tb =3D kmalloc((NL80211_ATTR_MAX+1) * sizeof(struct nlattr *),
->  			     GFP_KERNEL);
-> =20
->  		count =3D 0;
-
---=-uasRC8JyVaBqoDDAhv9l
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iD8DBQBFrKwJ/ETPhpq3jKURAhEaAKCmV5MT37xBbHbkG5BX8fuuru3+CQCfV9Se
-g4hgKWH4024xDHrvE55ZPM0=
-=qut9
------END PGP SIGNATURE-----
-
---=-uasRC8JyVaBqoDDAhv9l--
-
+Jarek P.
