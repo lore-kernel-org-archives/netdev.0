@@ -1,38 +1,39 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 2/2] [IrDA] Removed incorrect IRDA_ASSERT()
-Date: Mon, 15 Jan 2007 19:39:58 -0800 (PST)
-Message-ID: <20070115.193958.115916978.davem@davemloft.net>
-References: <20070115091542.GB3532@sortiz.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-Return-path: <irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-To: samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org
-In-Reply-To: <20070115091542.GB3532-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
-	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=irda-users>
-List-Post: <mailto:irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
-	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Sender: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-Errors-To: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 1/2] [IrDA] irda-usb TX path optimization
+Date: Tue, 16 Jan 2007 14:48:13 +1100
+Message-ID: <E1H6fIz-0003Ne-00@gondolin.me.apana.org.au>
+References: <20070115.193754.59662700.davem@davemloft.net>
+Cc: samuel@sortiz.org, avl@logic.at, netdev@vger.kernel.org,
+	irda-users@lists.sourceforge.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:3162 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S932209AbXAPDsu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jan 2007 22:48:50 -0500
+To: davem@davemloft.net (David Miller)
+In-Reply-To: <20070115.193754.59662700.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
-Date: Mon, 15 Jan 2007 11:15:42 +0200
-
-> With USB2.0 bulk out MTU can be 512 bytes, so checking it only for 64 bytes is
-> incorrect.
+David Miller <davem@davemloft.net> wrote:
 > 
-> Signed-off-by: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
+> Technically this is a bug fix too because once an SKB hits the
+> transmit function it should essentially be immutable, ie. you
+> shouldn't be writing to it.  tcpdump sniffers could be looking
+> at the SKB, as one example.
 
-Applied, thanks a lot.
+We do have a way around that with skb_header_cloned.  In fact
+it looks like VLAN should use it as otherwise TCP packets will
+get copied unnecessarily.
 
--------------------------------------------------------------------------
-Take Surveys. Earn Cash. Influence the Future of IT
-Join SourceForge.net's Techsay panel and you'll get the chance to share your
-opinions on IT & business topics through brief surveys - and earn cash
-http://www.techsay.com/default.php?page=join.php&p=sourceforge&CID=DEVDEV
+This is still not optimal for AF_PACKET users since they will
+still cause things like VLANs to do the copy even when it isn't
+necessary because it doesn't touch any part of the packet that
+AF_PACKET actually looks at.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
