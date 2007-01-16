@@ -1,7 +1,7 @@
 From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH 15/59] sysctl: scsi remove unnecessary insert_at_head flag
-Date: Tue, 16 Jan 2007 09:39:20 -0700
-Message-ID: <11689656323486-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH 11/59] sysctl: ax25 remove unnecessary insert_at_head flag
+Date: Tue, 16 Jan 2007 09:39:16 -0700
+Message-ID: <11689656273396-git-send-email-ebiederm@xmission.com>
 References: <m1ac0jc4no.fsf@ebiederm.dsl.xmission.com>
 Cc: <linux-kernel@vger.kernel.org>, <containers@lists.osdl.org>,
 	<netdev@vger.kernel.org>, xfs-masters@oss.sgi.com, xfs@oss.sgi.com,
@@ -30,21 +30,21 @@ From: Eric W. Biederman <ebiederm@xmission.com> - unquoted
 
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 ---
- drivers/scsi/scsi_sysctl.c |    2 +-
+ net/ax25/sysctl_net_ax25.c |    2 +-
  1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/scsi/scsi_sysctl.c b/drivers/scsi/scsi_sysctl.c
-index 04d06c2..b16b775 100644
---- a/drivers/scsi/scsi_sysctl.c
-+++ b/drivers/scsi/scsi_sysctl.c
-@@ -41,7 +41,7 @@ static struct ctl_table_header *scsi_table_header;
+diff --git a/net/ax25/sysctl_net_ax25.c b/net/ax25/sysctl_net_ax25.c
+index d23a27f..afdba04 100644
+--- a/net/ax25/sysctl_net_ax25.c
++++ b/net/ax25/sysctl_net_ax25.c
+@@ -245,7 +245,7 @@ void ax25_register_sysctl(void)
  
- int __init scsi_init_sysctl(void)
- {
--	scsi_table_header = register_sysctl_table(scsi_root_table, 1);
-+	scsi_table_header = register_sysctl_table(scsi_root_table, 0);
- 	if (!scsi_table_header)
- 		return -ENOMEM;
- 	return 0;
+ 	ax25_dir_table[0].child = ax25_table;
+ 
+-	ax25_table_header = register_sysctl_table(ax25_root_table, 1);
++	ax25_table_header = register_sysctl_table(ax25_root_table, 0);
+ }
+ 
+ void ax25_unregister_sysctl(void)
 -- 
 1.4.4.1.g278f
