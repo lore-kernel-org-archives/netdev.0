@@ -1,7 +1,7 @@
 From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH 11/59] sysctl: ax25 remove unnecessary insert_at_head flag
-Date: Tue, 16 Jan 2007 09:39:16 -0700
-Message-ID: <11689656273396-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH 31/59] sysctl: C99 convert the ctl_tables in arch/mips/au1000/common/power.c
+Date: Tue, 16 Jan 2007 09:39:36 -0700
+Message-ID: <11689656551180-git-send-email-ebiederm@xmission.com>
 References: <m1ac0jc4no.fsf@ebiederm.dsl.xmission.com>
 Cc: <linux-kernel@vger.kernel.org>, <containers@lists.osdl.org>,
 	<netdev@vger.kernel.org>, xfs-masters@oss.sgi.com, xfs@oss.sgi.com,
@@ -19,32 +19,70 @@ Cc: <linux-kernel@vger.kernel.org>, <containers@lists.osdl.org>,
 	coda@cs.cmu.edu, codalist@TELEMANN.coda.cs.cmu.edu,
 	aia21@cantab.net, linux-ntfs-dev@lists.sourceforge.net,
 	mark.fasheh@oracle.com, kurt.hackel@oracle.com,
-Return-path: <linux-mips-bounce@linux-mips.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751315AbXAPQoD@vger.kernel.org>
 To: "<Andrew Morton" <akpm@osdl.org>
 In-Reply-To: <m1ac0jc4no.fsf@ebiederm.dsl.xmission.com>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Eric W. Biederman <ebiederm@xmission.com> - unquoted
 
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 ---
- net/ax25/sysctl_net_ax25.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ arch/mips/au1000/common/power.c |   38 ++++++++++++++++++++++++++++++++------
+ 1 files changed, 32 insertions(+), 6 deletions(-)
 
-diff --git a/net/ax25/sysctl_net_ax25.c b/net/ax25/sysctl_net_ax25.c
-index d23a27f..afdba04 100644
---- a/net/ax25/sysctl_net_ax25.c
-+++ b/net/ax25/sysctl_net_ax25.c
-@@ -245,7 +245,7 @@ void ax25_register_sysctl(void)
+diff --git a/arch/mips/au1000/common/power.c b/arch/mips/au1000/common/power.c
+index b531ab7..31256b8 100644
+--- a/arch/mips/au1000/common/power.c
++++ b/arch/mips/au1000/common/power.c
+@@ -419,15 +419,41 @@ static int pm_do_freq(ctl_table * ctl, int write, struct file *file,
  
- 	ax25_dir_table[0].child = ax25_table;
  
--	ax25_table_header = register_sysctl_table(ax25_root_table, 1);
-+	ax25_table_header = register_sysctl_table(ax25_root_table, 0);
- }
+ static struct ctl_table pm_table[] = {
+-	{CTL_UNNUMBERED, "suspend", NULL, 0, 0600, NULL, &pm_do_suspend},
+-	{CTL_UNNUMBERED, "sleep", NULL, 0, 0600, NULL, &pm_do_sleep},
+-	{CTL_UNNUMBERED, "freq", NULL, 0, 0600, NULL, &pm_do_freq},
+-	{0}
++	{
++		.ctl_name 	= CTL_UNNUMBERED,
++		.procname	= "suspend",
++		.data		= NULL,
++		.maxlen		= 0,
++		.mode		= 0600,
++		.proc_handler	= &pm_do_suspend
++	},
++	{
++		.ctl_name	= CTL_UNNUMBERED,
++		.procname	= "sleep",
++		.data		= NULL,
++		.maxlen		= 0,
++		.mode		= 0600,
++		.proc_handler	= &pm_do_sleep
++	},
++	{
++		.ctl_name	= CTL_UNNUMBERED,
++		.procname	= "freq",
++		.data		= NULL,
++		.maxlen		= 0,
++		.mode		= 0600,
++		.proc_handler	= &pm_do_freq
++	},
++	{}
+ };
  
- void ax25_unregister_sysctl(void)
+ static struct ctl_table pm_dir_table[] = {
+-	{CTL_UNNUMBERED, "pm", NULL, 0, 0555, pm_table},
+-	{0}
++	{
++		.ctl_name	= CTL_UNNUMBERED,
++		.procname	= "pm",
++		.mode		= 0555,
++		.child		= pm_table
++	},
++	{}
+ };
+ 
+ /*
 -- 
 1.4.4.1.g278f
