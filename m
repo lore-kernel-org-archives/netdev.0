@@ -1,7 +1,7 @@
 From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH 27/59] sysctl: sn Remove sysctl ABI BREAKAGE
-Date: Tue, 16 Jan 2007 09:39:32 -0700
-Message-ID: <1168965647511-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH 56/59] sysctl: factor out sysctl_head_next from do_sysctl
+Date: Tue, 16 Jan 2007 09:40:01 -0700
+Message-ID: <11689657011683-git-send-email-ebiederm@xmission.com>
 References: <m1ac0jc4no.fsf@ebiederm.dsl.xmission.com>
 Cc: <linux-kernel@vger.kernel.org>, <containers@lists.osdl.org>,
 	<netdev@vger.kernel.org>, xfs-masters@oss.sgi.com, xfs@oss.sgi.com,
@@ -19,7 +19,7 @@ Cc: <linux-kernel@vger.kernel.org>, <containers@lists.osdl.org>,
 	coda@cs.cmu.edu, codalist@TELEMANN.coda.cs.cmu.edu,
 	aia21@cantab.net, linux-ntfs-dev@lists.sourceforge.net,
 	mark.fasheh@oracle.com, kurt.hackel@oracle.com,
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751456AbXAPQoj@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751535AbXAPQob@vger.kernel.org>
 To: "<Andrew Morton" <akpm@osdl.org>
 In-Reply-To: <m1ac0jc4no.fsf@ebiederm.dsl.xmission.com>
 Sender: linux-kernel-owner@vger.kernel.org
@@ -27,82 +27,124 @@ List-Id: netdev.vger.kernel.org
 
 From: Eric W. Biederman <ebiederm@xmission.com> - unquoted
 
-By not using the enumeration in sysctl.h (or even understanding it)
-the SN platform placed their arch specific xpc directory on top of
-CTL_KERN and only because they didn't have 4 entries in their xpc
-directory got lucky and didn't break glibc.
+The current logic to walk through the list of sysctl table
+headers is slightly painful and implement in a way it cannot
+be used by code outside sysctl.c
 
-This is totally irresponsible.  So this patch entirely removes
-sys_sysctl support from their sysctl code.  Hopefully they
-don't have ascii name conflicts as well.
+I am in the process of implementing a version of the sysctl
+proc support that instead of using the proc generic non-caching
+monster, just uses the existing sysctl data structure as
+backing store for building the dcache entries and for doing
+directory reads.   To use the existing data structures however
+I need a way to get at them.
 
-And now that they have no ABI numbers add them to the end
-instead of the sysctl list instead of the head so nothing
-else will be overridden.
-
-Cc: Tony Luck <tony.luck@intel.com>
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 ---
- arch/ia64/sn/kernel/xpc_main.c |   12 ++++++------
- 1 files changed, 6 insertions(+), 6 deletions(-)
+ include/linux/sysctl.h |    4 +++
+ kernel/sysctl.c        |   57 +++++++++++++++++++++++++++++++++++------------
+ 2 files changed, 46 insertions(+), 15 deletions(-)
 
-diff --git a/arch/ia64/sn/kernel/xpc_main.c b/arch/ia64/sn/kernel/xpc_main.c
-index 7a387d2..24adb75 100644
---- a/arch/ia64/sn/kernel/xpc_main.c
-+++ b/arch/ia64/sn/kernel/xpc_main.c
-@@ -101,7 +101,7 @@ static int xpc_disengage_request_max_timelimit = 120;
+diff --git a/include/linux/sysctl.h b/include/linux/sysctl.h
+index 6113f3b..81ee9ea 100644
+--- a/include/linux/sysctl.h
++++ b/include/linux/sysctl.h
+@@ -923,6 +923,10 @@ enum
+ #ifdef __KERNEL__
+ #include <linux/list.h>
  
- static ctl_table xpc_sys_xpc_hb_dir[] = {
- 	{
--		1,
-+		CTL_UNNUMBERED,
- 		"hb_interval",
- 		&xpc_hb_interval,
- 		sizeof(int),
-@@ -114,7 +114,7 @@ static ctl_table xpc_sys_xpc_hb_dir[] = {
- 		&xpc_hb_max_interval
- 	},
- 	{
--		2,
-+		CTL_UNNUMBERED,
- 		"hb_check_interval",
- 		&xpc_hb_check_interval,
- 		sizeof(int),
-@@ -130,7 +130,7 @@ static ctl_table xpc_sys_xpc_hb_dir[] = {
- };
- static ctl_table xpc_sys_xpc_dir[] = {
- 	{
--		1,
-+		CTL_UNNUMBERED,
- 		"hb",
- 		NULL,
- 		0,
-@@ -138,7 +138,7 @@ static ctl_table xpc_sys_xpc_dir[] = {
- 		xpc_sys_xpc_hb_dir
- 	},
- 	{
--		2,
-+		CTL_UNNUMBERED,
- 		"disengage_request_timelimit",
- 		&xpc_disengage_request_timelimit,
- 		sizeof(int),
-@@ -154,7 +154,7 @@ static ctl_table xpc_sys_xpc_dir[] = {
- };
- static ctl_table xpc_sys_dir[] = {
- 	{
--		1,
-+		CTL_UNNUMBERED,
- 		"xpc",
- 		NULL,
- 		0,
-@@ -1251,7 +1251,7 @@ xpc_init(void)
- 	snprintf(xpc_part->bus_id, BUS_ID_SIZE, "part");
- 	snprintf(xpc_chan->bus_id, BUS_ID_SIZE, "chan");
++/* For the /proc/sys support */
++extern struct ctl_table_header *sysctl_head_next(struct ctl_table_header *prev);
++extern void sysctl_head_finish(struct ctl_table_header *prev);
++
+ extern void sysctl_init(void);
  
--	xpc_sysctl = register_sysctl_table(xpc_sys_dir, 1);
-+	xpc_sysctl = register_sysctl_table(xpc_sys_dir, 0);
+ typedef struct ctl_table ctl_table;
+diff --git a/kernel/sysctl.c b/kernel/sysctl.c
+index 5beee1f..ca2831a 100644
+--- a/kernel/sysctl.c
++++ b/kernel/sysctl.c
+@@ -1066,6 +1066,42 @@ static void start_unregistering(struct ctl_table_header *p)
+ 	list_del_init(&p->ctl_entry);
+ }
  
- 	/*
- 	 * The first few fields of each entry of xpc_partitions[] need to
++void sysctl_head_finish(struct ctl_table_header *head)
++{
++	if (!head)
++		return;
++	spin_lock(&sysctl_lock);
++	unuse_table(head);
++	spin_unlock(&sysctl_lock);
++}
++
++struct ctl_table_header *sysctl_head_next(struct ctl_table_header *prev)
++{
++	struct ctl_table_header *head;
++	struct list_head *tmp;
++	spin_lock(&sysctl_lock);
++	if (prev) {
++		tmp = &prev->ctl_entry;
++		unuse_table(prev);
++		goto next;
++	}
++	tmp = &root_table_header.ctl_entry;
++	for (;;) {
++		head = list_entry(tmp, struct ctl_table_header, ctl_entry);
++
++		if (!use_table(head))
++			goto next;
++		spin_unlock(&sysctl_lock);
++		return head;
++	next:
++		tmp = tmp->next;
++		if (tmp == &root_table_header.ctl_entry)
++			break;
++	}
++	spin_unlock(&sysctl_lock);
++	return NULL;
++}
++
+ void __init sysctl_init(void)
+ {
+ #ifdef CONFIG_PROC_SYSCTL
+@@ -1077,6 +1113,7 @@ void __init sysctl_init(void)
+ int do_sysctl(int __user *name, int nlen, void __user *oldval, size_t __user *oldlenp,
+ 	       void __user *newval, size_t newlen)
+ {
++	struct ctl_table_header *head;
+ 	struct list_head *tmp;
+ 	int error = -ENOTDIR;
+ 
+@@ -1087,26 +1124,16 @@ int do_sysctl(int __user *name, int nlen, void __user *oldval, size_t __user *ol
+ 		if (!oldlenp || get_user(old_len, oldlenp))
+ 			return -EFAULT;
+ 	}
+-	spin_lock(&sysctl_lock);
+-	tmp = &root_table_header.ctl_entry;
+-	do {
+-		struct ctl_table_header *head =
+-			list_entry(tmp, struct ctl_table_header, ctl_entry);
+ 
+-		if (!use_table(head))
+-			continue;
+-
+-		spin_unlock(&sysctl_lock);
++	for (head = sysctl_head_next(NULL); head; head = sysctl_head_next(head)) {
+ 
+ 		error = parse_table(name, nlen, oldval, oldlenp, 
+ 					newval, newlen, head->ctl_table);
+-
+-		spin_lock(&sysctl_lock);
+-		unuse_table(head);
+-		if (error != -ENOTDIR)
++		if (error != -ENOTDIR) {
++			sysctl_head_finish(head);
+ 			break;
+-	} while ((tmp = tmp->next) != &root_table_header.ctl_entry);
+-	spin_unlock(&sysctl_lock);
++		}
++	}
+ 	return error;
+ }
+ 
 -- 
 1.4.4.1.g278f
