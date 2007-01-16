@@ -1,61 +1,59 @@
-From: Michael Tokarev <mjt@tls.msk.ru>
-Subject: Re: rare bad TCP checksum with 2.6.19?
-Date: Tue, 16 Jan 2007 17:38:53 +0300
-Message-ID: <45ACE37D.6030807@tls.msk.ru>
-References: <E1H6OJU-0001EC-00@gondolin.me.apana.org.au> <45AB82F1.9000409@tls.msk.ru> <20070115201001.GA9510@gondor.apana.org.au> <45ABF620.3070405@tls.msk.ru> <20070116032739.GA12746@gondor.apana.org.au> <20070116033849.GA12856@gondor.apana.org.au> <45AC8813.9000204@tls.msk.ru> <20070116115053.GA16529@gondor.apana.org.au> <45ACC1DE.6090708@trash.net>
+From: Chris Lalancette <clalance@redhat.com>
+Subject: Re: [PATCH]: 8139cp: Don't blindly enable interrupts in cp_start_xmit
+Date: Tue, 16 Jan 2007 09:44:06 -0500
+Message-ID: <45ACE4B6.3040809@redhat.com>
+References: <45ABAE69.4070105@redhat.com> <20070115195635.GA14205@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org
+Cc: jgarzik@pobox.com, netdev@vger.kernel.org,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Ingo Molnar <mingo@elte.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hobbit.corpit.ru ([81.13.94.6]:20259 "EHLO hobbit.corpit.ru"
+Received: from mx1.redhat.com ([66.187.233.31]:47229 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751235AbXAPOi6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Jan 2007 09:38:58 -0500
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <45ACC1DE.6090708@trash.net>
+	id S1751155AbXAPOoh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Jan 2007 09:44:37 -0500
+To: Francois Romieu <romieu@fr.zoreil.com>
+In-Reply-To: <20070115195635.GA14205@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Patrick McHardy wrote:
-> Herbert Xu wrote:
-[]
->> Since you're certain that this is being seen on the wire, one
->> possibility is that we've got a bug somewhere that's zeroing
->> skb->ip_summed on a packet with a partial checksum.
+Francois Romieu wrote:
+> Chris Lalancette <clalance@redhat.com> :
+> [...]
+> 
+>>     Similar to this commit:
 >>
->> One potential spot where this could happen is netfilter.
->> Patrick, do you know of any recent changes (this is happening
->> with 2.6.19) that might cause this?
+>>http://kernel.org/git/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=d15e9c4d9a75702b30e00cdf95c71c88e3f3f51e
+>>
+>>It's not safe in cp_start_xmit to blindly call spin_lock_irq and then
+>>spin_unlock_irq, since it may very well be the case that cp_start_xmit
+>>was called with interrupts already disabled (I came across this bug in
+>>the context of netdump in RedHat kernels, but the same issue holds, for
+>>example, in netconsole).  Therefore, replace all instances of spin_lock_irq
+>>and spin_unlock_irq with spin_lock_irqsave and spin_unlock_irqrestore,
+>>respectively, in cp_start_xmit().  I tested this against a fully-virtualized
+>>Xen guest, which happens to use the 8139cp driver to talk to the emulated
+>>hardware.  I don't have a real piece of 8139cp hardware to test on, so
+>>someone else will have to do that.
 > 
-> The incremental HW checksum update stuff went in 2.6.19, so thats
-> a prime suspect. Can't see where this could be happening though.
 > 
-> Michael, how exactly is netfilter involved in your setup?
+> (message reformated to fit in 80 columns, please fix your mailer)
+> 
+> As I understand http://lkml.org/lkml/2006/12/12/239, something like the
+> patch below should had been sent instead. Herbert, ack/nak ?
+> 
 
-I think it doesn't involved.
+Francois,
+     Thanks for the comments.  While the patch you sent will help, there are
+still other places that will have problems.  For example, in netpoll_send_skb,
+we call local_irq_save(flags), then call dev->hard_start_xmit(), and then call
+local_irq_restore(flags).  This is a similar situation to what I described
+above; we will re-enable interrupts in cp_start_xmit(), when netpoll_send_skb
+doesn't expect that, and will probably run into issues.
+     Is there a problem with changing cp_start_xmit to use the
+spin_lock_irqsave(), besides the extra instructions it needs?
 
-The captures I did were done on a router box, which indeed has some
-netfilter stuff.  But:
-
- 1) the capture has been done on an interface directly connected to
-   the segment where the "testing" machine is located (not on the
-   "external" interface)
-
- 2) the "testing" machine itself does not have any netfilter modules
-   loaded
-
- 3) the packets looks exactly the same in at least 3 places (modulo
-   the TTL values): on the sending machine, on the router (on the
-   interface connected to the sending machine - in those 2 places,
-   the TTL is the same), and at the receiving side, which is 20+
-   hops away.
-
- 4) I tried another machine today (upgraded from 2.6.17 to 2.6.19) -
-   stand-alone, without any netfilter modules loaded (but it's under
-   quite.. some load - see http://j.ns.dsbl.org/nsg/ -- with this load
-   it'll die right after iptables module loading, it's a 600MHz Celeron
-   box replying to 15000 DNS packets every secound) - it started showing
-   the same behavior.
-
-/mjt
+Thanks,
+Chris Lalancette
