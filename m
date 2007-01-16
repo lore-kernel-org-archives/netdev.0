@@ -1,63 +1,61 @@
 From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH 42/59] sysctl: Remove sys_sysctl support from the hpet timer driver.
-Date: Tue, 16 Jan 2007 09:39:47 -0700
-Message-ID: <11689656683585-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH 13/59] sysctl: xfs remove unnecessary insert_at_head flag
+Date: Tue, 16 Jan 2007 09:39:18 -0700
+Message-ID: <11689656291632-git-send-email-ebiederm@xmission.com>
 References: <m1ac0jc4no.fsf@ebiederm.dsl.xmission.com>
-Cc: <linux-kernel@vger.kernel.org>, <containers@lists.osdl.org>,
-	<netdev@vger.kernel.org>, xfs-masters@oss.sgi.com, xfs@oss.sgi.com,
-	linux-scsi@vger.kernel.org, James.Bottomley@SteelEye.com,
-	minyard@acm.org, openipmi-developer@lists.sourceforge.net,
-	<tony.luck@intel.com>, linux-mips@linux-mips.org,
-	ralf@linux-mips.org, schwidefsky@de.ibm.com,
-	heiko.carstens@de.ibm.com, linux390@de.ibm.com,
-	linux-390@vm.marist.edu, paulus@samba.org, linuxppc-dev@ozlabs.org,
-	lethal@linux-sh.org, linuxsh-shmedia-dev@lists.sourceforge.net,
-	<ak@suse.de>, vojtech@suse.cz, clemens@ladisch.de,
-	a.zummo@towertech.it, rtc-linux@googlegroups.com,
-	linux-parport@lists.infradead.org, andrea@suse.de,
-	tim@cyberelk.net, philb@gnu.org, aharkes@cs.cmu.edu,
-	coda@cs.cmu.edu, codalist@TELEMANN.coda.cs.cmu.edu,
-	aia21@cantab.net, linux-ntfs-dev@lists.sourceforge.net,
-	mark.fasheh@oracle.com, kurt.hackel@oracle.com,
-Return-path: <linux-mips-bounce@linux-mips.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: linux-mips@linux-mips.org, linux-parport@lists.infradead.org,
+	heiko.carstens@de.ibm.com, ak@suse.de, linuxppc-dev@ozlabs.org,
+	paulus@samba.org, aharkes@cs.cmu.edu, schwidefsky@de.ibm.com,
+	tim@cyberelk.net, rtc-linux@googlegroups.com,
+	linux-scsi@vger.kernel.org, kurt.hackel@oracle.com,
+	coda@cs.cmu.edu, vojtech@suse.cz,
+	linuxsh-shmedia-dev@lists.sourceforge.net,
+	James.Bottomley@SteelEye.com, clemens@ladisch.de,
+	xfs@oss.sgi.com, xfs-masters@oss.sgi.com, andrea@suse.de,
+	openipmi-developer@lists.sourceforge.net,
+	linux-390@vm.marist.edu, codalist@TELEMANN.coda.cs.cmu.edu,
+	a.zummo@towertech.it, tony.luck@intel.com,
+	linux-ntfs-dev@lists.sourceforge.net, netdev@vger.kernel.org,
+	aia21@cantab.net, linux-kernel@vger.kernel.org,
+	ralf@linux-mips.org, lethal@linux-sh.org,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	containers@lists.osdl.org, linux390@de.ibm.com, philb@gnu.org
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
 To: "<Andrew Morton" <akpm@osdl.org>
 In-Reply-To: <m1ac0jc4no.fsf@ebiederm.dsl.xmission.com>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
 From: Eric W. Biederman <ebiederm@xmission.com> - unquoted
 
-In the binary sysctl interface the hpet driver was claiming to
-be the cdrom driver.  This is a no-no so remove support for the
-binary interface.
-
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 ---
- drivers/char/hpet.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ fs/xfs/linux-2.6/xfs_sysctl.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/char/hpet.c b/drivers/char/hpet.c
-index 20dc3be..81be1db 100644
---- a/drivers/char/hpet.c
-+++ b/drivers/char/hpet.c
-@@ -703,7 +703,7 @@ int hpet_control(struct hpet_task *tp, unsigned int cmd, unsigned long arg)
+diff --git a/fs/xfs/linux-2.6/xfs_sysctl.c b/fs/xfs/linux-2.6/xfs_sysctl.c
+index af24653..af777e9 100644
+--- a/fs/xfs/linux-2.6/xfs_sysctl.c
++++ b/fs/xfs/linux-2.6/xfs_sysctl.c
+@@ -149,7 +149,7 @@ STATIC ctl_table xfs_root_table[] = {
+ void
+ xfs_sysctl_register(void)
+ {
+-	xfs_table_header = register_sysctl_table(xfs_root_table, 1);
++	xfs_table_header = register_sysctl_table(xfs_root_table, 0);
+ }
  
- static ctl_table hpet_table[] = {
- 	{
--	 .ctl_name = 1,
-+	 .ctl_name = CTL_UNNUMBERED,
- 	 .procname = "max-user-freq",
- 	 .data = &hpet_max_freq,
- 	 .maxlen = sizeof(int),
-@@ -715,7 +715,7 @@ static ctl_table hpet_table[] = {
- 
- static ctl_table hpet_root[] = {
- 	{
--	 .ctl_name = 1,
-+	 .ctl_name = CTL_UNNUMBERED,
- 	 .procname = "hpet",
- 	 .maxlen = 0,
- 	 .mode = 0555,
+ void
 -- 
 1.4.4.1.g278f
