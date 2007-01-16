@@ -1,7 +1,7 @@
 From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH 23/59] sysctl: Move CTL_FRV into sysctl.h where it belongs
-Date: Tue, 16 Jan 2007 09:39:28 -0700
-Message-ID: <1168965640807-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH 21/59] sysctl: Move CTL_PM into sysctl.h where it belongs.
+Date: Tue, 16 Jan 2007 09:39:26 -0700
+Message-ID: <11689656383210-git-send-email-ebiederm@xmission.com>
 References: <m1ac0jc4no.fsf@ebiederm.dsl.xmission.com>
 Cc: <linux-kernel@vger.kernel.org>, <containers@lists.osdl.org>,
 	<netdev@vger.kernel.org>, xfs-masters@oss.sgi.com, xfs@oss.sgi.com,
@@ -30,31 +30,31 @@ From: Eric W. Biederman <ebiederm@xmission.com> - unquoted
 
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 ---
- arch/frv/kernel/sysctl.c |    1 -
- include/linux/sysctl.h   |    1 +
+ arch/frv/kernel/pm.c   |    1 -
+ include/linux/sysctl.h |    1 +
  2 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/arch/frv/kernel/sysctl.c b/arch/frv/kernel/sysctl.c
-index ce67680..2f4da32 100644
---- a/arch/frv/kernel/sysctl.c
-+++ b/arch/frv/kernel/sysctl.c
-@@ -186,7 +186,6 @@ static struct ctl_table frv_table[] =
+diff --git a/arch/frv/kernel/pm.c b/arch/frv/kernel/pm.c
+index ee677ce..6b76466 100644
+--- a/arch/frv/kernel/pm.c
++++ b/arch/frv/kernel/pm.c
+@@ -125,7 +125,6 @@ unsigned long sleep_phys_sp(void *sp)
   * Use a temporary sysctl number. Horrid, but will be cleaned up in 2.6
   * when all the PM interfaces exist nicely.
   */
--#define CTL_FRV 9898
- static struct ctl_table frv_dir_table[] =
- {
- 	{CTL_FRV, "frv", NULL, 0, 0555, frv_table},
+-#define CTL_PM 9899
+ #define CTL_PM_SUSPEND 1
+ #define CTL_PM_CMODE 2
+ #define CTL_PM_P0 4
 diff --git a/include/linux/sysctl.h b/include/linux/sysctl.h
-index e7c40b6..71c16b4 100644
+index 54a9cf5..e7c40b6 100644
 --- a/include/linux/sysctl.h
 +++ b/include/linux/sysctl.h
-@@ -72,6 +72,7 @@ enum
+@@ -71,6 +71,7 @@ enum
+ 	CTL_ABI=9,		/* Binary emulation */
  	CTL_CPU=10,		/* CPU stuff (speed scaling, etc) */
  	CTL_SUNRPC=7249,	/* sunrpc debug */
- 	CTL_PM=9899,		/* frv power management */
-+	CTL_FRV=9898,		/* frv specific sysctls */
++	CTL_PM=9899,		/* frv power management */
  };
  
  /* CTL_BUS names: */
