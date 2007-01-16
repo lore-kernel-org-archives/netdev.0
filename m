@@ -1,7 +1,7 @@
 From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH 8/59] sysctl: ipx remove unnecessary insert_at_head flag
-Date: Tue, 16 Jan 2007 09:39:13 -0700
-Message-ID: <11689656232449-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH 23/59] sysctl: Move CTL_FRV into sysctl.h where it belongs
+Date: Tue, 16 Jan 2007 09:39:28 -0700
+Message-ID: <1168965640807-git-send-email-ebiederm@xmission.com>
 References: <m1ac0jc4no.fsf@ebiederm.dsl.xmission.com>
 Cc: <linux-kernel@vger.kernel.org>, <containers@lists.osdl.org>,
 	<netdev@vger.kernel.org>, xfs-masters@oss.sgi.com, xfs@oss.sgi.com,
@@ -28,26 +28,35 @@ List-Id: netdev.vger.kernel.org
 
 From: Eric W. Biederman <ebiederm@xmission.com> - unquoted
 
-The sysctl numbers used are unique so setting the insert_at_head
-flag servers no semantic purpose and is just confusing.
-
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 ---
- net/ipx/sysctl_net_ipx.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ arch/frv/kernel/sysctl.c |    1 -
+ include/linux/sysctl.h   |    1 +
+ 2 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/net/ipx/sysctl_net_ipx.c b/net/ipx/sysctl_net_ipx.c
-index fa57473..0442f44 100644
---- a/net/ipx/sysctl_net_ipx.c
-+++ b/net/ipx/sysctl_net_ipx.c
-@@ -52,7 +52,7 @@ static struct ctl_table_header *ipx_table_header;
- 
- void ipx_register_sysctl(void)
+diff --git a/arch/frv/kernel/sysctl.c b/arch/frv/kernel/sysctl.c
+index ce67680..2f4da32 100644
+--- a/arch/frv/kernel/sysctl.c
++++ b/arch/frv/kernel/sysctl.c
+@@ -186,7 +186,6 @@ static struct ctl_table frv_table[] =
+  * Use a temporary sysctl number. Horrid, but will be cleaned up in 2.6
+  * when all the PM interfaces exist nicely.
+  */
+-#define CTL_FRV 9898
+ static struct ctl_table frv_dir_table[] =
  {
--	ipx_table_header = register_sysctl_table(ipx_root_table, 1);
-+	ipx_table_header = register_sysctl_table(ipx_root_table, 0);
- }
+ 	{CTL_FRV, "frv", NULL, 0, 0555, frv_table},
+diff --git a/include/linux/sysctl.h b/include/linux/sysctl.h
+index e7c40b6..71c16b4 100644
+--- a/include/linux/sysctl.h
++++ b/include/linux/sysctl.h
+@@ -72,6 +72,7 @@ enum
+ 	CTL_CPU=10,		/* CPU stuff (speed scaling, etc) */
+ 	CTL_SUNRPC=7249,	/* sunrpc debug */
+ 	CTL_PM=9899,		/* frv power management */
++	CTL_FRV=9898,		/* frv specific sysctls */
+ };
  
- void ipx_unregister_sysctl(void)
+ /* CTL_BUS names: */
 -- 
 1.4.4.1.g278f
