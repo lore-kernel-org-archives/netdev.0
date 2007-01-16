@@ -1,75 +1,114 @@
 From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH 44/59] sysctl: Register the sysctl number used by the arlan
-	driver.
-Date: Tue, 16 Jan 2007 09:39:49 -0700
-Message-ID: <1168965670476-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH 29/59] sysctl: C99 convert arch/ia64/kernel/perfmon and remove ABI breakage
+Date: Tue, 16 Jan 2007 09:39:34 -0700
+Message-ID: <1168965650735-git-send-email-ebiederm@xmission.com>
 References: <m1ac0jc4no.fsf@ebiederm.dsl.xmission.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: linux-mips@linux-mips.org, linux-parport@lists.infradead.org,
-	heiko.carstens@de.ibm.com, ak@suse.de, linuxppc-dev@ozlabs.org,
-	paulus@samba.org, aharkes@cs.cmu.edu, schwidefsky@de.ibm.com,
-	tim@cyberelk.net, rtc-linux@googlegroups.com,
-	linux-scsi@vger.kernel.org, kurt.hackel@oracle.com,
-	coda@cs.cmu.edu, vojtech@suse.cz,
-	linuxsh-shmedia-dev@lists.sourceforge.net,
-	James.Bottomley@SteelEye.com, clemens@ladisch.de,
-	xfs@oss.sgi.com, xfs-masters@oss.sgi.com, andrea@suse.de,
-	openipmi-developer@lists.sourceforge.net,
-	linux-390@vm.marist.edu, codalist@TELEMANN.coda.cs.cmu.edu,
-	a.zummo@towertech.it, tony.luck@intel.com,
-	linux-ntfs-dev@lists.sourceforge.net, netdev@vger.kernel.org,
-	aia21@cantab.net, linux-kernel@vger.kernel.org,
-	ralf@linux-mips.org, lethal@linux-sh.org,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	containers@lists.osdl.org, linux390@de.ibm.com, philb@gnu.org
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+Cc: <linux-kernel@vger.kernel.org>, <containers@lists.osdl.org>,
+	<netdev@vger.kernel.org>, xfs-masters@oss.sgi.com, xfs@oss.sgi.com,
+	linux-scsi@vger.kernel.org, James.Bottomley@SteelEye.com,
+	minyard@acm.org, openipmi-developer@lists.sourceforge.net,
+	<tony.luck@intel.com>, linux-mips@linux-mips.org,
+	ralf@linux-mips.org, schwidefsky@de.ibm.com,
+	heiko.carstens@de.ibm.com, linux390@de.ibm.com,
+	linux-390@vm.marist.edu, paulus@samba.org, linuxppc-dev@ozlabs.org,
+	lethal@linux-sh.org, linuxsh-shmedia-dev@lists.sourceforge.net,
+	<ak@suse.de>, vojtech@suse.cz, clemens@ladisch.de,
+	a.zummo@towertech.it, rtc-linux@googlegroups.com,
+	linux-parport@lists.infradead.org, andrea@suse.de,
+	tim@cyberelk.net, philb@gnu.org, aharkes@cs.cmu.edu,
+	coda@cs.cmu.edu, codalist@TELEMANN.coda.cs.cmu.edu,
+	aia21@cantab.net, linux-ntfs-dev@lists.sourceforge.net,
+	mark.fasheh@oracle.com, kurt.hackel@oracle.com,
+Return-path: <linux-mips-bounce@linux-mips.org>
 To: "<Andrew Morton" <akpm@osdl.org>
 In-Reply-To: <m1ac0jc4no.fsf@ebiederm.dsl.xmission.com>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
 List-Id: netdev.vger.kernel.org
 
 From: Eric W. Biederman <ebiederm@xmission.com> - unquoted
 
+This convers the sysctl ctl_tables to use C99 initializers.
+While I was looking at it I discovered it was using a portion of
+the sysctl binary addresses space under CTL_KERN KERN_OSTYPE
+which was completely inappropriate.  So I completely removed
+all of the sysctl binary names, to remove and avoid the ABI conflict.
+
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 ---
- drivers/net/wireless/arlan-proc.c |    2 +-
- include/linux/sysctl.h            |    1 +
- 2 files changed, 2 insertions(+), 1 deletions(-)
+ arch/ia64/kernel/perfmon.c |   56 ++++++++++++++++++++++++++++++++++++-------
+ 1 files changed, 47 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/wireless/arlan-proc.c b/drivers/net/wireless/arlan-proc.c
-index 5fa9854..20499a6 100644
---- a/drivers/net/wireless/arlan-proc.c
-+++ b/drivers/net/wireless/arlan-proc.c
-@@ -1216,7 +1216,7 @@ static ctl_table arlan_table[MAX_ARLANS + 1] =
- static ctl_table arlan_root_table[] =
- {
- 	{
--		.ctl_name	= 254,
-+		.ctl_name	= CTL_ARLAN,
- 		.procname	= "arlan",
- 		.maxlen		= 0,
- 		.mode		= 0555,
-diff --git a/include/linux/sysctl.h b/include/linux/sysctl.h
-index 56d0161..f4ba72e 100644
---- a/include/linux/sysctl.h
-+++ b/include/linux/sysctl.h
-@@ -70,6 +70,7 @@ enum
- 	CTL_BUS=8,		/* Busses */
- 	CTL_ABI=9,		/* Binary emulation */
- 	CTL_CPU=10,		/* CPU stuff (speed scaling, etc) */
-+	CTL_ARLAN=254,		/* arlan wireless driver */
- 	CTL_SUNRPC=7249,	/* sunrpc debug */
- 	CTL_PM=9899,		/* frv power management */
- 	CTL_FRV=9898,		/* frv specific sysctls */
+diff --git a/arch/ia64/kernel/perfmon.c b/arch/ia64/kernel/perfmon.c
+index aa94f60..8c679ab 100644
+--- a/arch/ia64/kernel/perfmon.c
++++ b/arch/ia64/kernel/perfmon.c
+@@ -521,19 +521,57 @@ pfm_sysctl_t pfm_sysctl;
+ EXPORT_SYMBOL(pfm_sysctl);
+ 
+ static ctl_table pfm_ctl_table[]={
+-	{1, "debug", &pfm_sysctl.debug, sizeof(int), 0666, NULL, &proc_dointvec, NULL,},
+-	{2, "debug_ovfl", &pfm_sysctl.debug_ovfl, sizeof(int), 0666, NULL, &proc_dointvec, NULL,},
+-	{3, "fastctxsw", &pfm_sysctl.fastctxsw, sizeof(int), 0600, NULL, &proc_dointvec, NULL,},
+-	{4, "expert_mode", &pfm_sysctl.expert_mode, sizeof(int), 0600, NULL, &proc_dointvec, NULL,},
+-	{ 0, },
++	{
++		.ctl_name	= CTL_UNNUMBERED,
++		.procname	= "debug",
++		.data		= &pfm_sysctl.debug,
++		.maxlen		= sizeof(int),
++		.mode		= 0666,
++		.proc_handler	= &proc_dointvec,
++	},
++	{
++		.ctl_name	= CTL_UNNUMBERED,
++		.procname	= "debug_ovfl",
++		.data		= &pfm_sysctl.debug_ovfl,
++		.maxlen		= sizeof(int),
++		.mode		= 0666,
++		.proc_handler	= &proc_dointvec,
++	},
++	{
++		.ctl_name	= CTL_UNNUMBERED,
++		.procname	= "fastctxsw",
++		.data		= &pfm_sysctl.fastctxsw,
++		.maxlen		= sizeof(int),
++		.mode		= 0600,
++		.proc_handler	=  &proc_dointvec,
++	},
++	{
++		.ctl_name	= CTL_UNNUMBERED,
++		.procname	= "expert_mode",
++		.data		= &pfm_sysctl.expert_mode,
++		.maxlen		= sizeof(int),
++		.mode		= 0600,
++		.proc_handler	= &proc_dointvec,
++	},
++	{}
+ };
+ static ctl_table pfm_sysctl_dir[] = {
+-	{1, "perfmon", NULL, 0, 0755, pfm_ctl_table, },
+- 	{0,},
++	{
++		.ctl_name	= CTL_UNNUMBERED,
++		.procname	= "perfmon",
++		.mode		= 0755,
++		.child		= pfm_ctl_table,
++	},
++ 	{}
+ };
+ static ctl_table pfm_sysctl_root[] = {
+-	{1, "kernel", NULL, 0, 0755, pfm_sysctl_dir, },
+- 	{0,},
++	{
++		.ctl_name	= CTL_KERN,
++		.procname	= "kernel",
++		.mode		= 0755,
++		.child		= pfm_sysctl_dir,
++	},
++ 	{}
+ };
+ static struct ctl_table_header *pfm_sysctl_header;
+ 
 -- 
 1.4.4.1.g278f
