@@ -1,41 +1,54 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [take33 10/10] kevent: Kevent based AIO (aio_sendfile()/aio_sendfile_path()).
-Date: Wed, 17 Jan 2007 17:39:51 +0300
-Message-ID: <20070117143950.GA19434@2ka.mipt.ru>
-References: <11690154353959@2ka.mipt.ru> <11690154352501@2ka.mipt.ru> <20070117135142.GA24866@in.ibm.com>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [PATCH] Marvell Libertas 8388 802.11b/g USB driver (v2)
+Date: Wed, 17 Jan 2007 10:01:12 -0500
+Message-ID: <1169046072.2750.10.camel@localhost.localdomain>
+References: <20070116185524.GA5681@dmt>
+	 <20070117141103.0e468bf4@griffin.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: David Miller <davem@davemloft.net>,
-	Ulrich Drepper <drepper@redhat.com>,
-	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	Chase Venters <chase.venters@clientec.com>,
-	Johann Borck <johann.borck@densedata.com>,
-	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
-	Jamal Hadi Salim <hadi@cyberus.ca>,
-	Ingo Molnar <mingo@elte.hu>, linux-fsdevel@vger.kernel.org
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-To: Suparna Bhattacharya <suparna@in.ibm.com>
-Content-Disposition: inline
-In-Reply-To: <20070117135142.GA24866@in.ibm.com>
-Sender: linux-fsdevel-owner@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Marcelo Tosatti <marcelo@kvack.org>,
+	netdev <netdev@vger.kernel.org>, Jeff Garzik <jgarzik@pobox.com>,
+	"John W. Linville" <linville@redhat.com>,
+	"Luis R. Rodriguez" <mcgrof@gmail.com>,
+	Arnd Bergmann <arnd@arndb.de>,
+	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([66.187.233.31]:37534 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751410AbXAQPAz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Jan 2007 10:00:55 -0500
+To: Jiri Benc <jbenc@suse.cz>
+In-Reply-To: <20070117141103.0e468bf4@griffin.suse.cz>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 17, 2007 at 07:21:42PM +0530, Suparna Bhattacharya (suparna@in.ibm.com) wrote:
+On Wed, 2007-01-17 at 14:11 +0100, Jiri Benc wrote:
+> On Tue, 16 Jan 2007 16:55:24 -0200, Marcelo Tosatti wrote:
+> > Diff can be found at 
+> > http://dev.laptop.org/~marcelo/libertas-8388-16012007.patch
+> > 
+> > _Please_ review, this driver is targeted for mainline inclusion.
 > 
-> Since you are implementing new APIs here, have you considered doing an
-> aio_sendfilev to be able to send a header with the data ?
+> As long as there is yet another 802.11 stack inside, your chances to
+> get this included are small.
 
-It is doable, but why people do not like corking?
-With Linux less than microsecond syscall overhead it is better and more
-flexible solution, doesn't it?
+There certainly isn't; with all the whining I've been doing over the
+past two years about unified interfaces, we're not going to let a driver
+through with Yet Another 802.11 Stack.  Sheesh, at least look at the
+thing first.
 
-I'm not saying - 'no, there will not be any *v variants', just getting
-more info.
+The part is a mostly fullmac part that until now has been targetted at
+the embedded market (PSP, N80 phone, etc).  That means that the driver
+shouldn't be too large (airo is about 8000 kLOC without airo_cs) but for
+some reason it still is; we're working on that.
 
-> Regards
-> Suparna
+But could we please be constructive here, and actually take a look at
+the driver and point out problems?
 
--- 
-	Evgeniy Polyakov
+Cheers,
+Dan
+
+[1] I've done a fair amount of work on this driver along with Marcelo
+
+
