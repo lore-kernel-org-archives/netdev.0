@@ -1,69 +1,70 @@
-From: Marcelo Tosatti <marcelo@kvack.org>
-Subject: Re: [PATCH] Marvell Libertas 8388 802.11b/g USB driver (v2)
-Date: Wed, 17 Jan 2007 16:42:04 -0200
-Message-ID: <20070117184204.GA3899@dmt>
-References: <20070116185524.GA5681@dmt> <1169020333.9175.15.camel@johannes.berg>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 0/59] Cleanup sysctl
+Date: Wed, 17 Jan 2007 12:02:27 -0700
+Message-ID: <m1y7o18ojg.fsf@ebiederm.dsl.xmission.com>
+References: <m1ac0jc4no.fsf@ebiederm.dsl.xmission.com>
+	<45AE66AA.1050508@sw.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Marcelo Tosatti <marcelo@kvack.org>,
-	netdev <netdev@vger.kernel.org>, Jeff Garzik <jgarzik@pobox.com>,
-	"John W. Linville" <linville@redhat.com>,
-	Dan Williams <dcbw@redhat.com>,
-	"Luis R. Rodriguez" <mcgrof@gmail.com>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kanga.kvack.org ([66.96.29.28]:38823 "EHLO kanga.kvack.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932627AbXAQSpg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Jan 2007 13:45:36 -0500
-To: Johannes Berg <johannes@sipsolutions.net>
-Content-Disposition: inline
-In-Reply-To: <1169020333.9175.15.camel@johannes.berg>
-Sender: netdev-owner@vger.kernel.org
+Cc: Andrew Morton <akpm@osdl.org>, James.Bottomley@SteelEye.com,
+	linux-mips@linux-mips.org, linux-parport@lists.infradead.org,
+	minyard@acm.org, rtc-linux@googlegroups.com, clemens@ladisch.de,
+	heiko.carstens@de.ibm.com, xfs@oss.sgi.com,
+	linuxppc-dev@ozlabs.org, paulus@samba.org,
+	openipmi-developer@lists.sourceforge.net, linux-390@vm.marist.edu,
+	schwidefsky@de.ibm.com, tim@cyberelk.net,
+	codalist@TELEMANN.coda.cs.cmu.edu, a.zummo@towertech.it,
+	tony.luck@intel.com, vojtech@suse.cz, linux-scsi@vger.kernel.org,
+	xfs-masters@oss.sgi.com, linux-ntfs-dev@lists.sourceforge.net,
+	netdev@vger.kernel.org, aia21@cantab.net, aharkes@cs.cmu.edu,
+	linux-kernel@vger.kernel.org, ralf@linux-mips.org,
+	mark.fasheh@oracle.com, coda@cs.cmu.edu, lethal@linux-sh.org,
+	kurt.hackel@oracle.com,
+	Linux Containers <containers@lists.osdl.org>,
+	linux390@de.ibm.com, philb@gnu.org, andrea@suse.de,
+	linuxsh-shmed
+Return-path: <linux-mips-bounce@linux-mips.org>
+To: Kirill Korotaev <dev@sw.ru>
+In-Reply-To: <45AE66AA.1050508@sw.ru> (Kirill Korotaev's message of "Wed, 17
+	Jan 2007 21:10:50 +0300")
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 17, 2007 at 07:52:13AM +0000, Johannes Berg wrote:
-> On Tue, 2007-01-16 at 16:55 -0200, Marcelo Tosatti wrote:
-> 
-> > _Please_ review, this driver is targeted for mainline inclusion.
-> > 
-> > There have been almost no comments resulting from the first submission.
-> 
-> We had looked over the previous version a few days ago and noticed that
-> the biggest part of the code is a mostly generic wireless stack that
-> you're including along with the driver, essentially all the wlan_*
-> files. I don't think that's going to fly.
+Kirill Korotaev <dev@sw.ru> writes:
 
-How come is it a generic wireless stack? As Dan mentioned, the driver is
-large, but the wireless stack is _inside_ the firmware.
+> Eric, really good job!
+>
+> Patches: 1-13, 15-24, 26-32, 34-44, 46-49, 52-55, 57 (all except below)
+> Acked-By: Kirill Korotaev <dev@openvz.org>
+>
+> 14/59 - minor (extra space)
+> 25/59 - minor note	
+> 33/59 - not sorted sysctl IDs
+> 45/59 - typo
+> 50/59 - copyright/file note
+> 51/59 - copyright/file name/kconfig option notes
+>
+> 56,58,59/59 - will review tomorrow
+>
+> another issue I have to think over is removal of de->owner.
+> Alexey Dobriyan has sent recently patching fixing /proc <-> modules refcounting.
+> I guess w/o these patches your changes are not safe if proc_handler or strategy
+> are functions from the module.
 
-It does not implement a wireless stack. Its simply an interface to the
-firmware.
+sysctl uses the logic in use_table/unuse_table to keep it safe from module
+remove while it is in use.  And it does the logic in the generic code
+in either do_rw_proc or do_sysctl.  This definitely works on the sys_sysctl path
+and it appears to work in the do_rw_proc case, things are a little trickier
+there so someone may have missed a race somewhere.  In my rewrite of proc
+it works exactly like the binary case so we are good there. 
 
-And using the Marvell provided firmware is a requirement for OLPC
-machines, where the CPU will be shut down but the chip+firmware will
-continue to forward packets in the mesh network (there are extreme power
-saving constraints on these machines).
+It is certainly the intention of the sysctl implementation that users
+should not have to set de->owner.  So if there is a problem with 
+removing de->owner it is a bug in the sysctl implementation not in
+the code where it was removed.
 
-Quoting Dan Williams, who quoted the device documentation:
+Normal proc users definitely have to set de->owner to be safe, but sysctl has
+always been it's own thing, with different rules. 
 
-"This basic architecture is typical of a thick firmware architecture,
-where the WLAN firmware handles all 802.11 MAC Management tasks."
-
-"The host driver downloads standard 802.3 frames to the firmware to
-transmit over the wireless link as 802.11 frames."
-
-So it really looks like a fullmac chip, although it might require higher
-interaction from the driver part, in comparison with IPW.
-
-Its also important to note, regarding the size in LOC, that the driver
-implements most of the firmware/chip configuration knobs, and there are
-a _lot_ of them, unlike smaller in-tree drivers. (ie. the driver is
-highly configurable). See the README file for a list.
-
-> Also a bunch of minor things but I'd rather look over this version again
-> before commenting on that.
-
-Please go ahead and comment on all minor issues you see so we can fix
-them.
+Eric
