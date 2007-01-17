@@ -1,2435 +1,2375 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: [take33 2/10] kevent: Core files.
-Date: Wed, 17 Jan 2007 09:30:33 +0300
-Message-ID: <11690154332203@2ka.mipt.ru>
-References: <11690154333401@2ka.mipt.ru>
-Reply-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+From: "Sivakumar Subramani" <Sivakumar.Subramani@neterion.com>
+Subject: RE: [PATCH 2.6.20 5/5] s2io: updates for s2io driver.
+Date: Wed, 17 Jan 2007 01:51:27 -0500
+Message-ID: <78C9135A3D2ECE4B8162EBDCE82CAD7701187A25@nekter>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: David Miller <davem@davemloft.net>,
-	Ulrich Drepper <drepper@redhat.com>,
-	Andrew Morton <akpm@osdl.org>,
-	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	Chase Venters <chase.venters@clientec.com>,
-	Johann Borck <johann.borck@densedata.com>,
-	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
-	Jamal Hadi Salim <hadi@cyberus.ca>,
-	Ingo Molnar <mingo@elte.hu>, linux-fsdevel@vger.kernel.org
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <11690154333401@2ka.mipt.ru>
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Sender: linux-fsdevel-owner@vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Leonid Grossman" <Leonid.Grossman@neterion.com>,
+	"Alicia Pena" <Alicia.Pena@neterion.com>,
+	"Sreenivasa Honnur" <Sreenivasa.Honnur@neterion.com>,
+	"Ramkrishna Vepa" <Ramkrishna.Vepa@neterion.com>,
+	"Sriram Rapuru" <Sriram.Rapuru@neterion.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from barracuda.s2io.com ([72.1.205.138]:42743 "EHLO
+	barracuda.s2io.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751300AbXAQHIO convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jan 2007 02:08:14 -0500
+Received: from owa.neterion.com (unknown [72.1.205.142])
+	by barracuda.s2io.com (Spam Firewall) with ESMTP id 33AA02000282
+	for <netdev@vger.kernel.org>; Wed, 17 Jan 2007 01:52:32 -0500 (EST)
+Content-class: urn:content-classes:message
+To: "Ananda Raju" <Ananda.Raju@neterion.com>, <netdev@vger.kernel.org>,
+	<jeff@garzik.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hello,
 
-Core files.
+We are planning to submit one more patch on top these patches. Can you
+please let me know whether below patches was accepted or not?
 
-This patch includes core kevent files:
- * userspace controlling
- * kernelspace interfaces
- * initialization
- * notification state machines
+Thanks,
+~Siva 
+-----Original Message-----
+From: Ananda Raju [mailto:Ananda.Raju@neterion.com] 
+Sent: Thursday, January 11, 2007 1:25 PM
+To: netdev@vger.kernel.org; jeff@garzik.org
+Cc: Leonid Grossman; Sivakumar Subramani; Alicia Pena; Ananda Raju;
+sreenivasa.honnur@netrion.com; Ramkrishna Vepa
+Subject: [PATCH 2.6.20 5/5] s2io: updates for s2io driver.
 
-Some bits of documentation can be found on project's homepage (and links from there):
-http://tservice.net.ru/~s0mbre/old/?section=projects&item=kevent
+Hello, 
 
-Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+List of changes in this patch:
 
-diff --git a/arch/i386/kernel/syscall_table.S b/arch/i386/kernel/syscall_table.S
-index 2697e92..1b76e9d 100644
---- a/arch/i386/kernel/syscall_table.S
-+++ b/arch/i386/kernel/syscall_table.S
-@@ -319,3 +319,10 @@ ENTRY(sys_call_table)
- 	.long sys_move_pages
- 	.long sys_getcpu
- 	.long sys_epoll_pwait
-+	.long sys_kevent_get_events
-+	.long sys_kevent_ctl		/* 320 */
-+	.long sys_kevent_wait
-+	.long sys_kevent_commit
-+	.long sys_kevent_init
-+	.lond sys_aio_sendfile
-+	.lond sys_aio_sendfile_path
-diff --git a/arch/x86_64/ia32/ia32entry.S b/arch/x86_64/ia32/ia32entry.S
-index b4aa875..df87cde 100644
---- a/arch/x86_64/ia32/ia32entry.S
-+++ b/arch/x86_64/ia32/ia32entry.S
-@@ -714,8 +714,15 @@ ia32_sys_call_table:
- 	.quad compat_sys_get_robust_list
- 	.quad sys_splice
- 	.quad sys_sync_file_range
--	.quad sys_tee
-+	.quad sys_tee			/* 315 */
- 	.quad compat_sys_vmsplice
- 	.quad compat_sys_move_pages
- 	.quad sys_getcpu
-+	.quad sys_kevent_get_events
-+	.quad sys_kevent_ctl		/* 320 */
-+	.quad sys_kevent_wait
-+	.quad sys_kevent_commit
-+	.quad sys_kevent_init
-+	.quad sys_aio_sendfile
-+	.quad sys_aio_sendfile_path
- ia32_syscall_end:		
-diff --git a/include/asm-i386/unistd.h b/include/asm-i386/unistd.h
-index 833fa17..5800a2e 100644
---- a/include/asm-i386/unistd.h
-+++ b/include/asm-i386/unistd.h
-@@ -325,10 +325,17 @@
- #define __NR_move_pages		317
- #define __NR_getcpu		318
- #define __NR_epoll_pwait	319
-+#define __NR_kevent_get_events	320
-+#define __NR_kevent_ctl		321
-+#define __NR_kevent_wait	322
-+#define __NR_kevent_commit	323
-+#define __NR_kevent_init	324
-+#define __NR_aio_sendfile	325
-+#define __NR_aio_sendfile_path	326
+1. Removed namespace collisions due to usage of nic_t as per Ralf's
+patch
+   (ralf@linux-mips.org).
+
+Signed-off-by: Sivakumar Subramani <sivakumar.subramani@neterion.com>
+---
+diff -urpN patch4/drivers/net/s2io.c patch5/drivers/net/s2io.c
+--- patch4/drivers/net/s2io.c	2007-01-09 01:12:42.000000000 +0530
++++ patch5/drivers/net/s2io.c	2007-01-09 12:57:03.000000000 +0530
+@@ -77,7 +77,7 @@
+ #include "s2io.h"
+ #include "s2io-regs.h"
  
- #ifdef __KERNEL__
+-#define DRV_VERSION "2.0.15.2"
++#define DRV_VERSION "2.0.16.1"
  
--#define NR_syscalls 320
-+#define NR_syscalls 327
+ /* S2io Driver name & version. */
+ static char s2io_driver_name[] = "Neterion";
+@@ -86,7 +86,7 @@ static char s2io_driver_version[] = DRV_
+ static int rxd_size[4] = {32,48,48,64};
+ static int rxd_count[4] = {127,85,85,63};
  
- #define __ARCH_WANT_IPC_PARSE_VERSION
- #define __ARCH_WANT_OLD_READDIR
-diff --git a/include/asm-x86_64/unistd.h b/include/asm-x86_64/unistd.h
-index c5f596e..6984f7c 100644
---- a/include/asm-x86_64/unistd.h
-+++ b/include/asm-x86_64/unistd.h
-@@ -619,8 +619,22 @@ __SYSCALL(__NR_sync_file_range, sys_sync_file_range)
- __SYSCALL(__NR_vmsplice, sys_vmsplice)
- #define __NR_move_pages		279
- __SYSCALL(__NR_move_pages, sys_move_pages)
+-static inline int RXD_IS_UP2DT(RxD_t *rxdp)
++static inline int RXD_IS_UP2DT(struct RxD_t *rxdp)
+ {
+ 	int ret;
+ 
+@@ -111,9 +111,9 @@ static inline int RXD_IS_UP2DT(RxD_t *rx
+ #define TASKLET_IN_USE test_and_set_bit(0, (&sp->tasklet_status))
+ #define PANIC	1
+ #define LOW	2
+-static inline int rx_buffer_level(nic_t * sp, int rxb_size, int ring)
++static inline int rx_buffer_level(struct s2io_nic * sp, int rxb_size,
+int ring)
+ {
+-	mac_info_t *mac_control;
++	struct mac_info *mac_control;
+ 
+ 	mac_control = &sp->mac_control;
+ 	if (rxb_size <= rxd_count[sp->rxd_mode])
+@@ -286,7 +286,7 @@ static char ethtool_stats_keys[][ETH_GST
+ static void s2io_vlan_rx_register(struct net_device *dev,
+ 					struct vlan_group *grp)
+ {
+-	nic_t *nic = dev->priv;
++	struct s2io_nic *nic = dev->priv;
+ 	unsigned long flags;
+ 
+ 	spin_lock_irqsave(&nic->tx_lock, flags);
+@@ -297,7 +297,7 @@ static void s2io_vlan_rx_register(struct
+ /* Unregister the vlan */
+ static void s2io_vlan_rx_kill_vid(struct net_device *dev, unsigned long
+vid)
+ {
+-	nic_t *nic = dev->priv;
++	struct s2io_nic *nic = dev->priv;
+ 	unsigned long flags;
+ 
+ 	spin_lock_irqsave(&nic->tx_lock, flags);
+@@ -458,14 +458,14 @@ static int init_shared_mem(struct s2io_n
+ 	u32 size;
+ 	void *tmp_v_addr, *tmp_v_addr_next;
+ 	dma_addr_t tmp_p_addr, tmp_p_addr_next;
+-	RxD_block_t *pre_rxd_blk = NULL;
++	struct RxD_block *pre_rxd_blk = NULL;
+ 	int i, j, blk_cnt;
+ 	int lst_size, lst_per_page;
+ 	struct net_device *dev = nic->dev;
+ 	unsigned long tmp;
+-	buffAdd_t *ba;
++	struct buffAdd *ba;
+ 
+-	mac_info_t *mac_control;
++	struct mac_info *mac_control;
+ 	struct config_param *config;
+ 
+ 	mac_control = &nic->mac_control;
+@@ -483,12 +483,12 @@ static int init_shared_mem(struct s2io_n
+ 		return -EINVAL;
+ 	}
+ 
+-	lst_size = (sizeof(TxD_t) * config->max_txds);
++	lst_size = (sizeof(struct TxD) * config->max_txds);
+ 	lst_per_page = PAGE_SIZE / lst_size;
+ 
+ 	for (i = 0; i < config->tx_fifo_num; i++) {
+ 		int fifo_len = config->tx_cfg[i].fifo_len;
+-		int list_holder_size = fifo_len *
+sizeof(list_info_hold_t);
++		int list_holder_size = fifo_len * sizeof(struct
+list_info_hold);
+ 		mac_control->fifos[i].list_info =
+kmalloc(list_holder_size,
+ 							  GFP_KERNEL);
+ 		if (!mac_control->fifos[i].list_info) {
+@@ -580,9 +580,9 @@ static int init_shared_mem(struct s2io_n
+ 			mac_control->rings[i].block_count;
+ 	}
+ 	if (nic->rxd_mode == RXD_MODE_1)
+-		size = (size * (sizeof(RxD1_t)));
++		size = (size * (sizeof(struct RxD1)));
+ 	else
+-		size = (size * (sizeof(RxD3_t)));
++		size = (size * (sizeof(struct RxD3)));
+ 
+ 	for (i = 0; i < config->rx_ring_num; i++) {
+ 		mac_control->rings[i].rx_curr_get_info.block_index = 0;
+@@ -600,7 +600,7 @@ static int init_shared_mem(struct s2io_n
+ 				(rxd_count[nic->rxd_mode] + 1);
+ 		/*  Allocating all the Rx blocks */
+ 		for (j = 0; j < blk_cnt; j++) {
+-			rx_block_info_t *rx_blocks;
++			struct rx_block_info *rx_blocks;
+ 			int l;
+ 
+ 			rx_blocks = &mac_control->rings[i].rx_blocks[j];
+@@ -620,7 +620,7 @@ static int init_shared_mem(struct s2io_n
+ 			memset(tmp_v_addr, 0, size);
+ 			rx_blocks->block_virt_addr = tmp_v_addr;
+ 			rx_blocks->block_dma_addr = tmp_p_addr;
+-			rx_blocks->rxds = kmalloc(sizeof(rxd_info_t)*
++			rx_blocks->rxds = kmalloc(sizeof(struct
+rxd_info)*
+ 
+rxd_count[nic->rxd_mode],
+ 						  GFP_KERNEL);
+ 			if (!rx_blocks->rxds)
+@@ -647,7 +647,7 @@ static int init_shared_mem(struct s2io_n
+ 				mac_control->rings[i].rx_blocks[(j + 1)
+%
+ 					      blk_cnt].block_dma_addr;
+ 
+-			pre_rxd_blk = (RxD_block_t *) tmp_v_addr;
++			pre_rxd_blk = (struct RxD_block *) tmp_v_addr;
+ 			pre_rxd_blk->reserved_2_pNext_RxD_block =
+ 			    (unsigned long) tmp_v_addr_next;
+ 			pre_rxd_blk->pNext_RxD_Blk_physical =
+@@ -663,14 +663,14 @@ static int init_shared_mem(struct s2io_n
+ 			blk_cnt = config->rx_cfg[i].num_rxd /
+ 			   (rxd_count[nic->rxd_mode]+ 1);
+ 			mac_control->rings[i].ba =
+-				kmalloc((sizeof(buffAdd_t *) * blk_cnt),
++				kmalloc((sizeof(struct buffAdd *) *
+blk_cnt),
+ 				     GFP_KERNEL);
+ 			if (!mac_control->rings[i].ba)
+ 				return -ENOMEM;
+ 			for (j = 0; j < blk_cnt; j++) {
+ 				int k = 0;
+ 				mac_control->rings[i].ba[j] =
+-					kmalloc((sizeof(buffAdd_t) *
++					kmalloc((sizeof(struct buffAdd)
+*
+ 
+(rxd_count[nic->rxd_mode] + 1)),
+ 						GFP_KERNEL);
+ 				if (!mac_control->rings[i].ba[j])
+@@ -702,7 +702,7 @@ static int init_shared_mem(struct s2io_n
+ 	}
+ 
+ 	/* Allocation and initialization of Statistics block */
+-	size = sizeof(StatInfo_t);
++	size = sizeof(struct stat_block);
+ 	mac_control->stats_mem = pci_alloc_consistent
+ 	    (nic->pdev, size, &mac_control->stats_mem_phy);
+ 
+@@ -717,7 +717,7 @@ static int init_shared_mem(struct s2io_n
+ 	mac_control->stats_mem_sz = size;
+ 
+ 	tmp_v_addr = mac_control->stats_mem;
+-	mac_control->stats_info = (StatInfo_t *) tmp_v_addr;
++	mac_control->stats_info = (struct stat_block *) tmp_v_addr;
+ 	memset(tmp_v_addr, 0, size);
+ 	DBG_PRINT(INIT_DBG, "%s:Ring Mem PHY: 0x%llx\n", dev->name,
+ 		  (unsigned long long) tmp_p_addr);
+@@ -737,7 +737,7 @@ static void free_shared_mem(struct s2io_
+ 	int i, j, blk_cnt, size;
+ 	void *tmp_v_addr;
+ 	dma_addr_t tmp_p_addr;
+-	mac_info_t *mac_control;
++	struct mac_info *mac_control;
+ 	struct config_param *config;
+ 	int lst_size, lst_per_page;
+ 	struct net_device *dev = nic->dev;
+@@ -748,7 +748,7 @@ static void free_shared_mem(struct s2io_
+ 	mac_control = &nic->mac_control;
+ 	config = &nic->config;
+ 
+-	lst_size = (sizeof(TxD_t) * config->max_txds);
++	lst_size = (sizeof(struct TxD) * config->max_txds);
+ 	lst_per_page = PAGE_SIZE / lst_size;
+ 
+ 	for (i = 0; i < config->tx_fifo_num; i++) {
+@@ -811,7 +811,7 @@ static void free_shared_mem(struct s2io_
+ 				if (!mac_control->rings[i].ba[j])
+ 					continue;
+ 				while (k != rxd_count[nic->rxd_mode]) {
+-					buffAdd_t *ba =
++					struct buffAdd *ba =
+ 
+&mac_control->rings[i].ba[j][k];
+ 					kfree(ba->ba_0_org);
+ 					kfree(ba->ba_1_org);
+@@ -837,9 +837,9 @@ static void free_shared_mem(struct s2io_
+  * s2io_verify_pci_mode -
+  */
+ 
+-static int s2io_verify_pci_mode(nic_t *nic)
++static int s2io_verify_pci_mode(struct s2io_nic *nic)
+ {
+-	XENA_dev_config_t __iomem *bar0 = nic->bar0;
++	struct XENA_dev_config __iomem *bar0 = nic->bar0;
+ 	register u64 val64 = 0;
+ 	int     mode;
+ 
+@@ -870,9 +870,9 @@ static int bus_speed[8] = {33, 133, 133,
+ /**
+  * s2io_print_pci_mode -
+  */
+-static int s2io_print_pci_mode(nic_t *nic)
++static int s2io_print_pci_mode(struct s2io_nic *nic)
+ {
+-	XENA_dev_config_t __iomem *bar0 = nic->bar0;
++	struct XENA_dev_config __iomem *bar0 = nic->bar0;
+ 	register u64 val64 = 0;
+ 	int	mode;
+ 	struct config_param *config = &nic->config;
+@@ -940,13 +940,13 @@ static int s2io_print_pci_mode(nic_t *ni
+ 
+ static int init_nic(struct s2io_nic *nic)
+ {
+-	XENA_dev_config_t __iomem *bar0 = nic->bar0;
++	struct XENA_dev_config __iomem *bar0 = nic->bar0;
+ 	struct net_device *dev = nic->dev;
+ 	register u64 val64 = 0;
+ 	void __iomem *add;
+ 	u32 time;
+ 	int i, j;
+-	mac_info_t *mac_control;
++	struct mac_info *mac_control;
+ 	struct config_param *config;
+ 	int dtx_cnt = 0;
+ 	unsigned long long mem_share;
+@@ -1629,7 +1629,7 @@ static int init_nic(struct s2io_nic *nic
+ #define LINK_UP_DOWN_INTERRUPT		1
+ #define MAC_RMAC_ERR_TIMER		2
+ 
+-static int s2io_link_fault_indication(nic_t *nic)
++static int s2io_link_fault_indication(struct s2io_nic *nic)
+ {
+ 	if (nic->intr_type != INTA)
+ 		return MAC_RMAC_ERR_TIMER;
+@@ -1652,7 +1652,7 @@ static int s2io_link_fault_indication(ni
+ 
+ static void en_dis_able_nic_intrs(struct s2io_nic *nic, u16 mask, int
+flag)
+ {
+-	XENA_dev_config_t __iomem *bar0 = nic->bar0;
++	struct XENA_dev_config __iomem *bar0 = nic->bar0;
+ 	register u64 val64 = 0, temp64 = 0;
+ 
+ 	/*  Top level interrupt classification */
+@@ -1774,10 +1774,10 @@ static void en_dis_able_nic_intrs(struct
+  *  Return: 1 If PCC is quiescence
+  *          0 If PCC is not quiescence
+  */
+-static int verify_pcc_quiescent(nic_t *sp, int flag)
++static int verify_pcc_quiescent(struct s2io_nic *sp, int flag)
+ {
+ 	int ret = 0, herc;
+-	XENA_dev_config_t __iomem *bar0 = sp->bar0;
++	struct XENA_dev_config __iomem *bar0 = sp->bar0;
+ 	u64 val64 = readq(&bar0->adapter_status);
+ 	
+ 	herc = (sp->device_type == XFRAME_II_DEVICE);
+@@ -1814,10 +1814,10 @@ static int verify_pcc_quiescent(nic_t *s
+  *          0 If Xena is not quiescence
+  */
+ 
+-static int verify_xena_quiescence(nic_t *sp)
++static int verify_xena_quiescence(struct s2io_nic *sp)
+ {
+ 	int  mode;
+-	XENA_dev_config_t __iomem *bar0 = sp->bar0;
++	struct XENA_dev_config __iomem *bar0 = sp->bar0;
+ 	u64 val64 = readq(&bar0->adapter_status);
+ 	mode = s2io_verify_pci_mode(sp);
+ 
+@@ -1881,9 +1881,9 @@ static int verify_xena_quiescence(nic_t 
+  *
+  */
+ 
+-static void fix_mac_address(nic_t * sp)
++static void fix_mac_address(struct s2io_nic * sp)
+ {
+-	XENA_dev_config_t __iomem *bar0 = sp->bar0;
++	struct XENA_dev_config __iomem *bar0 = sp->bar0;
+ 	u64 val64;
+ 	int i = 0;
+ 
+@@ -1909,11 +1909,11 @@ static void fix_mac_address(nic_t * sp)
+ 
+ static int start_nic(struct s2io_nic *nic)
+ {
+-	XENA_dev_config_t __iomem *bar0 = nic->bar0;
++	struct XENA_dev_config __iomem *bar0 = nic->bar0;
+ 	struct net_device *dev = nic->dev;
+ 	register u64 val64 = 0;
+ 	u16 subid, i;
+-	mac_info_t *mac_control;
++	struct mac_info *mac_control;
+ 	struct config_param *config;
+ 
+ 	mac_control = &nic->mac_control;
+@@ -2018,11 +2018,12 @@ static int start_nic(struct s2io_nic *ni
+ /**
+  * s2io_txdl_getskb - Get the skb from txdl, unmap and return skb
+  */
+-static struct sk_buff *s2io_txdl_getskb(fifo_info_t *fifo_data, TxD_t
+*txdlp, int get_off)
++static struct sk_buff *s2io_txdl_getskb(struct fifo_info *fifo_data,
+struct \
++					TxD *txdlp, int get_off)
+ {
+-	nic_t *nic = fifo_data->nic;
++	struct s2io_nic *nic = fifo_data->nic;
+ 	struct sk_buff *skb;
+-	TxD_t *txds;
++	struct TxD *txds;
+ 	u16 j, frg_cnt;
+ 
+ 	txds = txdlp;
+@@ -2036,7 +2037,7 @@ static struct sk_buff *s2io_txdl_getskb(
+ 	skb = (struct sk_buff *) ((unsigned long)
+ 			txds->Host_Control);
+ 	if (!skb) {
+-		memset(txdlp, 0, (sizeof(TxD_t) * fifo_data->max_txds));
++		memset(txdlp, 0, (sizeof(struct TxD) *
+fifo_data->max_txds));
+ 		return NULL;
+ 	}
+ 	pci_unmap_single(nic->pdev, (dma_addr_t)
+@@ -2055,7 +2056,7 @@ static struct sk_buff *s2io_txdl_getskb(
+ 				       frag->size, PCI_DMA_TODEVICE);
+ 		}
+ 	}
+-	memset(txdlp,0, (sizeof(TxD_t) * fifo_data->max_txds));
++	memset(txdlp,0, (sizeof(struct TxD) * fifo_data->max_txds));
+ 	return(skb);
+ }
+ 
+@@ -2071,9 +2072,9 @@ static void free_tx_buffers(struct s2io_
+ {
+ 	struct net_device *dev = nic->dev;
+ 	struct sk_buff *skb;
+-	TxD_t *txdp;
++	struct TxD *txdp;
+ 	int i, j;
+-	mac_info_t *mac_control;
++	struct mac_info *mac_control;
+ 	struct config_param *config;
+ 	int cnt = 0;
+ 
+@@ -2082,7 +2083,7 @@ static void free_tx_buffers(struct s2io_
+ 
+ 	for (i = 0; i < config->tx_fifo_num; i++) {
+ 		for (j = 0; j < config->tx_cfg[i].fifo_len - 1; j++) {
+-			txdp = (TxD_t *)
+mac_control->fifos[i].list_info[j].
++			txdp = (struct TxD *)
+mac_control->fifos[i].list_info[j].
+ 			    list_virt_addr;
+ 			skb = s2io_txdl_getskb(&mac_control->fifos[i],
+txdp, j);
+ 			if (skb) {
+@@ -2110,10 +2111,10 @@ static void free_tx_buffers(struct s2io_
+ 
+ static void stop_nic(struct s2io_nic *nic)
+ {
+-	XENA_dev_config_t __iomem *bar0 = nic->bar0;
++	struct XENA_dev_config __iomem *bar0 = nic->bar0;
+ 	register u64 val64 = 0;
+ 	u16 interruptible;
+-	mac_info_t *mac_control;
++	struct mac_info *mac_control;
+ 	struct config_param *config;
+ 
+ 	mac_control = &nic->mac_control;
+@@ -2131,14 +2132,15 @@ static void stop_nic(struct s2io_nic *ni
+ 	writeq(val64, &bar0->adapter_control);
+ }
+ 
+-static int fill_rxd_3buf(nic_t *nic, RxD_t *rxdp, struct sk_buff *skb)
++static int fill_rxd_3buf(struct s2io_nic *nic, struct RxD_t *rxdp,
+struct \
++				sk_buff *skb)
+ {
+ 	struct net_device *dev = nic->dev;
+ 	struct sk_buff *frag_list;
+ 	void *tmp;
+ 
+ 	/* Buffer-1 receives L3/L4 headers */
+-	((RxD3_t*)rxdp)->Buffer1_ptr = pci_map_single
++	((struct RxD3*)rxdp)->Buffer1_ptr = pci_map_single
+ 			(nic->pdev, skb->data, l3l4hdr_size + 4,
+ 			PCI_DMA_FROMDEVICE);
+ 
+@@ -2156,7 +2158,7 @@ static int fill_rxd_3buf(nic_t *nic, RxD
+ 	frag_list->tail = tmp;
+ 
+ 	/* Buffer-2 receives L4 data payload */
+-	((RxD3_t*)rxdp)->Buffer2_ptr = pci_map_single(nic->pdev,
++	((struct RxD3*)rxdp)->Buffer2_ptr = pci_map_single(nic->pdev,
+ 				frag_list->data, dev->mtu,
+ 				PCI_DMA_FROMDEVICE);
+ 	rxdp->Control_2 |= SET_BUFFER1_SIZE_3(l3l4hdr_size + 4);
+@@ -2190,16 +2192,16 @@ static int fill_rx_buffers(struct s2io_n
+ {
+ 	struct net_device *dev = nic->dev;
+ 	struct sk_buff *skb;
+-	RxD_t *rxdp;
++	struct RxD_t *rxdp;
+ 	int off, off1, size, block_no, block_no1;
+ 	u32 alloc_tab = 0;
+ 	u32 alloc_cnt;
+-	mac_info_t *mac_control;
++	struct mac_info *mac_control;
+ 	struct config_param *config;
+ 	u64 tmp;
+-	buffAdd_t *ba;
++	struct buffAdd *ba;
+ 	unsigned long flags;
+-	RxD_t *first_rxdp = NULL;
++	struct RxD_t *first_rxdp = NULL;
+ 
+ 	mac_control = &nic->mac_control;
+ 	config = &nic->config;
+@@ -2281,9 +2283,9 @@ static int fill_rx_buffers(struct s2io_n
+ 		}
+ 		if (nic->rxd_mode == RXD_MODE_1) {
+ 			/* 1 buffer mode - normal operation mode */
+-			memset(rxdp, 0, sizeof(RxD1_t));
++			memset(rxdp, 0, sizeof(struct RxD1));
+ 			skb_reserve(skb, NET_IP_ALIGN);
+-			((RxD1_t*)rxdp)->Buffer0_ptr = pci_map_single
++			((struct RxD1*)rxdp)->Buffer0_ptr =
+pci_map_single
+ 			    (nic->pdev, skb->data, size - NET_IP_ALIGN,
+ 				PCI_DMA_FROMDEVICE);
+ 			rxdp->Control_2 = SET_BUFFER0_SIZE_1(size -
+NET_IP_ALIGN);
+@@ -2300,7 +2302,7 @@ static int fill_rx_buffers(struct s2io_n
+ 			 * payload
+ 			 */
+ 
+-			memset(rxdp, 0, sizeof(RxD3_t));
++			memset(rxdp, 0, sizeof(struct RxD3));
+ 			ba =
+&mac_control->rings[ring_no].ba[block_no][off];
+ 			skb_reserve(skb, BUF0_LEN);
+ 			tmp = (u64)(unsigned long) skb->data;
+@@ -2309,13 +2311,13 @@ static int fill_rx_buffers(struct s2io_n
+ 			skb->data = (void *) (unsigned long)tmp;
+ 			skb->tail = (void *) (unsigned long)tmp;
+ 
+-			if (!(((RxD3_t*)rxdp)->Buffer0_ptr))
+-				((RxD3_t*)rxdp)->Buffer0_ptr =
++			if (!(((struct RxD3*)rxdp)->Buffer0_ptr))
++				((struct RxD3*)rxdp)->Buffer0_ptr =
+ 				   pci_map_single(nic->pdev, ba->ba_0,
+BUF0_LEN,
+ 					   PCI_DMA_FROMDEVICE);
+ 			else
+ 
+pci_dma_sync_single_for_device(nic->pdev,
+-				    (dma_addr_t)
+((RxD3_t*)rxdp)->Buffer0_ptr,
++				    (dma_addr_t) ((struct
+RxD3*)rxdp)->Buffer0_ptr,
+ 				    BUF0_LEN, PCI_DMA_FROMDEVICE);
+ 			rxdp->Control_2 = SET_BUFFER0_SIZE_3(BUF0_LEN);
+ 			if (nic->rxd_mode == RXD_MODE_3B) {
+@@ -2325,13 +2327,13 @@ static int fill_rx_buffers(struct s2io_n
+ 				 * Buffer2 will have L3/L4 header plus
+ 				 * L4 payload
+ 				 */
+-				((RxD3_t*)rxdp)->Buffer2_ptr =
+pci_map_single
++				((struct RxD3*)rxdp)->Buffer2_ptr =
+pci_map_single
+ 				(nic->pdev, skb->data, dev->mtu + 4,
+ 						PCI_DMA_FROMDEVICE);
+ 
+ 				/* Buffer-1 will be dummy buffer. Not
+used */
+-				if (!(((RxD3_t*)rxdp)->Buffer1_ptr)) {
+-					((RxD3_t*)rxdp)->Buffer1_ptr =
++				if (!(((struct
+RxD3*)rxdp)->Buffer1_ptr)) {
++					((struct
+RxD3*)rxdp)->Buffer1_ptr =
+ 
+pci_map_single(nic->pdev,
+ 						ba->ba_1, BUF1_LEN,
+ 						PCI_DMA_FROMDEVICE);
+@@ -2391,9 +2393,9 @@ static void free_rxd_blk(struct s2io_nic
+ 	struct net_device *dev = sp->dev;
+ 	int j;
+ 	struct sk_buff *skb;
+-	RxD_t *rxdp;
+-	mac_info_t *mac_control;
+-	buffAdd_t *ba;
++	struct RxD_t *rxdp;
++	struct mac_info *mac_control;
++	struct buffAdd *ba;
+ 
+ 	mac_control = &sp->mac_control;
+ 	for (j = 0 ; j < rxd_count[sp->rxd_mode]; j++) {
+@@ -2406,41 +2408,41 @@ static void free_rxd_blk(struct s2io_nic
+ 		}
+ 		if (sp->rxd_mode == RXD_MODE_1) {
+ 			pci_unmap_single(sp->pdev, (dma_addr_t)
+-				 ((RxD1_t*)rxdp)->Buffer0_ptr,
++				 ((struct RxD1*)rxdp)->Buffer0_ptr,
+ 				 dev->mtu +
+ 				 HEADER_ETHERNET_II_802_3_SIZE
+ 				 + HEADER_802_2_SIZE +
+ 				 HEADER_SNAP_SIZE,
+ 				 PCI_DMA_FROMDEVICE);
+-			memset(rxdp, 0, sizeof(RxD1_t));
++			memset(rxdp, 0, sizeof(struct RxD1));
+ 		} else if(sp->rxd_mode == RXD_MODE_3B) {
+ 			ba = &mac_control->rings[ring_no].
+ 				ba[blk][j];
+ 			pci_unmap_single(sp->pdev, (dma_addr_t)
+-				 ((RxD3_t*)rxdp)->Buffer0_ptr,
++				 ((struct RxD3*)rxdp)->Buffer0_ptr,
+ 				 BUF0_LEN,
+ 				 PCI_DMA_FROMDEVICE);
+ 			pci_unmap_single(sp->pdev, (dma_addr_t)
+-				 ((RxD3_t*)rxdp)->Buffer1_ptr,
++				 ((struct RxD3*)rxdp)->Buffer1_ptr,
+ 				 BUF1_LEN,
+ 				 PCI_DMA_FROMDEVICE);
+ 			pci_unmap_single(sp->pdev, (dma_addr_t)
+-				 ((RxD3_t*)rxdp)->Buffer2_ptr,
++				 ((struct RxD3*)rxdp)->Buffer2_ptr,
+ 				 dev->mtu + 4,
+ 				 PCI_DMA_FROMDEVICE);
+-			memset(rxdp, 0, sizeof(RxD3_t));
++			memset(rxdp, 0, sizeof(struct RxD3));
+ 		} else {
+ 			pci_unmap_single(sp->pdev, (dma_addr_t)
+-				((RxD3_t*)rxdp)->Buffer0_ptr, BUF0_LEN,
++				((struct RxD3*)rxdp)->Buffer0_ptr,
+BUF0_LEN,
+ 				PCI_DMA_FROMDEVICE);
+ 			pci_unmap_single(sp->pdev, (dma_addr_t)
+-				((RxD3_t*)rxdp)->Buffer1_ptr,
++				((struct RxD3*)rxdp)->Buffer1_ptr,
+ 				l3l4hdr_size + 4,
+ 				PCI_DMA_FROMDEVICE);
+ 			pci_unmap_single(sp->pdev, (dma_addr_t)
+-				((RxD3_t*)rxdp)->Buffer2_ptr, dev->mtu,
++				((struct RxD3*)rxdp)->Buffer2_ptr,
+dev->mtu,
+ 				PCI_DMA_FROMDEVICE);
+-			memset(rxdp, 0, sizeof(RxD3_t));
++			memset(rxdp, 0, sizeof(struct RxD3));
+ 		}
+ 		dev_kfree_skb(skb);
+ 		atomic_dec(&sp->rx_bufs_left[ring_no]);
+@@ -2460,7 +2462,7 @@ static void free_rx_buffers(struct s2io_
+ {
+ 	struct net_device *dev = sp->dev;
+ 	int i, blk = 0, buf_cnt = 0;
+-	mac_info_t *mac_control;
++	struct mac_info *mac_control;
+ 	struct config_param *config;
+ 
+ 	mac_control = &sp->mac_control;
+@@ -2496,11 +2498,11 @@ static void free_rx_buffers(struct s2io_
+ #if defined(HAVE_NETDEV_POLL)
+ static int s2io_poll(struct net_device *dev, int *budget)
+ {
+-	nic_t *nic = dev->priv;
++	struct s2io_nic *nic = dev->priv;
+ 	int pkt_cnt = 0, org_pkts_to_process;
+-	mac_info_t *mac_control;
++	struct mac_info *mac_control;
+ 	struct config_param *config;
+-	XENA_dev_config_t __iomem *bar0 = nic->bar0;
++	struct XENA_dev_config __iomem *bar0 = nic->bar0;
+ 	int i;
+ 
+ 	atomic_inc(&nic->isr_cnt);
+@@ -2571,10 +2573,10 @@ no_rx:
+  */
+ static void s2io_netpoll(struct net_device *dev)
+ {
+-	nic_t *nic = dev->priv;
+-	mac_info_t *mac_control;
++	struct s2io_nic *nic = dev->priv;
++	struct mac_info *mac_control;
+ 	struct config_param *config;
+-	XENA_dev_config_t __iomem *bar0 = nic->bar0;
++	struct XENA_dev_config __iomem *bar0 = nic->bar0;
+ 	u64 val64 = 0xFFFFFFFFFFFFFFFFULL;
+ 	int i;
+ 
+@@ -2623,13 +2625,13 @@ static void s2io_netpoll(struct net_devi
+  *  Return Value:
+  *  NONE.
+  */
+-static void rx_intr_handler(ring_info_t *ring_data)
++static void rx_intr_handler(struct ring_info *ring_data)
+ {
+-	nic_t *nic = ring_data->nic;
++	struct s2io_nic *nic = ring_data->nic;
+ 	struct net_device *dev = (struct net_device *) nic->dev;
+ 	int get_block, put_block, put_offset;
+-	rx_curr_get_info_t get_info, put_info;
+-	RxD_t *rxdp;
++	struct rx_curr_get_info get_info, put_info;
++	struct RxD_t *rxdp;
+ 	struct sk_buff *skb;
+ 	int pkt_cnt = 0;
+ 	int i;
+@@ -2644,7 +2646,7 @@ static void rx_intr_handler(ring_info_t 
+ 
+ 	get_info = ring_data->rx_curr_get_info;
+ 	get_block = get_info.block_index;
+-	put_info = ring_data->rx_curr_put_info;
++	memcpy(&put_info, &ring_data->rx_curr_put_info,
+sizeof(put_info));
+ 	put_block = put_info.block_index;
+ 	rxdp =
+ring_data->rx_blocks[get_block].rxds[get_info.offset].virt_addr;
+ 	if (!napi) {
+@@ -2672,7 +2674,7 @@ static void rx_intr_handler(ring_info_t 
+ 		}
+ 		if (nic->rxd_mode == RXD_MODE_1) {
+ 			pci_unmap_single(nic->pdev, (dma_addr_t)
+-				 ((RxD1_t*)rxdp)->Buffer0_ptr,
++				 ((struct RxD1*)rxdp)->Buffer0_ptr,
+ 				 dev->mtu +
+ 				 HEADER_ETHERNET_II_802_3_SIZE +
+ 				 HEADER_802_2_SIZE +
+@@ -2680,22 +2682,22 @@ static void rx_intr_handler(ring_info_t 
+ 				 PCI_DMA_FROMDEVICE);
+ 		} else if (nic->rxd_mode == RXD_MODE_3B) {
+ 			pci_dma_sync_single_for_cpu(nic->pdev,
+(dma_addr_t)
+-				 ((RxD3_t*)rxdp)->Buffer0_ptr,
++				 ((struct RxD3*)rxdp)->Buffer0_ptr,
+ 				 BUF0_LEN, PCI_DMA_FROMDEVICE);
+ 			pci_unmap_single(nic->pdev, (dma_addr_t)
+-				 ((RxD3_t*)rxdp)->Buffer2_ptr,
++				 ((struct RxD3*)rxdp)->Buffer2_ptr,
+ 				 dev->mtu + 4,
+ 				 PCI_DMA_FROMDEVICE);
+ 		} else {
+ 			pci_dma_sync_single_for_cpu(nic->pdev,
+(dma_addr_t)
+-					 ((RxD3_t*)rxdp)->Buffer0_ptr,
+BUF0_LEN,
++					 ((struct
+RxD3*)rxdp)->Buffer0_ptr, BUF0_LEN,
+ 					 PCI_DMA_FROMDEVICE);
+ 			pci_unmap_single(nic->pdev, (dma_addr_t)
+-					 ((RxD3_t*)rxdp)->Buffer1_ptr,
++					 ((struct
+RxD3*)rxdp)->Buffer1_ptr,
+ 					 l3l4hdr_size + 4,
+ 					 PCI_DMA_FROMDEVICE);
+ 			pci_unmap_single(nic->pdev, (dma_addr_t)
+-					 ((RxD3_t*)rxdp)->Buffer2_ptr,
++					 ((struct
+RxD3*)rxdp)->Buffer2_ptr,
+ 					 dev->mtu, PCI_DMA_FROMDEVICE);
+ 		}
+ 		prefetch(skb->data);
+@@ -2724,7 +2726,7 @@ static void rx_intr_handler(ring_info_t 
+ 	if (nic->lro) {
+ 		/* Clear all LRO sessions before exiting */
+ 		for (i=0; i<MAX_LRO_SESSIONS; i++) {
+-			lro_t *lro = &nic->lro0_n[i];
++			struct lro *lro = &nic->lro0_n[i];
+ 			if (lro->in_use) {
+ 				update_L3L4_header(nic, lro);
+ 				queue_rx_frame(lro->parent);
+@@ -2748,17 +2750,17 @@ static void rx_intr_handler(ring_info_t 
+  *  NONE
+  */
+ 
+-static void tx_intr_handler(fifo_info_t *fifo_data)
++static void tx_intr_handler(struct fifo_info *fifo_data)
+ {
+-	nic_t *nic = fifo_data->nic;
++	struct s2io_nic *nic = fifo_data->nic;
+ 	struct net_device *dev = (struct net_device *) nic->dev;
+-	tx_curr_get_info_t get_info, put_info;
++	struct tx_curr_get_info get_info, put_info;
+ 	struct sk_buff *skb;
+-	TxD_t *txdlp;
++	struct TxD *txdlp;
+ 
+ 	get_info = fifo_data->tx_curr_get_info;
+-	put_info = fifo_data->tx_curr_put_info;
+-	txdlp = (TxD_t *) fifo_data->list_info[get_info.offset].
++	memcpy(&put_info, &fifo_data->tx_curr_put_info,
+sizeof(put_info));
++	txdlp = (struct TxD *) fifo_data->list_info[get_info.offset].
+ 	    list_virt_addr;
+ 	while ((!(txdlp->Control_1 & TXD_LIST_OWN_XENA)) &&
+ 	       (get_info.offset != put_info.offset) &&
+@@ -2795,7 +2797,7 @@ static void tx_intr_handler(fifo_info_t 
+ 		get_info.offset++;
+ 		if (get_info.offset == get_info.fifo_len + 1)
+ 			get_info.offset = 0;
+-		txdlp = (TxD_t *) fifo_data->list_info
++		txdlp = (struct TxD *) fifo_data->list_info
+ 		    [get_info.offset].list_virt_addr;
+ 		fifo_data->tx_curr_get_info.offset =
+ 		    get_info.offset;
+@@ -2820,8 +2822,8 @@ static void tx_intr_handler(fifo_info_t 
+ static void s2io_mdio_write(u32 mmd_type, u64 addr, u16 value, struct
+net_device *dev)
+ {
+ 	u64 val64 = 0x0;
+-	nic_t *sp = dev->priv;
+-	XENA_dev_config_t __iomem *bar0 = sp->bar0;
++	struct s2io_nic *sp = dev->priv;
++	struct XENA_dev_config __iomem *bar0 = sp->bar0;
+ 
+ 	//address transaction
+ 	val64 = val64 | MDIO_MMD_INDX_ADDR(addr)
+@@ -2869,8 +2871,8 @@ static u64 s2io_mdio_read(u32 mmd_type, 
+ {
+ 	u64 val64 = 0x0;
+ 	u64 rval64 = 0x0;
+-	nic_t *sp = dev->priv;
+-	XENA_dev_config_t __iomem *bar0 = sp->bar0;
++	struct s2io_nic *sp = dev->priv;
++	struct XENA_dev_config __iomem *bar0 = sp->bar0;
+ 
+ 	/* address transaction */
+ 	val64 = val64 | MDIO_MMD_INDX_ADDR(addr)
+@@ -2973,8 +2975,8 @@ static void s2io_updt_xpak_counter(struc
+ 	u64 val64 = 0x0;
+ 	u64 addr  = 0x0;
+ 
+-	nic_t *sp = dev->priv;
+-	StatInfo_t *stat_info = sp->mac_control.stats_info;
++	struct s2io_nic *sp = dev->priv;
++	struct stat_block *stat_info = sp->mac_control.stats_info;
+ 
+ 	/* Check the communication with the MDIO slave */
+ 	addr = 0x0000;
+@@ -3072,7 +3074,7 @@ static void s2io_updt_xpak_counter(struc
+ static void alarm_intr_handler(struct s2io_nic *nic)
+ {
+ 	struct net_device *dev = (struct net_device *) nic->dev;
+-	XENA_dev_config_t __iomem *bar0 = nic->bar0;
++	struct XENA_dev_config __iomem *bar0 = nic->bar0;
+ 	register u64 val64 = 0, err_reg = 0;
+ 	u64 cnt;
+ 	int i;
+@@ -3247,9 +3249,9 @@ static u16 check_pci_device_id(u16 id)
+  *  void.
+  */
+ 
+-static void s2io_reset(nic_t * sp)
++static void s2io_reset(struct s2io_nic * sp)
+ {
+-	XENA_dev_config_t __iomem *bar0 = sp->bar0;
++	struct XENA_dev_config __iomem *bar0 = sp->bar0;
+ 	u64 val64;
+ 	u16 subid, pci_cmd;
+ 	int i;
+@@ -3353,10 +3355,10 @@ new_way:
+  *  SUCCESS on success and FAILURE on failure.
+  */
+ 
+-static int s2io_set_swapper(nic_t * sp)
++static int s2io_set_swapper(struct s2io_nic * sp)
+ {
+ 	struct net_device *dev = sp->dev;
+-	XENA_dev_config_t __iomem *bar0 = sp->bar0;
++	struct XENA_dev_config __iomem *bar0 = sp->bar0;
+ 	u64 val64, valt, valr;
+ 
+ 	/*
+@@ -3481,9 +3483,9 @@ static int s2io_set_swapper(nic_t * sp)
+ 	return SUCCESS;
+ }
+ 
+-static int wait_for_msix_trans(nic_t *nic, int i)
++static int wait_for_msix_trans(struct s2io_nic *nic, int i)
+ {
+-	XENA_dev_config_t __iomem *bar0 = nic->bar0;
++	struct XENA_dev_config __iomem *bar0 = nic->bar0;
+ 	u64 val64;
+ 	int ret = 0, cnt = 0;
+ 
+@@ -3502,9 +3504,9 @@ static int wait_for_msix_trans(nic_t *ni
+ 	return ret;
+ }
+ 
+-static void restore_xmsi_data(nic_t *nic)
++static void restore_xmsi_data(struct s2io_nic *nic)
+ {
+-	XENA_dev_config_t __iomem *bar0 = nic->bar0;
++	struct XENA_dev_config __iomem *bar0 = nic->bar0;
+ 	u64 val64;
+ 	int i;
+ 
+@@ -3520,9 +3522,9 @@ static void restore_xmsi_data(nic_t *nic
+ 	}
+ }
+ 
+-static void store_xmsi_data(nic_t *nic)
++static void store_xmsi_data(struct s2io_nic *nic)
+ {
+-	XENA_dev_config_t __iomem *bar0 = nic->bar0;
++	struct XENA_dev_config __iomem *bar0 = nic->bar0;
+ 	u64 val64, addr, data;
+ 	int i;
+ 
+@@ -3543,9 +3545,9 @@ static void store_xmsi_data(nic_t *nic)
+ 	}
+ }
+ 
+-int s2io_enable_msi(nic_t *nic)
++int s2io_enable_msi(struct s2io_nic *nic)
+ {
+-	XENA_dev_config_t __iomem *bar0 = nic->bar0;
++	struct XENA_dev_config __iomem *bar0 = nic->bar0;
+ 	u16 msi_ctrl, msg_val;
+ 	struct config_param *config = &nic->config;
+ 	struct net_device *dev = nic->dev;
+@@ -3593,9 +3595,9 @@ int s2io_enable_msi(nic_t *nic)
+ 	return 0;
+ }
+ 
+-static int s2io_enable_msi_x(nic_t *nic)
++static int s2io_enable_msi_x(struct s2io_nic *nic)
+ {
+-	XENA_dev_config_t __iomem *bar0 = nic->bar0;
++	struct XENA_dev_config __iomem *bar0 = nic->bar0;
+ 	u64 tx_mat, rx_mat;
+ 	u16 msi_control; /* Temp variable */
+ 	int ret, i, j, msix_indx = 1;
+@@ -3703,7 +3705,7 @@ static int s2io_enable_msi_x(nic_t *nic)
+ 
+ static int s2io_open(struct net_device *dev)
+ {
+-	nic_t *sp = dev->priv;
++	struct s2io_nic *sp = dev->priv;
+ 	int err = 0;
+ 
+ 	/*
+@@ -3756,7 +3758,7 @@ hw_init_failed:
+ 
+ static int s2io_close(struct net_device *dev)
+ {
+-	nic_t *sp = dev->priv;
++	struct s2io_nic *sp = dev->priv;
+ 
+ 	flush_scheduled_work();
+ 	netif_stop_queue(dev);
+@@ -3782,15 +3784,15 @@ static int s2io_close(struct net_device 
+ 
+ static int s2io_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+-	nic_t *sp = dev->priv;
++	struct s2io_nic *sp = dev->priv;
+ 	u16 frg_cnt, frg_len, i, queue, queue_len, put_off, get_off;
+ 	register u64 val64;
+-	TxD_t *txdp;
+-	TxFIFO_element_t __iomem *tx_fifo;
++	struct TxD *txdp;
++	struct TxFIFO_element __iomem *tx_fifo;
+ 	unsigned long flags;
+ 	u16 vlan_tag = 0;
+ 	int vlan_priority = 0;
+-	mac_info_t *mac_control;
++	struct mac_info *mac_control;
+ 	struct config_param *config;
+ 	int offload_type;
+ 
+@@ -3818,7 +3820,7 @@ static int s2io_xmit(struct sk_buff *skb
+ 
+ 	put_off = (u16)
+mac_control->fifos[queue].tx_curr_put_info.offset;
+ 	get_off = (u16)
+mac_control->fifos[queue].tx_curr_get_info.offset;
+-	txdp = (TxD_t *) mac_control->fifos[queue].list_info[put_off].
++	txdp = (struct TxD *)
+mac_control->fifos[queue].list_info[put_off].
+ 		list_virt_addr;
+ 
+ 	queue_len = mac_control->fifos[queue].tx_curr_put_info.fifo_len
++ 1;
+@@ -3947,13 +3949,13 @@ static int s2io_xmit(struct sk_buff *skb
+ static void
+ s2io_alarm_handle(unsigned long data)
+ {
+-	nic_t *sp = (nic_t *)data;
++	struct s2io_nic *sp = (struct s2io_nic *)data;
+ 
+ 	alarm_intr_handler(sp);
+ 	mod_timer(&sp->alarm_timer, jiffies + HZ / 2);
+ }
+ 
+-static int s2io_chk_rx_buffers(nic_t *sp, int rng_n)
++static int s2io_chk_rx_buffers(struct s2io_nic *sp, int rng_n)
+ {
+ 	int rxb_size, level;
+ 
+@@ -3985,9 +3987,9 @@ static int s2io_chk_rx_buffers(nic_t *sp
+ static irqreturn_t s2io_msi_handle(int irq, void *dev_id)
+ {
+ 	struct net_device *dev = (struct net_device *) dev_id;
+-	nic_t *sp = dev->priv;
++	struct s2io_nic *sp = dev->priv;
+ 	int i;
+-	mac_info_t *mac_control;
++	struct mac_info *mac_control;
+ 	struct config_param *config;
+ 
+ 	atomic_inc(&sp->isr_cnt);
+@@ -4017,8 +4019,8 @@ static irqreturn_t s2io_msi_handle(int i
+ 
+ static irqreturn_t s2io_msix_ring_handle(int irq, void *dev_id)
+ {
+-	ring_info_t *ring = (ring_info_t *)dev_id;
+-	nic_t *sp = ring->nic;
++	struct ring_info *ring = (struct ring_info *)dev_id;
++	struct s2io_nic *sp = ring->nic;
+ 
+ 	atomic_inc(&sp->isr_cnt);
+ 
+@@ -4031,17 +4033,17 @@ static irqreturn_t s2io_msix_ring_handle
+ 
+ static irqreturn_t s2io_msix_fifo_handle(int irq, void *dev_id)
+ {
+-	fifo_info_t *fifo = (fifo_info_t *)dev_id;
+-	nic_t *sp = fifo->nic;
++	struct fifo_info *fifo = (struct fifo_info *)dev_id;
++	struct s2io_nic *sp = fifo->nic;
+ 
+ 	atomic_inc(&sp->isr_cnt);
+ 	tx_intr_handler(fifo);
+ 	atomic_dec(&sp->isr_cnt);
+ 	return IRQ_HANDLED;
+ }
+-static void s2io_txpic_intr_handle(nic_t *sp)
++static void s2io_txpic_intr_handle(struct s2io_nic *sp)
+ {
+-	XENA_dev_config_t __iomem *bar0 = sp->bar0;
++	struct XENA_dev_config __iomem *bar0 = sp->bar0;
+ 	u64 val64;
+ 
+ 	val64 = readq(&bar0->pic_int_status);
+@@ -4111,11 +4113,11 @@ static void s2io_txpic_intr_handle(nic_t
+ static irqreturn_t s2io_isr(int irq, void *dev_id)
+ {
+ 	struct net_device *dev = (struct net_device *) dev_id;
+-	nic_t *sp = dev->priv;
+-	XENA_dev_config_t __iomem *bar0 = sp->bar0;
++	struct s2io_nic *sp = dev->priv;
++	struct XENA_dev_config __iomem *bar0 = sp->bar0;
+ 	int i;
+ 	u64 reason = 0;
+-	mac_info_t *mac_control;
++	struct mac_info *mac_control;
+ 	struct config_param *config;
+ 
+ 	atomic_inc(&sp->isr_cnt);
+@@ -4201,9 +4203,9 @@ static irqreturn_t s2io_isr(int irq, voi
+ /**
+  * s2io_updt_stats -
+  */
+-static void s2io_updt_stats(nic_t *sp)
++static void s2io_updt_stats(struct s2io_nic *sp)
+ {
+-	XENA_dev_config_t __iomem *bar0 = sp->bar0;
++	struct XENA_dev_config __iomem *bar0 = sp->bar0;
+ 	u64 val64;
+ 	int cnt = 0;
+ 
+@@ -4222,7 +4224,7 @@ static void s2io_updt_stats(nic_t *sp)
+ 				break; /* Updt failed */
+ 		} while(1);
+ 	} else {
+-		memset(sp->mac_control.stats_info, 0,
+sizeof(StatInfo_t));
++		memset(sp->mac_control.stats_info, 0, sizeof(struct
+stat_block));
+ 	}
+ }
+ 
+@@ -4238,8 +4240,8 @@ static void s2io_updt_stats(nic_t *sp)
+ 
+ static struct net_device_stats *s2io_get_stats(struct net_device *dev)
+ {
+-	nic_t *sp = dev->priv;
+-	mac_info_t *mac_control;
++	struct s2io_nic *sp = dev->priv;
++	struct mac_info *mac_control;
+ 	struct config_param *config;
+ 
+ 
+@@ -4280,8 +4282,8 @@ static void s2io_set_multicast(struct ne
+ {
+ 	int i, j, prev_cnt;
+ 	struct dev_mc_list *mclist;
+-	nic_t *sp = dev->priv;
+-	XENA_dev_config_t __iomem *bar0 = sp->bar0;
++	struct s2io_nic *sp = dev->priv;
++	struct XENA_dev_config __iomem *bar0 = sp->bar0;
+ 	u64 val64 = 0, multi_mac = 0x010203040506ULL, mask =
+ 	    0xfeffffffffffULL;
+ 	u64 dis_addr = 0xffffffffffffULL, mac_addr = 0;
+@@ -4434,8 +4436,8 @@ static void s2io_set_multicast(struct ne
+ 
+ static int s2io_set_mac_addr(struct net_device *dev, u8 * addr)
+ {
+-	nic_t *sp = dev->priv;
+-	XENA_dev_config_t __iomem *bar0 = sp->bar0;
++	struct s2io_nic *sp = dev->priv;
++	struct XENA_dev_config __iomem *bar0 = sp->bar0;
+ 	register u64 val64, mac_addr = 0;
+ 	int i;
+ 
+@@ -4481,7 +4483,7 @@ static int s2io_set_mac_addr(struct net_
+ static int s2io_ethtool_sset(struct net_device *dev,
+ 			     struct ethtool_cmd *info)
+ {
+-	nic_t *sp = dev->priv;
++	struct s2io_nic *sp = dev->priv;
+ 	if ((info->autoneg == AUTONEG_ENABLE) ||
+ 	    (info->speed != SPEED_10000) || (info->duplex !=
+DUPLEX_FULL))
+ 		return -EINVAL;
+@@ -4507,7 +4509,7 @@ static int s2io_ethtool_sset(struct net_
+ 
+ static int s2io_ethtool_gset(struct net_device *dev, struct ethtool_cmd
+*info)
+ {
+-	nic_t *sp = dev->priv;
++	struct s2io_nic *sp = dev->priv;
+ 	info->supported = (SUPPORTED_10000baseT_Full | SUPPORTED_FIBRE);
+ 	info->advertising = (SUPPORTED_10000baseT_Full |
+SUPPORTED_FIBRE);
+ 	info->port = PORT_FIBRE;
+@@ -4540,7 +4542,7 @@ static int s2io_ethtool_gset(struct net_
+ static void s2io_ethtool_gdrvinfo(struct net_device *dev,
+ 				  struct ethtool_drvinfo *info)
+ {
+-	nic_t *sp = dev->priv;
++	struct s2io_nic *sp = dev->priv;
+ 
+ 	strncpy(info->driver, s2io_driver_name, sizeof(info->driver));
+ 	strncpy(info->version, s2io_driver_version,
+sizeof(info->version));
+@@ -4572,7 +4574,7 @@ static void s2io_ethtool_gregs(struct ne
+ 	int i;
+ 	u64 reg;
+ 	u8 *reg_space = (u8 *) space;
+-	nic_t *sp = dev->priv;
++	struct s2io_nic *sp = dev->priv;
+ 
+ 	regs->len = XENA_REG_SPACE;
+ 	regs->version = sp->pdev->subsystem_device;
+@@ -4594,8 +4596,8 @@ static void s2io_ethtool_gregs(struct ne
+ */
+ static void s2io_phy_id(unsigned long data)
+ {
+-	nic_t *sp = (nic_t *) data;
+-	XENA_dev_config_t __iomem *bar0 = sp->bar0;
++	struct s2io_nic *sp = (struct s2io_nic *) data;
++	struct XENA_dev_config __iomem *bar0 = sp->bar0;
+ 	u64 val64 = 0;
+ 	u16 subid;
+ 
+@@ -4632,8 +4634,8 @@ static void s2io_phy_id(unsigned long da
+ static int s2io_ethtool_idnic(struct net_device *dev, u32 data)
+ {
+ 	u64 val64 = 0, last_gpio_ctrl_val;
+-	nic_t *sp = dev->priv;
+-	XENA_dev_config_t __iomem *bar0 = sp->bar0;
++	struct s2io_nic *sp = dev->priv;
++	struct XENA_dev_config __iomem *bar0 = sp->bar0;
+ 	u16 subid;
+ 
+ 	subid = sp->pdev->subsystem_device;
+@@ -4681,8 +4683,8 @@ static void s2io_ethtool_getpause_data(s
+ 				       struct ethtool_pauseparam *ep)
+ {
+ 	u64 val64;
+-	nic_t *sp = dev->priv;
+-	XENA_dev_config_t __iomem *bar0 = sp->bar0;
++	struct s2io_nic *sp = dev->priv;
++	struct XENA_dev_config __iomem *bar0 = sp->bar0;
+ 
+ 	val64 = readq(&bar0->rmac_pause_cfg);
+ 	if (val64 & RMAC_PAUSE_GEN_ENABLE)
+@@ -4708,8 +4710,8 @@ static int s2io_ethtool_setpause_data(st
+ 			       struct ethtool_pauseparam *ep)
+ {
+ 	u64 val64;
+-	nic_t *sp = dev->priv;
+-	XENA_dev_config_t __iomem *bar0 = sp->bar0;
++	struct s2io_nic *sp = dev->priv;
++	struct XENA_dev_config __iomem *bar0 = sp->bar0;
+ 
+ 	val64 = readq(&bar0->rmac_pause_cfg);
+ 	if (ep->tx_pause)
+@@ -4741,12 +4743,12 @@ static int s2io_ethtool_setpause_data(st
+  */
+ 
+ #define S2IO_DEV_ID		5
+-static int read_eeprom(nic_t * sp, int off, u64 * data)
++static int read_eeprom(struct s2io_nic * sp, int off, u64 * data)
+ {
+ 	int ret = -1;
+ 	u32 exit_cnt = 0;
+ 	u64 val64;
+-	XENA_dev_config_t __iomem *bar0 = sp->bar0;
++	struct XENA_dev_config __iomem *bar0 = sp->bar0;
+ 
+ 	if (sp->device_type == XFRAME_I_DEVICE) {
+ 		val64 = I2C_CONTROL_DEV_ID(S2IO_DEV_ID) |
+I2C_CONTROL_ADDR(off) |
+@@ -4806,11 +4808,11 @@ static int read_eeprom(nic_t * sp, int o
+  *  0 on success, -1 on failure.
+  */
+ 
+-static int write_eeprom(nic_t * sp, int off, u64 data, int cnt)
++static int write_eeprom(struct s2io_nic * sp, int off, u64 data, int
+cnt)
+ {
+ 	int exit_cnt = 0, ret = -1;
+ 	u64 val64;
+-	XENA_dev_config_t __iomem *bar0 = sp->bar0;
++	struct XENA_dev_config __iomem *bar0 = sp->bar0;
+ 
+ 	if (sp->device_type == XFRAME_I_DEVICE) {
+ 		val64 = I2C_CONTROL_DEV_ID(S2IO_DEV_ID) |
+I2C_CONTROL_ADDR(off) |
+@@ -4855,7 +4857,7 @@ static int write_eeprom(nic_t * sp, int 
+ 	}
+ 	return ret;
+ }
+-static void s2io_vpd_read(nic_t *nic)
++static void s2io_vpd_read(struct s2io_nic *nic)
+ {
+ 	u8 *vpd_data;
+ 	u8 data;
+@@ -4934,7 +4936,7 @@ static int s2io_ethtool_geeprom(struct n
+ {
+ 	u32 i, valid;
+ 	u64 data;
+-	nic_t *sp = dev->priv;
++	struct s2io_nic *sp = dev->priv;
+ 
+ 	eeprom->magic = sp->pdev->vendor | (sp->pdev->device << 16);
+ 
+@@ -4972,7 +4974,7 @@ static int s2io_ethtool_seeprom(struct n
+ {
+ 	int len = eeprom->len, cnt = 0;
+ 	u64 valid = 0, data;
+-	nic_t *sp = dev->priv;
++	struct s2io_nic *sp = dev->priv;
+ 
+ 	if (eeprom->magic != (sp->pdev->vendor | (sp->pdev->device <<
+16))) {
+ 		DBG_PRINT(ERR_DBG,
+@@ -5016,9 +5018,9 @@ static int s2io_ethtool_seeprom(struct n
+  * 0 on success.
+  */
+ 
+-static int s2io_register_test(nic_t * sp, uint64_t * data)
++static int s2io_register_test(struct s2io_nic * sp, uint64_t * data)
+ {
+-	XENA_dev_config_t __iomem *bar0 = sp->bar0;
++	struct XENA_dev_config __iomem *bar0 = sp->bar0;
+ 	u64 val64 = 0, exp_val;
+ 	int fail = 0;
+ 
+@@ -5083,7 +5085,7 @@ static int s2io_register_test(nic_t * sp
+  * 0 on success.
+  */
+ 
+-static int s2io_eeprom_test(nic_t * sp, uint64_t * data)
++static int s2io_eeprom_test(struct s2io_nic * sp, uint64_t * data)
+ {
+ 	int fail = 0;
+ 	u64 ret_data, org_4F0, org_7F0;
+@@ -5185,7 +5187,7 @@ static int s2io_eeprom_test(nic_t * sp, 
+  * 0 on success and -1 on failure.
+  */
+ 
+-static int s2io_bist_test(nic_t * sp, uint64_t * data)
++static int s2io_bist_test(struct s2io_nic * sp, uint64_t * data)
+ {
+ 	u8 bist = 0;
+ 	int cnt = 0, ret = -1;
+@@ -5221,9 +5223,9 @@ static int s2io_bist_test(nic_t * sp, ui
+  * 0 on success.
+  */
+ 
+-static int s2io_link_test(nic_t * sp, uint64_t * data)
++static int s2io_link_test(struct s2io_nic * sp, uint64_t * data)
+ {
+-	XENA_dev_config_t __iomem *bar0 = sp->bar0;
++	struct XENA_dev_config __iomem *bar0 = sp->bar0;
+ 	u64 val64;
+ 
+ 	val64 = readq(&bar0->adapter_status);
+@@ -5248,9 +5250,9 @@ static int s2io_link_test(nic_t * sp, ui
+  *  0 on success.
+  */
+ 
+-static int s2io_rldram_test(nic_t * sp, uint64_t * data)
++static int s2io_rldram_test(struct s2io_nic * sp, uint64_t * data)
+ {
+-	XENA_dev_config_t __iomem *bar0 = sp->bar0;
++	struct XENA_dev_config __iomem *bar0 = sp->bar0;
+ 	u64 val64;
+ 	int cnt, iteration = 0, test_fail = 0;
+ 
+@@ -5352,7 +5354,7 @@ static void s2io_ethtool_test(struct net
+ 			      struct ethtool_test *ethtest,
+ 			      uint64_t * data)
+ {
+-	nic_t *sp = dev->priv;
++	struct s2io_nic *sp = dev->priv;
+ 	int orig_state = netif_running(sp->dev);
+ 
+ 	if (ethtest->flags == ETH_TEST_FL_OFFLINE) {
+@@ -5408,8 +5410,8 @@ static void s2io_get_ethtool_stats(struc
+ 				   u64 * tmp_stats)
+ {
+ 	int i = 0;
+-	nic_t *sp = dev->priv;
+-	StatInfo_t *stat_info = sp->mac_control.stats_info;
++	struct s2io_nic *sp = dev->priv;
++	struct stat_block *stat_info = sp->mac_control.stats_info;
+ 
+ 	s2io_updt_stats(sp);
+ 	tmp_stats[i++] =
+@@ -5636,14 +5638,14 @@ static int s2io_ethtool_get_regs_len(str
+ 
+ static u32 s2io_ethtool_get_rx_csum(struct net_device * dev)
+ {
+-	nic_t *sp = dev->priv;
++	struct s2io_nic *sp = dev->priv;
+ 
+ 	return (sp->rx_csum);
+ }
+ 
+ static int s2io_ethtool_set_rx_csum(struct net_device *dev, u32 data)
+ {
+-	nic_t *sp = dev->priv;
++	struct s2io_nic *sp = dev->priv;
+ 
+ 	if (data)
+ 		sp->rx_csum = 1;
+@@ -5766,7 +5768,7 @@ static int s2io_ioctl(struct net_device 
+ 
+ static int s2io_change_mtu(struct net_device *dev, int new_mtu)
+ {
+-	nic_t *sp = dev->priv;
++	struct s2io_nic *sp = dev->priv;
+ 
+ 	if ((new_mtu < MIN_MTU) || (new_mtu > S2IO_JUMBO_SIZE)) {
+ 		DBG_PRINT(ERR_DBG, "%s: MTU size is invalid.\n",
+@@ -5785,7 +5787,7 @@ static int s2io_change_mtu(struct net_de
+ 		if (netif_queue_stopped(dev))
+ 			netif_wake_queue(dev);
+ 	} else { /* Device is down */
+-		XENA_dev_config_t __iomem *bar0 = sp->bar0;
++		struct XENA_dev_config __iomem *bar0 = sp->bar0;
+ 		u64 val64 = new_mtu;
+ 
+ 		writeq(vBIT(val64, 2, 14), &bar0->rmac_max_pyld_len);
+@@ -5810,9 +5812,9 @@ static int s2io_change_mtu(struct net_de
+ static void s2io_tasklet(unsigned long dev_addr)
+ {
+ 	struct net_device *dev = (struct net_device *) dev_addr;
+-	nic_t *sp = dev->priv;
++	struct s2io_nic *sp = dev->priv;
+ 	int i, ret;
+-	mac_info_t *mac_control;
++	struct mac_info *mac_control;
+ 	struct config_param *config;
+ 
+ 	mac_control = &sp->mac_control;
+@@ -5845,9 +5847,9 @@ static void s2io_tasklet(unsigned long d
+ 
+ static void s2io_set_link(struct work_struct *work)
+ {
+-	nic_t *nic = container_of(work, nic_t, set_link_task);
++	struct s2io_nic *nic = container_of(work, struct s2io_nic,
+set_link_task);
+ 	struct net_device *dev = nic->dev;
+-	XENA_dev_config_t __iomem *bar0 = nic->bar0;
++	struct XENA_dev_config __iomem *bar0 = nic->bar0;
+ 	register u64 val64;
+ 	u16 subid;
+ 
+@@ -5909,9 +5911,10 @@ static void s2io_set_link(struct work_st
+ 	clear_bit(0, &(nic->link_state));
+ }
+ 
+-static int set_rxd_buffer_pointer(nic_t *sp, RxD_t *rxdp, buffAdd_t
+*ba,
+-			   struct sk_buff **skb, u64 *temp0, u64 *temp1,
+-			   u64 *temp2, int size)
++static int set_rxd_buffer_pointer(struct s2io_nic *sp, struct RxD_t
+*rxdp,
++				struct buffAdd *ba,
++			   	struct sk_buff **skb, u64 *temp0, u64
+*temp1,
++			   	u64 *temp2, int size)
+ {
+ 	struct net_device *dev = sp->dev;
+ 	struct sk_buff *frag_list;
+@@ -5925,7 +5928,7 @@ static int set_rxd_buffer_pointer(nic_t 
+ 			 * using same mapped address for the Rxd
+ 			 * buffer pointer
+ 			 */
+-			((RxD1_t*)rxdp)->Buffer0_ptr = *temp0;
++			((struct RxD1*)rxdp)->Buffer0_ptr = *temp0;
+ 		} else {
+ 			*skb = dev_alloc_skb(size);
+ 			if (!(*skb)) {
+@@ -5937,7 +5940,7 @@ static int set_rxd_buffer_pointer(nic_t 
+ 			 * such it will be used for next rxd whose
+ 			 * Host Control is NULL
+ 			 */
+-			((RxD1_t*)rxdp)->Buffer0_ptr = *temp0 =
++			((struct RxD1*)rxdp)->Buffer0_ptr = *temp0 =
+ 				pci_map_single( sp->pdev, (*skb)->data,
+ 					size - NET_IP_ALIGN,
+ 					PCI_DMA_FROMDEVICE);
+@@ -5946,9 +5949,9 @@ static int set_rxd_buffer_pointer(nic_t 
+ 	} else if ((sp->rxd_mode == RXD_MODE_3B) && (rxdp->Host_Control
+== 0)) {
+ 		/* Two buffer Mode */
+ 		if (*skb) {
+-			((RxD3_t*)rxdp)->Buffer2_ptr = *temp2;
+-			((RxD3_t*)rxdp)->Buffer0_ptr = *temp0;
+-			((RxD3_t*)rxdp)->Buffer1_ptr = *temp1;
++			((struct RxD3*)rxdp)->Buffer2_ptr = *temp2;
++			((struct RxD3*)rxdp)->Buffer0_ptr = *temp0;
++			((struct RxD3*)rxdp)->Buffer1_ptr = *temp1;
+ 		} else {
+ 			*skb = dev_alloc_skb(size);
+ 			if (!(*skb)) {
+@@ -5956,26 +5959,26 @@ static int set_rxd_buffer_pointer(nic_t 
+ 					dev->name);
+ 				return -ENOMEM;
+ 			}
+-			((RxD3_t*)rxdp)->Buffer2_ptr = *temp2 =
++			((struct RxD3*)rxdp)->Buffer2_ptr = *temp2 =
+ 				pci_map_single(sp->pdev, (*skb)->data,
+ 					       dev->mtu + 4,
+ 					       PCI_DMA_FROMDEVICE);
+-			((RxD3_t*)rxdp)->Buffer0_ptr = *temp0 =
++			((struct RxD3*)rxdp)->Buffer0_ptr = *temp0 =
+ 				pci_map_single( sp->pdev, ba->ba_0,
+BUF0_LEN,
+ 						PCI_DMA_FROMDEVICE);
+ 			rxdp->Host_Control = (unsigned long) (*skb);
+ 
+ 			/* Buffer-1 will be dummy buffer not used */
+-			((RxD3_t*)rxdp)->Buffer1_ptr = *temp1 =
++			((struct RxD3*)rxdp)->Buffer1_ptr = *temp1 =
+ 				pci_map_single(sp->pdev, ba->ba_1,
+BUF1_LEN,
+ 					       PCI_DMA_FROMDEVICE);
+ 		}
+ 	} else if ((rxdp->Host_Control == 0)) {
+ 		/* Three buffer mode */
+ 		if (*skb) {
+-			((RxD3_t*)rxdp)->Buffer0_ptr = *temp0;
+-			((RxD3_t*)rxdp)->Buffer1_ptr = *temp1;
+-			((RxD3_t*)rxdp)->Buffer2_ptr = *temp2;
++			((struct RxD3*)rxdp)->Buffer0_ptr = *temp0;
++			((struct RxD3*)rxdp)->Buffer1_ptr = *temp1;
++			((struct RxD3*)rxdp)->Buffer2_ptr = *temp2;
+ 		} else {
+ 			*skb = dev_alloc_skb(size);
+ 			if (!(*skb)) {
+@@ -5983,11 +5986,11 @@ static int set_rxd_buffer_pointer(nic_t 
+ 					  dev->name);
+ 				return -ENOMEM;
+ 			}
+-			((RxD3_t*)rxdp)->Buffer0_ptr = *temp0 =
++			((struct RxD3*)rxdp)->Buffer0_ptr = *temp0 =
+ 				pci_map_single(sp->pdev, ba->ba_0,
+BUF0_LEN,
+ 					       PCI_DMA_FROMDEVICE);
+ 			/* Buffer-1 receives L3/L4 headers */
+-			((RxD3_t*)rxdp)->Buffer1_ptr = *temp1 =
++			((struct RxD3*)rxdp)->Buffer1_ptr = *temp1 =
+ 				pci_map_single( sp->pdev, (*skb)->data,
+ 						l3l4hdr_size + 4,
+ 						PCI_DMA_FROMDEVICE);
+@@ -6007,14 +6010,14 @@ static int set_rxd_buffer_pointer(nic_t 
+ 			/*
+ 			 * Buffer-2 receives L4 data payload
+ 			 */
+-			((RxD3_t*)rxdp)->Buffer2_ptr = *temp2 =
++			((struct RxD3*)rxdp)->Buffer2_ptr = *temp2 =
+ 				pci_map_single( sp->pdev,
+frag_list->data,
+ 						dev->mtu,
+PCI_DMA_FROMDEVICE);
+ 		}
+ 	}
+ 	return 0;
+ }
+-static void set_rxd_buffer_size(nic_t *sp, RxD_t *rxdp, int size)
++static void set_rxd_buffer_size(struct s2io_nic *sp, struct RxD_t
+*rxdp, int size)
+ {
+ 	struct net_device *dev = sp->dev;
+ 	if (sp->rxd_mode == RXD_MODE_1) {
+@@ -6030,15 +6033,15 @@ static void set_rxd_buffer_size(nic_t *s
+ 	}
+ }
+ 
+-static  int rxd_owner_bit_reset(nic_t *sp)
++static  int rxd_owner_bit_reset(struct s2io_nic *sp)
+ {
+ 	int i, j, k, blk_cnt = 0, size;
+-	mac_info_t * mac_control = &sp->mac_control;
++	struct mac_info * mac_control = &sp->mac_control;
+ 	struct config_param *config = &sp->config;
+ 	struct net_device *dev = sp->dev;
+-	RxD_t *rxdp = NULL;
++	struct RxD_t *rxdp = NULL;
+ 	struct sk_buff *skb = NULL;
+-	buffAdd_t *ba = NULL;
++	struct buffAdd *ba = NULL;
+ 	u64 temp0_64 = 0, temp1_64 = 0, temp2_64 = 0;
+ 
+ 	/* Calculate the size based on ring mode */
+@@ -6077,7 +6080,7 @@ static  int rxd_owner_bit_reset(nic_t *s
+ 
+ }
+ 
+-static int s2io_add_isr(nic_t * sp)
++static int s2io_add_isr(struct s2io_nic * sp)
+ {
+ 	int ret = 0;
+ 	struct net_device *dev = sp->dev;
+@@ -6092,7 +6095,7 @@ static int s2io_add_isr(nic_t * sp)
+ 		sp->intr_type = INTA;
+ 	}
+ 
+-	/* Store the values of the MSIX table in the nic_t structure */
++	/* Store the values of the MSIX table in the struct s2io_nic
+structure */
+ 	store_xmsi_data(sp);
+ 
+ 	/* After proper initialization of H/W, register ISR */
+@@ -6147,7 +6150,7 @@ static int s2io_add_isr(nic_t * sp)
+ 	}
+ 	return 0;
+ }
+-static void s2io_rem_isr(nic_t * sp)
++static void s2io_rem_isr(struct s2io_nic * sp)
+ {
+ 	int cnt = 0;
+ 	struct net_device *dev = sp->dev;
+@@ -6189,10 +6192,10 @@ static void s2io_rem_isr(nic_t * sp)
+ 	} while(cnt < 5);
+ }
+ 
+-static void s2io_card_down(nic_t * sp)
++static void s2io_card_down(struct s2io_nic * sp)
+ {
+ 	int cnt = 0;
+-	XENA_dev_config_t __iomem *bar0 = sp->bar0;
++	struct XENA_dev_config __iomem *bar0 = sp->bar0;
+ 	unsigned long flags;
+ 	register u64 val64 = 0;
+ 
+@@ -6253,10 +6256,10 @@ static void s2io_card_down(nic_t * sp)
+ 	clear_bit(0, &(sp->link_state));
+ }
+ 
+-static int s2io_card_up(nic_t * sp)
++static int s2io_card_up(struct s2io_nic * sp)
+ {
+ 	int i, ret = 0;
+-	mac_info_t *mac_control;
++	struct mac_info *mac_control;
+ 	struct config_param *config;
+ 	struct net_device *dev = (struct net_device *) sp->dev;
+ 	u16 interruptible;
+@@ -6355,7 +6358,7 @@ static int s2io_card_up(nic_t * sp)
+ 
+ static void s2io_restart_nic(struct work_struct *work)
+ {
+-	nic_t *sp = container_of(work, nic_t, rst_timer_task);
++	struct s2io_nic *sp = container_of(work, struct s2io_nic,
+rst_timer_task);
+ 	struct net_device *dev = sp->dev;
+ 
+ 	s2io_card_down(sp);
+@@ -6384,7 +6387,7 @@ static void s2io_restart_nic(struct work
+ 
+ static void s2io_tx_watchdog(struct net_device *dev)
+ {
+-	nic_t *sp = dev->priv;
++	struct s2io_nic *sp = dev->priv;
+ 
+ 	if (netif_carrier_ok(dev)) {
+ 		schedule_work(&sp->rst_timer_task);
+@@ -6409,16 +6412,16 @@ static void s2io_tx_watchdog(struct net_
+  *   Return value:
+  *   SUCCESS on success and -1 on failure.
+  */
+-static int rx_osm_handler(ring_info_t *ring_data, RxD_t * rxdp)
++static int rx_osm_handler(struct ring_info *ring_data, struct RxD_t *
+rxdp)
+ {
+-	nic_t *sp = ring_data->nic;
++	struct s2io_nic *sp = ring_data->nic;
+ 	struct net_device *dev = (struct net_device *) sp->dev;
+ 	struct sk_buff *skb = (struct sk_buff *)
+ 		((unsigned long) rxdp->Host_Control);
+ 	int ring_no = ring_data->ring_no;
+ 	u16 l3_csum, l4_csum;
+ 	unsigned long long err = rxdp->Control_1 & RXD_T_CODE;
+-	lro_t *lro;
++	struct lro *lro;
+ 
+ 	skb->dev = dev;
+ 
+@@ -6463,7 +6466,7 @@ static int rx_osm_handler(ring_info_t *r
+ 		int buf2_len = RXD_GET_BUFFER2_SIZE_3(rxdp->Control_2);
+ 		unsigned char *buff = skb_push(skb, buf0_len);
+ 
+-		buffAdd_t *ba = &ring_data->ba[get_block][get_off];
++		struct buffAdd *ba = &ring_data->ba[get_block][get_off];
+ 		sp->stats.rx_bytes += buf0_len + buf2_len;
+ 		memcpy(buff, ba->ba_0, buf0_len);
+ 
+@@ -6594,7 +6597,7 @@ aggregate:
+  *  void.
+  */
+ 
+-static void s2io_link(nic_t * sp, int link)
++static void s2io_link(struct s2io_nic * sp, int link)
+ {
+ 	struct net_device *dev = (struct net_device *) sp->dev;
+ 
+@@ -6638,7 +6641,7 @@ static int get_xena_rev_id(struct pci_de
+  *  void
+  */
+ 
+-static void s2io_init_pci(nic_t * sp)
++static void s2io_init_pci(struct s2io_nic * sp)
+ {
+ 	u16 pci_cmd = 0, pcix_cmd = 0;
+ 
+@@ -6721,15 +6724,15 @@ static int s2io_verify_parm(struct pci_d
+ static int __devinit
+ s2io_init_nic(struct pci_dev *pdev, const struct pci_device_id *pre)
+ {
+-	nic_t *sp;
++	struct s2io_nic *sp;
+ 	struct net_device *dev;
+ 	int i, j, ret;
+ 	int dma_flag = FALSE;
+ 	u32 mac_up, mac_down;
+ 	u64 val64 = 0, tmp64 = 0;
+-	XENA_dev_config_t __iomem *bar0 = NULL;
++	struct XENA_dev_config __iomem *bar0 = NULL;
+ 	u16 subid;
+-	mac_info_t *mac_control;
++	struct mac_info *mac_control;
+ 	struct config_param *config;
+ 	int mode;
+ 	u8 dev_intr_type = intr_type;
+@@ -6784,7 +6787,7 @@ s2io_init_nic(struct pci_dev *pdev, cons
+ 		}
+ 	}
+ 
+-	dev = alloc_etherdev(sizeof(nic_t));
++	dev = alloc_etherdev(sizeof(struct s2io_nic));
+ 	if (dev == NULL) {
+ 		DBG_PRINT(ERR_DBG, "Device allocation failed\n");
+ 		pci_disable_device(pdev);
+@@ -6799,7 +6802,7 @@ s2io_init_nic(struct pci_dev *pdev, cons
+ 
+ 	/*  Private member variable initialized to s2io NIC structure */
+ 	sp = dev->priv;
+-	memset(sp, 0, sizeof(nic_t));
++	memset(sp, 0, sizeof(struct s2io_nic));
+ 	sp->dev = dev;
+ 	sp->pdev = pdev;
+ 	sp->high_dma_flag = dma_flag;
+@@ -6915,7 +6918,7 @@ s2io_init_nic(struct pci_dev *pdev, cons
+ 
+ 	/* Initializing the BAR1 address as the start of the FIFO
+pointer. */
+ 	for (j = 0; j < MAX_TX_FIFOS; j++) {
+-		mac_control->tx_FIFO_start[j] = (TxFIFO_element_t
+__iomem *)
++		mac_control->tx_FIFO_start[j] = (struct TxFIFO_element
+__iomem *)
+ 		    (sp->bar1 + (j * 0x00020000));
+ 	}
+ 
+@@ -7175,7 +7178,7 @@ static void __devexit s2io_rem_nic(struc
+ {
+ 	struct net_device *dev =
+ 	    (struct net_device *) pci_get_drvdata(pdev);
+-	nic_t *sp;
++	struct s2io_nic *sp;
+ 
+ 	if (dev == NULL) {
+ 		DBG_PRINT(ERR_DBG, "Driver Data is NULL!!\n");
+@@ -7227,7 +7230,7 @@ module_init(s2io_starter);
+ module_exit(s2io_closer);
+ 
+ static int check_L2_lro_capable(u8 *buffer, struct iphdr **ip,
+-		struct tcphdr **tcp, RxD_t *rxdp)
++		struct tcphdr **tcp, struct RxD_t *rxdp)
+ {
+ 	int ip_off;
+ 	u8 l2_type = (u8)((rxdp->Control_1 >> 37) & 0x7), ip_len;
+@@ -7261,7 +7264,7 @@ static int check_L2_lro_capable(u8 *buff
+ 	return 0;
+ }
+ 
+-static int check_for_socket_match(lro_t *lro, struct iphdr *ip,
++static int check_for_socket_match(struct lro *lro, struct iphdr *ip,
+ 				  struct tcphdr *tcp)
+ {
+ 	DBG_PRINT(INFO_DBG,"%s: Been here...\n", __FUNCTION__);
+@@ -7276,7 +7279,7 @@ static inline int get_l4_pyld_length(str
+ 	return(ntohs(ip->tot_len) - (ip->ihl << 2) - (tcp->doff << 2));
+ }
+ 
+-static void initiate_new_session(lro_t *lro, u8 *l2h,
++static void initiate_new_session(struct lro *lro, u8 *l2h,
+ 		     struct iphdr *ip, struct tcphdr *tcp, u32
+tcp_pyld_len)
+ {
+ 	DBG_PRINT(INFO_DBG,"%s: Been here...\n", __FUNCTION__);
+@@ -7302,12 +7305,12 @@ static void initiate_new_session(lro_t *
+ 	lro->in_use = 1;
+ }
+ 
+-static void update_L3L4_header(nic_t *sp, lro_t *lro)
++static void update_L3L4_header(struct s2io_nic *sp, struct lro *lro)
+ {
+ 	struct iphdr *ip = lro->iph;
+ 	struct tcphdr *tcp = lro->tcph;
+ 	u16 nchk;
+-	StatInfo_t *statinfo = sp->mac_control.stats_info;
++	struct stat_block *statinfo = sp->mac_control.stats_info;
+ 	DBG_PRINT(INFO_DBG,"%s: Been here...\n", __FUNCTION__);
+ 
+ 	/* Update L3 header */
+@@ -7333,7 +7336,7 @@ static void update_L3L4_header(nic_t *sp
+ 	statinfo->sw_stat.num_aggregations++;
+ }
+ 
+-static void aggregate_new_rx(lro_t *lro, struct iphdr *ip,
++static void aggregate_new_rx(struct lro *lro, struct iphdr *ip,
+ 		struct tcphdr *tcp, u32 l4_pyld)
+ {
+ 	DBG_PRINT(INFO_DBG,"%s: Been here...\n", __FUNCTION__);
+@@ -7355,7 +7358,7 @@ static void aggregate_new_rx(lro_t *lro,
+ 	}
+ }
+ 
+-static int verify_l3_l4_lro_capable(lro_t *l_lro, struct iphdr *ip,
++static int verify_l3_l4_lro_capable(struct lro *l_lro, struct iphdr
+*ip,
+ 				    struct tcphdr *tcp, u32
+tcp_pyld_len)
+ {
+ 	u8 *ptr;
+@@ -7413,8 +7416,8 @@ static int verify_l3_l4_lro_capable(lro_
+ }
+ 
+ static int
+-s2io_club_tcp_session(u8 *buffer, u8 **tcp, u32 *tcp_len, lro_t **lro,
+-		      RxD_t *rxdp, nic_t *sp)
++s2io_club_tcp_session(u8 *buffer, u8 **tcp, u32 *tcp_len, struct lro
+**lro,
++		      struct RxD_t *rxdp, struct s2io_nic *sp)
+ {
+ 	struct iphdr *ip;
+ 	struct tcphdr *tcph;
+@@ -7431,7 +7434,7 @@ s2io_club_tcp_session(u8 *buffer, u8 **t
+ 	tcph = (struct tcphdr *)*tcp;
+ 	*tcp_len = get_l4_pyld_length(ip, tcph);
+ 	for (i=0; i<MAX_LRO_SESSIONS; i++) {
+-		lro_t *l_lro = &sp->lro0_n[i];
++		struct lro *l_lro = &sp->lro0_n[i];
+ 		if (l_lro->in_use) {
+ 			if (check_for_socket_match(l_lro, ip, tcph))
+ 				continue;
+@@ -7469,7 +7472,7 @@ s2io_club_tcp_session(u8 *buffer, u8 **t
+ 		}
+ 
+ 		for (i=0; i<MAX_LRO_SESSIONS; i++) {
+-			lro_t *l_lro = &sp->lro0_n[i];
++			struct lro *l_lro = &sp->lro0_n[i];
+ 			if (!(l_lro->in_use)) {
+ 				*lro = l_lro;
+ 				ret = 3; /* Begin anew */
+@@ -7508,9 +7511,9 @@ s2io_club_tcp_session(u8 *buffer, u8 **t
+ 	return ret;
+ }
+ 
+-static void clear_lro_session(lro_t *lro)
++static void clear_lro_session(struct lro *lro)
+ {
+-	static u16 lro_struct_size = sizeof(lro_t);
++	static u16 lro_struct_size = sizeof(struct lro);
+ 
+ 	memset(lro, 0, lro_struct_size);
+ }
+@@ -7526,7 +7529,7 @@ static void queue_rx_frame(struct sk_buf
+ 		netif_rx(skb);
+ }
+ 
+-static void lro_append_pkt(nic_t *sp, lro_t *lro, struct sk_buff *skb,
++static void lro_append_pkt(struct s2io_nic *sp, struct lro *lro, struct
+sk_buff *skb,
+ 			   u32 tcp_len)
+ {
+ 	struct sk_buff *first = lro->parent;
+diff -urpN patch4/drivers/net/s2io.h patch5/drivers/net/s2io.h
+--- patch4/drivers/net/s2io.h	2007-01-09 14:33:44.000000000 +0530
++++ patch5/drivers/net/s2io.h	2007-01-09 14:33:52.000000000 +0530
+@@ -39,7 +39,7 @@
+ #define MAX_FLICKER_TIME	60000 /* 60 Secs */
+ 
+ /* Maximum outstanding splits to be configured into xena. */
+-typedef enum xena_max_outstanding_splits {
++enum {
+ 	XENA_ONE_SPLIT_TRANSACTION = 0,
+ 	XENA_TWO_SPLIT_TRANSACTION = 1,
+ 	XENA_THREE_SPLIT_TRANSACTION = 2,
+@@ -48,7 +48,7 @@ typedef enum xena_max_outstanding_splits
+ 	XENA_TWELVE_SPLIT_TRANSACTION = 5,
+ 	XENA_SIXTEEN_SPLIT_TRANSACTION = 6,
+ 	XENA_THIRTYTWO_SPLIT_TRANSACTION = 7
+-} xena_max_outstanding_splits;
++};
+ #define XENA_MAX_OUTSTANDING_SPLITS(n) (n << 4)
+ 
+ /*  OS concerned variables and constants */
+@@ -79,7 +79,7 @@ static int debug_level = ERR_DBG;
+ #define S2IO_JUMBO_SIZE 9600
+ 
+ /* Driver statistics maintained by driver */
+-typedef struct {
++struct swStat {
+ 	unsigned long long single_ecc_errs;
+ 	unsigned long long double_ecc_errs;
+ 	unsigned long long parity_err_cnt;
+@@ -94,10 +94,10 @@ typedef struct {
+ 	unsigned long long flush_max_pkts;
+ 	unsigned long long sum_avg_pkts_aggregated;
+ 	unsigned long long num_aggregations;
+-} swStat_t;
++};
+ 
+ /* Xpak releated alarm and warnings */
+-typedef struct {
++struct xpakStat {
+ 	u64 alarm_transceiver_temp_high;
+ 	u64 alarm_transceiver_temp_low;
+ 	u64 alarm_laser_bias_current_high;
+@@ -112,11 +112,11 @@ typedef struct {
+ 	u64 warn_laser_output_power_low;
+ 	u64 xpak_regs_stat;
+ 	u32 xpak_timer_count;
+-} xpakStat_t;
++};
+ 
+ 
+ /* The statistics block of Xena */
+-typedef struct stat_block {
++struct stat_block {
+ /* Tx MAC statistics counters. */
+ 	__le32 tmac_data_octets;
+ 	__le32 tmac_frms;
+@@ -292,9 +292,9 @@ typedef struct stat_block {
+ 	__le32 reserved_14;
+ 	__le32 link_fault_cnt;
+ 	u8  buffer[20];
+-	swStat_t sw_stat;
+-	xpakStat_t xpak_stat;
+-} StatInfo_t;
++	struct swStat sw_stat;
++	struct xpakStat xpak_stat;
++};
+ 
+ /*
+  * Structures representing different init time configuration
+@@ -317,7 +317,7 @@ static int fifo_map[][MAX_TX_FIFOS] = {
+ };
+ 
+ /* Maintains Per FIFO related information. */
+-typedef struct tx_fifo_config {
++struct tx_fifo_config {
+ #define	MAX_AVAILABLE_TXDS	8192
+ 	u32 fifo_len;		/* specifies len of FIFO upto 8192, ie
+no of TxDLs */
+ /* Priority definition */
+@@ -334,11 +334,11 @@ typedef struct tx_fifo_config {
+ 	u8 f_no_snoop;
+ #define NO_SNOOP_TXD                0x01
+ #define NO_SNOOP_TXD_BUFFER          0x02
+-} tx_fifo_config_t;
++};
+ 
+ 
+ /* Maintains per Ring related information */
+-typedef struct rx_ring_config {
++struct rx_ring_config {
+ 	u32 num_rxd;		/*No of RxDs per Rx Ring */
+ #define RX_RING_PRI_0               0	/* highest */
+ #define RX_RING_PRI_1               1
+@@ -359,7 +359,7 @@ typedef struct rx_ring_config {
+ 	u8 f_no_snoop;
+ #define NO_SNOOP_RXD                0x01
+ #define NO_SNOOP_RXD_BUFFER         0x02
+-} rx_ring_config_t;
++};
+ 
+ /* This structure provides contains values of the tunable parameters
+  * of the H/W
+@@ -369,7 +369,7 @@ struct config_param {
+ 	u32 tx_fifo_num;	/*Number of Tx FIFOs */
+ 
+ 	u8 fifo_mapping[MAX_TX_FIFOS];
+-	tx_fifo_config_t tx_cfg[MAX_TX_FIFOS];	/*Per-Tx FIFO config */
++	struct tx_fifo_config tx_cfg[MAX_TX_FIFOS];	/*Per-Tx FIFO
+config */
+ 	u32 max_txds;		/*Max no. of Tx buffer descriptor per
+TxDL */
+ 	u64 tx_intr_type;
+ 	/* Specifies if Tx Intr is UTILZ or PER_LIST type. */
+@@ -378,7 +378,7 @@ struct config_param {
+ 	u32 rx_ring_num;	/*Number of receive rings */
+ #define MAX_RX_BLOCKS_PER_RING  150
+ 
+-	rx_ring_config_t rx_cfg[MAX_RX_RINGS];	/*Per-Rx Ring config */
++	struct rx_ring_config rx_cfg[MAX_RX_RINGS];	/*Per-Rx Ring
+config */
+ 	u8 bimodal;		/*Flag for setting bimodal interrupts*/
+ 
+ #define HEADER_ETHERNET_II_802_3_SIZE 14
+@@ -397,14 +397,14 @@ struct config_param {
+ };
+ 
+ /* Structure representing MAC Addrs */
+-typedef struct mac_addr {
++struct mac_addr {
+ 	u8 mac_addr[ETH_ALEN];
+-} macaddr_t;
++};
+ 
+ /* Structure that represent every FIFO element in the BAR1
+  * Address location.
+  */
+-typedef struct _TxFIFO_element {
++struct TxFIFO_element {
+ 	u64 TxDL_Pointer;
+ 
+ 	u64 List_Control;
+@@ -415,10 +415,10 @@ typedef struct _TxFIFO_element {
+ #define TX_FIFO_SPECIAL_FUNC           BIT(23)
+ #define TX_FIFO_DS_NO_SNOOP            BIT(31)
+ #define TX_FIFO_BUFF_NO_SNOOP          BIT(30)
+-} TxFIFO_element_t;
++};
+ 
+ /* Tx descriptor structure */
+-typedef struct _TxD {
++struct TxD {
+ 	u64 Control_1;
+ /* bit mask */
+ #define TXD_LIST_OWN_XENA       BIT(7)
+@@ -449,16 +449,16 @@ typedef struct _TxD {
+ 
+ 	u64 Buffer_Pointer;
+ 	u64 Host_Control;	/* reserved for host */
+-} TxD_t;
++};
+ 
+ /* Structure to hold the phy and virt addr of every TxDL. */
+-typedef struct list_info_hold {
++struct list_info_hold {
+ 	dma_addr_t list_phy_addr;
+ 	void *list_virt_addr;
+-} list_info_hold_t;
++};
+ 
+ /* Rx descriptor structure for 1 buffer mode */
+-typedef struct _RxD_t {
++struct RxD_t {
+ 	u64 Host_Control;	/* reserved for host */
+ 	u64 Control_1;
+ #define RXD_OWN_XENA            BIT(7)
+@@ -483,21 +483,21 @@ typedef struct _RxD_t {
+ #define SET_NUM_TAG(val)       vBIT(val,16,32)
+ 
+ 
+-} RxD_t;
++};
+ /* Rx descriptor structure for 1 buffer mode */
+-typedef struct _RxD1_t {
+-	struct _RxD_t h;
++struct RxD1 {
++	struct RxD_t h;
+ 
+ #define MASK_BUFFER0_SIZE_1       vBIT(0x3FFF,2,14)
+ #define SET_BUFFER0_SIZE_1(val)   vBIT(val,2,14)
+ #define RXD_GET_BUFFER0_SIZE_1(_Control_2) \
+ 	(u16)((_Control_2 & MASK_BUFFER0_SIZE_1) >> 48)
+ 	u64 Buffer0_ptr;
+-} RxD1_t;
++};
+ /* Rx descriptor structure for 3 or 2 buffer mode */
+ 
+-typedef struct _RxD3_t {
+-	struct _RxD_t h;
++struct RxD3 {
++	struct RxD_t h;
+ 
+ #define MASK_BUFFER0_SIZE_3       vBIT(0xFF,2,14)
+ #define MASK_BUFFER1_SIZE_3       vBIT(0xFFFF,16,16)
+@@ -517,15 +517,15 @@ typedef struct _RxD3_t {
+ 	u64 Buffer0_ptr;
+ 	u64 Buffer1_ptr;
+ 	u64 Buffer2_ptr;
+-} RxD3_t;
++};
+ 
+ 
+ /* Structure that represents the Rx descriptor block which contains
+  * 128 Rx descriptors.
+  */
+-typedef struct _RxD_block {
++struct RxD_block {
+ #define MAX_RXDS_PER_BLOCK_1            127
+-	RxD1_t rxd[MAX_RXDS_PER_BLOCK_1];
++	struct RxD1 rxd[MAX_RXDS_PER_BLOCK_1];
+ 
+ 	u64 reserved_0;
+ #define END_OF_BLOCK    0xFEFFFFFFFFFFFFFFULL
+@@ -535,7 +535,7 @@ typedef struct _RxD_block {
+ 	u64 pNext_RxD_Blk_physical;	/* Buff0_ptr.In a 32 bit arch
+ 					 * the upper 32 bits should
+ 					 * be 0 */
+-} RxD_block_t;
++};
+ 
+ #define SIZE_OF_BLOCK	4096
+ 
+@@ -545,12 +545,12 @@ typedef struct _RxD_block {
+ 
+ /* Structure to hold virtual addresses of Buf0 and Buf1 in
+  * 2buf mode. */
+-typedef struct bufAdd {
++struct buffAdd {
+ 	void *ba_0_org;
+ 	void *ba_1_org;
+ 	void *ba_0;
+ 	void *ba_1;
+-} buffAdd_t;
++};
+ 
+ /* Structure which stores all the MAC control parameters */
+ 
+@@ -558,43 +558,46 @@ typedef struct bufAdd {
+  * from which the Rx Interrupt processor can start picking
+  * up the RxDs for processing.
+  */
+-typedef struct _rx_curr_get_info_t {
++struct rx_curr_get_info {
+ 	u32 block_index;
+ 	u32 offset;
+ 	u32 ring_len;
+-} rx_curr_get_info_t;
++};
+ 
+-typedef rx_curr_get_info_t rx_curr_put_info_t;
++struct rx_curr_put_info {
++	u32 block_index;
++	u32 offset;
++	u32 ring_len;
++};
+ 
+ /* This structure stores the offset of the TxDl in the FIFO
+  * from which the Tx Interrupt processor can start picking
+  * up the TxDLs for send complete interrupt processing.
+  */
+-typedef struct {
++struct tx_curr_get_info {
+ 	u32 offset;
+ 	u32 fifo_len;
+-} tx_curr_get_info_t;
 -
--#define __NR_syscall_max __NR_move_pages
-+#define __NR_kevent_get_events	280
-+__SYSCALL(__NR_kevent_get_events, sys_kevent_get_events)
-+#define __NR_kevent_ctl		281
-+__SYSCALL(__NR_kevent_ctl, sys_kevent_ctl)
-+#define __NR_kevent_wait	282
-+__SYSCALL(__NR_kevent_wait, sys_kevent_wait)
-+#define __NR_kevent_commit	283
-+__SYSCALL(__NR_kevent_commit, sys_kevent_commit)
-+#define __NR_kevent_init	284
-+__SYSCALL(__NR_kevent_init, sys_kevent_init)
-+#define __NR_aio_sendfile	285
-+__SYSCALL(__NR_aio_sendfile, sys_aio_sendfile)
-+#define __NR_aio_sendfile_path	286
-+__SYSCALL(__NR_aio_sendfile_path, sys_aio_sendfile_path)
-+
-+#define __NR_syscall_max __NR_aio_sendfile_path
- 
- #ifndef __NO_STUBS
- #define __ARCH_WANT_OLD_READDIR
-diff --git a/include/linux/kevent.h b/include/linux/kevent.h
-new file mode 100644
-index 0000000..3040d01
---- /dev/null
-+++ b/include/linux/kevent.h
-@@ -0,0 +1,268 @@
-+/*
-+ * 2006 Copyright (c) Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-+ * All rights reserved.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-+ */
-+
-+#ifndef __KEVENT_H
-+#define __KEVENT_H
-+#include <linux/types.h>
-+#include <linux/list.h>
-+#include <linux/rbtree.h>
-+#include <linux/spinlock.h>
-+#include <linux/mutex.h>
-+#include <linux/wait.h>
-+#include <linux/net.h>
-+#include <linux/rcupdate.h>
-+#include <linux/fs.h>
-+#include <linux/sched.h>
-+#include <linux/hrtimer.h>
-+#include <linux/kevent_storage.h>
-+#include <linux/ukevent.h>
-+
-+#define KEVENT_MIN_BUFFS_ALLOC	3
-+
-+struct kevent;
-+struct kevent_storage;
-+typedef int (* kevent_callback_t)(struct kevent *);
-+
-+/* @callback is called each time new event has been caught. */
-+/* @enqueue is called each time new event is queued. */
-+/* @dequeue is called each time event is dequeued. */
-+/* @flags - flags for given set of callbacks. */
-+
-+struct kevent_callbacks {
-+	kevent_callback_t	callback, enqueue, dequeue;
-+	unsigned int		flags;
+-typedef tx_curr_get_info_t tx_curr_put_info_t;
 +};
-+
-+#define KEVENT_CALLBACKS_KERNELONLY	0x1
-+
-+int kevent_event_is_allowed(struct ukevent *e);
-+
-+#define KEVENT_READY		0x1
-+#define KEVENT_STORAGE		0x2
-+#define KEVENT_USER		0x4
-+
-+struct kevent
-+{
-+	/* Used for kevent freeing.*/
-+	struct rcu_head		rcu_head;
-+	struct ukevent		event;
-+	/* This lock protects ukevent manipulations, e.g. ret_flags changes. */
-+	spinlock_t		ulock;
-+
-+	/* Entry of user's tree. */
-+	struct rb_node		kevent_node;
-+	/* Entry of origin's queue. */
-+	struct list_head	storage_entry;
-+	/* Entry of user's ready. */
-+	struct list_head	ready_entry;
-+
-+	u32			flags;
-+
-+	/* User who requested this kevent. */
-+	struct kevent_user	*user;
-+	/* Kevent container. */
-+	struct kevent_storage	*st;
-+
-+	struct kevent_callbacks	callbacks;
-+
-+	/* Private data for different storages.
-+	 * poll()/select storage has a list of wait_queue_t containers
-+	 * for each ->poll() { poll_wait()' } here.
-+	 */
-+	void			*priv;
-+};
-+
-+struct kevent_user
-+{
-+	struct rb_root		kevent_root;
-+	spinlock_t		kevent_lock;
-+	/* Number of queued kevents. */
-+	unsigned int		kevent_num;
-+
-+	/* List of ready kevents. */
-+	struct list_head	ready_list;
-+	/* Number of ready kevents. */
-+	unsigned int		ready_num;
-+	/* Protects all manipulations with ready queue. */
-+	spinlock_t 		ready_lock;
-+
-+	/* Protects against simultaneous kevent_user control manipulations. */
-+	struct mutex		ctl_mutex;
-+	/* Wait until some events are ready. */
-+	wait_queue_head_t	wait;
-+	/* Exit from syscall if someone wants us to do it */
-+	int			need_exit;
-+
-+	/* Reference counter, increased for each new kevent. */
-+	atomic_t		refcnt;
-+
-+	/* Mutex protecting userspace ring buffer. */
-+	struct mutex		ring_lock;
-+	/* Kernel index and size of the userspace ring buffer. */
-+	unsigned int		kidx, uidx, ring_size, ring_over, full;
-+	/* Pointer to userspace ring buffer. */
-+	struct kevent_ring __user *pring;
-+
-+	/* Is used for absolute waiting times. */
-+	struct hrtimer		timer;
-+
-+	/* Used for userspace private notifications. */
-+	struct kevent_storage	st;
-+
-+#ifdef CONFIG_KEVENT_USER_STAT
-+	unsigned long		im_num;
-+	unsigned long		wait_num, ring_num;
-+	unsigned long		total;
-+#endif
-+};
-+
-+int kevent_enqueue(struct kevent *k);
-+int kevent_dequeue(struct kevent *k);
-+int kevent_init(struct kevent *k);
-+void kevent_requeue(struct kevent *k);
-+int kevent_break(struct kevent *k);
-+
-+int kevent_add_callbacks(const struct kevent_callbacks *cb, int pos);
-+
-+void kevent_storage_ready(struct kevent_storage *st,
-+		kevent_callback_t ready_callback, u32 event);
-+int kevent_storage_init(void *origin, struct kevent_storage *st);
-+void kevent_storage_fini(struct kevent_storage *st);
-+int kevent_storage_enqueue(struct kevent_storage *st, struct kevent *k);
-+void kevent_storage_dequeue(struct kevent_storage *st, struct kevent *k);
-+
-+void kevent_ready(struct kevent *k, int ret);
-+
-+int kevent_user_add_ukevent(struct ukevent *uk, struct kevent_user *u);
-+
-+#ifdef CONFIG_KEVENT_POLL
-+void kevent_poll_reinit(struct file *file);
-+#else
-+static inline void kevent_poll_reinit(struct file *file)
-+{
-+}
-+#endif
-+
-+#ifdef CONFIG_KEVENT_USER_STAT
-+static inline void kevent_stat_init(struct kevent_user *u)
-+{
-+	u->wait_num = u->im_num = u->total = u->ring_num = 0;
-+}
-+static inline void kevent_stat_print(struct kevent_user *u)
-+{
-+	printk(KERN_INFO "%s: u: %p, wait: %lu, ring: %lu, immediately: %lu, total: %lu.\n",
-+			__func__, u, u->wait_num, u->ring_num, u->im_num, u->total);
-+}
-+static inline void kevent_stat_im(struct kevent_user *u)
-+{
-+	u->im_num++;
-+}
-+static inline void kevent_stat_ring(struct kevent_user *u)
-+{
-+	u->ring_num++;
-+}
-+static inline void kevent_stat_wait(struct kevent_user *u)
-+{
-+	u->wait_num++;
-+}
-+static inline void kevent_stat_total(struct kevent_user *u)
-+{
-+	u->total++;
-+}
-+#else
-+#define kevent_stat_print(u)		({ (void) u;})
-+#define kevent_stat_init(u)		({ (void) u;})
-+#define kevent_stat_im(u)		({ (void) u;})
-+#define kevent_stat_wait(u)		({ (void) u;})
-+#define kevent_stat_ring(u)		({ (void) u;})
-+#define kevent_stat_total(u)		({ (void) u;})
-+#endif
-+
-+void kevent_user_free(struct kevent_user *u);
-+
-+/*
-+ * Kevent userspace control block reference counting.
-+ * Set to 1 at creation time, when appropriate kevent file descriptor
-+ * is closed, that reference counter is decreased.
-+ * When counter hits zero block is freed.
-+ */
-+static inline void kevent_user_get(struct kevent_user *u)
-+{
-+	atomic_inc(&u->refcnt);
-+}
-+
-+static inline void kevent_user_put(struct kevent_user *u)
-+{
-+	if (atomic_dec_and_test(&u->refcnt)) {
-+		kevent_user_free(u);
-+
-+	}
-+}
-+
-+#ifdef CONFIG_LOCKDEP
-+void kevent_socket_reinit(struct socket *sock);
-+void kevent_sk_reinit(struct sock *sk);
-+#else
-+static inline void kevent_socket_reinit(struct socket *sock)
-+{
-+}
-+static inline void kevent_sk_reinit(struct sock *sk)
-+{
-+}
-+#endif
-+#ifdef CONFIG_KEVENT_SOCKET
-+void kevent_socket_notify(struct sock *sock, u32 event);
-+int kevent_socket_dequeue(struct kevent *k);
-+int kevent_socket_enqueue(struct kevent *k);
-+#define sock_async(__sk) sock_flag(__sk, SOCK_ASYNC)
-+#else
-+static inline void kevent_socket_notify(struct sock *sock, u32 event)
-+{
-+}
-+#define sock_async(__sk)	({ (void)__sk; 0; })
-+#endif
-+
-+#ifdef CONFIG_KEVENT_POLL
-+static inline void kevent_init_file(struct file *file)
-+{
-+	kevent_storage_init(file, &file->st);
-+}
-+
-+static inline void kevent_cleanup_file(struct file *file)
-+{
-+	kevent_storage_fini(&file->st);
-+}
-+#else
-+static inline void kevent_init_file(struct file *file) {}
-+static inline void kevent_cleanup_file(struct file *file) {}
-+#endif
-+
-+#ifdef CONFIG_KEVENT_PIPE
-+extern void kevent_pipe_notify(struct inode *inode, u32 events);
-+#else
-+static inline void kevent_pipe_notify(struct inode *inode, u32 events) {}
-+#endif
-+
-+#ifdef CONFIG_KEVENT_SIGNAL
-+extern int kevent_signal_notify(struct task_struct *tsk, int sig);
-+#else
-+static inline int kevent_signal_notify(struct task_struct *tsk, int sig) {return 0;}
-+#endif
-+
-+#endif /* __KEVENT_H */
-diff --git a/include/linux/kevent_storage.h b/include/linux/kevent_storage.h
-new file mode 100644
-index 0000000..a38575d
---- /dev/null
-+++ b/include/linux/kevent_storage.h
-@@ -0,0 +1,11 @@
-+#ifndef __KEVENT_STORAGE_H
-+#define __KEVENT_STORAGE_H
-+
-+struct kevent_storage
-+{
-+	void			*origin;		/* Originator's pointer, e.g. struct sock or struct file. Can be NULL. */
-+	struct list_head	list;			/* List of queued kevents. */
-+	spinlock_t		lock;			/* Protects users queue. */
-+};
-+
-+#endif /* __KEVENT_STORAGE_H */
-diff --git a/include/linux/syscalls.h b/include/linux/syscalls.h
-index 1912c6c..d5e35ce 100644
---- a/include/linux/syscalls.h
-+++ b/include/linux/syscalls.h
-@@ -54,6 +54,8 @@ struct compat_stat;
- struct compat_timeval;
- struct robust_list_head;
- struct getcpu_cache;
-+struct ukevent;
-+struct kevent_ring;
  
- #include <linux/types.h>
- #include <linux/aio_abi.h>
-@@ -603,6 +605,17 @@ asmlinkage long sys_set_robust_list(struct robust_list_head __user *head,
- 				    size_t len);
- asmlinkage long sys_getcpu(unsigned __user *cpu, unsigned __user *node, struct getcpu_cache __user *cache);
++struct tx_curr_put_info {
++	u32 offset;
++	u32 fifo_len;
++};
  
-+asmlinkage long sys_kevent_get_events(int ctl_fd, unsigned int min, unsigned int max,
-+		struct timespec timeout, struct ukevent __user *buf, unsigned flags);
-+asmlinkage long sys_kevent_ctl(int ctl_fd, unsigned int cmd, unsigned int num, struct ukevent __user *buf);
-+asmlinkage long sys_kevent_wait(int ctl_fd, unsigned int num, unsigned int old_uidx, 
-+		struct timespec timeout, unsigned int flags);
-+asmlinkage long sys_kevent_commit(int ctl_fd, unsigned int new_uidx, unsigned int over);
-+asmlinkage long sys_kevent_init(struct kevent_ring __user *ring, unsigned int num, unsigned int flags);
-+
- int kernel_execve(const char *filename, char *const argv[], char *const envp[]);
+-typedef struct rxd_info {
++struct rxd_info {
+ 	void *virt_addr;
+ 	dma_addr_t dma_addr;
+-}rxd_info_t;
++};
  
-+asmlinkage long sys_aio_sendfile(int kevent_fd, int sock_fd, int in_fd, off_t offset, size_t count);
-+asmlinkage long sys_aio_sendfile_path(int kevent_fd, int sock_fd, char __user *filename, off_t offset, size_t count);
-+
+ /* Structure that holds the Phy and virt addresses of the Blocks */
+-typedef struct rx_block_info {
++struct rx_block_info {
+ 	void *block_virt_addr;
+ 	dma_addr_t block_dma_addr;
+-	rxd_info_t *rxds;
+-} rx_block_info_t;
+-
+-/* pre declaration of the nic structure */
+-typedef struct s2io_nic nic_t;
++	struct rxd_info *rxds;
++};
+ 
+ /* Ring specific structure */
+-typedef struct ring_info {
++struct ring_info {
+ 	/* The ring number */
+ 	int ring_no;
+ 
+@@ -602,7 +605,7 @@ typedef struct ring_info {
+ 	 *  Place holders for the virtual and physical addresses of
+ 	 *  all the Rx Blocks
+ 	 */
+-	rx_block_info_t rx_blocks[MAX_RX_BLOCKS_PER_RING];
++	struct rx_block_info rx_blocks[MAX_RX_BLOCKS_PER_RING];
+ 	int block_count;
+ 	int pkt_cnt;
+ 
+@@ -610,24 +613,24 @@ typedef struct ring_info {
+ 	 * Put pointer info which indictes which RxD has to be
+replenished
+ 	 * with a new buffer.
+ 	 */
+-	rx_curr_put_info_t rx_curr_put_info;
++	struct rx_curr_put_info rx_curr_put_info;
+ 
+ 	/*
+ 	 * Get pointer info which indictes which is the last RxD that
+was
+ 	 * processed by the driver.
+ 	 */
+-	rx_curr_get_info_t rx_curr_get_info;
++	struct rx_curr_get_info rx_curr_get_info;
+ 
+ 	/* Index to the absolute position of the put pointer of Rx ring
+*/
+ 	int put_pos;
+ 
+ 	/* Buffer Address store. */
+-	buffAdd_t **ba;
+-	nic_t *nic;
+-} ring_info_t;
++	struct buffAdd **ba;
++	struct s2io_nic *nic;
++};
+ 
+ /* Fifo specific structure */
+-typedef struct fifo_info {
++struct fifo_info {
+ 	/* FIFO number */
+ 	int fifo_no;
+ 
+@@ -635,40 +638,40 @@ typedef struct fifo_info {
+ 	int max_txds;
+ 
+ 	/* Place holder of all the TX List's Phy and Virt addresses. */
+-	list_info_hold_t *list_info;
++	struct list_info_hold *list_info;
+ 
+ 	/*
+ 	 * Current offset within the tx FIFO where driver would write
+ 	 * new Tx frame
+ 	 */
+-	tx_curr_put_info_t tx_curr_put_info;
++	struct tx_curr_put_info tx_curr_put_info;
+ 
+ 	/*
+ 	 * Current offset within tx FIFO from where the driver would
+start freeing
+ 	 * the buffers
+ 	 */
+-	tx_curr_get_info_t tx_curr_get_info;
++	struct tx_curr_get_info tx_curr_get_info;
+ 
+-	nic_t *nic;
+-}fifo_info_t;
++	struct s2io_nic *nic;
++};
+ 
+ /* Information related to the Tx and Rx FIFOs and Rings of Xena
+  * is maintained in this structure.
+  */
+-typedef struct mac_info {
++struct mac_info {
+ /* tx side stuff */
+ 	/* logical pointer of start of each Tx FIFO */
+-	TxFIFO_element_t __iomem *tx_FIFO_start[MAX_TX_FIFOS];
++	struct TxFIFO_element __iomem *tx_FIFO_start[MAX_TX_FIFOS];
+ 
+ 	/* Fifo specific structure */
+-	fifo_info_t fifos[MAX_TX_FIFOS];
++	struct fifo_info fifos[MAX_TX_FIFOS];
+ 
+ 	/* Save virtual address of TxD page with zero DMA addr(if any)
+*/
+ 	void *zerodma_virt_addr;
+ 
+ /* rx side stuff */
+ 	/* Ring specific structure */
+-	ring_info_t rings[MAX_RX_RINGS];
++	struct ring_info rings[MAX_RX_RINGS];
+ 
+ 	u16 rmac_pause_time;
+ 	u16 mc_pause_threshold_q0q3;
+@@ -677,14 +680,14 @@ typedef struct mac_info {
+ 	void *stats_mem;	/* orignal pointer to allocated mem */
+ 	dma_addr_t stats_mem_phy;	/* Physical address of the stat
+block */
+ 	u32 stats_mem_sz;
+-	StatInfo_t *stats_info;	/* Logical address of the stat block */
+-} mac_info_t;
++	struct stat_block *stats_info;	/* Logical address of the stat
+block */
++};
+ 
+ /* structure representing the user defined MAC addresses */
+-typedef struct {
++struct usr_addr {
+ 	char addr[ETH_ALEN];
+ 	int usage_cnt;
+-} usr_addr_t;
++};
+ 
+ /* Default Tunable parameters of the NIC. */
+ #define DEFAULT_FIFO_0_LEN 4096
+@@ -717,7 +720,7 @@ struct msix_info_st {
+ };
+ 
+ /* Data structure to represent a LRO session */
+-typedef struct lro {
++struct lro {
+ 	struct sk_buff	*parent;
+ 	struct sk_buff  *last_frag;
+ 	u8		*l2h;
+@@ -733,7 +736,7 @@ typedef struct lro {
+ 	u32		cur_tsval;
+ 	u32		cur_tsecr;
+ 	u8		saw_ts;
+-}lro_t;
++};
+ 
+ /* Structure representing one instance of the NIC */
+ struct s2io_nic {
+@@ -744,7 +747,7 @@ struct s2io_nic {
+ 	 */
+ 	int pkts_to_process;
+ 	struct net_device *dev;
+-	mac_info_t mac_control;
++	struct mac_info mac_control;
+ 	struct config_param config;
+ 	struct pci_dev *pdev;
+ 	void __iomem *bar0;
+@@ -752,8 +755,8 @@ struct s2io_nic {
+ #define MAX_MAC_SUPPORTED   16
+ #define MAX_SUPPORTED_MULTICASTS MAX_MAC_SUPPORTED
+ 
+-	macaddr_t def_mac_addr[MAX_MAC_SUPPORTED];
+-	macaddr_t pre_mac_addr[MAX_MAC_SUPPORTED];
++	struct mac_addr def_mac_addr[MAX_MAC_SUPPORTED];
++	struct mac_addr pre_mac_addr[MAX_MAC_SUPPORTED];
+ 
+ 	struct net_device_stats stats;
+ 	int high_dma_flag;
+@@ -781,7 +784,7 @@ struct s2io_nic {
+ #define MAX_ADDRS_SUPPORTED 64
+ 	u16 usr_addr_count;
+ 	u16 mc_addr_count;
+-	usr_addr_t usr_addrs[MAX_ADDRS_SUPPORTED];
++	struct usr_addr usr_addrs[MAX_ADDRS_SUPPORTED];
+ 
+ 	u16 m_cast_flg;
+ 	u16 all_multi_pos;
+@@ -837,7 +840,7 @@ struct s2io_nic {
+ 	u8 device_type;
+ 
+ #define MAX_LRO_SESSIONS	32
+-	lro_t lro0_n[MAX_LRO_SESSIONS];
++	struct lro lro0_n[MAX_LRO_SESSIONS];
+ 	unsigned long	clubbed_frms_cnt;
+ 	unsigned long	sending_both;
+ 	u8		lro;
+@@ -972,8 +975,8 @@ static void __devexit s2io_rem_nic(struc
+ static int init_shared_mem(struct s2io_nic *sp);
+ static void free_shared_mem(struct s2io_nic *sp);
+ static int init_nic(struct s2io_nic *nic);
+-static void rx_intr_handler(ring_info_t *ring_data);
+-static void tx_intr_handler(fifo_info_t *fifo_data);
++static void rx_intr_handler(struct ring_info *ring_data);
++static void tx_intr_handler(struct fifo_info *fifo_data);
+ static void alarm_intr_handler(struct s2io_nic *sp);
+ 
+ static int s2io_starter(void);
+@@ -981,40 +984,40 @@ static void s2io_closer(void);
+ static void s2io_tx_watchdog(struct net_device *dev);
+ static void s2io_tasklet(unsigned long dev_addr);
+ static void s2io_set_multicast(struct net_device *dev);
+-static int rx_osm_handler(ring_info_t *ring_data, RxD_t * rxdp);
+-static void s2io_link(nic_t * sp, int link);
+-static void s2io_reset(nic_t * sp);
++static int rx_osm_handler(struct ring_info *ring_data, struct RxD_t *
+rxdp);
++static void s2io_link(struct s2io_nic * sp, int link);
++static void s2io_reset(struct s2io_nic * sp);
+ #if defined (HAVE_NETDEV_POLL)
+ static int s2io_poll(struct net_device *dev, int *budget);
  #endif
-diff --git a/include/linux/ukevent.h b/include/linux/ukevent.h
-new file mode 100644
-index 0000000..d975407
---- /dev/null
-+++ b/include/linux/ukevent.h
-@@ -0,0 +1,191 @@
-+/*
-+ * 2006 Copyright (c) Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-+ * All rights reserved.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-+ */
-+
-+#ifndef __UKEVENT_H
-+#define __UKEVENT_H
-+
-+#include <linux/types.h>
-+
-+/*
-+ * Kevent request flags.
-+ */
-+
-+/* Process this event only once and then remove it. */
-+#define KEVENT_REQ_ONESHOT	0x1
-+/* Kevent wakes up only first thread interested in given event,
-+ * or all threads if this flag is set.
-+ */
-+#define KEVENT_REQ_WAKEUP_ALL	0x2
-+/* Edge Triggered behaviour. */
-+#define KEVENT_REQ_ET		0x4
-+/* Perform the last check on kevent (call appropriate callback) when
-+ * kevent is marked as ready and has been removed from ready queue.
-+ * If it will be confirmed that kevent is ready 
-+ * (k->callbacks.callback(k) returns true) then kevent will be copied
-+ * to userspace, otherwise it will be requeued back to storage. 
-+ * Second (checking) call is performed with this bit _cleared_ so
-+ * callback can detect when it was called from 
-+ * kevent_storage_ready() - bit is set, or 
-+ * kevent_dequeue_ready() - bit is cleared. 
-+ * If kevent will be requeued, bit will be set again. */
-+#define KEVENT_REQ_LAST_CHECK	0x8
-+/*
-+ * Always queue kevent even if it is immediately ready.
-+ */
-+#define KEVENT_REQ_ALWAYS_QUEUE	0x10
-+/*
-+ * Mark event as ready immediately on enqueueing time.
-+ */
-+#define KEVENT_REQ_READY	0x20
-+
-+/*
-+ * Kevent return flags.
-+ */
-+/* Kevent is broken. */
-+#define KEVENT_RET_BROKEN	0x1
-+/* Kevent processing was finished successfully. */
-+#define KEVENT_RET_DONE		0x2
-+/* Kevent was not copied into ring buffer due to some error conditions. */
-+#define KEVENT_RET_COPY_FAILED	0x4
-+
-+/*
-+ * Kevent type set.
-+ */
-+#define KEVENT_SOCKET 		0
-+#define KEVENT_INODE		1
-+#define KEVENT_TIMER		2
-+#define KEVENT_POLL		3
-+#define KEVENT_NAIO		4
-+#define KEVENT_AIO		5
-+#define KEVENT_PIPE		6
-+#define KEVENT_SIGNAL		7
-+#define KEVENT_POSIX_TIMER	8
-+#define KEVENT_UNOTIFY		9
-+
-+/* Used as array size, so must be equal to the last KEVENT type + 1 */
-+#define	KEVENT_MAX		10
-+
-+/*
-+ * Per-type event sets.
-+ * Number of per-event sets should be exactly as number of kevent types.
-+ */
-+
-+/*
-+ * Timer events.
-+ */
-+#define	KEVENT_TIMER_FIRED	0x1
-+
-+/*
-+ * Socket/network asynchronous IO and PIPE events.
-+ */
-+#define	KEVENT_SOCKET_RECV	0x1
-+#define	KEVENT_SOCKET_ACCEPT	0x2
-+#define	KEVENT_SOCKET_SEND	0x4
-+
-+/*
-+ * Inode events.
-+ */
-+#define	KEVENT_INODE_CREATE	0x1
-+#define	KEVENT_INODE_REMOVE	0x2
-+
-+/*
-+ * Poll events.
-+ */
-+#define	KEVENT_POLL_POLLIN	0x0001
-+#define	KEVENT_POLL_POLLPRI	0x0002
-+#define	KEVENT_POLL_POLLOUT	0x0004
-+#define	KEVENT_POLL_POLLERR	0x0008
-+#define	KEVENT_POLL_POLLHUP	0x0010
-+#define	KEVENT_POLL_POLLNVAL	0x0020
-+
-+#define	KEVENT_POLL_POLLRDNORM	0x0040
-+#define	KEVENT_POLL_POLLRDBAND	0x0080
-+#define	KEVENT_POLL_POLLWRNORM	0x0100
-+#define	KEVENT_POLL_POLLWRBAND	0x0200
-+#define	KEVENT_POLL_POLLMSG	0x0400
-+#define	KEVENT_POLL_POLLREMOVE	0x1000
-+#define KEVENT_POLL_POLLRDHUP	0x2000
-+
-+/*
-+ * Asynchronous IO events.
-+ */
-+#define	KEVENT_AIO_BIO		0x1
-+
-+/*
-+ * Signal events.
-+ */
-+#define KEVENT_SIGNAL_DELIVERY		0x1
-+
-+/* If set in raw64, then given signals will not be delivered
-+ * in a usual way through sigmask update and signal callback 
-+ * invocation. */
-+#define KEVENT_SIGNAL_NOMASK	0x8000000000000000ULL
-+
-+/* Mask of all possible event values. */
-+#define KEVENT_MASK_ALL		0xffffffff
-+/* Empty mask of ready events. */
-+#define KEVENT_MASK_EMPTY	0x0
-+
-+struct kevent_id
-+{
-+	union {
-+		__u32		raw[2];
-+		__u64		raw_u64 __attribute__((aligned(8)));
-+	};
-+};
-+
-+struct ukevent
-+{
-+	/* Id of this request, e.g. socket number, file descriptor and so on... */
-+	struct kevent_id	id;
-+	/* Event type, e.g. KEVENT_SOCK, KEVENT_INODE, KEVENT_TIMER and so on... */
-+	__u32			type;
-+	/* Event itself, e.g. SOCK_ACCEPT, INODE_CREATED, TIMER_FIRED... */
-+	__u32			event;
-+	/* Per-event request flags */
-+	__u32			req_flags;
-+	/* Per-event return flags */
-+	__u32			ret_flags;
-+	/* Event return data. Event originator fills it with anything it likes. */
-+	__u32			ret_data[2];
-+	/* User's data. It is not used, just copied to/from user.
-+	 * The whole structure is aligned to 8 bytes already, so the last union
-+	 * is aligned properly.
-+	 */
-+	union {
-+		__u32		user[2];
-+		void		*ptr;
-+	};
-+};
-+
-+struct kevent_ring
-+{
-+	unsigned int		ring_kidx, ring_over;
-+	struct ukevent		event[0];
-+};
-+
-+#define	KEVENT_CTL_ADD 		0
-+#define	KEVENT_CTL_REMOVE	1
-+#define	KEVENT_CTL_MODIFY	2
-+#define	KEVENT_CTL_READY	3
-+
-+/* Provided timespec parameter uses absolute time, i.e. 'wait until Aug 27, 2194' */
-+#define KEVENT_FLAGS_ABSTIME	1
-+
-+#endif /* __UKEVENT_H */
-diff --git a/init/Kconfig b/init/Kconfig
-index a3f83e2..561a0fa 100644
---- a/init/Kconfig
-+++ b/init/Kconfig
-@@ -219,6 +219,8 @@ config AUDITSYSCALL
- 	  such as SELinux.  To use audit's filesystem watch feature, please
- 	  ensure that INOTIFY is configured.
+-static void s2io_init_pci(nic_t * sp);
++static void s2io_init_pci(struct s2io_nic * sp);
+ static int s2io_set_mac_addr(struct net_device *dev, u8 * addr);
+ static void s2io_alarm_handle(unsigned long data);
+-static int s2io_enable_msi(nic_t *nic);
++static int s2io_enable_msi(struct s2io_nic *nic);
+ static irqreturn_t s2io_msi_handle(int irq, void *dev_id);
+ static irqreturn_t
+ s2io_msix_ring_handle(int irq, void *dev_id);
+ static irqreturn_t
+ s2io_msix_fifo_handle(int irq, void *dev_id);
+ static irqreturn_t s2io_isr(int irq, void *dev_id);
+-static int verify_xena_quiescence(nic_t *sp);
++static int verify_xena_quiescence(struct s2io_nic *sp);
+ static const struct ethtool_ops netdev_ethtool_ops;
+ static void s2io_set_link(struct work_struct *work);
+-static int s2io_set_swapper(nic_t * sp);
+-static void s2io_card_down(nic_t *nic);
+-static int s2io_card_up(nic_t *nic);
++static int s2io_set_swapper(struct s2io_nic * sp);
++static void s2io_card_down(struct s2io_nic *nic);
++static int s2io_card_up(struct s2io_nic *nic);
+ static int get_xena_rev_id(struct pci_dev *pdev);
+ static int wait_for_cmd_complete(void *addr, u64 busy_bit);
+-static int s2io_add_isr(nic_t * sp);
+-static void s2io_rem_isr(nic_t * sp);
++static int s2io_add_isr(struct s2io_nic * sp);
++static void s2io_rem_isr(struct s2io_nic * sp);
  
-+source "kernel/kevent/Kconfig"
-+
- config IKCONFIG
- 	tristate "Kernel .config support"
- 	---help---
-diff --git a/kernel/Makefile b/kernel/Makefile
-index 14f4d45..6bccdbb 100644
---- a/kernel/Makefile
-+++ b/kernel/Makefile
-@@ -46,6 +46,7 @@ obj-$(CONFIG_DETECT_SOFTLOCKUP) += softlockup.o
- obj-$(CONFIG_GENERIC_HARDIRQS) += irq/
- obj-$(CONFIG_SECCOMP) += seccomp.o
- obj-$(CONFIG_RCU_TORTURE_TEST) += rcutorture.o
-+obj-$(CONFIG_KEVENT) += kevent/
- obj-$(CONFIG_RELAY) += relay.o
- obj-$(CONFIG_UTS_NS) += utsname.o
- obj-$(CONFIG_TASK_DELAY_ACCT) += delayacct.o
-diff --git a/kernel/kevent/Kconfig b/kernel/kevent/Kconfig
-new file mode 100644
-index 0000000..a23e84f
---- /dev/null
-+++ b/kernel/kevent/Kconfig
-@@ -0,0 +1,82 @@
-+config KEVENT
-+	bool "Kernel event notification mechanism" if EMBEDDED
-+	default y
-+	help
-+	  This option enables event queue mechanism.
-+	  It can be used as replacement for poll()/select(), AIO callback
-+	  invocations, advanced timer notifications and other kernel
-+	  object status changes.
-+
-+config KEVENT_USER_STAT
-+	bool "Kevent user statistic"
-+	depends on KEVENT
-+	help
-+	  This option will turn kevent_user statistic collection on.
-+	  Statistic data includes total number of kevent, number of kevents
-+	  which are ready immediately at insertion time and number of kevents
-+	  which were removed through readiness completion.
-+	  It will be printed each time control kevent descriptor is closed.
-+
-+config KEVENT_TIMER
-+	bool "Kernel event notifications for timers"
-+	depends on KEVENT
-+	default y
-+	help
-+	  This option allows to use timers through KEVENT subsystem.
-+
-+config KEVENT_POLL
-+	bool "Kernel event notifications for poll()/select()"
-+	depends on KEVENT
-+	default y
-+	help
-+	  This option allows to use kevent subsystem for poll()/select()
-+	  notifications.
-+
-+config KEVENT_SOCKET
-+	bool "Kernel event notifications for sockets"
-+	depends on NET && KEVENT
-+	default y
-+	help
-+	  This option enables notifications through KEVENT subsystem of 
-+	  sockets operations, like new packet receiving conditions, 
-+	  ready for accept conditions and so on.
-+
-+config KEVENT_PIPE
-+	bool "Kernel event notifications for pipes"
-+	depends on KEVENT
-+	default y
-+	help
-+	  This option enables notifications through KEVENT subsystem of 
-+	  pipe read/write operations.
-+
-+config KEVENT_SIGNAL
-+	bool "Kernel event notifications for signals"
-+	depends on KEVENT
-+	default y
-+	help
-+	  This option enables signal delivery through KEVENT subsystem.
-+	  Signals which were requested to be delivered through kevent
-+	  subsystem must be registered through usual signal() and others
-+	  syscalls, this option allows alternative delivery.
-+	  With KEVENT_SIGNAL_NOMASK flag being set in kevent for set of 
-+	  signals, they will not be delivered in a usual way.
-+	  Kevents for appropriate signals are not copied when process forks,
-+	  new process must add new kevents after fork(). Mask of signals
-+	  is copied as before.
-+
-+config KEVENT_UNOTIFY
-+	bool "Private userspace notifications over kevent"
-+	depends on KEVENT
-+	default y
-+	help
-+	  This option enable possibility to insert private userspace events,
-+	  which can be marked as ready on demand using kevent_ctl(KEVENT_CTL_READY)
-+	  command.
-+
-+config KEVENT_AIO
-+	bool "Kevent based AIO"
-+	depends on KEVENT && NET
-+	default y
-+	help
-+	  This option allows to work with kevent based AIO state machine.
-+	  Among others this allows to implement aio_sendfile() syscall.
-diff --git a/kernel/kevent/Makefile b/kernel/kevent/Makefile
-new file mode 100644
-index 0000000..a179bea
---- /dev/null
-+++ b/kernel/kevent/Makefile
-@@ -0,0 +1,8 @@
-+obj-y := kevent.o kevent_user.o
-+obj-$(CONFIG_KEVENT_TIMER) += kevent_timer.o
-+obj-$(CONFIG_KEVENT_POLL) += kevent_poll.o epoll.o
-+obj-$(CONFIG_KEVENT_SOCKET) += kevent_socket.o
-+obj-$(CONFIG_KEVENT_PIPE) += kevent_pipe.o
-+obj-$(CONFIG_KEVENT_SIGNAL) += kevent_signal.o
-+obj-$(CONFIG_KEVENT_UNOTIFY) += kevent_unotify.o
-+obj-$(CONFIG_KEVENT_AIO) += kevent_aio.o
-diff --git a/kernel/kevent/kevent.c b/kernel/kevent/kevent.c
-new file mode 100644
-index 0000000..743cd0c
---- /dev/null
-+++ b/kernel/kevent/kevent.c
-@@ -0,0 +1,267 @@
-+/*
-+ * 2006 Copyright (c) Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-+ * All rights reserved.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-+ */
-+
-+#include <linux/kernel.h>
-+#include <linux/types.h>
-+#include <linux/list.h>
-+#include <linux/slab.h>
-+#include <linux/spinlock.h>
-+#include <linux/mempool.h>
-+#include <linux/sched.h>
-+#include <linux/wait.h>
-+#include <linux/kevent.h>
-+
-+/*
-+ * Attempts to add an event into appropriate origin's queue.
-+ * Returns positive value if this event is ready immediately,
-+ * negative value in case of error and zero if event has been queued.
-+ * ->enqueue() callback must increase origin's reference counter.
-+ */
-+int kevent_enqueue(struct kevent *k)
-+{
-+	return k->callbacks.enqueue(k);
-+}
-+
-+/*
-+ * Remove event from the appropriate queue.
-+ * ->dequeue() callback must decrease origin's reference counter.
-+ */
-+int kevent_dequeue(struct kevent *k)
-+{
-+	return k->callbacks.dequeue(k);
-+}
-+
-+/*
-+ * Mark kevent as broken.
-+ */
-+int kevent_break(struct kevent *k)
-+{
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&k->ulock, flags);
-+	k->event.ret_flags |= KEVENT_RET_BROKEN;
-+	spin_unlock_irqrestore(&k->ulock, flags);
-+	return -EINVAL;
-+}
-+
-+static struct kevent_callbacks kevent_registered_callbacks[KEVENT_MAX] __read_mostly;
-+
-+int kevent_event_is_allowed(struct ukevent *e)
-+{
-+	if (unlikely(e->type >= KEVENT_MAX))
-+		return 0;
-+
-+	if (!kevent_registered_callbacks[e->type].callback)
-+		return 0;
-+
-+	if (unlikely(kevent_registered_callbacks[e->type].callback == kevent_break))
-+		return 0;
-+
-+	if (kevent_registered_callbacks[e->type].flags & KEVENT_CALLBACKS_KERNELONLY)
-+		return 0;
-+	
-+	return 1;
-+}
-+
-+int kevent_add_callbacks(const struct kevent_callbacks *cb, int pos)
-+{
-+	struct kevent_callbacks *p;
-+
-+	if (pos >= KEVENT_MAX)
-+		return -EINVAL;
-+
-+	p = &kevent_registered_callbacks[pos];
-+
-+	p->enqueue = (cb->enqueue) ? cb->enqueue : kevent_break;
-+	p->dequeue = (cb->dequeue) ? cb->dequeue : kevent_break;
-+	p->callback = (cb->callback) ? cb->callback : kevent_break;
-+	p->flags = cb->flags;
-+
-+	printk(KERN_INFO "KEVENT: Added callbacks for type %d.\n", pos);
-+	return 0;
-+}
-+
-+/*
-+ * Must be called before event is going to be added into some origin's queue.
-+ * Initializes ->enqueue(), ->dequeue() and ->callback() callbacks.
-+ * If failed, kevent should not be used or kevent_enqueue() will fail to add
-+ * this kevent into origin's queue with setting
-+ * KEVENT_RET_BROKEN flag in kevent->event.ret_flags.
-+ */
-+int kevent_init(struct kevent *k)
-+{
-+	spin_lock_init(&k->ulock);
-+	k->flags = 0;
-+
-+	if (unlikely(k->event.type >= KEVENT_MAX)) {
-+		kevent_break(k);
-+		return -ENOSYS;
-+	}
-+
-+	if (!kevent_registered_callbacks[k->event.type].callback) {
-+		kevent_break(k);
-+		return -ENOSYS;
-+	}
-+
-+	k->callbacks = kevent_registered_callbacks[k->event.type];
-+	if (unlikely(k->callbacks.callback == kevent_break)) {
-+		kevent_break(k);
-+		return -ENOSYS;
-+	}
-+
-+	return 0;
-+}
-+
-+/*
-+ * Called from ->enqueue() callback when reference counter for given
-+ * origin (socket, inode...) has been increased.
-+ */
-+int kevent_storage_enqueue(struct kevent_storage *st, struct kevent *k)
-+{
-+	unsigned long flags;
-+
-+	k->st = st;
-+	spin_lock_irqsave(&st->lock, flags);
-+	list_add_tail_rcu(&k->storage_entry, &st->list);
-+	k->flags |= KEVENT_STORAGE;
-+	if (k->event.req_flags & KEVENT_REQ_READY)
-+		kevent_ready(k, 1);
-+	spin_unlock_irqrestore(&st->lock, flags);
-+	return 0;
-+}
-+
-+/*
-+ * Dequeue kevent from origin's queue.
-+ * It does not decrease origin's reference counter in any way
-+ * and must be called before it, so storage itself must be valid.
-+ * It is called from ->dequeue() callback.
-+ */
-+void kevent_storage_dequeue(struct kevent_storage *st, struct kevent *k)
-+{
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&st->lock, flags);
-+	if (k->flags & KEVENT_STORAGE) {
-+		list_del_rcu(&k->storage_entry);
-+		k->flags &= ~KEVENT_STORAGE;
-+	}
-+	spin_unlock_irqrestore(&st->lock, flags);
-+}
-+
-+void kevent_ready(struct kevent *k, int ret)
-+{
-+	unsigned long flags;
-+	int rem;
-+
-+	spin_lock_irqsave(&k->ulock, flags);
-+	if (ret > 0)
-+		k->event.ret_flags |= KEVENT_RET_DONE;
-+	else if (ret < 0)
-+		k->event.ret_flags |= (KEVENT_RET_BROKEN | KEVENT_RET_DONE);
-+	else
-+		ret = (k->event.ret_flags & (KEVENT_RET_BROKEN|KEVENT_RET_DONE));
-+	rem = (k->event.req_flags & KEVENT_REQ_ONESHOT);
-+	spin_unlock_irqrestore(&k->ulock, flags);
-+
-+	if (ret) {
-+		if ((rem || ret < 0) && (k->flags & KEVENT_STORAGE)) {
-+			list_del_rcu(&k->storage_entry);
-+			k->flags &= ~KEVENT_STORAGE;
-+		}
-+
-+		spin_lock_irqsave(&k->user->ready_lock, flags);
-+		if (!(k->flags & KEVENT_READY)) {
-+			list_add_tail(&k->ready_entry, &k->user->ready_list);
-+			k->flags |= KEVENT_READY;
-+			k->user->ready_num++;
-+		}
-+		spin_unlock_irqrestore(&k->user->ready_lock, flags);
-+		wake_up(&k->user->wait);
-+	}
-+}
-+
-+/*
-+ * Call kevent ready callback and queue it into ready queue if needed.
-+ * If kevent is marked as one-shot, then remove it from storage queue.
-+ */
-+static int __kevent_requeue(struct kevent *k, u32 event)
-+{
-+	int ret;
-+
-+	ret = k->callbacks.callback(k);
-+
-+	kevent_ready(k, ret);
-+
-+	return ret;
-+}
-+
-+/*
-+ * Check if kevent is ready (by invoking it's callback) and requeue/remove
-+ * if needed.
-+ */
-+void kevent_requeue(struct kevent *k)
-+{
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&k->st->lock, flags);
-+	__kevent_requeue(k, 0);
-+	spin_unlock_irqrestore(&k->st->lock, flags);
-+}
-+
-+/*
-+ * Called each time some activity in origin (socket, inode...) is noticed.
-+ */
-+void kevent_storage_ready(struct kevent_storage *st,
-+		kevent_callback_t ready_callback, u32 event)
-+{
-+	struct kevent *k;
-+	int wake_num = 0;
-+
-+	rcu_read_lock();
-+	if (unlikely(ready_callback))
-+		list_for_each_entry_rcu(k, &st->list, storage_entry)
-+			(*ready_callback)(k);
-+
-+	list_for_each_entry_rcu(k, &st->list, storage_entry) {
-+		if (event & k->event.event)
-+			if ((k->event.req_flags & KEVENT_REQ_WAKEUP_ALL) || wake_num == 0)
-+				if (__kevent_requeue(k, event))
-+					wake_num++;
-+	}
-+	rcu_read_unlock();
-+}
-+
-+int kevent_storage_init(void *origin, struct kevent_storage *st)
-+{
-+	spin_lock_init(&st->lock);
-+	st->origin = origin;
-+	INIT_LIST_HEAD(&st->list);
-+	return 0;
-+}
-+
-+/*
-+ * Mark all events as broken, that will remove them from storage,
-+ * so storage origin (inode, socket and so on) can be safely removed.
-+ * No new entries are allowed to be added into the storage at this point.
-+ * (Socket is removed from file table at this point for example).
-+ */
-+void kevent_storage_fini(struct kevent_storage *st)
-+{
-+	kevent_storage_ready(st, kevent_break, KEVENT_MASK_ALL);
-+}
-diff --git a/kernel/kevent/kevent_user.c b/kernel/kevent/kevent_user.c
-new file mode 100644
-index 0000000..f25d696
---- /dev/null
-+++ b/kernel/kevent/kevent_user.c
-@@ -0,0 +1,1360 @@
-+/*
-+ * 2006 Copyright (c) Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-+ * All rights reserved.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-+ */
-+
-+#include <linux/kernel.h>
-+#include <linux/module.h>
-+#include <linux/types.h>
-+#include <linux/list.h>
-+#include <linux/slab.h>
-+#include <linux/spinlock.h>
-+#include <linux/fs.h>
-+#include <linux/file.h>
-+#include <linux/mount.h>
-+#include <linux/device.h>
-+#include <linux/poll.h>
-+#include <linux/kevent.h>
-+#include <linux/miscdevice.h>
-+#include <asm/io.h>
-+
-+static struct kmem_cache *kevent_cache __read_mostly;
-+static struct kmem_cache *kevent_user_cache __read_mostly;
-+
-+static int kevent_debug_abstime;
-+
-+/*
-+ * kevents are pollable, return POLLIN and POLLRDNORM
-+ * when there is at least one ready kevent.
-+ */
-+static unsigned int kevent_user_poll(struct file *file, struct poll_table_struct *wait)
-+{
-+	struct kevent_user *u = file->private_data;
-+	unsigned int mask;
-+
-+	poll_wait(file, &u->wait, wait);
-+	mask = 0;
-+
-+	if (u->ready_num || u->need_exit)
-+		mask |= POLLIN | POLLRDNORM;
-+	u->need_exit = 0;
-+
-+	return mask;
-+}
-+
-+static inline unsigned int kevent_ring_space(struct kevent_user *u)
-+{
-+	if (!u->pring)
-+		return 1;
-+
-+	if (u->full)
-+		return 0;
-+
-+	return (u->uidx > u->kidx)?
-+		(u->uidx - u->kidx):
-+		(u->ring_size - (u->kidx - u->uidx));
-+}
-+
-+static inline int kevent_ring_index_inc(unsigned int *pidx, unsigned int size)
-+{
-+	unsigned int idx = *pidx;
-+
-+	if (++idx >= size)
-+		idx = 0;
-+	*pidx = idx;
-+	return (idx == 0);
-+}
-+
-+/*
-+ * Copies kevent into userspace ring buffer if it was initialized.
-+ * Returns 
-+ *  0 on success or if ring buffer is not used
-+ *  -EAGAIN if there were no place for that kevent
-+ *  -EFAULT if copy_to_user() failed.
-+ *
-+ *  Must be called under kevent_user->ring_lock locked.
-+ */
-+static int kevent_copy_ring_buffer(struct kevent *k)
-+{
-+	struct kevent_ring __user *ring;
-+	struct kevent_user *u = k->user;
-+	unsigned long flags;
-+	int err;
-+
-+	ring = u->pring;
-+	if (!ring)
-+		return 0;
-+
-+	if (!kevent_ring_space(u))
-+		return -EAGAIN;
-+
-+	if (copy_to_user(&ring->event[u->kidx], &k->event, sizeof(struct ukevent))) {
-+		err = -EFAULT;
-+		goto err_out_exit;
-+	}
-+
-+	kevent_ring_index_inc(&u->kidx, u->ring_size);
-+
-+	if (u->kidx == u->uidx)
-+		u->full = 1;
-+
-+	if (put_user(u->kidx, &ring->ring_kidx)) {
-+		err = -EFAULT;
-+		goto err_out_exit;
-+	}
-+
-+	return 0;
-+
-+err_out_exit:
-+	spin_lock_irqsave(&k->ulock, flags);
-+	k->event.ret_flags |= KEVENT_RET_COPY_FAILED;
-+	spin_unlock_irqrestore(&k->ulock, flags);
-+	return err;
-+}
-+
-+static struct kevent_user *kevent_user_alloc(struct kevent_ring __user *ring, unsigned int num)
-+{
-+	struct kevent_user *u;
-+
-+	u = kmem_cache_zalloc(kevent_user_cache, GFP_KERNEL);
-+	if (!u)
-+		return NULL;
-+
-+	INIT_LIST_HEAD(&u->ready_list);
-+	spin_lock_init(&u->ready_lock);
-+	kevent_stat_init(u);
-+	spin_lock_init(&u->kevent_lock);
-+	u->kevent_root = RB_ROOT;
-+
-+	mutex_init(&u->ctl_mutex);
-+	init_waitqueue_head(&u->wait);
-+	u->need_exit = 0;
-+
-+	atomic_set(&u->refcnt, 1);
-+
-+	mutex_init(&u->ring_lock);
-+	u->kidx = u->uidx = u->ring_over = u->full = 0;
-+
-+	u->pring = ring;
-+	u->ring_size = num;
-+
-+	hrtimer_init(&u->timer, CLOCK_REALTIME, HRTIMER_ABS);
-+
-+	kevent_storage_init(u, &u->st);
-+
-+	return u;
-+}
-+
-+void kevent_user_free(struct kevent_user *u)
-+{
-+	kevent_stat_print(u);
-+	hrtimer_cancel(&u->timer);
-+	kmem_cache_free(kevent_user_cache, u);
-+}
-+
-+static inline int kevent_compare_id(struct kevent_id *left, struct kevent_id *right, 
-+		__u32 type_left, __u32 type_right)
-+{
-+	if (left->raw_u64 > right->raw_u64)
-+		return -1;
-+
-+	if (right->raw_u64 > left->raw_u64)
-+		return 1;
-+
-+	if (type_left > type_right)
-+		return -1;
-+
-+	if (type_left < type_right)
-+		return 1;
-+
-+	return 0;
-+}
-+
-+/*
-+ * RCU protects storage list (kevent->storage_entry).
-+ * Free entry in RCU callback, it is dequeued from all lists at
-+ * this point.
-+ */
-+
-+static void kevent_free_rcu(struct rcu_head *rcu)
-+{
-+	struct kevent *kevent = container_of(rcu, struct kevent, rcu_head);
-+	kmem_cache_free(kevent_cache, kevent);
-+}
-+
-+/*
-+ * Must be called under u->ready_lock.
-+ * This function unlinks kevent from ready queue.
-+ */
-+static inline void kevent_unlink_ready(struct kevent *k)
-+{
-+	list_del(&k->ready_entry);
-+	k->flags &= ~KEVENT_READY;
-+	k->user->ready_num--;
-+}
-+
-+static void kevent_remove_ready(struct kevent *k)
-+{
-+	struct kevent_user *u = k->user;
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&u->ready_lock, flags);
-+	if (k->flags & KEVENT_READY)
-+		kevent_unlink_ready(k);
-+	spin_unlock_irqrestore(&u->ready_lock, flags);
-+}
-+
-+/*
-+ * Complete kevent removing - it dequeues kevent from storage list
-+ * if it is requested, removes kevent from ready list, drops userspace
-+ * control block reference counter and schedules kevent freeing through RCU.
-+ */
-+static void kevent_finish_user_complete(struct kevent *k, int deq)
-+{
-+	if (deq)
-+		kevent_dequeue(k);
-+
-+	kevent_remove_ready(k);
-+
-+	kevent_user_put(k->user);
-+	call_rcu(&k->rcu_head, kevent_free_rcu);
-+}
-+
-+/*
-+ * Remove from all lists and free kevent.
-+ * Must be called under kevent_user->kevent_lock to protect
-+ * kevent->kevent_entry removing.
-+ */
-+static void __kevent_finish_user(struct kevent *k, int deq)
-+{
-+	struct kevent_user *u = k->user;
-+
-+	rb_erase(&k->kevent_node, &u->kevent_root);
-+	k->flags &= ~KEVENT_USER;
-+	u->kevent_num--;
-+	kevent_finish_user_complete(k, deq);
-+}
-+
-+/*
-+ * Remove kevent from user's list of all events,
-+ * dequeue it from storage and decrease user's reference counter,
-+ * since this kevent does not exist anymore. That is why it is freed here.
-+ */
-+static void kevent_finish_user(struct kevent *k, int deq)
-+{
-+	struct kevent_user *u = k->user;
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&u->kevent_lock, flags);
-+	rb_erase(&k->kevent_node, &u->kevent_root);
-+	k->flags &= ~KEVENT_USER;
-+	u->kevent_num--;
-+	spin_unlock_irqrestore(&u->kevent_lock, flags);
-+	kevent_finish_user_complete(k, deq);
-+}
-+
-+static struct kevent *__kevent_dequeue_ready_one(struct kevent_user *u)
-+{
-+	unsigned long flags;
-+	struct kevent *k = NULL;
-+
-+	if (u->ready_num) {
-+		spin_lock_irqsave(&u->ready_lock, flags);
-+		if (u->ready_num && !list_empty(&u->ready_list)) {
-+			k = list_entry(u->ready_list.next, struct kevent, ready_entry);
-+			kevent_unlink_ready(k);
-+		}
-+		spin_unlock_irqrestore(&u->ready_lock, flags);
-+	}
-+
-+	return k;
-+}
-+
-+static struct kevent *kevent_dequeue_ready_one(struct kevent_user *u)
-+{
-+	struct kevent *k = NULL;
-+
-+	while (u->ready_num && !k) {
-+		k = __kevent_dequeue_ready_one(u);
-+
-+		if (k && (k->event.req_flags & KEVENT_REQ_LAST_CHECK)) {
-+			unsigned long flags;
-+
-+			spin_lock_irqsave(&k->ulock, flags);
-+			k->event.req_flags &= ~KEVENT_REQ_LAST_CHECK;
-+			spin_unlock_irqrestore(&k->ulock, flags);
-+
-+			if (!k->callbacks.callback(k)) {
-+				spin_lock_irqsave(&k->ulock, flags);
-+				k->event.req_flags |= KEVENT_REQ_LAST_CHECK;
-+				k->event.ret_flags = 0;
-+				k->event.ret_data[0] = k->event.ret_data[1] = 0;
-+				spin_unlock_irqrestore(&k->ulock, flags);
-+				k = NULL;
-+			}
-+		} else
-+			break;
-+	}
-+
-+	return k;
-+}
-+
-+static inline void kevent_copy_ring(struct kevent *k)
-+{
-+	unsigned long flags;
-+
-+	if (!k)
-+		return;
-+
-+	if (kevent_copy_ring_buffer(k)) {
-+		spin_lock_irqsave(&k->ulock, flags);
-+		k->event.ret_flags |= KEVENT_RET_COPY_FAILED;
-+		spin_unlock_irqrestore(&k->ulock, flags);
-+	}
-+}
-+
-+/*
-+ * Dequeue one entry from user's ready queue.
-+ */
-+static struct kevent *kevent_dequeue_ready(struct kevent_user *u)
-+{
-+	struct kevent *k;
-+
-+	mutex_lock(&u->ring_lock);
-+	k = kevent_dequeue_ready_one(u);
-+	kevent_copy_ring(k);
-+	mutex_unlock(&u->ring_lock);
-+
-+	return k;
-+}
-+
-+/*
-+ * Dequeue one entry from user's ready queue if there is space in ring buffer.
-+ */
-+static struct kevent *kevent_dequeue_ready_ring(struct kevent_user *u)
-+{
-+	struct kevent *k = NULL;
-+
-+	mutex_lock(&u->ring_lock);
-+	if (kevent_ring_space(u)) {
-+		k = kevent_dequeue_ready_one(u);
-+		kevent_copy_ring(k);
-+	}
-+	mutex_unlock(&u->ring_lock);
-+
-+	return k;
-+}
-+
-+static void kevent_complete_ready(struct kevent *k)
-+{
-+	if (k->event.req_flags & KEVENT_REQ_ONESHOT)
-+		/*
-+		 * If it is one-shot kevent, it has been removed already from
-+		 * origin's queue, so we can easily free it here.
-+		 */
-+		kevent_finish_user(k, 1);
-+	else if (k->event.req_flags & KEVENT_REQ_ET) {
-+		unsigned long flags;
-+
-+		/*
-+		 * Edge-triggered behaviour: mark event as clear new one.
-+		 */
-+
-+		spin_lock_irqsave(&k->ulock, flags);
-+		k->event.ret_flags = 0;
-+		k->event.ret_data[0] = k->event.ret_data[1] = 0;
-+		spin_unlock_irqrestore(&k->ulock, flags);
-+	}
-+}
-+
-+/*
-+ * Search a kevent inside kevent tree for given ukevent.
-+ */
-+static struct kevent *__kevent_search(struct kevent_id *id, __u32 type, struct kevent_user *u)
-+{
-+	struct kevent *k, *ret = NULL;
-+	struct rb_node *n = u->kevent_root.rb_node;
-+	int cmp;
-+
-+	while (n) {
-+		k = rb_entry(n, struct kevent, kevent_node);
-+		cmp = kevent_compare_id(&k->event.id, id, k->event.type, type);
-+
-+		if (cmp > 0)
-+			n = n->rb_right;
-+		else if (cmp < 0)
-+			n = n->rb_left;
-+		else {
-+			ret = k;
-+			break;
-+		}
-+	}
-+
-+	return ret;
-+}
-+
-+/*
-+ * Search and modify kevent according to provided ukevent.
-+ */
-+static int kevent_modify(struct ukevent *uk, struct kevent_user *u)
-+{
-+	struct kevent *k;
-+	int err = -ENODEV;
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&u->kevent_lock, flags);
-+	k = __kevent_search(&uk->id, uk->type, u);
-+	if (k) {
-+		spin_lock(&k->ulock);
-+		k->event.event = uk->event;
-+		k->event.req_flags = uk->req_flags;
-+		k->event.ret_flags = 0;
-+		spin_unlock(&k->ulock);
-+		kevent_requeue(k);
-+		err = 0;
-+	}
-+	spin_unlock_irqrestore(&u->kevent_lock, flags);
-+
-+	return err;
-+}
-+
-+/*
-+ * Remove kevent which matches provided ukevent.
-+ */
-+static int kevent_remove(struct ukevent *uk, struct kevent_user *u)
-+{
-+	int err = -ENODEV;
-+	struct kevent *k;
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&u->kevent_lock, flags);
-+	k = __kevent_search(&uk->id, uk->type, u);
-+	if (k) {
-+		__kevent_finish_user(k, 1);
-+		err = 0;
-+	}
-+	spin_unlock_irqrestore(&u->kevent_lock, flags);
-+
-+	return err;
-+}
-+
-+/*
-+ * Detaches userspace control block from file descriptor
-+ * and decrease it's reference counter.
-+ * No new kevents can be added or removed from any list at this point.
-+ */
-+static int kevent_user_release(struct inode *inode, struct file *file)
-+{
-+	struct kevent_user *u = file->private_data;
-+	struct kevent *k;
-+	struct rb_node *n;
-+
-+	for (n = rb_first(&u->kevent_root); n; n = rb_next(n)) {
-+		k = rb_entry(n, struct kevent, kevent_node);
-+		kevent_finish_user(k, 1);
-+	}
-+
-+	kevent_user_put(u);
-+	file->private_data = NULL;
-+
-+	return 0;
-+}
-+
-+/*
-+ * Read requested number of ukevents in one shot.
-+ */
-+static struct ukevent *kevent_get_user(unsigned int num, void __user *arg)
-+{
-+	struct ukevent *ukev;
-+
-+	ukev = kmalloc(sizeof(struct ukevent) * num, GFP_KERNEL);
-+	if (!ukev)
-+		return NULL;
-+
-+	if (copy_from_user(ukev, arg, sizeof(struct ukevent) * num)) {
-+		kfree(ukev);
-+		return NULL;
-+	}
-+
-+	return ukev;
-+}
-+
-+static int kevent_mark_ready(struct ukevent *uk, struct kevent_user *u)
-+{
-+	struct kevent *k;
-+	int err = -ENODEV;
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&u->kevent_lock, flags);
-+	k = __kevent_search(&uk->id, uk->type, u);
-+	if (k) {
-+		spin_lock(&k->st->lock);
-+		kevent_ready(k, 1);
-+		spin_unlock(&k->st->lock);
-+		err = 0;
-+	}
-+	spin_unlock_irqrestore(&u->kevent_lock, flags);
-+
-+	return err;
-+}
-+
-+/*
-+ * Mark appropriate kevents as ready.
-+ * If number of events is zero just wake up one listener.
-+ */
-+static int kevent_user_ctl_ready(struct kevent_user *u, unsigned int num, void __user *arg)
-+{
-+	int err = -EINVAL, cerr = 0, rnum = 0, i;
-+	void __user *orig = arg;
-+	struct ukevent uk;
-+
-+	if (num > u->kevent_num)
-+		return err;
-+	
-+	if (!num) {
-+		u->need_exit = 1;
-+		wake_up(&u->wait);
-+		return 0;
-+	}
-+
-+	mutex_lock(&u->ctl_mutex);
-+
-+	if (num > KEVENT_MIN_BUFFS_ALLOC) {
-+		struct ukevent *ukev;
-+
-+		ukev = kevent_get_user(num, arg);
-+		if (ukev) {
-+			for (i = 0; i < num; ++i) {
-+				err = kevent_mark_ready(&ukev[i], u);
-+				if (err) {
-+					if (i != rnum)
-+						memcpy(&ukev[rnum], &ukev[i], sizeof(struct ukevent));
-+					rnum++;
-+				}
-+			}
-+			if (copy_to_user(orig, ukev, rnum*sizeof(struct ukevent)))
-+				cerr = -EFAULT;
-+			kfree(ukev);
-+			goto out_setup;
-+		}
-+	}
-+
-+	for (i = 0; i < num; ++i) {
-+		if (copy_from_user(&uk, arg, sizeof(struct ukevent))) {
-+			cerr = -EFAULT;
-+			break;
-+		}
-+		arg += sizeof(struct ukevent);
-+
-+		err = kevent_mark_ready(&uk, u);
-+		if (err) {
-+			if (copy_to_user(orig, &uk, sizeof(struct ukevent))) {
-+				cerr = -EFAULT;
-+				break;
-+			}
-+			orig += sizeof(struct ukevent);
-+			rnum++;
-+		}
-+	}
-+
-+out_setup:
-+	if (cerr < 0) {
-+		err = cerr;
-+		goto out_remove;
-+	}
-+
-+	err = num - rnum;
-+out_remove:
-+	mutex_unlock(&u->ctl_mutex);
-+
-+	return err;
-+}
-+
-+/*
-+ * Read from userspace all ukevents and modify appropriate kevents.
-+ * If provided number of ukevents is more that threshold, it is faster
-+ * to allocate a room for them and copy in one shot instead of copy
-+ * one-by-one and then process them.
-+ */
-+static int kevent_user_ctl_modify(struct kevent_user *u, unsigned int num, void __user *arg)
-+{
-+	int err = 0, i;
-+	struct ukevent uk;
-+
-+	mutex_lock(&u->ctl_mutex);
-+
-+	if (num > u->kevent_num) {
-+		err = -EINVAL;
-+		goto out;
-+	}
-+
-+	if (num > KEVENT_MIN_BUFFS_ALLOC) {
-+		struct ukevent *ukev;
-+
-+		ukev = kevent_get_user(num, arg);
-+		if (ukev) {
-+			for (i = 0; i < num; ++i) {
-+				if (kevent_modify(&ukev[i], u))
-+					ukev[i].ret_flags |= KEVENT_RET_BROKEN;
-+				ukev[i].ret_flags |= KEVENT_RET_DONE;
-+			}
-+			if (copy_to_user(arg, ukev, num*sizeof(struct ukevent)))
-+				err = -EFAULT;
-+			kfree(ukev);
-+			goto out;
-+		}
-+	}
-+
-+	for (i = 0; i < num; ++i) {
-+		if (copy_from_user(&uk, arg, sizeof(struct ukevent))) {
-+			err = -EFAULT;
-+			break;
-+		}
-+
-+		if (kevent_modify(&uk, u))
-+			uk.ret_flags |= KEVENT_RET_BROKEN;
-+		uk.ret_flags |= KEVENT_RET_DONE;
-+
-+		if (copy_to_user(arg, &uk, sizeof(struct ukevent))) {
-+			err = -EFAULT;
-+			break;
-+		}
-+
-+		arg += sizeof(struct ukevent);
-+	}
-+out:
-+	mutex_unlock(&u->ctl_mutex);
-+
-+	return err;
-+}
-+
-+/*
-+ * Read from userspace all ukevents and remove appropriate kevents.
-+ * If provided number of ukevents is more that threshold, it is faster
-+ * to allocate a room for them and copy in one shot instead of copy
-+ * one-by-one and then process them.
-+ */
-+static int kevent_user_ctl_remove(struct kevent_user *u, unsigned int num, void __user *arg)
-+{
-+	int err = 0, i;
-+	struct ukevent uk;
-+
-+	mutex_lock(&u->ctl_mutex);
-+
-+	if (num > u->kevent_num) {
-+		err = -EINVAL;
-+		goto out;
-+	}
-+
-+	if (num > KEVENT_MIN_BUFFS_ALLOC) {
-+		struct ukevent *ukev;
-+
-+		ukev = kevent_get_user(num, arg);
-+		if (ukev) {
-+			for (i = 0; i < num; ++i) {
-+				if (kevent_remove(&ukev[i], u))
-+					ukev[i].ret_flags |= KEVENT_RET_BROKEN;
-+				ukev[i].ret_flags |= KEVENT_RET_DONE;
-+			}
-+			if (copy_to_user(arg, ukev, num*sizeof(struct ukevent)))
-+				err = -EFAULT;
-+			kfree(ukev);
-+			goto out;
-+		}
-+	}
-+
-+	for (i = 0; i < num; ++i) {
-+		if (copy_from_user(&uk, arg, sizeof(struct ukevent))) {
-+			err = -EFAULT;
-+			break;
-+		}
-+
-+		if (kevent_remove(&uk, u))
-+			uk.ret_flags |= KEVENT_RET_BROKEN;
-+
-+		uk.ret_flags |= KEVENT_RET_DONE;
-+
-+		if (copy_to_user(arg, &uk, sizeof(struct ukevent))) {
-+			err = -EFAULT;
-+			break;
-+		}
-+
-+		arg += sizeof(struct ukevent);
-+	}
-+out:
-+	mutex_unlock(&u->ctl_mutex);
-+
-+	return err;
-+}
-+
-+/*
-+ * Queue kevent into userspace control block and increase
-+ * it's reference counter.
-+ */
-+static int kevent_user_enqueue(struct kevent_user *u, struct kevent *new)
-+{
-+	unsigned long flags;
-+	struct rb_node **p = &u->kevent_root.rb_node, *parent = NULL;
-+	struct kevent *k;
-+	int err = 0, cmp;
-+
-+	spin_lock_irqsave(&u->kevent_lock, flags);
-+	while (*p) {
-+		parent = *p;
-+		k = rb_entry(parent, struct kevent, kevent_node);
-+
-+		cmp = kevent_compare_id(&k->event.id, &new->event.id,
-+				k->event.type, new->event.type);
-+		if (cmp > 0)
-+			p = &parent->rb_right;
-+		else if (cmp < 0)
-+			p = &parent->rb_left;
-+		else {
-+			err = -EEXIST;
-+			break;
-+		}
-+	}
-+	if (likely(!err)) {
-+		rb_link_node(&new->kevent_node, parent, p);
-+		rb_insert_color(&new->kevent_node, &u->kevent_root);
-+		new->flags |= KEVENT_USER;
-+		u->kevent_num++;
-+		kevent_user_get(u);
-+	}
-+	spin_unlock_irqrestore(&u->kevent_lock, flags);
-+
-+	return err;
-+}
-+
-+/*
-+ * Add kevent from both kernel and userspace users.
-+ * This function allocates and queues kevent, returns negative value
-+ * on error, positive if kevent is ready immediately and zero
-+ * if kevent has been queued.
-+ */
-+int kevent_user_add_ukevent(struct ukevent *uk, struct kevent_user *u)
-+{
-+	struct kevent *k;
-+	int err;
-+
-+	k = kmem_cache_alloc(kevent_cache, GFP_KERNEL);
-+	if (!k) {
-+		err = -ENOMEM;
-+		goto err_out_exit;
-+	}
-+
-+	memcpy(&k->event, uk, sizeof(struct ukevent));
-+	INIT_RCU_HEAD(&k->rcu_head);
-+
-+	k->event.ret_flags = 0;
-+
-+	err = kevent_init(k);
-+	if (err) {
-+		kmem_cache_free(kevent_cache, k);
-+		goto err_out_exit;
-+	}
-+	k->user = u;
-+	kevent_stat_total(u);
-+	err = kevent_user_enqueue(u, k);
-+	if (err) {
-+		kmem_cache_free(kevent_cache, k);
-+		goto err_out_exit;
-+	}
-+
-+	err = kevent_enqueue(k);
-+	if (err) {
-+		memcpy(uk, &k->event, sizeof(struct ukevent));
-+		kevent_finish_user(k, 0);
-+		goto err_out_exit;
-+	}
-+
-+	return 0;
-+
-+err_out_exit:
-+	if (err < 0) {
-+		uk->ret_flags |= KEVENT_RET_BROKEN | KEVENT_RET_DONE;
-+		uk->ret_data[1] = err;
-+	} else if (err > 0)
-+		uk->ret_flags |= KEVENT_RET_DONE;
-+	return err;
-+}
-+
-+
-+/*
-+ * Copy all ukevents from userspace, allocate kevent for each one
-+ * and add them into appropriate kevent_storages,
-+ * e.g. sockets, inodes and so on...
-+ * Ready events will replace ones provided by used and number
-+ * of ready events is returned.
-+ * User must check ret_flags field of each ukevent structure
-+ * to determine if it is fired or failed event.
-+ */
-+static int kevent_user_ctl_add(struct kevent_user *u, unsigned int num, void __user *arg)
-+{
-+	int err, cerr = 0, rnum = 0, i;
-+	void __user *orig = arg;
-+	struct ukevent uk;
-+
-+	mutex_lock(&u->ctl_mutex);
-+
-+	err = -EINVAL;
-+	if (num > KEVENT_MIN_BUFFS_ALLOC) {
-+		struct ukevent *ukev;
-+
-+		ukev = kevent_get_user(num, arg);
-+		if (ukev) {
-+			for (i = 0; i < num; ++i) {
-+				if (!kevent_event_is_allowed(&ukev[i])) {
-+					if (i != rnum)
-+						memcpy(&ukev[rnum], 
-+							&ukev[i], 
-+							sizeof(struct ukevent));
-+					rnum++;
-+				} else {
-+					err = kevent_user_add_ukevent(&ukev[i], u);
-+					if (err) {
-+						kevent_stat_im(u);
-+						if (i != rnum)
-+							memcpy(&ukev[rnum], 
-+								&ukev[i], 
-+								sizeof(struct ukevent));
-+						rnum++;
-+					}
-+				}
-+			}
-+			if (copy_to_user(orig, ukev, rnum*sizeof(struct ukevent)))
-+				cerr = -EFAULT;
-+			kfree(ukev);
-+			goto out_setup;
-+		}
-+	}
-+
-+	for (i = 0; i < num; ++i) {
-+		if (copy_from_user(&uk, arg, sizeof(struct ukevent))) {
-+			cerr = -EFAULT;
-+			break;
-+		}
-+		arg += sizeof(struct ukevent);
-+
-+		if (!kevent_event_is_allowed(&uk)) {
-+			err = 1;
-+		} else {
-+			err = kevent_user_add_ukevent(&uk, u);
-+			if (err)
-+				kevent_stat_im(u);
-+		}
-+		if (err) {
-+			if (copy_to_user(orig, &uk, sizeof(struct ukevent))) {
-+				cerr = -EFAULT;
-+				break;
-+			}
-+			orig += sizeof(struct ukevent);
-+			rnum++;
-+		}
-+	}
-+
-+out_setup:
-+	if (cerr < 0) {
-+		err = cerr;
-+		goto out_remove;
-+	}
-+
-+	err = rnum;
-+out_remove:
-+	mutex_unlock(&u->ctl_mutex);
-+
-+	return err;
-+}
-+
-+/* Used to wakeup waiting syscalls in case high-resolution timer is used. */
-+static int kevent_user_wake(struct hrtimer *timer)
-+{
-+	struct kevent_user *u = container_of(timer, struct kevent_user, timer);
-+
-+	u->need_exit = 1;
-+	wake_up(&u->wait);
-+
-+	return HRTIMER_NORESTART;
-+}
-+
-+
-+/*
-+ * In nonblocking mode it returns as many events as possible, but not more than @max_nr.
-+ * In blocking mode it waits until timeout or if at least @min_nr events are ready.
-+ */
-+static int kevent_user_wait(struct file *file, struct kevent_user *u,
-+		unsigned int min_nr, unsigned int max_nr, struct timespec timeout,
-+		void __user *buf, unsigned int flags)
-+{
-+	struct kevent *k;
-+	int num = 0;
-+	long tm = MAX_SCHEDULE_TIMEOUT;
-+
-+	if (!(file->f_flags & O_NONBLOCK)) {
-+		if (!timespec_valid(&timeout))
-+			return -EINVAL;
-+
-+		if (flags & KEVENT_FLAGS_ABSTIME) {
-+			hrtimer_cancel(&u->timer);
-+			hrtimer_init(&u->timer, CLOCK_REALTIME, HRTIMER_ABS);
-+			u->timer.expires = ktime_set(timeout.tv_sec, timeout.tv_nsec);
-+			u->timer.function = &kevent_user_wake;
-+			hrtimer_start(&u->timer, u->timer.expires, HRTIMER_ABS);
-+			if (unlikely(kevent_debug_abstime == 0)) {
-+				printk(KERN_INFO "kevent: author was wrong, "
-+						"someone uses absolute time in %s, "
-+						"please report to remove this warning.\n", __func__);
-+				kevent_debug_abstime = 1;
-+			}
-+		} else {
-+			tm = timespec_to_jiffies(&timeout);
-+		}
-+
-+		wait_event_interruptible_timeout(u->wait,
-+			((u->ready_num >= 1) && kevent_ring_space(u)) || u->need_exit, tm);
-+	}
-+	u->need_exit = 0;
-+
-+	while (num < max_nr && ((k = kevent_dequeue_ready(u)) != NULL)) {
-+		if (copy_to_user(buf + num*sizeof(struct ukevent),
-+					&k->event, sizeof(struct ukevent))) {
-+			if (num == 0)
-+				num = -EFAULT;
-+			break;
-+		}
-+		kevent_complete_ready(k);
-+		++num;
-+		kevent_stat_wait(u);
-+	}
-+
-+	return num;
-+}
-+
-+struct file_operations kevent_user_fops = {
-+	.release	= kevent_user_release,
-+	.poll		= kevent_user_poll,
-+	.owner		= THIS_MODULE,
-+};
-+
-+static int kevent_ctl_process(struct file *file, unsigned int cmd, unsigned int num, void __user *arg)
-+{
-+	int err;
-+	struct kevent_user *u = file->private_data;
-+
-+	switch (cmd) {
-+	case KEVENT_CTL_ADD:
-+		err = kevent_user_ctl_add(u, num, arg);
-+		break;
-+	case KEVENT_CTL_REMOVE:
-+		err = kevent_user_ctl_remove(u, num, arg);
-+		break;
-+	case KEVENT_CTL_MODIFY:
-+		err = kevent_user_ctl_modify(u, num, arg);
-+		break;
-+	case KEVENT_CTL_READY:
-+		err = kevent_user_ctl_ready(u, num, arg);
-+		break;
-+	default:
-+		err = -EINVAL;
-+		break;
-+	}
-+
-+	return err;
-+}
-+
-+/*
-+ * Used to get ready kevents from queue.
-+ * @ctl_fd - kevent control descriptor which must be obtained through kevent_ctl(KEVENT_CTL_INIT).
-+ * @min_nr - minimum number of ready kevents.
-+ * @max_nr - maximum number of ready kevents.
-+ * @timeout - time to wait until some events are ready.
-+ * @buf - buffer to place ready events.
-+ * @flags - various flags (see include/linux/ukevent.h KEVENT_FLAGS_*).
-+ */
-+asmlinkage long sys_kevent_get_events(int ctl_fd, unsigned int min_nr, unsigned int max_nr,
-+		struct timespec timeout, struct ukevent __user *buf, unsigned flags)
-+{
-+	int err = -EINVAL;
-+	struct file *file;
-+	struct kevent_user *u;
-+
-+	file = fget(ctl_fd);
-+	if (!file)
-+		return -EBADF;
-+
-+	if (file->f_op != &kevent_user_fops)
-+		goto out_fput;
-+	u = file->private_data;
-+
-+	err = kevent_user_wait(file, u, min_nr, max_nr, timeout, buf, flags);
-+out_fput:
-+	fput(file);
-+	return err;
-+}
-+
-+static struct vfsmount *kevent_mnt __read_mostly;
-+
-+static int kevent_get_sb(struct file_system_type *fs_type, int flags,
-+		   const char *dev_name, void *data, struct vfsmount *mnt)
-+{
-+	return get_sb_pseudo(fs_type, "kevent", NULL, 0xaabbccdd, mnt);
-+}
-+
-+static struct file_system_type kevent_fs_type = {
-+	.name		= "keventfs",
-+	.get_sb		= kevent_get_sb,
-+	.kill_sb	= kill_anon_super,
-+};
-+
-+static int keventfs_delete_dentry(struct dentry *dentry)
-+{
-+	return 1;
-+}
-+
-+static struct dentry_operations keventfs_dentry_operations = {
-+	.d_delete	= keventfs_delete_dentry,
-+};
-+
-+asmlinkage long sys_kevent_init(struct kevent_ring __user *ring, unsigned int num, unsigned int flags)
-+{
-+	struct qstr this;
-+	char name[32];
-+	struct dentry *dentry;
-+	struct inode *inode;
-+	struct file *file;
-+	int err = -ENFILE, fd;
-+	struct kevent_user *u;
-+
-+	if ((ring && !num) || (!ring && num) || (num == 1))
-+		return -EINVAL;
-+
-+	file = get_empty_filp();
-+	if (!file)
-+		goto err_out_exit;
-+
-+	inode = new_inode(kevent_mnt->mnt_sb);
-+	if (!inode)
-+		goto err_out_fput;
-+
-+	inode->i_fop = &kevent_user_fops;
-+
-+	inode->i_state = I_DIRTY;
-+	inode->i_mode = S_IRUSR | S_IWUSR;
-+	inode->i_uid = current->fsuid;
-+	inode->i_gid = current->fsgid;
-+	inode->i_atime = inode->i_mtime = inode->i_ctime = CURRENT_TIME;
-+
-+	err = get_unused_fd();
-+	if (err < 0)
-+		goto err_out_iput;
-+	fd = err;
-+
-+	err = -ENOMEM;
-+	u = kevent_user_alloc(ring, num);
-+	if (!u)
-+		goto err_out_put_fd;
-+
-+	sprintf(name, "[%lu]", inode->i_ino);
-+	this.name = name;
-+	this.len = strlen(name);
-+	this.hash = inode->i_ino;
-+	dentry = d_alloc(kevent_mnt->mnt_sb->s_root, &this);
-+	if (!dentry)
-+		goto err_out_free;
-+	dentry->d_op = &keventfs_dentry_operations;
-+	d_add(dentry, inode);
-+	file->f_vfsmnt = mntget(kevent_mnt);
-+	file->f_dentry = dentry;
-+	file->f_mapping = inode->i_mapping;
-+	file->f_pos = 0;
-+	file->f_flags = O_RDONLY;
-+	file->f_op = &kevent_user_fops;
-+	file->f_mode = FMODE_READ;
-+	file->f_version = 0;
-+	file->private_data = u;
-+
-+	fd_install(fd, file);
-+
-+	return fd;
-+
-+err_out_free:
-+	kmem_cache_free(kevent_user_cache, u);
-+err_out_put_fd:
-+	put_unused_fd(fd);
-+err_out_iput:
-+	iput(inode);
-+err_out_fput:
-+	put_filp(file);
-+err_out_exit:
-+	return err;
-+}
-+
-+/*
-+ * Commits user's index (consumer index).
-+ * Must be called under u->ring_lock mutex held.
-+ */
-+static int __kevent_user_commit(struct kevent_user *u, unsigned int new_uidx, unsigned int over)
-+{
-+	int err = -EOVERFLOW, comm = 0;
-+	struct kevent_ring __user *ring = u->pring;
-+
-+	if (!ring) {
-+		err = 0;
-+		goto err_out_exit;
-+	}
-+
-+	if (new_uidx >= u->ring_size) {
-+		err = -EINVAL;
-+		goto err_out_exit;
-+	}
-+
-+	if ((over != u->ring_over - 1) && (over != u->ring_over))
-+		goto err_out_exit;
-+
-+	if (u->uidx < u->kidx && new_uidx > u->kidx) {
-+		err = -EINVAL;
-+		goto err_out_exit;
-+	}
-+
-+	if (new_uidx > u->uidx) {
-+		if (over != u->ring_over)
-+			goto err_out_exit;
-+
-+		comm = new_uidx - u->uidx;
-+		u->uidx = new_uidx;
-+		u->full = 0;
-+	} else if (new_uidx < u->uidx) {
-+		comm = u->ring_size - (u->uidx - new_uidx);
-+		u->uidx = new_uidx;
-+		u->full = 0;
-+		u->ring_over++;
-+
-+		if (put_user(u->ring_over, &ring->ring_over)) {
-+			err = -EFAULT;
-+			goto err_out_exit;
-+		}
-+	}
-+
-+	return comm;
-+
-+err_out_exit:
-+	return err;
-+}
-+
-+/*
-+ * This syscall is used to perform waiting until there is free space in the ring
-+ * buffer, in that case some events will be copied there.
-+ * Function returns number of actually copied ready events in ring buffer.
-+ * After this function is completed userspace ring->ring_kidx will be updated.
-+ *
-+ * @ctl_fd - kevent file descriptor.
-+ * @num - number of kevents to process.
-+ * @old_uidx - the last index user is aware of.
-+ * @timeout - time to wait until there is free space in kevent queue.
-+ * @flags - various flags (see include/linux/ukevent.h KEVENT_FLAGS_*).
-+ *
-+ * When we need to commit @num events, it means we should just remove first @num
-+ * kevents from ready queue and copy them into the buffer. 
-+ * Kevents will be copied into ring buffer in order they were placed into ready queue.
-+ * One-shot kevents will be removed here, since there is no way they can be reused.
-+ * Edge-triggered events will be requeued here for better performance.
-+ */
-+asmlinkage long sys_kevent_wait(int ctl_fd, unsigned int num, unsigned int old_uidx, 
-+		struct timespec timeout, unsigned int flags)
-+{
-+	int err = -EINVAL, copied = 0;
-+	struct file *file;
-+	struct kevent_user *u;
-+	struct kevent *k;
-+	struct kevent_ring __user *ring;
-+	long tm = MAX_SCHEDULE_TIMEOUT;
-+	unsigned int i;
-+
-+	file = fget(ctl_fd);
-+	if (!file)
-+		return -EBADF;
-+
-+	if (file->f_op != &kevent_user_fops)
-+		goto out_fput;
-+	u = file->private_data;
-+
-+	ring = u->pring;
-+	if (!ring || num > u->ring_size)
-+		goto out_fput;
-+#if 0
-+	/*
-+	 * Allow to immediately update ring index, but it is not supported,
-+	 * since syscall() has limited number of arguments which is actually
-+	 * a good idea - use kevent_commit() instead.
-+	 */
-+	if ((u->uidx != new_uidx) && (new_uidx != 0xffffffff)) {
-+		mutex_lock(&u->ring_lock);
-+		__kevent_user_commit(u, new_uidx, over);
-+		mutex_unlock(&u->ring_lock);
-+	}
-+#endif
-+
-+	if (!(file->f_flags & O_NONBLOCK)) {
-+		if (!timespec_valid(&timeout))
-+			goto out_fput;
-+
-+		if (flags & KEVENT_FLAGS_ABSTIME) {
-+			hrtimer_cancel(&u->timer);
-+			hrtimer_init(&u->timer, CLOCK_REALTIME, HRTIMER_ABS);
-+			u->timer.expires = ktime_set(timeout.tv_sec, timeout.tv_nsec);
-+			u->timer.function = &kevent_user_wake;
-+			hrtimer_start(&u->timer, u->timer.expires, HRTIMER_ABS);
-+			if (unlikely(kevent_debug_abstime == 0)) {
-+				printk(KERN_INFO "kevent: author was wrong, "
-+						"someone uses absolute time in %s, "
-+						"please report to remove this warning.\n", __func__);
-+				kevent_debug_abstime = 1;
-+			}
-+		} else {
-+			tm = timespec_to_jiffies(&timeout);
-+		}
-+
-+		wait_event_interruptible_timeout(u->wait,
-+			((u->ready_num >= 1) && kevent_ring_space(u)) || 
-+				u->need_exit || old_uidx != u->uidx,
-+				tm);
-+	}
-+	u->need_exit = 0;
-+
-+	for (i=0; i<num; ++i) {
-+		k = kevent_dequeue_ready_ring(u);
-+		if (!k)
-+			break;
-+		kevent_complete_ready(k);
-+
-+		if (k->event.ret_flags & KEVENT_RET_COPY_FAILED)
-+			break;
-+		kevent_stat_ring(u);
-+		copied++;
-+	}
-+
-+	fput(file);
-+
-+	return copied;
-+out_fput:
-+	fput(file);
-+	return err;
-+}
-+
-+/*
-+ * This syscall is used to commit events in ring buffer, i.e. mark appropriate
-+ * entries as unused by userspace so subsequent kevent_wait() could overwrite them.
-+ * This fucntion returns actual number of kevents which were committed.
-+ * After this function is completed userspace ring->ring_over can be updated.
-+ *
-+ * @ctl_fd - kevent file descriptor.
-+ * @new_uidx - the last committed kevent.
-+ * @over - number of overflows given queue had.
-+ */
-+asmlinkage long sys_kevent_commit(int ctl_fd, unsigned int new_uidx, unsigned int over)
-+{
-+	int err = -EINVAL, comm = 0;
-+	struct file *file;
-+	struct kevent_user *u;
-+
-+	file = fget(ctl_fd);
-+	if (!file)
-+		return -EBADF;
-+
-+	if (file->f_op != &kevent_user_fops)
-+		goto out_fput;
-+	u = file->private_data;
-+
-+	mutex_lock(&u->ring_lock);
-+	err = __kevent_user_commit(u, new_uidx, over);
-+	if (err < 0)
-+		goto err_out_unlock;
-+	comm = err;
-+	mutex_unlock(&u->ring_lock);
-+
-+	fput(file);
-+
-+	return comm;
-+
-+err_out_unlock:
-+	mutex_unlock(&u->ring_lock);
-+out_fput:
-+	fput(file);
-+	return err;
-+}
-+
-+/*
-+ * This syscall is used to perform various control operations
-+ * on given kevent queue, which is obtained through kevent file descriptor @fd.
-+ * @cmd - type of operation.
-+ * @num - number of kevents to be processed.
-+ * @arg - pointer to array of struct ukevent.
-+ */
-+asmlinkage long sys_kevent_ctl(int fd, unsigned int cmd, unsigned int num, struct ukevent __user *arg)
-+{
-+	int err = -EINVAL;
-+	struct file *file;
-+
-+	file = fget(fd);
-+	if (!file)
-+		return -EBADF;
-+
-+	if (file->f_op != &kevent_user_fops)
-+		goto out_fput;
-+
-+	err = kevent_ctl_process(file, cmd, num, arg);
-+
-+out_fput:
-+	fput(file);
-+	return err;
-+}
-+
-+/*
-+ * Kevent subsystem initialization - create caches and register
-+ * filesystem to get control file descriptors from.
-+ */
-+static int __init kevent_user_init(void)
-+{
-+	int err = 0;
-+
-+	kevent_cache = kmem_cache_create("kevent_cache",
-+			sizeof(struct kevent), 0, SLAB_PANIC, NULL, NULL);
-+	
-+	kevent_user_cache = kmem_cache_create("kevent_user_cache",
-+			sizeof(struct kevent_user), 0, SLAB_PANIC, NULL, NULL);
-+	
-+	err = register_filesystem(&kevent_fs_type);
-+	if (err)
-+		goto err_out_exit;
-+	
-+	kevent_mnt = kern_mount(&kevent_fs_type);
-+	err = PTR_ERR(kevent_mnt);
-+	if (IS_ERR(kevent_mnt))
-+		goto err_out_unreg;
-+
-+	printk(KERN_INFO "KEVENT subsystem has been successfully registered.\n");
-+
-+	return 0;
-+
-+err_out_unreg:
-+	unregister_filesystem(&kevent_fs_type);
-+err_out_exit:
-+	kmem_cache_destroy(kevent_cache);
-+	return err;
-+}
-+
-+module_init(kevent_user_init);
-diff --git a/kernel/sys_ni.c b/kernel/sys_ni.c
-index d7306d0..22a775a 100644
---- a/kernel/sys_ni.c
-+++ b/kernel/sys_ni.c
-@@ -123,6 +123,15 @@ cond_syscall(ppc_rtas);
- cond_syscall(sys_spu_run);
- cond_syscall(sys_spu_create);
+-static void restore_xmsi_data(nic_t *nic);
++static void restore_xmsi_data(struct s2io_nic *nic);
  
-+cond_syscall(sys_kevent_get_events);
-+cond_syscall(sys_kevent_ctl);
-+cond_syscall(sys_kevent_wait);
-+cond_syscall(sys_kevent_commit);
-+cond_syscall(sys_kevent_init);
-+
-+cond_syscall(sys_aio_sendfile);
-+cond_syscall(sys_aio_sendfile_path);
-+
- /* mmu depending weak syscall entries */
- cond_syscall(sys_mprotect);
- cond_syscall(sys_msync);
+-static int s2io_club_tcp_session(u8 *buffer, u8 **tcp, u32 *tcp_len,
+lro_t **lro, RxD_t *rxdp, nic_t *sp);
+-static void clear_lro_session(lro_t *lro);
++static int s2io_club_tcp_session(u8 *buffer, u8 **tcp, u32 *tcp_len,
+struct lro **lro, struct RxD_t *rxdp, struct s2io_nic *sp);
++static void clear_lro_session(struct lro *lro);
+ static void queue_rx_frame(struct sk_buff *skb);
+-static void update_L3L4_header(nic_t *sp, lro_t *lro);
+-static void lro_append_pkt(nic_t *sp, lro_t *lro, struct sk_buff *skb,
+u32 tcp_len);
++static void update_L3L4_header(struct s2io_nic *sp, struct lro *lro);
++static void lro_append_pkt(struct s2io_nic *sp, struct lro *lro, struct
+sk_buff *skb, u32 tcp_len);
+ 
+ #define s2io_tcp_mss(skb) skb_shinfo(skb)->gso_size
+ #define s2io_udp_mss(skb) skb_shinfo(skb)->gso_size
+diff -urpN patch4/drivers/net/s2io-regs.h patch5/drivers/net/s2io-regs.h
+--- patch4/drivers/net/s2io-regs.h	2007-01-09 00:57:24.000000000
++0530
++++ patch5/drivers/net/s2io-regs.h	2007-01-09 12:55:30.000000000
++0530
+@@ -15,7 +15,7 @@
+ 
+ #define TBD 0
+ 
+-typedef struct _XENA_dev_config {
++struct XENA_dev_config {
+ /* Convention: mHAL_XXX is mask, vHAL_XXX is value */
+ 
+ /* General Control-Status Registers */
+@@ -852,9 +852,9 @@ typedef struct _XENA_dev_config {
+ #define SPI_CONTROL_DONE		BIT(6)
+ 	u64 spi_data;
+ #define SPI_DATA_WRITE(data,len)	vBIT(data,0,len)
+-} XENA_dev_config_t;
++};
+ 
+-#define XENA_REG_SPACE	sizeof(XENA_dev_config_t)
++#define XENA_REG_SPACE	sizeof(struct XENA_dev_config)
+ #define	XENA_EEPROM_SPACE (0x01 << 11)
+ 
+ #endif				/* _REGS_H */
 
