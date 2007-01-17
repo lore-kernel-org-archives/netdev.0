@@ -1,7 +1,7 @@
 From: Ishizaki Kou <kou.ishizaki@toshiba.co.jp>
-Subject: [PATCH 3/4] spidernet: add support for Celleb
-Date: Wed, 17 Jan 2007 19:08:45 +0900 (JST)
-Message-ID: <200701171008.l0HA8j5s026642@toshiba.co.jp>
+Subject: [PATCH 4/4] spidernet: remove txram full logging
+Date: Wed, 17 Jan 2007 19:10:38 +0900 (JST)
+Message-ID: <200701171010.l0HAAdHD027877@toshiba.co.jp>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -19,65 +19,23 @@ Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
 Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds or changes some HW specific settings for spider_net on
-Celleb.
+This patches removes logging for SPIDER_NET_GTMFLLINT interrupts.
+Since the interrupts are not irregular, and they happen frequently
+when using 100Mbps network switches.
 
 Signed-off-by: Kou Ishizaki <kou.ishizaki@toshiba.co.jp>
 ---
 
---- org-linux-powerpc-git/drivers/net/Kconfig	2007-01-15 10:37:30.000000000 +0900
-+++ linux-powerpc-git/drivers/net/Kconfig	2007-01-15 11:06:57.000000000 +0900
-@@ -2256,7 +2256,7 @@
- 
- config SPIDER_NET
- 	tristate "Spider Gigabit Ethernet driver"
--	depends on PCI && PPC_IBM_CELL_BLADE
-+	depends on PCI && (PPC_IBM_CELL_BLADE || PPC_CELLEB)
- 	select FW_LOADER
- 	help
- 	  This driver supports the Gigabit Ethernet chips present on the
---- org-linux-powerpc-git/drivers/net/spider_net.h	2007-01-15 10:57:19.000000000 +0900
-+++ linux-powerpc-git/drivers/net/spider_net.h	2007-01-15 11:06:57.000000000 +0900
-@@ -1,7 +1,8 @@
- /*
-- * Network device driver for Cell Processor-Based Blade
-+ * Network device driver for Cell Processor-Based Blade and Celleb platform
-  *
-  * (C) Copyright IBM Corp. 2005
-+ * (C) Copyright 2006 TOSHIBA CORPORATION
-  *
-  * Authors : Utz Bacher <utz.bacher@de.ibm.com>
-  *           Jens Osterkamp <Jens.Osterkamp@de.ibm.com>
-@@ -183,7 +184,8 @@
- 
- /* pause frames: automatic, no upper retransmission count */
- /* outside loopback mode: ETOMOD signal dont matter, not connected */
--#define SPIDER_NET_OPMODE_VALUE		0x00000063
-+/* ETOMOD signal is brought to PHY reset. bit 2 must be 1 in Celleb */
-+#define SPIDER_NET_OPMODE_VALUE		0x00000067
- /*#define SPIDER_NET_OPMODE_VALUE		0x001b0062*/
- #define SPIDER_NET_LENLMT_VALUE		0x00000908
- 
---- org-linux-powerpc-git/drivers/net/spider_net.c	2007-01-15 11:06:10.000000000 +0900
-+++ linux-powerpc-git/drivers/net/spider_net.c	2007-01-15 11:06:57.000000000 +0900
-@@ -1,7 +1,8 @@
- /*
-- * Network device driver for Cell Processor-Based Blade
-+ * Network device driver for Cell Processor-Based Blade and Celleb platform
-  *
-  * (C) Copyright IBM Corp. 2005
-+ * (C) Copyright 2006 TOSHIBA CORPORATION
-  *
-  * Authors : Utz Bacher <utz.bacher@de.ibm.com>
-  *           Jens Osterkamp <Jens.Osterkamp@de.ibm.com>
-@@ -1630,6 +1631,10 @@
- 
- 	spider_net_write_reg(card, SPIDER_NET_CKRCTRL,
- 			     SPIDER_NET_CKRCTRL_RUN_VALUE);
-+
-+	spider_net_write_reg(card, SPIDER_NET_GMACOPEMD,
-+		spider_net_read_reg(card, SPIDER_NET_GMACOPEMD) | 0x4);
-+
- }
- 
- /**
+--- org-linux-powerpc-git/drivers/net/spider_net.c	2007-01-15 11:16:16.000000000 +0900
++++ linux-powerpc-git/drivers/net/spider_net.c	2007-01-15 11:16:42.000000000 +0900
+@@ -1447,8 +1447,8 @@
+ 				switch (i)
+ 	{
+ 	case SPIDER_NET_GTMFLLINT:
+-		if (netif_msg_intr(card) && net_ratelimit())
+-			pr_err("Spider TX RAM full\n");
++		/* TX RAM full may happen on a usual case.
++		 * Logging is not needed. */
+ 		show_error = 0;
+ 		break;
+ 	case SPIDER_NET_GRFDFLLINT: /* fallthrough */
