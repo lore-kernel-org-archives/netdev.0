@@ -1,44 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: passthrough openswan connection not working with 2.6.19.2
-Date: Tue, 16 Jan 2007 19:05:46 -0800 (PST)
-Message-ID: <20070116.190546.74731258.davem@davemloft.net>
-References: <E1H6vOb-0005Nr-00@gondolin.me.apana.org.au>
-	<20070116.170719.74742439.davem@davemloft.net>
-	<20070117023501.GA23015@gondor.apana.org.au>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [PATCH 18/59] sysctl: ipmi remove unnecessary insert_at_head
+	flag
+Date: Wed, 17 Jan 2007 14:14:54 +1100
+Message-ID: <1169003694.4778.15.camel@localhost.localdomain>
+References: <m1ac0jc4no.fsf@ebiederm.dsl.xmission.com>
+	 <1168965635875-git-send-email-ebiederm@xmission.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: stable@kernel.org, pupilla@hotmail.com, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52650
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751980AbXAQDFp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jan 2007 22:05:45 -0500
-To: herbert@gondor.apana.org.au
-In-Reply-To: <20070117023501.GA23015@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
+Cc: "<Andrew Morton" <akpm@osdl.org>, linux-mips@linux-mips.org,
+	linux-parport@lists.infradead.org, heiko.carstens@de.ibm.com,
+	ak@suse.de, linuxppc-dev@ozlabs.org, paulus@samba.org,
+	aharkes@cs.cmu.edu, schwidefsky@de.ibm.com, tim@cyberelk.net,
+	rtc-linux@googlegroups.com, linux-scsi@vger.kernel.org,
+	kurt.hackel@oracle.com, coda@cs.cmu.edu, vojtech@suse.cz,
+	linuxsh-shmedia-dev@lists.sourceforge.net,
+	James.Bottomley@SteelEye.com, clemens@ladisch.de, xfs@oss.sgi.com,
+	xfs-masters@oss.sgi.com, andrea@suse.de,
+	openipmi-developer@lists.sourceforge.net, linux-390@vm.marist.edu,
+	codalist@TELEMANN.coda.cs.cmu.edu, a.zummo@towertech.it,
+	tony.luck@intel.com, linux-ntfs-dev@lists.sourceforge.net,
+	netdev@vger.kernel.org, aia21@cantab.net,
+	linux-kernel@vger.kernel.org, ralf@linux-mips.org,
+	lethal@linux-sh.org, containers@lists.osdl.org,
+	linux390@de.ibm.com, philb@gnu.org
+Return-path: <linux-mips-bounce@linux-mips.org>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+In-Reply-To: <1168965635875-git-send-email-ebiederm@xmission.com>
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
 List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Wed, 17 Jan 2007 13:35:01 +1100
+On Tue, 2007-01-16 at 09:39 -0700, Eric W. Biederman wrote:
+> From: Eric W. Biederman <ebiederm@xmission.com> - unquoted
+> 
+> With unique sysctl binary numbers setting insert_at_head is pointless.
+> 
+> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 
-> On Tue, Jan 16, 2007 at 05:07:19PM -0800, David Miller wrote:
-> > 
-> > Good catch Herbert, patch applied, thanks.
-> 
-> Thanks Dave.  I think we need this for 2.6.19 too.
-> 
-> [IPSEC]: Policy list disorder
-> 
-> The recent hashing introduced an off-by-one bug in policy list insertion.
-> Instead of adding after the last entry with a lesser or equal priority,
-> we're adding after the successor of that entry.
-> 
-> This patch fixes this and also adds a warning if we detect a duplicate
-> entry in the policy list.  This should never happen due to this if clause.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+Acked-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 
-Yep:
-
-Signed-off-by: David S. Miller <davem@davemloft.net>
+> ---
+>  drivers/char/ipmi/ipmi_poweroff.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/drivers/char/ipmi/ipmi_poweroff.c b/drivers/char/ipmi/ipmi_poweroff.c
+> index 9d23136..b3ae65e 100644
+> --- a/drivers/char/ipmi/ipmi_poweroff.c
+> +++ b/drivers/char/ipmi/ipmi_poweroff.c
+> @@ -686,7 +686,7 @@ static int ipmi_poweroff_init (void)
+>  		printk(KERN_INFO PFX "Power cycle is enabled.\n");
+>  
+>  #ifdef CONFIG_PROC_FS
+> -	ipmi_table_header = register_sysctl_table(ipmi_root_table, 1);
+> +	ipmi_table_header = register_sysctl_table(ipmi_root_table, 0);
+>  	if (!ipmi_table_header) {
+>  		printk(KERN_ERR PFX "Unable to register powercycle sysctl\n");
+>  		rv = -ENOMEM;
