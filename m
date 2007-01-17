@@ -1,8 +1,8 @@
 From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: [take33 7/10] kevent: Signal notifications.
-Date: Wed, 17 Jan 2007 09:30:35 +0300
-Message-ID: <1169015435695@2ka.mipt.ru>
-References: <11690154344197@2ka.mipt.ru>
+Subject: [take33 3/10] kevent: poll/select() notifications.
+Date: Wed, 17 Jan 2007 09:30:33 +0300
+Message-ID: <11690154333425@2ka.mipt.ru>
+References: <11690154332203@2ka.mipt.ru>
 Reply-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
@@ -19,101 +19,102 @@ Cc: David Miller <davem@davemloft.net>,
 	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
 	Jamal Hadi Salim <hadi@cyberus.ca>,
 	Ingo Molnar <mingo@elte.hu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from tservice.net.ru ([195.178.208.66]:42815 "EHLO tservice.net.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751304AbXAQG7Q convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jan 2007 01:59:16 -0500
-In-Reply-To: <11690154344197@2ka.mipt.ru>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751446AbXAQG7W@vger.kernel.org>
+In-Reply-To: <11690154332203@2ka.mipt.ru>
 To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Sender: netdev-owner@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-Signal notifications.
+poll/select() notifications.
 
-This type of notifications allows to deliver signals through kevent queue.
-One can find example application signal.c on project homepage.
+This patch includes generic poll/select notifications.
+kevent_poll works simialr to epoll and has the same issues (callback
+is invoked not from internal state machine of the caller, but through
+process awake, a lot of allocations and so on).
 
-If KEVENT_SIGNAL_NOMASK bit is set in raw_u64 id then signal will be
-delivered only through queue, otherwise both delivery types are used - old
-through update of mask of pending signals and through queue.
+Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mitp.ru>
 
-If signal is delivered only through kevent queue mask of pending signals
-is not updated at all, which is equal to putting signal into blocked mask,
-but with delivery of that signal through kevent queue.
-
-Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-
-
-diff --git a/include/linux/sched.h b/include/linux/sched.h
-index 4463735..e7372f2 100644
---- a/include/linux/sched.h
-+++ b/include/linux/sched.h
-@@ -82,6 +82,7 @@ struct sched_param {
- #include <linux/resource.h>
- #include <linux/timer.h>
- #include <linux/hrtimer.h>
-+#include <linux/kevent_storage.h>
- #include <linux/task_io_accounting.h>
- 
- #include <asm/processor.h>
-@@ -1048,6 +1049,10 @@ struct task_struct {
- #ifdef	CONFIG_TASK_DELAY_ACCT
- 	struct task_delay_info *delays;
- #endif
-+#ifdef CONFIG_KEVENT_SIGNAL
-+	struct kevent_storage st;
-+	u32 kevent_signals;
-+#endif
- #ifdef CONFIG_FAULT_INJECTION
- 	int make_it_fail;
- #endif
-diff --git a/kernel/fork.c b/kernel/fork.c
-index fc723e5..fd7c749 100644
---- a/kernel/fork.c
-+++ b/kernel/fork.c
-@@ -49,6 +49,7 @@
- #include <linux/delayacct.h>
- #include <linux/taskstats_kern.h>
- #include <linux/random.h>
+diff --git a/fs/file_table.c b/fs/file_table.c
+index 4c17a18..46f458c 100644
+--- a/fs/file_table.c
++++ b/fs/file_table.c
+@@ -20,6 +20,7 @@
+ #include <linux/cdev.h>
+ #include <linux/fsnotify.h>
+ #include <linux/sysctl.h>
 +#include <linux/kevent.h>
+ #include <linux/percpu_counter.h>
  
- #include <asm/pgtable.h>
- #include <asm/pgalloc.h>
-@@ -118,6 +119,9 @@ void __put_task_struct(struct task_struct *tsk)
- 	WARN_ON(atomic_read(&tsk->usage));
- 	WARN_ON(tsk == current);
+ #include <asm/atomic.h>
+@@ -119,6 +120,7 @@ struct file *get_empty_filp(void)
+ 	f->f_uid = tsk->fsuid;
+ 	f->f_gid = tsk->fsgid;
+ 	eventpoll_init_file(f);
++	kevent_init_file(f);
+ 	/* f->f_version: 0 */
+ 	return f;
  
-+#ifdef CONFIG_KEVENT_SIGNAL
-+	kevent_storage_fini(&tsk->st);
-+#endif
- 	security_task_free(tsk);
- 	free_uid(tsk->user);
- 	put_group_info(tsk->group_info);
-@@ -1126,6 +1130,10 @@ static struct task_struct *copy_process(unsigned long clone_flags,
- 	if (retval)
- 		goto bad_fork_cleanup_namespaces;
+@@ -164,6 +166,7 @@ void fastcall __fput(struct file *file)
+ 	 * in the file cleanup chain.
+ 	 */
+ 	eventpoll_release(file);
++	kevent_cleanup_file(file);
+ 	locks_remove_flock(file);
  
-+#ifdef CONFIG_KEVENT_SIGNAL
-+	kevent_storage_init(p, &p->st);
+ 	if (file->f_op && file->f_op->release)
+diff --git a/include/linux/fs.h b/include/linux/fs.h
+index 186da81..59e6069 100644
+--- a/include/linux/fs.h
++++ b/include/linux/fs.h
+@@ -280,6 +280,7 @@ extern int dir_notify_enable;
+ #include <linux/init.h>
+ #include <linux/pid.h>
+ #include <linux/mutex.h>
++#include <linux/kevent_storage.h>
+ 
+ #include <asm/atomic.h>
+ #include <asm/semaphore.h>
+@@ -408,6 +409,8 @@ struct address_space_operations {
+ 
+ 	int (*readpages)(struct file *filp, struct address_space *mapping,
+ 			struct list_head *pages, unsigned nr_pages);
++	int (*aio_readpages)(struct file *filp, struct address_space *mapping,
++			struct list_head *pages, unsigned nr_pages, void *priv);
+ 
+ 	/*
+ 	 * ext3 requires that a successful prepare_write() call be followed
+@@ -578,6 +581,10 @@ struct inode {
+ 	struct mutex		inotify_mutex;	/* protects the watches list */
+ #endif
+ 
++#if defined CONFIG_KEVENT_SOCKET || defined CONFIG_KEVENT_PIPE
++	struct kevent_storage	st;
 +#endif
 +
- 	p->set_child_tid = (clone_flags & CLONE_CHILD_SETTID) ? child_tidptr : NULL;
- 	/*
- 	 * Clear TID on mm_release()?
-diff --git a/kernel/kevent/kevent_signal.c b/kernel/kevent/kevent_signal.c
+ 	unsigned long		i_state;
+ 	unsigned long		dirtied_when;	/* jiffies of first dirtying */
+ 
+@@ -737,6 +744,9 @@ struct file {
+ 	struct list_head	f_ep_links;
+ 	spinlock_t		f_ep_lock;
+ #endif /* #ifdef CONFIG_EPOLL */
++#ifdef CONFIG_KEVENT_POLL
++	struct kevent_storage	st;
++#endif
+ 	struct address_space	*f_mapping;
+ };
+ extern spinlock_t files_lock;
+diff --git a/kernel/kevent/kevent_poll.c b/kernel/kevent/kevent_poll.c
 new file mode 100644
-index 0000000..abe3972
+index 0000000..58129fa
 --- /dev/null
-+++ b/kernel/kevent/kevent_signal.c
-@@ -0,0 +1,94 @@
++++ b/kernel/kevent/kevent_poll.c
+@@ -0,0 +1,234 @@
 +/*
-+ * 	kevent_signal.c
-+ * 
 + * 2006 Copyright (c) Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 + * All rights reserved.
-+ * 
++ *
 + * This program is free software; you can redistribute it and/or modify
 + * it under the terms of the GNU General Public License as published by
 + * the Free Software Foundation; either version 2 of the License, or
@@ -123,141 +124,224 @@ index 0000000..abe3972
 + * but WITHOUT ANY WARRANTY; without even the implied warranty of
 + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 + * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 + */
 +
 +#include <linux/kernel.h>
 +#include <linux/types.h>
++#include <linux/list.h>
 +#include <linux/slab.h>
 +#include <linux/spinlock.h>
++#include <linux/timer.h>
 +#include <linux/file.h>
-+#include <linux/fs.h>
 +#include <linux/kevent.h>
++#include <linux/poll.h>
++#include <linux/fs.h>
 +
-+static int kevent_signal_callback(struct kevent *k)
++static struct kmem_cache *kevent_poll_container_cache;
++static struct kmem_cache *kevent_poll_priv_cache;
++
++struct kevent_poll_ctl
 +{
-+	struct task_struct *tsk = k->st->origin;
-+	int sig = k->event.id.raw[0];
-+	int ret = 0;
++	struct poll_table_struct 	pt;
++	struct kevent			*k;
++};
 +
-+	if (sig == tsk->kevent_signals)
-+		ret = 1;
-+
-+	if (ret && (k->event.id.raw_u64 & KEVENT_SIGNAL_NOMASK))
-+		tsk->kevent_signals |= 0x80000000;
-+
-+	return ret;
-+}
-+
-+int kevent_signal_enqueue(struct kevent *k)
++struct kevent_poll_wait_container
 +{
-+	int err;
++	struct list_head		container_entry;
++	wait_queue_head_t		*whead;
++	wait_queue_t			wait;
++	struct kevent			*k;
++};
 +
-+	err = kevent_storage_enqueue(&current->st, k);
-+	if (err)
-+		goto err_out_exit;
-+
-+	if (k->event.req_flags & KEVENT_REQ_ALWAYS_QUEUE) {
-+		kevent_requeue(k);
-+		err = 0;
-+	} else {
-+		err = k->callbacks.callback(k);
-+		if (err)
-+			goto err_out_dequeue;
-+	}
-+
-+	return err;
-+
-+err_out_dequeue:
-+	kevent_storage_dequeue(k->st, k);
-+err_out_exit:
-+	return err;
-+}
-+
-+int kevent_signal_dequeue(struct kevent *k)
++struct kevent_poll_private
 +{
-+	kevent_storage_dequeue(k->st, k);
++	struct list_head		container_list;
++	spinlock_t			container_lock;
++};
++
++static int kevent_poll_enqueue(struct kevent *k);
++static int kevent_poll_dequeue(struct kevent *k);
++static int kevent_poll_callback(struct kevent *k);
++
++static int kevent_poll_wait_callback(wait_queue_t *wait,
++		unsigned mode, int sync, void *key)
++{
++	struct kevent_poll_wait_container *cont =
++		container_of(wait, struct kevent_poll_wait_container, wait);
++	struct kevent *k = cont->k;
++
++	kevent_storage_ready(k->st, NULL, KEVENT_MASK_ALL);
 +	return 0;
 +}
 +
-+int kevent_signal_notify(struct task_struct *tsk, int sig)
++static void kevent_poll_qproc(struct file *file, wait_queue_head_t *whead,
++		struct poll_table_struct *poll_table)
 +{
-+	tsk->kevent_signals = sig;
-+	kevent_storage_ready(&tsk->st, NULL, KEVENT_SIGNAL_DELIVERY);
-+	return (tsk->kevent_signals & 0x80000000);
++	struct kevent *k =
++		container_of(poll_table, struct kevent_poll_ctl, pt)->k;
++	struct kevent_poll_private *priv = k->priv;
++	struct kevent_poll_wait_container *cont;
++	unsigned long flags;
++
++	cont = kmem_cache_alloc(kevent_poll_container_cache, GFP_KERNEL);
++	if (!cont) {
++		kevent_break(k);
++		return;
++	}
++
++	cont->k = k;
++	init_waitqueue_func_entry(&cont->wait, kevent_poll_wait_callback);
++	cont->whead = whead;
++
++	spin_lock_irqsave(&priv->container_lock, flags);
++	list_add_tail(&cont->container_entry, &priv->container_list);
++	spin_unlock_irqrestore(&priv->container_lock, flags);
++
++	add_wait_queue(whead, &cont->wait);
 +}
 +
-+static int __init kevent_init_signal(void)
++static int kevent_poll_enqueue(struct kevent *k)
 +{
-+	struct kevent_callbacks sc = {
-+		.callback = &kevent_signal_callback,
-+		.enqueue = &kevent_signal_enqueue,
-+		.dequeue = &kevent_signal_dequeue,
++	struct file *file;
++	int err;
++	unsigned int revents;
++	unsigned long flags;
++	struct kevent_poll_ctl ctl;
++	struct kevent_poll_private *priv;
++
++	file = fget(k->event.id.raw[0]);
++	if (!file)
++		return -EBADF;
++	
++	err = -EINVAL;
++	if (!file->f_op || !file->f_op->poll)
++		goto err_out_fput;
++	
++	err = -ENOMEM;
++	priv = kmem_cache_alloc(kevent_poll_priv_cache, GFP_KERNEL);
++	if (!priv)
++		goto err_out_fput;
++
++	spin_lock_init(&priv->container_lock);
++	INIT_LIST_HEAD(&priv->container_list);
++
++	k->priv = priv;
++
++	ctl.k = k;
++	init_poll_funcptr(&ctl.pt, &kevent_poll_qproc);
++	
++	err = kevent_storage_enqueue(&file->st, k);
++	if (err)
++		goto err_out_free;
++
++	revents = file->f_op->poll(file, &ctl.pt);
++	if (k->event.req_flags & KEVENT_REQ_ALWAYS_QUEUE) {
++		kevent_requeue(k);
++	} else {
++		if (revents & k->event.event) {
++			err = 1;
++			goto out_dequeue;
++		}
++	}
++
++	spin_lock_irqsave(&k->ulock, flags);
++	k->event.req_flags |= KEVENT_REQ_LAST_CHECK;
++	spin_unlock_irqrestore(&k->ulock, flags);
++
++	return 0;
++
++out_dequeue:
++	kevent_storage_dequeue(k->st, k);
++err_out_free:
++	kmem_cache_free(kevent_poll_priv_cache, priv);
++err_out_fput:
++	fput(file);
++	return err;
++}
++
++static int kevent_poll_dequeue(struct kevent *k)
++{
++	struct file *file = k->st->origin;
++	struct kevent_poll_private *priv = k->priv;
++	struct kevent_poll_wait_container *w, *n;
++	unsigned long flags;
++
++	kevent_storage_dequeue(k->st, k);
++
++	spin_lock_irqsave(&priv->container_lock, flags);
++	list_for_each_entry_safe(w, n, &priv->container_list, container_entry) {
++		list_del(&w->container_entry);
++		remove_wait_queue(w->whead, &w->wait);
++		kmem_cache_free(kevent_poll_container_cache, w);
++	}
++	spin_unlock_irqrestore(&priv->container_lock, flags);
++
++	kmem_cache_free(kevent_poll_priv_cache, priv);
++	k->priv = NULL;
++
++	fput(file);
++
++	return 0;
++}
++
++static int kevent_poll_callback(struct kevent *k)
++{
++	if (k->event.req_flags & KEVENT_REQ_LAST_CHECK) {
++		return 1;
++	} else {
++		struct file *file = k->st->origin;
++		unsigned int revents = file->f_op->poll(file, NULL);
++
++		k->event.ret_data[0] = revents & k->event.event;
++
++		return (revents & k->event.event);
++	}
++}
++
++static int __init kevent_poll_sys_init(void)
++{
++	struct kevent_callbacks pc = {
++		.callback = &kevent_poll_callback,
++		.enqueue = &kevent_poll_enqueue,
++		.dequeue = &kevent_poll_dequeue,
 +		.flags = 0,
 +	};
 +
-+	return kevent_add_callbacks(&sc, KEVENT_SIGNAL);
++	kevent_poll_container_cache = kmem_cache_create("kevent_poll_container_cache",
++			sizeof(struct kevent_poll_wait_container), 0, 0, NULL, NULL);
++	if (!kevent_poll_container_cache) {
++		printk(KERN_ERR "Failed to create kevent poll container cache.\n");
++		return -ENOMEM;
++	}
++
++	kevent_poll_priv_cache = kmem_cache_create("kevent_poll_priv_cache",
++			sizeof(struct kevent_poll_private), 0, 0, NULL, NULL);
++	if (!kevent_poll_priv_cache) {
++		printk(KERN_ERR "Failed to create kevent poll private data cache.\n");
++		kmem_cache_destroy(kevent_poll_container_cache);
++		kevent_poll_container_cache = NULL;
++		return -ENOMEM;
++	}
++
++	kevent_add_callbacks(&pc, KEVENT_POLL);
++
++	printk(KERN_INFO "Kevent poll()/select() subsystem has been initialized.\n");
++	return 0;
 +}
-+module_init(kevent_init_signal);
-diff --git a/kernel/signal.c b/kernel/signal.c
-index 5630255..f12ebc0 100644
---- a/kernel/signal.c
-+++ b/kernel/signal.c
-@@ -23,6 +23,7 @@
- #include <linux/ptrace.h>
- #include <linux/signal.h>
- #include <linux/capability.h>
-+#include <linux/kevent.h>
- #include <linux/freezer.h>
- #include <linux/pid_namespace.h>
- #include <linux/nsproxy.h>
-@@ -714,6 +715,9 @@ static int send_signal(int sig, struct siginfo *info, struct task_struct *t,
- {
- 	struct sigqueue * q = NULL;
- 	int ret = 0;
-+	
-+	if (kevent_signal_notify(t, sig))
-+		return 1;
- 
- 	/*
- 	 * fast-pathed signals for kernel-internal things like SIGSTOP
-@@ -793,6 +797,17 @@ specific_send_sig_info(int sig, struct siginfo *info, struct task_struct *t)
- 	ret = send_signal(sig, info, t, &t->pending);
- 	if (!ret && !sigismember(&t->blocked, sig))
- 		signal_wake_up(t, sig == SIGKILL);
-+#ifdef CONFIG_KEVENT_SIGNAL
-+	/*
-+	 * Kevent allows to deliver signals through kevent queue, 
-+	 * it is possible to setup kevent to not deliver
-+	 * signal through the usual way, in that case send_signal()
-+	 * returns 1 and signal is delivered only through kevent queue.
-+	 * We simulate successfull delivery notification through this hack:
-+	 */
-+	if (ret == 1)
-+		ret = 0;
-+#endif
- out:
- 	return ret;
- }
-@@ -982,6 +997,17 @@ __group_send_sig_info(int sig, struct siginfo *info, struct task_struct *p)
- 	 * to avoid several races.
- 	 */
- 	ret = send_signal(sig, info, p, &p->signal->shared_pending);
-+#ifdef CONFIG_KEVENT_SIGNAL
-+	/*
-+	 * Kevent allows to deliver signals through kevent queue, 
-+	 * it is possible to setup kevent to not deliver
-+	 * signal through the usual way, in that case send_signal()
-+	 * returns 1 and signal is delivered only through kevent queue.
-+	 * We simulate successfull delivery notification through this hack:
-+	 */
-+	if (ret == 1)
-+		ret = 0;
-+#endif
- 	if (unlikely(ret))
- 		return ret;
- 
-
++
++static struct lock_class_key kevent_poll_key;
++
++void kevent_poll_reinit(struct file *file)
++{
++	lockdep_set_class(&file->st.lock, &kevent_poll_key);
++}
++
++static void __exit kevent_poll_sys_fini(void)
++{
++	kmem_cache_destroy(kevent_poll_priv_cache);
++	kmem_cache_destroy(kevent_poll_container_cache);
++}
++
++module_init(kevent_poll_sys_init);
++module_exit(kevent_poll_sys_fini);
