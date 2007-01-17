@@ -1,108 +1,37 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [PATCH 9/9] net: vm deadlock avoidance core
-Date: Wed, 17 Jan 2007 07:54:26 +0300
-Message-ID: <20070117045426.GA20921@2ka.mipt.ru>
-References: <20070116094557.494892000@taijtu.programming.kicks-ass.net> <20070116101816.115266000@taijtu.programming.kicks-ass.net> <20070116132503.GA23144@2ka.mipt.ru> <1168955274.22935.47.camel@twins> <20070116153315.GB710@2ka.mipt.ru> <1168963695.22935.78.camel@twins>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-mm@kvack.org, David Miller <davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: TKIP encryption should allocate enough tailroom
+Date: Wed, 17 Jan 2007 17:34:54 +1100
+Message-ID: <E1H74Nq-0006N5-00@gondolin.me.apana.org.au>
+References: <877ivm72cs.fsf@ten22.rhodesmill.org>
+Cc: mitch@sfgoth.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:54630 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751825AbXAQEyx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Jan 2007 23:54:53 -0500
-To: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Content-Disposition: inline
-In-Reply-To: <1168963695.22935.78.camel@twins>
+Received: from rhun.apana.org.au ([64.62.148.172]:2668 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751127AbXAQGfI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jan 2007 01:35:08 -0500
+To: brandon@rhodesmill.org (Brandon Craig Rhodes)
+In-Reply-To: <877ivm72cs.fsf@ten22.rhodesmill.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 16, 2007 at 05:08:15PM +0100, Peter Zijlstra (a.p.zijlstra@chello.nl) wrote:
-> On Tue, 2007-01-16 at 18:33 +0300, Evgeniy Polyakov wrote:
-> > On Tue, Jan 16, 2007 at 02:47:54PM +0100, Peter Zijlstra (a.p.zijlstra@chello.nl) wrote:
-> > > > > +	if (unlikely(skb->emergency))
-> > > > > +		current->flags |= PF_MEMALLOC;
-> > > > 
-> > > > Access to 'current' in netif_receive_skb()???
-> > > > Why do you want to work with, for example keventd?
-> > > 
-> > > Can this run in keventd?
-> > 
-> > Initial netchannel implementation by Kelly Daly (IBM) worked in keventd
-> > (or dedicated kernel thread, I do not recall).
-> > 
-> > > I thought this was softirq context and thus this would either run in a
-> > > borrowed context or in ksoftirqd. See patch 3/9.
-> > 
-> > And how are you going to access 'current' in softirq?
-> > 
-> > netif_receive_skb() can also be called from a lot of other places
-> > including keventd and/or different context - it is permitted to call it
-> > everywhere to process packet.
-> > 
-> > I meant that you break the rule accessing 'current' in that context.
+Brandon Craig Rhodes <brandon@rhodesmill.org> wrote:
 > 
-> Yeah, I know, but as long as we're not actually in hard irq context
-> current does point to the task_struct in charge of current execution and
-> as long as we restore whatever was in the flags field before we started
-> poking, nothing can go wrong.
+> Egads!  You are correct.
 > 
-> So, yes this is unconventional, but it does work as expected.
+> My intention was to preserve the value of "err" if an unsuccessful
+> value was returned by skb_padto(), and otherwise to return "-1" which
+> seemed the popular value used for errors elsewhere in the code.
 > 
-> As for breaking, 3/9 makes it legal.
+> - Would the expression "err ? err : -1" have served me better?
+> - Do error codes mean anything here, or should I simply say "return -1"?
 
-You operate with 'current' in different contexts without any locks which
-looks racy and even is not allowed. What will be 'current' for
-netif_rx() case, which schedules softirq from hard irq context -
-ksoftirqd, why do you want to set its flags?
+err ?: -1
 
-> > I meant that you can just mark process which created such socket as
-> > PF_MEMALLOC, and clone that flag on forks and other relatest calls without 
-> > all that checks for 'current' in different places.
-> 
-> Ah, thats the wrong level to think here, these processes never reach
-> user-space - nor should these sockets.
+should work.
 
-You limit this just to send an ack?
-What about 'level-7' ack as you described in introduction?
-
-> Also, I only want the processing of the actual network packet to be able
-> to eat the reserves, not any other thing that might happen in that
-> context.
-> 
-> And since network processing is mostly done in softirq context I must
-> mark these sections like I did.
-
-You artificially limit system to just add a reserve to generate one ack.
-For that purpose you do not need to have all those flags - just reseve
-some data in network core and use it when system is in OOM (or reclaim)
-for critical data pathes.
-
-> > > > > +		/*
-> > > > > +		   decrease window size..
-> > > > > +		   tcp_enter_quickack_mode(sk);
-> > > > > +		*/
-> > > > 
-> > > > How does this decrease window size?
-> > > > Maybe ack scheduling would be better handled by inet_csk_schedule_ack()
-> > > > or just directly send an ack, which in turn requires allocation, which
-> > > > can be bound to this received frame processing...
-> > > 
-> > > It doesn't, I thought that it might be a good idea doing that, but never
-> > > got around to actually figuring out how to do it.
-> > 
-> > tcp_send_ack()?
-> > 
-> 
-> does that shrink the window automagically?
-
-Yes, it updates window, but having ack generated in that place is
-actually very wrong. In that place system has not processed incoming
-packet yet, so it can not generate correct ACK for received frame at
-all. And it seems that the only purpose of the whole patchset is to
-generate that poor ack - reseve 2007 ack packets (MAX_TCP_HEADER) 
-in system startup and reuse them when you are under memory pressure.
-
+Cheers,
 -- 
-	Evgeniy Polyakov
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
