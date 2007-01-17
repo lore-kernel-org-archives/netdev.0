@@ -1,32 +1,64 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 1/12] L2 network namespace (v3): current network namespace operations
-Date: Wed, 17 Jan 2007 13:16:02 -0700
-Message-ID: <m1hcup8l4t.fsf@ebiederm.dsl.xmission.com>
-References: <200701171851.14734.dim@openvz.org>
-	<200701171857.40349.dim@openvz.org>
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: [PATCH 2/4] [SCTP]: Verify some mandatory parameters.
+Date: Wed, 17 Jan 2007 15:22:21 -0500
+Message-ID: <45AE857D.8000208@hp.com>
+References: <1168544487.22592.19.camel@w-sridhar2.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: containers@lists.osdl.org, alexey@sw.ru, netdev@vger.kernel.org,
-	saw@sw.ru
+Content-Type: multipart/mixed;
+ boundary="------------060405010009010207040902"
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	lksctp-developers@lists.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:40833 "EHLO
-	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932729AbXAQURE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jan 2007 15:17:04 -0500
-To: Dmitry Mishin <dim@openvz.org>
-In-Reply-To: <200701171857.40349.dim@openvz.org> (Dmitry Mishin's message of
-	"Wed, 17 Jan 2007 18:57:40 +0300")
+Received: from atlrel8.hp.com ([156.153.255.206]:59614 "EHLO atlrel8.hp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932738AbXAQUWZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Jan 2007 15:22:25 -0500
+To: Sridhar Samudrala <sri@us.ibm.com>
+In-Reply-To: <1168544487.22592.19.camel@w-sridhar2.beaverton.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dmitry Mishin <dim@openvz.org> writes:
+This is a multi-part message in MIME format.
+--------------060405010009010207040902
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-> Added functions and macros required to operate with network namespaces.
-> They are required in order to switch network namespace for incoming packets and
-> to not extend current network interface by additional network namespace argue.
+> --- a/net/sctp/sm_statefuns.c
+> +++ b/net/sctp/sm_statefuns.c
+> @@ -462,24 +461,6 @@ sctp_disposition_t sctp_sf_do_5_1C_ack(const struct sctp_endpoint *ep,
 
-Is exec_net only used in interrupt context?
-Or how do you ensure a sleeping function does not get called and the
-kernel process comes back on another cpu?
+> -	if (!init_tag) {
+> -		struct sctp_chunk *reply = sctp_make_abort(asoc, chunk, 0);
+> -		if (!reply)
+> -			goto nomem;
 
-Eric
+This introduced a compiler warning, easily fixed.
+
+-Brian
+
+
+Signed-off-by: Brian Haley <brian.haley@hp.com>
+
+--------------060405010009010207040902
+Content-Type: text/x-patch;
+ name="sctp_warn.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="sctp_warn.patch"
+
+diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
+index fce1f60..fbbc9e6 100644
+--- a/net/sctp/sm_statefuns.c
++++ b/net/sctp/sm_statefuns.c
+@@ -531,9 +531,6 @@ sctp_disposition_t sctp_sf_do_5_1C_ack(c
+ 			SCTP_CHUNK(err_chunk));
+ 
+ 	return SCTP_DISPOSITION_CONSUME;
+-
+-nomem:
+-	return SCTP_DISPOSITION_NOMEM;
+ }
+ 
+ /*
+
+--------------060405010009010207040902--
