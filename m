@@ -1,91 +1,79 @@
-From: Nate Diller <nate@agami.com>
-Subject: Re: [PATCH -mm 0/10][RFC] aio: make struct kiocb private
-Date: Wed, 17 Jan 2007 15:30:25 -0800 (PST)
-Message-ID: <Pine.LNX.4.64.0701171424450.23419@nate-64.agami.com>
-References: <20070116015450.9764.37697.patchbomb.py@nate-64.agami.com>
- <20070116032347.GA3697@infradead.org> <5c49b0ed0701152025t2e9fdd6cld36b077f36c78afe@mail.gmail.com>
- <20070117215230.GB28828@kvack.org>
+From: Russell Stuart <russell-tcatm@stuart.id.au>
+Subject: Re: [PATCH REPOST 1/2] NET:
+	Accurate	packet	scheduling	for	ATM/ADSL (kernel)
+Date: Thu, 18 Jan 2007 09:07:02 +1000
+Message-ID: <1169075223.7560.15.camel@ras>
+References: <1161041677.6247.1.camel@ras.pc.brisbane.lube>
+	 <1161090444.5555.13.camel@jzny2>  <45378DE3.8080700@trash.net>
+	 <1161602527.5502.155.camel@ras.pc.stuart.local>
+	 <453CB801.4010902@trash.net>
+	 <1161640444.5502.214.camel@ras.pc.stuart.local> <453E3CFC.80007@trash.net>
+	 <1161733596.3829.91.camel@ras.pc.brisbane.lube>
+	 <456ED79E.2070707@trash.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Nate Diller <nate.diller@gmail.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	Andrew Morton <akpm@osdl.org>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Trond Myklebust <trond.myklebust@fys.uio.no>,
-	Alexander Viro <viro@zeniv.linux.org.uk>,
-	Suparna Bhattacharya <suparna@in.ibm.com>,
-	Kenneth W Chen <kenneth.w.chen@intel.com>,
-	David Brownell <dbrownell@users.sourceforge.net>,
-	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	netdev@vger.kernel.org, ocfs2-devel@oss.oracle.com,
-	linux-aio@kvack.org, xfs-masters@oss.sgi.com
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-To: Benjamin LaHaise <bcrl@kvack.org>
-In-Reply-To: <20070117215230.GB28828@kvack.org>
-Sender: linux-fsdevel-owner@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: hadi@cyberus.ca, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	Jesper Dangaard Brouer <hawk@diku.dk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 58.105.229.78.optusnet.com.au ([58.105.229.78]:48414 "EHLO
+	adsl-kenny.stuart.id.au" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S1751425AbXAQXdW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jan 2007 18:33:22 -0500
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <456ED79E.2070707@trash.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 17 Jan 2007, Benjamin LaHaise wrote:
+On Thu, 2006-11-30 at 14:07 +0100, Patrick McHardy wrote: 
+> Qdiscs don't use RTABs to measure rates but to calculate
+> transmission times. Transmission time is always related
+> to the length, the difference between our patches is that
+> you modify the RTABs in advance to include the overhead
+> in the calculation, my patch changes the length used to
+> look up the transmission time. Which works with or
+> without RTABs.
 
-> On Mon, Jan 15, 2007 at 08:25:15PM -0800, Nate Diller wrote:
->> the right thing to do from a design perspective.  Hopefully it enables
->> a new architecture that can reduce context switches in I/O completion,
->> and reduce overhead.  That's the real motive ;)
->
-> And it's a broken motive.  Context switches per se are not bad, as they
-> make it possible to properly schedule code in a busy system (which is
-> *very* important when realtime concerns come into play).  Have a look
-> at how things were done in the 2.4 aio code to see how completion would
-> get done with a non-retry method, typically in interrupt context.  I had
-> code that did direct I/O rather differently by sharing code with the
-> read/write code paths at some point, the catch being that it was pretty
-> invasive, which meant that it never got merged with the changes to handle
-> writeback pressure and other work that happened during 2.5.
+Thanks, I understand now.
 
-I'm having some trouble understanding your concern.  From my perspective,
-any unnecessary context switch represents not only performance loss, but
-extra complexity in the code.  In this case, I'm not suggesting that the
-aio.c code causes problems, quite the opposite.  The code I'd like to change
-is FS and md levels, where context switches happen because of timers,
-workqueues, and worker threads.  For sync I/O, these layers could be doing
-their completion work in process context, but because waiting on sync I/O is
-done in layers above, they must resort to other means, even for the common
-case.  The dm-crypt module is the most straightforward example.
+I had decided that that STAB was indeed the way forward,
+and hence I should devote my time to making it work 
+with ADSL/ATM.  The only issue is now I don't have 
+any spare time right now.
 
-I took a look at some 2.4.18 aio patches in kernel.org/.../bcrl/aio/, and if
-I understand what you did, you were basically operating at the aops level
-rather than f_ops.  I actually like that idea, it's nicer than having the
-direct-io code do its work seperately from the aio code.  Part of where I'm
-going with this patch is a better integration between the block layer
-(make_request), page layer (aops), and FS layer (f_ops), particularly in the
-completion paths.  The direct-io code is an improvement over the common code
-on that point, do_readahead() and friends all wait on individual pages to
-become uptodate.  I'd like to bring some improvements from the directIO
-architecture into use in the common case, which I hope will help
-performance.
+Yesterday I was chatting about this at LCA 2007, and 
+it dawned on me that there is a problem with the dual
+RTAB/STAB approach.
 
-I know that might seem somewhat unrelated, but I don't think it is.  This
-change goes hand in hand with using completion handlers in the aops.  That
-will link together the completion callback in the bio with the aio callback,
-so that the whole stack can finish its work in one context.
+Currently the lookup in the kernel is
+  time_to_transmit_a_packet = RTAB[packet_length_seen_by_kernel]
 
-> That said, you can't make kiocb private without completely removing the
-> ability of the rest of the kernel to complete an aio sanely from irq context.
-> You need some form of i/o descriptor, and a kiocb is just that.  Adding more
-> layering is just going to make things messier and slower for no real gain.
+As I understand it, you are proposing to change that to
+  time_to_transmit_a_packet
+    = RTAB[STAB[packet_length_seen_by_kernel]]
+    = RTAB[packet_length_seen_on_the_wire]
 
-This patchset does not change how or when I/O completion happens,
-aio_complete() will still get called from direct-io.c, nfs-direct.c, et al. 
-The iocb structure is still passed to aio_complete, just like before.  The
-only difference is that the lower level code doesn't know that it's got an
-iocb, all it sees is an opaque cookie.  It's more like enforcing a layer
-that's already in place, and I think things got simpler rather than messier. 
-Whether things are slower or not remains to be seen, but I expect no
-measurable changes either way with this patch.
+Given RTAB is the same in both cases the results of the
+calculation will be different (and ergo wrong in one case
+or the other).  RTAB can't change and remain compatible 
+with old kernels.  Ergo this approach breaks backward 
+compatibility.
 
-I'm releasing a new version of the patch soon, it will use a new iodesc
-structure to keep track of iovec state, which simplifies things further.  It
-also will have a new version of the usb gadget code, and some general
-cleanups.  I hope you'll take a look at it.
+I can't see any way forward but to break the link 
+between RTAB and STAB.  Personally I think this is a 
+good thing, as I think STAB should replace RTAB 
+completely.  One way to do this is to give the kernel
+STAB + transmission rate, so the calculation above
+becomes:
 
-NATE
+  time_to_transmit_a_packet
+    = STAB[packet_length_seen_by_kernel] * transmission_rate
+
+RTAB disappears in new kernels, and the compatibility
+problem goes with it.
+
+Can you think of other ways forward?  I need some way 
+forward so I can get this thing working.
+
+
