@@ -1,87 +1,102 @@
-From: Kirill Korotaev <dev@sw.ru>
-Subject: Re: [PATCH 0/59] Cleanup sysctl
-Date: Wed, 17 Jan 2007 21:10:50 +0300
-Message-ID: <45AE66AA.1050508@sw.ru>
-References: <m1ac0jc4no.fsf@ebiederm.dsl.xmission.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH] Marvell Libertas 8388 802.11b/g USB driver (v2)
+Date: Wed, 17 Jan 2007 18:01:24 +0000
+Message-ID: <1169056884.9175.66.camel@johannes.berg>
+References: <20070116185524.GA5681@dmt>
+	 <20070117141103.0e468bf4@griffin.suse.cz>
+	 <1169046072.2750.10.camel@localhost.localdomain>
+	 <1169047134.9175.49.camel@johannes.berg>
+	 <1169055788.2550.44.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>, James.Bottomley@SteelEye.com,
-	linux-mips@linux-mips.org, linux-parport@lists.infradead.org,
-	minyard@acm.org, rtc-linux@googlegroups.com, clemens@ladisch.de,
-	heiko.carstens@de.ibm.com, xfs@oss.sgi.com,
-	linuxppc-dev@ozlabs.org, paulus@samba.org,
-	openipmi-developer@lists.sourceforge.net, linux-390@vm.marist.edu,
-	schwidefsky@de.ibm.com, tim@cyberelk.net,
-	codalist@TELEMANN.coda.cs.cmu.edu, a.zummo@towertech.it,
-	tony.luck@intel.com, vojtech@suse.cz, linux-scsi@vger.kernel.org,
-	xfs-masters@oss.sgi.com, linux-ntfs-dev@lists.sourceforge.net,
-	netdev@vger.kernel.org, aia21@cantab.net, aharkes@cs.cmu.edu,
-	linux-kernel@vger.kernel.org, ralf@linux-mips.org,
-	mark.fasheh@oracle.com, coda@cs.cmu.edu, lethal@linux-sh.org,
-	kurt.hackel@oracle.com,
-	Linux Containers <containers@lists.osdl.org>,
-	linux390@de.ibm.com, philb@gnu.org, andrea@suse.de,
-	linuxsh-shmed
-Return-path: <linux-mips-bounce@linux-mips.org>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-In-Reply-To: <m1ac0jc4no.fsf@ebiederm.dsl.xmission.com>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-o6LIjg/fqpGPwn2VP897"
+Cc: Jiri Benc <jbenc@suse.cz>, Marcelo Tosatti <marcelo@kvack.org>,
+	netdev <netdev@vger.kernel.org>, Jeff Garzik <jgarzik@pobox.com>,
+	"John W. Linville" <linville@redhat.com>,
+	"Luis R. Rodriguez" <mcgrof@gmail.com>,
+	Arnd Bergmann <arnd@arndb.de>,
+	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:43581 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932564AbXAQSCF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jan 2007 13:02:05 -0500
+To: Dan Williams <dcbw@redhat.com>
+In-Reply-To: <1169055788.2550.44.camel@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Eric, really good job!
 
-Patches: 1-13, 15-24, 26-32, 34-44, 46-49, 52-55, 57 (all except below)
-Acked-By: Kirill Korotaev <dev@openvz.org>
+--=-o6LIjg/fqpGPwn2VP897
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-14/59 - minor (extra space)
-25/59 - minor note	
-33/59 - not sorted sysctl IDs
-45/59 - typo
-50/59 - copyright/file note
-51/59 - copyright/file name/kconfig option notes
+On Wed, 2007-01-17 at 12:43 -0500, Dan Williams wrote:
 
-56,58,59/59 - will review tomorrow
+> I said "mostly" fullmac.  Sort of like ipw2100 (IIRC) is softmac but it
+> does all the association stuff in firmware.  It doesn't fit fullmac, but
+> it's a lot more fullmac than atheros.  There isn't any management frame
+> processing, it doesn't do any data frame processing.
 
-another issue I have to think over is removal of de->owner.
-Alexey Dobriyan has sent recently patching fixing /proc <-> modules refcounting.
-I guess w/o these patches your changes are not safe if proc_handler or strategy
-are functions from the module.
+Right. I hadn't looked at data frames but suspected this is the case.
 
-Thanks,
-Kirill
+> The 8388 architecture is typical of a thick firmware architecture, where
+> the firmware handles all 802.11 MAC management tasks.  The host driver
+> downloads standard 802.3 frames to the firmware to be transmitted over
+> the link as 802.11 frames.
+>=20
+> I thought these 2 things were essentially _the_ definition of fullmac,
+> please correct me if I'm wrong.
 
-> There has not been much maintenance on sysctl in years, and as a result is
-> there is a lot to do to allow future interesting work to happen, and being
-> ambitious I'm trying to do it all at once :)
-> 
-> The patches in this series fall into several general categories.
-> 
-> - Removal of useless attempts to override the standard sysctls
-> 
-> - Registers of sysctl numbers in sysctl.h so someone else does not use
->   the magic number and conflict.
-> 
-> - C99 conversions so it becomes possible to change the layout of 
->   struct ctl_table without breaking everything.
-> 
-> - Removal of useless claims of module ownership, in the proc dir entries
-> 
-> - Removal of sys_sysctl support where people had used conflicting sysctl
->   numbers. Trying to break glibc or other applications by changing the
->   ABI is not cool.  9 instances of this in the kernel seems a little
->   extreme.
-> 
-> - General enhancements when I got the junk I could see out.
-> 
-> Odds are I missed something, most of the cleanups are simply a result of
-> me working on the sysctl core and glancing at the users and going: What?
-> 
-> Eric
-> _______________________________________________
-> Containers mailing list
-> Containers@lists.osdl.org
-> https://lists.osdl.org/mailman/listinfo/containers
-> 
-> 
+Well we'll need more terms here. I had a short chat with Jouni and we
+agree that what the Marvell card is doing is exposing the MLME
+interface, and what d80211 is doing is implementing most of the MLME.
+
+I guess the thing I'm saying is that exposing the MLME interface which
+changes fairly frequently is a bad thing and I'd love to have firmware
+that exposes lower level stuff like .
+
+> Perhaps I just don't understand how flexible d80211 has become; when we
+> last were talking about it 8 months ago, it appears that it could not
+> handle parts that did significant pieces of work in firmware, like the
+> 8388 does.  Do we have the functionality in d80211 yet to handle pieces
+> that are a full mix of hybrid full/soft mac?
+
+No, we don't have that yet, and we might never have. But I think I'm
+starting to understand the issues at hand a bit better and it seems that
+we'll need cfg80211 to be redefined.
+
+> 1) What, if any of this, could actually fit into the d80211 stack, given
+> the mostly fullmac operations of this part?=20
+
+Can we rephrase this in terms of the MLME interface etc that the 802.11
+standard speaks about? That'd be easier I think.
+
+> 3) Could you enumerate your issues with the command dispatching?  Right
+> now, many of the commands are blocking, which is suboptimal.  This is an
+> artifact of the embedded history of the part.  We need to eventually fix
+> that and make the upper layers not expect to block stuff like auth/assoc
+> and scanning.  What other stuff are you thinking of?
+
+Well, one thing is that the whole command processing goes through a
+single function for no real benefit. You're basically saying
+command(...,CMD_NUM,...) and in command() you do switch(cmd_num) and
+multiplex it to a lot of functions again. I suppose I'd rather it called
+the functions directly and those in turn called the little common code
+there is in the dispatch routine.
+
+johannes
+
+--=-o6LIjg/fqpGPwn2VP897
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iD8DBQBFrmR0/ETPhpq3jKURAgFNAKCYbgPtAYDjGp885gx1jUnps/JPNwCgr8f2
++D12yLhIsB1mbsnD+33CxzE=
+=5Thf
+-----END PGP SIGNATURE-----
+
+--=-o6LIjg/fqpGPwn2VP897--
+
