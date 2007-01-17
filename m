@@ -1,71 +1,43 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [PATCH 36/59] sysctl: C99 convert ctl_tables entries in
-	arch/ppc/kernel/ppc_htab.c
-Date: Wed, 17 Jan 2007 14:16:54 +1100
-Message-ID: <1169003814.4778.19.camel@localhost.localdomain>
-References: <m1ac0jc4no.fsf@ebiederm.dsl.xmission.com>
-	 <11689656602523-git-send-email-ebiederm@xmission.com>
+From: Brandon Craig Rhodes <brandon@rhodesmill.org>
+Subject: Re: TKIP encryption should allocate enough tailroom
+Date: Tue, 16 Jan 2007 22:34:43 -0500
+Message-ID: <877ivm72cs.fsf@ten22.rhodesmill.org>
+References: <87bqky759v.fsf@ten22.rhodesmill.org>
+	<20070117033931.GX35756@gaz.sfgoth.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "<Andrew Morton" <akpm@osdl.org>, linux-mips@linux-mips.org,
-	linux-parport@lists.infradead.org, heiko.carstens@de.ibm.com,
-	ak@suse.de, linuxppc-dev@ozlabs.org, paulus@samba.org,
-	aharkes@cs.cmu.edu, schwidefsky@de.ibm.com, tim@cyberelk.net,
-	rtc-linux@googlegroups.com, linux-scsi@vger.kernel.org,
-	kurt.hackel@oracle.com, coda@cs.cmu.edu, vojtech@suse.cz,
-	linuxsh-shmedia-dev@lists.sourceforge.net,
-	James.Bottomley@SteelEye.com, clemens@ladisch.de, xfs@oss.sgi.com,
-	xfs-masters@oss.sgi.com, andrea@suse.de,
-	openipmi-developer@lists.sourceforge.net, linux-390@vm.marist.edu,
-	codalist@TELEMANN.coda.cs.cmu.edu, a.zummo@towertech.it,
-	tony.luck@intel.com, linux-ntfs-dev@lists.sourceforge.net,
-	netdev@vger.kernel.org, aia21@cantab.net,
-	linux-kernel@vger.kernel.org, ralf@linux-mips.org,
-	lethal@linux-sh.org, containers@lists.osdl.org,
-	linux390@de.ibm.com, philb@gnu.org
-Return-path: <linux-mips-bounce@linux-mips.org>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-In-Reply-To: <11689656602523-git-send-email-ebiederm@xmission.com>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 66-23-211-138.clients.speedfactory.net ([66.23.211.138]:37381
+	"EHLO ten22.rhodesmill.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752004AbXAQDeo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jan 2007 22:34:44 -0500
+To: Mitchell Blank Jr <mitch@sfgoth.com>
+In-Reply-To: <20070117033931.GX35756@gaz.sfgoth.com> (Mitchell Blank, Jr.'s
+	message of "Tue, 16 Jan 2007 19:39:31 -0800")
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2007-01-16 at 09:39 -0700, Eric W. Biederman wrote:
-> From: Eric W. Biederman <ebiederm@xmission.com> - unquoted
-> 
-> And make the mode of the kernel directory 0555 no one is allowed
-> to write to sysctl directories.
-> 
-> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+Mitchell Blank Jr <mitch@sfgoth.com> writes:
 
-Acked-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+> Brandon Craig Rhodes wrote:
+>
+>> +		if (unlikely(err || skb_tailroom(skb) < 4)) {
+>> +			printk(KERN_DEBUG "Failed to increase tailroom"
+>> +			       " for TKIP encrypt");
+>> +			return err || -1;
+>
+> The "||" operator in C doesn't act the same way it does in perl and ruby.
+> You're always returning 1 here.
 
-> ---
->  arch/ppc/kernel/ppc_htab.c |   11 ++++++++---
->  1 files changed, 8 insertions(+), 3 deletions(-)
-> 
-> diff --git a/arch/ppc/kernel/ppc_htab.c b/arch/ppc/kernel/ppc_htab.c
-> index bd129d3..77b20ff 100644
-> --- a/arch/ppc/kernel/ppc_htab.c
-> +++ b/arch/ppc/kernel/ppc_htab.c
-> @@ -442,11 +442,16 @@ static ctl_table htab_ctl_table[]={
->  		.mode		= 0644,
->  		.proc_handler	= &proc_dol2crvec,
->  	},
-> -	{ 0, },
-> +	{}
->  };
->  static ctl_table htab_sysctl_root[] = {
-> -	{ 1, "kernel", NULL, 0, 0755, htab_ctl_table, },
-> - 	{ 0,},
-> +	{
-> +		.ctl_name	= CTL_KERN,
-> +		.procname	= "kernel",
-> +		.mode		= 0555,
-> +		.child		= htab_ctl_table,
-> +	},
-> +	{}
->  };
->  
->  static int __init
+Egads!  You are correct.
+
+My intention was to preserve the value of "err" if an unsuccessful
+value was returned by skb_padto(), and otherwise to return "-1" which
+seemed the popular value used for errors elsewhere in the code.
+
+ - Would the expression "err ? err : -1" have served me better?
+ - Do error codes mean anything here, or should I simply say "return -1"?
+
+-- 
+Brandon Craig Rhodes   brandon@rhodesmill.org   http://rhodesmill.org/brandon
