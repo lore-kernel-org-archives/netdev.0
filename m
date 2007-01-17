@@ -1,86 +1,69 @@
-From: Jiri Benc <jbenc@suse.cz>
+From: Marcelo Tosatti <marcelo@kvack.org>
 Subject: Re: [PATCH] Marvell Libertas 8388 802.11b/g USB driver (v2)
-Date: Wed, 17 Jan 2007 19:07:26 +0100
-Message-ID: <20070117190726.13aaf245@griffin.suse.cz>
-References: <20070116185524.GA5681@dmt>
-	<20070117141103.0e468bf4@griffin.suse.cz>
-	<1169046072.2750.10.camel@localhost.localdomain>
-	<1169047134.9175.49.camel@johannes.berg>
-	<1169055788.2550.44.camel@localhost.localdomain>
+Date: Wed, 17 Jan 2007 16:42:04 -0200
+Message-ID: <20070117184204.GA3899@dmt>
+References: <20070116185524.GA5681@dmt> <1169020333.9175.15.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-	Marcelo Tosatti <marcelo@kvack.org>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Marcelo Tosatti <marcelo@kvack.org>,
 	netdev <netdev@vger.kernel.org>, Jeff Garzik <jgarzik@pobox.com>,
 	"John W. Linville" <linville@redhat.com>,
+	Dan Williams <dcbw@redhat.com>,
 	"Luis R. Rodriguez" <mcgrof@gmail.com>,
 	Arnd Bergmann <arnd@arndb.de>,
 	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:60393 "EHLO mail.suse.cz"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932614AbXAQSHd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Jan 2007 13:07:33 -0500
-To: Dan Williams <dcbw@redhat.com>
-In-Reply-To: <1169055788.2550.44.camel@localhost.localdomain>
+Received: from kanga.kvack.org ([66.96.29.28]:38823 "EHLO kanga.kvack.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932627AbXAQSpg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Jan 2007 13:45:36 -0500
+To: Johannes Berg <johannes@sipsolutions.net>
+Content-Disposition: inline
+In-Reply-To: <1169020333.9175.15.camel@johannes.berg>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 17 Jan 2007 12:43:08 -0500, Dan Williams wrote:
-> The 8388 architecture is typical of a thick firmware architecture, where
-> the firmware handles all 802.11 MAC management tasks.  The host driver
-> downloads standard 802.3 frames to the firmware to be transmitted over
-> the link as 802.11 frames.
+On Wed, Jan 17, 2007 at 07:52:13AM +0000, Johannes Berg wrote:
+> On Tue, 2007-01-16 at 16:55 -0200, Marcelo Tosatti wrote:
+> 
+> > _Please_ review, this driver is targeted for mainline inclusion.
+> > 
+> > There have been almost no comments resulting from the first submission.
+> 
+> We had looked over the previous version a few days ago and noticed that
+> the biggest part of the code is a mostly generic wireless stack that
+> you're including along with the driver, essentially all the wlan_*
+> files. I don't think that's going to fly.
 
-Ah. This isn't clear from the driver as it's too big to go through in
-detail. In particular, handing 802.3 frames to the firmware means you
-cannot use d80211 (nor ieee80211).
+How come is it a generic wireless stack? As Dan mentioned, the driver is
+large, but the wireless stack is _inside_ the firmware.
 
-> I thought these 2 things were essentially _the_ definition of fullmac,
-> please correct me if I'm wrong.
+It does not implement a wireless stack. Its simply an interface to the
+firmware.
 
-I think you're right.
+And using the Marvell provided firmware is a requirement for OLPC
+machines, where the CPU will be shut down but the chip+firmware will
+continue to forward packets in the mesh network (there are extreme power
+saving constraints on these machines).
 
-> Perhaps I just don't understand how flexible d80211 has become; when we
-> last were talking about it 8 months ago, it appears that it could not
-> handle parts that did significant pieces of work in firmware, like the
-> 8388 does.  Do we have the functionality in d80211 yet to handle pieces
-> that are a full mix of hybrid full/soft mac?
+Quoting Dan Williams, who quoted the device documentation:
 
-No.
+"This basic architecture is typical of a thick firmware architecture,
+where the WLAN firmware handles all 802.11 MAC Management tasks."
 
-> [...]
-> Not quite; the driver doesn't have to deal with the Open System
-> handshake or the Shared Key handshake.  Instead of Airo's 1-step
-> process, this is a simple 2-step process.  Look at wlan_join.c,
-> wlan_associate().  That's what happens; nothing more.
+"The host driver downloads standard 802.3 frames to the firmware to
+transmit over the wireless link as 802.11 frames."
 
-If everything is as simple as you wrote, why is the driver so
-incredibly big? It's almost impossible to review it in a reasonable
-time.
+So it really looks like a fullmac chip, although it might require higher
+interaction from the driver part, in comparison with IPW.
 
-> [...]
-> I think you may have gotten the wrong impression about the part due to
-> the cruft in the driver.  We'll clean that stuff out, like the
-> ENTER/LEAVE and a host of other junk.  But what we'd like is comments on
-> how to clean it up and what other people think should get re-arranged,
-> and maybe how it could be integrated with d80211 more.
+Its also important to note, regarding the size in LOC, that the driver
+implements most of the firmware/chip configuration knobs, and there are
+a _lot_ of them, unlike smaller in-tree drivers. (ie. the driver is
+highly configurable). See the README file for a list.
 
-It probably couldn't. But you could use cfg80211, at least.
+> Also a bunch of minor things but I'd rather look over this version again
+> before commenting on that.
 
-> 2) How could we take advantage the region stuff and 802.11d code in
-> d80211?  I was also under the impression that the region code and
-> regulatory domain stuff was nowhere near decided on.  I believe there
-> are full sessions on this at the LWS II this weekend.
-
-Yes. That's the reason why not inventing another solution is probably a
-good idea.
-
-Thanks,
-
- Jiri
-
--- 
-Jiri Benc
-SUSE Labs
+Please go ahead and comment on all minor issues you see so we can fix
+them.
