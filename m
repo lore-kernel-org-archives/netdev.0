@@ -1,10 +1,10 @@
 From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [PATCH 35/59] sysctl: C99 convert ctl_tables in
-	arch/powerpc/kernel/idle.c
-Date: Wed, 17 Jan 2007 14:16:27 +1100
-Message-ID: <1169003787.4778.17.camel@localhost.localdomain>
+Subject: Re: [PATCH 36/59] sysctl: C99 convert ctl_tables entries in
+	arch/ppc/kernel/ppc_htab.c
+Date: Wed, 17 Jan 2007 14:16:54 +1100
+Message-ID: <1169003814.4778.19.camel@localhost.localdomain>
 References: <m1ac0jc4no.fsf@ebiederm.dsl.xmission.com>
-	 <11689656593247-git-send-email-ebiederm@xmission.com>
+	 <11689656602523-git-send-email-ebiederm@xmission.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
@@ -26,7 +26,7 @@ Cc: "<Andrew Morton" <akpm@osdl.org>, linux-mips@linux-mips.org,
 	linux390@de.ibm.com, philb@gnu.org
 Return-path: <linux-mips-bounce@linux-mips.org>
 To: "Eric W. Biederman" <ebiederm@xmission.com>
-In-Reply-To: <11689656593247-git-send-email-ebiederm@xmission.com>
+In-Reply-To: <11689656602523-git-send-email-ebiederm@xmission.com>
 Sender: linux-mips-bounce@linux-mips.org
 Errors-to: linux-mips-bounce@linux-mips.org
 List-Id: netdev.vger.kernel.org
@@ -34,36 +34,36 @@ List-Id: netdev.vger.kernel.org
 On Tue, 2007-01-16 at 09:39 -0700, Eric W. Biederman wrote:
 > From: Eric W. Biederman <ebiederm@xmission.com> - unquoted
 > 
-> This was partially done already and there was no ABI breakage what
-> a relief.
+> And make the mode of the kernel directory 0555 no one is allowed
+> to write to sysctl directories.
 > 
 > Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 
 Acked-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 
 > ---
->  arch/powerpc/kernel/idle.c |   11 ++++++++---
+>  arch/ppc/kernel/ppc_htab.c |   11 ++++++++---
 >  1 files changed, 8 insertions(+), 3 deletions(-)
 > 
-> diff --git a/arch/powerpc/kernel/idle.c b/arch/powerpc/kernel/idle.c
-> index 8994af3..8b27bb1 100644
-> --- a/arch/powerpc/kernel/idle.c
-> +++ b/arch/powerpc/kernel/idle.c
-> @@ -110,11 +110,16 @@ static ctl_table powersave_nap_ctl_table[]={
+> diff --git a/arch/ppc/kernel/ppc_htab.c b/arch/ppc/kernel/ppc_htab.c
+> index bd129d3..77b20ff 100644
+> --- a/arch/ppc/kernel/ppc_htab.c
+> +++ b/arch/ppc/kernel/ppc_htab.c
+> @@ -442,11 +442,16 @@ static ctl_table htab_ctl_table[]={
 >  		.mode		= 0644,
->  		.proc_handler	= &proc_dointvec,
+>  		.proc_handler	= &proc_dol2crvec,
 >  	},
 > -	{ 0, },
 > +	{}
 >  };
->  static ctl_table powersave_nap_sysctl_root[] = {
-> -	{ 1, "kernel", NULL, 0, 0755, powersave_nap_ctl_table, },
+>  static ctl_table htab_sysctl_root[] = {
+> -	{ 1, "kernel", NULL, 0, 0755, htab_ctl_table, },
 > - 	{ 0,},
 > +	{
 > +		.ctl_name	= CTL_KERN,
 > +		.procname	= "kernel",
-> +		.mode		= 0755,
-> +		.child		= powersave_nap_ctl_table,
+> +		.mode		= 0555,
+> +		.child		= htab_ctl_table,
 > +	},
 > +	{}
 >  };
