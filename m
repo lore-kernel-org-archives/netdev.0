@@ -1,66 +1,109 @@
-From: Daniel Lezcano <dlezcano@fr.ibm.com>
-Subject: Re: [PATCH 0/12] L2 network namespace (v3)
-Date: Wed, 17 Jan 2007 17:10:51 +0100
-Message-ID: <45AE4A8B.6000206@fr.ibm.com>
+From: Dmitry Mishin <dim@openvz.org>
+Subject: [PATCH 7/12] allow proc_dir_entries to have destructor
+Date: Wed, 17 Jan 2007 19:10:51 +0300
+Message-ID: <200701171910.51433.dim@openvz.org>
 References: <200701171851.14734.dim@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: containers@lists.osdl.org, alexey@sw.ru, saw@sw.ru,
-	Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org
+Cc: alexey@sw.ru, saw@sw.ru, Andrew Morton <akpm@osdl.org>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate1.de.ibm.com ([195.212.29.150]:24680 "EHLO
-	mtagate1.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932543AbXAQQLW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jan 2007 11:11:22 -0500
-Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
-	by mtagate1.de.ibm.com (8.13.8/8.13.8) with ESMTP id l0HGBKNx103900
-	for <netdev@vger.kernel.org>; Wed, 17 Jan 2007 16:11:20 GMT
-Received: from d12av02.megacenter.de.ibm.com (d12av02.megacenter.de.ibm.com [9.149.165.228])
-	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v8.2) with ESMTP id l0HGBJ9X3231758
-	for <netdev@vger.kernel.org>; Wed, 17 Jan 2007 17:11:19 +0100
-Received: from d12av02.megacenter.de.ibm.com (loopback [127.0.0.1])
-	by d12av02.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l0HGBIop007621
-	for <netdev@vger.kernel.org>; Wed, 17 Jan 2007 17:11:19 +0100
-To: Dmitry Mishin <dim@openvz.org>
+Received: from mailhub.sw.ru ([195.214.233.200]:3816 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932548AbXAQQNL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Jan 2007 11:13:11 -0500
+To: containers@lists.osdl.org
 In-Reply-To: <200701171851.14734.dim@openvz.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dmitry Mishin wrote:
-> This is an update of L2 network namespaces patches. They are applicable
-> to Cedric's 2.6.20-rc4-mm1-lxc2 tree. 
-> 
-> Changes:
-> 	- updated to 2.6.20-rc4-mm1-lxc2
-> 	- current network context is per-CPU now
-> 	- fixed compilation without CONFIG_NET_NS
-> 
-> Changed current context definition should fix all mentioned by Cedric issues:
-> 	- the nsproxy backpointer is unnecessary now - thus removed; 
-> 	- the push_net_ns() and pop_net_ns() use per-CPU variable now;
-> 	- there is no race on ->nsproxy between push_net_ns() and
-> 	  exit_task_namespaces() because they deals with differrent pointers.
-> 
-> ===================================
-> L2 network namespaces
-> 
-> The most straightforward concept of network virtualization is complete
-> separation of namespaces, covering device list, routing tables, netfilter
-> tables, socket hashes, and everything else.
-> 
-> On input path, each packet is tagged with namespace right from the
-> place where it appears from a device, and is processed by each layer
-> in the context of this namespace.
-> Non-root namespaces communicate with the outside world in two ways: by
-> owning hardware devices, or receiving packets forwarded them by their parent
-> namespace via pass-through device.
-> 
-> This complete separation of namespaces is very useful for at least two
-> purposes:
->   - allowing users to create and manage by their own various tunnels and
->     VPNs, and
->   - enabling easier and more straightforward live migration of groups of
->     processes with their environment.
+Destructor field added proc_dir_entries,
+standard destructor kfree'ing data introduced.
 
-Great ! Thanks Dmitry.
+Signed-off-by: Andrey Savochkin <saw@swsoft.com>
+
+---
+ fs/proc/generic.c       |   10 ++++++++--
+ fs/proc/root.c          |    1 +
+ include/linux/proc_fs.h |    4 ++++
+ 3 files changed, 13 insertions(+), 2 deletions(-)
+
+Index: 2.6.20-rc4-mm1/fs/proc/generic.c
+===================================================================
+--- 2.6.20-rc4-mm1.orig/fs/proc/generic.c
++++ 2.6.20-rc4-mm1/fs/proc/generic.c
+@@ -611,6 +611,11 @@ static struct proc_dir_entry *proc_creat
+ 	return ent;
+ }
+ 
++void proc_data_destructor(struct proc_dir_entry *ent)
++{
++	kfree(ent->data);
++}
++
+ struct proc_dir_entry *proc_symlink(const char *name,
+ 		struct proc_dir_entry *parent, const char *dest)
+ {
+@@ -623,6 +628,7 @@ struct proc_dir_entry *proc_symlink(cons
+ 		ent->data = kmalloc((ent->size=strlen(dest))+1, GFP_KERNEL);
+ 		if (ent->data) {
+ 			strcpy((char*)ent->data,dest);
++			ent->destructor = proc_data_destructor;
+ 			if (proc_register(parent, ent) < 0) {
+ 				kfree(ent->data);
+ 				kfree(ent);
+@@ -701,8 +707,8 @@ void free_proc_entry(struct proc_dir_ent
+ 
+ 	release_inode_number(ino);
+ 
+-	if (S_ISLNK(de->mode) && de->data)
+-		kfree(de->data);
++	if (de->destructor)
++		de->destructor(de);
+ 	kfree(de);
+ }
+ 
+Index: 2.6.20-rc4-mm1/fs/proc/root.c
+===================================================================
+--- 2.6.20-rc4-mm1.orig/fs/proc/root.c
++++ 2.6.20-rc4-mm1/fs/proc/root.c
+@@ -167,6 +167,7 @@ EXPORT_SYMBOL(proc_symlink);
+ EXPORT_SYMBOL(proc_mkdir);
+ EXPORT_SYMBOL(create_proc_entry);
+ EXPORT_SYMBOL(remove_proc_entry);
++EXPORT_SYMBOL(proc_data_destructor);
+ EXPORT_SYMBOL(proc_root);
+ EXPORT_SYMBOL(proc_root_fs);
+ EXPORT_SYMBOL(proc_net);
+Index: 2.6.20-rc4-mm1/include/linux/proc_fs.h
+===================================================================
+--- 2.6.20-rc4-mm1.orig/include/linux/proc_fs.h
++++ 2.6.20-rc4-mm1/include/linux/proc_fs.h
+@@ -45,6 +45,8 @@ typedef	int (read_proc_t)(char *page, ch
+ typedef	int (write_proc_t)(struct file *file, const char __user *buffer,
+ 			   unsigned long count, void *data);
+ typedef int (get_info_t)(char *, char **, off_t, int);
++struct proc_dir_entry;
++typedef void (destroy_proc_t)(struct proc_dir_entry *);
+ 
+ struct proc_dir_entry {
+ 	unsigned int low_ino;
+@@ -64,6 +66,7 @@ struct proc_dir_entry {
+ 	read_proc_t *read_proc;
+ 	write_proc_t *write_proc;
+ 	atomic_t count;		/* use count */
++	destroy_proc_t *destructor;
+ 	int deleted;		/* delete flag */
+ 	void *set;
+ };
+@@ -108,6 +111,7 @@ char *task_mem(struct mm_struct *, char 
+ extern struct proc_dir_entry *create_proc_entry(const char *name, mode_t mode,
+ 						struct proc_dir_entry *parent);
+ extern void remove_proc_entry(const char *name, struct proc_dir_entry *parent);
++extern void proc_data_destructor(struct proc_dir_entry *);
+ 
+ extern struct vfsmount *proc_mnt;
+ extern int proc_fill_super(struct super_block *,void *,int);
