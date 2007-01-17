@@ -1,41 +1,32 @@
-From: Ishizaki Kou <kou.ishizaki@toshiba.co.jp>
-Subject: [PATCH 4/4] spidernet: remove txram full logging
-Date: Wed, 17 Jan 2007 19:10:38 +0900 (JST)
-Message-ID: <200701171010.l0HAAdHD027877@toshiba.co.jp>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH] [IPV6] fixed the size of the netlink message notified by inet6_rt_notify().
+Date: Wed, 17 Jan 2007 11:50:06 +0100
+Message-ID: <20070117105006.GV8693@postel.suug.ch>
+References: <20070116.125728.278729390.takamiya@po.ntts.co.jp> <20070116.140159.02303722.takamiya@po.ntts.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-To: netdev@vger.kernel.org
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, usagi-core@linux-ipv6.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from postel.suug.ch ([194.88.212.233]:38044 "EHLO postel.suug.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932280AbXAQKtq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Jan 2007 05:49:46 -0500
+To: Noriaki TAKAMIYA <takamiya@po.ntts.co.jp>
+Content-Disposition: inline
+In-Reply-To: <20070116.140159.02303722.takamiya@po.ntts.co.jp>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patches removes logging for SPIDER_NET_GTMFLLINT interrupts.
-Since the interrupts are not irregular, and they happen frequently
-when using 100Mbps network switches.
+* Noriaki TAKAMIYA <takamiya@po.ntts.co.jp> 2007-01-16 14:01
+> Hi,
+> 
+>   I'm sorry to re-send...
+> 
+>   I think the return value of rt6_nlmsg_size() should includes the
+>   amount of RTA_METRICS.
+> 
+>   Regards,
+> 
+> Signed-off-by: Noriaki TAKAMIYA <takamiya@po.ntts.co.jp>
 
-Signed-off-by: Kou Ishizaki <kou.ishizaki@toshiba.co.jp>
----
-
---- org-linux-powerpc-git/drivers/net/spider_net.c	2007-01-15 11:16:16.000000000 +0900
-+++ linux-powerpc-git/drivers/net/spider_net.c	2007-01-15 11:16:42.000000000 +0900
-@@ -1447,8 +1447,8 @@
- 				switch (i)
- 	{
- 	case SPIDER_NET_GTMFLLINT:
--		if (netif_msg_intr(card) && net_ratelimit())
--			pr_err("Spider TX RAM full\n");
-+		/* TX RAM full may happen on a usual case.
-+		 * Logging is not needed. */
- 		show_error = 0;
- 		break;
- 	case SPIDER_NET_GRFDFLLINT: /* fallthrough */
+Acked-by: Thomas Graf <tgraf@suug.ch>
