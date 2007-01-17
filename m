@@ -1,31 +1,35 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [Bugme-new] [Bug 7832] New: if i use iproute2 for network balancing
-Date: Wed, 17 Jan 2007 11:47:13 +1100
-Message-ID: <E1H6yxN-0005p6-00@gondolin.me.apana.org.au>
-References: <20070116135524.e0e39e5b.akpm@osdl.org>
-Cc: netdev@vger.kernel.org, cw@f00f.org,
-	bugme-daemon@bugzilla.kernel.org, gclarkx@gmail.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: passthrough openswan connection not working with 2.6.19.2
+Date: Tue, 16 Jan 2007 17:07:19 -0800 (PST)
+Message-ID: <20070116.170719.74742439.davem@davemloft.net>
+References: <BAY103-DAV4EF774BDC46293F57EA4DB2B40@phx.gbl>
+	<E1H6vOb-0005Nr-00@gondolin.me.apana.org.au>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: pupilla@hotmail.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:1163 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751146AbXAQArp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jan 2007 19:47:45 -0500
-To: akpm@osdl.org (Andrew Morton)
-In-Reply-To: <20070116135524.e0e39e5b.akpm@osdl.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52604
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751304AbXAQBHT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jan 2007 20:07:19 -0500
+To: herbert@gondor.apana.org.au
+In-Reply-To: <E1H6vOb-0005Nr-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andrew Morton <akpm@osdl.org> wrote:
->
->> /sbin/ip route change default equalize nexthop dev ppp0 nexthop dev ppp1
->> /sbin/ip route flush cache
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Wed, 17 Jan 2007 07:59:05 +1100
 
-Is CONFIG_IP_ROUTE_MULTICACHE turned on? If so does this still
-happen if you disable it?
+> [IPSEC]: Policy list disorder
+> 
+> The recent hashing introduced an off-by-one bug in policy list insertion.
+> Instead of adding after the last entry with a lesser or equal priority,
+> we're adding after the successor of that entry.
+> 
+> This patch fixes this and also adds a warning if we detect a duplicate
+> entry in the policy list.  This should never happen due to this if clause.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Good catch Herbert, patch applied, thanks.
