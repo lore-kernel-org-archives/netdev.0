@@ -1,144 +1,71 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] drivers/net/irda/vlsi_ir.{h,c}: remove kernel 2.4 code
-Date: Thu, 18 Jan 2007 22:56:13 +0100
-Message-ID: <20070118215613.GH9093@stusta.de>
+From: Russell Stuart <russell-tcatm@stuart.id.au>
+Subject: Re: [PATCH REPOST 1/2]
+	NET:	Accurate	packet	scheduling	for	ATM/ADSL (kernel)
+Date: Thu, 18 Jan 2007 16:16:10 +1000
+Message-ID: <1169100970.21535.18.camel@ras>
+References: <1161041677.6247.1.camel@ras.pc.brisbane.lube>
+	 <1161090444.5555.13.camel@jzny2>  <45378DE3.8080700@trash.net>
+	 <1161602527.5502.155.camel@ras.pc.stuart.local>
+	 <453CB801.4010902@trash.net>
+	 <1161640444.5502.214.camel@ras.pc.stuart.local> <453E3CFC.80007@trash.net>
+	 <1161733596.3829.91.camel@ras.pc.brisbane.lube>
+	 <456ED79E.2070707@trash.net> <1169075223.7560.15.camel@ras>
+	 <45AEF219.2060304@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout.stusta.mhn.de ([141.84.69.5]:3721 "HELO
-	mailout.stusta.mhn.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S932579AbXARV4H (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Jan 2007 16:56:07 -0500
-To: samuel@sortiz.org
-Content-Disposition: inline
+Received: from [169.222.11.117] ([169.222.11.117]:38783 "EHLO
+	localhost.localdomain" rhost-flags-FAIL-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S932578AbXARWMh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jan 2007 17:12:37 -0500
+To: hadi@cyberus.ca, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	Jesper Dangaard Brouer <hawk@diku.dk>
+In-Reply-To: <45AEF219.2060304@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch removes kernel 2.4 compatibility code.
+On Thu, 2007-01-18 at 05:05 +0100, Patrick McHardy wrote:
+> > Yesterday I was chatting about this at LCA 2007, and 
+> > it dawned on me that there is a problem with the dual
+> > RTAB/STAB approach.
+> > 
+> > Currently the lookup in the kernel is
+> >   time_to_transmit_a_packet = RTAB[packet_length_seen_by_kernel]
+> > 
+> > As I understand it, you are proposing to change that to
+> >   time_to_transmit_a_packet
+> >     = RTAB[STAB[packet_length_seen_by_kernel]]
+> >     = RTAB[packet_length_seen_on_the_wire]
+> > 
+> > Given RTAB is the same in both cases the results of the
+> > calculation will be different (and ergo wrong in one case
+> > or the other).  RTAB can't change and remain compatible 
+> > with old kernels.  Ergo this approach breaks backward 
+> > compatibility.
+> 
+> RTABs don't change, they continue to work as before. But when
+> an STAB is present the lookup is based on the STAB size mapping.
+> Neither one is wrong, RTABs calculate the transmission time based
+> only on the specified rate, RTABs + STABs calculate the
+> transmission time based on the rate, but include external overhead.
 
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
+No argument with "RTAB works as before".  But aren't
+you proposing to feed it the accurate packet lengths
+calculated STAB?  For example, if the VOIP IP datagram
+is 60 bytes, older kernels will index RTAB by 
+(60 + ethernet_header_size), STAB kernels will index
+it by 159 bytes (3 ATM cells - say).  If "tc" doesn't
+do a uname call or something, then it will send the
+same RTAB to both kernels.  Obviously the results
+returned by the RTAB lookup will be different.
 
----
+If you aren't proposing to feed the RTAB lookup with
+the output of STAB, then I still don't understand
+why the current ATM patch isn't needed.
 
- drivers/net/irda/vlsi_ir.c |   16 ++++++++--------
- drivers/net/irda/vlsi_ir.h |   33 ---------------------------------
- 2 files changed, 8 insertions(+), 41 deletions(-)
-
---- linux-2.6.20-rc4-mm1/drivers/net/irda/vlsi_ir.h.old	2007-01-18 21:50:43.000000000 +0100
-+++ linux-2.6.20-rc4-mm1/drivers/net/irda/vlsi_ir.h	2007-01-18 21:53:54.000000000 +0100
-@@ -41,39 +41,6 @@
- #define PCI_CLASS_SUBCLASS_MASK		0xffff
- #endif
- 
--/* in recent 2.5 interrupt handlers have non-void return value */
--#ifndef IRQ_RETVAL
--typedef void irqreturn_t;
--#define IRQ_NONE
--#define IRQ_HANDLED
--#define IRQ_RETVAL(x)
--#endif
--
--/* some stuff need to check kernelversion. Not all 2.5 stuff was present
-- * in early 2.5.x - the test is merely to separate 2.4 from 2.5
-- */
--#include <linux/version.h>
--
--#if LINUX_VERSION_CODE < KERNEL_VERSION(2,5,0)
--
--/* PDE() introduced in 2.5.4 */
--#ifdef CONFIG_PROC_FS
--#define PDE(inode) ((inode)->i_private)
--#endif
--
--/* irda crc16 calculation exported in 2.5.42 */
--#define irda_calc_crc16(fcs,buf,len)	(GOOD_FCS)
--
--/* we use this for unified pci device name access */
--#define PCIDEV_NAME(pdev)	((pdev)->name)
--
--#else /* 2.5 or later */
--
--/* whatever we get from the associated struct device - bus:slot:dev.fn id */
--#define PCIDEV_NAME(pdev)	(pci_name(pdev))
--
--#endif
--
- /* ================================================================ */
- 
- /* non-standard PCI registers */
---- linux-2.6.20-rc4-mm1/drivers/net/irda/vlsi_ir.c.old	2007-01-18 21:53:58.000000000 +0100
-+++ linux-2.6.20-rc4-mm1/drivers/net/irda/vlsi_ir.c	2007-01-18 21:54:56.000000000 +0100
-@@ -166,7 +166,7 @@
- 	unsigned i;
- 
- 	seq_printf(seq, "\n%s (vid/did: %04x/%04x)\n",
--		   PCIDEV_NAME(pdev), (int)pdev->vendor, (int)pdev->device);
-+		   pci_name(pdev), (int)pdev->vendor, (int)pdev->device);
- 	seq_printf(seq, "pci-power-state: %u\n", (unsigned) pdev->current_state);
- 	seq_printf(seq, "resources: irq=%u / io=0x%04x / dma_mask=0x%016Lx\n",
- 		   pdev->irq, (unsigned)pci_resource_start(pdev, 0), (unsigned long long)pdev->dma_mask);
-@@ -1401,7 +1401,7 @@
- 
- 	if (vlsi_start_hw(idev))
- 		IRDA_ERROR("%s: failed to restart hw - %s(%s) unusable!\n",
--			   __FUNCTION__, PCIDEV_NAME(idev->pdev), ndev->name);
-+			   __FUNCTION__, pci_name(idev->pdev), ndev->name);
- 	else
- 		netif_start_queue(ndev);
- }
-@@ -1643,7 +1643,7 @@
- 		pdev->current_state = 0; /* hw must be running now */
- 
- 	IRDA_MESSAGE("%s: IrDA PCI controller %s detected\n",
--		     drivername, PCIDEV_NAME(pdev));
-+		     drivername, pci_name(pdev));
- 
- 	if ( !pci_resource_start(pdev,0)
- 	     || !(pci_resource_flags(pdev,0) & IORESOURCE_IO) ) {
-@@ -1728,7 +1728,7 @@
- 
- 	pci_set_drvdata(pdev, NULL);
- 
--	IRDA_MESSAGE("%s: %s removed\n", drivername, PCIDEV_NAME(pdev));
-+	IRDA_MESSAGE("%s: %s removed\n", drivername, pci_name(pdev));
- }
- 
- #ifdef CONFIG_PM
-@@ -1748,7 +1748,7 @@
- 
- 	if (!ndev) {
- 		IRDA_ERROR("%s - %s: no netdevice \n",
--			   __FUNCTION__, PCIDEV_NAME(pdev));
-+			   __FUNCTION__, pci_name(pdev));
- 		return 0;
- 	}
- 	idev = ndev->priv;	
-@@ -1759,7 +1759,7 @@
- 			pdev->current_state = state.event;
- 		}
- 		else
--			IRDA_ERROR("%s - %s: invalid suspend request %u -> %u\n", __FUNCTION__, PCIDEV_NAME(pdev), pdev->current_state, state.event);
-+			IRDA_ERROR("%s - %s: invalid suspend request %u -> %u\n", __FUNCTION__, pci_name(pdev), pdev->current_state, state.event);
- 		up(&idev->sem);
- 		return 0;
- 	}
-@@ -1787,7 +1787,7 @@
- 
- 	if (!ndev) {
- 		IRDA_ERROR("%s - %s: no netdevice \n",
--			   __FUNCTION__, PCIDEV_NAME(pdev));
-+			   __FUNCTION__, pci_name(pdev));
- 		return 0;
- 	}
- 	idev = ndev->priv;	
-@@ -1795,7 +1795,7 @@
- 	if (pdev->current_state == 0) {
- 		up(&idev->sem);
- 		IRDA_WARNING("%s - %s: already resumed\n",
--			     __FUNCTION__, PCIDEV_NAME(pdev));
-+			     __FUNCTION__, pci_name(pdev));
- 		return 0;
- 	}
- 	
+Or are you proposing tc behave differently on different
+kernel versions.  (I have no problem with that, but
+isn't it officially frowned upon?)
 
