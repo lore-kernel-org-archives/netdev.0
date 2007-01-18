@@ -1,70 +1,116 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: Re: [PATCH 0/8] partial resend: e1000 fixes and updates
-Date: Thu, 18 Jan 2007 09:16:42 -0800
-Message-ID: <45AFAB7A.7040000@intel.com>
-References: <20070113003650.16816.34076.stgit@gitlost.site> <45AFA6A4.4090503@pobox.com>
+From: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Subject: Re: Possible ways of dealing with OOM conditions.
+Date: Thu, 18 Jan 2007 18:31:53 +0100
+Message-ID: <1169141513.6197.115.camel@twins>
+References: <20070116132503.GA23144@2ka.mipt.ru>
+	 <1168955274.22935.47.camel@twins> <20070116153315.GB710@2ka.mipt.ru>
+	 <1168963695.22935.78.camel@twins> <20070117045426.GA20921@2ka.mipt.ru>
+	 <1169024848.22935.109.camel@twins> <20070118104144.GA20925@2ka.mipt.ru>
+	 <1169122724.6197.50.camel@twins> <20070118135839.GA7075@2ka.mipt.ru>
+	 <1169133052.6197.96.camel@twins>  <20070118155003.GA6719@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Kok, Auke" <auke@foo-projects.org>,
-	"Ronciak, John" <john.ronciak@intel.com>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-mm@kvack.org, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:15356 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752070AbXARRQr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Jan 2007 12:16:47 -0500
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <45AFA6A4.4090503@pobox.com>
+Received: from amsfep20-int.chello.nl ([62.179.120.15]:34875 "EHLO
+	amsfep20-int.chello.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752064AbXARRdo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jan 2007 12:33:44 -0500
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+In-Reply-To: <20070118155003.GA6719@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik wrote:
-> Kok, Auke wrote:
->> Hi,
->>
->> This patch series contains exclusively fixes for e1000. Some of these 
->> patches were
->> already sent in december, but didn't make it into any usptream tree 
->> yet. Most
->> importantly, it addresses two issues in the recently merged msi interrupt
->> handler and dynamic itr code. A performance fix and some minor 
->> cleanups are also
->> added. This brings the driver up to version 7.3.20-k2.
->>
->> The summary below lists all patches. Once that were previously acked 
->> are annotated
->> with (*)
->>
->> These patches apply against netdev-2.6 #upstream-linus commit
->> 77aab8bf22042d1658d4adbca8b71779e7f2d0ff. Please pull:
->>
->> git pull git://lost.foo-projects.org/~ahkok/git/netdev-2.6 upstream-linus
+On Thu, 2007-01-18 at 18:50 +0300, Evgeniy Polyakov wrote:
+> On Thu, Jan 18, 2007 at 04:10:52PM +0100, Peter Zijlstra (a.p.zijlstra@chello.nl) wrote:
+> > On Thu, 2007-01-18 at 16:58 +0300, Evgeniy Polyakov wrote:
+> > 
+> > > Network is special in this regard, since it only has one allocation path
+> > > (actually it has one cache for skb, and usual kmalloc, but they are
+> > > called from only two functions).
+> > > 
+> > > So it would become 
+> > > ptr = network_alloc();
+> > > and network_alloc() would be usual kmalloc or call for own allocator in
+> > > case of deadlock.
+> > 
+> > There is more to networking that skbs only, what about route cache,
+> > there is quite a lot of allocs in this fib_* stuff, IGMP etc...
 > 
-> Sigh.  I /know/ I've told you this before, but let's review the branches 
-> again.  NEVER EVER use branch 'upstream-linus'.  That is for Linus only.
+> skbs are the most extensively used path.
+> Actually the same is applied to route - dst_entries and rtable are
+> allocated through own wrappers.
 
-gah, sorry about that.
+Still, edit all places and perhaps forget one and make sure all new code
+doesn't forget about it, or pick a solution that covers everything.
 
-I've moved it all over to #master-e1000 which applies against 
-bf81b46482c0fa8ea638e409d39768ea92a6b0f0 ("Linux 2.6.20-rc4 --Linus Torvalds").
+> With power-of-two allocation SLAB wastes 500 bytes for each 1500 MTU
+> packet (roughly), it is actaly one ACK packet - and I hear it from
+> person who develops a system, which is aimed to guarantee ACK
+> allocation in OOM :)
 
-Please pull:
+I need full data traffic during OOM, not just a single ACK.
 
-git pull git://lost.foo-projects.org/~ahkok/git/netdev-2.6 master-e1000
+> SLAB overhead is _very_ expensive for network - what if jumbo frame is
+> used? It becomes incredible in that case, although modern NICs allows
+> scatter-gather, which is aimed to fix the problem.
 
+Jumbo frames are fine if the hardware can do SG-DMA..
 
-Thanks,
+> Cache misses for small packet flow due to the fact, that the same data
+> is allocated and freed  and accessed on different CPUs will become an
+> issue soon, not right now, since two-four core CPUs are not yet to be
+> very popular and price for the cache miss is not _that_ high.
 
-Auke
+SGI does networking too, right?
 
+> > > > > performs self-defragmentation of the memeory, 
+> > > > 
+> > > > Does it move memory about? 
+> > > 
+> > > It works in a page, not as pages - when neighbour regions are freed,
+> > > they are combined into single one with bigger size
+> > 
+> > Yeah, that is not defragmentation, defragmentation is moving active
+> > regions about to create contiguous free space. What you do is free space
+> > coalescence.
+> 
+> That is wrong definition just because no one developed different system.
+> Defragmentation is a result of broken system.
+> 
+> Existing design _does_not_ allow to have the situation when whole page
+> belongs to the same cache after it was actively used, the same is
+> applied to the situation when several pages, which create contiguous
+> region, are used by different users, so people start develop VM tricks
+> to move pages around so they would be placed near in address space.
+> 
+> Do not fix the result, fix the reason.
 
-> * If there are no dependent e1000 changes, send patches against master 
-> (or torvalds/linux-2.6.git, if you prefer)
-> * If there are dependent e1000 changes in #upstream-fixes, send patches 
-> against #upstream-fixes
-> * If there are dependent e1000 changes in #upstream, send patches 
-> against #upstream
+*plonk* 30+yrs of research ignored.
 
-*writes cheatsheet*
+> > > The whole pool of pages becomes reserve, since no one (and mainly VFS)
+> > > can consume that reserve.
+> > 
+> > Ah, but there you violate my requirement, any network allocation can
+> > claim the last bit of memory. The whole idea was that the reserve is
+> > explicitly managed.
+> > 
+> > It not only needs protection from other users but also from itself.
+> 
+> Specifying some users as good and others as bad generally tends to very
+> bad behaviour. Your appwoach only covers some users, mine does not
+> differentiate between users,
+
+The kernel is special, right? It has priority over whatever user-land
+does.
+
+>  but prevents system from such situation at all.
+
+I'm not seeing that, with your approach nobody stops the kernel from
+filling up the memory with user-space network traffic.
+
+swapping is not some random user process, its a fundamental kernel task,
+if this fails the machine is history.
+
