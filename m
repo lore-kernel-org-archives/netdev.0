@@ -1,79 +1,44 @@
-From: Russell Stuart <russell-tcatm@stuart.id.au>
-Subject: Re: [PATCH REPOST 1/2] NET:
-	Accurate	packet	scheduling	for	ATM/ADSL (kernel)
-Date: Thu, 18 Jan 2007 09:07:02 +1000
-Message-ID: <1169075223.7560.15.camel@ras>
-References: <1161041677.6247.1.camel@ras.pc.brisbane.lube>
-	 <1161090444.5555.13.camel@jzny2>  <45378DE3.8080700@trash.net>
-	 <1161602527.5502.155.camel@ras.pc.stuart.local>
-	 <453CB801.4010902@trash.net>
-	 <1161640444.5502.214.camel@ras.pc.stuart.local> <453E3CFC.80007@trash.net>
-	 <1161733596.3829.91.camel@ras.pc.brisbane.lube>
-	 <456ED79E.2070707@trash.net>
+From: Adam Kropelin <akropel1@rochester.rr.com>
+Subject: Re: intel 82571EB gigabit fails to see link on 2.6.20-rc5 in-tree e1000 driver (regression)
+Date: Wed, 17 Jan 2007 19:04:48 -0500
+Message-ID: <20070117190448.A20184@mail.kroptech.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	Jesper Dangaard Brouer <hawk@diku.dk>
+Content-Type: text/plain; charset=us-ascii
+Cc: Allen Parker <parker@isohunt.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 58.105.229.78.optusnet.com.au ([58.105.229.78]:48414 "EHLO
-	adsl-kenny.stuart.id.au" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S1751425AbXAQXdW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jan 2007 18:33:22 -0500
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <456ED79E.2070707@trash.net>
+Received: from ms-smtp-03.nyroc.rr.com ([24.24.2.57]:41380 "EHLO
+	ms-smtp-03.nyroc.rr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751411AbXAQXe4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jan 2007 18:34:56 -0500
+To: Auke Kok <auke-jan.h.kok@intel.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2006-11-30 at 14:07 +0100, Patrick McHardy wrote: 
-> Qdiscs don't use RTABs to measure rates but to calculate
-> transmission times. Transmission time is always related
-> to the length, the difference between our patches is that
-> you modify the RTABs in advance to include the overhead
-> in the calculation, my patch changes the length used to
-> look up the transmission time. Which works with or
-> without RTABs.
+> Allen Parker wrote:
+>> Allen Parker wrote:
+>>>  From what I've been able to gather, other Intel Pro/1000 chipsets 
+>>> work fine in 2.6.20-rc5. If the e1000 guys need any assistance 
+>>> testing, I'll be more than happy to volunteer myself as a guinea pig 
+>>> for patches.
+>> 
+>> I wasn't aware that I was supposed to post this as a regression, so 
+>> changed the subject, hoping that someone will pick this up and run with 
+>> it. Primary issue being that link is not seen on this chipset under 
+>> 2.6.20-rc5 via in-tree e1000 driver, despite multiple cycles of ifconfig 
+>> $eth up && ethtool $eth | grep link && ifconfig $eth down. Tested on 2 
+>> machines with identical hardware.
+>
+> I asked Allen to report this here. I'm working on the issue as we speak
+> but for now I'll treat the link issue as a known regression once I 
+> confirm it. If others have seen it then I'd like to know ASAP of course
 
-Thanks, I understand now.
+I am experiencing the no-link issue on a 82572EI single port copper
+PCI-E card. I've only tried 2.6.20-rc5, so I cannot tell if this is a
+regression or not yet. Will test older kernel soon.
 
-I had decided that that STAB was indeed the way forward,
-and hence I should devote my time to making it work 
-with ADSL/ATM.  The only issue is now I don't have 
-any spare time right now.
+Can provide details/logs if you want 'em.
 
-Yesterday I was chatting about this at LCA 2007, and 
-it dawned on me that there is a problem with the dual
-RTAB/STAB approach.
-
-Currently the lookup in the kernel is
-  time_to_transmit_a_packet = RTAB[packet_length_seen_by_kernel]
-
-As I understand it, you are proposing to change that to
-  time_to_transmit_a_packet
-    = RTAB[STAB[packet_length_seen_by_kernel]]
-    = RTAB[packet_length_seen_on_the_wire]
-
-Given RTAB is the same in both cases the results of the
-calculation will be different (and ergo wrong in one case
-or the other).  RTAB can't change and remain compatible 
-with old kernels.  Ergo this approach breaks backward 
-compatibility.
-
-I can't see any way forward but to break the link 
-between RTAB and STAB.  Personally I think this is a 
-good thing, as I think STAB should replace RTAB 
-completely.  One way to do this is to give the kernel
-STAB + transmission rate, so the calculation above
-becomes:
-
-  time_to_transmit_a_packet
-    = STAB[packet_length_seen_by_kernel] * transmission_rate
-
-RTAB disappears in new kernels, and the compatibility
-problem goes with it.
-
-Can you think of other ways forward?  I need some way 
-forward so I can get this thing working.
-
+--Adam
 
