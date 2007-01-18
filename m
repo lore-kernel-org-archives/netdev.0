@@ -1,169 +1,99 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: Possible ways of dealing with OOM conditions.
-Date: Thu, 18 Jan 2007 21:34:30 +0300
-Message-ID: <20070118183430.GA3345@2ka.mipt.ru>
-References: <20070116153315.GB710@2ka.mipt.ru> <1168963695.22935.78.camel@twins> <20070117045426.GA20921@2ka.mipt.ru> <1169024848.22935.109.camel@twins> <20070118104144.GA20925@2ka.mipt.ru> <1169122724.6197.50.camel@twins> <20070118135839.GA7075@2ka.mipt.ru> <1169133052.6197.96.camel@twins> <20070118155003.GA6719@2ka.mipt.ru> <1169141513.6197.115.camel@twins>
+From: Chris Lalancette <clalance@redhat.com>
+Subject: Re: [PATCH 2.6.20-rc3]: 8139cp: Don't blindly enable interrupts
+Date: Thu, 18 Jan 2007 13:48:53 -0500
+Message-ID: <45AFC115.4090503@redhat.com>
+References: <45ABAE69.4070105@redhat.com> <20070115195635.GA14205@electric-eye.fr.zoreil.com> <45ACE4B6.3040809@redhat.com> <20070116202217.GA9369@electric-eye.fr.zoreil.com> <45AD4698.7050908@redhat.com> <45AFA4D5.7060405@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-mm@kvack.org, David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932112AbXARSfj@vger.kernel.org>
-To: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Content-Disposition: inline
-In-Reply-To: <1169141513.6197.115.camel@twins>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Ingo Molnar <mingo@elte.hu>, linux-kernel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([66.187.233.31]:59711 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752040AbXARSt6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Jan 2007 13:49:58 -0500
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <45AFA4D5.7060405@pobox.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 18, 2007 at 06:31:53PM +0100, Peter Zijlstra (a.p.zijlstra@chello.nl) wrote:
+Jeff Garzik wrote:
 
-> > skbs are the most extensively used path.
-> > Actually the same is applied to route - dst_entries and rtable are
-> > allocated through own wrappers.
-> 
-> Still, edit all places and perhaps forget one and make sure all new code
-> doesn't forget about it, or pick a solution that covers everything.
+> Chris Lalancette wrote:
+>
+>> Francois Romieu wrote:
+>>
+>>> Chris Lalancette <clalance@redhat.com> :
+>>> [...]
+>>>  
+>>>
+>>>>     Thanks for the comments.  While the patch you sent will help,
+>>>> there are
+>>>> still other places that will have problems.  For example, in
+>>>> netpoll_send_skb,
+>>>> we call local_irq_save(flags), then call dev->hard_start_xmit(),
+>>>> and then call
+>>>> local_irq_restore(flags).  This is a similar situation to what I
+>>>> described
+>>>> above; we will re-enable interrupts in cp_start_xmit(), when
+>>>> netpoll_send_skb
+>>>> doesn't expect that, and will probably run into issues.
+>>>>     Is there a problem with changing cp_start_xmit to use the
+>>>> spin_lock_irqsave(), besides the extra instructions it needs?
+>>>>   
+>>>
+>>> No. Given the history of locking in netpoll and the content of
+>>> Documentation/networking/netdevices.txt, asking Herbert which rule(s)
+>>> the code is supposed to follow seemed safer to me.
+>>>
+>>> You can forget my patch.
+>>>
+>>> Please resend your patch inlined to Jeff as described in
+>>> http://linux.yyz.us/patch-format.html.
+>>>
+>>>  
+>>>
+>> Francois,
+>>      Great.  Resending mail, shortening subject to < 65 characters and
+>> inlining the patch.
+>>
+>> Thanks,
+>> Chris Lalancette
+>>
+>> Similar to this commit:
+>>
+>> http://kernel.org/git/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=d15e9c4d9a75702b30e00cdf95c71c88e3f3f51e
+>>
+>>
+>> It's not safe in cp_start_xmit to blindly call spin_lock_irq and then
+>> spin_unlock_irq, since it may very well be the case that cp_start_xmit
+>> was called with interrupts already disabled (I came across this bug in
+>> the context of netdump in RedHat kernels, but the same issue holds, for
+>> example, in netconsole). Therefore, replace all instances of
+>> spin_lock_irq and spin_unlock_irq with spin_lock_irqsave and
+>> spin_unlock_irqrestore, respectively, in cp_start_xmit(). I tested this
+>> against a fully-virtualized Xen guest using netdump, which happens to
+>> use the 8139cp driver to talk to the emulated hardware. I don't have a
+>> real piece of 8139cp hardware to test on, so someone else will have to
+>> do that.
+>>
+>> Signed-off-by: Chris Lalancette <clalance@redhat.com>
+>
+>
+> applied.
+>
+> In the future, please remove the quoted emails stuff, and anything
+> else that does not belong in the kernel changelog.  It must be
+> hand-edited out, before using git-am to merge your patch into the
+> kernel tree.
+>
+>     Jeff
+>
+>
+>
+Jeff,
+     Ah, I see.  Noted.  Thanks.
 
-There is _one_ place for allocation of any kind of object.
-skb path has two places.
-
-> > With power-of-two allocation SLAB wastes 500 bytes for each 1500 MTU
-> > packet (roughly), it is actaly one ACK packet - and I hear it from
-> > person who develops a system, which is aimed to guarantee ACK
-> > allocation in OOM :)
-> 
-> I need full data traffic during OOM, not just a single ACK.
-
-But your code exactly limit codepath to several allocaions, which must
-be ACK. You do not have enough reserve to support whole traffic.
-So the right solution, IMO, is to _prevent_ such situation, which means
-that allocation is not allowed to depend on external conditions like
-VFS.
-
-Actually my above sentences were about the case, when anly having
-different allocator, it is possible to dramatically change memory usage
-model, which supffers greatly from power-of-two allocations. OOM
-condition is one of the results which has big SLAB overhead among other
-roots. Actually all pathes which work with kmem_cache are safe against
-it, since kernel cache packs objects, but thos who uses raw kmalloc has
-problems.
-
-> > SLAB overhead is _very_ expensive for network - what if jumbo frame is
-> > used? It becomes incredible in that case, although modern NICs allows
-> > scatter-gather, which is aimed to fix the problem.
-> 
-> Jumbo frames are fine if the hardware can do SG-DMA..
-
-Notice word _IF_ in you sentence. e1000 for example can not (or it can,
-but driver is not developed for such scenario).
-
-> > Cache misses for small packet flow due to the fact, that the same data
-> > is allocated and freed  and accessed on different CPUs will become an
-> > issue soon, not right now, since two-four core CPUs are not yet to be
-> > very popular and price for the cache miss is not _that_ high.
-> 
-> SGI does networking too, right?
-
-Yep, Cristoph Lameter developed own allocator too.
-
-I agreee with you, that if that price is too high already, then it is a
-dditional sign to look into network tree allocator (yep, name is bad)
-again.
-
-> > That is wrong definition just because no one developed different system.
-> > Defragmentation is a result of broken system.
-> > 
-> > Existing design _does_not_ allow to have the situation when whole page
-> > belongs to the same cache after it was actively used, the same is
-> > applied to the situation when several pages, which create contiguous
-> > region, are used by different users, so people start develop VM tricks
-> > to move pages around so they would be placed near in address space.
-> > 
-> > Do not fix the result, fix the reason.
-> 
-> *plonk* 30+yrs of research ignored.
-
-30 years to develop SLAB allocator? In what universe that is all about?
-
-> > > > The whole pool of pages becomes reserve, since no one (and mainly VFS)
-> > > > can consume that reserve.
-> > > 
-> > > Ah, but there you violate my requirement, any network allocation can
-> > > claim the last bit of memory. The whole idea was that the reserve is
-> > > explicitly managed.
-> > > 
-> > > It not only needs protection from other users but also from itself.
-> > 
-> > Specifying some users as good and others as bad generally tends to very
-> > bad behaviour. Your appwoach only covers some users, mine does not
-> > differentiate between users,
-> 
-> The kernel is special, right? It has priority over whatever user-land
-> does.
-
-Kernel only does ACK generation and allocation for userspace.
-Kernel does not know that some of users are potentially good or bad, and
-if you will export this socket option to the userspace, everyone will
-think that his application is good enough to use reserve.
-
-So, for kernel-only side you just need to preallocate pool of packets
-and use them when system is in OOM (reclaim). For the long direction,
-new approach of memory allocaiton should be developed, and there are
-different works in that direction - NTA is one of them and not the only
-one, for the best resutlts it must be combined with vm-tricks
-defragmentation too.
-
-> >  but prevents system from such situation at all.
-> 
-> I'm not seeing that, with your approach nobody stops the kernel from
-> filling up the memory with user-space network traffic.
-> 
-> swapping is not some random user process, its a fundamental kernel task,
-> if this fails the machine is history.
-
-You completely misses the point. The main goal is to
-1. reduce fragmentation and/or enable self defragmentation (which is
-done in NTA), this also reduces memory usage.
-2. perform correct recover steps in OOM - reduce memory usage, use
-different allocator and/or reserve (which is the case, where NTA can be
-used)
-3. do not allow OOM condition - unfortunately it is not always possible,
-but having separated allocation allows to not depend on external
-conditions such as VFS memory usage, thus this approach reduces
-condition when memory deadlock related to network path can happen.
-
-Let me briefly describe your approach and possible drawbacks in it.
-You start reserving some memory when systems is under memory pressure.
-when system is in real trouble, you start using that reserve for special
-tasks mainly for network path to allocate packets and process them in
-order to get committed some memory swapping.
-
-So, the problems I see here, are following:
-1. it is possible that when you are starting to create a reserve, there
-will not be enough memeory at all. So the solution is to reserve in
-advance.
-2. You differentiate by hand between critical and non-critical
-allocations by specifying some kernel users as potentially possible to
-allocate from reserve. This does not prevent from NVIDIA module to
-allocate from that reserve too, does it? And you artificially limit
-system to process only tiny bits of what it must do, thus potentially
-leaking pathes which must use reserve too.
-
-So, solution is to have a reserve in advance, and manage it using
-special path when system is in OOM. So you will have network memory
-reserve, which will be used when system is in trouble. It is very
-similar to what you had.
-
-But the whole reserve can never be used at all, so it should be used,
-but not by those who can create OOM condition, thus it should be
-exported to, for example, network only, and when system is in trouble,
-network would be still functional (although only critical pathes).
-
-Even further development of such idea is to prevent such OOM condition
-at all - by starting swapping early (but wisely) and reduce memory
-usage.
-
-Network tree allocator does exactly above cases.
-Here advertisement is over.
-
--- 
-	Evgeniy Polyakov
+Chris Lalancette
