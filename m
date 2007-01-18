@@ -1,37 +1,84 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: Please pull 'upstream-fixes' branch of wireless-2.6
-Date: Thu, 18 Jan 2007 11:46:21 -0500
-Message-ID: <45AFA45D.1090906@garzik.org>
-References: <20070118154801.GB31580@tuxdriver.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH 2.6.20-rc3]: 8139cp: Don't blindly enable interrupts
+Date: Thu, 18 Jan 2007 11:48:21 -0500
+Message-ID: <45AFA4D5.7060405@pobox.com>
+References: <45ABAE69.4070105@redhat.com> <20070115195635.GA14205@electric-eye.fr.zoreil.com> <45ACE4B6.3040809@redhat.com> <20070116202217.GA9369@electric-eye.fr.zoreil.com> <45AD4698.7050908@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Ingo Molnar <mingo@elte.hu>, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:44341 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:44360 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932480AbXARQqX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Jan 2007 11:46:23 -0500
-To: "John W. Linville" <linville@tuxdriver.com>
-In-Reply-To: <20070118154801.GB31580@tuxdriver.com>
+	id S932460AbXARQsi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Jan 2007 11:48:38 -0500
+To: Chris Lalancette <clalance@redhat.com>
+In-Reply-To: <45AD4698.7050908@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-John W. Linville wrote:
-> The following changes since commit a8b3485287731978899ced11f24628c927890e78:
->   Linus Torvalds (1):
->         Linux v2.6.20-rc5
+Chris Lalancette wrote:
+> Francois Romieu wrote:
 > 
-> are found in the git repository at:
+>> Chris Lalancette <clalance@redhat.com> :
+>> [...]
+>>  
+>>
+>>>     Thanks for the comments.  While the patch you sent will help, there are
+>>> still other places that will have problems.  For example, in netpoll_send_skb,
+>>> we call local_irq_save(flags), then call dev->hard_start_xmit(), and then call
+>>> local_irq_restore(flags).  This is a similar situation to what I described
+>>> above; we will re-enable interrupts in cp_start_xmit(), when netpoll_send_skb
+>>> doesn't expect that, and will probably run into issues.
+>>>     Is there a problem with changing cp_start_xmit to use the
+>>> spin_lock_irqsave(), besides the extra instructions it needs?
+>>>    
+>>>
+>> No. Given the history of locking in netpoll and the content of
+>> Documentation/networking/netdevices.txt, asking Herbert which rule(s)
+>> the code is supposed to follow seemed safer to me.
+>>
+>> You can forget my patch.
+>>
+>> Please resend your patch inlined to Jeff as described in
+>> http://linux.yyz.us/patch-format.html.
+>>
+>>  
+>>
+> Francois,
+>      Great.  Resending mail, shortening subject to < 65 characters and
+> inlining the patch.
 > 
->   git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git upstream-fixes
+> Thanks,
+> Chris Lalancette
 > 
-> Larry Finger (1):
->       bcm43xx: Fix failure to deliver PCI-E interrupts
+> Similar to this commit:
 > 
->  drivers/net/wireless/bcm43xx/bcm43xx_main.c |   11 +++++++----
->  1 files changed, 7 insertions(+), 4 deletions(-)
+> http://kernel.org/git/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=d15e9c4d9a75702b30e00cdf95c71c88e3f3f51e
+> 
+> It's not safe in cp_start_xmit to blindly call spin_lock_irq and then
+> spin_unlock_irq, since it may very well be the case that cp_start_xmit
+> was called with interrupts already disabled (I came across this bug in
+> the context of netdump in RedHat kernels, but the same issue holds, for
+> example, in netconsole). Therefore, replace all instances of
+> spin_lock_irq and spin_unlock_irq with spin_lock_irqsave and
+> spin_unlock_irqrestore, respectively, in cp_start_xmit(). I tested this
+> against a fully-virtualized Xen guest using netdump, which happens to
+> use the 8139cp driver to talk to the emulated hardware. I don't have a
+> real piece of 8139cp hardware to test on, so someone else will have to
+> do that.
+> 
+> Signed-off-by: Chris Lalancette <clalance@redhat.com>
 
-pulled
+applied.
+
+In the future, please remove the quoted emails stuff, and anything else 
+that does not belong in the kernel changelog.  It must be hand-edited 
+out, before using git-am to merge your patch into the kernel tree.
+
+	Jeff
+
 
 
