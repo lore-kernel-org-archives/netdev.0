@@ -1,67 +1,65 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 0/8] partial resend: e1000 fixes and updates
-Date: Thu, 18 Jan 2007 11:56:04 -0500
-Message-ID: <45AFA6A4.4090503@pobox.com>
-References: <20070113003650.16816.34076.stgit@gitlost.site>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 2.6.20 1/5] s2io: updates for s2io driver.
+Date: Thu, 18 Jan 2007 12:01:31 -0500
+Message-ID: <45AFA7EB.8060601@garzik.org>
+References: <Pine.GSO.4.10.10701110230560.1618-100000@guinness>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Kok, Auke" <auke@foo-projects.org>,
-	"Ronciak, John" <john.ronciak@intel.com>
+Cc: netdev@vger.kernel.org, leonid.grossman@neterion.com,
+	sivakumar.subramani@neterion.com, alicia.pena@neterion.com,
+	sreenivasa.honnur@netrion.com, ramkrishna.vepa@neterion.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:44428 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:44472 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752055AbXARQ4M (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Jan 2007 11:56:12 -0500
-To: "Kok, Auke" <auke-jan.h.kok@intel.com>
-In-Reply-To: <20070113003650.16816.34076.stgit@gitlost.site>
+	id S1752067AbXARRBi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Jan 2007 12:01:38 -0500
+To: Ananda Raju <Ananda.Raju@neterion.com>
+In-Reply-To: <Pine.GSO.4.10.10701110230560.1618-100000@guinness>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Kok, Auke wrote:
-> Hi,
+Ananda Raju wrote:
+> Hello, 
 > 
-> This patch series contains exclusively fixes for e1000. Some of these patches were
-> already sent in december, but didn't make it into any usptream tree yet. Most
-> importantly, it addresses two issues in the recently merged msi interrupt
-> handler and dynamic itr code. A performance fix and some minor cleanups are also
-> added. This brings the driver up to version 7.3.20-k2.
+> List of changes in this patch:
 > 
-> The summary below lists all patches. Once that were previously acked are annotated
-> with (*)
+> 	This patch adds two load parameters napi and ufo. Previously NAPI was
+> compilation option with these changes wan enable disable NAPI using load
+> parameter. Also we are introducing ufo load parameter to enable/disable
+> ufo feature
 > 
-> These patches apply against netdev-2.6 #upstream-linus commit
-> 77aab8bf22042d1658d4adbca8b71779e7f2d0ff. Please pull:
-> 
-> git pull git://lost.foo-projects.org/~ahkok/git/netdev-2.6 upstream-linus
+> Signed-off-by: Sivakumar Subramani <sivakumar.subramani@neterion.com>
 
-Sigh.  I /know/ I've told you this before, but let's review the branches 
-again.  NEVER EVER use branch 'upstream-linus'.  That is for Linus only.
+OK, you're getting closer :)
 
-There are three branches you should care about:
+Problems that need correcting:
 
-master			Vanilla upstream Linus tree, as of my last pull
-upstream-fixes		netdev fixes being sent to Linus for -rc
-upstream		Everything else pending, but not yet merged
+1) Your email subject line is a one-line summary of the patch.  "s2io: 
+updates for s2io driver" is useless, because it tells us nothing about 
+the patch itself.  When applied in a series,
 
-The decision tree is as follows:
+	git log master..upstream-fixes | git shortlog
 
-* If there are no dependent e1000 changes, send patches against master 
-(or torvalds/linux-2.6.git, if you prefer)
-* If there are dependent e1000 changes in #upstream-fixes, send patches 
-against #upstream-fixes
-* If there are dependent e1000 changes in #upstream, send patches 
-against #upstream
+will produce
 
-In the current tree there are no e1000 changes, so please regenerate 
-your tree against vanilla linux-2.6.git and resubmit.
+	Ananda Raju (5):
+	s2io: updates for s2io driver
+	s2io: updates for s2io driver
+	s2io: updates for s2io driver
+	s2io: updates for s2io driver
+	s2io: updates for s2io driver
 
-I ACK patches 1-8.
+which clearly makes it impossible to distinguish between changesets. 
+Please re-read Rule #1 of http://linux.yyz.us/patch-format.html
+
+Also, re-read Rule #2.  Everything in your email body before the "---" 
+terminator is copied DIRECTLY into the kernel changelog.  As such, 
+comments like "Hello," and "List of changes in this patch:" must be 
+hand-edited out of your email, before applying the patch.
+
+Please fix these problems and resubmit.
 
 	Jeff
-
-
 
 
