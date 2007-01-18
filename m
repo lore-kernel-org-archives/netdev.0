@@ -1,84 +1,67 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 2.6.20-rc3]: 8139cp: Don't blindly enable interrupts
-Date: Thu, 18 Jan 2007 11:48:21 -0500
-Message-ID: <45AFA4D5.7060405@pobox.com>
-References: <45ABAE69.4070105@redhat.com> <20070115195635.GA14205@electric-eye.fr.zoreil.com> <45ACE4B6.3040809@redhat.com> <20070116202217.GA9369@electric-eye.fr.zoreil.com> <45AD4698.7050908@redhat.com>
+Subject: Re: [PATCH 0/8] partial resend: e1000 fixes and updates
+Date: Thu, 18 Jan 2007 11:56:04 -0500
+Message-ID: <45AFA6A4.4090503@pobox.com>
+References: <20070113003650.16816.34076.stgit@gitlost.site>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Ingo Molnar <mingo@elte.hu>, linux-kernel@vger.kernel.org
+Cc: netdev@vger.kernel.org,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Kok, Auke" <auke@foo-projects.org>,
+	"Ronciak, John" <john.ronciak@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:44360 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:44428 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932460AbXARQsi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Jan 2007 11:48:38 -0500
-To: Chris Lalancette <clalance@redhat.com>
-In-Reply-To: <45AD4698.7050908@redhat.com>
+	id S1752055AbXARQ4M (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Jan 2007 11:56:12 -0500
+To: "Kok, Auke" <auke-jan.h.kok@intel.com>
+In-Reply-To: <20070113003650.16816.34076.stgit@gitlost.site>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Chris Lalancette wrote:
-> Francois Romieu wrote:
+Kok, Auke wrote:
+> Hi,
 > 
->> Chris Lalancette <clalance@redhat.com> :
->> [...]
->>  
->>
->>>     Thanks for the comments.  While the patch you sent will help, there are
->>> still other places that will have problems.  For example, in netpoll_send_skb,
->>> we call local_irq_save(flags), then call dev->hard_start_xmit(), and then call
->>> local_irq_restore(flags).  This is a similar situation to what I described
->>> above; we will re-enable interrupts in cp_start_xmit(), when netpoll_send_skb
->>> doesn't expect that, and will probably run into issues.
->>>     Is there a problem with changing cp_start_xmit to use the
->>> spin_lock_irqsave(), besides the extra instructions it needs?
->>>    
->>>
->> No. Given the history of locking in netpoll and the content of
->> Documentation/networking/netdevices.txt, asking Herbert which rule(s)
->> the code is supposed to follow seemed safer to me.
->>
->> You can forget my patch.
->>
->> Please resend your patch inlined to Jeff as described in
->> http://linux.yyz.us/patch-format.html.
->>
->>  
->>
-> Francois,
->      Great.  Resending mail, shortening subject to < 65 characters and
-> inlining the patch.
+> This patch series contains exclusively fixes for e1000. Some of these patches were
+> already sent in december, but didn't make it into any usptream tree yet. Most
+> importantly, it addresses two issues in the recently merged msi interrupt
+> handler and dynamic itr code. A performance fix and some minor cleanups are also
+> added. This brings the driver up to version 7.3.20-k2.
 > 
-> Thanks,
-> Chris Lalancette
+> The summary below lists all patches. Once that were previously acked are annotated
+> with (*)
 > 
-> Similar to this commit:
+> These patches apply against netdev-2.6 #upstream-linus commit
+> 77aab8bf22042d1658d4adbca8b71779e7f2d0ff. Please pull:
 > 
-> http://kernel.org/git/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=d15e9c4d9a75702b30e00cdf95c71c88e3f3f51e
-> 
-> It's not safe in cp_start_xmit to blindly call spin_lock_irq and then
-> spin_unlock_irq, since it may very well be the case that cp_start_xmit
-> was called with interrupts already disabled (I came across this bug in
-> the context of netdump in RedHat kernels, but the same issue holds, for
-> example, in netconsole). Therefore, replace all instances of
-> spin_lock_irq and spin_unlock_irq with spin_lock_irqsave and
-> spin_unlock_irqrestore, respectively, in cp_start_xmit(). I tested this
-> against a fully-virtualized Xen guest using netdump, which happens to
-> use the 8139cp driver to talk to the emulated hardware. I don't have a
-> real piece of 8139cp hardware to test on, so someone else will have to
-> do that.
-> 
-> Signed-off-by: Chris Lalancette <clalance@redhat.com>
+> git pull git://lost.foo-projects.org/~ahkok/git/netdev-2.6 upstream-linus
 
-applied.
+Sigh.  I /know/ I've told you this before, but let's review the branches 
+again.  NEVER EVER use branch 'upstream-linus'.  That is for Linus only.
 
-In the future, please remove the quoted emails stuff, and anything else 
-that does not belong in the kernel changelog.  It must be hand-edited 
-out, before using git-am to merge your patch into the kernel tree.
+There are three branches you should care about:
+
+master			Vanilla upstream Linus tree, as of my last pull
+upstream-fixes		netdev fixes being sent to Linus for -rc
+upstream		Everything else pending, but not yet merged
+
+The decision tree is as follows:
+
+* If there are no dependent e1000 changes, send patches against master 
+(or torvalds/linux-2.6.git, if you prefer)
+* If there are dependent e1000 changes in #upstream-fixes, send patches 
+against #upstream-fixes
+* If there are dependent e1000 changes in #upstream, send patches 
+against #upstream
+
+In the current tree there are no e1000 changes, so please regenerate 
+your tree against vanilla linux-2.6.git and resubmit.
+
+I ACK patches 1-8.
 
 	Jeff
+
 
 
 
