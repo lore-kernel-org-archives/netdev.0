@@ -1,45 +1,70 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 8/12] net_device seq_file
-Date: Thu, 18 Jan 2007 10:07:07 -0700
-Message-ID: <m1ac0g6z7o.fsf@ebiederm.dsl.xmission.com>
-References: <200701171851.14734.dim@openvz.org>
-	<200701171911.53312.dim@openvz.org> <20070117123644.756aecc1@oldman>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: Re: [PATCH 0/8] partial resend: e1000 fixes and updates
+Date: Thu, 18 Jan 2007 09:16:42 -0800
+Message-ID: <45AFAB7A.7040000@intel.com>
+References: <20070113003650.16816.34076.stgit@gitlost.site> <45AFA6A4.4090503@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Dmitry Mishin <dim@openvz.org>, containers@lists.osdl.org,
-	alexey@sw.ru, netdev@vger.kernel.org, saw@sw.ru
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Kok, Auke" <auke@foo-projects.org>,
+	"Ronciak, John" <john.ronciak@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:35513 "EHLO
-	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752074AbXARRIQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jan 2007 12:08:16 -0500
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20070117123644.756aecc1@oldman> (Stephen Hemminger's message of
-	"Wed, 17 Jan 2007 12:36:44 -0800")
+Received: from mga09.intel.com ([134.134.136.24]:15356 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752070AbXARRQr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Jan 2007 12:16:47 -0500
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <45AFA6A4.4090503@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger <shemminger@osdl.org> writes:
+Jeff Garzik wrote:
+> Kok, Auke wrote:
+>> Hi,
+>>
+>> This patch series contains exclusively fixes for e1000. Some of these 
+>> patches were
+>> already sent in december, but didn't make it into any usptream tree 
+>> yet. Most
+>> importantly, it addresses two issues in the recently merged msi interrupt
+>> handler and dynamic itr code. A performance fix and some minor 
+>> cleanups are also
+>> added. This brings the driver up to version 7.3.20-k2.
+>>
+>> The summary below lists all patches. Once that were previously acked 
+>> are annotated
+>> with (*)
+>>
+>> These patches apply against netdev-2.6 #upstream-linus commit
+>> 77aab8bf22042d1658d4adbca8b71779e7f2d0ff. Please pull:
+>>
+>> git pull git://lost.foo-projects.org/~ahkok/git/netdev-2.6 upstream-linus
+> 
+> Sigh.  I /know/ I've told you this before, but let's review the branches 
+> again.  NEVER EVER use branch 'upstream-linus'.  That is for Linus only.
 
-> On Wed, 17 Jan 2007 19:11:52 +0300
-> Dmitry Mishin <dim@openvz.org> wrote:
->
->> Library function to create a seq_file in proc filesystem,
->> showing some information for each netdevice.
->> This code is present in the kernel in about 10 instances, and
->> all of them can be converted to using introduced library function.
->> 
->> Signed-off-by: Andrey Savochkin <saw@swsoft.com>
->
-> But the implementations can use static data rather than allocation,
-> also the long term desire is to get rid of supporting most of these proc
-> interfaces.
+gah, sorry about that.
 
-While we do have the interfaces we need to support them, and not
-let them bit rot.
+I've moved it all over to #master-e1000 which applies against 
+bf81b46482c0fa8ea638e409d39768ea92a6b0f0 ("Linux 2.6.20-rc4 --Linus Torvalds").
 
-That said so long as we have to individually register and unregister
-proc entries it is an active measure by the caller and they should
-be able to handle allocation and freeing of data structures as well.
+Please pull:
 
-Eric
+git pull git://lost.foo-projects.org/~ahkok/git/netdev-2.6 master-e1000
+
+
+Thanks,
+
+Auke
+
+
+> * If there are no dependent e1000 changes, send patches against master 
+> (or torvalds/linux-2.6.git, if you prefer)
+> * If there are dependent e1000 changes in #upstream-fixes, send patches 
+> against #upstream-fixes
+> * If there are dependent e1000 changes in #upstream, send patches 
+> against #upstream
+
+*writes cheatsheet*
