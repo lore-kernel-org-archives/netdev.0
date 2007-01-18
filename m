@@ -1,59 +1,65 @@
-From: "evan foss" <evanfoss@gmail.com>
-Subject: Re: [PATCH V2] bcm43xx: Fix failure to deliver PCI-E interrupts
-Date: Thu, 18 Jan 2007 07:52:39 -0500
-Message-ID: <4a55afb80701180452y62b41586xfc56467030e0c0c6@mail.gmail.com>
-References: <45a7ceb2.m02aaCgouBsadVk/%Larry.Finger@lwfinger.net>
-	 <1168881379.2481.46.camel@flanders.rdu.redhat.com>
-	 <45ABC0D5.3060008@lwfinger.net>
-	 <4a55afb80701151502q7bf8bbabp7507a42f072efd29@mail.gmail.com>
-	 <45AC41C4.2070401@lwfinger.net>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: Please pull 'upstream' branch of wireless-2.6
+Date: Thu, 18 Jan 2007 07:16:44 -0500
+Message-ID: <20070118121644.GJ11056@tuxdriver.com>
+References: <20070103024117.GB5661@tuxdriver.com> <20070103024247.GC5661@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wr-out-0506.google.com ([64.233.184.227]:4287 "EHLO
-	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932231AbXARMwk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jan 2007 07:52:40 -0500
-Received: by wr-out-0506.google.com with SMTP id 68so146452wra
-        for <netdev@vger.kernel.org>; Thu, 18 Jan 2007 04:52:39 -0800 (PST)
-To: netdev@vger.kernel.org, Bcm43xx-dev@lists.berlios.de
-In-Reply-To: <45AC41C4.2070401@lwfinger.net>
+Received: from ra.tuxdriver.com ([70.61.120.52]:4355 "EHLO ra.tuxdriver.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932281AbXARM4O (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Jan 2007 07:56:14 -0500
+To: jeff@garzik.org
 Content-Disposition: inline
+In-Reply-To: <20070103024247.GC5661@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> One thing I forgot is that the LED will be on only if the switch is in the on position _AND_ the
-> interface is UP.
+On Tue, Jan 02, 2007 at 09:42:47PM -0500, John W. Linville wrote:
+> The following changes since commit fe5f8e2a1c5c040209c598a28e19c55f30e1040d:
+>   Zhu Yi (1):
+>         ipw2100: Fix dropping fragmented small packet problem
+> 
+> are found in the git repository at:
+> 
+>   git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git upstream
+> 
+> Daniel Drake (5):
+>       zd1211rw: Generic HMAC initialization
+>       zd1211rw: 2 new ZD1211B device ID's
+>       zd1211rw: Consistency for address space constants
+>       zd1211rw: Remove addressing abstraction
+>       zd1211rw: Add ID for Linksys WUSBF54G
+> 
+> John W. Linville (1):
+>       softmac: avoid assert in ieee80211softmac_wx_get_rate
+> 
+> Kai Engert (1):
+>       prism54: add ethtool -i interface
+> 
+> Larry Finger (1):
+>       bcm43xx: Interrogate hardware-enable switch and update LEDs
+> 
+> Michael Buesch (1):
+>       Update Prism54 MAINTAINERS entry
 
-Yes I figured that out. (eventually)
+Jeff, it looks like you didn't pull this one yet.  I'm going to rebase
+my upstream branch on top of my additions to my upstream-fixes branch.
+So, just ignore this request and wait for the next round of pull
+requests.
 
-> >>> dhcpcd eth1           <-low transmit power???
-> >> Most likely. How far are you from the AP?
-> >
-> > This is a timeout issue. I tried to apply the timeout patch which I
-> > assume is for this and it didn't take. I have logs for both patch
-> > applications below. To the distance issue my ap died so I am trying to
-> > just connect to one next door. (with permission) The distance is about
-> > 50ft. So this could be the main factor. This is why I said it might be
-> > my fault. The thing is I can connect to it in windows most of the time
-> > so I know it is in range. I will be going to school on Tuesday and
-> > will report back then. They have a much better AP.
->
-> With the current transmit levels of the 4311, 50 feet through at least one wall is probably too much.
+The next round is ready to go, except I can't login to
+master.kernel.org today.  As soon as that is resolved, I'll push and
+send the pull requests.
 
-I have tried 3 more AP at much closer distances <9ft and <4ft and it
-still won't work. I ether get "Network Down" or a timeout.
+Thanks,
 
+John
 
-> > Presario1600 bcm43xx # patch -p0 <patch_2.6.18.1_signal_quality
-...
-> > Presario1600 bcm43xx # patch -p0 <patch_2.6.18.1_watchdog_timeout2
-...
-> Those patches are already applied to your code.
-
-Thanks for the clarification, and assistance.
-
+P.S.  If you haven't pulled due to some objection, please send me a
+note to let me know why.
 -- 
-http://www.coe.neu.edu/~efoss/
-http://evanfoss.googlepages.com/
+John W. Linville
+linville@tuxdriver.com
