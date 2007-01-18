@@ -1,99 +1,107 @@
-From: Chris Lalancette <clalance@redhat.com>
-Subject: Re: [PATCH 2.6.20-rc3]: 8139cp: Don't blindly enable interrupts
-Date: Thu, 18 Jan 2007 13:48:53 -0500
-Message-ID: <45AFC115.4090503@redhat.com>
-References: <45ABAE69.4070105@redhat.com> <20070115195635.GA14205@electric-eye.fr.zoreil.com> <45ACE4B6.3040809@redhat.com> <20070116202217.GA9369@electric-eye.fr.zoreil.com> <45AD4698.7050908@redhat.com> <45AFA4D5.7060405@pobox.com>
+From: Adrian Bunk <bunk-HeJ8Db2Gnd6zQB+pC5nmwQ@public.gmane.org>
+Subject: 2.6.20-rc5: known regressions with patches (v2)
+Date: Thu, 18 Jan 2007 20:59:15 +0100
+Message-ID: <20070118195915.GC9093@stusta.de>
+References: <Pine.LNX.4.64.0701121424520.11200@woody.osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Ingo Molnar <mingo@elte.hu>, linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:59711 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752040AbXARSt6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Jan 2007 13:49:58 -0500
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <45AFA4D5.7060405@pobox.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: len.brown-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, Russell King <rmk+lkml-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>,
+	Michael Gernoth <gernoth-jNDFPZUTrfT6U6xlzOR6HsSSVFg4/55HhC4ANOJQIlc@public.gmane.org>,
+	Miles Lane <miles.lane-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	linux-usb-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
+	YOSHIFUJI Hideaki <yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	cpufreq-cunTk1MwBs8iFSDQTTA3OLVCufUGDwFn@public.gmane.org,
+	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	David L Stevens <dlstevens-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>, linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org, Al Viro <viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org>, jffs-dev-VrBV9hrLPhE@public.gmane.org,
+	Dave Jones <davej-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>,
+	David Woodhouse <dwmw2-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Roland Dreier <rdreier-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>, kvm-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Return-path: <kvm-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+To: Linus Torvalds <torvalds-3NddpPZAyC0@public.gmane.org>, Andrew Morton <akpm-3NddpPZAyC0@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.64.0701121424520.11200-AgDkxUvNf0y7TbgM5vRIOg@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/kvm-devel>,
+	<mailto:kvm-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=kvm-devel>
+List-Post: <mailto:kvm-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:kvm-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/kvm-devel>,
+	<mailto:kvm-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Sender: kvm-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Errors-To: kvm-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik wrote:
+This email lists some known regressions in 2.6.20-rc5 compared to 2.6.19
+with patches available
 
-> Chris Lalancette wrote:
->
->> Francois Romieu wrote:
->>
->>> Chris Lalancette <clalance@redhat.com> :
->>> [...]
->>>  
->>>
->>>>     Thanks for the comments.  While the patch you sent will help,
->>>> there are
->>>> still other places that will have problems.  For example, in
->>>> netpoll_send_skb,
->>>> we call local_irq_save(flags), then call dev->hard_start_xmit(),
->>>> and then call
->>>> local_irq_restore(flags).  This is a similar situation to what I
->>>> described
->>>> above; we will re-enable interrupts in cp_start_xmit(), when
->>>> netpoll_send_skb
->>>> doesn't expect that, and will probably run into issues.
->>>>     Is there a problem with changing cp_start_xmit to use the
->>>> spin_lock_irqsave(), besides the extra instructions it needs?
->>>>   
->>>
->>> No. Given the history of locking in netpoll and the content of
->>> Documentation/networking/netdevices.txt, asking Herbert which rule(s)
->>> the code is supposed to follow seemed safer to me.
->>>
->>> You can forget my patch.
->>>
->>> Please resend your patch inlined to Jeff as described in
->>> http://linux.yyz.us/patch-format.html.
->>>
->>>  
->>>
->> Francois,
->>      Great.  Resending mail, shortening subject to < 65 characters and
->> inlining the patch.
->>
->> Thanks,
->> Chris Lalancette
->>
->> Similar to this commit:
->>
->> http://kernel.org/git/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=d15e9c4d9a75702b30e00cdf95c71c88e3f3f51e
->>
->>
->> It's not safe in cp_start_xmit to blindly call spin_lock_irq and then
->> spin_unlock_irq, since it may very well be the case that cp_start_xmit
->> was called with interrupts already disabled (I came across this bug in
->> the context of netdump in RedHat kernels, but the same issue holds, for
->> example, in netconsole). Therefore, replace all instances of
->> spin_lock_irq and spin_unlock_irq with spin_lock_irqsave and
->> spin_unlock_irqrestore, respectively, in cp_start_xmit(). I tested this
->> against a fully-virtualized Xen guest using netdump, which happens to
->> use the 8139cp driver to talk to the emulated hardware. I don't have a
->> real piece of 8139cp hardware to test on, so someone else will have to
->> do that.
->>
->> Signed-off-by: Chris Lalancette <clalance@redhat.com>
->
->
-> applied.
->
-> In the future, please remove the quoted emails stuff, and anything
-> else that does not belong in the kernel changelog.  It must be
-> hand-edited out, before using git-am to merge your patch into the
-> kernel tree.
->
->     Jeff
->
->
->
-Jeff,
-     Ah, I see.  Noted.  Thanks.
+If you find your name in the Cc header, you are either submitter of one
+of the bugs, maintainer of an affectected subsystem or driver, a patch
+of you caused a breakage or I'm considering you in any other way possibly
+involved with one or more of these issues.
 
-Chris Lalancette
+Due to the huge amount of recipients, please trim the Cc when answering.
+
+
+Subject    : does not pickup ipv6 addresses
+References : http://bugzilla.kernel.org/show_bug.cgi?id=7817
+             http://lkml.org/lkml/2007/1/14/146
+Submitter  : Michael Gernoth <gernoth-jNDFPZUTrfT6U6xlzOR6HsSSVFg4/55HhC4ANOJQIlc@public.gmane.org>
+             Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
+Caused-By  : David L Stevens <dlstevens-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
+             commit 30c4cf577fb5b68c16e5750d6bdbd7072e42b279
+Handled-By : YOSHIFUJI Hideaki <yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>
+Patch      : http://bugzilla.kernel.org/show_bug.cgi?id=7817
+Status     : patch available
+
+
+Subject    : ACPI: fix cpufreq regression
+References : http://lkml.org/lkml/2007/1/16/120
+Submitter  : Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>
+Caused-By  : Dave Jones <davej-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+             commit 0916bd3ebb7cefdd0f432e8491abe24f4b5a101e
+Handled-By : Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>
+Patch      : http://lkml.org/lkml/2007/1/16/120
+Status     : patch available
+
+
+Subject    : CONFIG_JFFS2_FS_DEBUG=2 compile error
+References : http://lkml.org/lkml/2007/1/12/161
+Submitter  : Russell King <rmk+lkml-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>
+Caused-By  : Al Viro <viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org>
+             commit 914e26379decf1fd984b22e51fd2e4209b7a7f1b
+Handled-By : David Woodhouse <dwmw2-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
+Status     : patch available
+
+
+Subject    : WARNING: "profile_hits" [drivers/kvm/kvm-intel.ko] undefined!
+References : http://lkml.org/lkml/2007/1/12/16
+Submitter  : Miles Lane <miles.lane-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Caused-By  : Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>
+             commit 07031e14c1127fc7e1a5b98dfcc59f434e025104
+Handled-By : Andrew Morton <akpm-3NddpPZAyC0@public.gmane.org>
+Patch      : http://lkml.org/lkml/2007/1/12/18
+Status     : patch available
+
+
+Subject    : KVM: guest crash
+References : http://lkml.org/lkml/2007/1/8/163
+Submitter  : Roland Dreier <rdreier-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
+Handled-By : Avi Kivity <avi-atKUWr5tajBWk0Htik3J/w@public.gmane.org>
+Patch      : http://lkml.org/lkml/2007/1/9/280
+Status     : patch available
+
+
+Subject    : compile error: USB_HID must depend on INPUT
+References : http://lkml.org/lkml/2007/1/12/157
+Submitter  : Russell King <rmk+lkml-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>
+Handled-By : Russell King <rmk+lkml-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>
+Patch      : http://lkml.org/lkml/2007/1/12/177
+Status     : patch available
+
+-------------------------------------------------------------------------
+Take Surveys. Earn Cash. Influence the Future of IT
+Join SourceForge.net's Techsay panel and you'll get the chance to share your
+opinions on IT & business topics through brief surveys - and earn cash
+http://www.techsay.com/default.php?page=join.php&p=sourceforge&CID=DEVDEV
