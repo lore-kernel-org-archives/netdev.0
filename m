@@ -1,214 +1,59 @@
-From: Kenzo Iwami <k-iwami@cj.jp.nec.com>
-Subject: Re: watchdog timeout panic in e1000 driver
-Date: Thu, 18 Jan 2007 18:22:20 +0900
-Message-ID: <45AF3C4C.1060606@cj.jp.nec.com>
-References: <36D9DB17C6DE9E40B059440DB8D95F52013ABFE9@orsmsx418.amr.corp.intel.com> <4562D207.60301@cj.jp.nec.com> <4573E6FD.3030905@cj.jp.nec.com> <4574C14E.2060108@intel.com> <457E610D.4060908@cj.jp.nec.com> <45872EAC.7050501@cj.jp.nec.com> <45AB4561.8040400@cj.jp.nec.com> <45ABA882.20806@intel.com> <45AC8FEB.5090102@cj.jp.nec.com>
+From: Pavel Roskin <proski@gnu.org>
+Subject: Re: Can someone please try...
+Date: Thu, 18 Jan 2007 04:41:14 -0500
+Message-ID: <1169113274.10770.18.camel@dv>
+References: <200701161806.02780.mb@bu3sch.de>
+	 <200701162307.02891.mb@bu3sch.de> <1168991519.17787.17.camel@dv>
+	 <200701171052.12855.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	Shaw Vrana <shaw@vranix.com>, netdev@vger.kernel.org
+Cc: bcm43xx-dev@lists.berlios.de, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from TYO202.gate.nec.co.jp ([202.32.8.206]:33127 "EHLO
-	tyo202.gate.nec.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932118AbXARJWk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jan 2007 04:22:40 -0500
-To: Auke Kok <auke-jan.h.kok@intel.com>
-In-Reply-To: <45AC8FEB.5090102@cj.jp.nec.com>
+Received: from fencepost.gnu.org ([199.232.76.164]:54113 "EHLO
+	fencepost.gnu.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932135AbXARJlT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jan 2007 04:41:19 -0500
+Received: from proski by fencepost.gnu.org with local (Exim 4.60)
+	(envelope-from <proski@gnu.org>)
+	id 1H7Tl6-0001Lw-Fs
+	for netdev@vger.kernel.org; Thu, 18 Jan 2007 04:40:36 -0500
+To: Michael Buesch <mb@bu3sch.de>
+In-Reply-To: <200701171052.12855.mb@bu3sch.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Wed, 2007-01-17 at 10:52 +0100, Michael Buesch wrote:
 
-> My patch may seem like a huge change, but in essence the change is
-> pretty simple.
-> 
-> In my patch, the interrupt handler code will check whether the interrupted
-> code is holding the swfw semaphore. If it is held, the watchdog function
-> is deferred until swfw semaphore is released.
-> The modification is for the interrupted code which is holding the
-> semaphore, and the interrupt handler, so they are both directly related
-> to this problem.
-> 
-> I will try to add some comments to my code to make it more readable.
+> Doesn't happen for me. I have no idea what's happening.
+> Care to debug it?
+> But it's weird that _killing_ the supplicant calls add_interface.
+> I'd expect it to call remove_interface.
 
-I have rebased this patch for 2.6.20-rc5 and added some comments to this
-patch to make it more readable.
+I'm sorry, I was actually running wpa_supplicant again at the time of
+the crash.
 
-Does this patch have problems? Or do you have any other ideas?
+What I have now is very different behavior in two configurations on the
+same machine.
 
---
-  Kenzo Iwami (k-iwami@cj.jp.nec.com)
+The i386 kernel without SMP with most debug enabled and serial console.
+wpa_supplicant times out.  If I restart is, the kernel oopses, every
+time in a different place.
 
-Signed-off-by: Kenzo Iwami <k-iwami@cj.jp.nec.com>
+The x86_64 kernel with SMP and with very few debug options.
+wpa_supplicant connects.  Killing and restarting wpa_supplicant doesn't
+cause any problems.  In fact, wpa_supplicant reconnects quickly.  I can
+even ping the station from the AP, but the packet loss is horrible.  It
+appears that most loss is on the receiving side.
 
-diff -urpN linux-2.6.20-rc5_org/drivers/net/e1000/e1000_hw.c linux-2.6.20-rc5_fix/drivers/net/e1000/e1000_hw.c
---- linux-2.6.20-rc5_org/drivers/net/e1000/e1000_hw.c	2007-01-13 03:54:26.000000000 +0900
-+++ linux-2.6.20-rc5_fix/drivers/net/e1000/e1000_hw.c	2007-01-18 18:04:04.000000000 +0900
-@@ -35,6 +35,7 @@
+I'll try to debug the problem when I have time.  At least I'll try to
+find out if it's specific to the architecture or to another kernel
+option.
 
- static int32_t e1000_swfw_sync_acquire(struct e1000_hw *hw, uint16_t mask);
- static void e1000_swfw_sync_release(struct e1000_hw *hw, uint16_t mask);
-+static void e1000_check_watchdog_deferred(struct e1000_hw *hw);
- static int32_t e1000_read_kmrn_reg(struct e1000_hw *hw, uint32_t reg_addr, uint16_t *data);
- static int32_t e1000_write_kmrn_reg(struct e1000_hw *hw, uint32_t reg_addr, uint16_t data);
- static int32_t e1000_get_software_semaphore(struct e1000_hw *hw);
-@@ -3396,6 +3397,29 @@ e1000_shift_in_mdi_bits(struct e1000_hw
-     return data;
- }
+Anyway, it's exciting that I could send first packets today!
 
-+static void
-+e1000_check_watchdog_deferred(struct e1000_hw *hw)
-+{
-+    /* If watchdog interrupt was deferred while this process was holding
-+     * the swfw semaphore, process the watchdog now.
-+     */
-+    if (atomic_xchg(&hw->watchdog_deferred, 0)) {
-+retry:
-+        e1000_do_watchdog(hw);
-+    }
-+    atomic_dec(&hw->swfw_sem_count);
-+
-+    /* Check watchdog_deferred once more just in case watchdog interrupt
-+     * occurred between atomic_xchg and atomic_dec.
-+     * By nature of the watchdog interrupt, we shouldn't go through this
-+     * more than once.
-+     */
-+    if (atomic_xchg(&hw->watchdog_deferred, 0)) {
-+        atomic_inc(&hw->swfw_sem_count);
-+        goto retry;
-+    }
-+}
-+
- static int32_t
- e1000_swfw_sync_acquire(struct e1000_hw *hw, uint16_t mask)
- {
-@@ -3413,8 +3437,11 @@ e1000_swfw_sync_acquire(struct e1000_hw
-         return e1000_get_hw_eeprom_semaphore(hw);
+-- 
+Regards,
+Pavel Roskin
 
-     while (timeout) {
--            if (e1000_get_hw_eeprom_semaphore(hw))
-+            atomic_inc(&hw->swfw_sem_count);
-+            if (e1000_get_hw_eeprom_semaphore(hw)) {
-+                e1000_check_watchdog_deferred(hw);
-                 return -E1000_ERR_SWFW_SYNC;
-+            }
-
-             swfw_sync = E1000_READ_REG(hw, SW_FW_SYNC);
-             if (!(swfw_sync & (fwmask | swmask))) {
-@@ -3424,6 +3451,7 @@ e1000_swfw_sync_acquire(struct e1000_hw
-             /* firmware currently using resource (fwmask) */
-             /* or other software thread currently using resource (swmask) */
-             e1000_put_hw_eeprom_semaphore(hw);
-+            e1000_check_watchdog_deferred(hw);
-             mdelay(5);
-             timeout--;
-     }
-@@ -3437,6 +3465,8 @@ e1000_swfw_sync_acquire(struct e1000_hw
-     E1000_WRITE_REG(hw, SW_FW_SYNC, swfw_sync);
-
-     e1000_put_hw_eeprom_semaphore(hw);
-+    e1000_check_watchdog_deferred(hw);
-+
-     return E1000_SUCCESS;
- }
-
-@@ -3458,6 +3488,7 @@ e1000_swfw_sync_release(struct e1000_hw
-         return;
-     }
-
-+    atomic_inc(&hw->swfw_sem_count);
-     /* if (e1000_get_hw_eeprom_semaphore(hw))
-      *    return -E1000_ERR_SWFW_SYNC; */
-     while (e1000_get_hw_eeprom_semaphore(hw) != E1000_SUCCESS);
-@@ -3468,6 +3499,7 @@ e1000_swfw_sync_release(struct e1000_hw
-     E1000_WRITE_REG(hw, SW_FW_SYNC, swfw_sync);
-
-     e1000_put_hw_eeprom_semaphore(hw);
-+    e1000_check_watchdog_deferred(hw);
- }
-
- /*****************************************************************************
-diff -urpN linux-2.6.20-rc5_org/drivers/net/e1000/e1000_hw.h linux-2.6.20-rc5_fix/drivers/net/e1000/e1000_hw.h
---- linux-2.6.20-rc5_org/drivers/net/e1000/e1000_hw.h	2007-01-13 03:54:26.000000000 +0900
-+++ linux-2.6.20-rc5_fix/drivers/net/e1000/e1000_hw.h	2007-01-18 18:04:42.000000000 +0900
-@@ -306,6 +306,7 @@ typedef enum {
- #define E1000_BYTE_SWAP_WORD(_value) ((((_value) & 0x00ff) << 8) | \
-                                      (((_value) & 0xff00) >> 8))
-
-+extern void e1000_do_watchdog(struct e1000_hw *hw);
- /* Function prototypes */
- /* Initialization */
- int32_t e1000_reset_hw(struct e1000_hw *hw);
-@@ -1465,6 +1466,8 @@ struct e1000_hw {
- 	boolean_t		has_manc2h;
- 	boolean_t		rx_needs_kicking;
- 	boolean_t		has_smbus;
-+	atomic_t		swfw_sem_count;	   /* >0 if swfw_sem held on ESB2 */
-+	atomic_t		watchdog_deferred; /* watchdog deferred on ESB2 */
- };
-
-
-diff -urpN linux-2.6.20-rc5_org/drivers/net/e1000/e1000_main.c linux-2.6.20-rc5_fix/drivers/net/e1000/e1000_main.c
---- linux-2.6.20-rc5_org/drivers/net/e1000/e1000_main.c	2007-01-13 03:54:26.000000000 +0900
-+++ linux-2.6.20-rc5_fix/drivers/net/e1000/e1000_main.c	2007-01-18 18:05:54.000000000 +0900
-@@ -152,6 +152,7 @@ static void e1000_clean_rx_ring(struct e
- static void e1000_set_multi(struct net_device *netdev);
- static void e1000_update_phy_info(unsigned long data);
- static void e1000_watchdog(unsigned long data);
-+void e1000_do_watchdog(struct e1000_hw *hw);
- static void e1000_82547_tx_fifo_stall(unsigned long data);
- static int e1000_xmit_frame(struct sk_buff *skb, struct net_device *netdev);
- static struct net_device_stats * e1000_get_stats(struct net_device *netdev);
-@@ -1313,6 +1314,9 @@ e1000_sw_init(struct e1000_adapter *adap
- 	hw->tbi_compatibility_en = TRUE;
- 	hw->adaptive_ifs = TRUE;
-
-+	atomic_set(&hw->swfw_sem_count, 0);
-+	atomic_set(&hw->watchdog_deferred, 0);
-+
- 	/* Copper options */
-
- 	if (hw->media_type == e1000_media_type_copper) {
-@@ -2555,6 +2559,29 @@ static void
- e1000_watchdog(unsigned long data)
- {
- 	struct e1000_adapter *adapter = (struct e1000_adapter *) data;
-+	struct e1000_hw *hw = &adapter->hw;
-+
-+	if (hw->swfw_sync_present) {
-+		/* Check whether the interrupted code is holding the swfw
-+		 * semaphore. If it is held, defer processing the watchdog
-+		 * until swfw semaphore is released.
-+		 */
-+		if (atomic_read(&hw->swfw_sem_count))
-+			atomic_set(&hw->watchdog_deferred, 1);
-+		else
-+			e1000_do_watchdog(hw);
-+	} else {
-+		e1000_do_watchdog(hw);
-+	}
-+
-+	/* Reset the timer */
-+	mod_timer(&adapter->watchdog_timer, jiffies + 2 * HZ);
-+}
-+
-+void
-+e1000_do_watchdog(struct e1000_hw *hw)
-+{
-+	struct e1000_adapter *adapter = hw->back;
- 	struct net_device *netdev = adapter->netdev;
- 	struct e1000_tx_ring *txdr = adapter->tx_ring;
- 	uint32_t link, tctl;
-@@ -2722,9 +2749,6 @@ e1000_watchdog(unsigned long data)
- 	 * reset from the other port. Set the appropriate LAA in RAR[0] */
- 	if (adapter->hw.mac_type == e1000_82571 && adapter->hw.laa_is_present)
- 		e1000_rar_set(&adapter->hw, adapter->hw.mac_addr, 0);
--
--	/* Reset the timer */
--	mod_timer(&adapter->watchdog_timer, jiffies + 2 * HZ);
- }
-
- enum latency_range {
 
