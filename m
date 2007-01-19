@@ -1,91 +1,40 @@
-From: Sukadev Bhattiprolu <sukadev@us.ibm.com>
-Subject: Re: [BUG] 2.6.20-rc4-mm1: Panic in e1000_write_vfta_82543()
-Date: Thu, 18 Jan 2007 18:21:24 -0800
-Message-ID: <20070119022124.GA8087@us.ibm.com>
-References: <20070119011740.GA7658@us.ibm.com> <45B02510.7050604@intel.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH 2/12] forcedeth: ring access
+Date: Thu, 18 Jan 2007 21:51:14 -0500
+Message-ID: <45B03222.9030802@pobox.com>
+References: <45A3DF2F.10202@nvidia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Manfred Spraul <manfred@colorfullife.com>,
+	Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e6.ny.us.ibm.com ([32.97.182.146]:58084 "EHLO e6.ny.us.ibm.com"
+Received: from srv5.dvmed.net ([207.36.208.214]:47562 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932852AbXASCVc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Jan 2007 21:21:32 -0500
-To: Auke Kok <auke-jan.h.kok@intel.com>
-Content-Disposition: inline
-In-Reply-To: <45B02510.7050604@intel.com>
+	id S932860AbXASCvZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Jan 2007 21:51:25 -0500
+To: Ayaz Abdulla <aabdulla@nvidia.com>
+In-Reply-To: <45A3DF2F.10202@nvidia.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Auke Kok [auke-jan.h.kok@intel.com] wrote:
-| Sukadev Bhattiprolu wrote:
-| >I get following panic on 2.6.20-rc4-mm1 on a 2-cpu AMD Opteron system.
-| >
-| >Same basic config file seems to work with 2.6.20-rc2-mm1 on this same
-| >system. Have not tried -rc3-mm1 yet.
-| >
-| >Attached are config file and "lspci -vv" output. Let me know if you need
-| >more info.
-| >
-| >Suka
-| >
-| >---
-| >
-| >[  168.925840] Freeing unused kernel memory: 320k freed
-| > * INIT: version 2.86 booting
-| > * Starting basic networking...                                          [ 
-| > ok ]
-| > * Starting kernel event manager...                                      [ 
-| > ok ]
-| > * Loading hardware drivers...                                           [ 
-| > ok ]
-| > * Starting PCMCIA services... * PCMCIA not present
-| > * Loading manual drivers...                                             [ 
-| > ok ]
-| >[  171.575122] Unable to handle kernel paging request at ffffc20100ec55fc 
-| >RIP:
-| >[  171.584632]  [<ffffffff804a9858>] e1000_write_vfta_82543+0x58/0xd0
-...
-| >[  171.698208] Call Trace:
-| >[  171.698216]  [<ffffffff804c103d>] e1000_vlan_rx_register+0x1dd/0x210
-| >[  171.698219]  [<ffffffff804c3195>] e1000_up+0x35/0x4b0
-| >[  171.698222]  [<ffffffff804c3724>] e1000_open+0x74/0x100
-| >[  171.698227]  [<ffffffff805626fe>] dev_open+0x3e/0xa0
-| >[  171.698230]  [<ffffffff8056184f>] dev_change_flags+0x6f/0x160
-| >[  171.698234]  [<ffffffff805a5174>] devinet_ioctl+0x2d4/0x6e0
-| >[  171.698238]  [<ffffffff803f7e01>] __up_read+0x21/0xb0
-| >[  171.698243]  [<ffffffff8055664c>] sock_ioctl+0x1fc/0x230
-| >[  171.698247]  [<ffffffff8029dc0f>] do_ioctl+0x2f/0xa0
-| >[  171.698249]  [<ffffffff8029df3b>] vfs_ioctl+0x2bb/0x2f0
-| >[  171.698252]  [<ffffffff8029dfb9>] sys_ioctl+0x49/0x80
-| >[  171.698256]  [<ffffffff805e375d>] error_exit+0x0/0x84
-| >[  171.698259]  [<ffffffff802098be>] system_call+0x7e/0x83
-| >[  171.698261]
-| >[  171.698262]
-| >[  171.698262] Code: 44 8b 20 e8 30 7e 00 00 83 bb 94 01 00 00 03 75 3c 83 
-| >e5 01
-| >[  171.698268] RIP  [<ffffffff804a9858>] e1000_write_vfta_82543+0x58/0xd0
-| >[  171.698273]  RSP <ffff81007dfc5cf8>
-| >[  171.698274] CR2: ffffc20100ec55fc
-| >[  171.698276]  <6>EXT3 FS on sda1, internal journal
-| 
-| Hi,
-| 
-| I believe this is one of the bugs that is fixed in the patch that I sent 
-| monday. Please
-| try again with the patch applied to your tree and re-test. Thanks. I didn't 
-| see Andrew
-| merge the patch yet.
-| 
-| see: http://lkml.org/lkml/2007/1/16/226
-| 
-| I can mail the patch if you can't find it. Just ping me privately.
+Ayaz Abdulla wrote:
+> This patch modifys ring access by using pointers. This avoids computing 
+> the current index and avoids accessing the base address of the rings.
+> 
+> Signed-Off-By: Ayaz Abdulla <aabdulla@nvidia.com>
 
-Yep. Seems to fix the crash. Thanks !
+ACK patches 1-9.
 
-Suka
-| 
-| Cheers,
-| 
-| Auke
+Applied patches 1-4 successfully, patch #5 failed to apply.  Please 
+resend patches 5+ against netdev-2.6.git#upstream.
+
+Also, git-am (the git component used to apply yours and others' patches) 
+complains that your patches have spaces prior to the tab indentations. 
+Fixing that in patches 5+, or appending a final whitespace cleanup 
+patch, would be appreciated.
+
+	Jeff
+
+
+
