@@ -1,60 +1,79 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [PATCH] Marvell Libertas 8388 802.11b/g USB driver (v2)
-Date: Thu, 18 Jan 2007 22:29:23 -0500
-Message-ID: <1169177364.2781.12.camel@localhost.localdomain>
-References: <20070116185524.GA5681@dmt>
-	 <1169020333.9175.15.camel@johannes.berg> <20070117184204.GA3899@dmt>
-	 <20070117230654.GA9387@infradead.org>
-	 <1169134905.2788.16.camel@localhost.localdomain>
-	 <20070118224008.GA6675@infradead.org>
-	 <9e4733910701181454k3d01f018hddbe0568d14f6d8f@mail.gmail.com>
+From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Subject: [PATCH] bcm43xx: Check error returns in initialization routines
+Date: Thu, 18 Jan 2007 22:06:59 -0600
+Message-ID: <45b043e3.NGzJyc7WBaqk9U0D%Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Christoph Hellwig <hch@infradead.org>,
-	Marcelo Tosatti <marcelo@kvack.org>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	netdev <netdev@vger.kernel.org>, Jeff Garzik <jgarzik@pobox.com>,
-	"John W. Linville" <linville@redhat.com>,
-	"Luis R. Rodriguez" <mcgrof@gmail.com>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:34173 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S964812AbXASD1z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Jan 2007 22:27:55 -0500
-To: Jon Smirl <jonsmirl@gmail.com>
-In-Reply-To: <9e4733910701181454k3d01f018hddbe0568d14f6d8f@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+	Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+To: John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
+List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2007-01-18 at 17:54 -0500, Jon Smirl wrote:
-> On 1/18/07, Christoph Hellwig <hch@infradead.org> wrote:
-> > On Thu, Jan 18, 2007 at 10:41:45AM -0500, Dan Williams wrote:
-> > > In the future we'll likely need some layering to support the 8385
-> > > SDIO/CF variant, but most likely not in way the USB support is currently
-> > > excessively layered and abstracted.
-> >
-> > Yeah.  Let's summarize my unfortunately a bit too nasty comments and
-> > your more helpfull replies :-)
-> >
-> > This driver still needs a lot more work, both to cleanup a lot of crap
-> > and integrate it better with the wireless stack.  And OLPC needs this
-> > is not going to be an excuse of it's own.
-> 
-> The main feature of this chip is the on-chip support for 802.11s in
-> firmware. What is the plan for integrating 802.11s into the existing
-> wireless stacks? Does it make sense to do a softmac type 802.11s
-> implementation first to figure out the right places to put the hooks
-> for the 8388 hardware implementation?
+A number of the calls in the initialization routines fail to check the returned value for
+errors. This patch adds the necessary checks and logs any errors found when appropriate.
 
-I believe Javier Cordona (who will also be at the Linux Wireless Summit
-this weekend) is going to do a d80211-based implementation alongside the
-Libertas 8388 firmware and driver bits too.  802.11s networking in Linux
-is still quite immature, and we need to get people interested in a
-standard stack talking to each other.
+Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+---
 
-Dan
+To be applied to wireless-2.6.
 
 
+Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.c
++++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+@@ -2980,8 +2980,10 @@ static int bcm43xx_chipset_attach(struct
+ 	err = bcm43xx_pctl_set_crystal(bcm, 1);
+ 	if (err)
+ 		goto out;
+-	bcm43xx_pci_read_config16(bcm, PCI_STATUS, &pci_status);
+-	bcm43xx_pci_write_config16(bcm, PCI_STATUS, pci_status & ~PCI_STATUS_SIG_TARGET_ABORT);
++	err = bcm43xx_pci_read_config16(bcm, PCI_STATUS, &pci_status);
++	if (err)
++		goto out;
++	err = bcm43xx_pci_write_config16(bcm, PCI_STATUS, pci_status & ~PCI_STATUS_SIG_TARGET_ABORT);
+ 
+ out:
+ 	return err;
+@@ -3793,12 +3795,18 @@ static int bcm43xx_attach_board(struct b
+ 	}
+ 	net_dev->base_addr = (unsigned long)bcm->mmio_addr;
+ 
+-	bcm43xx_pci_read_config16(bcm, PCI_SUBSYSTEM_VENDOR_ID,
++	err = bcm43xx_pci_read_config16(bcm, PCI_SUBSYSTEM_VENDOR_ID,
+ 	                          &bcm->board_vendor);
+-	bcm43xx_pci_read_config16(bcm, PCI_SUBSYSTEM_ID,
++	if (err)
++		goto err_iounmap;
++	err = bcm43xx_pci_read_config16(bcm, PCI_SUBSYSTEM_ID,
+ 	                          &bcm->board_type);
+-	bcm43xx_pci_read_config16(bcm, PCI_REVISION_ID,
++	if (err)
++		goto err_iounmap;
++	err = bcm43xx_pci_read_config16(bcm, PCI_REVISION_ID,
+ 	                          &bcm->board_revision);
++	if (err)
++		goto err_iounmap;
+ 
+ 	err = bcm43xx_chipset_attach(bcm);
+ 	if (err)
+@@ -3889,6 +3897,7 @@ err_pci_release:
+ 	pci_release_regions(pci_dev);
+ err_pci_disable:
+ 	pci_disable_device(pci_dev);
++	printk(KERN_ERR PFX "Unable to attach board\n");
+ 	goto out;
+ }
+
+--- 
