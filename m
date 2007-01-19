@@ -1,79 +1,39 @@
-From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Subject: [PATCH] bcm43xx: Check error returns in initialization routines
-Date: Thu, 18 Jan 2007 22:06:59 -0600
-Message-ID: <45b043e3.NGzJyc7WBaqk9U0D%Larry.Finger@lwfinger.net>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH] [IPV6] fixed the size of the netlink message notified
+ by inet6_rt_notify().
+Date: Fri, 19 Jan 2007 13:26:40 +0900 (JST)
+Message-ID: <20070119.132640.107067447.yoshfuji@linux-ipv6.org>
+References: <20070117105006.GV8693@postel.suug.ch>
+	<45AE1792.1010002@trash.net>
+	<20070119.013108.465780507.takamiya@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-	Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-To: John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
-List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Cc: kaber@trash.net, tgraf@suug.ch, netdev@vger.kernel.org,
+	usagi-core@linux-ipv6.org, yoshfuji@linux-ipv6.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from yue.linux-ipv6.org ([203.178.140.15]:46301 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964817AbXASEZf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jan 2007 23:25:35 -0500
+To: takamiya@linux-ipv6.org
+In-Reply-To: <20070119.013108.465780507.takamiya@linux-ipv6.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-A number of the calls in the initialization routines fail to check the returned value for
-errors. This patch adds the necessary checks and logs any errors found when appropriate.
+In article <20070119.013108.465780507.takamiya@linux-ipv6.org> (at Fri, 19 Jan 2007 01:31:08 +0900 (JST)), Noriaki TAKAMIYA <takamiya@linux-ipv6.org> says:
 
-Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
----
+> >> Wed, 17 Jan 2007 13:33:22 +0100
+> >> [Subject: Re: [PATCH] [IPV6] fixed the size of the netlink message notified by inet6_rt_notify().]
+> >> Patrick McHardy <kaber@trash.net> wrote...
+> 
+> > Somewhat related: I have this patch for 2.6.21 to get rid of the
+> > BUG_ON()s.
+> 
+>   I think the problem is the return value of inet6_rt_notify() is less
+>   than expected.
 
-To be applied to wireless-2.6.
+I guess Patrick meant that using "BUG_ON()" would be an overkill.
 
-
-Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-===================================================================
---- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-+++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-@@ -2980,8 +2980,10 @@ static int bcm43xx_chipset_attach(struct
- 	err = bcm43xx_pctl_set_crystal(bcm, 1);
- 	if (err)
- 		goto out;
--	bcm43xx_pci_read_config16(bcm, PCI_STATUS, &pci_status);
--	bcm43xx_pci_write_config16(bcm, PCI_STATUS, pci_status & ~PCI_STATUS_SIG_TARGET_ABORT);
-+	err = bcm43xx_pci_read_config16(bcm, PCI_STATUS, &pci_status);
-+	if (err)
-+		goto out;
-+	err = bcm43xx_pci_write_config16(bcm, PCI_STATUS, pci_status & ~PCI_STATUS_SIG_TARGET_ABORT);
- 
- out:
- 	return err;
-@@ -3793,12 +3795,18 @@ static int bcm43xx_attach_board(struct b
- 	}
- 	net_dev->base_addr = (unsigned long)bcm->mmio_addr;
- 
--	bcm43xx_pci_read_config16(bcm, PCI_SUBSYSTEM_VENDOR_ID,
-+	err = bcm43xx_pci_read_config16(bcm, PCI_SUBSYSTEM_VENDOR_ID,
- 	                          &bcm->board_vendor);
--	bcm43xx_pci_read_config16(bcm, PCI_SUBSYSTEM_ID,
-+	if (err)
-+		goto err_iounmap;
-+	err = bcm43xx_pci_read_config16(bcm, PCI_SUBSYSTEM_ID,
- 	                          &bcm->board_type);
--	bcm43xx_pci_read_config16(bcm, PCI_REVISION_ID,
-+	if (err)
-+		goto err_iounmap;
-+	err = bcm43xx_pci_read_config16(bcm, PCI_REVISION_ID,
- 	                          &bcm->board_revision);
-+	if (err)
-+		goto err_iounmap;
- 
- 	err = bcm43xx_chipset_attach(bcm);
- 	if (err)
-@@ -3889,6 +3897,7 @@ err_pci_release:
- 	pci_release_regions(pci_dev);
- err_pci_disable:
- 	pci_disable_device(pci_dev);
-+	printk(KERN_ERR PFX "Unable to attach board\n");
- 	goto out;
- }
-
---- 
+--yoshfuji
