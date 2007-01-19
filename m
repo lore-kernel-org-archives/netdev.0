@@ -1,88 +1,35 @@
-From: "Sivakumar Subramani" <Sivakumar.Subramani@neterion.com>
-Subject: RE: [PATCH 2.6.20 1/5] s2io: updates for s2io driver.
-Date: Fri, 19 Jan 2007 02:55:27 -0500
-Message-ID: <78C9135A3D2ECE4B8162EBDCE82CAD77011EBF00@nekter>
+From: Christoph Lameter <clameter@sgi.com>
+Subject: Re: Possible ways of dealing with OOM conditions.
+Date: Fri, 19 Jan 2007 09:54:53 -0800 (PST)
+Message-ID: <Pine.LNX.4.64.0701190952090.14617@schroedinger.engr.sgi.com>
+References: <20070116132503.GA23144@2ka.mipt.ru>  <1168955274.22935.47.camel@twins>
+ <20070116153315.GB710@2ka.mipt.ru>  <1168963695.22935.78.camel@twins>
+ <20070117045426.GA20921@2ka.mipt.ru>  <1169024848.22935.109.camel@twins>
+ <20070118104144.GA20925@2ka.mipt.ru>  <1169122724.6197.50.camel@twins>
+ <20070118135839.GA7075@2ka.mipt.ru>  <1169133052.6197.96.camel@twins>
+ <20070118155003.GA6719@2ka.mipt.ru> <1169141513.6197.115.camel@twins>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>,
-	"Leonid Grossman" <Leonid.Grossman@neterion.com>,
-	"Alicia Pena" <Alicia.Pena@neterion.com>,
-	"Sreenivasa Honnur" <Sreenivasa.Honnur@neterion.com>,
-	"Ramkrishna Vepa" <Ramkrishna.Vepa@neterion.com>,
-	"Sriram Rapuru" <Sriram.Rapuru@neterion.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [72.1.205.142] ([72.1.205.142]:45246 "EHLO owa.neterion.com"
-	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S932795AbXASR2F convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jan 2007 12:28:05 -0500
-Content-class: urn:content-classes:message
-To: "Jeff Garzik" <jeff@garzik.org>,
-	"Ananda Raju" <Ananda.Raju@neterion.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-mm@kvack.org, David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964795AbXASRzb@vger.kernel.org>
+To: Peter Zijlstra <a.p.zijlstra@chello.nl>
+In-Reply-To: <1169141513.6197.115.camel@twins>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Jeff,
+On Thu, 18 Jan 2007, Peter Zijlstra wrote:
 
-Thanks for the comments and references.
-
-As per you suggestion, we have resubmitted the patches with required
-change.
-
-Thanks,
-~Siva 
-
------Original Message-----
-From: Jeff Garzik [mailto:jeff@garzik.org] 
-Sent: Thursday, January 18, 2007 10:32 PM
-To: Ananda Raju
-Cc: netdev@vger.kernel.org; Leonid Grossman; Sivakumar Subramani; Alicia
-Pena; sreenivasa.honnur@netrion.com; Ramkrishna Vepa
-Subject: Re: [PATCH 2.6.20 1/5] s2io: updates for s2io driver.
-
-Ananda Raju wrote:
-> Hello,
 > 
-> List of changes in this patch:
+> > Cache misses for small packet flow due to the fact, that the same data
+> > is allocated and freed  and accessed on different CPUs will become an
+> > issue soon, not right now, since two-four core CPUs are not yet to be
+> > very popular and price for the cache miss is not _that_ high.
 > 
-> 	This patch adds two load parameters napi and ufo. Previously
-NAPI was 
-> compilation option with these changes wan enable disable NAPI using 
-> load parameter. Also we are introducing ufo load parameter to 
-> enable/disable ufo feature
-> 
-> Signed-off-by: Sivakumar Subramani <sivakumar.subramani@neterion.com>
+> SGI does networking too, right?
 
-OK, you're getting closer :)
-
-Problems that need correcting:
-
-1) Your email subject line is a one-line summary of the patch.  "s2io: 
-updates for s2io driver" is useless, because it tells us nothing about
-the patch itself.  When applied in a series,
-
-	git log master..upstream-fixes | git shortlog
-
-will produce
-
-	Ananda Raju (5):
-	s2io: updates for s2io driver
-	s2io: updates for s2io driver
-	s2io: updates for s2io driver
-	s2io: updates for s2io driver
-	s2io: updates for s2io driver
-
-which clearly makes it impossible to distinguish between changesets. 
-Please re-read Rule #1 of http://linux.yyz.us/patch-format.html
-
-Also, re-read Rule #2.  Everything in your email body before the "---" 
-terminator is copied DIRECTLY into the kernel changelog.  As such,
-comments like "Hello," and "List of changes in this patch:" must be
-hand-edited out of your email, before applying the patch.
-
-Please fix these problems and resubmit.
-
-	Jeff
-
-
+Sslab deals with those issues the right way. We have per processor
+queues that attempt to keep the cache hot state. A special shared queue
+exists between neighboring processors to facilitate exchange of objects
+between then.
