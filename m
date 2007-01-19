@@ -1,56 +1,40 @@
-From: "Jon Smirl" <jonsmirl@gmail.com>
-Subject: Re: [PATCH] Marvell Libertas 8388 802.11b/g USB driver (v2)
-Date: Thu, 18 Jan 2007 17:54:09 -0500
-Message-ID: <9e4733910701181454k3d01f018hddbe0568d14f6d8f@mail.gmail.com>
-References: <20070116185524.GA5681@dmt>
-	 <1169020333.9175.15.camel@johannes.berg> <20070117184204.GA3899@dmt>
-	 <20070117230654.GA9387@infradead.org>
-	 <1169134905.2788.16.camel@localhost.localdomain>
-	 <20070118224008.GA6675@infradead.org>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH 0/12] L2 network namespace (v3)
+Date: Fri, 19 Jan 2007 09:07:45 +0900 (JST)
+Message-ID: <20070119.090745.39279848.yoshfuji@linux-ipv6.org>
+References: <200701171851.14734.dim@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Dan Williams" <dcbw@redhat.com>,
-	"Marcelo Tosatti" <marcelo@kvack.org>,
-	"Johannes Berg" <johannes@sipsolutions.net>,
-	netdev <netdev@vger.kernel.org>,
-	"Jeff Garzik" <jgarzik@pobox.com>,
-	"John W. Linville" <linville@redhat.com>,
-	"Luis R. Rodriguez" <mcgrof@gmail.com>,
-	"Arnd Bergmann" <arnd@arndb.de>,
-	"Arnaldo Carvalho de Melo" <acme@ghostprotocols.net>
+Cc: containers@lists.osdl.org, alexey@sw.ru, saw@sw.ru, akpm@osdl.org,
+	netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nz-out-0506.google.com ([64.233.162.239]:25684 "EHLO
-	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932734AbXARWyK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jan 2007 17:54:10 -0500
-Received: by nz-out-0506.google.com with SMTP id s1so258956nze
-        for <netdev@vger.kernel.org>; Thu, 18 Jan 2007 14:54:10 -0800 (PST)
-To: "Christoph Hellwig" <hch@infradead.org>
-In-Reply-To: <20070118224008.GA6675@infradead.org>
-Content-Disposition: inline
+Received: from yue.linux-ipv6.org ([203.178.140.15]:46278 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932769AbXASAGm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jan 2007 19:06:42 -0500
+To: dim@openvz.org
+In-Reply-To: <200701171851.14734.dim@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 1/18/07, Christoph Hellwig <hch@infradead.org> wrote:
-> On Thu, Jan 18, 2007 at 10:41:45AM -0500, Dan Williams wrote:
-> > In the future we'll likely need some layering to support the 8385
-> > SDIO/CF variant, but most likely not in way the USB support is currently
-> > excessively layered and abstracted.
->
-> Yeah.  Let's summarize my unfortunately a bit too nasty comments and
-> your more helpfull replies :-)
->
-> This driver still needs a lot more work, both to cleanup a lot of crap
-> and integrate it better with the wireless stack.  And OLPC needs this
-> is not going to be an excuse of it's own.
+In article <200701171851.14734.dim@openvz.org> (at Wed, 17 Jan 2007 18:51:14 +0300), Dmitry Mishin <dim@openvz.org> says:
 
-The main feature of this chip is the on-chip support for 802.11s in
-firmware. What is the plan for integrating 802.11s into the existing
-wireless stacks? Does it make sense to do a softmac type 802.11s
-implementation first to figure out the right places to put the hooks
-for the 8388 hardware implementation?
+> ===================================
+> L2 network namespaces
+> 
+> The most straightforward concept of network virtualization is complete
+> separation of namespaces, covering device list, routing tables, netfilter
+> tables, socket hashes, and everything else.
+> 
+> On input path, each packet is tagged with namespace right from the
+> place where it appears from a device, and is processed by each layer
+> in the context of this namespace.
+> Non-root namespaces communicate with the outside world in two ways: by
+> owning hardware devices, or receiving packets forwarded them by their parent
+> namespace via pass-through device.
 
--- 
-Jon Smirl
-jonsmirl@gmail.com
+Can you handle multicast / broadcast and IPv6, which are very important?
+
+--yoshfuji
