@@ -1,40 +1,52 @@
 From: dlezcano@fr.ibm.com
-Subject: [patch 01/12] net namespace : initialize init process to level 2
-Date: Fri, 19 Jan 2007 16:47:15 +0100
-Message-ID: <20070119155342.556325554@localhost.localdomain>
-References: <20070119154714.439706567@localhost.localdomain>
+Subject: [patch 00/12] net namespace : L3 namespace - introduction
+Date: Fri, 19 Jan 2007 16:47:14 +0100
+Message-ID: <20070119154714.439706567@localhost.localdomain>
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from AToulouse-252-1-85-33.w86-201.abo.wanadoo.fr ([86.201.99.33]:56627
 	"EHLO localhost.localdomain" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S932503AbXASQkk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jan 2007 11:40:40 -0500
+	by vger.kernel.org with ESMTP id S932623AbXASQkm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jan 2007 11:40:42 -0500
 To: containers@lists.osdl.org
-Content-Disposition: inline; filename=net-namespace-l3-fix-level-init.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Daniel Lezcano <dlezcano@fr.ibm.com>
+This patchset provide a network isolation similar at what
+Linux-Vserver provides. It is based on the L2 namespaces and relies on
+the mechanisms provided by the namespace. This L3 namespaces does not
+aim to bring full virtualization for the network, it provides an IP
+isolation which can be reused for Linux-Vserver, jailed application or
+application containers.
 
-Initialize the init's network namespace to level 2
+A L3 namespace are always L2 s' childs and they can not create more
+network namespaces, furthermore, they lose their NET_ADMIN
+capability. They share their parent's network ressources. From the
+parent namespace, IP addresses are created and assigned to the
+different L3 childs. From this point, L3 namespaces can use their
+assigned IP address and all computed broadcast addresses.
 
-Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
+Because the L3 namespace relies on the L2 virtualization mechanisms,
+it is possible to have several L3 namespaces listening on
+INADDR_ANY:port without conflict, that's allow to run several server
+without modifying the network configuration.
 
----
- net/core/net_namespace.c |    1 +
- 1 file changed, 1 insertion(+)
+The loopback is a shared device between all L3 namespaces. To ensure
+the 127.0.0.1 address isolation, the sender store its namespace into
+the packet, so when the packet arrives, the destination namespace is
+already set, because "source" == "destination". By this way, it is
+easy to disable the loopback isolation and let the application to talk
+with application outside of the namespace via the 127.0.0.1 because we
+consider them trusted (like portmap).
 
-Index: 2.6.20-rc4-mm1/net/core/net_namespace.c
-===================================================================
---- 2.6.20-rc4-mm1.orig/net/core/net_namespace.c
-+++ 2.6.20-rc4-mm1/net/core/net_namespace.c
-@@ -21,6 +21,7 @@
- 	.dev_tail_p	= &init_net_ns.dev_base_p,
- 	.loopback_dev_p	= NULL,
- 	.pcpu_lstats_p	= NULL,
-+	.level          = NET_NS_LEVEL2,
- };
- 
- #ifdef CONFIG_NET_NS
+The ifconfig / ip commands will only show IP addresses assigned to the
+L3 namespace. When a L3 namespace dies, the assigned IP address is
+released to its parent.
+
+At the IP level, when a packet arrives, the L3 network namespace
+destination is retrieved from the destination address.
+
+At the bind time, the address is checked against the assigned IP
+address.
 
 -- 
