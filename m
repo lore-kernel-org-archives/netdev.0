@@ -1,89 +1,66 @@
-From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: Re: Possible ways of dealing with OOM conditions.
-Date: Fri, 19 Jan 2007 13:53:15 +0100
-Message-ID: <1169211195.6197.143.camel@twins>
-References: <20070116153315.GB710@2ka.mipt.ru>
-	 <1168963695.22935.78.camel@twins> <20070117045426.GA20921@2ka.mipt.ru>
-	 <1169024848.22935.109.camel@twins> <20070118104144.GA20925@2ka.mipt.ru>
-	 <1169122724.6197.50.camel@twins> <20070118135839.GA7075@2ka.mipt.ru>
-	 <1169133052.6197.96.camel@twins> <20070118155003.GA6719@2ka.mipt.ru>
-	 <1169141513.6197.115.camel@twins>  <20070118183430.GA3345@2ka.mipt.ru>
+From: Michael Tokarev <mjt@tls.msk.ru>
+Subject: Re: [PATCH] tcp_output: Re: rare bad TCP checksum with 2.6.19?
+Date: Fri, 19 Jan 2007 16:20:01 +0300
+Message-ID: <45B0C581.1020805@tls.msk.ru>
+References: <20070119110641.GA3135@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-mm@kvack.org, David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from amsfep17-int.chello.nl ([213.46.243.15]:19796 "EHLO
-	amsfep13-int.chello.nl" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S965100AbXASMzX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jan 2007 07:55:23 -0500
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-In-Reply-To: <20070118183430.GA3345@2ka.mipt.ru>
+Received: from hobbit.corpit.ru ([81.13.94.6]:23234 "EHLO hobbit.corpit.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965127AbXASNUF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Jan 2007 08:20:05 -0500
+To: Jarek Poplawski <jarkao2@o2.pl>
+In-Reply-To: <20070119110641.GA3135@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-> Let me briefly describe your approach and possible drawbacks in it.
-> You start reserving some memory when systems is under memory pressure.
-> when system is in real trouble, you start using that reserve for special
-> tasks mainly for network path to allocate packets and process them in
-> order to get committed some memory swapping.
+Jarek Poplawski wrote:
+> On 17-01-2007 15:12, Michael Tokarev wrote:
+[]
+>> Here's another sample, which may be more useful.  I've seen quite
+>> alot of very similar stuff while running tcpdump.
+>>
+>>   http://www.corpit.ru/mjt/bad-cksum-session3-dmp.bin
+>>
+>> The scenario looks like this.
+>>
+>> A client (82.84.172.37 -- a zombie machine trying to send us spam
+>> in this case) connects to a port 25 here (81.13.94.6:25).  SYN+ACK
+>> sequence completes.  Next, our server send an initial SMTP greething
+>> message, but almost right after that, the client sends a FIN packet,
+>> WITHOUT acknowleging that it received the (first and only) data
+>> packet.  So some time later our machine re-sends the data, AND adds
+>> FIN flag to the packet (also replying to the FIN received from the
+>> client).  And *that* packet - original data packet which is modified
+>> to also include FIN - has incorrect checksum.
+>>
+>> So it looks like the checksum isn't being updated WHEN ADDING MORE
+>> FLAGS to the original data packet.
+>>
 > 
-> So, the problems I see here, are following:
-> 1. it is possible that when you are starting to create a reserve, there
-> will not be enough memeory at all. So the solution is to reserve in
-> advance.
-
-Swap is usually enabled at startup, but sure, if you want you can mess
-this up.
-
-> 2. You differentiate by hand between critical and non-critical
-> allocations by specifying some kernel users as potentially possible to
-> allocate from reserve. 
-
-True, all sockets that are needed for swap, no-one else.
-
-> This does not prevent from NVIDIA module to
-> allocate from that reserve too, does it?
-
-All users of the NVidiot crap deserve all the pain they get.
-If it breaks they get to keep both pieces.
-
-> And you artificially limit
-> system to process only tiny bits of what it must do, thus potentially
-> leaking pathes which must use reserve too.
-
-How so? I cover pretty much every allocation needed to process an skb by
-setting PF_MEMALLOC - the only drawback there is that the reserve might
-not actually be large enough because it covers more allocations that
-were considered. (thats one of the TODO items, validate the reserve
-functions parameters)
-
-> So, solution is to have a reserve in advance, and manage it using
-> special path when system is in OOM. So you will have network memory
-> reserve, which will be used when system is in trouble. It is very
-> similar to what you had.
+> Hi,
 > 
-> But the whole reserve can never be used at all, so it should be used,
-> but not by those who can create OOM condition, thus it should be
-> exported to, for example, network only, and when system is in trouble,
-> network would be still functional (although only critical pathes).
+> Here is my patch proposal. If I'm not totally wrong,
+> there is a possibility that, during collapsing, empty
+> skb with FIN is added to "normal" packet and changes
+> its ip_summed field to CHECKSUM_NONE.
+> 
+> Regards,
+> Jarek P.
+> 
+> PS: probably there are also other possibilities...
 
-But the network can create OOM conditions for itself just fine. 
+Well..  I just tried it - with this patch applied, no more bad checksums
+are shown.  Tried from the network that triggers it most reliable - and
+wasn't able to reproduce the bad behavior.
 
-Consider the remote storage disappearing for a while (it got rebooted,
-someone tripped over the wire etc..). Now the rest of the network
-traffic keeps coming and will queue up - because user-space is stalled,
-waiting for more memory - and we run out of memory.
+I'm running a tcpdump right now, and so far it only captured a few bad-cksum
+packets from other hosts (which are also running 2.6.19 ;)
 
-There must be a point where we start dropping packets that are not
-critical to the survival of the machine.
+Thanks Jarek!
 
-> Even further development of such idea is to prevent such OOM condition
-> at all - by starting swapping early (but wisely) and reduce memory
-> usage.
-
-These just postpone execution but will not avoid it.
-
-
+/mjt
