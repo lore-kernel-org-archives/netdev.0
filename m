@@ -1,61 +1,89 @@
-From: Daniele Lacamera <netdev@danielinux.net>
-Subject: [ANNOUNCE] FYI: MultiTCP for linux-2.6.19
-Date: Fri, 19 Jan 2007 13:15:06 +0100
-Message-ID: <1169208906.2266.44.camel@inspiron>
+From: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Subject: Re: Possible ways of dealing with OOM conditions.
+Date: Fri, 19 Jan 2007 13:53:15 +0100
+Message-ID: <1169211195.6197.143.camel@twins>
+References: <20070116153315.GB710@2ka.mipt.ru>
+	 <1168963695.22935.78.camel@twins> <20070117045426.GA20921@2ka.mipt.ru>
+	 <1169024848.22935.109.camel@twins> <20070118104144.GA20925@2ka.mipt.ru>
+	 <1169122724.6197.50.camel@twins> <20070118135839.GA7075@2ka.mipt.ru>
+	 <1169133052.6197.96.camel@twins> <20070118155003.GA6719@2ka.mipt.ru>
+	 <1169141513.6197.115.camel@twins>  <20070118183430.GA3345@2ka.mipt.ru>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-mm@kvack.org, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from danielinux.vm.bytemark.co.uk ([80.68.95.85]:1618 "EHLO
-	mail.danielinux.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965099AbXASMiB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jan 2007 07:38:01 -0500
-To: "Xiaoliang (David) Wei" <davidwei79@gmail.com>,
-	Giovanni Pau <gpau@cs.ucla.edu>,
-	Carlo Caini <ccaini@deis.unibo.it>,
-	Rosario Firrincieli <rfirrincieli@arces.unibo.it>
+Received: from amsfep17-int.chello.nl ([213.46.243.15]:19796 "EHLO
+	amsfep13-int.chello.nl" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S965100AbXASMzX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jan 2007 07:55:23 -0500
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+In-Reply-To: <20070118183430.GA3345@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-MultiTCP[1] is (yet another) Linux TCP patch intended for
-researchers/developers, which can report TCP events in the kernel logs
-in order to watch TCP internal variables.
 
-Furthermore, it includes TCP Pacing and Hoe's initial ssthresh
-estimation[2]. Their use in satellite links is strongly recommended by
-the TCP-Hybla authors in order to mitigate congestion episodes and limit
-the initial cwnd overshoot phenomenon respectively.
+> Let me briefly describe your approach and possible drawbacks in it.
+> You start reserving some memory when systems is under memory pressure.
+> when system is in real trouble, you start using that reserve for special
+> tasks mainly for network path to allocate packets and process them in
+> order to get committed some memory swapping.
+> 
+> So, the problems I see here, are following:
+> 1. it is possible that when you are starting to create a reserve, there
+> will not be enough memeory at all. So the solution is to reserve in
+> advance.
 
-A new version for linux-2.6.19 has been released at
-http://www.sf.net/projects/multitcp/
+Swap is usually enabled at startup, but sure, if you want you can mess
+this up.
 
-Hybla's authors future goal would be to produce official patches for
-both Pacing and initial ssthresh estimation, by freeing the latter one
-implementation from the TCP kernel logs engine and getting the current
-tcp_sock structure slimmer.
+> 2. You differentiate by hand between critical and non-critical
+> allocations by specifying some kernel users as potentially possible to
+> allocate from reserve. 
 
-Meanwhile, we will appreciate if the comparative tests made on Linux
-congestion control will include the two algorithms described above when
-using TCP-Hybla.
+True, all sockets that are needed for swap, no-one else.
 
-[1]
-C. Caini, R. Firrincieli and D. Lacamera, "A Linux Based Multi TCP
-Implementation for Experimental Evaluation of TCP Enhancements", SPECTS
-2005, Philadelphia, July 2005.
+> This does not prevent from NVIDIA module to
+> allocate from that reserve too, does it?
 
-C. Caini, R. Firrincieli, D. Lacamera, "An emulation approach for the
-evaluation of enhanced transport protocols performance in satellite
-networks", IEEE Globecom 2006 - Satellite and Space Communications, 27
-November-1 December 2006, San Francisco, CA, USA.
+All users of the NVidiot crap deserve all the pain they get.
+If it breaks they get to keep both pieces.
 
-[2]
-J. C. Hoe, "Improving the Start-up Behavior of a Congestion Control
-Scheme for TCP", ACM SIGCOMM 1996, pp. 270-280
+> And you artificially limit
+> system to process only tiny bits of what it must do, thus potentially
+> leaking pathes which must use reserve too.
 
+How so? I cover pretty much every allocation needed to process an skb by
+setting PF_MEMALLOC - the only drawback there is that the reserve might
+not actually be large enough because it covers more allocations that
+were considered. (thats one of the TODO items, validate the reserve
+functions parameters)
 
-Regards,
+> So, solution is to have a reserve in advance, and manage it using
+> special path when system is in OOM. So you will have network memory
+> reserve, which will be used when system is in trouble. It is very
+> similar to what you had.
+> 
+> But the whole reserve can never be used at all, so it should be used,
+> but not by those who can create OOM condition, thus it should be
+> exported to, for example, network only, and when system is in trouble,
+> network would be still functional (although only critical pathes).
 
--- 
-Daniele Lacamera
+But the network can create OOM conditions for itself just fine. 
+
+Consider the remote storage disappearing for a while (it got rebooted,
+someone tripped over the wire etc..). Now the rest of the network
+traffic keeps coming and will queue up - because user-space is stalled,
+waiting for more memory - and we run out of memory.
+
+There must be a point where we start dropping packets that are not
+critical to the survival of the machine.
+
+> Even further development of such idea is to prevent such OOM condition
+> at all - by starting swapping early (but wisely) and reduce memory
+> usage.
+
+These just postpone execution but will not avoid it.
+
 
