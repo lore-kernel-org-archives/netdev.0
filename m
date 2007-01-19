@@ -1,39 +1,66 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH] [IPV6] fixed the size of the netlink message notified
- by inet6_rt_notify().
-Date: Fri, 19 Jan 2007 13:26:40 +0900 (JST)
-Message-ID: <20070119.132640.107067447.yoshfuji@linux-ipv6.org>
-References: <20070117105006.GV8693@postel.suug.ch>
-	<45AE1792.1010002@trash.net>
-	<20070119.013108.465780507.takamiya@linux-ipv6.org>
+From: Suparna Bhattacharya <suparna@in.ibm.com>
+Subject: Re: [take33 10/10] kevent: Kevent based AIO (aio_sendfile()/aio_sendfile_path()).
+Date: Fri, 19 Jan 2007 11:57:00 +0530
+Message-ID: <20070119062700.GA14705@in.ibm.com>
+References: <11690154353959@2ka.mipt.ru> <11690154352501@2ka.mipt.ru> <20070117135142.GA24866@in.ibm.com> <20070117143950.GA19434@2ka.mipt.ru>
+Reply-To: suparna@in.ibm.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, tgraf@suug.ch, netdev@vger.kernel.org,
-	usagi-core@linux-ipv6.org, yoshfuji@linux-ipv6.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:46301 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964817AbXASEZf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jan 2007 23:25:35 -0500
-To: takamiya@linux-ipv6.org
-In-Reply-To: <20070119.013108.465780507.takamiya@linux-ipv6.org>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	Chase Venters <chase.venters@clientec.com>,
+	Johann Borck <johann.borck@densedata.com>,
+	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
+	Jamal Hadi Salim <hadi@cyberus.ca>,
+	Ingo Molnar <mingo@elte.hu>, linux-fsdevel@vger.kernel.org
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Content-Disposition: inline
+In-Reply-To: <20070117143950.GA19434@2ka.mipt.ru>
+Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In article <20070119.013108.465780507.takamiya@linux-ipv6.org> (at Fri, 19 Jan 2007 01:31:08 +0900 (JST)), Noriaki TAKAMIYA <takamiya@linux-ipv6.org> says:
-
-> >> Wed, 17 Jan 2007 13:33:22 +0100
-> >> [Subject: Re: [PATCH] [IPV6] fixed the size of the netlink message notified by inet6_rt_notify().]
-> >> Patrick McHardy <kaber@trash.net> wrote...
+On Wed, Jan 17, 2007 at 05:39:51PM +0300, Evgeniy Polyakov wrote:
+> On Wed, Jan 17, 2007 at 07:21:42PM +0530, Suparna Bhattacharya (suparna@in.ibm.com) wrote:
+> >
+> > Since you are implementing new APIs here, have you considered doing an
+> > aio_sendfilev to be able to send a header with the data ?
 > 
-> > Somewhat related: I have this patch for 2.6.21 to get rid of the
-> > BUG_ON()s.
+> It is doable, but why people do not like corking?
+> With Linux less than microsecond syscall overhead it is better and more
+> flexible solution, doesn't it?
+
+That is what I used to think as well. However ...
+
+The problem as I understand it now is not about bunching data together, but
+of ensuring some sort of atomicity between the header and the data, when
+there can be multiple outstanding aio requests on the same socket - i.e
+ensuring strict ordering without other data coming in between, when data
+to be sent is not already in cache, and in the meantime another sendfile
+or aio write requests comes in for the same socket. Without having to lock
+the socket when reading data from disk.
+
+There are alternate ways to address this, aio_sendfilev is one of the options
+I have heard people requesting.
+
+Regards
+Suparna
+
 > 
->   I think the problem is the return value of inet6_rt_notify() is less
->   than expected.
+> I'm not saying - 'no, there will not be any *v variants', just getting
+> more info.
+> 
+> > Regards
+> > Suparna
+> 
+> --
+> 	Evgeniy Polyakov
 
-I guess Patrick meant that using "BUG_ON()" would be an overkill.
+-- 
+Suparna Bhattacharya (suparna@in.ibm.com)
+Linux Technology Center
+IBM Software Lab, India
 
---yoshfuji
