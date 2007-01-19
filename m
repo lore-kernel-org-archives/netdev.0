@@ -1,74 +1,61 @@
-From: Pekka Pietikainen <pp@ee.oulu.fi>
-Subject: Re: TKIP encryption should allocate enough tailroom
-Date: Fri, 19 Jan 2007 14:23:23 +0200
-Message-ID: <20070119122323.GA32747@ee.oulu.fi>
-References: <87bqky759v.fsf@ten22.rhodesmill.org> <87mz4h61p0.fsf@ten22.rhodesmill.org> <20070118131631.GA24622@ee.oulu.fi> <87hcuo30di.fsf@ten22.rhodesmill.org>
+From: Daniele Lacamera <netdev@danielinux.net>
+Subject: [ANNOUNCE] FYI: MultiTCP for linux-2.6.19
+Date: Fri, 19 Jan 2007 13:15:06 +0100
+Message-ID: <1169208906.2266.44.camel@inspiron>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ee.oulu.fi ([130.231.61.23]:37344 "EHLO ee.oulu.fi"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965081AbXASMXa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Jan 2007 07:23:30 -0500
-To: Brandon Craig Rhodes <brandon@rhodesmill.org>
-Content-Disposition: inline
-In-Reply-To: <87hcuo30di.fsf@ten22.rhodesmill.org>
+Received: from danielinux.vm.bytemark.co.uk ([80.68.95.85]:1618 "EHLO
+	mail.danielinux.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965099AbXASMiB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jan 2007 07:38:01 -0500
+To: "Xiaoliang (David) Wei" <davidwei79@gmail.com>,
+	Giovanni Pau <gpau@cs.ucla.edu>,
+	Carlo Caini <ccaini@deis.unibo.it>,
+	Rosario Firrincieli <rfirrincieli@arces.unibo.it>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 18, 2007 at 08:55:37AM -0500, Brandon Craig Rhodes wrote:
-> to debugging messages!  In some circumstances, debug messages are
-> always produced; in several others, net_ratelimit() is called to
-> decided whether to print an error (but why in these cases and not
-> others?); and in many cases, nothing is printed at all (is this
-> because convention would dictate that the caller discover the error
-> and print something out?).
-> 
-> If I want to generate a patch that festoons the ieee80211 functions
-> with informative error messages, what are the guidelines?
-My understanding is:
+MultiTCP[1] is (yet another) Linux TCP patch intended for
+researchers/developers, which can report TCP events in the kernel logs
+in order to watch TCP internal variables.
 
-BUG_ON() / BUG() if it's a clear "impossible" condition ("function calling
-me was wrong") null pointers/buffer lengths being inconsistent. Might even be
-justified in this case? 
+Furthermore, it includes TCP Pacing and Hoe's initial ssthresh
+estimation[2]. Their use in satellite links is strongly recommended by
+the TCP-Hybla authors in order to mitigate congestion episodes and limit
+the initial cwnd overshoot phenomenon respectively.
 
-net_ratelimit() says:
-/*
- * All net warning printk()s should be guarded by this function.
- */
-int net_ratelimit(void)
-{
-        return __printk_ratelimit(net_msg_cost, net_msg_burst);
-}
+A new version for linux-2.6.19 has been released at
+http://www.sf.net/projects/multitcp/
 
-Especially important if the code path can be triggered by anyone (local user
-or arbitrary packet from the network). Otherwise not that big a deal if it's
-buggy code elsewhere in the kernel that causes the message to be printed.
-You fix the code and you stop getting thousands of lines of debug
-messages/second (which is why net_ratelimit() exists).
+Hybla's authors future goal would be to produce official patches for
+both Pacing and initial ssthresh estimation, by freeing the latter one
+implementation from the TCP kernel logs engine and getting the current
+tcp_sock structure slimmer.
 
-If it's an arbitrary packet from the network, there probably should even
-be a sysctl to enable/disable debug output completely. IPv4 has:
+Meanwhile, we will appreciate if the comparative tests made on Linux
+congestion control will include the two algorithms described above when
+using TCP-Hybla.
 
-static void ip_handle_martian_source(struct net_device *dev,
-                                     struct in_device *in_dev,
-                                     struct sk_buff *skb,
-                                     __be32 daddr,
-                                     __be32 saddr)
-{
-        RT_CACHE_STAT_INC(in_martian_src);
-#ifdef CONFIG_IP_ROUTE_VERBOSE
-        if (IN_DEV_LOG_MARTIANS(in_dev) && net_ratelimit()) {
-                /*
-                 *      RFC1812 recommendation, if source is martian,
-                 *      the only hint is MAC header.
-                 */
-                printk(KERN_WARNING "martian source %u.%u.%u.%u from "
-                        "%u.%u.%u.%u, on dev %s\n",
-                        NIPQUAD(daddr), NIPQUAD(saddr), dev->name);
-...
+[1]
+C. Caini, R. Firrincieli and D. Lacamera, "A Linux Based Multi TCP
+Implementation for Experimental Evaluation of TCP Enhancements", SPECTS
+2005, Philadelphia, July 2005.
 
-(so there's a #ifdef _and_ a log_martians sysctl to see debug output).
-In general #ifdefs should be avoided.
+C. Caini, R. Firrincieli, D. Lacamera, "An emulation approach for the
+evaluation of enhanced transport protocols performance in satellite
+networks", IEEE Globecom 2006 - Satellite and Space Communications, 27
+November-1 December 2006, San Francisco, CA, USA.
+
+[2]
+J. C. Hoe, "Improving the Start-up Behavior of a Congestion Control
+Scheme for TCP", ACM SIGCOMM 1996, pp. 270-280
+
+
+Regards,
+
+-- 
+Daniele Lacamera
 
