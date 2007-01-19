@@ -1,56 +1,68 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: [PATCH] tcp_output: Re: rare bad TCP checksum with 2.6.19?
-Date: Fri, 19 Jan 2007 15:32:28 +0100
-Message-ID: <20070119143228.GB3424@ff.dom.local>
-References: <20070119110641.GA3135@ff.dom.local> <45B0B63C.3080201@trash.net>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: Re: Kernel headers - linux-atm userspace build broken by recent change; __be16 undefined
+Date: Fri, 19 Jan 2007 15:37:25 +0100
+Message-ID: <20070119143724.GN9093@stusta.de>
+References: <45AFE52C.30308@walrond.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Michael Tokarev <mjt@tls.msk.ru>, netdev@vger.kernel.org,
-	Herbert Xu <herbert@gondor.apana.org.au>
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	David Woodhouse <dwmw2@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from poczta.o2.pl ([193.17.41.142]:34818 "EHLO poczta.o2.pl"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S965040AbXASOaP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Jan 2007 09:30:15 -0500
-To: Patrick McHardy <kaber@trash.net>
+Received: from mailout.stusta.mhn.de ([141.84.69.5]:2237 "HELO
+	mailout.stusta.mhn.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S965161AbXASOhT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Jan 2007 09:37:19 -0500
+To: Andrew Walrond <andrew@walrond.org>
 Content-Disposition: inline
-In-Reply-To: <45B0B63C.3080201@trash.net>
+In-Reply-To: <45AFE52C.30308@walrond.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jan 19, 2007 at 01:14:52PM +0100, Patrick McHardy wrote:
-> Jarek Poplawski wrote:
-> > Here is my patch proposal. If I'm not totally wrong,
-> > there is a possibility that, during collapsing, empty
-> > skb with FIN is added to "normal" packet and changes
-> > its ip_summed field to CHECKSUM_NONE.
-> > 
-> > diff -Nurp linux-2.6.19-/net/ipv4/tcp_output.c linux-2.6.19/net/ipv4/tcp_output.c
-> > --- linux-2.6.19-/net/ipv4/tcp_output.c	2006-11-29 22:57:37.000000000 +0100
-> > +++ linux-2.6.19/net/ipv4/tcp_output.c	2007-01-19 07:58:39.000000000 +0100
-> > @@ -1590,7 +1590,8 @@ static void tcp_retrans_try_collapse(str
-> >  
-> >  		memcpy(skb_put(skb, next_skb_size), next_skb->data, next_skb_size);
-> >  
-> > -		skb->ip_summed = next_skb->ip_summed;
-> > +		if (next_skb->ip_summed == CHECKSUM_PARTIAL)
-> > +			skb->ip_summed = CHECKSUM_PARTIAL;
-> >  
-> >  		if (skb->ip_summed != CHECKSUM_PARTIAL)
-> >  			skb->csum = csum_block_add(skb->csum, next_skb->csum, skb_size);
-> > 
+On Thu, Jan 18, 2007 at 09:22:52PM +0000, Andrew Walrond wrote:
+> Don't know exactly when this change went in, but it's not in 2.6.18.3 
+> and is in 2.6.19.2+
 > 
-> I noticed this too, but I can't see how it could lead to
-> a partial checksum on the wire since the checksumming is
-> done after changing ip_summed to CHECKSUM_NONE. Is this
-> patch verified to fix Michael's problem?
+>  $ diff linux/include/linux/if_arp.h linux-2.6/include/linux/if_arp.h
+> 133,134c133,134
+> <       unsigned short  ar_hrd;         /* format of hardware address   */
+> <       unsigned short  ar_pro;         /* format of protocol address   */
+> ---
+> >       __be16          ar_hrd;         /* format of hardware address   */
+> >       __be16          ar_pro;         /* format of protocol address   */
+> 137c137
+> <       unsigned short  ar_op;          /* ARP opcode (command)         */
+> ---
+> >       __be16          ar_op;          /* ARP opcode (command)         */
+> 
+> 
+> This causes the linux-atm userspace compile to fail like this:
+> 
+> In file included from arp.c:19:
+> /usr/include/linux/if_arp.h:133: error: expected 
+> specifier-qualifier-list before '__be16'
+> 
+> I guess if_arp.h needs to include include/linux/byteorder/big_endian.h?
 
-No, this was intended as a proposal for testing.
-I didn't verify all the checksum path here, but I
-guessed such change during the summing could matter
-(probably for skb_copy_and_csum_dev and maybe earlier)
-and I couldn't find more suspicious change since 2.6.17
-near this FINs. But if it really works, it shoudn't be
-so hard to verify the mechanism, I hope.
+No, linux/types.h
 
-Jarek P.
+But what bothers me more about if_arp.h is that it is one of the
+headers using "struct sockaddr" in userspace, but as far as I can see we 
+aren't exporting it in any header.
+
+This seems to work since glibc is providing the struct, but this looks 
+a bit fishy.
+
+> Andrew Walrond
+
+cu
+Adrian
+
+-- 
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
+
