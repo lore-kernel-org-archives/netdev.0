@@ -1,64 +1,129 @@
 From: dlezcano@fr.ibm.com
-Subject: [patch 12/12] net namespace : Add broadcasting
-Date: Fri, 19 Jan 2007 16:47:26 +0100
-Message-ID: <20070119155406.351528195@localhost.localdomain>
+Subject: [patch 10/12] net namespace : add the loopback isolation
+Date: Fri, 19 Jan 2007 16:47:24 +0100
+Message-ID: <20070119155402.324984972@localhost.localdomain>
 References: <20070119154714.439706567@localhost.localdomain>
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from AToulouse-252-1-85-33.w86-201.abo.wanadoo.fr ([86.201.99.33]:56627
 	"EHLO localhost.localdomain" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S932792AbXASQkp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jan 2007 11:40:45 -0500
+	by vger.kernel.org with ESMTP id S932792AbXASQlA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jan 2007 11:41:00 -0500
 To: containers@lists.osdl.org
-Content-Disposition: inline; filename=net-namespace-l3-broadcasting.patch
+Content-Disposition: inline; filename=net-namespace-l3-ipv4-loopback-isolation.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Daniel Lezcano <dlezcano@fr.ibm.com>
 
-Broadcast packets should be delivered to l2 and all l3 childs
+When a packet is outgoing, the namespace source is stored
+into the skbuff. Because it is the loopback address, the
+source == destination, so when the packet is incoming, it
+has already the namespace destination set into the packet.
 
 Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
 
 ---
- include/linux/net_namespace.h |   11 +++++++++++
- net/core/net_namespace.c      |   27 +++++++++++++++++++++++++++
- net/ipv4/udp.c                |    3 ++-
- 3 files changed, 40 insertions(+), 1 deletion(-)
+ include/linux/net_namespace.h |   13 +++++++++++--
+ include/linux/skbuff.h        |    5 ++++-
+ net/core/net_namespace.c      |   32 +++++++++++++++++++++++++++-----
+ net/ipv4/ip_input.c           |    2 +-
+ net/ipv4/ip_output.c          |    1 +
+ 5 files changed, 44 insertions(+), 9 deletions(-)
 
+Index: 2.6.20-rc4-mm1/include/linux/skbuff.h
+===================================================================
+--- 2.6.20-rc4-mm1.orig/include/linux/skbuff.h
++++ 2.6.20-rc4-mm1/include/linux/skbuff.h
+@@ -225,6 +225,7 @@
+  *	@dma_cookie: a cookie to one of several possible DMA operations
+  *		done by skb DMA functions
+  *	@secmark: security marking
++ *      @net_ns: namespace destination
+  */
+ 
+ struct sk_buff {
+@@ -309,7 +310,9 @@
+ #ifdef CONFIG_NETWORK_SECMARK
+ 	__u32			secmark;
+ #endif
+-
++#ifdef CONFIG_NET_NS
++ 	struct net_namespace    *net_ns;
++#endif
+ 	__u32			mark;
+ 
+ 	/* These elements must be at the end, see alloc_skb() for details.  */
+Index: 2.6.20-rc4-mm1/net/ipv4/ip_input.c
+===================================================================
+--- 2.6.20-rc4-mm1.orig/net/ipv4/ip_input.c
++++ 2.6.20-rc4-mm1/net/ipv4/ip_input.c
+@@ -396,7 +396,7 @@
+ 
+ 	iph = skb->nh.iph;
+ 
+-	dst_net_ns = net_ns_find_from_dest_addr(iph->daddr);
++	dst_net_ns = net_ns_find_from_dest_addr(skb);
+ 	if (dst_net_ns && !net_ns_match(net_ns, dst_net_ns))
+ 		push_net_ns(dst_net_ns);
+ 	/*
+Index: 2.6.20-rc4-mm1/net/ipv4/ip_output.c
+===================================================================
+--- 2.6.20-rc4-mm1.orig/net/ipv4/ip_output.c
++++ 2.6.20-rc4-mm1/net/ipv4/ip_output.c
+@@ -272,6 +272,7 @@
+ 
+ 	IP_INC_STATS(IPSTATS_MIB_OUTREQUESTS);
+ 
++	net_ns_tag_sk_buff(skb);
+ 	skb->dev = dev;
+ 	skb->protocol = htons(ETH_P_IP);
+ 
 Index: 2.6.20-rc4-mm1/include/linux/net_namespace.h
 ===================================================================
 --- 2.6.20-rc4-mm1.orig/include/linux/net_namespace.h
 +++ 2.6.20-rc4-mm1/include/linux/net_namespace.h
-@@ -9,6 +9,7 @@
+@@ -8,6 +8,7 @@
+ #include <linux/types.h>
  
  struct in_ifaddr;
- struct sk_buff;
-+struct sock;
++struct sk_buff;
  
  struct net_namespace {
  	struct kref		kref;
-@@ -109,6 +110,9 @@
+@@ -101,10 +102,13 @@
+ extern __be32 net_ns_select_source_address(const struct net_device *dev,
+ 					   u32 dst, int scope);
  
- extern void net_ns_tag_sk_buff(struct sk_buff *skb);
+-extern struct net_namespace *net_ns_find_from_dest_addr(u32 daddr);
++extern struct net_namespace
++*net_ns_find_from_dest_addr(const struct sk_buff *skb);
  
-+extern int net_ns_sock_is_visible(const struct sock *sk,
-+				  const struct net_namespace *net_ns);
+ extern int net_ns_ifa_is_visible(const struct in_ifaddr *ifa);
+ 
++extern void net_ns_tag_sk_buff(struct sk_buff *skb);
 +
  #define SELECT_SRC_ADDR net_ns_select_source_address
  
  #else /* CONFIG_NET_NS */
-@@ -192,6 +196,13 @@
- {
- 	;
+@@ -173,7 +177,8 @@
+ 	return 0;
  }
-+
-+static inline int net_ns_sock_is_visible(const struct sock *sk,
-+ 					 const struct net_namespace *net_ns)
+ 
+-static inline struct net_namespace *net_ns_find_from_dest_addr(u32 daddr)
++static inline struct net_namespace
++*net_ns_find_from_dest_addr(const struct sk_buff *skb)
+ {
+ 	return NULL;
+ }
+@@ -183,6 +188,10 @@
+ 	return 1;
+ }
+ 
++static inline void net_ns_tag_sk_buff(struct sk_buff *skb)
 +{
-+ 	return 1;
++	;
 +}
-+
  #define SELECT_SRC_ADDR inet_select_addr
  
  #endif /* !CONFIG_NET_NS */
@@ -66,60 +131,63 @@ Index: 2.6.20-rc4-mm1/net/core/net_namespace.c
 ===================================================================
 --- 2.6.20-rc4-mm1.orig/net/core/net_namespace.c
 +++ 2.6.20-rc4-mm1/net/core/net_namespace.c
-@@ -17,6 +17,7 @@
- #include <linux/ip.h>
- 
+@@ -13,6 +13,9 @@
+ #include <linux/in.h>
+ #include <linux/netdevice.h>
+ #include <linux/inetdevice.h>
++#include <linux/skbuff.h>
++#include <linux/ip.h>
++
  #include <net/ip_fib.h>
-+#include <net/sock.h>
  
  struct net_namespace init_net_ns = {
- 	.kref = {
-@@ -464,4 +465,30 @@
- 	struct net_namespace *net_ns = current_net_ns;
- 	skb->net_ns = net_ns;
+@@ -389,18 +392,25 @@
+ /*
+  * This function finds the network namespace destination deduced from
+  * the destination address. The network namespace is retrieved from
+- * the ifaddr owned by a network namespace
+- * @daddr  : destination
++ * the ifaddr owned by a network namespace. If the packet is for the
++ * loopback address so we assume the destination address is already filled
++ * by the sender which is the same as the receiver.
++ * @skb : the packet to be delivered
+  * Returns : the network namespace destination or NULL if not found
+  */
+-struct net_namespace *net_ns_find_from_dest_addr(u32 daddr)
++struct net_namespace *net_ns_find_from_dest_addr(const struct sk_buff *skb)
+ {
+ 	struct net_namespace *net_ns = NULL;
+ 	struct net_device *dev;
+ 	struct in_device *in_dev;
++  	struct iphdr *iph;
++  	__be32 daddr;
++
++  	iph = skb->nh.iph;
++  	daddr = iph->daddr;
+ 
+-	if (LOOPBACK(daddr))
+-		return current_net_ns;
++   	if (LOOPBACK(daddr))
++  		return skb->net_ns;
+ 
+ 	read_lock(&dev_base_lock);
+ 	rcu_read_lock();
+@@ -442,4 +452,16 @@
+  	return 0;
  }
-+
+ 
 +/*
-+ * This function checks if the socket is visible from the specified
-+ * namespace. This is needed to ensure the broadcast and the multicast
-+ * for multiple network namespace l2 and l3 to have the packets to be
-+ * delivered. If we have a l3 namespace and its parent (l2 namespace)
-+ * listening on a broadcast address, we should deliver the packet to
-+ * both. That is done by the udp_v4_mcast_next function. But we should
-+ * find a common point between sockets which are relatives to a
-+ * namespace.  The common point is they have the same parent in case
-+ * of l3 network namespace.
-+ * @sk : the socket to be checked
-+ * @net_ns : the receiving network namespace
-+ * Returns: 1 if the socket is visible by the namespace, 0 otherwise.
++ * This function allows to isolation the loopback. Because we are
++ * using the 127.0.0.1, we assume the source network namespace is
++ * the same as the destination network namespace. So setting the
++ * source, we have directly the destination when receiving the packet
++ * @skb : the packet to be tagged with the network namespace
 + */
-+int net_ns_sock_is_visible(const struct sock *sk,
-+			   const struct net_namespace *net_ns)
++void net_ns_tag_sk_buff(struct sk_buff *skb)
 +{
-+	if (net_ns->level == NET_NS_LEVEL3)
-+		net_ns = net_ns->parent;
-+
-+	if (sk->sk_net_ns->level == NET_NS_LEVEL3)
-+		return sk->sk_net_ns->parent == net_ns;
-+	else
-+		return sk->sk_net_ns == net_ns;
++	struct net_namespace *net_ns = current_net_ns;
++	skb->net_ns = net_ns;
 +}
  #endif /* CONFIG_NET_NS */
-Index: 2.6.20-rc4-mm1/net/ipv4/udp.c
-===================================================================
---- 2.6.20-rc4-mm1.orig/net/ipv4/udp.c
-+++ 2.6.20-rc4-mm1/net/ipv4/udp.c
-@@ -309,9 +309,10 @@
- 		    (inet->dport != rmt_port && inet->dport)		||
- 		    (inet->rcv_saddr && inet->rcv_saddr != loc_addr)	||
- 		    ipv6_only_sock(s)					||
--		    !net_ns_match(sk->sk_net_ns, ns)			||
- 		    (s->sk_bound_dev_if && s->sk_bound_dev_if != dif))
- 			continue;
-+		if (!net_ns_sock_is_visible(sk, ns))
-+			continue;
- 		if (!ip_mc_sf_allow(s, loc_addr, rmt_addr, dif))
- 			continue;
- 		goto found;
 
 -- 
