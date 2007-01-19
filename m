@@ -1,46 +1,47 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] tcp_output: Re: rare bad TCP checksum with 2.6.19?
-Date: Fri, 19 Jan 2007 13:14:52 +0100
-Message-ID: <45B0B63C.3080201@trash.net>
-References: <20070119110641.GA3135@ff.dom.local>
+Subject: Re: [PATCH REPOST	1/2]	NET:	Accurate	packet	scheduling	for	ATM/ADSL
+ (kernel)
+Date: Fri, 19 Jan 2007 13:19:16 +0100
+Message-ID: <45B0B744.7070800@trash.net>
+References: <1161041677.6247.1.camel@ras.pc.brisbane.lube>	 <1161090444.5555.13.camel@jzny2>  <45378DE3.8080700@trash.net>	 <1161602527.5502.155.camel@ras.pc.stuart.local>	 <453CB801.4010902@trash.net>	 <1161640444.5502.214.camel@ras.pc.stuart.local> <453E3CFC.80007@trash.net>	 <1161733596.3829.91.camel@ras.pc.brisbane.lube>	 <456ED79E.2070707@trash.net> <1169075223.7560.15.camel@ras>	 <45AEF219.2060304@trash.net> <1169100970.21535.18.camel@ras>	 <45AF5C02.1010005@trash.net> <1169176280.1118.8.camel@ras>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: Michael Tokarev <mjt@tls.msk.ru>, netdev@vger.kernel.org,
-	Herbert Xu <herbert@gondor.apana.org.au>
+Cc: hadi@cyberus.ca, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:59888 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:60004 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965087AbXASMOy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jan 2007 07:14:54 -0500
-To: Jarek Poplawski <jarkao2@o2.pl>
-In-Reply-To: <20070119110641.GA3135@ff.dom.local>
+	with ESMTP id S965094AbXASMTR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jan 2007 07:19:17 -0500
+To: Russell Stuart <russell-tcatm@stuart.id.au>
+In-Reply-To: <1169176280.1118.8.camel@ras>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jarek Poplawski wrote:
-> Here is my patch proposal. If I'm not totally wrong,
-> there is a possibility that, during collapsing, empty
-> skb with FIN is added to "normal" packet and changes
-> its ip_summed field to CHECKSUM_NONE.
+Russell Stuart wrote:
+> On Thu, 2007-01-18 at 12:37 +0100, Patrick McHardy wrote:
 > 
-> diff -Nurp linux-2.6.19-/net/ipv4/tcp_output.c linux-2.6.19/net/ipv4/tcp_output.c
-> --- linux-2.6.19-/net/ipv4/tcp_output.c	2006-11-29 22:57:37.000000000 +0100
-> +++ linux-2.6.19/net/ipv4/tcp_output.c	2007-01-19 07:58:39.000000000 +0100
-> @@ -1590,7 +1590,8 @@ static void tcp_retrans_try_collapse(str
->  
->  		memcpy(skb_put(skb, next_skb_size), next_skb->data, next_skb_size);
->  
-> -		skb->ip_summed = next_skb->ip_summed;
-> +		if (next_skb->ip_summed == CHECKSUM_PARTIAL)
-> +			skb->ip_summed = CHECKSUM_PARTIAL;
->  
->  		if (skb->ip_summed != CHECKSUM_PARTIAL)
->  			skb->csum = csum_block_add(skb->csum, next_skb->csum, skb_size);
+>>>Or are you proposing tc behave differently on different
+>>>kernel versions.  (I have no problem with that, but
+>>>isn't it officially frowned upon?)
+>>
+>>Yes. There is no way you can make this work on old kernels,
+>>nobody expects that. The important part is that everything
+>>continues to work as before and that both old and new iproute
+>>binaries work properly on both old and new kernels (new
+>>iproute on old kernels without STABs obviously).
 > 
+> 
+> I thought that some degree of compatibility was 
+> expected.  At the very least the newest version 
+> of "tc" must work on _any_ kernel as least as 
+> well as the version it replaces did.
+> 
+> I also though newer kernels should work older
+> version of iproute2, albeit without the features
+> added in the newer versions.
+> 
+> Are you saying this is not so?
 
-I noticed this too, but I can't see how it could lead to
-a partial checksum on the wire since the checksumming is
-done after changing ip_summed to CHECKSUM_NONE. Is this
-patch verified to fix Michael's problem?
-
+No, thats exactly what I'm saying.
