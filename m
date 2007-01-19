@@ -1,72 +1,56 @@
-From: Steve Wise <swise@opengridcomputing.com>
-Subject: [Fwd: Re: [PATCH 1/10] cxgb3 - main header files]
-Date: Fri, 19 Jan 2007 08:28:16 -0600
-Message-ID: <1169216896.15842.6.camel@stevo-desktop>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: [PATCH] tcp_output: Re: rare bad TCP checksum with 2.6.19?
+Date: Fri, 19 Jan 2007 15:32:28 +0100
+Message-ID: <20070119143228.GB3424@ff.dom.local>
+References: <20070119110641.GA3135@ff.dom.local> <45B0B63C.3080201@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: openib-general <openib-general@openib.org>, netdev@vger.kernel.org,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Michael Tokarev <mjt@tls.msk.ru>, netdev@vger.kernel.org,
+	Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rrcs-24-153-217-226.sw.biz.rr.com ([24.153.217.226]:54161 "EHLO
-	smtp.opengridcomputing.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S965040AbXASO2Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jan 2007 09:28:16 -0500
-To: Roland Dreier <rdreier@cisco.com>
+Received: from poczta.o2.pl ([193.17.41.142]:34818 "EHLO poczta.o2.pl"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S965040AbXASOaP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Jan 2007 09:30:15 -0500
+To: Patrick McHardy <kaber@trash.net>
+Content-Disposition: inline
+In-Reply-To: <45B0B63C.3080201@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hey Roland, 
-
-Jeff has pulled in the Chelsio Ethernet driver.  If you are ready to
-merge in the RDMA driver, you can pull it from 
-
-git://staging.openfabrics.org/~swise/cxgb3.git for-roland
-
-Thanks,
-
-Steve.
-
-
--------- Forwarded Message --------
-From: Jeff Garzik <jeff@garzik.org>
-To: Divy Le Ray <divy@chelsio.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-swise@opengridcomputing.com
-Subject: Re: [PATCH 1/10] cxgb3 - main header files
-Date: Thu, 18 Jan 2007 22:05:02 -0500
-
-Divy Le Ray wrote:
-> Jeff Garzik wrote:
->> Divy Le Ray wrote:
->>> From: Divy Le Ray <divy@chelsio.com>
->>>
->>> This patch implements the main header files of
->>> the Chelsio T3 network driver.
->>>
->>> Signed-off-by: Divy Le Ray <divy@chelsio.com>
->>
->> Once you think it's ready, email me a URL to a single patch that adds 
->> the driver to the latest linux-2.6.git kernel.  Include in the email a 
->> description of the driver and signed-off-by line, which will get 
->> directly included in the git changelog.
->>
->> Adding new drivers is a bit special, because we want to merge it as a 
->> single changeset, but that would create a patch too large to review on 
->> the common kernel mailing lists.
-> Jeff,
+On Fri, Jan 19, 2007 at 01:14:52PM +0100, Patrick McHardy wrote:
+> Jarek Poplawski wrote:
+> > Here is my patch proposal. If I'm not totally wrong,
+> > there is a possibility that, during collapsing, empty
+> > skb with FIN is added to "normal" packet and changes
+> > its ip_summed field to CHECKSUM_NONE.
+> > 
+> > diff -Nurp linux-2.6.19-/net/ipv4/tcp_output.c linux-2.6.19/net/ipv4/tcp_output.c
+> > --- linux-2.6.19-/net/ipv4/tcp_output.c	2006-11-29 22:57:37.000000000 +0100
+> > +++ linux-2.6.19/net/ipv4/tcp_output.c	2007-01-19 07:58:39.000000000 +0100
+> > @@ -1590,7 +1590,8 @@ static void tcp_retrans_try_collapse(str
+> >  
+> >  		memcpy(skb_put(skb, next_skb_size), next_skb->data, next_skb_size);
+> >  
+> > -		skb->ip_summed = next_skb->ip_summed;
+> > +		if (next_skb->ip_summed == CHECKSUM_PARTIAL)
+> > +			skb->ip_summed = CHECKSUM_PARTIAL;
+> >  
+> >  		if (skb->ip_summed != CHECKSUM_PARTIAL)
+> >  			skb->csum = csum_block_add(skb->csum, next_skb->csum, skb_size);
+> > 
 > 
-> You can grab the monolithic patch at this URL:
-> http://service.chelsio.com/kernel.org/cxgb3.patch.bz2
+> I noticed this too, but I can't see how it could lead to
+> a partial checksum on the wire since the checksumming is
+> done after changing ip_summed to CHECKSUM_NONE. Is this
+> patch verified to fix Michael's problem?
 
-applied to netdev-2.6.git#upstream
+No, this was intended as a proposal for testing.
+I didn't verify all the checksum path here, but I
+guessed such change during the summing could matter
+(probably for skb_copy_and_csum_dev and maybe earlier)
+and I couldn't find more suspicious change since 2.6.17
+near this FINs. But if it really works, it shoudn't be
+so hard to verify the mechanism, I hope.
 
-I'm really counting on Chelsio to actively maintain this driver, unlike 
-the abandonware you guys first submitted.
-
-	Jeff
-
-
-
-
+Jarek P.
