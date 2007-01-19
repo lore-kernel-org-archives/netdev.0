@@ -1,37 +1,53 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: Please pull 'upstream' branch of wireless-2.6
-Date: Thu, 18 Jan 2007 22:10:47 -0500
-Message-ID: <45B036B7.8080904@garzik.org>
-References: <20070118154801.GB31580@tuxdriver.com> <20070118154906.GC31580@tuxdriver.com>
+From: Russell Stuart <russell-tcatm@stuart.id.au>
+Subject: Re: [PATCH REPOST
+	1/2]	NET:	Accurate	packet	scheduling	for	ATM/ADSL (kernel)
+Date: Fri, 19 Jan 2007 13:11:19 +1000
+Message-ID: <1169176280.1118.8.camel@ras>
+References: <1161041677.6247.1.camel@ras.pc.brisbane.lube>
+	 <1161090444.5555.13.camel@jzny2>  <45378DE3.8080700@trash.net>
+	 <1161602527.5502.155.camel@ras.pc.stuart.local>
+	 <453CB801.4010902@trash.net>
+	 <1161640444.5502.214.camel@ras.pc.stuart.local> <453E3CFC.80007@trash.net>
+	 <1161733596.3829.91.camel@ras.pc.brisbane.lube>
+	 <456ED79E.2070707@trash.net> <1169075223.7560.15.camel@ras>
+	 <45AEF219.2060304@trash.net> <1169100970.21535.18.camel@ras>
+	 <45AF5C02.1010005@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: hadi@cyberus.ca, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:47769 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S964784AbXASDKv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Jan 2007 22:10:51 -0500
-To: "John W. Linville" <linville@tuxdriver.com>
-In-Reply-To: <20070118154906.GC31580@tuxdriver.com>
+Received: from 58.105.229.78.optusnet.com.au ([58.105.229.78]:34708 "EHLO
+	adsl-kenny.stuart.id.au" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S964786AbXASDLj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jan 2007 22:11:39 -0500
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <45AF5C02.1010005@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-John W. Linville wrote:
-> The following changes since commit 10764889c6355cbb335cf0578ce12427475d1a65:
->   Larry Finger (1):
->         bcm43xx: Fix failure to deliver PCI-E interrupts
+On Thu, 2007-01-18 at 12:37 +0100, Patrick McHardy wrote:
+> > Or are you proposing tc behave differently on different
+> > kernel versions.  (I have no problem with that, but
+> > isn't it officially frowned upon?)
 > 
-> are found in the git repository at:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git upstream
+> Yes. There is no way you can make this work on old kernels,
+> nobody expects that. The important part is that everything
+> continues to work as before and that both old and new iproute
+> binaries work properly on both old and new kernels (new
+> iproute on old kernels without STABs obviously).
 
-ACK.  Open question of parentage, though:  I just rebased 
-netdev-2.6.git#upstream.  Is your wireless-2.6 affected by this rebase?
+I thought that some degree of compatibility was 
+expected.  At the very least the newest version 
+of "tc" must work on _any_ kernel as least as 
+well as the version it replaces did.
 
-If not, I will go ahead and pull.
+I also though newer kernels should work older
+version of iproute2, albeit without the features
+added in the newer versions.
 
-	Jeff
+Are you saying this is not so?
 
 
 
