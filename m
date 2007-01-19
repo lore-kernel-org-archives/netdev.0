@@ -1,48 +1,67 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: Please pull 'upstream' branch of wireless-2.6
-Date: Fri, 19 Jan 2007 03:42:14 -0500
-Message-ID: <20070119084214.GG31580@tuxdriver.com>
-References: <20070118154801.GB31580@tuxdriver.com> <20070118154906.GC31580@tuxdriver.com> <45B036B7.8080904@garzik.org>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [take33 10/10] kevent: Kevent based AIO (aio_sendfile()/aio_sendfile_path()).
+Date: Fri, 19 Jan 2007 12:23:43 +0300
+Message-ID: <20070119092343.GA14605@2ka.mipt.ru>
+References: <11690154353959@2ka.mipt.ru> <11690154352501@2ka.mipt.ru> <20070117135142.GA24866@in.ibm.com> <20070117143950.GA19434@2ka.mipt.ru> <20070119062700.GA14705@in.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:2648 "EHLO ra.tuxdriver.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S964983AbXASI4L (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Jan 2007 03:56:11 -0500
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain; charset=koi8-r
+Cc: David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	Chase Venters <chase.venters@clientec.com>,
+	Johann Borck <johann.borck@densedata.com>,
+	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
+	Jamal Hadi Salim <hadi@cyberus.ca>,
+	Ingo Molnar <mingo@elte.hu>, linux-fsdevel@vger.kernel.org
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+To: Suparna Bhattacharya <suparna@in.ibm.com>
 Content-Disposition: inline
-In-Reply-To: <45B036B7.8080904@garzik.org>
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <20070119062700.GA14705@in.ibm.com>
+Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 18, 2007 at 10:10:47PM -0500, Jeff Garzik wrote:
-> John W. Linville wrote:
-> >The following changes since commit 
-> >10764889c6355cbb335cf0578ce12427475d1a65:
-> >  Larry Finger (1):
-> >        bcm43xx: Fix failure to deliver PCI-E interrupts
-> >
-> >are found in the git repository at:
-> >
-> >  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git 
-> >  upstream
+On Fri, Jan 19, 2007 at 11:57:00AM +0530, Suparna Bhattacharya (suparna@in.ibm.com) wrote:
+> > > Since you are implementing new APIs here, have you considered doing an
+> > > aio_sendfilev to be able to send a header with the data ?
+> > 
+> > It is doable, but why people do not like corking?
+> > With Linux less than microsecond syscall overhead it is better and more
+> > flexible solution, doesn't it?
 > 
-> ACK.  Open question of parentage, though:  I just rebased 
-> netdev-2.6.git#upstream.  Is your wireless-2.6 affected by this rebase?
+> That is what I used to think as well. However ...
 > 
-> If not, I will go ahead and pull.
+> The problem as I understand it now is not about bunching data together, but
+> of ensuring some sort of atomicity between the header and the data, when
+> there can be multiple outstanding aio requests on the same socket - i.e
+> ensuring strict ordering without other data coming in between, when data
+> to be sent is not already in cache, and in the meantime another sendfile
+> or aio write requests comes in for the same socket. Without having to lock
+> the socket when reading data from disk.
 
-Right now it looks like this:
+No, socket locking is not solution at all here.
+But the same applies to header - it will be copied into socket queue,
+then socket will be unlocked and populated VFS data will be put into
+that queue too, but there is a window between socket unlock after header
+copy and file data copy. If we will hold socket lock after header is
+copied, it is possible to lock it for too long - bad sectors on disk,
+and reading might take forever.
 
-	Linus's tree -> my upstream-fixes branch -> my upstream branch
+> There are alternate ways to address this, aio_sendfilev is one of the options
+> I have heard people requesting.
 
-So, I think it should be fine for your you to pull.
+I bet those people worked with different Unix systems, which have much
+slower syscalls, so they combine several operations into one call.
 
-Thanks,
+Only from this perspective I see any benefit from having header in the
+syscall related to file transfer. Since I already "optimized" open()
+syscall into file sending, things can not became worse if I will put there
+header pointer too. I will schedule new kevent release with this change
+somewhere after current work on M-on-N threading model.
 
-John
+> Regards
+> Suparna
+
 -- 
-John W. Linville
-linville@tuxdriver.com
+	Evgeniy Polyakov
