@@ -1,131 +1,49 @@
-From: Marcelo Tosatti <marcelo@kvack.org>
-Subject: Re: [PATCH] Marvell Libertas 8388 802.11b/g USB driver (v2)
-Date: Sat, 20 Jan 2007 18:15:54 -0200
-Message-ID: <20070120201554.GC5037@dmt>
+From: Jens Osterkamp <jens@de.ibm.com>
+Subject: Re: [PATCH 0/4] spidernet: add support for Celleb
+Date: Sat, 20 Jan 2007 22:10:36 +0100
+Message-ID: <200701202210.36953.jens@de.ibm.com>
+References: <200701171000.l0HA0jnD021501@toshiba.co.jp> <1169081253.4965.35.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Dan Williams <dcbw@redhat.com>,
-	Marcelo Tosatti <marcelo@kvack.org>,
-	netdev <netdev@vger.kernel.org>, Jeff Garzik <jgarzik@pobox.com>,
-	"John W. Linville" <linville@redhat.com>,
-	"Luis R. Rodriguez" <mcgrof@gmail.com>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	Ishizaki Kou <kou.ishizaki@toshiba.co.jp>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kanga.kvack.org ([66.96.29.28]:44249 "EHLO kanga.kvack.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965368AbXATUTN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 20 Jan 2007 15:19:13 -0500
-To: Jiri Benc <jbenc@suse.cz>
+Received: from mtagate7.uk.ibm.com ([195.212.29.140]:10880 "EHLO
+	mtagate7.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965384AbXATVKp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Jan 2007 16:10:45 -0500
+Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
+	by mtagate7.uk.ibm.com (8.13.8/8.13.8) with ESMTP id l0KLAiCn117628
+	for <netdev@vger.kernel.org>; Sat, 20 Jan 2007 21:10:44 GMT
+Received: from d06av04.portsmouth.uk.ibm.com (d06av04.portsmouth.uk.ibm.com [9.149.37.216])
+	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v8.2) with ESMTP id l0KLAiss913478
+	for <netdev@vger.kernel.org>; Sat, 20 Jan 2007 21:10:44 GMT
+Received: from d06av04.portsmouth.uk.ibm.com (loopback [127.0.0.1])
+	by d06av04.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l0KLAhId031377
+	for <netdev@vger.kernel.org>; Sat, 20 Jan 2007 21:10:44 GMT
+To: linuxppc-dev@ozlabs.org
+In-Reply-To: <1169081253.4965.35.camel@localhost.localdomain>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Resending, apparently the first message got dropped somehow...
 
-From: Marcelo Tosatti <marcelo@kvack.org>
-Date: Thu, 18 Jan 2007 13:02:13 -0200
-To: Jiri Benc <jbenc@suse.cz>
-Cc: Dan Williams <dcbw@redhat.com>, Marcelo Tosatti <marcelo@kvack.org>,
-	netdev <netdev@vger.kernel.org>, Jeff Garzik <jgarzik@pobox.com>,
-	"John W. Linville" <linville@redhat.com>,
-	"Luis R. Rodriguez" <mcgrof@gmail.com>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
-In-Reply-To: <20070117164328.47ab60da@griffin.suse.cz>
-Subject: Re: [PATCH] Marvell Libertas 8388 802.11b/g USB driver (v2)
+> > This is a revised version of the patch set for spider_net driver
+> > that works on Toshiba Cell Refererence Set (aka Celleb).
+> >
+> > This patch set is based on netdev-2.6.git#upstream.
+>
+> Jens, can you give that a go on our blades see if it doesn't break
+> anything ? We are all at LCA here so it's a bit hard to test !
 
-Hi Jiri,
+Nope, doesn't work for us...
 
-On Wed, Jan 17, 2007 at 04:43:28PM +0100, Jiri Benc wrote:
-> On Wed, 17 Jan 2007 10:01:12 -0500, Dan Williams wrote:
-> > But could we please be constructive here, and actually take a look at
-> > the driver and point out problems?
-> 
-> Just from a quick glance:
-> 
-> - drivers/net/wireless/libertas/radiotap.h file with a lot of constants
->   already defined elsewhere (and not respecting kernel coding style,
->   either)
+I have a patch based on Ishizaki's previous patch which I think will work
+on Celleb. Will post it here when I have adapted it to the new version.
 
-Such as? The bit definitions (IEEE80211_RADIOTAP_F_{TX,RX}...) have been
-moved to include/net/ieee80211_radiotap.h in the second version of the
-patch. Is that what you were referring to?
+Jens
 
-As for kernel coding style in that file, can you specify what looks
-wrong? It appears alright to me.
 
-> - regulatory domain management (already in ieee80211, in progress for
->   d80211)
-> - the full authentication and association state machine (or am I
->   understanding it wrong?) 
-
-> And I'm omitting things like
-> 
-> > +/** Double-Word(32Bit) Bit definition */
-> > +#define DW_BIT_0	0x00000001
-> > +#define DW_BIT_1	0x00000002
-> > +#define DW_BIT_2	0x00000004
-> > +#define DW_BIT_3	0x00000008
-> > +#define DW_BIT_4	0x00000010
-> > +#define DW_BIT_5	0x00000020
-> > +#define DW_BIT_6	0x00000040
-> > +#define DW_BIT_7	0x00000080
-> > +#define DW_BIT_8	0x00000100
-> > +#define DW_BIT_9	0x00000200
-> > +#define DW_BIT_10	0x00000400
-> > +#define DW_BIT_11       0x00000800
-> > +#define DW_BIT_12       0x00001000
-> > +#define DW_BIT_13       0x00002000
-> > +#define DW_BIT_14       0x00004000
-> > +#define DW_BIT_15       0x00008000
-> > +#define DW_BIT_16       0x00010000
-> > +#define DW_BIT_17       0x00020000
-> > +#define DW_BIT_18       0x00040000
-> > +#define DW_BIT_19       0x00080000
-> > +#define DW_BIT_20       0x00100000
-> > +#define DW_BIT_21       0x00200000
-> > +#define DW_BIT_22       0x00400000
-> > +#define DW_BIT_23       0x00800000
-> > +#define DW_BIT_24       0x01000000
-> > +#define DW_BIT_25       0x02000000
-> > +#define DW_BIT_26       0x04000000
-> > +#define DW_BIT_27       0x08000000
-> > +#define DW_BIT_28       0x10000000
-> > +#define DW_BIT_29       0x20000000
-> > +#define DW_BIT_30	0x40000000
-> > +#define DW_BIT_31	0x80000000
-
-Removed.
-
-> or those ENTER and LEAVE statements in each other function,
-
-What is the problem with it? The entry/exit debug points have been
-pretty useful for debugging. A bunch of in-tree drivers contain similar
-code.
-
-You might argue that ENTER/LEAVE should be in lower caps?
-
-> non-conforming coding style, 
-
-Send patches or point them out? :) 
-
-I've ran scripts/Lindent over it, but there might still be some sections
-in need of love.
-
-> comments like "All rights reserved" or
-> "This software file (the "File") is distributed by Marvell
-> International Ltd.",
-
-Removed them all, moved the Marvell copyright + GNU header to LICENSE
-file.
-
-> a lot of duplicated code, etc. 
-
-Again, please point it out.
-
-> I stopped looking t it in the half, asorry.
-
-Thanks for your comments so far!
-
------ End forwarded message -----
