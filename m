@@ -1,49 +1,38 @@
-From: Jens Osterkamp <jens@de.ibm.com>
-Subject: Re: [PATCH 0/4] spidernet: add support for Celleb
-Date: Sat, 20 Jan 2007 22:10:36 +0100
-Message-ID: <200701202210.36953.jens@de.ibm.com>
-References: <200701171000.l0HA0jnD021501@toshiba.co.jp> <1169081253.4965.35.camel@localhost.localdomain>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: TCN im Kern
+Date: Sat, 20 Jan 2007 22:18:00 +0000
+Message-ID: <20070120221800.7c94d17a@oldman>
+References: <4514DC9A.2000505@tik.ee.ethz.ch>
+	<20060925132800.09856e10@dxpl.pdx.osdl.net>
+	<45198AF5.9090909@tik.ee.ethz.ch>
+	<20060926134531.3ec4991a@freekitty>
+	<457A7F43.3020004@tik.ee.ethz.ch>
+	<20061213101656.6068c793@dxpl.pdx.osdl.net>
+	<45B1DB3E.2000109@tik.ee.ethz.ch>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	Ishizaki Kou <kou.ishizaki@toshiba.co.jp>,
-	netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, netem@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate7.uk.ibm.com ([195.212.29.140]:10880 "EHLO
-	mtagate7.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965384AbXATVKp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Jan 2007 16:10:45 -0500
-Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
-	by mtagate7.uk.ibm.com (8.13.8/8.13.8) with ESMTP id l0KLAiCn117628
-	for <netdev@vger.kernel.org>; Sat, 20 Jan 2007 21:10:44 GMT
-Received: from d06av04.portsmouth.uk.ibm.com (d06av04.portsmouth.uk.ibm.com [9.149.37.216])
-	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v8.2) with ESMTP id l0KLAiss913478
-	for <netdev@vger.kernel.org>; Sat, 20 Jan 2007 21:10:44 GMT
-Received: from d06av04.portsmouth.uk.ibm.com (loopback [127.0.0.1])
-	by d06av04.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l0KLAhId031377
-	for <netdev@vger.kernel.org>; Sat, 20 Jan 2007 21:10:44 GMT
-To: linuxppc-dev@ozlabs.org
-In-Reply-To: <1169081253.4965.35.camel@localhost.localdomain>
-Content-Disposition: inline
+Received: from smtp.osdl.org ([65.172.181.24]:34816 "EHLO smtp.osdl.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965406AbXATWSV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 20 Jan 2007 17:18:21 -0500
+To: Rainer Baumann <baumann@tik.ee.ethz.ch>
+In-Reply-To: <45B1DB3E.2000109@tik.ee.ethz.ch>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Sat, 20 Jan 2007 10:05:02 +0100
+Rainer Baumann <baumann@tik.ee.ethz.ch> wrote:
 
-> > This is a revised version of the patch set for spider_net driver
-> > that works on Toshiba Cell Refererence Set (aka Celleb).
-> >
-> > This patch set is based on netdev-2.6.git#upstream.
->
-> Jens, can you give that a go on our blades see if it doesn't break
-> anything ? We are all at LCA here so it's a bit hard to test !
+> Hi Stephen
+> 
+> In the last two weeks i've got 13 request, in which release the trace
+> extension TCN for netem will be included. Did you already found time to
+> integrate it?
+> 
+> Cheers
+> Rainer
 
-Nope, doesn't work for us...
-
-I have a patch based on Ishizaki's previous patch which I think will work
-on Celleb. Will post it here when I have adapted it to the new version.
-
-Jens
-
-
+When I get back from London, early next week
