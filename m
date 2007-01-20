@@ -1,333 +1,85 @@
-From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Subject: [PATCH] bcm43xx: Fix problem with >1 GB RAM
-Date: Sat, 20 Jan 2007 10:18:30 -0600
-Message-ID: <45b240d6.SHryQ/4Jr/1MvQso%Larry.Finger@lwfinger.net>
+From: Marcelo Tosatti <marcelo@kvack.org>
+Subject: Re: [PATCH] Marvell Libertas 8388 802.11b/g USB driver (v2)
+Date: Sat, 20 Jan 2007 18:15:33 -0200
+Message-ID: <20070120201533.GB5037@dmt>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-	Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-To: John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
-List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Dan Williams <dcbw@redhat.com>,
+	Marcelo Tosatti <marcelo@kvack.org>,
+	netdev <netdev@vger.kernel.org>, Jeff Garzik <jgarzik@pobox.com>,
+	"John W. Linville" <linville@redhat.com>,
+	"Luis R. Rodriguez" <mcgrof@gmail.com>,
+	Arnd Bergmann <arnd@arndb.de>,
+	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kanga.kvack.org ([66.96.29.28]:44249 "EHLO kanga.kvack.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965363AbXATUTF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 20 Jan 2007 15:19:05 -0500
+To: Jiri Benc <jbenc@suse.cz>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Some versions of the bcm43xx chips only support 30-bit DMA, which means
-that the descriptors and buffers must be in the first 1 GB of RAM. On
-the i386 and x86_64 architectures with more than 1 GB RAM, an incorrect
-assignment may occur. This patch ensures that the various DMA addresses
-are within the capability of the chip. Testing has been limited to x86_64
-as no one has an i386 system with more than 1 GB RAM.
 
-Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
----
+Got dropped somehow...
 
-John,
+----- Forwarded message from Marcelo Tosatti <marcelo@kvack.org> -----
 
-This patch should be applied to wireless-2.6 and pushed up to 2.6.20.
+Date: Thu, 18 Jan 2007 13:43:51 -0200
+To: Jiri Benc <jbenc@suse.cz>
+Cc: Dan Williams <dcbw@redhat.com>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	Marcelo Tosatti <marcelo@kvack.org>,
+	netdev <netdev@vger.kernel.org>, Jeff Garzik <jgarzik@pobox.com>,
+	"John W. Linville" <linville@redhat.com>,
+	"Luis R. Rodriguez" <mcgrof@gmail.com>,
+	Arnd Bergmann <arnd@arndb.de>,
+	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+In-Reply-To: <20070117190726.13aaf245@griffin.suse.cz>
+Subject: Re: [PATCH] Marvell Libertas 8388 802.11b/g USB driver (v2)
 
-Thanks,
+Hi Jiri,
 
-Larry
+On Wed, Jan 17, 2007 at 07:07:26PM +0100, Jiri Benc wrote:
+> On Wed, 17 Jan 2007 12:43:08 -0500, Dan Williams wrote:
+> > The 8388 architecture is typical of a thick firmware architecture, where
+> > the firmware handles all 802.11 MAC management tasks.  The host driver
+> > downloads standard 802.3 frames to the firmware to be transmitted over
+> > the link as 802.11 frames.
+> 
+> Ah. This isn't clear from the driver as it's too big to go through in
+> detail. In particular, handing 802.3 frames to the firmware means you
+> cannot use d80211 (nor ieee80211).
+> 
+> > I thought these 2 things were essentially _the_ definition of fullmac,
+> > please correct me if I'm wrong.
+> 
+> I think you're right.
+> 
+> > Perhaps I just don't understand how flexible d80211 has become; when we
+> > last were talking about it 8 months ago, it appears that it could not
+> > handle parts that did significant pieces of work in firmware, like the
+> > 8388 does.  Do we have the functionality in d80211 yet to handle pieces
+> > that are a full mix of hybrid full/soft mac?
+> 
+> No.
+> 
+> > [...]
+> > Not quite; the driver doesn't have to deal with the Open System
+> > handshake or the Shared Key handshake.  Instead of Airo's 1-step
+> > process, this is a simple 2-step process.  Look at wlan_join.c,
+> > wlan_associate().  That's what happens; nothing more.
+> 
+> If everything is as simple as you wrote, why is the driver so
+> incredibly big? It's almost impossible to review it in a reasonable
+> time.
 
-Index: linux-2.6/drivers/net/wireless/bcm43xx/bcm43xx_dma.c
-===================================================================
---- linux-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_dma.c
-+++ linux-2.6/drivers/net/wireless/bcm43xx/bcm43xx_dma.c
-@@ -145,16 +145,14 @@ dma_addr_t map_descbuffer(struct bcm43xx
- 			  int tx)
- {
- 	dma_addr_t dmaaddr;
-+	int direction = PCI_DMA_FROMDEVICE;
- 
--	if (tx) {
--		dmaaddr = dma_map_single(&ring->bcm->pci_dev->dev,
--					 buf, len,
--					 DMA_TO_DEVICE);
--	} else {
--		dmaaddr = dma_map_single(&ring->bcm->pci_dev->dev,
-+	if (tx)
-+		direction = PCI_DMA_TODEVICE;
-+
-+	dmaaddr = pci_map_single(ring->bcm->pci_dev,
- 					 buf, len,
--					 DMA_FROM_DEVICE);
--	}
-+					 direction);
- 
- 	return dmaaddr;
- }
-@@ -166,13 +164,13 @@ void unmap_descbuffer(struct bcm43xx_dma
- 		      int tx)
- {
- 	if (tx) {
--		dma_unmap_single(&ring->bcm->pci_dev->dev,
-+		pci_unmap_single(ring->bcm->pci_dev,
- 				 addr, len,
--				 DMA_TO_DEVICE);
-+				 PCI_DMA_TODEVICE);
- 	} else {
--		dma_unmap_single(&ring->bcm->pci_dev->dev,
-+		pci_unmap_single(ring->bcm->pci_dev,
- 				 addr, len,
--				 DMA_FROM_DEVICE);
-+				 PCI_DMA_FROMDEVICE);
- 	}
- }
- 
-@@ -183,8 +181,8 @@ void sync_descbuffer_for_cpu(struct bcm4
- {
- 	assert(!ring->tx);
- 
--	dma_sync_single_for_cpu(&ring->bcm->pci_dev->dev,
--				addr, len, DMA_FROM_DEVICE);
-+	pci_dma_sync_single_for_cpu(ring->bcm->pci_dev,
-+				    addr, len, PCI_DMA_FROMDEVICE);
- }
- 
- static inline
-@@ -194,8 +192,8 @@ void sync_descbuffer_for_device(struct b
- {
- 	assert(!ring->tx);
- 
--	dma_sync_single_for_device(&ring->bcm->pci_dev->dev,
--				   addr, len, DMA_FROM_DEVICE);
-+	pci_dma_sync_single_for_cpu(ring->bcm->pci_dev,
-+				    addr, len, PCI_DMA_TODEVICE);
- }
- 
- /* Unmap and free a descriptor buffer. */
-@@ -214,17 +212,53 @@ void free_descriptor_buffer(struct bcm43
- 
- static int alloc_ringmemory(struct bcm43xx_dmaring *ring)
- {
--	struct device *dev = &(ring->bcm->pci_dev->dev);
--
--	ring->descbase = dma_alloc_coherent(dev, BCM43xx_DMA_RINGMEMSIZE,
--					    &(ring->dmabase), GFP_KERNEL);
-+	ring->descbase = pci_alloc_consistent(ring->bcm->pci_dev, BCM43xx_DMA_RINGMEMSIZE,
-+					    &(ring->dmabase));
- 	if (!ring->descbase) {
--		printk(KERN_ERR PFX "DMA ringmemory allocation failed\n");
--		return -ENOMEM;
-+		/* Allocation may have failed due to pci_alloc_consistent
-+		   insisting on use of GFP_DMA, which is more restrictive
-+		   than necessary...  */
-+		struct dma_desc *rx_ring;
-+		dma_addr_t rx_ring_dma;
-+
-+		rx_ring = kzalloc(BCM43xx_DMA_RINGMEMSIZE, GFP_KERNEL);
-+		if (!rx_ring)
-+			goto out_err;
-+
-+		rx_ring_dma = pci_map_single(ring->bcm->pci_dev, rx_ring,
-+					     BCM43xx_DMA_RINGMEMSIZE,
-+					     PCI_DMA_BIDIRECTIONAL);
-+
-+		if (pci_dma_mapping_error(rx_ring_dma) ||
-+		    rx_ring_dma + BCM43xx_DMA_RINGMEMSIZE > ring->bcm->dma_mask) {
-+			/* Sigh... */
-+			if (!pci_dma_mapping_error(rx_ring_dma))
-+				pci_unmap_single(ring->bcm->pci_dev,
-+						 rx_ring_dma, BCM43xx_DMA_RINGMEMSIZE,
-+						 PCI_DMA_BIDIRECTIONAL);
-+			rx_ring_dma = pci_map_single(ring->bcm->pci_dev,
-+						 rx_ring, BCM43xx_DMA_RINGMEMSIZE,
-+						 PCI_DMA_BIDIRECTIONAL);
-+			if (pci_dma_mapping_error(rx_ring_dma) ||
-+			    rx_ring_dma + BCM43xx_DMA_RINGMEMSIZE > ring->bcm->dma_mask) {
-+				assert(0);
-+				if (!pci_dma_mapping_error(rx_ring_dma))
-+					pci_unmap_single(ring->bcm->pci_dev,
-+							 rx_ring_dma, BCM43xx_DMA_RINGMEMSIZE,
-+							 PCI_DMA_BIDIRECTIONAL);
-+                        	goto out_err;
-+			}
-+                }
-+
-+                ring->descbase = rx_ring;
-+                ring->dmabase = rx_ring_dma;
- 	}
- 	memset(ring->descbase, 0, BCM43xx_DMA_RINGMEMSIZE);
- 
- 	return 0;
-+out_err:
-+	printk(KERN_ERR PFX "DMA ringmemory allocation failed\n");
-+	return -ENOMEM;
- }
- 
- static void free_ringmemory(struct bcm43xx_dmaring *ring)
-@@ -407,6 +441,29 @@ static int setup_rx_descbuffer(struct bc
- 	if (unlikely(!skb))
- 		return -ENOMEM;
- 	dmaaddr = map_descbuffer(ring, skb->data, ring->rx_buffersize, 0);
-+	/* This hardware bug work-around adapted from the b44 driver.
-+	   The chip may be unable to do PCI DMA to/from anything above 1GB */
-+	if (pci_dma_mapping_error(dmaaddr) ||
-+	    dmaaddr + ring->rx_buffersize > ring->bcm->dma_mask) {
-+		/* This one has 30-bit addressing... */
-+		if (!pci_dma_mapping_error(dmaaddr))
-+			pci_unmap_single(ring->bcm->pci_dev,
-+					 dmaaddr, ring->rx_buffersize,
-+					 PCI_DMA_FROMDEVICE);
-+		dev_kfree_skb_any(skb);
-+		skb = __dev_alloc_skb(ring->rx_buffersize,GFP_DMA);
-+		if (skb == NULL)
-+			return -ENOMEM;
-+		dmaaddr = pci_map_single(ring->bcm->pci_dev,
-+					 skb->data, ring->rx_buffersize,
-+					 PCI_DMA_FROMDEVICE);
-+		if (pci_dma_mapping_error(dmaaddr) ||
-+		    dmaaddr + ring->rx_buffersize > ring->bcm->dma_mask) {
-+			assert(0);
-+			dev_kfree_skb_any(skb);
-+			return -ENOMEM;
-+		}
-+	}
- 	meta->skb = skb;
- 	meta->dmaaddr = dmaaddr;
- 	skb->dev = ring->bcm->net_dev;
-@@ -636,8 +693,10 @@ struct bcm43xx_dmaring * bcm43xx_setup_d
- 	err = dmacontroller_setup(ring);
- 	if (err)
- 		goto err_free_ringmemory;
-+	return ring;
- 
- out:
-+	printk(KERN_ERR PFX "Error in bcm43xx_setup_dmaring\n");
- 	return ring;
- 
- err_free_ringmemory:
-@@ -705,30 +764,16 @@ int bcm43xx_dma_init(struct bcm43xx_priv
- 	struct bcm43xx_dmaring *ring;
- 	int err = -ENOMEM;
- 	int dma64 = 0;
--	u64 mask = bcm43xx_get_supported_dma_mask(bcm);
--	int nobits;
- 
--	if (mask == DMA_64BIT_MASK) {
-+	bcm->dma_mask = bcm43xx_get_supported_dma_mask(bcm);
-+	if (bcm->dma_mask == DMA_64BIT_MASK)
- 		dma64 = 1;
--		nobits = 64;
--	} else if (mask == DMA_32BIT_MASK)
--		nobits = 32;
--	else
--		nobits = 30;
--	err = pci_set_dma_mask(bcm->pci_dev, mask);
--	err |= pci_set_consistent_dma_mask(bcm->pci_dev, mask);
--	if (err) {
--#ifdef CONFIG_BCM43XX_PIO
--		printk(KERN_WARNING PFX "DMA not supported on this device."
--					" Falling back to PIO.\n");
--		bcm->__using_pio = 1;
--		return -ENOSYS;
--#else
--		printk(KERN_ERR PFX "FATAL: DMA not supported and PIO not configured. "
--				    "Please recompile the driver with PIO support.\n");
--		return -ENODEV;
--#endif /* CONFIG_BCM43XX_PIO */
--	}
-+	err = pci_set_dma_mask(bcm->pci_dev, bcm->dma_mask);
-+	if (err)
-+		goto no_dma;
-+	err = pci_set_consistent_dma_mask(bcm->pci_dev, bcm->dma_mask);
-+	if (err)
-+		goto no_dma;
- 
- 	/* setup TX DMA channels. */
- 	ring = bcm43xx_setup_dmaring(bcm, 0, 1, dma64);
-@@ -774,9 +819,12 @@ int bcm43xx_dma_init(struct bcm43xx_priv
- 		dma->rx_ring3 = ring;
- 	}
- 
--	dprintk(KERN_INFO PFX "%d-bit DMA initialized\n", nobits);
-+	dprintk(KERN_INFO PFX "%d-bit DMA initialized\n",
-+		(bcm->dma_mask == DMA_64BIT_MASK) ? 64 :
-+		(bcm->dma_mask == DMA_32BIT_MASK) ? 32 : 30);
- 	err = 0;
- out:
-+	if(err)BUG();
- 	return err;
- 
- err_destroy_rx0:
-@@ -800,7 +848,18 @@ err_destroy_tx1:
- err_destroy_tx0:
- 	bcm43xx_destroy_dmaring(dma->tx_ring0);
- 	dma->tx_ring0 = NULL;
--	goto out;
-+no_dma:
-+#ifdef CONFIG_BCM43XX_PIO
-+	printk(KERN_WARNING PFX "DMA not supported on this device."
-+				" Falling back to PIO.\n");
-+	bcm->__using_pio = 1;
-+	BUG();
-+	return -ENOSYS;
-+#else
-+	printk(KERN_ERR PFX "FATAL: DMA not supported and PIO not configured. "
-+			    "Please recompile the driver with PIO support.\n");
-+	return -ENODEV;
-+#endif /* CONFIG_BCM43XX_PIO */
- }
- 
- /* Generate a cookie for the TX header. */
-@@ -905,6 +964,7 @@ static void dma_tx_fragment(struct bcm43
- 	struct bcm43xx_dmadesc_generic *desc;
- 	struct bcm43xx_dmadesc_meta *meta;
- 	dma_addr_t dmaaddr;
-+	struct sk_buff *bounce_skb;
- 
- 	assert(skb_shinfo(skb)->nr_frags == 0);
- 
-@@ -924,9 +984,28 @@ static void dma_tx_fragment(struct bcm43
- 			       skb->len - sizeof(struct bcm43xx_txhdr),
- 			       (cur_frag == 0),
- 			       generate_cookie(ring, slot));
-+	dmaaddr = map_descbuffer(ring, skb->data, skb->len, 1);
-+	if (dma_mapping_error(dmaaddr) || dmaaddr + skb->len > ring->bcm->dma_mask) {
-+		/* chip cannot handle DMA to/from > 1GB, use bounce buffer (copied from b44 driver) */
-+		if (!dma_mapping_error(dmaaddr))
-+			unmap_descbuffer(ring, dmaaddr, skb->len, 1);
-+		bounce_skb = __dev_alloc_skb(skb->len, GFP_ATOMIC|GFP_DMA);
-+		if (!bounce_skb)
-+			return;
-+		dmaaddr = map_descbuffer(ring, bounce_skb->data, bounce_skb->len, 1);
-+		if (dma_mapping_error(dmaaddr) || dmaaddr + skb->len > ring->bcm->dma_mask) {
-+			if (!dma_mapping_error(dmaaddr))
-+				unmap_descbuffer(ring, dmaaddr, skb->len, 1);
-+			dev_kfree_skb_any(bounce_skb);
-+			assert(0);
-+			return;
-+		}
-+		memcpy(skb_put(bounce_skb, skb->len), skb->data, skb->len);
-+		dev_kfree_skb_any(skb);
-+		skb = bounce_skb;
-+	}
- 
- 	meta->skb = skb;
--	dmaaddr = map_descbuffer(ring, skb->data, skb->len, 1);
- 	meta->dmaaddr = dmaaddr;
- 
- 	fill_descriptor(ring, desc, dmaaddr,
-Index: linux-2.6/drivers/net/wireless/bcm43xx/bcm43xx.h
-===================================================================
---- linux-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx.h
-+++ linux-2.6/drivers/net/wireless/bcm43xx/bcm43xx.h
-@@ -771,6 +771,7 @@ struct bcm43xx_private {
- 	 * This is currently always BCM43xx_BUSTYPE_PCI
- 	 */
- 	u8 bustype;
-+	u64 dma_mask;
- 
- 	u16 board_vendor;
- 	u16 board_type;
+Most notably because the firmware provides a vast number of
+configuration commands, and all of them are supported by the driver.
 
----
+For instance, it supports sleep mode, which makes normal operation way
+more complex than if it didnt (the driver queue's packets internally to
+hand them out once the awake window has been opened).
+
+----- End forwarded message -----
