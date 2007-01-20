@@ -1,38 +1,38 @@
-From: "kalash nainwal" <nirvana.code@gmail.com>
-Subject: wake_up() takes long time to return
-Date: Sat, 20 Jan 2007 15:54:00 +0530
-Message-ID: <e92e3a770701200224n42c948d5oe75aa5eb907e9786@mail.gmail.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 0/4] bonding: fix module multiple load issues
+Date: Sat, 20 Jan 2007 12:22:39 +0100
+Message-ID: <45B1FB7F.4060204@trash.net>
+References: <200701200215.l0K2FF22021615@death.nxdomain.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, bonding-devel@lists.sourceforge.net,
+	Jeff Garzik <jgarzik@pobox.com>, mitch.a.williams@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.224]:11465 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965242AbXATKYB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Jan 2007 05:24:01 -0500
-Received: by wx-out-0506.google.com with SMTP id h31so769187wxd
-        for <netdev@vger.kernel.org>; Sat, 20 Jan 2007 02:24:00 -0800 (PST)
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Content-Disposition: inline
+Received: from stinky.trash.net ([213.144.137.162]:48342 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965253AbXATLWt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Jan 2007 06:22:49 -0500
+To: Jay Vosburgh <fubar@us.ibm.com>
+In-Reply-To: <200701200215.l0K2FF22021615@death.nxdomain.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi there,
+Jay Vosburgh wrote:
+> 	Patch 1: fix device name allocation error
+> 	Patch 2: fix error check in sysfs creation
+> 	Patch 3: modify sysfs support to permit multiple loads
+> 	Patch 4: update version number
+> 
+> 	This patch series should resolve whatever problems there are
+> with the logic to load the module multiple times.  This code changed
+> during the introduction of sysfs, and some recent tightening of the
+> sysfs creation code (checking for duplicates) broke that.
+> 
+> 	The multiple load logic is used primarily by the initscripts and
+> sysconfig packages, to automatically configure multiple bonding
+> interfaces at boot time.
+> 
+> 	Originally reported by Patrick McHardy <kaber@trash.net>.
 
-We've a kernel (n/w) module, which sits over ethernet. Whenever a pkt
-is received (in softirq), after doing some minimal processing,
-wake_up() is called to wake up another kernel thread which does rest
-(bulk) of the processing.
-
-We notice that this wake_up() call is sometimes taking as long as 48
-milli-seconds to return. This happens around 10 times out of 10M. We
-earlier thought its possibly because of the contention on rq->lock,
-but we see the same phenomenon even on a uniprocessor box. So obviosly
-thats not the case.
-
-We can't figure out any other reason for wake_up() to take this much
-time? As this call comes directly in our (receive) hotpath, we're very
-concerned. Any help would be greatly appreciated.
-
-Thanks and regards,
--Kalash
+Confirmed to fix the problems I was seeing, thanks.
