@@ -1,51 +1,53 @@
-From: Kumar Gala <galak@kernel.crashing.org>
-Subject: [PATCH] PHY: Export phy ethtool helpers
-Date: Sat, 20 Jan 2007 16:38:26 -0600 (CST)
-Message-ID: <Pine.LNX.4.64.0701201637290.17538@gate.crashing.org>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: Question on advanced routing and/or virtual routers.
+Date: Sat, 20 Jan 2007 14:41:14 -0800
+Message-ID: <45B29A8A.8010704@candelatech.com>
+References: <45A27A78.8010200@candelatech.com> <20070108182327.GB19417@ventoux.cs.ubc.ca>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:53166 "EHLO gate.crashing.org"
+Received: from ns2.lanforge.com ([66.165.47.211]:44703 "EHLO ns2.lanforge.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750721AbXATWih (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 20 Jan 2007 17:38:37 -0500
-To: Jeff Garzik <jgarzik@pobox.com>
+	id S1750741AbXATWj2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 20 Jan 2007 17:39:28 -0500
+To: Brendan Cully <brendan@kublai.com>
+In-Reply-To: <20070108182327.GB19417@ventoux.cs.ubc.ca>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We need to export phy_ethtool_gset and phy_ethtool_sset to allow drivers that
-use these functions to be built as modules.
+Brendan Cully wrote:
+> I started something like this a while ago (posted at
+> <20051006215312.GD24375@zakopane.cs.ubc.ca> with a couple of replies
+> by Thomas Graf, but I can't seem to find it in the archives) but then
+> dropped the ball. It seems to work fairly well with a one-line kernel
+> patch to allow route lookup before the local address check. Oh, and I
+> didn't get traceroute working quite right either - I think there was
+> some trick to finding the source address for the generated reply.
+>
+> I've got some info and code here: http://dsg.cs.ubc.ca/~brendan/remus/
+>   
+Using your scripts as a starting point,  and the one-liner kernel patch, 
+I was able
+to get it mostly working as well.  I also see trouble with traceroute 
+and agree
+that the problem is getting the right source-address in the ICMP and/or 
+UDP response
+packets.
 
-Signed-off-by: Kumar Gala <galak@kernel.crashing.org>
+I'm going to start digging into the kernel to see if there is some way I 
+can force the
+response out the same interface as it came in from, and also to force 
+the source IP
+to be the same as the port it is leaving on.
 
----
-commit 7fff6ffb83f2543299df3ed8815976440abdd576
-tree 0eea7a64a684a3d3970cec9a8c9c65ee2839ebfc
-parent a8b3485287731978899ced11f24628c927890e78
-author Kumar Gala <galak@kernel.crashing.org> Sat, 20 Jan 2007 16:28:13 -0600
-committer Kumar Gala <galak@kernel.crashing.org> Sat, 20 Jan 2007 16:28:13 -0600
-
-  drivers/net/phy/phy.c |    2 ++
-  1 files changed, 2 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-index e175f39..868400d 100644
---- a/drivers/net/phy/phy.c
-+++ b/drivers/net/phy/phy.c
-@@ -286,6 +286,7 @@ int phy_ethtool_sset(struct phy_device *phydev, struct ethtool_cmd *cmd)
-
-  	return 0;
-  }
-+EXPORT_SYMBOL(phy_ethtool_sset);
-
-  int phy_ethtool_gset(struct phy_device *phydev, struct ethtool_cmd *cmd)
-  {
-@@ -302,6 +303,7 @@ int phy_ethtool_gset(struct phy_device *phydev, struct ethtool_cmd *cmd)
-
-  	return 0;
-  }
-+EXPORT_SYMBOL(phy_ethtool_gset);
+Thanks,
+Ben
 
 
-  /* Note that this function is currently incompatible with the
+-- 
+Ben Greear <greearb@candelatech.com> 
+Candela Technologies Inc  http://www.candelatech.com
+
+
