@@ -1,84 +1,50 @@
-From: Jan Evert van Grootheest <j.e.van.grootheest@caiway.nl>
-Subject: adm8211 (from linville wireless-2.6) in xen guest
-Date: Sat, 20 Jan 2007 13:19:38 +0100
-Message-ID: <45B208DA.8010807@caiway.nl>
+From: Arjan van de Ven <arjan@infradead.org>
+Subject: Re: wake_up() takes long time to return
+Date: Sat, 20 Jan 2007 15:47:26 +0100
+Message-ID: <1169304446.3055.764.camel@laptopd505.fenrus.org>
+References: <e92e3a770701200224n42c948d5oe75aa5eb907e9786@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cardassian.kabelfoon.nl ([62.45.45.18]:60659 "EHLO
-	cardassian.kabelfoon.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965050AbXATMvn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Jan 2007 07:51:43 -0500
-Received: from suzy2.janevert.homelinux.org (051-010-128-083.dynamic.caiway.nl [83.128.10.51])
-	by cardassian.kabelfoon.nl (Postfix) with ESMTP id 99C05342311
-	for <netdev@vger.kernel.org>; Sat, 20 Jan 2007 13:19:39 +0100 (CET)
-Received: from lappie.janevert.homelinux.org ([192.168.1.115])
-	by suzy2.janevert.homelinux.org with esmtp (Exim 4.63)
-	(envelope-from <j.e.van.grootheest@caiway.nl>)
-	id 1H8FC7-0003wU-GL
-	for netdev@vger.kernel.org; Sat, 20 Jan 2007 13:19:39 +0100
-To: netdev@vger.kernel.org
+Received: from pentafluge.infradead.org ([213.146.154.40]:34057 "EHLO
+	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965281AbXATOra (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Jan 2007 09:47:30 -0500
+To: kalash nainwal <nirvana.code@gmail.com>
+In-Reply-To: <e92e3a770701200224n42c948d5oe75aa5eb907e9786@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Sat, 2007-01-20 at 15:54 +0530, kalash nainwal wrote:
+> Hi there,
+> 
+> We've a kernel (n/w) module, which sits over ethernet. Whenever a pkt
+> is received (in softirq), after doing some minimal processing,
+> wake_up() is called to wake up another kernel thread which does rest
+> (bulk) of the processing.
+> 
+> We notice that this wake_up() call is sometimes taking as long as 48
+> milli-seconds to return. This happens around 10 times out of 10M. We
+> earlier thought its possibly because of the contention on rq->lock,
+> but we see the same phenomenon even on a uniprocessor box. So obviosly
+> thats not the case.
+> 
+> We can't figure out any other reason for wake_up() to take this much
+> time? As this call comes directly in our (receive) hotpath, we're very
+> concerned. Any help would be greatly appreciated.
+
+
 Hi,
 
-Just writing to thank all of you that made the adm8211 driver in John 
-Linvilles wireless-2.6 development tree (not the dscape one, which I 
-will try also).
+unfortunately you didn't provide your driver code or a link to it, so
+people who want to help you would have to guess in the dark... could you
+reply to this email with the pointer to the code?
 
-It is this card:
-00:01.0 Network controller: ADMtek ADM8211 802.11b Wireless Interface 
-(rev 11)
-        Subsystem: Standard Microsystems Corp [SMC] Unknown device 2602
-        Flags: bus master, medium devsel, latency 96, IRQ 16
-        I/O ports at d800 [size=256]
-        Memory at cfffe400 (32-bit, non-prefetchable) [size=1K]
-        Expansion ROM at <ignored> [disabled]
-        Capabilities: [c0] Power Management version 2
-
-which is reported by the driver as
-Jan 16 22:05:40 janus kernel: adm8211: release 20060414
-Jan 16 22:05:40 janus kernel: PCI: Enabling device 0000:00:01.0 (0000 -> 
-0003)
-Jan 16 22:05:40 janus kernel: 0000:00:01.0 (adm8211): EEPROM type 93C46
-Jan 16 22:05:40 janus kernel: 0000:00:01.0 (adm8211): Channel range: 1 - 13
-Jan 16 22:05:40 janus kernel: 0000:00:01.0 (adm8211): RFtype=1 BBPtype=1 
-Specific BBP=0 Transceiver=0
-Jan 16 22:05:40 janus kernel: eth0: hwaddr 00:04:e2:5e:b3:08, IRQ 16, 
-Rev 0x11
-
-I've taken two commits from that tree (the initial one and one about 
-statistics) to make a driver that would compile against debian etch 
-2.6.18 and moved the Makefile to be Kbuild. That allowed me to compile 
-it as an external module (with something like 'make -C 
-/lib/modules/2.6.18-xxxxxx/build M=/usr/src/wireless-adm8211 
-CONFIG_ADM8211=m').
- 
-So I now have an AMD64 with xen on it. The adm8211 card is used in one 
-of the guest domains!
-
-One question, though. I'm trying to use it in ad-hoc mode. If there's no 
-other station with the same essid, it just keeps mentioning that 
-(besides the BCNTC and TSFTF messages)
-
-wlan0: No matching adhoc sta found. Creating IBSS 00:04:e2:3f:2a:70 CHAN=11
-
-And the IBSS changes every time, which is about every 30 seconds. Is it 
-really supposed to change the IBSS each time?
-The reason I ask is that my wife has a laptop with an Atheros chip in 
-it. If it is configured for ad-hoc it creates the IBSS and sticks with 
-it. So I now have two computers that have different behaviour in this 
-respect. That in itself is not, I guess, a problem. But it seems to me 
-that the random IBSS created by the adm8211 would result in two stations 
-not seeing eachother or taking longer than necessary to find eachother?
-
-And one more question that I don't understand... the wlan0 interface 
-does not appear in snmp queries. Any idea about that?
-
-Please CC me; I'm not subscribed.
-
-Thanks,
-Jan Evert
+Greetings,
+   Arjan van de Ven
+-- 
+if you want to mail me at work (you don't), use arjan (at) linux.intel.com
+Test the interaction between Linux and your BIOS via http://www.linuxfirmwarekit.org
 
