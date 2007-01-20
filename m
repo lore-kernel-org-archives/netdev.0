@@ -1,27 +1,56 @@
-From: Roger While <simrw@sim-basis.de>
-Subject: Re. Please pull 'upstream' branch of wireless-2.6
-Date: Sat, 20 Jan 2007 12:28:44 +0100
-Message-ID: <6.1.1.1.2.20070120122508.04f30758@192.168.6.12>
+From: Ivo van Doorn <ivdoorn@gmail.com>
+Subject: Re: [PATCH RESEND 0/4]
+Date: Sat, 20 Jan 2007 12:41:07 +0100
+Message-ID: <200701201241.07472.IvDoorn@gmail.com>
+References: <200701032129.34879.IvDoorn@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; format=flowed
-Cc: linville@tuxdriver.com, jeff@garzik.org
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout10.sul.t-online.com ([194.25.134.21]:53448 "EHLO
-	mailout10.sul.t-online.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S965260AbXATLaU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Jan 2007 06:30:20 -0500
-To: netdev@vger.kernel.org
+Received: from nf-out-0910.google.com ([64.233.182.185]:37302 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965256AbXATLlN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Jan 2007 06:41:13 -0500
+Received: by nf-out-0910.google.com with SMTP id o25so741732nfa
+        for <netdev@vger.kernel.org>; Sat, 20 Jan 2007 03:41:12 -0800 (PST)
+To: "John W. Linville" <linville@tuxdriver.com>
+In-Reply-To: <200701032129.34879.IvDoorn@gmail.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi John,
 
->Kai Engert (1):
->       prism54: add ethtool -i interface
+> These patches have been send during 2006 but never
+> have been applied or rejected. Even after sending requests
+> for updates on these patches.
+> So I have no idea if you had rejected them, simply
+> overlooked them, or if they are still in your pending list.
+> 
+> Short summary of which patches are being resend:
+> 
+> - crc-itu-t
+> This has been send to the list during the summer around
+> the same time as the initial patch for rfkill. It had also been
+> send to the linux-kernel list with a CC to you with a request
+> for comment.
+> 
+> - eeprom_93cx6
+> This has been send to the list1 or 2 months ago. After the
+> initial patch a feature request for eeprom write support was
+> made. Those 2 patches have now been merged into a single patch.
+> 
+> Both of the libraries come from rt2x00, and this patch merely
+> moves them to the location for more generic routines.
+> Both the crc as the eeprom handling can be used by different
+> drivers (some drivers also use the same implementation, which
+> in my opinion would jusitify these 2 modules to be in the lib folder).
 
-I would have expected at least the firmware version to be reported
-as well as the bus info.
-(info->fw_version, info->bus_info)
+Do you have any status update for these 4 patches?
+Are they pending, or have they been rejected?
 
-Roger While
+Thanks,
 
-
+Ivo
