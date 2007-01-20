@@ -1,82 +1,53 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: [PATCH 3/4] bonding: modify sysfs support to permit multiple loads
-Date: Fri, 19 Jan 2007 18:15:47 -0800
-Message-ID: <200701200215.l0K2Fl22021913@death.nxdomain.ibm.com>
-Cc: Jeff Garzik <jgarzik@pobox.com>, Patrick McHardy <kaber@trash.net>,
-	mitch.a.williams@intel.com
+From: Russell Stuart <russell-tcatm@stuart.id.au>
+Subject: Re: [PATCH
+	REPOST	1/2]	NET:	Accurate	packet	scheduling	for	ATM/ADSL (kernel)
+Date: Sat, 20 Jan 2007 13:25:17 +1000
+Message-ID: <1169263517.11507.14.camel@ras>
+References: <1161041677.6247.1.camel@ras.pc.brisbane.lube>
+	 <1161090444.5555.13.camel@jzny2>  <45378DE3.8080700@trash.net>
+	 <1161602527.5502.155.camel@ras.pc.stuart.local>
+	 <453CB801.4010902@trash.net>
+	 <1161640444.5502.214.camel@ras.pc.stuart.local> <453E3CFC.80007@trash.net>
+	 <1161733596.3829.91.camel@ras.pc.brisbane.lube>
+	 <456ED79E.2070707@trash.net> <1169075223.7560.15.camel@ras>
+	 <45AEF219.2060304@trash.net> <1169100970.21535.18.camel@ras>
+	 <45AF5C02.1010005@trash.net> <1169176280.1118.8.camel@ras>
+	 <45B0B744.7070800@trash.net>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: hadi@cyberus.ca, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e2.ny.us.ibm.com ([32.97.182.142]:36124 "EHLO e2.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932877AbXATCQu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Jan 2007 21:16:50 -0500
-Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by e2.ny.us.ibm.com (8.13.8/8.12.11) with ESMTP id l0K2GnLj012294
-	for <netdev@vger.kernel.org>; Fri, 19 Jan 2007 21:16:49 -0500
-Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
-	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.2) with ESMTP id l0K2Fno3247210
-	for <netdev@vger.kernel.org>; Fri, 19 Jan 2007 21:15:49 -0500
-Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
-	by d01av03.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l0K2FmB8030908
-	for <netdev@vger.kernel.org>; Fri, 19 Jan 2007 21:15:48 -0500
-To: netdev@vger.kernel.org, bonding-devel@lists.sourceforge.net
+Received: from 58.105.229.78.optusnet.com.au ([58.105.229.78]:36729 "EHLO
+	adsl-kenny.stuart.id.au" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S965094AbXATD2t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jan 2007 22:28:49 -0500
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <45B0B744.7070800@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Fri, 2007-01-19 at 13:19 +0100, Patrick McHardy wrote:
+> Russell Stuart wrote:
+> > I thought that some degree of compatibility was 
+> > expected.  At the very least the newest version 
+> > of "tc" must work on _any_ kernel as least as 
+> > well as the version it replaces did.
+> > 
+> > I also though newer kernels should work older
+> > version of iproute2, albeit without the features
+> > added in the newer versions.
+> > 
+> > Are you saying this is not so?
+> 
+> No, thats exactly what I'm saying.
 
-	The existing code would blindly attempt to create the
-bonding_masters file (in /sys/class/net) every time the module was
-loaded.  When the module is loaded multiple times (which is the
-historical method used by initscripts and sysconfig to create multiple
-bonding interfaces), this caused load failure of the second module load
-attempt, as the creation request would fail.
+I don't understand - too many negates here 
+without parens.  Are you saying:
 
-	This changes the code to note the failure, arrange to not remove
-the bonding_masters file upon module exit, and then return success.
+a.  Backward / Forward compatibility between the kernel
+    and its user space tools isn't an issue, or
 
-	Bonding interfaces created by the second or subsequent loads of
-the module will not exist in bonding_masters.  This is not a significant
-change, as previously only the interfaces from the most recent load of
-the module would be listed.  Both situations are less than optimal, but
-this case permits compatibility with existing distro configuration
-scripts, and is consistent.
+b.  There is no compatibility problem.
 
-	Note that previously, the sysfs create request would overwrite
-the exsting bonding_masters file and succeed, allowing multiple loads of
-the module.  The sysfs code has recently changed to return an error if
-the file being created already exists.
-
-	Patrick McHardy <kaber@trash.net>, who reported this problem,
-observed crashes on the old kernel (before sysfs checked for
-duplicates).  I did not experience such crashes, but this change should
-resolve them.
-
-Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
-
-
-
-diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
-index ced9ed8..8e317e1 100644
---- a/drivers/net/bonding/bond_sysfs.c
-+++ b/drivers/net/bonding/bond_sysfs.c
-@@ -1372,6 +1372,21 @@ int bond_create_sysfs(void)
- 		return -ENODEV;
- 
- 	ret = class_create_file(netdev_class, &class_attr_bonding_masters);
-+	/*
-+	 * Permit multiple loads of the module by ignoring failures to
-+	 * create the bonding_masters sysfs file.  Bonding devices
-+	 * created by second or subsequent loads of the module will
-+	 * not be listed in, or controllable by, bonding_masters, but
-+	 * will have the usual "bonding" sysfs directory.
-+	 *
-+	 * This is done to preserve backwards compatibility for
-+	 * initscripts/sysconfig, which load bonding multiple times to
-+	 * configure multiple bonding devices.
-+	 */
-+	if (ret == -EEXIST) {
-+		netdev_class = NULL;
-+		return 0;
-+	}
- 
- 	return ret;
- 
