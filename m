@@ -1,69 +1,39 @@
-From: Herbert Poetzl <herbert@13thfloor.at>
-Subject: Re: [patch 00/12] net namespace : L3 namespace - introduction
-Date: Sat, 20 Jan 2007 05:48:12 +0100
-Message-ID: <20070120044812.GA6123@MAIL.13thfloor.at>
-References: <20070119154714.439706567@localhost.localdomain>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH	REPOST	1/2]	NET:	Accurate	packet	scheduling	for	ATM/ADSL
+ (kernel)
+Date: Sat, 20 Jan 2007 09:47:17 +0100
+Message-ID: <45B1D715.8010609@trash.net>
+References: <1161041677.6247.1.camel@ras.pc.brisbane.lube>	 <1161090444.5555.13.camel@jzny2>  <45378DE3.8080700@trash.net>	 <1161602527.5502.155.camel@ras.pc.stuart.local>	 <453CB801.4010902@trash.net>	 <1161640444.5502.214.camel@ras.pc.stuart.local> <453E3CFC.80007@trash.net>	 <1161733596.3829.91.camel@ras.pc.brisbane.lube>	 <456ED79E.2070707@trash.net> <1169075223.7560.15.camel@ras>	 <45AEF219.2060304@trash.net> <1169100970.21535.18.camel@ras>	 <45AF5C02.1010005@trash.net> <1169176280.1118.8.camel@ras>	 <45B0B744.7070800@trash.net> <1169263517.11507.14.camel@ras>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: containers@lists.osdl.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: hadi@cyberus.ca, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from MAIL.13thfloor.at ([213.145.232.33]:48069 "EHLO
-	MAIL.13thfloor.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965032AbXATFMu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Jan 2007 00:12:50 -0500
-To: dlezcano@fr.ibm.com
-Content-Disposition: inline
-In-Reply-To: <20070119154714.439706567@localhost.localdomain>
+Received: from stinky.trash.net ([213.144.137.162]:46059 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965224AbXATIrW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Jan 2007 03:47:22 -0500
+To: Russell Stuart <russell-tcatm@stuart.id.au>
+In-Reply-To: <1169263517.11507.14.camel@ras>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jan 19, 2007 at 04:47:14PM +0100, dlezcano@fr.ibm.com wrote:
-> This patchset provide a network isolation similar at what
-> Linux-Vserver provides. It is based on the L2 namespaces and relies on
-> the mechanisms provided by the namespace. This L3 namespaces does not
-> aim to bring full virtualization for the network, it provides an IP
-> isolation which can be reused for Linux-Vserver, jailed application or
-> application containers.
+Russell Stuart wrote:
+> On Fri, 2007-01-19 at 13:19 +0100, Patrick McHardy wrote:
 > 
-> A L3 namespace are always L2 s' childs and they can not create more
-> network namespaces, furthermore, they lose their NET_ADMIN
-> capability. They share their parent's network ressources. From the
-> parent namespace, IP addresses are created and assigned to the
-> different L3 childs. From this point, L3 namespaces can use their
-> assigned IP address and all computed broadcast addresses.
-  ~~~~~~~~~~~~~~~~~~~
+>>[...]
+>
+> I don't understand - too many negates here 
+> without parens.  Are you saying:
+> 
+> a.  Backward / Forward compatibility between the kernel
+>     and its user space tools isn't an issue, or
+> 
+> b.  There is no compatibility problem.
 
-okay, I conclude that this only handles a single address
-for now. what are your plans to handle entire sets?
 
-TIA,
-Herbert
+Again, (b). You seem to have something in mind, it would be
+easier if you would just explain exactly where you think there
+is a problem.
 
-> Because the L3 namespace relies on the L2 virtualization mechanisms,
-> it is possible to have several L3 namespaces listening on
-> INADDR_ANY:port without conflict, that's allow to run several server
-> without modifying the network configuration.
-> 
-> The loopback is a shared device between all L3 namespaces. To ensure
-> the 127.0.0.1 address isolation, the sender store its namespace into
-> the packet, so when the packet arrives, the destination namespace is
-> already set, because "source" == "destination". By this way, it is
-> easy to disable the loopback isolation and let the application to talk
-> with application outside of the namespace via the 127.0.0.1 because we
-> consider them trusted (like portmap).
-> 
-> The ifconfig / ip commands will only show IP addresses assigned to the
-> L3 namespace. When a L3 namespace dies, the assigned IP address is
-> released to its parent.
-> 
-> At the IP level, when a packet arrives, the L3 network namespace
-> destination is retrieved from the destination address.
-> 
-> At the bind time, the address is checked against the assigned IP
-> address.
-> 
-> -- 
-> _______________________________________________
-> Containers mailing list
-> Containers@lists.osdl.org
-> https://lists.osdl.org/mailman/listinfo/containers
