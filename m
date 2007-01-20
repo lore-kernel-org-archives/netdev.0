@@ -1,50 +1,51 @@
 From: Daniel Lezcano <dlezcano@fr.ibm.com>
-Subject: Re: [patch 00/12] net namespace : L3 namespace - introduction
-Date: Sat, 20 Jan 2007 12:42:45 +0100
-Message-ID: <45B20035.6090609@fr.ibm.com>
-References: <20070119154714.439706567@localhost.localdomain> <20070120044812.GA6123@MAIL.13thfloor.at>
+Subject: Re: [patch 05/12] net namespace : ioctl to push ifa to net namespace
+ l3
+Date: Sat, 20 Jan 2007 12:48:27 +0100
+Message-ID: <45B2018B.5030807@fr.ibm.com>
+References: <20070119154714.439706567@localhost.localdomain> <20070119155351.915374403@localhost.localdomain> <20070120045234.GB6123@MAIL.13thfloor.at>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: containers@lists.osdl.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate1.uk.ibm.com ([195.212.29.134]:58354 "EHLO
-	mtagate1.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965259AbXATLnU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Jan 2007 06:43:20 -0500
-Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
-	by mtagate1.uk.ibm.com (8.13.8/8.13.8) with ESMTP id l0KBhJww104702
-	for <netdev@vger.kernel.org>; Sat, 20 Jan 2007 11:43:19 GMT
-Received: from d06av03.portsmouth.uk.ibm.com (d06av03.portsmouth.uk.ibm.com [9.149.37.213])
-	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v8.2) with ESMTP id l0KBhJjC1200326
-	for <netdev@vger.kernel.org>; Sat, 20 Jan 2007 11:43:19 GMT
-Received: from d06av03.portsmouth.uk.ibm.com (loopback [127.0.0.1])
-	by d06av03.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l0KBhIUX029221
-	for <netdev@vger.kernel.org>; Sat, 20 Jan 2007 11:43:19 GMT
+Received: from mtagate2.de.ibm.com ([195.212.29.151]:56459 "EHLO
+	mtagate2.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965262AbXATLtD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Jan 2007 06:49:03 -0500
+Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
+	by mtagate2.de.ibm.com (8.13.8/8.13.8) with ESMTP id l0KBmwIQ041126
+	for <netdev@vger.kernel.org>; Sat, 20 Jan 2007 11:48:59 GMT
+Received: from d12av01.megacenter.de.ibm.com (d12av01.megacenter.de.ibm.com [9.149.165.212])
+	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v8.2) with ESMTP id l0KBmtWW3117170
+	for <netdev@vger.kernel.org>; Sat, 20 Jan 2007 12:48:55 +0100
+Received: from d12av01.megacenter.de.ibm.com (loopback [127.0.0.1])
+	by d12av01.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l0KBmsTb001121
+	for <netdev@vger.kernel.org>; Sat, 20 Jan 2007 12:48:55 +0100
 To: Herbert Poetzl <herbert@13thfloor.at>
-In-Reply-To: <20070120044812.GA6123@MAIL.13thfloor.at>
+In-Reply-To: <20070120045234.GB6123@MAIL.13thfloor.at>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Herbert Poetzl wrote:
-> On Fri, Jan 19, 2007 at 04:47:14PM +0100, dlezcano@fr.ibm.com wrote:
->> This patchset provide a network isolation similar at what
->> Linux-Vserver provides. It is based on the L2 namespaces and relies on
->> the mechanisms provided by the namespace. This L3 namespaces does not
->> aim to bring full virtualization for the network, it provides an IP
->> isolation which can be reused for Linux-Vserver, jailed application or
->> application containers.
+> On Fri, Jan 19, 2007 at 04:47:19PM +0100, dlezcano@fr.ibm.com wrote:
+>> From: Daniel Lezcano <dlezcano@fr.ibm.com>
 >>
->> A L3 namespace are always L2 s' childs and they can not create more
->> network namespaces, furthermore, they lose their NET_ADMIN
->> capability. They share their parent's network ressources. From the
->> parent namespace, IP addresses are created and assigned to the
->> different L3 childs. From this point, L3 namespaces can use their
->> assigned IP address and all computed broadcast addresses.
->   ~~~~~~~~~~~~~~~~~~~
+>> New ioctl to "push" ifaddr to a container. Actually, the push is done
+>> from the current namespace, so the right word is "pull". That will be
+>> changed to move ifaddr from l2 network namespace to l3.
+>>
+>> Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
+>>
+
+[ ... ]
+
+>> + * namespace to his l2 network namespace parent.
 > 
-> okay, I conclude that this only handles a single address
-> for now. what are your plans to handle entire sets?
-> 
-You can assign more than one IP address to a L3 network namespace.
+> hmm, sounds like the address is moved between the
+> namespaces? does that mean that the 'parent' will
+> not see the 'isolated' ip anymore?
+
+Yes, exact. If the IP address is visible into several namespaces (L2 
+parent and L3 child), nothing ensures the two will not use the IP address.
 
