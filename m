@@ -1,52 +1,96 @@
-From: Pavel Roskin <proski@gnu.org>
-Subject: [PATCH] bcm43xx_d80211: Fix major memory corruption bug
-Date: Sun, 21 Jan 2007 00:27:40 -0500
-Message-ID: <20070121052740.7299.29574.stgit@dv.roinet.com>
+From: Russell Stuart <russell-tcatm@stuart.id.au>
+Subject: Re:
+	[PATCH	REPOST	1/2]	NET:	Accurate	packet	scheduling	for	ATM/ADSL (kernel)
+Date: Sun, 21 Jan 2007 17:45:27 +1000
+Message-ID: <1169365528.3866.71.camel@ras.pc.stuart.local>
+References: <1161041677.6247.1.camel@ras.pc.brisbane.lube>
+	 <1161090444.5555.13.camel@jzny2>  <45378DE3.8080700@trash.net>
+	 <1161602527.5502.155.camel@ras.pc.stuart.local>
+	 <453CB801.4010902@trash.net>
+	 <1161640444.5502.214.camel@ras.pc.stuart.local> <453E3CFC.80007@trash.net>
+	 <1161733596.3829.91.camel@ras.pc.brisbane.lube>
+	 <456ED79E.2070707@trash.net> <1169075223.7560.15.camel@ras>
+	 <45AEF219.2060304@trash.net> <1169100970.21535.18.camel@ras>
+	 <45AF5C02.1010005@trash.net> <1169176280.1118.8.camel@ras>
+	 <45B0B744.7070800@trash.net> <1169263517.11507.14.camel@ras>
+	 <45B1D715.8010609@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Michael Buesch <mb@bu3sch.de>
+Cc: hadi@cyberus.ca, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fencepost.gnu.org ([199.232.76.164]:37761 "EHLO
-	fencepost.gnu.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751192AbXAUF1n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Jan 2007 00:27:43 -0500
-Received: from proski by fencepost.gnu.org with local (Exim 4.60)
-	(envelope-from <proski@gnu.org>)
-	id 1H8VEG-0006JR-6u
-	for netdev@vger.kernel.org; Sun, 21 Jan 2007 00:26:56 -0500
-To: netdev@vger.kernel.org
+Received: from 58.105.229.78.optusnet.com.au ([58.105.229.78]:46924 "EHLO
+	adsl-kenny.stuart.id.au" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S1751263AbXAUHps (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Jan 2007 02:45:48 -0500
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <45B1D715.8010609@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Set phy->lo_control to NULL whenever it's freed.  Failure to do so leads
-to zeroing a block of memory that uses to hold *phy->lo_control, which
-caused random crashes down the road.
+On Sat, 2007-01-20 at 09:47 +0100, Patrick McHardy wrote:
+> Russell Stuart wrote:
+> > b.  There is no compatibility problem.
+> 
+> Again, (b). You seem to have something in mind, it would be
+> easier if you would just explain exactly where you think there
+> is a problem.
 
-Signed-off-by: Pavel Roskin <proski@gnu.org>
----
+I though I had :(.
 
- drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+Consider:
+  Line speed is 256 K bits/sec.
+  Protocol: ADSL/ATM (PPPoE VC/LLC) (Overhead is 42 bytes + cell pad).
+  Kernel HZ is 1000.
+  cell_log = 8.
 
-diff --git a/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c b/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
-index 3064322..62d4dc9 100644
---- a/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
-+++ b/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
-@@ -3048,6 +3048,7 @@ static void bcm43xx_wireless_core_exit(struct bcm43xx_wldev *dev)
- 	if (phy->dyn_tssi_tbl)
- 		kfree(phy->tssi2dbm);
- 	kfree(phy->lo_control);
-+	phy->lo_control = NULL;
- 	ssb_chipco_set_clockmode(chipco, SSB_CLKMODE_SLOW);
- 	bcm43xx_vstack_free(&dev->genstack);
- 	bcm43xx_set_status(dev, BCM43xx_STAT_UNINIT);
-@@ -3179,6 +3180,7 @@ err_kfree_tssitbl:
- 		kfree(phy->tssi2dbm);
- err_kfree_lo_control:
- 	kfree(phy->lo_control);
-+	phy->lo_control = NULL;
- err_slowclock:
- 	ssb_chipco_set_clockmode(chipco, SSB_CLKMODE_SLOW);
- 	bcm43xx_set_status(dev, BCM43xx_STAT_UNINIT);
+Below is a table which shows the RTAB that would be sent
+to a pre-STAB kernel:
+
+              IP Datagram   Packet Size       Packet Size   Ticks to
+              Packet Size   Seen by Kernel    On the Wire   Send packet
+  RTAB[0]=2    -14..-7          0..7             53..53       1.656
+  RTAB[1]=2     -6..1           8..15            53..53       1.656
+  RTAB[2]=3      2..9          16..23            53..106      3.313
+  RTAB[3]=3     10..17         24..31           106..106      3.313
+   ...  
+  RTAB[9]=5     58..63         72..79           106..159      4.968
+  RTAB[10]=5    64..71         80..87           159..159      4.968
+
+Below is the same thing for a post-STAB kernel:
+
+              IP Datagram   Packet Size       Packet Size   Ticks to
+              Packet Size   Seen by Kernel    On the Wire   Send packet
+  RTAB[0]=0 - Undefined as no STAB entry is 0.
+  RTAB[1]=0 - Undefined as no STAB entry is 0.
+   ...
+  RTAB[5]=0 - Undefined as no STAB entry is 0.
+  RTAB[6]=2    -14..-7          0..7             53..53       1.656
+  RTAB[7]=2     -6..1           8..15            53..53       1.656
+  RTAB[8]=3      2..9          16..23            53..106      3.313
+  RTAB[9]=3     10..17         24..31           106..106      3.313
+   ...  
+  RTAB[15]=5    58..63         72..79           106..159      4.968
+  RTAB[16]=5    64..71         80..87           159..159      4.968
+
+The two RTAB's are different.  Thus you must send 
+different RTAB's to pre-STAB and post-STAB kernels.  
+How is "tc" to decide which one to send?  I did add 
+code that checked uname once to solve a very 
+similar problem in "tc", but that got my wrist 
+slapped.
+
+Replacing RTAB with STAB would solve the problem, BTW,
+as the post-STAB kernel would ignore the RTAB.
+
+It would also solve another problem.  The granularity
+of RTAB sucks for VOIP (my area of interest).  Eg on
+a 2 M bit link, one ATM cell takes 0.0848 ticks to 
+send, two cells 0.170 ticks, three cells 0.2544 ticks.  
+RTP voice packets are typically two or three cells.  
+RTAB only holds an integral number of ticks of course, 
+making the current traffic control engine useless for 
+VOIP links with speeds of around 2.5M bit or above.
+This could be fixed in an STAB implementation.
 
