@@ -1,85 +1,54 @@
-From: "Thibaut VARENE" <T-Bone@parisc-linux.org>
-Subject: Re: [PATCH] Re: kernel BUG in eth_alloc_tx_desc_index at drivers/net/mv643xx_eth.c:1069!
-Date: Sun, 21 Jan 2007 14:02:15 +0100
-Message-ID: <7d01f9f00701210502m2bb96bd8i5071a76b6a8c3ea0@mail.gmail.com>
-References: <7d01f9f00701051103q3ee6ed35q9fd0f778a18061b8@mail.gmail.com>
-	 <20070109092602.GC1703@ff.dom.local>
-	 <7d01f9f00701090227v60b37e5dy6afbf70ccde58bf2@mail.gmail.com>
-	 <20070109130220.GA4060@ff.dom.local>
-	 <7d01f9f00701090944o62f39fb4yfaa5449c2d2d010d@mail.gmail.com>
-	 <20070109200541.GA27089@xyzzy.farnsworth.org>
-	 <7d01f9f00701091305n3a82713fla442a70a6098dbf@mail.gmail.com>
-	 <7d01f9f00701100912kc6fb635wd863d9563b0eb328@mail.gmail.com>
-	 <20070111104220.GA3171@ff.dom.local>
-	 <7d01f9f00701210418q6f506d20tdc9ce10b501370d7@mail.gmail.com>
+From: Rik van Riel <riel@surriel.com>
+Subject: Re: Possible ways of dealing with OOM conditions.
+Date: Sun, 21 Jan 2007 11:30:49 -0500
+Message-ID: <45B39539.8020704@surriel.com>
+References: <20070118104144.GA20925@2ka.mipt.ru> <1169122724.6197.50.camel@twins> <20070118135839.GA7075@2ka.mipt.ru> <1169133052.6197.96.camel@twins> <20070118155003.GA6719@2ka.mipt.ru> <1169141513.6197.115.camel@twins> <20070118183430.GA3345@2ka.mipt.ru> <1169211195.6197.143.camel@twins> <20070119225643.GA22728@2ka.mipt.ru> <45B29953.5010505@surriel.com> <20070121014644.GA12070@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="----=_Part_170201_27777079.1169384535439"
-Cc: "Dale Farnsworth" <dale@farnsworth.org>, netdev@vger.kernel.org,
-	mlachwani@mvista.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.172]:31030 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751533AbXAUNCR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Jan 2007 08:02:17 -0500
-Received: by ug-out-1314.google.com with SMTP id 44so800539uga
-        for <netdev@vger.kernel.org>; Sun, 21 Jan 2007 05:02:16 -0800 (PST)
-To: "Jarek Poplawski" <jarkao2@o2.pl>
-In-Reply-To: <7d01f9f00701210418q6f506d20tdc9ce10b501370d7@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-mm@kvack.org, David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751006AbXAUQbP@vger.kernel.org>
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+In-Reply-To: <20070121014644.GA12070@2ka.mipt.ru>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-------=_Part_170201_27777079.1169384535439
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+Evgeniy Polyakov wrote:
+> On Sat, Jan 20, 2007 at 05:36:03PM -0500, Rik van Riel (riel@surriel.com) wrote:
+>> Evgeniy Polyakov wrote:
+>>> On Fri, Jan 19, 2007 at 01:53:15PM +0100, Peter Zijlstra 
+>>> (a.p.zijlstra@chello.nl) wrote:
+>>>>> Even further development of such idea is to prevent such OOM condition
+>>>>> at all - by starting swapping early (but wisely) and reduce memory
+>>>>> usage.
+>>>> These just postpone execution but will not avoid it.
+>>> No. If system allows to have such a condition, then
+>>> something is broken. It must be prevented, instead of creating special
+>>> hacks to recover from it.
+>> Evgeniy, you may want to learn something about the VM before
+>> stating that reality should not occur.
+> 
+> I.e. I should start believing that OOM can not be prevented, bugs can
+> not be fixed and things can not be changed just because it happens right
+> now? That is why I'm not subscribed to lkml :)
 
-On 1/21/07, Thibaut VARENE <T-Bone@parisc-linux.org> wrote:
-> On 1/11/07, Jarek Poplawski <jarkao2@o2.pl> wrote:
-> >
-> > PS: alas I didn't even check compiling - I had no time to
-> > find all compile dependencies of this driver
-> > ---
-> Hmm, I think this is guaranteed not to work. In between those lines
-> the lock is released, while data in the mp structure is still being
-> accessed. It seems that this bit of code is indeed not race-safe
-> though, I'm gonna try to figure something.
+The reasons for this are often not inside the VM itself,
+but are due to the constraints imposed on the VM.
 
-This was indeed the right spot. The attached raw hack seems to fix the
-bug (I couldn't crash the box so far).  I haven't checked that the
-same "situation" happens elsewhere in the code, I leave that as an
-exercise for the maintainers (or until I experience another kind of
-crash :)
+For example, with many of the journaled filesystems there
+is no way to know in advance how much IO needs to be done
+to complete a writeout of one dirty page (and consequently,
+how much memory needs to be allocated to complete this one
+writeout).
 
-The patch is a bit ugly (printk with irq disabled will not show, etc)
-but at least it does work. I'm sure somebody will figure something
-
-HTH
-
-T-Bone
+Parts of the VM could be changed to reduce the pressure
+somewhat, eg. limiting the number of IOs in flight, but
+that will probably have performance consequences that may
+not be acceptable to Andrew and Linus and never get merged.
 
 -- 
-Thibaut VARENE
-http://www.parisc-linux.org/~varenet/
-
-------=_Part_170201_27777079.1169384535439
-Content-Type: text/x-patch; name="fix_mv643xx_race.patch"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="fix_mv643xx_race.patch"
-X-Attachment-Id: f_ex7hciz1
-
-LS0tIGxpbnV4LTIuNi4xOS5vcmlnL2RyaXZlcnMvbmV0L212NjQzeHhfZXRoLmMJMjAwNy0wMS0y
-MSAxMzo1NjowNC40NTA2ODkxMjMgKzAxMDAKKysrIGxpbnV4LTIuNi4xOS9kcml2ZXJzL25ldC9t
-djY0M3h4X2V0aC5jCTIwMDctMDEtMjEgMTM6Mzk6NTguMjI4NDA0NzYzICswMTAwCkBAIC0zMTIs
-OCArMzEyLDggQEAKIAlpbnQgY291bnQ7CiAJaW50IHJlbGVhc2VkID0gMDsKIAorCXNwaW5fbG9j
-a19pcnFzYXZlKCZtcC0+bG9jaywgZmxhZ3MpOwogCXdoaWxlIChtcC0+dHhfZGVzY19jb3VudCA+
-IDApIHsKLQkJc3Bpbl9sb2NrX2lycXNhdmUoJm1wLT5sb2NrLCBmbGFncyk7CiAJCXR4X2luZGV4
-ID0gbXAtPnR4X3VzZWRfZGVzY19xOwogCQlkZXNjID0gJm1wLT5wX3R4X2Rlc2NfYXJlYVt0eF9p
-bmRleF07CiAJCWNtZF9zdHMgPSBkZXNjLT5jbWRfc3RzOwpAQCAtMzMyLDggKzMzMiw2IEBACiAJ
-CWlmIChza2IpCiAJCQltcC0+dHhfc2tiW3R4X2luZGV4XSA9IE5VTEw7CiAKLQkJc3Bpbl91bmxv
-Y2tfaXJxcmVzdG9yZSgmbXAtPmxvY2ssIGZsYWdzKTsKLQogCQlpZiAoY21kX3N0cyAmIEVUSF9F
-UlJPUl9TVU1NQVJZKSB7CiAJCQlwcmludGsoIiVzOiBFcnJvciBpbiBUWFxuIiwgZGV2LT5uYW1l
-KTsKIAkJCW1wLT5zdGF0cy50eF9lcnJvcnMrKzsKQEAgLTM0OSw2ICszNDcsNyBAQAogCiAJCXJl
-bGVhc2VkID0gMTsKIAl9CisJc3Bpbl91bmxvY2tfaXJxcmVzdG9yZSgmbXAtPmxvY2ssIGZsYWdz
-KTsKIAogCXJldHVybiByZWxlYXNlZDsKIH0K
-------=_Part_170201_27777079.1169384535439--
+Politics is the struggle between those who want to make their country
+the best in the world, and those who believe it already is.  Each group
+calls the other unpatriotic.
