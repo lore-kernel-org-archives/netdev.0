@@ -1,54 +1,52 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: Possible ways of dealing with OOM conditions.
-Date: Sun, 21 Jan 2007 05:14:37 +0300
-Message-ID: <20070121021436.GA25292@2ka.mipt.ru>
-References: <1169122724.6197.50.camel@twins> <20070118135839.GA7075@2ka.mipt.ru> <1169133052.6197.96.camel@twins> <20070118155003.GA6719@2ka.mipt.ru> <1169141513.6197.115.camel@twins> <20070118183430.GA3345@2ka.mipt.ru> <1169211195.6197.143.camel@twins> <20070119225643.GA22728@2ka.mipt.ru> <45B29953.5010505@surriel.com> <20070121014644.GA12070@2ka.mipt.ru>
+From: Pavel Roskin <proski@gnu.org>
+Subject: [PATCH] bcm43xx_d80211: Fix major memory corruption bug
+Date: Sun, 21 Jan 2007 00:27:40 -0500
+Message-ID: <20070121052740.7299.29574.stgit@dv.roinet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-mm@kvack.org, David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Michael Buesch <mb@bu3sch.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:45173 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751082AbXAUCO7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 20 Jan 2007 21:14:59 -0500
-To: Rik van Riel <riel@surriel.com>
-Content-Disposition: inline
-In-Reply-To: <20070121014644.GA12070@2ka.mipt.ru>
+Received: from fencepost.gnu.org ([199.232.76.164]:37761 "EHLO
+	fencepost.gnu.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751192AbXAUF1n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Jan 2007 00:27:43 -0500
+Received: from proski by fencepost.gnu.org with local (Exim 4.60)
+	(envelope-from <proski@gnu.org>)
+	id 1H8VEG-0006JR-6u
+	for netdev@vger.kernel.org; Sun, 21 Jan 2007 00:26:56 -0500
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> On Sat, Jan 20, 2007 at 05:36:03PM -0500, Rik van Riel (riel@surriel.com) wrote:
-> > Due to the way everything in the kernel works, you cannot
-> > prevent the memory allocator from allocating everything and
-> > running out, except maybe by setting aside reserves to deal
-> > with special subsystems.
+Set phy->lo_control to NULL whenever it's freed.  Failure to do so leads
+to zeroing a block of memory that uses to hold *phy->lo_control, which
+caused random crashes down the road.
 
-As a technical side gets described, this is exactly the way I proposed -
-there is special dedicated pool which does not depend on main system
-allocator, so if the latter is empty, the former still _can_ work,
-although it is possible that it will be empty too.
+Signed-off-by: Pavel Roskin <proski@gnu.org>
+---
 
-Separation. 
-It removes avalanche effect when one problem produces several different.
+ drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-I do not say that some allocator is the best for dealing with such
-situation, I just pointed that critical pathes were separated in NTA, so
-they do not depend on each one's failure.
+diff --git a/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c b/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
+index 3064322..62d4dc9 100644
+--- a/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
++++ b/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
+@@ -3048,6 +3048,7 @@ static void bcm43xx_wireless_core_exit(struct bcm43xx_wldev *dev)
+ 	if (phy->dyn_tssi_tbl)
+ 		kfree(phy->tssi2dbm);
+ 	kfree(phy->lo_control);
++	phy->lo_control = NULL;
+ 	ssb_chipco_set_clockmode(chipco, SSB_CLKMODE_SLOW);
+ 	bcm43xx_vstack_free(&dev->genstack);
+ 	bcm43xx_set_status(dev, BCM43xx_STAT_UNINIT);
+@@ -3179,6 +3180,7 @@ err_kfree_tssitbl:
+ 		kfree(phy->tssi2dbm);
+ err_kfree_lo_control:
+ 	kfree(phy->lo_control);
++	phy->lo_control = NULL;
+ err_slowclock:
+ 	ssb_chipco_set_clockmode(chipco, SSB_CLKMODE_SLOW);
+ 	bcm43xx_set_status(dev, BCM43xx_STAT_UNINIT);
 
-Actually that separation was introduced way too long ago with memory
-pools, this is some kind of continuation, which adds a lot of additional
-extremely useful features.
-
-NTA used for network allocations is that pool, since in real life
-packets can not be allocated in advance without memory overhead. For
-simple situations like only ACK generatinos it is possible, which I
-suggested first, but long-term solution is special allocator.
-I selected NTA for this task because it has _additional_ features like
-self-deragmentation, which is very useful part for networking, but if
-only OOM recovery condition is concerned, then actually any other
-allocator can be used of course.
-
--- 
-	Evgeniy Polyakov
