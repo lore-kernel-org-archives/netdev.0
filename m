@@ -1,54 +1,37 @@
-From: Rik van Riel <riel@surriel.com>
-Subject: Re: Possible ways of dealing with OOM conditions.
-Date: Sun, 21 Jan 2007 11:30:49 -0500
-Message-ID: <45B39539.8020704@surriel.com>
-References: <20070118104144.GA20925@2ka.mipt.ru> <1169122724.6197.50.camel@twins> <20070118135839.GA7075@2ka.mipt.ru> <1169133052.6197.96.camel@twins> <20070118155003.GA6719@2ka.mipt.ru> <1169141513.6197.115.camel@twins> <20070118183430.GA3345@2ka.mipt.ru> <1169211195.6197.143.camel@twins> <20070119225643.GA22728@2ka.mipt.ru> <45B29953.5010505@surriel.com> <20070121014644.GA12070@2ka.mipt.ru>
+From: Marcus Better <marcus@better.se>
+Subject: [PATCH] cfg80211: Correct conditional compile of wext-common.c.
+Date: Sun, 21 Jan 2007 18:19:07 +0100
+Message-ID: <200701211819.07947.marcus@better.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-mm@kvack.org, David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751006AbXAUQbP@vger.kernel.org>
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-In-Reply-To: <20070121014644.GA12070@2ka.mipt.ru>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: johannes@sipsolutions.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from iggypop2.siwnet.net ([81.216.65.12]:60482 "EHLO
+	iggypop2.siwnet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751147AbXAURTQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Jan 2007 12:19:16 -0500
+Received: from localhost (localhost [127.0.0.1])
+	by iggypop2.siwnet.net (Postfix) with SMTP id AC1E92058E6
+	for <netdev@vger.kernel.org>; Sun, 21 Jan 2007 18:19:11 +0100 (CET)
+To: netdev@vger.kernel.org
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Evgeniy Polyakov wrote:
-> On Sat, Jan 20, 2007 at 05:36:03PM -0500, Rik van Riel (riel@surriel.com) wrote:
->> Evgeniy Polyakov wrote:
->>> On Fri, Jan 19, 2007 at 01:53:15PM +0100, Peter Zijlstra 
->>> (a.p.zijlstra@chello.nl) wrote:
->>>>> Even further development of such idea is to prevent such OOM condition
->>>>> at all - by starting swapping early (but wisely) and reduce memory
->>>>> usage.
->>>> These just postpone execution but will not avoid it.
->>> No. If system allows to have such a condition, then
->>> something is broken. It must be prevented, instead of creating special
->>> hacks to recover from it.
->> Evgeniy, you may want to learn something about the VM before
->> stating that reality should not occur.
-> 
-> I.e. I should start believing that OOM can not be prevented, bugs can
-> not be fixed and things can not be changed just because it happens right
-> now? That is why I'm not subscribed to lkml :)
+wext-common.o is required if CONFIG_WIRELESS_EXT is set. Looks like `CONFIG_NET_WIRELESS' is a typo.
 
-The reasons for this are often not inside the VM itself,
-but are due to the constraints imposed on the VM.
+Signed-off-by: Marcus Better <marcus@better.se>
 
-For example, with many of the journaled filesystems there
-is no way to know in advance how much IO needs to be done
-to complete a writeout of one dirty page (and consequently,
-how much memory needs to be allocated to complete this one
-writeout).
-
-Parts of the VM could be changed to reduce the pressure
-somewhat, eg. limiting the number of IOs in flight, but
-that will probably have performance consequences that may
-not be acceptable to Andrew and Linus and never get merged.
-
+--- a/net/wireless/Makefile
++++ b/net/wireless/Makefile
+@@ -12,5 +12,5 @@ obj-ny :=
+ 
+ # this needs to be compiled in...
+ obj-$(CONFIG_CFG80211_WEXT_COMPAT) += wext-compat.o
+-obj-$(CONFIG_CFG80211_WEXT_COMPAT)$(CONFIG_NET_WIRELESS) += wext-common.o
++obj-$(CONFIG_CFG80211_WEXT_COMPAT)$(CONFIG_WIRELESS_EXT) += wext-common.o
+ obj-y += $(obj-yy) $(obj-yn) $(obj-ny)
 -- 
-Politics is the struggle between those who want to make their country
-the best in the world, and those who believe it already is.  Each group
-calls the other unpatriotic.
+
