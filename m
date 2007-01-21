@@ -1,44 +1,57 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [-mm patch] remove one remaining "#define BCM_TSO 1"
-Date: Sun, 21 Jan 2007 20:13:57 +0100
-Message-ID: <20070121191357.GQ9093@stusta.de>
-References: <20070111222627.66bb75ab.akpm@osdl.org>
+From: Jay Cliburn <jacliburn@bellsouth.net>
+Subject: [PATCH 0/4] atl1: Attansic L1 ethernet driver
+Date: Sun, 21 Jan 2007 15:04:16 -0600
+Message-ID: <20070121210416.GA2702@osprey.hogchain.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Arjan van de Ven <arjan@infradead.org>
+Cc: shemminger@osdl.org, csnook@redhat.com, hch@infradead.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	atl1-devel@lists.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from emailhub.stusta.mhn.de ([141.84.69.5]:4218 "HELO
-	mailout.stusta.mhn.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1751432AbXAUTNv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Jan 2007 14:13:51 -0500
-To: Andrew Morton <akpm@osdl.org>, jgarzik@pobox.com
+Received: from imf16aec.mail.bellsouth.net ([205.152.59.64]:57623 "EHLO
+	imf16aec.mail.bellsouth.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751591AbXAUVEW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Jan 2007 16:04:22 -0500
+To: jeff@garzik.org
 Content-Disposition: inline
-In-Reply-To: <20070111222627.66bb75ab.akpm@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 11, 2007 at 10:26:27PM -0800, Andrew Morton wrote:
->...
-> Changes since 2.6.20-rc3-mm1:
->...
->  git-netdev-all.patch
->...
->  git trees
->...
 
-Since it's no longer used, this "#define BCM_TSO 1" can now be removed.
+This is the latest submittal of the patchset providing support for the 
+Attansic L1 gigabit ethernet adapter.  This patchset is built against 
+kernel version 2.6.20-rc5.
 
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
+This version incorporates all comments from:
 
---- linux-2.6.20-rc4-mm1/drivers/net/bnx2.c.old	2007-01-21 18:25:52.000000000 +0100
-+++ linux-2.6.20-rc4-mm1/drivers/net/bnx2.c	2007-01-21 18:25:58.000000000 +0100
-@@ -42,7 +42,6 @@
- #include <net/ip.h>
- #include <net/tcp.h>
- #include <net/checksum.h>
--#define BCM_TSO 1
- #include <linux/workqueue.h>
- #include <linux/crc32.h>
- #include <linux/prefetch.h>
+Christoph Hellwig:
+http://lkml.org/lkml/2007/1/11/43
+http://lkml.org/lkml/2007/1/11/45
+http://lkml.org/lkml/2007/1/11/48
+http://lkml.org/lkml/2007/1/11/49
+
+Jeff Garzik:
+http://lkml.org/lkml/2007/1/18/233
+
+Many thanks to both for reviewing the driver.
+
+The monolithic version of this patchset may be found at:
+ftp://hogchain.net/pub/linux/attansic/kernel_driver/atl1-2.0.5-linux-2.6.20.rc5.patch.bz2
+
+As a reminder, this driver is a modified version of the Attansic reference 
+driver for the L1 ethernet adapter.  Attansic has granted permission for 
+its inclusion in the mainline kernel.
+
+This patchset contains:
+
+drivers/net/Kconfig             |   11 +
+drivers/net/Makefile            |    1 +
+drivers/net/atl1/Makefile       |    2 +
+drivers/net/atl1/atl1.h         |  288 +++++
+drivers/net/atl1/atl1_ethtool.c |  436 +++++++
+drivers/net/atl1/atl1_hw.c      |  728 ++++++++++++
+drivers/net/atl1/atl1_hw.h      |  965 +++++++++++++++
+drivers/net/atl1/atl1_main.c    | 2490 ++++++++++++++++++++++++++++++++++++++++
+drivers/net/atl1/atl1_param.c   |  223 ++++
+9 files changed, 5144 insertions(+), 0 deletions(-)
 
