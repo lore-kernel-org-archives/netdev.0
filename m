@@ -1,76 +1,473 @@
-From: Frederik Deweerdt <deweerdt@free.fr>
-Subject: Re: [BUG] e100: eth0 appers many times in /proc/interrupts after resume
-Date: Sun, 21 Jan 2007 22:04:57 +0000
-Message-ID: <20070121220457.GC8958@slug>
-References: <1167599458.2662.8.camel@nigel.suspend2.net> <1167605481.12328.0.camel@localhost> <1167607994.2662.39.camel@nigel.suspend2.net> <1167644970.7142.6.camel@localhost> <1168317278.6948.9.camel@nigel.suspend2.net> <1168448689.7430.1.camel@localhost> <1168463852.3205.1.camel@nigel.suspend2.net> <1169407062.1932.4.camel@localhost> <20070121212209.GB8958@slug> <45B3DEF7.8020505@intel.com>
+From: Ayaz Abdulla <aabdulla@nvidia.com>
+Subject: [PATCH 8/12] forcedeth: rx data path optimization
+Date: Sun, 21 Jan 2007 18:10:52 -0500
+Message-ID: <45B3F2FC.7060307@nvidia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrei Popa <andrei.popa@i-neo.ro>, linux-kernel@vger.kernel.org,
-	nigel@suspend2.net, NetDev <netdev@vger.kernel.org>
+Content-Type: multipart/mixed;
+ boundary="------------050807070008040905090009"
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.169]:12473 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751707AbXAUWH1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Jan 2007 17:07:27 -0500
-Received: by ug-out-1314.google.com with SMTP id 44so895703uga
-        for <netdev@vger.kernel.org>; Sun, 21 Jan 2007 14:07:26 -0800 (PST)
-To: Auke Kok <auke-jan.h.kok@intel.com>
-Content-Disposition: inline
-In-Reply-To: <45B3DEF7.8020505@intel.com>
+Received: from hqemgate01.nvidia.com ([216.228.112.170]:6186 "EHLO
+	HQEMGATE01.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751836AbXAVBFb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Jan 2007 20:05:31 -0500
+To: Jeff Garzik <jgarzik@pobox.com>,
+	Manfred Spraul <manfred@colorfullife.com>,
+	Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Jan 21, 2007 at 01:45:27PM -0800, Auke Kok wrote:
-> Frederik Deweerdt wrote:
-> >On Sun, Jan 21, 2007 at 09:17:41PM +0200, Andrei Popa wrote:
-> >>It's the 10th resume and in /proc/interrupts eth0 appers 10 times.
-> >The e100_resume() function should be calling netif_device_detach and
-> >free_irq. Could you try the following (compile tested) patch?
-> 
-> I just fixed suspend/shutdown for e100 in 2.6.19, not sure why the problem still shows up. Since it's a driver/net issue, you 
-> should CC netdev on it tho, otherwise it might go unnoticed.
-Thanks for adding the CC
-> 
-> I'll open up the can-o-worms on this issue and see what's up with it.
-> 
-> I'm not so sure that this patch is OK, and I wonder why it stopped working, because I spent quite some time fixing it only a 
-> few months ago. Did swsup change again? sigh...
+This is a multi-part message in MIME format.
+--------------050807070008040905090009
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-I may well be wrong (It appears that most of the time I am :)), but the
-unbalanced netif_device_attach (in resume) looks suspicious.  resume()
-also calls request_irq, so calling free_irq on suspend seemed logical.
+This patch optimizes the rx data paths and cleans up the code.
 
-Regards,
-Frederik
+Signed-Off-By: Ayaz Abdulla <aabdulla@nvidia.com>
 
-> 
-> Auke
-> 
-> >Signed-off-by: Frederik Deweerdt <frederik.deweerdt@gmail.com>
-> >diff --git a/drivers/net/e100.c b/drivers/net/e100.c
-> >index 2fe0445..0c376e4 100644
-> >--- a/drivers/net/e100.c
-> >+++ b/drivers/net/e100.c
-> >@@ -2671,6 +2671,7 @@ static int e100_suspend(struct pci_dev *pdev, pm_message_t state)
-> > 	del_timer_sync(&nic->watchdog);
-> > 	netif_carrier_off(nic->netdev);
-> > +	netif_device_detach(netdev);
-> > 	pci_save_state(pdev);
-> >  	if ((nic->flags & wol_magic) | e100_asf(nic)) {
-> >@@ -2682,6 +2683,7 @@ static int e100_suspend(struct pci_dev *pdev, pm_message_t state)
-> > 	}
-> >  	pci_disable_device(pdev);
-> >+	free_irq(pdev->irq, netdev);
-> > 	pci_set_power_state(pdev, PCI_D3hot);
-> >  	return 0;
-> >-
-> >To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> >the body of a message to majordomo@vger.kernel.org
-> >More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> >Please read the FAQ at  http://www.tux.org/lkml/
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
-> 
+--------------050807070008040905090009
+Content-Type: text/plain;
+ name="patch-rx-opti-cleanup"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="patch-rx-opti-cleanup"
+
+--- orig/drivers/net/forcedeth.c	2007-01-19 11:08:24.000000000 -0500
++++ new/drivers/net/forcedeth.c	2007-01-19 11:11:04.000000000 -0500
+@@ -1317,9 +1317,9 @@
+ 			np->put_rx.orig->buf = cpu_to_le32(np->put_rx_ctx->dma);
+ 			wmb();
+ 			np->put_rx.orig->flaglen = cpu_to_le32(np->rx_buf_sz | NV_RX_AVAIL);
+-			if (np->put_rx.orig++ == np->last_rx.orig)
++			if (unlikely(np->put_rx.orig++ == np->last_rx.orig))
+ 				np->put_rx.orig = np->first_rx.orig;
+-			if (np->put_rx_ctx++ == np->last_rx_ctx)
++			if (unlikely(np->put_rx_ctx++ == np->last_rx_ctx))
+ 				np->put_rx_ctx = np->first_rx_ctx;
+ 		} else {
+ 			return 1;
+@@ -1349,9 +1349,9 @@
+ 			np->put_rx.ex->buflow = cpu_to_le64(np->put_rx_ctx->dma) & 0x0FFFFFFFF;
+ 			wmb();
+ 			np->put_rx.ex->flaglen = cpu_to_le32(np->rx_buf_sz | NV_RX2_AVAIL);
+-			if (np->put_rx.ex++ == np->last_rx.ex)
++			if (unlikely(np->put_rx.ex++ == np->last_rx.ex))
+ 				np->put_rx.ex = np->first_rx.ex;
+-			if (np->put_rx_ctx++ == np->last_rx_ctx)
++			if (unlikely(np->put_rx_ctx++ == np->last_rx_ctx))
+ 				np->put_rx_ctx = np->first_rx_ctx;
+ 		} else {
+ 			return 1;
+@@ -2046,24 +2046,17 @@
+ {
+ 	struct fe_priv *np = netdev_priv(dev);
+ 	u32 flags;
+-	u32 vlanflags = 0;
+-	int count;
+-
+-	for (count = 0; count < limit; ++count) {
+-		struct sk_buff *skb;
+-		int len;
+-
+-		if (np->get_rx.orig == np->put_rx.orig)
+-			break;	/* we scanned the whole ring - do not continue */
+-		flags = le32_to_cpu(np->get_rx.orig->flaglen);
+-		len = nv_descr_getlength(np->get_rx.orig, np->desc_ver);
++	u32 rx_processed_cnt = 0;
++	struct sk_buff *skb;
++	int len;
++
++	while((np->get_rx.orig != np->put_rx.orig) &&
++	      !((flags = le32_to_cpu(np->get_rx.orig->flaglen)) & NV_RX_AVAIL) &&
++		(rx_processed_cnt++ < limit)) {
+ 
+ 		dprintk(KERN_DEBUG "%s: nv_rx_process: flags 0x%x.\n",
+ 					dev->name, flags);
+ 
+-		if (flags & NV_RX_AVAIL)
+-			break;	/* still owned by hardware, */
+-
+ 		/*
+ 		 * the packet is for us - immediately tear down the pci mapping.
+ 		 * TODO: check if a prefetch of the first cacheline improves
+@@ -2087,99 +2080,80 @@
+ 		}
+ 		/* look at what we actually got: */
+ 		if (np->desc_ver == DESC_VER_1) {
+-			if (!(flags & NV_RX_DESCRIPTORVALID)) {
+-				dev_kfree_skb(skb);
+-				goto next_pkt;
+-			}
+-
+-			if (flags & NV_RX_ERROR) {
+-				if (flags & NV_RX_MISSEDFRAME) {
+-					np->stats.rx_missed_errors++;
+-					np->stats.rx_errors++;
+-					dev_kfree_skb(skb);
+-					goto next_pkt;
+-				}
+-				if (flags & (NV_RX_ERROR1|NV_RX_ERROR2|NV_RX_ERROR3)) {
+-					np->stats.rx_errors++;
+-					dev_kfree_skb(skb);
+-					goto next_pkt;
+-				}
+-				if (flags & NV_RX_CRCERR) {
+-					np->stats.rx_crc_errors++;
+-					np->stats.rx_errors++;
+-					dev_kfree_skb(skb);
+-					goto next_pkt;
+-				}
+-				if (flags & NV_RX_OVERFLOW) {
+-					np->stats.rx_over_errors++;
+-					np->stats.rx_errors++;
+-					dev_kfree_skb(skb);
+-					goto next_pkt;
+-				}
+-				if (flags & NV_RX_ERROR4) {
+-					len = nv_getlen(dev, skb->data, len);
+-					if (len < 0) {
++			if (likely(flags & NV_RX_DESCRIPTORVALID)) {
++				len = flags & LEN_MASK_V1;
++				if (unlikely(flags & NV_RX_ERROR)) {
++					if (flags & NV_RX_ERROR4) {
++						len = nv_getlen(dev, skb->data, len);
++						if (len < 0) {
++							np->stats.rx_errors++;
++							dev_kfree_skb(skb);
++							goto next_pkt;
++						}
++					}
++					/* framing errors are soft errors */
++					else if (flags & NV_RX_FRAMINGERR) {
++						if (flags & NV_RX_SUBSTRACT1) {
++							len--;
++						}
++					}
++					/* the rest are hard errors */
++					else {
++						if (flags & NV_RX_MISSEDFRAME)
++							np->stats.rx_missed_errors++;
++						if (flags & NV_RX_CRCERR)
++							np->stats.rx_crc_errors++;
++						if (flags & NV_RX_OVERFLOW)
++							np->stats.rx_over_errors++;
+ 						np->stats.rx_errors++;
+ 						dev_kfree_skb(skb);
+ 						goto next_pkt;
+ 					}
+ 				}
+-				/* framing errors are soft errors. */
+-				if (flags & NV_RX_FRAMINGERR) {
+-					if (flags & NV_RX_SUBSTRACT1) {
+-						len--;
+-					}
+-				}
+-			}
+-		} else {
+-			if (!(flags & NV_RX2_DESCRIPTORVALID)) {
++			} else {
+ 				dev_kfree_skb(skb);
+ 				goto next_pkt;
+ 			}
+-
+-			if (flags & NV_RX2_ERROR) {
+-				if (flags & (NV_RX2_ERROR1|NV_RX2_ERROR2|NV_RX2_ERROR3)) {
+-					np->stats.rx_errors++;
+-					dev_kfree_skb(skb);
+-					goto next_pkt;
+-				}
+-				if (flags & NV_RX2_CRCERR) {
+-					np->stats.rx_crc_errors++;
+-					np->stats.rx_errors++;
+-					dev_kfree_skb(skb);
+-					goto next_pkt;
+-				}
+-				if (flags & NV_RX2_OVERFLOW) {
+-					np->stats.rx_over_errors++;
+-					np->stats.rx_errors++;
+-					dev_kfree_skb(skb);
+-					goto next_pkt;
+-				}
+-				if (flags & NV_RX2_ERROR4) {
+-					len = nv_getlen(dev, skb->data, len);
+-					if (len < 0) {
++		} else {
++			if (likely(flags & NV_RX2_DESCRIPTORVALID)) {
++				len = flags & LEN_MASK_V2;
++				if (unlikely(flags & NV_RX2_ERROR)) {
++					if (flags & NV_RX2_ERROR4) {
++						len = nv_getlen(dev, skb->data, len);
++						if (len < 0) {
++							np->stats.rx_errors++;
++							dev_kfree_skb(skb);
++							goto next_pkt;
++						}
++					}
++					/* framing errors are soft errors */
++					else if (flags & NV_RX2_FRAMINGERR) {
++						if (flags & NV_RX2_SUBSTRACT1) {
++							len--;
++						}
++					}
++					/* the rest are hard errors */
++					else {
++						if (flags & NV_RX2_CRCERR)
++							np->stats.rx_crc_errors++;
++						if (flags & NV_RX2_OVERFLOW)
++							np->stats.rx_over_errors++;
+ 						np->stats.rx_errors++;
+ 						dev_kfree_skb(skb);
+ 						goto next_pkt;
+ 					}
+ 				}
+-				/* framing errors are soft errors */
+-				if (flags & NV_RX2_FRAMINGERR) {
+-					if (flags & NV_RX2_SUBSTRACT1) {
+-						len--;
+-					}
+-				}
+-			}
+-			if (np->rx_csum) {
+-				flags &= NV_RX2_CHECKSUMMASK;
+-				if (flags == NV_RX2_CHECKSUMOK1 ||
+-				    flags == NV_RX2_CHECKSUMOK2 ||
+-				    flags == NV_RX2_CHECKSUMOK3) {
+-					dprintk(KERN_DEBUG "%s: hw checksum hit!.\n", dev->name);
++				if ((flags & NV_RX2_CHECKSUMMASK) == NV_RX2_CHECKSUMOK2)/*ip and tcp */ {
+ 					skb->ip_summed = CHECKSUM_UNNECESSARY;
+ 				} else {
+-					dprintk(KERN_DEBUG "%s: hwchecksum miss!.\n", dev->name);
++					if ((flags & NV_RX2_CHECKSUMMASK) == NV_RX2_CHECKSUMOK1 ||
++					    (flags & NV_RX2_CHECKSUMMASK) == NV_RX2_CHECKSUMOK3) {
++						skb->ip_summed = CHECKSUM_UNNECESSARY;
++					}
+ 				}
++			} else {
++				dev_kfree_skb(skb);
++				goto next_pkt;
+ 			}
+ 		}
+ 		/* got a valid packet - forward it to the network core */
+@@ -2188,29 +2162,21 @@
+ 		dprintk(KERN_DEBUG "%s: nv_rx_process: %d bytes, proto %d accepted.\n",
+ 					dev->name, len, skb->protocol);
+ #ifdef CONFIG_FORCEDETH_NAPI
+-		if (np->vlangrp && (vlanflags & NV_RX3_VLAN_TAG_PRESENT))
+-			vlan_hwaccel_receive_skb(skb, np->vlangrp,
+-						 vlanflags & NV_RX3_VLAN_TAG_MASK);
+-		else
+-			netif_receive_skb(skb);
++		netif_receive_skb(skb);
+ #else
+-		if (np->vlangrp && (vlanflags & NV_RX3_VLAN_TAG_PRESENT))
+-			vlan_hwaccel_rx(skb, np->vlangrp,
+-					vlanflags & NV_RX3_VLAN_TAG_MASK);
+-		else
+-			netif_rx(skb);
++		netif_rx(skb);
+ #endif
+ 		dev->last_rx = jiffies;
+ 		np->stats.rx_packets++;
+ 		np->stats.rx_bytes += len;
+ next_pkt:
+-		if (np->get_rx.orig++ == np->last_rx.orig)
++		if (unlikely(np->get_rx.orig++ == np->last_rx.orig))
+ 			np->get_rx.orig = np->first_rx.orig;
+-		if (np->get_rx_ctx++ == np->last_rx_ctx)
++		if (unlikely(np->get_rx_ctx++ == np->last_rx_ctx))
+ 			np->get_rx_ctx = np->first_rx_ctx;
+ 	}
+ 
+-	return count;
++	return rx_processed_cnt;
+ }
+ 
+ static int nv_rx_process_optimized(struct net_device *dev, int limit)
+@@ -2218,24 +2184,17 @@
+ 	struct fe_priv *np = netdev_priv(dev);
+ 	u32 flags;
+ 	u32 vlanflags = 0;
+-	int count;
+-
+-	for (count = 0; count < limit; ++count) {
+-		struct sk_buff *skb;
+-		int len;
+-
+-		if (np->get_rx.ex == np->put_rx.ex)
+-			break;	/* we scanned the whole ring - do not continue */
+-		flags = le32_to_cpu(np->get_rx.ex->flaglen);
+-		len = nv_descr_getlength_ex(np->get_rx.ex, np->desc_ver);
+-		vlanflags = le32_to_cpu(np->get_rx.ex->buflow);
++	u32 rx_processed_cnt = 0;
++	struct sk_buff *skb;
++	int len;
++
++	while((np->get_rx.ex != np->put_rx.ex) &&
++	      !((flags = le32_to_cpu(np->get_rx.ex->flaglen)) & NV_RX2_AVAIL) &&
++	      (rx_processed_cnt++ < limit)) {
+ 
+ 		dprintk(KERN_DEBUG "%s: nv_rx_process_optimized: flags 0x%x.\n",
+ 					dev->name, flags);
+ 
+-		if (flags & NV_RX_AVAIL)
+-			break;	/* still owned by hardware, */
+-
+ 		/*
+ 		 * the packet is for us - immediately tear down the pci mapping.
+ 		 * TODO: check if a prefetch of the first cacheline improves
+@@ -2258,84 +2217,91 @@
+ 			dprintk("\n");
+ 		}
+ 		/* look at what we actually got: */
+-		if (!(flags & NV_RX2_DESCRIPTORVALID)) {
+-			dev_kfree_skb(skb);
+-			goto next_pkt;
+-		}
+-
+-		if (flags & NV_RX2_ERROR) {
+-			if (flags & (NV_RX2_ERROR1|NV_RX2_ERROR2|NV_RX2_ERROR3)) {
+-				np->stats.rx_errors++;
+-				dev_kfree_skb(skb);
+-				goto next_pkt;
+-			}
+-			if (flags & NV_RX2_CRCERR) {
+-				np->stats.rx_crc_errors++;
+-				np->stats.rx_errors++;
+-				dev_kfree_skb(skb);
+-				goto next_pkt;
+-			}
+-			if (flags & NV_RX2_OVERFLOW) {
+-				np->stats.rx_over_errors++;
+-				np->stats.rx_errors++;
+-				dev_kfree_skb(skb);
+-				goto next_pkt;
+-			}
+-			if (flags & NV_RX2_ERROR4) {
+-				len = nv_getlen(dev, skb->data, len);
+-				if (len < 0) {
++		if (likely(flags & NV_RX2_DESCRIPTORVALID)) {
++			len = flags & LEN_MASK_V2;
++			if (unlikely(flags & NV_RX2_ERROR)) {
++				if (flags & NV_RX2_ERROR4) {
++					len = nv_getlen(dev, skb->data, len);
++					if (len < 0) {
++						np->stats.rx_errors++;
++						dev_kfree_skb(skb);
++						goto next_pkt;
++					}
++				}
++				/* framing errors are soft errors */
++				else if (flags & NV_RX2_FRAMINGERR) {
++					if (flags & NV_RX2_SUBSTRACT1) {
++						len--;
++					}
++				}
++				/* the rest are hard errors */
++				else {
++					if (flags & NV_RX2_CRCERR)
++						np->stats.rx_crc_errors++;
++					if (flags & NV_RX2_OVERFLOW)
++						np->stats.rx_over_errors++;
+ 					np->stats.rx_errors++;
+ 					dev_kfree_skb(skb);
+ 					goto next_pkt;
+ 				}
+ 			}
+-			/* framing errors are soft errors */
+-			if (flags & NV_RX2_FRAMINGERR) {
+-				if (flags & NV_RX2_SUBSTRACT1) {
+-					len--;
+-				}
+-			}
+-		}
+-		if (np->rx_csum) {
+-			flags &= NV_RX2_CHECKSUMMASK;
+-			if (flags == NV_RX2_CHECKSUMOK1 ||
+-			    flags == NV_RX2_CHECKSUMOK2 ||
+-			    flags == NV_RX2_CHECKSUMOK3) {
+-				dprintk(KERN_DEBUG "%s: hw checksum hit!.\n", dev->name);
++
++			if ((flags & NV_RX2_CHECKSUMMASK) == NV_RX2_CHECKSUMOK2)/*ip and tcp */ {
+ 				skb->ip_summed = CHECKSUM_UNNECESSARY;
+ 			} else {
+-				dprintk(KERN_DEBUG "%s: hwchecksum miss!.\n", dev->name);
++				if ((flags & NV_RX2_CHECKSUMMASK) == NV_RX2_CHECKSUMOK1 ||
++				    (flags & NV_RX2_CHECKSUMMASK) == NV_RX2_CHECKSUMOK3) {
++					skb->ip_summed = CHECKSUM_UNNECESSARY;
++				}
+ 			}
+-		}
+-		/* got a valid packet - forward it to the network core */
+-		skb_put(skb, len);
+-		skb->protocol = eth_type_trans(skb, dev);
+-		dprintk(KERN_DEBUG "%s: nv_rx_process: %d bytes, proto %d accepted.\n",
+-					dev->name, len, skb->protocol);
++
++			/* got a valid packet - forward it to the network core */
++			skb_put(skb, len);
++			skb->protocol = eth_type_trans(skb, dev);
++			prefetch(skb->data);
++
++			dprintk(KERN_DEBUG "%s: nv_rx_process_optimized: %d bytes, proto %d accepted.\n",
++				dev->name, len, skb->protocol);
++
++			if (likely(!np->vlangrp)) {
+ #ifdef CONFIG_FORCEDETH_NAPI
+-		if (np->vlangrp && (vlanflags & NV_RX3_VLAN_TAG_PRESENT))
+-			vlan_hwaccel_receive_skb(skb, np->vlangrp,
+-						 vlanflags & NV_RX3_VLAN_TAG_MASK);
+-		else
+-			netif_receive_skb(skb);
++				netif_receive_skb(skb);
+ #else
+-		if (np->vlangrp && (vlanflags & NV_RX3_VLAN_TAG_PRESENT))
+-			vlan_hwaccel_rx(skb, np->vlangrp,
+-					vlanflags & NV_RX3_VLAN_TAG_MASK);
+-		else
+-			netif_rx(skb);
++				netif_rx(skb);
+ #endif
+-		dev->last_rx = jiffies;
+-		np->stats.rx_packets++;
+-		np->stats.rx_bytes += len;
++			} else {
++				vlanflags = le32_to_cpu(np->get_rx.ex->buflow);
++				if (vlanflags & NV_RX3_VLAN_TAG_PRESENT) {
++#ifdef CONFIG_FORCEDETH_NAPI
++					vlan_hwaccel_receive_skb(skb, np->vlangrp,
++								 vlanflags & NV_RX3_VLAN_TAG_MASK);
++#else
++					vlan_hwaccel_rx(skb, np->vlangrp,
++							vlanflags & NV_RX3_VLAN_TAG_MASK);
++#endif
++				} else {
++#ifdef CONFIG_FORCEDETH_NAPI
++					netif_receive_skb(skb);
++#else
++					netif_rx(skb);
++#endif
++				}
++			}
++
++			dev->last_rx = jiffies;
++			np->stats.rx_packets++;
++			np->stats.rx_bytes += len;
++		} else {
++			dev_kfree_skb(skb);
++		}
+ next_pkt:
+-		if (np->get_rx.ex++ == np->last_rx.ex)
++		if (unlikely(np->get_rx.ex++ == np->last_rx.ex))
+ 			np->get_rx.ex = np->first_rx.ex;
+-		if (np->get_rx_ctx++ == np->last_rx_ctx)
++		if (unlikely(np->get_rx_ctx++ == np->last_rx_ctx))
+ 			np->get_rx_ctx = np->first_rx_ctx;
+ 	}
+ 
+-	return count;
++	return rx_processed_cnt;
+ }
+ 
+ static void set_bufsize(struct net_device *dev)
+
+--------------050807070008040905090009--
