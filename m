@@ -1,59 +1,53 @@
 From: "Amit S. Kale" <amitkale@netxen.com>
 Subject: [PATCH 1/2] NetXen: Firmware check modifications
-Date: Mon, 22 Jan 2007 06:38:05 -0800
-Message-ID: <200701221438.l0MEc5eM004155@dut39.unminc.com>
+Date: Mon, 22 Jan 2007 06:39:20 -0800
+Message-ID: <200701221439.l0MEdKrD004186@dut39.unminc.com>
 Cc: amitkale@netxen.com, brazilnut@us.ibm.com, jeff@garzik.org,
-	linuxram@us.ibm.com, netxenproj@linsyssoft.com, rob@netxen.com,
-	sanjeev@netxen.com, wendyx@us.ibm.com
+	linuxram@us.ibm.com, netxenproj@linsyssoft.com,
+	ricknu-0@student.ltu.se, rob@netxen.com, sanjeev@netxen.com,
+	wendyx@us.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 66-126-254-34.unm.net ([66.126.254.34]:16846 "EHLO
+Received: from 66-126-254-34.unm.net ([66.126.254.34]:16063 "EHLO
 	nxmail.netxen.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751723AbXAVOiH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jan 2007 09:38:07 -0500
+	with ESMTP id S1751840AbXAVOjV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jan 2007 09:39:21 -0500
 To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch is to make the driver work with multiple minor firmware versions
+This will use pci_register_driver() instead of pci_module_init().
 
 Signed-off-by: Amit S. Kale <amitkale@netxen.com>
+Signed-off-by: Richard Knutsson <ricknu-0@student.ltu.se>
 
 ---
- netxen_nic.h    |    7 +++----
- netxen_nic_hw.c |    3 ++-
- 2 files changed, 5 insertions(+), 5 deletions(-)
+ netxen_nic.h      |    2 +-
+ netxen_nic_main.c |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/netxen/netxen_nic.h b/drivers/net/netxen/netxen_nic.h
-index 6490acf..663fa2f 100644
+index 663fa2f..59324b1 100644
 --- a/drivers/net/netxen/netxen_nic.h
 +++ b/drivers/net/netxen/netxen_nic.h
-@@ -63,12 +63,11 @@ #include <asm/pgtable.h>
+@@ -63,7 +63,7 @@ #include <asm/pgtable.h>
  
  #include "netxen_nic_hw.h"
  
--#define NETXEN_NIC_BUILD_NO     "4"
-+#define NETXEN_NIC_BUILD_NO     "1"
+-#define NETXEN_NIC_BUILD_NO     "1"
++#define NETXEN_NIC_BUILD_NO     "2"
  #define _NETXEN_NIC_LINUX_MAJOR 3
  #define _NETXEN_NIC_LINUX_MINOR 3
--#define _NETXEN_NIC_LINUX_SUBVERSION 2
--#define NETXEN_NIC_LINUX_VERSIONID  "3.3.2" "-" NETXEN_NIC_BUILD_NO
--#define NETXEN_NIC_FW_VERSIONID "3.3.2"
-+#define _NETXEN_NIC_LINUX_SUBVERSION 3
-+#define NETXEN_NIC_LINUX_VERSIONID  "3.3.3" "-" NETXEN_NIC_BUILD_NO
+ #define _NETXEN_NIC_LINUX_SUBVERSION 3
+diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
+index 8a5792f..96e1bee 100644
+--- a/drivers/net/netxen/netxen_nic_main.c
++++ b/drivers/net/netxen/netxen_nic_main.c
+@@ -1144,7 +1144,7 @@ static int __init netxen_init_module(voi
+ 	if ((netxen_workq = create_singlethread_workqueue("netxen")) == 0)
+ 		return -ENOMEM;
  
- #define RCV_DESC_RINGSIZE	\
- 	(sizeof(struct rcv_desc) * adapter->max_rx_desc_count)
-diff --git a/drivers/net/netxen/netxen_nic_hw.c b/drivers/net/netxen/netxen_nic_hw.c
-index c0c31d1..191e233 100644
---- a/drivers/net/netxen/netxen_nic_hw.c
-+++ b/drivers/net/netxen/netxen_nic_hw.c
-@@ -984,7 +984,8 @@ void netxen_nic_flash_print(struct netxe
- 		       _NETXEN_NIC_LINUX_MAJOR, fw_major);
- 		adapter->driver_mismatch = 1;
- 	}
--	if (fw_minor != _NETXEN_NIC_LINUX_MINOR) {
-+	if (fw_minor != _NETXEN_NIC_LINUX_MINOR &&
-+			fw_minor != (_NETXEN_NIC_LINUX_MINOR + 1)) {
- 		printk(KERN_ERR "The mismatch in driver version and firmware "
- 		       "version minor number\n"
- 		       "Driver version minor number = %d \t"
+-	return pci_module_init(&netxen_driver);
++	return pci_register_driver(&netxen_driver);
+ }
+ 
+ module_init(netxen_init_module);
