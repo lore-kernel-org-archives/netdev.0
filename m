@@ -1,62 +1,87 @@
-From: "Dale Farnsworth" <dale@farnsworth.org>
-Subject: Re: [PATCH] Re: kernel BUG in eth_alloc_tx_desc_index at drivers/net/mv643xx_eth.c:1069!
-Date: Mon, 22 Jan 2007 10:06:16 -0700
-Message-ID: <20070122170615.GA15293@xyzzy.farnsworth.org>
-References: <7d01f9f00701090227v60b37e5dy6afbf70ccde58bf2@mail.gmail.com> <20070109130220.GA4060@ff.dom.local> <7d01f9f00701090944o62f39fb4yfaa5449c2d2d010d@mail.gmail.com> <20070109200541.GA27089@xyzzy.farnsworth.org> <7d01f9f00701091305n3a82713fla442a70a6098dbf@mail.gmail.com> <7d01f9f00701100912kc6fb635wd863d9563b0eb328@mail.gmail.com> <20070111104220.GA3171@ff.dom.local> <7d01f9f00701210418q6f506d20tdc9ce10b501370d7@mail.gmail.com> <7d01f9f00701210502m2bb96bd8i5071a76b6a8c3ea0@mail.gmail.com> <20070122100236.GC2079@ff.dom.local>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: Re: [PATCH] bcm43xx: Check error returns in initialization routines
+Date: Mon, 22 Jan 2007 19:11:20 +0100
+Message-ID: <200701221911.20544.mb@bu3sch.de>
+References: <45b043e3.NGzJyc7WBaqk9U0D%Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Thibaut VARENE <T-Bone@parisc-linux.org>, netdev@vger.kernel.org,
-	mlachwani@mvista.com
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: John Linville <linville@tuxdriver.com>, netdev@vger.kernel.org,
+	Bcm43xx-dev@lists.berlios.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xyzzy.farnsworth.org ([65.39.95.219]:2187 "HELO farnsworth.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S932085AbXAVRGR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 22 Jan 2007 12:06:17 -0500
-To: Jarek Poplawski <jarkao2@o2.pl>
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:43787
+	"EHLO vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932148AbXAVSMv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jan 2007 13:12:51 -0500
+To: Larry Finger <Larry.Finger@lwfinger.net>
+In-Reply-To: <45b043e3.NGzJyc7WBaqk9U0D%Larry.Finger@lwfinger.net>
 Content-Disposition: inline
-In-Reply-To: <20070122100236.GC2079@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jarek and Thibaut,
+On Friday 19 January 2007 05:06, Larry Finger wrote:
+> A number of the calls in the initialization routines fail to check the returned value for
+> errors. This patch adds the necessary checks and logs any errors found when appropriate.
 
-Thank you both very much for your work finding and fixing this bug.
-Jarek, can you verify that the following patch fixes the problem you
-were seeing?
+ACK
 
--Dale
+> Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+> ---
+> 
+> To be applied to wireless-2.6.
+> 
+> 
+> Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+> ===================================================================
+> --- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+> +++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+> @@ -2980,8 +2980,10 @@ static int bcm43xx_chipset_attach(struct
+>  	err = bcm43xx_pctl_set_crystal(bcm, 1);
+>  	if (err)
+>  		goto out;
+> -	bcm43xx_pci_read_config16(bcm, PCI_STATUS, &pci_status);
+> -	bcm43xx_pci_write_config16(bcm, PCI_STATUS, pci_status & ~PCI_STATUS_SIG_TARGET_ABORT);
+> +	err = bcm43xx_pci_read_config16(bcm, PCI_STATUS, &pci_status);
+> +	if (err)
+> +		goto out;
+> +	err = bcm43xx_pci_write_config16(bcm, PCI_STATUS, pci_status & ~PCI_STATUS_SIG_TARGET_ABORT);
+>  
+>  out:
+>  	return err;
+> @@ -3793,12 +3795,18 @@ static int bcm43xx_attach_board(struct b
+>  	}
+>  	net_dev->base_addr = (unsigned long)bcm->mmio_addr;
+>  
+> -	bcm43xx_pci_read_config16(bcm, PCI_SUBSYSTEM_VENDOR_ID,
+> +	err = bcm43xx_pci_read_config16(bcm, PCI_SUBSYSTEM_VENDOR_ID,
+>  	                          &bcm->board_vendor);
+> -	bcm43xx_pci_read_config16(bcm, PCI_SUBSYSTEM_ID,
+> +	if (err)
+> +		goto err_iounmap;
+> +	err = bcm43xx_pci_read_config16(bcm, PCI_SUBSYSTEM_ID,
+>  	                          &bcm->board_type);
+> -	bcm43xx_pci_read_config16(bcm, PCI_REVISION_ID,
+> +	if (err)
+> +		goto err_iounmap;
+> +	err = bcm43xx_pci_read_config16(bcm, PCI_REVISION_ID,
+>  	                          &bcm->board_revision);
+> +	if (err)
+> +		goto err_iounmap;
+>  
+>  	err = bcm43xx_chipset_attach(bcm);
+>  	if (err)
+> @@ -3889,6 +3897,7 @@ err_pci_release:
+>  	pci_release_regions(pci_dev);
+>  err_pci_disable:
+>  	pci_disable_device(pci_dev);
+> +	printk(KERN_ERR PFX "Unable to attach board\n");
+>  	goto out;
+>  }
+> 
+> --- 
+> 
+> 
 
------ Patch follows -----
-
-From: Dale Farnsworth <dale@farnsworth.org>
-
-mv643xx_eth: Fix race condition in mv643xx_eth_free_tx_descs
-
-The bug was found and isolated by Thibaut VARENE <T-Bone@parisc-linux.org>
-and Jarek Poplawski <jarkao2@o2.pl>.  This patch is a modification of their
-fixes.  We acquire and release the lock for each descriptor that is freed
-to minimize the time the lock is held.
-
----
-
- drivers/net/mv643xx_eth.c |    7 +++++++
- 1 file changed, 7 insertions(+)
-
-diff --git a/drivers/net/mv643xx_eth.c b/drivers/net/mv643xx_eth.c
-index c41ae42..0d32381 100644
---- a/drivers/net/mv643xx_eth.c
-+++ b/drivers/net/mv643xx_eth.c
-@@ -314,6 +314,13 @@ int mv643xx_eth_free_tx_descs(struct net
- 
- 	while (mp->tx_desc_count > 0) {
- 		spin_lock_irqsave(&mp->lock, flags);
-+
-+		/* maybe tx_desc_count changed before the lock was acquired */
-+		if (mp->tx_desc_count <= 0) {
-+			spin_unlock_irqrestore(&mp->lock, flags);
-+			return released;
-+		}
-+
- 		tx_index = mp->tx_used_desc_q;
- 		desc = &mp->p_tx_desc_area[tx_index];
- 		cmd_sts = desc->cmd_sts;
+-- 
+Greetings Michael.
