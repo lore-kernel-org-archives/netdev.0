@@ -1,42 +1,69 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH 2/4] atl1: Header files for Attansic L1 driver
-Date: Mon, 22 Jan 2007 12:31:44 +0100
-Message-ID: <20070122113144.GA26468@electric-eye.fr.zoreil.com>
-References: <20070121210608.GC2702@osprey.hogchain.net>
+From: Thomas Klein <osstklei@de.ibm.com>
+Subject: [PATCH 2.6.20-rc5 1/7] ehea: Fixed wrong dereferencation
+Date: Mon, 22 Jan 2007 12:52:20 +0100
+Message-ID: <200701221252.20814.osstklei@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jeff@garzik.org, shemminger@osdl.org, csnook@redhat.com,
-	hch@infradead.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, atl1-devel@lists.sourceforge.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:49211 "EHLO
-	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751548AbXAVLdh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 22 Jan 2007 06:33:37 -0500
-To: Jay Cliburn <jacliburn@bellsouth.net>
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Christoph Raisch <raisch@de.ibm.com>,
+	"Jan-Bernd Themann" <ossthema@de.ibm.com>,
+	"Jan-Bernd Themann" <themann@de.ibm.com>,
+	"linux-kernel" <linux-kernel@vger.kernel.org>,
+	"linux-ppc" <linuxppc-dev@ozlabs.org>,
+	Marcus Eder <meder@de.ibm.com>,
+	netdev <netdev@vger.kernel.org>,
+	Thomas Klein <tklein@de.ibm.com>,
+	Stefan Roscher <roscher@de.ibm.com>,
+	Stefan Roscher <ossrosch@de.ibm.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751725AbXAVLwZ@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20070121210608.GC2702@osprey.hogchain.net>
-Sender: netdev-owner@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> diff --git a/drivers/net/atl1/atl1_hw.h b/drivers/net/atl1/atl1_hw.h
-> new file mode 100644
-> index 0000000..0450b77
-> --- /dev/null
-> +++ b/drivers/net/atl1/atl1_hw.h
-[...]
-> +/*  MII definition */
-> +/* PHY Common Register */
-> +#define MII_BMCR					0x00
-> +#define MII_BMSR					0x01
-> +#define MII_PHYSID1					0x02
-> +#define MII_PHYSID2					0x03
-> +#define MII_ADVERTISE					0x04
-> +#define MII_LPA						0x05
-> +#define MII_EXPANSION					0x06
-[snip]
+Not only check the pointer against 0 but also the dereferenced value
 
-It duplicates a lot of #define already available in include/linux/mii.h.
+Signed-off-by: Thomas Klein <tklein@de.ibm.com>
+---
 
--- 
-Ueimor
+
+ drivers/net/ehea/ehea.h      |    2 +-
+ drivers/net/ehea/ehea_main.c |    6 ++++--
+ 2 files changed, 5 insertions(+), 3 deletions(-)
+
+
+diff -Nurp -X dontdiff linux-2.6.20-rc5/drivers/net/ehea/ehea.h patched_kernel/drivers/net/ehea/ehea.h
+--- linux-2.6.20-rc5/drivers/net/ehea/ehea.h	2007-01-12 19:54:26.000000000 +0100
++++ patched_kernel/drivers/net/ehea/ehea.h	2007-01-19 13:56:41.000000000 +0100
+@@ -39,7 +39,7 @@
+ #include <asm/io.h>
+ 
+ #define DRV_NAME	"ehea"
+-#define DRV_VERSION	"EHEA_0043"
++#define DRV_VERSION	"EHEA_0044"
+ 
+ #define EHEA_MSG_DEFAULT (NETIF_MSG_LINK | NETIF_MSG_TIMER \
+ 	| NETIF_MSG_RX_ERR | NETIF_MSG_TX_ERR)
+diff -Nurp -X dontdiff linux-2.6.20-rc5/drivers/net/ehea/ehea_main.c patched_kernel/drivers/net/ehea/ehea_main.c
+--- linux-2.6.20-rc5/drivers/net/ehea/ehea_main.c	2007-01-12 19:54:26.000000000 +0100
++++ patched_kernel/drivers/net/ehea/ehea_main.c	2007-01-19 13:58:01.000000000 +0100
+@@ -2471,14 +2471,16 @@ static int __devinit ehea_probe(struct i
+ 
+ 	adapter_handle = (u64*)get_property(dev->ofdev.node, "ibm,hea-handle",
+ 					    NULL);
+-	if (!adapter_handle) {
++	if (adapter_handle)
++		adapter->handle = *adapter_handle;
++
++	if (!adapter->handle) {
+ 		dev_err(&dev->ofdev.dev, "failed getting handle for adapter"
+ 			" '%s'\n", dev->ofdev.node->full_name);
+ 		ret = -ENODEV;
+ 		goto out_free_ad;
+ 	}
+ 
+-	adapter->handle = *adapter_handle;
+ 	adapter->pd = EHEA_PD_ID;
+ 
+ 	dev->ofdev.dev.driver_data = adapter;
