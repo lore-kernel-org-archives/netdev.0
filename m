@@ -1,46 +1,73 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: [PATCH] tcp_output: Re: rare bad TCP checksum with 2.6.19?
-Date: Mon, 22 Jan 2007 09:48:56 +0100
-Message-ID: <20070122084856.GB2079@ff.dom.local>
-References: <45AE2EDF.4060709@tls.msk.ru> <20070119110641.GA3135@ff.dom.local> <20070119211027.GA16626@gondor.apana.org.au> <20070122065214.GA1634@ff.dom.local> <20070122074557.GA15461@gondor.apana.org.au>
+From: "kalash nainwal" <nirvana.code@gmail.com>
+Subject: Re: wake_up() takes long time to return
+Date: Mon, 22 Jan 2007 14:56:13 +0530
+Message-ID: <e92e3a770701220126h767c7789gd5bed3ddef07f809@mail.gmail.com>
+References: <e92e3a770701200224n42c948d5oe75aa5eb907e9786@mail.gmail.com>
+	 <1169304446.3055.764.camel@laptopd505.fenrus.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Michael Tokarev <mjt@tls.msk.ru>, netdev@vger.kernel.org,
-	Patrick McHardy <kaber@trash.net>,
-	"David S\. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx10.go2.pl ([193.17.41.74]:60177 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750791AbXAVIqf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 22 Jan 2007 03:46:35 -0500
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Received: from wx-out-0506.google.com ([66.249.82.235]:38014 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750771AbXAVJ0O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jan 2007 04:26:14 -0500
+Received: by wx-out-0506.google.com with SMTP id h31so1308176wxd
+        for <netdev@vger.kernel.org>; Mon, 22 Jan 2007 01:26:13 -0800 (PST)
+To: "Arjan van de Ven" <arjan@infradead.org>
+In-Reply-To: <1169304446.3055.764.camel@laptopd505.fenrus.org>
 Content-Disposition: inline
-In-Reply-To: <20070122074557.GA15461@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 22, 2007 at 06:45:57PM +1100, Herbert Xu wrote:
-> On Mon, Jan 22, 2007 at 07:52:14AM +0100, Jarek Poplawski wrote:
-> >  
-> > I was so impressed by the amount of work done by Michael
-> > that I magnified his merit and forgot to mention the role
-> > of Patrick and Herbert, particularly here:
-> 
-> You don't need to be so modest!
-> 
-> While no doubt Patrick helped in tracking this down, my role in
-> this thread is solely in adding this bug in the first place :)
+On 1/20/07, Arjan van de Ven <arjan@infradead.org> wrote:
+> On Sat, 2007-01-20 at 15:54 +0530, kalash nainwal wrote:
+> > Hi there,
+> >
+> > We've a kernel (n/w) module, which sits over ethernet. Whenever a pkt
+> > is received (in softirq), after doing some minimal processing,
+> > wake_up() is called to wake up another kernel thread which does rest
+> > (bulk) of the processing.
+> >
+> > We notice that this wake_up() call is sometimes taking as long as 48
+> > milli-seconds to return. This happens around 10 times out of 10M. We
+> > earlier thought its possibly because of the contention on rq->lock,
+> > but we see the same phenomenon even on a uniprocessor box. So obviosly
+> > thats not the case.
+> >
+> > We can't figure out any other reason for wake_up() to take this much
+> > time? As this call comes directly in our (receive) hotpath, we're very
+> > concerned. Any help would be greatly appreciated.
+>
+>
+> Hi,
+>
+> unfortunately you didn't provide your driver code or a link to it, so
+> people who want to help you would have to guess in the dark... could you
+> reply to this email with the pointer to the code?
+>
+> Greetings,
+>    Arjan van de Ven
+> --
+> if you want to mail me at work (you don't), use arjan (at) linux.intel.com
+> Test the interaction between Linux and your BIOS via http://www.linuxfirmwarekit.org
+>
+>
 
-Let's be sincere then: I really spend more time on
-thinking why, with this hint of yours and the last
-summary of Michael, you didn't send this patch yet,
-and checking if I don't repeat or appropriate your
-work, then on finding the place. My only explanation
-was: you were overworked with something else and I'm
-sure you think the same, now.
+Hi Arjan,
 
-Jarek P.
+I won't pretend I'm working on an open-source driver. I personally
+would be more than happy to share the driver code, but doing so would
+probably cost me my job :)
 
-PS: considering the amount of diplomacy relative to
-the size of the patch, I think we would better stop
-amuse this list here. 
+and so...I won't expect anyone to help me with my code either.
+
+Just wanted to know if wake_up is known to take this long to return?
+(some known linux quirk may be?) If so then under what conditions? or
+it _definitely_ would be my code only that's screwing up?
+
+I'm using do_gettimeofday() before and after wake_up() to measure this time.
+
+Thanks and regards,
+-Kalash
