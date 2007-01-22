@@ -1,38 +1,123 @@
-From: Larry Finger <larry.finger@lwfinger.net>
-Subject: Re: Can someone please try...
-Date: Mon, 22 Jan 2007 16:04:41 -0600
-Message-ID: <45B534F9.5090608@lwfinger.net>
-References: <200701161806.02780.mb@bu3sch.de>	<200701222106.24329.mb@bu3sch.de> <1169498676.4453.14.camel@dv> <200701222200.19784.mb@bu3sch.de>
+From: Herbert Poetzl <herbert@13thfloor.at>
+Subject: Re: [PATCH 25/59] sysctl: C99 convert arch/frv/kernel/pm.c
+Date: Mon, 22 Jan 2007 23:21:15 +0100
+Message-ID: <20070122222115.GC11128@MAIL.13thfloor.at>
+References: <m1ac0jc4no.fsf@ebiederm.dsl.xmission.com> <11689656443582-git-send-email-ebiederm@xmission.com> <45AE5969.8030603@sw.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Pavel Roskin <proski@gnu.org>, netdev@vger.kernel.org,
-	bcm43xx-dev@lists.berlios.de
+Content-Type: text/plain; charset=us-ascii
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	James.Bottomley@SteelEye.com, linux-parport@lists.infradead.org,
+	rtc-linux@googlegroups.com, linux-mips@linux-mips.org,
+	heiko.carstens@de.ibm.com, containers@lists.osdl.org,
+	lethal@linux-sh.org, clemens@ladisch.de, xfs@oss.sgi.com,
+	xfs-masters@oss.sgi.com, paulus@samba.org, linux390@de.ibm.com,
+	openipmi-developer@lists.sourceforge.net, linux-390@vm.marist.edu,
+	aharkes@cs.cmu.edu, tim@cyberelk.net,
+	codalist@TELEMANN.coda.cs.cmu.edu, a.zummo@towertech.it,
+	tony.luck@intel.com, minyard@acm.org, linux-scsi@vger.kernel.org,
+	linuxppc-dev@ozlabs.org, linux-ntfs-dev@lists.sourceforge.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	ralf@linux-mips.org, mark.fasheh@oracle.com, coda@cs.cmu.edu,
+	vojtech@suse.cz, kurt.hackel@oracle.com, schwidefsky@de.ibm.com,
+	aia21@cantab.net, philb@gnu.org, andrea@suse.de,
+	linuxsh-shmedia-dev
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtiwmhc13.worldnet.att.net ([204.127.131.117]:56561 "EHLO
-	mtiwmhc13.worldnet.att.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751834AbXAVWGi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jan 2007 17:06:38 -0500
-To: Michael Buesch <mb@bu3sch.de>
-In-Reply-To: <200701222200.19784.mb@bu3sch.de>
+Received: from MAIL.13thfloor.at ([213.145.232.33]:38985 "EHLO
+	MAIL.13thfloor.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751744AbXAVWVU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jan 2007 17:21:20 -0500
+To: Kirill Korotaev <dev@sw.ru>
+Content-Disposition: inline
+In-Reply-To: <45AE5969.8030603@sw.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Michael Buesch wrote:
-> On Monday 22 January 2007 21:44, Pavel Roskin wrote:
->> The problems with a MadWifi based AP turn out to be related to 802.11g.
->> If the AP is configured for 802.11b only, everything is working.  If
->> 802.11g is enabled, strange things are happening.  Judging by what's on
->> the air, it looks like the driver loses the data frames is receives.
->> wpa_supplicant connects instantly, but ARP and ping packets from AP to
->> STA are lost.  The frames are even acknowledged, but not seen on the
->> station side.  It takes from one to ten minutes util ping suddenly
->> starts working.
+On Wed, Jan 17, 2007 at 08:14:17PM +0300, Kirill Korotaev wrote:
+> another small minor note.
 > 
-> Hm, is this 4318? It is known to loose lots of packets.
+> > From: Eric W. Biederman <ebiederm@xmission.com> - unquoted
+> > 
+> > Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+> > ---
+> >  arch/frv/kernel/pm.c |   50 +++++++++++++++++++++++++++++++++++++++++++-------
+> >  1 files changed, 43 insertions(+), 7 deletions(-)
+> > 
+> > diff --git a/arch/frv/kernel/pm.c b/arch/frv/kernel/pm.c
+> > index c1840d6..aa50333 100644
+> > --- a/arch/frv/kernel/pm.c
+> > +++ b/arch/frv/kernel/pm.c
+> > @@ -401,17 +401,53 @@ static int cm_sysctl(ctl_table *table, int __user *name, int nlen,
+> >  
+> >  static struct ctl_table pm_table[] =
+> >  {
+> > -	{CTL_PM_SUSPEND, "suspend", NULL, 0, 0200, NULL, &sysctl_pm_do_suspend},
+> > -	{CTL_PM_CMODE, "cmode", &clock_cmode_current, sizeof(int), 0644, NULL, &cmode_procctl, &cmode_sysctl, NULL},
+> > -	{CTL_PM_P0, "p0", &clock_p0_current, sizeof(int), 0644, NULL, &p0_procctl, &p0_sysctl, NULL},
+> > -	{CTL_PM_CM, "cm", &clock_cm_current, sizeof(int), 0644, NULL, &cm_procctl, &cm_sysctl, NULL},
+> > -	{0}
+> > +	{
+> > +		.ctl_name	= CTL_PM_SUSPEND,
+> > +		.procname	= "suspend",
+> > +		.data		= NULL,
+> > +		.maxlen		= 0,
+> > +		.mode		= 0200,
+> > +		.proc_handler	= &sysctl_pm_do_suspend,
+> > +	},
+> > +	{
+> > +		.ctl_name	= CTL_PM_CMODE,
+> > +		.procname	= "cmode",
+> > +		.data		= &clock_cmode_current,
+> > +		.maxlen		= sizeof(int),
+> > +		.mode		= 0644,
+> > +		.proc_handler	= &cmode_procctl,
+> > +		.strategy	= &cmode_sysctl,
+> > +	},
+> > +	{
+> > +		.ctl_name	= CTL_PM_P0,
+> > +		.procname	= "p0",
+> > +		.data		= &clock_p0_current,
+> > +		.maxlen		= sizeof(int),
+> > +		.mode		= 0644,
+> > +		.proc_handler	= &p0_procctl,
+> > +		.strategy	= &p0_sysctl,
+> > +	},
+> > +	{
+> > +		.ctl_name	= CTL_PM_CM,
+> > +		.procname	= "cm",
+> > +		.data		= &clock_cm_current,
+> > +		.maxlen		= sizeof(int),
+> > +		.mode		= 0644,
+> > +		.proc_handler	= &cm_procctl,
+> > +		.strategy	= &cm_sysctl,
+> > +	},
+> > +	{ .ctl_name = 0}
+> in next patch (26/59) you write just "{ }". .ctl_name = 0 not required here.
 
-On my 4311 with softmac, the throughput is increased by a factor of 6 by reducing the rate from the
-default 11M to 1M. Obviously the success rate is greatly improved. Perhaps the same effect will
-happen for 4318's. Does the d80211 version let you change the rate?
+I'd prefer '{ 0 }' here, but I'm fine with the '{ .ctl_name = 0 }'
+too, just '{ }' seems confusing, and it actually might get
+misinterpreted too ..
 
-Larry
+best,
+Herbert
+
+> >  };
+> >  
+> >  static struct ctl_table pm_dir_table[] =
+> >  {
+> > -	{CTL_PM, "pm", NULL, 0, 0555, pm_table},
+> > -	{0}
+> > +	{
+> > +		.ctl_name	= CTL_PM,
+> > +		.procname	= "pm",
+> > +		.mode		= 0555,
+> > +		.child		= pm_table,
+> > +	},
+> > +	{ .ctl_name = 0}
+> >  };
+> >  
+> >  /*
+> 
+> _______________________________________________
+> Containers mailing list
+> Containers@lists.osdl.org
+> https://lists.osdl.org/mailman/listinfo/containers
