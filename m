@@ -1,59 +1,88 @@
-From: "Amit S. Kale" <amitkale@netxen.com>
-Subject: [PATCH 2/2] NetXen: Use pci_register_driver() instead of pci_module_init() in init_module
-Date: Mon, 22 Jan 2007 06:52:53 -0800
-Message-ID: <200701221452.l0MEqrdx005015@dut39.unminc.com>
-Cc: amitkale@netxen.com, brazilnut@us.ibm.com, jeff@garzik.org,
-	linuxram@us.ibm.com, netxenproj@linsyssoft.com,
-	ricknu-0@student.ltu.se, rob@netxen.com, sanjeev@netxen.com,
-	wendyx@us.ibm.com
+From: "Jon Smirl" <jonsmirl@gmail.com>
+Subject: Re: [PATCH] Marvell Libertas 8388 802.11b/g USB driver (v2)
+Date: Mon, 22 Jan 2007 10:20:47 -0500
+Message-ID: <9e4733910701220720x47506091m357cbf9e5deb3903@mail.gmail.com>
+References: <20070116185524.GA5681@dmt>
+	 <20070117141103.0e468bf4@griffin.suse.cz>
+	 <1169046072.2750.10.camel@localhost.localdomain>
+	 <1169047134.9175.49.camel@johannes.berg>
+	 <1169055788.2550.44.camel@localhost.localdomain>
+	 <1169056884.9175.66.camel@johannes.berg> <20070122112613.GA3038@dmt>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Johannes Berg" <johannes@sipsolutions.net>,
+	"Dan Williams" <dcbw@redhat.com>, "Jiri Benc" <jbenc@suse.cz>,
+	netdev <netdev@vger.kernel.org>,
+	"Jeff Garzik" <jgarzik@pobox.com>,
+	"John W. Linville" <linville@redhat.com>,
+	"Luis R. Rodriguez" <mcgrof@gmail.com>,
+	"Arnd Bergmann" <arnd@arndb.de>,
+	"Arnaldo Carvalho de Melo" <acme@ghostprotocols.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 66-126-254-34.unm.net ([66.126.254.34]:11591 "EHLO
-	nxmail.netxen.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751850AbXAVOxA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jan 2007 09:53:00 -0500
-To: netdev@vger.kernel.org
+Received: from py-out-1112.google.com ([64.233.166.181]:39783 "EHLO
+	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751932AbXAVPUt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jan 2007 10:20:49 -0500
+Received: by py-out-1112.google.com with SMTP id a29so645276pyi
+        for <netdev@vger.kernel.org>; Mon, 22 Jan 2007 07:20:48 -0800 (PST)
+To: "Marcelo Tosatti" <marcelo@kvack.org>
+In-Reply-To: <20070122112613.GA3038@dmt>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I am extremely sorry for sending this patch with wrong subject line before this.
-Now i am resending the patch with correct line.
+On 1/22/07, Marcelo Tosatti <marcelo@kvack.org> wrote:
+> On Wed, Jan 17, 2007 at 06:01:24PM +0000, Johannes Berg wrote:
+> > On Wed, 2007-01-17 at 12:43 -0500, Dan Williams wrote:
+> >
+> > > I said "mostly" fullmac.  Sort of like ipw2100 (IIRC) is softmac but it
+> > > does all the association stuff in firmware.  It doesn't fit fullmac, but
+> > > it's a lot more fullmac than atheros.  There isn't any management frame
+> > > processing, it doesn't do any data frame processing.
+> >
+> > Right. I hadn't looked at data frames but suspected this is the case.
+> >
+> > > The 8388 architecture is typical of a thick firmware architecture, where
+> > > the firmware handles all 802.11 MAC management tasks.  The host driver
+> > > downloads standard 802.3 frames to the firmware to be transmitted over
+> > > the link as 802.11 frames.
+> > >
+> > > I thought these 2 things were essentially _the_ definition of fullmac,
+> > > please correct me if I'm wrong.
+> >
+> > Well we'll need more terms here. I had a short chat with Jouni and we
+> > agree that what the Marvell card is doing is exposing the MLME
+> > interface, and what d80211 is doing is implementing most of the MLME.
+> >
+> > I guess the thing I'm saying is that exposing the MLME interface which
+> > changes fairly frequently is a bad thing and I'd love to have firmware
+> > that exposes lower level stuff like .
+> >
+> > > Perhaps I just don't understand how flexible d80211 has become; when we
+> > > last were talking about it 8 months ago, it appears that it could not
+> > > handle parts that did significant pieces of work in firmware, like the
+> > > 8388 does.  Do we have the functionality in d80211 yet to handle pieces
+> > > that are a full mix of hybrid full/soft mac?
+> >
+> > No, we don't have that yet, and we might never have. But I think I'm
+> > starting to understand the issues at hand a bit better and it seems that
+> > we'll need cfg80211 to be redefined.
+>
+> So using the d80211 stack is completly out of question?
 
-Thanks,
---Amit
+What is the general solution for 802.11s? I'm working on an embedded
+design that would benefit from 11s support and I'd rather not have to
+roll my own mesh implementation in user space. I'd also like to get an
+idea of what kind of hardware I need to design onto my board given
+that the 8388 is not available general consumption. My system has
+plenty of power and CPU available so a softmac type 11s solution is
+the most cost effective. It seems to me that the design of a software
+based 11s stack should be coordinated with the 8388 firmware one.
 
-This will use pci_register_driver() instead of pci_module_init().
+> Another detail is the way we deal with mesh networking: a separate
+> device "mshX" is created, and that certainly does not fit d80211?
 
-Signed-off-by: Amit S. Kale <amitkale@netxen.com>
-Signed-off-by: Richard Knutsson <ricknu-0@student.ltu.se>
-
----
- netxen_nic.h      |    2 +-
- netxen_nic_main.c |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/netxen/netxen_nic.h b/drivers/net/netxen/netxen_nic.h
-index 663fa2f..59324b1 100644
---- a/drivers/net/netxen/netxen_nic.h
-+++ b/drivers/net/netxen/netxen_nic.h
-@@ -63,7 +63,7 @@ #include <asm/pgtable.h>
- 
- #include "netxen_nic_hw.h"
- 
--#define NETXEN_NIC_BUILD_NO     "1"
-+#define NETXEN_NIC_BUILD_NO     "2"
- #define _NETXEN_NIC_LINUX_MAJOR 3
- #define _NETXEN_NIC_LINUX_MINOR 3
- #define _NETXEN_NIC_LINUX_SUBVERSION 3
-diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
-index 8a5792f..96e1bee 100644
---- a/drivers/net/netxen/netxen_nic_main.c
-+++ b/drivers/net/netxen/netxen_nic_main.c
-@@ -1144,7 +1144,7 @@ static int __init netxen_init_module(voi
- 	if ((netxen_workq = create_singlethread_workqueue("netxen")) == 0)
- 		return -ENOMEM;
- 
--	return pci_module_init(&netxen_driver);
-+	return pci_register_driver(&netxen_driver);
- }
- 
- module_init(netxen_init_module);
+-- 
+Jon Smirl
+jonsmirl@gmail.com
