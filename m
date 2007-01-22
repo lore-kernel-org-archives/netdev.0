@@ -1,60 +1,38 @@
-From: Jan Evert van Grootheest <j.e.van.grootheest@caiway.nl>
-Subject: Re: adm8211 (from linville wireless-2.6) in xen guest
-Date: Mon, 22 Jan 2007 22:56:11 +0100
-Message-ID: <45B532FB.6080200@caiway.nl>
-References: <45B208DA.8010807@caiway.nl> <200701221430.50547.flamingice@sourmilk.net>
+From: Larry Finger <larry.finger@lwfinger.net>
+Subject: Re: Can someone please try...
+Date: Mon, 22 Jan 2007 16:04:41 -0600
+Message-ID: <45B534F9.5090608@lwfinger.net>
+References: <200701161806.02780.mb@bu3sch.de>	<200701222106.24329.mb@bu3sch.de> <1169498676.4453.14.camel@dv> <200701222200.19784.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: Pavel Roskin <proski@gnu.org>, netdev@vger.kernel.org,
+	bcm43xx-dev@lists.berlios.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cardassian.kabelfoon.nl ([62.45.45.18]:55604 "EHLO
-	cardassian.kabelfoon.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751934AbXAVV4O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jan 2007 16:56:14 -0500
-To: Michael Wu <flamingice@sourmilk.net>
-In-Reply-To: <200701221430.50547.flamingice@sourmilk.net>
+Received: from mtiwmhc13.worldnet.att.net ([204.127.131.117]:56561 "EHLO
+	mtiwmhc13.worldnet.att.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751834AbXAVWGi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jan 2007 17:06:38 -0500
+To: Michael Buesch <mb@bu3sch.de>
+In-Reply-To: <200701222200.19784.mb@bu3sch.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Michael,
+Michael Buesch wrote:
+> On Monday 22 January 2007 21:44, Pavel Roskin wrote:
+>> The problems with a MadWifi based AP turn out to be related to 802.11g.
+>> If the AP is configured for 802.11b only, everything is working.  If
+>> 802.11g is enabled, strange things are happening.  Judging by what's on
+>> the air, it looks like the driver loses the data frames is receives.
+>> wpa_supplicant connects instantly, but ARP and ping packets from AP to
+>> STA are lost.  The frames are even acknowledged, but not seen on the
+>> station side.  It takes from one to ten minutes util ping suddenly
+>> starts working.
+> 
+> Hm, is this 4318? It is known to loose lots of packets.
 
-Michael Wu wrote:
-> On Saturday 20 January 2007 07:19, Jan Evert van Grootheest wrote:
->   
->> One question, though. I'm trying to use it in ad-hoc mode. If there's no
->> other station with the same essid, it just keeps mentioning that
->> (besides the BCNTC and TSFTF messages)
->>
->> wlan0: No matching adhoc sta found. Creating IBSS 00:04:e2:3f:2a:70 CHAN=11
->>
->> And the IBSS changes every time, which is about every 30 seconds. Is it
->> really supposed to change the IBSS each time?
->>     
-> Probably not, but I never debugged adhoc mode enough.
->   
-If there're some tests I can help with, just ask.
-I've decided yesterday that I really should get myself a WRT54G or 
-somesuch. So there's not much pressure for this adm8211 anymore.
->> The reason I ask is that my wife has a laptop with an Atheros chip in
->> it. If it is configured for ad-hoc it creates the IBSS and sticks with
->> it. So I now have two computers that have different behaviour in this
->> respect. That in itself is not, I guess, a problem. But it seems to me
->> that the random IBSS created by the adm8211 would result in two stations
->> not seeing eachother or taking longer than necessary to find eachother?
->>
->>     
-> Have you checked? I think the bssid should stop changing once another station 
-> with the same ssid comes into range.
->   
-Well, it took more than 1 minute and I left for coffee. When I returned 
-they had found eachother.
+On my 4311 with softmac, the throughput is increased by a factor of 6 by reducing the rate from the
+default 11M to 1M. Obviously the success rate is greatly improved. Perhaps the same effect will
+happen for 4318's. Does the d80211 version let you change the rate?
 
-Do you perhaps know whether there's a sourcetree somewhere of the dscape 
-code that can be compiled as external modules for 2.6.18?
-At least I can help test the dscape code, which I understand is the 
-current future of wireless in linux.
-
-Thanks,
-Jan Evert
-
+Larry
