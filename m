@@ -1,19 +1,25 @@
 From: "Amit S. Kale" <amitkale@netxen.com>
-Subject: [PATCH 1/2] NetXen: Firmware check modifications
-Date: Mon, 22 Jan 2007 06:39:20 -0800
-Message-ID: <200701221439.l0MEdKrD004186@dut39.unminc.com>
+Subject: [PATCH 2/2] NetXen: Use pci_register_driver() instead of pci_module_init() in init_module
+Date: Mon, 22 Jan 2007 06:52:53 -0800
+Message-ID: <200701221452.l0MEqrdx005015@dut39.unminc.com>
 Cc: amitkale@netxen.com, brazilnut@us.ibm.com, jeff@garzik.org,
 	linuxram@us.ibm.com, netxenproj@linsyssoft.com,
 	ricknu-0@student.ltu.se, rob@netxen.com, sanjeev@netxen.com,
 	wendyx@us.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 66-126-254-34.unm.net ([66.126.254.34]:16063 "EHLO
+Received: from 66-126-254-34.unm.net ([66.126.254.34]:11591 "EHLO
 	nxmail.netxen.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751840AbXAVOjV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jan 2007 09:39:21 -0500
+	with ESMTP id S1751850AbXAVOxA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jan 2007 09:53:00 -0500
 To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
+
+I am extremely sorry for sending this patch with wrong subject line before this.
+Now i am resending the patch with correct line.
+
+Thanks,
+--Amit
 
 This will use pci_register_driver() instead of pci_module_init().
 
