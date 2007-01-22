@@ -1,7 +1,7 @@
 From: Thomas Klein <osstklei@de.ibm.com>
-Subject: [PATCH 2.6.20-rc5 2/7] ehea: Fixing firmware queue config issue
-Date: Mon, 22 Jan 2007 12:52:50 +0100
-Message-ID: <200701221252.50724.osstklei@de.ibm.com>
+Subject: [PATCH 2.6.20-rc5 3/7] ehea: Modified initial autoneg state determination
+Date: Mon, 22 Jan 2007 12:53:20 +0100
+Message-ID: <200701221253.20959.osstklei@de.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="us-ascii"
@@ -16,32 +16,41 @@ Cc: Christoph Raisch <raisch@de.ibm.com>,
 	Thomas Klein <tklein@de.ibm.com>,
 	Stefan Roscher <roscher@de.ibm.com>,
 	Stefan Roscher <ossrosch@de.ibm.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751738AbXAVLwy@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751751AbXAVLxZ@vger.kernel.org>
 Content-Disposition: inline
 To: Jeff Garzik <jeff@garzik.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Fix to use exactly one queue for incoming packets in all
-firmware configurations
+Logical partitions are not allowed to (try to) set the autonegotiation status.
+This patch removes the respective function call from the port setup function.
 
 Signed-off-by: Thomas Klein <tklein@de.ibm.com>
 ---
 
 
- drivers/net/ehea/ehea_main.c |    2 +-
- 1 files changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ehea/ehea_main.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
 
 diff -Nurp -X dontdiff linux-2.6.20-rc5/drivers/net/ehea/ehea_main.c patched_kernel/drivers/net/ehea/ehea_main.c
---- linux-2.6.20-rc5/drivers/net/ehea/ehea_main.c	2007-01-19 13:59:07.000000000 +0100
-+++ patched_kernel/drivers/net/ehea/ehea_main.c	2007-01-19 14:01:38.000000000 +0100
-@@ -998,7 +998,7 @@ static int ehea_configure_port(struct eh
- 		     | EHEA_BMASK_SET(PXLY_RC_JUMBO_FRAME, 1);
+--- linux-2.6.20-rc5/drivers/net/ehea/ehea_main.c	2007-01-19 14:02:20.000000000 +0100
++++ patched_kernel/drivers/net/ehea/ehea_main.c	2007-01-19 14:11:30.000000000 +0100
+@@ -642,6 +642,8 @@ int ehea_sense_port_attr(struct ehea_por
+ 		break;
+ 	}
  
- 	for (i = 0; i < port->num_def_qps; i++)
--		cb0->default_qpn_arr[i] = port->port_res[i].qp->init_attr.qp_nr;
-+		cb0->default_qpn_arr[i] = port->port_res[0].qp->init_attr.qp_nr;
++	port->autoneg = 1;
++
+ 	/* Number of default QPs */
+ 	port->num_def_qps = cb0->num_default_qps;
  
- 	if (netif_msg_ifup(port))
- 		ehea_dump(cb0, sizeof(*cb0), "ehea_configure_port");
+@@ -2334,8 +2336,6 @@ static int ehea_setup_single_port(struct
+ 
+ 	INIT_LIST_HEAD(&port->mc_list->list);
+ 
+-	ehea_set_portspeed(port, EHEA_SPEED_AUTONEG);
+-
+ 	ret = ehea_sense_port_attr(port);
+ 	if (ret)
+ 		goto out;
