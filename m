@@ -1,63 +1,38 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [PATCH] select: fix sys_select to not leak ERESTARTNOHAND to userspace
-Date: Mon, 22 Jan 2007 08:00:20 -0500
-Message-ID: <20070122130020.GA21059@hmsreliant.homelinux.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] tcp_output: Re: rare bad TCP checksum with 2.6.19?
+Date: Mon, 22 Jan 2007 14:46:54 +0100
+Message-ID: <45B4C04E.4070405@trash.net>
+References: <45AE2EDF.4060709@tls.msk.ru> <20070119110641.GA3135@ff.dom.local> <20070119211027.GA16626@gondor.apana.org.au> <20070122065214.GA1634@ff.dom.local> <20070122074557.GA15461@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: nhorman@tuxdriver.com, netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: Jarek Poplawski <jarkao2@o2.pl>, Michael Tokarev <mjt@tls.msk.ru>,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:4075 "EHLO ra.tuxdriver.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751796AbXAVNAy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 22 Jan 2007 08:00:54 -0500
-To: akpm@osdl.org
-Content-Disposition: inline
+Received: from stinky.trash.net ([213.144.137.162]:62922 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751731AbXAVNq6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jan 2007 08:46:58 -0500
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20070122074557.GA15461@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-As it is currently written, sys_select checks its return code to convert
-ERESTARTNOHAND to EINTR.  However, the check is within an if (tvp) clause, and
-so if select is called from userspace with a NULL timeval, then it is possible
-for the ERESTARTNOHAND errno to leak into userspace, which is incorrect.  This
-patch moves that check outside of the conditional, and prevents the errno leak.
+Herbert Xu wrote:
+> On Mon, Jan 22, 2007 at 07:52:14AM +0100, Jarek Poplawski wrote:
+> 
+>> 
+>>I was so impressed by the amount of work done by Michael
+>>that I magnified his merit and forgot to mention the role
+>>of Patrick and Herbert, particularly here:
+> 
+> 
+> You don't need to be so modest!
+> 
+> While no doubt Patrick helped in tracking this down, my role in
+> this thread is solely in adding this bug in the first place :)
 
-Thanks & Regards
-Neil
 
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+Actually I only meditated over the code without figuring out
+anything useful, but thanks anyway :)
 
-
- select.c |   18 +++++-------------
- 1 file changed, 5 insertions(+), 13 deletions(-)
-
-
-diff --git a/fs/select.c b/fs/select.c
-index fe0893a..afcd691 100644
---- a/fs/select.c
-+++ b/fs/select.c
-@@ -415,20 +415,12 @@ asmlinkage long sys_select(int n, fd_set __user *inp, fd_set __user *outp,
- 		rtv.tv_sec = timeout;
- 		if (timeval_compare(&rtv, &tv) >= 0)
- 			rtv = tv;
--		if (copy_to_user(tvp, &rtv, sizeof(rtv))) {
--sticky:
--			/*
--			 * If an application puts its timeval in read-only
--			 * memory, we don't want the Linux-specific update to
--			 * the timeval to cause a fault after the select has
--			 * completed successfully. However, because we're not
--			 * updating the timeval, we can't restart the system
--			 * call.
--			 */
--			if (ret == -ERESTARTNOHAND)
--				ret = -EINTR;
--		}
-+		if (copy_to_user(tvp, &rtv, sizeof(rtv)))
-+			return -EFAULT;
- 	}
-+sticky:
-+	if (ret == -ERESTARTNOHAND)
-+		ret = -EINTR;
- 
- 	return ret;
- }
