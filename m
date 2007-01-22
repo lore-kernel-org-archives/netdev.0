@@ -1,377 +1,425 @@
-From: Ayaz Abdulla <aabdulla@nvidia.com>
-Subject: [PATCH 11/12] forcedeth: statistics supported
-Date: Sun, 21 Jan 2007 18:11:26 -0500
-Message-ID: <45B3F31E.7000006@nvidia.com>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: Re: [PATCH 4/4] atl1: Ancillary C files for Attansic L1 driver
+Date: Sun, 21 Jan 2007 18:31:51 -0800
+Message-ID: <20070121183151.4be61ebf.randy.dunlap@oracle.com>
+References: <20070121210737.GE2702@osprey.hogchain.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------070605050703050700070503"
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hqemgate01.nvidia.com ([216.228.112.170]:6983 "EHLO
-	HQEMGATE01.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751843AbXAVBGT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Jan 2007 20:06:19 -0500
-To: Jeff Garzik <jgarzik@pobox.com>,
-	Manfred Spraul <manfred@colorfullife.com>,
-	Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: jeff@garzik.org, shemminger@osdl.org, csnook@redhat.com,
+	hch@infradead.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, atl1-devel@lists.sourceforge.net
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751875AbXAVChs@vger.kernel.org>
+To: Jay Cliburn <jacliburn@bellsouth.net>
+In-Reply-To: <20070121210737.GE2702@osprey.hogchain.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------070605050703050700070503
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+On Sun, 21 Jan 2007 15:07:37 -0600 Jay Cliburn wrote:
 
-This patch introduces hw statistics for older devices that supported it.
-It breaks up the counters supported into separate versions.
+> This patch contains auxiliary C files for the Attansic L1 gigabit ethernet
+> adapter driver.
+> 
+> Signed-off-by: Jay Cliburn <jacliburn@bellsouth.net>
+> Signed-off-by: Chris Snook <csnook@redhat.com>
+> ---
+> 
+>  atl1_ethtool.c |  436 ++++++++++++++++++++++++++++++++++
+>  atl1_hw.c      |  728 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+>  atl1_param.c   |  223 +++++++++++++++++
+>  3 files changed, 1387 insertions(+)
+> 
+> diff --git a/drivers/net/atl1/atl1_ethtool.c b/drivers/net/atl1/atl1_ethtool.c
+> new file mode 100644
+> index 0000000..4c6e505
+> --- /dev/null
+> +++ b/drivers/net/atl1/atl1_ethtool.c
+> @@ -0,0 +1,436 @@
+> +/**
 
-Signed-Off-By: Ayaz Abdulla <aabdulla@nvidia.com>
+Please use "/**" _only_ to begin kernel-doc comments
+(and this is not a kernel-doc comment).
+(occurs at multiple other places in this and the other patches)
 
---------------070605050703050700070503
-Content-Type: text/plain;
- name="patch-stats-ver"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="patch-stats-ver"
+> + * Copyright(c) 2005 - 2006 Attansic Corporation. All rights reserved.
+> + * Copyright(c) 2006 Chris Snook <csnook@redhat.com>
+> + * Copyright(c) 2006 Jay Cliburn <jcliburn@gmail.com>
+> + * 
+> + * Derived from Intel e1000 driver
+> + * Copyright(c) 1999 - 2005 Intel Corporation. All rights reserved.
+> + * 
+> + * This program is free software; you can redistribute it and/or modify it
+> + * under the terms of the GNU General Public License as published by the Free
+> + * Software Foundation; either version 2 of the License, or (at your option)
+> + * any later version.
+> + * 
+> + * This program is distributed in the hope that it will be useful, but WITHOUT
+> + * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+> + * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+> + * more details.
+> + * 
+> + * You should have received a copy of the GNU General Public License along with
+> + * this program; if not, write to the Free Software Foundation, Inc., 59
+> + * Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+> + **/
+> +
+> +
+> +static int atl1_get_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
+> +{
+> +	struct atl1_adapter *adapter = netdev_priv(netdev);
+> +	struct atl1_hw *hw = &adapter->hw;
+> +
+> +	ecmd->supported = (SUPPORTED_10baseT_Half |
+> +			   SUPPORTED_10baseT_Full |
+> +			   SUPPORTED_100baseT_Half |
+> +			   SUPPORTED_100baseT_Full |
+> +			   SUPPORTED_1000baseT_Full |
+> +			   SUPPORTED_Autoneg | SUPPORTED_TP);
+> +	ecmd->advertising = ADVERTISED_TP;
+> +	if (hw->media_type == MEDIA_TYPE_AUTO_SENSOR ||
+> +	    hw->media_type == MEDIA_TYPE_1000M_FULL) {
+> +		ecmd->advertising |= ADVERTISED_Autoneg;
+> +		if (hw->media_type == MEDIA_TYPE_AUTO_SENSOR) {
+> +			ecmd->advertising |= ADVERTISED_Autoneg;
+> +			ecmd->advertising |=
+> +			    (ADVERTISED_10baseT_Half |
+> +			     ADVERTISED_10baseT_Full |
+> +			     ADVERTISED_100baseT_Half |
+> +			     ADVERTISED_100baseT_Full |
+> +			     ADVERTISED_1000baseT_Full);
+> +		} else {
+> +			ecmd->advertising |= (ADVERTISED_1000baseT_Full);
 
---- orig/drivers/net/forcedeth.c	2007-01-21 17:33:59.000000000 -0500
-+++ new/drivers/net/forcedeth.c	2007-01-21 17:38:23.000000000 -0500
-@@ -173,9 +173,10 @@
- #define DEV_HAS_MSI_X           0x0080  /* device supports MSI-X */
- #define DEV_HAS_POWER_CNTRL     0x0100  /* device supports power savings */
- #define DEV_HAS_PAUSEFRAME_TX   0x0200  /* device supports tx pause frames */
--#define DEV_HAS_STATISTICS      0x0400  /* device supports hw statistics */
--#define DEV_HAS_TEST_EXTENDED   0x0800  /* device supports extended diagnostic test */
--#define DEV_HAS_MGMT_UNIT       0x1000  /* device supports management unit */
-+#define DEV_HAS_STATISTICS_V1   0x0400  /* device supports hw statistics version 1 */
-+#define DEV_HAS_STATISTICS_V2   0x0800  /* device supports hw statistics version 2 */
-+#define DEV_HAS_TEST_EXTENDED   0x1000  /* device supports extended diagnostic test */
-+#define DEV_HAS_MGMT_UNIT       0x2000  /* device supports management unit */
- 
- enum {
- 	NvRegIrqStatus = 0x000,
-@@ -487,7 +488,8 @@
- 
- /* Miscelaneous hardware related defines: */
- #define NV_PCI_REGSZ_VER1      	0x270
--#define NV_PCI_REGSZ_VER2      	0x604
-+#define NV_PCI_REGSZ_VER2      	0x2d4
-+#define NV_PCI_REGSZ_VER3      	0x604
- 
- /* various timeout delays: all in usec */
- #define NV_TXRX_RESET_DELAY	4
-@@ -605,9 +607,6 @@
- 	{ "tx_carrier_errors" },
- 	{ "tx_excess_deferral" },
- 	{ "tx_retry_error" },
--	{ "tx_deferral" },
--	{ "tx_packets" },
--	{ "tx_pause" },
- 	{ "rx_frame_error" },
- 	{ "rx_extra_byte" },
- 	{ "rx_late_collision" },
-@@ -620,11 +619,17 @@
- 	{ "rx_unicast" },
- 	{ "rx_multicast" },
- 	{ "rx_broadcast" },
-+	{ "rx_packets" },
-+	{ "rx_errors_total" },
-+	{ "tx_errors_total" },
-+
-+	/* version 2 stats */
-+	{ "tx_deferral" },
-+	{ "tx_packets" },
- 	{ "rx_bytes" },
-+	{ "tx_pause" },
- 	{ "rx_pause" },
--	{ "rx_drop_frame" },
--	{ "rx_packets" },
--	{ "rx_errors_total" }
-+	{ "rx_drop_frame" }
- };
- 
- struct nv_ethtool_stats {
-@@ -637,9 +642,6 @@
- 	u64 tx_carrier_errors;
- 	u64 tx_excess_deferral;
- 	u64 tx_retry_error;
--	u64 tx_deferral;
--	u64 tx_packets;
--	u64 tx_pause;
- 	u64 rx_frame_error;
- 	u64 rx_extra_byte;
- 	u64 rx_late_collision;
-@@ -652,13 +654,22 @@
- 	u64 rx_unicast;
- 	u64 rx_multicast;
- 	u64 rx_broadcast;
-+	u64 rx_packets;
-+	u64 rx_errors_total;
-+	u64 tx_errors_total;
-+
-+	/* version 2 stats */
-+	u64 tx_deferral;
-+	u64 tx_packets;
- 	u64 rx_bytes;
-+	u64 tx_pause;
- 	u64 rx_pause;
- 	u64 rx_drop_frame;
--	u64 rx_packets;
--	u64 rx_errors_total;
- };
- 
-+#define NV_DEV_STATISTICS_V2_COUNT (sizeof(struct nv_ethtool_stats)/sizeof(u64))
-+#define NV_DEV_STATISTICS_V1_COUNT (NV_DEV_STATISTICS_V2_COUNT - 6)
-+
- /* diagnostics */
- #define NV_TEST_COUNT_BASE 3
- #define NV_TEST_COUNT_EXTENDED 4
-@@ -1275,6 +1286,61 @@
- 	pci_push(base);
- }
- 
-+static void nv_get_hw_stats(struct net_device *dev)
-+{
-+	struct fe_priv *np = netdev_priv(dev);
-+	u8 __iomem *base = get_hwbase(dev);
-+
-+	np->estats.tx_bytes += readl(base + NvRegTxCnt);
-+	np->estats.tx_zero_rexmt += readl(base + NvRegTxZeroReXmt);
-+	np->estats.tx_one_rexmt += readl(base + NvRegTxOneReXmt);
-+	np->estats.tx_many_rexmt += readl(base + NvRegTxManyReXmt);
-+	np->estats.tx_late_collision += readl(base + NvRegTxLateCol);
-+	np->estats.tx_fifo_errors += readl(base + NvRegTxUnderflow);
-+	np->estats.tx_carrier_errors += readl(base + NvRegTxLossCarrier);
-+	np->estats.tx_excess_deferral += readl(base + NvRegTxExcessDef);
-+	np->estats.tx_retry_error += readl(base + NvRegTxRetryErr);
-+	np->estats.rx_frame_error += readl(base + NvRegRxFrameErr);
-+	np->estats.rx_extra_byte += readl(base + NvRegRxExtraByte);
-+	np->estats.rx_late_collision += readl(base + NvRegRxLateCol);
-+	np->estats.rx_runt += readl(base + NvRegRxRunt);
-+	np->estats.rx_frame_too_long += readl(base + NvRegRxFrameTooLong);
-+	np->estats.rx_over_errors += readl(base + NvRegRxOverflow);
-+	np->estats.rx_crc_errors += readl(base + NvRegRxFCSErr);
-+	np->estats.rx_frame_align_error += readl(base + NvRegRxFrameAlignErr);
-+	np->estats.rx_length_error += readl(base + NvRegRxLenErr);
-+	np->estats.rx_unicast += readl(base + NvRegRxUnicast);
-+	np->estats.rx_multicast += readl(base + NvRegRxMulticast);
-+	np->estats.rx_broadcast += readl(base + NvRegRxBroadcast);
-+	np->estats.rx_packets =
-+		np->estats.rx_unicast +
-+		np->estats.rx_multicast +
-+		np->estats.rx_broadcast;
-+	np->estats.rx_errors_total =
-+		np->estats.rx_crc_errors +
-+		np->estats.rx_over_errors +
-+		np->estats.rx_frame_error +
-+		(np->estats.rx_frame_align_error - np->estats.rx_extra_byte) +
-+		np->estats.rx_late_collision +
-+		np->estats.rx_runt +
-+		np->estats.rx_frame_too_long;
-+	np->estats.tx_errors_total =
-+		np->estats.tx_late_collision +
-+		np->estats.tx_fifo_errors +
-+		np->estats.tx_carrier_errors +
-+		np->estats.tx_excess_deferral +
-+		np->estats.tx_retry_error;
-+
-+	if (np->driver_data & DEV_HAS_STATISTICS_V2) {
-+		np->estats.tx_deferral += readl(base + NvRegTxDef);
-+		np->estats.tx_packets += readl(base + NvRegTxFrame);
-+		np->estats.rx_bytes += readl(base + NvRegRxCnt);
-+		np->estats.tx_pause += readl(base + NvRegTxPause);
-+		np->estats.rx_pause += readl(base + NvRegRxPause);
-+		np->estats.rx_drop_frame += readl(base + NvRegRxDropFrame);
-+	}
-+}
-+
- /*
-  * nv_get_stats: dev->get_stats function
-  * Get latest stats value from the nic.
-@@ -3502,47 +3568,8 @@
- {
- 	struct net_device *dev = (struct net_device *) data;
- 	struct fe_priv *np = netdev_priv(dev);
--	u8 __iomem *base = get_hwbase(dev);
- 
--	np->estats.tx_bytes += readl(base + NvRegTxCnt);
--	np->estats.tx_zero_rexmt += readl(base + NvRegTxZeroReXmt);
--	np->estats.tx_one_rexmt += readl(base + NvRegTxOneReXmt);
--	np->estats.tx_many_rexmt += readl(base + NvRegTxManyReXmt);
--	np->estats.tx_late_collision += readl(base + NvRegTxLateCol);
--	np->estats.tx_fifo_errors += readl(base + NvRegTxUnderflow);
--	np->estats.tx_carrier_errors += readl(base + NvRegTxLossCarrier);
--	np->estats.tx_excess_deferral += readl(base + NvRegTxExcessDef);
--	np->estats.tx_retry_error += readl(base + NvRegTxRetryErr);
--	np->estats.tx_deferral += readl(base + NvRegTxDef);
--	np->estats.tx_packets += readl(base + NvRegTxFrame);
--	np->estats.tx_pause += readl(base + NvRegTxPause);
--	np->estats.rx_frame_error += readl(base + NvRegRxFrameErr);
--	np->estats.rx_extra_byte += readl(base + NvRegRxExtraByte);
--	np->estats.rx_late_collision += readl(base + NvRegRxLateCol);
--	np->estats.rx_runt += readl(base + NvRegRxRunt);
--	np->estats.rx_frame_too_long += readl(base + NvRegRxFrameTooLong);
--	np->estats.rx_over_errors += readl(base + NvRegRxOverflow);
--	np->estats.rx_crc_errors += readl(base + NvRegRxFCSErr);
--	np->estats.rx_frame_align_error += readl(base + NvRegRxFrameAlignErr);
--	np->estats.rx_length_error += readl(base + NvRegRxLenErr);
--	np->estats.rx_unicast += readl(base + NvRegRxUnicast);
--	np->estats.rx_multicast += readl(base + NvRegRxMulticast);
--	np->estats.rx_broadcast += readl(base + NvRegRxBroadcast);
--	np->estats.rx_bytes += readl(base + NvRegRxCnt);
--	np->estats.rx_pause += readl(base + NvRegRxPause);
--	np->estats.rx_drop_frame += readl(base + NvRegRxDropFrame);
--	np->estats.rx_packets =
--		np->estats.rx_unicast +
--		np->estats.rx_multicast +
--		np->estats.rx_broadcast;
--	np->estats.rx_errors_total =
--		np->estats.rx_crc_errors +
--		np->estats.rx_over_errors +
--		np->estats.rx_frame_error +
--		(np->estats.rx_frame_align_error - np->estats.rx_extra_byte) +
--		np->estats.rx_late_collision +
--		np->estats.rx_runt +
--		np->estats.rx_frame_too_long;
-+	nv_get_hw_stats(dev);
- 
- 	if (!np->in_shutdown)
- 		mod_timer(&np->stats_poll, jiffies + STATS_INTERVAL);
-@@ -4161,8 +4188,10 @@
- {
- 	struct fe_priv *np = netdev_priv(dev);
- 
--	if (np->driver_data & DEV_HAS_STATISTICS)
--		return sizeof(struct nv_ethtool_stats)/sizeof(u64);
-+	if (np->driver_data & DEV_HAS_STATISTICS_V1)
-+		return NV_DEV_STATISTICS_V1_COUNT;
-+	else if (np->driver_data & DEV_HAS_STATISTICS_V2)
-+		return NV_DEV_STATISTICS_V2_COUNT;
- 	else
- 		return 0;
- }
-@@ -4749,7 +4778,7 @@
- 		mod_timer(&np->oom_kick, jiffies + OOM_REFILL);
- 
- 	/* start statistics timer */
--	if (np->driver_data & DEV_HAS_STATISTICS)
-+	if (np->driver_data & (DEV_HAS_STATISTICS_V1|DEV_HAS_STATISTICS_V2))
- 		mod_timer(&np->stats_poll, jiffies + STATS_INTERVAL);
- 
- 	spin_unlock_irq(&np->lock);
-@@ -4846,7 +4875,9 @@
- 	if (err < 0)
- 		goto out_disable;
- 
--	if (id->driver_data & (DEV_HAS_VLAN|DEV_HAS_MSI_X|DEV_HAS_POWER_CNTRL|DEV_HAS_STATISTICS))
-+	if (id->driver_data & (DEV_HAS_VLAN|DEV_HAS_MSI_X|DEV_HAS_POWER_CNTRL|DEV_HAS_STATISTICS_V2))
-+		np->register_size = NV_PCI_REGSZ_VER3;
-+	else if (id->driver_data & DEV_HAS_STATISTICS_V1)
- 		np->register_size = NV_PCI_REGSZ_VER2;
- 	else
- 		np->register_size = NV_PCI_REGSZ_VER1;
-@@ -5295,83 +5326,83 @@
- 	},
- 	{	/* CK804 Ethernet Controller */
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_8),
--		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA,
-+		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_STATISTICS_V1,
- 	},
- 	{	/* CK804 Ethernet Controller */
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_9),
--		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA,
-+		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_STATISTICS_V1,
- 	},
- 	{	/* MCP04 Ethernet Controller */
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_10),
--		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA,
-+		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_STATISTICS_V1,
- 	},
- 	{	/* MCP04 Ethernet Controller */
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_11),
--		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA,
-+		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_STATISTICS_V1,
- 	},
- 	{	/* MCP51 Ethernet Controller */
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_12),
--		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL,
-+		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_STATISTICS_V1,
- 	},
- 	{	/* MCP51 Ethernet Controller */
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_13),
--		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL,
-+		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_STATISTICS_V1,
- 	},
- 	{	/* MCP55 Ethernet Controller */
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_14),
--		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_VLAN|DEV_HAS_MSI|DEV_HAS_MSI_X|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
-+		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_VLAN|DEV_HAS_MSI|DEV_HAS_MSI_X|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
- 	},
- 	{	/* MCP55 Ethernet Controller */
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_15),
--		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_VLAN|DEV_HAS_MSI|DEV_HAS_MSI_X|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
-+		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_VLAN|DEV_HAS_MSI|DEV_HAS_MSI_X|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
- 	},
- 	{	/* MCP61 Ethernet Controller */
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_16),
--		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
-+		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
- 	},
- 	{	/* MCP61 Ethernet Controller */
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_17),
--		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
-+		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
- 	},
- 	{	/* MCP61 Ethernet Controller */
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_18),
--		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
-+		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
- 	},
- 	{	/* MCP61 Ethernet Controller */
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_19),
--		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
-+		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
- 	},
- 	{	/* MCP65 Ethernet Controller */
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_20),
--		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
-+		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
- 	},
- 	{	/* MCP65 Ethernet Controller */
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_21),
--		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
-+		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
- 	},
- 	{	/* MCP65 Ethernet Controller */
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_22),
--		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
-+		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
- 	},
- 	{	/* MCP65 Ethernet Controller */
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_23),
--		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
-+		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
- 	},
- 	{	/* MCP67 Ethernet Controller */
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_24),
--		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
-+		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
- 	},
- 	{	/* MCP67 Ethernet Controller */
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_25),
--		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
-+		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
- 	},
- 	{	/* MCP67 Ethernet Controller */
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_26),
--		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
-+		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
- 	},
- 	{	/* MCP67 Ethernet Controller */
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_27),
--		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
-+		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
- 	},
- 	{0,},
- };
+Kernel coding style is not to use braces around one-statement "blocks."
+(occurs in multiple other places)
 
---------------070605050703050700070503--
+> +		}
+> +	}
+> +	ecmd->port = PORT_TP;
+> +	ecmd->phy_address = 0;
+> +	ecmd->transceiver = XCVR_INTERNAL;
+> +
+> +	if (netif_carrier_ok(adapter->netdev)) {
+> +		u16 link_speed, link_duplex;
+> +		atl1_get_speed_and_duplex(hw, &link_speed, &link_duplex);
+> +		ecmd->speed = link_speed;
+> +		if (link_duplex == FULL_DUPLEX)
+> +			ecmd->duplex = DUPLEX_FULL;
+> +		else
+> +			ecmd->duplex = DUPLEX_HALF;
+> +	} else {
+> +		ecmd->speed = -1;
+> +		ecmd->duplex = -1;
+> +	}
+> +	if (hw->media_type == MEDIA_TYPE_AUTO_SENSOR ||
+> +	    hw->media_type == MEDIA_TYPE_1000M_FULL) {
+> +		ecmd->autoneg = AUTONEG_ENABLE;
+> +	} else {
+> +		ecmd->autoneg = AUTONEG_DISABLE;
+> +	}
+> +	
+> +	return 0;
+> +}
+> +
+> +static int atl1_set_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
+> +{
+> +	struct atl1_adapter *adapter = netdev_priv(netdev);
+> +	struct atl1_hw *hw = &adapter->hw;
+> +	u16 phy_data;
+> +	int ret_val = 0;
+> +	u16 old_media_type = hw->media_type;
+> +
+> +	if (netif_running(adapter->netdev)) {
+> +		printk(KERN_DEBUG "%s: ethtool shutting down link adapter\n", 
+
+What's a "link adapter"?
+
+> +			atl1_driver_name);
+> +		atl1_down(adapter);
+> +	}
+> +
+> +	if (ecmd->autoneg == AUTONEG_ENABLE) {
+> +		hw->media_type = MEDIA_TYPE_AUTO_SENSOR;
+> +	} else {
+> +		if (ecmd->speed == SPEED_1000) {
+> +			if (ecmd->duplex != DUPLEX_FULL) {
+> +				printk(KERN_WARNING
+> +				       "%s: can't force to 1000M half duplex\n",
+> +					atl1_driver_name);
+> +				ret_val = -EINVAL;
+> +				goto exit_sset;
+> +			}
+> +			hw->media_type = MEDIA_TYPE_1000M_FULL;
+> +		} else if (ecmd->speed == SPEED_100) {
+> +			if (ecmd->duplex == DUPLEX_FULL) {
+> +				hw->media_type = MEDIA_TYPE_100M_FULL;
+> +			} else {
+> +				hw->media_type = MEDIA_TYPE_100M_HALF;
+> +			}
+> +		} else {
+> +			if (ecmd->duplex == DUPLEX_FULL) {
+> +				hw->media_type = MEDIA_TYPE_10M_FULL;
+> +			} else {
+> +				hw->media_type = MEDIA_TYPE_10M_HALF;
+> +			}
+> +		}
+> +	}
+
+...
+
+> +}
+> +
+> +static void atl1_get_drvinfo(struct net_device *netdev,
+> +				struct ethtool_drvinfo *drvinfo)
+> +{
+> +	struct atl1_adapter *adapter = netdev_priv(netdev);
+> +
+> +	strncpy(drvinfo->driver, atl1_driver_name, 32);
+> +	strncpy(drvinfo->version, atl1_driver_version, 32);
+> +	strncpy(drvinfo->fw_version, "N/A", 32);
+> +	strncpy(drvinfo->bus_info, pci_name(adapter->pdev), 32);
+
+Use sizeof(drvinfo->driver) etc. above instead of "32".
+
+> +	drvinfo->eedump_len = 48;
+> +}
+> +
+> +
+
+> diff --git a/drivers/net/atl1/atl1_hw.c b/drivers/net/atl1/atl1_hw.c
+> new file mode 100644
+> index 0000000..4062abd
+> --- /dev/null
+> +++ b/drivers/net/atl1/atl1_hw.c
+> @@ -0,0 +1,728 @@
+> +
+> +extern char atl1_driver_name[];
+
+Externs should be in header files.
+
+> +/**
+> + * Reset the transmit and receive units; mask and clear all interrupts.
+> + * hw - Struct containing variables accessed by shared code
+> + * return : ATL1_SUCCESS  or  idle status (if error)
+> + **/
+
+This function comment block is almost kernel-doc...
+It would be good to make it so.
+
+> +s32 atl1_reset_hw(struct atl1_hw * hw)
+
+                                    *hw)
+
+
+> +{
+...
+> +}
+> +
+> +/** function about EEPROM
+> + *
+> + * check_eeprom_exist
+> + * return 0 if eeprom exist
+> + **/
+
+Use kernel-doc format or don't begin comment block with /**.
+See Documentation/kernel-doc-nano-HOWTO.txt for info.
+(multiple places)
+
+> +static int atl1_check_eeprom_exist(struct atl1_hw *hw)
+> +{
+> +	u32 value;
+> +	value = ioread32(hw->hw_addr + REG_SPI_FLASH_CTRL);
+> +	if (value & SPI_FLASH_CTRL_EN_VPD) {
+> +		value &= ~SPI_FLASH_CTRL_EN_VPD;
+> +		iowrite32(value, hw->hw_addr + REG_SPI_FLASH_CTRL);
+> +	}
+> +
+> +	value = ioread16(hw->hw_addr + REG_PCIE_CAP_LIST);
+> +	return ((value & 0xFF00) == 0x6C00) ? 0 : 1;
+
+Are there defines or enums for these?
+Fewer magic numbers would be nice/helpful/readable.
+
+> +}
+> +
+> +static bool atl1_read_eeprom(struct atl1_hw *hw, u32 offset, u32 * p_value)
+
+                                                                    *p_value)
+
+> +{
+...
+> +}
+> +
+> +/**
+> + * Reads the value from a PHY register
+> + * hw - Struct containing variables accessed by shared code
+> + * reg_addr - address of the PHY register to read
+> + **/
+
+kernel-doc
+
+> +s32 atl1_read_phy_reg(struct atl1_hw * hw, u16 reg_addr, u16 * phy_data)
+
+CodingStyle:  *hw, ... *phy_data)
+
+> +{
+...
+> +}
+> +
+> +#define CUSTOM_SPI_CS_SETUP	2
+> +#define CUSTOM_SPI_CLK_HI	2
+> +#define CUSTOM_SPI_CLK_LO	2
+> +#define CUSTOM_SPI_CS_HOLD	2
+> +#define CUSTOM_SPI_CS_HI	3
+> +
+> +static bool atl1_spi_read(struct atl1_hw *hw, u32 addr, u32 * buf)
+> +{
+...
+> +}
+> +
+> +/**
+> + * get_permanent_address
+> + * return 0 if get valid mac address, 
+> + **/
+
+kernel-doc
+
+> +int atl1_get_permanent_address(struct atl1_hw *hw)
+> +{
+> +	u32 addr[2];
+> +	u32 i, control;
+> +	u16 reg;
+> +	u8 eth_addr[NODE_ADDRESS_SIZE];
+
+Use ETH_ALEN from if_ether.h instead of your own NODE_ADDRESS_SIZE.
+
+> +	bool key_valid;
+> +
+> +	if (is_valid_ether_addr(hw->perm_mac_addr))
+> +		return 0;
+> +	}
+...
+> +}
+> +
+> +
+> +/**
+> + * Make L001's PHY out of Power Saving State (bug)
+> + * hw - Struct containing variables accessed by shared code
+> + * when power on, L001's PHY always on Power saving State
+> + * (Gigabit Link forbidden)
+> + **/
+> +static s32 atl1_phy_leave_power_saving(struct atl1_hw *hw)
+> +{
+> +	s32 ret;
+> +	ret = atl1_write_phy_reg(hw, 29, 0x0029);
+
+Fewer magic numbers?
+
+> +	if (ret)
+> +		return ret;
+> +	return atl1_write_phy_reg(hw, 30, 0);
+> +}
+
+> diff --git a/drivers/net/atl1/atl1_param.c b/drivers/net/atl1/atl1_param.c
+> new file mode 100644
+> index 0000000..4732f43
+> --- /dev/null
+> +++ b/drivers/net/atl1/atl1_param.c
+> @@ -0,0 +1,223 @@
+> +
+> +#include <linux/types.h>
+> +#include <linux/pci.h>
+> +#include <linux/moduleparam.h>
+> +#include "atl1.h"
+> +
+> +extern char atl1_driver_name[];
+
+in a header file, please.
+
+> +/**
+> + * This is the only thing that needs to be changed to adjust the
+> + * maximum number of ports that the driver can manage.
+> + **/
+> +#define ATL1_MAX_NIC 4
+> +
+> +#define OPTION_UNSET    -1
+> +#define OPTION_DISABLED 0
+> +#define OPTION_ENABLED  1
+> +
+> +#define ATL1_PARAM_INIT { [0 ... ATL1_MAX_NIC] = OPTION_UNSET }
+> +
+> +/**
+> + * Interrupt Moderate Timer in units of 2 us
+> + *
+> + * Valid Range: 10-65535
+> + *
+> + * Default Value: 100 (200us)
+> + **/
+> +static int __devinitdata int_mod_timer[ATL1_MAX_NIC+1] = ATL1_PARAM_INIT;
+> +static int num_int_mod_timer = 0;
+> +module_param_array_named(int_mod_timer, int_mod_timer, int, &num_int_mod_timer, 0);
+> +MODULE_PARM_DESC(int_mod_timer, "Interrupt moderator timer");
+> +
+> +/**
+> + * flash_vendor
+> + *
+> + * Valid Range: 0-2
+> + *
+> + * 0 - Atmel
+> + * 1 - SST
+> + * 2 - ST
+> + *
+> + * Default Value: 0
+> + **/
+> +static int __devinitdata flash_vendor[ATL1_MAX_NIC+1] = ATL1_PARAM_INIT;
+> +static int num_flash_vendor = 0;
+> +module_param_array_named(flash_vendor, flash_vendor, int, &num_flash_vendor, 0);
+> +MODULE_PARM_DESC(flash_vendor, "SPI flash vendor");
+> +
+> +int enable_msi;
+> +module_param(enable_msi, int, 0444);
+> +MODULE_PARM_DESC(enable_msi, "Enable PCI MSI");
+
+Hm, I thought that we didn't want individual drivers having MSI config
+options...
+
+> +
+> +#define DEFAULT_INT_MOD_CNT	100	/* 200us */
+> +#define MAX_INT_MOD_CNT		65000
+> +#define MIN_INT_MOD_CNT		50
+> +
+> +#define FLASH_VENDOR_DEFAULT	0
+> +#define FLASH_VENDOR_MIN	0
+> +#define FLASH_VENDOR_MAX	2
+> +
+> +
+> +
+> +/**
+> + * atl1_check_options - Range Checking for Command Line Parameters
+> + * @adapter: board private structure
+> + *
+> + * This routine checks all command line parameters for valid user
+> + * input.  If an invalid value is given, or if no user specified
+> + * value exists, a default value is used.  The final value is stored
+> + * in a variable in the adapter structure.
+> + **/
+
+Hey, it's kernel-doc. :)
+
+> +void __devinit atl1_check_options(struct atl1_adapter *adapter)
+> +{
+> +
+...
+> +	{			/* PCI MSI usage */
+> +
+> +#ifdef CONFIG_PCI_MSI
+> +		adapter->enable_msi = enable_msi;
+> +#else
+> +		adapter->enable_msi = 0;
+> +#endif
+> +	}
+> +}
+> -
+
+---
+~Randy
