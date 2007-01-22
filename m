@@ -1,64 +1,62 @@
-From: Jay Cliburn <jacliburn@bellsouth.net>
-Subject: Re: [PATCH 3/4] atl1: Main C file for Attansic L1 driver
-Date: Mon, 22 Jan 2007 10:48:19 -0600
-Message-ID: <45B4EAD3.6030404@bellsouth.net>
-References: <20070121210655.GD2702@osprey.hogchain.net> <1169454156.3055.1256.camel@laptopd505.fenrus.org>
+From: "Dale Farnsworth" <dale@farnsworth.org>
+Subject: Re: [PATCH] Re: kernel BUG in eth_alloc_tx_desc_index at drivers/net/mv643xx_eth.c:1069!
+Date: Mon, 22 Jan 2007 10:06:16 -0700
+Message-ID: <20070122170615.GA15293@xyzzy.farnsworth.org>
+References: <7d01f9f00701090227v60b37e5dy6afbf70ccde58bf2@mail.gmail.com> <20070109130220.GA4060@ff.dom.local> <7d01f9f00701090944o62f39fb4yfaa5449c2d2d010d@mail.gmail.com> <20070109200541.GA27089@xyzzy.farnsworth.org> <7d01f9f00701091305n3a82713fla442a70a6098dbf@mail.gmail.com> <7d01f9f00701100912kc6fb635wd863d9563b0eb328@mail.gmail.com> <20070111104220.GA3171@ff.dom.local> <7d01f9f00701210418q6f506d20tdc9ce10b501370d7@mail.gmail.com> <7d01f9f00701210502m2bb96bd8i5071a76b6a8c3ea0@mail.gmail.com> <20070122100236.GC2079@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, shemminger@osdl.org, csnook@redhat.com,
-	hch@infradead.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, atl1-devel@lists.sourceforge.net
+Content-Type: text/plain; charset=us-ascii
+Cc: Thibaut VARENE <T-Bone@parisc-linux.org>, netdev@vger.kernel.org,
+	mlachwani@mvista.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from imf22aec.mail.bellsouth.net ([205.152.59.70]:34051 "EHLO
-	imf22aec.mail.bellsouth.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751958AbXAVQs0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jan 2007 11:48:26 -0500
-To: Arjan van de Ven <arjan@infradead.org>
-In-Reply-To: <1169454156.3055.1256.camel@laptopd505.fenrus.org>
+Received: from xyzzy.farnsworth.org ([65.39.95.219]:2187 "HELO farnsworth.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S932085AbXAVRGR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 22 Jan 2007 12:06:17 -0500
+To: Jarek Poplawski <jarkao2@o2.pl>
+Content-Disposition: inline
+In-Reply-To: <20070122100236.GC2079@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Arjan, thank you very much for reviewing the driver.
+Jarek and Thibaut,
 
-Arjan van de Ven wrote:
-> On Sun, 2007-01-21 at 15:06 -0600, Jay Cliburn wrote:
-[snip]
->> +void atl1_irq_disable(struct atl1_adapter *adapter)
->> +{
->> +	atomic_inc(&adapter->irq_sem);
->> +	iowrite32(0, adapter->hw.hw_addr + REG_IMR);
->> +	synchronize_irq(adapter->pdev->irq);
->> +}
-> 
-> doesn't this want a PCI posting flush?
-> I'm also a bit sceptical about irq_sem ...
+Thank you both very much for your work finding and fixing this bug.
+Jarek, can you verify that the following patch fixes the problem you
+were seeing?
 
-PCI posting flush will be added.  Would you mind elaborating on your 
-skepticism about irq_sem?
+-Dale
 
->> +/**
->> + * When ACPI resume on some VIA MotherBoard, the Interrupt Disable bit/0x400
->> + * on PCI Command register is disable.
->> + * The function enable this bit.
->> + * Brackett, 2006/03/15
->> + */
->> +static void atl1_via_workaround(struct atl1_adapter *adapter)
->> +{
->> +	unsigned long value;
->> +
->> +	value = ioread16(adapter->hw.hw_addr + PCI_COMMAND);
->> +	if (value & PCI_COMMAND_INTX_DISABLE)
->> +		value &= ~PCI_COMMAND_INTX_DISABLE;
->> +	iowrite32(value, adapter->hw.hw_addr + PCI_COMMAND);
->> +}
-> 
-> hmm I wonder if this shouldn't be a more generic PCI level quirk, not so
-> much a driver level quirk...
+----- Patch follows -----
 
-The vendor put this code here, and we're loathe to remove it unless 
-absolutely necessary.  Is it okay with you if we leave it?
+From: Dale Farnsworth <dale@farnsworth.org>
 
-Thanks,
-Jay
+mv643xx_eth: Fix race condition in mv643xx_eth_free_tx_descs
 
+The bug was found and isolated by Thibaut VARENE <T-Bone@parisc-linux.org>
+and Jarek Poplawski <jarkao2@o2.pl>.  This patch is a modification of their
+fixes.  We acquire and release the lock for each descriptor that is freed
+to minimize the time the lock is held.
+
+---
+
+ drivers/net/mv643xx_eth.c |    7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/drivers/net/mv643xx_eth.c b/drivers/net/mv643xx_eth.c
+index c41ae42..0d32381 100644
+--- a/drivers/net/mv643xx_eth.c
++++ b/drivers/net/mv643xx_eth.c
+@@ -314,6 +314,13 @@ int mv643xx_eth_free_tx_descs(struct net
+ 
+ 	while (mp->tx_desc_count > 0) {
+ 		spin_lock_irqsave(&mp->lock, flags);
++
++		/* maybe tx_desc_count changed before the lock was acquired */
++		if (mp->tx_desc_count <= 0) {
++			spin_unlock_irqrestore(&mp->lock, flags);
++			return released;
++		}
++
+ 		tx_index = mp->tx_used_desc_q;
+ 		desc = &mp->p_tx_desc_area[tx_index];
+ 		cmd_sts = desc->cmd_sts;
