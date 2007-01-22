@@ -1,47 +1,66 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: [PATCH] Re: kernel BUG in eth_alloc_tx_desc_index at drivers/net/mv643xx_eth.c:1069!
-Date: Mon, 22 Jan 2007 11:02:36 +0100
-Message-ID: <20070122100236.GC2079@ff.dom.local>
-References: <20070109092602.GC1703@ff.dom.local> <7d01f9f00701090227v60b37e5dy6afbf70ccde58bf2@mail.gmail.com> <20070109130220.GA4060@ff.dom.local> <7d01f9f00701090944o62f39fb4yfaa5449c2d2d010d@mail.gmail.com> <20070109200541.GA27089@xyzzy.farnsworth.org> <7d01f9f00701091305n3a82713fla442a70a6098dbf@mail.gmail.com> <7d01f9f00701100912kc6fb635wd863d9563b0eb328@mail.gmail.com> <20070111104220.GA3171@ff.dom.local> <7d01f9f00701210418q6f506d20tdc9ce10b501370d7@mail.gmail.com> <7d01f9f00701210502m2bb96bd8i5071a76b6a8c3ea0@mail.gmail.com>
+From: Marcelo Tosatti <marcelo@kvack.org>
+Subject: Re: [PATCH] Marvell Libertas 8388 802.11b/g USB driver (v2)
+Date: Mon, 22 Jan 2007 09:26:13 -0200
+Message-ID: <20070122112613.GA3038@dmt>
+References: <20070116185524.GA5681@dmt> <20070117141103.0e468bf4@griffin.suse.cz> <1169046072.2750.10.camel@localhost.localdomain> <1169047134.9175.49.camel@johannes.berg> <1169055788.2550.44.camel@localhost.localdomain> <1169056884.9175.66.camel@johannes.berg>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Dale Farnsworth <dale@farnsworth.org>, netdev@vger.kernel.org,
-	mlachwani@mvista.com
+Cc: Dan Williams <dcbw@redhat.com>, Jiri Benc <jbenc@suse.cz>,
+	Marcelo Tosatti <marcelo@kvack.org>,
+	netdev <netdev@vger.kernel.org>, Jeff Garzik <jgarzik@pobox.com>,
+	"John W. Linville" <linville@redhat.com>,
+	"Luis R. Rodriguez" <mcgrof@gmail.com>,
+	Arnd Bergmann <arnd@arndb.de>,
+	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.go2.pl ([193.17.41.42]:52742 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751421AbXAVKAP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 22 Jan 2007 05:00:15 -0500
-To: Thibaut VARENE <T-Bone@parisc-linux.org>
+Received: from kanga.kvack.org ([66.96.29.28]:56772 "EHLO kanga.kvack.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751673AbXAVLbJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 22 Jan 2007 06:31:09 -0500
+To: Johannes Berg <johannes@sipsolutions.net>
 Content-Disposition: inline
-In-Reply-To: <7d01f9f00701210502m2bb96bd8i5071a76b6a8c3ea0@mail.gmail.com>
+In-Reply-To: <1169056884.9175.66.camel@johannes.berg>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Jan 21, 2007 at 02:02:15PM +0100, Thibaut VARENE wrote:
-> On 1/21/07, Thibaut VARENE <T-Bone@parisc-linux.org> wrote:
-...
-> >Hmm, I think this is guaranteed not to work. In between those lines
-> >the lock is released, while data in the mp structure is still being
-> >accessed. It seems that this bit of code is indeed not race-safe
-> >though, I'm gonna try to figure something.
-
-I only changed the part I was quite sure is wrong. 
-I didn't know the internals of this place but thought
-probably somebody had some reasons to enable irqs here.
-
-I hope the maintainers will decide the range of necessary
-changes considering your testing and the patch.
-
-> This was indeed the right spot. The attached raw hack seems to fix the
-> bug (I couldn't crash the box so far).  I haven't checked that the
-> same "situation" happens elsewhere in the code, I leave that as an
-> exercise for the maintainers (or until I experience another kind of
-> crash :)
+On Wed, Jan 17, 2007 at 06:01:24PM +0000, Johannes Berg wrote:
+> On Wed, 2007-01-17 at 12:43 -0500, Dan Williams wrote:
 > 
-> The patch is a bit ugly (printk with irq disabled will not show, etc)
-> but at least it does work. I'm sure somebody will figure something
+> > I said "mostly" fullmac.  Sort of like ipw2100 (IIRC) is softmac but it
+> > does all the association stuff in firmware.  It doesn't fit fullmac, but
+> > it's a lot more fullmac than atheros.  There isn't any management frame
+> > processing, it doesn't do any data frame processing.
+> 
+> Right. I hadn't looked at data frames but suspected this is the case.
+> 
+> > The 8388 architecture is typical of a thick firmware architecture, where
+> > the firmware handles all 802.11 MAC management tasks.  The host driver
+> > downloads standard 802.3 frames to the firmware to be transmitted over
+> > the link as 802.11 frames.
+> > 
+> > I thought these 2 things were essentially _the_ definition of fullmac,
+> > please correct me if I'm wrong.
+> 
+> Well we'll need more terms here. I had a short chat with Jouni and we
+> agree that what the Marvell card is doing is exposing the MLME
+> interface, and what d80211 is doing is implementing most of the MLME.
+> 
+> I guess the thing I'm saying is that exposing the MLME interface which
+> changes fairly frequently is a bad thing and I'd love to have firmware
+> that exposes lower level stuff like .
+> 
+> > Perhaps I just don't understand how flexible d80211 has become; when we
+> > last were talking about it 8 months ago, it appears that it could not
+> > handle parts that did significant pieces of work in firmware, like the
+> > 8388 does.  Do we have the functionality in d80211 yet to handle pieces
+> > that are a full mix of hybrid full/soft mac?
+> 
+> No, we don't have that yet, and we might never have. But I think I'm
+> starting to understand the issues at hand a bit better and it seems that
+> we'll need cfg80211 to be redefined.
 
-Congratulations and regards,
+So using the d80211 stack is completly out of question?
 
-Jarek P.
+Another detail is the way we deal with mesh networking: a separate
+device "mshX" is created, and that certainly does not fit d80211?
+
