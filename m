@@ -1,64 +1,60 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Bluetooth fixes for 2.6.20-rc5
-Date: Mon, 22 Jan 2007 22:42:14 +0100
-Message-ID: <1169502134.27023.24.camel@violet>
+From: Jan Evert van Grootheest <j.e.van.grootheest@caiway.nl>
+Subject: Re: adm8211 (from linville wireless-2.6) in xen guest
+Date: Mon, 22 Jan 2007 22:56:11 +0100
+Message-ID: <45B532FB.6080200@caiway.nl>
+References: <45B208DA.8010807@caiway.nl> <200701221430.50547.flamingice@sourmilk.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from coyote.holtmann.net ([217.160.111.169]:54670 "EHLO
-	mail.holtmann.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751847AbXAVVmY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jan 2007 16:42:24 -0500
-To: "David S. Miller" <davem@davemloft.net>
+Received: from cardassian.kabelfoon.nl ([62.45.45.18]:55604 "EHLO
+	cardassian.kabelfoon.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751934AbXAVV4O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jan 2007 16:56:14 -0500
+To: Michael Wu <flamingice@sourmilk.net>
+In-Reply-To: <200701221430.50547.flamingice@sourmilk.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Dave,
+Michael,
 
-here are two additional fixes for the Bluetooth subsystem that should go
-in before the final 2.6.20 release. It was possible that the well known
-PSM could be bound by anybody. That should not be possible like TCP/IP
-ports below 1024 are also restricted. The other one is a simple endian
-fix. Please forward them to Linus as soon as possible.
+Michael Wu wrote:
+> On Saturday 20 January 2007 07:19, Jan Evert van Grootheest wrote:
+>   
+>> One question, though. I'm trying to use it in ad-hoc mode. If there's no
+>> other station with the same essid, it just keeps mentioning that
+>> (besides the BCNTC and TSFTF messages)
+>>
+>> wlan0: No matching adhoc sta found. Creating IBSS 00:04:e2:3f:2a:70 CHAN=11
+>>
+>> And the IBSS changes every time, which is about every 30 seconds. Is it
+>> really supposed to change the IBSS each time?
+>>     
+> Probably not, but I never debugged adhoc mode enough.
+>   
+If there're some tests I can help with, just ask.
+I've decided yesterday that I really should get myself a WRT54G or 
+somesuch. So there's not much pressure for this adm8211 anymore.
+>> The reason I ask is that my wife has a laptop with an Atheros chip in
+>> it. If it is configured for ad-hoc it creates the IBSS and sticks with
+>> it. So I now have two computers that have different behaviour in this
+>> respect. That in itself is not, I guess, a problem. But it seems to me
+>> that the random IBSS created by the adm8211 would result in two stations
+>> not seeing eachother or taking longer than necessary to find eachother?
+>>
+>>     
+> Have you checked? I think the bssid should stop changing once another station 
+> with the same ssid comes into range.
+>   
+Well, it took more than 1 minute and I left for coffee. When I returned 
+they had found eachother.
 
-Regards
+Do you perhaps know whether there's a sourcetree somewhere of the dscape 
+code that can be compiled as external modules for 2.6.18?
+At least I can help test the dscape code, which I understand is the 
+current future of wireless in linux.
 
-Marcel
-
-
-Please pull from
-
-        git://git.kernel.org/pub/scm/linux/kernel/git/holtmann/bluetooth-2.6.git
-
-This will update the following files:
-
- net/bluetooth/l2cap.c |   10 ++++++++--
- 1 file changed, 8 insertions(+), 2 deletions(-)
-
-through these ChangeSets:
-
-Commit: 847641d7db15ac3f18b3d4aa05479812abdf397a 
-Author: Marcel Holtmann <marcel@holtmann.org> Mon, 22 Jan 2007 22:00:45 +0100 
-
-    [Bluetooth] Restrict well known PSM to privileged users
-    
-    The PSM values below 0x1001 of L2CAP are reserved for well known
-    services. Restrict the possibility to bind them to privileged
-    users.
-    
-    Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
-
-Commit: 7386397636d49cd5f03da29432467d3e98cbad35 
-Author: Marcel Holtmann <marcel@holtmann.org> Mon, 22 Jan 2007 22:00:40 +0100 
-
-    [Bluetooth] Missing endian swapping for L2CAP socket list
-    
-    The PSM value in the L2CAP socket list must be converted to host
-    order before printing it.
-    
-    Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
-
-
+Thanks,
+Jan Evert
 
