@@ -1,33 +1,32 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 1/4] bonding: fix device name allocation error
-Date: Tue, 23 Jan 2007 00:49:18 -0500
-Message-ID: <45B5A1DE.4030906@pobox.com>
-References: <200701200215.l0K2FV22021761@death.nxdomain.ibm.com>
+Subject: Re: [PATCH] PHY: Export phy ethtool helpers
+Date: Tue, 23 Jan 2007 00:51:50 -0500
+Message-ID: <45B5A276.7080202@pobox.com>
+References: <Pine.LNX.4.64.0701201637290.17538@gate.crashing.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bonding-devel@lists.sourceforge.net,
-	Patrick McHardy <kaber@trash.net>, mitch.a.williams@intel.com
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:45384 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:45397 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933010AbXAWFtY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Jan 2007 00:49:24 -0500
-To: Jay Vosburgh <fubar@us.ibm.com>
-In-Reply-To: <200701200215.l0K2FV22021761@death.nxdomain.ibm.com>
+	id S933011AbXAWFvy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Jan 2007 00:51:54 -0500
+To: Kumar Gala <galak@kernel.crashing.org>
+In-Reply-To: <Pine.LNX.4.64.0701201637290.17538@gate.crashing.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jay Vosburgh wrote:
-> 	The code to select names for the bonding interfaces was, for the
-> non-sysfs creation case, always using a hard-coded set of bond0, bond1,
-> etc, up to max_bonds.  This caused conflicts for the second or
-> subsequent loads of the module.
+Kumar Gala wrote:
+> We need to export phy_ethtool_gset and phy_ethtool_sset to allow drivers 
+> that
+> use these functions to be built as modules.
 > 
-> 	Changed the code to obtain device names from dev_alloc_name().
-> 
-> Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+> Signed-off-by: Kumar Gala <galak@kernel.crashing.org>
 
-applied 1-4 to #upstream
+your patch was corrupt.  applied manually
+
+	Jeff
+
 
 
