@@ -1,40 +1,33 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 2.6.20 5/5] s2io: De-typedef driver.
-Date: Tue, 23 Jan 2007 00:48:24 -0500
-Message-ID: <45B5A1A8.3050606@garzik.org>
-References: <Pine.GSO.4.10.10701190245210.22012-100000@guinness>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH 1/4] bonding: fix device name allocation error
+Date: Tue, 23 Jan 2007 00:49:18 -0500
+Message-ID: <45B5A1DE.4030906@pobox.com>
+References: <200701200215.l0K2FV22021761@death.nxdomain.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, leonid.grossman@neterion.com,
-	alicia.pena@neterion.com, ramkrishna.vepa@neterion.com,
-	sivakumar.subramani@neterion.com, sreenivasa.honnur@neterion.com,
-	sriram.rapuru@neterion.com
+Cc: netdev@vger.kernel.org, bonding-devel@lists.sourceforge.net,
+	Patrick McHardy <kaber@trash.net>, mitch.a.williams@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:45375 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:45384 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933009AbXAWFs0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Jan 2007 00:48:26 -0500
-To: Ananda Raju <Ananda.Raju@neterion.com>
-In-Reply-To: <Pine.GSO.4.10.10701190245210.22012-100000@guinness>
+	id S933010AbXAWFtY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Jan 2007 00:49:24 -0500
+To: Jay Vosburgh <fubar@us.ibm.com>
+In-Reply-To: <200701200215.l0K2FV22021761@death.nxdomain.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ananda Raju wrote:
-> Removed namespace collisions due to usage of nic_t as per Ralf's patch
-> (ralf@linux-mips.org).
+Jay Vosburgh wrote:
+> 	The code to select names for the bonding interfaces was, for the
+> non-sysfs creation case, always using a hard-coded set of bond0, bond1,
+> etc, up to max_bonds.  This caused conflicts for the second or
+> subsequent loads of the module.
 > 
-> Signed-off-by: Sivakumar Subramani <sivakumar.subramani@neterion.com>
+> 	Changed the code to obtain device names from dev_alloc_name().
+> 
+> Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
 
-ACK
-
-Please make the following the first line of your email body:
-
-From: Ralf Baechle <ralf@linux-mips.org>
-
-That will tell the patch importer to properly credit Ralf as the patch's 
-author.
-
-	Jeff
+applied 1-4 to #upstream
 
 
