@@ -1,44 +1,53 @@
-From: "Thibaut VARENE" <T-Bone@parisc-linux.org>
-Subject: Re: [PATCH] Re: kernel BUG in eth_alloc_tx_desc_index at drivers/net/mv643xx_eth.c:1069!
-Date: Tue, 23 Jan 2007 13:42:24 +0100
-Message-ID: <7d01f9f00701230442t7d39ba72we6ec3fc6bc0556e9@mail.gmail.com>
-References: <7d01f9f00701090227v60b37e5dy6afbf70ccde58bf2@mail.gmail.com>
-	 <20070109200541.GA27089@xyzzy.farnsworth.org>
-	 <7d01f9f00701091305n3a82713fla442a70a6098dbf@mail.gmail.com>
-	 <7d01f9f00701100912kc6fb635wd863d9563b0eb328@mail.gmail.com>
-	 <20070111104220.GA3171@ff.dom.local>
-	 <7d01f9f00701210418q6f506d20tdc9ce10b501370d7@mail.gmail.com>
-	 <7d01f9f00701210502m2bb96bd8i5071a76b6a8c3ea0@mail.gmail.com>
-	 <20070122100236.GC2079@ff.dom.local>
-	 <20070122170615.GA15293@xyzzy.farnsworth.org>
-	 <7d01f9f00701230352r6e951b08wea2255ce0baeb40d@mail.gmail.com>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [RFC] airo.c: Description and function is not the same
+Date: Tue, 23 Jan 2007 10:11:34 -0500
+Message-ID: <1169565094.2777.9.camel@localhost.localdomain>
+References: <45B35616.6040103@student.ltu.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "Jarek Poplawski" <jarkao2@o2.pl>, netdev@vger.kernel.org,
-	mlachwani@mvista.com
+Cc: linville@tuxdriver.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wr-out-0506.google.com ([64.233.184.234]:21709 "EHLO
-	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964830AbXAWMm0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jan 2007 07:42:26 -0500
-Received: by wr-out-0506.google.com with SMTP id 68so999628wra
-        for <netdev@vger.kernel.org>; Tue, 23 Jan 2007 04:42:25 -0800 (PST)
-To: "Dale Farnsworth" <dale@farnsworth.org>
-In-Reply-To: <7d01f9f00701230352r6e951b08wea2255ce0baeb40d@mail.gmail.com>
-Content-Disposition: inline
+Received: from mx1.redhat.com ([66.187.233.31]:49392 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751959AbXAWPKd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Jan 2007 10:10:33 -0500
+To: Richard Knutsson <ricknu-0@student.ltu.se>
+In-Reply-To: <45B35616.6040103@student.ltu.se>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 1/23/07, Thibaut VARENE <T-Bone@parisc-linux.org> wrote:
-> - As Jarek pointed out, you're checking twice the value of
-> mp->tx_desc_count, which means dereferencing a pointer and accessing
-> memory twice. I don't know how perf-critical this bit of code is, but
-> I wonder which of keeping the lock for a long time or doing what you
-> is better (I'm being anal and you probably know that better than me :)
+On Sun, 2007-01-21 at 13:01 +0100, Richard Knutsson wrote:
+> Hello
+> 
+> In the tour of converting local definitions of boolean-type/values, I 
+> ran into airo.c's description of ex decapsulate():
+> 
+>  *      Returns: BOOLEAN - TRUE if packet should be dropped otherwise FALSE
+> 
+> but returns SUCCESS (defined as 0) and ERROR (defined as -1).
+> 
+> Also, shouldn't those functions be converted to return 'bool' when the 
+> description say so (happy to do it).
 
-Forget that. That's an irq disabling lock, it's worse than anything else :)
+Does anyone use the Cisco MIC code anymore? I guess we can't just rip it
+out...  It was a proprietary Cisco extension back before WPA.
 
--- 
-Thibaut VARENE
-http://www.parisc-linux.org/~varenet/
+In any case, the comment should be changed to reflect the current return
+values of the function, and SUCCESS and ERROR in decapsulate() should be
+changed to 0 and -1 respectively; defining stuff like success/error just
+makes things ugly, and 0 and -1 are well-enough-known that there should
+be no question what they mean.
+
+Essentially, the code is using 0 and -1 as booleans anyway.  I say get
+rid of SUCCESS & ERROR and just use 0 and -1, then change the comment.
+
+dan
+
+> Richard Knutsson
+> 
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
