@@ -1,25 +1,39 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 0/4] atl1: Attansic L1 ethernet driver
-Date: Tue, 23 Jan 2007 16:27:25 -0500
-Message-ID: <45B67DBD.2060300@garzik.org>
-References: <20070121210416.GA2702@osprey.hogchain.net> <45B5A3D5.6020508@garzik.org> <45B63ADC.8060808@bellsouth.net>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] mv643xx_eth: Fix race condition in mv643xx_eth_free_tx_descs
+Date: Tue, 23 Jan 2007 16:29:04 -0500
+Message-ID: <45B67E20.8020309@pobox.com>
+References: <20070123165225.GA20153@xyzzy.farnsworth.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@osdl.org, csnook@redhat.com, hch@infradead.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	atl1-devel@lists.sourceforge.net
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965464AbXAWV2I@vger.kernel.org>
-To: Jay Cliburn <jacliburn@bellsouth.net>
-In-Reply-To: <45B63ADC.8060808@bellsouth.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Thibaut VARENE <T-Bone@parisc-linux.org>,
+	Jarek Poplawski <jarkao2@o2.pl>, mlachwani@mvista.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:50882 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965156AbXAWV3s (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Jan 2007 16:29:48 -0500
+To: Dale Farnsworth <dale@farnsworth.org>
+In-Reply-To: <20070123165225.GA20153@xyzzy.farnsworth.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jay Cliburn wrote:
-> Perhaps a dumb question, but when can I begin submitting differential 
-> patches?  Now?  I'd like to incorporate some of Arjan's and Randy's 
-> comments.
+Dale Farnsworth wrote:
+>>From Dale Farnsworth <dale@farnsworth.org>
+> 
+> mv643xx_eth: Fix race condition in mv643xx_eth_free_tx_descs
+> 
+> This bug was found and isolated by Thibaut VARENE <T-Bone@parisc-linux.org>
+> and Jarek Poplawski <jarkao2@o2.pl>.  This patch is a modification of their
+> fixes.  We acquire and release the lock for each descriptor that is freed
+> to minimize the time the lock is held.
+> 
+> ---
+> 
+>  drivers/net/mv643xx_eth.c |   11 +++++++++--
+>  1 file changed, 9 insertions(+), 2 deletions(-)
 
-Submit patches starting... now!  :)
+applied
 
-	Jeff
+
