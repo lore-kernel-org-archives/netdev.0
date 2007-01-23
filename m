@@ -1,42 +1,69 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [git patches] net driver fixes
-Date: Tue, 23 Jan 2007 16:30:14 -0500
-Message-ID: <45B67E66.4060901@garzik.org>
-References: <20070122185508.GA4648@havoc.gtf.org> <45B50A73.7000000@intel.com> <45B50E78.7000107@garzik.org> <45B5134B.3030909@intel.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH 0/8] partial resend: e1000 fixes and updates
+Date: Tue, 23 Jan 2007 16:31:41 -0500
+Message-ID: <45B67EBD.6020605@pobox.com>
+References: <20070113003650.16816.34076.stgit@gitlost.site> <45AFA6A4.4090503@pobox.com> <45AFAB7A.7040000@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>, Linus Torvalds <torvalds@osdl.org>,
-	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965455AbXAWVaW@vger.kernel.org>
+Cc: netdev@vger.kernel.org,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Kok, Auke" <auke@foo-projects.org>,
+	"Ronciak, John" <john.ronciak@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:50911 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965260AbXAWVbr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Jan 2007 16:31:47 -0500
 To: Auke Kok <auke-jan.h.kok@intel.com>
-In-Reply-To: <45B5134B.3030909@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <45AFAB7A.7040000@intel.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Auke Kok wrote:
 > Jeff Garzik wrote:
->> Auke Kok wrote:
->>> Jeff Garzik wrote:
->>>> Please pull from 'upstream-linus' branch of
->>>> master.kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git 
->>>> upstream-linus
+>> Kok, Auke wrote:
+>>> Hi,
 >>>
->>> Jeff,
+>>> This patch series contains exclusively fixes for e1000. Some of these 
+>>> patches were
+>>> already sent in december, but didn't make it into any usptream tree 
+>>> yet. Most
+>>> importantly, it addresses two issues in the recently merged msi 
+>>> interrupt
+>>> handler and dynamic itr code. A performance fix and some minor 
+>>> cleanups are also
+>>> added. This brings the driver up to version 7.3.20-k2.
 >>>
->>> is there a reason that you didn't pull the e1000 tree from us? I send 
->>> you all the information 5 days ago, WITH the changes that you requested.
+>>> The summary below lists all patches. Once that were previously acked 
+>>> are annotated
+>>> with (*)
+>>>
+>>> These patches apply against netdev-2.6 #upstream-linus commit
+>>> 77aab8bf22042d1658d4adbca8b71779e7f2d0ff. Please pull:
+>>>
+>>> git pull git://lost.foo-projects.org/~ahkok/git/netdev-2.6 
+>>> upstream-linus
 >>
->> I did pull the tree.  The fixes were far more than just obvious 
->> one-liners, so they got pulled into #upstream.
+>> Sigh.  I /know/ I've told you this before, but let's review the 
+>> branches again.  NEVER EVER use branch 'upstream-linus'.  That is for 
+>> Linus only.
 > 
-> Forgive me for not seeing the 'pulled' message! I still don't see them 
-> in your tree on kernel.org either. Is it just slow again?
+> gah, sorry about that.
+> 
+> I've moved it all over to #master-e1000 which applies against 
+> bf81b46482c0fa8ea638e409d39768ea92a6b0f0 ("Linux 2.6.20-rc4 --Linus 
+> Torvalds").
+> 
+> Please pull:
+> 
+> git pull git://lost.foo-projects.org/~ahkok/git/netdev-2.6 master-e1000
 
-hrm, no, at the time of your message everything has been mirrored out. 
-So, WYSIWYG.
+Strike my last email.
 
-I ACK'd your latest update of the patch series, so resend the pull info 
-and I'll pull.  Sorry about that.
+Pulled into #upstream.
 
 	Jeff
+
+
+
