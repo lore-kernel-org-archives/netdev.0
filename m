@@ -1,70 +1,38 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: adm8211 (from linville wireless-2.6) in xen guest
-Date: Tue, 23 Jan 2007 10:20:27 -0500
-Message-ID: <1169565627.2777.16.camel@localhost.localdomain>
-References: <45B208DA.8010807@caiway.nl>
-	 <200701221430.50547.flamingice@sourmilk.net>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: Re: [PATCH] bcm43xx: Fix problem with >1 GB RAM
+Date: Tue, 23 Jan 2007 16:22:23 +0100
+Message-ID: <200701231622.24054.mb@bu3sch.de>
+References: <45b240d6.SHryQ/4Jr/1MvQso%Larry.Finger@lwfinger.net> <45B51C31.10000@lwfinger.net> <1169565516.2777.13.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+  charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: Jan Evert van Grootheest <j.e.van.grootheest@caiway.nl>,
-	netdev@vger.kernel.org
+Cc: Larry Finger <larry.finger@lwfinger.net>,
+	John Linville <linville@tuxdriver.com>, netdev@vger.kernel.org,
+	Bcm43xx-dev@lists.berlios.de, Jiri Benc <jbenc@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:51754 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751977AbXAWPRz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Jan 2007 10:17:55 -0500
-To: Michael Wu <flamingice@sourmilk.net>
-In-Reply-To: <200701221430.50547.flamingice@sourmilk.net>
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:48518
+	"EHLO vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751990AbXAWPXw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jan 2007 10:23:52 -0500
+To: Dan Williams <dcbw@redhat.com>
+In-Reply-To: <1169565516.2777.13.camel@localhost.localdomain>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2007-01-22 at 14:30 -0500, Michael Wu wrote:
-> On Saturday 20 January 2007 07:19, Jan Evert van Grootheest wrote:
-> > Hi,
-> >
-> > Just writing to thank all of you that made the adm8211 driver in John
-> > Linvilles wireless-2.6 development tree (not the dscape one, which I
-> > will try also).
-> >
-> CC me then. :) Note that I only maintain the d80211 based adm8211 driver now, 
-> but that driver doesn't have adhoc support yet.
+On Tuesday 23 January 2007 16:18, Dan Williams wrote:
+> > At present, I have a problem getting NetworkManager to see the d80211 wireless interface. Once I get
+> > that solved, I plan to use my system to test with > 1 GB RAM on your git tree. In that case, I'll
+> > switch to the pci-form only if necessary.
 > 
-> > One question, though. I'm trying to use it in ad-hoc mode. If there's no
-> > other station with the same essid, it just keeps mentioning that
-> > (besides the BCNTC and TSFTF messages)
-> >
-> > wlan0: No matching adhoc sta found. Creating IBSS 00:04:e2:3f:2a:70 CHAN=11
-> >
-> > And the IBSS changes every time, which is about every 30 seconds. Is it
-> > really supposed to change the IBSS each time?
-> Probably not, but I never debugged adhoc mode enough.
-> 
-> > The reason I ask is that my wife has a laptop with an Atheros chip in
-> > it. If it is configured for ad-hoc it creates the IBSS and sticks with
-> > it. So I now have two computers that have different behaviour in this
-> > respect. That in itself is not, I guess, a problem. But it seems to me
-> > that the random IBSS created by the adm8211 would result in two stations
-> > not seeing eachother or taking longer than necessary to find eachother?
-> >
-> Have you checked? I think the bssid should stop changing once another station 
-> with the same ssid comes into range.
+> NM should show the interface if HAL sees the interface and has assigned
+> it a "net.80211" capability.  We had all agreed that HAL should be a bit
+> smarter about detecting d80211 devices, but we were postponing that
+> until we figured out what to do with the master device.  Now that we
 
-Hmm; that's odd.  If the card is set to adhoc mode and it cannot find
-another station, then it should just start up as the only station in the
-adhoc network.  It ideally shouldn't be searching for another one since
-of course you don't really need more than one STA to form an adhoc
-network.
+Jiri already has a working patch for that.
+I think he will commit it, soon.
 
-In any case, concentration should go into the d80211 version of
-course :)
-
-Dan
-
-> > And one more question that I don't understand... the wlan0 interface
-> > does not appear in snmp queries. Any idea about that?
-> >
-> Nope.
-> 
-> -Michael Wu
-
+-- 
+Greetings Michael.
