@@ -1,39 +1,75 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [PATCH] IPv6: Implement RFC 4429 Optimistic Duplicate Address
- Detection
-Date: Tue, 23 Jan 2007 14:27:07 -0500
-Message-ID: <45B6618B.7000803@hp.com>
-References: <20070119212314.GA10748@hmsreliant.homelinux.net> <20070120.080507.25118874.yoshfuji@linux-ipv6.org> <20070122181528.GD21059@hmsreliant.homelinux.net> <45B504DC.8030107@kolumbus.fi> <20070122194548.GE21059@hmsreliant.homelinux.net> <45B51DC3.1010303@hp.com> <20070123183607.GA582@hmsreliant.homelinux.net>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH 4/4] atl1: Ancillary C files for Attansic L1 driver
+Date: Tue, 23 Jan 2007 11:25:22 -0800
+Message-ID: <20070123112522.65aac61b@freekitty>
+References: <20070121210737.GE2702@osprey.hogchain.net>
+	<20070121183151.4be61ebf.randy.dunlap@oracle.com>
+	<45B43093.6060500@bellsouth.net>
+	<20070122200004.GA12553@dreamland.darkstar.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: =?ISO-8859-1?Q?Mika_Penttil=E4?= <mika.penttila@kolumbus.fi>,
-	yoshfuji@linux-ipv6.org, davem@davemloft.net, kuznet@ms2.inr.ac.ru,
-	pekkas@netcore.fi, jmorris@namei.org, kaber@coreworks.de,
-	netdev@vger.kernel.org
+Cc: Jay Cliburn <jacliburn@bellsouth.net>,
+	Randy Dunlap <randy.dunlap@oracle.com>, jeff@garzik.org,
+	shemminger@osdl.org, csnook@redhat.com, hch@infradead.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	atl1-devel@lists.sourceforge.net, kronos.it@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel9.hp.com ([156.153.255.214]:51873 "EHLO atlrel9.hp.com"
+Received: from smtp.osdl.org ([65.172.181.24]:50491 "EHLO smtp.osdl.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933112AbXAWT1K (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Jan 2007 14:27:10 -0500
-To: Neil Horman <nhorman@tuxdriver.com>
-In-Reply-To: <20070123183607.GA582@hmsreliant.homelinux.net>
+	id S933111AbXAWT27 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Jan 2007 14:28:59 -0500
+To: Luca Tettamanti <kronos.it@gmail.com>
+In-Reply-To: <20070122200004.GA12553@dreamland.darkstar.lan>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Neil
+On Mon, 22 Jan 2007 21:00:04 +0100
+Luca Tettamanti <kronos.it@gmail.com> wrote:
 
-Neil Horman wrote:
-> +				/*
-> +				 * This is not a dad solicitation, meaning we may
-> +				 * need to respond to it, if we are 
-> +				 * an optimistic node, go ahead, otherwise 
-> +				 * ignore it
+> Il Sun, Jan 21, 2007 at 09:33:39PM -0600, Jay Cliburn ha scritto: 
+> > Randy Dunlap wrote:
+> > >On Sun, 21 Jan 2007 15:07:37 -0600 Jay Cliburn wrote:
+> > [snip]
+> > 
+> > >>+	value = ioread16(hw->hw_addr + REG_PCIE_CAP_LIST);
+> > >>+	return ((value & 0xFF00) == 0x6C00) ? 0 : 1;
+> > >
+> > >Are there defines or enums for these?
+> > >Fewer magic numbers would be nice/helpful/readable.
+> > [snip]
+> > >>+	s32 ret;
+> > >>+	ret = atl1_write_phy_reg(hw, 29, 0x0029);
+> > >
+> > >Fewer magic numbers?
+> > 
+> > Unfortunately, we don't have a spec.  This is how the vendor coded it.
+> > 
+> > [snip]
+> > >>+
+> > >>+int enable_msi;
+> > >>+module_param(enable_msi, int, 0444);
+> > >>+MODULE_PARM_DESC(enable_msi, "Enable PCI MSI");
+> > >
+> > >Hm, I thought that we didn't want individual drivers having MSI config
+> > >options...
+> > 
+> > Luca?  This one was yours IIRC.  Care to chime in?
+> 
+> I remember that discussion, but since there's no sistem-wide MSI
+> blacklist (or whitelist) I don't think it's safe to enable it
+> unconditionally. Judging from bug reports on lkml it's not safe to
+> assume that MSI support is sane on non-Intel chipsets.
+> 
+> Luca
 
-Nit.  Can you rephrase the comment just a bit.  It seems a bit of a run-on sentence...
+There is MSI blacklisting see drivers/pci/quirks.c code.
+But the blacklist isn't complete enough yet.
 
-The other comment from Yoshifuji-san still apply.
+IMHO the MSI disabling should be removed from drivers and be done
+in the PCI core. But it doesn't seem to have gotten widespread
+support.
+	
 
-Thanks
--vlad
-
+-- 
+Stephen Hemminger <shemminger@linux-foundation.org>
