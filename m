@@ -1,72 +1,55 @@
-From: "Jon Smirl" <jonsmirl@gmail.com>
-Subject: Re: [PATCH] Marvell Libertas 8388 802.11b/g USB driver (v2)
-Date: Tue, 23 Jan 2007 13:23:04 -0500
-Message-ID: <9e4733910701231023n419a24edq790a4f811bd3f7f4@mail.gmail.com>
-References: <20070116185524.GA5681@dmt>
-	 <1169055788.2550.44.camel@localhost.localdomain>
-	 <1169056884.9175.66.camel@johannes.berg> <20070122112613.GA3038@dmt>
-	 <9e4733910701220720x47506091m357cbf9e5deb3903@mail.gmail.com>
-	 <1169566914.3649.4.camel@johannes.berg>
-	 <9e4733910701230818g13dc82a2kf0972b8543db449f@mail.gmail.com>
-	 <1169571273.3649.12.camel@johannes.berg>
-	 <9e4733910701230914t52b39f2dha00ddfcec22fd3bd@mail.gmail.com>
-	 <1169575198.2777.37.camel@localhost.localdomain>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: why would EPIPE cause socket port to change?
+Date: Tue, 23 Jan 2007 10:22:41 -0800
+Message-ID: <45B65271.1040709@hp.com>
+References: <E1H9ES2-0006uJ-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Johannes Berg" <johannes@sipsolutions.net>,
-	"Marcelo Tosatti" <marcelo@kvack.org>, "Jiri Benc" <jbenc@suse.cz>,
-	netdev <netdev@vger.kernel.org>,
-	"Jeff Garzik" <jgarzik@pobox.com>,
-	"John W. Linville" <linville@redhat.com>,
-	"Luis R. Rodriguez" <mcgrof@gmail.com>,
-	"Arnd Bergmann" <arnd@arndb.de>,
-	"Arnaldo Carvalho de Melo" <acme@ghostprotocols.net>
+Cc: dean gaudet <dean@arctic.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nz-out-0506.google.com ([64.233.162.224]:51587 "EHLO
-	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932955AbXAWSXL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jan 2007 13:23:11 -0500
-Received: by nz-out-0506.google.com with SMTP id s1so1210238nze
-        for <netdev@vger.kernel.org>; Tue, 23 Jan 2007 10:23:05 -0800 (PST)
-To: "Dan Williams" <dcbw@redhat.com>
-In-Reply-To: <1169575198.2777.37.camel@localhost.localdomain>
-Content-Disposition: inline
+Received: from palrel11.hp.com ([156.153.255.246]:42842 "EHLO palrel11.hp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932939AbXAWSYI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Jan 2007 13:24:08 -0500
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <E1H9ES2-0006uJ-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 1/23/07, Dan Williams <dcbw@redhat.com> wrote:
-> On Tue, 2007-01-23 at 12:14 -0500, Jon Smirl wrote:
-> > On 1/23/07, Johannes Berg <johannes@sipsolutions.net> wrote:
-> > > On Tue, 2007-01-23 at 11:18 -0500, Jon Smirl wrote:
-> > >
-> > > > Is the 802.11s Draft 1.0 spec publicly available yet? It is supposed
-> > > > to be making changes at the very lowest MAC layers. It will be hard to
-> > > > be compatible with that from user space.
-> > >
-> > > Good point, it's not possible to implement this without changes to the
-> > > MAC.
-> > >
-> > > > The software doesn't have to be written but there should be at least
-> > > > some design work done on how 11s should fit into the existing world
-> > > > for both a firmware and software implementation. I'd hate to see a
-> > > > different implementation for each vendor and another one for the
-> > > > software stack.
-> > >
-> > > Then we'll first have to find those vendors interested in actually
-> > > changing their MAC to allow .11s I guess.
-> >
-> > I haven't seen the 11s spec, are devices with softmac implementations
-> > flexible enough to implement it or do they need firmware changes too?
->
-> I believe it needs to at least support 4 address frames, which usually
-> requires firmware changes on fullmac cards, but fully softmac cards
-> (atheros, broadcom) probably would not.
+Herbert Xu wrote:
+> dean gaudet <dean@arctic.org> wrote:
+> 
+>>in the test program below the getsockname result on a TCP socket changes 
+>>across a write which produces EPIPE... here's a fragment of the strace:
+>>
+>>getsockname(3, {sa_family=AF_INET, sin_port=htons(37636), sin_addr=inet_addr("127.0.0.1")}, [17863593746633850896]) = 0
+>>...
+>>write(3, "hi!\n", 4)                    = 4
+>>write(3, "hi!\n", 4)                    = -1 EPIPE (Broken pipe)
+>>--- SIGPIPE (Broken pipe) @ 0 (0) ---
+>>getsockname(3, {sa_family=AF_INET, sin_port=htons(59882), sin_addr=inet_addr("127.0.0.1")}, [16927060683038654480]) = 0
+>>
+>>why does the port# change?  this is on 2.6.19.1.
+> 
+> 
+> Prior to the last write, the socket entered the CLOSED state meaning
+> that the old port is no longer allocated to it.  As a result, the
+> last write operates on an unconnected socket which causes a new local
+> port to be allocated as an autobind.  It then fails because the socket
+> is still not connected.
+> 
+> So any attempt to run getsockname after an error on the socket is
+> simply buggy.
 
-I am working with the zd1211b which is also softmac. I'm willing to do
-some work on 11s support for dscape but I need a spec. I'll probably
-need some help too since I haven't worked on the wireless code before.
+But falls within the principle of least surprise doesn't it?  Unless the 
+application has called close() or bind(), it does seem like a reasonable 
+expectation that the port assignments are not changed.
 
--- 
-Jon Smirl
-jonsmirl@gmail.com
+> (fwiw this is one of two reasons i've found for libnss-ldap to leak 
+> sockets... causing nscd to crash.)
+
+Of course, that seems rather odd too - why does libnss-ldap check the 
+socket name on a socket after an EPIPE anyway?
+
+rick jones
