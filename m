@@ -1,37 +1,54 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] select: fix sys_select to not leak ERESTARTNOHAND to userspace
-Date: Tue, 23 Jan 2007 13:55:08 -0500
-Message-ID: <20070123185508.GB582@hmsreliant.homelinux.net>
-References: <20070122130020.GA21059@hmsreliant.homelinux.net> <200701231002.49615.ak@suse.de>
+From: Michael Wu <flamingice@sourmilk.net>
+Subject: Re: Soft lockups with dscape on wireless-dev tree
+Date: Tue, 23 Jan 2007 13:57:50 -0500
+Message-ID: <200701231357.54921.flamingice@sourmilk.net>
+References: <9e4733910701230910w79a7af45hff626e48a7091ffd@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: akpm@osdl.org, netdev@vger.kernel.org
+Content-Type: multipart/signed;
+  boundary="nextPart1321760.Z0ijs9e7fO";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:2609 "EHLO ra.tuxdriver.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965391AbXAWS4F (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Jan 2007 13:56:05 -0500
-To: Andi Kleen <ak@suse.de>
-Content-Disposition: inline
-In-Reply-To: <200701231002.49615.ak@suse.de>
+Received: from smtp.rutgers.edu ([128.6.72.243]:20209 "EHLO
+	annwn13.rutgers.edu" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S965428AbXAWS6X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jan 2007 13:58:23 -0500
+To: "Jon Smirl" <jonsmirl@gmail.com>
+In-Reply-To: <9e4733910701230910w79a7af45hff626e48a7091ffd@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 23, 2007 at 10:02:49AM +1100, Andi Kleen wrote:
-> On Tuesday 23 January 2007 00:00, Neil Horman wrote:
-> > As it is currently written, sys_select checks its return code to convert
-> > ERESTARTNOHAND to EINTR.  However, the check is within an if (tvp) clause,
-> > and so if select is called from userspace with a NULL timeval, then it is
-> > possible for the ERESTARTNOHAND errno to leak into userspace, which is
-> > incorrect.  This patch moves that check outside of the conditional, and
-> > prevents the errno leak.
-> 
-> 
-> Patch looks good to me.
-> 
-> -Andi
-Thanks for the response, but there is some question as to this patchs validity.
-I'm waiting on a reproducer to try and veryify the problem.
+--nextPart1321760.Z0ijs9e7fO
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-Neil
+On Tuesday 23 January 2007 12:10, Jon Smirl wrote:
+> I've hit this twice. This time I unplugged my USB hub which had the
+> device in it.
+>
+Please try the patch I posted earlier:
 
+http://marc.theaimsgroup.com/?l=linux-netdev&m=116841004113998&w=2
+
+Also can be found here:
+
+http://kernel.org/git/?p=linux/kernel/git/jbenc/dscape.git;a=commitdiff_plain;h=e3973cb079b24875af1f196d03569ce7eb517c92;hp=f85c9f7b6a0fe662b95595c51aed92d784e93c5e
+
+-Michael Wu
+
+--nextPart1321760.Z0ijs9e7fO
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.2 (GNU/Linux)
+
+iD8DBQBFtlqyT3Oqt9AH4aERAvxBAJ9K/zaGsQpKqQtW8FVukmcvKsCULwCfS7Us
+c3IbJXig3xlq2m87KBbvnzs=
+=TSHi
+-----END PGP SIGNATURE-----
+
+--nextPart1321760.Z0ijs9e7fO--
