@@ -1,68 +1,76 @@
-From: dean gaudet <dean@arctic.org>
-Subject: Re: why would EPIPE cause socket port to change?
-Date: Tue, 23 Jan 2007 12:11:01 -0800 (PST)
-Message-ID: <Pine.LNX.4.64.0701231140320.21464@twinlark.arctic.org>
-References: <E1H9ES2-0006uJ-00@gondolin.me.apana.org.au> <45B65271.1040709@hp.com>
+From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Subject: [PATCH] bcm43xx: Fix scaling error for 'iwlist rate' information
+Date: Tue, 23 Jan 2007 14:26:35 -0600
+Message-ID: <45b66f7b.qEvXToJSJL5WnxfG%Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from twinlark.arctic.org ([207.29.250.54]:46702 "EHLO
-	twinlark.arctic.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965486AbXAWULD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jan 2007 15:11:03 -0500
-To: Rick Jones <rick.jones2@hp.com>
-In-Reply-To: <45B65271.1040709@hp.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+	Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+To: John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
+List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 23 Jan 2007, Rick Jones wrote:
+The bcm43xx scales the rate information supplied to a WE iwlist rate call incorrectly.
 
-> Herbert Xu wrote:
-> > Prior to the last write, the socket entered the CLOSED state meaning
-> > that the old port is no longer allocated to it.  As a result, the
-> > last write operates on an unconnected socket which causes a new local
-> > port to be allocated as an autobind.  It then fails because the socket
-> > is still not connected.
-> > 
-> > So any attempt to run getsockname after an error on the socket is
-> > simply buggy.
-> 
-> But falls within the principle of least surprise doesn't it?  Unless the
-> application has called close() or bind(), it does seem like a reasonable
-> expectation that the port assignments are not changed.
+Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+---
 
-i sampled a few other OSes...
+John,
 
-netbsd returns EINVAL after close
-freebsd returns ECONNRESET after close
-OSX retains the same port number
-solaris 10 returns port 0
+This fix should be applied to wireless-2.6. As it is a bug fix, it could also be sent
+to 2.6.20; however, it has no real effect on system operations, and it doesn't mtter.
 
-actually any of those behaviours seems more appropriate than randomly 
-assigning a new port :)  but i like the ENOTCONN suggestion from Michael 
-Tokarev the best... it matches the ENOTCONN from getpeername.
+Larry
+---
+ 
+Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_wx.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_wx.c
++++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_wx.c
+@@ -261,22 +261,22 @@ static int bcm43xx_wx_get_rangeparams(st
+ 	if (phy->type == BCM43xx_PHYTYPE_A ||
+ 	    phy->type == BCM43xx_PHYTYPE_G) {
+ 		range->num_bitrates = 8;
+-		range->bitrate[i++] = IEEE80211_OFDM_RATE_6MB;
+-		range->bitrate[i++] = IEEE80211_OFDM_RATE_9MB;
+-		range->bitrate[i++] = IEEE80211_OFDM_RATE_12MB;
+-		range->bitrate[i++] = IEEE80211_OFDM_RATE_18MB;
+-		range->bitrate[i++] = IEEE80211_OFDM_RATE_24MB;
+-		range->bitrate[i++] = IEEE80211_OFDM_RATE_36MB;
+-		range->bitrate[i++] = IEEE80211_OFDM_RATE_48MB;
+-		range->bitrate[i++] = IEEE80211_OFDM_RATE_54MB;
++		range->bitrate[i++] = IEEE80211_OFDM_RATE_6MB * 500000;
++		range->bitrate[i++] = IEEE80211_OFDM_RATE_9MB * 500000;
++		range->bitrate[i++] = IEEE80211_OFDM_RATE_12MB * 500000;
++		range->bitrate[i++] = IEEE80211_OFDM_RATE_18MB * 500000;
++		range->bitrate[i++] = IEEE80211_OFDM_RATE_24MB * 500000;
++		range->bitrate[i++] = IEEE80211_OFDM_RATE_36MB * 500000;
++		range->bitrate[i++] = IEEE80211_OFDM_RATE_48MB * 500000;
++		range->bitrate[i++] = IEEE80211_OFDM_RATE_54MB * 500000;
+ 	}
+ 	if (phy->type == BCM43xx_PHYTYPE_B ||
+ 	    phy->type == BCM43xx_PHYTYPE_G) {
+ 		range->num_bitrates += 4;
+-		range->bitrate[i++] = IEEE80211_CCK_RATE_1MB;
+-		range->bitrate[i++] = IEEE80211_CCK_RATE_2MB;
+-		range->bitrate[i++] = IEEE80211_CCK_RATE_5MB;
+-		range->bitrate[i++] = IEEE80211_CCK_RATE_11MB;
++		range->bitrate[i++] = IEEE80211_CCK_RATE_1MB * 500000;
++		range->bitrate[i++] = IEEE80211_CCK_RATE_2MB * 500000;
++		range->bitrate[i++] = IEEE80211_CCK_RATE_5MB * 500000;
++		range->bitrate[i++] = IEEE80211_CCK_RATE_11MB * 500000;
+ 	}
+ 
+ 	geo = ieee80211_get_geo(bcm->ieee);
 
-
-> > (fwiw this is one of two reasons i've found for libnss-ldap to leak
-> > sockets... causing nscd to crash.)
-> 
-> Of course, that seems rather odd too - why does libnss-ldap check the socket
-> name on a socket after an EPIPE anyway?
-
-libnss-ldap has some code which attempts to determine if its private 
-socket has been trampled on in between calls to the library... and to do 
-this it caches getsockname/getpeername results and compares them every 
-time the library is re-entered... and when there's a mismatch it leaks a 
-socket (eventually crashing nscd if you're using that).  i've been trying 
-to band-aid over the problem:
-
-http://bugzilla.padl.com/show_bug.cgi?id=304
-http://bugzilla.padl.com/show_bug.cgi?id=305
-
-but i'm probably going to need to approach it from another direction -- 
-make libnss-ldap monitor the ldap library results so it knows when there's 
-been a read/write error so that it stops doing this 
-getsockname/getpeername thing after the error has occured.
-
--dean
+---
