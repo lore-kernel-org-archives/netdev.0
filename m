@@ -1,55 +1,65 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: why would EPIPE cause socket port to change?
-Date: Tue, 23 Jan 2007 10:22:41 -0800
-Message-ID: <45B65271.1040709@hp.com>
-References: <E1H9ES2-0006uJ-00@gondolin.me.apana.org.au>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH] Marvell Libertas 8388 802.11b/g USB driver (v2)
+Date: Tue, 23 Jan 2007 19:30:39 +0100
+Message-ID: <1169577039.3649.29.camel@johannes.berg>
+References: <20070116185524.GA5681@dmt>
+	 <1169046072.2750.10.camel@localhost.localdomain>
+	 <1169047134.9175.49.camel@johannes.berg>
+	 <1169055788.2550.44.camel@localhost.localdomain>
+	 <1169056884.9175.66.camel@johannes.berg> <20070122112613.GA3038@dmt>
+	 <9e4733910701220720x47506091m357cbf9e5deb3903@mail.gmail.com>
+	 <1169566914.3649.4.camel@johannes.berg>
+	 <9e4733910701230818g13dc82a2kf0972b8543db449f@mail.gmail.com>
+	 <1169571273.3649.12.camel@johannes.berg>
+	 <9e4733910701230914t52b39f2dha00ddfcec22fd3bd@mail.gmail.com>
+	 <1169575198.2777.37.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: dean gaudet <dean@arctic.org>, netdev@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-WIiomWNq297cBvah22oy"
+Cc: Jon Smirl <jonsmirl@gmail.com>,
+	Marcelo Tosatti <marcelo@kvack.org>, Jiri Benc <jbenc@suse.cz>,
+	netdev <netdev@vger.kernel.org>, Jeff Garzik <jgarzik@pobox.com>,
+	"John W. Linville" <linville@redhat.com>,
+	"Luis R. Rodriguez" <mcgrof@gmail.com>,
+	Arnd Bergmann <arnd@arndb.de>,
+	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel11.hp.com ([156.153.255.246]:42842 "EHLO palrel11.hp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932939AbXAWSYI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Jan 2007 13:24:08 -0500
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <E1H9ES2-0006uJ-00@gondolin.me.apana.org.au>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:53527 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932498AbXAWSbj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jan 2007 13:31:39 -0500
+To: Dan Williams <dcbw@redhat.com>
+In-Reply-To: <1169575198.2777.37.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Herbert Xu wrote:
-> dean gaudet <dean@arctic.org> wrote:
-> 
->>in the test program below the getsockname result on a TCP socket changes 
->>across a write which produces EPIPE... here's a fragment of the strace:
->>
->>getsockname(3, {sa_family=AF_INET, sin_port=htons(37636), sin_addr=inet_addr("127.0.0.1")}, [17863593746633850896]) = 0
->>...
->>write(3, "hi!\n", 4)                    = 4
->>write(3, "hi!\n", 4)                    = -1 EPIPE (Broken pipe)
->>--- SIGPIPE (Broken pipe) @ 0 (0) ---
->>getsockname(3, {sa_family=AF_INET, sin_port=htons(59882), sin_addr=inet_addr("127.0.0.1")}, [16927060683038654480]) = 0
->>
->>why does the port# change?  this is on 2.6.19.1.
-> 
-> 
-> Prior to the last write, the socket entered the CLOSED state meaning
-> that the old port is no longer allocated to it.  As a result, the
-> last write operates on an unconnected socket which causes a new local
-> port to be allocated as an autobind.  It then fails because the socket
-> is still not connected.
-> 
-> So any attempt to run getsockname after an error on the socket is
-> simply buggy.
 
-But falls within the principle of least surprise doesn't it?  Unless the 
-application has called close() or bind(), it does seem like a reasonable 
-expectation that the port assignments are not changed.
+--=-WIiomWNq297cBvah22oy
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-> (fwiw this is one of two reasons i've found for libnss-ldap to leak 
-> sockets... causing nscd to crash.)
+On Tue, 2007-01-23 at 12:59 -0500, Dan Williams wrote:
 
-Of course, that seems rather odd too - why does libnss-ldap check the 
-socket name on a socket after an EPIPE anyway?
+> I believe it needs to at least support 4 address frames, which usually
+> requires firmware changes on fullmac cards, but fully softmac cards
+> (atheros, broadcom) probably would not.
 
-rick jones
+.11s also introduces new frame types/subtypes that probably need to be
+ACKed which usually the firmware won't do since it doesn't understand
+those frame types/subtypes yet.
+
+johannes
+
+--=-WIiomWNq297cBvah22oy
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iD8DBQBFtlRP/ETPhpq3jKURAsipAJ9ikP1f060fVwyi1hJ12K1OTwGp5gCePBZ0
+cIO1ioHwB9P2hfS/yWDR8O4=
+=WN2k
+-----END PGP SIGNATURE-----
+
+--=-WIiomWNq297cBvah22oy--
+
