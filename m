@@ -1,36 +1,47 @@
-From: "Marco Berizzi" <pupilla@hotmail.com>
-Subject: Re: XFRM does not rate limit messages from the kernel to userspace
-Date: Tue, 23 Jan 2007 11:58:37 +0100
-Message-ID: <BAY103-DAV1643649CCB3496D7486448B2AD0@phx.gbl>
-References: <E1H9JDS-0007aw-00@gondolin.me.apana.org.au>
-Cc: <netdev@vger.kernel.org>
+From: Michael Tokarev <mjt@tls.msk.ru>
+Subject: Re: why would EPIPE cause socket port to change?
+Date: Tue, 23 Jan 2007 14:10:39 +0300
+Message-ID: <45B5ED2F.7020303@tls.msk.ru>
+References: <E1H9ES2-0006uJ-00@gondolin.me.apana.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=KOI8-R
+Content-Transfer-Encoding: 7bit
+Cc: dean gaudet <dean@arctic.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bay0-omc2-s6.bay0.hotmail.com ([65.54.246.142]:57084 "EHLO
-	bay0-omc2-s6.bay0.hotmail.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932958AbXAWK6s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jan 2007 05:58:48 -0500
-To: "Herbert Xu" <herbert@gondor.apana.org.au>
+Received: from hobbit.corpit.ru ([81.13.94.6]:24266 "EHLO hobbit.corpit.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932968AbXAWLKo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Jan 2007 06:10:44 -0500
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <E1H9ES2-0006uJ-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Herbert Xu wrote:
+> dean gaudet <dean@arctic.org> wrote:
+>> in the test program below the getsockname result on a TCP socket changes 
+>> across a write which produces EPIPE... here's a fragment of the strace:
+>>
+>> getsockname(3, {sa_family=AF_INET, sin_port=htons(37636), sin_addr=inet_addr("127.0.0.1")}, [17863593746633850896]) = 0
+>> ...
+>> write(3, "hi!\n", 4)                    = 4
+>> write(3, "hi!\n", 4)                    = -1 EPIPE (Broken pipe)
+>> --- SIGPIPE (Broken pipe) @ 0 (0) ---
+>> getsockname(3, {sa_family=AF_INET, sin_port=htons(59882), sin_addr=inet_addr("127.0.0.1")}, [16927060683038654480]) = 0
+>>
+>> why does the port# change?  this is on 2.6.19.1.
+> 
+> Prior to the last write, the socket entered the CLOSED state meaning
+> that the old port is no longer allocated to it.  As a result, the
+> last write operates on an unconnected socket which causes a new local
+> port to be allocated as an autobind.  It then fails because the socket
+> is still not connected.
 
-> Marco Berizzi <pupilla@hotmail.com> wrote:
-> >
-> > AFAIK it was applied to osw 2.4.2
-> > Also changelog confirm this:
-> >
-> > v2.4.2
->
-> Indeed.  Somehow I couldn't find the patch in the git tree that
-> I had here.  It wasn't the 2.4 branch though.
->
-> I presume you're using 2.4.x as well?
+Well, but why getsockname() didn't just return ENOTCONN?
 
-Yes, I'm using openswan 2.4.7
+> So any attempt to run getsockname after an error on the socket is
+> simply buggy.
 
-> If so I'll neet to look at this again.
+Yes it is.  But so is not returning ENOTCONN from getsockname().  I think.
 
-thanks.
-
-
+/mjt
