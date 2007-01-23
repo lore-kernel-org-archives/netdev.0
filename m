@@ -1,124 +1,54 @@
-From: dean gaudet <dean@arctic.org>
-Subject: why would EPIPE cause socket port to change?
-Date: Mon, 22 Jan 2007 20:01:05 -0800 (PST)
-Message-ID: <Pine.LNX.4.64.0701221954250.11520@twinlark.arctic.org>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: Please pull 'upstream' branch of wireless-2.6
+Date: Tue, 23 Jan 2007 00:36:46 -0500
+Message-ID: <45B59EEE.2040002@garzik.org>
+References: <20070118154801.GB31580@tuxdriver.com> <20070118154906.GC31580@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from twinlark.arctic.org ([207.29.250.54]:38461 "EHLO
-	twinlark.arctic.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932991AbXAWEBG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jan 2007 23:01:06 -0500
-To: netdev@vger.kernel.org
+Received: from srv5.dvmed.net ([207.36.208.214]:45291 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933004AbXAWFgv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Jan 2007 00:36:51 -0500
+To: "John W. Linville" <linville@tuxdriver.com>
+In-Reply-To: <20070118154906.GC31580@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-in the test program below the getsockname result on a TCP socket changes 
-across a write which produces EPIPE... here's a fragment of the strace:
+John W. Linville wrote:
+> The following changes since commit 10764889c6355cbb335cf0578ce12427475d1a65:
+>   Larry Finger (1):
+>         bcm43xx: Fix failure to deliver PCI-E interrupts
+> 
+> are found in the git repository at:
+> 
+>   git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git upstream
+> 
+> Daniel Drake (6):
+>       zd1211rw: Generic HMAC initialization
+>       zd1211rw: 2 new ZD1211B device ID's
+>       zd1211rw: Consistency for address space constants
+>       zd1211rw: Remove addressing abstraction
+>       zd1211rw: Add ID for Linksys WUSBF54G
+>       zd1211rw: Add ID for ZyXEL ZyAIR G-220 v2
+> 
+> John W. Linville (1):
+>       softmac: avoid assert in ieee80211softmac_wx_get_rate
+> 
+> Kai Engert (1):
+>       prism54: add ethtool -i interface
+> 
+> Larry Finger (1):
+>       bcm43xx: Interrogate hardware-enable switch and update LEDs
+> 
+> Michael Buesch (1):
+>       Update Prism54 MAINTAINERS entry
+> 
+> Zhu Yi (1):
+>       ipw2200: add iwconfig rts/frag auto support
 
-getsockname(3, {sa_family=AF_INET, sin_port=htons(37636), sin_addr=inet_addr("127.0.0.1")}, [17863593746633850896]) = 0
-...
-write(3, "hi!\n", 4)                    = 4
-write(3, "hi!\n", 4)                    = -1 EPIPE (Broken pipe)
---- SIGPIPE (Broken pipe) @ 0 (0) ---
-getsockname(3, {sa_family=AF_INET, sin_port=htons(59882), sin_addr=inet_addr("127.0.0.1")}, [16927060683038654480]) = 0
+pulled, thanks
 
-why does the port# change?  this is on 2.6.19.1.
 
-(fwiw this is one of two reasons i've found for libnss-ldap to leak 
-sockets... causing nscd to crash.)
-
--dean
-
-reproduce like:
-
-make test-sockname-change
-nc -l -p 9999 -c "exit 0" &
-strace ./test-sockname-change 127.0.0.1 9999
-
---- snip ---
-
-#include <stdio.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <netinet/tcp.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <arpa/inet.h>
-#include <sys/uio.h>
-#include <errno.h>
-#include <signal.h>
-#include <fcntl.h>
-
-#ifndef INADDR_NONE
-#define INADDR_NONE (-1ul)
-#endif
-
-int main(int argc, char **argv)
-{
-  struct sockaddr_in server_addr;
-  struct sockaddr_in before, after;
-  socklen_t slen;
-  int s;
-  struct iovec vector[3];
-  char buf[100];
-  int i;
-  const int just_say_no = 1;
-
-  if (argc != 3) {
-usage:
-    fprintf(stderr, "usage: test-sigpipe a.b.c.d port#\n");
-    exit(1);
-  }
-  server_addr.sin_family = AF_INET;
-  server_addr.sin_addr.s_addr = inet_addr(argv[1]);
-  if (server_addr.sin_addr.s_addr == INADDR_NONE) {
-    fprintf(stderr, "bogus address\n");
-    goto usage;
-  }
-  server_addr.sin_port = htons(atoi(argv[2]));
-
-  s = socket(AF_INET, SOCK_STREAM, 0);
-  if (s < 0) {
-    perror("socket");
-    exit(1);
-  }
-  if (connect(s, (struct sockaddr *)&server_addr, sizeof(server_addr)) != 0) {
-    perror("connect");
-    exit(1);
-  }
-
-  if (setsockopt(s, IPPROTO_TCP, TCP_NODELAY, (char*)&just_say_no, sizeof(just_say_no)) != 0) {
-    perror( "TCP_NODELAY" );
-    exit(1);
-  }
-
-  fcntl(s, F_SETFL, fcntl(s, F_GETFL) | O_NONBLOCK);
-
-  slen = sizeof(before);
-  if (getsockname(s, (struct sockaddr *)&before, &slen)) {
-    perror("getsockname before");
-  }
-
-  signal(SIGPIPE, SIG_IGN);
-
-  sleep(1);
-
-  do {
-    i = write(s, "hi!\n", 4);
-  } while (i >= 0);
-  if (errno != EPIPE) {
-    fprintf(stderr, "was expecting EPIPE from write\n");
-    exit(1);
-  }
-
-  slen = sizeof(after);
-  if (getsockname(s, (struct sockaddr *)&after, &slen)) {
-    perror("getsockname after");
-  }
-
-  printf("before = %d, after = %d\n", ntohs(before.sin_port), ntohs(after.sin_port));
-
-  return 0;
-}
