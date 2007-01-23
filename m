@@ -1,68 +1,31 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: [PATCH] Re: kernel BUG in eth_alloc_tx_desc_index at drivers/net/mv643xx_eth.c:1069!
-Date: Tue, 23 Jan 2007 09:17:09 +0100
-Message-ID: <20070123081709.GA1925@ff.dom.local>
-References: <20070109130220.GA4060@ff.dom.local> <7d01f9f00701090944o62f39fb4yfaa5449c2d2d010d@mail.gmail.com> <20070109200541.GA27089@xyzzy.farnsworth.org> <7d01f9f00701091305n3a82713fla442a70a6098dbf@mail.gmail.com> <7d01f9f00701100912kc6fb635wd863d9563b0eb328@mail.gmail.com> <20070111104220.GA3171@ff.dom.local> <7d01f9f00701210418q6f506d20tdc9ce10b501370d7@mail.gmail.com> <7d01f9f00701210502m2bb96bd8i5071a76b6a8c3ea0@mail.gmail.com> <20070122100236.GC2079@ff.dom.local> <20070122170615.GA15293@xyzzy.farnsworth.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Thibaut VARENE <T-Bone@parisc-linux.org>, netdev@vger.kernel.org,
-	mlachwani@mvista.com
+From: "Marco Berizzi" <pupilla@hotmail.com>
+Subject: XFRM does not rate limit messages from the kernel to userspace
+Date: Tue, 23 Jan 2007 09:33:36 +0100
+Message-ID: <BAY103-DAV15A2D5D7F7F8DB53175163B2AD0@phx.gbl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from poczta.o2.pl ([193.17.41.142]:38628 "EHLO poczta.o2.pl"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932899AbXAWIOq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Jan 2007 03:14:46 -0500
-To: Dale Farnsworth <dale@farnsworth.org>
-Content-Disposition: inline
-In-Reply-To: <20070122170615.GA15293@xyzzy.farnsworth.org>
+Received: from bay0-omc1-s8.bay0.hotmail.com ([65.54.246.80]:34460 "EHLO
+	bay0-omc1-s8.bay0.hotmail.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932180AbXAWIdv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jan 2007 03:33:51 -0500
+To: <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 22, 2007 at 10:06:16AM -0700, Dale Farnsworth wrote:
-> Jarek and Thibaut,
-> 
-> Thank you both very much for your work finding and fixing this bug.
-> Jarek, can you verify that the following patch fixes the problem you
-> were seeing?
-> 
-> -Dale
+Hello everybody.
+I'm experimenting the problem described in this
+bug report http://bugs.xelerance.com/view.php?id=726
 
-Sorry, only Thibaut can verify this. I don't have
-such card.
+The system is running vanilla 2.6.19.2 on Slackware
+10.1 (gcc 3.3.5, glibc 2.3.5)
 
-I can only confirm that your patch fixes unproper
-locking of mp->tx_desc_count in the while condition.
-But I'm not sure your way is optimal now because
-mp->tx_desc_count is checked 2 times per every loop.
-I think it is right only if you know the function
-mv643xx_eth_free_tx_descs is called mostly while 
-mp->tx_desc_count == 0 or 1.
+I'm available for any kind of test.
+TIA
 
-> ----- Patch follows -----
-> 
-> From: Dale Farnsworth <dale@farnsworth.org>
-> 
-> mv643xx_eth: Fix race condition in mv643xx_eth_free_tx_descs
-> 
-> The bug was found and isolated by Thibaut VARENE <T-Bone@parisc-linux.org>
-> and Jarek Poplawski <jarkao2@o2.pl>.  This patch is a modification of their
-> fixes.  We acquire and release the lock for each descriptor that is freed
-> to minimize the time the lock is held.
-> 
-> ---
+PS: I see a lot kernel memory allocation:
+root@Mimosa:/etc# free
+              total       used       free     shared buffers     cached
+Mem:        159276     156700       2576          0   0       3108
+-/+ buffers/cache:     153592       5684
+Swap:       330584      38280     292304
 
-From: Dale Farnsworth <dale@farnsworth.org>
- 
-mv643xx_eth: Fix race condition in mv643xx_eth_free_tx_descs
- 
-The bug was found and isolated by Thibaut VARENE <T-Bone@parisc-linux.org>
-and Jarek Poplawski <jarkao2@o2.pl> noticed a locking problem.  This patch
-is a modification of their fixes.  We acquire and release the lock for each
-descriptor that is freed to minimize the time the lock is held.
- 
----
 
-I did small adjustment of my role here.
-
-Regards,
-Jarek P.
