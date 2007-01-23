@@ -1,30 +1,29 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 10/12] forcedeth: tx max work
-Date: Tue, 23 Jan 2007 18:06:59 -0500
-Message-ID: <45B69513.2090106@garzik.org>
-References: <45B63F48.10607@nvidia.com> <45B691E6.7040409@pobox.com>
+From: "Jon Smirl" <jonsmirl@gmail.com>
+Subject: dscape doesn't auto associate
+Date: Tue, 23 Jan 2007 18:23:34 -0500
+Message-ID: <9e4733910701231523w1de82215g6a142ed1e691674b@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Manfred Spraul <manfred@colorfullife.com>,
-	Andrew Morton <akpm@osdl.org>, nedev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:51744 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965585AbXAWXHI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Jan 2007 18:07:08 -0500
-To: Ayaz Abdulla <aabdulla@nvidia.com>
-In-Reply-To: <45B691E6.7040409@pobox.com>
+Received: from nz-out-0506.google.com ([64.233.162.235]:44008 "EHLO
+	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965424AbXAWXXf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jan 2007 18:23:35 -0500
+Received: by nz-out-0506.google.com with SMTP id s1so6736nze
+        for <netdev@vger.kernel.org>; Tue, 23 Jan 2007 15:23:34 -0800 (PST)
+To: netdev <netdev@vger.kernel.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik wrote:
-> Please resend patches 11 & 12 too.  Whereever I stop applying patches, 
-> in a patch series, the remaining patches are dropped.
+I have to manually associate the dscape stack with my AP. Is this way
+the code is supposed to work? Everything works ok after the manual
+association.
 
-Received patches 11 & 12.  Maybe my email system was just slow.  If so, 
-sorry for the noise.
+Is there documentation for this stack? Any special utilities for it?
+I'd like to get my devices operating in master mode.
 
-	Jeff
-
-
+-- 
+Jon Smirl
+jonsmirl@gmail.com
