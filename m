@@ -1,67 +1,71 @@
-From: "Dale Farnsworth" <dale@farnsworth.org>
-Subject: [PATCH] mv643xx_eth: Fix race condition in mv643xx_eth_free_tx_descs
-Date: Tue, 23 Jan 2007 09:52:25 -0700
-Message-ID: <20070123165225.GA20153@xyzzy.farnsworth.org>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH] Marvell Libertas 8388 802.11b/g USB driver (v2)
+Date: Tue, 23 Jan 2007 17:54:33 +0100
+Message-ID: <1169571273.3649.12.camel@johannes.berg>
+References: <20070116185524.GA5681@dmt>
+	 <20070117141103.0e468bf4@griffin.suse.cz>
+	 <1169046072.2750.10.camel@localhost.localdomain>
+	 <1169047134.9175.49.camel@johannes.berg>
+	 <1169055788.2550.44.camel@localhost.localdomain>
+	 <1169056884.9175.66.camel@johannes.berg> <20070122112613.GA3038@dmt>
+	 <9e4733910701220720x47506091m357cbf9e5deb3903@mail.gmail.com>
+	 <1169566914.3649.4.camel@johannes.berg>
+	 <9e4733910701230818g13dc82a2kf0972b8543db449f@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Thibaut VARENE <T-Bone@parisc-linux.org>,
-	Jarek Poplawski <jarkao2@o2.pl>, mlachwani@mvista.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-pYB8rckSVznpsRg/+Y+H"
+Cc: Marcelo Tosatti <marcelo@kvack.org>,
+	Dan Williams <dcbw@redhat.com>, Jiri Benc <jbenc@suse.cz>,
+	netdev <netdev@vger.kernel.org>, Jeff Garzik <jgarzik@pobox.com>,
+	"John W. Linville" <linville@redhat.com>,
+	"Luis R. Rodriguez" <mcgrof@gmail.com>,
+	Arnd Bergmann <arnd@arndb.de>,
+	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xyzzy.farnsworth.org ([65.39.95.219]:3594 "HELO farnsworth.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S932920AbXAWQw0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Jan 2007 11:52:26 -0500
-To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline
+Received: from crystal.sipsolutions.net ([195.210.38.204]:44976 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932255AbXAWQz0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jan 2007 11:55:26 -0500
+To: Jon Smirl <jonsmirl@gmail.com>
+In-Reply-To: <9e4733910701230818g13dc82a2kf0972b8543db449f@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->From Dale Farnsworth <dale@farnsworth.org>
 
-mv643xx_eth: Fix race condition in mv643xx_eth_free_tx_descs
+--=-pYB8rckSVznpsRg/+Y+H
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-This bug was found and isolated by Thibaut VARENE <T-Bone@parisc-linux.org>
-and Jarek Poplawski <jarkao2@o2.pl>.  This patch is a modification of their
-fixes.  We acquire and release the lock for each descriptor that is freed
-to minimize the time the lock is held.
+On Tue, 2007-01-23 at 11:18 -0500, Jon Smirl wrote:
 
----
+> Is the 802.11s Draft 1.0 spec publicly available yet? It is supposed
+> to be making changes at the very lowest MAC layers. It will be hard to
+> be compatible with that from user space.
 
- drivers/net/mv643xx_eth.c |   11 +++++++++--
- 1 file changed, 9 insertions(+), 2 deletions(-)
+Good point, it's not possible to implement this without changes to the
+MAC.
 
-diff --git a/drivers/net/mv643xx_eth.c b/drivers/net/mv643xx_eth.c
-index c41ae42..b3bf864 100644
---- a/drivers/net/mv643xx_eth.c
-+++ b/drivers/net/mv643xx_eth.c
-@@ -314,6 +314,13 @@ int mv643xx_eth_free_tx_descs(struct net
- 
- 	while (mp->tx_desc_count > 0) {
- 		spin_lock_irqsave(&mp->lock, flags);
-+
-+		/* tx_desc_count might have changed before acquiring the lock */
-+		if (mp->tx_desc_count <= 0) {
-+			spin_unlock_irqrestore(&mp->lock, flags);
-+			return released;
-+		}
-+
- 		tx_index = mp->tx_used_desc_q;
- 		desc = &mp->p_tx_desc_area[tx_index];
- 		cmd_sts = desc->cmd_sts;
-@@ -332,13 +339,13 @@ int mv643xx_eth_free_tx_descs(struct net
- 		if (skb)
- 			mp->tx_skb[tx_index] = NULL;
- 
--		spin_unlock_irqrestore(&mp->lock, flags);
--
- 		if (cmd_sts & ETH_ERROR_SUMMARY) {
- 			printk("%s: Error in TX\n", dev->name);
- 			mp->stats.tx_errors++;
- 		}
- 
-+		spin_unlock_irqrestore(&mp->lock, flags);
-+
- 		if (cmd_sts & ETH_TX_FIRST_DESC)
- 			dma_unmap_single(NULL, addr, count, DMA_TO_DEVICE);
- 		else
+> The software doesn't have to be written but there should be at least
+> some design work done on how 11s should fit into the existing world
+> for both a firmware and software implementation. I'd hate to see a
+> different implementation for each vendor and another one for the
+> software stack.
+
+Then we'll first have to find those vendors interested in actually
+changing their MAC to allow .11s I guess.
+
+johannes
+
+--=-pYB8rckSVznpsRg/+Y+H
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iD8DBQBFtj3J/ETPhpq3jKURAtorAJ9OguU0XDujBKrvam3Ubv6DHMzBWQCdGwXG
+QUBtMvNpth7t3AtN1MzGfdo=
+=9Hmp
+-----END PGP SIGNATURE-----
+
+--=-pYB8rckSVznpsRg/+Y+H--
+
