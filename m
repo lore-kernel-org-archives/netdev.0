@@ -1,54 +1,93 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: Please pull 'upstream' branch of wireless-2.6
-Date: Tue, 23 Jan 2007 00:36:46 -0500
-Message-ID: <45B59EEE.2040002@garzik.org>
-References: <20070118154801.GB31580@tuxdriver.com> <20070118154906.GC31580@tuxdriver.com>
+Subject: Re: [PATCH 2.6.20 1/5] s2io: Making LRO and UFO as module loadable
+ parameter.
+Date: Tue, 23 Jan 2007 00:40:46 -0500
+Message-ID: <45B59FDE.4080503@garzik.org>
+References: <Pine.GSO.4.10.10701190226300.22012-100000@guinness>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, leonid.grossman@neterion.com,
+	alicia.pena@neterion.com, ramkrishna.vepa@neterion.com,
+	sivakumar.subramani@neterion.com, sreenivasa.honnur@neterion.com,
+	sriram.rapuru@neterion.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:45291 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:45320 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933004AbXAWFgv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Jan 2007 00:36:51 -0500
-To: "John W. Linville" <linville@tuxdriver.com>
-In-Reply-To: <20070118154906.GC31580@tuxdriver.com>
+	id S932289AbXAWFkv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Jan 2007 00:40:51 -0500
+To: Ananda Raju <Ananda.Raju@neterion.com>
+In-Reply-To: <Pine.GSO.4.10.10701190226300.22012-100000@guinness>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-John W. Linville wrote:
-> The following changes since commit 10764889c6355cbb335cf0578ce12427475d1a65:
->   Larry Finger (1):
->         bcm43xx: Fix failure to deliver PCI-E interrupts
+Ananda Raju wrote:
+> This patch adds two load parameters napi and ufo. Previously NAPI was
+> compilation option with these changes wan enable disable NAPI using load
+> parameter. Also we are introducing ufo load parameter to enable/disable
+> ufo feature
 > 
-> are found in the git repository at:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git upstream
-> 
-> Daniel Drake (6):
->       zd1211rw: Generic HMAC initialization
->       zd1211rw: 2 new ZD1211B device ID's
->       zd1211rw: Consistency for address space constants
->       zd1211rw: Remove addressing abstraction
->       zd1211rw: Add ID for Linksys WUSBF54G
->       zd1211rw: Add ID for ZyXEL ZyAIR G-220 v2
-> 
-> John W. Linville (1):
->       softmac: avoid assert in ieee80211softmac_wx_get_rate
-> 
-> Kai Engert (1):
->       prism54: add ethtool -i interface
-> 
-> Larry Finger (1):
->       bcm43xx: Interrogate hardware-enable switch and update LEDs
-> 
-> Michael Buesch (1):
->       Update Prism54 MAINTAINERS entry
-> 
-> Zhu Yi (1):
->       ipw2200: add iwconfig rts/frag auto support
+> Signed-off-by: Sivakumar Subramani <sivakumar.subramani@neterion.com>
+> ---
+> diff -urpN orig/drivers/net/s2io.c patch1/drivers/net/s2io.c
+> --- orig/drivers/net/s2io.c	2006-12-21 10:06:58.000000000 +0530
+> +++ patch1/drivers/net/s2io.c	2007-01-08 11:56:23.000000000 +0530
+> @@ -401,9 +401,10 @@ S2IO_PARM_INT(lro, 0);
+>   * aggregation happens until we hit max IP pkt size(64K)
+>   */
+>  S2IO_PARM_INT(lro_max_pkts, 0xFFFF);
+> -#ifndef CONFIG_S2IO_NAPI
+>  S2IO_PARM_INT(indicate_max_pkts, 0);
+> -#endif
+> +
+> +S2IO_PARM_INT(napi, 1);
+> +S2IO_PARM_INT(ufo, 0);
+>  
+>  static unsigned int tx_fifo_len[MAX_TX_FIFOS] =
+>      {DEFAULT_FIFO_0_LEN, [1 ...(MAX_TX_FIFOS - 1)] = DEFAULT_FIFO_1_7_LEN};
+> @@ -2275,9 +2276,7 @@ static int fill_rx_buffers(struct s2io_n
+>  	struct config_param *config;
+>  	u64 tmp;
+>  	buffAdd_t *ba;
+> -#ifndef CONFIG_S2IO_NAPI
+>  	unsigned long flags;
+> -#endif
+>  	RxD_t *first_rxdp = NULL;
+>  
+>  	mac_control = &nic->mac_control;
+> @@ -2321,12 +2320,15 @@ static int fill_rx_buffers(struct s2io_n
+>  			DBG_PRINT(INTR_DBG, "%s: Next block at: %p\n",
+>  				  dev->name, rxdp);
+>  		}
+> -#ifndef CONFIG_S2IO_NAPI
+> -		spin_lock_irqsave(&nic->put_lock, flags);
+> -		mac_control->rings[ring_no].put_pos =
+> -		    (block_no * (rxd_count[nic->rxd_mode] + 1)) + off;
+> -		spin_unlock_irqrestore(&nic->put_lock, flags);
+> -#endif
+> +		if(!napi) {
+> +			spin_lock_irqsave(&nic->put_lock, flags);
+> +			mac_control->rings[ring_no].put_pos =
+> +		    	(block_no * (rxd_count[nic->rxd_mode] + 1)) + off;
+> +			spin_unlock_irqrestore(&nic->put_lock, flags);
+> +		} else {
+> +			mac_control->rings[ring_no].put_pos =
+> +			(block_no * (rxd_count[nic->rxd_mode] + 1)) + off;
+> +		}	
+>  		if ((rxdp->Control_1 & RXD_OWN_XENA) &&
+>  			((nic->rxd_mode >= RXD_MODE_3A) &&
+>  				(rxdp->Control_2 & BIT(0)))) {
+> @@ -2569,7 +2571,7 @@ static void free_rx_buffers(struct s2io_
+>   * 0 on success and 1 if there are No Rx packets to be processed.
+>   */
+>  
+> -#if defined(CONFIG_S2IO_NAPI)
+> +#if defined(HAVE_NETDEV_POLL)
 
-pulled, thanks
+ACK the entire patch except for the above change:  don't bother with 
+HAVE_NETDEV_POLL.  In current kernels you may assume we have it.
+
+	Jeff
+
 
 
