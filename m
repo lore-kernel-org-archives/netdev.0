@@ -1,59 +1,37 @@
-From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Subject: [PATCH] bcm43xx: Fix scaling error for 'iwlist freq' information
-Date: Tue, 23 Jan 2007 16:43:26 -0600
-Message-ID: <45b68f8e.m8+Bl9ZfRL/zvhGv%Larry.Finger@lwfinger.net>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH 10/12] forcedeth: tx max work
+Date: Tue, 23 Jan 2007 17:53:26 -0500
+Message-ID: <45B691E6.7040409@pobox.com>
+References: <45B63F48.10607@nvidia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-	Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-To: John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
-List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Cc: Manfred Spraul <manfred@colorfullife.com>,
+	Andrew Morton <akpm@osdl.org>, nedev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:51553 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965517AbXAWWxh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Jan 2007 17:53:37 -0500
+To: Ayaz Abdulla <aabdulla@nvidia.com>
+In-Reply-To: <45B63F48.10607@nvidia.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The bcm43xx driver returns the available frequencies to 'iwlist freq' with the wrong scaling.
+Ayaz Abdulla wrote:
+> This patch adds a limit to how much tx work can be done in each
+> iteration of tx processing. If the max limit is reached, remaining tx 
+> completions will be handled by timer interrupt.
+> 
+> Signed-Off-By: Ayaz Abdulla <aabdulla@nvidia.com>
 
-Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
----
+Thanks, will apply soon.
 
-John,
+Please resend patches 11 & 12 too.  Whereever I stop applying patches, 
+in a patch series, the remaining patches are dropped.
 
-This is to be applied to wireless-2.6. It could also be sent upstream to 2.6.20,
-but it is not very important.
+I either apply a patch immediately, or delete it.
 
-Larry
----
+	Jeff
 
-Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_wx.c
-===================================================================
---- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_wx.c
-+++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_wx.c
-@@ -286,7 +286,7 @@ static int bcm43xx_wx_get_rangeparams(st
- 		if (j == IW_MAX_FREQUENCIES)
- 			break;
- 		range->freq[j].i = j + 1;
--		range->freq[j].m = geo->a[i].freq;//FIXME?
-+		range->freq[j].m = geo->a[i].freq * 100000;
- 		range->freq[j].e = 1;
- 		j++;
- 	}
-@@ -294,7 +294,7 @@ static int bcm43xx_wx_get_rangeparams(st
- 		if (j == IW_MAX_FREQUENCIES)
- 			break;
- 		range->freq[j].i = j + 1;
--		range->freq[j].m = geo->bg[i].freq;//FIXME?
-+		range->freq[j].m = geo->bg[i].freq * 100000;
- 		range->freq[j].e = 1;
- 		j++;
- 	}
 
----
