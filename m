@@ -1,140 +1,124 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH] IPv6: Implement RFC 4429 Optimistic Duplicate Address
- Detection
-Date: Tue, 23 Jan 2007 09:18:20 +0900 (JST)
-Message-ID: <20070123.091820.104515696.yoshfuji@linux-ipv6.org>
-References: <20070119212314.GA10748@hmsreliant.homelinux.net>
-	<20070120.080507.25118874.yoshfuji@linux-ipv6.org>
-	<20070122181528.GD21059@hmsreliant.homelinux.net>
+From: dean gaudet <dean@arctic.org>
+Subject: why would EPIPE cause socket port to change?
+Date: Mon, 22 Jan 2007 20:01:05 -0800 (PST)
+Message-ID: <Pine.LNX.4.64.0701221954250.11520@twinlark.arctic.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
-	jmorris@namei.org, kaber@coreworks.de, netdev@vger.kernel.org,
-	yoshfuji@linux-ipv6.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:46461 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932523AbXAWARN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jan 2007 19:17:13 -0500
-To: nhorman@tuxdriver.com
-In-Reply-To: <20070122181528.GD21059@hmsreliant.homelinux.net>
+Received: from twinlark.arctic.org ([207.29.250.54]:38461 "EHLO
+	twinlark.arctic.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932991AbXAWEBG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jan 2007 23:01:06 -0500
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
+in the test program below the getsockname result on a TCP socket changes 
+across a write which produces EPIPE... here's a fragment of the strace:
 
-In article <20070122181528.GD21059@hmsreliant.homelinux.net> (at Mon, 22 Jan 2007 13:15:28 -0500), Neil Horman <nhorman@tuxdriver.com> says:
+getsockname(3, {sa_family=AF_INET, sin_port=htons(37636), sin_addr=inet_addr("127.0.0.1")}, [17863593746633850896]) = 0
+...
+write(3, "hi!\n", 4)                    = 4
+write(3, "hi!\n", 4)                    = -1 EPIPE (Broken pipe)
+--- SIGPIPE (Broken pipe) @ 0 (0) ---
+getsockname(3, {sa_family=AF_INET, sin_port=htons(59882), sin_addr=inet_addr("127.0.0.1")}, [16927060683038654480]) = 0
 
-> Reposted patch, with your suggestions/corrections incorporated.  The only thing
-> I left alone was your last comment regarding the checking of saddr for being a
-> unicast address.  According to the RFC as I read it, its possible to receive
-> valid neighbor soliciations with a source address that is the unspecified
-> address, which I didn't think ipv6_addr_type flagged as being unicast.  Now it
-> may be that such NS messages are discarded before arriving at that recieve
-> routine, but I was figuring better safe than sorry.  If you're sufficiently
-> confident that we won't see non-unicast saddrs there, let me know and I'll
-> happily remove that as well.
+why does the port# change?  this is on 2.6.19.1.
 
-Okay, right, we can see unspecified source address.
-However, we have "dad" variable.
+(fwiw this is one of two reasons i've found for libnss-ldap to leak 
+sockets... causing nscd to crash.)
 
-More comments.
+-dean
 
-> +++ b/include/linux/ipv6.h
-> @@ -176,6 +176,7 @@ struct ipv6_devconf {
->  	__s32		accept_ra_rt_info_max_plen;
->  #endif
->  #endif
-> +	__s32		use_optimistic_dad;
->  	__s32		proxy_ndp;
->  	void		*sysctl;
->  };
+reproduce like:
 
-Please do not insert between variables but add to the right before the
-"sysctl" member.
+make test-sockname-change
+nc -l -p 9999 -c "exit 0" &
+strace ./test-sockname-change 127.0.0.1 9999
 
-> diff --git a/include/linux/sysctl.h b/include/linux/sysctl.h
-> index 81480e6..972a33a 100644
-> --- a/include/linux/sysctl.h
-> +++ b/include/linux/sysctl.h
-> @@ -570,6 +570,7 @@ enum {
->  	NET_IPV6_RTR_PROBE_INTERVAL=21,
->  	NET_IPV6_ACCEPT_RA_RT_INFO_MAX_PLEN=22,
->  	NET_IPV6_PROXY_NDP=23,
-> +	NET_IPV6_OPTIMISTIC_DAD=24,
->  	__NET_IPV6_MAX
->  };
->  
-:
-> @@ -3918,6 +3948,15 @@ static struct addrconf_sysctl_table
->  			.proc_handler	=	&proc_dointvec,
->  		},
->  		{
-> +			.ctl_name	=	NET_IPV6_OPTIMISTIC_DAD,
-> +			.procname       =       "use_optimistic_dad",
-> +			.data           =       &ipv6_devconf.use_optimistic_dad,
-> +			.maxlen         =       sizeof(int),
-> +			.mode           =       0644,
-> +			.proc_handler   =       &proc_dointvec,
-> +
-> +		},
-> +		{
->  			.ctl_name	=	0,	/* sentinel */
->  		}
->  	},
+--- snip ---
 
-Please use similar names (sysctl enum, member name and sysctl name(s)); e.g.
-NET_IPV6_OPTIMISTIC_DAD, optimistic_dad, "optimistic_dad".
+#include <stdio.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <arpa/inet.h>
+#include <sys/uio.h>
+#include <errno.h>
+#include <signal.h>
+#include <fcntl.h>
 
-You forgot adding DEVCONF_OPTIMISTIC_DAD in include/linux/ipv6.h
-and net/ipv6/addrconf.c:ipv6_store_devconf().
+#ifndef INADDR_NONE
+#define INADDR_NONE (-1ul)
+#endif
 
-:
-> @@ -746,6 +772,7 @@ static void ndisc_recv_ns(struct sk_buff *skb)
->  	int dad = ipv6_addr_any(saddr);
->  	int inc;
->  	int is_router;
-> +	int type;
->  
->  	if (ipv6_addr_is_multicast(&msg->target)) {
->  		ND_PRINTK2(KERN_WARNING 
+int main(int argc, char **argv)
+{
+  struct sockaddr_in server_addr;
+  struct sockaddr_in before, after;
+  socklen_t slen;
+  int s;
+  struct iovec vector[3];
+  char buf[100];
+  int i;
+  const int just_say_no = 1;
 
-Here, "dad" is true if the source is unspecified address.  So,
+  if (argc != 3) {
+usage:
+    fprintf(stderr, "usage: test-sigpipe a.b.c.d port#\n");
+    exit(1);
+  }
+  server_addr.sin_family = AF_INET;
+  server_addr.sin_addr.s_addr = inet_addr(argv[1]);
+  if (server_addr.sin_addr.s_addr == INADDR_NONE) {
+    fprintf(stderr, "bogus address\n");
+    goto usage;
+  }
+  server_addr.sin_port = htons(atoi(argv[2]));
 
-> @@ -816,8 +845,20 @@ static void ndisc_recv_ns(struct sk_buff *skb)
->  					goto out;
->  				}
->  			}
-> -			addrconf_dad_failure(ifp); 
-> -			return;
-> +
-> +			/* The one exception to the above rule about 
-> +			   optimistic addresses is that we need to always 
-> +			   respond to an NS from a unicast address if we are
-> +			   optimistic. RFC 4429 Sec 3.3.  If (unicast
-> +			   and optimistic) are false then we can just fail
-> +			   dad now.
-> +			*/
-> +			type = ipv6_addr_type(saddr);			
-> +			if (!((ifp->flags & IFA_F_OPTIMISTIC) && 
-> +			    (type & IPV6_ADDR_UNICAST))) {
-> +				addrconf_dad_failure(ifp); 
-> +				return;
-> +			}
->  		}
->  
->  		idev = ifp->idev;
+  s = socket(AF_INET, SOCK_STREAM, 0);
+  if (s < 0) {
+    perror("socket");
+    exit(1);
+  }
+  if (connect(s, (struct sockaddr *)&server_addr, sizeof(server_addr)) != 0) {
+    perror("connect");
+    exit(1);
+  }
 
-You can say,
-			if (dad || !(ifp->flags & IFA_F_OPTIMISTIC)) {
-				addrconf_dad_failure(ifp);
-				return;
-			}
+  if (setsockopt(s, IPPROTO_TCP, TCP_NODELAY, (char*)&just_say_no, sizeof(just_say_no)) != 0) {
+    perror( "TCP_NODELAY" );
+    exit(1);
+  }
 
-Regards,
+  fcntl(s, F_SETFL, fcntl(s, F_GETFL) | O_NONBLOCK);
 
--- 
-YOSHIFUJI Hideaki @ USAGI Project  <yoshfuji@linux-ipv6.org>
-GPG-FP  : 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+  slen = sizeof(before);
+  if (getsockname(s, (struct sockaddr *)&before, &slen)) {
+    perror("getsockname before");
+  }
+
+  signal(SIGPIPE, SIG_IGN);
+
+  sleep(1);
+
+  do {
+    i = write(s, "hi!\n", 4);
+  } while (i >= 0);
+  if (errno != EPIPE) {
+    fprintf(stderr, "was expecting EPIPE from write\n");
+    exit(1);
+  }
+
+  slen = sizeof(after);
+  if (getsockname(s, (struct sockaddr *)&after, &slen)) {
+    perror("getsockname after");
+  }
+
+  printf("before = %d, after = %d\n", ntohs(before.sin_port), ntohs(after.sin_port));
+
+  return 0;
+}
