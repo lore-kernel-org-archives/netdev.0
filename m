@@ -1,68 +1,30 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: [PATCH] bcm43xx: Fix scaling error for 'iwlist freq' information
-Date: Wed, 24 Jan 2007 00:04:01 +0100
-Message-ID: <200701240004.01943.mb@bu3sch.de>
-References: <45b68f8e.m8+Bl9ZfRL/zvhGv%Larry.Finger@lwfinger.net>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 10/12] forcedeth: tx max work
+Date: Tue, 23 Jan 2007 18:06:59 -0500
+Message-ID: <45B69513.2090106@garzik.org>
+References: <45B63F48.10607@nvidia.com> <45B691E6.7040409@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: John Linville <linville@tuxdriver.com>, netdev@vger.kernel.org,
-	Bcm43xx-dev@lists.berlios.de
+Cc: Manfred Spraul <manfred@colorfullife.com>,
+	Andrew Morton <akpm@osdl.org>, nedev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:35468
-	"EHLO vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965580AbXAWXFb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jan 2007 18:05:31 -0500
-To: Larry Finger <Larry.Finger@lwfinger.net>
-In-Reply-To: <45b68f8e.m8+Bl9ZfRL/zvhGv%Larry.Finger@lwfinger.net>
-Content-Disposition: inline
+Received: from srv5.dvmed.net ([207.36.208.214]:51744 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965585AbXAWXHI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Jan 2007 18:07:08 -0500
+To: Ayaz Abdulla <aabdulla@nvidia.com>
+In-Reply-To: <45B691E6.7040409@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 23 January 2007 23:43, Larry Finger wrote:
-> The bcm43xx driver returns the available frequencies to 'iwlist freq' with the wrong scaling.
-> 
-> Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
-> ---
-> 
-> John,
-> 
-> This is to be applied to wireless-2.6. It could also be sent upstream to 2.6.20,
-> but it is not very important.
+Jeff Garzik wrote:
+> Please resend patches 11 & 12 too.  Whereever I stop applying patches, 
+> in a patch series, the remaining patches are dropped.
 
-ACKed. The previous rates-fix patch is also ACKed.
+Received patches 11 & 12.  Maybe my email system was just slow.  If so, 
+sorry for the noise.
 
-> Larry
-> ---
-> 
-> Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_wx.c
-> ===================================================================
-> --- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_wx.c
-> +++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_wx.c
-> @@ -286,7 +286,7 @@ static int bcm43xx_wx_get_rangeparams(st
->  		if (j == IW_MAX_FREQUENCIES)
->  			break;
->  		range->freq[j].i = j + 1;
-> -		range->freq[j].m = geo->a[i].freq;//FIXME?
-> +		range->freq[j].m = geo->a[i].freq * 100000;
->  		range->freq[j].e = 1;
->  		j++;
->  	}
-> @@ -294,7 +294,7 @@ static int bcm43xx_wx_get_rangeparams(st
->  		if (j == IW_MAX_FREQUENCIES)
->  			break;
->  		range->freq[j].i = j + 1;
-> -		range->freq[j].m = geo->bg[i].freq;//FIXME?
-> +		range->freq[j].m = geo->bg[i].freq * 100000;
->  		range->freq[j].e = 1;
->  		j++;
->  	}
-> 
-> ---
-> 
-> 
-> 
+	Jeff
 
--- 
-Greetings Michael.
+
