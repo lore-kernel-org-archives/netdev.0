@@ -1,37 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Bluetooth fixes for 2.6.20-rc5
-Date: Tue, 23 Jan 2007 22:03:03 -0800 (PST)
-Message-ID: <20070123.220303.59657561.davem@davemloft.net>
-References: <1169502134.27023.24.camel@violet>
+Subject: Re: [2.6 patch] process include/linux/if_{addr,link}.h with unifdef
+Date: Tue, 23 Jan 2007 22:05:17 -0800 (PST)
+Message-ID: <20070123.220517.115910657.davem@davemloft.net>
+References: <20070121191319.GO9093@stusta.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: marcel@holtmann.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: bunk@stusta.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48536
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54315
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S965543AbXAXGDE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jan 2007 01:03:04 -0500
-In-Reply-To: <1169502134.27023.24.camel@violet>
+	by vger.kernel.org with ESMTP id S1030227AbXAXGFS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jan 2007 01:05:18 -0500
+In-Reply-To: <20070121191319.GO9093@stusta.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Marcel Holtmann <marcel@holtmann.org>
-Date: Mon, 22 Jan 2007 22:42:14 +0100
+From: Adrian Bunk <bunk@stusta.de>
+Date: Sun, 21 Jan 2007 20:13:19 +0100
 
-> Hi Dave,
+> After commit d3dcc077bf88806201093f86325ec656e4dbfbce, 
+> include/linux/if_{addr,link}.h should be processed with unifdef.
 > 
-> here are two additional fixes for the Bluetooth subsystem that should go
-> in before the final 2.6.20 release. It was possible that the well known
-> PSM could be bound by anybody. That should not be possible like TCP/IP
-> ports below 1024 are also restricted. The other one is a simple endian
-> fix. Please forward them to Linus as soon as possible.
+> Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
-Pulled, thanks Marcel.
+Applied, thanks Adrian.
 
-BTW, do you know if anyone has successfully used the Linux
-Bluetooth stack to communicate with the Nintendo Wii
-controllers?  I am under the impression that they speak
-bluetooth. :)
+I believe at least the 2.6.19 -stable branch will need
+this too, right?  Please submit to -stable as needed,
+and feel free to add my sign-off:
 
+Signed-off-by: David S. Miller <davem@davemloft.net>
