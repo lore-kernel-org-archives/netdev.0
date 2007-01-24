@@ -1,38 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Bluetooth fixes for 2.6.20-rc5
-Date: Tue, 23 Jan 2007 22:44:04 -0800 (PST)
-Message-ID: <20070123.224404.70218891.davem@davemloft.net>
-References: <1169502134.27023.24.camel@violet>
-	<20070123.220303.59657561.davem@davemloft.net>
-	<1169624333.15396.2.camel@aeonflux.holtmann.net>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: marcel@holtmann.org
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [IPV6] RAW: Add checksum default defines for MH.
+Date: Wed, 24 Jan 2007 17:56:23 +1100
+Message-ID: <E1H9c3T-0005HA-00@gondolin.me.apana.org.au>
+References: <20070123.221918.35467190.davem@davemloft.net>
+Cc: nakam@linux-ipv6.org, yoshfuji@linux-ipv6.org,
+	takamiya@po.ntts.co.jp, netdev@vger.kernel.org
+To: davem@davemloft.net (David Miller)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60799
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S933116AbXAXGoK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jan 2007 01:44:10 -0500
-In-Reply-To: <1169624333.15396.2.camel@aeonflux.holtmann.net>
+Received: from rhun.apana.org.au ([64.62.148.172]:2035 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S933168AbXAXG4q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jan 2007 01:56:46 -0500
+In-Reply-To: <20070123.221918.35467190.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Marcel Holtmann <marcel@holtmann.org>
-Date: Wed, 24 Jan 2007 08:38:53 +0100
+David Miller <davem@davemloft.net> wrote:
+>
+> Did a complete agreement occur that this patch is ok?
 
-> I have one of these and I played with it. They use HID over Bluetooth as
-> protocol, but all reports are vendor specific. So you need a specific
-> driver to make something useful out of these events.
+My only concern is that we're putting an arbitrary list of
+protocols in the generic raw.c.  What's the justification
+for including these protocols in particular but not others?
 
-It really shouldn't be hard to reverse engineer this right?
-Just press a button and see what it spits out?
+Is there any reason why the application can't just use the
+existing IPV6_CHECKSUM socket option to set the same fields?
 
-Sure, the rotational events from the motion sensor et al. might take a
-little time to figure out, but it should be doable.
-
-> However it is fun to switch on the leds and play with rumble pack or
-> motion sensor.
-
-Hehe :-)
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
