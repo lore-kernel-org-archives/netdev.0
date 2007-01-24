@@ -1,58 +1,52 @@
-From: Masayuki Nakagawa <nakagawa.msy@ncos.nec.co.jp>
-Subject: [PATCH 2.6.20-rc5] IPV6: skb is unexpectedly freed.
-Date: Tue, 23 Jan 2007 18:15:26 -0800
-Message-ID: <45B6C13E.1050204@ncos.nec.co.jp>
+From: Michael Wu <flamingice@sourmilk.net>
+Subject: Re: dscape doesn't auto associate
+Date: Tue, 23 Jan 2007 21:55:48 -0500
+Message-ID: <200701232155.52509.flamingice@sourmilk.net>
+References: <9e4733910701231523w1de82215g6a142ed1e691674b@mail.gmail.com> <200701231843.05902.flamingice@sourmilk.net> <9e4733910701231748ve5817d1md0710c9d08934a0f@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: multipart/signed;
+  boundary="nextPart11469811.u0aMzdKppk";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mhuth@mvista.com,
-	nakagawa.msy@ncos.nec.co.jp
-To: yoshfuji@linux-ipv6.org
+Cc: netdev <netdev@vger.kernel.org>
+To: "Jon Smirl" <jonsmirl@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gateway-1237.mvista.com ([63.81.120.158]:1391 "EHLO
-	gateway-1237.mvista.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965628AbXAXCsy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jan 2007 21:48:54 -0500
+Received: from smtp.rutgers.edu ([128.6.72.243]:39908 "EHLO
+	annwn14.rutgers.edu" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S965623AbXAXC4V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jan 2007 21:56:21 -0500
+In-Reply-To: <9e4733910701231748ve5817d1md0710c9d08934a0f@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I encountered a kernel panic with my test program, which is a very simple
-IPv6 client-server program.
-The server side sets IPV6_RECVPKTINFO on a listening socket,
-and the client side just sends a message to the server.
-Then the kernel panic occurs on the server.
-(If you need the test program, please let me know. I can provide it.)
+--nextPart11469811.u0aMzdKppk
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-This problem happens because a skb is forcibly freed in
-tcp_rcv_state_process().
-When a socket in listening state(TCP_LISTEN) receives a syn packet,
-then tcp_v6_conn_request() will be called from tcp_rcv_state_process().
-If the tcp_v6_conn_request() successfully returns, the skb would be discarded
-by __kfree_skb().
-However, in case of a listening socket which was already set IPV6_RECVPKTINFO,
-an address of the skb will be stored in treq->pktopts and a ref count of the skb
-will be incremented in tcp_v6_conn_request().
-But, even if the skb is still in use, the skb will be freed.
-Then someone still using the freed skb will cause the kernel panic.
+On Tuesday 23 January 2007 20:48, Jon Smirl wrote:
+> As for running as an AP:
+> rt2570 will start in Master mode
+> zd1211 refused to set Master mode
+>
+No master mode support in zd1211 yet - I haven't had time (and the other tw=
+o=20
+developers don't work on the d80211 version yet). Only client mode is=20
+currently supported.
 
-I suggest to use kfree_skb() instead of __kfree_skb().
+=2DMichael Wu
 
-Signed-off-by: Masayuki Nakagawa <nakagawa.msy@ncos.nec.co.jp>
+--nextPart11469811.u0aMzdKppk
+Content-Type: application/pgp-signature
 
----
---- linux-2.6/net/ipv4/tcp_input.c.orig	2007-01-17 13:25:10.000000000 -0800
-+++ linux-2.6/net/ipv4/tcp_input.c	2007-01-17 13:28:48.000000000 -0800
-@@ -4420,9 +4420,11 @@ int tcp_rcv_state_process(struct sock *s
- 			 * But, this leaves one open to an easy denial of
- 		 	 * service attack, and SYN cookies can't defend
- 			 * against this problem. So, we drop the data
--			 * in the interest of security over speed.
-+			 * in the interest of security over speed unless
-+			 * it's still in use.
- 			 */
--			goto discard;
-+			kfree_skb(skb);
-+			return 0;
- 		}
- 		goto discard;
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.2 (GNU/Linux)
 
+iD8DBQBFtsq4T3Oqt9AH4aERAq8fAJ4yOYVWn/F4L/RjFAe2nCeUiDsQdgCeIk5u
+9/r+Fxa8c1J+vLHLWLrmhOU=
+=fIZu
+-----END PGP SIGNATURE-----
+
+--nextPart11469811.u0aMzdKppk--
