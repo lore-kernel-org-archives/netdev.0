@@ -1,59 +1,31 @@
-From: Michael Wu <flamingice@sourmilk.net>
-Subject: Re: dscape doesn't auto associate
-Date: Tue, 23 Jan 2007 23:26:41 -0500
-Message-ID: <200701232326.46522.flamingice@sourmilk.net>
-References: <9e4733910701231523w1de82215g6a142ed1e691674b@mail.gmail.com> <200701231843.05902.flamingice@sourmilk.net> <9e4733910701231748ve5817d1md0710c9d08934a0f@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart1917332.8Y51Rq3ttx";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Dan Williams <dcbw@redhat.com>
-To: "Jon Smirl" <jonsmirl@gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 2.6.20-rc5] IPV6: skb is unexpectedly freed.
+Date: Wed, 24 Jan 2007 15:31:47 +1100
+Message-ID: <E1H9ZnX-0001z5-00@gondolin.me.apana.org.au>
+References: <45B6C13E.1050204@ncos.nec.co.jp>
+Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org, mhuth@mvista.com,
+	nakagawa.msy@ncos.nec.co.jp
+To: nakagawa.msy@ncos.nec.co.jp (Masayuki Nakagawa)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.rutgers.edu ([128.6.72.243]:13597 "EHLO
-	annwn13.rutgers.edu" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S965488AbXAXE1O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jan 2007 23:27:14 -0500
-In-Reply-To: <9e4733910701231748ve5817d1md0710c9d08934a0f@mail.gmail.com>
+Received: from rhun.apana.org.au ([64.62.148.172]:1382 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S965653AbXAXEc0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jan 2007 23:32:26 -0500
+In-Reply-To: <45B6C13E.1050204@ncos.nec.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart1917332.8Y51Rq3ttx
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+Masayuki Nakagawa <nakagawa.msy@ncos.nec.co.jp> wrote:
+> 
+> I suggest to use kfree_skb() instead of __kfree_skb().
 
-On Tuesday 23 January 2007 20:48, Jon Smirl wrote:
-> I'll try running NetworkManager in the debugger and see if I can
-> figure out what is failing. NetworkManager is working ok for me on
-> non-dscape devices.
->
-Dan, any idea what's happening?
+I agree.  In fact please do it for all paths in that function, i.e.,
+just change __kfree_skb to kfree_skb rather than adding a special case
+for this path.
 
-=46WIW, I'm running NetworkManager 0.6.2 (from SuSE 10.1) with wpa_supplica=
-nt=20
-0.5.7.
-
-> zd1211 has this problem too:
-> Error for wireless request "Set Encode" (8B2A) :
->     SET failed on device wlan1 ; Invalid argument.
->
-Shouldn't happen if it works for rt2570. Both use software encryption.
-
-=2DMichael Wu
-
---nextPart1917332.8Y51Rq3ttx
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2 (GNU/Linux)
-
-iD8DBQBFtuAGT3Oqt9AH4aERAu5YAJ0ameew8y8NDUthGb5lrTqM05gEiACcCoxw
-c9MJpEo5UoWdhY3es4rQmm8=
-=F4+X
------END PGP SIGNATURE-----
-
---nextPart1917332.8Y51Rq3ttx--
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
