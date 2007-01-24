@@ -1,39 +1,38 @@
-From: Marcel Holtmann <marcel@holtmann.org>
+From: David Miller <davem@davemloft.net>
 Subject: Re: Bluetooth fixes for 2.6.20-rc5
-Date: Wed, 24 Jan 2007 08:38:53 +0100
-Message-ID: <1169624333.15396.2.camel@aeonflux.holtmann.net>
+Date: Tue, 23 Jan 2007 22:44:04 -0800 (PST)
+Message-ID: <20070123.224404.70218891.davem@davemloft.net>
 References: <1169502134.27023.24.camel@violet>
-	 <20070123.220303.59657561.davem@davemloft.net>
+	<20070123.220303.59657561.davem@davemloft.net>
+	<1169624333.15396.2.camel@aeonflux.holtmann.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: marcel@holtmann.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from coyote.holtmann.net ([217.160.111.169]:47391 "EHLO
-	mail.holtmann.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933034AbXAXGis (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jan 2007 01:38:48 -0500
-In-Reply-To: <20070123.220303.59657561.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60799
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S933116AbXAXGoK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jan 2007 01:44:10 -0500
+In-Reply-To: <1169624333.15396.2.camel@aeonflux.holtmann.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Dave,
+From: Marcel Holtmann <marcel@holtmann.org>
+Date: Wed, 24 Jan 2007 08:38:53 +0100
 
-> BTW, do you know if anyone has successfully used the Linux
-> Bluetooth stack to communicate with the Nintendo Wii
-> controllers?  I am under the impression that they speak
-> bluetooth. :)
+> I have one of these and I played with it. They use HID over Bluetooth as
+> protocol, but all reports are vendor specific. So you need a specific
+> driver to make something useful out of these events.
 
-I have one of these and I played with it. They use HID over Bluetooth as
-protocol, but all reports are vendor specific. So you need a specific
-driver to make something useful out of these events.
+It really shouldn't be hard to reverse engineer this right?
+Just press a button and see what it spits out?
 
-However it is fun to switch on the leds and play with rumble pack or
-motion sensor.
+Sure, the rotational events from the motion sensor et al. might take a
+little time to figure out, but it should be doable.
 
-Regards
+> However it is fun to switch on the leds and play with rumble pack or
+> motion sensor.
 
-Marcel
-
-
+Hehe :-)
