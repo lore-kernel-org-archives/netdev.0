@@ -1,33 +1,49 @@
-From: David Howells <dhowells@redhat.com>
-Subject: Re: [PATCH 25/59] sysctl: C99 convert arch/frv/kernel/pm.c
-Date: Wed, 24 Jan 2007 09:00:16 +0000
-Message-ID: <27474.1169629216@redhat.com>
-References: <20070122222115.GC11128@MAIL.13thfloor.at>  <m1ac0jc4no.fsf@ebiederm.dsl.xmission.com> <11689656443582-git-send-email-ebiederm@xmission.com> <45AE5969.8030603@sw.ru>
-Cc: Kirill Korotaev <dev@sw.ru>, linux-mips@linux-mips.org,
-	linux-parport@lists.infradead.org, clemens@ladisch.de, ak@suse.de,
-	linuxppc-dev@ozlabs.org, paulus@samba.org, aharkes@cs.cmu.edu,
-	schwidefsky@de.ibm.com, tim@cyberelk.net,
-	linux-scsi@vger.kernel.org, kurt.hackel@oracle.com,
-	coda@cs.cmu.edu, vojtech@suse.cz,
-	linuxsh-shmedia-dev@lists.sourceforge.net,
-	James.Bottomley@SteelEye.com, rtc-linux@googlegroups.com,
-	heiko.carstens@de.ibm.com, xfs@oss.sgi.com,
-	xfs-masters@oss.sgi.com, andrea@suse.de,
-	openipmi-developer@lists.sourceforge.net, linux-390@vm.marist.edu,
-	codalist@TELEMANN.coda.cs.cmu.edu, a.zummo@towertech.it,
-	tony.luck@intel.com, linux-ntfs-dev@lists.sourceforge.net,
-	netdev@vger.kernel.org, aia21@cantab.net,
-	linux-kernel@vger.kernel.org, ralf@linux-mips.org,
-	lethal@linux-sh.org, "Eric W. Biederman" <ebiederm@xmission.com>,
-	containers@lists.osdl.org, linux390@de
-To: Herbert Poetzl <herbert@13thfloor.at>
-Return-path: <linux-mips-bounce@linux-mips.org>
-In-Reply-To: <20070122222115.GC11128@MAIL.13thfloor.at> 
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
+From: Marcus Better <marcus@better.se>
+Subject: [PATCH] d80211: select CRC32 functions
+Date: Wed, 24 Jan 2007 10:35:10 +0100
+Message-ID: <ep798e$guu$1@sea.gmane.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7Bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from main.gmane.org ([80.91.229.2]:45240 "EHLO ciao.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750786AbXAXJfV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Jan 2007 04:35:21 -0500
+Received: from list by ciao.gmane.org with local (Exim 4.43)
+	id 1H9eXG-0003n1-Vp
+	for netdev@vger.kernel.org; Wed, 24 Jan 2007 10:35:18 +0100
+Received: from 67.152.216.81.static.g-va.siw.siwnet.net ([81.216.152.67])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Wed, 24 Jan 2007 10:35:18 +0100
+Received: from marcus by 67.152.216.81.static.g-va.siw.siwnet.net with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Wed, 24 Jan 2007 10:35:18 +0100
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+The d80211 stack requires CRC32 functions for the WEP implementation.
 
-Fine by me.
+Signed-off-by: Marcus Better <marcus@better.se>
+---
 
-Acked-By: David Howells <dhowells@redhat.com>
+ net/d80211/Kconfig |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/net/d80211/Kconfig b/net/d80211/Kconfig
+index 7e2635f..d91f0db 100644
+--- a/net/d80211/Kconfig
++++ b/net/d80211/Kconfig
+@@ -3,6 +3,7 @@ config D80211
+        select CRYPTO
+        select CRYPTO_ARC4
+        select CRYPTO_AES
++       select CRC32
+        select WIRELESS_EXT
+        ---help---
+        This option enables the hardware independent IEEE 802.11
+--
+
+
