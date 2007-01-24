@@ -1,52 +1,58 @@
-From: "Jon Smirl" <jonsmirl@gmail.com>
-Subject: Re: dscape doesn't auto associate
-Date: Tue, 23 Jan 2007 21:08:34 -0500
-Message-ID: <9e4733910701231808l451453ak16de4d1745b08209@mail.gmail.com>
-References: <9e4733910701231523w1de82215g6a142ed1e691674b@mail.gmail.com>
-	 <200701231843.05902.flamingice@sourmilk.net>
+From: Masayuki Nakagawa <nakagawa.msy@ncos.nec.co.jp>
+Subject: [PATCH 2.6.20-rc5] IPV6: skb is unexpectedly freed.
+Date: Tue, 23 Jan 2007 18:15:26 -0800
+Message-ID: <45B6C13E.1050204@ncos.nec.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
+Cc: netdev@vger.kernel.org, mhuth@mvista.com,
+	nakagawa.msy@ncos.nec.co.jp
+To: yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nz-out-0506.google.com ([64.233.162.237]:34513 "EHLO
-	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965616AbXAXCIf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jan 2007 21:08:35 -0500
-Received: by nz-out-0506.google.com with SMTP id s1so34601nze
-        for <netdev@vger.kernel.org>; Tue, 23 Jan 2007 18:08:34 -0800 (PST)
-To: "Michael Wu" <flamingice@sourmilk.net>
-In-Reply-To: <200701231843.05902.flamingice@sourmilk.net>
-Content-Disposition: inline
+Received: from gateway-1237.mvista.com ([63.81.120.158]:1391 "EHLO
+	gateway-1237.mvista.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965628AbXAXCsy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jan 2007 21:48:54 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 1/23/07, Michael Wu <flamingice@sourmilk.net> wrote:
-> On Tuesday 23 January 2007 18:23, Jon Smirl wrote:
-> > I have to manually associate the dscape stack with my AP. Is this way
-> > the code is supposed to work? Everything works ok after the manual
-> > association.
-> >
-> It's suppose to work with wpa_supplicant which sets every parameter.
-> NetworkManager uses wpa_supplicant so configuration can be pretty easy.
+I encountered a kernel panic with my test program, which is a very simple
+IPv6 client-server program.
+The server side sets IPV6_RECVPKTINFO on a listening socket,
+and the client side just sends a message to the server.
+Then the kernel panic occurs on the server.
+(If you need the test program, please let me know. I can provide it.)
 
-Speaking of wpa_supplicant I've been unable to get to main site
-according to wikipedia for over a week. Has this project moved
-elsewhere?
+This problem happens because a skb is forcibly freed in
+tcp_rcv_state_process().
+When a socket in listening state(TCP_LISTEN) receives a syn packet,
+then tcp_v6_conn_request() will be called from tcp_rcv_state_process().
+If the tcp_v6_conn_request() successfully returns, the skb would be discarded
+by __kfree_skb().
+However, in case of a listening socket which was already set IPV6_RECVPKTINFO,
+an address of the skb will be stored in treq->pktopts and a ref count of the skb
+will be incremented in tcp_v6_conn_request().
+But, even if the skb is still in use, the skb will be freed.
+Then someone still using the freed skb will cause the kernel panic.
 
-http://hostap.epitest.fi/wpa_supplicant
+I suggest to use kfree_skb() instead of __kfree_skb().
 
-> If you really want to manually associate, set the channel, (e)ssid, and
-> encryption (if any) in any order, and then set the bssid (ap) last. There
-> will be patches to allow association by just setting the SSID for backwards
-> compatibility with configuration scripts.
->
-> -Michael Wu
->
->
->
+Signed-off-by: Masayuki Nakagawa <nakagawa.msy@ncos.nec.co.jp>
 
+---
+--- linux-2.6/net/ipv4/tcp_input.c.orig	2007-01-17 13:25:10.000000000 -0800
++++ linux-2.6/net/ipv4/tcp_input.c	2007-01-17 13:28:48.000000000 -0800
+@@ -4420,9 +4420,11 @@ int tcp_rcv_state_process(struct sock *s
+ 			 * But, this leaves one open to an easy denial of
+ 		 	 * service attack, and SYN cookies can't defend
+ 			 * against this problem. So, we drop the data
+-			 * in the interest of security over speed.
++			 * in the interest of security over speed unless
++			 * it's still in use.
+ 			 */
+-			goto discard;
++			kfree_skb(skb);
++			return 0;
+ 		}
+ 		goto discard;
 
--- 
-Jon Smirl
-jonsmirl@gmail.com
