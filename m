@@ -1,44 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [IPV6] fixed the size of the netlink message notified
- by inet6_rt_notify().
-Date: Tue, 23 Jan 2007 22:14:43 -0800 (PST)
-Message-ID: <20070123.221443.21926331.davem@davemloft.net>
-References: <20070116.140159.02303722.takamiya@po.ntts.co.jp>
-	<20070117105006.GV8693@postel.suug.ch>
-	<45AE1792.1010002@trash.net>
+Subject: Re: [IP] TUNNEL: Fix to be built with user application.
+Date: Tue, 23 Jan 2007 22:17:36 -0800 (PST)
+Message-ID: <20070123.221736.95896013.davem@davemloft.net>
+References: <11678173731728-git-send-email-nakam@linux-ipv6.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, takamiya@po.ntts.co.jp, netdev@vger.kernel.org,
-	usagi-core@linux-ipv6.org
-To: kaber@trash.net
+Cc: netdev@vger.kernel.org, takamiya@po.ntts.co.jp
+To: nakam@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42594
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47862
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1030246AbXAXGOo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jan 2007 01:14:44 -0500
-In-Reply-To: <45AE1792.1010002@trash.net>
+	by vger.kernel.org with ESMTP id S1030247AbXAXGRu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jan 2007 01:17:50 -0500
+In-Reply-To: <11678173731728-git-send-email-nakam@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Wed, 17 Jan 2007 13:33:22 +0100
+From: Masahide NAKAMURA <nakam@linux-ipv6.org>
+Date: Wed,  3 Jan 2007 18:42:53 +0900
 
-> Thomas Graf wrote:
-> > * Noriaki TAKAMIYA <takamiya@po.ntts.co.jp> 2007-01-16 14:01
-> >>
-> >>  I think the return value of rt6_nlmsg_size() should includes the
-> >>  amount of RTA_METRICS.
-> >>
-> >>Signed-off-by: Noriaki TAKAMIYA <takamiya@po.ntts.co.jp>
-> > 
-> > 
-> > Acked-by: Thomas Graf <tgraf@suug.ch>
+> include/linux/if_tunnel.h is broken for user application
+> because it was changed to use __be32 which is required
+> to include linux/types.h in advance but didn't.
 > 
+> (This issue is found when building MIPL2 daemon. We are not sure this
+> is the last header to be fixed about __be32.)
 > 
-> Somewhat related: I have this patch for 2.6.21 to get rid of the
-> BUG_ON()s.
+> Signed-off-by: Masahide NAKAMURA <nakam@linux-ipv6.org>
+> Signed-off-by: TAKAMIYA Noriaki <takamiya@po.ntts.co.jp>
 
-I think this patch is a great idea, I'll stick this into my
-net-2.6.21 tree when I open that up (perhaps this weekend).
-
+Patch applied, thank you.
