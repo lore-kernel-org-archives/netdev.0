@@ -1,34 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [2.6 patch] drivers/net/irda/vlsi_ir.{h,c}: remove kernel 2.4
- code
-Date: Tue, 23 Jan 2007 21:16:57 -0800 (PST)
-Message-ID: <20070123.211657.25475559.davem@davemloft.net>
-References: <20070118215613.GH9093@stusta.de>
-	<20070121213657.GA9464@sortiz.org>
+From: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
+Subject: Re: Can someone please try...
+Date: Wed, 24 Jan 2007 00:43:10 -0500
+Message-ID: <1169617390.30511.27.camel@dv>
+References: <200701161806.02780.mb@bu3sch.de>
+	<200701222200.19784.mb@bu3sch.de> <1169532880.8258.2.camel@dv>
+	<200701231021.34995.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: bunk@stusta.de, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: samuel@sortiz.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38523
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1030187AbXAXFQ7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jan 2007 00:16:59 -0500
-In-Reply-To: <20070121213657.GA9464@sortiz.org>
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+To: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <200701231021.34995.mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
+List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Samuel Ortiz <samuel@sortiz.org>
-Date: Sun, 21 Jan 2007 23:36:58 +0200
-
-> On Thu, Jan 18, 2007 at 10:56:13PM +0100, Adrian Bunk wrote:
-> > This patch removes kernel 2.4 compatibility code.
-> Looks correct to me, thanks.
+On Tue, 2007-01-23 at 10:21 +0100, Michael Buesch wrote:
+> On Tuesday 23 January 2007 07:14, Pavel Roskin wrote:
+> > I have tried the patch, and it doesn't fix the problem.  It's a separate
+> > problem.  It happens when bcm43xx_interrupt_handler() is called on a
+> > device that has already been removed.
 > 
+> That shouldn't happen and doesn't for me.
 > 
-> > Signed-off-by: Adrian Bunk <bunk@stusta.de>
-> Acked-by: Samuel Ortiz <samuel@sortiz.org>
+> > It looks like 
+> > bcm43xx_wireless_core_stop() should be called from
+> > bcm43xx_one_core_detach().
+> 
+> No, well... . remove_interface should have been called by the stack, no?
 
-Applied, thanks.
+It is not.  It's called if I bring the interface down with ifconfig.  If
+I remove live interface with "rmmod bcm43xx_d80211",
+bcm43xx_one_core_detach() is called first, followed by kernel panic in 
+bcm43xx_interrupt_handler().
+
+And that's what I see in the code.  Module removal calls bcm43xx_exit().
+It unregisters the ssb driver first.  The ssb layer calls
+bcm43xx_remove(), which calls bcm43xx_one_core_detach() before doing
+anything with the wireless stack or with interrupts.
+
+I tried to put bcm43xx_one_core_detach() to the end of bcm43xx_remove(),
+but the result was the same.  Still, I think the solution lies in that
+direction.  We should stop the hardware before dismantling any data
+structures.
+
+-- 
+Regards,
+Pavel Roskin
