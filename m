@@ -1,34 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Fix the fib trie iterator to work with a single
- entry routing tables
-Date: Wed, 24 Jan 2007 14:42:54 -0800 (PST)
-Message-ID: <20070124.144254.78492493.davem@davemloft.net>
-References: <m17ivc19na.fsf@ebiederm.dsl.xmission.com>
-	<17847.54018.72176.431127@robur.slu.se>
+Subject: Re: [PATCH] decnet: handle a failure in neigh_parms_alloc
+Date: Wed, 24 Jan 2007 14:45:11 -0800 (PST)
+Message-ID: <20070124.144511.56810202.davem@davemloft.net>
+References: <m13b601917.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ebiederm@xmission.com, netdev@vger.kernel.org,
-	robert.olsson@its.uu.se
-To: Robert.Olsson@data.slu.se
+Cc: netdev@vger.kernel.org, steve@chygwyn.com
+To: ebiederm@xmission.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42198
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40909
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S932831AbXAXWnT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jan 2007 17:43:19 -0500
-In-Reply-To: <17847.54018.72176.431127@robur.slu.se>
+	by vger.kernel.org with ESMTP id S932841AbXAXWph (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jan 2007 17:45:37 -0500
+In-Reply-To: <m13b601917.fsf@ebiederm.dsl.xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Date: Wed, 24 Jan 2007 22:43:30 +0100
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Wed, 24 Jan 2007 13:09:40 -0700
 
-> Yes the case when the trie is just a single leaf got wrong with the
-> iterator and your patchs cures it. I think we have a similar problem
-> with /proc/net/fib_trie
+> 
+> While enhancing the neighbour code to handle multiple network
+> namespaces I noticed that decnet is assuming neigh_parms_alloc
+> will allways succeed, which is clearly wrong.  So handle the
+> failure.
+> 
+> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 
-I'm happy to review a fix for that :-)
+I don't think this one is correct.
 
-> Signed-off-by: Robert Olsson <robert.olsson@its.uu.se>
-
-Patch applied, thanks everyone.
+During failure cleanup you also have to invoke the neighbour parms
+->down() operation if present, else you leave multicast entries on the
+ethernet device for example.
