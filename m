@@ -1,75 +1,96 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: Re: Nvidia MCP55 Machine reboots on ixgb driver load
-Date: Wed, 24 Jan 2007 14:07:11 -0800
-Message-ID: <45B7D88F.30703@intel.com>
-References: <45B7CA3D.9020601@atipa.com>
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: [PATCH] net: Fix the fib trie iterator to work with a single entry routing tables
+Date: Wed, 24 Jan 2007 22:43:30 +0100
+Message-ID: <17847.54018.72176.431127@robur.slu.se>
+References: <m17ivc19na.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: NetDev <netdev@vger.kernel.org>, e1000-devel@lists.sourceforge.net,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Roger Heflin <rheflin@atipa.com>
+Cc: <netdev@vger.kernel.org>, Robert Olsson <robert.olsson@its.uu.se>,
+	davem@davemloft.net
+To: ebiederm@xmission.com (Eric W. Biederman)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:43203 "EHLO mga09.intel.com"
+Received: from mx1.slu.se ([130.238.96.70]:32881 "EHLO mx1.slu.se"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752083AbXAXWHO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Jan 2007 17:07:14 -0500
-In-Reply-To: <45B7CA3D.9020601@atipa.com>
+	id S1752060AbXAXWVP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Jan 2007 17:21:15 -0500
+In-Reply-To: <m17ivc19na.fsf@ebiederm.dsl.xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[added netdev to CC]
-
-Roger Heflin wrote:
-> I have a machine (actually 2 machines) that upon loading
-> the intel 10GBe driver (ixgb) the machine reboots, I am
-> using a RHAS4.4 based distribution with Vanilla 2.6.19.2
-> (the RHAS 4.4.03 kernel also reboots with the ixgb load),
-> I don't see any messages on the machine before it reboots,
-> loading the driver with debug does not appear to produce
-> any extra messages.   The basic steps are the I load
-> the driver, the machine locks up, and then in a second
-> or 2 it starts to post.
-
-some suggestions immediately come to mind:
-
-* have you tried the latest driver from http://e1000.sf.net/ ?
-
-* what happens when you unplug the card and modprobe the ixgb module?
-
-* have you tried capturing a trace with netconsole or serial console? probing 
-the ixgb driver produces at least 1 syslog line that should show up. If nothing 
-shows up on serial or netconsole, the issue may be way outside the ixgb driver.
-
-> I have tried the default ixgb driver in 2.6.19.2, and I
-> have tried the open source intel driver on RH4.4, both cause
-> the same reboot.    I also tried the linux firmware
-> development kit, and booting fc6 causes the same reboot
-> upon the network driver load.
-
-just for completeness, which driver versions were this?
-
-and when you say "booting fc6" I assume you mean that fc6 boots OK until you 
-modprobe the ixgb driver?
-
-> I have tried pci=nomsi
-
-try compiling your kernel without MSI support alltogether. There have been 
-serious issues found with MSI on certain configurations, and in your case this 
-might be the cause. Allthough passing pci=nomsi should be the same as compiling 
-it out, it can't hurt to try.
-
-> Also note that the linux.nics@intel.com address is apparently
-> unused and returns an email telling you to use a web page,
-> and so far after using the web page I have not got any response
-> indicating that anything got to anyone.
-
-I've taken action to get that straightened out. You're always welcome to mail 
-netdev, the e1000 devel list or even lkml which we will all pick up on.
 
 
-I can't think of a specific reason for the issue right now, other than 
-attempting to get a serial/netconsole attached and trying without any msi 
-support in the kernel. Please give that a try and let us know.
+Hello!
 
-Auke
+Yes the case when the trie is just a single leaf got wrong with the iterator and your patchs
+cures it. I think we have a similar problem with /proc/net/fib_trie
+
+Cheers
+							--ro
+
+Signed-off-by: Robert Olsson <robert.olsson@its.uu.se>
+
+
+
+Eric W. Biederman writes:
+ > 
+ > In a kernel with trie routing enabled I had a simple routing setup
+ > with only a single route to the outside world and no default
+ > route. "ip route table list main" showed my the route just fine but
+ > /proc/net/route was an empty file.  What was going on?
+ > 
+ > Thinking it was a bug in something I did and I looked deeper.  Eventually
+ > I setup a second route and everything looked correct, huh?  Finally I
+ > realized that the it was just the iterator pair in fib_trie_get_first,
+ > fib_trie_get_next just could not handle a routing table with a single entry.
+ > 
+ > So to save myself and others further confusion, here is a simple fix for
+ > the fib proc iterator so it works even when there is only a single route
+ > in a routing table.
+ > 
+ > Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+ > ---
+ >  net/ipv4/fib_trie.c |   21 ++++++++++++++++-----
+ >  1 files changed, 16 insertions(+), 5 deletions(-)
+ > 
+ > diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+ > index cfb249c..13307c0 100644
+ > --- a/net/ipv4/fib_trie.c
+ > +++ b/net/ipv4/fib_trie.c
+ > @@ -1989,6 +1989,10 @@ static struct node *fib_trie_get_next(struct fib_trie_iter *iter)
+ >  	unsigned cindex = iter->index;
+ >  	struct tnode *p;
+ >  
+ > +	/* A single entry routing table */
+ > +	if (!tn)
+ > +		return NULL;
+ > +
+ >  	pr_debug("get_next iter={node=%p index=%d depth=%d}\n",
+ >  		 iter->tnode, iter->index, iter->depth);
+ >  rescan:
+ > @@ -2037,11 +2041,18 @@ static struct node *fib_trie_get_first(struct fib_trie_iter *iter,
+ >  	if(!iter)
+ >  		return NULL;
+ >  
+ > -	if (n && IS_TNODE(n)) {
+ > -		iter->tnode = (struct tnode *) n;
+ > -		iter->trie = t;
+ > -		iter->index = 0;
+ > -		iter->depth = 1;
+ > +	if (n) {
+ > +		if (IS_TNODE(n)) {
+ > +			iter->tnode = (struct tnode *) n;
+ > +			iter->trie = t;
+ > +			iter->index = 0;
+ > +			iter->depth = 1;
+ > +		} else {
+ > +			iter->tnode = NULL;
+ > +			iter->trie  = t;
+ > +			iter->index = 0;
+ > +			iter->depth = 0;
+ > +		}
+ >  		return n;
+ >  	}
+ >  	return NULL;
+ > -- 
+ > 1.4.4.1.g278f
