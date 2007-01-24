@@ -1,34 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [2.6 patch] process include/linux/if_{addr,link}.h with unifdef
-Date: Tue, 23 Jan 2007 22:05:17 -0800 (PST)
-Message-ID: <20070123.220517.115910657.davem@davemloft.net>
-References: <20070121191319.GO9093@stusta.de>
+Subject: Re: [PATCH] tcp_output: Re: rare bad TCP checksum with 2.6.19?
+Date: Tue, 23 Jan 2007 22:08:08 -0800 (PST)
+Message-ID: <20070123.220808.85689314.davem@davemloft.net>
+References: <20070119110641.GA3135@ff.dom.local>
+	<20070119211027.GA16626@gondor.apana.org.au>
+	<20070122065214.GA1634@ff.dom.local>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: bunk@stusta.de
+Cc: herbert@gondor.apana.org.au, mjt@tls.msk.ru,
+	netdev@vger.kernel.org, kaber@trash.net
+To: jarkao2@o2.pl
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54315
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54321
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1030227AbXAXGFS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jan 2007 01:05:18 -0500
-In-Reply-To: <20070121191319.GO9093@stusta.de>
+	by vger.kernel.org with ESMTP id S1030244AbXAXGIJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jan 2007 01:08:09 -0500
+In-Reply-To: <20070122065214.GA1634@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Adrian Bunk <bunk@stusta.de>
-Date: Sun, 21 Jan 2007 20:13:19 +0100
+From: Jarek Poplawski <jarkao2@o2.pl>
+Date: Mon, 22 Jan 2007 07:52:14 +0100
 
-> After commit d3dcc077bf88806201093f86325ec656e4dbfbce, 
-> include/linux/if_{addr,link}.h should be processed with unifdef.
+> [PATCH][NET] tcp_output: rare bad TCP checksum with 2.6.19
 > 
-> Signed-off-by: Adrian Bunk <bunk@stusta.de>
+> The patch "Replace CHECKSUM_HW by CHECKSUM_PARTIAL/CHECKSUM_COMPLETE"
+> changed to unconditional copying of ip_summed field from collapsed
+> skb. This patch reverts this change.
+> 
+> The majority of substantial work including heavy testing
+> and diagnosing by: Michael Tokarev <mjt@tls.msk.ru>
+> Possible reasons pointed by: Herbert Xu and Patrick McHardy.
+> 
+> Signed-off-by: Jarek Poplawski <jarkao2@o2.pl>
+> 
+> Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Applied, thanks Adrian.
+Applied, thanks a lot everyone.
 
-I believe at least the 2.6.19 -stable branch will need
-this too, right?  Please submit to -stable as needed,
-and feel free to add my sign-off:
+I'll take care of submitting this to 2.6.19-stable.
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
+Thanks again.
