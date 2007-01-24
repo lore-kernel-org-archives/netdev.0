@@ -1,51 +1,48 @@
-From: Linda Su <sulin@minigui.org>
-Subject: A Professional GUI
-Date: Wed, 24 Jan 2007 15:00:01 +0800 (CST)
-Message-ID: <17880714.1169622001812.JavaMail.Administrator__29687.6649176285$1169623901$gmane$org@2fd9f289359f4a2>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: Bluetooth fixes for 2.6.20-rc5
+Date: Wed, 24 Jan 2007 09:33:50 +0100
+Message-ID: <1169627630.20178.2.camel@aeonflux.holtmann.net>
+References: <1169502134.27023.24.camel@violet>
+	 <20070123.220303.59657561.davem@davemloft.net>
+	 <1169624333.15396.2.camel@aeonflux.holtmann.net>
+	 <20070123.224404.70218891.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [218.246.32.199] ([218.246.32.199]:41608 "EHLO
-	giant.minigui.org" rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S933180AbXAXHbO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jan 2007 02:31:14 -0500
+Received: from coyote.holtmann.net ([217.160.111.169]:47467 "EHLO
+	mail.holtmann.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933187AbXAXHde (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jan 2007 02:33:34 -0500
+In-Reply-To: <20070123.224404.70218891.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dear Sir/Madam,
+Hi Dave,
 
-Are you developing a product such as mobile phone, Set-top box, PMP, videophone, 
-IPTV or other product with a GUI? 
+> > I have one of these and I played with it. They use HID over Bluetooth as
+> > protocol, but all reports are vendor specific. So you need a specific
+> > driver to make something useful out of these events.
+> 
+> It really shouldn't be hard to reverse engineer this right?
+> Just press a button and see what it spits out?
+> 
+> Sure, the rotational events from the motion sensor et al. might take a
+> little time to figure out, but it should be doable.
 
-If you are just looking for a good GUI for a embedded device, MiniGUI must be your 
-best choice! 
- 
-MiniGUI, which is "a cross-operating-system graphics user interface support system 
-for embedded devices", and "an embedded graphics middleware", developed by 
-China Beijing Feynman Software Technology Co. Ltd.
+some stuff has already been done in this area. I put some information
+and a link to it on my page:
 
-MiniGUI has become a cross-operating-system GUI system; it can run on Linux/uClinux, 
-eCos, VxWorks, pSOS, ThreadX, Nucleus, and even uC/OS-II, even on the Win32 platform;
-The hardware platforms tested include Intel x86, ARM (ARM7/ARM9/StrongARM/xScale), 
-PowerPC, MIPS, and M68k (DragonBall/ColdFire). 
+http://www.holtmann.org/linux/bluetooth/wiimote.html
 
-MiniGUI has been widely adopted and applied by the leading manufacturers in the following 
-fields: telecommunication (hand-held terminals, digital-media devices and STBs), industry 
-instrument, medical equipment, and military industry.
+The hardest part at the moment is to get the speaker on the Wiimote
+doing something useful and I personally wanna get to the internal flash
+area of the Bluetooth chip.
 
-MiniGUI, make your devices vivid!
+Regards
 
-go to http://www.minigui.com/  to know more information about our products and company.
-If you have any interest or question, please feel free to contact with us: sulin@minigui.org  
- 
-Best Regards,
-Linda Su
+Marcel
 
-Beijing Feynman Software Technology Co., Ltd.
-An Embedded Software Tech., Solutions & Dev. Tools Provider.
-Website: http://www.minigui.com
-Tel: +8610-82652611\2652 ext.816
-Email: sulin@minigui.org
 
