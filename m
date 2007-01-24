@@ -1,53 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: why would EPIPE cause socket port to change?
-Date: Tue, 23 Jan 2007 21:11:40 -0800 (PST)
-Message-ID: <20070123.211140.74746965.davem@davemloft.net>
-References: <E1H9ES2-0006uJ-00@gondolin.me.apana.org.au>
-	<45B65271.1040709@hp.com>
-	<Pine.LNX.4.64.0701231140320.21464@twinlark.arctic.org>
+Subject: Re: [2.6 patch] drivers/net/irda/vlsi_ir.{h,c}: remove kernel 2.4
+ code
+Date: Tue, 23 Jan 2007 21:16:57 -0800 (PST)
+Message-ID: <20070123.211657.25475559.davem@davemloft.net>
+References: <20070118215613.GH9093@stusta.de>
+	<20070121213657.GA9464@sortiz.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: rick.jones2@hp.com, herbert@gondor.apana.org.au,
+Cc: bunk@stusta.de, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
-To: dean@arctic.org
+To: samuel@sortiz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51900
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38523
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1030209AbXAXFLm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jan 2007 00:11:42 -0500
-In-Reply-To: <Pine.LNX.4.64.0701231140320.21464@twinlark.arctic.org>
+	by vger.kernel.org with ESMTP id S1030187AbXAXFQ7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jan 2007 00:16:59 -0500
+In-Reply-To: <20070121213657.GA9464@sortiz.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: dean gaudet <dean@arctic.org>
-Date: Tue, 23 Jan 2007 12:11:01 -0800 (PST)
+From: Samuel Ortiz <samuel@sortiz.org>
+Date: Sun, 21 Jan 2007 23:36:58 +0200
 
-> libnss-ldap has some code which attempts to determine if its private 
-> socket has been trampled on in between calls to the library... and to do 
-> this it caches getsockname/getpeername results and compares them every 
-> time the library is re-entered... and when there's a mismatch it leaks a 
-> socket (eventually crashing nscd if you're using that).  i've been trying 
-> to band-aid over the problem:
+> On Thu, Jan 18, 2007 at 10:56:13PM +0100, Adrian Bunk wrote:
+> > This patch removes kernel 2.4 compatibility code.
+> Looks correct to me, thanks.
 > 
-> http://bugzilla.padl.com/show_bug.cgi?id=304
-> http://bugzilla.padl.com/show_bug.cgi?id=305
 > 
-> but i'm probably going to need to approach it from another direction -- 
-> make libnss-ldap monitor the ldap library results so it knows when there's 
-> been a read/write error so that it stops doing this 
-> getsockname/getpeername thing after the error has occured.
+> > Signed-off-by: Adrian Bunk <bunk@stusta.de>
+> Acked-by: Samuel Ortiz <samuel@sortiz.org>
 
-Please do not write programs in this way.  getsockname/getpeername
-were never meant to be used in that way, and it's hella inefficient
-to keep checking the socket like that to boot.
-
-I really don't see you gaining anything by making this check every
-time the user calls into the library.
-
-If the application mucks with the communications channel socket, so
-what, it's his application that will go tits up.
-
-Is there some tricky interaction between nscd and something like
-libnss-ldap that makes this tom-foolery necessary?
-
+Applied, thanks.
