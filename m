@@ -1,44 +1,75 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH] Marvell Libertas 8388 802.11b/g USB driver (v2)
-Date: Wed, 24 Jan 2007 15:13:34 -0500
-Message-ID: <20070124201334.GB5806@tuxdriver.com>
-References: <20070117141103.0e468bf4@griffin.suse.cz> <1169046072.2750.10.camel@localhost.localdomain> <1169047134.9175.49.camel@johannes.berg> <1169055788.2550.44.camel@localhost.localdomain> <1169056847.2550.56.camel@localhost.localdomain> <20070117230945.GB9387@infradead.org> <45AEAEEB.6050603@pobox.com> <20070118082250.GE11056@tuxdriver.com> <20070124152638.GC3036@dmt.poa.virtua.com.br> <1169664755.14073.2.camel@localhost.localdomain>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: Re: Nvidia MCP55 Machine reboots on ixgb driver load
+Date: Wed, 24 Jan 2007 14:07:11 -0800
+Message-ID: <45B7D88F.30703@intel.com>
+References: <45B7CA3D.9020601@atipa.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Marcelo Tosatti <marcelo@kvack.org>,
-	Jeff Garzik <jgarzik@pobox.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	Jiri Benc <jbenc@suse.cz>, netdev <netdev@vger.kernel.org>,
-	"John W. Linville" <linville@redhat.com>,
-	"Luis R. Rodriguez" <mcgrof@gmail.com>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
-To: Dan Williams <dcbw@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: NetDev <netdev@vger.kernel.org>, e1000-devel@lists.sourceforge.net,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Roger Heflin <rheflin@atipa.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:3101 "EHLO ra.tuxdriver.com"
+Received: from mga09.intel.com ([134.134.136.24]:43203 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932617AbXAXUkr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Jan 2007 15:40:47 -0500
-Content-Disposition: inline
-In-Reply-To: <1169664755.14073.2.camel@localhost.localdomain>
+	id S1752083AbXAXWHO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Jan 2007 17:07:14 -0500
+In-Reply-To: <45B7CA3D.9020601@atipa.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 24, 2007 at 01:52:35PM -0500, Dan Williams wrote:
+[added netdev to CC]
 
-> I pushed for a general "lib80211" sort of thing at the Summit, which I
-> think was agreed in principle with others like Intel.  We need something
-> to hold the bits that are common to d80211 and non-softmac drivers.
-> These include scan result handling, some bits of the regulatory stuff
-> (at least structures and definitions for allowed channels and txpower in
-> each domain), and 802.3 <-> 802.11 framing conversion code.  We should
-> be able to fold more stuff in there as we go along.  But there certainly
-> will be code that both softmac/d80211 and non-softmac drivers (airo,
-> ipw2x00, libertas, etc) can share.
+Roger Heflin wrote:
+> I have a machine (actually 2 machines) that upon loading
+> the intel 10GBe driver (ixgb) the machine reboots, I am
+> using a RHAS4.4 based distribution with Vanilla 2.6.19.2
+> (the RHAS 4.4.03 kernel also reboots with the ixgb load),
+> I don't see any messages on the machine before it reboots,
+> loading the driver with debug does not appear to produce
+> any extra messages.   The basic steps are the I load
+> the driver, the machine locks up, and then in a second
+> or 2 it starts to post.
 
-ACK
+some suggestions immediately come to mind:
 
--- 
-John W. Linville
-linville@tuxdriver.com
+* have you tried the latest driver from http://e1000.sf.net/ ?
+
+* what happens when you unplug the card and modprobe the ixgb module?
+
+* have you tried capturing a trace with netconsole or serial console? probing 
+the ixgb driver produces at least 1 syslog line that should show up. If nothing 
+shows up on serial or netconsole, the issue may be way outside the ixgb driver.
+
+> I have tried the default ixgb driver in 2.6.19.2, and I
+> have tried the open source intel driver on RH4.4, both cause
+> the same reboot.    I also tried the linux firmware
+> development kit, and booting fc6 causes the same reboot
+> upon the network driver load.
+
+just for completeness, which driver versions were this?
+
+and when you say "booting fc6" I assume you mean that fc6 boots OK until you 
+modprobe the ixgb driver?
+
+> I have tried pci=nomsi
+
+try compiling your kernel without MSI support alltogether. There have been 
+serious issues found with MSI on certain configurations, and in your case this 
+might be the cause. Allthough passing pci=nomsi should be the same as compiling 
+it out, it can't hurt to try.
+
+> Also note that the linux.nics@intel.com address is apparently
+> unused and returns an email telling you to use a web page,
+> and so far after using the web page I have not got any response
+> indicating that anything got to anyone.
+
+I've taken action to get that straightened out. You're always welcome to mail 
+netdev, the e1000 devel list or even lkml which we will all pick up on.
+
+
+I can't think of a specific reason for the issue right now, other than 
+attempting to get a serial/netconsole attached and trying without any msi 
+support in the kernel. Please give that a try and let us know.
+
+Auke
