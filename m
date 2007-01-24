@@ -1,96 +1,78 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: [PATCH] net: Fix the fib trie iterator to work with a single entry routing tables
-Date: Wed, 24 Jan 2007 22:43:30 +0100
-Message-ID: <17847.54018.72176.431127@robur.slu.se>
-References: <m17ivc19na.fsf@ebiederm.dsl.xmission.com>
+From: Russell Stuart <russell-tcatm@stuart.id.au>
+Subject: Re:
+	[PATCH	REPOST	1/2]	NET:	Accurate	packet	scheduling	for	ATM/ADSL (kernel)
+Date: Thu, 25 Jan 2007 08:32:59 +1000
+Message-ID: <1169677979.5776.150.camel@ras.pc.brisbane.lube>
+References: <1161041677.6247.1.camel@ras.pc.brisbane.lube>
+	 <1161090444.5555.13.camel@jzny2>  <45378DE3.8080700@trash.net>
+	 <1161602527.5502.155.camel@ras.pc.stuart.local>
+	 <453CB801.4010902@trash.net>
+	 <1161640444.5502.214.camel@ras.pc.stuart.local> <453E3CFC.80007@trash.net>
+	 <1161733596.3829.91.camel@ras.pc.brisbane.lube>
+	 <456ED79E.2070707@trash.net> <1169075223.7560.15.camel@ras>
+	 <45AEF219.2060304@trash.net> <1169100970.21535.18.camel@ras>
+	 <45AF5C02.1010005@trash.net> <1169176280.1118.8.camel@ras>
+	 <45B0B744.7070800@trash.net> <1169263517.11507.14.camel@ras>
+	 <45B1D715.8010609@trash.net> <1169365528.3866.71.camel@ras.pc.stuart.local>
+	 <45B78B8F.9090106@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, Robert Olsson <robert.olsson@its.uu.se>,
-	davem@davemloft.net
-To: ebiederm@xmission.com (Eric W. Biederman)
+Cc: hadi@cyberus.ca, netdev@vger.kernel.org,
+	Jesper Dangaard Brouer <hawk@diku.dk>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.slu.se ([130.238.96.70]:32881 "EHLO mx1.slu.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752060AbXAXWVP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Jan 2007 17:21:15 -0500
-In-Reply-To: <m17ivc19na.fsf@ebiederm.dsl.xmission.com>
+Received: from 58.105.229.78.optusnet.com.au ([58.105.229.78]:51286 "EHLO
+	adsl-kenny.stuart.id.au" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S932831AbXAXWgk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jan 2007 17:36:40 -0500
+In-Reply-To: <45B78B8F.9090106@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Wed, 2007-01-24 at 17:38 +0100, Patrick McHardy wrote:
+> > The two RTAB's are different.  Thus you must send 
+> > different RTAB's to pre-STAB and post-STAB kernels.  
+> > How is "tc" to decide which one to send?  I did add 
+> > code that checked uname once to solve a very 
+> > similar problem in "tc", but that got my wrist 
+> > slapped.
+> 
+> If the users asks to use STABs, send the modified RTAB.
+> If the kernel doesn't support STABs it will return an error,
+> which is good enough.
 
+Yuk!  Now the user has to say whether he wants to use
+STAB's or not?  Currently, apart from some debugging
+params to tc, the user isn't even aware that the 
+traffic control is implemented in terms of RTAB's.  
+That is how it should be - it is an implementation 
+detail.
 
-Hello!
+> I think this is a different problem. If you replace RTABs
+> by STABs you again can't use it for anything that is only
+> interested in the size, not the transmission time (HFSC,
+> SFQ, ...).
 
-Yes the case when the trie is just a single leaf got wrong with the iterator and your patchs
-cures it. I think we have a similar problem with /proc/net/fib_trie
+I was a little too brief.
 
-Cheers
-							--ro
+The comment stems from the observation that in all
+current implementations:
 
-Signed-off-by: Robert Olsson <robert.olsson@its.uu.se>
+   const A_CONSTANT;
+   for (i = 0; i < 256; i += 1)
+     assert(RTAB[i] == STAB[i] * A_CONSTANT);
 
+Ergo, if in addition to implementing STAB as you
+plan to, A_CONSTANT was shipped to the kernel then
+RTAB could be replaced.  A_CONSTANT could be set
+so the calculation would return the time it would
+take to send a packet in micro seconds, say (a
+figure I just pulled out of the air).  This is 
+1000 times more precise than the kernel can do 
+now.
 
+It wouldn't be perfect - the kernel would send the
+packets in bursts.  But it would be good enough
+to solve my problem with VOIP, I think.
 
-Eric W. Biederman writes:
- > 
- > In a kernel with trie routing enabled I had a simple routing setup
- > with only a single route to the outside world and no default
- > route. "ip route table list main" showed my the route just fine but
- > /proc/net/route was an empty file.  What was going on?
- > 
- > Thinking it was a bug in something I did and I looked deeper.  Eventually
- > I setup a second route and everything looked correct, huh?  Finally I
- > realized that the it was just the iterator pair in fib_trie_get_first,
- > fib_trie_get_next just could not handle a routing table with a single entry.
- > 
- > So to save myself and others further confusion, here is a simple fix for
- > the fib proc iterator so it works even when there is only a single route
- > in a routing table.
- > 
- > Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
- > ---
- >  net/ipv4/fib_trie.c |   21 ++++++++++++++++-----
- >  1 files changed, 16 insertions(+), 5 deletions(-)
- > 
- > diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
- > index cfb249c..13307c0 100644
- > --- a/net/ipv4/fib_trie.c
- > +++ b/net/ipv4/fib_trie.c
- > @@ -1989,6 +1989,10 @@ static struct node *fib_trie_get_next(struct fib_trie_iter *iter)
- >  	unsigned cindex = iter->index;
- >  	struct tnode *p;
- >  
- > +	/* A single entry routing table */
- > +	if (!tn)
- > +		return NULL;
- > +
- >  	pr_debug("get_next iter={node=%p index=%d depth=%d}\n",
- >  		 iter->tnode, iter->index, iter->depth);
- >  rescan:
- > @@ -2037,11 +2041,18 @@ static struct node *fib_trie_get_first(struct fib_trie_iter *iter,
- >  	if(!iter)
- >  		return NULL;
- >  
- > -	if (n && IS_TNODE(n)) {
- > -		iter->tnode = (struct tnode *) n;
- > -		iter->trie = t;
- > -		iter->index = 0;
- > -		iter->depth = 1;
- > +	if (n) {
- > +		if (IS_TNODE(n)) {
- > +			iter->tnode = (struct tnode *) n;
- > +			iter->trie = t;
- > +			iter->index = 0;
- > +			iter->depth = 1;
- > +		} else {
- > +			iter->tnode = NULL;
- > +			iter->trie  = t;
- > +			iter->index = 0;
- > +			iter->depth = 0;
- > +		}
- >  		return n;
- >  	}
- >  	return NULL;
- > -- 
- > 1.4.4.1.g278f
