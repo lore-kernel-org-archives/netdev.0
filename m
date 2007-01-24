@@ -1,38 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/4] [SCTP]: Verify some mandatory parameters.
-Date: Tue, 23 Jan 2007 22:32:44 -0800 (PST)
-Message-ID: <20070123.223244.111204497.davem@davemloft.net>
-References: <1168544487.22592.19.camel@w-sridhar2.beaverton.ibm.com>
-	<45AE857D.8000208@hp.com>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: Bluetooth fixes for 2.6.20-rc5
+Date: Wed, 24 Jan 2007 08:38:53 +0100
+Message-ID: <1169624333.15396.2.camel@aeonflux.holtmann.net>
+References: <1169502134.27023.24.camel@violet>
+	 <20070123.220303.59657561.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: sri@us.ibm.com, netdev@vger.kernel.org,
-	lksctp-developers@lists.sourceforge.net
-To: brian.haley@hp.com
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53513
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S932954AbXAXGcu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jan 2007 01:32:50 -0500
-In-Reply-To: <45AE857D.8000208@hp.com>
+Received: from coyote.holtmann.net ([217.160.111.169]:47391 "EHLO
+	mail.holtmann.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933034AbXAXGis (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jan 2007 01:38:48 -0500
+In-Reply-To: <20070123.220303.59657561.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Brian Haley <brian.haley@hp.com>
-Date: Wed, 17 Jan 2007 15:22:21 -0500
+Hi Dave,
 
-> > --- a/net/sctp/sm_statefuns.c
-> > +++ b/net/sctp/sm_statefuns.c
-> > @@ -462,24 +461,6 @@ sctp_disposition_t sctp_sf_do_5_1C_ack(const struct sctp_endpoint *ep,
-> 
-> > -	if (!init_tag) {
-> > -		struct sctp_chunk *reply = sctp_make_abort(asoc, chunk, 0);
-> > -		if (!reply)
-> > -			goto nomem;
-> 
-> This introduced a compiler warning, easily fixed.
-> 
-> Signed-off-by: Brian Haley <brian.haley@hp.com>
+> BTW, do you know if anyone has successfully used the Linux
+> Bluetooth stack to communicate with the Nintendo Wii
+> controllers?  I am under the impression that they speak
+> bluetooth. :)
 
-Applied, thanks a lot Brian.
+I have one of these and I played with it. They use HID over Bluetooth as
+protocol, but all reports are vendor specific. So you need a specific
+driver to make something useful out of these events.
+
+However it is fun to switch on the leds and play with rumble pack or
+motion sensor.
+
+Regards
+
+Marcel
+
+
