@@ -1,26 +1,26 @@
-From: David Miller <davem@davemloft.net>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
 Subject: Re: [IPV6] RAW: Add checksum default defines for MH.
-Date: Tue, 23 Jan 2007 22:59:53 -0800 (PST)
-Message-ID: <20070123.225953.35016491.davem@davemloft.net>
+Date: Wed, 24 Jan 2007 16:05:41 +0900 (JST)
+Message-ID: <20070124.160541.07096404.yoshfuji@linux-ipv6.org>
 References: <20070123.221918.35467190.davem@davemloft.net>
 	<E1H9c3T-0005HA-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nakam@linux-ipv6.org, yoshfuji@linux-ipv6.org,
-	takamiya@po.ntts.co.jp, netdev@vger.kernel.org
+Cc: davem@davemloft.net, nakam@linux-ipv6.org, takamiya@po.ntts.co.jp,
+	netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
 To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59631
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S933178AbXAXG76 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jan 2007 01:59:58 -0500
+Received: from yue.linux-ipv6.org ([203.178.140.15]:46586 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933093AbXAXHEa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jan 2007 02:04:30 -0500
 In-Reply-To: <E1H9c3T-0005HA-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Wed, 24 Jan 2007 17:56:23 +1100
+In article <E1H9c3T-0005HA-00@gondolin.me.apana.org.au> (at Wed, 24 Jan 2007 17:56:23 +1100), Herbert Xu <herbert@gondor.apana.org.au> says:
 
 > David Miller <davem@davemloft.net> wrote:
 > >
@@ -33,9 +33,13 @@ Date: Wed, 24 Jan 2007 17:56:23 +1100
 > Is there any reason why the application can't just use the
 > existing IPV6_CHECKSUM socket option to set the same fields?
 
-My understanding in the MH case is that the kernel is going
-to make changes to the header that the user can't predict
-and thus it's impossible for them to set the correct checksum.
+Yes, it can.
 
-I don't know what the justification is for ICMP6 though :-)
+The only reason they (not myself :-)) want to put this in is
+because the RFC says that MIP6 implementation MUST compute
+checksum by default when it passes the MH to userspace.  On
+the other hand, it also states that user space application SHOULD
+set IPV6_CHECKSUM to 4.
+
+--yoshfuji
 
