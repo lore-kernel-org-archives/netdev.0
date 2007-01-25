@@ -1,65 +1,58 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH] net: decnet handle a failure in neigh_parms_alloc (take 2)
-Date: Wed, 24 Jan 2007 21:55:45 -0700
-Message-ID: <m1irevzovi.fsf_-_@ebiederm.dsl.xmission.com>
-References: <m13b601917.fsf@ebiederm.dsl.xmission.com>
-	<20070124.144511.56810202.davem@davemloft.net>
-	<20070124.144952.02299886.davem@davemloft.net>
+From: "H. Peter Anvin" <hpa@zytor.com>
+Subject: Re: [patch] scrub non-__GLIBC__ checks in linux/socket.h and linux/stat.h
+Date: Wed, 24 Jan 2007 22:30:28 -0800
+Message-ID: <45B84E84.1080004@zytor.com>
+References: <8bd0f97a0612161042g3b61d42csd54cae46e4864f30@mail.gmail.com> <20061216185726.GA17496@codepoet.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, steve@chygwyn.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: andersen@codepoet.org, Mike Frysinger <vapier.adi@gmail.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	viro@zeniv.linux.org.uk, Alexey Dobriyan <adobriyan@gmail.com>,
+	"Robert P. J. Day" <rpjday@mindspring.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:34301 "EHLO
-	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933218AbXAYE4a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jan 2007 23:56:30 -0500
-In-Reply-To: <20070124.144952.02299886.davem@davemloft.net> (David Miller's
-	message of "Wed, 24 Jan 2007 14:49:52 -0800 (PST)")
+Received: from terminus.zytor.com ([192.83.249.54]:37784 "EHLO
+	terminus.zytor.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965517AbXAYGap (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jan 2007 01:30:45 -0500
+In-Reply-To: <20061216185726.GA17496@codepoet.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Erik Andersen wrote:
+> On Sat Dec 16, 2006 at 01:42:11PM -0500, Mike Frysinger wrote:
+>> On 11/30/06, Robert P. J. Day <rpjday@mindspring.com> wrote:
+>>> but there are a few other
+>>> cases which still contain compound preprocessor directives such as:
+>>>
+>>>  #if defined(__KERNEL__) || !defined(__GLIBC__) || (__GLIBC__ < 2)
+>>>
+>>> having never worked with unifdef before, i guess i was being overly
+>>> optimistic in thinking that it, if i "unifdef"ed __KERNEL__, it might
+>>> at least simplify the expression.  oh, well ... live and learn.
+>> userspace should be worrying about userspace, so having the socket.h
+>> and stat.h pollute the namespace in the non-glibc case is wrong and
+>> pretty much prevents any other libc from utilizing these headers
+>> sanely unless they set up the __GLIBC__ define themselves (which
+>> sucks)
+>> -mike
+> 
+> Ack from me.  I'd love to see this applied so uClibc could
+> stop have to define __GLIBC__
+> 
 
-While enhancing the neighbour code to handle multiple network
-namespaces I noticed that decnet is assuming neigh_parms_alloc
-will allways succeed, which is clearly wrong.  So handle the
-failure.
+klibc uses these definitions, but the right thing to do is to have libc 
+ask for it:
 
-Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
----
- net/decnet/dn_dev.c |   11 +++++++++--
- 1 files changed, 9 insertions(+), 2 deletions(-)
+#if defined(__KERNEL__) || defined(__EXPORT_LINUX_SOCKET_H)
 
-diff --git a/net/decnet/dn_dev.c b/net/decnet/dn_dev.c
-index 324eb47..913e25a 100644
---- a/net/decnet/dn_dev.c
-+++ b/net/decnet/dn_dev.c
-@@ -1140,16 +1140,23 @@ struct dn_dev *dn_dev_create(struct net_device *dev, int *err)
- 	init_timer(&dn_db->timer);
- 
- 	dn_db->uptime = jiffies;
-+
-+	dn_db->neigh_parms = neigh_parms_alloc(dev, &dn_neigh_table);
-+	if (!dn_db->neigh_parms) {
-+		dev->dn_ptr = NULL;
-+		kfree(dn_db);
-+		return NULL;
-+	}
-+
- 	if (dn_db->parms.up) {
- 		if (dn_db->parms.up(dev) < 0) {
-+			neigh_parms_release(&dn_neigh_table, dn_db->neigh_parms);
- 			dev->dn_ptr = NULL;
- 			kfree(dn_db);
- 			return NULL;
- 		}
- 	}
- 
--	dn_db->neigh_parms = neigh_parms_alloc(dev, &dn_neigh_table);
--
- 	dn_dev_sysctl_register(dev, &dn_db->parms);
- 
- 	dn_dev_set_timer(dev);
--- 
-1.4.4.1.g278f
+/* ... */
 
+#endif
+
+That way, klibc can just
+
+#define __EXPORT_LINUX_SOCKET_H
+#include <linux/socket.h>
+
+	-hpa
