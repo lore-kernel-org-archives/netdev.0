@@ -1,51 +1,58 @@
-From: Gene Heskett <gene.heskett-H+0wwilmMs3R7s880joybQ@public.gmane.org>
-Subject: Re: [RFC PATCH] bcm43xx: set channel when the interface is brought up
-Date: Thu, 25 Jan 2007 09:05:32 -0500
-Message-ID: <200701250905.33129.gene.heskett@verizon.net>
-References: <1169707854.10593.41.camel@dv>
-	<a32f33a40701250347q5c9aa5fby785181f77fc9bb4@mail.gmail.com>
-	<20070125135033.7d7d7baf@griffin.suse.cz>
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Subject: Re: [BUG] problem with BPF in PF_PACKET sockets, introduced in linux-2.6.19
+Date: Thu, 25 Jan 2007 16:22:20 +0300
+Message-ID: <20070125132220.GA15410@ms2.inr.ac.ru>
+References: <200701041747.46358.raivis@mt.lv> <20070124.152133.61337361.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Benc <jbenc-AlSwsSmVLrQ@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Ivo Van Doorn <ivdoorn-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-reply-to: <20070125135033.7d7d7baf-IhiK2ZEFs2oCVLCxKZUutA@public.gmane.org>
-Content-disposition: inline
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
-List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: raivis@mt.lv, netdev@vger.kernel.org, waltje@uWalt.NL.Mugnet.ORG,
+	gw4pts@gw4pts.ampr.org, dim@openvz.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from minus.inr.ac.ru ([194.67.69.97]:47290 "HELO ms2.inr.ac.ru"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+	id S965280AbXAYOOD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Jan 2007 09:14:03 -0500
+Content-Disposition: inline
+In-Reply-To: <20070124.152133.61337361.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday 25 January 2007 07:50, Jiri Benc wrote:
->On Thu, 25 Jan 2007 12:47:08 +0100, Ivo Van Doorn wrote:
->> Correct, similar problems have been detected in rt2x00. The temporary
->> solution in there is to demand a scanning operation after the
->> interface has been brought up.
->
->Scanning? No no no, please! That would be a clear bug and misbehaviour.
->
-> Jiri
+Hello!
 
-Oh?  I'm sitting here watching the tty0 screen of my lappy after x has 
-been started, and I have established a connection, but SoftMAC is still 
-logging its scan activity, starting with channel 1 and scanning 14 
-channels.  Its doing this at approximately 2 minute intervals.  So I 
-think we have your definition of a clear bug and misbehaviour.
+> So this whole idea to make run_filter() return signed integers
+> and fail on negative is entirely flawed, it simply cannot work
+> and retain the expected semantics which have been there forever.
 
--- 
-Cheers, Gene
-"There are four boxes to be used in defense of liberty:
- soap, ballot, jury, and ammo. Please use in that order."
--Ed Howdershelt (Author)
-Yahoo.com and AOL/TW attorneys please note, additions to the above
-message by Gene Heskett are:
-Copyright 2007 by Maurice Eugene Heskett, all rights reserved.
+Actually, it can. Return value was used only as sign of error,
+so that the mistake was to return original unsigned result casted to int.
+
+Alternative fix is enclosed. To be honest, it is not better than
+yours: duplication of couple lines of code against passing return
+value by pointer.
+
+Alexey
+
+
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index da73e8a..51e5537 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -437,11 +437,13 @@ static inline int run_filter(struct sk_b
+ 	rcu_read_lock_bh();
+ 	filter = rcu_dereference(sk->sk_filter);
+ 	if (filter != NULL) {
+-		err = sk_run_filter(skb, filter->insns, filter->len);
+-		if (!err)
++		unsigned int res;
++
++		res = sk_run_filter(skb, filter->insns, filter->len);
++		if (!res)
+ 			err = -EPERM;
+-		else if (*snaplen > err)
+-			*snaplen = err;
++		else if (*snaplen > res)
++			*snaplen = res;
+ 	}
+ 	rcu_read_unlock_bh();
+ 
