@@ -1,46 +1,74 @@
-From: "Ivo Van Doorn" <ivdoorn@gmail.com>
-Subject: Re: [RFC PATCH] bcm43xx: set channel when the interface is brought up
-Date: Thu, 25 Jan 2007 12:47:08 +0100
-Message-ID: <a32f33a40701250347q5c9aa5fby785181f77fc9bb4@mail.gmail.com>
-References: <1169707854.10593.41.camel@dv>
+From: Steven Whitehouse <steve@chygwyn.com>
+Subject: Re: [PATCH] net: decnet handle a failure in neigh_parms_alloc (take 2)
+Date: Thu, 25 Jan 2007 11:43:18 +0000
+Message-ID: <20070125114318.GA4612@fogou.chygwyn.com>
+References: <m13b601917.fsf@ebiederm.dsl.xmission.com> <20070124.144511.56810202.davem@davemloft.net> <20070124.144952.02299886.davem@davemloft.net> <m1irevzovi.fsf_-_@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: bcm43xx-dev@lists.berlios.de, netdev@vger.kernel.org
-To: "Pavel Roskin" <proski@gnu.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Patrick Caulfield <patrick@tykepenguin.com>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.186]:28101 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752086AbXAYLrL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jan 2007 06:47:11 -0500
-Received: by nf-out-0910.google.com with SMTP id o25so826766nfa
-        for <netdev@vger.kernel.org>; Thu, 25 Jan 2007 03:47:10 -0800 (PST)
-In-Reply-To: <1169707854.10593.41.camel@dv>
+Received: from fogou.chygwyn.com ([195.171.2.24]:47800 "EHLO fogou.chygwyn.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965275AbXAYMd5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Jan 2007 07:33:57 -0500
 Content-Disposition: inline
+In-Reply-To: <m1irevzovi.fsf_-_@ebiederm.dsl.xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Hi,
 
-> I have discovered that while I can indeed associate without
-> wpa_supplicant using bcm43xx_d80211 driver, I have to set the channel
-> every time the interface is brought down and up.
->
-> It turns out d80211 uses the "config" method of the hardware drivers
-> very sparingly.  It's only used for scanning and in ioctl commands.  It
-> is not called after the interface has been brought up with the "open"
-> method.
+On Wed, Jan 24, 2007 at 09:55:45PM -0700, Eric W. Biederman wrote:
+> 
+> While enhancing the neighbour code to handle multiple network
+> namespaces I noticed that decnet is assuming neigh_parms_alloc
+> will allways succeed, which is clearly wrong.  So handle the
+> failure.
+> 
+> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+Acked-by: Steven Whitehouse <steve@chygwyn.com>
 
-Correct, similar problems have been detected in rt2x00. The temporary
-solution in there is to demand a scanning operation after the interface
-has been brought up.
+Also you should cc Patrick as he is now the maintainer,
 
-> I don't know whose responsibility it should be to apply the
-> configuration when the interface is brought up.  I'm not familiar with
-> d80211 design principles.
+Steve.
 
-Well my personal preference would be if the dscape stack handles it,
-unless the stack guarentees the conf structure has been initialized
-and contains valid data when the interface is being brought up.
 
-Ivo
+> ---
+>  net/decnet/dn_dev.c |   11 +++++++++--
+>  1 files changed, 9 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/decnet/dn_dev.c b/net/decnet/dn_dev.c
+> index 324eb47..913e25a 100644
+> --- a/net/decnet/dn_dev.c
+> +++ b/net/decnet/dn_dev.c
+> @@ -1140,16 +1140,23 @@ struct dn_dev *dn_dev_create(struct net_device *dev, int *err)
+>  	init_timer(&dn_db->timer);
+>  
+>  	dn_db->uptime = jiffies;
+> +
+> +	dn_db->neigh_parms = neigh_parms_alloc(dev, &dn_neigh_table);
+> +	if (!dn_db->neigh_parms) {
+> +		dev->dn_ptr = NULL;
+> +		kfree(dn_db);
+> +		return NULL;
+> +	}
+> +
+>  	if (dn_db->parms.up) {
+>  		if (dn_db->parms.up(dev) < 0) {
+> +			neigh_parms_release(&dn_neigh_table, dn_db->neigh_parms);
+>  			dev->dn_ptr = NULL;
+>  			kfree(dn_db);
+>  			return NULL;
+>  		}
+>  	}
+>  
+> -	dn_db->neigh_parms = neigh_parms_alloc(dev, &dn_neigh_table);
+> -
+>  	dn_dev_sysctl_register(dev, &dn_db->parms);
+>  
+>  	dn_dev_set_timer(dev);
+> -- 
+> 1.4.4.1.g278f
+> 
