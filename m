@@ -1,34 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [BUG] problem with BPF in PF_PACKET sockets, introduced in
- linux-2.6.19
-Date: Thu, 25 Jan 2007 15:53:38 -0800 (PST)
-Message-ID: <20070125.155338.97294103.davem@davemloft.net>
-References: <200701041747.46358.raivis@mt.lv>
-	<20070124.152133.61337361.davem@davemloft.net>
-	<20070125132220.GA15410@ms2.inr.ac.ru>
+Subject: Re: [PATCH] Fix sorting of SACK blocks
+Date: Thu, 25 Jan 2007 15:55:32 -0800 (PST)
+Message-ID: <20070125.155532.78711708.davem@davemloft.net>
+References: <20070125182903.GA22455@galon.ev-en.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: raivis@mt.lv, netdev@vger.kernel.org, waltje@uWalt.NL.Mugnet.ORG,
-	gw4pts@gw4pts.ampr.org, dim@openvz.org
-To: kuznet@ms2.inr.ac.ru
+Cc: netdev@vger.kernel.org, shemminger@osdl.org
+To: baruch@ev-en.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37384
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37390
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1030647AbXAYXxj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jan 2007 18:53:39 -0500
-In-Reply-To: <20070125132220.GA15410@ms2.inr.ac.ru>
+	by vger.kernel.org with ESMTP id S1030650AbXAYXzd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jan 2007 18:55:33 -0500
+In-Reply-To: <20070125182903.GA22455@galon.ev-en.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Date: Thu, 25 Jan 2007 16:22:20 +0300
+From: Baruch Even <baruch@ev-en.org>
+Date: Thu, 25 Jan 2007 20:29:03 +0200
 
-> Actually, it can. Return value was used only as sign of error,
-> so that the mistake was to return original unsigned result casted to int.
+> The sorting of SACK blocks actually munges them rather than sort, causing the
+> TCP stack to ignore some SACK information and breaking the assumption of
+> ordered SACK blocks after sorting.
 > 
-> Alternative fix is enclosed. To be honest, it is not better than
-> yours: duplication of couple lines of code against passing return
-> value by pointer.
+> The sort takes the data from a second buffer which isn't moved causing
+> subsequent data moves to occur from the wrong location. The fix is to
+> use a temporary buffer as a normal sort does.
+> 
+> Signed-Off-By: Baruch Even <baruch@ev-en.org>
 
-Yes, this version of a fix would work as well.
+BTW, in reviewing this I note that there is now only one remaining
+use of tp->recv_sack_cache[] and that is the code earlier in this
+function which is trying to detect if all we are doing is extending
+the leading edge of a SACK block.
+
+It would be nice to be able to clear out that usage as well, and
+remove recv_sack_cache[] and thus make tcp_sock smaller.
