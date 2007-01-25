@@ -1,8 +1,8 @@
 From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: [take34 6/10] kevent: Pipe notifications.
-Date: Thu, 25 Jan 2007 16:48:32 +0300
-Message-ID: <11697329123922@2ka.mipt.ru>
-References: <1169732912131@2ka.mipt.ru>
+Subject: [take34 1/10] kevent: Description.
+Date: Thu, 25 Jan 2007 16:48:30 +0300
+Message-ID: <1169732910695@2ka.mipt.ru>
+References: <11697329102169@2ka.mipt.ru>
 Reply-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
@@ -18,200 +18,296 @@ Cc: David Miller <davem@davemloft.net>,
 	Johann Borck <johann.borck@densedata.com>,
 	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
 	Jamal Hadi Salim <hadi@cyberus.ca>,
-	Ingo Molnar <mingo@elte.hu>
+	Ingo Molnar <mingo@elte.hu>, linux-fsdevel@vger.kernel.org
 To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from genesysrack.ru ([195.178.208.66]:36179 "EHLO tservice.net.ru"
+Received: from genesysrack.ru ([195.178.208.66]:36185 "EHLO tservice.net.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965351AbXAYNsi convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jan 2007 08:48:38 -0500
-In-Reply-To: <1169732912131@2ka.mipt.ru>
+	id S964983AbXAYNsj convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jan 2007 08:48:39 -0500
+In-Reply-To: <11697329102169@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-Pipe notifications.
+Description.
 
 
-diff --git a/fs/pipe.c b/fs/pipe.c
-index 68090e8..0c75bf1 100644
---- a/fs/pipe.c
-+++ b/fs/pipe.c
-@@ -16,6 +16,7 @@
- #include <linux/uio.h>
- #include <linux/highmem.h>
- #include <linux/pagemap.h>
-+#include <linux/kevent.h>
- 
- #include <asm/uaccess.h>
- #include <asm/ioctls.h>
-@@ -313,6 +314,7 @@ redo:
- 			break;
- 		}
- 		if (do_wakeup) {
-+			kevent_pipe_notify(inode, KEVENT_SOCKET_SEND);
- 			wake_up_interruptible_sync(&pipe->wait);
-  			kill_fasync(&pipe->fasync_writers, SIGIO, POLL_OUT);
- 		}
-@@ -322,6 +324,7 @@ redo:
- 
- 	/* Signal writers asynchronously that there is more room. */
- 	if (do_wakeup) {
-+		kevent_pipe_notify(inode, KEVENT_SOCKET_SEND);
- 		wake_up_interruptible(&pipe->wait);
- 		kill_fasync(&pipe->fasync_writers, SIGIO, POLL_OUT);
- 	}
-@@ -484,6 +487,7 @@ redo2:
- 			break;
- 		}
- 		if (do_wakeup) {
-+			kevent_pipe_notify(inode, KEVENT_SOCKET_RECV);
- 			wake_up_interruptible_sync(&pipe->wait);
- 			kill_fasync(&pipe->fasync_readers, SIGIO, POLL_IN);
- 			do_wakeup = 0;
-@@ -495,6 +499,7 @@ redo2:
- out:
- 	mutex_unlock(&inode->i_mutex);
- 	if (do_wakeup) {
-+		kevent_pipe_notify(inode, KEVENT_SOCKET_RECV);
- 		wake_up_interruptible(&pipe->wait);
- 		kill_fasync(&pipe->fasync_readers, SIGIO, POLL_IN);
- 	}
-@@ -590,6 +595,7 @@ pipe_release(struct inode *inode, int decr, int decw)
- 		free_pipe_info(inode);
- 	} else {
- 		wake_up_interruptible(&pipe->wait);
-+		kevent_pipe_notify(inode, KEVENT_SOCKET_SEND|KEVENT_SOCKET_RECV);
- 		kill_fasync(&pipe->fasync_readers, SIGIO, POLL_IN);
- 		kill_fasync(&pipe->fasync_writers, SIGIO, POLL_OUT);
- 	}
-diff --git a/kernel/kevent/kevent_pipe.c b/kernel/kevent/kevent_pipe.c
+diff --git a/Documentation/kevent.txt b/Documentation/kevent.txt
 new file mode 100644
-index 0000000..91dc1eb
+index 0000000..d6e126f
 --- /dev/null
-+++ b/kernel/kevent/kevent_pipe.c
-@@ -0,0 +1,123 @@
-+/*
-+ * 	kevent_pipe.c
-+ * 
-+ * 2006 Copyright (c) Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-+ * All rights reserved.
-+ * 
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-+ */
++++ b/Documentation/kevent.txt
+@@ -0,0 +1,271 @@
++Description.
 +
-+#include <linux/kernel.h>
-+#include <linux/types.h>
-+#include <linux/slab.h>
-+#include <linux/spinlock.h>
-+#include <linux/file.h>
-+#include <linux/fs.h>
-+#include <linux/kevent.h>
-+#include <linux/pipe_fs_i.h>
++int kevent_init(struct kevent_ring *ring, unsigned int ring_size, 
++	unsigned int flags);
 +
-+static int kevent_pipe_callback(struct kevent *k)
-+{
-+	struct inode *inode = k->st->origin;
-+	struct pipe_inode_info *pipe = inode->i_pipe;
-+	int nrbufs = pipe->nrbufs;
++num - size of the ring buffer in events 
++ring - pointer to allocated ring buffer
++flags - various flags, see KEVENT_FLAGS_* definitions.
 +
-+	if (k->event.event & KEVENT_SOCKET_RECV && nrbufs > 0) {
-+		if (!pipe->writers)
-+			return -1;
-+		return 1;
-+	}
-+	
-+	if (k->event.event & KEVENT_SOCKET_SEND && nrbufs < PIPE_BUFFERS) {
-+		if (!pipe->readers)
-+			return -1;
-+		return 1;
-+	}
++Return value: kevent control file descriptor or negative error value.
 +
-+	return 0;
-+}
++ struct kevent_ring
++ {
++   unsigned int ring_kidx, ring_over;
++   struct ukevent event[0];
++ }
 +
-+int kevent_pipe_enqueue(struct kevent *k)
-+{
-+	struct file *pipe;
-+	int err = -EBADF;
-+	struct inode *inode;
++ring_kidx - index in the ring buffer where kernel will put new events 
++		when kevent_wait() or kevent_get_events() is called 
++ring_over - number of overflows of ring_uidx happend from the start.
++	Overflow counter is used to prevent situation when two threads 
++	are going to free the same events, but one of them was scheduled 
++	away for too long, so ring indexes were wrapped, so when that 
++	thread will be awakened, it will free not those events, which 
++	it suppose to free.
 +
-+	pipe = fget(k->event.id.raw[0]);
-+	if (!pipe)
-+		goto err_out_exit;
++Example userspace code (ring_buffer.c) can be found on project's homepage.
 +
-+	inode = igrab(pipe->f_dentry->d_inode);
-+	if (!inode)
-+		goto err_out_fput;
++Each kevent syscall can be so called cancellation point in glibc, i.e. when 
++thread has been cancelled in kevent syscall, thread can be safely removed 
++and no events will be lost, since each syscall (kevent_wait() or 
++kevent_get_events()) will copy event into special ring buffer, accessible 
++from other threads or even processes (if shared memory is used).
 +
-+	err = -EINVAL;
-+	if (!S_ISFIFO(inode->i_mode))
-+		goto err_out_iput;
++When kevent is removed (not dequeued when it is ready, but just removed), 
++even if it was ready, it is not copied into ring buffer, since if it is 
++removed, no one cares about it (otherwise user would wait until it becomes 
++ready and got it through usual way using kevent_get_events() or kevent_wait()) 
++and thus no need to copy it to the ring buffer.
 +
-+	err = kevent_storage_enqueue(&inode->st, k);
-+	if (err)
-+		goto err_out_iput;
++-------------------------------------------------------------------------------
 +
-+	if (k->event.req_flags & KEVENT_REQ_ALWAYS_QUEUE) {
-+		kevent_requeue(k);
-+		err = 0;
-+	} else {
-+		err = k->callbacks.callback(k);
-+		if (err)
-+			goto err_out_dequeue;
-+	}
 +
-+	fput(pipe);
++int kevent_ctl(int fd, unsigned int cmd, unsigned int num, struct ukevent *arg);
 +
-+	return err;
++fd - is the file descriptor referring to the kevent queue to manipulate. 
++It is created by opening "/dev/kevent" char device, which is created with 
++dynamic minor number and major number assigned for misc devices. 
 +
-+err_out_dequeue:
-+	kevent_storage_dequeue(k->st, k);
-+err_out_iput:
-+	iput(inode);
-+err_out_fput:
-+	fput(pipe);
-+err_out_exit:
-+	return err;
-+}
++cmd - is the requested operation. It can be one of the following:
++    KEVENT_CTL_ADD - add event notification 
++    KEVENT_CTL_REMOVE - remove event notification 
++    KEVENT_CTL_MODIFY - modify existing notification 
++    KEVENT_CTL_READY - mark existing events as ready, if number of events is zero,
++    	it just wakes up parked in syscall thread
 +
-+int kevent_pipe_dequeue(struct kevent *k)
-+{
-+	struct inode *inode = k->st->origin;
++num - number of struct ukevent in the array pointed to by arg 
++arg - array of struct ukevent
 +
-+	kevent_storage_dequeue(k->st, k);
-+	iput(inode);
++Return value: 
++ number of events processed or negative error value.
 +
-+	return 0;
-+}
++When called, kevent_ctl will carry out the operation specified in the 
++cmd parameter.
++-------------------------------------------------------------------------------
 +
-+void kevent_pipe_notify(struct inode *inode, u32 event)
-+{
-+	kevent_storage_ready(&inode->st, NULL, event);
-+}
++ int kevent_get_events(int ctl_fd, unsigned int min_nr, unsigned int max_nr, 
++ 		struct timespec timeout, struct ukevent *buf, unsigned flags);
 +
-+static int __init kevent_init_pipe(void)
-+{
-+	struct kevent_callbacks sc = {
-+		.callback = &kevent_pipe_callback,
-+		.enqueue = &kevent_pipe_enqueue,
-+		.dequeue = &kevent_pipe_dequeue,
-+		.flags = 0,
-+	};
++ctl_fd - file descriptor referring to the kevent queue 
++min_nr - minimum number of completed events that kevent_get_events will block 
++	 waiting for 
++max_nr - number of struct ukevent in buf 
++timeout - time to wait before returning less than min_nr 
++	  events. If this is -1, then wait forever. 
++buf - pointer to an array of struct ukevent. 
++flags - various flags, see KEVENT_FLAGS_* definitions.
 +
-+	return kevent_add_callbacks(&sc, KEVENT_PIPE);
-+}
-+module_init(kevent_init_pipe);
++Return value:
++ number of events copied or negative error value.
++
++kevent_get_events will wait timeout milliseconds for at least min_nr completed 
++events, copying completed struct ukevents to buf and deleting any 
++KEVENT_REQ_ONESHOT event requests. In nonblocking mode it returns as many 
++events as possible, but not more than max_nr. In blocking mode it waits until 
++timeout or if at least min_nr events are ready.
++
++This function copies event into ring buffer if it was initialized, if ring buffer
++is full, KEVENT_RET_COPY_FAILED flag is set in ret_flags field.
++-------------------------------------------------------------------------------
++
++ int kevent_wait(int ctl_fd, unsigned int num, unsigned int old_uidx, 
++ 	struct timespec timeout, unsigned int flags);
++
++ctl_fd - file descriptor referring to the kevent queue 
++num - number of processed kevents 
++old_uidx - the last index user is aware of
++timeout - time to wait until there is free space in kevent queue
++flags - various flags, see KEVENT_FLAGS_* definitions.
++
++Return value:
++ number of events copied into ring buffer or negative error value.
++
++This syscall waits until either timeout expires or at least one event becomes 
++ready. It also copies events into special ring buffer. If ring buffer is full,
++it waits until there are ready events and then return.
++If kevent is one-shot kevent it is removed in this syscall.
++If kevent is edge-triggered (KEVENT_REQ_ET flag is set in 'req_flags') it is 
++requeued in this syscall for performance reasons.
++-------------------------------------------------------------------------------
++
++ int kevent_commit(int ctl_fd, unsigned int new_idx, unsigned int over);
++
++ctl_fd - file descriptor referring to the kevent queue 
++new_uidx - the last committed kevent
++over - overflow count for given $new_idx value
++
++Return value:
++ number of committed kevents or negative error value.
++
++This function commits, i.e. marks as empty, slots in the ring buffer, so
++they can be reused when userspace completes that entries processing.
++
++Overflow counter is used to prevent situation when two threads are going 
++to free the same events, but one of them was scheduled away for too long, 
++so ring indexes were wrapped, so when that thread will be awakened, it 
++will free not those events, which it suppose to free.
++
++It is possible that returned number of committed events will be smaller than
++requested number - it is possible when several threads try to commit the
++same events.
++-------------------------------------------------------------------------------
++
++long aio_sendfile(int kevent_fd, int sock_fd, int in_fd, off_t offset, size_t count);
++
++kevent_fd - file descriptor referring to the kevent queue
++sock_fd - destination socket file descriptor
++in_fd - source file descriptor
++offset - offset from the beginning of the source file
++count - number of bytes to transfer
++
++Async sendfile implementation.
++Returned coockie can be used to determine which entry has been returned by
++kevent_get_events() - it will be stored in event.ptr.
++event.ret_data will contain number of bytes actually transferred.
++-------------------------------------------------------------------------------
++
++long aio_sendfile_path(int kevent_fd, int sock_fd, 
++	void *header, size_t header_size, 
++	char *filename, off_t offset, size_t count);
++
++kevent_fd - file descriptor referring to the kevent queue
++sock_fd - destination socket file descriptor
++header - header data, which will be sent before file's data
++header_size - size of the header
++pathname - source filename
++offset - offset from the beginning of the source file
++count - number of bytes to transfer
++-------------------------------------------------------------------------------
++
++The bulk of the interface is entirely done through the ukevent struct. 
++It is used to add event requests, modify existing event requests, 
++specify which event requests to remove, and return completed events.
++
++struct ukevent contains the following members:
++
++struct kevent_id id
++    Id of this request, e.g. socket number, file descriptor and so on 
++__u32 type
++    Event type, e.g. KEVENT_SOCK, KEVENT_INODE, KEVENT_TIMER and so on 
++__u32 event
++    Event itself, e.g. SOCK_ACCEPT, INODE_CREATED, TIMER_FIRED 
++__u32 req_flags
++    Per-event request flags,
++
++    KEVENT_REQ_ONESHOT
++        event will be removed when it is ready 
++
++    KEVENT_REQ_WAKEUP_ALL
++        Kevent wakes up only first thread interested in given event, 
++	or all threads if this flag is set.
++
++    KEVENT_REQ_ET
++        Edge Triggered behaviour. It is an optimisation which allows to move 
++	ready and dequeued (i.e. copied to userspace) event to move into set 
++	of interest for given storage (socket, inode and so on) again. It is 
++	very usefull for cases when the same event should be used many times 
++	(like reading from pipe). It is similar to epoll()'s EPOLLET flag. 
++
++    KEVENT_REQ_LAST_CHECK
++        if set allows to perform the last check on kevent (call appropriate 
++	callback) when kevent is marked as ready and has been removed from 
++	ready queue. If it will be confirmed that kevent is ready 
++	(k->callbacks.callback(k) returns true) then kevent will be copied 
++	to userspace, otherwise it will be requeued back to storage. 
++	Second (checking) call is performed with this bit cleared, so callback 
++	can detect when it was called from kevent_storage_ready() - bit is set, 
++	or kevent_dequeue_ready() - bit is cleared. If kevent will be requeued, 
++	bit will be set again.
++
++   KEVENT_REQ_ALWAYS_QUEUE
++        If this flag is set kevent will be queued into ready queue if it is 
++	ready at enqueue time, otherwise it will be copied back to userspace
++	and will not be queued into the storage.
++
++   KEVENT_REQ_READY
++   	If this flag is set, kevent will be marked as ready immediately at enqueue
++	time.
++
++__u32 ret_flags
++    Per-event return flags
++
++    KEVENT_RET_BROKEN
++        Kevent is broken 
++
++    KEVENT_RET_DONE
++        Kevent processing was finished successfully 
++
++    KEVENT_RET_COPY_FAILED
++        Kevent was not copied into ring buffer due to some error conditions. 
++
++__u32 ret_data
++    Event return data. Event originator fills it with anything it likes 
++    (for example timer notifications put number of milliseconds when timer 
++    has fired 
++union { __u32 user[2]; void *ptr; }
++    User's data. It is not used, just copied to/from user. The whole structure 
++    is aligned to 8 bytes already, so the last union is aligned properly. 
++
++-------------------------------------------------------------------------------
++
++Kevent waiting syscall flags.
++
++KEVENT_FLAGS_ABSTIME - provided timespec parameter contains absolute time, 
++	for example Aug 27, 2194, or time(NULL) + 10.
++
++-------------------------------------------------------------------------------
++
++Usage
++
++For KEVENT_CTL_ADD, all fields relevant to the event type must be filled 
++(id, type, event, req_flags). 
++After kevent_ctl(..., KEVENT_CTL_ADD, ...) returns each struct's ret_flags 
++should be checked to see if the event is already broken or done.
++
++For KEVENT_CTL_MODIFY, the id, req_flags, and user and event fields must be 
++set and an existing kevent request must have matching id and user fields. If 
++match is found, req_flags and event are replaced with the newly supplied 
++values and requeueing is started, so modified kevent can be checked and 
++probably marked as ready immediately. If a match can't be found, the 
++passed in ukevent's ret_flags has KEVENT_RET_BROKEN set. KEVENT_RET_DONE is 
++always set.
++
++For KEVENT_CTL_REMOVE, the id and user fields must be set and an existing 
++kevent request must have matching id and user fields. If a match is found, 
++the kevent request is removed. If a match can't be found, the passed in 
++ukevent's ret_flags has KEVENT_RET_BROKEN set. KEVENT_RET_DONE is always set.
++
++For kevent_get_events, the entire structure is returned.
++
++-------------------------------------------------------------------------------
++
++Usage cases
++
++kevent_timer
++struct ukevent should contain following fields:
++    type - KEVENT_TIMER 
++    event - KEVENT_TIMER_FIRED 
++    req_flags - KEVENT_REQ_ONESHOT if you want to fire that timer only once 
++    id.raw[0] - number of seconds after commit when this timer shout expire 
++    id.raw[0] - additional to number of seconds number of nanoseconds 
 
