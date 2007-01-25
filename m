@@ -1,139 +1,117 @@
 From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH RFC 22/31] net: Add network namespace clone support.
-Date: Thu, 25 Jan 2007 12:00:24 -0700
-Message-ID: <11697516373288-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH RFC 17/31] net: Factor out __dev_alloc_name from dev_alloc_name
+Date: Thu, 25 Jan 2007 12:00:19 -0700
+Message-ID: <11697516361051-git-send-email-ebiederm@xmission.com>
 References: <m13b5zym0n.fsf@ebiederm.dsl.xmission.com>
 Cc: <containers@lists.osdl.org>, <openib-general@openib.org>,
 	"Eric W. Biederman" <ebiederm@xmission.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:35802 "EHLO
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:35820 "EHLO
 	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030330AbXAYTBj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jan 2007 14:01:39 -0500
+	with ESMTP id S1030494AbXAYTBl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jan 2007 14:01:41 -0500
 In-Reply-To: <m13b5zym0n.fsf@ebiederm.dsl.xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Eric W. Biederman <ebiederm@xmission.com> - unquoted
 
-This patch allows you to create a new network namespace
-using sys_clone(...).
+When forcibly changing the network namespace of a device
+I need something that can generate a name for the device
+in the new namespace without overwriting the old name.
+
+__dev_alloc_name provides me that functionality.
 
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 ---
- include/linux/sched.h    |    1 +
- kernel/nsproxy.c         |   11 +++++++++++
- net/core/net_namespace.c |   38 ++++++++++++++++++++++++++++++++++++++
- 3 files changed, 50 insertions(+), 0 deletions(-)
+ net/core/dev.c |   44 +++++++++++++++++++++++++++++++++-----------
+ 1 files changed, 33 insertions(+), 11 deletions(-)
 
-diff --git a/include/linux/sched.h b/include/linux/sched.h
-index 4463735..9e0f91a 100644
---- a/include/linux/sched.h
-+++ b/include/linux/sched.h
-@@ -26,6 +26,7 @@
- #define CLONE_STOPPED		0x02000000	/* Start in stopped state */
- #define CLONE_NEWUTS		0x04000000	/* New utsname group? */
- #define CLONE_NEWIPC		0x08000000	/* New ipcs */
-+#define CLONE_NEWNET		0x20000000	/* New network namespace */
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 32fe905..fc0d2af 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -655,9 +655,10 @@ int dev_valid_name(const char *name)
+ }
  
- /*
-  * Scheduling policies
-diff --git a/kernel/nsproxy.c b/kernel/nsproxy.c
-index 4f3c95a..7861c4c 100644
---- a/kernel/nsproxy.c
-+++ b/kernel/nsproxy.c
-@@ -20,6 +20,7 @@
- #include <linux/mnt_namespace.h>
- #include <linux/utsname.h>
- #include <linux/pid_namespace.h>
-+#include <net/net_namespace.h>
+ /**
+- *	dev_alloc_name - allocate a name for a device
+- *	@dev: device
++ *	__dev_alloc_name - allocate a name for a device
++ *	@net: network namespace to allocate the device name in
+  *	@name: name format string
++ *	@buf:  scratch buffer and result name string
+  *
+  *	Passed a format string - eg "lt%d" it will try and find a suitable
+  *	id. It scans list of devices to build up a free map, then chooses
+@@ -668,18 +669,13 @@ int dev_valid_name(const char *name)
+  *	Returns the number of the unit assigned or a negative errno code.
+  */
  
- struct nsproxy init_nsproxy = INIT_NSPROXY(init_nsproxy);
- EXPORT_SYMBOL_GPL(init_nsproxy);
-@@ -70,6 +71,7 @@ struct nsproxy *dup_namespaces(struct nsproxy *orig)
- 			get_ipc_ns(ns->ipc_ns);
- 		if (ns->pid_ns)
- 			get_pid_ns(ns->pid_ns);
-+		get_net(ns->net_ns);
+-int dev_alloc_name(struct net_device *dev, const char *name)
++static int __dev_alloc_name(net_t net, const char *name, char buf[IFNAMSIZ])
+ {
+ 	int i = 0;
+-	char buf[IFNAMSIZ];
+ 	const char *p;
+ 	const int max_netdevices = 8*PAGE_SIZE;
+ 	long *inuse;
+ 	struct net_device *d;
+-	net_t net;
+-
+-	BUG_ON(null_net(dev->nd_net));
+-	net = dev->nd_net;
+ 
+ 	p = strnchr(name, IFNAMSIZ-1, '%');
+ 	if (p) {
+@@ -713,10 +709,8 @@ int dev_alloc_name(struct net_device *dev, const char *name)
  	}
  
- 	return ns;
-@@ -117,10 +119,18 @@ int copy_namespaces(int flags, struct task_struct *tsk)
- 	if (err)
- 		goto out_pid;
+ 	snprintf(buf, sizeof(buf), name, i);
+-	if (!__dev_get_by_name(net, buf)) {
+-		strlcpy(dev->name, buf, IFNAMSIZ);
++	if (!__dev_get_by_name(net, buf))
+ 		return i;
+-	}
  
-+	err = copy_net(flags, tsk);
-+	if (err)
-+		goto out_net;
-+
- out:
- 	put_nsproxy(old_ns);
- 	return err;
- 
-+out_net:
-+	if (new_ns->pid_ns)
-+		put_pid_ns(new_ns->pid_ns);
-+
- out_pid:
- 	if (new_ns->ipc_ns)
- 		put_ipc_ns(new_ns->ipc_ns);
-@@ -146,5 +156,6 @@ void free_nsproxy(struct nsproxy *ns)
- 		put_ipc_ns(ns->ipc_ns);
- 	if (ns->pid_ns)
- 		put_pid_ns(ns->pid_ns);
-+	put_net(ns->net_ns);
- 	kfree(ns);
- }
-diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
-index 93e3879..cc56105 100644
---- a/net/core/net_namespace.c
-+++ b/net/core/net_namespace.c
-@@ -175,6 +175,44 @@ out_undo:
- 	goto out;
+ 	/* It is possible to run out of possible slots
+ 	 * when the name is long and there isn't enough space left
+@@ -725,6 +719,34 @@ int dev_alloc_name(struct net_device *dev, const char *name)
+ 	return -ENFILE;
  }
  
-+int copy_net(int flags, struct task_struct *tsk)
++/**
++ *	dev_alloc_name - allocate a name for a device
++ *	@dev: device
++ *	@name: name format string
++ *
++ *	Passed a format string - eg "lt%d" it will try and find a suitable
++ *	id. It scans list of devices to build up a free map, then chooses
++ *	the first empty slot. The caller must hold the dev_base or rtnl lock
++ *	while allocating the name and adding the device in order to avoid
++ *	duplicates.
++ *	Limited to bits_per_byte * page size devices (ie 32K on most platforms).
++ *	Returns the number of the unit assigned or a negative errno code.
++ */
++
++int dev_alloc_name(struct net_device *dev, const char *name)
 +{
-+	net_t old_net = tsk->nsproxy->net_ns;
-+	net_t new_net;
-+	int err;
++	char buf[IFNAMSIZ];
++	net_t net;
++	int ret;
 +
-+	get_net(old_net);
-+
-+	if (!(flags & CLONE_NEWNET))
-+		return 0;
-+
-+	err = -EPERM;
-+	if (!capable(CAP_SYS_ADMIN))
-+		goto out;
-+
-+	err = -ENOMEM;
-+	new_net = net_alloc();
-+	if (null_net(new_net))
-+		goto out;
-+
-+	mutex_lock(&net_mutex);
-+	err = setup_net(new_net);
-+	if (err)
-+		goto out_unlock;
-+
-+	net_lock();
-+	net_list_append(new_net);
-+	net_unlock();
-+
-+	tsk->nsproxy->net_ns = new_net;
-+
-+out_unlock:
-+	mutex_unlock(&net_mutex);
-+out:
-+	put_net(old_net);
-+	return err;
++	BUG_ON(null_net(dev->nd_net));
++	net = dev->nd_net;
++	ret = __dev_alloc_name(net, name, buf);
++	if (ret >= 0)
++		strlcpy(dev->name, buf, IFNAMSIZ);
++	return ret;
 +}
 +
- void pernet_modcopy(void *pnetdst, const void *src, unsigned long size)
- {
- 	net_t net;
+ 
+ /**
+  *	dev_change_name - change name of a device
 -- 
 1.4.4.1.g278f
 
