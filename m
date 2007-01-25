@@ -1,1280 +1,1193 @@
 From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH RFC 21/31] net: Implement the guts of the network namespace infrastructure
-Date: Thu, 25 Jan 2007 12:00:23 -0700
-Message-ID: <11697516373346-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH RFC 12/31] net: Make packet reception network namespace safe
+Date: Thu, 25 Jan 2007 12:00:14 -0700
+Message-ID: <1169751635362-git-send-email-ebiederm@xmission.com>
 References: <m13b5zym0n.fsf@ebiederm.dsl.xmission.com>
 Cc: <containers@lists.osdl.org>, <openib-general@openib.org>,
 	"Eric W. Biederman" <ebiederm@xmission.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:35824 "EHLO
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:35832 "EHLO
 	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030465AbXAYTBp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jan 2007 14:01:45 -0500
+	with ESMTP id S1030499AbXAYTBy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jan 2007 14:01:54 -0500
 In-Reply-To: <m13b5zym0n.fsf@ebiederm.dsl.xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Eric W. Biederman <ebiederm@xmission.com> - unquoted
 
-Support is added for the .data.pernet section where all of
-the variables who have a single instance in each network
-namespace will live.  Every architectures linker script
-is modified so is should work.
+This patch modifies every packet receive function
+registered with dev_add_pack() to drop packets if they
+are not from the initial network namespace, in addition
+to ensure consistency of argument passing the unnecessary
+device parameter is removed.
 
-Summarizing the functions:
-net_ns_init creates a slab and allocates the template and
-the initial network namespace.
+This should ensure that the various network stacks do
+not receive packets in a anything but the initial network
+namespace until the code has been converted and is ready
+for them.
 
-pernet_modcopy keeps the network namespaces in sync with
-the loaded modules.  Initializing new data variables as
-they are added.
-
-The network namespace destruction because the last reference
-can come from interrupt context queues itself for later with
-schedule_work.   Then we alert everyone the network namespace
-is disappearing.  If a buggy user is still holding a reference
-to the network namespace we print a nasty message and leak
-the network namespace.
-
-The wrest are just light-weight wrapper functions to make things
-more convinient.
-
-A little should probably be said about net_head the variable
-at the start of my network namespace structure.  It is the only
-variable with a location decided by the C code instead of the linker
-and I string them together in a linked list so I can iterate.
-
-Probably more interesting is that it looks like it is saner not
-to directly use a pointer to my network namespace but instead to
-use an offset.  All of the references to data in my network namespace
-are coming from per_net(...) which takes the address of the variable
-in the .data.pernet section and then adds my magic offset.  If I
-used a pointer I would have to subract an additional value and
-export an extra symbol.  Not good for performance or maintenance :)
-
-The expected usage of network namespace variables is to replace
-sequences like:  &loopback_dev with &per_net(loopback_dev, net)
-where net is some network namespace reference.  In my preliminary
-tests the only a single additional addition is inserted so it
-appears to be an efficient idiom.  Hopefully it is also easy to
-comprehend and use.
+Anything I may have missed will generate a compiler error,
+as the function protype has changed, preventing us from
+overlooking something by accident.
 
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 ---
- arch/alpha/kernel/vmlinux.lds.S            |    2 +
- arch/arm/kernel/vmlinux.lds.S              |    3 +
- arch/arm26/kernel/vmlinux-arm26-xip.lds.in |    3 +
- arch/arm26/kernel/vmlinux-arm26.lds.in     |    3 +
- arch/avr32/kernel/vmlinux.lds.c            |    3 +
- arch/cris/arch-v10/vmlinux.lds.S           |    2 +
- arch/cris/arch-v32/vmlinux.lds.S           |    2 +
- arch/frv/kernel/vmlinux.lds.S              |    2 +
- arch/h8300/kernel/vmlinux.lds.S            |    3 +
- arch/i386/kernel/vmlinux.lds.S             |    3 +
- arch/ia64/kernel/vmlinux.lds.S             |    2 +
- arch/m32r/kernel/vmlinux.lds.S             |    3 +
- arch/m68k/kernel/vmlinux-std.lds           |    3 +
- arch/m68k/kernel/vmlinux-sun3.lds          |    3 +
- arch/m68knommu/kernel/vmlinux.lds.S        |    3 +
- arch/mips/kernel/vmlinux.lds.S             |    3 +
- arch/parisc/kernel/vmlinux.lds.S           |    3 +
- arch/powerpc/kernel/vmlinux.lds.S          |    2 +
- arch/ppc/kernel/vmlinux.lds.S              |    2 +
- arch/s390/kernel/vmlinux.lds.S             |    3 +
- arch/sh/kernel/vmlinux.lds.S               |    3 +
- arch/sh64/kernel/vmlinux.lds.S             |    3 +
- arch/sparc/kernel/vmlinux.lds.S            |    3 +
- arch/sparc64/kernel/vmlinux.lds.S          |    3 +
- arch/v850/kernel/vmlinux.lds.S             |    6 +-
- arch/x86_64/kernel/vmlinux.lds.S           |    3 +
- arch/xtensa/kernel/vmlinux.lds.S           |    2 +
- include/asm-generic/vmlinux.lds.h          |    8 +
- include/asm-um/common.lds.S                |    4 +-
- include/linux/module.h                     |    3 +
- include/linux/net_namespace_type.h         |   63 ++++++++-
- include/net/net_namespace.h                |   49 ++++++-
- kernel/module.c                            |  211 ++++++++++++++++++++++++-
- net/core/net_namespace.c                   |  232 ++++++++++++++++++++++++++++
- 34 files changed, 631 insertions(+), 15 deletions(-)
+ drivers/block/aoe/aoenet.c      |    7 ++++++-
+ drivers/net/bonding/bond_3ad.c  |    7 ++++++-
+ drivers/net/bonding/bond_3ad.h  |    2 +-
+ drivers/net/bonding/bond_alb.c  |    6 +++++-
+ drivers/net/bonding/bond_main.c |    6 +++++-
+ drivers/net/hamradio/bpqether.c |    8 ++++++--
+ drivers/net/pppoe.c             |    8 ++++++--
+ drivers/net/wan/hdlc.c          |   10 +++++++++-
+ drivers/net/wan/lapbether.c     |    6 +++++-
+ drivers/net/wan/syncppp.c       |   14 ++++++++++----
+ include/linux/netdevice.h       |    1 -
+ include/net/ax25.h              |    2 +-
+ include/net/datalink.h          |    2 +-
+ include/net/ip.h                |    2 +-
+ include/net/ipv6.h              |    1 -
+ include/net/llc.h               |    4 +---
+ include/net/p8022.h             |    1 -
+ include/net/psnap.h             |    2 +-
+ include/net/x25.h               |    2 +-
+ net/802/p8022.c                 |    1 -
+ net/802/psnap.c                 |    5 ++---
+ net/8021q/vlan.h                |    2 +-
+ net/8021q/vlan_dev.c            |    8 +++++++-
+ net/appletalk/aarp.c            |    6 +++++-
+ net/appletalk/ddp.c             |   15 ++++++++++++---
+ net/ax25/ax25_in.c              |    8 +++++++-
+ net/bridge/br_private.h         |    2 +-
+ net/bridge/br_stp_bpdu.c        |    8 ++++++--
+ net/core/dev.c                  |    6 +++---
+ net/decnet/af_decnet.c          |    2 +-
+ net/decnet/dn_route.c           |    6 +++++-
+ net/econet/af_econet.c          |    6 +++++-
+ net/ipv4/arp.c                  |    6 +++++-
+ net/ipv4/ip_input.c             |    7 +++++--
+ net/ipv4/ipconfig.c             |   16 ++++++++++++----
+ net/ipv6/ip6_input.c            |    8 +++++++-
+ net/ipx/af_ipx.c                |    6 +++++-
+ net/irda/irlap_frame.c          |    7 +++++--
+ net/irda/irmod.c                |    2 +-
+ net/llc/llc_core.c              |    1 -
+ net/llc/llc_input.c             |   10 +++++++---
+ net/packet/af_packet.c          |   18 +++++++++++++++---
+ net/tipc/eth_media.c            |    9 ++++++++-
+ net/x25/x25_dev.c               |    6 +++++-
+ 44 files changed, 195 insertions(+), 67 deletions(-)
 
-diff --git a/arch/alpha/kernel/vmlinux.lds.S b/arch/alpha/kernel/vmlinux.lds.S
-index 76bf071..ad20077 100644
---- a/arch/alpha/kernel/vmlinux.lds.S
-+++ b/arch/alpha/kernel/vmlinux.lds.S
-@@ -72,6 +72,8 @@ SECTIONS
-   .data.percpu : { *(.data.percpu) }
-   __per_cpu_end = .;
+diff --git a/drivers/block/aoe/aoenet.c b/drivers/block/aoe/aoenet.c
+index 9626e0f..9b72a58 100644
+--- a/drivers/block/aoe/aoenet.c
++++ b/drivers/block/aoe/aoenet.c
+@@ -8,6 +8,7 @@
+ #include <linux/blkdev.h>
+ #include <linux/netdevice.h>
+ #include <linux/moduleparam.h>
++#include <net/net_namespace.h>
+ #include "aoe.h"
  
-+  DATA_PER_NET
-+
-   . = ALIGN(2*8192);
-   __init_end = .;
-   /* Freed after init ends here */
-diff --git a/arch/arm/kernel/vmlinux.lds.S b/arch/arm/kernel/vmlinux.lds.S
-index a8fa75e..5b003f9 100644
---- a/arch/arm/kernel/vmlinux.lds.S
-+++ b/arch/arm/kernel/vmlinux.lds.S
-@@ -61,6 +61,9 @@ SECTIONS
- 		__per_cpu_start = .;
- 			*(.data.percpu)
- 		__per_cpu_end = .;
-+
-+		DATA_PER_NET
-+
- #ifndef CONFIG_XIP_KERNEL
- 		__init_begin = _stext;
- 		*(.init.data)
-diff --git a/arch/arm26/kernel/vmlinux-arm26-xip.lds.in b/arch/arm26/kernel/vmlinux-arm26-xip.lds.in
-index ca61ec8..69d5772 100644
---- a/arch/arm26/kernel/vmlinux-arm26-xip.lds.in
-+++ b/arch/arm26/kernel/vmlinux-arm26-xip.lds.in
-@@ -50,6 +50,9 @@ SECTIONS
- 		__initramfs_start = .;
- 			usr/built-in.o(.init.ramfs)
- 		__initramfs_end = .;
-+
-+		DATA_PER_NET
-+
- 		. = ALIGN(32768);
- 		__init_end = .;
- 	}
-diff --git a/arch/arm26/kernel/vmlinux-arm26.lds.in b/arch/arm26/kernel/vmlinux-arm26.lds.in
-index d1d3418..473a5b4 100644
---- a/arch/arm26/kernel/vmlinux-arm26.lds.in
-+++ b/arch/arm26/kernel/vmlinux-arm26.lds.in
-@@ -51,6 +51,9 @@ SECTIONS
- 		__initramfs_start = .;
- 			usr/built-in.o(.init.ramfs)
- 		__initramfs_end = .;
-+
-+		DATA_PER_NET
-+
- 		. = ALIGN(32768);
- 		__init_end = .;
- 	}
-diff --git a/arch/avr32/kernel/vmlinux.lds.c b/arch/avr32/kernel/vmlinux.lds.c
-index 5c4424e..dee3715 100644
---- a/arch/avr32/kernel/vmlinux.lds.c
-+++ b/arch/avr32/kernel/vmlinux.lds.c
-@@ -50,6 +50,9 @@ SECTIONS
- 		__initramfs_start = .;
- 			*(.init.ramfs)
- 		__initramfs_end = .;
-+
-+		DATA_PER_NET
-+
- 		. = ALIGN(4096);
- 		__init_end = .;
- 	}
-diff --git a/arch/cris/arch-v10/vmlinux.lds.S b/arch/cris/arch-v10/vmlinux.lds.S
-index 689729a..f1c890c 100644
---- a/arch/cris/arch-v10/vmlinux.lds.S
-+++ b/arch/cris/arch-v10/vmlinux.lds.S
-@@ -83,6 +83,8 @@ SECTIONS
- 	}	
- 	SECURITY_INIT
- 		
-+	DATA_PER_NET
-+
- 	.init.ramfs : {
- 		__initramfs_start = .;
- 		*(.init.ramfs)
-diff --git a/arch/cris/arch-v32/vmlinux.lds.S b/arch/cris/arch-v32/vmlinux.lds.S
-index 472d4b3..eb08771 100644
---- a/arch/cris/arch-v32/vmlinux.lds.S
-+++ b/arch/cris/arch-v32/vmlinux.lds.S
-@@ -95,6 +95,8 @@ SECTIONS
- 	.data.percpu  : { *(.data.percpu) }
- 	__per_cpu_end = .;
- 
-+	DATA_PER_NET
-+
- 	.init.ramfs : {
- 		__initramfs_start = .;
- 		*(.init.ramfs)
-diff --git a/arch/frv/kernel/vmlinux.lds.S b/arch/frv/kernel/vmlinux.lds.S
-index 9c1fb12..f383c83 100644
---- a/arch/frv/kernel/vmlinux.lds.S
-+++ b/arch/frv/kernel/vmlinux.lds.S
-@@ -61,6 +61,8 @@ SECTIONS
-   .data.percpu  : { *(.data.percpu) }
-   __per_cpu_end = .;
- 
-+  DATA_PER_NET
-+
-   . = ALIGN(4096);
-   __initramfs_start = .;
-   .init.ramfs : { *(.init.ramfs) }
-diff --git a/arch/h8300/kernel/vmlinux.lds.S b/arch/h8300/kernel/vmlinux.lds.S
-index f05288b..5d5fda5 100644
---- a/arch/h8300/kernel/vmlinux.lds.S
-+++ b/arch/h8300/kernel/vmlinux.lds.S
-@@ -130,6 +130,9 @@ SECTIONS
- 	___initramfs_start = .;
-   		*(.init.ramfs)
-   	___initramfs_end = .;
-+
-+	DATA_PER_NET
-+
- 	. = ALIGN(0x4) ;
- 	___init_end = .;
- 	__edata = . ;
-diff --git a/arch/i386/kernel/vmlinux.lds.S b/arch/i386/kernel/vmlinux.lds.S
-index a53c8b1..1aae8b4 100644
---- a/arch/i386/kernel/vmlinux.lds.S
-+++ b/arch/i386/kernel/vmlinux.lds.S
-@@ -193,6 +193,9 @@ SECTIONS
- 	*(.data.percpu)
- 	__per_cpu_end = .;
-   }
-+
-+  DATA_PER_NET
-+
-   . = ALIGN(4096);
-   /* freed after init ends here */
- 	
-diff --git a/arch/ia64/kernel/vmlinux.lds.S b/arch/ia64/kernel/vmlinux.lds.S
-index d6083a0..28dd9eb 100644
---- a/arch/ia64/kernel/vmlinux.lds.S
-+++ b/arch/ia64/kernel/vmlinux.lds.S
-@@ -118,6 +118,8 @@ SECTIONS
- 	  __initramfs_end = .;
- 	}
- 
-+  DATA_PER_NET
-+
-    . = ALIGN(16);
-   .init.setup : AT(ADDR(.init.setup) - LOAD_OFFSET)
-         {
-diff --git a/arch/m32r/kernel/vmlinux.lds.S b/arch/m32r/kernel/vmlinux.lds.S
-index 358b9ce..3e8c624 100644
---- a/arch/m32r/kernel/vmlinux.lds.S
-+++ b/arch/m32r/kernel/vmlinux.lds.S
-@@ -107,6 +107,9 @@ SECTIONS
-   __per_cpu_start = .;
-   .data.percpu  : { *(.data.percpu) }
-   __per_cpu_end = .;
-+
-+  DATA_PER_NET
-+
-   . = ALIGN(4096);
-   __init_end = .;
-   /* freed after init ends here */
-diff --git a/arch/m68k/kernel/vmlinux-std.lds b/arch/m68k/kernel/vmlinux-std.lds
-index d279445..d60cb7e 100644
---- a/arch/m68k/kernel/vmlinux-std.lds
-+++ b/arch/m68k/kernel/vmlinux-std.lds
-@@ -65,6 +65,9 @@ SECTIONS
-   __initramfs_start = .;
-   .init.ramfs : { *(.init.ramfs) }
-   __initramfs_end = .;
-+
-+  DATA_PER_NET
-+
-   . = ALIGN(8192);
-   __init_end = .;
- 
-diff --git a/arch/m68k/kernel/vmlinux-sun3.lds b/arch/m68k/kernel/vmlinux-sun3.lds
-index 8c7eccb..101ec12 100644
---- a/arch/m68k/kernel/vmlinux-sun3.lds
-+++ b/arch/m68k/kernel/vmlinux-sun3.lds
-@@ -59,6 +59,9 @@ __init_begin = .;
- 	__initramfs_start = .;
- 	.init.ramfs : { *(.init.ramfs) }
- 	__initramfs_end = .;
-+
-+	DATA_PER_NET
-+
- 	. = ALIGN(8192);
- 	__init_end = .;
- 	.data.init.task : { *(.data.init_task) }
-diff --git a/arch/m68knommu/kernel/vmlinux.lds.S b/arch/m68knommu/kernel/vmlinux.lds.S
-index 2b2a10d..e713614 100644
---- a/arch/m68knommu/kernel/vmlinux.lds.S
-+++ b/arch/m68knommu/kernel/vmlinux.lds.S
-@@ -153,6 +153,9 @@ SECTIONS {
- 		__initramfs_start = .;
- 		*(.init.ramfs)
- 		__initramfs_end = .;
-+
-+		DATA_PER_NET
-+
- 		. = ALIGN(4096);
- 		__init_end = .;
- 	} > INIT
-diff --git a/arch/mips/kernel/vmlinux.lds.S b/arch/mips/kernel/vmlinux.lds.S
-index cecff24..a5cfeef 100644
---- a/arch/mips/kernel/vmlinux.lds.S
-+++ b/arch/mips/kernel/vmlinux.lds.S
-@@ -121,6 +121,9 @@ SECTIONS
-   __per_cpu_start = .;
-   .data.percpu  : { *(.data.percpu) }
-   __per_cpu_end = .;
-+
-+  DATA_PER_NET
-+
-   . = ALIGN(_PAGE_SIZE);
-   __init_end = .;
-   /* freed after init ends here */
-diff --git a/arch/parisc/kernel/vmlinux.lds.S b/arch/parisc/kernel/vmlinux.lds.S
-index 7b943b4..2cf241b 100644
---- a/arch/parisc/kernel/vmlinux.lds.S
-+++ b/arch/parisc/kernel/vmlinux.lds.S
-@@ -181,6 +181,9 @@ SECTIONS
-   __per_cpu_start = .;
-   .data.percpu  : { *(.data.percpu) }
-   __per_cpu_end = .;
-+
-+  DATA_PER_NET
-+
-   . = ALIGN(ASM_PAGE_SIZE);
-   __init_end = .;
-   /* freed after init ends here */
-diff --git a/arch/powerpc/kernel/vmlinux.lds.S b/arch/powerpc/kernel/vmlinux.lds.S
-index 04b8e71..bdd4f05 100644
---- a/arch/powerpc/kernel/vmlinux.lds.S
-+++ b/arch/powerpc/kernel/vmlinux.lds.S
-@@ -150,6 +150,8 @@ SECTIONS
- 		__per_cpu_end = .;
- 	}
- 
-+	DATA_PER_NET
-+
- 	. = ALIGN(8);
- 	.machine.desc : {
- 		__machine_desc_start = . ;
-diff --git a/arch/ppc/kernel/vmlinux.lds.S b/arch/ppc/kernel/vmlinux.lds.S
-index 6192126..59c5e6c 100644
---- a/arch/ppc/kernel/vmlinux.lds.S
-+++ b/arch/ppc/kernel/vmlinux.lds.S
-@@ -135,6 +135,8 @@ SECTIONS
-   .data.percpu  : { *(.data.percpu) }
-   __per_cpu_end = .;
- 
-+  DATA_PER_NET
-+
-   . = ALIGN(4096);
-   __initramfs_start = .;
-   .init.ramfs : { *(.init.ramfs) }
-diff --git a/arch/s390/kernel/vmlinux.lds.S b/arch/s390/kernel/vmlinux.lds.S
-index fe0f2e9..bcdd353 100644
---- a/arch/s390/kernel/vmlinux.lds.S
-+++ b/arch/s390/kernel/vmlinux.lds.S
-@@ -99,6 +99,9 @@ SECTIONS
-   __per_cpu_start = .;
-   .data.percpu  : { *(.data.percpu) }
-   __per_cpu_end = .;
-+
-+  DATA_PER_NET
-+
-   . = ALIGN(4096);
-   __init_end = .;
-   /* freed after init ends here */
-diff --git a/arch/sh/kernel/vmlinux.lds.S b/arch/sh/kernel/vmlinux.lds.S
-index f34bdcc..0a4249d 100644
---- a/arch/sh/kernel/vmlinux.lds.S
-+++ b/arch/sh/kernel/vmlinux.lds.S
-@@ -86,6 +86,9 @@ SECTIONS
-   __initramfs_start = .;
-   .init.ramfs : { *(.init.ramfs) }
-   __initramfs_end = .;
-+
-+  DATA_PER_NET
-+
-   __machvec_start = .;
-   .init.machvec : { *(.init.machvec) }
-   __machvec_end = .;
-diff --git a/arch/sh64/kernel/vmlinux.lds.S b/arch/sh64/kernel/vmlinux.lds.S
-index 95c4d75..0c1a30e 100644
---- a/arch/sh64/kernel/vmlinux.lds.S
-+++ b/arch/sh64/kernel/vmlinux.lds.S
-@@ -118,6 +118,9 @@ SECTIONS
-   __initramfs_start = .;
-   .init.ramfs : C_PHYS(.init.ramfs) { *(.init.ramfs) }
-   __initramfs_end = .;
-+
-+  DATA_PER_NET
-+
-   . = ALIGN(PAGE_SIZE);
-   __init_end = .;
- 
-diff --git a/arch/sparc/kernel/vmlinux.lds.S b/arch/sparc/kernel/vmlinux.lds.S
-index b73e6b9..c1ff7de 100644
---- a/arch/sparc/kernel/vmlinux.lds.S
-+++ b/arch/sparc/kernel/vmlinux.lds.S
-@@ -65,6 +65,9 @@ SECTIONS
-   __per_cpu_start = .;
-   .data.percpu  : { *(.data.percpu) }
-   __per_cpu_end = .;
-+
-+  DATA_PER_NET
-+
-   . = ALIGN(4096);
-   __init_end = .;
-   . = ALIGN(32);
-diff --git a/arch/sparc64/kernel/vmlinux.lds.S b/arch/sparc64/kernel/vmlinux.lds.S
-index 4a6063f..24e6b7f 100644
---- a/arch/sparc64/kernel/vmlinux.lds.S
-+++ b/arch/sparc64/kernel/vmlinux.lds.S
-@@ -89,6 +89,9 @@ SECTIONS
-   __per_cpu_start = .;
-   .data.percpu  : { *(.data.percpu) }
-   __per_cpu_end = .;
-+
-+  DATA_PER_NET
-+
-   . = ALIGN(8192);
-   __init_end = .;
-   __bss_start = .;
-diff --git a/arch/v850/kernel/vmlinux.lds.S b/arch/v850/kernel/vmlinux.lds.S
-index 3a5fd07..b87a4cb 100644
---- a/arch/v850/kernel/vmlinux.lds.S
-+++ b/arch/v850/kernel/vmlinux.lds.S
-@@ -163,7 +163,8 @@
- 			*(.text.init)	/* 2.4 convention */		      \
- 			*(.data.init)					      \
- 		INITCALL_CONTENTS					      \
--		INITRAMFS_CONTENTS
-+		INITRAMFS_CONTENTS					      \
-+		DATA_PER_NET
- 
- /* The contents of `init' section for a ROM-resident kernel which
-    should go into RAM.  */	
-@@ -183,7 +184,8 @@
- 			_einittext = .;					      \
- 			*(.text.init)	/* 2.4 convention */		      \
- 		INITCALL_CONTENTS					      \
--		INITRAMFS_CONTENTS
-+		INITRAMFS_CONTENTS					      \
-+		DATA_PER_NET
- 
- /* A root filesystem image, for kernels with an embedded root filesystem.  */
- #define ROOT_FS_CONTENTS						      \
-diff --git a/arch/x86_64/kernel/vmlinux.lds.S b/arch/x86_64/kernel/vmlinux.lds.S
-index 1e54ddf..38061b2 100644
---- a/arch/x86_64/kernel/vmlinux.lds.S
-+++ b/arch/x86_64/kernel/vmlinux.lds.S
-@@ -200,6 +200,9 @@ SECTIONS
-   __per_cpu_start = .;
-   .data.percpu  : AT(ADDR(.data.percpu) - LOAD_OFFSET) { *(.data.percpu) }
-   __per_cpu_end = .;
-+
-+  DATA_PER_NET
-+
-   . = ALIGN(4096);
-   __init_end = .;
- 
-diff --git a/arch/xtensa/kernel/vmlinux.lds.S b/arch/xtensa/kernel/vmlinux.lds.S
-index a36c104..e77ed43 100644
---- a/arch/xtensa/kernel/vmlinux.lds.S
-+++ b/arch/xtensa/kernel/vmlinux.lds.S
-@@ -203,6 +203,8 @@ SECTIONS
-   .data.percpu  : { *(.data.percpu) }
-   __per_cpu_end = .;
- 
-+  DATA_PER_NET
-+
-   . = ALIGN(4096);
-   __initramfs_start =.;
-   .init.ramfs : { *(.init.ramfs) }
-diff --git a/include/asm-generic/vmlinux.lds.h b/include/asm-generic/vmlinux.lds.h
-index 9fcc8d9..298ed43 100644
---- a/include/asm-generic/vmlinux.lds.h
-+++ b/include/asm-generic/vmlinux.lds.h
-@@ -229,3 +229,11 @@
-   	*(.initcall7.init)						\
-   	*(.initcall7s.init)
- 
-+#define DATA_PER_NET							\
-+	.data.pernet : AT(ADDR(.data.pernet) - LOAD_OFFSET) {		\
-+		VMLINUX_SYMBOL(__per_net_start) = .;			\
-+		*(.data.pernet.head)					\
-+		*(.data.pernet)						\
-+		VMLINUX_SYMBOL(__per_net_end) = .;			\
-+	}
-+
-diff --git a/include/asm-um/common.lds.S b/include/asm-um/common.lds.S
-index f045451..1208960 100644
---- a/include/asm-um/common.lds.S
-+++ b/include/asm-um/common.lds.S
-@@ -39,7 +39,9 @@
-   __per_cpu_start = . ; 
-   .data.percpu : { *(.data.percpu) }
-   __per_cpu_end = . ;
--	
-+
-+  DATA_PER_NET
-+
-   __initcall_start = .;
-   .initcall.init : {
- 	INITCALLS
-diff --git a/include/linux/module.h b/include/linux/module.h
-index 10f771a..755f1b5 100644
---- a/include/linux/module.h
-+++ b/include/linux/module.h
-@@ -353,6 +353,9 @@ struct module
- 	/* Per-cpu data. */
- 	void *percpu;
- 
-+	/* Per-net data. */
-+	void *pernet;
-+
- 	/* The command line arguments (may be mangled).  People like
- 	   keeping pointers to this stuff */
- 	char *args;
-diff --git a/include/linux/net_namespace_type.h b/include/linux/net_namespace_type.h
-index 8173f59..5075199 100644
---- a/include/linux/net_namespace_type.h
-+++ b/include/linux/net_namespace_type.h
-@@ -7,14 +7,70 @@
- 
- #define __pernetname(name) per_net__##name
- 
-+#ifdef CONFIG_NET_NS
-+
-+typedef struct {
-+	unsigned long offset;
-+} net_t;
-+
-+#define __data_pernet __attribute__((__section__(".data.pernet")))
-+
-+static inline unsigned long __per_net_offset(net_t net) { return net.offset; }
-+
-+/* Like per_net but returns a pseudo variable address that must be offset
-+ * __per_net_offset() bytes before it will point to a real variable.
-+ * Useful for static initializers.
-+ */
-+#define __per_net_base(name)   __pernetname(name)
-+
-+/* Get the network namespace reference from a per_net variable address */
-+#define net_of(ptr, name)						\
-+({									\
-+	net_t net = { .offset = 0 };					\
-+	char *__ptr = (void *)(ptr);					\
-+	if (__ptr)							\
-+		net.offset = __ptr - ((char *)&__per_net_base(name));	\
-+	net;								\
-+})
-+
-+/* Look up a per network namespace variable */
-+#define per_net(var, net) (*(					\
-+	RELOC_HIDE(&__per_net_base(var), __per_net_offset(net))))
-+
-+/* A more efficient form if gcc doesn't overoptimize it */
-+#ifndef per_net
-+#define per_net(var, net) (*(					\
-+	(typeof(__pernetname(var)) *)				\
-+	(((char *)&__per_net_base(var)) + __per_net_offset(net))))
-+#endif
-+
-+
-+/* Are the two network namespaces the same */
-+static inline int net_eq(net_t a, net_t b) { return a.offset == b.offset; }
-+
-+/* Get an unsigned value appropriate for hashing the network namespace */
-+static inline unsigned int net_hval(net_t net) { return net.offset; }
-+
-+/* Convert to and from to and from void pointers */
-+static inline void *net_to_voidp(net_t net) { return (void *)net.offset; }
-+static inline net_t net_from_voidp(void *ptr)
-+{
-+	net_t r;
-+	r.offset = (unsigned long)ptr;
-+	return r;
-+}
-+
-+static inline int null_net(net_t net) { return net.offset == 0; }
-+
-+#else /* CONFIG_NET_NS */
-+
- typedef struct {} net_t;
- 
- #define __data_pernet 
- 
--/* Look up a per network namespace variable */
- static inline unsigned long __per_net_offset(net_t net) { return 0; }
- 
--/* Like per_net but returns a pseudo variable address that must be moved
-+/* Like per_net but returns a pseudo variable address that must be offset
-  * __per_net_offset() bytes before it will point to a real variable.
-  * Useful for static initializers.
+ #define NECODES 5
+@@ -108,11 +109,15 @@ aoenet_xmit(struct sk_buff *sl)
+  * (1) len doesn't include the header by default.  I want this. 
   */
-@@ -38,6 +94,9 @@ static inline net_t net_from_voidp(void *ptr) { net_t net; return net; }
+ static int
+-aoenet_rcv(struct sk_buff *skb, struct net_device *ifp, struct packet_type *pt, struct net_device *orig_dev)
++aoenet_rcv(struct sk_buff *skb, struct packet_type *pt, struct net_device *orig_dev)
+ {
++	struct net_device *ifp = skb->dev;
+ 	struct aoe_hdr *h;
+ 	u32 n;
  
- static inline int null_net(net_t net) { return 0; }
- 
-+#endif /* CONFIG_NET_NS */
++	if (!net_eq(skb->dev->nd_net, init_net()))
++		goto exit;
 +
-+
- #define DEFINE_PER_NET(type, name) 			\
- 	__data_pernet __typeof__(type) __pernetname(name)
+ 	skb = skb_share_check(skb, GFP_ATOMIC);
+ 	if (skb == NULL)
+ 		return 0;
+diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+index 3fb354d..eea4f11 100644
+--- a/drivers/net/bonding/bond_3ad.c
++++ b/drivers/net/bonding/bond_3ad.c
+@@ -29,6 +29,7 @@
+ #include <linux/ethtool.h>
+ #include <linux/if_bonding.h>
+ #include <linux/pkt_sched.h>
++#include <net/net_namespace.h>
+ #include "bonding.h"
+ #include "bond_3ad.h"
  
-diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
-index b64568f..a2042ac 100644
---- a/include/net/net_namespace.h
-+++ b/include/net/net_namespace.h
-@@ -24,7 +24,8 @@ struct net_namespace_head {
- 				 * should go 
- 				 */
- 	atomic_t use_count;	/* For references we destroy on demand */
--	struct list_head list;
-+	net_t next;
-+	net_t prev;
- 	struct work_struct work;
- };
- 
-@@ -34,6 +35,50 @@ static inline net_t init_net(void)
- 	return init_nsproxy.net_ns;
+@@ -2443,12 +2444,16 @@ out:
+ 	return 0;
  }
  
-+#ifdef CONFIG_NET_NS
-+
-+DECLARE_PER_NET(struct net_namespace_head, net_head);
-+
-+extern void pernet_modcopy(void *, const void *, unsigned long);
-+extern int copy_net(int, struct task_struct *);
-+extern void __put_net(net_t net);
-+
-+static inline net_t get_net(net_t net)
-+{
-+	atomic_inc(&per_net(net_head, net).count);
-+	return net;
-+}
-+
-+static inline void put_net(net_t net)
-+{
-+	if (atomic_dec_and_test(&per_net(net_head, net).count))
-+		__put_net(net);
-+}
-+
-+static inline net_t hold_net(net_t net)
-+{
-+	atomic_inc(&per_net(net_head, net).use_count);
-+	return net;
-+}
-+
-+static inline void release_net(net_t net)
-+{
-+	atomic_dec(&per_net(net_head, net).use_count);
-+}
-+
-+/* Created by linker magic */
-+extern char __per_net_start[], __per_net_end[];
-+
-+extern void net_lock(void);
-+extern void net_unlock(void);
-+
-+#define for_each_net(VAR)				\
-+	for ( (VAR) = init_net(); !null_net((VAR));	\
-+		(VAR) = per_net(net_head, (VAR)).next)
-+
-+
-+#else /* CONFIG_NET_NS */
-+
- static inline net_t get_net(net_t net) { return net; }
- static inline void put_net(net_t net) {}
- static inline net_t hold_net(net_t net) { return net; }
-@@ -50,6 +95,8 @@ static inline void net_unlock(void) {}
+-int bond_3ad_lacpdu_recv(struct sk_buff *skb, struct net_device *dev, struct packet_type* ptype, struct net_device *orig_dev)
++int bond_3ad_lacpdu_recv(struct sk_buff *skb, struct packet_type* ptype, struct net_device *orig_dev)
+ {
++	struct net_device *dev = skb->dev;
+ 	struct bonding *bond = dev->priv;
+ 	struct slave *slave = NULL;
+ 	int ret = NET_RX_DROP;
  
- #define for_each_net(VAR) if (1)
- 
-+#endif /* CONFIG_NET_NS */
++	if (!net_eq(skb->dev->nd_net, init_net()))
++		goto out;
 +
- extern net_t net_template;
+ 	if (!(dev->flags & IFF_MASTER))
+ 		goto out;
  
- #define NET_CREATE	0x0001	/* A network namespace has been created */
-diff --git a/kernel/module.c b/kernel/module.c
-index d0f2260..6f45090 100644
---- a/kernel/module.c
-+++ b/kernel/module.c
-@@ -44,6 +44,7 @@
- #include <asm/semaphore.h>
- #include <asm/cacheflush.h>
- #include <linux/license.h>
+diff --git a/drivers/net/bonding/bond_3ad.h b/drivers/net/bonding/bond_3ad.h
+index 6ad5ad6..1f2d7d2 100644
+--- a/drivers/net/bonding/bond_3ad.h
++++ b/drivers/net/bonding/bond_3ad.h
+@@ -282,7 +282,7 @@ void bond_3ad_adapter_duplex_changed(struct slave *slave);
+ void bond_3ad_handle_link_change(struct slave *slave, char link);
+ int  bond_3ad_get_active_agg_info(struct bonding *bond, struct ad_info *ad_info);
+ int bond_3ad_xmit_xor(struct sk_buff *skb, struct net_device *dev);
+-int bond_3ad_lacpdu_recv(struct sk_buff *skb, struct net_device *dev, struct packet_type* ptype, struct net_device *orig_dev);
++int bond_3ad_lacpdu_recv(struct sk_buff *skb, struct packet_type* ptype, struct net_device *orig_dev);
+ int bond_3ad_set_carrier(struct bonding *bond);
+ #endif //__BOND_3AD_H__
+ 
+diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+index 3292316..be780a8 100644
+--- a/drivers/net/bonding/bond_alb.c
++++ b/drivers/net/bonding/bond_alb.c
+@@ -336,12 +336,16 @@ static void rlb_update_entry_from_arp(struct bonding *bond, struct arp_pkt *arp)
+ 	_unlock_rx_hashtbl(bond);
+ }
+ 
+-static int rlb_arp_recv(struct sk_buff *skb, struct net_device *bond_dev, struct packet_type *ptype, struct net_device *orig_dev)
++static int rlb_arp_recv(struct sk_buff *skb, struct packet_type *ptype, struct net_device *orig_dev)
+ {
++	struct net_device *bond_dev = skb->dev;
+ 	struct bonding *bond = bond_dev->priv;
+ 	struct arp_pkt *arp = (struct arp_pkt *)skb->data;
+ 	int res = NET_RX_DROP;
+ 
++	if (!net_eq(skb->dev->nd_net, init_net()))
++		goto out;
++
+ 	if (!(bond_dev->flags & IFF_MASTER))
+ 		goto out;
+ 
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 9b3bf4e..9c70568 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -2475,14 +2475,18 @@ static void bond_validate_arp(struct bonding *bond, struct slave *slave, u32 sip
+ 	}
+ }
+ 
+-static int bond_arp_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt, struct net_device *orig_dev)
++static int bond_arp_rcv(struct sk_buff *skb, struct packet_type *pt, struct net_device *orig_dev)
+ {
++	struct net_device *dev = skb->dev;
+ 	struct arphdr *arp;
+ 	struct slave *slave;
+ 	struct bonding *bond;
+ 	unsigned char *arp_ptr;
+ 	u32 sip, tip;
+ 
++	if (!net_eq(skb->dev->nd_net, init_net()))
++		goto out;
++
+ 	if (!(dev->priv_flags & IFF_BONDING) || !(dev->flags & IFF_MASTER))
+ 		goto out;
+ 
+diff --git a/drivers/net/hamradio/bpqether.c b/drivers/net/hamradio/bpqether.c
+index 9fc92ad..c513e90 100644
+--- a/drivers/net/hamradio/bpqether.c
++++ b/drivers/net/hamradio/bpqether.c
+@@ -93,7 +93,7 @@ static char bcast_addr[6]={0xFF,0xFF,0xFF,0xFF,0xFF,0xFF};
+ 
+ static char bpq_eth_addr[6];
+ 
+-static int bpq_rcv(struct sk_buff *, struct net_device *, struct packet_type *, struct net_device *);
++static int bpq_rcv(struct sk_buff *, struct packet_type *, struct net_device *);
+ static int bpq_device_event(struct notifier_block *, unsigned long, void *);
+ static const char *bpq_print_ethaddr(const unsigned char *);
+ 
+@@ -166,13 +166,17 @@ static inline int dev_is_ethdev(struct net_device *dev)
+ /*
+  *	Receive an AX.25 frame via an ethernet interface.
+  */
+-static int bpq_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *ptype, struct net_device *orig_dev)
++static int bpq_rcv(struct sk_buff *skb, struct packet_type *ptype, struct net_device *orig_dev)
+ {
++	struct net_device *dev = skb->dev;
+ 	int len;
+ 	char * ptr;
+ 	struct ethhdr *eth;
+ 	struct bpqdev *bpq;
+ 
++	if (!net_eq(skb->dev->nd_net, init_net()))
++		goto drop;
++
+ 	if ((skb = skb_share_check(skb, GFP_ATOMIC)) == NULL)
+ 		return NET_RX_DROP;
+ 
+diff --git a/drivers/net/pppoe.c b/drivers/net/pppoe.c
+index d09334d..caf8ca3 100644
+--- a/drivers/net/pppoe.c
++++ b/drivers/net/pppoe.c
+@@ -376,7 +376,6 @@ abort_kfree:
+  *
+  ***********************************************************************/
+ static int pppoe_rcv(struct sk_buff *skb,
+-		     struct net_device *dev,
+ 		     struct packet_type *pt,
+ 		     struct net_device *orig_dev)
+ 
+@@ -384,6 +383,9 @@ static int pppoe_rcv(struct sk_buff *skb,
+ 	struct pppoe_hdr *ph;
+ 	struct pppox_sock *po;
+ 
++	if (!net_eq(skb->dev->nd_net, init_net()))
++		goto drop;
++
+ 	if (!pskb_may_pull(skb, sizeof(struct pppoe_hdr)))
+ 		goto drop;
+ 
+@@ -408,7 +410,6 @@ out:
+  *
+  ***********************************************************************/
+ static int pppoe_disc_rcv(struct sk_buff *skb,
+-			  struct net_device *dev,
+ 			  struct packet_type *pt,
+ 			  struct net_device *orig_dev)
+ 
+@@ -416,6 +417,9 @@ static int pppoe_disc_rcv(struct sk_buff *skb,
+ 	struct pppoe_hdr *ph;
+ 	struct pppox_sock *po;
+ 
++	if (!net_eq(skb->dev->nd_net, init_net()))
++		goto abort;
++
+ 	if (!pskb_may_pull(skb, sizeof(struct pppoe_hdr)))
+ 		goto abort;
+ 
+diff --git a/drivers/net/wan/hdlc.c b/drivers/net/wan/hdlc.c
+index db354e0..f3bf160 100644
+--- a/drivers/net/wan/hdlc.c
++++ b/drivers/net/wan/hdlc.c
+@@ -36,6 +36,7 @@
+ #include <linux/rtnetlink.h>
+ #include <linux/notifier.h>
+ #include <linux/hdlc.h>
 +#include <net/net_namespace.h>
  
- #if 0
- #define DEBUGP printk
-@@ -304,7 +305,7 @@ static unsigned int pcpu_num_used, pcpu_num_allocated;
- /* Size of each block.  -ve means used. */
- static int *pcpu_size;
  
--static int split_block(unsigned int i, unsigned short size)
-+static int pcpu_split_block(unsigned int i, unsigned short size)
+ static const char* version = "HDLC support module revision 1.20";
+@@ -62,10 +63,17 @@ static struct net_device_stats *hdlc_get_stats(struct net_device *dev)
+ 
+ 
+ 
+-static int hdlc_rcv(struct sk_buff *skb, struct net_device *dev,
++static int hdlc_rcv(struct sk_buff *skb,
+ 		    struct packet_type *p, struct net_device *orig_dev)
  {
- 	/* Reallocation required? */
- 	if (pcpu_num_used + 1 > pcpu_num_allocated) {
-@@ -329,7 +330,7 @@ static int split_block(unsigned int i, unsigned short size)
- 	return 1;
++	struct net_device *dev = skb->dev;
+ 	struct hdlc_device_desc *desc = dev_to_desc(dev);
++
++	if (!net_eq(skb->dev->nd_net, init_net())) {
++		kfree_skb(skb);
++		return 0;
++	}
++
+ 	if (desc->netif_rx)
+ 		return desc->netif_rx(skb);
+ 
+diff --git a/drivers/net/wan/lapbether.c b/drivers/net/wan/lapbether.c
+index 6c302e9..c1de21e 100644
+--- a/drivers/net/wan/lapbether.c
++++ b/drivers/net/wan/lapbether.c
+@@ -86,11 +86,15 @@ static __inline__ int dev_is_ethdev(struct net_device *dev)
+ /*
+  *	Receive a LAPB frame via an ethernet interface.
+  */
+-static int lapbeth_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *ptype, struct net_device *orig_dev)
++static int lapbeth_rcv(struct sk_buff *skb, struct packet_type *ptype, struct net_device *orig_dev)
+ {
++	struct net_device *dev = skb->dev;
+ 	int len, err;
+ 	struct lapbethdev *lapbeth;
+ 
++	if (!net_eq(skb->dev->nd_net, init_net()))
++		goto drop;
++
+ 	if ((skb = skb_share_check(skb, GFP_ATOMIC)) == NULL)
+ 		return NET_RX_DROP;
+ 
+diff --git a/drivers/net/wan/syncppp.c b/drivers/net/wan/syncppp.c
+index 218f7b5..25137fc 100644
+--- a/drivers/net/wan/syncppp.c
++++ b/drivers/net/wan/syncppp.c
+@@ -51,6 +51,7 @@
+ #include <linux/spinlock.h>
+ #include <linux/rcupdate.h>
+ 
++#include <net/net_namespace.h>
+ #include <net/syncppp.h>
+ 
+ #include <asm/byteorder.h>
+@@ -220,13 +221,13 @@ static void sppp_clear_timeout(struct sppp *p)
+  *	here.
+  */
+  
+-static void sppp_input (struct net_device *dev, struct sk_buff *skb)
++static void sppp_input (struct sk_buff *skb)
+ {
++	struct net_device *dev = skb->dev;
+ 	struct ppp_header *h;
+ 	struct sppp *sp = (struct sppp *)sppp_of(dev);
+ 	unsigned long flags;
+ 
+-	skb->dev=dev;
+ 	skb->mac.raw=skb->data;
+ 
+ 	if (dev->flags & IFF_RUNNING)
+@@ -1443,11 +1444,16 @@ static void sppp_print_bytes (u_char *p, u16 len)
+  *	after interrupt servicing to process frames queued via netif_rx.
+  */
+ 
+-static int sppp_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *p, struct net_device *orig_dev)
++static int sppp_rcv(struct sk_buff *skb, struct packet_type *p, struct net_device *orig_dev)
+ {
++	if (!net_eq(skb->dev->nd_net, init_net())) {
++		kfree_skb(skb);
++		return 0;
++	}
++
+ 	if ((skb = skb_share_check(skb, GFP_ATOMIC)) == NULL)
+ 		return NET_RX_DROP;
+-	sppp_input(dev,skb);
++	sppp_input(skb);
+ 	return 0;
  }
  
--static inline unsigned int block_size(int val)
-+static inline unsigned int pcpu_block_size(int val)
- {
- 	if (val < 0)
- 		return -val;
-@@ -353,7 +354,7 @@ static void *percpu_modalloc(unsigned long size, unsigned long align,
- 	}
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 6a1579d..9e28671 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -558,7 +558,6 @@ struct packet_type {
+ 	__be16			type;	/* This is really htons(ether_type). */
+ 	struct net_device	*dev;	/* NULL is wildcarded here	     */
+ 	int			(*func) (struct sk_buff *,
+-					 struct net_device *,
+ 					 struct packet_type *,
+ 					 struct net_device *);
+ 	struct sk_buff		*(*gso_segment)(struct sk_buff *skb,
+diff --git a/include/net/ax25.h b/include/net/ax25.h
+index 5ae10dd..a2ad59a 100644
+--- a/include/net/ax25.h
++++ b/include/net/ax25.h
+@@ -360,7 +360,7 @@ extern int  ax25_protocol_is_registered(unsigned int);
  
- 	ptr = __per_cpu_start;
--	for (i = 0; i < pcpu_num_used; ptr += block_size(pcpu_size[i]), i++) {
-+	for (i = 0; i < pcpu_num_used; ptr += pcpu_block_size(pcpu_size[i]), i++) {
- 		/* Extra for alignment requirement. */
- 		extra = ALIGN((unsigned long)ptr, align) - (unsigned long)ptr;
- 		BUG_ON(i == 0 && extra != 0);
-@@ -371,7 +372,7 @@ static void *percpu_modalloc(unsigned long size, unsigned long align,
+ /* ax25_in.c */
+ extern int  ax25_rx_iframe(ax25_cb *, struct sk_buff *);
+-extern int  ax25_kiss_rcv(struct sk_buff *, struct net_device *, struct packet_type *, struct net_device *);
++extern int  ax25_kiss_rcv(struct sk_buff *, struct packet_type *, struct net_device *);
  
- 		/* Split block if warranted */
- 		if (pcpu_size[i] - size > sizeof(unsigned long))
--			if (!split_block(i, size))
-+			if (!pcpu_split_block(i, size))
- 				return NULL;
+ /* ax25_ip.c */
+ extern int  ax25_hard_header(struct sk_buff *, struct net_device *, unsigned short, void *, void *, unsigned int);
+diff --git a/include/net/datalink.h b/include/net/datalink.h
+index deb7ca7..133d55e 100644
+--- a/include/net/datalink.h
++++ b/include/net/datalink.h
+@@ -8,7 +8,7 @@ struct datalink_proto {
  
- 		/* Mark allocated */
-@@ -387,10 +388,10 @@ static void *percpu_modalloc(unsigned long size, unsigned long align,
- static void percpu_modfree(void *freeme)
- {
- 	unsigned int i;
--	void *ptr = __per_cpu_start + block_size(pcpu_size[0]);
-+	void *ptr = __per_cpu_start + pcpu_block_size(pcpu_size[0]);
+         unsigned short  header_length;
  
- 	/* First entry is core kernel percpu data. */
--	for (i = 1; i < pcpu_num_used; ptr += block_size(pcpu_size[i]), i++) {
-+	for (i = 1; i < pcpu_num_used; ptr += pcpu_block_size(pcpu_size[i]), i++) {
- 		if (ptr == freeme) {
- 			pcpu_size[i] = -pcpu_size[i];
- 			goto free;
-@@ -465,6 +466,169 @@ static inline void percpu_modcopy(void *pcpudst, const void *src,
- }
- #endif /* CONFIG_SMP */
+-        int     (*rcvfunc)(struct sk_buff *, struct net_device *,
++        int     (*rcvfunc)(struct sk_buff *,
+                                 struct packet_type *, struct net_device *);
+ 	int     (*request)(struct datalink_proto *, struct sk_buff *,
+                                         unsigned char *);
+diff --git a/include/net/ip.h b/include/net/ip.h
+index 053f02b..c0c0dfd 100644
+--- a/include/net/ip.h
++++ b/include/net/ip.h
+@@ -88,7 +88,7 @@ extern int		igmp_mc_proc_init(void);
+ extern int		ip_build_and_send_pkt(struct sk_buff *skb, struct sock *sk,
+ 					      __be32 saddr, __be32 daddr,
+ 					      struct ip_options *opt);
+-extern int		ip_rcv(struct sk_buff *skb, struct net_device *dev,
++extern int		ip_rcv(struct sk_buff *skb,
+ 			       struct packet_type *pt, struct net_device *orig_dev);
+ extern int		ip_local_deliver(struct sk_buff *skb);
+ extern int		ip_mr_input(struct sk_buff *skb);
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+index 00328b7..0b1d1a9 100644
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -438,7 +438,6 @@ static inline int ipv6_addr_diff(const struct in6_addr *a1, const struct in6_add
+  */
  
-+#ifdef CONFIG_NET_NS
-+/* Number of blocks used and allocated. */
-+static unsigned int pnet_num_used, pnet_num_allocated;
-+/* Size of each block.  -ve means used. */
-+static int *pnet_size;
-+
-+static int pnet_split_block(unsigned int i, unsigned short size)
-+{
-+	/* Reallocation required? */
-+	if (pnet_num_used + 1 > pnet_num_allocated) {
-+		int *new = kmalloc(sizeof(new[0]) * pnet_num_allocated*2,
-+				   GFP_KERNEL);
-+		if (!new)
-+			return 0;
-+
-+		memcpy(new, pnet_size, sizeof(new[0])*pnet_num_allocated);
-+		pnet_num_allocated *= 2;
-+		kfree(pnet_size);
-+		pnet_size = new;
-+	}
-+
-+	/* Insert a new subblock */
-+	memmove(&pnet_size[i+1], &pnet_size[i],
-+		sizeof(pnet_size[0]) * (pnet_num_used - i));
-+	pnet_num_used++;
-+
-+	pnet_size[i+1] -= size;
-+	pnet_size[i] = size;
-+	return 1;
-+}
-+
-+static inline unsigned int pnet_block_size(int val)
-+{
-+	if (val < 0)
-+		return -val;
-+	return val;
-+}
-+
-+static void *pernet_modalloc(unsigned long size, unsigned long align,
-+			     const char *name)
-+{
-+	unsigned long extra;
-+	unsigned int i;
-+	void *ptr;
-+
-+	if (align > SMP_CACHE_BYTES) {
-+		printk(KERN_WARNING "%s: per-net alignment %li > %i\n",
-+		       name, align, SMP_CACHE_BYTES);
-+		align = SMP_CACHE_BYTES;
-+	}
-+
-+	ptr = __per_net_start;
-+	for (i = 0; i < pnet_num_used; ptr += pnet_block_size(pnet_size[i]), i++) {
-+		/* Extra for alignment requirement. */
-+		extra = ALIGN((unsigned long)ptr, align) - (unsigned long)ptr;
-+		BUG_ON(i == 0 && extra != 0);
-+
-+		if (pnet_size[i] < 0 || pnet_size[i] < extra + size)
-+			continue;
-+
-+		/* Transfer extra to previous block. */
-+		if (pnet_size[i-1] < 0)
-+			pnet_size[i-1] -= extra;
-+		else
-+			pnet_size[i-1] += extra;
-+		pnet_size[i] -= extra;
-+		ptr += extra;
-+
-+		/* Split block if warranted */
-+		if (pnet_size[i] - size > sizeof(unsigned long))
-+			if (!pnet_split_block(i, size))
-+				return NULL;
-+
-+		/* Mark allocated */
-+		pnet_size[i] = -pnet_size[i];
-+		return ptr;
-+	}
-+
-+	printk(KERN_WARNING "Could not allocate %lu bytes pernet data\n",
-+	       size);
-+	return NULL;
-+}
-+
-+static void pernet_modfree(void *freeme)
-+{
-+	unsigned int i;
-+	void *ptr = __per_net_start + pnet_block_size(pnet_size[0]);
-+
-+	/* First entry is core kernel pernet data. */
-+	for (i = 1; i < pnet_num_used; ptr += pnet_block_size(pnet_size[i]), i++) {
-+		if (ptr == freeme) {
-+			pnet_size[i] = -pnet_size[i];
-+			goto free;
-+		}
-+	}
-+	BUG();
-+
-+ free:
-+	/* Merge with previous? */
-+	if (pnet_size[i-1] >= 0) {
-+		pnet_size[i-1] += pnet_size[i];
-+		pnet_num_used--;
-+		memmove(&pnet_size[i], &pnet_size[i+1],
-+			(pnet_num_used - i) * sizeof(pnet_size[0]));
-+		i--;
-+	}
-+	/* Merge with next? */
-+	if (i+1 < pnet_num_used && pnet_size[i+1] >= 0) {
-+		pnet_size[i] += pnet_size[i+1];
-+		pnet_num_used--;
-+		memmove(&pnet_size[i+1], &pnet_size[i+2],
-+			(pnet_num_used - (i+1)) * sizeof(pnet_size[0]));
-+	}
-+}
-+
-+static unsigned int find_pnetsec(Elf_Ehdr *hdr,
-+				 Elf_Shdr *sechdrs,
-+				 const char *secstrings)
-+{
-+	return find_sec(hdr, sechdrs, secstrings, ".data.pernet");
-+}
-+
-+static int pernet_modinit(void)
-+{
-+	pnet_num_used = 2;
-+	pnet_num_allocated = 2;
-+	pnet_size = kmalloc(sizeof(pnet_size[0]) *pnet_num_allocated,
-+			    GFP_KERNEL);
-+	/* Static in-kernel pernet data (used). */
-+	pnet_size[0] = -ALIGN(__per_net_end-__per_net_start, SMP_CACHE_BYTES);
-+	/* Free room. */
-+	pnet_size[1] = PER_NET_MODULE_RESERVE;
-+	if (pnet_size[1] <= 0) {
-+		printk(KERN_ERR "No per-net room for modules.\n");
-+		pnet_num_used = 1 ;
-+	}
-+	return 0;
-+}
-+__initcall(pernet_modinit);
-+#else /* ... !CONFIG_NET_NS */
-+static inline void *pernet_modalloc(unsigned long size, unsigned long align,
-+				    const char *name)
-+{
-+	return NULL;
-+}
-+static inline void pernet_modfree(void *pnetptr)
-+{
-+	BUG();
-+}
-+static inline unsigned int find_pnetsec(Elf_Ehdr *hdr,
-+					Elf_Shdr *sechdrs,
-+					const char *secstrings)
-+{
-+	return 0;
-+}
-+static inline void pernet_modcopy(void *pnetdst, const void *src,
-+				  unsigned long size)
-+{
-+	/* pnetsec should be 0, and size of that section should be 0. */
-+	BUG_ON(size != 0);
-+}
-+#endif /* CONFIG_NET_NS */
-+
- #define MODINFO_ATTR(field)	\
- static void setup_modinfo_##field(struct module *mod, const char *s)  \
- {                                                                     \
-@@ -1198,6 +1362,8 @@ static void free_module(struct module *mod)
- 	/* This may be NULL, but that's OK */
- 	module_free(mod, mod->module_init);
- 	kfree(mod->args);
-+	if (mod->pernet)
-+		pernet_modfree(mod->pernet);
- 	if (mod->percpu)
- 		percpu_modfree(mod->percpu);
+ extern int			ipv6_rcv(struct sk_buff *skb, 
+-					 struct net_device *dev, 
+ 					 struct packet_type *pt,
+ 					 struct net_device *orig_dev);
  
-@@ -1263,6 +1429,7 @@ static int simplify_symbols(Elf_Shdr *sechdrs,
- 			    const char *strtab,
- 			    unsigned int versindex,
- 			    unsigned int pcpuindex,
-+			    unsigned int pnetindex,
- 			    struct module *mod)
- {
- 	Elf_Sym *sym = (void *)sechdrs[symindex].sh_addr;
-@@ -1308,6 +1475,9 @@ static int simplify_symbols(Elf_Shdr *sechdrs,
- 			/* Divert to percpu allocation if a percpu var. */
- 			if (sym[i].st_shndx == pcpuindex)
- 				secbase = (unsigned long)mod->percpu;
-+			/* Divert to pernet allocation if a pernet var. */
-+			else if (sym[i].st_shndx == pnetindex)
-+				secbase = (unsigned long)mod->pernet;
- 			else
- 				secbase = sechdrs[sym[i].st_shndx].sh_addr;
- 			sym[i].st_value += secbase;
-@@ -1554,6 +1724,7 @@ static struct module *load_module(void __user *umod,
- 	unsigned int gplcrcindex;
- 	unsigned int versindex;
- 	unsigned int pcpuindex;
-+	unsigned int pnetindex;
- 	unsigned int gplfutureindex;
- 	unsigned int gplfuturecrcindex;
- 	unsigned int unwindex = 0;
-@@ -1563,7 +1734,7 @@ static struct module *load_module(void __user *umod,
- 	unsigned int unusedgplcrcindex;
- 	struct module *mod;
- 	long err = 0;
--	void *percpu = NULL, *ptr = NULL; /* Stops spurious gcc warning */
-+	void *percpu = NULL, *pernet = NULL, *ptr = NULL; /* Stops spurious gcc warning */
- 	struct exception_table_entry *extable;
- 	mm_segment_t old_fs;
+diff --git a/include/net/llc.h b/include/net/llc.h
+index f502458..dae09b9 100644
+--- a/include/net/llc.h
++++ b/include/net/llc.h
+@@ -48,7 +48,6 @@ struct llc_sap {
+ 	unsigned char	 f_bit;
+ 	atomic_t         refcnt;
+ 	int		 (*rcv_func)(struct sk_buff *skb,
+-				     struct net_device *dev,
+ 				     struct packet_type *pt,
+ 				     struct net_device *orig_dev);
+ 	struct llc_addr	 laddr;
+@@ -67,7 +66,7 @@ extern struct list_head llc_sap_list;
+ extern rwlock_t llc_sap_list_lock;
+ extern unsigned char llc_station_mac_sa[ETH_ALEN];
  
-@@ -1654,6 +1825,7 @@ static struct module *load_module(void __user *umod,
- 	versindex = find_sec(hdr, sechdrs, secstrings, "__versions");
- 	infoindex = find_sec(hdr, sechdrs, secstrings, ".modinfo");
- 	pcpuindex = find_pcpusec(hdr, sechdrs, secstrings);
-+	pnetindex = find_pnetsec(hdr, sechdrs, secstrings);
- #ifdef ARCH_UNWIND_SECTION_NAME
- 	unwindex = find_sec(hdr, sechdrs, secstrings, ARCH_UNWIND_SECTION_NAME);
+-extern int llc_rcv(struct sk_buff *skb, struct net_device *dev,
++extern int llc_rcv(struct sk_buff *skb,
+ 		   struct packet_type *pt, struct net_device *orig_dev);
+ 
+ extern int llc_mac_hdr_init(struct sk_buff *skb,
+@@ -81,7 +80,6 @@ extern void llc_set_station_handler(void (*handler)(struct sk_buff *skb));
+ 
+ extern struct llc_sap *llc_sap_open(unsigned char lsap,
+ 				    int (*rcv)(struct sk_buff *skb,
+-					       struct net_device *dev,
+ 					       struct packet_type *pt,
+ 					       struct net_device *orig_dev));
+ static inline void llc_sap_hold(struct llc_sap *sap)
+diff --git a/include/net/p8022.h b/include/net/p8022.h
+index 42e9fac..545c15e 100644
+--- a/include/net/p8022.h
++++ b/include/net/p8022.h
+@@ -3,7 +3,6 @@
+ extern struct datalink_proto *
+ 	register_8022_client(unsigned char type,
+ 			     int (*func)(struct sk_buff *skb,
+-					 struct net_device *dev,
+ 					 struct packet_type *pt,
+ 					 struct net_device *orig_dev));
+ extern void unregister_8022_client(struct datalink_proto *proto);
+diff --git a/include/net/psnap.h b/include/net/psnap.h
+index b2e01cc..e935d50 100644
+--- a/include/net/psnap.h
++++ b/include/net/psnap.h
+@@ -1,7 +1,7 @@
+ #ifndef _NET_PSNAP_H
+ #define _NET_PSNAP_H
+ 
+-extern struct datalink_proto *register_snap_client(unsigned char *desc, int (*rcvfunc)(struct sk_buff *, struct net_device *, struct packet_type *, struct net_device *orig_dev));
++extern struct datalink_proto *register_snap_client(unsigned char *desc, int (*rcvfunc)(struct sk_buff *, struct packet_type *, struct net_device *orig_dev));
+ extern void unregister_snap_client(struct datalink_proto *proto);
+ 
  #endif
-@@ -1719,6 +1891,20 @@ static struct module *load_module(void __user *umod,
- 		mod->percpu = percpu;
- 	}
+diff --git a/include/net/x25.h b/include/net/x25.h
+index e47fe44..e3d4cfb 100644
+--- a/include/net/x25.h
++++ b/include/net/x25.h
+@@ -184,7 +184,7 @@ extern void x25_kill_by_neigh(struct x25_neigh *);
  
-+	if (pnetindex) {
-+		/* We have a special allocation for this section */
-+		pernet = pernet_modalloc(sechdrs[pnetindex].sh_size,
-+					 sechdrs[pnetindex].sh_addralign,
-+					 mod->name);
-+
-+		if (!pernet) {
-+			err = -ENOMEM;
-+			goto free_percpu;
-+		}
-+		sechdrs[pnetindex].sh_flags &= ~(unsigned long)SHF_ALLOC;
-+		mod->pernet = pernet;
+ /* x25_dev.c */
+ extern void x25_send_frame(struct sk_buff *, struct x25_neigh *);
+-extern int  x25_lapb_receive_frame(struct sk_buff *, struct net_device *, struct packet_type *, struct net_device *);
++extern int  x25_lapb_receive_frame(struct sk_buff *, struct packet_type *, struct net_device *);
+ extern void x25_establish_link(struct x25_neigh *);
+ extern void x25_terminate_link(struct x25_neigh *);
+ 
+diff --git a/net/802/p8022.c b/net/802/p8022.c
+index 2530f35..1c7022d 100644
+--- a/net/802/p8022.c
++++ b/net/802/p8022.c
+@@ -34,7 +34,6 @@ static int p8022_request(struct datalink_proto *dl, struct sk_buff *skb,
+ 
+ struct datalink_proto *register_8022_client(unsigned char type,
+ 					    int (*func)(struct sk_buff *skb,
+-							struct net_device *dev,
+ 							struct packet_type *pt,
+ 							struct net_device *orig_dev))
+ {
+diff --git a/net/802/psnap.c b/net/802/psnap.c
+index 270b9d2..59ac0c5 100644
+--- a/net/802/psnap.c
++++ b/net/802/psnap.c
+@@ -46,7 +46,7 @@ static struct datalink_proto *find_snap_client(unsigned char *desc)
+ /*
+  *	A SNAP packet has arrived
+  */
+-static int snap_rcv(struct sk_buff *skb, struct net_device *dev,
++static int snap_rcv(struct sk_buff *skb,
+ 		    struct packet_type *pt, struct net_device *orig_dev)
+ {
+ 	int rc = 1;
+@@ -61,7 +61,7 @@ static int snap_rcv(struct sk_buff *skb, struct net_device *dev,
+ 		/* Pass the frame on. */
+ 		skb->h.raw  += 5;
+ 		skb_pull_rcsum(skb, 5);
+-		rc = proto->rcvfunc(skb, dev, &snap_packet_type, orig_dev);
++		rc = proto->rcvfunc(skb, &snap_packet_type, orig_dev);
+ 	} else {
+ 		skb->sk = NULL;
+ 		kfree_skb(skb);
+@@ -117,7 +117,6 @@ module_exit(snap_exit);
+  */
+ struct datalink_proto *register_snap_client(unsigned char *desc,
+ 					    int (*rcvfunc)(struct sk_buff *,
+-						    	   struct net_device *,
+ 							   struct packet_type *,
+ 							   struct net_device *))
+ {
+diff --git a/net/8021q/vlan.h b/net/8021q/vlan.h
+index 9ae3a14..9207999 100644
+--- a/net/8021q/vlan.h
++++ b/net/8021q/vlan.h
+@@ -50,7 +50,7 @@ struct net_device *__find_vlan_dev(struct net_device* real_dev,
+ 
+ /* found in vlan_dev.c */
+ int vlan_dev_rebuild_header(struct sk_buff *skb);
+-int vlan_skb_recv(struct sk_buff *skb, struct net_device *dev,
++int vlan_skb_recv(struct sk_buff *skb,
+                   struct packet_type *ptype, struct net_device *orig_dev);
+ int vlan_dev_hard_header(struct sk_buff *skb, struct net_device *dev,
+                          unsigned short type, void *daddr, void *saddr,
+diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+index 60a508e..9fce3a8 100644
+--- a/net/8021q/vlan_dev.c
++++ b/net/8021q/vlan_dev.c
+@@ -112,9 +112,10 @@ static inline struct sk_buff *vlan_check_reorder_header(struct sk_buff *skb)
+  *                 been commented out now...  --Ben
+  *
+  */
+-int vlan_skb_recv(struct sk_buff *skb, struct net_device *dev,
++int vlan_skb_recv(struct sk_buff *skb, 
+                   struct packet_type* ptype, struct net_device *orig_dev)
+ {
++	struct net_device *dev = skb->dev;
+ 	unsigned char *rawp = NULL;
+ 	struct vlan_hdr *vhdr = (struct vlan_hdr *)(skb->data);
+ 	unsigned short vid;
+@@ -122,6 +123,11 @@ int vlan_skb_recv(struct sk_buff *skb, struct net_device *dev,
+ 	unsigned short vlan_TCI;
+ 	__be16 proto;
+ 
++	if (!net_eq(skb->dev->nd_net, init_net())) {
++		kfree_skb(skb);
++		return 0;
 +	}
 +
- 	/* Determine total sizes, and put offsets in sh_entsize.  For now
- 	   this is done generically; there doesn't appear to be any
- 	   special cases for the architectures. */
-@@ -1728,7 +1914,7 @@ static struct module *load_module(void __user *umod,
- 	ptr = module_alloc(mod->core_size);
- 	if (!ptr) {
- 		err = -ENOMEM;
--		goto free_percpu;
-+		goto free_pernet;
- 	}
- 	memset(ptr, 0, mod->core_size);
- 	mod->module_core = ptr;
-@@ -1781,7 +1967,7 @@ static struct module *load_module(void __user *umod,
+ 	/* vlan_TCI = ntohs(get_unaligned(&vhdr->h_vlan_TCI)); */
+ 	vlan_TCI = ntohs(vhdr->h_vlan_TCI);
  
- 	/* Fix up syms, so that st_value is a pointer to location. */
- 	err = simplify_symbols(sechdrs, symindex, strtab, versindex, pcpuindex,
--			       mod);
-+			       pnetindex, mod);
- 	if (err < 0)
- 		goto cleanup;
+diff --git a/net/appletalk/aarp.c b/net/appletalk/aarp.c
+index b51a010..85c4dbc 100644
+--- a/net/appletalk/aarp.c
++++ b/net/appletalk/aarp.c
+@@ -697,9 +697,10 @@ static void __aarp_resolved(struct aarp_entry **list, struct aarp_entry *a,
+  *	This is called by the SNAP driver whenever we see an AARP SNAP
+  *	frame. We currently only support Ethernet.
+  */
+-static int aarp_rcv(struct sk_buff *skb, struct net_device *dev,
++static int aarp_rcv(struct sk_buff *skb,
+ 		    struct packet_type *pt, struct net_device *orig_dev)
+ {
++	struct net_device *dev = skb->dev;
+ 	struct elapaarp *ea = aarp_hdr(skb);
+ 	int hash, ret = 0;
+ 	__u16 function;
+@@ -707,6 +708,9 @@ static int aarp_rcv(struct sk_buff *skb, struct net_device *dev,
+ 	struct atalk_addr sa, *ma, da;
+ 	struct atalk_iface *ifa;
  
-@@ -1860,6 +2046,10 @@ static struct module *load_module(void __user *umod,
- 	percpu_modcopy(mod->percpu, (void *)sechdrs[pcpuindex].sh_addr,
- 		       sechdrs[pcpuindex].sh_size);
- 
-+	/* Copy pernet area over. */
-+	pernet_modcopy(mod->pernet, (void *)sechdrs[pnetindex].sh_addr,
-+		       sechdrs[pnetindex].sh_size);
++	if (!net_eq(skb->dev->nd_net, init_net()))
++		goto out0;
 +
- 	add_kallsyms(mod, sechdrs, symindex, strindex, secstrings);
+ 	/* We only do Ethernet SNAP AARP. */
+ 	if (dev->type != ARPHRD_ETHER)
+ 		goto out0;
+diff --git a/net/appletalk/ddp.c b/net/appletalk/ddp.c
+index e08367b..f4ff8aa 100644
+--- a/net/appletalk/ddp.c
++++ b/net/appletalk/ddp.c
+@@ -1393,9 +1393,10 @@ free_it:
+  *	extracted. PPP should probably pass frames marked as for this layer.
+  *	[ie ARPHRD_ETHERTALK]
+  */
+-static int atalk_rcv(struct sk_buff *skb, struct net_device *dev,
++static int atalk_rcv(struct sk_buff *skb,
+ 		     struct packet_type *pt, struct net_device *orig_dev)
+ {
++	struct net_device *dev = skb->dev;
+ 	struct ddpehdr *ddp;
+ 	struct sock *sock;
+ 	struct atalk_iface *atif;
+@@ -1403,6 +1404,9 @@ static int atalk_rcv(struct sk_buff *skb, struct net_device *dev,
+         int origlen;
+ 	__u16 len_hops;
  
- 	err = module_finalize(hdr, sechdrs, mod);
-@@ -1924,6 +2114,9 @@ static struct module *load_module(void __user *umod,
-  cleanup:
- 	module_unload_free(mod);
- 	module_free(mod, mod->module_init);
-+ free_pernet:
-+	if (pernet)
-+		pernet_modfree(pernet);
-  free_core:
- 	module_free(mod, mod->module_core);
-  free_percpu:
-diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
-index 4ae266d..93e3879 100644
---- a/net/core/net_namespace.c
-+++ b/net/core/net_namespace.c
-@@ -1,4 +1,9 @@
-+#include <linux/workqueue.h>
- #include <linux/rtnetlink.h>
-+#include <linux/cache.h>
-+#include <linux/slab.h>
-+#include <linux/list.h>
-+#include <linux/delay.h>
- #include <net/net_namespace.h>
++	if (!net_eq(skb->dev->nd_net, init_net()))
++		goto freeit;
++
+ 	/* Don't mangle buffer if shared */
+ 	if (!(skb = skb_share_check(skb, GFP_ATOMIC))) 
+ 		goto out;
+@@ -1482,9 +1486,14 @@ freeit:
+  * Caller must provide enough headroom on the packet to pull the short
+  * header and append a long one.
+  */
+-static int ltalk_rcv(struct sk_buff *skb, struct net_device *dev,
++static int ltalk_rcv(struct sk_buff *skb,
+ 		     struct packet_type *pt, struct net_device *orig_dev)
+ {
++	struct net_device *dev = skb->dev;
++
++	if (!net_eq(skb->dev->nd_net, init_net()))
++		goto freeit;
++
+ 	/* Expand any short form frames */
+ 	if (skb->mac.raw[2] == 1) {
+ 		struct ddpehdr *ddp;
+@@ -1526,7 +1535,7 @@ static int ltalk_rcv(struct sk_buff *skb, struct net_device *dev,
+ 	}
+ 	skb->h.raw = skb->data;
+ 
+-	return atalk_rcv(skb, dev, pt, orig_dev);
++	return atalk_rcv(skb, pt, orig_dev);
+ freeit:
+ 	kfree_skb(skb);
+ 	return 0;
+diff --git a/net/ax25/ax25_in.c b/net/ax25/ax25_in.c
+index e9d9429..8c9b0dd 100644
+--- a/net/ax25/ax25_in.c
++++ b/net/ax25/ax25_in.c
+@@ -444,12 +444,18 @@ static int ax25_rcv(struct sk_buff *skb, struct net_device *dev,
+ /*
+  *	Receive an AX.25 frame via a SLIP interface.
+  */
+-int ax25_kiss_rcv(struct sk_buff *skb, struct net_device *dev,
++int ax25_kiss_rcv(struct sk_buff *skb,
+ 		  struct packet_type *ptype, struct net_device *orig_dev)
+ {
++	struct net_device *dev = skb->dev;
+ 	skb->sk = NULL;		/* Initially we don't know who it's for */
+ 	skb->destructor = NULL;	/* Who initializes this, dammit?! */
+ 
++	if (!net_eq(skb->dev->nd_net, init_net())) {
++		kfree_skb(skb);
++		return 0;
++	}
++
+ 	if ((*skb->data & 0x0F) != 0) {
+ 		kfree_skb(skb);	/* Not a KISS data frame */
+ 		return 0;
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index 3a534e9..f1712b9 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -223,7 +223,7 @@ extern void br_stp_set_path_cost(struct net_bridge_port *p,
+ extern ssize_t br_show_bridge_id(char *buf, const struct bridge_id *id);
+ 
+ /* br_stp_bpdu.c */
+-extern int br_stp_rcv(struct sk_buff *skb, struct net_device *dev,
++extern int br_stp_rcv(struct sk_buff *skb,
+ 		      struct packet_type *pt, struct net_device *orig_dev);
+ 
+ /* br_stp_timer.c */
+diff --git a/net/bridge/br_stp_bpdu.c b/net/bridge/br_stp_bpdu.c
+index 068d8af..7f9f8b4 100644
+--- a/net/bridge/br_stp_bpdu.c
++++ b/net/bridge/br_stp_bpdu.c
+@@ -17,6 +17,7 @@
+ #include <linux/netfilter_bridge.h>
+ #include <linux/etherdevice.h>
+ #include <linux/llc.h>
++#include <net/net_namespace.h>
+ #include <net/llc.h>
+ #include <net/llc_pdu.h>
+ #include <asm/unaligned.h>
+@@ -129,15 +130,18 @@ void br_send_tcn_bpdu(struct net_bridge_port *p)
+  *
+  * NO locks, but rcu_read_lock (preempt_disabled)
+  */
+-int br_stp_rcv(struct sk_buff *skb, struct net_device *dev,
++int br_stp_rcv(struct sk_buff *skb,
+ 	       struct packet_type *pt, struct net_device *orig_dev)
+ {
+ 	const struct llc_pdu_un *pdu = llc_pdu_un_hdr(skb);
+ 	const unsigned char *dest = eth_hdr(skb)->h_dest;
+-	struct net_bridge_port *p = rcu_dereference(dev->br_port);
++	struct net_bridge_port *p = rcu_dereference(skb->dev->br_port);
+ 	struct net_bridge *br;
+ 	const unsigned char *buf;
+ 
++	if (!net_eq(skb->dev->nd_net, init_net()))
++		goto err;
++
+ 	if (!p)
+ 		goto err;
+ 
+diff --git a/net/core/dev.c b/net/core/dev.c
+index a3ee150..d8aa534 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1094,7 +1094,7 @@ static void dev_queue_xmit_nit(struct sk_buff *skb, struct net_device *dev)
+ 
+ 			skb2->h.raw = skb2->nh.raw;
+ 			skb2->pkt_type = PACKET_OUTGOING;
+-			ptype->func(skb2, skb->dev, ptype, skb->dev);
++			ptype->func(skb2, ptype, skb->dev);
+ 		}
+ 	}
+ 	rcu_read_unlock();
+@@ -1693,7 +1693,7 @@ static __inline__ int deliver_skb(struct sk_buff *skb,
+ 				  struct net_device *orig_dev)
+ {
+ 	atomic_inc(&skb->users);
+-	return pt_prev->func(skb, skb->dev, pt_prev, orig_dev);
++	return pt_prev->func(skb, pt_prev, orig_dev);
+ }
+ 
+ #if defined(CONFIG_BRIDGE) || defined (CONFIG_BRIDGE_MODULE)
+@@ -1841,7 +1841,7 @@ ncls:
+ 	}
+ 
+ 	if (pt_prev) {
+-		ret = pt_prev->func(skb, skb->dev, pt_prev, orig_dev);
++		ret = pt_prev->func(skb, pt_prev, orig_dev);
+ 	} else {
+ 		kfree_skb(skb);
+ 		/* Jamal, now you will not able to escape explaining
+diff --git a/net/decnet/af_decnet.c b/net/decnet/af_decnet.c
+index f1553fa..5e8042f 100644
+--- a/net/decnet/af_decnet.c
++++ b/net/decnet/af_decnet.c
+@@ -2104,7 +2104,7 @@ static struct notifier_block dn_dev_notifier = {
+ 	.notifier_call = dn_device_event,
+ };
+ 
+-extern int dn_route_rcv(struct sk_buff *, struct net_device *, struct packet_type *, struct net_device *);
++extern int dn_route_rcv(struct sk_buff *, struct packet_type *, struct net_device *);
+ 
+ static struct packet_type dn_dix_packet_type = {
+ 	.type =		__constant_htons(ETH_P_DNA_RT),
+diff --git a/net/decnet/dn_route.c b/net/decnet/dn_route.c
+index 0d657eb..4263cd9 100644
+--- a/net/decnet/dn_route.c
++++ b/net/decnet/dn_route.c
+@@ -575,14 +575,18 @@ static int dn_route_ptp_hello(struct sk_buff *skb)
+ 	return NET_RX_SUCCESS;
+ }
+ 
+-int dn_route_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt, struct net_device *orig_dev)
++int dn_route_rcv(struct sk_buff *skb, struct packet_type *pt, struct net_device *orig_dev)
+ {
++	struct net_device *dev = skb->dev;
+ 	struct dn_skb_cb *cb;
+ 	unsigned char flags = 0;
+ 	__u16 len = dn_ntohs(*(__le16 *)skb->data);
+ 	struct dn_dev *dn = (struct dn_dev *)dev->dn_ptr;
+ 	unsigned char padlen = 0;
+ 
++	if (!net_eq(skb->dev->nd_net, init_net()))
++		goto dump_it;
++
+ 	if (dn == NULL)
+ 		goto dump_it;
+ 
+diff --git a/net/econet/af_econet.c b/net/econet/af_econet.c
+index a0b3fc5..0baffda 100644
+--- a/net/econet/af_econet.c
++++ b/net/econet/af_econet.c
+@@ -1057,12 +1057,16 @@ release:
+  *	Receive an Econet frame from a device.
+  */
+ 
+-static int econet_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt, struct net_device *orig_dev)
++static int econet_rcv(struct sk_buff *skb, struct packet_type *pt, struct net_device *orig_dev)
+ {
++	struct net_device *dev = skb->dev;
+ 	struct ec_framehdr *hdr;
+ 	struct sock *sk;
+ 	struct ec_device *edev = dev->ec_ptr;
+ 
++	if (!net_eq(skb->dev->nd_net, init_net()))
++		goto drop;
++
+ 	if (skb->pkt_type == PACKET_OTHERHOST)
+ 		goto drop;
+ 
+diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
+index e3b89a7..95a34c7 100644
+--- a/net/ipv4/arp.c
++++ b/net/ipv4/arp.c
+@@ -928,11 +928,15 @@ static void parp_redo(struct sk_buff *skb)
+  *	Receive an arp request from the device layer.
+  */
+ 
+-static int arp_rcv(struct sk_buff *skb, struct net_device *dev,
++static int arp_rcv(struct sk_buff *skb,
+ 		   struct packet_type *pt, struct net_device *orig_dev)
+ {
++	struct net_device *dev = skb->dev;
+ 	struct arphdr *arp;
+ 
++	if (!net_eq(skb->dev->nd_net, init_net()))
++		goto freeskb;
++
+ 	/* ARP header, plus 2 device addresses, plus 2 IP addresses.  */
+ 	if (!pskb_may_pull(skb, (sizeof(struct arphdr) +
+ 				 (2 * dev->addr_len) +
+diff --git a/net/ipv4/ip_input.c b/net/ipv4/ip_input.c
+index 212734c..77dddce 100644
+--- a/net/ipv4/ip_input.c
++++ b/net/ipv4/ip_input.c
+@@ -370,11 +370,14 @@ drop:
+ /*
+  * 	Main IP Receive routine.
+  */ 
+-int ip_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt, struct net_device *orig_dev)
++int ip_rcv(struct sk_buff *skb, struct packet_type *pt, struct net_device *orig_dev)
+ {
+ 	struct iphdr *iph;
+ 	u32 len;
+ 
++	if (!net_eq(skb->dev->nd_net, init_net()))
++		goto drop;
++
+ 	/* When the interface is in promisc. mode, drop all the crap
+ 	 * that it receives, do not try to analyse it.
+ 	 */
+@@ -431,7 +434,7 @@ int ip_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt,
+ 	/* Remove any debris in the socket control block */
+ 	memset(IPCB(skb), 0, sizeof(struct inet_skb_parm));
+ 
+-	return NF_HOOK(PF_INET, NF_IP_PRE_ROUTING, skb, dev, NULL,
++	return NF_HOOK(PF_INET, NF_IP_PRE_ROUTING, skb, skb->dev, NULL,
+ 		       ip_rcv_finish);
+ 
+ inhdr_error:
+diff --git a/net/ipv4/ipconfig.c b/net/ipv4/ipconfig.c
+index 8b649c5..91b5729 100644
+--- a/net/ipv4/ipconfig.c
++++ b/net/ipv4/ipconfig.c
+@@ -397,7 +397,7 @@ static int __init ic_defaults(void)
+ 
+ #ifdef IPCONFIG_RARP
+ 
+-static int ic_rarp_recv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt, struct net_device *orig_dev);
++static int ic_rarp_recv(struct sk_buff *skb, struct packet_type *pt, struct net_device *orig_dev);
+ 
+ static struct packet_type rarp_packet_type __initdata = {
+ 	.type =	__constant_htons(ETH_P_RARP),
+@@ -418,14 +418,18 @@ static inline void ic_rarp_cleanup(void)
+  *  Process received RARP packet.
+  */
+ static int __init
+-ic_rarp_recv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt, struct net_device *orig_dev)
++ic_rarp_recv(struct sk_buff *skb, struct packet_type *pt, struct net_device *orig_dev)
+ {
++	struct net_device *dev = skb->dev;
+ 	struct arphdr *rarp;
+ 	unsigned char *rarp_ptr;
+ 	__be32 sip, tip;
+ 	unsigned char *sha, *tha;		/* s for "source", t for "target" */
+ 	struct ic_device *d;
+ 
++	if (!net_eq(skb->dev->nd_net, init_net()))
++		goto drop;
++
+ 	if ((skb = skb_share_check(skb, GFP_ATOMIC)) == NULL)
+ 		return NET_RX_DROP;
+ 
+@@ -559,7 +563,7 @@ struct bootp_pkt {		/* BOOTP packet format */
+ #define DHCPRELEASE	7
+ #define DHCPINFORM	8
+ 
+-static int ic_bootp_recv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt, struct net_device *orig_dev);
++static int ic_bootp_recv(struct sk_buff *skb, struct packet_type *pt, struct net_device *orig_dev);
+ 
+ static struct packet_type bootp_packet_type __initdata = {
+ 	.type =	__constant_htons(ETH_P_IP),
+@@ -827,13 +831,17 @@ static void __init ic_do_bootp_ext(u8 *ext)
+ /*
+  *  Receive BOOTP reply.
+  */
+-static int __init ic_bootp_recv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt, struct net_device *orig_dev)
++static int __init ic_bootp_recv(struct sk_buff *skb, struct packet_type *pt, struct net_device *orig_dev)
+ {
++	struct net_device *dev = skb->dev;
+ 	struct bootp_pkt *b;
+ 	struct iphdr *h;
+ 	struct ic_device *d;
+ 	int len, ext_len;
+ 
++	if (!net_eq(skb->dev->nd_net, init_net()))
++		goto drop;
++
+ 	/* Perform verifications before taking the lock.  */
+ 	if (skb->pkt_type == PACKET_OTHERHOST)
+ 		goto drop;
+diff --git a/net/ipv6/ip6_input.c b/net/ipv6/ip6_input.c
+index ad0b8ab..ac366b9 100644
+--- a/net/ipv6/ip6_input.c
++++ b/net/ipv6/ip6_input.c
+@@ -56,12 +56,18 @@ inline int ip6_rcv_finish( struct sk_buff *skb)
+ 	return dst_input(skb);
+ }
+ 
+-int ipv6_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt, struct net_device *orig_dev)
++int ipv6_rcv(struct sk_buff *skb, struct packet_type *pt, struct net_device *orig_dev)
+ {
++	struct net_device *dev = skb->dev;
+ 	struct ipv6hdr *hdr;
+ 	u32 		pkt_len;
+ 	struct inet6_dev *idev;
+ 
++	if (!net_eq(skb->dev->nd_net, init_net())) {
++		kfree_skb(skb);
++		return 0;
++	}
++
+ 	if (skb->pkt_type == PACKET_OTHERHOST) {
+ 		kfree_skb(skb);
+ 		return 0;
+diff --git a/net/ipx/af_ipx.c b/net/ipx/af_ipx.c
+index 2ec4a3c..5c5f2cd 100644
+--- a/net/ipx/af_ipx.c
++++ b/net/ipx/af_ipx.c
+@@ -1637,14 +1637,18 @@ out:
+ 	return rc;
+ }
+ 
+-static int ipx_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt, struct net_device *orig_dev)
++static int ipx_rcv(struct sk_buff *skb, struct packet_type *pt, struct net_device *orig_dev)
+ {
++	struct net_device *dev = skb->dev;
+ 	/* NULL here for pt means the packet was looped back */
+ 	struct ipx_interface *intrfc;
+ 	struct ipxhdr *ipx;
+ 	u16 ipx_pktsize;
+ 	int rc = 0;
+ 		
++	if (!net_eq(skb->dev->nd_net, init_net()))
++		goto drop;
++
+ 	/* Not ours */	
+         if (skb->pkt_type == PACKET_OTHERHOST)
+         	goto drop;
+diff --git a/net/irda/irlap_frame.c b/net/irda/irlap_frame.c
+index dba349c..3252be7 100644
+--- a/net/irda/irlap_frame.c
++++ b/net/irda/irlap_frame.c
+@@ -1306,7 +1306,7 @@ static void irlap_recv_test_frame(struct irlap_cb *self, struct sk_buff *skb,
+  * LMP level in irlmp.c.
+  * Jean II
+  */
+-int irlap_driver_rcv(struct sk_buff *skb, struct net_device *dev,
++int irlap_driver_rcv(struct sk_buff *skb,
+ 		     struct packet_type *ptype, struct net_device *orig_dev)
+ {
+ 	struct irlap_info info;
+@@ -1314,8 +1314,11 @@ int irlap_driver_rcv(struct sk_buff *skb, struct net_device *dev,
+ 	int command;
+ 	__u8 control;
+ 
++	if (!net_eq(skb->dev->nd_net, init_net()))
++		goto out;
++
+ 	/* FIXME: should we get our own field? */
+-	self = (struct irlap_cb *) dev->atalk_ptr;
++	self = (struct irlap_cb *) skb->dev->atalk_ptr;
+ 
+ 	/* If the net device is down, then IrLAP is gone! */
+ 	if (!self || self->magic != LAP_MAGIC) {
+diff --git a/net/irda/irmod.c b/net/irda/irmod.c
+index 2869b16..6b1989c 100644
+--- a/net/irda/irmod.c
++++ b/net/irda/irmod.c
+@@ -52,7 +52,7 @@ extern void irda_sysctl_unregister(void);
+ extern int  irsock_init(void);
+ extern void irsock_cleanup(void);
+ /* irlap_frame.c */
+-extern int  irlap_driver_rcv(struct sk_buff *, struct net_device *, 
++extern int  irlap_driver_rcv(struct sk_buff *,
+ 			     struct packet_type *, struct net_device *);
  
  /*
-@@ -10,6 +15,233 @@ static struct list_head *first_device = &pernet_list;
- static DEFINE_MUTEX(net_mutex);
- net_t net_template;
- 
-+#ifdef CONFIG_NET_NS
-+
-+static DEFINE_MUTEX(net_list_mutex);
-+
-+static net_t net_tail;
-+static struct kmem_cache *net_cachep;
-+static size_t net_size;
-+
-+/* By using a special section for the first variable in the
-+ * per net sectionI get several advantages.
-+ * - I can align the entire network namespace structure easily
-+ *   to any desired alignment without needing an alignment directive
-+ *   in the linker script.  In the worst case the section will start
-+ *   with some padding I will never see.
-+ * - The code is C so I don't need linker script or header file tricks
-+ *   to make the alignment SMP_CACHE_BYTES
-+ * - I am guaranteed what the first structure in the network namespace is.
-+ *   This allows things like container_of to work and be useful.
-+ */
-+__attribute__((section(".data.pernet.head"), aligned(SMP_CACHE_BYTES)))
-+struct net_namespace_head __pernetname(net_head) = {
-+	.count = ATOMIC_INIT(1),
-+	.use_count = ATOMIC_INIT(0),
-+};
-+EXPORT_PER_NET_SYMBOL_GPL(net_head);
-+
-+void net_lock(void)
-+{
-+	mutex_lock(&net_list_mutex);
-+}
-+
-+void net_unlock(void)
-+{
-+	mutex_unlock(&net_list_mutex);
-+}
-+
-+static void net_list_remove(net_t net)
-+{
-+	net_t next, prev;
-+	BUG_ON(net_eq(net, init_net()));
-+
-+	next = per_net(net_head, net).next;
-+	prev = per_net(net_head, net).prev;
-+	
-+	per_net(net_head, prev).next = next;
-+	if (null_net(next)) {
-+		net_tail = prev;
-+	} else {
-+		per_net(net_head, next).prev = prev;
-+	}
-+}
-+
-+static void net_list_append(net_t net)
-+{
-+
-+	per_net(net_head, net_tail).next = net;
-+	per_net(net_head, net).prev = net_tail;
-+	net_tail = net;
-+}
-+
-+static net_t net_alloc(void)
-+{
-+	return net_of(kmem_cache_alloc(net_cachep, GFP_KERNEL), net_head);
-+}
-+
-+static void net_free(net_t net)
-+{
-+	struct net_namespace_head *head;
-+	if (null_net(net))
-+		return;
-+
-+	head = &per_net(net_head, net);
-+
-+	if (unlikely(atomic_read(&head->use_count) != 0)) {
-+		printk(KERN_EMERG "network namespace not free! Usage: %d\n",
-+			atomic_read(&head->use_count));
-+		return;
-+	}
-+
-+	kmem_cache_free(net_cachep, head);
-+}
-+
-+static void cleanup_net(struct work_struct *work)
-+{
-+	struct pernet_operations *ops;
-+	struct list_head *ptr;
-+	net_t net;
-+
-+	net = net_of(work, net_head.work);
-+
-+	mutex_lock(&net_mutex);
-+
-+	/* Don't let anyone else find us. */
-+	net_lock();
-+	net_list_remove(net);
-+	net_unlock();
-+
-+	/* Run all of the network namespace exit methods */
-+	list_for_each_prev(ptr, &pernet_list) {
-+		ops = list_entry(ptr, struct pernet_operations, list);
-+		if (ops->exit)
-+			ops->exit(net);
-+	}
-+
-+	mutex_unlock(&net_mutex);
-+
-+	/* Ensure there are no outstanding rcu callbacks using this 
-+	 * network namespace.
-+	 */
-+	rcu_barrier();
-+
-+	/* Finally it is safe to free my network namespace structure */
-+	net_free(net);
-+}
-+
-+
-+void __put_net(net_t net)
-+{
-+	/* Cleanup the network namespace in process context */
-+	INIT_WORK(&per_net(net_head, net).work, cleanup_net);
-+	schedule_work(&per_net(net_head, net).work);
-+}
-+EXPORT_SYMBOL_GPL(__put_net);
-+
-+/* 
-+ * setup_net runs the initializers for the network namespace object.
-+ */
-+static int setup_net(net_t net)
-+{
-+	/* Must be called with net_mutex held */
-+	struct pernet_operations *ops;
-+	struct list_head *ptr;
-+	int error;
-+
-+	/* First initialize the data from the template */
-+	memcpy(&per_net(net_head, net), &per_net(net_head, net_template), net_size);
-+
-+	error = 0;
-+	list_for_each(ptr, &pernet_list) {
-+		ops = list_entry(ptr, struct pernet_operations, list);
-+		if (ops->init) {
-+			error = ops->init(net);
-+			if (error < 0)
-+				goto out_undo;
-+		}
-+	}
-+out:
-+	return error;
-+out_undo:
-+	/* Walk through the list backwards calling the exit functions
-+	 * for the pernet modules whose init functions did not fail.
-+	 */
-+	for (ptr = ptr->prev; ptr != &pernet_list; ptr = ptr->prev) {
-+		ops = list_entry(ptr, struct pernet_operations, list);
-+		if (ops->exit)
-+			ops->exit(net);
-+	}
-+	goto out;
-+}
-+
-+void pernet_modcopy(void *pnetdst, const void *src, unsigned long size)
-+{
-+	net_t net;
-+
-+	mutex_lock(&net_mutex);
-+	memcpy(pnetdst + __per_net_offset(net_template), src, size);
-+	for_each_net(net)
-+		memcpy(pnetdst + __per_net_offset(net), src, size);
-+	mutex_unlock(&net_mutex);
-+}
-+
-+static int __init net_ns_init(void)
-+{
-+	size_t init_size;
-+	net_t init_net;
-+	int err;
-+
-+	/* Compute the size of the init section */
-+	init_size = __per_net_end - __per_net_start;
-+
-+	/* Compute how large my net namespace structure will be */
-+	net_size = ALIGN(init_size, SMP_CACHE_BYTES);
-+	net_size += PER_NET_MODULE_RESERVE;
-+	net_size = ALIGN(net_size, SMP_CACHE_BYTES);
-+
-+	printk(KERN_INFO "net_namespace: %zd bytes\n", net_size);
-+	net_cachep = kmem_cache_create("net_namespace", net_size,
-+					SMP_CACHE_BYTES,
-+					SLAB_PANIC, NULL, NULL);
-+
-+	/* Allocate my template */
-+	net_template = net_alloc();
-+	if (null_net(net_template))
-+		panic("Could not allocate network namespace template");
-+
-+	/* Initialize my template */
-+	memset(&per_net(net_head, net_template), '\0', net_size);
-+	memcpy(&per_net(net_head, net_template),
-+		&__pernetname(net_head),
-+		init_size);
-+
-+	/* Setup the initial network namespace */
-+	init_net = net_alloc();
-+	if (null_net(init_net))
-+		panic("Could not allocate initial network namespace");
-+
-+	mutex_lock(&net_mutex);
-+	err = setup_net(init_net);
-+
-+	net_lock();
-+	net_tail = init_net;
-+	net_unlock();
-+
-+	mutex_unlock(&net_mutex);
-+	if (err)
-+		panic("Could not setup the initial network namespace");
-+
-+	/* Initialze the init_nsproxy */
-+	init_nsproxy.net_ns = init_net;
-+
-+	return 0;
-+}
-+
-+pure_initcall(net_ns_init);
-+
-+#endif /* CONFIG_NET_NS */
-+
- static int register_pernet_operations(struct list_head *list,
- 				      struct pernet_operations *ops)
+diff --git a/net/llc/llc_core.c b/net/llc/llc_core.c
+index d12413c..f438c38 100644
+--- a/net/llc/llc_core.c
++++ b/net/llc/llc_core.c
+@@ -112,7 +112,6 @@ struct llc_sap *llc_sap_find(unsigned char sap_value)
+  */
+ struct llc_sap *llc_sap_open(unsigned char lsap,
+ 			     int (*func)(struct sk_buff *skb,
+-					 struct net_device *dev,
+ 					 struct packet_type *pt,
+ 					 struct net_device *orig_dev))
  {
+diff --git a/net/llc/llc_input.c b/net/llc/llc_input.c
+index db82aff..cecb4a9 100644
+--- a/net/llc/llc_input.c
++++ b/net/llc/llc_input.c
+@@ -12,6 +12,7 @@
+  * See the GNU General Public License for more details.
+  */
+ #include <linux/netdevice.h>
++#include <net/net_namespace.h>
+ #include <net/llc.h>
+ #include <net/llc_pdu.h>
+ #include <net/llc_sap.h>
+@@ -136,15 +137,18 @@ static inline int llc_fixup_skb(struct sk_buff *skb)
+  *	the frame is related to a busy connection (a connection is sending
+  *	data now), it queues this frame in the connection's backlog.
+  */
+-int llc_rcv(struct sk_buff *skb, struct net_device *dev,
++int llc_rcv(struct sk_buff *skb,
+ 	    struct packet_type *pt, struct net_device *orig_dev)
+ {
+ 	struct llc_sap *sap;
+ 	struct llc_pdu_sn *pdu;
+ 	int dest;
+-	int (*rcv)(struct sk_buff *, struct net_device *,
++	int (*rcv)(struct sk_buff *,
+ 		   struct packet_type *, struct net_device *);
+ 
++	if (!net_eq(skb->dev->nd_net, init_net()))
++		goto drop;
++
+ 	/*
+ 	 * When the interface is in promisc. mode, drop all the crap that it
+ 	 * receives, do not try to analyse it.
+@@ -175,7 +179,7 @@ int llc_rcv(struct sk_buff *skb, struct net_device *dev,
+ 	if (rcv) {
+  		struct sk_buff *cskb = skb_clone(skb, GFP_ATOMIC);
+  		if (cskb)
+- 			rcv(cskb, dev, pt, orig_dev);
++ 			rcv(cskb, pt, orig_dev);
+ 	}
+ 	dest = llc_pdu_type(skb);
+ 	if (unlikely(!dest || !llc_type_handlers[dest - 1]))
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index ca371ea..aa298c3 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -258,11 +258,15 @@ static const struct proto_ops packet_ops;
+ #ifdef CONFIG_SOCK_PACKET
+ static const struct proto_ops packet_ops_spkt;
+ 
+-static int packet_rcv_spkt(struct sk_buff *skb, struct net_device *dev,  struct packet_type *pt, struct net_device *orig_dev)
++static int packet_rcv_spkt(struct sk_buff *skb, struct packet_type *pt, struct net_device *orig_dev)
+ {
++	struct net_device *dev = skb->dev;
+ 	struct sock *sk;
+ 	struct sockaddr_pkt *spkt;
+ 
++	if (!net_eq(dev->nd_net, init_net()))
++		goto out;
++
+ 	/*
+ 	 *	When we registered the protocol we saved the socket in the data
+ 	 *	field for just this event.
+@@ -461,8 +465,9 @@ static inline int run_filter(struct sk_buff *skb, struct sock *sk,
+    we will not harm anyone.
+  */
+ 
+-static int packet_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt, struct net_device *orig_dev)
++static int packet_rcv(struct sk_buff *skb, struct packet_type *pt, struct net_device *orig_dev)
+ {
++	struct net_device *dev = skb->dev;
+ 	struct sock *sk;
+ 	struct sockaddr_ll *sll;
+ 	struct packet_sock *po;
+@@ -470,6 +475,9 @@ static int packet_rcv(struct sk_buff *skb, struct net_device *dev, struct packet
+ 	int skb_len = skb->len;
+ 	unsigned snaplen;
+ 
++	if (!net_eq(dev->nd_net, init_net()))
++		goto drop;
++
+ 	if (skb->pkt_type == PACKET_LOOPBACK)
+ 		goto drop;
+ 
+@@ -561,8 +569,9 @@ drop:
+ }
+ 
+ #ifdef CONFIG_PACKET_MMAP
+-static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt, struct net_device *orig_dev)
++static int tpacket_rcv(struct sk_buff *skb, struct packet_type *pt, struct net_device *orig_dev)
+ {
++	struct net_device *dev = skb->dev;
+ 	struct sock *sk;
+ 	struct packet_sock *po;
+ 	struct sockaddr_ll *sll;
+@@ -574,6 +583,9 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev, struct packe
+ 	unsigned short macoff, netoff;
+ 	struct sk_buff *copy_skb = NULL;
+ 
++	if (!net_eq(dev->nd_net, init_net()))
++		goto drop;
++
+ 	if (skb->pkt_type == PACKET_LOOPBACK)
+ 		goto drop;
+ 
+diff --git a/net/tipc/eth_media.c b/net/tipc/eth_media.c
+index 682da4a..b181cf9 100644
+--- a/net/tipc/eth_media.c
++++ b/net/tipc/eth_media.c
+@@ -38,6 +38,7 @@
+ #include <net/tipc/tipc_bearer.h>
+ #include <net/tipc/tipc_msg.h>
+ #include <linux/netdevice.h>
++#include <net/net_namespace.h>
+ 
+ #define MAX_ETH_BEARERS		2
+ #define ETH_LINK_PRIORITY	TIPC_DEF_LINK_PRI
+@@ -91,12 +92,18 @@ static int send_msg(struct sk_buff *buf, struct tipc_bearer *tb_ptr,
+  * and ensures message size matches actual length
+  */
+ 
+-static int recv_msg(struct sk_buff *buf, struct net_device *dev, 
++static int recv_msg(struct sk_buff *buf,
+ 		    struct packet_type *pt, struct net_device *orig_dev)
+ {
++	struct net_device *dev = buf->dev;
+ 	struct eth_bearer *eb_ptr = (struct eth_bearer *)pt->af_packet_priv;
+ 	u32 size;
+ 
++	if (!net_eq(buf->dev->nd_net, init_net())) {
++		kfree_skb(buf);
++		return 0;
++	}
++
+ 	if (likely(eb_ptr->bearer)) {
+ 	       if (likely(!dev->promiscuity) ||
+ 	           !memcmp(buf->mac.raw,dev->dev_addr,ETH_ALEN) ||
+diff --git a/net/x25/x25_dev.c b/net/x25/x25_dev.c
+index 47b68a3..0f63415 100644
+--- a/net/x25/x25_dev.c
++++ b/net/x25/x25_dev.c
+@@ -79,12 +79,16 @@ static int x25_receive_data(struct sk_buff *skb, struct x25_neigh *nb)
+ 	return 0;
+ }
+ 
+-int x25_lapb_receive_frame(struct sk_buff *skb, struct net_device *dev,
++int x25_lapb_receive_frame(struct sk_buff *skb,
+ 			   struct packet_type *ptype, struct net_device *orig_dev)
+ {
++	struct net_device *dev = skb->dev;
+ 	struct sk_buff *nskb;
+ 	struct x25_neigh *nb;
+ 
++	if (!net_eq(skb->dev->nd_net, init_net()))
++		goto drop;
++
+ 	nskb = skb_copy(skb, GFP_ATOMIC);
+ 	if (!nskb)
+ 		goto drop;
 -- 
 1.4.4.1.g278f
 
