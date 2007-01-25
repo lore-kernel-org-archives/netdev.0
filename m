@@ -1,24 +1,51 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [Lksctp-developers] Fw: Intermittent SCTP multihoming breakage
-Date: Thu, 25 Jan 2007 11:37:12 -0500
-Message-ID: <45B8DCB8.6030105@hp.com>
-References: <20070103154634.b40d9cde.akpm@osdl.org>	<1167872389.8646.25.camel@w-sridhar2.beaverton.ibm.com>	<Pine.CYG.4.58.0701040913300.3128@shill1-mobl.eicon.com>	<1168459812.8248.24.camel@w-sridhar2.beaverton.ibm.com>	<Pine.CYG.4.58.0701111007010.5484@shill1-mobl.eicon.com> <45B8DBA5.9000500@hp.com>
+From: Michael Wu <flamingice@sourmilk.net>
+Subject: Re: [RFC PATCH] bcm43xx: set channel when the interface is brought up
+Date: Thu, 25 Jan 2007 11:51:27 -0500
+Message-ID: <200701251151.32019.flamingice@sourmilk.net>
+References: <1169707854.10593.41.camel@dv>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: multipart/signed;
+  boundary="nextPart9751093.RSQRZZxC4a";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-Cc: Steve Hill <steve.hill@dialogic.com>, netdev@vger.kernel.org,
-	lksctp-developers@lists.sourceforge.net,
-	Sridhar Samudrala <sri@us.ibm.com>
-To: Vlad Yasevich <vladislav.yasevich@hp.com>
+Cc: bcm43xx-dev@lists.berlios.de, netdev@vger.kernel.org
+To: Pavel Roskin <proski@gnu.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel9.hp.com ([156.153.255.214]:47390 "EHLO atlrel9.hp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030316AbXAYQhO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Jan 2007 11:37:14 -0500
-In-Reply-To: <45B8DBA5.9000500@hp.com>
+Received: from smtp.rutgers.edu ([128.6.72.243]:27751 "EHLO
+	annwn13.rutgers.edu" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1030352AbXAYQwA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jan 2007 11:52:00 -0500
+In-Reply-To: <1169707854.10593.41.camel@dv>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-BTW, if anyone needs a reproducer, I can provide one.
+--nextPart9751093.RSQRZZxC4a
+Content-Type: text/plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
--vlad
+On Thursday 25 January 2007 01:50, Pavel Roskin wrote:
+> If the hardware drivers are supposed to do it, here's my patch.  It is
+> working fine for me and ready to be applied.  The changelog is in the
+> subject.
+Let's fix this in the stack. This problem will be fixed for most users once=
+=20
+auto channel selection is implemented, and fixing it for users manually=20
+setting the channel should be trivial.
+
+=2DMichael Wu
+
+--nextPart9751093.RSQRZZxC4a
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.2 (GNU/Linux)
+
+iD8DBQBFuOATT3Oqt9AH4aERArKFAKCebXzy1b8Ge9/rcJTHdZnst1cPtwCfbOcO
+XvCehvaBOAnmBhIDSWzRhxY=
+=Vc1g
+-----END PGP SIGNATURE-----
+
+--nextPart9751093.RSQRZZxC4a--
