@@ -1,58 +1,64 @@
-From: "H. Peter Anvin" <hpa@zytor.com>
-Subject: Re: [patch] scrub non-__GLIBC__ checks in linux/socket.h and linux/stat.h
-Date: Wed, 24 Jan 2007 22:30:28 -0800
-Message-ID: <45B84E84.1080004@zytor.com>
-References: <8bd0f97a0612161042g3b61d42csd54cae46e4864f30@mail.gmail.com> <20061216185726.GA17496@codepoet.org>
+From: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
+Subject: [RFC PATCH] bcm43xx: set channel when the interface is brought up
+Date: Thu, 25 Jan 2007 01:50:54 -0500
+Message-ID: <1169707854.10593.41.camel@dv>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: andersen@codepoet.org, Mike Frysinger <vapier.adi@gmail.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	viro@zeniv.linux.org.uk, Alexey Dobriyan <adobriyan@gmail.com>,
-	"Robert P. J. Day" <rpjday@mindspring.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from terminus.zytor.com ([192.83.249.54]:37784 "EHLO
-	terminus.zytor.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965517AbXAYGap (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jan 2007 01:30:45 -0500
-In-Reply-To: <20061216185726.GA17496@codepoet.org>
-Sender: netdev-owner@vger.kernel.org
+To: bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
+List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Erik Andersen wrote:
-> On Sat Dec 16, 2006 at 01:42:11PM -0500, Mike Frysinger wrote:
->> On 11/30/06, Robert P. J. Day <rpjday@mindspring.com> wrote:
->>> but there are a few other
->>> cases which still contain compound preprocessor directives such as:
->>>
->>>  #if defined(__KERNEL__) || !defined(__GLIBC__) || (__GLIBC__ < 2)
->>>
->>> having never worked with unifdef before, i guess i was being overly
->>> optimistic in thinking that it, if i "unifdef"ed __KERNEL__, it might
->>> at least simplify the expression.  oh, well ... live and learn.
->> userspace should be worrying about userspace, so having the socket.h
->> and stat.h pollute the namespace in the non-glibc case is wrong and
->> pretty much prevents any other libc from utilizing these headers
->> sanely unless they set up the __GLIBC__ define themselves (which
->> sucks)
->> -mike
-> 
-> Ack from me.  I'd love to see this applied so uClibc could
-> stop have to define __GLIBC__
-> 
+Hello!
 
-klibc uses these definitions, but the right thing to do is to have libc 
-ask for it:
+I have discovered that while I can indeed associate without
+wpa_supplicant using bcm43xx_d80211 driver, I have to set the channel
+every time the interface is brought down and up.
 
-#if defined(__KERNEL__) || defined(__EXPORT_LINUX_SOCKET_H)
+It turns out d80211 uses the "config" method of the hardware drivers
+very sparingly.  It's only used for scanning and in ioctl commands.  It
+is not called after the interface has been brought up with the "open"
+method.
 
-/* ... */
+I don't know whose responsibility it should be to apply the
+configuration when the interface is brought up.  I'm not familiar with
+d80211 design principles.
 
-#endif
+If the hardware drivers are supposed to do it, here's my patch.  It is
+working fine for me and ready to be applied.  The changelog is in the
+subject.
 
-That way, klibc can just
+Signed-off-by: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
+---
 
-#define __EXPORT_LINUX_SOCKET_H
-#include <linux/socket.h>
+ drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
 
-	-hpa
+diff --git a/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c b/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
+index 9f4d51d..d408e38 100644
+--- a/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
++++ b/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
+@@ -2809,6 +2809,9 @@ static int bcm43xx_dev_open(struct ieee80211_hw *hw)
+ 	}
+ 	mutex_unlock(&wl->mutex);
+ 
++	if (!err)
++		err = bcm43xx_dev_config(hw, &hw->conf);
++
+ 	return err;
+ }
+ 
+
+
+-- 
+Regards,
+Pavel Roskin
