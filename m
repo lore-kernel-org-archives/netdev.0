@@ -1,34 +1,69 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [RFC PATCH] bcm43xx: set channel when the interface is brought up
-Date: Thu, 25 Jan 2007 15:12:17 -0500
-Message-ID: <20070125201217.GF10282@tuxdriver.com>
-References: <1169707854.10593.41.camel@dv> <200701251151.32019.flamingice@sourmilk.net>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH RFC 1/31] net: Add net_namespace_type.h to allow for per network namespace variables.
+Date: Thu, 25 Jan 2007 13:53:11 -0700
+Message-ID: <m1bqkmygjs.fsf@ebiederm.dsl.xmission.com>
+References: <m13b5zym0n.fsf@ebiederm.dsl.xmission.com>
+	<11697516331146-git-send-email-ebiederm@xmission.com>
+	<20070125123017.1408941e@freekitty>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Pavel Roskin <proski@gnu.org>, bcm43xx-dev@lists.berlios.de,
-	netdev@vger.kernel.org
-To: Michael Wu <flamingice@sourmilk.net>
+Cc: <netdev@vger.kernel.org>, <containers@lists.osdl.org>,
+	<openib-general@openib.org>
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:3230 "EHLO ra.tuxdriver.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030559AbXAYUi3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Jan 2007 15:38:29 -0500
-Content-Disposition: inline
-In-Reply-To: <200701251151.32019.flamingice@sourmilk.net>
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:33237 "EHLO
+	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965577AbXAYUxy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jan 2007 15:53:54 -0500
+In-Reply-To: <20070125123017.1408941e@freekitty> (Stephen Hemminger's message
+	of "Thu, 25 Jan 2007 12:30:17 -0800")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 25, 2007 at 11:51:27AM -0500, Michael Wu wrote:
-> On Thursday 25 January 2007 01:50, Pavel Roskin wrote:
-> > If the hardware drivers are supposed to do it, here's my patch.  It is
-> > working fine for me and ready to be applied.  The changelog is in the
-> > subject.
-> Let's fix this in the stack. This problem will be fixed for most users once 
-> auto channel selection is implemented, and fixing it for users manually 
-> setting the channel should be trivial.
+Stephen Hemminger <shemminger@linux-foundation.org> writes:
 
-ACK...fixing the stack makes the most sense.
+> Can all this be a nop if a CONFIG option is not selected?
 
--- 
-John W. Linville
-linville@tuxdriver.com
+That is exactly what this infrastructure supports.
+What you see is the version that comes into effect when
+the CONFIG option is not selected.
+
+>From using an empty structure to replace a pointer to make
+that a NOP to most of the rest below.
+
+
+>> diff --git a/include/linux/net_namespace_type.h
+> b/include/linux/net_namespace_type.h
+>> new file mode 100644
+>> index 0000000..8173f59
+>> --- /dev/null
+>> +++ b/include/linux/net_namespace_type.h
+>> @@ -0,0 +1,52 @@
+>> +/* 
+>> + * Definition of the network namespace reference type
+>> + * And operations upon it.
+>> + */
+>> +#ifndef __LINUX_NET_NAMESPACE_TYPE_H
+>> +#define __LINUX_NET_NAMESPACE_TYPE_H
+>> +
+>> +#define __pernetname(name) per_net__##name
+>
+> Code obfuscation, please don't do that
+
+Single point of making the naming rules, better maintenance.
+The basic point is that variables that come through this path
+you should not access directly.  Tweaking the name enforces that
+even in the compiled out state.
+
+>> +typedef struct {} net_t;
+>
+> No typedef for this please.
+
+Why.  That is conventially how we do opaque types in linux
+when someone is doing something sophisticated.
+
+
+You probably want to look down to patch 21 to see what the compiled
+in version of these look like.
+
+Eric
