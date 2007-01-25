@@ -1,41 +1,50 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [PATCH] IPv6: Implement RFC 4429 Optimistic Duplicate Address
- Detection
-Date: Thu, 25 Jan 2007 17:13:57 -0500
-Message-ID: <45B92BA5.1050505@hp.com>
-References: <20070119212314.GA10748@hmsreliant.homelinux.net> <20070120.080507.25118874.yoshfuji@linux-ipv6.org> <20070122181528.GD21059@hmsreliant.homelinux.net> <20070123.091820.104515696.yoshfuji@linux-ipv6.org> <20070123205118.GC582@hmsreliant.homelinux.net> <1169690087.23312.7.camel@w-sridhar2.beaverton.ibm.com> <20070125133340.GA8891@hmsreliant.homelinux.net> <45B8E60B.7080809@hp.com> <20070125194500.GB8891@hmsreliant.homelinux.net> <45B910B3.5000809@hp.com> <20070125212651.GB12136@hmsreliant.homelinux.net>
+From: Jan Engelhardt <jengelh@linux01.gwdg.de>
+Subject: Re: owner-Match in 2.6.20-rc5 (fwd)
+Date: Thu, 25 Jan 2007 23:14:49 +0100 (MET)
+Message-ID: <Pine.LNX.4.61.0701252309200.17844@yvahk01.tjqt.qr>
+References: <Pine.LNX.4.64.0701252121190.26664@blackhole.kfki.hu>
+ <20070125.130111.26966608.davem@davemloft.net> <Pine.LNX.4.61.0701252206360.26335@yvahk01.tjqt.qr>
+ <20070125.140149.51518685.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Sridhar Samudrala <sri@us.ibm.com>,
-	=?UTF-8?B?WU9TSElGVUpJIEhpZGVha2kg?=
-	 =?UTF-8?B?LyDlkInol6Toi7HmmI4=?= <yoshfuji@linux-ipv6.org>,
-	davem@davemloft.net, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
-	jmorris@namei.org, kaber@coreworks.de, netdev@vger.kernel.org
-To: Neil Horman <nhorman@tuxdriver.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: kadlec@blackhole.kfki.hu, netdev@vger.kernel.org,
+	netfilter-devel@lists.netfilter.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel8.hp.com ([156.153.255.206]:45960 "EHLO atlrel8.hp.com"
+Received: from tmailer.gwdg.de ([134.76.10.23]:36561 "EHLO tmailer.gwdg.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030625AbXAYWN7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Jan 2007 17:13:59 -0500
-In-Reply-To: <20070125212651.GB12136@hmsreliant.homelinux.net>
+	id S1030626AbXAYWQW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Jan 2007 17:16:22 -0500
+In-Reply-To: <20070125.140149.51518685.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Neil
 
-> 
-> I prefer to be more explicit in my order of operation, but that does seem more
-> consistent with the prevaling style.  New patch attached.
-> 
+>> >> The report below was posted on the netfilter user list. Isn't there any 
+>> >> ill side effect by reverting the change?
+>> >
+>> >Performance regression :-(
+>> >
+>> >This optimization saves a whole handful of heavy atomic operations in
+>> >the packet transmit path of TCP.
+>> >
+>> >As I understand it, the owner-Match is not in the upstream tree, and
+>> >it's the only thing that cares, so I see no reason to cater for it.
+>> 
+>> For me, it's there.
+>> -rw-r--r-- 1 jengelh users 2247 Jan 25 21:37
+>> /erk/kernel/linux-2.6.20-rc6/net/ipv4/netfilter/ipt_owner.c
+>
+>Ok, I'll see what I can do about this :-)
+>
 
-Looks good to me.
+People really depend on this. Much more than than pid/comm/smpunsafe stuff.
+For example, a web server [cgi enabled, etc.] which also runs squid,
+to force all webtraffic through it:
 
-One question thought.  What causes the stack to send via Default Router instead
-of sending an NS (Section 3.2).  I see there is code to prevent sending NS from
-the optimistic address, but I see nothing that would send this packet to a default
-router.  This might be buried somewhere in the routing code, but I just can't see it.
+-A OUTPUT -p tcp --dport 80 -m owner ! --uid-owner
+  squid -j REDIRECT --to-ports 3128
 
 
-Thanks
--vlad
+	-`J'
+-- 
