@@ -1,69 +1,36 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH RFC 1/31] net: Add net_namespace_type.h to allow for per network namespace variables.
-Date: Thu, 25 Jan 2007 13:53:11 -0700
-Message-ID: <m1bqkmygjs.fsf@ebiederm.dsl.xmission.com>
-References: <m13b5zym0n.fsf@ebiederm.dsl.xmission.com>
-	<11697516331146-git-send-email-ebiederm@xmission.com>
-	<20070125123017.1408941e@freekitty>
+From: David Miller <davem@davemloft.net>
+Subject: Re: owner-Match in 2.6.20-rc5 (fwd)
+Date: Thu, 25 Jan 2007 13:01:11 -0800 (PST)
+Message-ID: <20070125.130111.26966608.davem@davemloft.net>
+References: <Pine.LNX.4.64.0701252121190.26664@blackhole.kfki.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: <netdev@vger.kernel.org>, <containers@lists.osdl.org>,
-	<openib-general@openib.org>
-To: Stephen Hemminger <shemminger@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:33237 "EHLO
-	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965577AbXAYUxy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jan 2007 15:53:54 -0500
-In-Reply-To: <20070125123017.1408941e@freekitty> (Stephen Hemminger's message
-	of "Thu, 25 Jan 2007 12:30:17 -0800")
-Sender: netdev-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org
+To: kadlec@blackhole.kfki.hu
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+In-Reply-To: <Pine.LNX.4.64.0701252121190.26664@blackhole.kfki.hu>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger <shemminger@linux-foundation.org> writes:
+From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Date: Thu, 25 Jan 2007 21:31:56 +0100 (CET)
 
-> Can all this be a nop if a CONFIG option is not selected?
+> The report below was posted on the netfilter user list. Isn't there any 
+> ill side effect by reverting the change?
 
-That is exactly what this infrastructure supports.
-What you see is the version that comes into effect when
-the CONFIG option is not selected.
+Performance regression :-(
 
->From using an empty structure to replace a pointer to make
-that a NOP to most of the rest below.
+This optimization saves a whole handful of heavy atomic operations in
+the packet transmit path of TCP.
 
-
->> diff --git a/include/linux/net_namespace_type.h
-> b/include/linux/net_namespace_type.h
->> new file mode 100644
->> index 0000000..8173f59
->> --- /dev/null
->> +++ b/include/linux/net_namespace_type.h
->> @@ -0,0 +1,52 @@
->> +/* 
->> + * Definition of the network namespace reference type
->> + * And operations upon it.
->> + */
->> +#ifndef __LINUX_NET_NAMESPACE_TYPE_H
->> +#define __LINUX_NET_NAMESPACE_TYPE_H
->> +
->> +#define __pernetname(name) per_net__##name
->
-> Code obfuscation, please don't do that
-
-Single point of making the naming rules, better maintenance.
-The basic point is that variables that come through this path
-you should not access directly.  Tweaking the name enforces that
-even in the compiled out state.
-
->> +typedef struct {} net_t;
->
-> No typedef for this please.
-
-Why.  That is conventially how we do opaque types in linux
-when someone is doing something sophisticated.
-
-
-You probably want to look down to patch 21 to see what the compiled
-in version of these look like.
-
-Eric
+As I understand it, the owner-Match is not in the upstream tree, and
+it's the only thing that cares, so I see no reason to cater for it.
