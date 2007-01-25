@@ -1,58 +1,42 @@
-From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Subject: Re: [BUG] problem with BPF in PF_PACKET sockets, introduced in linux-2.6.19
-Date: Thu, 25 Jan 2007 16:22:20 +0300
-Message-ID: <20070125132220.GA15410@ms2.inr.ac.ru>
-References: <200701041747.46358.raivis@mt.lv> <20070124.152133.61337361.davem@davemloft.net>
+From: Jiri Benc <jbenc@suse.cz>
+Subject: Re: [RFC PATCH] bcm43xx: set channel when the interface is brought
+ up
+Date: Thu, 25 Jan 2007 15:23:21 +0100
+Message-ID: <20070125152321.434bb17c@griffin.suse.cz>
+References: <1169707854.10593.41.camel@dv>
+	<a32f33a40701250347q5c9aa5fby785181f77fc9bb4@mail.gmail.com>
+	<20070125135033.7d7d7baf@griffin.suse.cz>
+	<200701250905.33129.gene.heskett@verizon.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: raivis@mt.lv, netdev@vger.kernel.org, waltje@uWalt.NL.Mugnet.ORG,
-	gw4pts@gw4pts.ampr.org, dim@openvz.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: bcm43xx-dev@lists.berlios.de, "Ivo Van Doorn" <ivdoorn@gmail.com>,
+	netdev@vger.kernel.org
+To: Gene Heskett <gene.heskett@verizon.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from minus.inr.ac.ru ([194.67.69.97]:47290 "HELO ms2.inr.ac.ru"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S965280AbXAYOOD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Jan 2007 09:14:03 -0500
-Content-Disposition: inline
-In-Reply-To: <20070124.152133.61337361.davem@davemloft.net>
+Received: from styx.suse.cz ([82.119.242.94]:40248 "EHLO mail.suse.cz"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S965353AbXAYOXY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Jan 2007 09:23:24 -0500
+In-Reply-To: <200701250905.33129.gene.heskett@verizon.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello!
+On Thu, 25 Jan 2007 09:05:32 -0500, Gene Heskett wrote:
+> Oh?  I'm sitting here watching the tty0 screen of my lappy after x has 
+> been started, and I have established a connection, but SoftMAC is still 
+> logging its scan activity, starting with channel 1 and scanning 14 
+> channels.  Its doing this at approximately 2 minute intervals.  So I 
+> think we have your definition of a clear bug and misbehaviour.
 
-> So this whole idea to make run_filter() return signed integers
-> and fail on negative is entirely flawed, it simply cannot work
-> and retain the expected semantics which have been there forever.
+Yes. As well as some other wireless drivers. But that's not worth
+fixing.
 
-Actually, it can. Return value was used only as sign of error,
-so that the mistake was to return original unsigned result casted to int.
+Also, please note that softmac isn't going to do user space MLME so
+it is not relevant at all.
 
-Alternative fix is enclosed. To be honest, it is not better than
-yours: duplication of couple lines of code against passing return
-value by pointer.
+ Jiri
 
-Alexey
-
-
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index da73e8a..51e5537 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -437,11 +437,13 @@ static inline int run_filter(struct sk_b
- 	rcu_read_lock_bh();
- 	filter = rcu_dereference(sk->sk_filter);
- 	if (filter != NULL) {
--		err = sk_run_filter(skb, filter->insns, filter->len);
--		if (!err)
-+		unsigned int res;
-+
-+		res = sk_run_filter(skb, filter->insns, filter->len);
-+		if (!res)
- 			err = -EPERM;
--		else if (*snaplen > err)
--			*snaplen = err;
-+		else if (*snaplen > res)
-+			*snaplen = res;
- 	}
- 	rcu_read_unlock_bh();
- 
+-- 
+Jiri Benc
+SUSE Labs
