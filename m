@@ -1,132 +1,55 @@
-From: Roger Heflin <rheflin@atipa.com>
-Subject: Re: Nvidia MCP55 Machine reboots on ixgb driver load
-Date: Wed, 24 Jan 2007 17:30:30 -0600
-Message-ID: <45B7EC16.9070706@atipa.com>
-References: <45B7CA3D.9020601@atipa.com> <45B7D88F.30703@intel.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH	REPOST	1/2]	NET:	Accurate	packet	scheduling	for	ATM/ADSL
+ (kernel)
+Date: Thu, 25 Jan 2007 01:06:26 +0100
+Message-ID: <45B7F482.7040703@trash.net>
+References: <1161041677.6247.1.camel@ras.pc.brisbane.lube>	 <1161090444.5555.13.camel@jzny2>  <45378DE3.8080700@trash.net>	 <1161602527.5502.155.camel@ras.pc.stuart.local>	 <453CB801.4010902@trash.net>	 <1161640444.5502.214.camel@ras.pc.stuart.local> <453E3CFC.80007@trash.net>	 <1161733596.3829.91.camel@ras.pc.brisbane.lube>	 <456ED79E.2070707@trash.net> <1169075223.7560.15.camel@ras>	 <45AEF219.2060304@trash.net> <1169100970.21535.18.camel@ras>	 <45AF5C02.1010005@trash.net> <1169176280.1118.8.camel@ras>	 <45B0B744.7070800@trash.net> <1169263517.11507.14.camel@ras>	 <45B1D715.8010609@trash.net> <1169365528.3866.71.camel@ras.pc.stuart.local>	 <45B78B8F.9090106@trash.net> <1169677979.5776.150.camel@ras.pc.brisbane.lube>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net,
-	NetDev <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Auke Kok <auke-jan.h.kok@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <45B7D88F.30703@intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Cc: hadi@cyberus.ca, netdev@vger.kernel.org,
+	Jesper Dangaard Brouer <hawk@diku.dk>
+To: Russell Stuart <russell-tcatm@stuart.id.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:33599 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932884AbXAYAG3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jan 2007 19:06:29 -0500
+In-Reply-To: <1169677979.5776.150.camel@ras.pc.brisbane.lube>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Auke Kok wrote:
-> [added netdev to CC]
-> 
-> Roger Heflin wrote:
->> I have a machine (actually 2 machines) that upon loading
->> the intel 10GBe driver (ixgb) the machine reboots, I am
->> using a RHAS4.4 based distribution with Vanilla 2.6.19.2
->> (the RHAS 4.4.03 kernel also reboots with the ixgb load),
->> I don't see any messages on the machine before it reboots,
->> loading the driver with debug does not appear to produce
->> any extra messages.   The basic steps are the I load
->> the driver, the machine locks up, and then in a second
->> or 2 it starts to post.
-> 
-> some suggestions immediately come to mind:
-> 
-> * have you tried the latest driver from http://e1000.sf.net/ ?
+Russell Stuart wrote:
+> Yuk!  Now the user has to say whether he wants to use
+> STAB's or not?  Currently, apart from some debugging
+> params to tc, the user isn't even aware that the 
+> traffic control is implemented in terms of RTAB's.  
+> That is how it should be - it is an implementation 
+> detail.
 
-I have tried the ixgb-1.0-126 driver from intel's web site, with it doing
-the same thing, and that looks to be the same as the sf driver.
+Of course he has to, just like your "atm" parameter. In case
+of stabs it would be something like "stab atm".
 
-> 
-> * what happens when you unplug the card and modprobe the ixgb module?
-
-That loads just fine, and prints out the driver information, and
-the copyright.
-
-> 
-> * have you tried capturing a trace with netconsole or serial console? 
-> probing the ixgb driver produces at least 1 syslog line that should show 
-> up. If nothing shows up on serial or netconsole, the issue may be way 
-> outside the ixgb driver.
-
-I *think* have got the line listing the interrupt 1 or 2 times just
-before it goes away, I got the serial crossover working to a
-laptop and got no extra kernel messages when the driver was loaded
-and rebooted the machine, I did see the full kernel bootup so
-I know the serial console was working correctly.
-
-> 
->> I have tried the default ixgb driver in 2.6.19.2, and I
->> have tried the open source intel driver on RH4.4, both cause
->> the same reboot.    I also tried the linux firmware
->> development kit, and booting fc6 causes the same reboot
->> upon the network driver load.
-> 
-> just for completeness, which driver versions were this?
-
-The ixgb-1.0.126 driver from Intel's site.
-
-The default driver on 4.4.03 does not support the CX4 board,
-but loads just fine, just does not find any cards that it
-can drive.   I did confirm that it does not list the PCIID
-for the CX4 card.
-
-> 
-> and when you say "booting fc6" I assume you mean that fc6 boots OK until 
-> you modprobe the ixgb driver?
-
-Yes, that is correct the machine goes to full multiuser (I have
-the .ko file moved elsewhere so automatic module loading does
-not kill the machine-until it choose to test it), and has been
-used for some io test with no issues until the ixgb driver is loaded.
-
-Both machines have been heavily tested with high cpu applications
-that verify their results to make sure memory is working correctly
-under load.
-
-> 
->> I have tried pci=nomsi
-> 
-> try compiling your kernel without MSI support alltogether. There have 
-> been serious issues found with MSI on certain configurations, and in 
-> your case this might be the cause. Allthough passing pci=nomsi should be 
-> the same as compiling it out, it can't hurt to try.
-
-Ok, I tried that.
-
-I found out that breaks some other unrelated stuff, but loading the ixgb
-driver still crashes the machine.
-
-> 
->> Also note that the linux.nics@intel.com address is apparently
->> unused and returns an email telling you to use a web page,
->> and so far after using the web page I have not got any response
->> indicating that anything got to anyone.
-> 
-> I've taken action to get that straightened out. You're always welcome to 
-> mail netdev, the e1000 devel list or even lkml which we will all pick up 
-> on.
+>>I think this is a different problem. If you replace RTABs
+>>by STABs you again can't use it for anything that is only
+>>interested in the size, not the transmission time (HFSC,
+>>SFQ, ...).
 > 
 > 
-> I can't think of a specific reason for the issue right now, other than 
-> attempting to get a serial/netconsole attached and trying without any 
-> msi support in the kernel. Please give that a try and let us know.
+> I was a little too brief.
 > 
+> The comment stems from the observation that in all
+> current implementations:
+> 
+>    const A_CONSTANT;
+>    for (i = 0; i < 256; i += 1)
+>      assert(RTAB[i] == STAB[i] * A_CONSTANT);
+> 
+> Ergo, if in addition to implementing STAB as you
+> plan to, A_CONSTANT was shipped to the kernel then
+> RTAB could be replaced.
 
-Nothing extra from the serial console, and still locks up with no
-msi support.
-
-                          Roger
-
--------------------------------------------------------------------------
-Take Surveys. Earn Cash. Influence the Future of IT
-Join SourceForge.net's Techsay panel and you'll get the chance to share your
-opinions on IT & business topics through brief surveys - and earn cash
-http://www.techsay.com/default.php?page=join.php&p=sourceforge&CID=DEVDEV
+At least look at the patch I sent. STAB mapping is _not_ a
+multiplication by a constant (which wouldn't be able to
+express minimum packet size or padding to multiples of cell
+sizes).
