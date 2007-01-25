@@ -1,60 +1,65 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: [BNX2]: Fix 2nd port's MAC address.
-Date: Wed, 24 Jan 2007 21:35:45 -0800
-Message-ID: <1169703345.5442.4.camel@rh4>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: [PATCH] net: decnet handle a failure in neigh_parms_alloc (take 2)
+Date: Wed, 24 Jan 2007 21:55:45 -0700
+Message-ID: <m1irevzovi.fsf_-_@ebiederm.dsl.xmission.com>
+References: <m13b601917.fsf@ebiederm.dsl.xmission.com>
+	<20070124.144511.56810202.davem@davemloft.net>
+	<20070124.144952.02299886.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, steve@chygwyn.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:2864 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933214AbXAYEuM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Jan 2007 23:50:12 -0500
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:34301 "EHLO
+	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933218AbXAYE4a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jan 2007 23:56:30 -0500
+In-Reply-To: <20070124.144952.02299886.davem@davemloft.net> (David Miller's
+	message of "Wed, 24 Jan 2007 14:49:52 -0800 (PST)")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[BNX2]: Fix 2nd port's MAC address.
 
-On the 5709, we need to add the proper offset to calculate the shared
-memory base address of the 2nd port correctly.  Otherwise, the 2nd
-port's MAC address and other information will be the same as the 1st
-port.
+While enhancing the neighbour code to handle multiple network
+namespaces I noticed that decnet is assuming neigh_parms_alloc
+will allways succeed, which is clearly wrong.  So handle the
+failure.
 
-Update version to 1.5.4.
+Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+---
+ net/decnet/dn_dev.c |   11 +++++++++--
+ 1 files changed, 9 insertions(+), 2 deletions(-)
 
-Signed-off-by: Michael Chan <mchan@broadcom.com>
-
-diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-index ca5acc4..953808e 100644
---- a/drivers/net/bnx2.c
-+++ b/drivers/net/bnx2.c
-@@ -57,8 +57,8 @@
+diff --git a/net/decnet/dn_dev.c b/net/decnet/dn_dev.c
+index 324eb47..913e25a 100644
+--- a/net/decnet/dn_dev.c
++++ b/net/decnet/dn_dev.c
+@@ -1140,16 +1140,23 @@ struct dn_dev *dn_dev_create(struct net_device *dev, int *err)
+ 	init_timer(&dn_db->timer);
  
- #define DRV_MODULE_NAME		"bnx2"
- #define PFX DRV_MODULE_NAME	": "
--#define DRV_MODULE_VERSION	"1.5.3"
--#define DRV_MODULE_RELDATE	"January 8, 2007"
-+#define DRV_MODULE_VERSION	"1.5.4"
-+#define DRV_MODULE_RELDATE	"January 24, 2007"
- 
- #define RUN_AT(x) (jiffies + (x))
- 
-@@ -5845,9 +5845,11 @@ bnx2_init_board(struct pci_dev *pdev, st
- 	reg = REG_RD_IND(bp, BNX2_SHM_HDR_SIGNATURE);
- 
- 	if ((reg & BNX2_SHM_HDR_SIGNATURE_SIG_MASK) ==
--	    BNX2_SHM_HDR_SIGNATURE_SIG)
--		bp->shmem_base = REG_RD_IND(bp, BNX2_SHM_HDR_ADDR_0);
--	else
-+	    BNX2_SHM_HDR_SIGNATURE_SIG) {
-+		u32 off = PCI_FUNC(pdev->devfn) << 2;
+ 	dn_db->uptime = jiffies;
 +
-+		bp->shmem_base = REG_RD_IND(bp, BNX2_SHM_HDR_ADDR_0 + off);
-+	} else
- 		bp->shmem_base = HOST_VIEW_SHMEM_BASE;
++	dn_db->neigh_parms = neigh_parms_alloc(dev, &dn_neigh_table);
++	if (!dn_db->neigh_parms) {
++		dev->dn_ptr = NULL;
++		kfree(dn_db);
++		return NULL;
++	}
++
+ 	if (dn_db->parms.up) {
+ 		if (dn_db->parms.up(dev) < 0) {
++			neigh_parms_release(&dn_neigh_table, dn_db->neigh_parms);
+ 			dev->dn_ptr = NULL;
+ 			kfree(dn_db);
+ 			return NULL;
+ 		}
+ 	}
  
- 	/* Get the permanent MAC address.  First we need to make sure the
-
+-	dn_db->neigh_parms = neigh_parms_alloc(dev, &dn_neigh_table);
+-
+ 	dn_dev_sysctl_register(dev, &dn_db->parms);
+ 
+ 	dn_dev_set_timer(dev);
+-- 
+1.4.4.1.g278f
 
