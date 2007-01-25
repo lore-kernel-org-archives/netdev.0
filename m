@@ -1,890 +1,685 @@
 From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH RFC 23/31] net: Modify all rtnetlink methods to only work in the initial namespace
-Date: Thu, 25 Jan 2007 12:00:25 -0700
-Message-ID: <11697516382511-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH RFC 13/31] net: Make device event notification network namespace safe
+Date: Thu, 25 Jan 2007 12:00:15 -0700
+Message-ID: <11697516352813-git-send-email-ebiederm@xmission.com>
 References: <m13b5zym0n.fsf@ebiederm.dsl.xmission.com>
 Cc: <containers@lists.osdl.org>, <openib-general@openib.org>,
 	"Eric W. Biederman" <ebiederm@xmission.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:35769 "EHLO
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:35775 "EHLO
 	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965591AbXAYTBI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jan 2007 14:01:08 -0500
+	with ESMTP id S965596AbXAYTBS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jan 2007 14:01:18 -0500
 In-Reply-To: <m13b5zym0n.fsf@ebiederm.dsl.xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Eric W. Biederman <ebiederm@xmission.com> - unquoted
 
-Before I can enable rtnetlink to work in all network namespaces
-I need to be certain that something won't break.  So this
-patch deliberately disables all of the methods and when they
-are audited this extra check can be disabled.
+Every user of the network device notifiers is either a protocol
+stack or a pseudo device.  If a protocol stack that does not have
+support for multiple network namespaces receives an event for a
+device that is not in the initial network namespace it quite possibly
+can get confused and do the wrong thing.
+
+To avoid problems until all of the protocol stacks are converted
+this patch modifies all netdev event handlers to ignore events on
+devices that are not in the initial network namespace.
+
+As the rest of the code is made network namespace aware these
+checks can be removed.
 
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 ---
- net/bridge/br_netlink.c |    9 +++++++++
- net/core/fib_rules.c    |    7 +++++++
- net/core/neighbour.c    |   18 ++++++++++++++++++
- net/core/rtnetlink.c    |   13 +++++++++++++
- net/decnet/dn_dev.c     |   12 ++++++++++++
- net/decnet/dn_fib.c     |    8 ++++++++
- net/decnet/dn_route.c   |    8 ++++++++
- net/decnet/dn_rules.c   |    5 +++++
- net/decnet/dn_table.c   |    4 ++++
- net/ipv4/devinet.c      |   12 ++++++++++++
- net/ipv4/fib_frontend.c |   12 ++++++++++++
- net/ipv4/fib_rules.c    |    5 +++++
- net/ipv6/addrconf.c     |   31 +++++++++++++++++++++++++++++++
- net/ipv6/fib6_rules.c   |    5 +++++
- net/ipv6/ip6_fib.c      |    4 ++++
- net/ipv6/route.c        |   12 ++++++++++++
- net/sched/act_api.c     |    8 ++++++++
- net/sched/cls_api.c     |    8 ++++++++
- net/sched/sch_api.c     |   20 ++++++++++++++++++++
- 19 files changed, 201 insertions(+), 0 deletions(-)
+ arch/ia64/hp/sim/simeth.c           |    3 +++
+ drivers/net/bonding/bond_main.c     |    3 +++
+ drivers/net/hamradio/bpqether.c     |    3 +++
+ drivers/net/pppoe.c                 |    3 +++
+ drivers/net/wan/dlci.c              |    3 +++
+ drivers/net/wan/hdlc.c              |    3 +++
+ drivers/net/wan/lapbether.c         |    3 +++
+ net/8021q/vlan.c                    |    4 ++++
+ net/appletalk/aarp.c                |    3 +++
+ net/appletalk/ddp.c                 |    3 +++
+ net/atm/clip.c                      |    3 +++
+ net/atm/mpc.c                       |    4 ++++
+ net/ax25/af_ax25.c                  |    3 +++
+ net/bridge/br_notify.c              |    4 ++++
+ net/core/dst.c                      |    4 ++++
+ net/core/fib_rules.c                |    4 ++++
+ net/core/pktgen.c                   |    3 +++
+ net/core/rtnetlink.c                |    4 ++++
+ net/decnet/af_decnet.c              |    3 +++
+ net/econet/af_econet.c              |    3 +++
+ net/ipv4/arp.c                      |    3 +++
+ net/ipv4/devinet.c                  |    3 +++
+ net/ipv4/fib_frontend.c             |    3 +++
+ net/ipv4/ipmr.c                     |    7 ++++++-
+ net/ipv4/multipath_drr.c            |    3 +++
+ net/ipv4/netfilter/ip_queue.c       |    3 +++
+ net/ipv4/netfilter/ipt_MASQUERADE.c |    3 +++
+ net/ipv6/addrconf.c                 |    3 +++
+ net/ipv6/ndisc.c                    |    3 +++
+ net/ipv6/netfilter/ip6_queue.c      |    3 +++
+ net/ipx/af_ipx.c                    |    3 +++
+ net/netfilter/nfnetlink_queue.c     |    3 +++
+ net/netrom/af_netrom.c              |    3 +++
+ net/packet/af_packet.c              |    3 +++
+ net/rose/af_rose.c                  |    3 +++
+ net/tipc/eth_media.c                |    3 +++
+ net/wanrouter/af_wanpipe.c          |    3 +++
+ net/x25/af_x25.c                    |    3 +++
+ net/xfrm/xfrm_policy.c              |    5 +++++
+ security/selinux/netif.c            |    3 +++
+ 40 files changed, 131 insertions(+), 1 deletions(-)
 
-diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-index 119b97d..85165a1 100644
---- a/net/bridge/br_netlink.c
-+++ b/net/bridge/br_netlink.c
-@@ -14,6 +14,7 @@
+diff --git a/arch/ia64/hp/sim/simeth.c b/arch/ia64/hp/sim/simeth.c
+index 424e925..1cbaa9e 100644
+--- a/arch/ia64/hp/sim/simeth.c
++++ b/arch/ia64/hp/sim/simeth.c
+@@ -300,6 +300,9 @@ simeth_device_event(struct notifier_block *this,unsigned long event, void *ptr)
+ 		return NOTIFY_DONE;
+ 	}
+ 
++	if (!net_eq(dev->nd_net, init_net()))
++		return NOTIFY_DONE;
++
+ 	if ( event != NETDEV_UP && event != NETDEV_DOWN ) return NOTIFY_DONE;
+ 
+ 	/*
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 9c70568..3e04f58 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -3325,6 +3325,9 @@ static int bond_netdev_event(struct notifier_block *this, unsigned long event, v
+ {
+ 	struct net_device *event_dev = (struct net_device *)ptr;
+ 
++	if (!net_eq(event_dev->nd_net, init_net()))
++		return NOTIFY_DONE;
++
+ 	dprintk("event_dev: %s, event: %lx\n",
+ 		(event_dev ? event_dev->name : "None"),
+ 		event);
+diff --git a/drivers/net/hamradio/bpqether.c b/drivers/net/hamradio/bpqether.c
+index c513e90..8826a96 100644
+--- a/drivers/net/hamradio/bpqether.c
++++ b/drivers/net/hamradio/bpqether.c
+@@ -564,6 +564,9 @@ static int bpq_device_event(struct notifier_block *this,unsigned long event, voi
+ {
+ 	struct net_device *dev = (struct net_device *)ptr;
+ 
++	if (!net_eq(dev->nd_net, init_net()))
++		return NOTIFY_DONE;
++
+ 	if (!dev_is_ethdev(dev))
+ 		return NOTIFY_DONE;
+ 
+diff --git a/drivers/net/pppoe.c b/drivers/net/pppoe.c
+index caf8ca3..3618862 100644
+--- a/drivers/net/pppoe.c
++++ b/drivers/net/pppoe.c
+@@ -299,6 +299,9 @@ static int pppoe_device_event(struct notifier_block *this,
+ {
+ 	struct net_device *dev = (struct net_device *) ptr;
+ 
++	if (!net_eq(dev->nd_net, init_net()))
++		return NOTIFY_DONE;
++
+ 	/* Only look at sockets that are using this specific device. */
+ 	switch (event) {
+ 	case NETDEV_CHANGEMTU:
+diff --git a/drivers/net/wan/dlci.c b/drivers/net/wan/dlci.c
+index 7369875..f826494 100644
+--- a/drivers/net/wan/dlci.c
++++ b/drivers/net/wan/dlci.c
+@@ -513,6 +513,9 @@ static int dlci_dev_event(struct notifier_block *unused,
+ {
+ 	struct net_device *dev = (struct net_device *) ptr;
+ 
++	if (!net_eq(dev->nd_net, init_net()))
++		return NOTIFY_DONE;
++
+ 	if (event == NETDEV_UNREGISTER) {
+ 		struct dlci_local *dlp;
+ 
+diff --git a/drivers/net/wan/hdlc.c b/drivers/net/wan/hdlc.c
+index f3bf160..e56e0a1 100644
+--- a/drivers/net/wan/hdlc.c
++++ b/drivers/net/wan/hdlc.c
+@@ -110,6 +110,9 @@ static int hdlc_device_event(struct notifier_block *this, unsigned long event,
+ 	unsigned long flags;
+ 	int on;
+  
++	if (!net_eq(dev->nd_net, init_net()))
++		return NOTIFY_DONE;
++
+ 	if (dev->get_stats != hdlc_get_stats)
+ 		return NOTIFY_DONE; /* not an HDLC device */
+  
+diff --git a/drivers/net/wan/lapbether.c b/drivers/net/wan/lapbether.c
+index c1de21e..a3560a9 100644
+--- a/drivers/net/wan/lapbether.c
++++ b/drivers/net/wan/lapbether.c
+@@ -395,6 +395,9 @@ static int lapbeth_device_event(struct notifier_block *this,
+ 	struct lapbethdev *lapbeth;
+ 	struct net_device *dev = ptr;
+ 
++	if (!net_eq(dev->nd_net, init_net()))
++		return NOTIFY_DONE;
++
+ 	if (!dev_is_ethdev(dev))
+ 		return NOTIFY_DONE;
+ 
+diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
+index 18fcb9f..f80cfdd 100644
+--- a/net/8021q/vlan.c
++++ b/net/8021q/vlan.c
+@@ -31,6 +31,7 @@
+ #include <net/arp.h>
  #include <linux/rtnetlink.h>
- #include <net/netlink.h>
- #include <net/net_namespace.h>
-+#include <net/sock.h>
+ #include <linux/notifier.h>
++#include <net/net_namespace.h>
+ 
+ #include <linux/if_vlan.h>
+ #include "vlan.h"
+@@ -595,6 +596,9 @@ static int vlan_device_event(struct notifier_block *unused, unsigned long event,
+ 	int i, flgs;
+ 	struct net_device *vlandev;
+ 
++	if (!net_eq(dev->nd_net, init_net()))
++		return NOTIFY_DONE;
++
+ 	if (!grp)
+ 		goto out;
+ 
+diff --git a/net/appletalk/aarp.c b/net/appletalk/aarp.c
+index 85c4dbc..6fd58a6 100644
+--- a/net/appletalk/aarp.c
++++ b/net/appletalk/aarp.c
+@@ -327,6 +327,9 @@ static int aarp_device_event(struct notifier_block *this, unsigned long event,
+ 	struct net_device *dev = ptr;
+ 	int ct;
+ 
++	if (!net_eq(dev->nd_net, init_net()))
++		return NOTIFY_DONE;
++
+ 	if (event == NETDEV_DOWN) {
+ 		write_lock_bh(&aarp_lock);
+ 
+diff --git a/net/appletalk/ddp.c b/net/appletalk/ddp.c
+index f4ff8aa..61f36b1 100644
+--- a/net/appletalk/ddp.c
++++ b/net/appletalk/ddp.c
+@@ -649,6 +649,9 @@ static int ddp_device_event(struct notifier_block *this, unsigned long event,
+ {
+ 	struct net_device *dev = ptr;
+ 
++	if (!net_eq(dev->nd_net, init_net()))
++		return NOTIFY_DONE;
++
+ 	if (event == NETDEV_DOWN)
+ 		/* Discard any use of this */
+ 	        atalk_dev_down(dev);
+diff --git a/net/atm/clip.c b/net/atm/clip.c
+index 5f8a1d2..7d150c2 100644
+--- a/net/atm/clip.c
++++ b/net/atm/clip.c
+@@ -629,6 +629,9 @@ static int clip_device_event(struct notifier_block *this, unsigned long event,
+ {
+ 	struct net_device *dev = arg;
+ 
++	if (!net_eq(dev->nd_net, init_net()))
++		return NOTIFY_DONE;
++
+ 	if (event == NETDEV_UNREGISTER) {
+ 		neigh_ifdown(&clip_tbl, dev);
+ 		return NOTIFY_DONE;
+diff --git a/net/atm/mpc.c b/net/atm/mpc.c
+index c18f737..4fdb1af 100644
+--- a/net/atm/mpc.c
++++ b/net/atm/mpc.c
+@@ -953,6 +953,10 @@ static int mpoa_event_listener(struct notifier_block *mpoa_notifier, unsigned lo
+ 	struct lec_priv *priv;
+ 
+ 	dev = (struct net_device *)dev_ptr;
++
++	if (!net_eq(dev->nd_net, init_net()))
++		return NOTIFY_DONE;
++
+ 	if (dev->name == NULL || strncmp(dev->name, "lec", 3))
+ 		return NOTIFY_DONE; /* we are only interested in lec:s */
+ 	
+diff --git a/net/ax25/af_ax25.c b/net/ax25/af_ax25.c
+index cdbf3f6..8c187a6 100644
+--- a/net/ax25/af_ax25.c
++++ b/net/ax25/af_ax25.c
+@@ -105,6 +105,9 @@ static int ax25_device_event(struct notifier_block *this, unsigned long event,
+ {
+ 	struct net_device *dev = (struct net_device *)ptr;
+ 
++	if (!net_eq(dev->nd_net, init_net()))
++		return NOTIFY_DONE;
++
+ 	/* Reject non AX.25 devices */
+ 	if (dev->type != ARPHRD_AX25)
+ 		return NOTIFY_DONE;
+diff --git a/net/bridge/br_notify.c b/net/bridge/br_notify.c
+index 2027849..0d56bc2 100644
+--- a/net/bridge/br_notify.c
++++ b/net/bridge/br_notify.c
+@@ -15,6 +15,7 @@
+ 
+ #include <linux/kernel.h>
+ #include <linux/rtnetlink.h>
++#include <net/net_namespace.h>
+ 
  #include "br_private.h"
  
- static inline size_t br_nlmsg_size(void)
-@@ -104,9 +105,13 @@ errout:
-  */
- static int br_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb)
- {
-+	net_t net = skb->sk->sk_net;
- 	struct net_device *dev;
- 	int idx;
+@@ -36,6 +37,9 @@ static int br_device_event(struct notifier_block *unused, unsigned long event, v
+ 	struct net_bridge_port *p = dev->br_port;
+ 	struct net_bridge *br;
  
-+	if (!net_eq(net, init_net()))
-+		return 0;
++	if (!net_eq(dev->nd_net, init_net()))
++		return NOTIFY_DONE;
 +
- 	read_lock(&per_net(dev_base_lock, init_net()));
- 	for (dev = per_net(dev_base, init_net()), idx = 0; dev; dev = dev->next) {
- 		/* not a bridge port */
-@@ -133,12 +138,16 @@ skip:
-  */
- static int br_rtm_setlink(struct sk_buff *skb,  struct nlmsghdr *nlh, void *arg)
- {
-+	net_t net = skb->sk->sk_net;
- 	struct ifinfomsg *ifm;
- 	struct nlattr *protinfo;
- 	struct net_device *dev;
- 	struct net_bridge_port *p;
- 	u8 new_state;
+ 	/* not a port of a bridge */
+ 	if (p == NULL)
+ 		return NOTIFY_DONE;
+diff --git a/net/core/dst.c b/net/core/dst.c
+index 836ec66..8c4a272 100644
+--- a/net/core/dst.c
++++ b/net/core/dst.c
+@@ -16,6 +16,7 @@
+ #include <linux/skbuff.h>
+ #include <linux/string.h>
+ #include <linux/types.h>
++#include <net/net_namespace.h>
  
-+	if (!net_eq(net, init_net()))
-+		return -EINVAL;
+ #include <net/dst.h>
+ 
+@@ -256,6 +257,9 @@ static int dst_dev_event(struct notifier_block *this, unsigned long event, void
+ 	struct net_device *dev = ptr;
+ 	struct dst_entry *dst;
+ 
++	if (!net_eq(dev->nd_net, init_net()))
++		return NOTIFY_DONE;
 +
- 	if (nlmsg_len(nlh) < sizeof(*ifm))
- 		return -EINVAL;
- 
+ 	switch (event) {
+ 	case NETDEV_UNREGISTER:
+ 	case NETDEV_DOWN:
 diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
-index 2fa2708..00b4148 100644
+index 1df6cd4..ffc31c1 100644
 --- a/net/core/fib_rules.c
 +++ b/net/core/fib_rules.c
-@@ -163,6 +163,9 @@ int fib_nl_newrule(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
- 	struct nlattr *tb[FRA_MAX+1];
- 	int err = -EINVAL;
+@@ -11,6 +11,7 @@
+ #include <linux/types.h>
+ #include <linux/kernel.h>
+ #include <linux/list.h>
++#include <net/net_namespace.h>
+ #include <net/fib_rules.h>
  
-+	if (!net_eq(net, init_net()))
-+		return -EINVAL;
+ static LIST_HEAD(rules_ops);
+@@ -441,6 +442,9 @@ static int fib_rules_event(struct notifier_block *this, unsigned long event,
+ 	struct net_device *dev = ptr;
+ 	struct fib_rules_ops *ops;
+ 
++	if (!net_eq(dev->nd_net, init_net()))
++		return NOTIFY_DONE;
 +
- 	if (nlh->nlmsg_len < nlmsg_msg_size(sizeof(*frh)))
- 		goto errout;
+ 	ASSERT_RTNL();
+ 	rcu_read_lock();
  
-@@ -244,12 +247,16 @@ errout:
- 
- int fib_nl_delrule(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
+diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+index ab48533..7796b39 100644
+--- a/net/core/pktgen.c
++++ b/net/core/pktgen.c
+@@ -1892,6 +1892,9 @@ static int pktgen_device_event(struct notifier_block *unused,
  {
-+	net_t net = skb->sk->sk_net;
- 	struct fib_rule_hdr *frh = nlmsg_data(nlh);
- 	struct fib_rules_ops *ops = NULL;
- 	struct fib_rule *rule;
- 	struct nlattr *tb[FRA_MAX+1];
- 	int err = -EINVAL;
+ 	struct net_device *dev = (struct net_device *)(ptr);
  
-+	if (!net_eq(net, init_net()))
-+		return -EINVAL;
++	if (!net_eq(dev->nd_net, init_net()))
++		return NOTIFY_DONE;
 +
- 	if (nlh->nlmsg_len < nlmsg_msg_size(sizeof(*frh)))
- 		goto errout;
- 
-diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index f5d4f92..d89c6fe 100644
---- a/net/core/neighbour.c
-+++ b/net/core/neighbour.c
-@@ -1445,6 +1445,9 @@ int neigh_delete(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
- 	struct net_device *dev = NULL;
- 	int err = -EINVAL;
- 
-+	if (!net_eq(net, init_net()))
-+		return -EINVAL;
-+
- 	if (nlmsg_len(nlh) < sizeof(*ndm))
- 		goto out;
- 
-@@ -1511,6 +1514,9 @@ int neigh_add(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
- 	struct net_device *dev = NULL;
- 	int err;
- 
-+	if (!net_eq(net, init_net()))
-+		return -EINVAL;
-+
- 	err = nlmsg_parse(nlh, sizeof(*ndm), tb, NDA_MAX, NULL);
- 	if (err < 0)
- 		goto out;
-@@ -1783,11 +1789,15 @@ static struct nla_policy nl_ntbl_parm_policy[NDTPA_MAX+1] __read_mostly = {
- 
- int neightbl_set(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
- {
-+	net_t net = skb->sk->sk_net;
- 	struct neigh_table *tbl;
- 	struct ndtmsg *ndtmsg;
- 	struct nlattr *tb[NDTA_MAX+1];
- 	int err;
- 
-+	if (!net_eq(net, init_net()))
-+		return -EINVAL;
-+
- 	err = nlmsg_parse(nlh, sizeof(*ndtmsg), tb, NDTA_MAX,
- 			  nl_neightbl_policy);
- 	if (err < 0)
-@@ -1907,11 +1917,15 @@ errout:
- 
- int neightbl_dump_info(struct sk_buff *skb, struct netlink_callback *cb)
- {
-+	net_t net = skb->sk->sk_net;
- 	int family, tidx, nidx = 0;
- 	int tbl_skip = cb->args[0];
- 	int neigh_skip = cb->args[1];
- 	struct neigh_table *tbl;
- 
-+	if (!net_eq(net, init_net()))
-+		return 0;
-+
- 	family = ((struct rtgenmsg *) nlmsg_data(cb->nlh))->rtgen_family;
- 
- 	read_lock(&neigh_tbl_lock);
-@@ -2030,9 +2044,13 @@ out:
- 
- int neigh_dump_info(struct sk_buff *skb, struct netlink_callback *cb)
- {
-+	net_t net = skb->sk->sk_net;
- 	struct neigh_table *tbl;
- 	int t, family, s_t;
- 
-+	if (!net_eq(net, init_net()))
-+		return 0;
-+
- 	read_lock(&neigh_tbl_lock);
- 	family = ((struct rtgenmsg *) nlmsg_data(cb->nlh))->rtgen_family;
- 	s_t = cb->args[0];
+ 	/* It is OK that we do not hold the group lock right now,
+ 	 * as we run under the RTNL lock.
+ 	 */
 diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 5ac07a0..9be586c 100644
+index e76539a..7841e89 100644
 --- a/net/core/rtnetlink.c
 +++ b/net/core/rtnetlink.c
-@@ -395,6 +395,9 @@ static int rtnl_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb)
- 	int s_idx = cb->args[0];
- 	struct net_device *dev;
- 
-+	if (!net_eq(net, init_net()))
-+		return 0;
-+
- 	read_lock(&per_net(dev_base_lock, net));
- 	for (dev=per_net(dev_base, net), idx=0; dev; dev = dev->next, idx++) {
- 		if (idx < s_idx)
-@@ -429,6 +432,9 @@ static int rtnl_setlink(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
- 	struct nlattr *tb[IFLA_MAX+1];
- 	char ifname[IFNAMSIZ];
- 
-+	if (!net_eq(net, init_net()))
-+		return -EINVAL;
-+
- 	err = nlmsg_parse(nlh, sizeof(*ifm), tb, IFLA_MAX, ifla_policy);
- 	if (err < 0)
- 		goto errout;
-@@ -602,6 +608,9 @@ static int rtnl_getlink(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
- 	int iw_buf_len = 0;
- 	int err;
- 
-+	if (!net_eq(net, init_net()))
-+		return -EINVAL;
-+
- 	err = nlmsg_parse(nlh, sizeof(*ifm), tb, IFLA_MAX, ifla_policy);
- 	if (err < 0)
- 		return err;
-@@ -650,9 +659,13 @@ errout:
- 
- static int rtnl_dump_all(struct sk_buff *skb, struct netlink_callback *cb)
+@@ -829,6 +829,10 @@ static struct rtnetlink_link link_rtnetlink_table[RTM_NR_MSGTYPES] =
+ static int rtnetlink_event(struct notifier_block *this, unsigned long event, void *ptr)
  {
-+	net_t net = skb->sk->sk_net;
- 	int idx;
- 	int s_idx = cb->family;
- 
-+	if (!net_eq(net, init_net()))
-+		return 0;
+ 	struct net_device *dev = ptr;
 +
- 	if (s_idx == 0)
- 		s_idx = 1;
- 	for (idx=1; idx<NPROTO; idx++) {
-diff --git a/net/decnet/dn_dev.c b/net/decnet/dn_dev.c
-index c83c8d1..a09275b 100644
---- a/net/decnet/dn_dev.c
-+++ b/net/decnet/dn_dev.c
-@@ -648,12 +648,16 @@ static struct nla_policy dn_ifa_policy[IFA_MAX+1] __read_mostly = {
- 
- static int dn_nl_deladdr(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
++	if (!net_eq(dev->nd_net, init_net()))
++		return NOTIFY_DONE;
++
+ 	switch (event) {
+ 	case NETDEV_UNREGISTER:
+ 		rtmsg_ifinfo(RTM_DELLINK, dev, ~0U);
+diff --git a/net/decnet/af_decnet.c b/net/decnet/af_decnet.c
+index 5e8042f..b27b2ac 100644
+--- a/net/decnet/af_decnet.c
++++ b/net/decnet/af_decnet.c
+@@ -2086,6 +2086,9 @@ static int dn_device_event(struct notifier_block *this, unsigned long event,
  {
-+	net_t net = skb->sk->sk_net;
- 	struct nlattr *tb[IFA_MAX+1];
- 	struct dn_dev *dn_db;
- 	struct ifaddrmsg *ifm;
- 	struct dn_ifaddr *ifa, **ifap;
- 	int err = -EADDRNOTAVAIL;
+ 	struct net_device *dev = (struct net_device *)ptr;
  
-+	if (!net_eq(net, init_net()))
-+		goto errout;
++	if (!net_eq(dev->nd_net, init_net()))
++		return NOTIFY_DONE;
 +
- 	err = nlmsg_parse(nlh, sizeof(*ifm), tb, IFA_MAX, dn_ifa_policy);
- 	if (err < 0)
- 		goto errout;
-@@ -680,6 +684,7 @@ errout:
+ 	switch(event) {
+ 		case NETDEV_UP:
+ 			dn_dev_up(dev);
+diff --git a/net/econet/af_econet.c b/net/econet/af_econet.c
+index 0baffda..cbf87f4 100644
+--- a/net/econet/af_econet.c
++++ b/net/econet/af_econet.c
+@@ -1121,6 +1121,9 @@ static int econet_notifier(struct notifier_block *this, unsigned long msg, void
+ 	struct net_device *dev = (struct net_device *)data;
+ 	struct ec_device *edev;
  
- static int dn_nl_newaddr(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
++	if (!net_eq(dev->nd_net, init_net()))
++		return NOTIFY_DONE;
++
+ 	switch (msg) {
+ 	case NETDEV_UNREGISTER:
+ 		/* A device has gone down - kill any data we hold for it. */
+diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
+index 95a34c7..0d23fb2 100644
+--- a/net/ipv4/arp.c
++++ b/net/ipv4/arp.c
+@@ -1206,6 +1206,9 @@ static int arp_netdev_event(struct notifier_block *this, unsigned long event, vo
  {
-+	net_t net = skb->sk->sk_net;
- 	struct nlattr *tb[IFA_MAX+1];
- 	struct net_device *dev;
- 	struct dn_dev *dn_db;
-@@ -687,6 +692,9 @@ static int dn_nl_newaddr(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
- 	struct dn_ifaddr *ifa;
- 	int err;
+ 	struct net_device *dev = ptr;
  
-+	if (!net_eq(net, init_net()))
-+		return -EINVAL;
++	if (!net_eq(dev->nd_net, init_net()))
++		return NOTIFY_DONE;
 +
- 	err = nlmsg_parse(nlh, sizeof(*ifm), tb, IFA_MAX, dn_ifa_policy);
- 	if (err < 0)
- 		return err;
-@@ -788,11 +796,15 @@ errout:
- 
- static int dn_nl_dump_ifaddr(struct sk_buff *skb, struct netlink_callback *cb)
- {
-+	net_t net = skb->sk->sk_net;
- 	int idx, dn_idx = 0, skip_ndevs, skip_naddr;
- 	struct net_device *dev;
- 	struct dn_dev *dn_db;
- 	struct dn_ifaddr *ifa;
- 
-+	if (!net_eq(net, init_net()))
-+		return 0;
-+
- 	skip_ndevs = cb->args[0];
- 	skip_naddr = cb->args[1];
- 
-diff --git a/net/decnet/dn_fib.c b/net/decnet/dn_fib.c
-index cc2ab1f..832e1b4 100644
---- a/net/decnet/dn_fib.c
-+++ b/net/decnet/dn_fib.c
-@@ -503,10 +503,14 @@ static int dn_fib_check_attr(struct rtmsg *r, struct rtattr **rta)
- 
- int dn_fib_rtm_delroute(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
- {
-+	net_t net = skb->sk->sk_net;
- 	struct dn_fib_table *tb;
- 	struct rtattr **rta = arg;
- 	struct rtmsg *r = NLMSG_DATA(nlh);
- 
-+	if (!net_eq(net, init_net()))
-+		return -EINVAL;
-+
- 	if (dn_fib_check_attr(r, rta))
- 		return -EINVAL;
- 
-@@ -519,10 +523,14 @@ int dn_fib_rtm_delroute(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
- 
- int dn_fib_rtm_newroute(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
- {
-+	net_t net = skb->sk->sk_net;
- 	struct dn_fib_table *tb;
- 	struct rtattr **rta = arg;
- 	struct rtmsg *r = NLMSG_DATA(nlh);
- 
-+	if (!net_eq(net, init_net()))
-+		return -EINVAL;
-+
- 	if (dn_fib_check_attr(r, rta))
- 		return -EINVAL;
- 
-diff --git a/net/decnet/dn_route.c b/net/decnet/dn_route.c
-index 9669e50..d942ea0 100644
---- a/net/decnet/dn_route.c
-+++ b/net/decnet/dn_route.c
-@@ -1528,6 +1528,7 @@ rtattr_failure:
-  */
- int dn_cache_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh, void *arg)
- {
-+	net_t net = in_skb->sk->sk_net;
- 	struct rtattr **rta = arg;
- 	struct rtmsg *rtm = NLMSG_DATA(nlh);
- 	struct dn_route *rt = NULL;
-@@ -1536,6 +1537,9 @@ int dn_cache_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh, void *arg)
- 	struct sk_buff *skb;
- 	struct flowi fl;
- 
-+	if (!net_eq(net, init_net()))
-+		return -EINVAL;
-+
- 	memset(&fl, 0, sizeof(fl));
- 	fl.proto = DNPROTO_NSP;
- 
-@@ -1613,10 +1617,14 @@ out_free:
-  */
- int dn_cache_dump(struct sk_buff *skb, struct netlink_callback *cb)
- {
-+	net_t net = skb->sk->sk_net;
- 	struct dn_route *rt;
- 	int h, s_h;
- 	int idx, s_idx;
- 
-+	if (!net_eq(net, init_net()))
-+		return 0;
-+
- 	if (NLMSG_PAYLOAD(cb->nlh, 0) < sizeof(struct rtmsg))
- 		return -EINVAL;
- 	if (!(((struct rtmsg *)NLMSG_DATA(cb->nlh))->rtm_flags&RTM_F_CLONED))
-diff --git a/net/decnet/dn_rules.c b/net/decnet/dn_rules.c
-index e32d0c3..84eec40 100644
---- a/net/decnet/dn_rules.c
-+++ b/net/decnet/dn_rules.c
-@@ -243,6 +243,11 @@ static u32 dn_fib_rule_default_pref(void)
- 
- int dn_fib_dump_rules(struct sk_buff *skb, struct netlink_callback *cb)
- {
-+	net_t net = skb->sk->sk_net;
-+
-+	if (!net_eq(net, init_net()))
-+		return 0;
-+
- 	return fib_rules_dump(skb, cb, AF_DECnet);
- }
- 
-diff --git a/net/decnet/dn_table.c b/net/decnet/dn_table.c
-index 13b2421..3ff151c 100644
---- a/net/decnet/dn_table.c
-+++ b/net/decnet/dn_table.c
-@@ -459,12 +459,16 @@ static int dn_fib_table_dump(struct dn_fib_table *tb, struct sk_buff *skb,
- 
- int dn_fib_dump(struct sk_buff *skb, struct netlink_callback *cb)
- {
-+	net_t net = skb->sk->sk_net;
- 	unsigned int h, s_h;
- 	unsigned int e = 0, s_e;
- 	struct dn_fib_table *tb;
- 	struct hlist_node *node;
- 	int dumped = 0;
- 
-+	if (!net_eq(net, init_net()))
-+		return 0;
-+
- 	if (NLMSG_PAYLOAD(cb->nlh, 0) >= sizeof(struct rtmsg) &&
- 		((struct rtmsg *)NLMSG_DATA(cb->nlh))->rtm_flags&RTM_F_CLONED)
- 			return dn_cache_dump(skb, cb);
+ 	switch (event) {
+ 	case NETDEV_CHANGEADDR:
+ 		neigh_changeaddr(&arp_tbl, dev);
 diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index b0d12ec..7769b1c 100644
+index 216cf2b..a7d991d 100644
 --- a/net/ipv4/devinet.c
 +++ b/net/ipv4/devinet.c
-@@ -443,6 +443,7 @@ struct in_ifaddr *inet_ifa_byprefix(struct in_device *in_dev, __be32 prefix,
+@@ -1050,6 +1050,9 @@ static int inetdev_event(struct notifier_block *this, unsigned long event,
+ 	struct net_device *dev = ptr;
+ 	struct in_device *in_dev = __in_dev_get_rtnl(dev);
  
- static int inet_rtm_deladdr(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
- {
-+	net_t net = skb->sk->sk_net;
- 	struct nlattr *tb[IFA_MAX+1];
- 	struct in_device *in_dev;
- 	struct ifaddrmsg *ifm;
-@@ -451,6 +452,9 @@ static int inet_rtm_deladdr(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg
- 
++	if (!net_eq(dev->nd_net, init_net()))
++		return NOTIFY_DONE;
++
  	ASSERT_RTNL();
  
-+	if (!net_eq(net, init_net()))
-+		return -EINVAL;
-+
- 	err = nlmsg_parse(nlh, sizeof(*ifm), tb, IFA_MAX, ifa_ipv4_policy);
- 	if (err < 0)
- 		goto errout;
-@@ -562,10 +566,14 @@ errout:
- 
- static int inet_rtm_newaddr(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
- {
-+	net_t net = skb->sk->sk_net;
- 	struct in_ifaddr *ifa;
- 
- 	ASSERT_RTNL();
- 
-+	if (!net_eq(net, init_net()))
-+		return -EINVAL;
-+
- 	ifa = rtm_to_ifaddr(nlh);
- 	if (IS_ERR(ifa))
- 		return PTR_ERR(ifa);
-@@ -1173,12 +1181,16 @@ nla_put_failure:
- 
- static int inet_dump_ifaddr(struct sk_buff *skb, struct netlink_callback *cb)
- {
-+	net_t net = skb->sk->sk_net;
- 	int idx, ip_idx;
- 	struct net_device *dev;
- 	struct in_device *in_dev;
- 	struct in_ifaddr *ifa;
- 	int s_ip_idx, s_idx = cb->args[0];
- 
-+	if (!net_eq(net, init_net()))
-+		return 0;
-+
- 	s_ip_idx = ip_idx = cb->args[1];
- 	read_lock(&per_net(dev_base_lock, init_net()));
- 	for (dev = per_net(dev_base, init_net()), idx = 0; dev; dev = dev->next, idx++) {
+ 	if (!in_dev) {
 diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
-index 449f42d..0e48fb8 100644
+index d47b72a..049c370 100644
 --- a/net/ipv4/fib_frontend.c
 +++ b/net/ipv4/fib_frontend.c
-@@ -538,10 +538,14 @@ errout:
+@@ -860,6 +860,9 @@ static int fib_netdev_event(struct notifier_block *this, unsigned long event, vo
+ 	struct net_device *dev = ptr;
+ 	struct in_device *in_dev = __in_dev_get_rtnl(dev);
  
- int inet_rtm_delroute(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
++	if (!net_eq(dev->nd_net, init_net()))
++		return NOTIFY_DONE;
++
+ 	if (event == NETDEV_UNREGISTER) {
+ 		fib_disable_ip(dev, 2);
+ 		return NOTIFY_DONE;
+diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+index af50394..9afaa13 100644
+--- a/net/ipv4/ipmr.c
++++ b/net/ipv4/ipmr.c
+@@ -1075,13 +1075,18 @@ int ipmr_ioctl(struct sock *sk, int cmd, void __user *arg)
+ 
+ static int ipmr_device_event(struct notifier_block *this, unsigned long event, void *ptr)
  {
-+	net_t net = skb->sk->sk_net;
- 	struct fib_config cfg;
- 	struct fib_table *tb;
- 	int err;
- 
-+	if (!net_eq(net, init_net()))
-+		return -EINVAL;
++	struct net_device *dev = ptr;
+ 	struct vif_device *v;
+ 	int ct;
 +
- 	err = rtm_to_fib_config(skb, nlh, &cfg);
- 	if (err < 0)
- 		goto errout;
-@@ -559,10 +563,14 @@ errout:
++	if (!net_eq(dev->nd_net, init_net()))
++		return NOTIFY_DONE;
++
+ 	if (event != NETDEV_UNREGISTER)
+ 		return NOTIFY_DONE;
+ 	v=&vif_table[0];
+ 	for(ct=0;ct<maxvif;ct++,v++) {
+-		if (v->dev==ptr)
++		if (v->dev==dev)
+ 			vif_delete(ct);
+ 	}
+ 	return NOTIFY_DONE;
+diff --git a/net/ipv4/multipath_drr.c b/net/ipv4/multipath_drr.c
+index 252e837..b14d6ae 100644
+--- a/net/ipv4/multipath_drr.c
++++ b/net/ipv4/multipath_drr.c
+@@ -87,6 +87,9 @@ static int drr_dev_event(struct notifier_block *this,
+ 	struct net_device *dev = ptr;
+ 	int devidx;
  
- int inet_rtm_newroute(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
++	if (!net_eq(dev->nd_net, init_net()))
++		return NOTIFY_DONE;
++
+ 	switch (event) {
+ 	case NETDEV_UNREGISTER:
+ 	case NETDEV_DOWN:
+diff --git a/net/ipv4/netfilter/ip_queue.c b/net/ipv4/netfilter/ip_queue.c
+index aae660c..8650a57 100644
+--- a/net/ipv4/netfilter/ip_queue.c
++++ b/net/ipv4/netfilter/ip_queue.c
+@@ -567,6 +567,9 @@ ipq_rcv_dev_event(struct notifier_block *this,
  {
-+	net_t net = skb->sk->sk_net;
- 	struct fib_config cfg;
- 	struct fib_table *tb;
- 	int err;
+ 	struct net_device *dev = ptr;
  
-+	if (!net_eq(net, init_net()))
-+		return -EINVAL;
++	if (!net_eq(dev->nd_net, init_net()))
++		return NOTIFY_DONE;
 +
- 	err = rtm_to_fib_config(skb, nlh, &cfg);
- 	if (err < 0)
- 		goto errout;
-@@ -580,12 +588,16 @@ errout:
- 
- int inet_dump_fib(struct sk_buff *skb, struct netlink_callback *cb)
+ 	/* Drop any packets associated with the downed device */
+ 	if (event == NETDEV_DOWN)
+ 		ipq_dev_drop(dev->ifindex);
+diff --git a/net/ipv4/netfilter/ipt_MASQUERADE.c b/net/ipv4/netfilter/ipt_MASQUERADE.c
+index d669685..41fe6b5 100644
+--- a/net/ipv4/netfilter/ipt_MASQUERADE.c
++++ b/net/ipv4/netfilter/ipt_MASQUERADE.c
+@@ -152,6 +152,9 @@ static int masq_device_event(struct notifier_block *this,
  {
-+	net_t net = skb->sk->sk_net;
- 	unsigned int h, s_h;
- 	unsigned int e = 0, s_e;
- 	struct fib_table *tb;
- 	struct hlist_node *node;
- 	int dumped = 0;
+ 	struct net_device *dev = ptr;
  
-+	if (!net_eq(net, init_net()))
-+		return 0;
++	if (!net_eq(dev->nd_net, init_net()))
++		return NOTIFY_DONE;
 +
- 	if (nlmsg_len(cb->nlh) >= sizeof(struct rtmsg) &&
- 	    ((struct rtmsg *) nlmsg_data(cb->nlh))->rtm_flags & RTM_F_CLONED)
- 		return ip_rt_dump(skb, cb);
-diff --git a/net/ipv4/fib_rules.c b/net/ipv4/fib_rules.c
-index b837c33..f2c50e0 100644
---- a/net/ipv4/fib_rules.c
-+++ b/net/ipv4/fib_rules.c
-@@ -279,6 +279,11 @@ nla_put_failure:
- 
- int fib4_rules_dump(struct sk_buff *skb, struct netlink_callback *cb)
- {
-+	net_t net = skb->sk->sk_net;
-+
-+	if (!net_eq(net, init_net()))
-+		return 0;
-+
- 	return fib_rules_dump(skb, cb, AF_INET);
- }
- 
+ 	if (event == NETDEV_DOWN) {
+ 		/* Device was downed.  Search entire table for
+ 		   conntracks which were associated with that device,
 diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 7afe698..83b7312 100644
+index 52bd4dd..7be542f 100644
 --- a/net/ipv6/addrconf.c
 +++ b/net/ipv6/addrconf.c
-@@ -2951,11 +2951,15 @@ static struct nla_policy ifa_ipv6_policy[IFA_MAX+1] __read_mostly = {
- static int
- inet6_rtm_deladdr(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
+@@ -2235,6 +2235,9 @@ static int addrconf_notify(struct notifier_block *this, unsigned long event,
+ 	struct inet6_dev *idev = __in6_dev_get(dev);
+ 	int run_pending = 0;
+ 
++	if (!net_eq(dev->nd_net, init_net()))
++		return NOTIFY_DONE;
++
+ 	switch(event) {
+ 	case NETDEV_UP:
+ 	case NETDEV_CHANGE:
+diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+index 6a9f616..9b3495f 100644
+--- a/net/ipv6/ndisc.c
++++ b/net/ipv6/ndisc.c
+@@ -1586,6 +1586,9 @@ static int ndisc_netdev_event(struct notifier_block *this, unsigned long event,
  {
-+	net_t net = skb->sk->sk_net;
- 	struct ifaddrmsg *ifm;
- 	struct nlattr *tb[IFA_MAX+1];
- 	struct in6_addr *pfx;
- 	int err;
+ 	struct net_device *dev = ptr;
  
-+	if (!net_eq(net, init_net()))
-+		return -EINVAL;
++	if (!net_eq(dev->nd_net, init_net()))
++		return NOTIFY_DONE;
 +
- 	err = nlmsg_parse(nlh, sizeof(*ifm), tb, IFA_MAX, ifa_ipv6_policy);
- 	if (err < 0)
- 		return err;
-@@ -3003,6 +3007,7 @@ static int inet6_addr_modify(struct inet6_ifaddr *ifp, u8 ifa_flags,
- static int
- inet6_rtm_newaddr(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
+ 	switch (event) {
+ 	case NETDEV_CHANGEADDR:
+ 		neigh_changeaddr(&nd_tbl, dev);
+diff --git a/net/ipv6/netfilter/ip6_queue.c b/net/ipv6/netfilter/ip6_queue.c
+index 45b64a5..f6e108c 100644
+--- a/net/ipv6/netfilter/ip6_queue.c
++++ b/net/ipv6/netfilter/ip6_queue.c
+@@ -557,6 +557,9 @@ ipq_rcv_dev_event(struct notifier_block *this,
  {
-+	net_t net = skb->sk->sk_net;
- 	struct ifaddrmsg *ifm;
- 	struct nlattr *tb[IFA_MAX+1];
- 	struct in6_addr *pfx;
-@@ -3012,6 +3017,9 @@ inet6_rtm_newaddr(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
- 	u8 ifa_flags;
- 	int err;
+ 	struct net_device *dev = ptr;
  
-+	if (!net_eq(net, init_net()))
-+		return -EINVAL;
++	if (!net_eq(dev->nd_net, init_net()))
++		return NOTIFY_DONE;
 +
- 	err = nlmsg_parse(nlh, sizeof(*ifm), tb, IFA_MAX, ifa_ipv6_policy);
- 	if (err < 0)
- 		return err;
-@@ -3278,26 +3286,42 @@ done:
+ 	/* Drop any packets associated with the downed device */
+ 	if (event == NETDEV_DOWN)
+ 		ipq_dev_drop(dev->ifindex);
+diff --git a/net/ipx/af_ipx.c b/net/ipx/af_ipx.c
+index 5c5f2cd..f2674fe 100644
+--- a/net/ipx/af_ipx.c
++++ b/net/ipx/af_ipx.c
+@@ -347,6 +347,9 @@ static int ipxitf_device_event(struct notifier_block *notifier,
+ 	struct net_device *dev = ptr;
+ 	struct ipx_interface *i, *tmp;
  
- static int inet6_dump_ifaddr(struct sk_buff *skb, struct netlink_callback *cb)
++	if (!net_eq(dev->nd_net, init_net()))
++		return NOTIFY_DONE;
++
+ 	if (event != NETDEV_DOWN && event != NETDEV_UP)
+ 		goto out;
+ 
+diff --git a/net/netfilter/nfnetlink_queue.c b/net/netfilter/nfnetlink_queue.c
+index a88a017..59bf595 100644
+--- a/net/netfilter/nfnetlink_queue.c
++++ b/net/netfilter/nfnetlink_queue.c
+@@ -734,6 +734,9 @@ nfqnl_rcv_dev_event(struct notifier_block *this,
  {
-+	net_t net = skb->sk->sk_net;
- 	enum addr_type_t type = UNICAST_ADDR;
-+
-+	if (!net_eq(net, init_net()))
-+		return 0;
-+
- 	return inet6_dump_addr(skb, cb, type);
- }
+ 	struct net_device *dev = ptr;
  
- static int inet6_dump_ifmcaddr(struct sk_buff *skb, struct netlink_callback *cb)
++	if (!net_eq(dev->nd_net, init_net()))
++		return NOTIFY_DONE;
++
+ 	/* Drop any packets associated with the downed device */
+ 	if (event == NETDEV_DOWN)
+ 		nfqnl_dev_drop(dev->ifindex);
+diff --git a/net/netrom/af_netrom.c b/net/netrom/af_netrom.c
+index 3fa3f1a..6965a1a 100644
+--- a/net/netrom/af_netrom.c
++++ b/net/netrom/af_netrom.c
+@@ -106,6 +106,9 @@ static int nr_device_event(struct notifier_block *this, unsigned long event, voi
  {
-+	net_t net = skb->sk->sk_net;
- 	enum addr_type_t type = MULTICAST_ADDR;
+ 	struct net_device *dev = (struct net_device *)ptr;
+ 
++	if (!net_eq(dev->nd_net, init_net()))
++		return NOTIFY_DONE;
 +
-+	if (!net_eq(net, init_net()))
-+		return 0;
-+
- 	return inet6_dump_addr(skb, cb, type);
- }
+ 	if (event != NETDEV_DOWN)
+ 		return NOTIFY_DONE;
  
- 
- static int inet6_dump_ifacaddr(struct sk_buff *skb, struct netlink_callback *cb)
- {
-+	net_t net = skb->sk->sk_net;
- 	enum addr_type_t type = ANYCAST_ADDR;
-+
-+	if (!net_eq(net, init_net()))
-+		return 0;
-+
- 	return inet6_dump_addr(skb, cb, type);
- }
- 
- static int inet6_rtm_getaddr(struct sk_buff *in_skb, struct nlmsghdr* nlh,
- 			     void *arg)
- {
-+	net_t net = in_skb->sk->sk_net;
- 	struct ifaddrmsg *ifm;
- 	struct nlattr *tb[IFA_MAX+1];
- 	struct in6_addr *addr = NULL;
-@@ -3306,6 +3330,9 @@ static int inet6_rtm_getaddr(struct sk_buff *in_skb, struct nlmsghdr* nlh,
- 	struct sk_buff *skb;
- 	int err;
- 
-+	if (!net_eq(net, init_net()))
-+		return -EINVAL;
-+
- 	err = nlmsg_parse(nlh, sizeof(*ifm), tb, IFA_MAX, ifa_ipv6_policy);
- 	if (err < 0)
- 		goto errout;
-@@ -3472,11 +3499,15 @@ nla_put_failure:
- 
- static int inet6_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb)
- {
-+	net_t net = skb->sk->sk_net;
- 	int idx, err;
- 	int s_idx = cb->args[0];
- 	struct net_device *dev;
- 	struct inet6_dev *idev;
- 
-+	if (!net_eq(net, init_net()))
-+		return 0;
-+
- 	read_lock(&per_net(dev_base_lock, init_net()));
- 	for (dev=per_net(dev_base, init_net()), idx=0; dev; dev = dev->next, idx++) {
- 		if (idx < s_idx)
-diff --git a/net/ipv6/fib6_rules.c b/net/ipv6/fib6_rules.c
-index 0862809..80d6de6 100644
---- a/net/ipv6/fib6_rules.c
-+++ b/net/ipv6/fib6_rules.c
-@@ -223,6 +223,11 @@ nla_put_failure:
- 
- int fib6_rules_dump(struct sk_buff *skb, struct netlink_callback *cb)
- {
-+	net_t net = skb->sk->sk_net;
-+
-+	if (!net_eq(net, init_net()))
-+		return 0;
-+
- 	return fib_rules_dump(skb, cb, AF_INET6);
- }
- 
-diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
-index 96d8310..97814ed 100644
---- a/net/ipv6/ip6_fib.c
-+++ b/net/ipv6/ip6_fib.c
-@@ -362,6 +362,7 @@ end:
- 
- int inet6_dump_fib(struct sk_buff *skb, struct netlink_callback *cb)
- {
-+	net_t net = skb->sk->sk_net;
- 	unsigned int h, s_h;
- 	unsigned int e = 0, s_e;
- 	struct rt6_rtnl_dump_arg arg;
-@@ -370,6 +371,9 @@ int inet6_dump_fib(struct sk_buff *skb, struct netlink_callback *cb)
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index aa298c3..6e3b947 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -1439,6 +1439,9 @@ static int packet_notifier(struct notifier_block *this, unsigned long msg, void
  	struct hlist_node *node;
- 	int res = 0;
+ 	struct net_device *dev = (struct net_device*)data;
  
-+	if (!net_eq(net, init_net()))
-+		return 0;
++	if (!net_eq(dev->nd_net, init_net()))
++		return NOTIFY_DONE;
 +
- 	s_h = cb->args[0];
- 	s_e = cb->args[1];
- 
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 4519006..02fd8ae 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -1985,9 +1985,13 @@ errout:
- 
- int inet6_rtm_delroute(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
+ 	read_lock(&packet_sklist_lock);
+ 	sk_for_each(sk, node, &packet_sklist) {
+ 		struct packet_sock *po = pkt_sk(sk);
+diff --git a/net/rose/af_rose.c b/net/rose/af_rose.c
+index 7d5e593..dad50d3 100644
+--- a/net/rose/af_rose.c
++++ b/net/rose/af_rose.c
+@@ -197,6 +197,9 @@ static int rose_device_event(struct notifier_block *this, unsigned long event,
  {
-+	net_t net = skb->sk->sk_net;
- 	struct fib6_config cfg;
- 	int err;
+ 	struct net_device *dev = (struct net_device *)ptr;
  
-+	if (!net_eq(net, init_net()))
-+		return -EINVAL;
++	if (!net_eq(dev->nd_net, init_net()))
++		return NOTIFY_DONE;
 +
- 	err = rtm_to_fib6_config(skb, nlh, &cfg);
- 	if (err < 0)
- 		return err;
-@@ -1997,9 +2001,13 @@ int inet6_rtm_delroute(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
+ 	if (event != NETDEV_DOWN)
+ 		return NOTIFY_DONE;
  
- int inet6_rtm_newroute(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
+diff --git a/net/tipc/eth_media.c b/net/tipc/eth_media.c
+index b181cf9..c6f64de 100644
+--- a/net/tipc/eth_media.c
++++ b/net/tipc/eth_media.c
+@@ -194,6 +194,9 @@ static int recv_notification(struct notifier_block *nb, unsigned long evt,
+ 	struct eth_bearer *eb_ptr = &eth_bearers[0];
+ 	struct eth_bearer *stop = &eth_bearers[MAX_ETH_BEARERS];
+ 
++	if (!net_eq(dev->nd_net, init_net()))
++		return NOTIFY_DONE;
++
+ 	while ((eb_ptr->dev != dev)) {
+ 		if (++eb_ptr == stop)
+ 			return NOTIFY_DONE;	/* couldn't find device */
+diff --git a/net/wanrouter/af_wanpipe.c b/net/wanrouter/af_wanpipe.c
+index 542c737..f9b896c 100644
+--- a/net/wanrouter/af_wanpipe.c
++++ b/net/wanrouter/af_wanpipe.c
+@@ -1714,6 +1714,9 @@ static int wanpipe_notifier(struct notifier_block *this, unsigned long msg, void
+ 	hlist_node *node;
+ 	struct net_device *dev = (struct net_device *)data;
+ 
++	if (!net_eq(dev->nd_net, init_net()))
++		return NOTIFY_DONE;
++
+ 	sk_for_each(sk, node, &wanpipe_sklist) {
+ 		struct wanpipe_opt *po = wp_sk(sk);
+ 
+diff --git a/net/x25/af_x25.c b/net/x25/af_x25.c
+index 6602a34..f4fad10 100644
+--- a/net/x25/af_x25.c
++++ b/net/x25/af_x25.c
+@@ -190,6 +190,9 @@ static int x25_device_event(struct notifier_block *this, unsigned long event,
+ 	struct net_device *dev = ptr;
+ 	struct x25_neigh *nb;
+ 
++	if (!net_eq(dev->nd_net, init_net()))
++		return NOTIFY_DONE;
++
+ 	if (dev->type == ARPHRD_X25
+ #if defined(CONFIG_LLC) || defined(CONFIG_LLC_MODULE)
+ 	 || dev->type == ARPHRD_ETHER
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index bebd40e..0248343 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -2188,6 +2188,11 @@ static void xfrm_policy_unlock_afinfo(struct xfrm_policy_afinfo *afinfo)
+ 
+ static int xfrm_dev_event(struct notifier_block *this, unsigned long event, void *ptr)
  {
-+	net_t net = skb->sk->sk_net;
- 	struct fib6_config cfg;
- 	int err;
- 
-+	if (!net_eq(net, init_net()))
-+		return -EINVAL;
++	struct net_device *dev = ptr;
 +
- 	err = rtm_to_fib6_config(skb, nlh, &cfg);
- 	if (err < 0)
- 		return err;
-@@ -2132,6 +2140,7 @@ int rt6_dump_route(struct rt6_info *rt, void *p_arg)
- 
- int inet6_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr* nlh, void *arg)
++	if (!net_eq(dev->nd_net, init_net()))
++		return NOTIFY_DONE;
++
+ 	switch (event) {
+ 	case NETDEV_DOWN:
+ 		xfrm_flush_bundles();
+diff --git a/security/selinux/netif.c b/security/selinux/netif.c
+index b10c34e..45c422f 100644
+--- a/security/selinux/netif.c
++++ b/security/selinux/netif.c
+@@ -234,6 +234,9 @@ static int sel_netif_netdev_notifier_handler(struct notifier_block *this,
  {
-+	net_t net = in_skb->sk->sk_net;
- 	struct nlattr *tb[RTA_MAX+1];
- 	struct rt6_info *rt;
- 	struct sk_buff *skb;
-@@ -2139,6 +2148,9 @@ int inet6_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr* nlh, void *arg)
- 	struct flowi fl;
- 	int err, iif = 0;
+ 	struct net_device *dev = ptr;
  
-+	if (!net_eq(net, init_net()))
-+		return -EINVAL;
++	if (!net_eq(dev->nd_net, init_net()))
++		return NOTIFY_DONE;
 +
- 	err = nlmsg_parse(nlh, sizeof(*rtm), tb, RTA_MAX, rtm_ipv6_policy);
- 	if (err < 0)
- 		goto errout;
-diff --git a/net/sched/act_api.c b/net/sched/act_api.c
-index 835070e..18d8f68 100644
---- a/net/sched/act_api.c
-+++ b/net/sched/act_api.c
-@@ -942,10 +942,14 @@ done:
+ 	if (event == NETDEV_DOWN)
+ 		sel_netif_kill(dev);
  
- static int tc_ctl_action(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
- {
-+	net_t net = skb->sk->sk_net;
- 	struct rtattr **tca = arg;
- 	u32 pid = skb ? NETLINK_CB(skb).pid : 0;
- 	int ret = 0, ovr = 0;
- 
-+	if (!net_eq(net, init_net()))
-+		return -EINVAL;
-+
- 	if (tca[TCA_ACT_TAB-1] == NULL) {
- 		printk("tc_ctl_action: received NO action attribs\n");
- 		return -EINVAL;
-@@ -1015,6 +1019,7 @@ find_dump_kind(struct nlmsghdr *n)
- static int
- tc_dump_action(struct sk_buff *skb, struct netlink_callback *cb)
- {
-+	net_t net = skb->sk->sk_net;
- 	struct nlmsghdr *nlh;
- 	unsigned char *b = skb->tail;
- 	struct rtattr *x;
-@@ -1024,6 +1029,9 @@ tc_dump_action(struct sk_buff *skb, struct netlink_callback *cb)
- 	struct tcamsg *t = (struct tcamsg *) NLMSG_DATA(cb->nlh);
- 	struct rtattr *kind = find_dump_kind(cb->nlh);
- 
-+	if (!net_eq(net, init_net()))
-+		return 0;
-+
- 	if (kind == NULL) {
- 		printk("tc_dump_action: action bad kind\n");
- 		return 0;
-diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
-index 19935f9..09a3ec8 100644
---- a/net/sched/cls_api.c
-+++ b/net/sched/cls_api.c
-@@ -129,6 +129,7 @@ static __inline__ u32 tcf_auto_prio(struct tcf_proto *tp)
- 
- static int tc_ctl_tfilter(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
- {
-+	net_t net = skb->sk->sk_net;
- 	struct rtattr **tca;
- 	struct tcmsg *t;
- 	u32 protocol;
-@@ -145,6 +146,9 @@ static int tc_ctl_tfilter(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
- 	unsigned long fh;
- 	int err;
- 
-+	if (!net_eq(net, init_net()))
-+		return -EINVAL;
-+
- replay:
- 	tca = arg;
- 	t = NLMSG_DATA(n);
-@@ -385,6 +389,7 @@ static int tcf_node_dump(struct tcf_proto *tp, unsigned long n, struct tcf_walke
- 
- static int tc_dump_tfilter(struct sk_buff *skb, struct netlink_callback *cb)
- {
-+	net_t net = skb->sk->sk_net;
- 	int t;
- 	int s_t;
- 	struct net_device *dev;
-@@ -395,6 +400,9 @@ static int tc_dump_tfilter(struct sk_buff *skb, struct netlink_callback *cb)
- 	struct Qdisc_class_ops *cops;
- 	struct tcf_dump_args arg;
- 
-+	if (!net_eq(net, init_net()))
-+		return 0;
-+
- 	if (cb->nlh->nlmsg_len < NLMSG_LENGTH(sizeof(*tcm)))
- 		return skb->len;
- 	if ((dev = dev_get_by_index(init_net(), tcm->tcm_ifindex)) == NULL)
-diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-index 912e8e1..7e33f73 100644
---- a/net/sched/sch_api.c
-+++ b/net/sched/sch_api.c
-@@ -578,6 +578,7 @@ check_loop_fn(struct Qdisc *q, unsigned long cl, struct qdisc_walker *w)
- 
- static int tc_get_qdisc(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
- {
-+	net_t net = skb->sk->sk_net;
- 	struct tcmsg *tcm = NLMSG_DATA(n);
- 	struct rtattr **tca = arg;
- 	struct net_device *dev;
-@@ -586,6 +587,9 @@ static int tc_get_qdisc(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
- 	struct Qdisc *p = NULL;
- 	int err;
- 
-+	if (!net_eq(net, init_net()))
-+		return -EINVAL;
-+
- 	if ((dev = __dev_get_by_index(init_net(), tcm->tcm_ifindex)) == NULL)
- 		return -ENODEV;
- 
-@@ -639,6 +643,7 @@ static int tc_get_qdisc(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
- 
- static int tc_modify_qdisc(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
- {
-+	net_t net = skb->sk->sk_net;
- 	struct tcmsg *tcm;
- 	struct rtattr **tca;
- 	struct net_device *dev;
-@@ -646,6 +651,9 @@ static int tc_modify_qdisc(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
- 	struct Qdisc *q, *p;
- 	int err;
- 
-+	if (!net_eq(net, init_net()))
-+		return -EINVAL;
-+
- replay:
- 	/* Reinit, just in case something touches this. */
- 	tcm = NLMSG_DATA(n);
-@@ -851,11 +859,15 @@ err_out:
- 
- static int tc_dump_qdisc(struct sk_buff *skb, struct netlink_callback *cb)
- {
-+	net_t net = skb->sk->sk_net;
- 	int idx, q_idx;
- 	int s_idx, s_q_idx;
- 	struct net_device *dev;
- 	struct Qdisc *q;
- 
-+	if (!net_eq(net, init_net()))
-+		return 0;
-+
- 	s_idx = cb->args[0];
- 	s_q_idx = q_idx = cb->args[1];
- 	read_lock(&per_net(dev_base_lock, init_net()));
-@@ -900,6 +912,7 @@ done:
- 
- static int tc_ctl_tclass(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
- {
-+	net_t net = skb->sk->sk_net;
- 	struct tcmsg *tcm = NLMSG_DATA(n);
- 	struct rtattr **tca = arg;
- 	struct net_device *dev;
-@@ -912,6 +925,9 @@ static int tc_ctl_tclass(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
- 	u32 qid = TC_H_MAJ(clid);
- 	int err;
- 
-+	if (!net_eq(net, init_net()))
-+		return -EINVAL;
-+
- 	if ((dev = __dev_get_by_index(init_net(), tcm->tcm_ifindex)) == NULL)
- 		return -ENODEV;
- 
-@@ -1086,6 +1102,7 @@ static int qdisc_class_dump(struct Qdisc *q, unsigned long cl, struct qdisc_walk
- 
- static int tc_dump_tclass(struct sk_buff *skb, struct netlink_callback *cb)
- {
-+	net_t net = skb->sk->sk_net;
- 	int t;
- 	int s_t;
- 	struct net_device *dev;
-@@ -1093,6 +1110,9 @@ static int tc_dump_tclass(struct sk_buff *skb, struct netlink_callback *cb)
- 	struct tcmsg *tcm = (struct tcmsg*)NLMSG_DATA(cb->nlh);
- 	struct qdisc_dump_args arg;
- 
-+	if (!net_eq(net, init_net()))
-+		return 0;
-+
- 	if (cb->nlh->nlmsg_len < NLMSG_LENGTH(sizeof(*tcm)))
- 		return 0;
- 	if ((dev = dev_get_by_index(init_net(), tcm->tcm_ifindex)) == NULL)
 -- 
 1.4.4.1.g278f
 
