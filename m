@@ -1,42 +1,53 @@
-From: Jiri Benc <jbenc@suse.cz>
-Subject: Re: [RFC PATCH] bcm43xx: set channel when the interface is brought
- up
-Date: Thu, 25 Jan 2007 15:23:21 +0100
-Message-ID: <20070125152321.434bb17c@griffin.suse.cz>
+From: Gene Heskett <gene.heskett-H+0wwilmMs3R7s880joybQ@public.gmane.org>
+Subject: Re: [RFC PATCH] bcm43xx: set channel when the interface is brought up
+Date: Thu, 25 Jan 2007 09:34:51 -0500
+Message-ID: <200701250934.51302.gene.heskett@verizon.net>
 References: <1169707854.10593.41.camel@dv>
-	<a32f33a40701250347q5c9aa5fby785181f77fc9bb4@mail.gmail.com>
-	<20070125135033.7d7d7baf@griffin.suse.cz>
 	<200701250905.33129.gene.heskett@verizon.net>
+	<20070125152321.434bb17c@griffin.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: bcm43xx-dev@lists.berlios.de, "Ivo Van Doorn" <ivdoorn@gmail.com>,
-	netdev@vger.kernel.org
-To: Gene Heskett <gene.heskett@verizon.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:40248 "EHLO mail.suse.cz"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S965353AbXAYOXY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Jan 2007 09:23:24 -0500
-In-Reply-To: <200701250905.33129.gene.heskett@verizon.net>
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Ivo Van Doorn <ivdoorn-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+To: Jiri Benc <jbenc-AlSwsSmVLrQ@public.gmane.org>
+Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-reply-to: <20070125152321.434bb17c-IhiK2ZEFs2oCVLCxKZUutA@public.gmane.org>
+Content-disposition: inline
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
+List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 25 Jan 2007 09:05:32 -0500, Gene Heskett wrote:
-> Oh?  I'm sitting here watching the tty0 screen of my lappy after x has 
-> been started, and I have established a connection, but SoftMAC is still 
-> logging its scan activity, starting with channel 1 and scanning 14 
-> channels.  Its doing this at approximately 2 minute intervals.  So I 
-> think we have your definition of a clear bug and misbehaviour.
+On Thursday 25 January 2007 09:23, Jiri Benc wrote:
+>On Thu, 25 Jan 2007 09:05:32 -0500, Gene Heskett wrote:
+>> Oh?  I'm sitting here watching the tty0 screen of my lappy after x has
+>> been started, and I have established a connection, but SoftMAC is
+>> still logging its scan activity, starting with channel 1 and scanning
+>> 14 channels.  Its doing this at approximately 2 minute intervals.  So
+>> I think we have your definition of a clear bug and misbehaviour.
+>
+>Yes. As well as some other wireless drivers. But that's not worth
+>fixing.
+>
+>Also, please note that softmac isn't going to do user space MLME so
+>it is not relevant at all.
 
-Yes. As well as some other wireless drivers. But that's not worth
-fixing.
+MLME?  More acronyms I've not put in my wet dictionary.. :)
 
-Also, please note that softmac isn't going to do user space MLME so
-it is not relevant at all.
-
- Jiri
+> Jiri
 
 -- 
-Jiri Benc
-SUSE Labs
+Cheers, Gene
+"There are four boxes to be used in defense of liberty:
+ soap, ballot, jury, and ammo. Please use in that order."
+-Ed Howdershelt (Author)
+Yahoo.com and AOL/TW attorneys please note, additions to the above
+message by Gene Heskett are:
+Copyright 2007 by Maurice Eugene Heskett, all rights reserved.
