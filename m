@@ -1,293 +1,240 @@
 From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH RFC 2/31] net: Implement a place holder network namespace
-Date: Thu, 25 Jan 2007 12:00:04 -0700
-Message-ID: <11697516332484-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH RFC 9/31] net: Implement the per network namespace sysctl infrastructure
+Date: Thu, 25 Jan 2007 12:00:11 -0700
+Message-ID: <11697516353775-git-send-email-ebiederm@xmission.com>
 References: <m13b5zym0n.fsf@ebiederm.dsl.xmission.com>
 Cc: <containers@lists.osdl.org>, <openib-general@openib.org>,
 	"Eric W. Biederman" <ebiederm@xmission.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:35804 "EHLO
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:35821 "EHLO
 	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030470AbXAYTBj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jan 2007 14:01:39 -0500
+	with ESMTP id S1030498AbXAYTBm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jan 2007 14:01:42 -0500
 In-Reply-To: <m13b5zym0n.fsf@ebiederm.dsl.xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Eric W. Biederman <ebiederm@xmission.com> - unquoted
 
-Many of the changes to the network stack will simply be adding a
-network namespace parameter to function calls or moving variables
-from globals to being per network namespace.  When those variables
-have initializers that cannot statically compute the proper value,
-a function that runs at the creation and destruction of network
-namespaces will need to be registered, and the logic will need to
-be changed to accomidate that.
+The user interface is: register_net_sysctl_table and
+unregister_net_sysctl_table.  Very much like the current
+interface except there is an network namespace parameter.
 
-Adding unconditional support for these functions ensures that even when
-everything else is compiled out the modified network stack logic will
-continue to run correctly.
+This this any sysctl in the net_root_table and it's
+subdirectories are registered with register_net_sysctl
+shows up only to tasks in the same network namespace.
 
-This patch adds struct pernet_operations that has an init (constructor)
-and an exit (destructor) method.  When registered the init method
-is called for every existing namespace, and when unregistered the
-exit method is called for every existing namespace.  When a new
-network namespace is created all of the init methods are called
-in the order in which they were registered, and when a network namespace
-is destroyed the exit methods are called in the reverse order in
-which they were registered.
-
-There are two distinct types of pernet_operations recognized: subsys and
-device.  At creation all subsys init functions are called before device
-init functions, and at destruction all device exit functions are called
-before subsys exit function.  For other ordering the preservation
-of the order of registration combined with the various kinds of
-kernel initcalls should be sufficient.
+All other sysctls continue to be globally visible.
 
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 ---
- include/net/net_namespace.h |   62 ++++++++++++++++++
- net/core/Makefile           |    2 +-
- net/core/net_namespace.c    |  149 +++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 212 insertions(+), 1 deletions(-)
+ include/linux/sysctl.h     |    7 ++++
+ include/net/sock.h         |    1 +
+ kernel/sysctl.c            |   71 ++++++++++++++++++++++++++++++++++++++++++-
+ net/core/sysctl_net_core.c |    5 +++
+ net/sysctl_net.c           |   20 ++++++++++++
+ 5 files changed, 102 insertions(+), 2 deletions(-)
 
-diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
-new file mode 100644
-index 0000000..06a9ba1
---- /dev/null
-+++ b/include/net/net_namespace.h
-@@ -0,0 +1,62 @@
-+/* 
-+ * Operations on the network namespace
-+ */
-+#ifndef __NET_NET_NAMESPACE_H
-+#define __NET_NET_NAMESPACE_H
-+
-+#include <asm/atomic.h>
-+#include <linux/workqueue.h>
-+#include <linux/nsproxy.h>
+diff --git a/include/linux/sysctl.h b/include/linux/sysctl.h
+index 8eba2d2..286e723 100644
+--- a/include/linux/sysctl.h
++++ b/include/linux/sysctl.h
+@@ -1044,6 +1044,13 @@ struct ctl_table_header * register_sysctl_table(ctl_table * table);
+ 
+ void unregister_sysctl_table(struct ctl_table_header * table);
+ 
++#ifdef CONFIG_NET
 +#include <linux/net_namespace_type.h>
-+
-+/* How many bytes in each network namespace should we allocate
-+ * for use by modules when they are loaded.
-+ */
-+#ifdef CONFIG_MODULES
-+# define PER_NET_MODULE_RESERVE 2048
-+#else
-+# define PER_NET_MODULE_RESERVE 0
++extern struct ctl_table_header *register_net_sysctl_table(net_t net, struct ctl_table *table);
++extern void unregister_net_sysctl_table(struct ctl_table_header *header);
++DECLARE_PER_NET(struct ctl_table, net_root_table[]);
 +#endif
 +
-+struct net_namespace_head {
-+	atomic_t count;		/* To decided when the network namespace
-+				 * should go 
-+				 */
-+	atomic_t use_count;	/* For references we destroy on demand */
-+	struct list_head list;
-+	struct work_struct work;
-+};
-+
-+static inline net_t get_net(net_t net) { return net; }
-+static inline void put_net(net_t net) {}
-+static inline net_t hold_net(net_t net) { return net; }
-+static inline void release_net(net_t net) {} 
-+
-+#define __per_net_start	((char *)0)
-+#define __per_net_end	((char *)0)
-+
-+static inline int copy_net(int flags, struct task_struct *tsk) { return 0; }
-+
-+/* Don't let the list of network namespaces change */
-+static inline void net_lock(void) {}
-+static inline void net_unlock(void) {}
-+
-+#define for_each_net(VAR) if (1)
-+
-+extern net_t net_template;
-+
-+#define NET_CREATE	0x0001	/* A network namespace has been created */
-+#define NET_DESTROY	0x0002	/* A network namespace is being destroyed */
-+
-+struct pernet_operations {
-+	struct list_head list;
-+	int (*init)(net_t net);
-+	void (*exit)(net_t net);
-+};
-+
-+extern int register_pernet_subsys(struct pernet_operations *);
-+extern void unregister_pernet_subsys(struct pernet_operations *);
-+extern int register_pernet_device(struct pernet_operations *);
-+extern void unregister_pernet_device(struct pernet_operations *);
-+
-+#endif /* __NET_NET_NAMESPACE_H */
-diff --git a/net/core/Makefile b/net/core/Makefile
-index 73272d5..554dbdc 100644
---- a/net/core/Makefile
-+++ b/net/core/Makefile
-@@ -3,7 +3,7 @@
- #
+ #else /* __KERNEL__ */
  
- obj-y := sock.o request_sock.o skbuff.o iovec.o datagram.o stream.o scm.o \
--	 gen_stats.o gen_estimator.o
-+	 gen_stats.o gen_estimator.o net_namespace.o
+ #endif /* __KERNEL__ */
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 5bf6bb5..01a2781 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -1414,6 +1414,7 @@ extern void sk_init(void);
  
- obj-$(CONFIG_SYSCTL) += sysctl_net_core.o
+ #ifdef CONFIG_SYSCTL
+ extern struct ctl_table core_table[];
++DECLARE_PER_NET(struct ctl_table, multi_core_table[]);
+ #endif
  
-diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
-new file mode 100644
-index 0000000..4ae266d
---- /dev/null
-+++ b/net/core/net_namespace.c
-@@ -0,0 +1,149 @@
-+#include <linux/rtnetlink.h>
+ extern int sysctl_optmem_max;
+diff --git a/kernel/sysctl.c b/kernel/sysctl.c
+index 7da313e..ae6a424 100644
+--- a/kernel/sysctl.c
++++ b/kernel/sysctl.c
+@@ -45,6 +45,7 @@
+ #include <linux/syscalls.h>
+ #include <linux/nfs_fs.h>
+ #include <linux/acpi.h>
 +#include <net/net_namespace.h>
+ 
+ #include <asm/uaccess.h>
+ #include <asm/processor.h>
+@@ -135,6 +136,10 @@ static int proc_do_cad_pid(ctl_table *table, int write, struct file *filp,
+ 		  void __user *buffer, size_t *lenp, loff_t *ppos);
+ #endif
+ 
++#ifdef CONFIG_NET
++static DEFINE_PER_NET(struct ctl_table_header, net_table_header);
++#endif
 +
-+/*
-+ *	Our network namespace constructor/destructor lists
-+ */
-+
-+static LIST_HEAD(pernet_list);
-+static struct list_head *first_device = &pernet_list;
-+static DEFINE_MUTEX(net_mutex);
-+net_t net_template;
-+
-+static int register_pernet_operations(struct list_head *list,
-+				      struct pernet_operations *ops)
+ static ctl_table root_table[];
+ static struct ctl_table_header root_table_header =
+ 	{ root_table, LIST_HEAD_INIT(root_table_header.ctl_entry) };
+@@ -1059,6 +1064,7 @@ struct ctl_table_header *sysctl_head_next(struct ctl_table_header *prev)
+ {
+ 	struct ctl_table_header *head;
+ 	struct list_head *tmp;
++	net_t net = current->nsproxy->net_ns;
+ 	spin_lock(&sysctl_lock);
+ 	if (prev) {
+ 		tmp = &prev->ctl_entry;
+@@ -1076,6 +1082,10 @@ struct ctl_table_header *sysctl_head_next(struct ctl_table_header *prev)
+ 	next:
+ 		tmp = tmp->next;
+ 		if (tmp == &root_table_header.ctl_entry)
++#ifdef CONFIG_NET
++			tmp = &per_net(net_table_header, net).ctl_entry;
++		else if (tmp == &per_net(net_table_header, net).ctl_entry)
++#endif
+ 			break;
+ 	}
+ 	spin_unlock(&sysctl_lock);
+@@ -1290,7 +1300,8 @@ int do_sysctl_strategy (ctl_table *table,
+  * This routine returns %NULL on a failure to register, and a pointer
+  * to the table header on success.
+  */
+-struct ctl_table_header *register_sysctl_table(ctl_table * table)
++static struct ctl_table_header *__register_sysctl_table(
++	struct ctl_table_header *root, ctl_table * table)
+ {
+ 	struct ctl_table_header *tmp;
+ 	tmp = kmalloc(sizeof(struct ctl_table_header), GFP_KERNEL);
+@@ -1301,11 +1312,16 @@ struct ctl_table_header *register_sysctl_table(ctl_table * table)
+ 	tmp->used = 0;
+ 	tmp->unregistering = NULL;
+ 	spin_lock(&sysctl_lock);
+-	list_add_tail(&tmp->ctl_entry, &root_table_header.ctl_entry);
++	list_add_tail(&tmp->ctl_entry, &root->ctl_entry);
+ 	spin_unlock(&sysctl_lock);
+ 	return tmp;
+ }
+ 
++struct ctl_table_header *register_sysctl_table(ctl_table *table)
 +{
-+	net_t net, undo_net;
-+	int error;
++	return __register_sysctl_table(&root_table_header, table);
++}
 +
-+	error = 0;
-+	list_add_tail(&ops->list, list);
-+	for_each_net(net) {
-+		if (ops->init) {
-+			error = ops->init(net);
-+			if (error)
-+				goto out_undo;
-+		}
+ /**
+  * unregister_sysctl_table - unregister a sysctl table hierarchy
+  * @header: the header returned from register_sysctl_table
+@@ -1322,6 +1338,57 @@ void unregister_sysctl_table(struct ctl_table_header * header)
+ 	kfree(header);
+ }
+ 
++#ifdef CONFIG_NET
++
++static void *fixup_per_net_addr(net_t net, void *addr)
++{
++	char *ptr = addr;
++	if ((ptr >= __per_net_start) && (ptr < __per_net_end))
++		ptr += __per_net_offset(net);
++	return ptr;
++}
++
++static void sysctl_net_table_fixup(net_t net, struct ctl_table *table)
++{
++	for (; table->ctl_name || table->procname; table++) {
++		table->child  = fixup_per_net_addr(net, table->child);
++		table->data   = fixup_per_net_addr(net, table->data);
++		table->extra1 = fixup_per_net_addr(net, table->extra1);
++		table->extra2 = fixup_per_net_addr(net, table->extra2);
++
++		/* Whee recursive functions on the kernel stack */
++		if (table->child)
++			sysctl_net_table_fixup(net, table->child);
 +	}
-+out:
-+	return error;
-+
-+out_undo:
-+	/* If I have an error cleanup all namespaces I initialized */
-+	list_del(&ops->list);
-+	for_each_net(undo_net) {
-+		if (net_eq(undo_net, net))
-+			goto undone;
-+		if (ops->exit)
-+			ops->exit(undo_net);
-+	}
-+undone:
-+	goto out;
 +}
 +
-+static void unregister_pernet_operations(struct pernet_operations *ops)
++static void sysctl_net_init(net_t net)
 +{
-+	net_t net;
++	struct ctl_table *table = per_net(net_root_table, net);
 +
-+	list_del(&ops->list);
-+	for_each_net(net) 
-+		if (ops->exit)
-+			ops->exit(net);
++	sysctl_net_table_fixup(net, table);
++	per_net(net_table_header, net).ctl_table = table;
++
++	INIT_LIST_HEAD(&per_net(net_table_header, net).ctl_entry);
 +}
 +
-+/**
-+ *      register_pernet_subsys - register a network namespace subsystem
-+ *	@ops:  pernet operations structure for the subsystem
-+ *
-+ *	Register a subsystem which has init and exit functions
-+ *	that are called when network namespaces are created and
-+ *	destroyed respectively.
-+ *
-+ *	When registered all network namespace init functions are
-+ *	called for every existing network namespace.  Allowing kernel
-+ *	modules to have a race free view of the set of network namespaces.
-+ *
-+ *	When a new network namespace is created all of the init
-+ *	methods are called in the order in which they were registered.
-+ *
-+ *	When a network namespace is destroyed all of the exit methods
-+ *	are called in the reverse of the order with which they were
-+ *	registered.
-+ */
-+int register_pernet_subsys(struct pernet_operations *ops)
++struct ctl_table_header *register_net_sysctl_table(net_t net, ctl_table *table)
 +{
-+	int error;
-+	mutex_lock(&net_mutex);
-+	error =  register_pernet_operations(first_device, ops);
-+	mutex_unlock(&net_mutex);
-+	return error;
++	if (!per_net(net_table_header, net).ctl_table)
++		sysctl_net_init(net);
++	sysctl_net_table_fixup(net, table);
++	return __register_sysctl_table(&per_net(net_table_header, net), table);
 +}
-+EXPORT_SYMBOL_GPL(register_pernet_subsys);
++EXPORT_SYMBOL_GPL(register_net_sysctl_table);
 +
-+/**
-+ *      unregister_pernet_subsys - unregister a network namespace subsystem
-+ *	@ops: pernet operations structure to manipulate
-+ *
-+ *	Remove the pernet operations structure from the list to be
-+ *	used when network namespaces are created or destoryed.  In
-+ *	addition run the exit method for all existing network
-+ *	namespaces.
-+ */
-+void unregister_pernet_subsys(struct pernet_operations *module)
++void unregister_net_sysctl_table(struct ctl_table_header *header)
 +{
-+	mutex_lock(&net_mutex);
-+	unregister_pernet_operations(module);
-+	mutex_unlock(&net_mutex);
++	return unregister_sysctl_table(header);
 +}
-+EXPORT_SYMBOL_GPL(unregister_pernet_subsys);
++EXPORT_SYMBOL_GPL(unregister_net_sysctl_table);
++#endif
 +
-+/**
-+ *      register_pernet_device - register a network namespace device
-+ *	@ops:  pernet operations structure for the subsystem
-+ *
-+ *	Register a device which has init and exit functions
-+ *	that are called when network namespaces are created and
-+ *	destroyed respectively.
-+ *
-+ *	When registered all network namespace init functions are
-+ *	called for every existing network namespace.  Allowing kernel
-+ *	modules to have a race free view of the set of network namespaces.
-+ *
-+ *	When a new network namespace is created all of the init
-+ *	methods are called in the order in which they were registered.
-+ *
-+ *	When a network namespace is destroyed all of the exit methods
-+ *	are called in the reverse of the order with which they were
-+ *	registered.
-+ */
-+int register_pernet_device(struct pernet_operations *ops)
-+{
-+	int error;
-+	mutex_lock(&net_mutex);
-+	error = register_pernet_operations(&pernet_list, ops);
-+	if (!error && (first_device == &pernet_list))
-+		first_device = &ops->list;
-+	mutex_unlock(&net_mutex);
-+	return error;
-+}
-+EXPORT_SYMBOL_GPL(register_pernet_device);
 +
-+/**
-+ *      unregister_pernet_device - unregister a network namespace netdevice
-+ *	@ops: pernet operations structure to manipulate
-+ *
-+ *	Remove the pernet operations structure from the list to be
-+ *	used when network namespaces are created or destoryed.  In
-+ *	addition run the exit method for all existing network
-+ *	namespaces.
-+ */
-+void unregister_pernet_device(struct pernet_operations *ops)
-+{
-+	mutex_lock(&net_mutex);
-+	if (&ops->list == first_device)
-+		first_device = first_device->next;
-+	unregister_pernet_operations(ops);
-+	mutex_unlock(&net_mutex);
-+}
-+EXPORT_SYMBOL_GPL(unregister_pernet_device);
+ #else /* !CONFIG_SYSCTL */
+ struct ctl_table_header * register_sysctl_table(ctl_table * table,
+ 						int insert_at_head)
+diff --git a/net/core/sysctl_net_core.c b/net/core/sysctl_net_core.c
+index 176ad08..76f7a29 100644
+--- a/net/core/sysctl_net_core.c
++++ b/net/core/sysctl_net_core.c
+@@ -125,3 +125,8 @@ ctl_table core_table[] = {
+ 	},
+ 	{ .ctl_name = 0 }
+ };
 +
++DEFINE_PER_NET(struct ctl_table, multi_core_table[]) = {
++	/* Stub for holding per network namespace sysctls */
++	{}
++};
+diff --git a/net/sysctl_net.c b/net/sysctl_net.c
+index cd4eafb..359c163 100644
+--- a/net/sysctl_net.c
++++ b/net/sysctl_net.c
+@@ -54,3 +54,23 @@ struct ctl_table net_table[] = {
+ #endif
+ 	{ 0 },
+ };
++
++DEFINE_PER_NET(struct ctl_table, multi_net_table[]) = {
++	{
++		.ctl_name	= NET_CORE,
++		.procname	= "core",
++		.mode		= 0555,
++		.child		= __per_net_base(multi_core_table),
++	},
++	{},
++};
++
++DEFINE_PER_NET(struct ctl_table, net_root_table[]) = {
++	{
++		.ctl_name	= CTL_NET,
++		.procname	= "net",
++		.mode		= 0555,
++		.child		= __per_net_base(multi_net_table),
++	},
++	{},
++};
 -- 
 1.4.4.1.g278f
 
