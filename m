@@ -1,8 +1,7 @@
 From: Masayuki Nakagawa <nakagawa.msy@ncos.nec.co.jp>
-Subject: Re: [PATCH 2.6.20-rc5] IPV6: skb is unexpectedly freed.
-Date: Thu, 25 Jan 2007 19:36:53 -0800
-Message-ID: <45B97755.1030509@ncos.nec.co.jp>
-References: <45B6C13E.1050204@ncos.nec.co.jp>	<E1H9ZnX-0001z5-00@gondolin.me.apana.org.au>	<20070124.133725.07735362.yoshfuji@linux-ipv6.org> <20070123.204008.59666972.davem@davemloft.net>
+Subject: [PATCH] TCP: Replace __kfree_skb() with kfree_skb()
+Date: Thu, 25 Jan 2007 19:37:07 -0800
+Message-ID: <45B97763.8000305@ncos.nec.co.jp>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
@@ -11,60 +10,40 @@ Cc: nakagawa.msy@ncos.nec.co.jp, mhuth@mvista.com,
 To: davem@davemloft.net, yoshfuji@linux-ipv6.org,
 	herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gateway-1237.mvista.com ([63.81.120.158]:19499 "EHLO
+Received: from gateway-1237.mvista.com ([63.81.120.158]:19516 "EHLO
 	gateway-1237.mvista.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030730AbXAZDg7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jan 2007 22:36:59 -0500
-In-Reply-To: <20070123.204008.59666972.davem@davemloft.net>
+	with ESMTP id S1030733AbXAZDhL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jan 2007 22:37:11 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David, Yoshifuji-san, Herbert,
+This patch simply replaces __kfree_skb() in exit path with kfree_skb().
+In tcp_rcv_state_process(), generally skbs should be destroyed only when
+the ref count is zero.
+That is the way things are supposed to be done in the kernel.
 
-I appreciate your feedback.
+This change might reveals a memory leak of skb.
+If it happens, it would be because someone doesn't deal with the skb properly.
 
-I made an another patch that simply replaced __kfree_skb() in exit path with
-kfree_skb(). I tested it overnight with a chat benchmark tool and
-my test program, which can reproduce the original problem.
+Signed-off-by: Masayuki Nakagawa <nakagawa.msy@ncos.nec.co.jp>
 
-As a result, I didn't see any problem.
-(For example, neither oops nor memory leak happened.)
+--- linux-2.6/net/ipv4/tcp_input.c.orig	2007-01-25 07:04:35.000000000 -0800
++++ linux-2.6/net/ipv4/tcp_input.c	2007-01-25 07:05:05.000000000 -0800
+@@ -4423,8 +4423,6 @@ int tcp_rcv_state_process(struct sock *s
+ 			 * in the interest of security over speed unless
+ 			 * it's still in use.
+ 			 */
+-			kfree_skb(skb);
+-			return 0;
+ 		}
+ 		goto discard;
 
-I will post the patch a few moments later. Please take a look at it.
+@@ -4634,7 +4632,7 @@ int tcp_rcv_state_process(struct sock *s
 
-Thanks,
-Masa
-
-David Miller wrote:
-> From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-> Date: Wed, 24 Jan 2007 13:37:25 +0900 (JST)
->
->   
->> In article <E1H9ZnX-0001z5-00@gondolin.me.apana.org.au> (at Wed, 24 Jan 2007 15:31:47 +1100), Herbert Xu <herbert@gondor.apana.org.au> says:
->>
->>     
->>> Masayuki Nakagawa <nakagawa.msy@ncos.nec.co.jp> wrote:
->>>       
->>>> I suggest to use kfree_skb() instead of __kfree_skb().
->>>>         
->>> I agree.  In fact please do it for all paths in that function, i.e.,
->>> just change __kfree_skb to kfree_skb rather than adding a special case
->>> for this path.
->>>       
->> I do think so, too.
->>     
->
-> So do I, but initially I want to push his basic patch in
-> so that I can push the same exact thing into -stable to
-> fix this bug.
->
-> So if you make the subsequent change, please make it relative
-> to the original patch.
->
-> Thank you.
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
->   
+ 	if (!queued) {
+ discard:
+-		__kfree_skb(skb);
++		kfree_skb(skb);
+ 	}
+ 	return 0;
+ }
