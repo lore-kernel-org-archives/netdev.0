@@ -1,39 +1,53 @@
-From: Jiri Kosina <jikos@jikos.cz>
-Subject: Re: r8169 problems on x86_64 (transmit timeout & crash)
-Date: Fri, 26 Jan 2007 14:35:31 +0100 (CET)
-Message-ID: <Pine.LNX.4.64.0701261429200.1889@twin.jikos.cz>
-References: <a37929f0701260500x68cf6bb0i8a5ef603794a861f@mail.gmail.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [RFC PATCH] bcm43xx: set channel when the interface is brought
+	up
+Date: Fri, 26 Jan 2007 14:45:20 +0100
+Message-ID: <1169819120.15413.3.camel@johannes.berg>
+References: <1169707854.10593.41.camel@dv>
+	 <200701250905.33129.gene.heskett@verizon.net>
+	 <20070125152321.434bb17c@griffin.suse.cz>
+	 <200701250934.51302.gene.heskett@verizon.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: linux-kernel@vger.kernel.org,
-	Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org
-To: mirek kratochvil <exa.exa@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965641AbXAZNgl@vger.kernel.org>
-In-Reply-To: <a37929f0701260500x68cf6bb0i8a5ef603794a861f@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-ogSORDyRpVUWOoWqEpTH"
+Cc: Jiri Benc <jbenc@suse.cz>, netdev@vger.kernel.org,
+	Ivo Van Doorn <ivdoorn@gmail.com>,
+	bcm43xx-dev@lists.berlios.de
+To: Gene Heskett <gene.heskett@verizon.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:51161 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965651AbXAZNqe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jan 2007 08:46:34 -0500
+In-Reply-To: <200701250934.51302.gene.heskett@verizon.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 26 Jan 2007, mirek kratochvil wrote:
 
-> > In case you have BIOS 04.., try to upgrade to 06.. version. Also, does 
-> > it help when you boot with acpi=off kernel commandline parameter? (do 
-> > you compile kernel with both acpi and apic support?).
-> Upgraded to bios 0802, but still the same problem. I think it's 
-> definitely something about the r8169 driver. acpi=off doesn't help. 
-> turning on/off apic also doesn't matter.
+--=-ogSORDyRpVUWOoWqEpTH
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-Added some relevant CCs; the thread started in lkml at 
-http://lkml.org/lkml/2007/1/25/268
+On Thu, 2007-01-25 at 09:34 -0500, Gene Heskett wrote:
 
-> one thing more - have confirmed that the bug is reproducible on *any* 
-> laptop with 8168, not only Asus. I guess the disk-usage-crash was some 
-> other bug.
+> MLME?  More acronyms I've not put in my wet dictionary.. :)
 
-Confusing ... the other day you stated that r1000 has the exactly same 
-problem?
+The 802.11 specs have a huge list of acronyms you might want to be
+somewhat familiar with. I think I have a printout somewhere, can't ever
+remember them either ;)
 
-Thanks,
+johannes
 
--- 
-Jiri Kosina
-SUSE Labs
+--=-ogSORDyRpVUWOoWqEpTH
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iD8DBQBFugXw/ETPhpq3jKURAoxfAJ9KAf9S+W33Vp/FG5dtr/8pwjT3wACeLI//
+1BGwEZ6GuO/G8sJPP2OsThI=
+=lh1u
+-----END PGP SIGNATURE-----
+
+--=-ogSORDyRpVUWOoWqEpTH--
+
