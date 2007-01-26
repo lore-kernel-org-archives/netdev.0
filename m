@@ -1,47 +1,34 @@
-From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Subject: Re: [PATCH] bcm43xx-d80211: Interrogate hardware-enable switch and
-	update LEDs
-Date: Fri, 26 Jan 2007 10:01:20 +0100
-Message-ID: <200701261001.20677.mb@bu3sch.de>
-References: <459749bb.q8/+AsgXLhurTs3u%Larry.Finger@lwfinger.net>
-	<20070126024451.GK10282@tuxdriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: owner-Match in 2.6.20-rc5 (fwd)
+Date: Fri, 26 Jan 2007 01:05:15 -0800 (PST)
+Message-ID: <20070126.010515.41193111.davem@davemloft.net>
+References: <Pine.LNX.4.61.0701252206360.26335@yvahk01.tjqt.qr>
+	<20070125.140149.51518685.davem@davemloft.net>
+	<Pine.LNX.4.61.0701252309200.17844@yvahk01.tjqt.qr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-	Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <20070126024451.GK10282-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
-List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Cc: kadlec@blackhole.kfki.hu, netdev@vger.kernel.org,
+	netfilter-devel@lists.netfilter.org
+To: jengelh@linux01.gwdg.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36306
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1030839AbXAZJFX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jan 2007 04:05:23 -0500
+In-Reply-To: <Pine.LNX.4.61.0701252309200.17844@yvahk01.tjqt.qr>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Friday 26 January 2007 03:44, John W. Linville wrote:
-> On Sat, Dec 30, 2006 at 11:25:15PM -0600, Larry Finger wrote:
-> > The current bcm43xx driver ignores any wireless-enable switches on mini-PCI
-> > and mini-PCI-E cards. This patch implements a new routine to interrogate the
-> > radio hardware enabled bit in the interface, logs the initial state and any
-> > changes in the switch (if debugging enabled), activates the LED to show the
-> > state, and changes the periodic work handler to provide 1 second response
-> > to switch changes and to account for changes in the periodic work specs. It
-> > also incorporates changes in the LED state that were accepted into mainline
-> > some time ago.
-> 
-> Larry,
-> 
-> I wanted to merge this, but a slew of changes pulled from Michael
-> makes this patch fail to apply.
+From: Jan Engelhardt <jengelh@linux01.gwdg.de>
+Date: Thu, 25 Jan 2007 23:14:49 +0100 (MET)
 
-Hm? What did you pull?
+> People really depend on this. Much more than than pid/comm/smpunsafe stuff.
+> For example, a web server [cgi enabled, etc.] which also runs squid,
+> to force all webtraffic through it:
+> 
+> -A OUTPUT -p tcp --dport 80 -m owner ! --uid-owner
+>   squid -j REDIRECT --to-ports 3128
 
--- 
-Greetings Michael.
+FWIW I've simply reverted the change in question to fix this.
+Will push to Linus soon.
