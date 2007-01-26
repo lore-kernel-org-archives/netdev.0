@@ -1,53 +1,41 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [RFC PATCH] bcm43xx: set channel when the interface is brought
-	up
-Date: Fri, 26 Jan 2007 14:45:20 +0100
-Message-ID: <1169819120.15413.3.camel@johannes.berg>
-References: <1169707854.10593.41.camel@dv>
-	 <200701250905.33129.gene.heskett@verizon.net>
-	 <20070125152321.434bb17c@griffin.suse.cz>
-	 <200701250934.51302.gene.heskett@verizon.net>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: [USBNET] ASIX: Add IO-DATA ETG-US2 Support.
+Date: Fri, 26 Jan 2007 22:57:38 +0900 (JST)
+Message-ID: <20070126.225738.24355200.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-ogSORDyRpVUWOoWqEpTH"
-Cc: Jiri Benc <jbenc@suse.cz>, netdev@vger.kernel.org,
-	Ivo Van Doorn <ivdoorn@gmail.com>,
-	bcm43xx-dev@lists.berlios.de
-To: Gene Heskett <gene.heskett@verizon.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:51161 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965651AbXAZNqe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jan 2007 08:46:34 -0500
-In-Reply-To: <200701250934.51302.gene.heskett@verizon.net>
+Received: from yue.linux-ipv6.org ([203.178.140.15]:47055 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965653AbXAZN4Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jan 2007 08:56:24 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+---
+ drivers/usb/net/asix.c |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
 
---=-ogSORDyRpVUWOoWqEpTH
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
-
-On Thu, 2007-01-25 at 09:34 -0500, Gene Heskett wrote:
-
-> MLME?  More acronyms I've not put in my wet dictionary.. :)
-
-The 802.11 specs have a huge list of acronyms you might want to be
-somewhat familiar with. I think I have a printout somewhere, can't ever
-remember them either ;)
-
-johannes
-
---=-ogSORDyRpVUWOoWqEpTH
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iD8DBQBFugXw/ETPhpq3jKURAoxfAJ9KAf9S+W33Vp/FG5dtr/8pwjT3wACeLI//
-1BGwEZ6GuO/G8sJPP2OsThI=
-=lh1u
------END PGP SIGNATURE-----
-
---=-ogSORDyRpVUWOoWqEpTH--
+diff --git a/drivers/usb/net/asix.c b/drivers/usb/net/asix.c
+index 896449f..4206df2 100644
+--- a/drivers/usb/net/asix.c
++++ b/drivers/usb/net/asix.c
+@@ -1449,6 +1449,10 @@ static const struct usb_device_id	products [] = {
+ 	// Linksys USB1000
+ 	USB_DEVICE (0x1737, 0x0039),
+ 	.driver_info = (unsigned long) &ax88178_info,
++}, {
++	// IO-DATA ETG-US2
++	USB_DEVICE (0x04bb, 0x0930),
++	.driver_info = (unsigned long) &ax88178_info,
+ },
+ 	{ },		// END
+ };
+-- 
+1.4.4.1.g562ce
 
