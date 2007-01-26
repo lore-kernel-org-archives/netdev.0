@@ -1,7 +1,7 @@
 From: Jens Osterkamp <jens@de.ibm.com>
-Subject: spidernet: add improved phy support in sungem_phy.c
-Date: Fri, 26 Jan 2007 14:07:48 +0100
-Message-ID: <200701261407.48237.jens@de.ibm.com>
+Subject: spidernet: dynamic phy setup code
+Date: Fri, 26 Jan 2007 14:09:29 +0100
+Message-ID: <200701261409.29537.jens@de.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="us-ascii"
@@ -12,523 +12,193 @@ Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org,
 	Benjamin Herrenschmidt <benh@kernel.crashing.org>
 To: Ishizaki Kou <kou.ishizaki@toshiba.co.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate1.de.ibm.com ([195.212.29.150]:7520 "EHLO
-	mtagate1.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965667AbXAZNHv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jan 2007 08:07:51 -0500
-Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
-	by mtagate1.de.ibm.com (8.13.8/8.13.8) with ESMTP id l0QD7oaX110310
-	for <netdev@vger.kernel.org>; Fri, 26 Jan 2007 13:07:50 GMT
-Received: from d12av02.megacenter.de.ibm.com (d12av02.megacenter.de.ibm.com [9.149.165.228])
-	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v8.2) with ESMTP id l0QD7owe807162
-	for <netdev@vger.kernel.org>; Fri, 26 Jan 2007 14:07:50 +0100
-Received: from d12av02.megacenter.de.ibm.com (loopback [127.0.0.1])
-	by d12av02.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l0QD7mu4011451
-	for <netdev@vger.kernel.org>; Fri, 26 Jan 2007 14:07:49 +0100
+Received: from mtagate1.uk.ibm.com ([195.212.29.134]:7054 "EHLO
+	mtagate1.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965655AbXAZNJc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jan 2007 08:09:32 -0500
+Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
+	by mtagate1.uk.ibm.com (8.13.8/8.13.8) with ESMTP id l0QD9VcJ102686
+	for <netdev@vger.kernel.org>; Fri, 26 Jan 2007 13:09:31 GMT
+Received: from d06av02.portsmouth.uk.ibm.com (d06av02.portsmouth.uk.ibm.com [9.149.37.228])
+	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v8.2) with ESMTP id l0QD9UQH790688
+	for <netdev@vger.kernel.org>; Fri, 26 Jan 2007 13:09:30 GMT
+Received: from d06av02.portsmouth.uk.ibm.com (loopback [127.0.0.1])
+	by d06av02.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l0QD9T6h032153
+	for <netdev@vger.kernel.org>; Fri, 26 Jan 2007 13:09:30 GMT
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds improved version of enable_fiber for both the 5421 and
-the 5461 phy. It is now possible to specify with these wether you want
-autonegotiation or not. This is needed for bladecenter switches where
-some expect autonegotiation and some dont seem to like this at all.
-Depending on this flag it sets phy->autoneg accordingly for the fiber mode.
+This patch modifies the patch submitted by Kou Ishizaki to make it work on the
+blade (http://marc.theaimsgroup.com/?l=linux-netdev&m=116593424505539&w=2).
+Unfortunately I dont have access to a Celleb so I cannot test it there.
 
-More importantly it implements proper read_link and poll_link functions
-for both phys which can handle both copper and fiber mode by determining
-the medium first and then branching to the required functions. For fiber
-they all work fine, for copper they are not tested but return the result
-of the genmii_* function anyway which is supposed to work.
+The basic logic behind this is simple : when the interface first comes up
+it tries to detect the phy. When the phy is detected, it is initially set up
+to use copper. A timer is set to check the link status in spidernet_link_phy
+using poll_link. If link check fails more than SPIDER_NET_ANEG_TIMEOUT
+times, it switches to fiber link with autonegotiation. If that fails more
+than SPIDER_NET_ANEG_TIMEOUT times, it switches to fiber link with no
+autonegotiation. If that also fails, it goes back to copper, and so forth.
+If the link comes up, it prints the link abilites and we are done.
 
-A "medium" variable in the phy struct is introduced to save the medium
-with which the phy is currently used.
-
-The patch moves the genmii_* functions around to avoid foreward declarations.
+The name of the phy found attached to the spider chip is reported to the
+user. Hardcoded values for the timeout are moved to #defines. I put in a
+few comments to make the code more readable.
 
 Signed-off-by: Jens Osterkamp <jens@de.ibm.com>
 Signed-off-by: Arnd Bergmann <arnd.bergmann@de.ibm.com>
 
-Index: linux-2.6.20-rc5/drivers/net/sungem_phy.c
+Index: linux-2.6/drivers/net/spider_net.c
 ===================================================================
---- linux-2.6.20-rc5.orig/drivers/net/sungem_phy.c
-+++ linux-2.6.20-rc5/drivers/net/sungem_phy.c
-@@ -311,6 +311,107 @@ static int bcm5411_init(struct mii_phy* 
-  return 0;
- }
- 
-+static int genmii_setup_aneg(struct mii_phy *phy, u32 advertise)
-+{
-+ u16 ctl, adv;
-+
-+ phy->autoneg = 1;
-+ phy->speed = SPEED_10;
-+ phy->duplex = DUPLEX_HALF;
-+ phy->pause = 0;
-+ phy->advertising = advertise;
-+
-+ /* Setup standard advertise */
-+ adv = phy_read(phy, MII_ADVERTISE);
-+ adv &= ~(ADVERTISE_ALL | ADVERTISE_100BASE4);
-+ if (advertise & ADVERTISED_10baseT_Half)
-+  adv |= ADVERTISE_10HALF;
-+ if (advertise & ADVERTISED_10baseT_Full)
-+  adv |= ADVERTISE_10FULL;
-+ if (advertise & ADVERTISED_100baseT_Half)
-+  adv |= ADVERTISE_100HALF;
-+ if (advertise & ADVERTISED_100baseT_Full)
-+  adv |= ADVERTISE_100FULL;
-+ phy_write(phy, MII_ADVERTISE, adv);
-+
-+ /* Start/Restart aneg */
-+ ctl = phy_read(phy, MII_BMCR);
-+ ctl |= (BMCR_ANENABLE | BMCR_ANRESTART);
-+ phy_write(phy, MII_BMCR, ctl);
-+
-+ return 0;
-+}
-+
-+static int genmii_setup_forced(struct mii_phy *phy, int speed, int fd)
-+{
-+ u16 ctl;
-+
-+ phy->autoneg = 0;
-+ phy->speed = speed;
-+ phy->duplex = fd;
-+ phy->pause = 0;
-+
-+ ctl = phy_read(phy, MII_BMCR);
-+ ctl &= ~(BMCR_FULLDPLX|BMCR_SPEED100|BMCR_ANENABLE);
-+
-+ /* First reset the PHY */
-+ phy_write(phy, MII_BMCR, ctl | BMCR_RESET);
-+
-+ /* Select speed & duplex */
-+ switch(speed) {
-+ case SPEED_10:
-+  break;
-+ case SPEED_100:
-+  ctl |= BMCR_SPEED100;
-+  break;
-+ case SPEED_1000:
-+ default:
-+  return -EINVAL;
-+ }
-+ if (fd == DUPLEX_FULL)
-+  ctl |= BMCR_FULLDPLX;
-+ phy_write(phy, MII_BMCR, ctl);
-+
-+ return 0;
-+}
-+
-+static int genmii_poll_link(struct mii_phy *phy)
-+{
-+ u16 status;
-+
-+ (void)phy_read(phy, MII_BMSR);
-+ status = phy_read(phy, MII_BMSR);
-+ if ((status & BMSR_LSTATUS) == 0)
-+  return 0;
-+ if (phy->autoneg && !(status & BMSR_ANEGCOMPLETE))
-+  return 0;
-+ return 1;
-+}
-+
-+static int genmii_read_link(struct mii_phy *phy)
-+{
-+ u16 lpa;
-+
-+ if (phy->autoneg) {
-+  lpa = phy_read(phy, MII_LPA);
-+
-+  if (lpa & (LPA_10FULL | LPA_100FULL))
-+   phy->duplex = DUPLEX_FULL;
-+  else
-+   phy->duplex = DUPLEX_HALF;
-+  if (lpa & (LPA_100FULL | LPA_100HALF))
-+   phy->speed = SPEED_100;
-+  else
-+   phy->speed = SPEED_10;
-+  phy->pause = 0;
-+ }
-+ /* On non-aneg, we assume what we put in BMCR is the speed,
-+  * though magic-aneg shouldn't prevent this case from occurring
-+  */
-+
-+  return 0;
-+}
-+
- static int generic_suspend(struct mii_phy* phy)
+--- linux-2.6.orig/drivers/net/spider_net.c
++++ linux-2.6/drivers/net/spider_net.c
+@@ -1280,19 +1280,23 @@ spider_net_set_mac(struct net_device *ne
+  * spider_net_link_reset
+  * @netdev: net device structure
+  *
++ * This is called when the PHY_LINK signal is asserted. For the blade this is
++ * not connected so we should never get here.
++ *
+  */
+ static void
+ spider_net_link_reset(struct net_device *netdev)
  {
-  phy_write(phy, MII_BMCR, BMCR_PDOWN);
-@@ -365,30 +466,6 @@ static int bcm5421_init(struct mii_phy* 
-  return 0;
- }
+-
+  struct spider_net_card *card=netdev_priv(netdev);
  
--static int bcm5421_enable_fiber(struct mii_phy* phy)
--{
-- /* enable fiber mode */
-- phy_write(phy, MII_NCONFIG, 0x9020);
-- /* LEDs active in both modes, autosense prio = fiber */
-- phy_write(phy, MII_NCONFIG, 0x945f);
--
-- /* switch off fibre autoneg */
-- phy_write(phy, MII_NCONFIG, 0xfc01);
-- phy_write(phy, 0x0b, 0x0004);
--
-- return 0;
--}
--
--static int bcm5461_enable_fiber(struct mii_phy* phy)
--{
-- phy_write(phy, MII_NCONFIG, 0xfc0c);
-- phy_write(phy, MII_BMCR, 0x4140);
-- phy_write(phy, MII_NCONFIG, 0xfc0b);
-- phy_write(phy, MII_BMCR, 0x0140);
--
-- return 0;
--}
--
- static int bcm54xx_setup_aneg(struct mii_phy *phy, u32 advertise)
- {
-  u16 ctl, adv;
-@@ -516,6 +593,166 @@ static int marvell88e1111_init(struct mi
-  return 0;
- }
+  del_timer_sync(&card->aneg_timer);
  
-+#define BCM5421_MODE_MASK 1 << 5
-+
-+static int bcm5421_poll_link(struct mii_phy* phy)
-+{
-+ u32 phy_reg;
-+ int mode;
-+
-+ /* find out in what mode we are */
-+        phy_write(phy, MII_NCONFIG, 0x1000);
-+ phy_reg = phy_read(phy, MII_NCONFIG);
-+
-+ mode = (phy_reg & BCM5421_MODE_MASK ) >> 5;
-+
-+ if ( mode == GMII_COPPER) {
-+  return genmii_poll_link(phy);
-+ }
-+
-+ /* try to find out wether we have a link */
-+        phy_write(phy, MII_NCONFIG, 0x2000);
-+ phy_reg = phy_read(phy, MII_NCONFIG);
-+
-+ if ( (phy_reg & 0x0020) >> 5 ) {
-+  return 0;
-+ } else {
-+  return 1;
-+ }
-+
-+}
-+
-+static int bcm5421_read_link(struct mii_phy* phy)
-+{
-+ u32 phy_reg;
-+ int mode;
-+
-+ /* find out in what mode we are */
-+        phy_write(phy, MII_NCONFIG, 0x1000);
-+ phy_reg = phy_read(phy, MII_NCONFIG);
-+
-+ mode = (phy_reg & BCM5421_MODE_MASK ) >> 5;
-+
-+ if ( mode == GMII_COPPER) {
-+  return bcm54xx_read_link(phy);
-+ }
-+
-+ phy->speed = SPEED_1000;
-+
-+ /* find out wether we are running half- or full duplex */
-+        phy_write(phy, MII_NCONFIG, 0x2000);
-+ phy_reg = phy_read(phy, MII_NCONFIG);
-+
-+ if ( (phy_reg & 0x0020) >> 7 ) {
-+  phy->duplex |=  DUPLEX_HALF;
-+ } else {
-+  phy->duplex |=  DUPLEX_FULL;
-+ }
-+
-+ return 0;
-+}
-+
-+static int bcm5421_enable_fiber(struct mii_phy* phy, int autoneg)
-+{
-+ /* enable fiber mode */
-+ phy_write(phy, MII_NCONFIG, 0x9020);
-+ /* LEDs active in both modes, autosense prio = fiber */
-+ phy_write(phy, MII_NCONFIG, 0x945f);
-+
-+ if (!autoneg) {
-+  /* switch off fibre autoneg */
-+  phy_write(phy, MII_NCONFIG, 0xfc01);
-+  phy_write(phy, 0x0b, 0x0004);
-+ }
-+
-+ phy->autoneg = autoneg;
-+
-+ return 0;
-+}
-+
-+#define BCM5461_FIBER_LINK 1 << 2
-+#define BCM5461_MODE_MASK 3 << 1
-+
-+static int bcm5461_poll_link(struct mii_phy* phy)
-+{
-+ u32 phy_reg;
-+ int mode;
-+
-+ /* find out in what mode we are */
-+        phy_write(phy, MII_NCONFIG, 0x7c00);
-+ phy_reg = phy_read(phy, MII_NCONFIG);
-+
-+ mode = (phy_reg & BCM5461_MODE_MASK ) >> 1;
-+
-+ if ( mode == GMII_COPPER) {
-+  return genmii_poll_link(phy);
-+ }
-+
-+ /* find out wether we have a link */
-+        phy_write(phy, MII_NCONFIG, 0x7000);
-+ phy_reg = phy_read(phy, MII_NCONFIG);
-+ if (phy_reg & BCM5461_FIBER_LINK) {
-+  return 1;
-+ } else {
-+  return 0;
-+ }
-+}
-+
-+#define BCM5461_FIBER_DUPLEX 1 << 3
-+
-+static int bcm5461_read_link(struct mii_phy* phy)
-+{
-+ u32 phy_reg;
-+ int mode;
-+
-+ /* find out in what mode we are */
-+        phy_write(phy, MII_NCONFIG, 0x7c00);
-+ phy_reg = phy_read(phy, MII_NCONFIG);
-+
-+ mode = (phy_reg & BCM5461_MODE_MASK ) >> 1;
-+
-+ if ( mode == GMII_COPPER) {
-+  return bcm54xx_read_link(phy);
-+ }
-+
-+ phy->speed = SPEED_1000;
-+
-+ /* find out wether we are running half- or full duplex */
-+        phy_write(phy, MII_NCONFIG, 0x7000);
-+ phy_reg = phy_read(phy, MII_NCONFIG);
-+ if (phy_reg & BCM5461_FIBER_DUPLEX) {
-+  phy->duplex |=  DUPLEX_FULL;
-+ } else {
-+  phy->duplex |=  DUPLEX_HALF;
-+ }
-+
-+ return 0;
-+}
-+
-+static int bcm5461_enable_fiber(struct mii_phy* phy, int autoneg)
-+{
-+ /*
-+ phy_write(phy, MII_NCONFIG, 0xfc0c);
-+ phy_write(phy, MII_BMCR, 0x4140);
-+ */
-+
-+ /* select fiber mode, enable 1000 base-X registers */
-+ phy_write(phy, MII_NCONFIG, 0xfc0b);
-+
-+ if (autoneg) {
-+  /* enable fiber with no autonegotiation */
-+  phy_write(phy, MII_ADVERTISE, 0x01e0);
-+  phy_write(phy, MII_BMCR, 0x1140);
-+ } else {
-+  /* enable fiber with autonegotiation */
-+  phy_write(phy, MII_BMCR, 0x0140);
-+ }
-+
-+ phy->autoneg = autoneg;
-+
-+ return 0;
-+}
-+
- static int marvell_setup_aneg(struct mii_phy *phy, u32 advertise)
- {
-  u16 ctl, adv;
-@@ -646,113 +883,6 @@ static int marvell_read_link(struct mii_
-  return 0;
- }
++ /* clear interrupt, block further interrupts */
+  spider_net_write_reg(card, SPIDER_NET_GMACST,
+         spider_net_read_reg(card, SPIDER_NET_GMACST));
+  spider_net_write_reg(card, SPIDER_NET_GMACINTEN, 0);
  
--static int genmii_setup_aneg(struct mii_phy *phy, u32 advertise)
--{
-- u16 ctl, adv;
--
-- phy->autoneg = 1;
-- phy->speed = SPEED_10;
-- phy->duplex = DUPLEX_HALF;
-- phy->pause = 0;
-- phy->advertising = advertise;
--
-- /* Setup standard advertise */
-- adv = phy_read(phy, MII_ADVERTISE);
-- adv &= ~(ADVERTISE_ALL | ADVERTISE_100BASE4);
-- if (advertise & ADVERTISED_10baseT_Half)
--  adv |= ADVERTISE_10HALF;
-- if (advertise & ADVERTISED_10baseT_Full)
--  adv |= ADVERTISE_10FULL;
-- if (advertise & ADVERTISED_100baseT_Half)
--  adv |= ADVERTISE_100HALF;
-- if (advertise & ADVERTISED_100baseT_Full)
--  adv |= ADVERTISE_100FULL;
-- if (advertise & ADVERTISED_Pause)
--  adv |= ADVERTISE_PAUSE_CAP;
-- if (advertise & ADVERTISED_Asym_Pause)
--  adv |= ADVERTISE_PAUSE_ASYM;
-- phy_write(phy, MII_ADVERTISE, adv);
--
-- /* Start/Restart aneg */
-- ctl = phy_read(phy, MII_BMCR);
-- ctl |= (BMCR_ANENABLE | BMCR_ANRESTART);
-- phy_write(phy, MII_BMCR, ctl);
--
-- return 0;
--}
--
--static int genmii_setup_forced(struct mii_phy *phy, int speed, int fd)
--{
-- u16 ctl;
--
-- phy->autoneg = 0;
-- phy->speed = speed;
-- phy->duplex = fd;
-- phy->pause = 0;
--
-- ctl = phy_read(phy, MII_BMCR);
-- ctl &= ~(BMCR_FULLDPLX|BMCR_SPEED100|BMCR_ANENABLE);
--
-- /* First reset the PHY */
-- phy_write(phy, MII_BMCR, ctl | BMCR_RESET);
--
-- /* Select speed & duplex */
-- switch(speed) {
-- case SPEED_10:
--  break;
-- case SPEED_100:
--  ctl |= BMCR_SPEED100;
--  break;
-- case SPEED_1000:
-- default:
--  return -EINVAL;
++ /* reset phy and setup aneg */
+  mii_phy_probe(&card->phy, card->phy.mii_id);
+  spider_net_setup_aneg(card, is1000);
+  if (card->phy.def->phy_id)
+@@ -1616,6 +1620,7 @@ spider_net_init_card(struct spider_net_c
+  spider_net_write_reg(card, SPIDER_NET_CKRCTRL,
+         SPIDER_NET_CKRCTRL_RUN_VALUE);
+ 
++ /* trigger ETOMOD signal */
+  spider_net_write_reg(card, SPIDER_NET_GMACOPEMD,
+                       spider_net_read_reg(card, SPIDER_NET_GMACOPEMD) | 0x4);
+ 
+@@ -1739,6 +1744,8 @@ spider_net_open(struct net_device *netde
+  if (spider_net_init_firmware(card))
+   goto init_firmware_failed;
+ 
++ /* start probing with copper */
++ card->phy.medium = GMII_COPPER;
+  spider_net_setup_aneg(card, is1000);
+  if (card->phy.def->phy_id)
+   mod_timer(&card->aneg_timer, jiffies + SPIDER_NET_ANEG_TIMER);
+@@ -1805,43 +1812,54 @@ static void spider_net_link_phy(unsigned
+  struct spider_net_card *card = (struct spider_net_card *)data;
+  struct mii_phy *phy = &card->phy;
+ 
+- if (card->aneg_count > 10) {
+-  /* timeout */
+-  card->aneg_count = 0;
+-  is1000 = !is1000;
+-  goto re_setup;
++ /* if link didn't come up after SPIDER_NET_ANEG_TIMEOUT tries, setup phy 
+again */
++ if (card->aneg_count > SPIDER_NET_ANEG_TIMEOUT) {
++
++  pr_info("%s: link is down, trying to bring it up\n", card->netdev->name);
++
++  switch(phy->medium) {
++  case GMII_COPPER:
++   /* enable fiber with autonegotiation first */
++   if (phy->def->ops->enable_fiber)
++    phy->def->ops->enable_fiber(phy, 1);
++   phy->medium = GMII_FIBER;
++   break;
++
++  case GMII_FIBER:
++   /* fiber didn't come up, try to disable fiber autoneg */
++   if (phy->def->ops->enable_fiber)
++    phy->def->ops->enable_fiber(phy, 0);
++   phy->medium = GMII_UNKNOWN;
++   break;
++
++  case GMII_UNKNOWN:
++   /* copper, fiber with and without autoneg failed,
++    * retry from beginning */
++   spider_net_setup_aneg(card, is1000);
++   phy->medium = GMII_COPPER;
++   break;
++  }
++
++ card->aneg_count = 0;
++ mod_timer(&card->aneg_timer, jiffies + SPIDER_NET_ANEG_TIMER);
++ return;
+  }
+ 
++ /* link still not up, try again later */
+  if (!(phy->def->ops->poll_link(phy))) {
+   card->aneg_count++;
+   mod_timer(&card->aneg_timer, jiffies + SPIDER_NET_ANEG_TIMER);
+   return;
+  }
+ 
++ /* link came up, get abilities */
+  phy->def->ops->read_link(phy);
+ 
+- if (phy->speed == 1000 && !is1000) {
+-  is1000 = 1;
+-  goto re_setup;
+- } else if(phy->speed != 1000 && is1000) {
+-  is1000 = 0;
+-  goto re_setup;
 - }
-- if (fd == DUPLEX_FULL)
--  ctl |= BMCR_FULLDPLX;
-- phy_write(phy, MII_BMCR, ctl);
 -
-- return 0;
--}
+- spider_net_write_reg(card, SPIDER_NET_GMACST,
+-        spider_net_read_reg(card, SPIDER_NET_GMACST));
+- spider_net_write_reg(card, SPIDER_NET_GMACINTEN, 0x4);
 -
--static int genmii_poll_link(struct mii_phy *phy)
--{
-- u16 status;
--
-- (void)phy_read(phy, MII_BMSR);
-- status = phy_read(phy, MII_BMSR);
-- if ((status & BMSR_LSTATUS) == 0)
--  return 0;
-- if (phy->autoneg && !(status & BMSR_ANEGCOMPLETE))
--  return 0;
-- return 1;
--}
--
--static int genmii_read_link(struct mii_phy *phy)
--{
-- u16 lpa;
--
-- if (phy->autoneg) {
--  lpa = phy_read(phy, MII_LPA);
--
--  if (lpa & (LPA_10FULL | LPA_100FULL))
--   phy->duplex = DUPLEX_FULL;
--  else
--   phy->duplex = DUPLEX_HALF;
--  if (lpa & (LPA_100FULL | LPA_100HALF))
--   phy->speed = SPEED_100;
--  else
--   phy->speed = SPEED_10;
--  phy->pause = (phy->duplex == DUPLEX_FULL) &&
--   ((lpa & LPA_PAUSE) != 0);
-- }
-- /* On non-aneg, we assume what we put in BMCR is the speed,
--  * though magic-aneg shouldn't prevent this case from occurring
--  */
--
--  return 0;
--}
--
--
- #define MII_BASIC_FEATURES \
-  (SUPPORTED_10baseT_Half | SUPPORTED_10baseT_Full | \
-   SUPPORTED_100baseT_Half | SUPPORTED_100baseT_Full | \
-@@ -886,8 +1016,8 @@ static struct mii_phy_ops bcm5421_phy_op
-  .suspend = generic_suspend,
-  .setup_aneg = bcm54xx_setup_aneg,
-  .setup_forced = bcm54xx_setup_forced,
-- .poll_link = genmii_poll_link,
-- .read_link = bcm54xx_read_link,
-+ .poll_link = bcm5421_poll_link,
-+ .read_link = bcm5421_read_link,
-  .enable_fiber   = bcm5421_enable_fiber,
- };
+- pr_info("Found %s with %i Mbps, %s-duplex.\n",
+-  phy->def->name, phy->speed, phy->duplex==1 ? "Full" : "Half");
++ pr_info("%s: link is up with %i Mbps, %s-duplex, %sautoneg.\n",
++  card->netdev->name, phy->speed, phy->duplex==1 ? "Full" : "Half",
++  phy->autoneg==1 ? "" : "no ");
  
-@@ -924,8 +1054,8 @@ static struct mii_phy_ops bcm5461_phy_op
-  .suspend = generic_suspend,
-  .setup_aneg = bcm54xx_setup_aneg,
-  .setup_forced = bcm54xx_setup_forced,
-- .poll_link = genmii_poll_link,
-- .read_link = bcm54xx_read_link,
-+ .poll_link = bcm5461_poll_link,
-+ .read_link = bcm5461_read_link,
-  .enable_fiber   = bcm5461_enable_fiber,
- };
+  return;
+-
+-re_setup:
+- mii_phy_probe(phy, phy->mii_id);
+- spider_net_setup_aneg(card, is1000);
+- card->aneg_count = 0;
+- mod_timer(&card->aneg_timer, jiffies + SPIDER_NET_ANEG_TIMER);
+ }
  
-Index: linux-2.6.20-rc5/drivers/net/sungem_phy.h
+ /**
+@@ -1871,8 +1889,10 @@ spider_net_setup_phy(struct spider_net_c
+   unsigned short id;
+   id = spider_net_read_phy(card->netdev, phy->mii_id, MII_BMSR);
+   if (id != 0x0000 && id != 0xffff) {
+-   mii_phy_probe(phy, phy->mii_id);
++   if (!mii_phy_probe(phy, phy->mii_id)) {
++    pr_info("Found %s.\n", phy->def->name);
+    break;
++   }
+   }
+  }
+ 
+Index: linux-2.6/drivers/net/spider_net.h
 ===================================================================
---- linux-2.6.20-rc5.orig/drivers/net/sungem_phy.h
-+++ linux-2.6.20-rc5/drivers/net/sungem_phy.h
-@@ -12,7 +12,7 @@ struct mii_phy_ops
-  int  (*setup_forced)(struct mii_phy *phy, int speed, int fd);
-  int  (*poll_link)(struct mii_phy *phy);
-  int  (*read_link)(struct mii_phy *phy);
-- int  (*enable_fiber)(struct mii_phy *phy);
-+ int  (*enable_fiber)(struct mii_phy *phy, int autoneg);
- };
+--- linux-2.6.orig/drivers/net/spider_net.h
++++ linux-2.6/drivers/net/spider_net.h
+@@ -51,7 +51,8 @@ extern char spider_net_driver_name[];
+ #define SPIDER_NET_TX_DESCRIPTORS_MAX  512
  
- /* Structure used to statically define an mii/gii based PHY */
-@@ -26,6 +26,14 @@ struct mii_phy_def
-  const struct mii_phy_ops* ops;
- };
+ #define SPIDER_NET_TX_TIMER   (HZ/5)
+-#define SPIDER_NET_ANEG_TIMER   (HZ*2)
++#define SPIDER_NET_ANEG_TIMER   (HZ)
++#define SPIDER_NET_ANEG_TIMEOUT   2
  
-+enum {
-+ GMII_COPPER,
-+ GMII_FIBER,
-+ GMII_GBIC,
-+ GMII_SGMII,
-+ GMII_UNKNOWN,
-+};
-+
- /* An instance of a PHY, partially borrowed from mii_if_info */
- struct mii_phy
- {
-@@ -36,6 +44,8 @@ struct mii_phy
-  /* 1: autoneg enabled, 0: disabled */
-  int   autoneg;
+ #define SPIDER_NET_RX_CSUM_DEFAULT  1
  
-+ int   medium;
-+
-  /* forced speed & duplex (no autoneg)
-   * partner speed & duplex & pause (autoneg)
-   */
