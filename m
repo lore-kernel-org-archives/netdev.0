@@ -1,44 +1,31 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: [USBNET] PEGASUS: Fix typo in Corega products.
-Date: Fri, 26 Jan 2007 22:59:01 +0900 (JST)
-Message-ID: <20070126.225901.112152229.yoshfuji@linux-ipv6.org>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: [PATCH] TCP: Replace __kfree_skb() with kfree_skb()
+Date: Fri, 26 Jan 2007 15:05:33 +0100
+Message-ID: <20070126140533.GA3158@ff.dom.local>
+References: <45B97763.8000305@ncos.nec.co.jp> <20070126082838.GA1639@ff.dom.local> <20070126091606.GA23469@gondor.apana.org.au> <20070126094950.GB1639@ff.dom.local> <20070126095251.GA24204@gondor.apana.org.au> <20070126101838.GC1639@ff.dom.local> <20070126104518.GA24490@gondor.apana.org.au> <20070126110235.GD1639@ff.dom.local> <20070126131808.GE1639@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: jgarzik@pobox.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Masayuki Nakagawa <nakagawa.msy@ncos.nec.co.jp>,
+	davem@davemloft.net, yoshfuji@linux-ipv6.org, mhuth@mvista.com,
+	netdev@vger.kernel.org, Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:47059 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965672AbXAZN5r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jan 2007 08:57:47 -0500
+Received: from mx2.go2.pl ([193.17.41.42]:52483 "EHLO poczta.o2.pl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S965688AbXAZODF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 26 Jan 2007 09:03:05 -0500
+Content-Disposition: inline
+In-Reply-To: <20070126131808.GE1639@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-s/FEter/FEther/.
+On Fri, Jan 26, 2007 at 02:18:08PM +0100, Jarek Poplawski wrote:
+...
+> I've only now read the original thread of this problem
+> and this long note about security. I need more time to
+> understand this, but now I'm not sure Masayuki's server
+> isn't doing something against the policy of this note
 
-Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
----
- drivers/usb/net/pegasus.h |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+This would be socket case then (not server), sorry. 
 
-diff --git a/drivers/usb/net/pegasus.h b/drivers/usb/net/pegasus.h
-index 98f6898..c746782 100644
---- a/drivers/usb/net/pegasus.h
-+++ b/drivers/usb/net/pegasus.h
-@@ -214,9 +214,9 @@ PEGASUS_DEV( "Billionton USBEL-100", VENDOR_BILLIONTON, 0x0988,
- 		DEFAULT_GPIO_RESET )
- PEGASUS_DEV( "Billionton USBE-100", VENDOR_BILLIONTON, 0x8511,
- 		DEFAULT_GPIO_RESET | PEGASUS_II )
--PEGASUS_DEV( "Corega FEter USB-TX", VENDOR_COREGA, 0x0004,
-+PEGASUS_DEV( "Corega FEther USB-TX", VENDOR_COREGA, 0x0004,
- 		DEFAULT_GPIO_RESET )
--PEGASUS_DEV( "Corega FEter USB-TXS", VENDOR_COREGA, 0x000d,
-+PEGASUS_DEV( "Corega FEther USB-TXS", VENDOR_COREGA, 0x000d,
- 		DEFAULT_GPIO_RESET | PEGASUS_II )
- PEGASUS_DEV( "D-Link DSB-650TX", VENDOR_DLINK, 0x4001,
- 		DEFAULT_GPIO_RESET )
--- 
-1.4.4.1.g562ce
-
+Jarek P.
