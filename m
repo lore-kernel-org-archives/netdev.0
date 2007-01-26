@@ -1,68 +1,302 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: bonding: bug in balance-alb mode (incorrect update-ARP-replie s)
-Date: Fri, 26 Jan 2007 15:29:49 -0800
-Message-ID: <200701262329.l0QNTo22025513@death.nxdomain.ibm.com>
-References: <FA8270F9F8D35946ADDBC0F36E6667CE0175C9BE@nts27.saarstahl.de>
-Cc: "'netdev@vger.kernel.org'" <netdev@vger.kernel.org>
-To: "JUNG, Christian" <christian.jung@saarstahl.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: spidernet: add improved phy support in sungem_phy.c
+Date: Sat, 27 Jan 2007 00:38:09 +0100
+Message-ID: <20070126233809.GA16660@electric-eye.fr.zoreil.com>
+References: <200701261407.48237.jens@de.ibm.com> <1169842847.24996.106.camel@localhost.localdomain> <200701262331.58491.jens@de.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	Ishizaki Kou <kou.ishizaki@toshiba.co.jp>,
+	linuxppc-dev@ozlabs.org, netdev@vger.kernel.org,
+	cbe-oss-dev@ozlabs.org, Linas Vepstas <linas@austin.ibm.com>,
+	jgarzik@pobox.com, James K Lewis <jim@jklewis.com>
+To: Jens Osterkamp <jens@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e5.ny.us.ibm.com ([32.97.182.145]:48633 "EHLO e5.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751768AbXAZX3x (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 26 Jan 2007 18:29:53 -0500
-Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
-	by e5.ny.us.ibm.com (8.13.8/8.12.11) with ESMTP id l0QNTq3j019510
-	for <netdev@vger.kernel.org>; Fri, 26 Jan 2007 18:29:52 -0500
-Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
-	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v8.2) with ESMTP id l0QNTqgI275018
-	for <netdev@vger.kernel.org>; Fri, 26 Jan 2007 18:29:52 -0500
-Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
-	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l0QNTphZ008824
-	for <netdev@vger.kernel.org>; Fri, 26 Jan 2007 18:29:51 -0500
-In-reply-to: <FA8270F9F8D35946ADDBC0F36E6667CE0175C9BE@nts27.saarstahl.de> 
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:46411 "EHLO
+	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965059AbXAZXmm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 26 Jan 2007 18:42:42 -0500
+Content-Disposition: inline
+In-Reply-To: <200701262331.58491.jens@de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-JUNG, Christian <christian.jung@saarstahl.com> wrote:
+Jens Osterkamp <jens@de.ibm.com> :
+> > Patch is whitespace damaged...
+> 
+> sending it again as attachment...
 
->> Jay Vosburgh <fubar@us.ibm.com> wrote:
->> 
->> 	Is your test occuring on an isolated network, and is there other
->> concurrent network traffic that might be affecting things?
->
->The problem still persists as long as the box is connected to our Ciscos.
->
->I tried to simulate it with a dumb switch with my two boxes connected only.
->But there were no unsolicited ARP-replies anymore.
+Inlined patches are preferred.
 
-	I'm using Cisco switches as well.  I don't see the regular,
-periodic ARP replies being generated as you describe, but I do see the
-bonding driver issuing ARP replies for some or all of the elements of
-the rx hashtable when certain events occur (slaves coming on/off line,
-ARP requests coming from the local system, ).
 
->On the Ciscos I sometimes see ARP-replies with a destination MAC of
->00:00:00:00:00:00 (!) from some Linux-boxes which are using bonding.
->Currently I don't have a clue from where they're coming...
+Index: linux-2.6.20-rc5/drivers/net/sungem_phy.c
+===================================================================
+--- linux-2.6.20-rc5.orig/drivers/net/sungem_phy.c
++++ linux-2.6.20-rc5/drivers/net/sungem_phy.c
+@@ -311,6 +311,107 @@ static int bcm5411_init(struct mii_phy* 
+[...]
++static int genmii_setup_forced(struct mii_phy *phy, int speed, int fd)
++{
++	u16 ctl;
++
++	phy->autoneg = 0;
++	phy->speed = speed;
++	phy->duplex = fd;
++	phy->pause = 0;
++
++	ctl = phy_read(phy, MII_BMCR);
++	ctl &= ~(BMCR_FULLDPLX|BMCR_SPEED100|BMCR_ANENABLE);
+                             ^^^           ^^^
++
++	/* First reset the PHY */
++	phy_write(phy, MII_BMCR, ctl | BMCR_RESET);
++
++	/* Select speed & duplex */
++	switch(speed) {
++	case SPEED_10:
++		break;
++	case SPEED_100:
++		ctl |= BMCR_SPEED100;
++		break;
++	case SPEED_1000:
++	default:
++		return -EINVAL;
++	}
++	if (fd == DUPLEX_FULL)
++		ctl |= BMCR_FULLDPLX;
++	phy_write(phy, MII_BMCR, ctl);
++
++	return 0;
++}
++
++static int genmii_poll_link(struct mii_phy *phy)
++{
++	u16 status;
++
++	(void)phy_read(phy, MII_BMSR);
++	status = phy_read(phy, MII_BMSR);
++	if ((status & BMSR_LSTATUS) == 0)
++		return 0;
++	if (phy->autoneg && !(status & BMSR_ANEGCOMPLETE))
++		return 0;
++	return 1;
++}
++
++static int genmii_read_link(struct mii_phy *phy)
++{
++	u16 lpa;
++
++	if (phy->autoneg) {
++		lpa = phy_read(phy, MII_LPA);
++
++		if (lpa & (LPA_10FULL | LPA_100FULL))
++			phy->duplex = DUPLEX_FULL;
++		else
++			phy->duplex = DUPLEX_HALF;
++		if (lpa & (LPA_100FULL | LPA_100HALF))
++			phy->speed = SPEED_100;
++		else
++			phy->speed = SPEED_10;
++		phy->pause = 0;
++	}
++	/* On non-aneg, we assume what we put in BMCR is the speed,
++	 * though magic-aneg shouldn't prevent this case from occurring
++	 */
++
++	 return 0;
 
-	I also saw one of those; I don't know where it came from,
-either.
+You could do a quick:
+	if (!phy->autoneg) 
+		return 0;
 
->The boxes are receiving around 200 ARP-replies a minute - so yes, there's
->concurrent network traffic :-)
+but it would not be enough for ternary ops to fit on a single line :o/
 
-	Well, I meant other traffic that causes the ARP replies to be
-generated (i.e., concurrent traffic with the system).
++
+ static int generic_suspend(struct mii_phy* phy)
+ {
+ 	phy_write(phy, MII_BMCR, BMCR_PDOWN);
+[...]
+@@ -516,6 +593,166 @@ static int marvell88e1111_init(struct mi
+ 	return 0;
+ }
+ 
++#define BCM5421_MODE_MASK	1 << 5
 
-	There are some other issues with the rx hashtbl that have come
-up from my poking around, largely that it never, ever removes an entry
-from the table.  After a sufficient number of different clients have
-connected, the table will be filled with stale entries.  That's not
-necessarily a problem in of itself, but it can lead to pathological
-cases wherein regular ARP traffic induces update storms for peers that
-are no longer interested.
+Please add parenthesis.
 
-	-J
++
++static int bcm5421_poll_link(struct mii_phy* phy)
++{
++	u32 phy_reg;
++	int mode;
++
++	/* find out in what mode we are */
++        phy_write(phy, MII_NCONFIG, 0x1000);
+^^^^^^^^^^
++	phy_reg = phy_read(phy, MII_NCONFIG);
++
++	mode = (phy_reg & BCM5421_MODE_MASK ) >> 5;
+                                          ^^^
 
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+"&" is fine despite the lack of parenthesis above but it is error-prone.
+
++
++	if ( mode == GMII_COPPER) {
+           ^^^
++		return genmii_poll_link(phy);
++	}
+
+No curly-braces for single line statements please.
+
++
++	/* try to find out wether we have a link */
++        phy_write(phy, MII_NCONFIG, 0x2000);
+^^^^^^^^^^
++	phy_reg = phy_read(phy, MII_NCONFIG);
++
++	if ( (phy_reg & 0x0020) >> 5 ) {
+           ^^^                     ^^^
++		return 0;
++	} else {
++		return 1;
++	}
+
+Ternary operator ?
+
++
++}
++
++static int bcm5421_read_link(struct mii_phy* phy)
++{
++	u32 phy_reg;
++	int mode;
++
++	/* find out in what mode we are */
++        phy_write(phy, MII_NCONFIG, 0x1000);
+^^^^^^^^^^
++	phy_reg = phy_read(phy, MII_NCONFIG);
++
++	mode = (phy_reg & BCM5421_MODE_MASK ) >> 5;
+                                          ^^^
++
++	if ( mode == GMII_COPPER) {
+           ^^^
++		return bcm54xx_read_link(phy);
++	}
++
++	phy->speed = SPEED_1000;
++
++	/* find out wether we are running half- or full duplex */
++        phy_write(phy, MII_NCONFIG, 0x2000);
+^^^^^^^^^^
++	phy_reg = phy_read(phy, MII_NCONFIG);
++
++	if ( (phy_reg & 0x0020) >> 7 ) {
+           ^^^                     ^^^
++		phy->duplex |=  DUPLEX_HALF;
++	} else {
++		phy->duplex |=  DUPLEX_FULL;
++	}
+
+Ternary operator ?
+
++
++	return 0;
++}
++
+[...]
++#define BCM5461_FIBER_LINK	1 << 2
++#define BCM5461_MODE_MASK	3 << 1
+
+Please add parenthesis.
+
++
++static int bcm5461_poll_link(struct mii_phy* phy)
++{
++	u32 phy_reg;
++	int mode;
++
++	/* find out in what mode we are */
++        phy_write(phy, MII_NCONFIG, 0x7c00);
+^^^^^^^^^^
++	phy_reg = phy_read(phy, MII_NCONFIG);
++
++	mode = (phy_reg & BCM5461_MODE_MASK ) >> 1;
+                                          ^^^
++
++	if ( mode == GMII_COPPER) {
+           ^^^
++		return genmii_poll_link(phy);
++	}
++
++	/* find out wether we have a link */
++        phy_write(phy, MII_NCONFIG, 0x7000);
+^^^^^^^^^^
++	phy_reg = phy_read(phy, MII_NCONFIG);
++	if (phy_reg & BCM5461_FIBER_LINK) {
++		return 1;
++	} else {
++		return 0;
++	}
+
+Join the dark side and use a ternary operator.
+
++}
++
++#define BCM5461_FIBER_DUPLEX	1 << 3
+
+Please add parenthesis.
+
++
++static int bcm5461_read_link(struct mii_phy* phy)
++{
++	u32 phy_reg;
++	int mode;
++
++	/* find out in what mode we are */
++        phy_write(phy, MII_NCONFIG, 0x7c00);
+
+^^^^^^^^^^
+
++	phy_reg = phy_read(phy, MII_NCONFIG);
++
++	mode = (phy_reg & BCM5461_MODE_MASK ) >> 1;
+                                          ^^^
++
++	if ( mode == GMII_COPPER) {
+           ^^^
++		return bcm54xx_read_link(phy);
++	}
+
+Useless curly-braces.
+
++
++	phy->speed = SPEED_1000;
++
++	/* find out wether we are running half- or full duplex */
++        phy_write(phy, MII_NCONFIG, 0x7000);
+^^^^^^^^^^
++	phy_reg = phy_read(phy, MII_NCONFIG);
++	if (phy_reg & BCM5461_FIBER_DUPLEX) {
++		phy->duplex |=  DUPLEX_FULL;
++	} else {
++		phy->duplex |=  DUPLEX_HALF;
++	}
+
+Ternary operator.
+
++
++	return 0;
++}
++
++static int bcm5461_enable_fiber(struct mii_phy* phy, int autoneg)
++{
++	/*
++	phy_write(phy, MII_NCONFIG, 0xfc0c);
++	phy_write(phy, MII_BMCR, 0x4140);
++	*/
+
+Remove ?
+
+-- 
+Ueimor
