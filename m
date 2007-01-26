@@ -1,89 +1,78 @@
-From: "Venkat Yekkirala" <vyekkirala@trustedcs.com>
-Subject: RE: 2.6.20-rc6: known unfixed regressions (part 2)
-Date: Fri, 26 Jan 2007 13:08:58 -0600
-Message-ID: <002f01c7417d$6f67cea0$cc0a010a@tcssec.com>
-References: <45BA50B7.1070205@googlemail.com>
-Reply-To: <vyekkirala@trustedcs.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] IPv6: Implement RFC 4429 Optimistic Duplicate Address Detection
+Date: Fri, 26 Jan 2007 14:03:37 -0500
+Message-ID: <20070126190337.GB15916@hmsreliant.homelinux.net>
+References: <20070125212651.GB12136@hmsreliant.homelinux.net> <45B92BA5.1050505@hp.com> <20070126142730.GA15916@hmsreliant.homelinux.net> <20070127.004429.96717403.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Linus Torvalds" <torvalds@linux-foundation.org>,
-	"Andrew Morton" <akpm@osdl.org>,
-	"Linux Kernel Mailing List" <linux-kernel@vger.kernel.org>,
-	"David Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: "'Michal Piotrowski'" <michal.k.k.piotrowski@gmail.com>,
-	"Adrian Bunk" <bunk@stusta.de>
+Cc: vladislav.yasevich@hp.com, sri@us.ibm.com, davem@davemloft.net,
+	kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
+	kaber@coreworks.de, netdev@vger.kernel.org
+To: YOSHIFUJI Hideaki / =?utf-8?B?5ZCJ6Jek6Iux5piO?=
+	<yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tcsfw4.tcs-sec.com ([65.127.223.133]:4889 "EHLO
-	tcsfw4.tcs-sec.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161181AbXAZTKr convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jan 2007 14:10:47 -0500
-In-Reply-To: <45BA50B7.1070205@googlemail.com>
+Received: from ra.tuxdriver.com ([70.61.120.52]:2185 "EHLO ra.tuxdriver.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1161197AbXAZTSd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 26 Jan 2007 14:18:33 -0500
+Content-Disposition: inline
+In-Reply-To: <20070127.004429.96717403.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=46YI- The patch can be viewed here:
+On Sat, Jan 27, 2007 at 12:44:29AM +0900, YOSHIFUJI Hideaki / =E5=90=89=
+=E8=97=A4=E8=8B=B1=E6=98=8E wrote:
+> In article <20070126142730.GA15916@hmsreliant.homelinux.net> (at Fri,=
+ 26 Jan 2007 09:27:30 -0500), Neil Horman <nhorman@tuxdriver.com> says:
+>=20
+> > I'm looking for it at the moment, but I too had assumed that redire=
+cting the
+> > outgoing packet to the default router would happen automatically wi=
+thin the
+> > routing code as a result of not having a completed neighbor entry a=
+vailable.
+> > Since I've modified ndisc_send_ns such that we will never send Neig=
+hbor
+> > solicitations from an optimistic address, as per section 3.2, we'll=
+ never get a
+> > completed neightbor entry while the address is optimistic.  If that=
+s not the
+> > case, I'd welcome some suggestions on how to implement this (given =
+that I'm not
+> > overly familiar with the code right now).  From what I see, I think=
+ the routing
+> > code will select the default route when rti6_nexthop is null during=
+ route
+> > selection, which it will be if the neighbor entry doesn't get resol=
+ved.  Not
+> > 100% sure though.  Let me know what you think.
+>=20
+> (Now I remember that I hit similar issue before when I once
+> tried to implement this....)
+>=20
+> Well... no, you cannot assume that routing code solves this issue.
+> This is not so trivial, and I am not aware clean solution yet...
+>=20
+> On reason of this issue is because the source address may not be
+> probided by user, and the source address selection will be done
+> after looking up routing table.
+>=20
+> One possibiliy is to solve by rt->rt6i_nexthop->output(),
+> but I guess we will hit some race condition.
+>=20
+> Hmm...
+>=20
+Is this perhaps something we can do in ip6_output2?  We can test the in=
+terface
+flags there and if the interface is optimistic, we can lookup the defau=
+lt route
+(perhaps via rt6_lookup, using the unspecified address for the daddr), =
+and then
+replace skb->dst with the dst_entry retrieved from the lookup, which sh=
+ould give
+us the proper mac header construction starting in ip6_output_finish.
 
-http://marc.theaimsgroup.com/?l=3Dlinux-netdev&m=3D116983297300536&w=3D=
-2
-
-> -----Original Message-----
-> From: Michal Piotrowski [mailto:michal.k.k.piotrowski@gmail.com]
-> Sent: Friday, January 26, 2007 1:04 PM
-> To: Adrian Bunk
-> Cc: Linus Torvalds; Andrew Morton; Linux Kernel Mailing List;=20
-> Uwe Bugla;
-> B.Zolnierkiewicz@elka.pw.edu.pl; linux-ide@vger.kernel.org;
-> alan@lxorguk.ukuu.org.uk; Gerhard Dirschl; Christoph Hellwig;
-> petero2@telia.com; Michal Piotrowski; Venkat Yekkirala; David Miller;
-> sds@tycho.nsa.gov; jmorris@namei.org; netdev@vger.kernel.org; Livio
-> Soares; Paul Mackerras; linuxppc-dev@ozlabs.org; Cijoml Cijomlovic
-> Cijomlov; Nick Piggin; ttb@tentacle.dhs.org; rml@novell.com; Malte
-> Schr=C3=B6der; Vladimir V. Saveliev; reiserfs-dev@namesys.com; Sami F=
-arin;
-> David Chinner; xfs-masters@oss.sgi.com
-> Subject: Re: 2.6.20-rc6: known unfixed regressions (part 2)
->=20
->=20
-> Hi,
->=20
-> Adrian Bunk napisa=C5=82(a):
-> > This email lists some known regressions in 2.6.20-rc6=20
-> compared to 2.6.19
-> > that are not yet fixed in Linus' tree.
-> >=20
-> > If you find your name in the Cc header, you are either=20
-> submitter of one
-> > of the bugs, maintainer of an affectected subsystem or=20
-> driver, a patch
-> > of you caused a breakage or I'm considering you in any=20
-> other way possibly
-> > involved with one or more of these issues.
-> >=20
-> > Due to the huge amount of recipients, please trim the Cc=20
-> when answering.
-> >=20
-> >=20
-> > Subject    : SELinux compile error with CONFIG_XFRM=3Dn
-> > References : http://lkml.org/lkml/2007/1/25/233
-> > Submitter  : Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
-> > Caused-By  : Venkat Yekkirala <vyekkirala@TrustedCS.com>
-> >              commit 334c85569b8adeaa820c0f2fab3c8f0a9dc8b92e
-> > Handled-By : Venkat Yekkirala <vyekkirala@TrustedCS.com>
-> >              David Miller <davem@davemloft.net>
-> > Status     : problem is being discussed
-> >=20
->=20
-> Venkat Yekkirala has sent me a patch that fixed this build problem.
->=20
-> Thanks!
->=20
-> Regards,
-> Michal
->=20
-> --=20
-> Michal K. K. Piotrowski
-> LTG - Linux Testers Group
-> (http://www.stardust.webpages.pl/ltg/)
->=20
+What do you think?
+Neil
 
