@@ -1,35 +1,37 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: [PATCH] TCP: Replace __kfree_skb() with kfree_skb()
-Date: Fri, 26 Jan 2007 09:28:38 +0100
-Message-ID: <20070126082838.GA1639@ff.dom.local>
-References: <45B97763.8000305@ncos.nec.co.jp>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [rft] r8169: merge release 6.001.00 of Realtek's driver - take
+ #1
+Date: Fri, 26 Jan 2007 03:35:12 -0500
+Message-ID: <45B9BD40.4000708@garzik.org>
+References: <20070124231719.GA10010@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, yoshfuji@linux-ipv6.org,
-	herbert@gondor.apana.org.au, mhuth@mvista.com,
-	netdev@vger.kernel.org
-To: Masayuki Nakagawa <nakagawa.msy@ncos.nec.co.jp>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx10.go2.pl ([193.17.41.74]:47019 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1030798AbXAZI0J (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 26 Jan 2007 03:26:09 -0500
-Content-Disposition: inline
-In-Reply-To: <45B97763.8000305@ncos.nec.co.jp>
+Received: from srv5.dvmed.net ([207.36.208.214]:43655 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1030796AbXAZIfO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 26 Jan 2007 03:35:14 -0500
+In-Reply-To: <20070124231719.GA10010@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 26-01-2007 04:37, Masayuki Nakagawa wrote:
-> This patch simply replaces __kfree_skb() in exit path with kfree_skb().
-> In tcp_rcv_state_process(), generally skbs should be destroyed only when
-> the ref count is zero.
-> That is the way things are supposed to be done in the kernel.
+Francois Romieu wrote:
+> Untested, straight from the "release early" dept. You have been warned.
 > 
-> This change might reveals a memory leak of skb.
-> If it happens, it would be because someone doesn't deal with the skb properly.
+> Realtek's driver restricts itself to 0x8169 and 0x8167.
+> It won't be surprising if it breaks on anything else until
+> I merge the new 0x8168 and 0x8136 bits.
+> 
+> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 
-So maybe for some time there should be added skb->users
-test with a warning to reveal this?
+FWIW I would like to see if we can train RealTek to directly submit 
+kernel patches, and try to mentor them into helping you maintain the 
+RealTek stuff.
 
-Regards,
-Jarek P.
+	Jeff
+
+
+
