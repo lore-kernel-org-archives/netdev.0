@@ -1,34 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: owner-Match in 2.6.20-rc5 (fwd)
-Date: Fri, 26 Jan 2007 01:05:15 -0800 (PST)
-Message-ID: <20070126.010515.41193111.davem@davemloft.net>
-References: <Pine.LNX.4.61.0701252206360.26335@yvahk01.tjqt.qr>
-	<20070125.140149.51518685.davem@davemloft.net>
-	<Pine.LNX.4.61.0701252309200.17844@yvahk01.tjqt.qr>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] TCP: Replace __kfree_skb() with kfree_skb()
+Date: Fri, 26 Jan 2007 20:16:06 +1100
+Message-ID: <20070126091606.GA23469@gondor.apana.org.au>
+References: <45B97763.8000305@ncos.nec.co.jp> <20070126082838.GA1639@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kadlec@blackhole.kfki.hu, netdev@vger.kernel.org,
-	netfilter-devel@lists.netfilter.org
-To: jengelh@linux01.gwdg.de
+Content-Type: text/plain; charset=us-ascii
+Cc: Masayuki Nakagawa <nakagawa.msy@ncos.nec.co.jp>,
+	davem@davemloft.net, yoshfuji@linux-ipv6.org, mhuth@mvista.com,
+	netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@o2.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36306
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1030839AbXAZJFX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jan 2007 04:05:23 -0500
-In-Reply-To: <Pine.LNX.4.61.0701252309200.17844@yvahk01.tjqt.qr>
+Received: from rhun.apana.org.au ([64.62.148.172]:2783 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S965577AbXAZJQd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jan 2007 04:16:33 -0500
+Content-Disposition: inline
+In-Reply-To: <20070126082838.GA1639@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jan Engelhardt <jengelh@linux01.gwdg.de>
-Date: Thu, 25 Jan 2007 23:14:49 +0100 (MET)
-
-> People really depend on this. Much more than than pid/comm/smpunsafe stuff.
-> For example, a web server [cgi enabled, etc.] which also runs squid,
-> to force all webtraffic through it:
+On Fri, Jan 26, 2007 at 09:28:38AM +0100, Jarek Poplawski wrote:
 > 
-> -A OUTPUT -p tcp --dport 80 -m owner ! --uid-owner
->   squid -j REDIRECT --to-ports 3128
+> So maybe for some time there should be added skb->users
+> test with a warning to reveal this?
 
-FWIW I've simply reverted the change in question to fix this.
-Will push to Linus soon.
+Or just replace __kfree_skb by kfree_skb.  The atomic operation (the
+expensive part of kfree_skb vs. __kfree_skb) is only taken when it
+is needed.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
