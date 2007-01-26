@@ -1,110 +1,70 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: + oops-in-drivers-net-shaperc.patch added to -mm tree
-Date: Thu, 25 Jan 2007 19:31:28 -0800 (PST)
-Message-ID: <20070125.193128.39155864.davem@davemloft.net>
-References: <200701250354.l0P3spES005128@shell0.pdx.osdl.net>
+From: Masayuki Nakagawa <nakagawa.msy@ncos.nec.co.jp>
+Subject: Re: [PATCH 2.6.20-rc5] IPV6: skb is unexpectedly freed.
+Date: Thu, 25 Jan 2007 19:36:53 -0800
+Message-ID: <45B97755.1030509@ncos.nec.co.jp>
+References: <45B6C13E.1050204@ncos.nec.co.jp>	<E1H9ZnX-0001z5-00@gondolin.me.apana.org.au>	<20070124.133725.07735362.yoshfuji@linux-ipv6.org> <20070123.204008.59666972.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: deweerdt@free.fr, netdev@vger.kernel.org,
-	frederik.deweerdt@gmail.com, shemminger@osdl.org
-To: linux-kernel@vger.kernel.org, akpm@osdl.org
+Cc: nakagawa.msy@ncos.nec.co.jp, mhuth@mvista.com,
+	netdev@vger.kernel.org
+To: davem@davemloft.net, yoshfuji@linux-ipv6.org,
+	herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48727
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1030720AbXAZDba (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jan 2007 22:31:30 -0500
-In-Reply-To: <200701250354.l0P3spES005128@shell0.pdx.osdl.net>
+Received: from gateway-1237.mvista.com ([63.81.120.158]:19499 "EHLO
+	gateway-1237.mvista.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030730AbXAZDg7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jan 2007 22:36:59 -0500
+In-Reply-To: <20070123.204008.59666972.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: akpm@osdl.org
-Date: Wed, 24 Jan 2007 19:54:51 -0800
+David, Yoshifuji-san, Herbert,
 
-> Hi,
-> 
-> The following code:
-> [...]
-> 
-> Causes the following oops:
-> 
- ...
-> [   66.355188]  [<c0396c74>] error_code+0x7c/0x84
-> [   66.355192]  [<f8adaf03>] packet_sendmsg+0x147/0x201 [af_packet]
-> [   66.355199]  [<c030e1c5>] sock_sendmsg+0xf9/0x116
-> [   66.355204]  [<c030eb54>] sys_sendto+0xbf/0xe0
-> [   66.355208]  [<c030f494>] sys_socketcall+0x1aa/0x277
-> [   66.355212]  [<c01041ea>] sysenter_past_esp+0x5f/0x99
-> [   66.355216]  =======================
-> [   66.355218] Code:  Bad EIP value.
-> [   66.355223] EIP: [<00000000>] 0x0 SS:ESP 0068:f6261d70
-> 
-> shaper_header() should check for shaper->dev not being NULL (ie. the
-> shaper was actually attached) as in the following patch.
-> This happens in mainline too (tested 2.6.19.2).
-> 
-> Signed-off-by: Frederik Deweerdt <frederik.deweerdt@gmail.com>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: Stephen Hemminger <shemminger@osdl.org>
-> Signed-off-by: Andrew Morton <akpm@osdl.org>
+I appreciate your feedback.
 
-Shaper is actually OK.  None of these hardware header callbacks
-should be invoked if the device is down.  Yet, this is what is
-accidently being allowed in the AF_PACKET socket layer.
+I made an another patch that simply replaced __kfree_skb() in exit path with
+kfree_skb(). I tested it overnight with a chat benchmark tool and
+my test program, which can reproduce the original problem.
 
-Shaper makes sure to fail ->open() if shaper->dev is NULL, in order
-to prevent this.
+As a result, I didn't see any problem.
+(For example, neither oops nor memory leak happened.)
 
-But AF_PACKET does it's check of device state too late, after the
-dev->header() call.  That's the bug.
+I will post the patch a few moments later. Please take a look at it.
 
-I'll fix it like this:
+Thanks,
+Masa
 
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 594c078..6dc01bd 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -359,6 +359,10 @@ static int packet_sendmsg_spkt(struct kiocb *iocb, struct socket *sock,
- 	if (dev == NULL)
- 		goto out_unlock;
- 	
-+	err = -ENETDOWN;
-+	if (!(dev->flags & IFF_UP))
-+		goto out_unlock;
-+
- 	/*
- 	 *	You may not queue a frame bigger than the mtu. This is the lowest level
- 	 *	raw protocol and you must do your own fragmentation at this level.
-@@ -407,10 +411,6 @@ static int packet_sendmsg_spkt(struct kiocb *iocb, struct socket *sock,
- 	if (err)
- 		goto out_free;
- 
--	err = -ENETDOWN;
--	if (!(dev->flags & IFF_UP))
--		goto out_free;
--
- 	/*
- 	 *	Now send it
- 	 */
-@@ -738,6 +738,10 @@ static int packet_sendmsg(struct kiocb *iocb, struct socket *sock,
- 	if (sock->type == SOCK_RAW)
- 		reserve = dev->hard_header_len;
- 
-+	err = -ENETDOWN;
-+	if (!(dev->flags & IFF_UP))
-+		goto out_unlock;
-+
- 	err = -EMSGSIZE;
- 	if (len > dev->mtu+reserve)
- 		goto out_unlock;
-@@ -770,10 +774,6 @@ static int packet_sendmsg(struct kiocb *iocb, struct socket *sock,
- 	skb->dev = dev;
- 	skb->priority = sk->sk_priority;
- 
--	err = -ENETDOWN;
--	if (!(dev->flags & IFF_UP))
--		goto out_free;
--
- 	/*
- 	 *	Now send it
- 	 */
+David Miller wrote:
+> From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> Date: Wed, 24 Jan 2007 13:37:25 +0900 (JST)
+>
+>   
+>> In article <E1H9ZnX-0001z5-00@gondolin.me.apana.org.au> (at Wed, 24 Jan 2007 15:31:47 +1100), Herbert Xu <herbert@gondor.apana.org.au> says:
+>>
+>>     
+>>> Masayuki Nakagawa <nakagawa.msy@ncos.nec.co.jp> wrote:
+>>>       
+>>>> I suggest to use kfree_skb() instead of __kfree_skb().
+>>>>         
+>>> I agree.  In fact please do it for all paths in that function, i.e.,
+>>> just change __kfree_skb to kfree_skb rather than adding a special case
+>>> for this path.
+>>>       
+>> I do think so, too.
+>>     
+>
+> So do I, but initially I want to push his basic patch in
+> so that I can push the same exact thing into -stable to
+> fix this bug.
+>
+> So if you make the subsequent change, please make it relative
+> to the original patch.
+>
+> Thank you.
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+>   
