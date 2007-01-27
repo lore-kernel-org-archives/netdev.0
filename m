@@ -1,35 +1,29 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: + oops-in-drivers-net-shaperc.patch added to -mm tree
-Date: Fri, 26 Jan 2007 19:12:36 -0800 (PST)
-Message-ID: <20070126.191236.41877838.davem@davemloft.net>
-References: <20070125.193128.39155864.davem@davemloft.net>
-	<E1HAbgn-00039h-00@gondolin.me.apana.org.au>
-	<20070127010146.GA18851@gondor.apana.org.au>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Hidden SSID's
+Date: Fri, 26 Jan 2007 21:48:01 -0600
+Message-ID: <45BACB71.2080107@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, akpm@osdl.org, deweerdt@free.fr,
-	netdev@vger.kernel.org, frederik.deweerdt@gmail.com,
-	shemminger@osdl.org
-To: herbert@gondor.apana.org.au
+To: netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45637
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752169AbXA0DMh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jan 2007 22:12:37 -0500
-In-Reply-To: <20070127010146.GA18851@gondor.apana.org.au>
+Received: from mtiwmhc13.worldnet.att.net ([204.127.131.117]:36269 "EHLO
+	mtiwmhc13.worldnet.att.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751693AbXA0DsJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jan 2007 22:48:09 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Sat, 27 Jan 2007 12:01:46 +1100
+Is there a convention regarding the information that a wireless MAC layer should provide when
+reporting scan data from an AP with a hidden SSID?
 
-> In fact, the shaper device doesn't even seem to take a ref count of
-> the device it has attached to.  So that device can go away at any time.
-> What's more, there are drivers that can change hard_header at run-time
-> (s390).
+In ieee80211, the software inserts the string "<hidden>" for such an AP, which seems to give
+wpa_supplicant fits because it rejects the SSID before even looking at the encryption data. Is this
+the normal convention?
 
-Indeed, it needs to do refcounting or something here, at a minimum,
-this driver is so buggy and full of problems :-/
+Thanks,
 
-Thankfully it's marked OBSOLETE so we'll get rid of it eventually :)
+Larry
+
+
