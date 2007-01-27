@@ -1,47 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Fix the fib trie iterator to work with a single
- entry routing tables
-Date: Fri, 26 Jan 2007 19:06:34 -0800 (PST)
-Message-ID: <20070126.190634.85416088.davem@davemloft.net>
-References: <20070124.144254.78492493.davem@davemloft.net>
-	<17849.64125.710251.587076@robur.slu.se>
-	<m1veitvlpa.fsf@ebiederm.dsl.xmission.com>
+Subject: Re: + oops-in-drivers-net-shaperc.patch added to -mm tree
+Date: Fri, 26 Jan 2007 19:10:45 -0800 (PST)
+Message-ID: <20070126.191045.48529536.davem@davemloft.net>
+References: <20070125.193128.39155864.davem@davemloft.net>
+	<E1HAbgn-00039h-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Robert.Olsson@data.slu.se, netdev@vger.kernel.org,
-	robert.olsson@its.uu.se
-To: ebiederm@xmission.com
+Cc: linux-kernel@vger.kernel.org, akpm@osdl.org, deweerdt@free.fr,
+	netdev@vger.kernel.org, frederik.deweerdt@gmail.com,
+	shemminger@osdl.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51832
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45628
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752158AbXA0DGe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jan 2007 22:06:34 -0500
-In-Reply-To: <m1veitvlpa.fsf@ebiederm.dsl.xmission.com>
+	by vger.kernel.org with ESMTP id S1751760AbXA0DKq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jan 2007 22:10:46 -0500
+In-Reply-To: <E1HAbgn-00039h-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Fri, 26 Jan 2007 08:42:25 -0700
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Sat, 27 Jan 2007 11:45:05 +1100
 
-> Robert Olsson <Robert.Olsson@data.slu.se> writes:
+> David Miller <davem@davemloft.net> wrote:
+> > 
+> > Shaper is actually OK.  None of these hardware header callbacks
+> > should be invoked if the device is down.  Yet, this is what is
+> > accidently being allowed in the AF_PACKET socket layer.
 > 
-> > David Miller writes:
-> >
-> >  > > Yes the case when the trie is just a single leaf got wrong with the
-> >  > > iterator and your patchs cures it. I think we have a similar problem
-> >  > > with /proc/net/fib_trie
-> >  > 
-> >  > I'm happy to review a fix for that :-)
-> >  
-> > When main table is just a single leaf this gets printed as belonging to the 
-> > local table in /proc/net/fib_trie. A fix is below.
-> 
-> Good spotting.  I was happy the data was showing up, I missed we that we put
-> the meta information was wrong.
-> 
-> Looks good to me.
+> Hmm, what if the device goes down after the check?
 
-To me too, applied.
+For the shaper case it's OK, because once a shaper is
+associated it's ->dev never goes back to NULL.
 
-Thanks!
+In general, yes it's a problem :-/
