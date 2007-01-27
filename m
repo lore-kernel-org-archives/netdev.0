@@ -1,87 +1,50 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [PATCH 49/59] sysctl: Move init_irq_proc into init/main where
- it belongs
-Date: Sat, 27 Jan 2007 02:51:37 -0800
-Message-ID: <20070127025137.9a2c65bb.akpm@osdl.org>
-References: <m1ac0jc4no.fsf@ebiederm.dsl.xmission.com>
-	<1168965684147-git-send-email-ebiederm@xmission.com>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: Hidden SSID's
+Date: Sat, 27 Jan 2007 07:08:09 -0500
+Message-ID: <1169899689.25670.3.camel@localhost.localdomain>
+References: <45BACB71.2080107@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: <linux-kernel@vger.kernel.org>, <containers@lists.osdl.org>,
-	<netdev@vger.kernel.org>, xfs-masters@oss.sgi.com, xfs@oss.sgi.com,
-	linux-scsi@vger.kernel.org, James.Bottomley@SteelEye.com,
-	minyard@acm.org, openipmi-developer@lists.sourceforge.net,
-	<tony.luck@intel.com>, linux-mips@linux-mips.org,
-	ralf@linux-mips.org, schwidefsky@de.ibm.com,
-	heiko.carstens@de.ibm.com, linux390@de.ibm.com,
-	linux-390@vm.marist.edu, paulus@samba.org, linuxppc-dev@ozlabs.org,
-	lethal@linux-sh.org, linuxsh-shmedia-dev@lists.sourceforge.net,
-	<ak@suse.de>, vojtech@suse.cz, clemens@ladisch.de,
-	a.zummo@towertech.it, rtc-linux@googlegroups.com,
-	linux-parport@lists.infradead.org, andrea@suse.de,
-	tim@cyberelk.net, philb@gnu.org, aharkes@cs.cmu.edu,
-	coda@cs.cmu.edu, codalist@TELEMANN.coda.cs.cmu.edu,
-	aia21@cantab.net, linux-ntfs-dev@lists.sourceforge.net,
-	mark.fasheh@oracle.com, kurt.hackel@oracle.com
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <linux-mips-bounce@linux-mips.org>
-In-Reply-To: <1168965684147-git-send-email-ebiederm@xmission.com>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
+Cc: netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Larry Finger <Larry.Finger@lwfinger.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([66.187.233.31]:37500 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751690AbXA0MFh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 27 Jan 2007 07:05:37 -0500
+In-Reply-To: <45BACB71.2080107@lwfinger.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 16 Jan 2007 09:39:54 -0700
-"Eric W. Biederman" <ebiederm@xmission.com> wrote:
+On Fri, 2007-01-26 at 21:48 -0600, Larry Finger wrote:
+> Is there a convention regarding the information that a wireless MAC layer should provide when
+> reporting scan data from an AP with a hidden SSID?
+> 
+> In ieee80211, the software inserts the string "<hidden>" for such an AP, which seems to give
+> wpa_supplicant fits because it rejects the SSID before even looking at the encryption data. Is this
+> the normal convention?
 
-> From: Eric W. Biederman <ebiederm@xmission.com> - unquoted
+No.  It's wrong.  It is not normal convention.  The one and only
+_correct_ way of reporting a hidden SSID is to not report the SSID at
+all.  The only item that needs to be reported with WEXT is the BSSID,
+and the client app assumes that if the SSID is not received for a given
+scan result, that the driver doesn't have an SSID for that BSSID.
+
+I really, really don't know why ieee80211 uses <hidden>, but it's a pain
+in the ass and should NOT be done for d80211.  I don't know if we can
+ever remove it from ieee80211 though for backwards compat reasons.
+
+Dan
+
+> Thanks,
 > 
-> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
-> ---
->  init/main.c     |    3 +++
->  kernel/sysctl.c |    3 ---
->  2 files changed, 3 insertions(+), 3 deletions(-)
+> Larry
 > 
-> diff --git a/init/main.c b/init/main.c
-> index 8b4a7d7..8af5c6e 100644
-> --- a/init/main.c
-> +++ b/init/main.c
-> @@ -691,6 +691,9 @@ static void __init do_basic_setup(void)
->  #ifdef CONFIG_SYSCTL
->  	sysctl_init();
->  #endif
-> +#ifdef CONFIG_PROC_FS
-> +	init_irq_proc();
-> +#endif
->  
->  	do_initcalls();
->  }
-> diff --git a/kernel/sysctl.c b/kernel/sysctl.c
-> index 600b333..7420761 100644
-> --- a/kernel/sysctl.c
-> +++ b/kernel/sysctl.c
-> @@ -1172,8 +1172,6 @@ static ctl_table dev_table[] = {
->  	{ .ctl_name = 0 }
->  };
->  
-> -extern void init_irq_proc (void);
+> 
 > -
->  static DEFINE_SPINLOCK(sysctl_lock);
->  
->  /* called under sysctl_lock */
-> @@ -1219,7 +1217,6 @@ void __init sysctl_init(void)
->  {
->  #ifdef CONFIG_PROC_SYSCTL
->  	register_proc_table(root_table, proc_sys_root, &root_table_header);
-> -	init_irq_proc();
->  #endif
->  }
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-sparc64:
-
-init/main.c: In function `do_basic_setup':
-init/main.c:707: warning: implicit declaration of function `init_irq_proc'
-
-I couldn't be bothered working out how init/main.c is supposed to get at
-its declaration of init_irq_proc().  It's not allowed to include
-linux/irq.h.
