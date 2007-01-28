@@ -1,55 +1,132 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 4/4] atl1: Ancillary C files for Attansic L1 driver
-Date: Sat, 27 Jan 2007 17:38:45 -0500
-Message-ID: <45BBD475.4050101@garzik.org>
-References: <20070121210737.GE2702@osprey.hogchain.net> <20070121183151.4be61ebf.randy.dunlap@oracle.com> <45B43093.6060500@bellsouth.net> <20070122200004.GA12553@dreamland.darkstar.lan> <20070123112522.65aac61b@freekitty> <20070123211917.GA22109@dreamland.darkstar.lan> <45BBBDD0.7030809@bellsouth.net> <45BBC10C.5010103@garzik.org> <45BBCCA2.4090902@bellsouth.net>
+From: Jay Cliburn <jacliburn@bellsouth.net>
+Subject: [PATCH 2.6.20-rc5 1/4] atl1: unconditionally enable MSI
+Date: Sat, 27 Jan 2007 18:10:04 -0600
+Message-ID: <20070128001004.GA10269@osprey.hogchain.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: csnook@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, atl1-devel@lists.sourceforge.net
-To: Jay Cliburn <jacliburn@bellsouth.net>
+	linux-kernel@vger.kernel.org, atl1-devel@lists.sourceforge.net,
+	randy.dunlap@oracle.com, kronos.it@gmail.com
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:55395 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751954AbXA0Wit (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 27 Jan 2007 17:38:49 -0500
-In-Reply-To: <45BBCCA2.4090902@bellsouth.net>
+Received: from imf21aec.mail.bellsouth.net ([205.152.59.69]:58288 "EHLO
+	imf21aec.mail.bellsouth.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932154AbXA1AKH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Jan 2007 19:10:07 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jay Cliburn wrote:
-> Jeff Garzik wrote:
->> As a driver maintainer, you need to patch sets, and submit them in a 
->> timely fashion to me.  Note I said patch set, not patch, in following 
->> with Rule #3 from Documentation/SubmittingPatches.  Also make sure to 
->> review http://linux.yyz.us/patch-format.html
-> 
-> Understood.  Both references reviewed.  Thanks.
-> 
-> Sorry, but one last question...  These two patches generated overnight 
-> by Andrew:
-> 
-> Message-Id: <200701270710.l0R7AhLj004217@shell0.pdx.osdl.net>
-> Subject: + git-netdev-all-atl1-pm-fix.patch added to -mm tree
-> 
-> and
-> 
-> Message-Id: <200701270708.l0R78Q0o004191@shell0.pdx.osdl.net>
-> Subject: + git-netdev-all-atl1-build-fix.patch added to -mm tree
-> 
-> Do I include these in my patch set that I submit to you, or do you apply 
-> them to netdev directly?
 
-There is no hard and fast rule.  If the patch is obvious and submitted 
-in correct form (Andrew's notifications are not in such a form), then I 
-might go ahead and apply it.  But I usually reply to the patch with 
-"applied" if so.
+From: Luca Tettamanti <kronos.it@gmail.com>
 
-In general, you can answer this question yourself.  Look at 
-netdev-2.6.git#atl1 and see what's in there.
+Unconditionally enable MSI in atl1 driver. Also remove some useless
+#ifdef since pci_{en,dis}able_msi() are no-op when MSI support is not
+configured in.
 
-	Jeff
+Signed-off-by: Luca Tettamanti <kronos.it@gmail.com>
+Signed-off-by: Jay Cliburn <jacliburn@bellsouth.net>
+---
+
+ drivers/net/atl1/atl1.h       |    1 -
+ drivers/net/atl1/atl1_main.c  |   22 +++++++---------------
+ drivers/net/atl1/atl1_param.c |   13 -------------
+ 3 files changed, 7 insertions(+), 29 deletions(-)
+
+diff --git a/drivers/net/atl1/atl1.h b/drivers/net/atl1/atl1.h
+index 1d13e8f..0b30e1c 100644
+--- a/drivers/net/atl1/atl1.h
++++ b/drivers/net/atl1/atl1.h
+@@ -281,7 +281,6 @@ struct atl1_adapter {
+ 	struct atl1_smb smb;
+ 	struct atl1_cmb cmb;
+ 
+-	int enable_msi;
+ 	u32 pci_state[16];
+ };
+ 
+diff --git a/drivers/net/atl1/atl1_main.c b/drivers/net/atl1/atl1_main.c
+index c0b1555..68e6cd1 100644
+--- a/drivers/net/atl1/atl1_main.c
++++ b/drivers/net/atl1/atl1_main.c
+@@ -1793,18 +1793,12 @@ s32 atl1_up(struct atl1_adapter *adapter)
+ 		goto err_up;
+ 	}
+ 
+-#ifdef CONFIG_PCI_MSI
+-	if (adapter->enable_msi) {
+-		err = pci_enable_msi(adapter->pdev);
+-		if (err) {
+-			dev_info(&adapter->pdev->dev, "Unable to enable MSI: %d\n", err);
+-			adapter->enable_msi = 0;
+-		}
+-	}
+-#endif
+-	if (!adapter->enable_msi)
++	err = pci_enable_msi(adapter->pdev);
++	if (err) {
++		dev_info(&adapter->pdev->dev, "Unable to enable MSI: %d\n", err);
+ 		irq_flags |= IRQF_SHARED;
+-
++	}
++	
+ 	err = request_irq(adapter->pdev->irq, &atl1_intr, irq_flags,
+ 			netdev->name, netdev);
+ 	if (unlikely(err))
+@@ -1821,6 +1815,7 @@ s32 atl1_up(struct atl1_adapter *adapter)
+ 	free_irq(adapter->pdev->irq, netdev);
+ 
+ err_up:
++	pci_disable_msi(adapter->pdev);
+ 	/* free rx_buffers */
+ 	atl1_clean_rx_ring(adapter);
+ 	return err;
+@@ -1836,10 +1831,7 @@ void atl1_down(struct atl1_adapter *adapter)
+ 
+ 	atl1_irq_disable(adapter);
+ 	free_irq(adapter->pdev->irq, netdev);
+-#ifdef CONFIG_PCI_MSI
+-	if (adapter->enable_msi)
+-		pci_disable_msi(adapter->pdev);
+-#endif
++	pci_disable_msi(adapter->pdev);
+ 	atl1_reset_hw(&adapter->hw);
+ 	adapter->cmb.cmb->int_stats = 0;
+ 
+diff --git a/drivers/net/atl1/atl1_param.c b/drivers/net/atl1/atl1_param.c
+index 4732f43..caa2d83 100644
+--- a/drivers/net/atl1/atl1_param.c
++++ b/drivers/net/atl1/atl1_param.c
+@@ -68,10 +68,6 @@ static int num_flash_vendor = 0;
+ module_param_array_named(flash_vendor, flash_vendor, int, &num_flash_vendor, 0);
+ MODULE_PARM_DESC(flash_vendor, "SPI flash vendor");
+ 
+-int enable_msi;
+-module_param(enable_msi, int, 0444);
+-MODULE_PARM_DESC(enable_msi, "Enable PCI MSI");
+-
+ #define DEFAULT_INT_MOD_CNT	100	/* 200us */
+ #define MAX_INT_MOD_CNT		65000
+ #define MIN_INT_MOD_CNT		50
+@@ -211,13 +207,4 @@ void __devinit atl1_check_options(struct atl1_adapter *adapter)
+ 			adapter->hw.flash_vendor = (u8) (opt.def);
+ 		}
+ 	}
+-
+-	{			/* PCI MSI usage */
+-
+-#ifdef CONFIG_PCI_MSI
+-		adapter->enable_msi = enable_msi;
+-#else
+-		adapter->enable_msi = 0;
+-#endif
+-	}
+ }
 
 
 
+Luca
+-- 
+Inquietudine sintetica
+Solo, davanti all'ignoto
+Tienimi stretto a te
