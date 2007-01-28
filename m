@@ -1,50 +1,49 @@
-From: Baruch Even <baruch@ev-en.org>
-Subject: Re: [PATCH 2/3] Seperate DSACK from SACK fast path
-Date: Sun, 28 Jan 2007 07:27:04 +0200
-Message-ID: <20070128052704.GH22455@galon.ev-en.org>
-References: <20070127164702.GA4829@galon.ev-en.org> <20070127164949.GC4829@galon.ev-en.org> <20070127.200609.35666070.davem@davemloft.net>
+From: Michael Wu <flamingice@sourmilk.net>
+Subject: Re: [PATCH] d80211: select CRC32 functions
+Date: Sun, 28 Jan 2007 02:37:57 -0500
+Message-ID: <200701280238.02324.flamingice@sourmilk.net>
+References: <ep798e$guu$1@sea.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: multipart/signed;
+  boundary="nextPart14627803.NZser9Lc0I";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, John Linville <linville@tuxdriver.com>,
+	Jiri Benc <jbenc@suse.cz>
+To: Marcus Better <marcus@better.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rrcs-24-123-59-149.central.biz.rr.com ([24.123.59.149]:58431
-	"EHLO galon.ev-en.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932261AbXA1F1I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Jan 2007 00:27:08 -0500
-Content-Disposition: inline
-In-Reply-To: <20070127.200609.35666070.davem@davemloft.net>
+Received: from smtp.rutgers.edu ([128.6.72.243]:15361 "EHLO
+	annwn13.rutgers.edu" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S932417AbXA1Hib (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Jan 2007 02:38:31 -0500
+In-Reply-To: <ep798e$guu$1@sea.gmane.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* David Miller <davem@davemloft.net> [070128 06:06]:
-> From: Baruch Even <baruch@ev-en.org>
-> Date: Sat, 27 Jan 2007 18:49:49 +0200
-> 
-> > Since the SACK receive cache doesn't need the data to be in host
-> > order we also remove the ntohl in the checking loop.
->  ...
-> > -	for (i = 0; i< num_sacks; i++) {
-> > -		__u32 start_seq = ntohl(sp[i].start_seq);
-> > -		__u32 end_seq =	 ntohl(sp[i].end_seq);
-> > +	for (i = 0; i < num_sacks; i++) {
-> > +		__u32 start_seq = sp[i].start_seq;
-> > +		__u32 end_seq = sp[i].end_seq;
->  ...
-> >  		}
-> >  		tp->recv_sack_cache[i].start_seq = start_seq;
-> >  		tp->recv_sack_cache[i].end_seq = end_seq;
-> 
-> Ok, and now the sack cache and the real sack blocks are
-> stored in net-endian and this works out because we only
-> make direct equality comparisons with the recv_sack_cache[]
-> entry values?
+--nextPart14627803.NZser9Lc0I
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-Yes. The only comparison we do with recv_sack_cache entries is != and
-that works for net-endian just fine.
+On Wednesday 24 January 2007 04:35, Marcus Better wrote:
+> The d80211 stack requires CRC32 functions for the WEP implementation.
+ACK. Please CC John Linville <linville@tuxdriver.com> and Jiri Benc=20
+<jbenc@suse.cz> on d80211 patches next time.
 
-The only reason recv_sack_cache was in host-order before that was that
-start_seq and end_seq were used to do more before/after comparisons for
-DSACK.
+Thanks,
+=2DMichael Wu
 
-Baruch
+--nextPart14627803.NZser9Lc0I
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.2 (GNU/Linux)
+
+iD8DBQBFvFLaT3Oqt9AH4aERAoyPAKCEmX1xZO77lKmjpT+vSnEG/9BbVwCgpnl4
+z/rEAc35vtmSK156iPSIkco=
+=7FAF
+-----END PGP SIGNATURE-----
+
+--nextPart14627803.NZser9Lc0I--
