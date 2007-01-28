@@ -1,33 +1,51 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: [PATCH] TCP: Replace __kfree_skb() with kfree_skb()
-Date: Mon, 29 Jan 2007 11:38:08 +0100
-Message-ID: <20070129103808.GB1652@ff.dom.local>
-References: <45B97763.8000305@ncos.nec.co.jp> <20070126082838.GA1639@ff.dom.local> <20070126091606.GA23469@gondor.apana.org.au> <20070126094950.GB1639@ff.dom.local> <20070126095251.GA24204@gondor.apana.org.au> <20070126101838.GC1639@ff.dom.local> <20070126104518.GA24490@gondor.apana.org.au> <20070129082616.GA1652@ff.dom.local>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: Hidden SSID's
+Date: Sun, 28 Jan 2007 22:28:37 +0100
+Message-ID: <1170019717.30318.0.camel@johannes.berg>
+References: <45BACB71.2080107@lwfinger.net>
+	 <1169899689.25670.3.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Masayuki Nakagawa <nakagawa.msy@ncos.nec.co.jp>,
-	davem@davemloft.net, yoshfuji@linux-ipv6.org, mhuth@mvista.com,
-	netdev@vger.kernel.org, Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-7eV2Czd/m46WiEPbCubL"
+Cc: Larry Finger <Larry.Finger@lwfinger.net>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Dan Williams <dcbw@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx10.go2.pl ([193.17.41.74]:43033 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752556AbXA2Kfo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Jan 2007 05:35:44 -0500
-Content-Disposition: inline
-In-Reply-To: <20070129082616.GA1652@ff.dom.local>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:53590 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750925AbXA2LBm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Jan 2007 06:01:42 -0500
+In-Reply-To: <1169899689.25670.3.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 29, 2007 at 09:26:16AM +0100, Jarek Poplawski wrote:
-...
-> So this patch is changing it to ipv6 way. It seems to
-> be quite brave. I think there was some reason to do
-> this "old way" and I hope consequences were analyzed.
-...
 
-But since Alexey Kuznetsov accepted this change too,
-they surely were. Let's forget about my doubts.
+--=-7eV2Czd/m46WiEPbCubL
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-Sorry for disturbing,
-Jarek P.
+On Sat, 2007-01-27 at 07:08 -0500, Dan Williams wrote:
+
+> I really, really don't know why ieee80211 uses <hidden>, but it's a pain
+> in the ass and should NOT be done for d80211.  I don't know if we can
+> ever remove it from ieee80211 though for backwards compat reasons.
+
+Ugh. /me makes a note for the cfg80211/we compat layer. This is a
+mess :(
+
+johannes
+
+--=-7eV2Czd/m46WiEPbCubL
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iD8DBQBFvRWF/ETPhpq3jKURAn70AJ9QSFwwkllTFm7OpQoGncT3XFxE1QCdEjQ/
+sjOsvlV49j/+ICaTY68S9sw=
+=qURE
+-----END PGP SIGNATURE-----
+
+--=-7eV2Czd/m46WiEPbCubL--
+
