@@ -1,48 +1,59 @@
-From: Larry Finger <larry.finger@lwfinger.net>
-Subject: Re: Hidden SSID's
-Date: Sun, 28 Jan 2007 16:18:01 -0600
-Message-ID: <45BD2119.2000209@lwfinger.net>
-References: <45BACB71.2080107@lwfinger.net> <1169899689.25670.3.camel@localhost.localdomain>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [2.6 patch] NF_CONNTRACK_H323 must depend on (IPV6 || IPV6=n)
+Date: Sun, 28 Jan 2007 23:21:37 +0100
+Message-ID: <20070128222136.GZ6017@stusta.de>
+References: <20070127234928.64d8e437.akpm@osdl.org> <20070128114148.b8067721.randy.dunlap@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Paul Marks <pmarks@purdue.edu>
-To: Dan Williams <dcbw@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org,
+	netfilter@lists.netfilter.org, netdev@vger.kernel.org
+To: Randy Dunlap <randy.dunlap@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtiwmhc12.worldnet.att.net ([204.127.131.116]:45019 "EHLO
-	mtiwmhc12.worldnet.att.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932498AbXA1WSG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Jan 2007 17:18:06 -0500
-In-Reply-To: <1169899689.25670.3.camel@localhost.localdomain>
+Received: from mailout.stusta.mhn.de ([141.84.69.5]:42574 "EHLO
+	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S932921AbXA1WV3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Jan 2007 17:21:29 -0500
+Content-Disposition: inline
+In-Reply-To: <20070128114148.b8067721.randy.dunlap@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dan Williams wrote:
-> On Fri, 2007-01-26 at 21:48 -0600, Larry Finger wrote:
->> Is there a convention regarding the information that a wireless MAC layer should provide when
->> reporting scan data from an AP with a hidden SSID?
->>
->> In ieee80211, the software inserts the string "<hidden>" for such an AP, which seems to give
->> wpa_supplicant fits because it rejects the SSID before even looking at the encryption data. Is this
->> the normal convention?
-> 
-> No.  It's wrong.  It is not normal convention.  The one and only
-> _correct_ way of reporting a hidden SSID is to not report the SSID at
-> all.  The only item that needs to be reported with WEXT is the BSSID,
-> and the client app assumes that if the SSID is not received for a given
-> scan result, that the driver doesn't have an SSID for that BSSID.
-> 
-> I really, really don't know why ieee80211 uses <hidden>, but it's a pain
-> in the ass and should NOT be done for d80211.  I don't know if we can
-> ever remove it from ieee80211 though for backwards compat reasons.
+On Sun, Jan 28, 2007 at 11:41:48AM -0800, Randy Dunlap wrote:
+>...
+> net/built-in.o: In function `q931_help':
+> nf_conntrack_h323_main.c:(.text.q931_help+0x6ad): undefined reference to `ip6_route_output'
+> nf_conntrack_h323_main.c:(.text.q931_help+0x6c3): undefined reference to `ip6_route_output'
+>...
 
-Is there something funny about Cisco APs with hidden SSID? I made a patch for ieee80211 and softmac
-that works on my AP when its SSID is hidden. It also works for Paul Marks on his personal AP, but
-fails for the Cisco units at Purdue. His interface is a 4311 and there may be a signal strength
-issue, but we are not sure.
+You didn't send your .config, but it seems you had CONFIG_IPV6=m and
+CONFIG_NF_CONNTRACK_H323=y.
 
-My patch fixes ieee80211 without breaking the previous behavior.
+In this case, the untested patch below should fix it.
 
-Larry
+> ~Randy
+
+cu
+Adrian
+
+
+<--  snip  -->
+
+
+CONFIG_IPV6=m, CONFIG_NF_CONNTRACK_H323=y results in a compile error.
+
+Fix this by letting NF_CONNTRACK_H323 depend on (IPV6 || IPV6=n).
+
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
+
+--- linux-2.6.20-rc6-mm1/net/netfilter/Kconfig.old	2007-01-28 23:06:37.000000000 +0100
++++ linux-2.6.20-rc6-mm1/net/netfilter/Kconfig	2007-01-28 23:06:49.000000000 +0100
+@@ -165,7 +165,7 @@
+ 
+ config NF_CONNTRACK_H323
+ 	tristate "H.323 protocol support (EXPERIMENTAL)"
+-	depends on EXPERIMENTAL && NF_CONNTRACK
++	depends on EXPERIMENTAL && NF_CONNTRACK && (IPV6 || IPV6=n)
+ 	help
+ 	  H.323 is a VoIP signalling protocol from ITU-T. As one of the most
+ 	  important VoIP protocols, it is widely used by voice hardware and
+
