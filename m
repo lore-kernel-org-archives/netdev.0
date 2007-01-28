@@ -1,73 +1,57 @@
-From: Bernhard Walle <bwalle@suse.de>
-Subject: Re: r8169: Crash after reloading driver if network hangs
-Date: Sun, 28 Jan 2007 20:56:56 +0100
-Message-ID: <20070128195656.GA6013@strauss.suse.de>
-References: <20070128180221.GB2285@strauss.suse.de> <20070128190448.GA23060@electric-eye.fr.zoreil.com>
+From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Subject: [PATCH] bcm43xx: Enable fwpostfix in nondebug bcm43xx
+Date: Sun, 28 Jan 2007 14:32:52 -0600
+Message-ID: <45bd0874.hBM9rX68Vq5hLGwU%Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.suse.de ([195.135.220.2]:35229 "EHLO mx1.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932758AbXA1T45 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 28 Jan 2007 14:56:57 -0500
-Content-Disposition: inline
-In-Reply-To: <20070128190448.GA23060@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+	Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+To: John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
+List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-* Francois Romieu <romieu@fr.zoreil.com> [2007-01-28 20:04]:
-> Bernhard Walle <bwalle@suse.de> :
-> [...]
-> > Simple fix is attached. Although that seems to fix the symptom and not
-> > the cause, please apply it if you don't have a better solution.
-> 
-> What about the patch below ?
-> 
-> diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-> index 577babd..4e22af7 100644
-> --- a/drivers/net/r8169.c
-> +++ b/drivers/net/r8169.c
-> @@ -1373,7 +1373,7 @@ static inline void rtl8169_request_timer(struct net_device *dev)
->  	timer->expires = jiffies + RTL8169_PHY_TIMEOUT;
->  	timer->data = (unsigned long)(dev);
->  	timer->function = rtl8169_phy_timer;
-> -	add_timer(timer);
-> +	mod_timer(timer);
->  }
+From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
 
-Doesn't compile, I think you mean this?
+The in-kernel bcm43xx driver only works with V3 firmware, whereas the
+experimental version that incorporates the d80211 stack requires V4
+firmware. In bcm43xx-d80211, the fwpostfix module parameter is used
+to differentiate between the versions. In bcm43xx-softmac, this
+module parameter is only enabled when debugging is on. This patch
+makes the module parameter available unconditionaly, and should
+ease the future transition from softmac to d80211.
 
-@@ -1371,10 +1371,9 @@ static inline void rtl8169_request_timer
-                return;
+Signed-off-by: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+--
+
+Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.c
++++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+@@ -96,13 +96,9 @@ static int modparam_noleds;
+ module_param_named(noleds, modparam_noleds, int, 0444);
+ MODULE_PARM_DESC(noleds, "Turn off all LED activity");
  
-        init_timer(timer);
--       timer->expires = jiffies + RTL8169_PHY_TIMEOUT;
-        timer->data = (unsigned long)(dev);
-        timer->function = rtl8169_phy_timer;
--       add_timer(timer);
-+       mod_timer(timer, jiffies + RTL8169_PHY_TIMEOUT);
- }
+-#ifdef CONFIG_BCM43XX_DEBUG
+ static char modparam_fwpostfix[64];
+ module_param_string(fwpostfix, modparam_fwpostfix, 64, 0444);
+-MODULE_PARM_DESC(fwpostfix, "Postfix for .fw files. Useful for debugging.");
+-#else
+-# define modparam_fwpostfix  ""
+-#endif /* CONFIG_BCM43XX_DEBUG*/
++MODULE_PARM_DESC(fwpostfix, "Postfix for .fw files. Useful for using multiple firmware image versions.");
+ 
+ 
+ /* If you want to debug with just a single device, enable this,
 
-But I think _this_ change is unnecessary, ...
-
->  #ifdef CONFIG_NET_POLL_CONTROLLER
-> @@ -1448,7 +1448,7 @@ static void rtl8169_init_phy(struct net_device *dev, struct rtl8169_private *tp)
->  
->  	rtl8169_phy_reset(dev, tp);
->  
-> -	rtl8169_set_speed(dev, autoneg, speed, duplex);
-> +	tp->set_speed(dev, autoneg, speed, duplex);
->  
->  	if ((RTL_R8(PHYstatus) & TBI_Enable) && netif_msg_link(tp))
->  		printk(KERN_INFO PFX "%s: TBI auto-negotiating\n", dev->name);
-
-... but that looks good (better than my patch) and should resolve the issue,
-too. I can't test because it's triggered only if the network hangs and you
-know, the last one isn't reproducable.
-
-
-
-Regards,
-Bernhard
+---
