@@ -1,25 +1,41 @@
-From: Jay Cliburn <jacliburn@bellsouth.net>
-Subject: Re: [PATCH 2.6.20-rc5 1/4] atl1: unconditionally enable MSI
-Date: Sat, 27 Jan 2007 20:06:45 -0600
-Message-ID: <20070128020645.GA2623@osprey.hogchain.net>
-References: <20070128001004.GA10269@osprey.hogchain.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/3] Seperate DSACK from SACK fast path
+Date: Sat, 27 Jan 2007 20:06:09 -0800 (PST)
+Message-ID: <20070127.200609.35666070.davem@davemloft.net>
+References: <20070127164702.GA4829@galon.ev-en.org>
+	<20070127164949.GC4829@galon.ev-en.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: csnook@redhat.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: jeff@garzik.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: baruch@ev-en.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from imf16aec.mail.bellsouth.net ([205.152.59.64]:59809 "EHLO
-	imf16aec.mail.bellsouth.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932137AbXA1CGs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 27 Jan 2007 21:06:48 -0500
-Content-Disposition: inline
-In-Reply-To: <20070128001004.GA10269@osprey.hogchain.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50529
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751838AbXA1EGL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Jan 2007 23:06:11 -0500
+In-Reply-To: <20070127164949.GC4829@galon.ev-en.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The subject line on all four of the current crop of atl1 patches is 
-incorrect; they were generated against *2.6.20-rc6*, not rc5.  I apologize 
-for the error.
+From: Baruch Even <baruch@ev-en.org>
+Date: Sat, 27 Jan 2007 18:49:49 +0200
 
-Jay
+> Since the SACK receive cache doesn't need the data to be in host
+> order we also remove the ntohl in the checking loop.
+ ...
+> -	for (i = 0; i< num_sacks; i++) {
+> -		__u32 start_seq = ntohl(sp[i].start_seq);
+> -		__u32 end_seq =	 ntohl(sp[i].end_seq);
+> +	for (i = 0; i < num_sacks; i++) {
+> +		__u32 start_seq = sp[i].start_seq;
+> +		__u32 end_seq = sp[i].end_seq;
+ ...
+>  		}
+>  		tp->recv_sack_cache[i].start_seq = start_seq;
+>  		tp->recv_sack_cache[i].end_seq = end_seq;
+
+Ok, and now the sack cache and the real sack blocks are
+stored in net-endian and this works out because we only
+make direct equality comparisons with the recv_sack_cache[]
+entry values?
