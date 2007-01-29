@@ -1,32 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: net-2.6.21 GIT tree
-Date: Sun, 28 Jan 2007 16:54:41 -0800 (PST)
-Message-ID: <20070128.165441.125893049.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+From: Daniel Drake <dsd@gentoo.org>
+Subject: [PATCH] zd1211rw: Reset device in the probe call
+Date: Mon, 29 Jan 2007 00:59:28 +0000 (GMT)
+Message-ID: <20070129005928.5635B7B409F@zog.reactivated.net>
+Cc: netdev@vger.kernel.org
+To: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51072
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S932991AbXA2Ayn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Jan 2007 19:54:43 -0500
-Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id E51A6AE4162
-	for <netdev@vger.kernel.org>; Sun, 28 Jan 2007 16:54:41 -0800 (PST)
+Received: from mtaout01-winn.ispmail.ntl.com ([81.103.221.47]:25773 "EHLO
+	mtaout01-winn.ispmail.ntl.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S933005AbXA2A70 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Jan 2007 19:59:26 -0500
+Cc: kune@deine-taler.de
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Ulrich Kunitz <kune@deine-taler.de>
 
-I just cut it at:
+This resets the device in the probe call. It does work with
+2.6.19.2 including the softmac patches. It might fix the
+reboot/reset problems a lot of people reported.
 
-	kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.21.git
+Signed-off-by: Ulrich Kunitz <kune@deine-taler.de>
+Signed-off-by: Daniel Drake <dsd@gentoo.org>
+---
+ zd_usb.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-Feel free to send me feature patches for consideration.
-
-I'll probably toss things like Baruch's latest SACK fixes in
-there so they can cook for a while and then perhaps after some
-time we'll backport them into whatever -stable branch is active
-at the time.
-
-Thanks.
+Index: linux/drivers/net/wireless/zd1211rw/zd_usb.c
+===================================================================
+--- linux.orig/drivers/net/wireless/zd1211rw/zd_usb.c
++++ linux/drivers/net/wireless/zd1211rw/zd_usb.c
+@@ -922,6 +922,8 @@ static int probe(struct usb_interface *i
+ 		goto error;
+ 	}
+ 
++	usb_reset_device(interface_to_usbdev(intf));
++
+ 	netdev = zd_netdev_alloc(intf);
+ 	if (netdev == NULL) {
+ 		r = -ENOMEM;
