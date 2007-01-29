@@ -1,50 +1,385 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: 2.6.20-rc6-mm1
-Date: Mon, 29 Jan 2007 16:29:29 +1100
-Message-ID: <20070129052929.GA29456@gondor.apana.org.au>
-References: <45BD2424.7020604@googlemail.com> <E1HBOtk-0007dS-00@gondolin.me.apana.org.au>
+From: Ananda Raju <Ananda.Raju@neterion.com>
+Subject: [PATCH 2.6.20 1/5] s2io: Making LRO and UFO as module loadable
+ parameter.
+Date: Mon, 29 Jan 2007 00:49:56 -0500 (EST)
+Message-ID: <Pine.GSO.4.10.10701290043110.27317-100000@guinness>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: akpm@osdl.org, linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: leonid.grossman@neterion.com, alicia.pena@neterion.com,
+	ramkrishna.vepa@neterion.com, ananda.raju@neterion.com,
+	sreenivasa.honnur@neterion.com, sriram.rapuru@neterion.com,
+	sivakumar.subramani@neterion.com, santosh.rastapur@neterion.com
+To: netdev@vger.kernel.org, jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:3652 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S933139AbXA2F3f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Jan 2007 00:29:35 -0500
-Content-Disposition: inline
-In-Reply-To: <E1HBOtk-0007dS-00@gondolin.me.apana.org.au>
+Received: from barracuda.s2io.com ([72.1.205.138]:59758 "EHLO
+	barracuda.s2io.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933151AbXA2FuB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Jan 2007 00:50:01 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 29, 2007 at 04:17:44PM +1100, Herbert Xu wrote:
-> Michal Piotrowski <michal.k.k.piotrowski@gmail.com> wrote:
-> 
-> > Jan 28 22:58:29 euridica kernel: BUG: using smp_processor_id() in preemptible [00000001] code: yum-updatesd/2846
-> > Jan 28 22:58:29 euridica kernel: caller is nf_conntrack_in+0x363/0x47f [nf_conntrack]
-> > Jan 28 22:58:29 euridica kernel:  [<c01053c6>] show_trace_log_lvl+0x1a/0x2f
-> > Jan 28 22:58:29 euridica kernel:  [<c0105ad6>] show_trace+0x12/0x14
-> > Jan 28 22:58:29 euridica kernel:  [<c0105b98>] dump_stack+0x16/0x18
-> > Jan 28 22:58:29 euridica kernel:  [<c0207803>] debug_smp_processor_id+0xb3/0xc8
-> > Jan 28 22:58:29 euridica kernel:  [<fdbf8ad0>] nf_conntrack_in+0x363/0x47f [nf_conntrack]
-> > Jan 28 22:58:29 euridica kernel:  [<fd9c32c4>] ipv4_conntrack_local+0x53/0x5b [nf_conntrack_ipv4]
-> > Jan 28 22:58:29 euridica kernel:  [<c02f2286>] nf_iterate+0x36/0x67
-> > Jan 28 22:58:29 euridica kernel:  [<c02f241b>] nf_hook_slow+0x52/0xbe
-> 
-> This shouldn't have happened.  nf_hook_slow calls nf_iterate and
-> therefore everything under it with preemption disabled.  So something
-> must've reenabled it before hitting nf_conntrack_in.
+This patch adds two load parameters napi and ufo. Previously NAPI was
+compilation option with these changes wan enable disable NAPI using load
+parameter. Also we are introducing ufo load parameter to enable/disable
+ufo feature
 
-Does mm now have the preemptible RCU stuff? If so that would certainly
-explain this.
+Signed-off-by: Sivakumar Subramani <sivakumar.subramani@neterion.com>
+---
+diff -urpN orig/drivers/net/s2io.c patch1/drivers/net/s2io.c
+--- orig/drivers/net/s2io.c	2007-01-28 07:18:20.000000000 +0530
++++ patch1/drivers/net/s2io.c	2007-01-28 11:33:12.000000000 +0530
+@@ -401,9 +401,10 @@ S2IO_PARM_INT(lro, 0);
+  * aggregation happens until we hit max IP pkt size(64K)
+  */
+ S2IO_PARM_INT(lro_max_pkts, 0xFFFF);
+-#ifndef CONFIG_S2IO_NAPI
+ S2IO_PARM_INT(indicate_max_pkts, 0);
+-#endif
++
++S2IO_PARM_INT(napi, 1);
++S2IO_PARM_INT(ufo, 0);
+ 
+ static unsigned int tx_fifo_len[MAX_TX_FIFOS] =
+     {DEFAULT_FIFO_0_LEN, [1 ...(MAX_TX_FIFOS - 1)] = DEFAULT_FIFO_1_7_LEN};
+@@ -2274,9 +2275,7 @@ static int fill_rx_buffers(struct s2io_n
+ 	struct config_param *config;
+ 	u64 tmp;
+ 	buffAdd_t *ba;
+-#ifndef CONFIG_S2IO_NAPI
+ 	unsigned long flags;
+-#endif
+ 	RxD_t *first_rxdp = NULL;
+ 
+ 	mac_control = &nic->mac_control;
+@@ -2320,12 +2319,15 @@ static int fill_rx_buffers(struct s2io_n
+ 			DBG_PRINT(INTR_DBG, "%s: Next block at: %p\n",
+ 				  dev->name, rxdp);
+ 		}
+-#ifndef CONFIG_S2IO_NAPI
+-		spin_lock_irqsave(&nic->put_lock, flags);
+-		mac_control->rings[ring_no].put_pos =
+-		    (block_no * (rxd_count[nic->rxd_mode] + 1)) + off;
+-		spin_unlock_irqrestore(&nic->put_lock, flags);
+-#endif
++		if(!napi) {
++			spin_lock_irqsave(&nic->put_lock, flags);
++			mac_control->rings[ring_no].put_pos =
++			(block_no * (rxd_count[nic->rxd_mode] + 1)) + off;
++			spin_unlock_irqrestore(&nic->put_lock, flags);
++		} else {
++			mac_control->rings[ring_no].put_pos =
++			(block_no * (rxd_count[nic->rxd_mode] + 1)) + off;
++		}	
+ 		if ((rxdp->Control_1 & RXD_OWN_XENA) &&
+ 			((nic->rxd_mode >= RXD_MODE_3A) &&
+ 				(rxdp->Control_2 & BIT(0)))) {
+@@ -2568,7 +2570,6 @@ static void free_rx_buffers(struct s2io_
+  * 0 on success and 1 if there are No Rx packets to be processed.
+  */
+ 
+-#if defined(CONFIG_S2IO_NAPI)
+ static int s2io_poll(struct net_device *dev, int *budget)
+ {
+ 	nic_t *nic = dev->priv;
+@@ -2633,7 +2634,6 @@ no_rx:
+ 	atomic_dec(&nic->isr_cnt);
+ 	return 1;
+ }
+-#endif
+ 
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ /**
+@@ -2707,9 +2707,7 @@ static void rx_intr_handler(ring_info_t 
+ 	rx_curr_get_info_t get_info, put_info;
+ 	RxD_t *rxdp;
+ 	struct sk_buff *skb;
+-#ifndef CONFIG_S2IO_NAPI
+ 	int pkt_cnt = 0;
+-#endif
+ 	int i;
+ 
+ 	spin_lock(&nic->rx_lock);
+@@ -2725,16 +2723,18 @@ static void rx_intr_handler(ring_info_t 
+ 	put_info = ring_data->rx_curr_put_info;
+ 	put_block = put_info.block_index;
+ 	rxdp = ring_data->rx_blocks[get_block].rxds[get_info.offset].virt_addr;
+-#ifndef CONFIG_S2IO_NAPI
+-	spin_lock(&nic->put_lock);
+-	put_offset = ring_data->put_pos;
+-	spin_unlock(&nic->put_lock);
+-#else
+-	put_offset = (put_block * (rxd_count[nic->rxd_mode] + 1)) +
+-		put_info.offset;
+-#endif
++	if (!napi) {
++		spin_lock(&nic->put_lock);
++		put_offset = ring_data->put_pos;
++		spin_unlock(&nic->put_lock);
++	} else
++		put_offset = ring_data->put_pos;
++
+ 	while (RXD_IS_UP2DT(rxdp)) {
+-		/* If your are next to put index then it's FIFO full condition */
++		/*
++		 * If your are next to put index then it's
++		 * FIFO full condition
++		 */
+ 		if ((get_block == put_block) &&
+ 		    (get_info.offset + 1) == put_info.offset) {
+ 			DBG_PRINT(INTR_DBG, "%s: Ring Full\n",dev->name);
+@@ -2792,15 +2792,12 @@ static void rx_intr_handler(ring_info_t 
+ 			rxdp = ring_data->rx_blocks[get_block].block_virt_addr;
+ 		}
+ 
+-#ifdef CONFIG_S2IO_NAPI
+ 		nic->pkts_to_process -= 1;
+-		if (!nic->pkts_to_process)
++		if ((napi) && (!nic->pkts_to_process))
+ 			break;
+-#else
+ 		pkt_cnt++;
+ 		if ((indicate_max_pkts) && (pkt_cnt > indicate_max_pkts))
+ 			break;
+-#endif
+ 	}
+ 	if (nic->lro) {
+ 		/* Clear all LRO sessions before exiting */
+@@ -4195,26 +4192,26 @@ static irqreturn_t s2io_isr(int irq, voi
+ 	org_mask = readq(&bar0->general_int_mask);
+ 	writeq(val64, &bar0->general_int_mask);
+ 
+-#ifdef CONFIG_S2IO_NAPI
+-	if (reason & GEN_INTR_RXTRAFFIC) {
+-		if (netif_rx_schedule_prep(dev)) {
+-			writeq(val64, &bar0->rx_traffic_mask);
+-			__netif_rx_schedule(dev);
++	if (napi) {
++		if (reason & GEN_INTR_RXTRAFFIC) {
++			if (netif_rx_schedule_prep(dev)) {
++				writeq(val64, &bar0->rx_traffic_mask);
++				__netif_rx_schedule(dev);
++			}
++		}
++	} else {
++		/*
++		 * Rx handler is called by default, without checking for the
++		 * cause of interrupt.
++		 * rx_traffic_int reg is an R1 register, writing all 1's
++		 * will ensure that the actual interrupt causing bit get's
++		 * cleared and hence a read can be avoided.
++		 */
++		writeq(val64, &bar0->rx_traffic_int);
++		for (i = 0; i < config->rx_ring_num; i++) {
++			rx_intr_handler(&mac_control->rings[i]);
+ 		}
+ 	}
+-#else
+-	/*
+-	 * Rx handler is called by default, without checking for the
+-	 * cause of interrupt.
+-	 * rx_traffic_int reg is an R1 register, writing all 1's
+-	 * will ensure that the actual interrupt causing bit get's
+-	 * cleared and hence a read can be avoided.
+-	 */
+-	writeq(val64, &bar0->rx_traffic_int);
+-	for (i = 0; i < config->rx_ring_num; i++) {
+-		rx_intr_handler(&mac_control->rings[i]);
+-	}
+-#endif
+ 
+ 	/*
+ 	 * tx_traffic_int reg is an R1 register, writing all 1's
+@@ -4233,11 +4230,14 @@ static irqreturn_t s2io_isr(int irq, voi
+ 	 * reallocate the buffers from the interrupt handler itself,
+ 	 * else schedule a tasklet to reallocate the buffers.
+ 	 */
+-#ifndef CONFIG_S2IO_NAPI
+-	for (i = 0; i < config->rx_ring_num; i++)
+-		s2io_chk_rx_buffers(sp, i);
+-#endif
+-	writeq(org_mask, &bar0->general_int_mask);
++	if (!napi) {
++		for (i = 0; i < config->rx_ring_num; i++)
++			s2io_chk_rx_buffers(sp, i);
++	}
++
++	writeq(0, &bar0->general_int_mask);
++	readl(&bar0->general_int_status);
++
+ 	atomic_dec(&sp->isr_cnt);
+ 	return IRQ_HANDLED;
+ }
+@@ -6582,23 +6582,21 @@ static int rx_osm_handler(ring_info_t *r
+ 
+ 	if (!sp->lro) {
+ 		skb->protocol = eth_type_trans(skb, dev);
+-#ifdef CONFIG_S2IO_NAPI
+ 		if (sp->vlgrp && RXD_GET_VLAN_TAG(rxdp->Control_2)) {
+ 			/* Queueing the vlan frame to the upper layer */
+-			vlan_hwaccel_receive_skb(skb, sp->vlgrp,
+-				RXD_GET_VLAN_TAG(rxdp->Control_2));
+-		} else {
+-			netif_receive_skb(skb);
+-		}
+-#else
+-		if (sp->vlgrp && RXD_GET_VLAN_TAG(rxdp->Control_2)) {
+-			/* Queueing the vlan frame to the upper layer */
+-			vlan_hwaccel_rx(skb, sp->vlgrp,
+-				RXD_GET_VLAN_TAG(rxdp->Control_2));
++			if (napi)
++				vlan_hwaccel_receive_skb(skb, sp->vlgrp,
++					RXD_GET_VLAN_TAG(rxdp->Control_2));
++			else
++				vlan_hwaccel_rx(skb, sp->vlgrp,
++					RXD_GET_VLAN_TAG(rxdp->Control_2));
++			
+ 		} else {
+-			netif_rx(skb);
++			if (napi)
++				netif_receive_skb(skb);
++			else
++				netif_rx(skb);
+ 		}
+-#endif
+ 	} else {
+ send_up:
+ 		queue_rx_frame(skb);
+@@ -6699,13 +6697,9 @@ static int s2io_verify_parm(struct pci_d
+ 		DBG_PRINT(ERR_DBG, "s2io: Default to 8 Rx rings\n");
+ 		rx_ring_num = 8;
+ 	}
+-#ifdef CONFIG_S2IO_NAPI
+-	if (*dev_intr_type != INTA) {
+-		DBG_PRINT(ERR_DBG, "s2io: NAPI cannot be enabled when "
+-			  "MSI/MSI-X is enabled. Defaulting to INTA\n");
+-		*dev_intr_type = INTA;
+-	}
+-#endif
++	if (*dev_intr_type != INTA)
++		napi = 0;
++
+ #ifndef CONFIG_PCI_MSI
+ 	if (*dev_intr_type != INTA) {
+ 		DBG_PRINT(ERR_DBG, "s2io: This kernel does not support"
+@@ -6966,10 +6960,8 @@ s2io_init_nic(struct pci_dev *pdev, cons
+ 	 * will use eth_mac_addr() for  dev->set_mac_address
+ 	 * mac address will be set every time dev->open() is called
+ 	 */
+-#if defined(CONFIG_S2IO_NAPI)
+ 	dev->poll = s2io_poll;
+ 	dev->weight = 32;
+-#endif
+ 
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	dev->poll_controller = s2io_netpoll;
+@@ -6984,7 +6976,7 @@ s2io_init_nic(struct pci_dev *pdev, cons
+ #ifdef NETIF_F_TSO6
+ 	dev->features |= NETIF_F_TSO6;
+ #endif
+-	if (sp->device_type & XFRAME_II_DEVICE) {
++	if ((sp->device_type & XFRAME_II_DEVICE) && (ufo))  {
+ 		dev->features |= NETIF_F_UFO;
+ 		dev->features |= NETIF_F_HW_CSUM;
+ 	}
+@@ -7065,9 +7057,9 @@ s2io_init_nic(struct pci_dev *pdev, cons
+ 
+ 	/* Initialize spinlocks */
+ 	spin_lock_init(&sp->tx_lock);
+-#ifndef CONFIG_S2IO_NAPI
+-	spin_lock_init(&sp->put_lock);
+-#endif
++
++	if (!napi)
++		spin_lock_init(&sp->put_lock);
+ 	spin_lock_init(&sp->rx_lock);
+ 
+ 	/*
+@@ -7128,9 +7120,9 @@ s2io_init_nic(struct pci_dev *pdev, cons
+ 						dev->name);
+ 		    break;
+ 	}
+-#ifdef CONFIG_S2IO_NAPI
+-	DBG_PRINT(ERR_DBG, "%s: NAPI enabled\n", dev->name);
+-#endif
++
++	if (napi)
++		DBG_PRINT(ERR_DBG, "%s: NAPI enabled\n", dev->name);
+ 	switch(sp->intr_type) {
+ 		case INTA:
+ 		    DBG_PRINT(ERR_DBG, "%s: Interrupt type INTA\n", dev->name);
+@@ -7145,7 +7137,9 @@ s2io_init_nic(struct pci_dev *pdev, cons
+ 	if (sp->lro)
+ 		DBG_PRINT(ERR_DBG, "%s: Large receive offload enabled\n",
+ 			  dev->name);
+-
++	if (ufo)
++		DBG_PRINT(ERR_DBG, "%s: UDP Fragmentation Offload(UFO)"
++					" enabled\n", dev->name);
+ 	/* Initialize device name */
+ 	sprintf(sp->name, "%s Neterion %s", dev->name, sp->product_name);
+ 
+@@ -7547,11 +7541,10 @@ static void queue_rx_frame(struct sk_buf
+ 	struct net_device *dev = skb->dev;
+ 
+ 	skb->protocol = eth_type_trans(skb, dev);
+-#ifdef CONFIG_S2IO_NAPI
+-	netif_receive_skb(skb);
+-#else
+-	netif_rx(skb);
+-#endif
++	if (napi)
++		netif_receive_skb(skb);
++	else
++		netif_rx(skb);
+ }
+ 
+ static void lro_append_pkt(nic_t *sp, lro_t *lro, struct sk_buff *skb,
+diff -urpN orig/drivers/net/s2io.h patch1/drivers/net/s2io.h
+--- orig/drivers/net/s2io.h	2006-12-18 11:34:02.000000000 +0530
++++ patch1/drivers/net/s2io.h	2007-01-23 14:50:48.000000000 +0530
+@@ -616,10 +616,8 @@ typedef struct ring_info {
+ 	 */
+ 	rx_curr_get_info_t rx_curr_get_info;
+ 
+-#ifndef CONFIG_S2IO_NAPI
+ 	/* Index to the absolute position of the put pointer of Rx ring */
+ 	int put_pos;
+-#endif
+ 
+ 	/* Buffer Address store. */
+ 	buffAdd_t **ba;
+@@ -738,13 +736,11 @@ typedef struct lro {
+ /* Structure representing one instance of the NIC */
+ struct s2io_nic {
+ 	int rxd_mode;
+-#ifdef CONFIG_S2IO_NAPI
+ 	/*
+ 	 * Count of packets to be processed in a given iteration, it will be indicated
+ 	 * by the quota field of the device structure when NAPI is enabled.
+ 	 */
+ 	int pkts_to_process;
+-#endif
+ 	struct net_device *dev;
+ 	mac_info_t mac_control;
+ 	struct config_param config;
+@@ -775,9 +771,7 @@ struct s2io_nic {
+ 	atomic_t rx_bufs_left[MAX_RX_RINGS];
+ 
+ 	spinlock_t tx_lock;
+-#ifndef CONFIG_S2IO_NAPI
+ 	spinlock_t put_lock;
+-#endif
+ 
+ #define PROMISC     1
+ #define ALL_MULTI   2
+@@ -985,9 +979,7 @@ static void s2io_tasklet(unsigned long d
+ static void s2io_set_multicast(struct net_device *dev);
+ static int rx_osm_handler(ring_info_t *ring_data, RxD_t * rxdp);
+ static void s2io_link(nic_t * sp, int link);
+-#if defined(CONFIG_S2IO_NAPI)
+ static int s2io_poll(struct net_device *dev, int *budget);
+-#endif
+ static void s2io_init_pci(nic_t * sp);
+ static int s2io_set_mac_addr(struct net_device *dev, u8 * addr);
+ static void s2io_alarm_handle(unsigned long data);
 
-IIRC Ingo had made fixes for the networking stack in his rt tree since
-the networking code assumes in lots of places that rcu_read_lock
-disables preemption.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
