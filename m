@@ -1,51 +1,37 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [RFC PATCH 1/6] invisible network devices
-Date: Mon, 29 Jan 2007 10:28:14 -0800
-Message-ID: <20070129102814.6385ad2d@freekitty>
-References: <20070129184707.885764375.midnight@suse.cz>
+From: "JUNG, Christian" <christian.jung@saarstahl.com>
+Subject: Re: bonding: bug in balance-alb mode (incorrect update-ARP-replie
+	 s)
+Date: Mon, 29 Jan 2007 19:32:30 +0100
+Message-ID: <FA8270F9F8D35946ADDBC0F36E6667CE03B23D63@nts27.saarstahl.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Stephen Hemminger <shemminger@osdl.org>,
-	David Miller <davem@davemloft.net>
-To: Jiri Benc <jbenc@suse.cz>
+Content-Type: text/plain;
+	charset="ISO-8859-1"
+To: "'netdev@vger.kernel.org'" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:49859 "EHLO smtp.osdl.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752559AbXA2SbN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Jan 2007 13:31:13 -0500
-In-Reply-To: <20070129184707.885764375.midnight@suse.cz>
+Received: from sag2.saarstahl.de ([62.154.234.163]:1081 "HELO
+	ig01.int.saarstahl.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with SMTP id S1752556AbXA2Scf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Jan 2007 13:32:35 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 29 Jan 2007 18:48:06 +0100 (CET)
-Jiri Benc <jbenc@suse.cz> wrote:
-
-> The d80211 stack needs a network interface (called 'wmaster') used for
-> communication with the hardware (it has 802.11 qdisc attached which perform
-> MAC level QoS). This interface is not intended for users and it confuses
-> them.
-> 
-> As a short time solution, this patch allows net_device to be registered as
-> "invisible". This means it is not in the dev name hash list, its ifindex is
-> -1 and protocols are not notified about its registration/unregistration.
-> 
-> Signed-off-by: Jiri Benc <jbenc@suse.cz>
+> Jay Vosburgh wrote:
 >
+> 	Well, I meant other traffic that causes the ARP replies to be
+> generated (i.e., concurrent traffic with the system).
 
-Maybe code would be cleaner if you just could do:
-	register_netdevice(mydev);
+No - there wasn't any concurrent network traffic. The system on which 
+I've made the tcpdump had only the SSH-traffic to my box and no 
+traffic to the system where the bond was running.
 
-	cloak_netdevice(mydev);
+> 	There are some other issues with the rx hashtbl that have come
+> up from my poking around, largely that it never, ever removes an entry
+> from the table.  After a sufficient number of different clients have
 
+A kind of aging would be hip.
 
-And cloak_netdevice() just removed the network device from the 
-name table.  I would rather keep it with a real ifindex and in the
-device list, so that if the interface is miss used or the device
-is referenced by other devices, we don't see unexpected surprises
-like oops.
-
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+Is it easy for you to (shortly) describe the cases on which bonding 
+tends to make update-storms or better: in which cases does it make a 
+reply to the client? AFAIK it only does this, if packets from a 
+client are comming on the wrong interface. I tried to analyse the 
+problem but I don't find the needle in the hay-stack.
