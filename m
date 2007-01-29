@@ -1,33 +1,28 @@
-From: "John W. Linville" <linville@tuxdriver.com>
+From: Daniel Drake <dsd@gentoo.org>
 Subject: Re: [PATCH] zd1211rw: Reset device in the probe call
-Date: Mon, 29 Jan 2007 07:56:11 -0500
-Message-ID: <20070129125611.GA7034@tuxdriver.com>
-References: <20070129010015.CA9397B409F@zog.reactivated.net>
+Date: Mon, 29 Jan 2007 09:36:18 -0500
+Message-ID: <45BE0662.9030407@gentoo.org>
+References: <20070129010015.CA9397B409F@zog.reactivated.net> <20070129125611.GA7034@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, kune@deine-taler.de
-To: Daniel Drake <dsd@gentoo.org>
+To: "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:3666 "EHLO ra.tuxdriver.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751387AbXA2N1g (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Jan 2007 08:27:36 -0500
-Content-Disposition: inline
-In-Reply-To: <20070129010015.CA9397B409F@zog.reactivated.net>
+Received: from smtp131.iad.emailsrvr.com ([207.97.245.131]:60346 "EHLO
+	smtp131.iad.emailsrvr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751641AbXA2O6u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Jan 2007 09:58:50 -0500
+In-Reply-To: <20070129125611.GA7034@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 29, 2007 at 01:00:15AM +0000, Daniel Drake wrote:
-> From: Ulrich Kunitz <kune@deine-taler.de>
-> 
-> This resets the device in the probe call. It does work with
-> 2.6.19.2 including the softmac patches. It might fix the
-> reboot/reset problems a lot of people reported.
+John W. Linville wrote:
+> Looks like you sent this one twice.  Is this just a duplicate?
+> Or did you mean to send a different patch?
 
-Looks like you sent this one twice.  Is this just a duplicate?
-Or did you mean to send a different patch?
+Sent twice by accident. Ignore the duplicate and you have the whole series.
 
-John
--- 
-John W. Linville
-linville@tuxdriver.com
+Thanks,
+Daniel
+
