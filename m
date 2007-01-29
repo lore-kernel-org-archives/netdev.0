@@ -1,71 +1,33 @@
-From: Bernhard Walle <bwalle@suse.de>
-Subject: Re: r8169: Crash after reloading driver if network hangs
-Date: Mon, 29 Jan 2007 11:25:03 +0100
-Message-ID: <20070129102503.GA30182@strauss.suse.de>
-References: <20070128180221.GB2285@strauss.suse.de> <20070128190448.GA23060@electric-eye.fr.zoreil.com> <20070128195656.GA6013@strauss.suse.de> <20070129075606.GA10598@electric-eye.fr.zoreil.com>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: [PATCH] TCP: Replace __kfree_skb() with kfree_skb()
+Date: Mon, 29 Jan 2007 11:38:08 +0100
+Message-ID: <20070129103808.GB1652@ff.dom.local>
+References: <45B97763.8000305@ncos.nec.co.jp> <20070126082838.GA1639@ff.dom.local> <20070126091606.GA23469@gondor.apana.org.au> <20070126094950.GB1639@ff.dom.local> <20070126095251.GA24204@gondor.apana.org.au> <20070126101838.GC1639@ff.dom.local> <20070126104518.GA24490@gondor.apana.org.au> <20070129082616.GA1652@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Masayuki Nakagawa <nakagawa.msy@ncos.nec.co.jp>,
+	davem@davemloft.net, yoshfuji@linux-ipv6.org, mhuth@mvista.com,
+	netdev@vger.kernel.org, Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.suse.de ([195.135.220.2]:49119 "EHLO mx1.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752494AbXA2KZG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Jan 2007 05:25:06 -0500
+Received: from mx10.go2.pl ([193.17.41.74]:43033 "EHLO poczta.o2.pl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752556AbXA2Kfo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Jan 2007 05:35:44 -0500
 Content-Disposition: inline
-In-Reply-To: <20070129075606.GA10598@electric-eye.fr.zoreil.com>
+In-Reply-To: <20070129082616.GA1652@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+On Mon, Jan 29, 2007 at 09:26:16AM +0100, Jarek Poplawski wrote:
+...
+> So this patch is changing it to ipv6 way. It seems to
+> be quite brave. I think there was some reason to do
+> this "old way" and I hope consequences were analyzed.
+...
 
-* Francois Romieu <romieu@fr.zoreil.com> [2007-01-29 08:56]:
-> Bernhard Walle <bwalle@suse.de> :
->=20
-> > @@ -1371,10 +1371,9 @@ static inline void rtl8169_request_timer
-> >                 return;
-> > =20
-> >         init_timer(timer);
-> > -       timer->expires =3D jiffies + RTL8169_PHY_TIMEOUT;
-> >         timer->data =3D (unsigned long)(dev);
-> >         timer->function =3D rtl8169_phy_timer;
-> > -       add_timer(timer);
-> > +       mod_timer(timer, jiffies + RTL8169_PHY_TIMEOUT);
-> >  }
-> >=20
-> > But I think _this_ change is unnecessary, ...
->=20
-> add_timer() is not supposed to modify an existing timer whereas mod_t=
-imer()
-> encompasses both=20
+But since Alexey Kuznetsov accepted this change too,
+they surely were. Let's forget about my doubts.
 
-that's clear.
-
-> and the race exists in both direction as netif_running()
-> is true as soon as dev_open() starts but way before dev->open() compl=
-etes.
-
-But rtl8169_request_timer() is only called from change_mtu() and
-dev->open(). And, if you call init_timer(), you always have a new
-timer, and the reference to an existing tp->timer will be lost.
-
-> [...]
-> > ... but that looks good (better than my patch) and should resolve t=
-he issue,
-> > too. I can't test because it's triggered only if the network hangs =
-and you
-> > know, the last one isn't reproducable.
->=20
-> There will be something to test in the merge of realtek's stuff #2.
-
-Great.
-
-
-Regards,
-Bernhard
---=20
-SUSE LINUX Products GmbH                E-Mail:  bwalle@suse.de
-Maxfeldstr. 5                           Phone:   +49 (911) 74053-0
-90409 N=FCrnberg, Germany
-OpenPGP DDAF6454: F61F 34CC 09CA FB82 C9F6  BA4B 8865 3696 DDAF 6454
+Sorry for disturbing,
+Jarek P.
