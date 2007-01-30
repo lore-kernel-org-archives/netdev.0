@@ -1,41 +1,36 @@
-From: "Jan Kiszka" <jan.kiszka@googlemail.com>
-Subject: Re: [PATCH 4/6] d80211: don't display name of invisible network device
-Date: Tue, 30 Jan 2007 15:00:12 +0100
-Message-ID: <58d0dbf10701300600h24cdb9b8xabbc27b16d4ddb05@mail.gmail.com>
-References: <20070129174809.6401B48499@silver.suse.cz>
-	 <1170164845.30318.19.camel@johannes.berg>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 2.6.20-rc6 1/2] ehea: Fixed wrong jumbo frames status query
+Date: Tue, 30 Jan 2007 09:37:22 -0500
+Message-ID: <45BF5822.20607@garzik.org>
+References: <200701291844.01887.osstklei@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "Jiri Benc" <jbenc@suse.cz>, netdev@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>
-To: "Johannes Berg" <johannes@sipsolutions.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.174]:26781 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965364AbXA3OAO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jan 2007 09:00:14 -0500
-Received: by ug-out-1314.google.com with SMTP id 44so1536737uga
-        for <netdev@vger.kernel.org>; Tue, 30 Jan 2007 06:00:13 -0800 (PST)
-In-Reply-To: <1170164845.30318.19.camel@johannes.berg>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Cc: Thomas Klein <tklein@de.ibm.com>, Jan-Bernd Themann <themann@de.ibm.com>,
+	netdev <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Christoph Raisch <raisch@de.ibm.com>,
+	Stefan Roscher <ossrosch@linux.vnet.ibm.com>,
+	linux-ppc <linuxppc-dev@ozlabs.org>, Marcus Eder <meder@de.ibm.com>
+To: Thomas Klein <osstklei@de.ibm.com>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+In-Reply-To: <200701291844.01887.osstklei@de.ibm.com>
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-2007/1/30, Johannes Berg <johannes@sipsolutions.net>:
-> On Mon, 2007-01-29 at 18:48 +0100, Jiri Benc wrote:
-> > Invisible master interface does not have meaningful name. Display the wiphy
-> > identifier in kernel messages instead.
-> >
-> > Also, remove the allocation of master interface name as it is purposeless
-> > now.
->
-> If the master netdev no longer has a name, how can you still use `tc' on
-> it?
+Thomas Klein wrote:
+> This patch fixes the wrong query and logging of the per interface jumbo frames
+> enabled/disabled status.
+> 
+> 
+> Signed-off-by: Thomas Klein <tklein@de.ibm.com>
 
-I hope you can't, because that was recently proven to be able to
-subtly break the stack:
-
-http://www.mail-archive.com/netdev@vger.kernel.org/msg29219.html
-
-Jan
+applied 1-2
