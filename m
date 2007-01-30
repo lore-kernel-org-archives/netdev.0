@@ -1,44 +1,126 @@
-From: Tino Keitel <tino.keitel@tikei.de>
-Subject: Re: sky2 problems on Intel Mac Mini
-Date: Wed, 31 Jan 2007 00:24:12 +0100
-Message-ID: <20070130232412.GA8320@thinkpad.home.local>
-References: <DJgDe2E/Cvnb.CrmE6+LDxkzqNQTYvzH+WQ@sphinx.mythic-beasts.com> <20070129160117.7dda9563@freekitty> <LF3DwQ8KEqWr.IS8NEpV+rQSn3zksVUhTmQ@sphinx.mythic-beasts.com> <20070130094033.GA11674@dose.home.local> <20070130152150.01955639@freekitty>
+From: weidong <weid@np.css.fujitsu.com>
+Subject: Re: [Patch][IPv6] Fix wrong routing mechanism for Link Local IPv6
+	packets
+Date: Tue, 30 Jan 2007 23:47:34 +0000 (UTC)
+Message-ID: <1172070287.3394.0.camel@LINE>
+References: <001501c7444d$ed731020$ccb1220a@ZhaoleiSOTEC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Tino Keitel <tino.keitel@tikei.de>,
-	Chris Lightfoot <chris@ex-parrot.com>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eazy.amigager.de ([213.239.192.238]:51175 "EHLO
-	eazy.amigager.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752027AbXA3X2p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jan 2007 18:28:45 -0500
-Content-Disposition: inline
-In-Reply-To: <20070130152150.01955639@freekitty>
+Received: from fgwmail6.fujitsu.co.jp ([192.51.44.36]:36137 "EHLO
+	fgwmail6.fujitsu.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752037AbXA3Xqe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jan 2007 18:46:34 -0500
+Received: from m4.gw.fujitsu.co.jp ([10.0.50.74])
+	by fgwmail6.fujitsu.co.jp (Fujitsu Gateway) with ESMTP id l0UNkWpM003275
+	for <netdev@vger.kernel.org> (envelope-from weid@np.css.fujitsu.com);
+	Wed, 31 Jan 2007 08:46:32 +0900
+Received: from smail (m4 [127.0.0.1])
+	by outgoing.m4.gw.fujitsu.co.jp (Postfix) with ESMTP id 3898C2AC127
+	for <netdev@vger.kernel.org>; Wed, 31 Jan 2007 08:46:32 +0900 (JST)
+Received: from s3.gw.fujitsu.co.jp (s3.gw.fujitsu.co.jp [10.0.50.93])
+	by m4.gw.fujitsu.co.jp (Postfix) with ESMTP id 107DD12C066
+	for <netdev@vger.kernel.org>; Wed, 31 Jan 2007 08:46:32 +0900 (JST)
+Received: from s3.gw.fujitsu.co.jp (s3 [127.0.0.1])
+	by s3.gw.fujitsu.co.jp (Postfix) with ESMTP id EA8F0161C007
+	for <netdev@vger.kernel.org>; Wed, 31 Jan 2007 08:46:31 +0900 (JST)
+Received: from ml9.s.css.fujitsu.com (ml9.s.css.fujitsu.com [10.23.4.199])
+	by s3.gw.fujitsu.co.jp (Postfix) with ESMTP id 88EB6161C008
+	for <netdev@vger.kernel.org>; Wed, 31 Jan 2007 08:46:31 +0900 (JST)
+Received: from ml9.css.fujitsu.com (ml9 [127.0.0.1])
+	by ml9.s.css.fujitsu.com (Postfix) with ESMTP id 70510314032
+	for <netdev@vger.kernel.org>; Wed, 31 Jan 2007 08:46:31 +0900 (JST)
+Received: from 192.168.10.2 (dhcp177-204.sky.yk.fujitsu.co.jp [10.34.177.204])
+	by ml9.s.css.fujitsu.com (Postfix) with ESMTP id 2C6BE31402D
+	for <netdev@vger.kernel.org>; Wed, 31 Jan 2007 08:46:31 +0900 (JST)
+In-Reply-To: <001501c7444d$ed731020$ccb1220a@ZhaoleiSOTEC>
+Date: Wed, 21 Feb 2007 10:04:47 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 30, 2007 at 15:21:50 -0800, Stephen Hemminger wrote:
-> On Tue, 30 Jan 2007 10:40:33 +0100
-> Tino Keitel <tino.keitel@tikei.de> wrote:
+Hello, Mr yoshfuji:
+    Thanks for your reply.
+The following is the figure.
+|--------------------------------------------|
+|                                            | 
+|                 Router                     | 
+|                                            |    |-------|
+|   |------|                   |------|      |    | other |
+|   | eth0 |---                | eth1 |------|----|network|
+|   |------|  |                |------|      |    |-------|
+|------|------|--------------------|---------|
+       |      v                    | 
+       | fe80::20c:29ff:fe24:fa0a  | 
+       |                           | 
+       |                           | 
+       |                           | 
+       |                           | 
+       |                           | 
+       |                           v 
+       |               fe80::20c:29ff:fe24:fa14 
+       |                           
+       | 
+|------|------| 
+|  |------|   | 
+|  | eth0 |---|--->fe80::200:ff:fe00:100 
+|  |------|   | 
+|             | 
+|    Host     | 
+|-------------| 
 
-[...]
+Host eth0: fe80::200:ff:fe00:100
+Router eth0: fe80::20c:29ff:fe24:fa0a
+Router eth1: fe80::20c:29ff:fe24:fa14
 
-> > Hi,
-> > 
-> > I found my machine with a freezed desktop tomorrow morning. I don't use
-> > anything UDP specific, just a lot of TCP traffic. I the machine is a
-> > Mac mini Core Duo running 2.6.20-rc6 without special mactel-linux.org
-> > patches except for the IR remote driver. The kernel log looks similar.
-> > I don't use MSI. However, I don't get this several times a day. IIRC
-> > this was the first time that I saw this.
-> > 
-> > Regards,
-> > Tino
+We ping6 from host's eth0 to Router's eth1. Echo Request's src addr =
+fe80::200:ff:fe00:100, dst addr = fe80::20c:29ff:fe24:fa14. And Kernel
+just send ICMPv6 redirect packet and then forward the Echo Request to
+router's eth0. If we run tcpdump on Host eth0, we can receive the ICMPv6
+Redirect packet. And if we send NA which advertises
+fe80::20c:29ff:fe24:fa14 MAC address(this is very easy for v6eval tool),
+we also can receive the forwarded Echo Request(src:fe80::200:ff:fe00:100
+dst is fe80::20c:29ff:fe24:fa14). 
+
+I dived into the kernel, and found that maybe function rt6_score_route()
+has problems. In rt6_score_route(), if rt6_check_dev() return 0, and the
+dst ipv6 addr is link local addr, rt6_socre_route() return -1 directly.
+I think this is not correct, we should return -1 only if the entry is in
+the route cache, and the dst addr is link local addr. Only entries in
+cache may select wrong IPv6 Link Local NIC for a link local dst addr.
+because they are copied from static IPv6 fib table entries.
+
+> > Hello, Mr yoshfuji
+> >     Take ping6 for example. Asumming there is a router which has 2 NICs.
+> > eth0 on router has ipv6 addr fe80::20c:29ff:fe24:fa0a, eth1 on router has
+> > ipv6 addr fe80::20c:29ff:fe24:fa14. Also there is a host connected to
+> > router's eth0, and the host's ipv6 addr is fe80::200:ff:fe00:100. We ping6
+> :
 > 
-> Are you running 64 bit (x86-64) or 32 bit (i386)?
+> I still need more precise figure.
+> 
+> Please draw complete box for the 2-3 boxes (pinger, router (and the
+> destination)), link(s) and interfaces.
+> 
+> +-------------+
+> |    Router   |
+> +---+-----+---+
+> eth0|     |eth1
+>     |     |
+> eth0|
+> +---+-+
+> |Host1|
+> +-----+
+> 
+> Host1  eth0: fe80:....
+> Router eth0: fe80:....
+> Router eth1: fe80:...
+> 
+> Or, something like that....
+> 
+> I think you may use other tool such as tgif etc.
+> 
+> --yoshfuji 
+> 
 
-It's a Core Duo, so it is 32 bit.
-
-Regards,
-Tino
