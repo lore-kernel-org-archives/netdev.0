@@ -1,50 +1,33 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: TCP_DEFER_ACCEPT brokenness?
-Date: Wed, 31 Jan 2007 00:28:16 +0200 (EET)
-Message-ID: <Pine.LNX.4.58.0701310011450.2627@u.domain.uli>
-References: <Pine.LNX.4.64.0612301758160.27326@twinlark.arctic.org>
- <Pine.LNX.4.64.0701300104130.17450@twinlark.arctic.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] IPv6: Fix up some CONFIG typos
+Date: Tue, 30 Jan 2007 14:30:40 -0800 (PST)
+Message-ID: <20070130.143040.85418270.davem@davemloft.net>
+References: <20070130160411.GA4026@hmsreliant.homelinux.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, mtk-manpages@gmx.net
-To: dean gaudet <dean@arctic.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: nhorman@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([217.79.71.194]:3905 "EHLO u.domain.uli"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751819AbXA3W1q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Jan 2007 17:27:46 -0500
-In-Reply-To: <Pine.LNX.4.64.0701300104130.17450@twinlark.arctic.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44193
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751841AbXA3Wal (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jan 2007 17:30:41 -0500
+In-Reply-To: <20070130160411.GA4026@hmsreliant.homelinux.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Neil Horman <nhorman@tuxdriver.com>
+Date: Tue, 30 Jan 2007 11:04:11 -0500
 
-	Hello,
+> Hey-
+> 	Noticed some typos in some configurable options while going through the
+> IPv6 code.  Patch attached to clean them up.
+> 
+> Thanks & Regards
+> Neil 
+> 
+> 
+> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
 
-On Tue, 30 Jan 2007, dean gaudet wrote:
-
-> > which is a bit confusing because it talks both about seconds and
-> > "attempts".  (and doesn't mention what happens when the timeout finishes
-> > -- i could see dropping the socket or passing it to userland anyhow as
-> > possibilities... but in fact the socket is dropped).
-
-	My understanding about SYN-ACKs is:
-
-- there is always one SYN+ACK and at least one retransmission (min 
-3+6 secs period to accept ACK)
-
-- TCP_SYNCNT (or tcp_synack_retries) define the number of retransmissions,
-this is a minimum that TCP_DEFER_ACCEPT can not reduce (due to the
-'req->retrans < thresh' check). It can only extend it after the
-ACK is received.
-
-- TCP_DEFER_ACCEPT defines seconds (total time) to wait for ACK
-plus first data
-
-	Hint: one option is that you can treat TCP_DEFER_ACCEPT as flag, 
-set it to 1 and then tune TCP_SYNCNT to cover the max desired period to 
-wait for data.
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+Good spotting Neil, patch applied, thanks.
