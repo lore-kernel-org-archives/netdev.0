@@ -1,125 +1,47 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: sky2 problems on Intel Mac Mini
-Date: Mon, 29 Jan 2007 16:01:17 -0800
-Message-ID: <20070129160117.7dda9563@freekitty>
-References: <DJgDe2E/Cvnb.CrmE6+LDxkzqNQTYvzH+WQ@sphinx.mythic-beasts.com>
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: Re: [PATCH] block MSI on Sony
+Date: Tue, 30 Jan 2007 01:22:54 +0100
+Message-ID: <1170116575.29240.114.camel@localhost.localdomain>
+References: <Pine.LNX.4.64.0701241847360.25027@woody.linux-foundation.org>
+	 <1169931333.17469.125.camel@localhost.localdomain>
+	 <20070129113159.7ad22e4c@freekitty>
+	 <1170101430.29240.34.camel@localhost.localdomain>
+	 <20070129133849.1b523226@freekitty>
+	 <1170109401.29240.49.camel@localhost.localdomain>
+	 <1170110318.21603.25.camel@funkylaptop>
+	 <1170110732.29240.59.camel@localhost.localdomain>
+	 <1170111056.21603.30.camel@funkylaptop>
+	 <1170111464.29240.63.camel@localhost.localdomain>
+	 <1170113200.21603.41.camel@funkylaptop>
+	 <1170113879.29240.79.camel@localhost.localdomain>
+	 <20070129155043.56a1c577@freekitty>
+Reply-To: tglx@linutronix.de
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@osdl.org>, netdev@vger.kernel.org
-To: Chris Lightfoot <chris@ex-parrot.com>
+Cc: =?ISO-8859-1?Q?Fr=E9d=E9ric?= Riss <frederic.riss@gmail.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:34530 "EHLO smtp.osdl.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965067AbXA3AEG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Jan 2007 19:04:06 -0500
-In-Reply-To: <DJgDe2E/Cvnb.CrmE6+LDxkzqNQTYvzH+WQ@sphinx.mythic-beasts.com>
+Received: from www.osadl.org ([213.239.205.134]:55377 "EHLO mail.tglx.de"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S964851AbXA3AWO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Jan 2007 19:22:14 -0500
+In-Reply-To: <20070129155043.56a1c577@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 29 Jan 2007 23:57:32 +0000
-Chris Lightfoot <chris@ex-parrot.com> wrote:
+On Mon, 2007-01-29 at 15:50 -0800, Stephen Hemminger wrote:
+> The Sony VAIO BIOS resets to INTx on resume. This happens
+> after device resume, so device irq's get misrouted.
 
->   [ please cc: me on any reply ]
-> 
-> I'm seeing lots of problems with the sky2 driver on Mac
-> Minis. Based on the suggestions in,
->     http://www.mail-archive.com/netdev@vger.kernel.org/msg28221.html
-> I am running stock 2.6.19 + the patches from the
-> mactel-linux.org site to get the kernel booting on the
-> Apple hardware; none of these touches the sky2 code. The
-> module is installed with disable_msi=1 and
-> idle_timeout=10; the chip version is,
->     Yukon-EC (0xb6) rev 2
-> 
-> The crashes we're seeing at the moment show (with
-> debug=16) lots and lots of transmits being queued up and
-> never being completed, even with the timeout switched on.
-> For instance, (this is on a machine running NFS root and
-> vlans)
+Err? My Sony VAIO does _NOT_ do that. It works fine without that. 
+It's just the sky2 hackery which fucked up things.
 
-Is this NFS over UDP?
-
-> 
->     [ lots of normal activity alternating tx queued / tx done ]
-> Jan 29 21:03:22 yeti kernel: eth0: tx queued, slot 65, len 150 
-> Jan 29 21:03:22 yeti kernel: sky2 eth0: rx slot 106 status 0x9e2100 len 154 
-> Jan 29 21:03:22 yeti kernel: eth0: tx done 66 
-> Jan 29 21:03:22 yeti kernel: eth0: tx queued, slot 67, len 150 
-> Jan 29 21:03:22 yeti kernel: sky2 eth0: rx slot 107 status 0x9e2100 len 154 
-> Jan 29 21:03:22 yeti kernel: eth0: tx done 68 
-> Jan 29 21:03:22 yeti kernel: eth0: tx queued, slot 69, len 150 
-> Jan 29 21:03:22 yeti kernel: sky2 eth0: rx slot 108 status 0x9e2100 len 154 
-> Jan 29 21:03:22 yeti kernel: eth0: tx done 70 
-> Jan 29 21:03:22 yeti kernel: eth0: tx queued, slot 71, len 89 
-> Jan 29 21:03:22 yeti kernel: eth0: tx queued, slot 73, len 1090
-> Jan 29 21:03:22 yeti kernel: eth0: tx queued, slot 75, len 1514
-> Jan 29 21:03:22 yeti kernel: eth0: tx queued, slot 79, len 90 
-> Jan 29 21:03:22 yeti kernel: eth0: tx queued, slot 81, len 1514 
-> Jan 29 21:03:22 yeti kernel: eth0: tx queued, slot 84, len 1090 
-> Jan 29 21:03:23 yeti kernel: eth0: tx queued, slot 86, len 98 
-> Jan 29 21:03:23 yeti kernel: eth0: tx queued, slot 88, len 1514 
-> Jan 29 21:03:23 yeti kernel: eth0: tx queued, slot 91, len 1090 
-> Jan 29 21:03:23 yeti kernel: eth0: tx queued, slot 93, len 54 
-> Jan 29 21:03:23 yeti kernel: eth0: tx queued, slot 94, len 66 
-> Jan 29 21:03:24 yeti kernel: eth0: tx queued, slot 95, len 54 
-> Jan 29 21:03:24 yeti kernel: eth0: tx queued, slot 96, len 66 
-> Jan 29 21:03:24 yeti kernel: eth0: tx queued, slot 97, len 98 
->     [ ... and so on for a total of 109 tx queued with no tx done, after which
->       our watchdog rebooted the machine ] 
-> 
-> -- though we've also seen, e.g., (no NFS root, no vlans)
-> 
-> Jan 28 19:32:16 t1 kernel: NETDEV WATCHDOG: eth0: transmit timed out
-> Jan 28 19:32:16 t1 kernel: sky2 eth0: tx timeout
-> Jan 28 19:32:16 t1 kernel: sky2 eth0: transmit ring 115 .. 92 report=115 done=115
-> Jan 28 19:32:16 t1 kernel: sky2 hardware hung? flushing
-> Jan 28 19:32:25 t1 kernel: BUG: soft lockup detected on CPU#0!
-> Jan 28 19:32:25 t1 kernel:  [<c015495a>] softlockup_tick+0xba/0xe0
-> Jan 28 19:32:25 t1 kernel:  [<c01327e9>] update_process_times+0x39/0x90
-> Jan 28 19:32:25 t1 kernel:  [<c0117337>] smp_apic_timer_interrupt+0x97/0xc0
-> Jan 28 19:32:25 t1 kernel:  [<c0103eab>] apic_timer_interrupt+0x1f/0x24
-> Jan 28 19:32:25 t1 kernel:  [<c0445107>] _spin_lock_irqsave+0x67/0x80
-> Jan 28 19:32:25 t1 kernel:  [<c0445136>] _spin_lock_bh+0x6/0x20
-> Jan 28 19:32:25 t1 kernel:  [<c0302f40>] sky2_tx_clean+0x20/0x70
-> Jan 28 19:32:25 t1 kernel:  [<c0303904>] sky2_tx_timeout+0x144/0x1b0
-> Jan 28 19:32:25 t1 kernel:  [<c03da1c0>] dev_watchdog+0x0/0xe0
-> Jan 28 19:32:25 t1 kernel:  [<c03da28e>] dev_watchdog+0xce/0xe0
-> Jan 28 19:32:25 t1 kernel:  [<c0132916>] run_timer_softirq+0xc6/0x1c0
-> Jan 28 19:32:25 t1 kernel:  [<c0120c80>] scheduler_tick+0xb0/0x3a0
-> Jan 28 19:32:25 t1 kernel:  [<c012d1ea>] __do_softirq+0xca/0xf0
-> Jan 28 19:32:25 t1 kernel:  [<c012d245>] do_softirq+0x35/0x40
-> Jan 28 19:32:25 t1 kernel:  [<c012d295>] irq_exit+0x45/0x50
-> Jan 28 19:32:25 t1 kernel:  [<c011733c>] smp_apic_timer_interrupt+0x9c/0xc0
-> Jan 28 19:32:25 t1 kernel:  [<c0103eab>] apic_timer_interrupt+0x1f/0x24
-> Jan 28 19:32:25 t1 kernel:  [<c0101332>] mwait_idle_with_hints+0x32/0x40
-> Jan 28 19:32:25 t1 kernel:  [<c0101370>] mwait_idle+0x30/0x40
-> Jan 28 19:32:25 t1 kernel:  [<c0101144>] cpu_idle+0x94/0xe0
-> Jan 28 19:32:25 t1 kernel:  [<c0592a16>] start_kernel+0x1c6/0x230
-> Jan 28 19:32:25 t1 kernel:  [<c0592360>] unknown_bootoption+0x0/0x1e0
-> Jan 28 19:32:25 t1 kernel:  =======================
-> 
-> -- I assume this is just the same problem exhibiting on a
-> kernel with soft lockups detection enabled?
-> 
-> Hopefully I should be able to actually log into one of
-> these machines over an alternate connection next time the
-> problem recurs, at which point I should be able to get
-> ethtool -d output. Anything else I should do at that
-> point?
-> 
-> Any suggestions for what to do next to chase this problem
-> down? I haven't yet tried the sk98lin driver on this
-> hardware; is that still worth doing? Are there any useful
-> tests we should try? Unfortunately, though these crashes
-> happen pretty frequently (several times per day
-> typically), I don't have a test case to reproduce one;
-> however, if it'd be useful, I can probably get a pcap
-> trace of the period immediately before the interface falls
-> over using port mirroring on the switch to which the
-> machines are connected. Is that likely to be informative?
-> 
+	tglx
 
 
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+	
+
