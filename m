@@ -1,64 +1,88 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [2.6 patch] NF_CONNTRACK_H323 must depend on (IPV6 || IPV6=n)
-Date: Tue, 30 Jan 2007 18:13:48 +0100
-Message-ID: <45BF7CCC.9080306@trash.net>
-References: <20070128222136.GZ6017@stusta.de>
-	<20070128.155348.39160134.davem@davemloft.net>
-	<20070129000011.GB6017@stusta.de>
-	<20070128.160442.48527586.davem@davemloft.net>
-	<20070129002108.GC6017@stusta.de>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: sky2 problems on Intel Mac Mini
+Date: Tue, 30 Jan 2007 11:15:20 -0800
+Message-ID: <20070130111520.47e07a79@freekitty>
+References: <DJgDe2E/Cvnb.CrmE6+LDxkzqNQTYvzH+WQ@sphinx.mythic-beasts.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: randy.dunlap@oracle.com, akpm@osdl.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netfilter@lists.netfilter.org,
-	David Miller <davem@davemloft.net>
-To: Adrian Bunk <bunk@stusta.de>
-Return-path: <netfilter-bounces@lists.netfilter.org>
-In-Reply-To: <20070129002108.GC6017@stusta.de>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter>,
-	<mailto:netfilter-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter>
-List-Post: <mailto:netfilter@lists.netfilter.org>
-List-Help: <mailto:netfilter-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter>,
-	<mailto:netfilter-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-bounces@lists.netfilter.org
-Errors-To: netfilter-bounces@lists.netfilter.org
+Cc: Stephen Hemminger <shemminger@osdl.org>, netdev@vger.kernel.org
+To: Chris Lightfoot <chris@ex-parrot.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.osdl.org ([65.172.181.24]:43607 "EHLO smtp.osdl.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751678AbXA3TSA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Jan 2007 14:18:00 -0500
+In-Reply-To: <DJgDe2E/Cvnb.CrmE6+LDxkzqNQTYvzH+WQ@sphinx.mythic-beasts.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Adrian Bunk wrote:
-> On Sun, Jan 28, 2007 at 04:04:42PM -0800, David Miller wrote:
-> 
->>From: Adrian Bunk <bunk@stusta.de>
->>Date: Mon, 29 Jan 2007 01:00:11 +0100
->>
->>>"depends on IPV6" would fix the bug - but it would also make 
->>>NF_CONNTRACK_H323 unavailable for all people without IPV6 support in 
->>>their kernel.
->>
->>Yes, that is an issue.
->>
->>I guess with some slightly ugly ifdefs we could support the
->>whole matrix of possibilities.  But perhaps that's undesirable
->>for another reason.
->>...
-> 
-> 
-> This depends on what NF_CONNTRACK_H323=y, IPV6=m is supposed to be:
-> - not allowed (NF_CONNTRACK_H323 must be modular) or
-> - NF_CONNTRACK_H323 can only be used for IPV4
-> 
-> My patch implements the first case.
+There are a couple problems here:
+
+1) the transmitter is getting hung.
+2) the recovery logic doesn't work. If I can reproduce hang,
+   then maybe the recovery code could be fixable.
+
+Let's address the transmitter hang first.
+The transmitter has multiple stages so it could be either:
+a) hardware flow control problems
+   look at ethtool -S eth0 statistics, are there flow control packets
+   showing up?
+b) GMAC or ram buffer issues
+   looking at 'ethtool -d eth0' output can help, but it is a needle in
+   haystack finding these setup errors.
+ 
+   The sky2 driver copies most of the stuff from vendor version of sk98lin,
+   but if sk98lin works and sky2 doesn't then comparing register settings
+   can give hints.
+
+c) DMA problems
+   For some problems, I have had luck adding a /proc interface and dumping
+   the transmit ring after a hang.  Looking at the last control block that
+   hung can help.  This found the case where IPV6 TSO was leaking through.
+
+d) checksum problems
+   Turning off tx scatter/gather forces non fragmented skb's. This hurts
+   performance, but can tell if the problem is with fragment code.
+   Turning off tx checksum turns off scatter/gather, checksumming and
+   TSO.
+
+e) possible alignment and flow control interaction
+   Because the receive DMA engine has hardware bugs and requires alignment
+   or it doesn't work with flow control. I still wonder if there are alignment
+   bugs on Tx with flow control.
+
+f) other driver bug
+
+To save time, I'll go get a new Mac Mini and try and clone this setup.
+Could you send me a full kernel config (and other setup information
+like filesystem type, distro etc).
 
 
-Unfortunately a few ifdefs aren't enough to support IPV6=m,
-NF_CONNTRACK_H323=y. For now I think Adrian's patch is the
-best solution (IPV6=m isn't that useful anyway since it will
-normally get loaded automatically when the first program
-attempts to open an AF_INET6 socket and can't be unloaded),
-but I'll look into moving the route lookup to the netfilter
-AF ops in 2.6.21 so we can also support that configuration.
+> -- I assume this is just the same problem exhibiting on a
+> kernel with soft lockups detection enabled?
+> 
+> Hopefully I should be able to actually log into one of
+> these machines over an alternate connection next time the
+> problem recurs, at which point I should be able to get
+> ethtool -d output. Anything else I should do at that
+> point?
+> 
+> Any suggestions for what to do next to chase this problem
+> down? I haven't yet tried the sk98lin driver on this
+> hardware; is that still worth doing? Are there any useful
+> tests we should try? Unfortunately, though these crashes
+> happen pretty frequently (several times per day
+> typically), I don't have a test case to reproduce one;
+> however, if it'd be useful, I can probably get a pcap
+> trace of the period immediately before the interface falls
+> over using port mirroring on the switch to which the
+> machines are connected. Is that likely to be informative?
+> 
+
+The vendor driver does some slightly different setup, but it also
+does a hardware reset when inactive (every 10ms).
 
 
-Acked-by: Patrick McHardy <kaber@trash.net>
+-- 
+Stephen Hemminger <shemminger@linux-foundation.org>
