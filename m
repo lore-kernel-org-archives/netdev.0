@@ -1,36 +1,37 @@
 From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [PATCH] PA Semi PWRficient Ethernet driver
-Date: Tue, 30 Jan 2007 10:06:49 +0000
-Message-ID: <20070130100649.GB8548@infradead.org>
-References: <20070129060852.GA7814@lixom.net> <20070129223506.GA29068@electric-eye.fr.zoreil.com> <20070130014116.GB18935@lixom.net>
+Subject: Re: [RFC PATCH 1/6] invisible network devices
+Date: Tue, 30 Jan 2007 10:08:18 +0000
+Message-ID: <20070130100818.GC8548@infradead.org>
+References: <20070129184707.885764375.midnight@suse.cz> <20070129102814.6385ad2d@freekitty>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Francois Romieu <romieu@fr.zoreil.com>, jgarzik@pobox.com,
-	netdev@vger.kernel.org
-To: Olof Johansson <olof@lixom.net>
+Cc: Jiri Benc <jbenc@suse.cz>, netdev@vger.kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Stephen Hemminger <shemminger@osdl.org>,
+	David Miller <davem@davemloft.net>
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:41204 "EHLO
+Received: from pentafluge.infradead.org ([213.146.154.40]:41213 "EHLO
 	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965435AbXA3KHF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jan 2007 05:07:05 -0500
+	with ESMTP id S965394AbXA3KIg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jan 2007 05:08:36 -0500
 Content-Disposition: inline
-In-Reply-To: <20070130014116.GB18935@lixom.net>
+In-Reply-To: <20070129102814.6385ad2d@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 29, 2007 at 07:41:16PM -0600, Olof Johansson wrote:
-> Maybe a bit of introduction could be useful (also regarding the
-> pci_map/alloc comments below).
+On Mon, Jan 29, 2007 at 10:28:14AM -0800, Stephen Hemminger wrote:
+> Maybe code would be cleaner if you just could do:
+> 	register_netdevice(mydev);
 > 
-> Our devices are on-chip, and while they're not on a PCI(e) bus internally,
-> they do have config headers and will show up as devices on a pseudo-bus
-> (the root one, in fact).
+> 	cloak_netdevice(mydev);
 > 
-> Also, while the driver could go through the IOMMU layers, there's no
-> real use in doing so at this time.
+> 
+> And cloak_netdevice() just removed the network device from the 
+> name table.  I would rather keep it with a real ifindex and in the
+> device list, so that if the interface is miss used or the device
+> is referenced by other devices, we don't see unexpected surprises
+> like oops.
 
-sorry, but bypassing this is not what what we want in drivers at all.
-In case you have an iommu and don't want it on the root bus chose
-the noop dma implementation for this bus, which is easily possible on
-powerpc.
-
+I don't think first publishing it and then hiding it is a good idea,
+but I agreed that it should at least have a valid ifindex.
