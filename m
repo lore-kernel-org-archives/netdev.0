@@ -1,49 +1,63 @@
-From: olof@lixom.net (Olof Johansson)
-Subject: Re: [PATCH] PA Semi PWRficient Ethernet driver
-Date: Tue, 30 Jan 2007 14:53:54 -0600
-Message-ID: <20070130205354.GA27922@lixom.net>
-References: <20070129060852.GA7814@lixom.net> <20070129102233.27f236ee@freekitty> <20070130014107.GA18935@lixom.net> <45BEAE9E.4000802@pobox.com>
+From: David Miller <davem@davemloft.net>
+Subject: buggy IFB driver change
+Date: Tue, 30 Jan 2007 13:12:46 -0800 (PST)
+Message-ID: <20070130.131246.71091370.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	netdev@vger.kernel.org
-To: Jeff Garzik <jgarzik@pobox.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, m.kozlowski@tuxland.pl
+To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lixom.net ([66.141.50.11]:53909 "EHLO mail.lixom.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750977AbXA3UrP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Jan 2007 15:47:15 -0500
-Content-Disposition: inline
-In-Reply-To: <45BEAE9E.4000802@pobox.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46161
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751449AbXA3VNM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jan 2007 16:13:12 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 29, 2007 at 09:34:06PM -0500, Jeff Garzik wrote:
-> Olof Johansson wrote:
-> >Right now it's guaranteed that the interrupts will not be shared. They're
-> >fixed for the on-chip devices, and no other driver should be binding to
-> >the same channels (and thus irqs).
-> >
-> >If it changes in the future, the driver would need other rework as well.
-> 
-> Nonetheless, it is far more sane to check for work, and return if no 
-> work.  Who knows if the hardware will signal an interrupt early or late.
 
-Easy enough. Added in the next version.
+Jeff, please revert: 0c0b3ae68ec93b1db5c637d294647d1cca0df763
 
-> >>>+static struct pci_driver pasemi_mac_driver = {
-> >>>+   .name = "pasemi_mac",
-> >>>+   .id_table = pasemi_mac_pci_tbl,
-> >>>+   .probe = pasemi_mac_probe,
-> >>Don't you need a remove routine?
-> >
-> >No hotplug support at this time, so I didn't see any use in providing one.
-> 
-> module remove.
+It's wrong.  We had a lengthy analysis of this piece of code
+several months ago, and it is correct.
 
-Oh, good point. Added in the next version to be posted.
+Consider, if we run the loop and we get an error
+the following happens:
 
+1) attempt of ifb_init_one(i) fails, therefore we should
+   not try to "ifb_free_one()" on "i" since it failed
+2) the loop iteration first increments "i", then it
+   check for error
 
-Thanks,
+Therefore we must decrement "i" twice before the first
+free during the cleanup.  One to "undo" the for() loop
+increment, and one to "skip" the ifb_init_one() case which
+failed.
 
--Olof
+commit 0c0b3ae68ec93b1db5c637d294647d1cca0df763
+Author: Mariusz Kozlowski <m.kozlowski@tuxland.pl>
+Date:   Sat Jan 27 00:00:01 2007 -0800
+
+    net: ifb error path loop fix
+    
+    On error we should start freeing resources at [i-1] not [i-2].
+    
+    Signed-off-by: Mariusz Kozlowski <m.kozlowski@tuxland.pl>
+    Cc: Jeff Garzik <jeff@garzik.org>
+    Signed-off-by: Andrew Morton <akpm@osdl.org>
+    Signed-off-by: Jeff Garzik <jeff@garzik.org>
+
+diff --git a/drivers/net/ifb.c b/drivers/net/ifb.c
+index ca2b21f..c4ca7c9 100644
+--- a/drivers/net/ifb.c
++++ b/drivers/net/ifb.c
+@@ -271,8 +271,7 @@ static int __init ifb_init_module(void)
+ 	for (i = 0; i < numifbs && !err; i++)
+ 		err = ifb_init_one(i);
+ 	if (err) {
+-		i--;
+-		while (--i >= 0)
++		while (i--)
+ 			ifb_free_one(i);
+ 	}
+ 
