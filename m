@@ -1,7 +1,7 @@
 From: Thomas Gleixner <tglx@linutronix.de>
 Subject: Re: [PATCH] block MSI on Sony
-Date: Tue, 30 Jan 2007 01:26:40 +0100
-Message-ID: <1170116800.29240.118.camel@localhost.localdomain>
+Date: Tue, 30 Jan 2007 01:31:33 +0100
+Message-ID: <1170117094.29240.121.camel@localhost.localdomain>
 References: <Pine.LNX.4.64.0701241847360.25027@woody.linux-foundation.org>
 	 <1169931333.17469.125.camel@localhost.localdomain>
 	 <20070129113159.7ad22e4c@freekitty>
@@ -16,6 +16,7 @@ References: <Pine.LNX.4.64.0701241847360.25027@woody.linux-foundation.org>
 	 <1170113879.29240.79.camel@localhost.localdomain>
 	 <20070129155043.56a1c577@freekitty>
 	 <1170116575.29240.114.camel@localhost.localdomain>
+	 <20070129162153.6b3b5eff@freekitty>
 Reply-To: tglx@linutronix.de
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -26,32 +27,25 @@ Cc: =?ISO-8859-1?Q?Fr=E9d=E9ric?= Riss <frederic.riss@gmail.com>,
 	Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org
 To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.osadl.org ([213.239.205.134]:58110 "EHLO mail.tglx.de"
+Received: from www.osadl.org ([213.239.205.134]:34846 "EHLO mail.tglx.de"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S965129AbXA3AZ7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Jan 2007 19:25:59 -0500
-In-Reply-To: <1170116575.29240.114.camel@localhost.localdomain>
+	id S1752633AbXA3Aaw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Jan 2007 19:30:52 -0500
+In-Reply-To: <20070129162153.6b3b5eff@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2007-01-30 at 01:22 +0100, Thomas Gleixner wrote:
-> On Mon, 2007-01-29 at 15:50 -0800, Stephen Hemminger wrote:
-> > The Sony VAIO BIOS resets to INTx on resume. This happens
-> > after device resume, so device irq's get misrouted.
+On Mon, 2007-01-29 at 16:21 -0800, Stephen Hemminger wrote:
+> > > The Sony VAIO BIOS resets to INTx on resume. This happens
+> > > after device resume, so device irq's get misrouted.
+> > 
+> > Err? My Sony VAIO does _NOT_ do that. It works fine without that. 
+> > It's just the sky2 hackery which fucked up things.
 > 
-> Err? My Sony VAIO does _NOT_ do that. It works fine without that. 
-> It's just the sky2 hackery which fucked up things.
+> What machine and BIOS version?
 
-And how is this going to solve the breakage on Frederics box?
-
-> I see the same symptoms on my Intel Mac Mini, and reverting the commit
-> also allows the driver to seemingly resume correctly. 
-
-Still it stands: 
-
-Your sky2 patch #44ade178249fe53d055fd92113eaa271e06acddd is broken.
-
-Just get it.
+VGN-SZ2XP_C
+BIOS: R0081N0
 
 	tglx
 
