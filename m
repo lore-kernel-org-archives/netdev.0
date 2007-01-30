@@ -1,54 +1,58 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [PATCH] IPv6: Fix up some CONFIG typos
-Date: Tue, 30 Jan 2007 11:04:11 -0500
-Message-ID: <20070130160411.GA4026@hmsreliant.homelinux.net>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH] IPv6: Implement RFC 4429 Optimistic Duplicate Address
+ Detection
+Date: Wed, 31 Jan 2007 01:16:29 +0900 (JST)
+Message-ID: <20070131.011629.84005028.yoshfuji@linux-ipv6.org>
+References: <20070129213013.GA26841@hmsreliant.homelinux.net>
+	<20070130.072536.129403235.yoshfuji@linux-ipv6.org>
+	<20070130130208.GA3723@hmsreliant.homelinux.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, nhorman@tuxdriver.com
-To: davem@davemloft.net
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: vladislav.yasevich@hp.com, sri@us.ibm.com, davem@davemloft.net,
+	kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
+	kaber@coreworks.de, netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+To: nhorman@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:2643 "EHLO ra.tuxdriver.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965372AbXA3QEr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Jan 2007 11:04:47 -0500
-Content-Disposition: inline
+Received: from yue.linux-ipv6.org ([203.178.140.15]:47537 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752096AbXA3QPO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jan 2007 11:15:14 -0500
+In-Reply-To: <20070130130208.GA3723@hmsreliant.homelinux.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hey-
-	Noticed some typos in some configurable options while going through the
-IPv6 code.  Patch attached to clean them up.
+In article <20070130130208.GA3723@hmsreliant.homelinux.net> (at Tue, 30 Jan 2007 08:02:08 -0500), Neil Horman <nhorman@tuxdriver.com> says:
 
-Thanks & Regards
-Neil 
+> > I do not think we should copy neighbor information from (one of)
+> > default routers, but use temporary neigh entry (or neigh in new state)
+> > for such datagrams in stead.  We should aware that:
+> > 
+> Not sure how that is different from what I'm proposing.  a neighbor entry that
+> maps a given host on the current subnet to the MAC of the default router, that
+> then gets flushed when DAD completes is temporary, as far as I can see.
+> 
+> >  1) default router's link-layer address may change.
+> True, but if this changes, all our network connectivity is lost, until the
+> normal neighbor solicitation process completes anyway.
 
+No, router may update its link-layer address by NA with Override flag set.
+In that case, we must use new link-layer for subsequent packets from
+our opportunistic address duing DAD.
 
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> >  2) we may have more than one default routers.
+> True, but I would think we could select any of them and this would work.
+> Granted, we wouldn't use all the default routers in the table as we would with
+> routed frames, but I'm not sure how we avoid that.
 
+I mean, if the status of the selected default router has changed or 
+has been deleted, we should try other router, at least.
 
- addrconf.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+> >  3) the default router's link-layer may be invalidated.
+> > 
+> yes, but this would be bad for the same reason as (1)
 
+We MUST take this into account.
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 171e5b5..7b6cfa9 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -3387,7 +3387,7 @@ static void inline ipv6_store_devconf(struct ipv6_devconf *cnf,
- #ifdef CONFIG_IPV6_ROUTER_PREF
- 	array[DEVCONF_ACCEPT_RA_RTR_PREF] = cnf->accept_ra_rtr_pref;
- 	array[DEVCONF_RTR_PROBE_INTERVAL] = cnf->rtr_probe_interval;
--#ifdef CONFIV_IPV6_ROUTE_INFO
-+#ifdef CONFIG_IPV6_ROUTE_INFO
- 	array[DEVCONF_ACCEPT_RA_RT_INFO_MAX_PLEN] = cnf->accept_ra_rt_info_max_plen;
- #endif
- #endif
-@@ -3892,7 +3892,7 @@ static struct addrconf_sysctl_table
- 			.proc_handler	=	&proc_dointvec_jiffies,
- 			.strategy	=	&sysctl_jiffies,
- 		},
--#ifdef CONFIV_IPV6_ROUTE_INFO
-+#ifdef CONFIG_IPV6_ROUTE_INFO
- 		{
- 			.ctl_name	=	NET_IPV6_ACCEPT_RA_RT_INFO_MAX_PLEN,
- 			.procname	=	"accept_ra_rt_info_max_plen",
+--yoshfuji
