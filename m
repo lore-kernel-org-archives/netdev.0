@@ -1,41 +1,54 @@
-From: olof@lixom.net (Olof Johansson)
-Subject: Re: [PATCH] PA Semi PWRficient Ethernet driver
-Date: Tue, 30 Jan 2007 09:36:26 -0600
-Message-ID: <20070130153626.GB25309@lixom.net>
-References: <20070129060852.GA7814@lixom.net> <20070130100358.GA8548@infradead.org>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: [PATCH] IPv6: Fix up some CONFIG typos
+Date: Tue, 30 Jan 2007 11:04:11 -0500
+Message-ID: <20070130160411.GA4026@hmsreliant.homelinux.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: jgarzik@pobox.com, netdev@vger.kernel.org
-To: Christoph Hellwig <hch@infradead.org>
+Cc: netdev@vger.kernel.org, nhorman@tuxdriver.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lixom.net ([66.141.50.11]:37885 "EHLO mail.lixom.net"
+Received: from ra.tuxdriver.com ([70.61.120.52]:2643 "EHLO ra.tuxdriver.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965600AbXA3P3s (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Jan 2007 10:29:48 -0500
+	id S965372AbXA3QEr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Jan 2007 11:04:47 -0500
 Content-Disposition: inline
-In-Reply-To: <20070130100358.GA8548@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 30, 2007 at 10:03:58AM +0000, Christoph Hellwig wrote:
-> On Mon, Jan 29, 2007 at 12:08:52AM -0600, Olof Johansson wrote:
-> > Driver for the PA Semi PWRficient on-chip Ethernet (1/10G)
-> > 
-> > Basic enablement, will be complemented with performance enhancements
-> > over time. PHY support will be added as well.
-> > 
-> > This patch still uses the numerical PCI vendor id, it will be replaced
-> > when the pci_ids.h change goes in (same as the other currently pending
-> > drivers).
-> 
-> >From a quick glance over the code you don't seem to handle memory allocation
-> erros at all, that needs some fixing.
+Hey-
+	Noticed some typos in some configurable options while going through the
+IPv6 code.  Patch attached to clean them up.
 
-v2 that I posted as a comment to the first one should have taken care
-of most cases. I'll go through once more and see if I missed any before
-posting a revised version later today.
+Thanks & Regards
+Neil 
 
 
-Thanks,
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
 
--Olof
+
+ addrconf.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 171e5b5..7b6cfa9 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -3387,7 +3387,7 @@ static void inline ipv6_store_devconf(struct ipv6_devconf *cnf,
+ #ifdef CONFIG_IPV6_ROUTER_PREF
+ 	array[DEVCONF_ACCEPT_RA_RTR_PREF] = cnf->accept_ra_rtr_pref;
+ 	array[DEVCONF_RTR_PROBE_INTERVAL] = cnf->rtr_probe_interval;
+-#ifdef CONFIV_IPV6_ROUTE_INFO
++#ifdef CONFIG_IPV6_ROUTE_INFO
+ 	array[DEVCONF_ACCEPT_RA_RT_INFO_MAX_PLEN] = cnf->accept_ra_rt_info_max_plen;
+ #endif
+ #endif
+@@ -3892,7 +3892,7 @@ static struct addrconf_sysctl_table
+ 			.proc_handler	=	&proc_dointvec_jiffies,
+ 			.strategy	=	&sysctl_jiffies,
+ 		},
+-#ifdef CONFIV_IPV6_ROUTE_INFO
++#ifdef CONFIG_IPV6_ROUTE_INFO
+ 		{
+ 			.ctl_name	=	NET_IPV6_ACCEPT_RA_RT_INFO_MAX_PLEN,
+ 			.procname	=	"accept_ra_rt_info_max_plen",
