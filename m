@@ -1,71 +1,45 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] PA Semi PWRficient Ethernet driver
-Date: Mon, 29 Jan 2007 21:34:06 -0500
-Message-ID: <45BEAE9E.4000802@pobox.com>
-References: <20070129060852.GA7814@lixom.net> <20070129102233.27f236ee@freekitty> <20070130014107.GA18935@lixom.net>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: Hidden SSID's
+Date: Mon, 29 Jan 2007 22:36:48 -0500
+Message-ID: <1170128208.3448.6.camel@localhost.localdomain>
+References: <45BACB71.2080107@lwfinger.net>
+	 <1169899689.25670.3.camel@localhost.localdomain>
+	 <1170019717.30318.0.camel@johannes.berg>
+	 <1170075611.2895.2.camel@localhost.localdomain>
+	 <20070130030911.GA6637@jm.kir.nu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	netdev@vger.kernel.org
-To: Olof Johansson <olof@lixom.net>
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Jouni Malinen <jkmaline@cc.hut.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:42195 "EHLO mail.dvmed.net"
+Received: from mx1.redhat.com ([66.187.233.31]:38241 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751082AbXA3CeN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Jan 2007 21:34:13 -0500
-In-Reply-To: <20070130014107.GA18935@lixom.net>
+	id S932579AbXA3DeT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Jan 2007 22:34:19 -0500
+In-Reply-To: <20070130030911.GA6637@jm.kir.nu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Olof Johansson wrote:
-> On Mon, Jan 29, 2007 at 10:22:33AM -0800, Stephen Hemminger wrote:
->> Basic initalization, setup comments.
+On Mon, 2007-01-29 at 19:09 -0800, Jouni Malinen wrote:
+> On Mon, Jan 29, 2007 at 08:00:11AM -0500, Dan Williams wrote:
 > 
-> Thanks, fixes have been incorporated and will be reposted. Most of them
-> was obviously just my lack of diligence. See however the two below.
+> > Well, there's no way a userspace program could depend on all hidden SSID
+> > APs having the <hidden> tag, since if you stick in another,
+> > non-ieee80211-stack card it won't be like that.  So I don't think we
+> > should care about <hidden> in d80211, but I don't think we can remove it
+> > from ieee80211 either.
 > 
->>> +static irqreturn_t pasemi_mac_tx_intr(int irq, void *data)
->>> +{
->>> +	struct net_device *dev = data;
->>> +	struct pasemi_mac *mac = netdev_priv(dev);
->>> +	unsigned int reg;
->>> +
->>> +	pasemi_mac_clean_tx(mac);
->>> +
->>> +	reg = PAS_IOB_DMA_TXCH_RESET_PINTC | PAS_IOB_DMA_TXCH_RESET_SINTC;
->>> +	if (*mac->tx_status & PAS_STATUS_TIMER)
->>> +		reg |= PAS_IOB_DMA_TXCH_RESET_TINTC;
->>> +
->>> +	pci_write_config_dword(mac->iob_pdev, PAS_IOB_DMA_TXCH_RESET(mac->dma_txch),
->>> +			       reg);
->>> +
->>> +	return IRQ_HANDLED;
->>> +}
->> To do shared IRQ's properly you need to check to see if
->> this is your device IRQ or not. Maybe reading config value?
-> 
-> Right now it's guaranteed that the interrupts will not be shared. They're
-> fixed for the on-chip devices, and no other driver should be binding to
-> the same channels (and thus irqs).
-> 
-> If it changes in the future, the driver would need other rework as well.
+> Use of '<hidden>' is just not acceptable. IMHO, it should be removed
+> from everywhere, including net/ieee80211. The sooner this is done, the
+> better.
 
-Nonetheless, it is far more sane to check for work, and return if no 
-work.  Who knows if the hardware will signal an interrupt early or late.
+You're probably right.  Lets just pull it out of ieee80211 and be done.
 
-
->>> +static struct pci_driver pasemi_mac_driver = {
->>> +   .name = "pasemi_mac",
->>> +   .id_table = pasemi_mac_pci_tbl,
->>> +   .probe = pasemi_mac_probe,
->> Don't you need a remove routine?
-> 
-> No hotplug support at this time, so I didn't see any use in providing one.
-
-module remove.
-
-	Jeff
+dan
 
 
 
