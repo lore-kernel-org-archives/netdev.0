@@ -1,75 +1,41 @@
-From: "Amit S. Kale" <amitkale@netxen.com>
-Subject: [PATCH 2/2] NetXen: Firmware crb init changes
-Date: Tue, 30 Jan 2007 07:27:33 -0800
-Message-ID: <200701301527.l0UFRXBK005946@dut39.unminc.com>
-Cc: amitkale@netxen.com, brazilnut@us.ibm.com, jeff@garzik.org,
-	netxenproj@linsyssoft.com, rob@netxen.com, sanjeev@netxen.com,
-	wendyx@us.ibm.com
-To: netdev@vger.kernel.org
+From: olof@lixom.net (Olof Johansson)
+Subject: Re: [PATCH] PA Semi PWRficient Ethernet driver
+Date: Tue, 30 Jan 2007 09:34:09 -0600
+Message-ID: <20070130153409.GA25309@lixom.net>
+References: <20070129060852.GA7814@lixom.net> <20070129223506.GA29068@electric-eye.fr.zoreil.com> <20070130014116.GB18935@lixom.net> <20070130100649.GB8548@infradead.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Francois Romieu <romieu@fr.zoreil.com>, jgarzik@pobox.com,
+	netdev@vger.kernel.org
+To: Christoph Hellwig <hch@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 66-126-254-34.unm.net ([66.126.254.34]:21289 "EHLO
-	nxmail.netxen.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S965604AbXA3P1e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jan 2007 10:27:34 -0500
+Received: from lixom.net ([66.141.50.11]:37865 "EHLO mail.lixom.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965604AbXA3P1b (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Jan 2007 10:27:31 -0500
+Content-Disposition: inline
+In-Reply-To: <20070130100649.GB8548@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-NetXen: firmware crb init changes.
+On Tue, Jan 30, 2007 at 10:06:49AM +0000, Christoph Hellwig wrote:
+> On Mon, Jan 29, 2007 at 07:41:16PM -0600, Olof Johansson wrote:
+> > Maybe a bit of introduction could be useful (also regarding the
+> > pci_map/alloc comments below).
+> > 
+> > Our devices are on-chip, and while they're not on a PCI(e) bus internally,
+> > they do have config headers and will show up as devices on a pseudo-bus
+> > (the root one, in fact).
+> > 
+> > Also, while the driver could go through the IOMMU layers, there's no
+> > real use in doing so at this time.
+> 
+> sorry, but bypassing this is not what what we want in drivers at all.
+> In case you have an iommu and don't want it on the root bus chose
+> the noop dma implementation for this bus, which is easily possible on
+> powerpc.
 
-Signed-off-by: Amit S. Kale <amitkale@netxen.com>
+Good point, I'll do that instead.
 
----
 
- netxen_nic.h      |    2 +-
- netxen_nic_init.c |   12 +++++++++---
- 2 files changed, 10 insertions(+), 4 deletions(-)
-diff --git a/drivers/net/netxen/netxen_nic.h b/drivers/net/netxen/netxen_nic.h
-index f188b59..9964f56 100644
---- a/drivers/net/netxen/netxen_nic.h
-+++ b/drivers/net/netxen/netxen_nic.h
-@@ -63,7 +63,7 @@ #include <asm/pgtable.h>
- 
- #include "netxen_nic_hw.h"
- 
--#define NETXEN_NIC_BUILD_NO     "3"
-+#define NETXEN_NIC_BUILD_NO     "4"
- #define _NETXEN_NIC_LINUX_MAJOR 3
- #define _NETXEN_NIC_LINUX_MINOR 3
- #define _NETXEN_NIC_LINUX_SUBVERSION 3
-diff --git a/drivers/net/netxen/netxen_nic_init.c b/drivers/net/netxen/netxen_nic_init.c
-index 069436f..cdbaf1d 100644
---- a/drivers/net/netxen/netxen_nic_init.c
-+++ b/drivers/net/netxen/netxen_nic_init.c
-@@ -110,6 +110,7 @@ static void crb_addr_transform_setup(voi
- 	crb_addr_transform(CAM);
- 	crb_addr_transform(C2C1);
- 	crb_addr_transform(C2C0);
-+	crb_addr_transform(SMB);
- }
- 
- int netxen_init_firmware(struct netxen_adapter *adapter)
-@@ -803,9 +804,13 @@ int netxen_pinit_from_rom(struct netxen_
- 		}
- 		for (i = 0; i < n; i++) {
- 
--			off =
--			    netxen_decode_crb_addr((unsigned long)buf[i].addr) +
--			    NETXEN_PCI_CRBSPACE;
-+			off = netxen_decode_crb_addr((unsigned long)buf[i].addr);
-+			if (off == NETXEN_ADDR_ERROR) {
-+				printk(KERN_ERR"CRB init value out of range %lx\n",
-+					buf[i].addr);
-+				continue;
-+			}
-+			off += NETXEN_PCI_CRBSPACE;
- 			/* skipping cold reboot MAGIC */
- 			if (off == NETXEN_CAM_RAM(0x1fc))
- 				continue;
-@@ -922,6 +927,7 @@ void netxen_phantom_init(struct netxen_a
- 	int loops = 0;
- 
- 	if (!pegtune_val) {
-+		val = readl(NETXEN_CRB_NORMALIZE(adapter, CRB_CMDPEG_STATE));
- 		while (val != PHAN_INITIALIZE_COMPLETE && loops < 200000) {
- 			udelay(100);
- 			schedule();
+-Olof
