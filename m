@@ -1,57 +1,51 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [Patch][IPv6] Fix wrong routing mechanism for Link Local IPv6
- packets
-Date: Tue, 30 Jan 2007 17:40:29 +0900 (JST)
-Message-ID: <20070130.174029.121638185.yoshfuji@linux-ipv6.org>
-References: <1172042666.4512.8.camel@LINE>
-	<20070130.162441.39376131.yoshfuji@linux-ipv6.org>
-	<024b01c74443$f882d590$ccb1220a@ZhaoleiSOTEC>
+From: Chris Lightfoot <chris@ex-parrot.com>
+Subject: Re: sky2 problems on Intel Mac Mini
+Date: Tue, 30 Jan 2007 08:39:19 +0000
+Message-ID: <LF3DwQ8KEqWr.IS8NEpV+rQSn3zksVUhTmQ@sphinx.mythic-beasts.com>
+References: <DJgDe2E/Cvnb.CrmE6+LDxkzqNQTYvzH+WQ@sphinx.mythic-beasts.com> <20070129160117.7dda9563@freekitty>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, usagi-users@linux-ipv6.org,
-	yoshfuji@linux-ipv6.org
-To: weid@np.css.fujitsu.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:47527 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752559AbXA3IjN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jan 2007 03:39:13 -0500
-In-Reply-To: <024b01c74443$f882d590$ccb1220a@ZhaoleiSOTEC>
+Received: from wumpus2.mythic-beasts.com ([212.69.38.51]:60711 "EHLO
+	wumpus2.mythic-beasts.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752614AbXA3IjV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jan 2007 03:39:21 -0500
+Content-Disposition: inline
+In-Reply-To: <20070129160117.7dda9563@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In article <024b01c74443$f882d590$ccb1220a@ZhaoleiSOTEC> (at Tue, 30 Jan 2007 16:55:12 +0900), "Wei Dong" <weid@np.css.fujitsu.com> says:
+On Mon, Jan 29, 2007 at 04:01:17PM -0800, Stephen Hemminger wrote:
+> On Mon, 29 Jan 2007 23:57:32 +0000
+> Chris Lightfoot <chris@ex-parrot.com> wrote:
+> 
+> >   [ please cc: me on any reply ]
+> > 
+> > I'm seeing lots of problems with the sky2 driver on Mac
+> > Minis. Based on the suggestions in,
+> >     http://www.mail-archive.com/netdev@vger.kernel.org/msg28221.html
+> > I am running stock 2.6.19 + the patches from the
+> > mactel-linux.org site to get the kernel booting on the
+> > Apple hardware; none of these touches the sky2 code. The
+> > module is installed with disable_msi=1 and
+> > idle_timeout=10; the chip version is,
+> >     Yukon-EC (0xb6) rev 2
+> > 
+> > The crashes we're seeing at the moment show (with
+> > debug=16) lots and lots of transmits being queued up and
+> > never being completed, even with the timeout switched on.
+> > For instance, (this is on a machine running NFS root and
+> > vlans)
+> 
+> Is this NFS over UDP?
 
-> Hello, Mr yoshfuji
->     Take ping6 for example. Asumming there is a router which has 2 NICs. 
-> eth0 on router has ipv6 addr fe80::20c:29ff:fe24:fa0a, eth1 on router has 
-> ipv6 addr fe80::20c:29ff:fe24:fa14. Also there is a host connected to 
-> router's eth0, and the host's ipv6 addr is fe80::200:ff:fe00:100. We ping6 
-:
+yes. but we see similar problems on machines which aren't
+doing lots of UDP traffic.
 
-I still need more precise figure.
-
-Please draw complete box for the 2-3 boxes (pinger, router (and the
-destination)), link(s) and interfaces.
-
-+-------------+
-|    Router   |
-+---+-----+---+
-eth0|     |eth1
-    |     |
-eth0|    
-+---+-+
-|Host1|
-+-----+
-
-Host1  eth0: fe80:....
-Router eth0: fe80:....
-Router eth1: fe80:...
-
-Or, something like that....
-
-I think you may use other tool such as tgif etc.
-
---yoshfuji
+-- 
+          Man: How was your flight, sir?
+Prince Philip: Have you ever been on an aeroplane?
+          Man: Yes.
+Prince Philip: Well, it was like that.
