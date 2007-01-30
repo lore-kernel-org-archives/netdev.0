@@ -1,32 +1,31 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [RFC] Alternative hidden netwirk device interface
-Date: Tue, 30 Jan 2007 10:09:19 +0000
-Message-ID: <20070130100919.GD8548@infradead.org>
-References: <20070129184707.885764375.midnight@suse.cz> <20070129102814.6385ad2d@freekitty> <20070129140958.0cf6880f@freekitty>
+From: Alexey Dobriyan <adobriyan@openvz.org>
+Subject: igmp: possible NULL dereference after GFP_ATOMIC allocation?
+Date: Tue, 30 Jan 2007 13:57:01 +0300
+Message-ID: <20070130105701.GA6015@localhost.sw.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Benc <jbenc@suse.cz>, netdev@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Stephen Hemminger <shemminger@osdl.org>,
-	David Miller <davem@davemloft.net>
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Cc: kuznet@ms2.inr.ac.ru, dlstevens@us.ibm.com, davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:41220 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965405AbXA3KJV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jan 2007 05:09:21 -0500
+Received: from mailhub.sw.ru ([195.214.233.200]:16289 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751034AbXA3KwM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Jan 2007 05:52:12 -0500
 Content-Disposition: inline
-In-Reply-To: <20070129140958.0cf6880f@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 29, 2007 at 02:09:58PM -0800, Stephen Hemminger wrote:
-> Change to allow register_netdevice() to be called with a blank name.
-> If name is blank, it is not put in name hash list, and doesn't
-> show up in /sys or /proc
+igmpv3_newpack() uses alloc_skb() with GFP_ATOMIC.
+It fails, igmpv3_newpack() returns NULL.
+add_grhead(), sees NULL,  returns NULL.
 
-That sounds even better indeed!
+At one place add_grhead() return value fed into skb_put() which
+dereferences it.
 
-Of course register_netdevice should grow a detailed explanation of
-this behaviour in the kdoc comment.
+net/ipv4/igmp.c:
+   454			if (first) {
+   455				skb = add_grhead(skb, pmc, type, &pgr);
+   456				first = 0;
+   457			}
+   458			psrc = (u32 *)skb_put(skb, sizeof(u32));
 
