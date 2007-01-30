@@ -1,41 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: buggy IFB driver change
-Date: Tue, 30 Jan 2007 14:21:56 -0800 (PST)
-Message-ID: <20070130.142156.55506918.davem@davemloft.net>
-References: <20070130.131246.71091370.davem@davemloft.net>
-	<45BFBE1B.2040508@pobox.com>
-	<Pine.LNX.4.64.0701301411170.3611@woody.linux-foundation.org>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: TCP_DEFER_ACCEPT brokenness?
+Date: Wed, 31 Jan 2007 00:28:16 +0200 (EET)
+Message-ID: <Pine.LNX.4.58.0701310011450.2627@u.domain.uli>
+References: <Pine.LNX.4.64.0612301758160.27326@twinlark.arctic.org>
+ <Pine.LNX.4.64.0701300104130.17450@twinlark.arctic.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, netdev@vger.kernel.org, m.kozlowski@tuxland.pl,
-	akpm@osdl.org
-To: torvalds@linux-foundation.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, mtk-manpages@gmx.net
+To: dean gaudet <dean@arctic.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41544
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751864AbXA3WV5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jan 2007 17:21:57 -0500
-In-Reply-To: <Pine.LNX.4.64.0701301411170.3611@woody.linux-foundation.org>
+Received: from ja.ssi.bg ([217.79.71.194]:3905 "EHLO u.domain.uli"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751819AbXA3W1q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Jan 2007 17:27:46 -0500
+In-Reply-To: <Pine.LNX.4.64.0701300104130.17450@twinlark.arctic.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Date: Tue, 30 Jan 2007 14:13:14 -0800 (PST)
 
-> On Tue, 30 Jan 2007, Jeff Garzik wrote:
-> > 
-> > I'm about to crash, can you or Linus handle the correction?
-> 
-> Reverted, pushed out.
-> 
-> Davem, if you have any other issues, just push me any fixes. I'm going to 
-> do a final -rc7 today (way too many changes for me to be happy releasing a 
-> 2.6.20 without a new -rc after all), and hope for the final 2.6.20 by the 
-> end of this week.
-> 
-> Sounds like a plan?
+	Hello,
 
-That works for me, I have 3 small netfilter fixes to review
-(one is a nasty divide by zero case) and one potential TCP fix.
-I'll take care of those right now and push.
+On Tue, 30 Jan 2007, dean gaudet wrote:
+
+> > which is a bit confusing because it talks both about seconds and
+> > "attempts".  (and doesn't mention what happens when the timeout finishes
+> > -- i could see dropping the socket or passing it to userland anyhow as
+> > possibilities... but in fact the socket is dropped).
+
+	My understanding about SYN-ACKs is:
+
+- there is always one SYN+ACK and at least one retransmission (min 
+3+6 secs period to accept ACK)
+
+- TCP_SYNCNT (or tcp_synack_retries) define the number of retransmissions,
+this is a minimum that TCP_DEFER_ACCEPT can not reduce (due to the
+'req->retrans < thresh' check). It can only extend it after the
+ACK is received.
+
+- TCP_DEFER_ACCEPT defines seconds (total time) to wait for ACK
+plus first data
+
+	Hint: one option is that you can treat TCP_DEFER_ACCEPT as flag, 
+set it to 1 and then tune TCP_SYNCNT to cover the max desired period to 
+wait for data.
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
