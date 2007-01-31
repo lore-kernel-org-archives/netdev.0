@@ -1,28 +1,28 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [USBNET] PEGASUS: Fix typo in Corega products.
-Date: Wed, 31 Jan 2007 05:02:50 -0500
-Message-ID: <45C0694A.3050302@garzik.org>
-References: <20070126.225901.112152229.yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH 2/5] sky2: add Wake On Lan support
+Date: Wed, 31 Jan 2007 05:03:29 -0500
+Message-ID: <45C06971.4060108@garzik.org>
+References: <20070126193835.658962000@linux-foundation.org> <20070126194004.097971000@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: =?UTF-8?B?WU9TSElGVUpJIEhpZGVha2kgLyDlkInol6Toi7HmmI4=?=
-	<yoshfuji@linux-ipv6.org>
+To: shemminger@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:55341 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:55357 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932930AbXAaKCv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 Jan 2007 05:02:51 -0500
-In-Reply-To: <20070126.225901.112152229.yoshfuji@linux-ipv6.org>
+	id S932936AbXAaKDa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 Jan 2007 05:03:30 -0500
+In-Reply-To: <20070126194004.097971000@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E wrote:
-> s/FEter/FEther/.
->=20
-> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+shemminger@linux-foundation.org wrote:
+> Adds basic magic packet wake on lan support to the sky2 driver.
+> Note: initial WOL value is based on BIOS settings.
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
 
-applied
+ACK, but failed to apply
+
 
