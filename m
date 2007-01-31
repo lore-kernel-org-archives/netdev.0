@@ -1,93 +1,167 @@
-From: "Sivakumar Subramani" <Sivakumar.Subramani@neterion.com>
-Subject: RE: [PATCH 2.6.20 1/5] s2io: Making LRO and UFO as module loadable parameter.
-Date: Tue, 30 Jan 2007 22:54:41 -0500
-Message-ID: <78C9135A3D2ECE4B8162EBDCE82CAD7701260603@nekter>
+From: weidong <weid@np.css.fujitsu.com>
+Subject: Re: [Patch][IPv6] Fix wrong routing mechanism for Link Local IPv6
+	packets
+Date: Wed, 31 Jan 2007 04:11:53 +0000 (UTC)
+Message-ID: <1172119906.2658.4.camel@LINE>
+References: <001101c744ec$5ee31720$ccb1220a@ZhaoleiSOTEC>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Leonid Grossman" <Leonid.Grossman@neterion.com>,
-	"Ananda Raju" <Ananda.Raju@neterion.com>,
-	"Sreenivasa Honnur" <Sreenivasa.Honnur@neterion.com>,
-	"Ramkrishna Vepa" <Ramkrishna.Vepa@neterion.com>,
-	"Rastapur Santosh" <santosh.rastapur@neterion.com>,
-	"Sriram Rapuru" <Sriram.Rapuru@neterion.com>
-To: "Sivakumar Subramani" <Sivakumar.Subramani@neterion.com>,
-	<netdev@vger.kernel.org>, "Jeff Garzik" <jeff@garzik.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, usagi-users@linux-ipv6.org,
+	davem@davemloft.net
+To: yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [72.1.205.142] ([72.1.205.142]:29035 "EHLO owa.neterion.com"
-	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S932837AbXAaDyo convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jan 2007 22:54:44 -0500
-Content-class: urn:content-classes:message
+Received: from fgwmail5.fujitsu.co.jp ([192.51.44.35]:46574 "EHLO
+	fgwmail5.fujitsu.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751943AbXAaELd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jan 2007 23:11:33 -0500
+Received: from m4.gw.fujitsu.co.jp ([10.0.50.74])
+	by fgwmail5.fujitsu.co.jp (Fujitsu Gateway) with ESMTP id l0V4BUDW020705
+	for <netdev@vger.kernel.org> (envelope-from weid@np.css.fujitsu.com);
+	Wed, 31 Jan 2007 13:11:30 +0900
+Received: from smail (m4 [127.0.0.1])
+	by outgoing.m4.gw.fujitsu.co.jp (Postfix) with ESMTP id CB8D62AC127
+	for <netdev@vger.kernel.org>; Wed, 31 Jan 2007 13:11:30 +0900 (JST)
+Received: from s12.gw.fujitsu.co.jp (s12.gw.fujitsu.co.jp [10.0.50.82])
+	by m4.gw.fujitsu.co.jp (Postfix) with ESMTP id A37B212C066
+	for <netdev@vger.kernel.org>; Wed, 31 Jan 2007 13:11:30 +0900 (JST)
+Received: from s12.gw.fujitsu.co.jp (s12 [127.0.0.1])
+	by s12.gw.fujitsu.co.jp (Postfix) with ESMTP id 8CEED161C007
+	for <netdev@vger.kernel.org>; Wed, 31 Jan 2007 13:11:30 +0900 (JST)
+Received: from ml2.s.css.fujitsu.com (ml2.s.css.fujitsu.com [10.23.4.192])
+	by s12.gw.fujitsu.co.jp (Postfix) with ESMTP id 14F62161C00A
+	for <netdev@vger.kernel.org>; Wed, 31 Jan 2007 13:11:30 +0900 (JST)
+In-Reply-To: <001101c744ec$5ee31720$ccb1220a@ZhaoleiSOTEC>
+Date: Wed, 21 Feb 2007 23:51:45 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Jeff,
+Hello, Mr yoshfuji
+	Thanks for your patch. I think maybe we checking oif first is better,
+and WARN_ON in function rt6_score_route().
+The following is my patch
 
-Where you able to apply the patches. Please let me the known if you have
-any issues.
+Signed-off-by: Wei Dong <weid@np.css.fujitsu.com>
 
-Thanks,
-~Siva 
-
------Original Message-----
-From: Sivakumar Subramani 
-Sent: Monday, January 29, 2007 11:36 AM
-To: netdev@vger.kernel.org; 'Jeff Garzik'
-Cc: Leonid Grossman; Ananda Raju; Sreenivasa Honnur; Ramkrishna Vepa;
-Rastapur Santosh; Sriram Rapuru
-Subject: RE: [PATCH 2.6.20 1/5] s2io: Making LRO and UFO as module
-loadable parameter.
-
+diff -ruN old/net/ipv6/route.c new/net/ipv6/route.c
+--- old/net/ipv6/route.c	2007-02-16 13:46:33.000000000 -0500
++++ new/net/ipv6/route.c	2007-02-16 13:44:27.000000000 -0500
+@@ -309,12 +309,21 @@
+ static int inline rt6_check_dev(struct rt6_info *rt, int oif)
+ {
+ 	struct net_device *dev = rt->rt6i_dev;
+-	if (!oif || dev->ifindex == oif)
++	int ret = 0;
++
++	if (!oif)
+ 		return 2;
++
+ 	if ((dev->flags & IFF_LOOPBACK) &&
+ 	    rt->rt6i_idev && rt->rt6i_idev->dev->ifindex == oif)
+-		return 1;
+-	return 0;
++		ret = 1;
++	else
++		return 0;
++
++	if (dev->ifindex == oif)
++		return 2;
++
++	return ret;
+ }
  
-Hi Jeff,
+ static int inline rt6_check_neigh(struct rt6_info *rt)
+@@ -339,8 +348,11 @@
+ 	int m, n;
+ 		
+ 	m = rt6_check_dev(rt, oif);
+-	if (!m && (strict & RT6_LOOKUP_F_IFACE))
++	if (!m && (strict & RT6_LOOKUP_F_IFACE)) {
++		WARN_ON(rt->rt6i_dev->flags & IFF_LOOPBACK);
+ 		return -1;
++	}
++
+ #ifdef CONFIG_IPV6_ROUTER_PREF
+ 	m |= IPV6_DECODE_PREF(IPV6_EXTRACT_PREF(rt->rt6i_flags)) << 2;
+ #endif
 
-As per your comment I have synced up the patch with the latest
-netdev-2.6.git#upstream branch. Also I have corrected the white space
-issue. I have resubmitted the patches again.
 
-Thanks,
-~Siva
------Original Message-----
-From: Jeff Garzik [mailto:jeff@garzik.org]
-Sent: Wednesday, January 24, 2007 2:56 AM
-To: Ananda Raju
-Cc: nBetdev@vger.kernel.org; Leonid Grossman; Alicia Pena; Ramkrishna
-Vepa; Sreenivasa Honnur; Sriram Rapuru
-Subject: Re: [PATCH 2.6.20 1/5] s2io: Making LRO and UFO as module
-loadable parameter.
-
-Ananda Raju wrote:
-> This patch adds two load parameters napi and ufo. Previously NAPI was 
-> compilation option with these changes wan enable disable NAPI using 
-> load parameter. Also we are introducing ufo load parameter to 
-> enable/disable ufo feature
+On Wed, 2007-01-31 at 13:00 +0900, Wei Dong wrote:
+> In article <1172069832.2682.18.camel@LINE> (at Wed, 21 Feb 2007 
+> 09:57:12 -0500), weidong <weid@np.css.fujitsu.com> says:
 > 
-> Signed-off-by: Sivakumar Subramani <sivakumar.subramani@neterion.com>
+> > The following is the figure.
+> :
+> > Host eth0: fe80::200:ff:fe00:100
+> > Router eth0: fe80::20c:29ff:fe24:fa0a
+> > Router eth1: fe80::20c:29ff:fe24:fa14
+> 
+>  Other network
+>       |
+>       | eth1
+>  +----+----+
+>  | Router  |
+>  +----+----+
+>       | eth0
+>       |
+>       | eth0
+>  +----+----+
+>  |  Host   |
+>  +---------+
+> 
+> > We ping6 from host's eth0 to Router's eth1. Echo Request's src addr =
+> > fe80::200:ff:fe00:100, dst addr = fe80::20c:29ff:fe24:fa14. And Kernel
+> > just send ICMPv6 redirect packet and then forward the Echo Request to
+> > router's eth0. If we run tcpdump on Host eth0, we can receive the ICMPv6
+> > Redirect packet. And if we send NA which advertises
+> 
+> This is correct, and intended behavior.
+> 
+> > fe80::20c:29ff:fe24:fa14 MAC address(this is very easy for v6eval tool),
+> > we also can receive the forwarded Echo Request(src:fe80::200:ff:fe00:100
+> > dst is fe80::20c:29ff:fe24:fa14).
+> 
+> Well, this is known issue, actually.
+> 
+> While this cannot happen in normal operation, we should NOT accept
+> such traffic. :-)
+> 
+> Here is the (untested) fix.
+> 
+> -----
+> [IPV6] ROUTE: Do not accept traffic for link-local address on different 
+> interface.
+> 
+> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> 
+> --- 
+> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+> index 5f0043c..a7468e0 100644
+> --- a/net/ipv6/route.c
+> +++ b/net/ipv6/route.c
+> @@ -311,12 +311,19 @@ static inline void rt6_probe(struct rt6_info *rt)
+>  static int inline rt6_check_dev(struct rt6_info *rt, int oif)
+>  {
+>   struct net_device *dev = rt->rt6i_dev;
+> + int ret = 0;
+> +
+> + if (dev->flags & IFF_LOOPBACK) {
+> + if (!WARN_ON(rt->rt6i_idev == NULL) &&
+> +     rt->rt6i_idev->dev->ifindex == oif)
+> + ret = 1;
+> + else
+> + return 0;
+> + }
+>   if (!oif || dev->ifindex == oif)
+>   return 2;
+> - if ((dev->flags & IFF_LOOPBACK) &&
+> -     rt->rt6i_idev && rt->rt6i_idev->dev->ifindex == oif)
+> - return 1;
+> - return 0;
+> +
+> + return ret;
+>  }
+> 
+>  static int inline rt6_check_neigh(struct rt6_info *rt)
+> 
 
-ACK patches 1-5, but patch does not apply to netdev-2.6.git#upstream. 
-Also, git-am complains about whitespace.
-
-
-[jgarzik@pretzel netdev-2.6]$ git-am --signoff --utf8 /g/tmp/mbox
-
-Applying 's2io: Making LRO and UFO as module loadable parameter.'
-
-Space in indent is followed by a tab.
-.dotest/patch:41:                       (block_no * 
-(rxd_count[nic->rxd_mode] + 1)) + off;
-Adds trailing whitespace.
-.dotest/patch:46:               }
-Space in indent is followed by a tab.
-.dotest/patch:137:              * Rx handler is called by default, 
-without checking for the
-Space in indent is followed by a tab.
-.dotest/patch:138:              * cause of interrupt.
-Space in indent is followed by a tab.
-.dotest/patch:139:              * rx_traffic_int reg is an R1 register, 
-writing all 1's
-error: patch failed: drivers/net/s2io.c:6985
-error: drivers/net/s2io.c: patch does not apply Patch failed at 0001.
-When you have resolved this problem run "git-am --resolved".
-If you would prefer to skip this patch, instead run "git-am --skip".
