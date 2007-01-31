@@ -1,44 +1,66 @@
-From: David Miller <davem@davemloft.net>
-Subject: (usagi-users 03790) Re: [Patch][IPv6] Fix wrong routing mechanism for Link Local IPv6
- packets
-Date: Tue, 30 Jan 2007 21:46:19 -0800 (PST)
-Message-ID: <20070130.214619.74747768.davem@davemloft.net>
-References: <20070131.140914.105443849.yoshfuji@linux-ipv6.org>
-	<20070131.141408.22662891.yoshfuji@linux-ipv6.org>
-	<20070131.144250.58478716.yoshfuji@linux-ipv6.org>
-Reply-To: usagi-users@linux-ipv6.org
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: [PATCH][NET_SCHED] sch_prio: class statistics printing enabled
+Date: Wed, 31 Jan 2007 08:53:49 +0100
+Message-ID: <20070131075348.GA1857@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, usagi-users@linux-ipv6.org,
-        weid@np.css.fujitsu.com
-To: yoshfuji@linux-ipv6.org
-Return-path: <usagi-users-admin@linux-ipv6.org>
-In-Reply-To: <20070131.144250.58478716.yoshfuji@linux-ipv6.org>
-List-Software: fml [fml 4.0.3 release (20011202/4.0.3)]
-List-Post: <mailto:usagi-users@linux-ipv6.org>
-List-Owner: <mailto:usagi-users-admin@linux-ipv6.org>
-List-Help: <mailto:usagi-users-ctl@linux-ipv6.org?body=help>
-List-Unsubscribe: <mailto:usagi-users-ctl@linux-ipv6.org?body=unsubscribe>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from poczta.o2.pl ([193.17.41.142]:52164 "EHLO poczta.o2.pl"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750937AbXAaHvI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 Jan 2007 02:51:08 -0500
+Received: from poczta.o2.pl (mx12 [127.0.0.1])
+	by poczta.o2.pl (Postfix) with ESMTP id ED2D562807D
+	for <netdev@vger.kernel.org>; Wed, 31 Jan 2007 08:51:06 +0100 (CET)
+Received: from ff.dom.local (bv170.internetdsl.tpnet.pl [80.53.205.170])
+	by poczta.o2.pl (Postfix) with ESMTP
+	for <netdev@vger.kernel.org>; Wed, 31 Jan 2007 08:51:06 +0100 (CET)
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
-Date: Wed, 31 Jan 2007 14:42:50 +0900 (JST)
+Hello,
 
-> In article <20070131.141408.22662891.yoshfuji@linux-ipv6.org> (at Wed, 31 Jan 2007 14:14:08 +0900 (JST)), YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> says:
-> 
-> > In article <20070131.140914.105443849.yoshfuji@linux-ipv6.org> (at Wed, 31 Jan 2007 14:09:14 +0900 (JST)), YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> says:
-> > 
-> > > In article <1172119906.2658.4.camel@LINE> (at Wed, 21 Feb 2007 23:51:45 -0500), weidong <weid@np.css.fujitsu.com> says:
-> > > 
-> > > > 	Thanks for your patch. I think maybe we checking oif first is better,
-> > > > and WARN_ON in function rt6_score_route().
-> > > 
-> > > Please remove WARN_ON.  Otherwise, I'm fine with it.
-> > 
-> > Argh, no.... wrong.
-> 
-> Here's updated patch, intented for net-2.6.21.  Dave?
+This patch adds a dump_stats callback to enable
+printing of basic statistics of prio classes.
 
-I'll integrate this after I work on some net-2.6.20
-bug fixes I want to complete today.
+Signed-off-by: Jarek Poplawski <jarkao2@o2.pl>
+
+---
+
+diff -Nurp linux-2.6.20-rc6-/net/sched/sch_prio.c linux-2.6.20-rc6/net/sched/sch_prio.c
+--- linux-2.6.20-rc6-/net/sched/sch_prio.c	2007-01-08 20:23:58.000000000 +0100
++++ linux-2.6.20-rc6/net/sched/sch_prio.c	2007-01-30 20:26:31.000000000 +0100
+@@ -372,6 +372,23 @@ static int prio_dump_class(struct Qdisc 
+ 	return 0;
+ }
+ 
++static int prio_dump_class_stats(struct Qdisc *sch, unsigned long cl,
++							struct gnet_dump *d)
++{
++	struct prio_sched_data *q = qdisc_priv(sch);
++	struct Qdisc *cl_q;
++
++	if (cl - 1 > q->bands)
++		return -ENOENT;
++
++	cl_q = q->queues[cl - 1];
++	if (gnet_stats_copy_basic(d, &cl_q->bstats) < 0 ||
++	    gnet_stats_copy_queue(d, &cl_q->qstats) < 0)
++		return -1;
++
++	return 0;
++}
++
+ static void prio_walk(struct Qdisc *sch, struct qdisc_walker *arg)
+ {
+ 	struct prio_sched_data *q = qdisc_priv(sch);
+@@ -414,6 +431,7 @@ static struct Qdisc_class_ops prio_class
+ 	.bind_tcf	=	prio_bind,
+ 	.unbind_tcf	=	prio_put,
+ 	.dump		=	prio_dump_class,
++	.dump_stats	=	prio_dump_class_stats,
+ };
+ 
+ static struct Qdisc_ops prio_qdisc_ops = {
