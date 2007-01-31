@@ -1,27 +1,76 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [PATCH 1/10] cxgb3 - FW versioning
-Date: Wed, 31 Jan 2007 12:44:37 +0000
-Message-ID: <20070131124437.GA26476@infradead.org>
-References: <20070131034345.8574.21031.stgit@localhost.localdomain> <45C07202.3090308@garzik.org>
+From: Ingo Oeser <netdev@axxeo.de>
+Subject: Re: [PATCH] [v3] PA Semi PWRficient Ethernet driver
+Date: Wed, 31 Jan 2007 13:44:31 +0100
+Message-ID: <200701311344.31692.netdev@axxeo.de>
+References: <20070129060852.GA7814@lixom.net> <20070130014434.GC18935@lixom.net> <20070131054457.GA32043@lixom.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Divy Le Ray <None@chelsio.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, swise@opengridcomputing.com
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: jgarzik@pobox.com, netdev@vger.kernel.org,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	Christoph Hellwig <hch@infradead.org>
+To: Olof Johansson <olof@lixom.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:49502 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933174AbXAaMoz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Jan 2007 07:44:55 -0500
+Received: from mail.axxeo.de ([82.100.226.146]:57885 "EHLO mail.axxeo.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933202AbXAaMo7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 Jan 2007 07:44:59 -0500
+In-Reply-To: <20070131054457.GA32043@lixom.net>
 Content-Disposition: inline
-In-Reply-To: <45C07202.3090308@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 31, 2007 at 05:40:02AM -0500, Jeff Garzik wrote:
-> honestly it looks like just about every ioctl except load-firmware should go
+Hi,
 
-And while we're at it a load-firmware sounds like a nice addition for
-ethtool aswell.  Or we may want to extent the firmware loader to deal with
-updating firmware in addition to loading it to rom-less devices.
+Olof Johansson schrieb:
+[...]
+> +static int pasemi_mac_close(struct net_device *dev)
+> +{
+[..]
+> +	do {
+> +		pci_read_config_dword(mac->dma_pdev,
+> +				      PAS_DMA_TXCHAN_TCMDSTA(mac->dma_txch),
+> +				      &stat);
+> +	} while (stat & PAS_DMA_TXCHAN_TCMDSTA_ACT);
+> +
+> +	do {
+> +		pci_read_config_dword(mac->dma_pdev,
+> +				      PAS_DMA_RXCHAN_CCMDSTA(mac->dma_rxch),
+> +				      &stat);
+> +	} while (stat & PAS_DMA_RXCHAN_CCMDSTA_ACT);
+> +
+> +	do {
+> +		pci_read_config_dword(mac->dma_pdev,
+> +				      PAS_DMA_RXINT_RCMDSTA(mac->dma_if),
+> +				      &stat);
+> +	} while (stat & PAS_DMA_RXINT_RCMDSTA_ACT);
 
+You might want to write these loops like that:
+
+#define MAX_READ_TRIES 10000
+unsigned int tries;
+unsigned int state;
+for(tries=0; tries < MAX_READ_TRIES; tries++)
+{
+	read_stat(&stat);
+	if ((stat & STATE_FLAG) == 0);
+		break;
+	cond_resched();
+}
+if (stat & STATE_FLAG) {
+	dev_err(&mac->pdev->dev, "Failed to stop device, possible hardware error?\n");
+        /* Panic, disable device, mark unusable, whatever is better than hanging here */
+}
+
+That way you:
+- Let you give other processes a chance to run, 
+  while you wait for your hardware state to change 
+  (if your hardware can tolerate these latencies).
+- can somehow handle hardware failure and at least give the user a clue
+  what is happening.
+
+Regards
+
+Ingo Oeser
