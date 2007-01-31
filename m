@@ -1,51 +1,48 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 2.6.20 1/5] s2io: Making LRO and UFO as module loadable
- parameter.
-Date: Wed, 31 Jan 2007 05:17:57 -0500
-Message-ID: <45C06CD5.5030809@garzik.org>
-References: <Pine.GSO.4.10.10701290043110.27317-100000@guinness>
+From: Matthew Garrett <mjg59@srcf.ucam.org>
+Subject: Re: [linux-pm] [RFC] Runtime power management
+	on	ipw2100
+Date: Wed, 31 Jan 2007 10:27:45 +0000
+Message-ID: <20070131102744.GA24424@srcf.ucam.org>
+References: <20070131075249.GA22115@srcf.ucam.org>
+	<1170234787.6746.22.camel@amit-laptop>
+	<20070131094858.GA23842@srcf.ucam.org>
+	<p731wlbphz3.fsf@bingen.suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, leonid.grossman@neterion.com,
-	alicia.pena@neterion.com, ramkrishna.vepa@neterion.com,
-	sreenivasa.honnur@neterion.com, sriram.rapuru@neterion.com,
-	sivakumar.subramani@neterion.com, santosh.rastapur@neterion.com
-To: Ananda Raju <Ananda.Raju@neterion.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:55466 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932939AbXAaKSA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 Jan 2007 05:18:00 -0500
-In-Reply-To: <Pine.GSO.4.10.10701290043110.27317-100000@guinness>
-Sender: netdev-owner@vger.kernel.org
+Cc: ipw2100-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-pm@lists.osdl.org, Amit Kucheria <amit.kucheria@nokia.com>
+To: Andi Kleen <ak@suse.de>
+Return-path: <ipw2100-devel-bounces@lists.sourceforge.net>
+Content-Disposition: inline
+In-Reply-To: <p731wlbphz3.fsf@bingen.suse.de>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/ipw2100-devel>,
+	<mailto:ipw2100-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=ipw2100-devel>
+List-Post: <mailto:ipw2100-devel@lists.sourceforge.net>
+List-Help: <mailto:ipw2100-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/ipw2100-devel>,
+	<mailto:ipw2100-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: ipw2100-devel-bounces@lists.sourceforge.net
+Errors-To: ipw2100-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Ananda Raju wrote:
-> This patch adds two load parameters napi and ufo. Previously NAPI was
-> compilation option with these changes wan enable disable NAPI using load
-> parameter. Also we are introducing ufo load parameter to enable/disable
-> ufo feature
+On Wed, Jan 31, 2007 at 12:13:04PM +0100, Andi Kleen wrote:
+> Matthew Garrett <mjg59@srcf.ucam.org> writes:
+> > 
+> > PCI seems to require a delay of 10ms when sequencing from D3 to D0, 
+> > which probably isn't acceptable latency for an "up" state.
 > 
-> Signed-off-by: Sivakumar Subramani <sivakumar.subramani@neterion.com>
+> It might be if the interface has been idle for some time
+> (and the delay is not busy looping of course)
 
-ACK patches 1-5, but still problems:
+Hm. How would this interact with receiving packets?
 
-1) does not apply to netdev#upstream
+-- 
+Matthew Garrett | mjg59@srcf.ucam.org
 
-2) adds trailing whitespace
-
-
-[jgarzik@pretzel netdev-2.6]$ git-am --signoff --utf8 /g/tmp/mbox
-
-Applying 's2io: Making LRO and UFO as module loadable parameter.'
-
-Adds trailing whitespace.
-.dotest/patch:46:               }
-Adds trailing whitespace.
-.dotest/patch:209:
-error: patch failed: drivers/net/s2io.c:6984
-error: drivers/net/s2io.c: patch does not apply
-Patch failed at 0001.
-When you have resolved this problem run "git-am --resolved".
-If you would prefer to skip this patch, instead run "git-am --skip".
+-------------------------------------------------------------------------
+Take Surveys. Earn Cash. Influence the Future of IT
+Join SourceForge.net's Techsay panel and you'll get the chance to share your
+opinions on IT & business topics through brief surveys - and earn cash
+http://www.techsay.com/default.php?page=join.php&p=sourceforge&CID=DEVDEV
