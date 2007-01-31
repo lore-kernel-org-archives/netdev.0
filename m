@@ -1,34 +1,39 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: PC300too alternative WAN driver
-Date: Wed, 31 Jan 2007 05:44:03 -0500
-Message-ID: <45C072F3.2020202@garzik.org>
-References: <m3hcu85z4v.fsf@maximus.localdomain>
+From: Andi Kleen <ak@suse.de>
+Subject: Re: [linux-pm] [RFC] Runtime power management =?iso-8859-1?q?on=09ipw2100?=
+Date: Wed, 31 Jan 2007 11:48:20 +0100
+Message-ID: <200701311148.20777.ak@suse.de>
+References: <20070131075249.GA22115@srcf.ucam.org> <p731wlbphz3.fsf@bingen.suse.de> <20070131102744.GA24424@srcf.ucam.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Krzysztof Halasa <khc@pm.waw.pl>
+Cc: Amit Kucheria <amit.kucheria@nokia.com>,
+	ipw2100-devel@lists.sourceforge.net, linux-pm@lists.osdl.org,
+	netdev@vger.kernel.org
+To: Matthew Garrett <mjg59@srcf.ucam.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:55658 "EHLO mail.dvmed.net"
+Received: from mail.suse.de ([195.135.220.2]:52685 "EHLO mx1.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932978AbXAaKoF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 Jan 2007 05:44:05 -0500
-In-Reply-To: <m3hcu85z4v.fsf@maximus.localdomain>
+	id S932995AbXAaKs3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 Jan 2007 05:48:29 -0500
+In-Reply-To: <20070131102744.GA24424@srcf.ucam.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Krzysztof Halasa wrote:
-> The attached patch adds an alternative driver "pc300too" for PCI WAN
-> cards PC300/RSV and PC300/X21 made by Cyclades Corp. (now Avocent Corp).
+On Wednesday 31 January 2007 11:27, Matthew Garrett wrote:
+> On Wed, Jan 31, 2007 at 12:13:04PM +0100, Andi Kleen wrote:
+> > Matthew Garrett <mjg59@srcf.ucam.org> writes:
+> > > 
+> > > PCI seems to require a delay of 10ms when sequencing from D3 to D0, 
+> > > which probably isn't acceptable latency for an "up" state.
+> > 
+> > It might be if the interface has been idle for some time
+> > (and the delay is not busy looping of course)
 > 
-> Signed-off-by: Krzysztof Halasa <khc@pm.waw.pl>
+> Hm. How would this interact with receiving packets?
 
-applied to #upstream
+The hardware will hopefully have support to wake itself up when that 
+happens.
 
-Please make sure to provides updates ensuring that it passes sparse 
-checks (see Documentation/sparse.txt)
-
-	Jeff
-
-
-
+-Andi
