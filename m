@@ -1,61 +1,176 @@
-From: Larry Finger <larry.finger@lwfinger.net>
-Subject: Re: Hidden SSID's
-Date: Tue, 30 Jan 2007 20:35:18 -0600
-Message-ID: <45C00066.80807@lwfinger.net>
-References: <45BACB71.2080107@lwfinger.net> <1169899689.25670.3.camel@localhost.localdomain> <1170019717.30318.0.camel@johannes.berg> <1170075611.2895.2.camel@localhost.localdomain> <20070130030911.GA6637@jm.kir.nu> <1170128208.3448.6.camel@localhost.localdomain> <45BECF04.3070904@lwfinger.net> <20070130050841.GC6637@jm.kir.nu> <45BEEEED.9010702@lwfinger.net> <20070130225641.GH32304@instant802.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [RFC] rfkill - Add support for input key to control wireless
+ radio
+Date: Tue, 30 Jan 2007 19:40:23 -0800
+Message-ID: <20070130194023.4e2d5305@localhost.localdomain>
+References: <200612031936.34343.IvDoorn@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Dan Williams <dcbw@redhat.com>,
+Cc: Dmitry Torokhov <dtor@insightbb.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, "John Linville" <linville@tuxdriver.com>,
+	Jiri Benc <jbenc@suse.cz>,
+	Lennart Poettering <lennart@poettering.net>,
 	Johannes Berg <johannes@sipsolutions.net>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Jouni Malinen <jkm@devicescape.com>
+	Larry Finger <Larry.Finger@lwfinger.net>
+To: Ivo van Doorn <ivdoorn@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtiwmhc12.worldnet.att.net ([204.127.131.116]:59797 "EHLO
-	mtiwmhc12.worldnet.att.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752131AbXAaCfW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jan 2007 21:35:22 -0500
-In-Reply-To: <20070130225641.GH32304@instant802.com>
+Received: from smtp.osdl.org ([65.172.181.24]:35779 "EHLO smtp.osdl.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932582AbXAaDlg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Jan 2007 22:41:36 -0500
+In-Reply-To: <200612031936.34343.IvDoorn@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jouni Malinen wrote:
-> On Tue, Jan 30, 2007 at 01:08:29AM -0600, Larry Finger wrote:
-> 
->> Any AP with a hidden SSID will only respond to probe requests that specify its SSID, and will ignore
->> any other probes. In addition, the response will have an empty SSID field. These responses are the
->> only ones in which a substitution would occur. These are the same responses where the current code
->> sends back the "<hidden>" pseudo-SSID. My change would put the correct one there.
-> 
-> Is the SSID from the probe response really used here? Your patch did not
-> look like that.. The SSID from the last scan request command may not be
-> the one that triggered the last scan (e.g., one could request a new scan
-> without specifying an SSID).
+Hope you will be resubmitting this.
 
-If one does the equivalent of 'iwlist eth1 scan essid myssid', then a probe response with
-NETWORK_EMPTY_ESSID set in the network flags will have 'myssid' returned in the SSID field of the
-returned buffer. If the input command were 'iwlist eth1 scan', then an empty SSID would be returned
-under the same circumstances. My code saves the SSID that is in the extra argument of the
-SIOCSIWSCAN call, and uses that in the SIOCGIWSCAN call.
-> 
->> We aren't guessing. The response frame with the empty SSID field must have come from the AP with the
->> SSID we want. Filling in the expected value is just making it easier for the user-space tools.
-> 
-> I don't see how the proposed patch would be using the correct SSID value
-> in all cases. Especially cases where there are multiple APs using hidden
-> SSIDs, but with different real SSID values and cases where multiple scan
-> requests are being processed would be likely to leave windows open for
-> reporting incorrect SSID.
+> +/*
+> + * rfkill key structure.
+> + */
+> +struct rfkill_key {
+> +	/*
+> +	 * For sysfs representation.
+> +	 */
+> +	struct class_device *cdev;
+> +
+> +	/*
+> +	 * Pointer to rfkill structure
+> +	 * that was filled in by key driver.
+> +	 */
+> +	struct rfkill *rfkill;
 
-I can think of one instance where the wrong value could be reported. That is if some other STA
-probes a different hidden AP just when we have sent a probe request. For WPA this should not cause a
-problem as wpa_supplicant will sort that out while authenticating.
-
-What is the method that should be used to associated with a given hidden AP?
-
-Larry
+Since rfkill is basically a function pointer table,
+can it be made const?
 
 
+> +	/*
+> +	 * Pointer to type structure that this key belongs to.
+> +	 */
+> +	struct rfkill_type *type;
+> +
+> +	/*
+> +	 * Once key status change has been detected, the toggled
+> +	 * field should be set to indicate a notification to
+> +	 * user or driver should be performed.
+> +	 */
+> +	int toggled;
+> +
+> +	/*
+> +	 * Current state of the device radio, this state will
+> +	 * change after the radio has actually been toggled since
+> +	 * receiving the radio key event.
+> +	 */
+> +	int radio_status;
+> +
+> +	/*
+> +	 * Current status of the key which controls the radio,
+> +	 * this value will change after the key state has changed
+> +	 * after polling, or the key driver has send the new state
+> +	 * manually.
+> +	 */
+> +	int key_status;
 
 
+Maybe turn these bits into a bit values (set_bit/clear_bit) in an unsigned long.
+
+> +	/*
+> +	 * Input device for this key,
+> +	 * we also keep track of the number of
+> +	 * times this input device is open. This
+> +	 * is important for determining to whom we
+> +	 * should report key events.
+> +	 */
+> +	struct input_dev *input;
+> +	unsigned int open_count;
+
+atomic on open_count?
+
+> +	/*
+> +	 * Key index number.
+> +	 */
+> +	unsigned int key_index;
+> +
+> +	/*
+> +	 * List head structure to be used
+> +	 * to add this structure to the list.
+> +	 */
+> +	struct list_head entry;
+> +};
+> +
+> +/*
+> + * rfkill key type structure.
+> + */
+> +struct rfkill_type {
+> +	/*
+> +	 * For sysfs representation.
+> +	 */
+> +	struct class_device *cdev;
+> +
+> +	/*
+> +	 * Name of this radio type.
+> +	 */
+> +	char *name;
+
+const?
+
+> +	/*
+> +	 * Key type identification. Value must be any
+> +	 * in the key_type enum.
+> +	 */
+> +	unsigned int key_type;
+> +
+> +	/*
+> +	 * Number of registered keys of this type.
+> +	 */
+> +	unsigned int key_count;
+> +};
+> +
+> +/*
+> + * rfkill master structure.
+> + */
+> +struct rfkill_master {
+> +	/*
+> +	 * For sysfs representation.
+> +	 */
+> +	struct class *class;
+> +
+> +	/*
+> +	 * All access to the master structure
+> +	 * and its children (the keys) are protected
+> +	 * by this key lock.
+> +	 */
+> +	struct semaphore key_sem;
+
+mutex instead of semaphort
+
+> +	/*
+> +	 * List of available key types.
+> +	 */
+> +	struct rfkill_type type[KEY_TYPE_MAX];
+> +
+> +	/*
+> +	 * Total number of registered keys.
+> +	 */
+> +	unsigned int key_count;
+> +
+> +	/*
+> +	 * Number of keys that require polling
+> +	 */
+> +	unsigned int poll_required;
+> +
+> +	/*
+> +	 * List of rfkill_key structures.
+> +	 */
+> +	struct list_head key_list;
+> +
+> +	/*
+> +	 * Work structures for periodic polling,
+> +	 * as well as the scheduled radio toggling.
+> +	 */
+> +	struct work_struct toggle_work;
+> +	struct work_struct poll_work;
+
+delayed_rearming_work instead?
+
+> +};
