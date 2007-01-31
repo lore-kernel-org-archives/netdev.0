@@ -1,101 +1,64 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [Patch][IPv6] Fix wrong routing mechanism for Link Local IPv6
- packets
-Date: Wed, 31 Jan 2007 10:08:32 +0900 (JST)
-Message-ID: <20070131.100832.42510960.yoshfuji@linux-ipv6.org>
-References: <001501c7444d$ed731020$ccb1220a@ZhaoleiSOTEC>
-	<1172069832.2682.18.camel@LINE>
+From: Joe Perches <joe@perches.com>
+Subject: Re: buggy IFB driver change
+Date: Tue, 30 Jan 2007 16:24:40 -0800
+Message-ID: <1170203080.31330.26.camel@localhost>
+References: <20070130.131246.71091370.davem@davemloft.net>
+	 <45BFBE1B.2040508@pobox.com> <20070130.141240.97296236.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: usagi-users@linux-ipv6.org, netdev@vger.kernel.org,
-	yoshfuji@linux-ipv6.org, davem@davemloft.net
-To: weid@np.css.fujitsu.com
+Cc: jgarzik@pobox.com, netdev@vger.kernel.org, m.kozlowski@tuxland.pl,
+	akpm@osdl.org, torvalds@linux-foundation.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:47554 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752172AbXAaBHS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jan 2007 20:07:18 -0500
-In-Reply-To: <1172069832.2682.18.camel@LINE>
+Received: from DSL022.labridge.com ([206.117.136.22]:3359 "EHLO Perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932098AbXAaBR2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Jan 2007 20:17:28 -0500
+In-Reply-To: <20070130.141240.97296236.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In article <1172069832.2682.18.camel@LINE> (at Wed, 21 Feb 2007 09:57:12 -0500), weidong <weid@np.css.fujitsu.com> says:
+On Tue, 2007-01-30 at 14:12 -0800, David Miller wrote:
+> > > Therefore we must decrement "i" twice before the first
+> > > free during the cleanup.  One to "undo" the for() loop
+> > > increment, and one to "skip" the ifb_init_one() case which
+> > > failed.
 
-> The following is the figure.
-:
-> Host eth0: fe80::200:ff:fe00:100
-> Router eth0: fe80::20c:29ff:fe24:fa0a
-> Router eth1: fe80::20c:29ff:fe24:fa14
+Perhaps putting the error unwind inside the for loop
+is simpler and more intelligible.
 
- Other network
-      |
-      | eth1
- +----+----+
- | Router  |
- +----+----+
-      | eth0
-      |
-      | eth0
- +----+----+
- |  Host   |
- +---------+
-
-> We ping6 from host's eth0 to Router's eth1. Echo Request's src addr =
-> fe80::200:ff:fe00:100, dst addr = fe80::20c:29ff:fe24:fa14. And Kernel
-> just send ICMPv6 redirect packet and then forward the Echo Request to
-> router's eth0. If we run tcpdump on Host eth0, we can receive the ICMPv6
-> Redirect packet. And if we send NA which advertises
-
-This is correct, and intended behavior.
-
-> fe80::20c:29ff:fe24:fa14 MAC address(this is very easy for v6eval tool),
-> we also can receive the forwarded Echo Request(src:fe80::200:ff:fe00:100
-> dst is fe80::20c:29ff:fe24:fa14). 
-
-Well, this is known issue, actually.
-
-While this cannot happen in normal operation, we should NOT accept
-such traffic. :-)
-
-Here is the (untested) fix.
-
------
-[IPV6] ROUTE: Do not accept traffic for link-local address on different interface.
-
-Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-
---- 
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 5f0043c..a7468e0 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -311,12 +311,19 @@ static inline void rt6_probe(struct rt6_info *rt)
- static int inline rt6_check_dev(struct rt6_info *rt, int oif)
+diff --git a/drivers/net/ifb.c b/drivers/net/ifb.c
+index ca2b21f..0b24c31 100644
+--- a/drivers/net/ifb.c
++++ b/drivers/net/ifb.c
+@@ -264,19 +264,20 @@ static void ifb_free_one(int index)
+ 
+ static int __init ifb_init_module(void)
  {
- 	struct net_device *dev = rt->rt6i_dev;
-+	int ret = 0;
-+
-+	if (dev->flags & IFF_LOOPBACK) {
-+		if (!WARN_ON(rt->rt6i_idev == NULL) &&
-+		    rt->rt6i_idev->dev->ifindex == oif)
-+			ret = 1;
-+		else
-+			return 0;
-+	}
- 	if (!oif || dev->ifindex == oif)
- 		return 2;
--	if ((dev->flags & IFF_LOOPBACK) &&
--	    rt->rt6i_idev && rt->rt6i_idev->dev->ifindex == oif)
--		return 1;
--	return 0;
-+
-+	return ret;
+-	int i, err = 0;
++	int i, err;
+ 	ifbs = kmalloc(numifbs * sizeof(void *), GFP_KERNEL);
+ 	if (!ifbs)
+ 		return -ENOMEM;
+-	for (i = 0; i < numifbs && !err; i++)
++	for (i = 0; i < numifbs; i++) {
+ 		err = ifb_init_one(i);
+-	if (err) {
+-		i--;
+-		while (--i >= 0)
+-			ifb_free_one(i);
++		if (err) {
++			while (i > 0)
++				ifb_free_one(--i);
++			return err;
++		}
+ 	}
+ 
+-	return err;
++	return 0;
  }
  
- static int inline rt6_check_neigh(struct rt6_info *rt)
+ static void __exit ifb_cleanup_module(void)
 
--- 
-YOSHIFUJI Hideaki @ USAGI Project  <yoshfuji@linux-ipv6.org>
-GPG-FP  : 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+
