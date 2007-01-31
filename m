@@ -1,42 +1,51 @@
-From: olof@lixom.net (Olof Johansson)
-Subject: Re: [PATCH] [v3] PA Semi PWRficient Ethernet driver
-Date: Wed, 31 Jan 2007 09:16:42 -0600
-Message-ID: <20070131151642.GA5318@lixom.net>
-References: <20070129060852.GA7814@lixom.net> <20070130014434.GC18935@lixom.net> <20070131054457.GA32043@lixom.net> <200701311344.31692.netdev@axxeo.de>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: [PATCH][NET_SCHED] sch_prio: class statistics printing enabled
+Date: Wed, 31 Jan 2007 16:17:21 +0100
+Message-ID: <20070131151721.GA3811@ff.dom.local>
+References: <20070131075348.GA1857@ff.dom.local> <45C09E0B.6020107@trash.net> <20070131143522.GB3521@ff.dom.local> <45C0A9A5.4080607@trash.net> <20070131150102.GA3643@ff.dom.local> <45C0B05D.3020101@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: jgarzik@pobox.com, netdev@vger.kernel.org,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Christoph Hellwig <hch@infradead.org>
-To: Ingo Oeser <netdev@axxeo.de>
+Cc: netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lixom.net ([66.141.50.11]:53611 "EHLO mail.lixom.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965015AbXAaPJ4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 Jan 2007 10:09:56 -0500
+Received: from mx10.go2.pl ([193.17.41.74]:60023 "EHLO poczta.o2.pl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S964806AbXAaPOl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 Jan 2007 10:14:41 -0500
 Content-Disposition: inline
-In-Reply-To: <200701311344.31692.netdev@axxeo.de>
+In-Reply-To: <45C0B05D.3020101@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Wed, Jan 31, 2007 at 04:06:05PM +0100, Patrick McHardy wrote:
+> Jarek Poplawski wrote:
+> >>From sch_api.c:
+> > 
+> > 
+> >>       if (cl_ops->dump && cl_ops->dump(q, cl, skb, tcm) < 0)
+> >>               goto rtattr_failure;
+> >>
+> >>       if (gnet_stats_start_copy_compat(skb, TCA_STATS2, TCA_STATS,
+> >>                       TCA_XSTATS, q->stats_lock, &d) < 0)
+> >>               goto rtattr_failure;
+> >>
+> >>       if (cl_ops->dump_stats && cl_ops->dump_stats(q, cl, &d) < 0)
+> >>               goto rtattr_failure;
+> > 
+> > 
+> > I can't see any difference between calling ->dump and
+> > ->dump_stats? Of course we may forsee this error should
+> > jump over cl_ops...
+> 
+> 
+> Why should there be a difference?
+> 
+> The class passed to both ->dump and ->dump_stats is not a classid but
+> a qdisc-internal identifier (pointer, integer, whatever) which comes
+> from either ->get or ->walk, and thus is valid unless these functions
+> have bugs. Your check would cover the bug up and has no other purpose.
 
-On Wed, Jan 31, 2007 at 01:44:31PM +0100, Ingo Oeser wrote:
+Maybe I miss something, but it's not "my check". I tried
+only to "stay in line with the remaining file"...
 
-> You might want to write these loops like that:
-[...]
-
-> That way you:
-> - Let you give other processes a chance to run, 
->   while you wait for your hardware state to change 
->   (if your hardware can tolerate these latencies).
-> - can somehow handle hardware failure and at least give the user a clue
->   what is happening.
-
-Yep, makes sense. I'll implement something like it.
-
-
-Thanks,
-
--Olof
+Jarek P.
