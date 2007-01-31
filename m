@@ -1,39 +1,23 @@
 From: weidong <weid@np.css.fujitsu.com>
-Subject: Re: [Patch][IPv6] Fix wrong routing mechanism for Link Local IPv6
+Subject: (usagi-users 03785) Re: [Patch][IPv6] Fix wrong routing mechanism for Link Local IPv6
 	packets
-Date: Wed, 31 Jan 2007 04:11:53 +0000 (UTC)
-Message-ID: <1172119906.2658.4.camel@LINE>
+Date: Wed, 31 Jan 2007 04:29:49 +0000 (UTC)
+Message-ID: <1172119906.2658.4.camel__17187.3178835542$1170217789$gmane$org@LINE>
 References: <001101c744ec$5ee31720$ccb1220a@ZhaoleiSOTEC>
+Reply-To: usagi-users@linux-ipv6.org
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, usagi-users@linux-ipv6.org,
-	davem@davemloft.net
+Cc: netdev@vger.kernel.org, usagi-users@linux-ipv6.org, davem@davemloft.net
 To: yoshfuji@linux-ipv6.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fgwmail5.fujitsu.co.jp ([192.51.44.35]:46574 "EHLO
-	fgwmail5.fujitsu.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751943AbXAaELd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jan 2007 23:11:33 -0500
-Received: from m4.gw.fujitsu.co.jp ([10.0.50.74])
-	by fgwmail5.fujitsu.co.jp (Fujitsu Gateway) with ESMTP id l0V4BUDW020705
-	for <netdev@vger.kernel.org> (envelope-from weid@np.css.fujitsu.com);
-	Wed, 31 Jan 2007 13:11:30 +0900
-Received: from smail (m4 [127.0.0.1])
-	by outgoing.m4.gw.fujitsu.co.jp (Postfix) with ESMTP id CB8D62AC127
-	for <netdev@vger.kernel.org>; Wed, 31 Jan 2007 13:11:30 +0900 (JST)
-Received: from s12.gw.fujitsu.co.jp (s12.gw.fujitsu.co.jp [10.0.50.82])
-	by m4.gw.fujitsu.co.jp (Postfix) with ESMTP id A37B212C066
-	for <netdev@vger.kernel.org>; Wed, 31 Jan 2007 13:11:30 +0900 (JST)
-Received: from s12.gw.fujitsu.co.jp (s12 [127.0.0.1])
-	by s12.gw.fujitsu.co.jp (Postfix) with ESMTP id 8CEED161C007
-	for <netdev@vger.kernel.org>; Wed, 31 Jan 2007 13:11:30 +0900 (JST)
-Received: from ml2.s.css.fujitsu.com (ml2.s.css.fujitsu.com [10.23.4.192])
-	by s12.gw.fujitsu.co.jp (Postfix) with ESMTP id 14F62161C00A
-	for <netdev@vger.kernel.org>; Wed, 31 Jan 2007 13:11:30 +0900 (JST)
-In-Reply-To: <001101c744ec$5ee31720$ccb1220a@ZhaoleiSOTEC>
+Return-path: <usagi-users-admin@linux-ipv6.org>
 Date: Wed, 21 Feb 2007 23:51:45 -0500
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <001101c744ec$5ee31720$ccb1220a@ZhaoleiSOTEC>
+List-Software: fml [fml 4.0.3 release (20011202/4.0.3)]
+List-Post: <mailto:usagi-users@linux-ipv6.org>
+List-Owner: <mailto:usagi-users-admin@linux-ipv6.org>
+List-Help: <mailto:usagi-users-ctl@linux-ipv6.org?body=help>
+List-Unsubscribe: <mailto:usagi-users-ctl@linux-ipv6.org?body=unsubscribe>
 List-Id: netdev.vger.kernel.org
 
 Hello, Mr yoshfuji
@@ -164,4 +148,3 @@ On Wed, 2007-01-31 at 13:00 +0900, Wei Dong wrote:
 > 
 >  static int inline rt6_check_neigh(struct rt6_info *rt)
 > 
-
