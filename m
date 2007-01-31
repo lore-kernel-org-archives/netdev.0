@@ -1,28 +1,28 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 1/5] sky2: handle network device allocation failure
-Date: Wed, 31 Jan 2007 05:03:04 -0500
-Message-ID: <45C06958.30309@garzik.org>
-References: <20070126193835.658962000@linux-foundation.org> <20070126194004.028526000@linux-foundation.org>
+Subject: Re: [USBNET] PEGASUS: Fix typo in Corega products.
+Date: Wed, 31 Jan 2007 05:02:50 -0500
+Message-ID: <45C0694A.3050302@garzik.org>
+References: <20070126.225901.112152229.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
-To: shemminger@linux-foundation.org
+To: =?UTF-8?B?WU9TSElGVUpJIEhpZGVha2kgLyDlkInol6Toi7HmmI4=?=
+	<yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:55349 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:55341 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932928AbXAaKDH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 Jan 2007 05:03:07 -0500
-In-Reply-To: <20070126194004.028526000@linux-foundation.org>
+	id S932930AbXAaKCv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 Jan 2007 05:02:51 -0500
+In-Reply-To: <20070126.225901.112152229.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-shemminger@linux-foundation.org wrote:
-> If alloc_etherdev() failed, then sky2_init_netdev will return NULL,
-> and sky2_probe would end up returning 0 instead of -ENOMEM.
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E wrote:
+> s/FEter/FEther/.
+>=20
+> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 
 applied
-
 
