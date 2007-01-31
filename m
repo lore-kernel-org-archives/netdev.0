@@ -1,752 +1,436 @@
-From: Sivakumar Subramani <Sivakumar.Subramani@neterion.com>
-Subject: [PATCH 2.6.20 2/5] S2IO: Fixes for reset and link handling.
-Date: Wed, 31 Jan 2007 13:30:49 -0500 (EST)
-Message-ID: <Pine.GSO.4.10.10701311328210.23100-100000@guinness>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: leonid.grossman@neterion.com, alicia.pena@neterion.com,
-	ramkrishna.vepa@neterion.com, ananda.raju@neterion.com,
-	sreenivasa.honnur@neterion.com, sriram.rapuru@neterion.com,
-	sivakumar.subramani@neterion.com, santosh.rastapur@neterion.com
-To: netdev@vger.kernel.org, jeff@garzik.org
+From: "Amit S. Kale" <amitkale@netxen.com>
+Subject: [PATCH 1/1] NetXen: Fixes for ppc architecture.
+Date: Wed, 31 Jan 2007 10:31:45 -0800
+Message-ID: <200701311831.l0VIVjch005677@dut39.unminc.com>
+Cc: amitkale@netxen.com, brazilnut@us.ibm.com, jeff@garzik.org,
+	netxenproj@linsyssoft.com, rob@netxen.com, sanjeev@netxen.com,
+	wendyx@us.ibm.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from barracuda.s2io.com ([72.1.205.138]:47675 "EHLO
-	barracuda.s2io.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030511AbXAaSav (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Jan 2007 13:30:51 -0500
+Received: from 66-126-254-34.unm.net ([66.126.254.34]:22241 "EHLO
+	nxmail.netxen.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1030520AbXAaSbq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Jan 2007 13:31:46 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-1. Fix for reset and link handling.
-2. Allow for promiscuos mode and multicast state be maintained through
-   ifconfig up and down.
-3. Support to print adapter serial number.
+NetXen: Fixes for ppc architecture.
 
-Signed-off-by: Sivakumar Subramani <sivakumar.subramani@neterion.com>
+Signed-off-by: Amit S. Kale <amitkale@netxen.com>
+
 ---
-diff -urpN patch1/drivers/net/s2io.c patch2/drivers/net/s2io.c
---- patch1/drivers/net/s2io.c	2007-01-31 21:02:31.000000000 +0530
-+++ patch2/drivers/net/s2io.c	2007-01-31 22:49:54.000000000 +0530
-@@ -1415,7 +1415,7 @@ static int init_nic(struct s2io_nic *nic
- 
- 	val64 = TTI_DATA2_MEM_TX_UFC_A(0x10) |
- 	    TTI_DATA2_MEM_TX_UFC_B(0x20) |
--	    TTI_DATA2_MEM_TX_UFC_C(0x70) | TTI_DATA2_MEM_TX_UFC_D(0x80);
-+	    TTI_DATA2_MEM_TX_UFC_C(0x40) | TTI_DATA2_MEM_TX_UFC_D(0x80);
- 	writeq(val64, &bar0->tti_data2_mem);
- 
- 	val64 = TTI_CMD_MEM_WE | TTI_CMD_MEM_STROBE_NEW_CMD;
-@@ -1611,7 +1611,8 @@ static int init_nic(struct s2io_nic *nic
- 	 * that does not start on an ADB to reduce disconnects.
- 	 */
- 	if (nic->device_type == XFRAME_II_DEVICE) {
--		val64 = EXT_REQ_EN | MISC_LINK_STABILITY_PRD(3);
-+		val64 = FAULT_BEHAVIOUR | EXT_REQ_EN |
-+			MISC_LINK_STABILITY_PRD(3);
- 		writeq(val64, &bar0->misc_control);
- 		val64 = readq(&bar0->pic_control2);
- 		val64 &= ~(BIT(13)|BIT(14)|BIT(15));
-@@ -1878,41 +1879,36 @@ static void en_dis_able_nic_intrs(struct
- 	}
+
+Sorry, I wanted to send only one patch so please ignore [PATCH 0/2] in the
+subject of my last mail. It should be [PATCH 0/1].
+
+ netxen_nic.h      |   98 ++++++++++++++++++++++++++++++++----------------------
+ netxen_nic_hw.c   |   31 ++++++++---------
+ netxen_nic_init.c |   19 +++++-----
+ netxen_nic_main.c |    7 ++-
+ netxen_nic_niu.c  |    2 -
+ 5 files changed, 91 insertions(+), 66 deletions(-)
+diff --git a/drivers/net/netxen/netxen_nic.h b/drivers/net/netxen/netxen_nic.h
+index 59324b1..d689476 100644
+--- a/drivers/net/netxen/netxen_nic.h
++++ b/drivers/net/netxen/netxen_nic.h
+@@ -246,6 +246,18 @@ #define _netxen_set_bits(config_word, st
+ 	(config_word) |= (((value) << (start)) & mask); \
  }
  
--static int check_prc_pcc_state(u64 val64, int flag, int rev_id, int herc)
-+/**
-+ *  verify_pcc_quiescent- Checks for PCC quiescent state
-+ *  Return: 1 If PCC is quiescence
-+ *          0 If PCC is not quiescence
-+ */
-+static int verify_pcc_quiescent(nic_t *sp, int flag)
- {
--	int ret = 0;
-+	int ret = 0, herc;
-+	XENA_dev_config_t __iomem *bar0 = sp->bar0;
-+	u64 val64 = readq(&bar0->adapter_status);
-+	
-+	herc = (sp->device_type == XFRAME_II_DEVICE);
- 
- 	if (flag == FALSE) {
--		if ((!herc && (rev_id >= 4)) || herc) {
--			if (!(val64 & ADAPTER_STATUS_RMAC_PCC_IDLE) &&
--			    ((val64 & ADAPTER_STATUS_RC_PRC_QUIESCENT) ==
--			     ADAPTER_STATUS_RC_PRC_QUIESCENT)) {
-+		if ((!herc && (get_xena_rev_id(sp->pdev) >= 4)) || herc) {
-+			if (!(val64 & ADAPTER_STATUS_RMAC_PCC_IDLE))
- 				ret = 1;
--			}
--		}else {
--			if (!(val64 & ADAPTER_STATUS_RMAC_PCC_FOUR_IDLE) &&
--			    ((val64 & ADAPTER_STATUS_RC_PRC_QUIESCENT) ==
--			     ADAPTER_STATUS_RC_PRC_QUIESCENT)) {
-+		} else {
-+			if (!(val64 & ADAPTER_STATUS_RMAC_PCC_FOUR_IDLE))
- 				ret = 1;
--			}
- 		}
- 	} else {
--		if ((!herc && (rev_id >= 4)) || herc) {
-+		if ((!herc && (get_xena_rev_id(sp->pdev) >= 4)) || herc) {
- 			if (((val64 & ADAPTER_STATUS_RMAC_PCC_IDLE) ==
--			     ADAPTER_STATUS_RMAC_PCC_IDLE) &&
--			    (!(val64 & ADAPTER_STATUS_RC_PRC_QUIESCENT) ||
--			     ((val64 & ADAPTER_STATUS_RC_PRC_QUIESCENT) ==
--			      ADAPTER_STATUS_RC_PRC_QUIESCENT))) {
-+			     ADAPTER_STATUS_RMAC_PCC_IDLE))
- 				ret = 1;
--			}
- 		} else {
- 			if (((val64 & ADAPTER_STATUS_RMAC_PCC_FOUR_IDLE) ==
--			     ADAPTER_STATUS_RMAC_PCC_FOUR_IDLE) &&
--			    (!(val64 & ADAPTER_STATUS_RC_PRC_QUIESCENT) ||
--			     ((val64 & ADAPTER_STATUS_RC_PRC_QUIESCENT) ==
--			      ADAPTER_STATUS_RC_PRC_QUIESCENT))) {
-+			     ADAPTER_STATUS_RMAC_PCC_FOUR_IDLE))
- 				ret = 1;
--			}
- 		}
- 	}
- 
-@@ -1920,9 +1916,6 @@ static int check_prc_pcc_state(u64 val64
- }
- /**
-  *  verify_xena_quiescence - Checks whether the H/W is ready
-- *  @val64 :  Value read from adapter status register.
-- *  @flag : indicates if the adapter enable bit was ever written once
-- *  before.
-  *  Description: Returns whether the H/W is ready to go or not. Depending
-  *  on whether adapter enable bit was written or not the comparison
-  *  differs and the calling function passes the input argument flag to
-@@ -1931,24 +1924,63 @@ static int check_prc_pcc_state(u64 val64
-  *          0 If Xena is not quiescence
-  */
- 
--static int verify_xena_quiescence(nic_t *sp, u64 val64, int flag)
-+static int verify_xena_quiescence(nic_t *sp)
- {
--	int ret = 0, herc;
--	u64 tmp64 = ~((u64) val64);
--	int rev_id = get_xena_rev_id(sp->pdev);
-+	int  mode;
-+	XENA_dev_config_t __iomem *bar0 = sp->bar0;
-+	u64 val64 = readq(&bar0->adapter_status);
-+	mode = s2io_verify_pci_mode(sp);
- 
--	herc = (sp->device_type == XFRAME_II_DEVICE);
--	if (!
--	    (tmp64 &
--	     (ADAPTER_STATUS_TDMA_READY | ADAPTER_STATUS_RDMA_READY |
--	      ADAPTER_STATUS_PFC_READY | ADAPTER_STATUS_TMAC_BUF_EMPTY |
--	      ADAPTER_STATUS_PIC_QUIESCENT | ADAPTER_STATUS_MC_DRAM_READY |
--	      ADAPTER_STATUS_MC_QUEUES_READY | ADAPTER_STATUS_M_PLL_LOCK |
--	      ADAPTER_STATUS_P_PLL_LOCK))) {
--		ret = check_prc_pcc_state(val64, flag, rev_id, herc);
-+	if (!(val64 & ADAPTER_STATUS_TDMA_READY)) {
-+		DBG_PRINT(ERR_DBG, "%s", "TDMA is not ready!");
-+		return 0;
-+	}
-+	if (!(val64 & ADAPTER_STATUS_RDMA_READY)) {
-+	DBG_PRINT(ERR_DBG, "%s", "RDMA is not ready!");
-+		return 0;
-+	}
-+	if (!(val64 & ADAPTER_STATUS_PFC_READY)) {
-+		DBG_PRINT(ERR_DBG, "%s", "PFC is not ready!");
-+		return 0;
-+	}
-+	if (!(val64 & ADAPTER_STATUS_TMAC_BUF_EMPTY)) {
-+		DBG_PRINT(ERR_DBG, "%s", "TMAC BUF is not empty!");
-+		return 0;
-+	}
-+	if (!(val64 & ADAPTER_STATUS_PIC_QUIESCENT)) {
-+		DBG_PRINT(ERR_DBG, "%s", "PIC is not QUIESCENT!");
-+		return 0;
-+	}
-+	if (!(val64 & ADAPTER_STATUS_MC_DRAM_READY)) {
-+		DBG_PRINT(ERR_DBG, "%s", "MC_DRAM is not ready!");
-+		return 0;
-+	}
-+	if (!(val64 & ADAPTER_STATUS_MC_QUEUES_READY)) {
-+		DBG_PRINT(ERR_DBG, "%s", "MC_QUEUES is not ready!");
-+		return 0;
-+	}
-+	if (!(val64 & ADAPTER_STATUS_M_PLL_LOCK)) {
-+		DBG_PRINT(ERR_DBG, "%s", "M_PLL is not locked!");
-+		return 0;
- 	}
- 
--	return ret;
-+	/*
-+	 * In PCI 33 mode, the P_PLL is not used, and therefore,
-+	 * the the P_PLL_LOCK bit in the adapter_status register will
-+	 * not be asserted.
-+	 */
-+	if (!(val64 & ADAPTER_STATUS_P_PLL_LOCK) &&
-+		sp->device_type == XFRAME_II_DEVICE && mode !=
-+		PCI_MODE_PCI_33) {
-+		DBG_PRINT(ERR_DBG, "%s", "P_PLL is not locked!");
-+		return 0;
-+	}
-+	if (!((val64 & ADAPTER_STATUS_RC_PRC_QUIESCENT) ==
-+			ADAPTER_STATUS_RC_PRC_QUIESCENT)) {
-+		DBG_PRINT(ERR_DBG, "%s", "RC_PRC is not QUIESCENT!");
-+		return 0;
-+	}
-+	return 1;
- }
- 
- /**
-@@ -2053,7 +2085,7 @@ static int start_nic(struct s2io_nic *ni
- 	 * it.
- 	 */
- 	val64 = readq(&bar0->adapter_status);
--	if (!verify_xena_quiescence(nic, val64, nic->device_enabled_once)) {
-+	if (!verify_xena_quiescence(nic)) {
- 		DBG_PRINT(ERR_DBG, "%s: device is not ready, ", dev->name);
- 		DBG_PRINT(ERR_DBG, "Adapter status reads: 0x%llx\n",
- 			  (unsigned long long) val64);
-@@ -2577,7 +2609,6 @@ static int s2io_poll(struct net_device *
- 	mac_info_t *mac_control;
- 	struct config_param *config;
- 	XENA_dev_config_t __iomem *bar0 = nic->bar0;
--	u64 val64 = 0xFFFFFFFFFFFFFFFFULL;
- 	int i;
- 
- 	atomic_inc(&nic->isr_cnt);
-@@ -2589,8 +2620,8 @@ static int s2io_poll(struct net_device *
- 		nic->pkts_to_process = dev->quota;
- 	org_pkts_to_process = nic->pkts_to_process;
- 
--	writeq(val64, &bar0->rx_traffic_int);
--	val64 = readl(&bar0->rx_traffic_int);
-+	writeq(S2IO_MINUS_ONE, &bar0->rx_traffic_int);
-+	readl(&bar0->rx_traffic_int);
- 
- 	for (i = 0; i < config->rx_ring_num; i++) {
- 		rx_intr_handler(&mac_control->rings[i]);
-@@ -2616,7 +2647,7 @@ static int s2io_poll(struct net_device *
- 	}
- 	/* Re enable the Rx interrupts. */
- 	writeq(0x0, &bar0->rx_traffic_mask);
--	val64 = readl(&bar0->rx_traffic_mask);
-+	readl(&bar0->rx_traffic_mask);
- 	atomic_dec(&nic->isr_cnt);
- 	return 0;
- 
-@@ -2851,11 +2882,10 @@ static void tx_intr_handler(fifo_info_t 
- 			}
- 			if ((err >> 48) == 0xA) {
- 				DBG_PRINT(TX_DBG, "TxD returned due \
--to loss of link\n");
-+						to loss of link\n");
- 			}
- 			else {
--				DBG_PRINT(ERR_DBG, "***TxD error \
--%llx\n", err);
-+				DBG_PRINT(ERR_DBG, "***TxD error %llx\n", err);
- 			}
- 		}
- 
-@@ -3294,6 +3324,25 @@ static int wait_for_cmd_complete(void __
- 	}
- 	return ret;
- }
-+/*
-+ * check_pci_device_id - Checks if the device id is supported
-+ * @id : device id
-+ * Description: Function to check if the pci device id is supported by driver.
-+ * Return value: Actual device id if supported else PCI_ANY_ID
-+ */
-+static u16 check_pci_device_id(u16 id)
++static inline u32 netxen_set_32bits(u32 config_word, int start,
++				  int bits, u32 val)
 +{
-+	switch (id) {
-+	case PCI_DEVICE_ID_HERC_WIN:
-+	case PCI_DEVICE_ID_HERC_UNI:
-+		return XFRAME_II_DEVICE;
-+	case PCI_DEVICE_ID_S2IO_UNI:
-+	case PCI_DEVICE_ID_S2IO_WIN:
-+		return XFRAME_I_DEVICE;
-+	default:
-+		return PCI_ANY_ID;
-+	}
++	_netxen_set_bits(config_word, start, bits, val);
++	return config_word;
 +}
++static inline u16 netxen_set_16bits(u16 config_word, int start,
++				  int bits, u16 val)
++{
++	_netxen_set_bits(config_word, start, bits, val);
++	return config_word;
++}
+ #define netxen_set_msg_peg_id(config_word, val)	\
+ 	_netxen_set_bits(config_word, 0, 2, val)
+ #define netxen_set_msg_privid(config_word)	\
+@@ -305,69 +317,77 @@ #define netxen_set_cmd_desc_port(cmd_des
+ 	((cmd_desc)->port_ctxid |= ((var) & 0x0F))
  
- /**
-  *  s2io_reset - Resets the card.
-@@ -3310,37 +3359,52 @@ static void s2io_reset(nic_t * sp)
- 	XENA_dev_config_t __iomem *bar0 = sp->bar0;
- 	u64 val64;
- 	u16 subid, pci_cmd;
-+	int i;
-+	u16 val16;
-+	DBG_PRINT(INIT_DBG,"%s - Resetting XFrame card %s\n",
-+			__FUNCTION__, sp->dev->name);
- 
- 	/* Back up  the PCI-X CMD reg, dont want to lose MMRBC, OST settings */
- 	pci_read_config_word(sp->pdev, PCIX_COMMAND_REGISTER, &(pci_cmd));
- 
-+	if (sp->device_type == XFRAME_II_DEVICE) {
-+		int ret;
-+		ret = pci_set_power_state(sp->pdev, 3);
-+		if (!ret)
-+			ret = pci_set_power_state(sp->pdev, 0);
-+		else {
-+			DBG_PRINT(ERR_DBG,"%s PME based SW_Reset failed!\n",
-+					__FUNCTION__);
-+			goto old_way;
-+		}
-+		msleep(20);
-+		goto new_way;
-+	}
-+old_way:
- 	val64 = SW_RESET_ALL;
- 	writeq(val64, &bar0->sw_reset);
--
--	/*
--	 * At this stage, if the PCI write is indeed completed, the
--	 * card is reset and so is the PCI Config space of the device.
--	 * So a read cannot be issued at this stage on any of the
--	 * registers to ensure the write into "sw_reset" register
--	 * has gone through.
--	 * Question: Is there any system call that will explicitly force
--	 * all the write commands still pending on the bus to be pushed
--	 * through?
--	 * As of now I'am just giving a 250ms delay and hoping that the
--	 * PCI write to sw_reset register is done by this time.
--	 */
--	msleep(250);
-+new_way:
- 	if (strstr(sp->product_name, "CX4")) {
- 		msleep(750);
- 	}
-+	msleep(250);
-+	for (i = 0; i < S2IO_MAX_PCI_CONFIG_SPACE_REINIT; i++) {
+ #define netxen_set_cmd_desc_flags(cmd_desc, val)	\
+-	_netxen_set_bits((cmd_desc)->flags_opcode, 0, 7, val)
++	(cmd_desc)->flags_opcode = cpu_to_le16(	\
++	netxen_set_16bits(le16_to_cpu((cmd_desc)->flags_opcode), 0, 7, val))
 +
-+		/* Restore the PCI state saved during initialization. */
-+		pci_restore_state(sp->pdev);
-+		pci_read_config_word(sp->pdev, 0x2, &val16);
-+		if (check_pci_device_id(val16) != (u16)PCI_ANY_ID)
-+			break;
-+		msleep(200);
-+	}
+ #define netxen_set_cmd_desc_opcode(cmd_desc, val)	\
+-	_netxen_set_bits((cmd_desc)->flags_opcode, 7, 6, val)
++	(cmd_desc)->flags_opcode = cpu_to_le16( \
++	netxen_set_16bits(le16_to_cpu((cmd_desc)->flags_opcode), 7, 6, val))
  
--	/* Restore the PCI state saved during initialization. */
--	pci_restore_state(sp->pdev);
--	pci_write_config_word(sp->pdev, PCIX_COMMAND_REGISTER,
--				     pci_cmd);
--	s2io_init_pci(sp);
-+	if (check_pci_device_id(val16) == (u16)PCI_ANY_ID) {
-+		DBG_PRINT(ERR_DBG,"%s SW_Reset failed!\n", __FUNCTION__);
-+	}
- 
--	msleep(250);
-+	pci_write_config_word(sp->pdev, PCIX_COMMAND_REGISTER, pci_cmd);
+ #define netxen_set_cmd_desc_num_of_buff(cmd_desc, val)	\
+-	_netxen_set_bits((cmd_desc)->num_of_buffers_total_length, 0, 8, val);
++	(cmd_desc)->num_of_buffers_total_length = cpu_to_le32(	\
++	netxen_set_32bits(le32_to_cpu((cmd_desc)->num_of_buffers_total_length),	\
++			  0, 8, val))
 +
-+	s2io_init_pci(sp);
+ #define netxen_set_cmd_desc_totallength(cmd_desc, val)	\
+-	_netxen_set_bits((cmd_desc)->num_of_buffers_total_length, 8, 24, val);
++	(cmd_desc)->num_of_buffers_total_length = cpu_to_le32(  \
++	netxen_set_32bits(le32_to_cpu((cmd_desc)->num_of_buffers_total_length),	\
++			  8, 24, val))
  
- 	/* Set swapper to enable I/O register access */
- 	s2io_set_swapper(sp);
-@@ -4104,39 +4168,33 @@ static void s2io_txpic_intr_handle(nic_t
- 		}
- 		else if (val64 & GPIO_INT_REG_LINK_UP) {
- 			val64 = readq(&bar0->adapter_status);
--			if (verify_xena_quiescence(sp, val64,
--						   sp->device_enabled_once)) {
- 				/* Enable Adapter */
--				val64 = readq(&bar0->adapter_control);
--				val64 |= ADAPTER_CNTL_EN;
--				writeq(val64, &bar0->adapter_control);
--				val64 |= ADAPTER_LED_ON;
--				writeq(val64, &bar0->adapter_control);
--				if (!sp->device_enabled_once)
--					sp->device_enabled_once = 1;
-+			val64 = readq(&bar0->adapter_control);
-+			val64 |= ADAPTER_CNTL_EN;
-+			writeq(val64, &bar0->adapter_control);
-+			val64 |= ADAPTER_LED_ON;
-+			writeq(val64, &bar0->adapter_control);
-+			if (!sp->device_enabled_once)
-+				sp->device_enabled_once = 1;
+ #define netxen_get_cmd_desc_opcode(cmd_desc)	\
+-	(((cmd_desc)->flags_opcode >> 7) & 0x003F)
++	((le16_to_cpu((cmd_desc)->flags_opcode) >> 7) & 0x003F)
+ #define netxen_get_cmd_desc_totallength(cmd_desc)	\
+-	(((cmd_desc)->num_of_buffers_total_length >> 8) & 0x0FFFFFF)
++	((le32_to_cpu((cmd_desc)->num_of_buffers_total_length) >> 8) & 0x0FFFFFF)
  
--				s2io_link(sp, LINK_UP);
--				/*
--				 * unmask link down interrupt and mask link-up
--				 * intr
--				 */
--				val64 = readq(&bar0->gpio_int_mask);
--				val64 &= ~GPIO_INT_MASK_LINK_DOWN;
--				val64 |= GPIO_INT_MASK_LINK_UP;
--				writeq(val64, &bar0->gpio_int_mask);
-+			s2io_link(sp, LINK_UP);
-+			/*
-+			 * unmask link down interrupt and mask link-up
-+			 * intr
-+			 */
-+			val64 = readq(&bar0->gpio_int_mask);
-+			val64 &= ~GPIO_INT_MASK_LINK_DOWN;
-+			val64 |= GPIO_INT_MASK_LINK_UP;
-+			writeq(val64, &bar0->gpio_int_mask);
+ struct cmd_desc_type0 {
+ 	u8 tcp_hdr_offset;	/* For LSO only */
+ 	u8 ip_hdr_offset;	/* For LSO only */
+ 	/* Bit pattern: 0-6 flags, 7-12 opcode, 13-15 unused */
+-	u16 flags_opcode;
++	__le16 flags_opcode;
+ 	/* Bit pattern: 0-7 total number of segments,
+ 	   8-31 Total size of the packet */
+-	u32 num_of_buffers_total_length;
++	__le32 num_of_buffers_total_length;
+ 	union {
+ 		struct {
+-			u32 addr_low_part2;
+-			u32 addr_high_part2;
++			__le32 addr_low_part2;
++			__le32 addr_high_part2;
+ 		};
+-		u64 addr_buffer2;
++		__le64 addr_buffer2;
+ 	};
  
--			}
- 		}else if (val64 & GPIO_INT_REG_LINK_DOWN) {
- 			val64 = readq(&bar0->adapter_status);
--			if (verify_xena_quiescence(sp, val64,
--						   sp->device_enabled_once)) {
--				s2io_link(sp, LINK_DOWN);
--				/* Link is down so unmaks link up interrupt */
--				val64 = readq(&bar0->gpio_int_mask);
--				val64 &= ~GPIO_INT_MASK_LINK_UP;
--				val64 |= GPIO_INT_MASK_LINK_DOWN;
--				writeq(val64, &bar0->gpio_int_mask);
--			}
-+			s2io_link(sp, LINK_DOWN);
-+			/* Link is down so unmaks link up interrupt */
-+			val64 = readq(&bar0->gpio_int_mask);
-+			val64 &= ~GPIO_INT_MASK_LINK_UP;
-+			val64 |= GPIO_INT_MASK_LINK_DOWN;
-+			writeq(val64, &bar0->gpio_int_mask);
- 		}
- 	}
- 	val64 = readq(&bar0->gpio_int_mask);
-@@ -4161,7 +4219,7 @@ static irqreturn_t s2io_isr(int irq, voi
- 	nic_t *sp = dev->priv;
- 	XENA_dev_config_t __iomem *bar0 = sp->bar0;
- 	int i;
--	u64 reason = 0, val64, org_mask;
-+	u64 reason = 0;
- 	mac_info_t *mac_control;
- 	struct config_param *config;
+-	u16 reference_handle;	/* changed to u16 to add mss */
+-	u16 mss;		/* passed by NDIS_PACKET for LSO */
++	__le16 reference_handle;	/* changed to u16 to add mss */
++	__le16 mss;		/* passed by NDIS_PACKET for LSO */
+ 	/* Bit pattern 0-3 port, 0-3 ctx id */
+ 	u8 port_ctxid;
+ 	u8 total_hdr_length;	/* LSO only : MAC+IP+TCP Hdr size */
+-	u16 conn_id;		/* IPSec offoad only */
++	__le16 conn_id;		/* IPSec offoad only */
  
-@@ -4180,22 +4238,24 @@ static irqreturn_t s2io_isr(int irq, voi
- 	reason = readq(&bar0->general_int_status);
+ 	union {
+ 		struct {
+-			u32 addr_low_part3;
+-			u32 addr_high_part3;
++			__le32 addr_low_part3;
++			__le32 addr_high_part3;
+ 		};
+-		u64 addr_buffer3;
++		__le64 addr_buffer3;
+ 	};
+ 	union {
+ 		struct {
+-			u32 addr_low_part1;
+-			u32 addr_high_part1;
++			__le32 addr_low_part1;
++			__le32 addr_high_part1;
+ 		};
+-		u64 addr_buffer1;
++		__le64 addr_buffer1;
+ 	};
  
- 	if (!reason) {
--		/* The interrupt was not raised by Xena. */
-+		/* The interrupt was not raised by us. */
-+		atomic_dec(&sp->isr_cnt);
-+		return IRQ_NONE;
-+	}
-+	else if (unlikely(reason == S2IO_MINUS_ONE) ) {
-+		/* Disable device and get out */
- 		atomic_dec(&sp->isr_cnt);
- 		return IRQ_NONE;
- 	}
--
--	val64 = 0xFFFFFFFFFFFFFFFFULL;
--	/* Store current mask before masking all interrupts */
--	org_mask = readq(&bar0->general_int_mask);
--	writeq(val64, &bar0->general_int_mask);
+-	u16 buffer1_length;
+-	u16 buffer2_length;
+-	u16 buffer3_length;
+-	u16 buffer4_length;
++	__le16 buffer1_length;
++	__le16 buffer2_length;
++	__le16 buffer3_length;
++	__le16 buffer4_length;
  
- 	if (napi) {
- 		if (reason & GEN_INTR_RXTRAFFIC) {
--			if (netif_rx_schedule_prep(dev)) {
--				writeq(val64, &bar0->rx_traffic_mask);
-+			if ( likely ( netif_rx_schedule_prep(dev)) ) {
- 				__netif_rx_schedule(dev);
-+				writeq(S2IO_MINUS_ONE, &bar0->rx_traffic_mask);
- 			}
-+			else
-+				writeq(S2IO_MINUS_ONE, &bar0->rx_traffic_int);
- 		}
- 	} else {
- 		/*
-@@ -4205,7 +4265,9 @@ static irqreturn_t s2io_isr(int irq, voi
- 		 * will ensure that the actual interrupt causing bit get's
- 		 * cleared and hence a read can be avoided.
- 		 */
--		writeq(val64, &bar0->rx_traffic_int);
-+		if (reason & GEN_INTR_RXTRAFFIC)
-+			writeq(S2IO_MINUS_ONE, &bar0->rx_traffic_int);
-+
- 		for (i = 0; i < config->rx_ring_num; i++) {
- 			rx_intr_handler(&mac_control->rings[i]);
- 		}
-@@ -4216,7 +4278,8 @@ static irqreturn_t s2io_isr(int irq, voi
- 	 * will ensure that the actual interrupt causing bit get's
- 	 * cleared and hence a read can be avoided.
+ 	union {
+ 		struct {
+-			u32 addr_low_part4;
+-			u32 addr_high_part4;
++			__le32 addr_low_part4;
++			__le32 addr_high_part4;
+ 		};
+-		u64 addr_buffer4;
++		__le64 addr_buffer4;
+ 	};
+ 
+ 	u64 unused;
+@@ -405,36 +425,36 @@ #define netxen_get_sts_desc_lro_last_fra
+ 	(((status_desc)->lro & 0x80) >> 7)
+ 
+ #define netxen_get_sts_port(status_desc)	\
+-	((status_desc)->status_desc_data & 0x0F)
++	(le64_to_cpu((status_desc)->status_desc_data) & 0x0F)
+ #define netxen_get_sts_status(status_desc)	\
+-	(((status_desc)->status_desc_data >> 4) & 0x0F)
++	((le64_to_cpu((status_desc)->status_desc_data) >> 4) & 0x0F)
+ #define netxen_get_sts_type(status_desc)	\
+-	(((status_desc)->status_desc_data >> 8) & 0x0F)
++	((le64_to_cpu((status_desc)->status_desc_data) >> 8) & 0x0F)
+ #define netxen_get_sts_totallength(status_desc)	\
+-	(((status_desc)->status_desc_data >> 12) & 0xFFFF)
++	((le64_to_cpu((status_desc)->status_desc_data) >> 12) & 0xFFFF)
+ #define netxen_get_sts_refhandle(status_desc)	\
+-	(((status_desc)->status_desc_data >> 28) & 0xFFFF)
++	((le64_to_cpu((status_desc)->status_desc_data) >> 28) & 0xFFFF)
+ #define netxen_get_sts_prot(status_desc)	\
+-	(((status_desc)->status_desc_data >> 44) & 0x0F)
++	((le64_to_cpu((status_desc)->status_desc_data) >> 44) & 0x0F)
+ #define netxen_get_sts_owner(status_desc)	\
+-	(((status_desc)->status_desc_data >> 56) & 0x03)
++	((le64_to_cpu((status_desc)->status_desc_data) >> 56) & 0x03)
+ #define netxen_get_sts_opcode(status_desc)	\
+-	(((status_desc)->status_desc_data >> 58) & 0x03F)
++	((le64_to_cpu((status_desc)->status_desc_data) >> 58) & 0x03F)
+ 
+ #define netxen_clear_sts_owner(status_desc)	\
+ 	((status_desc)->status_desc_data &=	\
+-	~(((unsigned long long)3) << 56 ))
++	~(cpu_to_le64(((unsigned long long)3) << 56 )))
+ #define netxen_set_sts_owner(status_desc, val)	\
+ 	((status_desc)->status_desc_data |=	\
+-	(((unsigned long long)((val) & 0x3)) << 56 ))
++	(cpu_to_le64(((unsigned long long)((val) & 0x3)) << 56 )))
+ 
+ struct status_desc {
+ 	/* Bit pattern: 0-3 port, 4-7 status, 8-11 type, 12-27 total_length
+ 	   28-43 reference_handle, 44-47 protocol, 48-52 unused
+ 	   53-55 desc_cnt, 56-57 owner, 58-63 opcode
  	 */
--	writeq(val64, &bar0->tx_traffic_int);
-+	if (reason & GEN_INTR_TXTRAFFIC)
-+		writeq(S2IO_MINUS_ONE, &bar0->tx_traffic_int);
+-	u64 status_desc_data;
+-	u32 hash_value;
++	__le64 status_desc_data;
++	__le32 hash_value;
+ 	u8 hash_type;
+ 	u8 msg_type;
+ 	u8 unused;
+diff --git a/drivers/net/netxen/netxen_nic_hw.c b/drivers/net/netxen/netxen_nic_hw.c
+index 191e233..962fc49 100644
+--- a/drivers/net/netxen/netxen_nic_hw.c
++++ b/drivers/net/netxen/netxen_nic_hw.c
+@@ -236,8 +236,9 @@ int netxen_nic_hw_resources(struct netxe
+ 	}
+ 	memset(addr, 0, sizeof(struct netxen_ring_ctx));
+ 	adapter->ctx_desc = (struct netxen_ring_ctx *)addr;
+-	adapter->ctx_desc->cmd_consumer_offset = adapter->ctx_desc_phys_addr
+-	    + sizeof(struct netxen_ring_ctx);
++	adapter->ctx_desc->cmd_consumer_offset =
++	    cpu_to_le64(adapter->ctx_desc_phys_addr
++			+ sizeof(struct netxen_ring_ctx));
+ 	adapter->cmd_consumer = (uint32_t *) (((char *)addr) +
+ 					      sizeof(struct netxen_ring_ctx));
  
- 	for (i = 0; i < config->tx_fifo_num; i++)
- 		tx_intr_handler(&mac_control->fifos[i]);
-@@ -4912,6 +4975,7 @@ static void s2io_vpd_read(nic_t *nic)
- 		strcpy(nic->product_name, "Xframe I 10GbE network adapter");
- 		vpd_addr = 0x50;
- 	}
-+	strcpy(nic->serial_num, "NOT AVAILABLE");
- 
- 	vpd_data = kmalloc(256, GFP_KERNEL);
- 	if (!vpd_data)
-@@ -4935,7 +4999,22 @@ static void s2io_vpd_read(nic_t *nic)
- 		pci_read_config_dword(nic->pdev,  (vpd_addr + 4),
- 				      (u32 *)&vpd_data[i]);
- 	}
--	if ((!fail) && (vpd_data[1] < VPD_PRODUCT_NAME_LEN)) {
-+
-+	if(!fail) {
-+		/* read serial number of adapter */
-+		for (cnt = 0; cnt < 256; cnt++) {
-+		if ((vpd_data[cnt] == 'S') &&
-+			(vpd_data[cnt+1] == 'N') &&
-+			(vpd_data[cnt+2] < VPD_STRING_LEN)) {
-+				memset(nic->serial_num, 0, VPD_STRING_LEN);
-+				memcpy(nic->serial_num, &vpd_data[cnt + 3],
-+					vpd_data[cnt+2]);
-+				break;
-+			}
-+		}
-+	}
-+
-+	if ((!fail) && (vpd_data[1] < VPD_STRING_LEN)) {
- 		memset(nic->product_name, 0, vpd_data[1]);
- 		memcpy(nic->product_name, &vpd_data[3], vpd_data[1]);
- 	}
-@@ -5890,50 +5969,45 @@ static void s2io_set_link(struct work_st
+@@ -254,10 +255,11 @@ int netxen_nic_hw_resources(struct netxe
  	}
  
- 	val64 = readq(&bar0->adapter_status);
--	if (verify_xena_quiescence(nic, val64, nic->device_enabled_once)) {
--		if (LINK_IS_UP(val64)) {
--			val64 = readq(&bar0->adapter_control);
--			val64 |= ADAPTER_CNTL_EN;
--			writeq(val64, &bar0->adapter_control);
--			if (CARDS_WITH_FAULTY_LINK_INDICATORS(nic->device_type,
--							     subid)) {
--				val64 = readq(&bar0->gpio_control);
--				val64 |= GPIO_CTRL_GPIO_0;
--				writeq(val64, &bar0->gpio_control);
--				val64 = readq(&bar0->gpio_control);
--			} else {
--				val64 |= ADAPTER_LED_ON;
-+	if (LINK_IS_UP(val64)) {
-+		if (!(readq(&bar0->adapter_control) & ADAPTER_CNTL_EN)) {
-+			if (verify_xena_quiescence(nic)) {
-+				val64 = readq(&bar0->adapter_control);
-+				val64 |= ADAPTER_CNTL_EN;
- 				writeq(val64, &bar0->adapter_control);
--			}
--			if (s2io_link_fault_indication(nic) ==
--						MAC_RMAC_ERR_TIMER) {
--				val64 = readq(&bar0->adapter_status);
--				if (!LINK_IS_UP(val64)) {
--					DBG_PRINT(ERR_DBG, "%s:", dev->name);
--					DBG_PRINT(ERR_DBG, " Link down");
--					DBG_PRINT(ERR_DBG, "after ");
--					DBG_PRINT(ERR_DBG, "enabling ");
--					DBG_PRINT(ERR_DBG, "device \n");
-+				if (CARDS_WITH_FAULTY_LINK_INDICATORS(
-+					nic->device_type, subid)) {
-+					val64 = readq(&bar0->gpio_control);
-+					val64 |= GPIO_CTRL_GPIO_0;
-+					writeq(val64, &bar0->gpio_control);
-+					val64 = readq(&bar0->gpio_control);
-+				} else {
-+					val64 |= ADAPTER_LED_ON;
-+					writeq(val64, &bar0->adapter_control);
- 				}
--			}
--			if (nic->device_enabled_once == FALSE) {
- 				nic->device_enabled_once = TRUE;
-+			} else {
-+				DBG_PRINT(ERR_DBG, "%s: Error: ", dev->name);
-+				DBG_PRINT(ERR_DBG, "device is not Quiescent\n");
-+				netif_stop_queue(dev);
+ 	adapter->ctx_desc->cmd_ring_addr_lo =
+-	    hw->cmd_desc_phys_addr & 0xffffffffUL;
++	    cpu_to_le32(hw->cmd_desc_phys_addr & 0xffffffffUL);
+ 	adapter->ctx_desc->cmd_ring_addr_hi =
+-	    ((u64) hw->cmd_desc_phys_addr >> 32);
+-	adapter->ctx_desc->cmd_ring_size = adapter->max_tx_desc_count;
++	    cpu_to_le32((u64) hw->cmd_desc_phys_addr >> 32);
++	adapter->ctx_desc->cmd_ring_size =
++	    cpu_to_le32(adapter->max_tx_desc_count);
+ 
+ 	hw->cmd_desc_head = (struct cmd_desc_type0 *)addr;
+ 
+@@ -279,11 +281,11 @@ int netxen_nic_hw_resources(struct netxe
  			}
-+		}
-+		val64 = readq(&bar0->adapter_status);
-+		if (!LINK_IS_UP(val64)) {
-+			DBG_PRINT(ERR_DBG, "%s:", dev->name);
-+			DBG_PRINT(ERR_DBG, " Link down after enabling ");
-+			DBG_PRINT(ERR_DBG, "device \n");
-+		} else
- 			s2io_link(nic, LINK_UP);
--		} else {
--			if (CARDS_WITH_FAULTY_LINK_INDICATORS(nic->device_type,
--							      subid)) {
--				val64 = readq(&bar0->gpio_control);
--				val64 &= ~GPIO_CTRL_GPIO_0;
--				writeq(val64, &bar0->gpio_control);
--				val64 = readq(&bar0->gpio_control);
--			}
--			s2io_link(nic, LINK_DOWN);
-+	} else {
-+		if (CARDS_WITH_FAULTY_LINK_INDICATORS(nic->device_type,
-+						      subid)) {
-+			val64 = readq(&bar0->gpio_control);
-+			val64 &= ~GPIO_CTRL_GPIO_0;
-+			writeq(val64, &bar0->gpio_control);
-+			val64 = readq(&bar0->gpio_control);
+ 			rcv_desc->desc_head = (struct rcv_desc *)addr;
+ 			adapter->ctx_desc->rcv_ctx[ring].rcv_ring_addr_lo =
+-			    rcv_desc->phys_addr & 0xffffffffUL;
++			    cpu_to_le32(rcv_desc->phys_addr & 0xffffffffUL);
+ 			adapter->ctx_desc->rcv_ctx[ring].rcv_ring_addr_hi =
+-			    ((u64) rcv_desc->phys_addr >> 32);
++			    cpu_to_le32((u64) rcv_desc->phys_addr >> 32);
+ 			adapter->ctx_desc->rcv_ctx[ring].rcv_ring_size =
+-			    rcv_desc->max_rx_desc_count;
++			    cpu_to_le32(rcv_desc->max_rx_desc_count);
  		}
--	} else {		/* NIC is not Quiescent. */
--		DBG_PRINT(ERR_DBG, "%s: Error: ", dev->name);
--		DBG_PRINT(ERR_DBG, "device is not Quiescent\n");
--		netif_stop_queue(dev);
-+		s2io_link(nic, LINK_DOWN);
- 	}
- 	clear_bit(0, &(nic->link_state));
- }
-@@ -5982,7 +6056,7 @@ static int set_rxd_buffer_pointer(nic_t 
- 			*skb = dev_alloc_skb(size);
- 			if (!(*skb)) {
- 				DBG_PRINT(ERR_DBG, "%s: dev_alloc_skb failed\n",
--					  dev->name);
-+					dev->name);
- 				return -ENOMEM;
- 			}
- 			((RxD3_t*)rxdp)->Buffer2_ptr = *temp2 =
-@@ -6252,7 +6326,8 @@ static void s2io_card_down(nic_t * sp)
- 		rxd_owner_bit_reset(sp);
  
- 		val64 = readq(&bar0->adapter_status);
--		if (verify_xena_quiescence(sp, val64, sp->device_enabled_once)) {
-+		if (verify_xena_quiescence(sp)) {
-+			if(verify_pcc_quiescent(sp, sp->device_enabled_once))
+ 		addr = netxen_alloc(adapter->ahw.pdev, STATUS_DESC_RINGSIZE,
+@@ -298,10 +300,11 @@ int netxen_nic_hw_resources(struct netxe
+ 		}
+ 		recv_ctx->rcv_status_desc_head = (struct status_desc *)addr;
+ 		adapter->ctx_desc->sts_ring_addr_lo =
+-		    recv_ctx->rcv_status_desc_phys_addr & 0xffffffffUL;
++		    cpu_to_le32(recv_ctx->rcv_status_desc_phys_addr & 0xffffffffUL);
+ 		adapter->ctx_desc->sts_ring_addr_hi =
+-		    ((u64) recv_ctx->rcv_status_desc_phys_addr >> 32);
+-		adapter->ctx_desc->sts_ring_size = adapter->max_rx_desc_count;
++		    cpu_to_le32((u64) recv_ctx->rcv_status_desc_phys_addr >> 32);
++		adapter->ctx_desc->sts_ring_size =
++		    cpu_to_le32(adapter->max_rx_desc_count);
+ 
+ 	}
+ 	/* Window = 1 */
+@@ -387,10 +390,6 @@ void netxen_tso_check(struct netxen_adap
+ 	}
+ 	adapter->stats.xmitcsummed++;
+ 	desc->tcp_hdr_offset = skb->h.raw - skb->data;
+-	netxen_set_cmd_desc_totallength(desc,
+-					cpu_to_le32
+-					(netxen_get_cmd_desc_totallength
+-					 (desc)));
+ 	desc->ip_hdr_offset = skb->nh.raw - skb->data;
+ }
+ 
+@@ -427,6 +426,7 @@ static int netxen_get_flash_block(struct
+ 	for (i = 0; i < size / sizeof(u32); i++) {
+ 		if (netxen_rom_fast_read(adapter, addr, ptr32) == -1)
+ 			return -1;
++		*ptr32 = cpu_to_le32(*ptr32);
+ 		ptr32++;
+ 		addr += sizeof(u32);
+ 	}
+@@ -435,6 +435,7 @@ static int netxen_get_flash_block(struct
+ 
+ 		if (netxen_rom_fast_read(adapter, addr, &local) == -1)
+ 			return -1;
++		local = cpu_to_le32(local);
+ 		memcpy(ptr32, &local, (char *)buf + size - (char *)ptr32);
+ 	}
+ 
+diff --git a/drivers/net/netxen/netxen_nic_init.c b/drivers/net/netxen/netxen_nic_init.c
+index c3e41f3..4599e72 100644
+--- a/drivers/net/netxen/netxen_nic_init.c
++++ b/drivers/net/netxen/netxen_nic_init.c
+@@ -110,6 +110,7 @@ static void crb_addr_transform_setup(voi
+ 	crb_addr_transform(CAM);
+ 	crb_addr_transform(C2C1);
+ 	crb_addr_transform(C2C0);
++	crb_addr_transform(SMB);
+ }
+ 
+ int netxen_init_firmware(struct netxen_adapter *adapter)
+@@ -690,8 +691,7 @@ int netxen_nic_rx_has_work(struct netxen
+ 		desc_head = recv_ctx->rcv_status_desc_head;
+ 		desc = &desc_head[consumer];
+ 
+-		if (((le16_to_cpu(netxen_get_sts_owner(desc)))
+-		     & STATUS_OWNER_HOST))
++		if (netxen_get_sts_owner(desc) & STATUS_OWNER_HOST)
+ 			return 1;
+ 	}
+ 
+@@ -787,11 +787,11 @@ netxen_process_rcv(struct netxen_adapter
+ 	struct netxen_port *port = adapter->port[netxen_get_sts_port(desc)];
+ 	struct pci_dev *pdev = port->pdev;
+ 	struct net_device *netdev = port->netdev;
+-	int index = le16_to_cpu(netxen_get_sts_refhandle(desc));
++	int index = netxen_get_sts_refhandle(desc);
+ 	struct netxen_recv_context *recv_ctx = &(adapter->recv_ctx[ctxid]);
+ 	struct netxen_rx_buffer *buffer;
+ 	struct sk_buff *skb;
+-	u32 length = le16_to_cpu(netxen_get_sts_totallength(desc));
++	u32 length = netxen_get_sts_totallength(desc);
+ 	u32 desc_ctx;
+ 	struct netxen_rcv_desc_ctx *rcv_desc;
+ 	int ret;
+@@ -919,7 +919,7 @@ u32 netxen_process_rcv_ring(struct netxe
+ 	while (count < max) {
+ 		desc = &desc_head[consumer];
+ 		if (!
+-		    (le16_to_cpu(netxen_get_sts_owner(desc)) &
++		    (netxen_get_sts_owner(desc) &
+ 		     STATUS_OWNER_HOST)) {
+ 			DPRINTK(ERR, "desc %p ownedby %x\n", desc,
+ 				netxen_get_sts_owner(desc));
+@@ -927,7 +927,7 @@ u32 netxen_process_rcv_ring(struct netxe
+ 		}
+ 		netxen_process_rcv(adapter, ctxid, desc);
+ 		netxen_clear_sts_owner(desc);
+-		netxen_set_sts_owner(desc, cpu_to_le16(STATUS_OWNER_PHANTOM));
++		netxen_set_sts_owner(desc, STATUS_OWNER_PHANTOM);
+ 		consumer = (consumer + 1) & (adapter->max_rx_desc_count - 1);
+ 		count++;
+ 	}
+@@ -980,7 +980,7 @@ int netxen_process_cmd_ring(unsigned lon
+ 	 * the netdev which is associated with that device.
+ 	 */
+ 
+-	consumer = *(adapter->cmd_consumer);
++	consumer = le32_to_cpu(*(adapter->cmd_consumer));
+ 	if (last_consumer == consumer) {	/* Ring is empty    */
+ 		DPRINTK(INFO, "last_consumer %d == consumer %d\n",
+ 			last_consumer, consumer);
+@@ -1074,8 +1074,9 @@ int netxen_process_cmd_ring(unsigned lon
+ 	if (adapter->last_cmd_consumer == consumer &&
+ 	    (((adapter->cmd_producer + 1) %
+ 	      adapter->max_tx_desc_count) == adapter->last_cmd_consumer)) {
+-		consumer = *(adapter->cmd_consumer);
++		consumer = le32_to_cpu(*(adapter->cmd_consumer));
+ 	}
++
+ 	done = (adapter->last_cmd_consumer == consumer);
+ 
+ 	spin_unlock(&adapter->tx_lock);
+@@ -1232,7 +1233,7 @@ void netxen_post_rx_buffers_nodb(struct 
+ 
+ 		/* make a rcv descriptor  */
+ 		pdesc->reference_handle = cpu_to_le16(buffer->ref_handle);
+-		pdesc->buffer_length = cpu_to_le16(rcv_desc->dma_size);
++		pdesc->buffer_length = cpu_to_le32(rcv_desc->dma_size);
+ 		pdesc->addr_buffer = cpu_to_le64(buffer->dma);
+ 		DPRINTK(INFO, "done writing descripter\n");
+ 		producer =
+diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
+index 96e1bee..6c424d1 100644
+--- a/drivers/net/netxen/netxen_nic_main.c
++++ b/drivers/net/netxen/netxen_nic_main.c
+@@ -435,11 +435,13 @@ #endif
+ 		adapter->port[i] = port;
+ 	}
+ 
++#ifndef CONFIG_PPC64
+ 	writel(0, NETXEN_CRB_NORMALIZE(adapter, CRB_CMDPEG_STATE));
+ 	netxen_pinit_from_rom(adapter, 0);
+ 	udelay(500);
+ 	netxen_load_firmware(adapter);
+ 	netxen_phantom_init(adapter, NETXEN_NIC_PEG_TUNE);
++#endif
+ 	/*
+ 	 * delay a while to ensure that the Pegs are up & running.
+ 	 * Otherwise, we might see some flaky behaviour.
+@@ -818,7 +820,7 @@ static int netxen_nic_xmit_frame(struct 
+ 	/* Take skb->data itself */
+ 	pbuf = &adapter->cmd_buf_arr[producer];
+ 	if ((netdev->features & NETIF_F_TSO) && skb_shinfo(skb)->gso_size > 0) {
+-		pbuf->mss = cpu_to_le16(skb_shinfo(skb)->gso_size);
++		pbuf->mss = skb_shinfo(skb)->gso_size;
+ 		hwdesc->mss = cpu_to_le16(skb_shinfo(skb)->gso_size);
+ 	} else {
+ 		pbuf->mss = 0;
+@@ -882,7 +884,7 @@ static int netxen_nic_xmit_frame(struct 
+ 			hwdesc->addr_buffer3 = cpu_to_le64(temp_dma);
+ 			break;
+ 		case 3:
+-			hwdesc->buffer4_length = temp_len;
++			hwdesc->buffer4_length = cpu_to_le16(temp_len);
+ 			hwdesc->addr_buffer4 = cpu_to_le64(temp_dma);
  			break;
  		}
- 
-@@ -6315,6 +6390,13 @@ static int s2io_card_up(nic_t * sp)
- 		DBG_PRINT(INFO_DBG, "Buf in ring:%d is %d:\n", i,
- 			  atomic_read(&sp->rx_bufs_left[i]));
- 	}
-+	/* Maintain the state prior to the open */
-+	if (sp->promisc_flg)
-+		sp->promisc_flg = 0;
-+	if (sp->m_cast_flg) {
-+		sp->m_cast_flg = 0;
-+		sp->all_multi_pos= 0;
-+	}
- 
- 	/* Setting its receive mode */
- 	s2io_set_multicast(dev);
-@@ -6914,7 +6996,7 @@ s2io_init_nic(struct pci_dev *pdev, cons
- 	sp->bar0 = ioremap(pci_resource_start(pdev, 0),
- 				     pci_resource_len(pdev, 0));
- 	if (!sp->bar0) {
--		DBG_PRINT(ERR_DBG, "%s: S2IO: cannot remap io mem1\n",
-+		DBG_PRINT(ERR_DBG, "%s: Neterion: cannot remap io mem1\n",
- 			  dev->name);
- 		ret = -ENOMEM;
- 		goto bar0_remap_failed;
-@@ -6923,7 +7005,7 @@ s2io_init_nic(struct pci_dev *pdev, cons
- 	sp->bar1 = ioremap(pci_resource_start(pdev, 2),
- 				     pci_resource_len(pdev, 2));
- 	if (!sp->bar1) {
--		DBG_PRINT(ERR_DBG, "%s: S2IO: cannot remap io mem2\n",
-+		DBG_PRINT(ERR_DBG, "%s: Neterion: cannot remap io mem2\n",
- 			  dev->name);
- 		ret = -ENOMEM;
- 		goto bar1_remap_failed;
-@@ -7081,13 +7163,14 @@ s2io_init_nic(struct pci_dev *pdev, cons
- 	DBG_PRINT(ERR_DBG, "%s: Driver version %s\n", dev->name,
- 		  s2io_driver_version);
- 	DBG_PRINT(ERR_DBG, "%s: MAC ADDR: "
--			  "%02x:%02x:%02x:%02x:%02x:%02x\n", dev->name,
-+			  "%02x:%02x:%02x:%02x:%02x:%02x", dev->name,
- 			  sp->def_mac_addr[0].mac_addr[0],
- 			  sp->def_mac_addr[0].mac_addr[1],
- 			  sp->def_mac_addr[0].mac_addr[2],
- 			  sp->def_mac_addr[0].mac_addr[3],
- 			  sp->def_mac_addr[0].mac_addr[4],
- 			  sp->def_mac_addr[0].mac_addr[5]);
-+	DBG_PRINT(ERR_DBG, "SERIAL NUMBER: %s\n", sp->serial_num);
- 	if (sp->device_type & XFRAME_II_DEVICE) {
- 		mode = s2io_print_pci_mode(sp);
- 		if (mode < 0) {
-@@ -7200,7 +7283,6 @@ static void __devexit s2io_rem_nic(struc
- 	free_shared_mem(sp);
- 	iounmap(sp->bar0);
- 	iounmap(sp->bar1);
--	pci_disable_device(pdev);
- 	if (sp->intr_type != MSI_X)
- 		pci_release_regions(pdev);
- 	else {
-@@ -7211,6 +7293,7 @@ static void __devexit s2io_rem_nic(struc
- 	}
- 	pci_set_drvdata(pdev, NULL);
- 	free_netdev(dev);
-+	pci_disable_device(pdev);
- }
- 
- /**
-diff -urpN patch1/drivers/net/s2io.h patch2/drivers/net/s2io.h
---- patch1/drivers/net/s2io.h	2007-01-23 14:50:48.000000000 +0530
-+++ patch2/drivers/net/s2io.h	2007-01-24 00:02:10.000000000 +0530
-@@ -30,6 +30,8 @@
- #undef SUCCESS
- #define SUCCESS 0
- #define FAILURE -1
-+#define S2IO_MINUS_ONE 0xFFFFFFFFFFFFFFFFULL
-+#define S2IO_MAX_PCI_CONFIG_SPACE_REINIT 100
- 
- #define CHECKBIT(value, nbit) (value & (1 << nbit))
- 
-@@ -537,9 +539,9 @@ typedef struct _RxD_block {
- 
- #define SIZE_OF_BLOCK	4096
- 
--#define RXD_MODE_1	0
--#define RXD_MODE_3A	1
--#define RXD_MODE_3B	2
-+#define RXD_MODE_1	0 /* One Buffer mode */
-+#define RXD_MODE_3A	1 /* Three Buffer mode */
-+#define RXD_MODE_3B	2 /* Two Buffer mode */
- 
- /* Structure to hold virtual addresses of Buf0 and Buf1 in
-  * 2buf mode. */
-@@ -849,8 +851,9 @@ struct s2io_nic {
- 	spinlock_t	rx_lock;
- 	atomic_t	isr_cnt;
- 	u64 *ufo_in_band_v;
--#define VPD_PRODUCT_NAME_LEN 50
--	u8  product_name[VPD_PRODUCT_NAME_LEN];
-+#define VPD_STRING_LEN 80
-+	u8  product_name[VPD_STRING_LEN];
-+	u8  serial_num[VPD_STRING_LEN];
- };
- 
- #define RESET_ERROR 1;
-@@ -974,11 +977,13 @@ static void tx_intr_handler(fifo_info_t 
- static void alarm_intr_handler(struct s2io_nic *sp);
- 
- static int s2io_starter(void);
-+static void s2io_closer(void);
- static void s2io_tx_watchdog(struct net_device *dev);
- static void s2io_tasklet(unsigned long dev_addr);
- static void s2io_set_multicast(struct net_device *dev);
- static int rx_osm_handler(ring_info_t *ring_data, RxD_t * rxdp);
- static void s2io_link(nic_t * sp, int link);
-+static void s2io_reset(nic_t * sp);
- static int s2io_poll(struct net_device *dev, int *budget);
- static void s2io_init_pci(nic_t * sp);
- static int s2io_set_mac_addr(struct net_device *dev, u8 * addr);
-@@ -990,13 +995,17 @@ s2io_msix_ring_handle(int irq, void *dev
- static irqreturn_t
- s2io_msix_fifo_handle(int irq, void *dev_id);
- static irqreturn_t s2io_isr(int irq, void *dev_id);
--static int verify_xena_quiescence(nic_t *sp, u64 val64, int flag);
-+static int verify_xena_quiescence(nic_t *sp);
- static const struct ethtool_ops netdev_ethtool_ops;
- static void s2io_set_link(struct work_struct *work);
- static int s2io_set_swapper(nic_t * sp);
- static void s2io_card_down(nic_t *nic);
- static int s2io_card_up(nic_t *nic);
- static int get_xena_rev_id(struct pci_dev *pdev);
-+static int wait_for_cmd_complete(void *addr, u64 busy_bit);
-+static int s2io_add_isr(nic_t * sp);
-+static void s2io_rem_isr(nic_t * sp);
+@@ -935,6 +937,7 @@ static int netxen_nic_xmit_frame(struct 
+ 		u32 crb_producer = adapter->cmd_producer;
+ 		writel(crb_producer,
+ 		       NETXEN_CRB_NORMALIZE(adapter, CRB_CMD_PRODUCER_OFFSET));
 +
- static void restore_xmsi_data(nic_t *nic);
+ 		wmb();
+ 		adapter->total_threads = 0;
+ 	}
+diff --git a/drivers/net/netxen/netxen_nic_niu.c b/drivers/net/netxen/netxen_nic_niu.c
+index 4987dc7..e6defe6 100644
+--- a/drivers/net/netxen/netxen_nic_niu.c
++++ b/drivers/net/netxen/netxen_nic_niu.c
+@@ -458,7 +458,7 @@ int netxen_niu_gbe_init_port(struct netx
  
- static int s2io_club_tcp_session(u8 *buffer, u8 **tcp, u32 *tcp_len, lro_t **lro, RxD_t *rxdp, nic_t *sp);
-diff -urpN patch1/drivers/net/s2io-regs.h patch2/drivers/net/s2io-regs.h
---- patch1/drivers/net/s2io-regs.h	2007-01-08 10:37:49.000000000 +0530
-+++ patch2/drivers/net/s2io-regs.h	2007-01-08 15:06:50.000000000 +0530
-@@ -300,6 +300,7 @@ typedef struct _XENA_dev_config {
- 	u64 gpio_control;
- #define GPIO_CTRL_GPIO_0		BIT(8)
- 	u64 misc_control;
-+#define FAULT_BEHAVIOUR			BIT(0)
- #define EXT_REQ_EN			BIT(1)
- #define MISC_LINK_STABILITY_PRD(val)   vBIT(val,29,3)
+ int netxen_niu_xg_init_port(struct netxen_adapter *adapter, int port)
+ {
+-	long reg = 0, ret = 0;
++	u32 reg = 0, ret = 0;
  
-
+ 	if (adapter->ahw.boardcfg.board_type == NETXEN_BRDTYPE_P2_SB31_10G_IMEZ) {
+ 		netxen_crb_writelit_adapter(adapter,
