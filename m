@@ -1,169 +1,52 @@
 From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Fw: [Bug 7909] New: malfunction of udp_get_port() in wildcard ports
- assigning
-Date: Wed, 31 Jan 2007 10:39:58 -0800
-Message-ID: <20070131103958.1739bb80@freekitty>
+Subject: Re: [RFC] Alternative hidden netwirk device interface
+Date: Wed, 31 Jan 2007 10:40:59 -0800
+Message-ID: <20070131104059.32cf8966@freekitty>
+References: <20070129184707.885764375.midnight@suse.cz>
+	<20070129102814.6385ad2d@freekitty>
+	<20070129140958.0cf6880f@freekitty>
+	<20070131192647.42d87c10@griffin.suse.cz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>,
+	David Miller <davem@davemloft.net>
+To: Jiri Benc <jbenc@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:42475 "EHLO smtp.osdl.org"
+Received: from smtp.osdl.org ([65.172.181.24]:42520 "EHLO smtp.osdl.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030533AbXAaSmk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 Jan 2007 13:42:40 -0500
-Received: from shell0.pdx.osdl.net (fw.osdl.org [65.172.181.6])
-	by smtp.osdl.org (8.12.8/8.12.8) with ESMTP id l0VIgd9V005102
-	(version=TLSv1/SSLv3 cipher=EDH-RSA-DES-CBC3-SHA bits=168 verify=NO)
-	for <netdev@vger.kernel.org>; Wed, 31 Jan 2007 10:42:40 -0800
-Received: from freekitty (freekitty.pdx.osdl.net [10.8.0.54])
-	by shell0.pdx.osdl.net (8.13.1/8.11.6) with ESMTP id l0VIgdZk023345
-	for <netdev@vger.kernel.org>; Wed, 31 Jan 2007 10:42:39 -0800
+	id S932918AbXAaSoV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 Jan 2007 13:44:21 -0500
+In-Reply-To: <20070131192647.42d87c10@griffin.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Wed, 31 Jan 2007 19:26:47 +0100
+Jiri Benc <jbenc@suse.cz> wrote:
 
+> On Mon, 29 Jan 2007 14:09:58 -0800, Stephen Hemminger wrote:
+> > Change to allow register_netdevice() to be called with a blank name.
+> > If name is blank, it is not put in name hash list, and doesn't
+> > show up in /sys or /proc
+> 
+> What about things like neigh_sysctl_register which expects nonempty dev
+> name or rtnetlink_event which sends a RTM_NEWLINK event (I doubt that
+> listeners are prepared for nonempty dev name)?
 
-Begin forwarded message:
+that is fixable.
 
-Date: Wed, 31 Jan 2007 03:50:39 -0800
-From: bugme-daemon@bugzilla.kernel.org
-To: shemminger@osdl.org
-Subject: [Bug 7909] New: malfunction of udp_get_port() in wildcard ports assigning
+> Also, if the interface has ifindex assigned it is accessible from user
+> space (although it's unlikely anybody would call anything on it) - what
+> should be the correct result of e.g. SIOCGIFNAME?
 
+blank?
 
-http://bugzilla.kernel.org/show_bug.cgi?id=7909
-
-           Summary: malfunction of udp_get_port() in wildcard ports
-                    assigning
-    Kernel Version: 2.6.19
-            Status: NEW
-          Severity: normal
-             Owner: shemminger@osdl.org
-         Submitter: Konstantin.Petrov@oktetlabs.ru
-                CC: Alexandra.Kossovsky@oktetlabs.ru
-
-
-Most recent kernel where this bug did *NOT* occur: 2.6.18.4
-Distribution: Debian
-Hardware Environment: PCs x86-64 and i686
-Software Environment: 
-Problem Description:
-
-repeated binding of datagram sockets to some IP with wildcard
-port fails after ~three hundred iterations with errno EADDRINUSE.
-List of really assigned ports looks strangely:
-...PORT[128-port-numbers-gap]PORT[128-port-numbers-gap]...
-
-Steps to reproduce:
-
-See code:
-
-#include <stdio.h>
-#include <netinet/in.h>
-#include <sys/socket.h>
-#include <sys/errno.h>
-
-int
-main(int argc, char **argv)
-{
-    int                                 iut_s;
-    int                                 retval;
-    struct sockaddr_in                  servaddr,
-                                        cliaddr;
-    socklen_t                           namelen;
-    char                                addr_buf[16];
-    int                                 i;
-
-    /* Read command line arguments */
-    if (argc != 2)
-    {
-        printf("\nuse pco_iut <local IP>\n");
-        return -1;
-    }
-
-    memset(&servaddr, 0, sizeof(servaddr));
-    servaddr.sin_family = AF_INET;
-    inet_pton(AF_INET, argv[1], &servaddr.sin_addr);
-    servaddr.sin_port = 0;
-
-    for (i = 0; i < 1024; i++)
-    {
-        if ( (iut_s = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
-        {
-            printf("\nFailed to create socket No %d error %d\n", i + 1,
-                    errno);
-            return -1;
-        }
-
-        if (bind(iut_s,(struct sockaddr *) &servaddr, sizeof(servaddr)) != 0)
-        {
-            printf("\nFailed to bind socket No %d error %d\n", i + 1,
-                    errno);
-            return -1;
-        }
-
-        namelen = sizeof(cliaddr);
-        if (getsockname(iut_s, (struct sockaddr *)&cliaddr, &namelen) != 0)
-        {
-            printf("\ngetsockname() error errno %d\n", errno);
-            return -1;
-        }
-        else
-        {
-            inet_ntop(AF_INET, &cliaddr.sin_addr,
-                        addr_buf, 16);
-            printf("\nBound to %s:%d\n",
-                    addr_buf,
-                    ntohs(cliaddr.sin_port));
-        }
-    }
-
-    return 0;
-}
-
-
-The reason of this issue is IMHO in udp_get_port() function
-which was added in 2.6.19 version to replace udp_v4_get_port()
-in older versions.
- 
-In ugp_get_port() we see the strange piece of code
-
-.................................................................
-                        size = 0;
-                        sk_for_each(sk2, node, head)
-                                if (++size < best_size_so_far) {
-                                        best_size_so_far = size;
-                                        best = result;
-                                }
-                }
-                result = best;
-                for(i = 0; i < (1 << 16) / UDP_HTABLE_SIZE; i++, result +=
-UDP_HTABLE_SIZE) {
-..........................................................................
-
-which means that sk_for_each(...) iteration is repeated only once.
-
-No such problem in older kernels where the similar
-piece of code in udp_v4_get_port() looks like
-
-..........................................................................
-                        size = 0;
-                        sk_for_each(sk2, node, list)
-                                if (++size >= best_size_so_far)
-                                        goto next;
-                        best_size_so_far = size;
-                        best = result;
-                next:;
-                }
-                result = best;
-                for(i = 0; i < (1 << 16) / UDP_HTABLE_SIZE; i++, result +=
-UDP_HTABLE_SIZE) {
-
-..........................................................................
-
-------- You are receiving this mail because: -------
-You are the assignee for the bug, or are watching the assignee.
+> 
+> Thanks,
+> 
+>  Jiri
+> 
 
 
 -- 
