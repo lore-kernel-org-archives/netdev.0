@@ -1,7 +1,7 @@
 From: Ivo van Doorn <ivdoorn@gmail.com>
-Subject: [PATCH 1/2] d80211: Add software RTS support
-Date: Wed, 31 Jan 2007 20:16:50 +0100
-Message-ID: <200701312016.50524.IvDoorn@gmail.com>
+Subject: [PATCH 2/2] d80211: Add software sequence support
+Date: Wed, 31 Jan 2007 20:16:52 +0100
+Message-ID: <200701312016.52221.IvDoorn@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="us-ascii"
@@ -9,197 +9,142 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: Jiri Benc <jbenc@suse.cz>, "John Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.175]:56486 "EHLO
+Received: from ug-out-1314.google.com ([66.249.92.172]:56659 "EHLO
 	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030191AbXAaTRI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Jan 2007 14:17:08 -0500
-Received: by ug-out-1314.google.com with SMTP id 44so260381uga
-        for <netdev@vger.kernel.org>; Wed, 31 Jan 2007 11:17:07 -0800 (PST)
+	with ESMTP id S1030540AbXAaTRJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Jan 2007 14:17:09 -0500
+Received: by ug-out-1314.google.com with SMTP id 44so260384uga
+        for <netdev@vger.kernel.org>; Wed, 31 Jan 2007 11:17:08 -0800 (PST)
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Not all hardware are capable of generating their own RTS frames.
-This patch will add support for creating the RTS frame in software,
-when the driver requests this through the flag
-IEEE80211_HW_SOFTWARE_RTS
+Most hardware can keep track of sequence numbers themselves,
+unfortunately *most* doesn't cover all devices. ;)
+This patch will keep track of the sequence number if the flag
+IEEE80211_HW_SOFTWARE_SEQUENCE has been set.
 
 Signed-off-by Ivo van Doorn <IvDoorn@gmail.com>
 
 ---
 
-diff --git a/include/net/d80211.h b/include/net/d80211.h
-index 65a5d36..17e0530 100644
---- a/include/net/d80211.h
-+++ b/include/net/d80211.h
-@@ -531,6 +531,9 @@ struct ieee80211_hw {
- 	 * per-packet RC4 key with each TX frame when doing hwcrypto */
- #define IEEE80211_HW_TKIP_REQ_PHASE2_KEY (1<<14)
+diff -rNU3 dscape/include/net/d80211.h dscape_seq/include/net/d80211.h
+--- dscape/include/net/d80211.h	2007-01-31 19:38:14.000000000 +0100
++++ dscape_seq/include/net/d80211.h	2007-01-31 19:55:55.000000000 +0100
+@@ -534,6 +534,9 @@
+ 	/* Does the device need the stack to create a RTS frame */
+ #define IEEE80211_HW_SOFTWARE_RTS (1<<15)
  
-+	/* Does the device need the stack to create a RTS frame */
-+#define IEEE80211_HW_SOFTWARE_RTS (1<<15)
++	/* Does the HOST need to insert the frame sequence counter */
++#define IEEE80211_HW_SOFTWARE_SEQUENCE (1<<16)
 +
  	u32 flags;			/* hardware flags defined above */
  
  	/* Set to the size of a needed device specific skb headroom for TX skbs. */
-diff --git a/net/d80211/ieee80211.c b/net/d80211/ieee80211.c
-index 7353ed3..43d91bf 100644
---- a/net/d80211/ieee80211.c
-+++ b/net/d80211/ieee80211.c
-@@ -760,8 +760,7 @@ ieee80211_tx_h_misc(struct ieee80211_txrx_data *tx)
- 	struct ieee80211_tx_control *control = tx->u.tx.control;
+diff -rNU3 dscape/net/d80211/ieee80211.c dscape_seq/net/d80211/ieee80211.c
+--- dscape/net/d80211/ieee80211.c	2007-01-31 19:41:18.000000000 +0100
++++ dscape_seq/net/d80211/ieee80211.c	2007-01-31 20:04:36.000000000 +0100
+@@ -441,6 +441,7 @@
+ 	size_t hdrlen, per_fragm, num_fragm, payload_len, left;
+ 	struct sk_buff **frags, *first, *frag;
+ 	int i;
++	u16 seq;
+         u8 *pos;
+ 	int frag_threshold = tx->local->fragmentation_threshold;
  
- 	if (!is_multicast_ether_addr(hdr->addr1)) {
--		if (tx->skb->len + FCS_LEN > tx->local->rts_threshold &&
--		    tx->local->rts_threshold < IEEE80211_MAX_RTS_THRESHOLD) {
-+		if (tx->u.tx.rts_required) {
- 			control->flags |= IEEE80211_TXCTL_USE_RTS_CTS;
- 			control->retry_limit =
- 				tx->local->long_retry_limit;
-@@ -843,6 +842,35 @@ ieee80211_tx_h_misc(struct ieee80211_txrx_data *tx)
+@@ -458,6 +459,7 @@
+ 	if (!frags)
+ 		goto fail;
+ 
++	seq = le16_to_cpu(hdr->seq_ctrl) & IEEE80211_SCTL_SEQ;
+ 	hdr->frame_control |= cpu_to_le16(IEEE80211_FCTL_MOREFRAGS);
+ 	pos = first->data + hdrlen + per_fragm;
+ 	left = payload_len - per_fragm;
+@@ -486,7 +488,7 @@
+ 		memcpy(fhdr, first->data, hdrlen);
+ 		if (i == num_fragm - 2)
+ 			fhdr->frame_control &= cpu_to_le16(~IEEE80211_FCTL_MOREFRAGS);
+-		fhdr->seq_ctrl = cpu_to_le16(i + 1);
++		fhdr->seq_ctrl = cpu_to_le16(seq + ((i + 1) & IEEE80211_SCTL_FRAG));
+ 		copylen = left > per_fragm ? per_fragm : left;
+ 		memcpy(skb_put(frag, copylen), pos, copylen);
+ 
+@@ -933,6 +935,19 @@
  	return TXRX_CONTINUE;
  }
  
 +static ieee80211_txrx_result
-+ieee80211_tx_h_rts(struct ieee80211_txrx_data *tx)
++ieee80211_tx_h_sequence(struct ieee80211_txrx_data *tx)
 +{
-+	struct ieee80211_tx_control *control = tx->u.tx.control;
-+	struct ieee80211_hdr *old_hdr = (struct ieee80211_hdr *) tx->skb->data;
-+	struct ieee80211_hdr *new_hdr;
-+	int hdr_len;
++	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)tx->skb->data;
 +
-+	if (!tx->u.tx.rts_required ||
-+	    !(tx->local->hw.flags & IEEE80211_HW_SOFTWARE_RTS))
++	if (!(tx->local->hw.flags & IEEE80211_HW_SOFTWARE_SEQUENCE) ||
++	    ieee80211_get_hdrlen(le16_to_cpu(hdr->frame_control)) < 24)
 +		return TXRX_CONTINUE;
 +
-+	hdr_len = ieee80211_get_hdrlen(old_hdr->frame_control);
-+
-+	tx->u.tx.rts_frame = dev_alloc_skb(hdr_len);
-+	if (!tx->u.tx.rts_frame)
-+		return TXRX_DROP;
-+
-+	new_hdr = (struct ieee80211_hdr*)skb_put(tx->u.tx.rts_frame, hdr_len);
-+
-+	memcpy(new_hdr, old_hdr, hdr_len);
-+
-+	new_hdr->frame_control = cpu_to_le16(
-+		IEEE80211_FTYPE_CTL | IEEE80211_STYPE_RTS);
-+	new_hdr->duration_id = cpu_to_le16(control->rts_cts_duration);
-+	new_hdr->seq_ctrl = 0;
++	ieee80211_include_sequence(tx->local, hdr);
 +
 +	return TXRX_CONTINUE;
 +}
  
- static ieee80211_txrx_result
- ieee80211_tx_h_check_assoc(struct ieee80211_txrx_data *tx)
-@@ -1072,8 +1100,12 @@ __ieee80211_tx_prepare(struct ieee80211_txrx_data *tx,
-         tx->u.tx.unicast = !is_multicast_ether_addr(hdr->addr1);
- 	if (is_multicast_ether_addr(hdr->addr1))
- 		control->flags |= IEEE80211_TXCTL_NO_ACK;
--	else
-+	else {
- 		control->flags &= ~IEEE80211_TXCTL_NO_ACK;
-+		if (tx->skb->len + FCS_LEN > tx->local->rts_threshold &&
-+		    tx->local->rts_threshold < IEEE80211_MAX_RTS_THRESHOLD)
-+			tx->u.tx.rts_required = 1;
-+	}
- 	tx->fragmented = local->fragmentation_threshold <
- 		IEEE80211_MAX_FRAG_THRESHOLD && tx->u.tx.unicast &&
- 		skb->len + FCS_LEN > local->fragmentation_threshold &&
-@@ -1149,7 +1181,21 @@ static int __ieee80211_tx(struct ieee80211_local *local, struct sk_buff *skb,
- 	struct ieee80211_tx_control *control = tx->u.tx.control;
- 	int ret, i;
+ /* This function is called whenever the AP is about to exceed the maximum limit
+  * of buffered frames for power saving STAs. This situation should not really
+@@ -1806,6 +1821,10 @@
  
-+	if (tx->u.tx.rts_frame) {
-+		ieee80211_dump_frame(local->mdev->name,
-+				     "RTS to low-level driver",
-+				     tx->u.tx.rts_frame);
-+		ret = local->ops->tx(local_to_hw(local), tx->u.tx.rts_frame, control);
-+		if (ret)
-+			return IEEE80211_TX_AGAIN;
-+		ieee80211_led_tx(local, 1);
+ 	memcpy(skb_put(skb, bh_len), b_head, bh_len);
+ 
++	if (!(hw->flags & IEEE80211_HW_SOFTWARE_SEQUENCE))
++		ieee80211_include_sequence(local,
++			(struct ieee80211_hdr *)skb->data);
 +
-+		control->flags &= ~IEEE80211_TXCTL_USE_RTS_CTS;
-+		tx->u.tx.rts_frame = NULL;
-+	}
- 	if (skb) {
-+		if (__ieee80211_queue_stopped(local, control->queue))
-+			return IEEE80211_TX_FRAG_AGAIN;
- 		ieee80211_dump_frame(local->mdev->name, "TX to low-level driver", skb);
- 		ret = local->ops->tx(local_to_hw(local), skb, control);
- 		if (ret)
-@@ -1287,6 +1333,7 @@ retry:
- 		store->last_frag_hwrate = tx.u.tx.last_frag_hwrate;
- 		store->last_frag_rateidx = tx.u.tx.last_frag_rateidx;
- 		store->last_frag_rate_ctrl_probe = tx.u.tx.probe_last_frag;
-+		store->rts_frame = tx.u.tx.rts_frame;
- 	}
- 	return 0;
+ 	ieee80211_beacon_add_tim(local, ap, skb);
  
-@@ -1296,7 +1343,9 @@ retry:
- 	for (i = 0; i < tx.u.tx.num_extra_frag; i++)
- 		if (tx.u.tx.extra_frag[i])
- 			dev_kfree_skb(tx.u.tx.extra_frag[i]);
--        kfree(tx.u.tx.extra_frag);
-+	if (tx.u.tx.rts_frame)
-+		dev_kfree_skb(tx.u.tx.rts_frame);
-+	kfree(tx.u.tx.extra_frag);
- 	return 0;
+ 	if (b_tail) {
+@@ -4323,6 +4342,7 @@
+ static ieee80211_tx_handler ieee80211_tx_handlers[] =
+ {
+ 	ieee80211_tx_h_check_assoc,
++	ieee80211_tx_h_sequence,
+ 	ieee80211_tx_h_ps_buf,
+ 	ieee80211_tx_h_select_key,
+ 	ieee80211_tx_h_michael_mic_add,
+@@ -4497,6 +4517,7 @@
+ 
+ 	local->bridge_packets = 1;
+ 
++	local->seq_counter = 0;
+ 	local->rts_threshold = IEEE80211_MAX_RTS_THRESHOLD;
+ 	local->fragmentation_threshold = IEEE80211_MAX_FRAG_THRESHOLD;
+ 	local->short_retry_limit = 7;
+diff -rNU3 dscape/net/d80211/ieee80211_i.h dscape_seq/net/d80211/ieee80211_i.h
+--- dscape/net/d80211/ieee80211_i.h	2007-01-31 19:41:53.000000000 +0100
++++ dscape_seq/net/d80211/ieee80211_i.h	2007-01-31 20:06:26.000000000 +0100
+@@ -405,6 +405,7 @@
+ 	int *supp_rates[NUM_IEEE80211_MODES];
+ 	int *basic_rates[NUM_IEEE80211_MODES];
+ 
++	u16 seq_counter;
+ 	int rts_threshold;
+ 	int cts_protect_erp_frames;
+ 	int fragmentation_threshold;
+@@ -601,6 +602,20 @@
+ 	spin_unlock_bh(&local->sta_lock);
  }
  
-@@ -1323,6 +1372,7 @@ static void ieee80211_tx_pending(unsigned long data)
- 		tx.u.tx.last_frag_hwrate = store->last_frag_hwrate;
- 		tx.u.tx.last_frag_rateidx = store->last_frag_rateidx;
- 		tx.u.tx.probe_last_frag = store->last_frag_rate_ctrl_probe;
-+		tx.u.tx.rts_frame = store->rts_frame;
- 		ret = __ieee80211_tx(local, store->skb, &tx);
- 		if (ret) {
- 			if (ret == IEEE80211_TX_FRAG_AGAIN)
-@@ -1350,6 +1400,8 @@ static void ieee80211_clear_tx_pending(struct ieee80211_local *local)
- 		kfree_skb(store->skb);
- 		for (j = 0; j < store->num_extra_frag; j++)
- 			kfree_skb(store->extra_frag[j]);
-+		if (store->rts_frame)
-+			dev_kfree_skb(store->rts_frame);
- 		kfree(store->extra_frag);
- 		clear_bit(IEEE80211_LINK_STATE_PENDING, &local->state[i]);
- 	}
-@@ -4280,6 +4332,7 @@ static ieee80211_tx_handler ieee80211_tx_handlers[] =
- 	ieee80211_tx_h_wep_encrypt,
- 	ieee80211_tx_h_rate_ctrl,
- 	ieee80211_tx_h_misc,
-+	ieee80211_tx_h_rts,
- 	ieee80211_tx_h_load_stats,
- 	NULL
- };
-diff --git a/net/d80211/ieee80211_i.h b/net/d80211/ieee80211_i.h
-index aa4aa81..3ab910c 100644
---- a/net/d80211/ieee80211_i.h
-+++ b/net/d80211/ieee80211_i.h
-@@ -119,6 +119,7 @@ struct ieee80211_txrx_data {
- 			unsigned int ps_buffered:1;
- 			unsigned int short_preamble:1;
- 			unsigned int probe_last_frag:1;
-+			unsigned int rts_required:1;
- 			struct ieee80211_rate *rate;
- 			/* use this rate (if set) for last fragment; rate can
- 			 * be set to lower rate for the first fragments, e.g.,
-@@ -132,6 +133,10 @@ struct ieee80211_txrx_data {
- 			 * in skb) */
- 			int num_extra_frag;
- 			struct sk_buff **extra_frag;
++static inline void ieee80211_include_sequence(struct ieee80211_local *local,
++					      struct ieee80211_hdr *hdr)
++{
++	/*
++	 * Set the sequence number for this frame.
++	 */
++	hdr->seq_ctrl = cpu_to_le16(local->seq_counter & IEEE80211_SCTL_SEQ);
 +
-+			/* Extra RTS frame, this should be send out
-+			 * before any of the other fragments. */
-+			struct sk_buff *rts_frame;
- 		} tx;
- 		struct {
- 			struct ieee80211_rx_status *status;
-@@ -168,6 +173,7 @@ struct ieee80211_tx_stored_packet {
- 	int last_frag_rateidx;
- 	int last_frag_hwrate;
- 	unsigned int last_frag_rate_ctrl_probe:1;
-+	struct sk_buff *rts_frame;
- };
- 
- struct ieee80211_passive_scan {
++	/*
++	 * Increase the sequence number.
++	 */
++	local->seq_counter = (local->seq_counter + 0x10) & IEEE80211_SCTL_SEQ;
++}
++
+ /* ieee80211.c */
+ void ieee80211_release_hw(struct ieee80211_local *local);
+ int ieee80211_hw_config(struct ieee80211_local *local);
