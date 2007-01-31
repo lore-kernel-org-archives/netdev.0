@@ -1,48 +1,93 @@
-From: Divy Le Ray <None@chelsio.com>
-Subject: [PATCH 4/10] cxgb3 - bogus status error string
-Date: Tue, 30 Jan 2007 19:44:01 -0800
-Message-ID: <20070131034401.8607.33239.stgit@localhost.localdomain>
-Content-Type: text/plain; charset=utf-8; format=fixed
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	swise@opengridcomputing.com
-To: jeff@garzik.org
+From: "Sivakumar Subramani" <Sivakumar.Subramani@neterion.com>
+Subject: RE: [PATCH 2.6.20 1/5] s2io: Making LRO and UFO as module loadable parameter.
+Date: Tue, 30 Jan 2007 22:54:41 -0500
+Message-ID: <78C9135A3D2ECE4B8162EBDCE82CAD7701260603@nekter>
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Leonid Grossman" <Leonid.Grossman@neterion.com>,
+	"Ananda Raju" <Ananda.Raju@neterion.com>,
+	"Sreenivasa Honnur" <Sreenivasa.Honnur@neterion.com>,
+	"Ramkrishna Vepa" <Ramkrishna.Vepa@neterion.com>,
+	"Rastapur Santosh" <santosh.rastapur@neterion.com>,
+	"Sriram Rapuru" <Sriram.Rapuru@neterion.com>
+To: "Sivakumar Subramani" <Sivakumar.Subramani@neterion.com>,
+	<netdev@vger.kernel.org>, "Jeff Garzik" <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.22.49.110]:7721 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932597AbXAaDoI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jan 2007 22:44:08 -0500
+Received: from [72.1.205.142] ([72.1.205.142]:29035 "EHLO owa.neterion.com"
+	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S932837AbXAaDyo convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jan 2007 22:54:44 -0500
+Content-class: urn:content-classes:message
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Divy Le Ray <divy@chelsio.com>
+Hi Jeff,
 
-Remove a status error string from the pci-x context 
-and add it where it belongs - the pci-e context. 
+Where you able to apply the patches. Please let me the known if you have
+any issues.
 
-Signed-off-by: Divy Le Ray <divy@chelsio.com>
----
+Thanks,
+~Siva 
 
- drivers/net/cxgb3/t3_hw.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+-----Original Message-----
+From: Sivakumar Subramani 
+Sent: Monday, January 29, 2007 11:36 AM
+To: netdev@vger.kernel.org; 'Jeff Garzik'
+Cc: Leonid Grossman; Ananda Raju; Sreenivasa Honnur; Ramkrishna Vepa;
+Rastapur Santosh; Sriram Rapuru
+Subject: RE: [PATCH 2.6.20 1/5] s2io: Making LRO and UFO as module
+loadable parameter.
 
-diff --git a/drivers/net/cxgb3/t3_hw.c b/drivers/net/cxgb3/t3_hw.c
-index 4545acb..2215400 100644
---- a/drivers/net/cxgb3/t3_hw.c
-+++ b/drivers/net/cxgb3/t3_hw.c
-@@ -1181,7 +1181,6 @@ static int t3_handle_intr_status(struct
- static void pci_intr_handler(struct adapter *adapter)
- {
- 	static const struct intr_info pcix1_intr_info[] = {
--		{ F_PEXERR, "PCI PEX error", -1, 1 },
- 		{F_MSTDETPARERR, "PCI master detected parity error", -1, 1},
- 		{F_SIGTARABT, "PCI signaled target abort", -1, 1},
- 		{F_RCVTARABT, "PCI received target abort", -1, 1},
-@@ -1218,6 +1217,7 @@ static void pci_intr_handler(struct adap
- static void pcie_intr_handler(struct adapter *adapter)
- {
- 	static const struct intr_info pcie_intr_info[] = {
-+		{F_PEXERR, "PCI PEX error", -1, 1},
- 		{F_UNXSPLCPLERRR,
- 		 "PCI unexpected split completion DMA read error", -1, 1},
- 		{F_UNXSPLCPLERRC,
+ 
+Hi Jeff,
+
+As per your comment I have synced up the patch with the latest
+netdev-2.6.git#upstream branch. Also I have corrected the white space
+issue. I have resubmitted the patches again.
+
+Thanks,
+~Siva
+-----Original Message-----
+From: Jeff Garzik [mailto:jeff@garzik.org]
+Sent: Wednesday, January 24, 2007 2:56 AM
+To: Ananda Raju
+Cc: nBetdev@vger.kernel.org; Leonid Grossman; Alicia Pena; Ramkrishna
+Vepa; Sreenivasa Honnur; Sriram Rapuru
+Subject: Re: [PATCH 2.6.20 1/5] s2io: Making LRO and UFO as module
+loadable parameter.
+
+Ananda Raju wrote:
+> This patch adds two load parameters napi and ufo. Previously NAPI was 
+> compilation option with these changes wan enable disable NAPI using 
+> load parameter. Also we are introducing ufo load parameter to 
+> enable/disable ufo feature
+> 
+> Signed-off-by: Sivakumar Subramani <sivakumar.subramani@neterion.com>
+
+ACK patches 1-5, but patch does not apply to netdev-2.6.git#upstream. 
+Also, git-am complains about whitespace.
+
+
+[jgarzik@pretzel netdev-2.6]$ git-am --signoff --utf8 /g/tmp/mbox
+
+Applying 's2io: Making LRO and UFO as module loadable parameter.'
+
+Space in indent is followed by a tab.
+.dotest/patch:41:                       (block_no * 
+(rxd_count[nic->rxd_mode] + 1)) + off;
+Adds trailing whitespace.
+.dotest/patch:46:               }
+Space in indent is followed by a tab.
+.dotest/patch:137:              * Rx handler is called by default, 
+without checking for the
+Space in indent is followed by a tab.
+.dotest/patch:138:              * cause of interrupt.
+Space in indent is followed by a tab.
+.dotest/patch:139:              * rx_traffic_int reg is an R1 register, 
+writing all 1's
+error: patch failed: drivers/net/s2io.c:6985
+error: drivers/net/s2io.c: patch does not apply Patch failed at 0001.
+When you have resolved this problem run "git-am --resolved".
+If you would prefer to skip this patch, instead run "git-am --skip".
