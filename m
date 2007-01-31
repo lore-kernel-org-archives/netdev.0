@@ -1,126 +1,93 @@
-From: weidong <weid@np.css.fujitsu.com>
-Subject: Re: [Patch][IPv6] Fix wrong routing mechanism for Link Local IPv6
-	packets
-Date: Tue, 30 Jan 2007 23:47:34 +0000 (UTC)
-Message-ID: <1172070287.3394.0.camel@LINE>
-References: <001501c7444d$ed731020$ccb1220a@ZhaoleiSOTEC>
+From: Chris Lightfoot <chris@ex-parrot.com>
+Subject: Re: sky2 problems on Intel Mac Mini
+Date: Wed, 31 Jan 2007 00:09:37 +0000
+Message-ID: <9vX5bgSdy97f.I2iK+nv0AUYsJOXCRbPMsQ@sphinx.mythic-beasts.com>
+References: <DJgDe2E/Cvnb.CrmE6+LDxkzqNQTYvzH+WQ@sphinx.mythic-beasts.com> <20070130111520.47e07a79@freekitty>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <shemminger@osdl.org>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fgwmail6.fujitsu.co.jp ([192.51.44.36]:36137 "EHLO
-	fgwmail6.fujitsu.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752037AbXA3Xqe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jan 2007 18:46:34 -0500
-Received: from m4.gw.fujitsu.co.jp ([10.0.50.74])
-	by fgwmail6.fujitsu.co.jp (Fujitsu Gateway) with ESMTP id l0UNkWpM003275
-	for <netdev@vger.kernel.org> (envelope-from weid@np.css.fujitsu.com);
-	Wed, 31 Jan 2007 08:46:32 +0900
-Received: from smail (m4 [127.0.0.1])
-	by outgoing.m4.gw.fujitsu.co.jp (Postfix) with ESMTP id 3898C2AC127
-	for <netdev@vger.kernel.org>; Wed, 31 Jan 2007 08:46:32 +0900 (JST)
-Received: from s3.gw.fujitsu.co.jp (s3.gw.fujitsu.co.jp [10.0.50.93])
-	by m4.gw.fujitsu.co.jp (Postfix) with ESMTP id 107DD12C066
-	for <netdev@vger.kernel.org>; Wed, 31 Jan 2007 08:46:32 +0900 (JST)
-Received: from s3.gw.fujitsu.co.jp (s3 [127.0.0.1])
-	by s3.gw.fujitsu.co.jp (Postfix) with ESMTP id EA8F0161C007
-	for <netdev@vger.kernel.org>; Wed, 31 Jan 2007 08:46:31 +0900 (JST)
-Received: from ml9.s.css.fujitsu.com (ml9.s.css.fujitsu.com [10.23.4.199])
-	by s3.gw.fujitsu.co.jp (Postfix) with ESMTP id 88EB6161C008
-	for <netdev@vger.kernel.org>; Wed, 31 Jan 2007 08:46:31 +0900 (JST)
-Received: from ml9.css.fujitsu.com (ml9 [127.0.0.1])
-	by ml9.s.css.fujitsu.com (Postfix) with ESMTP id 70510314032
-	for <netdev@vger.kernel.org>; Wed, 31 Jan 2007 08:46:31 +0900 (JST)
-Received: from 192.168.10.2 (dhcp177-204.sky.yk.fujitsu.co.jp [10.34.177.204])
-	by ml9.s.css.fujitsu.com (Postfix) with ESMTP id 2C6BE31402D
-	for <netdev@vger.kernel.org>; Wed, 31 Jan 2007 08:46:31 +0900 (JST)
-In-Reply-To: <001501c7444d$ed731020$ccb1220a@ZhaoleiSOTEC>
-Date: Wed, 21 Feb 2007 10:04:47 -0500
+Received: from wumpus2.mythic-beasts.com ([212.69.38.51]:56120 "EHLO
+	wumpus2.mythic-beasts.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751650AbXAaAJl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jan 2007 19:09:41 -0500
+Content-Disposition: inline
+In-Reply-To: <20070130111520.47e07a79@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello, Mr yoshfuji:
-    Thanks for your reply.
-The following is the figure.
-|--------------------------------------------|
-|                                            | 
-|                 Router                     | 
-|                                            |    |-------|
-|   |------|                   |------|      |    | other |
-|   | eth0 |---                | eth1 |------|----|network|
-|   |------|  |                |------|      |    |-------|
-|------|------|--------------------|---------|
-       |      v                    | 
-       | fe80::20c:29ff:fe24:fa0a  | 
-       |                           | 
-       |                           | 
-       |                           | 
-       |                           | 
-       |                           | 
-       |                           v 
-       |               fe80::20c:29ff:fe24:fa14 
-       |                           
-       | 
-|------|------| 
-|  |------|   | 
-|  | eth0 |---|--->fe80::200:ff:fe00:100 
-|  |------|   | 
-|             | 
-|    Host     | 
-|-------------| 
+On Tue, Jan 30, 2007 at 11:15:20AM -0800, Stephen Hemminger wrote:
+> a) hardware flow control problems
+>    look at ethtool -S eth0 statistics, are there flow control packets
+>    showing up?
 
-Host eth0: fe80::200:ff:fe00:100
-Router eth0: fe80::20c:29ff:fe24:fa0a
-Router eth1: fe80::20c:29ff:fe24:fa14
+on yeti (machine from which i quoted the first log
+output),
 
-We ping6 from host's eth0 to Router's eth1. Echo Request's src addr =
-fe80::200:ff:fe00:100, dst addr = fe80::20c:29ff:fe24:fa14. And Kernel
-just send ICMPv6 redirect packet and then forward the Echo Request to
-router's eth0. If we run tcpdump on Host eth0, we can receive the ICMPv6
-Redirect packet. And if we send NA which advertises
-fe80::20c:29ff:fe24:fa14 MAC address(this is very easy for v6eval tool),
-we also can receive the forwarded Echo Request(src:fe80::200:ff:fe00:100
-dst is fe80::20c:29ff:fe24:fa14). 
+[root@yeti /root]# /root/ethtool -S eth0 | grep mac_pause
+     tx_mac_pause: 0
+     rx_mac_pause: 8649
 
-I dived into the kernel, and found that maybe function rt6_score_route()
-has problems. In rt6_score_route(), if rt6_check_dev() return 0, and the
-dst ipv6 addr is link local addr, rt6_socre_route() return -1 directly.
-I think this is not correct, we should return -1 only if the entry is in
-the route cache, and the dst addr is link local addr. Only entries in
-cache may select wrong IPv6 Link Local NIC for a link local dst addr.
-because they are copied from static IPv6 fib table entries.
+and on t1 both 0.
 
-> > Hello, Mr yoshfuji
-> >     Take ping6 for example. Asumming there is a router which has 2 NICs.
-> > eth0 on router has ipv6 addr fe80::20c:29ff:fe24:fa0a, eth1 on router has
-> > ipv6 addr fe80::20c:29ff:fe24:fa14. Also there is a host connected to
-> > router's eth0, and the host's ipv6 addr is fe80::200:ff:fe00:100. We ping6
-> :
-> 
-> I still need more precise figure.
-> 
-> Please draw complete box for the 2-3 boxes (pinger, router (and the
-> destination)), link(s) and interfaces.
-> 
-> +-------------+
-> |    Router   |
-> +---+-----+---+
-> eth0|     |eth1
->     |     |
-> eth0|
-> +---+-+
-> |Host1|
-> +-----+
-> 
-> Host1  eth0: fe80:....
-> Router eth0: fe80:....
-> Router eth1: fe80:...
-> 
-> Or, something like that....
-> 
-> I think you may use other tool such as tgif etc.
-> 
-> --yoshfuji 
-> 
+But presumably you want to know this at the point of the
+failure -- I'll add it to the things the watchdog records
+before rebooting.
 
+> b) GMAC or ram buffer issues
+>    looking at 'ethtool -d eth0' output can help, but it is a needle in
+>    haystack finding these setup errors.
+>  
+>    The sky2 driver copies most of the stuff from vendor version of sk98lin,
+>    but if sk98lin works and sky2 doesn't then comparing register settings
+>    can give hints.
+
+ok. I'll try to get one of these machines running the
+vendor driver to see whether the problems still occur.
+
+> c) DMA problems
+>    For some problems, I have had luck adding a /proc interface and dumping
+>    the transmit ring after a hang.  Looking at the last control block that
+>    hung can help.  This found the case where IPV6 TSO was leaking through.
+> 
+> d) checksum problems
+>    Turning off tx scatter/gather forces non fragmented skb's. This hurts
+>    performance, but can tell if the problem is with fragment code.
+>    Turning off tx checksum turns off scatter/gather, checksumming and
+>    TSO.
+
+also seems worth trying, though without a test case it'll
+take a while to be sure what was causing the problem.
+
+> e) possible alignment and flow control interaction
+>    Because the receive DMA engine has hardware bugs and requires alignment
+>    or it doesn't work with flow control. I still wonder if there are alignment
+>    bugs on Tx with flow control.
+> 
+> f) other driver bug
+> 
+> To save time, I'll go get a new Mac Mini and try and clone this setup.
+> Could you send me a full kernel config (and other setup information
+> like filesystem type, distro etc).
+
+we've seen this on lots of different machines; yeti is
+NFS-root, originally ancient Redhat plus lots of
+locally-built packages with some bits of the filesystem on
+ext3. t1 is Ubuntu (`edgy' I think) on ext3. The same
+problems occur on Debian `sarge' and CentOS, though.
+
+What I haven't yet managed to do is to reproduce the
+problem -- the test machine on my desk (also NFS-root)
+has never exhibited it. But it's mostly idle.
+
+    [...]
+> The vendor driver does some slightly different setup, but it also
+> does a hardware reset when inactive (every 10ms).
+
+!!!
+
+-- 
+``I have a sneaking sympathy for Belgium, as a land where, by accident of
+  geography, too often other people have chosen to hold their wars.''
+  (Alan Follett)
