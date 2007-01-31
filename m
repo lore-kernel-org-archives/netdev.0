@@ -1,35 +1,66 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 1/10] cxgb3 - FW versioning
-Date: Wed, 31 Jan 2007 07:51:30 -0500
-Message-ID: <45C090D2.4060302@garzik.org>
-References: <20070131034345.8574.21031.stgit@localhost.localdomain> <45C07202.3090308@garzik.org> <20070131124437.GA26476@infradead.org>
+From: Pavel Machek <pavel@suse.cz>
+Subject: Re: [RFC] Runtime power management on	ipw2100
+Date: Wed, 31 Jan 2007 14:04:47 +0100
+Message-ID: <20070131130447.GF19643@elf.ucw.cz>
+References: <20070131075249.GA22115@srcf.ucam.org>
+	<p731wlbphz3.fsf@bingen.suse.de>
+	<20070131102744.GA24424@srcf.ucam.org>
+	<200701311148.20777.ak@suse.de>
+	<1170244400.6746.31.camel@amit-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Christoph Hellwig <hch@infradead.org>,
-	Jeff Garzik <jeff@garzik.org>, Divy Le Ray <None@chelsio.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	swise@opengridcomputing.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:56541 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933204AbXAaMvn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 Jan 2007 07:51:43 -0500
-In-Reply-To: <20070131124437.GA26476@infradead.org>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: Matthew Garrett <mjg59@srcf.ucam.org>, ipw2100-devel@lists.sourceforge.net,
+   linux-pm@lists.osdl.org, ext Andi Kleen <ak@suse.de>,
+   netdev@vger.kernel.org
+To: Amit Kucheria <amit.kucheria@nokia.com>
+Return-path: <linux-pm-bounces@lists.osdl.org>
+Content-Disposition: inline
+In-Reply-To: <1170244400.6746.31.camel@amit-laptop>
+List-Unsubscribe: <https://lists.osdl.org/mailman/listinfo/linux-pm>,
+	<mailto:linux-pm-request@lists.osdl.org?subject=unsubscribe>
+List-Archive: <http://lists.osdl.org/pipermail/linux-pm>
+List-Post: <mailto:linux-pm@lists.osdl.org>
+List-Help: <mailto:linux-pm-request@lists.osdl.org?subject=help>
+List-Subscribe: <https://lists.osdl.org/mailman/listinfo/linux-pm>,
+	<mailto:linux-pm-request@lists.osdl.org?subject=subscribe>
+Sender: linux-pm-bounces@lists.osdl.org
+Errors-To: linux-pm-bounces@lists.osdl.org
 List-Id: netdev.vger.kernel.org
 
-Christoph Hellwig wrote:
-> On Wed, Jan 31, 2007 at 05:40:02AM -0500, Jeff Garzik wrote:
->> honestly it looks like just about every ioctl except load-firmware should go
-> 
-> And while we're at it a load-firmware sounds like a nice addition for
-> ethtool aswell.  Or we may want to extent the firmware loader to deal with
-> updating firmware in addition to loading it to rom-less devices.
+On Wed 2007-01-31 13:53:20, Amit Kucheria wrote:
+> On Wed, 2007-01-31 at 11:48 +0100, ext Andi Kleen wrote:
+> > On Wednesday 31 January 2007 11:27, Matthew Garrett wrote:
+> > > On Wed, Jan 31, 2007 at 12:13:04PM +0100, Andi Kleen wrote:
+> > > > Matthew Garrett <mjg59@srcf.ucam.org> writes:
+> > > > > =
 
-Agreed.
+> > > > > PCI seems to require a delay of 10ms when sequencing from D3 to D=
+0, =
 
-	Jeff
+> > > > > which probably isn't acceptable latency for an "up" state.
+> > > > =
 
+> > > > It might be if the interface has been idle for some time
+> > > > (and the delay is not busy looping of course)
+> > > =
 
+> > > Hm. How would this interact with receiving packets?
+> > =
 
+> > The hardware will hopefully have support to wake itself up when that =
+
+> > happens.
+> =
+
+> Yes. Low power states without ability to respond to wakeup interrupts
+> would be broken behaviour generally.
+
+Do you realy expect wifi to save significant ammount of power, while
+still listening for packets on wireless network?
+									Pavel
+-- =
+
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blo=
+g.html
