@@ -1,31 +1,39 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] r8169: fix a race between PCI probe and dev_open
-Date: Thu, 01 Feb 2007 13:40:35 +1100
-Message-ID: <E1HCRsJ-0007sg-00@gondolin.me.apana.org.au>
-References: <20070131213428.GA17534@electric-eye.fr.zoreil.com>
-Cc: torvalds@linux-foundation.org, netdev@vger.kernel.org,
-	akpm@osdl.org, jgarzik@pobox.com, bwalle@suse.de
-To: romieu@fr.zoreil.com (Francois Romieu)
+From: olof@lixom.net (Olof Johansson)
+Subject: Re: [PATCH] [v3] PA Semi PWRficient Ethernet driver
+Date: Wed, 31 Jan 2007 21:20:40 -0600
+Message-ID: <20070201032040.GA11564@lixom.net>
+References: <20070129060852.GA7814@lixom.net> <20070130014434.GC18935@lixom.net> <20070131054457.GA32043@lixom.net> <20070131103806.29fc8d2e@freekitty>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: jgarzik@pobox.com, netdev@vger.kernel.org,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	Christoph Hellwig <hch@infradead.org>
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:4651 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S933338AbXBACl3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Jan 2007 21:41:29 -0500
-In-Reply-To: <20070131213428.GA17534@electric-eye.fr.zoreil.com>
+Received: from lixom.net ([66.141.50.11]:46296 "EHLO mail.lixom.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1161295AbXBADNt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 Jan 2007 22:13:49 -0500
+Content-Disposition: inline
+In-Reply-To: <20070131103806.29fc8d2e@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Francois Romieu <romieu@fr.zoreil.com> wrote:
+On Wed, Jan 31, 2007 at 10:38:06AM -0800, Stephen Hemminger wrote:
+> O
+> > +static noinline void pasemi_mac_free_tx_resources(struct net_device *dev)
 > 
-> rtl8169_init_phy is only used on rtl8169_init_one so it's fine to never
-> ask it to activate the timer: the racing dev->open will do it anyway.
+> Why tell compiler how to do it's job.  marking it noinline?
 
-Does rtl8169_init_phy need to occur after register_netdev? Normally
-register_netdev should be the very last thing in a probe routine.
+Leftover from debugging. Gone in the next version.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> Mixing definitions and structure values gets confusing.
+
+I find if the definitions are few, having them near the structure
+definition is easier to read. This is way past the limit for that
+though. I'll move them.
+
+
+Thanks,
+
+-Olof
