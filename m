@@ -1,37 +1,54 @@
-From: Steve Wise <swise@opengridcomputing.com>
-Subject: Re: [Fwd: Re: [PATCH 1/10] cxgb3 - main header files]
-Date: Thu, 01 Feb 2007 15:05:34 -0600
-Message-ID: <1170363934.16637.58.camel@stevo-desktop>
-References: <1169216896.15842.6.camel@stevo-desktop>
-	 <adamz4f0wsy.fsf@cisco.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 3/3] Check num sacks in SACK fast path
+Date: Thu, 01 Feb 2007 14:38:00 -0800 (PST)
+Message-ID: <20070201.143800.78710936.davem@davemloft.net>
+References: <20070129071349.24050.56022.sendpatchset@galon.ev-en.org>
+	<20070131.125246.85686582.davem@davemloft.net>
+	<20070201072252.GX22455@galon.ev-en.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: openib-general <openib-general@openib.org>, netdev@vger.kernel.org,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Jeff Garzik <jeff@garzik.org>
-To: Roland Dreier <rdreier@cisco.com>
+Cc: netdev@vger.kernel.org
+To: baruch@ev-en.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rrcs-24-153-217-226.sw.biz.rr.com ([24.153.217.226]:42235 "EHLO
-	smtp.opengridcomputing.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1423012AbXBAVFf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Feb 2007 16:05:35 -0500
-In-Reply-To: <adamz4f0wsy.fsf@cisco.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40150
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S932857AbXBAWiC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Feb 2007 17:38:02 -0500
+In-Reply-To: <20070201072252.GX22455@galon.ev-en.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2007-01-19 at 09:07 -0800, Roland Dreier wrote:
->  > Jeff has pulled in the Chelsio Ethernet driver.  If you are ready to
->  > merge in the RDMA driver, you can pull it from 
+From: Baruch Even <baruch@ev-en.org>
+Date: Thu, 1 Feb 2007 09:22:52 +0200
+
+> * David Miller <davem@davemloft.net> [070131 22:52]:
+> > We should never see a SACK block from sequence zero to zero,
+> > which would be an empty SACK block.
 > 
-> Yes, I saw that... OK, I'll get serious about reviewing the RDMA stuff.
+> That would work as well at the cost of extra writing to memory for each
+> ack packet. Though I won't guess what is worse, the extra memory used or
+> the extra writing.
 
-Hey Roland,
+Good point.  The recv_sack_cache is 32-bytes, so sits in at most
+2 cache lines.  The writes are consequetive and in order so would
+compress into cpu store buffers.
 
-Have you had a chance to review this?
+But it's definitely not free. :-)
 
-Thanks,
+> > Something like the following?
+> > 
+> > diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+> > index c26076f..84cd722 100644
+> > --- a/net/ipv4/tcp_input.c
+> > +++ b/net/ipv4/tcp_input.c
+> > @@ -999,6 +1001,10 @@ tcp_sacktag_write_queue(struct sock *sk, struct sk_buff *ack_skb, u32 prior_snd_
+> >  				return 0;
+> >  		}
+> >  	}
+> > +	for (; i <= 4; i++) {
+> 
+> That won't work though, the <= should be <, I've actually used
+> ARRAY_SIZE just to be on the safe side.
 
-Steve.
-
-
+Thanks for catching that.
