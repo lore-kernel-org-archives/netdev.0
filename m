@@ -1,44 +1,47 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: sky2 hangs
-Date: Thu, 1 Feb 2007 14:58:15 -0800
-Message-ID: <20070201145815.199bfe1a@freekitty>
-References: <20070201185532.GL13130@cip.informatik.uni-erlangen.de>
-	<42007.80.98.159.250.1170369983.squirrel@www.hunhost.com>
+From: Joy Latten <latten@austin.ibm.com>
+Subject: when having to acquire an SA, ipsec drops the packet
+Date: Thu, 01 Feb 2007 16:51:21 -0600
+Message-ID: <1170370281.2603.359.camel@faith.austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: <thomas@glanzmann.de>, <linux-kernel@vger.kernel.org>,
-	<netdev@vger.kernel.org>
-To: "Fagyal Csongor" <concept@conceptonline.hu>
+Cc: paul.moore@hp.com, vyekkirala@TrustedCS.com, jmorris@namei.org,
+	herbert@gondor.apana.org.au, davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:46597 "EHLO smtp.osdl.org"
+Received: from e6.ny.us.ibm.com ([32.97.182.146]:59186 "EHLO e6.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1422686AbXBAXBO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Feb 2007 18:01:14 -0500
-In-Reply-To: <42007.80.98.159.250.1170369983.squirrel@www.hunhost.com>
+	id S933148AbXBAXG3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Feb 2007 18:06:29 -0500
+Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
+	by e6.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l11N7751027368
+	for <netdev@vger.kernel.org>; Thu, 1 Feb 2007 18:07:07 -0500
+Received: from d01av01.pok.ibm.com (d01av01.pok.ibm.com [9.56.224.215])
+	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.2) with ESMTP id l11N6RGA236156
+	for <netdev@vger.kernel.org>; Thu, 1 Feb 2007 18:06:27 -0500
+Received: from d01av01.pok.ibm.com (loopback [127.0.0.1])
+	by d01av01.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l11N6QJs004496
+	for <netdev@vger.kernel.org>; Thu, 1 Feb 2007 18:06:27 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I can reproduce the problem now (on mac mini). Interestingly it seems to whack
-the whole ethernet switch when it happens.
-> 
-> - a previously suggested fix - passing idle=poll to the kernel - did not
-> work for me at the end
+IPsec returns EAGAIN when it needs to acquire an SA.
+There have been a thread or two about this...
+Has there been any info or progress in how best to fix this?
 
-It is not an MSI or IRQ problem. It is a phy problem (see below).
+James Morris presented some work/ideas,
+http://vger.kernel.org/jmorris_ipsec_sa_resolution_netconf2006.pdf
 
-> - the locks I have happen very periodically (somewhere around every 22-28
-> hours), as if the chip would die after a given amount of data transferred;
-> I know this looks stupid but I thought I might mention it
-> - I have about 1Mbit/s of (incoming) traffic on this interface: with
-> short, very high peaks, as there is a MySQL server on the other end,
-> receiving about 100 queries per second
-> - unloading the sky2 module totally freezes the computer for me
+When using labeled xfrms (xfrms that contain a security context), there
+is potential for a greater amount of SAs to be created than when using
+regular xfrms. An SA may be created every time a different security
+context is encountered in a particular traffic stream. This could be
+many if each networking app has its own security context, making current
+behavior problematic.
 
-If you do:
-	ethtool -r eth0
-it cause a PHY reset (renegotiation) and clears the problem.
+Bugreport 225328 has been opened in the Redhat Bugzilla to address
+when having to acquire an SA, ipsec drops the packet.
 
+Regards,
+Joy
 
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
