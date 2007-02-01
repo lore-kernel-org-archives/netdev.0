@@ -1,41 +1,42 @@
-From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Subject: [PATCH] ieee80211: Fix sparse warning
-Date: Wed, 31 Jan 2007 18:50:19 -0600
-Message-ID: <45c1394b.An8WeE68tSLsbJYy%Larry.Finger@lwfinger.net>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [PATCH] r8169: fix a race between PCI probe and dev_open
+Date: Wed, 31 Jan 2007 16:55:55 -0800 (PST)
+Message-ID: <Pine.LNX.4.64.0701311655050.3632@woody.linux-foundation.org>
+References: <20070131213428.GA17534@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-	Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-To: John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
-List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, Andrew Morton <akpm@osdl.org>,
+	jgarzik@pobox.com, Bernhard Walle <bwalle@suse.de>
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.osdl.org ([65.172.181.24]:34356 "EHLO smtp.osdl.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1161141AbXBAA4L (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 Jan 2007 19:56:11 -0500
+In-Reply-To: <20070131213428.GA17534@electric-eye.fr.zoreil.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Sparse issues the warning "warning: symbol 'crypt' shadows an earlier one"
-in net/ieee80211/ieee80211_tx.c.
 
-Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
----
 
-Index: wireless-2.6/net/ieee80211/ieee80211_tx.c
-===================================================================
---- wireless-2.6.orig/net/ieee80211/ieee80211_tx.c
-+++ wireless-2.6/net/ieee80211/ieee80211_tx.c
-@@ -502,8 +502,6 @@ int ieee80211_xmit(struct sk_buff *skb, 
- 		if (host_encrypt)
- 			ieee80211_encrypt_fragment(ieee, skb_frag, hdr_len);
- 		else if (host_build_iv) {
--			struct ieee80211_crypt_data *crypt;
--
- 			crypt = ieee->crypt[ieee->tx_keyidx];
- 			atomic_inc(&crypt->refcnt);
- 			if (crypt->ops->build_iv)
+On Wed, 31 Jan 2007, Francois Romieu wrote:
+
+> Call chain:
+> -> rtl8169_init_one
+>    -> register_netdev                  (dev_open starts to race...)
+>    -> rtl8169_init_phy
+>       -> rtl8169_set_speed
+>          -> tp->set_speed
+>          -> mod_timer(&tp->timer, ...) (if netif_running() is true)
+> 
+> As netif_running() is true just before dev->open() is issued and the
+> timer is initialized during dev->open, mod_timer() meets an uninitialized
+> tp->timer and oopses.
+
+Doesn't this basically mean that *any* use of "rtl8169_set_speed()" is 
+buggy?
+
+Anyway, I'm going to wait for somebody smarter than me to ACK this patch. 
+Jeff?
+
+		Linus
