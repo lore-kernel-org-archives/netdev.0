@@ -1,28 +1,88 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH] r8169: fix a race between PCI probe and dev_open
-Date: Thu, 1 Feb 2007 09:28:11 +0100
-Message-ID: <20070201082811.GB1011@electric-eye.fr.zoreil.com>
-References: <20070131213428.GA17534@electric-eye.fr.zoreil.com> <E1HCRsJ-0007sg-00@gondolin.me.apana.org.au>
+From: "Xiaoliang (David) Wei" <davidwei79@gmail.com>
+Subject: A potential bug in tcp_vegas.c
+Date: Thu, 1 Feb 2007 01:45:31 -0800
+Message-ID: <7335583a0702010145p30e0fb3drf6a6fe8f73d12108@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: torvalds@linux-foundation.org, netdev@vger.kernel.org,
-	akpm@osdl.org, jgarzik@pobox.com, bwalle@suse.de
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:56643 "EHLO
-	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1422652AbXBAI3Q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Feb 2007 03:29:16 -0500
+Received: from ug-out-1314.google.com ([66.249.92.171]:13012 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1422712AbXBAJpd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Feb 2007 04:45:33 -0500
+Received: by ug-out-1314.google.com with SMTP id 44so416769uga
+        for <netdev@vger.kernel.org>; Thu, 01 Feb 2007 01:45:32 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <E1HCRsJ-0007sg-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Herbert Xu <herbert@gondor.apana.org.au> :
-[...]
-> Normally register_netdev should be the very last thing in a probe routine.
+Hi gurus,
 
-Yes. I did not feel safe changing it before 2.6.20.
+I am testing tcp_vegas.c in Linux with the NS-2 TCP-Linux. It seems
+that the ssthresh is not correctly reset in this file and the problem
+might lead to very unfair behavior among Vegas flows, when some flows
+exit slow start due to loss, not delay.
 
+Please see the details at:
+
+http://www.cs.caltech.edu/%7Eweixl/technical/ns2linux/known_linux/index.html#vegas
+(the section of "Setting of Slow-Start-Threshold")
+
+A fix I wrote (for Linux 2.6.19.2) is as follow:
+
+--- tcp_vegas.c.old	2007-02-01 00:33:55.000000000 -0800
++++ tcp_vegas.c	2007-02-01 00:39:49.000000000 -0800
+@@ -265,26 +265,25 @@
+ 			 */
+ 			diff = (old_wnd << V_PARAM_SHIFT) - target_cwnd;
+
+-			if (tp->snd_cwnd <= tp->snd_ssthresh) {
+-				/* Slow start.  */
+-				if (diff > gamma) {
+-					/* Going too fast. Time to slow down
+-					 * and switch to congestion avoidance.
+-					 */
+-					tp->snd_ssthresh = 2;
++			if (diff > gamma && tp->snd_ssthresh > 2 ) {
++				/* Going too fast. Time to slow down
++				 * and switch to congestion avoidance.
++				 */
++				tp->snd_ssthresh = 2;
+
+-					/* Set cwnd to match the actual rate
+-					 * exactly:
+-					 *   cwnd = (actual rate) * baseRTT
+-					 * Then we add 1 because the integer
+-					 * truncation robs us of full link
+-					 * utilization.
+-					 */
+-					tp->snd_cwnd = min(tp->snd_cwnd,
+-							   (target_cwnd >>
+-							    V_PARAM_SHIFT)+1);
++				/* Set cwnd to match the actual rate
++				 * exactly:
++				 *   cwnd = (actual rate) * baseRTT
++				 * Then we add 1 because the integer
++				 * truncation robs us of full link
++				 * utilization.
++				 */
++				tp->snd_cwnd = min(tp->snd_cwnd,
++						   (target_cwnd >>
++						    V_PARAM_SHIFT)+1);
+
+-				}
++			} else if (tp->snd_cwnd <= tp->snd_ssthresh) {
++				/* Slow start.  */
+ 				tcp_slow_start(tp);
+ 			} else {
+ 				/* Congestion avoidance. */
+
+
+Thanks.
+
+-David
 -- 
-Ueimor
+Xiaoliang (David) Wei      Graduate Student, CS@Caltech
+http://davidwei.org
+***********************************************
