@@ -1,56 +1,97 @@
-From: Lionel Landwerlin <landwer@free.fr>
-Subject: sky2 or acpi problem ?
-Date: Thu, 01 Feb 2007 18:59:55 +0100
-Message-ID: <1170352795.5299.17.camel@cocoduo>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [BNX2]: PHY workaround for 5709 A0.
+Date: Thu, 01 Feb 2007 10:47:58 -0800
+Message-ID: <1170355679.9765.2.camel@rh4>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1422842AbXBASAd@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms1.broadcom.com ([216.31.210.17]:2405 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1422850AbXBASDN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Feb 2007 13:03:13 -0500
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
-we already had words on lkml about this bug with sky2 driver.
+[BNX2]: PHY workaround for 5709 A0.
 
-I was having problems, and you told me to use the disable_msi=1
-parameter to see what happens. After a couple of hours of testing with
-heavly ethernet load, I answered you it had fixed the problem. I was
-wrong. Now, it takes much more time to crash. Most of time, I can't even
-see what happens beacause the box is completly frozen. But after several
-crashs, I only had my keyboard locked, usb unpowered, and ethernet
-interface down, I finally had the possibility see that :
+5709 A0 copper devices will not link up with some link partners
+without this workaround.
 
-Feb  1 18:35:06 cocoduo kernel: [59723.468000] NETDEV WATCHDOG: eth0: transmit timed out
-Feb  1 18:35:07 cocoduo kernel: [59723.468000] sky2 eth0: tx timeout
-Feb  1 18:35:07 cocoduo kernel: [59723.468000] sky2 eth0: transmit ring 64 .. 41 report=65 done=65
-Feb  1 18:35:07 cocoduo kernel: [59723.468000] sky2 status report lost?
-Feb  1 18:35:16 cocoduo kernel: [59733.200000] BUG: soft lockup detected on CPU#0!
-Feb  1 18:35:16 cocoduo kernel: [59733.200000]  [softlockup_tick+155/208] softlockup_tick+0x9b/0xd0
-Feb  1 18:35:16 cocoduo kernel: [59733.200000]  [update_process_times+49/128] update_process_times+0x31/0x80
-Feb  1 18:35:16 cocoduo kernel: [59733.200000]  [smp_apic_timer_interrupt+145/176] smp_apic_timer_interrupt+0x91/0xb0
-Feb  1 18:35:16 cocoduo kernel: [59733.200000]  [apic_timer_interrupt+31/36] apic_timer_interrupt+0x1f/0x24
-Feb  1 18:35:16 cocoduo kernel: [59733.200000]  [_spin_lock_bh+15/32] _spin_lock_bh+0xf/0x20
-Feb  1 18:35:16 cocoduo kernel: [59733.200000]  [pg0+945481365/1068803072] sky2_tx_timeout+0xf5/0x1d0 [sky2]
-Feb  1 18:35:16 cocoduo kernel: [59733.200000]  [dev_watchdog+0/208] dev_watchdog+0x0/0xd0
-Feb  1 18:35:16 cocoduo kernel: [59733.200000]  [dev_watchdog+192/208] dev_watchdog+0xc0/0xd0
-Feb  1 18:35:16 cocoduo kernel: [59733.200000]  [run_timer_softirq+273/400] run_timer_softirq+0x111/0x190
-Feb  1 18:35:16 cocoduo kernel: [59733.200000]  [__do_softirq+116/240] __do_softirq+0x74/0xf0
-Feb  1 18:35:16 cocoduo kernel: [59733.200000]  [do_softirq+59/80] do_softirq+0x3b/0x50
-Feb  1 18:35:16 cocoduo kernel: [59733.200000]  [smp_apic_timer_interrupt+150/176] smp_apic_timer_interrupt+0x96/0xb0
-Feb  1 18:35:16 cocoduo kernel: [59733.200000]  [apic_timer_interrupt+31/36] apic_timer_interrupt+0x1f/0x24
-Feb  1 18:35:16 cocoduo kernel: [59733.200000]  [pg0+943208348/1068803072] acpi_processor_idle+0x1fd/0x3b9 [processor]
-Feb  1 18:35:16 cocoduo kernel: [59733.200000]  [cpu_idle+116/208] cpu_idle+0x74/0xd0
-Feb  1 18:35:16 cocoduo kernel: [59733.200000]  [start_kernel+872/1072] start_kernel+0x368/0x430
-Feb  1 18:35:16 cocoduo kernel: [59733.200000]  [unknown_bootoption+0/624] unknown_bootoption+0x0/0x270
+Update driver to 1.5.5.
 
-It's exactly the same error than before. What do you think of this
-trace ? Is it related to sky2 driver or acpi ? Did you add debug output
-since 2.6.19.2 (version of the kernel I'm using) that would help to fix
-that bug ? What can I do to help to fix the bug ?
+Signed-off-by: Michael Chan <mchan@broadcom.com> 
 
-Regards,
+diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+index 953808e..ee7b75b 100644
+--- a/drivers/net/bnx2.c
++++ b/drivers/net/bnx2.c
+@@ -57,8 +57,8 @@
+ 
+ #define DRV_MODULE_NAME		"bnx2"
+ #define PFX DRV_MODULE_NAME	": "
+-#define DRV_MODULE_VERSION	"1.5.4"
+-#define DRV_MODULE_RELDATE	"January 24, 2007"
++#define DRV_MODULE_VERSION	"1.5.5"
++#define DRV_MODULE_RELDATE	"February 1, 2007"
+ 
+ #define RUN_AT(x) (jiffies + (x))
+ 
+@@ -1356,6 +1356,14 @@ bnx2_init_copper_phy(struct bnx2 *bp)
+ 		bnx2_write_phy(bp, 0x18, 0x0400);
+ 	}
+ 
++	if (bp->phy_flags & PHY_DIS_EARLY_DAC_FLAG) {
++		bnx2_write_phy(bp, MII_BNX2_DSP_ADDRESS,
++			       MII_BNX2_DSP_EXPAND_REG | 0x8);
++		bnx2_read_phy(bp, MII_BNX2_DSP_RW_PORT, &val);
++		val &= ~(1 << 8);
++		bnx2_write_phy(bp, MII_BNX2_DSP_RW_PORT, val);
++	}
++
+ 	if (bp->dev->mtu > 1500) {
+ 		/* Set extended packet length bit */
+ 		bnx2_write_phy(bp, 0x18, 0x7);
+@@ -5918,6 +5926,8 @@ bnx2_init_board(struct pci_dev *pdev, st
+ 	} else if (CHIP_NUM(bp) == CHIP_NUM_5706 ||
+ 		   CHIP_NUM(bp) == CHIP_NUM_5708)
+ 		bp->phy_flags |= PHY_CRC_FIX_FLAG;
++	else if (CHIP_ID(bp) == CHIP_ID_5709_A0)
++		bp->phy_flags |= PHY_DIS_EARLY_DAC_FLAG;
+ 
+ 	if ((CHIP_ID(bp) == CHIP_ID_5708_A0) ||
+ 	    (CHIP_ID(bp) == CHIP_ID_5708_B0) ||
+diff --git a/drivers/net/bnx2.h b/drivers/net/bnx2.h
+index 13b6f9b..ccbdf81 100644
+--- a/drivers/net/bnx2.h
++++ b/drivers/net/bnx2.h
+@@ -6288,6 +6288,10 @@ struct l2_fhdr {
+ 
+ #define BCM5708S_TX_ACTL3			0x17
+ 
++#define MII_BNX2_DSP_RW_PORT			0x15
++#define MII_BNX2_DSP_ADDRESS			0x17
++#define MII_BNX2_DSP_EXPAND_REG			 0x0f00
++
+ #define MIN_ETHERNET_PACKET_SIZE	60
+ #define MAX_ETHERNET_PACKET_SIZE	1514
+ #define MAX_ETHERNET_JUMBO_PACKET_SIZE	9014
+@@ -6489,6 +6493,7 @@ struct bnx2 {
+ #define PHY_INT_MODE_MASK_FLAG		0x300
+ #define PHY_INT_MODE_AUTO_POLLING_FLAG	0x100
+ #define PHY_INT_MODE_LINK_READY_FLAG	0x200
++#define PHY_DIS_EARLY_DAC_FLAG		0x400
+ 
+ 	u32			chip_id;
+ 	/* chip num:16-31, rev:12-15, metal:4-11, bond_id:0-3 */
+@@ -6512,6 +6517,7 @@ struct bnx2 {
+ #define CHIP_ID_5708_A0			0x57080000
+ #define CHIP_ID_5708_B0			0x57081000
+ #define CHIP_ID_5708_B1			0x57081010
++#define CHIP_ID_5709_A0			0x57090000
+ 
+ #define CHIP_BOND_ID(bp)		(((bp)->chip_id) & 0xf)
+ 
 
--- 
-Lionel Landwerlin <landwer@free.fr>
+
