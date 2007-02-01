@@ -1,88 +1,217 @@
-From: "Xiaoliang (David) Wei" <davidwei79@gmail.com>
-Subject: A potential bug in tcp_vegas.c
-Date: Thu, 1 Feb 2007 01:45:31 -0800
-Message-ID: <7335583a0702010145p30e0fb3drf6a6fe8f73d12108@mail.gmail.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: [take35 6/10] kevent: Pipe notifications.
+Date: Thu, 1 Feb 2007 13:12:33 +0300
+Message-ID: <11703247533111@2ka.mipt.ru>
+References: <11703247532659@2ka.mipt.ru>
+Reply-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	Andrew Morton <akpm@osdl.org>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	Chase Venters <chase.venters@clientec.com>,
+	Johann Borck <johann.borck@densedata.com>,
+	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
+	Jamal Hadi Salim <hadi@cyberus.ca>,
+	Ingo Molnar <mingo@elte.hu>
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.171]:13012 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1422712AbXBAJpd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Feb 2007 04:45:33 -0500
-Received: by ug-out-1314.google.com with SMTP id 44so416769uga
-        for <netdev@vger.kernel.org>; Thu, 01 Feb 2007 01:45:32 -0800 (PST)
-Content-Disposition: inline
+Received: from intermatrixgroup.ru ([195.178.208.66]:58506 "EHLO
+	tservice.net.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1422735AbXBAKMp convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Feb 2007 05:12:45 -0500
+In-Reply-To: <11703247532659@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi gurus,
 
-I am testing tcp_vegas.c in Linux with the NS-2 TCP-Linux. It seems
-that the ssthresh is not correctly reset in this file and the problem
-might lead to very unfair behavior among Vegas flows, when some flows
-exit slow start due to loss, not delay.
-
-Please see the details at:
-
-http://www.cs.caltech.edu/%7Eweixl/technical/ns2linux/known_linux/index.html#vegas
-(the section of "Setting of Slow-Start-Threshold")
-
-A fix I wrote (for Linux 2.6.19.2) is as follow:
-
---- tcp_vegas.c.old	2007-02-01 00:33:55.000000000 -0800
-+++ tcp_vegas.c	2007-02-01 00:39:49.000000000 -0800
-@@ -265,26 +265,25 @@
- 			 */
- 			diff = (old_wnd << V_PARAM_SHIFT) - target_cwnd;
-
--			if (tp->snd_cwnd <= tp->snd_ssthresh) {
--				/* Slow start.  */
--				if (diff > gamma) {
--					/* Going too fast. Time to slow down
--					 * and switch to congestion avoidance.
--					 */
--					tp->snd_ssthresh = 2;
-+			if (diff > gamma && tp->snd_ssthresh > 2 ) {
-+				/* Going too fast. Time to slow down
-+				 * and switch to congestion avoidance.
-+				 */
-+				tp->snd_ssthresh = 2;
-
--					/* Set cwnd to match the actual rate
--					 * exactly:
--					 *   cwnd = (actual rate) * baseRTT
--					 * Then we add 1 because the integer
--					 * truncation robs us of full link
--					 * utilization.
--					 */
--					tp->snd_cwnd = min(tp->snd_cwnd,
--							   (target_cwnd >>
--							    V_PARAM_SHIFT)+1);
-+				/* Set cwnd to match the actual rate
-+				 * exactly:
-+				 *   cwnd = (actual rate) * baseRTT
-+				 * Then we add 1 because the integer
-+				 * truncation robs us of full link
-+				 * utilization.
-+				 */
-+				tp->snd_cwnd = min(tp->snd_cwnd,
-+						   (target_cwnd >>
-+						    V_PARAM_SHIFT)+1);
-
--				}
-+			} else if (tp->snd_cwnd <= tp->snd_ssthresh) {
-+				/* Slow start.  */
- 				tcp_slow_start(tp);
- 			} else {
- 				/* Congestion avoidance. */
+Pipe notifications.
 
 
-Thanks.
+diff --git a/fs/pipe.c b/fs/pipe.c
+index 68090e8..0c75bf1 100644
+--- a/fs/pipe.c
++++ b/fs/pipe.c
+@@ -16,6 +16,7 @@
+ #include <linux/uio.h>
+ #include <linux/highmem.h>
+ #include <linux/pagemap.h>
++#include <linux/kevent.h>
+ 
+ #include <asm/uaccess.h>
+ #include <asm/ioctls.h>
+@@ -313,6 +314,7 @@ redo:
+ 			break;
+ 		}
+ 		if (do_wakeup) {
++			kevent_pipe_notify(inode, KEVENT_SOCKET_SEND);
+ 			wake_up_interruptible_sync(&pipe->wait);
+  			kill_fasync(&pipe->fasync_writers, SIGIO, POLL_OUT);
+ 		}
+@@ -322,6 +324,7 @@ redo:
+ 
+ 	/* Signal writers asynchronously that there is more room. */
+ 	if (do_wakeup) {
++		kevent_pipe_notify(inode, KEVENT_SOCKET_SEND);
+ 		wake_up_interruptible(&pipe->wait);
+ 		kill_fasync(&pipe->fasync_writers, SIGIO, POLL_OUT);
+ 	}
+@@ -484,6 +487,7 @@ redo2:
+ 			break;
+ 		}
+ 		if (do_wakeup) {
++			kevent_pipe_notify(inode, KEVENT_SOCKET_RECV);
+ 			wake_up_interruptible_sync(&pipe->wait);
+ 			kill_fasync(&pipe->fasync_readers, SIGIO, POLL_IN);
+ 			do_wakeup = 0;
+@@ -495,6 +499,7 @@ redo2:
+ out:
+ 	mutex_unlock(&inode->i_mutex);
+ 	if (do_wakeup) {
++		kevent_pipe_notify(inode, KEVENT_SOCKET_RECV);
+ 		wake_up_interruptible(&pipe->wait);
+ 		kill_fasync(&pipe->fasync_readers, SIGIO, POLL_IN);
+ 	}
+@@ -590,6 +595,7 @@ pipe_release(struct inode *inode, int decr, int decw)
+ 		free_pipe_info(inode);
+ 	} else {
+ 		wake_up_interruptible(&pipe->wait);
++		kevent_pipe_notify(inode, KEVENT_SOCKET_SEND|KEVENT_SOCKET_RECV);
+ 		kill_fasync(&pipe->fasync_readers, SIGIO, POLL_IN);
+ 		kill_fasync(&pipe->fasync_writers, SIGIO, POLL_OUT);
+ 	}
+diff --git a/kernel/kevent/kevent_pipe.c b/kernel/kevent/kevent_pipe.c
+new file mode 100644
+index 0000000..91dc1eb
+--- /dev/null
++++ b/kernel/kevent/kevent_pipe.c
+@@ -0,0 +1,123 @@
++/*
++ * 	kevent_pipe.c
++ * 
++ * 2006 Copyright (c) Evgeniy Polyakov <johnpol@2ka.mipt.ru>
++ * All rights reserved.
++ * 
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
++ */
++
++#include <linux/kernel.h>
++#include <linux/types.h>
++#include <linux/slab.h>
++#include <linux/spinlock.h>
++#include <linux/file.h>
++#include <linux/fs.h>
++#include <linux/kevent.h>
++#include <linux/pipe_fs_i.h>
++
++static int kevent_pipe_callback(struct kevent *k)
++{
++	struct inode *inode = k->st->origin;
++	struct pipe_inode_info *pipe = inode->i_pipe;
++	int nrbufs = pipe->nrbufs;
++
++	if (k->event.event & KEVENT_SOCKET_RECV && nrbufs > 0) {
++		if (!pipe->writers)
++			return -1;
++		return 1;
++	}
++	
++	if (k->event.event & KEVENT_SOCKET_SEND && nrbufs < PIPE_BUFFERS) {
++		if (!pipe->readers)
++			return -1;
++		return 1;
++	}
++
++	return 0;
++}
++
++int kevent_pipe_enqueue(struct kevent *k)
++{
++	struct file *pipe;
++	int err = -EBADF;
++	struct inode *inode;
++
++	pipe = fget(k->event.id.raw[0]);
++	if (!pipe)
++		goto err_out_exit;
++
++	inode = igrab(pipe->f_dentry->d_inode);
++	if (!inode)
++		goto err_out_fput;
++
++	err = -EINVAL;
++	if (!S_ISFIFO(inode->i_mode))
++		goto err_out_iput;
++
++	err = kevent_storage_enqueue(&inode->st, k);
++	if (err)
++		goto err_out_iput;
++
++	if (k->event.req_flags & KEVENT_REQ_ALWAYS_QUEUE) {
++		kevent_requeue(k);
++		err = 0;
++	} else {
++		err = k->callbacks.callback(k);
++		if (err)
++			goto err_out_dequeue;
++	}
++
++	fput(pipe);
++
++	return err;
++
++err_out_dequeue:
++	kevent_storage_dequeue(k->st, k);
++err_out_iput:
++	iput(inode);
++err_out_fput:
++	fput(pipe);
++err_out_exit:
++	return err;
++}
++
++int kevent_pipe_dequeue(struct kevent *k)
++{
++	struct inode *inode = k->st->origin;
++
++	kevent_storage_dequeue(k->st, k);
++	iput(inode);
++
++	return 0;
++}
++
++void kevent_pipe_notify(struct inode *inode, u32 event)
++{
++	kevent_storage_ready(&inode->st, NULL, event);
++}
++
++static int __init kevent_init_pipe(void)
++{
++	struct kevent_callbacks sc = {
++		.callback = &kevent_pipe_callback,
++		.enqueue = &kevent_pipe_enqueue,
++		.dequeue = &kevent_pipe_dequeue,
++		.flags = 0,
++	};
++
++	return kevent_add_callbacks(&sc, KEVENT_PIPE);
++}
++module_init(kevent_init_pipe);
 
--David
--- 
-Xiaoliang (David) Wei      Graduate Student, CS@Caltech
-http://davidwei.org
-***********************************************
