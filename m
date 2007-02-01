@@ -1,67 +1,86 @@
-From: "Jouni Malinen" <jkm@devicescape.com>
-Subject: Re: Hidden SSID's
-Date: Thu, 1 Feb 2007 10:46:09 -0800
-Message-ID: <20070201184609.GE2652@instant802.com>
-References: <1169899689.25670.3.camel@localhost.localdomain> <1170019717.30318.0.camel@johannes.berg> <1170075611.2895.2.camel@localhost.localdomain> <20070130030911.GA6637@jm.kir.nu> <1170128208.3448.6.camel@localhost.localdomain> <45BECF04.3070904@lwfinger.net> <20070130050841.GC6637@jm.kir.nu> <45BEEEED.9010702@lwfinger.net> <20070130225641.GH32304@instant802.com> <45C00066.80807@lwfinger.net>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: sky2 hangs
+Date: Thu, 1 Feb 2007 11:05:52 -0800
+Message-ID: <20070201110552.5bf52c8f@localhost>
+References: <20070201185532.GL13130@cip.informatik.uni-erlangen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Dan Williams <dcbw@redhat.com>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Larry Finger <larry.finger@lwfinger.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	shemminger@linux-foundation.org, netdev@vger.kernel.org
+To: Thomas Glanzmann <thomas@glanzmann.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dhost002-89.dex002.intermedia.net ([64.78.20.227]:22257 "EHLO
-	dhost002-89.dex002.intermedia.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1422934AbXBASqQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Feb 2007 13:46:16 -0500
-Content-Disposition: inline
-In-Reply-To: <45C00066.80807@lwfinger.net>
+Received: from smtp.osdl.org ([65.172.181.24]:57192 "EHLO smtp.osdl.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1422936AbXBATJP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Feb 2007 14:09:15 -0500
+In-Reply-To: <20070201185532.GL13130@cip.informatik.uni-erlangen.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 30, 2007 at 08:35:18PM -0600, Larry Finger wrote:
+On Thu, 1 Feb 2007 19:55:32 +0100
+Thomas Glanzmann <thomas@glanzmann.de> wrote:
 
-> If one does the equivalent of 'iwlist eth1 scan essid myssid', then a probe response with
-> NETWORK_EMPTY_ESSID set in the network flags will have 'myssid' returned in the SSID field of the
-> returned buffer. If the input command were 'iwlist eth1 scan', then an empty SSID would be returned
-> under the same circumstances. My code saves the SSID that is in the extra argument of the
-> SIOCSIWSCAN call, and uses that in the SIOCGIWSCAN call.
+> Hello,
+> I have a sky2 network card in my intel mac mini. It stops working when I
+> do havy network load like watching a divx over http/sshfs. However if I
+> remove the driver module and load it again it works and even the tcp
+> connection doesn't get shutdown. I automated the above procedure using
+> a userland watchdog which basically does the same thing and is written
+> entirely by me, because the traditional watchdog wasn't that reliable
+> and did a lot of false positives:
+> 
+>         * Look every ten seconds if my default router is pingable (3
+>           pings, one has to get back).
+>                 If it isn't the case I call network_fix script (it calls the
+>                 script only once after a ping gets lost. To run the script again at least one
+>                 ping has to arrive again)
+> 
+>                 (mini) [~] cat /usr/local/sbin/fix_network
+>                 #!/bin/bash
+> 
+>                 export PATH=/bin:/usr/bin:/usr/sbin:/sbin
+> 
+>                 rmmod sky2
+>                 modprobe sky2
+>                 ifdown eth0
+>                 ifup eth0
+> 
+>                 If after that no ping is received from the default
+>                 router for another 90 seconds I tell init to reboot and
+>                 stop feeding the kernel software watchdog.
+> 
+>         * My watchdog also checks if sshd process is running. If it is
+>           down for more than 100 seconds it reboots the machine, too.
+> 
+> Jan 27 22:35:35 mini watchdog-tg[4146]: No PONG received from 192.168.0.3 (failure 1 of 10)
+> Jan 27 22:35:35 mini watchdog-tg[4146]: Running fix_network script.
+> Jan 27 22:38:46 mini watchdog-tg[4146]: No PONG received from 192.168.0.3 (failure 1 of 10)
+> Jan 27 22:38:46 mini watchdog-tg[4146]: Running fix_network script.
+> Jan 27 22:44:17 mini watchdog-tg[4146]: No PONG received from 192.168.0.3 (failure 1 of 10)
+> Jan 27 22:44:17 mini watchdog-tg[4146]: Running fix_network script.
+> Jan 29 12:00:13 mini watchdog-tg[4146]: No PONG received from 192.168.0.3 (failure 1 of 10)
+> Jan 29 12:00:13 mini watchdog-tg[4146]: Running fix_network script.
+> Jan 29 19:18:59 mini watchdog-tg[4146]: No PONG received from 192.168.0.3 (failure 1 of 10)
+> Jan 29 19:18:59 mini watchdog-tg[4146]: Running fix_network script.
+> Jan 31 15:56:29 mini watchdog-tg[4146]: No PONG received from 192.168.0.3 (failure 1 of 10)
+> Jan 31 15:56:29 mini watchdog-tg[4146]: Running fix_network script.
+> Feb  1 08:56:57 mini watchdog-tg[4146]: No PONG received from 192.168.0.3 (failure 1 of 10)
+> Feb  1 08:56:57 mini watchdog-tg[4146]: Running fix_network script.
+> 
+> I have a question to this: I wonder why the Linux Kernel (no longer?)
+> increments the use counter of an ethernet driver (I saw it on sky2 and
+> e1000) when the interface is up, running and configured? I can unload
+> the sky2 driver without doing a 'ifconfig eth0 down' beforehand. Could
+> somone provide me with background on this fact?
 
-Well, yes, but SIOCSIWSCAN and SIOCGIWSCAN calls are not in any way
-linked together.. You could have two user space programs asking for a
-scan of different SSID at more or less the same time and then have them
-read the results with SIOCGIWSCAN. At this point, the SSID from the last
-SIOCSIWSCAN would be returned for all APs that are in the scan list
-without an SSID. This may not be the correct SSID and can produce quite
-confusing results. I don't see this as an improvement over just removing
-the "<hidden>" which will at least provide consistent results.
+It was intentional in 2.6 to allow interfaces to be hot-removed.
+Remember with Internet protocols there is no hard binding (normally)
+between address and device and connections should not go down
+if link fails.
 
-The proper fix for this is to use the information from the AP (Probe
-Response frames) and create a local BSS list that has entries with SSID
-updated from Probe Responses. If the underlying hardware/firmware does
-not allow such handling, this kind of mapping of SSIDs from scan request
-to scan results should probably in the hardware driver that would have
-chance of mapping results from firmware to request for a given SSID. At
-that point, it might be feasible to change the SSID in scan results, but
-I see only problems for the case where this is done at higher layer.
+> 
+> With that everything works. If somone is interested in my userland
+> watchdog, just send me an E-Mail.
 
-> What is the method that should be used to associated with a given hidden AP?
-
-The 802.11 stack should fill in the proper SSID data from Probe
-Responses and maintain a local BSS list, i.e., the hidden APs would be
-marked with proper SSID whenever Probe Responses are processed. See,
-e.g., how driver/net/wireless/hostap/*.c use local->bss_list that will
-be filled with information from both Beacon and Probe Response frames or
-how wireless-dev.git net/d80211/ieee80211_sta.c handles updating of BSS
-entry from both Beacon and Probe Response frames (i.e., do not allow
-Beacon frames to replace data from Probe Response frames) in
-ieee80211_rx_bss_info().
-
-In other words, the hidden SSIDs are resolved in the BSS list based on
-information from Probe Responses and user space programs will get proper
-information in the scan results regardless of how the real SSID was
-learned.
-
--- 
-Jouni Malinen                                            PGP id EFC895FA
+Hopefully, it won't be necessary for long.
