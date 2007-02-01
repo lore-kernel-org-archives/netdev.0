@@ -1,78 +1,60 @@
-From: Thomas Glanzmann <thomas@glanzmann.de>
-Subject: sky2 hangs
-Date: Thu, 1 Feb 2007 19:55:32 +0100
-Message-ID: <20070201185532.GL13130@cip.informatik.uni-erlangen.de>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: New list for wireless dev discussions
+Date: Thu, 1 Feb 2007 14:03:53 -0500
+Message-ID: <20070201190353.GE5408@tuxdriver.com>
+References: <20070130203944.GC6474@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org
-To: LKML <linux-kernel@vger.kernel.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from faui03.informatik.uni-erlangen.de ([131.188.30.103]:57405 "EHLO
-	faui03.informatik.uni-erlangen.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1422963AbXBATWl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Feb 2007 14:22:41 -0500
+Received: from ra.tuxdriver.com ([70.61.120.52]:4866 "EHLO ra.tuxdriver.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1422728AbXBATeX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Feb 2007 14:34:23 -0500
+Received: from ra.tuxdriver.com (ra.tuxdriver.com [127.0.0.1])
+	by ra.tuxdriver.com (8.13.7/8.13.7) with ESMTP id l11JYAsL021616
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Thu, 1 Feb 2007 14:34:18 -0500
+Received: (from uucp@localhost)
+	by ra.tuxdriver.com (8.13.7/8.13.6/Submit) with UUCP id l11JFdut021212
+	for netdev@vger.kernel.org; Thu, 1 Feb 2007 14:15:39 -0500
+Received: from linville-t43.mobile (linville-t43.mobile [127.0.0.1])
+	by linville-t43.mobile (8.13.8/8.13.8) with ESMTP id l11J3r68016271
+	for <netdev@vger.kernel.org>; Thu, 1 Feb 2007 14:03:53 -0500
+Received: (from linville@localhost)
+	by linville-t43.mobile (8.13.8/8.13.8/Submit) id l11J3rT1016270
+	for netdev@vger.kernel.org; Thu, 1 Feb 2007 14:03:53 -0500
 Content-Disposition: inline
+In-Reply-To: <20070130203944.GC6474@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
-I have a sky2 network card in my intel mac mini. It stops working when I
-do havy network load like watching a divx over http/sshfs. However if I
-remove the driver module and load it again it works and even the tcp
-connection doesn't get shutdown. I automated the above procedure using
-a userland watchdog which basically does the same thing and is written
-entirely by me, because the traditional watchdog wasn't that reliable
-and did a lot of false positives:
+On Tue, Jan 30, 2007 at 03:39:44PM -0500, John W. Linville wrote:
+> At the wireless summit in London, we collectively decided to move
+> day-to-day wireless development discussions to our own list.  I am
+> hosting a list for this purpose:
+> 
+> 	http://lists.tuxdriver.org/mailman/listinfo/wireless
 
-        * Look every ten seconds if my default router is pingable (3
-          pings, one has to get back).
-                If it isn't the case I call network_fix script (it calls the
-                script only once after a ping gets lost. To run the script again at least one
-                ping has to arrive again)
+In response to some community requests, I have asked David
+Miller to create a list for us on vger.kernel.org.  David has
+obliged that request, so I have restricted new subscriptions to
+wireless@lists.tuxdriver.org and I am asking everyone to move wireless
+discussions to the new list.
 
-                (mini) [~] cat /usr/local/sbin/fix_network
-                #!/bin/bash
+	linux-wireless@vger.kernel.org
 
-                export PATH=/bin:/usr/bin:/usr/sbin:/sbin
+Most of you should have been automatically subscribed to the new list.
+I think there are a handful of people who joined the tuxdriver list
+within the past 6 hours or so.  Those people may need to subscribe
+themselves to the vger list.
 
-                rmmod sky2
-                modprobe sky2
-                ifdown eth0
-                ifup eth0
+Sorry for the confusion.  FWIW, vger is probably a better home for
+our list anyway.
 
-                If after that no ping is received from the default
-                router for another 90 seconds I tell init to reboot and
-                stop feeding the kernel software watchdog.
+Thanks,
 
-        * My watchdog also checks if sshd process is running. If it is
-          down for more than 100 seconds it reboots the machine, too.
-
-Jan 27 22:35:35 mini watchdog-tg[4146]: No PONG received from 192.168.0.3 (failure 1 of 10)
-Jan 27 22:35:35 mini watchdog-tg[4146]: Running fix_network script.
-Jan 27 22:38:46 mini watchdog-tg[4146]: No PONG received from 192.168.0.3 (failure 1 of 10)
-Jan 27 22:38:46 mini watchdog-tg[4146]: Running fix_network script.
-Jan 27 22:44:17 mini watchdog-tg[4146]: No PONG received from 192.168.0.3 (failure 1 of 10)
-Jan 27 22:44:17 mini watchdog-tg[4146]: Running fix_network script.
-Jan 29 12:00:13 mini watchdog-tg[4146]: No PONG received from 192.168.0.3 (failure 1 of 10)
-Jan 29 12:00:13 mini watchdog-tg[4146]: Running fix_network script.
-Jan 29 19:18:59 mini watchdog-tg[4146]: No PONG received from 192.168.0.3 (failure 1 of 10)
-Jan 29 19:18:59 mini watchdog-tg[4146]: Running fix_network script.
-Jan 31 15:56:29 mini watchdog-tg[4146]: No PONG received from 192.168.0.3 (failure 1 of 10)
-Jan 31 15:56:29 mini watchdog-tg[4146]: Running fix_network script.
-Feb  1 08:56:57 mini watchdog-tg[4146]: No PONG received from 192.168.0.3 (failure 1 of 10)
-Feb  1 08:56:57 mini watchdog-tg[4146]: Running fix_network script.
-
-I have a question to this: I wonder why the Linux Kernel (no longer?)
-increments the use counter of an ethernet driver (I saw it on sky2 and
-e1000) when the interface is up, running and configured? I can unload
-the sky2 driver without doing a 'ifconfig eth0 down' beforehand. Could
-somone provide me with background on this fact?
-
-With that everything works. If somone is interested in my userland
-watchdog, just send me an E-Mail.
-
-@Sam: I can provide you access to my hardware including root access via
-the wifi driver so that you can debug this network driver lockup, if you
-want to.
-
-        Thomas
+John
+-- 
+John W. Linville
+linville@tuxdriver.com
