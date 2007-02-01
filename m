@@ -1,47 +1,79 @@
-From: Zhu Yi <yi.zhu@intel.com>
-Subject: Re: [Ipw2100-devel] [RFC] Runtime power management on ipw2100
-Date: Thu, 01 Feb 2007 09:47:05 +0800
-Message-ID: <1170294425.6601.182.camel@debian.sh.intel.com>
-References: <20070131075249.GA22115@srcf.ucam.org>
+From: Divy Le Ray <divy@chelsio.com>
+Subject: Re: [PATCH 1/10] cxgb3 - FW versioning
+Date: Wed, 31 Jan 2007 18:09:58 -0800
+Message-ID: <45C14BF6.50309@chelsio.com>
+References: <20070131034345.8574.21031.stgit@localhost.localdomain> <45C07202.3090308@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: ipw2100-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-pm@lists.osdl.org
-To: Matthew Garrett <mjg59@srcf.ucam.org>
+Cc: Divy Le Ray <None@chelsio.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, swise@opengridcomputing.com
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:35815 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1161237AbXBABqq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 Jan 2007 20:46:46 -0500
-In-Reply-To: <20070131075249.GA22115@srcf.ucam.org>
+Received: from stargate.chelsio.com ([12.22.49.110]:28421 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161082AbXBACKG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Jan 2007 21:10:06 -0500
+In-Reply-To: <45C07202.3090308@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2007-01-31 at 07:52 +0000, Matthew Garrett wrote:
-> Based on previous discussions, I've implemented a rough attempt at 
-> providing some level of basic runtime power management on the ipw2100 
-> chipset. This patch does the following:
-> 
-> 1) On load, it initialises the hardware and then quiesces it again
-> 2) On interface up, it powers the hardware back up
-> 3) On interface down, it powers the hardware down and puts the chip in 
-> D3
-> 4) It attempts to behave correctly over suspend/resume - ie, if the 
-> interface was down beforehand, it will ensure that the chip is powered 
-> down
+Hi Jeff,
 
->From my understanding, the intention of this patch is to defer the
-device self-initialization work (including firmware loading) from netdev
-initialization time to netdev open time (ifconfig up) and de-initialize
-the device when it is not being used (ifconfig down). This saves power
-during the time the driver is loaded but the interface is not open.
+Please see my replies in line.
+> You need to submit a patch to remove the following ioctls:
+>
+> CHELSIO_SETREG:
+> CHELSIO_GETREG:
 
-You should remove ipw2100_up() from ipw2100_net_init() which is
-netdev->init() since it will be called in ->open() in your patch. I'd
-also suggest you to request_irq()/free_irq() in the netdev ->open() and
-->close() in case the device shares IRQ with other devices, the
-interrupt handler should not be invoked anyway.
+These will get removed.
 
-Thanks,
--yi
+> CHELSIO_SET_QSET_PARAMS: (use ethtool instead)
+> CHELSIO_GET_QSET_PARAMS: (use ethtool instead)
+
+The T3 adapter supports multiple Tx/Rx queue sets,
+each can be can individually configured through these ioctls.
+
+ethtool is not adequate replacement because it can't configure
+each queue individually on such a device. We'd love it if ethtool
+were to be extended to provide good support for multi queue devices.
+
+> CHELSIO_SET_QSET_NUM: (use ethtool instead)
+> CHELSIO_GET_QSET_NUM: (use ethtool instead)
+
+These are used to set the number of queue sets per port.
+That also could be integrated in ethtool if extended
+to add support for multiple queue devices.
+We could alternatively use a sysfs attribute.
+
+> CHELSIO_SETMTUTAB:
+
+This one is needed to setup the device for RDMA.
+
+> CHELSIO_GET_MEM:
+
+This one is used for field diagnostics.
+It dumps the state of on-card memory.
+
+> CHELSIO_SET_TRACE_FILTER:
+
+This one is used for RDMA.
+It allows to see the ethernet packets the RDMA function
+puts on the wire/receives from the wire.
+
+> CHELSIO_SET_PKTSCHED:
+
+This one binds a queue set to a port.
+It could be turned to a sysfs attribute.
+
+>
+> explain and possibly remove
+>
+> CHELSIO_GET_PM:
+> CHELSIO_SET_PM:
+
+These are used to configure the on-card memory (tx/rx size
+and number of pages). They could be turned into sysfs attributes.
+
+Cheers,
+Divy
