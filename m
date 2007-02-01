@@ -1,92 +1,37 @@
-From: "Xiaoliang (David) Wei" <davidwei79@gmail.com>
-Subject: A potential bug in tcp_vegas.c
-Date: Thu, 1 Feb 2007 13:03:49 -0800
-Message-ID: <7335583a0702011303y5f3565d1r70a79eae94db6348@mail.gmail.com>
+From: Steve Wise <swise@opengridcomputing.com>
+Subject: Re: [Fwd: Re: [PATCH 1/10] cxgb3 - main header files]
+Date: Thu, 01 Feb 2007 15:05:34 -0600
+Message-ID: <1170363934.16637.58.camel@stevo-desktop>
+References: <1169216896.15842.6.camel@stevo-desktop>
+	 <adamz4f0wsy.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: openib-general <openib-general@openib.org>, netdev@vger.kernel.org,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Jeff Garzik <jeff@garzik.org>
+To: Roland Dreier <rdreier@cisco.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.175]:29517 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1422948AbXBAVDv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Feb 2007 16:03:51 -0500
-Received: by ug-out-1314.google.com with SMTP id 44so580378uga
-        for <netdev@vger.kernel.org>; Thu, 01 Feb 2007 13:03:49 -0800 (PST)
-Content-Disposition: inline
+Received: from rrcs-24-153-217-226.sw.biz.rr.com ([24.153.217.226]:42235 "EHLO
+	smtp.opengridcomputing.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1423012AbXBAVFf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Feb 2007 16:05:35 -0500
+In-Reply-To: <adamz4f0wsy.fsf@cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi gurus,
+On Fri, 2007-01-19 at 09:07 -0800, Roland Dreier wrote:
+>  > Jeff has pulled in the Chelsio Ethernet driver.  If you are ready to
+>  > merge in the RDMA driver, you can pull it from 
+> 
+> Yes, I saw that... OK, I'll get serious about reviewing the RDMA stuff.
 
-I am testing tcp_vegas.c in Linux with the NS-2 TCP-Linux.
-It seems that the ssthresh is not correctly reset to 2 in the
-"tcp_vegas_cong_avoid" function.
-The problem might lead to very unfair behavior among Vegas flows, when
-some flows exit slow start due to loss, not delay.
+Hey Roland,
 
-Please see the detailed effect at:
-http://www.cs.caltech.edu/%7Eweixl/technical/ns2linux/known_linux/#vegas
-(the section of "Setting of Slow-Start-Threshold")
+Have you had a chance to review this?
 
-A patch I wrote (for Linux 2.6.19-2) is attached.
-Basically, the branch that sets ssthresh to be 2 should be outside the
-condition of (cwnd<=ssthresh).
+Thanks,
 
---- tcp_vegas.c.old     2007-02-01 00:33:55.000000000 -0800
-+++ tcp_vegas.c 2007-02-01 00:39:49.000000000 -0800
-@@ -265,26 +265,25 @@
-                        */
-                       diff = (old_wnd << V_PARAM_SHIFT) - target_cwnd;
-
--                       if (tp->snd_cwnd <= tp->snd_ssthresh) {
--                               /* Slow start.  */
--                               if (diff > gamma) {
--                                       /* Going too fast. Time to slow down
--                                        * and switch to congestion avoidance.
--                                        */
--                                       tp->snd_ssthresh = 2;
-+                       if (diff > gamma && tp->snd_ssthresh > 2 ) {
-+                               /* Going too fast. Time to slow down
-+                                * and switch to congestion avoidance.
-+                                */
-+                               tp->snd_ssthresh = 2;
-
--                                       /* Set cwnd to match the actual rate
--                                        * exactly:
--                                        *   cwnd = (actual rate) * baseRTT
--                                        * Then we add 1 because the integer
--                                        * truncation robs us of full link
--                                        * utilization.
--                                        */
--                                       tp->snd_cwnd = min(tp->snd_cwnd,
--                                                          (target_cwnd >>
--                                                           V_PARAM_SHIFT)+1);
-+                               /* Set cwnd to match the actual rate
-+                                * exactly:
-+                                *   cwnd = (actual rate) * baseRTT
-+                                * Then we add 1 because the integer
-+                                * truncation robs us of full link
-+                                * utilization.
-+                                */
-+                               tp->snd_cwnd = min(tp->snd_cwnd,
-+                                                  (target_cwnd >>
-+                                                   V_PARAM_SHIFT)+1);
-
--                               }
-+                       } else if (tp->snd_cwnd <= tp->snd_ssthresh) {
-+                               /* Slow start.  */
-                               tcp_slow_start(tp);
-                       } else {
-                               /* Congestion avoidance. */
+Steve.
 
 
-
-Thanks.
-
--David
-
---
-Xiaoliang (David) Wei      Graduate Student, CS@Caltech
-http://davidwei.org
-***********************************************
