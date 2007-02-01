@@ -1,50 +1,62 @@
-From: Peter Korsgaard <jacmet@sunsite.dk>
-Subject: [PATCH] net/smc911x: Match up spin lock/unlock
-Date: Thu, 01 Feb 2007 16:30:56 +0100
-Message-ID: <87tzy53nf3.fsf@slug.be.48ers.dk>
+From: linas@austin.ibm.com (Linas Vepstas)
+Subject: Re: [PATCH] spidernet : fix memory leak in spider_net_stop
+Date: Thu, 1 Feb 2007 11:36:18 -0600
+Message-ID: <20070201173618.GI5616@austin.ibm.com>
+References: <200702011207.47421.jens@de.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org
-To: dustin@sensoria.com, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751850AbXBAPuw@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: James K Lewis <jim@jklewis.com>, linuxppc-dev@ozlabs.org,
+	netdev@vger.kernel.org, jgarzik@pobox.com, cbe-oss-dev@ozlabs.org,
+	Ishizaki Kou <kou.ishizaki@toshiba.co.jp>
+To: Jens Osterkamp <jens@de.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e6.ny.us.ibm.com ([32.97.182.146]:53417 "EHLO e6.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1422728AbXBARgZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Feb 2007 12:36:25 -0500
+Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
+	by e6.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l11Hb1FV007018
+	for <netdev@vger.kernel.org>; Thu, 1 Feb 2007 12:37:01 -0500
+Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
+	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v8.2) with ESMTP id l11HaMDP275580
+	for <netdev@vger.kernel.org>; Thu, 1 Feb 2007 12:36:22 -0500
+Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
+	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l11HaL8c020061
+	for <netdev@vger.kernel.org>; Thu, 1 Feb 2007 12:36:22 -0500
+Content-Disposition: inline
+In-Reply-To: <200702011207.47421.jens@de.ibm.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-smc911x_phy_configure's error handling unconditionally unlocks the
-spinlock even if it wasn't locked. Patch fixes it.
 
-Signed-off-by: Peter Korsgaard <jacmet@sunsite.dk>
+A variant of this patch is queued up for 2.6.21,
+as a part of the patch
+http://www.mail-archive.com/netdev@vger.kernel.org/msg28213.html
 
----
- drivers/net/smc911x.c |    5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+I beleive its in the -mm tree, I have not checked.
 
-Index: linux-trunk/drivers/net/smc911x.c
-===================================================================
---- linux-trunk.orig/drivers/net/smc911x.c
-+++ linux-trunk/drivers/net/smc911x.c
-@@ -969,11 +969,11 @@
- 	 * We should not be called if phy_type is zero.
- 	 */
- 	if (lp->phy_type == 0)
--		 goto smc911x_phy_configure_exit;
-+		 goto smc911x_phy_configure_exit_nolock;
- 
- 	if (smc911x_phy_reset(dev, phyaddr)) {
- 		printk("%s: PHY reset timed out\n", dev->name);
--		goto smc911x_phy_configure_exit;
-+		goto smc911x_phy_configure_exit_nolock;
- 	}
- 	spin_lock_irqsave(&lp->lock, flags);
- 
-@@ -1042,6 +1042,7 @@
- 
- smc911x_phy_configure_exit:
- 	spin_unlock_irqrestore(&lp->lock, flags);
-+smc911x_phy_configure_exit_nolock:
- 	lp->work_pending = 0;
- }
- 
+--linas
 
--- 
-Bye, Peter Korsgaard
+On Thu, Feb 01, 2007 at 12:07:47PM +0100, Jens Osterkamp wrote:
+> 
+> We forget to call spider_net_free_rx_chain_contents which does the
+> actual dev_kfree_skb. New skbs are allocated from skbuff_head_cache
+> on each "ifconfig up" letting the cache grow infinitely.
+> 
+> This patch fixes it.
+> 
+> Signed-off-by: Jens Osterkamp <jens@de.ibm.com>
+> 
+> Index: linux-2.6.20-rc6/drivers/net/spider_net.c
+> ===================================================================
+> --- linux-2.6.20-rc6.orig/drivers/net/spider_net.c
+> +++ linux-2.6.20-rc6/drivers/net/spider_net.c
+> @@ -1925,6 +1925,8 @@ spider_net_stop(struct net_device *netde
+>  	/* release chains */
+>  	spider_net_release_tx_chain(card, 1);
+>  
+> +	spider_net_free_rx_chain_contents(card);
+> +
+>  	spider_net_free_chain(card, &card->tx_chain);
+>  	spider_net_free_chain(card, &card->rx_chain);
+>  
