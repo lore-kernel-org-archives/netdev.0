@@ -1,26 +1,25 @@
-From: kou.ishizaki@toshiba.co.jp
-Subject: (unknown)
-Date: Thu, 01 Feb 2007 16:54:02 +0900 (JST)
-Message-ID: <200702010754.l117s2T8003383@toshiba.co.jp>
-Cc: linas@austin.ibm.com, linuxppc-dev@ozlabs.org,
-	netdev@vger.kernel.org
-To: jens@de.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from inet-tsb5.toshiba.co.jp ([202.33.96.24]:47392 "EHLO
-	inet-tsb5.toshiba.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030568AbXBAHym (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Feb 2007 02:54:42 -0500
-Sender: netdev-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-jgarzik@pobox.com, jim@jklewis.com
+From: Ishizaki Kou <kou.ishizaki@toshiba.co.jp>
 Subject: Re: [Cbe-oss-dev] spidernet: dynamic phy setup code
-In-Reply-To: <200701261409.29537.jens@de.ibm.com>
-From: Ishizaki Kou <kouish@swc.toshiba.co.jp>
-X-Mailer: Mew version 4.2 on Emacs 21.3 / Mule 5.0 (SAKAKI)
+Date: Thu, 01 Feb 2007 17:05:01 +0900 (JST)
+Message-ID: <200702010805.l11853LX014768@toshiba.co.jp>
+References: <200701261409.29537.jens@de.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
+Cc: linas@austin.ibm.com, linuxppc-dev@ozlabs.org,
+	netdev@vger.kernel.org, jgarzik@pobox.com, jim@jklewis.com
+To: jens@de.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from inet-tsb5.toshiba.co.jp ([202.33.96.24]:49057 "EHLO
+	inet-tsb5.toshiba.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030527AbXBAIGa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Feb 2007 03:06:30 -0500
+In-Reply-To: <200701261409.29537.jens@de.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+I apologize if you received this mail many times.
+
 
 Jens-san
 
