@@ -1,8 +1,8 @@
 From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: [take35 8/10] kevent: Kevent posix timer notifications.
+Subject: [take35 9/10] kevent: Private userspace notifications.
 Date: Thu, 1 Feb 2007 13:12:34 +0300
-Message-ID: <1170324754194@2ka.mipt.ru>
-References: <11703247531305@2ka.mipt.ru>
+Message-ID: <11703247541476@2ka.mipt.ru>
+References: <1170324754194@2ka.mipt.ru>
 Reply-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
@@ -21,343 +21,89 @@ Cc: David Miller <davem@davemloft.net>,
 	Ingo Molnar <mingo@elte.hu>
 To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from corega.com.ru ([195.178.208.66]:58565 "EHLO tservice.net.ru"
+Received: from netgear.net.ru ([195.178.208.66]:58561 "EHLO tservice.net.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1422747AbXBAKMy convert rfc822-to-8bit (ORCPT
+	id S1422760AbXBAKMy convert rfc822-to-8bit (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Thu, 1 Feb 2007 05:12:54 -0500
-In-Reply-To: <11703247531305@2ka.mipt.ru>
+In-Reply-To: <1170324754194@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-Kevent posix timer notifications.
+Private userspace notifications.
 
-Simple extension to POSIX timers which allows
-to deliver notification of the timer expiration
-through kevent queue.
-
-Example application posix_timer.c can be found
-in archive on project homepage.
+Allows to register notifications of any private userspace
+events over kevent. Events can be marked as ready using 
+kevent_ctl(KEVENT_READY) command.
 
 Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 
-
-diff --git a/include/asm-generic/siginfo.h b/include/asm-generic/siginfo.h
-index 8786e01..3768746 100644
---- a/include/asm-generic/siginfo.h
-+++ b/include/asm-generic/siginfo.h
-@@ -235,6 +235,7 @@ typedef struct siginfo {
- #define SIGEV_NONE	1	/* other notification: meaningless */
- #define SIGEV_THREAD	2	/* deliver via thread creation */
- #define SIGEV_THREAD_ID 4	/* deliver to thread */
-+#define SIGEV_KEVENT	8	/* deliver through kevent queue */
- 
- /*
-  * This works because the alignment is ok on all current architectures
-@@ -260,6 +261,8 @@ typedef struct sigevent {
- 			void (*_function)(sigval_t);
- 			void *_attribute;	/* really pthread_attr_t */
- 		} _sigev_thread;
+diff --git a/kernel/kevent/kevent_unotify.c b/kernel/kevent/kevent_unotify.c
+new file mode 100644
+index 0000000..618c09c
+--- /dev/null
++++ b/kernel/kevent/kevent_unotify.c
+@@ -0,0 +1,62 @@
++/*
++ * 2006 Copyright (c) Evgeniy Polyakov <johnpol@2ka.mipt.ru>
++ * All rights reserved.
++ * 
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
++ */
 +
-+		int kevent_fd;
- 	} _sigev_un;
- } sigevent_t;
- 
-diff --git a/include/linux/posix-timers.h b/include/linux/posix-timers.h
-index a7dd38f..4b9deb4 100644
---- a/include/linux/posix-timers.h
-+++ b/include/linux/posix-timers.h
-@@ -4,6 +4,7 @@
- #include <linux/spinlock.h>
- #include <linux/list.h>
- #include <linux/sched.h>
-+#include <linux/kevent_storage.h>
- 
- union cpu_time_count {
- 	cputime_t cpu;
-@@ -49,6 +50,9 @@ struct k_itimer {
- 	sigval_t it_sigev_value;	/* value word of sigevent struct */
- 	struct task_struct *it_process;	/* process to send signal to */
- 	struct sigqueue *sigq;		/* signal queue entry. */
-+#ifdef CONFIG_KEVENT_TIMER
-+	struct kevent_storage st;
-+#endif
- 	union {
- 		struct {
- 			struct hrtimer timer;
-diff --git a/kernel/posix-timers.c b/kernel/posix-timers.c
-index 5fe87de..5ec805e 100644
---- a/kernel/posix-timers.c
-+++ b/kernel/posix-timers.c
-@@ -48,6 +48,8 @@
- #include <linux/wait.h>
- #include <linux/workqueue.h>
- #include <linux/module.h>
++#include <linux/kernel.h>
 +#include <linux/kevent.h>
-+#include <linux/file.h>
- 
- /*
-  * Management arrays for POSIX timers.	 Timers are kept in slab memory
-@@ -224,6 +226,100 @@ static int posix_ktime_get_ts(clockid_t which_clock, struct timespec *tp)
- 	return 0;
- }
- 
-+#ifdef CONFIG_KEVENT_TIMER
-+static int posix_kevent_enqueue(struct kevent *k)
-+{
-+	/*
-+	 * It is not ugly - there is no pointer in the id field union, 
-+	 * but its size is 64bits, which is ok for any known pointer size.
-+	 */
-+	struct k_itimer *tmr = (struct k_itimer *)(unsigned long)k->event.id.raw_u64;
-+	return kevent_storage_enqueue(&tmr->st, k);
-+}
-+static int posix_kevent_dequeue(struct kevent *k)
-+{
-+	struct k_itimer *tmr = (struct k_itimer *)(unsigned long)k->event.id.raw_u64;
-+	kevent_storage_dequeue(&tmr->st, k);
-+	return 0;
-+}
-+static int posix_kevent_callback(struct kevent *k)
++
++static int kevent_unotify_callback(struct kevent *k)
 +{
 +	return 1;
 +}
-+static int posix_kevent_init(void)
++
++int kevent_unotify_enqueue(struct kevent *k)
 +{
-+	struct kevent_callbacks tc = {
-+		.callback = &posix_kevent_callback,
-+		.enqueue = &posix_kevent_enqueue,
-+		.dequeue = &posix_kevent_dequeue,
-+		.flags = KEVENT_CALLBACKS_KERNELONLY};
-+
-+	return kevent_add_callbacks(&tc, KEVENT_POSIX_TIMER);
-+}
-+
-+extern struct file_operations kevent_user_fops;
-+
-+static int posix_kevent_init_timer(struct k_itimer *tmr, int fd)
-+{
-+	struct ukevent uk;
-+	struct file *file;
-+	struct kevent_user *u;
 +	int err;
 +
-+	file = fget(fd);
-+	if (!file) {
-+		err = -EBADF;
-+		goto err_out;
-+	}
-+
-+	if (file->f_op != &kevent_user_fops) {
-+		err = -EINVAL;
-+		goto err_out_fput;
-+	}
-+
-+	u = file->private_data;
-+
-+	memset(&uk, 0, sizeof(struct ukevent));
-+
-+	uk.event = KEVENT_MASK_ALL;
-+	uk.type = KEVENT_POSIX_TIMER;
-+	uk.id.raw_u64 = (unsigned long)(tmr); /* Just cast to something unique */
-+	uk.req_flags = KEVENT_REQ_ONESHOT | KEVENT_REQ_ALWAYS_QUEUE;
-+	uk.ptr = tmr->it_sigev_value.sival_ptr;
-+
-+	err = kevent_user_add_ukevent(&uk, u);
++	err = kevent_storage_enqueue(&k->user->st, k);
 +	if (err)
-+		goto err_out_fput;
++		goto err_out_exit;
 +
-+	fput(file);
++	if (k->event.req_flags & KEVENT_REQ_ALWAYS_QUEUE)
++		kevent_requeue(k);
 +
 +	return 0;
 +
-+err_out_fput:
-+	fput(file);
-+err_out:
++err_out_exit:
 +	return err;
 +}
 +
-+static void posix_kevent_fini_timer(struct k_itimer *tmr)
++int kevent_unotify_dequeue(struct kevent *k)
 +{
-+	kevent_storage_fini(&tmr->st);
-+}
-+#else
-+static int posix_kevent_init_timer(struct k_itimer *tmr, int fd)
-+{
-+	return -ENOSYS;
-+}
-+static int posix_kevent_init(void)
-+{
++	kevent_storage_dequeue(k->st, k);
 +	return 0;
 +}
-+static void posix_kevent_fini_timer(struct k_itimer *tmr)
++
++static int __init kevent_init_unotify(void)
 +{
++	struct kevent_callbacks sc = {
++		.callback = &kevent_unotify_callback,
++		.enqueue = &kevent_unotify_enqueue,
++		.dequeue = &kevent_unotify_dequeue,
++		.flags = 0,
++	};
++
++	return kevent_add_callbacks(&sc, KEVENT_UNOTIFY);
 +}
-+#endif
-+
-+
- /*
-  * Initialize everything, well, just everything in Posix clocks/timers ;)
-  */
-@@ -241,6 +337,11 @@ static __init int init_posix_timers(void)
- 	register_posix_clock(CLOCK_REALTIME, &clock_realtime);
- 	register_posix_clock(CLOCK_MONOTONIC, &clock_monotonic);
- 
-+	if (posix_kevent_init()) {
-+		printk(KERN_ERR "Failed to initialize kevent posix timers.\n");
-+		BUG();
-+	}
-+
- 	posix_timers_cache = kmem_cache_create("posix_timers_cache",
- 					sizeof (struct k_itimer), 0, 0, NULL, NULL);
- 	idr_init(&posix_timers_id);
-@@ -343,23 +444,29 @@ static int posix_timer_fn(struct hrtimer *timer)
- 
- 	timr = container_of(timer, struct k_itimer, it.real.timer);
- 	spin_lock_irqsave(&timr->it_lock, flags);
-+	
-+	if (timr->it_sigev_notify == SIGEV_KEVENT) {
-+#ifdef CONFIG_KEVENT_TIMER
-+		kevent_storage_ready(&timr->st, NULL, KEVENT_MASK_ALL);
-+#endif
-+	} else {
-+		if (timr->it.real.interval.tv64 != 0)
-+			si_private = ++timr->it_requeue_pending;
- 
--	if (timr->it.real.interval.tv64 != 0)
--		si_private = ++timr->it_requeue_pending;
--
--	if (posix_timer_event(timr, si_private)) {
--		/*
--		 * signal was not sent because of sig_ignor
--		 * we will not get a call back to restart it AND
--		 * it should be restarted.
--		 */
--		if (timr->it.real.interval.tv64 != 0) {
--			timr->it_overrun +=
--				hrtimer_forward(timer,
--						timer->base->softirq_time,
--						timr->it.real.interval);
--			ret = HRTIMER_RESTART;
--			++timr->it_requeue_pending;
-+		if (posix_timer_event(timr, si_private)) {
-+			/*
-+			 * signal was not sent because of sig_ignor
-+			 * we will not get a call back to restart it AND
-+			 * it should be restarted.
-+			 */
-+			if (timr->it.real.interval.tv64 != 0) {
-+				timr->it_overrun +=
-+					hrtimer_forward(timer,
-+							timer->base->softirq_time,
-+							timr->it.real.interval);
-+				ret = HRTIMER_RESTART;
-+				++timr->it_requeue_pending;
-+			}
- 		}
- 	}
- 
-@@ -407,6 +514,9 @@ static struct k_itimer * alloc_posix_timer(void)
- 		kmem_cache_free(posix_timers_cache, tmr);
- 		tmr = NULL;
- 	}
-+#ifdef CONFIG_KEVENT_TIMER
-+	kevent_storage_init(tmr, &tmr->st);
-+#endif
- 	return tmr;
- }
- 
-@@ -424,6 +534,7 @@ static void release_posix_timer(struct k_itimer *tmr, int it_id_set)
- 	if (unlikely(tmr->it_process) &&
- 	    tmr->it_sigev_notify == (SIGEV_SIGNAL|SIGEV_THREAD_ID))
- 		put_task_struct(tmr->it_process);
-+	posix_kevent_fini_timer(tmr);
- 	kmem_cache_free(posix_timers_cache, tmr);
- }
- 
-@@ -496,40 +607,52 @@ sys_timer_create(const clockid_t which_clock,
- 		new_timer->it_sigev_signo = event.sigev_signo;
- 		new_timer->it_sigev_value = event.sigev_value;
- 
--		read_lock(&tasklist_lock);
--		if ((process = good_sigevent(&event))) {
--			/*
--			 * We may be setting up this process for another
--			 * thread.  It may be exiting.  To catch this
--			 * case the we check the PF_EXITING flag.  If
--			 * the flag is not set, the siglock will catch
--			 * him before it is too late (in exit_itimers).
--			 *
--			 * The exec case is a bit more invloved but easy
--			 * to code.  If the process is in our thread
--			 * group (and it must be or we would not allow
--			 * it here) and is doing an exec, it will cause
--			 * us to be killed.  In this case it will wait
--			 * for us to die which means we can finish this
--			 * linkage with our last gasp. I.e. no code :)
--			 */
-+		if (event.sigev_notify == SIGEV_KEVENT) {
-+			error = posix_kevent_init_timer(new_timer, event._sigev_un.kevent_fd);
-+			if (error)
-+				goto out;
-+
-+			process = current->group_leader;
- 			spin_lock_irqsave(&process->sighand->siglock, flags);
--			if (!(process->flags & PF_EXITING)) {
--				new_timer->it_process = process;
--				list_add(&new_timer->list,
--					 &process->signal->posix_timers);
--				spin_unlock_irqrestore(&process->sighand->siglock, flags);
--				if (new_timer->it_sigev_notify == (SIGEV_SIGNAL|SIGEV_THREAD_ID))
--					get_task_struct(process);
--			} else {
--				spin_unlock_irqrestore(&process->sighand->siglock, flags);
--				process = NULL;
-+			new_timer->it_process = process;
-+			list_add(&new_timer->list, &process->signal->posix_timers);
-+			spin_unlock_irqrestore(&process->sighand->siglock, flags);
-+		} else {
-+			read_lock(&tasklist_lock);
-+			if ((process = good_sigevent(&event))) {
-+				/*
-+				 * We may be setting up this process for another
-+				 * thread.  It may be exiting.  To catch this
-+				 * case the we check the PF_EXITING flag.  If
-+				 * the flag is not set, the siglock will catch
-+				 * him before it is too late (in exit_itimers).
-+				 *
-+				 * The exec case is a bit more invloved but easy
-+				 * to code.  If the process is in our thread
-+				 * group (and it must be or we would not allow
-+				 * it here) and is doing an exec, it will cause
-+				 * us to be killed.  In this case it will wait
-+				 * for us to die which means we can finish this
-+				 * linkage with our last gasp. I.e. no code :)
-+				 */
-+				spin_lock_irqsave(&process->sighand->siglock, flags);
-+				if (!(process->flags & PF_EXITING)) {
-+					new_timer->it_process = process;
-+					list_add(&new_timer->list,
-+						 &process->signal->posix_timers);
-+					spin_unlock_irqrestore(&process->sighand->siglock, flags);
-+					if (new_timer->it_sigev_notify == (SIGEV_SIGNAL|SIGEV_THREAD_ID))
-+						get_task_struct(process);
-+				} else {
-+					spin_unlock_irqrestore(&process->sighand->siglock, flags);
-+					process = NULL;
-+				}
-+			}
-+			read_unlock(&tasklist_lock);
-+			if (!process) {
-+				error = -EINVAL;
-+				goto out;
- 			}
--		}
--		read_unlock(&tasklist_lock);
--		if (!process) {
--			error = -EINVAL;
--			goto out;
- 		}
- 	} else {
- 		new_timer->it_sigev_notify = SIGEV_SIGNAL;
++module_init(kevent_init_unotify);
 
