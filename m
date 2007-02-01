@@ -1,42 +1,58 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [PATCH] r8169: fix a race between PCI probe and dev_open
-Date: Wed, 31 Jan 2007 16:55:55 -0800 (PST)
-Message-ID: <Pine.LNX.4.64.0701311655050.3632@woody.linux-foundation.org>
-References: <20070131213428.GA17534@electric-eye.fr.zoreil.com>
+From: Marcelo Tosatti <marcelo@kvack.org>
+Subject: Re: [PATCH] Marvell Libertas 8388 802.11b/g USB driver (v2)
+Date: Wed, 31 Jan 2007 22:58:51 -0200
+Message-ID: <20070201005851.GA16279@dmt>
+References: <20070120201554.GC5037@dmt>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, Andrew Morton <akpm@osdl.org>,
-	jgarzik@pobox.com, Bernhard Walle <bwalle@suse.de>
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jiri Benc <jbenc@suse.cz>, Dan Williams <dcbw@redhat.com>,
+	netdev <netdev@vger.kernel.org>, Jeff Garzik <jgarzik@pobox.com>,
+	"John W. Linville" <linville@redhat.com>,
+	"Luis R. Rodriguez" <mcgrof@gmail.com>,
+	Arnd Bergmann <arnd@arndb.de>,
+	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+To: Marcelo Tosatti <marcelo@kvack.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:34356 "EHLO smtp.osdl.org"
+Received: from kanga.kvack.org ([66.96.29.28]:53240 "EHLO kanga.kvack.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1161141AbXBAA4L (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 Jan 2007 19:56:11 -0500
-In-Reply-To: <20070131213428.GA17534@electric-eye.fr.zoreil.com>
+	id S1161149AbXBABC0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 Jan 2007 20:02:26 -0500
+Content-Disposition: inline
+In-Reply-To: <20070120201554.GC5037@dmt>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi Jiri,
 
-
-On Wed, 31 Jan 2007, Francois Romieu wrote:
-
-> Call chain:
-> -> rtl8169_init_one
->    -> register_netdev                  (dev_open starts to race...)
->    -> rtl8169_init_phy
->       -> rtl8169_set_speed
->          -> tp->set_speed
->          -> mod_timer(&tp->timer, ...) (if netif_running() is true)
+On Sat, Jan 20, 2007 at 06:15:54PM -0200, Marcelo Tosatti wrote:
+> On Wed, Jan 17, 2007 at 04:43:28PM +0100, Jiri Benc wrote:
+> > On Wed, 17 Jan 2007 10:01:12 -0500, Dan Williams wrote:
+> > > But could we please be constructive here, and actually take a look at
+> > > the driver and point out problems?
+> > 
+> > Just from a quick glance:
+> > 
+> > - drivers/net/wireless/libertas/radiotap.h file with a lot of constants
+> >   already defined elsewhere (and not respecting kernel coding style,
+> >   either)
 > 
-> As netif_running() is true just before dev->open() is issued and the
-> timer is initialized during dev->open, mod_timer() meets an uninitialized
-> tp->timer and oopses.
+> Such as? The bit definitions (IEEE80211_RADIOTAP_F_{TX,RX}...) have been
+> moved to include/net/ieee80211_radiotap.h in the second version of the
+> patch. Is that what you were referring to?
 
-Doesn't this basically mean that *any* use of "rtl8169_set_speed()" is 
-buggy?
+I also converted the last piece of code which could be shared from
+generic Linux code in radiotap.h, which is "struct ieee80211_hdr_4addr".
 
-Anyway, I'm going to wait for somebody smarter than me to ACK this patch. 
-Jeff?
+Can you go over it again and point any problems you might see? 
 
-		Linus
+http://git.infradead.org/?p=libertas-2.6.git;a=blob;h=5d118f40cfbc43206369ec77082e220822318f11;hb=6a2277e41e4fd69e4f33cc7abc574aca8bca8abe;f=drivers/net/wireless/libertas/radiotap.h
+
+> As for kernel coding style in that file, can you specify what looks
+> wrong? It appears alright to me.
+
+Again, coding style looks fine to me.
+
+> > - regulatory domain management (already in ieee80211, in progress for
+> >   d80211)
+> > - the full authentication and association state machine (or am I
+> >   understanding it wrong?) 
