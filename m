@@ -1,8 +1,8 @@
 From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: [take35 3/10] kevent: poll/select() notifications.
-Date: Thu, 1 Feb 2007 13:12:31 +0300
-Message-ID: <11703247513290@2ka.mipt.ru>
-References: <11703247513301@2ka.mipt.ru>
+Subject: [take35 4/10] kevent: Socket notifications.
+Date: Thu, 1 Feb 2007 13:12:32 +0300
+Message-ID: <11703247523827@2ka.mipt.ru>
+References: <11703247513290@2ka.mipt.ru>
 Reply-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
@@ -21,104 +21,140 @@ Cc: David Miller <davem@davemloft.net>,
 	Ingo Molnar <mingo@elte.hu>
 To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tservice.ru ([195.178.208.66]:58491 "EHLO tservice.net.ru"
+Received: from tservice.ru ([195.178.208.66]:58515 "EHLO tservice.net.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1422749AbXBAKMq convert rfc822-to-8bit (ORCPT
+	id S1422750AbXBAKMq convert rfc822-to-8bit (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Thu, 1 Feb 2007 05:12:46 -0500
-In-Reply-To: <11703247513301@2ka.mipt.ru>
+In-Reply-To: <11703247513290@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-poll/select() notifications.
+Socket notifications.
 
-This patch includes generic poll/select notifications.
-kevent_poll works simialr to epoll and has the same issues (callback
-is invoked not from internal state machine of the caller, but through
-process awake, a lot of allocations and so on).
+This patch includes socket send/recv/accept notifications.
 
-Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mitp.ru>
+Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 
-diff --git a/fs/file_table.c b/fs/file_table.c
-index 4c17a18..46f458c 100644
---- a/fs/file_table.c
-+++ b/fs/file_table.c
-@@ -20,6 +20,7 @@
+diff --git a/fs/inode.c b/fs/inode.c
+index bf21dc6..82817b1 100644
+--- a/fs/inode.c
++++ b/fs/inode.c
+@@ -21,6 +21,7 @@
  #include <linux/cdev.h>
- #include <linux/fsnotify.h>
- #include <linux/sysctl.h>
+ #include <linux/bootmem.h>
+ #include <linux/inotify.h>
 +#include <linux/kevent.h>
- #include <linux/percpu_counter.h>
+ #include <linux/mount.h>
  
- #include <asm/atomic.h>
-@@ -119,6 +120,7 @@ struct file *get_empty_filp(void)
- 	f->f_uid = tsk->fsuid;
- 	f->f_gid = tsk->fsgid;
- 	eventpoll_init_file(f);
-+	kevent_init_file(f);
- 	/* f->f_version: 0 */
- 	return f;
- 
-@@ -164,6 +166,7 @@ void fastcall __fput(struct file *file)
- 	 * in the file cleanup chain.
- 	 */
- 	eventpoll_release(file);
-+	kevent_cleanup_file(file);
- 	locks_remove_flock(file);
- 
- 	if (file->f_op && file->f_op->release)
-diff --git a/include/linux/fs.h b/include/linux/fs.h
-index 1410e53..24f605c 100644
---- a/include/linux/fs.h
-+++ b/include/linux/fs.h
-@@ -280,6 +280,7 @@ extern int dir_notify_enable;
- #include <linux/init.h>
- #include <linux/pid.h>
- #include <linux/mutex.h>
-+#include <linux/kevent_storage.h>
- 
- #include <asm/atomic.h>
- #include <asm/semaphore.h>
-@@ -408,6 +409,8 @@ struct address_space_operations {
- 
- 	int (*readpages)(struct file *filp, struct address_space *mapping,
- 			struct list_head *pages, unsigned nr_pages);
-+	int (*aio_readpages)(struct file *filp, struct address_space *mapping,
-+			struct list_head *pages, unsigned nr_pages, void *priv);
- 
- 	/*
- 	 * ext3 requires that a successful prepare_write() call be followed
-@@ -579,6 +582,10 @@ struct inode {
- 	struct mutex		inotify_mutex;	/* protects the watches list */
- #endif
- 
+ /*
+@@ -164,12 +165,18 @@ static struct inode *alloc_inode(struct super_block *sb)
+ 		}
+ 		inode->i_private = NULL;
+ 		inode->i_mapping = mapping;
 +#if defined CONFIG_KEVENT_SOCKET || defined CONFIG_KEVENT_PIPE
-+	struct kevent_storage	st;
++		kevent_storage_init(inode, &inode->st);
 +#endif
-+
- 	unsigned long		i_state;
- 	unsigned long		dirtied_when;	/* jiffies of first dirtying */
+ 	}
+ 	return inode;
+ }
  
-@@ -738,6 +745,9 @@ struct file {
- 	struct list_head	f_ep_links;
- 	spinlock_t		f_ep_lock;
- #endif /* #ifdef CONFIG_EPOLL */
-+#ifdef CONFIG_KEVENT_POLL
-+	struct kevent_storage	st;
+ void destroy_inode(struct inode *inode) 
+ {
++#if defined CONFIG_KEVENT_SOCKET || defined CONFIG_KEVENT_PIPE
++	kevent_storage_fini(&inode->st);
 +#endif
- 	struct address_space	*f_mapping;
- };
- extern spinlock_t files_lock;
-diff --git a/kernel/kevent/kevent_poll.c b/kernel/kevent/kevent_poll.c
+ 	BUG_ON(inode_has_buffers(inode));
+ 	security_inode_free(inode);
+ 	if (inode->i_sb->s_op->destroy_inode)
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 03684e7..d840399 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -49,6 +49,7 @@
+ #include <linux/skbuff.h>	/* struct sk_buff */
+ #include <linux/mm.h>
+ #include <linux/security.h>
++#include <linux/kevent.h>
+ 
+ #include <linux/filter.h>
+ 
+@@ -451,6 +452,21 @@ static inline int sk_stream_memory_free(struct sock *sk)
+ 
+ extern void sk_stream_rfree(struct sk_buff *skb);
+ 
++struct socket_alloc {
++	struct socket socket;
++	struct inode vfs_inode;
++};
++
++static inline struct socket *SOCKET_I(struct inode *inode)
++{
++	return &container_of(inode, struct socket_alloc, vfs_inode)->socket;
++}
++
++static inline struct inode *SOCK_INODE(struct socket *socket)
++{
++	return &container_of(socket, struct socket_alloc, socket)->vfs_inode;
++}
++
+ static inline void sk_stream_set_owner_r(struct sk_buff *skb, struct sock *sk)
+ {
+ 	skb->sk = sk;
+@@ -478,6 +494,7 @@ static inline void sk_add_backlog(struct sock *sk, struct sk_buff *skb)
+ 		sk->sk_backlog.tail = skb;
+ 	}
+ 	skb->next = NULL;
++	kevent_socket_notify(sk, KEVENT_SOCKET_RECV);
+ }
+ 
+ #define sk_wait_event(__sk, __timeo, __condition)		\
+@@ -679,21 +696,6 @@ static inline struct kiocb *siocb_to_kiocb(struct sock_iocb *si)
+ 	return si->kiocb;
+ }
+ 
+-struct socket_alloc {
+-	struct socket socket;
+-	struct inode vfs_inode;
+-};
+-
+-static inline struct socket *SOCKET_I(struct inode *inode)
+-{
+-	return &container_of(inode, struct socket_alloc, vfs_inode)->socket;
+-}
+-
+-static inline struct inode *SOCK_INODE(struct socket *socket)
+-{
+-	return &container_of(socket, struct socket_alloc, socket)->vfs_inode;
+-}
+-
+ extern void __sk_stream_mem_reclaim(struct sock *sk);
+ extern int sk_stream_mem_schedule(struct sock *sk, int size, int kind);
+ 
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index cd8fa0c..7344d61 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -864,6 +864,7 @@ static inline int tcp_prequeue(struct sock *sk, struct sk_buff *skb)
+ 			tp->ucopy.memory = 0;
+ 		} else if (skb_queue_len(&tp->ucopy.prequeue) == 1) {
+ 			wake_up_interruptible(sk->sk_sleep);
++			kevent_socket_notify(sk, KEVENT_SOCKET_RECV|KEVENT_SOCKET_SEND);
+ 			if (!inet_csk_ack_scheduled(sk))
+ 				inet_csk_reset_xmit_timer(sk, ICSK_TIME_DACK,
+ 						          (3 * TCP_RTO_MIN) / 4,
+diff --git a/kernel/kevent/kevent_socket.c b/kernel/kevent/kevent_socket.c
 new file mode 100644
-index 0000000..58129fa
+index 0000000..d1a2701
 --- /dev/null
-+++ b/kernel/kevent/kevent_poll.c
-@@ -0,0 +1,234 @@
++++ b/kernel/kevent/kevent_socket.c
+@@ -0,0 +1,144 @@
 +/*
++ * 	kevent_socket.c
++ * 
 + * 2006 Copyright (c) Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 + * All rights reserved.
-+ *
++ * 
 + * This program is free software; you can redistribute it and/or modify
 + * it under the terms of the GNU General Public License as published by
 + * the Free Software Foundation; either version 2 of the License, or
@@ -128,6 +164,10 @@ index 0000000..58129fa
 + * but WITHOUT ANY WARRANTY; without even the implied warranty of
 + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 + * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 + */
 +
 +#include <linux/kernel.h>
@@ -137,216 +177,305 @@ index 0000000..58129fa
 +#include <linux/spinlock.h>
 +#include <linux/timer.h>
 +#include <linux/file.h>
++#include <linux/tcp.h>
 +#include <linux/kevent.h>
-+#include <linux/poll.h>
-+#include <linux/fs.h>
 +
-+static struct kmem_cache *kevent_poll_container_cache;
-+static struct kmem_cache *kevent_poll_priv_cache;
++#include <net/sock.h>
++#include <net/request_sock.h>
++#include <net/inet_connection_sock.h>
 +
-+struct kevent_poll_ctl
++static int kevent_socket_callback(struct kevent *k)
 +{
-+	struct poll_table_struct 	pt;
-+	struct kevent			*k;
-+};
++	struct inode *inode = k->st->origin;
++	unsigned int events = SOCKET_I(inode)->ops->poll(SOCKET_I(inode)->file, SOCKET_I(inode), NULL);
 +
-+struct kevent_poll_wait_container
-+{
-+	struct list_head		container_entry;
-+	wait_queue_head_t		*whead;
-+	wait_queue_t			wait;
-+	struct kevent			*k;
-+};
-+
-+struct kevent_poll_private
-+{
-+	struct list_head		container_list;
-+	spinlock_t			container_lock;
-+};
-+
-+static int kevent_poll_enqueue(struct kevent *k);
-+static int kevent_poll_dequeue(struct kevent *k);
-+static int kevent_poll_callback(struct kevent *k);
-+
-+static int kevent_poll_wait_callback(wait_queue_t *wait,
-+		unsigned mode, int sync, void *key)
-+{
-+	struct kevent_poll_wait_container *cont =
-+		container_of(wait, struct kevent_poll_wait_container, wait);
-+	struct kevent *k = cont->k;
-+
-+	kevent_storage_ready(k->st, NULL, KEVENT_MASK_ALL);
++	if ((events & (POLLIN | POLLRDNORM)) && (k->event.event & (KEVENT_SOCKET_RECV | KEVENT_SOCKET_ACCEPT)))
++		return 1;
++	if ((events & (POLLOUT | POLLWRNORM)) && (k->event.event & KEVENT_SOCKET_SEND))
++		return 1;
++	if (events & (POLLERR | POLLHUP | POLLRDHUP | POLLREMOVE))
++		return -1;
 +	return 0;
 +}
 +
-+static void kevent_poll_qproc(struct file *file, wait_queue_head_t *whead,
-+		struct poll_table_struct *poll_table)
++int kevent_socket_enqueue(struct kevent *k)
 +{
-+	struct kevent *k =
-+		container_of(poll_table, struct kevent_poll_ctl, pt)->k;
-+	struct kevent_poll_private *priv = k->priv;
-+	struct kevent_poll_wait_container *cont;
-+	unsigned long flags;
++	struct inode *inode;
++	struct socket *sock;
++	int err = -EBADF;
 +
-+	cont = kmem_cache_alloc(kevent_poll_container_cache, GFP_KERNEL);
-+	if (!cont) {
-+		kevent_break(k);
-+		return;
-+	}
++	sock = sockfd_lookup(k->event.id.raw[0], &err);
++	if (!sock)
++		goto err_out_exit;
 +
-+	cont->k = k;
-+	init_waitqueue_func_entry(&cont->wait, kevent_poll_wait_callback);
-+	cont->whead = whead;
-+
-+	spin_lock_irqsave(&priv->container_lock, flags);
-+	list_add_tail(&cont->container_entry, &priv->container_list);
-+	spin_unlock_irqrestore(&priv->container_lock, flags);
-+
-+	add_wait_queue(whead, &cont->wait);
-+}
-+
-+static int kevent_poll_enqueue(struct kevent *k)
-+{
-+	struct file *file;
-+	int err;
-+	unsigned int revents;
-+	unsigned long flags;
-+	struct kevent_poll_ctl ctl;
-+	struct kevent_poll_private *priv;
-+
-+	file = fget(k->event.id.raw[0]);
-+	if (!file)
-+		return -EBADF;
-+	
-+	err = -EINVAL;
-+	if (!file->f_op || !file->f_op->poll)
-+		goto err_out_fput;
-+	
-+	err = -ENOMEM;
-+	priv = kmem_cache_alloc(kevent_poll_priv_cache, GFP_KERNEL);
-+	if (!priv)
++	inode = igrab(SOCK_INODE(sock));
++	if (!inode)
 +		goto err_out_fput;
 +
-+	spin_lock_init(&priv->container_lock);
-+	INIT_LIST_HEAD(&priv->container_list);
-+
-+	k->priv = priv;
-+
-+	ctl.k = k;
-+	init_poll_funcptr(&ctl.pt, &kevent_poll_qproc);
-+	
-+	err = kevent_storage_enqueue(&file->st, k);
++	err = kevent_storage_enqueue(&inode->st, k);
 +	if (err)
-+		goto err_out_free;
++		goto err_out_iput;
 +
-+	revents = file->f_op->poll(file, &ctl.pt);
 +	if (k->event.req_flags & KEVENT_REQ_ALWAYS_QUEUE) {
 +		kevent_requeue(k);
++		err = 0;
 +	} else {
-+		if (revents & k->event.event) {
-+			err = 1;
-+			goto out_dequeue;
-+		}
++		err = k->callbacks.callback(k);
++		if (err)
++			goto err_out_dequeue;
 +	}
 +
-+	spin_lock_irqsave(&k->ulock, flags);
-+	k->event.req_flags |= KEVENT_REQ_LAST_CHECK;
-+	spin_unlock_irqrestore(&k->ulock, flags);
++	return err;
 +
-+	return 0;
-+
-+out_dequeue:
++err_out_dequeue:
 +	kevent_storage_dequeue(k->st, k);
-+err_out_free:
-+	kmem_cache_free(kevent_poll_priv_cache, priv);
++err_out_iput:
++	iput(inode);
 +err_out_fput:
-+	fput(file);
++	sockfd_put(sock);
++err_out_exit:
 +	return err;
 +}
 +
-+static int kevent_poll_dequeue(struct kevent *k)
++int kevent_socket_dequeue(struct kevent *k)
 +{
-+	struct file *file = k->st->origin;
-+	struct kevent_poll_private *priv = k->priv;
-+	struct kevent_poll_wait_container *w, *n;
-+	unsigned long flags;
++	struct inode *inode = k->st->origin;
++	struct socket *sock;
 +
 +	kevent_storage_dequeue(k->st, k);
 +
-+	spin_lock_irqsave(&priv->container_lock, flags);
-+	list_for_each_entry_safe(w, n, &priv->container_list, container_entry) {
-+		list_del(&w->container_entry);
-+		remove_wait_queue(w->whead, &w->wait);
-+		kmem_cache_free(kevent_poll_container_cache, w);
-+	}
-+	spin_unlock_irqrestore(&priv->container_lock, flags);
-+
-+	kmem_cache_free(kevent_poll_priv_cache, priv);
-+	k->priv = NULL;
-+
-+	fput(file);
++	sock = SOCKET_I(inode);
++	iput(inode);
++	sockfd_put(sock);
 +
 +	return 0;
 +}
 +
-+static int kevent_poll_callback(struct kevent *k)
++void kevent_socket_notify(struct sock *sk, u32 event)
 +{
-+	if (k->event.req_flags & KEVENT_REQ_LAST_CHECK) {
-+		return 1;
-+	} else {
-+		struct file *file = k->st->origin;
-+		unsigned int revents = file->f_op->poll(file, NULL);
-+
-+		k->event.ret_data[0] = revents & k->event.event;
-+
-+		return (revents & k->event.event);
-+	}
++	if (sk->sk_socket)
++		kevent_storage_ready(&SOCK_INODE(sk->sk_socket)->st, NULL, event);
 +}
 +
-+static int __init kevent_poll_sys_init(void)
++/*
++ * It is required for network protocols compiled as modules, like IPv6.
++ */
++EXPORT_SYMBOL_GPL(kevent_socket_notify);
++
++#ifdef CONFIG_LOCKDEP
++static struct lock_class_key kevent_sock_key;
++
++void kevent_socket_reinit(struct socket *sock)
 +{
-+	struct kevent_callbacks pc = {
-+		.callback = &kevent_poll_callback,
-+		.enqueue = &kevent_poll_enqueue,
-+		.dequeue = &kevent_poll_dequeue,
++	struct inode *inode = SOCK_INODE(sock);
++
++	lockdep_set_class(&inode->st.lock, &kevent_sock_key);
++}
++
++void kevent_sk_reinit(struct sock *sk)
++{
++	if (sk->sk_socket) {
++		struct inode *inode = SOCK_INODE(sk->sk_socket);
++
++		lockdep_set_class(&inode->st.lock, &kevent_sock_key);
++	}
++}
++#endif
++static int __init kevent_init_socket(void)
++{
++	struct kevent_callbacks sc = {
++		.callback = &kevent_socket_callback,
++		.enqueue = &kevent_socket_enqueue,
++		.dequeue = &kevent_socket_dequeue,
 +		.flags = 0,
 +	};
 +
-+	kevent_poll_container_cache = kmem_cache_create("kevent_poll_container_cache",
-+			sizeof(struct kevent_poll_wait_container), 0, 0, NULL, NULL);
-+	if (!kevent_poll_container_cache) {
-+		printk(KERN_ERR "Failed to create kevent poll container cache.\n");
-+		return -ENOMEM;
++	return kevent_add_callbacks(&sc, KEVENT_SOCKET);
++}
++module_init(kevent_init_socket);
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 0ed5b4f..e687f54 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -1393,6 +1393,7 @@ static void sock_def_wakeup(struct sock *sk)
+ 	if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
+ 		wake_up_interruptible_all(sk->sk_sleep);
+ 	read_unlock(&sk->sk_callback_lock);
++	kevent_socket_notify(sk, KEVENT_SOCKET_RECV|KEVENT_SOCKET_SEND);
+ }
+ 
+ static void sock_def_error_report(struct sock *sk)
+@@ -1402,6 +1403,7 @@ static void sock_def_error_report(struct sock *sk)
+ 		wake_up_interruptible(sk->sk_sleep);
+ 	sk_wake_async(sk,0,POLL_ERR); 
+ 	read_unlock(&sk->sk_callback_lock);
++	kevent_socket_notify(sk, KEVENT_SOCKET_RECV|KEVENT_SOCKET_SEND);
+ }
+ 
+ static void sock_def_readable(struct sock *sk, int len)
+@@ -1411,6 +1413,7 @@ static void sock_def_readable(struct sock *sk, int len)
+ 		wake_up_interruptible(sk->sk_sleep);
+ 	sk_wake_async(sk,1,POLL_IN);
+ 	read_unlock(&sk->sk_callback_lock);
++	kevent_socket_notify(sk, KEVENT_SOCKET_RECV|KEVENT_SOCKET_SEND);
+ }
+ 
+ static void sock_def_write_space(struct sock *sk)
+@@ -1430,6 +1433,7 @@ static void sock_def_write_space(struct sock *sk)
+ 	}
+ 
+ 	read_unlock(&sk->sk_callback_lock);
++	kevent_socket_notify(sk, KEVENT_SOCKET_SEND|KEVENT_SOCKET_RECV);
+ }
+ 
+ static void sock_def_destruct(struct sock *sk)
+@@ -1480,6 +1484,8 @@ void sock_init_data(struct socket *sock, struct sock *sk)
+ 	sk->sk_state		=	TCP_CLOSE;
+ 	sk->sk_socket		=	sock;
+ 
++	kevent_sk_reinit(sk);
++
+ 	sock_set_flag(sk, SOCK_ZAPPED);
+ 
+ 	if(sock)
+@@ -1546,8 +1552,10 @@ void fastcall release_sock(struct sock *sk)
+ 	if (sk->sk_backlog.tail)
+ 		__release_sock(sk);
+ 	sk->sk_lock.owner = NULL;
+-	if (waitqueue_active(&sk->sk_lock.wq))
++	if (waitqueue_active(&sk->sk_lock.wq)) {
+ 		wake_up(&sk->sk_lock.wq);
++		kevent_socket_notify(sk, KEVENT_SOCKET_RECV|KEVENT_SOCKET_SEND);
 +	}
+ 	spin_unlock_bh(&sk->sk_lock.slock);
+ }
+ EXPORT_SYMBOL(release_sock);
+diff --git a/net/core/stream.c b/net/core/stream.c
+index d1d7dec..2878c2a 100644
+--- a/net/core/stream.c
++++ b/net/core/stream.c
+@@ -36,6 +36,7 @@ void sk_stream_write_space(struct sock *sk)
+ 			wake_up_interruptible(sk->sk_sleep);
+ 		if (sock->fasync_list && !(sk->sk_shutdown & SEND_SHUTDOWN))
+ 			sock_wake_async(sock, 2, POLL_OUT);
++		kevent_socket_notify(sk, KEVENT_SOCKET_SEND|KEVENT_SOCKET_RECV);
+ 	}
+ }
+ 
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index c26076f..8e56c71 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -3128,6 +3128,7 @@ static void tcp_ofo_queue(struct sock *sk)
+ 
+ 		__skb_unlink(skb, &tp->out_of_order_queue);
+ 		__skb_queue_tail(&sk->sk_receive_queue, skb);
++		kevent_socket_notify(sk, KEVENT_SOCKET_RECV);
+ 		tp->rcv_nxt = TCP_SKB_CB(skb)->end_seq;
+ 		if(skb->h.th->fin)
+ 			tcp_fin(skb, sk, skb->h.th);
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 12de90a..fca282e 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -61,6 +61,7 @@
+ #include <linux/jhash.h>
+ #include <linux/init.h>
+ #include <linux/times.h>
++#include <linux/kevent.h>
+ 
+ #include <net/icmp.h>
+ #include <net/inet_hashtables.h>
+@@ -1391,6 +1392,7 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
+ 	   	reqsk_free(req);
+ 	} else {
+ 		inet_csk_reqsk_queue_hash_add(sk, req, TCP_TIMEOUT_INIT);
++		kevent_socket_notify(sk, KEVENT_SOCKET_ACCEPT);
+ 	}
+ 	return 0;
+ 
+diff --git a/net/socket.c b/net/socket.c
+index 4e39631..776dc2e 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -84,6 +84,7 @@
+ #include <linux/kmod.h>
+ #include <linux/audit.h>
+ #include <linux/wireless.h>
++#include <linux/kevent.h>
+ 
+ #include <asm/uaccess.h>
+ #include <asm/unistd.h>
+@@ -496,6 +497,8 @@ static struct socket *sock_alloc(void)
+ 	inode->i_uid = current->fsuid;
+ 	inode->i_gid = current->fsgid;
+ 
++	kevent_socket_reinit(sock);
 +
-+	kevent_poll_priv_cache = kmem_cache_create("kevent_poll_priv_cache",
-+			sizeof(struct kevent_poll_private), 0, 0, NULL, NULL);
-+	if (!kevent_poll_priv_cache) {
-+		printk(KERN_ERR "Failed to create kevent poll private data cache.\n");
-+		kmem_cache_destroy(kevent_poll_container_cache);
-+		kevent_poll_container_cache = NULL;
-+		return -ENOMEM;
+ 	get_cpu_var(sockets_in_use)++;
+ 	put_cpu_var(sockets_in_use);
+ 	return sock;
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index 2f208c7..835e20f 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -1563,8 +1563,10 @@ static int unix_dgram_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 	struct scm_cookie tmp_scm;
+ 	struct sock *sk = sock->sk;
+ 	struct unix_sock *u = unix_sk(sk);
++	struct sock *other;
+ 	int noblock = flags & MSG_DONTWAIT;
+ 	struct sk_buff *skb;
++
+ 	int err;
+ 
+ 	err = -EOPNOTSUPP;
+@@ -1580,6 +1582,12 @@ static int unix_dgram_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 		goto out_unlock;
+ 
+ 	wake_up_interruptible(&u->peer_wait);
++	other =unix_peer_get(sk);
++	if (other) {
++		kevent_socket_notify(other, KEVENT_SOCKET_SEND);
++		sock_put(other);
++	} else
++		kevent_socket_notify(sk, KEVENT_SOCKET_RECV);
+ 
+ 	if (msg->msg_name)
+ 		unix_copy_addr(msg, skb->sk);
+@@ -1674,7 +1682,7 @@ static int unix_stream_recvmsg(struct kiocb *iocb, struct socket *sock,
+ {
+ 	struct sock_iocb *siocb = kiocb_to_siocb(iocb);
+ 	struct scm_cookie tmp_scm;
+-	struct sock *sk = sock->sk;
++	struct sock *sk = sock->sk, *other;
+ 	struct unix_sock *u = unix_sk(sk);
+ 	struct sockaddr_un *sunaddr=msg->msg_name;
+ 	int copied = 0;
+@@ -1803,6 +1811,14 @@ static int unix_stream_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 		}
+ 	} while (size);
+ 
++	other =unix_peer_get(sk);
++	if (other) {
++		kevent_socket_notify(other, KEVENT_SOCKET_SEND);
++		sock_put(other);
 +	}
++	if (sk->sk_shutdown & RCV_SHUTDOWN || !other)
++		kevent_socket_notify(sk, KEVENT_SOCKET_RECV);
 +
-+	kevent_add_callbacks(&pc, KEVENT_POLL);
-+
-+	printk(KERN_INFO "Kevent poll()/select() subsystem has been initialized.\n");
-+	return 0;
-+}
-+
-+static struct lock_class_key kevent_poll_key;
-+
-+void kevent_poll_reinit(struct file *file)
-+{
-+	lockdep_set_class(&file->st.lock, &kevent_poll_key);
-+}
-+
-+static void __exit kevent_poll_sys_fini(void)
-+{
-+	kmem_cache_destroy(kevent_poll_priv_cache);
-+	kmem_cache_destroy(kevent_poll_container_cache);
-+}
-+
-+module_init(kevent_poll_sys_init);
-+module_exit(kevent_poll_sys_fini);
+ 	mutex_unlock(&u->readlock);
+ 	scm_recv(sock, msg, siocb->scm, flags);
+ out:
+@@ -1824,6 +1840,10 @@ static int unix_shutdown(struct socket *sock, int mode)
+ 			sock_hold(other);
+ 		unix_state_wunlock(sk);
+ 		sk->sk_state_change(sk);
++		kevent_socket_notify(sk, KEVENT_SOCKET_SEND|KEVENT_SOCKET_RECV);
++		if (other)
++			kevent_socket_notify(other, KEVENT_SOCKET_SEND|KEVENT_SOCKET_RECV);
++		kevent_socket_notify(sk, KEVENT_SOCKET_SEND|KEVENT_SOCKET_RECV);
+ 
+ 		if (other &&
+ 			(sk->sk_type == SOCK_STREAM || sk->sk_type == SOCK_SEQPACKET)) {
 
