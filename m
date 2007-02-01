@@ -1,54 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/3] Check num sacks in SACK fast path
-Date: Thu, 01 Feb 2007 14:38:00 -0800 (PST)
-Message-ID: <20070201.143800.78710936.davem@davemloft.net>
-References: <20070129071349.24050.56022.sendpatchset@galon.ev-en.org>
-	<20070131.125246.85686582.davem@davemloft.net>
-	<20070201072252.GX22455@galon.ev-en.org>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: sky2 hangs
+Date: Thu, 1 Feb 2007 14:58:15 -0800
+Message-ID: <20070201145815.199bfe1a@freekitty>
+References: <20070201185532.GL13130@cip.informatik.uni-erlangen.de>
+	<42007.80.98.159.250.1170369983.squirrel@www.hunhost.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: baruch@ev-en.org
+Cc: <thomas@glanzmann.de>, <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>
+To: "Fagyal Csongor" <concept@conceptonline.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40150
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S932857AbXBAWiC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Feb 2007 17:38:02 -0500
-In-Reply-To: <20070201072252.GX22455@galon.ev-en.org>
+Received: from smtp.osdl.org ([65.172.181.24]:46597 "EHLO smtp.osdl.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1422686AbXBAXBO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Feb 2007 18:01:14 -0500
+In-Reply-To: <42007.80.98.159.250.1170369983.squirrel@www.hunhost.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Baruch Even <baruch@ev-en.org>
-Date: Thu, 1 Feb 2007 09:22:52 +0200
-
-> * David Miller <davem@davemloft.net> [070131 22:52]:
-> > We should never see a SACK block from sequence zero to zero,
-> > which would be an empty SACK block.
+I can reproduce the problem now (on mac mini). Interestingly it seems to whack
+the whole ethernet switch when it happens.
 > 
-> That would work as well at the cost of extra writing to memory for each
-> ack packet. Though I won't guess what is worse, the extra memory used or
-> the extra writing.
+> - a previously suggested fix - passing idle=poll to the kernel - did not
+> work for me at the end
 
-Good point.  The recv_sack_cache is 32-bytes, so sits in at most
-2 cache lines.  The writes are consequetive and in order so would
-compress into cpu store buffers.
+It is not an MSI or IRQ problem. It is a phy problem (see below).
 
-But it's definitely not free. :-)
+> - the locks I have happen very periodically (somewhere around every 22-28
+> hours), as if the chip would die after a given amount of data transferred;
+> I know this looks stupid but I thought I might mention it
+> - I have about 1Mbit/s of (incoming) traffic on this interface: with
+> short, very high peaks, as there is a MySQL server on the other end,
+> receiving about 100 queries per second
+> - unloading the sky2 module totally freezes the computer for me
 
-> > Something like the following?
-> > 
-> > diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-> > index c26076f..84cd722 100644
-> > --- a/net/ipv4/tcp_input.c
-> > +++ b/net/ipv4/tcp_input.c
-> > @@ -999,6 +1001,10 @@ tcp_sacktag_write_queue(struct sock *sk, struct sk_buff *ack_skb, u32 prior_snd_
-> >  				return 0;
-> >  		}
-> >  	}
-> > +	for (; i <= 4; i++) {
-> 
-> That won't work though, the <= should be <, I've actually used
-> ARRAY_SIZE just to be on the safe side.
+If you do:
+	ethtool -r eth0
+it cause a PHY reset (renegotiation) and clears the problem.
 
-Thanks for catching that.
+
+-- 
+Stephen Hemminger <shemminger@linux-foundation.org>
