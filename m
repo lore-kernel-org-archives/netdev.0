@@ -1,79 +1,31 @@
-From: Divy Le Ray <divy@chelsio.com>
-Subject: Re: [PATCH 1/10] cxgb3 - FW versioning
-Date: Wed, 31 Jan 2007 18:09:58 -0800
-Message-ID: <45C14BF6.50309@chelsio.com>
-References: <20070131034345.8574.21031.stgit@localhost.localdomain> <45C07202.3090308@garzik.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Divy Le Ray <None@chelsio.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, swise@opengridcomputing.com
-To: Jeff Garzik <jeff@garzik.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] r8169: fix a race between PCI probe and dev_open
+Date: Thu, 01 Feb 2007 13:40:35 +1100
+Message-ID: <E1HCRsJ-0007sg-00@gondolin.me.apana.org.au>
+References: <20070131213428.GA17534@electric-eye.fr.zoreil.com>
+Cc: torvalds@linux-foundation.org, netdev@vger.kernel.org,
+	akpm@osdl.org, jgarzik@pobox.com, bwalle@suse.de
+To: romieu@fr.zoreil.com (Francois Romieu)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.22.49.110]:28421 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161082AbXBACKG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Jan 2007 21:10:06 -0500
-In-Reply-To: <45C07202.3090308@garzik.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:4651 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S933338AbXBACl3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Jan 2007 21:41:29 -0500
+In-Reply-To: <20070131213428.GA17534@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Jeff,
+Francois Romieu <romieu@fr.zoreil.com> wrote:
+> 
+> rtl8169_init_phy is only used on rtl8169_init_one so it's fine to never
+> ask it to activate the timer: the racing dev->open will do it anyway.
 
-Please see my replies in line.
-> You need to submit a patch to remove the following ioctls:
->
-> CHELSIO_SETREG:
-> CHELSIO_GETREG:
-
-These will get removed.
-
-> CHELSIO_SET_QSET_PARAMS: (use ethtool instead)
-> CHELSIO_GET_QSET_PARAMS: (use ethtool instead)
-
-The T3 adapter supports multiple Tx/Rx queue sets,
-each can be can individually configured through these ioctls.
-
-ethtool is not adequate replacement because it can't configure
-each queue individually on such a device. We'd love it if ethtool
-were to be extended to provide good support for multi queue devices.
-
-> CHELSIO_SET_QSET_NUM: (use ethtool instead)
-> CHELSIO_GET_QSET_NUM: (use ethtool instead)
-
-These are used to set the number of queue sets per port.
-That also could be integrated in ethtool if extended
-to add support for multiple queue devices.
-We could alternatively use a sysfs attribute.
-
-> CHELSIO_SETMTUTAB:
-
-This one is needed to setup the device for RDMA.
-
-> CHELSIO_GET_MEM:
-
-This one is used for field diagnostics.
-It dumps the state of on-card memory.
-
-> CHELSIO_SET_TRACE_FILTER:
-
-This one is used for RDMA.
-It allows to see the ethernet packets the RDMA function
-puts on the wire/receives from the wire.
-
-> CHELSIO_SET_PKTSCHED:
-
-This one binds a queue set to a port.
-It could be turned to a sysfs attribute.
-
->
-> explain and possibly remove
->
-> CHELSIO_GET_PM:
-> CHELSIO_SET_PM:
-
-These are used to configure the on-card memory (tx/rx size
-and number of pages). They could be turned into sysfs attributes.
+Does rtl8169_init_phy need to occur after register_netdev? Normally
+register_netdev should be the very last thing in a probe routine.
 
 Cheers,
-Divy
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
