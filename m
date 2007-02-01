@@ -1,62 +1,56 @@
-From: linas@austin.ibm.com (Linas Vepstas)
-Subject: Re: [PATCH] spidernet : fix memory leak in spider_net_stop
-Date: Thu, 1 Feb 2007 11:36:18 -0600
-Message-ID: <20070201173618.GI5616@austin.ibm.com>
-References: <200702011207.47421.jens@de.ibm.com>
+From: Lionel Landwerlin <landwer@free.fr>
+Subject: sky2 or acpi problem ?
+Date: Thu, 01 Feb 2007 18:59:55 +0100
+Message-ID: <1170352795.5299.17.camel@cocoduo>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: James K Lewis <jim@jklewis.com>, linuxppc-dev@ozlabs.org,
-	netdev@vger.kernel.org, jgarzik@pobox.com, cbe-oss-dev@ozlabs.org,
-	Ishizaki Kou <kou.ishizaki@toshiba.co.jp>
-To: Jens Osterkamp <jens@de.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e6.ny.us.ibm.com ([32.97.182.146]:53417 "EHLO e6.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1422728AbXBARgZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Feb 2007 12:36:25 -0500
-Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
-	by e6.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l11Hb1FV007018
-	for <netdev@vger.kernel.org>; Thu, 1 Feb 2007 12:37:01 -0500
-Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
-	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v8.2) with ESMTP id l11HaMDP275580
-	for <netdev@vger.kernel.org>; Thu, 1 Feb 2007 12:36:22 -0500
-Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
-	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l11HaL8c020061
-	for <netdev@vger.kernel.org>; Thu, 1 Feb 2007 12:36:22 -0500
-Content-Disposition: inline
-In-Reply-To: <200702011207.47421.jens@de.ibm.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1422842AbXBASAd@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi,
+we already had words on lkml about this bug with sky2 driver.
 
-A variant of this patch is queued up for 2.6.21,
-as a part of the patch
-http://www.mail-archive.com/netdev@vger.kernel.org/msg28213.html
+I was having problems, and you told me to use the disable_msi=1
+parameter to see what happens. After a couple of hours of testing with
+heavly ethernet load, I answered you it had fixed the problem. I was
+wrong. Now, it takes much more time to crash. Most of time, I can't even
+see what happens beacause the box is completly frozen. But after several
+crashs, I only had my keyboard locked, usb unpowered, and ethernet
+interface down, I finally had the possibility see that :
 
-I beleive its in the -mm tree, I have not checked.
+Feb  1 18:35:06 cocoduo kernel: [59723.468000] NETDEV WATCHDOG: eth0: transmit timed out
+Feb  1 18:35:07 cocoduo kernel: [59723.468000] sky2 eth0: tx timeout
+Feb  1 18:35:07 cocoduo kernel: [59723.468000] sky2 eth0: transmit ring 64 .. 41 report=65 done=65
+Feb  1 18:35:07 cocoduo kernel: [59723.468000] sky2 status report lost?
+Feb  1 18:35:16 cocoduo kernel: [59733.200000] BUG: soft lockup detected on CPU#0!
+Feb  1 18:35:16 cocoduo kernel: [59733.200000]  [softlockup_tick+155/208] softlockup_tick+0x9b/0xd0
+Feb  1 18:35:16 cocoduo kernel: [59733.200000]  [update_process_times+49/128] update_process_times+0x31/0x80
+Feb  1 18:35:16 cocoduo kernel: [59733.200000]  [smp_apic_timer_interrupt+145/176] smp_apic_timer_interrupt+0x91/0xb0
+Feb  1 18:35:16 cocoduo kernel: [59733.200000]  [apic_timer_interrupt+31/36] apic_timer_interrupt+0x1f/0x24
+Feb  1 18:35:16 cocoduo kernel: [59733.200000]  [_spin_lock_bh+15/32] _spin_lock_bh+0xf/0x20
+Feb  1 18:35:16 cocoduo kernel: [59733.200000]  [pg0+945481365/1068803072] sky2_tx_timeout+0xf5/0x1d0 [sky2]
+Feb  1 18:35:16 cocoduo kernel: [59733.200000]  [dev_watchdog+0/208] dev_watchdog+0x0/0xd0
+Feb  1 18:35:16 cocoduo kernel: [59733.200000]  [dev_watchdog+192/208] dev_watchdog+0xc0/0xd0
+Feb  1 18:35:16 cocoduo kernel: [59733.200000]  [run_timer_softirq+273/400] run_timer_softirq+0x111/0x190
+Feb  1 18:35:16 cocoduo kernel: [59733.200000]  [__do_softirq+116/240] __do_softirq+0x74/0xf0
+Feb  1 18:35:16 cocoduo kernel: [59733.200000]  [do_softirq+59/80] do_softirq+0x3b/0x50
+Feb  1 18:35:16 cocoduo kernel: [59733.200000]  [smp_apic_timer_interrupt+150/176] smp_apic_timer_interrupt+0x96/0xb0
+Feb  1 18:35:16 cocoduo kernel: [59733.200000]  [apic_timer_interrupt+31/36] apic_timer_interrupt+0x1f/0x24
+Feb  1 18:35:16 cocoduo kernel: [59733.200000]  [pg0+943208348/1068803072] acpi_processor_idle+0x1fd/0x3b9 [processor]
+Feb  1 18:35:16 cocoduo kernel: [59733.200000]  [cpu_idle+116/208] cpu_idle+0x74/0xd0
+Feb  1 18:35:16 cocoduo kernel: [59733.200000]  [start_kernel+872/1072] start_kernel+0x368/0x430
+Feb  1 18:35:16 cocoduo kernel: [59733.200000]  [unknown_bootoption+0/624] unknown_bootoption+0x0/0x270
 
---linas
+It's exactly the same error than before. What do you think of this
+trace ? Is it related to sky2 driver or acpi ? Did you add debug output
+since 2.6.19.2 (version of the kernel I'm using) that would help to fix
+that bug ? What can I do to help to fix the bug ?
 
-On Thu, Feb 01, 2007 at 12:07:47PM +0100, Jens Osterkamp wrote:
-> 
-> We forget to call spider_net_free_rx_chain_contents which does the
-> actual dev_kfree_skb. New skbs are allocated from skbuff_head_cache
-> on each "ifconfig up" letting the cache grow infinitely.
-> 
-> This patch fixes it.
-> 
-> Signed-off-by: Jens Osterkamp <jens@de.ibm.com>
-> 
-> Index: linux-2.6.20-rc6/drivers/net/spider_net.c
-> ===================================================================
-> --- linux-2.6.20-rc6.orig/drivers/net/spider_net.c
-> +++ linux-2.6.20-rc6/drivers/net/spider_net.c
-> @@ -1925,6 +1925,8 @@ spider_net_stop(struct net_device *netde
->  	/* release chains */
->  	spider_net_release_tx_chain(card, 1);
->  
-> +	spider_net_free_rx_chain_contents(card);
-> +
->  	spider_net_free_chain(card, &card->tx_chain);
->  	spider_net_free_chain(card, &card->rx_chain);
->  
+Regards,
+
+-- 
+Lionel Landwerlin <landwer@free.fr>
