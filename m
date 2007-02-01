@@ -1,107 +1,32 @@
-From: Ishizaki Kou <kou.ishizaki@toshiba.co.jp>
-Subject: Re: [Cbe-oss-dev] spidernet: dynamic phy setup code
-Date: Thu, 01 Feb 2007 17:05:01 +0900 (JST)
-Message-ID: <200702010805.l11853LX014768@toshiba.co.jp>
-References: <200701261409.29537.jens@de.ibm.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] r8169: fix a race between PCI probe and dev_open
+Date: Thu, 1 Feb 2007 09:17:27 +0100
+Message-ID: <20070201081727.GA1011@electric-eye.fr.zoreil.com>
+References: <20070131213428.GA17534@electric-eye.fr.zoreil.com> <Pine.LNX.4.64.0701311655050.3632@woody.linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linas@austin.ibm.com, linuxppc-dev@ozlabs.org,
-	netdev@vger.kernel.org, jgarzik@pobox.com, jim@jklewis.com
-To: jens@de.ibm.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Andrew Morton <akpm@osdl.org>,
+	jgarzik@pobox.com, Bernhard Walle <bwalle@suse.de>
+To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from inet-tsb5.toshiba.co.jp ([202.33.96.24]:49057 "EHLO
-	inet-tsb5.toshiba.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030527AbXBAIGa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Feb 2007 03:06:30 -0500
-In-Reply-To: <200701261409.29537.jens@de.ibm.com>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:58058 "EHLO
+	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1422656AbXBAIXF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Feb 2007 03:23:05 -0500
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.64.0701311655050.3632@woody.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I apologize if you received this mail many times.
+Linus Torvalds <torvalds@linux-foundation.org> :
+[...]
+> Doesn't this basically mean that *any* use of "rtl8169_set_speed()" is 
+> buggy?
 
+The second use of rtl8169_set_speed is in the change_mtu handler which
+performs a complete down/cycle after a release of the timer. It's still
+ugly though. If the current buggy behavior can be lived with, I'll
+happily postpone the needed deeper changes.
 
-Jens-san
-
-> This patch modifies the patch submitted by Kou Ishizaki to make it
-work on the
-> blade
-(http://marc.theaimsgroup.com/?l=linux-netdev&m=116593424505539&w=2).
-> Unfortunately I dont have access to a Celleb so I cannot test it
-there.
-
-Thanks for arranging our patch to work on Cell Blade.
-
-This patch partially works on celleb but remains 
-following several problems.
-1. It doesn't recover once an ethernet cable which is
-   connected to a spider_net card is unpluged. 
-2. It doesn't work when the spider_net card is connected to 
-   a 100Mbps ethernet switch.
-
-To solve these problems, we need to restore some codes
-you removed from your patch.
-
-(1)
->- if (card->aneg_count > 10) {
->-  /* timeout */
->-  card->aneg_count = 0;
->-  is1000 = !is1000;
->-  goto re_setup;
-
->- if (phy->speed == 1000 && !is1000) {
->-  is1000 = 1;
->-  goto re_setup;
->- } else if(phy->speed != 1000 && is1000) {
->-  is1000 = 0;
->-  goto re_setup;
->- }
-
-We need to use different auto-neg initial settings between
-for 10/100Mbps ethernet switches and for Gbps ethernet switches.
-Driver don't know which type of network switch is connected to
-network card, so we try both settings alternately in auto negtiation
-sequences by using a variable "is1000".
-Furthermore, we have a problem that poll_link() may succeed even when
-the auto-neg initial setting is for different network switch type,
-and the network card does not work on this case. We retry auto-neg
-with the another initial setting on this case.
-
-#We are commented that "is1000" should be in spider_net_card.
-#We fixed it in another patch. Please refer the following.
-#http://ozlabs.org/pipermail/linuxppc-dev/2007-January/030203.html
-
-But we don't think this is the best solution, and we are still
-developing 
-our spidernet driver. If you have a good alternative idea, please tell
-us.
-
-(2)
->- spider_net_write_reg(card, SPIDER_NET_GMACST,
->-        spider_net_read_reg(card, SPIDER_NET_GMACST));
->- spider_net_write_reg(card, SPIDER_NET_GMACINTEN, 0x4);
-
-These codes are enabling LINK status interrupt which is disabled
-at the beginning of auto-neg.
-Without this operation, auto negotiation works only when a connection
-detected for the first time, and auto negotiation will not work 
-when an ethernet cable is unpluged or pluged.
-
-(3)
->- mii_phy_probe(phy, phy->mii_id);
-It seems that PHY reset is necessary before auto negotiation,
-after a link once went down.
-We can't call directly reset routine from driver, so we call
-mii_phy_probe().
-We are still developping the patch as we noted, and we are considering
-to call mii_phy_probe() from spider_net_setup_aneg(), or to call
-reset_one_mii_phy() from bcm54xx_setup_aneg().
-
-We think these (1)-(3) are necessary, but we are afraid that you removed
-them
-by a reason that they causes some trouble in Cell Blade. If so please
-tell us.
-
-
-Best regards,
-Kou Ishizaki
+-- 
+Ueimor
