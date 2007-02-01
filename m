@@ -1,93 +1,108 @@
-From: Baruch Even <baruch@ev-en.org>
-Subject: Re: [PATCH 1/3] Advance fast path pointer for first block only
-Date: Thu, 1 Feb 2007 09:38:57 +0200
-Message-ID: <20070201073857.GY22455@galon.ev-en.org>
-References: <20070129071339.24050.21052.sendpatchset@galon.ev-en.org> <20070131.124830.93210236.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: kou.ishizaki@toshiba.co.jp
+Subject: (unknown)
+Date: Thu, 01 Feb 2007 16:54:02 +0900 (JST)
+Message-ID: <200702010754.l117s2T8003383@toshiba.co.jp>
+Cc: linas@austin.ibm.com, linuxppc-dev@ozlabs.org,
+	netdev@vger.kernel.org
+To: jens@de.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rrcs-24-123-59-149.central.biz.rr.com ([24.123.59.149]:33402
-	"EHLO galon.ev-en.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030527AbXBAHi7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Feb 2007 02:38:59 -0500
-Content-Disposition: inline
-In-Reply-To: <20070131.124830.93210236.davem@davemloft.net>
+Received: from inet-tsb5.toshiba.co.jp ([202.33.96.24]:47392 "EHLO
+	inet-tsb5.toshiba.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030568AbXBAHym (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Feb 2007 02:54:42 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* David Miller <davem@davemloft.net> [070131 22:48]:
-> From: Baruch Even <baruch@ev-en.org>
-> Date: Mon, 29 Jan 2007 09:13:39 +0200
-> 
-> > Only advance the SACK fast-path pointer for the first block, the fast-path
-> > assumes that only the first block advances next time so we should not move the
-> > skb for the next sack blocks.
-> > 
-> > Signed-Off-By: Baruch Even <baruch@ev-en.org>
-> > 
-> > ---
-> > 
-> > I'm not sure about the fack_count part, this patch changes the value that is
-> > maintained in this case.
-> 
-> I'm not sure about this patch :-)
+jgarzik@pobox.com, jim@jklewis.com
+Subject: Re: [Cbe-oss-dev] spidernet: dynamic phy setup code
+In-Reply-To: <200701261409.29537.jens@de.ibm.com>
+From: Ishizaki Kou <kouish@swc.toshiba.co.jp>
+X-Mailer: Mew version 4.2 on Emacs 21.3 / Mule 5.0 (SAKAKI)
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 
-That's why we have a gatekeeper for. To keep us on our toes.
+Jens-san
 
-> The fastpath is being used for two things here, I believe.
-> 
-> First, it's being used to monitor the expanding of the initial
-> SACK block, as you note.  This is clear by the fact that we
-> only use the fastpath cache on future calls when this code path
-> triggers:
-> 
-> 	if (flag)
-> 		num_sacks = 1;
->
-> because otherwise we clear the fastpath cache to NULL.
+> This patch modifies the patch submitted by Kou Ishizaki to make it
+work on the
+> blade
+(http://marc.theaimsgroup.com/?l=linux-netdev&m=116593424505539&w=2).
+> Unfortunately I dont have access to a Celleb so I cannot test it
+there.
 
-True.
+Thanks for arranging our patch to work on Cell Blade.
 
-> But it's also being used in this loop you are editing to remember
-> where we stopped in the previous iteration of the loop.  With your
-> change it will always walk the whole retransmit queue from the end of
-> the first SACK block, whereas before it would iterate starting at the
-> last SKB visited at the end of the previous sack block processed by
-> the loop.
+This patch partially works on celleb but remains 
+following several problems.
+1. It doesn't recover once an ethernet cable which is
+   connected to a spider_net card is unpluged. 
+2. It doesn't work when the spider_net card is connected to 
+   a 100Mbps ethernet switch.
 
-OK. When I did the patch I forgot that by this stage we have sorted the
-SACK blocks and we can't rely on the expanding block to be the first.
+To solve these problems, we need to restore some codes
+you removed from your patch.
 
-> I'll use this opportunity to say I'm rather unhappy with all of
-> these fastpath hinting schemes.  They chew up a ton of space in
-> the tcp_sock because we have several pointers for each of the
-> different queue states we can cache and those eat 8 bytes a
-> piece on 64-bit.
+(1)
+>- if (card->aneg_count > 10) {
+>-  /* timeout */
+>-  card->aneg_count = 0;
+>-  is1000 = !is1000;
+>-  goto re_setup;
 
-Understood. I do intend to look at different ways to organise the data
-and do the work, but I wouldn't hold my breath for this.
+>- if (phy->speed == 1000 && !is1000) {
+>-  is1000 = 1;
+>-  goto re_setup;
+>- } else if(phy->speed != 1000 && is1000) {
+>-  is1000 = 0;
+>-  goto re_setup;
+>- }
 
-One option to limit the damage of slow processing of SACK is to limit
-the amount of work we are willing to do for SACK, if we limit the SACK
-walk to 1000 packets we will prevent the worst and I believe that we
-will still not cause much harm to the TCP recovery. This belief will
-need to be checked, the value 1000 will also need to be checked and
-maybe made configurable.
+We need to use different auto-neg initial settings between
+for 10/100Mbps ethernet switches and for Gbps ethernet switches.
+Driver don't know which type of network switch is connected to
+network card, so we try both settings alternately in auto negtiation
+sequences by using a variable "is1000".
+Furthermore, we have a problem that poll_link() may succeed even when
+the auto-neg initial setting is for different network switch type,
+and the network card does not work on this case. We retry auto-neg
+with the another initial setting on this case.
 
-This is obviously a hack, but it will guarantee that we never cause the
-ACK clock to die like it can now.
+#We are commented that "is1000" should be in spider_net_card.
+#We fixed it in another patch. Please refer the following.
+#http://ozlabs.org/pipermail/linuxppc-dev/2007-January/030203.html
 
-> We can probably fix the bug and preserve the inter-iteration
-> end-SKB caching by having local variable SKB/fack_count caches
-> in this function, and only updating the tcp_sock cache values
-> for the first SACK block.
-> 
-> Maybe something like this?
+But we don't think this is the best solution, and we are still
+developing 
+our spidernet driver. If you have a good alternative idea, please tell
+us.
 
-Ah, now I see what you meant and it is indeed another issue with my
-patch. I'll change my patch with this fix and fix the issue of i == 0
-being the wrong way to cache only the originally first SACK block.
+(2)
+>- spider_net_write_reg(card, SPIDER_NET_GMACST,
+>-        spider_net_read_reg(card, SPIDER_NET_GMACST));
+>- spider_net_write_reg(card, SPIDER_NET_GMACINTEN, 0x4);
 
-Baruch
+These codes are enabling LINK status interrupt which is disabled
+at the beginning of auto-neg.
+Without this operation, auto negotiation works only when a connection
+detected for the first time, and auto negotiation will not work 
+when an ethernet cable is unpluged or pluged.
+
+(3)
+>- mii_phy_probe(phy, phy->mii_id);
+It seems that PHY reset is necessary before auto negotiation,
+after a link once went down.
+We can't call directly reset routine from driver, so we call
+mii_phy_probe().
+We are still developping the patch as we noted, and we are considering
+to call mii_phy_probe() from spider_net_setup_aneg(), or to call
+reset_one_mii_phy() from bcm54xx_setup_aneg().
+
+We think these (1)-(3) are necessary, but we are afraid that you removed
+them
+by a reason that they causes some trouble in Cell Blade. If so please
+tell us.
+
+
+Best regards,
+Kou Ishizaki
