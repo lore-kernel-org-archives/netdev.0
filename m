@@ -1,32 +1,40 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 2.6.20-rc7 1/2] atl1: get rid of pci_module_init
-Date: Fri, 02 Feb 2007 08:28:29 -0500
-Message-ID: <45C33C7D.4000203@garzik.org>
-References: <20070201011052.GA1752@osprey.hogchain.net>
+From: Jan Engelhardt <jengelh@linux01.gwdg.de>
+Subject: Re: [PATCH]ip_auto_config bug in 2.6.20-rc6
+Date: Fri, 2 Feb 2007 14:27:29 +0100 (MET)
+Message-ID: <Pine.LNX.4.61.0702021424381.26531@yvahk01.tjqt.qr>
+References: <1170329187.15627.11.camel@gentoo-jocke.transmode.se>
+ <1170421783.15627.23.camel@gentoo-jocke.transmode.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: csnook@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, atl1-devel@lists.sourceforge.net,
-	alan@lxorguk.ukuu.org.uk
-To: Jay Cliburn <jacliburn@bellsouth.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Netdev <netdev@vger.kernel.org>,
+	Linux-Kernel <linux-kernel@vger.kernel.org>
+To: Joakim Tjernlund <joakim.tjernlund@transmode.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:48313 "EHLO mail.dvmed.net"
+Received: from tmailer.gwdg.de ([134.76.10.23]:34114 "EHLO tmailer.gwdg.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1161131AbXBBN2e (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Feb 2007 08:28:34 -0500
-In-Reply-To: <20070201011052.GA1752@osprey.hogchain.net>
+	id S1423058AbXBBNds (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Feb 2007 08:33:48 -0500
+In-Reply-To: <1170421783.15627.23.camel@gentoo-jocke.transmode.se>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jay Cliburn wrote:
-> From: Jay Cliburn <jacliburn@bellsouth.net>
-> 
-> pci_module_init is deprecated.  Use pci_register_driver instead.
-> Discovered by and modification suggested by Alan Cox.
-> 
-> Signed-off-by: Jay Cliburn <jacliburn@bellsouth.net>
 
-applied 1-2 to #atl1
+On Feb 2 2007 14:09, Joakim Tjernlund wrote:
+>On Thu, 2007-02-01 at 12:26 +0100, Joakim Tjernlund wrote:
+>> The following commandline:
+>>  root=/dev/mtdblock6 rw rootfstype=jffs2 ip=192.168.1.10:::255.255.255.0:localhost.localdomain:eth1:off console=ttyS0,115200
+>> makes ip_auto_config fall back to DHCP and complain "IP-Config: Incomplete network configuration information."
+>> depending on if CONFIG_IP_PNP_DHCP is set or not.
+>> 
+>> The only way I can make ip_auto_config accept my IP config is to add an entry for the server IP:
+>> ip=192.168.1.10:192.168.1.15::255.255.255.0:localhost.localdomain:eth1:off
+>> 
+>> I think this is a bug since I am not using a NFS root FS.
+
+I just wonder why IP_PNP has not been obsoleted and removed from the 
+tree yet, given that initramfs is the advertised way to do so such 
+things.
 
 
+Jan
+-- 
