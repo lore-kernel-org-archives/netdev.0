@@ -1,41 +1,48 @@
-From: Mattia Dongili <malattia@linux.it>
-Subject: Re: dynticks + iptables almost stops the boot process [was: Re: 2.6.20-rc6-mm3]
-Date: Fri, 2 Feb 2007 21:43:44 +0100
-Message-ID: <20070202204344.GB4262@inferi.kami.home>
-References: <20070129204528.eb8d695e.akpm@osdl.org> <20070131215241.GB2890@inferi.kami.home> <20070131232130.GC4137@inferi.kami.home> <1170358572.29240.292.camel@localhost.localdomain> <1170360101.29240.297.camel@localhost.localdomain> <20070201211137.GA2830@inferi.kami.home> <1170369202.29240.339.camel@localhost.localdomain> <20070202191802.GA4262@inferi.kami.home> <1170448034.29240.364.camel@localhost.localdomain>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [PATCH] ieee80211: Fix sparse warning
+Date: Fri, 2 Feb 2007 15:32:01 -0500
+Message-ID: <20070202203201.GB9382@tuxdriver.com>
+References: <45c1394b.An8WeE68tSLsbJYy%Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org,
-	mingo@redhat.com, netdev@vger.kernel.org,
-	netfilter-devel@lists.netfilter.org
-To: Thomas Gleixner <tglx@linutronix.de>
+Cc: Michael Buesch <mb@bu3sch.de>, netdev@vger.kernel.org,
+	Bcm43xx-dev@lists.berlios.de
+To: Larry Finger <Larry.Finger@lwfinger.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aa012msr.fastwebnet.it ([85.18.95.72]:59365 "EHLO
-	aa012msr.fastwebnet.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1946060AbXBBUoh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Feb 2007 15:44:37 -0500
+Received: from ra.tuxdriver.com ([70.61.120.52]:4661 "EHLO ra.tuxdriver.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1946075AbXBBVGC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Feb 2007 16:06:02 -0500
 Content-Disposition: inline
-In-Reply-To: <1170448034.29240.364.camel@localhost.localdomain>
+In-Reply-To: <45c1394b.An8WeE68tSLsbJYy%Larry.Finger@lwfinger.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Feb 02, 2007 at 09:27:14PM +0100, Thomas Gleixner wrote:
-> On Fri, 2007-02-02 at 20:18 +0100, Mattia Dongili wrote:
-> > > May I ask you for another test ? Please turn on high resolution timers
-> > > and check, if the same strange behaviour is happening.
-> > 
-> > Yep, here we go again. Still seeing long stalls but no negative expires
-> > offset.
-> > Actually one more test I did is disabling my iptables script and the
-> > boot process went fine. The script is just:
+On Wed, Jan 31, 2007 at 06:50:19PM -0600, Larry Finger wrote:
+> Sparse issues the warning "warning: symbol 'crypt' shadows an earlier one"
+> in net/ieee80211/ieee80211_tx.c.
 > 
-> Mattia,
+> Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+> ---
 > 
-> I have it halfways reproducible now and I'm working to find the root
-> cause. Thanks for providing the info.
+> Index: wireless-2.6/net/ieee80211/ieee80211_tx.c
+> ===================================================================
+> --- wireless-2.6.orig/net/ieee80211/ieee80211_tx.c
+> +++ wireless-2.6/net/ieee80211/ieee80211_tx.c
+> @@ -502,8 +502,6 @@ int ieee80211_xmit(struct sk_buff *skb, 
+>  		if (host_encrypt)
+>  			ieee80211_encrypt_fragment(ieee, skb_frag, hdr_len);
+>  		else if (host_build_iv) {
+> -			struct ieee80211_crypt_data *crypt;
+> -
+>  			crypt = ieee->crypt[ieee->tx_keyidx];
+>  			atomic_inc(&crypt->refcnt);
+>  			if (crypt->ops->build_iv)
 
-Great, I'm obviously available to test any patch :)
+Couldn't you remove the "crypt = ieee->crypt[ieee->tx_keyidx];"
+as well?
 
+John
 -- 
-mattia
-:wq!
+John W. Linville
+linville@tuxdriver.com
