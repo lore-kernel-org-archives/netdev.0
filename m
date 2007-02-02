@@ -1,50 +1,48 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [RFT] sky2 auto negotiation PHY errata
-Date: Fri, 2 Feb 2007 11:28:46 -0800
-Message-ID: <20070202112846.31acaa03@freekitty>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] IPv6: Implement RFC 4429 Optimistic Duplicate Address
+ Detection
+Date: Fri, 02 Feb 2007 11:46:08 -0800 (PST)
+Message-ID: <20070202.114608.59498910.davem@davemloft.net>
+References: <20070131.011629.84005028.yoshfuji@linux-ipv6.org>
+	<20070131205443.GA12237@hmsreliant.homelinux.net>
+	<20070202190634.GA29001@hmsreliant.homelinux.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: yoshfuji@linux-ipv6.org, vladislav.yasevich@hp.com, sri@us.ibm.com,
+	kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
+	kaber@coreworks.de, netdev@vger.kernel.org
+To: nhorman@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:36521 "EHLO smtp.osdl.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1423079AbXBBTbm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Feb 2007 14:31:42 -0500
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33715
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1423198AbXBBTqK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Feb 2007 14:46:10 -0500
+In-Reply-To: <20070202190634.GA29001@hmsreliant.homelinux.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch does the Marvell errata before auto negotiation
-(from drivers/phy/marvell.c).  The Yukon II chips have an internal
-version of the same PHY, so perhaps this errata is necessary for them
-as well.
+From: Neil Horman <nhorman@tuxdriver.com>
+Date: Fri, 2 Feb 2007 14:06:34 -0500
 
-For test only, but it may fix some of the hangs. It seems to fix
-the PHY lockups I saw yesterday on Mac Mini.
+> Ok, I'm still testing it, but heres a new patch for review.
+> Significant changes include the addition of a
+> CONFIG_IPV6_OPTIMISTIC_DAD option that is dependent on the inclusion
+> of both IPPV6 and EXPERIMENTAL options, as well as a new method for
+> redirecting packets from optimistic sources to incomplete neighbors
+> by instead looking up a default router in ip6_dst_lookup_tail, as I
+> described in my previous note.
 
----
- drivers/net/sky2.c |    8 ++++++++
- 1 files changed, 8 insertions(+), 0 deletions(-)
+This looks largely fine to me, but I wonder about one bit:
 
-diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
-index 822dd0b..4f04ffa 100644
---- a/drivers/net/sky2.c
-+++ b/drivers/net/sky2.c
-@@ -387,6 +387,14 @@ static void sky2_phy_init(struct sky2_hw
- 
- 	if (sky2->autoneg == AUTONEG_ENABLE) {
- 		if (sky2_is_copper(hw)) {
-+			/* Errata setup */
-+			gm_phy_write(hw, port, PHY_MARV_PAGE_ADDR, 0x1f);
-+			gm_phy_write(hw, port, PHY_MARV_PAGE_DATA, 0x200c);
-+			gm_phy_write(hw, port, PHY_MARV_PAGE_ADDR, 5);
-+			gm_phy_write(hw, port, PHY_MARV_PAGE_DATA, 0);
-+			gm_phy_write(hw, port, PHY_MARV_PAGE_DATA, 0x100);
 +
++	/*
++	 * Optimistic nodes need to join the anycast address
++	 * right away
++	 */
++	if (ifp->flags & IFA_F_OPTIMISTIC)
++		addrconf_join_anycast(ifp);
 +
- 			if (sky2->advertising & ADVERTISED_1000baseT_Full)
- 				ct1000 |= PHY_M_1000C_AFD;
- 			if (sky2->advertising & ADVERTISED_1000baseT_Half)
--- 
-1.4.1
 
+If something can clear that bit during the DAD, we won't
+call addrconf_leave_anycast() later.  Can that happen?
