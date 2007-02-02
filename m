@@ -1,40 +1,56 @@
-From: Jan Engelhardt <jengelh@linux01.gwdg.de>
-Subject: Re: [PATCH]ip_auto_config bug in 2.6.20-rc6
-Date: Fri, 2 Feb 2007 14:27:29 +0100 (MET)
-Message-ID: <Pine.LNX.4.61.0702021424381.26531@yvahk01.tjqt.qr>
-References: <1170329187.15627.11.camel@gentoo-jocke.transmode.se>
- <1170421783.15627.23.camel@gentoo-jocke.transmode.se>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 1/1] NetXen: Fixes for ppc architecture.
+Date: Fri, 02 Feb 2007 08:34:02 -0500
+Message-ID: <45C33DCA.9000801@garzik.org>
+References: <200701311831.l0VIVjch005677@dut39.unminc.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Netdev <netdev@vger.kernel.org>,
-	Linux-Kernel <linux-kernel@vger.kernel.org>
-To: Joakim Tjernlund <joakim.tjernlund@transmode.se>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, brazilnut@us.ibm.com,
+	netxenproj@linsyssoft.com, rob@netxen.com, sanjeev@netxen.com,
+	wendyx@us.ibm.com
+To: "Amit S. Kale" <amitkale@netxen.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tmailer.gwdg.de ([134.76.10.23]:34114 "EHLO tmailer.gwdg.de"
+Received: from srv5.dvmed.net ([207.36.208.214]:48352 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1423058AbXBBNds (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Feb 2007 08:33:48 -0500
-In-Reply-To: <1170421783.15627.23.camel@gentoo-jocke.transmode.se>
+	id S1423065AbXBBNeF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Feb 2007 08:34:05 -0500
+In-Reply-To: <200701311831.l0VIVjch005677@dut39.unminc.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Amit S. Kale wrote:
+> NetXen: Fixes for ppc architecture.
+> 
+> Signed-off-by: Amit S. Kale <amitkale@netxen.com>
+> 
+> ---
+> 
+> Sorry, I wanted to send only one patch so please ignore [PATCH 0/2] in the
+> subject of my last mail. It should be [PATCH 0/1].
+> 
+>  netxen_nic.h      |   98 ++++++++++++++++++++++++++++++++----------------------
+>  netxen_nic_hw.c   |   31 ++++++++---------
+>  netxen_nic_init.c |   19 +++++-----
+>  netxen_nic_main.c |    7 ++-
+>  netxen_nic_niu.c  |    2 -
+>  5 files changed, 91 insertions(+), 66 deletions(-)
 
-On Feb 2 2007 14:09, Joakim Tjernlund wrote:
->On Thu, 2007-02-01 at 12:26 +0100, Joakim Tjernlund wrote:
->> The following commandline:
->>  root=/dev/mtdblock6 rw rootfstype=jffs2 ip=192.168.1.10:::255.255.255.0:localhost.localdomain:eth1:off console=ttyS0,115200
->> makes ip_auto_config fall back to DHCP and complain "IP-Config: Incomplete network configuration information."
->> depending on if CONFIG_IP_PNP_DHCP is set or not.
->> 
->> The only way I can make ip_auto_config accept my IP config is to add an entry for the server IP:
->> ip=192.168.1.10:192.168.1.15::255.255.255.0:localhost.localdomain:eth1:off
->> 
->> I think this is a bug since I am not using a NFS root FS.
+Patch does not apply to latest vanilla linux-2.6.git:
 
-I just wonder why IP_PNP has not been obsoleted and removed from the 
-tree yet, given that initramfs is the advertised way to do so such 
-things.
+[jgarzik@pretzel netdev-2.6]$ git-am --signoff --utf8 /g/tmp/mbox
 
+Applying 'NetXen: Fixes for ppc architecture.'
 
-Jan
--- 
+error: patch failed: drivers/net/netxen/netxen_nic.h:246
+error: drivers/net/netxen/netxen_nic.h: patch does not apply
+error: patch failed: drivers/net/netxen/netxen_nic_hw.c:236
+error: drivers/net/netxen/netxen_nic_hw.c: patch does not apply
+error: patch failed: drivers/net/netxen/netxen_nic_init.c:690
+error: drivers/net/netxen/netxen_nic_init.c: patch does not apply
+error: patch failed: drivers/net/netxen/netxen_nic_main.c:818
+error: drivers/net/netxen/netxen_nic_main.c: patch does not apply
+Patch failed at 0001.
+When you have resolved this problem run "git-am --resolved".
+If you would prefer to skip this patch, instead run "git-am --skip".
+
