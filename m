@@ -1,33 +1,33 @@
-From: Arjan van de Ven <arjan@infradead.org>
-Subject: Re: [PATCH 10/10] cxgb3 - Add dual licensing
-Date: Fri, 02 Feb 2007 04:15:23 +0100
-Message-ID: <1170386123.3073.886.camel@laptopd505.fenrus.org>
-References: <20070131034435.8673.34921.stgit@localhost.localdomain>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [Fwd: Re: [PATCH 1/10] cxgb3 - main header files]
+Date: Thu, 01 Feb 2007 20:48:13 -0800
+Message-ID: <adazm7x5fn6.fsf@cisco.com>
+References: <1169216896.15842.6.camel@stevo-desktop>
+	<adamz4f0wsy.fsf@cisco.com> <1170363934.16637.58.camel@stevo-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, swise@opengridcomputing.com
-To: Divy Le Ray <None@chelsio.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: openib-general <openib-general@openib.org>, netdev@vger.kernel.org,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Jeff Garzik <jeff@garzik.org>
+To: Steve Wise <swise@opengridcomputing.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:52103 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750887AbXBBDPt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Feb 2007 22:15:49 -0500
-In-Reply-To: <20070131034435.8673.34921.stgit@localhost.localdomain>
+Received: from sj-iport-6.cisco.com ([171.71.176.117]:48633 "EHLO
+	sj-iport-6.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1422947AbXBBEs1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Feb 2007 23:48:27 -0500
+In-Reply-To: <1170363934.16637.58.camel@stevo-desktop> (Steve Wise's message of "Thu, 01 Feb 2007 15:05:34 -0600")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2007-01-30 at 19:44 -0800, Divy Le Ray wrote:
-> Dual licensing, needed for OFED 1.2
+ > Have you had a chance to review this?
 
-Hi,
+Still on my list.
 
-did you get permission from all the people who contributed code to your
-driver ? If not.. that'd be a problem....
+Can we trade?  Can you look at the IPoIB connected mode stuff in the
+ipoib-cm branch in
 
+    git://git.kernel.org/pub/scm/linux/kernel/git/roland/infiniband.git
 
--- 
-if you want to mail me at work (you don't), use arjan (at) linux.intel.com
-Test the interaction between Linux and your BIOS via http://www.linuxfirmwarekit.org
+and let me know if you see anything you don't like?
 
+ - R.
