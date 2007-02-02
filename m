@@ -1,56 +1,36 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 1/1] NetXen: Fixes for ppc architecture.
-Date: Fri, 02 Feb 2007 08:34:02 -0500
-Message-ID: <45C33DCA.9000801@garzik.org>
-References: <200701311831.l0VIVjch005677@dut39.unminc.com>
+Subject: Re: [PATCH -FIX] e100: fix napi ifdefs removing needed code
+Date: Fri, 02 Feb 2007 08:34:26 -0500
+Message-ID: <45C33DE2.10007@garzik.org>
+References: <20070131190246.23066418CB@ahkok-mobl.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, brazilnut@us.ibm.com,
-	netxenproj@linsyssoft.com, rob@netxen.com, sanjeev@netxen.com,
-	wendyx@us.ibm.com
-To: "Amit S. Kale" <amitkale@netxen.com>
+Cc: akpm@osdl.org, netdev@vger.kernel.org,
+	"Robert P. J. Day" <rpjday@mindspring.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>
+To: Auke Kok <auke-jan.h.kok@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:48352 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:48368 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1423065AbXBBNeF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Feb 2007 08:34:05 -0500
-In-Reply-To: <200701311831.l0VIVjch005677@dut39.unminc.com>
+	id S1423079AbXBBNed (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Feb 2007 08:34:33 -0500
+In-Reply-To: <20070131190246.23066418CB@ahkok-mobl.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Amit S. Kale wrote:
-> NetXen: Fixes for ppc architecture.
+Auke Kok wrote:
+> e100: fix napi ifdefs removing needed code
 > 
-> Signed-off-by: Amit S. Kale <amitkale@netxen.com>
+> From: Auke Kok <auke-jan.h.kok@intel.com>
 > 
-> ---
+> The e100 driver is NAPI mode only. We need to netif_poll_disable
+> during suspend and shutdown. The non-NAPI driver code was removed
+> and is only avaiable in the out-of-tree e100 kernel driver.
 > 
-> Sorry, I wanted to send only one patch so please ignore [PATCH 0/2] in the
-> subject of my last mail. It should be [PATCH 0/1].
-> 
->  netxen_nic.h      |   98 ++++++++++++++++++++++++++++++++----------------------
->  netxen_nic_hw.c   |   31 ++++++++---------
->  netxen_nic_init.c |   19 +++++-----
->  netxen_nic_main.c |    7 ++-
->  netxen_nic_niu.c  |    2 -
->  5 files changed, 91 insertions(+), 66 deletions(-)
+> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
 
-Patch does not apply to latest vanilla linux-2.6.git:
+applied
 
-[jgarzik@pretzel netdev-2.6]$ git-am --signoff --utf8 /g/tmp/mbox
-
-Applying 'NetXen: Fixes for ppc architecture.'
-
-error: patch failed: drivers/net/netxen/netxen_nic.h:246
-error: drivers/net/netxen/netxen_nic.h: patch does not apply
-error: patch failed: drivers/net/netxen/netxen_nic_hw.c:236
-error: drivers/net/netxen/netxen_nic_hw.c: patch does not apply
-error: patch failed: drivers/net/netxen/netxen_nic_init.c:690
-error: drivers/net/netxen/netxen_nic_init.c: patch does not apply
-error: patch failed: drivers/net/netxen/netxen_nic_main.c:818
-error: drivers/net/netxen/netxen_nic_main.c: patch does not apply
-Patch failed at 0001.
-When you have resolved this problem run "git-am --resolved".
-If you would prefer to skip this patch, instead run "git-am --skip".
 
