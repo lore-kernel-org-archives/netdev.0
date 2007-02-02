@@ -1,48 +1,47 @@
-From: Shinta Sugimoto <shinta@sfc.wide.ad.jp>
-Subject: Re: (usagi-core 32165) Re: [RFC][PATCH][XFRM][4/5] extension to XFRM for dynamic endpoint update (MIGRATE)
-Date: Fri, 02 Feb 2007 21:10:09 +0900
-Message-ID: <20070202210442.E2F9.SHINTA@sfc.wide.ad.jp>
-References: <20070201114558.E2C3.SHINTA@sfc.wide.ad.jp> <Pine.LNX.4.64.0702010947530.8524@d.namei>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [RFC][PATCH][XFRM][1/5] extension to XFRM for dynamic endpoint
+ update (MIGRATE)
+Date: Fri, 2 Feb 2007 07:51:14 -0500 (EST)
+Message-ID: <Pine.LNX.4.64.0702020747340.16188@d.namei>
+References: <20070201113017.E2BA.SHINTA@sfc.wide.ad.jp>
+ <Pine.LNX.4.64.0702010937250.8524@d.namei> <20070202203550.E2F3.SHINTA@sfc.wide.ad.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev@vger.kernel.org, Francis Dupont <Francis.Dupont@point6.net>,
-	Masahide Nakamura <nakam@linux-ipv6.org>
-To: usagi-core@linux-ipv6.org
+	Masahide Nakamura <nakam@linux-ipv6.org>,
+	usagi-core@linux-ipv6.org
+To: Shinta Sugimoto <shinta@sfc.wide.ad.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.sfc.wide.ad.jp ([203.178.142.146]:36190 "EHLO
-	mail.sfc.wide.ad.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1423039AbXBBMKP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Feb 2007 07:10:15 -0500
-In-Reply-To: <Pine.LNX.4.64.0702010947530.8524@d.namei>
+Received: from mail8.sea5.speakeasy.net ([69.17.117.10]:52349 "EHLO
+	mail8.sea5.speakeasy.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933386AbXBBMvS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Feb 2007 07:51:18 -0500
+In-Reply-To: <20070202203550.E2F3.SHINTA@sfc.wide.ad.jp>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 1 Feb 2007 09:50:00 -0500 (EST)
-James Morris <jmorris@namei.org> wrote:
+On Fri, 2 Feb 2007, Shinta Sugimoto wrote:
 
-> On Thu, 1 Feb 2007, Shinta Sugimoto wrote:
+> > 
+> > > +EXPORT_SYMBOL(xfrm_state_clone);
+> > 
+> > Why not EXPORT_SYMBOL_GPL ?
+> > (for all of your exports).
 > 
-> > +	/* allow IPSEC_PROTO_ANY to match all protocols */
-> > +	//sel.proto = pfkey_proto_to_xfrm(sa->sadb_address_proto);
-> > +	sel.proto = sa->sadb_address_proto;
-> 
-> Which one is correct ? :-)
+> Actually I don't have specific preference on either EXPORT_SYMBOL or
+> EXPORT_SYMBOL_GPL.  It seemed to me that other functions defined in
+> files under net/xfrm/ are using EXPORT_SYMBOL, so I followed that.
 
-Thank you for point this out.  The following should be correct.
+Hmm, you're right, most of them are not _GPL.
 
-sel.proto = pfkey_proto_to_xfrm(sa->sadb_address_proto);
+> Do you think EXPORT_SYMBOL_GPL is more appropriate in this case?
 
-> 
-> > +	/* allow IPSEC_PROTO_ANY to match all protocols */
-> > +	//sel.proto = pfkey_proto_to_xfrm(sa->sadb_address_proto);
-> > +	sel.proto = sa->sadb_address_proto;
-> 
-> ...
-
-Same for this one. I will fix them.
+Well, I would have thought that users of xfrm were generally derivative of 
+the kernel, but it doesn't make much sense to have only a couple of 
+symbols exported as GPL, so probably keep it the way you already have it.
 
 
-Regards,
-Shinta
-
+- James
+-- 
+James Morris
+<jmorris@namei.org>
