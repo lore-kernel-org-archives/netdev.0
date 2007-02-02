@@ -1,47 +1,47 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: "meaningful" spinlock contention when bound to non-intr CPU?
-Date: Fri, 2 Feb 2007 21:20:51 +0100
-Message-ID: <200702022120.52055.ak@suse.de>
-References: <45C242C9.1010601@hp.com> <200702022006.31934.ak@suse.de> <45C396E6.3080705@hp.com>
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: Re: dynticks + iptables almost stops the boot process [was: Re:
+	2.6.20-rc6-mm3]
+Date: Fri, 02 Feb 2007 21:27:14 +0100
+Message-ID: <1170448034.29240.364.camel@localhost.localdomain>
+References: <20070129204528.eb8d695e.akpm@osdl.org>
+	 <20070131215241.GB2890@inferi.kami.home>
+	 <20070131232130.GC4137@inferi.kami.home>
+	 <1170358572.29240.292.camel@localhost.localdomain>
+	 <1170360101.29240.297.camel@localhost.localdomain>
+	 <20070201211137.GA2830@inferi.kami.home>
+	 <1170369202.29240.339.camel@localhost.localdomain>
+	 <20070202191802.GA4262@inferi.kami.home>
+Reply-To: tglx@linutronix.de
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Linux Network Development list <netdev@vger.kernel.org>
-To: Rick Jones <rick.jones2@hp.com>
+Cc: Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org,
+	mingo@redhat.com, netdev@vger.kernel.org,
+	netfilter-devel@lists.netfilter.org
+To: Mattia Dongili <malattia@linux.it>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.suse.de ([195.135.220.2]:38738 "EHLO mx1.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1946042AbXBBUVF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Feb 2007 15:21:05 -0500
-In-Reply-To: <45C396E6.3080705@hp.com>
-Content-Disposition: inline
+Received: from www.osadl.org ([213.239.205.134]:60668 "EHLO mail.tglx.de"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1423203AbXBBU0Q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Feb 2007 15:26:16 -0500
+In-Reply-To: <20070202191802.GA4262@inferi.kami.home>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-> Perhaps a poor choice of words on my part - something along the lines of:
+On Fri, 2007-02-02 at 20:18 +0100, Mattia Dongili wrote:
+> > May I ask you for another test ? Please turn on high resolution timers
+> > and check, if the same strange behaviour is happening.
 > 
-> hold_lock();
-> wake_up_someone();
-> release_lock();
-> 
-> where the someone being awoken can try to grab the lock before the path 
-> doing the waking manages to release it.
+> Yep, here we go again. Still seeing long stalls but no negative expires
+> offset.
+> Actually one more test I did is disabling my iptables script and the
+> boot process went fine. The script is just:
 
-Yes the wakeup happens deep inside the critical section and if the process
-is running on another CPU it could race to the lock.
+Mattia,
 
-Hmm, i suppose the wakeup could be moved out, but it would need some restructuring
-of the code. Also to be safe the code would still need to at least hold a 
-reference count of the sock during the wakeup, and when that is released
-then you have another cache line to bounce, which might not be any better
-than the lock. So it might not be actually worth it.
+I have it halfways reproducible now and I'm working to find the root
+cause. Thanks for providing the info.
 
-I suppose the socket release could be at least partially protected with
-RCU against this case so that could be done without a reference count, but 
-it might be tricky to get this right.
+	tglx
 
-Again still not sure it's worth handling this.
 
--Andi
