@@ -1,33 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [BNX2]: PHY workaround for 5709 A0.
-Date: Fri, 02 Feb 2007 00:48:49 -0800 (PST)
-Message-ID: <20070202.004849.115936322.davem@davemloft.net>
-References: <1170355679.9765.2.camel@rh4>
+From: Zhu Yi <yi.zhu@intel.com>
+Subject: [PATCH] d80211: Fix WMM ACI to UP mapping
+Date: Fri, 02 Feb 2007 17:15:54 +0800
+Message-ID: <1170407754.6601.228.camel@debian.sh.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: mchan@broadcom.com
+To: "John W.Linville" <linville@tuxdriver.com>,
+	Jiri Benc <jbenc@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36356
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S932666AbXBBIsu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Feb 2007 03:48:50 -0500
-In-Reply-To: <1170355679.9765.2.camel@rh4>
+Received: from mga02.intel.com ([134.134.136.20]:40216 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932852AbXBBJPt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Feb 2007 04:15:49 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Michael Chan" <mchan@broadcom.com>
-Date: Thu, 01 Feb 2007 10:47:58 -0800
+Fix WMM ACI to UP mapping according to IEEE 802.1d spec. Table 7-2.
 
-> [BNX2]: PHY workaround for 5709 A0.
-> 
-> 5709 A0 copper devices will not link up with some link partners
-> without this workaround.
-> 
-> Update driver to 1.5.5.
-> 
-> Signed-off-by: Michael Chan <mchan@broadcom.com> 
+Signed-off-by: Zhu Yi <yi.zhu@intel.com>
 
-Applied, thanks Michael.
+diff --git a/net/d80211/ieee80211_sta.c b/net/d80211/ieee80211_sta.c
+index 393a294..fabdef5 100644
+--- a/net/d80211/ieee80211_sta.c
++++ b/net/d80211/ieee80211_sta.c
+@@ -289,7 +289,7 @@ static void ieee80211_sta_wmm_params(struct
+net_device *dev,
+ 		case 1:
+ 			queue = IEEE80211_TX_QUEUE_DATA3;
+ 			if (acm) {
+-				local->wmm_acm |= BIT(1) | BIT(2);
++				local->wmm_acm |= BIT(0) | BIT(3);
+ 			}
+ 			break;
+ 		case 2:
+@@ -308,7 +308,7 @@ static void ieee80211_sta_wmm_params(struct
+net_device *dev,
+ 		default:
+ 			queue = IEEE80211_TX_QUEUE_DATA2;
+ 			if (acm) {
+-				local->wmm_acm |= BIT(0) | BIT(3);
++				local->wmm_acm |= BIT(1) | BIT(2);
+ 			}
+ 			break;
+ 		}
 
