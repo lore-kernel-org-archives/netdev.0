@@ -1,153 +1,372 @@
 From: Ishizaki Kou <kou.ishizaki@toshiba.co.jp>
-Subject: Re: spidernet: dynamic phy setup code
-Date: Fri, 02 Feb 2007 19:20:21 +0900 (JST)
-Message-ID: <200702021020.l12AKLrS011304@toshiba.co.jp>
+Subject: [RFC/PATCH 2.6.20-rc6 1/4] spidernet: autoneg support for Celleb
+Date: Fri, 02 Feb 2007 19:29:05 +0900 (JST)
+Message-ID: <200702021029.l12AT7vP015184@toshiba.co.jp>
 References: <200702011204.30526.jens@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org, jgarzik@pobox.com, jim@jklewis.com,
+Cc: jim@jklewis.com, linuxppc-dev@ozlabs.org, jgarzik@pobox.com,
 	netdev@vger.kernel.org
 To: jens@de.ibm.com
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from imx12.toshiba.co.jp ([61.202.160.132]:41024 "EHLO
+	imx12.toshiba.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751892AbXBBKb2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Feb 2007 05:31:28 -0500
 In-Reply-To: <200702011204.30526.jens@de.ibm.com>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jens-san,
+Add auto negotiation support for Celleb. 
 
-Thanks for your comments.
+This patch is just for a test. Please try this, if you can.
 
->Ishizaki-san,
->
->> This patch partially works on celleb but remains 
->> following several problems.
->> 1. It doesn't recover once an ethernet cable which is
->>    connected to a spider_net card is unpluged. 
->
->My understanding is that you are using the LINK interrupt to detect this.
+Signed-off-by: Kou Ishizaki <kou.ishizaki@toshiba.co.jp>
+---
 
-Yes. We use the LINK interrupt for this purpose.
-
->For the blade this is not connected but reenabling it wont hurt, I hope.
->
->> 2. It doesn't work when the spider_net card is connected to 
->>    a 100Mbps ethernet switch.
->> 
->> To solve these problems, we need to restore some codes
->> you removed from your patch.
->> 
->> (1)
->> >- if (card->aneg_count > 10) {
->> >-  /* timeout */
->> >-  card->aneg_count = 0;
->> >-  is1000 = !is1000;
->> >-  goto re_setup;
->> 
->> >- if (phy->speed == 1000 && !is1000) {
->> >-  is1000 = 1;
->> >-  goto re_setup;
->> >- } else if(phy->speed != 1000 && is1000) {
->> >-  is1000 = 0;
->> >-  goto re_setup;
->> >- }
->> 
->> We need to use different auto-neg initial settings between
->> for 10/100Mbps ethernet switches and for Gbps ethernet switches.
->> Driver don't know which type of network switch is connected to
->> network card, so we try both settings alternately in auto negtiation
->> sequences by using a variable "is1000".
->
->I still dont see why you need different settings for different speed switches.
->This is getting to a point where access to some hardware would be handy.
->What exact phy are using anyway ?
-
-We use bcm5461. There is a possibility that we don't know the appropriate
-setting which is applicable for both type of switches.
-
->> Furthermore, we have a problem that poll_link() may succeed even when
->> the auto-neg initial setting is for different network switch type,
->> and the network card does not work on this case. We retry auto-neg
->> with the another initial setting on this case.
->
->See above, could you give some more details why this is the case. Or maybe Ben
->knows more about this ?
-
-We didn't investigate for the detail, but we met the following phenomena.
-1. When auto-neg starts with Gbps setting and ethernet card is connected to
-   a 100Mbps switch, LINK is not detected.
-2. When auto-neg starts with 100/10Mbps setting and ethernet card is 
-   connected to Gbps switch, LINK is detected (poll_link() succeeds), but
-   the network is not available.
-
->> #We are commented that "is1000" should be in spider_net_card.
->> #We fixed it in another patch. Please refer the following.
->> #http://ozlabs.org/pipermail/linuxppc-dev/2007-January/030203.html
->> 
->> But we don't think this is the best solution, and we are still
->> developing 
->> our spidernet driver. If you have a good alternative idea, please
-tell
->> us.
->> 
->> (2)
->> >- spider_net_write_reg(card, SPIDER_NET_GMACST,
->> >-        spider_net_read_reg(card, SPIDER_NET_GMACST));
->> >- spider_net_write_reg(card, SPIDER_NET_GMACINTEN, 0x4);
->> 
->> These codes are enabling LINK status interrupt which is disabled
->> at the beginning of auto-neg.
->> Without this operation, auto negotiation works only when a connection
->> detected for the first time, and auto negotiation will not work 
->> when an ethernet cable is unpluged or pluged.
->
->I will reenable it and see wether it affects us. The pin is not
-connected so
->we should never enter this part of the code.
->
->> (3)
->> >- mii_phy_probe(phy, phy->mii_id);
->> It seems that PHY reset is necessary before auto negotiation,
->> after a link once went down.
->> We can't call directly reset routine from driver, so we call
->> mii_phy_probe().
->> We are still developping the patch as we noted, and we are considering
->> to call mii_phy_probe() from spider_net_setup_aneg(), or to call
->> reset_one_mii_phy() from bcm54xx_setup_aneg().
->
->IMHO using mii_phy_probe is the right way to do this.
-
-OK. We will do so.
-
->> We think these (1)-(3) are necessary, but we are afraid that you removed
->> them
->> by a reason that they causes some trouble in Cell Blade. If so please
->> tell us.
->
->I'll do some investigations and let you know of the results.
-
-Thanks for your cooperation to us.
-
-By the way, we have a suggestion. Would you please make your spidernet
-patch based main-line code(not based on our patch)? 
-Our patch are still changing, so we think it's more convenient
-for you and us to maintain the code.
-We will not mind whether it includes our code or not.
-
-We will post our recent spidernet patch set based on 2.6.20-rc6.
-This patch set is merged Jens-san's spidernet patch and works on celleb.
-We hope this patch set will work on Cell blade.
-
-We intend this patch set is just for a test so far(not intended to be
-taken for main-line immediately). Please try this, if you can.
-
-Best regards,
-Kou Ishizaki
+--- org-linux-powerpc-git/drivers/net/spider_net.h	2007-02-02 14:24:26.000000000 +0900
++++ linux-powerpc-git/drivers/net/spider_net.h	2007-02-02 14:24:45.000000000 +0900
+@@ -50,6 +50,8 @@
+ #define SPIDER_NET_TX_DESCRIPTORS_MAX		512
+ 
+ #define SPIDER_NET_TX_TIMER			(HZ/5)
++#define SPIDER_NET_ANEG_TIMER			(HZ)
++#define SPIDER_NET_ANEG_TIMEOUT			2
+ 
+ #define SPIDER_NET_RX_CSUM_DEFAULT		1
+ 
+@@ -104,6 +106,7 @@
+ 
+ #define SPIDER_NET_GMACOPEMD		0x00000100
+ #define SPIDER_NET_GMACLENLMT		0x00000108
++#define SPIDER_NET_GMACST		0x00000110
+ #define SPIDER_NET_GMACINTEN		0x00000118
+ #define SPIDER_NET_GMACPHYCTRL		0x00000120
+ 
+@@ -333,9 +336,12 @@
+ /* We rely on flagged descriptor interrupts */
+ #define SPIDER_NET_RXINT	( (1 << SPIDER_NET_GDAFDCINT) )
+ 
++#define SPIDER_NET_LINKINT	( 1 << SPIDER_NET_GMAC2INT )
++
+ #define SPIDER_NET_ERRINT	( 0xffffffff & \
+ 				  (~SPIDER_NET_TXINT) & \
+-				  (~SPIDER_NET_RXINT) )
++				  (~SPIDER_NET_RXINT) & \
++				  (~SPIDER_NET_LINKINT) )
+ 
+ #define SPIDER_NET_GPREXEC			0x80000000
+ #define SPIDER_NET_GPRDAT_MASK			0x0000ffff
+@@ -447,6 +453,10 @@
+ 
+ 	spinlock_t intmask_lock;
+ 	struct tasklet_struct rxram_full_tl;
++
++	int aneg_count;
++	int is1000;
++	struct timer_list aneg_timer;
+ 	struct timer_list tx_timer;
+ 
+ 	struct work_struct tx_timeout_task;
+--- org-linux-powerpc-git/drivers/net/spider_net.c	2007-02-02 14:24:22.000000000 +0900
++++ linux-powerpc-git/drivers/net/spider_net.c	2007-02-02 14:26:17.000000000 +0900
+@@ -165,6 +165,57 @@
+ 	return readvalue;
+ }
+ 
++/** spider_net_setup_aneg - initial auto-negotiation setup
++ * @card: device structure 
++ **/
++static void
++spider_net_setup_aneg(struct spider_net_card *card)
++{
++	struct mii_phy *phy = &card->phy;
++	u32 advertise = 0;
++	u16 bmcr, bmsr, ctrl1000, stat1000, estat;
++
++	bmcr     = spider_net_read_phy(card->netdev, phy->mii_id, MII_BMCR);
++	bmsr     = spider_net_read_phy(card->netdev, phy->mii_id, MII_BMSR);
++	ctrl1000 = spider_net_read_phy(card->netdev, phy->mii_id, MII_CTRL1000);
++	stat1000 = spider_net_read_phy(card->netdev, phy->mii_id, MII_STAT1000);
++	estat    = spider_net_read_phy(card->netdev, phy->mii_id, MII_ESTATUS);
++
++	if (bmsr & BMSR_10HALF)
++		advertise |= ADVERTISE_10HALF;
++	if (bmsr & BMSR_10FULL)
++		advertise |= ADVERTISE_10FULL;
++	if (bmsr & BMSR_100HALF)
++		advertise |= ADVERTISE_100HALF;
++	if (bmsr & BMSR_100FULL)
++		advertise |= ADVERTISE_100FULL;
++	if (bmsr & BMSR_100BASE4)
++		advertise |= ADVERTISE_100BASE4;
++
++	mii_phy_probe(phy, phy->mii_id);
++
++	if (card->is1000) {
++		if ((bmsr & BMSR_ESTATEN) && (estat & ESTATUS_1000_TFULL)) {
++			advertise |= ADVERTISE_1000XFULL;
++			ctrl1000 |= ADVERTISE_1000FULL;
++		}
++		if ((bmsr & BMSR_ESTATEN) && (estat & ESTATUS_1000_THALF)) {
++			advertise |= ADVERTISE_1000XHALF;
++			ctrl1000 |= ADVERTISE_1000HALF;
++		}
++
++		spider_net_write_phy(card->netdev, phy->mii_id,
++				     MII_CTRL1000, ctrl1000);
++
++
++		phy->def->ops->setup_aneg(phy, advertise);
++	} else {
++		bmcr |= (BMCR_ANRESTART | BMCR_ANENABLE);
++		spider_net_write_phy(card->netdev, phy->mii_id,
++				     MII_BMCR, bmcr);
++	}
++}
++
+ /**
+  * spider_net_rx_irq_off - switch off rx irq on this spider card
+  * @card: device structure
+@@ -1245,6 +1296,33 @@
+ }
+ 
+ /**
++ * spider_net_link_reset
++ * @netdev: net device structure
++ *
++ * This is called when the PHY_LINK signal is asserted. For the blade this is
++ * not connected so we should never get here.
++ *
++ */
++static void
++spider_net_link_reset(struct net_device *netdev)
++{
++
++	struct spider_net_card *card = netdev_priv(netdev);
++
++	del_timer_sync(&card->aneg_timer);
++
++	/* clear interrupt, block further interrupts */
++	spider_net_write_reg(card, SPIDER_NET_GMACST,
++			     spider_net_read_reg(card, SPIDER_NET_GMACST));
++	spider_net_write_reg(card, SPIDER_NET_GMACINTEN, 0);
++
++	/* reset phy and setup aneg */
++	spider_net_setup_aneg(card);
++	mod_timer(&card->aneg_timer, jiffies + SPIDER_NET_ANEG_TIMER);
++
++}
++
++/**
+  * spider_net_handle_error_irq - handles errors raised by an interrupt
+  * @card: card structure
+  * @status_reg: interrupt status register 0 (GHIINT0STS)
+@@ -1497,6 +1575,9 @@
+ 	if (status_reg & SPIDER_NET_TXINT)
+ 		netif_rx_schedule(netdev);
+ 
++	if (status_reg & SPIDER_NET_LINKINT)
++		spider_net_link_reset(netdev);
++
+ 	if (status_reg & SPIDER_NET_ERRINT )
+ 		spider_net_handle_error_irq(card, status_reg);
+ 
+@@ -1621,8 +1702,6 @@
+ 
+ 	spider_net_write_reg(card, SPIDER_NET_GMACLENLMT,
+ 			     SPIDER_NET_LENLMT_VALUE);
+-	spider_net_write_reg(card, SPIDER_NET_GMACMODE,
+-			     SPIDER_NET_MACMODE_VALUE);
+ 	spider_net_write_reg(card, SPIDER_NET_GMACOPEMD,
+ 			     SPIDER_NET_OPMODE_VALUE);
+ 
+@@ -1655,6 +1734,12 @@
+ 	int i, result;
+ 
+ 	result = -ENOMEM;
++
++	/* start probing with copper */
++	spider_net_setup_aneg(card);
++	if (card->phy.def->phy_id)
++		mod_timer(&card->aneg_timer, jiffies + SPIDER_NET_ANEG_TIMER);
++
+ 	if (spider_net_init_chain(card, &card->tx_chain, card->descr,
+ 	                          card->num_tx_desc))
+ 		goto alloc_tx_failed;
+@@ -1699,17 +1784,112 @@
+ alloc_rx_failed:
+ 	spider_net_free_chain(card, &card->tx_chain);
+ alloc_tx_failed:
++	del_timer_sync(&card->aneg_timer);
+ 	return result;
+ }
+ 
+ /**
++ * spider_net_link_phy
++ * @data: used for pointer to card structure
++ *
++ */
++static void spider_net_link_phy(unsigned long data)
++{
++	struct spider_net_card *card = (struct spider_net_card *)data;
++	struct mii_phy *phy = &card->phy;
++
++	/* if link didn't come up after SPIDER_NET_ANEG_TIMEOUT tries, setup phy again */
++	if (card->aneg_count > SPIDER_NET_ANEG_TIMEOUT) {
++
++		pr_info("%s: link is down trying to bring it up\n", card->netdev->name);
++
++		switch (phy->medium) {
++		case GMII_COPPER:
++			if (card->is1000) {
++				/* try autoneg with the setting not for Gbps */
++				card->is1000 = 0;
++				spider_net_setup_aneg(card);
++				break;
++			} else {
++				/* enable fiber with autonegotiation first */
++				card->is1000 = 1;
++				if (phy->def->ops->enable_fiber)
++					phy->def->ops->enable_fiber(phy, 1);
++				phy->medium = GMII_FIBER;
++				break;
++			}
++
++		case GMII_FIBER:
++			/* fiber didn't come up, try to disable fiber autoneg */
++			if (phy->def->ops->enable_fiber)
++				phy->def->ops->enable_fiber(phy, 0);
++			phy->medium = GMII_UNKNOWN;
++			break;
++
++		case GMII_UNKNOWN:
++			/* copper, fiber with and without failed,
++			 * retry from beginning */
++			card->is1000 = 1;
++			spider_net_setup_aneg(card);
++			phy->medium = GMII_COPPER;
++			break;
++		}
++
++		card->aneg_count = 0;
++		mod_timer(&card->aneg_timer, jiffies + SPIDER_NET_ANEG_TIMER);
++		return;
++	}
++
++	/* link still not up, try again later */
++	if (!(phy->def->ops->poll_link(phy))) {
++		card->aneg_count++;
++		mod_timer(&card->aneg_timer, jiffies + SPIDER_NET_ANEG_TIMER);
++		return;
++	}
++
++	/* link came up, get abilities */
++	phy->def->ops->read_link(phy);
++
++	/* link is detected but we need retrying autoneg 
++	 * when initial setting was wrong */
++	if (phy->speed == 1000 && !(card->is1000)) {
++		card->is1000 = 1;
++		goto re_setup;
++	} else if (phy->speed != 1000 && card->is1000) {
++		card->is1000 = 0;
++		goto re_setup;
++	}
++
++	spider_net_write_reg(card, SPIDER_NET_GMACST,
++			     spider_net_read_reg(card, SPIDER_NET_GMACST));
++	spider_net_write_reg(card, SPIDER_NET_GMACINTEN, 0x4);
++
++	if (phy->speed == 1000)
++		spider_net_write_reg(card, SPIDER_NET_GMACMODE, 0x00000001);
++	else
++		spider_net_write_reg(card, SPIDER_NET_GMACMODE, 0);
++
++	card->aneg_count = 0;
++
++	pr_info("Found %s with %i Mbps, %s-duplex %sautoneg.\n",
++		phy->def->name, phy->speed, phy->duplex==1 ? "Full" : "Half",
++		phy->autoneg==1 ? "" : "no ");
++
++	return;
++
++re_setup:
++	spider_net_setup_aneg(card);
++	card->aneg_count = 0;
++	mod_timer(&card->aneg_timer, jiffies + SPIDER_NET_ANEG_TIMER);
++}
++
++/**
+  * spider_net_setup_phy - setup PHY
+  * @card: card structure
+  *
+  * returns 0 on success, <0 on failure
+  *
+- * spider_net_setup_phy is used as part of spider_net_probe. Sets
+- * the PHY to 1000 Mbps
++ * spider_net_setup_phy is used as part of spider_net_probe.
+  **/
+ static int
+ spider_net_setup_phy(struct spider_net_card *card)
+@@ -1720,21 +1900,21 @@
+ 			     SPIDER_NET_DMASEL_VALUE);
+ 	spider_net_write_reg(card, SPIDER_NET_GPCCTRL,
+ 			     SPIDER_NET_PHY_CTRL_VALUE);
+-	phy->mii_id = 1;
++
+ 	phy->dev = card->netdev;
+ 	phy->mdio_read = spider_net_read_phy;
+ 	phy->mdio_write = spider_net_write_phy;
+ 
+-	mii_phy_probe(phy, phy->mii_id);
+-
+-	if (phy->def->ops->setup_forced)
+-		phy->def->ops->setup_forced(phy, SPEED_1000, DUPLEX_FULL);
+-
+-	phy->def->ops->enable_fiber(phy);
+-
+-	phy->def->ops->read_link(phy);
+-	pr_info("Found %s with %i Mbps, %s-duplex.\n", phy->def->name,
+-		phy->speed, phy->duplex==1 ? "Full" : "Half");
++	for (phy->mii_id = 1; phy->mii_id <= 31; phy->mii_id++) {
++		unsigned short id;
++		id = spider_net_read_phy(card->netdev, phy->mii_id, MII_BMSR);
++		if (id != 0x0000 && id != 0xffff) {
++			if (!mii_phy_probe(phy, phy->mii_id)) {
++				pr_info("Found %s.\n", phy->def->name);
++				break;
++			}
++		}
++	}
+ 
+ 	return 0;
+ }
+@@ -1907,11 +2087,13 @@
+ 	netif_carrier_off(netdev);
+ 	netif_stop_queue(netdev);
+ 	del_timer_sync(&card->tx_timer);
++	del_timer_sync(&card->aneg_timer);
+ 
+ 	/* disable/mask all interrupts */
+ 	spider_net_write_reg(card, SPIDER_NET_GHIINT0MSK, 0);
+ 	spider_net_write_reg(card, SPIDER_NET_GHIINT1MSK, 0);
+ 	spider_net_write_reg(card, SPIDER_NET_GHIINT2MSK, 0);
++	spider_net_write_reg(card, SPIDER_NET_GMACINTEN, 0);
+ 
+ 	/* free_irq(netdev->irq, netdev);*/
+ 	free_irq(to_pci_dev(netdev->class_dev.dev)->irq, netdev);
+@@ -2053,6 +2235,12 @@
+ 	card->tx_timer.data = (unsigned long) card;
+ 	netdev->irq = card->pdev->irq;
+ 
++	card->is1000 = 1;
++	card->aneg_count = 0;
++	init_timer(&card->aneg_timer);
++	card->aneg_timer.function = spider_net_link_phy;
++	card->aneg_timer.data = (unsigned long) card;
++
+ 	card->options.rx_csum = SPIDER_NET_RX_CSUM_DEFAULT;
+ 
+ 	card->num_tx_desc = tx_descriptors;
