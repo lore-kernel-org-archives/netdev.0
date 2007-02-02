@@ -1,43 +1,33 @@
 From: Thomas Glanzmann <thomas@glanzmann.de>
 Subject: Re: sky2 hangs
-Date: Fri, 2 Feb 2007 07:27:22 +0100
-Message-ID: <20070202062722.GZ13130@cip.informatik.uni-erlangen.de>
-References: <20070201185532.GL13130@cip.informatik.uni-erlangen.de> <42007.80.98.159.250.1170369983.squirrel@www.hunhost.com>
+Date: Fri, 2 Feb 2007 07:31:04 +0100
+Message-ID: <20070202063104.GA13130@cip.informatik.uni-erlangen.de>
+References: <20070201185532.GL13130@cip.informatik.uni-erlangen.de> <42007.80.98.159.250.1170369983.squirrel@www.hunhost.com> <20070201145815.199bfe1a@freekitty>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, shemminger@linux-foundation.org,
-	netdev@vger.kernel.org
-To: Fagyal Csongor <concept@conceptonline.hu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from faui03.informatik.uni-erlangen.de ([131.188.30.103]:55392 "EHLO
-	faui03.informatik.uni-erlangen.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1423135AbXBBG1X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Feb 2007 01:27:23 -0500
+Cc: Fagyal Csongor <concept@conceptonline.hu>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1423140AbXBBGbI@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <42007.80.98.159.250.1170369983.squirrel@www.hunhost.com>
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <20070201145815.199bfe1a@freekitty>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello Fagyal,
+Hello Stephen,
 
-> - a previously suggested fix - passing idle=poll to the kernel - did not
-> work for me at the end
+> I can reproduce the problem now (on mac mini). Interestingly it seems
+> to whack the whole ethernet switch when it happens.
 
-same for me. I tried the two module parameters and the kernel parameter:
+wow. I have Linksys wrt54g has 'ethernet switch' and my Snom 320 VoIP
+phone still works when the mini network card goes down. On the other
+side the wrt54g isn't exactly a switch but more like a bunch of network
+cards which use the linux bridging code IIRC.
 
-pci=nomsi sky2.disable_msi=1 sky2.idle_timeout=1000
+> If you do:
+> 	ethtool -r eth0
+> it cause a PHY reset (renegotiation) and clears the problem.
 
-> - the locks I have happen very periodically (somewhere around every 22-28
-> hours), as if the chip would die after a given amount of data transferred;
-> I know this looks stupid but I thought I might mention it
-
-I had a dedicated server with sky2 which had the same symptoms but I
-disabled the onboard sky2 to and added a e100. On my mac mini I can
-reproduce it nearly immediately. Just have to scp a kernel tar tree over
-and it hangs.
-
-> - unloading the sky2 module totally freezes the computer for me
-
-For me it works pretty good.
+But this isn't related to my problen (on mac mini), is it?
 
         Thomas
