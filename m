@@ -1,37 +1,32 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] [v4] PA Semi PWRficient Ethernet driver
-Date: Fri, 02 Feb 2007 08:26:52 -0500
-Message-ID: <45C33C1C.1000309@pobox.com>
-References: <20070129060852.GA7814@lixom.net> <20070130014434.GC18935@lixom.net> <20070131054457.GA32043@lixom.net> <20070201034354.GC11564@lixom.net>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 2.6.20-rc7 1/2] atl1: get rid of pci_module_init
+Date: Fri, 02 Feb 2007 08:28:29 -0500
+Message-ID: <45C33C7D.4000203@garzik.org>
+References: <20070201011052.GA1752@osprey.hogchain.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	Ingo Oeser <netdev@axxeo.de>
-To: Olof Johansson <olof@lixom.net>
+Cc: csnook@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, atl1-devel@lists.sourceforge.net,
+	alan@lxorguk.ukuu.org.uk
+To: Jay Cliburn <jacliburn@bellsouth.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:48299 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:48313 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1161126AbXBBN1C (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Feb 2007 08:27:02 -0500
-In-Reply-To: <20070201034354.GC11564@lixom.net>
+	id S1161131AbXBBN2e (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Feb 2007 08:28:34 -0500
+In-Reply-To: <20070201011052.GA1752@osprey.hogchain.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Olof Johansson wrote:
-> Driver for the PA Semi PWRficient on-chip Ethernet (1/10G)
+Jay Cliburn wrote:
+> From: Jay Cliburn <jacliburn@bellsouth.net>
 > 
-> Basic enablement, will be complemented with performance enhancements
-> over time. PHY support will be added as well.
+> pci_module_init is deprecated.  Use pci_register_driver instead.
+> Discovered by and modification suggested by Alan Cox.
 > 
-> Signed-off-by: Olof Johansson <olof@lixom.net>
+> Signed-off-by: Jay Cliburn <jacliburn@bellsouth.net>
 
-patch applied.  You may now send diffs for all future changes
-
-	Jeff
-
+applied 1-2 to #atl1
 
 
