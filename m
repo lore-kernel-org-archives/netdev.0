@@ -1,287 +1,544 @@
 From: Frank Pavlic <fpavlic@de.ibm.com>
-Subject: [PATCH 6/7] [S390]: Adapt special message interface to new IUCV API
-Date: Fri, 2 Feb 2007 13:07:01 +0100
-Message-ID: <20070202120701.GG10392@de.ibm.com>
+Subject: [PATCH 3/7] [S390]: Adapt monreader driver to new IUCV API
+Date: Fri, 2 Feb 2007 13:06:11 +0100
+Message-ID: <20070202120611.GD10392@de.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e4.ny.us.ibm.com ([32.97.182.144]:43697 "EHLO e4.ny.us.ibm.com"
+Received: from e1.ny.us.ibm.com ([32.97.182.141]:53581 "EHLO e1.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1422973AbXBBMGq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Feb 2007 07:06:46 -0500
+	id S1422993AbXBBMGs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Feb 2007 07:06:48 -0500
 Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
-	by e4.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l12C6jS8002163
-	for <netdev@vger.kernel.org>; Fri, 2 Feb 2007 07:06:45 -0500
+	by e1.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l12C6knr020403
+	for <netdev@vger.kernel.org>; Fri, 2 Feb 2007 07:06:46 -0500
 Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
-	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v8.2) with ESMTP id l12C6jCI286334
-	for <netdev@vger.kernel.org>; Fri, 2 Feb 2007 07:06:45 -0500
+	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v8.2) with ESMTP id l12C6kY4304462
+	for <netdev@vger.kernel.org>; Fri, 2 Feb 2007 07:06:46 -0500
 Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
-	by d01av03.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l12C6jBk018167
-	for <netdev@vger.kernel.org>; Fri, 2 Feb 2007 07:06:45 -0500
+	by d01av03.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l12C6kOX018229
+	for <netdev@vger.kernel.org>; Fri, 2 Feb 2007 07:06:46 -0500
 Received: from goulee.de.ibm.com (dyn-9-152-216-77.boeblingen.de.ibm.com [9.152.216.77])
-	by d01av03.pok.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id l12C6hC3018058
-	for <netdev@vger.kernel.org>; Fri, 2 Feb 2007 07:06:44 -0500
+	by d01av03.pok.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id l12C6hC5018058
+	for <netdev@vger.kernel.org>; Fri, 2 Feb 2007 07:06:45 -0500
 Received: from goulee.de.ibm.com (localhost.localdomain [127.0.0.1])
-	by goulee.de.ibm.com (8.13.1/8.13.1) with ESMTP id l12C72PC014980
-	for <netdev@vger.kernel.org>; Fri, 2 Feb 2007 13:07:02 +0100
+	by goulee.de.ibm.com (8.13.1/8.13.1) with ESMTP id l12C6BvV014564
+	for <netdev@vger.kernel.org>; Fri, 2 Feb 2007 13:06:11 +0100
 Received: (from pavlic@localhost)
-	by goulee.de.ibm.com (8.13.1/8.13.1/Submit) id l12C71S8014977
-	for netdev@vger.kernel.org; Fri, 2 Feb 2007 13:07:01 +0100
+	by goulee.de.ibm.com (8.13.1/8.13.1/Submit) id l12C6BQR014561
+	for netdev@vger.kernel.org; Fri, 2 Feb 2007 13:06:11 +0100
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Martin Schwidefsky <schwidefsky@de.ibm.com>
 
-Adapt special message interface to new IUCV API
+Adapt monreader character device driver to new IUCV API
 
 Signed-off-by: Frank Pavlic <fpavlic@de.ibm.com>
 Signed-off-by: Martin Schwidefsky <schwidefsky@de.ibm.com>
 ---
 
- drivers/s390/net/smsgiucv.c |  147 ++++++++++++++++++++++---------------------
- 1 files changed, 74 insertions(+), 73 deletions(-)
+drivers/s390/char/monreader.c |  218 +++++++++++++++++++----------------------
+ 1 files changed, 101 insertions(+), 117 deletions(-)
 
-diff --git a/drivers/s390/net/smsgiucv.c b/drivers/s390/net/smsgiucv.c
-index b8179c2..3ccca58 100644
---- a/drivers/s390/net/smsgiucv.c
-+++ b/drivers/s390/net/smsgiucv.c
-@@ -1,7 +1,7 @@
- /*
-  * IUCV special message driver
+diff --git a/drivers/s390/char/monreader.c b/drivers/s390/char/monreader.c
+index a138b15..3a1a958 100644
+--- a/drivers/s390/char/monreader.c
++++ b/drivers/s390/char/monreader.c
+@@ -3,7 +3,7 @@
   *
-- * Copyright (C) 2003 IBM Deutschland Entwicklung GmbH, IBM Corporation
-+ * Copyright 2003 IBM Deutschland Entwicklung GmbH, IBM Corporation
-  * Author(s): Martin Schwidefsky (schwidefsky@de.ibm.com)
+  * Character device driver for reading z/VM *MONITOR service records.
   *
-  * This program is free software; you can redistribute it and/or modify
-@@ -23,10 +23,10 @@ #include <linux/module.h>
- #include <linux/init.h>
- #include <linux/errno.h>
- #include <linux/device.h>
-+#include <net/iucv/iucv.h>
- #include <asm/cpcmd.h>
+- * Copyright (C) 2004 IBM Corporation, IBM Deutschland Entwicklung GmbH.
++ * Copyright 2004 IBM Corporation, IBM Deutschland Entwicklung GmbH.
+  *
+  * Author: Gerald Schaefer <geraldsc@de.ibm.com>
+  */
+@@ -22,7 +22,7 @@ #include <asm/uaccess.h>
  #include <asm/ebcdic.h>
+ #include <asm/extmem.h>
+ #include <linux/poll.h>
+-#include "../net/iucv.h"
++#include <net/iucv/iucv.h>
+ 
+ 
+ //#define MON_DEBUG			/* Debug messages on/off */
+@@ -50,14 +50,13 @@ static char mon_dcss_name[9] = "MONDCSS\
+ struct mon_msg {
+ 	u32 pos;
+ 	u32 mca_offset;
+-	iucv_MessagePending local_eib;
++	struct iucv_message msg;
+ 	char msglim_reached;
+ 	char replied_msglim;
+ };
+ 
+ struct mon_private {
+-	u16 pathid;
+-	iucv_handle_t iucv_handle;
++	struct iucv_path *path;
+ 	struct mon_msg *msg_array[MON_MSGLIM];
+ 	unsigned int   write_index;
+ 	unsigned int   read_index;
+@@ -75,8 +74,6 @@ static unsigned long mon_dcss_end;
+ static DECLARE_WAIT_QUEUE_HEAD(mon_read_wait_queue);
+ static DECLARE_WAIT_QUEUE_HEAD(mon_conn_wait_queue);
+ 
+-static u8 iucv_host[8] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 -
--#include "iucv.h"
-+#include "smsgiucv.h"
- 
- struct smsg_callback {
- 	struct list_head list;
-@@ -39,38 +39,46 @@ MODULE_AUTHOR
-    ("(C) 2003 IBM Corporation by Martin Schwidefsky (schwidefsky@de.ibm.com)");
- MODULE_DESCRIPTION ("Linux for S/390 IUCV special message driver");
- 
--static iucv_handle_t smsg_handle;
--static unsigned short smsg_pathid;
-+static struct iucv_path *smsg_path;
-+
- static DEFINE_SPINLOCK(smsg_list_lock);
- static struct list_head smsg_list = LIST_HEAD_INIT(smsg_list);
- 
--static void
--smsg_connection_complete(iucv_ConnectionComplete *eib, void *pgm_data)
-+static int smsg_path_pending(struct iucv_path *, u8 ipvmid[8], u8 ipuser[16]);
-+static void smsg_message_pending(struct iucv_path *, struct iucv_message *);
-+
-+static struct iucv_handler smsg_handler = {
-+	.path_pending	 = smsg_path_pending,
-+	.message_pending = smsg_message_pending,
-+};
-+
-+static int smsg_path_pending(struct iucv_path *path, u8 ipvmid[8],
-+			     u8 ipuser[16])
+ static u8 user_data_connect[16] = {
+ 	/* Version code, must be 0x01 for shared mode */
+ 	0x01,
+@@ -100,8 +97,7 @@ static u8 user_data_sever[16] = {
+  * Create the 8 bytes EBCDIC DCSS segment name from
+  * an ASCII name, incl. padding
+  */
+-static inline void
+-dcss_mkname(char *ascii_name, char *ebcdic_name)
++static inline void dcss_mkname(char *ascii_name, char *ebcdic_name)
  {
-+	if (strncmp(ipvmid, "*MSG    ", sizeof(ipvmid)) != 0)
-+		return -EINVAL;
-+	/* Path pending from *MSG. */
-+	return iucv_path_accept(path, &smsg_handler, "SMSGIUCV        ", NULL);
+ 	int i;
+ 
+@@ -119,8 +115,7 @@ dcss_mkname(char *ascii_name, char *ebcd
+  * print appropriate error message for segment_load()/segment_type()
+  * return code
+  */
+-static void
+-mon_segment_warn(int rc, char* seg_name)
++static void mon_segment_warn(int rc, char* seg_name)
+ {
+ 	switch (rc) {
+ 	case -ENOENT:
+@@ -166,44 +161,37 @@ mon_segment_warn(int rc, char* seg_name)
+ 	}
  }
  
--
--static void
--smsg_message_pending(iucv_MessagePending *eib, void *pgm_data)
-+static void smsg_message_pending(struct iucv_path *path,
-+				 struct iucv_message *msg)
+-static inline unsigned long
+-mon_mca_start(struct mon_msg *monmsg)
++static inline unsigned long mon_mca_start(struct mon_msg *monmsg)
  {
- 	struct smsg_callback *cb;
--	unsigned char *msg;
-+	unsigned char *buffer;
- 	unsigned char sender[9];
--	unsigned short len;
- 	int rc, i;
- 
--	len = eib->ln1msg2.ipbfln1f;
--	msg = kmalloc(len + 1, GFP_ATOMIC|GFP_DMA);
--	if (!msg) {
--		iucv_reject(eib->ippathid, eib->ipmsgid, eib->iptrgcls);
-+	buffer = kmalloc(msg->length + 1, GFP_ATOMIC | GFP_DMA);
-+	if (!buffer) {
-+		iucv_message_reject(path, msg);
- 		return;
- 	}
--	rc = iucv_receive(eib->ippathid, eib->ipmsgid, eib->iptrgcls,
--			  msg, len, NULL, NULL, NULL);
-+	rc = iucv_message_receive(path, msg, 0, buffer, msg->length, NULL);
- 	if (rc == 0) {
--		msg[len] = 0;
--		EBCASC(msg, len);
--		memcpy(sender, msg, 8);
-+		buffer[msg->length] = 0;
-+		EBCASC(buffer, msg->length);
-+		memcpy(sender, buffer, 8);
- 		sender[8] = 0;
- 		/* Remove trailing whitespace from the sender name. */
- 		for (i = 7; i >= 0; i--) {
-@@ -80,27 +88,17 @@ smsg_message_pending(iucv_MessagePending
- 		}
- 		spin_lock(&smsg_list_lock);
- 		list_for_each_entry(cb, &smsg_list, list)
--			if (strncmp(msg + 8, cb->prefix, cb->len) == 0) {
--				cb->callback(sender, msg + 8);
-+			if (strncmp(buffer + 8, cb->prefix, cb->len) == 0) {
-+				cb->callback(sender, buffer + 8);
- 				break;
- 			}
- 		spin_unlock(&smsg_list_lock);
- 	}
--	kfree(msg);
-+	kfree(buffer);
+-	return monmsg->local_eib.ln1msg1.iprmmsg1_u32;
++	return *(u32 *) &monmsg->msg.rmmsg;
  }
  
--static iucv_interrupt_ops_t smsg_ops = {
--	.ConnectionComplete = smsg_connection_complete,
--	.MessagePending     = smsg_message_pending,
--};
--
--static struct device_driver smsg_driver = {
--	.name = "SMSGIUCV",
--	.bus  = &iucv_bus,
--};
--
--int
--smsg_register_callback(char *prefix, void (*callback)(char *from, char *str))
-+int smsg_register_callback(char *prefix,
-+			   void (*callback)(char *from, char *str))
+-static inline unsigned long
+-mon_mca_end(struct mon_msg *monmsg)
++static inline unsigned long mon_mca_end(struct mon_msg *monmsg)
  {
- 	struct smsg_callback *cb;
+-	return monmsg->local_eib.ln1msg2.ipbfln1f;
++	return *(u32 *) &monmsg->msg.rmmsg[4];
+ }
  
-@@ -110,18 +108,18 @@ smsg_register_callback(char *prefix, voi
- 	cb->prefix = prefix;
- 	cb->len = strlen(prefix);
- 	cb->callback = callback;
--	spin_lock(&smsg_list_lock);
-+	spin_lock_bh(&smsg_list_lock);
- 	list_add_tail(&cb->list, &smsg_list);
--	spin_unlock(&smsg_list_lock);
-+	spin_unlock_bh(&smsg_list_lock);
+-static inline u8
+-mon_mca_type(struct mon_msg *monmsg, u8 index)
++static inline u8 mon_mca_type(struct mon_msg *monmsg, u8 index)
+ {
+ 	return *((u8 *) mon_mca_start(monmsg) + monmsg->mca_offset + index);
+ }
+ 
+-static inline u32
+-mon_mca_size(struct mon_msg *monmsg)
++static inline u32 mon_mca_size(struct mon_msg *monmsg)
+ {
+ 	return mon_mca_end(monmsg) - mon_mca_start(monmsg) + 1;
+ }
+ 
+-static inline u32
+-mon_rec_start(struct mon_msg *monmsg)
++static inline u32 mon_rec_start(struct mon_msg *monmsg)
+ {
+ 	return *((u32 *) (mon_mca_start(monmsg) + monmsg->mca_offset + 4));
+ }
+ 
+-static inline u32
+-mon_rec_end(struct mon_msg *monmsg)
++static inline u32 mon_rec_end(struct mon_msg *monmsg)
+ {
+ 	return *((u32 *) (mon_mca_start(monmsg) + monmsg->mca_offset + 8));
+ }
+ 
+-static inline int
+-mon_check_mca(struct mon_msg *monmsg)
++static inline int mon_check_mca(struct mon_msg *monmsg)
+ {
+ 	if ((mon_rec_end(monmsg) <= mon_rec_start(monmsg)) ||
+ 	    (mon_rec_start(monmsg) < mon_dcss_start) ||
+@@ -221,20 +209,17 @@ mon_check_mca(struct mon_msg *monmsg)
  	return 0;
  }
  
--void
--smsg_unregister_callback(char *prefix, void (*callback)(char *from, char *str))
-+void smsg_unregister_callback(char *prefix,
-+			      void (*callback)(char *from, char *str))
+-static inline int
+-mon_send_reply(struct mon_msg *monmsg, struct mon_private *monpriv)
++static inline int mon_send_reply(struct mon_msg *monmsg,
++				 struct mon_private *monpriv)
  {
- 	struct smsg_callback *cb, *tmp;
+-	u8 prmmsg[8];
+ 	int rc;
  
--	spin_lock(&smsg_list_lock);
-+	spin_lock_bh(&smsg_list_lock);
- 	cb = NULL;
- 	list_for_each_entry(tmp, &smsg_list, list)
- 		if (tmp->callback == callback &&
-@@ -130,55 +128,58 @@ smsg_unregister_callback(char *prefix, v
- 			list_del(&cb->list);
- 			break;
+ 	P_DEBUG("read, REPLY: pathid = 0x%04X, msgid = 0x%08X, trgcls = "
+ 		"0x%08X\n\n",
+-		monmsg->local_eib.ippathid, monmsg->local_eib.ipmsgid,
+-		monmsg->local_eib.iptrgcls);
+-	rc = iucv_reply_prmmsg(monmsg->local_eib.ippathid,
+-				monmsg->local_eib.ipmsgid,
+-				monmsg->local_eib.iptrgcls,
+-				0, prmmsg);
++		monpriv->path->pathid, monmsg->msg.id, monmsg->msg.class);
++
++	rc = iucv_message_reply(monpriv->path, &monmsg->msg,
++				IUCV_IPRMDATA, NULL, 0);
+ 	atomic_dec(&monpriv->msglim_count);
+ 	if (likely(!monmsg->msglim_reached)) {
+ 		monmsg->pos = 0;
+@@ -251,10 +236,19 @@ mon_send_reply(struct mon_msg *monmsg, s
+ 	return 0;
+ }
+ 
+-static inline struct mon_private *
+-mon_alloc_mem(void)
++static inline void mon_free_mem(struct mon_private *monpriv)
++{
++	int i;
++
++	for (i = 0; i < MON_MSGLIM; i++)
++		if (monpriv->msg_array[i])
++			kfree(monpriv->msg_array[i]);
++	kfree(monpriv);
++}
++
++static inline struct mon_private *mon_alloc_mem(void)
+ {
+-	int i,j;
++	int i;
+ 	struct mon_private *monpriv;
+ 
+ 	monpriv = kzalloc(sizeof(struct mon_private), GFP_KERNEL);
+@@ -267,16 +261,15 @@ mon_alloc_mem(void)
+ 						    GFP_KERNEL);
+ 		if (!monpriv->msg_array[i]) {
+ 			P_ERROR("open, no memory for msg_array\n");
+-			for (j = 0; j < i; j++)
+-				kfree(monpriv->msg_array[j]);
++			mon_free_mem(monpriv);
+ 			return NULL;
  		}
--	spin_unlock(&smsg_list_lock);
-+	spin_unlock_bh(&smsg_list_lock);
- 	kfree(cb);
+ 	}
+ 	return monpriv;
+ }
+ 
+-static inline void
+-mon_read_debug(struct mon_msg *monmsg, struct mon_private *monpriv)
++static inline void mon_read_debug(struct mon_msg *monmsg,
++				  struct mon_private *monpriv)
+ {
+ #ifdef MON_DEBUG
+ 	u8 msg_type[2], mca_type;
+@@ -284,7 +277,7 @@ #ifdef MON_DEBUG
+ 
+ 	records_len = mon_rec_end(monmsg) - mon_rec_start(monmsg) + 1;
+ 
+-	memcpy(msg_type, &monmsg->local_eib.iptrgcls, 2);
++	memcpy(msg_type, &monmsg->msg.class, 2);
+ 	EBCASC(msg_type, 2);
+ 	mca_type = mon_mca_type(monmsg, 0);
+ 	EBCASC(&mca_type, 1);
+@@ -292,8 +285,7 @@ #ifdef MON_DEBUG
+ 	P_DEBUG("read, mon_read_index = %i, mon_write_index = %i\n",
+ 		monpriv->read_index, monpriv->write_index);
+ 	P_DEBUG("read, pathid = 0x%04X, msgid = 0x%08X, trgcls = 0x%08X\n",
+-		monmsg->local_eib.ippathid, monmsg->local_eib.ipmsgid,
+-		monmsg->local_eib.iptrgcls);
++		monpriv->path->pathid, monmsg->msg.id, monmsg->msg.class);
+ 	P_DEBUG("read, msg_type = '%c%c', mca_type = '%c' / 0x%X / 0x%X\n",
+ 		msg_type[0], msg_type[1], mca_type ? mca_type : 'X',
+ 		mon_mca_type(monmsg, 1), mon_mca_type(monmsg, 2));
+@@ -306,8 +298,7 @@ #ifdef MON_DEBUG
+ #endif
+ }
+ 
+-static inline void
+-mon_next_mca(struct mon_msg *monmsg)
++static inline void mon_next_mca(struct mon_msg *monmsg)
+ {
+ 	if (likely((mon_mca_size(monmsg) - monmsg->mca_offset) == 12))
+ 		return;
+@@ -316,8 +307,7 @@ mon_next_mca(struct mon_msg *monmsg)
+ 	monmsg->pos = 0;
+ }
+ 
+-static inline struct mon_msg *
+-mon_next_message(struct mon_private *monpriv)
++static inline struct mon_msg *mon_next_message(struct mon_private *monpriv)
+ {
+ 	struct mon_msg *monmsg;
+ 
+@@ -342,39 +332,37 @@ mon_next_message(struct mon_private *mon
+ /******************************************************************************
+  *                               IUCV handler                                 *
+  *****************************************************************************/
+-static void
+-mon_iucv_ConnectionComplete(iucv_ConnectionComplete *eib, void *pgm_data)
++static void mon_iucv_path_complete(struct iucv_path *path, u8 ipuser[16])
+ {
+-	struct mon_private *monpriv = (struct mon_private *) pgm_data;
++	struct mon_private *monpriv = path->private;
+ 
+ 	P_DEBUG("IUCV connection completed\n");
+ 	P_DEBUG("IUCV ACCEPT (from *MONITOR): Version = 0x%02X, Event = "
+ 		"0x%02X, Sample = 0x%02X\n",
+-		eib->ipuser[0], eib->ipuser[1], eib->ipuser[2]);
++		ipuser[0], ipuser[1], ipuser[2]);
+ 	atomic_set(&monpriv->iucv_connected, 1);
+ 	wake_up(&mon_conn_wait_queue);
+ }
+ 
+-static void
+-mon_iucv_ConnectionSevered(iucv_ConnectionSevered *eib, void *pgm_data)
++static void mon_iucv_path_severed(struct iucv_path *path, u8 ipuser[16])
+ {
+-	struct mon_private *monpriv = (struct mon_private *) pgm_data;
++	struct mon_private *monpriv = path->private;
+ 
+-	P_ERROR("IUCV connection severed with rc = 0x%X\n",
+-		(u8) eib->ipuser[0]);
++	P_ERROR("IUCV connection severed with rc = 0x%X\n", ipuser[0]);
++	iucv_path_sever(path, NULL);
+ 	atomic_set(&monpriv->iucv_severed, 1);
+ 	wake_up(&mon_conn_wait_queue);
+ 	wake_up_interruptible(&mon_read_wait_queue);
+ }
+ 
+-static void
+-mon_iucv_MessagePending(iucv_MessagePending *eib, void *pgm_data)
++static void mon_iucv_message_pending(struct iucv_path *path,
++				     struct iucv_message *msg)
+ {
+-	struct mon_private *monpriv = (struct mon_private *) pgm_data;
++	struct mon_private *monpriv = path->private;
+ 
+ 	P_DEBUG("IUCV message pending\n");
+-	memcpy(&monpriv->msg_array[monpriv->write_index]->local_eib, eib,
+-	       sizeof(iucv_MessagePending));
++	memcpy(&monpriv->msg_array[monpriv->write_index]->msg,
++	       msg, sizeof(*msg));
+ 	if (atomic_inc_return(&monpriv->msglim_count) == MON_MSGLIM) {
+ 		P_WARNING("IUCV message pending, message limit (%i) reached\n",
+ 			  MON_MSGLIM);
+@@ -385,54 +373,45 @@ mon_iucv_MessagePending(iucv_MessagePend
+ 	wake_up_interruptible(&mon_read_wait_queue);
+ }
+ 
+-static iucv_interrupt_ops_t mon_iucvops = {
+-	.ConnectionComplete = mon_iucv_ConnectionComplete,
+-	.ConnectionSevered  = mon_iucv_ConnectionSevered,
+-	.MessagePending     = mon_iucv_MessagePending,
++static struct iucv_handler monreader_iucv_handler = {
++	.path_complete	 = mon_iucv_path_complete,
++	.path_severed	 = mon_iucv_path_severed,
++	.message_pending = mon_iucv_message_pending,
+ };
+ 
+ /******************************************************************************
+  *                               file operations                              *
+  *****************************************************************************/
+-static int
+-mon_open(struct inode *inode, struct file *filp)
++static int mon_open(struct inode *inode, struct file *filp)
+ {
+-	int rc, i;
+ 	struct mon_private *monpriv;
++	int rc;
+ 
+ 	/*
+ 	 * only one user allowed
+ 	 */
++	rc = -EBUSY;
+ 	if (test_and_set_bit(MON_IN_USE, &mon_in_use))
+-		return -EBUSY;
++		goto out;
+ 
++	rc = -ENOMEM;
+ 	monpriv = mon_alloc_mem();
+ 	if (!monpriv)
+-		return -ENOMEM;
++		goto out_use;
+ 
+ 	/*
+-	 * Register with IUCV and connect to *MONITOR service
++	 * Connect to *MONITOR service
+ 	 */
+-	monpriv->iucv_handle = iucv_register_program("my_monreader    ",
+-							MON_SERVICE,
+-							NULL,
+-							&mon_iucvops,
+-							monpriv);
+-	if (!monpriv->iucv_handle) {
+-		P_ERROR("failed to register with iucv driver\n");
+-		rc = -EIO;
+-		goto out_error;
+-	}
+-	P_INFO("open, registered with IUCV\n");
+-
+-	rc = iucv_connect(&monpriv->pathid, MON_MSGLIM, user_data_connect,
+-			  MON_SERVICE, iucv_host, IPRMDATA, NULL, NULL,
+-			  monpriv->iucv_handle, NULL);
++	monpriv->path = iucv_path_alloc(MON_MSGLIM, IUCV_IPRMDATA, GFP_KERNEL);
++	if (!monpriv->path)
++		goto out_priv;
++	rc = iucv_path_connect(monpriv->path, &monreader_iucv_handler,
++			       MON_SERVICE, NULL, user_data_connect, monpriv);
+ 	if (rc) {
+ 		P_ERROR("iucv connection to *MONITOR failed with "
+ 			"IPUSER SEVER code = %i\n", rc);
+ 		rc = -EIO;
+-		goto out_unregister;
++		goto out_path;
+ 	}
+ 	/*
+ 	 * Wait for connection confirmation
+@@ -444,24 +423,23 @@ mon_open(struct inode *inode, struct fil
+ 		atomic_set(&monpriv->iucv_severed, 0);
+ 		atomic_set(&monpriv->iucv_connected, 0);
+ 		rc = -EIO;
+-		goto out_unregister;
++		goto out_path;
+ 	}
+ 	P_INFO("open, established connection to *MONITOR service\n\n");
+ 	filp->private_data = monpriv;
+ 	return nonseekable_open(inode, filp);
+ 
+-out_unregister:
+-	iucv_unregister_program(monpriv->iucv_handle);
+-out_error:
+-	for (i = 0; i < MON_MSGLIM; i++)
+-		kfree(monpriv->msg_array[i]);
+-	kfree(monpriv);
++out_path:
++	kfree(monpriv->path);
++out_priv:
++	mon_free_mem(monpriv);
++out_use:
+ 	clear_bit(MON_IN_USE, &mon_in_use);
++out:
+ 	return rc;
+ }
+ 
+-static int
+-mon_close(struct inode *inode, struct file *filp)
++static int mon_close(struct inode *inode, struct file *filp)
+ {
+ 	int rc, i;
+ 	struct mon_private *monpriv = filp->private_data;
+@@ -469,18 +447,12 @@ mon_close(struct inode *inode, struct fi
+ 	/*
+ 	 * Close IUCV connection and unregister
+ 	 */
+-	rc = iucv_sever(monpriv->pathid, user_data_sever);
++	rc = iucv_path_sever(monpriv->path, user_data_sever);
+ 	if (rc)
+ 		P_ERROR("close, iucv_sever failed with rc = %i\n", rc);
+ 	else
+ 		P_INFO("close, terminated connection to *MONITOR service\n");
+ 
+-	rc = iucv_unregister_program(monpriv->iucv_handle);
+-	if (rc)
+-		P_ERROR("close, iucv_unregister failed with rc = %i\n", rc);
+-	else
+-		P_INFO("close, unregistered with IUCV\n");
+-
+ 	atomic_set(&monpriv->iucv_severed, 0);
+ 	atomic_set(&monpriv->iucv_connected, 0);
+ 	atomic_set(&monpriv->read_ready, 0);
+@@ -495,8 +467,8 @@ mon_close(struct inode *inode, struct fi
+ 	return 0;
+ }
+ 
+-static ssize_t
+-mon_read(struct file *filp, char __user *data, size_t count, loff_t *ppos)
++static ssize_t mon_read(struct file *filp, char __user *data,
++			size_t count, loff_t *ppos)
+ {
+ 	struct mon_private *monpriv = filp->private_data;
+ 	struct mon_msg *monmsg;
+@@ -563,8 +535,7 @@ out_copy:
+ 	return count;
+ }
+ 
+-static unsigned int
+-mon_poll(struct file *filp, struct poll_table_struct *p)
++static unsigned int mon_poll(struct file *filp, struct poll_table_struct *p)
+ {
+ 	struct mon_private *monpriv = filp->private_data;
+ 
+@@ -593,8 +564,7 @@ static struct miscdevice mon_dev = {
+ /******************************************************************************
+  *                              module init/exit                              *
+  *****************************************************************************/
+-static int __init
+-mon_init(void)
++static int __init mon_init(void)
+ {
+ 	int rc;
+ 
+@@ -603,22 +573,34 @@ mon_init(void)
+ 		return -ENODEV;
+ 	}
+ 
++	/*
++	 * Register with IUCV and connect to *MONITOR service
++	 */
++	rc = iucv_register(&monreader_iucv_handler, 1);
++	if (rc) {
++		P_ERROR("failed to register with iucv driver\n");
++		return rc;
++	}
++	P_INFO("open, registered with IUCV\n");
++
+ 	rc = segment_type(mon_dcss_name);
+ 	if (rc < 0) {
+ 		mon_segment_warn(rc, mon_dcss_name);
+-		return rc;
++		goto out_iucv;
+ 	}
+ 	if (rc != SEG_TYPE_SC) {
+ 		P_ERROR("segment %s has unsupported type, should be SC\n",
+ 			mon_dcss_name);
+-		return -EINVAL;
++		rc = -EINVAL;
++		goto out_iucv;
+ 	}
+ 
+ 	rc = segment_load(mon_dcss_name, SEGMENT_SHARED,
+ 			  &mon_dcss_start, &mon_dcss_end);
+ 	if (rc < 0) {
+ 		mon_segment_warn(rc, mon_dcss_name);
+-		return -EINVAL;
++		rc = -EINVAL;
++		goto out_iucv;
+ 	}
+ 	dcss_mkname(mon_dcss_name, &user_data_connect[8]);
+ 
+@@ -634,14 +616,16 @@ mon_init(void)
+ 
+ out:
+ 	segment_unload(mon_dcss_name);
++out_iucv:
++	iucv_unregister(&monreader_iucv_handler, 1);
+ 	return rc;
  }
  
 -static void __exit
--smsg_exit(void)
-+static struct device_driver smsg_driver = {
-+	.name = "SMSGIUCV",
-+	.bus  = &iucv_bus,
-+};
-+
-+static void __exit smsg_exit(void)
+-mon_exit(void)
++static void __exit mon_exit(void)
  {
--	if (smsg_handle > 0) {
--		cpcmd("SET SMSG OFF", NULL, 0, NULL);
--		iucv_sever(smsg_pathid, NULL);
--		iucv_unregister_program(smsg_handle);
--		driver_unregister(&smsg_driver);
--	}
--	return;
-+	cpcmd("SET SMSG IUCV", NULL, 0, NULL);
-+	iucv_unregister(&smsg_handler, 1);
-+	driver_unregister(&smsg_driver);
+ 	segment_unload(mon_dcss_name);
+ 	WARN_ON(misc_deregister(&mon_dev) != 0);
++	iucv_unregister(&monreader_iucv_handler, 1);
+ 	return;
  }
  
--static int __init
--smsg_init(void)
-+static int __init smsg_init(void)
- {
--	static unsigned char pgmmask[24] = {
--		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
--		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
--		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
--	};
- 	int rc;
- 
- 	rc = driver_register(&smsg_driver);
--	if (rc != 0) {
--		printk(KERN_ERR "SMSGIUCV: failed to register driver.\n");
--		return rc;
--	}
--	smsg_handle = iucv_register_program("SMSGIUCV        ", "*MSG    ",
--					    pgmmask, &smsg_ops, NULL);
--	if (!smsg_handle) {
-+	if (rc != 0)
-+		goto out;
-+	rc = iucv_register(&smsg_handler, 1);
-+	if (rc) {
- 		printk(KERN_ERR "SMSGIUCV: failed to register to iucv");
--		driver_unregister(&smsg_driver);
--		return -EIO;	/* better errno ? */
-+		rc = -EIO;	/* better errno ? */
-+		goto out_driver;
-+	}
-+	smsg_path = iucv_path_alloc(255, 0, GFP_KERNEL);
-+	if (!smsg_path) {
-+		rc = -ENOMEM;
-+		goto out_register;
- 	}
--	rc = iucv_connect (&smsg_pathid, 255, NULL, "*MSG    ", NULL, 0,
--			   NULL, NULL, smsg_handle, NULL);
-+	rc = iucv_path_connect(smsg_path, &smsg_handler, "*MSG    ",
-+			       NULL, NULL, NULL);
- 	if (rc) {
- 		printk(KERN_ERR "SMSGIUCV: failed to connect to *MSG");
--		iucv_unregister_program(smsg_handle);
--		driver_unregister(&smsg_driver);
--		smsg_handle = NULL;
--		return -EIO;
-+		rc = -EIO;	/* better errno ? */
-+		goto out_free;
- 	}
- 	cpcmd("SET SMSG IUCV", NULL, 0, NULL);
- 	return 0;
-+
-+out_free:
-+	iucv_path_free(smsg_path);
-+out_register:
-+	iucv_unregister(&smsg_handler, 1);
-+out_driver:
-+	driver_unregister(&smsg_driver);
-+out:
-+	return rc;
- }
- 
- module_init(smsg_init);
 -- 
 1.4.2.3
 
