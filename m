@@ -1,47 +1,54 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: [RFC][PATCH][XFRM][1/5] extension to XFRM for dynamic endpoint
- update (MIGRATE)
-Date: Fri, 2 Feb 2007 07:51:14 -0500 (EST)
-Message-ID: <Pine.LNX.4.64.0702020747340.16188@d.namei>
-References: <20070201113017.E2BA.SHINTA@sfc.wide.ad.jp>
- <Pine.LNX.4.64.0702010937250.8524@d.namei> <20070202203550.E2F3.SHINTA@sfc.wide.ad.jp>
+From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
+Subject: [PATCH]ip_auto_config bug in 2.6.20-rc6
+Date: Fri, 02 Feb 2007 14:09:43 +0100
+Message-ID: <1170421783.15627.23.camel@gentoo-jocke.transmode.se>
+References: <1170329187.15627.11.camel@gentoo-jocke.transmode.se>
+Reply-To: joakim.tjernlund@transmode.se
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, Francis Dupont <Francis.Dupont@point6.net>,
-	Masahide Nakamura <nakam@linux-ipv6.org>,
-	usagi-core@linux-ipv6.org
-To: Shinta Sugimoto <shinta@sfc.wide.ad.jp>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Linux-Kernel <linux-kernel@vger.kernel.org>
+To: Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail8.sea5.speakeasy.net ([69.17.117.10]:52349 "EHLO
-	mail8.sea5.speakeasy.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933386AbXBBMvS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Feb 2007 07:51:18 -0500
-In-Reply-To: <20070202203550.E2F3.SHINTA@sfc.wide.ad.jp>
+Received: from 147.175.241.83.in-addr.dgcsystems.net ([83.241.175.147]:13009
+	"EHLO tmnt04.transmode.se" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1423039AbXBBNJs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Feb 2007 08:09:48 -0500
+In-Reply-To: <1170329187.15627.11.camel@gentoo-jocke.transmode.se>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2 Feb 2007, Shinta Sugimoto wrote:
-
-> > 
-> > > +EXPORT_SYMBOL(xfrm_state_clone);
-> > 
-> > Why not EXPORT_SYMBOL_GPL ?
-> > (for all of your exports).
+On Thu, 2007-02-01 at 12:26 +0100, Joakim Tjernlund wrote:
+> The following commandline:
+>  root=/dev/mtdblock6 rw rootfstype=jffs2 ip=192.168.1.10:::255.255.255.0:localhost.localdomain:eth1:off console=ttyS0,115200
+> makes ip_auto_config fall back to DHCP and complain "IP-Config: Incomplete network configuration information."
+> depending on if CONFIG_IP_PNP_DHCP is set or not.
 > 
-> Actually I don't have specific preference on either EXPORT_SYMBOL or
-> EXPORT_SYMBOL_GPL.  It seemed to me that other functions defined in
-> files under net/xfrm/ are using EXPORT_SYMBOL, so I followed that.
+> The only way I can make ip_auto_config accept my IP config is to add an entry for the server IP:
+> ip=192.168.1.10:192.168.1.15::255.255.255.0:localhost.localdomain:eth1:off
+> 
+> I think this is a bug since I am not using a NFS root FS.
+> 
+>  Jocke
 
-Hmm, you're right, most of them are not _GPL.
+The following patch fixes the above problem. This change was present in
+2.4 but has been removed from 2.6, dunno why.
 
-> Do you think EXPORT_SYMBOL_GPL is more appropriate in this case?
+Signed-off-by: Joakim Tjernlund <joakim.tjernlund@transmode.se>
 
-Well, I would have thought that users of xfrm were generally derivative of 
-the kernel, but it doesn't make much sense to have only a couple of 
-symbols exported as GPL, so probably keep it the way you already have it.
+diff --git a/net/ipv4/ipconfig.c b/net/ipv4/ipconfig.c
+index 9f245de..b90479c 100644
+--- a/net/ipv4/ipconfig.c
++++ b/net/ipv4/ipconfig.c
+@@ -1282,7 +1282,8 @@ static int __init ip_auto_config(void)
+ #ifdef CONFIG_ROOT_NFS
+ 	    (MAJOR(ROOT_DEV) == UNNAMED_MAJOR
+ 	     && root_server_addr == NONE
+-	     && ic_servaddr == NONE) ||
++	     && ic_servaddr == NONE
++	     && ROOT_DEV == Root_NFS) ||
+ #endif
+ 	    ic_first_dev->next) {
+ #ifdef IPCONFIG_DYNAMIC
 
 
-- James
--- 
-James Morris
-<jmorris@namei.org>
