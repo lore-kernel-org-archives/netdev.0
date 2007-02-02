@@ -1,42 +1,38 @@
-From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Subject: [PATCH V2] ieee80211: Fix sparse warning
-Date: Fri, 02 Feb 2007 15:40:44 -0600
-Message-ID: <45c3afdc.YY1dJ2xo5mgOWKh5%Larry.Finger@lwfinger.net>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [PATCH] IPv6: Implement RFC 4429 Optimistic Duplicate Address
+ Detection
+Date: Fri, 02 Feb 2007 16:50:35 -0500
+Message-ID: <45C3B22B.4020400@hp.com>
+References: <20070129213013.GA26841@hmsreliant.homelinux.net> <20070130.072536.129403235.yoshfuji@linux-ipv6.org> <20070130130208.GA3723@hmsreliant.homelinux.net> <20070131.011629.84005028.yoshfuji@linux-ipv6.org> <20070131205443.GA12237@hmsreliant.homelinux.net> <20070202190634.GA29001@hmsreliant.homelinux.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-	Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-To: John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
-List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Cc: =?UTF-8?B?WU9TSElGVUpJIEhpZGVha2kgLyDlkInol6Toi7HmmI4=?=
+	<yoshfuji@linux-ipv6.org>, sri@us.ibm.com, davem@davemloft.net,
+	kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
+	kaber@coreworks.de, netdev@vger.kernel.org
+To: Neil Horman <nhorman@tuxdriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from atlrel7.hp.com ([156.153.255.213]:56289 "EHLO atlrel7.hp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1946097AbXBBVuk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Feb 2007 16:50:40 -0500
+In-Reply-To: <20070202190634.GA29001@hmsreliant.homelinux.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Sparse issues the warning "warning: symbol 'crypt' shadows an earlier one"
-in net/ieee80211/ieee80211_tx.c.
+Neil Horman wrote:
+> Ok, I'm still testing it, but heres a new patch for review.  Significant changes
+> include the addition of a CONFIG_IPV6_OPTIMISTIC_DAD option that is dependent on
+> the inclusion of both IPPV6 and EXPERIMENTAL options, as well as a new method
+> for redirecting packets from optimistic sources to incomplete neighbors by
+> instead looking up a default router in ip6_dst_lookup_tail, as I described in my
+> previous note.
+> 
 
-Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
----
+Hi Neil
 
-Index: wireless-2.6/net/ieee80211/ieee80211_tx.c
-===================================================================
---- wireless-2.6.orig/net/ieee80211/ieee80211_tx.c
-+++ wireless-2.6/net/ieee80211/ieee80211_tx.c
-@@ -502,9 +502,6 @@ int ieee80211_xmit(struct sk_buff *skb, 
- 		if (host_encrypt)
- 			ieee80211_encrypt_fragment(ieee, skb_frag, hdr_len);
- 		else if (host_build_iv) {
--			struct ieee80211_crypt_data *crypt;
--
--			crypt = ieee->crypt[ieee->tx_keyidx];
- 			atomic_inc(&crypt->refcnt);
- 			if (crypt->ops->build_iv)
- 				crypt->ops->build_iv(skb_frag, hdr_len,
+Still digesting the routing changes, but I think you missed addrconf_prefix_rcv()... ;)
+
+
+-vlad
