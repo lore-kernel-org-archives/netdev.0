@@ -1,57 +1,65 @@
 From: Vlad Yasevich <vladislav.yasevich@hp.com>
 Subject: Re: [PATCH] IPv6: Implement RFC 4429 Optimistic Duplicate Address
  Detection
-Date: Fri, 02 Feb 2007 17:05:14 -0500
-Message-ID: <45C3B59A.6010802@hp.com>
-References: <20070129213013.GA26841@hmsreliant.homelinux.net> <20070130.072536.129403235.yoshfuji@linux-ipv6.org> <20070130130208.GA3723@hmsreliant.homelinux.net> <20070131.011629.84005028.yoshfuji@linux-ipv6.org> <20070131205443.GA12237@hmsreliant.homelinux.net> <20070202190634.GA29001@hmsreliant.homelinux.net> <45C3ACE1.8010800@hp.com>
+Date: Fri, 02 Feb 2007 17:22:31 -0500
+Message-ID: <45C3B9A7.2000101@hp.com>
+References: <20070131.011629.84005028.yoshfuji@linux-ipv6.org> <20070131205443.GA12237@hmsreliant.homelinux.net> <20070202190634.GA29001@hmsreliant.homelinux.net> <20070202.114608.59498910.davem@davemloft.net> <20070202201356.GA29652@hmsreliant.homelinux.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	YOSHIFUJI Hideaki / ???? <yoshfuji@linux-ipv6.org>,
-	sri@us.ibm.com, davem@davemloft.net, kuznet@ms2.inr.ac.ru,
-	pekkas@netcore.fi, jmorris@namei.org, kaber@coreworks.de,
-	netdev@vger.kernel.org
-To: Brian Haley <brian.haley@hp.com>
+Cc: David Miller <davem@davemloft.net>, yoshfuji@linux-ipv6.org,
+	sri@us.ibm.com, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
+	jmorris@namei.org, kaber@coreworks.de, netdev@vger.kernel.org
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel9.hp.com ([156.153.255.214]:53382 "EHLO atlrel9.hp.com"
+Received: from atlrel8.hp.com ([156.153.255.206]:51381 "EHLO atlrel8.hp.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1946113AbXBBWFR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Feb 2007 17:05:17 -0500
-In-Reply-To: <45C3ACE1.8010800@hp.com>
+	id S1946122AbXBBWWf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Feb 2007 17:22:35 -0500
+In-Reply-To: <20070202201356.GA29652@hmsreliant.homelinux.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Brian Haley wrote:
-> Hi Neil,
-> 
->> @@ -830,7 +836,8 @@ retry:
->>      ift = !max_addresses ||
->>            ipv6_count_addresses(idev) < max_addresses ?         
->> ipv6_add_addr(idev, &addr, tmp_plen,
->> -                  ipv6_addr_type(&addr)&IPV6_ADDR_SCOPE_MASK,
->> IFA_F_TEMPORARY) : NULL;
->> +                  ipv6_addr_type(&addr)&IPV6_ADDR_SCOPE_MASK,
->> +                  IFA_F_TEMPORARY|IFA_F_OPTIMISTIC) : NULL;
-> 
+Neil Horman wrote:
+> On Fri, Feb 02, 2007 at 11:46:08AM -0800, David Miller wrote:
+>> From: Neil Horman <nhorman@tuxdriver.com>
+>> Date: Fri, 2 Feb 2007 14:06:34 -0500
+>>
+>>> Ok, I'm still testing it, but heres a new patch for review.
+>>> Significant changes include the addition of a
+>>> CONFIG_IPV6_OPTIMISTIC_DAD option that is dependent on the inclusion
+>>> of both IPPV6 and EXPERIMENTAL options, as well as a new method for
+>>> redirecting packets from optimistic sources to incomplete neighbors
+>>> by instead looking up a default router in ip6_dst_lookup_tail, as I
+>>> described in my previous note.
+>> This looks largely fine to me, but I wonder about one bit:
+>>
+>> +
+>> +	/*
+>> +	 * Optimistic nodes need to join the anycast address
+>> +	 * right away
+>> +	 */
+>> +	if (ifp->flags & IFA_F_OPTIMISTIC)
+>> +		addrconf_join_anycast(ifp);
+>> +
+>>
+>> If something can clear that bit during the DAD, we won't
+>> call addrconf_leave_anycast() later.  Can that happen?
+> The only way the flag should get cleared once we've started DAD is when it
+> completes or fails.  In the failure case, we destroy the ifaddr structure, which
+> I think should force a leave_anycast, while the completed condition calls
+> addrconf_leave_anycast as part of the completion process before it clears the
+> flags, so I think we should be ok.  If anyone sees anything to the contrary,
+> please let me know and I'll be sure to  plug the hole.
 
-Hi Brian
+I think there is a hole:
 
-> So why are you always adding these as optimistic now?  Shouldn't this be
-> triggering off idev->cnf.optimistic_dad?  I know you're clearing it in
-> ipv6_add_addr(), but I liked Vlad's suggestion of not setting it
-> initially since this way seems backwards.
+Looking for addrconf_leave_anycast() shows:
+dev_forward_change():	475 addrconf_leave_anycast(ifa);
+__ipv6_ifa_notify():	3613 addrconf_leave_anycast(ifp);
 
-The troubling case seems to manually configured addresses (inet6_addr_add()).
-If we can clearly and easily distinguish between this case of address
-and all the other ones, then we can simply set the flag in ipv6_add_addr, like
-we set the tentative flag.
+Problem:  __ipv6_ifa_notify only performs the 'leave' if forwarding is enabled.
+	  However, OPTIMISTIC, is set when forwarding is _disabled_.
 
-So, we can introduce another parameter to ipv6_add_addr() or another flag that
-can distinguish manual config.  Otherwise, we can keep the code as is, passing
-the optimistic flag from needed callers, and clearing it inside ipv6_add_addr().
-
-My thought was to clear it from the 'flags' parameter before ifa->flags was
-set, but that  doesn't really matter.
 
 -vlad
