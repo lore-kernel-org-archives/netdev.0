@@ -1,33 +1,43 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: [Fwd: Re: [PATCH 1/10] cxgb3 - main header files]
-Date: Thu, 01 Feb 2007 20:48:13 -0800
-Message-ID: <adazm7x5fn6.fsf@cisco.com>
-References: <1169216896.15842.6.camel@stevo-desktop>
-	<adamz4f0wsy.fsf@cisco.com> <1170363934.16637.58.camel@stevo-desktop>
+From: Thomas Glanzmann <thomas@glanzmann.de>
+Subject: Re: sky2 hangs
+Date: Fri, 2 Feb 2007 07:27:22 +0100
+Message-ID: <20070202062722.GZ13130@cip.informatik.uni-erlangen.de>
+References: <20070201185532.GL13130@cip.informatik.uni-erlangen.de> <42007.80.98.159.250.1170369983.squirrel@www.hunhost.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: openib-general <openib-general@openib.org>, netdev@vger.kernel.org,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Jeff Garzik <jeff@garzik.org>
-To: Steve Wise <swise@opengridcomputing.com>
+Cc: linux-kernel@vger.kernel.org, shemminger@linux-foundation.org,
+	netdev@vger.kernel.org
+To: Fagyal Csongor <concept@conceptonline.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-6.cisco.com ([171.71.176.117]:48633 "EHLO
-	sj-iport-6.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1422947AbXBBEs1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Feb 2007 23:48:27 -0500
-In-Reply-To: <1170363934.16637.58.camel@stevo-desktop> (Steve Wise's message of "Thu, 01 Feb 2007 15:05:34 -0600")
+Received: from faui03.informatik.uni-erlangen.de ([131.188.30.103]:55392 "EHLO
+	faui03.informatik.uni-erlangen.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1423135AbXBBG1X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Feb 2007 01:27:23 -0500
+Content-Disposition: inline
+In-Reply-To: <42007.80.98.159.250.1170369983.squirrel@www.hunhost.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
- > Have you had a chance to review this?
+Hello Fagyal,
 
-Still on my list.
+> - a previously suggested fix - passing idle=poll to the kernel - did not
+> work for me at the end
 
-Can we trade?  Can you look at the IPoIB connected mode stuff in the
-ipoib-cm branch in
+same for me. I tried the two module parameters and the kernel parameter:
 
-    git://git.kernel.org/pub/scm/linux/kernel/git/roland/infiniband.git
+pci=nomsi sky2.disable_msi=1 sky2.idle_timeout=1000
 
-and let me know if you see anything you don't like?
+> - the locks I have happen very periodically (somewhere around every 22-28
+> hours), as if the chip would die after a given amount of data transferred;
+> I know this looks stupid but I thought I might mention it
 
- - R.
+I had a dedicated server with sky2 which had the same symptoms but I
+disabled the onboard sky2 to and added a e100. On my mac mini I can
+reproduce it nearly immediately. Just have to scp a kernel tar tree over
+and it hangs.
+
+> - unloading the sky2 module totally freezes the computer for me
+
+For me it works pretty good.
+
+        Thomas
