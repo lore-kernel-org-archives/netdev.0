@@ -1,66 +1,54 @@
-From: "Adam Kropelin" <akropel1@rochester.rr.com>
-Subject: Re: 2.6.20-rc7: known regressions (v2) (part 1)
-Date: Sat, 3 Feb 2007 13:06:38 -0500
-Message-ID: <089b01c747be$0ca22620$84163e05@kroptech.com>
-References: <Pine.LNX.4.64.0701302019530.11095@woody.linux-foundation.org> <20070203004447.GJ3754@stusta.de> <45C42669.2010105@intel.com> <m1k5yz3cxy.fsf@ebiederm.dsl.xmission.com>
+From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Subject: [PATCH] bcm43xx: Janitorial change - remove two unused variables
+	extracted from sprom
+Date: Sat, 03 Feb 2007 13:34:20 -0600
+Message-ID: <45c4e3bc.U2YROV+7jDTmdxqd%Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	format=flowed;
-	charset="iso-8859-1";
-	reply-type=original
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "Adrian Bunk" <bunk@stusta.de>,
-	"Linus Torvalds" <torvalds@linux-foundation.org>,
-	"Andrew Morton" <akpm@linux-foundation.org>,
-	"Linux Kernel Mailing List" <linux-kernel@vger.kernel.org>,
-	<jgarzik@pobox.com>, <alan@lxorguk.ukuu.org.uk>,
-	"Allen Parker" <parker@isohunt.com>, <jesse.brandeburg@intel.com>,
-	<gregkh@suse.de>, <linux-pci@atrey.karlin.mff.cuni.cz>,
-	<ebiederm@xmission.com>, <netdev@vger.kernel.org>
-To: "Eric W. Biederman" <ebiederm@xmission.com>,
-	"Auke Kok" <auke-jan.h.kok@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ms-smtp-03.nyroc.rr.com ([24.24.2.57]:57989 "EHLO
-	ms-smtp-03.nyroc.rr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750955AbXBCSH2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Feb 2007 13:07:28 -0500
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+To: John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
+List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Eric W. Biederman wrote:
-> Auke Kok <auke-jan.h.kok@intel.com> writes:
->> None of the MSI code in e1000 has changed significantly either. as
->> far as I can see, the msi code in e1000 has not changed since
->> 2.6.18. Nonetheless there's no way I can debug any of this without a
->> system.
->> [...]
->> Perhaps Adam can git-bisect this issue? Adam?
->
-> Do we have any explanation about the weird /proc/interrupts output?
-> i.e. Multiple MSI irqs being assigned to the same card?
->
-> Does /sbin/ifconfig ethN down ; /sbin/ifconfig ethN up have anything
-> to do with the duplication in /proc/interrupts?
->
-> I can't see any way for a pci device that doesn't support msi-x to be
-> assigned multiple interrupts simultaneously.
->
-> I just skimmed through the code and there hasn't been any significant
-> generic MSI work since 2.6.19.
->
-> Did this device really work with MSI enabled in 2.6.19?
+Two bit-field values are extracted from the sprom data and never used.
 
-I've never had this device work 100% with MSI on any kernel version I've 
-tested so far. But I'm not the original reporter of the problem, and I 
-believe for him it was a true regression where a previous kernel wored 
-correctly.
+Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+---
 
-The behavior I observe on 2.6.19 is better than 2.6.20-rc7. Link status 
-interrupts seem to work but rx/tx does not. A few more details here:
-<http://www.kroptech.com/~adk0212/mailimport/showmsg.php?msg_id=3339092450&db_name=linux_kernel>
-
-I'm going to test 2.6.16 thru 2.6.20-rc7 this weekend and will report 
-back any variations in behavior I notice.
-
---Adam
-
+Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx.h
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx.h
++++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx.h
+@@ -513,8 +513,6 @@ struct bcm43xx_sprominfo {
+ 	u8 et1macaddr[6];
+ 	u8 et0phyaddr:5;
+ 	u8 et1phyaddr:5;
+-	u8 et0mdcport:1;
+-	u8 et1mdcport:1;
+ 	u8 boardrev;
+ 	u8 locale:4;
+ 	u8 antennas_aphy:2;
+Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.c
++++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+@@ -856,8 +856,6 @@ static int bcm43xx_sprom_extract(struct 
+ 	value = sprom[BCM43xx_SPROM_ETHPHY];
+ 	bcm->sprom.et0phyaddr = (value & 0x001F);
+ 	bcm->sprom.et1phyaddr = (value & 0x03E0) >> 5;
+-	bcm->sprom.et0mdcport = (value & (1 << 14)) >> 14;
+-	bcm->sprom.et1mdcport = (value & (1 << 15)) >> 15;
+ 
+ 	/* boardrev, antennas, locale */
+ 	value = sprom[BCM43xx_SPROM_BOARDREV];
