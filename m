@@ -1,906 +1,593 @@
-From: Marcelo Tosatti <marcelo@kvack.org>
-Subject: Re: [PATCH] Marvell Libertas 8388 802.11b/g USB driver (v2)
-Date: Sat, 3 Feb 2007 20:43:49 -0200
-Message-ID: <20070203224349.GA18418@dmt>
-References: <20070116185524.GA5681@dmt> <200701270253.08320.arnd@arndb.de>
+From: "Adam Kropelin" <akropel1@rochester.rr.com>
+Subject: Re: 2.6.20-rc7: known regressions (v2) (part 1)
+Date: Sat, 3 Feb 2007 18:20:08 -0500
+Message-ID: <098001c747e9$d8931b60$84163e05@kroptech.com>
+References: <Pine.LNX.4.64.0701302019530.11095@woody.linux-foundation.org> <20070203004447.GJ3754@stusta.de> <45C42669.2010105@intel.com> <m1k5yz3cxy.fsf@ebiederm.dsl.xmission.com> <089b01c747be$0ca22620$84163e05@kroptech.com> <45C4F3F1.6060500@intel.com> <m1ejp70wu0.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Marcelo Tosatti <marcelo@kvack.org>,
-	netdev <netdev@vger.kernel.org>, Jeff Garzik <jgarzik@pobox.com>,
-	"John W. Linville" <linville@redhat.com>,
-	Dan Williams <dcbw@redhat.com>,
-	"Luis R. Rodriguez" <mcgrof@gmail.com>,
-	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
-To: Arnd Bergmann <arnd@arndb.de>
+Content-Type: multipart/mixed;
+	boundary="----=_NextPart_000_097D_01C747BF.EF947CC0"
+Cc: "Adrian Bunk" <bunk@stusta.de>,
+	"Linus Torvalds" <torvalds@linux-foundation.org>,
+	"Andrew Morton" <akpm@linux-foundation.org>,
+	"Linux Kernel Mailing List" <linux-kernel@vger.kernel.org>,
+	<jgarzik@pobox.com>, <alan@lxorguk.ukuu.org.uk>,
+	"Allen Parker" <parker@isohunt.com>, <jesse.brandeburg@intel.com>,
+	<gregkh@suse.de>, <linux-pci@atrey.karlin.mff.cuni.cz>,
+	<netdev@vger.kernel.org>
+To: "Eric W. Biederman" <ebiederm@xmission.com>,
+	"Auke Kok" <auke-jan.h.kok@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kanga.kvack.org ([66.96.29.28]:60974 "EHLO kanga.kvack.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751800AbXBCWr3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 3 Feb 2007 17:47:29 -0500
-Content-Disposition: inline
-In-Reply-To: <200701270253.08320.arnd@arndb.de>
+Received: from ms-smtp-01.nyroc.rr.com ([24.24.2.55]:54762 "EHLO
+	ms-smtp-01.nyroc.rr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751864AbXBCXVa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 Feb 2007 18:21:30 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Arnd,
+This is a multi-part message in MIME format.
 
-On Sat, Jan 27, 2007 at 02:53:07AM +0100, Arnd Bergmann wrote:
-> On Tuesday 16 January 2007 19:55, Marcelo Tosatti wrote:
-> >=20
-> > Announcing an updated patch of the Marvell Libertas 8388 802.11 USB
-> > driver.
-> >=20
-> > Diff can be found at=20
-> > http://dev.laptop.org/~marcelo/libertas-8388-16012007.patch
-> >=20
-> > _Please_ review, this driver is targeted for mainline inclusion.
-> >=20
-> > There have been almost no comments resulting from the first submiss=
-ion.
->=20
-> I think the main problem is the size of the driver. I have spend seve=
-ral
-> hours on reviewing it, but this has barely scratched the surface of
-> the problems that are still in it. Most of the important problems
-> have already been discussed widely, but I'll still post what I notice=
-d
-> about the driver.
+------=_NextPart_000_097D_01C747BF.EF947CC0
+Content-Type: text/plain;
+	format=flowed;
+	charset="iso-8859-1";
+	reply-type=original
+Content-Transfer-Encoding: 7bit
 
-Thanks so much! Really useful. Thats the sort of commentary I was
-looking for.
-
-> My general feeling is that even at this point it would be better to
-> write a new driver for it from scratch than trying to remove all
-> the bloat from the existing one. Of course, that requires deep
-> knowledge of how the hardware works, so I don't consider the time
-> you spent on hacking it lost.
-
-Well, I think the driver is pretty complete (support for the large
-number of parameters the firmware exposes is implemented), and even
-though it contains a lot of bloat it is worthwhile to continue the
-cleanup process, IMHO.=20
-
-Also, the driver has been pretty well tested already.
-
-> I also think that your work done so far is an enormous improvement
-> over where it started, you are definitely on the right track.
->=20
-> The level of detail in my review drops towards the end, mostly
-> because some issues found in the first files are continuing to
-> throughout the driver.
->=20
-> > --- /dev/null
-> > +++ b/drivers/net/wireless/libertas/Makefile
-> > @@ -0,0 +1,21 @@
-> > +# EXTRA_CFLAGS +=3D -Wpacked
-> > +
-> > +usb8xxx-objs :=3D wlan_main.o wlan_fw.o wlan_wext.o \
-> > +		wlan_rx.o wlan_tx.o wlan_cmd.o 	  \
-> > +		wlan_cmdresp.o wlan_scan.o	  \
-> > +		wlan_join.o wlan_11d.o 		  \
-> > +		wlan_ioctl.o wlan_debugfs.o	  \
-> > +		wlan_ethtool.o wlan_assoc.o
-> > +
->=20
-> I guess you can get rid of the wlan_ file name prefix, since all file=
-s
-> are already in the same directory to give them  a name space.
-
-Done.
-
-> > +
-> > + (c) Copyright  2003-2006, Marvell International Ltd.=20
-> > + All Rights Reserved
-> > +
->=20
-> 'All Rights Reserved' sounds wrong, considering it's actually GPL.
-
-A bunch of other drivers also have "All Rights Reserved" for the compan=
-y
-or individual who wrote the driver. I don't see it as a problem,
-considering its GPL anyway.
-
-> > +  * This file contains definitions of WLAN commands.
-> > +  * =20
-> > +  * (c) Copyright =C2=A9 2003-2006, Marvell International Ltd.=20
->=20
-> Something went wrong with the (c) character here, better not use UTF8
-> characters in source.
-
-Done.
-
-> > +Change log:
-> > +    10/11/05: Add Doxygen format comments
-> > +    01/11/06: Remove assoc response codes; full IEEE assoc resp no=
-w returned
-> > +    04/06/06: Add TSPEC, queue metrics, and MSDU expiry support
-> > +    04/10/06: Add power_adapt_cfg_ext command
-> > +    04/18/06: Remove old Subscrive Event and add new Subscribe Eve=
-nt
-> > +	      implementation through generic hostcmd API
->=20
-> changelog should go away
-
-Done.
-
-> > +/** Command Processing States and Options */
-> > +#define HostCmd_STATE_IDLE                    0x0000
-> > +#define HostCmd_STATE_IN_USE_BY_HOST          0x0001
-> > +#define HostCmd_STATE_IN_USE_BY_MINIPORT      0x0002
-> > +#define HostCmd_STATE_FINISHED                0x000f
->=20
-> No SilLYcAps please
->=20
-> > +
-> > +/** General Result Code*/
-> > +/* OK */
-> > +#define HostCmd_RESULT_OK                    0x0000
-> > +/* Genenral error */
-> > +#define HostCmd_RESULT_ERROR                 0x0001
-> > +/* Command is not valid */
-> > +#define HostCmd_RESULT_NOT_SUPPORT           0x0002
-> > +/* Command is pending */
-> > +#define HostCmd_RESULT_PENDING               0x0003
-> > +/* System is busy (command ignored) */
-> > +#define HostCmd_RESULT_BUSY                  0x0004
-> > +/* Data buffer is not big enough */
-> > +#define HostCmd_RESULT_PARTIAL_DATA          0x0005
->=20
-> These seem to be completely unused, except HostCmd_RESULT_OK, which
-> you can then remove as well.
-
-Done.
-
-> > +/* Definition of action or option for each command */
-> > +
-> > +/* Define general purpose action */
-> > +#define HostCmd_ACT_GEN_READ                    0x0000
-> > +#define HostCmd_ACT_GEN_WRITE                   0x0001
-> > +#define HostCmd_ACT_GEN_GET                     0x0000
-> > +#define HostCmd_ACT_GEN_SET                     0x0001
-> > +#define HostCmd_ACT_GEN_REMOVE			0x0002
-> > +#define HostCmd_ACT_GEN_OFF                     0x0000
-> > +#define HostCmd_ACT_GEN_ON                      0x0001
-> > +
-> > +/* Define action or option for HostCmd_CMD_802_11_AUTHENTICATE */
-> > +#define HostCmd_ACT_AUTHENTICATE                0x0001
-> > +#define HostCmd_ACT_DEAUTHENTICATE              0x0002
-> > +
-> > +/* Define action or option for HostCmd_CMD_802_11_ASSOCIATE */
-> > +#define HostCmd_ACT_ASSOCIATE                   0x0001
-> > +#define HostCmd_ACT_DISASSOCIATE                0x0002
-> > +#define HostCmd_ACT_REASSOCIATE                 0x0003
-> > +
-> > +#define HostCmd_CAPINFO_ESS                     0x0001
-> > +#define HostCmd_CAPINFO_IBSS                    0x0002
-> > +#define HostCmd_CAPINFO_CF_POLLABLE             0x0004
-> > +#define HostCmd_CAPINFO_CF_REQUEST              0x0008
-> > +#define HostCmd_CAPINFO_PRIVACY                 0x0010
->=20
-> Most of these are unused as well, I guess it would be good
-> to go through the whole list and see what can be removed.
-
-Done. Will go through the entire file list before posting the next
-patch.
-
-> > +/* TxPD descriptor */
-> > +struct TxPD {
-> > +	/* Current Tx packet status */
-> > +	u32 TxStatus;
-> > +	/* Tx Control */
-> > +	u32 TxControl;
-> > +	u32 TxPacketLocation;
-> > +	/* Tx packet length */
-> > +	u16 TxPacketLength;
-> > +	/* First 2 byte of destination MAC address */
-> > +	u8 TxDestAddrHigh[2];
-> > +	/* Last 4 byte of destination MAC address */
-> > +	u8 TxDestAddrLow[4];
-> > +	/* Pkt Priority */
-> > +	u8 Priority;
-> > +	/* Pkt Trasnit Power control */
-> > +	u8 PowerMgmt;
-> > +	/* Amount of time the packet has been queued in the driver (units=
- =3D 2ms) */
-> > +	u8 PktDelay_2ms;
-> > +	/* Reserved */
-> > +	u8 Reserved1;
-> > +};
->=20
-> More SilLYcAps to convert...
-
-I've started conversion to normalcaps, have to finish it...
-
-> > +struct WLAN_802_11_KEY {
-> > +	u16 type; /* KEY_TYPE_* from wlan_defs.h */
-> > +	u32 len;
-> > +	u8 key[MRVL_MAX_KEY_WPA_KEY_LENGTH];
-> > +	u32 flags;  /* KEY_INFO_* from wlan_defs.h */
-> > +};
-> > +
->=20
-> This structure has member misalignment which requires
-> padding. If you use them only in the kernel, please reorder the
-> members to avoid this, otherwise it's probably better to
-> make the padding explicit.
-
-The former, reordered.
-
-> > +/* HostCmd_DS_GET_HW_SPEC */
-> > +struct HostCmd_DS_GET_HW_SPEC {
-> > +	/* HW Interface version number */
-> > +	u16 HWIfVersion;
-> > +
-> > +	/* HW version number */
-> > +	u16 Version;
-> > +
-> > +	/* Max number of TxPD FW can handle */
-> > +	u16 NumOfTxPD;
-> > +
-> > +	/* Max no of Multicast address */
-> > +	u16 NumOfMCastAdr;
-> > +
-> > +	/* MAC address */
-> > +	u8 PermanentAddr[6];
-> > +
-> > +	/* Region Code */
-> > +	u16 RegionCode;
-> > +
-> > +	/* Number of antenna used */
-> > +	u16 NumberOfAntenna;
-> > +
-> > +	/* FW release number, example 0x1234=3D1.2.3.4 */
-> > +	u32 FWReleaseNumber;
-> > +
-> > +	/* Base Address of TxPD queue */
-> > +	u32 WcbBase;
-> > +	/* Read Pointer of RxPd queue */
-> > +	u32 RxPdRdPtr;
-> > +
-> > +	/* Write Pointer of RxPd queue */
-> > +	u32 RxPdWrPtr;
-> > +
-> > +	/*FW/HW Capability */
-> > +	u32 fwCapInfo;
-> > +} __attribute__ ((packed));
-> > +
-> > +/* HostCmd_CMD_EEPROM_UPDATE */
-> > +struct HostCmd_DS_EEPROM_UPDATE {
-> > +	u16 Action;
-> > +	u32 Value;
-> > +} __attribute__ ((packed));
-> > +
->=20
-> Why do you want to have these structures packed? This often causes
-> much worse code than reordering the members for proper alignment.
-
-The command structures are defined and interpreted by the firmware (ie
-used by hardware), and as such should be packed (to avoid padding) and
-can't be reordered.
-
-> > +/* HostCmd_RET_802_11_ASSOCIATE */
-> > +struct HostCmd_DS_802_11_ASSOCIATE_RSP {
-> > +	struct IEEEtypes_AssocRsp assocRsp;
-> > +} __attribute__ ((packed));
->=20
-> this ((packed)) looks really weird, are you sure it does what you
-> want it to?
-
-This one is indeed not necessary, since "struct IEEEtypes_AssocRsp" is
-attributed as packed.
-
-> > +/* HostCmd_DS_802_11_AFC */
-> > +struct HostCmd_DS_802_11_AFC {
-> > +	u16 afc_auto;
-> > +	union {
-> > +		struct {
-> > +			u16 threshold;
-> > +			u16 period;
-> > +		} auto_mode;
-> > +		struct {
-> > +			s16 timing_offset;
-> > +			s16 carrier_offset;
-> > +		} manual_mode;
-> > +	} b;
-> > +} __attribute__ ((packed));
-> > +
-> > +#define afc_data b.data
-> > +#define afc_thre b.auto_mode.threshold
-> > +#define afc_period b.auto_mode.period
-> > +#define afc_toff b.manual_mode.timing_offset
-> > +#define afc_foff b.manual_mode.carrier_offset
->=20
-> should we use anonymous unions here? all recent gcc versions
-> allow it.
-
-Done. Also anonymize "manual_mode"/"auto_mode" structures.
-
-> > +		struct HostCmd_TX_RATE_QUERY txrate;
-> > +		struct HostCmd_DS_BT_ACCESS bt;
-> > +		struct HostCmd_DS_FWT_ACCESS fwt;
-> > +		struct HostCmd_DS_MESH_ACCESS mesh;
-> > +		struct HostCmd_DS_GET_TSF gettsf;
-> > +		struct HostCmd_DS_802_11_SUBSCRIBE_EVENT subscribe_event;
-> > +	} params;
-> > +} __attribute__ ((packed));
->=20
-> same here.
-
-Can't do:=20
-
-int libertas_ret_80211_associate(wlan_private * priv,
-                  struct HostCmd_DS_COMMAND *resp)
-{
-    wlan_adapter *Adapter =3D priv->adapter;
-    int ret =3D 0;
-    union iwreq_data wrqu;
-    struct IEEEtypes_AssocRsp *pAssocRsp;
-    struct bss_descriptor *pBSSDesc;
-
-    ENTER();
-
-    pAssocRsp =3D (struct IEEEtypes_AssocRsp *) & resp->params;
-
-> > +
-> > +extern struct BootCMDStr	sBootCMD;
-> > +
->=20
-> 'extern' declarations should _all_ go into header files. Normally,
-> sparse should catch this.=20
-
-Done.
-
-> Did you run the file through a recent sparse successfully?
-
-Spits a bunch of warnings, looking at them.
-
-> > +int if_usb_issue_boot_command(wlan_private *priv, int iValue)
-> > +{
-> > +	struct usb_card_rec	*cardp =3D priv->wlan_dev.card;
-> > +	int i;
-> > +
-> > +	/* Prepare Command */
-> > +	sBootCMD.u32MagicNumber =3D BOOT_CMD_MAGIC_NUMBER;
-> > +	sBootCMD.u8CMD_Tag =3D iValue;
-> > +	for (i=3D0; i<11; i++)
-> > +		sBootCMD.au8Dumy[i]=3D0x00;
-> > +	memcpy(cardp->bulk_out_buffer, &sBootCMD, sizeof(struct BootCMDSt=
-r));
->=20
-> It looks like a bad idea to use the global sBootCMD variable here. I
-> can't see any locking to protect it, and it's small enough to fit on =
-the
-> stack. What's the point?
-
-No point, moved to if_usb_issue_boot_command's stack.
-
-> > +
-> > +	/* Issue Command */
-> > +	usb_tx_block(priv, cardp->bulk_out_buffer, sizeof(struct BootCMDS=
-tr));
-> > +
-> > +	return WLAN_STATUS_SUCCESS;
-> > +}
->=20
-> WLAN_STATUS_SUCCESS is not a standard return code. It would be better=
- to
-> use the standard calling conventions returning '0' or '-ESOMETHING'
-> for failure instead of defining your own.
-
-Done.
-
-> > +static usb_notifier_fn_add wlan_card_add_cb =3D NULL;
-> > +static usb_notifier_fn_remove wlan_card_remove_cb =3D NULL;
->=20
-> You currently link the usb parts and the wlan parts of the driver
-> into a single module, which makes the dynamic registration of these
-> callbacks rather pointless. Can't you just get rid of that entirely?
-
-Done.
-
-> > +static u8 usb_int_cause =3D 0;
->=20
-> This is a global variable, but you seem to use it per device. Is that
-> intended?
-
-No, its a bug. Fixed.
-
-> > +struct BootCMDStr       sBootCMD;
->=20
-> This variable is used only in one file, but defined in another...
-
-=46ixed.
-
-> > +int if_usb_issue_boot_command(wlan_private *priv, int iValue);
-> > +
-> > +static int if_prog_firmware(wlan_private * priv);
-> > +static void if_usb_receive(struct urb *urb);
-> > +static void if_usb_receive_fwload(struct urb *urb);
-> > +static int if_usb_probe(struct usb_interface *intf,
-> > +			const struct usb_device_id *id);
-> > +static void if_usb_disconnect(struct usb_interface *intf);
-> > +#ifdef CONFIG_PM
-> > +static int if_usb_suspend(struct usb_interface *intf, pm_message_t=
- message);
-> > +static int if_usb_resume(struct usb_interface *intf);
-> > +#else
-> > +#define if_usb_suspend NULL
-> > +#define if_usb_resume NULL
-> > +#endif
->=20
-> It would be good to avoid forward declarations by reordering the
-> functions into their call order (bottom up).
-
-Done.
-
-> > +static void if_usb_write_bulk_callback(struct urb *urb)
-> > +{
-> > +	wlan_private *priv =3D (wlan_private *) (urb->context);
-> > +	wlan_adapter *adapter =3D priv->adapter;
-> > +	struct net_device *dev =3D priv->wlan_dev.netdev;
-> > +
-> > +	/* handle the transmission complete validations */
-> > +
-> > +	if (urb->status !=3D 0) {
-> > +		/* print the failure status number for debug */
-> > +		printk(KERN_INFO "URB in failure status\n");
-> > +	} else {
-> > +		dprintk(2, "URB status is successfull\n");
-> > +		dprintk(2, "Actual length transmitted %d\n",
-> > +		       urb->actual_length);
->=20
-> The printk and dprintk statements should probably be converted
-> to dev_info/dev_dbg/... standard macros, or something derived
-> from that.
->=20
-> > +void if_usb_free(struct usb_card_rec *cardp)
-> > +{
-> > +	ENTER();
->=20
-> Do you find the ENTER() and LEAVE() macros really useful?
-> usually, you're better off taking them out...
-
-Yes, for instance the bug reported at http://dev.laptop.org/ticket/841
-could be verified by checking the log file (by confirming that certain
-states were true/false).
-
-However, only a few such macros, on key functions, are required. I'll g=
-o
-over and remove the unneeded ones.
-
-> > +	return (-ENOMEM);
->=20
-> 	return -ENOMEM;
-
-Done.
-
->=20
-> > +	if (!(rinfo =3D kmalloc(sizeof(struct read_cb_info), GFP_ATOMIC))=
-) {
-> > +		printk(KERN_ERR "No free read_callback_info\n");
-> > +		goto rx_ret;
-> > +	}
->=20
-> I usually find it more readable to do the assignment first, and have =
-the
-> error check in a separate line.
-
-This one should be removed anyway, but yes, I get the point.
-
-> > +struct BootCMDRespStr bootcmdresp;
-> > +
->=20
-> This variable is used only inside of one function, so you should
-> be able to just put it on the stack (it's small).
-
-Yeah, done.
-
-> > +/** =20
-> > + *  @brief This function reads of the packet into the upload buff,=
-=20
-> > + *  wake up the main thread and initialise the Rx callack.
-> > + * =20
-> > + *  @param urb		pointer to struct urb
-> > + *  @return 	   	N/A
-> > + */
-> > +static void if_usb_receive(struct urb *urb)
-> > +{
->=20
-> This function is a little long, there is a switch() statement in it
-> that can probably be converted into one function per case.
->=20
-> > +/**=20
-> > + *  @brief Given a usb_card_rec return its wlan_private
-> > + *  @param card		pointer to a usb_card_rec
-> > + *  @return 	   	pointer to wlan_private
-> > + */
-> > +wlan_private *libertas_sbi_get_priv(void *card)
-> > +{
-> > +	struct usb_card_rec *cardp =3D (struct usb_card_rec *)card;
-> > +	return (wlan_private *)cardp->priv;
-> > +}
->=20
-> Don't do explicit casts of void* pointers.
->=20
-> > +	data =3D *((int *)(wrq->u.name + SUBCMD_OFFSET));
->=20
-> You use this weird line in many places, it would be good to make it
-> a helper function.=20
-
-This is part of WEXT API, I'm sorry. :)=20
-
-Will turn it into a helper function.
-
-> > +static u8 Is_Command_Allowed_In_PS(u16 Command)
-> > +{
-> > +	int count =3D sizeof(Commands_Allowed_In_PS)
-> > +	    / sizeof(Commands_Allowed_In_PS[0]);
-> > +	int i;
-> > +
-> > +	for (i =3D 0; i < count; i++) {
-> > +		if (Command =3D=3D cpu_to_le16(Commands_Allowed_In_PS[i]))
-> > +			return 1;
-> > +	}
-> > +
-> > +	return 0;
-> > +}
->=20
-> In places where you use variables that are strictly little-endian,
-> it would be nice to use the __le32/__le16 types instead of u32/u16.
->=20
-> > +/**=20
-> > + *  @brief This function handles the command response
-> > + * =20
-> > + *  @param priv    A pointer to wlan_private structure
-> > + *  @return 	   WLAN_STATUS_SUCCESS or WLAN_STATUS_FAILURE
-> > + */
-> > +int libertas_process_rx_command(wlan_private * priv)
-> > +{
->=20
-> This function is incredibly long, to the point where it gets
-> unreadable.
->=20
-> > +static struct dentry *libertas_dir =3D NULL;
-> > +static const int big_buffer_len =3D 4096;
-> > +static char big_buffer[4096];
-> > +static DECLARE_MUTEX(big_buffer_sem);
->=20
-> This seems to provide a generalized interface for buffering debugfs
-> files. Have you considered using the existing simple_attribute
-> and seq_file interfaces instead?
->=20
-> Even if they don't work for this, I would consider it cleaner to
-> use get_zeroed_page/free_page instead of the global buffer here.
->=20
-> > +static struct file_operations libertas_devinfo_fops =3D {=20
-> > +	.owner =3D THIS_MODULE,
-> > +	.open =3D open_file_generic,
-> > +	.write =3D write_file_dummy,
-> > +	.read =3D libertas_dev_info,
-> > +};
-> > +
-> > +static struct file_operations libertas_getscantable_fops =3D {=20
-> > +	.owner =3D THIS_MODULE,
-> > +	.open =3D open_file_generic,
-> > +	.write =3D write_file_dummy,
-> > +	.read =3D libertas_getscantable,
-> > +};
-> > +
-> > +static struct file_operations libertas_sleepparams_fops =3D {=20
-> > +	.owner =3D THIS_MODULE,
-> > +	.open =3D open_file_generic,
-> > +	.write =3D libertas_sleepparams_write,
-> > +	.read =3D libertas_sleepparams_read,
-> > +};
->=20
-> I would guess you can better express this with some array, like
->=20
-> #define FOPS(read, write) { \
-> 	.owner =3D THIS_MODULE, \
-> 	.open =3D open_file_generic, \
-> 	.read =3D (read), \
-> 	.write =3D (write), \
-> }
->=20
-> struct libertas_debugfs_files {
-> 	char *name;
-> 	int perm;
-> 	struct file_operations fops;
-> } debugfs_files =3D {
-> 	{ "devinfo", 0444, FOPS(libertas_dev_info, NULL), },
-> 	{ "getscantable", 0444, FOPS(libertas_getscantable, NULL), },
-> 	{ "sleepparams", 0644, FOPS(libertas_sleepparams_read,
-> 					libertas_sleepparams_write), },
-> 	...
-> };
->=20
-> > +void libertas_debugfs_init_one(wlan_private *priv, struct net_devi=
-ce *dev)
-> > +{
-> > +	if (!libertas_dir)
-> > +		goto exit;
-> > +
-> > +	priv->debugfs_dir =3D debugfs_create_dir(dev->name, libertas_dir)=
-;
-> > +	if (!priv->debugfs_dir)
-> > +		goto exit;
-> > +
-> > +	priv->debugfs_devinfo =3D debugfs_create_file("info", 0444,
-> > +						    priv->debugfs_dir,
-> > +						    priv,
-> > +						    &libertas_devinfo_fops);
->=20
-> And then here do a loop over that array.
->=20
-> > +/** Double-Word(32Bit) Bit definition */
-> > +#define DW_BIT_0	0x00000001
-> > +#define DW_BIT_1	0x00000002
-> > +#define DW_BIT_2	0x00000004
-> > +#define DW_BIT_3	0x00000008
-> > +#define DW_BIT_4	0x00000010
-> > +#define DW_BIT_5	0x00000020
-> > +#define DW_BIT_6	0x00000040
-> > +#define DW_BIT_7	0x00000080
-> > +#define DW_BIT_8	0x00000100
-> > +#define DW_BIT_9	0x00000200
-> > +#define DW_BIT_10	0x00000400
-> > +#define DW_BIT_11       0x00000800
-> > +#define DW_BIT_12       0x00001000
-> > +#define DW_BIT_13       0x00002000
-> > +#define DW_BIT_14       0x00004000
-> > +#define DW_BIT_15       0x00008000
-> > +#define DW_BIT_16       0x00010000
-> > +#define DW_BIT_17       0x00020000
-> > +#define DW_BIT_18       0x00040000
-> > +#define DW_BIT_19       0x00080000
-> > +#define DW_BIT_20       0x00100000
-> > +#define DW_BIT_21       0x00200000
-> > +#define DW_BIT_22       0x00400000
-> > +#define DW_BIT_23       0x00800000
-> > +#define DW_BIT_24       0x01000000
-> > +#define DW_BIT_25       0x02000000
-> > +#define DW_BIT_26       0x04000000
-> > +#define DW_BIT_27       0x08000000
-> > +#define DW_BIT_28       0x10000000
-> > +#define DW_BIT_29       0x20000000
-> > +#define DW_BIT_30	0x40000000
-> > +#define DW_BIT_31	0x80000000
->=20
-> These should go away.
+Eric W. Biederman wrote:
+> Auke Kok <auke-jan.h.kok@intel.com> writes:
 >
-> > +
-> > +/** Word (16bit) Bit Definition*/
-> > +#define W_BIT_0		0x0001
-> > +#define W_BIT_1		0x0002
-> > +#define W_BIT_2		0x0004
-> > +#define W_BIT_3		0x0008
-> > +#define W_BIT_4		0x0010
-> > +#define W_BIT_5		0x0020
-> > +#define W_BIT_6		0x0040
-> > +#define W_BIT_7		0x0080
-> > +#define W_BIT_8		0x0100
-> > +#define W_BIT_9		0x0200
-> > +#define W_BIT_10	0x0400
-> > +#define W_BIT_11	0x0800
-> > +#define W_BIT_12	0x1000
-> > +#define W_BIT_13	0x2000
-> > +#define W_BIT_14	0x4000
-> > +#define W_BIT_15	0x8000
-> > +
-> > +/** Byte (8Bit) Bit definition*/
-> > +#define B_BIT_0		0x01
-> > +#define B_BIT_1		0x02
-> > +#define B_BIT_2		0x04
-> > +#define B_BIT_3		0x08
-> > +#define B_BIT_4		0x10
-> > +#define B_BIT_5		0x20
-> > +#define B_BIT_6		0x40
-> > +#define B_BIT_7		0x80
->=20
-> These as well.
+>> maybe I've been unclear, but here's how e1000 detects link changes:
+>>
+>> 1) by checking every 2 seconds in the watchdog by reading PHY
+>> registers 2) by receiving an interrupt from the NIC with the LSI bit
+>> in the interrupt control register
+>>
+>> if the link is down to start with, the watchdog will obviously spot
+>> a 'link up' change since it doesn't use any interrupts.
+>>
+>> The link interrupt (LSI) is a generic interrupt that comes over the
+>> same vector (be it MSI or not) as RX interrupts, and in your case
+>> doesn't arrive at all, which should be demonstrateable if you set
+>> e.g. the watchdog interval to 30 seconds and unplug the cable - the
+>> driver won't spot the link change until the watchdog fires a lot
+>> later than you unplugged the cable.
+>>
+>>> The behavior I observe on 2.6.19 is better than 2.6.20-rc7. Link
+>>> status interrupts seem to work but rx/tx does not. A few more
+>>> details here:
+>>>
+>> <http://www.kroptech.com/~adk0212/mailimport/showmsg.php?msg_id=3339092450&db_name=linux_kernel>
+>
+> Can I get the corresponding lspci -xxx output.  I suspect the BIOS
+> did not program the hypertransport MSI mapping capabilities correctly.
+> All it has to do is set the enable but still, occasionally BIOS
+> writers miss the most amazing things.
 
-Done.
+Here you go. This is from 2.6.20-rc7.
 
-> > +extern unsigned int libertas_debug;
-> > +
-> > +/** Debug Macro definition*/
-> > +#ifdef	DEBUG
-> > +#define dprintk(level,format, args...)	if (libertas_debug >=3D lev=
-el) printk(KERN_INFO format, ##args)
-> > +#else
-> > +#define dprintk(format, args...)	do {} while (0)
-> > +#endif
->=20
-> dev_dbg should be enough, if you want it dynamic, you can use
-> netif_msg_* together with dev_info.
->=20
-> > +#define ASSERT(cond)						\
-> > +do {								\
-> > +	if (!(cond))						\
-> > +		dprintk(1, "ASSERT: %s, %s:%i\n",		\
-> > +		       __FUNCTION__, __FILE__, __LINE__);	\
-> > +} while(0)
->=20
-> just use WARN_ON instead of defining your own ASSERT
+--Adam
 
-Done.
+------=_NextPart_000_097D_01C747BF.EF947CC0
+Content-Type: application/octet-stream;
+	name="lspci-2.6.20-rc7"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: attachment;
+	filename="lspci-2.6.20-rc7"
 
-> > +#define	ENTER()			dprintk(1, "Enter: %s, %s:%i\n", __FUNCTION__, \
-> > +							__FILE__, __LINE__)
-> > +#define	LEAVE()			dprintk(1, "Leave: %s, %s:%i\n", __FUNCTION__, \
-> > +							__FILE__, __LINE__)
->=20
-> As mentioned, these should probably just be removed
+00:00.0 RAM memory: nVidia Corporation C51 Host Bridge (rev a2)=0A=
+00: de 10 f0 02 06 00 b0 00 a2 00 00 05 00 00 80 00=0A=
+10: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+20: 00 00 00 00 00 00 00 00 00 00 00 00 de 10 f0 02=0A=
+30: 00 00 00 00 44 00 00 00 00 00 00 00 ff 00 00 00=0A=
+40: de 10 f0 02 08 e0 e0 01 22 00 11 11 22 20 11 00=0A=
+50: 23 06 7f 80 03 05 7f 80 00 00 03 00 00 00 00 00=0A=
+60: 00 00 00 00 00 00 00 00 00 00 00 00 06 36 05 00=0A=
+70: 44 44 41 00 d0 09 00 00 11 00 00 00 11 11 88 00=0A=
+80: 23 99 88 00 1f 00 64 0c 03 00 00 00 7f 00 00 00=0A=
+90: 78 00 00 a0 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+a0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+b0: 00 00 00 00 01 01 01 01 00 00 00 00 00 00 00 00=0A=
+c0: 00 00 00 00 00 00 00 00 00 00 00 00 61 00 00 00=0A=
+d0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+e0: 08 00 00 a8 00 00 e0 fe 00 00 00 00 00 00 00 10=0A=
+f0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+=0A=
+00:00.1 RAM memory: nVidia Corporation C51 Memory Controller 0 (rev a2)=0A=
+00: de 10 fa 02 00 01 20 40 a2 00 00 05 00 00 80 00=0A=
+10: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+20: 00 00 00 00 00 00 00 00 00 00 00 00 de 10 fa 02=0A=
+30: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+40: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+50: 00 00 10 00 21 21 14 00 11 11 00 00 03 00 00 00=0A=
+60: 21 88 13 02 de 8f e1 1f 08 72 4e 10 02 3f 00 20=0A=
+70: 10 32 54 0a 10 00 00 00 a0 00 00 00 10 00 00 00=0A=
+80: 00 00 00 00 00 00 00 00 00 00 50 3f 90 3f 00 00=0A=
+90: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+a0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+b0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+c0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+d0: 00 00 00 00 00 00 00 00 01 00 00 00 80 f9 fd 00=0A=
+e0: 00 00 c9 fe 00 00 00 00 00 fc ff ff 00 00 00 00=0A=
+f0: 00 00 00 00 c7 02 28 00 00 00 00 00 00 00 00 00=0A=
+=0A=
+00:00.2 RAM memory: nVidia Corporation C51 Memory Controller 1 (rev a2)=0A=
+00: de 10 fe 02 00 00 20 00 a2 00 00 05 00 00 80 00=0A=
+10: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+20: 00 00 00 00 00 00 00 00 00 00 00 00 de 10 fe 02=0A=
+30: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+40: de 10 fe 02 1b 1c 1c 60 1b 1c c0 21 00 00 00 00=0A=
+50: 36 00 38 c9 01 00 00 00 37 00 39 c9 02 1f 1c 80=0A=
+60: 02 1f 1c 00 00 00 00 00 02 10 1c a0 02 0c 1c 90=0A=
+70: 02 10 1c 90 02 14 1c 90 02 0c 1c 80 02 10 1c 80=0A=
+80: 02 14 1c 80 02 18 1c 80 02 1c 1c 80 01 10 1c 80=0A=
+90: 02 14 1c 80 11 00 11 00 32 01 00 00 00 00 00 00=0A=
+a0: c2 00 40 61 10 00 00 00 00 00 00 00 00 00 00 00=0A=
+b0: 00 00 00 00 00 00 00 00 00 00 00 00 41 23 05 08=0A=
+c0: fd ff ff ff ff ff ff ff 00 00 00 00 00 00 00 00=0A=
+d0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+e0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+f0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+=0A=
+00:00.3 RAM memory: nVidia Corporation C51 Memory Controller 5 (rev a2)=0A=
+00: de 10 f8 02 00 00 a0 00 a2 00 00 05 00 00 80 00=0A=
+10: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+20: 00 00 00 00 00 00 00 00 00 00 00 00 de 10 f8 02=0A=
+30: 00 00 00 00 00 00 00 00 00 00 00 00 ff 00 00 00=0A=
+40: de 10 f8 02 00 00 00 00 02 10 1c 80 02 10 1c a0=0A=
+50: 02 0c 1c 90 02 10 1c 90 02 14 1c 90 02 0c 1c 80=0A=
+60: 02 10 1c 80 02 14 1c 80 02 18 1c 80 02 1c 1c 80=0A=
+70: 01 10 1c 80 1f 20 c0 81 00 00 00 00 3e 30 40 c9=0A=
+80: 01 00 00 00 45 30 47 c9 02 1f 1c 80 50 20 00 40=0A=
+90: 89 da 01 09 00 00 00 00 11 00 10 00 00 00 00 00=0A=
+a0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+b0: 08 00 00 00 22 19 00 00 10 00 02 00 40 04 40 04=0A=
+c0: 00 00 00 00 00 00 00 00 01 01 00 05 00 00 00 00=0A=
+d0: 00 00 f0 03 00 04 00 00 00 00 00 00 00 00 00 00=0A=
+e0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+f0: 60 ea 10 10 18 00 00 20 00 00 00 00 00 00 00 00=0A=
+=0A=
+00:00.4 RAM memory: nVidia Corporation C51 Memory Controller 4 (rev a2)=0A=
+00: de 10 f9 02 06 00 a0 00 a2 00 00 05 00 00 00 00=0A=
+10: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+20: 00 00 00 00 00 00 00 00 00 00 00 00 de 10 f9 02=0A=
+30: 00 00 00 00 00 00 00 00 00 00 00 00 ff 00 00 00=0A=
+40: ef dd 7b 2f f7 de 7b 2f f7 de 7b 2f f7 02 00 00=0A=
+50: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+60: 00 00 00 00 00 00 00 00 03 00 00 00 00 00 00 00=0A=
+70: 0a 00 00 00 03 00 00 00 25 00 00 00 00 00 00 00=0A=
+80: 00 00 00 00 00 00 00 00 05 00 00 00 04 00 00 00=0A=
+90: 03 04 00 00 01 00 00 00 00 00 00 00 00 00 00 00=0A=
+a0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+b0: ff 7f 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+c0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+d0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+e0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+f0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+=0A=
+00:00.5 RAM memory: nVidia Corporation C51 Host Bridge (rev a2)=0A=
+00: de 10 ff 02 06 00 b0 00 a2 00 00 05 00 00 80 00=0A=
+10: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+20: 00 00 00 00 00 00 00 00 00 00 00 00 de 10 ff 02=0A=
+30: 00 00 00 00 44 00 00 00 00 00 00 00 ff 00 00 00=0A=
+40: 17 00 00 00 00 fe fe 00 00 fe fe 00 00 fe fe 00=0A=
+50: 00 fe fe 00 00 fe fe 00 00 fe fe 00 00 00 00 00=0A=
+60: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+70: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+80: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+90: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+a0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+b0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+c0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+d0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+e0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+f0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+=0A=
+00:00.6 RAM memory: nVidia Corporation C51 Memory Controller 3 (rev a2)=0A=
+00: de 10 7f 02 00 01 20 00 a2 00 00 05 00 00 80 00=0A=
+10: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+20: 00 00 00 00 00 00 00 00 00 00 00 00 de 10 7f 02=0A=
+30: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+40: 08 00 00 00 00 00 00 00 00 80 cb fe 00 00 00 00=0A=
+50: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+60: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+70: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+80: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+90: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+a0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+b0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+c0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+d0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+e0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+f0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+=0A=
+00:00.7 RAM memory: nVidia Corporation C51 Memory Controller 2 (rev a2)=0A=
+00: de 10 7e 02 00 00 20 00 a2 00 00 05 00 00 80 00=0A=
+10: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+20: 00 00 00 00 00 00 00 00 00 00 00 00 de 10 7e 02=0A=
+30: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+40: de 10 7e 02 11 00 00 00 74 05 00 00 11 00 00 00=0A=
+50: 74 05 00 00 40 00 60 00 60 60 00 00 00 00 00 00=0A=
+60: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+70: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+80: 00 00 00 00 00 00 00 00 00 00 00 04 00 00 00 04=0A=
+90: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+a0: 00 00 00 00 00 00 00 00 00 00 00 04 00 00 00 04=0A=
+b0: ff ff 03 00 10 11 00 00 ac 10 20 00 30 00 00 00=0A=
+c0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+d0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+e0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+f0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+=0A=
+00:02.0 PCI bridge: nVidia Corporation C51 PCI Express Bridge (rev a1)=0A=
+00: de 10 fc 02 07 04 10 00 a1 00 04 06 10 00 01 00=0A=
+10: 00 00 00 00 00 00 00 00 00 01 01 00 a1 a1 00 00=0A=
+20: 80 fd 80 fd 71 fd 71 fd 00 00 00 00 00 00 00 00=0A=
+30: 00 00 00 00 40 00 00 00 00 00 00 00 ff 00 04 00=0A=
+40: 0d 48 00 00 de 10 00 00 01 50 02 f8 00 00 00 00=0A=
+50: 05 60 83 00 00 00 e0 fe 00 00 00 00 39 40 00 00=0A=
+60: 08 80 00 a8 00 00 e0 fe 00 00 00 00 00 00 00 00=0A=
+70: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+80: 10 00 41 01 c0 04 00 00 1f 28 00 00 11 3c 11 02=0A=
+90: 40 00 11 30 00 00 00 00 c0 01 48 01 00 00 00 00=0A=
+a0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+b0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+c0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+d0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+e0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+f0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+=0A=
+00:03.0 PCI bridge: nVidia Corporation C51 PCI Express Bridge (rev a1)=0A=
+00: de 10 fd 02 07 04 10 00 a1 00 04 06 10 00 01 00=0A=
+10: 00 00 00 00 00 00 00 00 00 02 02 00 81 81 00 00=0A=
+20: e0 fd e0 fd d1 fd d1 fd 00 00 00 00 00 00 00 00=0A=
+30: 00 00 00 00 40 00 00 00 00 00 00 00 ff 00 04 00=0A=
+40: 0d 48 00 00 de 10 00 00 01 50 02 f8 00 00 00 00=0A=
+50: 05 60 83 00 00 00 e0 fe 00 00 00 00 41 40 00 00=0A=
+60: 08 80 00 a8 00 00 e0 fe 00 00 00 00 00 00 00 00=0A=
+70: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+80: 10 00 41 01 c0 04 00 00 1f 28 00 00 11 3c 11 01=0A=
+90: 00 00 11 10 00 00 00 00 c0 01 00 00 00 00 00 00=0A=
+a0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+b0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+c0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+d0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+e0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+f0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+=0A=
+00:04.0 PCI bridge: nVidia Corporation C51 PCI Express Bridge (rev a1)=0A=
+00: de 10 fb 02 07 04 10 00 a1 00 04 06 10 00 01 00=0A=
+10: 00 00 00 00 00 00 00 00 00 03 03 00 b1 b1 00 00=0A=
+20: c0 fd c0 fd 91 fd 91 fd 00 00 00 00 00 00 00 00=0A=
+30: 00 00 00 00 40 00 00 00 00 00 00 00 ff 00 04 00=0A=
+40: 0d 48 00 00 de 10 00 00 01 50 02 f8 00 00 00 00=0A=
+50: 05 60 83 00 00 00 e0 fe 00 00 00 00 49 40 00 00=0A=
+60: 08 80 00 a8 00 00 e0 fe 00 00 00 00 00 00 00 00=0A=
+70: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+80: 10 00 41 01 c0 04 00 00 1f 28 00 00 01 3d 11 00=0A=
+90: 00 00 01 11 00 00 00 00 c0 01 00 00 00 00 00 00=0A=
+a0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+b0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+c0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+d0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+e0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+f0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+=0A=
+00:05.0 VGA compatible controller: nVidia Corporation C51 PCI Express =
+Bridge (rev a2)=0A=
+00: de 10 41 02 07 00 b0 00 a2 00 00 03 00 00 00 00=0A=
+10: 00 00 00 fc 0c 00 00 e0 00 00 00 00 04 00 00 fb=0A=
+20: 00 00 00 00 00 00 00 00 00 00 00 00 28 10 ed 01=0A=
+30: 00 00 00 00 48 00 00 00 00 00 00 00 0b 01 00 00=0A=
+40: 28 10 ed 01 00 00 00 00 01 50 02 00 00 00 00 00=0A=
+50: 05 00 80 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+60: 01 00 00 00 04 00 00 00 00 00 00 00 01 00 00 00=0A=
+70: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff=0A=
+80: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff=0A=
+90: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff=0A=
+a0: 00 00 78 00 00 00 00 04 00 00 00 00 ff ff ff ff=0A=
+b0: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff=0A=
+c0: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff=0A=
+d0: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff=0A=
+e0: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff=0A=
+f0: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff=0A=
+=0A=
+00:09.0 RAM memory: nVidia Corporation MCP51 Host Bridge (rev a2)=0A=
+00: de 10 70 02 06 00 b0 00 a2 00 00 05 00 00 00 00=0A=
+10: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+20: 00 00 00 00 00 00 00 00 00 00 00 00 de 10 84 cb=0A=
+30: 00 00 00 00 44 00 00 00 00 00 00 00 ff 00 00 00=0A=
+40: de 10 84 cb 08 e0 e9 01 22 20 00 00 d0 00 00 00=0A=
+50: 23 05 7f 80 03 00 00 00 00 00 03 00 00 00 00 00=0A=
+60: 00 00 00 00 00 00 00 00 00 00 00 00 06 36 05 00=0A=
+70: 44 44 44 00 d0 09 00 00 11 00 00 00 11 11 55 00=0A=
+80: 23 55 55 00 fa 00 64 0c 03 00 00 00 7f 00 00 00=0A=
+90: 78 00 00 a0 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+a0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+b0: 00 00 00 00 01 01 01 01 00 00 00 00 00 00 00 00=0A=
+c0: 00 00 00 00 00 00 00 00 00 00 00 00 80 00 00 00=0A=
+d0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+e0: 08 00 00 a8 00 00 e0 fe 00 00 00 00 00 00 00 00=0A=
+f0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+=0A=
+00:0a.0 ISA bridge: nVidia Corporation MCP51 LPC Bridge (rev a3)=0A=
+00: de 10 60 02 0f 00 a0 00 a3 00 01 06 00 00 80 00=0A=
+10: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+20: 00 00 00 00 00 00 00 00 00 00 00 00 28 10 ed 01=0A=
+30: 00 00 00 00 00 00 00 00 00 00 00 00 ff 00 00 00=0A=
+40: 28 10 ed 01 00 00 ff fe fa 3e ff 00 fa 3e ff 00=0A=
+50: fa 3e ff 00 00 5a 62 02 00 00 00 01 00 00 ff ff=0A=
+60: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 f9 ff=0A=
+70: 10 00 ff ff c5 00 00 00 00 00 04 19 00 c0 30 00=0A=
+80: 09 20 00 d8 01 10 00 00 c0 00 00 01 00 00 00 00=0A=
+90: 00 00 00 00 00 00 00 00 21 47 65 b7 ef cd 00 00=0A=
+a0: 00 00 10 80 00 00 01 00 00 00 00 00 00 00 00 00=0A=
+b0: 00 00 00 00 00 08 80 08 00 00 00 00 00 00 00 00=0A=
+c0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+d0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+e0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+f0: 00 00 00 00 00 00 00 00 10 00 00 00 00 00 00 00=0A=
+=0A=
+00:0a.1 SMBus: nVidia Corporation MCP51 SMBus (rev a3)=0A=
+00: de 10 64 02 01 00 b0 00 a3 00 05 0c 00 00 80 00=0A=
+10: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+20: 01 1c 00 00 41 1c 00 00 00 00 00 00 28 10 ed 01=0A=
+30: 00 00 00 00 44 00 00 00 00 00 00 00 0a 01 00 00=0A=
+40: 28 10 ed 01 01 00 02 c0 00 00 00 00 00 00 00 00=0A=
+50: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+60: 01 10 00 00 01 14 00 00 01 18 00 00 00 00 00 00=0A=
+70: 01 00 00 00 00 00 c8 fe 00 00 fe fe 01 20 00 00=0A=
+80: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+90: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+a0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+b0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+c0: d4 30 80 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+d0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+e0: 08 10 05 00 00 a0 80 00 80 74 00 00 41 44 44 11=0A=
+f0: 5a ff 5f bf 00 00 00 c0 10 00 00 00 00 00 00 00=0A=
+=0A=
+00:0a.2 RAM memory: nVidia Corporation MCP51 Memory Controller 0 (rev a3)=0A=
+00: de 10 72 02 00 04 a0 00 a3 00 00 05 00 00 80 00=0A=
+10: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+20: 00 00 00 00 00 00 00 00 00 00 00 00 28 10 ed 01=0A=
+30: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+40: 00 00 00 00 00 00 00 00 10 00 00 10 00 00 10 10=0A=
+50: 10 10 10 10 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+60: 02 03 00 00 12 00 00 00 02 00 00 00 10 01 12 00=0A=
+70: 32 33 00 00 03 00 00 00 00 00 00 00 12 01 00 00=0A=
+80: 10 00 00 00 00 00 00 00 00 00 00 00 30 02 00 00=0A=
+90: 00 00 00 00 01 20 00 00 01 00 00 00 00 09 00 00=0A=
+a0: 01 02 00 00 00 10 00 00 05 00 00 00 01 00 00 00=0A=
+b0: 00 10 00 80 01 00 00 80 00 00 00 00 02 00 00 00=0A=
+c0: 07 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+d0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+e0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+f0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+=0A=
+00:0b.0 USB Controller: nVidia Corporation MCP51 USB Controller (rev a3)=0A=
+00: de 10 6d 02 07 00 b0 00 a3 10 03 0c 00 00 80 00=0A=
+10: 00 f0 02 fe 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+20: 00 00 00 00 00 00 00 00 00 00 00 00 28 10 ed 01=0A=
+30: 00 00 00 00 44 00 00 00 00 00 00 00 0f 01 03 01=0A=
+40: 28 10 ed 01 01 00 02 fe 00 00 00 00 00 00 00 00=0A=
+50: 08 00 00 00 1d 47 40 00 10 00 00 00 00 00 00 00=0A=
+60: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+70: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+80: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+90: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+a0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+b0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+c0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+d0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+e0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+f0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+=0A=
+00:0b.1 USB Controller: nVidia Corporation MCP51 USB Controller (rev a3)=0A=
+00: de 10 6e 02 06 00 b0 00 a3 20 03 0c 00 00 80 00=0A=
+10: 00 e0 02 fe 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+20: 00 00 00 00 00 00 00 00 00 00 00 00 28 10 ed 01=0A=
+30: 00 00 00 00 44 00 00 00 00 00 00 00 05 02 03 01=0A=
+40: 28 10 ed 01 0a 80 98 20 00 00 00 00 00 00 00 00=0A=
+50: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+60: 20 20 01 00 00 60 18 85 03 3c 0a 01 00 00 00 00=0A=
+70: 00 00 08 05 00 10 20 80 89 3d b6 22 77 25 04 00=0A=
+80: 01 00 02 fe 00 00 00 00 00 00 00 00 15 16 00 00=0A=
+90: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+a0: 01 00 00 01 00 00 08 c0 00 00 00 00 00 00 00 00=0A=
+b0: 00 11 22 33 00 00 00 00 ff 00 00 00 00 00 00 00=0A=
+c0: 10 10 2d 0d 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+d0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+e0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+f0: 00 00 00 00 00 00 00 00 10 00 00 00 00 00 00 00=0A=
+=0A=
+00:0e.0 IDE interface: nVidia Corporation MCP51 Serial ATA Controller =
+(rev a1)=0A=
+00: de 10 66 02 07 00 b0 00 a1 85 01 01 00 00 00 00=0A=
+10: f1 09 00 00 f1 0b 00 00 71 09 00 00 71 0b 00 00=0A=
+20: 01 e0 00 00 00 d0 02 fe 00 00 00 00 28 10 ed 01=0A=
+30: 00 00 00 00 44 00 00 00 00 00 00 00 0b 01 03 01=0A=
+40: 28 10 ed 01 01 b0 02 00 00 00 00 00 00 00 00 00=0A=
+50: 03 00 00 00 00 00 00 00 a8 20 a8 20 66 00 20 20=0A=
+60: 00 c6 00 c7 51 0c 00 00 00 0f 06 42 00 00 00 00=0A=
+70: 2c 78 c4 40 01 10 00 00 01 10 00 00 20 00 20 00=0A=
+80: 00 00 00 c0 00 60 f9 22 00 00 08 a0 00 fc 00 00=0A=
+90: 00 00 08 80 00 00 00 00 06 00 06 10 00 00 01 01=0A=
+a0: 14 10 00 2a 00 00 00 00 00 00 00 00 33 33 00 02=0A=
+b0: 05 cc 84 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+c0: 00 00 00 00 00 00 00 00 0a 00 0a 00 08 00 02 a8=0A=
+d0: 0a 00 02 6c 42 00 00 00 00 00 00 00 00 00 00 e0=0A=
+e0: 0a 00 02 36 42 00 00 00 00 00 00 00 90 42 44 83=0A=
+f0: 00 00 00 00 00 00 00 00 00 00 0c 00 00 00 00 00=0A=
+=0A=
+00:0f.0 IDE interface: nVidia Corporation MCP51 Serial ATA Controller =
+(rev a1)=0A=
+00: de 10 67 02 07 00 b0 00 a1 85 01 01 00 00 00 00=0A=
+10: e1 09 00 00 e1 0b 00 00 61 09 00 00 61 0b 00 00=0A=
+20: 01 cc 00 00 00 c0 02 fe 00 00 00 00 28 10 ed 01=0A=
+30: 00 00 00 00 44 00 00 00 00 00 00 00 0a 01 03 01=0A=
+40: 28 10 ed 01 01 b0 02 00 00 00 00 00 00 00 00 00=0A=
+50: 03 00 00 00 00 00 00 00 a8 a8 a8 a8 aa 00 99 99=0A=
+60: 00 00 00 00 51 0c 00 00 00 0f 06 42 00 00 00 00=0A=
+70: 2c 78 c4 40 01 10 00 00 01 10 00 00 20 00 20 00=0A=
+80: 00 00 00 00 d6 38 45 ff 00 00 c1 30 5e 61 bf ae=0A=
+90: 00 00 1e 09 00 00 00 00 06 00 06 10 00 00 01 01=0A=
+a0: 14 10 00 00 00 00 00 00 00 00 00 00 33 33 00 02=0A=
+b0: 05 cc 84 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+c0: 00 00 00 00 00 00 00 00 0a 00 0a 00 08 00 02 a8=0A=
+d0: 0a 00 02 36 42 00 00 00 00 00 00 00 01 00 80 00=0A=
+e0: 0a 00 02 36 42 00 00 00 00 00 00 00 82 02 01 04=0A=
+f0: 00 00 00 00 00 00 00 00 00 00 0c 00 00 00 00 00=0A=
+=0A=
+00:10.0 PCI bridge: nVidia Corporation MCP51 PCI Bridge (rev a2)=0A=
+00: de 10 6f 02 07 00 b0 00 a2 01 04 06 00 00 81 00=0A=
+10: 00 00 00 00 00 00 00 00 00 04 04 20 90 90 80 02=0A=
+20: b0 fd b0 fd a0 fd a0 fd 00 00 00 00 00 00 00 00=0A=
+30: 00 00 00 00 b8 00 00 00 00 00 00 00 ff 00 04 02=0A=
+40: 00 00 03 00 01 00 02 00 05 00 00 00 00 00 44 00=0A=
+50: 00 00 fe 3f 00 00 00 00 ff 1f ff 1f 00 00 00 00=0A=
+60: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+70: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+80: 00 00 00 00 00 00 00 00 00 00 00 00 08 00 00 a8=0A=
+90: 00 00 e0 fe 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+a0: 04 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+b0: 00 00 00 00 ff ff 00 00 0d 8c 00 00 00 00 00 00=0A=
+c0: 00 00 00 00 03 00 00 00 00 00 00 00 00 00 00 00=0A=
+d0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+e0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+f0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+=0A=
+00:10.1 Audio device: nVidia Corporation MCP51 High Definition Audio =
+(rev a2)=0A=
+00: de 10 6c 02 06 00 b0 00 a2 00 03 04 00 00 80 00=0A=
+10: 00 40 02 fe 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+20: 00 00 00 00 00 00 00 00 00 00 00 00 28 10 ed 01=0A=
+30: 00 00 00 00 44 00 00 00 00 00 00 00 0a 02 02 05=0A=
+40: 28 10 ed 01 01 50 02 c0 00 00 00 00 01 01 0f 00=0A=
+50: 05 6c 80 01 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+60: 00 00 00 00 00 00 00 00 0f 00 00 00 08 00 02 a8=0A=
+70: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+80: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+90: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+a0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+b0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+c0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+d0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+e0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+f0: 00 00 00 00 00 00 00 46 00 29 00 00 00 00 00 00=0A=
+=0A=
+00:18.0 Host bridge: Advanced Micro Devices [AMD] K8 [Athlon64/Opteron] =
+HyperTransport Technology Configuration=0A=
+00: 22 10 00 11 00 00 10 00 00 00 00 06 00 00 80 00=0A=
+10: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+20: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+30: 00 00 00 00 80 00 00 00 00 00 00 00 00 00 00 00=0A=
+40: 01 01 01 00 01 01 01 00 01 01 01 00 01 01 01 00=0A=
+50: 01 01 01 00 01 01 01 00 01 01 01 00 01 01 01 00=0A=
+60: 00 00 01 00 e4 00 00 00 20 c8 0e 0f 0c 00 00 00=0A=
+70: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+80: 08 00 01 21 20 00 11 11 22 06 75 80 02 00 00 00=0A=
+90: 69 01 61 01 00 00 04 00 07 00 00 00 00 00 00 00=0A=
+a0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+b0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+c0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+d0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+e0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+f0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+=0A=
+00:18.1 Host bridge: Advanced Micro Devices [AMD] K8 [Athlon64/Opteron] =
+Address Map=0A=
+00: 22 10 01 11 00 00 00 00 00 00 00 06 00 00 80 00=0A=
+10: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+20: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+30: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+40: 03 00 00 00 00 00 3f 00 00 00 00 00 01 00 00 00=0A=
+50: 00 00 00 00 02 00 00 00 00 00 00 00 03 00 00 00=0A=
+60: 00 00 00 00 04 00 00 00 00 00 00 00 05 00 00 00=0A=
+70: 00 00 00 00 06 00 00 00 00 00 00 00 07 00 00 00=0A=
+80: 03 0a 00 00 00 0b 00 00 00 00 00 00 00 00 00 00=0A=
+90: 03 00 40 00 00 ff ef 00 00 00 00 00 00 00 00 00=0A=
+a0: 00 00 00 00 00 00 00 00 03 00 f4 00 00 02 fe 00=0A=
+b0: 03 00 f0 00 80 4f f0 00 00 00 00 00 00 00 00 00=0A=
+c0: 13 80 00 00 00 f0 00 00 00 00 00 00 00 00 00 00=0A=
+d0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+e0: 03 00 00 04 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+f0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+=0A=
+00:18.2 Host bridge: Advanced Micro Devices [AMD] K8 [Athlon64/Opteron] =
+DRAM Controller=0A=
+00: 22 10 02 11 00 00 00 00 00 00 00 06 00 00 80 00=0A=
+10: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+20: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+30: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+40: 00 00 00 00 00 00 00 00 01 00 00 00 00 00 00 00=0A=
+50: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+60: 00 00 00 00 e0 3f 38 00 00 00 00 00 00 00 00 00=0A=
+70: 00 00 00 00 00 00 00 00 46 00 00 00 00 00 00 00=0A=
+80: 20 00 00 00 00 00 00 00 24 c2 6a ae 20 13 82 00=0A=
+90: 10 0c 01 00 5a 80 00 67 39 00 00 80 00 00 00 00=0A=
+a0: ef 02 00 ae 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+b0: ef 65 f6 9f ce 00 00 00 27 19 20 20 92 4c c7 4c=0A=
+c0: 00 00 01 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+d0: ac 7e 5f 3b 5d 3b bf c3 45 85 7f 7d 40 94 08 61=0A=
+e0: 61 3a ff 73 38 59 d5 61 85 ce 2d 67 af 61 8c 1a=0A=
+f0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+=0A=
+00:18.3 Host bridge: Advanced Micro Devices [AMD] K8 [Athlon64/Opteron] =
+Miscellaneous Control=0A=
+00: 22 10 03 11 00 00 10 00 00 00 00 06 00 00 80 00=0A=
+10: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+20: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+30: 00 00 00 00 f0 00 00 00 00 00 00 00 00 00 00 00=0A=
+40: ff 3b 04 00 40 00 10 0a 00 00 00 00 00 00 00 00=0A=
+50: 68 43 29 d8 0d 00 00 00 00 00 00 00 80 39 91 97=0A=
+60: 23 00 00 00 01 77 1f 00 00 00 00 00 00 00 00 00=0A=
+70: 11 01 32 51 21 40 70 50 00 2a 00 08 17 21 00 00=0A=
+80: 00 00 07 23 13 21 13 21 00 00 00 00 00 00 00 00=0A=
+90: 00 00 00 00 e2 0c 00 00 10 90 8d 0e 00 00 00 00=0A=
+a0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+b0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+c0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+d0: 00 00 00 00 01 a7 0d 00 00 00 a0 08 25 25 25 00=0A=
+e0: 00 00 00 00 24 1a 4e 00 19 17 00 00 00 00 00 00=0A=
+f0: 0f 00 10 00 00 00 00 00 00 00 00 00 b2 0f 04 00=0A=
+=0A=
+01:00.0 Ethernet controller: Intel Corporation 82572EI Gigabit Ethernet =
+Controller (Copper) (rev 06)=0A=
+00: 86 80 b9 10 07 04 18 00 06 00 00 02 10 00 00 00=0A=
+10: 00 00 8e fd 00 00 8c fd 01 ac 00 00 00 00 00 00=0A=
+20: 00 00 00 00 00 00 00 00 00 00 00 00 86 80 83 10=0A=
+30: 00 00 00 00 c8 00 00 00 00 00 00 00 07 01 00 00=0A=
+40: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+50: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+60: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+70: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+80: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+90: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+a0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+b0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+c0: 00 00 00 00 00 00 00 00 01 d0 22 c8 00 20 00 21=0A=
+d0: 05 e0 81 00 00 00 e0 fe 00 00 00 00 81 40 00 00=0A=
+e0: 10 00 01 00 c1 0c 00 00 10 28 1a 00 11 64 03 02=0A=
+f0: 40 00 11 10 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+=0A=
+04:07.0 Ethernet controller: Broadcom Corporation BCM4401-B0 100Base-TX =
+(rev 02)=0A=
+00: e4 14 0c 17 06 00 10 00 02 00 00 02 00 40 00 00=0A=
+10: 00 e0 bf fd 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+20: 00 00 00 00 00 00 00 00 00 00 00 00 28 10 ed 01=0A=
+30: 00 00 00 00 40 00 00 00 00 00 00 00 05 01 00 00=0A=
+40: 01 00 02 fe 00 40 00 34 00 00 00 00 00 00 00 00=0A=
+50: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+60: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+70: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+80: 00 00 00 18 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+90: 00 00 00 00 00 01 00 00 00 00 00 00 00 00 00 00=0A=
+a0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+b0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+c0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+d0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+e0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+f0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=0A=
+=0A=
 
-I disagree, entry/exit points have been shown to be useful in practice
-to identify firmware problems on field.
+------=_NextPart_000_097D_01C747BF.EF947CC0--
 
-> > +
-> > +#if defined(DEBUG)
-> > +static inline void HEXDUMP(char *prompt, u8 * buf, int len)
-> > +{
-> > +	int i =3D 0;
-> > +
-> > +	if (!libertas_debug)
-> > +		return;
-> > +
-> > +	printk(KERN_DEBUG "%s: ", prompt);
-> > +	for (i =3D 1; i <=3D len; i++) {
-> > +		printk(KERN_DEBUG "%02x ", (u8) * buf);
-> > +		buf++;
-> > +	}
-> > +	printk("\n");
-> > +}
-> > +#else
-> > +#define HEXDUMP(x,y,z)
-> > +#endif
->=20
-> The second definition should be an empty inline function so you don't=
- break
-> for code like
->=20
-> if (condition)
-> 	HEXDUMP(x,y,z);
-> else
-> 	something_else();
->=20
-> maybe rename to dev_dbg_hex() and move to the same place as the gener=
-ic
-> dev_dbg function.
->=20
-> > +#ifndef NELEMENTS
-> > +#define NELEMENTS(x) (sizeof(x)/sizeof(x[0]))
-> > +#endif
->=20
-> array_size()
-
-Done.
-
-> > +static int wlan_setup_station_hw(wlan_private * priv)
-> > +{
-> > +	int ret =3D WLAN_STATUS_FAILURE;
-> > +	wlan_adapter *adapter =3D priv->adapter;
-> > +
-> > +	ENTER();
-> > +
-> > +	if ((ret =3D request_firmware(&priv->firmware, libertas_fw_name,
-> > +				    priv->hotplug_device)) < 0) {
-> > +		printk(KERN_ERR "request_firmware() failed, error code =3D %#x\n=
-",
-> > +		       ret);
-> > +		printk(KERN_ERR "%s not found in /lib/firmware\n", libertas_fw_n=
-ame);
-> > +		goto done;
-> > +	}
->=20
-> Since we now have an Open Firmware based system, the libertas firmwar=
-e
-> could be stored inside of the firmware device tree. The most signific=
-ant
-> advantage of that is that you can boot with the libertas driver enabl=
-ed
-> before mounting the file system.
->=20
-> Another advantage is that if we get a forth implementation of the dri=
-ver
-> that can do PXE boot, the open firmware can use the same copy of the
-> libertas firmware blob as Linux.
->=20
-> > diff --git a/drivers/net/wireless/libertas/wlan_ioctl.c b/drivers/n=
-et/wireless/libertas/wlan_ioctl.c
-> > new file mode 100644
-> > index 0000000..0cc852b
-> > --- /dev/null
-> > +++ b/drivers/net/wireless/libertas/wlan_ioctl.c
-> > @@ -0,0 +1,2814 @@
-> > +/**=20
-> > +  * This file contains ioctl functions
->=20
-> The number of private ioctl functions defined in this file (and some
-> other places is a hint that there is still something very wrong with
-> this driver. The best solution I can think of is to throw them all
-> away and add new interface for those that are really needed, but do
-> it in a generic way, in the common wireless extensions for Linux.=20
-
-But most of these ioctl's are driver-specific anyway (and I personally
-consider it one of the good points of the driver, from a completness
-POV).
-
-> > +#define WLAN_TX_PWR_DEFAULT		20	/*100mW */
-> > +#define WLAN_TX_PWR_US_DEFAULT		20	/*100mW */
-> > +#define WLAN_TX_PWR_JP_DEFAULT		16	/*50mW */
-> > +#define WLAN_TX_PWR_FR_DEFAULT		20	/*100mW */
-> > +#define WLAN_TX_PWR_EMEA_DEFAULT	20	/*100mW */
-> > +
-> > +/* Format { Channel, Frequency (MHz), MaxTxPower } */
-> > +/* Band: 'B/G', Region: USA FCC/Canada IC */
-> > +static struct chan_freq_power channel_freq_power_US_BG[] =3D {
-> > +	{1, 2412, WLAN_TX_PWR_US_DEFAULT},
-> > +	{2, 2417, WLAN_TX_PWR_US_DEFAULT},
-> > +	{3, 2422, WLAN_TX_PWR_US_DEFAULT},
-> > +	{4, 2427, WLAN_TX_PWR_US_DEFAULT},
-> > +	{5, 2432, WLAN_TX_PWR_US_DEFAULT},
-> > +	{6, 2437, WLAN_TX_PWR_US_DEFAULT},
-> > +	{7, 2442, WLAN_TX_PWR_US_DEFAULT},
-> > +	{8, 2447, WLAN_TX_PWR_US_DEFAULT},
-> > +	{9, 2452, WLAN_TX_PWR_US_DEFAULT},
-> > +	{10, 2457, WLAN_TX_PWR_US_DEFAULT},
-> > +	{11, 2462, WLAN_TX_PWR_US_DEFAULT}
-> > +};
-> > +
-> > +/* Band: 'B/G', Region: Europe ETSI */
-> > +static struct chan_freq_power channel_freq_power_EU_BG[] =3D {
-> > +	{1, 2412, WLAN_TX_PWR_EMEA_DEFAULT},
-> > +	{2, 2417, WLAN_TX_PWR_EMEA_DEFAULT},
-> > +	{3, 2422, WLAN_TX_PWR_EMEA_DEFAULT},
-> > +	{4, 2427, WLAN_TX_PWR_EMEA_DEFAULT},
-> > +	{5, 2432, WLAN_TX_PWR_EMEA_DEFAULT},
-> > +	{6, 2437, WLAN_TX_PWR_EMEA_DEFAULT},
-> > +	{7, 2442, WLAN_TX_PWR_EMEA_DEFAULT},
-> > +	{8, 2447, WLAN_TX_PWR_EMEA_DEFAULT},
-> > +	{9, 2452, WLAN_TX_PWR_EMEA_DEFAULT},
-> > +	{10, 2457, WLAN_TX_PWR_EMEA_DEFAULT},
-> > +	{11, 2462, WLAN_TX_PWR_EMEA_DEFAULT},
-> > +	{12, 2467, WLAN_TX_PWR_EMEA_DEFAULT},
-> > +	{13, 2472, WLAN_TX_PWR_EMEA_DEFAULT}
-> > +};
-> > +
-> > +/* Band: 'B/G', Region: Spain */
-> > +static struct chan_freq_power channel_freq_power_SPN_BG[] =3D {
-> > +	{10, 2457, WLAN_TX_PWR_DEFAULT},
-> > +	{11, 2462, WLAN_TX_PWR_DEFAULT}
-> > +};
-> > +
-> > +/* Band: 'B/G', Region: France */
-> > +static struct chan_freq_power channel_freq_power_FR_BG[] =3D {
-> > +	{10, 2457, WLAN_TX_PWR_FR_DEFAULT},
-> > +	{11, 2462, WLAN_TX_PWR_FR_DEFAULT},
-> > +	{12, 2467, WLAN_TX_PWR_FR_DEFAULT},
-> > +	{13, 2472, WLAN_TX_PWR_FR_DEFAULT}
-> > +};
-> > +
-> > +/* Band: 'B/G', Region: Japan */
-> > +static struct chan_freq_power channel_freq_power_JPN_BG[] =3D {
-> > +	{1, 2412, WLAN_TX_PWR_JP_DEFAULT},
-> > +	{2, 2417, WLAN_TX_PWR_JP_DEFAULT},
-> > +	{3, 2422, WLAN_TX_PWR_JP_DEFAULT},
-> > +	{4, 2427, WLAN_TX_PWR_JP_DEFAULT},
-> > +	{5, 2432, WLAN_TX_PWR_JP_DEFAULT},
-> > +	{6, 2437, WLAN_TX_PWR_JP_DEFAULT},
-> > +	{7, 2442, WLAN_TX_PWR_JP_DEFAULT},
-> > +	{8, 2447, WLAN_TX_PWR_JP_DEFAULT},
-> > +	{9, 2452, WLAN_TX_PWR_JP_DEFAULT},
-> > +	{10, 2457, WLAN_TX_PWR_JP_DEFAULT},
-> > +	{11, 2462, WLAN_TX_PWR_JP_DEFAULT},
-> > +	{12, 2467, WLAN_TX_PWR_JP_DEFAULT},
-> > +	{13, 2472, WLAN_TX_PWR_JP_DEFAULT},
-> > +	{14, 2484, WLAN_TX_PWR_JP_DEFAULT}
-> > +};
->=20
-> None of this looks libertas specific to me. Is it perhaps already
-> provided by the common code?
-
-Yeah, it is. I'll look into using generic code.
-
-Again, thanks!
