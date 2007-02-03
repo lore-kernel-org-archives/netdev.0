@@ -1,85 +1,82 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: 2.6.20-rc7: known regressions (v2) (part 1)
-Date: Sat, 03 Feb 2007 00:41:45 -0700
-Message-ID: <m1k5yz3cxy.fsf@ebiederm.dsl.xmission.com>
-References: <Pine.LNX.4.64.0701302019530.11095@woody.linux-foundation.org>
-	<20070203004447.GJ3754@stusta.de> <45C42669.2010105@intel.com>
+From: Michael Wu <flamingice@sourmilk.net>
+Subject: d80211-drivers pull request (week05)
+Date: Sat, 3 Feb 2007 03:01:27 -0500
+Message-ID: <200702030301.32123.flamingice@sourmilk.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Adrian Bunk <bunk@stusta.de>,
-	Adam Kropelin <akropel1@rochester.rr.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	jgarzik@pobox.com, alan@lxorguk.ukuu.org.uk,
-	Allen Parker <parker@isohunt.com>, jesse.brandeburg@intel.com,
-	gregkh@suse.de, linux-pci@atrey.karlin.mff.cuni.cz,
-	ebiederm@xmission.com, netdev@vger.kernel.org
-To: Auke Kok <auke-jan.h.kok@intel.com>
+Content-Type: multipart/signed;
+  boundary="nextPart2025744.r7lz0qS6cz";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Daniel Drake <dsd@gentoo.org>,
+	Ulrich Kunitz <kune@deine-taler.de>
+To: John Linville <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:44950 "EHLO
-	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1946379AbXBCHnH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Feb 2007 02:43:07 -0500
-In-Reply-To: <45C42669.2010105@intel.com> (Auke Kok's message of "Fri, 02 Feb
-	2007 22:06:33 -0800")
+Received: from smtp.rutgers.edu ([128.6.72.243]:63118 "EHLO
+	annwn14.rutgers.edu" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1946391AbXBCICF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 Feb 2007 03:02:05 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Auke Kok <auke-jan.h.kok@intel.com> writes:
+--nextPart2025744.r7lz0qS6cz
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-> Adrian Bunk wrote:
->> This email lists some known regressions in 2.6.20-rc7 compared to 2.6.19
->> that are not yet fixed in Linus' tree.
->>
->> If you find your name in the Cc header, you are either submitter of one
->> of the bugs, maintainer of an affectected subsystem or driver, a patch
->> of you caused a breakage or I'm considering you in any other way possibly
->> involved with one or more of these issues.
->
->
->> Subject    : e1000: 82571EB/82572EI PCI-E cards: link is always down
->>              (MSI related)
->> References : http://lkml.org/lkml/2007/1/16/27
->>              http://lkml.org/lkml/2007/1/17/182
->> Submitter  : Allen Parker <parker@isohunt.com>
->>              Adam Kropelin <akropel1@rochester.rr.com>
->> Handled-By : Auke Kok <auke-jan.h.kok@intel.com>
->> Status     : problem is being debugged
->
-> I probably can't fix this bug. Not only do I doubt that the e1000 driver is at
-> fault here, I don't have a system with this particular chipset. Most likely the
-> regression comes from a combination of MSI layer rewrites and possibly platform
-> issues. We've seen many reports that are similar and all are on the platform
-> type mentioned here. I really don't want to point fingers here either.
->
-> None of the MSI code in e1000 has changed significantly either. as far as I can
-> see, the msi code in e1000 has not changed since 2.6.18. Nonetheless there's no
-> way I can debug any of this without a system.
->
-> I will address the fact that we are lacking any of these systems to test on, but
-> that is not going to get this issue handled (not to mention soon) in the way it
-> needs to be.
->
-> I strongly encourage the people on the linux-pci list to help out, I'll trace
-> the e1000 driver for suspicious activity (again), but I run countless tests on
-> the latest trees and nothing has shown up recently, other than Eric Biederman's
-> msi irq reclaim leak fix.
->
-> Perhaps Adam can git-bisect this issue? Adam?
+Hi John,
 
-Do we have any explanation about the weird /proc/interrupts output?
-i.e. Multiple MSI irqs being assigned to the same card?
+Please pull
+git://git.kernel.org/pub/scm/linux/kernel/git/mwu/d80211-drivers.git
+for these patches:
 
-Does /sbin/ifconfig ethN down ; /sbin/ifconfig ethN up have anything to do
-with the duplication in /proc/interrupts?
+adm8211-week05 branch:
+Michael Wu (1):
+      adm8211: set MAC address properly
 
-I can't see any way for a pci device that doesn't support msi-x to be assigned
-multiple interrupts simultaneously.
+p54-week05 branch:
+Michael Wu (3):
+      p54: set MAC address properly
+      p54usb: silence warnings on BE
+      p54pci: make work for big endian
 
-I just skimmed through the code and there hasn't been any significant
-generic MSI work since 2.6.19.
+zd1211rw-week05 branch:
+Daniel Drake (3):
+      zd1211rw-d80211: Generic HMAC initialization
+      zd1211rw-d80211: Consistency for address space constants
+      zd1211rw-d80211: Remove addressing abstraction
 
-Did this device really work with MSI enabled in 2.6.19?
+Maxime Austruy (1):
+      zd1211rw-d80211: fix potential leak in usb_init
 
-Eric
+Michael Wu (1):
+      zd1211rw-d80211: Support for multicast addresses
+
+Ulrich Kunitz (2):
+      zd1211rw-d80211: Fixed array size issue in reset_mode
+      zd1211rw-d80211: Reset device in the probe call
+
+Common to all branches:
+Michael Wu (1):
+      Remove unnecessary includes and SET_MODULE_OWNER
+
+Patches ported from zd1211rw (softmac) now have the original author of the=
+=20
+patch set as the author in the commit when the "porting" was trivial.
+
+Thanks,
+=2DMichael Wu
+
+--nextPart2025744.r7lz0qS6cz
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.2 (GNU/Linux)
+
+iD8DBQBFxEFcT3Oqt9AH4aERAoOIAKC9kfg8lhamxrE6pVew79n3s9etsgCfWir5
+lKMdcIcCQI1HavNN/xZ7CZU=
+=pJcE
+-----END PGP SIGNATURE-----
+
+--nextPart2025744.r7lz0qS6cz--
