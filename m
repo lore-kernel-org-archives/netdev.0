@@ -1,155 +1,159 @@
 From: Ivo van Doorn <ivdoorn@gmail.com>
-Subject: Re: [PATCH 2/2] d80211: Add software sequence support
-Date: Sat, 3 Feb 2007 12:45:26 +0100
-Message-ID: <200702031245.27035.IvDoorn@gmail.com>
-References: <200701312016.52221.IvDoorn@gmail.com>
+Subject: [PATCH] eeprom_93cx6 little endian fix
+Date: Sat, 3 Feb 2007 14:18:49 +0100
+Message-ID: <200702031418.49975.IvDoorn@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
-  charset="iso-8859-1"
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "John Linville" <linville@tuxdriver.com>, netdev@vger.kernel.org
-To: Jiri Benc <jbenc@suse.cz>
+Cc: netdev@vger.kernel.org
+To: "John Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.187]:30069 "EHLO
+Received: from nf-out-0910.google.com ([64.233.182.187]:47150 "EHLO
 	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1423086AbXBCLpr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Feb 2007 06:45:47 -0500
-Received: by nf-out-0910.google.com with SMTP id o25so1541902nfa
-        for <netdev@vger.kernel.org>; Sat, 03 Feb 2007 03:45:45 -0800 (PST)
-In-Reply-To: <200701312016.52221.IvDoorn@gmail.com>
+	with ESMTP id S1752054AbXBCNTJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 Feb 2007 08:19:09 -0500
+Received: by nf-out-0910.google.com with SMTP id o25so1560690nfa
+        for <netdev@vger.kernel.org>; Sat, 03 Feb 2007 05:19:08 -0800 (PST)
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 31 January 2007 20:16, Ivo van Doorn wrote:
-> Most hardware can keep track of sequence numbers themselves,
-> unfortunately *most* doesn't cover all devices. ;)
-> This patch will keep track of the sequence number if the flag
-> IEEE80211_HW_SOFTWARE_SEQUENCE has been set.
-> 
-> Signed-off-by Ivo van Doorn <IvDoorn@gmail.com>
+This patch makes sure the multiread/multiwrite
+functions for eeprom_93cx6 work with little endian
+data. The singleread still works with host endian.
 
-Previous version had a small bug in it.
+Most drivers still want the multiread to work with little
+endian because this is used for data like the MAC address.
 
 Signed-off-by Ivo van Doorn <IvDoorn@gmail.com>
 
 ---
 
-diff -rNU3 dscape/include/net/d80211.h dscape_seq/include/net/d80211.h
---- dscape/include/net/d80211.h	2007-01-31 19:38:14.000000000 +0100
-+++ dscape_seq/include/net/d80211.h	2007-01-31 19:55:55.000000000 +0100
-@@ -534,6 +534,9 @@
- 	/* Does the device need the stack to create a RTS frame */
- #define IEEE80211_HW_SOFTWARE_RTS (1<<15)
+diff --git a/include/linux/eeprom_93cx6.h b/include/linux/eeprom_93cx6.h
+index 6cbf7c7..4b9be59 100644
+--- a/include/linux/eeprom_93cx6.h
++++ b/include/linux/eeprom_93cx6.h
+@@ -67,11 +67,11 @@ struct eeprom_93cx6 {
+ };
  
-+	/* Does the HOST need to insert the frame sequence counter */
-+#define IEEE80211_HW_SOFTWARE_SEQUENCE (1<<16)
-+
- 	u32 flags;			/* hardware flags defined above */
+ extern void eeprom_93cx6_read(struct eeprom_93cx6 *eeprom,
+-	const u8 word, __le16 *data);
++	const u8 word, u16 *data);
+ extern void eeprom_93cx6_multiread(struct eeprom_93cx6 *eeprom,
+ 	const u8 word, __le16 *data, const u16 words);
  
- 	/* Set to the size of a needed device specific skb headroom for TX skbs. */
-diff -rNU3 dscape/net/d80211/ieee80211.c dscape_seq/net/d80211/ieee80211.c
---- dscape/net/d80211/ieee80211.c	2007-01-31 19:41:18.000000000 +0100
-+++ dscape_seq/net/d80211/ieee80211.c	2007-02-03 12:42:25.000000000 +0100
-@@ -441,6 +441,7 @@
- 	size_t hdrlen, per_fragm, num_fragm, payload_len, left;
- 	struct sk_buff **frags, *first, *frag;
- 	int i;
-+	u16 seq;
-         u8 *pos;
- 	int frag_threshold = tx->local->fragmentation_threshold;
- 
-@@ -458,6 +459,7 @@
- 	if (!frags)
- 		goto fail;
- 
-+	seq = le16_to_cpu(hdr->seq_ctrl) & IEEE80211_SCTL_SEQ;
- 	hdr->frame_control |= cpu_to_le16(IEEE80211_FCTL_MOREFRAGS);
- 	pos = first->data + hdrlen + per_fragm;
- 	left = payload_len - per_fragm;
-@@ -486,7 +488,7 @@
- 		memcpy(fhdr, first->data, hdrlen);
- 		if (i == num_fragm - 2)
- 			fhdr->frame_control &= cpu_to_le16(~IEEE80211_FCTL_MOREFRAGS);
--		fhdr->seq_ctrl = cpu_to_le16(i + 1);
-+		fhdr->seq_ctrl = cpu_to_le16(seq + ((i + 1) & IEEE80211_SCTL_FRAG));
- 		copylen = left > per_fragm ? per_fragm : left;
- 		memcpy(skb_put(frag, copylen), pos, copylen);
- 
-@@ -933,6 +935,17 @@
- 	return TXRX_CONTINUE;
- }
- 
-+static ieee80211_txrx_result
-+ieee80211_tx_h_sequence(struct ieee80211_txrx_data *tx)
-+{
-+	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)tx->skb->data;
-+
-+	if ((tx->local->hw.flags & IEEE80211_HW_SOFTWARE_SEQUENCE) &&
-+	    ieee80211_get_hdrlen(le16_to_cpu(hdr->frame_control)) > 24)
-+		ieee80211_include_sequence(tx->local, hdr);
-+
-+	return TXRX_CONTINUE;
-+}
- 
- /* This function is called whenever the AP is about to exceed the maximum limit
-  * of buffered frames for power saving STAs. This situation should not really
-@@ -1806,6 +1819,10 @@
- 
- 	memcpy(skb_put(skb, bh_len), b_head, bh_len);
- 
-+	if (hw->flags & IEEE80211_HW_SOFTWARE_SEQUENCE)
-+		ieee80211_include_sequence(local,
-+			(struct ieee80211_hdr *)skb->data);
-+
- 	ieee80211_beacon_add_tim(local, ap, skb);
- 
- 	if (b_tail) {
-@@ -4323,6 +4340,7 @@
- static ieee80211_tx_handler ieee80211_tx_handlers[] =
+ extern void eeprom_93cx6_write(struct eeprom_93cx6 *eeprom,
+-	const u8 word, __le16 *data);
++	const u8 word, u16 data);
+ extern void eeprom_93cx6_multiwrite(struct eeprom_93cx6 *eeprom,
+ 	const u8 word, __le16 *data, const u16 words);
+diff --git a/lib/eeprom_93cx6.c b/lib/eeprom_93cx6.c
+index 122767e..e5d016b 100644
+--- a/lib/eeprom_93cx6.c
++++ b/lib/eeprom_93cx6.c
+@@ -203,14 +203,13 @@ static void eeprom_93cx6_ewds(struct eeprom_93cx6 *eeprom)
+  * @word: Word index from where we should start reading
+  * @data: target pointer where the information will have to be stored
+  *
+- * This function will read the eeprom data as little endian word
++ * This function will read the eeprom data as host-endian word
+  * into the given data pointer.
+  */
+ void eeprom_93cx6_read(struct eeprom_93cx6 *eeprom, const u8 word,
+-	__le16 *data)
++	u16 *data)
  {
- 	ieee80211_tx_h_check_assoc,
-+	ieee80211_tx_h_sequence,
- 	ieee80211_tx_h_ps_buf,
- 	ieee80211_tx_h_select_key,
- 	ieee80211_tx_h_michael_mic_add,
-@@ -4497,6 +4515,7 @@
+ 	u16 command;
+-	u16 buffer = 0;
  
- 	local->bridge_packets = 1;
+ 	/*
+ 	 * Initialize the eeprom register
+@@ -227,19 +226,12 @@ void eeprom_93cx6_read(struct eeprom_93cx6 *eeprom, const u8 word,
+ 	/*
+ 	 * Read the requested 16 bits.
+ 	 */
+-	eeprom_93cx6_read_bits(eeprom, &buffer, 16);
++	eeprom_93cx6_read_bits(eeprom, data, 16);
  
-+	local->seq_counter = 0;
- 	local->rts_threshold = IEEE80211_MAX_RTS_THRESHOLD;
- 	local->fragmentation_threshold = IEEE80211_MAX_FRAG_THRESHOLD;
- 	local->short_retry_limit = 7;
-diff -rNU3 dscape/net/d80211/ieee80211_i.h dscape_seq/net/d80211/ieee80211_i.h
---- dscape/net/d80211/ieee80211_i.h	2007-01-31 19:41:53.000000000 +0100
-+++ dscape_seq/net/d80211/ieee80211_i.h	2007-01-31 20:06:26.000000000 +0100
-@@ -405,6 +405,7 @@
- 	int *supp_rates[NUM_IEEE80211_MODES];
- 	int *basic_rates[NUM_IEEE80211_MODES];
- 
-+	u16 seq_counter;
- 	int rts_threshold;
- 	int cts_protect_erp_frames;
- 	int fragmentation_threshold;
-@@ -601,6 +602,20 @@
- 	spin_unlock_bh(&local->sta_lock);
+ 	/*
+ 	 * Cleanup eeprom register.
+ 	 */
+ 	eeprom_93cx6_cleanup(eeprom);
+-
+-	/*
+-	 * The data from the eeprom is stored as little endian,
+-	 * so we don't need to byteorder. To prevent sparse from
+-	 * complaining we need to force the type to __le16.
+-	 */
+-	*data = (__force __le16)buffer;
  }
+ EXPORT_SYMBOL_GPL(eeprom_93cx6_read);
  
-+static inline void ieee80211_include_sequence(struct ieee80211_local *local,
-+					      struct ieee80211_hdr *hdr)
-+{
-+	/*
-+	 * Set the sequence number for this frame.
-+	 */
-+	hdr->seq_ctrl = cpu_to_le16(local->seq_counter & IEEE80211_SCTL_SEQ);
-+
-+	/*
-+	 * Increase the sequence number.
-+	 */
-+	local->seq_counter = (local->seq_counter + 0x10) & IEEE80211_SCTL_SEQ;
-+}
-+
- /* ieee80211.c */
- void ieee80211_release_hw(struct ieee80211_local *local);
- int ieee80211_hw_config(struct ieee80211_local *local);
+@@ -252,14 +244,21 @@ EXPORT_SYMBOL_GPL(eeprom_93cx6_read);
+  *
+  * This function will read all requested words from the eeprom,
+  * this is done by calling eeprom_93cx6_read() multiple times.
++ * But with the additional change that while the eeprom_93cx6_read
++ * will return host ordered bytes, this method will return little
++ * endian words.
+  */
+ void eeprom_93cx6_multiread(struct eeprom_93cx6 *eeprom, const u8 word,
+ 	__le16 *data, const u16 words)
+ {
+ 	unsigned int i;
++	u16 tmp;
+ 
+-	for (i = 0; i < words; i++)
+-		eeprom_93cx6_read(eeprom, word + i, data++);
++	for (i = 0; i < words; i++) {
++		tmp = 0;
++		eeprom_93cx6_read(eeprom, word + i, &tmp);
++		data[i] = cpu_to_le16(tmp);
++	}
+ }
+ EXPORT_SYMBOL_GPL(eeprom_93cx6_multiread);
+ 
+@@ -267,13 +266,13 @@ EXPORT_SYMBOL_GPL(eeprom_93cx6_multiread);
+  * eeprom_93cx6_write - Write multiple words to the eeprom
+  * @eeprom: Pointer to eeprom structure
+  * @word: Word index from where we should start writing
+- * @data: Pointer where the information will be read from
++ * @data: Data that will be written
+  *
+- * This function will write the eeprom data as little endian word
++ * This function will write the eeprom data as host-endian word
+  * from the given data pointer.
+  */
+ void eeprom_93cx6_write(struct eeprom_93cx6 *eeprom, const u8 word,
+-	__le16 *data)
++	u16 data)
+ {
+ 	u16 command;
+ 
+@@ -297,7 +296,7 @@ void eeprom_93cx6_write(struct eeprom_93cx6 *eeprom, const u8 word,
+ 	/*
+ 	 * Write the requested 16 bits.
+ 	 */
+-	eeprom_93cx6_write_bits(eeprom, (__force u16)*data, 16);
++	eeprom_93cx6_write_bits(eeprom, data, 16);
+ 
+ 	/*
+ 	 * Cleanup eeprom register.
+@@ -331,6 +330,8 @@ EXPORT_SYMBOL_GPL(eeprom_93cx6_write);
+  *
+  * This function will write all requested words to the eeprom,
+  * this is done by calling eeprom_93cx6_write() multiple times.
++ * This method accepts little endian data, so it will first be
++ * converted into host endian.
+  */
+ void eeprom_93cx6_multiwrite(struct eeprom_93cx6 *eeprom, const u8 word,
+ 	__le16 *data, const u16 words)
+@@ -338,6 +339,6 @@ void eeprom_93cx6_multiwrite(struct eeprom_93cx6 *eeprom, const u8 word,
+ 	unsigned int i;
+ 
+ 	for (i = 0; i < words; i++)
+-		eeprom_93cx6_write(eeprom, word + i, data++);
++		eeprom_93cx6_write(eeprom, word + i, le16_to_cpu(data[i]));
+ }
+ EXPORT_SYMBOL_GPL(eeprom_93cx6_multiwrite);
