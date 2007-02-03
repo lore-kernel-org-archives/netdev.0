@@ -1,65 +1,52 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: 2.6.20-rc7: known regressions (v2) (part 1)
-Date: Sat, 03 Feb 2007 15:24:03 -0700
-Message-ID: <m1wt2yzxq4.fsf@ebiederm.dsl.xmission.com>
-References: <Pine.LNX.4.64.0701302019530.11095@woody.linux-foundation.org>
-	<20070203004447.GJ3754@stusta.de> <45C42669.2010105@intel.com>
-	<m1k5yz3cxy.fsf@ebiederm.dsl.xmission.com>
-	<089b01c747be$0ca22620$84163e05@kroptech.com>
-	<45C4F3F1.6060500@intel.com>
-	<093c01c747d6$45f9a2f0$84163e05@kroptech.com>
-	<45C4FDF4.4060002@intel.com>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: [PATCH] sky2: flow control off
+Date: Sat, 3 Feb 2007 23:32:31 +0100
+Message-ID: <20070203223231.GG24090@1wt.eu>
+References: <20070202153425.2d979fd4@freekitty>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Adam Kropelin <akropel1@rochester.rr.com>,
-	Adrian Bunk <bunk@stusta.de>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	jgarzik@pobox.com, alan@lxorguk.ukuu.org.uk,
-	Allen Parker <parker@isohunt.com>, jesse.brandeburg@intel.com,
-	gregkh@suse.de, linux-pci@atrey.karlin.mff.cuni.cz,
-	netdev@vger.kernel.org
-To: Auke Kok <auke-jan.h.kok@intel.com>
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:53994 "EHLO
-	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751649AbXBCWZa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Feb 2007 17:25:30 -0500
-In-Reply-To: <45C4FDF4.4060002@intel.com> (Auke Kok's message of "Sat, 03 Feb
-	2007 13:26:12 -0800")
+Received: from 1wt.eu ([62.212.114.60]:2238 "EHLO 1wt.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751741AbXBCWcl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 3 Feb 2007 17:32:41 -0500
+Content-Disposition: inline
+In-Reply-To: <20070202153425.2d979fd4@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Auke Kok <auke-jan.h.kok@intel.com> writes:
+Hi Stephen,
 
-> that's explained by a driver change that did that. Since at initialization we're
-> basically waiting for a link change to tell the stack that we're up, we decided
-> to change the order to have the hardware fire an LSI interrupt to trigger a
-> watchdog run. So no interrupts would immediately explain why the watchdog never
-> runs. That's nothing to worry about for this problem, as soon as interrupts are
-> seen in /proc/interrupts this all starts working for e1000.
+On Fri, Feb 02, 2007 at 03:34:25PM -0800, Stephen Hemminger wrote:
+> Turn flow control off for sky2. When flow control is on, the transmitter
+> may get randomly stuck. Perhaps there is hardware problem, but until
+> Marvell provides errata information for workaround, it should default to off.
 
+Are you aware of any way to reproduce or at least to increases chances
+of occurrences of this problem ? It looks much like a problem I've been
+experiencing with Marvell's driver with a 88E8053 chip on 2.4. Doing
+"ethtool -r" proved useful to reset the transceiver in production.
 
-While I think we need to fix this issue, and in general the issue of MSI
-interrupts on PCI-Express busses downstream of hypertransport chains.
-This e1000 issue is not a regression, so not fixing it for 2.6.20 is
-not a big deal.
+When trying to reproduce the problem, I noticed corrupted and duplicated
+frames in tcpdump captures when packets between 147 and 496 bytes were
+received then re-routed via the same NIC towards a 100 Mbps machine on
+the same switch, a Gig Dlink doing flow control. Yes, I know, there are
+a lot of variables ! But changing the target machine, or the packet
+sizes was enough to stop the corruption. I could not get the transmitter
+stuck as I sometimes have in production, but I think that both problems
+are related. The fact that a comparable problem is encountered with your
+driver really makes me think about a hardware bug :-/
 
-I have yet to see all of the pieces I'm trying to look at confirmed,
-but I believe by at least looking at the hypertransport MSI mapping
-capability's enable bit in general we should be able to do a much
-better job of detecting if MSI works in a system or not.
+BTW, switching to your driver (sky2-1.5), I could not reproduce the
+corruption problem anymore, but I've not yet put it in production
+to check if it fixes the transceiver problem. Anyway, it might be
+interesting that users who encounter this problem try an old version
+of the driver just in case they detect a difference.
 
-I though someone several months ago had made our MSI supported detect logic
-a lot smarter, with defaults that were generally correct, but looking
-at the kernel that code apparently never made it anywhere.  Instead
-all I see are a handful of common chipsets special cased by the quirk logic.
+regards,
+Willy
 
-We should be able to do a lot better but not in the 2.6.20 time frame.
-
-As for the original problem report with duplicate MSI interrupts in
-/proc/interrupts.  That sounds like a regression and is probably
-simple to fix if we can get some more details.
-
-Eric
