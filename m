@@ -1,117 +1,79 @@
-From: Shinta Sugimoto <shinta@sfc.wide.ad.jp>
-Subject: Re: [RFC][PATCH][XFRM][0/5] extension for XFRM databases
-Date: Sat, 03 Feb 2007 09:28:17 +0900
-Message-ID: <20070203085225.E309.SHINTA@sfc.wide.ad.jp>
-References: <20070202132129.E2EA.SHINTA@sfc.wide.ad.jp> <1170423351.4000.42.camel@localhost>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: 2.6.20-rc7: known regressions (v2) (part 1)
+Date: Sat, 3 Feb 2007 01:44:47 +0100
+Message-ID: <20070203004447.GJ3754@stusta.de>
+References: <Pine.LNX.4.64.0701302019530.11095@woody.linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Francis Dupont <Francis.Dupont@point6.net>,
-	Masahide Nakamura <nakam@linux-ipv6.org>,
-	usagi-core@linux-ipv6.org
-To: hadi@cyberus.ca
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.sfc.wide.ad.jp ([203.178.142.146]:38125 "EHLO
-	mail.sfc.wide.ad.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1946166AbXBCA20 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Feb 2007 19:28:26 -0500
-In-Reply-To: <1170423351.4000.42.camel@localhost>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Andrew Vasquez <andrew.vasquez@qlogic.com>,
+	Jens Axboe <jens.axboe@oracle.com>,
+	Gerhard Dirschl <gd@spherenet.de>,
+	Luca Tettamanti <kronos.it@gmail.com>,
+	Christoph Hellwig <hch@lst.de>, petero2@telia.com,
+	jgarzik@pobox.com, linux-ide@vger.kernel.org,
+	alan@lxorguk.ukuu.org.uk, Allen Parker <parker@isohunt.com>,
+	Adam Kropelin <akropel1@rochester.rr.com>,
+	Auke Kok <auke-jan.h.kok@intel.com>, cramerj@intel.com,
+	john.ronciak@intel.com, jesse.brandeburg@intel.com,
+	jeffrey.t.kirsher@intel.com, gregkh@suse.de,
+	linux-pci@atrey.karlin.mff.cuni.cz, ebiederm@xmission.com,
+	mingo@redhat.com, netdev@vger.kernel.org,
+	Livio Soares <livio@eecg.toronto.edu>,
+	Paul Mackerras <paulus@samba.org>, anton@samba.org,
+	linuxppc-dev@ozlabs.org
+To: Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-ide-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.64.0701302019530.11095@woody.linux-foundation.org>
+Sender: linux-ide-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello Jamal,
+This email lists some known regressions in 2.6.20-rc7 compared to 2.6.19
+that are not yet fixed in Linus' tree.
 
-Thank you for your feedback. Please find my comments inline.
+If you find your name in the Cc header, you are either submitter of one
+of the bugs, maintainer of an affectected subsystem or driver, a patch
+of you caused a breakage or I'm considering you in any other way possibly
+involved with one or more of these issues.
 
-On Fri, 02 Feb 2007 08:35:51 -0500
-jamal <hadi@cyberus.ca> wrote:
-
-> Hello,
-> 
-> On Fri, 2007-02-02 at 20:25 +0900, Shinta Sugimoto wrote:
-> 
-> > In the design phase, we sorted out the requirements as below:
-> > 
-> > (1) Overhead of userland <-> kernel interaction message exchange
-> >     should be kept minimum.
-> > (2) There should not be too much requirement for user application
-> >     to leverage the feature (dynamic update of endpoint).  More
-> >     specifically, we don't want to expect the user application to
-> >     have detailed information of IPsec security association
-> >     (i.e. SPI).
-> > (3) There should not be negative impact on the existing software
-> >     which is based on PF_KEYv2 (RFC2367).
-> > 
-> > Firstly, if we use the existing messages for updating SPD and SAD,
-> > we simply need 2 pairs of request/response exchange between the
-> > userland and kernel for updating a single endpoint.  This is not
-> > ideal from the perspective of (1).
-> 
-> Ok, if i understand you correctly:
-> Instead of having from userland one message for updating SAD and another
-> for updating SPD, you have a single message which updates both?
-
-Yes.  A XFRM_MSG_MIGRATE message can update an SPD entry and associated
-SAD entries (if any) at a time.
-
-> 
-> > Secondly, we need to be careful about updating the endpoint address
-> > because it may invoke unexpected signaling (ACQUIRE) to the user
-> > application.  Imagine you update SPD and SAD sequentially while there
-> > is an outbound flow going on.  The kernel may end up with triggering
-> > the userland application by unexpected ACQUIRE message due to the
-> > absence of SAD entry.  In order to avoid this problem, we need a sort
-> > of atomic update of SPD and SAD entries.  XFRM_MSG_MIGRATE is designed
-> > and implemented in a way that unexpected ACQUIRE would never occur.
-> > 
-> 
-> Ok, this is sensible - it could be achieved with two multipart messages
-> in netlink; but a single message is better.
-> 
-> > Thirdly, we also need to pay attention to the PF_KEYv2 spec.
-> > XFRM_MSG_UPDSA is derived from SADB_UPDATE message in PF_KEYv2.
-> > According to the spec, the semantics of SADB_UPDATE is to add a new
-> > security association with the information provided by previous
-> > SADB_GETSPI message.  We think it's not a good idea to overload
-> > the semantics of SADB_UPDATE message because it may confuse legacy
-> > software from the perspective of (3).  Moreover, caller of
-> > SADB_UPDATE should specify SPI, source address, and destination
-> > address, which is a bit problematic from the perspective of (2).
-> > 
-> 
-> 
-> We really dont have this issue with xfrm side.
-> I think that PF_KEYv2 is just a dinosaur that needs to be extinct.
-> Continuing to bandaid around it is converting into a mammoth.
-> I found your first two explanation more reasonable, but not this one.
-> 
-> > From the above reasons, we decided to extend XFRM/PF_KEYv2 for
-> > dynamic update of the endpoint.  Please note that the mechanism is
-> > useful not only for Mobile IPv6 but also for Mobile VPN scenario.
-> > 
-> 
-> Can you explain what you mean by this last part? There are many ways to
-> achieve mobile VPN - is the end client aware?
-
-By "Mobile VPN", I meant a VPN scenario where clients roam around
-subnets and continue changing its attachment point to the Internet
-(aka roadwarrior).  In such case, both client and SGW need to update
-endpoint address of the security association.  When the endpoint address
-of client side is updated, instead of re-establishing the security
-association from scratch, the client may inform the SGW of its new
-endpoint address.  This is what MOBIKE (RFC4555) does.  So, just like
-in the case of Mobile IPv6, endpoint address management of IPsec
-databases is necessary and XFRM_MSG_MIGRATE message can be used.
-
-> 
-> > Does this make sense?
-> 
-> Yes, I think I see the logic behind your design. To be 100% convinced,
-> depends if your answer to the first question i asked is "yes".
-
-Ok, thanks.
+Due to the huge amount of recipients, please trim the Cc when answering.
 
 
-Regards,
-Shinta
+Subject    : NULL pointer dereference at as_move_to_dispatch()
+References : http://lkml.org/lkml/2007/1/22/141
+Submitter  : Andrew Vasquez <andrew.vasquez@qlogic.com>
+Status     : unknown
 
+
+Subject    : pktcdvd doesn't work with libata pata drivers
+             (caused by scsi_lib and pktcdvd patches)
+References : http://bugzilla.kernel.org/show_bug.cgi?id=7810
+             http://lkml.org/lkml/2007/1/25/128
+             http://bugzilla.kernel.org/show_bug.cgi?id=7910
+             http://lkml.org/lkml/2007/1/30/289
+Submitter  : Gerhard Dirschl <gd@spherenet.de>
+             Luca Tettamanti <kronos.it@gmail.com>
+Caused-By  : Christoph Hellwig <hch@lst.de>
+             commit 3b00315799d78f76531b71435fbc2643cd71ae4c
+             commit 406c9b605cbc45151c03ac9a3f95e9acf050808c
+Status     : unknown
+
+
+Subject    : e1000: 82571EB/82572EI PCI-E cards: link is always down
+             (MSI related)
+References : http://lkml.org/lkml/2007/1/16/27
+             http://lkml.org/lkml/2007/1/17/182
+Submitter  : Allen Parker <parker@isohunt.com>
+             Adam Kropelin <akropel1@rochester.rr.com>
+Handled-By : Auke Kok <auke-jan.h.kok@intel.com>
+Status     : problem is being debugged
+
+
+Subject    : powerpc64: performance monitor exception
+References : http://ozlabs.org/pipermail/linuxppc-dev/2007-January/030045.html
+Submitter  : Livio Soares <livio@eecg.toronto.edu>
+Caused-By  : Paul Mackerras <paulus@samba.org>
+             commit d04c56f73c30a5e593202ecfcf25ed43d42363a2
+Status     : unknown
