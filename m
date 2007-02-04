@@ -1,44 +1,56 @@
-From: "Parag Warudkar" <parag.warudkar@gmail.com>
-Subject: Re: Unexpected Acknowledgement / Stalled Connections
-Date: Sun, 4 Feb 2007 17:56:55 -0500
-Message-ID: <82e4877d0702041456u5d30d32bs41233048a1833d59@mail.gmail.com>
-References: <82e4877d0702041431p555e644et35845db674304403@mail.gmail.com>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [Cbe-oss-dev] spidernet: dynamic phy setup code
+Date: Mon, 05 Feb 2007 10:44:32 +1100
+Message-ID: <1170632672.2620.47.camel@localhost.localdomain>
+References: <200702010805.l11853LX014768@toshiba.co.jp>
+	<200702011204.30526.jens@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.234]:57440 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752593AbXBDW44 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Feb 2007 17:56:56 -0500
-Received: by wx-out-0506.google.com with SMTP id h31so1445247wxd
-        for <netdev@vger.kernel.org>; Sun, 04 Feb 2007 14:56:56 -0800 (PST)
-In-Reply-To: <82e4877d0702041431p555e644et35845db674304403@mail.gmail.com>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org, jgarzik@pobox.com,
+	jim@jklewis.com
+To: Jens Osterkamp <jens@de.ibm.com>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+In-Reply-To: <200702011204.30526.jens@de.ibm.com>
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-On 2/4/07, Parag Warudkar <parag.warudkar@gmail.com> wrote:
-> I am running 2.6.20 and have trouble with stalled connections. For
-> instance, if I try to download a debian ISO image using wget, the
-> connection runs fine for few seconds and then stalls for ever.
->
-> In my router logs I see a ton of messages like the below -
->
-> [INFO] Sun Feb 04 17:22:03 2007 Blocked incoming TCP packet from
-> 192.168.0.174:34090 to 130.239.18.138:80 with unexpected
-> acknowledgement 3269301836 (expected 3269343453 to 3269408989)
->
-> Where 192.168.0.174 is my laptop running FC6 and kernel 2.6.20 and
-> 130.239.18.138 is whatever cdimage.debian.org resolves to atm.
->
-> What's going on here? Any TCP/IP tunable that I can set/turn on/off to
-> prevent this from happening?
+On Thu, 2007-02-01 at 12:04 +0100, Jens Osterkamp wrote:
+> Ishizaki-san,
+> 
+> > This patch partially works on celleb but remains 
+> > following several problems.
+> > 1. It doesn't recover once an ethernet cable which is
+> >    connected to a spider_net card is unpluged. 
+> 
+> My understanding is that you are using the LINK interrupt to detect this.
+> For the blade this is not connected but reenabling it wont hurt, I hope.
 
-Turning tcp_sack off seems to cure it. Turning it on again makes the
-connections stall. Seems like the D-Link router doesn't like the SACKs
-linux sends?
+I would suggest just polling from a delayed work or a timer like sungem
+does.
 
-Parag
+> I still dont see why you need different settings for different speed switches.
+> This is getting to a point where access to some hardware would be handy.
+> What exact phy are using anyway ?
+
+Yeah, same question...
+
+> > Furthermore, we have a problem that poll_link() may succeed even when
+> > the auto-neg initial setting is for different network switch type,
+> > and the network card does not work on this case. We retry auto-neg
+> > with the another initial setting on this case.
+> 
+> See above, could you give some more details why this is the case. Or maybe Ben
+> knows more about this ?
+
+No, I'm surprised too.
+
+Ben.
