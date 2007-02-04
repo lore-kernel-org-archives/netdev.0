@@ -1,51 +1,44 @@
-From: "Thomas Hisch" <t.hisch@gmail.com>
-Subject: Re: [PATCH] ipv4: remove a call to skb_queue_len() in inet_diag.c
-Date: Sun, 4 Feb 2007 21:41:35 +0100
-Message-ID: <8ef77f2e0702041241y97d5906pb217c2fb984daab1@mail.gmail.com>
-References: <Pine.LNX.4.64.0612311547200.30821@localhost.localdomain>
-	 <20070204142921.GA5787@unknown-00-0d-60-79-ca-00.lan>
-	 <20070204.122348.38681159.davem@davemloft.net>
+From: "Parag Warudkar" <parag.warudkar@gmail.com>
+Subject: Re: Unexpected Acknowledgement / Stalled Connections
+Date: Sun, 4 Feb 2007 17:56:55 -0500
+Message-ID: <82e4877d0702041456u5d30d32bs41233048a1833d59@mail.gmail.com>
+References: <82e4877d0702041431p555e644et35845db674304403@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.174]:5759 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752551AbXBDUlj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Feb 2007 15:41:39 -0500
-Received: by ug-out-1314.google.com with SMTP id 44so1149479uga
-        for <netdev@vger.kernel.org>; Sun, 04 Feb 2007 12:41:37 -0800 (PST)
-In-Reply-To: <20070204.122348.38681159.davem@davemloft.net>
+Received: from wx-out-0506.google.com ([66.249.82.234]:57440 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752593AbXBDW44 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Feb 2007 17:56:56 -0500
+Received: by wx-out-0506.google.com with SMTP id h31so1445247wxd
+        for <netdev@vger.kernel.org>; Sun, 04 Feb 2007 14:56:56 -0800 (PST)
+In-Reply-To: <82e4877d0702041431p555e644et35845db674304403@mail.gmail.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 2/4/07, David Miller <davem@davemloft.net> wrote:
-> From: Thomas Hisch <t.hisch@gmail.com>
-> Date: Sun, 4 Feb 2007 15:29:21 +0100
+On 2/4/07, Parag Warudkar <parag.warudkar@gmail.com> wrote:
+> I am running 2.6.20 and have trouble with stalled connections. For
+> instance, if I try to download a debian ISO image using wget, the
+> connection runs fine for few seconds and then stalls for ever.
 >
-> > remove unneeded call to skb_queue_len (skb_dequeue already checks queuelen) and
-> > replace a sizeof() by a Netlink Macro
-> >
-> > Signed-off-by: Thomas Hisch <t.hisch@gmail.com>
+> In my router logs I see a ton of messages like the below -
 >
-> You don't understand the code you are editing :-)
+> [INFO] Sun Feb 04 17:22:03 2007 Blocked incoming TCP packet from
+> 192.168.0.174:34090 to 130.239.18.138:80 with unexpected
+> acknowledgement 3269301836 (expected 3269343453 to 3269408989)
 >
-> We want to process the number of packets present when we
-> start the function, other threads can add more packets to
-> the queue meanwhile and we don't want to keep dequeueing
-> in that case or else we can theoretically run forever with
-> a fast enough producer.
+> Where 192.168.0.174 is my laptop running FC6 and kernel 2.6.20 and
+> 130.239.18.138 is whatever cdimage.debian.org resolves to atm.
 >
-> Also, please post all networking patches to netdev@vger.kernel.org,
-> the majority of the networking developers do not read linux-kernel.
->
-> Thank you.
->
-thanks for the advice. next time i should look more closely at the code ;)
+> What's going on here? Any TCP/IP tunable that I can set/turn on/off to
+> prevent this from happening?
 
-i thought that this was a candidate for a cleanup as no other netlink
-protocol used such a while loop condition.
+Turning tcp_sack off seems to cure it. Turning it on again makes the
+connections stall. Seems like the D-Link router doesn't like the SACKs
+linux sends?
 
-Thomas.
+Parag
