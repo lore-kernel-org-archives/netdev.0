@@ -1,46 +1,58 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: Wireless network card capabilities
-Date: Sun, 04 Feb 2007 13:43:05 +0100
-Message-ID: <1170592985.23273.1.camel@johannes.berg>
-References: <45C5B892.3000507@superbug.co.uk>
+From: Thomas Hisch <t.hisch@gmail.com>
+Subject: [PATCH] ipv4: remove a call to skb_queue_len() in inet_diag.c
+Date: Sun, 4 Feb 2007 16:34:54 +0100
+Message-ID: <20070204153454.GA6098@unknown-00-0d-60-79-ca-00.lan>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-oAE4JytiqDi9nIIKojQj"
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
-To: James Courtier-Dutton <James@superbug.co.uk>
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:35778 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752249AbXBDMn7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Feb 2007 07:43:59 -0500
-In-Reply-To: <45C5B892.3000507@superbug.co.uk>
+Received: from ug-out-1314.google.com ([66.249.92.172]:4510 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752388AbXBDPfD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Feb 2007 10:35:03 -0500
+Received: by ug-out-1314.google.com with SMTP id 44so1106265uga
+        for <netdev@vger.kernel.org>; Sun, 04 Feb 2007 07:35:01 -0800 (PST)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---=-oAE4JytiqDi9nIIKojQj
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+remove unneeded call to skb_queue_len (skb_dequeue already checks queuelen) and
+replace a sizeof() by a Netlink Macro
 
-James,
+Signed-off-by: Thomas Hisch <t.hisch@gmail.com>
+---
 
-> Can Wireless network cards receive and transmit on two channels at once?
+sorry, my previous version of this patch didn't conform to the Codingstyle document.
+now everything should be fine.
 
-No cards that I know of contain two PHYs which would (afaict) be
-required for this.
+ net/ipv4/inet_diag.c |    5 ++---
+ 1 files changed, 2 insertions(+), 3 deletions(-)
 
-johannes
-
---=-oAE4JytiqDi9nIIKojQj
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iD8DBQBFxdTY/ETPhpq3jKURAuEoAJ9MRrrn+PYp5VCLgqyF/nGk4Ox5ywCfXhD7
-/BbHTW4gXC2/ZCkS5Tb2SYE=
-=utr4
------END PGP SIGNATURE-----
-
---=-oAE4JytiqDi9nIIKojQj--
-
+diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
+index 77761ac..9cf27c7 100644
+--- a/net/ipv4/inet_diag.c
++++ b/net/ipv4/inet_diag.c
+@@ -846,7 +846,7 @@ static inline void inet_diag_rcv_skb(struct sk_buff *skb)
+ 		int err;
+ 		struct nlmsghdr *nlh = (struct nlmsghdr *)skb->data;
+ 
+-		if (nlh->nlmsg_len < sizeof(*nlh) ||
++		if (nlh->nlmsg_len < NLMSG_HDRLEN ||
+ 		    skb->len < nlh->nlmsg_len)
+ 			return;
+ 		err = inet_diag_rcv_msg(skb, nlh);
+@@ -858,9 +858,8 @@ static inline void inet_diag_rcv_skb(struct sk_buff *skb)
+ static void inet_diag_rcv(struct sock *sk, int len)
+ {
+ 	struct sk_buff *skb;
+-	unsigned int qlen = skb_queue_len(&sk->sk_receive_queue);
+ 
+-	while (qlen-- && (skb = skb_dequeue(&sk->sk_receive_queue))) {
++	while ((skb = skb_dequeue(&sk->sk_receive_queue)) != NULL) {
+ 		inet_diag_rcv_skb(skb);
+ 		kfree_skb(skb);
+ 	}
+-- 
+1.5.0.rc3.22.g5057
