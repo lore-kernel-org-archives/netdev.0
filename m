@@ -1,85 +1,52 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: No Subject
-Date: Sun, 04 Feb 2007 15:37:07 +1100
-Message-ID: <1170563828.2620.16.camel@localhost.localdomain>
-References: <200702010754.l117s2T8003383@toshiba.co.jp>
+From: "Adam Kropelin" <akropel1@rochester.rr.com>
+Subject: Re: 2.6.20-rc7: known regressions (v2) (part 1)
+Date: Sat, 3 Feb 2007 23:44:07 -0500
+Message-ID: <09ba01c74817$1ae12980$84163e05@kroptech.com>
+References: <Pine.LNX.4.64.0701302019530.11095@woody.linux-foundation.org> <20070203004447.GJ3754@stusta.de> <45C42669.2010105@intel.com> <m1k5yz3cxy.fsf@ebiederm.dsl.xmission.com> <089b01c747be$0ca22620$84163e05@kroptech.com> <45C4F3F1.6060500@intel.com> <m1ejp70wu0.fsf@ebiederm.dsl.xmission.com> <098001c747e9$d8931b60$84163e05@kroptech.com> <m1ps8qzpte.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+	format=flowed;
+	charset="iso-8859-1";
+	reply-type=original
 Content-Transfer-Encoding: 7bit
-Cc: jens@de.ibm.com, linuxppc-dev@ozlabs.org, netdev@vger.kernel.org
-To: kou.ishizaki@toshiba.co.jp
+Cc: "Auke Kok" <auke-jan.h.kok@intel.com>,
+	"Adrian Bunk" <bunk@stusta.de>,
+	"Linus Torvalds" <torvalds@linux-foundation.org>,
+	"Andrew Morton" <akpm@linux-foundation.org>,
+	"Linux Kernel Mailing List" <linux-kernel@vger.kernel.org>,
+	<jgarzik@pobox.com>, <alan@lxorguk.ukuu.org.uk>,
+	"Allen Parker" <parker@isohunt.com>, <jesse.brandeburg@intel.com>,
+	<gregkh@suse.de>, <linux-pci@atrey.karlin.mff.cuni.cz>,
+	<netdev@vger.kernel.org>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:43100 "EHLO gate.crashing.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752037AbXBDEh1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 3 Feb 2007 23:37:27 -0500
-In-Reply-To: <200702010754.l117s2T8003383@toshiba.co.jp>
+Received: from ms-smtp-04.nyroc.rr.com ([24.24.2.58]:44137 "EHLO
+	ms-smtp-04.nyroc.rr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752056AbXBDEpM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 Feb 2007 23:45:12 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Eric W. Biederman wrote:
+> "Adam Kropelin" <akropel1@rochester.rr.com> writes:
+>
+>>> Can I get the corresponding lspci -xxx output.  I suspect the BIOS
+>>> did not program the hypertransport MSI mapping capabilities
+>>> correctly. All it has to do is set the enable but still,
+>>> occasionally BIOS writers miss the most amazing things.
+>>
+>> Here you go. This is from 2.6.20-rc7.
+>
+> Thanks.  Conclusion.  I could not find bit 16 (the enable bit) set in
+> any of your hypertransport msi mapping capabilities.
+>
+> So MSI interrupts won't work until someone enables your chipset
+> to transform them into hypertransport interrupts.
 
-> We need to use different auto-neg initial settings between
-> for 10/100Mbps ethernet switches and for Gbps ethernet switches.
+Naive question... Can the pci layer (or e1000) detect that MSI is not 
+enabled in the hardware and avoid using it in that case? With the number 
+of MSI problems showing up it seems risky to assume it's usable on any 
+given platform without some sort of sanity check.
 
-That is strange ! What PHY chip are you using ? Are you sure it's not
-just you not properly configuring the PHY ? Is the datasheet for the PHY
-available somewhere ?
-
-> Driver don't know which type of network switch is connected to
-> network card, so we try both settings alternately in auto negtiation
-> sequences by using a variable "is1000".
-
-sungem has an autoneg sequence that falls back to forced speeds but it's
-not useful on any modern setup. Your PHY should be perfectly capable to
-autoneg on both 1000bT and 10/100bT...
-
-> Furthermore, we have a problem that poll_link() may succeed even when
-> the auto-neg initial setting is for different network switch type,
-> and the network card does not work on this case. We retry auto-neg
-> with the another initial setting on this case.
-
-Ugh ? What is that initial setting bit exactly ? If the link is up, it
-should work.
-
-> >- spider_net_write_reg(card, SPIDER_NET_GMACST,
-> >-        spider_net_read_reg(card, SPIDER_NET_GMACST));
-> >- spider_net_write_reg(card, SPIDER_NET_GMACINTEN, 0x4);
-> 
-> These codes are enabling LINK status interrupt which is disabled
-> at the beginning of auto-neg.
-> Without this operation, auto negotiation works only when a connection
-> detected for the first time, and auto negotiation will not work 
-> when an ethernet cable is unpluged or pluged.
-
-Most drivers poll the link rather than use an interrupt as those are
-often unreliable.
-
-> (3)
-> >- mii_phy_probe(phy, phy->mii_id);
-> It seems that PHY reset is necessary before auto negotiation,
-> after a link once went down.
-
-It shouldn't be... again, what PHY are you using ?
-
-> We can't call directly reset routine from driver, so we call
-> mii_phy_probe().
-
-If you really need to reset it, then change sungem_phy.c to export the
-reset function. But I'm surprised you need that. Another option is to
-reset the PHY in your PHY's setup_aneg() function.
-
-> We are still developping the patch as we noted, and we are considering
-> to call mii_phy_probe() from spider_net_setup_aneg(), or to call
-> reset_one_mii_phy() from bcm54xx_setup_aneg().
-> 
-> We think these (1)-(3) are necessary, but we are afraid that you removed
-> them
-> by a reason that they causes some trouble in Cell Blade. If so please
-> tell us.
-
-You might want to borrow the link state machine from sungem.c instead...
-it tends to just work :-)
-
-Ben.
-
+--Adam
 
