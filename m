@@ -1,75 +1,70 @@
-From: "Steve Hill" <steve.hill@dialogic.com>
-Subject: RE: [Lksctp-developers] Fw: Intermittent SCTP multihoming breakage
-Date: Mon, 5 Feb 2007 12:26:14 -0500
-Message-ID: <E096369D937D3A4DB271B382850C5C5F44E71C@pysmail.eicon.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH] sky2: flow control off
+Date: Mon, 5 Feb 2007 09:22:53 -0800
+Message-ID: <20070205092253.4d8a8f74@freekitty>
+References: <20070202153425.2d979fd4@freekitty>
+	<20070203223231.GG24090@1wt.eu>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>,
-	<lksctp-developers@lists.sourceforge.net>,
-	"Sridhar Samudrala" <sri@us.ibm.com>
-To: "Vlad Yasevich" <vladislav.yasevich@hp.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Willy Tarreau <w@1wt.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from montreal.eicon.com ([192.219.17.124]:37986 "EHLO
-	EICONMTL.eicon.com" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S1752037AbXBERZ3 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Feb 2007 12:25:29 -0500
-Content-class: urn:content-classes:message
+Received: from smtp.osdl.org ([65.172.181.24]:50452 "EHLO smtp.osdl.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752056AbXBER0f (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Feb 2007 12:26:35 -0500
+In-Reply-To: <20070203223231.GG24090@1wt.eu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Vlad Yasevich wrote on 05 February 2007 17:08:
+Here is what I saw.
 
->   1. What did you set the sinfo_timetolive to?
+The transmitter on the Marvell Yukon II (88e8053) hangs when doing transmit flow
+control under load.  There appears to be a bug or race condition that 
+causes the MAC to stop transmitting data.
 
-I presume you mean the timetolive parameter of sctp_sendmsg()? - this
-was set to 1400ms (as previously mentioned, this was in error but it
-does appear to have highlighted a problem with the stack itself).
+There are two drivers for the Yukon II device on Linux. SysKonnect/Marvell
+has one called sk98lin it is downloadable from syskonnect.def, and I wrote
+one called sky2 that is part of the standard Linux kernel. This problem
+is reproducible with the sky2 driver only; the sk98lin driver has a watchdog
+routine that resets the hardware perodically, so it masks the problem.
 
->   2. What specific netfilter rule to do use to simulate
-> network outage?
->      I was using '-t filter -A INPUT -i eth0 -p sctp -j DROP'
+When the failure mode occurs only after several minutes of sustained activity
+and a situation where PAUSE frames would be received. In my testing I used
 
-iptables -A INPUT -d 192.168.2.0/24 -p sctp -j DROP
+  server == 1000mbit  ===> switch --- 100mbit ---> client
 
-> Just trying to get more info to simulate this.  My prior attempts
-> recovered quickly with my patch.
+Server was Mac Mini (88E8053) running Linux 2.6.20-rc7 and client was a 
+Sony Vaio (88e8036) laptop.  The server was running NFS in kernel
+and client was doing a large copy. The server was using UDP to cause
+large amounts of 802 pause frames. The problem is not as reproducible with
+TCP tests because TCP congestion control avoids over running the switch.
 
-I usually (but not always - sometimes it happens on the first attempt)
-have to add and remove the iptables rule a few times while running
-traffic over the association in order to reproduce the problem.  I'm
-running traffic at a rate of around 500 data chunks per second.  Each
-data chunk has a 44 octet payload.
+When failure occurs:
+     * packets continue to be received and passed up the stack
 
-The script I'm using to toggle the iptables rule is below:
+     * GMAC status register is the pause state
+     * transmit packets continue transferred by the DMA into the RAM buffer
+     * when the the RAM buffer fills no more packets are DMA'd
+     * when transmit queue in driver fills, it gets a watch dog timeout
 
-----------
-#!/bin/sh
+     * switch appears to get confused and other ports hang as well.
 
-net="$1"
+During development of the sky2 driver a similar problem was observed on
+receive if the receive DMA buffer was not 8 byte aligned.  For performance
+reasons, Linux drivers usually offset the Rx buffer by 2 bytes so that
+the TCP/IP headers are aligned for faster CPU access.  If the sky2 Rx
+buffer was offset, then the receiver DMA would occasionally hung. The
+workaround for receive was to align the receive buffer on a quad word
+boundary.
 
-flush() {
-	iptables -F
-	echo "Flush"
-	exit
-}
+This problem appears to be flow control related because after disabling
+flow control, no errors occurred in a 48 hour test run.
 
-trap flush EXIT
+There probably are other races and hangs that are related. I don't
+consider all the hangs eliminated yet.
 
-while true; do
-	iptables -A INPUT -d "$net" -p sctp -j DROP
-	echo "set"
-	sleep 5
-	iptables -F
-	echo "flushed"
-	sleep 5
-done 
-----------
 
- - Steve Hill
-   Software Engineer
-   Dialogic
-   Fordingbridge, Hampshire, UK
-   +44-1425-651392
-   steve.hill@dialogic.com
+-- 
+Stephen Hemminger <shemminger@linux-foundation.org>
