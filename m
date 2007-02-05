@@ -1,13 +1,14 @@
 From: "Ahmed S. Darwish" <darwish.07@gmail.com>
-Subject: [PATCH 2.6.20] wavelan: Use ARRAY_SIZE macro when appropriate
-Date: Mon, 5 Feb 2007 19:00:44 +0200
-Message-ID: <20070205170044.GM3896@Ahmed>
+Subject: [PATCH 2.6.20] ibm_emac: Use ARRAY_SIZE macro when appropriate
+Date: Mon, 5 Feb 2007 18:59:16 +0200
+Message-ID: <20070205165916.GK3896@Ahmed>
 References: <20070205165429.GD3896@Ahmed>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: jt@hpl.hp.com, linville@tuxdriver.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932451AbXBERBQ@vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linuxppc-embedded@ozlabs.org
+To: ebs@ebshome.net
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932662AbXBEQ7d@vger.kernel.org>
 Content-Disposition: inline
 In-Reply-To: <20070205165429.GD3896@Ahmed>
 Sender: linux-kernel-owner@vger.kernel.org
@@ -15,25 +16,48 @@ List-Id: netdev.vger.kernel.org
 
 Hi,
 
-A trivial patch to use ARRAY_SIZE macro.
+A patch to use ARRAY_SIZE macro already defined in kernel.h.
 
 Signed-off-by: Ahmed S. Darwish <darwish.07@gmail.com>
 ---
-diff --git a/drivers/net/wireless/wavelan.p.h b/drivers/net/wireless/wavelan.p.h
-index 72b646c..fe12c77 100644
---- a/drivers/net/wireless/wavelan.p.h
-+++ b/drivers/net/wireless/wavelan.p.h
-@@ -450,7 +450,7 @@ static const char	*version	= "wavelan.c : v24 (SMP + wireless extensions) 11/12/
- #define	WATCHDOG_JIFFIES	(512*HZ/100)
- 
- /* Macro to get the number of elements in an array */
--#define	NELS(a)				(sizeof(a) / sizeof(a[0]))
-+#define	NELS(a)				ARRAY_SIZE(a)
- 
- /* ------------------------ PRIVATE IOCTL ------------------------ */
- 
+Patch isn't compile-tested cause I don't have the needed hardware.
 
-
+diff --git a/drivers/net/ibm_emac/ibm_emac_debug.c b/drivers/net/ibm_emac/ibm_emac_debug.c
+index 92f970d..1f70906 100644
+--- a/drivers/net/ibm_emac/ibm_emac_debug.c
++++ b/drivers/net/ibm_emac/ibm_emac_debug.c
+@@ -132,7 +132,7 @@ void emac_dbg_register(int idx, struct ocp_enet_private *dev)
+ {
+ 	unsigned long flags;
+ 
+-	if (idx >= sizeof(__emacs) / sizeof(__emacs[0])) {
++	if (idx >= ARRAY_SIZE(__emacs)) {
+ 		printk(KERN_WARNING
+ 		       "invalid index %d when registering EMAC for debugging\n",
+ 		       idx);
+@@ -148,7 +148,7 @@ void mal_dbg_register(int idx, struct ibm_ocp_mal *mal)
+ {
+ 	unsigned long flags;
+ 
+-	if (idx >= sizeof(__mals) / sizeof(__mals[0])) {
++	if (idx >= ARRAY_SIZE(__mals)) {
+ 		printk(KERN_WARNING
+ 		       "invalid index %d when registering MAL for debugging\n",
+ 		       idx);
+@@ -167,11 +167,11 @@ void emac_dbg_dump_all(void)
+ 
+ 	local_irq_save(flags);
+ 
+-	for (i = 0; i < sizeof(__mals) / sizeof(__mals[0]); ++i)
++	for (i = 0; i < ARRAY_SIZE(__mals); ++i)
+ 		if (__mals[i])
+ 			emac_mal_dump(__mals[i]);
+ 
+-	for (i = 0; i < sizeof(__emacs) / sizeof(__emacs[0]); ++i)
++	for (i = 0; i < ARRAY_SIZE(__emacs); ++i)
+ 		if (__emacs[i])
+ 			emac_mac_dump(i, __emacs[i]);
+ 
 
 -- 
 Ahmed S. Darwish
