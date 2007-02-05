@@ -1,60 +1,270 @@
 From: Frank Pavlic <fpavlic@de.ibm.com>
-Subject: [RESEND PATCH 0/7] [S390]: Introduction of AF_IUCV sockets support
-Date: Mon, 5 Feb 2007 15:00:50 +0100
-Message-ID: <20070205140050.GA19137@de.ibm.com>
+Subject: [PATCH 6/7] [S390]: Adapt special message interface to new IUCV API
+Date: Mon, 5 Feb 2007 15:02:37 +0100
+Message-ID: <20070205140237.GG19137@de.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: linux-s390@vger.kernel.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e33.co.us.ibm.com ([32.97.110.151]:54451 "EHLO
-	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932585AbXBEOBx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Feb 2007 09:01:53 -0500
+Received: from e36.co.us.ibm.com ([32.97.110.154]:47573 "EHLO
+	e36.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932597AbXBEOBy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Feb 2007 09:01:54 -0500
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
-seems that Patch 1/7 is lost and did not make its way to the mailing list :-(
-That's the reason why I resend the whole patch set again.
-Here we go ...
+From: Martin Schwidefsky <schwidefsky@de.ibm.com>
 
-The Inter-User Communication Vehicle (IUCV) is a z/VM communication facility 
-that enables a program running in one virtual machine to communicate with 
-another virtual machine, or with a control program, or even with itself. 
-The communication takes place over a predefined linkage called a path.
-AF_IUCV provides a complete socket interface for socket communication 
-from Linux to Linux (running on z/VM) or Linux on VM to CMS.
-The AF_IUCV Protocol Support will use IUCV to provide AF_IUCV 
-protocol support for communication with z/VM back-end services.
-It also can connect socket applications operating in Linux kernels 
-running on different VM user IDs, or to connect a Linux 
-application to another socket application running in a VM guest.
-AF_IUCV is using a different addressing scheme and therefore there is no
-chance to use existing drivers like netiucv for such functionality.
+Adapt special message interface to new IUCV API
 
-The patch set consists of following patches:
+Signed-off-by: Frank Pavlic <fpavlic@de.ibm.com>
+Signed-off-by: Martin Schwidefsky <schwidefsky@de.ibm.com>
+---
 
-[1/7] [S390]: Rewrite of the IUCV base code, part 1
-[2/7] [S390]: Rewrite of the IUCV base code, part 2
-[3/7] [S390]: Adapt monreader driver to new IUCV API
-[4/7] [S390]: Adapt vmlogrdr driver to new IUCV API
-[5/7] [S390]: Adapt netiucv driver to new IUCV API
-[6/7] [S390]: Adapt special message interface to new IUCV API
-[7/7] [S390]: Add AF_IUCV socket support
+ drivers/s390/net/smsgiucv.c |  147 ++++++++++++++++++++++---------------------
+ 1 files changed, 74 insertions(+), 73 deletions(-)
 
-Basically it will remove the old IUCV base code from drivers/s390/net,
-adds the new rewritten one to net/iucv.
-Then all iucv based device drivers like monreader, 
-vmlogrdr, netiucv and special message interface 
-will be adapted to the new IUCV API.
-The last patch then adds the AF_IUCV socket support residing
-in net/iucv either.
+diff --git a/drivers/s390/net/smsgiucv.c b/drivers/s390/net/smsgiucv.c
+index b8179c2..3ccca58 100644
+--- a/drivers/s390/net/smsgiucv.c
++++ b/drivers/s390/net/smsgiucv.c
+@@ -1,7 +1,7 @@
+ /*
+  * IUCV special message driver
+  *
+- * Copyright (C) 2003 IBM Deutschland Entwicklung GmbH, IBM Corporation
++ * Copyright 2003 IBM Deutschland Entwicklung GmbH, IBM Corporation
+  * Author(s): Martin Schwidefsky (schwidefsky@de.ibm.com)
+  *
+  * This program is free software; you can redistribute it and/or modify
+@@ -23,10 +23,10 @@ #include <linux/module.h>
+ #include <linux/init.h>
+ #include <linux/errno.h>
+ #include <linux/device.h>
++#include <net/iucv/iucv.h>
+ #include <asm/cpcmd.h>
+ #include <asm/ebcdic.h>
+-
+-#include "iucv.h"
++#include "smsgiucv.h"
+ 
+ struct smsg_callback {
+ 	struct list_head list;
+@@ -39,38 +39,46 @@ MODULE_AUTHOR
+    ("(C) 2003 IBM Corporation by Martin Schwidefsky (schwidefsky@de.ibm.com)");
+ MODULE_DESCRIPTION ("Linux for S/390 IUCV special message driver");
+ 
+-static iucv_handle_t smsg_handle;
+-static unsigned short smsg_pathid;
++static struct iucv_path *smsg_path;
++
+ static DEFINE_SPINLOCK(smsg_list_lock);
+ static struct list_head smsg_list = LIST_HEAD_INIT(smsg_list);
+ 
+-static void
+-smsg_connection_complete(iucv_ConnectionComplete *eib, void *pgm_data)
++static int smsg_path_pending(struct iucv_path *, u8 ipvmid[8], u8 ipuser[16]);
++static void smsg_message_pending(struct iucv_path *, struct iucv_message *);
++
++static struct iucv_handler smsg_handler = {
++	.path_pending	 = smsg_path_pending,
++	.message_pending = smsg_message_pending,
++};
++
++static int smsg_path_pending(struct iucv_path *path, u8 ipvmid[8],
++			     u8 ipuser[16])
+ {
++	if (strncmp(ipvmid, "*MSG    ", sizeof(ipvmid)) != 0)
++		return -EINVAL;
++	/* Path pending from *MSG. */
++	return iucv_path_accept(path, &smsg_handler, "SMSGIUCV        ", NULL);
+ }
+ 
+-
+-static void
+-smsg_message_pending(iucv_MessagePending *eib, void *pgm_data)
++static void smsg_message_pending(struct iucv_path *path,
++				 struct iucv_message *msg)
+ {
+ 	struct smsg_callback *cb;
+-	unsigned char *msg;
++	unsigned char *buffer;
+ 	unsigned char sender[9];
+-	unsigned short len;
+ 	int rc, i;
+ 
+-	len = eib->ln1msg2.ipbfln1f;
+-	msg = kmalloc(len + 1, GFP_ATOMIC|GFP_DMA);
+-	if (!msg) {
+-		iucv_reject(eib->ippathid, eib->ipmsgid, eib->iptrgcls);
++	buffer = kmalloc(msg->length + 1, GFP_ATOMIC | GFP_DMA);
++	if (!buffer) {
++		iucv_message_reject(path, msg);
+ 		return;
+ 	}
+-	rc = iucv_receive(eib->ippathid, eib->ipmsgid, eib->iptrgcls,
+-			  msg, len, NULL, NULL, NULL);
++	rc = iucv_message_receive(path, msg, 0, buffer, msg->length, NULL);
+ 	if (rc == 0) {
+-		msg[len] = 0;
+-		EBCASC(msg, len);
+-		memcpy(sender, msg, 8);
++		buffer[msg->length] = 0;
++		EBCASC(buffer, msg->length);
++		memcpy(sender, buffer, 8);
+ 		sender[8] = 0;
+ 		/* Remove trailing whitespace from the sender name. */
+ 		for (i = 7; i >= 0; i--) {
+@@ -80,27 +88,17 @@ smsg_message_pending(iucv_MessagePending
+ 		}
+ 		spin_lock(&smsg_list_lock);
+ 		list_for_each_entry(cb, &smsg_list, list)
+-			if (strncmp(msg + 8, cb->prefix, cb->len) == 0) {
+-				cb->callback(sender, msg + 8);
++			if (strncmp(buffer + 8, cb->prefix, cb->len) == 0) {
++				cb->callback(sender, buffer + 8);
+ 				break;
+ 			}
+ 		spin_unlock(&smsg_list_lock);
+ 	}
+-	kfree(msg);
++	kfree(buffer);
+ }
+ 
+-static iucv_interrupt_ops_t smsg_ops = {
+-	.ConnectionComplete = smsg_connection_complete,
+-	.MessagePending     = smsg_message_pending,
+-};
+-
+-static struct device_driver smsg_driver = {
+-	.name = "SMSGIUCV",
+-	.bus  = &iucv_bus,
+-};
+-
+-int
+-smsg_register_callback(char *prefix, void (*callback)(char *from, char *str))
++int smsg_register_callback(char *prefix,
++			   void (*callback)(char *from, char *str))
+ {
+ 	struct smsg_callback *cb;
+ 
+@@ -110,18 +108,18 @@ smsg_register_callback(char *prefix, voi
+ 	cb->prefix = prefix;
+ 	cb->len = strlen(prefix);
+ 	cb->callback = callback;
+-	spin_lock(&smsg_list_lock);
++	spin_lock_bh(&smsg_list_lock);
+ 	list_add_tail(&cb->list, &smsg_list);
+-	spin_unlock(&smsg_list_lock);
++	spin_unlock_bh(&smsg_list_lock);
+ 	return 0;
+ }
+ 
+-void
+-smsg_unregister_callback(char *prefix, void (*callback)(char *from, char *str))
++void smsg_unregister_callback(char *prefix,
++			      void (*callback)(char *from, char *str))
+ {
+ 	struct smsg_callback *cb, *tmp;
+ 
+-	spin_lock(&smsg_list_lock);
++	spin_lock_bh(&smsg_list_lock);
+ 	cb = NULL;
+ 	list_for_each_entry(tmp, &smsg_list, list)
+ 		if (tmp->callback == callback &&
+@@ -130,55 +128,58 @@ smsg_unregister_callback(char *prefix, v
+ 			list_del(&cb->list);
+ 			break;
+ 		}
+-	spin_unlock(&smsg_list_lock);
++	spin_unlock_bh(&smsg_list_lock);
+ 	kfree(cb);
+ }
+ 
+-static void __exit
+-smsg_exit(void)
++static struct device_driver smsg_driver = {
++	.name = "SMSGIUCV",
++	.bus  = &iucv_bus,
++};
++
++static void __exit smsg_exit(void)
+ {
+-	if (smsg_handle > 0) {
+-		cpcmd("SET SMSG OFF", NULL, 0, NULL);
+-		iucv_sever(smsg_pathid, NULL);
+-		iucv_unregister_program(smsg_handle);
+-		driver_unregister(&smsg_driver);
+-	}
+-	return;
++	cpcmd("SET SMSG IUCV", NULL, 0, NULL);
++	iucv_unregister(&smsg_handler, 1);
++	driver_unregister(&smsg_driver);
+ }
+ 
+-static int __init
+-smsg_init(void)
++static int __init smsg_init(void)
+ {
+-	static unsigned char pgmmask[24] = {
+-		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+-		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+-		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
+-	};
+ 	int rc;
+ 
+ 	rc = driver_register(&smsg_driver);
+-	if (rc != 0) {
+-		printk(KERN_ERR "SMSGIUCV: failed to register driver.\n");
+-		return rc;
+-	}
+-	smsg_handle = iucv_register_program("SMSGIUCV        ", "*MSG    ",
+-					    pgmmask, &smsg_ops, NULL);
+-	if (!smsg_handle) {
++	if (rc != 0)
++		goto out;
++	rc = iucv_register(&smsg_handler, 1);
++	if (rc) {
+ 		printk(KERN_ERR "SMSGIUCV: failed to register to iucv");
+-		driver_unregister(&smsg_driver);
+-		return -EIO;	/* better errno ? */
++		rc = -EIO;	/* better errno ? */
++		goto out_driver;
++	}
++	smsg_path = iucv_path_alloc(255, 0, GFP_KERNEL);
++	if (!smsg_path) {
++		rc = -ENOMEM;
++		goto out_register;
+ 	}
+-	rc = iucv_connect (&smsg_pathid, 255, NULL, "*MSG    ", NULL, 0,
+-			   NULL, NULL, smsg_handle, NULL);
++	rc = iucv_path_connect(smsg_path, &smsg_handler, "*MSG    ",
++			       NULL, NULL, NULL);
+ 	if (rc) {
+ 		printk(KERN_ERR "SMSGIUCV: failed to connect to *MSG");
+-		iucv_unregister_program(smsg_handle);
+-		driver_unregister(&smsg_driver);
+-		smsg_handle = NULL;
+-		return -EIO;
++		rc = -EIO;	/* better errno ? */
++		goto out_free;
+ 	}
+ 	cpcmd("SET SMSG IUCV", NULL, 0, NULL);
+ 	return 0;
++
++out_free:
++	iucv_path_free(smsg_path);
++out_register:
++	iucv_unregister(&smsg_handler, 1);
++out_driver:
++	driver_unregister(&smsg_driver);
++out:
++	return rc;
+ }
+ 
+ module_init(smsg_init);
+-- 
+1.4.2.3
 
-I am asking for integration now and of course 
-code review comments and suggestions are very appreciated .
-
-Thank you very much
-
-Frank
