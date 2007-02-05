@@ -1,40 +1,58 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: forcedeth problems on 2.6.20-rc6-mm3
-Date: Sun, 4 Feb 2007 21:36:03 -0800
-Message-ID: <20070204213603.a5bce839.akpm@linux-foundation.org>
-References: <45C6BCE5.90103@shaw.ca>
+From: Baruch Even <baruch@ev-en.org>
+Subject: Re: Unexpected Acknowledgement / Stalled Connections
+Date: Mon, 5 Feb 2007 07:37:03 +0200
+Message-ID: <20070205053703.GC25760@galon.ev-en.org>
+References: <82e4877d0702041431p555e644et35845db674304403@mail.gmail.com> <82e4877d0702041456u5d30d32bs41233048a1833d59@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, Ayaz Abdulla <aabdulla@nvidia.com>
-To: Robert Hancock <hancockr@shaw.ca>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Parag Warudkar <parag.warudkar@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:60417 "EHLO smtp.osdl.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752713AbXBEFgO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Feb 2007 00:36:14 -0500
-In-Reply-To: <45C6BCE5.90103@shaw.ca>
+Received: from rrcs-24-123-59-149.central.biz.rr.com ([24.123.59.149]:59882
+	"EHLO galon.ev-en.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752719AbXBEFhG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Feb 2007 00:37:06 -0500
+Content-Disposition: inline
+In-Reply-To: <82e4877d0702041456u5d30d32bs41233048a1833d59@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 04 Feb 2007 23:13:09 -0600 Robert Hancock <hancockr@shaw.ca> wrote:
-
-> Something's busted with forcedeth in 2.6.20-rc6-mm3 for me relative to 
-> 2.6.20-rc6. There's no errors in dmesg, but it seems no packets ever get 
-> received and so the machine can't get an IP address. I tried reverting 
-> all the -mm changes to drivers/net/forcedeth.c, which didn't help. The 
-> network controller shares an IRQ with the USB OHCI controller which is 
-> receiving interrupts, so it doesn't seem like an interrupt routing 
-> problem, though I suppose something wierd could be happening there.
+* Parag Warudkar <parag.warudkar@gmail.com> [070205 00:57]:
+> On 2/4/07, Parag Warudkar <parag.warudkar@gmail.com> wrote:
+> >I am running 2.6.20 and have trouble with stalled connections. For
+> >instance, if I try to download a debian ISO image using wget, the
+> >connection runs fine for few seconds and then stalls for ever.
+> >
+> >In my router logs I see a ton of messages like the below -
+> >
+> >[INFO] Sun Feb 04 17:22:03 2007 Blocked incoming TCP packet from
+> >192.168.0.174:34090 to 130.239.18.138:80 with unexpected
+> >acknowledgement 3269301836 (expected 3269343453 to 3269408989)
+> >
+> >Where 192.168.0.174 is my laptop running FC6 and kernel 2.6.20 and
+> >130.239.18.138 is whatever cdimage.debian.org resolves to atm.
+> >
+> >What's going on here? Any TCP/IP tunable that I can set/turn on/off to
+> >prevent this from happening?
 > 
-> This is on an Asus A8N-SLI Deluxe (CK804 chipset) on x86_64.
-> 
-> Any suggestions on how to debug/what to try reverting to see what's 
-> causing this?
+> Turning tcp_sack off seems to cure it. Turning it on again makes the
+> connections stall. Seems like the D-Link router doesn't like the SACKs
+> linux sends?
 
-There are many forcedeth changes in git-netdev-all.patch.  Can you
-try reverting drivers/net/forcedeth.c back to the unpatched version
-from 2.6.20-rc6?
+You can also try to disable tcp_window_scaling.
 
-Thanks.
+Can you provide a tcpdump trace of the connection? Traces with and
+without SACK would be appreciated, also a trace with SACK but without
+window scaling would be useful. I only need the headers of the packet so
+-s 60 (the default) will be fine.
+
+There was a change in 2.6.20 that I put but it should only have affected
+the sender side and even then only the way it interpreted the data and
+not things it sent on the wire.
+
+Trying the dl with previous kernels can also help, if only to try and
+pinpoint where things went bad, assuming it is in the kernel. This
+sounds like a bad implementation of ACK window checks that ICSA requires
+for firewall product certification.
+
+Baruch
