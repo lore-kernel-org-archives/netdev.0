@@ -1,47 +1,44 @@
-From: Jiri Benc <jbenc@suse.cz>
-Subject: Re: [PATCH 1/3] d80211: Add control structure for beacontemplates
-Date: Mon, 5 Feb 2007 21:28:02 +0100
-Message-ID: <20070205212802.36477fd4@griffin.suse.cz>
-References: <200702031725.19080.IvDoorn@gmail.com>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: Re: [PATCH 2.6.20] ixgb: Use ARRAY_SIZE macro when appropriate
+Date: Mon, 05 Feb 2007 12:31:26 -0800
+Message-ID: <45C7941E.2050305@intel.com>
+References: <20070205165429.GD3896@Ahmed> <20070205165933.GL3896@Ahmed> <20070205201804.GC11055@martell.zuzino.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "John Linville" <linville@tuxdriver.com>,
-	Michael Buesch <mb@bu3sch.de>,
-	Michael Wu <flamingice@sourmilk.net>, netdev@vger.kernel.org
-To: Ivo van Doorn <ivdoorn@gmail.com>
+Cc: Alexey Dobriyan <adobriyan@gmail.com>, jeffrey.t.kirsher@intel.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: "Ahmed S. Darwish" <darwish.07@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:45325 "EHLO mail.suse.cz"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S933269AbXBEU2F (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Feb 2007 15:28:05 -0500
-In-Reply-To: <200702031725.19080.IvDoorn@gmail.com>
+Received: from mga02.intel.com ([134.134.136.20]:46191 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933306AbXBEUbt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Feb 2007 15:31:49 -0500
+In-Reply-To: <20070205201804.GC11055@martell.zuzino.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 3 Feb 2007 17:25:18 +0100, Ivo van Doorn wrote:
-> When rt2500usb and rt73usb will start using beacontemplates,
-> they would also need a control structure to be passed along to
-> correctly set the tx parameters.
-
-Good catch, thanks.
-
-> This patch will add the allocation an initialization of a
-> ieee80211_tx_control especially for the beacontemplate.
+Alexey Dobriyan wrote:
+> On Mon, Feb 05, 2007 at 06:59:33PM +0200, Ahmed S. Darwish wrote:
+>> A patch to use ARRAY_SIZE macro already defined in kernel.h.
 > 
-> This does require drivers that have the BEACON_TEMPLATE flag
-> set to also free the control structure. (bcm43xx and p54 will be
-> fixed in the next 2 patches)
+> Remove it and use ARRAY_SIZE instead.
+> 
+>> --- a/drivers/net/ixgb/ixgb_param.c
+>> +++ b/drivers/net/ixgb/ixgb_param.c
+>> @@ -245,7 +245,7 @@ ixgb_validate_option(int *value, struct ixgb_option *opt)
+>>  	return -1;
+>>  }
+>>  
+>> -#define LIST_LEN(l) (sizeof(l) / sizeof(l[0]))
+>> +#define LIST_LEN(l) ARRAY_SIZE(l)
 
-I would prefer using local variable for tx_control. Driver will be
-responsible for copying it somewhere if it needs to. I believe most
-drivers won't need to do that and it will prevent potential memory
-leaks as it's easy to forget to free the structure.
+yes, well spotted. Please change line 338 in this file to read:
+
+      .arg  = { .l = { .nr = ARRAY_SIZE(fc_list),
+
+instead, so you can remove the LIST_LEN macro completely.
 
 Thanks,
 
- Jiri
-
--- 
-Jiri Benc
-SUSE Labs
+Auke
