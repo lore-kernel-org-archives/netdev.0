@@ -1,78 +1,88 @@
 From: "Ahmed S. Darwish" <darwish.07@gmail.com>
-Subject: [PATCH 2.6.20] misc-wireless: Use ARRAY_SIZE macro when appropriate
-Date: Mon, 5 Feb 2007 18:58:29 +0200
-Message-ID: <20070205165829.GI3896@Ahmed>
+Subject: [PATCH 2.6.20] ipw2100: Use ARRAY_SIZE macro when appropriate
+Date: Mon, 5 Feb 2007 18:56:22 +0200
+Message-ID: <20070205165622.GF3896@Ahmed>
 References: <20070205165429.GD3896@Ahmed>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: linville@tuxdriver.com
+To: yi.zhu@intel.com, linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.172]:25383 "EHLO
+Received: from ug-out-1314.google.com ([66.249.92.168]:23477 "EHLO
 	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751798AbXBEQ6j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Feb 2007 11:58:39 -0500
-Received: by ug-out-1314.google.com with SMTP id 44so1350318uga
-        for <netdev@vger.kernel.org>; Mon, 05 Feb 2007 08:58:37 -0800 (PST)
+	with ESMTP id S1751847AbXBEQ5Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Feb 2007 11:57:25 -0500
+Received: by ug-out-1314.google.com with SMTP id 44so1349995uga
+        for <netdev@vger.kernel.org>; Mon, 05 Feb 2007 08:57:23 -0800 (PST)
 Content-Disposition: inline
 In-Reply-To: <20070205165429.GD3896@Ahmed>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Hi all,
 
-A patch to use ARRAY_SIZE macro already defined in kernel.h for some
-miscellaneous wireless drivers with no specific maintaners.
+A patch to use ARRAY_SIZE macro already defined in kernel.h.
 
 Signed-off-by: Ahmed S. Darwish <darwish.07@gmail.com>
 ---
 Patch is compile tested.
 
-diff --git a/drivers/net/wireless/airo.c b/drivers/net/wireless/airo.c
-index 44a2270..4ad910b 100644
---- a/drivers/net/wireless/airo.c
-+++ b/drivers/net/wireless/airo.c
-@@ -1623,7 +1623,7 @@ static void emmh32_setseed(emmh32_context *context, u8 *pkey, int keylen,
+diff --git a/drivers/net/wireless/ipw2100.c b/drivers/net/wireless/ipw2100.c
+index b85857a..a9d944a 100644
+--- a/drivers/net/wireless/ipw2100.c
++++ b/drivers/net/wireless/ipw2100.c
+@@ -2888,7 +2888,7 @@ static int __ipw2100_tx_process(struct ipw2100_priv *priv)
  
- 	crypto_cipher_setkey(tfm, pkey, 16);
- 	counter = 0;
--	for (i = 0; i < (sizeof(context->coeff)/sizeof(context->coeff[0])); ) {
-+	for (i = 0; i < ARRAY_SIZE(context->coeff); ) {
- 		aes_counter[15] = (u8)(counter >> 0);
- 		aes_counter[14] = (u8)(counter >> 8);
- 		aes_counter[13] = (u8)(counter >> 16);
-@@ -1632,7 +1632,7 @@ static void emmh32_setseed(emmh32_context *context, u8 *pkey, int keylen,
- 		memcpy (plain, aes_counter, 16);
- 		crypto_cipher_encrypt_one(tfm, plain, plain);
- 		cipher = plain;
--		for (j=0; (j<16) && (i< (sizeof(context->coeff)/sizeof(context->coeff[0]))); ) {
-+		for (j = 0; (j < 16) && (i < ARRAY_SIZE(context->coeff)); ) {
- 			context->coeff[i++] = ntohl(*(u32 *)&cipher[j]);
- 			j += 4;
- 		}
-diff --git a/drivers/net/wireless/prism54/oid_mgt.c b/drivers/net/wireless/prism54/oid_mgt.c
-index e6cf9df..4278032 100644
---- a/drivers/net/wireless/prism54/oid_mgt.c
-+++ b/drivers/net/wireless/prism54/oid_mgt.c
-@@ -16,6 +16,8 @@
-  *
-  */
+ #ifdef CONFIG_IPW2100_DEBUG
+ 		if (packet->info.c_struct.cmd->host_command_reg <
+-		    sizeof(command_types) / sizeof(*command_types))
++		    ARRAY_SIZE(command_types))
+ 			IPW_DEBUG_TX("Command '%s (%d)' processed: %d.\n",
+ 				     command_types[packet->info.c_struct.cmd->
+ 						   host_command_reg],
+@@ -3736,7 +3736,7 @@ static ssize_t show_registers(struct device *d, struct device_attribute *attr,
  
-+#include <linux/kernel.h>
-+
- #include "prismcompat.h"
- #include "islpci_dev.h"
- #include "islpci_mgt.h"
-@@ -692,7 +694,7 @@ mgt_update_addr(islpci_private *priv)
- 	return ret;
- }
+ 	out += sprintf(out, "%30s [Address ] : Hex\n", "Register");
  
--#define VEC_SIZE(a) (sizeof(a)/sizeof(a[0]))
-+#define VEC_SIZE(a) ARRAY_SIZE(a)
+-	for (i = 0; i < (sizeof(hw_data) / sizeof(*hw_data)); i++) {
++	for (i = 0; i < ARRAY_SIZE(hw_data); i++) {
+ 		read_register(dev, hw_data[i].addr, &val);
+ 		out += sprintf(out, "%30s [%08X] : %08X\n",
+ 			       hw_data[i].name, hw_data[i].addr, val);
+@@ -3757,7 +3757,7 @@ static ssize_t show_hardware(struct device *d, struct device_attribute *attr,
  
- int
- mgt_commit(islpci_private *priv)
-
+ 	out += sprintf(out, "%30s [Address ] : Hex\n", "NIC entry");
+ 
+-	for (i = 0; i < (sizeof(nic_data) / sizeof(*nic_data)); i++) {
++	for (i = 0; i < ARRAY_SIZE(nic_data); i++) {
+ 		u8 tmp8;
+ 		u16 tmp16;
+ 		u32 tmp32;
+@@ -3894,13 +3894,11 @@ static ssize_t show_ordinals(struct device *d, struct device_attribute *attr,
+ 	if (priv->status & STATUS_RF_KILL_MASK)
+ 		return 0;
+ 
+-	if (loop >= sizeof(ord_data) / sizeof(*ord_data))
++	if (loop >= ARRAY_SIZE(ord_data))
+ 		loop = 0;
+ 
+ 	/* sysfs provides us PAGE_SIZE buffer */
+-	while (len < PAGE_SIZE - 128 &&
+-	       loop < (sizeof(ord_data) / sizeof(*ord_data))) {
+-
++	while (len < PAGE_SIZE - 128 && loop < ARRAY_SIZE(ord_data)) {
+ 		val_len = sizeof(u32);
+ 
+ 		if (ipw2100_get_ordinal(priv, ord_data[loop].index, &val,
+@@ -6589,7 +6587,7 @@ static const long ipw2100_rates_11b[] = {
+ 	11000000
+ };
+ 
+-#define RATE_COUNT (sizeof(ipw2100_rates_11b) / sizeof(ipw2100_rates_11b[0]))
++#define RATE_COUNT ARRAY_SIZE(ipw2100_rates_11b)
+ 
+ static int ipw2100_wx_get_name(struct net_device *dev,
+ 			       struct iw_request_info *info,
 
 
 -- 
