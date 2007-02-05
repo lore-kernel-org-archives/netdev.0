@@ -1,44 +1,39 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: Re: [PATCH 2.6.20] ixgb: Use ARRAY_SIZE macro when appropriate
-Date: Mon, 05 Feb 2007 12:31:26 -0800
-Message-ID: <45C7941E.2050305@intel.com>
-References: <20070205165429.GD3896@Ahmed> <20070205165933.GL3896@Ahmed> <20070205201804.GC11055@martell.zuzino.mipt.ru>
+From: James Morris <jmorris@namei.org>
+Subject: Re: when having to acquire an SA, ipsec drops the packet
+Date: Mon, 5 Feb 2007 15:34:39 -0500 (EST)
+Message-ID: <Pine.LNX.4.64.0702051532560.3565@d.namei>
+References: <1170370281.2603.359.camel@faith.austin.ibm.com>
+ <Pine.LNX.4.64.0702011819070.11820@d.namei> <20070204.205315.10325007.davem@davemloft.net>
+ <Pine.LNX.4.64.0702051133050.32533@d.namei>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Alexey Dobriyan <adobriyan@gmail.com>, jeffrey.t.kirsher@intel.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: "Ahmed S. Darwish" <darwish.07@gmail.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: latten@austin.ibm.com, netdev@vger.kernel.org, paul.moore@hp.com,
+	vyekkirala@TrustedCS.com, herbert@gondor.apana.org.au
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:46191 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933306AbXBEUbt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Feb 2007 15:31:49 -0500
-In-Reply-To: <20070205201804.GC11055@martell.zuzino.mipt.ru>
+Received: from mail2.sea5.speakeasy.net ([69.17.117.4]:34833 "EHLO
+	mail2.sea5.speakeasy.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933416AbXBEUen (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Feb 2007 15:34:43 -0500
+In-Reply-To: <Pine.LNX.4.64.0702051133050.32533@d.namei>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Alexey Dobriyan wrote:
-> On Mon, Feb 05, 2007 at 06:59:33PM +0200, Ahmed S. Darwish wrote:
->> A patch to use ARRAY_SIZE macro already defined in kernel.h.
+On Mon, 5 Feb 2007, James Morris wrote:
+
+> On Sun, 4 Feb 2007, David Miller wrote:
 > 
-> Remove it and use ARRAY_SIZE instead.
+> > Something like this (untested) on the ipv4 side, for example:
 > 
->> --- a/drivers/net/ixgb/ixgb_param.c
->> +++ b/drivers/net/ixgb/ixgb_param.c
->> @@ -245,7 +245,7 @@ ixgb_validate_option(int *value, struct ixgb_option *opt)
->>  	return -1;
->>  }
->>  
->> -#define LIST_LEN(l) (sizeof(l) / sizeof(l[0]))
->> +#define LIST_LEN(l) ARRAY_SIZE(l)
+> Looks like it should work.  Will do some testing.
 
-yes, well spotted. Please change line 338 in this file to read:
+Appears to work well, with a slight delay on the first packet as expected.  
+Tested with tcp, udp & icmp.
 
-      .arg  = { .l = { .nr = ARRAY_SIZE(fc_list),
 
-instead, so you can remove the LIST_LEN macro completely.
 
-Thanks,
 
-Auke
+- James
+-- 
+James Morris
+<jmorris@namei.org>
