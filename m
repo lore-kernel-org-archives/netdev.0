@@ -1,64 +1,63 @@
-From: "Ahmed S. Darwish" <darwish.07@gmail.com>
-Subject: [PATCH 2.6.20] ibm_emac: Use ARRAY_SIZE macro when appropriate
-Date: Mon, 5 Feb 2007 18:59:16 +0200
-Message-ID: <20070205165916.GK3896@Ahmed>
-References: <20070205165429.GD3896@Ahmed>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [Lksctp-developers] Fw: Intermittent SCTP multihoming breakage
+Date: Mon, 05 Feb 2007 12:07:39 -0500
+Message-ID: <45C7645B.7070009@hp.com>
+References: <E096369D937D3A4DB271B382850C5C5F44E657@pysmail.eicon.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linuxppc-embedded@ozlabs.org
-To: ebs@ebshome.net
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932662AbXBEQ7d@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20070205165429.GD3896@Ahmed>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net,
+	Sridhar Samudrala <sri@us.ibm.com>
+To: Steve Hill <steve.hill@dialogic.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailhub.hp.com ([192.151.27.10]:59665 "EHLO mailhub.hp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751860AbXBERHm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Feb 2007 12:07:42 -0500
+In-Reply-To: <E096369D937D3A4DB271B382850C5C5F44E657@pysmail.eicon.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Hi Steve
 
-A patch to use ARRAY_SIZE macro already defined in kernel.h.
+Steve Hill wrote:
+> Vlad Yasevich wrote on 05 February 2007 16:39:
+> 
+>> Once you start simulating the network failure, how long do you wait?
+>>
+>> If you have not changed rto_max and path_max_retrans, you can end up
+>> waiting quite a while for the full path switchover.  This will also
+>> severely slow down your retransmissions...
+> 
+> I'm waiting several minutes, and I'm using setsockopt() to set the
+> timeouts fairly low:
+> 	srto_initial = 1000ms
+> 	srto_min = 200ms
+> 	srto_max = 1400ms
+> 	spp_pathmaxrxt = 2
+> 	spp_hbinterval = 1000ms
 
-Signed-off-by: Ahmed S. Darwish <darwish.07@gmail.com>
----
-Patch isn't compile-tested cause I don't have the needed hardware.
+Ok, thanks for the info.  Two more questions:
 
-diff --git a/drivers/net/ibm_emac/ibm_emac_debug.c b/drivers/net/ibm_emac/ibm_emac_debug.c
-index 92f970d..1f70906 100644
---- a/drivers/net/ibm_emac/ibm_emac_debug.c
-+++ b/drivers/net/ibm_emac/ibm_emac_debug.c
-@@ -132,7 +132,7 @@ void emac_dbg_register(int idx, struct ocp_enet_private *dev)
- {
- 	unsigned long flags;
- 
--	if (idx >= sizeof(__emacs) / sizeof(__emacs[0])) {
-+	if (idx >= ARRAY_SIZE(__emacs)) {
- 		printk(KERN_WARNING
- 		       "invalid index %d when registering EMAC for debugging\n",
- 		       idx);
-@@ -148,7 +148,7 @@ void mal_dbg_register(int idx, struct ibm_ocp_mal *mal)
- {
- 	unsigned long flags;
- 
--	if (idx >= sizeof(__mals) / sizeof(__mals[0])) {
-+	if (idx >= ARRAY_SIZE(__mals)) {
- 		printk(KERN_WARNING
- 		       "invalid index %d when registering MAL for debugging\n",
- 		       idx);
-@@ -167,11 +167,11 @@ void emac_dbg_dump_all(void)
- 
- 	local_irq_save(flags);
- 
--	for (i = 0; i < sizeof(__mals) / sizeof(__mals[0]); ++i)
-+	for (i = 0; i < ARRAY_SIZE(__mals); ++i)
- 		if (__mals[i])
- 			emac_mal_dump(__mals[i]);
- 
--	for (i = 0; i < sizeof(__emacs) / sizeof(__emacs[0]); ++i)
-+	for (i = 0; i < ARRAY_SIZE(__emacs); ++i)
- 		if (__emacs[i])
- 			emac_mac_dump(i, __emacs[i]);
- 
+  1. What did you set the sinfo_timetolive to?
+  2. What specific netfilter rule to do use to simulate network outage?
+     I was using '-t filter -A INPUT -i eth0 -p sctp -j DROP'
 
--- 
-Ahmed S. Darwish
-http://darwish-07.blogspot.com
+Just trying to get more info to simulate this.  My prior attempts 
+recovered quickly with my patch.
+
+Thanks
+-vlad
+
+> 
+> The network's round trip time (indicated by ping) is on the order of
+> <0.25ms.
+> 
+>  - Steve Hill
+>    Software Engineer
+>    Dialogic
+>    Fordingbridge, Hampshire, UK
+>    +44-1425-651392
+>    steve.hill@dialogic.com
+> 
+
