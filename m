@@ -1,48 +1,59 @@
-From: Ivo van Doorn <ivdoorn@gmail.com>
-Subject: Re: [PATCH 1/2] d80211: Add software RTS support
-Date: Mon, 5 Feb 2007 19:15:52 +0100
-Message-ID: <200702051915.52898.IvDoorn@gmail.com>
-References: <200701312016.50524.IvDoorn@gmail.com> <200702051843.07026.mb@bu3sch.de> <20070205190834.40c0a619@griffin.suse.cz>
+From: Simon Lodal <simonl@parknet.dk>
+Subject: Re: [PATCH] HTB O(1) class lookup
+Date: Mon, 5 Feb 2007 19:21:19 +0100
+Message-ID: <200702051921.20146.simonl@parknet.dk>
+References: <200702010618.48692.simonl@parknet.dk> <200702010808.20416.simonl@parknet.dk> <p73r6tanmhk.fsf@bingen.suse.de>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Michael Buesch <mb@bu3sch.de>,
-	"John Linville" <linville@tuxdriver.com>, netdev@vger.kernel.org,
-	Michael Buesch <mbuesch@freenet.de>,
-	Johannes Berg <johannes@sipsolutions.net>
-To: Jiri Benc <jbenc@suse.cz>
+Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	lartc@mailman.ds9a.nl
+To: Andi Kleen <ak@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wr-out-0506.google.com ([64.233.184.231]:62141 "EHLO
-	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932622AbXBESQP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Feb 2007 13:16:15 -0500
-Received: by wr-out-0506.google.com with SMTP id i22so1306121wra
-        for <netdev@vger.kernel.org>; Mon, 05 Feb 2007 10:16:15 -0800 (PST)
-In-Reply-To: <20070205190834.40c0a619@griffin.suse.cz>
+Received: from duen.parknet.dk ([217.116.235.14]:37069 "EHLO duen.parknet.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932918AbXBESWN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Feb 2007 13:22:13 -0500
+In-Reply-To: <p73r6tanmhk.fsf@bingen.suse.de>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Monday 05 February 2007 19:08, Jiri Benc wrote:
-> On Mon, 5 Feb 2007 18:43:06 +0100, Michael Buesch wrote:
-> > I also think that sending RTS in software is not going to work,
-> > as the timing can not be guaranteed. And timing is why we do it in
-> > the first place. If the HW is not capable of sending RTS frames, we
-> > should not try to emulate them in SW, as it might make the situation
-> > even worse by messing up the NAVs by wrong timing.
-> 
-> That's not emulation in the software, it's just similar approach as
-> with sending fragmented frames - you need (more or less) precise timing
-> there as well and many cards still want them enqueued one-by-one. The
-> firmware takes care of the precise timing. The same could apply to RTS
-> frames (i. e. the firmware recognize them and doesn't send them before
-> it has the next frame ready).
+On Thursday 01 February 2007 12:30, Andi Kleen wrote:
+> Simon Lodal <simonl@parknet.dk> writes:
+> > Memory is generally not an issue, but CPU is, and you can not beat the
+> > CPU efficiency of plain array lookup (always faster, and constant time).
+>
+> Actually that's not true when the array doesn't fit in cache.
+>
+> The cost of going out to memory over caches is so large (factor 100 and
+> more) that often algorithms with smaller cache footprint can easily beat
+> algorithms that execute much less instructions if it has less cache misses.
+> That is because not all instructions have the same cost; anything
+> in core is very fast but going out to memory is very slow.
+>
+> That said I think I agree with your analysis that a two level
+> array is probably the right data structure for this and likely
+> not less cache efficient than the hash table.
 
-And even for a "dumb" device like rt2x00 (no firmware for rt2400pci, rt2500pci or rt2500usb)
-it still has rts capabilities. It is just not capable of creating the frame, but
-the descriptor has a special field that should be set in case of a rts frame.
-So that would suggest that the device will treat the frame a little bit
-different than a regular frame.
+Good point.
 
-Ivo
+The 2-level lookup generates 3 memory accesses (including getting at the 
+htb_class struct). List traversal will generate many more memory accesses, 
+unless the lists have 3 or fewer entries (currently that only holds true for 
+up to 48 classes, uniformly distributed).
+
+It is difficult to judge if the tables will be in cache or not. The tables are 
+clearly extra baggage for the cachelines, compared to only having the 
+htb_class structs (they are going to be fetched anyway).
+
+On the other hand, if you have 10k classes, they are usually (real world) 
+allocated for individual users, of which at most half are active at any time. 
+With hashing, all 10k classes are fetched into cachelines all the time, only 
+in order to traverse lists. That is >150k wasted cache (5000 x 32 bytes); 
+plenty for 10k pointers in lookup tables.
+
+
+Regards
+Simon
