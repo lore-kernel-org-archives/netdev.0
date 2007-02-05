@@ -1,32 +1,31 @@
-From: Daniel Barkalow <barkalow@iabervon.org>
-Subject: Re: forcedeth problems on 2.6.20-rc6-mm3
-Date: Mon, 5 Feb 2007 01:34:54 -0500 (EST)
-Message-ID: <Pine.LNX.4.64.0702050124320.20138@iabervon.org>
-References: <45C6BCE5.90103@shaw.ca>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PACKET]: Add PACKET_AUXDATA cmsg
+Date: Sun, 04 Feb 2007 23:33:31 -0800 (PST)
+Message-ID: <20070204.233331.07640405.davem@davemloft.net>
+References: <20070110025435.GA19599@gondor.apana.org.au>
+	<20070123233834.GA4923@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: linux-kernel <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, Andrew Morton <akpm@osdl.org>
-To: Robert Hancock <hancockr@shaw.ca>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752736AbXBEGe4@vger.kernel.org>
-In-Reply-To: <45C6BCE5.90103@shaw.ca>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52075
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752763AbXBEHdd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Feb 2007 02:33:33 -0500
+In-Reply-To: <20070123233834.GA4923@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 4 Feb 2007, Robert Hancock wrote:
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Wed, 24 Jan 2007 10:38:34 +1100
 
-> Something's busted with forcedeth in 2.6.20-rc6-mm3 for me relative to
-> 2.6.20-rc6. There's no errors in dmesg, but it seems no packets ever get
-> received and so the machine can't get an IP address. I tried reverting all the
-> -mm changes to drivers/net/forcedeth.c, which didn't help. The network
-> controller shares an IRQ with the USB OHCI controller which is receiving
-> interrupts, so it doesn't seem like an interrupt routing problem, though I
-> suppose something wierd could be happening there.
+> On Wed, Jan 10, 2007 at 01:54:35PM +1100, Herbert Xu wrote:
+> > 
+> > [PACKET]: Add optional checksum computation for recvmsg
+> 
+> Unfortunately I missed the fact the skb->cb is already used to store
+> the sockaddr.  This patch fixes it up.
 
-IIRC, forcedeth tries to use MSI by default. Perhaps the hardware is using 
-it, but the kernel thinks enabling it didn't work? I think there's a 
-module option for forcedeth to disable MSI, which might be worth a try to 
-see if it has any effect.
-
-	-Daniel
-*This .sig left intentionally blank*
+Both patch applied, thanks Herbert.
