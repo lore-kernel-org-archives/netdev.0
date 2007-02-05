@@ -1,110 +1,49 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: [PATCH] sky2: flow control off
-Date: Mon, 5 Feb 2007 19:42:15 +0100
-Message-ID: <20070205184215.GA31926@1wt.eu>
-References: <20070202153425.2d979fd4@freekitty> <20070203223231.GG24090@1wt.eu> <20070205092253.4d8a8f74@freekitty>
+From: Ivo van Doorn <ivdoorn@gmail.com>
+Subject: Re: [PATCH 1/2] d80211: Add software RTS support
+Date: Mon, 5 Feb 2007 19:42:57 +0100
+Message-ID: <200702051942.57753.IvDoorn@gmail.com>
+References: <200701312016.50524.IvDoorn@gmail.com> <200702051907.53220.IvDoorn@gmail.com> <200702051922.46885.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Benc <jbenc@suse.cz>,
+	"John Linville" <linville@tuxdriver.com>, netdev@vger.kernel.org,
+	Michael Buesch <mbuesch@freenet.de>,
+	Johannes Berg <johannes@sipsolutions.net>
+To: Michael Buesch <mb@bu3sch.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:2264 "EHLO 1wt.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932588AbXBESmY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Feb 2007 13:42:24 -0500
+Received: from an-out-0708.google.com ([209.85.132.246]:57806 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932606AbXBESnT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Feb 2007 13:43:19 -0500
+Received: by an-out-0708.google.com with SMTP id b33so1097010ana
+        for <netdev@vger.kernel.org>; Mon, 05 Feb 2007 10:43:19 -0800 (PST)
+In-Reply-To: <200702051922.46885.mb@bu3sch.de>
 Content-Disposition: inline
-In-Reply-To: <20070205092253.4d8a8f74@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Stephen,
+Hi,
 
-First, thanks for this detailed explanation.
-
-On Mon, Feb 05, 2007 at 09:22:53AM -0800, Stephen Hemminger wrote:
-> Here is what I saw.
+> > Did you already send that patchset to the netdev list?
+> > Because I haven't seen a patch series about rts for d80211 yet.
 > 
-> The transmitter on the Marvell Yukon II (88e8053) hangs when doing transmit flow
-> control under load.  There appears to be a bug or race condition that 
-> causes the MAC to stop transmitting data.
+> No, linux-wireless@vger.kernel.org
+
+Hmm, wasn't subscribed to that list yet. :(
+But now I am. :)
+
+> > The new rt2500usb and rt73usb packet ring handling no longer use a DMA buffer
+> > but instead send the sk_buffer->data pointer to the USB layer.
+> > The solution as suggested by Jiri could be handled by making sure the rts allocated
+> > buffer will also have a tx header room as set in the tx_header_room field. But I am not
+> > sure if that would be a better solution than putting the rts packet in a sk_buffer that is being
+> > send out just before the real packet...
 > 
-> There are two drivers for the Yukon II device on Linux. SysKonnect/Marvell
-> has one called sk98lin it is downloadable from syskonnect.def, and I wrote
-> one called sky2 that is part of the standard Linux kernel. This problem
-> is reproducible with the sky2 driver only; the sk98lin driver has a watchdog
-> routine that resets the hardware perodically, so it masks the problem.
-> 
-> When the failure mode occurs only after several minutes of sustained activity
-> and a situation where PAUSE frames would be received. In my testing I used
-> 
->   server == 1000mbit  ===> switch --- 100mbit ---> client
-> 
-> Server was Mac Mini (88E8053) running Linux 2.6.20-rc7 and client was a 
-> Sony Vaio (88e8036) laptop.  The server was running NFS in kernel
-> and client was doing a large copy. The server was using UDP to cause
-> large amounts of 802 pause frames. The problem is not as reproducible with
-> TCP tests because TCP congestion control avoids over running the switch.
+> In my patchset you can put it into anything you like.
+> I put it into an skb.
 
-I encountered *exactly* this problem with a one-leg firewall equipped with a
-88E8053 attached to a 1000 Mbps switch, itself hosting 100 Mbps stations,
-but with sk98lin (2.4). Running tcpdump on the firewall, I noticed duplicated
-and corrupted frames. I could only reproduce the duplicated and corrupted
-frames on a lab setup, not the Tx hangs, by sending high UDP traffic on the
-port to a 100 Mbps host. Sending to 1000 Mbps hosts never triggered the
-problem, hence my conclusions about flow control too. What I found interesting
-is that using a very old version of the sky2 driver which I had with me
-(sky2 v0.5), I could not trigger the problem anymore. But right now, I realize
-that this version of the driver did not support flow control yet, which might
-converge with your observations :
+Sounds good, I'll look that patchset up in the mailarchive.
 
-# ethtool -i eth0
-driver: sky2
-version: 0.5
-firmware-version: N/A
-bus-info: 01:00.0
-
-# ethtool -a eth0
-Pause parameters for eth0:
-Autonegotiate:  on
-RX:             off
-TX:             off
-
-> When failure occurs:
->      * packets continue to be received and passed up the stack
-> 
->      * GMAC status register is the pause state
->      * transmit packets continue transferred by the DMA into the RAM buffer
->      * when the the RAM buffer fills no more packets are DMA'd
->      * when transmit queue in driver fills, it gets a watch dog timeout
-> 
->      * switch appears to get confused and other ports hang as well.
-> 
-> During development of the sky2 driver a similar problem was observed on
-> receive if the receive DMA buffer was not 8 byte aligned.  For performance
-> reasons, Linux drivers usually offset the Rx buffer by 2 bytes so that
-> the TCP/IP headers are aligned for faster CPU access.  If the sky2 Rx
-> buffer was offset, then the receiver DMA would occasionally hung. The
-> workaround for receive was to align the receive buffer on a quad word
-> boundary.
-> 
-> This problem appears to be flow control related because after disabling
-> flow control, no errors occurred in a 48 hour test run.
-
-No problem here with the old driver without flow control either. I can try
-to disable it right here on my setup with sk98lin, and test again. I did not
-know that the sk98lin had a watchdog, it could explain why sometimes the
-system entered a strange state (packets taking *seconds* to be forwarded).
-
-Anyway, I'm more and more convinced that there are hardware bugs. It is
-not normal at all that both the original syskonnect driver and your fresh
-new code show such similar problems !
-
-> There probably are other races and hangs that are related. I don't
-> consider all the hangs eliminated yet.
-
-Well, at least you have a more maintainable driver than what was the
-previous one, so you will eventually manage to fix all problems ;-)
-
-Best regards,
-Willy
-
+Ivo
