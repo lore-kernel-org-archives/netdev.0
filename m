@@ -1,55 +1,47 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: Re: [PATCH 2.6.20] ibm_emac: Use ARRAY_SIZE macro when appropriate
-Date: Mon, 5 Feb 2007 23:22:06 +0300
-Message-ID: <20070205202206.GD11055@martell.zuzino.mipt.ru>
-References: <20070205165429.GD3896@Ahmed> <20070205165916.GK3896@Ahmed>
+From: Jiri Benc <jbenc@suse.cz>
+Subject: Re: [PATCH 1/3] d80211: Add control structure for beacontemplates
+Date: Mon, 5 Feb 2007 21:28:02 +0100
+Message-ID: <20070205212802.36477fd4@griffin.suse.cz>
+References: <200702031725.19080.IvDoorn@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: ebs@ebshome.net, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, linuxppc-embedded@ozlabs.org
-To: "Ahmed S. Darwish" <darwish.07@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "John Linville" <linville@tuxdriver.com>,
+	Michael Buesch <mb@bu3sch.de>,
+	Michael Wu <flamingice@sourmilk.net>, netdev@vger.kernel.org
+To: Ivo van Doorn <ivdoorn@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.189]:1865 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933298AbXBEUWH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Feb 2007 15:22:07 -0500
-Received: by nf-out-0910.google.com with SMTP id o25so2241766nfa
-        for <netdev@vger.kernel.org>; Mon, 05 Feb 2007 12:22:06 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20070205165916.GK3896@Ahmed>
+Received: from styx.suse.cz ([82.119.242.94]:45325 "EHLO mail.suse.cz"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S933269AbXBEU2F (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Feb 2007 15:28:05 -0500
+In-Reply-To: <200702031725.19080.IvDoorn@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 05, 2007 at 06:59:16PM +0200, Ahmed S. Darwish wrote:
-> A patch to use ARRAY_SIZE macro already defined in kernel.h.
+On Sat, 3 Feb 2007 17:25:18 +0100, Ivo van Doorn wrote:
+> When rt2500usb and rt73usb will start using beacontemplates,
+> they would also need a control structure to be passed along to
+> correctly set the tx parameters.
 
-OK, but checks you're changing are strange. idx there is signed so
+Good catch, thanks.
 
-	BUG_ON(idx < 0 || idx > ARRAY_SIZE());
+> This patch will add the allocation an initialization of a
+> ieee80211_tx_control especially for the beacontemplate.
+> 
+> This does require drivers that have the BEACON_TEMPLATE flag
+> set to also free the control structure. (bcm43xx and p54 will be
+> fixed in the next 2 patches)
 
-should be more appropriate.
+I would prefer using local variable for tx_control. Driver will be
+responsible for copying it somewhere if it needs to. I believe most
+drivers won't need to do that and it will prevent potential memory
+leaks as it's easy to forget to free the structure.
 
-> --- a/drivers/net/ibm_emac/ibm_emac_debug.c
-> +++ b/drivers/net/ibm_emac/ibm_emac_debug.c
-> @@ -132,7 +132,7 @@ void emac_dbg_register(int idx, struct ocp_enet_private *dev)
->  {
->  	unsigned long flags;
->  
-> -	if (idx >= sizeof(__emacs) / sizeof(__emacs[0])) {
-> +	if (idx >= ARRAY_SIZE(__emacs)) {
+Thanks,
 
-no __vi, no cookie. :)
+ Jiri
 
->  		printk(KERN_WARNING
->  		       "invalid index %d when registering EMAC for debugging\n",
->  		       idx);
-> @@ -148,7 +148,7 @@ void mal_dbg_register(int idx, struct ibm_ocp_mal *mal)
->  {
->  	unsigned long flags;
->  
-> -	if (idx >= sizeof(__mals) / sizeof(__mals[0])) {
-> +	if (idx >= ARRAY_SIZE(__mals)) {
->  		printk(KERN_WARNING
->  		       "invalid index %d when registering MAL for debugging\n",
->  		       idx);
-
+-- 
+Jiri Benc
+SUSE Labs
