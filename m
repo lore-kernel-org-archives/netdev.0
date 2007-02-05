@@ -1,38 +1,46 @@
-From: Frank Pavlic <fpavlic@de.ibm.com>
-Subject: [PATCH 1/7] too big ??
-Date: Mon, 5 Feb 2007 16:02:06 +0100
-Message-ID: <20070205150206.GA19628@de.ibm.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH] Marvell Libertas 8388 802.11b/g USB driver (v2)
+Date: Mon, 5 Feb 2007 16:12:05 +0100
+Message-ID: <200702051612.06492.arnd@arndb.de>
+References: <20070116185524.GA5681@dmt> <20070203224349.GA18418@dmt> <20070205140147.GA17286@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Marcelo Tosatti <marcelo@kvack.org>,
+	netdev <netdev@vger.kernel.org>, Jeff Garzik <jgarzik@pobox.com>,
+	"John W. Linville" <linville@redhat.com>,
+	Dan Williams <dcbw@redhat.com>,
+	"Luis R. Rodriguez" <mcgrof@gmail.com>,
+	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+To: "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e6.ny.us.ibm.com ([32.97.182.146]:56650 "EHLO e6.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932845AbXBEPDB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Feb 2007 10:03:01 -0500
-Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by e6.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l15F3efD024896
-	for <netdev@vger.kernel.org>; Mon, 5 Feb 2007 10:03:40 -0500
-Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
-	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.2) with ESMTP id l15F1hTV187388
-	for <netdev@vger.kernel.org>; Mon, 5 Feb 2007 10:01:43 -0500
-Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
-	by d01av02.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l15F1geU002638
-	for <netdev@vger.kernel.org>; Mon, 5 Feb 2007 10:01:43 -0500
+Received: from moutng.kundenserver.de ([212.227.126.171]:55603 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932617AbXBEPMh convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Feb 2007 10:12:37 -0500
+In-Reply-To: <20070205140147.GA17286@tuxdriver.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
-I realized that PATCH 1/7 of the AF_IUCV patch set is more
-than 100kb . Seems that this is too much for the mailing list.
-Well since I resent them some minutes ago I am
-wondering what would be the best way now to get PATCH 1/7 
-onto netdev .
-Shall I only send the splitted PATCH 1/7 or really another 
-RESEND of the whole AF_IUCV patch set ?
+On Monday 05 February 2007 15:01, John W. Linville wrote:
+>=20
+> > I disagree, entry/exit points have been shown to be useful in pract=
+ice
+> > to identify firmware problems on field.
+>=20
+> I'm not too fond of the ENTER/LEAVE stuff either. =A0But, I do sympat=
+hize
+> that they _can_ be useful in certain circumstances/workflows/whatever=
+=2E
+>=20
+> Is there an official "party line" on this documented somewhere
+> (i.e. CodingStyle or elsewhere)? =A0A quick search doesn't reveal one
+> to me.
 
-Thanks 
+I don't think there is a formal rule. My personal opinion is that
+you should trace events that come from the hardware of from the user,
+if you trace at all, but never trace function call sequences that
+can be simply identified by knowing the source code.
 
-Frank
+	Arnd <><
