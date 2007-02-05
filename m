@@ -1,50 +1,57 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: NAPI quota and budget
-Date: Mon, 5 Feb 2007 12:00:31 +0100
-Message-ID: <17863.3663.723022.836914@robur.slu.se>
-References: <b7dacee80702032234n5789e9b9n2dcf9239730d25b4@mail.gmail.com>
+From: Andi Kleen <ak@suse.de>
+Subject: Re: [PATCH] HTB O(1) class lookup
+Date: Mon, 5 Feb 2007 12:24:53 +0100
+Message-ID: <200702051224.53777.ak@suse.de>
+References: <20070205101637.GB1863@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Robert.Olsson@data.slu.se
-To: "K. Salah" <drsalah66@gmail.com>
+Cc: Simon Lodal <simonl@parknet.dk>, Patrick McHardy <kaber@trash.net>,
+	netdev@vger.kernel.org, lartc@mailman.ds9a.nl
+To: Jarek Poplawski <jarkao2@o2.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.slu.se ([130.238.96.70]:49101 "EHLO mx1.slu.se"
+Received: from mail.suse.de ([195.135.220.2]:41968 "EHLO mx1.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932085AbXBELSF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Feb 2007 06:18:05 -0500
-Received: from robur.slu.se (robur.slu.se [130.238.98.12])
-	by mx1.slu.se (8.13.7/8.13.6) with ESMTP id l15BI1j6013719
-	for <netdev@vger.kernel.org>; Mon, 5 Feb 2007 12:18:01 +0100
-In-Reply-To: <b7dacee80702032234n5789e9b9n2dcf9239730d25b4@mail.gmail.com>
+	id S932101AbXBELZB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Feb 2007 06:25:01 -0500
+In-Reply-To: <20070205101637.GB1863@ff.dom.local>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Monday 05 February 2007 11:16, Jarek Poplawski wrote:
 
-Hello!
+> 
+> Strange - it seems you gave only arguments against this
+> analysis...
 
-K. Salah writes:
+For a naturally clustered key space (as is common in this case) the two 
+level structure is likely more cache efficient than a generic hash function. 
+That is because the hash will likely spread out the natural clusters and then require
+more cache lines to access them because there will be less sharing.
+
+Ok in theory a very tuned for this case hash function might have similar 
+properties, but normally people don't put that much care into 
+designing hashes and just use some generic one.
+
+> > And the worst memory consumption case considered by Patrick should
+> > be relatively unlikely.
+> 
+> Anyway, such approach, that most users do something
+> this (reasonable) way, doesn't look like good
+> programming practice.
+
+In the unlikely worst case they will get half a MB of tables. Hardly a 
+show stopper. 
+
+> I wonder, why not try, at least for a while, to do this
+> a compile (menuconfig) option with a comment:
+> recommended for a large number of classes. After hash
+> optimization and some testing, final decisions could be
+> made.
+
+There are already far too many obscure CONFIGs. Don't add more.
+
+-Andi
  
- > I have a question about the quota per poll in NAPI.  Any idea how the
- > quota of 64 packets per poll per NIC was selected?  Why 64, not any
- > other number?  Is there science behind this number.
-
- The number comes from experimentation. The "science" is thats it's
- possible set any number at all.
-
- The first NAPI driver tulip (100 Mps) increased the RX-ringsize from 32 
- 128 descriptors and used 16 pkts per poll.
-
- A quota of 64 for GIGE devices (tested with 256 descriptors) seemed to be 
- good compromise in experiments.  16 < 64 < netdev_budget 
-  
- > And the same goes for the budget of 300?
- > 
- > Was that done based on expermintation?
-
- Yes it was the size of central buffer size before NAPI. It's possible
- the netdev_budget can be increased a bit today as the packet processing
- speed has increased.
-
- Cheers.
-					--ro
