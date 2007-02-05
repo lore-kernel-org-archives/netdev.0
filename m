@@ -1,49 +1,55 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH] Marvell Libertas 8388 802.11b/g USB driver (v2)
-Date: Mon, 5 Feb 2007 09:01:47 -0500
-Message-ID: <20070205140147.GA17286@tuxdriver.com>
-References: <20070116185524.GA5681@dmt> <200701270253.08320.arnd@arndb.de> <20070203224349.GA18418@dmt>
+From: Alexey Dobriyan <adobriyan@openvz.org>
+Subject: [PATCH] igmp: check add_grhead() return value
+Date: Mon, 5 Feb 2007 18:04:33 +0300
+Message-ID: <20070205150432.GA5961@localhost.sw.ru>
+References: <20070130105701.GA6015@localhost.sw.ru> <OF52248A96.35A5CA3C-ON88257273.003E5791-88257273.003F9122@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Arnd Bergmann <arnd@arndb.de>, netdev <netdev@vger.kernel.org>,
-	Jeff Garzik <jgarzik@pobox.com>,
-	"John W. Linville" <linville@redhat.com>,
-	Dan Williams <dcbw@redhat.com>,
-	"Luis R. Rodriguez" <mcgrof@gmail.com>,
-	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
-To: Marcelo Tosatti <marcelo@kvack.org>
+Cc: kuznet@ms2.inr.ac.ru, netdev@vger.kernel.org
+To: David Stevens <dlstevens@us.ibm.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:4987 "EHLO ra.tuxdriver.com"
+Received: from mailhub.sw.ru ([195.214.233.200]:14480 "EHLO relay.sw.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932968AbXBEOor (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Feb 2007 09:44:47 -0500
+	id S932994AbXBEO77 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Feb 2007 09:59:59 -0500
 Content-Disposition: inline
-In-Reply-To: <20070203224349.GA18418@dmt>
+In-Reply-To: <OF52248A96.35A5CA3C-ON88257273.003E5791-88257273.003F9122@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Feb 03, 2007 at 08:43:49PM -0200, Marcelo Tosatti wrote:
-> On Sat, Jan 27, 2007 at 02:53:07AM +0100, Arnd Bergmann wrote:
-> > On Tuesday 16 January 2007 19:55, Marcelo Tosatti wrote:
+OK, now that we aren't seeing crashes which can be attributed to these
+NULL dereferences any longer.
+--------------------------------------
+add_grhead() allocates memory with GFP_ATOMIC and in at least two places skb
+from it passed to skb_put() without checking.
 
-> > > +#define	ENTER()			dprintk(1, "Enter: %s, %s:%i\n", __FUNCTION__, \
-> > > +							__FILE__, __LINE__)
-> > > +#define	LEAVE()			dprintk(1, "Leave: %s, %s:%i\n", __FUNCTION__, \
-> > > +							__FILE__, __LINE__)
-> > 
-> > As mentioned, these should probably just be removed
-> 
-> I disagree, entry/exit points have been shown to be useful in practice
-> to identify firmware problems on field.
+Signed-off-by: Alexey Dobriyan <adobriyan@openvz.org>
+---
 
-I'm not too fond of the ENTER/LEAVE stuff either.  But, I do sympathize
-that they _can_ be useful in certain circumstances/workflows/whatever.
+ net/ipv4/igmp.c  |    2 ++
+ net/ipv6/mcast.c |    2 ++
+ 2 files changed, 4 insertions(+)
 
-Is there an official "party line" on this documented somewhere
-(i.e. CodingStyle or elsewhere)?  A quick search doesn't reveal one
-to me.
+--- a/net/ipv4/igmp.c
++++ b/net/ipv4/igmp.c
+@@ -455,6 +455,8 @@ static struct sk_buff *add_grec(struct s
+ 			skb = add_grhead(skb, pmc, type, &pgr);
+ 			first = 0;
+ 		}
++		if (!skb)
++			return NULL;
+ 		psrc = (__be32 *)skb_put(skb, sizeof(__be32));
+ 		*psrc = psf->sf_inaddr;
+ 		scount++; stotal++;
+--- a/net/ipv6/mcast.c
++++ b/net/ipv6/mcast.c
+@@ -1582,6 +1582,8 @@ static struct sk_buff *add_grec(struct s
+ 			skb = add_grhead(skb, pmc, type, &pgr);
+ 			first = 0;
+ 		}
++		if (!skb)
++			return NULL;
+ 		psrc = (struct in6_addr *)skb_put(skb, sizeof(*psrc));
+ 		*psrc = psf->sf_addr;
+ 		scount++; stotal++;
 
-John
--- 
-John W. Linville
-linville@tuxdriver.com
