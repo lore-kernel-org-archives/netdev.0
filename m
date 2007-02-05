@@ -1,39 +1,52 @@
 From: Ingo Oeser <netdev@axxeo.de>
-Subject: Re: [PATCH] HTB O(1) class lookup
-Date: Mon, 5 Feb 2007 13:45:27 +0100
-Message-ID: <200702051345.27827.netdev@axxeo.de>
-References: <20070205101637.GB1863@ff.dom.local> <200702051224.53777.ak@suse.de>
+Subject: Re: [PATCH 3/4] skge: WOL support
+Date: Mon, 5 Feb 2007 14:25:41 +0100
+Message-ID: <200702051425.41954.netdev@axxeo.de>
+References: <20070202162250.980620000@linux-foundation.org> <20070202162419.257951000@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain;
-  charset="iso-8859-1"
+  charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: Jarek Poplawski <jarkao2@o2.pl>, Simon Lodal <simonl@parknet.dk>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	lartc@mailman.ds9a.nl
-To: Andi Kleen <ak@suse.de>
+Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.axxeo.de ([82.100.226.146]:40256 "EHLO mail.axxeo.de"
+Received: from mail.axxeo.de ([82.100.226.146]:57027 "EHLO mail.axxeo.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932268AbXBEMpz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Feb 2007 07:45:55 -0500
-In-Reply-To: <200702051224.53777.ak@suse.de>
+	id S932411AbXBEN0I (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Feb 2007 08:26:08 -0500
+In-Reply-To: <20070202162419.257951000@linux-foundation.org>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andi Kleen schrieb:
-> On Monday 05 February 2007 11:16, Jarek Poplawski wrote:
-> > I wonder, why not try, at least for a while, to do this
-> > a compile (menuconfig) option with a comment:
-> > recommended for a large number of classes. After hash
-> > optimization and some testing, final decisions could be
-> > made.
-> 
-> There are already far too many obscure CONFIGs. Don't add more.
+Hi Stephen,
 
-And for people concerned about memory usage: There is always CONFIG_SMALL
-for such decisions. Maybe one can limit worst case and average memory usage 
-based on this config. The algorithm should stay the same.
+just a nitpick.
+
+Stephen Hemminger schrieb:
+> --- skge.orig/drivers/net/skge.c
+> +++ skge/drivers/net/skge.c
+> @@ -132,18 +132,93 @@ static void skge_get_regs(struct net_dev
+>  }
+>  
+>  /* Wake on Lan only supported on Yukon chips with rev 1 or above */
+> -static int wol_supported(const struct skge_hw *hw)
+> +static u32 wol_supported(const struct skge_hw *hw)
+>  {
+> -	return !((hw->chip_id == CHIP_ID_GENESIS ||
+> -		  (hw->chip_id == CHIP_ID_YUKON && hw->chip_rev == 0)));
+> +	if (hw->chip_id == CHIP_ID_YUKON && hw->chip_rev != 0)
+> +		return WAKE_MAGIC | WAKE_PHY;
+> +	else
+> +		return 0;
+> +}
+
+You can delete that comment, if you write exactly, what the comment says:
+
+	if (hw->chip_id == CHIP_ID_YUKON && hw->chip_rev >= 1)
+		return WAKE_MAGIC | WAKE_PHY;
+	else
+		return 0;
 
 Regards
 
