@@ -1,34 +1,45 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [patch 11/11] netfilter warning fix
-Date: Mon, 5 Feb 2007 18:53:24 -0800
-Message-ID: <20070205185324.16b54b64.akpm@linux-foundation.org>
-References: <200702060032.l160WErX004652@shell0.pdx.osdl.net>
-	<20070205.181026.122835715.davem@davemloft.net>
-	<20070205181810.bbfbf42c.akpm@linux-foundation.org>
-	<20070205.184408.34759062.davem@davemloft.net>
+From: "David M. Lloyd" <dmlloyd@flurg.com>
+Subject: Re: [take35 0/10] kevent: Generic event handling mechanism.
+Date: Mon, 05 Feb 2007 11:28:05 -0600
+Message-ID: <1170696485.22199.1.camel@localhost>
+References: <11703247503374@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kaber@trash.net, dipankar@in.ibm.com,
-	paulmck@us.ibm.com, mingo@elte.hu
-To: David Miller <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	Andrew Morton <akpm@osdl.org>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	Chase Venters <chase.venters@clientec.com>,
+	Johann Borck <johann.borck@densedata.com>,
+	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
+	Jamal Hadi Salim <hadi@cyberus.ca>,
+	Ingo Molnar <mingo@elte.hu>, linux-fsdevel@vger.kernel.org
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:46075 "EHLO smtp.osdl.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S964996AbXBFCxn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Feb 2007 21:53:43 -0500
-In-Reply-To: <20070205.184408.34759062.davem@davemloft.net>
+Received: from outbound4.mail.tds.net ([216.170.230.94]:35482 "EHLO
+	outbound4.mail.tds.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965344AbXBFF4T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Feb 2007 00:56:19 -0500
+In-Reply-To: <11703247503374@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 05 Feb 2007 18:44:08 -0800 (PST) David Miller <davem@davemloft.net> wrote:
+On Thu, 2007-02-01 at 13:12 +0300, Evgeniy Polyakov wrote:
+> Generic event handling mechanism.
 
-> I bet this rcu_read_lock()-implies-preempt_disable() assumption has
-> spread into other areas of the tree as well.
+The patch applied cleanly to 2.6.20 final, but I got a build error:
 
-Me too.  Although one expects that other holes will cause might_sleep or
-lockdep warnings pretty easily.
+  CC      kernel/kevent/kevent.o
+  CC      kernel/kevent/kevent_user.o
+  CC      kernel/kevent/kevent_timer.o
+  CC      kernel/kevent/kevent_poll.o
+make[2]: *** No rule to make target `kernel/kevent/epoll.o', needed by `kernel/kevent/built-in.o'.  Stop.
+make[1]: *** [kernel/kevent] Error 2
+make: *** [kernel] Error 2
 
-Still, life is hard enough as it is.  I think I'll shelve rcu-preempt
-pending resolution of this.
+- DML
 
