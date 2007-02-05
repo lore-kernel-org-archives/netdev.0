@@ -1,26 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2.6.19 2/2] X.25: Adds /proc/net/x25/forward to view
- active forwarded calls.
-Date: Sun, 04 Feb 2007 16:43:21 -0800 (PST)
-Message-ID: <20070204.164321.32065834.davem@davemloft.net>
-References: <1167881835.5124.89.camel@localhost>
+Subject: Re: [RFC][PATCH][XFRM][0/5] extension for XFRM databases
+Date: Sun, 04 Feb 2007 16:56:42 -0800 (PST)
+Message-ID: <20070204.165642.118497004.davem@davemloft.net>
+References: <20070201114339.E2BD.SHINTA@sfc.wide.ad.jp>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-x25@vger.kernel.org, eis@baty.hanse.de,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: ahendry@tusc.com.au
-Return-path: <linux-x25-owner@vger.kernel.org>
-In-Reply-To: <1167881835.5124.89.camel@localhost>
-Sender: linux-x25-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, Francis.Dupont@point6.net,
+	nakam@linux-ipv6.org, usagi-core@linux-ipv6.org
+To: shinta@sfc.wide.ad.jp
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53491
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752627AbXBEA4n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Feb 2007 19:56:43 -0500
+In-Reply-To: <20070201114339.E2BD.SHINTA@sfc.wide.ad.jp>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: ahendry <ahendry@tusc.com.au>
-Date: Thu, 04 Jan 2007 14:37:15 +1100
 
-> View the active forwarded call list
-> cat /proc/net/x25/forward
-> 
-> Signed-off-by: Andrew Hendry <andrew.hendry@gmail.com>
+Shinta-san, let me know when an updated version of your
+patches are available, I'd like to include them in 2.6.21
 
-Applied, thanks a lot.
+Thank you.
