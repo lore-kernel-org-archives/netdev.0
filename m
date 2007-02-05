@@ -1,46 +1,57 @@
-From: "Steve Hill" <steve.hill@dialogic.com>
-Subject: RE: [Lksctp-developers] Fw: Intermittent SCTP multihoming breakage
-Date: Mon, 5 Feb 2007 11:53:42 -0500
-Message-ID: <E096369D937D3A4DB271B382850C5C5F44E657@pysmail.eicon.com>
+From: "Ahmed S. Darwish" <darwish.07@gmail.com>
+Subject: [PATCH 00] A series of patches to use ARRAY_SIZE in `net' drivers
+Date: Mon, 5 Feb 2007 18:54:29 +0200
+Message-ID: <20070205165429.GD3896@Ahmed>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>,
-	<lksctp-developers@lists.sourceforge.net>,
-	"Sridhar Samudrala" <sri@us.ibm.com>
-To: "Vlad Yasevich" <vladislav.yasevich@hp.com>
+Content-Type: text/plain; charset=us-ascii
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from montreal.eicon.com ([192.219.17.124]:35165 "EHLO
-	EICONMTL.eicon.com" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S1751743AbXBEQw6 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Feb 2007 11:52:58 -0500
-Content-class: urn:content-classes:message
+Received: from an-out-0708.google.com ([209.85.132.242]:39192 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751795AbXBEQye (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Feb 2007 11:54:34 -0500
+Received: by an-out-0708.google.com with SMTP id b33so1068769ana
+        for <netdev@vger.kernel.org>; Mon, 05 Feb 2007 08:54:34 -0800 (PST)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Vlad Yasevich wrote on 05 February 2007 16:39:
+Hi all,
 
-> Once you start simulating the network failure, how long do you wait?
-> 
-> If you have not changed rto_max and path_max_retrans, you can end up
-> waiting quite a while for the full path switchover.  This will also
-> severely slow down your retransmissions...
+Follows is a sereis of patches to use ARRAY_SIZE macro in drivers/net. 
+Patches are sent separately according to their maintaners as replies to 
+this thread.
 
-I'm waiting several minutes, and I'm using setsockopt() to set the
-timeouts fairly low:
-	srto_initial = 1000ms
-	srto_min = 200ms
-	srto_max = 1400ms
-	spp_pathmaxrxt = 2
-	spp_hbinterval = 1000ms
+ apne.c                     |    2 +-
+ arm/am79c961a.c            |    2 +-
+ atarilance.c               |    2 +-
+ cs89x0.c                   |    6 +++---
+ e1000/e1000_ethtool.c      |    2 +-
+ fec_8xx/fec_mii.c          |    4 ++--
+ ibm_emac/ibm_emac_debug.c  |    8 ++++----
+ irda/actisys-sir.c         |    3 ++-
+ ixgb/ixgb_param.c          |    2 +-
+ lp486e.c                   |    2 +-
+ ne-h8300.c                 |    2 +-
+ ne.c                       |    2 +-
+ ne2.c                      |    2 +-
+ ne2k-pci.c                 |    2 +-
+ netxen/netxen_nic_hw.c     |    2 +-
+ pcmcia/axnet_cs.c          |    2 +-
+ pcmcia/pcnet_cs.c          |    2 +-
+ sk98lin/skgemib.c          |    4 +++-
+ sk98lin/skgesirq.c         |    3 ++-
+ skfp/smt.c                 |    3 ++-
+ skfp/srf.c                 |    6 ++++--
+ wireless/airo.c            |    4 ++--
+ wireless/hostap/hostap.h   |    3 ++-
+ wireless/ipw2100.c         |   14 ++++++--------
+ wireless/prism54/oid_mgt.c |    4 +++-
+ wireless/wavelan.p.h       |    2 +-
+ zorro8390.c                |    2 +-
+ 27 files changed, 50 insertions(+), 42 deletions(-)
 
-The network's round trip time (indicated by ping) is on the order of
-<0.25ms.
-
- - Steve Hill
-   Software Engineer
-   Dialogic
-   Fordingbridge, Hampshire, UK
-   +44-1425-651392
-   steve.hill@dialogic.com
+Thanks,
+-- 
+Ahmed S. Darwish
+http://darwish-07.blogspot.com
