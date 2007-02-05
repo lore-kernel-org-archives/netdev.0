@@ -1,55 +1,38 @@
-From: Alexey Dobriyan <adobriyan@openvz.org>
-Subject: [PATCH] igmp: check add_grhead() return value
-Date: Mon, 5 Feb 2007 18:04:33 +0300
-Message-ID: <20070205150432.GA5961@localhost.sw.ru>
-References: <20070130105701.GA6015@localhost.sw.ru> <OF52248A96.35A5CA3C-ON88257273.003E5791-88257273.003F9122@us.ibm.com>
+From: Frank Pavlic <fpavlic@de.ibm.com>
+Subject: [PATCH 1/7] too big ??
+Date: Mon, 5 Feb 2007 16:02:06 +0100
+Message-ID: <20070205150206.GA19628@de.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: kuznet@ms2.inr.ac.ru, netdev@vger.kernel.org
-To: David Stevens <dlstevens@us.ibm.com>, davem@davemloft.net
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.233.200]:14480 "EHLO relay.sw.ru"
+Received: from e6.ny.us.ibm.com ([32.97.182.146]:56650 "EHLO e6.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932994AbXBEO77 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Feb 2007 09:59:59 -0500
+	id S932845AbXBEPDB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Feb 2007 10:03:01 -0500
+Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
+	by e6.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l15F3efD024896
+	for <netdev@vger.kernel.org>; Mon, 5 Feb 2007 10:03:40 -0500
+Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
+	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.2) with ESMTP id l15F1hTV187388
+	for <netdev@vger.kernel.org>; Mon, 5 Feb 2007 10:01:43 -0500
+Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
+	by d01av02.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l15F1geU002638
+	for <netdev@vger.kernel.org>; Mon, 5 Feb 2007 10:01:43 -0500
 Content-Disposition: inline
-In-Reply-To: <OF52248A96.35A5CA3C-ON88257273.003E5791-88257273.003F9122@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-OK, now that we aren't seeing crashes which can be attributed to these
-NULL dereferences any longer.
---------------------------------------
-add_grhead() allocates memory with GFP_ATOMIC and in at least two places skb
-from it passed to skb_put() without checking.
+Hi,
+I realized that PATCH 1/7 of the AF_IUCV patch set is more
+than 100kb . Seems that this is too much for the mailing list.
+Well since I resent them some minutes ago I am
+wondering what would be the best way now to get PATCH 1/7 
+onto netdev .
+Shall I only send the splitted PATCH 1/7 or really another 
+RESEND of the whole AF_IUCV patch set ?
 
-Signed-off-by: Alexey Dobriyan <adobriyan@openvz.org>
----
+Thanks 
 
- net/ipv4/igmp.c  |    2 ++
- net/ipv6/mcast.c |    2 ++
- 2 files changed, 4 insertions(+)
-
---- a/net/ipv4/igmp.c
-+++ b/net/ipv4/igmp.c
-@@ -455,6 +455,8 @@ static struct sk_buff *add_grec(struct s
- 			skb = add_grhead(skb, pmc, type, &pgr);
- 			first = 0;
- 		}
-+		if (!skb)
-+			return NULL;
- 		psrc = (__be32 *)skb_put(skb, sizeof(__be32));
- 		*psrc = psf->sf_inaddr;
- 		scount++; stotal++;
---- a/net/ipv6/mcast.c
-+++ b/net/ipv6/mcast.c
-@@ -1582,6 +1582,8 @@ static struct sk_buff *add_grec(struct s
- 			skb = add_grhead(skb, pmc, type, &pgr);
- 			first = 0;
- 		}
-+		if (!skb)
-+			return NULL;
- 		psrc = (struct in6_addr *)skb_put(skb, sizeof(*psrc));
- 		*psrc = psf->sf_addr;
- 		scount++; stotal++;
-
+Frank
