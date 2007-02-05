@@ -1,47 +1,59 @@
-From: Ashwin Chaugule <ashwin.chaugule@celunite.com>
-Subject: Re: Wireless network card capabilities
-Date: Mon, 05 Feb 2007 13:42:27 +0530
-Message-ID: <1170663148.4692.2.camel@localhost.localdomain>
-References: <45C5B892.3000507@superbug.co.uk>
-	 <20070204122721.GA2280@p15091797.pureserver.info>
-Reply-To: ashwin.chaugule@celunite.com
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: [PATCH] HTB O(1) class lookup
+Date: Mon, 5 Feb 2007 11:16:38 +0100
+Message-ID: <20070205101637.GB1863@ff.dom.local>
+References: <p73r6tanmhk.fsf@bingen.suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: James Courtier-Dutton <James@superbug.co.uk>,
-	netdev@vger.kernel.org
-To: Ulrich Kunitz <kune@deine-taler.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: Simon Lodal <simonl@parknet.dk>, Patrick McHardy <kaber@trash.net>,
+	netdev@vger.kernel.org, lartc@mailman.ds9a.nl
+To: Andi Kleen <ak@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rs384.securehostserver.com ([72.22.69.69]:4342 "HELO
-	rs384.securehostserver.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751994AbXBEIMc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Feb 2007 03:12:32 -0500
-In-Reply-To: <20070204122721.GA2280@p15091797.pureserver.info>
+Received: from poczta.o2.pl ([193.17.41.142]:56148 "EHLO poczta.o2.pl"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751433AbXBEKNp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Feb 2007 05:13:45 -0500
+Content-Disposition: inline
+In-Reply-To: <p73r6tanmhk.fsf@bingen.suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 2007-02-04 at 13:27 +0100, Ulrich Kunitz wrote:
-> On 07-02-04 10:42 James Courtier-Dutton wrote:
-> 
-> > Hi,
-> > 
-> > Can Wireless network cards receive and transmit on two channels at once?
-> > I am thinking of implementing a way for a wireless VoIP phone on Linux 
-> > being able to hand off from one AP to another without dropping the call.
-> > For this to work, the wireless card must be able to chat on two channels 
-> > during the handover, so as to not loose any voice packets.
-> > 
-> > James
-> 
-> The easiest way to achieve this is to use two wireless adapters.
-> I'm not sure, whether there are adapters, which support parallel
-> reception on two channels and manage two independent
-> associations at the same time. 
-> 
+On 01-02-2007 12:30, Andi Kleen wrote:
+> Simon Lodal <simonl@parknet.dk> writes:
+>> Memory is generally not an issue, but CPU is, and you can not beat the CPU 
+>> efficiency of plain array lookup (always faster, and constant time).
 
-Not too sure, but from what I've understood of Channel bonding, maybe
-you could bind the 2 wifi ifaces using 2 adapters and linux's channel
-bonding modules ?
+Probably for some old (or embedded) lean boxes used for
+small network routers, with memory hungry iptables -
+memory could be an issue.
 
-Ashwin
+> Actually that's not true when the array doesn't fit in cache.
+> 
+> The cost of going out to memory over caches is so large (factor 100 and more) 
+> that often algorithms with smaller cache footprint can easily beat
+> algorithms that execute much less instructions if it has less cache misses. 
+> That is because not all instructions have the same cost; anything
+> in core is very fast but going out to memory is very slow.
+> 
+> That said I think I agree with your analysis that a two level
+> array is probably the right data structure for this and likely
+> not less cache efficient than the hash table.
 
+Strange - it seems you gave only arguments against this
+analysis...
+
+> And the worst memory consumption case considered by Patrick should
+> be relatively unlikely.
+
+Anyway, such approach, that most users do something
+this (reasonable) way, doesn't look like good
+programming practice.
+
+I wonder, why not try, at least for a while, to do this
+a compile (menuconfig) option with a comment:
+recommended for a large number of classes. After hash
+optimization and some testing, final decisions could be
+made.
+
+Regards,
+Jarek P.
