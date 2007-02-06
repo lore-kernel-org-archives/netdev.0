@@ -1,56 +1,58 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [Lksctp-developers] Fw: Intermittent SCTP multihoming breakage
-Date: Tue, 06 Feb 2007 16:48:42 -0500
-Message-ID: <45C8F7BA.6010007@hp.com>
-References: <E096369D937D3A4DB271B382850C5C5F48E60D@pysmail.eicon.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH 5/7] sky2: Yukon Extreme support
+Date: Tue, 6 Feb 2007 22:52:56 +0100
+Message-ID: <20070206215256.GA28967@electric-eye.fr.zoreil.com>
+References: <20070206184538.675048000@linux-foundation.org> <20070206184855.246345000@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net,
-	Sridhar Samudrala <sri@us.ibm.com>
-To: Steve Hill <steve.hill@dialogic.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel6.hp.com ([156.153.255.205]:50454 "EHLO atlrel6.hp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965539AbXBFVsp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Feb 2007 16:48:45 -0500
-In-Reply-To: <E096369D937D3A4DB271B382850C5C5F48E60D@pysmail.eicon.com>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:55552 "EHLO
+	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965544AbXBFVyx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Feb 2007 16:54:53 -0500
+Content-Disposition: inline
+In-Reply-To: <20070206184855.246345000@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Steve Hill wrote:
-> Vlad Yasevich wrote on 05 February 2007 20:35:
-> 
->> would you mind terribly, changing the -d "$net" to the
->> -i "$net", and run the script with the interface name instead?
-> 
-> I seem to get the same failure when dropping traffic based on interface
-> as I do when dropping based on address.
+Stephen Hemminger <shemminger@linux-foundation.org> :
+[...]
+> @@ -289,8 +289,10 @@
+>  	struct sky2_port *sky2 = netdev_priv(hw->dev[port]);
+>  	u16 ctrl, ct1000, adv, pg, ledctrl, ledover, reg;
+>  
+> -	if (sky2->autoneg == AUTONEG_ENABLE &&
+> -	    !(hw->chip_id == CHIP_ID_YUKON_XL || hw->chip_id == CHIP_ID_YUKON_EC_U)) {
+> +	if (sky2->autoneg == AUTONEG_ENABLE
+> +	    && !(hw->chip_id == CHIP_ID_YUKON_XL
+> +		 || hw->chip_id == CHIP_ID_YUKON_EC_U
+> +		 || hw->chip_id == CHIP_ID_YUKON_EX)) {
+[...]
+> +			if (sky2->autoneg == AUTONEG_ENABLE
+> +			    && (hw->chip_id == CHIP_ID_YUKON_XL
+> +				|| hw->chip_id == CHIP_ID_YUKON_EC_U
+> +				|| hw->chip_id == CHIP_ID_YUKON_EX)) {
+[...]
+> +	if (hw->chip_id == CHIP_ID_YUKON_XL
+> +	    || hw->chip_id == CHIP_ID_YUKON_EC_U
+> +	    || hw->chip_id == CHIP_ID_YUKON_EX) {
+[...]
+> +	if (hw->chip_id == CHIP_ID_YUKON_XL
+> +	    || hw->chip_id == CHIP_ID_YUKON_EC_U
+> +	    || hw->chip_id == CHIP_ID_YUKON_EX)
 
-Hmm... can you try with a more recent sender please.  Running 2.6.19 or
-2.6.20 with my patch, I don't see this problem when a single interface fails.
+Any objection against the use of :
 
-I see a full path failover withing the 5 second timeout of the table rule.
-Once failover happens, the traffic is using the second interface.
+static bool is_yukon_extreme(struct sky2_hw *hw)
+{
+	return hw->chip_id == CHIP_ID_YUKON_XL ||
+		hw->chip_id == CHIP_ID_YUKON_EC_U ||
+		hw->chip_id == CHIP_ID_YUKON_EX;
+}
 
-I haven't tried forcing the failover back to the first one, but I can
-try flip-flopping them and see what happens.
+?
 
-> 
->> When I block at the ip address, I see the path failover
->> in an odd state.  It looks like it happened, but the flow is
->> not resumed.  Receive still doesn't get traffic. I think I might
-> 
-> This sounds like it might be the same problem I'm seeing.
-> 
-> My sender is running the 2.6.16.1 kernel with your patch applied, the
-> receiver is running Fedora Core 6's 2.6.18-1.2798.fc6 kernel.  The
-> iptables rules are being set on the receiver (so there should be no odd
-> interactions between the sender's SCTP stack and iptables - as far as
-> the sender knows the packets have been transmitted and lost in transit).
-
-Yes, that's what I am doing as well.  I'll see if I can run a more recent
-receiver.
-
-Thanks
--vlad
+-- 
+Ueimor
