@@ -1,90 +1,110 @@
-From: Kumar Gala <galak@kernel.crashing.org>
-Subject: Re: [PATCH 1/4] ucc_geth: Change private immrbar_virt_to_phys to generic iopa
-Date: Tue, 6 Feb 2007 08:26:50 -0600
-Message-ID: <001EB06E-FC1D-4F0A-A910-8E08EE0B8CE2@kernel.crashing.org>
-References: <45C86715.6090600@freescale.com>
-Mime-Version: 1.0 (Apple Message framework v752.2)
-Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
+From: KOVACS Krisztian <hidden@balabit.hu>
+Subject: IP_FREEBIND and CAP_NET_ADMIN (was: Re: [PATCH/RFC 05/10] Remove local address check on IP output)
+Date: Tue, 6 Feb 2007 15:36:18 +0100
+Message-ID: <200702061536.18800@nienna>
+References: <20070103163357.14635.37754.stgit@nienna.balabit> <20070103163627.14635.88250.stgit@nienna.balabit> <45A48BEB.2070207@trash.net>
+Mime-Version: 1.0
+Content-Type: text/plain;
+  charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
-To: Li Yang <leoli@freescale.com>
+Cc: netfilter-devel@lists.netfilter.org, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nommos.sslcatacombnetworking.com ([67.18.224.114]:56647 "EHLO
-	nommos.sslcatacombnetworking.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751938AbXBFO1o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Feb 2007 09:27:44 -0500
-In-Reply-To: <45C86715.6090600@freescale.com>
+Received: from www.balabit.hu ([212.92.18.33]:1500 "EHLO lists.balabit.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752110AbXBFOgW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Feb 2007 09:36:22 -0500
+Received: from balabit.hu (unknown [10.80.0.254])
+	by lists.balabit.hu (Postfix) with ESMTP id 950B64C168
+	for <netdev@vger.kernel.org>; Tue,  6 Feb 2007 15:36:20 +0100 (CET)
+In-Reply-To: <45A48BEB.2070207@trash.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-On Feb 6, 2007, at 5:31 AM, Li Yang wrote:
-
-> Get rid of private immrbar_virt_to_phys() routine and
-> use generic iopa().
-
-Nack. iopa() isn't that generic, shouldn't we really be using the dma  
-mapping API here?
-
-- k
-
+On Wednesday 10 January 2007 07:47, Patrick McHardy wrote:
+> KOVACS Krisztian wrote:
+> > ip_route_output() contains a check to make sure that no flows with
+> > non-local source IP addresses are routed. Unfortunately this check
+> > makes it completely impossible to use non-local bound sockets as no
+> > outbound packets will make through the stack.
+> >
+> > This patch moves the interface lookup to the multicast-specific code
+> > path as that is the only real user of the interface data looked up.
+> >
+> > Signed-off-by: KOVACS Krisztian <hidden@balabit.hu>
+> >
+> > ---
+> >
+> >  net/ipv4/route.c |   13 +++++--------
+> >  1 files changed, 5 insertions(+), 8 deletions(-)
+> >
+> > diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+> > index 537b976..bb1158a 100644
+> > --- a/net/ipv4/route.c
+> > +++ b/net/ipv4/route.c
+> > @@ -2498,11 +2498,6 @@ #endif
+> >  		    ZERONET(oldflp->fl4_src))
+> >  			goto out;
+> >
+> > -		/* It is equivalent to inet_addr_type(saddr) == RTN_LOCAL */
+> > -		dev_out = ip_dev_find(oldflp->fl4_src);
+> > -		if (dev_out == NULL)
+> > -			goto out;
+> > -
 >
-> Signed-off-by: Li Yang <leoli@freescale.com>
-> ---
-> drivers/net/ucc_geth.c |   29 ++++++-----------------------
-> 1 files changed, 6 insertions(+), 23 deletions(-)
->
-> diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
-> index 7e4b23c..722a89f 100644
-> --- a/drivers/net/ucc_geth.c
-> +++ b/drivers/net/ucc_geth.c
-> @@ -3065,21 +3065,11 @@ static int ucc_geth_startup(struct  
-> ucc_geth_private *ugeth)
-> 		endOfRing =
-> 		    ugeth->p_tx_bd_ring[i] + (ug_info->bdRingLenTx[i] -
-> 					      1) * sizeof(struct qe_bd);
-> -		if (ugeth->ug_info->uf_info.bd_mem_part == MEM_PART_SYSTEM) {
-> -			out_be32(&ugeth->p_send_q_mem_reg->sqqd[i].bd_ring_base,
-> -				 (u32) virt_to_phys(ugeth->p_tx_bd_ring[i]));
-> -			out_be32(&ugeth->p_send_q_mem_reg->sqqd[i].
-> +		out_be32(&ugeth->p_send_q_mem_reg->sqqd[i].bd_ring_base,
-> +				iopa((unsigned long)ugeth->p_tx_bd_ring[i]));
-> +		out_be32(&ugeth->p_send_q_mem_reg->sqqd[i].
-> 				 last_bd_completed_address,
-> -				 (u32) virt_to_phys(endOfRing));
-> -		} else if (ugeth->ug_info->uf_info.bd_mem_part ==
-> -			   MEM_PART_MURAM) {
-> -			out_be32(&ugeth->p_send_q_mem_reg->sqqd[i].bd_ring_base,
-> -				 (u32) immrbar_virt_to_phys(ugeth->
-> -							    p_tx_bd_ring[i]));
-> -			out_be32(&ugeth->p_send_q_mem_reg->sqqd[i].
-> -				 last_bd_completed_address,
-> -				 (u32) immrbar_virt_to_phys(endOfRing));
-> -		}
-> +				iopa((unsigned long)endOfRing));
-> 	}
-> 	/* schedulerbasepointer */
-> @@ -3331,15 +3321,8 @@ static int ucc_geth_startup(struct  
-> ucc_geth_private *ugeth)
-> 	/* Setup the table */
-> 	/* Assume BD rings are already established */
-> 	for (i = 0; i < ug_info->numQueuesRx; i++) {
-> -		if (ugeth->ug_info->uf_info.bd_mem_part == MEM_PART_SYSTEM) {
-> -			out_be32(&ugeth->p_rx_bd_qs_tbl[i].externalbdbaseptr,
-> -				 (u32) virt_to_phys(ugeth->p_rx_bd_ring[i]));
-> -		} else if (ugeth->ug_info->uf_info.bd_mem_part ==
-> -			   MEM_PART_MURAM) {
-> -			out_be32(&ugeth->p_rx_bd_qs_tbl[i].externalbdbaseptr,
-> -				 (u32) immrbar_virt_to_phys(ugeth->
-> -							    p_rx_bd_ring[i]));
-> -		}
-> +		out_be32(&ugeth->p_rx_bd_qs_tbl[i].externalbdbaseptr,
-> +			 iopa((unsigned long)ugeth->p_rx_bd_ring[i]));
-> 		/* rest of fields handled by QE */
-> 	}
->
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> I'm not sure how exactly this is used by applications, but couldn't you
+> restrict this to sockets without freebind?
 
+As it turned out since I've submitted this patch simply removing the 
+branch in the quoted patch above is not good, as that'd allow all local 
+users to generate connections from a non-local IP address. (Since setting 
+IP_FREEBIND does not require CAP_NET_ADMIN.)
+
+I've attempted to restrict the removal of the check to certain sockets, 
+but it is more difficult than expected. It'd require touching a lot of 
+areas of the kernel code, as the socket is not available at times where 
+an output routing lookup is requested.
+
+In fact the only thing available when making the decision in 
+ip_route_output_slow() is a struct flowi. I've tried to stuff a flag bit 
+into "struct flowi", but that solution seems to be very risky, as the 
+value for "struct flowi->flags" is not consulted at a lot of places. IMHO 
+the result would be far from pretty... (And I have to admit that I don't 
+really know what flowi->flags is used for. I've found no in-tree user of 
+that field. The only defined flag bit, FLOWI_FLAG_MULTIPATHOLDROUTE, has 
+no in-tree user either.)
+
+And even if we have this flag in place, it's not enough to set it for 
+certain sockets in ip_route_connect(): this would not handle SYN+ACK or 
+ACK packets sent in response for redirected TCP connection attempts. And 
+who knows what else is still hiding there: ip_route_output_*() calls are 
+pretty much everywhere in the whole net/ipv4 directory.
+
+So I think the cleanest solution would be to require CAP_NET_ADMIN for 
+IP_FREEBIND. This way, a non-root process would not be allowed to bind to 
+a non-local socket, thus it would not be possible to initiate connections 
+from a non-local IP.
+
+As this would be a change in the kernel ABI, me and Balazs have tried to 
+search for applications using the IP_FREEBIND option using Google 
+codesearch (www.google.com/codesearch).
+
+Outside libc and kernel, we've found only three applications that mention
+this option:
+* socat: which allows setting all socket options by the user (I doubt 
+using IP_FREEBIND with socat has any meaningful use)
+* strace: to be able to dump IP_FREEBIND
+* qemu: for emulating Linux system calls
+
+Neither of these require IP_FREEBIND as core functionality, and will 
+probably work if IP_FREEBIND would be bound to CAP_NET_ADMIN.
+
+So the question is: shall we take the IP_FREEBIND approach, this would 
+change a hardly ever used interface by requiring CAP_NET_ADMIN 
+capabilities, or we should try finding all the scattered places in the 
+Linux IP stack which does a route lookup?
+
+-- 
+ Regards,
+  Krisztian Kovacs
