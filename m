@@ -1,37 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] igmp: check add_grhead() return value
-Date: Tue, 06 Feb 2007 14:35:57 -0800 (PST)
-Message-ID: <20070206.143557.123974184.davem@davemloft.net>
-References: <20070130105701.GA6015@localhost.sw.ru>
-	<OF52248A96.35A5CA3C-ON88257273.003E5791-88257273.003F9122@us.ibm.com>
-	<20070205150432.GA5961@localhost.sw.ru>
+Subject: Re: [PATCH 0/7] [S390]: Introduction of AF_IUCV sockets support
+Date: Tue, 06 Feb 2007 14:41:06 -0800 (PST)
+Message-ID: <20070206.144106.39659974.davem@davemloft.net>
+References: <20070202120528.GA10392@de.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dlstevens@us.ibm.com, kuznet@ms2.inr.ac.ru, netdev@vger.kernel.org
-To: adobriyan@openvz.org
+Cc: netdev@vger.kernel.org
+To: fpavlic@de.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52053
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41458
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752298AbXBFWgW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Feb 2007 17:36:22 -0500
-In-Reply-To: <20070205150432.GA5961@localhost.sw.ru>
+	by vger.kernel.org with ESMTP id S965564AbXBFWlb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Feb 2007 17:41:31 -0500
+In-Reply-To: <20070202120528.GA10392@de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Alexey Dobriyan <adobriyan@openvz.org>
-Date: Mon, 5 Feb 2007 18:04:33 +0300
+From: Frank Pavlic <fpavlic@de.ibm.com>
+Date: Fri, 2 Feb 2007 13:05:28 +0100
 
-> OK, now that we aren't seeing crashes which can be attributed to these
-> NULL dereferences any longer.
-> --------------------------------------
-> add_grhead() allocates memory with GFP_ATOMIC and in at least two places skb
-> from it passed to skb_put() without checking.
+> The patch set consists of following patches:
 > 
-> Signed-off-by: Alexey Dobriyan <adobriyan@openvz.org>
+> [1/7] [S390]: Rewrite of the IUCV base code, part 1
+> [2/7] [S390]: Rewrite of the IUCV base code, part 2
+> [3/7] [S390]: Adapt monreader driver to new IUCV API
+> [4/7] [S390]: Adapt vmlogrdr driver to new IUCV API
+> [5/7] [S390]: Adapt netiucv driver to new IUCV API
+> [6/7] [S390]: Adapt special message interface to new IUCV API
+> [7/7] [S390]: Add AF_IUCV socket support
 
-Thanks for the patch and for testing Alexey.
+I have no fundamental objections to this, although I think
+I'll end up needing something similar on Niagara at some
+point :-)
 
-Applied, and I'll push this to -stable too.
+The list ate the first patch due to it's size.  Could you
+email me a copy privately so can integrate all of your work
+into my net-2.6.21 tree?
 
-Thanks again.
+Thanks.
