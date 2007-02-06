@@ -1,288 +1,82 @@
-From: Ivo van Doorn <ivdoorn-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] d80211: respect extra_tx_headroom
-Date: Tue, 6 Feb 2007 00:47:13 +0100
-Message-ID: <200702060047.13500.IvDoorn@gmail.com>
-References: <200702051632.24949.IvDoorn@gmail.com> <20070205223724.51398750@griffin.suse.cz>
+From: John Heffner <jheffner@psc.edu>
+Subject: Re: [PATCH] apply cwnd rules to FIN packets with data
+Date: Mon, 05 Feb 2007 19:11:09 -0500
+Message-ID: <45C7C79D.1070707@psc.edu>
+References: <45C7A87A.5050200@psc.edu>	<20070205.145615.92339659.davem@davemloft.net>	<45C7B77B.9060506@psc.edu> <20070205.150815.112291591.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "John Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Linux Wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Jiri Benc <jbenc-AlSwsSmVLrQ@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20070205223724.51398750-IhiK2ZEFs2oCVLCxKZUutA@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: multipart/mixed;
+ boundary="------------060600000500080900040808"
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailer2.psc.edu ([128.182.66.106]:58370 "EHLO mailer2.psc.edu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965134AbXBFALO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Feb 2007 19:11:14 -0500
+In-Reply-To: <20070205.150815.112291591.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Monday 05 February 2007 22:37, Jiri Benc wrote:
-> On Mon, 5 Feb 2007 16:32:24 +0100, Ivo van Doorn wrote:
-> > When a driver requested additional header room
-> > through the extra_tx_headroom field, the stack
-> > should respect that and make sure that all frames
-> > that are being send to the stack actually have
-> > that extra header room.
-> > 
-> > [...]
-> > --- dscape/net/d80211/ieee80211_sta.c	2007-02-05 16:18:41.000000000 +0100
-> > [...]
-> > @@ -2007,6 +2017,8 @@
-> >  		if (!skb)
-> >  			break;
-> >  
-> > +		skb_reserve(skb, local->hw.extra_tx_headroom);
-> > +
-> >  		mgmt = (struct ieee80211_mgmt *)
-> >  			skb_put(skb, 24 + sizeof(mgmt->u.beacon));
-> >  		memset(mgmt, 0, 24 + sizeof(mgmt->u.beacon));
+This is a multi-part message in MIME format.
+--------------060600000500080900040808
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+
+David Miller wrote:
+>> However, I can't think of any reason why the cwnd test should not 
+>> apply.
 > 
-> Please enlarge that dev_alloc_skb(400) few lines above by
-> extra_tx_headroom as well.
+> Care to elaborate here?  You can view the FIN special case as an off
+> by one error in the CWND test, it's not going to melt the internet.
+> :-)
 
-Ok.
+True, it's not going to melt the internet, but why stop at one when two 
+would finish the connection even faster?  Not sure I buy this argument. 
+  Was there some benchmarking data that was a justification for this in 
+the first place?
 
-> Btw, it would be nice if you could use -p option for diff as it makes
-> reviewing easier for me.
+My first patch was broken anyway (should not have pulled the test from 
+tso_should_defer), and the change is not needed to the nagle test since 
+it's implicit.  This patch just restores the old behavior from before 
+TSO, sending the FIN when it's the last true segment.  We can debate the 
+merits of applying congestion control to the FIN separately. :)
 
-Not a problem, I'll try to remember it for future patches.
+   -John
 
-Here is the updated patch.
+--------------060600000500080900040808
+Content-Type: text/plain; x-mac-type="0"; x-mac-creator="0";
+ name="fin_cwnd1.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="fin_cwnd1.patch"
 
+Don't apply FIN exception to full TSO segments.
 
-When a driver requested additional header room
-through the extra_tx_headroom field, the stack
-should respect that and make sure that all frames
-that are being send to the stack actually have
-that extra header room.
-Besides the additional bytes for the beacon template, this patch
-is no longer depends on the rts patch to be applied.
-
-Signed-off-by Ivo van Doorn <IvDoorn-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Signed-off-by: John Heffner <jheffner@psc.edu>
 
 ---
+commit 89de0d8cb75958b0315c076b31a597143e30f7a4
+tree 7e9c321e62729c6ef76e3886fe9edf2ac78a680c
+parent c0d4d573feed199b16094c072e7cb07afb01c598
+author John Heffner <jheffner@psc.edu> Mon, 05 Feb 2007 18:42:31 -0500
+committer John Heffner <jheffner@psc.edu> Mon, 05 Feb 2007 18:42:31 -0500
 
-diff -rpU3 dscape.control/net/d80211/ieee80211.c dscape.skb/net/d80211/ieee80211.c
---- dscape.control/net/d80211/ieee80211.c	2007-02-06 00:25:26.000000000 +0100
-+++ dscape.skb/net/d80211/ieee80211.c	2007-02-06 00:39:07.000000000 +0100
-@@ -470,10 +470,9 @@ ieee80211_tx_h_fragment(struct ieee80211
+ net/ipv4/tcp_output.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
+
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 975f447..58b7111 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -965,7 +965,8 @@ static inline unsigned int tcp_cwnd_test
+ 	u32 in_flight, cwnd;
  
- 		/* reserve enough extra head and tail room for possible
- 		 * encryption */
--#define IEEE80211_ENCRYPT_HEADROOM 8
--#define IEEE80211_ENCRYPT_TAILROOM 12
- 		frag = frags[i] =
--			dev_alloc_skb(frag_threshold +
-+			dev_alloc_skb(tx->local->hw.extra_tx_headroom +
-+				      frag_threshold +
- 				      IEEE80211_ENCRYPT_HEADROOM +
- 				      IEEE80211_ENCRYPT_TAILROOM);
- 		if (!frag)
-@@ -481,7 +480,8 @@ ieee80211_tx_h_fragment(struct ieee80211
- 		/* Make sure that all fragments use the same priority so
- 		 * that they end up using the same TX queue */
- 		frag->priority = first->priority;
--		skb_reserve(frag, IEEE80211_ENCRYPT_HEADROOM);
-+		skb_reserve(frag, tx->local->hw.extra_tx_headroom +
-+			IEEE80211_ENCRYPT_HEADROOM);
- 		fhdr = (struct ieee80211_hdr *) skb_put(frag, hdrlen);
- 		memcpy(fhdr, first->data, hdrlen);
- 		if (i == num_fragm - 2)
-@@ -1362,6 +1362,7 @@ static int ieee80211_master_start_xmit(s
- 	struct ieee80211_tx_packet_data *pkt_data;
- 	struct net_device *odev = NULL;
- 	struct ieee80211_sub_if_data *osdata;
-+	int headroom;
- 	int ret;
+ 	/* Don't be strict about the congestion window for the final FIN.  */
+-	if (TCP_SKB_CB(skb)->flags & TCPCB_FLAG_FIN)
++	if ((TCP_SKB_CB(skb)->flags & TCPCB_FLAG_FIN) &&
++	    tcp_skb_pcount(skb) == 1)
+ 		return 1;
  
- 	/*
-@@ -1386,6 +1387,15 @@ static int ieee80211_master_start_xmit(s
- 	}
- 	osdata = IEEE80211_DEV_TO_SUB_IF(odev);
- 
-+	headroom = osdata->local->hw.extra_tx_headroom +
-+		IEEE80211_ENCRYPT_HEADROOM;
-+	if (skb_headroom(skb) < headroom) {
-+		if (pskb_expand_head(skb, headroom, 0, GFP_ATOMIC)) {
-+			dev_kfree_skb(skb);
-+			return 0;
-+		}
-+	}
-+
- 	control.ifindex = odev->ifindex;
- 	control.type = osdata->type;
- 	if (pkt_data->req_tx_status)
-@@ -1615,6 +1625,14 @@ ieee80211_mgmt_start_xmit(struct sk_buff
- 		return 0;
- 	}
- 
-+	if (skb_headroom(skb) < sdata->local->hw.extra_tx_headroom) {
-+		if (pskb_expand_head(skb,
-+		    sdata->local->hw.extra_tx_headroom, 0, GFP_ATOMIC)) {
-+			dev_kfree_skb(skb);
-+			return 0;
-+		}
-+	}
-+
- 	hdr = (struct ieee80211_hdr *) skb->data;
- 	fc = le16_to_cpu(hdr->frame_control);
- 
-@@ -1748,10 +1766,12 @@ struct sk_buff * ieee80211_beacon_get(st
- 	bh_len = ap->beacon_head_len;
- 	bt_len = ap->beacon_tail_len;
- 
--	skb = dev_alloc_skb(bh_len + bt_len + 256 /* maximum TIM len */);
-+	skb = dev_alloc_skb(local->hw.extra_tx_headroom +
-+		bh_len + bt_len + 256 /* maximum TIM len */);
- 	if (!skb)
- 		return NULL;
- 
-+	skb_reserve(skb, local->hw.extra_tx_headroom);
- 	memcpy(skb_put(skb, bh_len), b_head, bh_len);
- 
- 	ieee80211_beacon_add_tim(local, ap, skb);
-diff -rpU3 dscape.control/net/d80211/ieee80211_i.h dscape.skb/net/d80211/ieee80211_i.h
---- dscape.control/net/d80211/ieee80211_i.h	2007-02-06 00:19:38.000000000 +0100
-+++ dscape.skb/net/d80211/ieee80211_i.h	2007-02-06 00:39:28.000000000 +0100
-@@ -49,6 +49,9 @@ struct ieee80211_local;
-  * frame can be up to about 2 kB long. */
- #define TOTAL_MAX_TX_BUFFER 512
- 
-+/* Required encryption head and tailroom */
-+#define IEEE80211_ENCRYPT_HEADROOM 8
-+#define IEEE80211_ENCRYPT_TAILROOM 12
- 
- /* IEEE 802.11 (Ch. 9.5 Defragmentation) requires support for concurrent
-  * reception of at least three fragmented frames. This limit can be increased
-diff -rpU3 dscape.control/net/d80211/ieee80211_scan.c dscape.skb/net/d80211/ieee80211_scan.c
---- dscape.control/net/d80211/ieee80211_scan.c	2007-02-06 00:19:38.000000000 +0100
-+++ dscape.skb/net/d80211/ieee80211_scan.c	2007-02-06 00:39:56.000000000 +0100
-@@ -280,7 +280,7 @@ void ieee80211_init_scan(struct ieee8021
- {
- 	struct ieee80211_hdr hdr;
- 	u16 fc;
--	int len = 10;
-+	int len = 10 + local->hw.extra_tx_headroom;
- 	struct rate_control_extra extra;
- 
- 	/* Only initialize passive scanning if the hardware supports it */
-@@ -309,6 +309,7 @@ void ieee80211_init_scan(struct ieee8021
- 		       "passive scan\n", local->mdev->name);
- 		return;
- 	}
-+	skb_reserve(local->scan.skb, local->hw.extra_tx_headroom);
- 
- 	fc = IEEE80211_FTYPE_CTL | IEEE80211_STYPE_CTS;
- 	hdr.frame_control = cpu_to_le16(fc);
-diff -rpU3 dscape.control/net/d80211/ieee80211_sta.c dscape.skb/net/d80211/ieee80211_sta.c
---- dscape.control/net/d80211/ieee80211_sta.c	2007-02-06 00:19:38.000000000 +0100
-+++ dscape.skb/net/d80211/ieee80211_sta.c	2007-02-06 00:42:06.000000000 +0100
-@@ -415,15 +415,18 @@ static void ieee80211_send_auth(struct n
- 				int transaction, u8 *extra, size_t extra_len,
- 				int encrypt)
- {
-+	struct ieee80211_local *local = dev->ieee80211_ptr;
- 	struct sk_buff *skb;
- 	struct ieee80211_mgmt *mgmt;
- 
--	skb = dev_alloc_skb(sizeof(*mgmt) + 6 + extra_len);
-+	skb = dev_alloc_skb(local->hw.extra_tx_headroom +
-+			    sizeof(*mgmt) + 6 + extra_len);
- 	if (!skb) {
- 		printk(KERN_DEBUG "%s: failed to allocate buffer for auth "
- 		       "frame\n", dev->name);
- 		return;
- 	}
-+	skb_reserve(skb, local->hw.extra_tx_headroom);
- 
- 	mgmt = (struct ieee80211_mgmt *) skb_put(skb, 24 + 6);
- 	memset(mgmt, 0, 24 + 6);
-@@ -478,13 +481,15 @@ static void ieee80211_send_assoc(struct 
- 	struct ieee80211_sta_bss *bss;
- 	int wmm = 0;
- 
--	skb = dev_alloc_skb(sizeof(*mgmt) + 200 + ifsta->extra_ie_len +
-+	skb = dev_alloc_skb(local->hw.extra_tx_headroom +
-+			    sizeof(*mgmt) + 200 + ifsta->extra_ie_len +
- 			    ifsta->ssid_len);
- 	if (!skb) {
- 		printk(KERN_DEBUG "%s: failed to allocate buffer for assoc "
- 		       "frame\n", dev->name);
- 		return;
- 	}
-+	skb_reserve(skb, local->hw.extra_tx_headroom);
- 
- 	capab = ifsta->capab;
- 	if (local->hw.conf.phymode == MODE_IEEE80211G) {
-@@ -585,15 +590,17 @@ static void ieee80211_send_assoc(struct 
- static void ieee80211_send_deauth(struct net_device *dev,
- 				  struct ieee80211_if_sta *ifsta, u16 reason)
- {
-+	struct ieee80211_local *local = dev->ieee80211_ptr;
- 	struct sk_buff *skb;
- 	struct ieee80211_mgmt *mgmt;
- 
--	skb = dev_alloc_skb(sizeof(*mgmt));
-+	skb = dev_alloc_skb(local->hw.extra_tx_headroom + sizeof(*mgmt));
- 	if (!skb) {
- 		printk(KERN_DEBUG "%s: failed to allocate buffer for deauth "
- 		       "frame\n", dev->name);
- 		return;
- 	}
-+	skb_reserve(skb, local->hw.extra_tx_headroom);
- 
- 	mgmt = (struct ieee80211_mgmt *) skb_put(skb, 24);
- 	memset(mgmt, 0, 24);
-@@ -612,15 +619,17 @@ static void ieee80211_send_deauth(struct
- static void ieee80211_send_disassoc(struct net_device *dev,
- 				    struct ieee80211_if_sta *ifsta, u16 reason)
- {
-+	struct ieee80211_local *local = dev->ieee80211_ptr;
- 	struct sk_buff *skb;
- 	struct ieee80211_mgmt *mgmt;
- 
--	skb = dev_alloc_skb(sizeof(*mgmt));
-+	skb = dev_alloc_skb(local->hw.extra_tx_headroom + sizeof(*mgmt));
- 	if (!skb) {
- 		printk(KERN_DEBUG "%s: failed to allocate buffer for disassoc "
- 		       "frame\n", dev->name);
- 		return;
- 	}
-+	skb_reserve(skb, local->hw.extra_tx_headroom);
- 
- 	mgmt = (struct ieee80211_mgmt *) skb_put(skb, 24);
- 	memset(mgmt, 0, 24);
-@@ -758,12 +767,13 @@ static void ieee80211_send_probe_req(str
- 	u8 *pos, *supp_rates, *esupp_rates = NULL;
- 	int i;
- 
--	skb = dev_alloc_skb(sizeof(*mgmt) + 200);
-+	skb = dev_alloc_skb(local->hw.extra_tx_headroom + sizeof(*mgmt) + 200);
- 	if (!skb) {
- 		printk(KERN_DEBUG "%s: failed to allocate buffer for probe "
- 		       "request\n", dev->name);
- 		return;
- 	}
-+	skb_reserve(skb, local->hw.extra_tx_headroom);
- 
- 	mgmt = (struct ieee80211_mgmt *) skb_put(skb, 24);
- 	memset(mgmt, 0, 24);
-@@ -2002,11 +2012,13 @@ static int ieee80211_sta_join_ibss(struc
- 	}
- 
- 	/* Set beacon template based on scan results */
--	skb = dev_alloc_skb(400);
-+	skb = dev_alloc_skb(local->hw.extra_tx_headroom + 400);
- 	do {
- 		if (!skb)
- 			break;
- 
-+		skb_reserve(skb, local->hw.extra_tx_headroom);
-+
- 		mgmt = (struct ieee80211_mgmt *)
- 			skb_put(skb, 24 + sizeof(mgmt->u.beacon));
- 		memset(mgmt, 0, 24 + sizeof(mgmt->u.beacon));
--
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ 	in_flight = tcp_packets_in_flight(tp);
+
+--------------060600000500080900040808--
