@@ -1,77 +1,95 @@
-From: "Ahmed S. Darwish" <darwish.07@gmail.com>
-Subject: Re: [PATCH 2.6.20] ixgb: Use ARRAY_SIZE macro when appropriate
-Date: Tue, 6 Feb 2007 12:00:25 +0200
-Message-ID: <20070206100025.GA14903@Ahmed>
-References: <20070205165429.GD3896@Ahmed> <20070205165933.GL3896@Ahmed> <20070205201804.GC11055@martell.zuzino.mipt.ru> <45C7941E.2050305@intel.com>
+From: Ishizaki Kou <kou.ishizaki@toshiba.co.jp>
+Subject: Re: spidernet: dynamic phy setup code
+Date: Tue, 06 Feb 2007 19:42:30 +0900 (JST)
+Message-ID: <200702061042.l16AgVXP027762@toshiba.co.jp>
+References: <200702010754.l117s2T8003383@toshiba.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alexey Dobriyan <adobriyan@gmail.com>, jeffrey.t.kirsher@intel.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Auke Kok <auke-jan.h.kok@intel.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org
+To: jens@de.ibm.com, benh@kernel.crashing.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.184]:10008 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752003AbXBFKAh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Feb 2007 05:00:37 -0500
-Received: by nf-out-0910.google.com with SMTP id o25so133155nfa
-        for <netdev@vger.kernel.org>; Tue, 06 Feb 2007 02:00:36 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <45C7941E.2050305@intel.com>
+Received: from imx12.toshiba.co.jp ([61.202.160.132]:53236 "EHLO
+	imx12.toshiba.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751462AbXBFKnE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Feb 2007 05:43:04 -0500
+In-Reply-To: <200702010754.l117s2T8003383@toshiba.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 05, 2007 at 12:31:26PM -0800, Auke Kok wrote:
-> Alexey Dobriyan wrote:
-> >On Mon, Feb 05, 2007 at 06:59:33PM +0200, Ahmed S. Darwish wrote:
-> >>A patch to use ARRAY_SIZE macro already defined in kernel.h.
-> >
-> >Remove it and use ARRAY_SIZE instead.
-> >
-> >>--- a/drivers/net/ixgb/ixgb_param.c
-> >>+++ b/drivers/net/ixgb/ixgb_param.c
-> >>@@ -245,7 +245,7 @@ ixgb_validate_option(int *value, struct ixgb_option 
-> >>*opt)
-> >> 	return -1;
-> >> }
-> >> 
-> >>-#define LIST_LEN(l) (sizeof(l) / sizeof(l[0]))
-> >>+#define LIST_LEN(l) ARRAY_SIZE(l)
-> 
-> yes, well spotted. Please change line 338 in this file to read:
-> 
->      .arg  = { .l = { .nr = ARRAY_SIZE(fc_list),
-> 
-> instead, so you can remove the LIST_LEN macro completely.
- 
-Thanks, Here's the new patch.
+Ben-san, Jens-san
 
-Use ARRAY_SIZE macro when appropriate.
+Thanks for your comments and advices.
+First, we should apologize to you that some troubles which we informed
+about spidernet auto-negotiation are caused by our mistake.
+We used wrong MACRO for "advertise" variable to
+phy->def->ops->setup_aneg(). 
 
-Signed-off-by: Ahmed S. Darwish <darwish.07@gmail.com>
----
-diff --git a/drivers/net/ixgb/ixgb_param.c b/drivers/net/ixgb/ixgb_param.c
-index b27442a..c38ce73 100644
---- a/drivers/net/ixgb/ixgb_param.c
-+++ b/drivers/net/ixgb/ixgb_param.c
-@@ -245,8 +245,6 @@ ixgb_validate_option(int *value, struct ixgb_option *opt)
- 	return -1;
- }
- 
--#define LIST_LEN(l) (sizeof(l) / sizeof(l[0]))
--
- /**
-  * ixgb_check_options - Range Checking for Command Line Parameters
-  * @adapter: board private structure
-@@ -335,7 +333,7 @@ ixgb_check_options(struct ixgb_adapter *adapter)
- 			.name = "Flow Control",
- 			.err  = "reading default settings from EEPROM",
- 			.def  = ixgb_fc_tx_pause,
--			.arg  = { .l = { .nr = LIST_LEN(fc_list),
-+			.arg  = { .l = { .nr = ARRAY_SIZE(fc_list),
- 					 .p = fc_list }}
- 		};
+We will post the revised patch for spider_net.
+Following are the current status of troubles we informed.
 
+(1)
+>- if (card->aneg_count > 10) {
+>-  /* timeout */
+>-  card->aneg_count = 0;
+>-  is1000 = !is1000;
+>-  goto re_setup;
+>- if (phy->speed == 1000 && !is1000) {
+>-  is1000 = 1;
+>-  goto re_setup;
+>- } else if(phy->speed != 1000 && is1000) {
+>-  is1000 = 0;
+>-  goto re_setup;
+>- }
+> We need to use different auto-neg initial settings between
+> for 10/100Mbps ethernet switches and for Gbps ethernet switches.
+> Driver don't know which type of network switch is connected to
+> network card, so we try both settings alternately in auto negtiation
+> sequences by using a variable "is1000".
+> Furthermore, we have a problem that poll_link() may succeed even when
+> the auto-neg initial setting is for different network switch type,
+> and the network card does not work on this case. We retry auto-neg
+> with the another initial setting on this case.
+Solved.
 
--- 
-Ahmed S. Darwish
-http://darwish-07.blogspot.com
+We are now able to use Gbps switches and 10/100Mbps switches with 
+the same advertise setting and we don't need to use is1000.
+The re_setup is not necessary and they are removed in the revised patch.
+
+2.
+>> - spider_net_write_reg(card, SPIDER_NET_GMACST,
+>> -        spider_net_read_reg(card, SPIDER_NET_GMACST));
+>> - spider_net_write_reg(card, SPIDER_NET_GMACINTEN, 0x4);
+>
+> These codes are enabling LINK status interrupt which is disabled
+> at the beginning of auto-neg.
+> Without this operation, auto negotiation works only when a connection
+> detected for the first time, and auto negotiation will not work 
+> when an ethernet cable is unpluged or pluged.
+Pending(No problem, if they don't cause any trouble on Cell Blades).
+
+By the way, why do you suggest to use polling for auto-neg, Ben-san? 
+Is there a merit to use polling, or is there a problem to use interrupt?
+Sorry, we couldn't find the reason why sungem use polling for auto-neg. 
+
+They might not be necessary, if we use polling to handle LINK status as
+Ben-san said.
+
+3
+>> - mii_phy_probe(phy, phy->mii_id);
+> It seems that PHY reset is necessary before auto negotiation,
+> in the case that ethernet card is disconnected from an ethernet switch
+> then connected to another ethernet switch.
+> We can't call directly reset routine from driver, so we call
+mii_phy_probe().
+Pending.
+
+After all, we need phy reset.
+> If you really need to reset it, then change sungem_phy.c to export the
+> reset function. But I'm surprised you need that. Another option is to
+> reset the PHY in your PHY's setup_aneg() function.
+We still wonder which is the best way, and mii_phy_probe() still remains
+so far.
+
+Best regards,
+Kou Ishizaki
