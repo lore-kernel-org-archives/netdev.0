@@ -1,58 +1,53 @@
 From: akpm@linux-foundation.org
-Subject: [patch 10/11] dccp-warning-fixes
-Date: Mon, 05 Feb 2007 16:31:09 -0800
-Message-ID: <200702060032.l160WCkf004646@shell0.pdx.osdl.net>
+Subject: [patch 03/11] fix for crash in adummy_init()
+Date: Mon, 05 Feb 2007 16:30:56 -0800
+Message-ID: <200702060031.l160Vxqf004624@shell0.pdx.osdl.net>
 Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	akpm@linux-foundation.org, acme@conectiva.com.br
+	dwalker@mvista.com, chas@cmf.nrl.navy.mil, mingo@elte.hu
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:41516 "EHLO smtp.osdl.org"
+Received: from smtp.osdl.org ([65.172.181.24]:41522 "EHLO smtp.osdl.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965220AbXBFAdD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Feb 2007 19:33:03 -0500
+	id S965239AbXBFAdT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Feb 2007 19:33:19 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Andrew Morton <akpm@osdl.org>
+From: Daniel Walker <dwalker@mvista.com>
 
-sparc64:
+This was reported by Ingo Molnar here,
 
-net/dccp/ccids/ccid3.c: In function `ccid3_hc_tx_packet_recv':
-net/dccp/ccids/ccid3.c:480: warning: long long unsigned int format, __u64 arg (arg 6)
-net/dccp/ccids/ccid3.c: In function `ccid3_hc_rx_packet_recv':
-net/dccp/ccids/ccid3.c:1007: warning: long int format, different type arg (arg 3)
-net/dccp/ccids/ccid3.c:1007: warning: long int format, different type arg (arg 4)
+http://lkml.org/lkml/2006/12/18/119
 
-opaque types must be suitably cast for printing.
+The problem is that adummy_init() depends on atm_init() , but adummy_init()
+is called first.
 
-Cc: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-Cc: "David S. Miller" <davem@davemloft.net>
+So I put atm_init() into subsys_initcall which seems appropriate, and it
+will still get module_init() if it becomes a module.
+
+Interesting to note that you could crash your system here if you just load
+the modules in the wrong order.
+
+Signed-off-by: Daniel Walker <dwalker@mvista.com>
+Cc: Ingo Molnar <mingo@elte.hu>
+Cc: chas williams <chas@cmf.nrl.navy.mil>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- net/dccp/ccids/ccid3.c |    5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+ net/atm/common.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff -puN net/dccp/ccids/ccid3.c~dccp-warning-fixes net/dccp/ccids/ccid3.c
---- a/net/dccp/ccids/ccid3.c~dccp-warning-fixes
-+++ a/net/dccp/ccids/ccid3.c
-@@ -479,7 +479,8 @@ static void ccid3_hc_tx_packet_recv(stru
+diff -puN net/atm/common.c~fix-for-crash-in-adummy_init net/atm/common.c
+--- a/net/atm/common.c~fix-for-crash-in-adummy_init
++++ a/net/atm/common.c
+@@ -816,7 +816,8 @@ static void __exit atm_exit(void)
+ 	proto_unregister(&vcc_proto);
+ }
  
- 			ccid3_pr_debug("%s(%p), s=%u, w_init=%llu, "
- 				       "R_sample=%dus, X=%u\n", dccp_role(sk),
--				       sk, hctx->ccid3hctx_s, w_init,
-+				       sk, hctx->ccid3hctx_s,
-+				       (unsigned long long)w_init,
- 				       (int)r_sample,
- 				       (unsigned)(hctx->ccid3hctx_x >> 6));
+-module_init(atm_init);
++subsys_initcall(atm_init);
++
+ module_exit(atm_exit);
  
-@@ -1005,7 +1006,7 @@ static void ccid3_hc_rx_packet_recv(stru
- 		DCCP_BUG_ON(r_sample < 0);
- 		if (unlikely(r_sample <= t_elapsed))
- 			DCCP_WARN("r_sample=%ldus, t_elapsed=%ldus\n",
--				  r_sample, t_elapsed);
-+				  (long)r_sample, (long)t_elapsed);
- 		else
- 			r_sample -= t_elapsed;
- 		CCID3_RTT_SANITY_CHECK(r_sample);
+ MODULE_LICENSE("GPL");
 _
