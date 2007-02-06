@@ -1,69 +1,128 @@
 From: akpm@linux-foundation.org
-Subject: [patch 05/11] bonding: Replace kmalloc() + memset() pairs with the appropriate kzalloc() calls
-Date: Mon, 05 Feb 2007 16:31:04 -0800
-Message-ID: <200702060032.l160W7hH004630@shell0.pdx.osdl.net>
+Subject: [patch 07/11] remove tcp header from tcp_v4_check
+Date: Mon, 05 Feb 2007 16:31:05 -0800
+Message-ID: <200702060032.l160W8cb004636@shell0.pdx.osdl.net>
 Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	lkmaillist@gmail.com
+	deweerdt@free.fr, frederik.deweerdt@gmail.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:41459 "EHLO smtp.osdl.org"
+Received: from smtp.osdl.org ([65.172.181.24]:41463 "EHLO smtp.osdl.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933159AbXBFAcM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Feb 2007 19:32:12 -0500
+	id S933113AbXBFAcN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Feb 2007 19:32:13 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Joe Jin" <lkmaillist@gmail.com>
+From: Frederik Deweerdt <deweerdt@free.fr>
 
-Replace kmalloc() + memset() pairs with the appropriate kzalloc() calls in
-the bonding driver.
+The tcphdr struct passed to tcp_v4_check is not used, the following
+patch removes it from the parameter list.
 
-Signed-off-by: Joe Jin <lkmaillist@gmail.com>
+Signed-off-by: Frederik Deweerdt <frederik.deweerdt@gmail.com>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/net/bonding/bond_alb.c  |    4 +---
- drivers/net/bonding/bond_main.c |    4 +---
- 2 files changed, 2 insertions(+), 6 deletions(-)
+ include/net/tcp.h                  |    5 ++---
+ net/ipv4/netfilter/ip_nat_helper.c |    2 +-
+ net/ipv4/netfilter/ipt_REJECT.c    |    2 +-
+ net/ipv4/netfilter/nf_nat_helper.c |    2 +-
+ net/ipv4/tcp_ipv4.c                |   12 ++++++------
+ 5 files changed, 11 insertions(+), 12 deletions(-)
 
-diff -puN drivers/net/bonding/bond_alb.c~bonding-replace-kmalloc-memset-pairs-with-the-appropriate-kzalloc-calls drivers/net/bonding/bond_alb.c
---- a/drivers/net/bonding/bond_alb.c~bonding-replace-kmalloc-memset-pairs-with-the-appropriate-kzalloc-calls
-+++ a/drivers/net/bonding/bond_alb.c
-@@ -184,7 +184,7 @@ static int tlb_initialize(struct bonding
+diff -puN include/net/tcp.h~remove-tcp-header-from-tcp_v4_check-take-2 include/net/tcp.h
+--- a/include/net/tcp.h~remove-tcp-header-from-tcp_v4_check-take-2
++++ a/include/net/tcp.h
+@@ -802,9 +802,8 @@ static inline void tcp_update_wl(struct 
+ /*
+  * Calculate(/check) TCP checksum
+  */
+-static inline __sum16 tcp_v4_check(struct tcphdr *th, int len,
+-			       __be32 saddr, __be32 daddr,
+-			       __wsum base)
++static inline __sum16 tcp_v4_check(int len, __be32 saddr,
++				   __be32 daddr, __wsum base)
+ {
+ 	return csum_tcpudp_magic(saddr,daddr,len,IPPROTO_TCP,base);
+ }
+diff -puN net/ipv4/netfilter/ip_nat_helper.c~remove-tcp-header-from-tcp_v4_check-take-2 net/ipv4/netfilter/ip_nat_helper.c
+--- a/net/ipv4/netfilter/ip_nat_helper.c~remove-tcp-header-from-tcp_v4_check-take-2
++++ a/net/ipv4/netfilter/ip_nat_helper.c
+@@ -183,7 +183,7 @@ ip_nat_mangle_tcp_packet(struct sk_buff 
+ 	datalen = (*pskb)->len - iph->ihl*4;
+ 	if ((*pskb)->ip_summed != CHECKSUM_PARTIAL) {
+ 		tcph->check = 0;
+-		tcph->check = tcp_v4_check(tcph, datalen,
++		tcph->check = tcp_v4_check(datalen,
+ 					   iph->saddr, iph->daddr,
+ 					   csum_partial((char *)tcph,
+ 					   		datalen, 0));
+diff -puN net/ipv4/netfilter/ipt_REJECT.c~remove-tcp-header-from-tcp_v4_check-take-2 net/ipv4/netfilter/ipt_REJECT.c
+--- a/net/ipv4/netfilter/ipt_REJECT.c~remove-tcp-header-from-tcp_v4_check-take-2
++++ a/net/ipv4/netfilter/ipt_REJECT.c
+@@ -116,7 +116,7 @@ static void send_reset(struct sk_buff *o
  
- 	spin_lock_init(&(bond_info->tx_hashtbl_lock));
+ 	/* Adjust TCP checksum */
+ 	tcph->check = 0;
+-	tcph->check = tcp_v4_check(tcph, sizeof(struct tcphdr),
++	tcph->check = tcp_v4_check(sizeof(struct tcphdr),
+ 				   nskb->nh.iph->saddr,
+ 				   nskb->nh.iph->daddr,
+ 				   csum_partial((char *)tcph,
+diff -puN net/ipv4/netfilter/nf_nat_helper.c~remove-tcp-header-from-tcp_v4_check-take-2 net/ipv4/netfilter/nf_nat_helper.c
+--- a/net/ipv4/netfilter/nf_nat_helper.c~remove-tcp-header-from-tcp_v4_check-take-2
++++ a/net/ipv4/netfilter/nf_nat_helper.c
+@@ -176,7 +176,7 @@ nf_nat_mangle_tcp_packet(struct sk_buff 
+ 	datalen = (*pskb)->len - iph->ihl*4;
+ 	if ((*pskb)->ip_summed != CHECKSUM_PARTIAL) {
+ 		tcph->check = 0;
+-		tcph->check = tcp_v4_check(tcph, datalen,
++		tcph->check = tcp_v4_check(datalen,
+ 					   iph->saddr, iph->daddr,
+ 					   csum_partial((char *)tcph,
+ 					   		datalen, 0));
+diff -puN net/ipv4/tcp_ipv4.c~remove-tcp-header-from-tcp_v4_check-take-2 net/ipv4/tcp_ipv4.c
+--- a/net/ipv4/tcp_ipv4.c~remove-tcp-header-from-tcp_v4_check-take-2
++++ a/net/ipv4/tcp_ipv4.c
+@@ -502,11 +502,11 @@ void tcp_v4_send_check(struct sock *sk, 
+ 	struct tcphdr *th = skb->h.th;
  
--	new_hashtbl = kmalloc(size, GFP_KERNEL);
-+	new_hashtbl = kzalloc(size, GFP_KERNEL);
- 	if (!new_hashtbl) {
- 		printk(KERN_ERR DRV_NAME
- 		       ": %s: Error: Failed to allocate TLB hash table\n",
-@@ -195,8 +195,6 @@ static int tlb_initialize(struct bonding
+ 	if (skb->ip_summed == CHECKSUM_PARTIAL) {
+-		th->check = ~tcp_v4_check(th, len,
+-					  inet->saddr, inet->daddr, 0);
++		th->check = ~tcp_v4_check(len, inet->saddr,
++					  inet->daddr, 0);
+ 		skb->csum_offset = offsetof(struct tcphdr, check);
+ 	} else {
+-		th->check = tcp_v4_check(th, len, inet->saddr, inet->daddr,
++		th->check = tcp_v4_check(len, inet->saddr, inet->daddr,
+ 					 csum_partial((char *)th,
+ 						      th->doff << 2,
+ 						      skb->csum));
+@@ -525,7 +525,7 @@ int tcp_v4_gso_send_check(struct sk_buff
+ 	th = skb->h.th;
  
- 	bond_info->tx_hashtbl = new_hashtbl;
+ 	th->check = 0;
+-	th->check = ~tcp_v4_check(th, skb->len, iph->saddr, iph->daddr, 0);
++	th->check = ~tcp_v4_check(skb->len, iph->saddr, iph->daddr, 0);
+ 	skb->csum_offset = offsetof(struct tcphdr, check);
+ 	skb->ip_summed = CHECKSUM_PARTIAL;
+ 	return 0;
+@@ -747,7 +747,7 @@ static int tcp_v4_send_synack(struct soc
+ 	if (skb) {
+ 		struct tcphdr *th = skb->h.th;
  
--	memset(bond_info->tx_hashtbl, 0, size);
--
- 	for (i = 0; i < TLB_HASH_TABLE_SIZE; i++) {
- 		tlb_init_table_entry(&bond_info->tx_hashtbl[i], 1);
- 	}
-diff -puN drivers/net/bonding/bond_main.c~bonding-replace-kmalloc-memset-pairs-with-the-appropriate-kzalloc-calls drivers/net/bonding/bond_main.c
---- a/drivers/net/bonding/bond_main.c~bonding-replace-kmalloc-memset-pairs-with-the-appropriate-kzalloc-calls
-+++ a/drivers/net/bonding/bond_main.c
-@@ -1343,14 +1343,12 @@ int bond_enslave(struct net_device *bond
- 			"inaccurate.\n", bond_dev->name, slave_dev->name);
- 	}
- 
--	new_slave = kmalloc(sizeof(struct slave), GFP_KERNEL);
-+	new_slave = kzalloc(sizeof(struct slave), GFP_KERNEL);
- 	if (!new_slave) {
- 		res = -ENOMEM;
- 		goto err_undo_flags;
- 	}
- 
--	memset(new_slave, 0, sizeof(struct slave));
--
- 	/* save slave's original flags before calling
- 	 * netdev_set_master and dev_open
- 	 */
+-		th->check = tcp_v4_check(th, skb->len,
++		th->check = tcp_v4_check(skb->len,
+ 					 ireq->loc_addr,
+ 					 ireq->rmt_addr,
+ 					 csum_partial((char *)th, skb->len,
+@@ -1514,7 +1514,7 @@ static struct sock *tcp_v4_hnd_req(struc
+ static __sum16 tcp_v4_checksum_init(struct sk_buff *skb)
+ {
+ 	if (skb->ip_summed == CHECKSUM_COMPLETE) {
+-		if (!tcp_v4_check(skb->h.th, skb->len, skb->nh.iph->saddr,
++		if (!tcp_v4_check(skb->len, skb->nh.iph->saddr,
+ 				  skb->nh.iph->daddr, skb->csum)) {
+ 			skb->ip_summed = CHECKSUM_UNNECESSARY;
+ 			return 0;
 _
