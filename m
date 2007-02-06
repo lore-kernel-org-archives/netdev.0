@@ -1,52 +1,48 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [patch 11/11] netfilter warning fix
-Date: Tue, 6 Feb 2007 22:02:51 +0100
-Message-ID: <20070206210250.GB25430@elte.hu>
-References: <20070205.184408.34759062.davem@davemloft.net> <20070205185324.16b54b64.akpm@linux-foundation.org> <20070206123401.GA8052@elte.hu> <20070206.114325.98862918.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] tg3 : avoid an expensive divide
+Date: Tue, 06 Feb 2007 13:19:08 -0800 (PST)
+Message-ID: <20070206.131908.13769204.davem@davemloft.net>
+References: <200702061536.18800@nienna>
+	<20070206.114659.107250775.davem@davemloft.net>
+	<45C8EAC4.9020803@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org, kaber@trash.net,
-	dipankar@in.ibm.com, paulmck@us.ibm.com
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: mchan@broadcom.com, netdev@vger.kernel.org
+To: dada1@cosmosbay.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.mail.elte.hu ([157.181.151.9]:55855 "EHLO mx2.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965471AbXBFVDI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Feb 2007 16:03:08 -0500
-Content-Disposition: inline
-In-Reply-To: <20070206.114325.98862918.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56961
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S965518AbXBFVTJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Feb 2007 16:19:09 -0500
+In-Reply-To: <45C8EAC4.9020803@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Eric Dumazet <dada1@cosmosbay.com>
+Date: Tue, 06 Feb 2007 21:53:24 +0100
 
-* David Miller <davem@davemloft.net> wrote:
-
-> > that was pretty much the only place in the whole kernel that got hit 
-> > by some rcu-preempt side-effect - and even this appears to show that 
-> > it's a real bug that was in hiding.
+> I am using gcc-4.1.1, so the following comment from drivers/net/tg3.c seems 
+> over-optimistic :
 > 
-> No, rather, it's the only location that triggered an automated 
-> debugging check.  The very first set of code paths we checked, in 
-> response to the bug trigger, showed beyond a shadow of a doubt that 
-> this assumption is pervasive and in many locations that none of the 
-> automated debugging checks live.
-> 
-> The tree should be fully audited before such a huge semantic change 
-> gets added into the tree.
+> /* Do not place this n-ring entries value into the tp struct itself,
+>   * we really want to expose these constants to GCC so that modulo et
+>   * al.  operations are done with shifts and masks instead of with
+>   * hw multiply/modulo instructions.  Another solution would be to
+>   * replace things like '% foo' with '& (foo - 1)'.
+>   */
+> #define TG3_RX_RCB_RING_SIZE(tp)        \
+>          ((tp->tg3_flags2 & TG3_FLG2_5705_PLUS) ?  512 : 1024)
 
-i'd like to add more automated checks to the tree. 'naked' 
-smp_processor_id() use is one telltale sign of such a problem - what 
-other instances could you suggest me to check? The thing is, in 99% of 
-the cases the smp_processor_id() check caught such assumptions in other 
-code because 'preempt off' is inextricably connected to /some/ use of 
-smp_processor_id() - be it get_cpu_var() or any other derivative 
-interface. So i'm wondering what other assumptions there are (or can be) 
-about rcu_read_lock() also being a preempt-off point. Thanks!
+Because I've seen gcc optimize this properly before (at least on
+sparc64), it means that either:
 
-(btw., i always argued that neither preempt_disable() nor 
-rcu_read_lock() is an ideal interface for locking because both hide 
-critical assumptions and dependencies - and they both are able to create 
-little versions of the 'big BKL mess' that we had to fight a few years 
-ago. (and that we still have to fight today, in certain areas of code.))
+1) There is a GCC bug where the properties of the constants
+   do not propagate.
 
-	Ingo
+2) GCC really thinks the divide is cheaper (code density vs.
+   cycle count tradeoffs etc.)
+
+Anyways, we should probably apply your patch in any event.
+
+Michael, any objections?
