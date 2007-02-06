@@ -1,95 +1,54 @@
-From: Ishizaki Kou <kou.ishizaki@toshiba.co.jp>
-Subject: Re: spidernet: dynamic phy setup code
-Date: Tue, 06 Feb 2007 19:42:30 +0900 (JST)
-Message-ID: <200702061042.l16AgVXP027762@toshiba.co.jp>
-References: <200702010754.l117s2T8003383@toshiba.co.jp>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: [PATCH 2.4 0/3] e1000: update to 7.3.20
+Date: Tue, 6 Feb 2007 12:29:57 +0100
+Message-ID: <20070206112957.GA5087@1wt.eu>
+References: <20070206010102.28691.96744.stgit@gitlost.site>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org
-To: jens@de.ibm.com, benh@kernel.crashing.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "Garzik, Jeff" <jgarzik@pobox.com>, netdev@vger.kernel.org,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Kok, Auke" <auke@foo-projects.org>,
+	"Ronciak, John" <john.ronciak@intel.com>
+To: "Kok, Auke" <auke-jan.h.kok@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from imx12.toshiba.co.jp ([61.202.160.132]:53236 "EHLO
-	imx12.toshiba.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751462AbXBFKnE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Feb 2007 05:43:04 -0500
-In-Reply-To: <200702010754.l117s2T8003383@toshiba.co.jp>
+Received: from 1wt.eu ([62.212.114.60]:2272 "EHLO 1wt.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751258AbXBFLaK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Feb 2007 06:30:10 -0500
+Content-Disposition: inline
+In-Reply-To: <20070206010102.28691.96744.stgit@gitlost.site>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ben-san, Jens-san
+Hi Auke,
 
-Thanks for your comments and advices.
-First, we should apologize to you that some troubles which we informed
-about spidernet auto-negotiation are caused by our mistake.
-We used wrong MACRO for "advertise" variable to
-phy->def->ops->setup_aneg(). 
+On Mon, Feb 05, 2007 at 05:01:02PM -0800, Kok, Auke wrote:
+> Willy,
+> 
+> Please pull:
+> 
+> git-pull git://lost.foo-projects.org/~ahkok/git/linux-2.4 e1000
+> 
+> to receive an update for the e1000 driver. This updates the e1000
+> driver in the 2.4 kernel to version 7.3.20-k4, roughly the equivalent
+> of what is in 2.6.20 and the latest of our out-of-tree driver.
+> 
+> This adds new hardware support and many fixes. Many customers are
+> asking us for these updates and the current 2.4 kernel ships a very
+> outdated version of the e1000 adapter.
+> 
+> This patch includes small compatibility headers and code to minimize
+> the changes we need to make to our driver and keep it in sync easier
+> with the 2.6 kernel version so we can possibly continue to ship
+> updates and fixes to this driver with more ease.
 
-We will post the revised patch for spider_net.
-Following are the current status of troubles we informed.
+Pulled, thanks very much. I'll produce -pre1 shortly so that we can
+ensure there's no regression.
 
-(1)
->- if (card->aneg_count > 10) {
->-  /* timeout */
->-  card->aneg_count = 0;
->-  is1000 = !is1000;
->-  goto re_setup;
->- if (phy->speed == 1000 && !is1000) {
->-  is1000 = 1;
->-  goto re_setup;
->- } else if(phy->speed != 1000 && is1000) {
->-  is1000 = 0;
->-  goto re_setup;
->- }
-> We need to use different auto-neg initial settings between
-> for 10/100Mbps ethernet switches and for Gbps ethernet switches.
-> Driver don't know which type of network switch is connected to
-> network card, so we try both settings alternately in auto negtiation
-> sequences by using a variable "is1000".
-> Furthermore, we have a problem that poll_link() may succeed even when
-> the auto-neg initial setting is for different network switch type,
-> and the network card does not work on this case. We retry auto-neg
-> with the another initial setting on this case.
-Solved.
+> Cheers,
+> 
+> Auke
 
-We are now able to use Gbps switches and 10/100Mbps switches with 
-the same advertise setting and we don't need to use is1000.
-The re_setup is not necessary and they are removed in the revised patch.
+Best Regards,
+Willy
 
-2.
->> - spider_net_write_reg(card, SPIDER_NET_GMACST,
->> -        spider_net_read_reg(card, SPIDER_NET_GMACST));
->> - spider_net_write_reg(card, SPIDER_NET_GMACINTEN, 0x4);
->
-> These codes are enabling LINK status interrupt which is disabled
-> at the beginning of auto-neg.
-> Without this operation, auto negotiation works only when a connection
-> detected for the first time, and auto negotiation will not work 
-> when an ethernet cable is unpluged or pluged.
-Pending(No problem, if they don't cause any trouble on Cell Blades).
-
-By the way, why do you suggest to use polling for auto-neg, Ben-san? 
-Is there a merit to use polling, or is there a problem to use interrupt?
-Sorry, we couldn't find the reason why sungem use polling for auto-neg. 
-
-They might not be necessary, if we use polling to handle LINK status as
-Ben-san said.
-
-3
->> - mii_phy_probe(phy, phy->mii_id);
-> It seems that PHY reset is necessary before auto negotiation,
-> in the case that ethernet card is disconnected from an ethernet switch
-> then connected to another ethernet switch.
-> We can't call directly reset routine from driver, so we call
-mii_phy_probe().
-Pending.
-
-After all, we need phy reset.
-> If you really need to reset it, then change sungem_phy.c to export the
-> reset function. But I'm surprised you need that. Another option is to
-> reset the PHY in your PHY's setup_aneg() function.
-We still wonder which is the best way, and mii_phy_probe() still remains
-so far.
-
-Best regards,
-Kou Ishizaki
