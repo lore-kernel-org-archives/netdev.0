@@ -1,82 +1,71 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: [PATCH] NET : cleanup sock_from_file()
-Date: Wed, 07 Feb 2007 00:03:25 +0100
-Message-ID: <45C9093D.1030605@cosmosbay.com>
-References: <20070202120528.GA10392@de.ibm.com>
- <20070206.144106.39659974.davem@davemloft.net>
+From: Tilman Schmidt <tilman@imap.cc>
+Subject: Re: dynticks + iptables almost stops the boot process [was: Re: 2.6.20-rc6-mm3]
+Date: Wed, 07 Feb 2007 00:12:23 +0100
+Message-ID: <45C90B57.90104@imap.cc>
+References: <20070131215241.GB2890@inferi.kami.home> <20070131232130.GC4137@inferi.kami.home> <1170358572.29240.292.camel@localhost.localdomain> <1170360101.29240.297.camel@localhost.localdomain> <20070201211137.GA2830@inferi.kami.home> <1170369202.29240.339.camel@localhost.localdomain> <20070202191802.GA4262@inferi.kami.home> <1170448034.29240.364.camel@localhost.localdomain> <20070202204344.GB4262@inferi.kami.home> <20070206164826.GA3491@elte.hu> <20070206192840.GB2971@inferi.kami.home>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="Boundary_(ID_kw20IDvE4XsjJ5w9g2njhA)"
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig078781D7F46D04E8339CF8CB"
+To: Ingo Molnar <mingo@elte.hu>, Thomas Gleixner <tglx@linutronix.de>,
+	Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org,
+	mingo@redhat.com, netdev@vger.kernel.org,
+	netfilter-devel@lists.netfilter.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sp604005mt.neufgp.fr ([84.96.92.11]:47268 "EHLO smtp.Neuf.fr"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1030511AbXBFXDc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Feb 2007 18:03:32 -0500
-Received: from [192.168.30.11] ([88.139.66.191]) by sp604005mt.gpm.neuf.ld
- (Sun Java System Messaging Server 6.2-5.05 (built Feb 16 2006))
- with ESMTP id <0JD2005UUDDUKLH0@sp604005mt.gpm.neuf.ld> for
- netdev@vger.kernel.org; Wed, 07 Feb 2007 00:03:30 +0100 (CET)
-In-reply-to: <20070206.144106.39659974.davem@davemloft.net>
+Received: from out5.smtp.messagingengine.com ([66.111.4.29]:48243 "EHLO
+	out5.smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1030556AbXBFXLp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Feb 2007 18:11:45 -0500
+In-Reply-To: <20070206192840.GB2971@inferi.kami.home>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig078781D7F46D04E8339CF8CB
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
---Boundary_(ID_kw20IDvE4XsjJ5w9g2njhA)
-Content-type: text/plain; charset=ISO-8859-1; format=flowed
-Content-transfer-encoding: 7BIT
+Am 06.02.2007 20:28 schrieb Mattia Dongili:
+> On Tue, Feb 06, 2007 at 05:48:26PM +0100, Ingo Molnar wrote:
+>> Could you try the patch below? The RCU serialization code (a rare call=
+=20
+>> but can be common in some types of setups) has a nasty implicit=20
+>> dependency on the HZ tick - which until now was a hidden wart but beca=
+me=20
+>> an explicit bug under dynticks. Maybe this is what is slowing down you=
+r=20
+>> box.
 
-I believe dead code from sock_from_file() can be cleaned up.
+I have the same problem (huge delay when loading iptables) with
+2.6.20-rc6-mm3, and for me this patch did fix it.
 
-All sockets are now built using sock_attach_fd(), that puts the 'sock' pointer 
-into file->private_data and &socket_file_ops into file->f_op
+> No, not this. Anyway the last patch Thomas forwarded does fix the
+> problem.
 
-I could not find a place where file->private_data could be set to NULL, 
-keeping opened the file.
+Which one would that be? I might try it for comparison.
 
-So to get 'sock' from a 'file' pointer, either :
+Thanks,
+Tilman
 
-- This is a socket file (f_op == &socket_file_ops), and we can directly get 
-'sock' from private_data.
-- This is not a socket, we return -ENOTSOCK and dont even try to find a socket 
-via dentry/inode :)
+--=20
+Tilman Schmidt                          E-Mail: tilman@imap.cc
+Bonn, Germany
+Diese Nachricht besteht zu 100% aus wiederverwerteten Bits.
+Unge=F6ffnet mindestens haltbar bis: (siehe R=FCckseite)
 
-Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
 
---Boundary_(ID_kw20IDvE4XsjJ5w9g2njhA)
-Content-type: text/plain; name=sock_from_file.patch
-Content-transfer-encoding: 7BIT
-Content-disposition: inline; filename=sock_from_file.patch
+--------------enig078781D7F46D04E8339CF8CB
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
---- linux/net/socket.c	2007-02-07 00:37:44.000000000 +0100
-+++ linux-ed/net/socket.c	2007-02-07 00:43:36.000000000 +0100
-@@ -407,24 +407,11 @@ int sock_map_fd(struct socket *sock)
- 
- static struct socket *sock_from_file(struct file *file, int *err)
- {
--	struct inode *inode;
--	struct socket *sock;
--
- 	if (file->f_op == &socket_file_ops)
- 		return file->private_data;	/* set in sock_map_fd */
- 
--	inode = file->f_path.dentry->d_inode;
--	if (!S_ISSOCK(inode->i_mode)) {
--		*err = -ENOTSOCK;
--		return NULL;
--	}
--
--	sock = SOCKET_I(inode);
--	if (sock->file != file) {
--		printk(KERN_ERR "socki_lookup: socket file changed!\n");
--		sock->file = file;
--	}
--	return sock;
-+	*err = -ENOTSOCK;
-+	return NULL;
- }
- 
- /**
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.3rc1 (MingW32)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
 
---Boundary_(ID_kw20IDvE4XsjJ5w9g2njhA)--
+iD8DBQFFyQtfMdB4Whm86/kRAh1SAJ4nD7AUYhg1gU7UloR588LGaO0L+wCeO2un
+CImLLx8g+vh7yfduSEgwfXU=
+=YkNg
+-----END PGP SIGNATURE-----
+
+--------------enig078781D7F46D04E8339CF8CB--
