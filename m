@@ -1,33 +1,82 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: depending on IPv6 symbols
-Date: Tue, 06 Feb 2007 14:53:58 -0800
-Message-ID: <adad54msxrt.fsf@cisco.com>
-References: <20061229144702.11ff0478.kazunori@miyazawa.org>
-	<20070206.142407.48395902.davem@davemloft.net>
-	<adaodo6sy9o.fsf_-_@cisco.com>
-	<20070206.144939.118629871.davem@davemloft.net>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: [PATCH] NET : cleanup sock_from_file()
+Date: Wed, 07 Feb 2007 00:03:25 +0100
+Message-ID: <45C9093D.1030605@cosmosbay.com>
+References: <20070202120528.GA10392@de.ibm.com>
+ <20070206.144106.39659974.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kazunori@miyazawa.org, miika@iki.fi, Diego.Beltrami@hiit.fi,
-	herbert@gondor.apana.org.au, netdev@vger.kernel.org,
-	usagi-core@linux-ipv6.org, mst@mellanox.co.il
+Content-Type: multipart/mixed; boundary="Boundary_(ID_kw20IDvE4XsjJ5w9g2njhA)"
+Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-5.cisco.com ([171.68.10.87]:8790 "EHLO
-	sj-iport-5.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030232AbXBFWyE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Feb 2007 17:54:04 -0500
-In-Reply-To: <20070206.144939.118629871.davem@davemloft.net> (David Miller's message of "Tue, 06 Feb 2007 14:49:39 -0800 (PST)")
+Received: from sp604005mt.neufgp.fr ([84.96.92.11]:47268 "EHLO smtp.Neuf.fr"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1030511AbXBFXDc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Feb 2007 18:03:32 -0500
+Received: from [192.168.30.11] ([88.139.66.191]) by sp604005mt.gpm.neuf.ld
+ (Sun Java System Messaging Server 6.2-5.05 (built Feb 16 2006))
+ with ESMTP id <0JD2005UUDDUKLH0@sp604005mt.gpm.neuf.ld> for
+ netdev@vger.kernel.org; Wed, 07 Feb 2007 00:03:30 +0100 (CET)
+In-reply-to: <20070206.144106.39659974.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
- > config FOO
- > 	depends on (IPV6 || IPV6=n)
+This is a multi-part message in MIME format.
 
-OK, I'll add the same hack for INFINIBAND_IPOIB too.  I doubt there's
-anyone that really cares about IPoIB built-in with modular IPv6.
+--Boundary_(ID_kw20IDvE4XsjJ5w9g2njhA)
+Content-type: text/plain; charset=ISO-8859-1; format=flowed
+Content-transfer-encoding: 7BIT
 
-Would you like a patch to do the same thing for INET_IPGRE (and fix
-the #ifdefs in ip_gre.c)?
+I believe dead code from sock_from_file() can be cleaned up.
 
- - R.
+All sockets are now built using sock_attach_fd(), that puts the 'sock' pointer 
+into file->private_data and &socket_file_ops into file->f_op
+
+I could not find a place where file->private_data could be set to NULL, 
+keeping opened the file.
+
+So to get 'sock' from a 'file' pointer, either :
+
+- This is a socket file (f_op == &socket_file_ops), and we can directly get 
+'sock' from private_data.
+- This is not a socket, we return -ENOTSOCK and dont even try to find a socket 
+via dentry/inode :)
+
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+
+--Boundary_(ID_kw20IDvE4XsjJ5w9g2njhA)
+Content-type: text/plain; name=sock_from_file.patch
+Content-transfer-encoding: 7BIT
+Content-disposition: inline; filename=sock_from_file.patch
+
+--- linux/net/socket.c	2007-02-07 00:37:44.000000000 +0100
++++ linux-ed/net/socket.c	2007-02-07 00:43:36.000000000 +0100
+@@ -407,24 +407,11 @@ int sock_map_fd(struct socket *sock)
+ 
+ static struct socket *sock_from_file(struct file *file, int *err)
+ {
+-	struct inode *inode;
+-	struct socket *sock;
+-
+ 	if (file->f_op == &socket_file_ops)
+ 		return file->private_data;	/* set in sock_map_fd */
+ 
+-	inode = file->f_path.dentry->d_inode;
+-	if (!S_ISSOCK(inode->i_mode)) {
+-		*err = -ENOTSOCK;
+-		return NULL;
+-	}
+-
+-	sock = SOCKET_I(inode);
+-	if (sock->file != file) {
+-		printk(KERN_ERR "socki_lookup: socket file changed!\n");
+-		sock->file = file;
+-	}
+-	return sock;
++	*err = -ENOTSOCK;
++	return NULL;
+ }
+ 
+ /**
+
+--Boundary_(ID_kw20IDvE4XsjJ5w9g2njhA)--
