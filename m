@@ -1,63 +1,51 @@
-From: Marcelo Tosatti <marcelo@kvack.org>
-Subject: Re: [PATCH] Marvell Libertas 8388 802.11b/g USB driver (v2)
-Date: Tue, 6 Feb 2007 20:42:07 -0200
-Message-ID: <20070206224207.GA4110@dmt>
-References: <20070116185524.GA5681@dmt> <200701270253.08320.arnd@arndb.de> <20070203224349.GA18418@dmt>
+From: David Miller <davem@davemloft.net>
+Subject: Re: depending on IPv6 symbols
+Date: Tue, 06 Feb 2007 14:49:39 -0800 (PST)
+Message-ID: <20070206.144939.118629871.davem@davemloft.net>
+References: <20061229144702.11ff0478.kazunori@miyazawa.org>
+	<20070206.142407.48395902.davem@davemloft.net>
+	<adaodo6sy9o.fsf_-_@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>, Jeff Garzik <jgarzik@pobox.com>,
-	"John W. Linville" <linville@redhat.com>,
-	Dan Williams <dcbw@redhat.com>,
-	"Luis R. Rodriguez" <mcgrof@gmail.com>,
-	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
-To: Arnd Bergmann <arnd@arndb.de>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: kazunori@miyazawa.org, miika@iki.fi, Diego.Beltrami@hiit.fi,
+	herbert@gondor.apana.org.au, netdev@vger.kernel.org,
+	usagi-core@linux-ipv6.org, mst@mellanox.co.il
+To: rdreier@cisco.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kanga.kvack.org ([66.96.29.28]:45863 "EHLO kanga.kvack.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030210AbXBFWpl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Feb 2007 17:45:41 -0500
-Content-Disposition: inline
-In-Reply-To: <20070203224349.GA18418@dmt>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58181
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1030224AbXBFWuE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Feb 2007 17:50:04 -0500
+In-Reply-To: <adaodo6sy9o.fsf_-_@cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Feb 03, 2007 at 08:43:49PM -0200, Marcelo Tosatti wrote:
-> Hi Arnd,
+From: Roland Dreier <rdreier@cisco.com>
+Date: Tue, 06 Feb 2007 14:43:15 -0800
 
-> > Most of these are unused as well, I guess it would be good
-> > to go through the whole list and see what can be removed.
-> 
-> Done. Will go through the entire file list before posting the next
-> patch.
+> So I hope we can come up with a short-range plan to deal with the
+> possibility of built-in code calling icmpv6_send() at least...  As you
+> said, should we just convert IPV6 to a bool instead of a tristate?
 
-Done.
+Netfilter handles this by using the Kconfig dependency construct:
 
-> > Did you run the file through a recent sparse successfully?
-> 
-> Spits a bunch of warnings, looking at them.
+config FOO
+	depends on (IPV6 || IPV6=n)
 
-Fixed sparse warnings.
+which essentially means:
 
-> > The printk and dprintk statements should probably be converted
-> > to dev_info/dev_dbg/... standard macros, or something derived
-> > from that.
+if IPV6 is disabled:
 
-Done.
+	Allow FOO to build modular or static, but will get no ipv6
+	support.
 
-> > 
-> > > +void if_usb_free(struct usb_card_rec *cardp)
-> > > +{
-> > > +	ENTER();
-> > 
-> > Do you find the ENTER() and LEAVE() macros really useful?
-> > usually, you're better off taking them out...
-> 
-> Yes, for instance the bug reported at http://dev.laptop.org/ticket/841
-> could be verified by checking the log file (by confirming that certain
-> states were true/false).
-> 
-> However, only a few such macros, on key functions, are required. I'll go
-> over and remove the unneeded ones.
+if IPV6 is "y"
 
-Removed a bunch of ENTER/LEAVE macro calls.
+	Allow FOO to be a static or modular build
 
+if IPV6 is "m"
+
+	Allow FOO to be a modular build only
+
+This is the only way to make it all work out currently.
