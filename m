@@ -1,50 +1,39 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: Re: [PATCH 2.6.20] e1000: Use ARRAY_SIZE macro when appropriate
-Date: Tue, 06 Feb 2007 09:16:56 -0800
-Message-ID: <45C8B808.3080908@intel.com>
-References: <20070205165546.GE3896@Ahmed>
+From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Subject: [PATCH] bcm43xx: Fix for oops on resume
+Date: Tue, 06 Feb 2007 11:39:37 -0600
+Message-ID: <45c8bd59.oamnvaNRMZvKoPBa%Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: cramerj@intel.com, john.ronciak@intel.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: "Ahmed S. Darwish" <darwish.07@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:13330 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932952AbXBFRRH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Feb 2007 12:17:07 -0500
-In-Reply-To: <20070205165546.GE3896@Ahmed>
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+To: John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
+List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Ahmed S. Darwish wrote:
-> Hi,
-> 
-> A patch to use ARRAY_SIZE macro already defined in kernel.h.
-> 
-> Signed-off-by: Ahmed S. Darwish <darwish.07@gmail.com>
+There is a kernel oops on bcm43xx when resuming due to an overly tight timeout loop.
 
-Acked-by: Auke Kok <auke-jan.h.kok@intel.com>
+Signed-off-by: Larry Finger<Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+---
 
-Cheers,
-
-Auke
-
-> ---
-> Patch is compile tested.
-> 
-> diff --git a/drivers/net/e1000/e1000_ethtool.c b/drivers/net/e1000/e1000_ethtool.c
-> index fb96c87..d21706e 100644
-> --- a/drivers/net/e1000/e1000_ethtool.c
-> +++ b/drivers/net/e1000/e1000_ethtool.c
-> @@ -746,7 +746,7 @@ err_setup:
->  	uint32_t pat, value;                                                   \
->  	uint32_t test[] =                                                      \
->  		{0x5A5A5A5A, 0xA5A5A5A5, 0x00000000, 0xFFFFFFFF};              \
-> -	for (pat = 0; pat < sizeof(test)/sizeof(test[0]); pat++) {              \
-> +	for (pat = 0; pat < ARRAY_SIZE(test); pat++) {              \
->  		E1000_WRITE_REG(&adapter->hw, R, (test[pat] & W));             \
->  		value = E1000_READ_REG(&adapter->hw, R);                       \
->  		if (value != (test[pat] & W & M)) {                             \
-> 
+Index: linux-2.6/drivers/net/wireless/bcm43xx/bcm43xx.h
+===================================================================
+--- linux-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx.h
++++ linux-2.6/drivers/net/wireless/bcm43xx/bcm43xx.h
+@@ -21,7 +21,7 @@
+ #define PFX				KBUILD_MODNAME ": "
+ 
+ #define BCM43xx_SWITCH_CORE_MAX_RETRIES	50
+-#define BCM43xx_IRQWAIT_MAX_RETRIES	50
++#define BCM43xx_IRQWAIT_MAX_RETRIES	100
+ 
+ #define BCM43xx_IO_SIZE			8192
