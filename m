@@ -1,34 +1,56 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] apply cwnd rules to FIN packets with data
-Date: Mon, 05 Feb 2007 17:54:04 -0800 (PST)
-Message-ID: <20070205.175404.23014614.davem@davemloft.net>
-References: <45C7B77B.9060506@psc.edu>
-	<20070205.150815.112291591.davem@davemloft.net>
-	<45C7C79D.1070707@psc.edu>
+Subject: Re: [patch 01/11] user of the jiffies rounding code: Networking
+Date: Mon, 05 Feb 2007 18:01:11 -0800 (PST)
+Message-ID: <20070205.180111.36663426.davem@davemloft.net>
+References: <200702060031.l160VtQ3004618@shell0.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: jheffner@psc.edu
+Cc: netdev@vger.kernel.org, arjan@linux.intel.com, jgarzik@pobox.com
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55475
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33244
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S965320AbXBFByG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Feb 2007 20:54:06 -0500
-In-Reply-To: <45C7C79D.1070707@psc.edu>
+	by vger.kernel.org with ESMTP id S965378AbXBFCBM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Feb 2007 21:01:12 -0500
+In-Reply-To: <200702060031.l160VtQ3004618@shell0.pdx.osdl.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: John Heffner <jheffner@psc.edu>
-Date: Mon, 05 Feb 2007 19:11:09 -0500
+From: akpm@linux-foundation.org
+Date: Mon, 05 Feb 2007 16:30:52 -0800
 
-> My first patch was broken anyway (should not have pulled the test from 
-> tso_should_defer), and the change is not needed to the nagle test since 
-> it's implicit.  This patch just restores the old behavior from before 
-> TSO, sending the FIN when it's the last true segment.  We can debate the 
-> merits of applying congestion control to the FIN separately. :)
+> From: Arjan van de Ven <arjan@linux.intel.com>
+> 
+> This patch introduces users of the round_jiffies() function in the networking
+> code.
+> 
+> These timers all were of the "about once a second" or "about once every X
+> seconds" variety and several showed up in the "what wakes the cpu up" profiles
+> that the tickless patches provide.  Some timers are highly dynamic based on
+> network load; but even on low activity systems they still show up so the
+> rounding is done only in cases of low activity, allowing higher frequency
+> timers in the high activity case.
+> 
+> The various hardware watchdogs are an obvious case; they run every 2 seconds
+> but aren't otherwise specific of exactly when they need to run.
+> 
+> Signed-off-by: Arjan van de Ven <arjan@linux.intel.com>
+> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 
-Yes, let's split one hair at a time :-)
+I pulled in everything except the e1000 driver change, Jeff please
+suck that in, thanks.
 
-Patch applied, thanks John.  I'll push this to the 2.6.x -stable
-branch too.
+Arjan, btw:
+
+> +	if (dst_gc_timer_expires > 4*HZ)
+> +		mod_timer(&dst_gc_timer,
+> +			round_jiffies(jiffies + dst_gc_timer_expires));
+> +	else
+> +		mod_timer(&dst_gc_timer, jiffies + dst_gc_timer_expires);
+   ^^^^^^^^^^^^^
+
+That line begins "TAB SPACE TAB", and lo' and behold GIT
+catch this when I applied it :-)  I fixed it up by hand
+and reapplied, so don't worry about this instance.
+
