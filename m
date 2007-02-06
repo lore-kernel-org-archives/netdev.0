@@ -1,53 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 11/11] netfilter warning fix
-Date: Tue, 06 Feb 2007 11:43:25 -0800 (PST)
-Message-ID: <20070206.114325.98862918.davem@davemloft.net>
-References: <20070205.184408.34759062.davem@davemloft.net>
-	<20070205185324.16b54b64.akpm@linux-foundation.org>
-	<20070206123401.GA8052@elte.hu>
+Subject: Re: IP_FREEBIND and CAP_NET_ADMIN
+Date: Tue, 06 Feb 2007 11:46:59 -0800 (PST)
+Message-ID: <20070206.114659.107250775.davem@davemloft.net>
+References: <20070103163627.14635.88250.stgit@nienna.balabit>
+	<45A48BEB.2070207@trash.net>
+	<200702061536.18800@nienna>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org, kaber@trash.net,
-	dipankar@in.ibm.com, paulmck@us.ibm.com
-To: mingo@elte.hu
+Cc: kaber@trash.net, netfilter-devel@lists.netfilter.org,
+	netdev@vger.kernel.org
+To: hidden@balabit.hu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39712
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39719
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752285AbXBFTn0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Feb 2007 14:43:26 -0500
-In-Reply-To: <20070206123401.GA8052@elte.hu>
+	by vger.kernel.org with ESMTP id S1752293AbXBFTrA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Feb 2007 14:47:00 -0500
+In-Reply-To: <200702061536.18800@nienna>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ingo Molnar <mingo@elte.hu>
-Date: Tue, 6 Feb 2007 13:34:01 +0100
+From: KOVACS Krisztian <hidden@balabit.hu>
+Date: Tue, 6 Feb 2007 15:36:18 +0100
 
+> Neither of these require IP_FREEBIND as core functionality, and will 
+> probably work if IP_FREEBIND would be bound to CAP_NET_ADMIN.
 > 
-> * Andrew Morton <akpm@linux-foundation.org> wrote:
-> 
-> > On Mon, 05 Feb 2007 18:44:08 -0800 (PST) David Miller 
-> > <davem@davemloft.net> wrote:
-> > 
-> > > I bet this rcu_read_lock()-implies-preempt_disable() assumption has 
-> > > spread into other areas of the tree as well.
-> > 
-> > Me too.  Although one expects that other holes will cause might_sleep 
-> > or lockdep warnings pretty easily.
-> > 
-> > Still, life is hard enough as it is.  I think I'll shelve rcu-preempt 
-> > pending resolution of this.
-> 
-> that was pretty much the only place in the whole kernel that got hit by 
-> some rcu-preempt side-effect - and even this appears to show that it's a 
-> real bug that was in hiding.
+> So the question is: shall we take the IP_FREEBIND approach, this would 
+> change a hardly ever used interface by requiring CAP_NET_ADMIN 
+> capabilities, or we should try finding all the scattered places in the 
+> Linux IP stack which does a route lookup?
 
-No, rather, it's the only location that triggered an automated
-debugging check.  The very first set of code paths we checked, in
-response to the bug trigger, showed beyond a shadow of a doubt that
-this assumption is pervasive and in many locations that none of the
-automated debugging checks live.
+We're not going to remove functionality from the user for the
+sake of convenience of something you are trying to write.
 
-The tree should be fully audited before such a huge semantic change
-gets added into the tree.
+If it was some security hole, then fine, but it's not so it
+can stay and it does have legitimate uses.
 
+This freebind behavior should actually be the default, but we had to
+put the socket option and sysctl there because allowing freebind by
+default makes several test suites fail that try to purposely bind to a
+non-local address and expect an error return.
+
+It allows servers to bind when your on-demand connection is down.
