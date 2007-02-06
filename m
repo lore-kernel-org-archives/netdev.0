@@ -1,54 +1,80 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: [PATCH 2.4 0/3] e1000: update to 7.3.20
-Date: Tue, 6 Feb 2007 12:29:57 +0100
-Message-ID: <20070206112957.GA5087@1wt.eu>
-References: <20070206010102.28691.96744.stgit@gitlost.site>
+From: Li Yang <leoli@freescale.com>
+Subject: [PATCH 1/4] ucc_geth: Change private immrbar_virt_to_phys to generic
+ iopa
+Date: Tue, 06 Feb 2007 19:31:33 +0800
+Message-ID: <45C86715.6090600@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Garzik, Jeff" <jgarzik@pobox.com>, netdev@vger.kernel.org,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Kok, Auke" <auke@foo-projects.org>,
-	"Ronciak, John" <john.ronciak@intel.com>
-To: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:2272 "EHLO 1wt.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751258AbXBFLaK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Feb 2007 06:30:10 -0500
-Content-Disposition: inline
-In-Reply-To: <20070206010102.28691.96744.stgit@gitlost.site>
+Received: from az33egw01.freescale.net ([192.88.158.102]:38433 "EHLO
+	az33egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751400AbXBFLaY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Feb 2007 06:30:24 -0500
+Received: from az33smr02.freescale.net (az33smr02.freescale.net [10.64.34.200])
+	by az33egw01.freescale.net (8.12.11/az33egw01) with ESMTP id l16BUK4q007363
+	for <netdev@vger.kernel.org>; Tue, 6 Feb 2007 04:30:21 -0700 (MST)
+Received: from zch01exm20.fsl.freescale.net (zch01exm20.ap.freescale.net [10.192.129.204])
+	by az33smr02.freescale.net (8.13.1/8.13.0) with ESMTP id l16BUIb7020578
+	for <netdev@vger.kernel.org>; Tue, 6 Feb 2007 05:30:19 -0600 (CST)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Auke,
+Get rid of private immrbar_virt_to_phys() routine and
+use generic iopa().
 
-On Mon, Feb 05, 2007 at 05:01:02PM -0800, Kok, Auke wrote:
-> Willy,
-> 
-> Please pull:
-> 
-> git-pull git://lost.foo-projects.org/~ahkok/git/linux-2.4 e1000
-> 
-> to receive an update for the e1000 driver. This updates the e1000
-> driver in the 2.4 kernel to version 7.3.20-k4, roughly the equivalent
-> of what is in 2.6.20 and the latest of our out-of-tree driver.
-> 
-> This adds new hardware support and many fixes. Many customers are
-> asking us for these updates and the current 2.4 kernel ships a very
-> outdated version of the e1000 adapter.
-> 
-> This patch includes small compatibility headers and code to minimize
-> the changes we need to make to our driver and keep it in sync easier
-> with the 2.6 kernel version so we can possibly continue to ship
-> updates and fixes to this driver with more ease.
+Signed-off-by: Li Yang <leoli@freescale.com>
+---
+ drivers/net/ucc_geth.c |   29 ++++++-----------------------
+ 1 files changed, 6 insertions(+), 23 deletions(-)
 
-Pulled, thanks very much. I'll produce -pre1 shortly so that we can
-ensure there's no regression.
-
-> Cheers,
-> 
-> Auke
-
-Best Regards,
-Willy
+diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
+index 7e4b23c..722a89f 100644
+--- a/drivers/net/ucc_geth.c
++++ b/drivers/net/ucc_geth.c
+@@ -3065,21 +3065,11 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+ 		endOfRing =
+ 		    ugeth->p_tx_bd_ring[i] + (ug_info->bdRingLenTx[i] -
+ 					      1) * sizeof(struct qe_bd);
+-		if (ugeth->ug_info->uf_info.bd_mem_part == MEM_PART_SYSTEM) {
+-			out_be32(&ugeth->p_send_q_mem_reg->sqqd[i].bd_ring_base,
+-				 (u32) virt_to_phys(ugeth->p_tx_bd_ring[i]));
+-			out_be32(&ugeth->p_send_q_mem_reg->sqqd[i].
++		out_be32(&ugeth->p_send_q_mem_reg->sqqd[i].bd_ring_base,
++				iopa((unsigned long)ugeth->p_tx_bd_ring[i]));
++		out_be32(&ugeth->p_send_q_mem_reg->sqqd[i].
+ 				 last_bd_completed_address,
+-				 (u32) virt_to_phys(endOfRing));
+-		} else if (ugeth->ug_info->uf_info.bd_mem_part ==
+-			   MEM_PART_MURAM) {
+-			out_be32(&ugeth->p_send_q_mem_reg->sqqd[i].bd_ring_base,
+-				 (u32) immrbar_virt_to_phys(ugeth->
+-							    p_tx_bd_ring[i]));
+-			out_be32(&ugeth->p_send_q_mem_reg->sqqd[i].
+-				 last_bd_completed_address,
+-				 (u32) immrbar_virt_to_phys(endOfRing));
+-		}
++				iopa((unsigned long)endOfRing));
+ 	}
+ 
+ 	/* schedulerbasepointer */
+@@ -3331,15 +3321,8 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+ 	/* Setup the table */
+ 	/* Assume BD rings are already established */
+ 	for (i = 0; i < ug_info->numQueuesRx; i++) {
+-		if (ugeth->ug_info->uf_info.bd_mem_part == MEM_PART_SYSTEM) {
+-			out_be32(&ugeth->p_rx_bd_qs_tbl[i].externalbdbaseptr,
+-				 (u32) virt_to_phys(ugeth->p_rx_bd_ring[i]));
+-		} else if (ugeth->ug_info->uf_info.bd_mem_part ==
+-			   MEM_PART_MURAM) {
+-			out_be32(&ugeth->p_rx_bd_qs_tbl[i].externalbdbaseptr,
+-				 (u32) immrbar_virt_to_phys(ugeth->
+-							    p_rx_bd_ring[i]));
+-		}
++		out_be32(&ugeth->p_rx_bd_qs_tbl[i].externalbdbaseptr,
++			 iopa((unsigned long)ugeth->p_rx_bd_ring[i]));
+ 		/* rest of fields handled by QE */
+ 	}
 
