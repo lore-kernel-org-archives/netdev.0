@@ -1,75 +1,58 @@
 From: akpm@linux-foundation.org
-Subject: [patch 02/11] net/irda/: proper prototypes
-Date: Mon, 05 Feb 2007 16:30:53 -0800
-Message-ID: <200702060031.l160VuqL004621@shell0.pdx.osdl.net>
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org, bunk@stusta.de,
-	samuel@sortiz.org
+Subject: [patch 10/11] dccp-warning-fixes
+Date: Mon, 05 Feb 2007 16:31:09 -0800
+Message-ID: <200702060032.l160WCkf004646@shell0.pdx.osdl.net>
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
+	akpm@linux-foundation.org, acme@conectiva.com.br
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:41479 "EHLO smtp.osdl.org"
+Received: from smtp.osdl.org ([65.172.181.24]:41516 "EHLO smtp.osdl.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965164AbXBFAc3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Feb 2007 19:32:29 -0500
+	id S965220AbXBFAdD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Feb 2007 19:33:03 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Adrian Bunk <bunk@stusta.de>
+From: Andrew Morton <akpm@osdl.org>
 
-Add proper prototypes for some functions in include/net/irda/irda.h
+sparc64:
 
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
-Acked-by: Samuel Ortiz <samuel@sortiz.org>
+net/dccp/ccids/ccid3.c: In function `ccid3_hc_tx_packet_recv':
+net/dccp/ccids/ccid3.c:480: warning: long long unsigned int format, __u64 arg (arg 6)
+net/dccp/ccids/ccid3.c: In function `ccid3_hc_rx_packet_recv':
+net/dccp/ccids/ccid3.c:1007: warning: long int format, different type arg (arg 3)
+net/dccp/ccids/ccid3.c:1007: warning: long int format, different type arg (arg 4)
+
+opaque types must be suitably cast for printing.
+
+Cc: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+Cc: "David S. Miller" <davem@davemloft.net>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- include/net/irda/irda.h |   15 +++++++++++++++
- net/irda/irmod.c        |   13 -------------
- 2 files changed, 15 insertions(+), 13 deletions(-)
+ net/dccp/ccids/ccid3.c |    5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-diff -puN include/net/irda/irda.h~net-irda-proper-prototypes include/net/irda/irda.h
---- a/include/net/irda/irda.h~net-irda-proper-prototypes
-+++ a/include/net/irda/irda.h
-@@ -113,4 +113,19 @@ do { if(!(expr)) { \
- #define IAS_IRCOMM_ID 0x2343
- #define IAS_IRLPT_ID  0x9876
+diff -puN net/dccp/ccids/ccid3.c~dccp-warning-fixes net/dccp/ccids/ccid3.c
+--- a/net/dccp/ccids/ccid3.c~dccp-warning-fixes
++++ a/net/dccp/ccids/ccid3.c
+@@ -479,7 +479,8 @@ static void ccid3_hc_tx_packet_recv(stru
  
-+struct net_device;
-+struct packet_type;
-+
-+void irda_proc_register(void);
-+void irda_proc_unregister(void);
-+
-+int irda_sysctl_register(void);
-+void irda_sysctl_unregister(void);
-+
-+int irsock_init(void);
-+void irsock_cleanup(void);
-+
-+int irlap_driver_rcv(struct sk_buff *skb, struct net_device *dev,
-+		     struct packet_type *ptype, struct net_device *orig_dev);
-+
- #endif /* NET_IRDA_H */
-diff -puN net/irda/irmod.c~net-irda-proper-prototypes net/irda/irmod.c
---- a/net/irda/irmod.c~net-irda-proper-prototypes
-+++ a/net/irda/irmod.c
-@@ -42,19 +42,6 @@
- #include <net/irda/irttp.h>		/* irttp_init */
- #include <net/irda/irda_device.h>	/* irda_device_init */
+ 			ccid3_pr_debug("%s(%p), s=%u, w_init=%llu, "
+ 				       "R_sample=%dus, X=%u\n", dccp_role(sk),
+-				       sk, hctx->ccid3hctx_s, w_init,
++				       sk, hctx->ccid3hctx_s,
++				       (unsigned long long)w_init,
+ 				       (int)r_sample,
+ 				       (unsigned)(hctx->ccid3hctx_x >> 6));
  
--/* irproc.c */
--extern void irda_proc_register(void);
--extern void irda_proc_unregister(void);
--/* irsysctl.c */
--extern int  irda_sysctl_register(void);
--extern void irda_sysctl_unregister(void);
--/* af_irda.c */
--extern int  irsock_init(void);
--extern void irsock_cleanup(void);
--/* irlap_frame.c */
--extern int  irlap_driver_rcv(struct sk_buff *, struct net_device *, 
--			     struct packet_type *, struct net_device *);
--
- /*
-  * Module parameters
-  */
+@@ -1005,7 +1006,7 @@ static void ccid3_hc_rx_packet_recv(stru
+ 		DCCP_BUG_ON(r_sample < 0);
+ 		if (unlikely(r_sample <= t_elapsed))
+ 			DCCP_WARN("r_sample=%ldus, t_elapsed=%ldus\n",
+-				  r_sample, t_elapsed);
++				  (long)r_sample, (long)t_elapsed);
+ 		else
+ 			r_sample -= t_elapsed;
+ 		CCID3_RTT_SANITY_CHECK(r_sample);
 _
