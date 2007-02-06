@@ -1,71 +1,50 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: dynticks + iptables almost stops the boot process [was: Re: 2.6.20-rc6-mm3]
-Date: Tue, 6 Feb 2007 17:48:26 +0100
-Message-ID: <20070206164826.GA3491@elte.hu>
-References: <20070129204528.eb8d695e.akpm@osdl.org> <20070131215241.GB2890@inferi.kami.home> <20070131232130.GC4137@inferi.kami.home> <1170358572.29240.292.camel@localhost.localdomain> <1170360101.29240.297.camel@localhost.localdomain> <20070201211137.GA2830@inferi.kami.home> <1170369202.29240.339.camel@localhost.localdomain> <20070202191802.GA4262@inferi.kami.home> <1170448034.29240.364.camel@localhost.localdomain> <20070202204344.GB4262@inferi.kami.home>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: Re: [PATCH 2.6.20] e1000: Use ARRAY_SIZE macro when appropriate
+Date: Tue, 06 Feb 2007 09:16:56 -0800
+Message-ID: <45C8B808.3080908@intel.com>
+References: <20070205165546.GE3896@Ahmed>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Mattia Dongili <malattia@linux.it>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org,
-	mingo@redhat.com, netdev@vger.kernel.org,
-	netfilter-devel@lists.netfilter.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752198AbXBFQsf@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20070202204344.GB4262@inferi.kami.home>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: cramerj@intel.com, john.ronciak@intel.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: "Ahmed S. Darwish" <darwish.07@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga03.intel.com ([143.182.124.21]:13330 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932952AbXBFRRH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Feb 2007 12:17:07 -0500
+In-Reply-To: <20070205165546.GE3896@Ahmed>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-Mattia,
-
-* Mattia Dongili <malattia@linux.it> wrote:
-
-> > I have it halfways reproducible now and I'm working to find the root 
-> > cause. Thanks for providing the info.
+Ahmed S. Darwish wrote:
+> Hi,
 > 
-> Great, I'm obviously available to test any patch :)
+> A patch to use ARRAY_SIZE macro already defined in kernel.h.
+> 
+> Signed-off-by: Ahmed S. Darwish <darwish.07@gmail.com>
 
-Could you try the patch below? The RCU serialization code (a rare call 
-but can be common in some types of setups) has a nasty implicit 
-dependency on the HZ tick - which until now was a hidden wart but became 
-an explicit bug under dynticks. Maybe this is what is slowing down your 
-box.
+Acked-by: Auke Kok <auke-jan.h.kok@intel.com>
 
-	Ingo
+Cheers,
 
-------------------------->
-Subject: [patch] dynticks: make sure synchronize_rcu() completes
-From: Ingo Molnar <mingo@elte.hu>
+Auke
 
-synchronize_rcu() has a nasty implicit dependency on the HZ tick: it 
-relies on another CPU finishing all RCU work so that this CPU can finish 
-its RCU work too - in IRQ context. But wait_for_completion() goes to 
-sleep indefinitely on dynticks and there might be no other IRQs to this 
-CPU for a long time.
-
-Signed-off-by: Ingo Molnar <mingo@elte.hu>
----
- kernel/rcupdate.c |    9 +++++++--
- 1 file changed, 7 insertions(+), 2 deletions(-)
-
-Index: linux/kernel/rcupdate.c
-===================================================================
---- linux.orig/kernel/rcupdate.c
-+++ linux/kernel/rcupdate.c
-@@ -85,8 +85,13 @@ void synchronize_rcu(void)
- 	/* Will wake me after RCU finished */
- 	call_rcu(&rcu.head, wakeme_after_rcu);
- 
--	/* Wait for it */
--	wait_for_completion(&rcu.completion);
-+	/*
-+	 * Wait for it. Note: on dynticks RCU completion needs to be
-+	 * polled frequently, to make sure we finish work. If this CPU
-+	 * goes idle then another CPU cannot finish this CPU's work.
-+	 */
-+	while (wait_for_completion_timeout(&rcu.completion, HZ/100 ? : 1) == 0)
-+		/* nothing */;
- }
- 
- static void rcu_barrier_callback(struct rcu_head *notused)
+> ---
+> Patch is compile tested.
+> 
+> diff --git a/drivers/net/e1000/e1000_ethtool.c b/drivers/net/e1000/e1000_ethtool.c
+> index fb96c87..d21706e 100644
+> --- a/drivers/net/e1000/e1000_ethtool.c
+> +++ b/drivers/net/e1000/e1000_ethtool.c
+> @@ -746,7 +746,7 @@ err_setup:
+>  	uint32_t pat, value;                                                   \
+>  	uint32_t test[] =                                                      \
+>  		{0x5A5A5A5A, 0xA5A5A5A5, 0x00000000, 0xFFFFFFFF};              \
+> -	for (pat = 0; pat < sizeof(test)/sizeof(test[0]); pat++) {              \
+> +	for (pat = 0; pat < ARRAY_SIZE(test); pat++) {              \
+>  		E1000_WRITE_REG(&adapter->hw, R, (test[pat] & W));             \
+>  		value = E1000_READ_REG(&adapter->hw, R);                       \
+>  		if (value != (test[pat] & W & M)) {                             \
+> 
