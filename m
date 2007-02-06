@@ -1,62 +1,41 @@
-From: Li Yang <leoli@freescale.com>
-Subject: [PATCH 4/4] ucc_geth: Add support to local-mac-address property
-Date: Tue, 06 Feb 2007 19:31:55 +0800
-Message-ID: <45C8672B.1050302@freescale.com>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [patch 11/11] netfilter warning fix
+Date: Tue, 6 Feb 2007 13:34:01 +0100
+Message-ID: <20070206123401.GA8052@elte.hu>
+References: <200702060032.l160WErX004652@shell0.pdx.osdl.net> <20070205.181026.122835715.davem@davemloft.net> <20070205181810.bbfbf42c.akpm@linux-foundation.org> <20070205.184408.34759062.davem@davemloft.net> <20070205185324.16b54b64.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
-To: jeff@garzik.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	kaber@trash.net, dipankar@in.ibm.com, paulmck@us.ibm.com
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from az33egw01.freescale.net ([192.88.158.102]:38548 "EHLO
-	az33egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751433AbXBFLar (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Feb 2007 06:30:47 -0500
-Received: from az33smr01.freescale.net (az33smr01.freescale.net [10.64.34.199])
-	by az33egw01.freescale.net (8.12.11/az33egw01) with ESMTP id l16BUjBx007517
-	for <netdev@vger.kernel.org>; Tue, 6 Feb 2007 04:30:45 -0700 (MST)
-Received: from zch01exm20.fsl.freescale.net (zch01exm20.ap.freescale.net [10.192.129.204])
-	by az33smr01.freescale.net (8.13.1/8.13.0) with ESMTP id l16BUd4C014739
-	for <netdev@vger.kernel.org>; Tue, 6 Feb 2007 05:30:41 -0600 (CST)
+Received: from mx2.mail.elte.hu ([157.181.151.9]:56639 "EHLO mx2.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750896AbXBFMic (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Feb 2007 07:38:32 -0500
+Content-Disposition: inline
+In-Reply-To: <20070205185324.16b54b64.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-IEEE-1275 defines =93local-mac-address=94 to be a standard
-property name to specify preassigned network address.
-This patch adds support for it.
 
-Signed-off-by: Li Yang <leoli@freescale.com>
----
- drivers/net/ucc_geth.c |    8 +++++++-
- 1 files changed, 7 insertions(+), 1 deletions(-)
+* Andrew Morton <akpm@linux-foundation.org> wrote:
 
-diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
-index dcec66d..62512fc 100644
---- a/drivers/net/ucc_geth.c
-+++ b/drivers/net/ucc_geth.c
-@@ -4053,6 +4053,7 @@ static int ucc_geth_probe(struct of_device* ofdev=
-, const struct of_device_id *ma
- 	static int mii_mng_configured =3D 0;
- 	const phandle *ph;
- 	const unsigned int *prop;
-+	const void *mac_addr;
-=20
- 	ugeth_vdbg("%s: IN", __FUNCTION__);
-=20
-@@ -4178,7 +4179,12 @@ static int ucc_geth_probe(struct of_device* ofde=
-v, const struct of_device_id *ma
-=20
- 	ugeth->ug_info =3D ug_info;
- 	ugeth->dev =3D dev;
--	memcpy(dev->dev_addr, get_property(np, "mac-address", NULL), 6);
-+
-+	mac_addr =3D get_property(np, "mac-address", NULL);
-+	if (mac_addr =3D=3D NULL)
-+		mac_addr =3D get_property(np, "local-mac-address", NULL);
-+	if (mac_addr)
-+		memcpy(dev->dev_addr, mac_addr, 6);
-=20
- 	return 0;
- }
+> On Mon, 05 Feb 2007 18:44:08 -0800 (PST) David Miller 
+> <davem@davemloft.net> wrote:
+> 
+> > I bet this rcu_read_lock()-implies-preempt_disable() assumption has 
+> > spread into other areas of the tree as well.
+> 
+> Me too.  Although one expects that other holes will cause might_sleep 
+> or lockdep warnings pretty easily.
+> 
+> Still, life is hard enough as it is.  I think I'll shelve rcu-preempt 
+> pending resolution of this.
 
+that was pretty much the only place in the whole kernel that got hit by 
+some rcu-preempt side-effect - and even this appears to show that it's a 
+real bug that was in hiding. So please dont shelve RCU-preempt for this 
+reason :-)
+
+	Ingo
