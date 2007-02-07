@@ -1,22 +1,26 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+From: Johannes Berg <johannes@sipsolutions.net>
 Subject: Re: [PATCH] bcm43xx: Fix for oops on resume
-Date: Wed, 07 Feb 2007 14:54:50 +0100
-Message-ID: <1170856490.6798.40.camel@johannes.berg>
+Date: Wed, 07 Feb 2007 14:56:06 +0100
+Message-ID: <1170856566.6798.42.camel@johannes.berg>
 References: <45c8bd59.oamnvaNRMZvKoPBa%Larry.Finger@lwfinger.net>
 	 <1170850549.6798.22.camel@johannes.berg>  <45C9D2E1.7040906@lwfinger.net>
 	 <1170855150.6798.38.camel@johannes.berg>  <45C9D930.5010307@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-9jRpBJcTCvtAsdp1bUZa"
-Cc: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Larry Finger <larry.finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <45C9D930.5010307-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-R/A4r1pYT2q7E3qWbCQS"
+Cc: Michael Buesch <mb@bu3sch.de>, netdev@vger.kernel.org,
+	Bcm43xx-dev@lists.berlios.de, linux-wireless@vger.kernel.org
+To: Larry Finger <larry.finger@lwfinger.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:60570 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161316AbXBGN7I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Feb 2007 08:59:08 -0500
+In-Reply-To: <45C9D930.5010307@lwfinger.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---=-9jRpBJcTCvtAsdp1bUZa
+--=-R/A4r1pYT2q7E3qWbCQS
 Content-Type: text/plain
 Content-Transfer-Encoding: quoted-printable
 
@@ -26,33 +30,22 @@ On Wed, 2007-02-07 at 07:50 -0600, Larry Finger wrote:
  resume, and whether you
 > did a suspend to RAM or disk?
 
-Not a bad idea. I can test suspend to ram as well as to disk, just got
-both working again.
-
-The kernel I'm running right now was built on my powermac so I can't do
-it right away (otherwise I could've just recompiled the bcm43xx module)
-but I'll do it later today or tomorrow.
-
-Usually, to get my connection back after a suspend, I just have to set
-the ssid again.
+Oh and if anyone else does this please also let us know what it prints
+on a regular freshly booted modprobe.
 
 johannes
 
---=-9jRpBJcTCvtAsdp1bUZa
+--=-R/A4r1pYT2q7E3qWbCQS
 Content-Type: application/pgp-signature; name=signature.asc
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Comment: Johannes Berg (powerbook)
 
-iD8DBQBFydoq/ETPhpq3jKURAgBZAJ49QdaU3ysezdokLHtd7ZVAjQTVXQCggfRn
-0mv6T4AgFAjAqjVV5BkIC6o=
-=D62B
+iD8DBQBFydp2/ETPhpq3jKURAjG5AJ90t2l0mjc5nqn7ZQkgu5Q3P977JgCfYE2g
+dIri/oeJbkMw444+Vu1g4fg=
+=7abD
 -----END PGP SIGNATURE-----
 
---=-9jRpBJcTCvtAsdp1bUZa--
+--=-R/A4r1pYT2q7E3qWbCQS--
 
--
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
