@@ -1,60 +1,123 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH] sky2: flow control off
-Date: Tue, 6 Feb 2007 19:57:57 -0800
-Message-ID: <20070206195757.1bc81923@oldman>
-References: <20070202153425.2d979fd4@freekitty>
-	<45C91ABF.9030504@pobox.com>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: [IPV6] RAW: Add checksum default defines for MH.
+Date: Wed, 07 Feb 2007 15:43:34 +0900 (JST)
+Message-ID: <20070207.154334.70695617.yoshfuji@linux-ipv6.org>
+References: <11678182681435-git-send-email-nakam@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Jeff Garzik <jgarzik@pobox.com>
+Cc: takamiya@po.ntts.co.jp, netdev@vger.kernel.org,
+	yoshfuji@linux-ipv6.org, nakam@linux-ipv6.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:33235 "EHLO smtp.osdl.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030247AbXBGD6M (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Feb 2007 22:58:12 -0500
-In-Reply-To: <45C91ABF.9030504@pobox.com>
+Received: from yue.linux-ipv6.org ([203.178.140.15]:54007 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965465AbXBGGmL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Feb 2007 01:42:11 -0500
+In-Reply-To: <11678182681435-git-send-email-nakam@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 06 Feb 2007 19:18:07 -0500
-Jeff Garzik <jgarzik@pobox.com> wrote:
+Dave,
 
-> Stephen Hemminger wrote:
-> > Turn flow control off for sky2. When flow control is on, the transmitter
-> > may get randomly stuck. Perhaps there is hardware problem, but until
-> > Marvell provides errata information for workaround, it should default to off.
-> > 
-> > Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
-> > ---
-> >  drivers/net/sky2.c |    2 +-
-> >  1 files changed, 1 insertions(+), 1 deletions(-)
-> > 
-> > diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
-> > index 822dd0b..a31dea5 100644
-> > --- a/drivers/net/sky2.c
-> > +++ b/drivers/net/sky2.c
-> > @@ -3263,7 +3263,7 @@ #endif
-> >  
-> >  	/* Auto speed and flow control */
-> >  	sky2->autoneg = AUTONEG_ENABLE;
-> > -	sky2->flow_mode = FC_BOTH;
-> > +	sky2->flow_mode = FC_NONE;
-> 
-> I ACK the patch... conditional on some -mm style testing and user ACKs.
-> 
-> Logic:  if there were no downsides to disabling flow control globally, 
-> the world's networks would have already done so.  Flow control can be 
-> quite helpful, so I while I understand the errata argument, I also want 
-> to understand the full effect of this tiny patch.
-> 
+AFAIK, we have not heard objectsions and I finally agree on this.
+Please apply.
 
-Actually, the E1000 had it off until recently. The downside is that if 
-a system is connected on a switch with a gigabit to 100mbit port
-and using a stupid protocol like NFS over UDP, then the packet
-burst is sure to get truncated so the 8K fragmented UDP
-never gets through.
+Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+
+--yoshfuji
+
+In article <11678182681435-git-send-email-nakam@linux-ipv6.org> (at Wed,  3 Jan 2007 18:57:48 +0900), Masahide NAKAMURA <nakam@linux-ipv6.org> says:
+
+> Add checksum default defines for mobility header(MH) which
+> goes through raw socket. As the result kernel's behavior is
+> to handle MH checksum as default.
+> 
+> This patch also removes verifying inbound MH checksum at
+> mip6_mh_filter() since it did not consider user specified
+> checksum offset and was redundant check with raw socket code.
+> 
+> Signed-off-by: Masahide NAKAMURA <nakam@linux-ipv6.org>
+> ---
+>  net/ipv6/mip6.c |   26 --------------------------
+>  net/ipv6/raw.c  |   13 +++++++++++--
+>  2 files changed, 11 insertions(+), 28 deletions(-)
+> 
+> diff --git a/net/ipv6/mip6.c b/net/ipv6/mip6.c
+> index be7dd7d..681bb07 100644
+> --- a/net/ipv6/mip6.c
+> +++ b/net/ipv6/mip6.c
+> @@ -89,7 +89,6 @@ static int mip6_mh_len(int type)
+>  int mip6_mh_filter(struct sock *sk, struct sk_buff *skb)
+>  {
+>  	struct ip6_mh *mh;
+> -	int mhlen;
+>  
+>  	if (!pskb_may_pull(skb, (skb->h.raw - skb->data) + 8) ||
+>  	    !pskb_may_pull(skb, (skb->h.raw - skb->data) + ((skb->h.raw[1] + 1) << 3)))
+> @@ -103,31 +102,6 @@ int mip6_mh_filter(struct sock *sk, stru
+>  		mip6_param_prob(skb, 0, (&mh->ip6mh_hdrlen) - skb->nh.raw);
+>  		return -1;
+>  	}
+> -	mhlen = (mh->ip6mh_hdrlen + 1) << 3;
+> -
+> -	if (skb->ip_summed == CHECKSUM_COMPLETE) {
+> -		skb->ip_summed = CHECKSUM_UNNECESSARY;
+> -		if (csum_ipv6_magic(&skb->nh.ipv6h->saddr,
+> -				    &skb->nh.ipv6h->daddr,
+> -				    mhlen, IPPROTO_MH,
+> -				    skb->csum)) {
+> -			LIMIT_NETDEBUG(KERN_DEBUG "mip6: MH hw checksum failed\n");
+> -			skb->ip_summed = CHECKSUM_NONE;
+> -		}
+> -	}
+> -	if (skb->ip_summed == CHECKSUM_NONE) {
+> -		if (csum_ipv6_magic(&skb->nh.ipv6h->saddr,
+> -				    &skb->nh.ipv6h->daddr,
+> -				    mhlen, IPPROTO_MH,
+> -				    skb_checksum(skb, 0, mhlen, 0))) {
+> -			LIMIT_NETDEBUG(KERN_DEBUG "mip6: MH checksum failed "
+> -				       "[" NIP6_FMT " > " NIP6_FMT "]\n",
+> -				       NIP6(skb->nh.ipv6h->saddr),
+> -				       NIP6(skb->nh.ipv6h->daddr));
+> -			return -1;
+> -		}
+> -		skb->ip_summed = CHECKSUM_UNNECESSARY;
+> -	}
+>  
+>  	if (mh->ip6mh_proto != IPPROTO_NONE) {
+>  		LIMIT_NETDEBUG(KERN_DEBUG "mip6: MH invalid payload proto = %d\n",
+> diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
+> index 4ae1b19..4b83e69 100644
+> --- a/net/ipv6/raw.c
+> +++ b/net/ipv6/raw.c
+> @@ -1094,10 +1094,19 @@ static void rawv6_close(struct sock *sk,
+>  
+>  static int rawv6_init_sk(struct sock *sk)
+>  {
+> -	if (inet_sk(sk)->num == IPPROTO_ICMPV6) {
+> -		struct raw6_sock *rp = raw6_sk(sk);
+> +	struct raw6_sock *rp = raw6_sk(sk);
+> +
+> +	switch (inet_sk(sk)->num) {
+> +	case IPPROTO_ICMPV6:
+>  		rp->checksum = 1;
+>  		rp->offset   = 2;
+> +		break;
+> +	case IPPROTO_MH:
+> +		rp->checksum = 1;
+> +		rp->offset   = 4;
+> +		break;
+> +	default:
+> +		break;
+>  	}
+>  	return(0);
+>  }
+> -- 
+> 1.4.2
+> 
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
