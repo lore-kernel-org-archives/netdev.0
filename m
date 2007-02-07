@@ -1,53 +1,39 @@
-From: Shinta Sugimoto <shinta@sfc.wide.ad.jp>
-Subject: [PATCH 5/5] [PFKEYV2]: CONFIG_NET_KEY_MIGRATE option
-Date: Wed, 07 Feb 2007 22:18:50 +0900
-Message-ID: <20070207214526.90C3.SHINTA@sfc.wide.ad.jp>
+From: Larry Finger <larry.finger@lwfinger.net>
+Subject: Re: [PATCH] bcm43xx: Fix for oops on resume
+Date: Wed, 07 Feb 2007 07:23:45 -0600
+Message-ID: <45C9D2E1.7040906@lwfinger.net>
+References: <45c8bd59.oamnvaNRMZvKoPBa%Larry.Finger@lwfinger.net> <1170850549.6798.22.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Francis Dupont <Francis.Dupont@point6.net>,
-	Masahide Nakamura <nakam@linux-ipv6.org>,
-	yoshfuji@linux-ipv6.org, usagi-core@linux-ipv6.org
-To: netdev@vger.kernel.org
+Cc: John Linville <linville@tuxdriver.com>,
+	Michael Buesch <mb@bu3sch.de>, netdev@vger.kernel.org,
+	Bcm43xx-dev@lists.berlios.de, linux-wireless@vger.kernel.org
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.sfc.wide.ad.jp ([203.178.142.146]:36804 "EHLO
-	mail.sfc.wide.ad.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161046AbXBGNTD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Feb 2007 08:19:03 -0500
+Received: from mtiwmhc11.worldnet.att.net ([204.127.131.115]:43370 "EHLO
+	mtiwmhc11.worldnet.att.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1161294AbXBGNXs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Feb 2007 08:23:48 -0500
+In-Reply-To: <1170850549.6798.22.camel@johannes.berg>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add CONFIG_NET_KEY_MIGRATE option which makes it possible for user
-application to send or receive MIGRATE message to/from PF_KEY socket.
+Johannes Berg wrote:
+> On Tue, 2007-02-06 at 11:39 -0600, Larry Finger wrote:
+>> There is a kernel oops on bcm43xx when resuming due to an overly tight timeout loop.
+> 
+> Come to think of it... Is there any chance of fixing the actual oops
+> that happens in this case? I can imagine broken hardware or firmware
+> that causes this as well and we don't really want to oops in that case
+> either... That's why we have the timeout in the first place, to not hang
+> there forever.
+> 
+> Nothing against this patch though.
 
-Signed-off-by: Shinta Sugimoto <shinta.sugimoto@ericsson.com>
-Signed-off-by: Masahide NAKAMURA <nakam@linux-ipv6.org>
-Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
----
- net/xfrm/Kconfig |   10 ++++++++++
- 1 files changed, 10 insertions(+), 0 deletions(-)
+As you suggested earlier, a slow clock setting in the bcm43xx device may be the cause of this
+difficulty. If my laptop would suspend/resume correctly, then I could test various fixes based on
+that hypothesis. Since it does not, I think the band-aid approach is warranted. A proper fix is
+still on my agenda; however, getting full data rates still has priority.
 
-diff --git a/net/xfrm/Kconfig b/net/xfrm/Kconfig
-index 39d1cc4..fbaab2f 100644
---- a/net/xfrm/Kconfig
-+++ b/net/xfrm/Kconfig
-@@ -41,4 +41,14 @@ config NET_KEY
- 
- 	  Say Y unless you know what you are doing.
- 
-+config NET_KEY_MIGRATE
-+	bool "PF_KEY MIGRATE (EXPERIMENTAL)"
-+	depends on NET_KEY && EXPERIMENTAL
-+	select XFRM_MIGRATE
-+	---help---
-+	  Add a PF_KEY MIGRATE message to PF_KEYv2 socket family.
-+	  The PF_KEY MIGRATE message is used to dynamically update
-+	  locator(s) of a given IPsec security association.  This feature
-+	  is required, for instance, in a Mobile IPv6 environment where
-+	  a mobile node changes its attachment point to the Internet.
- 
--- 
-1.4.2
-
-
-
+Larry
