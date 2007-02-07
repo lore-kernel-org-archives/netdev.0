@@ -1,37 +1,40 @@
-From: Ishizaki Kou <kou.ishizaki@toshiba.co.jp>
-Subject: [PATCH 4/4] spidernet: remove txram full logging
-Date: Wed, 07 Feb 2007 17:57:28 +0900 (JST)
-Message-ID: <200702070857.l178vhav020612@toshiba.co.jp>
+From: "Li Yang-r58472" <LeoLi@freescale.com>
+Subject: RE: [PATCH 1/4] ucc_geth: Change private immrbar_virt_to_phys to generic iopa
+Date: Wed, 7 Feb 2007 17:34:18 +0800
+Message-ID: <989B956029373F45A0B8AF02970818900D4332@zch01exm26.fsl.freescale.net>
+References: <001EB06E-FC1D-4F0A-A910-8E08EE0B8CE2@kernel.crashing.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org, jim@jklewis.com
-To: jgarzik@pobox.com, jens@de.ibm.com
+Content-Type: text/plain;
+	charset="US-ASCII"
+Content-Transfer-Encoding: 8BIT
+Cc: <jeff@garzik.org>, <netdev@vger.kernel.org>,
+	<linuxppc-dev@ozlabs.org>
+To: "Kumar Gala" <galak@kernel.crashing.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from imx12.toshiba.co.jp ([61.202.160.132]:41233 "EHLO
-	imx12.toshiba.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161044AbXBGI6H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Feb 2007 03:58:07 -0500
+Received: from de01egw01.freescale.net ([192.88.165.102]:60566 "EHLO
+	de01egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030600AbXBGJdH convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Feb 2007 04:33:07 -0500
+Received: from de01smr01.freescale.net (de01smr01.freescale.net [10.208.0.31])
+	by de01egw01.freescale.net (8.12.11/de01egw01) with ESMTP id l179X45x019448
+	for <netdev@vger.kernel.org>; Wed, 7 Feb 2007 02:33:04 -0700 (MST)
+Received: from zch01exm26.fsl.freescale.net (zch01exm26.ap.freescale.net [10.192.129.221])
+	by de01smr01.freescale.net (8.13.1/8.13.0) with ESMTP id l179X1KI025308
+	for <netdev@vger.kernel.org>; Wed, 7 Feb 2007 03:33:03 -0600 (CST)
+Content-class: urn:content-classes:message
+In-Reply-To: <001EB06E-FC1D-4F0A-A910-8E08EE0B8CE2@kernel.crashing.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patches removes logging for SPIDER_NET_GTMFLLINT interrupts.
-Since the interrupts are not irregular, and they happen frequently
-when using 100Mbps network switches.
+> On Feb 6, 2007, at 5:31 AM, Li Yang wrote:
+> 
+> > Get rid of private immrbar_virt_to_phys() routine and
+> > use generic iopa().
+> 
+> Nack. iopa() isn't that generic, shouldn't we really be using the dma
+> mapping API here?
 
-Signed-off-by: Kou Ishizaki <kou.ishizaki@toshiba.co.jp>
----
+Do you mean the dma_map_single()?  dma_map_single can map memory space
+correctly, but I don't think it can handle ioremap-ed space.
 
---- org-linux-powerpc-git/drivers/net/spider_net.c	2007-02-06 20:44:47.000000000 +0900
-+++ linux-powerpc-git/drivers/net/spider_net.c	2007-02-06 20:48:38.000000000 +0900
-@@ -1417,8 +1417,8 @@
- 				switch (i)
- 	{
- 	case SPIDER_NET_GTMFLLINT:
--		if (netif_msg_intr(card) && net_ratelimit())
--			pr_err("Spider TX RAM full\n");
-+		/* TX RAM full may happen on a usual case.
-+		 * Logging is not needed. */
- 		show_error = 0;
- 		break;
- 	case SPIDER_NET_GRFDFLLINT: /* fallthrough */
+- Leo
