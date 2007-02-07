@@ -1,111 +1,89 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: Re: [PATCH] Broken ArcNet com20020 pcmcia driver in 2.6.20
-Date: Wed, 7 Feb 2007 14:58:05 -0800
-Message-ID: <20070207145805.863a6039.randy.dunlap@oracle.com>
-References: <Pine.LNX.4.64.0702071418440.31566@frodo.shire>
-	<45CA0373.5080508@oracle.com>
-	<Pine.LNX.4.64.0702072315080.31566@frodo.shire>
+From: ahendry <ahendry@tusc.com.au>
+Subject: [PATCH 2/3] X.25: Adds /proc/sys/net/x25/x25_forward to control
+	forwarding.
+Date: Thu, 08 Feb 2007 10:14:31 +1100
+Message-ID: <1170890071.5189.40.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>, Andrew Morton <akpm@osdl.org>,
-	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: Esben Nielsen <nielsen.esben@googlemail.com>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: linux-x25@vger.kernel.org, eis@baty.hanse.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rgminet01.oracle.com ([148.87.113.118]:47313 "EHLO
-	rgminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161475AbXBGXDj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Feb 2007 18:03:39 -0500
-In-Reply-To: <Pine.LNX.4.64.0702072315080.31566@frodo.shire>
+Received: from ricci.tusc.com.au ([203.2.177.24]:14070 "EHLO ricci.tusc.com.au"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1161481AbXBGXOe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Feb 2007 18:14:34 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 7 Feb 2007 23:24:21 +0100 (CET) Esben Nielsen wrote:
+echo "1" > /proc/sys/net/x25/x25_forward 
+To turn on x25_forwarding, defaults to off
+Requires the previous patch.
 
-> On Wed, 7 Feb 2007, Randy Dunlap wrote:
-> 
-> > Esben Nielsen wrote:
-> >>  Hi,
-> >>  I can not get my com20020 pcmcia driver to work as a module under 2.6.20.
-> >>  There is the build problem:
-> >
-> The relevant parts:
-> ...
-> CONFIG_ARCNET_COM20020=m
-> # CONFIG_ARCNET_COM20020_ISA is not set
-> # CONFIG_ARCNET_COM20020_PCI is not set
-> ...
-> CONFIG_ARCNET_COM20020_CS=m
-
-Sorry about that.
-
-> In this hiracy it is not nice for the com20020 module to check wether 
-> there are users for it. It breaks the direction of dependency. What if I 
-> first compile com20020 install it, and then decide I want one of the other
-> modules? Then would I have to recompile com20020 and reload it.
-> Therefore: Remove the check, do always export the symbols.
-
-That's not the usual kernel way, but I'll leave it up to the netdev
-people.  (and net mailing list changed from linux-net to netdev)
-
-An alternative patch is below.
-Thanks for your report and patch.
+Signed-off-by: Andrew Hendry <andrew.hendry@gmail.com>
 
 
-> As for actually testing: I have access to ArcNet hardware for 3 more 
-> weeks. Then I will start at a new job, where there is no ArcNet.
-
-> >> WARNING:  "com20020_found" [drivers/net/pcmcia/com20020_cs.ko] undefined!
-> >> WARNING:  "com20020_check" [drivers/net/pcmcia/com20020_cs.ko] undefined!
-> >>
-> >>  The solution:
-> >>  Always export com20020_found and com20020_check.
-> >>
-> >>  Esben
-> >>
-> >>   drivers/net/arcnet/com20020.c |    3 ---
-> >>   1 file changed, 3 deletions(-)
-> >>
-> >>  Index: linux-2.6.20/drivers/net/arcnet/com20020.c
-> >>  ===================================================================
-> >>  --- linux-2.6.20.orig/drivers/net/arcnet/com20020.c
-> >>  +++ linux-2.6.20/drivers/net/arcnet/com20020.c
-> >>  @@ -337,11 +337,8 @@ static void com20020_set_mc_list(struct
-> >>       }
-> >>   }
-> >>
-> >>  -#if defined(CONFIG_ARCNET_COM20020_PCI_MODULE) || \
-> >>  -    defined(CONFIG_ARCNET_COM20020_ISA_MODULE)
-> >>   EXPORT_SYMBOL(com20020_check);
-> >>   EXPORT_SYMBOL(com20020_found);
-> >>  -#endif
-> >>
-> >>   MODULE_LICENSE("GPL");
----
-
-
-From: Randy Dunlap <randy.dunlap@oracle.com>
-
-Need to export com20020 symbols for com20020_cs also.
-
-WARNING:  "com20020_found" [drivers/net/pcmcia/com20020_cs.ko] undefined!
-WARNING:  "com20020_check" [drivers/net/pcmcia/com20020_cs.ko] undefined!
-
-Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
----
- drivers/net/arcnet/com20020.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
---- linux-2620-work.orig/drivers/net/arcnet/com20020.c
-+++ linux-2620-work/drivers/net/arcnet/com20020.c
-@@ -338,7 +338,8 @@ static void com20020_set_mc_list(struct 
- }
+diff -uprN -X linux-2.6.20/Documentation/dontdiff linux-2.6.20-vanilla/include/linux/sysctl.h linux-2.6.20/include/linux/sysctl.h
+--- linux-2.6.20-vanilla/include/linux/sysctl.h	2007-02-07 14:28:13.000000000 +1100
++++ linux-2.6.20/include/linux/sysctl.h	2007-02-07 15:01:20.000000000 +1100
+@@ -699,7 +699,8 @@ enum {
+ 	NET_X25_CALL_REQUEST_TIMEOUT=2,
+ 	NET_X25_RESET_REQUEST_TIMEOUT=3,
+ 	NET_X25_CLEAR_REQUEST_TIMEOUT=4,
+-	NET_X25_ACK_HOLD_BACK_TIMEOUT=5
++	NET_X25_ACK_HOLD_BACK_TIMEOUT=5,
++	NET_X25_FORWARD=6
+ };
  
- #if defined(CONFIG_ARCNET_COM20020_PCI_MODULE) || \
--    defined(CONFIG_ARCNET_COM20020_ISA_MODULE)
-+    defined(CONFIG_ARCNET_COM20020_ISA_MODULE) || \
-+    defined(CONFIG_ARCNET_COM20020_CS_MODULE)
- EXPORT_SYMBOL(com20020_check);
- EXPORT_SYMBOL(com20020_found);
- #endif
+ /* /proc/sys/net/token-ring */
+diff -uprN -X linux-2.6.20/Documentation/dontdiff linux-2.6.20-vanilla/include/net/x25.h linux-2.6.20/include/net/x25.h
+--- linux-2.6.20-vanilla/include/net/x25.h	2007-02-07 14:28:14.000000000 +1100
++++ linux-2.6.20/include/net/x25.h	2007-02-07 15:02:06.000000000 +1100
+@@ -180,6 +180,7 @@ extern int  sysctl_x25_call_request_time
+ extern int  sysctl_x25_reset_request_timeout;
+ extern int  sysctl_x25_clear_request_timeout;
+ extern int  sysctl_x25_ack_holdback_timeout;
++extern int  sysctl_x25_forward;
+ 
+ extern int  x25_addr_ntoa(unsigned char *, struct x25_address *,
+ 			  struct x25_address *);
+diff -uprN -X linux-2.6.20/Documentation/dontdiff linux-2.6.20-vanilla/net/x25/af_x25.c linux-2.6.20/net/x25/af_x25.c
+--- linux-2.6.20-vanilla/net/x25/af_x25.c	2007-02-07 14:29:43.000000000 +1100
++++ linux-2.6.20/net/x25/af_x25.c	2007-02-07 15:03:27.000000000 +1100
+@@ -63,6 +63,7 @@ int sysctl_x25_call_request_timeout    =
+ int sysctl_x25_reset_request_timeout   = X25_DEFAULT_T22;
+ int sysctl_x25_clear_request_timeout   = X25_DEFAULT_T23;
+ int sysctl_x25_ack_holdback_timeout    = X25_DEFAULT_T2;
++int sysctl_x25_forward                 = 0;
+ 
+ HLIST_HEAD(x25_list);
+ DEFINE_RWLOCK(x25_list_lock);
+@@ -884,7 +885,8 @@ int x25_rx_call_request(struct sk_buff *
+ 	 */
+ 	if (sk == NULL) {
+ 		skb_push(skb, addr_len + X25_STD_MIN_LEN);
+-		if (x25_forward_call(&dest_addr, nb, skb, lci) > 0)
++		if (sysctl_x25_forward &&
++				x25_forward_call(&dest_addr, nb, skb, lci) > 0)
+ 		{
+ 			/* Call was forwarded, dont process it any more */
+ 			kfree_skb(skb);
+diff -uprN -X linux-2.6.20/Documentation/dontdiff linux-2.6.20-vanilla/net/x25/sysctl_net_x25.c linux-2.6.20/net/x25/sysctl_net_x25.c
+--- linux-2.6.20-vanilla/net/x25/sysctl_net_x25.c	2007-02-07 14:29:43.000000000 +1100
++++ linux-2.6.20/net/x25/sysctl_net_x25.c	2007-02-07 15:03:58.000000000 +1100
+@@ -73,6 +73,14 @@ static struct ctl_table x25_table[] = {
+ 		.extra1 =	&min_timer,
+ 		.extra2 =	&max_timer,
+ 	},
++	{
++		.ctl_name =	NET_X25_FORWARD,
++		.procname =	"x25_forward",
++		.data = 	&sysctl_x25_forward,
++		.maxlen = 	sizeof(int),
++		.mode = 	0644,
++		.proc_handler = &proc_dointvec,
++	},
+ 	{ 0, },
+ };
+ 
 
