@@ -1,43 +1,39 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] AT91: MACB support
-Date: Wed, 07 Feb 2007 17:28:30 -0500
-Message-ID: <45CA528E.9000602@garzik.org>
-References: <1170862844979-git-send-email-hskinnemoen@atmel.com>
+From: "Gary Zambrano" <zambrano@broadcom.com>
+Subject: Re: [PATCH review] b44: Port to ssb subsystem
+Date: Wed, 07 Feb 2007 14:36:42 -0800
+Message-ID: <1170887802.15655.14.camel@dhcp-10-7-81-58.broadcom.com>
+References: <200701231720.36370.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Patrice Vilchez <patrice.vilchez@rfo.atmel.com>,
-	Andrew Victor <andrew@sanpeople.com>
-To: Haavard Skinnemoen <hskinnemoen@atmel.com>
+Cc: netdev@vger.kernel.org
+To: "Michael Buesch" <mb@bu3sch.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:37963 "EHLO mail.dvmed.net"
+Received: from mms2.broadcom.com ([216.31.210.18]:3106 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1161454AbXBGW2e (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Feb 2007 17:28:34 -0500
-In-Reply-To: <1170862844979-git-send-email-hskinnemoen@atmel.com>
+	id S1422808AbXBGW7J (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Feb 2007 17:59:09 -0500
+In-Reply-To: <200701231720.36370.mb@bu3sch.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Haavard Skinnemoen wrote:
-> From: Andrew Victor <andrew@sanpeople.com>
+On Tue, 2007-01-23 at 17:20 +0100, Michael Buesch wrote:
+> This patch ports b44 to the new SSB subsystem and makes
+> it possible to turn off PCI related stuff.
 > 
-> The Atmel MACB Ethernet peripheral is also integrated in the AT91SAM9260
-> and AT91SAM9263 processors.  The differences from the AVR32 version are:
->       * Single peripheral clock.
->       * MII/RMII selection bit is inverted.
->       * Clock enable bit.
+> This patch is against my tree, where I have implemented the
+> ssb subsystem.
 > 
-> Original patch from Patrice Vilchez.
-> 
-> Signed-off-by: Andrew Victor <andrew@sanpeople.com>
-> Signed-off-by: Haavard Skinnemoen <hskinnemoen@atmel.com>
-> ---
->  drivers/net/Kconfig |    2 +-
->  drivers/net/macb.c  |   25 +++++++++++++++++++++++--
->  drivers/net/macb.h  |    8 +++++++-
->  3 files changed, 31 insertions(+), 4 deletions(-)
+> If you're all OK with this patch, I'd like apply it to my tree.
+> I think that's best. Although it's not wireless-related, it's
+> much easier to maintain this way.
 
-applied
+>  
+> +static int b44_ethtool_ioctl (struct net_device *dev, void __user *useraddr)
+
+Michael, Do you really want to create ethtool_ioctl() to do what the
+ethtool_ops does?
+
+-Gary
 
 
