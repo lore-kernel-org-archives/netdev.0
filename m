@@ -1,25 +1,31 @@
-From: Jeff Garzik <jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org>
-Subject: Re: Please pull "upstream-fixes" branch of wireless-2.6
-Date: Tue, 06 Feb 2007 19:06:07 -0500
-Message-ID: <45C917EF.1060307@garzik.org>
-References: <20070202212747.GC9382@tuxdriver.com>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: depending on IPv6 symbols
+Date: Tue, 06 Feb 2007 16:07:34 -0800
+Message-ID: <ada8xfarfsp.fsf@cisco.com>
+References: <adaodo6sy9o.fsf_-_@cisco.com>
+	<20070206.144939.118629871.davem@davemloft.net>
+	<adad54msxrt.fsf@cisco.com>
+	<20070206.153302.41699956.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20070202212747.GC9382-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: kazunori@miyazawa.org, miika@iki.fi, Diego.Beltrami@hiit.fi,
+	herbert@gondor.apana.org.au, netdev@vger.kernel.org,
+	usagi-core@linux-ipv6.org, mst@mellanox.co.il
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sj-iport-4.cisco.com ([171.68.10.86]:21266 "EHLO
+	sj-iport-4.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030258AbXBGAHt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Feb 2007 19:07:49 -0500
+In-Reply-To: <20070206.153302.41699956.davem@davemloft.net> (David Miller's message of "Tue, 06 Feb 2007 15:33:02 -0800 (PST)")
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Would you mind rebasing & resending, kind sir?
+    David> Sure, although I'm surprised nobody noticed that build
+    David> failure before :-)
 
-	Jeff
+OK, coming up.  (It's not a build failure though, it's wrong code: if
+CONFIG_IPV6=m then the code inside "#ifdef CONFIG_IPV6" in ip_gre.c
+just doesn't get built, even though it should)
 
-
-
--
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ - R.
