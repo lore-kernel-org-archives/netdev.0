@@ -1,53 +1,41 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: [PATCH] bcm43xx: Fix for oops on resume
-Date: Wed, 07 Feb 2007 13:15:49 +0100
-Message-ID: <1170850549.6798.22.camel@johannes.berg>
-References: <45c8bd59.oamnvaNRMZvKoPBa%Larry.Finger@lwfinger.net>
+From: Shinta Sugimoto <shinta@sfc.wide.ad.jp>
+Subject: [PATCH 0/5] [XFRM,PFKEYV2]: MIGRATE support (take 2)
+Date: Wed, 07 Feb 2007 22:17:41 +0900
+Message-ID: <20070207214447.90B9.SHINTA@sfc.wide.ad.jp>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-nIAeVNKkW8S0delCnSTK"
-Cc: John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <45c8bd59.oamnvaNRMZvKoPBa%Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+Cc: Francis Dupont <Francis.Dupont@point6.net>,
+	Masahide Nakamura <nakam@linux-ipv6.org>,
+	yoshfuji@linux-ipv6.org, usagi-core@linux-ipv6.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.sfc.wide.ad.jp ([203.178.142.146]:36731 "EHLO
+	mail.sfc.wide.ad.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030289AbXBGNRy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Feb 2007 08:17:54 -0500
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hello,
 
---=-nIAeVNKkW8S0delCnSTK
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+Let me send an updated version of patch set of MIGRATE support
+for XFRM/PFKEYv2.  About a week ago, I sent a request for comments
+for this patch set.  All the comments received were taken into
+account.  In summary, the changes are as follow:
 
-On Tue, 2007-02-06 at 11:39 -0600, Larry Finger wrote:
-> There is a kernel oops on bcm43xx when resuming due to an overly tight ti=
-meout loop.
+- replace alloc & memcpy with kmemdup
+- remove unnecessary null-check
+- fix bugs in handling protocol value for selector 
+- add sanity check for handling MIGRATE message from PF_KEY socket
+- some other minor changes
 
-Come to think of it... Is there any chance of fixing the actual oops
-that happens in this case? I can imagine broken hardware or firmware
-that causes this as well and we don't really want to oops in that case
-either... That's why we have the timeout in the first place, to not hang
-there forever.
+Please note that the patch set is against current net-2.6.21
+tree and these changes are available in the branch named
+"migrate-20070207-2131" at:
 
-Nothing against this patch though.
+git://git.linux-ipv6.org/gitroot/shinta/net-2.6.21-migrate.git
 
-johannes
 
---=-nIAeVNKkW8S0delCnSTK
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iD8DBQBFycL1/ETPhpq3jKURAr3PAKC1GFxqEpU6pUw+vRwN5Cjnf1SIdwCfUu9L
-iPcN5QVP51rRYtc8YwE3A7Y=
-=cvY/
------END PGP SIGNATURE-----
-
---=-nIAeVNKkW8S0delCnSTK--
-
--
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Regards,
+Shinta
