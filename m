@@ -1,31 +1,30 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: depending on IPv6 symbols
-Date: Tue, 06 Feb 2007 16:07:34 -0800
-Message-ID: <ada8xfarfsp.fsf@cisco.com>
-References: <adaodo6sy9o.fsf_-_@cisco.com>
-	<20070206.144939.118629871.davem@davemloft.net>
-	<adad54msxrt.fsf@cisco.com>
-	<20070206.153302.41699956.davem@davemloft.net>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 1/4] skge: handle zero address at open
+Date: Tue, 06 Feb 2007 19:08:30 -0500
+Message-ID: <45C9187E.5030708@garzik.org>
+References: <20070202162250.980620000@linux-foundation.org> <20070202162419.046994000@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kazunori@miyazawa.org, miika@iki.fi, Diego.Beltrami@hiit.fi,
-	herbert@gondor.apana.org.au, netdev@vger.kernel.org,
-	usagi-core@linux-ipv6.org, mst@mellanox.co.il
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-4.cisco.com ([171.68.10.86]:21266 "EHLO
-	sj-iport-4.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030258AbXBGAHt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Feb 2007 19:07:49 -0500
-In-Reply-To: <20070206.153302.41699956.davem@davemloft.net> (David Miller's message of "Tue, 06 Feb 2007 15:33:02 -0800 (PST)")
+Received: from srv5.dvmed.net ([207.36.208.214]:56518 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1030251AbXBGAIc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Feb 2007 19:08:32 -0500
+In-Reply-To: <20070202162419.046994000@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-    David> Sure, although I'm surprised nobody noticed that build
-    David> failure before :-)
+Stephen Hemminger wrote:
+> Some motherboards are broken and have no address set. Failing at probe time 
+> prevents the device from ever being used (like to download a fixed BIOS). Instead
+> warn on probe and check again when device is brought up. That way the address
+> can be set.
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
 
-OK, coming up.  (It's not a build failure though, it's wrong code: if
-CONFIG_IPV6=m then the code inside "#ifdef CONFIG_IPV6" in ip_gre.c
-just doesn't get built, even though it should)
+applied 1-4
 
- - R.
+
