@@ -1,24 +1,43 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] sk98lin: planned removal
-Date: Wed, 07 Feb 2007 17:28:42 -0500
-Message-ID: <45CA529A.3050100@garzik.org>
-References: <20070207091830.59f72f46@oldman>
+Subject: Re: [PATCH] AT91: MACB support
+Date: Wed, 07 Feb 2007 17:28:30 -0500
+Message-ID: <45CA528E.9000602@garzik.org>
+References: <1170862844979-git-send-email-hskinnemoen@atmel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1422916AbXBGW2p@vger.kernel.org>
-In-Reply-To: <20070207091830.59f72f46@oldman>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org,
+	Patrice Vilchez <patrice.vilchez@rfo.atmel.com>,
+	Andrew Victor <andrew@sanpeople.com>
+To: Haavard Skinnemoen <hskinnemoen@atmel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:37963 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1161454AbXBGW2e (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Feb 2007 17:28:34 -0500
+In-Reply-To: <1170862844979-git-send-email-hskinnemoen@atmel.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> Document planned removal of sk98lin driver.
+Haavard Skinnemoen wrote:
+> From: Andrew Victor <andrew@sanpeople.com>
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+> The Atmel MACB Ethernet peripheral is also integrated in the AT91SAM9260
+> and AT91SAM9263 processors.  The differences from the AVR32 version are:
+>       * Single peripheral clock.
+>       * MII/RMII selection bit is inverted.
+>       * Clock enable bit.
+> 
+> Original patch from Patrice Vilchez.
+> 
+> Signed-off-by: Andrew Victor <andrew@sanpeople.com>
+> Signed-off-by: Haavard Skinnemoen <hskinnemoen@atmel.com>
 > ---
->  Documentation/feature-removal-schedule.txt |    7 +++++++
->  1 files changed, 7 insertions(+), 0 deletions(-)
+>  drivers/net/Kconfig |    2 +-
+>  drivers/net/macb.c  |   25 +++++++++++++++++++++++--
+>  drivers/net/macb.h  |    8 +++++++-
+>  3 files changed, 31 insertions(+), 4 deletions(-)
 
 applied
+
+
