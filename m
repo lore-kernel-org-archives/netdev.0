@@ -1,70 +1,98 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: [PATCH] bcm43xx: Fix incorrect definition of PHY revision
-Date: Wed, 7 Feb 2007 15:14:16 +0100
-Message-ID: <200702071514.17516.mb@bu3sch.de>
-References: <45c94821.qjljSnUzfws7mU7T%Larry.Finger@lwfinger.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Crypto Update for 2.6.21
+Date: Thu, 8 Feb 2007 02:47:17 +1100
+Message-ID: <20070207154717.GA2757@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: John Linville <linville@tuxdriver.com>, netdev@vger.kernel.org,
-	Bcm43xx-dev@lists.berlios.de, linux-wireless@vger.kernel.org
-To: Larry Finger <Larry.Finger@lwfinger.net>
+Content-Type: text/plain; charset=us-ascii
+To: "David S. Miller" <davem@davemloft.net>,
+	Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:35260
-	"EHLO vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161329AbXBGOO4 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Feb 2007 09:14:56 -0500
-In-Reply-To: <45c94821.qjljSnUzfws7mU7T%Larry.Finger@lwfinger.net>
+Received: from rhun.apana.org.au ([64.62.148.172]:1743 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1030633AbXBGPr3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Feb 2007 10:47:29 -0500
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 07 February 2007 04:31, Larry Finger wrote:
-> There is a typographical error in the spefications that interchange the PHY version
-> and revision. Fixing this error makes all BCM43xx varieties work at full CCCK rates.
-> 
-> Signed-off-by: Larry Finger<Larry.Finger@lwfinger.net>
-> ---
-> 
-> John,
-> 
-> This patch should be put into wireless-2.6 and into 'upstream' as soon as possible.
-> I will be sending it to stable for inclusion in 2.6.20.1, and whatever other kernels
-> are still being maintained by -stable.
-> 
-> Larry
-> ---
->  
-> Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-> ===================================================================
-> --- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-> +++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-> @@ -3704,9 +3704,9 @@ static int bcm43xx_read_phyinfo(struct b
->  
->  	value = bcm43xx_read16(bcm, BCM43xx_MMIO_PHY_VER);
->  
-> -	phy_version = (value & 0xF000) >> 12;
-> +	phy_rev = (value & 0xF000) >> 12;
->  	phy_type = (value & 0x0F00) >> 8;
-> -	phy_rev = (value & 0x000F);
-> +	phy_version = (value & 0x000F);
->  
->  	dprintk(KERN_INFO PFX "Detected PHY: Version: %x, Type %x, Revision %x\n",
->  		phy_version, phy_type, phy_rev);
+Hi Dave:
 
+Here is the crypto update for 2.6.21:
 
-I don't think this is correct.
->From which part of the specs did you get this?
-http://bcm-v4.sipsolutions.net/802.11/PHY is where the PHY_Version
-register is explained. "phy_version"=="AnalogType"
+Please pull from
 
-Actually it is possible that phy_revision is mask 0xFF, but that's
-not too important at the moment, as we don't have revisions>0xF, yet.
+git://git.kernel.org/pub/scm/linux/kernel/git/herbert/crypto-2.6.git
 
-But besides that, it's interresting that this "fixes" things for you.
+or
 
-Especially since wireless-2.6 has no support for hw-power-control, which
-is needed by cards 4318 and newer.
+master.kernel.org:/pub/scm/linux/kernel/git/herbert/crypto-2.6.git
 
+Summary:
+
+* Added Camellia, PCBC, DES-like encryption for RxRPC.
+* API updates in preparation for async.
+
+Andrew Donofrio (1):
+      [CRYPTO] tcrypt: Added test vectors for sha384/sha512
+
+David Howells (2):
+      [CRYPTO] pcbc: Add Propagated CBC template
+      [CRYPTO] fcrypt: Add FCrypt from RxRPC
+
+Herbert Xu (7):
+      [CRYPTO] all: Check for usage in hard IRQ context
+      [CRYPTO] tcrypt: Removed vestigial crypto_alloc_tfm call
+      [CRYPTO] api: Remove deprecated interface
+      [CRYPTO] api: Add type-safe spawns
+      [CRYPTO] api: Allow multiple frontends per backend
+      [CRYPTO] xcbc: Use new cipher interface
+      [CRYPTO] api: Use structs for cipher/compression
+
+Noriaki TAKAMIYA (6):
+      [CRYPTO] camellia: Add Kconfig entry.
+      [CRYPTO] camellia: added the code of Camellia cipher algorithm.
+      [CRYPTO] camellia: added the testing code of Camellia cipher
+      [IPSEC]: added the definition of Camellia cipher
+      [IPSEC]: added the entry of Camellia cipher algorithm to ealg_list[]
+      [CRYPTO] doc: added the developer of Camellia cipher
+
+Richard Knutsson (1):
+      [CRYPTO] geode: Convert pci_module_init() to pci_register_driver()
+
+ Documentation/crypto/api-intro.txt |    4 
+ crypto/Kconfig                     |   31 
+ crypto/Makefile                    |    3 
+ crypto/algapi.c                    |   15 
+ crypto/api.c                       |   80 -
+ crypto/blkcipher.c                 |    9 
+ crypto/camellia.c                  | 1801 +++++++++++++++++++++++++++++++++++++
+ crypto/cbc.c                       |    9 
+ crypto/cipher.c                    |  447 ---------
+ crypto/compress.c                  |    5 
+ crypto/digest.c                    |   24 
+ crypto/ecb.c                       |    9 
+ crypto/fcrypt.c                    |  423 ++++++++
+ crypto/hash.c                      |    5 
+ crypto/hmac.c                      |    9 
+ crypto/internal.h                  |   27 
+ crypto/lrw.c                       |   11 
+ crypto/pcbc.c                      |  349 +++++++
+ crypto/tcrypt.c                    |   73 +
+ crypto/tcrypt.h                    |  538 +++++++++++
+ crypto/xcbc.c                      |   60 -
+ drivers/crypto/geode-aes.c         |    2 
+ fs/ecryptfs/crypto.c               |    4 
+ fs/ecryptfs/ecryptfs_kernel.h      |    1 
+ include/crypto/algapi.h            |   24 
+ include/linux/crypto.h             |  148 ---
+ include/linux/pfkeyv2.h            |    1 
+ net/xfrm/xfrm_algo.c               |   17 
+ 28 files changed, 3396 insertions(+), 733 deletions(-)
+
+Thanks,
 -- 
-Greetings Michael.
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
