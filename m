@@ -1,80 +1,43 @@
-From: Ishizaki Kou <kou.ishizaki@toshiba.co.jp>
-Subject: [PATCH 3/4] spidernet: spidernet: add support for Celleb
-Date: Wed, 07 Feb 2007 17:53:31 +0900 (JST)
-Message-ID: <200702070853.l178rV7f017022@toshiba.co.jp>
+From: Andi Kleen <ak@suse.de>
+Subject: Re: [PATCH] tg3 : avoid an expensive divide
+Date: 07 Feb 2007 10:54:49 +0100
+Message-ID: <p73ireemgwm.fsf@bingen.suse.de>
+References: <200702061536.18800@nienna>
+	<20070206.114659.107250775.davem@davemloft.net>
+	<45C8EAC4.9020803@cosmosbay.com>
+	<20070206.131908.13769204.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org, jim@jklewis.com
-To: jgarzik@pobox.com, jens@de.ibm.com
+Content-Type: text/plain; charset=us-ascii
+Cc: dada1@cosmosbay.com, mchan@broadcom.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from imx12.toshiba.co.jp ([61.202.160.132]:40635 "EHLO
-	imx12.toshiba.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030560AbXBGIyC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Feb 2007 03:54:02 -0500
+Received: from cantor.suse.de ([195.135.220.2]:52029 "EHLO mx1.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1030565AbXBGIya (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Feb 2007 03:54:30 -0500
+In-Reply-To: <20070206.131908.13769204.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds or changes some HW specific settings for spider_net on
-Celleb.
+David Miller <davem@davemloft.net> writes:
+> 
+> Because I've seen gcc optimize this properly before (at least on
+> sparc64), it means that either:
+> 
+> 1) There is a GCC bug where the properties of the constants
+>    do not propagate.
+> 
+> 2) GCC really thinks the divide is cheaper (code density vs.
+>    cycle count tradeoffs etc.)
 
-Signed-off-by: Kou Ishizaki <kou.ishizaki@toshiba.co.jp>
----
+Probably Eric compiled with the now default CONFIG_CC_OPTIMIZE_FOR_SIZE/-Os.
+With that gcc decides to use the shorter hardware divide instruction, even
+though it is significantly slower than an expanded optimized sequence
+for constant dividend.
 
---- org-linux-powerpc-git/drivers/net/Kconfig	2007-02-06 20:41:01.000000000 +0900
-+++ linux-powerpc-git/drivers/net/Kconfig	2007-02-06 20:41:44.000000000 +0900
-@@ -2256,7 +2256,7 @@
- 
- config SPIDER_NET
- 	tristate "Spider Gigabit Ethernet driver"
--	depends on PCI && PPC_IBM_CELL_BLADE
-+	depends on PCI && (PPC_IBM_CELL_BLADE || PPC_CELLEB)
- 	select FW_LOADER
- 	help
- 	  This driver supports the Gigabit Ethernet chips present on the
---- org-linux-powerpc-git/drivers/net/spider_net.h	2007-02-06 20:35:51.000000000 +0900
-+++ linux-powerpc-git/drivers/net/spider_net.h	2007-02-06 20:41:44.000000000 +0900
-@@ -1,7 +1,8 @@
- /*
-- * Network device driver for Cell Processor-Based Blade
-+ * Network device driver for Cell Processor-Based Blade and Celleb platform
-  *
-  * (C) Copyright IBM Corp. 2005
-+ * (C) Copyright 2006 TOSHIBA CORPORATION
-  *
-  * Authors : Utz Bacher <utz.bacher@de.ibm.com>
-  *           Jens Osterkamp <Jens.Osterkamp@de.ibm.com>
-@@ -184,7 +185,8 @@
- 
- /* pause frames: automatic, no upper retransmission count */
- /* outside loopback mode: ETOMOD signal dont matter, not connected */
--#define SPIDER_NET_OPMODE_VALUE		0x00000063
-+/* ETOMOD signal is brought to PHY reset. bit 2 must be 1 in Celleb */
-+#define SPIDER_NET_OPMODE_VALUE		0x00000067
- /*#define SPIDER_NET_OPMODE_VALUE		0x001b0062*/
- #define SPIDER_NET_LENLMT_VALUE		0x00000908
- 
---- org-linux-powerpc-git/drivers/net/spider_net.c	2007-02-06 20:41:22.000000000 +0900
-+++ linux-powerpc-git/drivers/net/spider_net.c	2007-02-06 20:41:44.000000000 +0900
-@@ -1,7 +1,8 @@
- /*
-- * Network device driver for Cell Processor-Based Blade
-+ * Network device driver for Cell Processor-Based Blade and Celleb platform
-  *
-  * (C) Copyright IBM Corp. 2005
-+ * (C) Copyright 2006 TOSHIBA CORPORATION
-  *
-  * Authors : Utz Bacher <utz.bacher@de.ibm.com>
-  *           Jens Osterkamp <Jens.Osterkamp@de.ibm.com>
-@@ -1600,6 +1601,11 @@
- 
- 	spider_net_write_reg(card, SPIDER_NET_CKRCTRL,
- 			     SPIDER_NET_CKRCTRL_RUN_VALUE);
-+
-+	/* trigger ETOMOD signal */
-+	spider_net_write_reg(card, SPIDER_NET_GMACOPEMD,
-+		spider_net_read_reg(card, SPIDER_NET_GMACOPEMD) | 0x4);
-+
- }
- 
- /**
+We've seen this in a few other cases while during performance regression
+testing between kernels that still used -O2 vs the newer -Os.
+
+No good solution found unfortunately.
+
+-Andi
