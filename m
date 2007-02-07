@@ -1,37 +1,41 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [PATCH] sk98lin: planned removal
-Date: Wed, 7 Feb 2007 09:18:30 -0800
-Message-ID: <20070207091830.59f72f46@oldman>
+From: Levitsky Maxim <maximlevitsky@yahoo.com>
+Subject: [PATCH] [NETDEV] [000]  dmfe : fix bugs and add features
+Date: Wed, 7 Feb 2007 10:26:56 -0800 (PST)
+Message-ID: <96797.60132.qm@web38511.mail.mud.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Jeff Garzik <jgarzik@pobox.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161394AbXBGRSs@vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: tori@unhappy.mine.nu, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965707AbXBGS06@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Document planned removal of sk98lin driver.
+Hello,
 
-Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
----
- Documentation/feature-removal-schedule.txt |    7 +++++++
- 1 files changed, 7 insertions(+), 0 deletions(-)
+Before some time I decided to fix suspend/resume on my Davicom network =
+card.
+During development I also fixed couple of bugs and added support for li=
+nk detection and WOL
+Note : 2.6.20 already has support for link detection , but it is broken=
+ when card has external PHY
+, like mine.
 
-diff --git a/Documentation/feature-removal-schedule.txt b/Documentation/feature-removal-schedule.txt
-index 0ba6af0..d08a4af 100644
---- a/Documentation/feature-removal-schedule.txt
-+++ b/Documentation/feature-removal-schedule.txt
-@@ -325,3 +325,10 @@ Why:	Unmaintained for years, superceded 
- Who:	Jeff Garzik <jeff@garzik.org>
- 
- ---------------------------
-+
-+What:   sk98lin network driver
-+When:   July 2007
-+Why:    In kernel tree version of driver is unmaintained. Sk98lin driver
-+	replaced by the skge driver. 
-+Who:    Stephen Hemminger <shemminger@osdl.org>
-+
--- 
-1.4.1
+So here it goes:
+
+[PATCH] [NET] [001] dmfe : trivial/spelling fixes
+[PATCH] [NET] [002] dmfe : Fix possible oops
+[PATCH] [NET] [003] dmfe : fix link detection
+[PATCH] [NET] [004] dmfe : Add suspend/resume support
+[PATCH] [NET] [005] dmfe : Add support for wake-on-lan
+
+=A0 =A0 =A0 =A0 Maxim Levitsky
+
+
+=20
+_______________________________________________________________________=
+_____________
+=46inding fabulous fares is fun. =20
+Let Yahoo! FareChase search your favorite travel sites to find flight a=
+nd hotel bargains.
+http://farechase.yahoo.com/promo-generic-14795097
