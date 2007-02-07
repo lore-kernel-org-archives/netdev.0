@@ -1,40 +1,30 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [patch 11/11] netfilter warning fix
-Date: Wed, 7 Feb 2007 09:18:48 +0100
-Message-ID: <20070207081848.GA7247@elte.hu>
-References: <20070206215806.GA5109@elte.hu> <45C974FD.5070404@trash.net> <20070207080722.GC2434@elte.hu> <20070207.001310.91210854.davem@davemloft.net> <45C98ACB.1080107@trash.net>
+From: Ishizaki Kou <kou.ishizaki@toshiba.co.jp>
+Subject: [PATCH 0/4] spidernet: support for Celleb
+Date: Wed, 07 Feb 2007 17:49:50 +0900 (JST)
+Message-ID: <200702070849.l178nvGC005341@toshiba.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, dipankar@in.ibm.com, paulmck@us.ibm.com
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org, jim@jklewis.com
+To: jgarzik@pobox.com, jens@de.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.mail.elte.hu ([157.181.151.9]:44252 "EHLO mx2.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030374AbXBGITO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Feb 2007 03:19:14 -0500
-Content-Disposition: inline
-In-Reply-To: <45C98ACB.1080107@trash.net>
+Received: from imx12.toshiba.co.jp ([61.202.160.132]:40180 "EHLO
+	imx12.toshiba.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030202AbXBGIu3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Feb 2007 03:50:29 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+This is a revised spidernet patch set based on
+netdev-2.6.git#upstream.
 
-* Patrick McHardy <kaber@trash.net> wrote:
+This patch set is merged Jens-san's spidernet patch and works on
+Toshiba Cell reference set (aka Celleb). 
+It requires Jens-san's phy patch
+(http://ozlabs.org/pipermail/linuxppc-dev/2007-February/030987.html).
 
-> David Miller wrote:
-> > From: Ingo Molnar <mingo@elte.hu>
-> > Date: Wed, 7 Feb 2007 09:07:22 +0100
-> > 
-> > 
-> >>Dave, Patrick, can we lift the nack on PREEMPT_RCU, as far as networking 
-> >>goes?
-> > 
-> > 
-> > After Patrick's fixups, sure.
-> 
-> I'm about to send my queued netfilter patches, after which I will look 
-> into this. Shouldn't take more than a one or two days.
+Ignore our previos patch set, and try this patch set on Cell Blade,
+please (sorry for asking a lot).
 
-thanks, that's great!
-
-	Ingo
+Best regards,
+Kou Ishizaki
