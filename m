@@ -1,123 +1,61 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [IPV6] RAW: Add checksum default defines for MH.
-Date: Wed, 07 Feb 2007 15:43:34 +0900 (JST)
-Message-ID: <20070207.154334.70695617.yoshfuji@linux-ipv6.org>
-References: <11678182681435-git-send-email-nakam@linux-ipv6.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [patch 11/11] netfilter warning fix
+Date: Wed, 07 Feb 2007 07:43:09 +0100
+Message-ID: <45C974FD.5070404@trash.net>
+References: <20070206123401.GA8052@elte.hu> <20070206.114325.98862918.davem@davemloft.net> <20070206210250.GB25430@elte.hu> <20070206.132357.58458400.davem@davemloft.net> <20070206215806.GA5109@elte.hu>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: takamiya@po.ntts.co.jp, netdev@vger.kernel.org,
-	yoshfuji@linux-ipv6.org, nakam@linux-ipv6.org
-To: davem@davemloft.net
+Cc: David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, dipankar@in.ibm.com, paulmck@us.ibm.com
+To: Ingo Molnar <mingo@elte.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:54007 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965465AbXBGGmL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Feb 2007 01:42:11 -0500
-In-Reply-To: <11678182681435-git-send-email-nakam@linux-ipv6.org>
+Received: from stinky.trash.net ([213.144.137.162]:41741 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965539AbXBGGnM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Feb 2007 01:43:12 -0500
+In-Reply-To: <20070206215806.GA5109@elte.hu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dave,
-
-AFAIK, we have not heard objectsions and I finally agree on this.
-Please apply.
-
-Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-
---yoshfuji
-
-In article <11678182681435-git-send-email-nakam@linux-ipv6.org> (at Wed,  3 Jan 2007 18:57:48 +0900), Masahide NAKAMURA <nakam@linux-ipv6.org> says:
-
-> Add checksum default defines for mobility header(MH) which
-> goes through raw socket. As the result kernel's behavior is
-> to handle MH checksum as default.
+Ingo Molnar wrote:
+> * David Miller <davem@davemloft.net> wrote:
 > 
-> This patch also removes verifying inbound MH checksum at
-> mip6_mh_filter() since it did not consider user specified
-> checksum offset and was redundant check with raw socket code.
+>>net/netfilter/nf_conntrack_core.c, calls:
+>>
+>>	l4proto = __nf_ct_l4proto_find((u_int16_t)pf, protonum);
+>>
+>>whichs assumes that preemption is disabled.
+
+Yes, that is certainly broken.
+
+> you are right - i mistakenly read that mail only up to the point where 
+> you point out the (slightly) buggy NF_CT_STATIC_INC use and missed your 
+> final point about other coding having implicit preempt_disable() 
+> assumptions.
 > 
-> Signed-off-by: Masahide NAKAMURA <nakam@linux-ipv6.org>
-> ---
->  net/ipv6/mip6.c |   26 --------------------------
->  net/ipv6/raw.c  |   13 +++++++++++--
->  2 files changed, 11 insertions(+), 28 deletions(-)
+> I've looked at __nf_ct_l4proto_find() and it's not obvious to me what 
+> the hidden preempt_disable() assumption is. Its main use seems to be of 
+> nf_ct_protos[] array, which is protected by nf_conntrack_lock. I'm 
+> wondering whether what you say suggests that it's safe to call 
+> __nf_ct_l4proto_find() without the nf_conntrack_lock locked (as read or 
+> as write), and if it's safe, how it protects against simultaneous 
+> modifications to the nf_ct_protos[] array. 
 > 
-> diff --git a/net/ipv6/mip6.c b/net/ipv6/mip6.c
-> index be7dd7d..681bb07 100644
-> --- a/net/ipv6/mip6.c
-> +++ b/net/ipv6/mip6.c
-> @@ -89,7 +89,6 @@ static int mip6_mh_len(int type)
->  int mip6_mh_filter(struct sock *sk, struct sk_buff *skb)
->  {
->  	struct ip6_mh *mh;
-> -	int mhlen;
->  
->  	if (!pskb_may_pull(skb, (skb->h.raw - skb->data) + 8) ||
->  	    !pskb_may_pull(skb, (skb->h.raw - skb->data) + ((skb->h.raw[1] + 1) << 3)))
-> @@ -103,31 +102,6 @@ int mip6_mh_filter(struct sock *sk, stru
->  		mip6_param_prob(skb, 0, (&mh->ip6mh_hdrlen) - skb->nh.raw);
->  		return -1;
->  	}
-> -	mhlen = (mh->ip6mh_hdrlen + 1) << 3;
-> -
-> -	if (skb->ip_summed == CHECKSUM_COMPLETE) {
-> -		skb->ip_summed = CHECKSUM_UNNECESSARY;
-> -		if (csum_ipv6_magic(&skb->nh.ipv6h->saddr,
-> -				    &skb->nh.ipv6h->daddr,
-> -				    mhlen, IPPROTO_MH,
-> -				    skb->csum)) {
-> -			LIMIT_NETDEBUG(KERN_DEBUG "mip6: MH hw checksum failed\n");
-> -			skb->ip_summed = CHECKSUM_NONE;
-> -		}
-> -	}
-> -	if (skb->ip_summed == CHECKSUM_NONE) {
-> -		if (csum_ipv6_magic(&skb->nh.ipv6h->saddr,
-> -				    &skb->nh.ipv6h->daddr,
-> -				    mhlen, IPPROTO_MH,
-> -				    skb_checksum(skb, 0, mhlen, 0))) {
-> -			LIMIT_NETDEBUG(KERN_DEBUG "mip6: MH checksum failed "
-> -				       "[" NIP6_FMT " > " NIP6_FMT "]\n",
-> -				       NIP6(skb->nh.ipv6h->saddr),
-> -				       NIP6(skb->nh.ipv6h->daddr));
-> -			return -1;
-> -		}
-> -		skb->ip_summed = CHECKSUM_UNNECESSARY;
-> -	}
->  
->  	if (mh->ip6mh_proto != IPPROTO_NONE) {
->  		LIMIT_NETDEBUG(KERN_DEBUG "mip6: MH invalid payload proto = %d\n",
-> diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
-> index 4ae1b19..4b83e69 100644
-> --- a/net/ipv6/raw.c
-> +++ b/net/ipv6/raw.c
-> @@ -1094,10 +1094,19 @@ static void rawv6_close(struct sock *sk,
->  
->  static int rawv6_init_sk(struct sock *sk)
->  {
-> -	if (inet_sk(sk)->num == IPPROTO_ICMPV6) {
-> -		struct raw6_sock *rp = raw6_sk(sk);
-> +	struct raw6_sock *rp = raw6_sk(sk);
-> +
-> +	switch (inet_sk(sk)->num) {
-> +	case IPPROTO_ICMPV6:
->  		rp->checksum = 1;
->  		rp->offset   = 2;
-> +		break;
-> +	case IPPROTO_MH:
-> +		rp->checksum = 1;
-> +		rp->offset   = 4;
-> +		break;
-> +	default:
-> +		break;
->  	}
->  	return(0);
->  }
-> -- 
-> 1.4.2
+> Ahh ... unregister does a synchronize_net(), right? That means that 
+> removal of the pointer only happens if all CPUs have gone through a 
+> quiescent state.
 > 
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> this means that this particular use could be fixed by converting the 
+> preempt_disable()/enable() pair in nf_ct_l4proto_find_get() to 
+> rcu_read_lock()/unlock(), correct? 
+
+That is another bug (all uses of preempt_disable in netfilter
+actually), but calling __nf_ct_l[34]proto_find without
+rcu_read_lock is broken as well.
+
+> Furthermore, every user of 
+> synchronize_net() [and synchronize_rcu() in general] needs to be 
+> reviewed.
+
+I'll take care of netfilter.
