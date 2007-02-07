@@ -1,51 +1,50 @@
-From: Rainer Baumann <baumann@tik.ee.ethz.ch>
-Subject: [Fwd: [Netem] [PATCH 2.6.18 0/2] LARTC: trace control for netem]
-Date: Wed, 07 Feb 2007 19:36:22 +0100
-Message-ID: <45CA1C26.1080405@tik.ee.ethz.ch>
-References: <45827B5C.3090402@tik.ee.ethz.ch>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: dynticks + iptables almost stops the boot process [was: Re: 2.6.20-rc6-mm3]
+Date: Wed, 7 Feb 2007 20:33:19 +0100
+Message-ID: <20070207193319.GA6960@elte.hu>
+References: <20070201211137.GA2830@inferi.kami.home> <1170369202.29240.339.camel@localhost.localdomain> <20070202191802.GA4262@inferi.kami.home> <1170448034.29240.364.camel@localhost.localdomain> <20070202204344.GB4262@inferi.kami.home> <20070206164826.GA3491@elte.hu> <20070206192840.GB2971@inferi.kami.home> <45C90B57.90104@imap.cc> <1170803853.3785.45.camel@chaos> <20070206170157.114f0e65.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@VGER.KERNEL.ORG, netem@osdl.org
-To: Stephen Hemminger <shemminger@osdl.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Thomas Gleixner <tglx@linutronix.de>,
+	Tilman Schmidt <tilman@imap.cc>, linux-kernel@vger.kernel.org,
+	mingo@redhat.com, netdev@vger.kernel.org,
+	netfilter-devel@lists.netfilter.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-In-Reply-To: <45827B5C.3090402@tik.ee.ethz.ch>
+Received: from mx2.mail.elte.hu ([157.181.151.9]:38540 "EHLO mx2.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1422699AbXBGTeG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Feb 2007 14:34:06 -0500
+Content-Disposition: inline
+In-Reply-To: <20070206170157.114f0e65.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Stephen
 
-I just wanted to ask you, if you already had time to test our trace
-extension for netem as discussed on the 13th of December.
+* Andrew Morton <akpm@linux-foundation.org> wrote:
 
-Cheers
-Rainer
+> On Wed, 07 Feb 2007 00:17:33 +0100
+> Thomas Gleixner <tglx@linutronix.de> wrote:
+> 
+> > On Wed, 2007-02-07 at 00:12 +0100, Tilman Schmidt wrote:
+> > > > No, not this. Anyway the last patch Thomas forwarded does fix the
+> > > > problem.
+> > > 
+> > > Which one would that be? I might try it for comparison.
+> > 
+> > Find the combined patch of all fixlets on top of -mm3 below.
+> 
+> err, I don't have most of this.
+> 
+> I just uploaded the crappile-of-the-moment to
+>    ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/mm/broken-out-2007-02-06-16-59.tar.gz
 
-Rainer Baumann wrote:
-> Hi Stephen
->
-> As discussed yesterday, here our patches to integrate trace control into netem
->
->
->
-> Trace Control for Netem: Emulate network properties such as long range dependency and self-similarity of cross-traffic.
->
-> A new option (trace) has been added to the netem command. If the trace option is used, the values for packet delay etc. are read from a pregenerated trace file, afterwards the packets are processed by the normal netem functions. The packet action values are readout from the trace file in user space and sent to kernel space via configfs.
->
->
->
->
->
->
->
-> _______________________________________________
-> Netem mailing list
-> Netem@lists.osdl.org
-> https://lists.osdl.org/mailman/listinfo/netem
->   
+hm:
 
+ ERROR 404: Not Found.
 
+pls. do:
 
+ssh master.kernel.org chmod a+r /pub/linux/kernel/people/akpm/mm/broken-out-2007-02-06-16-59.tar.gz
 
-
-
+	Ingo
