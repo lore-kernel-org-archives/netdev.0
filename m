@@ -1,38 +1,44 @@
-From: Timur Tabi <timur@freescale.com>
-Subject: Re: [PATCH 1/4] ucc_geth: Change private immrbar_virt_to_phys to
- generic iopa
-Date: Wed, 07 Feb 2007 10:43:53 -0600
-Message-ID: <45CA01C9.3020309@freescale.com>
-References: <45C86715.6090600@freescale.com> <001EB06E-FC1D-4F0A-A910-8E08EE0B8CE2@kernel.crashing.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Li Yang <leoli@freescale.com>, netdev@vger.kernel.org,
-	linuxppc-dev@ozlabs.org
-To: Kumar Gala <galak@kernel.crashing.org>
+From: Joy Latten <latten@austin.ibm.com>
+Subject: Re: when having to acquire an SA, ipsec drops the packet
+Date: Wed, 7 Feb 2007 10:33:41 -0600
+Message-ID: <200702071633.l17GXf2q013208@faith.austin.ibm.com>
+Cc: herbert@gondor.apana.org.au, jmorris@namei.org,
+	netdev@vger.kernel.org, paul.moore@hp.com, vyekkirala@TrustedCS.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from de01egw01.freescale.net ([192.88.165.102]:48785 "EHLO
-	de01egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965539AbXBGQn7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Feb 2007 11:43:59 -0500
-In-Reply-To: <001EB06E-FC1D-4F0A-A910-8E08EE0B8CE2@kernel.crashing.org>
+Received: from e4.ny.us.ibm.com ([32.97.182.144]:36013 "EHLO e4.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965650AbXBGQs5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Feb 2007 11:48:57 -0500
+Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
+	by e4.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l17Gmt6r004849
+	for <netdev@vger.kernel.org>; Wed, 7 Feb 2007 11:48:55 -0500
+Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
+	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.2) with ESMTP id l17Gmu5C280500
+	for <netdev@vger.kernel.org>; Wed, 7 Feb 2007 11:48:56 -0500
+Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
+	by d01av03.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l17GmtLU018577
+	for <netdev@vger.kernel.org>; Wed, 7 Feb 2007 11:48:55 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Kumar Gala wrote:
-> 
-> On Feb 6, 2007, at 5:31 AM, Li Yang wrote:
-> 
->> Get rid of private immrbar_virt_to_phys() routine and
->> use generic iopa().
-> 
-> Nack. iopa() isn't that generic, shouldn't we really be using the dma 
-> mapping API here?
+>From: Joy Latten <latten@austin.ibm.com>
+>Date: Mon, 05 Feb 2007 14:53:39 -0600
+>
+>> I can run some tests with this patch and report any results... 
+>
+>Please check out the two most recent patches I posted:
+>
+>1) Updated core patch with ipv6 side added.
+>2) Fix for thinko noticed by Venkat.
 
-I'm having a hard time understanding what's wrong with iopa().  Is it because 
-it's a 32-bit only function?  The memory has already been mapped with ioremap(), 
-so why would we want to map it again?
+Just a quick update. I have patched an lspp kernel and 
+latest kernel.org kernel. I have been using them alternately
+while doing some minor testing and have not found any problems.
+Over the next few days, I plan to run a few stress tests for 
+labeled ipsec and regular ipsec and will do so with the patched
+lspp kernel.  I will also try with kernel.org kernel.
+It may take a few days. 
 
--- 
-Timur Tabi
-Linux Kernel Developer @ Freescale
+Regards,
+Joy
