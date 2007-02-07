@@ -1,28 +1,26 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 1/3] NetXen: Fixes for ppc architecture.
-Date: Tue, 06 Feb 2007 19:08:55 -0500
-Message-ID: <45C91897.50500@garzik.org>
-References: <200702051533.l15FXZGU008550@dut39.unminc.com>
+Subject: Re: [PATCH netdev#atl1 1/3] atl1: remove whitespace damage
+Date: Tue, 06 Feb 2007 19:09:21 -0500
+Message-ID: <45C918B1.8060400@garzik.org>
+References: <20070204022358.GB4063@osprey.hogchain.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netxenproj@linsyssoft.com, rob@netxen.com,
-	sanjeev@netxen.com, wendyx@us.ibm.com
-To: "Amit S. Kale" <amitkale@netxen.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:56526 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030252AbXBGAI6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Feb 2007 19:08:58 -0500
-In-Reply-To: <200702051533.l15FXZGU008550@dut39.unminc.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: csnook@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, atl1-devel@lists.sourceforge.net
+To: Jay Cliburn <jacliburn@bellsouth.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030271AbXBGAJ2@vger.kernel.org>
+In-Reply-To: <20070204022358.GB4063@osprey.hogchain.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Amit S. Kale wrote:
-> NetXen: Fixes for ppc architecture.
+Jay Cliburn wrote:
+> From: Jay Cliburn <jacliburn@bellsouth.net>
 > 
-> Signed-off-by: Amit S. Kale <amitkale@netxen.com>
+> atl1: fix whitespace damage
+> 
+> Remove trailing whitespace and spaces preceding tabs.
+> 
+> Signed-off-by: Jay Cliburn <jacliburn@bellsouth.net>
 
-applied 2-3.  patch #1 failed to apply.
-
-
+applied 1-3
