@@ -1,32 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: unregister_netdevice as void
-Date: Wed, 07 Feb 2007 00:10:14 -0800 (PST)
-Message-ID: <20070207.001014.99829679.davem@davemloft.net>
-References: <20061218155057.1904f666@freekitty>
-	<20061218.173745.08333482.davem@davemloft.net>
-	<20061218210511.7064547c@localhost.localdomain>
+Subject: Re: [PATCH] irda: handle out of memory errors
+Date: Wed, 07 Feb 2007 00:11:23 -0800 (PST)
+Message-ID: <20070207.001123.123164404.davem@davemloft.net>
+References: <20061219085509.GK4049@APFDCB5C>
+	<20061219224422.GB4274@sortiz.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: akpm@osdl.org, benjamin.li@qlogic.com,
-	bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org
-To: shemminger@osdl.org
+Cc: akinobu.mita@gmail.com, netdev@vger.kernel.org
+To: samuel@sortiz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48180
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48183
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S965678AbXBGIKP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Feb 2007 03:10:15 -0500
-In-Reply-To: <20061218210511.7064547c@localhost.localdomain>
+	by vger.kernel.org with ESMTP id S965680AbXBGILY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Feb 2007 03:11:24 -0500
+In-Reply-To: <20061219224422.GB4274@sortiz.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@osdl.org>
-Date: Mon, 18 Dec 2006 21:05:11 -0800
+From: Samuel Ortiz <samuel@sortiz.org>
+Date: Wed, 20 Dec 2006 00:44:22 +0200
 
-> There was no real useful information from the unregister_netdevice() return
-> code, the only error occurred in a situation that was a driver bug. So
-> change it to a void function.
+> On Tue, Dec 19, 2006 at 05:55:09PM +0900, Akinobu Mita wrote:
+> > This patch checks return value of memory allocation functions
+> > for irda subsystem and fixes memory leaks in error cases.
+> > 
+> > Cc: Samuel Ortiz <samuel@sortiz.org>
+> > Signed-off-by: Akinobu Mita <akinobu.mita@gmail.com>
+> That looks correct, thanks for the patch.
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+> Signed-off-by: Samuel Ortiz <samuel@sortiz.org>
 
-Applied to net-2.6.21, thanks Stephen.
+Applied, thank you.
