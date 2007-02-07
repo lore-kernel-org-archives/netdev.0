@@ -1,35 +1,56 @@
-From: David Miller <davem@davemloft.net>
+From: Andi Kleen <ak@suse.de>
 Subject: Re: [PATCH] tg3 : avoid an expensive divide
-Date: Wed, 07 Feb 2007 01:45:14 -0800 (PST)
-Message-ID: <20070207.014514.132928442.davem@davemloft.net>
-References: <45C8EAC4.9020803@cosmosbay.com>
-	<20070206.131908.13769204.davem@davemloft.net>
-	<p73ireemgwm.fsf@bingen.suse.de>
+Date: Wed, 7 Feb 2007 11:27:42 +0100
+Message-ID: <200702071127.42298.ak@suse.de>
+References: <200702061536.18800@nienna> <p73ireemgwm.fsf@bingen.suse.de> <200702071056.04879.dada1@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: dada1@cosmosbay.com, mchan@broadcom.com, netdev@vger.kernel.org
-To: ak@suse.de
+Cc: David Miller <davem@davemloft.net>, mchan@broadcom.com,
+	netdev@vger.kernel.org
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43566
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1161086AbXBGJpP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Feb 2007 04:45:15 -0500
-In-Reply-To: <p73ireemgwm.fsf@bingen.suse.de>
+Received: from cantor2.suse.de ([195.135.220.15]:43211 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1161109AbXBGK14 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Feb 2007 05:27:56 -0500
+In-Reply-To: <200702071056.04879.dada1@cosmosbay.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Andi Kleen <ak@suse.de>
-Date: 07 Feb 2007 10:54:49 +0100
 
-> Probably Eric compiled with the now default CONFIG_CC_OPTIMIZE_FOR_SIZE/-Os.
-> With that gcc decides to use the shorter hardware divide instruction, even
-> though it is significantly slower than an expanded optimized sequence
-> for constant dividend.
+> Well, this could explain but unfortunatly I dont have this option set :
 > 
-> We've seen this in a few other cases while during performance regression
-> testing between kernels that still used -O2 vs the newer -Os.
+> # grep OPTIMIZE .config
+> # CONFIG_CC_OPTIMIZE_FOR_SIZE is not set
 > 
-> No good solution found unfortunately.
+> # gcc -v
+> Using built-in specs.
+> Target: x86_64-unknown-linux-gnu
+> Configured with: ../gcc-4.1.1/configure --enable-languages=c,c++
 
-Thanks for the explanation, that makes a lot of sense.
+Ah. Looking more closely the problem is different (sorry for the wrong
+explanation earlier, it fit too well and it really happened elsewhere)
+
+The code is 
+
+#define TG3_RX_RCB_RING_SIZE(tp)        \
+        ((tp->tg3_flags2 & TG3_FLG2_5705_PLUS) ?  512 : 1024)
+
+...
+sw_idx %= TG3_RX_RCB_RING_SIZE(tp);
+
+
+The problem is that gcc doesn't rewrite the x % (cond ? const1 : const2) expression
+to the more optimizable cond ? (x % const1 : x % const2). For the first it sees
+a full variable division, for which div* is the best code to generate.
+
+Your patch is probably correct or alternatively rewrite the expression 
+to the optimizable form by hand.
+
+Arguably gcc should do this by itself. Perhaps file a gcc bug about this missing optimization. 
+
+-Andi
+
