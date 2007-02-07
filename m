@@ -1,41 +1,37 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: Funny Routing change since 2.6.16.x
-Date: Wed, 07 Feb 2007 18:18:42 +0100
-Message-ID: <45CA09F2.6050700@trash.net>
-References: <200702071756.34409.netdev@axxeo.de> <45CA0737.40308@trash.net> <200702071816.28235.netdev@axxeo.de>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: [PATCH] sk98lin: planned removal
+Date: Wed, 7 Feb 2007 09:18:30 -0800
+Message-ID: <20070207091830.59f72f46@oldman>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Ingo Oeser <netdev@axxeo.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:53766 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161391AbXBGRSq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Feb 2007 12:18:46 -0500
-In-Reply-To: <200702071816.28235.netdev@axxeo.de>
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jeff Garzik <jgarzik@pobox.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161394AbXBGRSs@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ingo Oeser wrote:
-> Patrick McHardy schrieb:
-> 
->>My guess is that you're using MASQUERADE on ppp0, which since 2.6.14
->>doesn't exclude locally generated packets anymore, so it translates
->>them to the primary ppp0 address. For replies it works because NAT
->>is already set up for the incoming packet, without masquerading.
-> 
-> 
-> Your guess is right! Thanks for that hint. Do you have any idea, how to
-> restore the old behavior? 
-> 
-> I have to, because the ISP cannot assign a different local address
-> and have problems with the new behavior, because that IP adress is an MX entry
-> and the VPN gateway address for several third party vendor tunnels. 
-> So changing that is quite an effort.
+Document planned removal of sk98lin driver.
 
+Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+---
+ Documentation/feature-removal-schedule.txt |    7 +++++++
+ 1 files changed, 7 insertions(+), 0 deletions(-)
 
-Since these packets already have the proper source address chosen
-by routing, there is no need to NAT them anymore. So the easiest
-fix is to exclude them manually from masquerading based on the
-address.
+diff --git a/Documentation/feature-removal-schedule.txt b/Documentation/feature-removal-schedule.txt
+index 0ba6af0..d08a4af 100644
+--- a/Documentation/feature-removal-schedule.txt
++++ b/Documentation/feature-removal-schedule.txt
+@@ -325,3 +325,10 @@ Why:	Unmaintained for years, superceded 
+ Who:	Jeff Garzik <jeff@garzik.org>
+ 
+ ---------------------------
++
++What:   sk98lin network driver
++When:   July 2007
++Why:    In kernel tree version of driver is unmaintained. Sk98lin driver
++	replaced by the skge driver. 
++Who:    Stephen Hemminger <shemminger@osdl.org>
++
+-- 
+1.4.1
