@@ -1,164 +1,121 @@
-From: Levitsky Maxim <maximlevitsky@yahoo.com>
-Subject: [PATCH] [005] dmfe : Add support for wake-on-lan [FIXED]
-Date: Wed, 7 Feb 2007 12:36:56 -0800 (PST)
-Message-ID: <397230.56357.qm@web38501.mail.mud.yahoo.com>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [Lksctp-developers] Fw: Intermittent SCTP multihoming breakage
+Date: Wed, 07 Feb 2007 15:45:23 -0500
+Message-ID: <45CA3A63.8000306@hp.com>
+References: <E096369D937D3A4DB271B382850C5C5F48E60D@pysmail.eicon.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: tori@unhappy.mine.nu, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
+Content-Type: multipart/mixed;
+ boundary="------------080605090903070400050701"
+Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net,
+	Sridhar Samudrala <sri@us.ibm.com>
+To: Steve Hill <steve.hill@dialogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from web38501.mail.mud.yahoo.com ([209.191.125.47]:37254 "HELO
-	web38501.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1161418AbXBGUg5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Feb 2007 15:36:57 -0500
+Received: from atlrel6.hp.com ([156.153.255.205]:35091 "EHLO atlrel6.hp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1161222AbXBGUvf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Feb 2007 15:51:35 -0500
+In-Reply-To: <E096369D937D3A4DB271B382850C5C5F48E60D@pysmail.eicon.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello , I just noticed a error in my patch , just a mistake , sorry please
+This is a multi-part message in MIME format.
+--------------080605090903070400050701
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
 
-in dmfe_resume I mixed DMFE_WOL_LINKCHANGE | DMFE_WOL_MAGICPACKET , and WAKE_PHY | WAKE_MAGIC
+Hi Steve
 
-here goes updated patch:
+I think I've tracked this down.  Can you apply the attached patch on top
+of the one I posted before and re-run your test.
 
-From: Maxim Levitsky <maximlevitsky@yahoo.com>
-Subject: [PATCH] [NET] [005] dmfe : Add support for wake-on-lan
+With both patches, I was able flip-flop the downed interface multiple times
+and in all cases path failover completed and data flow resumed.
 
-Adds support for wake on lan feature
+Here is the modified script I was running:
 
-Signed-off-by: Maxim Levitsky <maximlevitsky@yahoo.com>
+#!/bin/sh
 
+net1="$1"
+net2="$2"
+
+flush() {
+    iptables -F
+    echo "Flush"
+    exit
+}
+
+trap flush EXIT
+
+while true; do
+    # clear table
+    iptables -F
+    echo "flushed"
+    sleep 5
+
+    # block net1
+    iptables -A INPUT -i "$net1" -p sctp -j DROP
+    echo "set net1"
+    sleep 5
+
+    # clear table
+    iptables -F
+    echo "flushed"
+    sleep 5
+
+    # block net2
+    iptables -A INPUT -i "$net2" -p sctp -j DROP
+    echo "set net2"
+    sleep 5
+done
+
+I was able to run this script for 10 minutes sustaining the message flow.
+
+-vlad
+
+--------------080605090903070400050701
+Content-Type: text/x-patch;
+ name*0="0001-SCTP-Strike-the-transport-before-updating-rto.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename*0="0001-SCTP-Strike-the-transport-before-updating-rto.patch"
+
+>From 72d6856f7e45a17e0910e0eacd1a01d44fafd1c0 Mon Sep 17 00:00:00 2001
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Date: Wed, 7 Feb 2007 14:58:25 -0500
+Subject: [PATCH] [SCTP] Strike the transport before updating rto
+
+Once we reach a poing where we exceed the max.path.retrans
+strike the trasport before updating the rto.  This will force
+transport switch at the right time, instead of 1 retransmit too
+late.
+
+Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
 ---
+ net/sctp/sm_statefuns.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
 
-This board supports WOL on magic packet / link change / specific packet
-This adds support for WOL on magic packet / link change
-
-Note : WOL is enabled when you suspend system ether to disk or ram, and is not enabled when you
-turn system off
-
-
---- linux-2.6.20-mod/drivers/net/tulip/dmfe.c	2007-02-07 18:53:19.000000000 +0200
-+++ linux-2.6.20-test/drivers/net/tulip/dmfe.c	2007-02-07 18:55:44.000000000 +0200
-@@ -122,6 +122,11 @@
- #define DM9801_NOISE_FLOOR 8
- #define DM9802_NOISE_FLOOR 5
+diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
+index fbbc9e6..801f9d6 100644
+--- a/net/sctp/sm_statefuns.c
++++ b/net/sctp/sm_statefuns.c
+@@ -4605,12 +4605,12 @@ sctp_disposition_t sctp_sf_do_6_3_3_rtx(const struct sctp_endpoint *ep,
+ 	 * sent as soon as cwnd allows (normally when a SACK arrives).
+ 	 */
  
-+#define DMFE_WOL_LINKCHANGE	0x20000000
-+#define DMFE_WOL_SAMPLEPACKET	0x10000000
-+#define DMFE_WOL_MAGICPACKET	0x08000000
+-	/* NB: Rules E4 and F1 are implicit in R1.  */
+-	sctp_add_cmd_sf(commands, SCTP_CMD_RETRAN, SCTP_TRANSPORT(transport));
+-
+ 	/* Do some failure management (Section 8.2). */
+ 	sctp_add_cmd_sf(commands, SCTP_CMD_STRIKE, SCTP_TRANSPORT(transport));
+ 
++	/* NB: Rules E4 and F1 are implicit in R1.  */
++	sctp_add_cmd_sf(commands, SCTP_CMD_RETRAN, SCTP_TRANSPORT(transport));
 +
-+
- #define DMFE_10MHF      0
- #define DMFE_100MHF     1
- #define DMFE_10MFD      4
-@@ -242,6 +247,7 @@ struct dmfe_board_info {
- 	u8 wait_reset;			/* Hardware failed, need to reset */
- 	u8 dm910x_chk_mode;		/* Operating mode check */
- 	u8 first_in_callback;		/* Flag to record state */
-+	u8 wol_mode;			/* user WOL settings */
- 	struct timer_list timer;
- 
- 	/* System defined statistic counter */
-@@ -423,6 +429,7 @@ static int __devinit dmfe_init_one (stru
- 	db->chip_id = ent->driver_data;
- 	db->ioaddr = pci_resource_start(pdev, 0);
- 	db->chip_revision = dev_rev;
-+	db->wol_mode = 0;
- 
- 	db->pdev = pdev;
- 
-@@ -1054,7 +1061,11 @@ static void dmfe_set_filter_mode(struct 
- 	spin_unlock_irqrestore(&db->lock, flags);
+ 	return SCTP_DISPOSITION_CONSUME;
  }
  
--static void netdev_get_drvinfo(struct net_device *dev,
-+/*
-+ * 	Ethtool interace 
-+ */
-+
-+static void dmfe_ethtool_get_drvinfo(struct net_device *dev,
- 			       struct ethtool_drvinfo *info)
- {
- 	struct dmfe_board_info *np = netdev_priv(dev);
-@@ -1068,9 +1079,35 @@ static void netdev_get_drvinfo(struct ne
- 			dev->base_addr, dev->irq);
- }
- 
-+static int dmfe_ethtool_set_wol(struct net_device *dev, 
-+				struct ethtool_wolinfo *wolinfo)
-+{
-+	struct dmfe_board_info *db = netdev_priv(dev);
-+	
-+	if (wolinfo->wolopts & (WAKE_UCAST | WAKE_MCAST | WAKE_BCAST | 
-+		   		WAKE_ARP | WAKE_MAGICSECURE))
-+		   return -EOPNOTSUPP;
-+	
-+	db->wol_mode = wolinfo->wolopts;
-+	return 0;
-+}
-+
-+static void dmfe_ethtool_get_wol(struct net_device *dev, 
-+				 struct ethtool_wolinfo *wolinfo)
-+{
-+	struct dmfe_board_info *db = netdev_priv(dev);
-+	
-+	wolinfo->supported = WAKE_PHY | WAKE_MAGIC;
-+	wolinfo->wolopts = db->wol_mode;
-+	return;
-+}
-+
-+
- static const struct ethtool_ops netdev_ethtool_ops = {
--	.get_drvinfo		= netdev_get_drvinfo,
-+	.get_drvinfo		= dmfe_ethtool_get_drvinfo,
- 	.get_link               = ethtool_op_get_link,
-+	.set_wol		= dmfe_ethtool_set_wol,
-+	.get_wol		= dmfe_ethtool_get_wol,
- };
- 
- /*
-@@ -2046,6 +2083,20 @@ static int dmfe_suspend(struct pci_dev *
-     /* Fre RX buffers */
-     dmfe_free_rxbuffer(db);
- 
-+    /* Enable WOL */
-+    pci_read_config_dword(pci_dev, 0x40, &tmp);
-+    tmp &= ~(DMFE_WOL_LINKCHANGE|DMFE_WOL_MAGICPACKET);
-+    
-+    if (db->wol_mode & WAKE_PHY)
-+	    tmp |= DMFE_WOL_LINKCHANGE;
-+    if (db->wol_mode & WAKE_MAGIC)
-+	    tmp |= DMFE_WOL_MAGICPACKET;
-+    
-+    pci_write_config_dword(pci_dev, 0x40, tmp);
-+    
-+    pci_enable_wake(pci_dev, PCI_D3hot, 1);
-+    pci_enable_wake(pci_dev, PCI_D3cold, 1);
-+    
-     /* Power down device*/
-     pci_set_power_state(pci_dev ,  pci_choose_state(pci_dev,state));
-     pci_save_state(pci_dev);
-@@ -2064,6 +2115,15 @@ static int dmfe_resume(struct pci_dev *p
-     /* Re-initilize DM910X board */
-     dmfe_init_dm910x(dev);
-         
-+    /* Disable WOL */
-+    pci_read_config_dword(pci_dev, 0x40, &tmp);
-+    
-+    tmp &= (DMFE_WOL_LINKCHANGE | DMFE_WOL_MAGICPACKET);
-+    pci_write_config_dword(pci_dev, 0x40, tmp);
-+    
-+    pci_enable_wake(pci_dev, PCI_D3hot, 0);
-+    pci_enable_wake(pci_dev, PCI_D3cold, 0);
-+    
-     /* Restart upper layer interface */
-     netif_device_attach(dev);
- 
+-- 
+1.5.0.rc3.g6506
 
 
-
- 
-____________________________________________________________________________________
-No need to miss a message. Get email on-the-go 
-with Yahoo! Mail for Mobile. Get started.
-http://mobile.yahoo.com/mail 
+--------------080605090903070400050701--
