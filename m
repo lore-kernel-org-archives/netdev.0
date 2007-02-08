@@ -1,32 +1,38 @@
-From: Linuxale <linuxale@libero.it>
-Subject: Netio result
-Date: Thu, 08 Feb 2007 14:24:34 +0100
-Message-ID: <pan.2007.02.08.13.24.34.473148@libero.it>
+From: Steve Hill <steve.hill@dialogic.com>
+Subject: Re: [Lksctp-developers] Fw: Intermittent SCTP multihoming breakage
+Date: Thu, 8 Feb 2007 14:07:18 +0000
+Message-ID: <Pine.CYG.4.58.0702081403590.460@shill1-mobl.eicon.com>
+References: <E096369D937D3A4DB271B382850C5C5F48E60D@pysmail.eicon.com>
+ <45CA3A63.8000306@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Steve Hill <steve.hill@dialogic.com>, netdev@vger.kernel.org,
+	lksctp-developers@lists.sourceforge.net,
+	Sridhar Samudrala <sri@us.ibm.com>
+To: Vlad Yasevich <vladislav.yasevich@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from main.gmane.org ([80.91.229.2]:47928 "EHLO ciao.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1423020AbXBHNfN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Feb 2007 08:35:13 -0500
-Received: from root by ciao.gmane.org with local (Exim 4.43)
-	id 1HF9QT-0006PI-T7
-	for netdev@vger.kernel.org; Thu, 08 Feb 2007 14:35:01 +0100
-Received: from 151.99.182.114 ([151.99.182.114])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Thu, 08 Feb 2007 14:35:01 +0100
-Received: from linuxale by 151.99.182.114 with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Thu, 08 Feb 2007 14:35:01 +0100
+Received: from eiconmtl.eicon.com ([192.219.17.124]:40896 "EHLO
+	EICONMTL.eicon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161517AbXBHOGo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Feb 2007 09:06:44 -0500
+In-Reply-To: <45CA3A63.8000306@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Guys,
-somebody know how to understand netio result?
+On Wed, 7 Feb 2007, Vlad Yasevich wrote:
 
-Thanks,
-Alex
+> I think I've tracked this down.  Can you apply the attached patch on top
+> of the one I posted before and re-run your test.
 
+Using the 2.6.20 kernel on the sending side with both patches applied, the
+problem seems to be fixed.
+
+Thanks.
+
+-- 
+ - Steve Hill
+   Software Engineer
+   Dialogic
+   Fordingbridge, Hampshire, UK
+   +44-1425-651392
+   steve.hill@dialogic.com
