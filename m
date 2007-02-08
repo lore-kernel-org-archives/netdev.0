@@ -1,48 +1,28 @@
-From: Greg KH <gregkh@suse.de>
+From: Roland Dreier <rdreier@cisco.com>
 Subject: Re: [PATCH] cxgb3 - convert to user struct device instead of class_device
-Date: Thu, 8 Feb 2007 13:19:11 -0800
-Message-ID: <20070208211911.GA20988@suse.de>
-References: <adalkj8l6vb.fsf@cisco.com>
+Date: Thu, 08 Feb 2007 13:31:10 -0800
+Message-ID: <adad54kwd41.fsf@cisco.com>
+References: <adalkj8l6vb.fsf@cisco.com> <20070208211911.GA20988@suse.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Jeff Garzik <jeff@garzik.org>, Divy Le Ray <divy@chelsio.com>,
 	Steve Wise <swise@opengridcomputing.com>,
 	netdev@vger.kernel.org
-To: Roland Dreier <rdreier@cisco.com>
+To: Greg KH <gregkh@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.suse.de ([195.135.220.2]:38687 "EHLO mx1.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1423409AbXBHVUh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Feb 2007 16:20:37 -0500
-Content-Disposition: inline
-In-Reply-To: <adalkj8l6vb.fsf@cisco.com>
+Received: from sj-iport-4.cisco.com ([171.68.10.86]:7938 "EHLO
+	sj-iport-4.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1423420AbXBHVbh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Feb 2007 16:31:37 -0500
+In-Reply-To: <20070208211911.GA20988@suse.de> (Greg KH's message of "Thu, 8 Feb 2007 13:19:11 -0800")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Feb 08, 2007 at 12:41:28PM -0800, Roland Dreier wrote:
-> Commit 43cb76d9 ("Network: convert network devices to use struct
-> device instead of class_device") breaks the just-merged cxgb3 driver,
-> since the code that was merged predates the change and was not in the
-> tree when Greg made the change.
-> 
-> This patch fixes cxgb3 to build with the change.  It also removes the
-> private to_net_dev() macro and changes the use of bare netdev->priv in
-> favor of netdev_priv(netdev) in the sysfs attribute functions.
-> 
-> I tested this on my system which has cxgb3 hardware, and it looks like
-> all the sysfs files are created correctly and contain sane-looking
-> values, although I don't actually know how to test that every
-> attribute is working as it should.
+ > But I think Jeff already has a patch in the queue that makes this very
+ > change :)
 
-If it compiles with no warnings, it should be safe.
+Really?  I'm not sure I looked everywhere in Jeff's maze of git
+branches but I didn't see anything obvious in netdev-2.6.git when I
+looked before sending this.
 
-> Signed-off-by: Roland Dreier <rolandd@cisco.com>
-
-Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
-
-But I think Jeff already has a patch in the queue that makes this very
-change :)
-
-thanks,
-
-greg k-h
+ - R.
