@@ -1,62 +1,67 @@
-From: Li Yang <leoli@freescale.com>
-Subject: [PATCH 3/3] ucc_geth: Add support to local-mac-address property
-Date: Thu, 08 Feb 2007 17:35:54 +0800
-Message-ID: <45CAEEFA.9060501@freescale.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: Network: convert network devices to use struct device instead
+ of class_device
+Date: Thu, 08 Feb 2007 07:43:18 -0500
+Message-ID: <45CB1AE6.9020707@garzik.org>
+References: <200702080400.l1840lFd002314@hera.kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: jeff@garzik.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, Greg KH <greg@kroah.com>
+To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from de01egw01.freescale.net ([192.88.165.102]:55315 "EHLO
-	de01egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965720AbXBHJen (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Feb 2007 04:34:43 -0500
-Received: from de01smr01.freescale.net (de01smr01.freescale.net [10.208.0.31])
-	by de01egw01.freescale.net (8.12.11/de01egw01) with ESMTP id l189YfbT027241
-	for <netdev@vger.kernel.org>; Thu, 8 Feb 2007 02:34:41 -0700 (MST)
-Received: from zch01exm20.fsl.freescale.net (zch01exm20.ap.freescale.net [10.192.129.204])
-	by de01smr01.freescale.net (8.13.1/8.13.0) with ESMTP id l189YdCx027367
-	for <netdev@vger.kernel.org>; Thu, 8 Feb 2007 03:34:40 -0600 (CST)
+Received: from srv5.dvmed.net ([207.36.208.214]:44813 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1422975AbXBHMnV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Feb 2007 07:43:21 -0500
+In-Reply-To: <200702080400.l1840lFd002314@hera.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-IEEE-1275 defines =93local-mac-address=94 to be a standard
-property name to specify preassigned network address.
-This patch adds support for it.
+Linux Kernel Mailing List wrote:
+> Gitweb:     http://git.kernel.org/git/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=43cb76d91ee85f579a69d42bc8efc08bac560278
+> Commit:     43cb76d91ee85f579a69d42bc8efc08bac560278
+> Parent:     2943ecf2ed32632473c06f1975db47a7aa98c10f
+> Author:     Greg Kroah-Hartman <gregkh@suse.de>
+> AuthorDate: Tue Apr 9 12:14:34 2002 -0700
+> Committer:  Greg Kroah-Hartman <gregkh@suse.de>
+> CommitDate: Wed Feb 7 10:37:11 2007 -0800
+> 
+>     Network: convert network devices to use struct device instead of class_device
+>     
+>     This lets the network core have the ability to handle suspend/resume
+>     issues, if it wants to.
+>     
+>     Thanks to Frederik Deweerdt <frederik.deweerdt@gmail.com> for the arm
+>     driver fixes.
+>     
+>     Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
+> ---
+>  drivers/infiniband/ulp/ipoib/ipoib_main.c |   33 ++--
+>  drivers/infiniband/ulp/ipoib/ipoib_vlan.c |   11 +-
+>  drivers/net/arm/at91_ether.c              |    2 +-
+>  drivers/net/arm/etherh.c                  |    2 +-
+>  drivers/net/bonding/bond_sysfs.c          |  287 +++++++++++++++++-----------
+>  drivers/net/iseries_veth.c                |    2 +-
+>  drivers/net/macb.c                        |   36 ++--
+>  drivers/net/smc911x.c                     |    2 +-
+>  drivers/net/smc91x.c                      |    2 +-
+>  drivers/net/wireless/hostap/hostap_main.c |    2 +-
+>  drivers/net/wireless/orinoco.c            |    4 +-
+>  drivers/net/wireless/orinoco_cs.c         |    2 +-
+>  drivers/net/wireless/spectrum_cs.c        |    2 +-
+>  include/linux/netdevice.h                 |    5 +-
+>  net/bridge/br_if.c                        |    2 +-
+>  net/bridge/br_sysfs_br.c                  |  234 +++++++++++++-----------
+>  net/bridge/br_sysfs_if.c                  |    2 +-
+>  net/core/dev.c                            |    6 +-
+>  net/core/net-sysfs.c                      |  175 ++++++++++--------
+>  net/core/skbuff.c                         |    2 +-
+>  20 files changed, 451 insertions(+), 362 deletions(-)
 
-Signed-off-by: Li Yang <leoli@freescale.com>=20
----
- drivers/net/ucc_geth.c |    8 +++++++-
- 1 files changed, 7 insertions(+), 1 deletions(-)
+It's highly disappointing that this was never discussed on 
+netdev@vger.kernel.org, or even CC'd to me.
 
-diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
-index ce0eab9..cf93383 100644
---- a/drivers/net/ucc_geth.c
-+++ b/drivers/net/ucc_geth.c
-@@ -4070,6 +4070,7 @@ static int ucc_geth_probe(struct of_device* ofdev=
-, const struct of_device_id *ma
- 	static int mii_mng_configured =3D 0;
- 	const phandle *ph;
- 	const unsigned int *prop;
-+	const void *mac_addr;
-=20
- 	ugeth_vdbg("%s: IN", __FUNCTION__);
-=20
-@@ -4195,7 +4196,12 @@ static int ucc_geth_probe(struct of_device* ofde=
-v, const struct of_device_id *ma
-=20
- 	ugeth->ug_info =3D ug_info;
- 	ugeth->dev =3D dev;
--	memcpy(dev->dev_addr, get_property(np, "mac-address", NULL), 6);
-+
-+	mac_addr =3D get_property(np, "mac-address", NULL);
-+	if (mac_addr =3D=3D NULL)
-+		mac_addr =3D get_property(np, "local-mac-address", NULL);
-+	if (mac_addr)
-+		memcpy(dev->dev_addr, mac_addr, 6);
-=20
- 	return 0;
- }
+	Jeff
+
 
