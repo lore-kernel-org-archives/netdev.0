@@ -1,36 +1,43 @@
 From: Timur Tabi <timur@freescale.com>
 Subject: Re: [PATCH 1/4] ucc_geth: Change private immrbar_virt_to_phys to
-	generic iopa
-Date: Thu, 08 Feb 2007 07:27:43 -0600
-Message-ID: <45CB254F.9010602@freescale.com>
-References: <989B956029373F45A0B8AF02970818900D43E9@zch01exm26.fsl.freescale.net>
+ generic iopa
+Date: Thu, 08 Feb 2007 07:35:08 -0600
+Message-ID: <45CB270C.5090603@freescale.com>
+References: <989B956029373F45A0B8AF02970818900D4401@zch01exm26.fsl.freescale.net> <17A046C6-5FD3-46D5-AB96-EAEDF22FA829@kernel.crashing.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
-To: Li Yang-r58472 <LeoLi@freescale.com>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-In-Reply-To: <989B956029373F45A0B8AF02970818900D43E9@zch01exm26.fsl.freescale.net>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Cc: Li Yang-r58472 <LeoLi@freescale.com>, netdev@vger.kernel.org,
+	linuxppc-dev@ozlabs.org
+To: Kumar Gala <galak@kernel.crashing.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from az33egw01.freescale.net ([192.88.158.102]:41682 "EHLO
+	az33egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1423021AbXBHNfO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Feb 2007 08:35:14 -0500
+In-Reply-To: <17A046C6-5FD3-46D5-AB96-EAEDF22FA829@kernel.crashing.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Li Yang-r58472 wrote:
+Kumar Gala wrote:
 
-> No, we don't know if the BD ring is in MURAM or main memory as it is
-> configurable.  iopa() is best choice to handle both case, IMHO.
+> Right, so when do you know if you'll be using MURAM or normal memory?  
+> Why not just keep around a token that is the physical address at the 
+> point you make the decision of MURAM vs normal memory.
 
-The above code would only be used if the BD is in MURAM.  The "if 
-bd_mem_part == MEM_PART_MURAM" would stay.
+That's what the original code did, kinda.  It called virt_to_phys() if 
+it is main memory, and it called immrbar_virt_to_phys() if it is MURAM. 
+  immrbar_virt_to_phys() did pointer math to extract the physical address.
 
-If the BD ring can be in main memory, then I don't think we should be 
-using a function called "iopa" to get its physical address.  It's 
-conceivable that one day, iopa() will only work on memory that's been 
-ioremap'ed.
+I knew that Leo's patch was calling iopa() on main memory, but since it 
+worked, I didn't think much about it.  But it does make some sense that 
+since we obtain the physical address when we allocate the BD ring, we 
+should store that address and use it.
+
+That's what most drivers do, anyway, and so we should do the same thing. 
+  So instead of p_tx_bd_ring[i], we would have p_tx_bd_ring[i].virtual 
+and p_tx_bd_ring[i].physical.
+
+Besides, iopa() is slower, because it walks page tables.
+
+
