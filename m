@@ -1,58 +1,38 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: [PATCH 1/5] NET : Introduce union in struct dst_entry to hold 'next'
- pointer
-Date: Thu, 08 Feb 2007 22:33:09 +0100
-Message-ID: <45CB9715.5000509@cosmosbay.com>
-References: <20070208093935.90CA.SHINTA@sfc.wide.ad.jp> <20070207.165213.98418769.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/3] [RESEND] X.25: Add call forwarding
+Date: Thu, 08 Feb 2007 13:34:13 -0800 (PST)
+Message-ID: <20070208.133413.130238005.davem@davemloft.net>
+References: <1167881822.5124.88.camel@localhost>
+	<20070104102702.30630a9d@localhost.localdomain>
+	<1170890065.5189.39.camel@localhost>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------080309010305060907060809"
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, eis@baty.hanse.de,
+	linux-x25@vger.kernel.org, netdev@vger.kernel.org
+To: ahendry@tusc.com.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([86.65.150.130]:54106 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1423426AbXBHVdU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Feb 2007 16:33:20 -0500
-In-Reply-To: <20070207.165213.98418769.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42720
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1423429AbXBHVeO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Feb 2007 16:34:14 -0500
+In-Reply-To: <1170890065.5189.39.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------080309010305060907060809
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+From: ahendry <ahendry@tusc.com.au>
+Date: Thu, 08 Feb 2007 10:14:25 +1100
 
-This patch introduces an anonymous union to nicely express the fact that all 
-objects inherited from struct dst_entry should access to the generic 'next' 
-pointer but with appropriate type verification.
+> Adds call forwarding to X.25, allowing it to operate like an X.25 router.
+> Useful if one needs to manipulate X.25 traffic with tools like tc.
+> This is an update/cleanup based off a patch submitted by Daniel Ferenci a few years ago.
+> 
+> Thanks Alan for the feedback.
+> Added the null check to the clones.
+> Moved the skb_clone's into the forwarding functions.
+> 
+> Worked ok with Cisco XoT, linux X.25 back to back, and some old NTUs/PADs.
+> 
+> Signed-off-by: Andrew Hendry <andrew.hendry@gmail.com>
 
-This patch is a prereq before following patches.
-
-Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
-
---------------080309010305060907060809
-Content-Type: text/plain;
- name="introduce_union_in_dst_entry.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="introduce_union_in_dst_entry.patch"
-
---- linux-2.6.20/include/net/dst.h	2007-02-08 21:06:15.000000000 +0100
-+++ linux-2.6.20-ed/include/net/dst.h	2007-02-08 21:07:21.000000000 +0100
-@@ -37,7 +37,12 @@ struct sk_buff;
- 
- struct dst_entry
- {
--	struct dst_entry        *next;
-+	union {
-+		struct dst_entry *next;
-+		struct rtable    *rt_next;
-+		struct rt6_info   *rt6_next;
-+		struct dn_route  *dn_next;
-+	};
- 	atomic_t		__refcnt;	/* client references	*/
- 	int			__use;
- 	struct dst_entry	*child;
-
---------------080309010305060907060809--
+Applied, thanks.
