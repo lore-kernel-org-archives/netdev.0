@@ -1,30 +1,34 @@
-From: Maxim Levitsky <maximlevitsky@gmail.com>
-Subject: [PATCH] [RESEND] dmfe: number of fixes and features
-Date: Thu, 8 Feb 2007 23:05:26 +0200
-Message-ID: <200702082305.26735.maximlevitsky@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH][IPSEC][0/6] fix conflict of device tunnels with the
+ ipsec tunnel
+Date: Thu, 08 Feb 2007 13:09:28 -0800 (PST)
+Message-ID: <20070208.130928.07640160.davem@davemloft.net>
+References: <20070208170324.3e3a4d59.kazunori@miyazawa.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
+Cc: herbert@gondor.apana.org.au, miika@iki.fi, Diego.Beltrami@hiit.fi,
+	netdev@vger.kernel.org, usagi-core@linux-ipv6.org
+To: kazunori@miyazawa.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.172]:22395 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1423340AbXBHVIo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Feb 2007 16:08:44 -0500
-Received: by ug-out-1314.google.com with SMTP id 44so580560uga
-        for <netdev@vger.kernel.org>; Thu, 08 Feb 2007 13:08:42 -0800 (PST)
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38917
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1423353AbXBHVJ3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Feb 2007 16:09:29 -0500
+In-Reply-To: <20070208170324.3e3a4d59.kazunori@miyazawa.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+From: Kazunori MIYAZAWA <kazunori@miyazawa.org>
+Date: Thu, 8 Feb 2007 17:03:24 +0900
 
-	I am resending updated version of patches I sent yesterday.
+> I send patches to fix conflict of device tunnels with the inter
+> address family ipsec tunnel. Yoshifuji-san and Kozakai-san
+> noticed me of the confliction.
+> 
+> I adopt same approach of tunnel4.c and tunnel6.c. I extend them
+> to support inter address family.
+> 
+> We need this to use ipcomp with inter address family tunnel.
 
-        Now I use gmail so patches shouldn't be corrupted.
-        Also I cleaned them a lot.
-
-        Looking for your comments,
-		Your truly, Maxim Levitsky
+Please fixup the issues reported by Patrick McHardy, thank you.
