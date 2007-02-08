@@ -1,44 +1,67 @@
-From: Jens Osterkamp <Jens.Osterkamp@de.ibm.com>
-Subject: Re: [PATCH 0/4] spidernet: support for Celleb
-Date: Thu, 8 Feb 2007 13:56:52 +0100
-Message-ID: <OF4CD93CB2.C6D8AB5B-ONC125727C.0035FE0B-C125727C.00472022@de.ibm.com>
-References: <1170894259.2620.325.camel@localhost.localdomain>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH][IPSEC][4/6] changing "ipip tunnel" and xfrm4_tunnel to
+ the API change
+Date: Thu, 08 Feb 2007 14:10:32 +0100
+Message-ID: <45CB2148.8060307@trash.net>
+References: <20070208170412.2e627947.kazunori@miyazawa.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: Jeff Garzik <jgarzik@pobox.com>, jim@jklewis.com,
-	Ishizaki Kou <kou.ishizaki@toshiba.co.jp>,
-	linuxppc-dev@ozlabs.org, netdev@vger.kernel.org
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	David Miller <davem@davemloft.net>, Miika Komu <miika@iki.fi>,
+	Diego Beltrami <Diego.Beltrami@hiit.fi>,
+	netdev@vger.kernel.org, usagi-core@linux-ipv6.org
+To: Kazunori MIYAZAWA <kazunori@miyazawa.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate2.de.ibm.com ([195.212.29.151]:8472 "EHLO
-	mtagate2.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1422860AbXBHM4z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Feb 2007 07:56:55 -0500
-Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
-	by mtagate2.de.ibm.com (8.13.8/8.13.8) with ESMTP id l18CusjV031318
-	for <netdev@vger.kernel.org>; Thu, 8 Feb 2007 12:56:54 GMT
-Received: from d12av02.megacenter.de.ibm.com (d12av02.megacenter.de.ibm.com [9.149.165.228])
-	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v8.2) with ESMTP id l18CusXw2252988
-	for <netdev@vger.kernel.org>; Thu, 8 Feb 2007 13:56:54 +0100
-Received: from d12av02.megacenter.de.ibm.com (loopback [127.0.0.1])
-	by d12av02.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l18CurTu019350
-	for <netdev@vger.kernel.org>; Thu, 8 Feb 2007 13:56:54 +0100
-In-Reply-To: <1170894259.2620.325.camel@localhost.localdomain>
+Received: from stinky.trash.net ([213.144.137.162]:40746 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1422970AbXBHNKh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Feb 2007 08:10:37 -0500
+In-Reply-To: <20070208170412.2e627947.kazunori@miyazawa.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Kazunori MIYAZAWA wrote:
+> Changing ipip tunnel and xfrm4_tunnel to the API
 
-> PHY patch is mostly Ok except I don't like that "medium" variable Jens
-> added which isn't used anywhere in sungem_phy. Jens, can you resend a
-> version without that ? If you need that variable in spidernet itself,
-> then put it there :-)
+Fixing up users after API changes should be done in the same
+patch as the API change itself to avoid breaking compilation
+for people doing a bisection.
 
-That was the idea I had first, I'll change that.
+> index f110af5..00fc09f 100644
+> --- a/net/ipv4/xfrm4_tunnel.c
+> +++ b/net/ipv4/xfrm4_tunnel.c
+> @@ -66,12 +66,15 @@ static struct xfrm_tunnel xfrm_tunnel_ha
+>  
+>  static int __init ipip_init(void)
+>  {
+> -	if (xfrm_register_type(&ipip_type, AF_INET) < 0) {
+> -		printk(KERN_INFO "ipip init: can't add xfrm type\n");
+> +	if (xfrm_register_type(&ipip_type, AF_INET) < 0)
+> +		return -EAGAIN;
 
-> Also, the GMII_* constants, are they standard or 54xx specific ? If the
-> later, then change the name to reflect that.
+Why are you removing the printk?
 
-I'll check...
+> +
+> +	if (xfrm4_tunnel_register(&xfrm_tunnel_handler, AF_INET)) {
+> +		printk(KERN_INFO "ipip init: can't add xfrm handler for AF_INET\n");
+>  		return -EAGAIN;
 
-Jens
+Does not unregister ipip_type on error.
 
+>  	}
+> -	if (xfrm4_tunnel_register(&xfrm_tunnel_handler)) {
+> -		printk(KERN_INFO "ipip init: can't add xfrm handler\n");
+> +	if (xfrm4_tunnel_register(&xfrm_tunnel_handler, AF_INET6)) {
+
+You register xfrm_tunnel_handler twice, which will corrupt the list.
+
+> +		printk(KERN_INFO "ipip init: can't add xfrm handler for AF_INET6\n");
+>  		xfrm_unregister_type(&ipip_type, AF_INET);
+
+Does not unregister AF_INET tunnel handler on error.
+
+>  		return -EAGAIN;
+>  	}
+
+The next patch has similar problems.
