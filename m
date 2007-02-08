@@ -1,40 +1,27 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/7] [S390]: Introduction of AF_IUCV sockets support
-Date: Thu, 08 Feb 2007 14:00:22 -0800 (PST)
-Message-ID: <20070208.140022.45514241.davem@davemloft.net>
-References: <20070202120528.GA10392@de.ibm.com>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [PATCH] cxgb3 - convert to user struct device instead of class_device
+Date: Thu, 08 Feb 2007 14:02:09 -0800
+Message-ID: <adaps8kux3y.fsf@cisco.com>
+References: <adalkj8l6vb.fsf@cisco.com> <20070208211911.GA20988@suse.de>
+	<adad54kwd41.fsf@cisco.com> <45CB9A24.1030509@garzik.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: fpavlic@de.ibm.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Greg KH <gregkh@suse.de>, Divy Le Ray <divy@chelsio.com>,
+	Steve Wise <swise@opengridcomputing.com>,
+	netdev@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56509
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1423488AbXBHWAY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Feb 2007 17:00:24 -0500
-In-Reply-To: <20070202120528.GA10392@de.ibm.com>
+Received: from sj-iport-5.cisco.com ([171.68.10.87]:5683 "EHLO
+	sj-iport-5.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1945911AbXBHWCM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Feb 2007 17:02:12 -0500
+In-Reply-To: <45CB9A24.1030509@garzik.org> (Jeff Garzik's message of "Thu, 08 Feb 2007 16:46:12 -0500")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Frank Pavlic <fpavlic@de.ibm.com>
-Date: Fri, 2 Feb 2007 13:05:28 +0100
+ > Andrew told me to drop it, so I dropped it :)
 
-> The patch set consists of following patches:
-> 
-> [1/7] [S390]: Rewrite of the IUCV base code, part 1
-> [2/7] [S390]: Rewrite of the IUCV base code, part 2
-> [3/7] [S390]: Adapt monreader driver to new IUCV API
-> [4/7] [S390]: Adapt vmlogrdr driver to new IUCV API
-> [5/7] [S390]: Adapt netiucv driver to new IUCV API
-> [6/7] [S390]: Adapt special message interface to new IUCV API
-> [7/7] [S390]: Add AF_IUCV socket support
+That's odd -- do you know why?  drivers/net/cxgb3 won't build at all
+in Linus's tree.  I would have thought we want to fix it ASAP.
 
-I've applied all of this, although some of the driver
-conversions (notable, patches #5 and #6) didn't apply
-cleanly so I applied them by hand.
-
-Watch out for any fallout from this when Linus pulls
-these changes in.
-
-Thanks.
+ - R.
