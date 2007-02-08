@@ -1,30 +1,242 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: NetXen driver name
-Date: 08 Feb 2007 19:15:09 +0100
-Message-ID: <p734ppw349e.fsf@bingen.suse.de>
-References: <200702082152.19772.amitkale@netxen.com>
+From: Kumar Gala <galak@kernel.crashing.org>
+Subject: [PATCH][RESEND] gianfar: Convert network devices to use struct device
+ instead of class_device
+Date: Thu, 8 Feb 2007 11:19:37 -0600 (CST)
+Message-ID: <Pine.LNX.4.64.0702081118090.29779@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Amit Kale <amitkale@netxen.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Greg KH <greg@kroah.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:48421 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965731AbXBHRO5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Feb 2007 12:14:57 -0500
-In-Reply-To: <200702082152.19772.amitkale@netxen.com>
+Received: from nommos.sslcatacombnetworking.com ([67.18.224.114]:2961 "EHLO
+	nommos.sslcatacombnetworking.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S965736AbXBHRWR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Feb 2007 12:22:17 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Amit Kale <amitkale@netxen.com> writes:
+Convert network devices to use struct device instead of class_device.  Greg
+missed this one in his cleanup path.
 
-> Hi,
-> 
-> NetXen ethernet driver present in 2.6.20 has name "netxen_nic". The product 
-> itself is refered to as "nx_nic". To make it inline with the product, would 
-> it be a good idea to change the name of the driver to "nx_nic"?
+Signed-off-by: Kumar Gala <galak@kernel.crashing.org>
 
-When it's already in a released kernel it's a little late to rename the module.
-You would cause upgrade pain to users who have hardcoded the module name.
+---
 
--Andi
+Got Jeff's email wrong the first time.
+
+commit 24c316396f71c6164f11ca1398151d8b15fd06e0
+tree d02ee36eaf848d200dacf3bf795abaec1e55cbc2
+parent b892afd1e60132a981b963929e352eabf3306ba2
+author Kumar Gala <galak@kernel.crashing.org> Thu, 08 Feb 2007 11:07:11 -0600
+committer Kumar Gala <galak@kernel.crashing.org> Thu, 08 Feb 2007 11:07:11 -0600
+
+  drivers/net/gianfar_sysfs.c |  108 ++++++++++++++++++++++---------------------
+  1 files changed, 55 insertions(+), 53 deletions(-)
+
+diff --git a/drivers/net/gianfar_sysfs.c b/drivers/net/gianfar_sysfs.c
+index 9dd387f..6e2166a 100644
+--- a/drivers/net/gianfar_sysfs.c
++++ b/drivers/net/gianfar_sysfs.c
+@@ -39,13 +39,15 @@
+  #include "gianfar.h"
+
+  #define GFAR_ATTR(_name) \
+-static ssize_t gfar_show_##_name(struct class_device *cdev, char *buf); \
+-static ssize_t gfar_set_##_name(struct class_device *cdev, \
++static ssize_t gfar_show_##_name(struct device *dev, \
++	 struct device_attribute *attr, char *buf); \
++static ssize_t gfar_set_##_name(struct device *dev, \
++		struct device_attribute *attr, \
+  		const char *buf, size_t count); \
+-static CLASS_DEVICE_ATTR(_name, 0644, gfar_show_##_name, gfar_set_##_name)
++static DEVICE_ATTR(_name, 0644, gfar_show_##_name, gfar_set_##_name)
+
+  #define GFAR_CREATE_FILE(_dev, _name) \
+-	class_device_create_file(&_dev->class_dev, &class_device_attr_##_name)
++	device_create_file(&_dev->dev, &dev_attr_##_name)
+
+  GFAR_ATTR(bd_stash);
+  GFAR_ATTR(rx_stash_size);
+@@ -54,29 +56,28 @@ GFAR_ATTR(fifo_threshold);
+  GFAR_ATTR(fifo_starve);
+  GFAR_ATTR(fifo_starve_off);
+
+-#define to_net_dev(cd) container_of(cd, struct net_device, class_dev)
+-
+-static ssize_t gfar_show_bd_stash(struct class_device *cdev, char *buf)
++static ssize_t gfar_show_bd_stash(struct device *dev,
++				  struct device_attribute *attr, char *buf)
+  {
+-	struct net_device *dev = to_net_dev(cdev);
+-	struct gfar_private *priv = netdev_priv(dev);
++	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
+
+-	return sprintf(buf, "%s\n", priv->bd_stash_en? "on" : "off");
++	return sprintf(buf, "%s\n", priv->bd_stash_en ? "on" : "off");
+  }
+
+-static ssize_t gfar_set_bd_stash(struct class_device *cdev,
+-		const char *buf, size_t count)
++static ssize_t gfar_set_bd_stash(struct device *dev,
++				 struct device_attribute *attr,
++				 const char *buf, size_t count)
+  {
+-	struct net_device *dev = to_net_dev(cdev);
+-	struct gfar_private *priv = netdev_priv(dev);
++	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
+  	int new_setting = 0;
+  	u32 temp;
+  	unsigned long flags;
+
+  	/* Find out the new setting */
+-	if (!strncmp("on", buf, count-1) || !strncmp("1", buf, count-1))
++	if (!strncmp("on", buf, count - 1) || !strncmp("1", buf, count - 1))
+  		new_setting = 1;
+-	else if (!strncmp("off", buf, count-1) || !strncmp("0", buf, count-1))
++	else if (!strncmp("off", buf, count - 1)
++		 || !strncmp("0", buf, count - 1))
+  		new_setting = 0;
+  	else
+  		return count;
+@@ -100,19 +101,19 @@ static ssize_t gfar_set_bd_stash(struct class_device *cdev,
+  	return count;
+  }
+
+-static ssize_t gfar_show_rx_stash_size(struct class_device *cdev, char *buf)
++static ssize_t gfar_show_rx_stash_size(struct device *dev,
++				       struct device_attribute *attr, char *buf)
+  {
+-	struct net_device *dev = to_net_dev(cdev);
+-	struct gfar_private *priv = netdev_priv(dev);
++	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
+
+  	return sprintf(buf, "%d\n", priv->rx_stash_size);
+  }
+
+-static ssize_t gfar_set_rx_stash_size(struct class_device *cdev,
+-		const char *buf, size_t count)
++static ssize_t gfar_set_rx_stash_size(struct device *dev,
++				      struct device_attribute *attr,
++				      const char *buf, size_t count)
+  {
+-	struct net_device *dev = to_net_dev(cdev);
+-	struct gfar_private *priv = netdev_priv(dev);
++	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
+  	unsigned int length = simple_strtoul(buf, NULL, 0);
+  	u32 temp;
+  	unsigned long flags;
+@@ -146,21 +147,21 @@ static ssize_t gfar_set_rx_stash_size(struct class_device *cdev,
+  	return count;
+  }
+
+-
+  /* Stashing will only be enabled when rx_stash_size != 0 */
+-static ssize_t gfar_show_rx_stash_index(struct class_device *cdev, char *buf)
++static ssize_t gfar_show_rx_stash_index(struct device *dev,
++					struct device_attribute *attr,
++					char *buf)
+  {
+-	struct net_device *dev = to_net_dev(cdev);
+-	struct gfar_private *priv = netdev_priv(dev);
++	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
+
+  	return sprintf(buf, "%d\n", priv->rx_stash_index);
+  }
+
+-static ssize_t gfar_set_rx_stash_index(struct class_device *cdev,
+-		const char *buf, size_t count)
++static ssize_t gfar_set_rx_stash_index(struct device *dev,
++				       struct device_attribute *attr,
++				       const char *buf, size_t count)
+  {
+-	struct net_device *dev = to_net_dev(cdev);
+-	struct gfar_private *priv = netdev_priv(dev);
++	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
+  	unsigned short index = simple_strtoul(buf, NULL, 0);
+  	u32 temp;
+  	unsigned long flags;
+@@ -184,19 +185,20 @@ static ssize_t gfar_set_rx_stash_index(struct class_device *cdev,
+  	return count;
+  }
+
+-static ssize_t gfar_show_fifo_threshold(struct class_device *cdev, char *buf)
++static ssize_t gfar_show_fifo_threshold(struct device *dev,
++					struct device_attribute *attr,
++					char *buf)
+  {
+-	struct net_device *dev = to_net_dev(cdev);
+-	struct gfar_private *priv = netdev_priv(dev);
++	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
+
+  	return sprintf(buf, "%d\n", priv->fifo_threshold);
+  }
+
+-static ssize_t gfar_set_fifo_threshold(struct class_device *cdev,
+-		const char *buf, size_t count)
++static ssize_t gfar_set_fifo_threshold(struct device *dev,
++				       struct device_attribute *attr,
++				       const char *buf, size_t count)
+  {
+-	struct net_device *dev = to_net_dev(cdev);
+-	struct gfar_private *priv = netdev_priv(dev);
++	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
+  	unsigned int length = simple_strtoul(buf, NULL, 0);
+  	u32 temp;
+  	unsigned long flags;
+@@ -218,20 +220,19 @@ static ssize_t gfar_set_fifo_threshold(struct class_device *cdev,
+  	return count;
+  }
+
+-static ssize_t gfar_show_fifo_starve(struct class_device *cdev, char *buf)
++static ssize_t gfar_show_fifo_starve(struct device *dev,
++				     struct device_attribute *attr, char *buf)
+  {
+-	struct net_device *dev = to_net_dev(cdev);
+-	struct gfar_private *priv = netdev_priv(dev);
++	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
+
+  	return sprintf(buf, "%d\n", priv->fifo_starve);
+  }
+
+-
+-static ssize_t gfar_set_fifo_starve(struct class_device *cdev,
+-		const char *buf, size_t count)
++static ssize_t gfar_set_fifo_starve(struct device *dev,
++				    struct device_attribute *attr,
++				    const char *buf, size_t count)
+  {
+-	struct net_device *dev = to_net_dev(cdev);
+-	struct gfar_private *priv = netdev_priv(dev);
++	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
+  	unsigned int num = simple_strtoul(buf, NULL, 0);
+  	u32 temp;
+  	unsigned long flags;
+@@ -253,19 +254,20 @@ static ssize_t gfar_set_fifo_starve(struct class_device *cdev,
+  	return count;
+  }
+
+-static ssize_t gfar_show_fifo_starve_off(struct class_device *cdev, char *buf)
++static ssize_t gfar_show_fifo_starve_off(struct device *dev,
++					 struct device_attribute *attr,
++					 char *buf)
+  {
+-	struct net_device *dev = to_net_dev(cdev);
+-	struct gfar_private *priv = netdev_priv(dev);
++	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
+
+  	return sprintf(buf, "%d\n", priv->fifo_starve_off);
+  }
+
+-static ssize_t gfar_set_fifo_starve_off(struct class_device *cdev,
+-		const char *buf, size_t count)
++static ssize_t gfar_set_fifo_starve_off(struct device *dev,
++					struct device_attribute *attr,
++					const char *buf, size_t count)
+  {
+-	struct net_device *dev = to_net_dev(cdev);
+-	struct gfar_private *priv = netdev_priv(dev);
++	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
+  	unsigned int num = simple_strtoul(buf, NULL, 0);
+  	u32 temp;
+  	unsigned long flags;
