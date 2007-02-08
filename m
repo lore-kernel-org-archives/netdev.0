@@ -1,233 +1,828 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH 3/5] Crypto: Add blkcipher accessors for using kernel data directly
-Date: Thu, 08 Feb 2007 16:32:29 +0000
-Message-ID: <20070208163229.23973.71555.stgit@warthog.cambridge.redhat.com>
+Subject: [PATCH 2/5] FCrypt encryption module
+Date: Thu, 08 Feb 2007 16:32:24 +0000
+Message-ID: <20070208163224.23973.81869.stgit@warthog.cambridge.redhat.com>
 References: <20070208163211.23973.5877.stgit@warthog.cambridge.redhat.com>
-Content-Type: text/plain; charset=utf-8; format=fixed
-Content-Transfer-Encoding: 8bit
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: hch@infradead.org, arjan@infradead.org, dhowells@redhat.com
 To: davem@davemloft.net, netdev@vger.kernel.org, herbert.xu@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:38828 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([66.187.233.31]:38808 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1423182AbXBHQcj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Feb 2007 11:32:39 -0500
+	id S1423171AbXBHQch (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Feb 2007 11:32:37 -0500
 In-Reply-To: <20070208163211.23973.5877.stgit@warthog.cambridge.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add blkcipher accessors for using kernel data directly without the use of
-scatter lists.
-
-Also add a CRYPTO_ALG_DMA algorithm capability flag to permit or deny the use
-of DMA and hardware accelerators.  A hardware accelerator may not be used to
-access any arbitrary piece of kernel memory lest it not be in a DMA'able
-region.  Only software algorithms may do that.
-
-If kernel data is going to be accessed directly, then CRYPTO_ALG_DMA must, for
-instance, be passed in the mask of crypto_alloc_blkcipher(), but not the type.
+Add a crypto module to provide FCrypt encryption as used by RxRPC.
 
 Signed-Off-By: David Howells <dhowells@redhat.com>
 ---
 
- crypto/blkcipher.c     |    2 ++
- crypto/pcbc.c          |   60 ++++++++++++++++++++++++++++++++++++++++++++++++
- include/linux/crypto.h |   52 +++++++++++++++++++++++++++++++++++++++++-
- 3 files changed, 113 insertions(+), 1 deletions(-)
+ crypto/Kconfig  |    7 +
+ crypto/Makefile |    1=20
+ crypto/fcrypt.c |  423 +++++++++++++++++++++++++++++++++++++++++++++++=
+++++++++
+ crypto/tcrypt.c |   16 ++
+ crypto/tcrypt.h |  128 +++++++++++++++++
+ 5 files changed, 574 insertions(+), 1 deletions(-)
 
-diff --git a/crypto/blkcipher.c b/crypto/blkcipher.c
-index 6e93004..d43c22e 100644
---- a/crypto/blkcipher.c
-+++ b/crypto/blkcipher.c
-@@ -371,6 +371,8 @@ static int crypto_init_blkcipher_ops(str
- 	crt->setkey = setkey;
- 	crt->encrypt = alg->encrypt;
- 	crt->decrypt = alg->decrypt;
-+	crt->encrypt_kernel = alg->encrypt_kernel;
-+	crt->decrypt_kernel = alg->decrypt_kernel;
- 
- 	addr = (unsigned long)crypto_tfm_ctx(tfm);
- 	addr = ALIGN(addr, align);
-diff --git a/crypto/pcbc.c b/crypto/pcbc.c
-index 0ffb46e..5ac751e 100644
---- a/crypto/pcbc.c
-+++ b/crypto/pcbc.c
-@@ -126,6 +126,35 @@ static int crypto_pcbc_encrypt(struct bl
- 	return err;
- }
- 
-+static int crypto_pcbc_encrypt_kernel(struct blkcipher_desc *desc,
-+				      u8 *dst, const u8 *src,
-+				      unsigned int nbytes)
+diff --git a/crypto/Kconfig b/crypto/Kconfig
+index 48996b7..6d0d682 100644
+--- a/crypto/Kconfig
++++ b/crypto/Kconfig
+@@ -177,6 +177,13 @@ config CRYPTO_DES
+ 	help
+ 	  DES cipher algorithm (FIPS 46-2), and Triple DES EDE (FIPS 46-3).
+=20
++config CRYPTO_FCRYPT
++	tristate "FCrypt cipher algorithm"
++	select CRYPTO_ALGAPI
++	select CRYPTO_BLKCIPHER
++	help
++	  FCrypt algorithm used by RxRPC.
++
+ config CRYPTO_BLOWFISH
+ 	tristate "Blowfish cipher algorithm"
+ 	select CRYPTO_ALGAPI
+diff --git a/crypto/Makefile b/crypto/Makefile
+index 9ef048d..a3e1915 100644
+--- a/crypto/Makefile
++++ b/crypto/Makefile
+@@ -30,6 +30,7 @@ obj-$(CONFIG_CRYPTO_CBC) +=3D cbc.o
+ obj-$(CONFIG_CRYPTO_PCBC) +=3D pcbc.o
+ obj-$(CONFIG_CRYPTO_LRW) +=3D lrw.o
+ obj-$(CONFIG_CRYPTO_DES) +=3D des.o
++obj-$(CONFIG_CRYPTO_FCRYPT) +=3D fcrypt.o
+ obj-$(CONFIG_CRYPTO_BLOWFISH) +=3D blowfish.o
+ obj-$(CONFIG_CRYPTO_TWOFISH) +=3D twofish.o
+ obj-$(CONFIG_CRYPTO_TWOFISH_COMMON) +=3D twofish_common.o
+diff --git a/crypto/fcrypt.c b/crypto/fcrypt.c
+new file mode 100644
+index 0000000..9c2bb53
+--- /dev/null
++++ b/crypto/fcrypt.c
+@@ -0,0 +1,423 @@
++/* FCrypt encryption algorithm
++ *
++ * Copyright (C) 2006 Red Hat, Inc. All Rights Reserved.
++ * Written by David Howells (dhowells@redhat.com)
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software Foundation; either version
++ * 2 of the License, or (at your option) any later version.
++ *
++ * Based on code:
++ *
++ * Copyright (c) 1995 - 2000 Kungliga Tekniska H=F6gskolan
++ * (Royal Institute of Technology, Stockholm, Sweden).
++ * All rights reserved.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ *
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ *
++ * 2. Redistributions in binary form must reproduce the above copyrigh=
+t
++ *    notice, this list of conditions and the following disclaimer in =
+the
++ *    documentation and/or other materials provided with the distribut=
+ion.
++ *
++ * 3. Neither the name of the Institute nor the names of its contribut=
+ors
++ *    may be used to endorse or promote products derived from this sof=
+tware
++ *    without specific prior written permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE INSTITUTE AND CONTRIBUTORS ``AS IS=
+'' AND
++ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, T=
+HE
++ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR =
+PURPOSE
++ * ARE DISCLAIMED.  IN NO EVENT SHALL THE INSTITUTE OR CONTRIBUTORS BE=
+ LIABLE
++ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQ=
+UENTIAL
++ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE G=
+OODS
++ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTIO=
+N)
++ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,=
+ STRICT
++ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN A=
+NY WAY
++ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY=
+ OF
++ * SUCH DAMAGE.
++ */
++
++#include <asm/byteorder.h>
++#include <linux/bitops.h>
++#include <linux/init.h>
++#include <linux/module.h>
++#include <linux/crypto.h>
++
++#define ROUNDS 16
++
++struct fcrypt_ctx {
++	u32 sched[ROUNDS];
++};
++
++/* Rotate right two 32 bit numbers as a 56 bit number */
++#define ror56(hi, lo, n)					\
++do {								\
++	u32 t =3D lo & ((1 << n) - 1);				\
++	lo =3D (lo >> n) | ((hi & ((1 << n) - 1)) << (32 - n));	\
++	hi =3D (hi >> n) | (t << (24-n));				\
++} while(0)
++
++/* Rotate right one 64 bit number as a 56 bit number */
++#define ror56_64(k, n)						\
++do {								\
++	k =3D (k >> n) | ((k & ((1 << n) - 1)) << (56 - n));	\
++} while(0)
++
++/*
++ * Sboxes for Feistel network derived from
++ * /afs/transarc.com/public/afsps/afs.rel31b.export-src/rxkad/sboxes.h
++ */
++#undef Z
++#define Z(x) __constant_be32_to_cpu(x << 3)
++static const u32 sbox0[256] =3D {
++	Z(0xea), Z(0x7f), Z(0xb2), Z(0x64), Z(0x9d), Z(0xb0), Z(0xd9), Z(0x11=
+),
++	Z(0xcd), Z(0x86), Z(0x86), Z(0x91), Z(0x0a), Z(0xb2), Z(0x93), Z(0x06=
+),
++	Z(0x0e), Z(0x06), Z(0xd2), Z(0x65), Z(0x73), Z(0xc5), Z(0x28), Z(0x60=
+),
++	Z(0xf2), Z(0x20), Z(0xb5), Z(0x38), Z(0x7e), Z(0xda), Z(0x9f), Z(0xe3=
+),
++	Z(0xd2), Z(0xcf), Z(0xc4), Z(0x3c), Z(0x61), Z(0xff), Z(0x4a), Z(0x4a=
+),
++	Z(0x35), Z(0xac), Z(0xaa), Z(0x5f), Z(0x2b), Z(0xbb), Z(0xbc), Z(0x53=
+),
++	Z(0x4e), Z(0x9d), Z(0x78), Z(0xa3), Z(0xdc), Z(0x09), Z(0x32), Z(0x10=
+),
++	Z(0xc6), Z(0x6f), Z(0x66), Z(0xd6), Z(0xab), Z(0xa9), Z(0xaf), Z(0xfd=
+),
++	Z(0x3b), Z(0x95), Z(0xe8), Z(0x34), Z(0x9a), Z(0x81), Z(0x72), Z(0x80=
+),
++	Z(0x9c), Z(0xf3), Z(0xec), Z(0xda), Z(0x9f), Z(0x26), Z(0x76), Z(0x15=
+),
++	Z(0x3e), Z(0x55), Z(0x4d), Z(0xde), Z(0x84), Z(0xee), Z(0xad), Z(0xc7=
+),
++	Z(0xf1), Z(0x6b), Z(0x3d), Z(0xd3), Z(0x04), Z(0x49), Z(0xaa), Z(0x24=
+),
++	Z(0x0b), Z(0x8a), Z(0x83), Z(0xba), Z(0xfa), Z(0x85), Z(0xa0), Z(0xa8=
+),
++	Z(0xb1), Z(0xd4), Z(0x01), Z(0xd8), Z(0x70), Z(0x64), Z(0xf0), Z(0x51=
+),
++	Z(0xd2), Z(0xc3), Z(0xa7), Z(0x75), Z(0x8c), Z(0xa5), Z(0x64), Z(0xef=
+),
++	Z(0x10), Z(0x4e), Z(0xb7), Z(0xc6), Z(0x61), Z(0x03), Z(0xeb), Z(0x44=
+),
++	Z(0x3d), Z(0xe5), Z(0xb3), Z(0x5b), Z(0xae), Z(0xd5), Z(0xad), Z(0x1d=
+),
++	Z(0xfa), Z(0x5a), Z(0x1e), Z(0x33), Z(0xab), Z(0x93), Z(0xa2), Z(0xb7=
+),
++	Z(0xe7), Z(0xa8), Z(0x45), Z(0xa4), Z(0xcd), Z(0x29), Z(0x63), Z(0x44=
+),
++	Z(0xb6), Z(0x69), Z(0x7e), Z(0x2e), Z(0x62), Z(0x03), Z(0xc8), Z(0xe0=
+),
++	Z(0x17), Z(0xbb), Z(0xc7), Z(0xf3), Z(0x3f), Z(0x36), Z(0xba), Z(0x71=
+),
++	Z(0x8e), Z(0x97), Z(0x65), Z(0x60), Z(0x69), Z(0xb6), Z(0xf6), Z(0xe6=
+),
++	Z(0x6e), Z(0xe0), Z(0x81), Z(0x59), Z(0xe8), Z(0xaf), Z(0xdd), Z(0x95=
+),
++	Z(0x22), Z(0x99), Z(0xfd), Z(0x63), Z(0x19), Z(0x74), Z(0x61), Z(0xb1=
+),
++	Z(0xb6), Z(0x5b), Z(0xae), Z(0x54), Z(0xb3), Z(0x70), Z(0xff), Z(0xc6=
+),
++	Z(0x3b), Z(0x3e), Z(0xc1), Z(0xd7), Z(0xe1), Z(0x0e), Z(0x76), Z(0xe5=
+),
++	Z(0x36), Z(0x4f), Z(0x59), Z(0xc7), Z(0x08), Z(0x6e), Z(0x82), Z(0xa6=
+),
++	Z(0x93), Z(0xc4), Z(0xaa), Z(0x26), Z(0x49), Z(0xe0), Z(0x21), Z(0x64=
+),
++	Z(0x07), Z(0x9f), Z(0x64), Z(0x81), Z(0x9c), Z(0xbf), Z(0xf9), Z(0xd1=
+),
++	Z(0x43), Z(0xf8), Z(0xb6), Z(0xb9), Z(0xf1), Z(0x24), Z(0x75), Z(0x03=
+),
++	Z(0xe4), Z(0xb0), Z(0x99), Z(0x46), Z(0x3d), Z(0xf5), Z(0xd1), Z(0x39=
+),
++	Z(0x72), Z(0x12), Z(0xf6), Z(0xba), Z(0x0c), Z(0x0d), Z(0x42), Z(0x2e=
+)
++};
++
++#undef Z
++#define Z(x) __constant_be32_to_cpu((x << 27) | (x >> 5))
++static const u32 sbox1[256] =3D {
++	Z(0x77), Z(0x14), Z(0xa6), Z(0xfe), Z(0xb2), Z(0x5e), Z(0x8c), Z(0x3e=
+),
++	Z(0x67), Z(0x6c), Z(0xa1), Z(0x0d), Z(0xc2), Z(0xa2), Z(0xc1), Z(0x85=
+),
++	Z(0x6c), Z(0x7b), Z(0x67), Z(0xc6), Z(0x23), Z(0xe3), Z(0xf2), Z(0x89=
+),
++	Z(0x50), Z(0x9c), Z(0x03), Z(0xb7), Z(0x73), Z(0xe6), Z(0xe1), Z(0x39=
+),
++	Z(0x31), Z(0x2c), Z(0x27), Z(0x9f), Z(0xa5), Z(0x69), Z(0x44), Z(0xd6=
+),
++	Z(0x23), Z(0x83), Z(0x98), Z(0x7d), Z(0x3c), Z(0xb4), Z(0x2d), Z(0x99=
+),
++	Z(0x1c), Z(0x1f), Z(0x8c), Z(0x20), Z(0x03), Z(0x7c), Z(0x5f), Z(0xad=
+),
++	Z(0xf4), Z(0xfa), Z(0x95), Z(0xca), Z(0x76), Z(0x44), Z(0xcd), Z(0xb6=
+),
++	Z(0xb8), Z(0xa1), Z(0xa1), Z(0xbe), Z(0x9e), Z(0x54), Z(0x8f), Z(0x0b=
+),
++	Z(0x16), Z(0x74), Z(0x31), Z(0x8a), Z(0x23), Z(0x17), Z(0x04), Z(0xfa=
+),
++	Z(0x79), Z(0x84), Z(0xb1), Z(0xf5), Z(0x13), Z(0xab), Z(0xb5), Z(0x2e=
+),
++	Z(0xaa), Z(0x0c), Z(0x60), Z(0x6b), Z(0x5b), Z(0xc4), Z(0x4b), Z(0xbc=
+),
++	Z(0xe2), Z(0xaf), Z(0x45), Z(0x73), Z(0xfa), Z(0xc9), Z(0x49), Z(0xcd=
+),
++	Z(0x00), Z(0x92), Z(0x7d), Z(0x97), Z(0x7a), Z(0x18), Z(0x60), Z(0x3d=
+),
++	Z(0xcf), Z(0x5b), Z(0xde), Z(0xc6), Z(0xe2), Z(0xe6), Z(0xbb), Z(0x8b=
+),
++	Z(0x06), Z(0xda), Z(0x08), Z(0x15), Z(0x1b), Z(0x88), Z(0x6a), Z(0x17=
+),
++	Z(0x89), Z(0xd0), Z(0xa9), Z(0xc1), Z(0xc9), Z(0x70), Z(0x6b), Z(0xe5=
+),
++	Z(0x43), Z(0xf4), Z(0x68), Z(0xc8), Z(0xd3), Z(0x84), Z(0x28), Z(0x0a=
+),
++	Z(0x52), Z(0x66), Z(0xa3), Z(0xca), Z(0xf2), Z(0xe3), Z(0x7f), Z(0x7a=
+),
++	Z(0x31), Z(0xf7), Z(0x88), Z(0x94), Z(0x5e), Z(0x9c), Z(0x63), Z(0xd5=
+),
++	Z(0x24), Z(0x66), Z(0xfc), Z(0xb3), Z(0x57), Z(0x25), Z(0xbe), Z(0x89=
+),
++	Z(0x44), Z(0xc4), Z(0xe0), Z(0x8f), Z(0x23), Z(0x3c), Z(0x12), Z(0x52=
+),
++	Z(0xf5), Z(0x1e), Z(0xf4), Z(0xcb), Z(0x18), Z(0x33), Z(0x1f), Z(0xf8=
+),
++	Z(0x69), Z(0x10), Z(0x9d), Z(0xd3), Z(0xf7), Z(0x28), Z(0xf8), Z(0x30=
+),
++	Z(0x05), Z(0x5e), Z(0x32), Z(0xc0), Z(0xd5), Z(0x19), Z(0xbd), Z(0x45=
+),
++	Z(0x8b), Z(0x5b), Z(0xfd), Z(0xbc), Z(0xe2), Z(0x5c), Z(0xa9), Z(0x96=
+),
++	Z(0xef), Z(0x70), Z(0xcf), Z(0xc2), Z(0x2a), Z(0xb3), Z(0x61), Z(0xad=
+),
++	Z(0x80), Z(0x48), Z(0x81), Z(0xb7), Z(0x1d), Z(0x43), Z(0xd9), Z(0xd7=
+),
++	Z(0x45), Z(0xf0), Z(0xd8), Z(0x8a), Z(0x59), Z(0x7c), Z(0x57), Z(0xc1=
+),
++	Z(0x79), Z(0xc7), Z(0x34), Z(0xd6), Z(0x43), Z(0xdf), Z(0xe4), Z(0x78=
+),
++	Z(0x16), Z(0x06), Z(0xda), Z(0x92), Z(0x76), Z(0x51), Z(0xe1), Z(0xd4=
+),
++	Z(0x70), Z(0x03), Z(0xe0), Z(0x2f), Z(0x96), Z(0x91), Z(0x82), Z(0x80=
+)
++};
++
++#undef Z
++#define Z(x) __constant_be32_to_cpu(x << 11)
++static const u32 sbox2[256] =3D {
++	Z(0xf0), Z(0x37), Z(0x24), Z(0x53), Z(0x2a), Z(0x03), Z(0x83), Z(0x86=
+),
++	Z(0xd1), Z(0xec), Z(0x50), Z(0xf0), Z(0x42), Z(0x78), Z(0x2f), Z(0x6d=
+),
++	Z(0xbf), Z(0x80), Z(0x87), Z(0x27), Z(0x95), Z(0xe2), Z(0xc5), Z(0x5d=
+),
++	Z(0xf9), Z(0x6f), Z(0xdb), Z(0xb4), Z(0x65), Z(0x6e), Z(0xe7), Z(0x24=
+),
++	Z(0xc8), Z(0x1a), Z(0xbb), Z(0x49), Z(0xb5), Z(0x0a), Z(0x7d), Z(0xb9=
+),
++	Z(0xe8), Z(0xdc), Z(0xb7), Z(0xd9), Z(0x45), Z(0x20), Z(0x1b), Z(0xce=
+),
++	Z(0x59), Z(0x9d), Z(0x6b), Z(0xbd), Z(0x0e), Z(0x8f), Z(0xa3), Z(0xa9=
+),
++	Z(0xbc), Z(0x74), Z(0xa6), Z(0xf6), Z(0x7f), Z(0x5f), Z(0xb1), Z(0x68=
+),
++	Z(0x84), Z(0xbc), Z(0xa9), Z(0xfd), Z(0x55), Z(0x50), Z(0xe9), Z(0xb6=
+),
++	Z(0x13), Z(0x5e), Z(0x07), Z(0xb8), Z(0x95), Z(0x02), Z(0xc0), Z(0xd0=
+),
++	Z(0x6a), Z(0x1a), Z(0x85), Z(0xbd), Z(0xb6), Z(0xfd), Z(0xfe), Z(0x17=
+),
++	Z(0x3f), Z(0x09), Z(0xa3), Z(0x8d), Z(0xfb), Z(0xed), Z(0xda), Z(0x1d=
+),
++	Z(0x6d), Z(0x1c), Z(0x6c), Z(0x01), Z(0x5a), Z(0xe5), Z(0x71), Z(0x3e=
+),
++	Z(0x8b), Z(0x6b), Z(0xbe), Z(0x29), Z(0xeb), Z(0x12), Z(0x19), Z(0x34=
+),
++	Z(0xcd), Z(0xb3), Z(0xbd), Z(0x35), Z(0xea), Z(0x4b), Z(0xd5), Z(0xae=
+),
++	Z(0x2a), Z(0x79), Z(0x5a), Z(0xa5), Z(0x32), Z(0x12), Z(0x7b), Z(0xdc=
+),
++	Z(0x2c), Z(0xd0), Z(0x22), Z(0x4b), Z(0xb1), Z(0x85), Z(0x59), Z(0x80=
+),
++	Z(0xc0), Z(0x30), Z(0x9f), Z(0x73), Z(0xd3), Z(0x14), Z(0x48), Z(0x40=
+),
++	Z(0x07), Z(0x2d), Z(0x8f), Z(0x80), Z(0x0f), Z(0xce), Z(0x0b), Z(0x5e=
+),
++	Z(0xb7), Z(0x5e), Z(0xac), Z(0x24), Z(0x94), Z(0x4a), Z(0x18), Z(0x15=
+),
++	Z(0x05), Z(0xe8), Z(0x02), Z(0x77), Z(0xa9), Z(0xc7), Z(0x40), Z(0x45=
+),
++	Z(0x89), Z(0xd1), Z(0xea), Z(0xde), Z(0x0c), Z(0x79), Z(0x2a), Z(0x99=
+),
++	Z(0x6c), Z(0x3e), Z(0x95), Z(0xdd), Z(0x8c), Z(0x7d), Z(0xad), Z(0x6f=
+),
++	Z(0xdc), Z(0xff), Z(0xfd), Z(0x62), Z(0x47), Z(0xb3), Z(0x21), Z(0x8a=
+),
++	Z(0xec), Z(0x8e), Z(0x19), Z(0x18), Z(0xb4), Z(0x6e), Z(0x3d), Z(0xfd=
+),
++	Z(0x74), Z(0x54), Z(0x1e), Z(0x04), Z(0x85), Z(0xd8), Z(0xbc), Z(0x1f=
+),
++	Z(0x56), Z(0xe7), Z(0x3a), Z(0x56), Z(0x67), Z(0xd6), Z(0xc8), Z(0xa5=
+),
++	Z(0xf3), Z(0x8e), Z(0xde), Z(0xae), Z(0x37), Z(0x49), Z(0xb7), Z(0xfa=
+),
++	Z(0xc8), Z(0xf4), Z(0x1f), Z(0xe0), Z(0x2a), Z(0x9b), Z(0x15), Z(0xd1=
+),
++	Z(0x34), Z(0x0e), Z(0xb5), Z(0xe0), Z(0x44), Z(0x78), Z(0x84), Z(0x59=
+),
++	Z(0x56), Z(0x68), Z(0x77), Z(0xa5), Z(0x14), Z(0x06), Z(0xf5), Z(0x2f=
+),
++	Z(0x8c), Z(0x8a), Z(0x73), Z(0x80), Z(0x76), Z(0xb4), Z(0x10), Z(0x86=
+)
++};
++
++#undef Z
++#define Z(x) __constant_be32_to_cpu(x << 19)
++static const u32 sbox3[256] =3D {
++	Z(0xa9), Z(0x2a), Z(0x48), Z(0x51), Z(0x84), Z(0x7e), Z(0x49), Z(0xe2=
+),
++	Z(0xb5), Z(0xb7), Z(0x42), Z(0x33), Z(0x7d), Z(0x5d), Z(0xa6), Z(0x12=
+),
++	Z(0x44), Z(0x48), Z(0x6d), Z(0x28), Z(0xaa), Z(0x20), Z(0x6d), Z(0x57=
+),
++	Z(0xd6), Z(0x6b), Z(0x5d), Z(0x72), Z(0xf0), Z(0x92), Z(0x5a), Z(0x1b=
+),
++	Z(0x53), Z(0x80), Z(0x24), Z(0x70), Z(0x9a), Z(0xcc), Z(0xa7), Z(0x66=
+),
++	Z(0xa1), Z(0x01), Z(0xa5), Z(0x41), Z(0x97), Z(0x41), Z(0x31), Z(0x82=
+),
++	Z(0xf1), Z(0x14), Z(0xcf), Z(0x53), Z(0x0d), Z(0xa0), Z(0x10), Z(0xcc=
+),
++	Z(0x2a), Z(0x7d), Z(0xd2), Z(0xbf), Z(0x4b), Z(0x1a), Z(0xdb), Z(0x16=
+),
++	Z(0x47), Z(0xf6), Z(0x51), Z(0x36), Z(0xed), Z(0xf3), Z(0xb9), Z(0x1a=
+),
++	Z(0xa7), Z(0xdf), Z(0x29), Z(0x43), Z(0x01), Z(0x54), Z(0x70), Z(0xa4=
+),
++	Z(0xbf), Z(0xd4), Z(0x0b), Z(0x53), Z(0x44), Z(0x60), Z(0x9e), Z(0x23=
+),
++	Z(0xa1), Z(0x18), Z(0x68), Z(0x4f), Z(0xf0), Z(0x2f), Z(0x82), Z(0xc2=
+),
++	Z(0x2a), Z(0x41), Z(0xb2), Z(0x42), Z(0x0c), Z(0xed), Z(0x0c), Z(0x1d=
+),
++	Z(0x13), Z(0x3a), Z(0x3c), Z(0x6e), Z(0x35), Z(0xdc), Z(0x60), Z(0x65=
+),
++	Z(0x85), Z(0xe9), Z(0x64), Z(0x02), Z(0x9a), Z(0x3f), Z(0x9f), Z(0x87=
+),
++	Z(0x96), Z(0xdf), Z(0xbe), Z(0xf2), Z(0xcb), Z(0xe5), Z(0x6c), Z(0xd4=
+),
++	Z(0x5a), Z(0x83), Z(0xbf), Z(0x92), Z(0x1b), Z(0x94), Z(0x00), Z(0x42=
+),
++	Z(0xcf), Z(0x4b), Z(0x00), Z(0x75), Z(0xba), Z(0x8f), Z(0x76), Z(0x5f=
+),
++	Z(0x5d), Z(0x3a), Z(0x4d), Z(0x09), Z(0x12), Z(0x08), Z(0x38), Z(0x95=
+),
++	Z(0x17), Z(0xe4), Z(0x01), Z(0x1d), Z(0x4c), Z(0xa9), Z(0xcc), Z(0x85=
+),
++	Z(0x82), Z(0x4c), Z(0x9d), Z(0x2f), Z(0x3b), Z(0x66), Z(0xa1), Z(0x34=
+),
++	Z(0x10), Z(0xcd), Z(0x59), Z(0x89), Z(0xa5), Z(0x31), Z(0xcf), Z(0x05=
+),
++	Z(0xc8), Z(0x84), Z(0xfa), Z(0xc7), Z(0xba), Z(0x4e), Z(0x8b), Z(0x1a=
+),
++	Z(0x19), Z(0xf1), Z(0xa1), Z(0x3b), Z(0x18), Z(0x12), Z(0x17), Z(0xb0=
+),
++	Z(0x98), Z(0x8d), Z(0x0b), Z(0x23), Z(0xc3), Z(0x3a), Z(0x2d), Z(0x20=
+),
++	Z(0xdf), Z(0x13), Z(0xa0), Z(0xa8), Z(0x4c), Z(0x0d), Z(0x6c), Z(0x2f=
+),
++	Z(0x47), Z(0x13), Z(0x13), Z(0x52), Z(0x1f), Z(0x2d), Z(0xf5), Z(0x79=
+),
++	Z(0x3d), Z(0xa2), Z(0x54), Z(0xbd), Z(0x69), Z(0xc8), Z(0x6b), Z(0xf3=
+),
++	Z(0x05), Z(0x28), Z(0xf1), Z(0x16), Z(0x46), Z(0x40), Z(0xb0), Z(0x11=
+),
++	Z(0xd3), Z(0xb7), Z(0x95), Z(0x49), Z(0xcf), Z(0xc3), Z(0x1d), Z(0x8f=
+),
++	Z(0xd8), Z(0xe1), Z(0x73), Z(0xdb), Z(0xad), Z(0xc8), Z(0xc9), Z(0xa9=
+),
++	Z(0xa1), Z(0xc2), Z(0xc5), Z(0xe3), Z(0xba), Z(0xfc), Z(0x0e), Z(0x25=
+)
++};
++
++/*
++ * This is a 16 round Feistel network with permutation F_ENCRYPT
++ */
++#define F_ENCRYPT(R, L, sched)						\
++do {									\
++	union lc4 { u32 l; u8 c[4]; } u;				\
++	u.l =3D sched ^ R;						\
++	L ^=3D sbox0[u.c[0]] ^ sbox1[u.c[1]] ^ sbox2[u.c[2]] ^ sbox3[u.c[3]];=
+ \
++} while(0)
++
++/*
++ * encryptor
++ */
++static void fcrypt_encrypt(struct crypto_tfm *tfm, u8 *dst, const u8 *=
+src)
 +{
-+	struct blkcipher_walk walk;
-+	struct crypto_blkcipher *tfm = desc->tfm;
-+	struct crypto_pcbc_ctx *ctx = crypto_blkcipher_ctx(tfm);
-+	struct crypto_cipher *child = ctx->child;
-+	void (*xor)(u8 *, const u8 *, unsigned int bs) = ctx->xor;
++	const struct fcrypt_ctx *ctx =3D crypto_tfm_ctx(tfm);
++	struct {
++		u32 l, r;
++	} X;
 +
-+	BUG_ON(crypto_tfm_alg_capabilities(child) & CRYPTO_ALG_DMA);
++	memcpy(&X, src, sizeof(X));
 +
-+	if (nbytes == 0)
-+		return 0;
++	F_ENCRYPT(X.r, X.l, ctx->sched[0x0]);
++	F_ENCRYPT(X.l, X.r, ctx->sched[0x1]);
++	F_ENCRYPT(X.r, X.l, ctx->sched[0x2]);
++	F_ENCRYPT(X.l, X.r, ctx->sched[0x3]);
++	F_ENCRYPT(X.r, X.l, ctx->sched[0x4]);
++	F_ENCRYPT(X.l, X.r, ctx->sched[0x5]);
++	F_ENCRYPT(X.r, X.l, ctx->sched[0x6]);
++	F_ENCRYPT(X.l, X.r, ctx->sched[0x7]);
++	F_ENCRYPT(X.r, X.l, ctx->sched[0x8]);
++	F_ENCRYPT(X.l, X.r, ctx->sched[0x9]);
++	F_ENCRYPT(X.r, X.l, ctx->sched[0xa]);
++	F_ENCRYPT(X.l, X.r, ctx->sched[0xb]);
++	F_ENCRYPT(X.r, X.l, ctx->sched[0xc]);
++	F_ENCRYPT(X.l, X.r, ctx->sched[0xd]);
++	F_ENCRYPT(X.r, X.l, ctx->sched[0xe]);
++	F_ENCRYPT(X.l, X.r, ctx->sched[0xf]);
 +
-+	memset(&walk, 0, sizeof(walk));
-+	walk.src.virt.addr = (u8 *) src;
-+	walk.dst.virt.addr = (u8 *) dst;
-+	walk.nbytes = nbytes;
-+	walk.total = nbytes;
-+	walk.iv = desc->info;
-+
-+	if (walk.src.virt.addr == walk.dst.virt.addr)
-+		nbytes = crypto_pcbc_encrypt_inplace(desc, &walk, child, xor);
-+	else
-+		nbytes = crypto_pcbc_encrypt_segment(desc, &walk, child, xor);
-+	return 0;
++	memcpy(dst, &X, sizeof(X));
 +}
 +
- static int crypto_pcbc_decrypt_segment(struct blkcipher_desc *desc,
- 				       struct blkcipher_walk *walk,
- 				       struct crypto_cipher *tfm,
-@@ -211,6 +240,35 @@ static int crypto_pcbc_decrypt(struct bl
- 	return err;
- }
- 
-+static int crypto_pcbc_decrypt_kernel(struct blkcipher_desc *desc,
-+				      u8 *dst, const u8 *src,
-+				      unsigned int nbytes)
++/*
++ * decryptor
++ */
++static void fcrypt_decrypt(struct crypto_tfm *tfm, u8 *dst, const u8 *=
+src)
 +{
-+	struct blkcipher_walk walk;
-+	struct crypto_blkcipher *tfm = desc->tfm;
-+	struct crypto_pcbc_ctx *ctx = crypto_blkcipher_ctx(tfm);
-+	struct crypto_cipher *child = ctx->child;
-+	void (*xor)(u8 *, const u8 *, unsigned int bs) = ctx->xor;
++	const struct fcrypt_ctx *ctx =3D crypto_tfm_ctx(tfm);
++	struct {
++		u32 l, r;
++	} X;
 +
-+	BUG_ON(crypto_tfm_alg_capabilities(child) & CRYPTO_ALG_DMA);
++	memcpy(&X, src, sizeof(X));
 +
-+	if (nbytes == 0)
-+		return 0;
++	F_ENCRYPT(X.l, X.r, ctx->sched[0xf]);
++	F_ENCRYPT(X.r, X.l, ctx->sched[0xe]);
++	F_ENCRYPT(X.l, X.r, ctx->sched[0xd]);
++	F_ENCRYPT(X.r, X.l, ctx->sched[0xc]);
++	F_ENCRYPT(X.l, X.r, ctx->sched[0xb]);
++	F_ENCRYPT(X.r, X.l, ctx->sched[0xa]);
++	F_ENCRYPT(X.l, X.r, ctx->sched[0x9]);
++	F_ENCRYPT(X.r, X.l, ctx->sched[0x8]);
++	F_ENCRYPT(X.l, X.r, ctx->sched[0x7]);
++	F_ENCRYPT(X.r, X.l, ctx->sched[0x6]);
++	F_ENCRYPT(X.l, X.r, ctx->sched[0x5]);
++	F_ENCRYPT(X.r, X.l, ctx->sched[0x4]);
++	F_ENCRYPT(X.l, X.r, ctx->sched[0x3]);
++	F_ENCRYPT(X.r, X.l, ctx->sched[0x2]);
++	F_ENCRYPT(X.l, X.r, ctx->sched[0x1]);
++	F_ENCRYPT(X.r, X.l, ctx->sched[0x0]);
 +
-+	memset(&walk, 0, sizeof(walk));
-+	walk.src.virt.addr = (u8 *) src;
-+	walk.dst.virt.addr = (u8 *) dst;
-+	walk.nbytes = nbytes;
-+	walk.total = nbytes;
-+	walk.iv = desc->info;
-+
-+	if (walk.src.virt.addr == walk.dst.virt.addr)
-+		nbytes = crypto_pcbc_decrypt_inplace(desc, &walk, child, xor);
-+	else
-+		nbytes = crypto_pcbc_decrypt_segment(desc, &walk, child, xor);
-+	return 0;
++	memcpy(dst, &X, sizeof(X));
 +}
 +
- static void xor_byte(u8 *a, const u8 *b, unsigned int bs)
- {
- 	do {
-@@ -312,6 +370,8 @@ static struct crypto_instance *crypto_pc
- 	inst->alg.cra_blkcipher.setkey = crypto_pcbc_setkey;
- 	inst->alg.cra_blkcipher.encrypt = crypto_pcbc_encrypt;
- 	inst->alg.cra_blkcipher.decrypt = crypto_pcbc_decrypt;
-+	inst->alg.cra_blkcipher.encrypt_kernel = crypto_pcbc_encrypt_kernel;
-+	inst->alg.cra_blkcipher.decrypt_kernel = crypto_pcbc_decrypt_kernel;
- 
- out_put_alg:
- 	crypto_mod_put(alg);
-diff --git a/include/linux/crypto.h b/include/linux/crypto.h
-index 4aa9046..00ec299 100644
---- a/include/linux/crypto.h
-+++ b/include/linux/crypto.h
-@@ -40,7 +40,10 @@ #define CRYPTO_ALG_TYPE_HASH_MASK	0x0000
- #define CRYPTO_ALG_LARVAL		0x00000010
- #define CRYPTO_ALG_DEAD			0x00000020
- #define CRYPTO_ALG_DYING		0x00000040
--#define CRYPTO_ALG_ASYNC		0x00000080
++/*
++ * Generate a key schedule from key, the least significant bit in each=
+ key byte
++ * is parity and shall be ignored. This leaves 56 significant bits in =
+the key
++ * to scatter over the 16 key schedules. For each schedule extract the=
+ low
++ * order 32 bits and use as schedule, then rotate right by 11 bits.
++ */
++static int fcrypt_setkey(struct crypto_tfm *tfm, const u8 *key, unsign=
+ed int keylen)
++{
++	struct fcrypt_ctx *ctx =3D crypto_tfm_ctx(tfm);
 +
-+#define CRYPTO_ALG_CAP_MASK		0x00000180	/* capabilities mask */
-+#define CRYPTO_ALG_ASYNC		0x00000080	/* capable of async operation */
-+#define CRYPTO_ALG_DMA			0x00000100	/* capable of using of DMA */
- 
- /*
-  * Set this bit if and only if the algorithm requires another algorithm of
-@@ -135,6 +138,10 @@ struct blkcipher_alg {
- 	int (*decrypt)(struct blkcipher_desc *desc,
- 		       struct scatterlist *dst, struct scatterlist *src,
- 		       unsigned int nbytes);
-+	int (*encrypt_kernel)(struct blkcipher_desc *desc, u8 *dst,
-+			      const u8 *src, unsigned int nbytes);
-+	int (*decrypt_kernel)(struct blkcipher_desc *desc, u8 *dst,
-+			      const u8 *src, unsigned int nbytes);
- 
- 	unsigned int min_keysize;
- 	unsigned int max_keysize;
-@@ -268,6 +275,10 @@ struct blkcipher_tfm {
- 		       struct scatterlist *src, unsigned int nbytes);
- 	int (*decrypt)(struct blkcipher_desc *desc, struct scatterlist *dst,
- 		       struct scatterlist *src, unsigned int nbytes);
-+	int (*encrypt_kernel)(struct blkcipher_desc *desc, u8 *dst,
-+			      const u8 *src, unsigned int nbytes);
-+	int (*decrypt_kernel)(struct blkcipher_desc *desc, u8 *dst,
-+			      const u8 *src, unsigned int nbytes);
++#if BITS_PER_LONG =3D=3D 64  /* the 64-bit version can also be used fo=
+r 32-bit
++			  * kernels - it seems to be faster but the code is
++			  * larger */
++
++	u64 k;	/* k holds all 56 non-parity bits */
++
++	/* discard the parity bits */
++	k =3D (*key++) >> 1;
++	k <<=3D 7;
++	k |=3D (*key++) >> 1;
++	k <<=3D 7;
++	k |=3D (*key++) >> 1;
++	k <<=3D 7;
++	k |=3D (*key++) >> 1;
++	k <<=3D 7;
++	k |=3D (*key++) >> 1;
++	k <<=3D 7;
++	k |=3D (*key++) >> 1;
++	k <<=3D 7;
++	k |=3D (*key++) >> 1;
++	k <<=3D 7;
++	k |=3D (*key) >> 1;
++
++	/* Use lower 32 bits for schedule, rotate by 11 each round (16 times)=
+ */
++	ctx->sched[0x0] =3D be32_to_cpu(k); ror56_64(k, 11);
++	ctx->sched[0x1] =3D be32_to_cpu(k); ror56_64(k, 11);
++	ctx->sched[0x2] =3D be32_to_cpu(k); ror56_64(k, 11);
++	ctx->sched[0x3] =3D be32_to_cpu(k); ror56_64(k, 11);
++	ctx->sched[0x4] =3D be32_to_cpu(k); ror56_64(k, 11);
++	ctx->sched[0x5] =3D be32_to_cpu(k); ror56_64(k, 11);
++	ctx->sched[0x6] =3D be32_to_cpu(k); ror56_64(k, 11);
++	ctx->sched[0x7] =3D be32_to_cpu(k); ror56_64(k, 11);
++	ctx->sched[0x8] =3D be32_to_cpu(k); ror56_64(k, 11);
++	ctx->sched[0x9] =3D be32_to_cpu(k); ror56_64(k, 11);
++	ctx->sched[0xa] =3D be32_to_cpu(k); ror56_64(k, 11);
++	ctx->sched[0xb] =3D be32_to_cpu(k); ror56_64(k, 11);
++	ctx->sched[0xc] =3D be32_to_cpu(k); ror56_64(k, 11);
++	ctx->sched[0xd] =3D be32_to_cpu(k); ror56_64(k, 11);
++	ctx->sched[0xe] =3D be32_to_cpu(k); ror56_64(k, 11);
++	ctx->sched[0xf] =3D be32_to_cpu(k);
++
++	return 0;
++#else
++	u32 hi, lo;		/* hi is upper 24 bits and lo lower 32, total 56 */
++
++	/* discard the parity bits */
++	lo =3D (*key++) >> 1;
++	lo <<=3D 7;
++	lo |=3D (*key++) >> 1;
++	lo <<=3D 7;
++	lo |=3D (*key++) >> 1;
++	lo <<=3D 7;
++	lo |=3D (*key++) >> 1;
++	hi =3D lo >> 4;
++	lo &=3D 0xf;
++	lo <<=3D 7;
++	lo |=3D (*key++) >> 1;
++	lo <<=3D 7;
++	lo |=3D (*key++) >> 1;
++	lo <<=3D 7;
++	lo |=3D (*key++) >> 1;
++	lo <<=3D 7;
++	lo |=3D (*key) >> 1;
++
++	/* Use lower 32 bits for schedule, rotate by 11 each round (16 times)=
+ */
++	ctx->sched[0x0] =3D be32_to_cpu(lo); ror56(hi, lo, 11);
++	ctx->sched[0x1] =3D be32_to_cpu(lo); ror56(hi, lo, 11);
++	ctx->sched[0x2] =3D be32_to_cpu(lo); ror56(hi, lo, 11);
++	ctx->sched[0x3] =3D be32_to_cpu(lo); ror56(hi, lo, 11);
++	ctx->sched[0x4] =3D be32_to_cpu(lo); ror56(hi, lo, 11);
++	ctx->sched[0x5] =3D be32_to_cpu(lo); ror56(hi, lo, 11);
++	ctx->sched[0x6] =3D be32_to_cpu(lo); ror56(hi, lo, 11);
++	ctx->sched[0x7] =3D be32_to_cpu(lo); ror56(hi, lo, 11);
++	ctx->sched[0x8] =3D be32_to_cpu(lo); ror56(hi, lo, 11);
++	ctx->sched[0x9] =3D be32_to_cpu(lo); ror56(hi, lo, 11);
++	ctx->sched[0xa] =3D be32_to_cpu(lo); ror56(hi, lo, 11);
++	ctx->sched[0xb] =3D be32_to_cpu(lo); ror56(hi, lo, 11);
++	ctx->sched[0xc] =3D be32_to_cpu(lo); ror56(hi, lo, 11);
++	ctx->sched[0xd] =3D be32_to_cpu(lo); ror56(hi, lo, 11);
++	ctx->sched[0xe] =3D be32_to_cpu(lo); ror56(hi, lo, 11);
++	ctx->sched[0xf] =3D be32_to_cpu(lo);
++	return 0;
++#endif
++}
++
++static struct crypto_alg fcrypt_alg =3D {
++	.cra_name		=3D	"fcrypt",
++	.cra_flags		=3D	CRYPTO_ALG_TYPE_CIPHER,
++	.cra_blocksize		=3D	8,
++	.cra_ctxsize		=3D	sizeof(struct fcrypt_ctx),
++	.cra_module		=3D	THIS_MODULE,
++	.cra_alignmask		=3D	3,
++	.cra_list		=3D	LIST_HEAD_INIT(fcrypt_alg.cra_list),
++	.cra_u			=3D	{ .cipher =3D {
++	.cia_min_keysize	=3D	8,
++	.cia_max_keysize	=3D	8,
++	.cia_setkey		=3D	fcrypt_setkey,
++	.cia_encrypt		=3D	fcrypt_encrypt,
++	.cia_decrypt		=3D	fcrypt_decrypt } }
++};
++
++static int __init init(void)
++{
++	return crypto_register_alg(&fcrypt_alg);
++}
++
++static void __exit fini(void)
++{
++	crypto_unregister_alg(&fcrypt_alg);
++}
++
++module_init(init);
++module_exit(fini);
++
++MODULE_LICENSE("Dual BSD/GPL");
++MODULE_DESCRIPTION("FCrypt Cipher Algorithm");
++MODULE_AUTHOR("David Howells <dhowells@redhat.com>");
+diff --git a/crypto/tcrypt.c b/crypto/tcrypt.c
+index d671e89..eef0516 100644
+--- a/crypto/tcrypt.c
++++ b/crypto/tcrypt.c
+@@ -71,7 +71,8 @@ static char *check[] =3D {
+ 	"des", "md5", "des3_ede", "rot13", "sha1", "sha256", "blowfish",
+ 	"twofish", "serpent", "sha384", "sha512", "md4", "aes", "cast6",
+ 	"arc4", "michael_mic", "deflate", "crc32c", "tea", "xtea",
+-	"khazad", "wp512", "wp384", "wp256", "tnepres", "xeta", NULL
++	"khazad", "wp512", "wp384", "wp256", "tnepres", "xeta",  "fcrypt",
++	NULL
  };
- 
- struct cipher_tfm {
-@@ -395,6 +406,11 @@ static inline u32 crypto_tfm_alg_type(st
- 	return tfm->__crt_alg->cra_flags & CRYPTO_ALG_TYPE_MASK;
- }
- 
-+static inline u32 crypto_tfm_alg_capabilities(struct crypto_tfm *tfm)
-+{
-+	return tfm->__crt_alg->cra_flags & CRYPTO_ALG_CAP_MASK;
-+}
+=20
+ static void hexdump(unsigned char *buf, unsigned int len)
+@@ -964,6 +965,12 @@ static void do_test(void)
+ 		test_cipher("ecb(xeta)", DECRYPT, xeta_dec_tv_template,
+ 			    XETA_DEC_TEST_VECTORS);
+=20
++		//FCrypt
++		test_cipher("pcbc(fcrypt)", ENCRYPT, fcrypt_pcbc_enc_tv_template,
++			    FCRYPT_ENC_TEST_VECTORS);
++		test_cipher("pcbc(fcrypt)", DECRYPT, fcrypt_pcbc_dec_tv_template,
++			    FCRYPT_DEC_TEST_VECTORS);
 +
- static unsigned int crypto_tfm_alg_min_keysize(struct crypto_tfm *tfm)
- 	__deprecated;
- static inline unsigned int crypto_tfm_alg_min_keysize(struct crypto_tfm *tfm)
-@@ -581,6 +597,23 @@ static inline int crypto_blkcipher_encry
- 	return crypto_blkcipher_crt(desc->tfm)->encrypt(desc, dst, src, nbytes);
- }
- 
-+static inline void crypto_blkcipher_encrypt_kernel(struct blkcipher_desc *desc,
-+						   u8 *dst, const u8 *src,
-+						   unsigned int nbytes)
-+{
-+	desc->info = crypto_blkcipher_crt(desc->tfm)->iv;
-+	crypto_blkcipher_crt(desc->tfm)->encrypt_kernel(desc, dst, src,
-+							nbytes);
-+}
+ 		test_hash("sha384", sha384_tv_template, SHA384_TEST_VECTORS);
+ 		test_hash("sha512", sha512_tv_template, SHA512_TEST_VECTORS);
+ 		test_hash("wp512", wp512_tv_template, WP512_TEST_VECTORS);
+@@ -1177,6 +1184,13 @@ static void do_test(void)
+ 			    XETA_DEC_TEST_VECTORS);
+ 		break;
+=20
++	case 31:
++		test_cipher("pcbc(fcrypt)", ENCRYPT, fcrypt_pcbc_enc_tv_template,
++			    FCRYPT_ENC_TEST_VECTORS);
++		test_cipher("pcbc(fcrypt)", DECRYPT, fcrypt_pcbc_dec_tv_template,
++			    FCRYPT_DEC_TEST_VECTORS);
++		break;
 +
-+static inline void crypto_blkcipher_encrypt_kernel_iv(struct blkcipher_desc *desc,
-+						      u8 *dst, const u8 *src,
-+						      unsigned int nbytes)
-+{
-+	crypto_blkcipher_crt(desc->tfm)->encrypt_kernel(desc, dst, src,
-+							nbytes);
-+}
+ 	case 100:
+ 		test_hash("hmac(md5)", hmac_md5_tv_template,
+ 			  HMAC_MD5_TEST_VECTORS);
+diff --git a/crypto/tcrypt.h b/crypto/tcrypt.h
+index 48a8136..688cbeb 100644
+--- a/crypto/tcrypt.h
++++ b/crypto/tcrypt.h
+@@ -3316,6 +3316,134 @@ static struct cipher_testvec xeta_dec_tv
+ 	}
+ };
+=20
++/*=20
++ * FCrypt test vectors=20
++ */
++#define FCRYPT_ENC_TEST_VECTORS	ARRAY_SIZE(fcrypt_pcbc_enc_tv_template=
+)
++#define FCRYPT_DEC_TEST_VECTORS	ARRAY_SIZE(fcrypt_pcbc_dec_tv_template=
+)
 +
- static inline int crypto_blkcipher_decrypt(struct blkcipher_desc *desc,
- 					   struct scatterlist *dst,
- 					   struct scatterlist *src,
-@@ -598,6 +631,23 @@ static inline int crypto_blkcipher_decry
- 	return crypto_blkcipher_crt(desc->tfm)->decrypt(desc, dst, src, nbytes);
- }
- 
-+static inline void crypto_cipher_decrypt_kernel(struct blkcipher_desc *desc,
-+						u8 *dst, const u8 *src,
-+						unsigned int nbytes)
-+{
-+	desc->info = crypto_blkcipher_crt(desc->tfm)->iv;
-+	crypto_blkcipher_crt(desc->tfm)->decrypt_kernel(desc, dst, src,
-+							nbytes);
-+}
++static struct cipher_testvec fcrypt_pcbc_enc_tv_template[] =3D {
++	{ /* http://www.openafs.org/pipermail/openafs-devel/2000-December/005=
+320.html */
++		.key	=3D { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 },
++		.klen	=3D 8,
++		.iv	=3D { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 },
++		.input	=3D { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 },
++		.ilen	=3D 8,
++		.result	=3D { 0x0E, 0x09, 0x00, 0xC7, 0x3E, 0xF7, 0xED, 0x41 },
++		.rlen	=3D 8,
++	}, {
++		.key	=3D { 0x11, 0x44, 0x77, 0xAA, 0xDD, 0x00, 0x33, 0x66 },
++		.klen	=3D 8,
++		.iv	=3D { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 },
++		.input	=3D { 0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xF0 },
++		.ilen	=3D 8,
++		.result	=3D { 0xD8, 0xED, 0x78, 0x74, 0x77, 0xEC, 0x06, 0x80 },
++		.rlen	=3D 8,
++	}, { /* From Arla */
++		.key	=3D { 0xf0, 0xe1, 0xd2, 0xc3, 0xb4, 0xa5, 0x96, 0x87 },
++		.klen	=3D 8,
++		.iv	=3D { 0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10 },
++		.input	=3D "The quick brown fox jumps over the lazy dogs.\0\0",
++		.ilen	=3D 48,
++		.result	=3D { 0x00, 0xf0, 0xe,  0x11, 0x75, 0xe6, 0x23, 0x82,
++			    0xee, 0xac, 0x98, 0x62, 0x44, 0x51, 0xe4, 0x84,
++			    0xc3, 0x59, 0xd8, 0xaa, 0x64, 0x60, 0xae, 0xf7,
++			    0xd2, 0xd9, 0x13, 0x79, 0x72, 0xa3, 0x45, 0x03,
++			    0x23, 0xb5, 0x62, 0xd7, 0x0c, 0xf5, 0x27, 0xd1,
++			    0xf8, 0x91, 0x3c, 0xac, 0x44, 0x22, 0x92, 0xef },
++		.rlen	=3D 48,
++	}, {
++		.key	=3D { 0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10 },
++		.klen	=3D 8,
++		.iv	=3D { 0xf0, 0xe1, 0xd2, 0xc3, 0xb4, 0xa5, 0x96, 0x87 },
++		.input	=3D "The quick brown fox jumps over the lazy dogs.\0\0",
++		.ilen	=3D 48,
++		.result	=3D { 0xca, 0x90, 0xf5, 0x9d, 0xcb, 0xd4, 0xd2, 0x3c,
++			    0x01, 0x88, 0x7f, 0x3e, 0x31, 0x6e, 0x62, 0x9d,
++			    0xd8, 0xe0, 0x57, 0xa3, 0x06, 0x3a, 0x42, 0x58,
++			    0x2a, 0x28, 0xfe, 0x72, 0x52, 0x2f, 0xdd, 0xe0,
++			    0x19, 0x89, 0x09, 0x1c, 0x2a, 0x8e, 0x8c, 0x94,
++			    0xfc, 0xc7, 0x68, 0xe4, 0x88, 0xaa, 0xde, 0x0f },
++		.rlen	=3D 48,
++	}, { /* split-page version */
++		.key	=3D { 0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10 },
++		.klen	=3D 8,
++		.iv	=3D { 0xf0, 0xe1, 0xd2, 0xc3, 0xb4, 0xa5, 0x96, 0x87 },
++		.input	=3D "The quick brown fox jumps over the lazy dogs.\0\0",
++		.ilen	=3D 48,
++		.result	=3D { 0xca, 0x90, 0xf5, 0x9d, 0xcb, 0xd4, 0xd2, 0x3c,
++			    0x01, 0x88, 0x7f, 0x3e, 0x31, 0x6e, 0x62, 0x9d,
++			    0xd8, 0xe0, 0x57, 0xa3, 0x06, 0x3a, 0x42, 0x58,
++			    0x2a, 0x28, 0xfe, 0x72, 0x52, 0x2f, 0xdd, 0xe0,
++			    0x19, 0x89, 0x09, 0x1c, 0x2a, 0x8e, 0x8c, 0x94,
++			    0xfc, 0xc7, 0x68, 0xe4, 0x88, 0xaa, 0xde, 0x0f },
++		.rlen	=3D 48,
++		.np	=3D 2,
++		.tap	=3D { 20, 28 },
++	}
++};
 +
-+static inline void crypto_cipher_decrypt_kernel_iv(struct blkcipher_desc *desc,
-+						   u8 *dst, const u8 *src,
-+						   unsigned int nbytes)
-+{
-+	crypto_blkcipher_crt(desc->tfm)->decrypt_kernel(desc, dst, src,
-+							nbytes);
-+}
++static struct cipher_testvec fcrypt_pcbc_dec_tv_template[] =3D {
++	{ /* http://www.openafs.org/pipermail/openafs-devel/2000-December/005=
+320.html */
++		.key	=3D { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 },
++		.klen	=3D 8,
++		.iv	=3D { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 },
++		.input	=3D { 0x0E, 0x09, 0x00, 0xC7, 0x3E, 0xF7, 0xED, 0x41 },
++		.ilen	=3D 8,
++		.result	=3D { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 },
++		.rlen	=3D 8,
++	}, {
++		.key	=3D { 0x11, 0x44, 0x77, 0xAA, 0xDD, 0x00, 0x33, 0x66 },
++		.klen	=3D 8,
++		.iv	=3D { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 },
++		.input	=3D { 0xD8, 0xED, 0x78, 0x74, 0x77, 0xEC, 0x06, 0x80 },
++		.ilen	=3D 8,
++		.result	=3D { 0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xF0 },
++		.rlen	=3D 8,
++	}, { /* From Arla */
++		.key	=3D { 0xf0, 0xe1, 0xd2, 0xc3, 0xb4, 0xa5, 0x96, 0x87 },
++		.klen	=3D 8,
++		.iv	=3D { 0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10 },
++		.input	=3D { 0x00, 0xf0, 0xe,  0x11, 0x75, 0xe6, 0x23, 0x82,
++			    0xee, 0xac, 0x98, 0x62, 0x44, 0x51, 0xe4, 0x84,
++			    0xc3, 0x59, 0xd8, 0xaa, 0x64, 0x60, 0xae, 0xf7,
++			    0xd2, 0xd9, 0x13, 0x79, 0x72, 0xa3, 0x45, 0x03,
++			    0x23, 0xb5, 0x62, 0xd7, 0x0c, 0xf5, 0x27, 0xd1,
++			    0xf8, 0x91, 0x3c, 0xac, 0x44, 0x22, 0x92, 0xef },
++		.ilen	=3D 48,
++		.result	=3D "The quick brown fox jumps over the lazy dogs.\0\0",
++		.rlen	=3D 48,
++	}, {
++		.key	=3D { 0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10 },
++		.klen	=3D 8,
++		.iv	=3D { 0xf0, 0xe1, 0xd2, 0xc3, 0xb4, 0xa5, 0x96, 0x87 },
++		.input	=3D { 0xca, 0x90, 0xf5, 0x9d, 0xcb, 0xd4, 0xd2, 0x3c,
++			    0x01, 0x88, 0x7f, 0x3e, 0x31, 0x6e, 0x62, 0x9d,
++			    0xd8, 0xe0, 0x57, 0xa3, 0x06, 0x3a, 0x42, 0x58,
++			    0x2a, 0x28, 0xfe, 0x72, 0x52, 0x2f, 0xdd, 0xe0,
++			    0x19, 0x89, 0x09, 0x1c, 0x2a, 0x8e, 0x8c, 0x94,
++			    0xfc, 0xc7, 0x68, 0xe4, 0x88, 0xaa, 0xde, 0x0f },
++		.ilen	=3D 48,
++		.result	=3D "The quick brown fox jumps over the lazy dogs.\0\0",
++		.rlen	=3D 48,
++	}, { /* split-page version */
++		.key	=3D { 0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10 },
++		.klen	=3D 8,
++		.iv	=3D { 0xf0, 0xe1, 0xd2, 0xc3, 0xb4, 0xa5, 0x96, 0x87 },
++		.input	=3D { 0xca, 0x90, 0xf5, 0x9d, 0xcb, 0xd4, 0xd2, 0x3c,
++			    0x01, 0x88, 0x7f, 0x3e, 0x31, 0x6e, 0x62, 0x9d,
++			    0xd8, 0xe0, 0x57, 0xa3, 0x06, 0x3a, 0x42, 0x58,
++			    0x2a, 0x28, 0xfe, 0x72, 0x52, 0x2f, 0xdd, 0xe0,
++			    0x19, 0x89, 0x09, 0x1c, 0x2a, 0x8e, 0x8c, 0x94,
++			    0xfc, 0xc7, 0x68, 0xe4, 0x88, 0xaa, 0xde, 0x0f },
++		.ilen	=3D 48,
++		.result	=3D "The quick brown fox jumps over the lazy dogs.\0\0",
++		.rlen	=3D 48,
++		.np	=3D 2,
++		.tap	=3D { 20, 28 },
++	}
++};
 +
- static inline void crypto_blkcipher_set_iv(struct crypto_blkcipher *tfm,
- 					   const u8 *src, unsigned int len)
- {
+ /*
+  * Compression stuff.
+  */
