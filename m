@@ -1,71 +1,34 @@
-From: Jiri Bohac <jbohac@suse.cz>
-Subject: [PATCH] Fix NULL pointer dereference on ipx unload
-Date: Fri, 9 Feb 2007 00:28:29 +0100
-Message-ID: <20070208232828.GA25728@dwarf.suse.cz>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: acme@conectiva.com.br
+From: Kumar Gala <galak@kernel.crashing.org>
+Subject: Re: [PATCH] cxgb3 - convert to user struct device instead of class_device
+Date: Thu, 8 Feb 2007 17:48:08 -0600
+Message-ID: <8CA2F311-CAFF-48C3-AC84-68FF6486FB35@kernel.crashing.org>
+References: <adalkj8l6vb.fsf@cisco.com> <20070208211911.GA20988@suse.de> <adad54kwd41.fsf@cisco.com> <45CB9A24.1030509@garzik.org> <adaps8kux3y.fsf@cisco.com>
+Mime-Version: 1.0 (Apple Message framework v752.2)
+Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jeff@garzik.org>, Greg KH <gregkh@suse.de>,
+	Divy Le Ray <divy@chelsio.com>,
+	Steve Wise <swise@opengridcomputing.com>,
+	netdev@vger.kernel.org
+To: Roland Dreier <rdreier@cisco.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:42311 "EHLO mail.suse.cz"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S965223AbXBHX1Q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Feb 2007 18:27:16 -0500
-Content-Disposition: inline
+Received: from nommos.sslcatacombnetworking.com ([67.18.224.114]:13141 "EHLO
+	nommos.sslcatacombnetworking.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S965373AbXBHXtV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Feb 2007 18:49:21 -0500
+In-Reply-To: <adaps8kux3y.fsf@cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Fixes a null pointer dereference when unloading the ipx module.
 
-On initialization of the ipx module, registering certain packet
-types can fail. When this happens, unloading the module later
-dereferences NULL pointers.  This patch fixes that. Please apply.
+On Feb 8, 2007, at 4:02 PM, Roland Dreier wrote:
 
-Signed-off-by: Jiri Bohac <jbohac@suse.cz>
+>> Andrew told me to drop it, so I dropped it :)
+>
+> That's odd -- do you know why?  drivers/net/cxgb3 won't build at all
+> in Linus's tree.  I would have thought we want to fix it ASAP.
 
-diff -ur linux-2.6.20-rc6/net/ipx/af_ipx.c linux-2.6.20-rc6.fixed/net/ipx/af_ipx.c
---- linux-2.6.20-rc6/net/ipx/af_ipx.c	2007-01-25 03:19:28.000000000 +0100
-+++ linux-2.6.20-rc6.fixed/net/ipx/af_ipx.c	2007-02-08 18:13:53.000000000 +0100
-@@ -2035,19 +2035,27 @@
- 
- 	ipxitf_cleanup();
- 
--	unregister_snap_client(pSNAP_datalink);
--	pSNAP_datalink = NULL;
--
--	unregister_8022_client(p8022_datalink);
--	p8022_datalink = NULL;
-+	if (pSNAP_datalink) {
-+		unregister_snap_client(pSNAP_datalink);
-+		pSNAP_datalink = NULL;
-+	}
-+
-+	if (p8022_datalink) {
-+		unregister_8022_client(p8022_datalink);
-+		p8022_datalink = NULL;
-+	}
- 
- 	dev_remove_pack(&ipx_8023_packet_type);
--	destroy_8023_client(p8023_datalink);
--	p8023_datalink = NULL;
-+	if (p8023_datalink) {
-+		destroy_8023_client(p8023_datalink);
-+		p8023_datalink = NULL;
-+	}
- 
- 	dev_remove_pack(&ipx_dix_packet_type);
--	destroy_EII_client(pEII_datalink);
--	pEII_datalink = NULL;
-+	if (pEII_datalink) {
-+		destroy_EII_client(pEII_datalink);
-+		pEII_datalink = NULL;
-+	}
- 
- 	proto_unregister(&ipx_proto);
- 	sock_unregister(ipx_family_ops.family);
+I've posted a similar patch for drivers/net/gianfar_sysfs.c that is  
+needed for it to build in linus's tree.
 
-
--- 
-Jiri Bohac <jbohac@suse.cz>
-SUSE Labs, SUSE CZ
-
+- k
