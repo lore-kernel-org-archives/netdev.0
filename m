@@ -1,129 +1,238 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH] IPv6: Implement RFC 4429 Optimistic Duplicate Address
- Detection
-Date: Fri, 09 Feb 2007 02:10:37 +0900 (JST)
-Message-ID: <20070209.021037.04063577.yoshfuji@linux-ipv6.org>
-References: <20070207205503.GB20804@hmsreliant.homelinux.net>
-	<20070208.072620.63000777.yoshfuji@linux-ipv6.org>
-	<20070208164151.GB27267@hmsreliant.homelinux.net>
+From: Kumar Gala <galak@kernel.crashing.org>
+Subject: [PATCH] Convert network devices to use struct device instead of
+ class_device
+Date: Thu, 8 Feb 2007 11:08:03 -0600 (CST)
+Message-ID: <Pine.LNX.4.64.0702081107300.29459@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: vladislav.yasevich@hp.com, sri@us.ibm.com, davem@davemloft.net,
-	kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
-	kaber@coreworks.de, netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: nhorman@tuxdriver.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Greg KH <greg@kroah.com>, jgarizk@kernel.crashing.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:54219 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965723AbXBHRJP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Feb 2007 12:09:15 -0500
-In-Reply-To: <20070208164151.GB27267@hmsreliant.homelinux.net>
+Received: from nommos.sslcatacombnetworking.com ([67.18.224.114]:2572 "EHLO
+	nommos.sslcatacombnetworking.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S965718AbXBHRKm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Feb 2007 12:10:42 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In article <20070208164151.GB27267@hmsreliant.homelinux.net> (at Thu, 8 Feb 2007 11:41:52 -0500), Neil Horman <nhorman@tuxdriver.com> says:
+Convert network devices to use struct device instead of class_device.  Greg
+missed this one in his cleanup path.
 
-> diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-> index 7b7bd44..07a5f4d 100644
-> --- a/net/ipv6/ip6_output.c
-> +++ b/net/ipv6/ip6_output.c
-> @@ -859,6 +859,40 @@ static int ip6_dst_lookup_tail(struct sock *sk,
->  		err = ipv6_get_saddr(*dst, &fl->fl6_dst, &fl->fl6_src);
->  		if (err)
->  			goto out_err_release;
-> +#ifdef CONFIG_IPV6_OPTIMISTIC_DAD
-> +		/*
-> +		 * Here if the dst entry we've looked up 
-> +		 * has a neighbour entry that is in the INCOMPLETE
-> +		 * state and the src address from the flow is 
-> +		 * marked as OPTIMISTIC, we release the found 
-> +		 * dst entry and replace it instead with the 
-> +		 * dst entry of the nexthop router
-> +		 */
-> +		if (!((*dst)->neighbour->nud_state & NUD_VALID)) {
-> +			struct inet6_ifaddr *ifp;
-> +			struct flowi fl_gw;
-> +			int redirect;
-> +
-> +			ifp = ipv6_get_ifaddr(&fl->fl6_src, (*dst)->dev, 1);
-> +
-> +			redirect = (ifp && ifp->flags & IFA_F_OPTIMISTIC);
-> +			if (ifp)
-> +				in6_ifa_put(ifp);
-> +
-> +			if (redirect) {
-> +				/*
-> +				 * We need to get the dst entry for the 
-> +				 * default router instead
-> +				 */
-> +				dst_release(*dst);
-> +				memcpy(&fl_gw, fl, sizeof(struct flowi));
-> +				memset(&fl_gw.fl6_dst, 0, sizeof(struct in6_addr));
-> +				*dst = ip6_route_output(sk, &fl_gw);
-> +				if ((err = (*dst)->error))
-> +					goto out_err_release;				
-> +			}
-> +		}
-> +#endif
+Signed-off-by: Kumar Gala <galak@kernel.crashing.org>
 
-These should be placed
+---
+commit 24c316396f71c6164f11ca1398151d8b15fd06e0
+tree d02ee36eaf848d200dacf3bf795abaec1e55cbc2
+parent b892afd1e60132a981b963929e352eabf3306ba2
+author Kumar Gala <galak@kernel.crashing.org> Thu, 08 Feb 2007 11:07:11 -0600
+committer Kumar Gala <galak@kernel.crashing.org> Thu, 08 Feb 2007 11:07:11 -0600
 
->  	}
+  drivers/net/gianfar_sysfs.c |  108 ++++++++++++++++++++++---------------------
+  1 files changed, 55 insertions(+), 53 deletions(-)
 
-here. No?
+diff --git a/drivers/net/gianfar_sysfs.c b/drivers/net/gianfar_sysfs.c
+index 9dd387f..6e2166a 100644
+--- a/drivers/net/gianfar_sysfs.c
++++ b/drivers/net/gianfar_sysfs.c
+@@ -39,13 +39,15 @@
+  #include "gianfar.h"
 
+  #define GFAR_ATTR(_name) \
+-static ssize_t gfar_show_##_name(struct class_device *cdev, char *buf); \
+-static ssize_t gfar_set_##_name(struct class_device *cdev, \
++static ssize_t gfar_show_##_name(struct device *dev, \
++	 struct device_attribute *attr, char *buf); \
++static ssize_t gfar_set_##_name(struct device *dev, \
++		struct device_attribute *attr, \
+  		const char *buf, size_t count); \
+-static CLASS_DEVICE_ATTR(_name, 0644, gfar_show_##_name, gfar_set_##_name)
++static DEVICE_ATTR(_name, 0644, gfar_show_##_name, gfar_set_##_name)
 
-> diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-> index 39bb658..9656018 100644
-> --- a/net/ipv6/ndisc.c
-> +++ b/net/ipv6/ndisc.c
-> @@ -622,9 +625,29 @@ void ndisc_send_rs(struct net_device *dev, struct in6_addr *saddr,
->          struct sk_buff *skb;
->          struct icmp6hdr *hdr;
->  	__u8 * opt;
-> +	struct inet6_ifaddr *ifp;
-> +	int send_sllao = 1;
->          int len;
->  	int err;
->  
-> +	/*
-> +	 * Check the source address.  If its OPTIMISTIC
-> +	 * and addr_len is non-zero (implying the sllao option)
-> +	 * then don't send the RS (RFC 4429, section 2.2)
-> +	 */
-> +	ifp = ipv6_get_ifaddr(saddr, dev, 1);
-> +
-> +	/*
-> +	 * According to section 2.2 of RFC 4429, we must not 
-> +	 * send router solicitations with a sllao from 
-> +	 * optimistic addresses, but we may send the solicitation
-> +	 * if we don't include the sllao.  So here we check
-> +	 * if our address is optimistic, and if so, we
-> +	 * supress the inclusion of the sllao.
-> +	 */ 
-> +	if (!dev->addr_len || !ifp || (ifp->flags & IFA_F_OPTIMISTIC))
-> +		send_sllao=0;
-> +
->  	ndisc_flow_init(&fl, NDISC_ROUTER_SOLICITATION, saddr, daddr,
->  			dev->ifindex);
->  
+  #define GFAR_CREATE_FILE(_dev, _name) \
+-	class_device_create_file(&_dev->class_dev, &class_device_attr_##_name)
++	device_create_file(&_dev->dev, &dev_attr_##_name)
 
-Still leaking ifp.  Something like this?
+  GFAR_ATTR(bd_stash);
+  GFAR_ATTR(rx_stash_size);
+@@ -54,29 +56,28 @@ GFAR_ATTR(fifo_threshold);
+  GFAR_ATTR(fifo_starve);
+  GFAR_ATTR(fifo_starve_off);
 
-int send_sllao = dev->addr_len;
+-#define to_net_dev(cd) container_of(cd, struct net_device, class_dev)
+-
+-static ssize_t gfar_show_bd_stash(struct class_device *cdev, char *buf)
++static ssize_t gfar_show_bd_stash(struct device *dev,
++				  struct device_attribute *attr, char *buf)
+  {
+-	struct net_device *dev = to_net_dev(cdev);
+-	struct gfar_private *priv = netdev_priv(dev);
++	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
 
-#ifdef CONFIG_IPV6_OPTIMISTIC_DAD
-if (send_sllao) {
-  struct inet6_ifaddr *ifp = ipv6_get_ifaddr(saddr, dev, 1);
-  if (ifp) {
-     if (ifp->flags & IFA_F_OPTIMISTIC)
-       send_sllao = 0;
-     in6_ifa_put(ifp);
-  } else
-     send_sllao = 0;
-}
-#endif
+-	return sprintf(buf, "%s\n", priv->bd_stash_en? "on" : "off");
++	return sprintf(buf, "%s\n", priv->bd_stash_en ? "on" : "off");
+  }
 
---yoshfuji
+-static ssize_t gfar_set_bd_stash(struct class_device *cdev,
+-		const char *buf, size_t count)
++static ssize_t gfar_set_bd_stash(struct device *dev,
++				 struct device_attribute *attr,
++				 const char *buf, size_t count)
+  {
+-	struct net_device *dev = to_net_dev(cdev);
+-	struct gfar_private *priv = netdev_priv(dev);
++	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
+  	int new_setting = 0;
+  	u32 temp;
+  	unsigned long flags;
+
+  	/* Find out the new setting */
+-	if (!strncmp("on", buf, count-1) || !strncmp("1", buf, count-1))
++	if (!strncmp("on", buf, count - 1) || !strncmp("1", buf, count - 1))
+  		new_setting = 1;
+-	else if (!strncmp("off", buf, count-1) || !strncmp("0", buf, count-1))
++	else if (!strncmp("off", buf, count - 1)
++		 || !strncmp("0", buf, count - 1))
+  		new_setting = 0;
+  	else
+  		return count;
+@@ -100,19 +101,19 @@ static ssize_t gfar_set_bd_stash(struct class_device *cdev,
+  	return count;
+  }
+
+-static ssize_t gfar_show_rx_stash_size(struct class_device *cdev, char *buf)
++static ssize_t gfar_show_rx_stash_size(struct device *dev,
++				       struct device_attribute *attr, char *buf)
+  {
+-	struct net_device *dev = to_net_dev(cdev);
+-	struct gfar_private *priv = netdev_priv(dev);
++	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
+
+  	return sprintf(buf, "%d\n", priv->rx_stash_size);
+  }
+
+-static ssize_t gfar_set_rx_stash_size(struct class_device *cdev,
+-		const char *buf, size_t count)
++static ssize_t gfar_set_rx_stash_size(struct device *dev,
++				      struct device_attribute *attr,
++				      const char *buf, size_t count)
+  {
+-	struct net_device *dev = to_net_dev(cdev);
+-	struct gfar_private *priv = netdev_priv(dev);
++	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
+  	unsigned int length = simple_strtoul(buf, NULL, 0);
+  	u32 temp;
+  	unsigned long flags;
+@@ -146,21 +147,21 @@ static ssize_t gfar_set_rx_stash_size(struct class_device *cdev,
+  	return count;
+  }
+
+-
+  /* Stashing will only be enabled when rx_stash_size != 0 */
+-static ssize_t gfar_show_rx_stash_index(struct class_device *cdev, char *buf)
++static ssize_t gfar_show_rx_stash_index(struct device *dev,
++					struct device_attribute *attr,
++					char *buf)
+  {
+-	struct net_device *dev = to_net_dev(cdev);
+-	struct gfar_private *priv = netdev_priv(dev);
++	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
+
+  	return sprintf(buf, "%d\n", priv->rx_stash_index);
+  }
+
+-static ssize_t gfar_set_rx_stash_index(struct class_device *cdev,
+-		const char *buf, size_t count)
++static ssize_t gfar_set_rx_stash_index(struct device *dev,
++				       struct device_attribute *attr,
++				       const char *buf, size_t count)
+  {
+-	struct net_device *dev = to_net_dev(cdev);
+-	struct gfar_private *priv = netdev_priv(dev);
++	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
+  	unsigned short index = simple_strtoul(buf, NULL, 0);
+  	u32 temp;
+  	unsigned long flags;
+@@ -184,19 +185,20 @@ static ssize_t gfar_set_rx_stash_index(struct class_device *cdev,
+  	return count;
+  }
+
+-static ssize_t gfar_show_fifo_threshold(struct class_device *cdev, char *buf)
++static ssize_t gfar_show_fifo_threshold(struct device *dev,
++					struct device_attribute *attr,
++					char *buf)
+  {
+-	struct net_device *dev = to_net_dev(cdev);
+-	struct gfar_private *priv = netdev_priv(dev);
++	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
+
+  	return sprintf(buf, "%d\n", priv->fifo_threshold);
+  }
+
+-static ssize_t gfar_set_fifo_threshold(struct class_device *cdev,
+-		const char *buf, size_t count)
++static ssize_t gfar_set_fifo_threshold(struct device *dev,
++				       struct device_attribute *attr,
++				       const char *buf, size_t count)
+  {
+-	struct net_device *dev = to_net_dev(cdev);
+-	struct gfar_private *priv = netdev_priv(dev);
++	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
+  	unsigned int length = simple_strtoul(buf, NULL, 0);
+  	u32 temp;
+  	unsigned long flags;
+@@ -218,20 +220,19 @@ static ssize_t gfar_set_fifo_threshold(struct class_device *cdev,
+  	return count;
+  }
+
+-static ssize_t gfar_show_fifo_starve(struct class_device *cdev, char *buf)
++static ssize_t gfar_show_fifo_starve(struct device *dev,
++				     struct device_attribute *attr, char *buf)
+  {
+-	struct net_device *dev = to_net_dev(cdev);
+-	struct gfar_private *priv = netdev_priv(dev);
++	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
+
+  	return sprintf(buf, "%d\n", priv->fifo_starve);
+  }
+
+-
+-static ssize_t gfar_set_fifo_starve(struct class_device *cdev,
+-		const char *buf, size_t count)
++static ssize_t gfar_set_fifo_starve(struct device *dev,
++				    struct device_attribute *attr,
++				    const char *buf, size_t count)
+  {
+-	struct net_device *dev = to_net_dev(cdev);
+-	struct gfar_private *priv = netdev_priv(dev);
++	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
+  	unsigned int num = simple_strtoul(buf, NULL, 0);
+  	u32 temp;
+  	unsigned long flags;
+@@ -253,19 +254,20 @@ static ssize_t gfar_set_fifo_starve(struct class_device *cdev,
+  	return count;
+  }
+
+-static ssize_t gfar_show_fifo_starve_off(struct class_device *cdev, char *buf)
++static ssize_t gfar_show_fifo_starve_off(struct device *dev,
++					 struct device_attribute *attr,
++					 char *buf)
+  {
+-	struct net_device *dev = to_net_dev(cdev);
+-	struct gfar_private *priv = netdev_priv(dev);
++	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
+
+  	return sprintf(buf, "%d\n", priv->fifo_starve_off);
+  }
+
+-static ssize_t gfar_set_fifo_starve_off(struct class_device *cdev,
+-		const char *buf, size_t count)
++static ssize_t gfar_set_fifo_starve_off(struct device *dev,
++					struct device_attribute *attr,
++					const char *buf, size_t count)
+  {
+-	struct net_device *dev = to_net_dev(cdev);
+-	struct gfar_private *priv = netdev_priv(dev);
++	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
+  	unsigned int num = simple_strtoul(buf, NULL, 0);
+  	u32 temp;
+  	unsigned long flags;
