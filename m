@@ -1,39 +1,60 @@
-From: Kumar Gala <galak@kernel.crashing.org>
-Subject: Re: [PATCH 1/4] ucc_geth: Change private immrbar_virt_to_phys to generic iopa
-Date: Thu, 8 Feb 2007 01:16:19 -0600
-Message-ID: <6C343491-B877-4D7D-A46D-B078862160F6@kernel.crashing.org>
-References: <989B956029373F45A0B8AF02970818900D440B@zch01exm26.fsl.freescale.net>
-Mime-Version: 1.0 (Apple Message framework v752.2)
-Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Tabi Timur-B04825" <timur@freescale.com>,
-	<netdev@vger.kernel.org>, <linuxppc-dev@ozlabs.org>
-To: "Li Yang-r58472" <LeoLi@freescale.com>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: [PATCH] HTB O(1) class lookup
+Date: Thu, 8 Feb 2007 08:36:49 +0100
+Message-ID: <20070208073649.GA1751@ff.dom.local>
+References: <20070205101637.GB1863@ff.dom.local> <200702051814.13899.simonl@parknet.dk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Andi Kleen <ak@suse.de>, Patrick McHardy <kaber@trash.net>,
+	netdev@vger.kernel.org, lartc@mailman.ds9a.nl,
+	Ingo Oeser <netdev@axxeo.de>
+To: Simon Lodal <simonl@parknet.dk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nommos.sslcatacombnetworking.com ([67.18.224.114]:50957 "EHLO
-	nommos.sslcatacombnetworking.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1030660AbXBHHQT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Feb 2007 02:16:19 -0500
-In-Reply-To: <989B956029373F45A0B8AF02970818900D440B@zch01exm26.fsl.freescale.net>
+Received: from mx10.go2.pl ([193.17.41.74]:60762 "EHLO poczta.o2.pl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1422929AbXBHHdv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Feb 2007 02:33:51 -0500
+Content-Disposition: inline
+In-Reply-To: <200702051814.13899.simonl@parknet.dk>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Mon, Feb 05, 2007 at 06:14:13PM +0100, Simon Lodal wrote:
+...
+> Regards
+...
 
-On Feb 8, 2007, at 1:06 AM, Li Yang-r58472 wrote:
+It seems decisions makers need more time, so I'd add 
+2 cents more:
 
->>> MURAM is a mmio region so it don't share the characteristic of main
->>> memory that phy_addr = virt_addr - PAGE_OFFSET.  While they can
->>> both be
->>> mapped through page table using iopa().
->>
->> Right, so when do you know if you'll be using MURAM or normal
->> memory?  Why not just keep around a token that is the physical
->> address at the point you make the decision of MURAM vs normal memory.
->
-> Yes, that can be a way.  But as the virt to phy mapping is only used
-> once, it's nothing bad to do it this way.
+1c: an indentation could be improved (spaces around
+operators), like in these places:
 
-The problem as I stated before with using iopa() is that its not  
-supported across platforms.
+>+#define HTB_MAX_CLS		(TC_H_MIN(-1)+1)
+...
+>+	htb_cls_array* a;
+...
+>+	int cnt,done;
 
-- k
+etc.
+
+2c: it is a question of taste, but here:
+
+> 		err = -ENOBUFS;
+>+		if (q->classes[HTB_CLS_ARRAY(minorid)] == NULL) {
+>+			if ((q->classes[HTB_CLS_ARRAY(minorid)] = 
+>+			     kzalloc(sizeof(htb_cls_array), GFP_KERNEL))
+>+			    == NULL)
+>+				goto failure;
+>+		}
+> 		if ((cl = kzalloc(sizeof(*cl), GFP_KERNEL)) == NULL)
+> 			goto failure;
+
+it would be probably more readable and a bit merciful
+to the stressed system to free this htb_cls_array after
+the last error (I know it's not a leak).
+
+Regards,
+Jarek P.
+
+PS: 1c extra - it's easier to read a diff if you use -p option. 
