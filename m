@@ -1,42 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] NET : cleanup sock_from_file()
-Date: Thu, 08 Feb 2007 15:00:09 -0800 (PST)
-Message-ID: <20070208.150009.92582755.davem@davemloft.net>
-References: <20070202120528.GA10392@de.ibm.com>
-	<20070206.144106.39659974.davem@davemloft.net>
-	<45C9093D.1030605@cosmosbay.com>
+Subject: Re: Crypto Update for 2.6.21
+Date: Thu, 08 Feb 2007 15:26:55 -0800 (PST)
+Message-ID: <20070208.152655.104035982.davem@davemloft.net>
+References: <20070207154717.GA2757@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dada1@cosmosbay.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39543
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1945936AbXBHXAK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Feb 2007 18:00:10 -0500
-In-Reply-To: <45C9093D.1030605@cosmosbay.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: linux-crypto@vger.kernel.org, netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <20070207154717.GA2757@gondor.apana.org.au>
+Sender: linux-crypto-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Wed, 07 Feb 2007 00:03:25 +0100
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Thu, 8 Feb 2007 02:47:17 +1100
 
-> I believe dead code from sock_from_file() can be cleaned up.
+> Here is the crypto update for 2.6.21:
 > 
-> All sockets are now built using sock_attach_fd(), that puts the 'sock' pointer 
-> into file->private_data and &socket_file_ops into file->f_op
+> Please pull from
 > 
-> I could not find a place where file->private_data could be set to NULL, 
-> keeping opened the file.
+> git://git.kernel.org/pub/scm/linux/kernel/git/herbert/crypto-2.6.git
 > 
-> So to get 'sock' from a 'file' pointer, either :
+> or
 > 
-> - This is a socket file (f_op == &socket_file_ops), and we can directly get 
-> 'sock' from private_data.
-> - This is not a socket, we return -ENOTSOCK and dont even try to find a socket 
-> via dentry/inode :)
-> 
-> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+> master.kernel.org:/pub/scm/linux/kernel/git/herbert/crypto-2.6.git
 
-Looks good to me, applied, thanks Eric.
+Pulled, thanks a lot Herbert.
+
+There was a minor merge conflict to resolve, because the
+S390 guys removed a bunch of their crypto options from
+crypto/Kconfig in a seperate changeset.  But I'm pretty
+sure I resolved that correctly.
+
+Thanks again.
