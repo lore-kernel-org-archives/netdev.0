@@ -1,28 +1,59 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: [PATCH] cxgb3 - convert to user struct device instead of class_device
-Date: Thu, 08 Feb 2007 13:31:10 -0800
-Message-ID: <adad54kwd41.fsf@cisco.com>
-References: <adalkj8l6vb.fsf@cisco.com> <20070208211911.GA20988@suse.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/5] [XFRM,PFKEYV2]: MIGRATE support (take 3)
+Date: Thu, 08 Feb 2007 13:32:24 -0800 (PST)
+Message-ID: <20070208.133224.41636066.davem@davemloft.net>
+References: <20070208113221.193F.SHINTA@sfc.wide.ad.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jeff@garzik.org>, Divy Le Ray <divy@chelsio.com>,
-	Steve Wise <swise@opengridcomputing.com>,
-	netdev@vger.kernel.org
-To: Greg KH <gregkh@suse.de>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Francis.Dupont@point6.net,
+	nakam@linux-ipv6.org, yoshfuji@linux-ipv6.org,
+	usagi-core@linux-ipv6.org
+To: shinta@sfc.wide.ad.jp
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-4.cisco.com ([171.68.10.86]:7938 "EHLO
-	sj-iport-4.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1423420AbXBHVbh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Feb 2007 16:31:37 -0500
-In-Reply-To: <20070208211911.GA20988@suse.de> (Greg KH's message of "Thu, 8 Feb 2007 13:19:11 -0800")
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36764
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1423424AbXBHVcZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Feb 2007 16:32:25 -0500
+In-Reply-To: <20070208113221.193F.SHINTA@sfc.wide.ad.jp>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
- > But I think Jeff already has a patch in the queue that makes this very
- > change :)
+From: Shinta Sugimoto <shinta@sfc.wide.ad.jp>
+Date: Thu, 08 Feb 2007 12:09:29 +0900
 
-Really?  I'm not sure I looked everywhere in Jeff's maze of git
-branches but I didn't see anything obvious in netdev-2.6.git when I
-looked before sending this.
+> The patch set consists of following 5 patches:
+> 
+> [PATCH (1/5)] [XFRM]: Extension for dynamic update of endpoint address(es)
+> [PATCH (2/5)] [XFRM]: User interface for handling XFRM_MSG_MIGRATE
+> [PATCH (3/5)] [XFRM]: CONFIG_XFRM_MIGRATE option
+> [PATCH (4/5)] [PFKEYV2]: Extension for dynamic update of endpoint address(es)
+> [PATCH (5/5)] [PFKEYV2]: CONFIG_NET_KEY_MIGRATE option
+> 
+> And it can also be fetched by git from following repository with
+> branch name "migrate-take3".
 
- - R.
+Patch applied, but I had to add the following bug fix in
+order to fix xfrm_user and af_key when built as modules.
+
+commit e610e679dd0057403c96cd31f8739792780732ee
+Author: David S. Miller <davem@sunset.davemloft.net>
+Date:   Thu Feb 8 13:29:15 2007 -0800
+
+    [XFRM]: xfrm_migrate() needs exporting to modules.
+    
+    Needed by xfrm_user and af_key.
+    
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index 825c60a..fa7ce06 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -2464,5 +2464,6 @@ restore_state:
+ 
+ 	return err;
+ }
++EXPORT_SYMBOL(xfrm_migrate);
+ #endif
+ 
