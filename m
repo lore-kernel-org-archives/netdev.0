@@ -1,38 +1,47 @@
-From: Ishizaki Kou <kou.ishizaki@toshiba.co.jp>
-Subject: Re: [PATCH] spidernet : fix memory leak in spider_net_stop
-Date: Thu, 08 Feb 2007 13:15:06 +0900 (JST)
-Message-ID: <200702080415.l184FD0I011703@toshiba.co.jp>
-References: <45C33DED.8010200@garzik.org>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH] sk98lin: planned removal
+Date: Wed, 7 Feb 2007 20:32:15 -0800
+Message-ID: <20070207203215.bdf3908b.akpm@linux-foundation.org>
+References: <20070207091830.59f72f46@oldman>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: jens@de.ibm.com, linas@austin.ibm.com, netdev@vger.kernel.org,
-	linuxppc-dev@ozlabs.org, jim@jklewis.com
-To: jeff@garzik.org
+Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from imx12.toshiba.co.jp ([61.202.160.132]:45148 "EHLO
-	imx12.toshiba.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030649AbXBHEQE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Feb 2007 23:16:04 -0500
-In-Reply-To: <45C33DED.8010200@garzik.org>
+Received: from smtp.osdl.org ([65.172.181.24]:54558 "EHLO smtp.osdl.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1161517AbXBHEcX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Feb 2007 23:32:23 -0500
+In-Reply-To: <20070207091830.59f72f46@oldman>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeff-san,
+On Wed, 7 Feb 2007 09:18:30 -0800 Stephen Hemminger <shemminger@linux-foundation.org> wrote:
 
-> Jens Osterkamp wrote:
-> > We forget to call spider_net_free_rx_chain_contents which does the
-> > actual dev_kfree_skb. New skbs are allocated from skbuff_head_cache
-> > on each "ifconfig up" letting the cache grow infinitely.
-> > 
-> > This patch fixes it.
-> > 
-> > Signed-off-by: Jens Osterkamp <jens@de.ibm.com>
+> Document planned removal of sk98lin driver.
 > 
-> applied
+> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+> ---
+>  Documentation/feature-removal-schedule.txt |    7 +++++++
+>  1 files changed, 7 insertions(+), 0 deletions(-)
+> 
+> diff --git a/Documentation/feature-removal-schedule.txt b/Documentation/feature-removal-schedule.txt
+> index 0ba6af0..d08a4af 100644
+> --- a/Documentation/feature-removal-schedule.txt
+> +++ b/Documentation/feature-removal-schedule.txt
+> @@ -325,3 +325,10 @@ Why:	Unmaintained for years, superceded 
+>  Who:	Jeff Garzik <jeff@garzik.org>
+>  
+>  ---------------------------
+> +
+> +What:   sk98lin network driver
+> +When:   July 2007
+> +Why:    In kernel tree version of driver is unmaintained. Sk98lin driver
+> +	replaced by the skge driver. 
+> +Who:    Stephen Hemminger <shemminger@osdl.org>
+> +
 
-This fix was applied twice to netdev-2.6.git#upstream.
-Because Linas-san's patch has been applied to netdev-2.6.git#upstream.
-
-Best regards,
-Kou Ishizaki
+People don't read that file.  I'd suggest the addition of a warning printk
+to the driver's open() method.
