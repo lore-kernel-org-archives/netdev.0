@@ -1,50 +1,28 @@
-From: Zhu Yi <yi.zhu@intel.com>
-Subject: Re: [RFC] Runtime power management on ipw2100
-Date: Thu, 08 Feb 2007 17:01:46 +0800
-Message-ID: <1170925306.19089.125.camel@debian.sh.intel.com>
-References: <20070131075249.GA22115@srcf.ucam.org>
-	<1170294425.6601.182.camel@debian.sh.intel.com>
-	<20070206214407.GA5254@srcf.ucam.org>
+From: Li Yang <leoli@freescale.com>
+Subject: [PATCH 0/3] ucc_geth updates for 2.6.21
+Date: Thu, 08 Feb 2007 17:31:29 +0800
+Message-ID: <45CAEDF1.5080808@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: ipw2100-devel@lists.sourceforge.net, linux-pm@lists.osdl.org,
-	netdev@vger.kernel.org
-To: Matthew Garrett <mjg59@srcf.ucam.org>
-Return-path: <ipw2100-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20070206214407.GA5254@srcf.ucam.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/ipw2100-devel>,
-	<mailto:ipw2100-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=ipw2100-devel>
-List-Post: <mailto:ipw2100-devel@lists.sourceforge.net>
-List-Help: <mailto:ipw2100-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/ipw2100-devel>,
-	<mailto:ipw2100-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: ipw2100-devel-bounces@lists.sourceforge.net
-Errors-To: ipw2100-devel-bounces@lists.sourceforge.net
+Cc: netdev@vger.kernel.org
+To: jeff@garzik.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from de01egw01.freescale.net ([192.88.165.102]:54174 "EHLO
+	de01egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965715AbXBHJaW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Feb 2007 04:30:22 -0500
+Received: from de01smr01.freescale.net (de01smr01.freescale.net [10.208.0.31])
+	by de01egw01.freescale.net (8.12.11/de01egw01) with ESMTP id l189UJgU025839
+	for <netdev@vger.kernel.org>; Thu, 8 Feb 2007 02:30:19 -0700 (MST)
+Received: from zch01exm20.fsl.freescale.net (zch01exm20.ap.freescale.net [10.192.129.204])
+	by de01smr01.freescale.net (8.13.1/8.13.0) with ESMTP id l189UHCB026165
+	for <netdev@vger.kernel.org>; Thu, 8 Feb 2007 03:30:18 -0600 (CST)
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2007-02-06 at 21:44 +0000, Matthew Garrett wrote:
-> I'm reluctant to drop the IRQ because PCMCIA seems to have 
-> a nasty habit of grabbing free looking IRQs and setting them to be
-> edge triggered, which would obviously be bad. 
+Remove iopa() patch from previous series which is still in
+discussion in powerpc list.
 
-Can you provide more details for this problem and why we should
-workaround it here instead of fixing the PCMCIA driver (hardware)?
+- Leo
 
-A generic requirement for dynamic power management is the hardware
-resource should not be touched when you put it in a low power state. In
-this case, ipw2100 interrupt handler is possibly called (for example, it
-shares the same IRQ with other devies) and it touches the card register,
-which will cause problem. A possible workaround is to check the suspend
-state in the beginning of the ISR and returns IRQ_NONE. But I think
-freeing the irq handler before suspend should be the right way to go.
-
-Thanks,
--yi
-
--------------------------------------------------------------------------
-Using Tomcat but need to do more? Need to support web services, security?
-Get stuff done quickly with pre-integrated technology to make your job easier.
-Download IBM WebSphere Application Server v.1.0.1 based on Apache Geronimo
-http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
