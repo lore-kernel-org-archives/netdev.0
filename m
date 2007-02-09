@@ -1,71 +1,38 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH] NET : change layout of ehash table
-Date: Fri, 9 Feb 2007 10:36:58 +0100
-Message-ID: <200702091036.58474.dada1@cosmosbay.com>
-References: <p73zm7n1ygk.fsf@bingen.suse.de> <200702091006.24242.dada1@cosmosbay.com> <20070209.011542.21927454.davem@davemloft.net>
+Date: Fri, 09 Feb 2007 01:43:44 -0800 (PST)
+Message-ID: <20070209.014344.63999119.davem@davemloft.net>
+References: <200702091006.24242.dada1@cosmosbay.com>
+	<20070209.011542.21927454.davem@davemloft.net>
+	<200702091036.58474.dada1@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: ak@suse.de, linux@horizon.com, akepner@sgi.com,
 	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: dada1@cosmosbay.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pfx2.jmh.fr ([194.153.89.55]:48933 "EHLO pfx2.jmh.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1946271AbXBIJhE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Feb 2007 04:37:04 -0500
-In-Reply-To: <20070209.011542.21927454.davem@davemloft.net>
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58158
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1946270AbXBIJnp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Feb 2007 04:43:45 -0500
+In-Reply-To: <200702091036.58474.dada1@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Friday 09 February 2007 10:15, David Miller wrote:
-> From: Eric Dumazet <dada1@cosmosbay.com>
-> Date: Fri, 9 Feb 2007 10:06:24 +0100
->
-> > Yes, but a decent C compiler for such targets should not use a
-> > multiply instruction to perform a (idx * 12) operation... :)
->
-> Good point.
->
-> Actually, I could never get GCC to avoid a divide on sparc64 for
-> certain kinds of pointer arithmetic when the elements were not
-> a power of two.  It probably has something to do with signedness.
->
-> I think I narrowed is down to the fact that you can't legally replace
-> a signed divide with shift/add/subtract.  But I could be remembering
-> things wrong.
+From: Eric Dumazet <dada1@cosmosbay.com>
+Date: Fri, 9 Feb 2007 10:36:58 +0100
 
-Thats strange, because pointer arithmetic is unsigned...
-I dont know when gcc started to use reciprocal division, maybe your gcc was 
-very old ?
+> Thats strange, because pointer arithmetic is unsigned...
+> I dont know when gcc started to use reciprocal division, maybe your gcc was 
+> very old ?
 
-$ cat div.c
-struct s1 {        int pad[3];        };
+Yep, it was only on older gcc's.
 
-unsigned long diffptr(struct s1 *a, struct s1 *b)
-{
-return a - b;
-}
+And as the sparc gcc backend co-maintainer, I remember what the
+problem was.  The insn costs for multiply and divide were not set
+properly on UltraSPARC, so it used the defaults, which made gcc think
+divides were very cheap :-)
 
-If compiled on i386 , gcc-4.1.1 :
-
-$ gcc -O2 -fomit-frame-pointer -S div.c
-
-diffptr:
-        movl    4(%esp), %eax
-        subl    8(%esp), %eax
-        sarl    $2, %eax
-        imull   $-1431655765, %eax, %eax
-        ret
-
-If compiled on x86_64 , gcc-4.1.1:
-
-diffptr:
-        subq    %rsi, %rdi
-        movabsq $-6148914691236517205, %rax
-        sarq    $2, %rdi
-        imulq   %rax, %rdi
-        movq    %rdi, %rax
-        ret
+Current gcc does the right thing, even for weird sizes like 56 and 52
+which expands to many IALU operations.
