@@ -1,67 +1,198 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: [Bugme-new] [Bug 7962] New: oops in port_carrier_check
-Date: Fri, 9 Feb 2007 08:42:11 +0100
-Message-ID: <20070209074211.GA1631@ff.dom.local>
-References: <20070207140916.088b1073@oldman>
+From: Jan-Bernd Themann <ossthema@de.ibm.com>
+Subject: [PATCH 2.6.21-rc1] ehea: Fixed error recovery
+Date: Fri, 9 Feb 2007 09:10:51 +0100
+Message-ID: <200702090910.51646.ossthema@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
-	"bugme-daemon\@kernel-bugs\.osdl\.org"
-	<bugme-daemon@bugzilla.kernel.org>, pterjan@gmail.com
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Christoph Raisch <raisch@de.ibm.com>,
+	"Jan-Bernd Themann" <themann@de.ibm.com>,
+	"linux-kernel" <linux-kernel@vger.kernel.org>,
+	"linux-ppc" <linuxppc-dev@ozlabs.org>,
+	Marcus Eder <meder@de.ibm.com>,
+	Thomas Klein <tklein@de.ibm.com>,
+	Stefan Roscher <stefan.roscher@de.ibm.com>
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.go2.pl ([193.17.41.42]:36385 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1946179AbXBIHjN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Feb 2007 02:39:13 -0500
+Received: from mtagate1.de.ibm.com ([195.212.29.150]:16580 "EHLO
+	mtagate1.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1946200AbXBIIOJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Feb 2007 03:14:09 -0500
 Content-Disposition: inline
-In-Reply-To: <20070207140916.088b1073@oldman>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 07-02-2007 23:09, Stephen Hemminger wrote:
-> On Wed, 7 Feb 2007 12:52:16 -0800
-> Andrew Morton <akpm@linux-foundation.org> wrote:
-...
->> Feb  7 21:20:18 plop kernel: BUG: unable to handle kernel paging request at
->> virtual address 6b6b6b6b
->> Feb  7 21:20:18 plop kernel:  printing eip:
->> Feb  7 21:20:18 plop kernel: *pde = 00000000
->> Feb  7 21:20:18 plop kernel: Oops: 0000 [#1]
->> Feb  7 21:20:18 plop kernel: CPU:    0
->> Feb  7 21:20:19 plop kernel: EIP:    0060:[pg0+814360305/1067136000]    Not
->> tainted VLI
->> Feb  7 21:20:19 plop kernel: EIP:    0060:[<f0eed6f1>]    Not tainted VLI
->> Feb  7 21:20:19 plop kernel: EFLAGS: 00010202   (2.6.20.0.rc7-1mdv #1)
->> Feb  7 21:20:19 plop kernel: EIP is at port_carrier_check+0x22/0x75 [bridge]
->> Feb  7 21:20:19 plop kernel: eax: 6b6b6b6b   ebx: 6b6b6b6b   ecx: 00000000  
+Error recovery for QP errors: Reset QPs and dump error information
 
-I think it's caused by pending delayed workqueue
-trying to use dev after kfree (POISON_FREE in eax, ebx). 
+Signed-off-by: Jan-Bernd Themann <themann@de.ibm.com>
+---
 
-> static void port_carrier_check(struct work_struct *work)
-> {
->        struct net_bridge_port *p;
->        struct net_device *dev;
->        struct net_bridge *br;
->
->        dev = container_of(work, struct net_bridge_port,
->                           carrier_check.work)->dev;
->        work_release(work);
->
->        rtnl_lock();
->        p = dev->br_port;
->        if (!p)
->                goto done;
->        br = p->br;
->
->        if (netif_carrier_ok(dev))
->                p->path_cost = port_cost(dev);
->
->        if (br->dev->flags & IFF_UP) {
 
-My investigation seems to point at this line (p == ebx
-but not NULL because of mem debugging on, probably).
+ drivers/net/ehea/ehea.h      |    2 +-
+ drivers/net/ehea/ehea_main.c |    8 +++++++-
+ drivers/net/ehea/ehea_phyp.c |   10 ++++++++++
+ drivers/net/ehea/ehea_phyp.h |    3 +++
+ drivers/net/ehea/ehea_qmr.c  |   42 ++++++++++++++++++++++++++++++++++++++++++
+ drivers/net/ehea/ehea_qmr.h  |    5 +++++
+ 6 files changed, 68 insertions(+), 2 deletions(-)
 
-Regards,
-Jarek P.
+diff --git a/drivers/net/ehea/ehea.h b/drivers/net/ehea/ehea.h
+index 272e1ec..42295d6 100644
+--- a/drivers/net/ehea/ehea.h
++++ b/drivers/net/ehea/ehea.h
+@@ -39,7 +39,7 @@ #include <asm/abs_addr.h>
+ #include <asm/io.h>
+ 
+ #define DRV_NAME	"ehea"
+-#define DRV_VERSION	"EHEA_0045"
++#define DRV_VERSION	"EHEA_0046"
+ 
+ #define EHEA_MSG_DEFAULT (NETIF_MSG_LINK | NETIF_MSG_TIMER \
+ 	| NETIF_MSG_RX_ERR | NETIF_MSG_TX_ERR)
+diff --git a/drivers/net/ehea/ehea_main.c b/drivers/net/ehea/ehea_main.c
+index 9de2d38..1ef3846 100644
+--- a/drivers/net/ehea/ehea_main.c
++++ b/drivers/net/ehea/ehea_main.c
+@@ -76,7 +76,7 @@ void ehea_dump(void *adr, int len, char 
+ 	int x;
+ 	unsigned char *deb = adr;
+ 	for (x = 0; x < len; x += 16) {
+-		printk(DRV_NAME "%s adr=%p ofs=%04x %016lx %016lx\n", msg,
++		printk(DRV_NAME " %s adr=%p ofs=%04x %016lx %016lx\n", msg,
+ 			  deb, x, *((u64*)&deb[0]), *((u64*)&deb[8]));
+ 		deb += 16;
+ 	}
+@@ -555,6 +555,7 @@ static irqreturn_t ehea_qp_aff_irq_handl
+ {
+ 	struct ehea_port *port = param;
+ 	struct ehea_eqe *eqe;
++	struct ehea_qp *qp;
+ 	u32 qp_token;
+ 
+ 	eqe = ehea_poll_eq(port->qp_eq);
+@@ -563,9 +564,14 @@ static irqreturn_t ehea_qp_aff_irq_handl
+ 		qp_token = EHEA_BMASK_GET(EHEA_EQE_QP_TOKEN, eqe->entry);
+ 		ehea_error("QP aff_err: entry=0x%lx, token=0x%x",
+ 			   eqe->entry, qp_token);
++
++		qp = port->port_res[qp_token].qp;
++		ehea_error_data(port->adapter, qp->fw_handle);
+ 		eqe = ehea_poll_eq(port->qp_eq);
+ 	}
+ 
++	queue_work(port->adapter->ehea_wq, &port->reset_task);
++
+ 	return IRQ_HANDLED;
+ }
+ 
+diff --git a/drivers/net/ehea/ehea_phyp.c b/drivers/net/ehea/ehea_phyp.c
+index 37716e0..bc3c005 100644
+--- a/drivers/net/ehea/ehea_phyp.c
++++ b/drivers/net/ehea/ehea_phyp.c
+@@ -612,3 +612,13 @@ u64 ehea_h_reset_events(const u64 adapte
+ 				       event_mask,		/* R6 */
+ 				       0, 0, 0, 0);		/* R7-R12 */
+ }
++
++u64 ehea_h_error_data(const u64 adapter_handle, const u64 ressource_handle,
++		      void *rblock)
++{
++	return ehea_plpar_hcall_norets(H_ERROR_DATA,
++				       adapter_handle,          /* R4 */
++				       ressource_handle,        /* R5 */
++				       virt_to_abs(rblock),     /* R6 */
++				       0, 0, 0, 0);             /* R7-R12 */
++}
+diff --git a/drivers/net/ehea/ehea_phyp.h b/drivers/net/ehea/ehea_phyp.h
+index 919f94b..90acddb 100644
+--- a/drivers/net/ehea/ehea_phyp.h
++++ b/drivers/net/ehea/ehea_phyp.h
+@@ -454,4 +454,7 @@ u64 ehea_h_reg_dereg_bcmc(const u64 adap
+ u64 ehea_h_reset_events(const u64 adapter_handle, const u64 neq_handle,
+ 			const u64 event_mask);
+ 
++u64 ehea_h_error_data(const u64 adapter_handle, const u64 ressource_handle,
++		      void *rblock);
++
+ #endif	/* __EHEA_PHYP_H__ */
+diff --git a/drivers/net/ehea/ehea_qmr.c b/drivers/net/ehea/ehea_qmr.c
+index f143e13..96ff3b6 100644
+--- a/drivers/net/ehea/ehea_qmr.c
++++ b/drivers/net/ehea/ehea_qmr.c
+@@ -486,6 +486,7 @@ int ehea_destroy_qp(struct ehea_qp *qp)
+ 	if (!qp)
+ 		return 0;
+ 
++	ehea_h_disable_and_get_hea(qp->adapter->handle, qp->fw_handle);
+ 	hret = ehea_h_free_resource(qp->adapter->handle, qp->fw_handle);
+ 	if (hret != H_SUCCESS) {
+ 		ehea_error("destroy_qp failed");
+@@ -581,4 +582,45 @@ out:
+ 	return ret;
+ }
+ 
++void print_error_data(u64 *data)
++{
++	int length;
++	u64 type = EHEA_BMASK_GET(ERROR_DATA_TYPE, data[2]);
++	u64 resource = data[1];
++
++	length = EHEA_BMASK_GET(ERROR_DATA_LENGTH, data[0]);
++
++	if (length > EHEA_PAGESIZE)
++		length = EHEA_PAGESIZE;
++
++	if (type == 0x8) /* Queue Pair */
++		ehea_error("QP (resource=%lX) state: AER=0x%lX, AERR=0x%lX, "
++			   "port=%lX", resource, data[6], data[12], data[22]);
++
++	ehea_dump(data, length, "error data");
++}
++
++void ehea_error_data(struct ehea_adapter *adapter, u64 res_handle)
++{
++	unsigned long ret;
++	u64 *rblock;
++
++	rblock = kzalloc(PAGE_SIZE, GFP_KERNEL);
++	if (!rblock) {
++		ehea_error("Cannot allocate rblock memory.");
++		return;
++	}
+ 
++	ret = ehea_h_error_data(adapter->handle,
++				res_handle,
++				rblock);
++
++	if (ret == H_R_STATE)
++		ehea_error("No error data is available: %lX.", res_handle);
++	else if (ret == H_SUCCESS)
++		print_error_data(rblock);
++	else
++		ehea_error("Error data could not be fetched: %lX", res_handle);
++
++	kfree(rblock);
++}
+diff --git a/drivers/net/ehea/ehea_qmr.h b/drivers/net/ehea/ehea_qmr.h
+index 7efdc96..1ff6098 100644
+--- a/drivers/net/ehea/ehea_qmr.h
++++ b/drivers/net/ehea/ehea_qmr.h
+@@ -180,6 +180,9 @@ struct ehea_eqe {
+ 	u64 entry;
+ };
+ 
++#define ERROR_DATA_LENGTH  EHEA_BMASK_IBM(52,63)
++#define ERROR_DATA_TYPE    EHEA_BMASK_IBM(0,7)
++
+ static inline void *hw_qeit_calc(struct hw_queue *queue, u64 q_offset)
+ {
+ 	struct ehea_page *current_page;
+@@ -355,4 +358,6 @@ int ehea_destroy_qp(struct ehea_qp *qp);
+ 
+ int ehea_reg_mr_adapter(struct ehea_adapter *adapter);
+ 
++void ehea_error_data(struct ehea_adapter *adapter, u64 res_handle);
++
+ #endif	/* __EHEA_QMR_H__ */
