@@ -1,49 +1,36 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: [PATCH] bcm43xx: Fix code for spec changes of 2/7/2007
-Date: Fri, 9 Feb 2007 19:48:12 +0100
-Message-ID: <200702091948.13296.mb@bu3sch.de>
-References: <45cca236.+lL/rsW3DbM3elnk%Larry.Finger@lwfinger.net> <200702091829.51002.mb@bu3sch.de> <45CCBB93.2040703@lwfinger.net>
+From: "Pascal Terjan" <pterjan@gmail.com>
+Subject: Re: [Bugme-new] [Bug 7962] New: oops in port_carrier_check
+Date: Fri, 9 Feb 2007 19:50:17 +0100
+Message-ID: <e8ca35370702091050naaa9669n2d19fec4b429c07f@mail.gmail.com>
+References: <20070207140916.088b1073@oldman>
+	 <20070209074211.GA1631@ff.dom.local> <20070209095204.7f43a964@oldman>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Joseph Jezak <josejx@gentoo.org>, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org,
-	John Linville <linville@tuxdriver.com>,
-	Bcm43xx-dev@lists.berlios.de
-To: Larry Finger <larry.finger@lwfinger.net>
+Cc: "Jarek Poplawski" <jarkao2@o2.pl>,
+	"Andrew Morton" <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org,
+	"bugme-daemon@kernel-bugs.osdl.org"
+	<bugme-daemon@bugzilla.kernel.org>
+To: "Stephen Hemminger" <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:56663
-	"EHLO vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1423182AbXBISsS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Feb 2007 13:48:18 -0500
-In-Reply-To: <45CCBB93.2040703@lwfinger.net>
+Received: from nz-out-0506.google.com ([64.233.162.224]:13941 "EHLO
+	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1946771AbXBISuR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Feb 2007 13:50:17 -0500
+Received: by nz-out-0506.google.com with SMTP id s1so882014nze
+        for <netdev@vger.kernel.org>; Fri, 09 Feb 2007 10:50:17 -0800 (PST)
+In-Reply-To: <20070209095204.7f43a964@oldman>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Friday 09 February 2007 19:21, Larry Finger wrote:
-> Michael Buesch wrote:
-> > On Friday 09 February 2007 23:22, Joseph Jezak wrote:
-> >>> Well, I don't review the rest until you say to which specs you did the changes. ;)
-> >> http://bcm-specs.sipsolutions.net/B5PHY
-> >>
-> >> Larry was working from the old specs, so when I updated it, I only 
-> >> updated the old specs.  I'll fix the v4 specs soon.
-> > 
-> > Ah, ok. I think we should decide on which specs carry most recent information.
-> > I think v3 specs should be considered obsolete and new information/ fixes
-> > should go into v4. It is already too confusing where to find newest information
-> > to a certain thing.
-> > 
-> 
-> I'll agree to that as long as there is a clear indication of any differences between V3 and V4 firmware.
+2007/2/9, Stephen Hemminger <shemminger@linux-foundation.org>:
+> The carrier_check is canceled by removal of port from bridge.
+> Perhaps there is something broken in rcu assumptions under Qemu
 
-Well, the difference between v3 and v4 is:
-* The SHM API.
-* v4 may include less BPHY stuff, as broadcom's v4 drivers don't include BHY anymore.
-
-So I'd say for everything bug BPHY the v4 specs should be considered latest.
-
--- 
-Greetings Michael.
+If that can help:
+I started /stopped qemu several times. Maybe I started /stopped qemu
+several times as I was testing new PXE support in qemu with different
+virtual nic. Each time, a tun device was created by qemu at startup
+and added to the bridge, and destroyed on exit.
