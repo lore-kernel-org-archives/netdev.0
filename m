@@ -1,37 +1,39 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH][IPSEC][4/6] changing "ipip tunnel" and xfrm4_tunnel to
- the API change
-Date: Fri, 09 Feb 2007 09:36:56 +0100
-Message-ID: <45CC32A8.5070800@trash.net>
-References: <20070208170412.2e627947.kazunori@miyazawa.org> <45CB2148.8060307@trash.net> <45CBC24D.9040408@miyazawa.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] NET : change layout of ehash table
+Date: Fri, 09 Feb 2007 00:40:19 -0800 (PST)
+Message-ID: <20070209.004019.75431263.davem@davemloft.net>
+References: <200702071159.34935.dada1@cosmosbay.com>
+	<20070208.145632.74749802.davem@davemloft.net>
+	<p73zm7n1ygk.fsf@bingen.suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	David Miller <davem@davemloft.net>, Miika Komu <miika@iki.fi>,
-	Diego Beltrami <Diego.Beltrami@hiit.fi>,
-	netdev@vger.kernel.org, usagi-core@linux-ipv6.org
-To: Kazunori MIYAZAWA <kazunori@miyazawa.org>
+Cc: dada1@cosmosbay.com, linux@horizon.com, akepner@sgi.com,
+	netdev@vger.kernel.org
+To: ak@suse.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:60845 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1946207AbXBIIg7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Feb 2007 03:36:59 -0500
-In-Reply-To: <45CBC24D.9040408@miyazawa.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50858
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1946201AbXBIIkV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Feb 2007 03:40:21 -0500
+In-Reply-To: <p73zm7n1ygk.fsf@bingen.suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Kazunori MIYAZAWA wrote:
-> Thank you Patrick for your review.
-> I'll fix and send again.
+From: Andi Kleen <ak@suse.de>
+Date: 09 Feb 2007 10:18:03 +0100
 
-Thanks.
+> David Miller <davem@davemloft.net> writes:
+> > 
+> > I've applied this, but I _REALLY_ don't like the new multiply
+> > instructions that are used now in the hash indexing paths when
+> > CONFIG_SMP is set.
+> > 
+> > I think that's a higher cost than the memory waste.
+> 
+> You're serious? multiply on a modern CPU is _much_ cheaper than a cache miss
+> e.g. a K8 can do a arbitary 64bit multiplication in 3-7 cycles.
+> Any cache miss will be in the three to four digits at least.
 
-> BTW, I'm going to use separete xfrm_tunnel_handler to solve
-> the issue which you pointed at the moment. But why does
-> "register twice" corrupt the list even if I use separate lists
-> for the address family.
-
-The next pointer in xfrm_tunnel_handler will get overwritten on
-the second registration.
-
+I'm not thinking of modern CPUs, I'm think of the little
+guys :-)
