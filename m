@@ -1,88 +1,49 @@
-From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+From: Michael Buesch <mb@bu3sch.de>
 Subject: Re: [PATCH] bcm43xx: Fix code for spec changes of 2/7/2007
-Date: Fri, 9 Feb 2007 19:45:24 +0100
-Message-ID: <200702091945.25187.mb@bu3sch.de>
-References: <45cca236.+lL/rsW3DbM3elnk%Larry.Finger@lwfinger.net>
+Date: Fri, 9 Feb 2007 19:48:12 +0100
+Message-ID: <200702091948.13296.mb@bu3sch.de>
+References: <45cca236.+lL/rsW3DbM3elnk%Larry.Finger@lwfinger.net> <200702091829.51002.mb@bu3sch.de> <45CCBB93.2040703@lwfinger.net>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Joseph Jezak <josejx-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
-To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <45cca236.+lL/rsW3DbM3elnk%Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Cc: Joseph Jezak <josejx@gentoo.org>, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org,
+	John Linville <linville@tuxdriver.com>,
+	Bcm43xx-dev@lists.berlios.de
+To: Larry Finger <larry.finger@lwfinger.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:56663
+	"EHLO vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1423182AbXBISsS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Feb 2007 13:48:18 -0500
+In-Reply-To: <45CCBB93.2040703@lwfinger.net>
 Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Friday 09 February 2007 17:32, Larry Finger wrote:
-> The specifications for the bcm43xx driver have been modified. This patch
-> incorporates these changes in the code, which results in the BCM4311 and
-> BCM4312 working. The name of one of the PHY parameters, previously known
-> as "version", has been changed to "analog core version" .
+On Friday 09 February 2007 19:21, Larry Finger wrote:
+> Michael Buesch wrote:
+> > On Friday 09 February 2007 23:22, Joseph Jezak wrote:
+> >>> Well, I don't review the rest until you say to which specs you did the changes. ;)
+> >> http://bcm-specs.sipsolutions.net/B5PHY
+> >>
+> >> Larry was working from the old specs, so when I updated it, I only 
+> >> updated the old specs.  I'll fix the v4 specs soon.
+> > 
+> > Ah, ok. I think we should decide on which specs carry most recent information.
+> > I think v3 specs should be considered obsolete and new information/ fixes
+> > should go into v4. It is already too confusing where to find newest information
+> > to a certain thing.
+> > 
 > 
-> Signed-off-by: Larry Finger<Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+> I'll agree to that as long as there is a clear indication of any differences between V3 and V4 firmware.
 
->  	if ((bcm->board_vendor != PCI_VENDOR_ID_BROADCOM) &&
->  	    (bcm->board_type != 0x0416)) {
-> +		value = 0x2120;
->  		for (offset = 0x00A8 ; offset < 0x00C7; offset++) {
-> -			bcm43xx_phy_write(bcm, offset,
-> -					  (bcm43xx_phy_read(bcm, offset) + 0x2020)
-> -					  & 0x3F3F);
-> +			bcm43xx_phy_write(bcm, offset, value);
+Well, the difference between v3 and v4 is:
+* The SHM API.
+* v4 may include less BPHY stuff, as broadcom's v4 drivers don't include BHY anymore.
 
-The specs are unclear at this point:
-"Write the value to the offset"
-Offset in which register type?
-
-> @@ -933,6 +934,8 @@ static void bcm43xx_phy_initb6(struct bc
->  		                  bcm43xx_phy_read(bcm, 0x0802) | 0x0100);
->  		bcm43xx_phy_write(bcm, 0x042B,
->  		                  bcm43xx_phy_read(bcm, 0x042B) | 0x2000);
-> +		bcm43xx_phy_write(bcm, 0x5B, 0x0000);
-> +		bcm43xx_phy_write(bcm, 0x5C, 0x0000);
->  	}
->  
->  	/* Force to channel 7, even if not supported. */
-
-Backup and reset old_channel later here, too.
-Also, look at this:
-
-# If the current channel is 8 or greater
-   1. Set the channel to 1 
-# Otherwise
-   1. Set the channel to 13
-
-> Index: linux-2.6/drivers/net/wireless/bcm43xx/bcm43xx_radio.c
-> ===================================================================
-> --- linux-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_radio.c
-> +++ linux-2.6/drivers/net/wireless/bcm43xx/bcm43xx_radio.c
-> @@ -1393,11 +1393,12 @@ u16 bcm43xx_radio_init2050(struct bcm43x
->  	backup[12] = bcm43xx_read16(bcm, BCM43xx_MMIO_CHANNEL_EXT);
->  
->  	// Initialization
-> -	if (phy->version == 0) {
-> +	if (phy->analog == 0) {
->  		bcm43xx_write16(bcm, 0x03E6, 0x0122);
->  	} else {
-> -		if (phy->version >= 2)
-> -			bcm43xx_write16(bcm, 0x03E6, 0x0040);
-> +		if (phy->analog >= 2)
-> +			bcm43xx_write16(bcm, 0x0003, (bcm43xx_read16(bcm, 0x0003)
-> +					& 0xFFBF) | 0x0040);
-
-I think here is a specs bug.
-
->  		bcm43xx_write16(bcm, BCM43xx_MMIO_CHANNEL_EXT,
->  		                (bcm43xx_read16(bcm, BCM43xx_MMIO_CHANNEL_EXT) | 0x2000));
->  	}
+So I'd say for everything bug BPHY the v4 specs should be considered latest.
 
 -- 
 Greetings Michael.
--
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
