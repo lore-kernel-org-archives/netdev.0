@@ -1,85 +1,80 @@
-From: Kazunori MIYAZAWA <kazunori@miyazawa.org>
-Subject: Re: [PATCH][IPSEC][4/6] changing "ipip tunnel" and xfrm4_tunnel to
- the API change
-Date: Fri, 09 Feb 2007 09:37:33 +0900
-Message-ID: <45CBC24D.9040408@miyazawa.org>
-References: <20070208170412.2e627947.kazunori@miyazawa.org> <45CB2148.8060307@trash.net>
+From: Greg KH <greg@kroah.com>
+Subject: Re: Network: convert network devices to use struct device instead of class_device
+Date: Thu, 8 Feb 2007 16:51:20 -0800
+Message-ID: <20070209005120.GC30794@kroah.com>
+References: <200702080400.l1840lFd002314@hera.kernel.org> <45CB1AE6.9020707@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	David Miller <davem@davemloft.net>, Miika Komu <miika@iki.fi>,
-	Diego Beltrami <Diego.Beltrami@hiit.fi>,
-	netdev@vger.kernel.org, usagi-core@linux-ipv6.org
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usagi004.linux-ipv6.org ([203.178.140.4]:40224 "EHLO
-	miyazawa.org" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1945945AbXBIAiO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Feb 2007 19:38:14 -0500
-In-Reply-To: <45CB2148.8060307@trash.net>
+Received: from mx2.suse.de ([195.135.220.15]:42402 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1423185AbXBIAwa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Feb 2007 19:52:30 -0500
+Content-Disposition: inline
+In-Reply-To: <45CB1AE6.9020707@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Thank you Patrick for your review.
-I'll fix and send again.
+On Thu, Feb 08, 2007 at 07:43:18AM -0500, Jeff Garzik wrote:
+> Linux Kernel Mailing List wrote:
+> >Gitweb:     
+> >http://git.kernel.org/git/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=43cb76d91ee85f579a69d42bc8efc08bac560278
+> >Commit:     43cb76d91ee85f579a69d42bc8efc08bac560278
+> >Parent:     2943ecf2ed32632473c06f1975db47a7aa98c10f
+> >Author:     Greg Kroah-Hartman <gregkh@suse.de>
+> >AuthorDate: Tue Apr 9 12:14:34 2002 -0700
+> >Committer:  Greg Kroah-Hartman <gregkh@suse.de>
+> >CommitDate: Wed Feb 7 10:37:11 2007 -0800
+> >
+> >    Network: convert network devices to use struct device instead of 
+> >    class_device
+> >    
+> >    This lets the network core have the ability to handle suspend/resume
+> >    issues, if it wants to.
+> >    
+> >    Thanks to Frederik Deweerdt <frederik.deweerdt@gmail.com> for the arm
+> >    driver fixes.
+> >    
+> >    Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
+> >---
+> > drivers/infiniband/ulp/ipoib/ipoib_main.c |   33 ++--
+> > drivers/infiniband/ulp/ipoib/ipoib_vlan.c |   11 +-
+> > drivers/net/arm/at91_ether.c              |    2 +-
+> > drivers/net/arm/etherh.c                  |    2 +-
+> > drivers/net/bonding/bond_sysfs.c          |  287 
+> > +++++++++++++++++-----------
+> > drivers/net/iseries_veth.c                |    2 +-
+> > drivers/net/macb.c                        |   36 ++--
+> > drivers/net/smc911x.c                     |    2 +-
+> > drivers/net/smc91x.c                      |    2 +-
+> > drivers/net/wireless/hostap/hostap_main.c |    2 +-
+> > drivers/net/wireless/orinoco.c            |    4 +-
+> > drivers/net/wireless/orinoco_cs.c         |    2 +-
+> > drivers/net/wireless/spectrum_cs.c        |    2 +-
+> > include/linux/netdevice.h                 |    5 +-
+> > net/bridge/br_if.c                        |    2 +-
+> > net/bridge/br_sysfs_br.c                  |  234 +++++++++++++-----------
+> > net/bridge/br_sysfs_if.c                  |    2 +-
+> > net/core/dev.c                            |    6 +-
+> > net/core/net-sysfs.c                      |  175 ++++++++++--------
+> > net/core/skbuff.c                         |    2 +-
+> > 20 files changed, 451 insertions(+), 362 deletions(-)
+> 
+> It's highly disappointing that this was never discussed on 
+> netdev@vger.kernel.org, or even CC'd to me.
 
-BTW, I'm going to use separete xfrm_tunnel_handler to solve
-the issue which you pointed at the moment. But why does
-"register twice" corrupt the list even if I use separate lists
-for the address family.
+It was CCed to David Miller and you and netdev a long time ago (like 8-9
+months ago.)  It's been in the -mm tree since then and discussed on lkml
+a few times too.
 
-Thank you,
+As I got David's ack for it, and he said to push it through my tree, I
+didn't think any more of it.
 
-Patrick McHardy wrote:
-> Kazunori MIYAZAWA wrote:
->> Changing ipip tunnel and xfrm4_tunnel to the API
-> 
-> Fixing up users after API changes should be done in the same
-> patch as the API change itself to avoid breaking compilation
-> for people doing a bisection.
-> 
->> index f110af5..00fc09f 100644
->> --- a/net/ipv4/xfrm4_tunnel.c
->> +++ b/net/ipv4/xfrm4_tunnel.c
->> @@ -66,12 +66,15 @@ static struct xfrm_tunnel xfrm_tunnel_ha
->>  
->>  static int __init ipip_init(void)
->>  {
->> -	if (xfrm_register_type(&ipip_type, AF_INET) < 0) {
->> -		printk(KERN_INFO "ipip init: can't add xfrm type\n");
->> +	if (xfrm_register_type(&ipip_type, AF_INET) < 0)
->> +		return -EAGAIN;
-> 
-> Why are you removing the printk?
-> 
->> +
->> +	if (xfrm4_tunnel_register(&xfrm_tunnel_handler, AF_INET)) {
->> +		printk(KERN_INFO "ipip init: can't add xfrm handler for AF_INET\n");
->>  		return -EAGAIN;
-> 
-> Does not unregister ipip_type on error.
-> 
->>  	}
->> -	if (xfrm4_tunnel_register(&xfrm_tunnel_handler)) {
->> -		printk(KERN_INFO "ipip init: can't add xfrm handler\n");
->> +	if (xfrm4_tunnel_register(&xfrm_tunnel_handler, AF_INET6)) {
-> 
-> You register xfrm_tunnel_handler twice, which will corrupt the list.
-> 
->> +		printk(KERN_INFO "ipip init: can't add xfrm handler for AF_INET6\n");
->>  		xfrm_unregister_type(&ipip_type, AF_INET);
-> 
-> Does not unregister AF_INET tunnel handler on error.
-> 
->>  		return -EAGAIN;
->>  	}
-> 
-> The next patch has similar problems.
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+My apologies, I should have consulted you again before doing it.
 
---
-Kazunori Miyazawa
+thanks,
+
+greg k-h
