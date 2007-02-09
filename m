@@ -1,32 +1,27 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: [PATCH] NET : change layout of ehash table
-Date: Fri, 9 Feb 2007 11:10:33 +0100
-Message-ID: <200702091110.34125.ak@suse.de>
-References: <200702091006.24242.dada1@cosmosbay.com> <200702091036.58474.dada1@cosmosbay.com> <20070209.014344.63999119.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: dada1@cosmosbay.com, linux@horizon.com, akepner@sgi.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: David Howells <dhowells@redhat.com>
+Subject: Re: [PATCH 0/5] [RFC] AF_RXRPC socket family implementation
+Date: Fri, 09 Feb 2007 10:31:34 +0000
+Message-ID: <7426.1171017094@redhat.com>
+References: <20070209.015539.53640067.yoshfuji@linux-ipv6.org>  <20070208163211.23973.5877.stgit@warthog.cambridge.redhat.com>
+Cc: dhowells@redhat.com, davem@davemloft.net, netdev@vger.kernel.org,
+	herbert.xu@redhat.com, hch@infradead.org, arjan@infradead.org
+To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.suse.de ([195.135.220.2]:45218 "EHLO mx1.suse.de"
+Received: from mx1.redhat.com ([66.187.233.31]:33457 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1946265AbXBIKKi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Feb 2007 05:10:38 -0500
-In-Reply-To: <20070209.014344.63999119.davem@davemloft.net>
-Content-Disposition: inline
+	id S1946315AbXBIKbu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Feb 2007 05:31:50 -0500
+In-Reply-To: <20070209.015539.53640067.yoshfuji@linux-ipv6.org> 
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Friday 09 February 2007 10:43, David Miller wrote:
+YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org> wrote:
 
-> Current gcc does the right thing, even for weird sizes like 56 and 52
-> which expands to many IALU operations.
+> This sockaddr_rxrpc{} should NOT include sockaddr_in{} directly.
+> Please use sockaddr_storage{} (or sockaddr{}, maybe), and make it
+> sure to align on 64-bit word.
 
-... except if you use -Os, which at least on x86* is default and is what
-distros ship with.
+That won't work.  That would then make the address larger than the maximum
+size (ie: sizeof(struct sockaddr_storage)).
 
--Andi
-
+David
