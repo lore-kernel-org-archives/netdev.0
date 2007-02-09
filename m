@@ -1,44 +1,43 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [Bugme-new] [Bug 7974] New: BUG: scheduling while atomic:
- swapper/0x10000100/0
-Date: Fri, 09 Feb 2007 15:31:54 -0800
-Message-ID: <1171063915.3304.1.camel@rh4>
-References: <200702091623.l19GNiUP006513@fire-2.osdl.org>
- <20070209133802.01286bbb.akpm@linux-foundation.org>
- <20070209223520.GA27634@electric-eye.fr.zoreil.com>
+From: Martin Langer <martin-langer-Mmb7MZpHnFY@public.gmane.org>
+Subject: Re: [PATCH] bcm43xx: Fix code for spec changes of 2/7/2007
+Date: Fri, 9 Feb 2007 23:52:34 +0100
+Message-ID: <20070209225234.GA3381@tuba>
+References: <45cca236.+lL/rsW3DbM3elnk%Larry.Finger@lwfinger.net> <200702091811.40683.mb@bu3sch.de> <45CCF432.2070002@gentoo.org> <200702091829.51002.mb@bu3sch.de> <45CCBB93.2040703@lwfinger.net> <45CCC5DF.8010001@gentoo.org> <45CCCAE1.9080901@lwfinger.net> <20070209213239.GA11650@srcf.ucam.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "Andrew Morton" <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org,
-	"Stephen Hemminger" <shemminger@linux-foundation.org>,
-	lpiccilli@gelre.com.br,
-	"bugme-daemon@kernel-bugs.osdl.org"
-	<bugme-daemon@bugzilla.kernel.org>
-To: "Francois Romieu" <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:2253 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1423345AbXBIWs1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Feb 2007 17:48:27 -0500
-In-Reply-To: <20070209223520.GA27634@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Larry Finger <larry.finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
+	Joseph Jezak <josejx-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>, Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+To: Matthew Garrett <mjg59-1xO5oi07KQx4cg9Nei1l7Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20070209213239.GA11650-1xO5oi07KQx4cg9Nei1l7Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2007-02-09 at 23:35 +0100, Francois Romieu wrote:
-> Andrew Morton <akpm@linux-foundation.org> :
-> > 
-> > cond_resched() called from softirq, amongst other problems.
+On Fri, Feb 09, 2007 at 09:32:39PM +0000, Matthew Garrett wrote:
+> On Fri, Feb 09, 2007 at 01:26:25PM -0600, Larry Finger wrote:
 > 
-> Seems too simple to be right. Btw calling dev_set_mac_address
-> may hurt some tg3:
+> > My plan is to continue to maintain bcm43xx-SoftMAC for at least the BPHY and 4306 revisions even
+> > after d80211 becomes the in-kernel driver. Of course, I hope that we will have found the killer bugs
+> > by that time, and that maintenance will only require following kernel API changes.
 > 
-> -> tg3_set_mac_addr
->    -> tg3_netif_stop (depending on the content of their sram): 
->       -> netif_poll_disable
->          -> schedule_timeout_interruptible
-> 
+> Just to make sure I'm understanding this correctly - does the v4 
+> firmware drop compatibility for older cards, or is it just that Broadcom 
+> dropped support in the driver at the same time as the firmware changed, 
+> and the new firmware will still also drive the old cards?
 
-Yes, known problem.  Bonding calls dev_set_mac_address from unsleepable
-context.
+We can't extract bcm43xx_microcode2.fw from v4 drivers. You need this 
+file for old rev2+3 0x812 cores. So we don't know what firmware we 
+should load into those old cores. I think broadcom never developed a new 
+v4 style firmware for their old hardware.
 
+Martin
+
+
+-
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
