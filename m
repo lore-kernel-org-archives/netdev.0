@@ -1,38 +1,32 @@
-From: David Miller <davem@davemloft.net>
+From: Andi Kleen <ak@suse.de>
 Subject: Re: [PATCH] NET : change layout of ehash table
-Date: Fri, 09 Feb 2007 01:43:44 -0800 (PST)
-Message-ID: <20070209.014344.63999119.davem@davemloft.net>
-References: <200702091006.24242.dada1@cosmosbay.com>
-	<20070209.011542.21927454.davem@davemloft.net>
-	<200702091036.58474.dada1@cosmosbay.com>
+Date: Fri, 9 Feb 2007 11:10:33 +0100
+Message-ID: <200702091110.34125.ak@suse.de>
+References: <200702091006.24242.dada1@cosmosbay.com> <200702091036.58474.dada1@cosmosbay.com> <20070209.014344.63999119.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: ak@suse.de, linux@horizon.com, akepner@sgi.com,
+Cc: dada1@cosmosbay.com, linux@horizon.com, akepner@sgi.com,
 	netdev@vger.kernel.org
-To: dada1@cosmosbay.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58158
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1946270AbXBIJnp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Feb 2007 04:43:45 -0500
-In-Reply-To: <200702091036.58474.dada1@cosmosbay.com>
+Received: from ns.suse.de ([195.135.220.2]:45218 "EHLO mx1.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1946265AbXBIKKi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Feb 2007 05:10:38 -0500
+In-Reply-To: <20070209.014344.63999119.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Fri, 9 Feb 2007 10:36:58 +0100
+On Friday 09 February 2007 10:43, David Miller wrote:
 
-> Thats strange, because pointer arithmetic is unsigned...
-> I dont know when gcc started to use reciprocal division, maybe your gcc was 
-> very old ?
+> Current gcc does the right thing, even for weird sizes like 56 and 52
+> which expands to many IALU operations.
 
-Yep, it was only on older gcc's.
+... except if you use -Os, which at least on x86* is default and is what
+distros ship with.
 
-And as the sparc gcc backend co-maintainer, I remember what the
-problem was.  The insn costs for multiply and divide were not set
-properly on UltraSPARC, so it used the defaults, which made gcc think
-divides were very cheap :-)
+-Andi
 
-Current gcc does the right thing, even for weird sizes like 56 and 52
-which expands to many IALU operations.
