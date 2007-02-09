@@ -1,30 +1,34 @@
-From: "Alon Bar-Lev" <alon.barlev@gmail.com>
-Subject: Re: [ANNOUNCE] d80211 based driver for Intel PRO/Wireless 3945ABG
-Date: Sat, 10 Feb 2007 00:14:45 +0200
-Message-ID: <9e0cf0bf0702091414w5d15511fk3b5e06a457772865@mail.gmail.com>
-References: <45CCE3CA.4050904@linux.intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/5] Add PCBC crypto template support
+Date: Fri, 09 Feb 2007 14:26:30 -0800 (PST)
+Message-ID: <20070209.142630.35664240.davem@davemloft.net>
+References: <20070208163211.23973.5877.stgit@warthog.cambridge.redhat.com>
+	<20070208163219.23973.8679.stgit@warthog.cambridge.redhat.com>
+	<9086.1171019881@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
-	ipw3945-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: "James Ketrenos" <jketreno@linux.intel.com>
+Cc: herbert.xu@redhat.com, netdev@vger.kernel.org, hch@infradead.org,
+	arjan@infradead.org
+To: dhowells@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.174]:63418 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1423342AbXBIWOu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Feb 2007 17:14:50 -0500
-Received: by ug-out-1314.google.com with SMTP id 44so72669uga
-        for <netdev@vger.kernel.org>; Fri, 09 Feb 2007 14:14:46 -0800 (PST)
-In-Reply-To: <45CCE3CA.4050904@linux.intel.com>
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50693
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1423347AbXBIW0c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Feb 2007 17:26:32 -0500
+In-Reply-To: <9086.1171019881@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 2/9/07, James Ketrenos <jketreno@linux.intel.com> wrote:
-> Ok.  Now... any questions?
+From: David Howells <dhowells@redhat.com>
+Date: Fri, 09 Feb 2007 11:18:01 +0000
 
-No... Just that it is great news!
+> Herbert Xu <herbert.xu@redhat.com> wrote:
+> 
+> > This is already in the crypto-2.6 tree that I pushed
+> > yesterday.
+> 
+> Thanks.  However, I'll continue to include the patches in my set until they
+> reach Linus's tree.
 
-Best Regards,
-Alon Bar-Lev.
+They are in Linus's tree.
