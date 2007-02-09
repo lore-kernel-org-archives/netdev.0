@@ -1,52 +1,38 @@
-From: James Ketrenos <jketreno-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Subject: Re: [ANNOUNCE] d80211 based driver for Intel PRO/Wireless 3945ABG
-Date: Fri, 09 Feb 2007 14:45:22 -0800
-Message-ID: <45CCF982.6090207@linux.intel.com>
-References: <45CCE3CA.4050904@linux.intel.com> <1171061021.7039.7.camel@dv>	 <45CCF318.2020503@linux.intel.com> <1171063040.7039.16.camel@dv>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] NET : UDP can use sk_hash to speedup lookups
+Date: Fri, 09 Feb 2007 15:45:11 -0800 (PST)
+Message-ID: <20070209.154511.92582666.davem@davemloft.net>
+References: <200702091036.58474.dada1@cosmosbay.com>
+	<20070209.014344.63999119.davem@davemloft.net>
+	<200702091844.16803.dada1@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	ipw3945-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1171063040.7039.16.camel@dv>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: netdev@vger.kernel.org
+To: dada1@cosmosbay.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37938
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752561AbXBIXpM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Feb 2007 18:45:12 -0500
+In-Reply-To: <200702091844.16803.dada1@cosmosbay.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Pavel Roskin wrote:
-> On Fri, 2007-02-09 at 14:18 -0800, James Ketrenos wrote:
->>> grep: /lib/modules/2.6.20/build//include/linux/netdevice.h: No such file
->>> or directory
-...
->> I'll look into it.  Does it work if you explicitly set KSRC to point to 
->> your kernel sources?
->>
->> $ make KSRC=/lib/modules/2.6.20/source
+From: Eric Dumazet <dada1@cosmosbay.com>
+Date: Fri, 9 Feb 2007 18:44:16 +0100
+
+> In a prior patch, I introduced a sk_hash field (__sk_common.skc_hash)  to let 
+> tcp lookups use one cache line per unmatched entry instead of two.
 > 
-> That works.  At least it doesn't report errors.  But it doesn't create a
-> single object file.
+> We can also use sk_hash to speedup UDP part as well. We store in sk_hash the 
+> hnum value, and use sk->sk_hash (same cache line than 'next' pointer), 
+> instead of inet->num (different cache line)
+> 
+> Note : We still have a false sharing problem for SMP machines, because 
+> sock_hold(sock) dirties the cache line containing the 'next' pointer. Not 
+> counting the udp_hash_lock rwlock. (did someone mentioned RCU ? :) )
+> 
+> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
 
-'make' builds a set of sources compatible with the running kernel (or 
-the one pointed to via KSRC=).
-
-'make patch_kernel' will then install the sources into your kernel tree. 
-  You then build d80211 as part of your main kernel (either as a module 
-or static)  The changes 'patch_kernel' makes do not require a full 
-kernel rebuild (you can just build the 80211 modules).
-
-We'll want to add the ability to build as out-of-tree .ko's (similar to 
-what iwlwifi does) but I wanted to get the project announced.
-
-> "build" is still hardcoded in iwlwifi's Makefile.  It's interesting that
-> D80211_INC is defined twice in Makefile.  That must be wrong.
-
-Now that you point it out, I hadn't tried using KSRC w/ the iwlwifi 
-build, just d80211.  I'll have to fix that :)
-
-Thanks,
-James
--
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied, thanks Eric.
