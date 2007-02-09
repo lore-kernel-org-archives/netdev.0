@@ -1,33 +1,33 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH][RESEND] gianfar: Convert network devices to use struct
- device instead of class_device
-Date: Fri, 09 Feb 2007 16:10:47 -0500
-Message-ID: <45CCE357.3030203@pobox.com>
-References: <Pine.LNX.4.64.0702081118090.29779@localhost.localdomain>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 2.6.21-rc1] ehea: Fixed error recovery
+Date: Fri, 09 Feb 2007 16:11:01 -0500
+Message-ID: <45CCE365.4070502@garzik.org>
+References: <200702090910.51646.ossthema@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Greg KH <greg@kroah.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Kumar Gala <galak@kernel.crashing.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:60267 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1423209AbXBIVKv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Feb 2007 16:10:51 -0500
-In-Reply-To: <Pine.LNX.4.64.0702081118090.29779@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
+Cc: Thomas Klein <tklein@de.ibm.com>, Jan-Bernd Themann <themann@de.ibm.com>,
+	netdev <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	linux-ppc <linuxppc-dev@ozlabs.org>, Christoph Raisch <raisch@de.ibm.com>,
+	Marcus Eder <meder@de.ibm.com>, Stefan Roscher <stefan.roscher@de.ibm.com>
+To: Jan-Bernd Themann <ossthema@de.ibm.com>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+In-Reply-To: <200702090910.51646.ossthema@de.ibm.com>
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-Kumar Gala wrote:
-> Convert network devices to use struct device instead of class_device.  Greg
-> missed this one in his cleanup path.
+Jan-Bernd Themann wrote:
+> Error recovery for QP errors: Reset QPs and dump error information
 > 
-> Signed-off-by: Kumar Gala <galak@kernel.crashing.org>
+> Signed-off-by: Jan-Bernd Themann <themann@de.ibm.com>
 
-OK, but doesn't apply to torvalds/linux-2.6.git ...
-
-	Jeff
-
-
-
+applied
