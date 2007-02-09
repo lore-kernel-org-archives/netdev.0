@@ -1,95 +1,59 @@
 From: Tobias Diedrich <ranma+kernel@tdiedrich.de>
 Subject: Re: forcedeth problems on 2.6.20-rc6-mm3
-Date: Fri, 9 Feb 2007 12:58:21 +0100
-Message-ID: <20070209115821.GD10330@melchior.yamamaya.is-a-geek.org>
-References: <45C6BCE5.90103@shaw.ca> <20070204213603.a5bce839.akpm@linux-foundation.org> <45C6C531.20508@shaw.ca> <20070204221741.63152cbe.akpm@linux-foundation.org> <523e55a00702081326j43de05e3hdd8cf35e946eae9@mail.gmail.com> <45CBE30D.5030006@nvidia.com>
+Date: Fri, 9 Feb 2007 13:07:30 +0100
+Message-ID: <20070209120730.GA11911@melchior.yamamaya.is-a-geek.org>
+References: <45C6BCE5.90103@shaw.ca> <20070204213603.a5bce839.akpm@linux-foundation.org> <45C6C531.20508@shaw.ca> <20070204221741.63152cbe.akpm@linux-foundation.org> <523e55a00702081326j43de05e3hdd8cf35e946eae9@mail.gmail.com> <45CBE30D.5030006@nvidia.com> <20070209115821.GD10330@melchior.yamamaya.is-a-geek.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Ford <firefighterblu3@gmail.com>,
+To: Ayaz Abdulla <aabdulla@nvidia.com>,
+	David Ford <firefighterblu3@gmail.com>,
 	Andrew Morton <akpm@linux-foundation.org>,
 	Robert Hancock <hancockr@shaw.ca>,
 	linux-kernel <linux-kernel@vger.kernel.org>,
 	netdev@vger.kernel.org
-To: Ayaz Abdulla <aabdulla@nvidia.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1946391AbXBIL62@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from yumi.tdiedrich.de ([85.10.210.183]:3897 "EHLO yumi.tdiedrich.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1946401AbXBIMHc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Feb 2007 07:07:32 -0500
 Content-Disposition: inline
-In-Reply-To: <45CBE30D.5030006@nvidia.com>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <20070209115821.GD10330@melchior.yamamaya.is-a-geek.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ayaz Abdulla wrote:
-> For all those who are having issues, please try out the attached patc=
-h.
+Tobias Diedrich wrote:
+> Ayaz Abdulla wrote:
+> > For all those who are having issues, please try out the attached pa=
+tch.
+>=20
+> Will try.
 
-Will try.
-I reverted to 2.6.19 w/o suspend/resume patch last weekend to make
-sure on 2.6.19 forcedeth is stable and noticed something odd:
-
-Because I didn't include the suspend/resume patch I obviously had to
-a down/rmmod/modprobe/up cycle after each resume and I noticed that
-the behaviour seems to alternate between resumes:
-
-Behaviour 1:
-  After modprobe I get two interface 'eth0' and 'eth1' for the two
-  ports, as expected.
-
-Behaviour 2:
-  After modprobe I get one interface 'eth3' (which should be 'eth1')
-  and one interface with increasing numbers (which should be 'eth0',
-  last resume it was 'eth12' IIRC).
-
-As I said if I get behaviour 1 on one resume I get behaviour 2 on
-the next resume and vice versa.  That seems rather odd to me.
-
-On a not quite related note, forcedeth shows a different ethtool
-output (compared to e100), when no cable is connected to the port:
-
-forcedeth, no cable connected:
-|Settings for eth1:
-|	Supported ports: [ MII ]
-|	Supported link modes:   10baseT/Half 10baseT/Full=20
-|	                        100baseT/Half 100baseT/Full=20
-|	                        1000baseT/Full=20
-|	Supports auto-negotiation: Yes
-|	Advertised link modes:  10baseT/Half 10baseT/Full=20
-|	                        100baseT/Half 100baseT/Full=20
-|	                        1000baseT/Full=20
-|	Advertised auto-negotiation: Yes
-|	Speed: Unknown! (65535)
-|	Duplex: Unknown! (255)
-|	Port: MII
-|	PHYAD: 1
-|	Transceiver: external
-|	Auto-negotiation: on
-|	Supports Wake-on: g
-|	Wake-on: d
-|	Link detected: no
-
-e100, no cable connected:
-|Settings for eth0:
-|        Supported ports: [ TP MII ]
-|        Supported link modes:   10baseT/Half 10baseT/Full=20
-|                                100baseT/Half 100baseT/Full=20
-|        Supports auto-negotiation: Yes
-|        Advertised link modes:  10baseT/Half 10baseT/Full=20
-|                                100baseT/Half 100baseT/Full=20
-|        Advertised auto-negotiation: Yes
-|        Speed: 10Mb/s
-|        Duplex: Half
-|        Port: MII
-|        PHYAD: 1
-|        Transceiver: internal
-|        Auto-negotiation: on
-|        Supports Wake-on: g
-|        Wake-on: g
-|        Current message level: 0x00000007 (7)
-|        Link detected: no
-
-Note that e100 returns the lowest possible speed if no link is
-detected, while forcedeth seems to return -1, which ethtool doesn't
-seem to recognise as a valid response (I guess, why else would it
-show the number after 'Unknown!').
+Does not apply cleanly against 2.6.20, is this one fixed up right?
+--- linux-2.6.20/drivers/net/forcedeth.c.orig	2007-02-09 13:02:02.00000=
+0000 +0100
++++ linux-2.6.20/drivers/net/forcedeth.c.new	2007-02-09 13:03:45.000000=
+000 +0100
+@@ -2603,10 +2603,16 @@
+ 	struct fe_priv *np =3D netdev_priv(dev);
+ 	u8 __iomem *base =3D get_hwbase(dev);
+ 	unsigned long flags;
++	u32 retcode;
+=20
+-	pkts =3D nv_rx_process(dev, limit);
++	if (np->desc_ver =3D=3D DESC_VER_1 || np->desc_ver =3D=3D DESC_VER_2)=
+ {
++		pkts =3D nv_rx_process(dev, limit);
++		retcode =3D nv_alloc_rx(dev);
++	} else {
++		retcode =3D nv_alloc_rx_optimized(dev);
++	}
+=20
+-	if (nv_alloc_rx(dev)) {
++	if (retcode) {
+ 		spin_lock_irqsave(&np->lock, flags);
+ 		if (!np->in_shutdown)
+ 			mod_timer(&np->oom_kick, jiffies + OOM_REFILL);
 
 --=20
 Tobias						PGP: http://9ac7e0bc.uguu.de
