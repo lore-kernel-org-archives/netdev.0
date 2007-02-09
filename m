@@ -1,42 +1,67 @@
-From: Kazunori MIYAZAWA <kazunori@miyazawa.org>
-Subject: [PATCH][IPSEC][4/4] Fix the address family to refer encap_family
-Date: Fri, 9 Feb 2007 16:12:42 +0900
-Message-ID: <20070209161242.824c5a01.kazunori@miyazawa.org>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: [Bugme-new] [Bug 7962] New: oops in port_carrier_check
+Date: Fri, 9 Feb 2007 08:42:11 +0100
+Message-ID: <20070209074211.GA1631@ff.dom.local>
+References: <20070207140916.088b1073@oldman>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Miika Komu <miika@iki.fi>, Diego Beltrami <Diego.Beltrami@hiit.fi>,
-	netdev@vger.kernel.org, usagi-core@linux-ipv6.org
-To: Herbert Xu <herbert@gondor.apana.org.au>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
+	"bugme-daemon\@kernel-bugs\.osdl\.org"
+	<bugme-daemon@bugzilla.kernel.org>, pterjan@gmail.com
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usagi004.linux-ipv6.org ([203.178.140.4]:59922 "EHLO
-	miyazawa.org" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1946186AbXBIHhj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Feb 2007 02:37:39 -0500
+Received: from mx2.go2.pl ([193.17.41.42]:36385 "EHLO poczta.o2.pl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1946179AbXBIHjN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Feb 2007 02:39:13 -0500
+Content-Disposition: inline
+In-Reply-To: <20070207140916.088b1073@oldman>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Fix the address family to refer encap_family
-when comparing with a kernel generated xfrm_state
+On 07-02-2007 23:09, Stephen Hemminger wrote:
+> On Wed, 7 Feb 2007 12:52:16 -0800
+> Andrew Morton <akpm@linux-foundation.org> wrote:
+...
+>> Feb  7 21:20:18 plop kernel: BUG: unable to handle kernel paging request at
+>> virtual address 6b6b6b6b
+>> Feb  7 21:20:18 plop kernel:  printing eip:
+>> Feb  7 21:20:18 plop kernel: *pde = 00000000
+>> Feb  7 21:20:18 plop kernel: Oops: 0000 [#1]
+>> Feb  7 21:20:18 plop kernel: CPU:    0
+>> Feb  7 21:20:19 plop kernel: EIP:    0060:[pg0+814360305/1067136000]    Not
+>> tainted VLI
+>> Feb  7 21:20:19 plop kernel: EIP:    0060:[<f0eed6f1>]    Not tainted VLI
+>> Feb  7 21:20:19 plop kernel: EFLAGS: 00010202   (2.6.20.0.rc7-1mdv #1)
+>> Feb  7 21:20:19 plop kernel: EIP is at port_carrier_check+0x22/0x75 [bridge]
+>> Feb  7 21:20:19 plop kernel: eax: 6b6b6b6b   ebx: 6b6b6b6b   ecx: 00000000  
 
----
- net/xfrm/xfrm_policy.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+I think it's caused by pending delayed workqueue
+trying to use dev after kfree (POISON_FREE in eax, ebx). 
 
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index b7e537f..6e7214f 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -1550,7 +1550,7 @@ xfrm_state_ok(struct xfrm_tmpl *tmpl, st
- 	      unsigned short family)
- {
- 	if (xfrm_state_kern(x))
--		return tmpl->optional && !xfrm_state_addr_cmp(tmpl, x, family);
-+		return tmpl->optional && !xfrm_state_addr_cmp(tmpl, x, tmpl->encap_family);
- 	return	x->id.proto == tmpl->id.proto &&
- 		(x->id.spi == tmpl->id.spi || !tmpl->id.spi) &&
- 		(x->props.reqid == tmpl->reqid || !tmpl->reqid) &&
--- 
-1.4.1
+> static void port_carrier_check(struct work_struct *work)
+> {
+>        struct net_bridge_port *p;
+>        struct net_device *dev;
+>        struct net_bridge *br;
+>
+>        dev = container_of(work, struct net_bridge_port,
+>                           carrier_check.work)->dev;
+>        work_release(work);
+>
+>        rtnl_lock();
+>        p = dev->br_port;
+>        if (!p)
+>                goto done;
+>        br = p->br;
+>
+>        if (netif_carrier_ok(dev))
+>                p->path_cost = port_cost(dev);
+>
+>        if (br->dev->flags & IFF_UP) {
 
+My investigation seems to point at this line (p == ebx
+but not NULL because of mem debugging on, probably).
+
+Regards,
+Jarek P.
