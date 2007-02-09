@@ -1,32 +1,36 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] ethtool: fix long statistics name
-Date: Fri, 09 Feb 2007 16:32:26 -0500
-Message-ID: <45CCE86A.60205@garzik.org>
-References: <20070111153610.36d0f39a@freekitty>
+Subject: Re: e1000: update device ID table for register dumps
+Date: Fri, 09 Feb 2007 16:32:44 -0500
+Message-ID: <45CCE87C.9040106@garzik.org>
+References: <20070119225313.297224186C@ahkok-mobl.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@osdl.org>
+Cc: netdev@vger.kernel.org
+To: Auke Kok <auke-jan.h.kok@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:60457 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:60470 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752501AbXBIVcb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Feb 2007 16:32:31 -0500
-In-Reply-To: <20070111153610.36d0f39a@freekitty>
+	id S1752514AbXBIVcq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Feb 2007 16:32:46 -0500
+In-Reply-To: <20070119225313.297224186C@ahkok-mobl.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> Fix handling of statistics where the label is exactly 32 (ETH_GSTRING_LEN)
-> characters long (observed with chelsio 10G driver). 
-> Before it would print garbage because of going by end
-> of string. Don't need to copy string, just use formats properly.
+Auke Kok wrote:
+> e1000: update device ID table for register dumps with new devices
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+> From: Auke Kok <auke-jan.h.kok@intel.com>
+> 
+> The register dump routine of e1000 was missing several newer chipsets. I
+> reimported the mac detection code from the linux e1000 driver. This fixes
+> newer NIC's reporting that their bus type is PCI instead of PCI-e.
+> 
+> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
 > ---
->  ethtool.c |   10 ++++------
->  1 files changed, 4 insertions(+), 6 deletions(-)
+> 
+>  e1000.c |  154 ++++++++++++++++++++++++++++++++++++++++++---------------------
+>  1 files changed, 103 insertions(+), 51 deletions(-)
 
 applied
 
