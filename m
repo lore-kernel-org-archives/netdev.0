@@ -1,37 +1,81 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] NET : change layout of ehash table
-Date: Fri, 09 Feb 2007 01:15:42 -0800 (PST)
-Message-ID: <20070209.011542.21927454.davem@davemloft.net>
-References: <p73zm7n1ygk.fsf@bingen.suse.de>
-	<20070209.004019.75431263.davem@davemloft.net>
-	<200702091006.24242.dada1@cosmosbay.com>
+From: Joe Jin <joe.jin@oracle.com>
+Subject: [PATCH] [ipv6]: adjust inet6_exit() cleanup sequence against inet6_init()
+Date: Fri, 9 Feb 2007 17:34:24 +0800
+Message-ID: <20070209093424.GA7078@joejin-pc.cn.oracle.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ak@suse.de, linux@horizon.com, akepner@sgi.com,
-	netdev@vger.kernel.org
-To: dada1@cosmosbay.com
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	joe.jin@oracle.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42667
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1946244AbXBIJPo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Feb 2007 04:15:44 -0500
-In-Reply-To: <200702091006.24242.dada1@cosmosbay.com>
+Received: from rgminet01.oracle.com ([148.87.113.118]:30732 "EHLO
+	rgminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1946269AbXBIJgM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Feb 2007 04:36:12 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Fri, 9 Feb 2007 10:06:24 +0100
+Hi,
 
-> Yes, but a decent C compiler for such targets should not use a
-> multiply instruction to perform a (idx * 12) operation... :)
+This patch for adjust inet6_exit() to inverse sequence to inet6_init().
 
-Good point.
+At ipv6_init, it first create proc_root/net/dev_snmp6 entry by call
+ipv6_misc_proc_init(), then call addrconf_init() to create the corresponding
+device entry at this directory, but at inet6_exit, ipv6_misc_proc_exit()
+called first, then call addrconf_init().
 
-Actually, I could never get GCC to avoid a divide on sparc64 for
-certain kinds of pointer arithmetic when the elements were not
-a power of two.  It probably has something to do with signedness.
+Signed-off-by: Joe Jin <joe.jin@oracle.com>
 
-I think I narrowed is down to the fact that you can't legally replace
-a signed divide with shift/add/subtract.  But I could be remembering
-things wrong.
+--- linux-2.6.20/net/ipv6/af_inet6.c.orig	2007-02-09 14:05:10.000000000 +0800
++++ linux-2.6.20/net/ipv6/af_inet6.c	2007-02-09 14:21:54.000000000 +0800
+@@ -930,25 +930,28 @@
+ {
+ 	/* First of all disallow new sockets creation. */
+ 	sock_unregister(PF_INET6);
+-#ifdef CONFIG_PROC_FS
+-	if6_proc_exit();
+-	ac6_proc_exit();
+- 	ipv6_misc_proc_exit();
+- 	udp6_proc_exit();
+- 	udplite6_proc_exit();
+- 	tcp6_proc_exit();
+- 	raw6_proc_exit();
+-#endif
++	
++	/* Cleanup code parts. */
++	ipv6_packet_cleanup();
+ #ifdef CONFIG_IPV6_MIP6
+ 	mip6_fini();
+ #endif
+-	/* Cleanup code parts. */
+-	ip6_flowlabel_cleanup();
+ 	addrconf_cleanup();
++	ip6_flowlabel_cleanup();
+ 	ip6_route_cleanup();
+-	ipv6_packet_cleanup();
+-	igmp6_cleanup();
++#ifdef CONFIG_PROC_FS
++
++	/* Cleanup code parts. */
++	if6_proc_exit();
++	ac6_proc_exit();
++	ipv6_misc_proc_exit();
++	udplite6_proc_exit();
++	udp6_proc_exit();
++	tcp6_proc_exit();
++	raw6_proc_exit();
++#endif
+ 	ipv6_netfilter_fini();
++	igmp6_cleanup();
+ 	ndisc_cleanup();
+ 	icmpv6_cleanup();
+ #ifdef CONFIG_SYSCTL
+@@ -956,6 +959,7 @@
+ #endif
+ 	cleanup_ipv6_mibs();
+ 	proto_unregister(&rawv6_prot);
++	proto_unregister(&udplitev6_prot);
+ 	proto_unregister(&udpv6_prot);
+ 	proto_unregister(&tcpv6_prot);
+ }
