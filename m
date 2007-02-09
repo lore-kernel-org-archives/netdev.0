@@ -1,58 +1,46 @@
-From: Frank Pavlic <fpavlic@de.ibm.com>
-Subject: Re: [PATCH 0/7] [S390]: Introduction of AF_IUCV sockets support
-Date: Fri, 9 Feb 2007 20:15:33 +0100
-Message-ID: <20070209191533.GA25570@de.ibm.com>
-References: <20070202120528.GA10392@de.ibm.com> <20070208.140022.45514241.davem@davemloft.net>
+From: Joseph Jezak <josejx-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH] bcm43xx: Fix code for spec changes of 2/7/2007
+Date: Fri, 09 Feb 2007 14:17:09 -0500
+Message-ID: <45CCC8B5.3060108@gentoo.org>
+References: <45cca236.+lL/rsW3DbM3elnk%Larry.Finger@lwfinger.net> <200702091945.25187.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate1.uk.ibm.com ([195.212.29.134]:1231 "EHLO
-	mtagate1.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S2992767AbXBITQZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Feb 2007 14:16:25 -0500
-Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
-	by mtagate1.uk.ibm.com (8.13.8/8.13.8) with ESMTP id l19JGOxQ057208
-	for <netdev@vger.kernel.org>; Fri, 9 Feb 2007 19:16:24 GMT
-Received: from d06av01.portsmouth.uk.ibm.com (d06av01.portsmouth.uk.ibm.com [9.149.37.212])
-	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v8.2) with ESMTP id l19JGOKS1900726
-	for <netdev@vger.kernel.org>; Fri, 9 Feb 2007 19:16:24 GMT
-Received: from d06av01.portsmouth.uk.ibm.com (loopback [127.0.0.1])
-	by d06av01.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l19JGNEq005137
-	for <netdev@vger.kernel.org>; Fri, 9 Feb 2007 19:16:23 GMT
-Content-Disposition: inline
-In-Reply-To: <20070208.140022.45514241.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+To: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <200702091945.25187.mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Feb 08, 2007 at 02:00:22PM -0800, David Miller wrote:
-> From: Frank Pavlic <fpavlic@de.ibm.com>
-> Date: Fri, 2 Feb 2007 13:05:28 +0100
->  
-> > The patch set consists of following patches:
-> > 
-> > [1/7] [S390]: Rewrite of the IUCV base code, part 1
-> > [2/7] [S390]: Rewrite of the IUCV base code, part 2
-> > [3/7] [S390]: Adapt monreader driver to new IUCV API
-> > [4/7] [S390]: Adapt vmlogrdr driver to new IUCV API
-> > [5/7] [S390]: Adapt netiucv driver to new IUCV API
-> > [6/7] [S390]: Adapt special message interface to new IUCV API
-> > [7/7] [S390]: Add AF_IUCV socket support
->  
-> I've applied all of this, although some of the driver
-> conversions (notable, patches #5 and #6) didn't apply
-> cleanly so I applied them by hand.
-Thanks for this , I figured that out today by myself and started
-to make a new set of patches. You saved me a lot of time and work 
-once again ;-)
-
->  
-> Watch out for any fallout from this when Linus pulls
-> these changes in.
 > 
-> Thanks.
+> The specs are unclear at this point:
+> "Write the value to the offset"
+> Offset in which register type?
 
-I'll do so ...
+PHY Register.  I've clarified it in the specs, I think this was said 
+before, I made it worse when I cleaned it up.
 
+>>  	// Initialization
+>> -	if (phy->version == 0) {
+>> +	if (phy->analog == 0) {
+>>  		bcm43xx_write16(bcm, 0x03E6, 0x0122);
+>>  	} else {
+>> -		if (phy->version >= 2)
+>> -			bcm43xx_write16(bcm, 0x03E6, 0x0040);
+>> +		if (phy->analog >= 2)
+>> +			bcm43xx_write16(bcm, 0x0003, (bcm43xx_read16(bcm, 0x0003)
+>> +					& 0xFFBF) | 0x0040);
+> 
+> I think here is a specs bug.
 
+This is correct.  Why do you think it's a specs bug?
+
+-Joe
+-
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
