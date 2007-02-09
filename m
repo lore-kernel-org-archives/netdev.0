@@ -1,73 +1,88 @@
-From: Andy Fleming <afleming@freescale.com>
-Subject: Re: [PATCH] phy devices: use same arg types
-Date: Thu, 8 Feb 2007 17:25:21 -0600
-Message-ID: <C6CC76D5-233D-46A8-B0E9-02C22890067B@freescale.com>
-References: <20070205104420.4970ab1e.randy.dunlap@oracle.com>
-Mime-Version: 1.0 (Apple Message framework v752.2)
-Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
+From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+Subject: Re: [PATCH] bcm43xx: Fix code for spec changes of 2/7/2007
+Date: Fri, 9 Feb 2007 19:45:24 +0100
+Message-ID: <200702091945.25187.mb@bu3sch.de>
+References: <45cca236.+lL/rsW3DbM3elnk%Larry.Finger@lwfinger.net>
+Mime-Version: 1.0
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, jgarzik <jgarzik@pobox.com>
-To: Randy Dunlap <randy.dunlap@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from az33egw01.freescale.net ([192.88.158.102]:56675 "EHLO
-	az33egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S2992447AbXBISbr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Feb 2007 13:31:47 -0500
-In-Reply-To: <20070205104420.4970ab1e.randy.dunlap@oracle.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Joseph Jezak <josejx-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
+To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <45cca236.+lL/rsW3DbM3elnk%Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+On Friday 09 February 2007 17:32, Larry Finger wrote:
+> The specifications for the bcm43xx driver have been modified. This patch
+> incorporates these changes in the code, which results in the BCM4311 and
+> BCM4312 working. The name of one of the PHY parameters, previously known
+> as "version", has been changed to "analog core version" .
+> 
+> Signed-off-by: Larry Finger<Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
 
-On Feb 5, 2007, at 12:44, Randy Dunlap wrote:
+>  	if ((bcm->board_vendor != PCI_VENDOR_ID_BROADCOM) &&
+>  	    (bcm->board_type != 0x0416)) {
+> +		value = 0x2120;
+>  		for (offset = 0x00A8 ; offset < 0x00C7; offset++) {
+> -			bcm43xx_phy_write(bcm, offset,
+> -					  (bcm43xx_phy_read(bcm, offset) + 0x2020)
+> -					  & 0x3F3F);
+> +			bcm43xx_phy_write(bcm, offset, value);
 
-> From: Randy Dunlap <randy.dunlap@oracle.com>
->
-> sparse complains about differing types from prototype to
-> definition, so change the u32 to phy_interface_t:
->
-> drivers/net/phy/phy_device.c:140:19: error: symbol 'phy_connect'  
-> redeclared with different type (originally declared at include/ 
-> linux/phy.h:362) - incompatible argument 5 (different signedness)
-> drivers/net/phy/phy_device.c:190:19: error: symbol 'phy_attach'  
-> redeclared with different type (originally declared at include/ 
-> linux/phy.h:360) - incompatible argument 4 (different signedness)
->
-> Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+The specs are unclear at this point:
+"Write the value to the offset"
+Offset in which register type?
 
+> @@ -933,6 +934,8 @@ static void bcm43xx_phy_initb6(struct bc
+>  		                  bcm43xx_phy_read(bcm, 0x0802) | 0x0100);
+>  		bcm43xx_phy_write(bcm, 0x042B,
+>  		                  bcm43xx_phy_read(bcm, 0x042B) | 0x2000);
+> +		bcm43xx_phy_write(bcm, 0x5B, 0x0000);
+> +		bcm43xx_phy_write(bcm, 0x5C, 0x0000);
+>  	}
+>  
+>  	/* Force to channel 7, even if not supported. */
 
-Acked-by: Andy Fleming <afleming@freescale.com>
+Backup and reset old_channel later here, too.
+Also, look at this:
 
+# If the current channel is 8 or greater
+   1. Set the channel to 1 
+# Otherwise
+   1. Set the channel to 13
 
-Oops,  I thought I had fixed that before submission.
+> Index: linux-2.6/drivers/net/wireless/bcm43xx/bcm43xx_radio.c
+> ===================================================================
+> --- linux-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_radio.c
+> +++ linux-2.6/drivers/net/wireless/bcm43xx/bcm43xx_radio.c
+> @@ -1393,11 +1393,12 @@ u16 bcm43xx_radio_init2050(struct bcm43x
+>  	backup[12] = bcm43xx_read16(bcm, BCM43xx_MMIO_CHANNEL_EXT);
+>  
+>  	// Initialization
+> -	if (phy->version == 0) {
+> +	if (phy->analog == 0) {
+>  		bcm43xx_write16(bcm, 0x03E6, 0x0122);
+>  	} else {
+> -		if (phy->version >= 2)
+> -			bcm43xx_write16(bcm, 0x03E6, 0x0040);
+> +		if (phy->analog >= 2)
+> +			bcm43xx_write16(bcm, 0x0003, (bcm43xx_read16(bcm, 0x0003)
+> +					& 0xFFBF) | 0x0040);
 
+I think here is a specs bug.
 
-> ---
->  drivers/net/phy/phy_device.c |    4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
->
-> --- linux-2620-pv.orig/drivers/net/phy/phy_device.c
-> +++ linux-2620-pv/drivers/net/phy/phy_device.c
-> @@ -139,7 +139,7 @@ void phy_prepare_link(struct phy_device
->   */
->  struct phy_device * phy_connect(struct net_device *dev, const char  
-> *phy_id,
->  		void (*handler)(struct net_device *), u32 flags,
-> -		u32 interface)
-> +		phy_interface_t interface)
->  {
->  	struct phy_device *phydev;
->
-> @@ -188,7 +188,7 @@ static int phy_compare_id(struct device
->  }
->
->  struct phy_device *phy_attach(struct net_device *dev,
-> -		const char *phy_id, u32 flags, u32 interface)
-> +		const char *phy_id, u32 flags, phy_interface_t interface)
->  {
->  	struct bus_type *bus = &mdio_bus_type;
->  	struct phy_device *phydev;
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>  		bcm43xx_write16(bcm, BCM43xx_MMIO_CHANNEL_EXT,
+>  		                (bcm43xx_read16(bcm, BCM43xx_MMIO_CHANNEL_EXT) | 0x2000));
+>  	}
 
+-- 
+Greetings Michael.
+-
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
