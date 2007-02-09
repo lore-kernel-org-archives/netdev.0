@@ -1,32 +1,28 @@
-From: Joseph Jezak <josejx@gentoo.org>
+From: Joseph Jezak <josejx-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
 Subject: Re: [PATCH] bcm43xx: Fix code for spec changes of 2/7/2007
-Date: Fri, 09 Feb 2007 17:22:42 -0500
-Message-ID: <45CCF432.2070002@gentoo.org>
-References: <45cca236.+lL/rsW3DbM3elnk%Larry.Finger@lwfinger.net> <200702091811.40683.mb@bu3sch.de>
+Date: Fri, 09 Feb 2007 17:24:35 -0500
+Message-ID: <45CCF4A3.3080306@gentoo.org>
+References: <45cca236.+lL/rsW3DbM3elnk%Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Larry Finger <Larry.Finger@lwfinger.net>, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org,
-	John Linville <linville@tuxdriver.com>,
-	Bcm43xx-dev@lists.berlios.de
-To: Michael Buesch <mb@bu3sch.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sccrmhc14.comcast.net ([63.240.77.84]:46541 "EHLO
-	sccrmhc14.comcast.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1946642AbXBIR1r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Feb 2007 12:27:47 -0500
-In-Reply-To: <200702091811.40683.mb@bu3sch.de>
-Sender: netdev-owner@vger.kernel.org
+Cc: John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+	Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <45cca236.+lL/rsW3DbM3elnk%Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-> Well, I don't review the rest until you say to which specs you did the changes. ;)
+ >  	dprintk(KERN_INFO PFX "Detected PHY: Version: %x, Type %x, 
+Revision %x\n",
 
-http://bcm-specs.sipsolutions.net/B5PHY
-
-Larry was working from the old specs, so when I updated it, I only 
-updated the old specs.  I'll fix the v4 specs soon.
+You should change this too, the "Version" text should read "Analog" 
+instead.
 
 -Joe
-
-
+-
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
