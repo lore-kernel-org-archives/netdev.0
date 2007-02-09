@@ -1,68 +1,34 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] [000]  dmfe : fix bugs and add features
-Date: Fri, 09 Feb 2007 16:15:26 -0500
-Message-ID: <45CCE46E.9010902@garzik.org>
-References: <96797.60132.qm@web38511.mail.mud.yahoo.com>
+Subject: Re: [PATCH 2/3] ethtool: flie option to register dump
+Date: Fri, 09 Feb 2007 16:29:01 -0500
+Message-ID: <45CCE79D.5070004@garzik.org>
+References: <20061018104632.27a37d75@freekitty>	<20061018105022.57b57b6a@freekitty>	<453A63AF.1010505@pobox.com>	<20061023105142.13b507a7@dxpl.pdx.osdl.net> <20061023105703.5f1e13eb@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, tori@unhappy.mine.nu,
-	netdev@vger.kernel.org,
-	Samuel Thibault <samuel.thibault@ens-lyon.org>
-To: Levitsky Maxim <maximlevitsky@yahoo.com>
+Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@osdl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:60368 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:60429 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752308AbXBIVPb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Feb 2007 16:15:31 -0500
-In-Reply-To: <96797.60132.qm@web38511.mail.mud.yahoo.com>
+	id S1752493AbXBIV3H (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Feb 2007 16:29:07 -0500
+In-Reply-To: <20061023105703.5f1e13eb@dxpl.pdx.osdl.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Levitsky Maxim wrote:
-> Hello,
-> 
-> Before some time I decided to fix suspend/resume on my Davicom network card.
-> During development I also fixed couple of bugs and added support for link detection and WOL
-> Note : 2.6.20 already has support for link detection , but it is broken when card has external PHY
-> , like mine.
-> 
-> So here it goes:
-> 
-> [PATCH] [NET] [001] dmfe : trivial/spelling fixes
-> [PATCH] [NET] [002] dmfe : Fix possible oops
-> [PATCH] [NET] [003] dmfe : fix link detection
-> [PATCH] [NET] [004] dmfe : Add suspend/resume support
-> [PATCH] [NET] [005] dmfe : Add support for wake-on-lan
-> 
->         Maxim Levitsky
+Stephen Hemminger wrote:
+> Add ability to take old raw dumps from a file and decode them.
+> It is kind of limited because you still need to have same device
+> as the raw file, but useful for maintainers to decode raw dumps.
 > 
 > 
->  
-> ____________________________________________________________________________________
-> Finding fabulous fares is fun.  
-> Let Yahoo! FareChase search your favorite travel sites to find flight and hotel bargains.
-> http://farechase.yahoo.com/promo-generic-14795097
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-What about the above report?
+> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+> ---
+>  ethtool.8 |   13 ++++++++++++-
+>  ethtool.c |   43 +++++++++++++++++++++++++++++++++++++------
+>  2 files changed, 49 insertions(+), 7 deletions(-)
 
-I would rather fix this first, before applying more patches on top of a 
-problematic patch...
-
-> Commit 7628b0a8c01a02966d2228bdf741ddedb128e8f8 (drivers/net/tulip/dmfe: 
-> support basic carrier detection) breaks networking on my Davicom DM9009. 
-> ethtool always reports there is no link.  tcpdump shows incoming 
-> packets, but TX is disabled.  Reverting the above patch fixes the 
-> problem.
-
-Regards,
-
-	Jeff
-
-
+applied 2-3
 
 
