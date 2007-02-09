@@ -1,30 +1,41 @@
-From: Neil Brown <neilb-l3A5Bk7waGM@public.gmane.org>
-Subject: Re: [ANNOUNCE] d80211 based driver for Intel PRO/Wireless 3945ABG
-Date: Sat, 10 Feb 2007 09:26:22 +1100
-Message-ID: <17868.62734.497825.667962@notabene.brown>
-References: <45CCE3CA.4050904@linux.intel.com>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: [PATCH] MAINTAINERS: no DMFE maintainer
+Date: Fri, 9 Feb 2007 14:31:06 -0800
+Message-ID: <20070209143106.9dc30c9b.randy.dunlap@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	ipw3945-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: James Ketrenos <jketreno-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: message from James Ketrenos on Friday February 9
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: jgarzik <jgarzik@pobox.com>, tori@unhappy.mine.nu
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rgminet01.oracle.com ([148.87.113.118]:13085 "EHLO
+	rgminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752467AbXBIWeb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Feb 2007 17:34:31 -0500
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Friday February 9, jketreno-VuQAYsv1563Yd54FQh9/CA@public.gmane.org wrote:
-> 
-> Ok.  Now... any questions?
-> 
+From: Randy Dunlap <randy.dunlap@oracle.com>
 
-Yes.  Does this require a closed user-space helper like the other
-3945ABG driver, or is it completely open (maybe excepting firmware)?
+Tobias wrote that he no longer maintains this driver and requested
+to be removed from MAINTAINERS.
 
-Thanks,
-NeilBrown
--
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+---
+ MAINTAINERS |    4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
+
+--- linux-2.6.20-git5.orig/MAINTAINERS
++++ linux-2.6.20-git5/MAINTAINERS
+@@ -1112,10 +1112,8 @@ T:	git kernel.org:/pub/scm/linux/kernel/
+ S:	Supported
+ 
+ DAVICOM FAST ETHERNET (DMFE) NETWORK DRIVER
+-P:	Tobias Ringstrom
+-M:	tori@unhappy.mine.nu
+ L:	netdev@vger.kernel.org
+-S:	Maintained
++S:	Orphan
+ 
+ DOCBOOK FOR DOCUMENTATION
+ P:	Randy Dunlap
