@@ -1,33 +1,58 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: 2.6.20 crash in tcp_tso_segment()
-Date: Sat, 10 Feb 2007 07:12:21 +1100
-Message-ID: <E1HFc6X-0006n7-00@gondolin.me.apana.org.au>
-References: <7478.1171000672@mdt.dhcp.pit.laurelnetworks.com>
-Cc: netdev@vger.kernel.org
-To: maccetta@laurelnetworks.com (Mike Accetta)
+From: Michael Buesch <mb@bu3sch.de>
+Subject: Re: [PATCH] bcm43xx: Fix code for spec changes of 2/7/2007
+Date: Fri, 9 Feb 2007 21:30:38 +0100
+Message-ID: <200702092130.38997.mb@bu3sch.de>
+References: <45cca236.+lL/rsW3DbM3elnk%Larry.Finger@lwfinger.net> <200702092017.36950.mb@bu3sch.de> <45CCD1B1.80709@gentoo.org>
+Mime-Version: 1.0
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Joseph Jezak <josejx@gentoo.org>, netdev@vger.kernel.org,
+	Larry Finger <larry.finger@lwfinger.net>,
+	linux-wireless@vger.kernel.org,
+	John Linville <linville@tuxdriver.com>
+To: bcm43xx-dev@lists.berlios.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:1250 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S2992800AbXBIUMe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Feb 2007 15:12:34 -0500
-In-Reply-To: <7478.1171000672@mdt.dhcp.pit.laurelnetworks.com>
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:39291
+	"EHLO vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S2992807AbXBIUau (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Feb 2007 15:30:50 -0500
+In-Reply-To: <45CCD1B1.80709@gentoo.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Mike Accetta <maccetta@laurelnetworks.com> wrote:
+On Friday 09 February 2007 20:55, Joseph Jezak wrote:
+> Michael Buesch wrote:
+> > On Friday 09 February 2007 20:05, Joseph Jezak wrote:
+> >>> I'll agree to that as long as there is a clear indication of any differences between V3 and V4 firmware.
+> >> That's also part of the problem.  With the v4 driver, Broadcom 
+> >> dropped support for a number of older BPHY devices (4301/4303 and 
+> >> some 4306 revisions).  Do we still want to support those?  Should I 
+> >> continue writing the specs for the uCode revision it's based on or 
+> >> should I combine them?
+> > 
+> > If it's easily possible, please try to combine the old stuff
+> > with the new v4 specs.
+> > I think it's basically only dropped if() branches, right?
+> > 
 > 
-> Obviously the code believes it can assume that there are always multiple
-> sk_buff's in the chain.  The stack trace seems to implicate iptables in
-> the scenario (twice) if that means anything.  Any ideas about what may
-> be going wrong here?  There is indeed a private module loaded at the time
-> but it does no networking and I doubt it is the culprit.
+> Well, here's the problem.  There are a few places where a value is 
+> changed (different value written to a register).  Does this mean 
+> that the value is different due to the uCode changes (can't tell, no 
+> documentation)?  Is it applicable to all revisions (can't tell, some 
+> revisions are not supported in this version)?  If the revision 
+> number range in a check changes is that because of a difference in 
+> supported cards or a bug fix?
+> 
+> So, it's not as simple as just dropped if() branches.  I can do my 
+> best to combine them (I have done some of this already), but I can't 
+> promise that it'll be accurate for all revisions or versions of the 
+> chipset.
 
-Yeah we should never get here if we only have one segment.
-Could you get it to print out the value of skb->gso_*?
+Ok, I see.
+How many of these old devices exist and who has access to them?
+If we want to combine stuff, we really must test it on these devices then.
 
-Thanks,
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Greetings Michael.
