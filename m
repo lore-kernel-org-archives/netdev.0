@@ -1,37 +1,53 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] cxgb3 - convert to user struct device instead of class_device
-Date: Fri, 09 Feb 2007 00:21:17 -0500
-Message-ID: <45CC04CD.4080601@garzik.org>
-References: <adalkj8l6vb.fsf@cisco.com> <20070208211911.GA20988@suse.de>	<adad54kwd41.fsf@cisco.com> <45CBE95E.20601@chelsio.com> <adabqk4m0iv.fsf@cisco.com>
+From: Pavel Roskin <proski@gnu.org>
+Subject: Re: Hermes PCI broken on 2.6.20?
+Date: Fri, 09 Feb 2007 00:29:51 -0500
+Message-ID: <1170998991.4764.4.camel@dv>
+References: <20070209012819.GA23490@plexity.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Divy Le Ray <divy@chelsio.com>, Greg KH <gregkh@suse.de>,
-	Steve Wise <swise@opengridcomputing.com>,
-	netdev@vger.kernel.org
-To: Roland Dreier <rdreier@cisco.com>
+Cc: netdev@vger.kernel.org, linville@tuxdriver.com
+To: dsaxena@plexity.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:52466 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1946105AbXBIFV0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Feb 2007 00:21:26 -0500
-In-Reply-To: <adabqk4m0iv.fsf@cisco.com>
+Received: from fencepost.gnu.org ([199.232.76.164]:60471 "EHLO
+	fencepost.gnu.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1946119AbXBIF34 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Feb 2007 00:29:56 -0500
+Received: from proski by fencepost.gnu.org with local (Exim 4.60)
+	(envelope-from <proski@gnu.org>)
+	id 1HFOJP-0007iG-9g
+	for netdev@vger.kernel.org; Fri, 09 Feb 2007 00:28:43 -0500
+In-Reply-To: <20070209012819.GA23490@plexity.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Roland Dreier wrote:
->  > I pushed a fix in the -mm tree as soon as the driver got committed there.
->  > I saw the patch committed in Jeff's upstream branch yesterday.
->  > It looks like it did not make it to Linus'tree though.
+Hello!
+
+On Thu, 2007-02-08 at 17:28 -0800, Deepak Saxena wrote: 
+> Running both 2.6.20 and 2.6.18, the hermes PCI driver (CONFIG_HERMES_PCI)
+> gives the following errors. Card is a revision 1 chipset (Dev ID 3873).
+> Note that when iwconfig is run a few times in a row, the error messages
+> go away but they might just be getting ratelimited. Anyone else seen
+> this?
 > 
-> OK, I missed that.  In any case cxgb3 in Linus's tree doesn't build
-> right now.  What's the plan to fix this, Jeff?  Will you merge a fix
-> through your tree?  I can resend the patch if you want, or send it
-> directly to Andrew if that's preferred.
+> root@10.40.20.173:~# iwconfig
+> eth0      no wirhermes @ c8810000: Card removed while waiting for command
+> 0x0021 completion.
+> eless extensionshermes @ c8810000: Card removed while issuing command
+> 0x0021.
 
-The fix has already been sent upstream.
+I don't see any problems with orinoco_pci in Linux 2.6.20.  It looks
+more like a hardware problem or some very old firmware.
 
-	Jeff
+Just to exclude possible problems with the driver that I cannot
+reproduce, please try hostap_pci.  It supports all devices supported by
+orinoco_pci.
 
+You may want to send further replies to
+orinoco-devel@lists.sourceforge.net where it would be seen by those
+actually using the driver.
 
+-- 
+Regards,
+Pavel Roskin
 
