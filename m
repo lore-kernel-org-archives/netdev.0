@@ -1,37 +1,30 @@
-From: David Howells <dhowells@redhat.com>
-Subject: Re: [PATCH 0/5] [RFC] AF_RXRPC socket family implementation
-Date: Fri, 09 Feb 2007 12:31:23 +0000
-Message-ID: <10385.1171024283@redhat.com>
-References: <20070209.015539.53640067.yoshfuji@linux-ipv6.org>  <20070208163211.23973.5877.stgit@warthog.cambridge.redhat.com>
-Cc: dhowells@redhat.com, davem@davemloft.net, netdev@vger.kernel.org,
-	herbert.xu@redhat.com, hch@infradead.org, arjan@infradead.org
-To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:38034 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1946429AbXBIMbh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Feb 2007 07:31:37 -0500
-In-Reply-To: <20070209.015539.53640067.yoshfuji@linux-ipv6.org> 
-Sender: netdev-owner@vger.kernel.org
+From: Jan Glauber <jan.glauber@de.ibm.com>
+Subject: Re: Crypto Update for 2.6.21
+Date: Fri, 09 Feb 2007 13:45:07 +0100
+Message-ID: <1171025107.5349.4.camel@localhost.localdomain>
+References: <20070207154717.GA2757@gondor.apana.org.au>
+	 <20070208.152655.104035982.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au, linux-crypto@vger.kernel.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <20070208.152655.104035982.davem@davemloft.net>
+Sender: linux-crypto-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org> wrote:
+On Thu, 2007-02-08 at 15:26 -0800, David Miller wrote:
 
-> and make it sure to align on 64-bit word.
+> There was a minor merge conflict to resolve, because the
+> S390 guys removed a bunch of their crypto options from
+> crypto/Kconfig in a seperate changeset.  But I'm pretty
+> sure I resolved that correctly.
 
-The first part of sockaddr_rxrpc is exactly 64 bits; then comes the transport
-address, so that's okay.
+I'll check when the git server works again...
 
-> This sockaddr_rxrpc{} should NOT include sockaddr_in{} directly.
-> Please use sockaddr_storage{} (or sockaddr{}, maybe),
+Would it be better if I send patches that also touch common crypto
+code to Herbert for integration?
 
-Why can't I include sockaddr_in and sockaddr_in6 in sockaddr_rxrpc, btw?
-
-> > That won't work.  That would then make the address larger than the maximum
-> > size (ie: sizeof(struct sockaddr_storage)).
-> 
-> sockaddr{}, then...
-
-But that's not big enough to hold a sockaddr_in6...
-
-David
+Jan
