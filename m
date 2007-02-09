@@ -1,38 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] NET : UDP can use sk_hash to speedup lookups
-Date: Fri, 09 Feb 2007 15:45:11 -0800 (PST)
-Message-ID: <20070209.154511.92582666.davem@davemloft.net>
-References: <200702091036.58474.dada1@cosmosbay.com>
-	<20070209.014344.63999119.davem@davemloft.net>
-	<200702091844.16803.dada1@cosmosbay.com>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: [PATCH] [004] dmfe : Add suspend/resume support
+Date: Fri, 9 Feb 2007 20:54:52 +0000
+Message-ID: <20070209205451.GA3949@ucw.cz>
+References: <549393.8054.qm@web38506.mail.mud.yahoo.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dada1@cosmosbay.com
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, tori@unhappy.mine.nu,
+	netdev@vger.kernel.org
+To: Levitsky Maxim <maximlevitsky@yahoo.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37938
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752561AbXBIXpM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Feb 2007 18:45:12 -0500
-In-Reply-To: <200702091844.16803.dada1@cosmosbay.com>
+Received: from gprs189-60.eurotel.cz ([160.218.189.60]:2811 "EHLO spitz.ucw.cz"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1946135AbXBIXza (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Feb 2007 18:55:30 -0500
+Content-Disposition: inline
+In-Reply-To: <549393.8054.qm@web38506.mail.mud.yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Fri, 9 Feb 2007 18:44:16 +0100
+Hi!
 
-> In a prior patch, I introduced a sk_hash field (__sk_common.skc_hash)  to let 
-> tcp lookups use one cache line per unmatched entry instead of two.
-> 
-> We can also use sk_hash to speedup UDP part as well. We store in sk_hash the 
-> hnum value, and use sk->sk_hash (same cache line than 'next' pointer), 
-> instead of inet->num (different cache line)
-> 
-> Note : We still have a false sharing problem for SMP machines, because 
-> sock_hold(sock) dirties the cache line containing the 'next' pointer. Not 
-> counting the udp_hash_lock rwlock. (did someone mentioned RCU ? :) )
-> 
-> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+> From: Maxim Levitsky <maximlevitsky@yahoo.com>
+> Subject: [PATCH] [NETDEV] [004] dmfe : Add suspend/resume support
+>=20
+> Adds support for suspend/resume
 
-Applied, thanks Eric.
+Patch looks ok, but your mailer damaged it heavily.
+
+> --- linux-2.6.20-mod/drivers/net/tulip/dmfe.c=A0=A0=A02007-02-07 18:4=
+6:13.000000000 +0200
+> +++ linux-2.6.20-test/drivers/net/tulip/dmfe.c=A0=A02007-02-07 18:50:=
+52.000000000 +0200
+> @@ -55,9 +55,6 @@
+> =A0
+> =A0 =A0 =A0TODO
+> =A0
+> - =A0 =A0Implement pci_driver::suspend() and pci_driver::resume()
+> - =A0 =A0power management methods.
+> -
+> =A0 =A0 =A0Check on 64 bit boxes.
+> =A0 =A0 =A0Check and fix on big endian boxes.
+> =A0
+> @@ -2027,11 +2024,59 @@ static struct pci_device_id dmfe_pci_tbl
+> =A0MODULE_DEVICE_TABLE(pci, dmfe_pci_tbl);
+> =A0
+> =A0
+> +
+> +static int dmfe_suspend(struct pci_dev *pci_dev, pm_message_t state)
+> +{
+
+							Pavel
+--=20
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses=
+/blog.html
