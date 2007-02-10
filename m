@@ -1,59 +1,39 @@
-From: Pavel Roskin <proski@gnu.org>
-Subject: Re: [ANNOUNCE] d80211 based driver for
-	Intel	PRO/Wireless 3945ABG
-Date: Sat, 10 Feb 2007 12:53:51 -0500
-Message-ID: <20070210125351.05uo0o0sgw0w0ckc@webmail.spamcop.net>
-References: <45CCE3CA.4050904@linux.intel.com>
-	<20070210162254.GC25607@thunk.org>
-	<20070210163933.GA17140@tuxdriver.com>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: Re: [ANNOUNCE] d80211 based driver for Intel PRO/Wireless 3945ABG
+Date: Sat, 10 Feb 2007 19:42:04 +0100
+Message-ID: <200702101942.04740.mb@bu3sch.de>
+References: <45CCE3CA.4050904@linux.intel.com> <20070210162254.GC25607@thunk.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Theodore Tso <tytso@mit.edu>, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
-	ipw3945-devel@lists.sourceforge.net,
-	James Ketrenos <jketreno@linux.intel.com>
-To: "John W. Linville" <linville@tuxdriver.com>
-Return-path: <ipw3945-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20070210163933.GA17140@tuxdriver.com>
+Cc: James Ketrenos <jketreno@linux.intel.com>,
+	linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
+	ipw3945-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: Theodore Tso <tytso@mit.edu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:49842
+	"EHLO vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751756AbXBJSmV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 10 Feb 2007 13:42:21 -0500
+In-Reply-To: <20070210162254.GC25607@thunk.org>
 Content-Disposition: inline
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/ipw3945-devel>,
-	<mailto:ipw3945-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=ipw3945-devel>
-List-Post: <mailto:ipw3945-devel@lists.sourceforge.net>
-List-Help: <mailto:ipw3945-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/ipw3945-devel>,
-	<mailto:ipw3945-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: ipw3945-devel-bounces@lists.sourceforge.net
-Errors-To: ipw3945-devel-bounces@lists.sourceforge.net
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Quoting "John W. Linville" <linville@tuxdriver.com>:
+On Saturday 10 February 2007 17:22, Theodore Tso wrote:
+> On Fri, Feb 09, 2007 at 01:12:42PM -0800, James Ketrenos wrote:
+> > Please hold all questions until I am done with this email.  Thank you.
+> > 
+> > We are pleased to announce the availability of a new driver for the 
+> > Intel PRO/Wireless 3945ABG Network Connection adapter.  This new driver 
+> > uses the new d80211 subsystem previously only available as part of the 
+> > wireless-dev tree.
+> 
+> Very cool!  Is it likely that d80211 and iwlwifi will be pushed into
+> mainline in time for 2.6.21?
 
-> > Very cool!  Is it likely that d80211 and iwlwifi will be pushed into
-> > mainline in time for 2.6.21?
->
-> Hmmm...I think we need to spend a cycle or so in -mm.  2.6.22 seems
-> more likely for mainline.
+Not at all.
 
-I think we should take this as a goal.  Last time I checked, d80211 wasn't in
--mm.  Perhaps it should go there.  And by the way, the latest changes from
-netdev->class_dev to netdev->dev break d80211.  Perhaps we should rebase
-wireless-dev immediately after 2.6.21-rc1, fix all compile issues and submit
-the patch to -mm.
-
-And iwlwifi is surprisingly good for a just announced driver.  It worked for me
-from the first attempt, and that's the first d80211 driver to do so.  In my
-opinion, it should go to wireless-dev as soon as possible so it can go to -mm
-toghether with other drivers.  A couple of wrinkles in the standalone build
-system are irrelevant to the kernel interation.
-
---
-Regards,
-Pavel Roskin
-
--------------------------------------------------------------------------
-Using Tomcat but need to do more? Need to support web services, security?
-Get stuff done quickly with pre-integrated technology to make your job easier.
-Download IBM WebSphere Application Server v.1.0.1 based on Apache Geronimo
-http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
+-- 
+Greetings Michael.
