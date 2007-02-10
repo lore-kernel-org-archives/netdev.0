@@ -1,233 +1,70 @@
-From: Andy Fleming <afleming@freescale.com>
-Subject: [PATCH 2.6.21] phylib: Add support for Marvell 88e1111S and 88e1145
-Date: Fri, 9 Feb 2007 18:13:58 -0600 (CST)
-Message-ID: <Pine.LNX.4.61.0702091808330.9158@ld0175-tx32.am.freescale.net>
+From: linas@austin.ibm.com (Linas Vepstas)
+Subject: [PATCH 1/5]: spidernet: compile break.
+Date: Fri, 9 Feb 2007 18:14:02 -0600
+Message-ID: <20070210001402.GA2396@austin.ibm.com>
+References: <20070210000128.GJ5616@austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: Jeff Garzik <jgarzik@pobox.com>, Netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org,
+	James K Lewis <jklewis@us.ibm.com>,
+	Jens Osterkamp <Jens.Osterkamp@de.ibm.com>,
+	Kou Ishizaki <kou.ishizaki@toshiba.co.jp>
+To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from de01egw02.freescale.net ([192.88.165.103]:35496 "EHLO
-	de01egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1946782AbXBJAOG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Feb 2007 19:14:06 -0500
+Received: from e1.ny.us.ibm.com ([32.97.182.141]:40493 "EHLO e1.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1946784AbXBJAOI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Feb 2007 19:14:08 -0500
+Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
+	by e1.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l1A0E4Tu006338
+	for <netdev@vger.kernel.org>; Fri, 9 Feb 2007 19:14:04 -0500
+Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
+	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.2) with ESMTP id l1A0E40V224420
+	for <netdev@vger.kernel.org>; Fri, 9 Feb 2007 19:14:04 -0500
+Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
+	by d01av02.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l1A0E3kR009265
+	for <netdev@vger.kernel.org>; Fri, 9 Feb 2007 19:14:04 -0500
+Content-Disposition: inline
+In-Reply-To: <20070210000128.GJ5616@austin.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->From Andy Fleming <afleming@freescale.com>
 
-Changes include:
-* New support for 88e1145
-* New support for 88e111s
-* Fixing 88e1101 driver to not match non-88e1101 PHYs
-* Increases in feature support across Marvell PHY product line
-* Fixes a bunch of whitespace issues found by Lindent
 
-Signed-off-by: Andrew Fleming <afleming@freescale.com>
----
-This patch seems to have gotten lost.  It still applies cleanly, so I'm 
-resubmitting it for 2.6.21.
+As of 2.6.20-git4, the spider_net driver does not compile. 
+This appears to be due to some archaic usage involving kobjects.
 
- drivers/net/phy/marvell.c |  156 ++++++++++++++++++++++++++++++++++++++++++---
- 1 files changed, 144 insertions(+), 12 deletions(-)
+It also fixes a nasty double-free during ifdown of interface.
 
-diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
-index 0ad2532..5320ab9 100644
---- a/drivers/net/phy/marvell.c
-+++ b/drivers/net/phy/marvell.c
-@@ -43,6 +43,19 @@ #define MII_M1011_IMASK			0x12
- #define MII_M1011_IMASK_INIT		0x6400
- #define MII_M1011_IMASK_CLEAR		0x0000
- 
-+#define MII_M1011_PHY_SCR		0x10
-+#define MII_M1011_PHY_SCR_AUTO_CROSS	0x0060
-+
-+#define MII_M1145_PHY_EXT_CR		0x14
-+#define MII_M1145_RGMII_RX_DELAY	0x0080
-+#define MII_M1145_RGMII_TX_DELAY	0x0002
-+
-+#define M1145_DEV_FLAGS_RESISTANCE	0x00000001
-+
-+#define MII_M1111_PHY_LED_CONTROL	0x18
-+#define MII_M1111_PHY_LED_DIRECT	0x4100
-+#define MII_M1111_PHY_LED_COMBINE	0x411c
-+
- MODULE_DESCRIPTION("Marvell PHY driver");
- MODULE_AUTHOR("Andy Fleming");
- MODULE_LICENSE("GPL");
-@@ -64,7 +77,7 @@ static int marvell_config_intr(struct ph
- {
- 	int err;
- 
--	if(phydev->interrupts == PHY_INTERRUPT_ENABLED)
-+	if (phydev->interrupts == PHY_INTERRUPT_ENABLED)
- 		err = phy_write(phydev, MII_M1011_IMASK, MII_M1011_IMASK_INIT);
- 	else
- 		err = phy_write(phydev, MII_M1011_IMASK, MII_M1011_IMASK_CLEAR);
-@@ -104,34 +117,153 @@ static int marvell_config_aneg(struct ph
- 	if (err < 0)
- 		return err;
- 
-+	err = phy_write(phydev, MII_M1011_PHY_SCR,
-+			MII_M1011_PHY_SCR_AUTO_CROSS);
-+	if (err < 0)
-+		return err;
-+
-+	err = phy_write(phydev, MII_M1111_PHY_LED_CONTROL,
-+			MII_M1111_PHY_LED_DIRECT);
-+	if (err < 0)
-+		return err;
- 
- 	err = genphy_config_aneg(phydev);
- 
- 	return err;
- }
- 
-+static int m88e1145_config_init(struct phy_device *phydev)
-+{
-+	int err;
-+
-+	/* Take care of errata E0 & E1 */
-+	err = phy_write(phydev, 0x1d, 0x001b);
-+	if (err < 0)
-+		return err;
-+
-+	err = phy_write(phydev, 0x1e, 0x418f);
-+	if (err < 0)
-+		return err;
-+
-+	err = phy_write(phydev, 0x1d, 0x0016);
-+	if (err < 0)
-+		return err;
-+
-+	err = phy_write(phydev, 0x1e, 0xa2da);
-+	if (err < 0)
-+		return err;
-+
-+	if (phydev->interface == PHY_INTERFACE_MODE_RGMII) {
-+		int temp = phy_read(phydev, MII_M1145_PHY_EXT_CR);
-+		if (temp < 0)
-+			return temp;
-+
-+		temp |= (MII_M1145_RGMII_RX_DELAY | MII_M1145_RGMII_TX_DELAY);
-+
-+		err = phy_write(phydev, MII_M1145_PHY_EXT_CR, temp);
-+		if (err < 0)
-+			return err;
-+
-+		if (phydev->dev_flags & M1145_DEV_FLAGS_RESISTANCE) {
-+			err = phy_write(phydev, 0x1d, 0x0012);
-+			if (err < 0)
-+				return err;
-+
-+			temp = phy_read(phydev, 0x1e);
-+			if (temp < 0)
-+				return temp;
-+
-+			temp &= 0xf03f;
-+			temp |= 2 << 9;	/* 36 ohm */
-+			temp |= 2 << 6;	/* 39 ohm */
-+
-+			err = phy_write(phydev, 0x1e, temp);
-+			if (err < 0)
-+				return err;
-+
-+			err = phy_write(phydev, 0x1d, 0x3);
-+			if (err < 0)
-+				return err;
-+
-+			err = phy_write(phydev, 0x1e, 0x8000);
-+			if (err < 0)
-+				return err;
-+		}
-+	}
-+
-+	return 0;
-+}
- 
- static struct phy_driver m88e1101_driver = {
--	.phy_id		= 0x01410c00,
--	.phy_id_mask	= 0xffffff00,
--	.name		= "Marvell 88E1101",
--	.features	= PHY_GBIT_FEATURES,
--	.flags		= PHY_HAS_INTERRUPT,
--	.config_aneg	= &marvell_config_aneg,
--	.read_status	= &genphy_read_status,
--	.ack_interrupt	= &marvell_ack_interrupt,
--	.config_intr	= &marvell_config_intr,
--	.driver 	= { .owner = THIS_MODULE,},
-+	.phy_id = 0x01410c60,
-+	.phy_id_mask = 0xfffffff0,
-+	.name = "Marvell 88E1101",
-+	.features = PHY_GBIT_FEATURES,
-+	.flags = PHY_HAS_INTERRUPT,
-+	.config_aneg = &marvell_config_aneg,
-+	.read_status = &genphy_read_status,
-+	.ack_interrupt = &marvell_ack_interrupt,
-+	.config_intr = &marvell_config_intr,
-+	.driver = {.owner = THIS_MODULE,},
-+};
-+
-+static struct phy_driver m88e1111s_driver = {
-+	.phy_id = 0x01410cc0,
-+	.phy_id_mask = 0xfffffff0,
-+	.name = "Marvell 88E1111",
-+	.features = PHY_GBIT_FEATURES,
-+	.flags = PHY_HAS_INTERRUPT,
-+	.config_aneg = &marvell_config_aneg,
-+	.read_status = &genphy_read_status,
-+	.ack_interrupt = &marvell_ack_interrupt,
-+	.config_intr = &marvell_config_intr,
-+	.driver = {.owner = THIS_MODULE,},
-+};
-+
-+static struct phy_driver m88e1145_driver = {
-+	.phy_id = 0x01410cd0,
-+	.phy_id_mask = 0xfffffff0,
-+	.name = "Marvell 88E1145",
-+	.features = PHY_GBIT_FEATURES,
-+	.flags = PHY_HAS_INTERRUPT,
-+	.config_init = &m88e1145_config_init,
-+	.config_aneg = &marvell_config_aneg,
-+	.read_status = &genphy_read_status,
-+	.ack_interrupt = &marvell_ack_interrupt,
-+	.config_intr = &marvell_config_intr,
-+	.driver = {.owner = THIS_MODULE,},
- };
- 
- static int __init marvell_init(void)
- {
--	return phy_driver_register(&m88e1101_driver);
-+	int ret;
-+
-+	ret = phy_driver_register(&m88e1101_driver);
-+	if (ret)
-+		return ret;
-+
-+	ret = phy_driver_register(&m88e1111s_driver);
-+	if (ret)
-+		goto err1111s;
-+
-+	ret = phy_driver_register(&m88e1145_driver);
-+	if (ret)
-+		goto err1145;
-+
-+	return 0;
-+
-+      err1145:
-+	phy_driver_unregister(&m88e1111s_driver);
-+      err1111s:
-+	phy_driver_unregister(&m88e1101_driver);
-+	return ret;
- }
- 
- static void __exit marvell_exit(void)
- {
- 	phy_driver_unregister(&m88e1101_driver);
-+	phy_driver_unregister(&m88e1111s_driver);
-+	phy_driver_unregister(&m88e1145_driver);
- }
- 
- module_init(marvell_init);
--- 
-1.4.2.3
+Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
+Cc: James K Lewis <jklewis@us.ibm.com>
+Cc: Jens Osterkamp <Jens.Osterkamp@de.ibm.com>
+Cc: Kou Ishizaki <kou.ishizaki@toshiba.co.jp>
 
+----
+ drivers/net/spider_net.c |    5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
+
+Index: linux-2.6.20-git4/drivers/net/spider_net.c
+===================================================================
+--- linux-2.6.20-git4.orig/drivers/net/spider_net.c	2007-02-09 17:22:35.000000000 -0600
++++ linux-2.6.20-git4/drivers/net/spider_net.c	2007-02-09 17:24:04.000000000 -0600
+@@ -1906,8 +1906,7 @@ spider_net_stop(struct net_device *netde
+ 	spider_net_write_reg(card, SPIDER_NET_GHIINT1MSK, 0);
+ 	spider_net_write_reg(card, SPIDER_NET_GHIINT2MSK, 0);
+ 
+-	/* free_irq(netdev->irq, netdev);*/
+-	free_irq(to_pci_dev(netdev->class_dev.dev)->irq, netdev);
++	free_irq(netdev->irq, netdev);
+ 
+ 	spider_net_write_reg(card, SPIDER_NET_GDTDMACCNTR,
+ 			     SPIDER_NET_DMA_TX_FEND_VALUE);
+@@ -1919,8 +1918,6 @@ spider_net_stop(struct net_device *netde
+ 	spider_net_release_tx_chain(card, 1);
+ 	spider_net_free_rx_chain_contents(card);
+ 
+-	spider_net_free_rx_chain_contents(card);
+-
+ 	spider_net_free_chain(card, &card->tx_chain);
+ 	spider_net_free_chain(card, &card->rx_chain);
+ 
