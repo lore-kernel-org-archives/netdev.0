@@ -1,45 +1,59 @@
-From: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
-Subject: Re: [PATCH] bcm43xx: Fix loss of association after resume
-Date: Sat, 10 Feb 2007 18:11:36 +0100
-Message-ID: <200702101811.37355.rjw@sisk.pl>
-References: <45cc9ebb.+9O/IXvs/C9RyFnk%Larry.Finger@lwfinger.net> <200702091753.12419.mb@bu3sch.de>
+From: Pavel Roskin <proski@gnu.org>
+Subject: Re: [ANNOUNCE] d80211 based driver for
+	Intel	PRO/Wireless 3945ABG
+Date: Sat, 10 Feb 2007 12:53:51 -0500
+Message-ID: <20070210125351.05uo0o0sgw0w0ckc@webmail.spamcop.net>
+References: <45CCE3CA.4050904@linux.intel.com>
+	<20070210162254.GC25607@thunk.org>
+	<20070210163933.GA17140@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <200702091753.12419.mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+Cc: Theodore Tso <tytso@mit.edu>, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
+	ipw3945-devel@lists.sourceforge.net,
+	James Ketrenos <jketreno@linux.intel.com>
+To: "John W. Linville" <linville@tuxdriver.com>
+Return-path: <ipw3945-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20070210163933.GA17140@tuxdriver.com>
 Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/ipw3945-devel>,
+	<mailto:ipw3945-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=ipw3945-devel>
+List-Post: <mailto:ipw3945-devel@lists.sourceforge.net>
+List-Help: <mailto:ipw3945-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/ipw3945-devel>,
+	<mailto:ipw3945-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: ipw3945-devel-bounces@lists.sourceforge.net
+Errors-To: ipw3945-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Friday, 9 February 2007 17:53, Michael Buesch wrote:
-> On Friday 09 February 2007 17:18, Larry Finger wrote:
-> > After a suspend/resume cycle, bcm43xx-softmac has lost its association with
-> > the AP and requires manual intervention. This situation is fixed by making
-> > one of softmac's internal routines public and calling it.
-> > 
-> > Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-> 
-> Ack, this is good as workaround.
+Quoting "John W. Linville" <linville@tuxdriver.com>:
 
-I'm running with this patch applied right now, but the association is lost
-after the resume anyway.  I have to reload bcm43xx to make it associate with
-the AP again (no big deal).
+> > Very cool!  Is it likely that d80211 and iwlwifi will be pushed into
+> > mainline in time for 2.6.21?
+>
+> Hmmm...I think we need to spend a cycle or so in -mm.  2.6.22 seems
+> more likely for mainline.
 
-Greetings,
-Rafael
+I think we should take this as a goal.  Last time I checked, d80211 wasn't in
+-mm.  Perhaps it should go there.  And by the way, the latest changes from
+netdev->class_dev to netdev->dev break d80211.  Perhaps we should rebase
+wireless-dev immediately after 2.6.21-rc1, fix all compile issues and submit
+the patch to -mm.
 
+And iwlwifi is surprisingly good for a just announced driver.  It worked for me
+from the first attempt, and that's the first d80211 driver to do so.  In my
+opinion, it should go to wireless-dev as soon as possible so it can go to -mm
+toghether with other drivers.  A couple of wrinkles in the standalone build
+system are irrelevant to the kernel interation.
 
--- 
-If you don't have the time to read,
-you don't have the time or the tools to write.
-		- Stephen King
--
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--
+Regards,
+Pavel Roskin
+
+-------------------------------------------------------------------------
+Using Tomcat but need to do more? Need to support web services, security?
+Get stuff done quickly with pre-integrated technology to make your job easier.
+Download IBM WebSphere Application Server v.1.0.1 based on Apache Geronimo
+http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
