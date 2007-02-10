@@ -1,57 +1,43 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: [PATCH] [004] dmfe : Add suspend/resume support
-Date: Fri, 9 Feb 2007 20:54:52 +0000
-Message-ID: <20070209205451.GA3949@ucw.cz>
-References: <549393.8054.qm@web38506.mail.mud.yahoo.com>
+From: linas@austin.ibm.com (Linas Vepstas)
+Subject: [PATCH 0/5]: spidernet: misc fixes
+Date: Fri, 9 Feb 2007 18:01:28 -0600
+Message-ID: <20070210000128.GJ5616@austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, tori@unhappy.mine.nu,
-	netdev@vger.kernel.org
-To: Levitsky Maxim <maximlevitsky@yahoo.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org,
+	James K Lewis <jklewis@us.ibm.com>,
+	Jens Osterkamp <Jens.Osterkamp@de.ibm.com>,
+	Kou Ishizaki <kou.ishizaki@toshiba.co.jp>
+To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gprs189-60.eurotel.cz ([160.218.189.60]:2811 "EHLO spitz.ucw.cz"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1946135AbXBIXza (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Feb 2007 18:55:30 -0500
+Received: from e4.ny.us.ibm.com ([32.97.182.144]:34713 "EHLO e4.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1423372AbXBJABb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Feb 2007 19:01:31 -0500
+Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
+	by e4.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l1A01Usr012590
+	for <netdev@vger.kernel.org>; Fri, 9 Feb 2007 19:01:30 -0500
+Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
+	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.2) with ESMTP id l1A01U47262904
+	for <netdev@vger.kernel.org>; Fri, 9 Feb 2007 19:01:30 -0500
+Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
+	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l1A01T6b019291
+	for <netdev@vger.kernel.org>; Fri, 9 Feb 2007 19:01:29 -0500
 Content-Disposition: inline
-In-Reply-To: <549393.8054.qm@web38506.mail.mud.yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi!
 
-> From: Maxim Levitsky <maximlevitsky@yahoo.com>
-> Subject: [PATCH] [NETDEV] [004] dmfe : Add suspend/resume support
->=20
-> Adds support for suspend/resume
 
-Patch looks ok, but your mailer damaged it heavily.
+Jeff, 
 
-> --- linux-2.6.20-mod/drivers/net/tulip/dmfe.c=A0=A0=A02007-02-07 18:4=
-6:13.000000000 +0200
-> +++ linux-2.6.20-test/drivers/net/tulip/dmfe.c=A0=A02007-02-07 18:50:=
-52.000000000 +0200
-> @@ -55,9 +55,6 @@
-> =A0
-> =A0 =A0 =A0TODO
-> =A0
-> - =A0 =A0Implement pci_driver::suspend() and pci_driver::resume()
-> - =A0 =A0power management methods.
-> -
-> =A0 =A0 =A0Check on 64 bit boxes.
-> =A0 =A0 =A0Check and fix on big endian boxes.
-> =A0
-> @@ -2027,11 +2024,59 @@ static struct pci_device_id dmfe_pci_tbl
-> =A0MODULE_DEVICE_TABLE(pci, dmfe_pci_tbl);
-> =A0
-> =A0
-> +
-> +static int dmfe_suspend(struct pci_dev *pci_dev, pm_message_t state)
-> +{
+A series of five patches against the spidernet ethernet device driver.
 
-							Pavel
---=20
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses=
-/blog.html
+The first fixes a compile break in the current kernel.rg tree.
+The second restructures the descriptor ring, per an old suggestion.
+The third & fourth fix a race condition seen under heavy load.
+The fifth is a trite janitorial patch.
+
+Please apply.
+
+--linas
