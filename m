@@ -1,8 +1,8 @@
 From: linas@austin.ibm.com (Linas Vepstas)
-Subject: Re: [PATCH 0/5]: spidernet: misc fixes
-Date: Fri, 9 Feb 2007 18:23:05 -0600
-Message-ID: <20070210002305.GE2396@austin.ibm.com>
-References: <20070210000128.GJ5616@austin.ibm.com>
+Subject: [PATCH 5/5]: spidernet janitorial: typos
+Date: Fri, 9 Feb 2007 18:25:28 -0600
+Message-ID: <20070210002528.GF2396@austin.ibm.com>
+References: <20070210000128.GJ5616@austin.ibm.com> <20070210002305.GE2396@austin.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org,
@@ -11,24 +11,27 @@ Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org,
 	Kou Ishizaki <kou.ishizaki@toshiba.co.jp>
 To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e33.co.us.ibm.com ([32.97.110.151]:51001 "EHLO
-	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1946796AbXBJAXM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Feb 2007 19:23:12 -0500
+Received: from e36.co.us.ibm.com ([32.97.110.154]:54873 "EHLO
+	e36.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1946806AbXBJAZa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Feb 2007 19:25:30 -0500
 Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e33.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id l1A0N7Ld029247
-	for <netdev@vger.kernel.org>; Fri, 9 Feb 2007 19:23:07 -0500
-Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
-	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v8.2) with ESMTP id l1A0N6rV360768
-	for <netdev@vger.kernel.org>; Fri, 9 Feb 2007 17:23:06 -0700
-Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av02.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l1A0N57u032622
-	for <netdev@vger.kernel.org>; Fri, 9 Feb 2007 17:23:06 -0700
+	by e36.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id l1A0PT7A018561
+	for <netdev@vger.kernel.org>; Fri, 9 Feb 2007 19:25:29 -0500
+Received: from d03av04.boulder.ibm.com (d03av04.boulder.ibm.com [9.17.195.170])
+	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v8.2) with ESMTP id l1A0PT4E548694
+	for <netdev@vger.kernel.org>; Fri, 9 Feb 2007 17:25:29 -0700
+Received: from d03av04.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av04.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l1A0PS7D026260
+	for <netdev@vger.kernel.org>; Fri, 9 Feb 2007 17:25:29 -0700
 Content-Disposition: inline
-In-Reply-To: <20070210000128.GJ5616@austin.ibm.com>
+In-Reply-To: <20070210002305.GE2396@austin.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Resend, The subject line was wrong on the last one.
+End-of-day tiredness.
+--linas
 
 Janitorial patch. Undo long lines, fix typo in err msg.
 
