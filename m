@@ -1,35 +1,58 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: The new SSB subsystem for bcm43xx (and others)
-Date: Sun, 11 Feb 2007 00:10:52 +0100
-Message-ID: <200702110010.52586.mb@bu3sch.de>
-References: <200612221359.25093.mb@bu3sch.de> <20070210221150.GA28338@srcf.ucam.org> <1171148204.22868.1.camel@dv>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [ANNOUNCE] d80211 based driver for Intel
+	PRO/Wireless 3945ABG
+Date: Sat, 10 Feb 2007 17:41:11 -0500
+Message-ID: <20070210224111.GA24027@tuxdriver.com>
+References: <45CCE3CA.4050904@linux.intel.com>
+	<20070210162254.GC25607@thunk.org>
+	<20070210163933.GA17140@tuxdriver.com>
+	<20070210125351.05uo0o0sgw0w0ckc@webmail.spamcop.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-15"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Matthew Garrett <mjg59@srcf.ucam.org>, netdev@vger.kernel.org,
-	bcm43xx-dev@lists.berlios.de, Felix Fietkau <nbd@nbd.name>
+Cc: Theodore Tso <tytso@mit.edu>, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
+	ipw3945-devel@lists.sourceforge.net,
+	James Ketrenos <jketreno@linux.intel.com>
 To: Pavel Roskin <proski@gnu.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:44335
-	"EHLO vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752076AbXBJXL3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 10 Feb 2007 18:11:29 -0500
-In-Reply-To: <1171148204.22868.1.camel@dv>
+Return-path: <ipw3945-devel-bounces@lists.sourceforge.net>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <20070210125351.05uo0o0sgw0w0ckc@webmail.spamcop.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/ipw3945-devel>,
+	<mailto:ipw3945-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=ipw3945-devel>
+List-Post: <mailto:ipw3945-devel@lists.sourceforge.net>
+List-Help: <mailto:ipw3945-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/ipw3945-devel>,
+	<mailto:ipw3945-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: ipw3945-devel-bounces@lists.sourceforge.net
+Errors-To: ipw3945-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Saturday 10 February 2007 23:56, Pavel Roskin wrote:
-> On Sat, 2007-02-10 at 22:11 +0000, Matthew Garrett wrote:
-> > Ok, here's a patch. The stack of PCMCIA headers are needed to get the 
-> > pcmcia_device structure. Seems to work fine for PCI - I don't have any 
-> > PCMCIA devices. The SSB devices now appear underneath the PCI device 
-> > rather than in the top level of /sys/devices.
+On Sat, Feb 10, 2007 at 12:53:51PM -0500, Pavel Roskin wrote:
+> Quoting "John W. Linville" <linville@tuxdriver.com>:
 > 
-> I've just checked, pcmcia/ciscode.h is not needed.  The rest is needed.
+> > > Very cool!  Is it likely that d80211 and iwlwifi will be pushed into
+> > > mainline in time for 2.6.21?
+> >
+> > Hmmm...I think we need to spend a cycle or so in -mm.  2.6.22 seems
+> > more likely for mainline.
+> 
+> I think we should take this as a goal.  Last time I checked, d80211 wasn't in
+> -mm.  Perhaps it should go there.  And by the way, the latest changes from
+> netdev->class_dev to netdev->dev break d80211.  Perhaps we should rebase
+> wireless-dev immediately after 2.6.21-rc1, fix all compile issues and submit
+> the patch to -mm.
 
-http://bu3sch.de/gitweb?p=wireless-dev.git;a=commitdiff;h=218241c63246c5611520df98ce8ae06016545c9c
+That is basically the plan. :-)
 
+John
 -- 
-Greetings Michael.
+John W. Linville
+linville@tuxdriver.com
+
+-------------------------------------------------------------------------
+Using Tomcat but need to do more? Need to support web services, security?
+Get stuff done quickly with pre-integrated technology to make your job easier.
+Download IBM WebSphere Application Server v.1.0.1 based on Apache Geronimo
+http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
