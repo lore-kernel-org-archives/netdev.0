@@ -1,39 +1,34 @@
-From: Robert Hancock <hancockr@shaw.ca>
-Subject: Re: forcedeth problems on 2.6.20-rc6-mm3
-Date: Fri, 09 Feb 2007 22:40:58 -0600
-Message-ID: <45CD4CDA.7050600@shaw.ca>
-References: <45C6BCE5.90103@shaw.ca>
- <20070204213603.a5bce839.akpm@linux-foundation.org> <45C6C531.20508@shaw.ca>
- <20070204221741.63152cbe.akpm@linux-foundation.org>
- <523e55a00702081326j43de05e3hdd8cf35e946eae9@mail.gmail.com>
- <45CBE30D.5030006@nvidia.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC][PATCH][IPSEC][2/3] IPv6 over IPv4 IPsec tunnel
+Date: Fri, 09 Feb 2007 21:22:57 -0800 (PST)
+Message-ID: <20070209.212257.112620965.davem@davemloft.net>
+References: <20061229144712.e154b021.kazunori@miyazawa.org>
+	<200702101225.33939.nakam@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Ford <firefighterblu3@gmail.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: Ayaz Abdulla <aabdulla@nvidia.com>
+Cc: kazunori@miyazawa.org, miika@iki.fi, Diego.Beltrami@hiit.fi,
+	herbert@gondor.apana.org.au, netdev@vger.kernel.org,
+	usagi-core@linux-ipv6.org
+To: nakam@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shawidc-mo1.cg.shawcable.net ([24.71.223.10]:28116 "EHLO
-	pd2mo2so.prod.shaw.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753053AbXBJElB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Feb 2007 23:41:01 -0500
-In-reply-to: <45CBE30D.5030006@nvidia.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35745
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752659AbXBJFXa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 10 Feb 2007 00:23:30 -0500
+In-Reply-To: <200702101225.33939.nakam@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ayaz Abdulla wrote:
-> For all those who are having issues, please try out the attached patch.
-> 
-> Ayaz
+From: Masahide NAKAMURA <nakam@linux-ipv6.org>
+Date: Sat, 10 Feb 2007 12:25:33 +0900
 
-Seems to solve the problem for me (not heavily tested, but certainly 
-isn't totally dead as it was before).
+> Please give me comments for the attached patch.
+> I hope it will be applied (or replaced the original patch with including mine).
 
--- 
-Robert Hancock      Saskatoon, SK, Canada
-To email, remove "nospam" from hancockr@nospamshaw.ca
-Home Page: http://www.roberthancock.com/
+Thank you Mashide, I've applied your patch for now.
 
+If anyone wants to provide some corrections, we can make
+them on top of Mashide's version of the fix.
+
+Thank you!
