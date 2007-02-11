@@ -1,74 +1,88 @@
 From: Maxim <maximlevitsky@gmail.com>
-Subject: Re: [PATCH] [004] dmfe : Add suspend/resume support
-Date: Sun, 11 Feb 2007 23:05:34 +0200
-Message-ID: <45cf8524.034e66ed.1dc4.638d@mx.google.com>
-References: <549393.8054.qm@web38506.mail.mud.yahoo.com> <20070209205451.GA3949@ucw.cz>
+Subject: Re: [PATCH] [000]  dmfe : fix bugs and add features
+Date: Sun, 11 Feb 2007 23:12:46 +0200
+Message-ID: <200702112312.46618.maximlevitsky@gmail.com>
+References: <96797.60132.qm@web38511.mail.mud.yahoo.com> <45CCE46E.9010902@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, tori@unhappy.mine.nu,
-	netdev@vger.kernel.org
-To: Pavel Machek <pavel@ucw.cz>, pavel@ucw.cz
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Levitsky Maxim <maximlevitsky@yahoo.com>,
+	linux-kernel@vger.kernel.org, tori@unhappy.mine.nu,
+	netdev@vger.kernel.org,
+	Samuel Thibault <samuel.thibault@ens-lyon.org>
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.191]:10311 "EHLO
+Received: from nf-out-0910.google.com ([64.233.182.184]:17316 "EHLO
 	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750825AbXBKVFm convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 11 Feb 2007 16:05:42 -0500
-Received: by nf-out-0910.google.com with SMTP id o25so2004506nfa
-        for <netdev@vger.kernel.org>; Sun, 11 Feb 2007 13:05:40 -0800 (PST)
-In-Reply-To: <20070209205451.GA3949@ucw.cz>
+	with ESMTP id S1750838AbXBKVMy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 11 Feb 2007 16:12:54 -0500
+Received: by nf-out-0910.google.com with SMTP id o25so2006029nfa
+        for <netdev@vger.kernel.org>; Sun, 11 Feb 2007 13:12:52 -0800 (PST)
+In-Reply-To: <45CCE46E.9010902@garzik.org>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Friday 09 February 2007 22:54:52 Pavel Machek wrote:
-> Hi!
->
-> > From: Maxim Levitsky <maximlevitsky@yahoo.com>
-> > Subject: [PATCH] [NETDEV] [004] dmfe : Add suspend/resume support
+On Friday 09 February 2007 23:15:26 Jeff Garzik wrote:
+> Levitsky Maxim wrote:
+> > Hello,
 > >
-> > Adds support for suspend/resume
->
-> Patch looks ok, but your mailer damaged it heavily.
->
-> > --- linux-2.6.20-mod/drivers/net/tulip/dmfe.c=A0=A0=A02007-02-07
-> > 18:46:13.000000000 +0200 +++
-> > linux-2.6.20-test/drivers/net/tulip/dmfe.c=A0=A02007-02-07 18:50:52=
-=2E000000000
-> > +0200 @@ -55,9 +55,6 @@
-> > =A0
-> > =A0 =A0 =A0TODO
-> > =A0
-> > - =A0 =A0Implement pci_driver::suspend() and pci_driver::resume()
-> > - =A0 =A0power management methods.
+> > Before some time I decided to fix suspend/resume on my Davicom network
+> > card. During development I also fixed couple of bugs and added support
+> > for link detection and WOL Note : 2.6.20 already has support for link
+> > detection , but it is broken when card has external PHY , like mine.
+> >
+> > So here it goes:
+> >
+> > [PATCH] [NET] [001] dmfe : trivial/spelling fixes
+> > [PATCH] [NET] [002] dmfe : Fix possible oops
+> > [PATCH] [NET] [003] dmfe : fix link detection
+> > [PATCH] [NET] [004] dmfe : Add suspend/resume support
+> > [PATCH] [NET] [005] dmfe : Add support for wake-on-lan
+> >
+> >         Maxim Levitsky
+> >
+> >
+> >
+> > _________________________________________________________________________
+> >___________ Finding fabulous fares is fun.
+> > Let Yahoo! FareChase search your favorite travel sites to find flight and
+> > hotel bargains. http://farechase.yahoo.com/promo-generic-14795097
 > > -
-> > =A0 =A0 =A0Check on 64 bit boxes.
-> > =A0 =A0 =A0Check and fix on big endian boxes.
-> > =A0
-> > @@ -2027,11 +2024,59 @@ static struct pci_device_id dmfe_pci_tbl
-> > =A0MODULE_DEVICE_TABLE(pci, dmfe_pci_tbl);
-> > =A0
-> > =A0
-> > +
-> > +static int dmfe_suspend(struct pci_dev *pci_dev, pm_message_t stat=
-e)
-> > +{
+> > To unsubscribe from this list: send the line "unsubscribe netdev" in
+> > the body of a message to majordomo@vger.kernel.org
+> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
 >
-> 							Pavel
+> What about the above report?
+>
+> I would rather fix this first, before applying more patches on top of a
+> problematic patch...
+>
+> > Commit 7628b0a8c01a02966d2228bdf741ddedb128e8f8 (drivers/net/tulip/dmfe:
+> > support basic carrier detection) breaks networking on my Davicom DM9009.
+> > ethtool always reports there is no link.  tcpdump shows incoming
+> > packets, but TX is disabled.  Reverting the above patch fixes the
+> > problem.
+>
+> Regards,
+>
+> 	Jeff
+>
+>
+>
+>
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
 
-Hi , thanks for reply , I will send them again, and this time I will ch=
-eck=20
-that mailer doesn't mess with patches.
+Hello,
 
-I fixed word wrap problem.
+I agree , I will redo all patches with above commit reverted
 
-I also want to note that my address is now maximlevitsky@gmail.com , th=
-e=20
-address I took recently because yahoo is only aviable via webmail
-and it is not good for patches.
+Regards , Maxim Levitsky
 
-Thanks for reply,=20
-
-regards , Maxim Levitsky
-
+PS: my mailbox is now maximlevitsky@gmail.com , I took it to use SMTP , 
+because it less likely to corrupt patches
