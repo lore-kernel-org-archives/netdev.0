@@ -1,26 +1,31 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [BUG] 2.6.20 Oopses in xfrm_audit_log
-Date: Mon, 12 Feb 2007 15:01:51 -0800
-Message-ID: <20070212150151.a454f7c4.akpm@linux-foundation.org>
-References: <20070212142138.32983793.akpm@linux-foundation.org>
-	<20070212.144938.36664406.davem@davemloft.net>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: [ANNOUNCE] sk-drivers mailing list
+Date: Mon, 12 Feb 2007 15:05:57 -0800
+Message-ID: <20070212150557.3bb0251c@freekitty>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ce@ruault.com
-To: David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-net@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:46301 "EHLO smtp.osdl.org"
+Received: from smtp.osdl.org ([65.172.181.24]:46372 "EHLO smtp.osdl.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030219AbXBLXCS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Feb 2007 18:02:18 -0500
-In-Reply-To: <20070212.144938.36664406.davem@davemloft.net>
+	id S1030459AbXBLXF6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 Feb 2007 18:05:58 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> On Mon, 12 Feb 2007 14:49:38 -0800 (PST) David Miller <davem@davemloft.net> wrote:
-> Andrew, we're already discussing a fix for this in another
-> thread today:
+I have created a list for discussing issues and announcing test versions
+of the skge and sky2 drivers. There are many people with problems and
+several vendors are using the hardware as well, therefore I want to be
+able to make sure everyone can see the information without having to
+be distracted by lkml or netdev mail.
 
-Yeah, I noticed.  Vitimised again by those darn MUA vendors and/or
-users who bust their In-Reply-To/References headers :(
+	http://lists.osdl.org/mailman/listinfo/sk-drivers
+
+Mailing address is sk-drivers@lists.linux-foundation.org (the list host
+server hasn't moved to linux-foundation.org yet).
+
+Don't worry, the changes will still show up one netdev.
+-- 
+Stephen Hemminger <shemminger@linux-foundation.org>
