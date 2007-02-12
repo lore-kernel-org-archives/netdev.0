@@ -1,72 +1,39 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: Fw: [Bugme-new] [Bug 7952] New: slattach only works every other time
-Date: Mon, 12 Feb 2007 09:36:09 +0100
-Message-ID: <20070212083609.GA1946@ff.dom.local>
-References: <20070206135754.0a0415b9.akpm@linux-foundation.org>
+From: Andi Kleen <ak@suse.de>
+Subject: Re: NetXen driver name
+Date: Mon, 12 Feb 2007 09:47:38 +0100
+Message-ID: <200702120947.38891.ak@suse.de>
+References: <200702082152.19772.amitkale@netxen.com> <200702120912.56487.ak@suse.de> <200702121358.34712.amitkale@netxen.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	mfuzzey@mailclub.net,
-	"bugme-daemon\@kernel-bugs\.osdl\.org"
-	<bugme-daemon@bugzilla.kernel.org>
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Amit Kale <amitkale@netxen.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from poczta.o2.pl ([193.17.41.142]:49519 "EHLO poczta.o2.pl"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S933122AbXBLIdE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Feb 2007 03:33:04 -0500
+Received: from cantor2.suse.de ([195.135.220.15]:53163 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932946AbXBLIrm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 Feb 2007 03:47:42 -0500
+In-Reply-To: <200702121358.34712.amitkale@netxen.com>
 Content-Disposition: inline
-In-Reply-To: <20070206135754.0a0415b9.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 06-02-2007 22:57, Andrew Morton wrote:
-...
-> First time slattach is run to set up a SLIP line all is ok.
-> If slattach process is then killed and restarted it fails with message:
-> SLIP_set_disc(1): File exists
-> Problem still occurs in 2.6.20rc6 kernel
+On Monday 12 February 2007 09:28, Amit Kale wrote:
+> On Monday 12 February 2007 13:42, Andi Kleen wrote:
+> > On Monday 12 February 2007 09:03, Amit Kale wrote:
+> > > The already released kernel contains a broken driver.  It broke due to
+> > > some code rearrangement changes someone submitted to fix sparse warnings.
+> >
+> > You mean it doesn't compile?
 > 
-> dmesg shows:
-> object_add failed for sl0 with -EEXIST, don't try to register things 
-> with the same name in the same directory.
->  [<c01b7b54>] kobject_add+0x147/0x16d
->  [<c0211209>] class_device_add+0x9d/0x3b3
->  [<c022829d>] register_netdevice+0x21a/0x2d0
->  [<c8903213>] slip_open+0x3a1/0x4e2 [slip]
->  [<c01fc709>] tty_ioctl+0x922/0xbac
-... 
-> Steps to reproduce:
-> (requires a serial port but nothing needs to be attached to it):
-> # slattach -L -vd -p slip -s 115200 /dev/ttyS0
-...
-> slip started on /dev/ttyS0 interface sl0
-> 
-> Above is OK, now kill process with CTRL-C
-> 
-> slattach: tty_set_speed: 0
-> # slattach -L -vd -p slip -s 115200 /dev/ttyS0
-...
-> SLIP_set_disc(1): File exists
-...
-> I believe this is called by this changeset :
-> http://www2.kernel.org/git/?p=linux/kernel/git/stable/linux-2.6.17.y.git;a=commit;h=b17a7c179dd3ce7d04373fddf660eda21efc9db9
+> It compiles, but doesn't work if tried on real hardware.
+> We'll send a fix for the same in a few hours.
 
-I think Martin is probably right here.
+But didn't the driver make it into distributions with the old name? 
+That could be another compat issue (such things easily make unhappy
+users and you probably wouldn't like that)
 
-It would be useful to check if time has anything to do
-with this and wait longer (e.g. >= 1 min.) before the
-second slattach.
+But ok then a rename is probably still possible. You have to ask Jeff of course.
 
-Anyway, even if there is some other reason, the above
-trace shows (IMHO) some inconsistency in register/
-unregister_netdevice: if class_device_add is reached
-it means the name is valid (so was unregistered) and
-EEXIST from netdev_register_sysfs is wrong about the
-state of this device. So maybe there should be some
-warning plus some delayed action instead of register
-cancelled?
-
-Regards,
-Jarek P. 
+-Andi
