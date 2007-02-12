@@ -1,33 +1,81 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [take35 0/10] kevent: Generic event handling mechanism.
-Date: Mon, 12 Feb 2007 09:13:35 -0800
-Message-ID: <20070212091335.9c00d5d9.akpm@linux-foundation.org>
-References: <asdasdqaa0591036@2ka.mipt.ru>
-	<11703247503374@2ka.mipt.ru>
-	<20070205142336.GA24190@2ka.mipt.ru>
-	<20070212103510.GC5703@2ka.mipt.ru>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 7952] New: slattach only works every other
+ time
+Date: Mon, 12 Feb 2007 09:45:46 -0800
+Message-ID: <20070212094546.113382e4@localhost.localdomain>
+References: <20070206135754.0a0415b9.akpm@linux-foundation.org>
+	<20070212083609.GA1946@ff.dom.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, drepper@redhat.com, netdev@vger.kernel.org,
-	zach.brown@oracle.com, hch@infradead.org,
-	chase.venters@clientec.com, johann.borck@densedata.com,
-	linux-kernel@vger.kernel.org, jeff@garzik.org, hadi@cyberus.ca,
-	mingo@elte.hu, linux-fsdevel@vger.kernel.org
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
+	mfuzzey@mailclub.net,
+	"bugme-daemon\@kernel-bugs\.osdl\.org"
+	<bugme-daemon@bugzilla.kernel.org>
+To: Jarek Poplawski <jarkao2@o2.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:34108 "EHLO smtp.osdl.org"
+Received: from smtp.osdl.org ([65.172.181.24]:35826 "EHLO smtp.osdl.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S964961AbXBLRSA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Feb 2007 12:18:00 -0500
-In-Reply-To: <20070212103510.GC5703@2ka.mipt.ru>
+	id S965028AbXBLRqL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 Feb 2007 12:46:11 -0500
+In-Reply-To: <20070212083609.GA1946@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> On Mon, 12 Feb 2007 13:35:10 +0300 Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
-> Andrew, do you consider kevent for inclusion or declining?
+On Mon, 12 Feb 2007 09:36:09 +0100
+Jarek Poplawski <jarkao2@o2.pl> wrote:
 
-I haven't had time to think about it in the past month or two, sorry.
+> On 06-02-2007 22:57, Andrew Morton wrote:
+> ...
+> > First time slattach is run to set up a SLIP line all is ok.
+> > If slattach process is then killed and restarted it fails with message:
+> > SLIP_set_disc(1): File exists
+> > Problem still occurs in 2.6.20rc6 kernel
+> > 
+> > dmesg shows:
+> > object_add failed for sl0 with -EEXIST, don't try to register things 
+> > with the same name in the same directory.
+> >  [<c01b7b54>] kobject_add+0x147/0x16d
+> >  [<c0211209>] class_device_add+0x9d/0x3b3
+> >  [<c022829d>] register_netdevice+0x21a/0x2d0
+> >  [<c8903213>] slip_open+0x3a1/0x4e2 [slip]
+> >  [<c01fc709>] tty_ioctl+0x922/0xbac
+> ... 
+> > Steps to reproduce:
+> > (requires a serial port but nothing needs to be attached to it):
+> > # slattach -L -vd -p slip -s 115200 /dev/ttyS0
+> ...
+> > slip started on /dev/ttyS0 interface sl0
+> > 
+> > Above is OK, now kill process with CTRL-C
+> > 
+> > slattach: tty_set_speed: 0
+> > # slattach -L -vd -p slip -s 115200 /dev/ttyS0
+> ...
+> > SLIP_set_disc(1): File exists
+> ...
+> > I believe this is called by this changeset :
+> > http://www2.kernel.org/git/?p=linux/kernel/git/stable/linux-2.6.17.y.git;a=commit;h=b17a7c179dd3ce7d04373fddf660eda21efc9db9
+> 
+> I think Martin is probably right here.
+> 
+> It would be useful to check if time has anything to do
+> with this and wait longer (e.g. >= 1 min.) before the
+> second slattach.
+> 
+> Anyway, even if there is some other reason, the above
+> trace shows (IMHO) some inconsistency in register/
+> unregister_netdevice: if class_device_add is reached
+> it means the name is valid (so was unregistered) and
+> EEXIST from netdev_register_sysfs is wrong about the
+> state of this device. So maybe there should be some
+> warning plus some delayed action instead of register
+> cancelled?
+> 
+> Regards,
+> Jarek P. 
 
-However we might as well get it back in there for review-and-test - please
-send a new patchset once 2.6.21-rc1 is released and copy me on it?
+The problem is that the code in sl_alloc() tries to clear out
+an net device by calling unregister_netdevice(), the device won't
+actually disappear until after rtnl_unlock. This whole idea of
+searching for unused devices is racy crap and needs to go.
