@@ -1,59 +1,52 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [take36 10/10] kevent: Kevent based generic AIO.
-Date: Mon, 12 Feb 2007 15:19:40 +0300
-Message-ID: <20070212121940.GA31252@2ka.mipt.ru>
-References: <11712796493850@2ka.mipt.ru> <1171279650540@2ka.mipt.ru> <p733b5bh6bp.fsf@bingen.suse.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: David Miller <davem@davemloft.net>,
-	Ulrich Drepper <drepper@redhat.com>,
-	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	Chase Venters <chase.venters@clientec.com>,
-	Johann Borck <johann.borck@densedata.com>,
-	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
-	Jamal Hadi Salim <hadi@cyberus.ca>,
-	Ingo Molnar <mingo@elte.hu>, linux-fsdevel@vger.kernel.org
-To: Andi Kleen <ak@suse.de>
+From: "Amit S. Kale" <amitkale@netxen.com>
+Subject: [PATCH 1/1] NetXen: Fix to get the driver working after sparse changes
+Date: Mon, 12 Feb 2007 04:33:38 -0800
+Message-ID: <200702121233.l1CCXcZ7024013@dut39.unminc.com>
+Cc: amitkale@netxen.com, jeff@garzik.org, netxenproj@linsyssoft.com,
+	rob@netxen.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:38175 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S964880AbXBLMWj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Feb 2007 07:22:39 -0500
-Content-Disposition: inline
-In-Reply-To: <p733b5bh6bp.fsf@bingen.suse.de>
+Received: from 66-126-254-34.unm.net ([66.126.254.34]:20504 "EHLO
+	nxmail.netxen.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750938AbXBLMdr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Feb 2007 07:33:47 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 12, 2007 at 02:08:10PM +0100, Andi Kleen (ak@suse.de) wrote:
-> Evgeniy Polyakov <johnpol@2ka.mipt.ru> writes:
-> > 
-> > aio_sendfile_path() is essentially aio_sendfile(), except that it takes
-> > source filename as parameter, has a pointer to private header
-> > and its size (which allows to send header and file's content in one syscall
-> > instead of three (open, send, sendfile) and returns opened file descriptor.
-> 
-> Are you sure this is a useful optimization? Do you have numbers vs open+aio_sendfile+close? 
-> 
-> Compared to the cost of sending a complete file three system calls should be quite in the noise. 
-> And Linux system calls are not that expensive (few hundred cycles normally) 
-> 
-> Adding such compound system calls would be a worrying precedent because
-> I'm sure others would want them then for their favourite system call combo
-> too. If they were really useful it might make more sense to have a batch() 
-> system call that works for arbitary calls, but I'm not convinced yet
-> it's even needed. It would be certainly ugly.
+Signed-off-by: Amit S. Kale <amitkale@netxen.com>
 
-Yes, that call ends up about 10MB/sec faster for 100 1mb file transfers
-over 1gbit network (78 MB/s vs 66-72 MB/s over 1 Gb network, sendfile sending server 
-is one-way AMD Athlong 64 3500+), but indeed, it can be the case that async IO sending 
-was main speed factor.
+---
+ netxen_nic.h |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
 
-I added header by request from Suparna Bhattacharya - my main position
-is the same about syscall overhead, but I do not that care.
-
-> -Andi
-
--- 
-	Evgeniy Polyakov
+diff --git a/drivers/net/netxen/netxen_nic.h b/drivers/net/netxen/netxen_nic.h
+index e021a30..2807ef4 100644
+--- a/drivers/net/netxen/netxen_nic.h
++++ b/drivers/net/netxen/netxen_nic.h
+@@ -252,7 +252,7 @@ typedef u32 netxen_ctx_msg;
+ #define netxen_set_msg_ctxid(config_word, val)	\
+ 	((config_word) &= ~(0x3ff<<18), (config_word) |= (val & 0x3ff) << 18)
+ #define netxen_set_msg_opcode(config_word, val)	\
+-	((config_word) &= ~(0xf<<24), (config_word) |= (val & 0xf) << 24)
++	((config_word) &= ~(0xf<<28), (config_word) |= (val & 0xf) << 28)
+ 
+ struct netxen_rcv_context {
+ 	__le64 rcv_ring_addr;
+@@ -303,14 +303,14 @@ struct netxen_ring_ctx {
+ 	(cmd_desc)->flags_opcode |= cpu_to_le16((val) & 0x7f))
+ #define netxen_set_cmd_desc_opcode(cmd_desc, val)	\
+ 	((cmd_desc)->flags_opcode &= ~cpu_to_le16(0x3f<<7), \
+-	(cmd_desc)->flags_opcode |= cpu_to_le16((val) & (0x3f<<7)))
++	(cmd_desc)->flags_opcode |= cpu_to_le16(((val & 0x3f)<<7)))
+ 
+ #define netxen_set_cmd_desc_num_of_buff(cmd_desc, val)	\
+ 	((cmd_desc)->num_of_buffers_total_length &= ~cpu_to_le32(0xff), \
+ 	(cmd_desc)->num_of_buffers_total_length |= cpu_to_le32((val) & 0xff))
+ #define netxen_set_cmd_desc_totallength(cmd_desc, val)	\
+-	((cmd_desc)->num_of_buffers_total_length &= cpu_to_le32(0xff), \
+-	(cmd_desc)->num_of_buffers_total_length |= cpu_to_le32(val << 24))
++	((cmd_desc)->num_of_buffers_total_length &= ~cpu_to_le32(0xffffff00), \
++	(cmd_desc)->num_of_buffers_total_length |= cpu_to_le32(val << 8))
+ 
+ #define netxen_get_cmd_desc_opcode(cmd_desc)	\
+ 	((le16_to_cpu((cmd_desc)->flags_opcode) >> 7) & 0x003F)
