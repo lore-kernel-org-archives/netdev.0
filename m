@@ -1,56 +1,53 @@
-From: Ulrich Drepper <drepper@redhat.com>
-Subject: Re: [take35 0/10] kevent: Generic event handling mechanism.
-Date: Mon, 12 Feb 2007 06:59:17 -0800
-Message-ID: <45D080C5.4000500@redhat.com>
-References: <asdasdqaa0591036@2ka.mipt.ru> <11703247503374@2ka.mipt.ru> <20070205142336.GA24190@2ka.mipt.ru> <20070212103510.GC5703@2ka.mipt.ru>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: [PATCH] [XFRM] AUDIT: Fix audit buffer leakage in error path.
+Date: Tue, 13 Feb 2007 00:34:29 +0900 (JST)
+Message-ID: <20070213.003429.73173216.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig6F0502E471948832081F9F8F"
-Cc: Andrew Morton <akpm@osdl.org>, David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	Chase Venters <chase.venters@clientec.com>,
-	Johann Borck <johann.borck@densedata.com>,
-	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
-	Jamal Hadi Salim <hadi@cyberus.ca>,
-	Ingo Molnar <mingo@elte.hu>, linux-fsdevel@vger.kernel.org
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <20070212103510.GC5703@2ka.mipt.ru>
-Sender: linux-fsdevel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org, stable@kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from yue.linux-ipv6.org ([203.178.140.15]:54468 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932969AbXBLPe2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Feb 2007 10:34:28 -0500
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig6F0502E471948832081F9F8F
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 
-Evgeniy Polyakov wrote:
-> I think that mean that everybody is happy with APi, design and set of
-> features.=20
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index b7e537f..af85ac9 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -1999,7 +1999,7 @@ void xfrm_audit_log(uid_t auid, u32 sid, int type, int result,
+ 
+ 	audit_buf = audit_log_start(current->audit_context, GFP_ATOMIC, type);
+ 	if (audit_buf == NULL)
+-	return;
++		return;
+ 
+ 	switch(type) {
+ 	case AUDIT_MAC_IPSEC_ADDSA:
+@@ -2015,7 +2015,7 @@ void xfrm_audit_log(uid_t auid, u32 sid, int type, int result,
+ 		audit_log_format(audit_buf, "SPD delete: auid=%u", auid);
+ 		break;
+ 	default:
+-		return;
++		goto out;
+ 	}
+ 
+ 	if (sid != 0 &&
+@@ -2085,6 +2085,7 @@ void xfrm_audit_log(uid_t auid, u32 sid, int type, int result,
+ 				"ESP" : "IPCOMP"));
+ 
+ 	audit_log_format(audit_buf, " res=%u", result);
++out:
+ 	audit_log_end(audit_buf);
+ }
+ 
 
-No comment means that I still have not been able to test anything since
-regardless of what version I tried, it failed to build.
-
---=20
-=E2=9E=A7 Ulrich Drepper =E2=9E=A7 Red Hat, Inc. =E2=9E=A7 444 Castro St =
-=E2=9E=A7 Mountain View, CA =E2=9D=96
-
-
---------------enig6F0502E471948832081F9F8F
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.6 (GNU/Linux)
-Comment: Using GnuPG with Fedora - http://enigmail.mozdev.org
-
-iD8DBQFF0IDF2ijCOnn/RHQRAiesAKCZ6rlV3mcXkj7NpwFNSXU5exoQaACcDuB7
-EF+93V+R1z22vZsGZYS0JcI=
-=iDCs
------END PGP SIGNATURE-----
-
---------------enig6F0502E471948832081F9F8F--
+-- 
+YOSHIFUJI Hideaki @ USAGI Project  <yoshfuji@linux-ipv6.org>
+GPG-FP  : 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
