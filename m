@@ -1,71 +1,63 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: [PATCH][NET][BRIDGE] br_if: oops in port_carrier_check
-Date: Mon, 12 Feb 2007 11:28:48 +0100
-Message-ID: <20070212102848.GA4275@ff.dom.local>
-References: <20070207140916.088b1073@oldman> <20070209074211.GA1631@ff.dom.local> <20070209095204.7f43a964@oldman> <20070212064446.GA1651@ff.dom.local>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [take35 0/10] kevent: Generic event handling mechanism.
+Date: Mon, 12 Feb 2007 13:35:10 +0300
+Message-ID: <20070212103510.GC5703@2ka.mipt.ru>
+References: <asdasdqaa0591036@2ka.mipt.ru> <11703247503374@2ka.mipt.ru> <20070205142336.GA24190@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
-	"bugme-daemon\@kernel-bugs\.osdl\.org"
-	<bugme-daemon@bugzilla.kernel.org>, pterjan@gmail.com
-To: Stephen Hemminger <shemminger@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx10.go2.pl ([193.17.41.74]:55575 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S964828AbXBLKZo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Feb 2007 05:25:44 -0500
+Content-Type: text/plain; charset=koi8-r
+Cc: David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	Chase Venters <chase.venters@clientec.com>,
+	Johann Borck <johann.borck@densedata.com>,
+	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
+	Jamal Hadi Salim <hadi@cyberus.ca>,
+	Ingo Molnar <mingo@elte.hu>, linux-fsdevel@vger.kernel.org
+To: Andrew Morton <akpm@osdl.org>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20070212064446.GA1651@ff.dom.local>
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <20070205142336.GA24190@2ka.mipt.ru>
+Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Here is my patch proposal for testing.
-If it doesn't work - forget about it.
-(Prepared with 2.6.20-git6 but could
-be applied to 2.6.20 also.)
+On Mon, Feb 05, 2007 at 05:23:36PM +0300, Evgeniy Polyakov (johnpol@2ka.mipt.ru) wrote:
+> On Thu, Feb 01, 2007 at 01:12:30PM +0300, Evgeniy Polyakov (johnpol@2ka.mipt.ru) wrote:
+> > 
+> > Generic event handling mechanism.
+> > 
+> > Kevent is a generic subsytem which allows to handle event notifications.
+> > It supports both level and edge triggered events. It is similar to
+> > poll/epoll in some cases, but it is more scalable, it is faster and
+> > allows to work with essentially eny kind of events.
+> > 
+> > Events are provided into kernel through control syscall and can be read
+> > back through ring buffer or using usual syscalls.
+> > Kevent update (i.e. readiness switching) happens directly from internals
+> > of the appropriate state machine of the underlying subsytem (like
+> > network, filesystem, timer or any other).
+> > 
+> > Homepage:
+> > http://tservice.net.ru/~s0mbre/old/?section=projects&item=kevent
+> > 
+> > Documentation page:
+> > http://linux-net.osdl.org/index.php/Kevent
+> > 
+> > Consider for inclusion.
+> > 
+> > P.S. If you want to be removed from Cc: list just drop me a mail.
+> > 
+> > Changes from 'take34' patchset:
+> >  * Ported to the 2.6.20-rc7 (9be5b038b1c9d1927c367bf91683458e10d5d4eb) tree.
+> 
+> Is there some progress?
+> Some things to be implemented, described or discussed?
 
-Jarek P.
+I think that mean that everybody is happy with APi, design and set of
+features. 
 
+Andrew, do you consider kevent for inclusion or declining?
 
-dev_hold/dev_put added to prevent dev kfree
-during port_carrier_check runnig, while dev
-and port are removed.
-
-Submitted and tested by: Pascal Terjan <pterjan@gmail.com>
-
-Signed-off-by: Jarek Poplawski <jarkao2@o2.pl>
-
----
-
-diff -Nurp linux-2.6.20-git6-/net/bridge/br_if.c linux-2.6.20-git6/net/bridge/br_if.c
---- linux-2.6.20-git6-/net/bridge/br_if.c	2007-02-12 10:20:14.000000000 +0100
-+++ linux-2.6.20-git6/net/bridge/br_if.c	2007-02-12 10:36:58.000000000 +0100
-@@ -108,6 +108,7 @@ static void port_carrier_check(struct wo
- 		spin_unlock_bh(&br->lock);
- 	}
- done:
-+	dev_put(dev);
- 	rtnl_unlock();
- }
- 
-@@ -161,7 +162,8 @@ static void del_nbp(struct net_bridge_po
- 
- 	dev_set_promiscuity(dev, -1);
- 
--	cancel_delayed_work(&p->carrier_check);
-+	if (cancel_delayed_work(&p->carrier_check))
-+		dev_put(dev);
- 
- 	spin_lock_bh(&br->lock);
- 	br_stp_disable_port(p);
-@@ -444,7 +446,9 @@ int br_add_if(struct net_bridge *br, str
- 	spin_lock_bh(&br->lock);
- 	br_stp_recalculate_bridge_id(br);
- 	br_features_recompute(br);
--	schedule_delayed_work(&p->carrier_check, BR_PORT_DEBOUNCE);
-+	if (schedule_delayed_work(&p->carrier_check, BR_PORT_DEBOUNCE))
-+		dev_hold(dev);
-+
- 	spin_unlock_bh(&br->lock);
- 
- 	dev_set_mtu(br->dev, br_min_mtu(br));
+-- 
+	Evgeniy Polyakov
