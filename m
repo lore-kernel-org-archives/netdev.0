@@ -1,36 +1,56 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: Missing csum_fold() in ip6t_HL.c ?
-Date: Tue, 13 Feb 2007 00:01:43 +0900 (JST)
-Message-ID: <20070213.000143.96417053.yoshfuji@linux-ipv6.org>
-References: <20060915103755.GB5286@martell.zuzino.mipt.ru>
-	<20070212.234721.90984848.yoshfuji@linux-ipv6.org>
-	<45D07F1D.7030202@trash.net>
+From: Ulrich Drepper <drepper@redhat.com>
+Subject: Re: [take35 0/10] kevent: Generic event handling mechanism.
+Date: Mon, 12 Feb 2007 06:59:17 -0800
+Message-ID: <45D080C5.4000500@redhat.com>
+References: <asdasdqaa0591036@2ka.mipt.ru> <11703247503374@2ka.mipt.ru> <20070205142336.GA24190@2ka.mipt.ru> <20070212103510.GC5703@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
-	adobriyan@gmail.com
-To: kaber@trash.net
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-In-Reply-To: <45D07F1D.7030202@trash.net>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig6F0502E471948832081F9F8F"
+Cc: Andrew Morton <akpm@osdl.org>, David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	Chase Venters <chase.venters@clientec.com>,
+	Johann Borck <johann.borck@densedata.com>,
+	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
+	Jamal Hadi Salim <hadi@cyberus.ca>,
+	Ingo Molnar <mingo@elte.hu>, linux-fsdevel@vger.kernel.org
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <20070212103510.GC5703@2ka.mipt.ru>
+Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In article <45D07F1D.7030202@trash.net> (at Mon, 12 Feb 2007 15:52:13 +0100), Patrick McHardy <kaber@trash.net> says:
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig6F0502E471948832081F9F8F
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-> This already is taken care of. I noticed our listmaster didn't
-> approve any held messages for a couple of month and am currently
-> going through the backlog (Alexey's mail is quite old).
+Evgeniy Polyakov wrote:
+> I think that mean that everybody is happy with APi, design and set of
+> features.=20
 
-Argh, okay.  Thanks.
+No comment means that I still have not been able to test anything since
+regardless of what version I tried, it failed to build.
 
---yoshfuji
+--=20
+=E2=9E=A7 Ulrich Drepper =E2=9E=A7 Red Hat, Inc. =E2=9E=A7 444 Castro St =
+=E2=9E=A7 Mountain View, CA =E2=9D=96
+
+
+--------------enig6F0502E471948832081F9F8F
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.6 (GNU/Linux)
+Comment: Using GnuPG with Fedora - http://enigmail.mozdev.org
+
+iD8DBQFF0IDF2ijCOnn/RHQRAiesAKCZ6rlV3mcXkj7NpwFNSXU5exoQaACcDuB7
+EF+93V+R1z22vZsGZYS0JcI=
+=iDCs
+-----END PGP SIGNATURE-----
+
+--------------enig6F0502E471948832081F9F8F--
