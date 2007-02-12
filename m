@@ -1,81 +1,42 @@
 From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 7952] New: slattach only works every other
- time
-Date: Mon, 12 Feb 2007 09:45:46 -0800
-Message-ID: <20070212094546.113382e4@localhost.localdomain>
-References: <20070206135754.0a0415b9.akpm@linux-foundation.org>
-	<20070212083609.GA1946@ff.dom.local>
+Subject: Re: [PATCH][NET][BRIDGE] br_if: oops in port_carrier_check
+Date: Mon, 12 Feb 2007 09:47:38 -0800
+Message-ID: <20070212094738.0a8ae896@localhost.localdomain>
+References: <20070207140916.088b1073@oldman>
+	<20070209074211.GA1631@ff.dom.local>
+	<20070209095204.7f43a964@oldman>
+	<20070212064446.GA1651@ff.dom.local>
+	<20070212102848.GA4275@ff.dom.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
-	mfuzzey@mailclub.net,
 	"bugme-daemon\@kernel-bugs\.osdl\.org"
-	<bugme-daemon@bugzilla.kernel.org>
+	<bugme-daemon@bugzilla.kernel.org>, pterjan@gmail.com
 To: Jarek Poplawski <jarkao2@o2.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:35826 "EHLO smtp.osdl.org"
+Received: from smtp.osdl.org ([65.172.181.24]:35882 "EHLO smtp.osdl.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965028AbXBLRqL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Feb 2007 12:46:11 -0500
-In-Reply-To: <20070212083609.GA1946@ff.dom.local>
+	id S965034AbXBLRrq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 Feb 2007 12:47:46 -0500
+In-Reply-To: <20070212102848.GA4275@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 12 Feb 2007 09:36:09 +0100
+On Mon, 12 Feb 2007 11:28:48 +0100
 Jarek Poplawski <jarkao2@o2.pl> wrote:
 
-> On 06-02-2007 22:57, Andrew Morton wrote:
-> ...
-> > First time slattach is run to set up a SLIP line all is ok.
-> > If slattach process is then killed and restarted it fails with message:
-> > SLIP_set_disc(1): File exists
-> > Problem still occurs in 2.6.20rc6 kernel
-> > 
-> > dmesg shows:
-> > object_add failed for sl0 with -EEXIST, don't try to register things 
-> > with the same name in the same directory.
-> >  [<c01b7b54>] kobject_add+0x147/0x16d
-> >  [<c0211209>] class_device_add+0x9d/0x3b3
-> >  [<c022829d>] register_netdevice+0x21a/0x2d0
-> >  [<c8903213>] slip_open+0x3a1/0x4e2 [slip]
-> >  [<c01fc709>] tty_ioctl+0x922/0xbac
-> ... 
-> > Steps to reproduce:
-> > (requires a serial port but nothing needs to be attached to it):
-> > # slattach -L -vd -p slip -s 115200 /dev/ttyS0
-> ...
-> > slip started on /dev/ttyS0 interface sl0
-> > 
-> > Above is OK, now kill process with CTRL-C
-> > 
-> > slattach: tty_set_speed: 0
-> > # slattach -L -vd -p slip -s 115200 /dev/ttyS0
-> ...
-> > SLIP_set_disc(1): File exists
-> ...
-> > I believe this is called by this changeset :
-> > http://www2.kernel.org/git/?p=linux/kernel/git/stable/linux-2.6.17.y.git;a=commit;h=b17a7c179dd3ce7d04373fddf660eda21efc9db9
+> Here is my patch proposal for testing.
+> If it doesn't work - forget about it.
+> (Prepared with 2.6.20-git6 but could
+> be applied to 2.6.20 also.)
 > 
-> I think Martin is probably right here.
+> Jarek P.
 > 
-> It would be useful to check if time has anything to do
-> with this and wait longer (e.g. >= 1 min.) before the
-> second slattach.
 > 
-> Anyway, even if there is some other reason, the above
-> trace shows (IMHO) some inconsistency in register/
-> unregister_netdevice: if class_device_add is reached
-> it means the name is valid (so was unregistered) and
-> EEXIST from netdev_register_sysfs is wrong about the
-> state of this device. So maybe there should be some
-> warning plus some delayed action instead of register
-> cancelled?
-> 
-> Regards,
-> Jarek P. 
+> dev_hold/dev_put added to prevent dev kfree
+> during port_carrier_check runnig, while dev
+> and port are removed.
 
-The problem is that the code in sl_alloc() tries to clear out
-an net device by calling unregister_netdevice(), the device won't
-actually disappear until after rtnl_unlock. This whole idea of
-searching for unused devices is racy crap and needs to go.
+No, holding the reference just stops the kfree, it doesn't
+stop the device from being removed from the port.
