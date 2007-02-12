@@ -1,64 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 3/3] tcp: remove experimental variants from default list
-Date: Mon, 12 Feb 2007 12:47:34 -0800 (PST)
-Message-ID: <20070212.124734.07455258.davem@davemloft.net>
-References: <5640c7e00702121213p1430891el76e259aacd517c4a@mail.gmail.com>
-	<20070212.123240.21597176.davem@davemloft.net>
-	<20070212123713.1e8efb0d@freekitty>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: Re: netfilter tables config problem
+Date: Mon, 12 Feb 2007 12:42:50 -0800
+Message-ID: <20070212124250.65a96ac2.randy.dunlap@oracle.com>
+References: <20061222183312.f3cf3220.randy.dunlap@oracle.com>
+	<20070212.122324.112265617.davem@davemloft.net>
+	<45D0CE4A.7050806@trash.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: ian.mcdonald@jandi.co.nz, baruch@ev-en.org, netdev@vger.kernel.org
-To: shemminger@linux-foundation.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	netfilter-devel@lists.netfilter.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41693
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S965336AbXBLUrg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Feb 2007 15:47:36 -0500
-In-Reply-To: <20070212123713.1e8efb0d@freekitty>
+Received: from rgminet01.oracle.com ([148.87.113.118]:18362 "EHLO
+	rgminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965279AbXBLUxu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Feb 2007 15:53:50 -0500
+In-Reply-To: <45D0CE4A.7050806@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Date: Mon, 12 Feb 2007 12:37:13 -0800
+On Mon, 12 Feb 2007 21:30:02 +0100 Patrick McHardy wrote:
 
-> My patches weren't reactionary. Going to pure old Reno is reactionary.
-> It was more looking at the state of the code on the flight back
-> and cleaning house. Others were/are reactionary. 
+> David Miller wrote:
+> > From: Randy Dunlap <randy.dunlap@oracle.com>
+> > Date: Fri, 22 Dec 2006 18:33:12 -0800
+> > 
+> > I'm pretty sure we fixed that one already.  Randy do you have some
+> > objection to testing 2.6.20-final when discoving such bugs? :-)
+> 
+> 
+> Sorry for the confusion, we had an 8 months backlog of non-subscriber
+> posted mails and I released them all today. You can probably ignore
+> all mails on netfilter-devel you received today, I'll go over them
+> to look for anything important.
+> 
+> The hashlimit problem is fixed in 2.6.20 :)
 
-Ok.
+Ack, yes, it builds cleanly now.
 
-The only patch I have a real problem with is the DEFAULT_*
-removals, the choices are frankly arbitrary.
+and thanks for the explanation.
 
-Vegas is buggy, that's nice, why don't we simply fix the
-bugs in our implementation?
-
-Westwood is very conservative, frankly, and I therefore see
-no reason it cannot be offered as a default either.
-
-HTCP doesn't do anything earth shattering either.
-
-I think the whole suite of algorithms in that list are
-reasonable.
-
-And even re-reading your patch, you're messing with the
-DEFAULT_* setting for the case where the user selected
-TCP_CONG_ADVANCED.
-
-I think TCP_CONG_ADVANCED implies an intention by the user,
-and if he wants to choose one of those listed as a default
-why should we stop them?
-
-The distributions take the default we recommend, and that's
-all that matters for wide deployment.
-
-> I push the problem back in their court: "Why do you not have a process
-> that causes consensus?" IETF has done nothing to create any incentive
-> for long term cooperation.
-
-Yep, this is a good point.
-
-> Do I need to dig out the "Why Reno sucks" graphs?
-
-Hehe :-)
+---
+~Randy
+*** Remember to use Documentation/SubmitChecklist when testing your code ***
