@@ -1,47 +1,26 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 3/3] tcp: remove experimental variants from default list
-Date: Mon, 12 Feb 2007 14:53:51 -0800 (PST)
-Message-ID: <20070212.145351.35661569.davem@davemloft.net>
-References: <20070212191101.GP25760@galon.ev-en.org>
-	<20070212.122058.63127043.davem@davemloft.net>
-	<20070212221241.GQ25760@galon.ev-en.org>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [BUG] 2.6.20 Oopses in xfrm_audit_log
+Date: Mon, 12 Feb 2007 15:01:51 -0800
+Message-ID: <20070212150151.a454f7c4.akpm@linux-foundation.org>
+References: <20070212142138.32983793.akpm@linux-foundation.org>
+	<20070212.144938.36664406.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org
-To: baruch@ev-en.org
+Cc: netdev@vger.kernel.org, ce@ruault.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56405
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1030447AbXBLWxw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Feb 2007 17:53:52 -0500
-In-Reply-To: <20070212221241.GQ25760@galon.ev-en.org>
+Received: from smtp.osdl.org ([65.172.181.24]:46301 "EHLO smtp.osdl.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1030219AbXBLXCS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 Feb 2007 18:02:18 -0500
+In-Reply-To: <20070212.144938.36664406.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Baruch Even <baruch@ev-en.org>
-Date: Tue, 13 Feb 2007 00:12:41 +0200
+> On Mon, 12 Feb 2007 14:49:38 -0800 (PST) David Miller <davem@davemloft.net> wrote:
+> Andrew, we're already discussing a fix for this in another
+> thread today:
 
-> The problem is that you actually put a mostly untested algorithm as the
-> default for everyone to use. The BIC example is important, it was the
-> default algorithm for a long while and had implementation bugs that no
-> one cared for.
-
-And if our TCP Reno implementation had some bugs, what should
-we change the default to?  This is just idiotic logic.
-
-These kinds of comments are just wanking, and lead to nowhere,
-so please kill the noise.
-
-If we have bugs in a particular algorithm, we should just fix
-them.
-
-> As to the reasoning that the new algorithms are supposed to act like
-> Reno, that needs to be verified as well, it's not evident from the
-> code itself.
-
-If you're not convinced and are intrested enough, then you should go
-verify whether it is in fact true.  This is how things work.
-
-If you find that it isn't true, great then we'll know about it and
-have an opportunity to fix the bug.
+Yeah, I noticed.  Vitimised again by those darn MUA vendors and/or
+users who bust their In-Reply-To/References headers :(
