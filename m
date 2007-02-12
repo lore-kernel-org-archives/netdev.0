@@ -1,31 +1,30 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [ANNOUNCE] sk-drivers mailing list
-Date: Mon, 12 Feb 2007 15:05:57 -0800
-Message-ID: <20070212150557.3bb0251c@freekitty>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] [XFRM] AUDIT: Fix audit buffer leakage in error path.
+Date: Mon, 12 Feb 2007 15:23:17 -0800 (PST)
+Message-ID: <20070212.152317.92582928.davem@davemloft.net>
+References: <20070213.003429.73173216.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-net@vger.kernel.org
+Cc: netdev@vger.kernel.org, stable@kernel.org
+To: yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:46372 "EHLO smtp.osdl.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030459AbXBLXF6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Feb 2007 18:05:58 -0500
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35290
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1030480AbXBLXXS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Feb 2007 18:23:18 -0500
+In-Reply-To: <20070213.003429.73173216.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I have created a list for discussing issues and announcing test versions
-of the skge and sky2 drivers. There are many people with problems and
-several vendors are using the hardware as well, therefore I want to be
-able to make sure everyone can see the information without having to
-be distracted by lkml or netdev mail.
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Date: Tue, 13 Feb 2007 00:34:29 +0900 (JST)
 
-	http://lists.osdl.org/mailman/listinfo/sk-drivers
+> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 
-Mailing address is sk-drivers@lists.linux-foundation.org (the list host
-server hasn't moved to linux-foundation.org yet).
+Oh yes.  I noticed this too while working with Joy Latten's OOPS fix
+for this function.
 
-Don't worry, the changes will still show up one netdev.
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+Event types other than those 4 mentioned in the switch() statement are
+illegal and should never be passed in.  It is probably better to BUG()
+on this situation rather than try to handle the log buffer leakage.
