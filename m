@@ -1,41 +1,62 @@
-From: James Ketrenos <jketreno-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Subject: Re: [ANNOUNCE] d80211 based driver for Intel PRO/Wireless 3945ABG
-Date: Mon, 12 Feb 2007 10:35:15 -0800
-Message-ID: <45D0B363.8070303@linux.intel.com>
-References: <45CCE3CA.4050904@linux.intel.com> <200702101424.00156.mail@earthworm.de> <200702101525.56820.mail@earthworm.de>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Fw: PROBLEM: xt_state compiles without errors but cannot be loaded
+Date: Mon, 12 Feb 2007 12:12:41 -0800
+Message-ID: <20070212121241.36a15c4d.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	ipw3945-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "Hesse, Christian" <mail-8oMOrB1mGocUSW6y5lq3GQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <200702101525.56820.mail-8oMOrB1mGocUSW6y5lq3GQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: "Administrative Services" <admin@connectyourweb.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.osdl.org ([65.172.181.24]:40860 "EHLO smtp.osdl.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S964827AbXBLUM6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 Feb 2007 15:12:58 -0500
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hesse, Christian wrote:
-> On Saturday 10 February 2007 14:23, Hesse, Christian wrote:
->> On Friday 09 February 2007 22:12, James Ketrenos wrote:
->>> We are pleased to announce the availability of a new driver for the
->>> Intel PRO/Wireless 3945ABG Network Connection adapter.
-...
-> Oh, I forgot one note: "make patch_kernel" is terribly broken. Any chance to 
-> get this fixed soon?
 
-I've put up a new version of iwlwifi (0.0.6) with significant changes to 
-the patch_kernel scripts as well as including Pavel's patch to KSRC.
 
-I performed some build testing with 2.6.18 and wireless-dev @ commit 
-f66e5aaa88c1c0a7ee6c6427d6535ed8afd35427 (Jan 8).
+Begin forwarded message:
 
-http://intellinuxwireless.org/?n=downloads
+Date: Fri, 9 Feb 2007 16:00:50 -0800 (PST)
+From: "Administrative Services" <admin@connectyourweb.com>
+To: linux-kernel@vger.kernel.org
+Subject: PROBLEM: xt_state compiles without errors but cannot be loaded
 
-Let me know if it is still breaking.
 
-Thanks,
-James
+[1.] module: xt_state compiles without errors but cannot be loaded
+
+[2.] Here's what shows up in /var/log/messages:
+
+kernel: xt_state: Unknown symbol nf_conntrack_untracked
+
+kernel: xt_state: Unknown symbol nf_ct_l3proto_module_put
+
+kernel: xt_state: disagrees about version of symbol xt_unregister_matches
+
+kernel: xt_state: Unknown symbol xt_unregister_matches
+
+kernel: xt_state: Unknown symbol nf_ct_l3proto_try_module_get
+
+kernel: xt_state: disagrees about version of symbol xt_register_matches
+
+kernel: xt_state: Unknown symbol xt_register_matches
+
+
+[3.] modules, netfilter:
+
+[4.] 2.6.20:
+
+[5.] 2.6.19.2 possibly 2.6.9.3:
+
+[7.] try loading module using insmod
+
+[8.] CentOS 4.4
+[8.1.] apf 0.9.6 (modified to use xt_state), and insmod
+
 -
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+the body of a message to majordomo@vger.kernel.org
 More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Please read the FAQ at  http://www.tux.org/lkml/
