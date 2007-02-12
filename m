@@ -1,88 +1,49 @@
-From: linas@austin.ibm.com (Linas Vepstas)
-Subject: Re: [PATCH] [v3] spidernet : add improved phy support
-Date: Mon, 12 Feb 2007 17:26:18 -0600
-Message-ID: <20070212232618.GD923@austin.ibm.com>
-References: <200702122135.34417.jens@de.ibm.com>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH] IPv6: Implement RFC 4429 Optimistic Duplicate Address
+ Detection
+Date: Tue, 13 Feb 2007 08:27:59 +0900 (JST)
+Message-ID: <20070213.082759.69474746.yoshfuji@linux-ipv6.org>
+References: <20070207205503.GB20804@hmsreliant.homelinux.net>
+	<20070208.065206.107341055.yoshfuji@linux-ipv6.org>
+	<20070208130715.GA27267@hmsreliant.homelinux.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jgarzik@pobox.com, benh@kernel.crashing.org,
-	James K Lewis <jim@jklewis.com>,
-	Ishizaki Kou <kou.ishizaki@toshiba.co.jp>,
-	netdev@vger.kernel.org, cbe-oss-dev@ozlabs.org
-To: Jens Osterkamp <jens@de.ibm.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: vladislav.yasevich@hp.com, sri@us.ibm.com, davem@davemloft.net,
+	kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
+	kaber@coreworks.de, netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+To: nhorman@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e32.co.us.ibm.com ([32.97.110.150]:41081 "EHLO
-	e32.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030487AbXBLX0u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Feb 2007 18:26:50 -0500
-Received: from westrelay02.boulder.ibm.com (westrelay02.boulder.ibm.com [9.17.195.11])
-	by e32.co.us.ibm.com (8.12.11.20060308/8.13.8) with ESMTP id l1CNQBS9027280
-	for <netdev@vger.kernel.org>; Mon, 12 Feb 2007 18:26:11 -0500
-Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
-	by westrelay02.boulder.ibm.com (8.13.8/8.13.8/NCO v8.2) with ESMTP id l1CNQe8e539872
-	for <netdev@vger.kernel.org>; Mon, 12 Feb 2007 16:26:40 -0700
-Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av01.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l1CNQda5001824
-	for <netdev@vger.kernel.org>; Mon, 12 Feb 2007 16:26:40 -0700
-Content-Disposition: inline
-In-Reply-To: <200702122135.34417.jens@de.ibm.com>
+Received: from yue.linux-ipv6.org ([203.178.140.15]:54487 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030494AbXBLX17 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Feb 2007 18:27:59 -0500
+In-Reply-To: <20070208130715.GA27267@hmsreliant.homelinux.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+In article <20070208130715.GA27267@hmsreliant.homelinux.net> (at Thu, 8 Feb 2007 08:07:15 -0500), Neil Horman <nhorman@tuxdriver.com> says:
 
-Tested the patch, it works for me.  Thus I'll attach a pre-emptive 
-Acked-by: Linas Vepstas <linas@austin.ibm.com>
+> > I still have a question.  Now, who will install the kernel route for
+> > the incoming packet?  Can we get packet for our unicast address during
+> > optimistic DAD period?
+> > 
+> Not sure what you're getting at here.  RFC 4429 makes no distinction between
+> optimistic and non-optimistic packets for recevied frames, so routes for
+> received packets will be added by the same code that does it currently (which I
+> admittedly haven't looked into to closely).  Packets received for our unicast
+> address (even if it is optimistic) are handled just as any other packet is (same
+> as it is for TENTATIVE addresses, as I understand it). 
 
-However, some quibbbles, which I think would be nice to see fixed:
+I think it is clear.
 
-On Mon, Feb 12, 2007 at 09:35:34PM +0100, Jens Osterkamp wrote:
-> 
-> Index: linux-2.6.20/drivers/net/sungem_phy.c
-> ===================================================================
-> --- linux-2.6.20.orig/drivers/net/sungem_phy.c
-> +++ linux-2.6.20/drivers/net/sungem_phy.c
->  
-> +#define BCM5421_MODE_MASK	(1 << 5)
+In tentative state, we do not receive any packet.
+After finishind DAD process, we install kernel route for that address
+in net/ipv6/addrconf.c:__ipv6_ifa_notify(), and we start receiving
+packet for that address.
 
-Customary practice is to have these in the heder file ... 
+On the other hand, optimistic addresses are like in deprecated state.
+So, we should be able to receive frames for those addresses.
 
-> +	mode = (phy_reg & BCM5421_MODE_MASK) >> 5;
-> +
-> +	if ( mode == BCM54XX_COPPER)
-
-All this shifting makes the code hard to read and 
-hard to verify for correctness.  Part of the problem 
-seems to be that you are trying to re-cycle the 
-BCM5421_COPPER and BCM5461_COPPER which are in 
-different locations.
-
-It would have been clearer to simply have
-
-#define BCM5421_MODE_MASK  (1 << 5)
-#define BCM5421_COPPER     0
-
-if (phy_reg & BCM5421_MODE_MASK == BCM5421_COPPER)
-
-> +	if ( (phy_reg & 0x0080) >> 7)
-
-There is no need for the shift. The if statement is 
-just as true (or false) with or without the shift.
-
-> +#define BCM5461_FIBER_LINK	(1 << 2)
-> +#define BCM5461_MODE_MASK	(3 << 1)
-> +
-> +	mode = (phy_reg & BCM5461_MODE_MASK ) >> 1;
-
-More confusing shifting ....
-
-> +enum {
-> +	BCM54XX_COPPER,
-> +	BCM54XX_FIBER,
-> +	BCM54XX_GBIC,
-> +	BCM54XX_SGMII,
-
-Things that are being used for bitmak tests should probably
-not be declared in an enum. For me, at least, there's a 
-cognitive dissonance in doing things this way.
-
--- linas
+--yoshfuji
