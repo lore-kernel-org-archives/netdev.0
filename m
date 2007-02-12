@@ -1,57 +1,64 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [PATCH] [v3] spidernet : add improved phy support
-Date: Tue, 13 Feb 2007 08:40:57 +1100
-Message-ID: <1171316457.20192.21.camel@localhost.localdomain>
-References: <200702122135.34417.jens@de.ibm.com>
+From: "Leigh Brown" <leigh@solinno.co.uk>
+Subject: [PATCH] sundance: add IFF_RUNNING support
+Date: Mon, 12 Feb 2007 21:21:55 -0000 (GMT)
+Message-ID: <52241.81.105.120.197.1171315315.squirrel@www.solinno.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, Linas Vepstas <linas@austin.ibm.com>,
-	James K Lewis <jim@jklewis.com>,
-	Ishizaki Kou <kou.ishizaki@toshiba.co.jp>,
-	netdev@vger.kernel.org, cbe-oss-dev@ozlabs.org
-To: Jens Osterkamp <jens@de.ibm.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: netdev@vger.kernel.org
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:35158 "EHLO gate.crashing.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030189AbXBLVlo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Feb 2007 16:41:44 -0500
-In-Reply-To: <200702122135.34417.jens@de.ibm.com>
+Received: from mwuml021.modern-world.net ([193.110.88.84]:1970 "EHLO
+	mwuml021.modern-world.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030189AbXBLVsD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Feb 2007 16:48:03 -0500
+References: 
+In-Reply-To: 
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Patch to add IFF_RUNNING support for sundance.
 
-> +static int bcm5461_enable_fiber(struct mii_phy* phy, int autoneg)
-> +{
-> +	/* select fiber mode, enable 1000 base-X registers */
-> +	phy_write(phy, MII_NCONFIG, 0xfc0b);
-> +
-> +	if (autoneg) {
-> +		/* enable fiber with no autonegotiation */
-> +		phy_write(phy, MII_ADVERTISE, 0x01e0);
-> +		phy_write(phy, MII_BMCR, 0x1140);
-> +	} else {
-> +		/* enable fiber with autonegotiation */
-> +		phy_write(phy, MII_BMCR, 0x0140);
-> +	}
-> +
-> +	phy->autoneg = autoneg;
-> +
-> +	return 0;
-> +}
+I copied the basic code for this from the forcedeth driver, and I've
+tested it using the ifplugstatus command from the ifplugd package.
+This is very handy if you use Quagga or keepalived.
 
-Something is backward... either the code or the comments...
+Signed-off-by: Leigh Brown <leigh@solinno.co.uk>
 
-Also, I dislike the autoneg bits without using any constants. Why not
-use the normal setup_aneg() ? I think what is needed is a set_link_mode
-or something like that that takes (fiber/copper) as an argument (or
-better, use the proper names as documented by the chip).
+diff -urN a/drivers/net/sundance.c b/drivers/net/sundance.c
+--- a/drivers/net/sundance.c	2007-02-11 11:29:19.000000000 +0000
++++ b/drivers/net/sundance.c	2007-02-12 19:48:36.000000000 +0000
+@@ -23,8 +23,8 @@
+ */
 
-Doesn't matter to much right now, if the code works. Have you had a
-chance to check you don't break G5s with 5421 sungem ? If yes, then the
-patch is good to go for now but we should revisit and/or try to merge
-that with the generic PHY layer at one point.
+ #define DRV_NAME	"sundance"
+-#define DRV_VERSION	"1.2"
+-#define DRV_RELDATE	"11-Sep-2006"
++#define DRV_VERSION	"1.3"
++#define DRV_RELDATE	"12-Feb-2007"
 
-Ben.
- 
+
+ /* The user-configurable values.
+@@ -831,6 +831,7 @@
+ 	/* Fix DFE-580TX packet drop issue */
+ 	if (np->pci_rev_id >= 0x14)
+ 		iowrite8(0x01, ioaddr + DebugCtrl1);
++	netif_carrier_off(dev);
+ 	netif_start_queue(dev);
+
+ 	spin_lock_irqsave(&np->lock, flags);
+@@ -1429,6 +1430,13 @@
+ 			iowrite16(ioread16(ioaddr + MACCtrl0) | EnbFlowCtrl,
+ 				ioaddr + MACCtrl0);
+ 		}
++		if (mii_link_ok(&np->mii_if)) {
++			if (!netif_carrier_ok(dev))
++				netif_carrier_on(dev);
++		} else {
++			if (netif_carrier_ok(dev))
++				netif_carrier_off(dev);
++		}
+ 	}
+ 	if (intr_status & StatsMax) {
+ 		get_stats(dev);
 
