@@ -1,53 +1,99 @@
-From: Tobias Diedrich <ranma+kernel@tdiedrich.de>
-Subject: Re: forcedeth problems on 2.6.20-rc6-mm3
-Date: Mon, 12 Feb 2007 07:28:23 +0100
-Message-ID: <20070212062823.GB4756@melchior.yamamaya.is-a-geek.org>
-References: <45C6BCE5.90103@shaw.ca> <20070204213603.a5bce839.akpm@linux-foundation.org> <45C6C531.20508@shaw.ca> <20070204221741.63152cbe.akpm@linux-foundation.org> <523e55a00702081326j43de05e3hdd8cf35e946eae9@mail.gmail.com> <45CBE30D.5030006@nvidia.com> <20070209115821.GD10330@melchior.yamamaya.is-a-geek.org> <20070209120730.GA11911@melchior.yamamaya.is-a-geek.org> <45CC8A2D.20509@garzik.org>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: [Bugme-new] [Bug 7962] New: oops in port_carrier_check
+Date: Mon, 12 Feb 2007 07:44:46 +0100
+Message-ID: <20070212064446.GA1651@ff.dom.local>
+References: <20070207140916.088b1073@oldman> <20070209074211.GA1631@ff.dom.local> <20070209095204.7f43a964@oldman>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ayaz Abdulla <aabdulla@nvidia.com>,
-	David Ford <firefighterblu3@gmail.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Robert Hancock <hancockr@shaw.ca>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
+	"bugme-daemon\@kernel-bugs\.osdl\.org"
+	<bugme-daemon@bugzilla.kernel.org>, pterjan@gmail.com
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yumi.tdiedrich.de ([85.10.210.183]:4849 "EHLO yumi.tdiedrich.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933030AbXBLG22 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Feb 2007 01:28:28 -0500
+Received: from mx2.go2.pl ([193.17.41.42]:50912 "EHLO poczta.o2.pl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S933038AbXBLGlj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 Feb 2007 01:41:39 -0500
 Content-Disposition: inline
-In-Reply-To: <45CC8A2D.20509@garzik.org>
+In-Reply-To: <20070209095204.7f43a964@oldman>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik wrote:
-> Tobias Diedrich wrote:
-> >Tobias Diedrich wrote:
-> >>Ayaz Abdulla wrote:
-> >>>For all those who are having issues, please try out the attached p=
-atch.
-> >>Will try.
-> >
-> >Does not apply cleanly against 2.6.20, is this one fixed up right?
->=20
-> It probably needs to be top of 2.6.20-git-latest or 2.6.20-rc6-mm3.
->=20
-> IOW, the forcedeth changes in question are not in 2.6.20, and you nee=
-d=20
-> to apply the patch on top of the latest batch of forcedeth changes.
+On Fri, Feb 09, 2007 at 09:52:04AM -0800, Stephen Hemminger wrote:
+> On Fri, 9 Feb 2007 08:42:11 +0100
+> Jarek Poplawski <jarkao2@o2.pl> wrote:
+> 
+> > On 07-02-2007 23:09, Stephen Hemminger wrote:
+> > > On Wed, 7 Feb 2007 12:52:16 -0800
+> > > Andrew Morton <akpm@linux-foundation.org> wrote:
+> > ...
+> > >> Feb  7 21:20:18 plop kernel: BUG: unable to handle kernel paging request at
+> > >> virtual address 6b6b6b6b
+> > >> Feb  7 21:20:18 plop kernel:  printing eip:
+> > >> Feb  7 21:20:18 plop kernel: *pde = 00000000
+> > >> Feb  7 21:20:18 plop kernel: Oops: 0000 [#1]
+> > >> Feb  7 21:20:18 plop kernel: CPU:    0
+> > >> Feb  7 21:20:19 plop kernel: EIP:    0060:[pg0+814360305/1067136000]    Not
+> > >> tainted VLI
+> > >> Feb  7 21:20:19 plop kernel: EIP:    0060:[<f0eed6f1>]    Not tainted VLI
+> > >> Feb  7 21:20:19 plop kernel: EFLAGS: 00010202   (2.6.20.0.rc7-1mdv #1)
+> > >> Feb  7 21:20:19 plop kernel: EIP is at port_carrier_check+0x22/0x75 [bridge]
+> > >> Feb  7 21:20:19 plop kernel: eax: 6b6b6b6b   ebx: 6b6b6b6b   ecx: 00000000  
+> > 
+> > I think it's caused by pending delayed workqueue
+> > trying to use dev after kfree (POISON_FREE in eax, ebx). 
+> > 
+> > > static void port_carrier_check(struct work_struct *work)
+> > > {
+> > >        struct net_bridge_port *p;
+> > >        struct net_device *dev;
+> > >        struct net_bridge *br;
+> > >
+> > >        dev = container_of(work, struct net_bridge_port,
+> > >                           carrier_check.work)->dev;
+> > >        work_release(work);
+> > >
+> > >        rtnl_lock();
+> > >        p = dev->br_port;
+> > >        if (!p)
+> > >                goto done;
+> > >        br = p->br;
+> > >
+> > >        if (netif_carrier_ok(dev))
+> > >                p->path_cost = port_cost(dev);
+> > >
+> > >        if (br->dev->flags & IFF_UP) {
+> > 
+> > My investigation seems to point at this line (p == ebx
+> > but not NULL because of mem debugging on, probably).
 
-Well, it hasn't blown up on me despite being applied to 2.6.20...
-The problem I was seeing might even be fixed in 2.6.20 vanilla,
-since the last version I saw it in was 2.6.20-rc6 and then I
-reverted to 2.6.19 to make sure that one is ok (see
-20070130183208.GE11814@melchior.yamamaya.is-a-geek.org).
+Sorry, I overpasted. This is the line:
 
---=20
-Tobias						PGP: http://9ac7e0bc.uguu.de
-=E3=81=93=E3=81=AE=E3=83=A1=E3=83=BC=E3=83=AB=E3=81=AF=E5=8D=81=E5=89=B2=
-=E5=86=8D=E5=88=A9=E7=94=A8=E3=81=95=E3=82=8C=E3=81=9F=E3=83=93=E3=83=83=
-=E3=83=88=E3=81=A7=E4=BD=9C=E3=82=89=E3=82=8C=E3=81=A6=E3=81=84=E3=81=BE=
-=E3=81=99=E3=80=82
+-->        br = p->br;
+
+> The carrier_check is canceled by removal of port from bridge.
+> Perhaps there is something broken in rcu assumptions under Qemu
+
+If you mean this:
+
+> static void del_nbp(struct net_bridge_port *p)
+> {
+> ...
+>        cancel_delayed_work(&p->carrier_check);
+
+it's not sufficient. According to workqueue.h:
+
+> /*
+>  * Kill off a pending schedule_delayed_work().  Note that the work callback
+>  * function may still be running on return from cancel_delayed_work().  Run
+>  * flush_scheduled_work() to wait on it.
+>  */
+> static inline int cancel_delayed_work(struct delayed_work *work)
+
+I can't see how rcu could help here with this pointer
+to dev passed on to delayed_work (out of any rcu block).
+
+IMHO dev_hold/dev_put (or something alike) is needed here.
+
+Regards,
+Jarek P.
