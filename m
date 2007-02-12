@@ -1,8 +1,8 @@
 From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: [take36 7/10] kevent: Signal notifications.
+Subject: [take36 9/10] kevent: Private userspace notifications.
 Date: Mon, 12 Feb 2007 14:27:29 +0300
-Message-ID: <1171279649838@2ka.mipt.ru>
-References: <11712796492252@2ka.mipt.ru>
+Message-ID: <11712796493850@2ka.mipt.ru>
+References: <11712796493163@2ka.mipt.ru>
 Reply-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
@@ -20,93 +20,27 @@ Cc: David Miller <davem@davemloft.net>,
 	Jamal Hadi Salim <hadi@cyberus.ca>,
 	Ingo Molnar <mingo@elte.hu>
 To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964863AbXBLL1t@vger.kernel.org>
-In-Reply-To: <11712796492252@2ka.mipt.ru>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964896AbXBLL2z@vger.kernel.org>
+In-Reply-To: <11712796493163@2ka.mipt.ru>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-Signal notifications.
+Private userspace notifications.
 
-This type of notifications allows to deliver signals through kevent queue.
-One can find example application signal.c on project homepage.
-
-If KEVENT_SIGNAL_NOMASK bit is set in raw_u64 id then signal will be
-delivered only through queue, otherwise both delivery types are used - old
-through update of mask of pending signals and through queue.
-
-If signal is delivered only through kevent queue, mask of pending signals
-is not updated at all, which is equal to putting signal into blocked mask,
-but with delivery of that signal through kevent queue.
+Allows to register notifications of any private userspace
+events over kevent. Events can be marked as ready using 
+kevent_ctl(KEVENT_READY) command.
 
 Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 
-
-diff --git a/include/linux/sched.h b/include/linux/sched.h
-index 4463735..e7372f2 100644
---- a/include/linux/sched.h
-+++ b/include/linux/sched.h
-@@ -82,6 +82,7 @@ struct sched_param {
- #include <linux/resource.h>
- #include <linux/timer.h>
- #include <linux/hrtimer.h>
-+#include <linux/kevent_storage.h>
- #include <linux/task_io_accounting.h>
- 
- #include <asm/processor.h>
-@@ -1048,6 +1049,10 @@ struct task_struct {
- #ifdef	CONFIG_TASK_DELAY_ACCT
- 	struct task_delay_info *delays;
- #endif
-+#ifdef CONFIG_KEVENT_SIGNAL
-+	struct kevent_storage st;
-+	u32 kevent_signals;
-+#endif
- #ifdef CONFIG_FAULT_INJECTION
- 	int make_it_fail;
- #endif
-diff --git a/kernel/fork.c b/kernel/fork.c
-index fc723e5..fd7c749 100644
---- a/kernel/fork.c
-+++ b/kernel/fork.c
-@@ -49,6 +49,7 @@
- #include <linux/delayacct.h>
- #include <linux/taskstats_kern.h>
- #include <linux/random.h>
-+#include <linux/kevent.h>
- 
- #include <asm/pgtable.h>
- #include <asm/pgalloc.h>
-@@ -118,6 +119,9 @@ void __put_task_struct(struct task_struct *tsk)
- 	WARN_ON(atomic_read(&tsk->usage));
- 	WARN_ON(tsk == current);
- 
-+#ifdef CONFIG_KEVENT_SIGNAL
-+	kevent_storage_fini(&tsk->st);
-+#endif
- 	security_task_free(tsk);
- 	free_uid(tsk->user);
- 	put_group_info(tsk->group_info);
-@@ -1126,6 +1130,10 @@ static struct task_struct *copy_process(unsigned long clone_flags,
- 	if (retval)
- 		goto bad_fork_cleanup_namespaces;
- 
-+#ifdef CONFIG_KEVENT_SIGNAL
-+	kevent_storage_init(p, &p->st);
-+#endif
-+
- 	p->set_child_tid = (clone_flags & CLONE_CHILD_SETTID) ? child_tidptr : NULL;
- 	/*
- 	 * Clear TID on mm_release()?
-diff --git a/kernel/kevent/kevent_signal.c b/kernel/kevent/kevent_signal.c
+diff --git a/kernel/kevent/kevent_unotify.c b/kernel/kevent/kevent_unotify.c
 new file mode 100644
-index 0000000..abe3972
+index 0000000..618c09c
 --- /dev/null
-+++ b/kernel/kevent/kevent_signal.c
-@@ -0,0 +1,94 @@
++++ b/kernel/kevent/kevent_unotify.c
+@@ -0,0 +1,62 @@
 +/*
-+ * 	kevent_signal.c
-+ * 
 + * 2006 Copyright (c) Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 + * All rights reserved.
 + * 
@@ -126,133 +60,45 @@ index 0000000..abe3972
 + */
 +
 +#include <linux/kernel.h>
-+#include <linux/types.h>
-+#include <linux/slab.h>
-+#include <linux/spinlock.h>
-+#include <linux/file.h>
-+#include <linux/fs.h>
 +#include <linux/kevent.h>
 +
-+static int kevent_signal_callback(struct kevent *k)
++static int kevent_unotify_callback(struct kevent *k)
 +{
-+	struct task_struct *tsk = k->st->origin;
-+	int sig = k->event.id.raw[0];
-+	int ret = 0;
-+
-+	if (sig == tsk->kevent_signals)
-+		ret = 1;
-+
-+	if (ret && (k->event.id.raw_u64 & KEVENT_SIGNAL_NOMASK))
-+		tsk->kevent_signals |= 0x80000000;
-+
-+	return ret;
++	return 1;
 +}
 +
-+int kevent_signal_enqueue(struct kevent *k)
++int kevent_unotify_enqueue(struct kevent *k)
 +{
 +	int err;
 +
-+	err = kevent_storage_enqueue(&current->st, k);
++	err = kevent_storage_enqueue(&k->user->st, k);
 +	if (err)
 +		goto err_out_exit;
 +
-+	if (k->event.req_flags & KEVENT_REQ_ALWAYS_QUEUE) {
++	if (k->event.req_flags & KEVENT_REQ_ALWAYS_QUEUE)
 +		kevent_requeue(k);
-+		err = 0;
-+	} else {
-+		err = k->callbacks.callback(k);
-+		if (err)
-+			goto err_out_dequeue;
-+	}
 +
-+	return err;
++	return 0;
 +
-+err_out_dequeue:
-+	kevent_storage_dequeue(k->st, k);
 +err_out_exit:
 +	return err;
 +}
 +
-+int kevent_signal_dequeue(struct kevent *k)
++int kevent_unotify_dequeue(struct kevent *k)
 +{
 +	kevent_storage_dequeue(k->st, k);
 +	return 0;
 +}
 +
-+int kevent_signal_notify(struct task_struct *tsk, int sig)
-+{
-+	tsk->kevent_signals = sig;
-+	kevent_storage_ready(&tsk->st, NULL, KEVENT_SIGNAL_DELIVERY);
-+	return (tsk->kevent_signals & 0x80000000);
-+}
-+
-+static int __init kevent_init_signal(void)
++static int __init kevent_init_unotify(void)
 +{
 +	struct kevent_callbacks sc = {
-+		.callback = &kevent_signal_callback,
-+		.enqueue = &kevent_signal_enqueue,
-+		.dequeue = &kevent_signal_dequeue,
++		.callback = &kevent_unotify_callback,
++		.enqueue = &kevent_unotify_enqueue,
++		.dequeue = &kevent_unotify_dequeue,
 +		.flags = 0,
 +	};
 +
-+	return kevent_add_callbacks(&sc, KEVENT_SIGNAL);
++	return kevent_add_callbacks(&sc, KEVENT_UNOTIFY);
 +}
-+module_init(kevent_init_signal);
-diff --git a/kernel/signal.c b/kernel/signal.c
-index 5630255..f12ebc0 100644
---- a/kernel/signal.c
-+++ b/kernel/signal.c
-@@ -23,6 +23,7 @@
- #include <linux/ptrace.h>
- #include <linux/signal.h>
- #include <linux/capability.h>
-+#include <linux/kevent.h>
- #include <linux/freezer.h>
- #include <linux/pid_namespace.h>
- #include <linux/nsproxy.h>
-@@ -714,6 +715,9 @@ static int send_signal(int sig, struct siginfo *info, struct task_struct *t,
- {
- 	struct sigqueue * q = NULL;
- 	int ret = 0;
-+	
-+	if (kevent_signal_notify(t, sig))
-+		return 1;
- 
- 	/*
- 	 * fast-pathed signals for kernel-internal things like SIGSTOP
-@@ -793,6 +797,17 @@ specific_send_sig_info(int sig, struct siginfo *info, struct task_struct *t)
- 	ret = send_signal(sig, info, t, &t->pending);
- 	if (!ret && !sigismember(&t->blocked, sig))
- 		signal_wake_up(t, sig == SIGKILL);
-+#ifdef CONFIG_KEVENT_SIGNAL
-+	/*
-+	 * Kevent allows to deliver signals through kevent queue, 
-+	 * it is possible to setup kevent to not deliver
-+	 * signal through the usual way, in that case send_signal()
-+	 * returns 1 and signal is delivered only through kevent queue.
-+	 * We simulate successfull delivery notification through this hack:
-+	 */
-+	if (ret == 1)
-+		ret = 0;
-+#endif
- out:
- 	return ret;
- }
-@@ -982,6 +997,17 @@ __group_send_sig_info(int sig, struct siginfo *info, struct task_struct *p)
- 	 * to avoid several races.
- 	 */
- 	ret = send_signal(sig, info, p, &p->signal->shared_pending);
-+#ifdef CONFIG_KEVENT_SIGNAL
-+	/*
-+	 * Kevent allows to deliver signals through kevent queue, 
-+	 * it is possible to setup kevent to not deliver
-+	 * signal through the usual way, in that case send_signal()
-+	 * returns 1 and signal is delivered only through kevent queue.
-+	 * We simulate successfull delivery notification through this hack:
-+	 */
-+	if (ret == 1)
-+		ret = 0;
-+#endif
- 	if (unlikely(ret))
- 		return ret;
- 
++module_init(kevent_init_unotify);
