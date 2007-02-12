@@ -1,60 +1,71 @@
-From: Amit Kale <amitkale@netxen.com>
-Subject: Re: NetXen driver name
-Date: Mon, 12 Feb 2007 14:48:50 +0530
-Message-ID: <200702121448.50399.amitkale@netxen.com>
-References: <200702082152.19772.amitkale@netxen.com> <200702120912.56487.ak@suse.de> <20070212082950.GD4095@ftp.linux.org.uk>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: [PATCH][NET][BRIDGE] br_if: oops in port_carrier_check
+Date: Mon, 12 Feb 2007 11:28:48 +0100
+Message-ID: <20070212102848.GA4275@ff.dom.local>
+References: <20070207140916.088b1073@oldman> <20070209074211.GA1631@ff.dom.local> <20070209095204.7f43a964@oldman> <20070212064446.GA1651@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Andi Kleen <ak@suse.de>, netdev@vger.kernel.org
-To: Al Viro <viro@ftp.linux.org.uk>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
+	"bugme-daemon\@kernel-bugs\.osdl\.org"
+	<bugme-daemon@bugzilla.kernel.org>, pterjan@gmail.com
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 66-126-254-34.unm.net ([66.126.254.34]:20030 "EHLO
-	nxmail.netxen.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S964802AbXBLJSl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Feb 2007 04:18:41 -0500
-In-Reply-To: <20070212082950.GD4095@ftp.linux.org.uk>
+Received: from mx10.go2.pl ([193.17.41.74]:55575 "EHLO poczta.o2.pl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S964828AbXBLKZo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 Feb 2007 05:25:44 -0500
 Content-Disposition: inline
+In-Reply-To: <20070212064446.GA1651@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Monday 12 February 2007 13:59, Al Viro wrote:
-> On Mon, Feb 12, 2007 at 09:12:56AM +0100, Andi Kleen wrote:
-> > On Monday 12 February 2007 09:03, Amit Kale wrote:
-> > > The already released kernel contains a broken driver.  It broke due to
-> > > some code rearrangement changes someone submitted to fix sparse
-> > > warnings.
->
-> s/sparse warnings/breakage on big-endian boxen/, actually.  This stuff
-> was sent to netdev tree and sat there for a while.  Pity if some breakage
-> occured and went unnoticed; could you give more details?
+Here is my patch proposal for testing.
+If it doesn't work - forget about it.
+(Prepared with 2.6.20-git6 but could
+be applied to 2.6.20 also.)
 
-We were in middle of other changes last week. 
+Jarek P.
 
-Here it is.  This is FYI only. We'll send a set of patches with this change as 
-well as some other in a short time.
 
-diff -Narup not_working/netxen/netxen_nic.h got_working/netxen/netxen_nic.h
---- not_working/netxen/netxen_nic.h	2007-02-08 23:20:34.468721000 -0800
-+++ got_working/netxen/netxen_nic.h	2007-02-08 23:19:44.526769000 -0800
-@@ -252,7 +252,7 @@ typedef u32 netxen_ctx_msg;
- #define netxen_set_msg_ctxid(config_word, val)	\
- 	((config_word) &= ~(0x3ff<<18), (config_word) |= (val & 0x3ff) << 18)
- #define netxen_set_msg_opcode(config_word, val)	\
--	((config_word) &= ~(0xf<<24), (config_word) |= (val & 0xf) << 24)
-+	((config_word) &= ~(0xf<<28), (config_word) |= (val & 0xf) << 28)
+dev_hold/dev_put added to prevent dev kfree
+during port_carrier_check runnig, while dev
+and port are removed.
+
+Submitted and tested by: Pascal Terjan <pterjan@gmail.com>
+
+Signed-off-by: Jarek Poplawski <jarkao2@o2.pl>
+
+---
+
+diff -Nurp linux-2.6.20-git6-/net/bridge/br_if.c linux-2.6.20-git6/net/bridge/br_if.c
+--- linux-2.6.20-git6-/net/bridge/br_if.c	2007-02-12 10:20:14.000000000 +0100
++++ linux-2.6.20-git6/net/bridge/br_if.c	2007-02-12 10:36:58.000000000 +0100
+@@ -108,6 +108,7 @@ static void port_carrier_check(struct wo
+ 		spin_unlock_bh(&br->lock);
+ 	}
+ done:
++	dev_put(dev);
+ 	rtnl_unlock();
+ }
  
- struct netxen_rcv_context {
- 	__le64 rcv_ring_addr;
-@@ -309,8 +309,8 @@ struct netxen_ring_ctx {
- 	((cmd_desc)->num_of_buffers_total_length &= ~cpu_to_le32(0xff), \
- 	(cmd_desc)->num_of_buffers_total_length |= cpu_to_le32((val) & 0xff))
- #define netxen_set_cmd_desc_totallength(cmd_desc, val)	\
--	((cmd_desc)->num_of_buffers_total_length &= cpu_to_le32(0xff), \
--	(cmd_desc)->num_of_buffers_total_length |= cpu_to_le32(val << 24))
-+	((cmd_desc)->num_of_buffers_total_length &= cpu_to_le32(0xffffff), \
-+	(cmd_desc)->num_of_buffers_total_length |= cpu_to_le32(val << 8))
+@@ -161,7 +162,8 @@ static void del_nbp(struct net_bridge_po
  
- #define netxen_get_cmd_desc_opcode(cmd_desc)	\
- 	((le16_to_cpu((cmd_desc)->flags_opcode) >> 7) & 0x003F)
+ 	dev_set_promiscuity(dev, -1);
+ 
+-	cancel_delayed_work(&p->carrier_check);
++	if (cancel_delayed_work(&p->carrier_check))
++		dev_put(dev);
+ 
+ 	spin_lock_bh(&br->lock);
+ 	br_stp_disable_port(p);
+@@ -444,7 +446,9 @@ int br_add_if(struct net_bridge *br, str
+ 	spin_lock_bh(&br->lock);
+ 	br_stp_recalculate_bridge_id(br);
+ 	br_features_recompute(br);
+-	schedule_delayed_work(&p->carrier_check, BR_PORT_DEBOUNCE);
++	if (schedule_delayed_work(&p->carrier_check, BR_PORT_DEBOUNCE))
++		dev_hold(dev);
++
+ 	spin_unlock_bh(&br->lock);
+ 
+ 	dev_set_mtu(br->dev, br_min_mtu(br));
