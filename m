@@ -1,64 +1,181 @@
-From: "Leigh Brown" <leigh@solinno.co.uk>
-Subject: [PATCH] sundance: add IFF_RUNNING support
-Date: Mon, 12 Feb 2007 21:21:55 -0000 (GMT)
-Message-ID: <52241.81.105.120.197.1171315315.squirrel@www.solinno.co.uk>
+From: Sergei Shtylyov <sshtylyov@ru.mvista.com>
+Subject: [PATCH] gianfar: don't duplicate gfar_error()
+Date: Tue, 13 Feb 2007 01:53:07 +0400
+Message-ID: <200702130053.08031.sshtylyov@ru.mvista.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: netdev@vger.kernel.org
-To: "David Miller" <davem@davemloft.net>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linuxppc-embedded@ozlabs.org,
+	galak@kernel.crashing.org, afleming@freescale.com
+To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mwuml021.modern-world.net ([193.110.88.84]:1970 "EHLO
-	mwuml021.modern-world.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030189AbXBLVsD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Feb 2007 16:48:03 -0500
-References: 
-In-Reply-To: 
+Received: from h155.mvista.com ([63.81.120.155]:10533 "EHLO imap.sh.mvista.com"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1030199AbXBLVxU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 Feb 2007 16:53:20 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Patch to add IFF_RUNNING support for sundance.
+It was hardly necessary to repeat most of the code from gfar_error() in
+gfar_interrupt(), especially having some inconsistencies between the two.
+So, make the gfar_interrupt() just call gfar_error(), and not acknowledge
+the interrupts itself as gfar_{receive/transmit/error}() do it anyway.
+While at it, also clarify/cleanup debug messages in gfar_error()...
 
-I copied the basic code for this from the forcedeth driver, and I've
-tested it using the ifplugstatus command from the ifplugd package.
-This is very handy if you use Quagga or keepalived.
+Signed-off-by: Sergei Shtylyov <sshtylyov@ru.mvista.com>
 
-Signed-off-by: Leigh Brown <leigh@solinno.co.uk>
+---
+The patch survived netperf stressing on MPC8540ADS realtime kernel. :-)
 
-diff -urN a/drivers/net/sundance.c b/drivers/net/sundance.c
---- a/drivers/net/sundance.c	2007-02-11 11:29:19.000000000 +0000
-+++ b/drivers/net/sundance.c	2007-02-12 19:48:36.000000000 +0000
-@@ -23,8 +23,8 @@
- */
+ drivers/net/gianfar.c |   85 ++++++++------------------------------------------
+ 1 files changed, 15 insertions(+), 70 deletions(-)
 
- #define DRV_NAME	"sundance"
--#define DRV_VERSION	"1.2"
--#define DRV_RELDATE	"11-Sep-2006"
-+#define DRV_VERSION	"1.3"
-+#define DRV_RELDATE	"12-Feb-2007"
-
-
- /* The user-configurable values.
-@@ -831,6 +831,7 @@
- 	/* Fix DFE-580TX packet drop issue */
- 	if (np->pci_rev_id >= 0x14)
- 		iowrite8(0x01, ioaddr + DebugCtrl1);
-+	netif_carrier_off(dev);
- 	netif_start_queue(dev);
-
- 	spin_lock_irqsave(&np->lock, flags);
-@@ -1429,6 +1430,13 @@
- 			iowrite16(ioread16(ioaddr + MACCtrl0) | EnbFlowCtrl,
- 				ioaddr + MACCtrl0);
- 		}
-+		if (mii_link_ok(&np->mii_if)) {
-+			if (!netif_carrier_ok(dev))
-+				netif_carrier_on(dev);
-+		} else {
-+			if (netif_carrier_ok(dev))
-+				netif_carrier_off(dev);
-+		}
+Index: linux-2.6/drivers/net/gianfar.c
+===================================================================
+--- linux-2.6.orig/drivers/net/gianfar.c
++++ linux-2.6/drivers/net/gianfar.c
+@@ -10,6 +10,7 @@
+  * Maintainer: Kumar Gala
+  *
+  * Copyright (c) 2002-2006 Freescale Semiconductor, Inc.
++ * Copyright (c) 2007 MontaVista Software, Inc.
+  *
+  * This program is free software; you can redistribute  it and/or modify it
+  * under  the terms of  the GNU General  Public License as published by the
+@@ -1613,71 +1614,17 @@ static irqreturn_t gfar_interrupt(int ir
+ 	/* Save ievent for future reference */
+ 	u32 events = gfar_read(&priv->regs->ievent);
+ 
+-	/* Clear IEVENT */
+-	gfar_write(&priv->regs->ievent, events);
+-
+ 	/* Check for reception */
+-	if ((events & IEVENT_RXF0) || (events & IEVENT_RXB0))
++	if (events & IEVENT_RX_MASK)
+ 		gfar_receive(irq, dev_id);
+ 
+ 	/* Check for transmit completion */
+-	if ((events & IEVENT_TXF) || (events & IEVENT_TXB))
++	if (events & IEVENT_TX_MASK)
+ 		gfar_transmit(irq, dev_id);
+ 
+-	/* Update error statistics */
+-	if (events & IEVENT_TXE) {
+-		priv->stats.tx_errors++;
+-
+-		if (events & IEVENT_LC)
+-			priv->stats.tx_window_errors++;
+-		if (events & IEVENT_CRL)
+-			priv->stats.tx_aborted_errors++;
+-		if (events & IEVENT_XFUN) {
+-			if (netif_msg_tx_err(priv))
+-				printk(KERN_WARNING "%s: tx underrun. dropped packet\n", dev->name);
+-			priv->stats.tx_dropped++;
+-			priv->extra_stats.tx_underrun++;
+-
+-			/* Reactivate the Tx Queues */
+-			gfar_write(&priv->regs->tstat, TSTAT_CLEAR_THALT);
+-		}
+-	}
+-	if (events & IEVENT_BSY) {
+-		priv->stats.rx_errors++;
+-		priv->extra_stats.rx_bsy++;
+-
+-		gfar_receive(irq, dev_id);
+-
+-#ifndef CONFIG_GFAR_NAPI
+-		/* Clear the halt bit in RSTAT */
+-		gfar_write(&priv->regs->rstat, RSTAT_CLEAR_RHALT);
+-#endif
+-
+-		if (netif_msg_rx_err(priv))
+-			printk(KERN_DEBUG "%s: busy error (rhalt: %x)\n",
+-					dev->name,
+-					gfar_read(&priv->regs->rstat));
+-	}
+-	if (events & IEVENT_BABR) {
+-		priv->stats.rx_errors++;
+-		priv->extra_stats.rx_babr++;
+-
+-		if (netif_msg_rx_err(priv))
+-			printk(KERN_DEBUG "%s: babbling error\n", dev->name);
+-	}
+-	if (events & IEVENT_EBERR) {
+-		priv->extra_stats.eberr++;
+-		if (netif_msg_rx_err(priv))
+-			printk(KERN_DEBUG "%s: EBERR\n", dev->name);
+-	}
+-	if ((events & IEVENT_RXC) && (netif_msg_rx_err(priv)))
+-			printk(KERN_DEBUG "%s: control frame\n", dev->name);
+-
+-	if (events & IEVENT_BABT) {
+-		priv->extra_stats.tx_babt++;
+-		if (netif_msg_rx_err(priv))
+-			printk(KERN_DEBUG "%s: babt error\n", dev->name);
+-	}
++	/* Check for errors */
++	if (events & IEVENT_ERR_MASK)
++		gfar_error(irq, dev_id, regs);
+ 
+ 	return IRQ_HANDLED;
+ }
+@@ -1939,7 +1886,7 @@ static irqreturn_t gfar_error(int irq, v
+ 	/* Hmm... */
+ 	if (netif_msg_rx_err(priv) || netif_msg_tx_err(priv))
+ 		printk(KERN_DEBUG "%s: error interrupt (ievent=0x%08x imask=0x%08x)\n",
+-				dev->name, events, gfar_read(&priv->regs->imask));
++		       dev->name, events, gfar_read(&priv->regs->imask));
+ 
+ 	/* Update the error counters */
+ 	if (events & IEVENT_TXE) {
+@@ -1951,8 +1898,8 @@ static irqreturn_t gfar_error(int irq, v
+ 			priv->stats.tx_aborted_errors++;
+ 		if (events & IEVENT_XFUN) {
+ 			if (netif_msg_tx_err(priv))
+-				printk(KERN_DEBUG "%s: underrun.  packet dropped.\n",
+-						dev->name);
++				printk(KERN_DEBUG "%s: TX FIFO underrun, "
++				       "packet dropped.\n", dev->name);
+ 			priv->stats.tx_dropped++;
+ 			priv->extra_stats.tx_underrun++;
+ 
+@@ -1974,30 +1921,28 @@ static irqreturn_t gfar_error(int irq, v
+ #endif
+ 
+ 		if (netif_msg_rx_err(priv))
+-			printk(KERN_DEBUG "%s: busy error (rhalt: %x)\n",
+-					dev->name,
+-					gfar_read(&priv->regs->rstat));
++			printk(KERN_DEBUG "%s: busy error (rstat: %x)\n",
++			       dev->name, gfar_read(&priv->regs->rstat));
  	}
- 	if (intr_status & StatsMax) {
- 		get_stats(dev);
+ 	if (events & IEVENT_BABR) {
+ 		priv->stats.rx_errors++;
+ 		priv->extra_stats.rx_babr++;
+ 
+ 		if (netif_msg_rx_err(priv))
+-			printk(KERN_DEBUG "%s: babbling error\n", dev->name);
++			printk(KERN_DEBUG "%s: babbling RX error\n", dev->name);
+ 	}
+ 	if (events & IEVENT_EBERR) {
+ 		priv->extra_stats.eberr++;
+ 		if (netif_msg_rx_err(priv))
+-			printk(KERN_DEBUG "%s: EBERR\n", dev->name);
++			printk(KERN_DEBUG "%s: bus error\n", dev->name);
+ 	}
+ 	if ((events & IEVENT_RXC) && netif_msg_rx_status(priv))
+-		if (netif_msg_rx_status(priv))
+-			printk(KERN_DEBUG "%s: control frame\n", dev->name);
++		printk(KERN_DEBUG "%s: control frame\n", dev->name);
+ 
+ 	if (events & IEVENT_BABT) {
+ 		priv->extra_stats.tx_babt++;
+ 		if (netif_msg_tx_err(priv))
+-			printk(KERN_DEBUG "%s: babt error\n", dev->name);
++			printk(KERN_DEBUG "%s: babbling TX error\n", dev->name);
+ 	}
+ 	return IRQ_HANDLED;
+ }
 
