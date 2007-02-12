@@ -1,72 +1,51 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [patch 3/3] tcp: remove experimental variants from default list
-Date: Mon, 12 Feb 2007 12:37:13 -0800
-Message-ID: <20070212123713.1e8efb0d@freekitty>
-References: <20070212160336.681729431@linux-foundation.org>
-	<20070212191101.GP25760@galon.ev-en.org>
-	<5640c7e00702121213p1430891el76e259aacd517c4a@mail.gmail.com>
-	<20070212.123240.21597176.davem@davemloft.net>
+From: Jens Osterkamp <jens@de.ibm.com>
+Subject: Re: [PATCH 0/4] spidernet: support for Celleb
+Date: Mon, 12 Feb 2007 21:40:23 +0100
+Message-ID: <200702122140.23370.jens@de.ibm.com>
+References: <200702070849.l178nvGC005341@toshiba.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: ian.mcdonald@jandi.co.nz, baruch@ev-en.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: jgarzik@pobox.com, netdev@vger.kernel.org, jim@jklewis.com,
+	linas@austin.ibm.com
+To: Ishizaki Kou <kou.ishizaki@toshiba.co.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:41420 "EHLO smtp.osdl.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965365AbXBLUh3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Feb 2007 15:37:29 -0500
-In-Reply-To: <20070212.123240.21597176.davem@davemloft.net>
+Received: from mtagate5.de.ibm.com ([195.212.29.154]:42160 "EHLO
+	mtagate5.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965389AbXBLUka (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Feb 2007 15:40:30 -0500
+Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
+	by mtagate5.de.ibm.com (8.13.8/8.13.8) with ESMTP id l1CKeNww050974
+	for <netdev@vger.kernel.org>; Mon, 12 Feb 2007 20:40:23 GMT
+Received: from d12av04.megacenter.de.ibm.com (d12av04.megacenter.de.ibm.com [9.149.165.229])
+	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v8.2) with ESMTP id l1CKeNTH1835056
+	for <netdev@vger.kernel.org>; Mon, 12 Feb 2007 21:40:23 +0100
+Received: from d12av04.megacenter.de.ibm.com (loopback [127.0.0.1])
+	by d12av04.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l1CKeMt4018206
+	for <netdev@vger.kernel.org>; Mon, 12 Feb 2007 21:40:23 +0100
+In-Reply-To: <200702070849.l178nvGC005341@toshiba.co.jp>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 12 Feb 2007 12:32:40 -0800 (PST)
-David Miller <davem@davemloft.net> wrote:
-
-> From: "Ian McDonald" <ian.mcdonald@jandi.co.nz>
-> Date: Tue, 13 Feb 2007 09:13:52 +1300
+On Wednesday 07 February 2007, Ishizaki Kou wrote:
+> This is a revised spidernet patch set based on
+> netdev-2.6.git#upstream.
 > 
-> > Unless of course the papers you saw at PFLDNET showed that Cubic was a
-> > really good choice and you want to point us to those papers.
+> This patch set is merged Jens-san's spidernet patch and works on
+> Toshiba Cell reference set (aka Celleb). 
+> It requires Jens-san's phy patch
+> (http://ozlabs.org/pipermail/linuxppc-dev/2007-February/030987.html).
 > 
-> I heavily dislike all of these "reactionary" patches from Stephen
-> after he attended PFDLNET.
-> 
-> If he never went there, none of these patches would have been
-> proposed.  He went to the sermon and he became converted :-)
+> Ignore our previos patch set, and try this patch set on Cell Blade,
+> please (sorry for asking a lot).
 
-My patches weren't reactionary. Going to pure old Reno is reactionary.
-It was more looking at the state of the code on the flight back
-and cleaning house. Others were/are reactionary. 
+Ishizaki-san,
 
+this patchset works fine for me on the blade now together with my now corrected
+sungem update patch and the patch that moves the medium variable into the card structure.
 
-> We want people to play with this stuff, and they can experiment
-> regardless of whatever options or even code we put into the kernel.
-> Every user can muck with the congestion control on their computer
-> however they want, and THAT'S GOOD!
-> 
-> Sure we indirectly recommend to distribution vendors what to use
-> by default by the Kconfig defaults we put into the vanilla tree,
-> and that's fine too.
-> 
-> Even after reading all of the papers, I still think CUBIC or even BIC
-> by default is not all that controbersal or radical thing to use by
-> default.
-> 
-> I'm sorry if the researchers and IETF folks don't like this.  Too bad,
-> get over it.
+If it also work fine for you I think the patches are finally ready to go in...
 
-I push the problem back in their court: "Why do you not have a process
-that causes consensus?" IETF has done nothing to create any incentive
-for long term cooperation.
-
-> If you use RENO you're stupid, since performance is going to stink for
-> absolutely normal connections.  Fact: high BDP pipes are everywhere,
-> even grandma has one.  So just taking out the best solution we have
-> for that problem currently because it's not perfect is not the answer.
-> 
-
-Do I need to dig out the "Why Reno sucks" graphs?
-
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+Jens
