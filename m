@@ -1,46 +1,49 @@
-From: Ben Dooks <ben@fluff.org.uk>
-Subject: [PATCH] dm9000: do not kfree() netdevice
-Date: Mon, 12 Feb 2007 12:05:39 +0000
-Message-ID: <20070212120539.GA31390@fluff.org.uk>
+From: Alan <alan@lxorguk.ukuu.org.uk>
+Subject: Re: [take36 10/10] kevent: Kevent based generic AIO.
+Date: Mon, 12 Feb 2007 13:12:57 +0000
+Message-ID: <20070212131257.565f8066@localhost.localdomain>
+References: <11712796493850@2ka.mipt.ru>
+	<1171279650540@2ka.mipt.ru>
+	<p733b5bh6bp.fsf@bingen.suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: rmk@arm.linux.org.uk
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	Chase Venters <chase.venters@clientec.com>,
+	Johann Borck <johann.borck@densedata.com>,
+	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
+	Jamal Hadi Salim <hadi@cyberus.ca>,
+	Ingo Molnar <mingo@elte.hu>, linux-fsdevel@vger.kernel.org
+To: Andi Kleen <ak@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 87-194-8-8.bethere.co.uk ([87.194.8.8]:57348 "EHLO
-	aeryn.fluff.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750956AbXBLMkD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Feb 2007 07:40:03 -0500
-Content-Disposition: inline
+Received: from outpipe-village-512-1.bc.nu ([81.2.110.250]:34164 "EHLO
+	lxorguk.ukuu.org.uk" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S964880AbXBLNDc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Feb 2007 08:03:32 -0500
+In-Reply-To: <p733b5bh6bp.fsf@bingen.suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The DM9000 network driver is calling kfree() on an netdev
-causing the system to oops if the probe fails. The right
-thing to do is call free_netdev().
+> I'm sure others would want them then for their favourite system call combo
+> too. If they were really useful it might make more sense to have a batch() 
+> system call that works for arbitary calls, but I'm not convinced yet
+> it's even needed. It would be certainly ugly.
 
-Thanks to Russell King for spotting this.
+batch() would possibly make a lot of sense in terms of the fibril/thread
+based removal for the need for all the AIO stuff, just to provide a
+natural way to group and order sequences of synchronous operations into
+asynchronous groups.
 
-Signed-off-by: Ben Dooks <ben-linux@fluff.org>
+I am extremely sceptical about the need for aio_sendfile_path since with
+sendfile/sendpath hacking around there didn't seem to be much gain.
 
-diff -urpN -X ../dontdiff linux-2.6.20/drivers/net/dm9000.c linux-2.6.20-dmfix/drivers/net/dm9000.c
---- linux-2.6.20/drivers/net/dm9000.c	2007-02-04 18:44:54.000000000 +0000
-+++ linux-2.6.20-dmfix/drivers/net/dm9000.c	2007-02-12 12:01:22.000000000 +0000
-@@ -601,7 +601,7 @@ dm9000_probe(struct platform_device *pde
- 	printk("%s: not found (%d).\n", CARDNAME, ret);
- 
- 	dm9000_release_board(pdev, db);
--	kfree(ndev);
-+	free_netdev(ndev);
- 
- 	return ret;
- }
-@@ -1194,7 +1194,7 @@ dm9000_drv_remove(struct platform_device
- 
- 	unregister_netdev(ndev);
- 	dm9000_release_board(pdev, (board_info_t *) ndev->priv);
--	kfree(ndev);		/* free device structure */
-+	free_netdev(ndev);		/* free device structure */
- 
- 	PRINTK1("clean_module() exit\n");
- 
+I'm even more sceptical of the header buffer stuff as while other OS's do
+that as a hack to make TCP packetising work we simply fixed the root
+problem with TCP_CORK
+
+Alan
