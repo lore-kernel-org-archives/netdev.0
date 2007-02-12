@@ -1,41 +1,38 @@
-From: linas@austin.ibm.com (Linas Vepstas)
-Subject: Re: [PATCH] spidernet: move medium variable into card struct
-Date: Mon, 12 Feb 2007 17:28:04 -0600
-Message-ID: <20070212232804.GE923@austin.ibm.com>
-References: <200702122137.15309.jens@de.ibm.com>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH] [XFRM] AUDIT: Fix audit buffer leakage in error path.
+Date: Tue, 13 Feb 2007 08:40:29 +0900 (JST)
+Message-ID: <20070213.084029.08927594.yoshfuji@linux-ipv6.org>
+References: <20070213.003429.73173216.yoshfuji@linux-ipv6.org>
+	<20070212.152317.92582928.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jgarzik@pobox.com, benh@kernel.crashing.org,
-	James K Lewis <jim@jklewis.com>,
-	Ishizaki Kou <kou.ishizaki@toshiba.co.jp>,
-	netdev@vger.kernel.org, cbe-oss-dev@ozlabs.org
-To: Jens Osterkamp <jens@de.ibm.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, stable@kernel.org, yoshfuji@linux-ipv6.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e33.co.us.ibm.com ([32.97.110.151]:47636 "EHLO
-	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030491AbXBLX2G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Feb 2007 18:28:06 -0500
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e33.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id l1CNS6hp005148
-	for <netdev@vger.kernel.org>; Mon, 12 Feb 2007 18:28:06 -0500
-Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
-	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v8.2) with ESMTP id l1CNS5xL531610
-	for <netdev@vger.kernel.org>; Mon, 12 Feb 2007 16:28:05 -0700
-Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av03.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l1CNS4YQ016466
-	for <netdev@vger.kernel.org>; Mon, 12 Feb 2007 16:28:05 -0700
-Content-Disposition: inline
-In-Reply-To: <200702122137.15309.jens@de.ibm.com>
+Received: from yue.linux-ipv6.org ([203.178.140.15]:54496 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030497AbXBLXk1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Feb 2007 18:40:27 -0500
+In-Reply-To: <20070212.152317.92582928.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 12, 2007 at 09:37:15PM +0100, Jens Osterkamp wrote:
-> This moves the medium variable into the spidernet card structure.
-> It renames the GMII_ variables to BCM54XX specific ones.
+In article <20070212.152317.92582928.davem@davemloft.net> (at Mon, 12 Feb 2007 15:23:17 -0800 (PST)), David Miller <davem@davemloft.net> says:
+
+> From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> Date: Tue, 13 Feb 2007 00:34:29 +0900 (JST)
 > 
-> Signed-off-by: Jens Osterkamp <jens@de.ibm.com>
+> > Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> 
+> Oh yes.  I noticed this too while working with Joy Latten's OOPS fix
+> for this function.
+> 
+> Event types other than those 4 mentioned in the switch() statement are
+> illegal and should never be passed in.  It is probably better to BUG()
+> on this situation rather than try to handle the log buffer leakage.
 
-Boot-tested the patch, it works for me
+Okay, I agree and I withdraw my patch.
 
-Acked-by: Linas Vepstas <linas@austin.ibm.com>
-
+--yoshfuji
