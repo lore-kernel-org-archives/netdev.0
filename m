@@ -1,34 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] IPv6: Implement RFC 4429 Optimistic Duplicate Address
- Detection
-Date: Tue, 13 Feb 2007 13:53:59 -0800 (PST)
-Message-ID: <20070213.135359.130238374.davem@davemloft.net>
-References: <20070212212037.GA18470@hmsreliant.homelinux.net>
-	<20070213204515.GI25362@hmsreliant.homelinux.net>
-	<20070214.064649.06517604.yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH][IPSEC][0/4] fix conflict of device tunnels with the
+ ipsec tunnel
+Date: Tue, 13 Feb 2007 13:54:14 -0800 (PST)
+Message-ID: <20070213.135414.30185805.davem@davemloft.net>
+References: <20070209163716.eb7ced2c.kazunori@miyazawa.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nhorman@tuxdriver.com, vladislav.yasevich@hp.com, sri@us.ibm.com,
-	kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
-	kaber@coreworks.de, netdev@vger.kernel.org
-To: yoshfuji@linux-ipv6.org
+Cc: herbert@gondor.apana.org.au, miika@iki.fi, Diego.Beltrami@hiit.fi,
+	netdev@vger.kernel.org, usagi-core@linux-ipv6.org
+To: kazunori@miyazawa.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52951
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52958
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751316AbXBMVyB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Feb 2007 16:54:01 -0500
-In-Reply-To: <20070214.064649.06517604.yoshfuji@linux-ipv6.org>
+	by vger.kernel.org with ESMTP id S1751220AbXBMVyQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Feb 2007 16:54:16 -0500
+In-Reply-To: <20070209163716.eb7ced2c.kazunori@miyazawa.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Date: Wed, 14 Feb 2007 06:46:49 +0900 (JST)
+From: Kazunori MIYAZAWA <kazunori@miyazawa.org>
+Date: Fri, 9 Feb 2007 16:37:16 +0900
 
-> In article <20070213204515.GI25362@hmsreliant.homelinux.net> (at Tue, 13 Feb 2007 15:45:15 -0500), Neil Horman <nhorman@tuxdriver.com> says:
-> 
-> > Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-> 
-> I'm starting regression tests now.
+> [1/4] changing API of xfrm4_tunnel_register
+> [2/4] make sit use the xfrm4_tunnel_register
+> [3/4] changing API of xfrm6_tunnel_register
+> [4/4] Fix the address family to refer encap_family
 
-Thank you.
+I've applied all 4 patches, thank you.
