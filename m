@@ -1,9 +1,9 @@
 From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
 	<yoshfuji@linux-ipv6.org>
-Subject: [PATCH 2.6.20.y & net-2.6] [IPV6] HASHTABLES: Use appropriate seed
- for caluculating ehash index.
-Date: Tue, 13 Feb 2007 09:48:41 +0900 (JST)
-Message-ID: <20070213.094841.17517365.yoshfuji@linux-ipv6.org>
+Subject: [PATCH 2.6.16.y] [IPV6] HASHTABLES: Use appropriate seed for
+ caluculating ehash index.
+Date: Tue, 13 Feb 2007 09:50:33 +0900 (JST)
+Message-ID: <20070213.095033.120159742.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -11,10 +11,10 @@ Cc: netdev@vger.kernel.org, stable@kernel.org, yoshfuji@linux-ipv6.org,
 	handat@pm.nttdata.co.jp
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:54502 "EHLO
+Received: from yue.linux-ipv6.org ([203.178.140.15]:54508 "EHLO
 	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750857AbXBMAsj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Feb 2007 19:48:39 -0500
+	with ESMTP id S932821AbXBMAub (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Feb 2007 19:50:31 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
@@ -31,13 +31,13 @@ Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
  1 files changed, 1 insertions(+), 1 deletions(-)
 
 diff --git a/net/ipv6/inet6_hashtables.c b/net/ipv6/inet6_hashtables.c
-index 30b16da..ae6b0e7 100644
+index bb8ffb8..47e7951 100644
 --- a/net/ipv6/inet6_hashtables.c
 +++ b/net/ipv6/inet6_hashtables.c
-@@ -172,7 +172,7 @@ static int __inet6_check_established(struct inet_timewait_death_row *death_row,
+@@ -93,7 +93,7 @@ static int __inet6_check_established(struct inet_timewait_death_row *death_row,
  	const struct in6_addr *saddr = &np->daddr;
  	const int dif = sk->sk_bound_dev_if;
- 	const __portpair ports = INET_COMBINED_PORTS(inet->dport, lport);
+ 	const u32 ports = INET_COMBINED_PORTS(inet->dport, lport);
 -	const unsigned int hash = inet6_ehashfn(daddr, inet->num, saddr,
 +	const unsigned int hash = inet6_ehashfn(daddr, lport, saddr,
  						inet->dport);
