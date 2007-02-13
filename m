@@ -1,37 +1,77 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [TG3 1/8]: Save MSI state before suspend.
-Date: Tue, 13 Feb 2007 12:54:14 -0800
-Message-ID: <1171400054.18944.40.camel@rh4>
-References: <1171397612.18944.25.camel@rh4>
- <20070213115825.0a6119ed@freekitty>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: /proc/sys/net/ipv[46]/conf/ issue unsolved
+Date: Tue, 13 Feb 2007 15:15:34 -0500
+Message-ID: <20070213201534.GH25362@hmsreliant.homelinux.net>
+References: <200702131529.04708.hasso@estpak.ee> <20070213185820.GB25362@hmsreliant.homelinux.net> <45D214E4.9020608@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: "Stephen Hemminger" <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Hasso Tepper <hasso@estpak.ee>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Vlad Yasevich <vladislav.yasevich@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:3500 "EHLO mms2.broadcom.com"
+Received: from ra.tuxdriver.com ([70.61.120.52]:3717 "EHLO ra.tuxdriver.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750928AbXBMUKs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Feb 2007 15:10:48 -0500
-In-Reply-To: <20070213115825.0a6119ed@freekitty>
+	id S1750937AbXBMUQK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Feb 2007 15:16:10 -0500
+Content-Disposition: inline
+In-Reply-To: <45D214E4.9020608@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2007-02-13 at 11:58 -0800, Stephen Hemminger wrote:
-
+On Tue, Feb 13, 2007 at 02:43:32PM -0500, Vlad Yasevich wrote:
+> Neil Horman wrote:
+> >On Tue, Feb 13, 2007 at 03:29:04PM +0200, Hasso Tepper wrote:
+> >>There is long standing issue in kernel which makes using /etc/sysctl.conf
+> >>useless for boottime configuration of specific interface properties and
+> >>breaks probably any software relying on unconditional existence of the
+> >>conf trees like it was in previous kernels (I alone have written several
+> >>pieces of such software). It's broken AFAIK from 2.6.15. There has been
+> >>several notes about issue in the list, but issue haven't got any (at least
+> >>efficient) attention from developers.
+> >>
+> >>The current behaviour bites users in many ways and breaks several use 
+> >>cases.
+> >>I asked several times in the past "what I should do now?" question, but
+> >>got no clear answer.
+> >>
+> >>References:
+> >>http://marc.theaimsgroup.com/?l=linux-netdev&m=115685059625467&w=2
+> >>http://marc.theaimsgroup.com/?l=linux-netdev&m=115690828822486&w=2
+> >>https://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=169809
+> >>
+> >>Is there any chance this will be fixed or at least clear position is
+> >>taken by developers? Breaking userspace applications is declared nonono
+> >>several times in the past ... I'm not even against breaking it if there
+> >>is _very_ good reason to do it. Ok, but I want to know how userspace is
+> >>meant to behave now. I can't continue using crappy workarounds.
+> >>
+> >Can't this simply be fixed by adding a custom udev rule?  Correct me if I'm
+> >wrong, but the only reason that interfaces come up automatically after 
+> >their
+> >appropriate module is inserted is because most distos udev rules issue an 
+> >ifup
+> >$DEVICE when they get a creation event for $DEVICE.  Why not add a custom 
+> >rule
+> >in for net device creation events to set appropriate sysctl values before 
+> >the
+> >ifup is issued.
+> >
 > 
-> I think you have to move the original pci_save_state call, otherwise
-> you will call pci_save_state twice and leak memory.  pci_save_state
-> allocates memory to store MSI and other information. Look at pci_save_pcie_state
-> etc.
+> You can't.  The /proc/sys/conf/eth<x>/  structure appears when the 
+> interface is marked UP.  At this point, if protocol modules are already
+> loaded, your configuration parameters are already set.
 > 
+> I was going to ask.. How are you testing Optimistic DAD patch.  The
+> only way I could do it was to set /proc/sys/conf/default/ipv6  entry.
+> 
+I make a change in my patch before I post, to default it to on, rather than to
+off.  Although I did that for convienience, not necessity.  I didn't realize
+those files didn't show up until the interface was marked as up.  That seems
+horribly broken to me.  We should definately have some registered file at
+creation time, perhaps create the files when register_netdev is called and put
+them in /proc/sys/ipv4/conf/offline/<interface>/*, and move them
+conf/<interface> when IFF_UP is set?
 
-I think it is ok the way it is.  We call pci_restore_state() at least
-once during tg3_chip_reset().  This will free any memory allocated
-during tg3_init_one()'s call to pci_save_state(), before we even get to
-tg3_suspend().
+Neil
 
-The memory allocated in tg3_suspend()'s call to pci_save_state() will be
-freed when tg3_resume() calls pci_restore_state().
-
+> -vlad
