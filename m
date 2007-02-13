@@ -1,52 +1,54 @@
-From: "Hugo Santos" <hugosantos@gmail.com>
-Subject: Re: /proc/sys/net/ipv[46]/conf/ issue unsolved
-Date: Tue, 13 Feb 2007 20:18:23 +0000
-Message-ID: <9c46321e0702131218u62288405n23a6e96dc0f4c48c@mail.gmail.com>
-References: <200702131529.04708.hasso@estpak.ee>
-	 <20070213185820.GB25362@hmsreliant.homelinux.net>
-	 <9c46321e0702131124q33b4e263ybc38555cf1544769@mail.gmail.com>
-	 <20070213194538.GF25362@hmsreliant.homelinux.net>
-	 <9c46321e0702131149j4b9b642cvfe397d5bd2a30038@mail.gmail.com>
-	 <20070213201006.GG25362@hmsreliant.homelinux.net>
+From: Pavel Roskin <proski@gnu.org>
+Subject: Re: iwlwifi initial bugs/thanks
+Date: Tue, 13 Feb 2007 15:18:36 -0500
+Message-ID: <1171397916.2414.31.camel@dv>
+References: <1171382436.12035.38.camel@localhost>
+	<20070213191313.GA2427@metaxa.reflex>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "Hasso Tepper" <hasso@estpak.ee>, netdev@vger.kernel.org
-To: "Neil Horman" <nhorman@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.174]:34818 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750948AbXBMUSa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Feb 2007 15:18:30 -0500
-Received: by ug-out-1314.google.com with SMTP id 44so341624uga
-        for <netdev@vger.kernel.org>; Tue, 13 Feb 2007 12:18:24 -0800 (PST)
-In-Reply-To: <20070213201006.GG25362@hmsreliant.homelinux.net>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, ipw3945-devel@lists.sourceforge.net
+To: Jason Lunz <lunz@falooley.org>
+Return-path: <ipw3945-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20070213191313.GA2427@metaxa.reflex>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/ipw3945-devel>,
+	<mailto:ipw3945-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=ipw3945-devel>
+List-Post: <mailto:ipw3945-devel@lists.sourceforge.net>
+List-Help: <mailto:ipw3945-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/ipw3945-devel>,
+	<mailto:ipw3945-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: ipw3945-devel-bounces@lists.sourceforge.net
+Errors-To: ipw3945-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On 2/13/07, Neil Horman <nhorman@tuxdriver.com> wrote:
-> 1) Kernel network driver X detects that it has hardware to drive, and
-> consequently calls register_netdev.  This creates the network interface and
-> registers all the appropriate proc and sysfs files, which are now accessible in
-> user space.
+On Tue, 2007-02-13 at 14:13 -0500, Jason Lunz wrote:
+> The "_rename" suffix is an indication that you have udev rules that are
+> attempting to assign the same name to two different netdevs. Try to
+> disable udev device renaming, or make the rules more specific.
+> 
+> The attached kernel patch makes it easier to figure out what udev is
+> trying to do in situations like yours. It keeps getting rejected from
+> linux upstream, but that could change with enough encouragement.
 
-The problem is that in the IPv6 case, the sysfs files are _not_
-registered in this step but only after the interface is set up (in
-fact after the first proper address is added to the interface, which
-generally would be the link local address).
+I think it's a good idea.  Many drivers use the device name in the
+diagnostic messages.  What's the point in seeing "wlan0: buffer
+overflow" if there is no way to find out from the log what that "wlan0"
+used to be?
 
-> As has been seen, one place to fix this is by adding logic to the ifup scripts
-> for the appropriate protocol to issue sysctl -w commands to set configs prior to
-> issuing the ifconfig up or ip link up commands.
+> +		if (strncmp(newname, dev->name, IFNAMSIZ))
+> +			printk(KERN_INFO "%s renamed to %s\n", dev->name, newname);
 
-  Due to the previous point, this wouldn't work. I believe the proper
-solution is to init the ipv6 dev on interface creation (and thus
-trigger the adding of the sysfs files) and not when the first address
-is added to the interface.
+I think KERN_INFO is the right level, but maybe KERN_DEBUG would be more
+readily accepted.
 
-  There might be issues with this solution (known internal races,
-module unloading issues, etc), that's why i asked previously if there
-were any known ones.
+-- 
+Regards,
+Pavel Roskin
 
-  Hugo
+
+-------------------------------------------------------------------------
+Using Tomcat but need to do more? Need to support web services, security?
+Get stuff done quickly with pre-integrated technology to make your job easier.
+Download IBM WebSphere Application Server v.1.0.1 based on Apache Geronimo
+http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
