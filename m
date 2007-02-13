@@ -1,38 +1,44 @@
-From: "Hugo Santos" <hugosantos@gmail.com>
-Subject: Re: /proc/sys/net/ipv[46]/conf/ issue unsolved
-Date: Tue, 13 Feb 2007 19:24:32 +0000
-Message-ID: <9c46321e0702131124q33b4e263ybc38555cf1544769@mail.gmail.com>
-References: <200702131529.04708.hasso@estpak.ee>
-	 <20070213185820.GB25362@hmsreliant.homelinux.net>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [TG3 1/8]: Save MSI state before suspend.
+Date: Tue, 13 Feb 2007 12:13:32 -0800
+Message-ID: <1171397612.18944.25.camel@rh4>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "Hasso Tepper" <hasso@estpak.ee>, netdev@vger.kernel.org
-To: "Neil Horman" <nhorman@tuxdriver.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.172]:11928 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751779AbXBMTYe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Feb 2007 14:24:34 -0500
-Received: by ug-out-1314.google.com with SMTP id 44so325605uga
-        for <netdev@vger.kernel.org>; Tue, 13 Feb 2007 11:24:32 -0800 (PST)
-In-Reply-To: <20070213185820.GB25362@hmsreliant.homelinux.net>
-Content-Disposition: inline
+Received: from mms1.broadcom.com ([216.31.210.17]:3394 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751775AbXBMTaG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Feb 2007 14:30:06 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Neil,
+[TG3]: Save MSI state before suspend.
 
-On 2/13/07, Neil Horman <nhorman@tuxdriver.com> wrote:
-> Can't this simply be fixed by adding a custom udev rule?  Correct me if I'm
-> wrong, but the only reason that interfaces come up automatically after their
-> appropriate module is inserted is because most distos udev rules issue an ifup
-> $DEVICE when they get a creation event for $DEVICE.  Why not add a custom rule
-> in for net device creation events to set appropriate sysctl values before the
-> ifup is issued.
+This fixes the following problem:
 
-  The issue is not as much with automatic auto-configuration but with
-not being able to disable auto-configuration (and others) before
-setting the interface up.
+http://bugzilla.kernel.org/show_bug.cgi?id=7969
 
-  Hugo
+The MSI state needs to be saved during suspend.  PCI state saved
+during tg3_init_one() does not contain valid MSI state because
+MSI hasn't been enabled.
+
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+
+diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+index e136bae..0b5b8e7 100644
+--- a/drivers/net/tg3.c
++++ b/drivers/net/tg3.c
+@@ -12016,6 +12016,9 @@ static int tg3_suspend(struct pci_dev *p
+ 	tp->tg3_flags &= ~TG3_FLAG_INIT_COMPLETE;
+ 	tg3_full_unlock(tp);
+ 
++	/* Save MSI address and data for resume.  */
++	pci_save_state(pdev);
++
+ 	err = tg3_set_power_state(tp, pci_choose_state(pdev, state));
+ 	if (err) {
+ 		tg3_full_lock(tp, 0);
+
+
