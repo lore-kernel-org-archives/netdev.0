@@ -1,43 +1,55 @@
-From: Hasso Tepper <hasso@estpak.ee>
-Subject: Re: /proc/sys/net/ipv[46]/conf/ issue unsolved
-Date: Tue, 13 Feb 2007 22:29:57 +0200
-Message-ID: <200702132229.58111.hasso@estpak.ee>
-References: <200702131529.04708.hasso@estpak.ee> <9c46321e0702131149j4b9b642cvfe397d5bd2a30038@mail.gmail.com> <20070213201006.GG25362@hmsreliant.homelinux.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: 2.6.20 crash in tcp_tso_segment()
+Date: Tue, 13 Feb 2007 12:34:13 -0800 (PST)
+Message-ID: <20070213.123413.35665346.davem@davemloft.net>
+References: <E1HFc6X-0006n7-00@gondolin.me.apana.org.au>
+	<45D1CC83.8080603@trash.net>
+	<20070213175121.GA27281@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Hugo Santos <hugosantos@gmail.com>, netdev@vger.kernel.org
-To: Neil Horman <nhorman@tuxdriver.com>
+Cc: kaber@trash.net, maccetta@laurelnetworks.com,
+	netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hax.kala.ee ([194.126.124.39]:39435 "HELO hax.kala.ee"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751036AbXBMUaI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Feb 2007 15:30:08 -0500
-In-Reply-To: <20070213201006.GG25362@hmsreliant.homelinux.net>
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52477
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751056AbXBMUeO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Feb 2007 15:34:14 -0500
+In-Reply-To: <20070213175121.GA27281@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Neil Horman wrote:
-> 5) the ifup $DEVICE from (4) goes through the network interface bring up
-> process, and consequently sends the ioctl SIOCSIFFLAGS to the kernel, setting
-> the IFF_UP flag on the appropriate interface, kicking of whatever default
-> processes need to be as defined by the settings found in
-> /proc/sys/net/conf/<interface>/*
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Wed, 14 Feb 2007 04:51:21 +1100
 
-... which is created _only_ if address of specific address familiy exists
-already. If address is obtained via IPv6 autoconf (very common case for
-IPv6 hosts) or via IPv4/IPv6 DHCP with netlink aware mechanism (also very
-common nowadays - network manager) you don't have any addresses on interface
-at this point therefore /proc/sys/net/ipv[46]/conf/<interface>/ are NOT
-created. That's the point - you can't configure anything before the first
-"carrier up" event - ie. cable is plugged on.
+> On Tue, Feb 13, 2007 at 03:34:43PM +0100, Patrick McHardy wrote:
+> >
+> > The callpath shows the REJECT target sending a TCP reset.
+> > I'm guessing it has something to do with skb_copy_expand
+> > copying the gso fields.
+> 
+> Indeed.  We need to reset the GSO bits there since the new
+> packet is nothing like the one it's copied from.
+> 
+> [NETFILTER]: Clear GSO bits for TCP reset packet
+> 
+> The TCP reset packet is copied from the original.  This
+> includes all the GSO bits which do not apply to the new
+> packet.  So we should clear those bits.
+> 
+> Spotted by Patrick McHardy.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> 
+> Something like this is needed for all trees with GSO.
+> Actually it applies to TSO too although the effect there
+> is a bit harder to notice.
 
+Applied, thanks Herbert.
 
-regards,
+I'll push this to -stable.
 
--- 
-Hasso Tepper
-Elion Enterprises Ltd. [AS3249]
-IP & Data Networking Expert
+I'm kind of challenged for time as I'll be out of town from
+Wednesday until Sunday, so if someone could cook up the TSO
+variable of the patch for pre-GSO kernels I'd appreciate it.
