@@ -1,56 +1,58 @@
-From: Mike Isely <isely@isely.net>
-Subject: Re: [PATCH 4/5] r8169: more alignment for the 0x8168
-Date: Tue, 13 Feb 2007 17:32:44 -0600 (CST)
-Message-ID: <Pine.LNX.4.64.0702131730570.14346@cnc.isely.net>
-References: <20061203235257.GA3625@electric-eye.fr.zoreil.com>
- <20061204000327.GE3625@electric-eye.fr.zoreil.com> <45D13578.8040405@snapgear.com>
- <20070213081439.GA21261@electric-eye.fr.zoreil.com>
-Reply-To: Mike Isely <isely@pobox.com>
+From: James Ketrenos <jketreno@linux.intel.com>
+Subject: Re: [ANNOUNCE] d80211 based driver for Intel PRO/Wireless 3945ABG
+Date: Tue, 13 Feb 2007 14:55:45 -0800
+Message-ID: <45D241F1.8040606@linux.intel.com>
+References: <45CCE3CA.4050904@linux.intel.com> <200702131558.48987.ismail@pardus.org.tr> <b6a2187b0702130710s217281c4k5ed227995c09c878@mail.gmail.com> <200702131857.02369.ismail@pardus.org.tr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Philip Craig <philipc@snapgear.com>, Jeff Garzik <jeff@garzik.org>,
-	netdev@vger.kernel.org, Mike Isely at pobox <isely@pobox.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jeff Chua <jeff.chua.linux@gmail.com>,
+	linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
+	ipw3945-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: =?ISO-8859-1?Q?Ismail_D=F6nmez?= <ismail@pardus.org.tr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cnc.isely.net ([64.81.146.143]:59025 "EHLO cnc.isely.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751457AbXBMXhx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Feb 2007 18:37:53 -0500
-In-Reply-To: <20070213081439.GA21261@electric-eye.fr.zoreil.com>
+Received: from mga06.intel.com ([134.134.136.21]:37744 "EHLO
+	orsmga101.jf.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751459AbXBMXiK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Feb 2007 18:38:10 -0500
+In-Reply-To: <200702131857.02369.ismail@pardus.org.tr>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 13 Feb 2007, Francois Romieu wrote:
+Ismail D=F6nmez wrote:
+> On Tuesday 13 February 2007 17:10:24 Jeff Chua wrote:
+>> On 2/13/07, Ismail D=F6nmez <ismail@pardus.org.tr> wrote:
+>>> Tried this is on a patched 2.6.20 kernel with ipw3945 device and it
+>>> always puts the card in 802.11a mode instead of 802.11bg mode.
+>>>
+>>> Ideas?
+>> Before running  "iwconfig wlan0 channel 8",  the card is set to
+>> 802.11a mode. iwconfig shows rate at 54Mb/s. But after setting the
+>> channel, it sets to 802.11b mode, and I can't find a way to change
+>> from 11Mb/s to 54MB/s.
+>>
+>> "iwlist eth0 rate" only show up to 11Mb/s.
+>>
+>> So, my problem is the card is always in 802.11b mode.
+>=20
+> So I guess there is a common problem with a/bg modes?
 
-> Philip Craig <philipc@snapgear.com> :
-> [...]
-> > This patch caused a drop in throughput from 178 Mbits/sec to 135 Mbits/sec
-> > on an Intel XScale IXP465.
-> 
-> Which distribution of packet sizes ?
-> 
-> > It seems like there is some confusion about what the align parameter
-> > here means. It was originally an offset from an aligned address so that
-> > the IP header aligned, and this patch changes it to the alignment of the
-> > ethernet header. But align is still set to NET_IP_ALIGN for some chips.
-> 
-> Yes, I should have distinguished both in the first place.
-> 
-> Can you describe which chipset from realtek the board is using (lspci -vxx) ?
-> 
+Regardless of what iwconfig reports as the mode or rate, you should be=20
+able to associate to an AP in either spectrum (2.4 or 5.2) using any=20
+valid rate.  Once configured and associated, iwconfig should provide=20
+more correct information.
 
-Francois:
+If association is failing, verify that 'iwlist scan' shows the AP and=20
+that you specify everything for the association, eg:
 
-Obviously I have an interest in any change here not breaking the NIC on 
-my system.  So please let me know if/when you'd like me to test drive a 
-candidate fix that keeps everyone happy...
+    iwconfig wlan0 channel 8 essid MyAP ap 00:13:f0:0d:ca:fe
 
-  -Mike
+d80211 will only attempt to associate once -- if it fails, then you nee=
+d=20
+to currently "de-configure" the device and reconfigure it back to what=20
+you want to associate to.  I do that here by chaging the AP BSSID to=20
+something else then changing it back.  If you use wpa_supplicant, it=20
+does the re-association attempts for you.
 
-
--- 
-                        |         Mike Isely          |     PGP fingerprint
-     Spammers Die!!     |                             | 03 54 43 4D 75 E5 CC 92
-                        |   isely @ pobox (dot) com   | 71 16 01 E2 B5 F5 C1 E8
-                        |                             |
+James
