@@ -1,45 +1,60 @@
-From: linas@austin.ibm.com (Linas Vepstas)
-Subject: Re: [PATCH 0/4] spidernet: support for Celleb
-Date: Mon, 12 Feb 2007 17:49:59 -0600
-Message-ID: <20070212234959.GF923@austin.ibm.com>
-References: <200702070849.l178nvGC005341@toshiba.co.jp>
+From: Patrick McHardy <kaber@trash.net>
+Subject: [XFRM]: Fix IPv4 tunnel mode decapsulation with IPV6=n
+Date: Tue, 13 Feb 2007 01:16:02 +0100
+Message-ID: <45D10342.3030903@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jgarzik@pobox.com, jens@de.ibm.com, linuxppc-dev@ozlabs.org,
-	jim@jklewis.com, netdev@vger.kernel.org
-To: Ishizaki Kou <kou.ishizaki@toshiba.co.jp>
+Content-Type: multipart/mixed;
+ boundary="------------040702080405050501010309"
+Cc: Kernel Netdev Mailing List <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e33.co.us.ibm.com ([32.97.110.151]:56369 "EHLO
-	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030518AbXBLXuE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Feb 2007 18:50:04 -0500
-Received: from westrelay02.boulder.ibm.com (westrelay02.boulder.ibm.com [9.17.195.11])
-	by e33.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id l1CNo1Eg023152
-	for <netdev@vger.kernel.org>; Mon, 12 Feb 2007 18:50:01 -0500
-Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
-	by westrelay02.boulder.ibm.com (8.13.8/8.13.8/NCO v8.2) with ESMTP id l1CNo1Vc390338
-	for <netdev@vger.kernel.org>; Mon, 12 Feb 2007 16:50:01 -0700
-Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av02.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l1CNo07h017949
-	for <netdev@vger.kernel.org>; Mon, 12 Feb 2007 16:50:00 -0700
-Content-Disposition: inline
-In-Reply-To: <200702070849.l178nvGC005341@toshiba.co.jp>
+Received: from stinky.trash.net ([213.144.137.162]:54292 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030528AbXBMAQF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Feb 2007 19:16:05 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Feb 07, 2007 at 05:49:50PM +0900, Ishizaki Kou wrote:
-> This is a revised spidernet patch set based on
-> netdev-2.6.git#upstream.
+This is a multi-part message in MIME format.
+--------------040702080405050501010309
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
 
-Tested this series of patches together with Jen's "version 3" patch,
-it worked for me. Code looks reasonable.  Thus
 
-Acked-by: Linas Vepstas <linas@austin.ibm.com>
+--------------040702080405050501010309
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
 
-I'm somewhat unclear as to whethr I should be doing 
+[XFRM]: Fix IPv4 tunnel mode decapsulation with IPV6=n
 
-Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
+Add missing break when CONFIG_IPV6=n.
 
-instead.
+Signed-off-by: Patrick McHardy <kaber@trash.net>
 
---linas
+---
+commit 651521586d5f08c5d6d7198ceef1555b93135b6a
+tree 5ee1183f4bc1f49f467b5bdcfebf1c5181bffcd7
+parent 6ec183b20c4a1c0eafd541444ae11f8e5779d153
+author Patrick McHardy <kaber@trash.net> Tue, 13 Feb 2007 01:14:35 +0100
+committer Patrick McHardy <kaber@trash.net> Tue, 13 Feb 2007 01:14:35 +0100
+
+ net/ipv4/xfrm4_mode_tunnel.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/net/ipv4/xfrm4_mode_tunnel.c b/net/ipv4/xfrm4_mode_tunnel.c
+index e54c549..e1cab33 100644
+--- a/net/ipv4/xfrm4_mode_tunnel.c
++++ b/net/ipv4/xfrm4_mode_tunnel.c
+@@ -95,6 +95,7 @@ static int xfrm4_tunnel_input(struct xfr
+ 
+ 	switch(iph->protocol){
+ 		case IPPROTO_IPIP:
++			break;
+ #if defined(CONFIG_IPV6) || defined (CONFIG_IPV6_MODULE)
+ 		case IPPROTO_IPV6:
+ 			break;
+
+--------------040702080405050501010309--
