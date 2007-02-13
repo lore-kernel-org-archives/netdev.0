@@ -1,51 +1,52 @@
-From: Hasso Tepper <hasso@estpak.ee>
+From: "Hugo Santos" <hugosantos@gmail.com>
 Subject: Re: /proc/sys/net/ipv[46]/conf/ issue unsolved
-Date: Tue, 13 Feb 2007 22:16:13 +0200
-Message-ID: <200702132216.13828.hasso@estpak.ee>
-References: <200702131529.04708.hasso@estpak.ee> <20070213090224.2826859f@localhost.localdomain>
+Date: Tue, 13 Feb 2007 20:18:23 +0000
+Message-ID: <9c46321e0702131218u62288405n23a6e96dc0f4c48c@mail.gmail.com>
+References: <200702131529.04708.hasso@estpak.ee>
+	 <20070213185820.GB25362@hmsreliant.homelinux.net>
+	 <9c46321e0702131124q33b4e263ybc38555cf1544769@mail.gmail.com>
+	 <20070213194538.GF25362@hmsreliant.homelinux.net>
+	 <9c46321e0702131149j4b9b642cvfe397d5bd2a30038@mail.gmail.com>
+	 <20070213201006.GG25362@hmsreliant.homelinux.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Cc: "Hasso Tepper" <hasso@estpak.ee>, netdev@vger.kernel.org
+To: "Neil Horman" <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hax.kala.ee ([194.126.124.39]:44389 "HELO hax.kala.ee"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1750944AbXBMUQZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Feb 2007 15:16:25 -0500
-In-Reply-To: <20070213090224.2826859f@localhost.localdomain>
+Received: from ug-out-1314.google.com ([66.249.92.174]:34818 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750948AbXBMUSa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Feb 2007 15:18:30 -0500
+Received: by ug-out-1314.google.com with SMTP id 44so341624uga
+        for <netdev@vger.kernel.org>; Tue, 13 Feb 2007 12:18:24 -0800 (PST)
+In-Reply-To: <20070213201006.GG25362@hmsreliant.homelinux.net>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> > You can disable it in /proc/sys/net/ipv6/conf/default/... and then
-> > reenable it on the interfaces that you actually want.
+On 2/13/07, Neil Horman <nhorman@tuxdriver.com> wrote:
+> 1) Kernel network driver X detects that it has hardware to drive, and
+> consequently calls register_netdev.  This creates the network interface and
+> registers all the appropriate proc and sysfs files, which are now accessible in
+> user space.
 
-And YOSHIFUJI Hideaki answered to this:
+The problem is that in the IPv6 case, the sysfs files are _not_
+registered in this step but only after the interface is set up (in
+fact after the first proper address is added to the interface, which
+generally would be the link local address).
 
-> The point is:
-> 
->  - Until we have live address(es), we do not create inet6_dev{} for that
->    device.
->  - We do NOT run DAD until the link is ready (netif_carrier_ok()).
-> 
-> This means, we do NOT have any addresses until the link is once up,
-> and thus, because the sysctl entries live in inet6_dev{}, we do not
-> install net.ipv6.conf.ethX from values of net.ipv6.conf.default until
-> then.
+> As has been seen, one place to fix this is by adding logic to the ifup scripts
+> for the appropriate protocol to issue sysctl -w commands to set configs prior to
+> issuing the ifconfig up or ip link up commands.
 
-Ie. to make it very clear - I can't reenable it on the interface before
-the first "carrier up" event (cable is plugged on). That's the point -
-AFAICS the only way I can configure interface differently than default is
-via daemon listening interface events via netlink. I can't do it in any
-way before.
+  Due to the previous point, this wouldn't work. I believe the proper
+solution is to init the ipv6 dev on interface creation (and thus
+trigger the adding of the sysfs files) and not when the first address
+is added to the interface.
 
+  There might be issues with this solution (known internal races,
+module unloading issues, etc), that's why i asked previously if there
+were any known ones.
 
-regards,
-
--- 
-Hasso Tepper
-Elion Enterprises Ltd. [AS3249]
-IP & Data Networking Expert
+  Hugo
