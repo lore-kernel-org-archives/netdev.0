@@ -1,55 +1,69 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: 2.6.20 crash in tcp_tso_segment()
-Date: Tue, 13 Feb 2007 12:34:13 -0800 (PST)
-Message-ID: <20070213.123413.35665346.davem@davemloft.net>
-References: <E1HFc6X-0006n7-00@gondolin.me.apana.org.au>
-	<45D1CC83.8080603@trash.net>
-	<20070213175121.GA27281@gondor.apana.org.au>
+Subject: Re: [PATCH][NET][BRIDGE] br_if: oops in port_carrier_check
+Date: Tue, 13 Feb 2007 12:35:53 -0800 (PST)
+Message-ID: <20070213.123553.38710118.davem@davemloft.net>
+References: <20070212094738.0a8ae896@localhost.localdomain>
+	<20070213062650.GA1614@ff.dom.local>
+	<20070213115529.6ea7e7bd@freekitty>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, maccetta@laurelnetworks.com,
-	netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+Cc: jarkao2@o2.pl, akpm@linux-foundation.org, netdev@vger.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, pterjan@gmail.com
+To: shemminger@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52477
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:32924
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751056AbXBMUeO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Feb 2007 15:34:14 -0500
-In-Reply-To: <20070213175121.GA27281@gondor.apana.org.au>
+	by vger.kernel.org with ESMTP id S1750933AbXBMUfz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Feb 2007 15:35:55 -0500
+In-Reply-To: <20070213115529.6ea7e7bd@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Wed, 14 Feb 2007 04:51:21 +1100
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Date: Tue, 13 Feb 2007 11:55:29 -0800
 
-> On Tue, Feb 13, 2007 at 03:34:43PM +0100, Patrick McHardy wrote:
-> >
-> > The callpath shows the REJECT target sending a TCP reset.
-> > I'm guessing it has something to do with skb_copy_expand
-> > copying the gso fields.
+> On Tue, 13 Feb 2007 07:26:51 +0100
+> Jarek Poplawski <jarkao2@o2.pl> wrote:
 > 
-> Indeed.  We need to reset the GSO bits there since the new
-> packet is nothing like the one it's copied from.
+> > On Mon, Feb 12, 2007 at 09:47:38AM -0800, Stephen Hemminger wrote:
+> > > On Mon, 12 Feb 2007 11:28:48 +0100
+> > > Jarek Poplawski <jarkao2@o2.pl> wrote:
+> > > 
+> > > > Here is my patch proposal for testing.
+> > > > If it doesn't work - forget about it.
+> > > > (Prepared with 2.6.20-git6 but could
+> > > > be applied to 2.6.20 also.)
+> > > > 
+> > > > Jarek P.
+> > > > 
+> > > > 
+> > > > dev_hold/dev_put added to prevent dev kfree
+> > > > during port_carrier_check runnig, while dev
+> > > > and port are removed.
+> > > 
+> > > No, holding the reference just stops the kfree, it doesn't
+> > > stop the device from being removed from the port.
+> > 
+> > But I wrote above it is only to prevent the kfree.
+> > 
+> > >        p = dev->br_port;
+> > >        if (!p)
+> > >                goto done;
+> > >        br = p->br;
+> > 
+> > Then p is NULL here and we goto done.
+> > 
+> > Sorry, but the first version was wrong (incomplete).
+> > Below I attach a new proposal.
+> > 
+> > 
+> > Signed-off-by: Jarek Poplawski <jarkao2@o2.pl>
 > 
-> [NETFILTER]: Clear GSO bits for TCP reset packet
-> 
-> The TCP reset packet is copied from the original.  This
-> includes all the GSO bits which do not apply to the new
-> packet.  So we should clear those bits.
-> 
-> Spotted by Patrick McHardy.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-> 
-> Something like this is needed for all trees with GSO.
-> Actually it applies to TSO too although the effect there
-> is a bit harder to notice.
+> Yes, this looks correct.  If carrier_check is pending the ref count
+> gets cleared by cancel. If carrier work is waiting for rtnl, then
+> it cleans itself up.
 
-Applied, thanks Herbert.
+I've applied this patch, thanks everyone.
 
-I'll push this to -stable.
-
-I'm kind of challenged for time as I'll be out of town from
-Wednesday until Sunday, so if someone could cook up the TSO
-variable of the patch for pre-GSO kernels I'd appreciate it.
+Stephen, do we want this in -stable?
