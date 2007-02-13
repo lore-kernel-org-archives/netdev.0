@@ -1,24 +1,18 @@
-From: Chris Snook <csnook@redhat.com>
+From: Chuck Ebbert <cebbert@redhat.com>
 Subject: Re: [PATCH] fix atl1 braino
-Date: Tue, 13 Feb 2007 12:21:56 -0500
-Message-ID: <45D1F3B4.6020802@redhat.com>
+Date: Tue, 13 Feb 2007 12:36:51 -0500
+Message-ID: <45D1F733.5050205@redhat.com>
 References: <20070213071256.GF4095@ftp.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 Cc: Linus Torvalds <torvalds@linux-foundation.org>,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Jeff Garzik <jgarzik@pobox.com>,
-	Jay Cliburn <jacliburn@bellsouth.net>,
-	atl1-devel@lists.sourceforge.net
+	Jeff Garzik <jgarzik@pobox.com>
 To: Al Viro <viro@ftp.linux.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:40172 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751006AbXBMRXY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Feb 2007 12:23:24 -0500
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751333AbXBMRg7@vger.kernel.org>
 In-Reply-To: <20070213071256.GF4095@ftp.linux.org.uk>
-Sender: netdev-owner@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Al Viro wrote:
@@ -41,6 +35,16 @@ Al Viro wrote:
 >  	iowrite32(mta, (hw->hw_addr + REG_RX_HASH_TABLE) + (hash_reg << 2));
 >  }
 
-ACK.
+The comment above is funny:
 
-Thanks for catching this.
+349 /*
+350 * The HASH Table is a register array of 2 32-bit registers.
+351 * It is treated like an array of 64 bits. We want to set
+352 * bit BitArray[hash_value]. So we figure out what register
+353 * the bit is in, read it, OR in the new bit, then write
+354 * back the new value. The register is determined by the
+355 * upper 7 bits of the hash value and the bit within that
+356 * register are determined by the lower 5 bits of the value.
+
+How can you use seven bits to choose between two registers?
+And they're not using the lower 5 bits, but rather bits 30..26.
