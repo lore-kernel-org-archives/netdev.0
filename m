@@ -1,45 +1,54 @@
-From: Ismail =?iso-8859-1?q?D=F6nmez?= <ismail-caicS1wCkhO6A22drWdTBw@public.gmane.org>
-Subject: Re: [ANNOUNCE] d80211 based driver for Intel PRO/Wireless 3945ABG
-Date: Tue, 13 Feb 2007 18:57:01 +0200
-Message-ID: <200702131857.02369.ismail@pardus.org.tr>
-References: <45CCE3CA.4050904@linux.intel.com> <200702131558.48987.ismail@pardus.org.tr> <b6a2187b0702130710s217281c4k5ed227995c09c878@mail.gmail.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: /proc/sys/net/ipv[46]/conf/ issue unsolved
+Date: Tue, 13 Feb 2007 09:02:24 -0800
+Message-ID: <20070213090224.2826859f@localhost.localdomain>
+References: <200702131529.04708.hasso@estpak.ee>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "James Ketrenos" <jketreno-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	ipw3945-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "Jeff Chua" <jeff.chua.linux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <b6a2187b0702130710s217281c4k5ed227995c09c878-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Hasso Tepper <hasso@estpak.ee>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.osdl.org ([65.172.181.24]:44424 "EHLO smtp.osdl.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750867AbXBMRCw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Feb 2007 12:02:52 -0500
+In-Reply-To: <200702131529.04708.hasso@estpak.ee>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 13 February 2007 17:10:24 Jeff Chua wrote:
-> On 2/13/07, Ismail D=F6nmez <ismail-caicS1wCkhO6A22drWdTBw@public.gmane.org> wrote:
-> > Tried this is on a patched 2.6.20 kernel with ipw3945 device and it
-> > always puts the card in 802.11a mode instead of 802.11bg mode.
-> >
-> > Ideas?
->
-> Before running  "iwconfig wlan0 channel 8",  the card is set to
-> 802.11a mode. iwconfig shows rate at 54Mb/s. But after setting the
-> channel, it sets to 802.11b mode, and I can't find a way to change
-> from 11Mb/s to 54MB/s.
->
-> "iwlist eth0 rate" only show up to 11Mb/s.
->
-> So, my problem is the card is always in 802.11b mode.
+On Tue, 13 Feb 2007 15:29:04 +0200
+Hasso Tepper <hasso@estpak.ee> wrote:
 
-So I guess there is a common problem with a/bg modes?
+> There is long standing issue in kernel which makes using /etc/sysctl.conf
+> useless for boottime configuration of specific interface properties and
+> breaks probably any software relying on unconditional existence of the
+> conf trees like it was in previous kernels (I alone have written several
+> pieces of such software). It's broken AFAIK from 2.6.15. There has been
+> several notes about issue in the list, but issue haven't got any (at least
+> efficient) attention from developers.
+> 
+> The current behaviour bites users in many ways and breaks several use cases.
+> I asked several times in the past "what I should do now?" question, but
+> got no clear answer.
+> 
+> References:
+> http://marc.theaimsgroup.com/?l=linux-netdev&m=115685059625467&w=2
+> http://marc.theaimsgroup.com/?l=linux-netdev&m=115690828822486&w=2
+> https://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=169809
+> 
+> Is there any chance this will be fixed or at least clear position is
+> taken by developers? Breaking userspace applications is declared nonono
+> several times in the past ... I'm not even against breaking it if there
+> is _very_ good reason to do it. Ok, but I want to know how userspace is
+> meant to behave now. I can't continue using crappy workarounds.
 
-Regards,
-ismail
+As Herbert Xu said:
+
+> You can disable it in /proc/sys/net/ipv6/conf/default/... and then
+> reenable it on the interfaces that you actually want.
+
+And Xen is broken because it tries to use the same bogus Mac
+address on on all pseudo devices.
 
 
--
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
