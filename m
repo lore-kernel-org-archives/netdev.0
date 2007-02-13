@@ -1,77 +1,51 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: /proc/sys/net/ipv[46]/conf/ issue unsolved
-Date: Tue, 13 Feb 2007 13:04:26 -0500
-Message-ID: <45D1FDAA.6070704@hp.com>
-References: <200702131529.04708.hasso@estpak.ee> <20070213090224.2826859f@localhost.localdomain>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [ANNOUNCE] d80211 based driver for Intel PRO/Wireless 3945ABG
+Date: Tue, 13 Feb 2007 19:36:11 +0100
+Message-ID: <1171391771.10344.93.camel@johannes.berg>
+References: <45CCE3CA.4050904@linux.intel.com>
+	 <20070213181313.GA5350@ucw.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Hasso Tepper <hasso@estpak.ee>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-4eDDAlEObNoQHS1+pZk9"
+Cc: James Ketrenos <jketreno@linux.intel.com>,
+	linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
+	ipw3945-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: Pavel Machek <pavel@ucw.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ccerelrim03.cce.hp.com ([161.114.21.24]:32357 "EHLO
-	ccerelrim03.cce.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751531AbXBMSiT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Feb 2007 13:38:19 -0500
-In-Reply-To: <20070213090224.2826859f@localhost.localdomain>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:43738 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751548AbXBMSio (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Feb 2007 13:38:44 -0500
+In-Reply-To: <20070213181313.GA5350@ucw.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> On Tue, 13 Feb 2007 15:29:04 +0200
-> Hasso Tepper <hasso@estpak.ee> wrote:
-> 
->> There is long standing issue in kernel which makes using /etc/sysctl.conf
->> useless for boottime configuration of specific interface properties and
->> breaks probably any software relying on unconditional existence of the
->> conf trees like it was in previous kernels (I alone have written several
->> pieces of such software). It's broken AFAIK from 2.6.15. There has been
->> several notes about issue in the list, but issue haven't got any (at least
->> efficient) attention from developers.
->>
->> The current behaviour bites users in many ways and breaks several use cases.
->> I asked several times in the past "what I should do now?" question, but
->> got no clear answer.
->>
->> References:
->> http://marc.theaimsgroup.com/?l=linux-netdev&m=115685059625467&w=2
->> http://marc.theaimsgroup.com/?l=linux-netdev&m=115690828822486&w=2
->> https://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=169809
->>
->> Is there any chance this will be fixed or at least clear position is
->> taken by developers? Breaking userspace applications is declared nonono
->> several times in the past ... I'm not even against breaking it if there
->> is _very_ good reason to do it. Ok, but I want to know how userspace is
->> meant to behave now. I can't continue using crappy workarounds.
-> 
-> As Herbert Xu said:
-> 
->> You can disable it in /proc/sys/net/ipv6/conf/default/... and then
->> reenable it on the interfaces that you actually want.
-> 
 
-Sorry, but this is backwards.
+--=-4eDDAlEObNoQHS1+pZk9
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-Let's say you have an interface on which you want to turn DAD off.
+On Tue, 2007-02-13 at 18:13 +0000, Pavel Machek wrote:
 
-There are ways to do it:
+> Yes... is there merged .git tree somewhere? I downloaded iwl git tree,
+> but it did not contain d80211 stack. I'm now downloading wireless-dev
+> git tree...
 
-1.  Turn DAD off on all interfaces usinc ipv6/conf/default and then
-     turn it on just on the interface you want.
+I would expect Intel to post patches some time soon to get into
+wireless-dev.
 
-This solution is a royal pain and introduces a potential race
-on the interfaces that should have DAD enabled (i.e. you address will
-be preferred when it really should be tentative).
+johannes
 
-2.  Wait until the interface is up and then turn off dad.
+--=-4eDDAlEObNoQHS1+pZk9
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
 
-However at this point, DAD may have completely already so turning it off
-is useless to us.
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
 
-There needs to be a mechanism by which protocol parameters may be 
-changed on the interface bases before the interface is up/running.
+iD8DBQBF0gUb/ETPhpq3jKURArxBAJsHws1jqvFVuWe3v2L1ffjoVLZh2ACfZXXf
+V4axbwrXq7ThBVYogk3rGXU=
+=gCW8
+-----END PGP SIGNATURE-----
 
-This has been bugging me for while too.
+--=-4eDDAlEObNoQHS1+pZk9--
 
--vlad
