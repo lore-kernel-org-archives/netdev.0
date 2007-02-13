@@ -1,36 +1,30 @@
-From: "Hugo Santos" <hugosantos@gmail.com>
-Subject: Re: /proc/sys/net/ipv[46]/conf/ issue unsolved
-Date: Tue, 13 Feb 2007 19:49:50 +0000
-Message-ID: <9c46321e0702131149j4b9b642cvfe397d5bd2a30038@mail.gmail.com>
-References: <200702131529.04708.hasso@estpak.ee>
-	 <20070213185820.GB25362@hmsreliant.homelinux.net>
-	 <9c46321e0702131124q33b4e263ybc38555cf1544769@mail.gmail.com>
-	 <20070213194538.GF25362@hmsreliant.homelinux.net>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [TG3 1/8]: Save MSI state before suspend.
+Date: Tue, 13 Feb 2007 12:34:44 -0800
+Message-ID: <1171398884.18944.35.camel@rh4>
+References: <1171397612.18944.25.camel@rh4>
+ <20070213194534.GB16991@havoc.gtf.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "Hasso Tepper" <hasso@estpak.ee>, netdev@vger.kernel.org
-To: "Neil Horman" <nhorman@tuxdriver.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: "Jeff Garzik" <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.169]:53042 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750831AbXBMTtw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Feb 2007 14:49:52 -0500
-Received: by ug-out-1314.google.com with SMTP id 44so333314uga
-        for <netdev@vger.kernel.org>; Tue, 13 Feb 2007 11:49:51 -0800 (PST)
-In-Reply-To: <20070213194538.GF25362@hmsreliant.homelinux.net>
-Content-Disposition: inline
+Received: from mms1.broadcom.com ([216.31.210.17]:1567 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750839AbXBMTvU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Feb 2007 14:51:20 -0500
+In-Reply-To: <20070213194534.GB16991@havoc.gtf.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> Yes, I understand that, but until the IFF_UP flag is set on the interface, it
-> doesn't really have any effect on the system as a whole.  You should be able to
-> undo any default setting that you want before you call ifup on the interface, or
-> am I missing something?
+On Tue, 2007-02-13 at 14:45 -0500, Jeff Garzik wrote:
 
-  If i understand what you are proposing, in that context you can't
-undo before you set IFF_UP because the sysfs entries do not exist yet,
-and undoing later is too late as in the case of auto-configuration for
-instance the kernel might already have sent a RtSol.
+> 
+> I'm curious if, after this patch is applied, all the pci_save_state()
+> calls are truly necessary?
+> 
 
-  Hugo
+The others are necessary to save/restore the memory enable bit in the
+PCI command register.  This bit gets reset after chip reset.
+
