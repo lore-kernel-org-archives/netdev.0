@@ -1,34 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: 2.6.20 crash in tcp_tso_segment()
-Date: Tue, 13 Feb 2007 13:53:48 -0800 (PST)
-Message-ID: <20070213.135348.108742593.davem@davemloft.net>
-References: <20070213175121.GA27281@gondor.apana.org.au>
-	<20070213.123413.35665346.davem@davemloft.net>
-	<20070213215158.GA29814@gondor.apana.org.au>
+Subject: Re: [PATCH] IPv6: Implement RFC 4429 Optimistic Duplicate Address
+ Detection
+Date: Tue, 13 Feb 2007 13:53:59 -0800 (PST)
+Message-ID: <20070213.135359.130238374.davem@davemloft.net>
+References: <20070212212037.GA18470@hmsreliant.homelinux.net>
+	<20070213204515.GI25362@hmsreliant.homelinux.net>
+	<20070214.064649.06517604.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, maccetta@laurelnetworks.com,
-	netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+Cc: nhorman@tuxdriver.com, vladislav.yasevich@hp.com, sri@us.ibm.com,
+	kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
+	kaber@coreworks.de, netdev@vger.kernel.org
+To: yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52002
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52951
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751313AbXBMVxt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Feb 2007 16:53:49 -0500
-In-Reply-To: <20070213215158.GA29814@gondor.apana.org.au>
+	by vger.kernel.org with ESMTP id S1751316AbXBMVyB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Feb 2007 16:54:01 -0500
+In-Reply-To: <20070214.064649.06517604.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Wed, 14 Feb 2007 08:51:58 +1100
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Date: Wed, 14 Feb 2007 06:46:49 +0900 (JST)
 
-> On Tue, Feb 13, 2007 at 12:34:13PM -0800, David Miller wrote:
-> >
-> > I'm kind of challenged for time as I'll be out of town from
-> > Wednesday until Sunday, so if someone could cook up the TSO
-> > variable of the patch for pre-GSO kernels I'd appreciate it.
+> In article <20070213204515.GI25362@hmsreliant.homelinux.net> (at Tue, 13 Feb 2007 15:45:15 -0500), Neil Horman <nhorman@tuxdriver.com> says:
 > 
-> Sure, here is the patch for any kernel prior to 2.6.18.
+> > Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> 
+> I'm starting regression tests now.
 
-Thanks a lot Herbert.
+Thank you.
