@@ -1,134 +1,110 @@
-From: Baruch Even <baruch@ev-en.org>
+From: Injong Rhee <rhee@eos.ncsu.edu>
 Subject: Re: [patch 3/3] tcp: remove experimental variants from default list
-Date: Tue, 13 Feb 2007 19:42:16 +0200
-Message-ID: <20070213174216.GS25760@galon.ev-en.org>
-References: <20070212191101.GP25760@galon.ev-en.org> <20070212.122058.63127043.davem@davemloft.net> <20070212221241.GQ25760@galon.ev-en.org> <20070212.145351.35661569.davem@davemloft.net> <20070213095613.GR25760@galon.ev-en.org> <649aecc70702130849s6f70bf37y1f8177060d433ce0@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	shemminger@linux-foundation.org, netdev@vger.kernel.org
-To: SANGTAE HA <sangtae.ha@gmail.com>
+Date: Tue, 13 Feb 2007 12:41:50 -0500
+Message-ID: <d30ac46c6f4874b149313d5dc17d2a67@eos.ncsu.edu>
+References: <20070212191101.GP25760@galon.ev-en.org> <20070212.122058.63127043.davem@davemloft.net> <20070212221241.GQ25760@galon.ev-en.org> <20070212.145351.35661569.davem@davemloft.net> <20070213095613.GR25760@galon.ev-en.org>
+Mime-Version: 1.0 (Apple Message framework v624)
+Content-Type: text/plain; charset=US-ASCII; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Baruch Even <baruch@ev-en.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rrcs-24-123-59-149.central.biz.rr.com ([24.123.59.149]:11105
-	"EHLO galon.ev-en.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751350AbXBMRmT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Feb 2007 12:42:19 -0500
-Content-Disposition: inline
-In-Reply-To: <649aecc70702130849s6f70bf37y1f8177060d433ce0@mail.gmail.com>
+Received: from ms-smtp-03.southeast.rr.com ([24.25.9.102]:50682 "EHLO
+	ms-smtp-03.southeast.rr.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751341AbXBMRnb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Feb 2007 12:43:31 -0500
+In-Reply-To: <20070213095613.GR25760@galon.ev-en.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* SANGTAE HA <sangtae.ha@gmail.com> [070213 18:50]:
-> Hi Baruch,
-> 
-> I would like to add some comments on your argument.
-> 
-> On 2/13/07, Baruch Even <baruch@ev-en.org> wrote:
-> >* David Miller <davem@davemloft.net> [070213 00:53]:
-> >> From: Baruch Even <baruch@ev-en.org>
-> >> Date: Tue, 13 Feb 2007 00:12:41 +0200
-> >>
-> >> > The problem is that you actually put a mostly untested algorithm as the
-> >> > default for everyone to use. The BIC example is important, it was the
-> >> > default algorithm for a long while and had implementation bugs that no
-> >> > one cared for.
-> >>
-> >> And if our TCP Reno implementation had some bugs, what should
-> >> we change the default to?  This is just idiotic logic.
-> >>
-> >> These kinds of comments are just wanking, and lead to nowhere,
-> >> so please kill the noise.
-> >>
-> >> If we have bugs in a particular algorithm, we should just fix
-> >> them.
-> >
-> >I hope you've finished attempting to insult me. But I hope it won't
-> >prevent you from getting back to the topic. The above quote of me was a
-> >prelude to show the repeat behaviour where bic was added without
-> >testing, modified by Stephen and made default with no serious testing of
-> >what was put in the kernel.
-> 
-> 
-> What kind of serious testing you want to? I've been testing all
-> highspeed protocols including BIC and CUBIC for two and half years
-> now. Even Stephen didn't test CUBIC algorithm by himself, he might see
-> the results from our experimental studies. I don't care what algorithm
-> is default in kernel, however, it is not appropriate to get back to
-> Reno. As Windows decided to go with "Compound TCP", why we want to
-> back to 80's algorithm?
 
-I fail to see how Microsoft should be the reason for anything, if
-anything Linux started the arms race.
+On Feb 13, 2007, at 4:56 AM, Baruch Even wrote:
 
-> >It seems this happens again no with cubic. And you failed to respond to
-> >this issue.
-> >
-> >> > The behaviour of cubic wasn't properly verified as the
-> >> > algorithm in the linux kernel is not the one that was actually proposed
-> >> > and you intend to make it the default without sufficient testing, that
-> >> > seems to me to be quite unreasonable.
-> >
-> >According to claims of Doug Leith the cubic algorithm that is in the
-> >kernel is different from what was proposed and tested. That's an
-> >important issue which is deflected by personal attacks.
-> 
-> Did you read that paper?
-> http://wil.cs.caltech.edu/pfldnet2007/paper/CUBIC_analysis.pdf
-> Then, please read the rebuttal for that paper.
-> http://www.csc.ncsu.edu/faculty/rhee/Rebuttal-LSM-new.pdf
-> 
-> Also, the implementation can be different. The cubic code inside of
-> current kernel introduces faster calculation of cubic root. Even
-> though we had some bugs on CUBIC implementation, it is fixed now.
+>
+> According to claims of Doug Leith the cubic algorithm that is in the
+> kernel is different from what was proposed and tested. That's an
+> important issue which is deflected by personal attacks.
 
-We have seen before with bic that the different implementation meant
-that things didnt work as expected. I wouldn't like it to happen again.
+It is not the algorithm "untested" -- it is the implementation not
+fully tested. This is exactly the reason we are proposing to build a 
+common, convenient,
+accessible testbed equipped with a full set of automated testing 
+scenarios. This
+would be useful to crack out these bugs. There could be a weakness in 
+an algorithm, but
+there is no bug in the algorithm.
 
-> 
-> >> My main gripe is that there is a run to make an untested algorithm the
-> >default for all Linux installations. And saying that I should test it is
-> >not an escape route, if it's untested it shouldn't be made the default
-> >algorithm.
-> 
-> What is criteria for "untested"?  Who judges that this algorithm is
-> fully tested and is ready to use?
+>
+> My main gripe is that there is a run to make an untested algorithm the
+> default for all Linux installations. And saying that I should test it 
+> is
+> not an escape route, if it's untested it shouldn't be made the default
+> algorithm.
+>
+> My skimming of the PFLDNet 2007 proceedings showed only the works by
+> Injong and Doug on Cubic and Injong tested some version on Linux
+> 2.6.13(!) which might noe be the version in the current tree. Doug 
+> shows
+> some weaknesses of the Cubic algorithm as implemented in Linux.\
 
-Did you do your tests on 2.6.20? Did you verify that the algorithm
-actually behaves as it should? I don't think anyone did any real tests
-on the cubic version in the kernel and I fear a repeat of the bic issue.
-Code that is untested is likely not to work and as far as I understand
-it you didn't test the current kernel version but rather your own code
-on an ancient kernel.
+That version we tested is patched w/ our implementation of CUBIC. You 
+can get
+the patch from our site so it is a correct implemenation.
+The linux implementation is ever evolving and it is
+hard to keep track of everything at an instance. So we are using our 
+own version
+for our paper publishing. But we also test existing versions of Linux 
+implementation.
+The version that D. Leith has tested is a version that fixes the 
+earlier bug.
+Note that having bugs in the implementation does not warrant attacks on
+the algorithm itself.
 
-I'd be happy to be proven wrong and shown tests of cubic in the latest
-kernel. Saying that I shuold do it myself if concerned is the wrong way
-to go. I no longer have access to test equipment to do that and we
-should not make an algorithm the default without sufficient testing.
+Some "weakness" of CUBIC.. please read my rebuttal
+on that paper in my website:  http://www.csc.ncsu.edu/faculty/rhee/
+The slow convergence issue of CUBIC has been inherent
+feature of CUBIC -- that is a design tradeoff we make when we design
+BIC and CUBIC. Depending on the testing environment, CUBIC has
+very fast convergence, but only in a very low statistical multiplexing 
+environment,
+the conversion is slow. WE HAVE ADMITTED THAT SIN.
+  So he did not exactly FIND that problem. Also on  the
+other issues he just raised..just please read that rebuttal.
 
-> We still do testing with latest kernel version on production
-> networks(4ms, 6ms, 9ms, 45ms, and 200ms). I will post the results when
-> those are ready.
+I am just sick and tired of hearing all these nonsenses that people 
+spray based on some
+incidental observation on the behavior of protocols without proper 
+comparison
+and reasoning why a protocol could behave in that environment being 
+tested.
 
-That would be an important step indeed.
 
-> >My skimming of the PFLDNet 2007 proceedings showed only the works by
-> >Injong and Doug on Cubic and Injong tested some version on Linux
-> >2.6.13(!) which might noe be the version in the current tree. Doug shows
-> >some weaknesses of the Cubic algorithm as implemented in Linux.
-> 
-> As I mentioned, please read the paper and rebuttal carefully. Also, in
+>
+> Do you still think that making Cubic the default is a good idea?
 
-I'll do that later on, but quick reading shows web traffic with a
-minimum of 137KB, which doesn't seem to be very realistic. But I need to
-read deeper to see what goes there.
+Do you think H-TCP could make a good candidate? I remember there are 
+bugs in
+H-TCP implementation (which went on unnoticed for a long time) -- Leith 
+claims
+his team found the bugs -- but it seems a little of coincidence that 
+after we post
+our report on a strange behavior on H-TCP, D. Leith came back saying 
+they
+found the bugs (no attribution..hmm). We also found some problem
+in the weakness of H-TCP algorithm
+(not implementation) as well (please read our Convex ordering
+paper in PFLDnet07). Based on the same argument of yours, then H-TCP
+does not make the cut. I guess none of TCP protocols would have made 
+the cut
+either.
 
-> >Do you still think that making Cubic the default is a good idea?
-> 
-> Then, what do you want to make a default? You want to get back to BIC? or Reno?
 
-I don't claim to have all the right answers, I would prefer to go to
-Reno and I don't buy the argument of DaveM that we have to use some
-fancy high speed algorithm, even if we do go for one I'd prefer a safer
-choice like HSTCP.
+>
+> Baruch
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-Baruch
