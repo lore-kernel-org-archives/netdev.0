@@ -1,36 +1,21 @@
-From: Al Viro <viro@ftp.linux.org.uk>
-Subject: [PATCH] fix atl1 braino
-Date: Tue, 13 Feb 2007 07:12:56 +0000
-Message-ID: <20070213071256.GF4095@ftp.linux.org.uk>
+From: georgios@ece.umn.edu
+Subject: (unknown)
+Date: Tue, 13 Feb 2007 15:45:47 +0800
+Message-ID: <200702130745.l1D7jmRC004167@smtpo.ctimail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Jeff Garzik <jgarzik@pobox.com>
-To: Linus Torvalds <torvalds@linux-foundation.org>
+Content-Type: multipart/mixed;
+	boundary="----=_NextPart_000_0014_F2A0F142.57757F8F"
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:57813 "EHLO
-	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751145AbXBMHNB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Feb 2007 02:13:01 -0500
-Content-Disposition: inline
+Received: from smtp.ctimail.com ([203.186.94.58]:39249 "EHLO smtpo.ctimail.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751173AbXBMICt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Feb 2007 03:02:49 -0500
+Received: from ece.umn.edu (203186112033.ctinets.com [203.186.112.33])
+	by smtpo.ctimail.com (8.12.11/8.12.11) with ESMTP id l1D7jmRC004167
+	for <netdev@vger.kernel.org>; Tue, 13 Feb 2007 15:45:48 +0800 (HKT)
+Subject: 
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Spot the bug...
-
-Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
----
-
-diff --git a/drivers/net/atl1/atl1_hw.c b/drivers/net/atl1/atl1_hw.c
-index 08b2d78..e28707a 100644
---- a/drivers/net/atl1/atl1_hw.c
-+++ b/drivers/net/atl1/atl1_hw.c
-@@ -357,7 +357,7 @@ void atl1_hash_set(struct atl1_hw *hw, u32 hash_value)
- 	 */
- 	hash_reg = (hash_value >> 31) & 0x1;
- 	hash_bit = (hash_value >> 26) & 0x1F;
--	mta = ioread32((hw + REG_RX_HASH_TABLE) + (hash_reg << 2));
-+	mta = ioread32((hw->hw_addr + REG_RX_HASH_TABLE) + (hash_reg << 2));
- 	mta |= (1 << hash_bit);
- 	iowrite32(mta, (hw->hw_addr + REG_RX_HASH_TABLE) + (hash_reg << 2));
- }
+<<< No Message Collected >>>
