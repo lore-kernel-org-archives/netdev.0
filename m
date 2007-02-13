@@ -1,58 +1,65 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 7974] New: BUG: scheduling while atomic:
- swapper/0x10000100/0
-Date: Tue, 13 Feb 2007 15:54:46 -0800
-Message-ID: <20070213155446.2f423782@freekitty>
-References: <20070209133802.01286bbb.akpm@linux-foundation.org>
-	<20070213202905.GA26818@gospo.rdu.redhat.com>
-	<200702132226.l1DMQS22009230@death.nxdomain.ibm.com>
-	<20070213.143243.78711492.davem@davemloft.net>
-	<20070213230803.GB26818@gospo.rdu.redhat.com>
-	<200702132333.l1DNX022012433@death.nxdomain.ibm.com>
+From: Philip Craig <philipc@snapgear.com>
+Subject: Re: [PATCH 4/5] r8169: more alignment for the 0x8168
+Date: Wed, 14 Feb 2007 09:56:18 +1000
+Message-ID: <45D25022.1010607@snapgear.com>
+References: <20061203235257.GA3625@electric-eye.fr.zoreil.com> <20061204000327.GE3625@electric-eye.fr.zoreil.com> <45D13578.8040405@snapgear.com> <20070213081439.GA21261@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Andy Gospodarek <andy@greyhouse.net>,
-	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, lpiccilli@gelre.com.br,
-	bugme-daemon@bugzilla.kernel.org
-To: Jay Vosburgh <fubar@us.ibm.com>
+Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
+	isely@pobox.com
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:33041 "EHLO smtp.osdl.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751456AbXBMXzb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Feb 2007 18:55:31 -0500
-In-Reply-To: <200702132333.l1DNX022012433@death.nxdomain.ibm.com>
+Received: from rex.snapgear.com ([203.143.235.140]:36876 "EHLO
+	cyberguard.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751461AbXBMX5I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Feb 2007 18:57:08 -0500
+In-Reply-To: <20070213081439.GA21261@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-> >/**
-> > * bond_rtnl_wrapper - take the rtnl_lock if needed
-> > * @x:         function with args
-> > *
-> > */
-> >#define RTNL_WRAPPER(x)                \
-> >({                                     \
-> >       int __rc__;                     \
-> >       if (rtnl_trylock()) {           \
-> >               __rc__ = x;             \
-> >               rtnl_unlock();          \
-> >       } else {                        \
-> >               __rc__ = x;             \
-> >       }                               \
-> >       __rc__;                         \
-> >})
-> >
-> >
-> >and wrapped it around the calls to dev_set_mac_address.  I wasn't
-> >pleased with it, but it seemed like it worked pretty well based on the
-> >testing I did.
+Francois Romieu wrote:
+> Philip Craig <philipc@snapgear.com> :
+> [...]
+>> This patch caused a drop in throughput from 178 Mbits/sec to 135 Mbits/sec
+>> on an Intel XScale IXP465.
 > 
-> 	The problem with this is that it'll cause failures in the case
-> that some other unrelated entity holds rtnl ("x" will be performed
-> concurrently with whomever actually holds rtnl).
-> 
-> 	-J
+> Which distribution of packet sizes ?
 
-It is also a crap macro.
+Just using iperf with the default options, MTU 1500,
+forwarding between 2 PCs with the board in the middle.
+
+>> It seems like there is some confusion about what the align parameter
+>> here means. It was originally an offset from an aligned address so that
+>> the IP header aligned, and this patch changes it to the alignment of the
+>> ethernet header. But align is still set to NET_IP_ALIGN for some chips.
+> 
+> Yes, I should have distinguished both in the first place.
+> 
+> Can you describe which chipset from realtek the board is using (lspci -vxx) ?
+
+# lspci -vxx
+00:0c.0 Ethernet controller: Realtek Semiconductor Co., Ltd.: Unknown device 8169 (rev 10)
+        Subsystem: Realtek Semiconductor Co., Ltd.: Unknown device 8169
+        Flags: bus master, 66Mhz, medium devsel, latency 0, IRQ 26
+        I/O ports at 1000 [size=256]
+        Memory at 48061000 (32-bit, non-prefetchable) [size=256]
+        Expansion ROM at 48000000 [disabled] [size=128K]
+        Capabilities: [dc] Power Management version 2
+00: ec 10 69 81 57 01 b0 02 10 00 00 02 08 00 00 00
+10: 01 10 00 00 00 10 06 48 00 00 00 00 00 00 00 00
+20: 00 00 00 00 00 00 00 00 00 00 00 00 ec 10 69 81
+30: 00 00 00 00 dc 00 00 00 00 00 00 00 1a 01 20 40
+
+00:0d.0 Ethernet controller: Realtek Semiconductor Co., Ltd.: Unknown device 8169 (rev 10)
+        Subsystem: Realtek Semiconductor Co., Ltd.: Unknown device 8169
+        Flags: bus master, 66Mhz, medium devsel, latency 0, IRQ 26
+        I/O ports at 1400 [size=256]
+        Memory at 48061100 (32-bit, non-prefetchable) [size=256]
+        Expansion ROM at 48020000 [disabled] [size=128K]
+        Capabilities: [dc] Power Management version 2
+00: ec 10 69 81 57 01 b0 02 10 00 00 02 08 00 00 00
+10: 01 14 00 00 00 11 06 48 00 00 00 00 00 00 00 00
+20: 00 00 00 00 00 00 00 00 00 00 00 00 ec 10 69 81
+30: 00 00 00 00 dc 00 00 00 00 00 00 00 1a 01 20 40
+
