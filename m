@@ -1,65 +1,69 @@
-From: John Heffner <jheffner@psc.edu>
-Subject: Re: [patch 3/3] tcp: remove experimental variants from default list
-Date: Tue, 13 Feb 2007 14:54:45 -0500
-Message-ID: <45D21785.5060105@psc.edu>
-References: <20070212191101.GP25760@galon.ev-en.org> <20070212.122058.63127043.davem@davemloft.net> <20070212221241.GQ25760@galon.ev-en.org> <20070212.145351.35661569.davem@davemloft.net> <20070213095613.GR25760@galon.ev-en.org> <649aecc70702130849s6f70bf37y1f8177060d433ce0@mail.gmail.com> <20070213174216.GS25760@galon.ev-en.org>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH][NET][BRIDGE] br_if: oops in port_carrier_check
+Date: Tue, 13 Feb 2007 11:55:29 -0800
+Message-ID: <20070213115529.6ea7e7bd@freekitty>
+References: <20070207140916.088b1073@oldman>
+	<20070209074211.GA1631@ff.dom.local>
+	<20070209095204.7f43a964@oldman>
+	<20070212064446.GA1651@ff.dom.local>
+	<20070212102848.GA4275@ff.dom.local>
+	<20070212094738.0a8ae896@localhost.localdomain>
+	<20070213062650.GA1614@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Baruch Even <baruch@ev-en.org>, SANGTAE HA <sangtae.ha@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	shemminger@linux-foundation.org
-To: netdev@vger.kernel.org
+Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
+	"bugme-daemon\@kernel-bugs\.osdl\.org"
+	<bugme-daemon@bugzilla.kernel.org>, pterjan@gmail.com
+To: Jarek Poplawski <jarkao2@o2.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailer2.psc.edu ([128.182.66.106]:65526 "EHLO mailer2.psc.edu"
+Received: from smtp.osdl.org ([65.172.181.24]:49849 "EHLO smtp.osdl.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750859AbXBMTy6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Feb 2007 14:54:58 -0500
-In-Reply-To: <20070213174216.GS25760@galon.ev-en.org>
+	id S1750870AbXBMTze (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Feb 2007 14:55:34 -0500
+In-Reply-To: <20070213062650.GA1614@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This isn't really a reply to anyone in particular, but I wanted to touch 
-on a few points.
+On Tue, 13 Feb 2007 07:26:51 +0100
+Jarek Poplawski <jarkao2@o2.pl> wrote:
 
+> On Mon, Feb 12, 2007 at 09:47:38AM -0800, Stephen Hemminger wrote:
+> > On Mon, 12 Feb 2007 11:28:48 +0100
+> > Jarek Poplawski <jarkao2@o2.pl> wrote:
+> > 
+> > > Here is my patch proposal for testing.
+> > > If it doesn't work - forget about it.
+> > > (Prepared with 2.6.20-git6 but could
+> > > be applied to 2.6.20 also.)
+> > > 
+> > > Jarek P.
+> > > 
+> > > 
+> > > dev_hold/dev_put added to prevent dev kfree
+> > > during port_carrier_check runnig, while dev
+> > > and port are removed.
+> > 
+> > No, holding the reference just stops the kfree, it doesn't
+> > stop the device from being removed from the port.
+> 
+> But I wrote above it is only to prevent the kfree.
+> 
+> >        p = dev->br_port;
+> >        if (!p)
+> >                goto done;
+> >        br = p->br;
+> 
+> Then p is NULL here and we goto done.
+> 
+> Sorry, but the first version was wrong (incomplete).
+> Below I attach a new proposal.
+> 
+> 
+> Signed-off-by: Jarek Poplawski <jarkao2@o2.pl>
 
->> Reno. As Windows decided to go with "Compound TCP", why we want to
->> back to 80's algorithm?
-
-It's worth noting that Microsoft is not using Compound TCP by default, 
-except in Beta versions so they can get more experience with it.  It is 
-available to turn on in production versions, but Reno is still default. 
-  Take this how you will, but that's the current state of affairs.
-
-
-> I fail to see how Microsoft should be the reason for anything, if
-> anything Linux started the arms race.
-
-I'd like to put to bed this notion of an arms race.  A number of people 
-have accused Linux and Windows of competing with each other to be more 
-aggressive, which is just not the case.  The use of non-standard 
-congestion control algorithms is due to a real need to fill underused 
-large pipes.  In fact, if Linux or Windows stomped on top of other TCPs 
-in production, it would lead to a bad reputation for the one doing the 
-stomping, and is something everyone is eager to avoid.  It would be 
-easier to design an extremely aggressive control algorithm.  The hard 
-work is in achieving the desired properties of fairness, stability, 
-etc., in addition to high utilization.
-
-Some care has been taken (okay, with varying success) in designing each 
-of the default candidate algorithms to avoid harming standard Reno-style 
-flows under "normal" conditions.  If an algorithms meets this 
-requirement, then there's almost no reason at this point not to use it. 
-  The main issue for the future is dealing with the interaction between 
-various (possibly unknown) congestion control algorithms.  From an 
-academic point of view, it's very difficult to say anything about how 
-they might interact.  At least it's more difficult than modeling how 
-flows using a single algorithm interact with each other.  This is 
-something of a concern, but we must weigh this against the pressing 
-demand for something better than reno.  Further, there's all sorts of 
-traffic out there on the Internet with varying responsiveness, as there 
-is no enforcement of any particular model of congestion control.  This 
-must be taken into account, regardless of what Linux chooses as its 
-default at any point in time.
-
-   -John
+Yes, this looks correct.  If carrier_check is pending the ref count
+gets cleared by cancel. If carrier work is waiting for rtnl, then
+it cleans itself up.
+-- 
+Stephen Hemminger <shemminger@linux-foundation.org>
