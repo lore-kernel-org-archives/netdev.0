@@ -1,46 +1,86 @@
-From: "Jeff Chua" <jeff.chua.linux@gmail.com>
-Subject: Re: [ANNOUNCE] d80211 based driver for Intel PRO/Wireless 3945ABG
-Date: Tue, 13 Feb 2007 23:10:24 +0800
-Message-ID: <b6a2187b0702130710s217281c4k5ed227995c09c878@mail.gmail.com>
-References: <45CCE3CA.4050904@linux.intel.com>
-	 <200702131558.48987.ismail@pardus.org.tr>
+From: Patrick McHardy <kaber@trash.net>
+Subject: [NET_SCHED]: sch_hfsc: replace ASSERT macro by WARN_ON
+Date: Tue, 13 Feb 2007 16:20:07 +0100
+Message-ID: <45D1D727.8010401@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "James Ketrenos" <jketreno@linux.intel.com>,
-	linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
-	ipw3945-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: "=?ISO-8859-1?Q?Ismail_D=F6nmez?=" <ismail@pardus.org.tr>
+Content-Type: multipart/mixed;
+ boundary="------------050002080602080700020800"
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qb-out-0506.google.com ([72.14.204.225]:46222 "EHLO
-	qb-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750716AbXBMPK0 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Feb 2007 10:10:26 -0500
-Received: by qb-out-0506.google.com with SMTP id e7so934863qbe
-        for <netdev@vger.kernel.org>; Tue, 13 Feb 2007 07:10:26 -0800 (PST)
-In-Reply-To: <200702131558.48987.ismail@pardus.org.tr>
-Content-Disposition: inline
+Received: from stinky.trash.net ([213.144.137.162]:38547 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750717AbXBMPUM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Feb 2007 10:20:12 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 2/13/07, Ismail D=F6nmez <ismail@pardus.org.tr> wrote:
-
-> Tried this is on a patched 2.6.20 kernel with ipw3945 device and it a=
-lways
-> puts the card in 802.11a mode instead of 802.11bg mode.
->
-> Ideas?
+This is a multi-part message in MIME format.
+--------------050002080602080700020800
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
 
 
-Before running  "iwconfig wlan0 channel 8",  the card is set to
-802.11a mode. iwconfig shows rate at 54Mb/s. But after setting the
-channel, it sets to 802.11b mode, and I can't find a way to change
-from 11Mb/s to 54MB/s.
+--------------050002080602080700020800
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
 
-"iwlist eth0 rate" only show up to 11Mb/s.
+[NET_SCHED]: sch_hfsc: replace ASSERT macro by WARN_ON
 
-So, my problem is the card is always in 802.11b mode.
+Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-Thanks,
-Jeff.
+---
+commit ee0d5b5b1a2f81dabd5189c6ac960e7cab40d8ff
+tree 6975f4ea578fb1e86f8d9c7607fa08ec3a8c841f
+parent 6e1d9d04c4004361fb327abcbde74a20e8dca2ff
+author Patrick McHardy <kaber@trash.net> Tue, 13 Feb 2007 16:15:12 +0100
+committer Patrick McHardy <kaber@trash.net> Tue, 13 Feb 2007 16:15:12 +0100
+
+ net/sched/sch_hfsc.c |   15 +--------------
+ 1 files changed, 1 insertions(+), 14 deletions(-)
+
+diff --git a/net/sched/sch_hfsc.c b/net/sched/sch_hfsc.c
+index 135087d..396deb7 100644
+--- a/net/sched/sch_hfsc.c
++++ b/net/sched/sch_hfsc.c
+@@ -71,8 +71,6 @@ #include <net/pkt_cls.h>
+ #include <asm/system.h>
+ #include <asm/div64.h>
+ 
+-#define HFSC_DEBUG 1
+-
+ /*
+  * kernel internal service curve representation:
+  *   coordinates are given by 64 bit unsigned integers.
+@@ -211,17 +209,6 @@ do {									\
+ } while (0)
+ #endif
+ 
+-#if HFSC_DEBUG
+-#define ASSERT(cond)							\
+-do {									\
+-	if (unlikely(!(cond)))						\
+-		printk("assertion %s failed at %s:%i (%s)\n",		\
+-		       #cond, __FILE__, __LINE__, __FUNCTION__);	\
+-} while (0)
+-#else
+-#define ASSERT(cond)
+-#endif /* HFSC_DEBUG */
+-
+ #define	HT_INFINITY	0xffffffffffffffffULL	/* infinite time value */
+ 
+ 
+@@ -1492,7 +1479,7 @@ hfsc_schedule_watchdog(struct Qdisc *sch
+ 		if (next_time == 0 || next_time > q->root.cl_cfmin)
+ 			next_time = q->root.cl_cfmin;
+ 	}
+-	ASSERT(next_time != 0);
++	WARN_ON(next_time == 0);
+ 	delay = next_time - cur_time;
+ 	delay = PSCHED_US2JIFFIE(delay);
+ 
+
+--------------050002080602080700020800--
