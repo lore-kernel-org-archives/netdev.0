@@ -1,48 +1,53 @@
 From: "Michael Chan" <mchan@broadcom.com>
-Subject: [TG3 8/8]: Update copyright, version, and reldate.
-Date: Tue, 13 Feb 2007 12:14:58 -0800
-Message-ID: <1171397699.18944.32.camel@rh4>
+Subject: [TG3 7/8]: Add some tx timeout debug messages.
+Date: Tue, 13 Feb 2007 12:14:50 -0800
+Message-ID: <1171397690.18944.31.camel@rh4>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:3531 "EHLO mms1.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:1823 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751814AbXBMTbc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Feb 2007 14:31:32 -0500
+	id S1751807AbXBMTbZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Feb 2007 14:31:25 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[TG3]: Update copyright, version, and reldate.
+[TG3]: Add some tx timeout debug messages.
 
-Update version to 3.73.
+Print the most useful information during tx timeout to help debug.
 
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 159570b..81a1c2e 100644
+index a1aeba2..159570b 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -4,7 +4,7 @@
-  * Copyright (C) 2001, 2002, 2003, 2004 David S. Miller (davem@redhat.com)
-  * Copyright (C) 2001, 2002, 2003 Jeff Garzik (jgarzik@pobox.com)
-  * Copyright (C) 2004 Sun Microsystems Inc.
-- * Copyright (C) 2005 Broadcom Corporation.
-+ * Copyright (C) 2005-2007 Broadcom Corporation.
-  *
-  * Firmware is:
-  *	Derived from proprietary unpublished source code,
-@@ -64,8 +64,8 @@
+@@ -3735,13 +3735,23 @@ out:
+ 	tg3_full_unlock(tp);
+ }
  
- #define DRV_MODULE_NAME		"tg3"
- #define PFX DRV_MODULE_NAME	": "
--#define DRV_MODULE_VERSION	"3.72"
--#define DRV_MODULE_RELDATE	"January 8, 2007"
-+#define DRV_MODULE_VERSION	"3.73"
-+#define DRV_MODULE_RELDATE	"February 12, 2007"
++static void tg3_dump_short_state(struct tg3 *tp)
++{
++	printk(KERN_ERR PFX "DEBUG: MAC_TX_STATUS[%08x] MAC_RX_STATUS[%08x]\n",
++	       tr32(MAC_TX_STATUS), tr32(MAC_RX_STATUS));
++	printk(KERN_ERR PFX "DEBUG: RDMAC_STATUS[%08x] WDMAC_STATUS[%08x]\n",
++	       tr32(RDMAC_STATUS), tr32(WDMAC_STATUS));
++}
++
+ static void tg3_tx_timeout(struct net_device *dev)
+ {
+ 	struct tg3 *tp = netdev_priv(dev);
  
- #define TG3_DEF_MAC_MODE	0
- #define TG3_DEF_RX_MODE		0
+-	if (netif_msg_tx_err(tp))
++	if (netif_msg_tx_err(tp)) {
+ 		printk(KERN_ERR PFX "%s: transmit timed out, resetting\n",
+ 		       dev->name);
++		tg3_dump_short_state(tp);
++	}
+ 
+ 	schedule_work(&tp->reset_task);
+ }
 
 
