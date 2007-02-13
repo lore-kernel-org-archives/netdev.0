@@ -1,53 +1,30 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: [TG3 7/8]: Add some tx timeout debug messages.
-Date: Tue, 13 Feb 2007 12:14:50 -0800
-Message-ID: <1171397690.18944.31.camel@rh4>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [TG3 2/8]: Use lower DMA watermark for 5703.
+Date: Tue, 13 Feb 2007 14:42:44 -0500
+Message-ID: <20070213194244.GA16991@havoc.gtf.org>
+References: <1171397641.18944.26.camel@rh4>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-To: davem@davemloft.net, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Michael Chan <mchan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:1823 "EHLO MMS3.broadcom.com"
+Received: from havoc.gtf.org ([69.61.125.42]:46196 "EHLO havoc.gtf.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751807AbXBMTbZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Feb 2007 14:31:25 -0500
+	id S1750837AbXBMTmp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Feb 2007 14:42:45 -0500
+Content-Disposition: inline
+In-Reply-To: <1171397641.18944.26.camel@rh4>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[TG3]: Add some tx timeout debug messages.
+On Tue, Feb 13, 2007 at 12:14:01PM -0800, Michael Chan wrote:
+> [TG3]: Use lower DMA watermark for 5703.
+> 
+> Set DMA read watermark to 4 on 5703 in PCIX mode.  This is needed to
+> prevent some tx timeouts.
+> 
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
 
-Print the most useful information during tx timeout to help debug.
-
-Signed-off-by: Michael Chan <mchan@broadcom.com>
-
-diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index a1aeba2..159570b 100644
---- a/drivers/net/tg3.c
-+++ b/drivers/net/tg3.c
-@@ -3735,13 +3735,23 @@ out:
- 	tg3_full_unlock(tp);
- }
- 
-+static void tg3_dump_short_state(struct tg3 *tp)
-+{
-+	printk(KERN_ERR PFX "DEBUG: MAC_TX_STATUS[%08x] MAC_RX_STATUS[%08x]\n",
-+	       tr32(MAC_TX_STATUS), tr32(MAC_RX_STATUS));
-+	printk(KERN_ERR PFX "DEBUG: RDMAC_STATUS[%08x] WDMAC_STATUS[%08x]\n",
-+	       tr32(RDMAC_STATUS), tr32(WDMAC_STATUS));
-+}
-+
- static void tg3_tx_timeout(struct net_device *dev)
- {
- 	struct tg3 *tp = netdev_priv(dev);
- 
--	if (netif_msg_tx_err(tp))
-+	if (netif_msg_tx_err(tp)) {
- 		printk(KERN_ERR PFX "%s: transmit timed out, resetting\n",
- 		       dev->name);
-+		tg3_dump_short_state(tp);
-+	}
- 
- 	schedule_work(&tp->reset_task);
- }
+ACK patches 2-8
 
 
