@@ -1,185 +1,64 @@
-From: Sergei Shtylyov <sshtylyov@ru.mvista.com>
-Subject: [PATCH] gianfar: don't duplicate gfar_error() (take 2)
-Date: Tue, 13 Feb 2007 16:44:22 +0400
-Message-ID: <200702131544.22272.sshtylyov@ru.mvista.com>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: [PATCH] [TCP]: Prevent pseudo garbage in SYN's advertized window
+Date: Tue, 13 Feb 2007 15:08:34 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0702131432350.25858@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-embedded@ozlabs.org,
-	galak@kernel.crashing.org, afleming@freescale.com
-To: jgarzik@pobox.com
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696243703-609776933-1171372114=:25858"
+Cc: David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from h155.mvista.com ([63.81.120.155]:18222 "EHLO imap.sh.mvista.com"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750849AbXBMMod (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Feb 2007 07:44:33 -0500
-Content-Disposition: inline
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:34789 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751306AbXBMNNr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Feb 2007 08:13:47 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[Sorry, forgot to remove the obsolete regs argument from gfar_error() call,
-call, so the previous version wasn't even compilable -- I've tested the patch
-in the older kernel. :-<]
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-It was hardly necessary to repeat most of the code from gfar_error() in
-gfar_interrupt(), especially having some inconsistencies between the two.
-So, make the gfar_interrupt() just call gfar_error(), and not acknowledge
-the interrupts itself as gfar_{receive/transmit/error}() do it anyway.
-While at it, also clarify/cleanup debug messages in gfar_error()...
+---696243703-609776933-1171372114=:25858
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
 
-Signed-off-by: Sergei Shtylyov <sshtylyov@ru.mvista.com>
+TCP may advertize up to 16-bits window in SYN packets (no window
+scaling allowed). At the same time, TCP may have rcv_wnd
+(32-bits) that does not fit to 16-bits without window scaling
+resulting in pseudo garbage into advertized window from the
+low-order bits of rcv_wnd. This can happen at least when
+mss <= (1<<wscale) (see tcp_select_initial_window). This patch
+fixes the handling of SYN advertized windows (compile tested
+only).
 
+In worst case (which is unlikely to occur though), the receiver
+advertized window could be just couple of bytes. I'm not sure
+that such situation would be handled very well at all by the
+receiver!? Fortunately, the situation normalizes after the
+first non-SYN ACK is received because it has the correct,
+scaled window.
+
+Alternatively, tcp_select_initial_window could be changed to
+prevent too large rcv_wnd in the first place.
+
+Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
 ---
-The patch survived netperf stressing on MPC8540ADS realtime kernel. :-)
+ net/ipv4/tcp_output.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
- drivers/net/gianfar.c |   85 ++++++++------------------------------------------
- 1 files changed, 15 insertions(+), 70 deletions(-)
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index cebe9aa..1b2897b 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -481,7 +481,7 @@ #endif
+ 		/* RFC1323: The window in SYN & SYN/ACK segments
+ 		 * is never scaled.
+ 		 */
+-		th->window	= htons(tp->rcv_wnd);
++		th->window	= htons(min(tp->rcv_wnd, 65535U));
+ 	} else {
+ 		th->window	= htons(tcp_select_window(sk));
+ 	}
+-- 
+1.4.2
 
-Index: linux-2.6/drivers/net/gianfar.c
-===================================================================
---- linux-2.6.orig/drivers/net/gianfar.c
-+++ linux-2.6/drivers/net/gianfar.c
-@@ -10,6 +10,7 @@
-  * Maintainer: Kumar Gala
-  *
-  * Copyright (c) 2002-2006 Freescale Semiconductor, Inc.
-+ * Copyright (c) 2007 MontaVista Software, Inc.
-  *
-  * This program is free software; you can redistribute  it and/or modify it
-  * under  the terms of  the GNU General  Public License as published by the
-@@ -1613,71 +1614,17 @@ static irqreturn_t gfar_interrupt(int ir
- 	/* Save ievent for future reference */
- 	u32 events = gfar_read(&priv->regs->ievent);
- 
--	/* Clear IEVENT */
--	gfar_write(&priv->regs->ievent, events);
--
- 	/* Check for reception */
--	if ((events & IEVENT_RXF0) || (events & IEVENT_RXB0))
-+	if (events & IEVENT_RX_MASK)
- 		gfar_receive(irq, dev_id);
- 
- 	/* Check for transmit completion */
--	if ((events & IEVENT_TXF) || (events & IEVENT_TXB))
-+	if (events & IEVENT_TX_MASK)
- 		gfar_transmit(irq, dev_id);
- 
--	/* Update error statistics */
--	if (events & IEVENT_TXE) {
--		priv->stats.tx_errors++;
--
--		if (events & IEVENT_LC)
--			priv->stats.tx_window_errors++;
--		if (events & IEVENT_CRL)
--			priv->stats.tx_aborted_errors++;
--		if (events & IEVENT_XFUN) {
--			if (netif_msg_tx_err(priv))
--				printk(KERN_WARNING "%s: tx underrun. dropped packet\n", dev->name);
--			priv->stats.tx_dropped++;
--			priv->extra_stats.tx_underrun++;
--
--			/* Reactivate the Tx Queues */
--			gfar_write(&priv->regs->tstat, TSTAT_CLEAR_THALT);
--		}
--	}
--	if (events & IEVENT_BSY) {
--		priv->stats.rx_errors++;
--		priv->extra_stats.rx_bsy++;
--
--		gfar_receive(irq, dev_id);
--
--#ifndef CONFIG_GFAR_NAPI
--		/* Clear the halt bit in RSTAT */
--		gfar_write(&priv->regs->rstat, RSTAT_CLEAR_RHALT);
--#endif
--
--		if (netif_msg_rx_err(priv))
--			printk(KERN_DEBUG "%s: busy error (rhalt: %x)\n",
--					dev->name,
--					gfar_read(&priv->regs->rstat));
--	}
--	if (events & IEVENT_BABR) {
--		priv->stats.rx_errors++;
--		priv->extra_stats.rx_babr++;
--
--		if (netif_msg_rx_err(priv))
--			printk(KERN_DEBUG "%s: babbling error\n", dev->name);
--	}
--	if (events & IEVENT_EBERR) {
--		priv->extra_stats.eberr++;
--		if (netif_msg_rx_err(priv))
--			printk(KERN_DEBUG "%s: EBERR\n", dev->name);
--	}
--	if ((events & IEVENT_RXC) && (netif_msg_rx_err(priv)))
--			printk(KERN_DEBUG "%s: control frame\n", dev->name);
--
--	if (events & IEVENT_BABT) {
--		priv->extra_stats.tx_babt++;
--		if (netif_msg_rx_err(priv))
--			printk(KERN_DEBUG "%s: babt error\n", dev->name);
--	}
-+	/* Check for errors */
-+	if (events & IEVENT_ERR_MASK)
-+		gfar_error(irq, dev_id);
- 
- 	return IRQ_HANDLED;
- }
-@@ -1939,7 +1886,7 @@ static irqreturn_t gfar_error(int irq, v
- 	/* Hmm... */
- 	if (netif_msg_rx_err(priv) || netif_msg_tx_err(priv))
- 		printk(KERN_DEBUG "%s: error interrupt (ievent=0x%08x imask=0x%08x)\n",
--				dev->name, events, gfar_read(&priv->regs->imask));
-+		       dev->name, events, gfar_read(&priv->regs->imask));
- 
- 	/* Update the error counters */
- 	if (events & IEVENT_TXE) {
-@@ -1951,8 +1898,8 @@ static irqreturn_t gfar_error(int irq, v
- 			priv->stats.tx_aborted_errors++;
- 		if (events & IEVENT_XFUN) {
- 			if (netif_msg_tx_err(priv))
--				printk(KERN_DEBUG "%s: underrun.  packet dropped.\n",
--						dev->name);
-+				printk(KERN_DEBUG "%s: TX FIFO underrun, "
-+				       "packet dropped.\n", dev->name);
- 			priv->stats.tx_dropped++;
- 			priv->extra_stats.tx_underrun++;
- 
-@@ -1974,30 +1921,28 @@ static irqreturn_t gfar_error(int irq, v
- #endif
- 
- 		if (netif_msg_rx_err(priv))
--			printk(KERN_DEBUG "%s: busy error (rhalt: %x)\n",
--					dev->name,
--					gfar_read(&priv->regs->rstat));
-+			printk(KERN_DEBUG "%s: busy error (rstat: %x)\n",
-+			       dev->name, gfar_read(&priv->regs->rstat));
- 	}
- 	if (events & IEVENT_BABR) {
- 		priv->stats.rx_errors++;
- 		priv->extra_stats.rx_babr++;
- 
- 		if (netif_msg_rx_err(priv))
--			printk(KERN_DEBUG "%s: babbling error\n", dev->name);
-+			printk(KERN_DEBUG "%s: babbling RX error\n", dev->name);
- 	}
- 	if (events & IEVENT_EBERR) {
- 		priv->extra_stats.eberr++;
- 		if (netif_msg_rx_err(priv))
--			printk(KERN_DEBUG "%s: EBERR\n", dev->name);
-+			printk(KERN_DEBUG "%s: bus error\n", dev->name);
- 	}
- 	if ((events & IEVENT_RXC) && netif_msg_rx_status(priv))
--		if (netif_msg_rx_status(priv))
--			printk(KERN_DEBUG "%s: control frame\n", dev->name);
-+		printk(KERN_DEBUG "%s: control frame\n", dev->name);
- 
- 	if (events & IEVENT_BABT) {
- 		priv->extra_stats.tx_babt++;
- 		if (netif_msg_tx_err(priv))
--			printk(KERN_DEBUG "%s: babt error\n", dev->name);
-+			printk(KERN_DEBUG "%s: babbling TX error\n", dev->name);
- 	}
- 	return IRQ_HANDLED;
- }
-
+---696243703-609776933-1171372114=:25858--
