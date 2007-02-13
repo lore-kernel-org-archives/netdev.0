@@ -1,65 +1,61 @@
-From: Philip Craig <philipc@snapgear.com>
-Subject: Re: [PATCH 4/5] r8169: more alignment for the 0x8168
-Date: Wed, 14 Feb 2007 09:56:18 +1000
-Message-ID: <45D25022.1010607@snapgear.com>
-References: <20061203235257.GA3625@electric-eye.fr.zoreil.com> <20061204000327.GE3625@electric-eye.fr.zoreil.com> <45D13578.8040405@snapgear.com> <20070213081439.GA21261@electric-eye.fr.zoreil.com>
+From: James Ketrenos <jketreno@linux.intel.com>
+Subject: Re: [ANNOUNCE] d80211 based driver for Intel
+	PRO/Wireless 3945ABG
+Date: Tue, 13 Feb 2007 15:18:24 -0800
+Message-ID: <45D24740.3070804@linux.intel.com>
+References: <45CCE3CA.4050904@linux.intel.com>	 <20070213181313.GA5350@ucw.cz>
+	<1171391771.10344.93.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
-	isely@pobox.com
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rex.snapgear.com ([203.143.235.140]:36876 "EHLO
-	cyberguard.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751461AbXBMX5I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Feb 2007 18:57:08 -0500
-In-Reply-To: <20070213081439.GA21261@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Pavel Machek <pavel@ucw.cz>,
+	ipw3945-devel@lists.sourceforge.net
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <ipw3945-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <1171391771.10344.93.camel@johannes.berg>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/ipw3945-devel>,
+	<mailto:ipw3945-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=ipw3945-devel>
+List-Post: <mailto:ipw3945-devel@lists.sourceforge.net>
+List-Help: <mailto:ipw3945-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/ipw3945-devel>,
+	<mailto:ipw3945-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: ipw3945-devel-bounces@lists.sourceforge.net
+Errors-To: ipw3945-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Francois Romieu wrote:
-> Philip Craig <philipc@snapgear.com> :
-> [...]
->> This patch caused a drop in throughput from 178 Mbits/sec to 135 Mbits/sec
->> on an Intel XScale IXP465.
+Johannes Berg wrote:
+> On Tue, 2007-02-13 at 18:13 +0000, Pavel Machek wrote:
 > 
-> Which distribution of packet sizes ?
-
-Just using iperf with the default options, MTU 1500,
-forwarding between 2 PCs with the board in the middle.
-
->> It seems like there is some confusion about what the align parameter
->> here means. It was originally an offset from an aligned address so that
->> the IP header aligned, and this patch changes it to the alignment of the
->> ethernet header. But align is still set to NET_IP_ALIGN for some chips.
+>> Yes... is there merged .git tree somewhere? I downloaded iwl git tree,
+>> but it did not contain d80211 stack. I'm now downloading wireless-dev
+>> git tree...
 > 
-> Yes, I should have distinguished both in the first place.
+> I would expect Intel to post patches some time soon to get into
+> wireless-dev.
 > 
-> Can you describe which chipset from realtek the board is using (lspci -vxx) ?
+> johannes
 
-# lspci -vxx
-00:0c.0 Ethernet controller: Realtek Semiconductor Co., Ltd.: Unknown device 8169 (rev 10)
-        Subsystem: Realtek Semiconductor Co., Ltd.: Unknown device 8169
-        Flags: bus master, 66Mhz, medium devsel, latency 0, IRQ 26
-        I/O ports at 1000 [size=256]
-        Memory at 48061000 (32-bit, non-prefetchable) [size=256]
-        Expansion ROM at 48000000 [disabled] [size=128K]
-        Capabilities: [dc] Power Management version 2
-00: ec 10 69 81 57 01 b0 02 10 00 00 02 08 00 00 00
-10: 01 10 00 00 00 10 06 48 00 00 00 00 00 00 00 00
-20: 00 00 00 00 00 00 00 00 00 00 00 00 ec 10 69 81
-30: 00 00 00 00 dc 00 00 00 00 00 00 00 1a 01 20 40
+Some of the patches contained in the d80211-1.0.1 'pending/' directory 
+have already been submitted to netdev in the past.  The rest will be 
+submitted soon (I would have liked them to have been submitted a few 
+weeks back, but that slipped through my task list)
 
-00:0d.0 Ethernet controller: Realtek Semiconductor Co., Ltd.: Unknown device 8169 (rev 10)
-        Subsystem: Realtek Semiconductor Co., Ltd.: Unknown device 8169
-        Flags: bus master, 66Mhz, medium devsel, latency 0, IRQ 26
-        I/O ports at 1400 [size=256]
-        Memory at 48061100 (32-bit, non-prefetchable) [size=256]
-        Expansion ROM at 48020000 [disabled] [size=128K]
-        Capabilities: [dc] Power Management version 2
-00: ec 10 69 81 57 01 b0 02 10 00 00 02 08 00 00 00
-10: 01 14 00 00 00 11 06 48 00 00 00 00 00 00 00 00
-20: 00 00 00 00 00 00 00 00 00 00 00 00 ec 10 69 81
-30: 00 00 00 00 dc 00 00 00 00 00 00 00 1a 01 20 40
+The d80211 packages I've pushed to date haven't done a very good job of 
+accounting regarding the pending/ directory.  Those were the patches our 
+team here had been working with internally, and I wanted to get them out 
+to the users ASAP.  I'm working to get better descriptions added to the 
+headers of those patches, as well as adding a status line indicating 
+when the patches were submitted to the mailing lists for discussion.
 
+The goal is to only include patches in the d80211 tarballs which have 
+been submitted for eventual in-tree inclusion.
+
+James
+
+-------------------------------------------------------------------------
+Using Tomcat but need to do more? Need to support web services, security?
+Get stuff done quickly with pre-integrated technology to make your job easier.
+Download IBM WebSphere Application Server v.1.0.1 based on Apache Geronimo
+http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
