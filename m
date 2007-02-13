@@ -1,38 +1,54 @@
-From: Baruch Even <baruch@ev-en.org>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [patch 3/3] tcp: remove experimental variants from default list
-Date: Tue, 13 Feb 2007 22:06:00 +0200
-Message-ID: <20070213200600.GU25760@galon.ev-en.org>
-References: <20070212221241.GQ25760@galon.ev-en.org> <20070212.145351.35661569.davem@davemloft.net> <20070213095613.GR25760@galon.ev-en.org> <20070213.115636.74561887.davem@davemloft.net>
+Date: Tue, 13 Feb 2007 12:06:40 -0800 (PST)
+Message-ID: <20070213.120640.18311028.davem@davemloft.net>
+References: <20070212.145351.35661569.davem@davemloft.net>
+	<20070213095613.GR25760@galon.ev-en.org>
+	<649aecc70702130849s6f70bf37y1f8177060d433ce0@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: baruch@ev-en.org, shemminger@linux-foundation.org,
+	netdev@vger.kernel.org
+To: sangtae.ha@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rrcs-24-123-59-149.central.biz.rr.com ([24.123.59.149]:11979
-	"EHLO galon.ev-en.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750912AbXBMUGE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Feb 2007 15:06:04 -0500
-Content-Disposition: inline
-In-Reply-To: <20070213.115636.74561887.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:32986
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750913AbXBMUGm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Feb 2007 15:06:42 -0500
+In-Reply-To: <649aecc70702130849s6f70bf37y1f8177060d433ce0@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* David Miller <davem@davemloft.net> [070213 21:56]:
-> From: Baruch Even <baruch@ev-en.org>
-> Date: Tue, 13 Feb 2007 11:56:13 +0200
-> 
-> > Do you still think that making Cubic the default is a good idea?
-> 
-> Can you propose a better alternative other than Reno?
+From: "SANGTAE HA" <sangtae.ha@gmail.com>
+Date: Tue, 13 Feb 2007 11:49:47 -0500
 
-The only other option would be HS-TCP. It is a very simple extension of
-Reno and should be good enough for the current common high BDP
-connections. If not that then the choice is to keep on BIC and test the
-existing implementation of Cubic before making it the default, if at
-all.
+> I don't care what algorithm is default in kernel, however, it is not
+> appropriate to get back to Reno. As Windows decided to go with
+> "Compound TCP", why we want to back to 80's algorithm?
 
-I still think that using a default of high-speed algorithm is not the
-right thing to do, but I'd rather have a sane default rather than go for
-the latest proposal to catch the eye.
+I want to re-emphasize this, in BIG BOLD LETTERS, that going back to
+Reno is totally unacceptable recommendation to anyone in the current
+internet environment.
 
-Baruch
+In fact, it's a cop out to tell people they should use Reno instead
+of one of the modern algorithms that can handle high BDP paths.
+
+> What is criteria for "untested"?  Who judges that this algorithm is
+> fully tested and is ready to use?
+
+This is another excellent point.
+
+Right now, in the end, the people who decide this are roughly
+Stephen and myself.  So we do need to read the papers (we did),
+think about the algorithm, and figure out what's best for Linux.
+And that means balancing each possibility with each reasonable
+alternative, and Reno is NOT a reasonable alternative.
+
+And right now what's best for Linux, from our perspective, is a
+default of CUBIC.
+
+> Then, what do you want to make a default? You want to get back to
+> BIC? or Reno?
+
+Baruch has already stated that he recommends people to use Reno.
