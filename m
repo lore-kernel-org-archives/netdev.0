@@ -1,61 +1,28 @@
-From: James Ketrenos <jketreno@linux.intel.com>
-Subject: Re: [ANNOUNCE] d80211 based driver for Intel
-	PRO/Wireless 3945ABG
-Date: Tue, 13 Feb 2007 15:18:24 -0800
-Message-ID: <45D24740.3070804@linux.intel.com>
-References: <45CCE3CA.4050904@linux.intel.com>	 <20070213181313.GA5350@ucw.cz>
-	<1171391771.10344.93.camel@johannes.berg>
+From: James Ketrenos <jketreno-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+Subject: Re: [ipw3945-devel] [ANNOUNCE] d80211 based driver for Intel PRO/Wireless
+ 3945ABG
+Date: Tue, 13 Feb 2007 15:23:31 -0800
+Message-ID: <45D24873.10308@linux.intel.com>
+References: <45CCE3CA.4050904@linux.intel.com> <20070210004620.GA5959@gamma.logic.tuwien.ac.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Pavel Machek <pavel@ucw.cz>,
-	ipw3945-devel@lists.sourceforge.net
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <ipw3945-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1171391771.10344.93.camel@johannes.berg>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/ipw3945-devel>,
-	<mailto:ipw3945-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=ipw3945-devel>
-List-Post: <mailto:ipw3945-devel@lists.sourceforge.net>
-List-Help: <mailto:ipw3945-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/ipw3945-devel>,
-	<mailto:ipw3945-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: ipw3945-devel-bounces@lists.sourceforge.net
-Errors-To: ipw3945-devel-bounces@lists.sourceforge.net
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	ipw3945-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Norbert Preining <preining-DX+603jRYB8@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20070210004620.GA5959-DqSSrKF0TaySnEC3TeqHn5dqbFPxfnh/@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Johannes Berg wrote:
-> On Tue, 2007-02-13 at 18:13 +0000, Pavel Machek wrote:
-> 
->> Yes... is there merged .git tree somewhere? I downloaded iwl git tree,
->> but it did not contain d80211 stack. I'm now downloading wireless-dev
->> git tree...
-> 
-> I would expect Intel to post patches some time soon to get into
-> wireless-dev.
-> 
-> johannes
+Norbert Preining wrote:
+...
+> Ahhh ... one thing: The LED on my Acer Laptop (TM3012) does not show up,
+> maybe because I have CONFIG_D80211_LEDS off?
 
-Some of the patches contained in the d80211-1.0.1 'pending/' directory 
-have already been submitted to netdev in the past.  The rest will be 
-submitted soon (I would have liked them to have been submitted a few 
-weeks back, but that slipped through my task list)
+The LED code in iwlwifi isn't hooked up to the D80211 LED code yet.  If 
+you'd file a bug at http://bughost.org regarding the LEDs being broken 
+(if you haven't already) I would appreciate it.
 
-The d80211 packages I've pushed to date haven't done a very good job of 
-accounting regarding the pending/ directory.  Those were the patches our 
-team here had been working with internally, and I wanted to get them out 
-to the users ASAP.  I'm working to get better descriptions added to the 
-headers of those patches, as well as adding a status line indicating 
-when the patches were submitted to the mailing lists for discussion.
-
-The goal is to only include patches in the d80211 tarballs which have 
-been submitted for eventual in-tree inclusion.
-
+Thanks,
 James
-
--------------------------------------------------------------------------
-Using Tomcat but need to do more? Need to support web services, security?
-Get stuff done quickly with pre-integrated technology to make your job easier.
-Download IBM WebSphere Application Server v.1.0.1 based on Apache Geronimo
-http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
