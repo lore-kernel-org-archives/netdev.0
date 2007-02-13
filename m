@@ -1,68 +1,81 @@
-From: Baruch Even <baruch@ev-en.org>
-Subject: Re: [patch 3/3] tcp: remove experimental variants from default list
-Date: Tue, 13 Feb 2007 11:56:13 +0200
-Message-ID: <20070213095613.GR25760@galon.ev-en.org>
-References: <20070212191101.GP25760@galon.ev-en.org> <20070212.122058.63127043.davem@davemloft.net> <20070212221241.GQ25760@galon.ev-en.org> <20070212.145351.35661569.davem@davemloft.net>
+From: "Hesse, Christian" <mail-8oMOrB1mGocUSW6y5lq3GQ@public.gmane.org>
+Subject: Re: [ANNOUNCE] d80211 based driver for Intel PRO/Wireless 3945ABG
+Date: Tue, 13 Feb 2007 13:18:33 +0100
+Message-ID: <200702131318.38027.mail@earthworm.de>
+References: <45CCE3CA.4050904@linux.intel.com> <200702101525.56820.mail@earthworm.de> <45D0B363.8070303@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rrcs-24-123-59-149.central.biz.rr.com ([24.123.59.149]:63379
-	"EHLO galon.ev-en.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751232AbXBMJ4Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Feb 2007 04:56:16 -0500
-Content-Disposition: inline
-In-Reply-To: <20070212.145351.35661569.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: multipart/signed;
+  boundary="nextPart1513687.nBdbPG6PMV";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	ipw3945-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: James Ketrenos <jketreno-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <45D0B363.8070303-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-* David Miller <davem@davemloft.net> [070213 00:53]:
-> From: Baruch Even <baruch@ev-en.org>
-> Date: Tue, 13 Feb 2007 00:12:41 +0200
-> 
-> > The problem is that you actually put a mostly untested algorithm as the
-> > default for everyone to use. The BIC example is important, it was the
-> > default algorithm for a long while and had implementation bugs that no
-> > one cared for.
-> 
-> And if our TCP Reno implementation had some bugs, what should
-> we change the default to?  This is just idiotic logic.
-> 
-> These kinds of comments are just wanking, and lead to nowhere,
-> so please kill the noise.
-> 
-> If we have bugs in a particular algorithm, we should just fix
-> them.
+--nextPart1513687.nBdbPG6PMV
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-I hope you've finished attempting to insult me. But I hope it won't
-prevent you from getting back to the topic. The above quote of me was a
-prelude to show the repeat behaviour where bic was added without
-testing, modified by Stephen and made default with no serious testing of
-what was put in the kernel.
+On Monday 12 February 2007 19:35, James Ketrenos wrote:
+> Hesse, Christian wrote:
+> > On Saturday 10 February 2007 14:23, Hesse, Christian wrote:
+> >> On Friday 09 February 2007 22:12, James Ketrenos wrote:
+> >>> We are pleased to announce the availability of a new driver for the
+> >>> Intel PRO/Wireless 3945ABG Network Connection adapter.
+>
+> ...
+>
+> > Oh, I forgot one note: "make patch_kernel" is terribly broken. Any chan=
+ce
+> > to get this fixed soon?
+>
+> I've put up a new version of iwlwifi (0.0.6) with significant changes to
+> the patch_kernel scripts as well as including Pavel's patch to KSRC.
+>
+> I performed some build testing with 2.6.18 and wireless-dev @ commit
+> f66e5aaa88c1c0a7ee6c6427d6535ed8afd35427 (Jan 8).
+>
+> http://intellinuxwireless.org/?n=3Ddownloads
+>
+> Let me know if it is still breaking.
 
-It seems this happens again no with cubic. And you failed to respond to
-this issue.
+Hmm, it compiled once, but after I removed the tree and used a clean one I =
+can=20
+not reproduce it:
 
-> > The behaviour of cubic wasn't properly verified as the
-> > algorithm in the linux kernel is not the one that was actually proposed
-> > and you intend to make it the default without sufficient testing, that
-> > seems to me to be quite unreasonable.
+LD      drivers/net/wireless/built-in.o
+ld: drivers/net/wireless/d80211/built-in.o: No such file: No such file or=20
+directory
+make[3]: *** [drivers/net/wireless/built-in.o] Error 1
+make[2]: *** [drivers/net/wireless] Error 2
+make[1]: *** [drivers/net] Error 2
+make: *** [drivers] Error 2
 
-According to claims of Doug Leith the cubic algorithm that is in the
-kernel is different from what was proposed and tested. That's an
-important issue which is deflected by personal attacks.
+So it is still broken.
+=2D-=20
+Regards,
+Chris
 
-My main gripe is that there is a run to make an untested algorithm the
-default for all Linux installations. And saying that I should test it is
-not an escape route, if it's untested it shouldn't be made the default
-algorithm.
+--nextPart1513687.nBdbPG6PMV
+Content-Type: application/pgp-signature
 
-My skimming of the PFLDNet 2007 proceedings showed only the works by
-Injong and Doug on Cubic and Injong tested some version on Linux
-2.6.13(!) which might noe be the version in the current tree. Doug shows
-some weaknesses of the Cubic algorithm as implemented in Linux.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.6 (GNU/Linux)
 
-Do you still think that making Cubic the default is a good idea?
+iD8DBQBF0aydlZfG2c8gdSURAkFAAJ9BGLgPA41ckZrsXTWDZHNo1LEnGgCgsFdA
+zve0xVxSF+0d8iyje4+ESO8=
+=3wBC
+-----END PGP SIGNATURE-----
 
-Baruch
+--nextPart1513687.nBdbPG6PMV--
+-
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
