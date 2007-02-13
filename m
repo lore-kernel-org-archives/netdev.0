@@ -1,238 +1,103 @@
-From: Kumar Gala <galak@kernel.crashing.org>
-Subject: [git patches] gianfar sysfs driver fix
-Date: Mon, 12 Feb 2007 23:55:29 -0600 (CST)
-Message-ID: <Pine.LNX.4.64.0702122354080.21656@localhost.localdomain>
-References: <Pine.LNX.4.64.0702081118090.29779@localhost.localdomain>
- <45CCE357.3030203@pobox.com> <Pine.LNX.4.64.0702091531090.8491@localhost.localdomain>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: [PATCH][NET][BRIDGE] br_if: oops in port_carrier_check
+Date: Tue, 13 Feb 2007 07:26:51 +0100
+Message-ID: <20070213062650.GA1614@ff.dom.local>
+References: <20070207140916.088b1073@oldman> <20070209074211.GA1631@ff.dom.local> <20070209095204.7f43a964@oldman> <20070212064446.GA1651@ff.dom.local> <20070212102848.GA4275@ff.dom.local> <20070212094738.0a8ae896@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: netdev@vger.kernel.org
-To: Jeff Garzik <jgarzik@pobox.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
+	"bugme-daemon\@kernel-bugs\.osdl\.org"
+	<bugme-daemon@bugzilla.kernel.org>, pterjan@gmail.com
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nommos.sslcatacombnetworking.com ([67.18.224.114]:39896 "EHLO
-	nommos.sslcatacombnetworking.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751110AbXBMF6R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Feb 2007 00:58:17 -0500
-In-Reply-To: <Pine.LNX.4.64.0702091531090.8491@localhost.localdomain>
+Received: from mx10.go2.pl ([193.17.41.74]:60791 "EHLO poczta.o2.pl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1161098AbXBMGXn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Feb 2007 01:23:43 -0500
+Content-Disposition: inline
+In-Reply-To: <20070212094738.0a8ae896@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Please pull from 'gfar' branch of
-master.kernel.org/pub/scm/linux/kernel/git/galak/powerpc.git gfar
+On Mon, Feb 12, 2007 at 09:47:38AM -0800, Stephen Hemminger wrote:
+> On Mon, 12 Feb 2007 11:28:48 +0100
+> Jarek Poplawski <jarkao2@o2.pl> wrote:
+> 
+> > Here is my patch proposal for testing.
+> > If it doesn't work - forget about it.
+> > (Prepared with 2.6.20-git6 but could
+> > be applied to 2.6.20 also.)
+> > 
+> > Jarek P.
+> > 
+> > 
+> > dev_hold/dev_put added to prevent dev kfree
+> > during port_carrier_check runnig, while dev
+> > and port are removed.
+> 
+> No, holding the reference just stops the kfree, it doesn't
+> stop the device from being removed from the port.
 
-(will try this as a git pull request, see if that works better :)
+But I wrote above it is only to prevent the kfree.
 
-to receive the following updates:
+>        p = dev->br_port;
+>        if (!p)
+>                goto done;
+>        br = p->br;
 
-  drivers/net/gianfar_sysfs.c |  108 ++++++++++++++++++++++----------------------
-  1 file changed, 55 insertions(+), 53 deletions(-)
+Then p is NULL here and we goto done.
 
-Kumar Gala (1):
-       Convert network devices to use struct device instead of class_device
+Sorry, but the first version was wrong (incomplete).
+Below I attach a new proposal.
 
-diff --git a/drivers/net/gianfar_sysfs.c b/drivers/net/gianfar_sysfs.c
-index 9dd387f..6e2166a 100644
---- a/drivers/net/gianfar_sysfs.c
-+++ b/drivers/net/gianfar_sysfs.c
-@@ -39,13 +39,15 @@
-  #include "gianfar.h"
 
-  #define GFAR_ATTR(_name) \
--static ssize_t gfar_show_##_name(struct class_device *cdev, char *buf); \
--static ssize_t gfar_set_##_name(struct class_device *cdev, \
-+static ssize_t gfar_show_##_name(struct device *dev, \
-+	 struct device_attribute *attr, char *buf); \
-+static ssize_t gfar_set_##_name(struct device *dev, \
-+		struct device_attribute *attr, \
-  		const char *buf, size_t count); \
--static CLASS_DEVICE_ATTR(_name, 0644, gfar_show_##_name, gfar_set_##_name)
-+static DEVICE_ATTR(_name, 0644, gfar_show_##_name, gfar_set_##_name)
+Signed-off-by: Jarek Poplawski <jarkao2@o2.pl>
 
-  #define GFAR_CREATE_FILE(_dev, _name) \
--	class_device_create_file(&_dev->class_dev, &class_device_attr_##_name)
-+	device_create_file(&_dev->dev, &dev_attr_##_name)
+---
 
-  GFAR_ATTR(bd_stash);
-  GFAR_ATTR(rx_stash_size);
-@@ -54,29 +56,28 @@ GFAR_ATTR(fifo_threshold);
-  GFAR_ATTR(fifo_starve);
-  GFAR_ATTR(fifo_starve_off);
-
--#define to_net_dev(cd) container_of(cd, struct net_device, class_dev)
--
--static ssize_t gfar_show_bd_stash(struct class_device *cdev, char *buf)
-+static ssize_t gfar_show_bd_stash(struct device *dev,
-+				  struct device_attribute *attr, char *buf)
-  {
--	struct net_device *dev = to_net_dev(cdev);
--	struct gfar_private *priv = netdev_priv(dev);
-+	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
-
--	return sprintf(buf, "%s\n", priv->bd_stash_en? "on" : "off");
-+	return sprintf(buf, "%s\n", priv->bd_stash_en ? "on" : "off");
-  }
-
--static ssize_t gfar_set_bd_stash(struct class_device *cdev,
--		const char *buf, size_t count)
-+static ssize_t gfar_set_bd_stash(struct device *dev,
-+				 struct device_attribute *attr,
-+				 const char *buf, size_t count)
-  {
--	struct net_device *dev = to_net_dev(cdev);
--	struct gfar_private *priv = netdev_priv(dev);
-+	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
-  	int new_setting = 0;
-  	u32 temp;
-  	unsigned long flags;
-
-  	/* Find out the new setting */
--	if (!strncmp("on", buf, count-1) || !strncmp("1", buf, count-1))
-+	if (!strncmp("on", buf, count - 1) || !strncmp("1", buf, count - 1))
-  		new_setting = 1;
--	else if (!strncmp("off", buf, count-1) || !strncmp("0", buf, count-1))
-+	else if (!strncmp("off", buf, count - 1)
-+		 || !strncmp("0", buf, count - 1))
-  		new_setting = 0;
-  	else
-  		return count;
-@@ -100,19 +101,19 @@ static ssize_t gfar_set_bd_stash(struct class_device *cdev,
-  	return count;
-  }
-
--static ssize_t gfar_show_rx_stash_size(struct class_device *cdev, char *buf)
-+static ssize_t gfar_show_rx_stash_size(struct device *dev,
-+				       struct device_attribute *attr, char *buf)
-  {
--	struct net_device *dev = to_net_dev(cdev);
--	struct gfar_private *priv = netdev_priv(dev);
-+	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
-
-  	return sprintf(buf, "%d\n", priv->rx_stash_size);
-  }
-
--static ssize_t gfar_set_rx_stash_size(struct class_device *cdev,
--		const char *buf, size_t count)
-+static ssize_t gfar_set_rx_stash_size(struct device *dev,
-+				      struct device_attribute *attr,
-+				      const char *buf, size_t count)
-  {
--	struct net_device *dev = to_net_dev(cdev);
--	struct gfar_private *priv = netdev_priv(dev);
-+	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
-  	unsigned int length = simple_strtoul(buf, NULL, 0);
-  	u32 temp;
-  	unsigned long flags;
-@@ -146,21 +147,21 @@ static ssize_t gfar_set_rx_stash_size(struct class_device *cdev,
-  	return count;
-  }
-
--
-  /* Stashing will only be enabled when rx_stash_size != 0 */
--static ssize_t gfar_show_rx_stash_index(struct class_device *cdev, char *buf)
-+static ssize_t gfar_show_rx_stash_index(struct device *dev,
-+					struct device_attribute *attr,
-+					char *buf)
-  {
--	struct net_device *dev = to_net_dev(cdev);
--	struct gfar_private *priv = netdev_priv(dev);
-+	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
-
-  	return sprintf(buf, "%d\n", priv->rx_stash_index);
-  }
-
--static ssize_t gfar_set_rx_stash_index(struct class_device *cdev,
--		const char *buf, size_t count)
-+static ssize_t gfar_set_rx_stash_index(struct device *dev,
-+				       struct device_attribute *attr,
-+				       const char *buf, size_t count)
-  {
--	struct net_device *dev = to_net_dev(cdev);
--	struct gfar_private *priv = netdev_priv(dev);
-+	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
-  	unsigned short index = simple_strtoul(buf, NULL, 0);
-  	u32 temp;
-  	unsigned long flags;
-@@ -184,19 +185,20 @@ static ssize_t gfar_set_rx_stash_index(struct class_device *cdev,
-  	return count;
-  }
-
--static ssize_t gfar_show_fifo_threshold(struct class_device *cdev, char *buf)
-+static ssize_t gfar_show_fifo_threshold(struct device *dev,
-+					struct device_attribute *attr,
-+					char *buf)
-  {
--	struct net_device *dev = to_net_dev(cdev);
--	struct gfar_private *priv = netdev_priv(dev);
-+	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
-
-  	return sprintf(buf, "%d\n", priv->fifo_threshold);
-  }
-
--static ssize_t gfar_set_fifo_threshold(struct class_device *cdev,
--		const char *buf, size_t count)
-+static ssize_t gfar_set_fifo_threshold(struct device *dev,
-+				       struct device_attribute *attr,
-+				       const char *buf, size_t count)
-  {
--	struct net_device *dev = to_net_dev(cdev);
--	struct gfar_private *priv = netdev_priv(dev);
-+	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
-  	unsigned int length = simple_strtoul(buf, NULL, 0);
-  	u32 temp;
-  	unsigned long flags;
-@@ -218,20 +220,19 @@ static ssize_t gfar_set_fifo_threshold(struct class_device *cdev,
-  	return count;
-  }
-
--static ssize_t gfar_show_fifo_starve(struct class_device *cdev, char *buf)
-+static ssize_t gfar_show_fifo_starve(struct device *dev,
-+				     struct device_attribute *attr, char *buf)
-  {
--	struct net_device *dev = to_net_dev(cdev);
--	struct gfar_private *priv = netdev_priv(dev);
-+	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
-
-  	return sprintf(buf, "%d\n", priv->fifo_starve);
-  }
-
--
--static ssize_t gfar_set_fifo_starve(struct class_device *cdev,
--		const char *buf, size_t count)
-+static ssize_t gfar_set_fifo_starve(struct device *dev,
-+				    struct device_attribute *attr,
-+				    const char *buf, size_t count)
-  {
--	struct net_device *dev = to_net_dev(cdev);
--	struct gfar_private *priv = netdev_priv(dev);
-+	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
-  	unsigned int num = simple_strtoul(buf, NULL, 0);
-  	u32 temp;
-  	unsigned long flags;
-@@ -253,19 +254,20 @@ static ssize_t gfar_set_fifo_starve(struct class_device *cdev,
-  	return count;
-  }
-
--static ssize_t gfar_show_fifo_starve_off(struct class_device *cdev, char *buf)
-+static ssize_t gfar_show_fifo_starve_off(struct device *dev,
-+					 struct device_attribute *attr,
-+					 char *buf)
-  {
--	struct net_device *dev = to_net_dev(cdev);
--	struct gfar_private *priv = netdev_priv(dev);
-+	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
-
-  	return sprintf(buf, "%d\n", priv->fifo_starve_off);
-  }
-
--static ssize_t gfar_set_fifo_starve_off(struct class_device *cdev,
--		const char *buf, size_t count)
-+static ssize_t gfar_set_fifo_starve_off(struct device *dev,
-+					struct device_attribute *attr,
-+					const char *buf, size_t count)
-  {
--	struct net_device *dev = to_net_dev(cdev);
--	struct gfar_private *priv = netdev_priv(dev);
-+	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
-  	unsigned int num = simple_strtoul(buf, NULL, 0);
-  	u32 temp;
-  	unsigned long flags;
+diff -Nurp linux-2.6.20-git7-/net/bridge/br_if.c linux-2.6.20-git7/net/bridge/br_if.c
+--- linux-2.6.20-git7-/net/bridge/br_if.c	2007-02-12 20:27:49.000000000 +0100
++++ linux-2.6.20-git7/net/bridge/br_if.c	2007-02-12 20:53:27.000000000 +0100
+@@ -108,6 +108,7 @@ static void port_carrier_check(struct wo
+ 		spin_unlock_bh(&br->lock);
+ 	}
+ done:
++	dev_put(dev);
+ 	rtnl_unlock();
+ }
+ 
+@@ -161,7 +162,8 @@ static void del_nbp(struct net_bridge_po
+ 
+ 	dev_set_promiscuity(dev, -1);
+ 
+-	cancel_delayed_work(&p->carrier_check);
++	if (cancel_delayed_work(&p->carrier_check))
++		dev_put(dev);
+ 
+ 	spin_lock_bh(&br->lock);
+ 	br_stp_disable_port(p);
+@@ -444,7 +446,9 @@ int br_add_if(struct net_bridge *br, str
+ 	spin_lock_bh(&br->lock);
+ 	br_stp_recalculate_bridge_id(br);
+ 	br_features_recompute(br);
+-	schedule_delayed_work(&p->carrier_check, BR_PORT_DEBOUNCE);
++	if (schedule_delayed_work(&p->carrier_check, BR_PORT_DEBOUNCE))
++		dev_hold(dev);
++
+ 	spin_unlock_bh(&br->lock);
+ 
+ 	dev_set_mtu(br->dev, br_min_mtu(br));
+diff -Nurp linux-2.6.20-git7-/net/bridge/br_notify.c linux-2.6.20-git7/net/bridge/br_notify.c
+--- linux-2.6.20-git7-/net/bridge/br_notify.c	2007-02-12 20:27:49.000000000 +0100
++++ linux-2.6.20-git7/net/bridge/br_notify.c	2007-02-12 20:50:50.000000000 +0100
+@@ -56,7 +56,9 @@ static int br_device_event(struct notifi
+ 
+ 	case NETDEV_CHANGE:
+ 		if (br->dev->flags & IFF_UP)
+-			schedule_delayed_work(&p->carrier_check, BR_PORT_DEBOUNCE);
++			if (schedule_delayed_work(&p->carrier_check,
++						BR_PORT_DEBOUNCE))
++				dev_hold(dev);
+ 		break;
+ 
+ 	case NETDEV_FEAT_CHANGE:
