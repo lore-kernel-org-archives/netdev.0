@@ -1,126 +1,63 @@
-From: Pete Clements <clem@clem.clem-digital.net>
-Subject: Re: 2.6.20-git8 fails compile -- net/built-in.o __ipv6_addr_type
-Date: Mon, 12 Feb 2007 22:13:07 -0500 (EST)
-Message-ID: <200702130313.l1D3D7hI014740@clem.clem-digital.net>
-References: <20070213.115510.21486123.yoshfuji@linux-ipv6.org>
+From: Philip Craig <philipc@snapgear.com>
+Subject: Re: [PATCH 4/5] r8169: more alignment for the 0x8168
+Date: Tue, 13 Feb 2007 13:50:16 +1000
+Message-ID: <45D13578.8040405@snapgear.com>
+References: <20061203235257.GA3625@electric-eye.fr.zoreil.com> <20061204000327.GE3625@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: clem@clem.clem-digital.net, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	yoshfuji@linux-ipv6.org
-To: yoshfuji@linux-ipv6.org (YOSHIFUJI Hideaki /
-	=?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=)
+Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
+	isely@pobox.com
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from clem.clem-digital.net ([68.16.168.10]:56129 "EHLO
-	clem.clem-digital.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030628AbXBMDNO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Feb 2007 22:13:14 -0500
-In-Reply-To: <20070213.115510.21486123.yoshfuji@linux-ipv6.org>
+Received: from rex.snapgear.com ([203.143.235.140]:54661 "EHLO
+	cyberguard.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S965477AbXBMERZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Feb 2007 23:17:25 -0500
+In-Reply-To: <20061204000327.GE3625@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Patched, compiles.
---
-Pete Clements
+Francois Romieu wrote:
+> Two thirds of packets are lost because of misalignment. Users of
+> Asus laptop did apparently not notice it.
+> 
+> Reported on Gigabyte GA-945GM-S2.
+> 
+> Fix for http://bugzilla.kernel.org/show_bug.cgi?id=7517
+> 
+> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+> ---
+>  drivers/net/r8169.c |    4 ++--
+>  1 files changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+> index 0b57050..2379d83 100644
+> --- a/drivers/net/r8169.c
+> +++ b/drivers/net/r8169.c
+> @@ -2018,7 +2018,7 @@ static int rtl8169_alloc_rx_skb(struct p
+>  	if (!skb)
+>  		goto err_out;
+>  
+> -	skb_reserve(skb, align);
+> +	skb_reserve(skb, (align - 1) & (u32)skb->data);
+>  	*sk_buff = skb;
+>  
+>  	mapping = pci_map_single(pdev, skb->data, rx_buf_sz,
+> @@ -2486,7 +2486,7 @@ static inline int rtl8169_try_rx_copy(st
+>  
+>  		skb = dev_alloc_skb(pkt_size + align);
+>  		if (skb) {
+> -			skb_reserve(skb, align);
+> +			skb_reserve(skb, (align - 1) & (u32)skb->data);
+>  			eth_copy_and_sum(skb, sk_buff[0]->data, pkt_size, 0);
+>  			*sk_buff = skb;
+>  			rtl8169_mark_to_asic(desc, rx_buf_sz);
 
-Quoting YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-  > 
-  > Ah, this is because of new ipv6 support in sunrpc code.
-  > Enable it if it is statically compiled.
-  > 
-  > Alternatively, we could 
-  > - export __ipv6_addr_type in new net/ipv6/addrconf_core.c
-  > or
-  > - introduce tiny inline for chcking if the address is link-local.
-  > 
-  > Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-  > 
-  > diff --git a/net/sunrpc/svcsock.c b/net/sunrpc/svcsock.c
-  > index 63ae947..27dcb31 100644
-  > --- a/net/sunrpc/svcsock.c
-  > +++ b/net/sunrpc/svcsock.c
-  > @@ -107,12 +107,12 @@ static inline void svc_reclassify_socket
-  >  		sock_lock_init_class_and_name(sk, "slock-AF_INET-NFSD",
-  >  		    &svc_slock_key[0], "sk_lock-AF_INET-NFSD", &svc_key[0]);
-  >  		break;
-  > -
-  > +#ifdef CONFIG_IPV6
-  >  	case AF_INET6:
-  >  		sock_lock_init_class_and_name(sk, "slock-AF_INET6-NFSD",
-  >  		    &svc_slock_key[1], "sk_lock-AF_INET6-NFSD", &svc_key[1]);
-  >  		break;
-  > -
-  > +#endif
-  >  	default:
-  >  		BUG();
-  >  	}
-  > @@ -131,7 +131,7 @@ static char *__svc_print_addr(struct soc
-  >  			NIPQUAD(((struct sockaddr_in *) addr)->sin_addr),
-  >  			htons(((struct sockaddr_in *) addr)->sin_port));
-  >  		break;
-  > -#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-  > +#if defined(CONFIG_IPV6)
-  >  	case AF_INET6:
-  >  		snprintf(buf, len, "%x:%x:%x:%x:%x:%x:%x:%x, port=%u",
-  >  			NIP6(((struct sockaddr_in6 *) addr)->sin6_addr),
-  > @@ -449,7 +449,7 @@ svc_wake_up(struct svc_serv *serv)
-  >  
-  >  union svc_pktinfo_u {
-  >  	struct in_pktinfo pkti;
-  > -#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-  > +#if defined(CONFIG_IPV6)
-  >  	struct in6_pktinfo pkti6;
-  >  #endif
-  >  };
-  > @@ -467,7 +467,7 @@ static void svc_set_cmsg_data(struct svc
-  >  			cmh->cmsg_len = CMSG_LEN(sizeof(*pki));
-  >  		}
-  >  		break;
-  > -#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-  > +#if defined(CONFIG_IPV6)
-  >  	case AF_INET6: {
-  >  			struct in6_pktinfo *pki = CMSG_DATA(cmh);
-  >  
-  > @@ -737,7 +737,7 @@ static void svc_udp_get_sender_address(s
-  >  			rqstp->rq_daddr.addr.s_addr = skb->nh.iph->daddr;
-  >  		}
-  >  		break;
-  > -#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-  > +#if defined(CONFIG_IPV6)
-  >  	case AF_INET6: {
-  >  		/* this is derived from net/ipv6/udp.c:udpv6_recvmesg */
-  >  			struct sockaddr_in6 *sin6 = svc_addr_in6(rqstp);
-  > @@ -977,7 +977,7 @@ static inline int svc_port_is_privileged
-  >  	case AF_INET:
-  >  		return ntohs(((struct sockaddr_in *)sin)->sin_port)
-  >  			< PROT_SOCK;
-  > -#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-  > +#if defined(CONFIG_IPV6)
-  >  	case AF_INET6:
-  >  		return ntohs(((struct sockaddr_in6 *)sin)->sin6_port)
-  >  			< PROT_SOCK;
-  > diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
-  > index 49cabff..877b52b 100644
-  > --- a/net/sunrpc/xprtsock.c
-  > +++ b/net/sunrpc/xprtsock.c
-  > @@ -1187,11 +1187,12 @@ static inline void xs_reclassify_socket(
-  >  			&xs_slock_key[0], "sk_lock-AF_INET-NFS", &xs_key[0]);
-  >  		break;
-  >  
-  > +#ifdef CONFIG_IPV6
-  >  	case AF_INET6:
-  >  		sock_lock_init_class_and_name(sk, "slock-AF_INET6-NFS",
-  >  			&xs_slock_key[1], "sk_lock-AF_INET6-NFS", &xs_key[1]);
-  >  		break;
-  > -
-  > +#endif
-  >  	default:
-  >  		BUG();
-  >  	}
-  > 
-  > 
-  > -- 
-  > YOSHIFUJI Hideaki @ USAGI Project  <yoshfuji@linux-ipv6.org>
-  > GPG-FP  : 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
-  > 
+This patch caused a drop in throughput from 178 Mbits/sec to 135 Mbits/sec
+on an Intel XScale IXP465.
+
+It seems like there is some confusion about what the align parameter
+here means. It was originally an offset from an aligned address so that
+the IP header aligned, and this patch changes it to the alignment of the
+ethernet header. But align is still set to NET_IP_ALIGN for some chips.
