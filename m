@@ -1,64 +1,82 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [BUG] RTNL and flush_scheduled_work deadlocks
-Date: Wed, 14 Feb 2007 13:44:23 -0800
-Message-ID: <45D382B7.9020901@candelatech.com>
-References: <20070214132729.479793ac@freekitty>
+From: John Rose <johnrose@austin.ibm.com>
+Subject: Re: [PATCH 2.6.21-rc1] ehea: dynamic add / remove port
+Date: Wed, 14 Feb 2007 16:25:06 -0600
+Message-ID: <1171491906.30473.3.camel@sinatra.austin.ibm.com>
+References: <200702141536.28665.ossthema@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org,
-	Kyle Lucke <klucke@us.ibm.com>,
-	Raghavendra Koushik <raghavendra.koushik@neterion.com>,
-	Al Viro <viro@ftp.linux.org.uk>
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Cc: Jeff Garzik <jeff@garzik.org>,
+	Christoph Raisch <RAISCH@de.ibm.com>,
+	Jan-Bernd Themann <themann@de.ibm.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	linux-ppc <linuxppc-dev@ozlabs.org>,
+	Marcus Eder <MEDER@de.ibm.com>,
+	Thomas Klein <tklein@de.ibm.com>, stefan.roscher@de.ibm.com,
+	netdev <netdev@vger.kernel.org>,
+	Nathan Fontenot <nfont@austin.ibm.com>
+To: Jan-Bernd Themann <ossthema@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:53200 "EHLO ns2.lanforge.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S964779AbXBNVpG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Feb 2007 16:45:06 -0500
-In-Reply-To: <20070214132729.479793ac@freekitty>
+Received: from e33.co.us.ibm.com ([32.97.110.151]:52211 "EHLO
+	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932610AbXBNW17 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Feb 2007 17:27:59 -0500
+In-Reply-To: <200702141536.28665.ossthema@de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> Ben found this but the problem seems pretty widespread.
-> 
-> The following places are subject to deadlock between flush_scheduled_work
-> and the RTNL mutex. What can happen is that a work queue routine (like
-> bridge port_carrier_check) is waiting forever for RTNL, and the driver
-> routine has called flush_scheduled_work with RTNL held and is waiting
-> for the work queue to clear.
-> 
-> Several other places have comments like: "can't call flush_scheduled_work
-> here or it will deadlock". Most of the problem places are in device close
-> routine. My recommendation would be to add a check for device netif_running in
-> what ever work routine is used, and move the flush_scheduled_work to the
-> remove routine.
+Hi-
 
-I seem to be able to trigger this within about 1 minute on a
-particular 2.6.18.2 system with some 8139too devices, so if someone
-has a patch that could be tested, I'll gladly test it.  For
-whatever reason, I haven't hit this problem on 2.6.20 yet, but
-that could easily be dumb luck, and I haven't been running .20
-very much.
+A few high level comments, then some really insignificant ones.
 
-To add to the list below, tg3 has this problem as well, as far as I
-can tell by looking at the code.
+First, is there a reason why we shouldn't have a sysfs entry/kobject for
+each logical port?  How is it possible to determine, from the adapter
+sysfs directory, the current number of ports for that adapter?  A port
+sysfs directory could include attributes like the OF path to the port,
+the state of the port, etc etc.
 
-Thanks,
-Ben
+Second, the probe and remove functions do not communicate whether an add
+or remove was successful.  Combine this with the lack of port
+information in the adapter sysfs directory, and the userspace tool has
+no way of verifying a dynamic add/remove.
 
-> 
-> 8139too.c: rtl8139_close --> rtl8139_stop_thread
-> r8169.c:   rtl8169_down
-> cassini.c: cas_change_mtu
-> iseries_veth.c: veth_stop_connection
-> s2io.c: s2io_close
-> sis190.c: sis190_down
-> 
++		dn_log_port_id = (u32*)get_property(eth_dn, "ibm,hea-port-no",
++						    NULL);
++		if (!dn_log_port_id) {
++			ehea_error("bad device node: dn_log_port_id=%p",
++				   dn_log_port_id);
 
+Wouldn't this print NULL every time for dn_log_port_id?  Would the OF
+path for eth_dn make for a more useful error msg?
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
++		ehea_info("%s -> logial port id #%d",
+
+Spelling :)
+
+ 	if (port_setup_ok)
+-		ret = 0;	/* At least some ports are setup correctly */
++		return 0;	/* At least some ports are setup correctly */
+ 	else
+-		ret = -EINVAL;
++		return -EINVAL;
+
+The else is unnecessary.
+
+ static int __devexit ehea_remove(struct ibmebus_dev *dev)
+ {
+ 	struct ehea_adapter *adapter = dev->ofdev.dev.driver_data;
+ 	u64 hret;
+ 	int i;
+ 
+-	for (i = 0; i < adapter->num_ports; i++)
++	for (i = 0; i < EHEA_MAX_PORTS; i++)
+ 		if (adapter->port[i]) {
+ 			ehea_shutdown_single_port(adapter->port[i]);
+ 			adapter->port[i] = NULL;
+ 		}
+
+Else break?
+
+Thanks-
+John
 
