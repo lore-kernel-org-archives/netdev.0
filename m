@@ -1,42 +1,64 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [BUG] RTNL and flush_scheduled_work deadlocks
-Date: Wed, 14 Feb 2007 13:27:29 -0800
-Message-ID: <20070214132729.479793ac@freekitty>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Ben Greear <greearb@candelatech.com>,
-	Kyle Lucke <klucke@us.ibm.com>,
-	Raghavendra Koushik <raghavendra.koushik@neterion.com>,
-	Al Viro <viro@ftp.linux.org.uk>
-To: Francois Romieu <romieu@fr.zoreil.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [GIT PULL] IPv6 Updates
+Date: Thu, 15 Feb 2007 08:31:45 +1100
+Message-ID: <E1HHRj7-0002HG-00@gondolin.me.apana.org.au>
+References: <E1HHRCL-00028w-00@gondolin.me.apana.org.au>
+Cc: hasso@estpak.ee, yoshfuji@linux-ipv6.org, davem@davemloft.net,
+	netdev@vger.kernel.org, aramoto@linux-ipv6.org,
+	kozakai@linux-ipv6.org
+To: herbert@gondor.apana.org.au (Herbert Xu)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:46718 "EHLO smtp.osdl.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932627AbXBNV22 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Feb 2007 16:28:28 -0500
+Received: from rhun.apana.org.au ([64.62.148.172]:1336 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S932645AbXBNVbx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Feb 2007 16:31:53 -0500
+In-Reply-To: <E1HHRCL-00028w-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ben found this but the problem seems pretty widespread.
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
+> 
+> [IPV4] devinet: Register inetdev earlier.
 
-The following places are subject to deadlock between flush_scheduled_work
-and the RTNL mutex. What can happen is that a work queue routine (like
-bridge port_carrier_check) is waiting forever for RTNL, and the driver
-routine has called flush_scheduled_work with RTNL held and is waiting
-for the work queue to clear.
+I needed to move the panic call as well.
 
-Several other places have comments like: "can't call flush_scheduled_work
-here or it will deadlock". Most of the problem places are in device close
-routine. My recommendation would be to add a check for device netif_running in
-what ever work routine is used, and move the flush_scheduled_work to the
-remove routine.
+[IPV4] devinet: Register inetdev earlier.
 
-8139too.c: rtl8139_close --> rtl8139_stop_thread
-r8169.c:   rtl8169_down
-cassini.c: cas_change_mtu
-iseries_veth.c: veth_stop_connection
-s2io.c: s2io_close
-sis190.c: sis190_down
+This patch allocates inetdev at registration for all devices
+in line with IPv6.  This allows sysctl configuration on the
+devices to occur before they're brought up or addresses are
+added.
 
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
+Cheers,
+--
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index ba5e7f4..2224f8e 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -1055,12 +1055,14 @@ static int inetdev_event(struct notifier_block *this, unsigned long event,
+ 	ASSERT_RTNL();
+ 
+ 	if (!in_dev) {
+-		if (event == NETDEV_REGISTER && dev == &loopback_dev) {
++		if (event == NETDEV_REGISTER) {
+ 			in_dev = inetdev_init(dev);
+-			if (!in_dev)
+-				panic("devinet: Failed to create loopback\n");
+-			in_dev->cnf.no_xfrm = 1;
+-			in_dev->cnf.no_policy = 1;
++			if (dev == &loopback_dev) {
++				if (!in_dev)
++					panic("devinet: Failed to create loopback\n");
++				in_dev->cnf.no_xfrm = 1;
++				in_dev->cnf.no_policy = 1;
++			}
+ 		}
+ 		goto out;
+ 	}
