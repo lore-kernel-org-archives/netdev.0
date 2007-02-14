@@ -1,28 +1,25 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
+From: Hasso Tepper <hasso@estpak.ee>
 Subject: Re: [GIT PULL] IPv6 Updates
-Date: Wed, 14 Feb 2007 14:12:23 -0500
-Message-ID: <45D35F17.1090609@hp.com>
+Date: Wed, 14 Feb 2007 21:19:10 +0200
+Message-ID: <200702142119.11304.hasso@estpak.ee>
 References: <20070215.023514.30908786.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: davem@davemloft.net, netdev@vger.kernel.org,
 	aramoto@linux-ipv6.org, kozakai@linux-ipv6.org
-To: =?UTF-8?B?WU9TSElGVUpJIEhpZGVha2kgLyDlkInol6Toi7HmmI4=?=
+To: YOSHIFUJI Hideaki /
+	 =?utf-8?q?=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E?=
 	<yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ccerelrim03.cce.hp.com ([161.114.21.24]:29439 "EHLO
-	ccerelrim03.cce.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932488AbXBNTM2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Feb 2007 14:12:28 -0500
+Received: from hax.kala.ee ([194.126.124.39]:41565 "HELO hax.kala.ee"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S932436AbXBNTTd convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Feb 2007 14:19:33 -0500
 In-Reply-To: <20070215.023514.30908786.yoshfuji@linux-ipv6.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
-
-Hi Yoshifuji-san
-
-I have a question:
 
 YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E wrote:
 > commit bd292ad1ccbf15c72351f79d4a130dd50da81613
@@ -57,12 +54,20 @@ ck *this, unsigned long event,
 >  	case NETDEV_CHANGE:
 >  		if (event =3D=3D NETDEV_UP) {
 >=20
+> ---
 
-In this case, ipv6_add_dev will join the all-nodes multicast group on=20
-the interface that may be still down.  Is that an issue at all?
+Many thanks. Now if only IPv4 would be fixed in similar fashion as well=
+=2E
 
-It seems that this operation would be better performed when the=20
-interface is marked up?
+Also, this reminds me related issue - "ADDRCONF(NETDEV_UP): <ifname>: l=
+ink
+is not ready" and "ADDRCONF(NETDEV_CHANGE): <ifname>: link becomes read=
+y"
+messages. While it may look informational, it's extremely annoying in
+systems with hundreds and even thousands vlan interfaces.
 
-Thanks
--vlad
+
+regards,
+
+--=20
+Hasso Tepper
