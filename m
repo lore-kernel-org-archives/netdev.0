@@ -1,119 +1,252 @@
-From: weidong <weid@np.css.fujitsu.com>
-Subject: Fix "ipOutNoRoutes" counter error for TCP and UDP
-Date: Wed, 14 Feb 2007 10:03:49 -0500
-Message-ID: <1171465429.7069.18.camel@LINE>
+From: Kumar Gala <galak@kernel.crashing.org>
+Subject: [PATCH] Convert network devices to use struct device instead of
+ class_device
+Date: Wed, 14 Feb 2007 00:40:00 -0600 (CST)
+Message-ID: <Pine.LNX.4.64.0702140036350.855@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net
-To: netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, Andy Fleming <afleming@freescale.com>
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fgwmail7.fujitsu.co.jp ([192.51.44.37]:33893 "EHLO
-	fgwmail7.fujitsu.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932270AbXBNC6w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Feb 2007 21:58:52 -0500
-Received: from m4.gw.fujitsu.co.jp ([10.0.50.74])
-	by fgwmail7.fujitsu.co.jp (Fujitsu Gateway) with ESMTP id l1E2wo8x015075
-	for <netdev@vger.kernel.org> (envelope-from weid@np.css.fujitsu.com);
-	Wed, 14 Feb 2007 11:58:50 +0900
-Received: from smail (m4 [127.0.0.1])
-	by outgoing.m4.gw.fujitsu.co.jp (Postfix) with ESMTP id 088802AC0BA
-	for <netdev@vger.kernel.org>; Wed, 14 Feb 2007 11:58:50 +0900 (JST)
-Received: from s6.gw.fujitsu.co.jp (s6.gw.fujitsu.co.jp [10.0.50.96])
-	by m4.gw.fujitsu.co.jp (Postfix) with ESMTP id 9620A12C086
-	for <netdev@vger.kernel.org>; Wed, 14 Feb 2007 11:58:49 +0900 (JST)
-Received: from s6.gw.fujitsu.co.jp (s6 [127.0.0.1])
-	by s6.gw.fujitsu.co.jp (Postfix) with ESMTP id 7B6A4161C00B
-	for <netdev@vger.kernel.org>; Wed, 14 Feb 2007 11:58:49 +0900 (JST)
-Received: from ml9.s.css.fujitsu.com (ml9.s.css.fujitsu.com [10.23.4.199])
-	by s6.gw.fujitsu.co.jp (Postfix) with ESMTP id D48C8161C00C
-	for <netdev@vger.kernel.org>; Wed, 14 Feb 2007 11:58:48 +0900 (JST)
+Received: from nommos.sslcatacombnetworking.com ([67.18.224.114]:11907 "EHLO
+	nommos.sslcatacombnetworking.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751134AbXBNGoO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Feb 2007 01:44:14 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi, All
-  When I tested Linux-2.6.20 and found that counter "ipOutNoRoutes" can
-not increase correctly.
-  The criteria is RFC2011
+Convert network devices to use struct device instead of class_device.  Greg
+missed this one in his cleanup path.
 
-ipOutNoRoutes OBJECT-TYPE
-    SYNTAX      Counter32
-    MAX-ACCESS  read-only
-    STATUS      current
-    DESCRIPTION
-            "The number of IP datagrams discarded because no route could
-            be found to transmit them to their destination.  Note that
-            this counter includes any packets counted in ipForwDatagrams
-            which meet this `no-route' criterion.  Note that this
-            includes any datagrams which a host cannot route because all
-            of its default routers are down."
-    ::= { ip 12 }
+Signed-off-by: Kumar Gala <galak@kernel.crashing.org>
 
-In current Linux TCP/IP stack, maybe we should not increase this counter
-in "input path", but only increase it in "output path" due to the TCP/IP
-stack performance.
+---
 
-Now in "output path", when TCP client tries to connect to an unreachable
-server(net unreachable, so no route can be found), this counter has no
-increment. When we use UDP sending UDP datagram to an net unreachable
-address, this counter also has no increment.
+Jeff,
 
-Function need to fix:
-tcp_v4_connect(); ip4_datagram_connect(); udp_sendmsg();
+Sorry my mailer was completely screwed.  I thought I had fixed the
+settings to turn of flowed text.  I think this was why the patches I've
+been sending haven't been applying.  You can also get this fix from the
+following git tree:
 
-The following patch can fix the problems mentioned above
+master.kernel.org/pub/scm/linux/kernel/git/galak/powerpc.git gfar
 
-BR 
-Wei Dong
+Please apply since this is causing compile errors
 
-signed-off-by: Wei Dong <weid@np.css.fujitsu.com>
+- k
 
-diff -ruN old/net/ipv4/datagram.c new/net/ipv4/datagram.c
---- old/net/ipv4/datagram.c	2007-02-02 12:28:54.000000000 -0500
-+++ new/net/ipv4/datagram.c	2007-02-02 12:29:01.000000000 -0500
-@@ -50,8 +50,10 @@
- 			       RT_CONN_FLAGS(sk), oif,
- 			       sk->sk_protocol,
- 			       inet->sport, usin->sin_port, sk);
--	if (err)
-+	if (err) {
-+		IP_INC_STATS_BH(IPSTATS_MIB_OUTNOROUTES);
- 		return err;
-+	}
- 	if ((rt->rt_flags & RTCF_BROADCAST) && !sock_flag(sk, SOCK_BROADCAST)) {
- 		ip_rt_put(rt);
- 		return -EACCES;
-diff -ruN old/net/ipv4/tcp_ipv4.c new/net/ipv4/tcp_ipv4.c
---- old/net/ipv4/tcp_ipv4.c	2007-02-02 12:28:54.000000000 -0500
-+++ new/net/ipv4/tcp_ipv4.c	2007-02-02 12:29:01.000000000 -0500
-@@ -192,8 +192,10 @@
- 			       RT_CONN_FLAGS(sk), sk->sk_bound_dev_if,
- 			       IPPROTO_TCP,
- 			       inet->sport, usin->sin_port, sk);
--	if (tmp < 0)
-+	if (tmp < 0) {
-+		IP_INC_STATS_BH(IPSTATS_MIB_OUTNOROUTES);
- 		return tmp;
-+	}
- 
- 	if (rt->rt_flags & (RTCF_MULTICAST | RTCF_BROADCAST)) {
- 		ip_rt_put(rt);
-diff -ruN old/net/ipv4/udp.c new/net/ipv4/udp.c
---- old/net/ipv4/udp.c	2007-02-02 12:28:54.000000000 -0500
-+++ new/net/ipv4/udp.c	2007-02-02 12:29:01.000000000 -0500
-@@ -630,8 +630,10 @@
- 						 .dport = dport } } };
- 		security_sk_classify_flow(sk, &fl);
- 		err = ip_route_output_flow(&rt, &fl, sk, !(msg->msg_flags&MSG_DONTWAIT));
--		if (err)
-+		if (err) {
-+			IP_INC_STATS_BH(IPSTATS_MIB_OUTNOROUTES);
- 			goto out;
-+		}
- 
- 		err = -EACCES;
- 		if ((rt->rt_flags & RTCF_BROADCAST) &&
+commit 4409d28140d9a6e6e3f4f1fdaf7234c4b965d954
+tree b12acbebc292de5146c89ba274eea38237ec7f91
+parent ec2f9d1331f658433411c58077871e1eef4ee1b4
+author Kumar Gala <galak@kernel.crashing.org> Mon, 12 Feb 2007 23:40:06 -0600
+committer Kumar Gala <galak@kernel.crashing.org> Mon, 12 Feb 2007 23:40:06 -0600
 
+ drivers/net/gianfar_sysfs.c |  108 ++++++++++++++++++++++---------------------
+ 1 files changed, 55 insertions(+), 53 deletions(-)
 
+diff --git a/drivers/net/gianfar_sysfs.c b/drivers/net/gianfar_sysfs.c
+index 9dd387f..6e2166a 100644
+--- a/drivers/net/gianfar_sysfs.c
++++ b/drivers/net/gianfar_sysfs.c
+@@ -39,13 +39,15 @@
+ #include "gianfar.h"
 
+ #define GFAR_ATTR(_name) \
+-static ssize_t gfar_show_##_name(struct class_device *cdev, char *buf); \
+-static ssize_t gfar_set_##_name(struct class_device *cdev, \
++static ssize_t gfar_show_##_name(struct device *dev, \
++	 struct device_attribute *attr, char *buf); \
++static ssize_t gfar_set_##_name(struct device *dev, \
++		struct device_attribute *attr, \
+ 		const char *buf, size_t count); \
+-static CLASS_DEVICE_ATTR(_name, 0644, gfar_show_##_name, gfar_set_##_name)
++static DEVICE_ATTR(_name, 0644, gfar_show_##_name, gfar_set_##_name)
 
+ #define GFAR_CREATE_FILE(_dev, _name) \
+-	class_device_create_file(&_dev->class_dev, &class_device_attr_##_name)
++	device_create_file(&_dev->dev, &dev_attr_##_name)
+
+ GFAR_ATTR(bd_stash);
+ GFAR_ATTR(rx_stash_size);
+@@ -54,29 +56,28 @@ GFAR_ATTR(fifo_threshold);
+ GFAR_ATTR(fifo_starve);
+ GFAR_ATTR(fifo_starve_off);
+
+-#define to_net_dev(cd) container_of(cd, struct net_device, class_dev)
+-
+-static ssize_t gfar_show_bd_stash(struct class_device *cdev, char *buf)
++static ssize_t gfar_show_bd_stash(struct device *dev,
++				  struct device_attribute *attr, char *buf)
+ {
+-	struct net_device *dev = to_net_dev(cdev);
+-	struct gfar_private *priv = netdev_priv(dev);
++	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
+
+-	return sprintf(buf, "%s\n", priv->bd_stash_en? "on" : "off");
++	return sprintf(buf, "%s\n", priv->bd_stash_en ? "on" : "off");
+ }
+
+-static ssize_t gfar_set_bd_stash(struct class_device *cdev,
+-		const char *buf, size_t count)
++static ssize_t gfar_set_bd_stash(struct device *dev,
++				 struct device_attribute *attr,
++				 const char *buf, size_t count)
+ {
+-	struct net_device *dev = to_net_dev(cdev);
+-	struct gfar_private *priv = netdev_priv(dev);
++	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
+ 	int new_setting = 0;
+ 	u32 temp;
+ 	unsigned long flags;
+
+ 	/* Find out the new setting */
+-	if (!strncmp("on", buf, count-1) || !strncmp("1", buf, count-1))
++	if (!strncmp("on", buf, count - 1) || !strncmp("1", buf, count - 1))
+ 		new_setting = 1;
+-	else if (!strncmp("off", buf, count-1) || !strncmp("0", buf, count-1))
++	else if (!strncmp("off", buf, count - 1)
++		 || !strncmp("0", buf, count - 1))
+ 		new_setting = 0;
+ 	else
+ 		return count;
+@@ -100,19 +101,19 @@ static ssize_t gfar_set_bd_stash(struct class_device *cdev,
+ 	return count;
+ }
+
+-static ssize_t gfar_show_rx_stash_size(struct class_device *cdev, char *buf)
++static ssize_t gfar_show_rx_stash_size(struct device *dev,
++				       struct device_attribute *attr, char *buf)
+ {
+-	struct net_device *dev = to_net_dev(cdev);
+-	struct gfar_private *priv = netdev_priv(dev);
++	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
+
+ 	return sprintf(buf, "%d\n", priv->rx_stash_size);
+ }
+
+-static ssize_t gfar_set_rx_stash_size(struct class_device *cdev,
+-		const char *buf, size_t count)
++static ssize_t gfar_set_rx_stash_size(struct device *dev,
++				      struct device_attribute *attr,
++				      const char *buf, size_t count)
+ {
+-	struct net_device *dev = to_net_dev(cdev);
+-	struct gfar_private *priv = netdev_priv(dev);
++	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
+ 	unsigned int length = simple_strtoul(buf, NULL, 0);
+ 	u32 temp;
+ 	unsigned long flags;
+@@ -146,21 +147,21 @@ static ssize_t gfar_set_rx_stash_size(struct class_device *cdev,
+ 	return count;
+ }
+
+-
+ /* Stashing will only be enabled when rx_stash_size != 0 */
+-static ssize_t gfar_show_rx_stash_index(struct class_device *cdev, char *buf)
++static ssize_t gfar_show_rx_stash_index(struct device *dev,
++					struct device_attribute *attr,
++					char *buf)
+ {
+-	struct net_device *dev = to_net_dev(cdev);
+-	struct gfar_private *priv = netdev_priv(dev);
++	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
+
+ 	return sprintf(buf, "%d\n", priv->rx_stash_index);
+ }
+
+-static ssize_t gfar_set_rx_stash_index(struct class_device *cdev,
+-		const char *buf, size_t count)
++static ssize_t gfar_set_rx_stash_index(struct device *dev,
++				       struct device_attribute *attr,
++				       const char *buf, size_t count)
+ {
+-	struct net_device *dev = to_net_dev(cdev);
+-	struct gfar_private *priv = netdev_priv(dev);
++	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
+ 	unsigned short index = simple_strtoul(buf, NULL, 0);
+ 	u32 temp;
+ 	unsigned long flags;
+@@ -184,19 +185,20 @@ static ssize_t gfar_set_rx_stash_index(struct class_device *cdev,
+ 	return count;
+ }
+
+-static ssize_t gfar_show_fifo_threshold(struct class_device *cdev, char *buf)
++static ssize_t gfar_show_fifo_threshold(struct device *dev,
++					struct device_attribute *attr,
++					char *buf)
+ {
+-	struct net_device *dev = to_net_dev(cdev);
+-	struct gfar_private *priv = netdev_priv(dev);
++	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
+
+ 	return sprintf(buf, "%d\n", priv->fifo_threshold);
+ }
+
+-static ssize_t gfar_set_fifo_threshold(struct class_device *cdev,
+-		const char *buf, size_t count)
++static ssize_t gfar_set_fifo_threshold(struct device *dev,
++				       struct device_attribute *attr,
++				       const char *buf, size_t count)
+ {
+-	struct net_device *dev = to_net_dev(cdev);
+-	struct gfar_private *priv = netdev_priv(dev);
++	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
+ 	unsigned int length = simple_strtoul(buf, NULL, 0);
+ 	u32 temp;
+ 	unsigned long flags;
+@@ -218,20 +220,19 @@ static ssize_t gfar_set_fifo_threshold(struct class_device *cdev,
+ 	return count;
+ }
+
+-static ssize_t gfar_show_fifo_starve(struct class_device *cdev, char *buf)
++static ssize_t gfar_show_fifo_starve(struct device *dev,
++				     struct device_attribute *attr, char *buf)
+ {
+-	struct net_device *dev = to_net_dev(cdev);
+-	struct gfar_private *priv = netdev_priv(dev);
++	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
+
+ 	return sprintf(buf, "%d\n", priv->fifo_starve);
+ }
+
+-
+-static ssize_t gfar_set_fifo_starve(struct class_device *cdev,
+-		const char *buf, size_t count)
++static ssize_t gfar_set_fifo_starve(struct device *dev,
++				    struct device_attribute *attr,
++				    const char *buf, size_t count)
+ {
+-	struct net_device *dev = to_net_dev(cdev);
+-	struct gfar_private *priv = netdev_priv(dev);
++	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
+ 	unsigned int num = simple_strtoul(buf, NULL, 0);
+ 	u32 temp;
+ 	unsigned long flags;
+@@ -253,19 +254,20 @@ static ssize_t gfar_set_fifo_starve(struct class_device *cdev,
+ 	return count;
+ }
+
+-static ssize_t gfar_show_fifo_starve_off(struct class_device *cdev, char *buf)
++static ssize_t gfar_show_fifo_starve_off(struct device *dev,
++					 struct device_attribute *attr,
++					 char *buf)
+ {
+-	struct net_device *dev = to_net_dev(cdev);
+-	struct gfar_private *priv = netdev_priv(dev);
++	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
+
+ 	return sprintf(buf, "%d\n", priv->fifo_starve_off);
+ }
+
+-static ssize_t gfar_set_fifo_starve_off(struct class_device *cdev,
+-		const char *buf, size_t count)
++static ssize_t gfar_set_fifo_starve_off(struct device *dev,
++					struct device_attribute *attr,
++					const char *buf, size_t count)
+ {
+-	struct net_device *dev = to_net_dev(cdev);
+-	struct gfar_private *priv = netdev_priv(dev);
++	struct gfar_private *priv = netdev_priv(to_net_dev(dev));
+ 	unsigned int num = simple_strtoul(buf, NULL, 0);
+ 	u32 temp;
+ 	unsigned long flags;
