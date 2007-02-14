@@ -1,81 +1,119 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [Bugme-new] [Bug 7974] New: BUG: scheduling while atomic: swapper/0x10000100/0
-Date: Tue, 13 Feb 2007 18:11:15 -0800
-Message-ID: <200702140211.l1E2BF22031298@death.nxdomain.ibm.com>
-References: <20070209133802.01286bbb.akpm@linux-foundation.org> <20070213202905.GA26818@gospo.rdu.redhat.com> <200702132226.l1DMQS22009230@death.nxdomain.ibm.com> <20070213.143243.78711492.davem@davemloft.net> <20070213230803.GB26818@gospo.rdu.redhat.com> <200702132333.l1DNX022012433@death.nxdomain.ibm.com> <20070214013130.GD26818@gospo.rdu.redhat.com>
-Cc: David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, shemminger@linux-foundation.org,
-	lpiccilli@gelre.com.br, bugme-daemon@bugzilla.kernel.org
-To: Andy Gospodarek <andy@greyhouse.net>
+From: weidong <weid@np.css.fujitsu.com>
+Subject: Fix "ipOutNoRoutes" counter error for TCP and UDP
+Date: Wed, 14 Feb 2007 10:03:49 -0500
+Message-ID: <1171465429.7069.18.camel@LINE>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e3.ny.us.ibm.com ([32.97.182.143]:46871 "EHLO e3.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751144AbXBNCLT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Feb 2007 21:11:19 -0500
-Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
-	by e3.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l1E2BI4u027074
-	for <netdev@vger.kernel.org>; Tue, 13 Feb 2007 21:11:18 -0500
-Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
-	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v8.2) with ESMTP id l1E2BI3o285418
-	for <netdev@vger.kernel.org>; Tue, 13 Feb 2007 21:11:18 -0500
-Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
-	by d01av03.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l1E2BHMc023193
-	for <netdev@vger.kernel.org>; Tue, 13 Feb 2007 21:11:18 -0500
-In-reply-to: <20070214013130.GD26818@gospo.rdu.redhat.com> 
+Received: from fgwmail7.fujitsu.co.jp ([192.51.44.37]:33893 "EHLO
+	fgwmail7.fujitsu.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932270AbXBNC6w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Feb 2007 21:58:52 -0500
+Received: from m4.gw.fujitsu.co.jp ([10.0.50.74])
+	by fgwmail7.fujitsu.co.jp (Fujitsu Gateway) with ESMTP id l1E2wo8x015075
+	for <netdev@vger.kernel.org> (envelope-from weid@np.css.fujitsu.com);
+	Wed, 14 Feb 2007 11:58:50 +0900
+Received: from smail (m4 [127.0.0.1])
+	by outgoing.m4.gw.fujitsu.co.jp (Postfix) with ESMTP id 088802AC0BA
+	for <netdev@vger.kernel.org>; Wed, 14 Feb 2007 11:58:50 +0900 (JST)
+Received: from s6.gw.fujitsu.co.jp (s6.gw.fujitsu.co.jp [10.0.50.96])
+	by m4.gw.fujitsu.co.jp (Postfix) with ESMTP id 9620A12C086
+	for <netdev@vger.kernel.org>; Wed, 14 Feb 2007 11:58:49 +0900 (JST)
+Received: from s6.gw.fujitsu.co.jp (s6 [127.0.0.1])
+	by s6.gw.fujitsu.co.jp (Postfix) with ESMTP id 7B6A4161C00B
+	for <netdev@vger.kernel.org>; Wed, 14 Feb 2007 11:58:49 +0900 (JST)
+Received: from ml9.s.css.fujitsu.com (ml9.s.css.fujitsu.com [10.23.4.199])
+	by s6.gw.fujitsu.co.jp (Postfix) with ESMTP id D48C8161C00C
+	for <netdev@vger.kernel.org>; Wed, 14 Feb 2007 11:58:48 +0900 (JST)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andy Gospodarek <andy@greyhouse.net> wrote:
+Hi, All
+  When I tested Linux-2.6.20 and found that counter "ipOutNoRoutes" can
+not increase correctly.
+  The criteria is RFC2011
 
->This is exactly the problem I've got, Jay.  I'd love to come up with
->something that will be a smaller patch to solve this in the near term
->and then focus on a larger set of changes down the road but it doesn't
->seem likely.
+ipOutNoRoutes OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+            "The number of IP datagrams discarded because no route could
+            be found to transmit them to their destination.  Note that
+            this counter includes any packets counted in ipForwDatagrams
+            which meet this `no-route' criterion.  Note that this
+            includes any datagrams which a host cannot route because all
+            of its default routers are down."
+    ::= { ip 12 }
 
-	That's more or less the conclusion I've reached as well.  The
-locking model needs to be redone from scratch; there are too many
-players and the conditions have changed since things were originally
-done (in terms of side effects, particularly the places that may sleep
-today that didn't in the past).  It's tricky to redo the bulk of the
-innards in small modular steps.
+In current Linux TCP/IP stack, maybe we should not increase this counter
+in "input path", but only increase it in "output path" due to the TCP/IP
+stack performance.
 
->> 	Andy, one thought: do you think it would work better to simplify
->> the locking that is there first, i.e., convert the timers to work
->> queues, have a single dispatcher that handles everything (and can be
->> suspended for mutexing purposes), as in the patch I sent you?  The
->> problem isn't just rtnl; there also has to be a release of the bonding
->> locks themselves (to handle the might sleep issues), and that's tricky
->> to do with so many entities operating concurrently.  Reducing the number
->> of involved parties should make the problem simpler.
->> 
->
->I really don't feel like there are that many operations happening
->concurrently, but having a workqueue that managed and dispatched the
->operations and detected current link status would probably be helpful
->for long term maintenance.  It would probably be wise to have individual
->workqueues that managed any mode-specific operations, so their processing
->doesn't interfere with any link-checking operations.
+Now in "output path", when TCP client tries to connect to an unreachable
+server(net unreachable, so no route can be found), this counter has no
+increment. When we use UDP sending UDP datagram to an net unreachable
+address, this counter also has no increment.
 
-	I like having the mode-specific monitors simply be special case
-monitors in a unified "monitor system." It resolves the link-check
-vs. mode-specific conflict, and allows all of the periodic things to be
-paused as a set for mutexing purposes.  I'm happy to be convinced that
-I'm just blowing hooey here, but that's how it seems to me.
+Function need to fix:
+tcp_v4_connect(); ip4_datagram_connect(); udp_sendmsg();
 
-	For balance-alb (the biggest offender in terms of locking
-violations), the link monitor, alb mode monitor, transmit activity, and
-user initiated stuff (add or remove slave, for example) all need to be
-mutexed against one another.  The user initiated stuff comes in with
-rtnl and the link monitor needs rtnl if it has to fail over.  All of
-them need the regular bonding lock, but the user initiated stuff and the
-link monitor both need to do things (change mac addresses, call
-dev_open) with that lock released.
+The following patch can fix the problems mentioned above
 
-	Do you have any work in progress patches or descendents of the
-big rework thing I sent you?  I need to get back to this, and whatever
-we do it's probably better if we're at least a little bit coordinated.
+BR 
+Wei Dong
 
-	-J
+signed-off-by: Wei Dong <weid@np.css.fujitsu.com>
 
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+diff -ruN old/net/ipv4/datagram.c new/net/ipv4/datagram.c
+--- old/net/ipv4/datagram.c	2007-02-02 12:28:54.000000000 -0500
++++ new/net/ipv4/datagram.c	2007-02-02 12:29:01.000000000 -0500
+@@ -50,8 +50,10 @@
+ 			       RT_CONN_FLAGS(sk), oif,
+ 			       sk->sk_protocol,
+ 			       inet->sport, usin->sin_port, sk);
+-	if (err)
++	if (err) {
++		IP_INC_STATS_BH(IPSTATS_MIB_OUTNOROUTES);
+ 		return err;
++	}
+ 	if ((rt->rt_flags & RTCF_BROADCAST) && !sock_flag(sk, SOCK_BROADCAST)) {
+ 		ip_rt_put(rt);
+ 		return -EACCES;
+diff -ruN old/net/ipv4/tcp_ipv4.c new/net/ipv4/tcp_ipv4.c
+--- old/net/ipv4/tcp_ipv4.c	2007-02-02 12:28:54.000000000 -0500
++++ new/net/ipv4/tcp_ipv4.c	2007-02-02 12:29:01.000000000 -0500
+@@ -192,8 +192,10 @@
+ 			       RT_CONN_FLAGS(sk), sk->sk_bound_dev_if,
+ 			       IPPROTO_TCP,
+ 			       inet->sport, usin->sin_port, sk);
+-	if (tmp < 0)
++	if (tmp < 0) {
++		IP_INC_STATS_BH(IPSTATS_MIB_OUTNOROUTES);
+ 		return tmp;
++	}
+ 
+ 	if (rt->rt_flags & (RTCF_MULTICAST | RTCF_BROADCAST)) {
+ 		ip_rt_put(rt);
+diff -ruN old/net/ipv4/udp.c new/net/ipv4/udp.c
+--- old/net/ipv4/udp.c	2007-02-02 12:28:54.000000000 -0500
++++ new/net/ipv4/udp.c	2007-02-02 12:29:01.000000000 -0500
+@@ -630,8 +630,10 @@
+ 						 .dport = dport } } };
+ 		security_sk_classify_flow(sk, &fl);
+ 		err = ip_route_output_flow(&rt, &fl, sk, !(msg->msg_flags&MSG_DONTWAIT));
+-		if (err)
++		if (err) {
++			IP_INC_STATS_BH(IPSTATS_MIB_OUTNOROUTES);
+ 			goto out;
++		}
+ 
+ 		err = -EACCES;
+ 		if ((rt->rt_flags & RTCF_BROADCAST) &&
+
+
+
+
