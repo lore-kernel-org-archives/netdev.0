@@ -1,28 +1,48 @@
-From: James Ketrenos <jketreno-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Subject: Re: [ipw3945-devel] [ANNOUNCE] d80211 based driver for Intel PRO/Wireless
- 3945ABG
-Date: Tue, 13 Feb 2007 15:23:31 -0800
-Message-ID: <45D24873.10308@linux.intel.com>
-References: <45CCE3CA.4050904@linux.intel.com> <20070210004620.GA5959@gamma.logic.tuwien.ac.at>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [Netem] [Fwd:  [PATCH 2.6.18 0/2] LARTC: trace control for
+ netem]
+Date: Tue, 13 Feb 2007 16:16:02 -0800
+Message-ID: <20070213161602.16607203@freekitty>
+References: <45827B5C.3090402@tik.ee.ethz.ch>
+	<45CA1C26.1080405@tik.ee.ethz.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	ipw3945-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Norbert Preining <preining-DX+603jRYB8@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20070210004620.GA5959-DqSSrKF0TaySnEC3TeqHn5dqbFPxfnh/@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: netdev@VGER.KERNEL.ORG, netem@linux-foundation.org
+To: Rainer Baumann <baumann@tik.ee.ethz.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+In-Reply-To: <45CA1C26.1080405@tik.ee.ethz.ch>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Norbert Preining wrote:
-...
-> Ahhh ... one thing: The LED on my Acer Laptop (TM3012) does not show up,
-> maybe because I have CONFIG_D80211_LEDS off?
+On Wed, 07 Feb 2007 19:36:22 +0100
+Rainer Baumann <baumann@tik.ee.ethz.ch> wrote:
 
-The LED code in iwlwifi isn't hooked up to the D80211 LED code yet.  If 
-you'd file a bug at http://bughost.org regarding the LEDs being broken 
-(if you haven't already) I would appreciate it.
+> Hi Stephen
+> 
+> I just wanted to ask you, if you already had time to test our trace
+> extension for netem as discussed on the 13th of December.
+> 
+> Cheers
+> Rainer
+> 
+> Rainer Baumann wrote:
+> > Hi Stephen
+> >
+> > As discussed yesterday, here our patches to integrate trace control into netem
+> >
+> >
+> >
+> > Trace Control for Netem: Emulate network properties such as long range dependency and self-similarity of cross-traffic.
+> >
+> > A new option (trace) has been added to the netem command. If the trace option is used, the values for packet delay etc. are read from a pregenerated trace file, afterwards the packets are processed by the normal netem functions. The packet action values are readout from the trace file in user space and sent to kernel space via configfs.
+> >
+> >
+> 
 
-Thanks,
-James
+I looked at it some more, and want to go in and clean the configuration and buffer interface
+slightly before inclusion. Once it is in I get stuck with the ABI so don't want to do something
+wrong.
+
+-- 
+Stephen Hemminger <shemminger@linux-foundation.org>
