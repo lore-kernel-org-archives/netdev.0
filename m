@@ -1,38 +1,64 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: [PATCH] bcm43xx: Fix code for spec changes of 2/7/2007
-Date: Wed, 14 Feb 2007 22:40:01 +0100
-Message-ID: <200702142240.01494.mb@bu3sch.de>
-References: <45cca236.+lL/rsW3DbM3elnk%Larry.Finger@lwfinger.net> <200702100655.51495.mb@bu3sch.de> <1171459090.11116.22.camel@johannes.berg>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [BUG] RTNL and flush_scheduled_work deadlocks
+Date: Wed, 14 Feb 2007 13:44:23 -0800
+Message-ID: <45D382B7.9020901@candelatech.com>
+References: <20070214132729.479793ac@freekitty>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-15"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Matthew Garrett <mjg59@srcf.ucam.org>,
-	Joseph Jezak <josejx@gentoo.org>, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org,
-	John Linville <linville@tuxdriver.com>,
-	Bcm43xx-dev@lists.berlios.de,
-	Larry Finger <larry.finger@lwfinger.net>
-To: Johannes Berg <johannes@sipsolutions.net>
+Cc: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org,
+	Kyle Lucke <klucke@us.ibm.com>,
+	Raghavendra Koushik <raghavendra.koushik@neterion.com>,
+	Al Viro <viro@ftp.linux.org.uk>
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:52916
-	"EHLO vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932656AbXBNVkX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Feb 2007 16:40:23 -0500
-In-Reply-To: <1171459090.11116.22.camel@johannes.berg>
-Content-Disposition: inline
+Received: from ns2.lanforge.com ([66.165.47.211]:53200 "EHLO ns2.lanforge.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S964779AbXBNVpG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Feb 2007 16:45:06 -0500
+In-Reply-To: <20070214132729.479793ac@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 14 February 2007 14:18, Johannes Berg wrote:
-> On Sat, 2007-02-10 at 06:55 +0100, Michael Buesch wrote:
+Stephen Hemminger wrote:
+> Ben found this but the problem seems pretty widespread.
 > 
-> > It's likely that old cards still work with v4 firmware,
+> The following places are subject to deadlock between flush_scheduled_work
+> and the RTNL mutex. What can happen is that a work queue routine (like
+> bridge port_carrier_check) is waiting forever for RTNL, and the driver
+> routine has called flush_scheduled_work with RTNL held and is waiting
+> for the work queue to clear.
 > 
-> No, it's absolutely impossible. Rev 2/4 cores have a totally different
-> instruction set in the microcode.
+> Several other places have comments like: "can't call flush_scheduled_work
+> here or it will deadlock". Most of the problem places are in device close
+> routine. My recommendation would be to add a check for device netif_running in
+> what ever work routine is used, and move the flush_scheduled_work to the
+> remove routine.
 
-Ok, I was not talking about _that_ old cards. ;)
+I seem to be able to trigger this within about 1 minute on a
+particular 2.6.18.2 system with some 8139too devices, so if someone
+has a patch that could be tested, I'll gladly test it.  For
+whatever reason, I haven't hit this problem on 2.6.20 yet, but
+that could easily be dumb luck, and I haven't been running .20
+very much.
+
+To add to the list below, tg3 has this problem as well, as far as I
+can tell by looking at the code.
+
+Thanks,
+Ben
+
+> 
+> 8139too.c: rtl8139_close --> rtl8139_stop_thread
+> r8169.c:   rtl8169_down
+> cassini.c: cas_change_mtu
+> iseries_veth.c: veth_stop_connection
+> s2io.c: s2io_close
+> sis190.c: sis190_down
+> 
+
 
 -- 
-Greetings Michael.
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
+
