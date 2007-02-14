@@ -1,39 +1,85 @@
-From: Ishizaki Kou <kou.ishizaki@toshiba.co.jp>
-Subject: Re: [PATCH 0/4] spidernet: support for Celleb
-Date: Wed, 14 Feb 2007 16:51:07 +0900 (JST)
-Message-ID: <200702140751.l1E7p73x027147@toshiba.co.jp>
-References: <20070212234959.GF923@austin.ibm.com>
+From: Zhu Yi <yi.zhu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH] ipw2200: add channels sysfs entry
+Date: Wed, 14 Feb 2007 16:04:24 +0800
+Message-ID: <20070214080424.GA9797@mail.intel.com>
+Reply-To: yi.zhu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org, cbe-oss-dev@ozlabs.org,
-	netdev@vger.kernel.org, jgarzik@pobox.com, jim@jklewis.com
-To: linas@austin.ibm.com, jens@de.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from imx12.toshiba.co.jp ([61.202.160.132]:34130 "EHLO
-	imx12.toshiba.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932174AbXBNHwH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Feb 2007 02:52:07 -0500
-In-Reply-To: <20070212234959.GF923@austin.ibm.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Linas-san, Jens-san,
 
-> Tested this series of patches together with Jen's "version 3" patch,
-> it worked for me. Code looks reasonable.  Thus
+Add 'channels' sysfs entry for ipw2200. The entry exports channels
+information for the user space.
 
-We tried Jens-san's v3 patch on Celleb, and it works for us.
+Signed-off-by: Zhu Yi <yi.zhu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 
-We also need Linas-san's patch set which includes bug-fix and makes
-the code compilable etc. But our previous patch set conflicts with
-Linas-san's patch set.
-
-So we will post a revised patch set for spider_net, which is based on
-Jens-san's phy patch and Linas-san's spider_net patch.  The revised
-patch set will differ from our previous patch set only by editorial
-changes, so we think it will be ready to go in.
-
-
-Best regards,
-Kou Ishizaki
+--
+diff -urp a/drivers/net/wireless/ipw2200.c b/drivers/net/wireless/ipw2200.c
+--- a/drivers/net/wireless/ipw2200.c	2007-02-05 17:40:23.000000000 +0800
++++ b/drivers/net/wireless/ipw2200.c	2007-02-14 15:44:56.000000000 +0800
+@@ -1847,6 +1847,52 @@ static ssize_t store_net_stats(struct de
+ static DEVICE_ATTR(net_stats, S_IWUSR | S_IRUGO,
+ 		   show_net_stats, store_net_stats);
+ 
++static ssize_t show_channels(struct device *d,
++			     struct device_attribute *attr,
++			     char *buf)
++{
++	struct ipw_priv *priv = dev_get_drvdata(d);
++	const struct ieee80211_geo *geo = ipw_get_geo(priv->ieee);
++	int len = 0, i;
++
++	len = sprintf(&buf[len],
++		      "Displaying %d channels in 2.4Ghz band "
++		      "(802.11bg):\n", geo->bg_channels);
++
++	for (i = 0; i < geo->bg_channels; i++) {
++		len += sprintf(&buf[len], "%d: BSS%s%s, %s, Band %s.\n",
++			       geo->bg[i].channel,
++			       geo->bg[i].flags & IEEE80211_CH_RADAR_DETECT ?
++			       " (radar spectrum)" : "",
++			       ((geo->bg[i].flags & IEEE80211_CH_NO_IBSS) ||
++				(geo->bg[i].flags & IEEE80211_CH_RADAR_DETECT))
++			       ? "" : ", IBSS",
++			       geo->bg[i].flags & IEEE80211_CH_PASSIVE_ONLY ?
++			       "passive only" : "active/passive",
++			       geo->bg[i].flags & IEEE80211_CH_B_ONLY ?
++			       "B" : "B/G");
++	}
++
++	len += sprintf(&buf[len],
++		       "Displaying %d channels in 5.2Ghz band "
++		       "(802.11a):\n", geo->a_channels);
++	for (i = 0; i < geo->a_channels; i++) {
++		len += sprintf(&buf[len], "%d: BSS%s%s, %s.\n",
++			       geo->a[i].channel,
++			       geo->a[i].flags & IEEE80211_CH_RADAR_DETECT ?
++			       " (radar spectrum)" : "",
++			       ((geo->a[i].flags & IEEE80211_CH_NO_IBSS) ||
++				(geo->a[i].flags & IEEE80211_CH_RADAR_DETECT))
++			       ? "" : ", IBSS",
++			       geo->a[i].flags & IEEE80211_CH_PASSIVE_ONLY ?
++			       "passive only" : "active/passive");
++	}
++
++	return len;
++}
++
++static DEVICE_ATTR(channels, S_IRUSR, show_channels, NULL);
++
+ static void notify_wx_assoc_event(struct ipw_priv *priv)
+ {
+ 	union iwreq_data wrqu;
+@@ -11383,6 +11383,7 @@ static struct attribute *ipw_sysfs_entri
+ 	&dev_attr_led.attr,
+ 	&dev_attr_speed_scan.attr,
+ 	&dev_attr_net_stats.attr,
++	&dev_attr_channels.attr,
+ #ifdef CONFIG_IPW2200_PROMISCUOUS
+ 	&dev_attr_rtap_iface.attr,
+ 	&dev_attr_rtap_filter.attr,
