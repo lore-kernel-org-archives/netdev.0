@@ -1,48 +1,36 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [Netem] [Fwd:  [PATCH 2.6.18 0/2] LARTC: trace control for
- netem]
-Date: Tue, 13 Feb 2007 16:16:02 -0800
-Message-ID: <20070213161602.16607203@freekitty>
-References: <45827B5C.3090402@tik.ee.ethz.ch>
-	<45CA1C26.1080405@tik.ee.ethz.ch>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: [Bugme-new] [Bug 7974] New: BUG: scheduling while atomic: swapper/0x10000100/0
+Date: Tue, 13 Feb 2007 19:10:58 -0500
+Message-ID: <20070214001058.GC26818@gospo.rdu.redhat.com>
+References: <20070209133802.01286bbb.akpm@linux-foundation.org> <20070213202905.GA26818@gospo.rdu.redhat.com> <200702132226.l1DMQS22009230@death.nxdomain.ibm.com> <20070213.143243.78711492.davem@davemloft.net> <20070213230803.GB26818@gospo.rdu.redhat.com> <200702132333.l1DNX022012433@death.nxdomain.ibm.com> <20070213155446.2f423782@freekitty>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@VGER.KERNEL.ORG, netem@linux-foundation.org
-To: Rainer Baumann <baumann@tik.ee.ethz.ch>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, lpiccilli@gelre.com.br,
+	bugme-daemon@bugzilla.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-In-Reply-To: <45CA1C26.1080405@tik.ee.ethz.ch>
+Received: from mx1.redhat.com ([66.187.233.31]:60056 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932096AbXBNASu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Feb 2007 19:18:50 -0500
+Content-Disposition: inline
+In-Reply-To: <20070213155446.2f423782@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 07 Feb 2007 19:36:22 +0100
-Rainer Baumann <baumann@tik.ee.ethz.ch> wrote:
+On Tue, Feb 13, 2007 at 03:54:46PM -0800, Stephen Hemminger wrote:
+> > 
+> > 	The problem with this is that it'll cause failures in the case
+> > that some other unrelated entity holds rtnl ("x" will be performed
+> > concurrently with whomever actually holds rtnl).
+> > 
+> 
+> It is also a crap macro.
 
-> Hi Stephen
-> 
-> I just wanted to ask you, if you already had time to test our trace
-> extension for netem as discussed on the 13th of December.
-> 
-> Cheers
-> Rainer
-> 
-> Rainer Baumann wrote:
-> > Hi Stephen
-> >
-> > As discussed yesterday, here our patches to integrate trace control into netem
-> >
-> >
-> >
-> > Trace Control for Netem: Emulate network properties such as long range dependency and self-similarity of cross-traffic.
-> >
-> > A new option (trace) has been added to the netem command. If the trace option is used, the values for packet delay etc. are read from a pregenerated trace file, afterwards the packets are processed by the normal netem functions. The packet action values are readout from the trace file in user space and sent to kernel space via configfs.
-> >
-> >
-> 
+^^^ The 2 reasons why I never posted it for actual inclusion, but just
+used it for testing....
 
-I looked at it some more, and want to go in and clean the configuration and buffer interface
-slightly before inclusion. Once it is in I get stuck with the ABI so don't want to do something
-wrong.
 
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
