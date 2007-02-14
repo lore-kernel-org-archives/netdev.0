@@ -1,61 +1,77 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Fw: Problem with 2.6.20 and hostap_cs (Netgear MA401)
-Date: Wed, 14 Feb 2007 10:50:40 -0800
-Message-ID: <20070214105040.8a771551.akpm@linux-foundation.org>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH] bcm43xx: Fix code for spec changes of 2/7/2007
+Date: Wed, 14 Feb 2007 13:52:05 +0100
+Message-ID: <1171457525.11116.19.camel@johannes.berg>
+References: <45cca236.+lL/rsW3DbM3elnk%Larry.Finger@lwfinger.net>
+	 <45CCBB93.2040703@lwfinger.net> <45CCC5DF.8010001@gentoo.org>
+	 <200702092017.36950.mb@bu3sch.de>  <45CCD1B1.80709@gentoo.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David G Hamblen <dhamblen@adelphia.net>
-To: netdev@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-iRi5Bsnp2qHUeP8HNPBk"
+Cc: Michael Buesch <mb@bu3sch.de>, netdev@vger.kernel.org,
+	Larry Finger <larry.finger@lwfinger.net>,
+	linux-wireless@vger.kernel.org, Bcm43xx-dev@lists.berlios.de,
+	John Linville <linville@tuxdriver.com>
+To: Joseph Jezak <josejx@gentoo.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:39113 "EHLO smtp.osdl.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932424AbXBNSuv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Feb 2007 13:50:51 -0500
+Received: from crystal.sipsolutions.net ([195.210.38.204]:50871 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932445AbXBNTET (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Feb 2007 14:04:19 -0500
+In-Reply-To: <45CCD1B1.80709@gentoo.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
+--=-iRi5Bsnp2qHUeP8HNPBk
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-Begin forwarded message:
+On Fri, 2007-02-09 at 14:55 -0500, Joseph Jezak wrote:
 
-Date: Wed, 14 Feb 2007 11:59:00 -0500
-From: David G Hamblen <dhamblen@adelphia.net>
-To: Kernel mailing list <linux-kernel@vger.kernel.org>
-Subject: Problem with 2.6.20 and hostap_cs (Netgear MA401)
+> Well, here's the problem.  There are a few places where a value is=20
+> changed (different value written to a register).  Does this mean=20
+> that the value is different due to the uCode changes (can't tell, no=20
+> documentation)?=20
 
+=46rom what I've seen in the ucode that question isn't really too hard to
+answer: as long as it's not in the shared memory or ucode register space
+the ucode can't really have an influence.
 
-I've got the ieee80211 and hostap code compiled as modules for my MA401 
-card,  and the system locks up when I insert the card.  No keyboard, no 
-sysrq, no logs after reboot, no nothing. The same configuration works 
-fine under 2.6.19.
+>  Is it applicable to all revisions (can't tell, some=20
+> revisions are not supported in this version)? =20
 
-If I first insert my old 3com 3c589 card, then eject it and rmmod the 
-3c589_cs module, the insertion of the MA401 works completely. Preloading 
-the modules with insmod or modprobe doesn't help.
+Best bet would be to make it conditional right now and have someone test
+for these cases with older hw.
 
-Was there a change in the pcmcia or networking initialization code 
-between 2.6.19 and 2.6.20?
+> If the revision=20
+> number range in a check changes is that because of a difference in=20
+> supported cards or a bug fix?
 
-Here are the relevant modules.
+Hmm. Same I guess, use the new check for new hw and the old check for
+old hw, i.e. assume it's the former and not a bug fix (until tested
+otherwise.)
 
-#/sbin/lsmod
-Module                  Size  Used by
-ieee80211_crypt_wep     5248  0
-hostap_cs              59220  3
-hostap                110852  1 hostap_cs
-ieee80211_crypt         5632  2 ieee80211_crypt_wep,hostap
-...
-pcmcia                 29280  1 hostap_cs
-firmware_class          9664  1 pcmcia
-yenta_socket           26892  4
-...
-rsrc_nonstatic         13248  1 yenta_socket
-pcmcia_core            39056  4 \ 
-hostap_cs,pcmcia,yenta_socket,rsrc_nonstatic
+I think our best bet is to treat the older hw the same as the older
+driver does.
 
--
-To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
-Please read the FAQ at  http://www.tux.org/lkml/
+A bigger problem, IMO, is that we'd have to support all the older
+microcode things which is a bit tricky since things in shm have moved a
+lot... Maybe we should find a third maintainer who has access to a
+couple of old cards :)
+
+johannes
+
+--=-iRi5Bsnp2qHUeP8HNPBk
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iD8DBQBF0wX1/ETPhpq3jKURAg11AKCeSHViazpI9Y7AHodHHTCXYPBReQCdFHy4
+j4z9ZNRme/H29BscD7iy9C8=
+=l1Jt
+-----END PGP SIGNATURE-----
+
+--=-iRi5Bsnp2qHUeP8HNPBk--
+
