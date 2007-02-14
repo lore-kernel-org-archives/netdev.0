@@ -1,53 +1,62 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [patch 21/21] Xen-paravirt: Add the Xen virtual network device
-	driver.
-Date: Wed, 14 Feb 2007 13:40:01 -0700
-Message-ID: <m1odnwpj6m.fsf@ebiederm.dsl.xmission.com>
-References: <20070213221729.772002682@goop.org>
-	<20070213221831.150207238@goop.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: Andrew Morton <akpm@osdl.org>, Andi Kleen <ak@muc.de>,
-   xen-devel@lists.xensource.com, Chris Wright <chrisw@sous-sol.org>,
-   Ian Pratt <ian.pratt@xensource.com>, virtualization@lists.osdl.org,
-   netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Jeremy Fitzhardinge <jeremy@goop.org>
-Return-path: <virtualization-bounces@lists.osdl.org>
-In-Reply-To: <20070213221831.150207238@goop.org> (Jeremy Fitzhardinge's
-	message of "Tue, 13 Feb 2007 14:17:50 -0800")
-List-Unsubscribe: <https://lists.osdl.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.osdl.org?subject=unsubscribe>
-List-Archive: <http://lists.osdl.org/pipermail/virtualization>
-List-Post: <mailto:virtualization@lists.osdl.org>
-List-Help: <mailto:virtualization-request@lists.osdl.org?subject=help>
-List-Subscribe: <https://lists.osdl.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.osdl.org?subject=subscribe>
-Sender: virtualization-bounces@lists.osdl.org
-Errors-To: virtualization-bounces@lists.osdl.org
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [GIT PULL] IPv6 Updates
+Date: Thu, 15 Feb 2007 07:57:53 +1100
+Message-ID: <E1HHRCL-00028w-00@gondolin.me.apana.org.au>
+References: <200702142119.11304.hasso@estpak.ee>
+Cc: yoshfuji@linux-ipv6.org, davem@davemloft.net,
+	netdev@vger.kernel.org, aramoto@linux-ipv6.org,
+	kozakai@linux-ipv6.org
+To: hasso@estpak.ee (Hasso Tepper)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:1125 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S932580AbXBNU7e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Feb 2007 15:59:34 -0500
+In-Reply-To: <200702142119.11304.hasso@estpak.ee>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeremy Fitzhardinge <jeremy@goop.org> writes:
+Hasso Tepper <hasso@estpak.ee> wrote:
+> 
+> Many thanks. Now if only IPv4 would be fixed in similar fashion as well.
 
-> +++ b/drivers/xen/Kconfig.net
-> @@ -0,0 +1,14 @@
-> +menu "Xen network device drivers"
-> +        depends on NETDEVICES && XEN
-> +
-> +config XEN_NETDEV_FRONTEND
-> +	tristate "Network-device frontend driver"
-> +	depends on XEN
-> +	default y
-> +	help
-> +	  The network-device frontend driver allows the kernel to access
-> +	  network interfaces within another guest OS. Unless you are building a
-> +	  dedicated device-driver domain, or your master control domain
-> +	  (domain 0), then you almost certainly want to say Y here.
+Here you go.
 
-Am I reading this correctly I can directly use the network interface
-of another guest OS (no protection)?
+[IPV4] devinet: Register inetdev earlier.
 
-I think this description is misleading, and probably say something
-about virtual hardware.
+This patch allocates inetdev at registration for all devices
+in line with IPv6.  This allows sysctl configuration on the
+devices to occur before they're brought up or addresses are
+added.
 
-Eric
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index ba5e7f4..3a4497c 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -1055,12 +1055,14 @@ static int inetdev_event(struct notifier_block *this, unsigned long event,
+ 	ASSERT_RTNL();
+ 
+ 	if (!in_dev) {
+-		if (event == NETDEV_REGISTER && dev == &loopback_dev) {
++		if (event == NETDEV_REGISTER) {
+ 			in_dev = inetdev_init(dev);
+ 			if (!in_dev)
+ 				panic("devinet: Failed to create loopback\n");
+-			in_dev->cnf.no_xfrm = 1;
+-			in_dev->cnf.no_policy = 1;
++			if (dev == &loopback_dev) {
++				in_dev->cnf.no_xfrm = 1;
++				in_dev->cnf.no_policy = 1;
++			}
+ 		}
+ 		goto out;
+ 	}
