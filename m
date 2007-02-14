@@ -1,48 +1,68 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: [PATCH] bcm43xx: Fix code for spec changes of 2/7/2007
-Date: Wed, 14 Feb 2007 14:18:10 +0100
-Message-ID: <1171459090.11116.22.camel@johannes.berg>
-References: <45cca236.+lL/rsW3DbM3elnk%Larry.Finger@lwfinger.net>
-	 <45CCCAE1.9080901@lwfinger.net> <20070209213239.GA11650@srcf.ucam.org>
-	 <200702100655.51495.mb@bu3sch.de>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [GIT PULL] IPv6 Updates
+Date: Wed, 14 Feb 2007 14:12:23 -0500
+Message-ID: <45D35F17.1090609@hp.com>
+References: <20070215.023514.30908786.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-rEspaolx7Cr6qpw+rgR+"
-Cc: Matthew Garrett <mjg59-1xO5oi07KQx4cg9Nei1l7Q@public.gmane.org>,
-	Joseph Jezak <josejx-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-	Larry Finger <larry.finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-To: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <200702100655.51495.mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	aramoto@linux-ipv6.org, kozakai@linux-ipv6.org
+To: =?UTF-8?B?WU9TSElGVUpJIEhpZGVha2kgLyDlkInol6Toi7HmmI4=?=
+	<yoshfuji@linux-ipv6.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ccerelrim03.cce.hp.com ([161.114.21.24]:29439 "EHLO
+	ccerelrim03.cce.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932488AbXBNTM2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Feb 2007 14:12:28 -0500
+In-Reply-To: <20070215.023514.30908786.yoshfuji@linux-ipv6.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi Yoshifuji-san
 
---=-rEspaolx7Cr6qpw+rgR+
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+I have a question:
 
-On Sat, 2007-02-10 at 06:55 +0100, Michael Buesch wrote:
+YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E wrote:
+> commit bd292ad1ccbf15c72351f79d4a130dd50da81613
+> Author: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> Date:   Thu Feb 15 02:07:27 2007 +0900
+>=20
+>     [IPV6] ADDRCONF: Register inet6_dev earlier.
+>    =20
+>     Allocate inet6_dev earlier to allow users to set up per-interface=
+ variables.
+>    =20
+>     Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+>=20
+> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+> index c6683ea..42b5cc5 100644
+> --- a/net/ipv6/addrconf.c
+> +++ b/net/ipv6/addrconf.c
+> @@ -2246,6 +2246,14 @@ static int addrconf_notify(struct notifier_blo=
+ck *this, unsigned long event,
+>  	int run_pending =3D 0;
+> =20
+>  	switch(event) {
+> +	case NETDEV_REGISTER:
+> +		if (!idev) {
+> +			idev =3D ipv6_add_dev(dev);
+> +			if (!idev)
+> +				printk(KERN_WARNING "IPv6: add_dev failed for %s\n",
+> +					dev->name);
+> +		}
+> +		break;
+>  	case NETDEV_UP:
+>  	case NETDEV_CHANGE:
+>  		if (event =3D=3D NETDEV_UP) {
+>=20
 
-> It's likely that old cards still work with v4 firmware,
+In this case, ipv6_add_dev will join the all-nodes multicast group on=20
+the interface that may be still down.  Is that an issue at all?
 
-No, it's absolutely impossible. Rev 2/4 cores have a totally different
-instruction set in the microcode.
+It seems that this operation would be better performed when the=20
+interface is marked up?
 
-johannes
-
---=-rEspaolx7Cr6qpw+rgR+
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iD8DBQBF0wwR/ETPhpq3jKURAmfzAJ9AhQiN8fAYEbbUGc3rZnh3pJz8gACgi67r
-cysrzMguMMuwFKfOg7Bkhds=
-=0F/a
------END PGP SIGNATURE-----
-
---=-rEspaolx7Cr6qpw+rgR+--
+Thanks
+-vlad
