@@ -1,82 +1,144 @@
-From: weidong <weid@np.css.fujitsu.com>
-Subject: Fix bugs in "Whether sock accept queue is full" checking
-Date: Wed, 14 Feb 2007 11:30:57 -0500
-Message-ID: <1171470657.7414.15.camel@LINE>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH 1/1] Fabric7 VIOC driver source code
+Date: Wed, 14 Feb 2007 22:43:18 -0800
+Message-ID: <20070214224318.f9495001.akpm@linux-foundation.org>
+References: <1170882460.6610.337.camel@rh234.mv.fabric7.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net
-To: netdev@vger.kernel.org
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	Jeff Garzik <jeff@garzik.org>,
+	Driver Support <driver-support@fabric7.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: schidambaram@fabric7.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fgwmail5.fujitsu.co.jp ([192.51.44.35]:52257 "EHLO
-	fgwmail5.fujitsu.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964863AbXBOC1R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Feb 2007 21:27:17 -0500
-Received: from m2.gw.fujitsu.co.jp ([10.0.50.72])
-	by fgwmail5.fujitsu.co.jp (Fujitsu Gateway) with ESMTP id l1F2RFwR002511
-	for <netdev@vger.kernel.org> (envelope-from weid@np.css.fujitsu.com);
-	Thu, 15 Feb 2007 11:27:16 +0900
-Received: from smail (m2 [127.0.0.1])
-	by outgoing.m2.gw.fujitsu.co.jp (Postfix) with ESMTP id DF1531B801E
-	for <netdev@vger.kernel.org>; Thu, 15 Feb 2007 11:27:09 +0900 (JST)
-Received: from s4.gw.fujitsu.co.jp (s4.gw.fujitsu.co.jp [10.0.50.94])
-	by m2.gw.fujitsu.co.jp (Postfix) with ESMTP id A96352DC032
-	for <netdev@vger.kernel.org>; Thu, 15 Feb 2007 11:27:09 +0900 (JST)
-Received: from s4.gw.fujitsu.co.jp (s4 [127.0.0.1])
-	by s4.gw.fujitsu.co.jp (Postfix) with ESMTP id 9565C161C00C
-	for <netdev@vger.kernel.org>; Thu, 15 Feb 2007 11:27:09 +0900 (JST)
-Received: from ml2.s.css.fujitsu.com (ml2.s.css.fujitsu.com [10.23.4.192])
-	by s4.gw.fujitsu.co.jp (Postfix) with ESMTP id 29EDF161C006
-	for <netdev@vger.kernel.org>; Thu, 15 Feb 2007 11:27:09 +0900 (JST)
+Received: from smtp.osdl.org ([65.172.181.24]:36681 "EHLO smtp.osdl.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751601AbXBOGn2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Feb 2007 01:43:28 -0500
+In-Reply-To: <1170882460.6610.337.camel@rh234.mv.fabric7.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi, All
-	when I use linux TCP socket, and find there is a bug in function
-sk_acceptq_is_full(). 
+On Wed, 07 Feb 2007 13:07:40 -0800 Sriram Chidambaram <schidambaram@fabric7.com> wrote:
 
-	When a new SYN comes, TCP module first checks its validation. If valid,
-send SYN,ACK to the client and add the sock to the syn hash table. Next
-time if received the valid ACK for SYN,ACK from the client. server will
-accept this connection and increase the sk->sk_ack_backlog -- which is
-done in function tcp_check_req().We check wether acceptq is full in
-function tcp_v4_syn_recv_sock().
+> This patch provides the Fabric7 VIOC driver source code.
+> This git mbox patch is built against 
+> git://git.kernel.org/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git
+>
+> The patch can be pulled from
+>ftp://ftp.fabric7.com/VIOC/Fabric7-VIOC-driver-patch.FEB-07-2007
 
-Consider an example:
+For people wondering what this is, the documentation file is below.
 
- After listen(sockfd, 1) system call, sk->sk_max_ack_backlog is set to
-1. As we know, sk->sk_ack_backlog is initialized to 0. Assuming accept()
-system call is not invoked now.
+I'll pull this driver into my queue so that it doesn't get lost and to give
+people an opportunity to review it more easily.  From a quick peek, I'd
+expect some changes to be needed: stylistic things, plus some suspicious
+looking PCI-poking in vioc_irq.c.  But I didn't look at it at all closely.
 
-1. 1st connection comes. invoke sk_acceptq_is_full(). sk-
->sk_ack_backlog=0 sk->sk_max_ack_backlog=1, function return 0 accept
-this connection. Increase the sk->sk_ack_backlog
-2. 2nd connection comes. invoke sk_acceptq_is_full(). sk-
->sk_ack_backlog=1 sk->sk_max_ack_backlog=1, function return 0 accept
-this connection. Increase the sk->sk_ack_backlog
-3. 3rd connection comes. invoke sk_acceptq_is_full(). sk-
->sk_ack_backlog=2 sk->sk_max_ack_backlog=1, function return 1. Refuse
-this connection.
+The driver needed a bit of help to make it compile on ia64 (I haven't tried
+any other architectures).  If it's simply not possible that this device
+will ever be present on any non-x86 machines then perhaps we should
+restrict it to those architectures at kernel configuration time.
 
-I think it has bugs. after listen system call. sk->sk_max_ack_backlog=1
-but now it can accept 2 connections. The following patch can fix this
-problem.
+But then, all the changes I made were good ones..
 
-signed-off-by: Wei Dong <weid@np.css.fujitsu.com>
 
-diff -ruN old/include/net/sock.h new/include/net/sock.h
---- old/include/net/sock.h	2007-02-03 08:38:21.000000000 -0500
-+++ new/include/net/sock.h	2007-02-03 08:38:30.000000000 -0500
-@@ -426,7 +426,7 @@
- 
- static inline int sk_acceptq_is_full(struct sock *sk)
- {
--	return sk->sk_ack_backlog > sk->sk_max_ack_backlog;
-+	return sk->sk_ack_backlog >= sk->sk_max_ack_backlog;
- }
- 
- /*
 
+
+
+
+
+Overview
+========
+
+A Virtual Input-Output Controller (VIOC) is a PCI device that provides
+10Gbps of I/O bandwidth that can be shared by up to 16 virtual network
+interfaces (VNICs).  VIOC hardware supports several features such as
+large frames, checksum offload, gathered send, MSI/MSI-X, bandwidth
+control, interrupt mitigation, etc.
+
+VNICs are provisioned to a host partition via an out-of-band interface
+from the System Controller -- typically before the partition boots,
+although they can be dynamically added or removed from a running
+partition as well.
+
+Each provisioned VNIC appears as an Ethernet netdevice to the host OS,
+and maintains its own transmit ring in DMA memory.  VNICs are
+configured to share up to 4 of total 16 receive rings and 1 of total
+16 receive-completion rings in DMA memory.  VIOC hardware classifies
+packets into receive rings based on size, allowing more efficient use
+of DMA buffer memory.  The default, and recommended, configuration
+uses groups of 'receive sets' (rxsets), each with 3 receive rings, a
+receive completion ring, and a VIOC Rx interrupt.  The driver gives
+each rxset a NAPI poll handler associated with a phantom (invisible)
+netdevice, for concurrency.  VNICs are assigned to rxsets using a
+simple modulus.
+
+VIOC provides 4 interrupts in INTx mode: 2 for Rx, 1 for Tx, and 1 for
+out-of-band messages from the System Controller and errors.  VIOC also
+provides 19 MSI-X interrupts: 16 for Rx, 1 for Tx, 1 for out-of-band
+messages from the System Controller, and 1 for error signalling from
+the hardware.  The VIOC driver makes a determination whether MSI-X
+functionality is supported and initializes interrupts accordingly.
+[Note: The Linux kernel disables MSI-X for VIOCs on modules with AMD
+8131, even if the device is on the HT link.]
+
+
+Module loadable parameters
+==========================
+
+- poll_weight (default 8) - the number of received packets will be
+  processed during one call into the NAPI poll handler.
+
+- rx_intr_timeout (default 1) - hardware rx interrupt mitigation
+  timer, in units of 5us.
+
+- rx_intr_pkt_cnt (default 64) - hardware rx interrupt mitigation
+  counter, in units of packets.
+
+- tx_pkts_per_irq (default 64) - hardware tx interrupt mitigation
+  counter, in units of packets.
+
+- tx_pkts_per_bell (default 1) - the number of packets to enqueue on a
+  transmit ring before issuing a doorbell to hardware.
+
+Performance Tuning
+==================
+
+You may want to use the following sysctl settings to improve
+performance.  [NOTE: To be re-checked]
+
+# set in /etc/sysctl.conf
+
+net.ipv4.tcp_timestamps = 0
+net.ipv4.tcp_sack = 0
+net.ipv4.tcp_rmem = 10000000 10000000 10000000
+net.ipv4.tcp_wmem = 10000000 10000000 10000000
+net.ipv4.tcp_mem  = 10000000 10000000 10000000
+
+net.core.rmem_max = 5242879
+net.core.wmem_max = 5242879
+net.core.rmem_default = 5242879
+net.core.wmem_default = 5242879
+net.core.optmem_max = 5242879
+net.core.netdev_max_backlog = 100000
+
+Out-of-band Communications with System Controller
+=================================================
+
+System operators can use the out-of-band facility to allow for remote
+shutdown or reboot of the host partition.  Upon receiving such a
+command, the VIOC driver executes "/sbin/reboot" or "/sbin/shutdown"
+via the usermodehelper() call.
+
+This same communications facility is used for dynamic VNIC
+provisioning (plug in and out).
+
+The VIOC driver also registers a callback with
+register_reboot_notifier().  When the callback is executed, the driver
+records the shutdown event and reason in a VIOC register to notify the
+System Controller.
 
 
 
