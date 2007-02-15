@@ -1,64 +1,76 @@
-From: lsorense@csclub.uwaterloo.ca (Lennart Sorensen)
-Subject: Strange connection slowdown on pcnet32
-Date: Thu, 15 Feb 2007 17:50:30 -0500
-Message-ID: <20070215225030.GA7585@csclub.uwaterloo.ca>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [Bugme-new] [Bug 7974] New: BUG: scheduling while atomic: swapper/0x10000100/0
+Date: Thu, 15 Feb 2007 15:45:23 -0800
+Message-ID: <200702152345.l1FNjN22000583@death.nxdomain.ibm.com>
+References: <20070209133802.01286bbb.akpm@linux-foundation.org> <20070213202905.GA26818@gospo.rdu.redhat.com> <200702132226.l1DMQS22009230@death.nxdomain.ibm.com> <20070213.143243.78711492.davem@davemloft.net> <20070213230803.GB26818@gospo.rdu.redhat.com> <200702132333.l1DNX022012433@death.nxdomain.ibm.com> <20070214013130.GD26818@gospo.rdu.redhat.com> <200702140211.l1E2BF22031298@death.nxdomain.ibm.com> <20070215210019.GB30353@gospo.rdu.redhat.com>
+Cc: David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, shemminger@linux-foundation.org,
+	lpiccilli@gelre.com.br, bugme-daemon@bugzilla.kernel.org
+To: Andy Gospodarek <andy@greyhouse.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from caffeine.uwaterloo.ca ([129.97.134.17]:40192 "EHLO
-	caffeine.csclub.uwaterloo.ca" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1422692AbXBOXWZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Feb 2007 18:22:25 -0500
-Received: from caffeine.csclub.uwaterloo.ca (localhost.localdomain [127.0.0.1])
-	by caffeine.csclub.uwaterloo.ca (Postfix) with ESMTP id AF81973D35
-	for <netdev@vger.kernel.org>; Thu, 15 Feb 2007 17:52:03 -0500 (EST)
-Content-Disposition: inline
+Received: from e2.ny.us.ibm.com ([32.97.182.142]:54476 "EHLO e2.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932852AbXBOXp3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Feb 2007 18:45:29 -0500
+Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
+	by e2.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l1FNjQsG006376
+	for <netdev@vger.kernel.org>; Thu, 15 Feb 2007 18:45:26 -0500
+Received: from d01av01.pok.ibm.com (d01av01.pok.ibm.com [9.56.224.215])
+	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.2) with ESMTP id l1FNjQQQ298334
+	for <netdev@vger.kernel.org>; Thu, 15 Feb 2007 18:45:26 -0500
+Received: from d01av01.pok.ibm.com (loopback [127.0.0.1])
+	by d01av01.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l1FNjPH1006543
+	for <netdev@vger.kernel.org>; Thu, 15 Feb 2007 18:45:26 -0500
+In-reply-to: <20070215210019.GB30353@gospo.rdu.redhat.com> 
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I have encountered a strange behaviour with the pcnet32.
+Andy Gospodarek <andy@greyhouse.net> wrote:
 
-I am transfering data from a server to a client routing it through my
-router.  The router has 2 ethernet ports, both of which are amd 972
-chips (pcnet32).  The transfer has so far been either http or ftp (both
-see the same problem).  I transfer lots of data, and after a while (I
-have seen anywhere from 200 to 700MB or so) the speed suddenly drops to
-less than 1KB/s.  If I ping from the router to the server, the ping
-requests go out normally (seen by tcpdump on the server) every second,
-but on the router the replies are not seen by the kernel for multiple
-seconds.  Sometimes I will see 3 ping replies together, sometimes 5 or
-even 10.  The turn around times will show 10500, 9500, 8500, ..., 500ms
-for the packets received in a batch.  ifconfig on the router shows the
-packet receive counts showing up in lumps, just as ping does, and
-tcpdump on the interface on the router.
+[...]
+>That might be the case, but I feel like the code is in a place where it
+>*could* work tomorrow with just some small tweaks (getting everything
+>into process context).  I'm reluctant to cram a whole bunch of changes
+>down someone's throat immediately (with a big patch) because it will be
+>difficult to learn incrementally what is being done well and what isn't
+>based on user feedback.
 
-Doing ifconfig down and up on the port connecting to the server makes
-the problem clear and it can handle another pile of data before the
-problem reappears.
+	Fair enough.
 
-The CPU on the router is not fast enough to ensure there won't ever be
-dropped packets at 100Mbps.  When I force the port to the server to
-10Mbps I have no problems at all.
+>> 	I like having the mode-specific monitors simply be special case
+>> monitors in a unified "monitor system." It resolves the link-check
+>> vs. mode-specific conflict, and allows all of the periodic things to be
+>> paused as a set for mutexing purposes.  I'm happy to be convinced that
+>> I'm just blowing hooey here, but that's how it seems to me.
+>> 
+>
+>I went back and looked at my patch from a few months ago and I actually
+>use a single-threaded workqueue for each bond device.  I did not use
+>different queues to replace each timer -- just different types of work
+>that is placed on the queue.  So it sounds like we agree -- now we just
+>need to pick a decent starting point?
 
-Replacing the port to the server with an rtl8139 doesn't show any
-problems at 100Mbps, although the transfer rate drops from 6500KBps to
-4000KBps compared to using the pcnet32.
+	For the short term, yes, I don't have any disagreement with
+switching the timer based stuff over to workqueues.  Basically a one for
+one replacement to get the functions in a process context and tweak the
+locking.
 
-Kernel used so far is 2.6.16 and 2.6.18.
+	I do think we're having a little confusion over details of
+terminology; if I'm not mistaken, you're thinking that workqueue means
+single threaded: even though each individual "monitor thingie" is a
+separate piece of work, they still can't collide.
 
-I have a tulip card I intend to try with as well just to see if it
-affects anything other than the pcnet32.
+	That's true, but (unless I've missed a call somewhere) there
+isn't a "wq_pause_for_a_bit" type of call (that, e.g., waits for
+anything running to stop, then doesn't run any further work until we
+later tell it to), so suspending all of the periodic things running for
+the bond is more hassle than if there's just one schedulable work thing,
+which internally calls the right functions to do the various things.
+This is also single threaded, but easier to stop and start.  It seems to
+be simpler to have multiple link monitors running in such a system as
+well (without having them thrashing the link state as would happen now).
 
-Does anyone have any hints as to what part of the code to look at for
-changes made by doing ifconfig eth1 down; ifconfig eth1 up?  Any ideas
-as to what could make the reception of packets suddenly get very very
-slow?
+	-J
 
-On one pass where I was running tcpdump on the router, I saw a wrap of
-the sequence number right before the problem occoured, but that has not
-been the case every time as far as I can tell, so I am not sure if that
-is related to the problem at all.
-
---
-Len Sorensen
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
