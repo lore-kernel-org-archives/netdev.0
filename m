@@ -1,67 +1,57 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: Re: sky2 bonding problem, 802.3ad
-Date: Thu, 15 Feb 2007 16:31:36 -0500
-Message-ID: <20070215213135.GC30353@gospo.rdu.redhat.com>
-References: <871wkruu6p.fsf@kruemel.my-eitzenberger.de>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: sk98lin: 2 Pair Downshift detected
+Date: Thu, 15 Feb 2007 13:35:32 -0800
+Message-ID: <20070215133532.7523c7e3@freekitty>
+References: <626DF2B4C31B7D4CA3820BD8245FC4AA0170EADA@AIEX01.ai.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: shemminger@linux-foundation.org,
-	sk-drivers@lists.linux-foundation.org, netdev@vger.kernel.org
-To: Holger Eitzenberger <holger@my-eitzenberger.de>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>
+To: "Tony Chung" <tchung@appliedidentity.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:36632 "EHLO mx1.redhat.com"
+Received: from smtp.osdl.org ([65.172.181.24]:35101 "EHLO smtp.osdl.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1161395AbXBOVbt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Feb 2007 16:31:49 -0500
-Content-Disposition: inline
-In-Reply-To: <871wkruu6p.fsf@kruemel.my-eitzenberger.de>
+	id S1161413AbXBOVff (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Feb 2007 16:35:35 -0500
+In-Reply-To: <626DF2B4C31B7D4CA3820BD8245FC4AA0170EADA@AIEX01.ai.local>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Feb 15, 2007 at 07:55:42PM +0100, Holger Eitzenberger wrote:
-> Hi Steven,
+On Thu, 15 Feb 2007 12:49:26 -0800
+"Tony Chung" <tchung@appliedidentity.com> wrote:
+
+> Hi,
 > 
-> I have problems using sky2 v1.10 with with bonding driver (802.3ad),
-> on 'Marvell 88E8053 PCI-E Gigabit Ethernet Controller'.  I have attached
-> the full lspci output.
+> I got the following message:
 > 
-> My test was to setup a bond of two physical links (both links same
-> hardware) and ping 192.168.11.10, which is the address of the switch
-> itself.
+>         Class:  Hardware failure
+>         Nr:  0x270
+>         Msg:  2 Pair Downshift detected
 > 
-> I have tested v1.10 with kernel 2.6.19 and 2.6.16.36 (own backport),
-> which despite the bonding problem runs fine.  Both, kernel 2.6.19 and
-> 2.6.16.36 show the same behaviour.  The 802.3ad aware switch is a Dell
-> PowerConnect 5324.  VLAN is not configured on all switch ports.  Another
-> test on a host running kernel 2.6.18.2 with two e1000's bonded runs
-> fine.  Using sk98lin (v8.41 & v10.0.4) worked also.
+> It is from the sk98lin driver and my research indicated that it may be
+> caused by bad Ethernet cable.  The gigabit port is now became 100Mbps.
+> 
+> My questions are:
+> 1. What is 0x270 mean? Is there any link or reference for it?
+
+It is a error code used inside driver. It looks like a bad job of internationalization
+so every message is encoded as a number, then printed out.
 
 
-I get the impression that sky2 has never worked for you.  Is that
-correct?  There was an skge problem I noticed a while ago where on reset
-the multicast membership list was cleared.  
+> 2. How do you recover from it (i.e. negotiate back to 1000Mbps)?
+> Reboot? Reload the driver?  Can the driver do it automatically?
 
-commit 758140900a82e3ed3bb2be1d4705dd352fe44825
-Author: Stephen Hemminger <shemminger@osdl.org>
-Date:   Fri Dec 1 11:41:08 2006 -0800
+Use 'ethtool -r eth0' to force PHY renegotiation or bring device
+down then back up.
 
-    [PATCH] skge: don't clear MC state on link down
-
-    I would rather fix Andy's problem by not clearing
-    multicast information on link down.
-
-    Also, add code to restore multicast state after ethtool phy reset.
-
-    Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
-    Signed-off-by: Jeff Garzik <jeff@garzik.org>
+> 
+> Thanks.
+> - Tony
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
 
-
-A patch Having this list cleared could stop you from receiving 802.3ad
-PDUs.  I'll check skge and see if it has the same problem (I'm betting
-on it).
-
-
-
-
-
+-- 
+Stephen Hemminger <shemminger@linux-foundation.org>
