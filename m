@@ -1,127 +1,257 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH 3/4] 8139too: RTNL and flush_scheduled_work deadlock
-Date: Thu, 15 Feb 2007 23:37:44 +0100
-Message-ID: <20070215223744.GC19840@electric-eye.fr.zoreil.com>
-References: <20070214132729.479793ac@freekitty>
+From: linas@austin.ibm.com (Linas Vepstas)
+Subject: [PATCH] s2io: add PCI error recovery support
+Date: Thu, 15 Feb 2007 17:08:57 -0600
+Message-ID: <20070215230857.GB923@austin.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	akpm@linux-foundation.org, netdev@vger.kernel.org,
-	Ben Greear <greearb@candelatech.com>,
-	Kyle Lucke <klucke@us.ibm.com>,
+Cc: Wen Xiong <wenxiong@us.ibm.com>, linux-kernel@vger.kernel.org,
+	linux-pci@atrey.karlin.mff.cuni.cz, netdev@vger.kernel.org,
+	Jeff Garzik <jgarzik@pobox.com>, Andrew Morton <akpm@osdl.org>
+To: Ramkrishna Vepa <Ramkrishna.Vepa@neterion.com>,
 	Raghavendra Koushik <raghavendra.koushik@neterion.com>,
-	Al Viro <viro@ftp.linux.org.uk>
-To: jeff@garzik.org
+	Ananda Raju <Ananda.Raju@neterion.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:59165 "EHLO
-	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1161604AbXBOWph (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Feb 2007 17:45:37 -0500
+Received: from e35.co.us.ibm.com ([32.97.110.153]:57145 "EHLO
+	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161665AbXBOXI7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Feb 2007 18:08:59 -0500
 Content-Disposition: inline
-In-Reply-To: <20070214132729.479793ac@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Your usual dont-flush_scheduled_work-with-RTNL-held stuff.
 
-It is a bit different here since the thread runs permanently
-or is only occasionally kicked for recovery depending on the
-hardware revision.
+Koushik, Raju,
 
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
----
- drivers/net/8139too.c |   40 +++++++++++++++++-----------------------
- 1 files changed, 17 insertions(+), 23 deletions(-)
+Please review, comment, and if you find this acceptable, 
+please forward upstream. This patch incorporates all of 
+fixes resulting from the last set of discussions, circa 
+November 2006.
 
-diff --git a/drivers/net/8139too.c b/drivers/net/8139too.c
-index 35ad5cf..99304b2 100644
---- a/drivers/net/8139too.c
-+++ b/drivers/net/8139too.c
-@@ -1109,6 +1109,8 @@ static void __devexit rtl8139_remove_one (struct pci_dev *pdev)
+--linas
+
+This patch adds PCI error recovery support to the 
+s2io 10-Gigabit ethernet device driver. Fourth revision,
+blocks interrupts and the watchdog. Adds a flag to 
+s2io_down(), to avoid doing I/O when PCI bus is offline.
+
+Tested, seems to work well.
+
+Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
+Acked-by: Ramkrishna Vepa <Ramkrishna.Vepa@neterion.com>
+Cc: Raghavendra Koushik <raghavendra.koushik@neterion.com>
+Cc: Ananda Raju <Ananda.Raju@neterion.com>
+Cc: Wen Xiong <wenxiong@us.ibm.com>
+
+----
+ drivers/net/s2io.c |  116 ++++++++++++++++++++++++++++++++++++++++++++++++++---
+ drivers/net/s2io.h |    5 ++
+ 2 files changed, 116 insertions(+), 5 deletions(-)
+
+Index: linux-2.6.20-git4/drivers/net/s2io.c
+===================================================================
+--- linux-2.6.20-git4.orig/drivers/net/s2io.c	2007-02-15 15:39:35.000000000 -0600
++++ linux-2.6.20-git4/drivers/net/s2io.c	2007-02-15 16:15:10.000000000 -0600
+@@ -435,11 +435,18 @@ static struct pci_device_id s2io_tbl[] _
  
- 	assert (dev != NULL);
+ MODULE_DEVICE_TABLE(pci, s2io_tbl);
  
-+	flush_scheduled_work();
++static struct pci_error_handlers s2io_err_handler = {
++	.error_detected = s2io_io_error_detected,
++	.slot_reset = s2io_io_slot_reset,
++	.resume = s2io_io_resume,
++};
 +
- 	unregister_netdev (dev);
+ static struct pci_driver s2io_driver = {
+       .name = "S2IO",
+       .id_table = s2io_tbl,
+       .probe = s2io_init_nic,
+       .remove = __devexit_p(s2io_rem_nic),
++      .err_handler = &s2io_err_handler,
+ };
  
- 	__rtl8139_cleanup_dev (dev);
-@@ -1603,18 +1605,21 @@ static void rtl8139_thread (struct work_struct *work)
- 	struct net_device *dev = tp->mii.dev;
- 	unsigned long thr_delay = next_tick;
+ /* A simplifier macro used both by init and free shared_mem Fns(). */
+@@ -2577,6 +2584,9 @@ static void s2io_netpoll(struct net_devi
+ 	u64 val64 = 0xFFFFFFFFFFFFFFFFULL;
+ 	int i;
  
-+	rtnl_lock();
++	if (pci_channel_offline(nic->pdev))
++		return;
 +
-+	if (!netif_running(dev))
-+		goto out_unlock;
-+
- 	if (tp->watchdog_fired) {
- 		tp->watchdog_fired = 0;
- 		rtl8139_tx_timeout_task(work);
--	} else if (rtnl_trylock()) {
--		rtl8139_thread_iter (dev, tp, tp->mmio_addr);
--		rtnl_unlock ();
--	} else {
--		/* unlikely race.  mitigate with fast poll. */
--		thr_delay = HZ / 2;
--	}
-+	} else
-+		rtl8139_thread_iter(dev, tp, tp->mmio_addr);
+ 	disable_irq(dev->irq);
  
--	schedule_delayed_work(&tp->thread, thr_delay);
-+	if (tp->have_thread)
-+		schedule_delayed_work(&tp->thread, thr_delay);
-+out_unlock:
-+	rtnl_unlock ();
- }
- 
- static void rtl8139_start_thread(struct rtl8139_private *tp)
-@@ -1626,19 +1631,11 @@ static void rtl8139_start_thread(struct rtl8139_private *tp)
+ 	atomic_inc(&nic->isr_cnt);
+@@ -3079,6 +3089,8 @@ static void alarm_intr_handler(struct s2
+ 	int i;
+ 	if (atomic_read(&nic->card_state) == CARD_DOWN)
  		return;
++	if (pci_channel_offline(nic->pdev))
++		return;
+ 	nic->mac_control.stats_info->sw_stat.ring_full_cnt = 0;
+ 	/* Handling the XPAK counters update */
+ 	if(nic->mac_control.stats_info->xpak_stat.xpak_timer_count < 72000) {
+@@ -4117,6 +4129,10 @@ static irqreturn_t s2io_isr(int irq, voi
+ 	struct mac_info *mac_control;
+ 	struct config_param *config;
  
- 	tp->have_thread = 1;
-+	tp->watchdog_fired = 0;
- 
- 	schedule_delayed_work(&tp->thread, next_tick);
++	/* Pretend we handled any irq's from a disconnected card */
++	if (pci_channel_offline(sp->pdev))
++		return IRQ_NONE;
++
+ 	atomic_inc(&sp->isr_cnt);
+ 	mac_control = &sp->mac_control;
+ 	config = &sp->config;
+@@ -6188,7 +6204,7 @@ static void s2io_rem_isr(struct s2io_nic
+ 	} while(cnt < 5);
  }
  
--static void rtl8139_stop_thread(struct rtl8139_private *tp)
--{
--	if (tp->have_thread) {
--		cancel_rearming_delayed_work(&tp->thread);
--		tp->have_thread = 0;
--	} else
--		flush_scheduled_work();
--}
--
- static inline void rtl8139_tx_clear (struct rtl8139_private *tp)
+-static void s2io_card_down(struct s2io_nic * sp)
++static void do_s2io_card_down(struct s2io_nic * sp, int do_io)
  {
- 	tp->cur_tx = 0;
-@@ -1696,12 +1693,11 @@ static void rtl8139_tx_timeout (struct net_device *dev)
- {
- 	struct rtl8139_private *tp = netdev_priv(dev);
+ 	int cnt = 0;
+ 	struct XENA_dev_config __iomem *bar0 = sp->bar0;
+@@ -6203,7 +6219,8 @@ static void s2io_card_down(struct s2io_n
+ 	atomic_set(&sp->card_state, CARD_DOWN);
  
-+	tp->watchdog_fired = 1;
- 	if (!tp->have_thread) {
--		INIT_DELAYED_WORK(&tp->thread, rtl8139_tx_timeout_task);
-+		INIT_DELAYED_WORK(&tp->thread, rtl8139_thread);
- 		schedule_delayed_work(&tp->thread, next_tick);
--	} else
--		tp->watchdog_fired = 1;
--
+ 	/* disable Tx and Rx traffic on the NIC */
+-	stop_nic(sp);
++	if (do_io)
++		stop_nic(sp);
+ 
+ 	s2io_rem_isr(sp);
+ 
+@@ -6211,7 +6228,7 @@ static void s2io_card_down(struct s2io_n
+ 	tasklet_kill(&sp->task);
+ 
+ 	/* Check if the device is Quiescent and then Reset the NIC */
+-	do {
++	while(do_io) {
+ 		/* As per the HW requirement we need to replenish the
+ 		 * receive buffer to avoid the ring bump. Since there is
+ 		 * no intention of processing the Rx frame at this pointwe are
+@@ -6236,8 +6253,9 @@ static void s2io_card_down(struct s2io_n
+ 				  (unsigned long long) val64);
+ 			break;
+ 		}
+-	} while (1);
+-	s2io_reset(sp);
 +	}
++	if (do_io)
++		s2io_reset(sp);
+ 
+ 	spin_lock_irqsave(&sp->tx_lock, flags);
+ 	/* Free all Tx buffers */
+@@ -6252,6 +6270,11 @@ static void s2io_card_down(struct s2io_n
+ 	clear_bit(0, &(sp->link_state));
  }
  
- static int rtl8139_start_xmit (struct sk_buff *skb, struct net_device *dev)
-@@ -2233,8 +2229,6 @@ static int rtl8139_close (struct net_device *dev)
++static void s2io_card_down(struct s2io_nic * sp)
++{
++	do_s2io_card_down(sp, 1);
++}
++
+ static int s2io_card_up(struct s2io_nic * sp)
+ {
+ 	int i, ret = 0;
+@@ -7536,3 +7559,86 @@ static void lro_append_pkt(struct s2io_n
+ 	sp->mac_control.stats_info->sw_stat.clubbed_frms_cnt++;
+ 	return;
+ }
++
++/**
++ * s2io_io_error_detected - called when PCI error is detected
++ * @pdev: Pointer to PCI device
++ * @state: The current pci conneection state
++ *
++ * This function is called after a PCI bus error affecting
++ * this device has been detected.
++ */
++static pci_ers_result_t s2io_io_error_detected(struct pci_dev *pdev,
++                                               pci_channel_state_t state)
++{
++	struct net_device *netdev = pci_get_drvdata(pdev);
++	struct s2io_nic *sp = netdev->priv;
++
++	netif_device_detach(netdev);
++
++	if (netif_running(netdev)) {
++		/* Bring down the card, while avoiding PCI I/O */
++		do_s2io_card_down(sp, 0);
++		sp->device_close_flag = TRUE;	/* Device is shut down. */
++	}
++	pci_disable_device(pdev);
++
++	return PCI_ERS_RESULT_NEED_RESET;
++}
++
++/**
++ * s2io_io_slot_reset - called after the pci bus has been reset.
++ * @pdev: Pointer to PCI device
++ *
++ * Restart the card from scratch, as if from a cold-boot.
++ * At this point, the card has exprienced a hard reset,
++ * followed by fixups by BIOS, and has its config space
++ * set up identically to what it was at cold boot.
++ */
++static pci_ers_result_t s2io_io_slot_reset(struct pci_dev *pdev)
++{
++	struct net_device *netdev = pci_get_drvdata(pdev);
++	struct s2io_nic *sp = netdev->priv;
++
++	if (pci_enable_device(pdev)) {
++		printk(KERN_ERR "s2io: "
++		       "Cannot re-enable PCI device after reset.\n");
++		return PCI_ERS_RESULT_DISCONNECT;
++	}
++
++	pci_set_master(pdev);
++	s2io_reset(sp);
++
++	return PCI_ERS_RESULT_RECOVERED;
++}
++
++/**
++ * s2io_io_resume - called when traffic can start flowing again.
++ * @pdev: Pointer to PCI device
++ *
++ * This callback is called when the error recovery driver tells
++ * us that its OK to resume normal operation.
++ */
++static void s2io_io_resume(struct pci_dev *pdev)
++{
++	struct net_device *netdev = pci_get_drvdata(pdev);
++	struct s2io_nic *sp = netdev->priv;
++
++	if (netif_running(netdev)) {
++		if (s2io_card_up(sp)) {
++			printk(KERN_ERR "s2io: "
++			       "Can't bring device back up after reset.\n");
++			return;
++		}
++
++		if (s2io_set_mac_addr(netdev, netdev->dev_addr) == FAILURE) {
++			s2io_card_down(sp);
++			printk(KERN_ERR "s2io: "
++			       "Can't resetore mac addr after reset.\n");
++			return;
++		}
++	}
++
++	netif_device_attach(netdev);
++	netif_wake_queue(netdev);
++}
+Index: linux-2.6.20-git4/drivers/net/s2io.h
+===================================================================
+--- linux-2.6.20-git4.orig/drivers/net/s2io.h	2007-02-15 15:39:35.000000000 -0600
++++ linux-2.6.20-git4/drivers/net/s2io.h	2007-02-15 16:59:40.000000000 -0600
+@@ -1020,6 +1020,11 @@ static void update_L3L4_header(struct s2
+ static void lro_append_pkt(struct s2io_nic *sp, struct lro *lro,
+ 			   struct sk_buff *skb, u32 tcp_len);
  
- 	netif_stop_queue (dev);
- 
--	rtl8139_stop_thread(tp);
--
- 	if (netif_msg_ifdown(tp))
- 		printk(KERN_DEBUG "%s: Shutting down ethercard, status was 0x%4.4x.\n",
- 			dev->name, RTL_R16 (IntrStatus));
--- 
-1.4.4.4
-
++static pci_ers_result_t s2io_io_error_detected(struct pci_dev *pdev,
++			                      pci_channel_state_t state);
++static pci_ers_result_t s2io_io_slot_reset(struct pci_dev *pdev);
++static void s2io_io_resume(struct pci_dev *pdev);
++
+ #define s2io_tcp_mss(skb) skb_shinfo(skb)->gso_size
+ #define s2io_udp_mss(skb) skb_shinfo(skb)->gso_size
+ #define s2io_offload_type(skb) skb_shinfo(skb)->gso_type
