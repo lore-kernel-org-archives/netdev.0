@@ -1,55 +1,40 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] sk98lin: planned removal
-Date: Thu, 15 Feb 2007 05:19:24 -0500
-Message-ID: <45D433AC.7030809@pobox.com>
-References: <20070207091830.59f72f46@oldman> <20070207203215.bdf3908b.akpm@linux-foundation.org>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: FC5 iptables-restore failure
+Date: Thu, 15 Feb 2007 02:45:07 -0800
+Message-ID: <20070215024507.8c97ee01.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:54682 "EHLO mail.dvmed.net"
+Received: from smtp.osdl.org ([65.172.181.24]:43071 "EHLO smtp.osdl.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965771AbXBOKT1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Feb 2007 05:19:27 -0500
-In-Reply-To: <20070207203215.bdf3908b.akpm@linux-foundation.org>
+	id S965833AbXBOKpP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Feb 2007 05:45:15 -0500
+Received: from shell0.pdx.osdl.net (fw.osdl.org [65.172.181.6])
+	by smtp.osdl.org (8.12.8/8.12.8) with ESMTP id l1FAj7hB008205
+	(version=TLSv1/SSLv3 cipher=EDH-RSA-DES-CBC3-SHA bits=168 verify=NO)
+	for <netdev@vger.kernel.org>; Thu, 15 Feb 2007 02:45:09 -0800
+Received: from box (shell0.pdx.osdl.net [10.9.0.31])
+	by shell0.pdx.osdl.net (8.13.1/8.11.6) with SMTP id l1FAj7ub027267
+	for <netdev@vger.kernel.org>; Thu, 15 Feb 2007 02:45:07 -0800
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andrew Morton wrote:
-> On Wed, 7 Feb 2007 09:18:30 -0800 Stephen Hemminger <shemminger@linux-foundation.org> wrote:
-> 
->> Document planned removal of sk98lin driver.
->>
->> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
->> ---
->>  Documentation/feature-removal-schedule.txt |    7 +++++++
->>  1 files changed, 7 insertions(+), 0 deletions(-)
->>
->> diff --git a/Documentation/feature-removal-schedule.txt b/Documentation/feature-removal-schedule.txt
->> index 0ba6af0..d08a4af 100644
->> --- a/Documentation/feature-removal-schedule.txt
->> +++ b/Documentation/feature-removal-schedule.txt
->> @@ -325,3 +325,10 @@ Why:	Unmaintained for years, superceded 
->>  Who:	Jeff Garzik <jeff@garzik.org>
->>  
->>  ---------------------------
->> +
->> +What:   sk98lin network driver
->> +When:   July 2007
->> +Why:    In kernel tree version of driver is unmaintained. Sk98lin driver
->> +	replaced by the skge driver. 
->> +Who:    Stephen Hemminger <shemminger@osdl.org>
->> +
-> 
-> People don't read that file.  I'd suggest the addition of a warning printk
-> to the driver's open() method.
 
-Fine with me.  Stephen, wanna cook up a patch?
+I've recently been noticing nasty messages come out of FC5:
 
-	Jeff
+sony:/home/akpm# service iptables stop
+Flushing firewall rules:                                   [  OK  ]
+Setting chains to policy ACCEPT: filter                    [  OK  ]
+Unloading iptables modules:                                [  OK  ]
+sony:/home/akpm# service iptables start
+Applying iptables firewall rules: iptables-restore: line 20 failed
+                                                           [FAILED]
 
+Dunno when it started happening, but it's in mainline now.
 
+It's a pretty stupid error message.  line 20 of what?
 
+sony:/home/akpm# rpm -q iptables
+iptables-1.3.5-1.2
