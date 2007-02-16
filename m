@@ -1,64 +1,71 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [BUG] RTNL and flush_scheduled_work deadlocks
-Date: Thu, 15 Feb 2007 23:40:32 -0800
-Message-ID: <45D55FF0.8090309@candelatech.com>
-References: <20070216072928.GA1599@ff.dom.local>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: [PATCH 3/4] 8139too: RTNL and flush_scheduled_work deadlock
+Date: Fri, 16 Feb 2007 08:59:36 +0100
+Message-ID: <20070216075936.GB1599@ff.dom.local>
+References: <20070215223744.GC19840@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org,
+Content-Type: text/plain; charset=us-ascii
+Cc: jeff@garzik.org,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	akpm@linux-foundation.org, netdev@vger.kernel.org,
+	Ben Greear <greearb@candelatech.com>,
 	Kyle Lucke <klucke@us.ibm.com>,
 	Raghavendra Koushik <raghavendra.koushik@neterion.com>,
 	Al Viro <viro@ftp.linux.org.uk>
-To: Jarek Poplawski <jarkao2@o2.pl>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:57572 "EHLO ns2.lanforge.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932625AbXBPHjO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Feb 2007 02:39:14 -0500
-In-Reply-To: <20070216072928.GA1599@ff.dom.local>
+Received: from poczta.o2.pl ([193.17.41.142]:59057 "EHLO poczta.o2.pl"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S966178AbXBPH4V (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Feb 2007 02:56:21 -0500
+Content-Disposition: inline
+In-Reply-To: <20070215223744.GC19840@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jarek Poplawski wrote:
-> On 14-02-2007 22:27, Stephen Hemminger wrote:
->   
->> Ben found this but the problem seems pretty widespread.
->>
->> The following places are subject to deadlock between flush_scheduled_work
->> and the RTNL mutex. What can happen is that a work queue routine (like
->> bridge port_carrier_check) is waiting forever for RTNL, and the driver
->> routine has called flush_scheduled_work with RTNL held and is waiting
->> for the work queue to clear.
->>
->> Several other places have comments like: "can't call flush_scheduled_work
->> here or it will deadlock". Most of the problem places are in device close
->> routine. My recommendation would be to add a check for device netif_running in
->> what ever work routine is used, and move the flush_scheduled_work to the
->> remove routine.
->>
->> 8139too.c: rtl8139_close --> rtl8139_stop_thread
->> r8169.c:   rtl8169_down
->> cassini.c: cas_change_mtu
->> iseries_veth.c: veth_stop_connection
->> s2io.c: s2io_close
->> sis190.c: sis190_down
->>
->>     
->
-> There is probably more than this...
->   
+On 15-02-2007 23:37, Francois Romieu wrote:
+> Your usual dont-flush_scheduled_work-with-RTNL-held stuff.
+> 
+> It is a bit different here since the thread runs permanently
+> or is only occasionally kicked for recovery depending on the
+> hardware revision.
+> 
+> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+> ---
+>  drivers/net/8139too.c |   40 +++++++++++++++++-----------------------
+>  1 files changed, 17 insertions(+), 23 deletions(-)
+> 
+> diff --git a/drivers/net/8139too.c b/drivers/net/8139too.c
+> index 35ad5cf..99304b2 100644
+> --- a/drivers/net/8139too.c
+> +++ b/drivers/net/8139too.c
+> @@ -1109,6 +1109,8 @@ static void __devexit rtl8139_remove_one (struct pci_dev *pdev)
+>  
+>  	assert (dev != NULL);
+>  
+> +	flush_scheduled_work();
+> +
 
-Maybe there should be something like an ASSERT_NOT_RTNL() in the 
-flush_scheduled_work()
-method?  If it's performance criticial, #ifdef it out if we're not 
-debugging locks?
+IMHO there should be rather cancel_rearming_delayed_work
+instead of this.
 
-Ben
+>  	unregister_netdev (dev);
+>  
+>  	__rtl8139_cleanup_dev (dev);
+> @@ -1603,18 +1605,21 @@ static void rtl8139_thread (struct work_struct *work)
+>  	struct net_device *dev = tp->mii.dev;
+>  	unsigned long thr_delay = next_tick;
+>  
+> +	rtnl_lock();
+> +
+> +	if (!netif_running(dev))
+> +		goto out_unlock;
 
--- 
-Ben Greear <greearb@candelatech.com> 
-Candela Technologies Inc  http://www.candelatech.com
+I wonder, why you don't do netif_running before
+rtnl_lock? It's an atomic operation.
 
+And I'm not sure if increasing rtnl_lock range
+is really needed here.
 
+Regards,
+Jarek P.
