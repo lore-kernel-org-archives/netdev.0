@@ -1,77 +1,242 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH 3/4] 8139too: RTNL and flush_scheduled_work deadlock
-Date: Fri, 16 Feb 2007 12:36:05 -0800
-Message-ID: <20070216123605.56e697ac@freekitty>
-References: <20070215223744.GC19840@electric-eye.fr.zoreil.com>
-	<20070216075936.GB1599@ff.dom.local>
-	<20070216202034.GA10353@electric-eye.fr.zoreil.com>
+From: lsorense@csclub.uwaterloo.ca (Lennart Sorensen)
+Subject: Re: Re: Strange connection slowdown on pcnet32
+Date: Fri, 16 Feb 2007 16:01:57 -0500
+Message-ID: <20070216210157.GE7585@csclub.uwaterloo.ca>
+References: <32943920.1119801171642884331.JavaMail.root@vms226.mailsrvcs.net> <20070216172110.GC7582@csclub.uwaterloo.ca> <20070216202300.GD7585@csclub.uwaterloo.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Jarek Poplawski <jarkao2@o2.pl>, jeff@garzik.org,
-	akpm@linux-foundation.org, netdev@vger.kernel.org,
-	Ben Greear <greearb@candelatech.com>,
-	Kyle Lucke <klucke@us.ibm.com>,
-	Raghavendra Koushik <raghavendra.koushik@neterion.com>,
-	Al Viro <viro@ftp.linux.org.uk>
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: pcnet32@verizon.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:34895 "EHLO smtp.osdl.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1946093AbXBPUnG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Feb 2007 15:43:06 -0500
-In-Reply-To: <20070216202034.GA10353@electric-eye.fr.zoreil.com>
+Received: from caffeine.uwaterloo.ca ([129.97.134.17]:53950 "EHLO
+	caffeine.csclub.uwaterloo.ca" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1946139AbXBPVB6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Feb 2007 16:01:58 -0500
+Content-Disposition: inline
+In-Reply-To: <20070216202300.GD7585@csclub.uwaterloo.ca>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 16 Feb 2007 21:20:34 +0100
-Francois Romieu <romieu@fr.zoreil.com> wrote:
+On Fri, Feb 16, 2007 at 03:23:00PM -0500, Lennart Sorensen wrote:
+> So I have determined that when the port gets "stuck/slow" it is hitting
+> this problem:
+> 
+> (in pcnet32_rx):
+>         while (quota > npackets && (short)le16_to_cpu(rxp->status) >= 0) {
+>                 if (netif_msg_intr(lp)) printk(KERN_DEBUG "%s: pcnet32_rx npackets %d\n", dev->name, npackets);
+>                 pcnet32_rx_entry(dev, lp, rxp, entry);
+>                 npackets += 1;
+>                 /*
+>                  * The docs say that the buffer length isn't touched, but Andrew
+>                  * Boyd of QNX reports that some revs of the 79C965 clear it.
+>                  */
+>                 rxp->buf_length = le16_to_cpu(2 - PKT_BUF_SZ);
+>                 wmb();  /* Make sure owner changes after others are visible */
+>                 rxp->status = le16_to_cpu(0x8000);
+>                 entry = (++lp->cur_rx) & lp->rx_mod_mask;
+>                 rxp = &lp->rx_ring[entry];
+>         }
+> 
+> Unfortunately rxp->status reads as 0x8000 for a long time, and then
+> eventually changes to 0x0310 at which point the receive happens.  Until
+> that happens, the poll is called about once per second and each time
+> returns that 0 packets were received but that more packets are waiting.
+> 
+> I can't figure out why it would get a status of 0x8000 which means that
+> the MAC hasn't changed the ownership flag on the packet yet, even though
+> it generated a receive interrupt multiple seconds ago.  Could it be some
+> caching issue that makes the cpu not realize that the memory has in fact
+> been changed by DMA?  Any way to force a cache update for a memory
+> location?
+> 
+> The CPU is a Geode SC1200 (Geode GX1 + Companion in one).  So far I have
+> seen __memcpy from system ram to device memory get data out of order, so
+> I have no reason to believe the cpu doesn't have more stupid bugs
+> related to doing I/O.
 
-> Jarek Poplawski <jarkao2@o2.pl> :
-> [...]
-> > > diff --git a/drivers/net/8139too.c b/drivers/net/8139too.c
-> > > index 35ad5cf..99304b2 100644
-> > > --- a/drivers/net/8139too.c
-> > > +++ b/drivers/net/8139too.c
-> > > @@ -1109,6 +1109,8 @@ static void __devexit rtl8139_remove_one (struct pci_dev *pdev)
-> > >  
-> > >  	assert (dev != NULL);
-> > >  
-> > > +	flush_scheduled_work();
-> > > +
-> > 
-> > IMHO there should be rather cancel_rearming_delayed_work
-> > instead of this.
-> 
-> The delayed_work is initialized even if tp->have_thread is false,
-> so cancel_rearming_delayed_work() will work, yes. Feel free to
-> send a patch.
-> 
-> [...]
-> > > @@ -1603,18 +1605,21 @@ static void rtl8139_thread (struct work_struct *work)
-> > >  	struct net_device *dev = tp->mii.dev;
-> > >  	unsigned long thr_delay = next_tick;
-> > >  
-> > > +	rtnl_lock();
-> > > +
-> > > +	if (!netif_running(dev))
-> > > +		goto out_unlock;
-> > 
-> > I wonder, why you don't do netif_running before
-> > rtnl_lock ? It's an atomic operation. And I'm not sure if increasing
-> > rtnl_lock range is really needed here.
-> 
-> thread    A: netif_running()
-> user task B: rtnl_lock()
-> user task B: dev->close()
-> user task B: rtnl_unlock()
-> thread    A: rtnl_lock()
-> thread    A: mess with closed device
-> 
-> Btw, the thread runs every 3*HZ at most.
+It seems whenever it gets stuck, it is always the same descripter it is
+stuck on.  Here is my current log:
 
-You need to hold a dev reference (dev_hold) as well. to keep the device
-from disappearing. or do a flush_scheduled_work in the remove routine.
+eth1: interrupt  csr0=0x4f3 new csr=0x33, csr3=0x0000.
+eth1: exiting interrupt, csr0=0x0033, csr3=0x5f00.
+eth1: base: 0x04c51812 status: ffff8000 next->status: 0340
+eth1: pcnet32_poll: pcnet32_rx() got 0 packets
+eth1: interrupt  csr0=0x4f3 new csr=0x33, csr3=0x0000.
+eth1: exiting interrupt, csr0=0x0033, csr3=0x5f00.
+eth1: base: 0x04c51812 status: ffff8000 next->status: 0340
+eth1: pcnet32_poll: pcnet32_rx() got 0 packets
+eth1: interrupt  csr0=0x4f3 new csr=0x33, csr3=0x0000.
+eth1: exiting interrupt, csr0=0x0033, csr3=0x5f00.
+eth1: base: 0x04c51812 status: ffff8000 next->status: 0340
+eth1: pcnet32_poll: pcnet32_rx() got 0 packets
+eth1: interrupt  csr0=0x4f3 new csr=0x33, csr3=0x0000.
+eth1: exiting interrupt, csr0=0x0433, csr3=0x5f00.
+eth1: base: 0x04c51812 status: ffff8000 next->status: 0340
+eth1: pcnet32_poll: pcnet32_rx() got 0 packets
+eth1: interrupt  csr0=0x4f3 new csr=0x33, csr3=0x0000.
+eth1: exiting interrupt, csr0=0x0033, csr3=0x5f00.
+eth1: base: 0x04c51812 status: ffff8000 next->status: 0340
+eth1: pcnet32_poll: pcnet32_rx() got 0 packets
+eth1: interrupt  csr0=0x4f3 new csr=0x33, csr3=0x0000.
+eth1: exiting interrupt, csr0=0x0033, csr3=0x5f00.
+eth1: base: 0x04c51812 status: ffff8000 next->status: 0340
+eth1: pcnet32_poll: pcnet32_rx() got 0 packets
+eth1: interrupt  csr0=0x4f3 new csr=0x33, csr3=0x0000.
+eth1: exiting interrupt, csr0=0x0033, csr3=0x5f00.
+eth1: base: 0x04c51812 status: ffff8000 next->status: 0340
+eth1: pcnet32_poll: pcnet32_rx() got 0 packets
+eth1: interrupt  csr0=0x4f3 new csr=0x33, csr3=0x0000.
+eth1: exiting interrupt, csr0=0x0033, csr3=0x5f00.
+eth1: base: 0x04c51812 status: ffff8000 next->status: 0340
+eth1: pcnet32_poll: pcnet32_rx() got 0 packets
+eth1: interrupt  csr0=0x4f3 new csr=0x33, csr3=0x0000.
+eth1: exiting interrupt, csr0=0x0433, csr3=0x5f00.
+eth1: base: 0x04c51812 status: ffff8000 next->status: 0340
+eth1: pcnet32_poll: pcnet32_rx() got 0 packets
+eth1: interrupt  csr0=0x4f3 new csr=0x33, csr3=0x0000.
+eth1: exiting interrupt, csr0=0x0033, csr3=0x5f00.
+eth1: base: 0x04c51812 status: ffff8000 next->status: 0340
+eth1: pcnet32_poll: pcnet32_rx() got 0 packets
+eth1: interrupt  csr0=0x4f3 new csr=0x33, csr3=0x0000.
+eth1: exiting interrupt, csr0=0x0033, csr3=0x5f00.
+eth1: base: 0x04c51812 status: ffff8000 next->status: 0340
+eth1: pcnet32_poll: pcnet32_rx() got 0 packets
+eth1: interrupt  csr0=0x4f3 new csr=0x33, csr3=0x0000.
+eth1: exiting interrupt, csr0=0x0033, csr3=0x5f00.
+eth1: base: 0x04c51812 status: ffff8000 next->status: 0340
+eth1: pcnet32_poll: pcnet32_rx() got 0 packets
+eth1: interrupt  csr0=0x4f3 new csr=0x33, csr3=0x0000.
+eth1: exiting interrupt, csr0=0x0033, csr3=0x5f00.
+eth1: base: 0x04c51812 status: ffff8000 next->status: 0340
+eth1: pcnet32_poll: pcnet32_rx() got 0 packets
+eth1: interrupt  csr0=0x4f3 new csr=0x33, csr3=0x0000.
+eth1: exiting interrupt, csr0=0x0033, csr3=0x5f00.
+eth1: base: 0x04c51812 status: ffff8000 next->status: 0340
+eth1: pcnet32_poll: pcnet32_rx() got 0 packets
+eth1: interrupt  csr0=0x4f3 new csr=0x33, csr3=0x0000.
+eth1: exiting interrupt, csr0=0x0033, csr3=0x5f00.
+eth1: base: 0x04c51812 status: ffff8000 next->status: 0340
+eth1: pcnet32_poll: pcnet32_rx() got 0 packets
+eth1: interrupt  csr0=0x4f3 new csr=0x33, csr3=0x0000.
+eth1: exiting interrupt, csr0=0x0033, csr3=0x5f00.
+eth1: base: 0x04c51812 status: ffff8000 next->status: 0340
+eth1: pcnet32_poll: pcnet32_rx() got 0 packets
+eth1: interrupt  csr0=0x4f3 new csr=0x33, csr3=0x0000.
+eth1: exiting interrupt, csr0=0x0033, csr3=0x5f00.
+eth1: base: 0x04c51812 status: ffff8000 next->status: 0340
+eth1: pcnet32_poll: pcnet32_rx() got 0 packets
+eth1: interrupt  csr0=0x4f3 new csr=0x33, csr3=0x0000.
+eth1: exiting interrupt, csr0=0x0433, csr3=0x5f00.
+eth1: base: 0x04c51812 status: ffff8000 next->status: 0340
+eth1: pcnet32_poll: pcnet32_rx() got 0 packets
+eth1: interrupt  csr0=0x4f3 new csr=0x33, csr3=0x0000.
+eth1: exiting interrupt, csr0=0x0033, csr3=0x5f00.
+eth1: base: 0x04c51812 status: ffff8000 next->status: 0340
+eth1: pcnet32_poll: pcnet32_rx() got 0 packets
+eth1: interrupt  csr0=0x4f3 new csr=0x33, csr3=0x0000.
+eth1: exiting interrupt, csr0=0x0033, csr3=0x5f00.
+eth1: base: 0x04c51812 status: ffff8000 next->status: 0340
+eth1: pcnet32_poll: pcnet32_rx() got 0 packets
+eth1: interrupt  csr0=0x4f3 new csr=0x33, csr3=0x0000.
+eth1: exiting interrupt, csr0=0x0033, csr3=0x5f00.
+eth1: base: 0x04c51812 status: ffff8000 next->status: 0340
+eth1: pcnet32_poll: pcnet32_rx() got 0 packets
+eth1: interrupt  csr0=0x4f3 new csr=0x33, csr3=0x0000.
+eth1: exiting interrupt, csr0=0x0033, csr3=0x5f00.
+eth1: base: 0x04c51812 status: ffff8000 next->status: 0340
+eth1: pcnet32_poll: pcnet32_rx() got 0 packets
+eth1: interrupt  csr0=0x4f3 new csr=0x33, csr3=0x0000.
+eth1: exiting interrupt, csr0=0x0033, csr3=0x5f00.
+eth1: base: 0x04c51812 status: ffff8000 next->status: 0340
+eth1: pcnet32_poll: pcnet32_rx() got 0 packets
+eth1: interrupt  csr0=0x4f3 new csr=0x33, csr3=0x0000.
+eth1: exiting interrupt, csr0=0x0033, csr3=0x5f00.
+eth1: base: 0x04c51812 status: 0310 next->status: 0340
+eth1: netif_receive_skb(skb)
+eth1: netif_receive_skb(skb)
+eth1: netif_receive_skb(skb)
+eth1: netif_receive_skb(skb)
+eth1: netif_receive_skb(skb)
+eth1: netif_receive_skb(skb)
+eth1: netif_receive_skb(skb)
+eth1: netif_receive_skb(skb)
+eth1: netif_receive_skb(skb)
+eth1: netif_receive_skb(skb)
+eth1: netif_receive_skb(skb)
+eth1: netif_receive_skb(skb)
+eth1: netif_receive_skb(skb)
+eth1: netif_receive_skb(skb)
+eth1: netif_receive_skb(skb)
+eth1: netif_receive_skb(skb)
+eth1: pcnet32_poll: pcnet32_rx() got 16 packets
+eth1: base: 0x05215812 status: 0310 next->status: 0310
+eth1: netif_receive_skb(skb)
+eth1: netif_receive_skb(skb)
+eth1: netif_receive_skb(skb)
+eth1: netif_receive_skb(skb)
+eth1: netif_receive_skb(skb)
+eth1: netif_receive_skb(skb)
+eth1: netif_receive_skb(skb)
+eth1: netif_receive_skb(skb)
+eth1: netif_receive_skb(skb)
+eth1: netif_receive_skb(skb)
+eth1: netif_receive_skb(skb)
+eth1: netif_receive_skb(skb)
+eth1: netif_receive_skb(skb)
+eth1: netif_receive_skb(skb)
+eth1: netif_receive_skb(skb)
+eth1: netif_receive_skb(skb)
+eth1: pcnet32_poll: pcnet32_rx() got 16 packets
+eth1: base: 0x04c51812 status: ffff8000 next->status: 0310
+eth1: pcnet32_poll: pcnet32_rx() got 0 packets
+eth1: interrupt  csr0=0x6f3 new csr=0x33, csr3=0x0000.
+eth1: exiting interrupt, csr0=0x0033, csr3=0x5f00.
+eth1: base: 0x04c51812 status: ffff8000 next->status: 0310
+eth1: pcnet32_poll: pcnet32_rx() got 0 packets
+eth1: interrupt  csr0=0x4f3 new csr=0x33, csr3=0x0000.
+eth1: exiting interrupt, csr0=0x0033, csr3=0x5f00.
+eth1: base: 0x04c51812 status: ffff8000 next->status: 0310
+eth1: pcnet32_poll: pcnet32_rx() got 0 packets
+eth1: interrupt  csr0=0x4f3 new csr=0x33, csr3=0x0000.
+eth1: exiting interrupt, csr0=0x0433, csr3=0x5f00.
+eth1: base: 0x04c51812 status: ffff8000 next->status: 0310
+eth1: pcnet32_poll: pcnet32_rx() got 0 packets
 
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+So somehow it ends up that when it reads the status of the descriptor at
+address 0x04c51812, it sees the status as 0x8000 (which means owned by
+the MAC I believe), even though the next descriptor in the ring has a
+sensible status, indicating that the descriptor is ready to be handled
+by the driver.  Since the descriptor isn't ready, we exit without
+handling anything and NAPI reschedules is the next time we get an
+interrupt, and after some random number of tries, we finally see the
+right status and handle the packet, along with a bunch of other packets
+waiting in the descriptor ring.  Then we seem to hit the exact same
+descriptor address again, with the same problem in the status we read,
+and again we are stuck for a while, until finally we see the right
+status, and another pile of packets get handled, and we again hit the
+same descriptor address and get stuck.
+
+I believe doing ifconfig eth1 down;ifconfig eth1 up actually
+reinitialized the port with a new descriptor ring, but I could have got
+that part wrong looking at the code.  Either way it clears things up
+again for a while, until we get stuck again.
+
+It makes me think the cpu somehow reads the memory location when the
+descriptor ring is empty, notes it is owned by the MAC, and stops
+handling packets (as it should), but then when the next receive occours,
+it doesn't read physical memory again for some odd reason, and see the
+previous status rather than the updated status.
+
+Now for some reason it seems when the driver is not using NAPI, and
+hence not enabling and disabling interrupt masks, this problem somehow
+never occours (well at least I haven't managed to make it occour yet, so
+who knows for sure.  Certainly with NAPI enabled I can kill it in
+seconds).
+
+Is there a way I can flush the CPU cache and force it to reread memory
+for an address range, or for all cache, or some other way to ensure the
+memory value I see is really the memory value that is in system memory
+for a given address?
+
+--
+Len Sorensen
