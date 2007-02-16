@@ -1,39 +1,39 @@
-From: <pcnet32@verizon.net>
-Subject: [PATCH] pcnet32 NAPI no longer experimental
-Date: Fri, 16 Feb 2007 10:09:57 -0600 (CST)
-Message-ID: <25626181.1116241171642197159.JavaMail.root@vms226.mailsrvcs.net>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: Fw: [Bug 8013] New: select for write hangs on a socket after write returned ECONNRESET
+Date: Fri, 16 Feb 2007 19:10:45 +0300
+Message-ID: <20070216161045.GA2371@2ka.mipt.ru>
+References: <20070215160405.3bd30b05@localhost.localdomain> <20070216152557.GA20641@2ka.mipt.ru> <20070216152858.GA22020@2ka.mipt.ru> <20070216153957.GB22020@2ka.mipt.ru> <20070216155450.GC22020@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=koi8-r
 Cc: netdev@vger.kernel.org
-To: jgarzik@pobox.com
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vms042pub.verizon.net ([206.46.252.42]:51723 "EHLO
-	vms042pub.verizon.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1945969AbXBPQKF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Feb 2007 11:10:05 -0500
-Received: from vms226.mailsrvcs.net ([192.168.1.1])
- by vms042.mailsrvcs.net (Sun Java System Messaging Server 6.2-6.01 (built Apr
- 3 2006)) with ESMTPA id <0JDK00KYQCWLIHW7@vms042.mailsrvcs.net> for
- netdev@vger.kernel.org; Fri, 16 Feb 2007 10:09:57 -0600 (CST)
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:53166 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1945969AbXBPQL2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Feb 2007 11:11:28 -0500
+Content-Disposition: inline
+In-Reply-To: <20070216155450.GC22020@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Remove the experimental tag for the pcnet32 NAPI implementation.
+one of the possible fixes for select() after write() after ECONNRESET.
 
-Signed-off-by:  Don Fry <pcnet32@verizon.net>
+Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 
---- linux-2.6.20-git8/drivers/net/Kconfig.orig	2007-02-13 09:55:36.000000000 -0800
-+++ linux-2.6.20-git8/drivers/net/Kconfig	2007-02-13 10:00:54.000000000 -0800
-@@ -1284,8 +1284,8 @@ config PCNET32
- 	  will be called pcnet32.
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index b67e0dd..661ca0c 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -365,7 +365,7 @@ unsigned int tcp_poll(struct file *file, struct socket *sock, poll_table *wait)
+ 	 * blocking on fresh not-connected or disconnected socket. --ANK
+ 	 */
+ 	if (sk->sk_shutdown == SHUTDOWN_MASK || sk->sk_state == TCP_CLOSE)
+-		mask |= POLLHUP;
++		mask |= POLLHUP | POLLERR;
+ 	if (sk->sk_shutdown & RCV_SHUTDOWN)
+ 		mask |= POLLIN | POLLRDNORM | POLLRDHUP;
  
- config PCNET32_NAPI
--	bool "Use RX polling (NAPI) (EXPERIMENTAL)"
--	depends on PCNET32 && EXPERIMENTAL
-+	bool "Use RX polling (NAPI)"
-+	depends on PCNET32
- 	help
- 	  NAPI is a new driver API designed to reduce CPU and interrupt load
- 	  when the driver is receiving lots of packets from the card. It is
 
+-- 
+	Evgeniy Polyakov
