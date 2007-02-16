@@ -1,54 +1,68 @@
 From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [Bug 8013] New: select for write hangs on a socket after write
- returned ECONNRESET
-Date: Fri, 16 Feb 2007 10:29:14 -0800
-Message-ID: <20070216102914.7d4b34f0@freekitty>
-References: <20070215160405.3bd30b05@localhost.localdomain>
-	<20070216152557.GA20641@2ka.mipt.ru>
-	<20070216152858.GA22020@2ka.mipt.ru>
-	<20070216153957.GB22020@2ka.mipt.ru>
-	<20070216155450.GC22020@2ka.mipt.ru>
-	<20070216161045.GA2371@2ka.mipt.ru>
+Subject: Re: [BUG] RTNL and flush_scheduled_work deadlocks
+Date: Fri, 16 Feb 2007 10:31:15 -0800
+Message-ID: <20070216103115.517f1a4c@freekitty>
+References: <20070216072928.GA1599@ff.dom.local>
+	<45D55FF0.8090309@candelatech.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Cc: Jarek Poplawski <jarkao2@o2.pl>,
+	Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org,
+	Kyle Lucke <klucke@us.ibm.com>,
+	Raghavendra Koushik <raghavendra.koushik@neterion.com>,
+	Al Viro <viro@ftp.linux.org.uk>
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:57491 "EHLO smtp.osdl.org"
+Received: from smtp.osdl.org ([65.172.181.24]:57551 "EHLO smtp.osdl.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1946196AbXBPS3T (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Feb 2007 13:29:19 -0500
-In-Reply-To: <20070216161045.GA2371@2ka.mipt.ru>
+	id S1946203AbXBPScA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Feb 2007 13:32:00 -0500
+In-Reply-To: <45D55FF0.8090309@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 16 Feb 2007 19:10:45 +0300
-Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
+On Thu, 15 Feb 2007 23:40:32 -0800
+Ben Greear <greearb@candelatech.com> wrote:
 
-> one of the possible fixes for select() after write() after ECONNRESET.
+> Jarek Poplawski wrote:
+> > On 14-02-2007 22:27, Stephen Hemminger wrote:
+> >   
+> >> Ben found this but the problem seems pretty widespread.
+> >>
+> >> The following places are subject to deadlock between flush_scheduled_work
+> >> and the RTNL mutex. What can happen is that a work queue routine (like
+> >> bridge port_carrier_check) is waiting forever for RTNL, and the driver
+> >> routine has called flush_scheduled_work with RTNL held and is waiting
+> >> for the work queue to clear.
+> >>
+> >> Several other places have comments like: "can't call flush_scheduled_work
+> >> here or it will deadlock". Most of the problem places are in device close
+> >> routine. My recommendation would be to add a check for device netif_running in
+> >> what ever work routine is used, and move the flush_scheduled_work to the
+> >> remove routine.
+> >>
+> >> 8139too.c: rtl8139_close --> rtl8139_stop_thread
+> >> r8169.c:   rtl8169_down
+> >> cassini.c: cas_change_mtu
+> >> iseries_veth.c: veth_stop_connection
+> >> s2io.c: s2io_close
+> >> sis190.c: sis190_down
+> >>
+> >>     
+> >
+> > There is probably more than this...
+> >   
 > 
-> Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-> 
-> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-> index b67e0dd..661ca0c 100644
-> --- a/net/ipv4/tcp.c
-> +++ b/net/ipv4/tcp.c
-> @@ -365,7 +365,7 @@ unsigned int tcp_poll(struct file *file, struct socket *sock, poll_table *wait)
->  	 * blocking on fresh not-connected or disconnected socket. --ANK
->  	 */
->  	if (sk->sk_shutdown == SHUTDOWN_MASK || sk->sk_state == TCP_CLOSE)
-> -		mask |= POLLHUP;
-> +		mask |= POLLHUP | POLLERR;
->  	if (sk->sk_shutdown & RCV_SHUTDOWN)
->  		mask |= POLLIN | POLLRDNORM | POLLRDHUP;
->  
+> Maybe there should be something like an ASSERT_NOT_RTNL() in the 
+> flush_scheduled_work()
+> method?  If it's performance criticial, #ifdef it out if we're not 
+> debugging locks?
 > 
 
-No, that would end up setting error bit on normal shutdown. This is incorrect 
-behaviour and might even be described in SUSE standard.
+You can't safely add a check like that. What if another cpu had acquired
+RTNL and was unrelated.
 
-There might even be LSB tests on this?
 
 -- 
 Stephen Hemminger <shemminger@linux-foundation.org>
