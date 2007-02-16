@@ -1,84 +1,103 @@
-From: Haavard Skinnemoen <hskinnemoen@atmel.com>
-Subject: [PATCH] macb: Remove inappropriate spinlocks around mii calls
-Date: Fri, 16 Feb 2007 15:59:06 +0100
-Message-ID: <11716379462542-git-send-email-hskinnemoen@atmel.com>
-Cc: netdev@vger.kernel.org, Andrew Victor <andrew@sanpeople.com>,
-	Patrice Vilchez <patrice.vilchez@rfo.atmel.com>,
-	David Brownell <dbrownell@users.sourceforge.net>,
-	Haavard Skinnemoen <hskinnemoen@atmel.com>
-To: Jeff Garzik <jgarzik@pobox.com>
+From: Jan-Bernd Themann <ossthema@de.ibm.com>
+Subject: Re: [PATCH 2.6.21-rc1] ehea: dynamic add / remove port
+Date: Fri, 16 Feb 2007 16:06:52 +0100
+Message-ID: <200702161606.52789.ossthema@de.ibm.com>
+References: <200702141536.28665.ossthema@de.ibm.com> <1171491906.30473.3.camel@sinatra.austin.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jeff@garzik.org>,
+	Christoph Raisch <RAISCH@de.ibm.com>,
+	Jan-Bernd Themann <themann@de.ibm.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	linux-ppc <linuxppc-dev@ozlabs.org>,
+	Marcus Eder <MEDER@de.ibm.com>,
+	Thomas Klein <tklein@de.ibm.com>, stefan.roscher@de.ibm.com,
+	netdev <netdev@vger.kernel.org>,
+	Nathan Fontenot <nfont@austin.ibm.com>
+To: John Rose <johnrose@austin.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nat-132.atmel.no ([80.232.32.132]:62100 "EHLO relay.atmel.no"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1945893AbXBPPCc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Feb 2007 10:02:32 -0500
+Received: from mtagate5.de.ibm.com ([195.212.29.154]:51918 "EHLO
+	mtagate5.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964965AbXBPPLR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Feb 2007 10:11:17 -0500
+In-Reply-To: <1171491906.30473.3.camel@sinatra.austin.ibm.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Remove spin_lock_irqsave() around mii_ethtool_gset, mii_ethtool_sset
-and generic_mii_ioctl. These are unnecessary and harmful because
-the mii calls may call back into the mdio functions, which may sleep.
+Hi,
 
-Pointed out by David Brownell.
+I agree with most points. Here the new design proposal:
 
-Signed-off-by: Haavard Skinnemoen <hskinnemoen@atmel.com>
----
- drivers/net/macb.c |   24 +++---------------------
- 1 files changed, 3 insertions(+), 21 deletions(-)
+On Wednesday 14 February 2007 23:25, John Rose wrote:
+> Hi-
+> 
+> A few high level comments, then some really insignificant ones.
+> 
+> First, is there a reason why we shouldn't have a sysfs entry/kobject for
+> each logical port?  How is it possible to determine, from the adapter
+> sysfs directory, the current number of ports for that adapter?  A port
+> sysfs directory could include attributes like the OF path to the port,
+> the state of the port, etc etc.
 
-diff --git a/drivers/net/macb.c b/drivers/net/macb.c
-index a41418b..2e9571b 100644
---- a/drivers/net/macb.c
-+++ b/drivers/net/macb.c
-@@ -881,27 +881,15 @@ static struct net_device_stats *macb_get_stats(struct net_device *dev)
- static int macb_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- {
- 	struct macb *bp = netdev_priv(dev);
--	int ret;
--	unsigned long flags;
--
--	spin_lock_irqsave(&bp->lock, flags);
--	ret = mii_ethtool_gset(&bp->mii, cmd);
--	spin_unlock_irqrestore(&bp->lock, flags);
- 
--	return ret;
-+	return mii_ethtool_gset(&bp->mii, cmd);
- }
- 
- static int macb_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- {
- 	struct macb *bp = netdev_priv(dev);
--	int ret;
--	unsigned long flags;
--
--	spin_lock_irqsave(&bp->lock, flags);
--	ret = mii_ethtool_sset(&bp->mii, cmd);
--	spin_unlock_irqrestore(&bp->lock, flags);
- 
--	return ret;
-+	return mii_ethtool_sset(&bp->mii, cmd);
- }
- 
- static void macb_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *info)
-@@ -930,17 +918,11 @@ static struct ethtool_ops macb_ethtool_ops = {
- static int macb_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
- {
- 	struct macb *bp = netdev_priv(dev);
--	int ret;
--	unsigned long flags;
- 
- 	if (!netif_running(dev))
- 		return -EINVAL;
- 
--	spin_lock_irqsave(&bp->lock, flags);
--	ret = generic_mii_ioctl(&bp->mii, if_mii(rq), cmd, NULL);
--	spin_unlock_irqrestore(&bp->lock, flags);
--
--	return ret;
-+	return generic_mii_ioctl(&bp->mii, if_mii(rq), cmd, NULL);
- }
- 
- static ssize_t macb_mii_show(const struct device *_dev, char *buf,
--- 
-1.4.4.4
+I think it is not necessary to have a special entry/kobject for each logical
+port. I suggest we use SET_NETDEV_DEV to create links to all ethernet devices
+that represent each a logical port. This should be in sync with all other 
+ethernet drivers. Port attributes like the "logical port id" that might be 
+need by the userspace application can be added to the net:ethX entry
+(link created with SET_NETDEV_DEV) as additional attributes. 
+Thus we have a simple and consistent way to determine 
+all currently available network interfaces (logical ports) and its
+corresponding IDs.
 
+> 
+> Second, the probe and remove functions do not communicate whether an add
+> or remove was successful.  Combine this with the lack of port
+> information in the adapter sysfs directory, and the userspace tool has
+> no way of verifying a dynamic add/remove.
+
+True. I suggest we return error codes (-EIO / -EINVAL) in case the adding
+or removing of ports fails. This is possible as we know instantly if the
+operation failed or not. It is a synchronus operation.
+
+
+> 
+> +		ehea_info("%s -> logial port id #%d",
+> 
+> Spelling :)
+true, fixed
+
+> 
+>  	if (port_setup_ok)
+> -		ret = 0;	/* At least some ports are setup correctly */
+> +		return 0;	/* At least some ports are setup correctly */
+>  	else
+> -		ret = -EINVAL;
+> +		return -EINVAL;
+> 
+> The else is unnecessary.
+
+agreed, fixed
+
+> 
+>  static int __devexit ehea_remove(struct ibmebus_dev *dev)
+>  {
+>  	struct ehea_adapter *adapter = dev->ofdev.dev.driver_data;
+>  	u64 hret;
+>  	int i;
+> 
+> -	for (i = 0; i < adapter->num_ports; i++)
+> +	for (i = 0; i < EHEA_MAX_PORTS; i++)
+>  		if (adapter->port[i]) {
+>  			ehea_shutdown_single_port(adapter->port[i]);
+>  			adapter->port[i] = NULL;
+>  		}
+> 
+> Else break?
+no break wanted here as "remove_port" might cause situations where
+not all currently available ports are in a row
+
+Regards,
+Jan-Bernd
