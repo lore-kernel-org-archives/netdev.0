@@ -1,145 +1,71 @@
-From: Ralf Baechle <ralf@linux-mips.org>
-Subject: [NET] Convert meth to netdev_priv
-Date: Fri, 16 Feb 2007 12:52:17 +0000
-Message-ID: <20070216125217.GA21747@linux-mips.org>
+From: lsorense@csclub.uwaterloo.ca (Lennart Sorensen)
+Subject: Re: Strange connection slowdown on pcnet32
+Date: Fri, 16 Feb 2007 09:35:54 -0500
+Message-ID: <20070216143554.GB7585@csclub.uwaterloo.ca>
+References: <20070215225030.GA7585@csclub.uwaterloo.ca>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ftp.linux-mips.org ([194.74.144.162]:54801 "EHLO
-	ftp.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964787AbXBPMwT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Feb 2007 07:52:19 -0500
-Received: from localhost.localdomain ([127.0.0.1]:54157 "EHLO
-	dl5rb.ham-radio-op.net") by ftp.linux-mips.org with ESMTP
-	id S20038828AbXBPMwS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Feb 2007 12:52:18 +0000
+Received: from caffeine.uwaterloo.ca ([129.97.134.17]:58619 "EHLO
+	caffeine.csclub.uwaterloo.ca" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932375AbXBPOfz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Feb 2007 09:35:55 -0500
+Received: from caffeine.csclub.uwaterloo.ca (localhost.localdomain [127.0.0.1])
+	by caffeine.csclub.uwaterloo.ca (Postfix) with ESMTP id DE48C74105
+	for <netdev@vger.kernel.org>; Fri, 16 Feb 2007 09:35:54 -0500 (EST)
 Content-Disposition: inline
+In-Reply-To: <20070215225030.GA7585@csclub.uwaterloo.ca>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-And while at it loose plenty of useless casts.
+On Thu, Feb 15, 2007 at 05:50:30PM -0500, Lennart Sorensen wrote:
+> I have encountered a strange behaviour with the pcnet32.
+> 
+> I am transfering data from a server to a client routing it through my
+> router.  The router has 2 ethernet ports, both of which are amd 972
+> chips (pcnet32).  The transfer has so far been either http or ftp (both
+> see the same problem).  I transfer lots of data, and after a while (I
+> have seen anywhere from 200 to 700MB or so) the speed suddenly drops to
+> less than 1KB/s.  If I ping from the router to the server, the ping
+> requests go out normally (seen by tcpdump on the server) every second,
+> but on the router the replies are not seen by the kernel for multiple
+> seconds.  Sometimes I will see 3 ping replies together, sometimes 5 or
+> even 10.  The turn around times will show 10500, 9500, 8500, ..., 500ms
+> for the packets received in a batch.  ifconfig on the router shows the
+> packet receive counts showing up in lumps, just as ping does, and
+> tcpdump on the interface on the router.
+> 
+> Doing ifconfig down and up on the port connecting to the server makes
+> the problem clear and it can handle another pile of data before the
+> problem reappears.
+> 
+> The CPU on the router is not fast enough to ensure there won't ever be
+> dropped packets at 100Mbps.  When I force the port to the server to
+> 10Mbps I have no problems at all.
+> 
+> Replacing the port to the server with an rtl8139 doesn't show any
+> problems at 100Mbps, although the transfer rate drops from 6500KBps to
+> 4000KBps compared to using the pcnet32.
+> 
+> Kernel used so far is 2.6.16 and 2.6.18.
+> 
+> I have a tulip card I intend to try with as well just to see if it
+> affects anything other than the pcnet32.
+> 
+> Does anyone have any hints as to what part of the code to look at for
+> changes made by doing ifconfig eth1 down; ifconfig eth1 up?  Any ideas
+> as to what could make the reception of packets suddenly get very very
+> slow?
+> 
+> On one pass where I was running tcpdump on the router, I saw a wrap of
+> the sequence number right before the problem occoured, but that has not
+> been the case every time as far as I can tell, so I am not sure if that
+> is related to the problem at all.
 
-Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+I have run some tests using 2.6.8 now, and so far it hasn't failed.
 
-diff --git a/drivers/net/meth.c b/drivers/net/meth.c
-index d38b7c7..7e69ca6 100644
---- a/drivers/net/meth.c
-+++ b/drivers/net/meth.c
-@@ -170,7 +170,7 @@ static int mdio_probe(struct meth_private *priv)
- 
- static void meth_check_link(struct net_device *dev)
- {
--	struct meth_private *priv = (struct meth_private *) dev->priv;
-+	struct meth_private *priv = netdev_priv(dev);
- 	unsigned long mii_advertising = mdio_read(priv, 4);
- 	unsigned long mii_partner = mdio_read(priv, 5);
- 	unsigned long negotiated = mii_advertising & mii_partner;
-@@ -268,7 +268,7 @@ static void meth_free_rx_ring(struct meth_private *priv)
- 
- int meth_reset(struct net_device *dev)
- {
--	struct meth_private *priv = (struct meth_private *) dev->priv;
-+	struct meth_private *priv = netdev_priv(dev);
- 
- 	/* Reset card */
- 	mace->eth.mac_ctrl = SGI_MAC_RESET;
-@@ -310,7 +310,7 @@ int meth_reset(struct net_device *dev)
-  */
- static int meth_open(struct net_device *dev)
- {
--	struct meth_private *priv = dev->priv;
-+	struct meth_private *priv = netdev_priv(dev);
- 	int ret;
- 
- 	priv->phy_addr = -1;    /* No PHY is known yet... */
-@@ -354,7 +354,7 @@ out_free_tx_ring:
- 
- static int meth_release(struct net_device *dev)
- {
--	struct meth_private *priv = dev->priv;
-+	struct meth_private *priv = netdev_priv(dev);
- 
- 	DPRINTK("Stopping queue\n");
- 	netif_stop_queue(dev); /* can't transmit any more */
-@@ -376,7 +376,7 @@ static void meth_rx(struct net_device* dev, unsigned long int_status)
- {
- 	struct sk_buff *skb;
- 	unsigned long status;
--	struct meth_private *priv = (struct meth_private *) dev->priv;
-+	struct meth_private *priv = netdev_priv(dev);
- 	unsigned long fifo_rptr = (int_status & METH_INT_RX_RPTR_MASK) >> 8;
- 
- 	spin_lock(&priv->meth_lock);
-@@ -466,14 +466,14 @@ static void meth_rx(struct net_device* dev, unsigned long int_status)
- 
- static int meth_tx_full(struct net_device *dev)
- {
--	struct meth_private *priv = (struct meth_private *) dev->priv;
-+	struct meth_private *priv = netdev_priv(dev);
- 
- 	return (priv->tx_count >= TX_RING_ENTRIES - 1);
- }
- 
- static void meth_tx_cleanup(struct net_device* dev, unsigned long int_status)
- {
--	struct meth_private *priv = dev->priv;
-+	struct meth_private *priv = netdev_priv(dev);
- 	unsigned long status;
- 	struct sk_buff *skb;
- 	unsigned long rptr = (int_status&TX_INFO_RPTR) >> 16;
-@@ -536,7 +536,7 @@ static void meth_tx_cleanup(struct net_device* dev, unsigned long int_status)
- 
- static void meth_error(struct net_device* dev, unsigned status)
- {
--	struct meth_private *priv = (struct meth_private *) dev->priv;
-+	struct meth_private *priv = netdev_priv(dev);
- 
- 	printk(KERN_WARNING "meth: error status: 0x%08x\n",status);
- 	/* check for errors too... */
-@@ -570,7 +570,7 @@ static void meth_error(struct net_device* dev, unsigned status)
- static irqreturn_t meth_interrupt(int irq, void *dev_id)
- {
- 	struct net_device *dev = (struct net_device *)dev_id;
--	struct meth_private *priv = (struct meth_private *) dev->priv;
-+	struct meth_private *priv = netdev_priv(dev);
- 	unsigned long status;
- 
- 	status = mace->eth.int_stat;
-@@ -695,7 +695,7 @@ static void meth_add_to_tx_ring(struct meth_private *priv, struct sk_buff *skb)
-  */
- static int meth_tx(struct sk_buff *skb, struct net_device *dev)
- {
--	struct meth_private *priv = (struct meth_private *) dev->priv;
-+	struct meth_private *priv = netdev_priv(dev);
- 	unsigned long flags;
- 
- 	spin_lock_irqsave(&priv->meth_lock, flags);
-@@ -726,7 +726,7 @@ static int meth_tx(struct sk_buff *skb, struct net_device *dev)
-  */
- static void meth_tx_timeout(struct net_device *dev)
- {
--	struct meth_private *priv = (struct meth_private *) dev->priv;
-+	struct meth_private *priv = netdev_priv(dev);
- 	unsigned long flags;
- 
- 	printk(KERN_WARNING "%s: transmit timed out\n", dev->name);
-@@ -778,7 +778,7 @@ static int meth_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
-  */
- static struct net_device_stats *meth_stats(struct net_device *dev)
- {
--	struct meth_private *priv = (struct meth_private *) dev->priv;
-+	struct meth_private *priv = netdev_priv(dev);
- 	return &priv->stats;
- }
- 
-@@ -807,7 +807,7 @@ static struct net_device *meth_init(void)
- 	dev->irq	     = MACE_ETHERNET_IRQ;
- 	dev->base_addr	     = (unsigned long)&mace->eth;
- 
--	priv = (struct meth_private *) dev->priv;
-+	priv = netdev_priv(dev);
- 	spin_lock_init(&priv->meth_lock);
- 
- 	ret = register_netdev(dev);
+Still investigating...
+
+--
+Len Sorensen
