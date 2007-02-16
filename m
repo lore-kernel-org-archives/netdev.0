@@ -1,74 +1,65 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: [BUG] RTNL and flush_scheduled_work deadlocks
-Date: Fri, 16 Feb 2007 10:04:25 +0100
-Message-ID: <20070216090425.GD1599@ff.dom.local>
-References: <20070216072928.GA1599@ff.dom.local> <45D55FF0.8090309@candelatech.com> <20070216081051.GC1599@ff.dom.local> <45D569E9.7010407@candelatech.com>
+From: Holger Eitzenberger <holger@my-eitzenberger.de>
+Subject: Re: sky2 bonding problem, 802.3ad
+Date: Fri, 16 Feb 2007 10:15:59 +0100
+Message-ID: <877iuitqcw.fsf@kruemel.my-eitzenberger.de>
+References: <871wkruu6p.fsf@kruemel.my-eitzenberger.de>
+	<200702152013.l1FKDE22017473@death.nxdomain.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org,
-	Kyle Lucke <klucke@us.ibm.com>,
-	Raghavendra Koushik <raghavendra.koushik@neterion.com>,
-	Al Viro <viro@ftp.linux.org.uk>
-To: Ben Greear <greearb@candelatech.com>
+Cc: shemminger@linux-foundation.org,
+	sk-drivers@lists.linux-foundation.org, netdev@vger.kernel.org
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from poczta.o2.pl ([193.17.41.142]:48091 "EHLO poczta.o2.pl"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1423426AbXBPJBK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Feb 2007 04:01:10 -0500
-Content-Disposition: inline
-In-Reply-To: <45D569E9.7010407@candelatech.com>
+Received: from moutng.kundenserver.de ([212.227.126.187]:49672 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1423447AbXBPJSL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Feb 2007 04:18:11 -0500
+In-Reply-To: <200702152013.l1FKDE22017473@death.nxdomain.ibm.com> (Jay
+ Vosburgh's message of "Thu, 15 Feb 2007 12:13:14 -0800")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Feb 16, 2007 at 12:23:05AM -0800, Ben Greear wrote:
-> Jarek Poplawski wrote:
-> >On Thu, Feb 15, 2007 at 11:40:32PM -0800, Ben Greear wrote:
-> >...
-> >  
-> >>Maybe there should be something like an ASSERT_NOT_RTNL() in the 
-> >>flush_scheduled_work()
-> >>method?  If it's performance criticial, #ifdef it out if we're not 
-> >>debugging locks?
-> >>    
-> >
-> >Yes! I thought about the same (at first). But in my
-> >opinion it was not enough, so I thought about doing
-> >this in flush_workqueue. But in my next opinion it
-> >was not enough too. Now I think something like this
-> >should be done in rtnl_lock (under some debugging #if
-> >of course). 
-> >  
-> The reason these bugs have been hidden is that most of the time, there 
-> is nothing
-> on the pending work queue that will try to grab RTNL.  But, the 
-> flush_work_queue
-> is still called with RTNL held, so an assert would find this much 
-> earlier than
-> waiting for someone to get lucky and actually catch (and debug and report)
-> a deadlock...
+Jay Vosburgh <fubar@us.ibm.com> writes:
 
-Yes. Regarding this, you are right - it should be better.
-But, anyway cancel_rearming... is equally dangerous,
-so there is a question where: in all places where used,
-in workqueue.c or maybe make it semi obligatory in
-networking and add some net wrappers e.g.:
-net_flush_work_queue and net_cancel_rearmnig with this
-ASSERT_NO_RTNL?
+> 	The log you included (with debug turned on) indicates that
+> bonding is at least attempting to send LACPDUs, but there are no log
+> entries for having received any LACPDUs.
 
-> 
-> I don't see how asserting it in the rtnl_lock would help anything, 
-> because at that
-> point we are about to deadlock anyway...  (and this is probably very 
-> rare, as mentioned above.)
+Yes, the log clearly shows that the LACPDUs are sent, at least bonding
+thinks so.  I just checked for received mcast packages on the switch:
+yes, they come in frequently on all four ports.  Though I can't check or
+Slow_Protocols_Multicast address specifically.
 
-But it's happening now. Probably lockdep is not enough
-and rtnl_lock is probably used in too many places, so I
-meant some additional checks would be possible.
-I wrote "something like this" and mean some check if we
-have this lock already before trying to get it again.
+> 	If the switch is configured, you may want to also check to see
+> if it has counters for LACPDUs sent and received.  If the switch is not
+> sending and receiving LACPDUs on the appropriate ports, then it's more
+> likely to be a communications problem somewhere (vs. an 802.3ad
+> negotiation problem).
 
-But maybe it's really too much and your proposal is
-sufficient for this.
+I did not find a dedicated stat for received LACPDUs.
 
-Jarek P.
+I tried some settings on the switch webinterface.  Interesting: if I
+toggle the 'Admin Flow Control' from either 'enabled' to
+'autonegotiation' I immediately receive the switch LACPCUs, see:
+
+ bonding: ad_tx_machine() 1210: Sent LACPDU on port 1
+ bonding: bond_3ad_rx_indication() 2175: Received LACPDU on port 1
+ bonding: ad_rx_machine() 1123: Rx Machine: Port=1, Last State=6, Curr
+   State=6
+
+If I then disable the bond (rmmod inclusive) and then enable the bond
+again there are no received LACPDUs from the switch.  Mmmpff...
+
+> 	For the version of bonding in your dmesg log, the IFF_NOARP is
+> expected; 802.3ad will select one aggregator as the active one, the
+> other aggregators will be marked inactive, and that sets IFF_NOARP.
+> Since no LACPDUs have been exchanged, bonding is leaving each interface
+> as a separate aggregator.  Versions of bonding later than February 2006
+> (your proc-bond0-ok for example) don't set the IFF_NOARP on inactive
+> slaves (a new mechanism is used that doesn't mess with the flags).
+
+Yes, I already saw in the code that IFF_NOARP was expected.
+
+Any ideas?
+
+  /holger
