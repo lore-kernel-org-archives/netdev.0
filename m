@@ -1,45 +1,73 @@
-From: Max Krasnyansky <maxk@qualcomm.com>
-Subject: [TIPC] Missing null check in the socket code.
-Date: Thu, 15 Feb 2007 22:27:34 -0800
-Message-ID: <11716072541171-git-send-email-maxk@qualcomm.com>
-References: <1171607254637-git-send-email-maxk@qualcomm.com>
-Cc: netdev@vger.kernel.org, Max Krasnyansky <maxk@qualcomm.com>
-To: davem@davemloft.net
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: [BUG] RTNL and flush_scheduled_work deadlocks
+Date: Fri, 16 Feb 2007 08:29:28 +0100
+Message-ID: <20070216072928.GA1599@ff.dom.local>
+References: <20070214132729.479793ac@freekitty>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org,
+	Ben Greear <greearb@candelatech.com>,
+	Kyle Lucke <klucke@us.ibm.com>,
+	Raghavendra Koushik <raghavendra.koushik@neterion.com>,
+	Al Viro <viro@ftp.linux.org.uk>
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from warlock.qualcomm.com ([129.46.50.49]:48753 "EHLO
-	warlock.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965331AbXBPHD2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Feb 2007 02:03:28 -0500
-Received: from ithilien.qualcomm.com (ithilien.qualcomm.com [129.46.51.59])
-	by warlock.qualcomm.com (8.13.6/8.13.6/1.0) with ESMTP id l1G6csRH019969
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=FAIL)
-	for <netdev@vger.kernel.org>; Thu, 15 Feb 2007 22:38:55 -0800 (PST)
-In-Reply-To: <1171607254637-git-send-email-maxk@qualcomm.com>
+Received: from poczta.o2.pl ([193.17.41.142]:53134 "EHLO poczta.o2.pl"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S932989AbXBPH0O (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Feb 2007 02:26:14 -0500
+Content-Disposition: inline
+In-Reply-To: <20070214132729.479793ac@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Fixes an oops in the non-blocking mode.
+On 14-02-2007 22:27, Stephen Hemminger wrote:
+> Ben found this but the problem seems pretty widespread.
+> 
+> The following places are subject to deadlock between flush_scheduled_work
+> and the RTNL mutex. What can happen is that a work queue routine (like
+> bridge port_carrier_check) is waiting forever for RTNL, and the driver
+> routine has called flush_scheduled_work with RTNL held and is waiting
+> for the work queue to clear.
+> 
+> Several other places have comments like: "can't call flush_scheduled_work
+> here or it will deadlock". Most of the problem places are in device close
+> routine. My recommendation would be to add a check for device netif_running in
+> what ever work routine is used, and move the flush_scheduled_work to the
+> remove routine.
+> 
+> 8139too.c: rtl8139_close --> rtl8139_stop_thread
+> r8169.c:   rtl8169_down
+> cassini.c: cas_change_mtu
+> iseries_veth.c: veth_stop_connection
+> s2io.c: s2io_close
+> sis190.c: sis190_down
+> 
 
-Signed-off-by: Max Krasnyansky <maxk@qualcomm.com>
----
- net/tipc/socket.c |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
+There is probably more than this...
 
-diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index 2a6a5a6..767f791 100644
---- a/net/tipc/socket.c
-+++ b/net/tipc/socket.c
-@@ -862,6 +862,10 @@ restart:
- 	/* Get access to first message in receive queue */
- 
- 	buf = skb_peek(&sock->sk->sk_receive_queue);
-+	if (NULL == buf) {
-+		res = -EAGAIN;
-+		goto exit;
-+	}
- 	msg = buf_msg(buf);
- 	sz = msg_data_sz(msg);
- 	err = msg_errcode(msg);
--- 
-1.4.4.2
+I think the same problem is with
+cancel_rearming_delayed_work. Plus indirect calling
+these functions: eg. by ieee8021softmac_stop.
 
+I found these dangerous places (probably not all):
+
+cxgb3/cxgb3_main.c (cxgb_close -> cxgb_down),
+
+macb.c (macb_close),
+
+skge.c (skge_down),
+
+wireless/bcm43xx/bcm43xx_main.c (bcm_net_stop both
+	ieee80211...  and flush_...),
+wireless/zd1211rw/zd_mac.c (zd_mac_stop ->
+	housekeeping_disable),
+
+chelsio/my3126.c (t1_interrupts_disable ->
+	my3126_interrupt_disable), /* not sure */
+
+drivers/usb/net/kaweth.c (kaweth_close ->
+	kaweth_kill_urbs)
+
+Regards,
+Jarek P.
