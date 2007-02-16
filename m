@@ -1,63 +1,61 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [PATCH] skge: race with workq and RTNL
-Date: Fri, 16 Feb 2007 15:37:39 -0800
-Message-ID: <20070216153739.387d0b97@localhost.localdomain>
+From: Ben Greear <greearb@candelatech.com>
+Subject: PATCH:  Update mailing list info for 802.1q vlans
+Date: Fri, 16 Feb 2007 15:56:44 -0800
+Message-ID: <45D644BC.9060104@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jeff Garzik <jgarzik@pobox.com>
+To: NetDev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:41417 "EHLO smtp.osdl.org"
+Received: from ns2.lanforge.com ([66.165.47.211]:56982 "EHLO ns2.lanforge.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1946305AbXBPXk7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Feb 2007 18:40:59 -0500
+	id S1946321AbXBPX4p (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Feb 2007 18:56:45 -0500
+Received: from [192.168.100.224] (static-71-121-249-218.sttlwa.dsl-w.verizon.net [71.121.249.218])
+	(authenticated bits=0)
+	by ns2.lanforge.com (8.13.4/8.13.4) with ESMTP id l1GNuiBv019015
+	for <netdev@vger.kernel.org>; Fri, 16 Feb 2007 15:56:44 -0800
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-If a workqueue function that needs RTNL is running when skge_down
-is called then a deadlock is possible. Fix by only clearing the timer,
-and handling the flush_scheduled_work on removal. This work queue is only
-ever used for the old fiber based boards.
+Dave, could you apply this please?  The old mailing
+list is dead and gone.
 
-Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
 
---- skge.orig/drivers/net/skge.c
-+++ skge/drivers/net/skge.c
-@@ -1419,7 +1419,8 @@ static void xm_link_timer(struct work_st
- 	mutex_unlock(&hw->phy_mutex);
- 
- nochange:
--	schedule_delayed_work(&skge->link_thread, LINK_HZ);
-+	if (netif_running(dev))
-+		schedule_delayed_work(&skge->link_thread, LINK_HZ);
- }
- 
- static void genesis_mac_init(struct skge_hw *hw, int port)
-@@ -2530,7 +2531,7 @@ static int skge_down(struct net_device *
- 
- 	netif_stop_queue(dev);
- 	if (hw->chip_id == CHIP_ID_GENESIS && hw->phy_type == SK_PHY_XMAC)
--		cancel_rearming_delayed_work(&skge->link_thread);
-+		cancel_delayed_work(&skge->link_thread);
- 
- 	skge_write8(skge->hw, SK_REG(skge->port, LNK_LED_REG), LED_OFF);
- 	if (hw->chip_id == CHIP_ID_GENESIS)
-@@ -3690,6 +3691,8 @@ static void __devexit skge_remove(struct
- 	if (!hw)
- 		return;
- 
-+	flush_scheduled_work();
-+
- 	if ((dev1 = hw->dev[1]))
- 		unregister_netdev(dev1);
- 	dev0 = hw->dev[0];
-@@ -3704,8 +3707,6 @@ static void __devexit skge_remove(struct
- 	skge_write16(hw, B0_LED, LED_STAT_OFF);
- 	skge_write8(hw, B0_CTST, CS_RST_SET);
- 
--	flush_scheduled_work();
--
- 	free_irq(pdev->irq, hw);
- 	pci_release_regions(pdev);
- 	pci_disable_device(pdev);
+diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
+index 18fcb9f..c4209c8 100644
+--- a/net/8021q/vlan.c
++++ b/net/8021q/vlan.c
+@@ -3,7 +3,8 @@
+   *             Ethernet-type device handling.
+   *
+   * Authors:    Ben Greear <greearb@candelatech.com>
+- *              Please send support related email to: vlan@scry.wanfear.com
++ *              Please send support related email to: vlan@candelatech.com
++ *                after subscribing using the link below.
+   *              VLAN Home Page: http://www.candelatech.com/~greear/vlan.html
+   *
+   * Fixes:
+diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+index e49e252..203cd54 100644
+--- a/net/8021q/vlan_dev.c
++++ b/net/8021q/vlan_dev.c
+@@ -3,7 +3,8 @@
+   *             Ethernet-type device handling.
+   *
+   * Authors:    Ben Greear <greearb@candelatech.com>
+- *              Please send support related email to: vlan@scry.wanfear.com
++ *              Please send support related email to: vlan@candelatech.com
++ *                after subscribing using the web page below.
+   *              VLAN Home Page: http://www.candelatech.com/~greear/vlan.html
+   *
+   * Fixes:       Mar 22 2001: Martin Bokaemper <mbokaemper@unispherenetworks.com>
+
+
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
+
