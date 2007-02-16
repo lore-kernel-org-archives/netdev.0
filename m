@@ -1,63 +1,56 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: degradation in bridging performance of 5% in 2.6.20 when
- compared to	2.6.19
-Date: Fri, 16 Feb 2007 10:32:52 -0800
-Message-ID: <20070216103252.58289213@freekitty>
-References: <9dd3c65d0702152226h6bfc4e22q3f3b04d97d8da1fb@mail.gmail.com>
-	<45D5ED38.1070503@hp.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [Bug 8013] New: select for write hangs on a socket after write returned ECONNRESET
+Date: Fri, 16 Feb 2007 21:34:27 +0300
+Message-ID: <20070216183426.GA3138@2ka.mipt.ru>
+References: <20070215160405.3bd30b05@localhost.localdomain> <20070216152557.GA20641@2ka.mipt.ru> <20070216152858.GA22020@2ka.mipt.ru> <20070216153957.GB22020@2ka.mipt.ru> <20070216155450.GC22020@2ka.mipt.ru> <20070216161045.GA2371@2ka.mipt.ru> <20070216102914.7d4b34f0@freekitty>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: kalyan tejaswi <kalyanatejaswi@gmail.com>, netdev@vger.kernel.org
-To: Rick Jones <rick.jones2@hp.com>
+Content-Type: text/plain; charset=koi8-r
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:57574 "EHLO smtp.osdl.org"
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:59933 "EHLO 2ka.mipt.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1946204AbXBPSc5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Feb 2007 13:32:57 -0500
-In-Reply-To: <45D5ED38.1070503@hp.com>
+	id S1946207AbXBPSej (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Feb 2007 13:34:39 -0500
+Content-Disposition: inline
+In-Reply-To: <20070216102914.7d4b34f0@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 16 Feb 2007 09:43:20 -0800
-Rick Jones <rick.jones2@hp.com> wrote:
-
-> kalyan tejaswi wrote:
-> > Hi all,
-> > I have been comparing bridging performance for 2.6.20 and 2.6.19
-> > kernels. The kenel configurations are identical for both the kernels.
-> > I use D-Link cards (8139too driver) for the Malta 4Kc board.
-> > 
-> > The setup is:
-> > 
-> > netperf  client  <------->  malta 4Kc  <---------> netperf  server.
-> > 
-> > The throughput statistics (in 10^6 bits/second) are:
-> > 
-> >                    2.6.19          2.6.20
-> > routing            30.2           30.16
-> > bridging          32.35          30.81
-> > 
-> > I observe that there has been a degradation in bridging performance of
-> > 5% in 2.6.20 when compared to 2.6.19.
-> > 
-> > Has anyone observed similar behaviour?
-> > Any inputs or suggestions are welcome.
+On Fri, Feb 16, 2007 at 10:29:14AM -0800, Stephen Hemminger (shemminger@linux-foundation.org) wrote:
+> On Fri, 16 Feb 2007 19:10:45 +0300
+> Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
 > 
-> In each case is the malta CPU bound?  If not, some idea of the change in 
-> CPU util might be helpful.
+> > one of the possible fixes for select() after write() after ECONNRESET.
+> > 
+> > Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+> > 
+> > diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+> > index b67e0dd..661ca0c 100644
+> > --- a/net/ipv4/tcp.c
+> > +++ b/net/ipv4/tcp.c
+> > @@ -365,7 +365,7 @@ unsigned int tcp_poll(struct file *file, struct socket *sock, poll_table *wait)
+> >  	 * blocking on fresh not-connected or disconnected socket. --ANK
+> >  	 */
+> >  	if (sk->sk_shutdown == SHUTDOWN_MASK || sk->sk_state == TCP_CLOSE)
+> > -		mask |= POLLHUP;
+> > +		mask |= POLLHUP | POLLERR;
+> >  	if (sk->sk_shutdown & RCV_SHUTDOWN)
+> >  		mask |= POLLIN | POLLRDNORM | POLLRDHUP;
+> >  
+> > 
 > 
-> rick jones
-> btw, netperf 2.4.3 just released:
-> ftp://ftp.netperf.org/netperf
-> http://www.netperf.org/svn/netperf2/tags/netperf-2.4.3
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> No, that would end up setting error bit on normal shutdown. This is incorrect 
+> behaviour and might even be described in SUSE standard.
+> 
+> There might even be LSB tests on this?
 
-I couldn't think of a worse NIC for bridging than the 8139too
-because that card has no direct DMA and does a data copy for each receive.
+Maybe - I do not have it handy.
+Otherwise we can extend select output mask to include hungup too
+(getting into account that hungup is actually output event).
+
+> -- 
+> Stephen Hemminger <shemminger@linux-foundation.org>
 
 -- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+	Evgeniy Polyakov
