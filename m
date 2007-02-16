@@ -1,111 +1,74 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH] Use random32() in net/ipv4/multipath
-Date: Thu, 15 Feb 2007 15:46:44 -0800
-Message-ID: <1171583205.29021.44.camel@localhost>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Fw: [Bug 8013] New: select for write hangs on a socket after write
+ returned ECONNRESET
+Date: Thu, 15 Feb 2007 16:04:05 -0800
+Message-ID: <20070215160405.3bd30b05@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from DSL022.labridge.com ([206.117.136.22]:1613 "EHLO Perches.com"
+Received: from smtp.osdl.org ([65.172.181.24]:39469 "EHLO smtp.osdl.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932861AbXBOXqi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Feb 2007 18:46:38 -0500
-Received: from [192.168.1.128] ([192.168.1.128])
-	by Perches.com (8.9.3/8.9.3) with ESMTP id PAA20238
-	for <netdev@vger.kernel.org>; Thu, 15 Feb 2007 15:05:50 -0800
+	id S1422779AbXBPAGx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Feb 2007 19:06:53 -0500
+Received: from shell0.pdx.osdl.net (fw.osdl.org [65.172.181.6])
+	by smtp.osdl.org (8.12.8/8.12.8) with ESMTP id l1G06phB000839
+	(version=TLSv1/SSLv3 cipher=EDH-RSA-DES-CBC3-SHA bits=168 verify=NO)
+	for <netdev@vger.kernel.org>; Thu, 15 Feb 2007 16:06:51 -0800
+Received: from localhost.localdomain (dxpl.pdx.osdl.net [10.8.0.74])
+	by shell0.pdx.osdl.net (8.13.1/8.11.6) with ESMTP id l1G06pZd013119
+	for <netdev@vger.kernel.org>; Thu, 15 Feb 2007 16:06:51 -0800
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Einar Lueck's email addresses bounce
-<elueck@de.ibm.com><lkml@einar-lueck.de>
+Someone want to take a stab at fixing this??
 
-Removed local random number generator function
+Begin forwarded message:
 
-Signed-off-by: Joe Perches <joe@perches.com>
-
-diff --git a/net/ipv4/multipath_random.c b/net/ipv4/multipath_random.c
-index b8c289f..6448e6c 100644
---- a/net/ipv4/multipath_random.c
-+++ b/net/ipv4/multipath_random.c
-@@ -33,6 +33,7 @@
- #include <linux/module.h>
- #include <linux/mroute.h>
- #include <linux/init.h>
-+#include <linux/random.h>
- #include <net/ip.h>
- #include <net/protocol.h>
- #include <linux/skbuff.h>
-@@ -49,21 +50,6 @@
- 
- #define MULTIPATH_MAX_CANDIDATES 40
- 
--/* interface to random number generation */
--static unsigned int RANDOM_SEED = 93186752;
--
--static inline unsigned int random(unsigned int ubound)
--{
--	static unsigned int a = 1588635695,
--		q = 2,
--		r = 1117695901;
--
--	RANDOM_SEED = a*(RANDOM_SEED % q) - r*(RANDOM_SEED / q);
--
--	return RANDOM_SEED % ubound;
--}
--
--
- static void random_select_route(const struct flowi *flp,
- 				struct rtable *first,
- 				struct rtable **rp)
-@@ -85,7 +71,7 @@ static void random_select_route(const struct flowi *flp,
- 	if (candidate_count > 1) {
- 		unsigned char i = 0;
- 		unsigned char candidate_no = (unsigned char)
--			random(candidate_count);
-+			(random32() % candidate_count);
- 
- 		/* find chosen candidate and adjust GC data for all candidates
- 		 * to ensure they stay in cache
-diff --git a/net/ipv4/multipath_wrandom.c b/net/ipv4/multipath_wrandom.c
-index 92b0482..d6115a3 100644
---- a/net/ipv4/multipath_wrandom.c
-+++ b/net/ipv4/multipath_wrandom.c
-@@ -33,6 +33,7 @@
- #include <linux/module.h>
- #include <linux/mroute.h>
- #include <linux/init.h>
-+#include <linux/random.h>
- #include <net/ip.h>
- #include <net/protocol.h>
- #include <linux/skbuff.h>
-@@ -85,18 +86,6 @@ struct multipath_route {
- /* state: primarily weight per route information */
- static struct multipath_bucket state[MULTIPATH_STATE_SIZE];
- 
--/* interface to random number generation */
--static unsigned int RANDOM_SEED = 93186752;
--
--static inline unsigned int random(unsigned int ubound)
--{
--	static unsigned int a = 1588635695,
--		q = 2,
--		r = 1117695901;
--	RANDOM_SEED = a*(RANDOM_SEED % q) - r*(RANDOM_SEED / q);
--	return RANDOM_SEED % ubound;
--}
--
- static unsigned char __multipath_lookup_weight(const struct flowi *fl,
- 					       const struct rtable *rt)
- {
-@@ -194,7 +183,7 @@ static void wrandom_select_route(const struct flowi *flp,
- 
- 	/* choose a weighted random candidate */
- 	decision = first;
--	selector = random(power);
-+	selector = random32() % power;
- 	last_power = 0;
- 
- 	/* select candidate, adjust GC data and cleanup local state */
+Date: Wed, 14 Feb 2007 19:32:52 -0800
+From: bugme-daemon@bugzilla.kernel.org
+To: shemminger@linux-foundation.org
+Subject: [Bug 8013] New: select for write hangs on a socket after write
+returned ECONNRESET
 
 
+http://bugzilla.kernel.org/show_bug.cgi?id=8013
+
+           Summary: select for write hangs on a socket after write
+returned ECONNRESET
+    Kernel Version: 2.6.16
+            Status: NEW
+          Severity: normal
+             Owner: shemminger@osdl.org
+         Submitter: ajd@gentrack.com
+
+
+Distribution: Debian
+Also reproduced on: 2.4 based Redhat.
+
+Hardware Environment:
+i686/Xeon
+Problem Description:
+
+If you write() to a disconnected socket, write returns ECONNRESET.
+If you then select() on that socket, checking for write, the select
+never returns.
+
+For example from strace:
+write(4, "fred", 4)                     = 4
+...
+write(4, "fred", 4)                     = -1 ECONNRESET (Connection
+reset by peer)
+select(5, NULL, [4], NULL, NULL ... hung in select
+
+The select documentation says "those in writefds will be watched to see
+if a write will not block".
+A write on this socket will not block, therefore select should return 
+immediately.
+
+When the program is run on Solaris, AIX and HPUX, the select returns 
+immediately.
+
+------- You are receiving this mail because: -------
+You are the assignee for the bug, or are watching the assignee.
