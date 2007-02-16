@@ -1,39 +1,40 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: Fw: [Bug 8013] New: select for write hangs on a socket after write returned ECONNRESET
-Date: Fri, 16 Feb 2007 19:10:45 +0300
-Message-ID: <20070216161045.GA2371@2ka.mipt.ru>
-References: <20070215160405.3bd30b05@localhost.localdomain> <20070216152557.GA20641@2ka.mipt.ru> <20070216152858.GA22020@2ka.mipt.ru> <20070216153957.GB22020@2ka.mipt.ru> <20070216155450.GC22020@2ka.mipt.ru>
+From: <pcnet32@verizon.net>
+Subject: Re: Re: Strange connection slowdown on pcnet32
+Date: Fri, 16 Feb 2007 10:21:24 -0600 (CST)
+Message-ID: <32943920.1119801171642884331.JavaMail.root@vms226.mailsrvcs.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: Lennart Sorensen <lsorense@csclub.uwaterloo.ca>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:53166 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1945969AbXBPQL2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Feb 2007 11:11:28 -0500
-Content-Disposition: inline
-In-Reply-To: <20070216155450.GC22020@2ka.mipt.ru>
+Received: from vms044pub.verizon.net ([206.46.252.44]:51678 "EHLO
+	vms044pub.verizon.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1945979AbXBPQXa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Feb 2007 11:23:30 -0500
+Received: from vms226.mailsrvcs.net ([192.168.1.1])
+ by vms044.mailsrvcs.net (Sun Java System Messaging Server 6.2-6.01 (built Apr
+ 3 2006)) with ESMTPA id <0JDK00A0BDFOPG29@vms044.mailsrvcs.net> for
+ netdev@vger.kernel.org; Fri, 16 Feb 2007 10:21:24 -0600 (CST)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-one of the possible fixes for select() after write() after ECONNRESET.
+Are there any messages in the log about timeouts, or anything else from the driver? When it gets in this state, can you communicate with another system, and does it have the same slow behavior?
 
-Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Looks like my mailer is munging white spaces.
 
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index b67e0dd..661ca0c 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -365,7 +365,7 @@ unsigned int tcp_poll(struct file *file, struct socket *sock, poll_table *wait)
- 	 * blocking on fresh not-connected or disconnected socket. --ANK
- 	 */
- 	if (sk->sk_shutdown == SHUTDOWN_MASK || sk->sk_state == TCP_CLOSE)
--		mask |= POLLHUP;
-+		mask |= POLLHUP | POLLERR;
- 	if (sk->sk_shutdown & RCV_SHUTDOWN)
- 		mask |= POLLIN | POLLRDNORM | POLLRDHUP;
- 
+On Fri, Feb 16, 2007 at 09:35:54AM -0500, Lennart Sorensen wrote:
+> I have run some tests using 2.6.8 now, and so far it hasn't failed.
+> 
+> Still investigating...
 
--- 
-	Evgeniy Polyakov
+And 5 minutes later 2.6.8 failed the same way too.  Maybe I will go back
+to 2.4 and check.
+
+--
+Len Sorensen
+-
+To unsubscribe from this list: send the line "unsubscribe netdev" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
