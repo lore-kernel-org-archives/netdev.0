@@ -1,51 +1,70 @@
-From: Elad Lahav <elad_lahav@users.sourceforge.net>
-Subject: ip_append_page and the socket send buffer
-Date: Fri, 16 Feb 2007 15:02:53 -0500
-Message-ID: <45D60DED.7050709@users.sourceforge.net>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH 3/4] 8139too: RTNL and flush_scheduled_work deadlock
+Date: Fri, 16 Feb 2007 21:20:34 +0100
+Message-ID: <20070216202034.GA10353@electric-eye.fr.zoreil.com>
+References: <20070215223744.GC19840@electric-eye.fr.zoreil.com> <20070216075936.GB1599@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: jeff@garzik.org,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	akpm@linux-foundation.org, netdev@vger.kernel.org,
+	Ben Greear <greearb@candelatech.com>,
+	Kyle Lucke <klucke@us.ibm.com>,
+	Raghavendra Koushik <raghavendra.koushik@neterion.com>,
+	Al Viro <viro@ftp.linux.org.uk>
+To: Jarek Poplawski <jarkao2@o2.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from services110.cs.uwaterloo.ca ([129.97.152.166]:38855 "EHLO
-	services110.cs.uwaterloo.ca" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1946119AbXBPU0T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Feb 2007 15:26:19 -0500
-Received: from [129.97.75.6] (jethro.cs.uwaterloo.ca [129.97.75.6])
-	by services110.cs.uwaterloo.ca (8.13.8/8.13.8) with ESMTP id l1GK2qWM025262
-	for <netdev@vger.kernel.org>; Fri, 16 Feb 2007 15:02:57 -0500 (EST)
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:35008 "EHLO
+	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1946130AbXBPU0x (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Feb 2007 15:26:53 -0500
+Content-Disposition: inline
+In-Reply-To: <20070216075936.GB1599@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I wrote a function that is equivalent to udp_sendmsg, but uses 
-ip_append_page to attach data to an skb. The function is implemented as 
-follows:
+Jarek Poplawski <jarkao2@o2.pl> :
+[...]
+> > diff --git a/drivers/net/8139too.c b/drivers/net/8139too.c
+> > index 35ad5cf..99304b2 100644
+> > --- a/drivers/net/8139too.c
+> > +++ b/drivers/net/8139too.c
+> > @@ -1109,6 +1109,8 @@ static void __devexit rtl8139_remove_one (struct pci_dev *pdev)
+> >  
+> >  	assert (dev != NULL);
+> >  
+> > +	flush_scheduled_work();
+> > +
+> 
+> IMHO there should be rather cancel_rearming_delayed_work
+> instead of this.
 
-1. Allocate a page and copy the given data to that page
-2. Set up routing and cork the socket
-3. Call ip_append_data to create an initial skb (with data length set to 0)
-4. Call ip_append_page with the allocated page
-5. Call udp_push_pending_frames to send the packet
+The delayed_work is initialized even if tp->have_thread is false,
+so cancel_rearming_delayed_work() will work, yes. Feel free to
+send a patch.
 
-The function works correctly. Packets are generated and sent as 
-expected: this was verified by looking at the packet contents on the 
-receiving machine.
-However, under load, there is a significant difference in the behaviour 
-of udp_sendmsg, compared with my function. The problem is that the 
-socket send buffer (wmem_alloc) quickly grows beyond its upper limit 
-(which is 131071 by default). This results in numerous failures of 
-ip_append_data with EAGAIN, degrading performance considerably.
-udp_sendmsg, on the other hand, keeps wmem_alloc in a much smaller range 
-under the same load.
+[...]
+> > @@ -1603,18 +1605,21 @@ static void rtl8139_thread (struct work_struct *work)
+> >  	struct net_device *dev = tp->mii.dev;
+> >  	unsigned long thr_delay = next_tick;
+> >  
+> > +	rtnl_lock();
+> > +
+> > +	if (!netif_running(dev))
+> > +		goto out_unlock;
+> 
+> I wonder, why you don't do netif_running before
+> rtnl_lock ? It's an atomic operation. And I'm not sure if increasing
+> rtnl_lock range is really needed here.
 
-Two notes:
-1. Modifying the upper limit to 524287 solved the problem completely 
-(regardless of the load)
-2. The same thing happens with multiple calls to ip_append_data (e.g., 
-if I want to copy the data in two sections), so it is not a problem with 
-ip_append_page. This leads me o believe that the problem lies with 
-Scatter/Gather I/O.
+thread    A: netif_running()
+user task B: rtnl_lock()
+user task B: dev->close()
+user task B: rtnl_unlock()
+thread    A: rtnl_lock()
+thread    A: mess with closed device
 
-Any thoughts?
+Btw, the thread runs every 3*HZ at most.
 
-Elad
+-- 
+Ueimor
