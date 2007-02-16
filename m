@@ -1,71 +1,59 @@
-From: lsorense@csclub.uwaterloo.ca (Lennart Sorensen)
-Subject: Re: Strange connection slowdown on pcnet32
-Date: Fri, 16 Feb 2007 09:35:54 -0500
-Message-ID: <20070216143554.GB7585@csclub.uwaterloo.ca>
-References: <20070215225030.GA7585@csclub.uwaterloo.ca>
+From: Tobias Diedrich <ranma+kernel@tdiedrich.de>
+Subject: Re: forcedeth problems on 2.6.20-rc6-mm3
+Date: Fri, 16 Feb 2007 15:54:17 +0100
+Message-ID: <20070216145417.GC5388@melchior.yamamaya.is-a-geek.org>
+References: <45C6BCE5.90103@shaw.ca> <20070204213603.a5bce839.akpm@linux-foundation.org> <45C6C531.20508@shaw.ca> <20070204221741.63152cbe.akpm@linux-foundation.org> <523e55a00702081326j43de05e3hdd8cf35e946eae9@mail.gmail.com> <45CBE30D.5030006@nvidia.com> <20070209115821.GD10330@melchior.yamamaya.is-a-geek.org> <20070209120730.GA11911@melchior.yamamaya.is-a-geek.org> <45CC8A2D.20509@garzik.org> <20070212062823.GB4756@melchior.yamamaya.is-a-geek.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Jeff Garzik <jeff@garzik.org>, Ayaz Abdulla <aabdulla@nvidia.com>,
+	David Ford <firefighterblu3@gmail.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Robert Hancock <hancockr@shaw.ca>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from caffeine.uwaterloo.ca ([129.97.134.17]:58619 "EHLO
-	caffeine.csclub.uwaterloo.ca" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932375AbXBPOfz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Feb 2007 09:35:55 -0500
-Received: from caffeine.csclub.uwaterloo.ca (localhost.localdomain [127.0.0.1])
-	by caffeine.csclub.uwaterloo.ca (Postfix) with ESMTP id DE48C74105
-	for <netdev@vger.kernel.org>; Fri, 16 Feb 2007 09:35:54 -0500 (EST)
+Received: from yumi.tdiedrich.de ([85.10.210.183]:4070 "EHLO yumi.tdiedrich.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751388AbXBPOyX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Feb 2007 09:54:23 -0500
 Content-Disposition: inline
-In-Reply-To: <20070215225030.GA7585@csclub.uwaterloo.ca>
+In-Reply-To: <20070212062823.GB4756@melchior.yamamaya.is-a-geek.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Feb 15, 2007 at 05:50:30PM -0500, Lennart Sorensen wrote:
-> I have encountered a strange behaviour with the pcnet32.
-> 
-> I am transfering data from a server to a client routing it through my
-> router.  The router has 2 ethernet ports, both of which are amd 972
-> chips (pcnet32).  The transfer has so far been either http or ftp (both
-> see the same problem).  I transfer lots of data, and after a while (I
-> have seen anywhere from 200 to 700MB or so) the speed suddenly drops to
-> less than 1KB/s.  If I ping from the router to the server, the ping
-> requests go out normally (seen by tcpdump on the server) every second,
-> but on the router the replies are not seen by the kernel for multiple
-> seconds.  Sometimes I will see 3 ping replies together, sometimes 5 or
-> even 10.  The turn around times will show 10500, 9500, 8500, ..., 500ms
-> for the packets received in a batch.  ifconfig on the router shows the
-> packet receive counts showing up in lumps, just as ping does, and
-> tcpdump on the interface on the router.
-> 
-> Doing ifconfig down and up on the port connecting to the server makes
-> the problem clear and it can handle another pile of data before the
-> problem reappears.
-> 
-> The CPU on the router is not fast enough to ensure there won't ever be
-> dropped packets at 100Mbps.  When I force the port to the server to
-> 10Mbps I have no problems at all.
-> 
-> Replacing the port to the server with an rtl8139 doesn't show any
-> problems at 100Mbps, although the transfer rate drops from 6500KBps to
-> 4000KBps compared to using the pcnet32.
-> 
-> Kernel used so far is 2.6.16 and 2.6.18.
-> 
-> I have a tulip card I intend to try with as well just to see if it
-> affects anything other than the pcnet32.
-> 
-> Does anyone have any hints as to what part of the code to look at for
-> changes made by doing ifconfig eth1 down; ifconfig eth1 up?  Any ideas
-> as to what could make the reception of packets suddenly get very very
-> slow?
-> 
-> On one pass where I was running tcpdump on the router, I saw a wrap of
-> the sequence number right before the problem occoured, but that has not
-> been the case every time as far as I can tell, so I am not sure if that
-> is related to the problem at all.
+Tobias Diedrich wrote:
+> Jeff Garzik wrote:
+> > Tobias Diedrich wrote:
+> > >Tobias Diedrich wrote:
+> > >>Ayaz Abdulla wrote:
+> > >>>For all those who are having issues, please try out the attached=
+ patch.
+> > >>Will try.
+> > >
+> > >Does not apply cleanly against 2.6.20, is this one fixed up right?
+> >=20
+> > It probably needs to be top of 2.6.20-git-latest or 2.6.20-rc6-mm3.
+> >=20
+> > IOW, the forcedeth changes in question are not in 2.6.20, and you n=
+eed=20
+> > to apply the patch on top of the latest batch of forcedeth changes.
+>=20
+> Well, it hasn't blown up on me despite being applied to 2.6.20...
+> The problem I was seeing might even be fixed in 2.6.20 vanilla,
+> since the last version I saw it in was 2.6.20-rc6 and then I
+> reverted to 2.6.19 to make sure that one is ok (see
+> 20070130183208.GE11814@melchior.yamamaya.is-a-geek.org).
 
-I have run some tests using 2.6.8 now, and so far it hasn't failed.
+And having run vanilla 2.6.20 since my last mail, I haven't seen the
+problem on that one either.
+So I _guess_ the particular problem I was seeing was fixed somewhere
+between 2.6.20-rc6 and 2.6.20.  But since I can't reliably trigger
+it, I can't say that for sure.
 
-Still investigating...
-
---
-Len Sorensen
+--=20
+Tobias						PGP: http://9ac7e0bc.uguu.de
+=E3=81=93=E3=81=AE=E3=83=A1=E3=83=BC=E3=83=AB=E3=81=AF=E5=8D=81=E5=89=B2=
+=E5=86=8D=E5=88=A9=E7=94=A8=E3=81=95=E3=82=8C=E3=81=9F=E3=83=93=E3=83=83=
+=E3=83=88=E3=81=A7=E4=BD=9C=E3=82=89=E3=82=8C=E3=81=A6=E3=81=84=E3=81=BE=
+=E3=81=99=E3=80=82
