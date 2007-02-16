@@ -1,40 +1,66 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: Fw: [Bug 8013] New: select for write hangs on a socket after write returned ECONNRESET
-Date: Fri, 16 Feb 2007 18:39:58 +0300
-Message-ID: <20070216153957.GB22020@2ka.mipt.ru>
-References: <20070215160405.3bd30b05@localhost.localdomain> <20070216152557.GA20641@2ka.mipt.ru> <20070216152858.GA22020@2ka.mipt.ru>
+From: John Rose <johnrose@austin.ibm.com>
+Subject: Re: [PATCH 2.6.21-rc1] ehea: dynamic add / remove port
+Date: Fri, 16 Feb 2007 09:51:29 -0600
+Message-ID: <1171641089.9442.8.camel@sinatra.austin.ibm.com>
+References: <200702141536.28665.ossthema@de.ibm.com>
+	 <1171491906.30473.3.camel@sinatra.austin.ibm.com>
+	 <200702161606.52789.ossthema@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jeff@garzik.org>,
+	Christoph Raisch <RAISCH@de.ibm.com>,
+	Jan-Bernd Themann <themann@de.ibm.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	linux-ppc <linuxppc-dev@ozlabs.org>,
+	Marcus Eder <MEDER@de.ibm.com>,
+	Thomas Klein <tklein@de.ibm.com>, stefan.roscher@de.ibm.com,
+	netdev <netdev@vger.kernel.org>,
+	Nathan Fontenot <nfont@austin.ibm.com>
+To: Jan-Bernd Themann <ossthema@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:49647 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932414AbXBPPku (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Feb 2007 10:40:50 -0500
-Content-Disposition: inline
-In-Reply-To: <20070216152858.GA22020@2ka.mipt.ru>
+Received: from e31.co.us.ibm.com ([32.97.110.149]:33930 "EHLO
+	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1945953AbXBPPy0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Feb 2007 10:54:26 -0500
+In-Reply-To: <200702161606.52789.ossthema@de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Feb 16, 2007 at 06:28:58PM +0300, Evgeniy Polyakov (johnpol@2ka.mipt.ru) wrote:
-> On Fri, Feb 16, 2007 at 06:25:57PM +0300, Evgeniy Polyakov (johnpol@2ka.mipt.ru) wrote:
-> > On Thu, Feb 15, 2007 at 04:04:05PM -0800, Stephen Hemminger (shemminger@linux-foundation.org) wrote:
-> > > Someone want to take a stab at fixing this??
+Hi-
 
-Ok, I've fund a reason - select() only checks if valid output condition
-is 
-#define POLLOUT_SET (POLLWRBAND | POLLWRNORM | POLLOUT | POLLERR)
+Sounds good.  A couple of questions/comments:
 
-Linux never sets POLLERR on shutdown - only on socket error, on shutdown
-POLLHUP is setup instead, so reading always shows that:
+> I think it is not necessary to have a special entry/kobject for each logical
+> port. I suggest we use SET_NETDEV_DEV to create links to all ethernet devices
+> that represent each a logical port. This should be in sync with all other 
+> ethernet drivers. Port attributes like the "logical port id" that might be 
+> need by the userspace application can be added to the net:ethX entry
+> (link created with SET_NETDEV_DEV) as additional attributes. 
 
-#define POLLIN_SET (POLLRDNORM | POLLRDBAND | POLLIN | POLLHUP |
-POLLERR)
+As we develop the userspace tool, we are finding a need to know the
+following for each logical port:
 
-A 'fix' can be to add POLLHUP into POLLOUT_SET or workaround that in
-application to check both input and output events in select() or use
-poll and explicitly check returned mask.
+1) the linux interface/device (a symlink would do this)
+2) the logical port number - were you suggesting communicating this
+through the name of the symlink, or in the directory of the symlink
+target?
+3) the open firmware path for the logical port.  This is typically
+communicated through a sysfs attribute file "devspec", but we can't do
+this without a new kobject for the port.
 
--- 
-	Evgeniy Polyakov
+> > 
+> > Second, the probe and remove functions do not communicate whether an add
+> > or remove was successful.  Combine this with the lack of port
+> > information in the adapter sysfs directory, and the userspace tool has
+> > no way of verifying a dynamic add/remove.
+> 
+> True. I suggest we return error codes (-EIO / -EINVAL) in case the adding
+> or removing of ports fails. This is possible as we know instantly if the
+> operation failed or not. It is a synchronus operation.
+
+Sounds good.
+
+Thanks!
+John
+
