@@ -1,53 +1,77 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [Sk-drivers] sky2 bonding problem, 802.3ad
-Date: Fri, 16 Feb 2007 12:34:10 -0800
-Message-ID: <200702162034.l1GKYA22019289@death.nxdomain.ibm.com>
-References: <871wkruu6p.fsf@kruemel.my-eitzenberger.de> <200702152013.l1FKDE22017473@death.nxdomain.ibm.com> <877iuitqcw.fsf@kruemel.my-eitzenberger.de> <873b56tprm.fsf@kruemel.my-eitzenberger.de>
-Cc: netdev@vger.kernel.org, sk-drivers@lists.linux-foundation.org
-To: Holger Eitzenberger <holger@my-eitzenberger.de>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH 3/4] 8139too: RTNL and flush_scheduled_work deadlock
+Date: Fri, 16 Feb 2007 12:36:05 -0800
+Message-ID: <20070216123605.56e697ac@freekitty>
+References: <20070215223744.GC19840@electric-eye.fr.zoreil.com>
+	<20070216075936.GB1599@ff.dom.local>
+	<20070216202034.GA10353@electric-eye.fr.zoreil.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Jarek Poplawski <jarkao2@o2.pl>, jeff@garzik.org,
+	akpm@linux-foundation.org, netdev@vger.kernel.org,
+	Ben Greear <greearb@candelatech.com>,
+	Kyle Lucke <klucke@us.ibm.com>,
+	Raghavendra Koushik <raghavendra.koushik@neterion.com>,
+	Al Viro <viro@ftp.linux.org.uk>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e32.co.us.ibm.com ([32.97.110.150]:51304 "EHLO
-	e32.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1946138AbXBPUeP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Feb 2007 15:34:15 -0500
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e32.co.us.ibm.com (8.12.11.20060308/8.13.8) with ESMTP id l1GKXb4G028711
-	for <netdev@vger.kernel.org>; Fri, 16 Feb 2007 15:33:37 -0500
-Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
-	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v8.2) with ESMTP id l1GKYE0w538192
-	for <netdev@vger.kernel.org>; Fri, 16 Feb 2007 13:34:14 -0700
-Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av02.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l1GKYD9U019031
-	for <netdev@vger.kernel.org>; Fri, 16 Feb 2007 13:34:14 -0700
-In-reply-to: <873b56tprm.fsf@kruemel.my-eitzenberger.de> 
+Received: from smtp.osdl.org ([65.172.181.24]:34895 "EHLO smtp.osdl.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1946093AbXBPUnG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Feb 2007 15:43:06 -0500
+In-Reply-To: <20070216202034.GA10353@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Holger Eitzenberger <holger@my-eitzenberger.de> wrote:
+On Fri, 16 Feb 2007 21:20:34 +0100
+Francois Romieu <romieu@fr.zoreil.com> wrote:
 
->Holger Eitzenberger <holger@my-eitzenberger.de> writes:
->
->>  bonding: ad_tx_machine() 1210: Sent LACPDU on port 1
->>  bonding: bond_3ad_rx_indication() 2175: Received LACPDU on port 1
->>  bonding: ad_rx_machine() 1123: Rx Machine: Port=1, Last State=6, Curr
->>    State=6
->
->One important point I forgot about in my previous post: the host
->receives LACPDUs, but still the bond does not work.
->
->Also note that the other e1000 bond works happily: it is in fact the
->link which I use to configure it currently (via telnet).
+> Jarek Poplawski <jarkao2@o2.pl> :
+> [...]
+> > > diff --git a/drivers/net/8139too.c b/drivers/net/8139too.c
+> > > index 35ad5cf..99304b2 100644
+> > > --- a/drivers/net/8139too.c
+> > > +++ b/drivers/net/8139too.c
+> > > @@ -1109,6 +1109,8 @@ static void __devexit rtl8139_remove_one (struct pci_dev *pdev)
+> > >  
+> > >  	assert (dev != NULL);
+> > >  
+> > > +	flush_scheduled_work();
+> > > +
+> > 
+> > IMHO there should be rather cancel_rearming_delayed_work
+> > instead of this.
+> 
+> The delayed_work is initialized even if tp->have_thread is false,
+> so cancel_rearming_delayed_work() will work, yes. Feel free to
+> send a patch.
+> 
+> [...]
+> > > @@ -1603,18 +1605,21 @@ static void rtl8139_thread (struct work_struct *work)
+> > >  	struct net_device *dev = tp->mii.dev;
+> > >  	unsigned long thr_delay = next_tick;
+> > >  
+> > > +	rtnl_lock();
+> > > +
+> > > +	if (!netif_running(dev))
+> > > +		goto out_unlock;
+> > 
+> > I wonder, why you don't do netif_running before
+> > rtnl_lock ? It's an atomic operation. And I'm not sure if increasing
+> > rtnl_lock range is really needed here.
+> 
+> thread    A: netif_running()
+> user task B: rtnl_lock()
+> user task B: dev->close()
+> user task B: rtnl_unlock()
+> thread    A: rtnl_lock()
+> thread    A: mess with closed device
+> 
+> Btw, the thread runs every 3*HZ at most.
 
-	Can you send me (off list, I'm thinking) the full bonding debug
-dmesg log as well as a tcpdump trace of the LACP exchange (i.e., the
-case that LACPDUs are both sent and received)?  The raw tcpdump
-("tcpdump -w somefile") is better than the formatted text output.
+You need to hold a dev reference (dev_hold) as well. to keep the device
+from disappearing. or do a flush_scheduled_work in the remove routine.
 
-	I don't have either of the pieces of hardware you're using (the
-switch or the sky2 card), so I'm hoping there will be some gleaming
-nuggets of evidence in the logs.
-
-	-J
-
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+-- 
+Stephen Hemminger <shemminger@linux-foundation.org>
