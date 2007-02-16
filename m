@@ -1,103 +1,133 @@
-From: Jan-Bernd Themann <ossthema@de.ibm.com>
-Subject: Re: [PATCH 2.6.21-rc1] ehea: dynamic add / remove port
-Date: Fri, 16 Feb 2007 16:06:52 +0100
-Message-ID: <200702161606.52789.ossthema@de.ibm.com>
-References: <200702141536.28665.ossthema@de.ibm.com> <1171491906.30473.3.camel@sinatra.austin.ibm.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: Fw: [Bug 8013] New: select for write hangs on a socket after write returned ECONNRESET
+Date: Fri, 16 Feb 2007 18:25:57 +0300
+Message-ID: <20070216152557.GA20641@2ka.mipt.ru>
+References: <20070215160405.3bd30b05@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>,
-	Christoph Raisch <RAISCH@de.ibm.com>,
-	Jan-Bernd Themann <themann@de.ibm.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	linux-ppc <linuxppc-dev@ozlabs.org>,
-	Marcus Eder <MEDER@de.ibm.com>,
-	Thomas Klein <tklein@de.ibm.com>, stefan.roscher@de.ibm.com,
-	netdev <netdev@vger.kernel.org>,
-	Nathan Fontenot <nfont@austin.ibm.com>
-To: John Rose <johnrose@austin.ibm.com>
+Content-Type: multipart/mixed; boundary="vkogqOf2sHV7VnPd"
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate5.de.ibm.com ([195.212.29.154]:51918 "EHLO
-	mtagate5.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964965AbXBPPLR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Feb 2007 10:11:17 -0500
-In-Reply-To: <1171491906.30473.3.camel@sinatra.austin.ibm.com>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:37121 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1945916AbXBPP0K (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Feb 2007 10:26:10 -0500
 Content-Disposition: inline
+In-Reply-To: <20070215160405.3bd30b05@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
 
-I agree with most points. Here the new design proposal:
+--vkogqOf2sHV7VnPd
+Content-Type: text/plain; charset=koi8-r
+Content-Disposition: inline
 
-On Wednesday 14 February 2007 23:25, John Rose wrote:
-> Hi-
-> 
-> A few high level comments, then some really insignificant ones.
-> 
-> First, is there a reason why we shouldn't have a sysfs entry/kobject for
-> each logical port?  How is it possible to determine, from the adapter
-> sysfs directory, the current number of ports for that adapter?  A port
-> sysfs directory could include attributes like the OF path to the port,
-> the state of the port, etc etc.
+On Thu, Feb 15, 2007 at 04:04:05PM -0800, Stephen Hemminger (shemminger@linux-foundation.org) wrote:
+> Someone want to take a stab at fixing this??
 
-I think it is not necessary to have a special entry/kobject for each logical
-port. I suggest we use SET_NETDEV_DEV to create links to all ethernet devices
-that represent each a logical port. This should be in sync with all other 
-ethernet drivers. Port attributes like the "logical port id" that might be 
-need by the userspace application can be added to the net:ethX entry
-(link created with SET_NETDEV_DEV) as additional attributes. 
-Thus we have a simple and consistent way to determine 
-all currently available network interfaces (logical ports) and its
-corresponding IDs.
+Works for me with attached application - select on connreset socket
+immediately returns one ready descriptor.
 
-> 
-> Second, the probe and remove functions do not communicate whether an add
-> or remove was successful.  Combine this with the lack of port
-> information in the adapter sysfs directory, and the userspace tool has
-> no way of verifying a dynamic add/remove.
+$ ./a.out 192.168.0.48 22
+select: err: 1, errno: 0.
+write: err: 128, errno: 0.
+select: err: 1, errno: 0.
+write: err: 128, errno: 0.
+select: err: 1, errno: 0.
+write: err: -1, errno: 104.
+on exit: select: err: 1, errno: 104.
 
-True. I suggest we return error codes (-EIO / -EINVAL) in case the adding
-or removing of ports fails. This is possible as we know instantly if the
-operation failed or not. It is a synchronus operation.
+-- 
+	Evgeniy Polyakov
 
+--vkogqOf2sHV7VnPd
+Content-Type: text/plain; charset=koi8-r
+Content-Disposition: attachment; filename="select.c"
 
-> 
-> +		ehea_info("%s -> logial port id #%d",
-> 
-> Spelling :)
-true, fixed
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/resource.h>
+#include <sys/wait.h>
+#include <sys/stat.h>
+#include <sys/time.h>
+#include <sys/poll.h>
+#include <sys/sendfile.h>
 
-> 
->  	if (port_setup_ok)
-> -		ret = 0;	/* At least some ports are setup correctly */
-> +		return 0;	/* At least some ports are setup correctly */
->  	else
-> -		ret = -EINVAL;
-> +		return -EINVAL;
-> 
-> The else is unnecessary.
+#include <netinet/in.h>
+#include <netinet/tcp.h>
+#include <arpa/inet.h>
 
-agreed, fixed
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <errno.h>
+#include <string.h>
+#include <fcntl.h>
+#include <time.h>
+#include <ctype.h>
+#include <netdb.h>
 
-> 
->  static int __devexit ehea_remove(struct ibmebus_dev *dev)
->  {
->  	struct ehea_adapter *adapter = dev->ofdev.dev.driver_data;
->  	u64 hret;
->  	int i;
-> 
-> -	for (i = 0; i < adapter->num_ports; i++)
-> +	for (i = 0; i < EHEA_MAX_PORTS; i++)
->  		if (adapter->port[i]) {
->  			ehea_shutdown_single_port(adapter->port[i]);
->  			adapter->port[i] = NULL;
->  		}
-> 
-> Else break?
-no break wanted here as "remove_port" might cause situations where
-not all currently available ports are in a row
+#define ulog(f, a...) fprintf(stderr, f, ##a)
+#define ulog_err(f, a...) ulog(f ": %s [%d].\n", ##a, strerror(errno), errno)
 
-Regards,
-Jan-Bernd
+int main(int argc, char *argv[])
+{
+	struct hostent *h;
+	int s, err;
+	char buf[128];
+	struct sockaddr_in sa;
+	fd_set rfds;
+	struct timeval tv;
+
+	if (argc != 3) {
+		ulog("Usage: %s <addr> <port>\n", argv[0]);
+		return -1;
+	}
+	
+	h = gethostbyname(argv[1]);
+	if (!h) {
+		ulog_err("%s: Failed to get address of %s.\n", __func__, argv[1]);
+		return -1;
+	}
+
+	s = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+	if (s == -1) {
+		ulog_err("%s: Failed to create server socket", __func__);
+		return -1;
+	}
+	
+	memcpy(&(sa.sin_addr.s_addr), h->h_addr_list[0], 4);
+	sa.sin_port = htons(atoi(argv[2]));
+	sa.sin_family = AF_INET;
+
+	if (connect(s, (struct sockaddr *)&sa, sizeof(sa))) {
+		ulog_err("%s: Failed to connect to %s:%s", __func__, argv[1], argv[2]);
+		return -1;
+	}
+
+	do {
+		FD_ZERO(&rfds);
+		FD_SET(s, &rfds);
+
+		tv.tv_sec = 500;
+		tv.tv_usec = 0;
+
+		err = select(s+1, &rfds, NULL, NULL, &tv);
+		ulog("select: err: %d, errno: %d.\n", err, errno);
+
+		err = write(s, buf, sizeof(buf));
+		ulog("write: err: %d, errno: %d.\n", err, errno);
+	} while (err > 0);
+
+	FD_ZERO(&rfds);
+	FD_SET(s, &rfds);
+
+	tv.tv_sec = 500;
+	tv.tv_usec = 0;
+
+	err = select(s+1, &rfds, NULL, NULL, &tv);
+
+	ulog("on exit: select: err: %d, errno: %d.\n", err, errno);
+}
+
+--vkogqOf2sHV7VnPd--
