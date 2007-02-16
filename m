@@ -1,59 +1,41 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [BUG] RTNL and flush_scheduled_work deadlocks
-Date: Fri, 16 Feb 2007 08:06:25 -0800
-Message-ID: <45D5D681.5060104@candelatech.com>
-References: <20070216072928.GA1599@ff.dom.local> <45D55FF0.8090309@candelatech.com> <20070216081051.GC1599@ff.dom.local> <45D569E9.7010407@candelatech.com> <20070216090425.GD1599@ff.dom.local> <20070216121245.GE1599@ff.dom.local>
+From: <pcnet32@verizon.net>
+Subject: [PATCH] MAINTAINER
+Date: Fri, 16 Feb 2007 10:07:12 -0600 (CST)
+Message-ID: <22843711.1115431171642032775.JavaMail.root@vms226.mailsrvcs.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org,
-	Kyle Lucke <klucke@us.ibm.com>,
-	Raghavendra Koushik <raghavendra.koushik@neterion.com>,
-	Al Viro <viro@ftp.linux.org.uk>
-To: Jarek Poplawski <jarkao2@o2.pl>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:40025 "EHLO ns2.lanforge.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1945962AbXBPQGC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Feb 2007 11:06:02 -0500
-In-Reply-To: <20070216121245.GE1599@ff.dom.local>
+Received: from vms042pub.verizon.net ([206.46.252.42]:48755 "EHLO
+	vms042pub.verizon.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1945964AbXBPQHN convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Feb 2007 11:07:13 -0500
+Received: from vms226.mailsrvcs.net ([192.168.1.1])
+ by vms042.mailsrvcs.net (Sun Java System Messaging Server 6.2-6.01 (built Apr
+ 3 2006)) with ESMTPA id <0JDK00M8TCS0ELG3@vms042.mailsrvcs.net> for
+ netdev@vger.kernel.org; Fri, 16 Feb 2007 10:07:12 -0600 (CST)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jarek Poplawski wrote:
-> On Fri, Feb 16, 2007 at 10:04:25AM +0100, Jarek Poplawski wrote:
->   
->> On Fri, Feb 16, 2007 at 12:23:05AM -0800, Ben Greear wrote:
->>     
-> ...
->   
->>> I don't see how asserting it in the rtnl_lock would help anything, 
->>> because at that
->>> point we are about to deadlock anyway...  (and this is probably very 
->>> rare, as mentioned above.)
->>>       
->> But it's happening now. Probably lockdep is not enough
->> and rtnl_lock is probably used in too many places, so I
->> meant some additional checks would be possible.
->>     
->
-> And of course it already could be done by DEBUG_MUTEXES or
-> DEBUG_SPINLOCK, so I gone too far and it's really bad idea.
->   
+After being the defacto maintainer for a couple of years, I can now bec=
+ome the official maintainer.
 
-Well, I had lockdep and all of the locking debugging I could find 
-enabled, but
-it did not catch this problem..I had to use sysctl -t and manually dig 
-through the backtraces
-to find the deadlock....
+Signed-off-by:  Don Fry <pcnet32@verizon.net>
 
-It may be that lockdep could be enhanced to catch this sort of thing....
-
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com> 
-Candela Technologies Inc  http://www.candelatech.com
-
+--- linux-2.6.20-git8/MAINTAINERS.orig	2007-02-13 09:55:34.000000000 -0=
+800
++++ linux-2.6.20-git8/MAINTAINERS	2007-02-13 09:59:50.000000000 -0800
+@@ -2612,8 +2612,8 @@ T:	git kernel.org:/pub/scm/linux/kernel/
+ S:	Maintained
+=20
+ PCNET32 NETWORK DRIVER
+-P:	Thomas Bogend=F6rfer
+-M:	tsbogend@alpha.franken.de
++P:	Don Fry
++M:	pcnet32@verizon.net
+ L:	netdev@vger.kernel.org
+ S:	Maintained
+=20
 
