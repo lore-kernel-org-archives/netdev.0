@@ -1,59 +1,31 @@
-From: Tobias Diedrich <ranma+kernel@tdiedrich.de>
-Subject: Re: forcedeth problems on 2.6.20-rc6-mm3
-Date: Fri, 16 Feb 2007 15:54:17 +0100
-Message-ID: <20070216145417.GC5388@melchior.yamamaya.is-a-geek.org>
-References: <45C6BCE5.90103@shaw.ca> <20070204213603.a5bce839.akpm@linux-foundation.org> <45C6C531.20508@shaw.ca> <20070204221741.63152cbe.akpm@linux-foundation.org> <523e55a00702081326j43de05e3hdd8cf35e946eae9@mail.gmail.com> <45CBE30D.5030006@nvidia.com> <20070209115821.GD10330@melchior.yamamaya.is-a-geek.org> <20070209120730.GA11911@melchior.yamamaya.is-a-geek.org> <45CC8A2D.20509@garzik.org> <20070212062823.GB4756@melchior.yamamaya.is-a-geek.org>
+From: lsorense@csclub.uwaterloo.ca (Lennart Sorensen)
+Subject: Re: Strange connection slowdown on pcnet32
+Date: Fri, 16 Feb 2007 09:57:11 -0500
+Message-ID: <20070216145711.GC7585@csclub.uwaterloo.ca>
+References: <20070215225030.GA7585@csclub.uwaterloo.ca> <20070216143554.GB7585@csclub.uwaterloo.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Jeff Garzik <jeff@garzik.org>, Ayaz Abdulla <aabdulla@nvidia.com>,
-	David Ford <firefighterblu3@gmail.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Robert Hancock <hancockr@shaw.ca>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yumi.tdiedrich.de ([85.10.210.183]:4070 "EHLO yumi.tdiedrich.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751388AbXBPOyX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Feb 2007 09:54:23 -0500
+Received: from caffeine.uwaterloo.ca ([129.97.134.17]:60455 "EHLO
+	caffeine.csclub.uwaterloo.ca" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1945892AbXBPO5M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Feb 2007 09:57:12 -0500
+Received: from caffeine.csclub.uwaterloo.ca (localhost.localdomain [127.0.0.1])
+	by caffeine.csclub.uwaterloo.ca (Postfix) with ESMTP id 875FA740E5
+	for <netdev@vger.kernel.org>; Fri, 16 Feb 2007 09:57:11 -0500 (EST)
 Content-Disposition: inline
-In-Reply-To: <20070212062823.GB4756@melchior.yamamaya.is-a-geek.org>
+In-Reply-To: <20070216143554.GB7585@csclub.uwaterloo.ca>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Tobias Diedrich wrote:
-> Jeff Garzik wrote:
-> > Tobias Diedrich wrote:
-> > >Tobias Diedrich wrote:
-> > >>Ayaz Abdulla wrote:
-> > >>>For all those who are having issues, please try out the attached=
- patch.
-> > >>Will try.
-> > >
-> > >Does not apply cleanly against 2.6.20, is this one fixed up right?
-> >=20
-> > It probably needs to be top of 2.6.20-git-latest or 2.6.20-rc6-mm3.
-> >=20
-> > IOW, the forcedeth changes in question are not in 2.6.20, and you n=
-eed=20
-> > to apply the patch on top of the latest batch of forcedeth changes.
->=20
-> Well, it hasn't blown up on me despite being applied to 2.6.20...
-> The problem I was seeing might even be fixed in 2.6.20 vanilla,
-> since the last version I saw it in was 2.6.20-rc6 and then I
-> reverted to 2.6.19 to make sure that one is ok (see
-> 20070130183208.GE11814@melchior.yamamaya.is-a-geek.org).
+On Fri, Feb 16, 2007 at 09:35:54AM -0500, Lennart Sorensen wrote:
+> I have run some tests using 2.6.8 now, and so far it hasn't failed.
+> 
+> Still investigating...
 
-And having run vanilla 2.6.20 since my last mail, I haven't seen the
-problem on that one either.
-So I _guess_ the particular problem I was seeing was fixed somewhere
-between 2.6.20-rc6 and 2.6.20.  But since I can't reliably trigger
-it, I can't say that for sure.
+And 5 minutes later 2.6.8 failed the same way too.  Maybe I will go back
+to 2.4 and check.
 
---=20
-Tobias						PGP: http://9ac7e0bc.uguu.de
-=E3=81=93=E3=81=AE=E3=83=A1=E3=83=BC=E3=83=AB=E3=81=AF=E5=8D=81=E5=89=B2=
-=E5=86=8D=E5=88=A9=E7=94=A8=E3=81=95=E3=82=8C=E3=81=9F=E3=83=93=E3=83=83=
-=E3=83=88=E3=81=A7=E4=BD=9C=E3=82=89=E3=82=8C=E3=81=A6=E3=81=84=E3=81=BE=
-=E3=81=99=E3=80=82
+--
+Len Sorensen
