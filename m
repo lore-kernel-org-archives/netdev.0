@@ -1,55 +1,38 @@
-From: takada <takada@mbf.nifty.com>
-Subject: Re: MediaGX/GeodeGX1 requires X86_OOSTORE.
-Date: Sat, 17 Feb 2007 23:11:13 +0900 (JST)
-Message-ID: <20070217.231113.193678444.takada@mbf.nifty.com>
-References: <20070216222728.GF7585@csclub.uwaterloo.ca>
-	<20070216224824.GG7585@csclub.uwaterloo.ca>
-	<20070217000019.GH7582@csclub.uwaterloo.ca>
+From: Baruch Even <baruch@ev-en.org>
+Subject: [PATCH] Hostess SV-11 depends on INET
+Date: Sat, 17 Feb 2007 16:37:52 +0200
+Message-ID: <20070217143752.GF25760@galon.ev-en.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: pcnet32@verizon.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: lsorense@csclub.uwaterloo.ca
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1946755AbXBQOMG@vger.kernel.org>
-In-Reply-To: <20070217000019.GH7582@csclub.uwaterloo.ca>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Jeff Garzik <jgarzik@pobox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rrcs-24-123-59-149.central.biz.rr.com ([24.123.59.149]:43197
+	"EHLO galon.ev-en.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965258AbXBQOhx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Feb 2007 09:37:53 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: lsorense@csclub.uwaterloo.ca (Lennart Sorensen)
-Subject: Re: MediaGX/GeodeGX1 requires X86_OOSTORE. (Was: Re: Strange connection slowdown on pcnet32)
-Date: Fri, 16 Feb 2007 19:00:19 -0500
+Comtrol Hostess SV-11 driver uses features from INET but doesn't depend on it.
+The simple solution is to make it depend on INET as happens for the sealevel
+driver.
 
-> On Fri, Feb 16, 2007 at 05:48:24PM -0500, Lennart Sorensen wrote:
-> > Well so far it really looks like enabling OOSTORE on the Geode
-> > SC1200/GX1 really does make a difference.  A bit of searching seems to
-> > indicate the person that originally submitted the patch that enabled
-> > load/store reordering on the MediaGX/Geode though it might need OOSTORE,
-> > but was convinced by others it didn't.  Looks like it really does need
-> > it.  The failure that occoured before within a few seconds of starting a
-> > large transfer, no longer fails and all I did was enable
-> > CONFIG_X86_OOSTORE, and recompile pcnet32.ko and load the new module on
-> > the running system.  Moving back to the pcnet32.ko built without OOSTORE
-> > enabled hits the failure again within seconds, until ifconfig eth1
-> > down/up reinitialized it's descriptor ring, after which it survices
-> > another bit of transfer and then fails again.
-> 
-> Well forcing load/store serialize on the CPU doesn't help, disalbing
-> memory bypass doesn't help.  Enabling the X86_OOSTORE does help.  What a
-> stupid CPU design.
+Fixes bug #7930.
 
-is it mean what doesn't help with doesn't call set_cx86_reoder()?
-this function disable to reorder at 0x4000:0000 to 0xffff:ffff.
-does pcnet32 access at out of above range?
+Signed-Off-By: Baruch Even <baruch@ev-en.org>
 
---- arch/i386/Kconfig.cpu~	2007-02-05 03:44:54.000000000 +0900
-+++ arch/i386/Kconfig.cpu	2007-02-17 21:25:52.000000000 +0900
-@@ -322,7 +322,7 @@ config X86_USE_3DNOW
- 
- config X86_OOSTORE
- 	bool
--	depends on (MWINCHIP3D || MWINCHIP2 || MWINCHIPC6) && MTRR
-+	depends on (MWINCHIP3D || MWINCHIP2 || MWINCHIPC6) && MTRR || MGEODEGX1
- 	default y
- 
- config X86_TSC
+Index: 2.6-gt/drivers/net/wan/Kconfig
+===================================================================
+--- 2.6-gt.orig/drivers/net/wan/Kconfig	2007-02-17 16:26:22.000000000 +0200
++++ 2.6-gt/drivers/net/wan/Kconfig	2007-02-17 16:26:27.000000000 +0200
+@@ -26,7 +26,7 @@
+ # There is no way to detect a comtrol sv11 - force it modular for now.
+ config HOSTESS_SV11
+ 	tristate "Comtrol Hostess SV-11 support"
+-	depends on WAN && ISA && m && ISA_DMA_API
++	depends on WAN && ISA && m && ISA_DMA_API && INET
+ 	help
+ 	  Driver for Comtrol Hostess SV-11 network card which
+ 	  operates on low speed synchronous serial links at up to
