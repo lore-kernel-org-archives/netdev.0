@@ -1,53 +1,44 @@
-From: lsorense@csclub.uwaterloo.ca (Lennart Sorensen)
-Subject: Re: MediaGX/GeodeGX1 requires X86_OOSTORE.
-Date: Sat, 17 Feb 2007 10:07:20 -0500
-Message-ID: <20070217150720.GK7582@csclub.uwaterloo.ca>
-References: <20070216222728.GF7585@csclub.uwaterloo.ca> <20070216224824.GG7585@csclub.uwaterloo.ca> <20070217000019.GH7582@csclub.uwaterloo.ca> <20070217.231113.193678444.takada@mbf.nifty.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [Bug 8013] New: select for write hangs on a socket after write returned ECONNRESET
+Date: Sat, 17 Feb 2007 19:25:33 +0300
+Message-ID: <20070217162533.GA22369@2ka.mipt.ru>
+References: <20070215160405.3bd30b05@localhost.localdomain> <20070216152557.GA20641@2ka.mipt.ru> <20070216152858.GA22020@2ka.mipt.ru> <20070216153957.GB22020@2ka.mipt.ru> <20070216155450.GC22020@2ka.mipt.ru> <20070216161045.GA2371@2ka.mipt.ru> <20070216102914.7d4b34f0@freekitty> <20070216183426.GA3138@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: pcnet32@verizon.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: takada <takada@mbf.nifty.com>
+Content-Type: text/plain; charset=koi8-r
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from caffeine.uwaterloo.ca ([129.97.134.17]:54980 "EHLO
-	caffeine.csclub.uwaterloo.ca" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1946772AbXBQPHU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Feb 2007 10:07:20 -0500
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:40401 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965309AbXBQQZt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 17 Feb 2007 11:25:49 -0500
 Content-Disposition: inline
-In-Reply-To: <20070217.231113.193678444.takada@mbf.nifty.com>
+In-Reply-To: <20070216183426.GA3138@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Feb 17, 2007 at 11:11:13PM +0900, takada wrote:
-> is it mean what doesn't help with doesn't call set_cx86_reoder()?
-> this function disable to reorder at 0x4000:0000 to 0xffff:ffff.
-> does pcnet32 access at out of above range?
+On Fri, Feb 16, 2007 at 09:34:27PM +0300, Evgeniy Polyakov (johnpol@2ka.mipt.ru) wrote:
+> Otherwise we can extend select output mask to include hungup too
+> (getting into account that hungup is actually output event).
 
-No it is accessing system memory by DMA to transfer frames.  Since the
-system has 128MB ram, the addresses are probably all in the first 128MB
-range.
+This is another possible way to fix select after write after connection
+reset.
 
-I tried changing cyrix.c to explicitly set the serialize bit (0x8000 in
-PCR0) rather than explcitly clearing it as is done now.  Didn't make a
-difference.  I tried reversing the memory bypass setting, which also did
-nothing.  Enabling CONFIG_X86_OOSTORE and recompiling however does make
-a difference.
+Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 
-> --- arch/i386/Kconfig.cpu~	2007-02-05 03:44:54.000000000 +0900
-> +++ arch/i386/Kconfig.cpu	2007-02-17 21:25:52.000000000 +0900
-> @@ -322,7 +322,7 @@ config X86_USE_3DNOW
->  
->  config X86_OOSTORE
->  	bool
-> -	depends on (MWINCHIP3D || MWINCHIP2 || MWINCHIPC6) && MTRR
-> +	depends on (MWINCHIP3D || MWINCHIP2 || MWINCHIPC6) && MTRR || MGEODEGX1
->  	default y
->  
->  config X86_TSC
+diff --git a/fs/select.c b/fs/select.c
+index fe0893a..f2a8e46 100644
+--- a/fs/select.c
++++ b/fs/select.c
+@@ -186,7 +186,7 @@ get_max:
+ #define SET(i,m)	(*(m) |= (i))
+ 
+ #define POLLIN_SET (POLLRDNORM | POLLRDBAND | POLLIN | POLLHUP | POLLERR)
+-#define POLLOUT_SET (POLLWRBAND | POLLWRNORM | POLLOUT | POLLERR)
++#define POLLOUT_SET (POLLWRBAND | POLLWRNORM | POLLOUT | POLLERR | POLLHUP)
+ #define POLLEX_SET (POLLPRI)
+ 
+ int do_select(int n, fd_set_bits *fds, s64 *timeout)
 
-I did:
-	depends on ((MWINCHIP3D || MWINCHIP2 || MWINCHIPC6) && MTRR) || MGEODEGX1
-since I wasn't sure of the precedence in the Kconfig files.
-
---
-Len Sorensen
+-- 
+	Evgeniy Polyakov
