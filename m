@@ -1,47 +1,55 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: Extensible hashing and RCU
-Date: Sat, 17 Feb 2007 16:13:02 +0300
-Message-ID: <20070217131302.GA22732@2ka.mipt.ru>
-References: <20070204074143.26312.qmail@science.horizon.com> <Pine.LNX.4.61.0702050952590.26852@localhost.localdomain>
+From: Baruch Even <baruch@ev-en.org>
+Subject: [PATCH] Correct links in net/ipv4/Kconfig
+Date: Sat, 17 Feb 2007 15:57:38 +0200
+Message-ID: <20070217135738.GE25760@galon.ev-en.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: linux@horizon.com, davem@davemloft.net, netdev@vger.kernel.org
-To: akepner@sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:59607 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1946704AbXBQNNW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 17 Feb 2007 08:13:22 -0500
+Received: from rrcs-24-123-59-149.central.biz.rr.com ([24.123.59.149]:42968
+	"EHLO galon.ev-en.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1946745AbXBQN5k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Feb 2007 08:57:40 -0500
 Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.61.0702050952590.26852@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 05, 2007 at 10:02:53AM -0800, akepner@sgi.com (akepner@sgi.com) wrote:
-> On Sat, 4 Feb 2007 linux@horizon.com wrote:
-> 
-> >I noticed in an LCA talk mention that apprently extensible hashing
-> >with RCU access is an unsolved problem.  Here's an idea for solving it.
-> >....
-> 
-> Yes, I have been playing around with the same idea for
-> doing dynamic resizing of the TCP hashtable.
-> 
-> Did a prototype "toy" implementation, and I have a
-> "half-finished" patch which resizes the TCP hashtable
-> at runtime. Hmmm, your mail may be the impetus to get
-> me to finally finish this thing....
+Fix bug #6216, update the link for CONFIG_IP_MCAST help message. The bug with
+the proposed fix was submitted by jamesm@bluebottle.com
 
-Why anyone do not want to use trie - for socket-like loads it has
-exactly constant search/insert/delete time and scales as hell.
+Correct other dead/indirect links in the same file.
 
-> -- 
-> Arthur
-> 
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Signed-Off-By: Baruch Even <baruch@ev-en.org>
 
--- 
-	Evgeniy Polyakov
+Index: 2.6-gt/net/ipv4/Kconfig
+===================================================================
+--- 2.6-gt.orig/net/ipv4/Kconfig	2007-02-17 15:47:41.000000000 +0200
++++ 2.6-gt/net/ipv4/Kconfig	2007-02-17 15:55:53.000000000 +0200
+@@ -9,7 +9,7 @@
+ 	  intend to participate in the MBONE, a high bandwidth network on top
+ 	  of the Internet which carries audio and video broadcasts. More
+ 	  information about the MBONE is on the WWW at
+-	  <http://www-itg.lbl.gov/mbone/>. Information about the multicast
++	  <http://www.savetz.com/mbone/>. Information about the multicast
+ 	  capabilities of the various network cards is contained in
+ 	  <file:Documentation/networking/multicast.txt>. For most people, it's
+ 	  safe to say N.
+@@ -442,7 +442,7 @@
+ 	---help---
+ 	  Support for INET (TCP, DCCP, etc) socket monitoring interface used by
+ 	  native Linux tools such as ss. ss is included in iproute2, currently
+-	  downloadable at <http://developer.osdl.org/dev/iproute2>. 
++	  downloadable at <http://linux-net.osdl.org/index.php/Iproute2>.
+ 	  
+ 	  If unsure, say Y.
+ 
+@@ -550,7 +550,7 @@
+ 	Scalable TCP is a sender-side only change to TCP which uses a
+ 	MIMD congestion control algorithm which has some nice scaling
+ 	properties, though is known to have fairness issues.
+-	See http://www-lce.eng.cam.ac.uk/~ctk21/scalable/
++	See http://www.deneholme.net/tom/scalable/
+ 
+ config TCP_CONG_LP
+ 	tristate "TCP Low Priority"
