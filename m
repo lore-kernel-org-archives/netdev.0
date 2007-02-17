@@ -1,54 +1,40 @@
-From: Sergei Shtylyov <sshtylyov@ru.mvista.com>
-Subject: Re: 2.6.20-rc4-mm1: PCI=n: drivers/net/3c59x.c compile error
-Date: Sat, 17 Feb 2007 22:32:35 +0300
-Message-ID: <45D75853.1060607@ru.mvista.com>
-References: <20070111222627.66bb75ab.akpm@osdl.org> <20070124135354.GI17836@stusta.de> <45B76946.1070009@ru.mvista.com> <45D756D7.4060106@ru.mvista.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] Convert network devices to use struct device instead
+ of class_device
+Date: Sat, 17 Feb 2007 15:12:06 -0500
+Message-ID: <45D76196.6090708@garzik.org>
+References: <Pine.LNX.4.64.0702140036350.855@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>, Jeff Garzik <jgarzik@pobox.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Adrian Bunk <bunk@stusta.de>
+Cc: netdev@vger.kernel.org, Andy Fleming <afleming@freescale.com>
+To: Kumar Gala <galak@kernel.crashing.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from h155.mvista.com ([63.81.120.155]:58485 "EHLO imap.sh.mvista.com"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932803AbXBQTcp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 17 Feb 2007 14:32:45 -0500
-In-Reply-To: <45D756D7.4060106@ru.mvista.com>
+Received: from srv5.dvmed.net ([207.36.208.214]:47613 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751666AbXBQUMJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 17 Feb 2007 15:12:09 -0500
+In-Reply-To: <Pine.LNX.4.64.0702140036350.855@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
-
-Sergei Shtylyov wrote:
-
->>> 3x59x-fix-pci-resource-management.patch causes the following compile 
->>> error with CONFIG_PCI=n:
-
->>> <--  snip  -->
-
->>> ...
->>>   CC      drivers/net/3c59x.o
->>> /home/bunk/linux/kernel-2.6/linux-2.6.20-rc4-mm1/drivers/net/3c59x.c: 
->>> In function 'vortex_init_one':
->>> /home/bunk/linux/kernel-2.6/linux-2.6.20-rc4-mm1/drivers/net/3c59x.c:961: 
->>> error: implicit declaration of function 'pci_request_regions'
->>> /home/bunk/linux/kernel-2.6/linux-2.6.20-rc4-mm1/drivers/net/3c59x.c:985: 
->>> error: implicit declaration of function 'pci_release_regions'
->>> make[3]: *** [drivers/net/3c59x.o] Error 1
+Kumar Gala wrote:
+> Convert network devices to use struct device instead of class_device.  Greg
+> missed this one in his cleanup path.
 > 
+> Signed-off-by: Kumar Gala <galak@kernel.crashing.org>
 > 
->>    Grr, at at the same time it's happy with pci_enable_device().
->>    I'd say the problem is in <linux/pci.h>,  not in the patch.
+> ---
+> 
+> Jeff,
+> 
+> Sorry my mailer was completely screwed.  I thought I had fixed the
+> settings to turn of flowed text.  I think this was why the patches I've
+> been sending haven't been applying.  You can also get this fix from the
+> following git tree:
+> 
+> master.kernel.org/pub/scm/linux/kernel/git/galak/powerpc.git gfar
 
->    Has there been any patch to fix the "unbalanced" 
-> pci_{request|release}_regions() declarations? Am I suposed to create such?
+pulled
 
-    Alternatively, vortex_{init|remove_one() and struct pci_driver there could 
-have been put under #ifdef CONFIG_PCI (good idea anyway -- should reduce 
-driver size on non-PCI systems)...
 
->>> cu
->>> Adrian
-
-MBR, Sergei
