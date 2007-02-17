@@ -1,61 +1,70 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: [PATCH 5/5][SCTP]: Strike the transport before updating rto.
-Date: Fri, 16 Feb 2007 19:40:04 -0800
-Message-ID: <1171683604.4568.14.camel@w-sridhar2.beaverton.ibm.com>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: Subject:  [PATCH 2.6.20 004/005] dmfe: Add support for suspend/resume
+Date: Sat, 17 Feb 2007 12:50:29 +0100
+Message-ID: <20070217115029.GF9120@elf.ucw.cz>
+References: <200702152253.53680.maximlevitsky@gmail.com> <200702152311.54407.maximlevitsky@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e4.ny.us.ibm.com ([32.97.182.144]:50658 "EHLO e4.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1946399AbXBQDkG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Feb 2007 22:40:06 -0500
-Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by e4.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l1H3e5HT003001
-	for <netdev@vger.kernel.org>; Fri, 16 Feb 2007 22:40:05 -0500
-Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
-	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.2) with ESMTP id l1H3e57u270662
-	for <netdev@vger.kernel.org>; Fri, 16 Feb 2007 22:40:05 -0500
-Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
-	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l1H3e4dH005074
-	for <netdev@vger.kernel.org>; Fri, 16 Feb 2007 22:40:05 -0500
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@kernel.org, linux-kernel@vger.kernel.org
+To: Maxim <maximlevitsky@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965214AbXBQLuu@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <200702152311.54407.maximlevitsky@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[SCTP]: Strike the transport before updating rto.
+Hi!
 
-Once we reach a point where we exceed the max.path.retrans, strike the
-transport before updating the rto.  This will force transport switch at
-the right time, instead of 1 retransmit too late.
+> @@ -2050,11 +2047,56 @@ static struct pci_device_id dmfe_pci_tbl
+>  MODULE_DEVICE_TABLE(pci, dmfe_pci_tbl);
+>  
+>  
+> +
+> +static int dmfe_suspend(struct pci_dev *pci_dev, pm_message_t state)
+> +{
+> +	struct net_device *dev = pci_get_drvdata(pci_dev);
+> +	struct dmfe_board_info *db = netdev_priv(dev);
+> +
+> +	/* Disable upper layer interface */
+> +	netif_device_detach (dev);
+> +
+> +	/* Disable Tx/Rx */
+> +	db->cr6_data &= ~(CR6_RXSC | CR6_TXSC);
+> +	update_cr6(db->cr6_data, dev->base_addr);
+> +
+> +	/* Disable Interrupt */
+> +	outl (0, dev->base_addr + DCR7);
+> +	outl (inl (dev->base_addr + DCR5), dev->base_addr + DCR5);
 
-Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
-Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
+Please no space between function and "(".
 
----
- net/sctp/sm_statefuns.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+> +	/* Fre RX buffers */
 
-diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
-index b3cad8a..70c39ea 100644
---- a/net/sctp/sm_statefuns.c
-+++ b/net/sctp/sm_statefuns.c
-@@ -4605,12 +4605,12 @@ sctp_disposition_t sctp_sf_do_6_3_3_rtx(
- 	 * sent as soon as cwnd allows (normally when a SACK arrives).
- 	 */
- 
--	/* NB: Rules E4 and F1 are implicit in R1.  */
--	sctp_add_cmd_sf(commands, SCTP_CMD_RETRAN, SCTP_TRANSPORT(transport));
--
- 	/* Do some failure management (Section 8.2). */
- 	sctp_add_cmd_sf(commands, SCTP_CMD_STRIKE, SCTP_TRANSPORT(transport));
- 
-+	/* NB: Rules E4 and F1 are implicit in R1.  */
-+	sctp_add_cmd_sf(commands, SCTP_CMD_RETRAN, SCTP_TRANSPORT(transport));
-+
- 	return SCTP_DISPOSITION_CONSUME;
- }
- 
+Free?
+
+> +	dmfe_free_rxbuffer (db);
+
+> +	/* Power down device*/
+
+" */"
+
+> +	pci_set_power_state (pci_dev, pci_choose_state (pci_dev,state));
+
+Let it be ", state", and delete spaces between function and "(".
 
 
+> +static int dmfe_resume (struct pci_dev *pci_dev)
+
+delete spaces between function and "(".
+
+> +	pci_restore_state(pci_dev);
+> +	pci_set_power_state(pci_dev ,PCI_D0);
+> +
+
+", "
+
+Otherwise looks ok to me.
+
+-- 
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
