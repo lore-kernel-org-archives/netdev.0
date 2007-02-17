@@ -1,31 +1,40 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 1/6] sky2: dont flush good pause frames
-Date: Sat, 17 Feb 2007 15:32:02 -0500
-Message-ID: <45D76642.7040804@garzik.org>
-References: <20070216004028.943889000@linux-foundation.org> <20070216004141.678148000@linux-foundation.org>
+Subject: Re: [PATCH] cxgb3 Fix copyrights in the cxgb3 driver.
+Date: Sat, 17 Feb 2007 15:32:15 -0500
+Message-ID: <45D7664F.40400@garzik.org>
+References: <1171569189.13282.57.camel@stevo-desktop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sk-drivers@lists.linux-foundation.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Cc: netdev@vger.kernel.org,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Divy Le Ray <divy@chelsio.com>
+To: Steve Wise <swise@opengridcomputing.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:47831 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:47840 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932728AbXBQUcE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 17 Feb 2007 15:32:04 -0500
-In-Reply-To: <20070216004141.678148000@linux-foundation.org>
+	id S932745AbXBQUcS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 17 Feb 2007 15:32:18 -0500
+In-Reply-To: <1171569189.13282.57.camel@stevo-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> Don't mark pause frames as errors. This problem caused transmitter not
-> to pause and would effectively take out a gigabit switch because the
-> it can't handle overrun. 
+Steve Wise wrote:
+> Fix copyrights in the cxgb3 driver.
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+> Remove the Open Grid Computing copyright.  It shouldn't be there.
+> 
+> Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+> ---
+> 
+>  drivers/net/cxgb3/cxgb3_defs.h    |    1 -
+>  drivers/net/cxgb3/cxgb3_offload.c |    1 -
+>  drivers/net/cxgb3/cxgb3_offload.h |    1 -
+>  drivers/net/cxgb3/l2t.c           |    1 -
+>  drivers/net/cxgb3/l2t.h           |    1 -
+>  drivers/net/cxgb3/t3cdev.h        |    1 -
+>  6 files changed, 0 insertions(+), 6 deletions(-)
 
-applied 1-6
-
-
+applied
 
 
