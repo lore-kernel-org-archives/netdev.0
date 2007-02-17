@@ -1,93 +1,73 @@
-From: Ralf Baechle <ralf@linux-mips.org>
-Subject: [IOC3] Fix link autonegotiation timer.
-Date: Sat, 17 Feb 2007 02:51:15 +0000
-Message-ID: <20070217025115.GA20247@linux-mips.org>
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: [PATCH 2/5][SCTP]: Implement SCTP_ADDR_CONFIRMED state for
+	ADDR_CHANGE event.
+Date: Fri, 16 Feb 2007 19:39:49 -0800
+Message-ID: <1171683589.4568.11.camel@w-sridhar2.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-mips@linux-mips.org
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ftp.linux-mips.org ([194.74.144.162]:52795 "EHLO
-	ftp.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1946248AbXBQCwD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Feb 2007 21:52:03 -0500
-Received: from localhost.localdomain ([127.0.0.1]:48311 "EHLO
-	dl5rb.ham-radio-op.net") by ftp.linux-mips.org with ESMTP
-	id S28573812AbXBQCwA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 17 Feb 2007 02:52:00 +0000
-Content-Disposition: inline
+Received: from e6.ny.us.ibm.com ([32.97.182.146]:55001 "EHLO e6.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S964928AbXBQDjw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Feb 2007 22:39:52 -0500
+Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
+	by e6.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l1H3eXJs024334
+	for <netdev@vger.kernel.org>; Fri, 16 Feb 2007 22:40:33 -0500
+Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
+	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.2) with ESMTP id l1H3doRY167554
+	for <netdev@vger.kernel.org>; Fri, 16 Feb 2007 22:39:50 -0500
+Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
+	by d01av03.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l1H3dnhr031121
+	for <netdev@vger.kernel.org>; Fri, 16 Feb 2007 22:39:50 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Start link negotiation in the open method.  Previously it was started
-on driver initialialization and shutdown on close so an ifdown would
-have results in closing negotiation for good.
+[SCTP]: Implement SCTP_ADDR_CONFIRMED state for ADDR_CHANGE event.
 
-Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
+Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
 
-diff --git a/drivers/net/ioc3-eth.c b/drivers/net/ioc3-eth.c
-index ee6bca0..f5d277c 100644
---- a/drivers/net/ioc3-eth.c
-+++ b/drivers/net/ioc3-eth.c
-@@ -831,13 +831,17 @@ static int ioc3_mii_init(struct ioc3_private *ip)
- 	}
+---
+ include/net/sctp/user.h |    1 +
+ net/sctp/associola.c    |   10 +++++++++-
+ 2 files changed, 10 insertions(+), 1 deletions(-)
+
+diff --git a/include/net/sctp/user.h b/include/net/sctp/user.h
+index e773160..36a319e 100644
+--- a/include/net/sctp/user.h
++++ b/include/net/sctp/user.h
+@@ -263,6 +263,7 @@ enum sctp_spc_state {
+ 	SCTP_ADDR_REMOVED,
+ 	SCTP_ADDR_ADDED,
+ 	SCTP_ADDR_MADE_PRIM,
++	SCTP_ADDR_CONFIRMED,
+ };
  
- 	ip->mii.phy_id = i;
-+
-+out:
-+	return res;
-+}
-+
-+static void ioc3_mii_start(struct ioc3_private *ip)
-+{
- 	ip->ioc3_timer.expires = jiffies + (12 * HZ)/10;  /* 1.2 sec. */
- 	ip->ioc3_timer.data = (unsigned long) ip;
- 	ip->ioc3_timer.function = &ioc3_timer;
- 	add_timer(&ip->ioc3_timer);
--
--out:
--	return res;
- }
  
- static inline void ioc3_clean_rx_ring(struct ioc3_private *ip)
-@@ -1066,6 +1070,7 @@ static int ioc3_open(struct net_device *dev)
- 	ip->ehar_h = 0;
- 	ip->ehar_l = 0;
- 	ioc3_init(dev);
-+	ioc3_mii_start(ip);
+diff --git a/net/sctp/associola.c b/net/sctp/associola.c
+index fa82b73..294be94 100644
+--- a/net/sctp/associola.c
++++ b/net/sctp/associola.c
+@@ -714,8 +714,16 @@ void sctp_assoc_control_transport(struct
+ 	/* Record the transition on the transport.  */
+ 	switch (command) {
+ 	case SCTP_TRANSPORT_UP:
++		/* If we are moving from UNCONFIRMED state due
++		 * to heartbeat success, report the SCTP_ADDR_CONFIRMED
++		 * state to the user, otherwise report SCTP_ADDR_AVAILABLE.
++		 */
++		if (SCTP_UNCONFIRMED == transport->state &&
++		    SCTP_HEARTBEAT_SUCCESS == error)
++			spc_state = SCTP_ADDR_CONFIRMED;
++		else
++			spc_state = SCTP_ADDR_AVAILABLE;
+ 		transport->state = SCTP_ACTIVE;
+-		spc_state = SCTP_ADDR_AVAILABLE;
+ 		break;
  
- 	netif_start_queue(dev);
- 	return 0;
-@@ -1269,6 +1274,7 @@ static int ioc3_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		goto out_stop;
- 	}
- 
-+	ioc3_mii_start(ip);
- 	ioc3_ssram_disc(ip);
- 	ioc3_get_eaddr(ip);
- 
-@@ -1307,6 +1313,7 @@ static int ioc3_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 
- out_stop:
- 	ioc3_stop(ip);
-+	del_timer_sync(&ip->ioc3_timer);
- 	ioc3_free_rings(ip);
- out_res:
- 	pci_release_regions(pdev);
-@@ -1328,6 +1335,8 @@ static void __devexit ioc3_remove_one (struct pci_dev *pdev)
- 	struct ioc3 *ioc3 = ip->regs;
- 
- 	unregister_netdev(dev);
-+	del_timer_sync(&ip->ioc3_timer);
-+
- 	iounmap(ioc3);
- 	pci_release_regions(pdev);
- 	free_netdev(dev);
-@@ -1483,6 +1492,7 @@ static void ioc3_timeout(struct net_device *dev)
- 	ioc3_stop(ip);
- 	ioc3_init(dev);
- 	ioc3_mii_init(ip);
-+	ioc3_mii_start(ip);
- 
- 	spin_unlock_irq(&ip->ioc3_lock);
- 
+ 	case SCTP_TRANSPORT_DOWN:
+
+
