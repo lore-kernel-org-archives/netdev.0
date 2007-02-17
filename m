@@ -1,40 +1,40 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] Convert network devices to use struct device instead
- of class_device
-Date: Sat, 17 Feb 2007 15:12:06 -0500
-Message-ID: <45D76196.6090708@garzik.org>
-References: <Pine.LNX.4.64.0702140036350.855@localhost.localdomain>
+Subject: Re: [PATCH 2.6.21] phylib: Add support for Marvell 88e1111S and 88e1145
+Date: Sat, 17 Feb 2007 15:17:19 -0500
+Message-ID: <45D762CF.9060103@garzik.org>
+References: <Pine.LNX.4.61.0702091808330.9158@ld0175-tx32.am.freescale.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Andy Fleming <afleming@freescale.com>
-To: Kumar Gala <galak@kernel.crashing.org>
+Cc: Netdev <netdev@vger.kernel.org>
+To: Andy Fleming <afleming@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:47613 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:47632 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751666AbXBQUMJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 17 Feb 2007 15:12:09 -0500
-In-Reply-To: <Pine.LNX.4.64.0702140036350.855@localhost.localdomain>
+	id S1750956AbXBQURV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 17 Feb 2007 15:17:21 -0500
+In-Reply-To: <Pine.LNX.4.61.0702091808330.9158@ld0175-tx32.am.freescale.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Kumar Gala wrote:
-> Convert network devices to use struct device instead of class_device.  Greg
-> missed this one in his cleanup path.
+Andy Fleming wrote:
+>>From Andy Fleming <afleming@freescale.com>
 > 
-> Signed-off-by: Kumar Gala <galak@kernel.crashing.org>
+> Changes include:
+> * New support for 88e1145
+> * New support for 88e111s
+> * Fixing 88e1101 driver to not match non-88e1101 PHYs
+> * Increases in feature support across Marvell PHY product line
+> * Fixes a bunch of whitespace issues found by Lindent
 > 
+> Signed-off-by: Andrew Fleming <afleming@freescale.com>
 > ---
+> This patch seems to have gotten lost.  It still applies cleanly, so I'm 
+> resubmitting it for 2.6.21.
 > 
-> Jeff,
-> 
-> Sorry my mailer was completely screwed.  I thought I had fixed the
-> settings to turn of flowed text.  I think this was why the patches I've
-> been sending haven't been applying.  You can also get this fix from the
-> following git tree:
-> 
-> master.kernel.org/pub/scm/linux/kernel/git/galak/powerpc.git gfar
+>  drivers/net/phy/marvell.c |  156 ++++++++++++++++++++++++++++++++++++++++++---
+>  1 files changed, 144 insertions(+), 12 deletions(-)
 
-pulled
+applied
 
 
