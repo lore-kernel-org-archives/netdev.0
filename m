@@ -1,55 +1,55 @@
-From: Baruch Even <baruch@ev-en.org>
-Subject: [PATCH] Correct links in net/ipv4/Kconfig
-Date: Sat, 17 Feb 2007 15:57:38 +0200
-Message-ID: <20070217135738.GE25760@galon.ev-en.org>
+From: takada <takada@mbf.nifty.com>
+Subject: Re: MediaGX/GeodeGX1 requires X86_OOSTORE.
+Date: Sat, 17 Feb 2007 23:11:13 +0900 (JST)
+Message-ID: <20070217.231113.193678444.takada@mbf.nifty.com>
+References: <20070216222728.GF7585@csclub.uwaterloo.ca>
+	<20070216224824.GG7585@csclub.uwaterloo.ca>
+	<20070217000019.GH7582@csclub.uwaterloo.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rrcs-24-123-59-149.central.biz.rr.com ([24.123.59.149]:42968
-	"EHLO galon.ev-en.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1946745AbXBQN5k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Feb 2007 08:57:40 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: pcnet32@verizon.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: lsorense@csclub.uwaterloo.ca
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1946755AbXBQOMG@vger.kernel.org>
+In-Reply-To: <20070217000019.GH7582@csclub.uwaterloo.ca>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Fix bug #6216, update the link for CONFIG_IP_MCAST help message. The bug with
-the proposed fix was submitted by jamesm@bluebottle.com
+From: lsorense@csclub.uwaterloo.ca (Lennart Sorensen)
+Subject: Re: MediaGX/GeodeGX1 requires X86_OOSTORE. (Was: Re: Strange connection slowdown on pcnet32)
+Date: Fri, 16 Feb 2007 19:00:19 -0500
 
-Correct other dead/indirect links in the same file.
+> On Fri, Feb 16, 2007 at 05:48:24PM -0500, Lennart Sorensen wrote:
+> > Well so far it really looks like enabling OOSTORE on the Geode
+> > SC1200/GX1 really does make a difference.  A bit of searching seems to
+> > indicate the person that originally submitted the patch that enabled
+> > load/store reordering on the MediaGX/Geode though it might need OOSTORE,
+> > but was convinced by others it didn't.  Looks like it really does need
+> > it.  The failure that occoured before within a few seconds of starting a
+> > large transfer, no longer fails and all I did was enable
+> > CONFIG_X86_OOSTORE, and recompile pcnet32.ko and load the new module on
+> > the running system.  Moving back to the pcnet32.ko built without OOSTORE
+> > enabled hits the failure again within seconds, until ifconfig eth1
+> > down/up reinitialized it's descriptor ring, after which it survices
+> > another bit of transfer and then fails again.
+> 
+> Well forcing load/store serialize on the CPU doesn't help, disalbing
+> memory bypass doesn't help.  Enabling the X86_OOSTORE does help.  What a
+> stupid CPU design.
 
-Signed-Off-By: Baruch Even <baruch@ev-en.org>
+is it mean what doesn't help with doesn't call set_cx86_reoder()?
+this function disable to reorder at 0x4000:0000 to 0xffff:ffff.
+does pcnet32 access at out of above range?
 
-Index: 2.6-gt/net/ipv4/Kconfig
-===================================================================
---- 2.6-gt.orig/net/ipv4/Kconfig	2007-02-17 15:47:41.000000000 +0200
-+++ 2.6-gt/net/ipv4/Kconfig	2007-02-17 15:55:53.000000000 +0200
-@@ -9,7 +9,7 @@
- 	  intend to participate in the MBONE, a high bandwidth network on top
- 	  of the Internet which carries audio and video broadcasts. More
- 	  information about the MBONE is on the WWW at
--	  <http://www-itg.lbl.gov/mbone/>. Information about the multicast
-+	  <http://www.savetz.com/mbone/>. Information about the multicast
- 	  capabilities of the various network cards is contained in
- 	  <file:Documentation/networking/multicast.txt>. For most people, it's
- 	  safe to say N.
-@@ -442,7 +442,7 @@
- 	---help---
- 	  Support for INET (TCP, DCCP, etc) socket monitoring interface used by
- 	  native Linux tools such as ss. ss is included in iproute2, currently
--	  downloadable at <http://developer.osdl.org/dev/iproute2>. 
-+	  downloadable at <http://linux-net.osdl.org/index.php/Iproute2>.
- 	  
- 	  If unsure, say Y.
+--- arch/i386/Kconfig.cpu~	2007-02-05 03:44:54.000000000 +0900
++++ arch/i386/Kconfig.cpu	2007-02-17 21:25:52.000000000 +0900
+@@ -322,7 +322,7 @@ config X86_USE_3DNOW
  
-@@ -550,7 +550,7 @@
- 	Scalable TCP is a sender-side only change to TCP which uses a
- 	MIMD congestion control algorithm which has some nice scaling
- 	properties, though is known to have fairness issues.
--	See http://www-lce.eng.cam.ac.uk/~ctk21/scalable/
-+	See http://www.deneholme.net/tom/scalable/
+ config X86_OOSTORE
+ 	bool
+-	depends on (MWINCHIP3D || MWINCHIP2 || MWINCHIPC6) && MTRR
++	depends on (MWINCHIP3D || MWINCHIP2 || MWINCHIPC6) && MTRR || MGEODEGX1
+ 	default y
  
- config TCP_CONG_LP
- 	tristate "TCP Low Priority"
+ config X86_TSC
