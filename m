@@ -1,37 +1,27 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 1/3] e1000: fix shared interrupt warning message
-Date: Sat, 17 Feb 2007 15:38:32 -0500
-Message-ID: <45D767C8.3040508@garzik.org>
-References: <20070216223913.26963.76602.stgit@gitlost.site> <20070216223926.26963.52634.stgit@gitlost.site>
+Subject: Re: [PATCH] sk98lin: planned removal
+Date: Sat, 17 Feb 2007 15:38:43 -0500
+Message-ID: <45D767D3.4070800@garzik.org>
+References: <20070207091830.59f72f46@oldman> <20070207203215.bdf3908b.akpm@linux-foundation.org> <20070216150753.176bb5c0@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Kok, Auke" <auke@foo-projects.org>,
-	"Ronciak, John" <john.ronciak@intel.com>
-To: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:47903 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:47912 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932817AbXBQUie (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 17 Feb 2007 15:38:34 -0500
-In-Reply-To: <20070216223926.26963.52634.stgit@gitlost.site>
+	id S932760AbXBQUip (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 17 Feb 2007 15:38:45 -0500
+In-Reply-To: <20070216150753.176bb5c0@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Kok, Auke wrote:
-> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
-> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
-> ---
+Stephen Hemminger wrote:
+> Nag message about planned sk98lin removal.
 > 
->  drivers/net/e1000/e1000_main.c |   12 ++++++------
->  1 files changed, 6 insertions(+), 6 deletions(-)
+> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
 
-applied 1-3, though patch #1 had a noticable lack of description.  you 
-should describe your change, not just the condition that prompted it. 
-operation reordering is something that people shouldn't have to /try/ to 
-understand.  Things should just be obvious, and if not, document why.
+applied
 
 
