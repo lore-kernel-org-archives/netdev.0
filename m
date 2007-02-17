@@ -1,101 +1,36 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Bluetooth patches for 2.6.20
-Date: Sun, 18 Feb 2007 00:10:52 +0100
-Message-ID: <1171753852.9069.10.camel@violet>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH 1/3] e1000: fix shared interrupt warning message
+Date: Sun, 18 Feb 2007 00:19:49 +0100
+Message-ID: <20070217231949.GB17396@electric-eye.fr.zoreil.com>
+References: <20070216223913.26963.76602.stgit@gitlost.site> <20070216223926.26963.52634.stgit@gitlost.site> <45D767C8.3040508@garzik.org> <45D769FD.4030508@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Kok, Auke" <auke@foo-projects.org>,
+	"Ronciak, John" <john.ronciak@intel.com>
+To: Auke Kok <auke-jan.h.kok@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from coyote.holtmann.net ([217.160.111.169]:37921 "EHLO
-	mail.holtmann.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S2992841AbXBQXPR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Feb 2007 18:15:17 -0500
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:36355 "EHLO
+	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S964910AbXBQXWP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 17 Feb 2007 18:22:15 -0500
+Content-Disposition: inline
+In-Reply-To: <45D769FD.4030508@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Dave,
+Auke Kok <auke-jan.h.kok@intel.com> :
+[...]
+> It is suspected that workarounds in the _up() routine of e1000 can cause 
+        ^^^^^^^^^
+> the receive unit to be enabled before we're all done initializing the 
+> adapter data. An interrupt arriving before we're all done setting up 
+> obviously causes problems. To fix, we postpone enabling interrupts 
+> completely until the software intialization is finished.
 
-here are some patches for the Bluetooth subsystem. All of them are
-pending patches that can be finally included since the missing core
-functionality has been merged upstream.
+Call me dense but is there a chance that the same receive unit that should
+not be enabled now emits interrupts between e1000_up() and request_irq() ?
 
-Regards
-
-Marcel
-
-
-Please pull from
-
-        git://git.kernel.org/pub/scm/linux/kernel/git/holtmann/bluetooth-2.6.git
-
-This will update the following files:
-
- drivers/bluetooth/bcm203x.c |    2 
- drivers/bluetooth/bfusb.c   |    1 
- drivers/bluetooth/bt3c_cs.c |    1 
- net/bluetooth/hidp/Kconfig  |    1 
- net/bluetooth/hidp/core.c   |  182 +++++++++++++++++++++++++++++++++++++++++---
- net/bluetooth/hidp/hidp.h   |    2 
- net/bluetooth/hidp/sock.c   |    2 
- net/bluetooth/rfcomm/tty.c  |    9 +-
- 8 files changed, 189 insertions(+), 11 deletions(-)
-
-through these ChangeSets:
-
-Commit: 8999556264a621f819bbd14c71d824cf43fa37a7 
-Author: Marcel Holtmann <marcel@holtmann.org> Sat, 17 Feb 2007 23:59:02 +0100 
-
-    [Bluetooth] Make use of MODULE_FIRMWARE
-    
-    Some Bluetooth drivers need one or more binary firmware images. Export
-    these image names via the MODULE_FIRMWARE tag.
-    
-    Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
-
-Commit: 5fc3d1d1dc61c098c2b92149bd120b1f18d7444c 
-Author: Marcel Holtmann <marcel@holtmann.org> Sat, 17 Feb 2007 23:58:57 +0100 
-
-    [Bluetooth] Make use of device_move() for RFCOMM TTY devices
-    
-    In the case of bound RFCOMM TTY devices the parent is not available
-    before its usage. So when opening a RFCOMM TTY device, move it to
-    the corresponding ACL device as a child. When closing the device,
-    move it back to the virtual device tree.
-    
-    Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
-
-Commit: a26f55306461d8258a6ea602c416907748e313cd 
-Author: Marcel Holtmann <marcel@holtmann.org> Sat, 17 Feb 2007 23:58:53 +0100 
-
-    [Bluetooth] Add open and close callbacks for HID device
-    
-    The open and close callbacks for the HID device are not optional, but
-    for the Bluetooth HID report mode support it is enough to add empty
-    dummy callbacks.
-    
-    Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
-
-Commit: af5350062ebac7d7645309f7a0ecbef87ffec89e 
-Author: Marcel Holtmann <marcel@holtmann.org> Sat, 17 Feb 2007 23:58:49 +0100 
-
-    [Bluetooth] Add support for using the HID subsystem
-    
-    This patch extends the current Bluetooth HID support to use the new
-    HID subsystem and adds full report mode support.
-    
-    Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
-
-Commit: a3f95f9bae0cfe810faadb315850aead8e121aec 
-Author: Marcel Holtmann <marcel@holtmann.org> Sat, 17 Feb 2007 23:58:44 +0100 
-
-    [Bluetooth] Fix wrong put_user() from HIDP compat ioctl patch
-    
-    The compat ioctl patch copied the parser version field into the
-    report descriptor size field by mistake.
-    
-    Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
-
-
-
+-- 
+Ueimor
