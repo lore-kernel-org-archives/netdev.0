@@ -1,42 +1,38 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: Subject:  [PATCH 2.6.20 004/005] dmfe: Add support for suspend/resume
-Date: Sat, 17 Feb 2007 23:52:15 +0100
-Message-ID: <20070217225215.GE14222@elf.ucw.cz>
-References: <200702152253.53680.maximlevitsky@gmail.com> <200702152311.54407.maximlevitsky@gmail.com> <20070217115029.GF9120@elf.ucw.cz> <200702180029.03651.maximlevitsky@gmail.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: netpoll again ? (was: Re: 2.6.20-git14 rtl8139 possible circular locking dependency detected)
+Date: Sat, 17 Feb 2007 23:57:46 +0100
+Message-ID: <20070217225746.GB16954@electric-eye.fr.zoreil.com>
+References: <45D7569F.9030502@googlemail.com> <20070217221252.GA16954@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@kernel.org, linux-kernel@vger.kernel.org
-To: Maxim <maximlevitsky@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S933073AbXBQWwf@vger.kernel.org>
+Cc: LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
+To: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:55665 "EHLO
+	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750989AbXBQW5z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 17 Feb 2007 17:57:55 -0500
 Content-Disposition: inline
-In-Reply-To: <200702180029.03651.maximlevitsky@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <20070217221252.GA16954@electric-eye.fr.zoreil.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi!
+Francois Romieu <romieu@fr.zoreil.com> :
+> Michal Piotrowski <michal.k.k.piotrowski@gmail.com> :
+> [...]
 > 
-> Hello ,  I am sorry that I missed some parts of coding style. I need to reread it :-)
+> Did you enable RTL8139_DEBUG ?
 > 
-> There is a updated patch :
+> If so you can try the patch below.
 
-It looks better.
+It's buggy there too but you are not experiencing this one.
 
-> +	/* Disable Interrupt */
-> +	outl (0, dev->base_addr + DCR7);
-> +	outl (inl(dev->base_addr + DCR5), dev->base_addr + DCR5);
+1 - netpoll() calls the poll() handler of the device through netpoll_poll()
+2 - The poll handler of the device tries to acquire dev->_xmit_lock
+    through dev_mc_add during the Rx protocol processing
+3 - netpoll() holds dev->_xmit_lock to avoid recursion in netpoll_poll()
 
-I'd kill space after outl...
-
-> +	/* Free RX buffers */
-> +	dmfe_free_rxbuffer(db);
-> +
-> +	/* Power down device*/
-
-and add space before */.
-
-Congratulation, you passed coding-style-police-check ;-).
-									Pavel
+#2 and #3 have opposite requirements.
 
 -- 
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
+Ueimor
