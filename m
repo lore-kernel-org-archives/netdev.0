@@ -1,61 +1,45 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: PATCH:  Update mailing list info for 802.1q vlans
-Date: Fri, 16 Feb 2007 15:56:44 -0800
-Message-ID: <45D644BC.9060104@candelatech.com>
+From: lsorense@csclub.uwaterloo.ca (Lennart Sorensen)
+Subject: Re: MediaGX/GeodeGX1 requires X86_OOSTORE. (Was: Re: Strange connection slowdown on pcnet32)
+Date: Fri, 16 Feb 2007 19:00:19 -0500
+Message-ID: <20070217000019.GH7582@csclub.uwaterloo.ca>
+References: <32943920.1119801171642884331.JavaMail.root@vms226.mailsrvcs.net> <20070216172110.GC7582@csclub.uwaterloo.ca> <20070216202300.GD7585@csclub.uwaterloo.ca> <20070216210157.GE7585@csclub.uwaterloo.ca> <20070216222728.GF7585@csclub.uwaterloo.ca> <20070216224824.GG7585@csclub.uwaterloo.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: NetDev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: pcnet32@verizon.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:56982 "EHLO ns2.lanforge.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1946321AbXBPX4p (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Feb 2007 18:56:45 -0500
-Received: from [192.168.100.224] (static-71-121-249-218.sttlwa.dsl-w.verizon.net [71.121.249.218])
-	(authenticated bits=0)
-	by ns2.lanforge.com (8.13.4/8.13.4) with ESMTP id l1GNuiBv019015
-	for <netdev@vger.kernel.org>; Fri, 16 Feb 2007 15:56:44 -0800
+Received: from caffeine.uwaterloo.ca ([129.97.134.17]:35425 "EHLO
+	caffeine.csclub.uwaterloo.ca" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1946325AbXBQAAU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Feb 2007 19:00:20 -0500
+Content-Disposition: inline
+In-Reply-To: <20070216224824.GG7585@csclub.uwaterloo.ca>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dave, could you apply this please?  The old mailing
-list is dead and gone.
+On Fri, Feb 16, 2007 at 05:48:24PM -0500, Lennart Sorensen wrote:
+> Well so far it really looks like enabling OOSTORE on the Geode
+> SC1200/GX1 really does make a difference.  A bit of searching seems to
+> indicate the person that originally submitted the patch that enabled
+> load/store reordering on the MediaGX/Geode though it might need OOSTORE,
+> but was convinced by others it didn't.  Looks like it really does need
+> it.  The failure that occoured before within a few seconds of starting a
+> large transfer, no longer fails and all I did was enable
+> CONFIG_X86_OOSTORE, and recompile pcnet32.ko and load the new module on
+> the running system.  Moving back to the pcnet32.ko built without OOSTORE
+> enabled hits the failure again within seconds, until ifconfig eth1
+> down/up reinitialized it's descriptor ring, after which it survices
+> another bit of transfer and then fails again.
 
+Well forcing load/store serialize on the CPU doesn't help, disalbing
+memory bypass doesn't help.  Enabling the X86_OOSTORE does help.  What a
+stupid CPU design.
 
-diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
-index 18fcb9f..c4209c8 100644
---- a/net/8021q/vlan.c
-+++ b/net/8021q/vlan.c
-@@ -3,7 +3,8 @@
-   *             Ethernet-type device handling.
-   *
-   * Authors:    Ben Greear <greearb@candelatech.com>
-- *              Please send support related email to: vlan@scry.wanfear.com
-+ *              Please send support related email to: vlan@candelatech.com
-+ *                after subscribing using the link below.
-   *              VLAN Home Page: http://www.candelatech.com/~greear/vlan.html
-   *
-   * Fixes:
-diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-index e49e252..203cd54 100644
---- a/net/8021q/vlan_dev.c
-+++ b/net/8021q/vlan_dev.c
-@@ -3,7 +3,8 @@
-   *             Ethernet-type device handling.
-   *
-   * Authors:    Ben Greear <greearb@candelatech.com>
-- *              Please send support related email to: vlan@scry.wanfear.com
-+ *              Please send support related email to: vlan@candelatech.com
-+ *                after subscribing using the web page below.
-   *              VLAN Home Page: http://www.candelatech.com/~greear/vlan.html
-   *
-   * Fixes:       Mar 22 2001: Martin Bokaemper <mbokaemper@unispherenetworks.com>
+So far nothing has managed to fix the __memcpy_toio in the jsm driver
+getting data out of order when sending on an exar pci uart chip.  Only
+calling memcpy with one byte at a time seems to work there.  Works fine
+on every other cpu of course.  What else am I going to discover is wrong
+with this CPU.
 
-
-Thanks,
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
-
+--
+Len Sorensen
