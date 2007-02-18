@@ -1,68 +1,76 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: Extensible hashing and RCU
-Date: Sun, 18 Feb 2007 22:10:10 +0300
-Message-ID: <20070218191009.GA28216@2ka.mipt.ru>
-References: <20070204074143.26312.qmail@science.horizon.com> <Pine.LNX.4.61.0702050952590.26852@localhost.localdomain> <20070217131302.GA22732@2ka.mipt.ru> <45D89EFE.4080103@cosmosbay.com>
+From: Greg KH <gregkh@suse.de>
+Subject: Re: Converting network devices from class devices causes namespace pollution
+Date: Sun, 18 Feb 2007 11:46:41 -0800
+Message-ID: <20070218194641.GA9929@suse.de>
+References: <m1lkiv8npz.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: akepner@sgi.com, linux@horizon.com, davem@davemloft.net,
-	netdev@vger.kernel.org, bcrl@linux.intel.com
-To: Eric Dumazet <dada1@cosmosbay.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:34762 "EHLO 2ka.mipt.ru"
+Received: from cantor.suse.de ([195.135.220.2]:57555 "EHLO mx1.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751867AbXBRTMB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 18 Feb 2007 14:12:01 -0500
+	id S1751947AbXBRTsH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 18 Feb 2007 14:48:07 -0500
 Content-Disposition: inline
-In-Reply-To: <45D89EFE.4080103@cosmosbay.com>
+In-Reply-To: <m1lkiv8npz.fsf@ebiederm.dsl.xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Feb 18, 2007 at 07:46:22PM +0100, Eric Dumazet (dada1@cosmosbay.com) wrote:
-> >Why anyone do not want to use trie - for socket-like loads it has
-> >exactly constant search/insert/delete time and scales as hell.
-> >
+On Sun, Feb 18, 2007 at 08:55:20AM -0700, Eric W. Biederman wrote:
 > 
-> Because we want to be *very* fast. You cannot beat hash table.
+> I believe the culprit is 43cb76d91ee85f579a69d42bc8efc08bac560278.
 > 
-> Say you have 1.000.000 tcp connections, with 50.000 incoming packets per 
-> second to *random* streams...
-
-What is really good in trie, that you may have upto 2^32 connections
-without _any_ difference in lookup performance of random streams.
-
-> With a 2^20 hashtable, a lookup uses one cache line (the hash head pointer) 
-> plus one cache line to get the socket (you need it to access its refcounter)
+> For some reason network devices are now showing up under the pci
+> device tree, in directories that have something other than network
+> devices.
 > 
-> Several attempts were done in the past to add RCU to ehash table (last done 
-> by Benjamin LaHaise last March). I believe this was delayed a bit, because 
-> David would like to be able to resize the hash table...
+> # ls -l /sys/class/net/eth0
+> lrwxrwxrwx 1 root root 0 Feb 17 23:19 /sys/class/net/eth0 -> ../../devices/pci0000:00/0000:00:0a.0/eth0
+> 
+> # ls /sys/devices/pci0000\:00/0000\:00\:0a.0/
+> broken_parity_status  device  eth0        modalias  resource   subsystem         uevent
+> class                 driver  irq         msi_bus   resource0  subsystem_device  vendor
+> config                enable  local_cpus  power     resource1  subsystem_vendor
 
-This is a theory.
-Practice includes cost for hashing, locking, and list traversal
-(each pointer is in own cache line btw, which must be fetched) and plus
-the same for time wait sockets (if we are unlucky).
+That's the PCI device directory where eth0 is attached to, what is wrong
+with that?
 
-No need to talk about price of cache miss when there might be more
-serious problems - for example length of the linked list to traverse each 
-time new packet is received.
+> User space is allowed to rename network devices to anything any name
+> not currently taken by another network device.
+> 
+> However when I now do something like:
+> 
+> ip link set eth0 name irq
+> 
+> The rename half happens (because it is legal), but sysfs can't support
+> it because of the ridiculous directory eth0 is in.  After that
+> point things go hideously wrong.
 
-For example lookup time in trie with 1.6 millions random 3-dimensional
-32bit (saddr/daddr/ports) entries is about 1 microsecond on amd athlon64 
-3500 cpu (test was ran in userspace emulator though).
-Data obtained from netchannels research:
-http://tservice.net.ru/~s0mbre/blog/2006/12/02#2006_12_02
+What goes wrong?  What is not renamed properly?
 
-I think I need to setup similar emulator for hash table of the above
-size to check hash/list goodness.
+Oh, you can't rename it to something like "irq".  Well that's pretty
+foolish on your behalf :)
 
-> I am not really interested in hash resizing, because an admin can size it 
-> at boot time. But RCU is definitly *wanted*
+> The current situation is hideous namespace pollution, and breaks user
+> space, and is only likely only a matter of time before we have a
+> reasonable instead of an strained conflict of names.
 
-Trie in that regard is true winner - its RCU'fication is trivial.
+Do we really have a problem here?
 
-> Note : It would be good to also use RCU for UDP, because the current rwlock 
-> protecting udp_hash[] is a scalability problem.
+> Is there any simple fix or do we need to revert the change away
+> from class_device?
 
--- 
-	Evgeniy Polyakov
+We need the class_device change to get suspend/resume working properly,
+and to make a lot of other things better (unified device tree, smaller
+kernel images, etc.)
+
+But my main point remains, is this really a problem?  Do systems really
+name their network devices with names that stop working with this change
+today?  Distros use the mac address these days to name network devices
+in a unique way, and that namespace does not conflict with the pci
+attributes.
+
+thanks,
+
+greg k-h
