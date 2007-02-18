@@ -1,96 +1,135 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: Extensible hashing and RCU
-Date: Sun, 18 Feb 2007 21:21:30 +0100
-Message-ID: <45D8B54A.70903@cosmosbay.com>
-References: <20070204074143.26312.qmail@science.horizon.com> <Pine.LNX.4.61.0702050952590.26852@localhost.localdomain> <20070217131302.GA22732@2ka.mipt.ru> <45D89EFE.4080103@cosmosbay.com> <20070218191009.GA28216@2ka.mipt.ru>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
-	format=flowed
-Content-Transfer-Encoding: 7BIT
-Cc: akepner@sgi.com, linux@horizon.com, davem@davemloft.net,
-	netdev@vger.kernel.org, bcrl@linux.intel.com
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([86.65.150.130]:60126 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752044AbXBRU13 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Feb 2007 15:27:29 -0500
-In-Reply-To: <20070218191009.GA28216@2ka.mipt.ru>
-Sender: netdev-owner@vger.kernel.org
+From: Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
+Subject: [PATCH] zd1211rw: changed GFP_NOFS to GFP_KERNEL
+Date: Sun, 18 Feb 2007 20:28:23 +0000 (GMT)
+Message-ID: <20070218202823.9C4A07B409F@zog.reactivated.net>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: kune-hUSrv6EASfkEnNRfnnE9gw@public.gmane.org
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Evgeniy Polyakov a e'crit :
-> On Sun, Feb 18, 2007 at 07:46:22PM +0100, Eric Dumazet (dada1@cosmosbay.com) wrote:
->>> Why anyone do not want to use trie - for socket-like loads it has
->>> exactly constant search/insert/delete time and scales as hell.
->>>
->> Because we want to be *very* fast. You cannot beat hash table.
->>
->> Say you have 1.000.000 tcp connections, with 50.000 incoming packets per 
->> second to *random* streams...
-> 
-> What is really good in trie, that you may have upto 2^32 connections
-> without _any_ difference in lookup performance of random streams.
+From: Ulrich Kunitz <kune-hUSrv6EASfkEnNRfnnE9gw@public.gmane.org>
 
-So are you speaking of one memory cache miss per lookup ?
-If not, you loose.
+Michael Buesch commented that GFP_NOFS should not be used in a
+network driver. This patch implements it for zd1211rw-d80211.
 
-> 
->> With a 2^20 hashtable, a lookup uses one cache line (the hash head pointer) 
->> plus one cache line to get the socket (you need it to access its refcounter)
->>
->> Several attempts were done in the past to add RCU to ehash table (last done 
->> by Benjamin LaHaise last March). I believe this was delayed a bit, because 
->> David would like to be able to resize the hash table...
-> 
-> This is a theory.
+Signed-off-by: Ulrich Kunitz <kune-hUSrv6EASfkEnNRfnnE9gw@public.gmane.org>
+Signed-off-by: Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
+---
+ zd_chip.c |    4 ++--
+ zd_usb.c  |   20 ++++++++++----------
+ 2 files changed, 12 insertions(+), 12 deletions(-)
 
-Not theory, but actual practice, on a real machine.
-
-# cat /proc/net/sockstat
-sockets: used 918944
-TCP: inuse 925413 orphan 7401 tw 4906 alloc 926292 mem 304759
-UDP: inuse 9
-RAW: inuse 0
-FRAG: inuse 9 memory 18360
-
-
-> Practice includes cost for hashing, locking, and list traversal
-> (each pointer is in own cache line btw, which must be fetched) and plus
-> the same for time wait sockets (if we are unlucky).
-> 
-> No need to talk about price of cache miss when there might be more
-> serious problems - for example length of the linked list to traverse each 
-> time new packet is received.
-> 
-> For example lookup time in trie with 1.6 millions random 3-dimensional
-> 32bit (saddr/daddr/ports) entries is about 1 microsecond on amd athlon64 
-> 3500 cpu (test was ran in userspace emulator though).
-
-1 microsecond ? Are you kidding ? We want no more than 50 ns.
-
-You can check on this dual cpu machine, tcp_v4_rcv() uses 2.29 % of cpu.
-
-CPU: AMD64 processors, speed 1992.67 MHz (estimated)
-Counted CPU_CLK_UNHALTED events (Cycles outside of halt state) with a unit 
-mask of 0x00 (No unit mask) count 100000
-samples  %        symbol name
-2009510   4.6863  memcpy_c
-1668842   3.8918  tg3_start_xmit_dma_bug
-1485844   3.4651  tg3_poll
-1293558   3.0167  kmem_cache_free
-1232862   2.8751  kfree
-1131012   2.6376  free_block
-1000671   2.3336  ip_route_input
-982655    2.2916  tcp_v4_rcv
-955554    2.2284  __alloc_skb
-863753    2.0143  tcp_ack
-863222    2.0131  tcp_recvmsg
-834680    1.9465  fget_light
-801445    1.8690  lock_sock_nested
-793699    1.8510  tcp_sendmsg
-764689    1.7833  copy_user_generic_string
-743515    1.7339  ip_queue_xmit
-712314    1.6612  sock_wfree
-650486    1.5170  tcp_rcv_established
-
+Index: linux/drivers/net/wireless/zd1211rw/zd_chip.c
+===================================================================
+--- linux.orig/drivers/net/wireless/zd1211rw/zd_chip.c
++++ linux/drivers/net/wireless/zd1211rw/zd_chip.c
+@@ -114,7 +114,7 @@ int zd_ioread32v_locked(struct zd_chip *
+ 	/* Allocate a single memory block for values and addresses. */
+ 	count16 = 2*count;
+ 	a16 = (zd_addr_t *) kmalloc(count16 * (sizeof(zd_addr_t) + sizeof(u16)),
+-		                   GFP_NOFS);
++		                   GFP_KERNEL);
+ 	if (!a16) {
+ 		dev_dbg_f(zd_chip_dev(chip),
+ 			  "error ENOMEM in allocation of a16\n");
+@@ -163,7 +163,7 @@ int _zd_iowrite32v_locked(struct zd_chip
+ 
+ 	/* Allocate a single memory block for values and addresses. */
+ 	count16 = 2*count;
+-	ioreqs16 = kmalloc(count16 * sizeof(struct zd_ioreq16), GFP_NOFS);
++	ioreqs16 = kmalloc(count16 * sizeof(struct zd_ioreq16), GFP_KERNEL);
+ 	if (!ioreqs16) {
+ 		r = -ENOMEM;
+ 		dev_dbg_f(zd_chip_dev(chip),
+Index: linux/drivers/net/wireless/zd1211rw/zd_usb.c
+===================================================================
+--- linux.orig/drivers/net/wireless/zd1211rw/zd_usb.c
++++ linux/drivers/net/wireless/zd1211rw/zd_usb.c
+@@ -412,7 +412,7 @@ int zd_usb_enable_int(struct zd_usb *usb
+ 
+ 	dev_dbg_f(zd_usb_dev(usb), "\n");
+ 
+-	urb = usb_alloc_urb(0, GFP_NOFS);
++	urb = usb_alloc_urb(0, GFP_KERNEL);
+ 	if (!urb) {
+ 		r = -ENOMEM;
+ 		goto out;
+@@ -430,7 +430,7 @@ int zd_usb_enable_int(struct zd_usb *usb
+ 
+ 	/* TODO: make it a DMA buffer */
+ 	r = -ENOMEM;
+-	transfer_buffer = kmalloc(USB_MAX_EP_INT_BUFFER, GFP_NOFS);
++	transfer_buffer = kmalloc(USB_MAX_EP_INT_BUFFER, GFP_KERNEL);
+ 	if (!transfer_buffer) {
+ 		dev_dbg_f(zd_usb_dev(usb),
+ 			"couldn't allocate transfer_buffer\n");
+@@ -444,7 +444,7 @@ int zd_usb_enable_int(struct zd_usb *usb
+ 			 intr->interval);
+ 
+ 	dev_dbg_f(zd_usb_dev(usb), "submit urb %p\n", intr->urb);
+-	r = usb_submit_urb(urb, GFP_NOFS);
++	r = usb_submit_urb(urb, GFP_KERNEL);
+ 	if (r) {
+ 		dev_dbg_f(zd_usb_dev(usb),
+ 			 "Couldn't submit urb. Error number %d\n", r);
+@@ -593,10 +593,10 @@ static struct urb *alloc_urb(struct zd_u
+ 	struct urb *urb;
+ 	void *buffer;
+ 
+-	urb = usb_alloc_urb(0, GFP_NOFS);
++	urb = usb_alloc_urb(0, GFP_KERNEL);
+ 	if (!urb)
+ 		return NULL;
+-	buffer = usb_buffer_alloc(udev, USB_MAX_RX_SIZE, GFP_NOFS,
++	buffer = usb_buffer_alloc(udev, USB_MAX_RX_SIZE, GFP_KERNEL,
+ 		                  &urb->transfer_dma);
+ 	if (!buffer) {
+ 		usb_free_urb(urb);
+@@ -629,7 +629,7 @@ int zd_usb_enable_rx(struct zd_usb *usb)
+ 	dev_dbg_f(zd_usb_dev(usb), "\n");
+ 
+ 	r = -ENOMEM;
+-	urbs = kcalloc(URBS_COUNT, sizeof(struct urb *), GFP_NOFS);
++	urbs = kcalloc(URBS_COUNT, sizeof(struct urb *), GFP_KERNEL);
+ 	if (!urbs)
+ 		goto error;
+ 	for (i = 0; i < URBS_COUNT; i++) {
+@@ -650,7 +650,7 @@ int zd_usb_enable_rx(struct zd_usb *usb)
+ 	spin_unlock_irq(&rx->lock);
+ 
+ 	for (i = 0; i < URBS_COUNT; i++) {
+-		r = usb_submit_urb(urbs[i], GFP_NOFS);
++		r = usb_submit_urb(urbs[i], GFP_KERNEL);
+ 		if (r)
+ 			goto error_submit;
+ 	}
+@@ -1156,7 +1156,7 @@ int zd_usb_ioread16v(struct zd_usb *usb,
+ 	}
+ 
+ 	req_len = sizeof(struct usb_req_read_regs) + count * sizeof(__le16);
+-	req = kmalloc(req_len, GFP_NOFS);
++	req = kmalloc(req_len, GFP_KERNEL);
+ 	if (!req)
+ 		return -ENOMEM;
+ 	req->id = cpu_to_le16(USB_REQ_READ_REGS);
+@@ -1219,7 +1219,7 @@ int zd_usb_iowrite16v(struct zd_usb *usb
+ 
+ 	req_len = sizeof(struct usb_req_write_regs) +
+ 		  count * sizeof(struct reg_data);
+-	req = kmalloc(req_len, GFP_NOFS);
++	req = kmalloc(req_len, GFP_KERNEL);
+ 	if (!req)
+ 		return -ENOMEM;
+ 
+@@ -1299,7 +1299,7 @@ int zd_usb_rfwrite(struct zd_usb *usb, u
+ 	bit_value_template &= ~(RF_IF_LE|RF_CLK|RF_DATA);
+ 
+ 	req_len = sizeof(struct usb_req_rfwrite) + bits * sizeof(__le16);
+-	req = kmalloc(req_len, GFP_NOFS);
++	req = kmalloc(req_len, GFP_KERNEL);
+ 	if (!req)
+ 		return -ENOMEM;
+ 
