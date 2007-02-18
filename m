@@ -1,50 +1,83 @@
-From: "Michael K. Edwards" <medwards.linux@gmail.com>
-Subject: Re: Extensible hashing and RCU
-Date: Sun, 18 Feb 2007 14:04:24 -0800
-Message-ID: <f2b55d220702181404l4c00e91eo94171aac56e80ce7@mail.gmail.com>
-References: <20070204074143.26312.qmail@science.horizon.com>
-	 <Pine.LNX.4.61.0702050952590.26852@localhost.localdomain>
-	 <20070217131302.GA22732@2ka.mipt.ru> <45D89EFE.4080103@cosmosbay.com>
-	 <20070218191009.GA28216@2ka.mipt.ru> <45D8B54A.70903@cosmosbay.com>
-	 <f2b55d220702181323l5d2640a4g18df6d1ee051e987@mail.gmail.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: Converting network devices from class devices causes namespace pollution
+Date: Sun, 18 Feb 2007 15:52:05 -0700
+Message-ID: <m1bqjr84fe.fsf@ebiederm.dsl.xmission.com>
+References: <m1lkiv8npz.fsf@ebiederm.dsl.xmission.com>
+	<20070218194641.GA9929@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Evgeniy Polyakov" <johnpol@2ka.mipt.ru>, akepner@sgi.com,
-	linux@horizon.com, davem@davemloft.net, netdev@vger.kernel.org,
-	bcrl@linux.intel.com
-To: "Eric Dumazet" <dada1@cosmosbay.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Greg KH <gregkh@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wr-out-0506.google.com ([64.233.184.227]:38903 "EHLO
-	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752244AbXBRWE1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Feb 2007 17:04:27 -0500
-Received: by wr-out-0506.google.com with SMTP id i21so1412662wra
-        for <netdev@vger.kernel.org>; Sun, 18 Feb 2007 14:04:26 -0800 (PST)
-In-Reply-To: <f2b55d220702181323l5d2640a4g18df6d1ee051e987@mail.gmail.com>
-Content-Disposition: inline
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:40603 "EHLO
+	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752304AbXBRWwd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Feb 2007 17:52:33 -0500
+In-Reply-To: <20070218194641.GA9929@suse.de> (Greg KH's message of "Sun, 18
+	Feb 2007 11:46:41 -0800")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 2/18/07, Michael K. Edwards <medwards.linux@gmail.com> wrote:
-> ...  Much less vulnerable to cache eviction DDoS
-> than a hash, because the hot connections get rotated up into non-leaf
-> layers and get traversed enough to keep them in the LRU set.
+Greg KH <gregkh@suse.de> writes:
 
-Let me enlarge on this a bit.  I used to work for a company that built
-a custom firewall/VPN ASIC with all sorts of special sauce in it,
-mostly focused on dealing with DDoS.  Some really smart guys, some
-really good technology, I hope they grab the brass ring someday.  On
-the scale they were dealing with, there's only one thing to do about
-DDoS: bend over and take it.  Provision enough memory bandwidth to
-cold-cache every packet, every session lookup, and every
-packet-processing-progress structure.  Massively parallelize, spinlock
-on on-chip SRAM, tune for the cold-cache case.  If you can't afford to
-do that -- and if you haven't designed your own chip, with separate
-cache windows for each of these use cases, you can't, because they're
-all retrograde loads for an LRU cache -- then a hash is not the right
-answer.  The interaction between resizing and RCU is just the canary
-in the coal mine.
+> On Sun, Feb 18, 2007 at 08:55:20AM -0700, Eric W. Biederman wrote:
+>> User space is allowed to rename network devices to anything any name
+>> not currently taken by another network device.
+>> 
+>> However when I now do something like:
+>> 
+>> ip link set eth0 name irq
+>> 
+>> The rename half happens (because it is legal), but sysfs can't support
+>> it because of the ridiculous directory eth0 is in.  After that
+>> point things go hideously wrong.
+>
+> What goes wrong?  What is not renamed properly?
 
-Cheers,
-- Michael
+It gets half renamed. 
+
+> Oh, you can't rename it to something like "irq".  Well that's pretty
+> foolish on your behalf :)
+
+No it is pretty foolish on your behalf to add this extra restriction.
+Currently this is a worse set of restrictions than DOS had with
+it's magic character devices.
+
+>> The current situation is hideous namespace pollution, and breaks user
+>> space, and is only likely only a matter of time before we have a
+>> reasonable instead of an strained conflict of names.
+>
+> Do we really have a problem here?
+
+Yes.
+
+>> Is there any simple fix or do we need to revert the change away
+>> from class_device?
+>
+> We need the class_device change to get suspend/resume working properly,
+> and to make a lot of other things better (unified device tree, smaller
+> kernel images, etc.)
+
+Which is why I'm asking for a fix, that we can merge.
+
+> But my main point remains, is this really a problem?  Do systems really
+> name their network devices with names that stop working with this change
+> today?  Distros use the mac address these days to name network devices
+> in a unique way, and that namespace does not conflict with the pci
+> attributes.
+
+- The error handling is not correct so if someone tries it you loose
+  your network device.  Bad BUG.
+
+- This is gratuitous ABI breakage.  Give me the 2 years notice that is
+  implied in Documentation/ABI/README and you may have a case.
+
+- The namespace conflicts because the pci attributes are legal network
+  device names, and there is nothing that causes me to expect that
+  we won't add a pci attribute that will not be an interesting network
+  device name.
+
+Fixing this theoretically isn't very hard all you have do to is insert
+an extra subdirectory and remove any possible conflict.
+
+Eric
