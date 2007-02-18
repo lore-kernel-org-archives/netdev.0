@@ -1,42 +1,60 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: Re: [PATCH 1/3] e1000: fix shared interrupt warning message
-Date: Sat, 17 Feb 2007 18:20:33 -0800
-Message-ID: <45D7B7F1.8020504@intel.com>
-References: <20070216223913.26963.76602.stgit@gitlost.site> <20070216223926.26963.52634.stgit@gitlost.site> <45D767C8.3040508@garzik.org> <45D769FD.4030508@intel.com> <20070217231949.GB17396@electric-eye.fr.zoreil.com>
+From: Maxim <maximlevitsky@gmail.com>
+Subject: Re: Subject:  [PATCH 2.6.20 004/005] dmfe: Add support for suspend/resume
+Date: Sun, 18 Feb 2007 15:43:53 +0200
+Message-ID: <200702181543.53296.maximlevitsky@gmail.com>
+References: <200702152253.53680.maximlevitsky@gmail.com> <200702180029.03651.maximlevitsky@gmail.com> <20070217225215.GE14222@elf.ucw.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Kok, Auke" <auke@foo-projects.org>,
-	"Ronciak, John" <john.ronciak@intel.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:1999 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S2993153AbXBRCUf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 17 Feb 2007 21:20:35 -0500
-In-Reply-To: <20070217231949.GB17396@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev@kernel.org, linux-kernel@vger.kernel.org
+To: Pavel Machek <pavel@ucw.cz>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751118AbXBRNoA@vger.kernel.org>
+In-Reply-To: <20070217225215.GE14222@elf.ucw.cz>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Francois Romieu wrote:
-> Auke Kok <auke-jan.h.kok@intel.com> :
-> [...]
->> It is suspected that workarounds in the _up() routine of e1000 can cause 
->         ^^^^^^^^^
->> the receive unit to be enabled before we're all done initializing the 
->> adapter data. An interrupt arriving before we're all done setting up 
->> obviously causes problems. To fix, we postpone enabling interrupts 
->> completely until the software intialization is finished.
+On Sunday 18 February 2007 00:52:15 Pavel Machek wrote:
+> Hi!
+> > 
+> > Hello ,  I am sorry that I missed some parts of coding style. I need to reread it :-)
+> > 
+> > There is a updated patch :
 > 
-> Call me dense but is there a chance that the same receive unit that should
-> not be enabled now emits interrupts between e1000_up() and request_irq() ?
+> It looks better.
+> 
+> > +	/* Disable Interrupt */
+> > +	outl (0, dev->base_addr + DCR7);
+> > +	outl (inl(dev->base_addr + DCR5), dev->base_addr + DCR5);
+> 
+> I'd kill space after outl...
+> 
+> > +	/* Free RX buffers */
+> > +	dmfe_free_rxbuffer(db);
+> > +
+> > +	/* Power down device*/
+> 
+> and add space before */.
+> 
+> Congratulation, you passed coding-style-police-check ;-).
+> 									Pavel
+> 
 
-turning on the receive unit starts the rx logic on the mac, but doesn't make the 
-mac generate interrupts as far as I know. The fix was verified and even 
-suggested earlier by some people as well.
+Hello,
+	Thanks for reply, I just want to ask one question:
 
-Cheers,
+	Those patches are now merged in -mm, and I noticed that Andrew Morton after applying them did fix my bad coding style and check for CONFIG_PM=n that I didn't include
 
-Auke
+	Now should I resend two last patches or not ?
+
+
+Regards, Maxim Levitsky
+
+
+PS:  Actualy I have planned to send those patches a little bit later , and do more checks like the coding style stuff, mailer problems, etc... 
+but I noticed that 2.6.20 breaks link detection on my card,
+and I even saw report here on LKML about that, so I decided to send them now
+
+Of cource I did check them for code correctness , and I actualy used them for about a month.
+I tried to do as little as possible changes, and verify each line.
