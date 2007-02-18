@@ -1,35 +1,42 @@
-From: Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
-Subject: [PATCH] zd1211rw-d80211: Add ID for ZyXEL ZyAIR G-220 v2
-Date: Sun, 18 Feb 2007 01:40:41 +0000 (GMT)
-Message-ID: <20070218014041.D25797B409F@zog.reactivated.net>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Cc: kune-hUSrv6EASfkEnNRfnnE9gw@public.gmane.org
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: Re: [PATCH 1/3] e1000: fix shared interrupt warning message
+Date: Sat, 17 Feb 2007 18:20:33 -0800
+Message-ID: <45D7B7F1.8020504@intel.com>
+References: <20070216223913.26963.76602.stgit@gitlost.site> <20070216223926.26963.52634.stgit@gitlost.site> <45D767C8.3040508@garzik.org> <45D769FD.4030508@intel.com> <20070217231949.GB17396@electric-eye.fr.zoreil.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Kok, Auke" <auke@foo-projects.org>,
+	"Ronciak, John" <john.ronciak@intel.com>
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:1999 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S2993153AbXBRCUf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 17 Feb 2007 21:20:35 -0500
+In-Reply-To: <20070217231949.GB17396@electric-eye.fr.zoreil.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Tested by Marijn Schouten
-zd1211b chip 0586:340f v4810 high 00-13-49 AL2230_RF pa0 g---
-FCC ID: I88G220V2
+Francois Romieu wrote:
+> Auke Kok <auke-jan.h.kok@intel.com> :
+> [...]
+>> It is suspected that workarounds in the _up() routine of e1000 can cause 
+>         ^^^^^^^^^
+>> the receive unit to be enabled before we're all done initializing the 
+>> adapter data. An interrupt arriving before we're all done setting up 
+>> obviously causes problems. To fix, we postpone enabling interrupts 
+>> completely until the software intialization is finished.
+> 
+> Call me dense but is there a chance that the same receive unit that should
+> not be enabled now emits interrupts between e1000_up() and request_irq() ?
 
-Signed-off-by: Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
----
- drivers/net/wireless/d80211/zd1211rw/zd_usb.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+turning on the receive unit starts the rx logic on the mac, but doesn't make the 
+mac generate interrupts as far as I know. The fix was verified and even 
+suggested earlier by some people as well.
 
-diff --git a/drivers/net/wireless/d80211/zd1211rw/zd_usb.c b/drivers/net/wireless/d80211/zd1211rw/zd_usb.c
-index 1e8a45e..aaa055d 100644
---- a/drivers/net/wireless/zd1211rw/drivers/net/wireless/d80211/zd1211rw/zd_usb.c
-+++ b/drivers/net/wireless/zd1211rw/drivers/net/wireless/d80211/zd1211rw/zd_usb.c
-@@ -60,6 +60,7 @@ static struct usb_device_id usb_ids[] = {
- 	{ USB_DEVICE(0x083a, 0x4505), .driver_info = DEVICE_ZD1211B },
- 	{ USB_DEVICE(0x0471, 0x1236), .driver_info = DEVICE_ZD1211B },
- 	{ USB_DEVICE(0x13b1, 0x0024), .driver_info = DEVICE_ZD1211B },
-+	{ USB_DEVICE(0x0586, 0x340f), .driver_info = DEVICE_ZD1211B },
- 	/* "Driverless" devices that need ejecting */
- 	{ USB_DEVICE(0x0ace, 0x2011), .driver_info = DEVICE_INSTALLER },
- 	{}
--- 
-1.5.0
+Cheers,
+
+Auke
