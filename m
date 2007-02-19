@@ -1,94 +1,156 @@
-From: Greg KH <gregkh@suse.de>
-Subject: Re: Converting network devices from class devices causes namespace pollution
-Date: Sun, 18 Feb 2007 19:01:14 -0800
-Message-ID: <20070219030114.GA13666@suse.de>
-References: <m1lkiv8npz.fsf@ebiederm.dsl.xmission.com> <20070218194641.GA9929@suse.de> <m1bqjr84fe.fsf@ebiederm.dsl.xmission.com>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: [PATCH 1/2] RTNL and flush_scheduled_work deadlocks
+Date: Mon, 19 Feb 2007 07:13:00 +0100
+Message-ID: <20070219061300.GA1640@ff.dom.local>
+References: <20070216072928.GA1599@ff.dom.local> <45D55FF0.8090309@candelatech.com> <20070216103115.517f1a4c@freekitty> <45D60022.9060701@candelatech.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org,
+	Kyle Lucke <klucke@us.ibm.com>,
+	Raghavendra Koushik <raghavendra.koushik@neterion.com>,
+	Al Viro <viro@ftp.linux.org.uk>
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.suse.de ([195.135.220.2]:50510 "EHLO mx1.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752764AbXBSDCo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 18 Feb 2007 22:02:44 -0500
+Received: from mx10.go2.pl ([193.17.41.74]:37826 "EHLO poczta.o2.pl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S932115AbXBSGJh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Feb 2007 01:09:37 -0500
 Content-Disposition: inline
-In-Reply-To: <m1bqjr84fe.fsf@ebiederm.dsl.xmission.com>
+In-Reply-To: <45D60022.9060701@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Feb 18, 2007 at 03:52:05PM -0700, Eric W. Biederman wrote:
-> Greg KH <gregkh@suse.de> writes:
+On Fri, Feb 16, 2007 at 11:04:02AM -0800, Ben Greear wrote:
+> Stephen Hemminger wrote:
+> >On Thu, 15 Feb 2007 23:40:32 -0800
+> >Ben Greear <greearb@candelatech.com> wrote:
 > 
-> > On Sun, Feb 18, 2007 at 08:55:20AM -0700, Eric W. Biederman wrote:
-> >> User space is allowed to rename network devices to anything any name
-> >> not currently taken by another network device.
-> >> 
-> >> However when I now do something like:
-> >> 
-> >> ip link set eth0 name irq
-> >> 
-> >> The rename half happens (because it is legal), but sysfs can't support
-> >> it because of the ridiculous directory eth0 is in.  After that
-> >> point things go hideously wrong.
+> >>Maybe there should be something like an ASSERT_NOT_RTNL() in the 
+> >>flush_scheduled_work()
+> >>method?  If it's performance criticial, #ifdef it out if we're not 
+> >>debugging locks?
+> >>
 > >
-> > What goes wrong?  What is not renamed properly?
+> >You can't safely add a check like that. What if another cpu had acquired
+> >RTNL and was unrelated.
 > 
-> It gets half renamed. 
+> I guess there isn't a way to see if *this* thread is the owner of the RTNL
+> currently?  I think lockdep knows the owner...maybe could query it somehow,
+> or just save the owner in the mutex object when debugging is enabled...
 
-Ick :(
+Here is my patch proposal to enable such thing
+(and to make ASSERT_RTNL simpler btw.).
 
-> > Oh, you can't rename it to something like "irq".  Well that's pretty
-> > foolish on your behalf :)
-> 
-> No it is pretty foolish on your behalf to add this extra restriction.
-> Currently this is a worse set of restrictions than DOS had with
-> it's magic character devices.
+Signed-off-by: Jarek Poplawski <jarkao2@o2.pl>
 
-Hey, don't be mean here...
+---
 
-> >> The current situation is hideous namespace pollution, and breaks user
-> >> space, and is only likely only a matter of time before we have a
-> >> reasonable instead of an strained conflict of names.
-> >
-> > Do we really have a problem here?
-> 
-> Yes.
+ include/linux/rtnetlink.h |   13 +++++++++++--
+ net/core/rtnetlink.c      |   29 ++++++++++++++++++++++++++---
+ 2 files changed, 37 insertions(+), 5 deletions(-)
 
-Actually, you are right, I fixed this problem over a year ago, and then
-introduced it recently again :(
 
-We need our own namespace for these devices, and we have it today
-already.  Look if you enable CONFIG_SYSFS_DEPRECATED, or on a pre-2.6.19
-machine at what shows up in the pci device directories:
-$ ls -l /sys/devices/pci0000:00/0000:00:1c.0/0000:02:00.0/
-total 0
-lrwxrwxrwx  1 root root     0 2007-02-18 18:56 bus -> ../../../../bus/pci
--r--r--r--  1 root root  4096 2007-02-18 18:56 class
--rw-r--r--  1 root root  4096 2007-02-18 18:56 config
--r--r--r--  1 root root  4096 2007-02-18 13:06 device
-lrwxrwxrwx  1 root root     0 2007-02-18 18:56 driver -> ../../../../bus/pci/drivers/tg3
--r--r--r--  1 root root  4096 2007-02-18 18:56 irq
--r--r--r--  1 root root  4096 2007-02-18 18:56 local_cpus
--r--r--r--  1 root root  4096 2007-02-18 18:56 modalias
-lrwxrwxrwx  1 root root     0 2007-02-18 18:56 net:eth0 -> ../../../../class/net/eth0
-drwxr-xr-x  2 root root     0 2007-02-12 08:06 power
--r--r--r--  1 root root  4096 2007-02-18 18:56 resource
--rw-------  1 root root 65536 2007-02-18 18:56 resource0
--r--r--r--  1 root root  4096 2007-02-18 13:06 subsystem_device
--r--r--r--  1 root root  4096 2007-02-18 13:06 subsystem_vendor
---w-------  1 root root  4096 2007-02-18 18:56 uevent
--r--r--r--  1 root root  4096 2007-02-18 13:06 vendor
-
-So, all we need to do is rename these devices back to the "net:eth0"
-name, and everything will be fine.  I'll work on fixing that tomorrow as
-it will take a bit of hacking on the kobject symlink function and the
-driver core code (but it gets us rid of a symlink in "compatiblity
-mode", which is always a nice win...)
-
-And thanks for your calm and reasoned statements in pointing out this
-bug, it wasn't deliberate by any means :)
-
-thanks,
-
-greg k-h
+diff -Nurp linux-2.6.20-git13-/include/linux/rtnetlink.h linux-2.6.20-git13/include/linux/rtnetlink.h
+--- linux-2.6.20-git13-/include/linux/rtnetlink.h	2007-02-04 19:44:54.000000000 +0100
++++ linux-2.6.20-git13/include/linux/rtnetlink.h	2007-02-18 22:56:36.000000000 +0100
+@@ -704,16 +704,25 @@ extern int rtnl_trylock(void);
+ 
+ extern void rtnetlink_init(void);
+ extern void __rtnl_unlock(void);
++extern int rtnl_assert(void);
+ 
+ #define ASSERT_RTNL() do { \
+-	if (unlikely(rtnl_trylock())) { \
+-		rtnl_unlock(); \
++	if (unlikely(!rtnl_assert())) { \
+ 		printk(KERN_ERR "RTNL: assertion failed at %s (%d)\n", \
+ 		       __FILE__,  __LINE__); \
+ 		dump_stack(); \
+ 	} \
+ } while(0)
+ 
++/* Current process shouldn't hold RTNL lock: */
++#define ASSERT_NOT_RTNL() do { \
++	if (unlikely(rtnl_assert())) { \
++		printk(KERN_ERR "NOT_RTNL: assertion failed at %s (%d)\n", \
++		       __FILE__,  __LINE__); \
++		dump_stack(); \
++	} \
++} while(0)
++
+ #define BUG_TRAP(x) do { \
+ 	if (unlikely(!(x))) { \
+ 		printk(KERN_ERR "KERNEL: assertion (%s) failed at %s (%d)\n", \
+diff -Nurp linux-2.6.20-git13-/net/core/rtnetlink.c linux-2.6.20-git13/net/core/rtnetlink.c
+--- linux-2.6.20-git13-/net/core/rtnetlink.c	2007-02-15 20:07:11.000000000 +0100
++++ linux-2.6.20-git13/net/core/rtnetlink.c	2007-02-18 22:50:13.000000000 +0100
+@@ -57,20 +57,33 @@
+ #endif	/* CONFIG_NET_WIRELESS_RTNETLINK */
+ 
+ static DEFINE_MUTEX(rtnl_mutex);
++static struct thread_info *rtnl_owner;
+ static struct sock *rtnl;
+ 
+ void rtnl_lock(void)
+ {
++#if !defined(CONFIG_DEBUG_MUTEXES) && !defined(CONFIG_DEBUG_SPINLOCK)
++	WARN_ON(rtnl_owner == current_thread_info());
++#endif
+ 	mutex_lock(&rtnl_mutex);
++	rtnl_owner = current_thread_info();
+ }
+ 
+ void __rtnl_unlock(void)
+ {
++#if !defined(CONFIG_DEBUG_MUTEXES) && !defined(CONFIG_DEBUG_SPINLOCK)
++	WARN_ON(rtnl_owner != current_thread_info());
++#endif
++	rtnl_owner = NULL;
+ 	mutex_unlock(&rtnl_mutex);
+ }
+ 
+ void rtnl_unlock(void)
+ {
++#if !defined(CONFIG_DEBUG_MUTEXES) && !defined(CONFIG_DEBUG_SPINLOCK)
++	WARN_ON(rtnl_owner != current_thread_info());
++#endif
++	rtnl_owner = NULL;
+ 	mutex_unlock(&rtnl_mutex);
+ 	if (rtnl && rtnl->sk_receive_queue.qlen)
+ 		rtnl->sk_data_ready(rtnl, 0);
+@@ -79,7 +92,16 @@ void rtnl_unlock(void)
+ 
+ int rtnl_trylock(void)
+ {
+-	return mutex_trylock(&rtnl_mutex);
++	int ret;
++	
++	if ((ret = mutex_trylock(&rtnl_mutex)))
++		rtnl_owner = current_thread_info();
++	return ret;
++}
++
++int rtnl_assert(void)
++{
++	return (rtnl_owner == current_thread_info());
+ }
+ 
+ int rtattr_parse(struct rtattr *tb[], int maxattr, struct rtattr *rta, int len)
+@@ -805,9 +827,9 @@ static void rtnetlink_rcv(struct sock *s
+ 	unsigned int qlen = 0;
+ 
+ 	do {
+-		mutex_lock(&rtnl_mutex);
++		rtnl_lock();
+ 		netlink_run_queue(sk, &qlen, &rtnetlink_rcv_msg);
+-		mutex_unlock(&rtnl_mutex);
++		__rtnl_unlock();
+ 
+ 		netdev_run_todo();
+ 	} while (qlen);
+@@ -893,3 +915,4 @@ EXPORT_SYMBOL(rtnl_unlock);
+ EXPORT_SYMBOL(rtnl_unicast);
+ EXPORT_SYMBOL(rtnl_notify);
+ EXPORT_SYMBOL(rtnl_set_sk_err);
++EXPORT_SYMBOL(rtnl_assert);
