@@ -1,37 +1,63 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+From: Eric Dumazet <dada1@cosmosbay.com>
 Subject: Re: Extensible hashing and RCU
-Date: Mon, 19 Feb 2007 17:04:00 +0300
-Message-ID: <20070219140400.GA21638@2ka.mipt.ru>
-References: <20070204074143.26312.qmail@science.horizon.com> <Pine.LNX.4.61.0702050952590.26852@localhost.localdomain> <20070217131302.GA22732@2ka.mipt.ru> <45D89EFE.4080103@cosmosbay.com>
+Date: Mon, 19 Feb 2007 15:14:02 +0100
+Message-ID: <200702191514.02937.dada1@cosmosbay.com>
+References: <20070204074143.26312.qmail@science.horizon.com> <200702191438.14010.dada1@cosmosbay.com> <20070219135608.GA10268@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
+Content-Type: text/plain;
+  charset="koi8-r"
+Content-Transfer-Encoding: 7bit
 Cc: akepner@sgi.com, linux@horizon.com, davem@davemloft.net,
-	netdev@vger.kernel.org, bcrl@linux.intel.com
-To: Eric Dumazet <dada1@cosmosbay.com>
+	netdev@vger.kernel.org, bcrl@kvack.org
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:51066 "EHLO 2ka.mipt.ru"
+Received: from pfx2.jmh.fr ([194.153.89.55]:55222 "EHLO pfx2.jmh.fr"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932262AbXBSOE4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 19 Feb 2007 09:04:56 -0500
+	id S932273AbXBSOOM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Feb 2007 09:14:12 -0500
+In-Reply-To: <20070219135608.GA10268@2ka.mipt.ru>
 Content-Disposition: inline
-In-Reply-To: <45D89EFE.4080103@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Actually for socket code any other binary tree will work perfectly ok -
-socket code does not have wildcards (except listening sockets), so it is
-possible to combine all values into one search key used in flat
-one-dimensional tree - it scales as hell and allows still very high
-lookup time.
+On Monday 19 February 2007 14:56, Evgeniy Polyakov wrote:
+> On Mon, Feb 19, 2007 at 02:38:13PM +0100, Eric Dumazet (dada1@cosmosbay.com) 
+wrote:
+> > On Monday 19 February 2007 12:41, Evgeniy Polyakov wrote:
+> > > > 1 microsecond ? Are you kidding ? We want no more than 50 ns.
+> > >
+> > > Theory again.
+> >
+> > Theory is nice, but I personally prefer oprofile :)
+> > I base my comments on real facts.
+> > We *want* 50 ns tcp lookups (2 cache line misses, one with reader intent,
+> > one for exclusive access intent)
+>
+> I said that your words are theory in previous mails :)
+>
+> Current code works 10 times worse than you expect.
+>
+> > > Existing table does not scale that good - I created (1<<20)/2 (to cover
+> > > only established part) entries table and filled it with 1 million of
+> > > random entries -search time is about half of microsecod.
+> >
+> > I use exactly 1^20 slots, not 1^19 (see commit
+> > dbca9b2750e3b1ee6f56a616160ccfc12e8b161f , where I changed layout of
+> > ehash table so that two chains (established/timewait) are on the same
+> > cache line. every cache miss *counts*)
+>
+> Forget about cache misses and cache lines - we have a hash table, only
+> part of which is used (part for time-wait sockets, part for established
+> ones).
 
-As of cache usage - such trees can be combined with different protocols
-to increase cache locality.
+No you didnt not read my mail. Current ehash is not as decribed by you.
 
-The only reason I implemented trie is that netchannels support
-wildcards, that is how netfilter is implemented on top of them.
+>
+> Anyway, even with 2^20 (i.e. when the whole table is only used for
+> established sockets) search time is about 360-370 nsec on 3.7 GHz Core
+> Duo (only one CPU is used) with 2 GB of ram.
 
-Tree with lazy deletion (i.e. without deletion at all) can be moved to 
-RCU very easily.
+Your tests are user land, so unfortunatly are biased...
 
--- 
-	Evgeniy Polyakov
+(Unless you use hugetlb data ?)
+
