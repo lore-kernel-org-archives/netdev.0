@@ -1,50 +1,34 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH 3/4] 8139too: RTNL and flush_scheduled_work deadlock
-Date: Mon, 19 Feb 2007 22:08:29 +0100
-Message-ID: <20070219210829.GA13522@electric-eye.fr.zoreil.com>
-References: <20070215223744.GC19840@electric-eye.fr.zoreil.com> <20070216075936.GB1599@ff.dom.local> <20070216202034.GA10353@electric-eye.fr.zoreil.com> <20070219120500.GB2190@ff.dom.local>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: Extensible hashing and RCU
+Date: 19 Feb 2007 23:10:09 +0100
+Message-ID: <p73mz39er3y.fsf@bingen.suse.de>
+References: <20070204074143.26312.qmail@science.horizon.com>
+	<45D8B54A.70903@cosmosbay.com> <20070219114117.GA22622@2ka.mipt.ru>
+	<200702191438.14010.dada1@cosmosbay.com>
+	<20070219135608.GA10268@2ka.mipt.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@o2.pl>
+Cc: Eric Dumazet <dada1@cosmosbay.com>, akepner@sgi.com,
+	linux@horizon.com, davem@davemloft.net, netdev@vger.kernel.org,
+	bcrl@kvack.org
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:58471 "EHLO
-	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932687AbXBSVKD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 19 Feb 2007 16:10:03 -0500
-Content-Disposition: inline
-In-Reply-To: <20070219120500.GB2190@ff.dom.local>
+Received: from cantor2.suse.de ([195.135.220.15]:35845 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932688AbXBSVKY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Feb 2007 16:10:24 -0500
+In-Reply-To: <20070219135608.GA10268@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Cc: list trimmed.
-
-Jarek Poplawski <jarkao2@o2.pl> :
-> On Fri, Feb 16, 2007 at 09:20:34PM +0100, Francois Romieu wrote:
-[...]
-> > Btw, the thread runs every 3*HZ at most.
+Evgeniy Polyakov <johnpol@2ka.mipt.ru> writes:
 > 
-> You are right (mostly)! But I think rtnl_lock is special
-> and should be spared (even this 3*HZ) and here it's used
-> for some mainly internal purpose (close synchronization).
-> And it looks like mainly for this internal reason holding
-> of rtnl_lock is increased. And because rtnl_lock is quite
-> popular you have to take into consideration that after
-> this 3*HZ it could spend some time waiting for the lock.
-> So, maybe it would be nicer to check this netif_running
-> twice (after rtnl_lock where needed), but maybe it's a
-> mater of taste only, and yours is better, as well.
+> My experiment shows almost 400 nsecs without _any_ locks - they are
+> removed completely - it is pure hash selection/list traverse time.
 
-The region protected by RTNL has been widened to include a tx_timeout
-handler. It is supposed to handle an occasional error, something that
-should not even happen at 3*HZ. Optimizing it is useless, especially
-on an high-end performer like the 8139.
+Are you sure you're not measuring TLB misses too? In user space
+you likely use 4K pages. The kernel would use 2MB pages.
+I would suggest putting the tables into hugetlbfs allocated memory
+in your test program.
 
-> (Btw. I didn't verify this, but I hope you checked that
-> places not under rtnl_lock before the patch are safe from
-> some locking problems now.)
-
-I did. It is not a reason to trust the patch though.
-
--- 
-Ueimor
+-Andei
