@@ -1,56 +1,60 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: [Bug 8013] New: select for write hangs on a socket after write returned ECONNRESET
-Date: Mon, 19 Feb 2007 15:19:14 +0100
-Message-ID: <20070219141914.GD2190@ff.dom.local>
-References: <20070217162533.GA22369@2ka.mipt.ru>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: Extensible hashing and RCU
+Date: Mon, 19 Feb 2007 17:25:05 +0300
+Message-ID: <20070219142504.GA5626@2ka.mipt.ru>
+References: <20070204074143.26312.qmail@science.horizon.com> <200702191438.14010.dada1@cosmosbay.com> <20070219135608.GA10268@2ka.mipt.ru> <200702191514.02937.dada1@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	netdev@vger.kernel.org
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Content-Type: text/plain; charset=koi8-r
+Cc: akepner@sgi.com, linux@horizon.com, davem@davemloft.net,
+	netdev@vger.kernel.org, bcrl@kvack.org
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from poczta.o2.pl ([193.17.41.142]:44589 "EHLO poczta.o2.pl"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932276AbXBSOPw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 19 Feb 2007 09:15:52 -0500
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:53696 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932281AbXBSO0I (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Feb 2007 09:26:08 -0500
 Content-Disposition: inline
-In-Reply-To: <20070217162533.GA22369@2ka.mipt.ru>
+In-Reply-To: <200702191514.02937.dada1@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 17-02-2007 17:25, Evgeniy Polyakov wrote:
-> On Fri, Feb 16, 2007 at 09:34:27PM +0300, Evgeniy Polyakov (johnpol@2ka.mipt.ru) wrote:
->> Otherwise we can extend select output mask to include hungup too
->> (getting into account that hungup is actually output event).
+On Mon, Feb 19, 2007 at 03:14:02PM +0100, Eric Dumazet (dada1@cosmosbay.com) wrote:
+> > Forget about cache misses and cache lines - we have a hash table, only
+> > part of which is used (part for time-wait sockets, part for established
+> > ones).
 > 
-> This is another possible way to fix select after write after connection
-> reset.
+> No you didnt not read my mail. Current ehash is not as decribed by you.
 
-I hope you know what you are doing and that this will
-change functionality for some users.
+I did.
+And I also said that my tests do not have timewait sockets at all - I
+removed sk_for_each and so on, which should effectively increase lookup 
+time twice on busy system with lots of created/removed sockets per
+timeframe (that is theory from my side already).
+Anyway, I ran the same test with increased table too.
 
-In my opinion it looks like a problem with interpretation
-and not a bug. From tcp.c:
+> > Anyway, even with 2^20 (i.e. when the whole table is only used for
+> > established sockets) search time is about 360-370 nsec on 3.7 GHz Core
+> > Duo (only one CPU is used) with 2 GB of ram.
+> 
+> Your tests are user land, so unfortunatly are biased...
+> 
+> (Unless you use hugetlb data ?)
 
-"
-       * Some poll() documentation says that POLLHUP is incompatible
-       * with the POLLOUT/POLLWR flags, so somebody should check this
-       * all. But careful, it tends to be safer to return too many
-       * bits than too few, and you can easily break real applications
-       * if you don't tell them that something has hung up!
-...
-       * Actually, it is interesting to look how Solaris and DUX
-       * solve this dilemma. I would prefer, if PULLHUP were maskable,
-       * then we could set it on SND_SHUTDOWN. BTW examples given
-       * in Stevens' books assume exactly this behaviour, it explains
-       * why PULLHUP is incompatible with POLLOUT.    --ANK
-       *
-       * NOTE. Check for TCP_CLOSE is added. The goal is to prevent
-       * blocking on fresh not-connected or disconnected socket. --ANK
-       */"
+No I do not. But the same can be applied to trie test - it is also
+performed in userspace and thus suffers from possible swapping/cache
+flushing and so on.
 
-So it seems ANK hesitated and somebody choose not to do
-this - maybe for some reason... 
+And I doubt moving test into kernel will suddenly end up with 10 times 
+increased rates.
 
-Regards,
-Jarek P.
+Anyway, trie test (broken implementation) is two times slower than hash
+table (resized already), and it does not include locking isses of the
+hash table access and further scalability issues.
+
+I think I need to fix my trie implementation to fully show its
+potential, but original question was why tree/trie based implementation
+is not considered at all although it promises better performance and
+scalability.
+
+-- 
+	Evgeniy Polyakov
