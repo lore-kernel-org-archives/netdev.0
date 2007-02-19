@@ -1,48 +1,50 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: Converting network devices from class devices causes namespace pollution
-Date: Mon, 19 Feb 2007 01:19:59 -0700
-Message-ID: <m1y7mu7e4w.fsf@ebiederm.dsl.xmission.com>
-References: <m1lkiv8npz.fsf@ebiederm.dsl.xmission.com>
-	<20070218194641.GA9929@suse.de>
-	<m1bqjr84fe.fsf@ebiederm.dsl.xmission.com>
-	<20070219030114.GA13666@suse.de>
+From: "Angelo P. Castellani" <angelo.castellani@gmail.com>
+Subject: [PATCH 2/2][TCP] YeAH-TCP: limited slow start exported function
+Date: Mon, 19 Feb 2007 11:35:09 +0100
+Message-ID: <45D97D5D.9040101@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Greg KH <gregkh@suse.de>
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Andrea Baiocchi <andrea.baiocchi@uniroma1.it>,
+	Francesco Vacirca <francesco@net.infocom.uniroma1.it>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:56199 "EHLO
-	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750760AbXBSIUU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Feb 2007 03:20:20 -0500
-In-Reply-To: <20070219030114.GA13666@suse.de> (Greg KH's message of "Sun, 18
-	Feb 2007 19:01:14 -0800")
+Received: from nf-out-0910.google.com ([64.233.182.187]:31607 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750879AbXBSKfO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Feb 2007 05:35:14 -0500
+Received: by nf-out-0910.google.com with SMTP id o25so2385117nfa
+        for <netdev@vger.kernel.org>; Mon, 19 Feb 2007 02:35:13 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Greg KH <gregkh@suse.de> writes:
+From: Angelo P. Castellani <angelo.castellani@gmail.con>
 
-> We need our own namespace for these devices, and we have it today
-> already.  Look if you enable CONFIG_SYSFS_DEPRECATED, or on a pre-2.6.19
-> machine at what shows up in the pci device directories:
-> -r--r--r--  1 root root  4096 2007-02-18 13:06 vendor
+RFC3742: limited slow start
 
-Interesting.  I hadn't noticed that before.
+See http://www.ietf.org/rfc/rfc3742.txt
 
-> So, all we need to do is rename these devices back to the "net:eth0"
-> name, and everything will be fine.  I'll work on fixing that tomorrow as
-> it will take a bit of hacking on the kobject symlink function and the
-> driver core code (but it gets us rid of a symlink in "compatiblity
-> mode", which is always a nice win...)
+Signed-off-by: Angelo P. Castellani <angelo.castellani@gmail.con>
+---
 
-Ok.  I'm groaning a little bit at what a nuisance this is going to be
-to get support for multiple network namespaces in there after your fix
-goes in, directories can be easier to deal with.  But once you figure this
-part out I will figure something out.
+To allow code reutilization I've added the limited slow start procedure 
+as an exported symbol of linux tcp congestion control.
 
-For me the nasty case is 1 pci device that has multiple ethernet devices
-coming from it (I think IB devices have this property today), each
-showing up in a different network namespace, so they might all have
-the same name. Ugh.
+On large BDP networks canonical slow start should be avoided because it 
+requires large packet losses to converge, whereas at lower BDPs slow 
+start and limited slow start are identical. Large BDP is defined through 
+the max_ssthresh variable.
 
-Eric
+I think limited slow start could safely replace the canonical slow start 
+procedure in Linux.
+
+Regards,
+Angelo P. Castellani
+
+p.s.: in the attached patch is added an exported function currently used 
+only by YeAH TCP
+
+ include/net/tcp.h   |    1 +
+ net/ipv4/tcp_cong.c |   23 +++++++++++++++++++++++
+ 2 files changed, 24 insertions(+)
+
