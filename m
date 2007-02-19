@@ -1,138 +1,100 @@
 From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: [PATCH 4/18] [TCP] FRTO: Comment cleanup & improvement
-Date: Mon, 19 Feb 2007 13:37:58 +0200
-Message-ID: <11718850921817-git-send-email-ilpo.jarvinen@helsinki.fi>
-References: <11718850923446-git-send-email-ilpo.jarvinen@helsinki.fi> <1171885092563-git-send-email-ilpo.jarvinen@helsinki.fi> <11718850921459-git-send-email-ilpo.jarvinen@helsinki.fi> <11718850923208-git-send-email-ilpo.jarvinen@helsinki.fi>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Subject: [PATCHSET 0/18] FRTO: fixes and small changes + SACK enhanced version
+Date: Mon, 19 Feb 2007 13:37:54 +0200
+Message-ID: <11718850923446-git-send-email-ilpo.jarvinen@helsinki.fi>
 Cc: David Miller <davem@davemloft.net>,
 	Pasi Sarolahti <pasi.sarolahti@nokia.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:50238 "EHLO
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:46068 "EHLO
 	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932124AbXBSLiP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Feb 2007 06:38:15 -0500
-In-Reply-To: <11718850923208-git-send-email-ilpo.jarvinen@helsinki.fi>
+	with ESMTP id S932120AbXBSLiO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Feb 2007 06:38:14 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Moved comments out from the body of process_frto() to the head
-(preferred way; see Documentation/CodingStyle). Bonus: it's much
-easier to read in this compacted form.
+Hi,
 
-=46RTO algorithm and implementation is described in greater detail.
-=46or interested reader, more information is available in RFC4138.
+Here is a set of patches that fix most of the flaws the current FRTO
+implementation (specified in RFC4138) has, besides that, the last two
+patches add SACK-enhanced FRTO (not enabled unless frto sysctl is set
+to 2, which allows using of the basic version also with SACK). There
+are some depencies to the earlier patches in the set (hard to list
+all thoughts I've had, but not all combinations are not good ones
+even if they apply cleanly).
 
-Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
----
- net/ipv4/tcp_input.c |   49 ++++++++++++++++++++++++++++++++----------=
--------
- 1 files changed, 32 insertions(+), 17 deletions(-)
+ Documentation/networking/ip-sysctl.txt |    5 -
+ include/net/tcp.h                      |   14 --
+ net/ipv4/tcp_input.c                   |  265 ++++++++++++++++++++++++++------
+ 3 files changed, 221 insertions(+), 63 deletions(-)
 
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 294cb44..f645c3e 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -1236,22 +1236,22 @@ #endif
- 	return flag;
- }
-=20
-+/* F-RTO can only be used if these conditions are satisfied:
-+ *  - there must be some unsent new data
-+ *  - the advertised window should allow sending it
-+ */
- int tcp_use_frto(const struct sock *sk)
- {
- 	const struct tcp_sock *tp =3D tcp_sk(sk);
- =09
--	/* F-RTO must be activated in sysctl and there must be some
--	 * unsent new data, and the advertised window should allow
--	 * sending it.
--	 */
- 	return (sysctl_tcp_frto && sk->sk_send_head &&
- 		!after(TCP_SKB_CB(sk->sk_send_head)->end_seq,
- 		       tp->snd_una + tp->snd_wnd));
- }
-=20
--/* RTO occurred, but do not yet enter loss state. Instead, transmit tw=
-o new
-- * segments to see from the next ACKs whether any data was really miss=
-ing.
-- * If the RTO was spurious, new ACKs should arrive.
-+/* RTO occurred, but do not yet enter Loss state. Instead, defer RTO
-+ * recovery a bit and use heuristics in tcp_process_frto() to detect i=
-f
-+ * the RTO was spurious.
-  */
- void tcp_enter_frto(struct sock *sk)
- {
-@@ -2489,6 +2489,30 @@ static void tcp_conservative_spur_to_res
- 	tcp_moderate_cwnd(tp);
- }
-=20
-+/* F-RTO spurious RTO detection algorithm (RFC4138)
-+ *
-+ * F-RTO affects during two new ACKs following RTO. State (ACK number)=
- is kept
-+ * in frto_counter. When ACK advances window (but not to or beyond hig=
-hest
-+ * sequence sent before RTO):
-+ *   On First ACK,  send two new segments out.
-+ *   On Second ACK, RTO was likely spurious. Do spurious response (res=
-ponse
-+ *                  algorithm is not part of the F-RTO detection algor=
-ithm
-+ *                  given in RFC4138 but can be selected separately).
-+ * Otherwise (basically on duplicate ACK), RTO was (likely) caused by =
-a loss
-+ * and TCP falls back to conventional RTO recovery.
-+ *
-+ * Rationale: if the RTO was spurious, new ACKs should arrive from the
-+ * original window even after we transmit two new data segments.
-+ *
-+ * F-RTO is implemented (mainly) in four functions:
-+ *   - tcp_use_frto() is used to determine if TCP is can use F-RTO
-+ *   - tcp_enter_frto() prepares TCP state on RTO if F-RTO is used, it=
- is
-+ *     called when tcp_use_frto() showed green light
-+ *   - tcp_process_frto() handles incoming ACKs during F-RTO algorithm
-+ *   - tcp_enter_frto_loss() is called if there is not enough evidence
-+ *     to prove that the RTO is indeed spurious. It transfers the cont=
-rol
-+ *     from F-RTO to the conventional RTO recovery
-+ */
- static void tcp_process_frto(struct sock *sk, u32 prior_snd_una)
- {
- 	struct tcp_sock *tp =3D tcp_sk(sk);
-@@ -2497,25 +2521,16 @@ static void tcp_process_frto(struct sock
-=20
- 	if (tp->snd_una =3D=3D prior_snd_una ||
- 	    !before(tp->snd_una, tp->frto_highmark)) {
--		/* RTO was caused by loss, start retransmitting in
--		 * go-back-N slow start
--		 */
- 		tcp_enter_frto_loss(sk);
- 		return;
- 	}
-=20
- 	if (tp->frto_counter =3D=3D 1) {
--		/* First ACK after RTO advances the window: allow two new
--		 * segments out.
--		 */
- 		tp->snd_cwnd =3D tcp_packets_in_flight(tp) + 2;
--	} else {
-+	} else /* frto_counter =3D=3D 2 */ {
- 		tcp_conservative_spur_to_response(tp);
- 	}
-=20
--	/* F-RTO affects on two new ACKs following RTO.
--	 * At latest on third ACK the TCP behavior is back to normal.
--	 */
- 	tp->frto_counter =3D (tp->frto_counter + 1) % 3;
- }
-=20
---=20
-1.4.2
+(At least) one interpretation issue exists, see patch "FRTO: Entry is
+allowed only during (New)Reno like recovery".
+
+Besides that, these things should/could be solved (later on):
+	- Setting undo_marker when RTO is not spurious (FRTO has been
+	  clearing it, which disabled DSACK undos for conventional
+	  recovery).
+	- Interaction with Eifel
+	- Different response (new sysctl to select them?)
+	- When cumulative ACK arrives to the frto_highseq during FRTO,
+	  it could be useful to go directly to CA_Open because then
+	  duplicate ACKs for that segment could then be used initiate
+	  recovery if it was lost. Most of the time, the duplicate ACKs
+	  won't be false ones (we might have made too many unnecessary
+	  retransmission but that's less likely with FRTO and it could
+	  be consider while making state decision).
+	- Maybe the frto_highmark should be reset somewhere during a
+	  connection due to wrapping of seqnos (reord adjustment relies
+	  on it having a valid after relation...)?
+	- tcp_use_frto and tcp_enter_loss now both scan skb list from
+	  the beginning, it might be possible to take advantage of this
+	  either by combining them or by passing skb from use_frto
+	  iteration to tcp_enter_loss.
+
+I did some tests with FACK + SACK FRTO, results seemed to be correct but
+the conservative response had really poor performance. I'm more familiar
+with more aggressive response time-seq graphs and I was really wondering
+does this thing really work at all (in couple of cases), but yes, I found
+after tracing that it worked although the results was not a very good
+looking one due to interaction with rate halving, maybe a "rate-halving
+aware" response could do much better (or alternatively one that does more
+aggressive undo).
+
+# Test 1: normal TCP
+# Test 2: spurious RTO
+# Test 3: drop the segment
+# Test 4: drop a delayed segment
+# Test 5: drop the next segment
+# Test 6: drop in window segment
+# Test 7: drop the segment and the next segment
+# Test 8: drop the segment and in window segment
+# Test 9: delay the first and next (spurious RTOs, for different segments)
+# Test 10: delay the first excessively (two spurious RTOs)
+# Test n+1: drop rexmission
+# Test n+2: delay rexmission (spurious RTO also after frto_highmark)
+# Test n+3: delay rexmission (spurious RTO also after highmark), drop RTO seg
+# Test n+4: drop the segment and rexmit
+# Test n+5: drop the segment and first new data
+# Test n+6: drop the segment and second new data
+
+The tests were run in 2.6.18, I have quite a lot of own modifications
+included in but they were disable using sysctls except for a change in
+mark_head_lost: if condition from !TAGBITS -> !(TAGBITS & ~SACKED_RETRANS)
+but afaict, it shouldn't affect, and if it does, it should be included
+(if you received this mail from previous send attempt, I claimed by a
+mistakenly that SACKED_ACKED was the bit that was excluded and had
+incorrect parenthesized it here). I couldn't come up with a scenario in
+mainline only code where SACKED_RETRANS would be set for a skb when LOST
+has not been set, except for the head by FRTO itself which will not be a
+problem. I have checked that the FRTO parts used in tests were identical
+to the result of this patchset. Compile tested againts the net-2.6 (also
+intermediate steps).
+
+
+-- 
+ i.
+
+ps. I'm sorry if you receive these twice, the previous attempted had some
+charset problems and was rejected at least by netdev.
 
