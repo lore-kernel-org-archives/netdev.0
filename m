@@ -1,154 +1,257 @@
-From: Mark Brown <broonie@sirena.org.uk>
-Subject: [patch 1/2] natsemi: Add support for using MII port with no PHY
-Date: Mon, 19 Feb 2007 20:15:39 +0000
-Message-ID: <20070219201858.688614000@sirena.org.uk>
-References: <20070219201538.420238000@sirena.org.uk>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	akpm@linux-foundation.org
-To: Tim Hockin <thockin@hockin.org>, Jeff Garzik <jgarzik@pobox.com>
+From: John Heffner <jheffner@psc.edu>
+Subject: Re: [PATCH 2/2][TCP] YeAH-TCP: limited slow start exported function
+Date: Mon, 19 Feb 2007 16:00:06 -0500
+Message-ID: <45DA0FD6.9020404@psc.edu>
+References: <45D97D5D.9040101@gmail.com> <45D97DC9.1030305@gmail.com>
+Mime-Version: 1.0
+Content-Type: multipart/mixed;
+ boundary="------------020109030701070801070801"
+Cc: netdev@vger.kernel.org,
+	Andrea Baiocchi <andrea.baiocchi@uniroma1.it>,
+	Francesco Vacirca <francesco@net.infocom.uniroma1.it>,
+	David Miller <davem@davemloft.net>
+To: "Angelo P. Castellani" <angelo.castellani@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cassiel.sirena.org.uk ([80.68.93.111]:1561 "EHLO
-	cassiel.sirena.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932621AbXBSUX3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Feb 2007 15:23:29 -0500
-Content-Disposition: inline; filename=natsemi-ignore-phy.patch
+Received: from mailer2.psc.edu ([128.182.66.106]:62951 "EHLO mailer2.psc.edu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932659AbXBSVAT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Feb 2007 16:00:19 -0500
+In-Reply-To: <45D97DC9.1030305@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch provides code paths which allow the natsemi driver to use the
-external MII port on the chip but ignore any PHYs that may be attached to it.
-The link state will be left as it was when the driver started and can be
-configured via ethtool.  Any PHYs that are present can be accessed via the MII
-ioctl()s.
+This is a multi-part message in MIME format.
+--------------020109030701070801070801
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-This is useful for systems where the device is connected without a PHY
-or where either information or actions outside the scope of the driver
-are required in order to use the PHYs.
+I'd prefer to make it apply automatically across all congestion controls 
+that do slow-start, and also make the max_ssthresh parameter 
+controllable via sysctl.  This patch (attached) should implement this. 
+Note the default value for sysctl_tcp_max_ssthresh = 0, which disables 
+limited slow-start.  This should make ABC apply during LSS as well.
 
-Signed-Off-By: Mark Brown <broonie@sirena.org.uk>
+Note the patch is compile-tested only!  I can do some real testing if 
+you'd like to apply this Dave.
+
+Thanks,
+   -John
+
+
+Angelo P. Castellani wrote:
+> Forgot the patch..
+> 
+> Angelo P. Castellani ha scritto:
+>> From: Angelo P. Castellani <angelo.castellani@gmail.con>
+>>
+>> RFC3742: limited slow start
+>>
+>> See http://www.ietf.org/rfc/rfc3742.txt
+>>
+>> Signed-off-by: Angelo P. Castellani <angelo.castellani@gmail.con>
+>> ---
+>>
+>> To allow code reutilization I've added the limited slow start 
+>> procedure as an exported symbol of linux tcp congestion control.
+>>
+>> On large BDP networks canonical slow start should be avoided because 
+>> it requires large packet losses to converge, whereas at lower BDPs 
+>> slow start and limited slow start are identical. Large BDP is defined 
+>> through the max_ssthresh variable.
+>>
+>> I think limited slow start could safely replace the canonical slow 
+>> start procedure in Linux.
+>>
+>> Regards,
+>> Angelo P. Castellani
+>>
+>> p.s.: in the attached patch is added an exported function currently 
+>> used only by YeAH TCP
+>>
+>> include/net/tcp.h   |    1 +
+>> net/ipv4/tcp_cong.c |   23 +++++++++++++++++++++++
+>> 2 files changed, 24 insertions(+)
+>>
+>>
+> 
+> 
+> ------------------------------------------------------------------------
+> 
+> diff -uprN linux-2.6.20-a/include/net/tcp.h linux-2.6.20-c/include/net/tcp.h
+> --- linux-2.6.20-a/include/net/tcp.h	2007-02-04 19:44:54.000000000 +0100
+> +++ linux-2.6.20-c/include/net/tcp.h	2007-02-19 10:54:10.000000000 +0100
+> @@ -669,6 +669,7 @@ extern void tcp_get_allowed_congestion_c
+>  extern int tcp_set_allowed_congestion_control(char *allowed);
+>  extern int tcp_set_congestion_control(struct sock *sk, const char *name);
+>  extern void tcp_slow_start(struct tcp_sock *tp);
+> +extern void tcp_limited_slow_start(struct tcp_sock *tp);
+>  
+>  extern struct tcp_congestion_ops tcp_init_congestion_ops;
+>  extern u32 tcp_reno_ssthresh(struct sock *sk);
+> diff -uprN linux-2.6.20-a/net/ipv4/tcp_cong.c linux-2.6.20-c/net/ipv4/tcp_cong.c
+> --- linux-2.6.20-a/net/ipv4/tcp_cong.c	2007-02-04 19:44:54.000000000 +0100
+> +++ linux-2.6.20-c/net/ipv4/tcp_cong.c	2007-02-19 10:54:10.000000000 +0100
+> @@ -297,6 +297,29 @@ void tcp_slow_start(struct tcp_sock *tp)
+>  }
+>  EXPORT_SYMBOL_GPL(tcp_slow_start);
+>  
+> +void tcp_limited_slow_start(struct tcp_sock *tp)
+> +{
+> +	/* RFC3742: limited slow start
+> +	 * the window is increased by 1/K MSS for each arriving ACK,
+> +	 * for K = int(cwnd/(0.5 max_ssthresh))
+> +	 */
+> +
+> +	const int max_ssthresh = 100;
+> +
+> +	if (max_ssthresh > 0 && tp->snd_cwnd > max_ssthresh) {
+> +		u32 k = max(tp->snd_cwnd / (max_ssthresh >> 1), 1U);
+> +		if (++tp->snd_cwnd_cnt >= k) {
+> +			if (tp->snd_cwnd < tp->snd_cwnd_clamp)
+> +				tp->snd_cwnd++;
+> +			tp->snd_cwnd_cnt = 0;
+> +		}
+> +	} else {
+> +		if (tp->snd_cwnd < tp->snd_cwnd_clamp)
+> +			tp->snd_cwnd++;
+> +	}
+> +}
+> +EXPORT_SYMBOL_GPL(tcp_limited_slow_start);
+> +
+>  /*
+>   * TCP Reno congestion control
+>   * This is special case used for fallback as well.
+
+
+--------------020109030701070801070801
+Content-Type: text/plain; x-mac-type="0"; x-mac-creator="0";
+ name="lss.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="lss.patch"
+
+Add RFC3742 Limited Slow-Start, controlled by variable sysctl_tcp_max_ssthresh.
+
+Signed-off-by: John Heffner <jheffner@psc.edu>
 
 ---
+commit 97033fa201705e6cfc68ce66f34ede3277c3d645
+tree 5df4607728abce93aa05b31015a90f2ce369abff
+parent 8a03d9a498eaf02c8a118752050a5154852c13bf
+author John Heffner <jheffner@psc.edu> Mon, 19 Feb 2007 15:52:16 -0500
+committer John Heffner <jheffner@psc.edu> Mon, 19 Feb 2007 15:52:16 -0500
 
-This revision of the patch fixes some issues brought up during review.
+ include/linux/sysctl.h     |    1 +
+ include/net/tcp.h          |    1 +
+ net/ipv4/sysctl_net_ipv4.c |    8 ++++++++
+ net/ipv4/tcp_cong.c        |   33 +++++++++++++++++++++++----------
+ 4 files changed, 33 insertions(+), 10 deletions(-)
 
-Previous versions of this patch exposed the new functionality as a module
-option.  This has been removed.  Any hardware that needs this should be
-identifiable by a quirk since it unlikely to behave correctly with an
-unmodified driver.
-
-Index: linux/drivers/net/natsemi.c
-===================================================================
---- linux.orig/drivers/net/natsemi.c	2007-02-19 10:10:40.000000000 +0000
-+++ linux/drivers/net/natsemi.c	2007-02-19 10:20:45.000000000 +0000
-@@ -568,6 +568,8 @@
- 	u32 intr_status;
- 	/* Do not touch the nic registers */
- 	int hands_off;
-+	/* Don't pay attention to the reported link state. */
-+	int ignore_phy;
- 	/* external phy that is used: only valid if dev->if_port != PORT_TP */
- 	int mii;
- 	int phy_addr_external;
-@@ -696,7 +698,10 @@
- 	struct netdev_private *np = netdev_priv(dev);
- 	u32 tmp;
+diff --git a/include/linux/sysctl.h b/include/linux/sysctl.h
+index 2c5fb38..a2dce72 100644
+--- a/include/linux/sysctl.h
++++ b/include/linux/sysctl.h
+@@ -438,6 +438,7 @@ enum
+ 	NET_CIPSOV4_RBM_STRICTVALID=121,
+ 	NET_TCP_AVAIL_CONG_CONTROL=122,
+ 	NET_TCP_ALLOWED_CONG_CONTROL=123,
++	NET_TCP_MAX_SSTHRESH=124,
+ };
  
--	netif_carrier_off(dev);
-+	if (np->ignore_phy)
-+		netif_carrier_on(dev);
-+	else
-+		netif_carrier_off(dev);
+ enum {
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 5c472f2..521da28 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -230,6 +230,7 @@ extern int sysctl_tcp_mtu_probing;
+ extern int sysctl_tcp_base_mss;
+ extern int sysctl_tcp_workaround_signed_windows;
+ extern int sysctl_tcp_slow_start_after_idle;
++extern int sysctl_tcp_max_ssthresh;
  
- 	/* get the initial settings from hardware */
- 	tmp            = mdio_read(dev, MII_BMCR);
-@@ -806,8 +811,10 @@
- 	np->hands_off = 0;
- 	np->intr_status = 0;
- 	np->eeprom_size = natsemi_pci_info[chip_idx].eeprom_size;
-+	np->ignore_phy = 0;
+ extern atomic_t tcp_memory_allocated;
+ extern atomic_t tcp_sockets_allocated;
+diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
+index 0aa3047..d68effe 100644
+--- a/net/ipv4/sysctl_net_ipv4.c
++++ b/net/ipv4/sysctl_net_ipv4.c
+@@ -803,6 +803,14 @@ #endif /* CONFIG_NETLABEL */
+ 		.proc_handler   = &proc_allowed_congestion_control,
+ 		.strategy	= &strategy_allowed_congestion_control,
+ 	},
++	{
++		.ctl_name	= NET_TCP_MAX_SSTHRESH,
++		.procname	= "tcp_max_ssthresh",
++		.data		= &sysctl_tcp_max_ssthresh,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= &proc_dointvec,
++	},
+ 	{ .ctl_name = 0 }
+ };
  
- 	/* Initial port:
-+	 * - If configured to ignore the PHY set up for external.
- 	 * - If the nic was configured to use an external phy and if find_mii
- 	 *   finds a phy: use external port, first phy that replies.
- 	 * - Otherwise: internal port.
-@@ -815,7 +822,7 @@
- 	 * The address would be used to access a phy over the mii bus, but
- 	 * the internal phy is accessed through mapped registers.
- 	 */
--	if (readl(ioaddr + ChipConfig) & CfgExtPhy)
-+	if (np->ignore_phy || readl(ioaddr + ChipConfig) & CfgExtPhy)
- 		dev->if_port = PORT_MII;
- 	else
- 		dev->if_port = PORT_TP;
-@@ -825,7 +832,9 @@
+diff --git a/net/ipv4/tcp_cong.c b/net/ipv4/tcp_cong.c
+index c1b34f1..7fd2910 100644
+--- a/net/ipv4/tcp_cong.c
++++ b/net/ipv4/tcp_cong.c
+@@ -12,6 +12,8 @@ #include <linux/types.h>
+ #include <linux/list.h>
+ #include <net/tcp.h>
  
- 	if (dev->if_port != PORT_TP) {
- 		np->phy_addr_external = find_mii(dev);
--		if (np->phy_addr_external == PHY_ADDR_NONE) {
-+		/* If we're ignoring the PHY it doesn't matter if we can't
-+		 * find one. */
-+		if (!np->ignore_phy && np->phy_addr_external == PHY_ADDR_NONE) {
- 			dev->if_port = PORT_TP;
- 			np->phy_addr_external = PHY_ADDR_INTERNAL;
- 		}
-@@ -891,6 +900,8 @@
- 		printk("%02x, IRQ %d", dev->dev_addr[i], irq);
- 		if (dev->if_port == PORT_TP)
- 			printk(", port TP.\n");
-+		else if (np->ignore_phy)
-+			printk(", port MII, ignoring PHY\n");
- 		else
- 			printk(", port MII, phy ad %d.\n", np->phy_addr_external);
- 	}
-@@ -1571,9 +1582,13 @@
++int sysctl_tcp_max_ssthresh = 0;
++
+ static DEFINE_SPINLOCK(tcp_cong_list_lock);
+ static LIST_HEAD(tcp_cong_list);
+ 
+@@ -271,10 +273,13 @@ #endif
+ 
+ 
+ /*
+- * Linear increase during slow start
++ * Slow start (exponential increase) with
++ * RFC3742 Limited Slow Start (fast linear increase) support.
+  */
+ void tcp_slow_start(struct tcp_sock *tp)
  {
- 	struct netdev_private *np = netdev_priv(dev);
- 	void __iomem * ioaddr = ns_ioaddr(dev);
--	int duplex;
-+	int duplex = np->duplex;
- 	u16 bmsr;
- 
-+	/* If we are ignoring the PHY then don't try reading it. */
-+	if (np->ignore_phy)
-+		goto propagate_state;
-+
- 	/* The link status field is latched: it remains low after a temporary
- 	 * link failure until it's read. We need the current link status,
- 	 * thus read twice.
-@@ -1585,7 +1600,7 @@
- 		if (netif_carrier_ok(dev)) {
- 			if (netif_msg_link(np))
- 				printk(KERN_NOTICE "%s: link down.\n",
--					dev->name);
-+				       dev->name);
- 			netif_carrier_off(dev);
- 			undo_cable_magic(dev);
- 		}
-@@ -1609,6 +1624,7 @@
- 			duplex = 1;
++	int cnt = 0;
++	
+ 	if (sysctl_tcp_abc) {
+ 		/* RFC3465: Slow Start
+ 		 * TCP sender SHOULD increase cwnd by the number of
+@@ -283,17 +288,25 @@ void tcp_slow_start(struct tcp_sock *tp)
+ 		 */
+ 		if (tp->bytes_acked < tp->mss_cache)
+ 			return;
+-
+-		/* We MAY increase by 2 if discovered delayed ack */
+-		if (sysctl_tcp_abc > 1 && tp->bytes_acked >= 2*tp->mss_cache) {
+-			if (tp->snd_cwnd < tp->snd_cwnd_clamp)
+-				tp->snd_cwnd++;
+-		}
  	}
- 
-+propagate_state:
- 	/* if duplex is set then bit 28 must be set, too */
- 	if (duplex ^ !!(np->rx_config & RxAcceptTx)) {
- 		if (netif_msg_link(np))
-@@ -2819,6 +2835,15 @@
- 	}
- 
- 	/*
-+	 * If we're ignoring the PHY then autoneg and the internal
-+	 * transciever are really not going to work so don't let the
-+	 * user select them.
-+	 */
-+	if (np->ignore_phy && (ecmd->autoneg == AUTONEG_ENABLE ||
-+			       ecmd->port == PORT_TP))
-+		return -EINVAL;
++	
++	if (sysctl_tcp_max_ssthresh > 0 &&
++	    tp->snd_cwnd > sysctl_tcp_max_ssthresh)
++		cnt += sysctl_tcp_max_ssthresh>>1;
++	else
++		cnt += tp->snd_cwnd;
 +
-+	/*
- 	 * maxtxpkt, maxrxpkt: ignored for now.
- 	 *
- 	 * transceiver:
++	/* RFC3465: We MAY increase by 2 if discovered delayed ack */
++	if (sysctl_tcp_abc > 1 && tp->bytes_acked >= 2*tp->mss_cache)
++		cnt <<= 1;
+ 	tp->bytes_acked = 0;
+-
+-	if (tp->snd_cwnd < tp->snd_cwnd_clamp)
+-		tp->snd_cwnd++;
++	
++	tp->snd_cwnd_cnt += cnt;
++	while (tp->snd_cwnd_cnt >= tp->snd_cwnd) {
++		if (tp->snd_cwnd < tp->snd_cwnd_clamp)
++			tp->snd_cwnd++;
++		tp->snd_cwnd_cnt -= tp->snd_cwnd;
++	}
+ }
+ EXPORT_SYMBOL_GPL(tcp_slow_start);
+ 
 
---
-"You grabbed my hand and we fell into it, like a daydream - or a fever."
+--------------020109030701070801070801--
