@@ -1,60 +1,46 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: Extensible hashing and RCU
-Date: Mon, 19 Feb 2007 17:25:05 +0300
-Message-ID: <20070219142504.GA5626@2ka.mipt.ru>
-References: <20070204074143.26312.qmail@science.horizon.com> <200702191438.14010.dada1@cosmosbay.com> <20070219135608.GA10268@2ka.mipt.ru> <200702191514.02937.dada1@cosmosbay.com>
+From: lsorense@csclub.uwaterloo.ca (Lennart Sorensen)
+Subject: Re: MediaGX/GeodeGX1 requires X86_OOSTORE.
+Date: Mon, 19 Feb 2007 09:55:14 -0500
+Message-ID: <20070219145514.GO7582@csclub.uwaterloo.ca>
+References: <20070216222728.GF7585@csclub.uwaterloo.ca> <20070216224824.GG7585@csclub.uwaterloo.ca> <20070217000019.GH7582@csclub.uwaterloo.ca> <20070217.231113.193678444.takada@mbf.nifty.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: akepner@sgi.com, linux@horizon.com, davem@davemloft.net,
-	netdev@vger.kernel.org, bcrl@kvack.org
-To: Eric Dumazet <dada1@cosmosbay.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: pcnet32@verizon.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: takada <takada@mbf.nifty.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:53696 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932281AbXBSO0I (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 19 Feb 2007 09:26:08 -0500
+Received: from caffeine.uwaterloo.ca ([129.97.134.17]:53916 "EHLO
+	caffeine.csclub.uwaterloo.ca" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932318AbXBSOzP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Feb 2007 09:55:15 -0500
 Content-Disposition: inline
-In-Reply-To: <200702191514.02937.dada1@cosmosbay.com>
+In-Reply-To: <20070217.231113.193678444.takada@mbf.nifty.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 19, 2007 at 03:14:02PM +0100, Eric Dumazet (dada1@cosmosbay.com) wrote:
-> > Forget about cache misses and cache lines - we have a hash table, only
-> > part of which is used (part for time-wait sockets, part for established
-> > ones).
+On Sat, Feb 17, 2007 at 11:11:13PM +0900, takada wrote:
+> is it mean what doesn't help with doesn't call set_cx86_reoder()?
+> this function disable to reorder at 0x4000:0000 to 0xffff:ffff.
+> does pcnet32 access at out of above range?
 > 
-> No you didnt not read my mail. Current ehash is not as decribed by you.
+> --- arch/i386/Kconfig.cpu~	2007-02-05 03:44:54.000000000 +0900
+> +++ arch/i386/Kconfig.cpu	2007-02-17 21:25:52.000000000 +0900
+> @@ -322,7 +322,7 @@ config X86_USE_3DNOW
+>  
+>  config X86_OOSTORE
+>  	bool
+> -	depends on (MWINCHIP3D || MWINCHIP2 || MWINCHIPC6) && MTRR
+> +	depends on (MWINCHIP3D || MWINCHIP2 || MWINCHIPC6) && MTRR || MGEODEGX1
+>  	default y
+>  
+>  config X86_TSC
 
-I did.
-And I also said that my tests do not have timewait sockets at all - I
-removed sk_for_each and so on, which should effectively increase lookup 
-time twice on busy system with lots of created/removed sockets per
-timeframe (that is theory from my side already).
-Anyway, I ran the same test with increased table too.
+Well it turns out that enabling OOSTORE doesn't elliminate the problem,
+but it does make it go from occouring within seconds to occouring within
+many hours.  I am off to investigate some more.
 
-> > Anyway, even with 2^20 (i.e. when the whole table is only used for
-> > established sockets) search time is about 360-370 nsec on 3.7 GHz Core
-> > Duo (only one CPU is used) with 2 GB of ram.
-> 
-> Your tests are user land, so unfortunatly are biased...
-> 
-> (Unless you use hugetlb data ?)
+Does anyone know if there is any way to flush a cache line of the cpu to
+force rereading system memory for a given address or address range?
 
-No I do not. But the same can be applied to trie test - it is also
-performed in userspace and thus suffers from possible swapping/cache
-flushing and so on.
-
-And I doubt moving test into kernel will suddenly end up with 10 times 
-increased rates.
-
-Anyway, trie test (broken implementation) is two times slower than hash
-table (resized already), and it does not include locking isses of the
-hash table access and further scalability issues.
-
-I think I need to fix my trie implementation to fully show its
-potential, but original question was why tree/trie based implementation
-is not considered at all although it promises better performance and
-scalability.
-
--- 
-	Evgeniy Polyakov
+--
+Len Sorensen
