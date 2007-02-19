@@ -1,49 +1,79 @@
 From: Ayaz Abdulla <aabdulla@nvidia.com>
-Subject: [PATCH 2/3] forcedeth: disable msix
-Date: Mon, 19 Feb 2007 09:28:07 -0500
-Message-ID: <45D9B3F7.4080801@nvidia.com>
+Subject: Re: forcedeth problems on 2.6.20-rc6-mm3
+Date: Mon, 19 Feb 2007 09:31:10 -0500
+Message-ID: <45D9B4AE.6030006@nvidia.com>
+References: <fa.EU4/Dq38S7AbpiJstT7NwokqTWE@ifi.uio.no> <fa.aMmqbeBS9CpIUWfPrgAtORtlXAQ@ifi.uio.no> <fa.d8YTRl6o0OIk8Vvk1QLpyc+bxQU@ifi.uio.no> <fa.XnyZ7qxKkAZ7Yhrg0DdiDmiy6wg@ifi.uio.no> <fa.s8qbnOGnlEinPfyyhT0PZsqiwwE@ifi.uio.no> <fa.6Uftu56OuKdbN+aI/fzLv4opZ/I@ifi.uio.no> <45DA4327.3010106@shaw.ca>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------000303030100000708050807"
-To: Jeff Garzik <jgarzik@pobox.com>,
-	Manfred Spraul <manfred@colorfullife.com>,
-	Andrew Morton <akpm@osdl.org>, nedev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org, Andrew Morton <akpm@osdl.org>,
+	David Ford <firefighterblu3@gmail.com>,
+	Jeff Garzik <jgarzik@pobox.com>
+To: Robert Hancock <hancockr@shaw.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hqemgate01.nvidia.com ([216.228.112.170]:1067 "EHLO
+Received: from hqemgate01.nvidia.com ([216.228.112.170]:6071 "EHLO
 	HQEMGATE01.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965784AbXBTApu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Feb 2007 19:45:50 -0500
+	with ESMTP id S965800AbXBTAs7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Feb 2007 19:48:59 -0500
+In-Reply-To: <45DA4327.3010106@shaw.ca>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------000303030100000708050807
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-
-There seems to be an issue when both MSI-X is enabled and NAPI is 
-configured. This patch disables MSI-X until the issue is root caused.
-
-Signed-Off-By: Ayaz Abdulla <aabdulla@nvidia.com>
 
 
---------------000303030100000708050807
-Content-Type: text/plain;
- name="patch-forcedeth-msix"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="patch-forcedeth-msix"
+Robert Hancock wrote:
+> Ayaz Abdulla wrote:
+> 
+>>
+>> For all those who are having issues, please try out the attached patch.
+>>
+>> Ayaz
+>>
+>>
+>> ----------------------------------------------------------------------------------- 
+>>
+>> This email message is for the sole use of the intended recipient(s) 
+>> and may contain
+>> confidential information.  Any unauthorized review, use, disclosure or 
+>> distribution
+>> is prohibited.  If you are not the intended recipient, please contact 
+>> the sender by
+>> reply email and destroy all copies of the original message.
+>> ----------------------------------------------------------------------------------- 
+>>
+>>
+>>
+>> ------------------------------------------------------------------------
+>>
+>> --- orig/drivers/net/forcedeth.c    2007-02-08 21:41:59.000000000 -0500
+>> +++ new/drivers/net/forcedeth.c    2007-02-08 21:44:53.000000000 -0500
+>> @@ -3104,13 +3104,17 @@
+>>      struct fe_priv *np = netdev_priv(dev);
+>>      u8 __iomem *base = get_hwbase(dev);
+>>      unsigned long flags;
+>> +    u32 retcode;
+>>  
+>> -    if (np->desc_ver == DESC_VER_1 || np->desc_ver == DESC_VER_2)
+>> +    if (np->desc_ver == DESC_VER_1 || np->desc_ver == DESC_VER_2) {
+>>          pkts = nv_rx_process(dev, limit);
+>> -    else
+>> +        retcode = nv_alloc_rx(dev);
+>> +    } else {
+>>          pkts = nv_rx_process_optimized(dev, limit);
+>> +        retcode = nv_alloc_rx_optimized(dev);
+>> +    }
+>>  
+>> -    if (nv_alloc_rx(dev)) {
+>> +    if (retcode) {
+>>          spin_lock_irqsave(&np->lock, flags);
+>>          if (!np->in_shutdown)
+>>              mod_timer(&np->oom_kick, jiffies + OOM_REFILL);
+> 
+> 
+> Did anyone push this patch into mainline? forcedeth on 2.6.20-git14 is 
+> still completely broken without this patch.
+> 
 
---- orig/drivers/net/forcedeth.c	2007-02-19 09:17:02.000000000 -0500
-+++ new/drivers/net/forcedeth.c	2007-02-19 09:17:07.000000000 -0500
-@@ -839,7 +839,7 @@
- 	NV_MSIX_INT_DISABLED,
- 	NV_MSIX_INT_ENABLED
- };
--static int msix = NV_MSIX_INT_ENABLED;
-+static int msix = NV_MSIX_INT_DISABLED;
- 
- /*
-  * DMA 64bit
+I have submitted the patch to netdev mailing list.
 
---------------000303030100000708050807--
