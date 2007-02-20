@@ -1,46 +1,67 @@
-From: bert hubert <bert.hubert@netherlabs.nl>
-Subject: Re: nonblocking UDPv4 recvfrom() taking 4usec @ 3GHz?
-Date: Tue, 20 Feb 2007 09:04:58 +0100
-Message-ID: <20070220080457.GA20544@outpost.ds9a.nl>
-References: <20070219231447.GA4400@outpost.ds9a.nl> <20070219155623.1d78785a@localhost.localdomain>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: [BUG] RTNL and flush_scheduled_work deadlocks
+Date: Tue, 20 Feb 2007 09:23:41 +0100
+Message-ID: <20070220082341.GB981@ff.dom.local>
+References: <20070216072928.GA1599@ff.dom.local> <45D55FF0.8090309@candelatech.com> <20070216081051.GC1599@ff.dom.local> <45D569E9.7010407@candelatech.com> <20070216090425.GD1599@ff.dom.local> <20070216121245.GE1599@ff.dom.local> <45D5D681.5060104@candelatech.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org,
+	Kyle Lucke <klucke@us.ibm.com>,
+	Raghavendra Koushik <raghavendra.koushik@neterion.com>,
+	Al Viro <viro@ftp.linux.org.uk>, Ingo Molnar <mingo@elte.hu>
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from outpost.ds9a.nl ([213.244.168.210]:57014 "EHLO outpost.ds9a.nl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S964952AbXBTIFA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Feb 2007 03:05:00 -0500
+Received: from poczta.o2.pl ([193.17.41.142]:56514 "EHLO poczta.o2.pl"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S965217AbXBTIUS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Feb 2007 03:20:18 -0500
 Content-Disposition: inline
-In-Reply-To: <20070219155623.1d78785a@localhost.localdomain>
+In-Reply-To: <45D5D681.5060104@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 19, 2007 at 03:56:23PM -0800, Stephen Hemminger wrote:
+On Fri, Feb 16, 2007 at 08:06:25AM -0800, Ben Greear wrote:
+...
+> Well, I had lockdep and all of the locking debugging I could find 
+> enabled, but
+> it did not catch this problem..I had to use sysctl -t and manually dig 
+> through the backtraces
+> to find the deadlock....
+> 
+> It may be that lockdep could be enhanced to catch this sort of thing....
 
-> > Linux 2.6.20-rc4 appears to take 4 microseconds on my P4 3GHz for a
-> > non-blocking UDPv4 recvfrom() call, both on loopback and ethernet.
-> > 
-> > Linux 2.6.18 on my 64 bit Athlon64 3200+ takes a similar amount of time.
+I think you are really good at traceing very interesting
+(subtle) problems.
 
-> > recvfrom itself is a tad worrisome, x=recvfrom. I didn't ask for the
-> > 'libc_enable_asynccancel' stuff. I'm trying to isolate the actual syscall
-> > but it is proving hard work for an assemnly newbie like me - socketcall
-> > doesn't make things easier.
+I guess the scenario is like this:
 
-Together with Zwane Mwaikambo, we managed to isolate the pure syscall, it
-doesn't make a difference, a single recvfrom continues to take around 4
-microseconds at 3GHz. Many thanks to Zwane for helping out.
+1) some process takes some lock (e.g. RTNL), 
+2) kthread runs a work function, which tries to get the
+   same lock,
+3) the process with the lock calls flush_scheduled_work,
+4) the flush_cpu_workqueue waits for kthread to finish.
 
-> Use oprofile to find the hotspot.
+So, the process #1 (with the lock) waits for the end 
+of the process #2, which waits for the lock held by
+process #1.
 
-Will do this next - I need to get me a setup where I can do oprofile *and*
-decent query rates, I don't do oprofile on my remote machines I don't have
-easy access to.
+Of course it's a lockup - similar to circular dependency
+but not the same: there is only one lock. I don't think
+lockdep could be blamed here - if it's not a lock it
+can't know the reason of process' #1 waiting.
 
-Thanks.
+In my opinion the solution should be looked for in the
+workqueue code. My idea is: maybe there should be used
+some additional lock taken by kthread before running
+the workqueue and by a process calling the flush. Then
+lockdep shouldn't have any problems with this dependency.
+This lock could be #ifdef DEBUG_LOCK... so only where
+it could be analyzed. Of course there may be some simpler
+solution of this otherwise hard to track problem.
 
--- 
-http://www.PowerDNS.com      Open source, database driven DNS Software 
-http://netherlabs.nl              Open and Closed source services
+I CC this message to Ingo Molnar and hope he could find
+some time to think about it.
+
+Regards,
+Jarek P.
