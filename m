@@ -1,63 +1,78 @@
-From: Max Krasnyansky <maxk@qualcomm.com>
-Subject: Re: [TIPC] Properly mask header fields
-Date: Tue, 20 Feb 2007 10:47:24 -0800
-Message-ID: <45DB423C.4010102@qualcomm.com>
-References: <1171607254637-git-send-email-maxk@qualcomm.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: Extensible hashing and RCU
+Date: Tue, 20 Feb 2007 19:55:15 +0100
+Message-ID: <200702201955.15567.dada1@cosmosbay.com>
+References: <200702191913.08125.dada1@cosmosbay.com> <200702201854.00092.dada1@cosmosbay.com> <20070220180027.GC26961@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="koi8-r"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, allan.stephens@windriver.com,
-	jon.maloy@ericsson.com
-To: davem@davemloft.net
+Cc: "Michael K. Edwards" <medwards.linux@gmail.com>,
+	David Miller <davem@davemloft.net>, akepner@sgi.com,
+	linux@horizon.com, netdev@vger.kernel.org, bcrl@kvack.org
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from warlock.qualcomm.com ([129.46.50.49]:58534 "EHLO
-	warlock.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030359AbXBTSxu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Feb 2007 13:53:50 -0500
-Received: from ithilien.qualcomm.com (ithilien.qualcomm.com [129.46.51.59])
-	by warlock.qualcomm.com (8.13.6/8.13.6/1.0) with ESMTP id l1KIrnMj018185
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=FAIL)
-	for <netdev@vger.kernel.org>; Tue, 20 Feb 2007 10:53:49 -0800 (PST)
-In-Reply-To: <1171607254637-git-send-email-maxk@qualcomm.com>
+Received: from pfx2.jmh.fr ([194.153.89.55]:45683 "EHLO pfx2.jmh.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1030364AbXBTSz0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Feb 2007 13:55:26 -0500
+In-Reply-To: <20070220180027.GC26961@2ka.mipt.ru>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dave, Alan, Jon,
+On Tuesday 20 February 2007 19:00, Evgeniy Polyakov wrote:
+> As you can see, jhash has problems in a really trivial case of 2^16,
+> which in local lan is a disaster. The only reason jenkins hash is good
+> for hashing purposes is that is it more complex than xor one, and thus
+> it is harder to find a collision law. That's all.
+> And it is two times slower.
 
-Max Krasnyansky wrote:
-> TIPC code is a bit inconsistent in masking out upper bits of various
-> message fields when packing them into the headers. For the most part
-> things seem to be ok but we happened to hit a corner case in our labs
-> when broadcast counter reached certain value (don't remember exact
-> details) and was messing up status bits in the header. At which point
-> the link was busted and required a reset to bring it back up.
-> It's much safer to apply proper mask in the function that does the
-> actual packing rather than doing it all over the place, and missing a
-> few ;-).
-> 
-> Signed-off-by: Max Krasnyansky <maxk@qualcomm.com>
-> ---
->  net/tipc/msg.h |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
-> 
-> diff --git a/net/tipc/msg.h b/net/tipc/msg.h
-> index 6699aaf..4e681c8 100644
-> --- a/net/tipc/msg.h
-> +++ b/net/tipc/msg.h
-> @@ -72,7 +72,7 @@ static inline void msg_set_bits(struct tipc_msg *m, u32 w,
->  				u32 pos, u32 mask, u32 val)
->  {
->  	u32 word = msg_word(m,w) & ~(mask << pos);
-> -	msg_set_word(m, w, (word |= (val << pos)));
-> +	msg_set_word(m, w, (word |= ((val & mask) << pos)));
->  }
->  
->  /* 
+I see no problems at all. An attacker can not exploit the fact that two (or 
+three) different values of sport will hit the same hash bucket.
 
-Just making sure that this does not get lost in the blizzard of other patches :).
-Please apply.
+A hash function may have collisions. This is *designed* like that.
 
-Thanx
-Max
+The complexity of the hash function is a tradeoff. A perfect hash would be :
+- Perfect distribution
+- Hard (or even : impossible) to guess for an attacker.
+- No CPU cost.
+
+There is no perfect hash function... given 96 bits in input.
+So what ? hashes are 'badly broken' ?
+Thats just not even funny Evgeniy.
+
+The 'two times slower' is a simplistic view, or maybe you have an alien CPU, 
+or a CPU from the past ?
+
+On my oprofile, rt_hash_code() uses 0.24% of cpu (about 50 x86_64 
+instructions)
+
+Each time a cache miss is done because your bucket length is (X+1) instead of 
+(X), your CPU is stuck while it could have do 150 instructions. Next CPUS 
+will do 300 instructions per cache miss, maybe 1000 one day... yes, life is 
+hard.
+
+I added to my 'simulator_plugged_on_real_server' the average cost calculation, 
+relative to number of cache line per lookup.
+
+ehash_size=2^20
+xor hash :
+386290 sockets, Avg lookup cost=3.2604 cache lines/lookup
+393667 sockets, Avg lookup cost=3.30579 cache lines/lookup
+400777 sockets, Avg lookup cost=3.3493 cache lines/lookup
+404720 sockets, Avg lookup cost=3.36705 cache lines/lookup
+406671 sockets, Avg lookup cost=3.37677 cache lines/lookup
+jenkin hash:
+386290 sockets, Avg lookup cost=2.36763 cache lines/lookup
+393667 sockets, Avg lookup cost=2.37533 cache lines/lookup
+400777 sockets, Avg lookup cost=2.38211 cache lines/lookup
+404720 sockets, Avg lookup cost=2.38582 cache lines/lookup
+406671 sockets, Avg lookup cost=2.38679 cache lines/lookup
+
+(you can see that when number of sockets increase, the xor hash becomes worst)
+
+So the jenkin hash function CPU cost is balanced by the fact its distribution 
+is better. In the end you are faster.
 
 
