@@ -1,50 +1,119 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: all syscalls initially taking 4usec on a P4? Re: nonblocking
- UDPv4 recvfrom() taking 4usec @ 3GHz?
-Date: Tue, 20 Feb 2007 14:02:00 -0800
-Message-ID: <45DB6FD8.4050106@hp.com>
-References: <20070219231447.GA4400@outpost.ds9a.nl>	<p73d545drx6.fsf@bingen.suse.de>	<20070220162714.GA3245@outpost.ds9a.nl>	<20070220164124.GA24930@2ka.mipt.ru>	<20070220184242.GA30077@filer.fsl.cs.sunysb.edu>	<20070220184859.GA1949@2ka.mipt.ru> <20070220193319.GA8800@outpost.ds9a.nl>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: Re: 2.6.19-rc6-mm1: drivers/net/chelsio/: unused code
+Date: Tue, 20 Feb 2007 23:06:47 +0100
+Message-ID: <20070220220647.GZ13958@stusta.de>
+References: <20061123021703.8550e37e.akpm@osdl.org> <20061124001731.GO3557@stusta.de> <20061127102455.362fe88f@dxpl.pdx.osdl.net> <20061129073609.GA11084@stusta.de> <20061128234719.9b3a224d.akpm@osdl.org> <20070220000214.GB13958@stusta.de> <20070220133132.63f3e75e@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	Josef Sipek <jsipek@fsl.cs.sunysb.edu>,
-	Andi Kleen <andi@firstfloor.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: bert hubert <bert.hubert@netherlabs.nl>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
+	netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel12.hp.com ([156.153.255.237]:48351 "EHLO palrel12.hp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030475AbXBTWCF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Feb 2007 17:02:05 -0500
-In-Reply-To: <20070220193319.GA8800@outpost.ds9a.nl>
+Received: from emailhub.stusta.mhn.de ([141.84.69.5]:37616 "EHLO
+	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1030484AbXBTWGt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Feb 2007 17:06:49 -0500
+Content-Disposition: inline
+In-Reply-To: <20070220133132.63f3e75e@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> I measure a huge slope, however. Starting at 1usec for back-to-back system
-> calls, it rises to 2usec after interleaving calls with a count to 20
-> million.
+On Tue, Feb 20, 2007 at 01:31:32PM -0800, Stephen Hemminger wrote:
+> On Tue, 20 Feb 2007 01:02:14 +0100
+> Adrian Bunk <bunk@stusta.de> wrote:
 > 
-> 4usec is hit after 110 million.
+> > On Tue, Nov 28, 2006 at 11:47:19PM -0800, Andrew Morton wrote:
+> > > On Wed, 29 Nov 2006 08:36:09 +0100
+> > > Adrian Bunk <bunk@stusta.de> wrote:
+> > > 
+> > > > On Mon, Nov 27, 2006 at 10:24:55AM -0800, Stephen Hemminger wrote:
+> > > > > On Fri, 24 Nov 2006 01:17:31 +0100
+> > > > > Adrian Bunk <bunk@stusta.de> wrote:
+> > > > > 
+> > > > > > On Thu, Nov 23, 2006 at 02:17:03AM -0800, Andrew Morton wrote:
+> > > > > > >...
+> > > > > > > Changes since 2.6.19-rc5-mm2:
+> > > > > > >...
+> > > > > > > +chelsio-22-driver.patch
+> > > > > > >...
+> > > > > > >  netdev updates
+> > > > > > 
+> > > > > > It is suspicious that the following newly added code is completely unused:
+> > > > > >   drivers/net/chelsio/ixf1010.o
+> > > > > >     t1_ixf1010_ops
+> > > > > >   drivers/net/chelsio/mac.o
+> > > > > >     t1_chelsio_mac_ops
+> > > > > >   drivers/net/chelsio/vsc8244.o
+> > > > > >     t1_vsc8244_ops
+> > > > > > 
+> > > > > > cu
+> > > > > > Adrian
+> > > > > > 
+> > > > > 
+> > > > > All that is gone in later version. I reposted new patches
+> > > > > after -mm2 was done.
+> > > > 
+> > > > It seems these patches didn't make it into 2.6.19-rc6-mm2 ?
+> > > 
+> > > I dropped that patch and picked up Francois's tree instead.
+> > 
+> > These structs are still both present and unused as of 2.6.20-mm1.
 > 
-> The graph, with semi-scientific error-bars is on
-> http://ds9a.nl/tmp/recvfrom-usec-vs-wait.png
-> 
-> The code to generate it is on:
-> http://ds9a.nl/tmp/recvtimings.c
-> 
-> I'm investigating this further for other system calls. It might be that my
-> measurements are off, but it appears even a slight delay between calls
-> incurs a large penalty.
+> Please use your eyes, not your tool. Those functions are called in 2.6.20
 
-The slope appears to be flattening-out the farther out to the right it 
-goes.  Perhaps that is the length of time it takes to take all the 
-requisite cache misses.
 
-Some judicious use of HW perf counters might be in order via say papi or 
-pfmon.  Otherwise, you could try a test where you don't delay, but do 
-try to blow-out the cache(s) between recvfrom() calls.  If the delay 
-there starts to match the delay as you go out to the right on the graph 
-it would suggest that it is indeed cache effects.
+My eyes tell me:
 
-rick jones
+
+> static struct cmac *ixf1010_mac_create(adapter_t *adapter, int index)
+> {
+> ...
+> 	mac->ops = &ixf1010_ops;
+
+
+ixf1010_ops != t1_ixf1010_ops
+
+
+> static struct cmac *mac_create(adapter_t *adapter, int index)
+> {
+> ...
+> 
+> 	mac->ops = &chelsio_mac_ops;
+
+
+chelsio_mac_ops != t1_chelsio_mac_ops
+
+
+> mac_create gets called by 
+> 
+> int __devinit t1_init_sw_modules(adapter_t *adapter,
+> 				 const struct board_info *bi)
+> {
+> 
+> 	for_each_port(adapter, i) {
+> 		u8 hw_addr[6];
+> 		struct cmac *mac;
+> 		int phy_addr = bi->mdio_phybaseaddr + i;
+> 
+> 		adapter->port[i].phy = bi->gphy->create(adapter, phy_addr,
+> 							bi->mdio_ops);
+
+
+No, since t1_chelsio_mac_ops isn't used anywhere and mac_create() isn't 
+referenced except from t1_chelsio_mac_ops.
+
+
+cu
+Adrian
+
+BTW: It's not my tool, the script behind "make namespacecheck" was
+     written by Keith Owens.
+
+-- 
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
+
