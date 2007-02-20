@@ -1,61 +1,64 @@
 From: Ayaz Abdulla <aabdulla@nvidia.com>
-Subject: [PATCH 1/3] forcedeth: fixed missing call in napi poll
-Date: Tue, 20 Feb 2007 03:34:30 -0500
-Message-ID: <45DAB296.8040609@nvidia.com>
+Subject: [PATCH 3/3] forcedeth: fix checksum feature in mcp65
+Date: Tue, 20 Feb 2007 03:34:44 -0500
+Message-ID: <45DAB2A4.2030502@nvidia.com>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------090109020906020109090301"
+ boundary="------------070506080108000309050405"
 To: Jeff Garzik <jgarzik@pobox.com>,
 	Manfred Spraul <manfred@colorfullife.com>,
 	Andrew Morton <akpm@osdl.org>, nedev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hqemgate01.nvidia.com ([216.228.112.170]:2051 "EHLO
+Received: from hqemgate01.nvidia.com ([216.228.112.170]:2134 "EHLO
 	HQEMGATE01.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030352AbXBTSwX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Feb 2007 13:52:23 -0500
+	with ESMTP id S1030361AbXBTSwa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Feb 2007 13:52:30 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
---------------090109020906020109090301
+--------------070506080108000309050405
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 
-The napi poll routine was missing the call to the optimized rx process 
-routine. This patch adds the missing call for the optimized path.
+This patch removes checksum offload feature in mcp65 chipsets as they
+are not supported in hw.
 
 Signed-Off-By: Ayaz Abdulla <aabdulla@nvidia.com>
 
 
---------------090109020906020109090301
+--------------070506080108000309050405
 Content-Type: text/plain;
- name="patch-forcedeth-napi-poll"
+ name="patch-forcedeth-checksum-mcp65"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline;
- filename="patch-forcedeth-napi-poll"
+ filename="patch-forcedeth-checksum-mcp65"
 
---- orig/drivers/net/forcedeth.c	2007-02-20 03:17:21.000000000 -0500
-+++ new/drivers/net/forcedeth.c	2007-02-20 03:28:31.000000000 -0500
-@@ -3104,13 +3104,17 @@
- 	struct fe_priv *np = netdev_priv(dev);
- 	u8 __iomem *base = get_hwbase(dev);
- 	unsigned long flags;
-+	int retcode;
- 
--	if (np->desc_ver == DESC_VER_1 || np->desc_ver == DESC_VER_2)
-+	if (np->desc_ver == DESC_VER_1 || np->desc_ver == DESC_VER_2) {
- 		pkts = nv_rx_process(dev, limit);
--	else
-+		retcode = nv_alloc_rx(dev);
-+	} else {
- 		pkts = nv_rx_process_optimized(dev, limit);
-+		retcode = nv_alloc_rx_optimized(dev);
-+	}
- 
--	if (nv_alloc_rx(dev)) {
-+	if (retcode) {
- 		spin_lock_irqsave(&np->lock, flags);
- 		if (!np->in_shutdown)
- 			mod_timer(&np->oom_kick, jiffies + OOM_REFILL);
+--- orig/drivers/net/forcedeth.c	2007-02-20 03:30:16.000000000 -0500
++++ new/drivers/net/forcedeth.c	2007-02-20 03:30:29.000000000 -0500
+@@ -5374,19 +5374,19 @@
+ 	},
+ 	{	/* MCP65 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_20),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
++		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
+ 	},
+ 	{	/* MCP65 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_21),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
++		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
+ 	},
+ 	{	/* MCP65 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_22),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
++		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
+ 	},
+ 	{	/* MCP65 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_23),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
++		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
+ 	},
+ 	{	/* MCP67 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_24),
 
---------------090109020906020109090301--
+--------------070506080108000309050405--
