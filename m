@@ -1,71 +1,105 @@
-From: David Miller <davem@davemloft.net>
+From: Eric Dumazet <dada1@cosmosbay.com>
 Subject: Re: Extensible hashing and RCU
-Date: Tue, 20 Feb 2007 01:57:45 -0800 (PST)
-Message-ID: <20070220.015745.48806097.davem@davemloft.net>
-References: <200702191614.49666.dada1@cosmosbay.com>
-	<200702191913.08125.dada1@cosmosbay.com>
-	<20070220092523.GA6238@2ka.mipt.ru>
+Date: Tue, 20 Feb 2007 11:04:15 +0100
+Message-ID: <200702201104.16200.dada1@cosmosbay.com>
+References: <20070204074143.26312.qmail@science.horizon.com> <200702191913.08125.dada1@cosmosbay.com> <20070220092523.GA6238@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="koi8-r"
 Content-Transfer-Encoding: 7bit
-Cc: dada1@cosmosbay.com, akepner@sgi.com, linux@horizon.com,
+Cc: akepner@sgi.com, linux@horizon.com, davem@davemloft.net,
 	netdev@vger.kernel.org, bcrl@kvack.org
-To: johnpol@2ka.mipt.ru
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49985
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S932566AbXBTJ5r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Feb 2007 04:57:47 -0500
+Received: from pfx2.jmh.fr ([194.153.89.55]:38477 "EHLO pfx2.jmh.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932693AbXBTKE0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Feb 2007 05:04:26 -0500
 In-Reply-To: <20070220092523.GA6238@2ka.mipt.ru>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Date: Tue, 20 Feb 2007 12:25:23 +0300
-
+On Tuesday 20 February 2007 10:25, Evgeniy Polyakov wrote:
+> On Mon, Feb 19, 2007 at 07:13:07PM +0100, Eric Dumazet (dada1@cosmosbay.com) 
+wrote:
+> > On Monday 19 February 2007 16:14, Eric Dumazet wrote:
+> > > Because O(1) is different of O(log(N)) ?
+> > > if N = 2^20, it certainly makes a difference.
+> > > Yes, 1% of chains might have a length > 10, but yet 99% of the lookups
+> > > are touching less than 4 cache lines.
+> > > With a binary tree, log(2^20) is 20. or maybe not ? If you tell me it's
+> > > 4, I will be very pleased.
+> >
+> > Here is the tcp ehash chain length distribution on a real server :
+> > ehash_addr=0xffff810476000000
+> > ehash_size=1048576
+> > 333835 used chains, 3365 used twchains
+> > Distribution of sockets/chain length
+> > [chain length]:number of sockets
+> > [1]:221019 37.4645%
+> > [2]:56590 56.6495%
+> > [3]:21250 67.4556%
+> > [4]:12534 75.9541%
+> > [5]:8677 83.3082%
+> > [6]:5862 89.2701%
+> > [7]:3640 93.5892%
+> > [8]:2219 96.5983%
+> > [9]:1083 98.2505%
+> > [10]:539 99.1642%
+> > [11]:244 99.6191%
+> > [12]:112 99.8469%
+> > [13]:39 99.9329%
+> > [14]:16 99.9708%
+> > [15]:6 99.9861%
+> > [16]:3 99.9942%
+> > [17]:2 100%
+> > total : 589942 sockets
+> >
+> > So even with a lazy hash function, 89 % of lookups are satisfied with
+> > less than 6 compares.
+>
+> This is only 2^19 sockets.
+>
 > What you miss is the fact, that upper layers of the tree are always in the
 > cache. So its access cost nothing compared to every time new entry in
 > the hash table.
-
-It will not be on a real computer spending reasonable if not
-predominant time in userspace.
-
-I agree with others here in this thread, in that your test program is
-not accurate at all in several aspects as it makes many incorrect
-assumptions about the environment in which these lookups run:
-
-1) cache must be assumed cold, ALWAYS
-2) large PTE mappings must be used to simulate kernel costs
-   and timings accurately
-
-Even on computer not spending much time in userspace, cache will
-be cold too in most of these paths.  Do you remember the cpu cycle
-counter experiment I ran in the tg3 driver a few years back?
-
-That test showed that in NAPI loop, second packet was always processed
-some 40 times faster than first one, and it's all because of cache
-warming done by first packet.
-
-It is a very essential and sometimes non-intuitive aspect of packet
-input processing.  You must code for the cold cache case.  Therefore
-you cannot run silly loops in userspace to measure the performance of
-a flow demux algorithm, it is a completely pointless exercise in fact
-:-)
-
+>
 > And there is _no_ O(1) - O(1) is just a hash entry selection, then you
 > need to add the whole chain path, which can be long enough.
 > For example for the length 9 you have 1000 entries - it is exactly size
 > of the tree - sum of all entries upto and including 2^9.
+> One third of the table is accessible within 17 lookups (hash chain
+> length is 1), but given into account size of the entry - let's say it
+> is equal to
+> 32+32+32 - size of the key
+> 32+32+32 - size of the left/right/parent pointer
+> so 192 bytes per entry - given into acount that 1/4 of the 1-2 MB cache is
+> filled with it, we get about 1300 top-level entries in the hash, so
+> about _10_ first lookups are in the cache _always_ due to nature of the
+> tree lookup.
 
-Hash table should grow to exactly number of hash chains as number
-of sockets that are active.  That is how we program every dynamically
-grown hash table algorithm in the kernel, and we would do the same
-for TCP once dynamic growth is possible.
+You totally miss the fact that the 1-2-4 MB cache is not available for you at 
+all. It is filled by User accesses. I dont care about DOS. I care about real 
+servers, servicing tcp clients. The TCP service/stack should not take more 
+than 10% of CPU (cycles and caches). The User application is certainly more 
+important because it hosts the real added value.
 
-It is assumption of every hash algorithm.  We choose poor sizes at
-boot time on Eric's computer, or there is some limit preventing from
-using a proper size.  It does not make a flaw in the hash approach.
+As soon softirq finished its job, CPU returns to User Space, blowing out your 
+top-level entries from the cache. Next ms (tg3 for example, batching XX 
+packets per interrupt), softirq handler must repopulate the cache again and 
+again.
 
-People don't use trees or tries for socket demux in any modern
-operating system, there is a reason and it is not because this
-approach has not been tried. :-)
+Is linux kernel aimed to construct firewalls ? Certainly not. Linux kernel is 
+a generalist kernel. Of course your tree algo might be better in certain 
+situations, but those situations are not the norm. In these situations, we 
+might reserve 50% of cpu cache to hold top level of route cache and tcp 
+cache, but provide no power to user programs.
+
+With ehash, pressure on cpu caches is small and User application can make 
+progress.
+
+Using a jenkin's hash permits a better hash distribution for a litle cpu cost.
+I will post later a distribution simulation based on the data gathered from 
+the same real server.
+
