@@ -1,74 +1,57 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: Extensible hashing and RCU
-Date: Tue, 20 Feb 2007 19:59:07 +0300
-Message-ID: <20070220165907.GB24930@2ka.mipt.ru>
-References: <200702191913.08125.dada1@cosmosbay.com> <200702201708.12858.dada1@cosmosbay.com> <20070220162040.GA8194@2ka.mipt.ru> <200702201738.19590.dada1@cosmosbay.com>
+From: bert hubert <bert.hubert@netherlabs.nl>
+Subject: Re: all syscalls initially taking 4usec on a P4? Re: nonblocking UDPv4 recvfrom() taking 4usec @ 3GHz?
+Date: Tue, 20 Feb 2007 18:02:32 +0100
+Message-ID: <20070220170232.GA4730@outpost.ds9a.nl>
+References: <20070219231447.GA4400@outpost.ds9a.nl> <p73d545drx6.fsf@bingen.suse.de> <20070220162714.GA3245@outpost.ds9a.nl> <20070220164124.GA24930@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: "Michael K. Edwards" <medwards.linux@gmail.com>,
-	David Miller <davem@davemloft.net>, akepner@sgi.com,
-	linux@horizon.com, netdev@vger.kernel.org, bcrl@kvack.org
-To: Eric Dumazet <dada1@cosmosbay.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andi Kleen <andi@firstfloor.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:49119 "EHLO 2ka.mipt.ru"
+Received: from outpost.ds9a.nl ([213.244.168.210]:33253 "EHLO outpost.ds9a.nl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030291AbXBTRB6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Feb 2007 12:01:58 -0500
+	id S1030297AbXBTRCe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Feb 2007 12:02:34 -0500
 Content-Disposition: inline
-In-Reply-To: <200702201738.19590.dada1@cosmosbay.com>
+In-Reply-To: <20070220164124.GA24930@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Feb 20, 2007 at 05:38:19PM +0100, Eric Dumazet (dada1@cosmosbay.com) wrote:
-> > It is secrecy, not security - attacker will check the source and find
-> > where constant per-boot value is added and recalculate attack vector -
-> > we all were college students, it would be even more fun to crack.
-> >
-> > In that regard Jenkins ahsh and XOR one have _exactly_ the same attack
-> > vector, only Jenkins is a bit more sophisticated. I even think that
-> > example in rt_hash_code() will endup with heavy problems when one of the
-> > addresses is constant - my tests show problem exactly in the case of
-> > jhash_2words() with random third parameter and constant one of the first
-> > like in rt_hash_code().
-> 
-> Please define heavy problem.
-> 
-> On most hosts, with one NIC, one IP address, most entries in cache have the 
-> same address (IP address of eth0 or localhost). It just works.
-> 
-> Last time I checked, the 2^21 route cache I am using was correctly filled, 
-> thanks to jhash.
-> 
-> Again, the random value is 32bits. If jhash happens to be cracked by your 
-> students, we just put md5 or whatever in...
->
-> You can call it secrecy or whatever, fact is : it's just working, far better 
-> than XOR previous hash function.
+On Tue, Feb 20, 2007 at 07:41:25PM +0300, Evgeniy Polyakov wrote:
 
-Hmm, I've just ran following test:
-1. created 2^20 hash table.
-2. ran in loop (100*(2^20) iterations) following hashes:
- a. xor hash (const_ip, const_ip, random_word)
- b. jhash_3words(const_ip, const_ip, random_word, 123123) - it is
-	 exactly as jhash_2words(const_ip, const_ip, wandom_word)
-3. hash &= hash_size - 1;
-4. table[hash].counter++;
-5. 	for (i=0; i<hash_size; ++i)
-		results[table[i].counter]++;
+> It can be recvfrom only problem - syscall overhead on my p4 (core duo,
+> debian testing) is bout 300 usec - to test I ran read('dev/zero', &data,
+> 0) in a loop.
 
-And got pretty artefact for jenkins hash attached in the picture
-artefact.png. Distribution.png file contains distribution of the 2^10
-hash table for 100*(2^10) for the above scenario.
+nsec I assume?
 
-I've attached source code and running script.
-$ ./run.sh
+The usec numbers for read(fd, &c, 0) where fd is /dev/zero:
+1.557667, 0.627667, 0.447333, 0.440000, 0.440000, 0.440000, 0.442333,
+0.440000, 0.440000, 0.442333, 0.442333, 0.440000, 0.440000, 0.442333,
+0.442667, 0.440000, 0.440000, 0.440000, 0.442333, 0.442667,
 
-will produce gnuplot window with shown artefact.
+In usecs. Notice the same declining figure, but not as pronounced. With a
+sleep(1) in between, we get:
+1.692667, 1.800000, 0.782667, 1.282667, 0.665000, 0.980000, 0.925000,
+0.887667, 0.662667, 0.862667, 1.077333, 1.442333, 0.660000, 1.890000,
+0.672333, 0.795000, 0.647667, 0.692333, 0.750000, 0.865000,
 
-If one change comments at the end of the file, run.sh will produce
-distribution graphs.
+This doesn't look all that unhealthy.
 
-P.S. jenkins hash is about two times slower.
+> Could you try to hack recvfrom() for your socket to always copy some
+> empty buffer and check the results without waiting for packet?
+
+That might be out of my reach before tomorrow :-)
+
+> If you are not hurry I can test it myself tomorrow.
+
+Thanks. My major problem is that in my measurements, I quite often see the
+'worst case' 4usec result. It would not be a problem if it happens only
+once, of course.
+
+	Bert
 
 -- 
-	Evgeniy Polyakov
+http://www.PowerDNS.com      Open source, database driven DNS Software 
+http://netherlabs.nl              Open and Closed source services
