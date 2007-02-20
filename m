@@ -1,43 +1,66 @@
 From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Subject: Re: Extensible hashing and RCU
-Date: Tue, 20 Feb 2007 14:45:35 +0300
-Message-ID: <20070220114535.GB27069@2ka.mipt.ru>
-References: <20070204074143.26312.qmail@science.horizon.com> <200702201209.52388.dada1@cosmosbay.com> <20070220112902.GB665@2ka.mipt.ru> <200702201235.00107.dada1@cosmosbay.com>
+Date: Tue, 20 Feb 2007 14:41:00 +0300
+Message-ID: <20070220114100.GA27069@2ka.mipt.ru>
+References: <200702191913.08125.dada1@cosmosbay.com> <20070220103014.GB7237@2ka.mipt.ru> <200702201210.22907.dada1@cosmosbay.com> <200702201230.19495.dada1@cosmosbay.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=koi8-r
-Cc: akepner@sgi.com, linux@horizon.com, davem@davemloft.net,
-	netdev@vger.kernel.org, bcrl@kvack.org
+Cc: David Miller <davem@davemloft.net>, akepner@sgi.com,
+	linux@horizon.com, netdev@vger.kernel.org, bcrl@kvack.org
 To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:46568 "EHLO 2ka.mipt.ru"
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:46571 "EHLO 2ka.mipt.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932902AbXBTLq7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Feb 2007 06:46:59 -0500
+	id S964827AbXBTLrF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Feb 2007 06:47:05 -0500
 Content-Disposition: inline
-In-Reply-To: <200702201235.00107.dada1@cosmosbay.com>
+In-Reply-To: <200702201230.19495.dada1@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Feb 20, 2007 at 12:34:59PM +0100, Eric Dumazet (dada1@cosmosbay.com) wrote:
-> > Getting into account that network stack with NAPI schedules several
-> > packets to be queued into socket and all that happens without any
-> > infuence from userspace, trie/tree wins again in that regard that
-> > majority of the tree will be in the cache already.
+On Tue, Feb 20, 2007 at 12:30:18PM +0100, Eric Dumazet (dada1@cosmosbay.com) wrote:
+> On Tuesday 20 February 2007 12:10, Eric Dumazet wrote:
+>  >
+> > > Yep, it happend to be my tests :)
+> > > Jenkins hash was slower and had significant artifacts for some usage
+> > > cases ended up with extremely long chain length.
+> > > One can find more details at
+> > > http://tservice.net.ru/~s0mbre/blog/2006/05/14#2006_05_14
+> > > http://tservice.net.ru/~s0mbre/blog/2006/06/01#2006_06_01
+> >
+> > Please explain why you chose    h = jhash_2words(faddr, laddr, ports);
+> >         h ^= h >> 16;
+> >         h ^= h >> 8;
+> >
+> > jhash is very good, no need to try to be smarter, shufling some bytes...
+> > and adding artifacts.
 > 
-> Nope, you receive 100 packets for 100 different flows. Only the code may be in 
-> cache (minus for the first packet), and the very top of the tree...
+> I checked with my simulator and got no differences with the extra ops, at 
+> least no artifacts. Maybe this is related to the fact my hash size is 2^20 ?
 > 
-> Forget cache. Forget it.
+> If we use jenkin hash:
+> [0]:617469 0%
+> [1]:326671 58.7654%
+> [2]:86704 89.9601%
+> [3]:15387 98.264%
+> [4]:2103 99.7773%
+> [5]:216 99.9716%
+> [6]:24 99.9975%
+> [7]:2 100%
+> 
+> If we use jenkin hash (+plus Evgeniy Polyakov shifts) :
+> [0]:617553 0%
+> [1]:326403 58.7172%
+> [2]:86902 89.9831%
+> [3]:15462 98.3275%
+> [4]:2012 99.7753%
+> [5]:216 99.9696%
+> [6]:27 99.9987%
+> [7]:1 100%
 
-First packet populates half of the top of the tree/trie to get to the
-bottom - another one goes to completely different location, but it still
-need to go through some of the just populated entries - it is a
-tree/trie nature - probability of a hit decreases two times in each
-level (for binary tree, for trie is is very different) until first 'miss', 
-but it is still non zero.
-
-But generally I afgree that talking about caches can only be valid when
-all other issues are resolved completely. So, we need a patch.
+Yes, they are the same - but artifacts are artifacts in that regard that
+they appear only in special sets, as far as I recall one of the parameters
+must be constant (i.e. address or port pair).
 
 -- 
 	Evgeniy Polyakov
