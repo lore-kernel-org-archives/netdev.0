@@ -1,38 +1,40 @@
-From: Benjamin LaHaise <bcrl@kvack.org>
-Subject: Re: all syscalls initially taking 4usec on a P4? Re: nonblocking UDPv4 recvfrom() taking 4usec @ 3GHz?
-Date: Tue, 20 Feb 2007 14:40:40 -0500
-Message-ID: <20070220194040.GA18976@kvack.org>
-References: <20070219231447.GA4400@outpost.ds9a.nl> <p73d545drx6.fsf@bingen.suse.de> <20070220162714.GA3245@outpost.ds9a.nl> <20070220164124.GA24930@2ka.mipt.ru> <20070220184242.GA30077@filer.fsl.cs.sunysb.edu> <20070220184859.GA1949@2ka.mipt.ru> <20070220193319.GA8800@outpost.ds9a.nl>
+From: "Michael K. Edwards" <medwards.linux@gmail.com>
+Subject: Re: Extensible hashing and RCU
+Date: Tue, 20 Feb 2007 11:44:41 -0800
+Message-ID: <f2b55d220702201144r76e62c6cxfcb840d43881e859@mail.gmail.com>
+References: <200702191913.08125.dada1@cosmosbay.com>
+	 <200702201955.15567.dada1@cosmosbay.com>
+	 <20070220190634.GA12193@2ka.mipt.ru>
+	 <200702202017.31965.dada1@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: bert hubert <bert.hubert@netherlabs.nl>,
-	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	Josef Sipek <jsipek@fsl.cs.sunysb.edu>,
-	Andi Kleen <andi@firstfloor.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Evgeniy Polyakov" <johnpol@2ka.mipt.ru>,
+	"David Miller" <davem@davemloft.net>, akepner@sgi.com,
+	linux@horizon.com, netdev@vger.kernel.org, bcrl@kvack.org
+To: "Eric Dumazet" <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kanga.kvack.org ([66.96.29.28]:48863 "EHLO kanga.kvack.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932975AbXBTTkn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Feb 2007 14:40:43 -0500
+Received: from an-out-0708.google.com ([209.85.132.246]:29438 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030343AbXBTTon (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Feb 2007 14:44:43 -0500
+Received: by an-out-0708.google.com with SMTP id c5so416240anc
+        for <netdev@vger.kernel.org>; Tue, 20 Feb 2007 11:44:42 -0800 (PST)
+In-Reply-To: <200702202017.31965.dada1@cosmosbay.com>
 Content-Disposition: inline
-In-Reply-To: <20070220193319.GA8800@outpost.ds9a.nl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Feb 20, 2007 at 08:33:20PM +0100, bert hubert wrote:
-> I'm investigating this further for other system calls. It might be that my
-> measurements are off, but it appears even a slight delay between calls
-> incurs a large penalty.
+All right, Eric, you and me so clevvah, let's embarrass our own selves
+designing this thing in public instead of picking on poor Evgeniy.
+Which would you rather RCU, a 2-left hash or a splay tree?  2-left
+hash gets you excellent occupation fraction before the first real
+collision, so you can be utterly stupid about collisions in the second
+hash table (just toss all double collisions in an overflow radix
+tree).  Splay tree is a lot bigger bite to chew initially, but it gets
+you a hot set that's at least sometimes warm in cache, and it's easier
+to think about how to RCU it, and it doubles as a priority queue.  You
+pick.
 
-Make sure your system is idle.  Userspace bloat means that *lots* of idle 
-activity occurs in between timer ticks on recent distributions -- all those 
-widgets polling the hardware to see if something changed or needs updating 
-do a lot of damage to the caches.  Try comparing a run under init=/bin/bash 
-with one while logged in to a desktop environment to see just how painful it 
-is.
-
-		-ben
--- 
-"Time is of no importance, Mr. President, only life is important."
-Don't Email: <dont@kvack.org>.
+Cheers,
+- Michael
