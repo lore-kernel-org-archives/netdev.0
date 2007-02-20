@@ -1,53 +1,148 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: Extensible hashing and RCU
-Date: Tue, 20 Feb 2007 17:08:12 +0100
-Message-ID: <200702201708.12858.dada1@cosmosbay.com>
-References: <200702191913.08125.dada1@cosmosbay.com> <f2b55d220702200749l4fa2b14foa861cf37288cfb8d@mail.gmail.com> <20070220155928.GA26600@2ka.mipt.ru>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: Re: watchdog timeout panic in e1000 driver
+Date: Tue, 20 Feb 2007 08:10:35 -0800
+Message-ID: <45DB1D7B.9020008@intel.com>
+References: <45375135.5050206@cj.jp.nec.com> <45DABECF.5020202@cj.jp.nec.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="koi8-r"
-Content-Transfer-Encoding: 7bit
-Cc: "Michael K. Edwards" <medwards.linux@gmail.com>,
-	David Miller <davem@davemloft.net>, akepner@sgi.com,
-	linux@horizon.com, netdev@vger.kernel.org, bcrl@kvack.org
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Content-Type: multipart/mixed;
+ boundary="------------060400010202080306040809"
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	netdev@vger.kernel.org, "Ronciak, John" <john.ronciak@intel.com>
+To: Kenzo Iwami <k-iwami@cj.jp.nec.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pfx2.jmh.fr ([194.153.89.55]:43756 "EHLO pfx2.jmh.fr"
+Received: from mga01.intel.com ([192.55.52.88]:46833 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965224AbXBTQIW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Feb 2007 11:08:22 -0500
-In-Reply-To: <20070220155928.GA26600@2ka.mipt.ru>
-Content-Disposition: inline
+	id S965225AbXBTQK5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Feb 2007 11:10:57 -0500
+In-Reply-To: <45DABECF.5020202@cj.jp.nec.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 20 February 2007 16:59, Evgeniy Polyakov wrote:
-> On Tue, Feb 20, 2007 at 07:49:11AM -0800, Michael K. Edwards 
-(medwards.linux@gmail.com) wrote:
-> > On 2/20/07, Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
-> > >Jenkins _does_ have them, I showed tests half a year ago and in this
-> > >thread too. Actually _any_ hash has them it is just a matter of time
-> > >to find one.
-> >
-> > I think you misunderstood me.  If you are trying to DoS me from
-> > outside with a hash collision attack, you are trying to feed me
-> > packets that fall into the same hash bucket.  The Jenkins hash does
-> > not have to be artifact-free, and does not have to be
-> > cryptographically strong.  It just has to do a passable job of mixing
-> > a random salt into the tuple, so you don't know which string of
-> > packets to feed me in order to fill one (or a few) of my buckets.
-> > XORing salt into a folded tuple doesn't help; it just permutes the
-> > buckets.
->
-> Adding XOR with constant value does not change distribution.
-> Variable salt will end up with differnet buckets for the same flow.
-> It is forbidden - it is not the situation created for passwd/des decades
-> ago.
+This is a multi-part message in MIME format.
+--------------060400010202080306040809
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Adding a random hint to jhash (random value picked at boot time, not known by 
-attacker) permits to have a secure hash table : An attacker cannot build an 
-attack to fill one particular hash chain.
+Kenzo Iwami wrote:
+> Hi,
+> 
+> I created a patch that uses watchdog_task but fixes the race condition
+> that occurred in old the e1000 driver.
+> 
+> I've obtained information about the panic caused by the old e1000 driver
+> using e1000_watchdog_task. According to the crash dump, the panic was
+> caused by a timer_list whose contents were NULLs. Further trace
+> information revealed that the function in the timer list was
+> e1000_watchdog().
+> 
+> This function is registered in timer_list during e1000_watchdog_task.
+> It seems that e1000_watchdog_task could be called after the adapter is
+> removed, and freed memory is registered to timer_list.
+> 
+> By looking at the source code, e1000_watchdog_task will be scheduled if
+> e1000_watchdog is invoked during e1000_remove, after flush_scheduled_work()
+> is called, but before del_timer_sync() is called in e1000_down().
+> 
+> The attached patch adds back the e1000_watchdog_task(), but it will
+> prevent the old race condition from happening by deleting e1000_watchdog
+> from timer_list before flush_scheduled_work() is called.
 
-See net/ipv4/route.c (function rt_hash_code()) to see how its used for route 
-cache.
 
+Kenzo,
+
+this looks a lot better than the previous patch!! However, we already have a 
+state marker for _down_ that we should probably reuse. Can you try the attached 
+patch and see if it works for you? It's basically your patch without the added 
+remove flag and instead using the already available atomic state trackers.
+
+If this works for you then that is great news and I'll push this patch to the 
+upstream kernel maintainers after testing.
+
+Cheers,
+
+Auke
+
+
+
+
+--------------060400010202080306040809
+Content-Type: text/x-patch;
+ name="e1000_git_kenzo_use_state_flags.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="e1000_git_kenzo_use_state_flags.patch"
+
+diff --git a/drivers/net/e1000/e1000.h b/drivers/net/e1000/e1000.h
+index 689f158..bd4026d 100644
+--- a/drivers/net/e1000/e1000.h
++++ b/drivers/net/e1000/e1000.h
+@@ -264,6 +264,7 @@ struct e1000_adapter {
+ 	uint16_t rx_itr;
+ 
+ 	struct work_struct reset_task;
++	struct work_struct watchdog_task;
+ 	uint8_t fc_autoneg;
+ 
+ 	struct timer_list blink_timer;
+diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
+index 619c892..0548e65 100644
+--- a/drivers/net/e1000/e1000_main.c
++++ b/drivers/net/e1000/e1000_main.c
+@@ -152,6 +152,7 @@ static void e1000_clean_rx_ring(struct e1000_adapter *adapter,
+ static void e1000_set_multi(struct net_device *netdev);
+ static void e1000_update_phy_info(unsigned long data);
+ static void e1000_watchdog(unsigned long data);
++static void e1000_watchdog_task(struct work_struct *work);
+ static void e1000_82547_tx_fifo_stall(unsigned long data);
+ static int e1000_xmit_frame(struct sk_buff *skb, struct net_device *netdev);
+ static struct net_device_stats * e1000_get_stats(struct net_device *netdev);
+@@ -1049,6 +1050,7 @@ e1000_probe(struct pci_dev *pdev,
+ 	adapter->phy_info_timer.data = (unsigned long) adapter;
+ 
+ 	INIT_WORK(&adapter->reset_task, e1000_reset_task);
++	INIT_WORK(&adapter->watchdog_task, e1000_watchdog_task);
+ 
+ 	e1000_check_options(adapter);
+ 
+@@ -1216,6 +1218,11 @@ e1000_remove(struct pci_dev *pdev)
+ 	int i;
+ #endif
+ 
++	/* flush_scheduled work may reschedule our watchdog task, so
++	 * explicitly disable watchdog tasks from being rescheduled  */
++	set_bit(__E1000_DOWN, &adapter->flags);
++	del_timer_sync(&adapter->watchdog_timer);
++
+ 	flush_scheduled_work();
+ 
+ 	e1000_release_manageability(adapter);
+@@ -2551,6 +2558,17 @@ static void
+ e1000_watchdog(unsigned long data)
+ {
+ 	struct e1000_adapter *adapter = (struct e1000_adapter *) data;
++
++	/* Do the rest outside of interrupt context */
++	schedule_work(&adapter->watchdog_task);
++}
++
++static void
++e1000_watchdog_task(struct work_struct *work)
++{
++	struct e1000_adapter *adapter = container_of(work,
++	                                struct e1000_adapter, watchdog_task);
++
+ 	struct net_device *netdev = adapter->netdev;
+ 	struct e1000_tx_ring *txdr = adapter->tx_ring;
+ 	uint32_t link, tctl;
+@@ -2721,7 +2739,8 @@ e1000_watchdog(unsigned long data)
+ 		e1000_rar_set(&adapter->hw, adapter->hw.mac_addr, 0);
+ 
+ 	/* Reset the timer */
+-	mod_timer(&adapter->watchdog_timer, jiffies + 2 * HZ);
++	if (!test_bit(__E1000_DOWN, &adapter->flags))
++		mod_timer(&adapter->watchdog_timer, jiffies + 2 * HZ);
+ }
+ 
+ enum latency_range {
+
+--------------060400010202080306040809--
