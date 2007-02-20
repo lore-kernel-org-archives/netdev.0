@@ -1,45 +1,61 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: all syscalls initially taking 4usec on a P4? Re: nonblocking UDPv4 recvfrom() taking 4usec @ 3GHz?
-Date: Tue, 20 Feb 2007 21:48:59 +0300
-Message-ID: <20070220184859.GA1949@2ka.mipt.ru>
-References: <20070219231447.GA4400@outpost.ds9a.nl> <p73d545drx6.fsf@bingen.suse.de> <20070220162714.GA3245@outpost.ds9a.nl> <20070220164124.GA24930@2ka.mipt.ru> <20070220184242.GA30077@filer.fsl.cs.sunysb.edu>
+From: Ayaz Abdulla <aabdulla@nvidia.com>
+Subject: [PATCH 1/3] forcedeth: fixed missing call in napi poll
+Date: Tue, 20 Feb 2007 03:34:30 -0500
+Message-ID: <45DAB296.8040609@nvidia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: bert hubert <bert.hubert@netherlabs.nl>,
-	Andi Kleen <andi@firstfloor.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Josef Sipek <jsipek@fsl.cs.sunysb.edu>
+Content-Type: multipart/mixed;
+ boundary="------------090109020906020109090301"
+To: Jeff Garzik <jgarzik@pobox.com>,
+	Manfred Spraul <manfred@colorfullife.com>,
+	Andrew Morton <akpm@osdl.org>, nedev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:36275 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030355AbXBTStM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Feb 2007 13:49:12 -0500
-Content-Disposition: inline
-In-Reply-To: <20070220184242.GA30077@filer.fsl.cs.sunysb.edu>
+Received: from hqemgate01.nvidia.com ([216.228.112.170]:2051 "EHLO
+	HQEMGATE01.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030352AbXBTSwX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Feb 2007 13:52:23 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Feb 20, 2007 at 01:42:42PM -0500, Josef Sipek (jsipek@fsl.cs.sunysb.edu) wrote:
-> A better thing would be to use getuid - it turns into just a return with a
-> memory dereference). I ran it on my 3.06GHz P4 (HT, but only UP kernel),
-> PREEMPT, HZ=1000...
-> 
-> 3.290196 0.470588 0.402614 0.396078 0.393464 0.396078 0.386928 0.386928 0.386928 0.386928
-> 0.386928 0.386928 0.386928 0.386928 0.386928 0.386928 0.386928 0.386928 0.386928 0.386928
-> 0.386928 0.386928 0.386928 0.386928 0.386928 0.386928 0.386928 0.386928 0.386928 0.386928
-> 0.386928 0.386928 0.386928 0.386928 0.386928 0.386928 0.386928 0.386928 0.386928 0.386928
+This is a multi-part message in MIME format.
+--------------090109020906020109090301
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-I got following.
+The napi poll routine was missing the call to the optimized rx process 
+routine. This patch adds the missing call for the optimized path.
 
-delta for syscall: 9112 cycles = 2.977778 us
-delta for syscall: 1224 cycles = 0.400000 us
-delta for syscall: 1071 cycles = 0.350000 us
-delta for syscall: 1054 cycles = 0.344444 us
-delta for syscall: 1054 cycles = 0.344444 us
+Signed-Off-By: Ayaz Abdulla <aabdulla@nvidia.com>
 
-Likely first overhead related to cache population or gamma-ray radiation.
-If it happens only one (it does in my test), then everything is ok I
-think. Bert, how frequently you get that long recvfrom()?
 
--- 
-	Evgeniy Polyakov
+--------------090109020906020109090301
+Content-Type: text/plain;
+ name="patch-forcedeth-napi-poll"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="patch-forcedeth-napi-poll"
+
+--- orig/drivers/net/forcedeth.c	2007-02-20 03:17:21.000000000 -0500
++++ new/drivers/net/forcedeth.c	2007-02-20 03:28:31.000000000 -0500
+@@ -3104,13 +3104,17 @@
+ 	struct fe_priv *np = netdev_priv(dev);
+ 	u8 __iomem *base = get_hwbase(dev);
+ 	unsigned long flags;
++	int retcode;
+ 
+-	if (np->desc_ver == DESC_VER_1 || np->desc_ver == DESC_VER_2)
++	if (np->desc_ver == DESC_VER_1 || np->desc_ver == DESC_VER_2) {
+ 		pkts = nv_rx_process(dev, limit);
+-	else
++		retcode = nv_alloc_rx(dev);
++	} else {
+ 		pkts = nv_rx_process_optimized(dev, limit);
++		retcode = nv_alloc_rx_optimized(dev);
++	}
+ 
+-	if (nv_alloc_rx(dev)) {
++	if (retcode) {
+ 		spin_lock_irqsave(&np->lock, flags);
+ 		if (!np->in_shutdown)
+ 			mod_timer(&np->oom_kick, jiffies + OOM_REFILL);
+
+--------------090109020906020109090301--
