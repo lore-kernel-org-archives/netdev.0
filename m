@@ -1,8 +1,8 @@
 From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Subject: Re: Extensible hashing and RCU
-Date: Tue, 20 Feb 2007 21:00:30 +0300
-Message-ID: <20070220180027.GC26961@2ka.mipt.ru>
-References: <200702191913.08125.dada1@cosmosbay.com> <20070220165907.GB24930@2ka.mipt.ru> <20070220170525.GC24930@2ka.mipt.ru> <200702201854.00092.dada1@cosmosbay.com>
+Date: Tue, 20 Feb 2007 21:12:17 +0300
+Message-ID: <20070220181217.GA3401@2ka.mipt.ru>
+References: <200702191913.08125.dada1@cosmosbay.com> <200702201738.19590.dada1@cosmosbay.com> <20070220165907.GB24930@2ka.mipt.ru> <200702201820.27095.dada1@cosmosbay.com> <20070220175550.GB26961@2ka.mipt.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=koi8-r
 Cc: "Michael K. Edwards" <medwards.linux@gmail.com>,
@@ -10,61 +10,169 @@ Cc: "Michael K. Edwards" <medwards.linux@gmail.com>,
 	linux@horizon.com, netdev@vger.kernel.org, bcrl@kvack.org
 To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:37636 "EHLO 2ka.mipt.ru"
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:54983 "EHLO 2ka.mipt.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030330AbXBTSGn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Feb 2007 13:06:43 -0500
+	id S1030332AbXBTSNw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Feb 2007 13:13:52 -0500
 Content-Disposition: inline
-In-Reply-To: <200702201854.00092.dada1@cosmosbay.com>
+In-Reply-To: <20070220175550.GB26961@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Feb 20, 2007 at 06:53:59PM +0100, Eric Dumazet (dada1@cosmosbay.com) wrote:
-> > > I've attached source code and running script.
-> > > $ ./run.sh
-> >
-> > Yep, of course.
+On Tue, Feb 20, 2007 at 08:55:50PM +0300, Evgeniy Polyakov (johnpol@2ka.mipt.ru) wrote:
+> Here is a dump of possible addr/port pairs which end up badly
+> distributed:
 > 
-> Your test program is just bogus. artefacts come from your 'random' generator.
+> 8e363a50:27652 -> c0a80001:20480
+> 8e363a50:35529 -> c0a80001:20480
+> 8e363a50:40919 -> c0a80001:20480
+> 8e363a50:46720 -> c0a80001:20480
 > 
-> You just increment a counter, assuming the key you search is not in the table 
-> yet.
+> they produce the same hash value in the test described above.
 
-No, that part is commented, but it does not matter.
+And here are another ones which produce the same hash value.
+Of course searching for pair for jhash('jhash is broken') 
+will require more steps, but it is doable.
 
-> But obviously with only a variation of sport (16 bits), you have a maximum of 
-> 65536 values. No need to feed 100*2^20 values are most of them are dups.
-> 
-> Now if you change your program to do a real lookups with the 2^16 possible 
-> values of sport you'll see :
+That means that if attacker has a full control over one host, it can
+create a chain of maximum 4 entries in socket table (if jhash is used). 
+If it is udp, that means that attacker control addresses too without 
+syn cookies, which in turn means that below list can be increased to 
+infinite.
 
-No need to change something - I showed that in some cases jenkins ends
-up with a huge problem. If test will be changed, or solar will be turned
-off, things will behave good, but as is they behave very bad.
-
-> jhash function :
-> 1 61578
-> 2 1916
-> 3 42
-> 
-> that is : 61578 chains of length 1
-> 1916 chains of length 2
-> 42 chains of length 3
-> 
-> (for reference, with HASH_FOLD, about same results :
-> 1 61692
-> 2 1856
-> 3 44
-> 
-> Pretty good results... for the gain jhash gives us.
-> 
-> Of course, XOR hash gives a 'perfect' 65536 chains of length 1.
-
-As you can see, jhash has problems in a really trivial case of 2^16,
-which in local lan is a disaster. The only reason jenkins hash is good
-for hashing purposes is that is it more complex than xor one, and thus
-it is harder to find a collision law. That's all.
-And it is two times slower.
+8e363a50:22210 -> c0a80001:20480 10403
+8e363a50:58377 -> c0a80001:20480 10403
+8e363a50:9272 -> c0a80001:20480 10403
+8e363a50:4173 -> c0a80001:20480 130f8
+8e363a50:44401 -> c0a80001:20480 130f8
+8e363a50:53439 -> c0a80001:20480 130f8
+8e363a50:44525 -> c0a80001:20480 14391
+8e363a50:46858 -> c0a80001:20480 14391
+8e363a50:50030 -> c0a80001:20480 14391
+8e363a50:40337 -> c0a80001:20480 1c66d
+8e363a50:53249 -> c0a80001:20480 1c66d
+8e363a50:65307 -> c0a80001:20480 1c66d
+8e363a50:10433 -> c0a80001:20480 1fd1b
+8e363a50:49548 -> c0a80001:20480 1fd1b
+8e363a50:64835 -> c0a80001:20480 1fd1b
+8e363a50:14889 -> c0a80001:20480 206ae
+8e363a50:29984 -> c0a80001:20480 206ae
+8e363a50:44282 -> c0a80001:20480 206ae
+8e363a50:27521 -> c0a80001:20480 2a8c8
+8e363a50:34493 -> c0a80001:20480 2a8c8
+8e363a50:41134 -> c0a80001:20480 2a8c8
+8e363a50:50387 -> c0a80001:20480 2c1fc
+8e363a50:56740 -> c0a80001:20480 2c1fc
+8e363a50:58943 -> c0a80001:20480 2c1fc
+8e363a50:23856 -> c0a80001:20480 31ac2
+8e363a50:35034 -> c0a80001:20480 31ac2
+8e363a50:62638 -> c0a80001:20480 31ac2
+8e363a50:15623 -> c0a80001:20480 33b81
+8e363a50:24235 -> c0a80001:20480 33b81
+8e363a50:38581 -> c0a80001:20480 33b81
+8e363a50:23779 -> c0a80001:20480 37e65
+8e363a50:42244 -> c0a80001:20480 37e65
+8e363a50:6729 -> c0a80001:20480 37e65
+8e363a50:11002 -> c0a80001:20480 3d06d
+8e363a50:4321 -> c0a80001:20480 3d06d
+8e363a50:5255 -> c0a80001:20480 3d06d
+8e363a50:19326 -> c0a80001:20480 439c7
+8e363a50:6187 -> c0a80001:20480 439c7
+8e363a50:61932 -> c0a80001:20480 439c7
+8e363a50:36916 -> c0a80001:20480 472ce
+8e363a50:39670 -> c0a80001:20480 472ce
+8e363a50:50520 -> c0a80001:20480 472ce
+8e363a50:14229 -> c0a80001:20480 4e5f2
+8e363a50:16897 -> c0a80001:20480 4e5f2
+8e363a50:3340 -> c0a80001:20480 4e5f2
+8e363a50:12892 -> c0a80001:20480 5d11
+8e363a50:3998 -> c0a80001:20480 5d11
+8e363a50:50654 -> c0a80001:20480 5d11
+8e363a50:37267 -> c0a80001:20480 5e30e
+8e363a50:41659 -> c0a80001:20480 5e30e
+8e363a50:57118 -> c0a80001:20480 5e30e
+8e363a50:27652 -> c0a80001:20480 6a284
+8e363a50:35529 -> c0a80001:20480 6a284
+8e363a50:40919 -> c0a80001:20480 6a284
+8e363a50:46720 -> c0a80001:20480 6a284
+8e363a50:1825 -> c0a80001:20480 6af47
+8e363a50:3025 -> c0a80001:20480 6af47
+8e363a50:49431 -> c0a80001:20480 6af47
+8e363a50:17218 -> c0a80001:20480 77300
+8e363a50:48400 -> c0a80001:20480 77300
+8e363a50:9188 -> c0a80001:20480 77300
+8e363a50:48327 -> c0a80001:20480 7cf09
+8e363a50:55417 -> c0a80001:20480 7cf09
+8e363a50:57221 -> c0a80001:20480 7cf09
+8e363a50:10586 -> c0a80001:20480 809af
+8e363a50:11371 -> c0a80001:20480 809af
+8e363a50:27313 -> c0a80001:20480 809af
+8e363a50:34688 -> c0a80001:20480 80bf3
+8e363a50:58611 -> c0a80001:20480 80bf3
+8e363a50:61056 -> c0a80001:20480 80bf3
+8e363a50:10367 -> c0a80001:20480 85eae
+8e363a50:3761 -> c0a80001:20480 85eae
+8e363a50:57021 -> c0a80001:20480 85eae
+8e363a50:10940 -> c0a80001:20480 88c52
+8e363a50:26256 -> c0a80001:20480 88c52
+8e363a50:7363 -> c0a80001:20480 88c52
+8e363a50:10613 -> c0a80001:20480 89d75
+8e363a50:54306 -> c0a80001:20480 89d75
+8e363a50:59263 -> c0a80001:20480 89d75
+8e363a50:16004 -> c0a80001:20480 91821
+8e363a50:269 -> c0a80001:20480 91821
+8e363a50:38109 -> c0a80001:20480 91821
+8e363a50:1073 -> c0a80001:20480 96854
+8e363a50:34201 -> c0a80001:20480 96854
+8e363a50:58160 -> c0a80001:20480 96854
+8e363a50:11353 -> c0a80001:20480 a17c4
+8e363a50:37120 -> c0a80001:20480 a17c4
+8e363a50:43332 -> c0a80001:20480 a17c4
+8e363a50:26356 -> c0a80001:20480 a2e03
+8e363a50:46187 -> c0a80001:20480 a2e03
+8e363a50:61198 -> c0a80001:20480 a2e03
+8e363a50:12881 -> c0a80001:20480 a7466
+8e363a50:45272 -> c0a80001:20480 a7466
+8e363a50:52661 -> c0a80001:20480 a7466
+8e363a50:32863 -> c0a80001:20480 a7eeb
+8e363a50:33575 -> c0a80001:20480 a7eeb
+8e363a50:9977 -> c0a80001:20480 a7eeb
+8e363a50:23136 -> c0a80001:20480 a9e47
+8e363a50:41222 -> c0a80001:20480 a9e47
+8e363a50:43554 -> c0a80001:20480 a9e47
+8e363a50:3248 -> c0a80001:20480 b365
+8e363a50:3417 -> c0a80001:20480 b365
+8e363a50:61275 -> c0a80001:20480 b365
+8e363a50:25606 -> c0a80001:20480 b511e
+8e363a50:46638 -> c0a80001:20480 b511e
+8e363a50:59262 -> c0a80001:20480 b511e
+8e363a50:24384 -> c0a80001:20480 b571d
+8e363a50:34078 -> c0a80001:20480 b571d
+8e363a50:64346 -> c0a80001:20480 b571d
+8e363a50:11934 -> c0a80001:20480 b90b1
+8e363a50:32598 -> c0a80001:20480 b90b1
+8e363a50:54122 -> c0a80001:20480 b90b1
+8e363a50:41677 -> c0a80001:20480 ba2fe
+8e363a50:61476 -> c0a80001:20480 ba2fe
+8e363a50:65145 -> c0a80001:20480 ba2fe
+8e363a50:31764 -> c0a80001:20480 cd942
+8e363a50:48000 -> c0a80001:20480 cd942
+8e363a50:57653 -> c0a80001:20480 cd942
+8e363a50:247 -> c0a80001:20480 db891
+8e363a50:28001 -> c0a80001:20480 db891
+8e363a50:53241 -> c0a80001:20480 db891
+8e363a50:46947 -> c0a80001:20480 e820c
+8e363a50:51565 -> c0a80001:20480 e820c
+8e363a50:63465 -> c0a80001:20480 e820c
+8e363a50:1046 -> c0a80001:20480 ec738
+8e363a50:17629 -> c0a80001:20480 ec738
+8e363a50:63098 -> c0a80001:20480 ec738
+8e363a50:35056 -> c0a80001:20480 f0ae6
+8e363a50:42973 -> c0a80001:20480 f0ae6
+8e363a50:51422 -> c0a80001:20480 f0ae6
+8e363a50:10479 -> c0a80001:20480 fefc9
+8e363a50:42078 -> c0a80001:20480 fefc9
+8e363a50:45178 -> c0a80001:20480 fefc9
 
 -- 
 	Evgeniy Polyakov
