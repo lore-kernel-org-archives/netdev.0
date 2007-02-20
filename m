@@ -1,68 +1,56 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: Extensible hashing and RCU
-Date: Tue, 20 Feb 2007 20:17:31 +0100
-Message-ID: <200702202017.31965.dada1@cosmosbay.com>
-References: <200702191913.08125.dada1@cosmosbay.com> <200702201955.15567.dada1@cosmosbay.com> <20070220190634.GA12193@2ka.mipt.ru>
+From: bert hubert <bert.hubert@netherlabs.nl>
+Subject: Re: all syscalls initially taking 4usec on a P4? Re: nonblocking UDPv4 recvfrom() taking 4usec @ 3GHz?
+Date: Tue, 20 Feb 2007 20:33:20 +0100
+Message-ID: <20070220193319.GA8800@outpost.ds9a.nl>
+References: <20070219231447.GA4400@outpost.ds9a.nl> <p73d545drx6.fsf@bingen.suse.de> <20070220162714.GA3245@outpost.ds9a.nl> <20070220164124.GA24930@2ka.mipt.ru> <20070220184242.GA30077@filer.fsl.cs.sunysb.edu> <20070220184859.GA1949@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="koi8-r"
-Content-Transfer-Encoding: 7bit
-Cc: "Michael K. Edwards" <medwards.linux@gmail.com>,
-	David Miller <davem@davemloft.net>, akepner@sgi.com,
-	linux@horizon.com, netdev@vger.kernel.org, bcrl@kvack.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Josef Sipek <jsipek@fsl.cs.sunysb.edu>,
+	Andi Kleen <andi@firstfloor.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pfx2.jmh.fr ([194.153.89.55]:45862 "EHLO pfx2.jmh.fr"
+Received: from outpost.ds9a.nl ([213.244.168.210]:35273 "EHLO outpost.ds9a.nl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751021AbXBTTRl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Feb 2007 14:17:41 -0500
-In-Reply-To: <20070220190634.GA12193@2ka.mipt.ru>
+	id S932974AbXBTTdY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Feb 2007 14:33:24 -0500
 Content-Disposition: inline
+In-Reply-To: <20070220184859.GA1949@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 20 February 2007 20:06, Evgeniy Polyakov wrote:
+On Tue, Feb 20, 2007 at 09:48:59PM +0300, Evgeniy Polyakov wrote:
 
-> > I added to my 'simulator_plugged_on_real_server' the average cost
-> > calculation, relative to number of cache line per lookup.
-> >
-> > ehash_size=2^20
-> > xor hash :
-> > 386290 sockets, Avg lookup cost=3.2604 cache lines/lookup
-> > 393667 sockets, Avg lookup cost=3.30579 cache lines/lookup
-> > 400777 sockets, Avg lookup cost=3.3493 cache lines/lookup
-> > 404720 sockets, Avg lookup cost=3.36705 cache lines/lookup
-> > 406671 sockets, Avg lookup cost=3.37677 cache lines/lookup
-> > jenkin hash:
-> > 386290 sockets, Avg lookup cost=2.36763 cache lines/lookup
-> > 393667 sockets, Avg lookup cost=2.37533 cache lines/lookup
-> > 400777 sockets, Avg lookup cost=2.38211 cache lines/lookup
-> > 404720 sockets, Avg lookup cost=2.38582 cache lines/lookup
-> > 406671 sockets, Avg lookup cost=2.38679 cache lines/lookup
-> >
-> > (you can see that when number of sockets increase, the xor hash becomes
-> > worst)
-> >
-> > So the jenkin hash function CPU cost is balanced by the fact its
-> > distribution is better. In the end you are faster.
->
-> Very strange test - it shows that jenkins distribution for your setup is
-> better than xor one, although for the true random data they are roughly
-> the same, and jenkins one has more instructions.
->
-> But _you_ have shown that with true random data of 2^16 ports jenkins
-> distribution is _worse_ than xor without any gain to buy.
+> Likely first overhead related to cache population or gamma-ray radiation.
+> If it happens only one (it does in my test), then everything is ok I
+> think. Bert, how frequently you get that long recvfrom()?
 
-I shown your test was bogus. All your claims are just bogus.
-I claim your 'true random data' is a joke. rand() in your program is a pure 
-joke.
+I have plotted the average time for a single non-blocking UPDv4 recvfrom
+call returning 100 bytes, based on the delay I insert between recvfrom
+calls, as measured in cycles spent busywaiting.
 
-Given 48 bits of input, you *can* find a lot of addr/port to hit one 
-particular cache line if XOR function is used. With jhash, without knowing 
-the 32bits random secret, you *cant*.
+In theory, this graph should show some slope, perhaps because of the higher
+chance of context switches, cache evictions and purging of any branche-prediction
+information the CPU might have kept. I'm no expert.
 
-Again, you dont take into account the chain length.
+I measure a huge slope, however. Starting at 1usec for back-to-back system
+calls, it rises to 2usec after interleaving calls with a count to 20
+million.
 
-If all chains were of length <= 1, then yes, xor would be faster. In real 
-life, we *know* chain length can be larger, especially in DOS situations.
+4usec is hit after 110 million.
 
+The graph, with semi-scientific error-bars is on
+http://ds9a.nl/tmp/recvfrom-usec-vs-wait.png
+
+The code to generate it is on:
+http://ds9a.nl/tmp/recvtimings.c
+
+I'm investigating this further for other system calls. It might be that my
+measurements are off, but it appears even a slight delay between calls
+incurs a large penalty.
+
+	Bert
+
+-- 
+http://www.PowerDNS.com      Open source, database driven DNS Software 
+http://netherlabs.nl              Open and Closed source services
