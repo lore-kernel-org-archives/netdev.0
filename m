@@ -1,63 +1,44 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: Extensible hashing and RCU
-Date: Tue, 20 Feb 2007 17:38:19 +0100
-Message-ID: <200702201738.19590.dada1@cosmosbay.com>
-References: <200702191913.08125.dada1@cosmosbay.com> <200702201708.12858.dada1@cosmosbay.com> <20070220162040.GA8194@2ka.mipt.ru>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: all syscalls initially taking 4usec on a P4? Re: nonblocking UDPv4 recvfrom() taking 4usec @ 3GHz?
+Date: Tue, 20 Feb 2007 19:41:25 +0300
+Message-ID: <20070220164124.GA24930@2ka.mipt.ru>
+References: <20070219231447.GA4400@outpost.ds9a.nl> <p73d545drx6.fsf@bingen.suse.de> <20070220162714.GA3245@outpost.ds9a.nl>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="koi8-r"
-Content-Transfer-Encoding: 7bit
-Cc: "Michael K. Edwards" <medwards.linux@gmail.com>,
-	David Miller <davem@davemloft.net>, akepner@sgi.com,
-	linux@horizon.com, netdev@vger.kernel.org, bcrl@kvack.org
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Content-Type: text/plain; charset=koi8-r
+Cc: Andi Kleen <andi@firstfloor.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: bert hubert <bert.hubert@netherlabs.nl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pfx2.jmh.fr ([194.153.89.55]:44103 "EHLO pfx2.jmh.fr"
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:36374 "EHLO 2ka.mipt.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030243AbXBTQi3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Feb 2007 11:38:29 -0500
-In-Reply-To: <20070220162040.GA8194@2ka.mipt.ru>
+	id S1030253AbXBTQle (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Feb 2007 11:41:34 -0500
 Content-Disposition: inline
+In-Reply-To: <20070220162714.GA3245@outpost.ds9a.nl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 20 February 2007 17:20, Evgeniy Polyakov wrote:
-> On Tue, Feb 20, 2007 at 05:08:12PM +0100, Eric Dumazet (dada1@cosmosbay.com) 
-wrote:
-> > > Adding XOR with constant value does not change distribution.
-> > > Variable salt will end up with differnet buckets for the same flow.
-> > > It is forbidden - it is not the situation created for passwd/des
-> > > decades ago.
-> >
-> > Adding a random hint to jhash (random value picked at boot time, not
-> > known by attacker) permits to have a secure hash table : An attacker
-> > cannot build an attack to fill one particular hash chain.
-> >
-> > See net/ipv4/route.c (function rt_hash_code()) to see how its used for
-> > route cache.
->
-> It is secrecy, not security - attacker will check the source and find
-> where constant per-boot value is added and recalculate attack vector -
-> we all were college students, it would be even more fun to crack.
->
-> In that regard Jenkins ahsh and XOR one have _exactly_ the same attack
-> vector, only Jenkins is a bit more sophisticated. I even think that
-> example in rt_hash_code() will endup with heavy problems when one of the
-> addresses is constant - my tests show problem exactly in the case of
-> jhash_2words() with random third parameter and constant one of the first
-> like in rt_hash_code().
+On Tue, Feb 20, 2007 at 05:27:14PM +0100, bert hubert (bert.hubert@netherlabs.nl) wrote:
+> I've done so, with some interesting results. Source on
+> http://ds9a.nl/tmp/recvtimings.c - be careful to adjust the '3000' divider
+> to your CPU frequency if you care about absolute numbers!
+> 
+> These are two groups, each consisting of 10 consecutive nonblocking UDP
+> recvfroms, with 10 packets preloaded. Reported is the number of microseconds
+> per recvfrom call which yielded a packet:
+> 
+> $ ./recvtimings
+> 4.142333
 
-Please define heavy problem.
+It can be recvfrom only problem - syscall overhead on my p4 (core duo,
+debian testing) is bout 300 usec - to test I ran 
+read('dev/zero', &data, 0)
+in a loop.
 
-On most hosts, with one NIC, one IP address, most entries in cache have the 
-same address (IP address of eth0 or localhost). It just works.
+Could you try to hack recvfrom() for your socket to always copy some
+empty buffer and check the results without waiting for packet?
 
-Last time I checked, the 2^21 route cache I am using was correctly filled, 
-thanks to jhash.
+If you are not hurry I can test it myself tomorrow.
 
-Again, the random value is 32bits. If jhash happens to be cracked by your 
-students, we just put md5 or whatever in...
-
-You can call it secrecy or whatever, fact is : it's just working, far better 
-than XOR previous hash function.
-
+-- 
+	Evgeniy Polyakov
