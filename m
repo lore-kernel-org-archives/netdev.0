@@ -1,51 +1,35 @@
-From: Noriaki TAKAMIYA <takamiya@po.ntts.co.jp>
-Subject: Re: [RFC][PATCH][IPSEC][2/3] IPv6 over IPv4 IPsec tunnel
-Date: Tue, 20 Feb 2007 12:24:32 +0900 (JST)
-Message-ID: <20070220.122432.796987476.takamiya@po.ntts.co.jp>
-References: <20061229144712.e154b021.kazunori@miyazawa.org>
-	<200702101225.33939.nakam@linux-ipv6.org>
+From: John Heffner <jheffner@psc.edu>
+Subject: Re: [PATCH 2/2][TCP] YeAH-TCP: limited slow start exported function
+Date: Mon, 19 Feb 2007 23:32:36 -0500
+Message-ID: <45DA79E4.20704@psc.edu>
+References: <45D97D5D.9040101@gmail.com> <45D97DC9.1030305@gmail.com> <45DA0FD6.9020404@psc.edu> <45DA37B0.5020209@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-To: kazunori@miyazawa.org, miika@iki.fi, Diego.Beltrami@hiit.fi,
-	herbert@gondor.apana.org.au, davem@davemloft.net,
-	netdev@vger.kernel.org, usagi-core@linux-ipv6.org,
-	nakam@linux-ipv6.org
+Cc: netdev@vger.kernel.org,
+	Andrea Baiocchi <andrea.baiocchi@uniroma1.it>,
+	Francesco Vacirca <francesco@net.infocom.uniroma1.it>,
+	David Miller <davem@davemloft.net>
+To: "Angelo P. Castellani" <angelo.castellani@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.ics.ntts.co.jp ([202.32.24.42]:49298 "EHLO
-	mail2.ics.ntts.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965643AbXBTD0Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Feb 2007 22:26:24 -0500
-In-Reply-To: <200702101225.33939.nakam@linux-ipv6.org>
+Received: from mailer1.psc.edu ([128.182.58.100]:55321 "EHLO mailer1.psc.edu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932818AbXBTEcx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Feb 2007 23:32:53 -0500
+In-Reply-To: <45DA37B0.5020209@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Angelo P. Castellani wrote:
+> John Heffner ha scritto:
+>> Note the patch is compile-tested only!  I can do some real testing if 
+>> you'd like to apply this Dave.
+> The date you read on the patch is due to the fact I've splitted this 
+> patchset into 2 diff files. This isn't compile-tested only, I've used 
+> this piece of code for about 3 months.
 
-  More fix is needed for __xfrm6_bundle_create().
+Sorry for the confusion.  The patch I attached to my message was 
+compile-tested only.
 
-Signed-off-by: Noriaki TAKAMIYA <takamiya@po.ntts.co.jp>
-Acked-by: Masahide NAKAMURA <nakam@linux-ipv6.org>
-  
---------------------------------------------------
-  fixed to set fl_tunnel.fl6_src correctly in xfrm6_bundle_create().
-
----
- net/ipv6/xfrm6_policy.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
-index b1133f2..d8a585b 100644
---- a/net/ipv6/xfrm6_policy.c
-+++ b/net/ipv6/xfrm6_policy.c
-@@ -189,7 +189,7 @@ __xfrm6_bundle_create(struct xfrm_policy
- 			case AF_INET6:
- 				ipv6_addr_copy(&fl_tunnel.fl6_dst, __xfrm6_bundle_addr_remote(xfrm[i], &fl->fl6_dst));
- 
--				ipv6_addr_copy(&fl_tunnel.fl6_src, __xfrm6_bundle_addr_remote(xfrm[i], &fl->fl6_src));
-+				ipv6_addr_copy(&fl_tunnel.fl6_src, __xfrm6_bundle_addr_local(xfrm[i], &fl->fl6_src));
- 				break;
- 			default:
- 				BUG_ON(1);
--- 
-Noriaki TAKAMIYA
+Thanks,
+   -John
