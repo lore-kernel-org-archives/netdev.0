@@ -1,59 +1,72 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Subject: Re: Extensible hashing and RCU
-Date: Tue, 20 Feb 2007 18:53:59 +0100
-Message-ID: <200702201854.00092.dada1@cosmosbay.com>
-References: <200702191913.08125.dada1@cosmosbay.com> <20070220165907.GB24930@2ka.mipt.ru> <20070220170525.GC24930@2ka.mipt.ru>
+Date: Tue, 20 Feb 2007 20:55:50 +0300
+Message-ID: <20070220175550.GB26961@2ka.mipt.ru>
+References: <200702191913.08125.dada1@cosmosbay.com> <200702201738.19590.dada1@cosmosbay.com> <20070220165907.GB24930@2ka.mipt.ru> <200702201820.27095.dada1@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=koi8-r
 Cc: "Michael K. Edwards" <medwards.linux@gmail.com>,
 	David Miller <davem@davemloft.net>, akepner@sgi.com,
 	linux@horizon.com, netdev@vger.kernel.org, bcrl@kvack.org
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pfx2.jmh.fr ([194.153.89.55]:45103 "EHLO pfx2.jmh.fr"
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:59199 "EHLO 2ka.mipt.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932969AbXBTRyJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Feb 2007 12:54:09 -0500
-In-Reply-To: <20070220170525.GC24930@2ka.mipt.ru>
+	id S932979AbXBTR5K (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Feb 2007 12:57:10 -0500
 Content-Disposition: inline
+In-Reply-To: <200702201820.27095.dada1@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 20 February 2007 18:05, Evgeniy Polyakov wrote:
-> On Tue, Feb 20, 2007 at 07:59:07PM +0300, Evgeniy Polyakov 
-(johnpol@2ka.mipt.ru) wrote:
-> > I've attached source code and running script.
-> > $ ./run.sh
->
-> Yep, of course.
+On Tue, Feb 20, 2007 at 06:20:26PM +0100, Eric Dumazet (dada1@cosmosbay.com) wrote:
+> > Hmm, I've just ran following test:
+> > 1. created 2^20 hash table.
+> > 2. ran in loop (100*(2^20) iterations) following hashes:
+> >  a. xor hash (const_ip, const_ip, random_word)
+> 
+> So what ? to attack me you want to send 100*2^20 packets every minute ?
 
-Your test program is just bogus. artefacts come from your 'random' generator.
+:) No, I will specially craft 1000 packets which will hist the same
+chain.
 
-You just increment a counter, assuming the key you search is not in the table 
-yet.
+> Thats nonsense... If you really can send so many packets, My pipe is full 
+> whatever I do of received packets. No Algo will protect me, even designed by 
+> Einstein.
 
-But obviously with only a variation of sport (16 bits), you have a maximum of 
-65536 values. No need to feed 100*2^20 values are most of them are dups.
+Did you ever read what I wrote?
+It is test, which shows that 
+1. jenkins has problems
+2. it is two times slower than xor
 
-Now if you change your program to do a real lookups with the 2^16 possible 
-values of sport you'll see :
+How to explot problem in a real world is out of that research, but it is
+enough to say that it is broken.
 
-jhash function :
-1 61578
-2 1916
-3 42
+> If you look again at route cache, you will see chains length are limited by 
+> elasticity factor, that is usually 8... No need to try to reach 100 entries 
+> in a chain.
+> 
+> Yes, I can destroy Russia sending 2^10 nuclear weapons on major cities. You 
+> really should build a bunker right now :)
 
-that is : 61578 chains of length 1
-1916 chains of length 2
-42 chains of length 3
+France only has 100 delivery vehicles (about 50 submarines and 50
+Mirages) - so no, I will not :)
 
-(for reference, with HASH_FOLD, about same results :
-1 61692
-2 1856
-3 44
+> Now try to build an attack with 100 packets per second... and I will try to be 
+> smart too.
 
-Pretty good results... for the gain jhash gives us.
+Depending on the end result... Wanna buy me (or suggest) couple of bottles of 
+good not expensive french wine? :)
 
-Of course, XOR hash gives a 'perfect' 65536 chains of length 1.
+Here is a dump of possible addr/port pairs which end up badly
+distributed:
+
+8e363a50:27652 -> c0a80001:20480
+8e363a50:35529 -> c0a80001:20480
+8e363a50:40919 -> c0a80001:20480
+8e363a50:46720 -> c0a80001:20480
+
+they produce the same hash value in the test described above.
+
+-- 
+	Evgeniy Polyakov
