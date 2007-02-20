@@ -1,24 +1,40 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [HAMRADIO] Replace local random function with random32()
-Date: Tue, 20 Feb 2007 11:18:36 -0500
-Message-ID: <45DB1F5C.6090903@garzik.org>
-References: <20070216115533.GA20386@linux-mips.org>
+Subject: Re: [PATCH 1/4] r8169: RTNL and flush_scheduled_work deadlock
+Date: Tue, 20 Feb 2007 11:18:23 -0500
+Message-ID: <45DB1F4F.3010806@garzik.org>
+References: <20070214132729.479793ac@freekitty> <20070215223721.GA19840@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Joe Perches <joe@perches.com>, netdev@vger.kernel.org,
-	linux-hams@vger.kernel.org
-To: Ralf Baechle <ralf@linux-mips.org>
-Return-path: <linux-hams-owner@vger.kernel.org>
-In-Reply-To: <20070216115533.GA20386@linux-mips.org>
-Sender: linux-hams-owner@vger.kernel.org
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	akpm@linux-foundation.org, Ben Greear <greearb@candelatech.com>,
+	Kyle Lucke <klucke@us.ibm.com>,
+	Raghavendra Koushik <raghavendra.koushik@neterion.com>,
+	Al Viro <viro@ftp.linux.org.uk>,
+	Lennert Buytenhek <buytenh@wantstofly.org>,
+	netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:44498 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965260AbXBTQSq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Feb 2007 11:18:46 -0500
+In-Reply-To: <20070215223721.GA19840@electric-eye.fr.zoreil.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ralf Baechle wrote:
-> Signed-off-by: Joe Perches <joe@perches.com>
-> Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+Francois Romieu wrote:
+> flush_scheduled_work() in net_device->close has a slight tendency
+> to deadlock with tasks on the workqueue that hold RTNL.
+> 
+> rtl8169_close/down simply need the recovery tasks to not meddle
+> with the hardware while the device is going down.
+> 
+> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+> ---
+>  drivers/net/r8169.c |   25 ++++++++++++++++++-------
+>  1 files changed, 18 insertions(+), 7 deletions(-)
 
-applied
+applied 1-4
 
 
