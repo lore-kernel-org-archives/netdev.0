@@ -1,95 +1,84 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+From: "Michael K. Edwards" <medwards.linux@gmail.com>
 Subject: Re: Extensible hashing and RCU
-Date: Tue, 20 Feb 2007 22:06:34 +0300
-Message-ID: <20070220190634.GA12193@2ka.mipt.ru>
-References: <200702191913.08125.dada1@cosmosbay.com> <200702201854.00092.dada1@cosmosbay.com> <20070220180027.GC26961@2ka.mipt.ru> <200702201955.15567.dada1@cosmosbay.com>
+Date: Tue, 20 Feb 2007 11:13:50 -0800
+Message-ID: <f2b55d220702201113m12355e5ds584cede246d4728c@mail.gmail.com>
+References: <200702191913.08125.dada1@cosmosbay.com>
+	 <200702201738.19590.dada1@cosmosbay.com>
+	 <20070220165907.GB24930@2ka.mipt.ru>
+	 <200702201820.27095.dada1@cosmosbay.com>
+	 <20070220175550.GB26961@2ka.mipt.ru>
+	 <20070220181217.GA3401@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: "Michael K. Edwards" <medwards.linux@gmail.com>,
-	David Miller <davem@davemloft.net>, akepner@sgi.com,
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Eric Dumazet" <dada1@cosmosbay.com>,
+	"David Miller" <davem@davemloft.net>, akepner@sgi.com,
 	linux@horizon.com, netdev@vger.kernel.org, bcrl@kvack.org
-To: Eric Dumazet <dada1@cosmosbay.com>
+To: "Evgeniy Polyakov" <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:35942 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965092AbXBTTIV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Feb 2007 14:08:21 -0500
+Received: from an-out-0708.google.com ([209.85.132.243]:10661 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751014AbXBTTNw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Feb 2007 14:13:52 -0500
+Received: by an-out-0708.google.com with SMTP id b33so431469ana
+        for <netdev@vger.kernel.org>; Tue, 20 Feb 2007 11:13:51 -0800 (PST)
+In-Reply-To: <20070220181217.GA3401@2ka.mipt.ru>
 Content-Disposition: inline
-In-Reply-To: <200702201955.15567.dada1@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Feb 20, 2007 at 07:55:15PM +0100, Eric Dumazet (dada1@cosmosbay.com) wrote:
-> On Tuesday 20 February 2007 19:00, Evgeniy Polyakov wrote:
-> > As you can see, jhash has problems in a really trivial case of 2^16,
-> > which in local lan is a disaster. The only reason jenkins hash is good
-> > for hashing purposes is that is it more complex than xor one, and thus
-> > it is harder to find a collision law. That's all.
-> > And it is two times slower.
-> 
-> I see no problems at all. An attacker can not exploit the fact that two (or 
-> three) different values of sport will hit the same hash bucket.
-> 
-> A hash function may have collisions. This is *designed* like that.
-> 
-> The complexity of the hash function is a tradeoff. A perfect hash would be :
-> - Perfect distribution
-> - Hard (or even : impossible) to guess for an attacker.
-> - No CPU cost.
-> 
-> There is no perfect hash function... given 96 bits in input.
-> So what ? hashes are 'badly broken' ?
-> Thats just not even funny Evgeniy.
+On 2/20/07, Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
+> And here are another ones which produce the same hash value.
+> Of course searching for pair for jhash('jhash is broken')
+> will require more steps, but it is doable.
+>
+> That means that if attacker has a full control over one host, it can
+> create a chain of maximum 4 entries in socket table (if jhash is used).
+> If it is udp, that means that attacker control addresses too without
+> syn cookies, which in turn means that below list can be increased to
+> infinite.
 
-Jenkins has _worse_ distribution than xor one.
-_That_ is bad, not the fact that hash has collisions.
+Evgeniy, you're not gettin' it.  Have you ever heard of a Poisson
+distribution?  That's what you have to aim for in a (bog-standard)
+hash table -- a hash function that scrambles the key space until you
+have a Poisson distribution in the hash buckets no matter whan pile of
+keys the attacker throws at you.  That's a "perfect" hash function in
+the statistician's sense (not a "perfect hash" function in the
+compiler designer's sense).  Yes there will be collisions, and they
+will start happening much earlier than you will think, if you have
+never heard of Poisson distributions before; that's called the
+"birthday problem" and it is a chestnut of a mathematical puzzle
+generally encountered by bright twelve-year-olds in extra-curricular
+math classes.  The only sensible way to deal with them is to use a
+better data structure -- like a 2-left hash (Google it) or something
+tree-ish.
 
-hash(val) = val >> 16;
-is a hash too, and it has even worse distribution - so it is designed
-even worse, so we do not use it.
+That is not, however, what you're not getting.  What you're not
+getting is the use of a "salt" or "secret" or whatever you want to
+call it to turn a weak hash into an impenetrable defense against
+chosen-plaintext collision attacks.  You can run your PRNG until you
+slag your poor botnet's little CPUs searching for a set of tuples that
+collide in the same bucket on your test system-under-attack.  But they
+won't collide on mine, and they won't collide on Eric's, and they
+won't collide on yours the next time it's rebooted.  Because even a
+weak hash (in the cryptographer's sense) is good enough to scramble
+the key space radically differently with two different salts.  XOR
+doesn't cut it -- the salt will permute the buckets but not toss each
+one's contents up into the air to land in a bunch of different
+buckets.  But Jenkins does cut it, as discussed in the source code
+Eric pointed out to you.
 
-> The 'two times slower' is a simplistic view, or maybe you have an alien CPU, 
-> or a CPU from the past ?
+Of course you don't change the salt except when resizing the hash
+(which is a dumb thing to do anyway, and a sure sign that a hash table
+is not the right data structure).  That would kinda defeat the purpose
+of having a hash table in the first place.
 
-It is core duo 3.7 ghz.
-Timings are printed in the test I showed in the list.
+If you can't assimilate this and articulate it back to us in your own
+words instead of repeating "any hash that doesn't totally, utterly
+suck slows my meaningless artificial benchmark by 50%", you may not be
+the right person to design and implement a new RCU data structure in a
+kernel that thousands of us trust to withstand exposure to the open
+Internet to the best of a commodity processor's ability.
 
-> On my oprofile, rt_hash_code() uses 0.24% of cpu (about 50 x86_64 
-> instructions)
-> 
-> Each time a cache miss is done because your bucket length is (X+1) instead of 
-> (X), your CPU is stuck while it could have do 150 instructions. Next CPUS 
-> will do 300 instructions per cache miss, maybe 1000 one day... yes, life is 
-> hard.
-> 
-> I added to my 'simulator_plugged_on_real_server' the average cost calculation, 
-> relative to number of cache line per lookup.
-> 
-> ehash_size=2^20
-> xor hash :
-> 386290 sockets, Avg lookup cost=3.2604 cache lines/lookup
-> 393667 sockets, Avg lookup cost=3.30579 cache lines/lookup
-> 400777 sockets, Avg lookup cost=3.3493 cache lines/lookup
-> 404720 sockets, Avg lookup cost=3.36705 cache lines/lookup
-> 406671 sockets, Avg lookup cost=3.37677 cache lines/lookup
-> jenkin hash:
-> 386290 sockets, Avg lookup cost=2.36763 cache lines/lookup
-> 393667 sockets, Avg lookup cost=2.37533 cache lines/lookup
-> 400777 sockets, Avg lookup cost=2.38211 cache lines/lookup
-> 404720 sockets, Avg lookup cost=2.38582 cache lines/lookup
-> 406671 sockets, Avg lookup cost=2.38679 cache lines/lookup
-> 
-> (you can see that when number of sockets increase, the xor hash becomes worst)
-> 
-> So the jenkin hash function CPU cost is balanced by the fact its distribution 
-> is better. In the end you are faster.
-
-Very strange test - it shows that jenkins distribution for your setup is
-better than xor one, although for the true random data they are roughly
-the same, and jenkins one has more instructions.
-
-But _you_ have shown that with true random data of 2^16 ports jenkins
-distribution is _worse_ than xor without any gain to buy.
-
--- 
-	Evgeniy Polyakov
+Cheers,
+- Michael
