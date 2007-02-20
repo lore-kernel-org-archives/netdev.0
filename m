@@ -1,7 +1,7 @@
 From: linas@austin.ibm.com (Linas Vepstas)
-Subject: [PATCH 3/12] spidernet: autoneg support for Celleb
-Date: Tue, 20 Feb 2007 16:33:41 -0600
-Message-ID: <20070220223341.GC28895@austin.ibm.com>
+Subject: [PATCH 4/12] spidernet: load firmware when open
+Date: Tue, 20 Feb 2007 16:34:50 -0600
+Message-ID: <20070220223449.GD28895@austin.ibm.com>
 References: <20070220221314.GU923@austin.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -11,10 +11,10 @@ Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
 	linux-kernel@vger.kernel.org
 To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e3.ny.us.ibm.com ([32.97.182.143]:36209 "EHLO e3.ny.us.ibm.com"
+Received: from e5.ny.us.ibm.com ([32.97.182.145]:43027 "EHLO e5.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030514AbXBTWdn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Feb 2007 17:33:43 -0500
+	id S1030519AbXBTWew (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Feb 2007 17:34:52 -0500
 Content-Disposition: inline
 In-Reply-To: <20070220221314.GU923@austin.ibm.com>
 Sender: netdev-owner@vger.kernel.org
@@ -23,318 +23,306 @@ List-Id: netdev.vger.kernel.org
 
 From: Kou Ishizaki <kou.ishizaki@toshiba.co.jp>
 
-Add auto negotiation support for Celleb. 
+This patch moves calling init_firmware() from spider_net_probe() to
+spider_net_open() so as to use the driver by built-in.
 
 Signed-off-by: Kou Ishizaki <kou.ishizaki@toshiba.co.jp>
 Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
 
 ----
- drivers/net/spider_net.c |  176 ++++++++++++++++++++++++++++++++++++++++++-----
- drivers/net/spider_net.h |   10 ++
- 2 files changed, 170 insertions(+), 16 deletions(-)
+ drivers/net/spider_net.c |  247 +++++++++++++++++++++++------------------------
+ 1 file changed, 123 insertions(+), 124 deletions(-)
 
-Index: linux-2.6.20-git16/drivers/net/spider_net.h
-===================================================================
---- linux-2.6.20-git16.orig/drivers/net/spider_net.h	2007-02-20 14:24:00.000000000 -0600
-+++ linux-2.6.20-git16/drivers/net/spider_net.h	2007-02-20 15:02:32.000000000 -0600
-@@ -50,6 +50,8 @@ extern char spider_net_driver_name[];
- #define SPIDER_NET_TX_DESCRIPTORS_MAX		512
- 
- #define SPIDER_NET_TX_TIMER			(HZ/5)
-+#define SPIDER_NET_ANEG_TIMER			(HZ)
-+#define SPIDER_NET_ANEG_TIMEOUT			2
- 
- #define SPIDER_NET_RX_CSUM_DEFAULT		1
- 
-@@ -104,6 +106,7 @@ extern char spider_net_driver_name[];
- 
- #define SPIDER_NET_GMACOPEMD		0x00000100
- #define SPIDER_NET_GMACLENLMT		0x00000108
-+#define SPIDER_NET_GMACST		0x00000110
- #define SPIDER_NET_GMACINTEN		0x00000118
- #define SPIDER_NET_GMACPHYCTRL		0x00000120
- 
-@@ -333,9 +336,12 @@ enum spider_net_int2_status {
- /* We rely on flagged descriptor interrupts */
- #define SPIDER_NET_RXINT	( (1 << SPIDER_NET_GDAFDCINT) )
- 
-+#define SPIDER_NET_LINKINT	( 1 << SPIDER_NET_GMAC2INT )
-+
- #define SPIDER_NET_ERRINT	( 0xffffffff & \
- 				  (~SPIDER_NET_TXINT) & \
--				  (~SPIDER_NET_RXINT) )
-+				  (~SPIDER_NET_RXINT) & \
-+				  (~SPIDER_NET_LINKINT) )
- 
- #define SPIDER_NET_GPREXEC			0x80000000
- #define SPIDER_NET_GPRDAT_MASK			0x0000ffff
-@@ -442,6 +448,8 @@ struct spider_net_card {
- 	struct spider_net_descr_chain rx_chain;
- 	struct spider_net_descr *low_watermark;
- 
-+	int aneg_count;
-+	struct timer_list aneg_timer;
- 	struct timer_list tx_timer;
- 	struct work_struct tx_timeout_task;
- 	atomic_t tx_timeout_task_counter;
 Index: linux-2.6.20-git16/drivers/net/spider_net.c
 ===================================================================
---- linux-2.6.20-git16.orig/drivers/net/spider_net.c	2007-02-20 14:36:13.000000000 -0600
-+++ linux-2.6.20-git16/drivers/net/spider_net.c	2007-02-20 15:02:32.000000000 -0600
-@@ -166,6 +166,41 @@ spider_net_read_phy(struct net_device *n
+--- linux-2.6.20-git16.orig/drivers/net/spider_net.c	2007-02-20 15:02:32.000000000 -0600
++++ linux-2.6.20-git16/drivers/net/spider_net.c	2007-02-20 15:02:36.000000000 -0600
+@@ -1705,6 +1705,124 @@ spider_net_enable_card(struct spider_net
  }
  
  /**
-+ * spider_net_setup_aneg - initial auto-negotiation setup
-+ * @card: device structure
-+ **/
-+static void
-+spider_net_setup_aneg(struct spider_net_card *card)
-+{
-+	struct mii_phy *phy = &card->phy;
-+	u32 advertise = 0;
-+	u16 bmcr, bmsr, stat1000, estat;
-+
-+	bmcr     = spider_net_read_phy(card->netdev, phy->mii_id, MII_BMCR);
-+	bmsr     = spider_net_read_phy(card->netdev, phy->mii_id, MII_BMSR);
-+	stat1000 = spider_net_read_phy(card->netdev, phy->mii_id, MII_STAT1000);
-+	estat    = spider_net_read_phy(card->netdev, phy->mii_id, MII_ESTATUS);
-+
-+	if (bmsr & BMSR_10HALF)
-+		advertise |= ADVERTISED_10baseT_Half;
-+	if (bmsr & BMSR_10FULL)
-+		advertise |= ADVERTISED_10baseT_Full;
-+	if (bmsr & BMSR_100HALF)
-+		advertise |= ADVERTISED_100baseT_Half;
-+	if (bmsr & BMSR_100FULL)
-+		advertise |= ADVERTISED_100baseT_Full;
-+
-+	if ((bmsr & BMSR_ESTATEN) && (estat & ESTATUS_1000_TFULL))
-+		advertise |= SUPPORTED_1000baseT_Full;
-+	if ((bmsr & BMSR_ESTATEN) && (estat & ESTATUS_1000_THALF))
-+		advertise |= SUPPORTED_1000baseT_Half;
-+
-+	mii_phy_probe(phy, phy->mii_id);
-+	phy->def->ops->setup_aneg(phy, advertise);
-+
-+}
-+
-+/**
-  * spider_net_rx_irq_off - switch off rx irq on this spider card
-  * @card: device structure
-  *
-@@ -1248,6 +1283,33 @@ spider_net_set_mac(struct net_device *ne
- }
- 
- /**
-+ * spider_net_link_reset
-+ * @netdev: net device structure
++ * spider_net_download_firmware - loads firmware into the adapter
++ * @card: card structure
++ * @firmware_ptr: pointer to firmware data
 + *
-+ * This is called when the PHY_LINK signal is asserted. For the blade this is
-+ * not connected so we should never get here.
-+ *
++ * spider_net_download_firmware loads the firmware data into the
++ * adapter. It assumes the length etc. to be allright.
 + */
-+static void
-+spider_net_link_reset(struct net_device *netdev)
++static int
++spider_net_download_firmware(struct spider_net_card *card,
++			     const void *firmware_ptr)
 +{
++	int sequencer, i;
++	const u32 *fw_ptr = firmware_ptr;
 +
-+	struct spider_net_card *card = netdev_priv(netdev);
++	/* stop sequencers */
++	spider_net_write_reg(card, SPIDER_NET_GSINIT,
++			     SPIDER_NET_STOP_SEQ_VALUE);
 +
-+	del_timer_sync(&card->aneg_timer);
++	for (sequencer = 0; sequencer < SPIDER_NET_FIRMWARE_SEQS;
++	     sequencer++) {
++		spider_net_write_reg(card,
++				     SPIDER_NET_GSnPRGADR + sequencer * 8, 0);
++		for (i = 0; i < SPIDER_NET_FIRMWARE_SEQWORDS; i++) {
++			spider_net_write_reg(card, SPIDER_NET_GSnPRGDAT +
++					     sequencer * 8, *fw_ptr);
++			fw_ptr++;
++		}
++	}
 +
-+	/* clear interrupt, block further interrupts */
-+	spider_net_write_reg(card, SPIDER_NET_GMACST,
-+			     spider_net_read_reg(card, SPIDER_NET_GMACST));
-+	spider_net_write_reg(card, SPIDER_NET_GMACINTEN, 0);
++	if (spider_net_read_reg(card, SPIDER_NET_GSINIT))
++		return -EIO;
 +
-+	/* reset phy and setup aneg */
-+	spider_net_setup_aneg(card);
-+	mod_timer(&card->aneg_timer, jiffies + SPIDER_NET_ANEG_TIMER);
++	spider_net_write_reg(card, SPIDER_NET_GSINIT,
++			     SPIDER_NET_RUN_SEQ_VALUE);
 +
++	return 0;
 +}
 +
 +/**
-  * spider_net_handle_error_irq - handles errors raised by an interrupt
-  * @card: card structure
-  * @status_reg: interrupt status register 0 (GHIINT0STS)
-@@ -1500,6 +1562,9 @@ spider_net_interrupt(int irq, void *ptr)
- 	if (status_reg & SPIDER_NET_TXINT)
- 		netif_rx_schedule(netdev);
- 
-+	if (status_reg & SPIDER_NET_LINKINT)
-+		spider_net_link_reset(netdev);
++ * spider_net_init_firmware - reads in firmware parts
++ * @card: card structure
++ *
++ * Returns 0 on success, <0 on failure
++ *
++ * spider_net_init_firmware opens the sequencer firmware and does some basic
++ * checks. This function opens and releases the firmware structure. A call
++ * to download the firmware is performed before the release.
++ *
++ * Firmware format
++ * ===============
++ * spider_fw.bin is expected to be a file containing 6*1024*4 bytes, 4k being
++ * the program for each sequencer. Use the command
++ *    tail -q -n +2 Seq_code1_0x088.txt Seq_code2_0x090.txt              \
++ *         Seq_code3_0x098.txt Seq_code4_0x0A0.txt Seq_code5_0x0A8.txt   \
++ *         Seq_code6_0x0B0.txt | xxd -r -p -c4 > spider_fw.bin
++ *
++ * to generate spider_fw.bin, if you have sequencer programs with something
++ * like the following contents for each sequencer:
++ *    <ONE LINE COMMENT>
++ *    <FIRST 4-BYTES-WORD FOR SEQUENCER>
++ *    <SECOND 4-BYTES-WORD FOR SEQUENCER>
++ *     ...
++ *    <1024th 4-BYTES-WORD FOR SEQUENCER>
++ */
++static int
++spider_net_init_firmware(struct spider_net_card *card)
++{
++	struct firmware *firmware = NULL;
++	struct device_node *dn;
++	const u8 *fw_prop = NULL;
++	int err = -ENOENT;
++	int fw_size;
 +
- 	if (status_reg & SPIDER_NET_ERRINT )
- 		spider_net_handle_error_irq(card, status_reg);
- 
-@@ -1624,8 +1689,6 @@ spider_net_enable_card(struct spider_net
- 
- 	spider_net_write_reg(card, SPIDER_NET_GMACLENLMT,
- 			     SPIDER_NET_LENLMT_VALUE);
--	spider_net_write_reg(card, SPIDER_NET_GMACMODE,
--			     SPIDER_NET_MACMODE_VALUE);
- 	spider_net_write_reg(card, SPIDER_NET_GMACOPEMD,
- 			     SPIDER_NET_OPMODE_VALUE);
- 
-@@ -1656,6 +1719,11 @@ spider_net_open(struct net_device *netde
++	if (request_firmware((const struct firmware **)&firmware,
++			     SPIDER_NET_FIRMWARE_NAME, &card->pdev->dev) == 0) {
++		if ( (firmware->size != SPIDER_NET_FIRMWARE_LEN) &&
++		     netif_msg_probe(card) ) {
++			pr_err("Incorrect size of spidernet firmware in " \
++			       "filesystem. Looking in host firmware...\n");
++			goto try_host_fw;
++		}
++		err = spider_net_download_firmware(card, firmware->data);
++
++		release_firmware(firmware);
++		if (err)
++			goto try_host_fw;
++
++		goto done;
++	}
++
++try_host_fw:
++	dn = pci_device_to_OF_node(card->pdev);
++	if (!dn)
++		goto out_err;
++
++	fw_prop = get_property(dn, "firmware", &fw_size);
++	if (!fw_prop)
++		goto out_err;
++
++	if ( (fw_size != SPIDER_NET_FIRMWARE_LEN) &&
++	     netif_msg_probe(card) ) {
++		pr_err("Incorrect size of spidernet firmware in " \
++		       "host firmware\n");
++		goto done;
++	}
++
++	err = spider_net_download_firmware(card, fw_prop);
++
++done:
++	return err;
++out_err:
++	if (netif_msg_probe(card))
++		pr_err("Couldn't find spidernet firmware in filesystem " \
++		       "or host firmware\n");
++	return err;
++}
++
++/**
+  * spider_net_open - called upon ifonfig up
+  * @netdev: interface device structure
+  *
+@@ -1719,6 +1837,10 @@ spider_net_open(struct net_device *netde
  	struct spider_net_card *card = netdev_priv(netdev);
  	int result;
  
-+	/* start probing with copper */
-+	spider_net_setup_aneg(card);
-+	if (card->phy.def->phy_id)
-+		mod_timer(&card->aneg_timer, jiffies + SPIDER_NET_ANEG_TIMER);
++	result = spider_net_init_firmware(card);
++	if (result)
++		goto init_firmware_failed;
 +
- 	result = spider_net_init_chain(card, &card->tx_chain);
- 	if (result)
- 		goto alloc_tx_failed;
-@@ -1693,17 +1761,88 @@ alloc_skbs_failed:
- alloc_rx_failed:
+ 	/* start probing with copper */
+ 	spider_net_setup_aneg(card);
+ 	if (card->phy.def->phy_id)
+@@ -1762,6 +1884,7 @@ alloc_rx_failed:
  	spider_net_free_chain(card, &card->tx_chain);
  alloc_tx_failed:
-+	del_timer_sync(&card->aneg_timer);
+ 	del_timer_sync(&card->aneg_timer);
++init_firmware_failed:
  	return result;
  }
  
+@@ -1873,124 +1996,6 @@ spider_net_setup_phy(struct spider_net_c
+ }
+ 
  /**
-+ * spider_net_link_phy
-+ * @data: used for pointer to card structure
-+ *
-+ */
-+static void spider_net_link_phy(unsigned long data)
-+{
-+	struct spider_net_card *card = (struct spider_net_card *)data;
-+	struct mii_phy *phy = &card->phy;
-+
-+	/* if link didn't come up after SPIDER_NET_ANEG_TIMEOUT tries, setup phy again */
-+	if (card->aneg_count > SPIDER_NET_ANEG_TIMEOUT) {
-+
-+		pr_info("%s: link is down trying to bring it up\n", card->netdev->name);
-+
-+		switch (phy->medium) {
-+		case GMII_COPPER:
-+			/* enable fiber with autonegotiation first */
-+			if (phy->def->ops->enable_fiber)
-+				phy->def->ops->enable_fiber(phy, 1);
-+			phy->medium = GMII_FIBER;
-+			break;
-+
-+		case GMII_FIBER:
-+			/* fiber didn't come up, try to disable fiber autoneg */
-+			if (phy->def->ops->enable_fiber)
-+				phy->def->ops->enable_fiber(phy, 0);
-+			phy->medium = GMII_UNKNOWN;
-+			break;
-+
-+		case GMII_UNKNOWN:
-+			/* copper, fiber with and without failed,
-+			 * retry from beginning */
-+			spider_net_setup_aneg(card);
-+			phy->medium = GMII_COPPER;
-+			break;
-+		}
-+
-+		card->aneg_count = 0;
-+		mod_timer(&card->aneg_timer, jiffies + SPIDER_NET_ANEG_TIMER);
-+		return;
-+	}
-+
-+	/* link still not up, try again later */
-+	if (!(phy->def->ops->poll_link(phy))) {
-+		card->aneg_count++;
-+		mod_timer(&card->aneg_timer, jiffies + SPIDER_NET_ANEG_TIMER);
-+		return;
-+	}
-+
-+	/* link came up, get abilities */
-+	phy->def->ops->read_link(phy);
-+
-+	spider_net_write_reg(card, SPIDER_NET_GMACST,
-+			     spider_net_read_reg(card, SPIDER_NET_GMACST));
-+	spider_net_write_reg(card, SPIDER_NET_GMACINTEN, 0x4);
-+
-+	if (phy->speed == 1000)
-+		spider_net_write_reg(card, SPIDER_NET_GMACMODE, 0x00000001);
-+	else
-+		spider_net_write_reg(card, SPIDER_NET_GMACMODE, 0);
-+
-+	card->aneg_count = 0;
-+
-+	pr_debug("Found %s with %i Mbps, %s-duplex %sautoneg.\n",
-+		phy->def->name, phy->speed, phy->duplex==1 ? "Full" : "Half",
-+		phy->autoneg==1 ? "" : "no ");
-+
-+	return;
-+}
-+
-+/**
-  * spider_net_setup_phy - setup PHY
+- * spider_net_download_firmware - loads firmware into the adapter
+- * @card: card structure
+- * @firmware_ptr: pointer to firmware data
+- *
+- * spider_net_download_firmware loads the firmware data into the
+- * adapter. It assumes the length etc. to be allright.
+- */
+-static int
+-spider_net_download_firmware(struct spider_net_card *card,
+-			     const void *firmware_ptr)
+-{
+-	int sequencer, i;
+-	const u32 *fw_ptr = firmware_ptr;
+-
+-	/* stop sequencers */
+-	spider_net_write_reg(card, SPIDER_NET_GSINIT,
+-			     SPIDER_NET_STOP_SEQ_VALUE);
+-
+-	for (sequencer = 0; sequencer < SPIDER_NET_FIRMWARE_SEQS;
+-	     sequencer++) {
+-		spider_net_write_reg(card,
+-				     SPIDER_NET_GSnPRGADR + sequencer * 8, 0);
+-		for (i = 0; i < SPIDER_NET_FIRMWARE_SEQWORDS; i++) {
+-			spider_net_write_reg(card, SPIDER_NET_GSnPRGDAT +
+-					     sequencer * 8, *fw_ptr);
+-			fw_ptr++;
+-		}
+-	}
+-
+-	if (spider_net_read_reg(card, SPIDER_NET_GSINIT))
+-		return -EIO;
+-
+-	spider_net_write_reg(card, SPIDER_NET_GSINIT,
+-			     SPIDER_NET_RUN_SEQ_VALUE);
+-
+-	return 0;
+-}
+-
+-/**
+- * spider_net_init_firmware - reads in firmware parts
+- * @card: card structure
+- *
+- * Returns 0 on success, <0 on failure
+- *
+- * spider_net_init_firmware opens the sequencer firmware and does some basic
+- * checks. This function opens and releases the firmware structure. A call
+- * to download the firmware is performed before the release.
+- *
+- * Firmware format
+- * ===============
+- * spider_fw.bin is expected to be a file containing 6*1024*4 bytes, 4k being
+- * the program for each sequencer. Use the command
+- *    tail -q -n +2 Seq_code1_0x088.txt Seq_code2_0x090.txt              \
+- *         Seq_code3_0x098.txt Seq_code4_0x0A0.txt Seq_code5_0x0A8.txt   \
+- *         Seq_code6_0x0B0.txt | xxd -r -p -c4 > spider_fw.bin
+- *
+- * to generate spider_fw.bin, if you have sequencer programs with something
+- * like the following contents for each sequencer:
+- *    <ONE LINE COMMENT>
+- *    <FIRST 4-BYTES-WORD FOR SEQUENCER>
+- *    <SECOND 4-BYTES-WORD FOR SEQUENCER>
+- *     ...
+- *    <1024th 4-BYTES-WORD FOR SEQUENCER>
+- */
+-static int
+-spider_net_init_firmware(struct spider_net_card *card)
+-{
+-	struct firmware *firmware = NULL;
+-	struct device_node *dn;
+-	const u8 *fw_prop = NULL;
+-	int err = -ENOENT;
+-	int fw_size;
+-
+-	if (request_firmware((const struct firmware **)&firmware,
+-			     SPIDER_NET_FIRMWARE_NAME, &card->pdev->dev) == 0) {
+-		if ( (firmware->size != SPIDER_NET_FIRMWARE_LEN) &&
+-		     netif_msg_probe(card) ) {
+-			pr_err("Incorrect size of spidernet firmware in " \
+-			       "filesystem. Looking in host firmware...\n");
+-			goto try_host_fw;
+-		}
+-		err = spider_net_download_firmware(card, firmware->data);
+-
+-		release_firmware(firmware);
+-		if (err)
+-			goto try_host_fw;
+-
+-		goto done;
+-	}
+-
+-try_host_fw:
+-	dn = pci_device_to_OF_node(card->pdev);
+-	if (!dn)
+-		goto out_err;
+-
+-	fw_prop = get_property(dn, "firmware", &fw_size);
+-	if (!fw_prop)
+-		goto out_err;
+-
+-	if ( (fw_size != SPIDER_NET_FIRMWARE_LEN) &&
+-	     netif_msg_probe(card) ) {
+-		pr_err("Incorrect size of spidernet firmware in " \
+-		       "host firmware\n");
+-		goto done;
+-	}
+-
+-	err = spider_net_download_firmware(card, fw_prop);
+-
+-done:
+-	return err;
+-out_err:
+-	if (netif_msg_probe(card))
+-		pr_err("Couldn't find spidernet firmware in filesystem " \
+-		       "or host firmware\n");
+-	return err;
+-}
+-
+-/**
+  * spider_net_workaround_rxramfull - work around firmware bug
   * @card: card structure
   *
-  * returns 0 on success, <0 on failure
-  *
-- * spider_net_setup_phy is used as part of spider_net_probe. Sets
-- * the PHY to 1000 Mbps
-+ * spider_net_setup_phy is used as part of spider_net_probe.
-  **/
- static int
- spider_net_setup_phy(struct spider_net_card *card)
-@@ -1714,21 +1853,21 @@ spider_net_setup_phy(struct spider_net_c
- 			     SPIDER_NET_DMASEL_VALUE);
- 	spider_net_write_reg(card, SPIDER_NET_GPCCTRL,
- 			     SPIDER_NET_PHY_CTRL_VALUE);
--	phy->mii_id = 1;
-+
- 	phy->dev = card->netdev;
- 	phy->mdio_read = spider_net_read_phy;
- 	phy->mdio_write = spider_net_write_phy;
+@@ -2090,8 +2095,6 @@ spider_net_tx_timeout_task(struct work_s
  
--	mii_phy_probe(phy, phy->mii_id);
+ 	if (spider_net_setup_phy(card))
+ 		goto out;
+-	if (spider_net_init_firmware(card))
+-		goto out;
+ 
+ 	spider_net_open(netdev);
+ 	spider_net_kick_tx_dma(card);
+@@ -2363,10 +2366,6 @@ spider_net_probe(struct pci_dev *pdev, c
+ 	if (err)
+ 		goto out_undo_pci;
+ 
+-	err = spider_net_init_firmware(card);
+-	if (err)
+-		goto out_undo_pci;
 -
--	if (phy->def->ops->setup_forced)
--		phy->def->ops->setup_forced(phy, SPEED_1000, DUPLEX_FULL);
--
--	phy->def->ops->enable_fiber(phy);
--
--	phy->def->ops->read_link(phy);
--	pr_info("Found %s with %i Mbps, %s-duplex.\n", phy->def->name,
--		phy->speed, phy->duplex==1 ? "Full" : "Half");
-+	for (phy->mii_id = 1; phy->mii_id <= 31; phy->mii_id++) {
-+		unsigned short id;
-+		id = spider_net_read_phy(card->netdev, phy->mii_id, MII_BMSR);
-+		if (id != 0x0000 && id != 0xffff) {
-+			if (!mii_phy_probe(phy, phy->mii_id)) {
-+				pr_info("Found %s.\n", phy->def->name);
-+				break;
-+			}
-+		}
-+	}
- 
- 	return 0;
- }
-@@ -1900,11 +2039,13 @@ spider_net_stop(struct net_device *netde
- 	netif_carrier_off(netdev);
- 	netif_stop_queue(netdev);
- 	del_timer_sync(&card->tx_timer);
-+	del_timer_sync(&card->aneg_timer);
- 
- 	/* disable/mask all interrupts */
- 	spider_net_write_reg(card, SPIDER_NET_GHIINT0MSK, 0);
- 	spider_net_write_reg(card, SPIDER_NET_GHIINT1MSK, 0);
- 	spider_net_write_reg(card, SPIDER_NET_GHIINT2MSK, 0);
-+	spider_net_write_reg(card, SPIDER_NET_GMACINTEN, 0);
- 
- 	free_irq(netdev->irq, netdev);
- 
-@@ -2043,6 +2184,11 @@ spider_net_setup_netdev(struct spider_ne
- 	card->tx_timer.data = (unsigned long) card;
- 	netdev->irq = card->pdev->irq;
- 
-+	card->aneg_count = 0;
-+	init_timer(&card->aneg_timer);
-+	card->aneg_timer.function = spider_net_link_phy;
-+	card->aneg_timer.data = (unsigned long) card;
-+
- 	card->options.rx_csum = SPIDER_NET_RX_CSUM_DEFAULT;
- 
- 	card->tx_chain.num_desc = tx_descriptors;
+ 	err = spider_net_setup_netdev(card);
+ 	if (err)
+ 		goto out_undo_pci;
