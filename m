@@ -1,29 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/5][SCTP]: Implement SCTP_FRAGMENT_INTERLEAVE socket
- option.
-Date: Tue, 20 Feb 2007 23:21:36 -0800 (PST)
-Message-ID: <20070220.232136.112621337.davem@davemloft.net>
-References: <1171683583.4568.10.camel@w-sridhar2.beaverton.ibm.com>
+From: Rolf Eike Beer <eike-kernel@sf-tec.de>
+Subject: [PATCH 0/2] Remove outdated information from IPX
+Date: Tue, 20 Feb 2007 19:57:12 +0100
+Message-ID: <200702201957.13531.eike-kernel@sf-tec.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: multipart/signed;
+  boundary="nextPart4654498.saB67gjDrM";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net
-To: sri@us.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34218
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S932771AbXBUHVh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Feb 2007 02:21:37 -0500
-In-Reply-To: <1171683583.4568.10.camel@w-sridhar2.beaverton.ibm.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: trivial@kernel.org, linux-kernel@vger.kernel.org,
+	acme@conectiva.com.br, netdev@vger.kernel.org
+To: akpm@linux-foundation.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030553AbXBUHYm@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Sridhar Samudrala <sri@us.ibm.com>
-Date: Fri, 16 Feb 2007 19:39:43 -0800
+--nextPart4654498.saB67gjDrM
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-> [SCTP]: Implement SCTP_FRAGMENT_INTERLEAVE socket option.
+Who cares about stuff describing what happened in early 2.5 days? Even wors=
+e=20
+is to reference Kconfig options removed back then. Go, rest in pieces.
 
-Sorry, these patches missed the merge window.
+Eike
 
-Patches 4 and 5 are bug fixes, so I could apply just those if you
-want me to, just let me know and you don't need to resend them.
+--nextPart4654498.saB67gjDrM
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.2 (GNU/Linux)
+
+iD8DBQBF20SJXKSJPmm5/E4RAuoCAJ9j9oL8OWO/oU1OXgK1xNTEcGdcYQCeM3EE
+N2shXQhgFwPpleT3W04J0uQ=
+=zgcX
+-----END PGP SIGNATURE-----
+
+--nextPart4654498.saB67gjDrM--
