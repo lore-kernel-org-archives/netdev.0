@@ -1,1098 +1,244 @@
 From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [PATCH 1/3] chelsio: remove unused code for 1G boards
-Date: Tue, 20 Feb 2007 15:58:00 -0800
-Message-ID: <20070220235905.097058245@linux-foundation.org>
+Subject: [PATCH 3/3] chelsio: use const for virtual functions
+Date: Tue, 20 Feb 2007 15:58:02 -0800
+Message-ID: <20070220235905.350443524@linux-foundation.org>
 References: <20070220235759.102686172@linux-foundation.org>
 Cc: netdev@vger.kernel.org
 To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:56896 "EHLO smtp.osdl.org"
+Received: from smtp.osdl.org ([65.172.181.24]:57036 "EHLO smtp.osdl.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1161108AbXBUAAA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Feb 2007 19:00:00 -0500
-Content-Disposition: inline; filename=chelsio-remove-t204
+	id S965257AbXBUADS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Feb 2007 19:03:18 -0500
+Content-Disposition: inline; filename=chelso-const-ops.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Some code for Chelsio 1G boards was put in the driver
-based on the vendor version (minus TOE). Well some of those board
-versions are only supported with TOE on the vendor driver, so additional
-dead code was added.
+There are several uses of _ops structure in this driver that
+can be converted to const.
 
 Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
 
 ---
- drivers/net/chelsio/Makefile      |    4 
- drivers/net/chelsio/ixf1010.c     |  505 --------------------------------------
- drivers/net/chelsio/vsc8244.c     |  367 ---------------------------
- drivers/net/chelsio/vsc8244_reg.h |  172 ------------
- 4 files changed, 1 insertion(+), 1047 deletions(-)
+ drivers/net/chelsio/common.h    |    6 +++---
+ drivers/net/chelsio/cphy.h      |   16 +++++++---------
+ drivers/net/chelsio/gmac.h      |   10 +++-------
+ drivers/net/chelsio/mac.c       |    2 +-
+ drivers/net/chelsio/mv88e1xxx.c |    8 ++++----
+ drivers/net/chelsio/mv88x201x.c |    8 ++++----
+ drivers/net/chelsio/my3126.c    |    8 ++++----
+ drivers/net/chelsio/pm3393.c    |    8 ++++----
+ drivers/net/chelsio/subr.c      |    4 ++--
+ drivers/net/chelsio/vsc7326.c   |    2 +-
+ 10 files changed, 33 insertions(+), 39 deletions(-)
 
---- chelsio.orig/drivers/net/chelsio/Makefile
-+++ chelsio/drivers/net/chelsio/Makefile
-@@ -4,8 +4,6 @@
+--- chelsio.orig/drivers/net/chelsio/common.h
++++ chelsio/drivers/net/chelsio/common.h
+@@ -322,9 +322,9 @@ struct board_info {
+ 	unsigned char           mdio_mdiinv;
+ 	unsigned char           mdio_mdc;
+ 	unsigned char           mdio_phybaseaddr;
+-	struct gmac            *gmac;
+-	struct gphy            *gphy;
+-	struct mdio_ops        *mdio_ops;
++	const struct gmac      *gmac;
++	const struct gphy      *gphy;
++	const struct mdio_ops  *mdio_ops;
+ 	const char             *desc;
+ };
  
- obj-$(CONFIG_CHELSIO_T1) += cxgb.o
+--- chelsio.orig/drivers/net/chelsio/cphy.h
++++ chelsio/drivers/net/chelsio/cphy.h
+@@ -100,7 +100,7 @@ struct cphy {
  
--cxgb-$(CONFIG_CHELSIO_T1_1G) += ixf1010.o mac.o mv88e1xxx.o vsc7326.o vsc8244.o
-+cxgb-$(CONFIG_CHELSIO_T1_1G) += mac.o mv88e1xxx.o vsc7326.o
- cxgb-objs := cxgb2.o espi.o tp.o pm3393.o sge.o subr.o \
- 	     mv88x201x.o my3126.o $(cxgb-y)
--
--
---- chelsio.orig/drivers/net/chelsio/ixf1010.c
-+++ /dev/null
-@@ -1,505 +0,0 @@
--/* $Date: 2005/11/12 02:13:49 $ $RCSfile: ixf1010.c,v $ $Revision: 1.36 $ */
--#include "gmac.h"
--#include "elmer0.h"
--
--/* Update fast changing statistics every 15 seconds */
--#define STATS_TICK_SECS 15
--/* 30 minutes for full statistics update */
--#define MAJOR_UPDATE_TICKS (1800 / STATS_TICK_SECS)
--
--/*
-- * The IXF1010 can handle frames up to 16383 bytes but it's optimized for
-- * frames up to 9831 (0x2667) bytes, so we limit jumbo frame size to this.
-- * This length includes ethernet header and FCS.
-- */
--#define MAX_FRAME_SIZE 0x2667
--
--/* MAC registers */
--enum {
--	/* Per-port registers */
--	REG_MACADDR_LOW = 0,
--	REG_MACADDR_HIGH = 0x4,
--	REG_FDFC_TYPE = 0xC,
--	REG_FC_TX_TIMER_VALUE = 0x1c,
--	REG_IPG_RX_TIME1 = 0x28,
--	REG_IPG_RX_TIME2 = 0x2c,
--	REG_IPG_TX_TIME = 0x30,
--	REG_PAUSE_THRES = 0x38,
--	REG_MAX_FRAME_SIZE = 0x3c,
--	REG_RGMII_SPEED = 0x40,
--	REG_FC_ENABLE = 0x48,
--	REG_DISCARD_CTRL_FRAMES = 0x54,
--	REG_DIVERSE_CONFIG = 0x60,
--	REG_RX_FILTER = 0x64,
--	REG_MC_ADDR_LOW = 0x68,
--	REG_MC_ADDR_HIGH = 0x6c,
--
--	REG_RX_OCTETS_OK = 0x80,
--	REG_RX_OCTETS_BAD = 0x84,
--	REG_RX_UC_PKTS = 0x88,
--	REG_RX_MC_PKTS = 0x8c,
--	REG_RX_BC_PKTS = 0x90,
--	REG_RX_FCS_ERR = 0xb0,
--	REG_RX_TAGGED = 0xb4,
--	REG_RX_DATA_ERR = 0xb8,
--	REG_RX_ALIGN_ERR = 0xbc,
--	REG_RX_LONG_ERR = 0xc0,
--	REG_RX_JABBER_ERR = 0xc4,
--	REG_RX_PAUSE_FRAMES = 0xc8,
--	REG_RX_UNKNOWN_CTRL_FRAMES = 0xcc,
--	REG_RX_VERY_LONG_ERR = 0xd0,
--	REG_RX_RUNT_ERR = 0xd4,
--	REG_RX_SHORT_ERR = 0xd8,
--	REG_RX_SYMBOL_ERR = 0xe4,
--
--	REG_TX_OCTETS_OK = 0x100,
--	REG_TX_OCTETS_BAD = 0x104,
--	REG_TX_UC_PKTS = 0x108,
--	REG_TX_MC_PKTS = 0x10c,
--	REG_TX_BC_PKTS = 0x110,
--	REG_TX_EXCESSIVE_LEN_DROP = 0x14c,
--	REG_TX_UNDERRUN = 0x150,
--	REG_TX_TAGGED = 0x154,
--	REG_TX_PAUSE_FRAMES = 0x15C,
--
--	/* Global registers */
--	REG_PORT_ENABLE = 0x1400,
--
--	REG_JTAG_ID = 0x1430,
--
--	RX_FIFO_HIGH_WATERMARK_BASE = 0x1600,
--	RX_FIFO_LOW_WATERMARK_BASE = 0x1628,
--	RX_FIFO_FRAMES_REMOVED_BASE = 0x1650,
--
--	REG_RX_ERR_DROP = 0x167c,
--	REG_RX_FIFO_OVERFLOW_EVENT = 0x1680,
--
--	TX_FIFO_HIGH_WATERMARK_BASE = 0x1800,
--	TX_FIFO_LOW_WATERMARK_BASE = 0x1828,
--	TX_FIFO_XFER_THRES_BASE = 0x1850,
--
--	REG_TX_FIFO_OVERFLOW_EVENT = 0x1878,
--	REG_TX_FIFO_OOS_EVENT = 0x1884,
--
--	TX_FIFO_FRAMES_REMOVED_BASE = 0x1888,
--
--	REG_SPI_RX_BURST = 0x1c00,
--	REG_SPI_RX_TRAINING = 0x1c04,
--	REG_SPI_RX_CALENDAR = 0x1c08,
--	REG_SPI_TX_SYNC = 0x1c0c
--};
--
--enum {                     /* RMON registers */
--	REG_RxOctetsTotalOK = 0x80,
--	REG_RxOctetsBad = 0x84,
--	REG_RxUCPkts = 0x88,
--	REG_RxMCPkts = 0x8c,
--	REG_RxBCPkts = 0x90,
--	REG_RxJumboPkts = 0xac,
--	REG_RxFCSErrors = 0xb0,
--	REG_RxDataErrors = 0xb8,
--	REG_RxAlignErrors = 0xbc,
--	REG_RxLongErrors = 0xc0,
--	REG_RxJabberErrors = 0xc4,
--	REG_RxPauseMacControlCounter = 0xc8,
--	REG_RxVeryLongErrors = 0xd0,
--	REG_RxRuntErrors = 0xd4,
--	REG_RxShortErrors = 0xd8,
--	REG_RxSequenceErrors = 0xe0,
--	REG_RxSymbolErrors = 0xe4,
--
--	REG_TxOctetsTotalOK = 0x100,
--	REG_TxOctetsBad = 0x104,
--	REG_TxUCPkts = 0x108,
--	REG_TxMCPkts = 0x10c,
--	REG_TxBCPkts = 0x110,
--	REG_TxJumboPkts = 0x12C,
--	REG_TxTotalCollisions = 0x134,
--	REG_TxExcessiveLengthDrop = 0x14c,
--	REG_TxUnderrun = 0x150,
--	REG_TxCRCErrors = 0x158,
--	REG_TxPauseFrames = 0x15c
--};
--
--enum {
--	DIVERSE_CONFIG_PAD_ENABLE = 0x80,
--	DIVERSE_CONFIG_CRC_ADD = 0x40
--};
--
--#define MACREG_BASE            0
--#define MACREG(mac, mac_reg)   ((mac)->instance->mac_base + (mac_reg))
--
--struct _cmac_instance {
--	u32 mac_base;
--	u32 index;
--	u32 version;
--	u32 ticks;
--};
--
--static void disable_port(struct cmac *mac)
--{
--	u32 val;
--
--	t1_tpi_read(mac->adapter, REG_PORT_ENABLE, &val);
--	val &= ~(1 << mac->instance->index);
--	t1_tpi_write(mac->adapter, REG_PORT_ENABLE, val);
--}
--
--/*
-- * Read the current values of the RMON counters and add them to the cumulative
-- * port statistics.  The HW RMON counters are cleared by this operation.
-- */
--static void port_stats_update(struct cmac *mac)
--{
--	static struct {
--		unsigned int reg;
--		unsigned int offset;
--	} hw_stats[] = {
--
--#define HW_STAT(name, stat_name) \
--	{ REG_##name, \
--	  (&((struct cmac_statistics *)NULL)->stat_name) - (u64 *)NULL }
--
--		/* Rx stats */
--		HW_STAT(RxOctetsTotalOK, RxOctetsOK),
--		HW_STAT(RxOctetsBad, RxOctetsBad),
--		HW_STAT(RxUCPkts, RxUnicastFramesOK),
--		HW_STAT(RxMCPkts, RxMulticastFramesOK),
--		HW_STAT(RxBCPkts, RxBroadcastFramesOK),
--		HW_STAT(RxJumboPkts, RxJumboFramesOK),
--		HW_STAT(RxFCSErrors, RxFCSErrors),
--		HW_STAT(RxAlignErrors, RxAlignErrors),
--		HW_STAT(RxLongErrors, RxFrameTooLongErrors),
--		HW_STAT(RxVeryLongErrors, RxFrameTooLongErrors),
--		HW_STAT(RxPauseMacControlCounter, RxPauseFrames),
--		HW_STAT(RxDataErrors, RxDataErrors),
--		HW_STAT(RxJabberErrors, RxJabberErrors),
--		HW_STAT(RxRuntErrors, RxRuntErrors),
--		HW_STAT(RxShortErrors, RxRuntErrors),
--		HW_STAT(RxSequenceErrors, RxSequenceErrors),
--		HW_STAT(RxSymbolErrors, RxSymbolErrors),
--
--		/* Tx stats (skip collision stats as we are full-duplex only) */
--		HW_STAT(TxOctetsTotalOK, TxOctetsOK),
--		HW_STAT(TxOctetsBad, TxOctetsBad),
--		HW_STAT(TxUCPkts, TxUnicastFramesOK),
--		HW_STAT(TxMCPkts, TxMulticastFramesOK),
--		HW_STAT(TxBCPkts, TxBroadcastFramesOK),
--		HW_STAT(TxJumboPkts, TxJumboFramesOK),
--		HW_STAT(TxPauseFrames, TxPauseFrames),
--		HW_STAT(TxExcessiveLengthDrop, TxLengthErrors),
--		HW_STAT(TxUnderrun, TxUnderrun),
--		HW_STAT(TxCRCErrors, TxFCSErrors)
--	}, *p = hw_stats;
--	u64 *stats = (u64 *) &mac->stats;
--	unsigned int i;
--
--	for (i = 0; i < ARRAY_SIZE(hw_stats); i++) {
--		u32 val;
--
--		t1_tpi_read(mac->adapter, MACREG(mac, p->reg), &val);
--		stats[p->offset] += val;
--	}
--}
--
--/* No-op interrupt operation as this MAC does not support interrupts */
--static int mac_intr_op(struct cmac *mac)
--{
--	return 0;
--}
--
--/* Expect MAC address to be in network byte order. */
--static int mac_set_address(struct cmac *mac, u8 addr[6])
--{
--	u32 addr_lo, addr_hi;
--
--	addr_lo = addr[2];
--	addr_lo = (addr_lo << 8) | addr[3];
--	addr_lo = (addr_lo << 8) | addr[4];
--	addr_lo = (addr_lo << 8) | addr[5];
--
--	addr_hi = addr[0];
--	addr_hi = (addr_hi << 8) | addr[1];
--
--	t1_tpi_write(mac->adapter, MACREG(mac, REG_MACADDR_LOW), addr_lo);
--	t1_tpi_write(mac->adapter, MACREG(mac, REG_MACADDR_HIGH), addr_hi);
--	return 0;
--}
--
--static int mac_get_address(struct cmac *mac, u8 addr[6])
--{
--	u32 addr_lo, addr_hi;
--
--	t1_tpi_read(mac->adapter, MACREG(mac, REG_MACADDR_LOW), &addr_lo);
--	t1_tpi_read(mac->adapter, MACREG(mac, REG_MACADDR_HIGH), &addr_hi);
--
--	addr[0] = (u8) (addr_hi >> 8);
--	addr[1] = (u8) addr_hi;
--	addr[2] = (u8) (addr_lo >> 24);
--	addr[3] = (u8) (addr_lo >> 16);
--	addr[4] = (u8) (addr_lo >> 8);
--	addr[5] = (u8) addr_lo;
--	return 0;
--}
--
--/* This is intended to reset a port, not the whole MAC */
--static int mac_reset(struct cmac *mac)
--{
--	return 0;
--}
--
--static int mac_set_rx_mode(struct cmac *mac, struct t1_rx_mode *rm)
--{
--	u32 val, new_mode;
--	adapter_t *adapter = mac->adapter;
--	u32 addr_lo, addr_hi;
--	u8 *addr;
--
--	t1_tpi_read(adapter, MACREG(mac, REG_RX_FILTER), &val);
--	new_mode = val & ~7;
--	if (!t1_rx_mode_promisc(rm) && mac->instance->version > 0)
--		new_mode |= 1;     /* only set if version > 0 due to erratum */
--	if (!t1_rx_mode_promisc(rm) && !t1_rx_mode_allmulti(rm)
--	     && t1_rx_mode_mc_cnt(rm) <= 1)
--		new_mode |= 2;
--	if (new_mode != val)
--		t1_tpi_write(adapter, MACREG(mac, REG_RX_FILTER), new_mode);
--	switch (t1_rx_mode_mc_cnt(rm)) {
--	case 0:
--		t1_tpi_write(adapter, MACREG(mac, REG_MC_ADDR_LOW), 0);
--		t1_tpi_write(adapter, MACREG(mac, REG_MC_ADDR_HIGH), 0);
--		break;
--	case 1:
--		addr = t1_get_next_mcaddr(rm);
--		addr_lo = (addr[2] << 24) | (addr[3] << 16) | (addr[4] << 8) |
--			addr[5];
--		addr_hi = (addr[0] << 8) | addr[1];
--		t1_tpi_write(adapter, MACREG(mac, REG_MC_ADDR_LOW), addr_lo);
--		t1_tpi_write(adapter, MACREG(mac, REG_MC_ADDR_HIGH), addr_hi);
--		break;
--	default:
--		break;
--	}
--	return 0;
--}
--
--static int mac_set_mtu(struct cmac *mac, int mtu)
--{
--	/* MAX_FRAME_SIZE inludes header + FCS, mtu doesn't */
--	if (mtu > (MAX_FRAME_SIZE - 14 - 4))
--		return -EINVAL;
--	t1_tpi_write(mac->adapter, MACREG(mac, REG_MAX_FRAME_SIZE),
--		     mtu + 14 + 4);
--	return 0;
--}
--
--static int mac_set_speed_duplex_fc(struct cmac *mac, int speed, int duplex,
--				   int fc)
--{
--	u32 val;
--
--	if (speed >= 0 && speed != SPEED_100 && speed != SPEED_1000)
--		return -1;
--	if (duplex >= 0 && duplex != DUPLEX_FULL)
--		return -1;
--
--	if (speed >= 0) {
--		val = speed == SPEED_100 ? 1 : 2;
--		t1_tpi_write(mac->adapter, MACREG(mac, REG_RGMII_SPEED), val);
--	}
--
--	t1_tpi_read(mac->adapter, MACREG(mac, REG_FC_ENABLE), &val);
--	val &= ~3;
--	if (fc & PAUSE_RX)
--		val |= 1;
--	if (fc & PAUSE_TX)
--		val |= 2;
--	t1_tpi_write(mac->adapter, MACREG(mac, REG_FC_ENABLE), val);
--	return 0;
--}
--
--static int mac_get_speed_duplex_fc(struct cmac *mac, int *speed, int *duplex,
--				   int *fc)
--{
--	u32 val;
--
--	if (duplex)
--		*duplex = DUPLEX_FULL;
--	if (speed) {
--		t1_tpi_read(mac->adapter, MACREG(mac, REG_RGMII_SPEED),
--			 &val);
--		*speed = (val & 2) ? SPEED_1000 : SPEED_100;
--	}
--	if (fc) {
--		t1_tpi_read(mac->adapter, MACREG(mac, REG_FC_ENABLE), &val);
--		*fc = 0;
--		if (val & 1)
--			*fc |= PAUSE_RX;
--		if (val & 2)
--			*fc |= PAUSE_TX;
--	}
--	return 0;
--}
--
--static void enable_port(struct cmac *mac)
--{
--	u32 val;
--	u32 index = mac->instance->index;
--	adapter_t *adapter = mac->adapter;
--
--	t1_tpi_read(adapter, MACREG(mac, REG_DIVERSE_CONFIG), &val);
--	val |= DIVERSE_CONFIG_CRC_ADD | DIVERSE_CONFIG_PAD_ENABLE;
--	t1_tpi_write(adapter, MACREG(mac, REG_DIVERSE_CONFIG), val);
--	if (mac->instance->version > 0)
--		t1_tpi_write(adapter, MACREG(mac, REG_RX_FILTER), 3);
--	else /* Don't enable unicast address filtering due to IXF1010 bug */
--		t1_tpi_write(adapter, MACREG(mac, REG_RX_FILTER), 2);
--
--	t1_tpi_read(adapter, REG_RX_ERR_DROP, &val);
--	val |= (1 << index);
--	t1_tpi_write(adapter, REG_RX_ERR_DROP, val);
--
--	/*
--	 * Clear the port RMON registers by adding their current values to the
--	 * cumulatice port stats and then clearing the stats.  Really.
--	 */
--	port_stats_update(mac);
--	memset(&mac->stats, 0, sizeof(struct cmac_statistics));
--	mac->instance->ticks = 0;
--
--	t1_tpi_read(adapter, REG_PORT_ENABLE, &val);
--	val |= (1 << index);
--	t1_tpi_write(adapter, REG_PORT_ENABLE, val);
--
--	index <<= 2;
--	if (is_T2(adapter)) {
--		/* T204: set the Fifo water level & threshold */
--		t1_tpi_write(adapter, RX_FIFO_HIGH_WATERMARK_BASE + index, 0x740);
--		t1_tpi_write(adapter, RX_FIFO_LOW_WATERMARK_BASE + index, 0x730);
--		t1_tpi_write(adapter, TX_FIFO_HIGH_WATERMARK_BASE + index, 0x600);
--		t1_tpi_write(adapter, TX_FIFO_LOW_WATERMARK_BASE + index, 0x1d0);
--		t1_tpi_write(adapter, TX_FIFO_XFER_THRES_BASE + index, 0x1100);
--	} else {
--	/*
--	 * Set the TX Fifo Threshold to 0x400 instead of 0x100 to work around
--	 * Underrun problem. Intel has blessed this solution.
--	 */
--		t1_tpi_write(adapter, TX_FIFO_XFER_THRES_BASE + index, 0x400);
--	}
--}
--
--/* IXF1010 ports do not have separate enables for TX and RX */
--static int mac_enable(struct cmac *mac, int which)
--{
--	if (which & (MAC_DIRECTION_RX | MAC_DIRECTION_TX))
--		enable_port(mac);
--	return 0;
--}
--
--static int mac_disable(struct cmac *mac, int which)
--{
--	if (which & (MAC_DIRECTION_RX | MAC_DIRECTION_TX))
--		disable_port(mac);
--	return 0;
--}
--
--#define RMON_UPDATE(mac, name, stat_name) \
--	t1_tpi_read((mac)->adapter, MACREG(mac, REG_##name), &val); \
--	(mac)->stats.stat_name += val;
--
--/*
-- * This function is called periodically to accumulate the current values of the
-- * RMON counters into the port statistics.  Since the counters are only 32 bits
-- * some of them can overflow in less than a minute at GigE speeds, so this
-- * function should be called every 30 seconds or so.
-- *
-- * To cut down on reading costs we update only the octet counters at each tick
-- * and do a full update at major ticks, which can be every 30 minutes or more.
-- */
--static const struct cmac_statistics *mac_update_statistics(struct cmac *mac,
--							   int flag)
--{
--	if (flag == MAC_STATS_UPDATE_FULL ||
--	    MAJOR_UPDATE_TICKS <= mac->instance->ticks) {
--		port_stats_update(mac);
--		mac->instance->ticks = 0;
--	} else {
--		u32 val;
--
--		RMON_UPDATE(mac, RxOctetsTotalOK, RxOctetsOK);
--		RMON_UPDATE(mac, TxOctetsTotalOK, TxOctetsOK);
--		mac->instance->ticks++;
--	}
--	return &mac->stats;
--}
--
--static void mac_destroy(struct cmac *mac)
--{
--	kfree(mac);
--}
--
--static struct cmac_ops ixf1010_ops = {
--	.destroy                  = mac_destroy,
--	.reset                    = mac_reset,
--	.interrupt_enable         = mac_intr_op,
--	.interrupt_disable        = mac_intr_op,
--	.interrupt_clear          = mac_intr_op,
--	.enable                   = mac_enable,
--	.disable                  = mac_disable,
--	.set_mtu                  = mac_set_mtu,
--	.set_rx_mode              = mac_set_rx_mode,
--	.set_speed_duplex_fc      = mac_set_speed_duplex_fc,
--	.get_speed_duplex_fc      = mac_get_speed_duplex_fc,
--	.statistics_update        = mac_update_statistics,
--	.macaddress_get           = mac_get_address,
--	.macaddress_set           = mac_set_address,
--};
--
--static int ixf1010_mac_reset(adapter_t *adapter)
--{
--	u32 val;
--
--	t1_tpi_read(adapter, A_ELMER0_GPO, &val);
--	if ((val & 1) != 0) {
--		val &= ~1;
--		t1_tpi_write(adapter, A_ELMER0_GPO, val);
--		udelay(2);
--	}
--	val |= 1;
--	t1_tpi_write(adapter, A_ELMER0_GPO, val);
--	udelay(2);
--
--	t1_tpi_write(adapter, REG_PORT_ENABLE, 0);
--	return 0;
--}
--
--static struct cmac *ixf1010_mac_create(adapter_t *adapter, int index)
--{
--	struct cmac *mac;
--	u32 val;
--
--	if (index > 9)
--		return NULL;
--
--	mac = kzalloc(sizeof(*mac) + sizeof(cmac_instance), GFP_KERNEL);
--	if (!mac)
--		return NULL;
--
--	mac->ops = &ixf1010_ops;
--	mac->instance = (cmac_instance *)(mac + 1);
--
--	mac->instance->mac_base = MACREG_BASE + (index * 0x200);
--	mac->instance->index    = index;
--	mac->adapter  = adapter;
--	mac->instance->ticks    = 0;
--
--	t1_tpi_read(adapter, REG_JTAG_ID, &val);
--	mac->instance->version = val >> 28;
--	return mac;
--}
--
--struct gmac t1_ixf1010_ops = {
+ 	u32 elmer_gpo;
+ 
+-	struct cphy_ops *ops;                /* PHY operations */
++	const struct cphy_ops *ops;            /* PHY operations */
+ 	int (*mdio_read)(adapter_t *adapter, int phy_addr, int mmd_addr,
+ 			 int reg_addr, unsigned int *val);
+ 	int (*mdio_write)(adapter_t *adapter, int phy_addr, int mmd_addr,
+@@ -136,7 +136,7 @@ static inline int simple_mdio_write(stru
+ /* Convenience initializer */
+ static inline void cphy_init(struct cphy *phy, adapter_t *adapter,
+ 			     int phy_addr, struct cphy_ops *phy_ops,
+-			     struct mdio_ops *mdio_ops)
++			     const struct mdio_ops *mdio_ops)
+ {
+ 	phy->adapter = adapter;
+ 	phy->addr    = phy_addr;
+@@ -151,7 +151,7 @@ static inline void cphy_init(struct cphy
+ struct gphy {
+ 	/* Construct a PHY instance with the given PHY address */
+ 	struct cphy *(*create)(adapter_t *adapter, int phy_addr,
+-			       struct mdio_ops *mdio_ops);
++			       const struct mdio_ops *mdio_ops);
+ 
+ 	/*
+ 	 * Reset the PHY chip.  This resets the whole PHY chip, not individual
+@@ -160,11 +160,9 @@ struct gphy {
+ 	int (*reset)(adapter_t *adapter);
+ };
+ 
+-extern struct gphy t1_my3126_ops;
+-extern struct gphy t1_mv88e1xxx_ops;
+-extern struct gphy t1_vsc8244_ops;
+-extern struct gphy t1_xpak_ops;
+-extern struct gphy t1_mv88x201x_ops;
+-extern struct gphy t1_dummy_phy_ops;
++extern const struct gphy t1_my3126_ops;
++extern const struct gphy t1_mv88e1xxx_ops;
++extern const struct gphy t1_vsc8244_ops;
++extern const struct gphy t1_mv88x201x_ops;
+ 
+ #endif /* _CXGB_CPHY_H_ */
+--- chelsio.orig/drivers/net/chelsio/gmac.h
++++ chelsio/drivers/net/chelsio/gmac.h
+@@ -126,7 +126,7 @@ typedef struct _cmac_instance cmac_insta
+ struct cmac {
+ 	struct cmac_statistics stats;
+ 	adapter_t *adapter;
+-	struct cmac_ops *ops;
++	const struct cmac_ops *ops;
+ 	cmac_instance *instance;
+ };
+ 
+@@ -136,11 +136,7 @@ struct gmac {
+ 	int (*reset)(adapter_t *);
+ };
+ 
+-extern struct gmac t1_pm3393_ops;
+-extern struct gmac t1_chelsio_mac_ops;
+-extern struct gmac t1_vsc7321_ops;
+-extern struct gmac t1_vsc7326_ops;
+-extern struct gmac t1_ixf1010_ops;
+-extern struct gmac t1_dummy_mac_ops;
++extern const struct gmac t1_pm3393_ops;
++extern const struct gmac t1_vsc7326_ops;
+ 
+ #endif /* _CXGB_GMAC_H_ */
+--- chelsio.orig/drivers/net/chelsio/mac.c
++++ chelsio/drivers/net/chelsio/mac.c
+@@ -363,6 +363,6 @@ static struct cmac *mac_create(adapter_t
+ 	return mac;
+ }
+ 
+-struct gmac t1_chelsio_mac_ops = {
++const struct gmac t1_chelsio_mac_ops = {
+ 	.create = mac_create
+ };
+--- chelsio.orig/drivers/net/chelsio/mv88e1xxx.c
++++ chelsio/drivers/net/chelsio/mv88e1xxx.c
+@@ -354,7 +354,7 @@ static struct cphy_ops mv88e1xxx_ops = {
+ };
+ 
+ static struct cphy *mv88e1xxx_phy_create(adapter_t *adapter, int phy_addr,
+-					 struct mdio_ops *mdio_ops)
++					 const struct mdio_ops *mdio_ops)
+ {
+ 	struct cphy *cphy = kzalloc(sizeof(*cphy), GFP_KERNEL);
+ 
+@@ -390,7 +390,7 @@ static int mv88e1xxx_phy_reset(adapter_t
+ 	return 0;
+ }
+ 
+-struct gphy t1_mv88e1xxx_ops = {
+-	mv88e1xxx_phy_create,
+-	mv88e1xxx_phy_reset
++const struct gphy t1_mv88e1xxx_ops = {
++	.create = mv88e1xxx_phy_create,
++	.reset =  mv88e1xxx_phy_reset
+ };
+--- chelsio.orig/drivers/net/chelsio/mv88x201x.c
++++ chelsio/drivers/net/chelsio/mv88x201x.c
+@@ -208,7 +208,7 @@ static struct cphy_ops mv88x201x_ops = {
+ };
+ 
+ static struct cphy *mv88x201x_phy_create(adapter_t *adapter, int phy_addr,
+-					 struct mdio_ops *mdio_ops)
++					 const struct mdio_ops *mdio_ops)
+ {
+ 	u32 val;
+ 	struct cphy *cphy = kzalloc(sizeof(*cphy), GFP_KERNEL);
+@@ -252,7 +252,7 @@ static int mv88x201x_phy_reset(adapter_t
+ 	return 0;
+ }
+ 
+-struct gphy t1_mv88x201x_ops = {
+-	mv88x201x_phy_create,
+-	mv88x201x_phy_reset
++const struct gphy t1_mv88x201x_ops = {
++	.create = mv88x201x_phy_create,
++	.reset = mv88x201x_phy_reset
+ };
+--- chelsio.orig/drivers/net/chelsio/my3126.c
++++ chelsio/drivers/net/chelsio/my3126.c
+@@ -166,7 +166,7 @@ static struct cphy_ops my3126_ops = {
+ };
+ 
+ static struct cphy *my3126_phy_create(adapter_t *adapter,
+-			int phy_addr, struct mdio_ops *mdio_ops)
++			int phy_addr, const struct mdio_ops *mdio_ops)
+ {
+ 	struct cphy *cphy = kzalloc(sizeof (*cphy), GFP_KERNEL);
+ 
+@@ -201,7 +201,7 @@ static int my3126_phy_reset(adapter_t * 
+ 	return 0;
+ }
+ 
+-struct gphy t1_my3126_ops = {
+-	my3126_phy_create,
+-	my3126_phy_reset
++const struct gphy t1_my3126_ops = {
++	.create = my3126_phy_create,
++	.reset = my3126_phy_reset
+ };
+--- chelsio.orig/drivers/net/chelsio/pm3393.c
++++ chelsio/drivers/net/chelsio/pm3393.c
+@@ -807,8 +807,8 @@ static int pm3393_mac_reset(adapter_t * 
+ 	return successful_reset ? 0 : 1;
+ }
+ 
+-struct gmac t1_pm3393_ops = {
 -	STATS_TICK_SECS,
--	ixf1010_mac_create,
--	ixf1010_mac_reset
--};
---- chelsio.orig/drivers/net/chelsio/vsc8244.c
-+++ /dev/null
-@@ -1,367 +0,0 @@
--/*
-- * This file is part of the Chelsio T2 Ethernet driver.
-- *
-- * Copyright (C) 2005 Chelsio Communications.  All rights reserved.
-- *
-- * This program is distributed in the hope that it will be useful, but WITHOUT
-- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-- * FITNESS FOR A PARTICULAR PURPOSE.  See the LICENSE file included in this
-- * release for licensing terms and conditions.
-- */
--
--#include "common.h"
--#include "cphy.h"
--#include "elmer0.h"
--
--#ifndef ADVERTISE_PAUSE_CAP
--# define ADVERTISE_PAUSE_CAP 0x400
--#endif
--#ifndef ADVERTISE_PAUSE_ASYM
--# define ADVERTISE_PAUSE_ASYM 0x800
--#endif
--
--/* Gigabit MII registers */
--#ifndef MII_CTRL1000
--# define MII_CTRL1000 9
--#endif
--
--#ifndef ADVERTISE_1000FULL
--# define ADVERTISE_1000FULL 0x200
--# define ADVERTISE_1000HALF 0x100
--#endif
--
--/* VSC8244 PHY specific registers. */
--enum {
--	VSC8244_INTR_ENABLE   = 25,
--	VSC8244_INTR_STATUS   = 26,
--	VSC8244_AUX_CTRL_STAT = 28,
--};
--
--enum {
--	VSC_INTR_RX_ERR     = 1 << 0,
--	VSC_INTR_MS_ERR     = 1 << 1,  /* master/slave resolution error */
--	VSC_INTR_CABLE      = 1 << 2,  /* cable impairment */
--	VSC_INTR_FALSE_CARR = 1 << 3,  /* false carrier */
--	VSC_INTR_MEDIA_CHG  = 1 << 4,  /* AMS media change */
--	VSC_INTR_RX_FIFO    = 1 << 5,  /* Rx FIFO over/underflow */
--	VSC_INTR_TX_FIFO    = 1 << 6,  /* Tx FIFO over/underflow */
--	VSC_INTR_DESCRAMBL  = 1 << 7,  /* descrambler lock-lost */
--	VSC_INTR_SYMBOL_ERR = 1 << 8,  /* symbol error */
--	VSC_INTR_NEG_DONE   = 1 << 10, /* autoneg done */
--	VSC_INTR_NEG_ERR    = 1 << 11, /* autoneg error */
--	VSC_INTR_LINK_CHG   = 1 << 13, /* link change */
--	VSC_INTR_ENABLE     = 1 << 15, /* interrupt enable */
--};
--
--#define CFG_CHG_INTR_MASK (VSC_INTR_LINK_CHG | VSC_INTR_NEG_ERR | \
--			   VSC_INTR_NEG_DONE)
--#define INTR_MASK (CFG_CHG_INTR_MASK | VSC_INTR_TX_FIFO | VSC_INTR_RX_FIFO | \
--		   VSC_INTR_ENABLE)
--
--/* PHY specific auxiliary control & status register fields */
--#define S_ACSR_ACTIPHY_TMR    0
--#define M_ACSR_ACTIPHY_TMR    0x3
--#define V_ACSR_ACTIPHY_TMR(x) ((x) << S_ACSR_ACTIPHY_TMR)
--
--#define S_ACSR_SPEED    3
--#define M_ACSR_SPEED    0x3
--#define G_ACSR_SPEED(x) (((x) >> S_ACSR_SPEED) & M_ACSR_SPEED)
--
--#define S_ACSR_DUPLEX 5
--#define F_ACSR_DUPLEX (1 << S_ACSR_DUPLEX)
--
--#define S_ACSR_ACTIPHY 6
--#define F_ACSR_ACTIPHY (1 << S_ACSR_ACTIPHY)
--
--/*
-- * Reset the PHY.  This PHY completes reset immediately so we never wait.
-- */
--static int vsc8244_reset(struct cphy *cphy, int wait)
--{
--	int err;
--	unsigned int ctl;
--
--	err = simple_mdio_read(cphy, MII_BMCR, &ctl);
--	if (err)
--		return err;
--
--	ctl &= ~BMCR_PDOWN;
--	ctl |= BMCR_RESET;
--	return simple_mdio_write(cphy, MII_BMCR, ctl);
--}
--
--static int vsc8244_intr_enable(struct cphy *cphy)
--{
--	simple_mdio_write(cphy, VSC8244_INTR_ENABLE, INTR_MASK);
--
--	/* Enable interrupts through Elmer */
--	if (t1_is_asic(cphy->adapter)) {
--		u32 elmer;
--
--		t1_tpi_read(cphy->adapter, A_ELMER0_INT_ENABLE, &elmer);
--		elmer |= ELMER0_GP_BIT1;
--		if (is_T2(cphy->adapter))
--		    elmer |= ELMER0_GP_BIT2|ELMER0_GP_BIT3|ELMER0_GP_BIT4;
--		t1_tpi_write(cphy->adapter, A_ELMER0_INT_ENABLE, elmer);
--	}
--
--	return 0;
--}
--
--static int vsc8244_intr_disable(struct cphy *cphy)
--{
--	simple_mdio_write(cphy, VSC8244_INTR_ENABLE, 0);
--
--	if (t1_is_asic(cphy->adapter)) {
--		u32 elmer;
--
--		t1_tpi_read(cphy->adapter, A_ELMER0_INT_ENABLE, &elmer);
--		elmer &= ~ELMER0_GP_BIT1;
--		if (is_T2(cphy->adapter))
--		    elmer &= ~(ELMER0_GP_BIT2|ELMER0_GP_BIT3|ELMER0_GP_BIT4);
--		t1_tpi_write(cphy->adapter, A_ELMER0_INT_ENABLE, elmer);
--	}
--
--	return 0;
--}
--
--static int vsc8244_intr_clear(struct cphy *cphy)
--{
--	u32 val;
--	u32 elmer;
--
--	/* Clear PHY interrupts by reading the register. */
--	simple_mdio_read(cphy, VSC8244_INTR_ENABLE, &val);
--
--	if (t1_is_asic(cphy->adapter)) {
--		t1_tpi_read(cphy->adapter, A_ELMER0_INT_CAUSE, &elmer);
--		elmer |= ELMER0_GP_BIT1;
--		if (is_T2(cphy->adapter))
--		    elmer |= ELMER0_GP_BIT2|ELMER0_GP_BIT3|ELMER0_GP_BIT4;
--		t1_tpi_write(cphy->adapter, A_ELMER0_INT_CAUSE, elmer);
--	}
--
--	return 0;
--}
--
--/*
-- * Force the PHY speed and duplex.  This also disables auto-negotiation, except
-- * for 1Gb/s, where auto-negotiation is mandatory.
-- */
--static int vsc8244_set_speed_duplex(struct cphy *phy, int speed, int duplex)
--{
--	int err;
--	unsigned int ctl;
--
--	err = simple_mdio_read(phy, MII_BMCR, &ctl);
--	if (err)
--		return err;
--
--	if (speed >= 0) {
--		ctl &= ~(BMCR_SPEED100 | BMCR_SPEED1000 | BMCR_ANENABLE);
--		if (speed == SPEED_100)
--			ctl |= BMCR_SPEED100;
--		else if (speed == SPEED_1000)
--			ctl |= BMCR_SPEED1000;
--	}
--	if (duplex >= 0) {
--		ctl &= ~(BMCR_FULLDPLX | BMCR_ANENABLE);
--		if (duplex == DUPLEX_FULL)
--			ctl |= BMCR_FULLDPLX;
--	}
--	if (ctl & BMCR_SPEED1000)  /* auto-negotiation required for 1Gb/s */
--		ctl |= BMCR_ANENABLE;
--	return simple_mdio_write(phy, MII_BMCR, ctl);
--}
--
--int t1_mdio_set_bits(struct cphy *phy, int mmd, int reg, unsigned int bits)
--{
--	int ret;
--	unsigned int val;
--
--	ret = mdio_read(phy, mmd, reg, &val);
--	if (!ret)
--		ret = mdio_write(phy, mmd, reg, val | bits);
--	return ret;
--}
--
--static int vsc8244_autoneg_enable(struct cphy *cphy)
--{
--	return t1_mdio_set_bits(cphy, 0, MII_BMCR,
--				BMCR_ANENABLE | BMCR_ANRESTART);
--}
--
--static int vsc8244_autoneg_restart(struct cphy *cphy)
--{
--	return t1_mdio_set_bits(cphy, 0, MII_BMCR, BMCR_ANRESTART);
--}
--
--static int vsc8244_advertise(struct cphy *phy, unsigned int advertise_map)
--{
--	int err;
--	unsigned int val = 0;
--
--	err = simple_mdio_read(phy, MII_CTRL1000, &val);
--	if (err)
--		return err;
--
--	val &= ~(ADVERTISE_1000HALF | ADVERTISE_1000FULL);
--	if (advertise_map & ADVERTISED_1000baseT_Half)
--		val |= ADVERTISE_1000HALF;
--	if (advertise_map & ADVERTISED_1000baseT_Full)
--		val |= ADVERTISE_1000FULL;
--
--	err = simple_mdio_write(phy, MII_CTRL1000, val);
--	if (err)
--		return err;
--
--	val = 1;
--	if (advertise_map & ADVERTISED_10baseT_Half)
--		val |= ADVERTISE_10HALF;
--	if (advertise_map & ADVERTISED_10baseT_Full)
--		val |= ADVERTISE_10FULL;
--	if (advertise_map & ADVERTISED_100baseT_Half)
--		val |= ADVERTISE_100HALF;
--	if (advertise_map & ADVERTISED_100baseT_Full)
--		val |= ADVERTISE_100FULL;
--	if (advertise_map & ADVERTISED_PAUSE)
--		val |= ADVERTISE_PAUSE_CAP;
--	if (advertise_map & ADVERTISED_ASYM_PAUSE)
--		val |= ADVERTISE_PAUSE_ASYM;
--	return simple_mdio_write(phy, MII_ADVERTISE, val);
--}
--
--static int vsc8244_get_link_status(struct cphy *cphy, int *link_ok,
--				   int *speed, int *duplex, int *fc)
--{
--	unsigned int bmcr, status, lpa, adv;
--	int err, sp = -1, dplx = -1, pause = 0;
--
--	err = simple_mdio_read(cphy, MII_BMCR, &bmcr);
--	if (!err)
--		err = simple_mdio_read(cphy, MII_BMSR, &status);
--	if (err)
--		return err;
--
--	if (link_ok) {
--		/*
--		 * BMSR_LSTATUS is latch-low, so if it is 0 we need to read it
--		 * once more to get the current link state.
--		 */
--		if (!(status & BMSR_LSTATUS))
--			err = simple_mdio_read(cphy, MII_BMSR, &status);
--		if (err)
--			return err;
--		*link_ok = (status & BMSR_LSTATUS) != 0;
--	}
--	if (!(bmcr & BMCR_ANENABLE)) {
--		dplx = (bmcr & BMCR_FULLDPLX) ? DUPLEX_FULL : DUPLEX_HALF;
--		if (bmcr & BMCR_SPEED1000)
--			sp = SPEED_1000;
--		else if (bmcr & BMCR_SPEED100)
--			sp = SPEED_100;
--		else
--			sp = SPEED_10;
--	} else if (status & BMSR_ANEGCOMPLETE) {
--		err = simple_mdio_read(cphy, VSC8244_AUX_CTRL_STAT, &status);
--		if (err)
--			return err;
--
--		dplx = (status & F_ACSR_DUPLEX) ? DUPLEX_FULL : DUPLEX_HALF;
--		sp = G_ACSR_SPEED(status);
--		if (sp == 0)
--			sp = SPEED_10;
--		else if (sp == 1)
--			sp = SPEED_100;
--		else
--			sp = SPEED_1000;
--
--		if (fc && dplx == DUPLEX_FULL) {
--			err = simple_mdio_read(cphy, MII_LPA, &lpa);
--			if (!err)
--				err = simple_mdio_read(cphy, MII_ADVERTISE,
--						       &adv);
--			if (err)
--				return err;
--
--			if (lpa & adv & ADVERTISE_PAUSE_CAP)
--				pause = PAUSE_RX | PAUSE_TX;
--			else if ((lpa & ADVERTISE_PAUSE_CAP) &&
--				 (lpa & ADVERTISE_PAUSE_ASYM) &&
--				 (adv & ADVERTISE_PAUSE_ASYM))
--				pause = PAUSE_TX;
--			else if ((lpa & ADVERTISE_PAUSE_ASYM) &&
--				 (adv & ADVERTISE_PAUSE_CAP))
--				pause = PAUSE_RX;
--		}
--	}
--	if (speed)
--		*speed = sp;
--	if (duplex)
--		*duplex = dplx;
--	if (fc)
--		*fc = pause;
--	return 0;
--}
--
--static int vsc8244_intr_handler(struct cphy *cphy)
--{
--	unsigned int cause;
--	int err, cphy_cause = 0;
--
--	err = simple_mdio_read(cphy, VSC8244_INTR_STATUS, &cause);
--	if (err)
--		return err;
--
--	cause &= INTR_MASK;
--	if (cause & CFG_CHG_INTR_MASK)
--		cphy_cause |= cphy_cause_link_change;
--	if (cause & (VSC_INTR_RX_FIFO | VSC_INTR_TX_FIFO))
--		cphy_cause |= cphy_cause_fifo_error;
--	return cphy_cause;
--}
--
--static void vsc8244_destroy(struct cphy *cphy)
--{
--	kfree(cphy);
--}
--
--static struct cphy_ops vsc8244_ops = {
--	.destroy              = vsc8244_destroy,
--	.reset                = vsc8244_reset,
--	.interrupt_enable     = vsc8244_intr_enable,
--	.interrupt_disable    = vsc8244_intr_disable,
--	.interrupt_clear      = vsc8244_intr_clear,
--	.interrupt_handler    = vsc8244_intr_handler,
--	.autoneg_enable       = vsc8244_autoneg_enable,
--	.autoneg_restart      = vsc8244_autoneg_restart,
--	.advertise            = vsc8244_advertise,
--	.set_speed_duplex     = vsc8244_set_speed_duplex,
--	.get_link_status      = vsc8244_get_link_status
--};
--
--static struct cphy* vsc8244_phy_create(adapter_t *adapter, int phy_addr,
--				       struct mdio_ops *mdio_ops)
--{
--	struct cphy *cphy = kzalloc(sizeof(*cphy), GFP_KERNEL);
--
--	if (!cphy)
--		return NULL;
--
--	cphy_init(cphy, adapter, phy_addr, &vsc8244_ops, mdio_ops);
--
--	return cphy;
--}
--
--
--static int vsc8244_phy_reset(adapter_t* adapter)
--{
--	return 0;
--}
--
--struct gphy t1_vsc8244_ops = {
--	vsc8244_phy_create,
--	vsc8244_phy_reset
--};
--
--
---- chelsio.orig/drivers/net/chelsio/vsc8244_reg.h
-+++ /dev/null
-@@ -1,172 +0,0 @@
--/* $Date: 2005/11/23 16:28:53 $ $RCSfile: vsc8244_reg.h,v $ $Revision: 1.1 $ */
--#ifndef CHELSIO_MV8E1XXX_H
--#define CHELSIO_MV8E1XXX_H
--
--#ifndef BMCR_SPEED1000
--# define BMCR_SPEED1000 0x40
--#endif
--
--#ifndef ADVERTISE_PAUSE
--# define ADVERTISE_PAUSE 0x400
--#endif
--#ifndef ADVERTISE_PAUSE_ASYM
--# define ADVERTISE_PAUSE_ASYM 0x800
--#endif
--
--/* Gigabit MII registers */
--#define MII_GBMR 1       /* 1000Base-T mode register */
--#define MII_GBCR 9       /* 1000Base-T control register */
--#define MII_GBSR 10      /* 1000Base-T status register */
--
--/* 1000Base-T control register fields */
--#define GBCR_ADV_1000HALF         0x100
--#define GBCR_ADV_1000FULL         0x200
--#define GBCR_PREFER_MASTER        0x400
--#define GBCR_MANUAL_AS_MASTER     0x800
--#define GBCR_MANUAL_CONFIG_ENABLE 0x1000
--
--/* 1000Base-T status register fields */
--#define GBSR_LP_1000HALF  0x400
--#define GBSR_LP_1000FULL  0x800
--#define GBSR_REMOTE_OK    0x1000
--#define GBSR_LOCAL_OK     0x2000
--#define GBSR_LOCAL_MASTER 0x4000
--#define GBSR_MASTER_FAULT 0x8000
--
--/* Vitesse PHY interrupt status bits. */
--#if 0
--#define VSC8244_INTR_JABBER          0x0001
--#define VSC8244_INTR_POLARITY_CHNG   0x0002
--#define VSC8244_INTR_ENG_DETECT_CHNG 0x0010
--#define VSC8244_INTR_DOWNSHIFT       0x0020
--#define VSC8244_INTR_MDI_XOVER_CHNG  0x0040
--#define VSC8244_INTR_FIFO_OVER_UNDER 0x0080
--#define VSC8244_INTR_FALSE_CARRIER   0x0100
--#define VSC8244_INTR_SYMBOL_ERROR    0x0200
--#define VSC8244_INTR_LINK_CHNG       0x0400
--#define VSC8244_INTR_AUTONEG_DONE    0x0800
--#define VSC8244_INTR_PAGE_RECV       0x1000
--#define VSC8244_INTR_DUPLEX_CHNG     0x2000
--#define VSC8244_INTR_SPEED_CHNG      0x4000
--#define VSC8244_INTR_AUTONEG_ERR     0x8000
--#else
--//#define VSC8244_INTR_JABBER          0x0001
--//#define VSC8244_INTR_POLARITY_CHNG   0x0002
--//#define VSC8244_INTR_BIT2            0x0004
--//#define VSC8244_INTR_BIT3            0x0008
--#define VSC8244_INTR_RX_ERR          0x0001
--#define VSC8244_INTR_MASTER_SLAVE    0x0002
--#define VSC8244_INTR_CABLE_IMPAIRED  0x0004
--#define VSC8244_INTR_FALSE_CARRIER   0x0008
--//#define VSC8244_INTR_ENG_DETECT_CHNG 0x0010
--//#define VSC8244_INTR_DOWNSHIFT       0x0020
--//#define VSC8244_INTR_MDI_XOVER_CHNG  0x0040
--//#define VSC8244_INTR_FIFO_OVER_UNDER 0x0080
--#define VSC8244_INTR_BIT4            0x0010
--#define VSC8244_INTR_FIFO_RX         0x0020
--#define VSC8244_INTR_FIFO_OVER_UNDER 0x0040
--#define VSC8244_INTR_LOCK_LOST       0x0080
--//#define VSC8244_INTR_FALSE_CARRIER   0x0100
--//#define VSC8244_INTR_SYMBOL_ERROR    0x0200
--//#define VSC8244_INTR_LINK_CHNG       0x0400
--//#define VSC8244_INTR_AUTONEG_DONE    0x0800
--#define VSC8244_INTR_SYMBOL_ERROR    0x0100
--#define VSC8244_INTR_ENG_DETECT_CHNG 0x0200
--#define VSC8244_INTR_AUTONEG_DONE    0x0400
--#define VSC8244_INTR_AUTONEG_ERR     0x0800
--//#define VSC8244_INTR_PAGE_RECV       0x1000
--//#define VSC8244_INTR_DUPLEX_CHNG     0x2000
--//#define VSC8244_INTR_SPEED_CHNG      0x4000
--//#define VSC8244_INTR_AUTONEG_ERR     0x8000
--#define VSC8244_INTR_DUPLEX_CHNG     0x1000
--#define VSC8244_INTR_LINK_CHNG       0x2000
--#define VSC8244_INTR_SPEED_CHNG      0x4000
--#define VSC8244_INTR_STATUS          0x8000
--#endif
--
--
--/* Vitesse PHY specific registers. */
--#define VSC8244_SPECIFIC_CNTRL_REGISTER               16
--#define VSC8244_SPECIFIC_STATUS_REGISTER              0x1c
--#define VSC8244_INTERRUPT_ENABLE_REGISTER             0x19
--#define VSC8244_INTERRUPT_STATUS_REGISTER             0x1a
--#define VSC8244_EXT_PHY_SPECIFIC_CNTRL_REGISTER       20
--#define VSC8244_RECV_ERR_CNTR_REGISTER                21
--#define VSC8244_RES_REGISTER                          22
--#define VSC8244_GLOBAL_STATUS_REGISTER                23
--#define VSC8244_LED_CONTROL_REGISTER                  24
--#define VSC8244_MANUAL_LED_OVERRIDE_REGISTER          25
--#define VSC8244_EXT_PHY_SPECIFIC_CNTRL_2_REGISTER     26
--#define VSC8244_EXT_PHY_SPECIFIC_STATUS_REGISTER      27
--#define VSC8244_VIRTUAL_CABLE_TESTER_REGISTER         28
--#define VSC8244_EXTENDED_ADDR_REGISTER                29
--#define VSC8244_EXTENDED_REGISTER                     30
--
--/* PHY specific control register fields */
--#define S_PSCR_MDI_XOVER_MODE    5
--#define M_PSCR_MDI_XOVER_MODE    0x3
--#define V_PSCR_MDI_XOVER_MODE(x) ((x) << S_PSCR_MDI_XOVER_MODE)
--#define G_PSCR_MDI_XOVER_MODE(x) (((x) >> S_PSCR_MDI_XOVER_MODE) & M_PSCR_MDI_XOVER_MODE)
--
--/* Extended PHY specific control register fields */
--#define S_DOWNSHIFT_ENABLE 8
--#define V_DOWNSHIFT_ENABLE (1 << S_DOWNSHIFT_ENABLE)
--
--#define S_DOWNSHIFT_CNT    9
--#define M_DOWNSHIFT_CNT    0x7
--#define V_DOWNSHIFT_CNT(x) ((x) << S_DOWNSHIFT_CNT)
--#define G_DOWNSHIFT_CNT(x) (((x) >> S_DOWNSHIFT_CNT) & M_DOWNSHIFT_CNT)
--
--/* PHY specific status register fields */
--#define S_PSSR_JABBER 0
--#define V_PSSR_JABBER (1 << S_PSSR_JABBER)
--
--#define S_PSSR_POLARITY 1
--#define V_PSSR_POLARITY (1 << S_PSSR_POLARITY)
--
--#define S_PSSR_RX_PAUSE 2
--#define V_PSSR_RX_PAUSE (1 << S_PSSR_RX_PAUSE)
--
--#define S_PSSR_TX_PAUSE 3
--#define V_PSSR_TX_PAUSE (1 << S_PSSR_TX_PAUSE)
--
--#define S_PSSR_ENERGY_DETECT 4
--#define V_PSSR_ENERGY_DETECT (1 << S_PSSR_ENERGY_DETECT)
--
--#define S_PSSR_DOWNSHIFT_STATUS 5
--#define V_PSSR_DOWNSHIFT_STATUS (1 << S_PSSR_DOWNSHIFT_STATUS)
--
--#define S_PSSR_MDI 6
--#define V_PSSR_MDI (1 << S_PSSR_MDI)
--
--#define S_PSSR_CABLE_LEN    7
--#define M_PSSR_CABLE_LEN    0x7
--#define V_PSSR_CABLE_LEN(x) ((x) << S_PSSR_CABLE_LEN)
--#define G_PSSR_CABLE_LEN(x) (((x) >> S_PSSR_CABLE_LEN) & M_PSSR_CABLE_LEN)
--
--//#define S_PSSR_LINK 10
--//#define S_PSSR_LINK 13
--#define S_PSSR_LINK 2
--#define V_PSSR_LINK (1 << S_PSSR_LINK)
--
--//#define S_PSSR_STATUS_RESOLVED 11
--//#define S_PSSR_STATUS_RESOLVED 10
--#define S_PSSR_STATUS_RESOLVED 15
--#define V_PSSR_STATUS_RESOLVED (1 << S_PSSR_STATUS_RESOLVED)
--
--#define S_PSSR_PAGE_RECEIVED 12
--#define V_PSSR_PAGE_RECEIVED (1 << S_PSSR_PAGE_RECEIVED)
--
--//#define S_PSSR_DUPLEX 13
--//#define S_PSSR_DUPLEX 12
--#define S_PSSR_DUPLEX 5
--#define V_PSSR_DUPLEX (1 << S_PSSR_DUPLEX)
--
--//#define S_PSSR_SPEED    14
--//#define S_PSSR_SPEED    14
--#define S_PSSR_SPEED    3
--#define M_PSSR_SPEED    0x3
--#define V_PSSR_SPEED(x) ((x) << S_PSSR_SPEED)
--#define G_PSSR_SPEED(x) (((x) >> S_PSSR_SPEED) & M_PSSR_SPEED)
--
--#endif
+-	pm3393_mac_create,
+-	pm3393_mac_reset
++const struct gmac t1_pm3393_ops = {
++	.stats_update_period = STATS_TICK_SECS,
++	.create              = pm3393_mac_create,
++	.reset               = pm3393_mac_reset,
+ };
+--- chelsio.orig/drivers/net/chelsio/subr.c
++++ chelsio/drivers/net/chelsio/subr.c
+@@ -321,7 +321,7 @@ static int mi1_mdio_write(adapter_t *ada
+ }
+ 
+ #if defined(CONFIG_CHELSIO_T1_1G) || defined(CONFIG_CHELSIO_T1_COUGAR)
+-static struct mdio_ops mi1_mdio_ops = {
++static const struct mdio_ops mi1_mdio_ops = {
+ 	.init = mi1_mdio_init,
+ 	.read = mi1_mdio_read,
+ 	.write = mi1_mdio_write
+@@ -377,7 +377,7 @@ static int mi1_mdio_ext_write(adapter_t 
+ 	return 0;
+ }
+ 
+-static struct mdio_ops mi1_mdio_ext_ops = {
++static const struct mdio_ops mi1_mdio_ext_ops = {
+ 	.init = mi1_mdio_init,
+ 	.read = mi1_mdio_ext_read,
+ 	.write = mi1_mdio_ext_write
+--- chelsio.orig/drivers/net/chelsio/vsc7326.c
++++ chelsio/drivers/net/chelsio/vsc7326.c
+@@ -723,7 +723,7 @@ static int vsc7326_mac_reset(adapter_t *
+ 	return 0;
+ }
+ 
+-struct gmac t1_vsc7326_ops = {
++const struct gmac t1_vsc7326_ops = {
+ 	.stats_update_period = STATS_TICK_SECS,
+ 	.create              = vsc7326_mac_create,
+ 	.reset               = vsc7326_mac_reset,
 
 -- 
 
