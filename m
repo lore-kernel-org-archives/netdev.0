@@ -1,119 +1,31 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: Re: 2.6.19-rc6-mm1: drivers/net/chelsio/: unused code
-Date: Tue, 20 Feb 2007 23:06:47 +0100
-Message-ID: <20070220220647.GZ13958@stusta.de>
-References: <20061123021703.8550e37e.akpm@osdl.org> <20061124001731.GO3557@stusta.de> <20061127102455.362fe88f@dxpl.pdx.osdl.net> <20061129073609.GA11084@stusta.de> <20061128234719.9b3a224d.akpm@osdl.org> <20070220000214.GB13958@stusta.de> <20070220133132.63f3e75e@localhost.localdomain>
+From: linas@austin.ibm.com (Linas Vepstas)
+Subject: [PATCH 0/12]: spidernet updates
+Date: Tue, 20 Feb 2007 16:13:15 -0600
+Message-ID: <20070220221314.GU923@austin.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
-	netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	kou.ishizaki@toshiba.co.jp, arnd@arndb.de,
+	Jens Osterkamp <jens@de.ibm.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from emailhub.stusta.mhn.de ([141.84.69.5]:37616 "EHLO
-	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1030484AbXBTWGt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Feb 2007 17:06:49 -0500
+Received: from e1.ny.us.ibm.com ([32.97.182.141]:56425 "EHLO e1.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965257AbXBTWNU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Feb 2007 17:13:20 -0500
 Content-Disposition: inline
-In-Reply-To: <20070220133132.63f3e75e@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Feb 20, 2007 at 01:31:32PM -0800, Stephen Hemminger wrote:
-> On Tue, 20 Feb 2007 01:02:14 +0100
-> Adrian Bunk <bunk@stusta.de> wrote:
-> 
-> > On Tue, Nov 28, 2006 at 11:47:19PM -0800, Andrew Morton wrote:
-> > > On Wed, 29 Nov 2006 08:36:09 +0100
-> > > Adrian Bunk <bunk@stusta.de> wrote:
-> > > 
-> > > > On Mon, Nov 27, 2006 at 10:24:55AM -0800, Stephen Hemminger wrote:
-> > > > > On Fri, 24 Nov 2006 01:17:31 +0100
-> > > > > Adrian Bunk <bunk@stusta.de> wrote:
-> > > > > 
-> > > > > > On Thu, Nov 23, 2006 at 02:17:03AM -0800, Andrew Morton wrote:
-> > > > > > >...
-> > > > > > > Changes since 2.6.19-rc5-mm2:
-> > > > > > >...
-> > > > > > > +chelsio-22-driver.patch
-> > > > > > >...
-> > > > > > >  netdev updates
-> > > > > > 
-> > > > > > It is suspicious that the following newly added code is completely unused:
-> > > > > >   drivers/net/chelsio/ixf1010.o
-> > > > > >     t1_ixf1010_ops
-> > > > > >   drivers/net/chelsio/mac.o
-> > > > > >     t1_chelsio_mac_ops
-> > > > > >   drivers/net/chelsio/vsc8244.o
-> > > > > >     t1_vsc8244_ops
-> > > > > > 
-> > > > > > cu
-> > > > > > Adrian
-> > > > > > 
-> > > > > 
-> > > > > All that is gone in later version. I reposted new patches
-> > > > > after -mm2 was done.
-> > > > 
-> > > > It seems these patches didn't make it into 2.6.19-rc6-mm2 ?
-> > > 
-> > > I dropped that patch and picked up Francois's tree instead.
-> > 
-> > These structs are still both present and unused as of 2.6.20-mm1.
-> 
-> Please use your eyes, not your tool. Those functions are called in 2.6.20
 
 
-My eyes tell me:
+Jeff, 
+Please apply and forward upstream this patch series.
 
+This is the followup to the collision of patches that
+landed on your doorstep last week. It rolls up the 
+patches from Jens and Kou. 
 
-> static struct cmac *ixf1010_mac_create(adapter_t *adapter, int index)
-> {
-> ...
-> 	mac->ops = &ixf1010_ops;
-
-
-ixf1010_ops != t1_ixf1010_ops
-
-
-> static struct cmac *mac_create(adapter_t *adapter, int index)
-> {
-> ...
-> 
-> 	mac->ops = &chelsio_mac_ops;
-
-
-chelsio_mac_ops != t1_chelsio_mac_ops
-
-
-> mac_create gets called by 
-> 
-> int __devinit t1_init_sw_modules(adapter_t *adapter,
-> 				 const struct board_info *bi)
-> {
-> 
-> 	for_each_port(adapter, i) {
-> 		u8 hw_addr[6];
-> 		struct cmac *mac;
-> 		int phy_addr = bi->mdio_phybaseaddr + i;
-> 
-> 		adapter->port[i].phy = bi->gphy->create(adapter, phy_addr,
-> 							bi->mdio_ops);
-
-
-No, since t1_chelsio_mac_ops isn't used anywhere and mac_create() isn't 
-referenced except from t1_chelsio_mac_ops.
-
-
-cu
-Adrian
-
-BTW: It's not my tool, the script behind "make namespacecheck" was
-     written by Keith Owens.
-
--- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
+--linas
 
