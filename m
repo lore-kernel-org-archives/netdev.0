@@ -1,64 +1,37 @@
-From: Ayaz Abdulla <aabdulla@nvidia.com>
-Subject: [PATCH 3/3] forcedeth: fix checksum feature in mcp65
-Date: Mon, 19 Feb 2007 09:28:15 -0500
-Message-ID: <45D9B3FF.6040107@nvidia.com>
+From: "Chris Snook" <csnook@redhat.com>
+Subject: [PATCH 0/3] remove =?UTF-8?Q?irq=5Fsem=20cruft=20from=20e=31=30=30=30=20a?=
+ =?UTF-8?Q?nd=20derivatives?=
+Date: Mon, 19 Feb 2007 19:57:05 -0500
+Message-ID: <20070220.Bq5.44322700@egw.corp.redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------000205050007090004060107"
-To: Jeff Garzik <jgarzik@pobox.com>,
-	Manfred Spraul <manfred@colorfullife.com>,
-	Andrew Morton <akpm@osdl.org>, nedev <netdev@vger.kernel.org>
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org
+To: jeff@garzik.org, jacliburn@bellsouth.net, csnook@redhat.com,
+	john.ronciak@intel.com, jesse.brandeburg@intel.com,
+	auke-jan.h.kok@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hqemgate01.nvidia.com ([216.228.112.170]:10584 "EHLO
-	HQEMGATE01.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965799AbXBTAvi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Feb 2007 19:51:38 -0500
+Received: from mx1.redhat.com ([66.187.233.31]:40956 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965840AbXBTA5N (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Feb 2007 19:57:13 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------000205050007090004060107
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Hey folks --
 
-This patch removes checksum offload feature in mcp65 chipsets as they 
-are not supported in hw.
+     While digging through the atl1 source, I was troubled by the code using
+irq_sem.  I did some digging and found the same code in e1000 and ixgb.  I'm
+not entirely sure what it was originally intended to do, but it doesn't seem
+to be doing anything useful now, except possibly locking interrupts off if
+NAPI is flipped on and off enough times to cause an integer overflow.
 
-Signed-Off-By: Ayaz Abdulla <aabdulla@nvidia.com>
+     The following patches completely remove irq_sem from each of the drivers.
+ This has been tested successfully on atl1 and e1000.  If someone would like
+to send me ixgb hardware I'd be glad to test that, otherwise you'll have to
+test it yourself. :)
 
+     -- Chris
 
---------------000205050007090004060107
-Content-Type: text/plain;
- name="patch-forcedeth-checksum-mcp65"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="patch-forcedeth-checksum-mcp65"
-
---- orig/drivers/net/forcedeth.c	2007-02-19 09:17:41.000000000 -0500
-+++ new/drivers/net/forcedeth.c	2007-02-19 09:19:43.000000000 -0500
-@@ -5374,19 +5374,19 @@
- 	},
- 	{	/* MCP65 Ethernet Controller */
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_20),
--		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
-+		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
- 	},
- 	{	/* MCP65 Ethernet Controller */
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_21),
--		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
-+		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
- 	},
- 	{	/* MCP65 Ethernet Controller */
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_22),
--		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
-+		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
- 	},
- 	{	/* MCP65 Ethernet Controller */
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_23),
--		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
-+		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
- 	},
- 	{	/* MCP67 Ethernet Controller */
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_24),
-
---------------000205050007090004060107--
