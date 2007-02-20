@@ -1,47 +1,64 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: Extensible hashing and RCU
-Date: Tue, 20 Feb 2007 19:20:41 +0300
-Message-ID: <20070220162040.GA8194@2ka.mipt.ru>
-References: <200702191913.08125.dada1@cosmosbay.com> <f2b55d220702200749l4fa2b14foa861cf37288cfb8d@mail.gmail.com> <20070220155928.GA26600@2ka.mipt.ru> <200702201708.12858.dada1@cosmosbay.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 1/3] forcedeth: fixed missing call in napi poll
+Date: Tue, 20 Feb 2007 11:26:01 -0500
+Message-ID: <45DB2119.3030402@garzik.org>
+References: <45D9B3E8.7030109@nvidia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: "Michael K. Edwards" <medwards.linux@gmail.com>,
-	David Miller <davem@davemloft.net>, akepner@sgi.com,
-	linux@horizon.com, netdev@vger.kernel.org, bcrl@kvack.org
-To: Eric Dumazet <dada1@cosmosbay.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Manfred Spraul <manfred@colorfullife.com>,
+	Andrew Morton <akpm@osdl.org>, nedev <netdev@vger.kernel.org>
+To: Ayaz Abdulla <aabdulla@nvidia.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:54016 "EHLO 2ka.mipt.ru"
+Received: from srv5.dvmed.net ([207.36.208.214]:44622 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030198AbXBTQWP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Feb 2007 11:22:15 -0500
-Content-Disposition: inline
-In-Reply-To: <200702201708.12858.dada1@cosmosbay.com>
+	id S1030208AbXBTQ0N (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Feb 2007 11:26:13 -0500
+In-Reply-To: <45D9B3E8.7030109@nvidia.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Feb 20, 2007 at 05:08:12PM +0100, Eric Dumazet (dada1@cosmosbay.com) wrote:
-> > Adding XOR with constant value does not change distribution.
-> > Variable salt will end up with differnet buckets for the same flow.
-> > It is forbidden - it is not the situation created for passwd/des decades
-> > ago.
+Ayaz Abdulla wrote:
+> The napi poll routine was missing the call to the optimized rx process 
+> routine. This patch adds the missing call for the optimized path.
 > 
-> Adding a random hint to jhash (random value picked at boot time, not known by 
-> attacker) permits to have a secure hash table : An attacker cannot build an 
-> attack to fill one particular hash chain.
+> Signed-Off-By: Ayaz Abdulla <aabdulla@nvidia.com>
 > 
-> See net/ipv4/route.c (function rt_hash_code()) to see how its used for route 
-> cache.
+> 
+> ------------------------------------------------------------------------
+> 
+> --- orig/drivers/net/forcedeth.c	2007-02-19 09:13:10.000000000 -0500
+> +++ new/drivers/net/forcedeth.c	2007-02-19 09:13:46.000000000 -0500
+> @@ -3104,13 +3104,17 @@
+>  	struct fe_priv *np = netdev_priv(dev);
+>  	u8 __iomem *base = get_hwbase(dev);
+>  	unsigned long flags;
+> +	u32 retcode;
+>  
+> -	if (np->desc_ver == DESC_VER_1 || np->desc_ver == DESC_VER_2)
+> +	if (np->desc_ver == DESC_VER_1 || np->desc_ver == DESC_VER_2) {
+>  		pkts = nv_rx_process(dev, limit);
+> -	else
+> +		retcode = nv_alloc_rx(dev);
+> +	} else {
+>  		pkts = nv_rx_process_optimized(dev, limit);
+> +		retcode = nv_alloc_rx_optimized(dev);
+> +	}
+>  
+> -	if (nv_alloc_rx(dev)) {
+> +	if (retcode) {
 
-It is secrecy, not security - attacker will check the source and find
-where constant per-boot value is added and recalculate attack vector -
-we all were college students, it would be even more fun to crack.
+You should update this patch to change the return values of the above 
+two functions from 'int' to 'u32', to match the code usage.  Both 
+nv_rx_process() and nv_alloc_rx_optimized() return int, but you use them 
+as if they return u32.
 
-In that regard Jenkins ahsh and XOR one have _exactly_ the same attack
-vector, only Jenkins is a bit more sophisticated. I even think that
-example in rt_hash_code() will endup with heavy problems when one of the
-addresses is constant - my tests show problem exactly in the case of
-jhash_2words() with random third parameter and constant one of the first
-like in rt_hash_code().
+Or alternately, use the Linux kernel standard of negative values 
+indicating failure, zero (or perhaps >=0) indicates success.
 
--- 
-	Evgeniy Polyakov
+Otherwise, ACK.
+
+	Jeff
+
+
+
