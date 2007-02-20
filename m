@@ -1,38 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [ipv6]: adjust inet6_exit() cleanup sequence against
- inet6_init()
-Date: Tue, 20 Feb 2007 01:30:53 -0800 (PST)
-Message-ID: <20070220.013053.78711208.davem@davemloft.net>
-References: <20070209093424.GA7078@joejin-pc.cn.oracle.com>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: nonblocking UDPv4 recvfrom() taking 4usec @ 3GHz?
+Date: 20 Feb 2007 11:50:13 +0100
+Message-ID: <p73d545drx6.fsf@bingen.suse.de>
+References: <20070219231447.GA4400@outpost.ds9a.nl>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: joe.jin@oracle.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: bert hubert <bert.hubert@netherlabs.nl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57706
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S932508AbXBTJaz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Feb 2007 04:30:55 -0500
-In-Reply-To: <20070209093424.GA7078@joejin-pc.cn.oracle.com>
+Received: from mail.suse.de ([195.135.220.2]:38119 "EHLO mx1.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750977AbXBTJuS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Feb 2007 04:50:18 -0500
+In-Reply-To: <20070219231447.GA4400@outpost.ds9a.nl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Joe Jin <joe.jin@oracle.com>
-Date: Fri, 9 Feb 2007 17:34:24 +0800
+bert hubert <bert.hubert@netherlabs.nl> writes:
 
-> This patch for adjust inet6_exit() to inverse sequence to inet6_init().
+> Hi people,
 > 
-> At ipv6_init, it first create proc_root/net/dev_snmp6 entry by call
-> ipv6_misc_proc_init(), then call addrconf_init() to create the corresponding
-> device entry at this directory, but at inet6_exit, ipv6_misc_proc_exit()
-> called first, then call addrconf_init().
+> I'm trying to save people the cost of buying extra servers by making
+> PowerDNS (GPL) ever faster, but I've hit a rather fundamental problem.
 > 
-> Signed-off-by: Joe Jin <joe.jin@oracle.com>
+> Linux 2.6.20-rc4 appears to take 4 microseconds on my P4 3GHz for a
+> non-blocking UDPv4 recvfrom() call, both on loopback and ethernet.
 
-Good thing ipv6 can never be unloaded :-)
+P4s are pretty slow at taking locks (or rather doing atomical operations)
+and there are several of them in this path. You could try it with a UP
+kernel. Actually hotunplugging the other virtual CPU should be sufficient 
+with recent kernels.
 
-Nevertheless, if the unload exit function exists, it ought
-to be correct.
+Also BTW RDTSC on P4 is not very accurate for small measurements
+because it has a quite high overhead by itself, i would suggest
+running it in a loop.
 
-Patch applied, thank you.
+-Andi
