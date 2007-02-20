@@ -1,84 +1,68 @@
-From: "Michael K. Edwards" <medwards.linux@gmail.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
 Subject: Re: Extensible hashing and RCU
-Date: Tue, 20 Feb 2007 11:13:50 -0800
-Message-ID: <f2b55d220702201113m12355e5ds584cede246d4728c@mail.gmail.com>
-References: <200702191913.08125.dada1@cosmosbay.com>
-	 <200702201738.19590.dada1@cosmosbay.com>
-	 <20070220165907.GB24930@2ka.mipt.ru>
-	 <200702201820.27095.dada1@cosmosbay.com>
-	 <20070220175550.GB26961@2ka.mipt.ru>
-	 <20070220181217.GA3401@2ka.mipt.ru>
+Date: Tue, 20 Feb 2007 20:17:31 +0100
+Message-ID: <200702202017.31965.dada1@cosmosbay.com>
+References: <200702191913.08125.dada1@cosmosbay.com> <200702201955.15567.dada1@cosmosbay.com> <20070220190634.GA12193@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain;
+  charset="koi8-r"
 Content-Transfer-Encoding: 7bit
-Cc: "Eric Dumazet" <dada1@cosmosbay.com>,
-	"David Miller" <davem@davemloft.net>, akepner@sgi.com,
+Cc: "Michael K. Edwards" <medwards.linux@gmail.com>,
+	David Miller <davem@davemloft.net>, akepner@sgi.com,
 	linux@horizon.com, netdev@vger.kernel.org, bcrl@kvack.org
-To: "Evgeniy Polyakov" <johnpol@2ka.mipt.ru>
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.243]:10661 "EHLO
-	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751014AbXBTTNw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Feb 2007 14:13:52 -0500
-Received: by an-out-0708.google.com with SMTP id b33so431469ana
-        for <netdev@vger.kernel.org>; Tue, 20 Feb 2007 11:13:51 -0800 (PST)
-In-Reply-To: <20070220181217.GA3401@2ka.mipt.ru>
+Received: from pfx2.jmh.fr ([194.153.89.55]:45862 "EHLO pfx2.jmh.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751021AbXBTTRl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Feb 2007 14:17:41 -0500
+In-Reply-To: <20070220190634.GA12193@2ka.mipt.ru>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 2/20/07, Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
-> And here are another ones which produce the same hash value.
-> Of course searching for pair for jhash('jhash is broken')
-> will require more steps, but it is doable.
+On Tuesday 20 February 2007 20:06, Evgeniy Polyakov wrote:
+
+> > I added to my 'simulator_plugged_on_real_server' the average cost
+> > calculation, relative to number of cache line per lookup.
+> >
+> > ehash_size=2^20
+> > xor hash :
+> > 386290 sockets, Avg lookup cost=3.2604 cache lines/lookup
+> > 393667 sockets, Avg lookup cost=3.30579 cache lines/lookup
+> > 400777 sockets, Avg lookup cost=3.3493 cache lines/lookup
+> > 404720 sockets, Avg lookup cost=3.36705 cache lines/lookup
+> > 406671 sockets, Avg lookup cost=3.37677 cache lines/lookup
+> > jenkin hash:
+> > 386290 sockets, Avg lookup cost=2.36763 cache lines/lookup
+> > 393667 sockets, Avg lookup cost=2.37533 cache lines/lookup
+> > 400777 sockets, Avg lookup cost=2.38211 cache lines/lookup
+> > 404720 sockets, Avg lookup cost=2.38582 cache lines/lookup
+> > 406671 sockets, Avg lookup cost=2.38679 cache lines/lookup
+> >
+> > (you can see that when number of sockets increase, the xor hash becomes
+> > worst)
+> >
+> > So the jenkin hash function CPU cost is balanced by the fact its
+> > distribution is better. In the end you are faster.
 >
-> That means that if attacker has a full control over one host, it can
-> create a chain of maximum 4 entries in socket table (if jhash is used).
-> If it is udp, that means that attacker control addresses too without
-> syn cookies, which in turn means that below list can be increased to
-> infinite.
+> Very strange test - it shows that jenkins distribution for your setup is
+> better than xor one, although for the true random data they are roughly
+> the same, and jenkins one has more instructions.
+>
+> But _you_ have shown that with true random data of 2^16 ports jenkins
+> distribution is _worse_ than xor without any gain to buy.
 
-Evgeniy, you're not gettin' it.  Have you ever heard of a Poisson
-distribution?  That's what you have to aim for in a (bog-standard)
-hash table -- a hash function that scrambles the key space until you
-have a Poisson distribution in the hash buckets no matter whan pile of
-keys the attacker throws at you.  That's a "perfect" hash function in
-the statistician's sense (not a "perfect hash" function in the
-compiler designer's sense).  Yes there will be collisions, and they
-will start happening much earlier than you will think, if you have
-never heard of Poisson distributions before; that's called the
-"birthday problem" and it is a chestnut of a mathematical puzzle
-generally encountered by bright twelve-year-olds in extra-curricular
-math classes.  The only sensible way to deal with them is to use a
-better data structure -- like a 2-left hash (Google it) or something
-tree-ish.
+I shown your test was bogus. All your claims are just bogus.
+I claim your 'true random data' is a joke. rand() in your program is a pure 
+joke.
 
-That is not, however, what you're not getting.  What you're not
-getting is the use of a "salt" or "secret" or whatever you want to
-call it to turn a weak hash into an impenetrable defense against
-chosen-plaintext collision attacks.  You can run your PRNG until you
-slag your poor botnet's little CPUs searching for a set of tuples that
-collide in the same bucket on your test system-under-attack.  But they
-won't collide on mine, and they won't collide on Eric's, and they
-won't collide on yours the next time it's rebooted.  Because even a
-weak hash (in the cryptographer's sense) is good enough to scramble
-the key space radically differently with two different salts.  XOR
-doesn't cut it -- the salt will permute the buckets but not toss each
-one's contents up into the air to land in a bunch of different
-buckets.  But Jenkins does cut it, as discussed in the source code
-Eric pointed out to you.
+Given 48 bits of input, you *can* find a lot of addr/port to hit one 
+particular cache line if XOR function is used. With jhash, without knowing 
+the 32bits random secret, you *cant*.
 
-Of course you don't change the salt except when resizing the hash
-(which is a dumb thing to do anyway, and a sure sign that a hash table
-is not the right data structure).  That would kinda defeat the purpose
-of having a hash table in the first place.
+Again, you dont take into account the chain length.
 
-If you can't assimilate this and articulate it back to us in your own
-words instead of repeating "any hash that doesn't totally, utterly
-suck slows my meaningless artificial benchmark by 50%", you may not be
-the right person to design and implement a new RCU data structure in a
-kernel that thousands of us trust to withstand exposure to the open
-Internet to the best of a commodity processor's ability.
+If all chains were of length <= 1, then yes, xor would be faster. In real 
+life, we *know* chain length can be larger, especially in DOS situations.
 
-Cheers,
-- Michael
