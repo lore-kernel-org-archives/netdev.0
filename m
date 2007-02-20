@@ -1,69 +1,68 @@
-From: lsorense@csclub.uwaterloo.ca (Lennart Sorensen)
-Subject: Re: MediaGX/GeodeGX1 requires X86_OOSTORE.
-Date: Mon, 19 Feb 2007 19:02:31 -0500
-Message-ID: <20070220000231.GM7585@csclub.uwaterloo.ca>
-References: <20070217.231113.193678444.takada@mbf.nifty.com> <20070219145514.GO7582@csclub.uwaterloo.ca> <ada3b5253p0.fsf@cisco.com> <20070220.085639.260788422.takada@mbf.nifty.com>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: Re: 2.6.19-rc6-mm1: drivers/net/chelsio/: unused code
+Date: Tue, 20 Feb 2007 01:02:14 +0100
+Message-ID: <20070220000214.GB13958@stusta.de>
+References: <20061123021703.8550e37e.akpm@osdl.org> <20061124001731.GO3557@stusta.de> <20061127102455.362fe88f@dxpl.pdx.osdl.net> <20061129073609.GA11084@stusta.de> <20061128234719.9b3a224d.akpm@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: rdreier@cisco.com, pcnet32@verizon.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: takada <takada@mbf.nifty.com>
+Cc: Stephen Hemminger <shemminger@osdl.org>,
+	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
+	netdev@vger.kernel.org
+To: Andrew Morton <akpm@osdl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from caffeine.uwaterloo.ca ([129.97.134.17]:52783 "EHLO
-	caffeine.csclub.uwaterloo.ca" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S965580AbXBTACc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Feb 2007 19:02:32 -0500
+Received: from emailhub.stusta.mhn.de ([141.84.69.5]:36000 "EHLO
+	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S965579AbXBTACP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Feb 2007 19:02:15 -0500
 Content-Disposition: inline
-In-Reply-To: <20070220.085639.260788422.takada@mbf.nifty.com>
+In-Reply-To: <20061128234719.9b3a224d.akpm@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Feb 20, 2007 at 08:56:39AM +0900, takada wrote:
-> /proc/cpuinfo with MediaGXm :
+On Tue, Nov 28, 2006 at 11:47:19PM -0800, Andrew Morton wrote:
+> On Wed, 29 Nov 2006 08:36:09 +0100
+> Adrian Bunk <bunk@stusta.de> wrote:
 > 
-> processor	: 0
-> vendor_id	: CyrixInstead
-> cpu family	: 5
-> model		: 5
-> model name	: Cyrix MediaGXtm MMXtm Enhanced
-> stepping	: 2
-> cpu MHz		: 199.750
-> cache size	: 16 KB
-> fdiv_bug	: no
-> hlt_bug		: no
-> f00f_bug	: no
-> coma_bug	: no
-> fpu		: yes
-> fpu_exception	: yes
-> cpuid level	: 2
-> wp		: yes
-> flags		: fpu tsc msr cx8 cmov mmx cxmmx
-> bogomips	: 401.00
-> clflush size	: 32
+> > On Mon, Nov 27, 2006 at 10:24:55AM -0800, Stephen Hemminger wrote:
+> > > On Fri, 24 Nov 2006 01:17:31 +0100
+> > > Adrian Bunk <bunk@stusta.de> wrote:
+> > > 
+> > > > On Thu, Nov 23, 2006 at 02:17:03AM -0800, Andrew Morton wrote:
+> > > > >...
+> > > > > Changes since 2.6.19-rc5-mm2:
+> > > > >...
+> > > > > +chelsio-22-driver.patch
+> > > > >...
+> > > > >  netdev updates
+> > > > 
+> > > > It is suspicious that the following newly added code is completely unused:
+> > > >   drivers/net/chelsio/ixf1010.o
+> > > >     t1_ixf1010_ops
+> > > >   drivers/net/chelsio/mac.o
+> > > >     t1_chelsio_mac_ops
+> > > >   drivers/net/chelsio/vsc8244.o
+> > > >     t1_vsc8244_ops
+> > > > 
+> > > > cu
+> > > > Adrian
+> > > > 
+> > > 
+> > > All that is gone in later version. I reposted new patches
+> > > after -mm2 was done.
+> > 
+> > It seems these patches didn't make it into 2.6.19-rc6-mm2 ?
+> 
+> I dropped that patch and picked up Francois's tree instead.
 
-Hmm with 2.6.18 I am seeing:
+These structs are still both present and unused as of 2.6.20-mm1.
 
-processor       : 0
-vendor_id       : CyrixInstead
-cpu family      : 5
-model           : 9
-model name      : Geode(TM) Integrated Processor by National Semi
-stepping        : 1
-cpu MHz         : 266.648
-cache size      : 16 KB
-fdiv_bug        : no
-hlt_bug         : no
-f00f_bug        : no
-coma_bug        : no
-fpu             : yes
-fpu_exception   : yes
-cpuid level     : 2
-wp              : yes
-flags           : fpu tsc msr cx8 cmov mmx cxmmx
-bogomips        : 534.50
+cu
+Adrian
 
-Similar, but the last line isn't there.  It looks like 2.6.18 doesn't
-actually have code to print that information though.
+-- 
 
---
-Len Sorensen
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
+
