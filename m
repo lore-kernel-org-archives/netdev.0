@@ -1,51 +1,107 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [RFC] split NAPI from network device.
-Date: Thu, 22 Feb 2007 10:24:31 +1100
-Message-ID: <1172100271.6792.7.camel@localhost.localdomain>
-References: <20061213113537.6baf410f@dxpl.pdx.osdl.net>
-	 <1166042552.11914.188.camel@localhost.localdomain>
-	 <20061213154635.1f284bf6@dxpl.pdx.osdl.net>
-	 <20070220.213125.74747066.davem@davemloft.net>
+From: Marc.Obbad@smsc.com
+Subject: Re: [PATCH 1/4] bridge: get rid of miscdevice include
+Date: Wed, 21 Feb 2007 18:40:03 -0500
+Message-ID: <OF0ED928FF.E7A477BD-ON85257289.0081F0E7-85257289.008203B0@smsc.com>
+References: <20070221224255.581096490@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@osdl.org, netdev@vger.kernel.org, ebs@ebshome.net,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:59969 "EHLO gate.crashing.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1423258AbXBUXZN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Feb 2007 18:25:13 -0500
-In-Reply-To: <20070220.213125.74747066.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: bridge-bounces@lists.osdl.org, bridge@linux-foundation.org,
+   David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
+Return-path: <bridge-bounces@lists.osdl.org>
+In-Reply-To: <20070221224255.581096490@linux-foundation.org>
+List-Unsubscribe: <https://lists.osdl.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.osdl.org?subject=unsubscribe>
+List-Archive: <http://lists.osdl.org/pipermail/bridge>
+List-Post: <mailto:bridge@lists.osdl.org>
+List-Help: <mailto:bridge-request@lists.osdl.org?subject=help>
+List-Subscribe: <https://lists.osdl.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.osdl.org?subject=subscribe>
+Sender: bridge-bounces@lists.osdl.org
+Errors-To: bridge-bounces@lists.osdl.org
 List-Id: netdev.vger.kernel.org
 
+How to get those fixes for testing ?
 
-> Actually, Ben did you determine if this scheme works for your device
-> which has a single interrupt source yet multiple queues?  There is one
-> driver that, during the conversion, I noticed has a similar issue.
-> One driver, netxen, has multiple channels, so it just passes in
-> "bugdet / NUM_CHANNELS" as the quota so that one channel could not
-> starve the others.
+Thanks,
+-Marc.
 
 
-The device has a single interrupt though that interrupt at least can
-tell you which queues need servicing. It can't mask the interrupt per
-queue though, which is the main issue.
+                                                                           =
+                                             =
 
-So while I think this scheme would work (the driver, ibm_emac, currently
-uses a fake net_device and that sort-of works, budget is set a CONFIG_*
-time though, I'm sure that can/needs to be improved), I've been
-wondering all along if I could do something smarter by doing some
-interrupt soft-disabling instead, though I have to get my head around
-properly kicking softirqs from task context (if I need to re-trigger
-from a enable_*() call occuring at task context).
+             Stephen Hemminger                                             =
+                                             =
 
-I'm travelling at the moment, so I won't be able to have a serious look
-for a little while though.
+             <shemminger@linux-foundation.org>                             =
+                                             =
 
-Cheers,
-Ben.
- 
+             Sent by:                                                      =
+                                          To =
 
+             bridge-bounces@lists.osdl.org               David Miller <dave=
+m@davemloft.net>                             =
+
+                                                                           =
+                                          cc =
+
+                                                         netdev@vger.kernel=
+.org, bridge@linux-foundation.org            =
+
+             02/21/2007 05:41 PM                                           =
+                                     Subject =
+
+                                                         [Bridge] [PATCH 1/=
+4] bridge: get rid of miscdevice include     =
+
+                                                                           =
+                                             =
+
+                                                                           =
+                                             =
+
+                                                                           =
+                                             =
+
+                                                                           =
+                                             =
+
+                                                                           =
+                                             =
+
+                                                                           =
+                                             =
+
+
+
+
+
+The bridge hasn't used miscdevice for a long long time.
+
+Signed-off-by: StephenHemminger <shemminger@linux-foundtion.org>
+
+---
+ net/bridge/br_private.h |    1 -
+ 1 file changed, 1 deletion(-)
+
+--- bridge.orig/net/bridge/br_private.h          2007-02-21 10:57:26.000000=
+000 -0800
++++ bridge/net/bridge/br_private.h         2007-02-21 10:57:30.000000000 -0=
+800
+@@ -16,7 +16,6 @@
+ #define _BR_PRIVATE_H
+
+ #include <linux/netdevice.h>
+-#include <linux/miscdevice.h>
+ #include <linux/if_bridge.h>
+
+ #define BR_HASH_BITS 8
+
+--
+Stephen Hemminger <shemminger@linux-foundation.org>
+
+_______________________________________________
+Bridge mailing list
+Bridge@lists.osdl.org
+https://lists.osdl.org/mailman/listinfo/bridge
