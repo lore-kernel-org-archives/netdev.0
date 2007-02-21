@@ -1,40 +1,40 @@
-From: Timur Tabi <timur@freescale.com>
-Subject: [PATCH] ucc_geth: use of_get_mac_address()
-Date: Wed, 21 Feb 2007 14:40:12 -0600
-Message-ID: <11720904121560-git-send-email-timur@freescale.com>
-Cc: Timur Tabi <timur@freescale.com>
-To: jeff@garzik.org, netdev@vger.kernel.org
+From: Steve Wise <swise@opengridcomputing.com>
+Subject: [PATCH 2.6.21] iw_cxgb3: Stop the EP Timer on BAD CLOSE.
+Date: Wed, 21 Feb 2007 14:45:39 -0600
+Message-ID: <1172090739.27101.39.camel@stevo-desktop>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org, openib-general <openib-general@openib.org>
+To: Roland Dreier <rdreier@cisco.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from de01egw01.freescale.net ([192.88.165.102]:63019 "EHLO
-	de01egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932510AbXBUUkZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Feb 2007 15:40:25 -0500
+Received: from rrcs-24-153-217-226.sw.biz.rr.com ([24.153.217.226]:44574 "EHLO
+	smtp.opengridcomputing.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932606AbXBUUpk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Feb 2007 15:45:40 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Update ucc_geth_probe() to use function of_get_mac_address() to obtain the MAC
-address.
+Stop the ep timer in ec_status() if the status indicates a
+bad close.
 
-Signed-off-by: Timur Tabi <timur@freescale.com>
+Signed-off-by: Steve Wise <swise@opengridcomputing.com>
 ---
- drivers/net/ucc_geth.c |    4 +---
- 1 files changed, 1 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
-index a2fc2bb..885e73d 100644
---- a/drivers/net/ucc_geth.c
-+++ b/drivers/net/ucc_geth.c
-@@ -4199,9 +4199,7 @@ static int ucc_geth_probe(struct of_device* ofdev, const struct of_device_id *ma
- 	ugeth->ug_info = ug_info;
- 	ugeth->dev = dev;
+ drivers/infiniband/hw/cxgb3/iwch_cm.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/infiniband/hw/cxgb3/iwch_cm.c b/drivers/infiniband/hw/cxgb3/iwch_cm.c
+index e5442e3..d00e5dd 100644
+--- a/drivers/infiniband/hw/cxgb3/iwch_cm.c
++++ b/drivers/infiniband/hw/cxgb3/iwch_cm.c
+@@ -1635,6 +1635,7 @@ static int ec_status(struct t3cdev *tdev
  
--	mac_addr = get_property(np, "mac-address", NULL);
--	if (mac_addr == NULL)
--		mac_addr = get_property(np, "local-mac-address", NULL);
-+	mac_addr = of_get_mac_address(np);
- 	if (mac_addr)
- 		memcpy(dev->dev_addr, mac_addr, 6);
- 
--- 
-1.5.0
+ 		printk(KERN_ERR MOD "%s BAD CLOSE - Aborting tid %u\n",
+ 		       __FUNCTION__, ep->hwtid);
++		stop_ep_timer(ep);
+ 		attrs.next_state = IWCH_QP_STATE_ERROR;
+ 		iwch_modify_qp(ep->com.qp->rhp,
+ 			       ep->com.qp, IWCH_QP_ATTR_NEXT_STATE,
 
