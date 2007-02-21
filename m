@@ -1,49 +1,40 @@
-From: Oleg Nesterov <oleg@tv-sign.ru>
-Subject: Re: [RFT] bridge: eliminate port_check workqueue
-Date: Wed, 21 Feb 2007 23:09:16 +0300
-Message-ID: <20070221200916.GA145@tv-sign.ru>
-References: <20070220221941.GA707@tv-sign.ru> <20070220162434.72d3ad7b@freekitty> <20070221082345.GB1662@ff.dom.local> <20070221142342.GB134@tv-sign.ru> <20070221105555.4d1b40a6@freekitty>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jarek Poplawski <jarkao2@o2.pl>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	David Howells <dhowells@redhat.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1423070AbXBUUJV@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20070221105555.4d1b40a6@freekitty>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Timur Tabi <timur@freescale.com>
+Subject: [PATCH] ucc_geth: use of_get_mac_address()
+Date: Wed, 21 Feb 2007 14:40:12 -0600
+Message-ID: <11720904121560-git-send-email-timur@freescale.com>
+Cc: Timur Tabi <timur@freescale.com>
+To: jeff@garzik.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from de01egw01.freescale.net ([192.88.165.102]:63019 "EHLO
+	de01egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932510AbXBUUkZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Feb 2007 15:40:25 -0500
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 02/21, Stephen Hemminger wrote:
->
-> This is what I was suggesting by getting rid of the work queue completely.
+Update ucc_geth_probe() to use function of_get_mac_address() to obtain the MAC
+address.
 
-Can't comment this patch, but if we can get rid of the work_struct - good!
+Signed-off-by: Timur Tabi <timur@freescale.com>
+---
+ drivers/net/ucc_geth.c |    4 +---
+ 1 files changed, 1 insertions(+), 3 deletions(-)
 
-> -static void port_carrier_check(struct work_struct *work)
-> +void br_port_carrier_check(struct net_bridge_port *p)
->  {
-> -	struct net_bridge_port *p;
-> -	struct net_device *dev;
-> -	struct net_bridge *br;
-> -
-> -	dev = container_of(work, struct net_bridge_port,
-> -			   carrier_check.work)->dev;
-> -	work_release(work);
+diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
+index a2fc2bb..885e73d 100644
+--- a/drivers/net/ucc_geth.c
++++ b/drivers/net/ucc_geth.c
+@@ -4199,9 +4199,7 @@ static int ucc_geth_probe(struct of_device* ofdev, const struct of_device_id *ma
+ 	ugeth->ug_info = ug_info;
+ 	ugeth->dev = dev;
+ 
+-	mac_addr = get_property(np, "mac-address", NULL);
+-	if (mac_addr == NULL)
+-		mac_addr = get_property(np, "local-mac-address", NULL);
++	mac_addr = of_get_mac_address(np);
+ 	if (mac_addr)
+ 		memcpy(dev->dev_addr, mac_addr, 6);
+ 
+-- 
+1.5.0
 
-May I ask you to redo this patch on top of
-
-	[PATCH 1/3] net/bridge/br_if.c: don't use _WORK_NAR
-	http://marc.theaimsgroup.com/?l=linux-kernel&m=117183517612775
-
-?
-
-We are removing the _NAR stuff, it would be nice to do this in a separate
-patch.
-
-Thanks!
-
-Oleg.
