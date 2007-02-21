@@ -1,263 +1,211 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 01/29] mm: page allocation rank
-Date: Wed, 21 Feb 2007 15:43:05 +0100
-Message-ID: <20070221144841.627489000@taijtu.programming.kicks-ass.net>
+Subject: [PATCH 14/29] netvm: INET reserves.
+Date: Wed, 21 Feb 2007 15:43:18 +0100
+Message-ID: <20070221144842.896272000@taijtu.programming.kicks-ass.net>
 References: <20070221144304.512721000@taijtu.programming.kicks-ass.net>
 Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
 	Trond Myklebust <trond.myklebust@fys.uio.no>,
 	Thomas Graf <tgraf@suug.ch>, David Miller <davem@davemloft.net>
 To: linux-kernel@vger.kernel.org, linux-mm@kvack.org,
 	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161285AbXBUPiP@vger.kernel.org>
-Content-Disposition: inline; filename=mm-page_alloc-rank.patch
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1422645AbXBUPjE@vger.kernel.org>
+Content-Disposition: inline; filename=netvm-reserve-inet.patch
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Introduce page allocation rank.
+Add reserves for INET.
 
-This allocation rank is an measure of the 'hardness' of the page allocation.
-Where hardness refers to how deep we have to reach (and thereby if reclaim 
-was activated) to obtain the page.
+The two big users seem to be the route cache and ip-fragment cache.
 
-It basically is a mapping from the ALLOC_/gfp flags into a scalar quantity,
-which allows for comparisons of the kind: 
-  'would this allocation have succeeded using these gfp flags'.
-
-For the gfp -> alloc_flags mapping we use the 'hardest' possible, those
-used by __alloc_pages() right before going into direct reclaim.
-
-The alloc_flags -> rank mapping is given by: 2*2^wmark - harder - 2*high
-where wmark = { min = 1, low, high } and harder, high are booleans.
-This gives:
-  0 is the hardest possible allocation - ALLOC_NO_WATERMARK,
-  1 is ALLOC_WMARK_MIN|ALLOC_HARDER|ALLOC_HIGH,
-  ...
-  15 is ALLOC_WMARK_HIGH|ALLOC_HARDER,
-  16 is the softest allocation - ALLOC_WMARK_HIGH.
-
-Rank <= 4 will have woke up kswapd and when also > 0 might have ran into
-direct reclaim.
-
-Rank > 8 rarely happens and means lots of memory free (due to parallel oom kill).
-
-The allocation rank is stored in page->index for successful allocations.
-
-'offline' testing of the rank is made impossible by direct reclaim and
-fragmentation issues. That is, it is impossible to tell if a given allocation
-will succeed without actually doing it.
-
-The purpose of this measure is to introduce some fairness into the slab
-allocator.
+Account the route cache to the auxillary reserve.
+Account the fragments to the skb reserve so that one can at least
+overflow the fragment cache (avoids fragment deadlocks).
 
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
 ---
- mm/internal.h   |   89 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- mm/page_alloc.c |   58 ++++++++++--------------------------
- 2 files changed, 106 insertions(+), 41 deletions(-)
+ net/ipv4/ip_fragment.c     |    1 +
+ net/ipv4/route.c           |   18 +++++++++++++++++-
+ net/ipv4/sysctl_net_ipv4.c |   13 ++++++++++++-
+ net/ipv6/reassembly.c      |    1 +
+ net/ipv6/route.c           |   18 +++++++++++++++++-
+ net/ipv6/sysctl_net_ipv6.c |   12 +++++++++++-
+ 6 files changed, 59 insertions(+), 4 deletions(-)
 
-Index: linux-2.6-git/mm/internal.h
+Index: linux-2.6-git/net/ipv4/sysctl_net_ipv4.c
 ===================================================================
---- linux-2.6-git.orig/mm/internal.h	2007-01-08 11:53:13.000000000 +0100
-+++ linux-2.6-git/mm/internal.h	2007-01-09 11:29:18.000000000 +0100
-@@ -12,6 +12,7 @@
- #define __MM_INTERNAL_H
+--- linux-2.6-git.orig/net/ipv4/sysctl_net_ipv4.c	2007-02-20 15:12:56.000000000 +0100
++++ linux-2.6-git/net/ipv4/sysctl_net_ipv4.c	2007-02-20 16:41:28.000000000 +0100
+@@ -18,6 +18,7 @@
+ #include <net/route.h>
+ #include <net/tcp.h>
+ #include <net/cipso_ipv4.h>
++#include <net/sock.h>
  
- #include <linux/mm.h>
-+#include <linux/hardirq.h>
+ /* From af_inet.c */
+ extern int sysctl_ip_nonlocal_bind;
+@@ -186,6 +187,16 @@ static int strategy_allowed_congestion_c
  
- static inline void set_page_count(struct page *page, int v)
- {
-@@ -37,4 +38,92 @@ static inline void __put_page(struct pag
- extern void fastcall __init __free_pages_bootmem(struct page *page,
- 						unsigned int order);
- 
-+#define ALLOC_HARDER		0x01 /* try to alloc harder */
-+#define ALLOC_HIGH		0x02 /* __GFP_HIGH set */
-+#define ALLOC_WMARK_MIN		0x04 /* use pages_min watermark */
-+#define ALLOC_WMARK_LOW		0x08 /* use pages_low watermark */
-+#define ALLOC_WMARK_HIGH	0x10 /* use pages_high watermark */
-+#define ALLOC_NO_WATERMARKS	0x20 /* don't check watermarks at all */
-+#define ALLOC_CPUSET		0x40 /* check for correct cpuset */
-+
-+/*
-+ * get the deepest reaching allocation flags for the given gfp_mask
-+ */
-+static int inline gfp_to_alloc_flags(gfp_t gfp_mask)
-+{
-+	struct task_struct *p = current;
-+	int alloc_flags = ALLOC_WMARK_MIN | ALLOC_CPUSET;
-+	const gfp_t wait = gfp_mask & __GFP_WAIT;
-+
-+	/*
-+	 * The caller may dip into page reserves a bit more if the caller
-+	 * cannot run direct reclaim, or if the caller has realtime scheduling
-+	 * policy or is asking for __GFP_HIGH memory.  GFP_ATOMIC requests will
-+	 * set both ALLOC_HARDER (!wait) and ALLOC_HIGH (__GFP_HIGH).
-+	 */
-+	if (gfp_mask & __GFP_HIGH)
-+		alloc_flags |= ALLOC_HIGH;
-+
-+	if (!wait) {
-+		alloc_flags |= ALLOC_HARDER;
-+		/*
-+		 * Ignore cpuset if GFP_ATOMIC (!wait) rather than fail alloc.
-+		 * See also cpuset_zone_allowed() comment in kernel/cpuset.c.
-+		 */
-+		alloc_flags &= ~ALLOC_CPUSET;
-+	} else if (unlikely(rt_task(p)) && !in_interrupt())
-+		alloc_flags |= ALLOC_HARDER;
-+
-+	if (likely(!(gfp_mask & __GFP_NOMEMALLOC))) {
-+		if (!in_interrupt() &&
-+		    ((p->flags & PF_MEMALLOC) ||
-+		     unlikely(test_thread_flag(TIF_MEMDIE))))
-+			alloc_flags |= ALLOC_NO_WATERMARKS;
-+	}
-+
-+	return alloc_flags;
-+}
-+
-+#define MAX_ALLOC_RANK	16
-+
-+/*
-+ * classify the allocation: 0 is hardest, 16 is easiest.
-+ */
-+static inline int alloc_flags_to_rank(int alloc_flags)
-+{
-+	int rank;
-+
-+	if (alloc_flags & ALLOC_NO_WATERMARKS)
-+		return 0;
-+
-+	rank = alloc_flags & (ALLOC_WMARK_MIN|ALLOC_WMARK_LOW|ALLOC_WMARK_HIGH);
-+	rank -= alloc_flags & (ALLOC_HARDER|ALLOC_HIGH);
-+
-+	return rank;
-+}
-+
-+static inline int gfp_to_rank(gfp_t gfp_mask)
-+{
-+	/*
-+	 * Although correct this full version takes a ~3% performance
-+	 * hit on the network tests in aim9.
-+	 *
-+
-+	return alloc_flags_to_rank(gfp_to_alloc_flags(gfp_mask));
-+
-+	 *
-+	 * Just check the bare essential ALLOC_NO_WATERMARKS case this keeps
-+	 * the aim9 results within the error margin.
-+	 */
-+
-+	if (likely(!(gfp_mask & __GFP_NOMEMALLOC))) {
-+		if (!in_interrupt() &&
-+		    ((current->flags & PF_MEMALLOC) ||
-+		     unlikely(test_thread_flag(TIF_MEMDIE))))
-+			return 0;
-+	}
-+
-+	return 1;
-+}
-+
- #endif
-Index: linux-2.6-git/mm/page_alloc.c
-===================================================================
---- linux-2.6-git.orig/mm/page_alloc.c	2007-01-08 11:53:13.000000000 +0100
-+++ linux-2.6-git/mm/page_alloc.c	2007-01-09 11:29:18.000000000 +0100
-@@ -888,14 +888,6 @@ failed:
- 	return NULL;
  }
  
--#define ALLOC_NO_WATERMARKS	0x01 /* don't check watermarks at all */
--#define ALLOC_WMARK_MIN		0x02 /* use pages_min watermark */
--#define ALLOC_WMARK_LOW		0x04 /* use pages_low watermark */
--#define ALLOC_WMARK_HIGH	0x08 /* use pages_high watermark */
--#define ALLOC_HARDER		0x10 /* try to alloc harder */
--#define ALLOC_HIGH		0x20 /* __GFP_HIGH set */
--#define ALLOC_CPUSET		0x40 /* check for correct cpuset */
--
- #ifdef CONFIG_FAIL_PAGE_ALLOC
- 
- static struct fail_page_alloc_attr {
-@@ -1186,6 +1178,7 @@ zonelist_scan:
- 
- 		page = buffered_rmqueue(zonelist, zone, order, gfp_mask);
- 		if (page)
-+			page->index = alloc_flags_to_rank(alloc_flags);
- 			break;
- this_zone_full:
- 		if (NUMA_BUILD)
-@@ -1259,48 +1252,27 @@ restart:
- 	 * OK, we're below the kswapd watermark and have kicked background
- 	 * reclaim. Now things get more complex, so set up alloc_flags according
- 	 * to how we want to proceed.
--	 *
--	 * The caller may dip into page reserves a bit more if the caller
--	 * cannot run direct reclaim, or if the caller has realtime scheduling
--	 * policy or is asking for __GFP_HIGH memory.  GFP_ATOMIC requests will
--	 * set both ALLOC_HARDER (!wait) and ALLOC_HIGH (__GFP_HIGH).
- 	 */
--	alloc_flags = ALLOC_WMARK_MIN;
--	if ((unlikely(rt_task(p)) && !in_interrupt()) || !wait)
--		alloc_flags |= ALLOC_HARDER;
--	if (gfp_mask & __GFP_HIGH)
--		alloc_flags |= ALLOC_HIGH;
--	if (wait)
--		alloc_flags |= ALLOC_CPUSET;
-+	alloc_flags = gfp_to_alloc_flags(gfp_mask);
- 
--	/*
--	 * Go through the zonelist again. Let __GFP_HIGH and allocations
--	 * coming from realtime tasks go deeper into reserves.
--	 *
--	 * This is the last chance, in general, before the goto nopage.
--	 * Ignore cpuset if GFP_ATOMIC (!wait) rather than fail alloc.
--	 * See also cpuset_zone_allowed() comment in kernel/cpuset.c.
--	 */
--	page = get_page_from_freelist(gfp_mask, order, zonelist, alloc_flags);
-+	/* This is the last chance, in general, before the goto nopage. */
-+	page = get_page_from_freelist(gfp_mask, order, zonelist,
-+			alloc_flags & ~ALLOC_NO_WATERMARKS);
- 	if (page)
- 		goto got_pg;
- 
- 	/* This allocation should allow future memory freeing. */
--
- rebalance:
--	if (((p->flags & PF_MEMALLOC) || unlikely(test_thread_flag(TIF_MEMDIE)))
--			&& !in_interrupt()) {
--		if (!(gfp_mask & __GFP_NOMEMALLOC)) {
-+	if (alloc_flags & ALLOC_NO_WATERMARKS) {
- nofail_alloc:
--			/* go through the zonelist yet again, ignoring mins */
--			page = get_page_from_freelist(gfp_mask, order,
-+		/* go through the zonelist yet again, ignoring mins */
-+		page = get_page_from_freelist(gfp_mask, order,
- 				zonelist, ALLOC_NO_WATERMARKS);
--			if (page)
--				goto got_pg;
--			if (gfp_mask & __GFP_NOFAIL) {
--				congestion_wait(WRITE, HZ/50);
--				goto nofail_alloc;
--			}
-+		if (page)
-+			goto got_pg;
-+		if (wait && (gfp_mask & __GFP_NOFAIL)) {
-+			congestion_wait(WRITE, HZ/50);
-+			goto nofail_alloc;
- 		}
- 		goto nopage;
- 	}
-@@ -1309,6 +1281,10 @@ nofail_alloc:
- 	if (!wait)
- 		goto nopage;
- 
-+	/* Avoid recursion of direct reclaim */
-+	if (p->flags & PF_MEMALLOC)
-+		goto nopage;
++static int proc_dointvec_fragment(ctl_table *table, int write, struct file *filp,
++		     void __user *buffer, size_t *lenp, loff_t *ppos)
++{
++	int ret;
++	int old_thresh = *(int *)table->data;
++	ret = proc_dointvec(table,write,filp,buffer,lenp,ppos);
++	skb_reserve_memory(*(int *)table->data - old_thresh);
++	return ret;
++}
 +
- 	cond_resched();
+ ctl_table ipv4_table[] = {
+ 	{
+ 		.ctl_name	= NET_IPV4_TCP_TIMESTAMPS,
+@@ -291,7 +302,7 @@ ctl_table ipv4_table[] = {
+ 		.data		= &sysctl_ipfrag_high_thresh,
+ 		.maxlen		= sizeof(int),
+ 		.mode		= 0644,
+-		.proc_handler	= &proc_dointvec
++		.proc_handler	= &proc_dointvec_fragment
+ 	},
+ 	{
+ 		.ctl_name	= NET_IPV4_IPFRAG_LOW_THRESH,
+Index: linux-2.6-git/net/ipv6/sysctl_net_ipv6.c
+===================================================================
+--- linux-2.6-git.orig/net/ipv6/sysctl_net_ipv6.c	2007-02-20 15:12:56.000000000 +0100
++++ linux-2.6-git/net/ipv6/sysctl_net_ipv6.c	2007-02-20 16:41:28.000000000 +0100
+@@ -15,6 +15,16 @@
  
- 	/* We now go into synchronous reclaim */
+ #ifdef CONFIG_SYSCTL
+ 
++static int proc_dointvec_fragment(ctl_table *table, int write, struct file *filp,
++		     void __user *buffer, size_t *lenp, loff_t *ppos)
++{
++	int ret;
++	int old_thresh = *(int *)table->data;
++	ret = proc_dointvec(table,write,filp,buffer,lenp,ppos);
++	skb_reserve_memory(*(int *)table->data - old_thresh);
++	return ret;
++}
++
+ static ctl_table ipv6_table[] = {
+ 	{
+ 		.ctl_name	= NET_IPV6_ROUTE,
+@@ -44,7 +54,7 @@ static ctl_table ipv6_table[] = {
+ 		.data		= &sysctl_ip6frag_high_thresh,
+ 		.maxlen		= sizeof(int),
+ 		.mode		= 0644,
+-		.proc_handler	= &proc_dointvec
++		.proc_handler	= &proc_dointvec_fragment
+ 	},
+ 	{
+ 		.ctl_name	= NET_IPV6_IP6FRAG_LOW_THRESH,
+Index: linux-2.6-git/net/ipv4/ip_fragment.c
+===================================================================
+--- linux-2.6-git.orig/net/ipv4/ip_fragment.c	2007-02-20 15:12:56.000000000 +0100
++++ linux-2.6-git/net/ipv4/ip_fragment.c	2007-02-20 16:41:28.000000000 +0100
+@@ -743,6 +743,7 @@ void ipfrag_init(void)
+ 	ipfrag_secret_timer.function = ipfrag_secret_rebuild;
+ 	ipfrag_secret_timer.expires = jiffies + sysctl_ipfrag_secret_interval;
+ 	add_timer(&ipfrag_secret_timer);
++	skb_reserve_memory(sysctl_ipfrag_high_thresh);
+ }
+ 
+ EXPORT_SYMBOL(ip_defrag);
+Index: linux-2.6-git/net/ipv6/reassembly.c
+===================================================================
+--- linux-2.6-git.orig/net/ipv6/reassembly.c	2007-02-20 15:12:56.000000000 +0100
++++ linux-2.6-git/net/ipv6/reassembly.c	2007-02-20 16:41:28.000000000 +0100
+@@ -772,4 +772,5 @@ void __init ipv6_frag_init(void)
+ 	ip6_frag_secret_timer.function = ip6_frag_secret_rebuild;
+ 	ip6_frag_secret_timer.expires = jiffies + sysctl_ip6frag_secret_interval;
+ 	add_timer(&ip6_frag_secret_timer);
++	skb_reserve_memory(sysctl_ip6frag_high_thresh);
+ }
+Index: linux-2.6-git/net/ipv4/route.c
+===================================================================
+--- linux-2.6-git.orig/net/ipv4/route.c	2007-02-20 15:12:56.000000000 +0100
++++ linux-2.6-git/net/ipv4/route.c	2007-02-20 16:41:28.000000000 +0100
+@@ -2884,6 +2884,20 @@ static int ipv4_sysctl_rtcache_flush_str
+ 	return 0;
+ }
+ 
++static int proc_dointvec_rt_size(ctl_table *table, int write, struct file *filp,
++		     void __user *buffer, size_t *lenp, loff_t *ppos)
++{
++	int ret;
++	int new_pages;
++	int old_pages = kmem_cache_objs_to_pages(ipv4_dst_ops.kmem_cachep,
++			*(int *)table->data);
++	ret = proc_dointvec(table,write,filp,buffer,lenp,ppos);
++	new_pages = kmem_cache_objs_to_pages(ipv4_dst_ops.kmem_cachep,
++			*(int *)table->data);
++	aux_reserve_memory(new_pages - old_pages);
++	return ret;
++}
++
+ ctl_table ipv4_route_table[] = {
+ 	{
+ 		.ctl_name 	= NET_IPV4_ROUTE_FLUSH,
+@@ -2926,7 +2940,7 @@ ctl_table ipv4_route_table[] = {
+ 		.data		= &ip_rt_max_size,
+ 		.maxlen		= sizeof(int),
+ 		.mode		= 0644,
+-		.proc_handler	= &proc_dointvec,
++		.proc_handler	= &proc_dointvec_rt_size,
+ 	},
+ 	{
+ 		/*  Deprecated. Use gc_min_interval_ms */
+@@ -3153,6 +3167,8 @@ int __init ip_rt_init(void)
+ 
+ 	ipv4_dst_ops.gc_thresh = (rt_hash_mask + 1);
+ 	ip_rt_max_size = (rt_hash_mask + 1) * 16;
++	aux_reserve_memory(kmem_cache_objs_to_pages(ipv4_dst_ops.kmem_cachep,
++				ip_rt_max_size));
+ 
+ 	devinet_init();
+ 	ip_fib_init();
+Index: linux-2.6-git/net/ipv6/route.c
+===================================================================
+--- linux-2.6-git.orig/net/ipv6/route.c	2007-02-20 15:12:56.000000000 +0100
++++ linux-2.6-git/net/ipv6/route.c	2007-02-20 17:46:13.000000000 +0100
+@@ -2370,6 +2370,20 @@ int ipv6_sysctl_rtcache_flush(ctl_table 
+ 		return -EINVAL;
+ }
+ 
++static int proc_dointvec_rt_size(ctl_table *table, int write, struct file *filp,
++		     void __user *buffer, size_t *lenp, loff_t *ppos)
++{
++	int ret;
++	int new_pages;
++	int old_pages = kmem_cache_objs_to_pages(ip6_dst_ops.kmem_cachep,
++			*(int *)table->data);
++	ret = proc_dointvec(table,write,filp,buffer,lenp,ppos);
++	new_pages = kmem_cache_objs_to_pages(ip6_dst_ops.kmem_cachep,
++			*(int *)table->data);
++	aux_reserve_memory(new_pages - old_pages);
++	return ret;
++}
++
+ ctl_table ipv6_route_table[] = {
+ 	{
+ 		.ctl_name	=	NET_IPV6_ROUTE_FLUSH,
+@@ -2393,7 +2407,7 @@ ctl_table ipv6_route_table[] = {
+ 		.data		=	&ip6_rt_max_size,
+ 		.maxlen		=	sizeof(int),
+ 		.mode		=	0644,
+-		.proc_handler	=	&proc_dointvec,
++         	.proc_handler	=	&proc_dointvec_rt_size,
+ 	},
+ 	{
+ 		.ctl_name	=	NET_IPV6_ROUTE_GC_MIN_INTERVAL,
+@@ -2478,6 +2492,8 @@ void __init ip6_route_init(void)
+ 
+ 	proc_net_fops_create("rt6_stats", S_IRUGO, &rt6_stats_seq_fops);
+ #endif
++	aux_reserve_memory(kmem_cache_objs_to_pages(ip6_dst_ops.kmem_cachep,
++				ip6_rt_max_size));
+ #ifdef CONFIG_XFRM
+ 	xfrm6_init();
+ #endif
 
 -- 
