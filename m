@@ -1,58 +1,40 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
+From: David Miller <davem@davemloft.net>
 Subject: Re: Extensible hashing and RCU
-Date: Wed, 21 Feb 2007 14:19:30 +0100
-Message-ID: <200702211419.30856.dada1@cosmosbay.com>
-References: <20070204074143.26312.qmail@science.horizon.com> <200702201209.52388.dada1@cosmosbay.com> <p73y7mrd6o9.fsf@bingen.suse.de>
+Date: Wed, 21 Feb 2007 05:37:21 -0800 (PST)
+Message-ID: <20070221.053721.112287244.davem@davemloft.net>
+References: <200702201209.52388.dada1@cosmosbay.com>
+	<p73y7mrd6o9.fsf@bingen.suse.de>
+	<200702211419.30856.dada1@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>, akepner@sgi.com,
-	linux@horizon.com, davem@davemloft.net, netdev@vger.kernel.org,
-	bcrl@kvack.org
-To: Andi Kleen <andi@firstfloor.org>
+Cc: andi@firstfloor.org, johnpol@2ka.mipt.ru, akepner@sgi.com,
+	linux@horizon.com, netdev@vger.kernel.org, bcrl@kvack.org
+To: dada1@cosmosbay.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pfx2.jmh.fr ([194.153.89.55]:56364 "EHLO pfx2.jmh.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1161212AbXBUNTl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Feb 2007 08:19:41 -0500
-In-Reply-To: <p73y7mrd6o9.fsf@bingen.suse.de>
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36627
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1161232AbXBUNhW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Feb 2007 08:37:22 -0500
+In-Reply-To: <200702211419.30856.dada1@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 21 February 2007 13:41, Andi Kleen wrote:
-> Eric Dumazet <dada1@cosmosbay.com> writes:
-> > For example, sock_wfree() uses 1.6612 % of cpu because of false sharing
-> > of sk_flags (dirtied each time SOCK_QUEUE_SHRUNK is set :(
->
-> Might be easily fixable by moving the fields around a bit?
+From: Eric Dumazet <dada1@cosmosbay.com>
+Date: Wed, 21 Feb 2007 14:19:30 +0100
 
-For this one, it seems sk_flags is mostly read, but SOCK_QUEUE_SHRUNK is 
-mostly writen. It would make sense to move it to another point, to keep 
-sk_flags shared by different cpus.
+> Now, when the rate of lookups/inserts/delete is high, with totally random 
+> endpoints and cache *always* cold , 'tree structures' are not welcome (not 
+> cache friendly)
 
-Maybe using one low order bit in a related pointer ? (like the rb_color() 
-trick). Maybe this is time for a new include/linux/bap.h (bits and pointer) 
-include :)
+But what about if tree lookup were free :-)
 
->
-> > If we want to optimize tcp, we should reorder fields to reduce number of
-> > cache lines, not change algos. struct sock fields are currently placed to
-> > reduce holes, while they should be grouped by related fields sharing
-> > cache lines.
->
-> Regrouping is definitely a good thing; but I'm not sure why you are so
-> deadset against exploring other data structures. The promise of RCUing
-> and avoiding the big hash tables seems alluding to me, even if it
-> only breaks even in the end in terms of cycles.
+This is why I consider Robert Olsson's trash work the most promising,
+if we stick sockets into his full flow identified routing cache trie
+entries, we can eliminate lookup altogether.
 
-RCU is definitely wanted, and IP routing demonstrated the wins.
+Just like how he already uses traffic inspection to kill cache entries
+when FIN shutdown sequence is snooped, we can explicitly flush such
+entries when socket is closed fully on local system.
 
-rbtree was successfully plugged into epoll instead of initial hash table 
-implementation. 
-
-Now, when the rate of lookups/inserts/delete is high, with totally random 
-endpoints and cache *always* cold , 'tree structures' are not welcome (not 
-cache friendly)
-
+Really, possibilities are truly endless with that thing.
