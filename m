@@ -1,40 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Extensible hashing and RCU
-Date: Wed, 21 Feb 2007 05:37:21 -0800 (PST)
-Message-ID: <20070221.053721.112287244.davem@davemloft.net>
-References: <200702201209.52388.dada1@cosmosbay.com>
-	<p73y7mrd6o9.fsf@bingen.suse.de>
-	<200702211419.30856.dada1@cosmosbay.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] IPv6: Implement RFC 4429 Optimistic Duplicate Address Detection
+Date: Wed, 21 Feb 2007 08:37:13 -0500
+Message-ID: <20070221133713.GA3504@hmsreliant.homelinux.net>
+References: <20070221.040259.60395625.yoshfuji@linux-ipv6.org> <20070221.000222.71087924.davem@davemloft.net> <20070221.171545.35764627.yoshfuji@linux-ipv6.org> <20070221.013031.48806156.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: andi@firstfloor.org, johnpol@2ka.mipt.ru, akepner@sgi.com,
-	linux@horizon.com, netdev@vger.kernel.org, bcrl@kvack.org
-To: dada1@cosmosbay.com
+Content-Type: text/plain; charset=us-ascii
+Cc: yoshfuji@linux-ipv6.org, vladislav.yasevich@hp.com, sri@us.ibm.com,
+	kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
+	kaber@coreworks.de, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36627
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1161232AbXBUNhW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Feb 2007 08:37:22 -0500
-In-Reply-To: <200702211419.30856.dada1@cosmosbay.com>
+Received: from ra.tuxdriver.com ([70.61.120.52]:3491 "EHLO ra.tuxdriver.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1161238AbXBUNmQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Feb 2007 08:42:16 -0500
+Content-Disposition: inline
+In-Reply-To: <20070221.013031.48806156.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Wed, 21 Feb 2007 14:19:30 +0100
+On Wed, Feb 21, 2007 at 01:30:31AM -0800, David Miller wrote:
+> From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> Date: Wed, 21 Feb 2007 17:15:45 +0900 (JST)
+> 
+> > In article <20070221.000222.71087924.davem@davemloft.net> (at Wed, 21 Feb 2007 00:02:22 -0800 (PST)), David Miller <davem@davemloft.net> says:
+> > 
+> > > > So, I think it is ready. Here's my sign-off:
+> > > > 
+> > > > Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> > > 
+> > > Neil, please keep this patch ready for the next merge window.
+> > 
+> > Dave, Neil,
+> > 
+> > I expect to have some changes in routing code in near future,
+> > I want to have Neil's change in my -dev tree, if you don't mind.
+> 
+> I have no problem with this, and I am sure Neil will be OK
+> with it too.
 
-> Now, when the rate of lookups/inserts/delete is high, with totally random 
-> endpoints and cache *always* cold , 'tree structures' are not welcome (not 
-> cache friendly)
+Absolutely, I'll keep my devel branch rebased against Daves tree until its all
+checked in, just in case any updates are needed.
 
-But what about if tree lookup were free :-)
+Thanks for all the help everyone!
+Neil
 
-This is why I consider Robert Olsson's trash work the most promising,
-if we stick sockets into his full flow identified routing cache trie
-entries, we can eliminate lookup altogether.
-
-Just like how he already uses traffic inspection to kill cache entries
-when FIN shutdown sequence is snooped, we can explicitly flush such
-entries when socket is closed fully on local system.
-
-Really, possibilities are truly endless with that thing.
