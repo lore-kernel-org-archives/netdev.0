@@ -1,211 +1,97 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 14/29] netvm: INET reserves.
-Date: Wed, 21 Feb 2007 15:43:18 +0100
-Message-ID: <20070221144842.896272000@taijtu.programming.kicks-ass.net>
+Subject: [PATCH 06/29] mm: __GFP_EMERGENCY
+Date: Wed, 21 Feb 2007 15:43:10 +0100
+Message-ID: <20070221144842.108927000@taijtu.programming.kicks-ass.net>
 References: <20070221144304.512721000@taijtu.programming.kicks-ass.net>
 Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
 	Trond Myklebust <trond.myklebust@fys.uio.no>,
 	Thomas Graf <tgraf@suug.ch>, David Miller <davem@davemloft.net>
 To: linux-kernel@vger.kernel.org, linux-mm@kvack.org,
 	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1422645AbXBUPjE@vger.kernel.org>
-Content-Disposition: inline; filename=netvm-reserve-inet.patch
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161289AbXBUPfk@vger.kernel.org>
+Content-Disposition: inline; filename=mm-page_alloc-GFP_EMERGENCY.patch
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add reserves for INET.
-
-The two big users seem to be the route cache and ip-fragment cache.
-
-Account the route cache to the auxillary reserve.
-Account the fragments to the skb reserve so that one can at least
-overflow the fragment cache (avoids fragment deadlocks).
+__GFP_EMERGENCY will allow the allocation to disregard the watermarks, 
+much like PF_MEMALLOC.
 
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
 ---
- net/ipv4/ip_fragment.c     |    1 +
- net/ipv4/route.c           |   18 +++++++++++++++++-
- net/ipv4/sysctl_net_ipv4.c |   13 ++++++++++++-
- net/ipv6/reassembly.c      |    1 +
- net/ipv6/route.c           |   18 +++++++++++++++++-
- net/ipv6/sysctl_net_ipv6.c |   12 +++++++++++-
- 6 files changed, 59 insertions(+), 4 deletions(-)
+ include/linux/gfp.h |    7 ++++++-
+ mm/internal.h       |   10 +++++++---
+ 2 files changed, 13 insertions(+), 4 deletions(-)
 
-Index: linux-2.6-git/net/ipv4/sysctl_net_ipv4.c
+Index: linux-2.6-git/include/linux/gfp.h
 ===================================================================
---- linux-2.6-git.orig/net/ipv4/sysctl_net_ipv4.c	2007-02-20 15:12:56.000000000 +0100
-+++ linux-2.6-git/net/ipv4/sysctl_net_ipv4.c	2007-02-20 16:41:28.000000000 +0100
-@@ -18,6 +18,7 @@
- #include <net/route.h>
- #include <net/tcp.h>
- #include <net/cipso_ipv4.h>
-+#include <net/sock.h>
- 
- /* From af_inet.c */
- extern int sysctl_ip_nonlocal_bind;
-@@ -186,6 +187,16 @@ static int strategy_allowed_congestion_c
- 
- }
- 
-+static int proc_dointvec_fragment(ctl_table *table, int write, struct file *filp,
-+		     void __user *buffer, size_t *lenp, loff_t *ppos)
-+{
-+	int ret;
-+	int old_thresh = *(int *)table->data;
-+	ret = proc_dointvec(table,write,filp,buffer,lenp,ppos);
-+	skb_reserve_memory(*(int *)table->data - old_thresh);
-+	return ret;
-+}
+--- linux-2.6-git.orig/include/linux/gfp.h	2006-12-14 10:02:18.000000000 +0100
++++ linux-2.6-git/include/linux/gfp.h	2006-12-14 10:02:52.000000000 +0100
+@@ -35,17 +35,21 @@ struct vm_area_struct;
+ #define __GFP_HIGH	((__force gfp_t)0x20u)	/* Should access emergency pools? */
+ #define __GFP_IO	((__force gfp_t)0x40u)	/* Can start physical IO? */
+ #define __GFP_FS	((__force gfp_t)0x80u)	/* Can call down to low-level FS? */
 +
- ctl_table ipv4_table[] = {
- 	{
- 		.ctl_name	= NET_IPV4_TCP_TIMESTAMPS,
-@@ -291,7 +302,7 @@ ctl_table ipv4_table[] = {
- 		.data		= &sysctl_ipfrag_high_thresh,
- 		.maxlen		= sizeof(int),
- 		.mode		= 0644,
--		.proc_handler	= &proc_dointvec
-+		.proc_handler	= &proc_dointvec_fragment
- 	},
- 	{
- 		.ctl_name	= NET_IPV4_IPFRAG_LOW_THRESH,
-Index: linux-2.6-git/net/ipv6/sysctl_net_ipv6.c
-===================================================================
---- linux-2.6-git.orig/net/ipv6/sysctl_net_ipv6.c	2007-02-20 15:12:56.000000000 +0100
-+++ linux-2.6-git/net/ipv6/sysctl_net_ipv6.c	2007-02-20 16:41:28.000000000 +0100
-@@ -15,6 +15,16 @@
- 
- #ifdef CONFIG_SYSCTL
- 
-+static int proc_dointvec_fragment(ctl_table *table, int write, struct file *filp,
-+		     void __user *buffer, size_t *lenp, loff_t *ppos)
-+{
-+	int ret;
-+	int old_thresh = *(int *)table->data;
-+	ret = proc_dointvec(table,write,filp,buffer,lenp,ppos);
-+	skb_reserve_memory(*(int *)table->data - old_thresh);
-+	return ret;
-+}
+ #define __GFP_COLD	((__force gfp_t)0x100u)	/* Cache-cold page required */
+ #define __GFP_NOWARN	((__force gfp_t)0x200u)	/* Suppress page allocation failure warning */
+ #define __GFP_REPEAT	((__force gfp_t)0x400u)	/* Retry the allocation.  Might fail */
+ #define __GFP_NOFAIL	((__force gfp_t)0x800u)	/* Retry for ever.  Cannot fail */
 +
- static ctl_table ipv6_table[] = {
- 	{
- 		.ctl_name	= NET_IPV6_ROUTE,
-@@ -44,7 +54,7 @@ static ctl_table ipv6_table[] = {
- 		.data		= &sysctl_ip6frag_high_thresh,
- 		.maxlen		= sizeof(int),
- 		.mode		= 0644,
--		.proc_handler	= &proc_dointvec
-+		.proc_handler	= &proc_dointvec_fragment
- 	},
- 	{
- 		.ctl_name	= NET_IPV6_IP6FRAG_LOW_THRESH,
-Index: linux-2.6-git/net/ipv4/ip_fragment.c
-===================================================================
---- linux-2.6-git.orig/net/ipv4/ip_fragment.c	2007-02-20 15:12:56.000000000 +0100
-+++ linux-2.6-git/net/ipv4/ip_fragment.c	2007-02-20 16:41:28.000000000 +0100
-@@ -743,6 +743,7 @@ void ipfrag_init(void)
- 	ipfrag_secret_timer.function = ipfrag_secret_rebuild;
- 	ipfrag_secret_timer.expires = jiffies + sysctl_ipfrag_secret_interval;
- 	add_timer(&ipfrag_secret_timer);
-+	skb_reserve_memory(sysctl_ipfrag_high_thresh);
- }
- 
- EXPORT_SYMBOL(ip_defrag);
-Index: linux-2.6-git/net/ipv6/reassembly.c
-===================================================================
---- linux-2.6-git.orig/net/ipv6/reassembly.c	2007-02-20 15:12:56.000000000 +0100
-+++ linux-2.6-git/net/ipv6/reassembly.c	2007-02-20 16:41:28.000000000 +0100
-@@ -772,4 +772,5 @@ void __init ipv6_frag_init(void)
- 	ip6_frag_secret_timer.function = ip6_frag_secret_rebuild;
- 	ip6_frag_secret_timer.expires = jiffies + sysctl_ip6frag_secret_interval;
- 	add_timer(&ip6_frag_secret_timer);
-+	skb_reserve_memory(sysctl_ip6frag_high_thresh);
- }
-Index: linux-2.6-git/net/ipv4/route.c
-===================================================================
---- linux-2.6-git.orig/net/ipv4/route.c	2007-02-20 15:12:56.000000000 +0100
-+++ linux-2.6-git/net/ipv4/route.c	2007-02-20 16:41:28.000000000 +0100
-@@ -2884,6 +2884,20 @@ static int ipv4_sysctl_rtcache_flush_str
- 	return 0;
- }
- 
-+static int proc_dointvec_rt_size(ctl_table *table, int write, struct file *filp,
-+		     void __user *buffer, size_t *lenp, loff_t *ppos)
-+{
-+	int ret;
-+	int new_pages;
-+	int old_pages = kmem_cache_objs_to_pages(ipv4_dst_ops.kmem_cachep,
-+			*(int *)table->data);
-+	ret = proc_dointvec(table,write,filp,buffer,lenp,ppos);
-+	new_pages = kmem_cache_objs_to_pages(ipv4_dst_ops.kmem_cachep,
-+			*(int *)table->data);
-+	aux_reserve_memory(new_pages - old_pages);
-+	return ret;
-+}
+ #define __GFP_NORETRY	((__force gfp_t)0x1000u)/* Do not retry.  Might fail */
+ #define __GFP_NO_GROW	((__force gfp_t)0x2000u)/* Slab internal usage */
+ #define __GFP_COMP	((__force gfp_t)0x4000u)/* Add compound page metadata */
+ #define __GFP_ZERO	((__force gfp_t)0x8000u)/* Return zeroed page on success */
 +
- ctl_table ipv4_route_table[] = {
- 	{
- 		.ctl_name 	= NET_IPV4_ROUTE_FLUSH,
-@@ -2926,7 +2940,7 @@ ctl_table ipv4_route_table[] = {
- 		.data		= &ip_rt_max_size,
- 		.maxlen		= sizeof(int),
- 		.mode		= 0644,
--		.proc_handler	= &proc_dointvec,
-+		.proc_handler	= &proc_dointvec_rt_size,
- 	},
- 	{
- 		/*  Deprecated. Use gc_min_interval_ms */
-@@ -3153,6 +3167,8 @@ int __init ip_rt_init(void)
+ #define __GFP_NOMEMALLOC ((__force gfp_t)0x10000u) /* Don't use emergency reserves */
+ #define __GFP_HARDWALL   ((__force gfp_t)0x20000u) /* Enforce hardwall cpuset memory allocs */
+ #define __GFP_THISNODE	((__force gfp_t)0x40000u)/* No fallback, no policies */
++#define __GFP_EMERGENCY  ((__force gfp_t)0x80000u) /* Use emergency reserves */
  
- 	ipv4_dst_ops.gc_thresh = (rt_hash_mask + 1);
- 	ip_rt_max_size = (rt_hash_mask + 1) * 16;
-+	aux_reserve_memory(kmem_cache_objs_to_pages(ipv4_dst_ops.kmem_cachep,
-+				ip_rt_max_size));
+ #define __GFP_BITS_SHIFT 20	/* Room for 20 __GFP_FOO bits */
+ #define __GFP_BITS_MASK ((__force gfp_t)((1 << __GFP_BITS_SHIFT) - 1))
+@@ -54,7 +58,8 @@ struct vm_area_struct;
+ #define GFP_LEVEL_MASK (__GFP_WAIT|__GFP_HIGH|__GFP_IO|__GFP_FS| \
+ 			__GFP_COLD|__GFP_NOWARN|__GFP_REPEAT| \
+ 			__GFP_NOFAIL|__GFP_NORETRY|__GFP_NO_GROW|__GFP_COMP| \
+-			__GFP_NOMEMALLOC|__GFP_HARDWALL|__GFP_THISNODE)
++			__GFP_NOMEMALLOC|__GFP_HARDWALL|__GFP_THISNODE| \
++			__GFP_EMERGENCY)
  
- 	devinet_init();
- 	ip_fib_init();
-Index: linux-2.6-git/net/ipv6/route.c
+ /* This equals 0, but use constants in case they ever change */
+ #define GFP_NOWAIT	(GFP_ATOMIC & ~__GFP_HIGH)
+Index: linux-2.6-git/mm/internal.h
 ===================================================================
---- linux-2.6-git.orig/net/ipv6/route.c	2007-02-20 15:12:56.000000000 +0100
-+++ linux-2.6-git/net/ipv6/route.c	2007-02-20 17:46:13.000000000 +0100
-@@ -2370,6 +2370,20 @@ int ipv6_sysctl_rtcache_flush(ctl_table 
- 		return -EINVAL;
+--- linux-2.6-git.orig/mm/internal.h	2006-12-14 10:02:52.000000000 +0100
++++ linux-2.6-git/mm/internal.h	2006-12-14 10:02:52.000000000 +0100
+@@ -75,7 +75,9 @@ static int inline gfp_to_alloc_flags(gfp
+ 		alloc_flags |= ALLOC_HARDER;
+ 
+ 	if (likely(!(gfp_mask & __GFP_NOMEMALLOC))) {
+-		if (!in_irq() && (p->flags & PF_MEMALLOC))
++		if (gfp_mask & __GFP_EMERGENCY)
++			alloc_flags |= ALLOC_NO_WATERMARKS;
++		else if (!in_irq() && (p->flags & PF_MEMALLOC))
+ 			alloc_flags |= ALLOC_NO_WATERMARKS;
+ 		else if (!in_interrupt() &&
+ 				unlikely(test_thread_flag(TIF_MEMDIE)))
+@@ -103,7 +105,7 @@ static inline int alloc_flags_to_rank(in
+ 	return rank;
  }
  
-+static int proc_dointvec_rt_size(ctl_table *table, int write, struct file *filp,
-+		     void __user *buffer, size_t *lenp, loff_t *ppos)
-+{
-+	int ret;
-+	int new_pages;
-+	int old_pages = kmem_cache_objs_to_pages(ip6_dst_ops.kmem_cachep,
-+			*(int *)table->data);
-+	ret = proc_dointvec(table,write,filp,buffer,lenp,ppos);
-+	new_pages = kmem_cache_objs_to_pages(ip6_dst_ops.kmem_cachep,
-+			*(int *)table->data);
-+	aux_reserve_memory(new_pages - old_pages);
-+	return ret;
-+}
-+
- ctl_table ipv6_route_table[] = {
- 	{
- 		.ctl_name	=	NET_IPV6_ROUTE_FLUSH,
-@@ -2393,7 +2407,7 @@ ctl_table ipv6_route_table[] = {
- 		.data		=	&ip6_rt_max_size,
- 		.maxlen		=	sizeof(int),
- 		.mode		=	0644,
--		.proc_handler	=	&proc_dointvec,
-+         	.proc_handler	=	&proc_dointvec_rt_size,
- 	},
- 	{
- 		.ctl_name	=	NET_IPV6_ROUTE_GC_MIN_INTERVAL,
-@@ -2478,6 +2492,8 @@ void __init ip6_route_init(void)
+-static inline int gfp_to_rank(gfp_t gfp_mask)
++static __always_inline int gfp_to_rank(gfp_t gfp_mask)
+ {
+ 	/*
+ 	 * Although correct this full version takes a ~3% performance
+@@ -118,7 +120,9 @@ static inline int gfp_to_rank(gfp_t gfp_
+ 	 */
  
- 	proc_net_fops_create("rt6_stats", S_IRUGO, &rt6_stats_seq_fops);
- #endif
-+	aux_reserve_memory(kmem_cache_objs_to_pages(ip6_dst_ops.kmem_cachep,
-+				ip6_rt_max_size));
- #ifdef CONFIG_XFRM
- 	xfrm6_init();
- #endif
+ 	if (likely(!(gfp_mask & __GFP_NOMEMALLOC))) {
+-		if (!in_irq() && (current->flags & PF_MEMALLOC))
++		if (gfp_mask & __GFP_EMERGENCY)
++			return 0;
++		else if (!in_irq() && (current->flags & PF_MEMALLOC))
+ 			return 0;
+ 		else if (!in_interrupt() &&
+ 				unlikely(test_thread_flag(TIF_MEMDIE)))
 
 -- 
