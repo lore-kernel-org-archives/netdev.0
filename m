@@ -1,115 +1,37 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: [TG3]: TSO workaround fixes.
-Date: Tue, 20 Feb 2007 19:50:15 -0800
-Message-ID: <1172029816.3644.4.camel@rh4>
+From: Kenzo Iwami <k-iwami@cj.jp.nec.com>
+Subject: Re: watchdog timeout panic in e1000 driver
+Date: Wed, 21 Feb 2007 14:17:50 +0900
+Message-ID: <45DBD5FE.5060708@cj.jp.nec.com>
+References: <45375135.5050206@cj.jp.nec.com> <45DABECF.5020202@cj.jp.nec.com> <45DB1D7B.9020008@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
-To: davem@davemloft.net, netdev@vger.kernel.org
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	netdev@vger.kernel.org, "Ronciak, John" <john.ronciak@intel.com>
+To: Auke Kok <auke-jan.h.kok@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:1810 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030200AbXBUDGW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Feb 2007 22:06:22 -0500
+Received: from TYO201.gate.nec.co.jp ([202.32.8.193]:50234 "EHLO
+	tyo201.gate.nec.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965350AbXBUFSH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Feb 2007 00:18:07 -0500
+In-Reply-To: <45DB1D7B.9020008@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[TG3]: TSO workaround fixes.
+Hi,
 
-1.  Add race condition check after netif_stop_queue().  tg3_tx() runs
-    without netif_tx_lock and can race with tg3_start_xmit_dma_bug() ->
-    tg3_tso_bug().
+Thank you for your comment.
 
-2.  Firmware TSO in 5703/5704/5705 also have the same TSO limitation,
-    i.e. they cannot handle TSO headers bigger than 80 bytes.  Rename
-    TG3_FL2_HW_TSO_1_BUG to TG3_FL2_TSO_BUG and set this flag on
-    these chips as well.
+> this looks a lot better than the previous patch!! However, we already have a 
+> state marker for _down_ that we should probably reuse. Can you try the attached 
+> patch and see if it works for you? It's basically your patch without the added 
+> remove flag and instead using the already available atomic state trackers.
+> 
+> If this works for you then that is great news and I'll push this patch to the 
+> upstream kernel maintainers after testing.
 
-3.  Update version to 3.74.
+I tested your patch and confirmed that the system didn't panic.
 
-Signed-off-by: Michael Chan <mchan@broadcom.com>
-
-diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 81a1c2e..26c6ac4 100644
---- a/drivers/net/tg3.c
-+++ b/drivers/net/tg3.c
-@@ -64,8 +64,8 @@
- 
- #define DRV_MODULE_NAME		"tg3"
- #define PFX DRV_MODULE_NAME	": "
--#define DRV_MODULE_VERSION	"3.73"
--#define DRV_MODULE_RELDATE	"February 12, 2007"
-+#define DRV_MODULE_VERSION	"3.74"
-+#define DRV_MODULE_RELDATE	"February 20, 2007"
- 
- #define TG3_DEF_MAC_MODE	0
- #define TG3_DEF_RX_MODE		0
-@@ -3993,7 +3993,10 @@ static int tg3_tso_bug(struct tg3 *tp, s
- 	/* Estimate the number of fragments in the worst case */
- 	if (unlikely(tg3_tx_avail(tp) <= (skb_shinfo(skb)->gso_segs * 3))) {
- 		netif_stop_queue(tp->dev);
--		return NETDEV_TX_BUSY;
-+		if (tg3_tx_avail(tp) <= (skb_shinfo(skb)->gso_segs * 3))
-+			return NETDEV_TX_BUSY;
-+
-+		netif_wake_queue(tp->dev);
- 	}
- 
- 	segs = skb_gso_segment(skb, tp->dev->features & ~NETIF_F_TSO);
-@@ -4061,7 +4064,7 @@ static int tg3_start_xmit_dma_bug(struct
- 
- 		hdr_len = ip_tcp_len + tcp_opt_len;
- 		if (unlikely((ETH_HLEN + hdr_len) > 80) &&
--			     (tp->tg3_flags2 & TG3_FLG2_HW_TSO_1_BUG))
-+			     (tp->tg3_flags2 & TG3_FLG2_TSO_BUG))
- 			return (tg3_tso_bug(tp, skb));
- 
- 		base_flags |= (TXD_FLAG_CPU_PRE_DMA |
-@@ -8137,7 +8140,7 @@ static int tg3_set_ringparam(struct net_
- 	    (ering->rx_jumbo_pending > TG3_RX_JUMBO_RING_SIZE - 1) ||
- 	    (ering->tx_pending > TG3_TX_RING_SIZE - 1) ||
- 	    (ering->tx_pending <= MAX_SKB_FRAGS) ||
--	    ((tp->tg3_flags2 & TG3_FLG2_HW_TSO_1_BUG) &&
-+	    ((tp->tg3_flags2 & TG3_FLG2_TSO_BUG) &&
- 	     (ering->tx_pending <= (MAX_SKB_FRAGS * 3))))
- 		return -EINVAL;
- 
-@@ -10557,12 +10560,11 @@ static int __devinit tg3_get_invariants(
- 			tp->tg3_flags2 |= TG3_FLG2_HW_TSO_2;
- 			tp->tg3_flags2 |= TG3_FLG2_1SHOT_MSI;
- 		} else {
--			tp->tg3_flags2 |= TG3_FLG2_HW_TSO_1 |
--					  TG3_FLG2_HW_TSO_1_BUG;
-+			tp->tg3_flags2 |= TG3_FLG2_HW_TSO_1 | TG3_FLG2_TSO_BUG;
- 			if (GET_ASIC_REV(tp->pci_chip_rev_id) ==
- 				ASIC_REV_5750 &&
- 	     		    tp->pci_chip_rev_id >= CHIPREV_ID_5750_C2)
--				tp->tg3_flags2 &= ~TG3_FLG2_HW_TSO_1_BUG;
-+				tp->tg3_flags2 &= ~TG3_FLG2_TSO_BUG;
- 		}
- 	}
- 
-@@ -11867,7 +11869,7 @@ static int __devinit tg3_init_one(struct
- 	    (tp->tg3_flags & TG3_FLAG_ENABLE_ASF) != 0) {
- 		tp->tg3_flags2 &= ~TG3_FLG2_TSO_CAPABLE;
- 	} else {
--		tp->tg3_flags2 |= TG3_FLG2_TSO_CAPABLE;
-+		tp->tg3_flags2 |= TG3_FLG2_TSO_CAPABLE | TG3_FLG2_TSO_BUG;
- 	}
- 
- 	/* TSO is on by default on chips that support hardware TSO.
-diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
-index 45d477e..086892d 100644
---- a/drivers/net/tg3.h
-+++ b/drivers/net/tg3.h
-@@ -2227,7 +2227,7 @@ struct tg3 {
- #define TG3_FLAG_INIT_COMPLETE		0x80000000
- 	u32				tg3_flags2;
- #define TG3_FLG2_RESTART_TIMER		0x00000001
--#define TG3_FLG2_HW_TSO_1_BUG		0x00000002
-+#define TG3_FLG2_TSO_BUG		0x00000002
- #define TG3_FLG2_NO_ETH_WIRE_SPEED	0x00000004
- #define TG3_FLG2_IS_5788		0x00000008
- #define TG3_FLG2_MAX_RXPEND_64		0x00000010
-
-
+Please push the patch to the upstream kernel maintainers.
+--
+  Kenzo Iwami (k-iwami@cj.jp.nec.com)
