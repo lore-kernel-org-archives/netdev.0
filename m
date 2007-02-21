@@ -1,49 +1,74 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: Re: [git patches] net driver updates
-Date: Wed, 21 Feb 2007 08:27:54 -0500
-Message-ID: <20070221132754.GA4978@tuxdriver.com>
-References: <6.1.1.1.2.20070221124144.04783fb8@192.168.6.12>
+From: Oleg Nesterov <oleg@tv-sign.ru>
+Subject: Re: [PATCH] net/bridge/br_if.c: fix possible use-after-free in port_carrier_check()
+Date: Wed, 21 Feb 2007 17:22:04 +0300
+Message-ID: <20070221142204.GA134@tv-sign.ru>
+References: <20070220221941.GA707@tv-sign.ru> <20070220162434.72d3ad7b@freekitty>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org, dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Roger While <simrw-95wjJ3trAfEOIzVOb1FTxg@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Jarek Poplawski <jarkao2@o2.pl>,
+	"David S. Miller" <davem@davemloft.net>,
+	David Howells <dhowells@redhat.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.screens.ru ([213.234.233.54]:38582 "EHLO mail.screens.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1030258AbXBUOWN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Feb 2007 09:22:13 -0500
 Content-Disposition: inline
-In-Reply-To: <6.1.1.1.2.20070221124144.04783fb8-Q0ErXNX1RuZq5LbY+mFP1w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <20070220162434.72d3ad7b@freekitty>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Feb 21, 2007 at 12:46:46PM +0100, Roger While wrote:
+On 02/20, Stephen Hemminger wrote:
+>
+> On Wed, 21 Feb 2007 01:19:41 +0300
+> Oleg Nesterov <oleg@tv-sign.ru> wrote:
 > 
-> >
-> >Dan Williams (1):
-> >      prism54: correct assignment of DOT1XENABLE in WE-19 codepaths
+> >  static void release_nbp(struct kobject *kobj)
+> >  {
+> >  	struct net_bridge_port *p
+> >  		= container_of(kobj, struct net_bridge_port, kobj);
+> > +
+> > +	dev_put(p->dev);
+> >  	kfree(p);
+> >  }
+> >  
+> > @@ -127,12 +129,6 @@ static struct kobj_type brport_ktype = {
+> >  
+> >  static void destroy_nbp(struct net_bridge_port *p)
+> >  {
+> > -	struct net_device *dev = p->dev;
+> > -
+> > -	p->br = NULL;
+> > -	p->dev = NULL;
+> > -	dev_put(dev);
+> > -
+> >  	kobject_put(&p->kobj);
+> >  }
 > 
-> Where did this spring from ?
-> I see no posting of this patch let alone
-> an ACK.
-> The patch is also doing rather more than the description -
-> It is inserting extra breaks into a switch statement with
-> no comment as to why.
+> Moving this around is problematic.
+> The ordering here was chosen to be RCU friendly so that
+> p->dev indicates the port is in process of being deleted but traffic
+> may still be using old reference, but new traffic should not use it.
 
-Dan posted it to linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org on 13 Feb 2007.
-The description in the body is quoted below:
+But it is still RCU friendly? destroy_nbp() is rcu-callback which
+calls release_nbp() if we have a last reference to ->kobj. This
+means that dev_put() may be done a bit later, but not earlier.
+And RCU can only garantee "not before", any rcu-callback could be
+delayed unpredictably.
 
-	Correct assignment of DOT1XENABLE in WE-19 codepaths.
-	RX_UNENCRYPTED_EAPOL = 1 really means setting DOT1XENABLE _off_, and
-	vice versa.  The original WE-19 patch erroneously reversed that.  This
-	patch fixes association with unencrypted and WEP networks when using
-	wpa_supplicant.
-	
-	It also adds two missing break statements that, left out, could result
-	in incorrect card configuration.
-	
-	Please commit to both development and stable branches.
+Stephen, I know nothing about net/, and
 
-Hth...
+> Probably the best thing to do is pull the whole delayed work queue
+> and auto port speed stuff. When STP is moved to user space then
+> it can do the ethtool op there.
 
-John
--- 
-John W. Linville
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+I can't understand any single word in the paragraph above :)
+
+But the bug (the stable tree has it too) is real. If this patch is
+really wrong, could you please take care of it?
+
+Oleg.
+
