@@ -1,60 +1,58 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [git patches] net driver updates
-Date: Wed, 21 Feb 2007 13:01:41 +0100
-Message-ID: <1172059301.5080.2.camel@johannes.berg>
-References: <6.1.1.1.2.20070221124144.04783fb8@192.168.6.12>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: Extensible hashing and RCU
+Date: Wed, 21 Feb 2007 14:19:30 +0100
+Message-ID: <200702211419.30856.dada1@cosmosbay.com>
+References: <20070204074143.26312.qmail@science.horizon.com> <200702201209.52388.dada1@cosmosbay.com> <p73y7mrd6o9.fsf@bingen.suse.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-8uZ6yZfUp8/DJOwpiygh"
-Cc: netdev@vger.kernel.org, jeff@garzik.org
-To: Roger While <simrw@sim-basis.de>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>, akepner@sgi.com,
+	linux@horizon.com, davem@davemloft.net, netdev@vger.kernel.org,
+	bcrl@kvack.org
+To: Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:35392 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751227AbXBUMBx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Feb 2007 07:01:53 -0500
-In-Reply-To: <6.1.1.1.2.20070221124144.04783fb8@192.168.6.12>
+Received: from pfx2.jmh.fr ([194.153.89.55]:56364 "EHLO pfx2.jmh.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1161212AbXBUNTl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Feb 2007 08:19:41 -0500
+In-Reply-To: <p73y7mrd6o9.fsf@bingen.suse.de>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Wednesday 21 February 2007 13:41, Andi Kleen wrote:
+> Eric Dumazet <dada1@cosmosbay.com> writes:
+> > For example, sock_wfree() uses 1.6612 % of cpu because of false sharing
+> > of sk_flags (dirtied each time SOCK_QUEUE_SHRUNK is set :(
+>
+> Might be easily fixable by moving the fields around a bit?
 
---=-8uZ6yZfUp8/DJOwpiygh
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+For this one, it seems sk_flags is mostly read, but SOCK_QUEUE_SHRUNK is 
+mostly writen. It would make sense to move it to another point, to keep 
+sk_flags shared by different cpus.
 
-On Wed, 2007-02-21 at 12:46 +0100, Roger While wrote:
-> >
-> >Dan Williams (1):
-> >       prism54: correct assignment of DOT1XENABLE in WE-19 codepaths
->=20
-> Where did this spring from ?
+Maybe using one low order bit in a related pointer ? (like the rb_color() 
+trick). Maybe this is time for a new include/linux/bap.h (bits and pointer) 
+include :)
 
-wireless
+>
+> > If we want to optimize tcp, we should reorder fields to reduce number of
+> > cache lines, not change algos. struct sock fields are currently placed to
+> > reduce holes, while they should be grouped by related fields sharing
+> > cache lines.
+>
+> Regrouping is definitely a good thing; but I'm not sure why you are so
+> deadset against exploring other data structures. The promise of RCUing
+> and avoiding the big hash tables seems alluding to me, even if it
+> only breaks even in the end in terms of cycles.
 
-> I see no posting of this patch let alone
-> an ACK.
-> The patch is also doing rather more than the description -
-> It is inserting extra breaks into a switch statement with
-> no comment as to why.
+RCU is definitely wanted, and IP routing demonstrated the wins.
 
-The patch description clearly indicates those break statements, and
-they're also clearly necessary.
+rbtree was successfully plugged into epoll instead of initial hash table 
+implementation. 
 
-http://kernel.org/git/?p=3Dlinux/kernel/git/linville/wireless-2.6.git;a=3Dc=
-ommit;h=3Db5c41651645f7604dda7abc3445e1622f9b1b9ab
-
-johannes
-
---=-8uZ6yZfUp8/DJOwpiygh
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iD8DBQBF3DSl/ETPhpq3jKURArecAJ9ARvg+ULnyfqDaGIl75B3p5VqJoACcC/Os
-C7g7EsS8X/B+B3mdmkPytZo=
-=paM5
------END PGP SIGNATURE-----
-
---=-8uZ6yZfUp8/DJOwpiygh--
+Now, when the rate of lookups/inserts/delete is high, with totally random 
+endpoints and cache *always* cold , 'tree structures' are not welcome (not 
+cache friendly)
 
