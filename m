@@ -1,48 +1,68 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT PULL] IPv6 Updates
-Date: Wed, 21 Feb 2007 00:06:13 -0800 (PST)
-Message-ID: <20070221.000613.55507332.davem@davemloft.net>
-References: <E1HHRCL-00028w-00@gondolin.me.apana.org.au>
-	<E1HHRj7-0002HG-00@gondolin.me.apana.org.au>
+From: Divy Le Ray <divy@chelsio.com>
+Subject: Re: [PATCH] chelsio: Fix non-NAPI compile
+Date: Wed, 21 Feb 2007 00:05:58 -0800
+Message-ID: <45DBFD66.7070305@chelsio.com>
+References: <20070220235759.102686172@linux-foundation.org> <adamz38c55r.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: hasso@estpak.ee, yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
-	aramoto@linux-ipv6.org, kozakai@linux-ipv6.org
-To: herbert@gondor.apana.org.au
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
+To: Roland Dreier <rdreier@cisco.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37244
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751170AbXBUIGO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Feb 2007 03:06:14 -0500
-In-Reply-To: <E1HHRj7-0002HG-00@gondolin.me.apana.org.au>
+Received: from stargate.chelsio.com ([12.22.49.110]:11350 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751178AbXBUIHp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Feb 2007 03:07:45 -0500
+In-Reply-To: <adamz38c55r.fsf@cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Thu, 15 Feb 2007 08:31:45 +1100
+Roland Dreier wrote:
+> Chelsio without NAPI enabled has been broken (won't compile) since
+> 3de00b89 ("chelsio: NAPI speed improvement"):
+>
+>     drivers/net/chelsio/sge.c: In function `t1_interrupt`:
+>     drivers/net/chelsio/sge.c:1716: error: `Q` undeclared (first use in this function)
+>
+> The change below seems to add back in the declaration and
+> initialization of `Q` that was removed by mistake, and at least makes
+> the driver compile for me, although I have no hardware and hence no
+> way to test whether this actually works.
+>
+> Signed-off-by: Roland Dreier <rolandd@cisco.com>
+>   
+Roland,
 
-> Herbert Xu <herbert@gondor.apana.org.au> wrote:
-> > 
-> > [IPV4] devinet: Register inetdev earlier.
-> 
-> I needed to move the panic call as well.
-> 
-> [IPV4] devinet: Register inetdev earlier.
-> 
-> This patch allocates inetdev at registration for all devices
-> in line with IPv6.  This allows sysctl configuration on the
-> devices to occur before they're brought up or addresses are
-> added.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+You beat me :)
 
-Since this technically fixes a major usability bug, I'm
-happy to apply this with the ipv6 side for 2.6.21
+Cheers,
+Divy
 
-It is up to Yoshifuji how to handle this.  He can either add
-this patch to his ipv6 bug fix submission for 2.6.21, or he
-can just submit the ipv6 parts and I can merge Herbert's ipv4
-patch myself.
+> ---
+> Hi Stephen, since you seem to be looking after this driver a little
+> bit (and since you broke it ;), I'll send this patch to you.
+>
+> If this seems right to you, please merge it (although perhaps it would
+> make more sense just to kill the non-NAPI code, since no one noticed
+> it didn't compile).
+>
+>
+> diff --git a/drivers/net/chelsio/sge.c b/drivers/net/chelsio/sge.c
+> index 89a6827..326d4a6 100644
+> --- a/drivers/net/chelsio/sge.c
+> +++ b/drivers/net/chelsio/sge.c
+> @@ -1696,6 +1696,7 @@ irqreturn_t t1_interrupt(int irq, void *cookie)
+>  {
+>  	int work_done;
+>  	struct adapter *adapter = cookie;
+> +	struct respQ *Q = &adapter->sge->respQ;
+>  
+>  	spin_lock(&adapter->async_lock);
+>  
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>   
 
-Just let me know what to do.
