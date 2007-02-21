@@ -1,49 +1,66 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: Re: [PATCH 1/5][SCTP]: Implement SCTP_FRAGMENT_INTERLEAVE socket
- option.
-Date: Wed, 21 Feb 2007 00:20:44 -0800
-Message-ID: <45DC00DC.8030504@us.ibm.com>
-References: <1171683583.4568.10.camel@w-sridhar2.beaverton.ibm.com> <20070220.232136.112621337.davem@davemloft.net>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: Extensible hashing and RCU
+Date: Wed, 21 Feb 2007 11:54:06 +0300
+Message-ID: <20070221085406.GB1903@2ka.mipt.ru>
+References: <200702191913.08125.dada1@cosmosbay.com> <200702201738.19590.dada1@cosmosbay.com> <20070220165907.GB24930@2ka.mipt.ru> <200702201820.27095.dada1@cosmosbay.com> <20070220175550.GB26961@2ka.mipt.ru> <20070220181217.GA3401@2ka.mipt.ru> <f2b55d220702201113m12355e5ds584cede246d4728c@mail.gmail.com> <20070220194409.GB5590@2ka.mipt.ru> <f2b55d220702201203m2f188253h7f68d5be9a457f4a@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=koi8-r
+Cc: Eric Dumazet <dada1@cosmosbay.com>,
+	David Miller <davem@davemloft.net>, akepner@sgi.com,
+	linux@horizon.com, netdev@vger.kernel.org, bcrl@kvack.org
+To: "Michael K. Edwards" <medwards.linux@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e3.ny.us.ibm.com ([32.97.182.143]:52324 "EHLO e3.ny.us.ibm.com"
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:42178 "EHLO 2ka.mipt.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751188AbXBUIUu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Feb 2007 03:20:50 -0500
-Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
-	by e3.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l1L8KnPK029462
-	for <netdev@vger.kernel.org>; Wed, 21 Feb 2007 03:20:49 -0500
-Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
-	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v8.2) with ESMTP id l1L8KnP2299652
-	for <netdev@vger.kernel.org>; Wed, 21 Feb 2007 03:20:49 -0500
-Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
-	by d01av03.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l1L8Km1m028426
-	for <netdev@vger.kernel.org>; Wed, 21 Feb 2007 03:20:49 -0500
-In-Reply-To: <20070220.232136.112621337.davem@davemloft.net>
+	id S1161136AbXBUIzs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Feb 2007 03:55:48 -0500
+Content-Disposition: inline
+In-Reply-To: <f2b55d220702201203m2f188253h7f68d5be9a457f4a@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: Sridhar Samudrala <sri@us.ibm.com>
-> Date: Fri, 16 Feb 2007 19:39:43 -0800
->
->   
->> [SCTP]: Implement SCTP_FRAGMENT_INTERLEAVE socket option.
->>     
->
-> Sorry, these patches missed the merge window.
->
-> Patches 4 and 5 are bug fixes, so I could apply just those if you
-> want me to, just let me know and you don't need to resend them.
->   
-Yes. please apply patches 4 & 5 for 2.6.21. I will resubmit the 
-remaining when
-2.6.22 merge window opens.
+On Tue, Feb 20, 2007 at 12:03:04PM -0800, Michael K. Edwards (medwards.linux@gmail.com) wrote:
+> >I just shown a problem in jenkins hash - it is not how to find a
+> >differnet input for the same output - it is a _law_ which allows to
+> >break a hash. You will add some constant, and that law will be turned
+> >into something different (getting into account what was written, it will
+> >end up with the same law).
+> 
+> Correct.  That's called a "weak hash", and Jenkins is known to be a
+> thoroughly weak hash.  That's why you never, ever use it without a
+> salt, and you don't let an attacker inspect the hash output either.
 
-Thanks
-Sridhar
+Again, where will be your salt?
+I'm going to show you that having constant xor on fairly distributed
+system will not change distribution as long as bad one.
 
+> >Using jenkins hash is equal to the situation, when part of you hash
+> >chains will be 5 times longer than median square value, with XOR one
+> >there is no such distribution.
+> 
+> Show us the numbers.  Salt properly this time to reduce the artifacts
+> that come of applying a weak hash to a poor PRNG, and histogram your
+> results.  If you don't get a Poisson distribution you probably don't
+> know how to use gnuplot either.  :-)
+
+I shown that numbers 4 times already, do you read mails and links?
+Did you see an artifact Eric showed with his data?
+
+> >Added somthing into permutations will not endup in different
+> >distribution, since it is permutations which are broken, not its result
+> >(which can be xored with something).
+> 
+> I can't parse this.  Care to try again?
+
+Whre are you going to add a salt into jenkins hash to fix its
+distribution?
+
+In other words - jenkins hash is equal to simple shift - it is a hash
+too, and it has bad distribution too, where will added salt ever help in
+that scenario?
+
+> Cheers,
+> - Michael
+
+-- 
+	Evgeniy Polyakov
