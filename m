@@ -1,7 +1,7 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 21/29] mm: prepare swap entry methods for use in page methods
-Date: Wed, 21 Feb 2007 15:43:25 +0100
-Message-ID: <20070221144843.599206000@taijtu.programming.kicks-ass.net>
+Subject: [PATCH 24/29] nfs: remove mempools
+Date: Wed, 21 Feb 2007 15:43:28 +0100
+Message-ID: <20070221144843.894502000@taijtu.programming.kicks-ass.net>
 References: <20070221144304.512721000@taijtu.programming.kicks-ass.net>
 Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
 	Trond Myklebust <trond.myklebust@fys.uio.no>,
@@ -9,186 +9,170 @@ Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
 To: linux-kernel@vger.kernel.org, linux-mm@kvack.org,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:34541 "EHLO mx2.redhat.com"
+Received: from mx2.redhat.com ([66.187.237.31]:34567 "EHLO mx2.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751310AbXBUPFf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Feb 2007 10:05:35 -0500
-Content-Disposition: inline; filename=mm-swap_entry_methods.patch
+	id S1161249AbXBUPFj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Feb 2007 10:05:39 -0500
+Content-Disposition: inline; filename=nfs-no-mempool.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Move around the swap entry methods in preparation for use from
-page methods.
-
-Also provide a function to obtain the swap_info_struct backing
-a swap cache page.
+With the introduction of the shared dirty page accounting in .19, NFS should
+not be able to surpise the VM with all dirty pages. Thus it should always be
+able to free some memory. Hence no more need for mempools.
 
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
-CC: Trond Myklebust <trond.myklebust@fys.uio.no>
+Cc: Trond Myklebust <trond.myklebust@fys.uio.no>
 ---
- include/linux/mm.h      |    8 ++++++++
- include/linux/swap.h    |   48 ++++++++++++++++++++++++++++++++++++++++++++++++
- include/linux/swapops.h |   44 --------------------------------------------
- mm/swapfile.c           |    1 +
- 4 files changed, 57 insertions(+), 44 deletions(-)
+ fs/nfs/read.c  |   15 +++------------
+ fs/nfs/write.c |   27 +++++----------------------
+ 2 files changed, 8 insertions(+), 34 deletions(-)
 
-Index: linux-2.6-git/include/linux/mm.h
+Index: linux-2.6-git/fs/nfs/read.c
 ===================================================================
---- linux-2.6-git.orig/include/linux/mm.h	2007-02-21 12:15:00.000000000 +0100
-+++ linux-2.6-git/include/linux/mm.h	2007-02-21 12:15:01.000000000 +0100
-@@ -17,6 +17,7 @@
- #include <linux/debug_locks.h>
- #include <linux/backing-dev.h>
- #include <linux/mm_types.h>
-+#include <linux/swap.h>
+--- linux-2.6-git.orig/fs/nfs/read.c	2007-02-21 12:14:54.000000000 +0100
++++ linux-2.6-git/fs/nfs/read.c	2007-02-21 12:15:10.000000000 +0100
+@@ -32,14 +32,11 @@ static const struct rpc_call_ops nfs_rea
+ static const struct rpc_call_ops nfs_read_full_ops;
  
- struct mempolicy;
- struct anon_vma;
-@@ -586,6 +587,13 @@ static inline struct address_space *page
- 	return mapping;
+ static struct kmem_cache *nfs_rdata_cachep;
+-static mempool_t *nfs_rdata_mempool;
+-
+-#define MIN_POOL_READ	(32)
+ 
+ struct nfs_read_data *nfs_readdata_alloc(size_t len)
+ {
+ 	unsigned int pagecount = (len + PAGE_SIZE - 1) >> PAGE_SHIFT;
+-	struct nfs_read_data *p = mempool_alloc(nfs_rdata_mempool, GFP_NOFS);
++	struct nfs_read_data *p = kmem_cache_alloc(nfs_rdata_cachep, GFP_NOFS);
+ 
+ 	if (p) {
+ 		memset(p, 0, sizeof(*p));
+@@ -50,7 +47,7 @@ struct nfs_read_data *nfs_readdata_alloc
+ 		else {
+ 			p->pagevec = kcalloc(pagecount, sizeof(struct page *), GFP_NOFS);
+ 			if (!p->pagevec) {
+-				mempool_free(p, nfs_rdata_mempool);
++				kmem_cache_free(nfs_rdata_cachep, p);
+ 				p = NULL;
+ 			}
+ 		}
+@@ -63,7 +60,7 @@ static void nfs_readdata_rcu_free(struct
+ 	struct nfs_read_data *p = container_of(head, struct nfs_read_data, task.u.tk_rcu);
+ 	if (p && (p->pagevec != &p->page_array[0]))
+ 		kfree(p->pagevec);
+-	mempool_free(p, nfs_rdata_mempool);
++	kmem_cache_free(nfs_rdata_cachep, p);
  }
  
-+static inline struct swap_info_struct *page_swap_info(struct page *page)
-+{
-+	swp_entry_t swap = { .val = page_private(page) };
-+	BUG_ON(!PageSwapCache(page));
-+	return get_swap_info_struct(swp_type(swap));
-+}
-+
- static inline int PageAnon(struct page *page)
- {
- 	return ((unsigned long)page->mapping & PAGE_MAPPING_ANON) != 0;
-Index: linux-2.6-git/include/linux/swap.h
-===================================================================
---- linux-2.6-git.orig/include/linux/swap.h	2007-02-21 12:15:00.000000000 +0100
-+++ linux-2.6-git/include/linux/swap.h	2007-02-21 12:15:01.000000000 +0100
-@@ -79,6 +79,50 @@ typedef struct {
- } swp_entry_t;
+ static void nfs_readdata_free(struct nfs_read_data *rdata)
+@@ -614,16 +611,10 @@ int __init nfs_init_readpagecache(void)
+ 	if (nfs_rdata_cachep == NULL)
+ 		return -ENOMEM;
  
- /*
-+ * swapcache pages are stored in the swapper_space radix tree.  We want to
-+ * get good packing density in that tree, so the index should be dense in
-+ * the low-order bits.
-+ *
-+ * We arrange the `type' and `offset' fields so that `type' is at the five
-+ * high-order bits of the swp_entry_t and `offset' is right-aligned in the
-+ * remaining bits.
-+ *
-+ * swp_entry_t's are *never* stored anywhere in their arch-dependent format.
-+ */
-+#define SWP_TYPE_SHIFT(e)	(sizeof(e.val) * 8 - MAX_SWAPFILES_SHIFT)
-+#define SWP_OFFSET_MASK(e)	((1UL << SWP_TYPE_SHIFT(e)) - 1)
-+
-+/*
-+ * Store a type+offset into a swp_entry_t in an arch-independent format
-+ */
-+static inline swp_entry_t swp_entry(unsigned long type, pgoff_t offset)
-+{
-+	swp_entry_t ret;
-+
-+	ret.val = (type << SWP_TYPE_SHIFT(ret)) |
-+			(offset & SWP_OFFSET_MASK(ret));
-+	return ret;
-+}
-+
-+/*
-+ * Extract the `type' field from a swp_entry_t.  The swp_entry_t is in
-+ * arch-independent format
-+ */
-+static inline unsigned swp_type(swp_entry_t entry)
-+{
-+	return (entry.val >> SWP_TYPE_SHIFT(entry));
-+}
-+
-+/*
-+ * Extract the `offset' field from a swp_entry_t.  The swp_entry_t is in
-+ * arch-independent format
-+ */
-+static inline pgoff_t swp_offset(swp_entry_t entry)
-+{
-+	return entry.val & SWP_OFFSET_MASK(entry);
-+}
-+
-+/*
-  * current->reclaim_state points to one of these when a task is running
-  * memory reclaim
-  */
-@@ -326,6 +370,10 @@ static inline int valid_swaphandles(swp_
+-	nfs_rdata_mempool = mempool_create_slab_pool(MIN_POOL_READ,
+-						     nfs_rdata_cachep);
+-	if (nfs_rdata_mempool == NULL)
+-		return -ENOMEM;
+-
  	return 0;
  }
  
-+static inline struct swap_info_struct *get_swap_info_struct(unsigned type)
-+{
-+	return NULL;
-+}
- #define can_share_swap_page(p)			(page_mapcount(p) == 1)
- 
- static inline int move_to_swap_cache(struct page *page, swp_entry_t entry)
-Index: linux-2.6-git/include/linux/swapops.h
-===================================================================
---- linux-2.6-git.orig/include/linux/swapops.h	2007-02-21 12:15:00.000000000 +0100
-+++ linux-2.6-git/include/linux/swapops.h	2007-02-21 12:15:01.000000000 +0100
-@@ -1,48 +1,4 @@
- /*
-- * swapcache pages are stored in the swapper_space radix tree.  We want to
-- * get good packing density in that tree, so the index should be dense in
-- * the low-order bits.
-- *
-- * We arrange the `type' and `offset' fields so that `type' is at the five
-- * high-order bits of the swp_entry_t and `offset' is right-aligned in the
-- * remaining bits.
-- *
-- * swp_entry_t's are *never* stored anywhere in their arch-dependent format.
-- */
--#define SWP_TYPE_SHIFT(e)	(sizeof(e.val) * 8 - MAX_SWAPFILES_SHIFT)
--#define SWP_OFFSET_MASK(e)	((1UL << SWP_TYPE_SHIFT(e)) - 1)
--
--/*
-- * Store a type+offset into a swp_entry_t in an arch-independent format
-- */
--static inline swp_entry_t swp_entry(unsigned long type, pgoff_t offset)
--{
--	swp_entry_t ret;
--
--	ret.val = (type << SWP_TYPE_SHIFT(ret)) |
--			(offset & SWP_OFFSET_MASK(ret));
--	return ret;
--}
--
--/*
-- * Extract the `type' field from a swp_entry_t.  The swp_entry_t is in
-- * arch-independent format
-- */
--static inline unsigned swp_type(swp_entry_t entry)
--{
--	return (entry.val >> SWP_TYPE_SHIFT(entry));
--}
--
--/*
-- * Extract the `offset' field from a swp_entry_t.  The swp_entry_t is in
-- * arch-independent format
-- */
--static inline pgoff_t swp_offset(swp_entry_t entry)
--{
--	return entry.val & SWP_OFFSET_MASK(entry);
--}
--
--/*
-  * Convert the arch-dependent pte representation of a swp_entry_t into an
-  * arch-independent swp_entry_t.
-  */
-Index: linux-2.6-git/mm/swapfile.c
-===================================================================
---- linux-2.6-git.orig/mm/swapfile.c	2007-02-21 12:15:00.000000000 +0100
-+++ linux-2.6-git/mm/swapfile.c	2007-02-21 12:15:01.000000000 +0100
-@@ -1764,6 +1764,7 @@ get_swap_info_struct(unsigned type)
+ void nfs_destroy_readpagecache(void)
  {
- 	return &swap_info[type];
+-	mempool_destroy(nfs_rdata_mempool);
+ 	kmem_cache_destroy(nfs_rdata_cachep);
  }
-+EXPORT_SYMBOL_GPL(get_swap_info_struct);
+Index: linux-2.6-git/fs/nfs/write.c
+===================================================================
+--- linux-2.6-git.orig/fs/nfs/write.c	2007-02-21 12:14:54.000000000 +0100
++++ linux-2.6-git/fs/nfs/write.c	2007-02-21 12:15:10.000000000 +0100
+@@ -29,9 +29,6 @@
  
+ #define NFSDBG_FACILITY		NFSDBG_PAGECACHE
+ 
+-#define MIN_POOL_WRITE		(32)
+-#define MIN_POOL_COMMIT		(4)
+-
  /*
-  * swap_lock prevents swap_map being freed. Don't grab an extra
+  * Local function declarations
+  */
+@@ -45,12 +42,10 @@ static const struct rpc_call_ops nfs_wri
+ static const struct rpc_call_ops nfs_commit_ops;
+ 
+ static struct kmem_cache *nfs_wdata_cachep;
+-static mempool_t *nfs_wdata_mempool;
+-static mempool_t *nfs_commit_mempool;
+ 
+ struct nfs_write_data *nfs_commit_alloc(void)
+ {
+-	struct nfs_write_data *p = mempool_alloc(nfs_commit_mempool, GFP_NOFS);
++	struct nfs_write_data *p = kmem_cache_alloc(nfs_wdata_cachep, GFP_NOFS);
+ 
+ 	if (p) {
+ 		memset(p, 0, sizeof(*p));
+@@ -64,7 +59,7 @@ void nfs_commit_rcu_free(struct rcu_head
+ 	struct nfs_write_data *p = container_of(head, struct nfs_write_data, task.u.tk_rcu);
+ 	if (p && (p->pagevec != &p->page_array[0]))
+ 		kfree(p->pagevec);
+-	mempool_free(p, nfs_commit_mempool);
++	kmem_cache_free(nfs_wdata_cachep, p);
+ }
+ 
+ void nfs_commit_free(struct nfs_write_data *wdata)
+@@ -75,7 +70,7 @@ void nfs_commit_free(struct nfs_write_da
+ struct nfs_write_data *nfs_writedata_alloc(size_t len)
+ {
+ 	unsigned int pagecount = (len + PAGE_SIZE - 1) >> PAGE_SHIFT;
+-	struct nfs_write_data *p = mempool_alloc(nfs_wdata_mempool, GFP_NOFS);
++	struct nfs_write_data *p = kmem_cache_alloc(nfs_wdata_cachep, GFP_NOFS);
+ 
+ 	if (p) {
+ 		memset(p, 0, sizeof(*p));
+@@ -86,7 +81,7 @@ struct nfs_write_data *nfs_writedata_all
+ 		else {
+ 			p->pagevec = kcalloc(pagecount, sizeof(struct page *), GFP_NOFS);
+ 			if (!p->pagevec) {
+-				mempool_free(p, nfs_wdata_mempool);
++				kmem_cache_free(nfs_wdata_cachep, p);
+ 				p = NULL;
+ 			}
+ 		}
+@@ -99,7 +94,7 @@ static void nfs_writedata_rcu_free(struc
+ 	struct nfs_write_data *p = container_of(head, struct nfs_write_data, task.u.tk_rcu);
+ 	if (p && (p->pagevec != &p->page_array[0]))
+ 		kfree(p->pagevec);
+-	mempool_free(p, nfs_wdata_mempool);
++	kmem_cache_free(nfs_wdata_cachep, p);
+ }
+ 
+ static void nfs_writedata_free(struct nfs_write_data *wdata)
+@@ -1517,16 +1512,6 @@ int __init nfs_init_writepagecache(void)
+ 	if (nfs_wdata_cachep == NULL)
+ 		return -ENOMEM;
+ 
+-	nfs_wdata_mempool = mempool_create_slab_pool(MIN_POOL_WRITE,
+-						     nfs_wdata_cachep);
+-	if (nfs_wdata_mempool == NULL)
+-		return -ENOMEM;
+-
+-	nfs_commit_mempool = mempool_create_slab_pool(MIN_POOL_COMMIT,
+-						      nfs_wdata_cachep);
+-	if (nfs_commit_mempool == NULL)
+-		return -ENOMEM;
+-
+ 	/*
+ 	 * NFS congestion size, scale with available memory.
+ 	 *
+@@ -1552,8 +1537,6 @@ int __init nfs_init_writepagecache(void)
+ 
+ void nfs_destroy_writepagecache(void)
+ {
+-	mempool_destroy(nfs_commit_mempool);
+-	mempool_destroy(nfs_wdata_mempool);
+ 	kmem_cache_destroy(nfs_wdata_cachep);
+ }
+ 
 
 -- 
 
