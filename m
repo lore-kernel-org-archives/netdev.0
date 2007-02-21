@@ -1,71 +1,111 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 00/29] swap over networked storage -v11
-Date: Wed, 21 Feb 2007 15:43:04 +0100
-Message-ID: <20070221144304.512721000@taijtu.programming.kicks-ass.net>
+Subject: [PATCH 12/29] net: remove alloc_skb_from_cache
+Date: Wed, 21 Feb 2007 15:43:16 +0100
+Message-ID: <20070221144842.691706000@taijtu.programming.kicks-ass.net>
+References: <20070221144304.512721000@taijtu.programming.kicks-ass.net>
 Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
 	Trond Myklebust <trond.myklebust@fys.uio.no>,
 	Thomas Graf <tgraf@suug.ch>, David Miller <davem@davemloft.net>
 To: linux-kernel@vger.kernel.org, linux-mm@kvack.org,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:55307 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([66.187.233.31]:55734 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S964982AbXBUPdn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Feb 2007 10:33:43 -0500
+	id S1161290AbXBUPex (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Feb 2007 10:34:53 -0500
+Content-Disposition: inline; filename=net-skbuff-cleanup.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-(patches against 2.6.20-mm1)
+Lets get rid of the unused alloc_skb_from_cache() thing.
 
-There is a fundamental deadlock associated with paging; when writing out a page
-to free memory requires free memory to complete. The usually solution is to
-keep a small amount of memory available at all times so we can overcome this
-problem. This however assumes the amount of memory needed for writeout is
-(constant and) smaller than the provided reserve.
+Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
+---
+ include/linux/skbuff.h |    3 --
+ net/core/dev.c         |    1 
+ net/core/skbuff.c      |   71 ++++++-------------------------------------------
+ 3 files changed, 11 insertions(+), 64 deletions(-)
 
-It is this latter assumption that breaks when doing writeout over network.
-Network can take up an unspecified amount of memory while waiting for a reply
-to our write request. This re-introduces the deadlock; we might never complete
-the writeout, for we might not have enough memory to receive the completion
-message.
+Index: linux-2.6-git/include/linux/skbuff.h
+===================================================================
+--- linux-2.6-git.orig/include/linux/skbuff.h	2007-02-14 08:31:13.000000000 +0100
++++ linux-2.6-git/include/linux/skbuff.h	2007-02-14 10:11:36.000000000 +0100
+@@ -345,9 +345,6 @@ static inline struct sk_buff *alloc_skb_
+ 	return __alloc_skb(size, priority, 1, -1);
+ }
+ 
+-extern struct sk_buff *alloc_skb_from_cache(struct kmem_cache *cp,
+-					    unsigned int size,
+-					    gfp_t priority);
+ extern void	       kfree_skbmem(struct sk_buff *skb);
+ extern struct sk_buff *skb_clone(struct sk_buff *skb,
+ 				 gfp_t priority);
+Index: linux-2.6-git/net/core/skbuff.c
+===================================================================
+--- linux-2.6-git.orig/net/core/skbuff.c	2007-02-14 08:31:12.000000000 +0100
++++ linux-2.6-git/net/core/skbuff.c	2007-02-14 10:11:16.000000000 +0100
+@@ -198,61 +198,6 @@ nodata:
+ }
+ 
+ /**
+- *	alloc_skb_from_cache	-	allocate a network buffer
+- *	@cp: kmem_cache from which to allocate the data area
+- *           (object size must be big enough for @size bytes + skb overheads)
+- *	@size: size to allocate
+- *	@gfp_mask: allocation mask
+- *
+- *	Allocate a new &sk_buff. The returned buffer has no headroom and
+- *	tail room of size bytes. The object has a reference count of one.
+- *	The return is the buffer. On a failure the return is %NULL.
+- *
+- *	Buffers may only be allocated from interrupts using a @gfp_mask of
+- *	%GFP_ATOMIC.
+- */
+-struct sk_buff *alloc_skb_from_cache(struct kmem_cache *cp,
+-				     unsigned int size,
+-				     gfp_t gfp_mask)
+-{
+-	struct sk_buff *skb;
+-	u8 *data;
+-
+-	/* Get the HEAD */
+-	skb = kmem_cache_alloc(skbuff_head_cache,
+-			       gfp_mask & ~__GFP_DMA);
+-	if (!skb)
+-		goto out;
+-
+-	/* Get the DATA. */
+-	size = SKB_DATA_ALIGN(size);
+-	data = kmem_cache_alloc(cp, gfp_mask);
+-	if (!data)
+-		goto nodata;
+-
+-	memset(skb, 0, offsetof(struct sk_buff, truesize));
+-	skb->truesize = size + sizeof(struct sk_buff);
+-	atomic_set(&skb->users, 1);
+-	skb->head = data;
+-	skb->data = data;
+-	skb->tail = data;
+-	skb->end  = data + size;
+-
+-	atomic_set(&(skb_shinfo(skb)->dataref), 1);
+-	skb_shinfo(skb)->nr_frags  = 0;
+-	skb_shinfo(skb)->gso_size = 0;
+-	skb_shinfo(skb)->gso_segs = 0;
+-	skb_shinfo(skb)->gso_type = 0;
+-	skb_shinfo(skb)->frag_list = NULL;
+-out:
+-	return skb;
+-nodata:
+-	kmem_cache_free(skbuff_head_cache, skb);
+-	skb = NULL;
+-	goto out;
+-}
+-
+-/**
+  *	__netdev_alloc_skb - allocate an skbuff for rx on a specific device
+  *	@dev: network device to receive on
+  *	@length: length to allocate
 
-The proposed solution is simple, only allow traffic servicing the VM to make
-use of the reserves. Since the VM is always present to service, this limited
-amount of memory can sustain a full connection; after a packet has been
-processed its memory can be re-used for the next packet.
-
-This however implies you know what packets are for whom, which generally
-speaking you don't. Hence we need to receive all packets but discard them as
-soon as we encounter a non VM bound packet allocated from the reserves.
-
-Also knowing it is headed towards the VM needs a little help, hence we
-introduce the socket flag SOCK_VMIO to mark sockets with.
-
-Of course, since we are paging all this has to happen in kernel-space, since
-user-space might just not be there.
-
-Since packet processing might also require memory, this all also implies that
-those auxiliary allocations may use the reserves when an emergency packet is
-processed. This is accomplished by using PF_MEMALLOC.
-
-How much memory is to be reserved is also an issue, enough memory to saturate
-both the route cache and IP fragment reassembly, along with various constants.
-
-This patch-set comes in 5 parts:
-
-1) introduce the memory reserve and make the SLAB allocator play nice with it.
-   patches 01-09
-
-2) add some needed infrastructure to the network code
-   patches 10-12
-
-3) implement the idea outlined above
-   patches 13-19
-
-4) teach the swap machinery to use generic address_spaces
-   patches 20-23
-
-5) implement swap over NFS using all the new stuff
-   patches 24-29
 -- 
 
