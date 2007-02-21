@@ -1,21 +1,27 @@
 From: "Amit S. Kale" <amitkale@netxen.com>
-Subject: [PATCH 0/1] NetXen: Driver unload fixes
-Date: Wed, 21 Feb 2007 06:37:06 -0800
-Message-ID: <200702211437.l1LEb6H3029493@dut39.unminc.com>
+Subject: [PATCH 1/2] NetXen: Driver unload fixes
+Date: Wed, 21 Feb 2007 06:52:27 -0800
+Message-ID: <200702211452.l1LEqRPp029800@dut39.unminc.com>
 Cc: amitkale@netxen.com, jeff@garzik.org, netxenproj@linsyssoft.com,
 	rob@netxen.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 66-126-254-34.unm.net ([66.126.254.34]:12749 "EHLO
+Received: from 66-126-254-34.unm.net ([66.126.254.34]:13713 "EHLO
 	nxmail.netxen.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751275AbXBUOhH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Feb 2007 09:37:07 -0500
+	with ESMTP id S1751279AbXBUOw2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Feb 2007 09:52:28 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Amit S. Kale <amitkale@netxen.com>
 
 ---
+
+My apologizes for sending patch with wrong order/number of patches in subject line.
+Now I am resending both the patches with correct line.
+
+Thanks,
+--Amit
 
  netxen_nic_hw.c   |    9 +++++----
  netxen_nic_main.c |    2 +-
