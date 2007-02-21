@@ -1,29 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: PATCH: Update mailing list info for 802.1q vlans
-Date: Wed, 21 Feb 2007 02:09:36 -0800 (PST)
-Message-ID: <20070221.020936.85687032.davem@davemloft.net>
-References: <45D644BC.9060104@candelatech.com>
+Subject: Re: [PATCH] Correct links in net/ipv4/Kconfig
+Date: Wed, 21 Feb 2007 02:10:47 -0800 (PST)
+Message-ID: <20070221.021047.08323222.davem@davemloft.net>
+References: <20070217135738.GE25760@galon.ev-en.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: greearb@candelatech.com
+To: baruch@ev-en.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49690
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49694
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1161177AbXBUKJh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Feb 2007 05:09:37 -0500
-In-Reply-To: <45D644BC.9060104@candelatech.com>
+	by vger.kernel.org with ESMTP id S1161218AbXBUKKs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Feb 2007 05:10:48 -0500
+In-Reply-To: <20070217135738.GE25760@galon.ev-en.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ben Greear <greearb@candelatech.com>
-Date: Fri, 16 Feb 2007 15:56:44 -0800
+From: Baruch Even <baruch@ev-en.org>
+Date: Sat, 17 Feb 2007 15:57:38 +0200
 
-> Dave, could you apply this please?  The old mailing
-> list is dead and gone.
+> Fix bug #6216, update the link for CONFIG_IP_MCAST help message. The bug with
+> the proposed fix was submitted by jamesm@bluebottle.com
+> 
+> Correct other dead/indirect links in the same file.
+> 
+> Signed-Off-By: Baruch Even <baruch@ev-en.org>
 
-Ben, please don't send me white-space damaged patches like this.  If
-in doubt, send the patch to yourself and try to apply it.
+This patch doesn't apply cleanly, please fix that and
+resubmit.
 
-Thanks.
+Thank you.
