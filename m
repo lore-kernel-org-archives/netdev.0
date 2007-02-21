@@ -1,56 +1,62 @@
-From: "Michael K. Edwards" <medwards.linux@gmail.com>
-Subject: Re: Extensible hashing and RCU
-Date: Wed, 21 Feb 2007 13:15:51 -0800
-Message-ID: <f2b55d220702211315h1266d25el4a0f46c4fb65e12a@mail.gmail.com>
-References: <200702191913.08125.dada1@cosmosbay.com>
-	 <200702211015.11975.dada1@cosmosbay.com>
-	 <20070221092717.GA15669@2ka.mipt.ru>
-	 <200702211038.24349.dada1@cosmosbay.com>
-	 <20070221095755.GB308@2ka.mipt.ru>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [RFT] bridge: eliminate port_check workqueue
+Date: Wed, 21 Feb 2007 13:19:27 -0800
+Message-ID: <20070221131927.07328dca@freekitty>
+References: <20070220221941.GA707@tv-sign.ru>
+	<20070220162434.72d3ad7b@freekitty>
+	<20070221082345.GB1662@ff.dom.local>
+	<20070221142342.GB134@tv-sign.ru>
+	<20070221105555.4d1b40a6@freekitty>
+	<20070221200916.GA145@tv-sign.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "Eric Dumazet" <dada1@cosmosbay.com>,
-	"David Miller" <davem@davemloft.net>, akepner@sgi.com,
-	linux@horizon.com, netdev@vger.kernel.org, bcrl@kvack.org
-To: "Evgeniy Polyakov" <johnpol@2ka.mipt.ru>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wr-out-0506.google.com ([64.233.184.233]:64651 "EHLO
-	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1423124AbXBUVPx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Feb 2007 16:15:53 -0500
-Received: by wr-out-0506.google.com with SMTP id i31so2481746wra
-        for <netdev@vger.kernel.org>; Wed, 21 Feb 2007 13:15:53 -0800 (PST)
-In-Reply-To: <20070221095755.GB308@2ka.mipt.ru>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Cc: Jarek Poplawski <jarkao2@o2.pl>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	David Howells <dhowells@redhat.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Oleg Nesterov <oleg@tv-sign.ru>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1423143AbXBUVUt@vger.kernel.org>
+In-Reply-To: <20070221200916.GA145@tv-sign.ru>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Look, Evgeniy.  Eric and I may be morons but davem is not.  He's
-telling you, again and again, that DoS attacks do happen, that to
-survive them you need for the distribution of tuples within hash
-buckets to vary unpredictably from system to system and boot to boot,
-and that XOR hash does not accomplish this.  He has told you that the
-Jenkins hash works, for reasons discussed exhaustively in the link I
-gave you, which you can follow to statistical analysis that is beyond
-your expertise or mine.  He has told you that your performance
-analysis is fundamentally flawed.  Do you think you might need to drop
-back five and punt?
+On Wed, 21 Feb 2007 23:09:16 +0300
+Oleg Nesterov <oleg@tv-sign.ru> wrote:
 
-As for the distribution issues:  who cares?  You fundamentally can't
-do any better, for random input drawn from a tuple space much larger
-than the number of hash buckets, than a Poisson distribution.  And
-that's enough to kill a naive hash table design, because chaining is
-going to cost you another cache miss for every link, and you couldn't
-afford the first cache miss in the first place.  If you absolutely
-insist on a hash table (on the theory that you can't keep the hot
-connections warm in cache anyway, which isn't necessarily true if you
-use a splay tree), it had better be a 2-left hash with a compact
-overflow pool for the rare case of second collision.
+> On 02/21, Stephen Hemminger wrote:
+> >
+> > This is what I was suggesting by getting rid of the work queue completely.
+> 
+> Can't comment this patch, but if we can get rid of the work_struct - good!
+> 
+> > -static void port_carrier_check(struct work_struct *work)
+> > +void br_port_carrier_check(struct net_bridge_port *p)
+> >  {
+> > -	struct net_bridge_port *p;
+> > -	struct net_device *dev;
+> > -	struct net_bridge *br;
+> > -
+> > -	dev = container_of(work, struct net_bridge_port,
+> > -			   carrier_check.work)->dev;
+> > -	work_release(work);
+> 
+> May I ask you to redo this patch on top of
+> 
+> 	[PATCH 1/3] net/bridge/br_if.c: don't use _WORK_NAR
+> 	http://marc.theaimsgroup.com/?l=linux-kernel&m=117183517612775
+> 
+> ?
+> 
+> We are removing the _NAR stuff, it would be nice to do this in a separate
+> patch.
+> 
+> Thanks!
+> 
+> Oleg.
 
-I recommend Michael Mitzenmacher's paper to you, or rather to
-whoever's reading along with the intention of improving the kernel
-without reinventing the square wheel.
+I would rather put it in a bugfix patchset for 2.6.21 and 2.6.20-stable
 
-Cheers,
-- Michael
+-- 
+Stephen Hemminger <shemminger@linux-foundation.org>
