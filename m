@@ -1,30 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [AF_PACKET] remove unnecessary casts
-Date: Tue, 20 Feb 2007 23:20:07 -0800 (PST)
-Message-ID: <20070220.232007.78707822.davem@davemloft.net>
-References: <20070214233558.GA3819@avocado.homenet>
+Subject: Re: [PATCH 1/5][SCTP]: Implement SCTP_FRAGMENT_INTERLEAVE socket
+ option.
+Date: Tue, 20 Feb 2007 23:21:36 -0800 (PST)
+Message-ID: <20070220.232136.112621337.davem@davemloft.net>
+References: <1171683583.4568.10.camel@w-sridhar2.beaverton.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: lunz@falooley.org
+Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net
+To: sri@us.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34214
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34218
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S932835AbXBUHUJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Feb 2007 02:20:09 -0500
-In-Reply-To: <20070214233558.GA3819@avocado.homenet>
+	by vger.kernel.org with ESMTP id S932771AbXBUHVh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Feb 2007 02:21:37 -0500
+In-Reply-To: <1171683583.4568.10.camel@w-sridhar2.beaverton.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jason Lunz <lunz@falooley.org>
-Date: Wed, 14 Feb 2007 18:35:58 -0500
+From: Sridhar Samudrala <sri@us.ibm.com>
+Date: Fri, 16 Feb 2007 19:39:43 -0800
 
-> packet_lookup_frame() always returns tpacket_hdr*, so there's no reason
-> to return char* and require casting by callers.
-> 
-> Also, remove a cast of void*.
-> 
-> Signed-off-by: Jason Lunz <lunz@falooley.org>
+> [SCTP]: Implement SCTP_FRAGMENT_INTERLEAVE socket option.
 
-Applied, thank you.
+Sorry, these patches missed the merge window.
+
+Patches 4 and 5 are bug fixes, so I could apply just those if you
+want me to, just let me know and you don't need to resend them.
