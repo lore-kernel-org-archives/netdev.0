@@ -1,44 +1,42 @@
-From: "Amit S. Kale" <amitkale@netxen.com>
-Subject: [PATCH 2/2] NetXen: Driver ifconfig fix
-Date: Wed, 21 Feb 2007 06:54:06 -0800
-Message-ID: <200702211454.l1LEs6DA029834@dut39.unminc.com>
-Cc: amitkale@netxen.com, jeff@garzik.org, netxenproj@linsyssoft.com,
-	rob@netxen.com
-To: netdev@vger.kernel.org
+From: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Subject: [PATCH 09/29] selinux: tag avc cache alloc as non-critical
+Date: Wed, 21 Feb 2007 15:43:13 +0100
+Message-ID: <20070221144842.396545000@taijtu.programming.kicks-ass.net>
+References: <20070221144304.512721000@taijtu.programming.kicks-ass.net>
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Trond Myklebust <trond.myklebust@fys.uio.no>,
+	Thomas Graf <tgraf@suug.ch>, David Miller <davem@davemloft.net>
+To: linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 66-126-254-34.unm.net ([66.126.254.34]:17341 "EHLO
-	nxmail.netxen.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751289AbXBUOyH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Feb 2007 09:54:07 -0500
+Received: from mx2.redhat.com ([66.187.237.31]:34537 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751285AbXBUPFf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Feb 2007 10:05:35 -0500
+Content-Disposition: inline; filename=mm-selinux-emergency.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Amit S. Kale <amitkale@netxen.com>
+Failing to allocate a cache entry will only harm performance.
 
+Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
 ---
+ security/selinux/avc.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
- netxen_nic_main.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+Index: linux-2.6-git/security/selinux/avc.c
+===================================================================
+--- linux-2.6-git.orig/security/selinux/avc.c	2007-02-14 08:31:13.000000000 +0100
++++ linux-2.6-git/security/selinux/avc.c	2007-02-14 10:10:47.000000000 +0100
+@@ -332,7 +332,7 @@ static struct avc_node *avc_alloc_node(v
+ {
+ 	struct avc_node *node;
+ 
+-	node = kmem_cache_zalloc(avc_node_cachep, GFP_ATOMIC);
++	node = kmem_cache_zalloc(avc_node_cachep, GFP_ATOMIC|__GFP_NOMEMALLOC);
+ 	if (!node)
+ 		goto out;
+ 
 
-diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
-index b2fc2bc..1bf3d49 100644
---- a/drivers/net/netxen/netxen_nic_main.c
-+++ b/drivers/net/netxen/netxen_nic_main.c
-@@ -525,6 +525,8 @@ static void __devexit netxen_nic_remove(
- 	if (adapter == NULL)
- 		return;
- 
-+	if (adapter->irq)
-+		free_irq(adapter->irq, adapter);
- 	netxen_nic_stop_all_ports(adapter);
- 	/* leave the hw in the same state as reboot */
- 	netxen_pinit_from_rom(adapter, 0);
-@@ -672,8 +674,6 @@ static int netxen_nic_close(struct net_d
- 
- 	if (!adapter->active_ports) {
- 		netxen_nic_disable_int(adapter);
--		if (adapter->irq)
--			free_irq(adapter->irq, adapter);
- 		cmd_buff = adapter->cmd_buf_arr;
- 		for (i = 0; i < adapter->max_tx_desc_count; i++) {
- 			buffrag = cmd_buff->frag_array;
+-- 
+
