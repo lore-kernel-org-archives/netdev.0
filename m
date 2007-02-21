@@ -1,7 +1,7 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 29/29] balance_dirty_pages() vs throttle_vm_writeout() deadlock
-Date: Wed, 21 Feb 2007 15:43:33 +0100
-Message-ID: <20070221144844.410363000@taijtu.programming.kicks-ass.net>
+Subject: [PATCH 21/29] mm: prepare swap entry methods for use in page methods
+Date: Wed, 21 Feb 2007 15:43:25 +0100
+Message-ID: <20070221144843.599206000@taijtu.programming.kicks-ass.net>
 References: <20070221144304.512721000@taijtu.programming.kicks-ass.net>
 Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
 	Trond Myklebust <trond.myklebust@fys.uio.no>,
@@ -9,45 +9,186 @@ Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
 To: linux-kernel@vger.kernel.org, linux-mm@kvack.org,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:34546 "EHLO mx2.redhat.com"
+Received: from mx2.redhat.com ([66.187.237.31]:34541 "EHLO mx2.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751313AbXBUPFg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Feb 2007 10:05:36 -0500
-Content-Disposition: inline; filename=nfs_mm-throttle_vm_writeout.patch
+	id S1751310AbXBUPFf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Feb 2007 10:05:35 -0500
+Content-Disposition: inline; filename=mm-swap_entry_methods.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-If we have a lot of dirty memory and hit the throttle in balance_dirty_pages()
-we (potentially) generate a lot of writeback and unstable pages, if however
-during this writeback we need to reclaim a bit, we might hit
-throttle_vm_writeout(), which might delay us until the combined total of
-NR_UNSTABLE_NFS + NR_WRITEBACK falls below the dirty limit.
+Move around the swap entry methods in preparation for use from
+page methods.
 
-However unstable pages don't go away automagickally, they need a push. While
-balance_dirty_pages() does this push, throttle_vm_writeout() doesn't. So we can
-sit here ad infintum.
-
-Hence I propose to remove the NR_UNSTABLE_NFS count from throttle_vm_writeout().
+Also provide a function to obtain the swap_info_struct backing
+a swap cache page.
 
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
+CC: Trond Myklebust <trond.myklebust@fys.uio.no>
 ---
- mm/page-writeback.c |    3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ include/linux/mm.h      |    8 ++++++++
+ include/linux/swap.h    |   48 ++++++++++++++++++++++++++++++++++++++++++++++++
+ include/linux/swapops.h |   44 --------------------------------------------
+ mm/swapfile.c           |    1 +
+ 4 files changed, 57 insertions(+), 44 deletions(-)
 
-Index: linux-2.6-git/mm/page-writeback.c
+Index: linux-2.6-git/include/linux/mm.h
 ===================================================================
---- linux-2.6-git.orig/mm/page-writeback.c	2007-02-20 15:07:43.000000000 +0100
-+++ linux-2.6-git/mm/page-writeback.c	2007-02-20 16:42:45.000000000 +0100
-@@ -310,8 +310,7 @@ void throttle_vm_writeout(void)
-                  */
-                 dirty_thresh += dirty_thresh / 10;      /* wheeee... */
+--- linux-2.6-git.orig/include/linux/mm.h	2007-02-21 12:15:00.000000000 +0100
++++ linux-2.6-git/include/linux/mm.h	2007-02-21 12:15:01.000000000 +0100
+@@ -17,6 +17,7 @@
+ #include <linux/debug_locks.h>
+ #include <linux/backing-dev.h>
+ #include <linux/mm_types.h>
++#include <linux/swap.h>
  
--                if (global_page_state(NR_UNSTABLE_NFS) +
--			global_page_state(NR_WRITEBACK) <= dirty_thresh)
-+                if (global_page_state(NR_WRITEBACK) <= dirty_thresh)
-                         	break;
-                 congestion_wait(WRITE, HZ/10);
-         }
+ struct mempolicy;
+ struct anon_vma;
+@@ -586,6 +587,13 @@ static inline struct address_space *page
+ 	return mapping;
+ }
+ 
++static inline struct swap_info_struct *page_swap_info(struct page *page)
++{
++	swp_entry_t swap = { .val = page_private(page) };
++	BUG_ON(!PageSwapCache(page));
++	return get_swap_info_struct(swp_type(swap));
++}
++
+ static inline int PageAnon(struct page *page)
+ {
+ 	return ((unsigned long)page->mapping & PAGE_MAPPING_ANON) != 0;
+Index: linux-2.6-git/include/linux/swap.h
+===================================================================
+--- linux-2.6-git.orig/include/linux/swap.h	2007-02-21 12:15:00.000000000 +0100
++++ linux-2.6-git/include/linux/swap.h	2007-02-21 12:15:01.000000000 +0100
+@@ -79,6 +79,50 @@ typedef struct {
+ } swp_entry_t;
+ 
+ /*
++ * swapcache pages are stored in the swapper_space radix tree.  We want to
++ * get good packing density in that tree, so the index should be dense in
++ * the low-order bits.
++ *
++ * We arrange the `type' and `offset' fields so that `type' is at the five
++ * high-order bits of the swp_entry_t and `offset' is right-aligned in the
++ * remaining bits.
++ *
++ * swp_entry_t's are *never* stored anywhere in their arch-dependent format.
++ */
++#define SWP_TYPE_SHIFT(e)	(sizeof(e.val) * 8 - MAX_SWAPFILES_SHIFT)
++#define SWP_OFFSET_MASK(e)	((1UL << SWP_TYPE_SHIFT(e)) - 1)
++
++/*
++ * Store a type+offset into a swp_entry_t in an arch-independent format
++ */
++static inline swp_entry_t swp_entry(unsigned long type, pgoff_t offset)
++{
++	swp_entry_t ret;
++
++	ret.val = (type << SWP_TYPE_SHIFT(ret)) |
++			(offset & SWP_OFFSET_MASK(ret));
++	return ret;
++}
++
++/*
++ * Extract the `type' field from a swp_entry_t.  The swp_entry_t is in
++ * arch-independent format
++ */
++static inline unsigned swp_type(swp_entry_t entry)
++{
++	return (entry.val >> SWP_TYPE_SHIFT(entry));
++}
++
++/*
++ * Extract the `offset' field from a swp_entry_t.  The swp_entry_t is in
++ * arch-independent format
++ */
++static inline pgoff_t swp_offset(swp_entry_t entry)
++{
++	return entry.val & SWP_OFFSET_MASK(entry);
++}
++
++/*
+  * current->reclaim_state points to one of these when a task is running
+  * memory reclaim
+  */
+@@ -326,6 +370,10 @@ static inline int valid_swaphandles(swp_
+ 	return 0;
+ }
+ 
++static inline struct swap_info_struct *get_swap_info_struct(unsigned type)
++{
++	return NULL;
++}
+ #define can_share_swap_page(p)			(page_mapcount(p) == 1)
+ 
+ static inline int move_to_swap_cache(struct page *page, swp_entry_t entry)
+Index: linux-2.6-git/include/linux/swapops.h
+===================================================================
+--- linux-2.6-git.orig/include/linux/swapops.h	2007-02-21 12:15:00.000000000 +0100
++++ linux-2.6-git/include/linux/swapops.h	2007-02-21 12:15:01.000000000 +0100
+@@ -1,48 +1,4 @@
+ /*
+- * swapcache pages are stored in the swapper_space radix tree.  We want to
+- * get good packing density in that tree, so the index should be dense in
+- * the low-order bits.
+- *
+- * We arrange the `type' and `offset' fields so that `type' is at the five
+- * high-order bits of the swp_entry_t and `offset' is right-aligned in the
+- * remaining bits.
+- *
+- * swp_entry_t's are *never* stored anywhere in their arch-dependent format.
+- */
+-#define SWP_TYPE_SHIFT(e)	(sizeof(e.val) * 8 - MAX_SWAPFILES_SHIFT)
+-#define SWP_OFFSET_MASK(e)	((1UL << SWP_TYPE_SHIFT(e)) - 1)
+-
+-/*
+- * Store a type+offset into a swp_entry_t in an arch-independent format
+- */
+-static inline swp_entry_t swp_entry(unsigned long type, pgoff_t offset)
+-{
+-	swp_entry_t ret;
+-
+-	ret.val = (type << SWP_TYPE_SHIFT(ret)) |
+-			(offset & SWP_OFFSET_MASK(ret));
+-	return ret;
+-}
+-
+-/*
+- * Extract the `type' field from a swp_entry_t.  The swp_entry_t is in
+- * arch-independent format
+- */
+-static inline unsigned swp_type(swp_entry_t entry)
+-{
+-	return (entry.val >> SWP_TYPE_SHIFT(entry));
+-}
+-
+-/*
+- * Extract the `offset' field from a swp_entry_t.  The swp_entry_t is in
+- * arch-independent format
+- */
+-static inline pgoff_t swp_offset(swp_entry_t entry)
+-{
+-	return entry.val & SWP_OFFSET_MASK(entry);
+-}
+-
+-/*
+  * Convert the arch-dependent pte representation of a swp_entry_t into an
+  * arch-independent swp_entry_t.
+  */
+Index: linux-2.6-git/mm/swapfile.c
+===================================================================
+--- linux-2.6-git.orig/mm/swapfile.c	2007-02-21 12:15:00.000000000 +0100
++++ linux-2.6-git/mm/swapfile.c	2007-02-21 12:15:01.000000000 +0100
+@@ -1764,6 +1764,7 @@ get_swap_info_struct(unsigned type)
+ {
+ 	return &swap_info[type];
+ }
++EXPORT_SYMBOL_GPL(get_swap_info_struct);
+ 
+ /*
+  * swap_lock prevents swap_map being freed. Don't grab an extra
 
 -- 
 
