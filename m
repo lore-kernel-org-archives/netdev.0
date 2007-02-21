@@ -1,192 +1,258 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 11/29] net: packet split receive api
-Date: Wed, 21 Feb 2007 15:43:15 +0100
-Message-ID: <20070221144842.593196000@taijtu.programming.kicks-ass.net>
+Subject: [PATCH 13/29] netvm: link network to vm layer
+Date: Wed, 21 Feb 2007 15:43:17 +0100
+Message-ID: <20070221144842.828329000@taijtu.programming.kicks-ass.net>
 References: <20070221144304.512721000@taijtu.programming.kicks-ass.net>
 Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
 	Trond Myklebust <trond.myklebust@fys.uio.no>,
 	Thomas Graf <tgraf@suug.ch>, David Miller <davem@davemloft.net>
 To: linux-kernel@vger.kernel.org, linux-mm@kvack.org,
 	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:55978 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1161280AbXBUPfn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Feb 2007 10:35:43 -0500
-Content-Disposition: inline; filename=net-ps_rx.patch
-Sender: netdev-owner@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161301AbXBUPgx@vger.kernel.org>
+Content-Disposition: inline; filename=netvm-reserve.patch
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add some packet-split receive hooks.
+Hook up networking to the memory reserve.
 
-For one this allows to do NUMA node affine page allocs.  Later on these hooks
-will be extended to do emergency reserve allocations for fragments.
+There are two kinds of reserves: skb and aux. 
+ - skb reserves are used for incomming packets,
+ - aux reserves are used for processing these packets.
+
+The consumers for these reserves are sockets marked with:
+  SOCK_VMIO
+
+Such sockets are to be used to service the VM (iow. to swap over). They
+must be handled kernel side, exposing such a socket to user-space is a BUG.
 
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
 ---
- drivers/net/e1000/e1000_main.c |    8 ++------
- drivers/net/sky2.c             |   16 ++++++----------
- include/linux/skbuff.h         |   23 +++++++++++++++++++++++
- net/core/skbuff.c              |   20 ++++++++++++++++++++
- 4 files changed, 51 insertions(+), 16 deletions(-)
+ include/net/sock.h |   31 ++++++++++++
+ net/Kconfig        |    3 +
+ net/core/sock.c    |  134 +++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 168 insertions(+)
 
-Index: linux-2.6-git/drivers/net/e1000/e1000_main.c
+Index: linux-2.6-git/include/net/sock.h
 ===================================================================
---- linux-2.6-git.orig/drivers/net/e1000/e1000_main.c	2007-02-14 08:31:12.000000000 +0100
-+++ linux-2.6-git/drivers/net/e1000/e1000_main.c	2007-02-14 11:42:07.000000000 +0100
-@@ -4412,12 +4412,8 @@ e1000_clean_rx_irq_ps(struct e1000_adapt
- 			pci_unmap_page(pdev, ps_page_dma->ps_page_dma[j],
- 					PAGE_SIZE, PCI_DMA_FROMDEVICE);
- 			ps_page_dma->ps_page_dma[j] = 0;
--			skb_fill_page_desc(skb, j, ps_page->ps_page[j], 0,
--			                   length);
-+			skb_add_rx_frag(skb, j, ps_page->ps_page[j], 0, length);
- 			ps_page->ps_page[j] = NULL;
--			skb->len += length;
--			skb->data_len += length;
--			skb->truesize += length;
- 		}
+--- linux-2.6-git.orig/include/net/sock.h	2007-02-20 15:06:17.000000000 +0100
++++ linux-2.6-git/include/net/sock.h	2007-02-20 15:07:45.000000000 +0100
+@@ -392,6 +392,7 @@ enum sock_flags {
+ 	SOCK_RCVTSTAMP, /* %SO_TIMESTAMP setting */
+ 	SOCK_LOCALROUTE, /* route locally only, %SO_DONTROUTE setting */
+ 	SOCK_QUEUE_SHRUNK, /* write queue has been shrunk recently */
++	SOCK_VMIO, /* the VM depends on us - make sure we're serviced */
+ };
  
- 		/* strip the ethernet crc, problem is we're using pages now so
-@@ -4623,7 +4619,7 @@ e1000_alloc_rx_buffers_ps(struct e1000_a
- 			if (j < adapter->rx_ps_pages) {
- 				if (likely(!ps_page->ps_page[j])) {
- 					ps_page->ps_page[j] =
--						alloc_page(GFP_ATOMIC);
-+						netdev_alloc_page(netdev);
- 					if (unlikely(!ps_page->ps_page[j])) {
- 						adapter->alloc_rx_buff_failed++;
- 						goto no_buffers;
-Index: linux-2.6-git/include/linux/skbuff.h
-===================================================================
---- linux-2.6-git.orig/include/linux/skbuff.h	2007-02-14 11:29:54.000000000 +0100
-+++ linux-2.6-git/include/linux/skbuff.h	2007-02-14 11:59:04.000000000 +0100
-@@ -813,6 +813,9 @@ static inline void skb_fill_page_desc(st
- 	skb_shinfo(skb)->nr_frags = i + 1;
+ static inline void sock_copy_flags(struct sock *nsk, struct sock *osk)
+@@ -414,6 +415,36 @@ static inline int sock_flag(struct sock 
+ 	return test_bit(flag, &sk->sk_flags);
  }
  
-+extern void skb_add_rx_frag(struct sk_buff *skb, int i, struct page *page,
-+			    int off, int size);
++static inline int sk_has_vmio(struct sock *sk)
++{
++	return sock_flag(sk, SOCK_VMIO);
++}
 +
- #define SKB_PAGE_ASSERT(skb) 	BUG_ON(skb_shinfo(skb)->nr_frags)
- #define SKB_FRAG_ASSERT(skb) 	BUG_ON(skb_shinfo(skb)->frag_list)
- #define SKB_LINEAR_ASSERT(skb)  BUG_ON(skb_is_nonlinear(skb))
-@@ -1148,6 +1151,26 @@ static inline struct sk_buff *netdev_all
- 	return __netdev_alloc_skb(dev, length, GFP_ATOMIC);
- }
++#define MAX_PAGES_PER_SKB 3
++#define MAX_FRAGMENTS ((65536 + 1500 - 1) / 1500)
++/*
++ * Guestimate the per request queue TX upper bound.
++ */
++#define TX_RESERVE_PAGES \
++	(4 * MAX_FRAGMENTS * MAX_PAGES_PER_SKB)
++
++extern atomic_t vmio_socks;
++
++static inline int sk_vmio_socks(void)
++{
++	return atomic_read(&vmio_socks);
++}
++
++extern int rx_emergency_get(int bytes);
++extern int rx_emergency_get_overcommit(int bytes);
++extern void rx_emergency_put(int bytes);
++
++extern void sk_adjust_memalloc(int socks, int tx_reserve_pages);
++extern void skb_reserve_memory(int skb_reserve_bytes);
++extern void aux_reserve_memory(int aux_reserve_pages);
++extern int sk_set_vmio(struct sock *sk);
++extern int sk_clear_vmio(struct sock *sk);
++
+ static inline void sk_acceptq_removed(struct sock *sk)
+ {
+ 	sk->sk_ack_backlog--;
+Index: linux-2.6-git/net/core/sock.c
+===================================================================
+--- linux-2.6-git.orig/net/core/sock.c	2007-02-20 15:06:17.000000000 +0100
++++ linux-2.6-git/net/core/sock.c	2007-02-20 15:18:48.000000000 +0100
+@@ -112,6 +112,7 @@
+ #include <linux/tcp.h>
+ #include <linux/init.h>
+ #include <linux/highmem.h>
++#include <linux/log2.h>
  
-+extern struct page *__netdev_alloc_page(struct net_device *dev, gfp_t gfp_mask);
+ #include <asm/uaccess.h>
+ #include <asm/system.h>
+@@ -196,6 +197,138 @@ __u32 sysctl_rmem_default __read_mostly 
+ /* Maximal space eaten by iovec or ancilliary data plus some space */
+ int sysctl_optmem_max __read_mostly = sizeof(unsigned long)*(2*UIO_MAXIOV+512);
+ 
++static atomic_t rx_emergency_bytes;
++
++static int skb_reserve_bytes;
++static int aux_reserve_pages;
++
++static DEFINE_SPINLOCK(memalloc_lock);
++static int rx_net_reserve;
++atomic_t vmio_socks;
++EXPORT_SYMBOL_GPL(vmio_socks);
++
++/*
++ * is there room for another emergency packet?
++ * we account in power of two units to approx the slab allocator.
++ */
++static int __rx_emergency_get(int bytes, bool overcommit)
++{
++	int size = roundup_pow_of_two(bytes);
++	int nr = atomic_add_return(size, &rx_emergency_bytes);
++	int thresh = (3 * skb_reserve_bytes) / 2;
++	if (nr < thresh || overcommit)
++		return 1;
++
++	atomic_dec(&rx_emergency_bytes);
++	return 0;
++}
++
++int rx_emergency_get(int bytes)
++{
++	return __rx_emergency_get(bytes, false);
++}
++
++int rx_emergency_get_overcommit(int bytes)
++{
++	return __rx_emergency_get(bytes, true);
++}
++
++void rx_emergency_put(int bytes)
++{
++	int size = roundup_pow_of_two(bytes);
++	return atomic_sub(size, &rx_emergency_bytes);
++}
 +
 +/**
-+ *	netdev_alloc_page - allocate a page for ps-rx on a specific device
-+ *	@dev: network device to receive on
++ *	sk_adjust_memalloc - adjust the global memalloc reserve for critical RX
++ *	@socks: number of new %SOCK_VMIO sockets
++ *	@tx_resserve_pages: number of pages to (un)reserve for TX
 + *
-+ * 	Allocate a new page node local to the specified device.
++ *	This function adjusts the memalloc reserve based on system demand.
++ *	The RX reserve is a limit, and only added once, not for each socket.
 + *
-+ * 	%NULL is returned if there is no free memory.
++ *	NOTE:
++ *	   @tx_reserve_pages is an upper-bound of memory used for TX hence
++ *	   we need not account the pages like we do for RX pages.
 + */
-+static inline struct page *netdev_alloc_page(struct net_device *dev)
++void sk_adjust_memalloc(int socks, int tx_reserve_pages)
 +{
-+	return __netdev_alloc_page(dev, GFP_ATOMIC);
-+}
++	unsigned long flags;
++	int reserve = tx_reserve_pages;
++	int nr_socks;
 +
-+static inline void netdev_free_page(struct net_device *dev, struct page *page)
++	spin_lock_irqsave(&memalloc_lock, flags);
++	nr_socks = atomic_add_return(socks, &vmio_socks);
++	BUG_ON(nr_socks < 0);
++
++	if (nr_socks) {
++		int skb_reserve_pages = skb_reserve_bytes / PAGE_SIZE;
++		int rx_pages = 2 * skb_reserve_pages + aux_reserve_pages;
++		reserve += rx_pages - rx_net_reserve;
++		rx_net_reserve = rx_pages;
++	} else {
++		reserve -= rx_net_reserve;
++		rx_net_reserve = 0;
++	}
++
++	if (reserve)
++		adjust_memalloc_reserve(reserve);
++	spin_unlock_irqrestore(&memalloc_lock, flags);
++}
++EXPORT_SYMBOL_GPL(sk_adjust_memalloc);
++
++/*
++ * tiny helper functions to track the memory reserves
++ * needed because of modular ipv6
++ */
++void skb_reserve_memory(int bytes)
 +{
-+	__free_page(page);
++	skb_reserve_bytes += bytes;
++	sk_adjust_memalloc(0, 0);
 +}
++EXPORT_SYMBOL_GPL(skb_reserve_memory);
 +
- /**
-  *	skb_cow - copy header of skb when it is required
-  *	@skb: buffer to cow
-Index: linux-2.6-git/net/core/skbuff.c
-===================================================================
---- linux-2.6-git.orig/net/core/skbuff.c	2007-02-14 11:29:54.000000000 +0100
-+++ linux-2.6-git/net/core/skbuff.c	2007-02-14 12:01:40.000000000 +0100
-@@ -279,6 +279,24 @@ struct sk_buff *__netdev_alloc_skb(struc
- 	return skb;
- }
- 
-+struct page *__netdev_alloc_page(struct net_device *dev, gfp_t gfp_mask)
++void aux_reserve_memory(int pages)
 +{
-+	int node = dev->dev.parent ? dev_to_node(dev->dev.parent) : -1;
-+	struct page *page;
-+
-+	page = alloc_pages_node(node, gfp_mask, 0);
-+	return page;
++	aux_reserve_pages += pages;
++	sk_adjust_memalloc(0, 0);
 +}
++EXPORT_SYMBOL_GPL(aux_reserve_memory);
 +
-+void skb_add_rx_frag(struct sk_buff *skb, int i, struct page *page, int off,
-+		int size)
++/**
++ *	sk_set_vmio - sets %SOCK_VMIO
++ *	@sk: socket to set it on
++ *
++ *	Set %SOCK_VMIO on a socket and increase the memalloc reserve
++ *	accordingly.
++ */
++int sk_set_vmio(struct sock *sk)
 +{
-+	skb_fill_page_desc(skb, i, page, off, size);
-+	skb->len += size;
-+	skb->data_len += size;
-+	skb->truesize += size;
++	int set = sock_flag(sk, SOCK_VMIO);
++#ifndef CONFIG_NETVM
++	BUG();
++#endif
++	if (!set) {
++		sk_adjust_memalloc(1, 0);
++		sock_set_flag(sk, SOCK_VMIO);
++		sk->sk_allocation |= __GFP_EMERGENCY;
++	}
++	return !set;
 +}
++EXPORT_SYMBOL_GPL(sk_set_vmio);
 +
- static void skb_drop_list(struct sk_buff **listp)
++int sk_clear_vmio(struct sock *sk)
++{
++	int set = sock_flag(sk, SOCK_VMIO);
++	if (set) {
++		sk_adjust_memalloc(-1, 0);
++		sock_reset_flag(sk, SOCK_VMIO);
++		sk->sk_allocation &= ~__GFP_EMERGENCY;
++	}
++	return set;
++}
++EXPORT_SYMBOL_GPL(sk_clear_vmio);
++
+ static int sock_set_timeout(long *timeo_p, char __user *optval, int optlen)
  {
- 	struct sk_buff *list = *listp;
-@@ -2066,6 +2084,8 @@ EXPORT_SYMBOL(kfree_skb);
- EXPORT_SYMBOL(__pskb_pull_tail);
- EXPORT_SYMBOL(__alloc_skb);
- EXPORT_SYMBOL(__netdev_alloc_skb);
-+EXPORT_SYMBOL(__netdev_alloc_page);
-+EXPORT_SYMBOL(skb_add_rx_frag);
- EXPORT_SYMBOL(pskb_copy);
- EXPORT_SYMBOL(pskb_expand_head);
- EXPORT_SYMBOL(skb_checksum);
-Index: linux-2.6-git/drivers/net/sky2.c
+ 	struct timeval tv;
+@@ -868,6 +1001,7 @@ void sk_free(struct sock *sk)
+ 	struct sk_filter *filter;
+ 	struct module *owner = sk->sk_prot_creator->owner;
+ 
++	sk_clear_vmio(sk);
+ 	if (sk->sk_destruct)
+ 		sk->sk_destruct(sk);
+ 
+Index: linux-2.6-git/net/Kconfig
 ===================================================================
---- linux-2.6-git.orig/drivers/net/sky2.c	2007-02-14 08:31:12.000000000 +0100
-+++ linux-2.6-git/drivers/net/sky2.c	2007-02-14 12:00:22.000000000 +0100
-@@ -1083,7 +1083,7 @@ static struct sk_buff *sky2_rx_alloc(str
- 	skb_reserve(skb, ALIGN(p, RX_SKB_ALIGN) - p);
+--- linux-2.6-git.orig/net/Kconfig	2007-02-20 14:42:09.000000000 +0100
++++ linux-2.6-git/net/Kconfig	2007-02-20 15:06:17.000000000 +0100
+@@ -227,6 +227,9 @@ config WIRELESS_EXT
+ config FIB_RULES
+ 	bool
  
- 	for (i = 0; i < sky2->rx_nfrags; i++) {
--		struct page *page = alloc_page(GFP_ATOMIC);
-+		struct page *page = netdev_alloc_page(sky2->netdev);
++config NETVM
++	def_bool n
++
+ endif   # if NET
+ endmenu # Networking
  
- 		if (!page)
- 			goto free_partial;
-@@ -1972,8 +1972,8 @@ static struct sk_buff *receive_copy(stru
- }
- 
- /* Adjust length of skb with fragments to match received data */
--static void skb_put_frags(struct sk_buff *skb, unsigned int hdr_space,
--			  unsigned int length)
-+static void skb_put_frags(struct sky2_port *sky2, struct sk_buff *skb,
-+			  unsigned int hdr_space, unsigned int length)
- {
- 	int i, num_frags;
- 	unsigned int size;
-@@ -1990,15 +1990,11 @@ static void skb_put_frags(struct sk_buff
- 
- 		if (length == 0) {
- 			/* don't need this page */
--			__free_page(frag->page);
-+			netdev_free_page(sky2->netdev, frag->page);
- 			--skb_shinfo(skb)->nr_frags;
- 		} else {
- 			size = min(length, (unsigned) PAGE_SIZE);
--
--			frag->size = size;
--			skb->data_len += size;
--			skb->truesize += size;
--			skb->len += size;
-+			skb_add_rx_frag(skb, i, frag->page, 0, size);
- 			length -= size;
- 		}
- 	}
-@@ -2027,7 +2023,7 @@ static struct sk_buff *receive_new(struc
- 	sky2_rx_map_skb(sky2->hw->pdev, re, hdr_space);
- 
- 	if (skb_shinfo(skb)->nr_frags)
--		skb_put_frags(skb, hdr_space, length);
-+		skb_put_frags(sky2, skb, hdr_space, length);
- 	else
- 		skb_put(skb, length);
- 	return skb;
 
 -- 
-
