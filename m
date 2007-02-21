@@ -1,101 +1,156 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 23/29] mm: methods for teaching filesystems about PG_swapcache pages
-Date: Wed, 21 Feb 2007 15:43:27 +0100
-Message-ID: <20070221144843.829793000@taijtu.programming.kicks-ass.net>
+Subject: [PATCH 27/29] nfs: disable data cache revalidation for swapfiles
+Date: Wed, 21 Feb 2007 15:43:31 +0100
+Message-ID: <20070221144844.179417000@taijtu.programming.kicks-ass.net>
 References: <20070221144304.512721000@taijtu.programming.kicks-ass.net>
 Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
 	Trond Myklebust <trond.myklebust@fys.uio.no>,
 	Thomas Graf <tgraf@suug.ch>, David Miller <davem@davemloft.net>
 To: linux-kernel@vger.kernel.org, linux-mm@kvack.org,
 	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:55615 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965363AbXBUPei (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Feb 2007 10:34:38 -0500
-Content-Disposition: inline; filename=mm-page_file_methods.patch
-Sender: netdev-owner@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751311AbXBUPgJ@vger.kernel.org>
+Content-Disposition: inline; filename=nfs-swapper.patch
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In order to teach filesystems to handle swap cache pages, two new page
-functions are introduced:
+Do as Trond suggested:
+  http://lkml.org/lkml/2006/8/25/348
 
-  pgoff_t page_file_index(struct page *);
-  struct address_space *page_file_mapping(struct page *);
+Disable NFS data cache revalidation on swap files since it doesn't really 
+make sense to have other clients change the file while you are using it.
 
-page_file_index - gives the offset of this page in the file in PAGE_CACHE_SIZE
-blocks. Like page->index is for mapped pages, this function also gives the
-correct index for PG_swapcache pages.
+Thereby we can stop setting PG_private on swap pages, since there ought to
+be no further races with invalidate_inode_pages2() to deal with.
 
-page_file_mapping - gives the mapping backing the actual page; that is for
-swap cache pages it will give swap_file->f_mapping.
-
-page_offset() is modified to use page_file_index(), so that it will give the
-expected result, even for PG_swapcache pages.
+And since we cannot set PG_private we cannot use page->private (which is
+already used by PG_swapcache pages anyway) to store the nfs_page. Thus
+augment the new nfs_page_find_request logic.
 
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
-CC: Trond Myklebust <trond.myklebust@fys.uio.no>
+Cc: Trond Myklebust <trond.myklebust@fys.uio.no>
 ---
- include/linux/mm.h      |   25 +++++++++++++++++++++++++
- include/linux/pagemap.h |    2 +-
- 2 files changed, 26 insertions(+), 1 deletion(-)
+ fs/nfs/inode.c |    6 ++++++
+ fs/nfs/write.c |   35 +++++++++++++++++++++++------------
+ 2 files changed, 29 insertions(+), 12 deletions(-)
 
-Index: linux-2.6-git/include/linux/mm.h
+Index: linux-2.6-git/fs/nfs/inode.c
 ===================================================================
---- linux-2.6-git.orig/include/linux/mm.h	2007-02-21 12:15:01.000000000 +0100
-+++ linux-2.6-git/include/linux/mm.h	2007-02-21 12:15:07.000000000 +0100
-@@ -594,6 +594,16 @@ static inline struct swap_info_struct *p
- 	return get_swap_info_struct(swp_type(swap));
- }
+--- linux-2.6-git.orig/fs/nfs/inode.c	2007-02-21 11:04:08.000000000 +0100
++++ linux-2.6-git/fs/nfs/inode.c	2007-02-21 11:52:21.000000000 +0100
+@@ -719,6 +719,12 @@ int nfs_revalidate_mapping_nolock(struct
+ 	struct nfs_inode *nfsi = NFS_I(inode);
+ 	int ret = 0;
  
-+static inline
-+struct address_space *page_file_mapping(struct page *page)
-+{
-+#ifdef CONFIG_SWAP_FILE
-+	if (unlikely(PageSwapCache(page)))
-+		return page_swap_info(page)->swap_file->f_mapping;
-+#endif
-+	return page->mapping;
-+}
++	/*
++	 * swapfiles are not supposed to be shared.
++	 */
++	if (IS_SWAPFILE(inode))
++		goto out;
 +
- static inline int PageAnon(struct page *page)
- {
- 	return ((unsigned long)page->mapping & PAGE_MAPPING_ANON) != 0;
-@@ -611,6 +621,21 @@ static inline pgoff_t page_index(struct 
+ 	if ((nfsi->cache_validity & NFS_INO_REVAL_PAGECACHE)
+ 			|| nfs_attribute_timeout(inode) || NFS_STALE(inode)) {
+ 		ret = __nfs_revalidate_inode(NFS_SERVER(inode), inode);
+Index: linux-2.6-git/fs/nfs/write.c
+===================================================================
+--- linux-2.6-git.orig/fs/nfs/write.c	2007-02-21 11:52:17.000000000 +0100
++++ linux-2.6-git/fs/nfs/write.c	2007-02-21 11:53:18.000000000 +0100
+@@ -107,7 +107,7 @@ void nfs_writedata_release(void *wdata)
+ 	nfs_writedata_free(wdata);
  }
  
- /*
-+ * Return the file index of the page. Regular pagecache pages use ->index
-+ * whereas swapcache pages use swp_offset(->private)
-+ */
-+static inline pgoff_t page_file_index(struct page *page)
-+{
-+#ifdef CONFIG_SWAP_FILE
-+	if (unlikely(PageSwapCache(page))) {
-+		swp_entry_t swap = { .val = page_private(page) };
-+		return swp_offset(swap);
+-static struct nfs_page *nfs_page_find_request_locked(struct page *page)
++static struct nfs_page *nfs_page_find_request_locked(struct nfs_inode *nfsi, struct page *page)
+ {
+ 	struct nfs_page *req = NULL;
+ 
+@@ -115,6 +115,10 @@ static struct nfs_page *nfs_page_find_re
+ 		req = (struct nfs_page *)page_private(page);
+ 		if (req != NULL)
+ 			atomic_inc(&req->wb_count);
++	} else if (unlikely(PageSwapCache(page))) {
++		req = radix_tree_lookup(&nfsi->nfs_page_tree, page_file_index(page));
++		if (req != NULL)
++			atomic_inc(&req->wb_count);
+ 	}
+ 	return req;
+ }
+@@ -122,10 +126,11 @@ static struct nfs_page *nfs_page_find_re
+ static struct nfs_page *nfs_page_find_request(struct page *page)
+ {
+ 	struct nfs_page *req = NULL;
+-	spinlock_t *req_lock = &NFS_I(page_file_mapping(page)->host)->req_lock;
++	struct nfs_inode *nfsi = NFS_I(page_file_mapping(page)->host);
++	spinlock_t *req_lock = &nfsi->req_lock;
+ 
+ 	spin_lock(req_lock);
+-	req = nfs_page_find_request_locked(page);
++	req = nfs_page_find_request_locked(nfsi, page);
+ 	spin_unlock(req_lock);
+ 	return req;
+ }
+@@ -248,12 +253,13 @@ static void nfs_end_page_writeback(struc
+ static int nfs_page_mark_flush(struct page *page)
+ {
+ 	struct nfs_page *req;
+-	spinlock_t *req_lock = &NFS_I(page_file_mapping(page)->host)->req_lock;
++	struct nfs_inode *nfsi = NFS_I(page_file_mapping(page)->host);
++	spinlock_t *req_lock = &nfsi->req_lock;
+ 	int ret;
+ 
+ 	spin_lock(req_lock);
+ 	for(;;) {
+-		req = nfs_page_find_request_locked(page);
++		req = nfs_page_find_request_locked(nfsi, page);
+ 		if (req == NULL) {
+ 			spin_unlock(req_lock);
+ 			return 1;
+@@ -368,8 +374,14 @@ static int nfs_inode_add_request(struct 
+ 		if (nfs_have_delegation(inode, FMODE_WRITE))
+ 			nfsi->change_attr++;
+ 	}
+-	SetPagePrivate(req->wb_page);
+-	set_page_private(req->wb_page, (unsigned long)req);
++	/*
++	 * Swap-space should not get truncated. Hence no need to plug the race
++	 * with invalidate/truncate.
++	 */
++	if (likely(!PageSwapCache(req->wb_page))) {
++		SetPagePrivate(req->wb_page);
++		set_page_private(req->wb_page, (unsigned long)req);
 +	}
-+#endif
-+	return page->index;
-+}
-+
-+/*
-  * The atomic page->_mapcount, like _count, starts from -1:
-  * so that transitions both from it and to it can be tracked,
-  * using atomic_inc_and_test and atomic_add_negative(-1).
-Index: linux-2.6-git/include/linux/pagemap.h
-===================================================================
---- linux-2.6-git.orig/include/linux/pagemap.h	2007-02-21 12:14:54.000000000 +0100
-+++ linux-2.6-git/include/linux/pagemap.h	2007-02-21 12:15:07.000000000 +0100
-@@ -120,7 +120,7 @@ extern void __remove_from_page_cache(str
-  */
- static inline loff_t page_offset(struct page *page)
- {
--	return ((loff_t)page->index) << PAGE_CACHE_SHIFT;
-+	return ((loff_t)page_file_index(page)) << PAGE_CACHE_SHIFT;
- }
+ 	nfsi->npages++;
+ 	atomic_inc(&req->wb_count);
+ 	return 0;
+@@ -386,8 +398,10 @@ static void nfs_inode_remove_request(str
+ 	BUG_ON (!NFS_WBACK_BUSY(req));
  
- static inline pgoff_t linear_page_index(struct vm_area_struct *vma,
+ 	spin_lock(&nfsi->req_lock);
+-	set_page_private(req->wb_page, 0);
+-	ClearPagePrivate(req->wb_page);
++	if (likely(!PageSwapCache(req->wb_page))) {
++		set_page_private(req->wb_page, 0);
++		ClearPagePrivate(req->wb_page);
++	}
+ 	radix_tree_delete(&nfsi->nfs_page_tree, req->wb_index);
+ 	nfsi->npages--;
+ 	if (!nfsi->npages) {
+@@ -600,7 +614,7 @@ static struct nfs_page * nfs_update_requ
+ 		 * A request for the page we wish to update
+ 		 */
+ 		spin_lock(&nfsi->req_lock);
+-		req = nfs_page_find_request_locked(page);
++		req = nfs_page_find_request_locked(nfsi, page);
+ 		if (req) {
+ 			if (!nfs_lock_request_dontget(req)) {
+ 				int error;
+@@ -1472,8 +1486,6 @@ int nfs_wb_page_priority(struct inode *i
+ 		if (ret < 0)
+ 			goto out;
+ 	}
+-	if (!PagePrivate(page))
+-		return 0;
+ 	ret = nfs_sync_mapping_wait(page_file_mapping(page), &wbc, how);
+ 	if (ret >= 0)
+ 		return 0;
 
 -- 
-
