@@ -1,40 +1,31 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: Extensible hashing and RCU
-Date: Wed, 21 Feb 2007 10:15:11 +0100
-Message-ID: <200702211015.11975.dada1@cosmosbay.com>
-References: <200702191913.08125.dada1@cosmosbay.com> <f2b55d220702201203m2f188253h7f68d5be9a457f4a@mail.gmail.com> <20070221085406.GB1903@2ka.mipt.ru>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: [PATCH] net/bridge/br_if.c: fix possible use-after-free in port_carrier_check()
+Date: Wed, 21 Feb 2007 10:29:36 +0100
+Message-ID: <20070221092936.GA2311@ff.dom.local>
+References: <20070220221941.GA707@tv-sign.ru> <20070220162434.72d3ad7b@freekitty> <20070221082345.GB1662@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="koi8-r"
-Content-Transfer-Encoding: 7bit
-Cc: "Michael K. Edwards" <medwards.linux@gmail.com>,
-	David Miller <davem@davemloft.net>, akepner@sgi.com,
-	linux@horizon.com, netdev@vger.kernel.org, bcrl@kvack.org
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from pfx2.jmh.fr ([194.153.89.55]:52545 "EHLO pfx2.jmh.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1161152AbXBUJPW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Feb 2007 04:15:22 -0500
-In-Reply-To: <20070221085406.GB1903@2ka.mipt.ru>
+Content-Type: text/plain; charset=us-ascii
+Cc: Oleg Nesterov <oleg@tv-sign.ru>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	"David S\. Miller" <davem@davemloft.net>,
+	David Howells <dhowells@redhat.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965370AbXBUJ0L@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <20070221082345.GB1662@ff.dom.local>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 21 February 2007 09:54, Evgeniy Polyakov wrote:
-> I shown that numbers 4 times already, do you read mails and links?
-> Did you see an artifact Eric showed with his data?
->
+On Wed, Feb 21, 2007 at 09:23:45AM +0100, Jarek Poplawski wrote:
+...
+> I have known issues with RCU, but dare to disagree here.
+> It's done during call_rcu, so anything RCU friendly shouldn't
+> see this at the moment at all. It could be needed for those
+> with refcounting - than it should be checked, if there is
+> anything more than port_carrier_check.
 
-I showed all your thinking is wrong.
+Sorry for this than-ing!
+(It's my next favorite issue after RCU.)
 
-Some guys think MD5 checksum is full of artifacts, since its certainly 
-possible to construct two differents files having the same md5sum.
-Yet, lot of people use md5 checksums. In 10 years, we probably switch to 
-another stronger hash. Its only a question of current state of the art.
-
-Jenkins hash is far better than XOR, at least in the tcp ehash context.
-
-Some hackers already exploited the XOR hash weak, more than two years ago.
-They never succeeded since I changed to Jenkins hash.
-
+Jarek P.
