@@ -1,247 +1,106 @@
 From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [PATCH 2/3] chelsio: use C99 style initialization
-Date: Tue, 20 Feb 2007 15:58:01 -0800
-Message-ID: <20070220235905.224376488@linux-foundation.org>
-References: <20070220235759.102686172@linux-foundation.org>
-Cc: netdev@vger.kernel.org
-To: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] net/bridge/br_if.c: fix possible use-after-free in
+ port_carrier_check()
+Date: Tue, 20 Feb 2007 16:24:34 -0800
+Message-ID: <20070220162434.72d3ad7b@freekitty>
+References: <20070220221941.GA707@tv-sign.ru>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Jarek Poplawski <jarkao2@o2.pl>,
+	"David S. Miller" <davem@davemloft.net>,
+	David Howells <dhowells@redhat.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Oleg Nesterov <oleg@tv-sign.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:57070 "EHLO smtp.osdl.org"
+Received: from smtp.osdl.org ([65.172.181.24]:58176 "EHLO smtp.osdl.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965261AbXBUAEG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Feb 2007 19:04:06 -0500
-Content-Disposition: inline; filename=t1_board_c99.patch
+	id S965271AbXBUAZD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Feb 2007 19:25:03 -0500
+In-Reply-To: <20070220221941.GA707@tv-sign.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Convert some initialized structures to C99 style.
+On Wed, 21 Feb 2007 01:19:41 +0300
+Oleg Nesterov <oleg@tv-sign.ru> wrote:
 
-Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+> If del_nbp()->cancel_delayed_work(carrier_check) fails, port_carrier_check()
+> may run later and access an already freed container (struct net_bridge_port).
+> 
+> With this patch, carrier_check owns a reference to "struct net_bridge_port",
+> not net_device, so it is always safe to acces the container.
+> 
+> port_carrier_check() uses p->dev->br_port == NULL as indication that net_bridge_port
+> is under destruction. Otherwise it assumes that p->dev->br_port == p.
+> 
+> Signed-off-by: Oleg Nesterov <oleg@tv-sign.ru>
+> Acked-By: David Howells <dhowells@redhat.com>
+> 
+> --- WQ/net/bridge/br_if.c~5_bridge_uaf	2007-02-18 23:06:15.000000000 +0300
+> +++ WQ/net/bridge/br_if.c	2007-02-20 00:59:54.000000000 +0300
+> @@ -83,14 +83,14 @@ static void port_carrier_check(struct wo
+>  	struct net_device *dev;
+>  	struct net_bridge *br;
+>  
+> -	dev = container_of(work, struct net_bridge_port,
+> -			   carrier_check.work)->dev;
+> +	p = container_of(work, struct net_bridge_port, carrier_check.work);
+>  
+>  	rtnl_lock();
+> -	p = dev->br_port;
+> -	if (!p)
+> -		goto done;
+>  	br = p->br;
+> +	dev = p->dev;
+> +
+> +	if (!dev->br_port)
+> +		goto done;
+>  
+>  	if (netif_carrier_ok(dev))
+>  		p->path_cost = port_cost(dev);
+> @@ -107,14 +107,16 @@ static void port_carrier_check(struct wo
+>  		spin_unlock_bh(&br->lock);
+>  	}
+>  done:
+> -	dev_put(dev);
+>  	rtnl_unlock();
+> +	kobject_put(&p->kobj);
+>  }
+>  
+>  static void release_nbp(struct kobject *kobj)
+>  {
+>  	struct net_bridge_port *p
+>  		= container_of(kobj, struct net_bridge_port, kobj);
+> +
+> +	dev_put(p->dev);
+>  	kfree(p);
+>  }
+>  
+> @@ -127,12 +129,6 @@ static struct kobj_type brport_ktype = {
+>  
+>  static void destroy_nbp(struct net_bridge_port *p)
+>  {
+> -	struct net_device *dev = p->dev;
+> -
+> -	p->br = NULL;
+> -	p->dev = NULL;
+> -	dev_put(dev);
+> -
+>  	kobject_put(&p->kobj);
+>  }
 
----
- drivers/net/chelsio/subr.c |  195 ++++++++++++++++++++++++++++++---------------
- 1 file changed, 134 insertions(+), 61 deletions(-)
+Moving this around is problematic.
+The ordering here was chosen to be RCU friendly so that
+p->dev indicates the port is in process of being deleted but traffic
+may still be using old reference, but new traffic should not use it.
 
---- chelsio.orig/drivers/net/chelsio/subr.c
-+++ chelsio/drivers/net/chelsio/subr.c
-@@ -322,9 +322,9 @@ static int mi1_mdio_write(adapter_t *ada
- 
- #if defined(CONFIG_CHELSIO_T1_1G) || defined(CONFIG_CHELSIO_T1_COUGAR)
- static struct mdio_ops mi1_mdio_ops = {
--	mi1_mdio_init,
--	mi1_mdio_read,
--	mi1_mdio_write
-+	.init = mi1_mdio_init,
-+	.read = mi1_mdio_read,
-+	.write = mi1_mdio_write
- };
- #endif
- 
-@@ -378,9 +378,9 @@ static int mi1_mdio_ext_write(adapter_t 
- }
- 
- static struct mdio_ops mi1_mdio_ext_ops = {
--	mi1_mdio_init,
--	mi1_mdio_ext_read,
--	mi1_mdio_ext_write
-+	.init = mi1_mdio_init,
-+	.read = mi1_mdio_ext_read,
-+	.write = mi1_mdio_ext_write
- };
- 
- enum {
-@@ -392,63 +392,136 @@ enum {
- 	CH_BRD_N204_4CU,
- };
- 
--static struct board_info t1_board[] = {
--
--{ CHBT_BOARD_CHT110, 1/*ports#*/,
--  SUPPORTED_10000baseT_Full /*caps*/, CHBT_TERM_T1,
--  CHBT_MAC_PM3393, CHBT_PHY_MY3126,
--  125000000/*clk-core*/, 150000000/*clk-mc3*/, 125000000/*clk-mc4*/,
--  1/*espi-ports*/, 0/*clk-cspi*/, 44/*clk-elmer0*/, 1/*mdien*/,
--  1/*mdiinv*/, 1/*mdc*/, 1/*phybaseaddr*/, &t1_pm3393_ops,
--  &t1_my3126_ops, &mi1_mdio_ext_ops,
--  "Chelsio T110 1x10GBase-CX4 TOE" },
--
--{ CHBT_BOARD_N110, 1/*ports#*/,
--  SUPPORTED_10000baseT_Full | SUPPORTED_FIBRE /*caps*/, CHBT_TERM_T1,
--  CHBT_MAC_PM3393, CHBT_PHY_88X2010,
--  125000000/*clk-core*/, 0/*clk-mc3*/, 0/*clk-mc4*/,
--  1/*espi-ports*/, 0/*clk-cspi*/, 44/*clk-elmer0*/, 0/*mdien*/,
--  0/*mdiinv*/, 1/*mdc*/, 0/*phybaseaddr*/, &t1_pm3393_ops,
--  &t1_mv88x201x_ops, &mi1_mdio_ext_ops,
--  "Chelsio N110 1x10GBaseX NIC" },
--
--{ CHBT_BOARD_N210, 1/*ports#*/,
--  SUPPORTED_10000baseT_Full | SUPPORTED_FIBRE /*caps*/, CHBT_TERM_T2,
--  CHBT_MAC_PM3393, CHBT_PHY_88X2010,
--  125000000/*clk-core*/, 0/*clk-mc3*/, 0/*clk-mc4*/,
--  1/*espi-ports*/, 0/*clk-cspi*/, 44/*clk-elmer0*/, 0/*mdien*/,
--  0/*mdiinv*/, 1/*mdc*/, 0/*phybaseaddr*/, &t1_pm3393_ops,
--  &t1_mv88x201x_ops, &mi1_mdio_ext_ops,
--  "Chelsio N210 1x10GBaseX NIC" },
--
--{ CHBT_BOARD_CHT210, 1/*ports#*/,
--  SUPPORTED_10000baseT_Full /*caps*/, CHBT_TERM_T2,
--  CHBT_MAC_PM3393, CHBT_PHY_88X2010,
--  125000000/*clk-core*/, 133000000/*clk-mc3*/, 125000000/*clk-mc4*/,
--  1/*espi-ports*/, 0/*clk-cspi*/, 44/*clk-elmer0*/, 0/*mdien*/,
--  0/*mdiinv*/, 1/*mdc*/, 0/*phybaseaddr*/, &t1_pm3393_ops,
--  &t1_mv88x201x_ops, &mi1_mdio_ext_ops,
--  "Chelsio T210 1x10GBaseX TOE" },
--
--{ CHBT_BOARD_CHT210, 1/*ports#*/,
--  SUPPORTED_10000baseT_Full /*caps*/, CHBT_TERM_T2,
--  CHBT_MAC_PM3393, CHBT_PHY_MY3126,
--  125000000/*clk-core*/, 133000000/*clk-mc3*/, 125000000/*clk-mc4*/,
--  1/*espi-ports*/, 0/*clk-cspi*/, 44/*clk-elmer0*/, 1/*mdien*/,
--  1/*mdiinv*/, 1/*mdc*/, 1/*phybaseaddr*/, &t1_pm3393_ops,
--  &t1_my3126_ops, &mi1_mdio_ext_ops,
--  "Chelsio T210 1x10GBase-CX4 TOE" },
-+static const struct board_info t1_board[] = {
-+	{
-+		.board		= CHBT_BOARD_CHT110,
-+		.port_number	= 1,
-+		.caps		= SUPPORTED_10000baseT_Full,
-+		.chip_term	= CHBT_TERM_T1,
-+		.chip_mac	= CHBT_MAC_PM3393,
-+		.chip_phy	= CHBT_PHY_MY3126,
-+		.clock_core	= 125000000,
-+		.clock_mc3	= 150000000,
-+		.clock_mc4	= 125000000,
-+		.espi_nports	= 1,
-+		.clock_elmer0	= 44,
-+		.mdio_mdien	= 1,
-+		.mdio_mdiinv	= 1,
-+		.mdio_mdc	= 1,
-+		.mdio_phybaseaddr = 1,
-+		.gmac		= &t1_pm3393_ops,
-+		.gphy		= &t1_my3126_ops,
-+		.mdio_ops	= &mi1_mdio_ext_ops,
-+		.desc		= "Chelsio T110 1x10GBase-CX4 TOE",
-+	},
-+
-+	{
-+		.board		= CHBT_BOARD_N110,
-+		.port_number	= 1,
-+		.caps		= SUPPORTED_10000baseT_Full | SUPPORTED_FIBRE,
-+		.chip_term	= CHBT_TERM_T1,
-+		.chip_mac	= CHBT_MAC_PM3393,
-+		.chip_phy	= CHBT_PHY_88X2010,
-+		.clock_core	= 125000000,
-+		.espi_nports	= 1,
-+		.clock_elmer0	= 44,
-+		.mdio_mdien	= 0,
-+		.mdio_mdiinv	= 0,
-+		.mdio_mdc	= 1,
-+		.mdio_phybaseaddr = 0,
-+		.gmac		= &t1_pm3393_ops,
-+		.gphy		= &t1_mv88x201x_ops,
-+		.mdio_ops	= &mi1_mdio_ext_ops,
-+		.desc		= "Chelsio N110 1x10GBaseX NIC",
-+	},
-+
-+	{
-+		.board		= CHBT_BOARD_N210,
-+		.port_number	= 1,
-+		.caps		= SUPPORTED_10000baseT_Full | SUPPORTED_FIBRE,
-+		.chip_term	= CHBT_TERM_T2,
-+		.chip_mac	= CHBT_MAC_PM3393,
-+		.chip_phy	= CHBT_PHY_88X2010,
-+		.clock_core	= 125000000,
-+		.espi_nports	= 1,
-+		.clock_elmer0	= 44,
-+		.mdio_mdien	= 0,
-+		.mdio_mdiinv	= 0,
-+		.mdio_mdc	= 1,
-+		.mdio_phybaseaddr = 0,
-+		.gmac		= &t1_pm3393_ops,
-+		.gphy		= &t1_mv88x201x_ops,
-+		.mdio_ops	= &mi1_mdio_ext_ops,
-+		.desc		= "Chelsio N210 1x10GBaseX NIC",
-+	},
-+
-+	{
-+		.board		= CHBT_BOARD_CHT210,
-+		.port_number	= 1,
-+		.caps		= SUPPORTED_10000baseT_Full,
-+		.chip_term	= CHBT_TERM_T2,
-+		.chip_mac	= CHBT_MAC_PM3393,
-+		.chip_phy	= CHBT_PHY_88X2010,
-+		.clock_core	= 125000000,
-+		.clock_mc3	= 133000000,
-+		.clock_mc4	= 125000000,
-+		.espi_nports	= 1,
-+		.clock_elmer0	= 44,
-+		.mdio_mdien	= 0,
-+		.mdio_mdiinv	= 0,
-+		.mdio_mdc	= 1,
-+		.mdio_phybaseaddr = 0,
-+		.gmac		= &t1_pm3393_ops,
-+		.gphy		= &t1_mv88x201x_ops,
-+		.mdio_ops	= &mi1_mdio_ext_ops,
-+		.desc		= "Chelsio T210 1x10GBaseX TOE",
-+	},
-+
-+	{
-+		.board		= CHBT_BOARD_CHT210,
-+		.port_number	= 1,
-+		.caps		= SUPPORTED_10000baseT_Full,
-+		.chip_term	= CHBT_TERM_T2,
-+		.chip_mac	= CHBT_MAC_PM3393,
-+		.chip_phy	= CHBT_PHY_MY3126,
-+		.clock_core	= 125000000,
-+		.clock_mc3	= 133000000,
-+		.clock_mc4	= 125000000,
-+		.espi_nports	= 1,
-+		.clock_elmer0	= 44,
-+		.mdio_mdien	= 1,
-+		.mdio_mdiinv	= 1,
-+		.mdio_mdc	= 1,
-+		.mdio_phybaseaddr = 1,
-+		.gmac		= &t1_pm3393_ops,
-+		.gphy		= &t1_my3126_ops,
-+		.mdio_ops	= &mi1_mdio_ext_ops,
-+		.desc		= "Chelsio T210 1x10GBase-CX4 TOE",
-+	},
- 
- #ifdef CONFIG_CHELSIO_T1_1G
--{ CHBT_BOARD_CHN204, 4/*ports#*/,
--  SUPPORTED_10baseT_Half | SUPPORTED_10baseT_Full | SUPPORTED_100baseT_Half |
--  SUPPORTED_100baseT_Full | SUPPORTED_1000baseT_Full | SUPPORTED_Autoneg |
--  SUPPORTED_PAUSE | SUPPORTED_TP /*caps*/, CHBT_TERM_T2, CHBT_MAC_VSC7321, CHBT_PHY_88E1111,
--  100000000/*clk-core*/, 0/*clk-mc3*/, 0/*clk-mc4*/,
--  4/*espi-ports*/, 0/*clk-cspi*/, 44/*clk-elmer0*/, 0/*mdien*/,
--  0/*mdiinv*/, 1/*mdc*/, 4/*phybaseaddr*/, &t1_vsc7326_ops,
--  &t1_mv88e1xxx_ops, &mi1_mdio_ops,
--  "Chelsio N204 4x100/1000BaseT NIC" },
-+	{
-+		.board		= CHBT_BOARD_CHN204,
-+		.port_number	= 4,
-+		.caps		= SUPPORTED_10baseT_Half | SUPPORTED_10baseT_Full
-+				| SUPPORTED_100baseT_Half | SUPPORTED_100baseT_Full
-+				| SUPPORTED_1000baseT_Full | SUPPORTED_Autoneg |
-+				  SUPPORTED_PAUSE | SUPPORTED_TP,
-+		.chip_term	= CHBT_TERM_T2,
-+		.chip_mac	= CHBT_MAC_VSC7321,
-+		.chip_phy	= CHBT_PHY_88E1111,
-+		.clock_core	= 100000000,
-+		.espi_nports	= 4,
-+		.clock_elmer0	= 44,
-+		.mdio_mdien	= 0,
-+		.mdio_mdiinv	= 0,
-+		.mdio_mdc	= 0,
-+		.mdio_phybaseaddr = 4,
-+		.gmac		= &t1_vsc7326_ops,
-+		.gphy		= &t1_mv88e1xxx_ops,
-+		.mdio_ops	= &mi1_mdio_ops,
-+		.desc		= "Chelsio N204 4x100/1000BaseT NIC",
-+	},
- #endif
- 
- };
+Probably the best thing to do is pull the whole delayed work queue
+and auto port speed stuff. When STP is moved to user space then
+it can do the ethtool op there.
+
+
+
 
 -- 
-
+Stephen Hemminger <shemminger@linux-foundation.org>
