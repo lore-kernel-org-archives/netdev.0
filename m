@@ -1,258 +1,257 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH 13/29] netvm: link network to vm layer
-Date: Wed, 21 Feb 2007 15:43:17 +0100
-Message-ID: <20070221144842.828329000@taijtu.programming.kicks-ass.net>
+Subject: [PATCH 22/29] mm: add support for non block device backed swap files
+Date: Wed, 21 Feb 2007 15:43:26 +0100
+Message-ID: <20070221144843.702331000@taijtu.programming.kicks-ass.net>
 References: <20070221144304.512721000@taijtu.programming.kicks-ass.net>
 Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
 	Trond Myklebust <trond.myklebust@fys.uio.no>,
 	Thomas Graf <tgraf@suug.ch>, David Miller <davem@davemloft.net>
 To: linux-kernel@vger.kernel.org, linux-mm@kvack.org,
 	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161301AbXBUPgx@vger.kernel.org>
-Content-Disposition: inline; filename=netvm-reserve.patch
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161304AbXBUPhK@vger.kernel.org>
+Content-Disposition: inline; filename=mm-swapfile.patch
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hook up networking to the memory reserve.
+A new addres_space_operations method is added:
+  int swapfile(struct address_space *, int)
 
-There are two kinds of reserves: skb and aux. 
- - skb reserves are used for incomming packets,
- - aux reserves are used for processing these packets.
+When during sys_swapon() this method is found and returns no error the 
+swapper_space.a_ops will proxy to sis->swap_file->f_mapping->a_ops.
 
-The consumers for these reserves are sockets marked with:
-  SOCK_VMIO
-
-Such sockets are to be used to service the VM (iow. to swap over). They
-must be handled kernel side, exposing such a socket to user-space is a BUG.
+The swapfile method will be used to communicate to the address_space that the
+VM relies on it, and the address_space should take adequate measures (like 
+reserving memory for mempools or the like).
 
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
+CC: Trond Myklebust <trond.myklebust@fys.uio.no>
 ---
- include/net/sock.h |   31 ++++++++++++
- net/Kconfig        |    3 +
- net/core/sock.c    |  134 +++++++++++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 168 insertions(+)
+ Documentation/filesystems/Locking |    9 ++++++++
+ include/linux/fs.h                |    1 
+ include/linux/swap.h              |    3 ++
+ mm/Kconfig                        |    4 +++
+ mm/page_io.c                      |   42 ++++++++++++++++++++++++++++++++++++++
+ mm/swap_state.c                   |    4 +++
+ mm/swapfile.c                     |   22 +++++++++++++++++++
+ 7 files changed, 84 insertions(+), 1 deletion(-)
 
-Index: linux-2.6-git/include/net/sock.h
+Index: linux-2.6/include/linux/swap.h
 ===================================================================
---- linux-2.6-git.orig/include/net/sock.h	2007-02-20 15:06:17.000000000 +0100
-+++ linux-2.6-git/include/net/sock.h	2007-02-20 15:07:45.000000000 +0100
-@@ -392,6 +392,7 @@ enum sock_flags {
- 	SOCK_RCVTSTAMP, /* %SO_TIMESTAMP setting */
- 	SOCK_LOCALROUTE, /* route locally only, %SO_DONTROUTE setting */
- 	SOCK_QUEUE_SHRUNK, /* write queue has been shrunk recently */
-+	SOCK_VMIO, /* the VM depends on us - make sure we're serviced */
+--- linux-2.6.orig/include/linux/swap.h
++++ linux-2.6/include/linux/swap.h
+@@ -163,6 +163,7 @@ enum {
+ 	SWP_USED	= (1 << 0),	/* is slot in swap_info[] used? */
+ 	SWP_WRITEOK	= (1 << 1),	/* ok to write to this swap?	*/
+ 	SWP_ACTIVE	= (SWP_USED | SWP_WRITEOK),
++	SWP_FILE	= (1 << 2),	/* file swap area */
+ 					/* add others here before... */
+ 	SWP_SCANNING	= (1 << 8),	/* refcount in scan_swap_map */
  };
+@@ -265,6 +266,8 @@ extern int shmem_unuse(swp_entry_t entry
+ /* linux/mm/page_io.c */
+ extern int swap_readpage(struct file *, struct page *);
+ extern int swap_writepage(struct page *page, struct writeback_control *wbc);
++extern void swap_sync_page(struct page *page);
++extern int swap_set_page_dirty(struct page *page);
+ extern int end_swap_bio_read(struct bio *bio, unsigned int bytes_done, int err);
  
- static inline void sock_copy_flags(struct sock *nsk, struct sock *osk)
-@@ -414,6 +415,36 @@ static inline int sock_flag(struct sock 
- 	return test_bit(flag, &sk->sk_flags);
+ /* linux/mm/swap_state.c */
+Index: linux-2.6/mm/page_io.c
+===================================================================
+--- linux-2.6.orig/mm/page_io.c
++++ linux-2.6/mm/page_io.c
+@@ -17,6 +17,7 @@
+ #include <linux/bio.h>
+ #include <linux/swapops.h>
+ #include <linux/writeback.h>
++#include <linux/buffer_head.h>
+ #include <asm/pgtable.h>
+ 
+ static struct bio *get_swap_bio(gfp_t gfp_flags, pgoff_t index,
+@@ -110,6 +111,18 @@ int swap_writepage(struct page *page, st
+ 		unlock_page(page);
+ 		goto out;
+ 	}
++#ifdef CONFIG_SWAP_FILE
++	{
++		struct swap_info_struct *sis = page_swap_info(page);
++		if (sis->flags & SWP_FILE) {
++			ret = sis->swap_file->f_mapping->
++				a_ops->writepage(page, wbc);
++			if (!ret)
++				count_vm_event(PSWPOUT);
++			return ret;
++		}
++	}
++#endif
+ 	bio = get_swap_bio(GFP_NOIO, page_private(page), page,
+ 				end_swap_bio_write);
+ 	if (bio == NULL) {
+@@ -128,6 +141,23 @@ out:
+ 	return ret;
  }
  
-+static inline int sk_has_vmio(struct sock *sk)
++#ifdef CONFIG_SWAP_FILE
++int swap_set_page_dirty(struct page *page)
 +{
-+	return sock_flag(sk, SOCK_VMIO);
-+}
++	struct swap_info_struct *sis = page_swap_info(page);
 +
-+#define MAX_PAGES_PER_SKB 3
-+#define MAX_FRAGMENTS ((65536 + 1500 - 1) / 1500)
-+/*
-+ * Guestimate the per request queue TX upper bound.
-+ */
-+#define TX_RESERVE_PAGES \
-+	(4 * MAX_FRAGMENTS * MAX_PAGES_PER_SKB)
-+
-+extern atomic_t vmio_socks;
-+
-+static inline int sk_vmio_socks(void)
-+{
-+	return atomic_read(&vmio_socks);
-+}
-+
-+extern int rx_emergency_get(int bytes);
-+extern int rx_emergency_get_overcommit(int bytes);
-+extern void rx_emergency_put(int bytes);
-+
-+extern void sk_adjust_memalloc(int socks, int tx_reserve_pages);
-+extern void skb_reserve_memory(int skb_reserve_bytes);
-+extern void aux_reserve_memory(int aux_reserve_pages);
-+extern int sk_set_vmio(struct sock *sk);
-+extern int sk_clear_vmio(struct sock *sk);
-+
- static inline void sk_acceptq_removed(struct sock *sk)
- {
- 	sk->sk_ack_backlog--;
-Index: linux-2.6-git/net/core/sock.c
-===================================================================
---- linux-2.6-git.orig/net/core/sock.c	2007-02-20 15:06:17.000000000 +0100
-+++ linux-2.6-git/net/core/sock.c	2007-02-20 15:18:48.000000000 +0100
-@@ -112,6 +112,7 @@
- #include <linux/tcp.h>
- #include <linux/init.h>
- #include <linux/highmem.h>
-+#include <linux/log2.h>
- 
- #include <asm/uaccess.h>
- #include <asm/system.h>
-@@ -196,6 +197,138 @@ __u32 sysctl_rmem_default __read_mostly 
- /* Maximal space eaten by iovec or ancilliary data plus some space */
- int sysctl_optmem_max __read_mostly = sizeof(unsigned long)*(2*UIO_MAXIOV+512);
- 
-+static atomic_t rx_emergency_bytes;
-+
-+static int skb_reserve_bytes;
-+static int aux_reserve_pages;
-+
-+static DEFINE_SPINLOCK(memalloc_lock);
-+static int rx_net_reserve;
-+atomic_t vmio_socks;
-+EXPORT_SYMBOL_GPL(vmio_socks);
-+
-+/*
-+ * is there room for another emergency packet?
-+ * we account in power of two units to approx the slab allocator.
-+ */
-+static int __rx_emergency_get(int bytes, bool overcommit)
-+{
-+	int size = roundup_pow_of_two(bytes);
-+	int nr = atomic_add_return(size, &rx_emergency_bytes);
-+	int thresh = (3 * skb_reserve_bytes) / 2;
-+	if (nr < thresh || overcommit)
-+		return 1;
-+
-+	atomic_dec(&rx_emergency_bytes);
-+	return 0;
-+}
-+
-+int rx_emergency_get(int bytes)
-+{
-+	return __rx_emergency_get(bytes, false);
-+}
-+
-+int rx_emergency_get_overcommit(int bytes)
-+{
-+	return __rx_emergency_get(bytes, true);
-+}
-+
-+void rx_emergency_put(int bytes)
-+{
-+	int size = roundup_pow_of_two(bytes);
-+	return atomic_sub(size, &rx_emergency_bytes);
-+}
-+
-+/**
-+ *	sk_adjust_memalloc - adjust the global memalloc reserve for critical RX
-+ *	@socks: number of new %SOCK_VMIO sockets
-+ *	@tx_resserve_pages: number of pages to (un)reserve for TX
-+ *
-+ *	This function adjusts the memalloc reserve based on system demand.
-+ *	The RX reserve is a limit, and only added once, not for each socket.
-+ *
-+ *	NOTE:
-+ *	   @tx_reserve_pages is an upper-bound of memory used for TX hence
-+ *	   we need not account the pages like we do for RX pages.
-+ */
-+void sk_adjust_memalloc(int socks, int tx_reserve_pages)
-+{
-+	unsigned long flags;
-+	int reserve = tx_reserve_pages;
-+	int nr_socks;
-+
-+	spin_lock_irqsave(&memalloc_lock, flags);
-+	nr_socks = atomic_add_return(socks, &vmio_socks);
-+	BUG_ON(nr_socks < 0);
-+
-+	if (nr_socks) {
-+		int skb_reserve_pages = skb_reserve_bytes / PAGE_SIZE;
-+		int rx_pages = 2 * skb_reserve_pages + aux_reserve_pages;
-+		reserve += rx_pages - rx_net_reserve;
-+		rx_net_reserve = rx_pages;
-+	} else {
-+		reserve -= rx_net_reserve;
-+		rx_net_reserve = 0;
++	if (sis->flags & SWP_FILE) {
++		const struct address_space_operations * a_ops =
++			sis->swap_file->f_mapping->a_ops;
++		if (a_ops->set_page_dirty)
++			return a_ops->set_page_dirty(page);
++		return __set_page_dirty_buffers(page);
 +	}
 +
-+	if (reserve)
-+		adjust_memalloc_reserve(reserve);
-+	spin_unlock_irqrestore(&memalloc_lock, flags);
++	return __set_page_dirty_nobuffers(page);
 +}
-+EXPORT_SYMBOL_GPL(sk_adjust_memalloc);
-+
-+/*
-+ * tiny helper functions to track the memory reserves
-+ * needed because of modular ipv6
-+ */
-+void skb_reserve_memory(int bytes)
-+{
-+	skb_reserve_bytes += bytes;
-+	sk_adjust_memalloc(0, 0);
-+}
-+EXPORT_SYMBOL_GPL(skb_reserve_memory);
-+
-+void aux_reserve_memory(int pages)
-+{
-+	aux_reserve_pages += pages;
-+	sk_adjust_memalloc(0, 0);
-+}
-+EXPORT_SYMBOL_GPL(aux_reserve_memory);
-+
-+/**
-+ *	sk_set_vmio - sets %SOCK_VMIO
-+ *	@sk: socket to set it on
-+ *
-+ *	Set %SOCK_VMIO on a socket and increase the memalloc reserve
-+ *	accordingly.
-+ */
-+int sk_set_vmio(struct sock *sk)
-+{
-+	int set = sock_flag(sk, SOCK_VMIO);
-+#ifndef CONFIG_NETVM
-+	BUG();
 +#endif
-+	if (!set) {
-+		sk_adjust_memalloc(1, 0);
-+		sock_set_flag(sk, SOCK_VMIO);
-+		sk->sk_allocation |= __GFP_EMERGENCY;
-+	}
-+	return !set;
-+}
-+EXPORT_SYMBOL_GPL(sk_set_vmio);
 +
-+int sk_clear_vmio(struct sock *sk)
-+{
-+	int set = sock_flag(sk, SOCK_VMIO);
-+	if (set) {
-+		sk_adjust_memalloc(-1, 0);
-+		sock_reset_flag(sk, SOCK_VMIO);
-+		sk->sk_allocation &= ~__GFP_EMERGENCY;
-+	}
-+	return set;
-+}
-+EXPORT_SYMBOL_GPL(sk_clear_vmio);
-+
- static int sock_set_timeout(long *timeo_p, char __user *optval, int optlen)
+ int swap_readpage(struct file *file, struct page *page)
  {
- 	struct timeval tv;
-@@ -868,6 +1001,7 @@ void sk_free(struct sock *sk)
- 	struct sk_filter *filter;
- 	struct module *owner = sk->sk_prot_creator->owner;
+ 	struct bio *bio;
+@@ -135,6 +165,18 @@ int swap_readpage(struct file *file, str
  
-+	sk_clear_vmio(sk);
- 	if (sk->sk_destruct)
- 		sk->sk_destruct(sk);
- 
-Index: linux-2.6-git/net/Kconfig
+ 	BUG_ON(!PageLocked(page));
+ 	ClearPageUptodate(page);
++#ifdef CONFIG_SWAP_FILE
++	{
++		struct swap_info_struct *sis = page_swap_info(page);
++		if (sis->flags & SWP_FILE) {
++			ret = sis->swap_file->f_mapping->
++				a_ops->readpage(sis->swap_file, page);
++			if (!ret)
++				count_vm_event(PSWPIN);
++			return ret;
++		}
++	}
++#endif
+ 	bio = get_swap_bio(GFP_KERNEL, page_private(page), page,
+ 				end_swap_bio_read);
+ 	if (bio == NULL) {
+Index: linux-2.6/mm/swap_state.c
 ===================================================================
---- linux-2.6-git.orig/net/Kconfig	2007-02-20 14:42:09.000000000 +0100
-+++ linux-2.6-git/net/Kconfig	2007-02-20 15:06:17.000000000 +0100
-@@ -227,6 +227,9 @@ config WIRELESS_EXT
- config FIB_RULES
- 	bool
+--- linux-2.6.orig/mm/swap_state.c
++++ linux-2.6/mm/swap_state.c
+@@ -26,7 +26,11 @@
+  */
+ static const struct address_space_operations swap_aops = {
+ 	.writepage	= swap_writepage,
++#ifdef CONFIG_SWAP_FILE
++	.set_page_dirty	= swap_set_page_dirty,
++#else
+ 	.set_page_dirty	= __set_page_dirty_nobuffers,
++#endif
+ 	.migratepage	= migrate_page,
+ };
  
-+config NETVM
-+	def_bool n
+Index: linux-2.6/mm/swapfile.c
+===================================================================
+--- linux-2.6.orig/mm/swapfile.c
++++ linux-2.6/mm/swapfile.c
+@@ -948,6 +948,13 @@ static void destroy_swap_extents(struct 
+ 		list_del(&se->list);
+ 		kfree(se);
+ 	}
++#ifdef CONFIG_SWAP_FILE
++	if (sis->flags & SWP_FILE) {
++		sis->flags &= ~SWP_FILE;
++		sis->swap_file->f_mapping->a_ops->
++			swapfile(sis->swap_file->f_mapping, 0);
++	}
++#endif
+ }
+ 
+ /*
+@@ -1040,6 +1047,19 @@ static int setup_swap_extents(struct swa
+ 		goto done;
+ 	}
+ 
++#ifdef CONFIG_SWAP_FILE
++	if (sis->swap_file->f_mapping->a_ops->swapfile) {
++		ret = sis->swap_file->f_mapping->a_ops->
++			swapfile(sis->swap_file->f_mapping, 1);
++		if (!ret) {
++			sis->flags |= SWP_FILE;
++			ret = add_swap_extent(sis, 0, sis->max, 0);
++			*span = sis->pages;
++		}
++		goto done;
++	}
++#endif
 +
- endif   # if NET
- endmenu # Networking
+ 	blkbits = inode->i_blkbits;
+ 	blocks_per_page = PAGE_SIZE >> blkbits;
  
+@@ -1603,7 +1623,7 @@ asmlinkage long sys_swapon(const char __
+ 
+ 	mutex_lock(&swapon_mutex);
+ 	spin_lock(&swap_lock);
+-	p->flags = SWP_ACTIVE;
++	p->flags |= SWP_WRITEOK;
+ 	nr_swap_pages += nr_good_pages;
+ 	total_swap_pages += nr_good_pages;
+ 
+Index: linux-2.6/include/linux/fs.h
+===================================================================
+--- linux-2.6.orig/include/linux/fs.h
++++ linux-2.6/include/linux/fs.h
+@@ -428,6 +428,7 @@ struct address_space_operations {
+ 	int (*migratepage) (struct address_space *,
+ 			struct page *, struct page *);
+ 	int (*launder_page) (struct page *);
++	int (*swapfile)(struct address_space *, int);
+ };
+ 
+ struct backing_dev_info;
+Index: linux-2.6/Documentation/filesystems/Locking
+===================================================================
+--- linux-2.6.orig/Documentation/filesystems/Locking
++++ linux-2.6/Documentation/filesystems/Locking
+@@ -172,6 +172,7 @@ prototypes:
+ 	int (*direct_IO)(int, struct kiocb *, const struct iovec *iov,
+ 			loff_t offset, unsigned long nr_segs);
+ 	int (*launder_page) (struct page *);
++	int (*swapfile) (struct address_space *, int);
+ 
+ locking rules:
+ 	All except set_page_dirty may block
+@@ -190,6 +191,7 @@ invalidatepage:		no	yes
+ releasepage:		no	yes
+ direct_IO:		no
+ launder_page:		no	yes
++swapfile		no
+ 
+ 	->prepare_write(), ->commit_write(), ->sync_page() and ->readpage()
+ may be called from the request handler (/dev/loop).
+@@ -289,6 +291,13 @@ cleaned, or an error value if not. Note 
+ getting mapped back in and redirtied, it needs to be kept locked
+ across the entire operation.
+ 
++	->swapfile() will be called with a non zero argument on address spaces
++backing non block device backed swapfiles. A return value of zero indicates
++success. In which case this address space can be used for backing swapspace.
++The swapspace operations will be proxied to the address space operations.
++Swapoff will call this method with a zero argument to release the address
++space.
++
+ 	Note: currently almost all instances of address_space methods are
+ using BKL for internal serialization and that's one of the worst sources
+ of contention. Normally they are calling library functions (in fs/buffer.c)
+Index: linux-2.6/mm/Kconfig
+===================================================================
+--- linux-2.6.orig/mm/Kconfig
++++ linux-2.6/mm/Kconfig
+@@ -165,6 +165,9 @@ config ZONE_DMA_FLAG
+ 
+ config SLAB_FAIR
+ 	def_bool n
++
++config SWAP_FILE
++	def_bool n
+ #
+ # Adaptive file readahead
+ #
 
 -- 
