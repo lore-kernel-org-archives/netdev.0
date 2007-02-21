@@ -1,43 +1,40 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+From: Eric Dumazet <dada1@cosmosbay.com>
 Subject: Re: Extensible hashing and RCU
-Date: Wed, 21 Feb 2007 11:56:08 +0300
-Message-ID: <20070221085608.GC1903@2ka.mipt.ru>
-References: <200702191913.08125.dada1@cosmosbay.com> <200702201738.19590.dada1@cosmosbay.com> <20070220165907.GB24930@2ka.mipt.ru> <200702201820.27095.dada1@cosmosbay.com> <20070220175550.GB26961@2ka.mipt.ru> <20070220181217.GA3401@2ka.mipt.ru> <f2b55d220702201113m12355e5ds584cede246d4728c@mail.gmail.com> <20070220194409.GB5590@2ka.mipt.ru> <f2b55d220702201203m2f188253h7f68d5be9a457f4a@mail.gmail.com> <f2b55d220702201209m6d6a276fj75f3462cdf6daeb@mail.gmail.com>
+Date: Wed, 21 Feb 2007 10:15:11 +0100
+Message-ID: <200702211015.11975.dada1@cosmosbay.com>
+References: <200702191913.08125.dada1@cosmosbay.com> <f2b55d220702201203m2f188253h7f68d5be9a457f4a@mail.gmail.com> <20070221085406.GB1903@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: Eric Dumazet <dada1@cosmosbay.com>,
+Content-Type: text/plain;
+  charset="koi8-r"
+Content-Transfer-Encoding: 7bit
+Cc: "Michael K. Edwards" <medwards.linux@gmail.com>,
 	David Miller <davem@davemloft.net>, akepner@sgi.com,
 	linux@horizon.com, netdev@vger.kernel.org, bcrl@kvack.org
-To: "Michael K. Edwards" <medwards.linux@gmail.com>
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:42187 "EHLO 2ka.mipt.ru"
+Received: from pfx2.jmh.fr ([194.153.89.55]:52545 "EHLO pfx2.jmh.fr"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1161143AbXBUI5X (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Feb 2007 03:57:23 -0500
+	id S1161152AbXBUJPW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Feb 2007 04:15:22 -0500
+In-Reply-To: <20070221085406.GB1903@2ka.mipt.ru>
 Content-Disposition: inline
-In-Reply-To: <f2b55d220702201209m6d6a276fj75f3462cdf6daeb@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Feb 20, 2007 at 12:09:59PM -0800, Michael K. Edwards (medwards.linux@gmail.com) wrote:
-> On 2/20/07, Michael K. Edwards <medwards.linux@gmail.com> wrote:
-> >Correct.  That's called a "weak hash", and Jenkins is known to be a
-> >thoroughly weak hash.  That's why you never, ever use it without a
-> >salt, and you don't let an attacker inspect the hash output either.
-> 
-> Weak in a cryptographic sense, of course.  Excellent avalanche
-> behavior, though, which is what you care about in a salted hash.
-> http://en.wikipedia.org/wiki/Hash_table
+On Wednesday 21 February 2007 09:54, Evgeniy Polyakov wrote:
+> I shown that numbers 4 times already, do you read mails and links?
+> Did you see an artifact Eric showed with his data?
+>
 
-I repeat again - add your salt into jenkins hash and I will show you
-that it has the same problems.
-So, I'm waiting for your patch for jhash_*_words().
+I showed all your thinking is wrong.
 
-> I know nothing about data structures and algorithms except what I read
-> on the Internet.  But you'd be amazed what's on the Internet.
-> 
-> Cheers,
-> - Michael
+Some guys think MD5 checksum is full of artifacts, since its certainly 
+possible to construct two differents files having the same md5sum.
+Yet, lot of people use md5 checksums. In 10 years, we probably switch to 
+another stronger hash. Its only a question of current state of the art.
 
--- 
-	Evgeniy Polyakov
+Jenkins hash is far better than XOR, at least in the tcp ehash context.
+
+Some hackers already exploited the XOR hash weak, more than two years ago.
+They never succeeded since I changed to Jenkins hash.
+
