@@ -1,58 +1,42 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [git patches] net driver updates
-Date: Thu, 22 Feb 2007 10:48:30 -0500
-Message-ID: <1172159310.5114.2.camel@localhost.localdomain>
-References: <6.1.1.1.2.20070221124144.04783fb8@192.168.6.12>
-	 <20070221132754.GA4978@tuxdriver.com>
+From: "Angelo P. Castellani" <angelo.castellani@gmail.com>
+Subject: Re: [PATCH 2/2][TCP] YeAH-TCP: limited slow start exported function
+Date: Thu, 22 Feb 2007 17:08:37 +0100
+Message-ID: <8dd26e70702220808s49a11c03p83da65c164808f52@mail.gmail.com>
+References: <45D97D5D.9040101@gmail.com>
+	 <20070222.002147.10299202.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Roger While <simrw@sim-basis.de>, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org
-To: jeff@garzik.org
+Cc: netdev@vger.kernel.org, andrea.baiocchi@uniroma1.it,
+	francesco@net.infocom.uniroma1.it
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:33006 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751662AbXBVPpg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Feb 2007 10:45:36 -0500
-In-Reply-To: <20070221132754.GA4978@tuxdriver.com>
+Received: from nf-out-0910.google.com ([64.233.182.184]:54890 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750741AbXBVQIi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Feb 2007 11:08:38 -0500
+Received: by nf-out-0910.google.com with SMTP id o25so568104nfa
+        for <netdev@vger.kernel.org>; Thu, 22 Feb 2007 08:08:37 -0800 (PST)
+In-Reply-To: <20070222.002147.10299202.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2007-02-21 at 08:27 -0500, John W. Linville wrote:
-> On Wed, Feb 21, 2007 at 12:46:46PM +0100, Roger While wrote:
-> > 
-> > >
-> > >Dan Williams (1):
-> > >      prism54: correct assignment of DOT1XENABLE in WE-19 codepaths
-> > 
-> > Where did this spring from ?
-> > I see no posting of this patch let alone
-> > an ACK.
-> > The patch is also doing rather more than the description -
-> > It is inserting extra breaks into a switch statement with
-> > no comment as to why.
-> 
-> Dan posted it to linux-wireless@vger.kernel.org on 13 Feb 2007.
-> The description in the body is quoted below:
+Ok, I've missed this bit in the submitting patches documentation..
+however sorry for that.
 
-It was also posted to stable@kernel.org and accepted for 2.6.19 and
-2.6.20.
-
-Dan
-
-> 	Correct assignment of DOT1XENABLE in WE-19 codepaths.
-> 	RX_UNENCRYPTED_EAPOL = 1 really means setting DOT1XENABLE _off_, and
-> 	vice versa.  The original WE-19 patch erroneously reversed that.  This
-> 	patch fixes association with unencrypted and WEP networks when using
-> 	wpa_supplicant.
-> 	
-> 	It also adds two missing break statements that, left out, could result
-> 	in incorrect card configuration.
-> 	
-> 	Please commit to both development and stable branches.
-> 
-> Hth...
-> 
-> John
-
+2007/2/22, David Miller <davem@davemloft.net>:
+> Please never submit patches like this, submit the infrastructure
+> FIRST, then submit the stuff that uses it.  When a sequence of patches
+> is applied, in sequence, the tree should build properly (even with all
+> available new options enabled) at each step along the way.
+>
+> Otherwise we have the situation we have now, in that YeaH is in my
+> tree but doesn't build successfully.
+>
+> What I'm going to do to "fix" this, is yank YeaH implementation out
+> of my tree, add this second patch first, then add the YeaH patch
+> back.
+>
+> Please never do this again.
+>
