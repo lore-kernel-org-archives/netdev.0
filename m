@@ -1,36 +1,31 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: Slow connection with RTL8168b/8111b
-Date: Thu, 22 Feb 2007 09:06:33 +0100
-Message-ID: <20070222080633.GA6612@electric-eye.fr.zoreil.com>
-References: <88ab4080702210744s1ccf0c8cr504c4f007cc11062@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [GIT PULL] IPv6 Updates for 2.6.21-rc1
+Date: Thu, 22 Feb 2007 00:12:45 -0800 (PST)
+Message-ID: <20070222.001245.84975312.davem@davemloft.net>
+References: <20070221.232306.51841241.davem@davemloft.net>
+	<20070221.232735.107942036.davem@davemloft.net>
+	<20070222.164852.47947702.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Edward Hsu <edward_hsu@realtek.com>
-To: Dirk <biecie547@gmail.com>
+Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au,
+	yasuyuki.kozakai@toshiba.co.jp
+To: yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:41956 "EHLO
-	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751353AbXBVIMN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Feb 2007 03:12:13 -0500
-Content-Disposition: inline
-In-Reply-To: <88ab4080702210744s1ccf0c8cr504c4f007cc11062@mail.gmail.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51068
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751464AbXBVIMq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Feb 2007 03:12:46 -0500
+In-Reply-To: <20070222.164852.47947702.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Edward added to Cc:
+From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
+Date: Thu, 22 Feb 2007 16:48:52 +0900 (JST)
 
-Dirk <biecie547@gmail.com> :
-[...]
+> I think it's time to distribute all EXPORT_SYMBOL 
+> things in ipv6_syms.c to each file which each symbol is
+> actually defined.  Don't you think so?
 
-Can you try the patch below against 2.6.21-rc1:
+I very much agree.  Let's do this in 2.6.22
 
-http://www.fr.zoreil.com/people/francois/misc/20070221-2.6.21-rc1-r8169-test.patch
-
-A serie of incremental patches for the same changes is available at:
-http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.21-rc1/r8169
-
-I am still working on the patches: do not be surprized if there are big
-regressions.
-
--- 
-Ueimor
