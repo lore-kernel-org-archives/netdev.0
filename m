@@ -1,75 +1,136 @@
 From: divy@chelsio.com
-Subject: [PATCH 5/7] cxgb3 - Recovery from HW starvation of response queue
-	entries.
-Date: Thu, 22 Feb 2007 03:59:41 -0800
-Message-ID: <20070222115941.10055.45293.stgit@localhost.localdomain>
+Subject: [PATCH 2/7] cxgb3 - private ioctl cleanup
+Date: Thu, 22 Feb 2007 03:59:25 -0800
+Message-ID: <20070222115925.10001.61276.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	swise@opengridcomputing.com
 To: jeff@garzik.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.22.49.110]:28563 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1945982AbXBVL7p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Feb 2007 06:59:45 -0500
-Sender: netdev-owner@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1945975AbXBVL7d@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Divy Le Ray <divy@chelsio.com>
 
-Improve the traffic recovery after the HW ran out of response queue entries.
+Clean up some private ioctls.
 
 Signed-off-by: Divy Le Ray <divy@chelsio.com>
 ---
 
- drivers/net/cxgb3/adapter.h |    2 ++
- drivers/net/cxgb3/sge.c     |   15 ++++++++++++++-
- 2 files changed, 16 insertions(+), 1 deletions(-)
+ drivers/net/cxgb3/cxgb3_ioctl.h |   21 ++++-------------
+ drivers/net/cxgb3/cxgb3_main.c  |   48 +++------------------------------------
+ 2 files changed, 9 insertions(+), 60 deletions(-)
 
-diff --git a/drivers/net/cxgb3/adapter.h b/drivers/net/cxgb3/adapter.h
-index 5c97a64..01b99b9 100644
---- a/drivers/net/cxgb3/adapter.h
-+++ b/drivers/net/cxgb3/adapter.h
-@@ -121,6 +121,8 @@ struct sge_rspq {		/* state for an SGE r
- 	unsigned long empty;	/* # of times queue ran out of credits */
- 	unsigned long nomem;	/* # of responses deferred due to no mem */
- 	unsigned long unhandled_irqs;	/* # of spurious intrs */
-+	unsigned long starved;
-+	unsigned long restarted;
+diff --git a/drivers/net/cxgb3/cxgb3_ioctl.h b/drivers/net/cxgb3/cxgb3_ioctl.h
+index a942818..42d4bf6 100644
+--- a/drivers/net/cxgb3/cxgb3_ioctl.h
++++ b/drivers/net/cxgb3/cxgb3_ioctl.h
+@@ -36,28 +36,17 @@
+  * Ioctl commands specific to this driver.
+  */
+ enum {
+-	CHELSIO_SETREG = 1024,
+-	CHELSIO_GETREG,
+-	CHELSIO_SETTPI,
+-	CHELSIO_GETTPI,
+-	CHELSIO_GETMTUTAB,
++	CHELSIO_GETMTUTAB = 1024,
+ 	CHELSIO_SETMTUTAB,
+-	CHELSIO_GETMTU,
+-	CHELSIO_SET_PM,
+-	CHELSIO_GET_PM,
+-	CHELSIO_GET_TCAM,
+-	CHELSIO_SET_TCAM,
+-	CHELSIO_GET_TCB,
+ 	CHELSIO_GET_MEM,
+ 	CHELSIO_LOAD_FW,
+-	CHELSIO_GET_PROTO,
+-	CHELSIO_SET_PROTO,
+ 	CHELSIO_SET_TRACE_FILTER,
+-	CHELSIO_SET_QSET_PARAMS,
+ 	CHELSIO_GET_QSET_PARAMS,
+-	CHELSIO_SET_QSET_NUM,
++	CHELSIO_SET_QSET_PARAMS,
+ 	CHELSIO_GET_QSET_NUM,
+-	CHELSIO_SET_PKTSCHED,
++	CHELSIO_SET_QSET_NUM,
++	CHELSIO_GET_PM,
++	CHELSIO_SET_PM,
  };
  
- struct tx_desc;
-diff --git a/drivers/net/cxgb3/sge.c b/drivers/net/cxgb3/sge.c
-index 822a598..4ff0ab6 100644
---- a/drivers/net/cxgb3/sge.c
-+++ b/drivers/net/cxgb3/sge.c
-@@ -2376,13 +2376,26 @@ static void sge_timer_cb(unsigned long d
- 		spin_unlock(&qs->txq[TXQ_OFLD].lock);
+ struct ch_reg {
+diff --git a/drivers/net/cxgb3/cxgb3_main.c b/drivers/net/cxgb3/cxgb3_main.c
+index 59f2b51..7ff834e 100644
+--- a/drivers/net/cxgb3/cxgb3_main.c
++++ b/drivers/net/cxgb3/cxgb3_main.c
+@@ -1552,32 +1552,6 @@ static int cxgb_extension_ioctl(struct n
+ 		return -EFAULT;
+ 
+ 	switch (cmd) {
+-	case CHELSIO_SETREG:{
+-		struct ch_reg edata;
+-
+-		if (!capable(CAP_NET_ADMIN))
+-			return -EPERM;
+-		if (copy_from_user(&edata, useraddr, sizeof(edata)))
+-			return -EFAULT;
+-		if ((edata.addr & 3) != 0
+-			|| edata.addr >= adapter->mmio_len)
+-			return -EINVAL;
+-		writel(edata.val, adapter->regs + edata.addr);
+-		break;
+-	}
+-	case CHELSIO_GETREG:{
+-		struct ch_reg edata;
+-
+-		if (copy_from_user(&edata, useraddr, sizeof(edata)))
+-			return -EFAULT;
+-		if ((edata.addr & 3) != 0
+-			|| edata.addr >= adapter->mmio_len)
+-			return -EINVAL;
+-		edata.val = readl(adapter->regs + edata.addr);
+-		if (copy_to_user(useraddr, &edata, sizeof(edata)))
+-			return -EFAULT;
+-		break;
+-	}
+ 	case CHELSIO_SET_QSET_PARAMS:{
+ 		int i;
+ 		struct qset_params *q;
+@@ -1841,10 +1815,10 @@ static int cxgb_extension_ioctl(struct n
+ 			return -EINVAL;
+ 
+ 		/*
+-			* Version scheme:
+-			* bits 0..9: chip version
+-			* bits 10..15: chip revision
+-			*/
++		 * Version scheme:
++		 * bits 0..9: chip version
++		 * bits 10..15: chip revision
++		 */
+ 		t.version = 3 | (adapter->params.rev << 10);
+ 		if (copy_to_user(useraddr, &t, sizeof(t)))
+ 			return -EFAULT;
+@@ -1893,20 +1867,6 @@ static int cxgb_extension_ioctl(struct n
+ 						t.trace_rx);
+ 		break;
  	}
- 	lock = (adap->flags & USING_MSIX) ? &qs->rspq.lock :
--	    &adap->sge.qs[0].rspq.lock;
-+					    &adap->sge.qs[0].rspq.lock;
- 	if (spin_trylock_irq(lock)) {
- 		if (!napi_is_scheduled(qs->netdev)) {
-+			u32 status = t3_read_reg(adap, A_SG_RSPQ_FL_STATUS);
-+
- 			if (qs->fl[0].credits < qs->fl[0].size)
- 				__refill_fl(adap, &qs->fl[0]);
- 			if (qs->fl[1].credits < qs->fl[1].size)
- 				__refill_fl(adap, &qs->fl[1]);
-+
-+			if (status & (1 << qs->rspq.cntxt_id)) {
-+				qs->rspq.starved++;
-+				if (qs->rspq.credits) {
-+					refill_rspq(adap, &qs->rspq, 1);
-+					qs->rspq.credits--;
-+					qs->rspq.restarted++;
-+					t3_write_reg(adap, A_SG_RSPQ_FL_STATUS, 
-+						     1 << qs->rspq.cntxt_id);
-+				}
-+			}
- 		}
- 		spin_unlock_irq(lock);
+-	case CHELSIO_SET_PKTSCHED:{
+-		struct ch_pktsched_params p;
+-
+-		if (!capable(CAP_NET_ADMIN))
+-				return -EPERM;
+-		if (!adapter->open_device_map)
+-				return -EAGAIN;	/* uP and SGE must be running */
+-		if (copy_from_user(&p, useraddr, sizeof(p)))
+-				return -EFAULT;
+-		send_pktsched_cmd(adapter, p.sched, p.idx, p.min, p.max,
+-				  p.binding);
+-		break;
+-			
+-	}
+ 	default:
+ 		return -EOPNOTSUPP;
  	}
