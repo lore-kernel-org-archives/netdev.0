@@ -1,59 +1,45 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH 2/2][TCP] YeAH-TCP: limited slow start exported function
-Date: Thu, 22 Feb 2007 00:21:47 -0800 (PST)
-Message-ID: <20070222.002147.10299202.davem@davemloft.net>
+Date: Thu, 22 Feb 2007 00:27:04 -0800 (PST)
+Message-ID: <20070222.002704.34758758.davem@davemloft.net>
 References: <45D97D5D.9040101@gmail.com>
+	<45D97DC9.1030305@gmail.com>
+	<45DA0FD6.9020404@psc.edu>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andrea.baiocchi@uniroma1.it,
-	francesco@net.infocom.uniroma1.it
-To: angelo.castellani@gmail.com
+Cc: angelo.castellani@gmail.com, netdev@vger.kernel.org,
+	andrea.baiocchi@uniroma1.it, francesco@net.infocom.uniroma1.it
+To: jheffner@psc.edu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59902
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37677
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751475AbXBVIVs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Feb 2007 03:21:48 -0500
-In-Reply-To: <45D97D5D.9040101@gmail.com>
+	by vger.kernel.org with ESMTP id S1751456AbXBVI1F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Feb 2007 03:27:05 -0500
+In-Reply-To: <45DA0FD6.9020404@psc.edu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Angelo P. Castellani" <angelo.castellani@gmail.com>
-Date: Mon, 19 Feb 2007 11:35:09 +0100
+From: John Heffner <jheffner@psc.edu>
+Date: Mon, 19 Feb 2007 16:00:06 -0500
 
-> From: Angelo P. Castellani <angelo.castellani@gmail.con>
+> I'd prefer to make it apply automatically across all congestion controls 
+> that do slow-start, and also make the max_ssthresh parameter 
+> controllable via sysctl.  This patch (attached) should implement this. 
+> Note the default value for sysctl_tcp_max_ssthresh = 0, which disables 
+> limited slow-start.  This should make ABC apply during LSS as well.
 > 
-> RFC3742: limited slow start
-> 
-> See http://www.ietf.org/rfc/rfc3742.txt
-> 
-> Signed-off-by: Angelo P. Castellani <angelo.castellani@gmail.con>
-> ---
-> 
-> To allow code reutilization I've added the limited slow start procedure 
-> as an exported symbol of linux tcp congestion control.
-> 
-> On large BDP networks canonical slow start should be avoided because it 
-> requires large packet losses to converge, whereas at lower BDPs slow 
-> start and limited slow start are identical. Large BDP is defined through 
-> the max_ssthresh variable.
-> 
-> I think limited slow start could safely replace the canonical slow start 
-> procedure in Linux.
- ...
-> p.s.: in the attached patch is added an exported function currently used 
-> only by YeAH TCP
+> Note the patch is compile-tested only!  I can do some real testing if 
+> you'd like to apply this Dave.
 
-Please never submit patches like this, submit the infrastructure
-FIRST, then submit the stuff that uses it.  When a sequence of patches
-is applied, in sequence, the tree should build properly (even with all
-available new options enabled) at each step along the way.
+I'll apply this, but could you please also when making suggestions
+like this provide the patch necessary to kill the function added for
+YeaH and the call site in the YeaH algorithm?
 
-Otherwise we have the situation we have now, in that YeaH is in my
-tree but doesn't build successfully.
+When people post conflicting code bits for this for inclusion, it
+makes work very difficult for me.
 
-What I'm going to do to "fix" this, is yank YeaH implementation out
-of my tree, add this second patch first, then add the YeaH patch
-back.
+What I want to do right now is back everything out and let you guys
+sort it out, but I don't want to do that because it would mean that
+I just wasted an entire hour reviewing the YeaH patches. :-/
 
-Please never do this again.
