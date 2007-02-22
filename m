@@ -1,59 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Extensible hashing and RCU
-Date: Thu, 22 Feb 2007 01:06:38 -0800 (PST)
-Message-ID: <20070222.010638.27784211.davem@davemloft.net>
-References: <200702211038.24349.dada1@cosmosbay.com>
-	<20070221095755.GB308@2ka.mipt.ru>
-	<f2b55d220702211315h1266d25el4a0f46c4fb65e12a@mail.gmail.com>
+Subject: Re: [PATCH 1/4] bridge: get rid of miscdevice include
+Date: Thu, 22 Feb 2007 01:09:05 -0800 (PST)
+Message-ID: <20070222.010905.57155690.davem@davemloft.net>
+References: <20070221224107.741532037@linux-foundation.org>
+	<20070221224255.581096490@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: johnpol@2ka.mipt.ru, dada1@cosmosbay.com, akepner@sgi.com,
-	linux@horizon.com, netdev@vger.kernel.org, bcrl@kvack.org
-To: medwards.linux@gmail.com
+Cc: netdev@vger.kernel.org, bridge@linux-foundation.org
+To: shemminger@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60332
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60341
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1945953AbXBVJGj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Feb 2007 04:06:39 -0500
-In-Reply-To: <f2b55d220702211315h1266d25el4a0f46c4fb65e12a@mail.gmail.com>
+	by vger.kernel.org with ESMTP id S932889AbXBVJJG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Feb 2007 04:09:06 -0500
+In-Reply-To: <20070221224255.581096490@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Michael K. Edwards" <medwards.linux@gmail.com>
-Date: Wed, 21 Feb 2007 13:15:51 -0800
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Date: Wed, 21 Feb 2007 14:41:08 -0800
 
-> it had better be a 2-left hash with a compact
-> overflow pool for the rare case of second collision.
+> The bridge hasn't used miscdevice for a long long time.
 
-Just like Evgeniy, you should do your research too :-))))
+Applied, thanks Stephen.
 
-The gain for multiple-hash schemes, such as 2-left, exists only if you
-can parallelize the N lookups in hardware.  This is an assumption
-built into all the papers you will read on this subject, including the
-one you reference by Mitzenmacher.
+> Signed-off-by: StephenHemminger <shemminger@linux-foundtion.org>
+                      ^^^^                              ^^^^
 
-If you read any paper on IP route lookup algorithms, prefix
-your reading of that paper with something that reads like:
+You don't type these in by hand do you? :-)
 
-	And by the way we are targeting implementations in
-	hardware that can parallelize and pipeline memory
-	accesses to fast SRAM.  Do not consider this algorithm
-	seriously for running on general purpose processors
-	in software.
-
-Probably a few read's of Network Algorithmics would help your
-understanding in this area as well.
-
-Tries and similar structures do help in the case of our routing
-because we're going from a potential 32-hashtable probe down
-to a relatively small number of probes into a trie.  That's what
-Robert's LC-Trie and upcoming TRASH work do.
-
-But it won't help the same when going from hashes to a trie,
-as would be the case for TCP.
-
-If we can get the sockets into the TRASH entries, as Eric will
-experiment with, we'll be able to eliminate the TCP hash lookup
-in the fast path entirely.  It is the only reasonable suggestion
-I've seen made in this area to date.
+Time to put your signoff into a text file and use the insert-from-file
+feature of your favorite editor or similar :-)
