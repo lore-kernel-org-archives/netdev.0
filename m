@@ -1,62 +1,43 @@
 From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: Extensible hashing and RCU
-Date: Thu, 22 Feb 2007 11:24:51 -0800
-Message-ID: <20070222112451.47490630@freekitty>
-References: <f2b55d220702211315h1266d25el4a0f46c4fb65e12a@mail.gmail.com>
-	<20070222.010638.27784211.davem@davemloft.net>
-	<f2b55d220702220300t4734dd9bxb97f8f63724817f9@mail.gmail.com>
-	<20070222.030755.130841135.davem@davemloft.net>
+Subject: Re: [PATCH 1/2][TCP] YeAH-TCP: algorithm implementation
+Date: Thu, 22 Feb 2007 11:36:36 -0800
+Message-ID: <20070222113636.28ba1896@freekitty>
+References: <45D97C62.5070406@gmail.com>
+	<20070222.001918.55725416.davem@davemloft.net>
+	<8dd26e70702220810x21c8d494u1200de1c02d23d57@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: medwards.linux@gmail.com, johnpol@2ka.mipt.ru, dada1@cosmosbay.com,
-	akepner@sgi.com, linux@horizon.com, netdev@vger.kernel.org,
-	bcrl@kvack.org
-To: David Miller <davem@davemloft.net>
+Cc: "David Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	francesco@net.infocom.uniroma1.it, andrea.baiocchi@uniroma1.it
+To: "Angelo P. Castellani" <angelo.castellani@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:34689 "EHLO smtp.osdl.org"
+Received: from smtp.osdl.org ([65.172.181.24]:34999 "EHLO smtp.osdl.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751777AbXBVT1p (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Feb 2007 14:27:45 -0500
-In-Reply-To: <20070222.030755.130841135.davem@davemloft.net>
+	id S1751788AbXBVTgt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Feb 2007 14:36:49 -0500
+In-Reply-To: <8dd26e70702220810x21c8d494u1200de1c02d23d57@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 22 Feb 2007 03:07:55 -0800 (PST)
-David Miller <davem@davemloft.net> wrote:
+Minor comments:
 
-> From: "Michael K. Edwards" <medwards.linux@gmail.com>
-> Date: Thu, 22 Feb 2007 03:00:32 -0800
-> 
-> > Besides, RCUing a hash of any sort sounds like a nightmare, whereas
-> > something like a splay tree is reputed to be very straightforward to
-> > make "persistent" in the functional-programming sense.  I haven't
-> > coded that one myself but surely it's in the current edition of Knuth.
-> 
-> Knuth tends to be thorough, yet archaic. :-)
-> 
-> > You are much better off obtaining all per-flow state with a
-> > single data structure lookup.  It would be kind of nice if state for
-> > other layers like IPSec and NAT could live there too.
-> 
-> This is the eventual idea.
-> 
-> > By the way, are these flows unidirectional or bidirectional?
-> 
-> The entries created by Robert's TRASH are unidirectional, they have to
-> be because the path from remote to localhost is different than the
-> path from localhost to remote :-)
-> 
-> But we don't need to do a socket demux on packet output, we just
-> need a plain route (+ firewall, IPSEC, etc.) destination cache
-> entry for that.
-> -
+1. Please move  div64_64 out of yeah-tcp (and cubic where you copied it).
+   to asm-generic/div64.h
 
+2. Don't need separate tcp_yeah.h just put it in tcp_yeah.c. Also, maybe
+   the vegas stuff you copied should go in one place? tcp/vegas.h?
 
-There are a number of other lock-less algorithms rather than simple RCU
-that might be worth exploring. A number of them rely on a working implementation
-of compare-exchange; that can be a problem since some architectures don't have
-a fast way of doing that.
+3. whitespace:
+	don't do:
+		x+=someexpression
+		... = max( x, ...
+	instead:
+		x += someexpression
+		... = max(x, ...
+	Using indent script in scripts/Lindent will fix these.
 
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+4. See if you can replace uses of min_t and max_t with min and max by having
+   proper matching types on args. Basically if you need to cast maybe original
+   type was wrong.
+
