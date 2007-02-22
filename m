@@ -1,40 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHSET 0/18] FRTO: fixes and small changes + SACK enhanced
- version
-Date: Thu, 22 Feb 2007 05:33:58 -0800 (PST)
-Message-ID: <20070222.053358.92582060.davem@davemloft.net>
-References: <11717439662097-git-send-email-ilpo.jarvinen@helsinki.fi>
-	<20070222.001519.66175915.davem@davemloft.net>
-	<Pine.LNX.4.64.0702221305380.19465@kivilampi-30.cs.helsinki.fi>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [Bug 8013] New: select for write hangs on a socket after write returned ECONNRESET
+Date: Thu, 22 Feb 2007 16:46:21 +0300
+Message-ID: <20070222134620.GC5208@2ka.mipt.ru>
+References: <20070216183426.GA3138@2ka.mipt.ru> <20070221.224543.95508003.davem@davemloft.net> <20070222121427.GA29455@2ka.mipt.ru> <20070222.053138.74748069.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: ilpo.jarvinen@helsinki.fi
+Content-Type: text/plain; charset=koi8-r
+Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44537
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751602AbXBVNd7 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Feb 2007 08:33:59 -0500
-In-Reply-To: <Pine.LNX.4.64.0702221305380.19465@kivilampi-30.cs.helsinki.fi>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:59752 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932069AbXBVNr7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Feb 2007 08:47:59 -0500
+Content-Disposition: inline
+In-Reply-To: <20070222.053138.74748069.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
-Date: Thu, 22 Feb 2007 14:25:32 +0200 (EET)
+On Thu, Feb 22, 2007 at 05:31:38AM -0800, David Miller (davem@davemloft.net) wrote:
+> TCP_CLOSE is where we end up on a non-error close too, this has
+> the same kind of bug as your previous attempt to set POLLERR
+> here.
+> 
+> One side gets TCP_TIMEWAIT the other goes straight to TCP_CLOSE.
+> 
+> It really is not possible to change current semantics, they are the
+> best possible unfortunately.
 
-> Before preparing the submittable spurious RTO responses patch, I woul=
-d=20
-> like to know what is the preferred style for the response selector co=
-de=20
-> (I'm controlling the response through frto_response sysctl)? switch? =
-array=20
-> of function pointers? If array, where to place it (considering the ne=
-ed=20
-> for forward declarations and mixing of code and data in some approach=
-es)?
+AS a last attempt - we can have a sockt flag set when sk-err is
+installed in tcp_reset(), and tcp_poll() will set POLLERR if that flag
+exist (just like it checks for sk_err, which is cleared in tcp_sendmsg()
+when error is being returned).
 
-If it's just in the FRTO paths and controlled by sysctl, and the number
-of cases are relatively small, just a set of if() tests or a
-switch() statement would work fine.
+-- 
+	Evgeniy Polyakov
