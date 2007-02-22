@@ -1,41 +1,42 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH 2/7] cxgb3 - private ioctl cleanup
-Date: Thu, 22 Feb 2007 23:11:24 +0900 (JST)
-Message-ID: <20070222.231124.58336645.yoshfuji@linux-ipv6.org>
-References: <45DD8DDA.8060303@chelsio.com>
-	<20070222.213915.89824941.yoshfuji@linux-ipv6.org>
-	<45DD917D.5010807@chelsio.com>
+From: Steve Wise <swise@opengridcomputing.com>
+Subject: Re: [PATCH 0/7] cxgb3 - Chelsio T3 1G/10G driver updates
+Date: Thu, 22 Feb 2007 08:13:17 -0600
+Message-ID: <1172153597.23995.9.camel@stevo-desktop>
+References: <45DD8559.7090106@chelsio.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, swise@opengridcomputing.com,
-	yoshfuji@linux-ipv6.org
-To: divy@chelsio.com
+Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	openib-general <openib-general@openib.org>
+To: Divy Le Ray <divy@chelsio.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:57101 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932080AbXBVOLR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Feb 2007 09:11:17 -0500
-In-Reply-To: <45DD917D.5010807@chelsio.com>
+Received: from rrcs-24-153-217-226.sw.biz.rr.com ([24.153.217.226]:35719 "EHLO
+	smtp.opengridcomputing.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932081AbXBVONT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Feb 2007 09:13:19 -0500
+In-Reply-To: <45DD8559.7090106@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In article <45DD917D.5010807@chelsio.com> (at Thu, 22 Feb 2007 04:50:05 -0800), Divy Le Ray <divy@chelsio.com> says:
+Divy,
 
-> > Even if you remove them, PLEASE DO NOT CHANGE THE VALUES,
-> > unless you have very, very good reason.
-:
-> The cxgb3 driver has not yet appeared in a stable version of the linux 
-> kernel.
-> The odds of breaking an application using these private ioctls are 
-> pretty slim.
-> Since some cleanup was required, I chose not to let holes between the 
-> values.
+Do these need to be pulled into OFED 1.2 as well?
 
-Even so, if I were you, I would not have changed them and
-I would even try keeping compatibility with old (out-kernel)
-drivers.
+Steve.
 
---yoshfuji
+
+On Thu, 2007-02-22 at 03:58 -0800, Divy Le Ray wrote:
+> Jeff,
+> 
+> I'm sending a series of incremental patches updating
+> the cxgb3 driver. These patches are built against Linus'git tree.
+> 
+> Cheers,
+> Divy
+> -
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
+
