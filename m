@@ -1,37 +1,62 @@
-From: "Angelo P. Castellani" <angelo.castellani@gmail.com>
-Subject: Re: [PATCH 1/2][TCP] YeAH-TCP: algorithm implementation
-Date: Thu, 22 Feb 2007 17:10:05 +0100
-Message-ID: <8dd26e70702220810x21c8d494u1200de1c02d23d57@mail.gmail.com>
-References: <45D97C62.5070406@gmail.com>
-	 <20070222.001918.55725416.davem@davemloft.net>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: Fix bugs in "Whether sock accept queue is full" checking
+Date: Thu, 22 Feb 2007 13:09:46 -0500
+Message-ID: <45DDDC6A.6080205@hp.com>
+References: <1171470657.7414.15.camel@LINE> <20070222.031310.85405859.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, francesco@net.infocom.uniroma1.it,
-	andrea.baiocchi@uniroma1.it
-To: "David Miller" <davem@davemloft.net>
+Cc: weid@np.css.fujitsu.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.184]:56813 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750767AbXBVQKH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Feb 2007 11:10:07 -0500
-Received: by nf-out-0910.google.com with SMTP id o25so568523nfa
-        for <netdev@vger.kernel.org>; Thu, 22 Feb 2007 08:10:05 -0800 (PST)
-In-Reply-To: <20070222.001918.55725416.davem@davemloft.net>
-Content-Disposition: inline
+Received: from atlrel7.hp.com ([156.153.255.213]:56778 "EHLO atlrel7.hp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751281AbXBVSJs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Feb 2007 13:09:48 -0500
+In-Reply-To: <20070222.031310.85405859.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Thanks, I'll check for formatting errors in the future.
+David Miller wrote:
+> From: weidong <weid@np.css.fujitsu.com>
+> Date: Wed, 14 Feb 2007 11:30:57 -0500
+> 
+>> 	when I use linux TCP socket, and find there is a bug in function
+>> sk_acceptq_is_full(). 
+>  ...
+>> Consider an example:
+>>
+>>  After listen(sockfd, 1) system call, sk->sk_max_ack_backlog is set to
+>> 1. As we know, sk->sk_ack_backlog is initialized to 0. Assuming accept()
+>> system call is not invoked now.
+>>
+>> 1. 1st connection comes. invoke sk_acceptq_is_full(). sk-
+>>> sk_ack_backlog=0 sk->sk_max_ack_backlog=1, function return 0 accept
+>> this connection. Increase the sk->sk_ack_backlog
+>> 2. 2nd connection comes. invoke sk_acceptq_is_full(). sk-
+>>> sk_ack_backlog=1 sk->sk_max_ack_backlog=1, function return 0 accept
+>> this connection. Increase the sk->sk_ack_backlog
+>> 3. 3rd connection comes. invoke sk_acceptq_is_full(). sk-
+>>> sk_ack_backlog=2 sk->sk_max_ack_backlog=1, function return 1. Refuse
+>> this connection.
+>>
+>> I think it has bugs. after listen system call. sk->sk_max_ack_backlog=1
+>> but now it can accept 2 connections. The following patch can fix this
+>> problem.
+>>
+>> signed-off-by: Wei Dong <weid@np.css.fujitsu.com>
+> 
+> Thank you very much for the detailed analysis and fix.
+> 
+> Actually, this bug exists all over the tree I believe, not just
+> in TCP.  I would like to audit all uses of sk_ack_backlog and
+> sk_max_ack_backlog before applying your patch, so please give
+> me some time to perform a quick audit.
+> 
+> Thank you.
 
-2007/2/22, David Miller <davem@davemloft.net>:
-> Applied to tcp-2.6 GIT, there were a lot of broken whitespace
-> issues in your patch, GIT makes mention of them quite happily
-> even without applying the patch, which I recommend you do in the
-> future so I don't have to fix up your patches.  The command I
-> use (best with 1.5.0 GIT) is:
->
->         git apply --check --whitespace=error-all file.patch
->
-> Thanks.
->
+Hi David
+
+I can confirm the same problem exists in SCTP because of the use of sk_acceptq_is_full().
+
+-vlad
