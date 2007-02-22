@@ -1,44 +1,59 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: [RFT] bridge: eliminate port_check workqueue
-Date: Thu, 22 Feb 2007 09:46:10 +0100
-Message-ID: <20070222084610.GA2399@ff.dom.local>
-References: <20070220221941.GA707@tv-sign.ru> <20070220162434.72d3ad7b@freekitty> <20070221082345.GB1662@ff.dom.local> <20070221142342.GB134@tv-sign.ru> <20070221105555.4d1b40a6@freekitty>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Extensible hashing and RCU
+Date: Thu, 22 Feb 2007 01:06:38 -0800 (PST)
+Message-ID: <20070222.010638.27784211.davem@davemloft.net>
+References: <200702211038.24349.dada1@cosmosbay.com>
+	<20070221095755.GB308@2ka.mipt.ru>
+	<f2b55d220702211315h1266d25el4a0f46c4fb65e12a@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Oleg Nesterov <oleg@tv-sign.ru>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	"David S\. Miller" <davem@davemloft.net>,
-	David Howells <dhowells@redhat.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: johnpol@2ka.mipt.ru, dada1@cosmosbay.com, akepner@sgi.com,
+	linux@horizon.com, netdev@vger.kernel.org, bcrl@kvack.org
+To: medwards.linux@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx10.go2.pl ([193.17.41.74]:56404 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1945951AbXBVImm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Feb 2007 03:42:42 -0500
-Content-Disposition: inline
-In-Reply-To: <20070221105555.4d1b40a6@freekitty>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60332
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1945953AbXBVJGj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Feb 2007 04:06:39 -0500
+In-Reply-To: <f2b55d220702211315h1266d25el4a0f46c4fb65e12a@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Feb 21, 2007 at 10:55:55AM -0800, Stephen Hemminger wrote:
-> This is what I was suggesting by getting rid of the work queue completely.
-...
-> --- bridge.orig/net/bridge/br_if.c	2007-02-21 10:22:46.000000000 -0800
-> +++ bridge/net/bridge/br_if.c	2007-02-21 10:53:25.000000000 -0800
-> @@ -77,26 +77,15 @@
->   * Called from work queue to allow for calling functions that
->   * might sleep (such as speed check), and to debounce.
->   */
+From: "Michael K. Edwards" <medwards.linux@gmail.com>
+Date: Wed, 21 Feb 2007 13:15:51 -0800
 
-What about this comment?
+> it had better be a 2-left hash with a compact
+> overflow pool for the rare case of second collision.
 
-> -static void port_carrier_check(struct work_struct *work)
-> +void br_port_carrier_check(struct net_bridge_port *p)
+Just like Evgeniy, you should do your research too :-))))
 
-Of course my opinion shouldn't matter here, but it looks
-like withdrawing (or giving up) to the older way. So I'm
-not excited, but I trust there is a reason for this. 
+The gain for multiple-hash schemes, such as 2-left, exists only if you
+can parallelize the N lookups in hardware.  This is an assumption
+built into all the papers you will read on this subject, including the
+one you reference by Mitzenmacher.
 
-Cheers,
-Jarek P.
+If you read any paper on IP route lookup algorithms, prefix
+your reading of that paper with something that reads like:
+
+	And by the way we are targeting implementations in
+	hardware that can parallelize and pipeline memory
+	accesses to fast SRAM.  Do not consider this algorithm
+	seriously for running on general purpose processors
+	in software.
+
+Probably a few read's of Network Algorithmics would help your
+understanding in this area as well.
+
+Tries and similar structures do help in the case of our routing
+because we're going from a potential 32-hashtable probe down
+to a relatively small number of probes into a trie.  That's what
+Robert's LC-Trie and upcoming TRASH work do.
+
+But it won't help the same when going from hashes to a trie,
+as would be the case for TCP.
+
+If we can get the sockets into the TRASH entries, as Eric will
+experiment with, we'll be able to eliminate the TCP hash lookup
+in the fast path entirely.  It is the only reasonable suggestion
+I've seen made in this area to date.
