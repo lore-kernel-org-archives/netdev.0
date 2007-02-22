@@ -1,92 +1,33 @@
-From: John Heffner <jheffner@psc.edu>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH 2/2][TCP] YeAH-TCP: limited slow start exported function
-Date: Thu, 22 Feb 2007 09:25:07 -0500
-Message-ID: <45DDA7C3.4080301@psc.edu>
-References: <45D97DC9.1030305@gmail.com>	<45DA0FD6.9020404@psc.edu>	<20070222.002704.34758758.davem@davemloft.net> <20070222.003239.131918460.davem@davemloft.net>
+Date: Thu, 22 Feb 2007 06:37:29 -0800 (PST)
+Message-ID: <20070222.063729.74746068.davem@davemloft.net>
+References: <20070222.002704.34758758.davem@davemloft.net>
+	<20070222.003239.131918460.davem@davemloft.net>
+	<45DDA7C3.4080301@psc.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: angelo.castellani@gmail.com, netdev@vger.kernel.org,
 	andrea.baiocchi@uniroma1.it, francesco@net.infocom.uniroma1.it
-To: David Miller <davem@davemloft.net>
+To: jheffner@psc.edu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailer1.psc.edu ([128.182.58.100]:57469 "EHLO mailer1.psc.edu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933066AbXBVOZd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Feb 2007 09:25:33 -0500
-In-Reply-To: <20070222.003239.131918460.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50117
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1030215AbXBVOha (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Feb 2007 09:37:30 -0500
+In-Reply-To: <45DDA7C3.4080301@psc.edu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-My patch is meant as a replacement for YeAH patch 2/2, not meant to back 
-it out.  You do still need the second hunk below.  Sorry 'bout that.
+From: John Heffner <jheffner@psc.edu>
+Date: Thu, 22 Feb 2007 09:25:07 -0500
 
-If you're going to apply YeAH patch 2/2 first, you will also need to 
-remove the declaration of tcp_limited_slow_start() in include/net/tcp.h.
-
-Thanks,
-   -John
-
-
-David Miller wrote:
-> From: David Miller <davem@davemloft.net>
-> Date: Thu, 22 Feb 2007 00:27:04 -0800 (PST)
+> My patch is meant as a replacement for YeAH patch 2/2, not meant to back 
+> it out.  You do still need the second hunk below.  Sorry 'bout that.
 > 
->> I'll apply this, but could you please also when making suggestions
->> like this provide the patch necessary to kill the function added for
->> YeaH and the call site in the YeaH algorithm?
-> 
-> Here is how I'm resolving this:
-> 
-> diff --git a/net/ipv4/tcp_cong.c b/net/ipv4/tcp_cong.c
-> index 2b4142b..5ee79f3 100644
-> --- a/net/ipv4/tcp_cong.c
-> +++ b/net/ipv4/tcp_cong.c
-> @@ -310,29 +310,6 @@ void tcp_slow_start(struct tcp_sock *tp)
->  }
->  EXPORT_SYMBOL_GPL(tcp_slow_start);
->  
-> -void tcp_limited_slow_start(struct tcp_sock *tp)
-> -{
-> -	/* RFC3742: limited slow start
-> -	 * the window is increased by 1/K MSS for each arriving ACK,
-> -	 * for K = int(cwnd/(0.5 max_ssthresh))
-> -	 */
-> -
-> -	const int max_ssthresh = 100;
-> -
-> -	if (max_ssthresh > 0 && tp->snd_cwnd > max_ssthresh) {
-> -		u32 k = max(tp->snd_cwnd / (max_ssthresh >> 1), 1U);
-> -		if (++tp->snd_cwnd_cnt >= k) {
-> -			if (tp->snd_cwnd < tp->snd_cwnd_clamp)
-> -				tp->snd_cwnd++;
-> -			tp->snd_cwnd_cnt = 0;
-> -		}
-> -	} else {
-> -		if (tp->snd_cwnd < tp->snd_cwnd_clamp)
-> -			tp->snd_cwnd++;
-> -	}
-> -}
-> -EXPORT_SYMBOL_GPL(tcp_limited_slow_start);
-> -
->  /*
->   * TCP Reno congestion control
->   * This is special case used for fallback as well.
-> diff --git a/net/ipv4/tcp_yeah.c b/net/ipv4/tcp_yeah.c
-> index 2d971d1..815e020 100644
-> --- a/net/ipv4/tcp_yeah.c
-> +++ b/net/ipv4/tcp_yeah.c
-> @@ -104,7 +104,7 @@ static void tcp_yeah_cong_avoid(struct sock *sk, u32 ack,
->  		return;
->  
->  	if (tp->snd_cwnd <= tp->snd_ssthresh) {
-> -		tcp_limited_slow_start(tp);
-> +		tcp_slow_start(tp);
->  	} else if (!yeah->doing_reno_now) {
->  		/* Scalable */
->  
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> If you're going to apply YeAH patch 2/2 first, you will also need to 
+> remove the declaration of tcp_limited_slow_start() in include/net/tcp.h.
 
+I noticed that after sending out my diff and corrected it before
+pushing to tcp-2.6, thanks :-)
