@@ -1,110 +1,42 @@
-From: "m a a kastrinou-theodoro@durham ac uk"
-	<m.a.a.kastrinou-theodoro@durham.ac.uk>
-Subject: anthropology of linux: help needed
-Date: Thu, 22 Feb 2007 12:14:55 +0000
-Message-ID: <45DD893F.5060106@durham.ac.uk>
+From: Divy Le Ray <divy@chelsio.com>
+Subject: Re: [RFC] split NAPI from network device.
+Date: Thu, 22 Feb 2007 04:24:35 -0800
+Message-ID: <45DD8B83.5040604@chelsio.com>
+References: <20061213113537.6baf410f@dxpl.pdx.osdl.net>	<1166042552.11914.188.camel@localhost.localdomain>	<20061213154635.1f284bf6@dxpl.pdx.osdl.net> <20070220.213125.74747066.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org, linux-hams@vger.kernel.org,
-	linux-doc@vger.kernel.org, linux-net@vger.kernel.org,
-	linux-newbie@vger.kernel.org, linux-gcc@vger.kernel.org,
-	linux-word@vger.kernel.org, linux-lugnuts@vger.kernel.org,
-	linux-new-lists@vger.kernel.org
-Return-path: <linux-gcc-owner@vger.kernel.org>
-Sender: linux-gcc-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@osdl.org, benh@kernel.crashing.org,
+	netdev@vger.kernel.org, ebs@ebshome.net,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([12.22.49.110]:21064 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1945979AbXBVMZX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Feb 2007 07:25:23 -0500
+In-Reply-To: <20070220.213125.74747066.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+Hi Dave,
+>
+> @@ -919,10 +920,7 @@ int dev_close(struct net_device *dev)
+>  	 * engine, but this requires more changes in devices. */
+>  
+>  	smp_mb__after_clear_bit(); /* Commit netif_running(). */
+> -	while (test_bit(__LINK_STATE_RX_SCHED, &dev->state)) {
+> -		/* No hurry. */
+> -		msleep(1);
+> -	}
+> +	netif_poll_disable(dev);
+When dev_close() exits, NAPI_STATE_SCHED will be set,
+whereas __LINK_STATE_RX_SCHED was previously reset.
+The cxgb3 driver assumes that the device is not scheduled after the 
+interface was brought up.
+It's no longer true if the interface is brought up, brought down, and 
+then brought up.
+Should cxgb3 explicitly call napi_enable() on the open() path ?
 
-This is a rather strange e-mail for these mailing
-lists, I know. I am a third year Social Anthropology
-student in the University of Durham doing my
-dissertation (thesis) on the Anthropology of
-GNU/Linux. I would really appreciate if you could help
-me out and offer some of your time to fill in the
-questionnaire below- it will only take 2 minutes.
-Replies will be confidential and everything in the
-dissertation will be anonymous. Results will be
-e-mailed to participants upon request.
-
-Thanks in advance, and... enjoy!
-Maria Kastrinou
-
-
-
-QUESTIONS:
-
-1. When did you start using GNU/Linux OS?
-
-
-2. What is your level of involvement?
-newbie/ user/ developer (delete as appropriate)
-
-
-3. Why are you using Linux?
-
-
-4. Is Linux fun? How?
-
-
-5. Which distribution of Linux do you use?
-
-
-6. What in your opinion constitutes a =C2=A1good hack=C2=A2?
-
-
-7. Would you describe yourself as a =C2=A1hacker=C2=A2?
-
-
-8. Which super-hero (apart from Tux) do you think
-would represent Linux best?
-
-
-9. Describe Microsoft OS in one word.
-
-
-10. How do you view the recent patent agreement
-between Microsoft and Novell?
-
-
-11. GNU GPL, copyleft and freedom of speech: good, bad
-or irrelevant?
-
-
-12. How many Linux mailing lists are you a member of?
-
-
-13. Would you reply to a question sent through Linux
-mailing lists and why?
-
-
-14. Microsoft vs. Linux: cathedral vs. bazaar or
-something altogether different?
-
-
-15. Open Source or Free Software?
-
-
-Personal Information:
-a) Age:
-b) Gender:
-c) Occupation:
-d) Your current geographic location:
-
-Any other comments?
-
-
-Would you like me to e-mail you the results? YES/ NO
-
-
-Hope you enjoyed it!
-
-THANK YOU!
-
-Maria
-
-
-
-
+Cheers,
+Divy
