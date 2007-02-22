@@ -1,32 +1,75 @@
-From: kristrev@student.matnat.uio.no
-Subject: Copy data from one SKB to another
-Date: Thu, 22 Feb 2007 12:59:47 +0100 (CET)
-Message-ID: <58989.129.240.228.53.1172145587.squirrel@webmail.uio.no>
+From: divy@chelsio.com
+Subject: [PATCH 5/7] cxgb3 - Recovery from HW starvation of response queue
+	entries.
+Date: Thu, 22 Feb 2007 03:59:41 -0800
+Message-ID: <20070222115941.10055.45293.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: linux-net@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-net-owner@vger.kernel.org>
-Sender: linux-net-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	swise@opengridcomputing.com
+To: jeff@garzik.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([12.22.49.110]:28563 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1945982AbXBVL7p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Feb 2007 06:59:45 -0500
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+From: Divy Le Ray <divy@chelsio.com>
 
-I am working on optimizing the TCP-code for a certain type of TCP-stream,
-and to make one of my optimizations work I need to copy data from one SKB
-(the data field of the skb) to another SKB (data field).
+Improve the traffic recovery after the HW ran out of response queue entries.
 
-Currently I am using memcpy, and it does what it is supposed to, but I am
-curious as to if there are any other (potentially faster/more efficient)
-ways of doing it. I have checked out the skb_add_data (used when you can
-copy data from the msg you are sending into the most recent skb added to
-the queue), but from what I can understand it only copies from userspace
-into kernelspace (whereas I need to copy kernel-kernel).
+Signed-off-by: Divy Le Ray <divy@chelsio.com>
+---
 
-Does anyone have any hints, suggestions, solutions or something else they
-think might help?
+ drivers/net/cxgb3/adapter.h |    2 ++
+ drivers/net/cxgb3/sge.c     |   15 ++++++++++++++-
+ 2 files changed, 16 insertions(+), 1 deletions(-)
 
-Thanks,
-Kristian
-
+diff --git a/drivers/net/cxgb3/adapter.h b/drivers/net/cxgb3/adapter.h
+index 5c97a64..01b99b9 100644
+--- a/drivers/net/cxgb3/adapter.h
++++ b/drivers/net/cxgb3/adapter.h
+@@ -121,6 +121,8 @@ struct sge_rspq {		/* state for an SGE r
+ 	unsigned long empty;	/* # of times queue ran out of credits */
+ 	unsigned long nomem;	/* # of responses deferred due to no mem */
+ 	unsigned long unhandled_irqs;	/* # of spurious intrs */
++	unsigned long starved;
++	unsigned long restarted;
+ };
+ 
+ struct tx_desc;
+diff --git a/drivers/net/cxgb3/sge.c b/drivers/net/cxgb3/sge.c
+index 822a598..4ff0ab6 100644
+--- a/drivers/net/cxgb3/sge.c
++++ b/drivers/net/cxgb3/sge.c
+@@ -2376,13 +2376,26 @@ static void sge_timer_cb(unsigned long d
+ 		spin_unlock(&qs->txq[TXQ_OFLD].lock);
+ 	}
+ 	lock = (adap->flags & USING_MSIX) ? &qs->rspq.lock :
+-	    &adap->sge.qs[0].rspq.lock;
++					    &adap->sge.qs[0].rspq.lock;
+ 	if (spin_trylock_irq(lock)) {
+ 		if (!napi_is_scheduled(qs->netdev)) {
++			u32 status = t3_read_reg(adap, A_SG_RSPQ_FL_STATUS);
++
+ 			if (qs->fl[0].credits < qs->fl[0].size)
+ 				__refill_fl(adap, &qs->fl[0]);
+ 			if (qs->fl[1].credits < qs->fl[1].size)
+ 				__refill_fl(adap, &qs->fl[1]);
++
++			if (status & (1 << qs->rspq.cntxt_id)) {
++				qs->rspq.starved++;
++				if (qs->rspq.credits) {
++					refill_rspq(adap, &qs->rspq, 1);
++					qs->rspq.credits--;
++					qs->rspq.restarted++;
++					t3_write_reg(adap, A_SG_RSPQ_FL_STATUS, 
++						     1 << qs->rspq.cntxt_id);
++				}
++			}
+ 		}
+ 		spin_unlock_irq(lock);
+ 	}
