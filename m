@@ -1,20 +1,49 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: [PATCH 2.6.21] iw_cxgb3: Stop the EP Timer on BAD CLOSE.
-Date: Fri, 23 Feb 2007 13:13:00 -0800
-Message-ID: <adabqjkd1cz.fsf@cisco.com>
-References: <1172090739.27101.39.camel@stevo-desktop>
+From: Dmitriy Monakhov <dmonakhov@sw.ru>
+Subject: [PATCH] 3c59x: Handle pci_enable_device() failure while resuming
+Date: Sat, 24 Feb 2007 00:40:10 +0300
+Message-ID: <87d540blj9.fsf@sw.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, openib-general <openib-general@openib.org>
-To: Steve Wise <swise@opengridcomputing.com>
+Cc: vortex@scyld.com, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-5.cisco.com ([171.68.10.87]:17804 "EHLO
-	sj-iport-5.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752128AbXBWVNU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Feb 2007 16:13:20 -0500
-In-Reply-To: <1172090739.27101.39.camel@stevo-desktop> (Steve Wise's message of "Wed, 21 Feb 2007 14:45:39 -0600")
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:53394 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932313AbXBWVjy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Feb 2007 16:39:54 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-thanks, queued for 2.6.21
+Handle pci_enable_device() failure while resuming, we can safely exit here.
+Signed-off-by: Monakhov Dmitriy <dmonakhov@openvz.org>
+---
+ drivers/net/3c59x.c |    8 +++++++-
+ 1 files changed, 7 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/3c59x.c b/drivers/net/3c59x.c
+index 2b750bd..ea4a78f 100644
+--- a/drivers/net/3c59x.c
++++ b/drivers/net/3c59x.c
+@@ -821,11 +821,17 @@ static int vortex_resume(struct pci_dev *pdev)
+ {
+ 	struct net_device *dev = pci_get_drvdata(pdev);
+ 	struct vortex_private *vp = netdev_priv(dev);
++	int err;
+ 
+ 	if (dev && vp) {
+ 		pci_set_power_state(pdev, PCI_D0);
+ 		pci_restore_state(pdev);
+-		pci_enable_device(pdev);
++		err = pci_enable_device(pdev);
++		if (err) {
++			printk(KERN_WARNING "%s: Could not enable device \n",
++				dev->name);
++			return err;
++		}
+ 		pci_set_master(pdev);
+ 		if (request_irq(dev->irq, vp->full_bus_master_rx ?
+ 				&boomerang_interrupt : &vortex_interrupt, IRQF_SHARED, dev->name, dev)) {
+-- 
+1.4.4.4
+
+
