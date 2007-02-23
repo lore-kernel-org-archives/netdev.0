@@ -1,7 +1,7 @@
 From: "Sreenivasa Honnur" <Sreenivasa.Honnur@neterion.com>
 Subject: RE: [PATCH 1/2] NET: Multiple queue network device support
-Date: Fri, 23 Feb 2007 04:02:26 -0500
-Message-ID: <78C9135A3D2ECE4B8162EBDCE82CAD77013F3840@nekter>
+Date: Fri, 23 Feb 2007 04:00:55 -0500
+Message-ID: <78C9135A3D2ECE4B8162EBDCE82CAD77013F383F@nekter>
 Mime-Version: 1.0
 Content-Type: text/plain;
 	charset="us-ascii"
@@ -14,13 +14,17 @@ To: "Kok, Auke" <auke-jan.h.kok@intel.com>,
 	"David Miller" <davem@davemloft.net>,
 	"Garzik, Jeff" <jgarzik@pobox.com>, <netdev@vger.kernel.org>,
 	<linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932186AbXBWJOe@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx.neterion.com ([72.1.205.142]:2177 "EHLO owa.neterion.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932188AbXBWJOc convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Feb 2007 04:14:32 -0500
 Content-class: urn:content-classes:message
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Function "map_queue" returns queue_index as 0 always. There is no
-support to return different queue numbers.
+Fucntion "map_queue" returns queue index as '0'. There is no support to
+return different queue indexes.
 
 -----Original Message-----
 From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
