@@ -1,7 +1,7 @@
 From: Brice Goglin <brice@myri.com>
-Subject: [PATCH 3/2] myri10ge: fix copyright and license
-Date: Fri, 23 Feb 2007 21:20:41 +0100
-Message-ID: <45DF4C99.90104@myri.com>
+Subject: Re: [PATCH 0/2] myri10ge updates
+Date: Fri, 23 Feb 2007 21:22:11 +0100
+Message-ID: <45DF4CF3.20609@myri.com>
 References: <45DC7B8C.9070501@myri.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
@@ -9,61 +9,34 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl.myri.com ([64.172.73.26]:1906 "EHLO myri.com"
+Received: from dsl.myri.com ([64.172.73.26]:1969 "EHLO myri.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932689AbXBWUXT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Feb 2007 15:23:19 -0500
+	id S932650AbXBWUYh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Feb 2007 15:24:37 -0500
 In-Reply-To: <45DC7B8C.9070501@myri.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Fix copyright and license ("regents" should not have ever been used).
+Brice Goglin wrote:
+> Hi Jeff,
+>
+> No big change in myri10ge these days, mainly just a workaround for
+> boards that were shipped with a bug in their firmware (patch #1, for
+> 2.6.21).
+>
+> Since things are pretty calm here, I am also resending the Large Receive
+> Offload patch for inclusion (patch #2, maybe only for 2.6.22?). I didn't
+> hear of anybody working on a generic LRO for the core stack, while our
+> driver performance suffered from missing LRO for several months already.
+> The code has been intensively tested by multiple customers.
+>
+> Thanks,
+> Brice
+>   
 
-Signed-off-by: Brice Goglin <brice@myri.com>
----
- drivers/net/myri10ge/myri10ge.c |   22 +++++++++++-----------
- 1 file changed, 11 insertions(+), 11 deletions(-)
+I just got a last-minute copyright/license fix. I sent it as patch #3.
+Please apply this one for 2.6.21.
 
-Index: linux-rc/drivers/net/myri10ge/myri10ge.c
-===================================================================
---- linux-rc.orig/drivers/net/myri10ge/myri10ge.c	2007-02-21 18:06:49.000000000 +0100
-+++ linux-rc/drivers/net/myri10ge/myri10ge.c	2007-02-23 20:13:08.000000000 +0100
-@@ -1,7 +1,7 @@
- /*************************************************************************
-  * myri10ge.c: Myricom Myri-10G Ethernet driver.
-  *
-- * Copyright (C) 2005, 2006 Myricom, Inc.
-+ * Copyright (C) 2005 - 2007 Myricom, Inc.
-  * All rights reserved.
-  *
-  * Redistribution and use in source and binary forms, with or without
-@@ -16,17 +16,17 @@
-  *    may be used to endorse or promote products derived from this software
-  *    without specific prior written permission.
-  *
-- * THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
-- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-- * ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
-- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
-- * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-- * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
-- * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
-- * SUCH DAMAGE.
-+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
-+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-+ * POSSIBILITY OF SUCH DAMAGE.
-  *
-  *
-  * If the eeprom on your board is not recent enough, you will need to get a
-
+thanks,
+Brice
 
