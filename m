@@ -1,32 +1,55 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: IPv6 Davelopment Tree
-Date: Fri, 23 Feb 2007 12:53:01 +0900 (JST)
-Message-ID: <20070223.125301.11635869.yoshfuji@linux-ipv6.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] fix limited slow start bug
+Date: Thu, 22 Feb 2007 22:42:36 -0800 (PST)
+Message-ID: <20070222.224236.95058339.davem@davemloft.net>
+References: <45DDE756.20001@psc.edu>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: davem@davemloft.net, nhorman@tuxdriver.com
+Cc: netdev@vger.kernel.org
+To: jheffner@psc.edu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:57137 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750833AbXBWDwx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Feb 2007 22:52:53 -0500
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47023
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752137AbXBWGmi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Feb 2007 01:42:38 -0500
+In-Reply-To: <45DDE756.20001@psc.edu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
 
-I have cooked up new git tree for IPv6 development.
-It is available as branch named
-	2.6.21-rc1-net-2.6-20070223-FOR_DAVEM-20070223
-at
-	<git://git.linux-ipv6.org/gitroot/yoshfuji/linux-2.6-dev.git>.
+John, what tree did you diff this against?
 
-I will shift to new branch time to time (e.g. every -rc releases) in order
-to chase the latest tree.
+I can tell you didn't create this patch against anything
+actually in any of my trees, because:
 
-Regards,
+diff --git a/net/ipv4/tcp_cong.c b/net/ipv4/tcp_cong.c
+index 7fd2910..a0c894f 100644
+--- a/net/ipv4/tcp_cong.c
++++ b/net/ipv4/tcp_cong.c
+@@ -303,9 +303,9 @@ void tcp_slow_start(struct tcp_sock *tp)
+ 	
+ 	tp->snd_cwnd_cnt += cnt;
 
---yoshfuji
+See that line right before the snd_cwnd_cnt increment?
+
+There is a tab there in your patch on that empty line.
+
+Yoshifuji eliminated all extraneous trailing whitespaces,
+and spaces that should be tabs, across the entire networking,
+several weeks ago.  Including the tab on that empty line in
+your patch.
+
+This means that you applied the YeaH and your own patch to
+another source tree, perhaps 2.6.20 or similar, and then
+generated your fix against that.
+
+Please don't do things like that.  Instead please produce patches
+against the tree they will end up being applied to so that they will
+apply cleanly for me.
+
+I can't believe how much time I spend getting people to produce
+correct patches :-/
+
+Anyways, I applied this by hand, but next time I definitely
+am not going to.
