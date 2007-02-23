@@ -1,98 +1,90 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: [PATCH 1/2] NET: Multiple queue network device support
-Date: Fri, 23 Feb 2007 11:23:12 -0800
-Message-ID: <45DF3F20.6060002@intel.com>
-References: <78C9135A3D2ECE4B8162EBDCE82CAD77013F383F@nekter> <20070223111911.75602c0f@freekitty>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [Kgdb-bugreport] [PATCH 2.6.20-rc7] 8139too KGDBoE fix
+Date: Fri, 23 Feb 2007 11:22:46 -0800
+Message-ID: <20070223112246.0712e7de@freekitty>
+References: <200701312144.56497.sshtylyov@ru.mvista.com>
+	<45DDBD96.10000@ru.mvista.com>
+	<45DDC7C0.8050100@ru.mvista.com>
+	<200702231238.40474.amitkale@linsyssoft.com>
+	<45DF2E20.305@mvista.com>
+	<20070223110451.44066f09@freekitty>
+	<45DF3BDC.2070806@ru.mvista.com>
+	<20070223111354.2e25db9d@freekitty>
+	<45DF3DAB.3010902@ru.mvista.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Sreenivasa Honnur <Sreenivasa.Honnur@neterion.com>,
-	David Miller <davem@davemloft.net>,
-	"Garzik, Jeff" <jgarzik@pobox.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Peter Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Kok, Auke" <auke@foo-projects.org>,
-	"Ronciak, John" <john.ronciak@intel.com>
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Cc: Mark Huth <mhuth@mvista.com>,
+	"Amit S. Kale" <amitkale@linsyssoft.com>, netdev@vger.kernel.org,
+	Mithlesh Thukral <mithlesh@linsyssoft.com>,
+	Vitaly Wool <vwool@ru.mvista.com>
+To: Sergei Shtylyov <sshtylyov@ru.mvista.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:7467 "EHLO mga02.intel.com"
+Received: from smtp.osdl.org ([65.172.181.24]:55134 "EHLO smtp.osdl.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933190AbXBWTXO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Feb 2007 14:23:14 -0500
-In-Reply-To: <20070223111911.75602c0f@freekitty>
+	id S933191AbXBWTX3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Feb 2007 14:23:29 -0500
+In-Reply-To: <45DF3DAB.3010902@ru.mvista.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> On Fri, 23 Feb 2007 04:00:55 -0500
-> "Sreenivasa Honnur" <Sreenivasa.Honnur@neterion.com> wrote:
+On Fri, 23 Feb 2007 22:16:59 +0300
+Sergei Shtylyov <sshtylyov@ru.mvista.com> wrote:
+
+> Hello.
 > 
->> Fucntion "map_queue" returns queue index as '0'. There is no support to
->> return different queue indexes.
->>
->> -----Original Message-----
->> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
->> On Behalf Of Kok, Auke
->> Sent: Friday, February 09, 2007 5:40 AM
->> To: David Miller; Garzik, Jeff; netdev@vger.kernel.org;
->> linux-kernel@vger.kernel.org
->> Cc: Kok, Auke; Peter Waskiewicz Jr; Brandeburg, Jesse; Kok, Auke;
->> Ronciak, John
->> Subject: [PATCH 1/2] NET: Multiple queue network device support
->>
->>
->> From: Peter Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
->>
->> Added an API and associated supporting routines for multiqueue network
->> devices.  This allows network devices supporting multiple TX queues to
->> configure each queue within the netdevice and manage each queue
->> independantly.  Changes to the PRIO Qdisc also allow a user to map
->> multiple flows to individual TX queues, taking advantage of each queue
->> on the device.
->>
->> Signed-off-by: Peter Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
->> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
->> ---
+> Stephen Hemminger wrote:
 > 
->>  
->> +config NET_MULTI_QUEUE_DEVICE
->> +	bool "Multiple queue network device support (EXPERIMENTAL)"
->> +	depends on NET_SCHED && EXPERIMENTAL
->> +	help
->> +	  Saying Y here will add support for network devices that have
->> more than
->> +	  one physical TX queue and/or RX queue.
->> +
->> +	  Multiple queue devices will require qdiscs that understand how
->> to
->> +	  queue to multiple targets.  The default packet scheduler will
->> default
->> +	  to the first queue in a device.  In other words, if you need
->> the
->> +	  ability to spread traffic across queues, your queueing
->> discipline
->> +	  needs to know how to do that.
->> +
->> +	  Note that saying Y here will give preferential treatment to
->> multiple
->> +	  queue devices in the network stack.  A slight drop in
->> single-queue
->> +	  device performance may be seen.
->> +
->> +	  Say N here unless you know your network device supports
->> multiple
->> +	  TX and/or RX queues.
->> +
+> >>>>>This thread came up on kgdb-bugreport mailing list. Could you please suggest 
+> >>>>>us what's the correct way of fixing this problem?
 > 
-> This should not be a user visible configuration option.
-> It should either: always be part of the kernel API
-> or be selected by drivers that need/want it.
+> >>>>>1. When running a kgdb on RTL8139 ethernet interface: 8139too driver prints 
+> >>>>>too many "Out-of-sync dirty pointer" messages on console and gdb can't 
+> >>>>>connect to kgdb stub. These messages can be suppressed, though it still 
+> >>>>>results in connection failures frequently. 
+> 
+> >>>>We think this comes from calling the driver while the queue is stopped.  
+> >>>>Drivers should not do horrible things when hard start is called with the 
+> >>>>queue stopped, but unfortunately, at this time, at least some drivers 
+> >>>>do  explode or complain under that condition.
+> 
+> >>>The kernel is built on a set of assumptions about calling context. Your
+> >>>out of tree code is violating one of them. Why not check for stopped queue
+> >>>and do some action to try and clear it, that is what netconsole does.
+> 
+> >>    The queue can't be stopped when the netpoll traffic trapping is enabled 
+> >>(cause this effectively bypasses queue control), So, the stopped queue 
+> >>indoication doesn't work also -- *that* is the problem. It's not at all 
+> >>specific to KGBoE -- only to traffic trapping.
+> 
+> > You can't ask a device to send a packet when it has no resources.
+> 
+>     When traffic trapping is enabled, and driver stops the queue, the 
+> __LINK_STATE_XOFF flag does *not* get set, so netif_queue_stopped() resturns 
+> *zero*.  What may be done in this situation?
 
-perhaps when it's stable, yes, but right now it's definately experimental and 
-may result in a slight overhead for single-queue devices as the text reads.
+Read netpoll_send_skb()
 
+	int status = NETDEV_TX_BUSY;
+...
+		if (netif_tx_trylock(dev)) {
+			/* try until next clock tick */
+			for (tries = jiffies_to_usecs(1)/USEC_PER_POLL;
+					tries > 0; --tries) {
+				if (!netif_queue_stopped(dev))
+					status = dev->hard_start_xmit(skb, dev);
 
-Cheers,
+				if (status == NETDEV_TX_OK)
+					break;
 
-Auke
+				/* tickle device maybe there is some cleanup */
+				netpoll_poll(np);
+
+				udelay(USEC_PER_POLL);
+			}
+			netif_tx_unlock(dev);
+
+netpoll_poll() allows device to try and cleanup transmit resources.
+
+-- 
+Stephen Hemminger <shemminger@linux-foundation.org>
