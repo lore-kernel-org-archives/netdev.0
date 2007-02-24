@@ -1,7 +1,8 @@
 From: Sivakumar Subramani <Sivakumar.Subramani@neterion.com>
-Subject: [PATCH 2/6] S2IO: Optimized the delay to wait for command completion
-Date: Sat, 24 Feb 2007 01:57:32 -0500 (EST)
-Message-ID: <Pine.GSO.4.10.10702240152130.3434-100000@guinness>
+Subject: [PATCH 3/6] S2IO: Added a loadable parameter to enable or disable
+ vlan stripping in frame.
+Date: Sat, 24 Feb 2007 01:59:39 -0500 (EST)
+Message-ID: <Pine.GSO.4.10.10702240158160.3434-100000@guinness>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: leonid.grossman@neterion.com, sreenivasa.honnur@neterion.com,
@@ -9,215 +10,139 @@ Cc: leonid.grossman@neterion.com, sreenivasa.honnur@neterion.com,
 	alicia.pena@neterion.com, sriram.rapuru@neterion.com
 To: jeff@garzik.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from barracuda.s2io.com ([72.1.205.138]:45745 "EHLO
+Received: from barracuda.s2io.com ([72.1.205.138]:45759 "EHLO
 	barracuda.s2io.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933396AbXBXG5e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 24 Feb 2007 01:57:34 -0500
+	with ESMTP id S933400AbXBXG7l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 24 Feb 2007 01:59:41 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-- Optimized delay to wait for command completion so as to reduce the
-  initialization wait time.
-- Disable differentiated services steering. By default RMAC is configured to
-  steer traffic with certain DS codes to other queues. Driver must initialize
-  the DS memory to 0 to make sure that DS steering will not be used by default.
+- Added code to not to strip vlan tag when driver is in promiscuous mode
+- Added module loadable parameter 'vlan_tag_strip" through which user can
+  enable or disable vlan stripping irrespective of mode
+  ( promiscuous or non-promiscuous ). 
 
 Signed-off-by: Sivakumar Subramani <sivakumar.subramani@neterion.com>
 ---
-diff -urpN patch1/drivers/net/s2io.c patch2/drivers/net/s2io.c
---- patch1/drivers/net/s2io.c	2007-02-21 12:28:59.000000000 +0530
-+++ patch2/drivers/net/s2io.c	2007-02-21 15:21:14.000000000 +0530
-@@ -1372,6 +1372,16 @@ static int init_nic(struct s2io_nic *nic
+diff -urpN patch2/drivers/net/s2io.c patch3/drivers/net/s2io.c
+--- patch2/drivers/net/s2io.c	2007-02-21 15:21:14.000000000 +0530
++++ patch3/drivers/net/s2io.c	2007-02-24 11:42:48.000000000 +0530
+@@ -42,6 +42,14 @@
+  *     Possible values '1' for enable '0' for disable. Default is '0'
+  * lro_max_pkts: This parameter defines maximum number of packets can be
+  *     aggregated as a single large packet
++ * napi: This parameter used to enable/disable NAPI (polling Rx)
++ *     Possible values '1' for enable and '0' for disable. Default is '1'
++ * ufo: This parameter used to enable/disable UDP Fragmentation Offload(UFO)
++ *      Possible values '1' for enable and '0' for disable. Default is '0'
++ * vlan_tag_strip: This can be used to enable or disable vlan stripping.
++ *                 Possible values '1' for enable , '0' for disable.
++ *                 Default is '2' - which means disable in promisc mode
++ *                 and enable in non-promiscuous mode.
+  ************************************************************************/
+ 
+ #include <linux/module.h>
+@@ -293,6 +301,9 @@ static void s2io_vlan_rx_register(struct
+ 	spin_unlock_irqrestore(&nic->tx_lock, flags);
+ }
+ 
++/* A flag indicating whether 'RX_PA_CFG_STRIP_VLAN_TAG' bit is set or not */
++int vlan_strip_flag;
++
+ /* Unregister the vlan */
+ static void s2io_vlan_rx_kill_vid(struct net_device *dev, unsigned long vid)
+ {
+@@ -404,6 +415,7 @@ S2IO_PARM_INT(indicate_max_pkts, 0);
+ 
+ S2IO_PARM_INT(napi, 1);
+ S2IO_PARM_INT(ufo, 0);
++S2IO_PARM_INT(vlan_tag_strip, NO_STRIP_IN_PROMISC);
+ 
+ static unsigned int tx_fifo_len[MAX_TX_FIFOS] =
+     {DEFAULT_FIFO_0_LEN, [1 ...(MAX_TX_FIFOS - 1)] = DEFAULT_FIFO_1_7_LEN};
+@@ -1371,7 +1383,7 @@ static int init_nic(struct s2io_nic *nic
+ 				&bar0->rts_frm_len_n[i]);
  		}
  	}
+-
++	
+ 	/* Disable differentiated services steering logic */
+ 	for (i = 0; i < 64; i++) {
+ 		if (rts_ds_steer(nic, i, 0) == FAILURE) {
+@@ -1953,6 +1965,13 @@ static int start_nic(struct s2io_nic *ni
+ 		writeq(val64, &bar0->rx_pa_cfg);
+ 	}
  
-+	/* Disable differentiated services steering logic */
-+	for (i = 0; i < 64; i++) {
-+		if (rts_ds_steer(nic, i, 0) == FAILURE) {
-+			DBG_PRINT(ERR_DBG, "%s: failed rts ds steering",
-+				dev->name);
-+			DBG_PRINT(ERR_DBG, "set on codepoint %d\n", i);
-+			return FAILURE;
-+		}
++	if (vlan_tag_strip == 0) {
++		val64 = readq(&bar0->rx_pa_cfg);
++		val64 &= ~RX_PA_CFG_STRIP_VLAN_TAG;
++		writeq(val64, &bar0->rx_pa_cfg);
++		vlan_strip_flag = 0;
 +	}
 +
- 	/* Program statistics memory */
- 	writeq(mac_control->stats_mem_phy, &bar0->stat_addr);
+ 	/*
+ 	 * Enabling MC-RLDRAM. After enabling the device, we timeout
+ 	 * for around 100ms, which is approximately the time required
+@@ -4352,6 +4371,13 @@ static void s2io_set_multicast(struct ne
+ 		writeq(RMAC_CFG_KEY(0x4C0D), &bar0->rmac_cfg_key);
+ 		writel((u32) (val64 >> 32), (add + 4));
  
-@@ -3195,26 +3205,37 @@ static void alarm_intr_handler(struct s2
-  *   SUCCESS on success and FAILURE on failure.
-  */
- 
--static int wait_for_cmd_complete(void __iomem *addr, u64 busy_bit)
-+static int wait_for_cmd_complete(void __iomem *addr, u64 busy_bit,
-+				int bit_state)
- {
--	int ret = FAILURE, cnt = 0;
-+	int ret = FAILURE, cnt = 0, delay = 1;
- 	u64 val64;
- 
--	while (TRUE) {
-+	if ((bit_state != S2IO_BIT_RESET) && (bit_state != S2IO_BIT_SET))
-+		return FAILURE;
++		if (vlan_tag_strip != 1) {
++			val64 = readq(&bar0->rx_pa_cfg);
++			val64 &= ~RX_PA_CFG_STRIP_VLAN_TAG;
++			writeq(val64, &bar0->rx_pa_cfg);
++			vlan_strip_flag = 0;
++		}
 +
-+	do {
- 		val64 = readq(addr);
--		if (!(val64 & busy_bit)) {
--			ret = SUCCESS;
--			break;
-+		if (bit_state == S2IO_BIT_RESET) {
-+			if (!(val64 & busy_bit)) {
-+				ret = SUCCESS;
-+				break;
-+			}
-+		} else {
-+			if (!(val64 & busy_bit)) {
-+				ret = SUCCESS;
-+				break;
-+			}
- 		}
+ 		val64 = readq(&bar0->mac_cfg);
+ 		sp->promisc_flg = 1;
+ 		DBG_PRINT(INFO_DBG, "%s: entered promiscuous mode\n",
+@@ -4367,6 +4393,13 @@ static void s2io_set_multicast(struct ne
+ 		writeq(RMAC_CFG_KEY(0x4C0D), &bar0->rmac_cfg_key);
+ 		writel((u32) (val64 >> 32), (add + 4));
  
- 		if(in_interrupt())
--			mdelay(50);
-+			mdelay(delay);
- 		else
--			msleep(50);
-+			msleep(delay);
++		if (vlan_tag_strip != 0) {
++			val64 = readq(&bar0->rx_pa_cfg);
++			val64 |= RX_PA_CFG_STRIP_VLAN_TAG;
++			writeq(val64, &bar0->rx_pa_cfg);
++			vlan_strip_flag = 1;
++		}
++
+ 		val64 = readq(&bar0->mac_cfg);
+ 		sp->promisc_flg = 0;
+ 		DBG_PRINT(INFO_DBG, "%s: left promiscuous mode\n",
+@@ -6614,7 +6647,8 @@ static int rx_osm_handler(struct ring_in
  
--		if (cnt++ > 10)
--			break;
--	}
-+		if (++cnt >= 10)
-+			delay = 50;
-+	} while (cnt < 20);
- 	return ret;
- }
+ 	if (!sp->lro) {
+ 		skb->protocol = eth_type_trans(skb, dev);
+-		if (sp->vlgrp && RXD_GET_VLAN_TAG(rxdp->Control_2)) {
++		if ((sp->vlgrp && RXD_GET_VLAN_TAG(rxdp->Control_2) &&
++			vlan_strip_flag)) {
+ 			/* Queueing the vlan frame to the upper layer */
+ 			if (napi)
+ 				vlan_hwaccel_receive_skb(skb, sp->vlgrp,
+diff -urpN patch2/drivers/net/s2io.h patch3/drivers/net/s2io.h
+--- patch2/drivers/net/s2io.h	2007-02-20 14:47:46.000000000 +0530
++++ patch3/drivers/net/s2io.h	2007-02-21 14:54:19.000000000 +0530
+@@ -297,6 +297,9 @@ struct stat_block {
+ 	struct xpakStat xpak_stat;
+ };
+ 
++/* Default value for 'vlan_strip_tag' configuration parameter */
++#define NO_STRIP_IN_PROMISC 2
++
  /*
-@@ -4296,7 +4317,8 @@ static void s2io_set_multicast(struct ne
- 		writeq(val64, &bar0->rmac_addr_cmd_mem);
- 		/* Wait till command completes */
- 		wait_for_cmd_complete(&bar0->rmac_addr_cmd_mem,
--				      RMAC_ADDR_CMD_MEM_STROBE_CMD_EXECUTING);
-+					RMAC_ADDR_CMD_MEM_STROBE_CMD_EXECUTING,
-+					S2IO_BIT_RESET);
+  * Structures representing different init time configuration
+  * parameters of the NIC.
+diff -urpN patch2/drivers/net/s2io-regs.h patch3/drivers/net/s2io-regs.h
+--- patch2/drivers/net/s2io-regs.h	2007-02-15 14:49:42.000000000 +0530
++++ patch3/drivers/net/s2io-regs.h	2007-02-16 11:03:55.000000000 +0530
+@@ -430,6 +430,7 @@ struct XENA_dev_config {
+ #define TX_PA_CFG_IGNORE_SNAP_OUI          BIT(2)
+ #define TX_PA_CFG_IGNORE_LLC_CTRL          BIT(3)
+ #define	TX_PA_CFG_IGNORE_L2_ERR			   BIT(6)
++#define RX_PA_CFG_STRIP_VLAN_TAG		BIT(15)
  
- 		sp->m_cast_flg = 1;
- 		sp->all_multi_pos = MAC_MC_ALL_MC_ADDR_OFFSET;
-@@ -4312,7 +4334,8 @@ static void s2io_set_multicast(struct ne
- 		writeq(val64, &bar0->rmac_addr_cmd_mem);
- 		/* Wait till command completes */
- 		wait_for_cmd_complete(&bar0->rmac_addr_cmd_mem,
--				      RMAC_ADDR_CMD_MEM_STROBE_CMD_EXECUTING);
-+					RMAC_ADDR_CMD_MEM_STROBE_CMD_EXECUTING,
-+					S2IO_BIT_RESET);
- 
- 		sp->m_cast_flg = 0;
- 		sp->all_multi_pos = 0;
-@@ -4378,7 +4401,8 @@ static void s2io_set_multicast(struct ne
- 
- 			/* Wait for command completes */
- 			if (wait_for_cmd_complete(&bar0->rmac_addr_cmd_mem,
--				      RMAC_ADDR_CMD_MEM_STROBE_CMD_EXECUTING)) {
-+					RMAC_ADDR_CMD_MEM_STROBE_CMD_EXECUTING,
-+					S2IO_BIT_RESET)) {
- 				DBG_PRINT(ERR_DBG, "%s: Adding ",
- 					  dev->name);
- 				DBG_PRINT(ERR_DBG, "Multicasts failed\n");
-@@ -4409,7 +4433,8 @@ static void s2io_set_multicast(struct ne
- 
- 			/* Wait for command completes */
- 			if (wait_for_cmd_complete(&bar0->rmac_addr_cmd_mem,
--				      RMAC_ADDR_CMD_MEM_STROBE_CMD_EXECUTING)) {
-+					RMAC_ADDR_CMD_MEM_STROBE_CMD_EXECUTING,
-+					S2IO_BIT_RESET)) {
- 				DBG_PRINT(ERR_DBG, "%s: Adding ",
- 					  dev->name);
- 				DBG_PRINT(ERR_DBG, "Multicasts failed\n");
-@@ -4455,7 +4480,7 @@ static int s2io_set_mac_addr(struct net_
- 	writeq(val64, &bar0->rmac_addr_cmd_mem);
- 	/* Wait till command completes */
- 	if (wait_for_cmd_complete(&bar0->rmac_addr_cmd_mem,
--		      RMAC_ADDR_CMD_MEM_STROBE_CMD_EXECUTING)) {
-+		      RMAC_ADDR_CMD_MEM_STROBE_CMD_EXECUTING, S2IO_BIT_RESET)) {
- 		DBG_PRINT(ERR_DBG, "%s: set_mac_addr failed\n", dev->name);
- 		return FAILURE;
- 	}
-@@ -6736,6 +6761,37 @@ static int s2io_verify_parm(struct pci_d
- }
- 
- /**
-+ * rts_ds_steer - Receive traffic steering based on IPv4 or IPv6 TOS
-+ * or Traffic class respectively.
-+ * @nic: device peivate variable
-+ * Description: The function configures the receive steering to
-+ * desired receive ring.
-+ * Return Value:  SUCCESS on success and
-+ * '-1' on failure (endian settings incorrect).
-+ */
-+static int rts_ds_steer(struct s2io_nic *nic, u8 ds_codepoint, u8 ring)
-+{
-+	struct XENA_dev_config __iomem *bar0 = nic->bar0;
-+	register u64 val64 = 0;
-+
-+	if (ds_codepoint > 63)
-+		return FAILURE;
-+
-+	val64 = RTS_DS_MEM_DATA(ring);
-+	writeq(val64, &bar0->rts_ds_mem_data);
-+
-+	val64 = RTS_DS_MEM_CTRL_WE |
-+		RTS_DS_MEM_CTRL_STROBE_NEW_CMD |
-+		RTS_DS_MEM_CTRL_OFFSET(ds_codepoint);
-+
-+	writeq(val64, &bar0->rts_ds_mem_ctrl);
-+
-+	return wait_for_cmd_complete(&bar0->rts_ds_mem_ctrl,
-+				RTS_DS_MEM_CTRL_STROBE_CMD_BEING_EXECUTED,
-+				S2IO_BIT_RESET);
-+}
-+
-+/**
-  *  s2io_init_nic - Initialization of the adapter .
-  *  @pdev : structure containing the PCI related information of the device.
-  *  @pre: List of PCI devices supported by the driver listed in s2io_tbl.
-@@ -7029,7 +7085,7 @@ s2io_init_nic(struct pci_dev *pdev, cons
- 	    RMAC_ADDR_CMD_MEM_OFFSET(0 + MAC_MAC_ADDR_START_OFFSET);
- 	writeq(val64, &bar0->rmac_addr_cmd_mem);
- 	wait_for_cmd_complete(&bar0->rmac_addr_cmd_mem,
--		      RMAC_ADDR_CMD_MEM_STROBE_CMD_EXECUTING);
-+		      RMAC_ADDR_CMD_MEM_STROBE_CMD_EXECUTING, S2IO_BIT_RESET);
- 	tmp64 = readq(&bar0->rmac_addr_data0_mem);
- 	mac_down = (u32) tmp64;
- 	mac_up = (u32) (tmp64 >> 32);
-diff -urpN patch1/drivers/net/s2io.h patch2/drivers/net/s2io.h
---- patch1/drivers/net/s2io.h	2007-02-20 14:47:12.000000000 +0530
-+++ patch2/drivers/net/s2io.h	2007-02-20 14:47:46.000000000 +0530
-@@ -32,7 +32,8 @@
- #define FAILURE -1
- #define S2IO_MINUS_ONE 0xFFFFFFFFFFFFFFFFULL
- #define S2IO_MAX_PCI_CONFIG_SPACE_REINIT 100
--
-+#define S2IO_BIT_RESET 1
-+#define S2IO_BIT_SET 2
- #define CHECKBIT(value, nbit) (value & (1 << nbit))
- 
- /* Maximum time to flicker LED when asked to identify NIC using ethtool */
-@@ -1005,7 +1006,8 @@ static int s2io_set_swapper(struct s2io_
- static void s2io_card_down(struct s2io_nic *nic);
- static int s2io_card_up(struct s2io_nic *nic);
- static int get_xena_rev_id(struct pci_dev *pdev);
--static int wait_for_cmd_complete(void __iomem *addr, u64 busy_bit);
-+static int wait_for_cmd_complete(void __iomem *addr, u64 busy_bit,
-+					int bit_state);
- static int s2io_add_isr(struct s2io_nic * sp);
- static void s2io_rem_isr(struct s2io_nic * sp);
- 
-@@ -1019,6 +1021,7 @@ static void queue_rx_frame(struct sk_buf
- static void update_L3L4_header(struct s2io_nic *sp, struct lro *lro);
- static void lro_append_pkt(struct s2io_nic *sp, struct lro *lro,
- 			   struct sk_buff *skb, u32 tcp_len);
-+static int rts_ds_steer(struct s2io_nic *nic, u8 ds_codepoint, u8 ring);
- 
- #define s2io_tcp_mss(skb) skb_shinfo(skb)->gso_size
- #define s2io_udp_mss(skb) skb_shinfo(skb)->gso_size
+ /* Recent add, used only debug purposes. */
+ 	u64 pcc_enable;
 
