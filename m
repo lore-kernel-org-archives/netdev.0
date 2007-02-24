@@ -1,59 +1,54 @@
-From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: Re: [PATCH 18/29] netfilter: notify about NF_QUEUE
-	vs	emergency	skbs
-Date: Sat, 24 Feb 2007 17:55:49 +0100
-Message-ID: <1172336149.28579.11.camel@lappy>
-References: <20070221144304.512721000@taijtu.programming.kicks-ass.net>
-	 <20070221144843.299254000@taijtu.programming.kicks-ass.net>
-	 <45E05954.8050204@trash.net> <1172332010.28579.6.camel@lappy>
-	 <45E064FF.8010000@trash.net> <1172333937.6374.47.camel@twins>
-	 <45E06A86.2060408@trash.net>
+From: Sami Farin <7atbggg02@sneakemail.com>
+Subject: Re: [RFC] div64_64 support
+Date: Sat, 24 Feb 2007 18:19:16 +0200
+Message-ID: <20070224161916.GL3982@m.safari.iki.fi>
+References: <20070223170527.4ca695b2@freekitty>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org,
-	Trond Myklebust <trond.myklebust@fys.uio.no>,
-	Thomas Graf <tgraf@suug.ch>, David Miller <davem@davemloft.net>
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=us-ascii
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from amsfep19-int.chello.nl ([62.179.120.14]:64787 "EHLO
-	amsfep19-int.chello.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933519AbXBXQz7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 24 Feb 2007 11:55:59 -0500
-In-Reply-To: <45E06A86.2060408@trash.net>
+Received: from pne-smtpout4-sn1.fre.skanova.net ([81.228.11.168]:63138 "EHLO
+	pne-smtpout4-sn1.fre.skanova.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932427AbXBXR2w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 24 Feb 2007 12:28:52 -0500
+Received: from safari.iki.fi (80.223.106.128) by pne-smtpout4-sn1.fre.skanova.net (7.2.075)
+        id 45C775BA00113FE5 for netdev@vger.kernel.org; Sat, 24 Feb 2007 17:19:19 +0100
+Content-Disposition: inline
+In-Reply-To: <20070223170527.4ca695b2@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2007-02-24 at 17:40 +0100, Patrick McHardy wrote:
-> Peter Zijlstra wrote:
-> > On Sat, 2007-02-24 at 17:17 +0100, Patrick McHardy wrote:
-> > 
-> > 
-> >>I don't really see why
-> >>queueing is special though, dropping the packets in the ruleset
-> >>will break things just as well, as will routing them to a blackhole.
-> >>I guess the user just needs to be smart enough not to do this.
-> > 
-> > 
-> > Its user-space and no emergency packet may rely on user-space because it
-> > most likely is needed to maintain user-space.
+On Fri, Feb 23, 2007 at 17:05:27 -0800, Stephen Hemminger wrote:
+> Since there already two users of full 64 bit division in the kernel,
+> and other places maybe hiding out as well. Add a full 64/64 bit divide.
 > 
-> I believe I might have misunderstood the intention of this patch.
-> 
-> Assuming the user is smart enough not to queue packets destined
-> to a SOCK_VMIO socket, are you worried about unrelated packets
-> allocated from the emergency reserve not getting freed fast
-> enough because they're sitting in a queue? In that case simply
-> dropping the packets would be fine I guess.
+> Yes this expensive, but there are places where it is necessary.
+> It is not clear if doing the scaling buys any advantage on 64 bit platforms,
+> so for them a full divide is done.
 
-OK, that sounds good. I shall make NF_QUEUE a black hole for emergency
-packets.
+Still does not work after these fixes... how came?
 
-Alas, that leaves no way to warn a user about a SOCK_VMIO bound packet
-treated this way, since, as you said, that is unknown at this point in
-the chain.
+WARNING: "div64_64" [net/netfilter/xt_connbytes.ko] undefined!
+WARNING: "div64_64" [net/ipv4/tcp_cubic.ko] undefined!
 
-Thanks,
-Peter
+--- linux-2.6.19/include/asm-i386/div64.h.bak	2006-11-29 23:57:37.000000000 +0200
++++ linux-2.6.19/include/asm-i386/div64.h	2007-02-24 16:24:55.822529880 +0200
+@@ -45,4 +45,7 @@ div_ll_X_l_rem(long long divs, long div,
+ 	return dum2;
+ 
+ }
++
++extern uint64_t div64_64(uint64_t dividend, uint64_t divisor);
++
+ #endif
+--- linux-2.6.19/lib/div64.c.bak	2007-02-24 16:10:03.686084000 +0200
++++ linux-2.6.19/lib/div64.c	2007-02-24 17:01:11.224517353 +0200
+@@ -80,4 +80,6 @@ uint64_t div64_64(uint64_t dividend, uin
+ 	return dividend;
+ }
+ 
++EXPORT_SYMBOL(div64_64);
++
+ #endif /* BITS_PER_LONG == 32 */
 
+-- 
