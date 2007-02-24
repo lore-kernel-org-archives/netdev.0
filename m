@@ -1,92 +1,90 @@
-From: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
-Subject: Re: possible bug in net/tc35815.c in linux-2.6.19
-Date: Sat, 24 Feb 2007 13:37:55 +0100
-Message-ID: <45E031A3.806@googlemail.com>
-References: <45DFEC09.3020801@cs.stanford.edu>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [RFC] use ktime for packet scheduling
+Date: Sat, 24 Feb 2007 15:17:37 +0100
+Message-ID: <45E04901.1040505@trash.net>
+References: <20070222143047.1631b93e@freekitty>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Philip Guo <pg@cs.stanford.edu>, Jeff Garzik <jeff@garzik.org>,
-	ahennessy@mvista.com, netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.187]:60558 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752263AbXBXMiU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 24 Feb 2007 07:38:20 -0500
-Received: by nf-out-0910.google.com with SMTP id o25so1157406nfa
-        for <netdev@vger.kernel.org>; Sat, 24 Feb 2007 04:38:19 -0800 (PST)
-In-Reply-To: <45DFEC09.3020801@cs.stanford.edu>
+Received: from stinky.trash.net ([213.144.137.162]:53143 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932864AbXBXORj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 24 Feb 2007 09:17:39 -0500
+In-Reply-To: <20070222143047.1631b93e@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Philip,
+Stephen Hemminger wrote:
+> Here is an experimental patch that changes the packet scheduler to use
+> ktime instead of gettimeofday. This should be faster on 64 bit and avoid some of
+> the math overhead issues with previous code.
+> 
+> Also since it uses monotonic clock, it won't cause timing glitches when NTP
+> adjusts the clock.
 
-Philip Guo napisa=C5=82(a):
-> Hi,
->=20
-> I am a graduate student working on finding bugs in Linux drivers usin=
-g
-> an automated research tool.  I think I've found a possible bug in
-> net/tc35815.c, and I'd appreciate it if you could confirm/disconfirm =
-it.
->=20
-> Thanks,
-> Philip
->=20
-> ---
-> net/tc35815.c
->=20
-> tc35815_driver is never unregistered in tc35815_cleanup_module()
->=20
-> static int __init tc35815_init_module(void)
-> {
->     return pci_register_driver(&tc35815_driver);
-> }
->=20
-> static void __exit tc35815_cleanup_module(void)
-> {
->     struct net_device *next_dev;
->=20
->     while (root_tc35815_dev) {
->         struct net_device *dev =3D root_tc35815_dev;
->         next_dev =3D ((struct tc35815_local *)dev->priv)->next_module=
-;
->         iounmap((void *)(dev->base_addr));
->         unregister_netdev(dev);
->         free_netdev(dev);
->         root_tc35815_dev =3D next_dev;
->     }
-> }
->=20
->=20
+This looks like a good idea, even if we can't take full advantage
+of the higher precision for now.
 
-I think that you are right, but I don't know this code.
+BTW, any news on the iproute patches I sent you for this?
 
-Jeff, what do you think about this?
+> --- netem.orig/include/net/pkt_sched.h	2007-02-22 12:08:53.000000000 -0800
+> +++ netem/include/net/pkt_sched.h	2007-02-22 14:21:57.000000000 -0800
+> @@ -56,19 +56,48 @@
+>  
+>  #ifdef CONFIG_NET_SCH_CLK_GETTIMEOFDAY
+>  
+> -typedef struct timeval	psched_time_t;
+> -typedef long		psched_tdiff_t;
+> +typedef ktime_t psched_time_t;
+> +typedef long	psched_tdiff_t;
+> +
+> +/* Avoid doing 64 bit divide by 1000 */
+> +#define PSCHED_US2NS(x)	((s64)(x) << 10)
+> +#define PSCHED_NS2US(x)	((x) >> 10)
 
-Regards,
-Michal
+Since you use this for PSCHED_TDIFF etc, the resulting values
+are not exactly microseconds anymore. You need to adjust
+psched_us_per_tick/psched_tick_per_us so userspace can
+correctly calculate time values.
 
-PS. Philip, please sign this patch.
+> -#define PSCHED_GET_TIME(stamp) do_gettimeofday(&(stamp))
+> +#define PSCHED_GET_TIME(stamp)  ((stamp) = ktime_get())
+>  #define PSCHED_US2JIFFIE(usecs) usecs_to_jiffies(usecs)
+>  #define PSCHED_JIFFIE2US(delay) jiffies_to_usecs(delay)
 
---=20
-Michal K. K. Piotrowski
-LTG - Linux Testers Group (PL)
-(http://www.stardust.webpages.pl/ltg/)
-LTG - Linux Testers Group (EN)
-(http://www.stardust.webpages.pl/linux_testers_group_en/)
+Both of these need to take into account that its not real
+microseconds anymore.
 
-Signed-off-by: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
+Please also fix up the HFSC PSCHED_GET_TIME redefinition,
+it expects the results to be usable with these macros.
 
---- linux-mm-clean/drivers/net/tc35815.c	2007-02-04 19:44:54.000000000 =
-+0100
-+++ linux-mm/drivers/net/tc35815.c	2007-02-24 13:07:34.000000000 +0100
-@@ -1740,6 +1740,8 @@ static void __exit tc35815_cleanup_modul
- 		free_netdev(dev);
- 		root_tc35815_dev =3D next_dev;
- 	}
-+
-+	pci_unregister_driver(&tc35815_driver);
- }
- module_init(tc35815_init_module);
- module_exit(tc35815_cleanup_module);
+> +static inline psched_tdiff_t psched_diff(const psched_time_t tv1,
+> +					 const psched_time_t tv2)
+> +{
+> +	return PSCHED_NS2US(ktime_to_ns(ktime_sub(tv1, tv2)));
+> +}
+> +
+> +#define PSCHED_TDIFF(tv1, tv2) psched_diff(tv1, tv2)
+> +#define PSCHED_TDIFF_SAFE(tv1, tv2, bound) \
+> +	min_t(long, psched_diff((tv1),(tv2)), bound)
+> +
+> +static inline psched_time_t psched_add(const psched_time_t tv1, u32 usec)
+> +{
+> +	u64 ns = PSCHED_US2NS(usec);
+> +	return ktime_add_ns(tv1, ns);
+> +}
+> +
+> +#define PSCHED_TLESS(tv1, tv2) ((tv1).tv64 < (tv2).tv64)
+> +#define PSCHED_TADD(tv, delta) psched_add((tv), (delta))
+> +#define PSCHED_TADD2(tv, delta, tv_res) ((tv_res) = psched_add((tv), (delta)))
+> +
+> +/* Set/check that time is in the "past perfect" */
+> +
+> +#define PSCHED_SET_PASTPERFECT(t)	((t).tv64 = 0)
+> +#define PSCHED_IS_PASTPERFECT(t)	((t).tv64 == 0)
+
+Maybe use one of the 32 bit members, I guess that will generate
+better code on 32 bit.
