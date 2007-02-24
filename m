@@ -1,90 +1,92 @@
-From: Kristian Evensen <kristrev@ifi.uio.no>
-Subject: Re: Copy data from one SKB to another
-Date: Sat, 24 Feb 2007 13:32:19 +0200
-Message-ID: <45E02243.5010508@ifi.uio.no>
-References: <58989.129.240.228.53.1172145587.squirrel@webmail.uio.no>
- <e92e3a770702240137p6c0b31b3r2b7ce0b4042fac4b@mail.gmail.com>
- <45E0193F.5090909@ldb-jab.org>
+From: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
+Subject: Re: possible bug in net/tc35815.c in linux-2.6.19
+Date: Sat, 24 Feb 2007 13:37:55 +0100
+Message-ID: <45E031A3.806@googlemail.com>
+References: <45DFEC09.3020801@cs.stanford.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7BIT
-Cc: kalash nainwal <nirvana.code@gmail.com>,
-	"kristrev@student.matnat.uio.no" <kristrev@student.matnat.uio.no>,
-	netdev@vger.kernel.org, linux-net@vger.kernel.org
-To: LDB <thesource@ldb-jab.org>
-Return-path: <linux-net-owner@vger.kernel.org>
-In-reply-to: <45E0193F.5090909@ldb-jab.org>
-Sender: linux-net-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Philip Guo <pg@cs.stanford.edu>, Jeff Garzik <jeff@garzik.org>,
+	ahennessy@mvista.com, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nf-out-0910.google.com ([64.233.182.187]:60558 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752263AbXBXMiU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 24 Feb 2007 07:38:20 -0500
+Received: by nf-out-0910.google.com with SMTP id o25so1157406nfa
+        for <netdev@vger.kernel.org>; Sat, 24 Feb 2007 04:38:19 -0800 (PST)
+In-Reply-To: <45DFEC09.3020801@cs.stanford.edu>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-LDB wrote:
-> kalash nainwal wrote:
->   
->> On 2/22/07, kristrev@student.matnat.uio.no
->> <kristrev@student.matnat.uio.no> wrote:
->>     
->>> Hello,
->>>
->>> I am working on optimizing the TCP-code for a certain type of TCP-stream,
->>> and to make one of my optimizations work I need to copy data from one SKB
->>> (the data field of the skb) to another SKB (data field).
->>>
->>> Currently I am using memcpy, and it does what it is supposed to, but I am
->>> curious as to if there are any other (potentially faster/more efficient)
->>> ways of doing it. I have checked out the skb_add_data (used when you can
->>> copy data from the msg you are sending into the most recent skb added to
->>> the queue), but from what I can understand it only copies from userspace
->>> into kernelspace (whereas I need to copy kernel-kernel).
->>>
->>> Does anyone have any hints, suggestions, solutions or something else they
->>> think might help?
->>>
->>> Thanks,
->>> Kristian
->>>
->>> -
->>>       
->> How about cloning? Is that an option?
->> -
->> To unsubscribe from this list: send the line "unsubscribe linux-net" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>
->>
->>     
->
-> skb_clone is an option but you cannot modify any data - correct me if I am wrong.
->
-> The other options are pskb_copy and skb_copy used when modifications are
-> necessary - correct if I am wrong.
->
-> You just have to chose which is appropriate for your specific needs.
->
-> LDB
->   
-Thank you very much for all your replies. I have spent the day today 
-looking into the different clone/copy-functions for skb's, but I cant 
-help feeling that they are a bit to advanced for what I want to do. All 
-my code is going to do is to copy the skb->data field (the payload) from 
-one skb to another (to perform some aggressive bundling, the potentially 
-redundant data will be removed when ack occurs).
+Hi Philip,
 
-Since the data copied might be from the retransmission queue, the  
-function I see might be useful is the skb_copy function to copy the 
-packet that I copy the data from (if it is in the retransmission queue). 
-This is also what led to my question about exactly how TCP treats 
-acks/sends on the same socket.
+Philip Guo napisa=C5=82(a):
+> Hi,
+>=20
+> I am a graduate student working on finding bugs in Linux drivers usin=
+g
+> an automated research tool.  I think I've found a possible bug in
+> net/tc35815.c, and I'd appreciate it if you could confirm/disconfirm =
+it.
+>=20
+> Thanks,
+> Philip
+>=20
+> ---
+> net/tc35815.c
+>=20
+> tc35815_driver is never unregistered in tc35815_cleanup_module()
+>=20
+> static int __init tc35815_init_module(void)
+> {
+>     return pci_register_driver(&tc35815_driver);
+> }
+>=20
+> static void __exit tc35815_cleanup_module(void)
+> {
+>     struct net_device *next_dev;
+>=20
+>     while (root_tc35815_dev) {
+>         struct net_device *dev =3D root_tc35815_dev;
+>         next_dev =3D ((struct tc35815_local *)dev->priv)->next_module=
+;
+>         iounmap((void *)(dev->base_addr));
+>         unregister_netdev(dev);
+>         free_netdev(dev);
+>         root_tc35815_dev =3D next_dev;
+>     }
+> }
+>=20
+>=20
 
-My current implementation (using memcopy) copies the data, but some 
-weird behaviour occurs (and after days of looking into it I havent found 
-the cause). If a dupAck occurs, it rightly sends as many packets from 
-the retrans-queue as it is supposed to (and allowed to) do but then 
-eveything stops working. Even though the sequence number is correct, I 
-only recieves more dupAcks. If someone has experienced similar behaviour 
-when working with the TCP-code or have any ideas to what might be wrong, 
-please let me know :)
+I think that you are right, but I don't know this code.
 
-Have a nice weekend!
+Jeff, what do you think about this?
 
-Thanks,
-Kristian
+Regards,
+Michal
+
+PS. Philip, please sign this patch.
+
+--=20
+Michal K. K. Piotrowski
+LTG - Linux Testers Group (PL)
+(http://www.stardust.webpages.pl/ltg/)
+LTG - Linux Testers Group (EN)
+(http://www.stardust.webpages.pl/linux_testers_group_en/)
+
+Signed-off-by: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
+
+--- linux-mm-clean/drivers/net/tc35815.c	2007-02-04 19:44:54.000000000 =
++0100
++++ linux-mm/drivers/net/tc35815.c	2007-02-24 13:07:34.000000000 +0100
+@@ -1740,6 +1740,8 @@ static void __exit tc35815_cleanup_modul
+ 		free_netdev(dev);
+ 		root_tc35815_dev =3D next_dev;
+ 	}
++
++	pci_unregister_driver(&tc35815_driver);
+ }
+ module_init(tc35815_init_module);
+ module_exit(tc35815_cleanup_module);
