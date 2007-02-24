@@ -1,106 +1,60 @@
-From: brownh@hartford-hwp.com (Haines Brown)
-Subject: Re: anthropology of linux: help needed
-Date: Sat, 24 Feb 2007 05:00:46 -0500 (EST)
-Message-ID: <20070224100046.C6851E21@teufel.hartford-hwp.com>
-References: <45DD893F.5060106@durham.ac.uk>
-Reply-To: "H.Haines Brown" <brownh@hartford-hwp.com>
+From: LDB <thesource@ldb-jab.org>
+Subject: Re: Copy data from one SKB to another
+Date: Sat, 24 Feb 2007 05:53:51 -0500
+Message-ID: <45E0193F.5090909@ldb-jab.org>
+References: <58989.129.240.228.53.1172145587.squirrel@webmail.uio.no> <e92e3a770702240137p6c0b31b3r2b7ce0b4042fac4b@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-hams@vger.kernel.org,
-	linux-doc@vger.kernel.org, linux-net@vger.kernel.org,
-	linux-newbie@vger.kernel.org, linux-gcc@vger.kernel.org,
-	linux-word@vger.kernel.org, linux-lugnuts@vger.kernel.org,
-	linux-new-lists@vger.kernel.org
-To: m.a.a.kastrinou-theodoro@durham.ac.uk
-Return-path: <linux-gcc-owner@vger.kernel.org>
-In-reply-to: <45DD893F.5060106@durham.ac.uk>
-	(m.a.a.kastrinou-theodoro@durham.ac.uk)
-Sender: linux-gcc-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "kristrev@student.matnat.uio.no" <kristrev@student.matnat.uio.no>,
+	netdev@vger.kernel.org, linux-net@vger.kernel.org
+To: kalash nainwal <nirvana.code@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.ldb-jab.org ([209.135.157.157]:46969 "EHLO
+	master.ldb-jab.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932677AbXBXLOC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 24 Feb 2007 06:14:02 -0500
+In-Reply-To: <e92e3a770702240137p6c0b31b3r2b7ce0b4042fac4b@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->=20
-> 1. When did you start using GNU/Linux OS?
+kalash nainwal wrote:
+> On 2/22/07, kristrev@student.matnat.uio.no
+> <kristrev@student.matnat.uio.no> wrote:
+>> Hello,
+>>
+>> I am working on optimizing the TCP-code for a certain type of TCP-stream,
+>> and to make one of my optimizations work I need to copy data from one SKB
+>> (the data field of the skb) to another SKB (data field).
+>>
+>> Currently I am using memcpy, and it does what it is supposed to, but I am
+>> curious as to if there are any other (potentially faster/more efficient)
+>> ways of doing it. I have checked out the skb_add_data (used when you can
+>> copy data from the msg you are sending into the most recent skb added to
+>> the queue), but from what I can understand it only copies from userspace
+>> into kernelspace (whereas I need to copy kernel-kernel).
+>>
+>> Does anyone have any hints, suggestions, solutions or something else they
+>> think might help?
+>>
+>> Thanks,
+>> Kristian
+>>
+>> -
+> 
+> How about cloning? Is that an option?
+> -
+> To unsubscribe from this list: send the line "unsubscribe linux-net" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+> 
 
-Not sure. Perhaps 2000.=20
+skb_clone is an option but you cannot modify any data - correct me if I am wrong.
 
-> 2. What is your level of involvement?
-> newbie/ user/ developer (delete as appropriate)
+The other options are pskb_copy and skb_copy used when modifications are
+necessary - correct if I am wrong.
 
-user
+You just have to chose which is appropriate for your specific needs.
 
-> 3. Why are you using Linux?
-
-Stability, keyboard-orientation (don't run a  desktop), more fun.=20
-
-> 4. Is Linux fun? How?
-
-Yes. Modularization, file configuration give sense of understanding
-and control.
-
-> 5. Which distribution of Linux do you use?
-
-Debian Sarge
-=20
-> 6. What in your opinion constitutes a =C2=A1good hack=C2=A2?
-
-Not sure how to answer this.
-
-> 7. Would you describe yourself as a =C2=A1hacker=C2=A2?
-
-No.
-
-> 8. Which super-hero (apart from Tux) do you think
-> would represent Linux best?
-
-no opinion
-
-> 9. Describe Microsoft OS in one word.
-
-Clunky
-
-> 10. How do you view the recent patent agreement
-> between Microsoft and Novell?
-
-Well, no strong opionion.
-
-> 11. GNU GPL, copyleft and freedom of speech: good, bad
-> or irrelevant?
-
-Good. Most of my work depends on fair use doctrine.
-
-> 12. How many Linux mailing lists are you a member of?
-
-Not sure. Perhaps four.
-
-> 13. Would you reply to a question sent through Linux
-> mailing lists and why?
-
-Yes. Desire to be helpful.
-
-> 14. Microsoft vs. Linux: cathedral vs. bazaar or
-> something altogether different?
-
-Good question. I felt "cathedral vs. bazaar" was a bit rhetorical and
-inflated. I see MS as example of capitalism, while Linux is more petit
-bourgeois. Their difference is not my concern.
-
-> 15. Open Source or Free Software?
-
-Not either or. Not being a developer, I can only support open source
-at a distance as a good idea. Free software does affect me because I'm
-low income. The two seem interdependent.
-
-> Personal Information:
-> a) Age: 71
-> b) Gender: M
-> c) Occupation: retire teacher
-> d) Your current geographic location: Connecticut, US
->=20
-> Any other comments?
->=20
->=20
-> Would you like me to e-mail you the results? YES/ NO
-
-yes
->=20
+LDB
