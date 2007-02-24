@@ -1,90 +1,51 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [RFC] use ktime for packet scheduling
-Date: Sat, 24 Feb 2007 15:17:37 +0100
-Message-ID: <45E04901.1040505@trash.net>
-References: <20070222143047.1631b93e@freekitty>
+Subject: Re: [PATCH 18/29] netfilter: notify about NF_QUEUE vs emergency skbs
+Date: Sat, 24 Feb 2007 16:27:16 +0100
+Message-ID: <45E05954.8050204@trash.net>
+References: <20070221144304.512721000@taijtu.programming.kicks-ass.net> <20070221144843.299254000@taijtu.programming.kicks-ass.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Cc: linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+	netdev@vger.kernel.org,
+	Trond Myklebust <trond.myklebust@fys.uio.no>,
+	Thomas Graf <tgraf@suug.ch>, David Miller <davem@davemloft.net>
+To: Peter Zijlstra <a.p.zijlstra@chello.nl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:53143 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:54327 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932864AbXBXORj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 24 Feb 2007 09:17:39 -0500
-In-Reply-To: <20070222143047.1631b93e@freekitty>
+	with ESMTP id S933007AbXBXP1T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 24 Feb 2007 10:27:19 -0500
+In-Reply-To: <20070221144843.299254000@taijtu.programming.kicks-ass.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> Here is an experimental patch that changes the packet scheduler to use
-> ktime instead of gettimeofday. This should be faster on 64 bit and avoid some of
-> the math overhead issues with previous code.
-> 
-> Also since it uses monotonic clock, it won't cause timing glitches when NTP
-> adjusts the clock.
+Peter Zijlstra wrote:
+> Emergency skbs should never touch user-space, however NF_QUEUE is fully user
+> configurable. Notify the user of his mistake and try to continue.
+>
+> --- linux-2.6-git.orig/net/netfilter/core.c	2007-02-14 12:09:07.000000000 +0100
+> +++ linux-2.6-git/net/netfilter/core.c	2007-02-14 12:09:18.000000000 +0100
+> @@ -187,6 +187,11 @@ next_hook:
+>  		kfree_skb(*pskb);
+>  		ret = -EPERM;
+>  	} else if ((verdict & NF_VERDICT_MASK)  == NF_QUEUE) {
+> +		if (unlikely((*pskb)->emergency)) {
+> +			printk(KERN_ERR "nf_hook: NF_QUEUE encountered for "
+> +					"emergency skb - skipping rule.\n");
+> +			goto next_hook;
+> +		}
 
-This looks like a good idea, even if we can't take full advantage
-of the higher precision for now.
+If I'm not mistaken any skb on the receive side might get
+allocated from the reserve. I don't see how the user could
+avoid this except by not using queueing at all.
 
-BTW, any news on the iproute patches I sent you for this?
+I also didn't see a patch dropping packets allocated from
+the reserve that are forwarded or processed directly without
+getting queued to a socket, so this would allow them to
+bypass userspace queueing and still go through.
 
-> --- netem.orig/include/net/pkt_sched.h	2007-02-22 12:08:53.000000000 -0800
-> +++ netem/include/net/pkt_sched.h	2007-02-22 14:21:57.000000000 -0800
-> @@ -56,19 +56,48 @@
->  
->  #ifdef CONFIG_NET_SCH_CLK_GETTIMEOFDAY
->  
-> -typedef struct timeval	psched_time_t;
-> -typedef long		psched_tdiff_t;
-> +typedef ktime_t psched_time_t;
-> +typedef long	psched_tdiff_t;
-> +
-> +/* Avoid doing 64 bit divide by 1000 */
-> +#define PSCHED_US2NS(x)	((s64)(x) << 10)
-> +#define PSCHED_NS2US(x)	((x) >> 10)
+I think the user should just exclude packets necessary for
+swapping from queueing manually, based on IP addresses,
+port numbers or something like that.
 
-Since you use this for PSCHED_TDIFF etc, the resulting values
-are not exactly microseconds anymore. You need to adjust
-psched_us_per_tick/psched_tick_per_us so userspace can
-correctly calculate time values.
-
-> -#define PSCHED_GET_TIME(stamp) do_gettimeofday(&(stamp))
-> +#define PSCHED_GET_TIME(stamp)  ((stamp) = ktime_get())
->  #define PSCHED_US2JIFFIE(usecs) usecs_to_jiffies(usecs)
->  #define PSCHED_JIFFIE2US(delay) jiffies_to_usecs(delay)
-
-Both of these need to take into account that its not real
-microseconds anymore.
-
-Please also fix up the HFSC PSCHED_GET_TIME redefinition,
-it expects the results to be usable with these macros.
-
-> +static inline psched_tdiff_t psched_diff(const psched_time_t tv1,
-> +					 const psched_time_t tv2)
-> +{
-> +	return PSCHED_NS2US(ktime_to_ns(ktime_sub(tv1, tv2)));
-> +}
-> +
-> +#define PSCHED_TDIFF(tv1, tv2) psched_diff(tv1, tv2)
-> +#define PSCHED_TDIFF_SAFE(tv1, tv2, bound) \
-> +	min_t(long, psched_diff((tv1),(tv2)), bound)
-> +
-> +static inline psched_time_t psched_add(const psched_time_t tv1, u32 usec)
-> +{
-> +	u64 ns = PSCHED_US2NS(usec);
-> +	return ktime_add_ns(tv1, ns);
-> +}
-> +
-> +#define PSCHED_TLESS(tv1, tv2) ((tv1).tv64 < (tv2).tv64)
-> +#define PSCHED_TADD(tv, delta) psched_add((tv), (delta))
-> +#define PSCHED_TADD2(tv, delta, tv_res) ((tv_res) = psched_add((tv), (delta)))
-> +
-> +/* Set/check that time is in the "past perfect" */
-> +
-> +#define PSCHED_SET_PASTPERFECT(t)	((t).tv64 = 0)
-> +#define PSCHED_IS_PASTPERFECT(t)	((t).tv64 == 0)
-
-Maybe use one of the 32 bit members, I guess that will generate
-better code on 32 bit.
