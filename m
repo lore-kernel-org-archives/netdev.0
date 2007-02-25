@@ -1,56 +1,48 @@
-From: Florian Zumbiehl <florz@gmx.de>
-Subject: Weird problem with PPPoE on tap interface
-Date: Sun, 25 Feb 2007 20:54:56 +0100
-Message-ID: <20070225195455.GC3318@florz.florz.dyndns.org>
+From: Bernhard Walle <bwalle@suse.de>
+Subject: [PATCH] Fix oops in xfrm4_dst_destroy()
+Date: Sun, 25 Feb 2007 21:43:15 +0100
+Message-ID: <20070225204315.GB31715@strauss.suse.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: mostrows@speakeasy.net
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Miika Komu <miika@iki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from odnb-d9bbdc04.pool.mediaWays.net ([217.187.220.4]:3934 "EHLO
-	rain.florz.dyndns.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965106AbXBYUQ4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Feb 2007 15:16:56 -0500
+Received: from ns2.suse.de ([195.135.220.15]:36782 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751025AbXBYUnR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 25 Feb 2007 15:43:17 -0500
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+With 2.6.21-rc1, I get an oops when running 'ifdown eth0' and an IPsec
+connection is active. If I shut down the connection before running 'ifdown
+eth0', then there's no problem.  The critical operation of this script is to
+kill dhcpd.
 
-I'm experiencing a pretty strange problem with kernel PPPoE on tap
-interfaces with a vanilla 2.6.20 kernel that prevents the PPP connection
-from being established:
+The problem is probably caused by commit with git identifier
+4337226228e1cfc1d70ee975789c6bd070fb597c (Linus tree) "[IPSEC]: IPv4 over IPv6
+IPsec tunnel".
 
-Every PPPoE session packet (that is, LCP, since it never gets to a stage
-where any other session data is being exchanged) is delivered to pppd
-twice. This can be seen from pppd's logging messages when debugging
-is enabled, and strace confirmed that it indeed does read() the exact
-same data twice in a row from the same file descriptor - even though
-a tcpdump on the corresponding tap interface does show each packet only
-once.
+This patch fixes that oops. I don't know the network code of the Linux kernel
+in deep, so if that fix is wrong, please change it. But please fix the oops. :)
 
-For confirming this, I used a program with a select() loop that simply
-moves packets unchanged and without reordering back and forth between
-a "real" ethernet interface in promiscuous mode and the tap interface
-used by pppd.
 
-What makes this even stranger, is, that the setup works perfectly (and
-only a single copy of packets is delivered to pppd) if I simply replace
-the tap interface in pppd's config with the "real" ethernet interface
-that the tap interface was previously bridged to (it's an ISA NE2K
-clone, BTW).
+Signed-off-by: Bernhard Walle <bwalle@suse.de>
+---
+ net/ipv4/xfrm4_policy.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Finally, it also works perfectly when I use userspace rp-pppoe through
-the tap interface.
-
-So far, I also confirmed that in kernel space, the call to ppp_input()
-in drivers/net/pppoe.c is executed as many times as pppd receives a
-packet, so the problem must be somewhere before that.
-
-Well, I'm gonna try to find out more - but if someone with some
-more knowledge of the involved kernel code would be willing to help
-with this in some way or another, that would certainly be
-appreciated ;-) - if you do need any additional information, let me
-know ...
-
-Florian
+Index: linux-2.6.21-rc1/net/ipv4/xfrm4_policy.c
+===================================================================
+--- linux-2.6.21-rc1.orig/net/ipv4/xfrm4_policy.c
++++ linux-2.6.21-rc1/net/ipv4/xfrm4_policy.c
+@@ -291,7 +291,7 @@ static void xfrm4_dst_destroy(struct dst
+ 
+ 	if (likely(xdst->u.rt.idev))
+ 		in_dev_put(xdst->u.rt.idev);
+-	if (dst->xfrm->props.family == AF_INET && likely(xdst->u.rt.peer))
++	if (dst->xfrm && dst->xfrm->props.family == AF_INET && likely(xdst->u.rt.peer))
+ 		inet_putpeer(xdst->u.rt.peer);
+ 	xfrm_dst_destroy(xdst);
+ }
