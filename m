@@ -1,51 +1,125 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: Re: [tipc-discussion] [RFC: 2.6 patch] net/tipc/: possible cleanups
-Date: Sun, 25 Feb 2007 17:14:11 +0100
-Message-ID: <20070225161411.GX12392@stusta.de>
-References: <20070223221657.GA10153@infradead.org> <AF1602CB2550CE4381C0C75118A7856BA2ACC6@ala-mail02.corp.ad.wrs.com>
+From: jamal <hadi@cyberus.ca>
+Subject: [IPROUTE2][ALL] update rest to use nl_mgrp
+Date: Sun, 25 Feb 2007 11:55:19 -0500
+Message-ID: <1172422519.3942.29.camel@localhost>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Christoph Hellwig <hch@infradead.org>,
-	Jon Maloy <jon.maloy@ericsson.com>, per.liden@ericsson.com,
-	netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net,
-	linux-kernel@vger.kernel.org
-To: "Stephens, Allan" <allan.stephens@windriver.com>
+Content-Type: multipart/mixed; boundary="=-ltO9+ZNBz1iIVx2kIwB0"
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from emailhub.stusta.mhn.de ([141.84.69.5]:43826 "EHLO
-	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S964976AbXBYQOM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Feb 2007 11:14:12 -0500
-Content-Disposition: inline
-In-Reply-To: <AF1602CB2550CE4381C0C75118A7856BA2ACC6@ala-mail02.corp.ad.wrs.com>
+Received: from wx-out-0506.google.com ([66.249.82.230]:13001 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752362AbXBYQzX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Feb 2007 11:55:23 -0500
+Received: by wx-out-0506.google.com with SMTP id h31so1102540wxd
+        for <netdev@vger.kernel.org>; Sun, 25 Feb 2007 08:55:23 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Feb 24, 2007 at 04:19:19PM -0800, Stephens, Allan wrote:
->...
-> 2) There are portions of TIPC's native API which are intended for use by
-> driver programmers, but which are not being used by any code that is
-> currently in the kernel.  While removing these API's from TIPC will only
-> impact these "freeloaders", it has the potential to discourage future
-> programmers who *do* want to contribute their work to the kernel by
-> removing API's that are apparently necessary/useful when doing coding of
-> this sort.
 
-It can be re-added at any time when an in-kernel user comes.
+--=-ltO9+ZNBz1iIVx2kIwB0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 
-But the most interesting question is:
-Why is noone interested in getting his TIPC using drivers merged?
+cheers,
+jamal
 
-> Regards,
-> Al
->...
+--=-ltO9+ZNBz1iIVx2kIwB0
+Content-Disposition: attachment; filename=convrestmg
+Content-Type: text/plain; name=convrestmg; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 
-cu
-Adrian
+[ALL] update rest to use nl_mgrp
 
--- 
+Signed-off-by: J Hadi Salim <hadi@cyberus.ca>
 
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
+---
+commit 539bc1cc1b002700504ad8cbe82ea451026c5fe4
+tree 208bd273db5bf023c33e5256da615a20173c1921
+parent 40076f622e0aacb2b792d3ac1b5d12aa97c4da9c
+author Jamal Hadi Salim <hadi@cyberus.ca> Sun, 25 Feb 2007 11:43:54 -0500
+committer Jamal Hadi Salim <hadi@cyberus.ca> Sun, 25 Feb 2007 11:43:54 -0500
+
+ ip/ipmonitor.c  |   12 ++++++------
+ ip/rtmon.c      |   10 +++++-----
+ tc/tc_monitor.c |    2 +-
+ 3 files changed, 12 insertions(+), 12 deletions(-)
+
+diff --git a/ip/ipmonitor.c b/ip/ipmonitor.c
+index 704ada7..f1a1f27 100644
+--- a/ip/ipmonitor.c
++++ b/ip/ipmonitor.c
+@@ -132,22 +132,22 @@ int do_ipmonitor(int argc, char **argv)
+ 	}
+ 
+ 	if (llink)
+-		groups |= RTMGRP_LINK;
++		groups |= nl_mgrp(RTNLGRP_LINK);
+ 	if (laddr) {
+ 		if (!preferred_family || preferred_family == AF_INET)
+-			groups |= RTMGRP_IPV4_IFADDR;
++			groups |= nl_mgrp(RTNLGRP_IPV4_IFADDR);
+ 		if (!preferred_family || preferred_family == AF_INET6)
+-			groups |= RTMGRP_IPV6_IFADDR;
++			groups |= nl_mgrp(RTNLGRP_IPV6_IFADDR);
+ 	}
+ 	if (lroute) {
+ 		if (!preferred_family || preferred_family == AF_INET)
+-			groups |= RTMGRP_IPV4_ROUTE;
++			groups |= nl_mgrp(RTNLGRP_IPV4_ROUTE);
+ 		if (!preferred_family || preferred_family == AF_INET6)
+-			groups |= RTMGRP_IPV6_ROUTE;
++			groups |= nl_mgrp(RTNLGRP_IPV6_ROUTE);
+ 	}
+ 	if (lprefix) {
+ 		if (!preferred_family || preferred_family == AF_INET6)
+-			groups |= RTMGRP_IPV6_PREFIX;
++			groups |= nl_mgrp(RTNLGRP_IPV6_PREFIX);
+ 	}
+ 
+ 	if (file) {
+diff --git a/ip/rtmon.c b/ip/rtmon.c
+index 8c464cb..b538a52 100644
+--- a/ip/rtmon.c
++++ b/ip/rtmon.c
+@@ -134,18 +134,18 @@ main(int argc, char **argv)
+ 		exit(-1);
+ 	}
+ 	if (llink)
+-		groups |= RTMGRP_LINK;
++		groups |= nl_mgrp(RTNLGRP_LINK);
+ 	if (laddr) {
+ 		if (!family || family == AF_INET)
+-			groups |= RTMGRP_IPV4_IFADDR;
++			groups |= nl_mgrp(RTNLGRP_IPV4_IFADDR);
+ 		if (!family || family == AF_INET6)
+-			groups |= RTMGRP_IPV6_IFADDR;
++			groups |= nl_mgrp(RTNLGRP_IPV6_IFADDR);
+ 	}
+ 	if (lroute) {
+ 		if (!family || family == AF_INET)
+-			groups |= RTMGRP_IPV4_ROUTE;
++			groups |= nl_mgrp(RTNLGRP_IPV4_ROUTE);
+ 		if (!family || family == AF_INET6)
+-			groups |= RTMGRP_IPV6_ROUTE;
++			groups |= nl_mgrp(RTNLGRP_IPV6_ROUTE);
+ 	}
+ 
+ 	fp = fopen(file, "w");
+diff --git a/tc/tc_monitor.c b/tc/tc_monitor.c
+index 1af6cf0..bf58744 100644
+--- a/tc/tc_monitor.c
++++ b/tc/tc_monitor.c
+@@ -68,7 +68,7 @@ int do_tcmonitor(int argc, char **argv)
+ {
+ 	struct rtnl_handle rth;
+ 	char *file = NULL;
+-	unsigned groups = RTMGRP_TC;
++	unsigned groups = nl_mgrp(RTNLGRP_TC);
+ 
+ 	while (argc > 0) {
+ 		if (matches(*argv, "file") == 0) {
+
+--=-ltO9+ZNBz1iIVx2kIwB0--
 
