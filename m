@@ -1,48 +1,54 @@
-From: Jon Paul Maloy <jon.maloy@donjonn.com>
-Subject: SV: Re: [tipc-discussion] [RFC: 2.6 patch] net/tipc/: possible cleanups
-Date: Sun, 25 Feb 2007 19:56:26 +0100 (CET)
-Message-ID: <812945.13617.qm@web710.biz.mail.mud.yahoo.com>
-References: <20070225161411.GX12392@stusta.de>
+From: Steve Wise <swise@opengridcomputing.com>
+Subject: Re: [PATCH 3/7] cxgb3 - FW version update
+Date: Sun, 25 Feb 2007 13:28:39 -0600
+Message-ID: <1172431719.4717.8.camel@stevo-laptop>
+References: <20070225004401.20831.3292.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: jeff@garzik.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: divy@chelsio.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from web710.biz.mail.mud.yahoo.com ([209.191.119.235]:43259 "HELO
-	web710.biz.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S965095AbXBYS41 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Feb 2007 13:56:27 -0500
-In-Reply-To: <20070225161411.GX12392@stusta.de>
+Received: from rrcs-24-153-217-226.sw.biz.rr.com ([24.153.217.226]:36279 "EHLO
+	smtp.opengridcomputing.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752395AbXBYT2l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Feb 2007 14:28:41 -0500
+In-Reply-To: <20070225004401.20831.3292.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hey Divy,
 
---- Adrian Bunk <bunk@stusta.de> skrev:
+You missed a printk change.  Here is an updated patch.
 
-> It can be re-added at any time when an in-kernel
-> user comes.
-> 
-> But the most interesting question is:
-> Why is noone interested in getting his TIPC using
-> drivers merged?
-> 
-I don't think lack of interest is the issue here. The
-users I know anything about, would be both happy and
-proud to contribute code to the main tree. One I know
-about,who has developed a very interesting "reliable
-bond interface" based on this API, doesn't regard his
-code to be up to the kernel coding standards yet,
-although I am trying to encourage him. Another one
-thinks his function is just too specialized to be of
-any common interest.
-In the future, I would be also be very interested in
-seeing a cross-node netlink implementation, carried
-over TIPC, using this API. (Unfortunately, I don't
-dare to commit to this myself right now, there is too
-much left to be done in TIPC.)
-So, as you see, keeping the exported symbols would be
-a definite advantage, as current and future developers
-would not have to patch the kernel to do their work.
+------------
 
-Regards
-///jon 
+Update FW version to 3.2
+
+Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+---
+
+ drivers/net/cxgb3/t3_hw.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/cxgb3/t3_hw.c b/drivers/net/cxgb3/t3_hw.c
+index 365a7f5..08a6295 100644
+--- a/drivers/net/cxgb3/t3_hw.c
++++ b/drivers/net/cxgb3/t3_hw.c
+@@ -884,11 +884,11 @@ int t3_check_fw_version(struct adapter *
+ 	major = G_FW_VERSION_MAJOR(vers);
+ 	minor = G_FW_VERSION_MINOR(vers);
+ 
+-	if (type == FW_VERSION_T3 && major == 3 && minor == 1)
++	if (type == FW_VERSION_T3 && major == 3 && minor == 2)
+ 		return 0;
+ 
+ 	CH_ERR(adapter, "found wrong FW version(%u.%u), "
+-	       "driver needs version 3.1\n", major, minor);
++	       "driver needs version 3.2\n", major, minor);
+ 	return -EINVAL;
+ }
+ 
+
+
