@@ -1,37 +1,45 @@
-From: Al Boldi <a1426z@gawab.com>
-Subject: Re: ipv4 and ipv6 stacks for new link layers?
-Date: Sun, 25 Feb 2007 14:21:16 +0300
-Message-ID: <200702251421.16863.a1426z@gawab.com>
+From: Michal Wrobel <xmxwx@asn.pl>
+Subject: [PATCH] IPv6 anycast refcnt fix
+Date: Sun, 25 Feb 2007 13:04:21 +0100
+Message-ID: <erru08$37g$1@sea.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-2; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964788AbXBYLSc@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from main.gmane.org ([80.91.229.2]:53414 "EHLO ciao.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S964828AbXBYMKH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 25 Feb 2007 07:10:07 -0500
+Received: from root by ciao.gmane.org with local (Exim 4.43)
+	id 1HLICY-0006tq-1j
+	for netdev@vger.kernel.org; Sun, 25 Feb 2007 13:10:02 +0100
+Received: from vw54.internetdsl.tpnet.pl ([80.55.178.54])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Sun, 25 Feb 2007 13:10:02 +0100
+Received: from xmxwx by vw54.internetdsl.tpnet.pl with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Sun, 25 Feb 2007 13:10:02 +0100
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: Markku Savela <msa@moth.iki.fi>
-> > I think that is worse than allow a new driver to provide a simple
-> > service function which maps IPv4/6 multicast address into link layer
-> > address, when asked.
->
-> The problem is that this mapping isn't so simple for several
-> link layer types.
+This patch fixes a bug in Linux IPv6 stack which caused anycast address
+to be added to a device prior DAD has been completed. This led to
+incorrect reference count which resulted in infinite wait for
+unregister_netdevice completion on interface removal.
 
-But this mapping seems to be just a simple de-coupling tool, and any 
-de-coupling by definition does/should not change the underlying 
-implementation in any way, while allowing for a dynamic rather than a 
-fixed/hardcoded relation between the layers.
+Signed-off-by: Michal Wrobel <xmxwx@asn.pl>
 
-So, can you give an example of a link-layer that does not easily de-couple 
-from the transport?
+--- linux/net/ipv6/addrconf.c	2007-02-22 19:46:27.000000000 +0100
++++ linux/net/ipv6/addrconf.c	2007-02-25 00:22:37.000000000 +0100
+@@ -456,6 +456,8 @@
+  			ipv6_dev_mc_dec(dev, &addr);
+  	}
+  	for (ifa=idev->addr_list; ifa; ifa=ifa->if_next) {
++		if (ifa->flags&IFA_F_TENTATIVE)
++			continue;
+  		if (idev->cnf.forwarding)
+  			addrconf_join_anycast(ifa);
+  		else
 
-
-Thanks!
-
---
-Al
