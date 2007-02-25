@@ -1,125 +1,80 @@
 From: jamal <hadi@cyberus.ca>
-Subject: [IPROUTE2][ALL] update rest to use nl_mgrp
-Date: Sun, 25 Feb 2007 11:55:19 -0500
-Message-ID: <1172422519.3942.29.camel@localhost>
+Subject: [IPROUTE2][GENERAL] nl_mgrp to crap if base multicast groups
+	exceeded
+Date: Sun, 25 Feb 2007 12:02:23 -0500
+Message-ID: <1172422943.3942.32.camel@localhost>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-ltO9+ZNBz1iIVx2kIwB0"
+Content-Type: multipart/mixed; boundary="=-1JN5YVdk3Fc+rGukT2Nj"
 Cc: netdev@vger.kernel.org
 To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.230]:13001 "EHLO
+Received: from wx-out-0506.google.com ([66.249.82.230]:15533 "EHLO
 	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752362AbXBYQzX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Feb 2007 11:55:23 -0500
-Received: by wx-out-0506.google.com with SMTP id h31so1102540wxd
-        for <netdev@vger.kernel.org>; Sun, 25 Feb 2007 08:55:23 -0800 (PST)
+	with ESMTP id S1752358AbXBYRC0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Feb 2007 12:02:26 -0500
+Received: by wx-out-0506.google.com with SMTP id h31so1104055wxd
+        for <netdev@vger.kernel.org>; Sun, 25 Feb 2007 09:02:26 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---=-ltO9+ZNBz1iIVx2kIwB0
+--=-1JN5YVdk3Fc+rGukT2Nj
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
+
 
 cheers,
 jamal
 
---=-ltO9+ZNBz1iIVx2kIwB0
-Content-Disposition: attachment; filename=convrestmg
-Content-Type: text/plain; name=convrestmg; charset=us-ascii
+
+--=-1JN5YVdk3Fc+rGukT2Nj
+Content-Disposition: attachment; filename=diebadmgrp
+Content-Type: text/plain; name=diebadmgrp; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 
-[ALL] update rest to use nl_mgrp
+[GENERAL] nl_mgrp to crap if base multicast groups exceeded
+
+The old scheme of bitmasks works only for the first 32 groups.
+Above that the setsockopt scheme must be used.
 
 Signed-off-by: J Hadi Salim <hadi@cyberus.ca>
 
 ---
-commit 539bc1cc1b002700504ad8cbe82ea451026c5fe4
-tree 208bd273db5bf023c33e5256da615a20173c1921
-parent 40076f622e0aacb2b792d3ac1b5d12aa97c4da9c
-author Jamal Hadi Salim <hadi@cyberus.ca> Sun, 25 Feb 2007 11:43:54 -0500
-committer Jamal Hadi Salim <hadi@cyberus.ca> Sun, 25 Feb 2007 11:43:54 -0500
+commit f3d272cea2870805677809bf121737fb6c36dc8e
+tree b1e42d5c8d9122a600f2f81e04b0d197642b1878
+parent 539bc1cc1b002700504ad8cbe82ea451026c5fe4
+author Jamal Hadi Salim <hadi@cyberus.ca> Sun, 25 Feb 2007 11:50:53 -0500
+committer Jamal Hadi Salim <hadi@cyberus.ca> Sun, 25 Feb 2007 11:50:53 -0500
 
- ip/ipmonitor.c  |   12 ++++++------
- ip/rtmon.c      |   10 +++++-----
- tc/tc_monitor.c |    2 +-
- 3 files changed, 12 insertions(+), 12 deletions(-)
+ include/utils.h |    7 ++++++-
+ 1 files changed, 6 insertions(+), 1 deletions(-)
 
-diff --git a/ip/ipmonitor.c b/ip/ipmonitor.c
-index 704ada7..f1a1f27 100644
---- a/ip/ipmonitor.c
-+++ b/ip/ipmonitor.c
-@@ -132,22 +132,22 @@ int do_ipmonitor(int argc, char **argv)
- 	}
+diff --git a/include/utils.h b/include/utils.h
+index 1769ca1..a3fd335 100644
+--- a/include/utils.h
++++ b/include/utils.h
+@@ -3,6 +3,7 @@
  
- 	if (llink)
--		groups |= RTMGRP_LINK;
-+		groups |= nl_mgrp(RTNLGRP_LINK);
- 	if (laddr) {
- 		if (!preferred_family || preferred_family == AF_INET)
--			groups |= RTMGRP_IPV4_IFADDR;
-+			groups |= nl_mgrp(RTNLGRP_IPV4_IFADDR);
- 		if (!preferred_family || preferred_family == AF_INET6)
--			groups |= RTMGRP_IPV6_IFADDR;
-+			groups |= nl_mgrp(RTNLGRP_IPV6_IFADDR);
- 	}
- 	if (lroute) {
- 		if (!preferred_family || preferred_family == AF_INET)
--			groups |= RTMGRP_IPV4_ROUTE;
-+			groups |= nl_mgrp(RTNLGRP_IPV4_ROUTE);
- 		if (!preferred_family || preferred_family == AF_INET6)
--			groups |= RTMGRP_IPV6_ROUTE;
-+			groups |= nl_mgrp(RTNLGRP_IPV6_ROUTE);
- 	}
- 	if (lprefix) {
- 		if (!preferred_family || preferred_family == AF_INET6)
--			groups |= RTMGRP_IPV6_PREFIX;
-+			groups |= nl_mgrp(RTNLGRP_IPV6_PREFIX);
- 	}
+ #include <asm/types.h>
+ #include <resolv.h>
++#include <stdlib.h>
  
- 	if (file) {
-diff --git a/ip/rtmon.c b/ip/rtmon.c
-index 8c464cb..b538a52 100644
---- a/ip/rtmon.c
-+++ b/ip/rtmon.c
-@@ -134,18 +134,18 @@ main(int argc, char **argv)
- 		exit(-1);
- 	}
- 	if (llink)
--		groups |= RTMGRP_LINK;
-+		groups |= nl_mgrp(RTNLGRP_LINK);
- 	if (laddr) {
- 		if (!family || family == AF_INET)
--			groups |= RTMGRP_IPV4_IFADDR;
-+			groups |= nl_mgrp(RTNLGRP_IPV4_IFADDR);
- 		if (!family || family == AF_INET6)
--			groups |= RTMGRP_IPV6_IFADDR;
-+			groups |= nl_mgrp(RTNLGRP_IPV6_IFADDR);
- 	}
- 	if (lroute) {
- 		if (!family || family == AF_INET)
--			groups |= RTMGRP_IPV4_ROUTE;
-+			groups |= nl_mgrp(RTNLGRP_IPV4_ROUTE);
- 		if (!family || family == AF_INET6)
--			groups |= RTMGRP_IPV6_ROUTE;
-+			groups |= nl_mgrp(RTNLGRP_IPV6_ROUTE);
- 	}
+ #include "libnetlink.h"
+ #include "ll_map.h"
+@@ -129,7 +130,11 @@ static __inline__ int get_user_hz(void)
  
- 	fp = fopen(file, "w");
-diff --git a/tc/tc_monitor.c b/tc/tc_monitor.c
-index 1af6cf0..bf58744 100644
---- a/tc/tc_monitor.c
-+++ b/tc/tc_monitor.c
-@@ -68,7 +68,7 @@ int do_tcmonitor(int argc, char **argv)
+ static inline __u32 nl_mgrp(__u32 group)
  {
- 	struct rtnl_handle rth;
- 	char *file = NULL;
--	unsigned groups = RTMGRP_TC;
-+	unsigned groups = nl_mgrp(RTNLGRP_TC);
+-	return group ? (1 << (group -1)) : 0;
++	if (group > 31 ) {
++		fprintf(stderr, "Use setsockopt for this group %d\n", group);
++		exit(-1);
++	}
++	return group ? (1 << (group - 1)) : 0;
+ }
  
- 	while (argc > 0) {
- 		if (matches(*argv, "file") == 0) {
+ 
 
---=-ltO9+ZNBz1iIVx2kIwB0--
+--=-1JN5YVdk3Fc+rGukT2Nj--
 
