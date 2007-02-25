@@ -1,44 +1,51 @@
-From: Mark Brown <broonie@sirena.org.uk>
-Subject: natsemi: Fix detection of vanilla natsemi cards
-Date: Sun, 25 Feb 2007 15:37:27 +0000
-Message-ID: <20070225153726.GB15068@sirena.org.uk>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: Re: [tipc-discussion] [RFC: 2.6 patch] net/tipc/: possible cleanups
+Date: Sun, 25 Feb 2007 17:14:11 +0100
+Message-ID: <20070225161411.GX12392@stusta.de>
+References: <20070223221657.GA10153@infradead.org> <AF1602CB2550CE4381C0C75118A7856BA2ACC6@ala-mail02.corp.ad.wrs.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Adrian Bunk <bunk@stusta.de>, netdev@vger.kernel.org,
+Cc: Christoph Hellwig <hch@infradead.org>,
+	Jon Maloy <jon.maloy@ericsson.com>, per.liden@ericsson.com,
+	netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net,
 	linux-kernel@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>,
-	Tim Hockin <thockin@hockin.org>,
-	Jeff Garzik <jgarzik@pobox.com>
+To: "Stephens, Allan" <allan.stephens@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cassiel.sirena.org.uk ([80.68.93.111]:4542 "EHLO
-	cassiel.sirena.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964954AbXBYPhk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Feb 2007 10:37:40 -0500
+Received: from emailhub.stusta.mhn.de ([141.84.69.5]:43826 "EHLO
+	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S964976AbXBYQOM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Feb 2007 11:14:12 -0500
 Content-Disposition: inline
+In-Reply-To: <AF1602CB2550CE4381C0C75118A7856BA2ACC6@ala-mail02.corp.ad.wrs.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Bob Tracy <rct@gherkin.frus.com> reported that the addition of support
-for Aculab E1/T1 cPCI carrier cards broke detection of vanilla natsemi
-cards.  This patch fixes that: the problem is that the driver-specific
-ta in the PCI device table is an index into a second table and this
-had not been updated for the vanilla cards.
+On Sat, Feb 24, 2007 at 04:19:19PM -0800, Stephens, Allan wrote:
+>...
+> 2) There are portions of TIPC's native API which are intended for use by
+> driver programmers, but which are not being used by any code that is
+> currently in the kernel.  While removing these API's from TIPC will only
+> impact these "freeloaders", it has the potential to discourage future
+> programmers who *do* want to contribute their work to the kernel by
+> removing API's that are apparently necessary/useful when doing coding of
+> this sort.
 
-This patch fixes the problem minimally.
+It can be re-added at any time when an in-kernel user comes.
 
-Signed-Off-By: Mark Brown <broonie@sirena.org.uk>
+But the most interesting question is:
+Why is noone interested in getting his TIPC using drivers merged?
 
---- linux.orig/drivers/net/natsemi.c	2007-02-23 11:13:03.000000000 +0000
-+++ linux/drivers/net/natsemi.c	2007-02-23 11:12:00.000000000 +0000
-@@ -260,7 +260,7 @@
- 
- static const struct pci_device_id natsemi_pci_tbl[] __devinitdata = {
- 	{ PCI_VENDOR_ID_NS, 0x0020, 0x12d9,     0x000c,     0, 0, 0 },
--	{ PCI_VENDOR_ID_NS, 0x0020, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
-+	{ PCI_VENDOR_ID_NS, 0x0020, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 1 },
- 	{ }	/* terminate list */
- };
- MODULE_DEVICE_TABLE(pci, natsemi_pci_tbl);
+> Regards,
+> Al
+>...
+
+cu
+Adrian
 
 -- 
-"You grabbed my hand and we fell into it, like a daydream - or a fever."
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
+
