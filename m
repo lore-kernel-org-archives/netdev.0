@@ -1,80 +1,52 @@
-From: jamal <hadi@cyberus.ca>
-Subject: [IPROUTE2][GENERAL] nl_mgrp to crap if base multicast groups
-	exceeded
-Date: Sun, 25 Feb 2007 12:02:23 -0500
-Message-ID: <1172422943.3942.32.camel@localhost>
-Reply-To: hadi@cyberus.ca
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: all syscalls initially taking 4usec on a P4? Re: nonblocking UDPv4 recvfrom() taking 4usec @ 3GHz?
+Date: Sun, 25 Feb 2007 20:06:56 +0300
+Message-ID: <20070225170656.GA14698@2ka.mipt.ru>
+References: <20070219231447.GA4400@outpost.ds9a.nl> <p73d545drx6.fsf@bingen.suse.de> <20070220162714.GA3245@outpost.ds9a.nl> <20070220164124.GA24930@2ka.mipt.ru> <20070225104154.GA2045@elf.ucw.cz>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-1JN5YVdk3Fc+rGukT2Nj"
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.230]:15533 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752358AbXBYRC0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Feb 2007 12:02:26 -0500
-Received: by wx-out-0506.google.com with SMTP id h31so1104055wxd
-        for <netdev@vger.kernel.org>; Sun, 25 Feb 2007 09:02:26 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=koi8-r
+Cc: bert hubert <bert.hubert@netherlabs.nl>,
+	Andi Kleen <andi@firstfloor.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Pavel Machek <pavel@ucw.cz>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964989AbXBYRHd@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20070225104154.GA2045@elf.ucw.cz>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Sun, Feb 25, 2007 at 11:41:54AM +0100, Pavel Machek (pavel@ucw.cz) wrote:
+> > > I've done so, with some interesting results. Source on
+> > > http://ds9a.nl/tmp/recvtimings.c - be careful to adjust the '3000' divider
+> > > to your CPU frequency if you care about absolute numbers!
+> > > 
+> > > These are two groups, each consisting of 10 consecutive nonblocking UDP
+> > > recvfroms, with 10 packets preloaded. Reported is the number of microseconds
+> > > per recvfrom call which yielded a packet:
+> > > 
+> > > $ ./recvtimings
+> > > 4.142333
+> > 
+> > It can be recvfrom only problem - syscall overhead on my p4 (core duo,
+> > debian testing) is bout 300 usec - to test I ran 
+> 
+> core duo is _not_ p4 class cpu; rsulets there will be very different.
 
---=-1JN5YVdk3Fc+rGukT2Nj
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Results nevertheless are the same.
+Each syscall takes some time first (noticebly more than subsequent
+calls), and that was a main problem for Bert.
+Given the high load, recvfrom() can even take tens of microseconds
+(although I can not provide a profile output yet, but I showed a data).
 
+So, syscall overhead itself is very small no matter which type of the
+CPU is used - athlon is about 300 nsec, via epia about 1.4 usec), 
+but the whole function can take quite a lot of time.
 
-cheers,
-jamal
+> 									Pavel
+> 
+> -- 
+> (english) http://www.livejournal.com/~pavelmachek
+> (cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
 
-
---=-1JN5YVdk3Fc+rGukT2Nj
-Content-Disposition: attachment; filename=diebadmgrp
-Content-Type: text/plain; name=diebadmgrp; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-
-[GENERAL] nl_mgrp to crap if base multicast groups exceeded
-
-The old scheme of bitmasks works only for the first 32 groups.
-Above that the setsockopt scheme must be used.
-
-Signed-off-by: J Hadi Salim <hadi@cyberus.ca>
-
----
-commit f3d272cea2870805677809bf121737fb6c36dc8e
-tree b1e42d5c8d9122a600f2f81e04b0d197642b1878
-parent 539bc1cc1b002700504ad8cbe82ea451026c5fe4
-author Jamal Hadi Salim <hadi@cyberus.ca> Sun, 25 Feb 2007 11:50:53 -0500
-committer Jamal Hadi Salim <hadi@cyberus.ca> Sun, 25 Feb 2007 11:50:53 -0500
-
- include/utils.h |    7 ++++++-
- 1 files changed, 6 insertions(+), 1 deletions(-)
-
-diff --git a/include/utils.h b/include/utils.h
-index 1769ca1..a3fd335 100644
---- a/include/utils.h
-+++ b/include/utils.h
-@@ -3,6 +3,7 @@
- 
- #include <asm/types.h>
- #include <resolv.h>
-+#include <stdlib.h>
- 
- #include "libnetlink.h"
- #include "ll_map.h"
-@@ -129,7 +130,11 @@ static __inline__ int get_user_hz(void)
- 
- static inline __u32 nl_mgrp(__u32 group)
- {
--	return group ? (1 << (group -1)) : 0;
-+	if (group > 31 ) {
-+		fprintf(stderr, "Use setsockopt for this group %d\n", group);
-+		exit(-1);
-+	}
-+	return group ? (1 << (group - 1)) : 0;
- }
- 
- 
-
---=-1JN5YVdk3Fc+rGukT2Nj--
-
+-- 
+	Evgeniy Polyakov
