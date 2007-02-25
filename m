@@ -1,49 +1,70 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: 2.6.21-rc1: known regressions (part 3)
-Date: Sun, 25 Feb 2007 12:59:42 -0800
-Message-ID: <20070225205942.GA26624@kroah.com>
-References: <Pine.LNX.4.64.0702202043280.4043@woody.linux-foundation.org> <20070225180251.GD12392@stusta.de>
+From: Steve Wise <swise@opengridcomputing.com>
+Subject: Re: [PATCH 3/7] cxgb3 - FW version update
+Date: Sun, 25 Feb 2007 15:59:18 -0600
+Message-ID: <1172440758.4717.17.camel@stevo-laptop>
+References: <20070225004401.20831.3292.stgit@localhost.localdomain>
+	 <1172431719.4717.8.camel@stevo-laptop>  <45E1E810.2000706@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Albert Hopkins <kernel@marduk.letterboxes.org>,
-	Ayaz Abdulla <aabdulla@nvidia.com>, jgarzik@pobox.com,
-	netdev@vger.kernel.org, Bob Tracy <rct@gherkin.frus.com>,
-	Mark Brown <broonie@sirena.org.uk>,
-	YOSHIFUJI Hideaki / ???????????? <yoshfuji@linux-ipv6.org>,
-	Kay Sievers <kay.sievers@vrfy.org>,
-	Michael-Luke Jones <mlj28@cam.ac.uk>,
-	Pete Clements <clem@clem.clem-digital.net>,
-	Sid Boyce <g3vbv@blueyonder.co.uk>,
-	Chuck Lever <chuck.lever@oracle.com>,
-	Andreas Schwab <schwab@suse.de>, Dave Jones <davej@redhat.com>
-To: Adrian Bunk <bunk@stusta.de>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: divy@chelsio.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.suse.de ([195.135.220.2]:51718 "EHLO mx1.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752426AbXBYVCn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 25 Feb 2007 16:02:43 -0500
-Content-Disposition: inline
-In-Reply-To: <20070225180251.GD12392@stusta.de>
+Received: from rrcs-24-153-217-226.sw.biz.rr.com ([24.153.217.226]:52268 "EHLO
+	smtp.opengridcomputing.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S965149AbXBYV7U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Feb 2007 16:59:20 -0500
+In-Reply-To: <45E1E810.2000706@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Feb 25, 2007 at 07:02:51PM +0100, Adrian Bunk wrote:
+
+> I would rather fix the code to use constants, and thus avoid this 
+> problem ever happening again.
 > 
+> 	Jeff
 > 
-> Subject    : request_module: runaway loop modprobe net-pf-1
-> References : http://lkml.org/lkml/2007/2/21/206
-> Submitter  : YOSHIFUJI Hideaki / ???????????? <yoshfuji@linux-ipv6.org>
-> Caused-By  : Kay Sievers <kay.sievers@vrfy.org>
->              commit c353c3fb0700a3c17ea2b0237710a184232ccd7f
-> Handled-By : Greg KH <greg@kroah.com>
-> Status     : problem is being discussed
 
-Patch has been reverted and submitted to Linus to pull, but he's out of
-town right now...
+How's this (not tested)?
 
-thanks,
 
-greg k-h
+---
+
+ drivers/net/cxgb3/t3_hw.c   |    6 ++++--
+ drivers/net/cxgb3/version.h |    2 ++
+ 2 files changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/cxgb3/t3_hw.c b/drivers/net/cxgb3/t3_hw.c
+index 365a7f5..4b4cffb 100644
+--- a/drivers/net/cxgb3/t3_hw.c
++++ b/drivers/net/cxgb3/t3_hw.c
+@@ -884,11 +884,13 @@ int t3_check_fw_version(struct adapter *
+ 	major = G_FW_VERSION_MAJOR(vers);
+ 	minor = G_FW_VERSION_MINOR(vers);
+ 
+-	if (type == FW_VERSION_T3 && major == 3 && minor == 1)
++	if (type == FW_VERSION_T3 && major == FW_VERSION_MAJOR && 
++	    minor == FW_VERSION_MINOR)
+ 		return 0;
+ 
+ 	CH_ERR(adapter, "found wrong FW version(%u.%u), "
+-	       "driver needs version 3.1\n", major, minor);
++	       "driver needs version %u.%u\n", major, minor, 
++	       FW_VERSION_MAJOR, FW_VERSION_MINOR);
+ 	return -EINVAL;
+ }
+ 
+diff --git a/drivers/net/cxgb3/version.h b/drivers/net/cxgb3/version.h
+index 2b67dd5..782a6cf 100644
+--- a/drivers/net/cxgb3/version.h
++++ b/drivers/net/cxgb3/version.h
+@@ -36,4 +36,6 @@ #define DRV_DESC "Chelsio T3 Network Dri
+ #define DRV_NAME "cxgb3"
+ /* Driver version */
+ #define DRV_VERSION "1.0"
++#define FW_VERSION_MAJOR 3
++#define FW_VERSION_MINOR 2
+ #endif				/* __CHELSIO_VERSION_H */
+
+
