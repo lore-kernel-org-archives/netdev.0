@@ -1,40 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: 2.6.20-git8 fails compile -- net/built-in.o __ipv6_addr_type
-Date: Sat, 24 Feb 2007 16:54:53 -0800 (PST)
-Message-ID: <20070224.165453.104035690.davem@davemloft.net>
-References: <200702130236.l1D2a0u7014457@clem.clem-digital.net>
-	<20070213.115510.21486123.yoshfuji@linux-ipv6.org>
-	<20070224225021.GT12392@stusta.de>
+From: "Arnaldo Carvalho de Melo" <acme@ghostprotocols.net>
+Subject: [PATCH][XFRM_TUNNEL]: Reload header pointer after pskb_may_pull/pskb_expand_head
+Date: Sat, 24 Feb 2007 23:47:58 -0200
+Message-ID: <39e6f6c70702241747l19dd1b21l9a28f7d6f64a4a6f@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, clem@clem.clem-digital.net,
-	akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: bunk@stusta.de
+Cc: "Netdev List" <netdev@vger.kernel.org>
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41352
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S932425AbXBYAyy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 24 Feb 2007 19:54:54 -0500
-In-Reply-To: <20070224225021.GT12392@stusta.de>
+Received: from wr-out-0506.google.com ([64.233.184.238]:32525 "EHLO
+	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933618AbXBYBr7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 24 Feb 2007 20:47:59 -0500
+Received: by wr-out-0506.google.com with SMTP id 71so11266wri
+        for <netdev@vger.kernel.org>; Sat, 24 Feb 2007 17:47:59 -0800 (PST)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Adrian Bunk <bunk@stusta.de>
-Date: Sat, 24 Feb 2007 23:50:21 +0100
+Hi David,
 
-> In the CONFIG_IPV6=m, CONFIG_SUNRPC=m case, this will result in no IPV6 
-> support here.
-> 
-> If you are going this way, a Kconfig helper variable might be better:
-> 
-> config SUNRPC_IPV6
-> 	bool
-> 	default y if (SUNRPC=y && IPV6=y) || (SUNRPC=m && IPV6) 
+           Please consider applying, this was found on your latest
+net-2.6 tree while playing around with that ip_hdr() + turn
+skb->nh/h/mac pointers  as offsets on 64 bits idea :-)
 
-Please, don't worry about any of this, Yoshifuji already
-gave me a fix for this, that will provide the symbol statically
-and exported to modules, even if  ipv6 is built modular.
+Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
 
-So we don't need to worry about this problem any more.
+Regards,
+
+- Arnaldo
