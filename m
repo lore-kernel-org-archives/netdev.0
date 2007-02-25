@@ -1,113 +1,44 @@
-From: Kristian Evensen <kristrev@ifi.uio.no>
-Subject: Adding data to SKB - odd checksum errors
-Date: Sun, 25 Feb 2007 15:34:46 +0200
-Message-ID: <45E19076.1080600@ifi.uio.no>
+From: Mark Brown <broonie@sirena.org.uk>
+Subject: natsemi: Fix detection of vanilla natsemi cards
+Date: Sun, 25 Feb 2007 15:37:27 +0000
+Message-ID: <20070225153726.GB15068@sirena.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7BIT
-Cc: linux-net@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-net-owner@vger.kernel.org>
-Sender: linux-net-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Adrian Bunk <bunk@stusta.de>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>,
+	Tim Hockin <thockin@hockin.org>,
+	Jeff Garzik <jgarzik@pobox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cassiel.sirena.org.uk ([80.68.93.111]:4542 "EHLO
+	cassiel.sirena.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964954AbXBYPhk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Feb 2007 10:37:40 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+Bob Tracy <rct@gherkin.frus.com> reported that the addition of support
+for Aculab E1/T1 cPCI carrier cards broke detection of vanilla natsemi
+cards.  This patch fixes that: the problem is that the driver-specific
+ta in the PCI device table is an index into a second table and this
+had not been updated for the vanilla cards.
 
-I am working on an algorithm to add data from the previous skb (on the 
-queue) to the front of the current skb. This should be beneficial for a 
-certain kind of TCP-traffic, and I am curious as to wether it will work 
-or not.
+This patch fixes the problem minimally.
 
-Currently I have implemented a small algorithm to copy the data that 
-works most of the time. It is called from write_xmit (right before the 
-while-loop) and performs a number of checks (does the skb fit in the 
-window, does it have enought space - mostly the same as the 
-retrans_try_collapse-function) before it copies the data. I first 
-"allocate" new data at the back of the skb using skb_put, and if that is 
-succsessfull I copy the new data (using first memmove to move the old 
-data and then memcpy), update the seq-number of this skb and calculate a 
-new checksum. The algorithm will (currently) not work with non-linear 
-skbs. I have pasted the code at the bottom of this mail.
+Signed-Off-By: Mark Brown <broonie@sirena.org.uk>
 
-The weird thing about this algorithm is that something will suddenly 
-make it go wrong/it makes something else go wrong, and the packets that 
-I send have the wrong TCP-checksum. I have looked around the code for 
-any counters I might have missed or similar, but I cant find any. If I 
-have understod skb's correctly, I shouldn't have to update any counters 
-except skb->len (which put does) since I dont expand the SKB I only use 
-the space already reserved for it.
+--- linux.orig/drivers/net/natsemi.c	2007-02-23 11:13:03.000000000 +0000
++++ linux/drivers/net/natsemi.c	2007-02-23 11:12:00.000000000 +0000
+@@ -260,7 +260,7 @@
+ 
+ static const struct pci_device_id natsemi_pci_tbl[] __devinitdata = {
+ 	{ PCI_VENDOR_ID_NS, 0x0020, 0x12d9,     0x000c,     0, 0, 0 },
+-	{ PCI_VENDOR_ID_NS, 0x0020, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
++	{ PCI_VENDOR_ID_NS, 0x0020, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 1 },
+ 	{ }	/* terminate list */
+ };
+ MODULE_DEVICE_TABLE(pci, natsemi_pci_tbl);
 
-Does anyone have any ideas to what might be wrong or can spot any 
-errors/misunderstandings in my code?
-
-Thanks,
-Kristian
-
-The code:
-
-This goes into write_xmit before the loop:
-if(sysctl_tcp_thin_aggressive_bundling && tcp_stream_is_thin(tp)){
-    if(skb->prev != (struct sk_buff*) &(sk)->sk_write_queue
-        && !(TCP_SKB_CB(skb)->flags & TCPCB_FLAG_SYN)
-        && (skb_shinfo(skb)->nr_frags == 0 &&
-        skb_shinfo(skb->prev)->nr_frags == 0)){
-            tcp_trans_try_collapse2(sk, skb, tcp_current_mss(sk, 0))
-        }
-}
-
-This is the code that copies the data:
-static int tcp_trans_try_collapse2(struct sock *sk, struct sk_buff *skb, 
-int mss_now)
-{
-    struct tcp_sock *tp = tcp_sk(sk);
-
-    /* Make sure that this isnt refereced by somebody else
-     */
-    if(!skb_cloned(skb)){
-        struct sk_buff *prev_skb = skb_copy(skb->prev, GFP_ATOMIC);
-        int skb_size = skb->len, prev_skb_size = prev_skb->len;
-        u16 flags = TCP_SKB_CB(prev_skb)->flags;
-
-        /* Since this technique currently does not support SACK, I
-            * return -1 if the previous has been SACK'd. */
-        if(TCP_SKB_CB(prev_skb)->sacked & TCPCB_SACKED_ACKED){
-            return -1;
-        }
-
-        /* Current skb is out of window. */
-        if (after(TCP_SKB_CB(skb)->end_seq, tp->snd_una+tp->snd_wnd)){
-            return -1;
-        }
-
-        /* Punt if not enough space exists in the first SKB for
-         * the data in the second, or the total combined payload
-         * would exceed the MSS.
-         */
-        if ((prev_skb_size > skb_tailroom(skb)) ||
-            ((skb_size + prev_skb_size) > mss_now)){
-            return -1;
-        }
-
-        /*To avoid duplicate copies.*/
-        if(TCP_SKB_CB(skb)->seq <= TCP_SKB_CB(prev_skb)->seq)
-            return -1;
-
-        /*First, check I have enough room*/
-        if(skb_tailroom(skb) < prev_skb->len)
-            return -1;
-
-        copy = skb_put(skb, prev_skb->len);
-
-        if(copy){
-            memmove(skb->data + prev_skb->len, skb->data, skb->len - 
-prev_skb->len);
-            memcpy(skb->data, prev_skb->data, prev_skb->len);
-            TCP_SKB_CB(skb)->seq = TCP_SKB_CB(prev_skb)->seq;
-            skb->csum = csum_partial(skb->data, skb->len, 0);
-        }
-
-        __kfree_skb(prev_skb);
-    }
-
-    return 1;
-}
+-- 
+"You grabbed my hand and we fell into it, like a daydream - or a fever."
