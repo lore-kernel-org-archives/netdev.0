@@ -1,96 +1,76 @@
-From: Larry Finger <larry.finger@lwfinger.net>
-Subject: Re: [Bugme-new] [Bug 8053] New: net/ieee80211/ieee80211_crypt_tkip.c
- spams kernel message buffer
-Date: Sat, 24 Feb 2007 20:55:32 -0600
-Message-ID: <45E0FAA4.6000408@lwfinger.net>
-References: <200702220057.l1M0vxe9012470@fire-2.osdl.org> <20070221171748.9b113f75.akpm@linux-foundation.org>
+From: "Stephens, Allan" <allan.stephens@windriver.com>
+Subject: RE: [tipc-discussion] [RFC: 2.6 patch] net/tipc/: possible cleanups
+Date: Sat, 24 Feb 2007 16:19:19 -0800
+Message-ID: <AF1602CB2550CE4381C0C75118A7856BA2ACC6@ala-mail02.corp.ad.wrs.com>
+References: <20070223221657.GA10153@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>,
-	"bugme-daemon@kernel-bugs.osdl.org"
-	<bugme-daemon@bugzilla.kernel.org>, ast@domdv.de, stable@kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Jon Maloy" <jon.maloy@ericsson.com>, <per.liden@ericsson.com>,
+	<netdev@vger.kernel.org>, <tipc-discussion@lists.sourceforge.net>,
+	<linux-kernel@vger.kernel.org>
+To: "Christoph Hellwig" <hch@infradead.org>,
+	"Adrian Bunk" <bunk@stusta.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtiwmhc12.worldnet.att.net ([204.127.131.116]:50889 "EHLO
-	mtiwmhc12.worldnet.att.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933638AbXBYCzj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 24 Feb 2007 21:55:39 -0500
-In-Reply-To: <20070221171748.9b113f75.akpm@linux-foundation.org>
+Received: from mail.windriver.com ([147.11.1.11]:51471 "EHLO mail.wrs.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752321AbXBYFTa convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Feb 2007 00:19:30 -0500
+Content-class: urn:content-classes:message
+In-Reply-To: <20070223221657.GA10153@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andrew Morton wrote:
-> On Wed, 21 Feb 2007 16:57:59 -0800
-> bugme-daemon@bugzilla.kernel.org wrote:
+Just to clarify an apparent misunderstanding that has snuck into this
+thread:
+
+1) There are quite a few people/groups out there who are using TIPC's
+socket API, so the protocol as a whole is being used and should remain
+in the kernel.
+
+2) There are portions of TIPC's native API which are intended for use by
+driver programmers, but which are not being used by any code that is
+currently in the kernel.  While removing these API's from TIPC will only
+impact these "freeloaders", it has the potential to discourage future
+programmers who *do* want to contribute their work to the kernel by
+removing API's that are apparently necessary/useful when doing coding of
+this sort.
+
+Regards,
+Al
+
+> -----Original Message-----
+> From: Christoph Hellwig [mailto:hch@infradead.org] 
+> Sent: Friday, February 23, 2007 5:17 PM
+> To: Adrian Bunk
+> Cc: Jon Maloy; per.liden@ericsson.com; Stephens, Allan; 
+> netdev@vger.kernel.org; 
+> tipc-discussion@lists.sourceforge.net; linux-kernel@vger.kernel.org
+> Subject: Re: [tipc-discussion] [RFC: 2.6 patch] net/tipc/: 
+> possible cleanups
 > 
->> http://bugzilla.kernel.org/show_bug.cgi?id=8053
->>
->>            Summary: net/ieee80211/ieee80211_crypt_tkip.c spams kernel
->>                     message buffer
->>     Kernel Version: 2.6.20.1
->>             Status: NEW
->>           Severity: high
->>              Owner: networking_wireless@kernel-bugs.osdl.org
->>          Submitter: ast@domdv.de
->>
->>
->> As sent to lkml and netdev on 2007/02/07 without any reply:
->>
->> net/ieee80211/ieee80211_crypt_tkip.c outputs tons of these which didn't
->> happen with 2.6.18.2 (only one or two of these after enabling the
->> ipw2200 with the kill switch):
->>
->> TKIP: replay detected: STA=00:0e:2e:94:84:c3 previous TSC 020000000000
->> received TSC 00000002e560
->> printk: 19 messages suppressed.
->> TKIP: replay detected: STA=00:0e:2e:94:84:c3 previous TSC 020000000000
->> received TSC 00000002e574
->> printk: 19 messages suppressed.
->> TKIP: replay detected: STA=00:0e:2e:94:84:c3 previous TSC 020000000000
->> received TSC 00000002e588
->> printk: 18 messages suppressed.
->> TKIP: replay detected: STA=00:0e:2e:94:84:c3 previous TSC 020000000000
->> received TSC 00000002e59b
->> printk: 19 messages suppressed.
->> TKIP: replay detected: STA=00:0e:2e:94:84:c3 previous TSC 020000000000
->> received TSC 00000002e5af
->> printk: 19 messages suppressed.
->> TKIP: replay detected: STA=00:0e:2e:94:84:c3 previous TSC 020000000000
->> received TSC 00000002e5c3
->> printk: 19 messages suppressed.
->> TKIP: replay detected: STA=00:0e:2e:94:84:c3 previous TSC 020000000000
->> received TSC 00000002e5d7
->> printk: 19 messages suppressed.
->> TKIP: replay detected: STA=00:0e:2e:94:84:c3 previous TSC 020000000000
->> received TSC 00000002e5eb
->> printk: 19 messages suppressed.
->> TKIP: replay detected: STA=00:0e:2e:94:84:c3 previous TSC 020000000000
->> received TSC 00000002e5ff
->> printk: 16 messages suppressed.
->> TKIP: replay detected: STA=00:0e:2e:94:84:c3 previous TSC 020000000000
->> received TSC 00000002e612
->> printk: 17 messages suppressed.
->> TKIP: replay detected: STA=00:0e:2e:94:84:c3 previous TSC 020000000000
->> received TSC 00000002e626
->>
->> Note that the AP in question is a LCS-WA5-40 running in WPA/WPA2 mixed mode and
->> that the client in uses:
->>
->> proto=RSN
->> pairwise=CCMP
->> group=TKIP
->>
+> On Fri, Feb 23, 2007 at 07:06:12PM +0100, Adrian Bunk wrote:
+> > > >My impression is that most of this might have users that are not 
+> > > >yet submitted for inclusion in the kernel - one year 
+> after TIPC was merged.
+> > > > 
+> > > >
+> > > Not quite. The exported symbols belong to a public API 
+> for driver  
+> > >programmers.
+> > > We know about several users of this API, and there will 
+> be more, but 
+> > >I  don't think  any of them are aspiring to have their code be 
+> > >included in the kernel.
+> > >...
+> > 
+> > Why not?
+> > 
+> > The goal is to get as many drivers as possible included in 
+> the kernel.
 > 
-> How rude.  Can we please get that message killed in both 2.6.21 and
-> 2.6.20.x?
-
-With the previous TSC having that strange value (020000000000), there must be some sort of driver
-and/or AP error. With the possible exception of the situation where the "previous" and "received"
-TSC are the same indicating a retransmit, I feel such messages are of value and do not support
-killing them.
-
-Larry
-
-
+> If we don't have any planned in-tree users for tipc we should 
+> simply drop tipc from the kernel entirely.  No point to make 
+> our maintaince work harder for out of tree freeloaders.
+> 
