@@ -1,76 +1,38 @@
-From: "Stephens, Allan" <allan.stephens@windriver.com>
-Subject: RE: [tipc-discussion] [RFC: 2.6 patch] net/tipc/: possible cleanups
-Date: Sat, 24 Feb 2007 16:19:19 -0800
-Message-ID: <AF1602CB2550CE4381C0C75118A7856BA2ACC6@ala-mail02.corp.ad.wrs.com>
-References: <20070223221657.GA10153@infradead.org>
+From: Roger While <simrw@sim-basis.de>
+Subject: Re: [PATCH] fix limited slow start bug
+Date: Sun, 25 Feb 2007 09:55:34 +0100
+Message-ID: <6.1.1.1.2.20070225095105.049cd960@192.168.6.12>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Jon Maloy" <jon.maloy@ericsson.com>, <per.liden@ericsson.com>,
-	<netdev@vger.kernel.org>, <tipc-discussion@lists.sourceforge.net>,
-	<linux-kernel@vger.kernel.org>
-To: "Christoph Hellwig" <hch@infradead.org>,
-	"Adrian Bunk" <bunk@stusta.de>
+Content-Type: text/plain; charset="us-ascii"; format=flowed
+Cc: davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:51471 "EHLO mail.wrs.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752321AbXBYFTa convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Feb 2007 00:19:30 -0500
-Content-class: urn:content-classes:message
-In-Reply-To: <20070223221657.GA10153@infradead.org>
+Received: from mailout03.sul.t-online.com ([194.25.134.81]:53776 "EHLO
+	mailout03.sul.t-online.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932956AbXBYI4A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Feb 2007 03:56:00 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Just to clarify an apparent misunderstanding that has snuck into this
-thread:
 
-1) There are quite a few people/groups out there who are using TIPC's
-socket API, so the protocol as a whole is being used and should remain
-in the kernel.
+Dave M wrote :
+>diff --git a/include/linux/tcp.h b/include/linux/tcp.h
+>index 415193e..18a468d 100644
+>--- a/include/linux/tcp.h
+>+++ b/include/linux/tcp.h
+>@@ -302,7 +302,7 @@ struct tcp_sock {
+>         u32     snd_ssthresh;   /* Slow start size threshold            */
+>         u32     snd_cwnd;       /* Sending congestion window            */
+>         u16     snd_cwnd_cnt;   /* Linear increase counter              */
+>-       u16     snd_cwnd_clamp; /* Do not allow snd_cwnd to grow above this */
+>+       u32     snd_cwnd_clamp; /* Do not allow snd_cwnd to grow above this */
+>         u32     snd_cwnd_used;
+>         u32     snd_cwnd_stamp;
 
-2) There are portions of TIPC's native API which are intended for use by
-driver programmers, but which are not being used by any code that is
-currently in the kernel.  While removing these API's from TIPC will only
-impact these "freeloaders", it has the potential to discourage future
-programmers who *do* want to contribute their work to the kernel by
-removing API's that are apparently necessary/useful when doing coding of
-this sort.
+Was anything done about size/member alignment of struct tcp_sock per
+mail from last year  -
+http://marc.theaimsgroup.com/?l=linux-netdev&m=114318857102290&w=2
 
-Regards,
-Al
+(I have no idea what current size is)
 
-> -----Original Message-----
-> From: Christoph Hellwig [mailto:hch@infradead.org] 
-> Sent: Friday, February 23, 2007 5:17 PM
-> To: Adrian Bunk
-> Cc: Jon Maloy; per.liden@ericsson.com; Stephens, Allan; 
-> netdev@vger.kernel.org; 
-> tipc-discussion@lists.sourceforge.net; linux-kernel@vger.kernel.org
-> Subject: Re: [tipc-discussion] [RFC: 2.6 patch] net/tipc/: 
-> possible cleanups
-> 
-> On Fri, Feb 23, 2007 at 07:06:12PM +0100, Adrian Bunk wrote:
-> > > >My impression is that most of this might have users that are not 
-> > > >yet submitted for inclusion in the kernel - one year 
-> after TIPC was merged.
-> > > > 
-> > > >
-> > > Not quite. The exported symbols belong to a public API 
-> for driver  
-> > >programmers.
-> > > We know about several users of this API, and there will 
-> be more, but 
-> > >I  don't think  any of them are aspiring to have their code be 
-> > >included in the kernel.
-> > >...
-> > 
-> > Why not?
-> > 
-> > The goal is to get as many drivers as possible included in 
-> the kernel.
-> 
-> If we don't have any planned in-tree users for tipc we should 
-> simply drop tipc from the kernel entirely.  No point to make 
-> our maintaince work harder for out of tree freeloaders.
-> 
+
