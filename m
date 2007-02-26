@@ -1,44 +1,55 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: Re: [PATCH 0/6] more sky2 patches for 2.6.16.42-rc1
-Date: Mon, 26 Feb 2007 15:35:48 +0100
-Message-ID: <20070226143548.GN29575@stusta.de>
-References: <20070223231042.860031000@linux-foundation.org>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Fw: [Bugme-new] [Bug 8085] New: performance drop in 2.6.20
+Date: Mon, 26 Feb 2007 07:20:53 -0800
+Message-ID: <20070226072053.20573672.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "bugme-daemon@kernel-bugs.osdl.org"
+	<bugme-daemon@bugzilla.kernel.org>, a1bert@atlas.cz
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout.stusta.mhn.de ([141.84.69.5]:44668 "EHLO
-	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1030290AbXBZOfr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Feb 2007 09:35:47 -0500
-Content-Disposition: inline
-In-Reply-To: <20070223231042.860031000@linux-foundation.org>
+Received: from smtp.osdl.org ([65.172.181.24]:49301 "EHLO smtp.osdl.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1030276AbXBZPVz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Feb 2007 10:21:55 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Feb 23, 2007 at 03:10:42PM -0800, Stephen Hemminger wrote:
-> More backport of sky2 stuff.
-> 	* [bugfix] ram buffer setup
-> 	* [bugfix] listen to pause packets
-> 	* [bugfix] big endian
-> 	
-> Optional:
-> 	* add more statistics (add entries to table)
-> 	* add more pci-ids for newer boards
-> 	* update version and email address
 
-Thanks, I've applied all 6 patches.
+ooh.
 
-> Stephen Hemminger
+Begin forwarded message:
 
-cu
-Adrian
+Date: Mon, 26 Feb 2007 07:10:48 -0800
+From: bugme-daemon@bugzilla.kernel.org
+To: bugme-new@lists.osdl.org
+Subject: [Bugme-new] [Bug 8085] New: performance drop in 2.6.20
 
--- 
 
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
+http://bugzilla.kernel.org/show_bug.cgi?id=8085
 
+           Summary: performance drop in 2.6.20
+    Kernel Version: 2.6.20
+            Status: NEW
+          Severity: normal
+             Owner: shemminger@osdl.org
+         Submitter: a1bert@atlas.cz
+
+
+Most recent kernel where this bug did *NOT* occur: 2.6.19.5
+Distribution: slackware based
+Hardware Environment: Xeon + e1000
+Software Environment: gcc 3.3.x
+Problem Description: noticeable (10-15%) routing and bridging (possibly 
+overall) performance drop between 2.6.19.5 - 2.6.20 (2.6.20.1 2.6.21-rc1 too) 
+same configs
+
+we are experiencing performance drop on our rather busy(>150kpps >700Mbps in 
+one direction) bridge with ebtables and routers (210k routes, >30kpps duplex). 
+It's not e1000 issue.
+
+Steps to reproduce:
+
+------- You are receiving this mail because: -------
+You are on the CC list for the bug, or are watching someone who is.
