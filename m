@@ -1,79 +1,68 @@
-From: Florian Zumbiehl <florz@gmx.de>
-Subject: Re: Weird problem with PPPoE on tap interface
-Date: Mon, 26 Feb 2007 11:29:08 +0100
-Message-ID: <20070226102908.GD3318@florz.florz.dyndns.org>
-References: <20070225195455.GC3318@florz.florz.dyndns.org>
+From: Sergei Shtylyov <sshtylyov@ru.mvista.com>
+Subject: Re: 2.6.20-rc4-mm1: PCI=n: drivers/net/3c59x.c compile error
+Date: Mon, 26 Feb 2007 16:22:27 +0300
+Message-ID: <45E2DF13.9010200@ru.mvista.com>
+References: <20070111222627.66bb75ab.akpm@osdl.org> <20070124135354.GI17836@stusta.de> <45B76946.1070009@ru.mvista.com> <45D756D7.4060106@ru.mvista.com> <45D75853.1060607@ru.mvista.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: mostrows@speakeasy.net
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Adrian Bunk <bunk@stusta.de>, Andrew Morton <akpm@osdl.org>,
+	Jeff Garzik <jgarzik@pobox.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: linux-pci@atrey.karlin.mff.cuni.cz
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from odnb-d9bbfba0.pool.mediaWays.net ([217.187.251.160]:4873 "EHLO
-	rain.florz.dyndns.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751211AbXBZLQx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Feb 2007 06:16:53 -0500
-Content-Disposition: inline
-In-Reply-To: <20070225195455.GC3318@florz.florz.dyndns.org>
+Received: from h155.mvista.com ([63.81.120.155]:57401 "EHLO imap.sh.mvista.com"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1030221AbXBZNWk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Feb 2007 08:22:40 -0500
+In-Reply-To: <45D75853.1060607@ru.mvista.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Hello, I wrote:
 
-> I'm experiencing a pretty strange problem with kernel PPPoE on tap
-> interfaces with a vanilla 2.6.20 kernel that prevents the PPP connection
-> from being established:
-[...]
+>>>> 3x59x-fix-pci-resource-management.patch causes the following compile 
+>>>> error with CONFIG_PCI=n:
 
-Well, I guess I have found the source of the problem: The PPPoE code seems
-to match inbound packets to sockets based only on source address and
-session ID - so in the given scenario, packets are delivered to pppd
-once when they arrive at the "real" ethernet interface and a second time
-when they arrive at the tap interface. Now, this is kindof two problems,
-actually:
+>>>> <--  snip  -->
 
-1. This is not in compliance with RFC 2516, which states in section 4:
+>>>> ...
+>>>>   CC      drivers/net/3c59x.o
+>>>> /home/bunk/linux/kernel-2.6/linux-2.6.20-rc4-mm1/drivers/net/3c59x.c: 
+>>>> In function 'vortex_init_one':
+>>>> /home/bunk/linux/kernel-2.6/linux-2.6.20-rc4-mm1/drivers/net/3c59x.c:961: 
+>>>> error: implicit declaration of function 'pci_request_regions'
+>>>> /home/bunk/linux/kernel-2.6/linux-2.6.20-rc4-mm1/drivers/net/3c59x.c:985: 
+>>>> error: implicit declaration of function 'pci_release_regions'
+>>>> make[3]: *** [drivers/net/3c59x.o] Error 1
 
-   | The SESSION_ID field is sixteen bits.  It is an unsigned value in
-   | network byte order.  It's value is defined below for Discovery
-   | packets.  The value is fixed for a given PPP session and, in fact,
-   | defines a PPP session along with the Ethernet SOURCE_ADDR and
-   | DESTINATION_ADDR.
+>>>    Grr, at at the same time it's happy with pci_enable_device().
+>>>    I'd say the problem is in <linux/pci.h>,  not in the patch.
 
-   So, it would be legal for there to be multiple sessions with the same
-   peer using the same session ID, as long as they are using different
-   local MAC addresses - but the current PPPoE code would not be able to
-   distinguish those.
+>>    Has there been any patch to fix the "unbalanced" 
+>> pci_{request|release}_regions() declarations? Am I suposed to create 
+>> such?
 
-   This probably is not a problem for me, but should be fixed anyway,
-   IMO. (I say "probably" since I am actually using different local MAC
-   addresses for multiple PPPoE sessions to the same DSL-AC, as T-Com
-   doesn't allow for multiple sessions from the same MAC address -
-   so they would be allowed by the RFC to use the same session ID for
-   more than one of those sessions, even though I doubt that they're
-   doing that.)
+>    Alternatively, vortex_{init|remove_one() and struct pci_driver there 
+> could have been put under #ifdef CONFIG_PCI (good idea anyway -- should 
+> reduce driver size on non-PCI systems)...
 
-2. In addition to session ID, source and destination address, IMO, the
-   incoming interface should be added to the key that's used for
-   matching packets to sockets. This is probably somewhat of a design
-   decision much like the weak ES vs. strong ES issue with IP, but
-   AFAICS, the userspace-API works by binding to an interface index, not
-   by binding to a MAC address (unlike IP socket binding), which is why
-   I'd expect from pppd's perspective that only packets from that
-   interface are delivered.
+    I wonder if I may count on any feedback on this -- asking linux-pci now...
+    The issue is as follows: with my patch pci_{request|release}_regions() may 
+be called with CONFIG_PCI=n (probably, this never has been a issue before) but 
+<linux/pci.h> don't have them declared in this case -- unlike 
+pci_enable_device() which is just empty for CONFIG_PCI=n.
+    Now, what kind of approach do I take:
 
-   Plus, from the end user's perspective, this might even be somewhat of
-   a security problem. I for one would (well, I obviuosly _did_ :-)
-   expect that if I do specify an interface name in pppd's config,
-   pppd won't get into contact with anything that's going on on
-   interfaces other than the one specified. As the involved MAC addresses
-   probably usually aren't considered a secret, all you'd have to guess
-   in order to interfere with/inject packets into PPPoE sessions "on a
-   different interface" is the 16-bit session identifier, which might not
-   even be random.
+- a "fair one", so that pci_{request|release}_regions() get "balanced"
+   declarations in the header like pci_enable_device();
 
-Well, your opinions are welcome. Plus any hints as to how to fix this.
-I'd tend to simply(?) add some more fields to the
-{hash,get,set,delete}_item() functions in drivers/net/pppoe.c.
-But maybe there is some better way?
+- a "local one" (and even saving non-PCI kernel from needless bloat), i.e.
+   #ifdef out functions that are only meaningful with CONFIG_PCI=y)?
 
-Florian
+    I'm leaning to the second now...
+
+>>>> cu
+>>>> Adrian
+
+MBR, Sergei
