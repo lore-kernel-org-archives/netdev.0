@@ -1,49 +1,65 @@
-From: Pascal GREGIS <pgs@synerway.com>
-Subject: need some help on a backport of r8169
-Date: Mon, 26 Feb 2007 18:09:41 +0100
-Message-ID: <20070226170941.GA17587@venus.synerway.com>
+From: Michael Faber <faber@i4.informatik.rwth-aachen.de>
+Subject: tcp_info struct
+Date: Mon, 26 Feb 2007 18:33:50 +0100
+Message-ID: <45E319FE.8090707@i4.informatik.rwth-aachen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.synerway.com ([84.14.10.249]:32984 "EHLO
-	stargate.synerway.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030359AbXBZRal (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Feb 2007 12:30:41 -0500
-Received: from kamino.synerway.com (kamino [172.16.1.21])
-	by stargate.synerway.com (Postfix) with ESMTP id 7D8A475C16E
-	for <netdev@vger.kernel.org>; Mon, 26 Feb 2007 18:44:51 +0100 (CET)
-Content-Disposition: inline
+Received: from i4mail.informatik.RWTH-Aachen.DE ([137.226.12.21]:50265 "EHLO
+	i4mail.informatik.rwth-aachen.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1030376AbXBZR6a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Feb 2007 12:58:30 -0500
+Received: from i4mail (i4mail.informatik.rwth-aachen.de [137.226.12.21])
+	by i4mail.informatik.rwth-aachen.de (Postfix) with ESMTP id 86228188F3
+	for <netdev@vger.kernel.org>; Mon, 26 Feb 2007 18:33:50 +0100 (CET)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello everyone,
+Hi,
 
-I am experiencing a big fight with a Realtek RTL8168 ethernet card that I need to use with a 2.6.11.11 kernel.
+i want to use the tcp_info struct to keep track of some tcp related
+information. This works fine so far, however i'm wondering how to
+interpret some of the values delivered. I would expect values like cwnd
+and sst to be given out in packets regarding the source code. Can anyone
+give me some hints in interpreting the tcp_info values as this option is
+very poor documented and only documentation on how to fill the tcp_info
+struct can be found.
 
-Here is my problem :
-the RTL8168 (which seems to be the PIC-express version of the RTL8169) isn't recognized by the 2.6.11.11 kernel.
-So I tried the r1000 driver supplied by Realtek, which recognizes my RTL8168 card but doesn't do what I want.
-In fact, it only supports ethtool for speed control and always uses autonegotiation to force a mode, which is also the behaviour of the r8169 driver but doesn't fit my needs because some of my company's clients use network switches that do not support autonegotiation.
+Below are some values i got out of the tcp_info structure with the tcp
+connection in state 8 and the code snippet which uses the tcp_struct.
+Especially the SND_MSS (i would expect this to be 1460) and the ssthresh
+value are strange.
 
-I must precise that I previously succeeded to backport the support for mii-tool in the r8169 driver from the 2.6.20 kernel to the 2.6.11.11, which allows me to effectively force the speed without using autonegotiation.
-Ok, but that was for the RTL8169 card, already supported in the 2.6.11.11 kernel, now I need to support a RTL8168 one.
+tcp_info:
+RTOs = 0, 0WProbes = 0, Backoffs = 0
+RTO = 204 msec, RTT = 7 msec, RTT_var = 3 msec
+lost packets = 0, sacked packets = 0, retransmitted packets = 1
+SND_MSS = 16384, RCV_MSS = 536, ssthresh = 65535, cwnd = 13
 
-So I tried a 2.6.20 kernel with this card and I saw that it was supported by the r8169 driver.
-So I decided to backport some of this driver to add the RTL8168 in it for the 2.6.11.11 kernel.
-I thought it was easy and just required to add some references (pci id ...) but sadly it isn't, and my patch results in a kernel panic when I turn the interface up.
 
-Could anyone take a look at my patch and tell me what is missing, or what is wrong?
 
-Or if you have other suggestions, do not hesitate, if you think I'd better patch the r1000 driver to add mii-tool support (it didn't seem so easy) or anything else, but please don't suggest me to change my network switches, these are not mines so I cannot do anything for this.
-Also I cannot change my entire kernel for the moment.
+struct tcp_info info;
 
-Here you can find my patch :
-http://www.synerway.net/patch/r8169-backport.patch
+int optlen=sizeof(struct tcp_info);
 
-it adds mii-tool support and TRIES to add RTL8168 support.
+if(getsockopt(socket_fd, IPPROTO_TCP, TCP_INFO, &info, &optlen) < 0){
+       // Error Handling
+}
+printf("RTOs = %u, 0WProbes = %u, Backoffs = %u\n\
+            RTO = %u msec, RTT = %u msec, RTT_var = %u msec\n\
+            lost packets = %u, sacked packets = %u, retransmitted
+packets = %u\n\
+            SND_MSS = %u, RCV_MSS = %u, ssthresh = %u, cwnd = %u \n\n",
+            info.tcpi_retransmits, info.tcpi_probes, info.tcpi_backoff,
+            (info.tcpi_rto/1000), (info.tcpi_rtt/1000),
+(info.tcpi_rttvar/1000),
+             info.tcpi_lost, info.tcpi_sacked, info.tcpi_total_retrans,
+            info.tcpi_snd_mss, info.tcpi_rcv_mss,
+info.tcpi_snd_ssthresh, info.tcpi_snd_cwnd);
 
-Thank you for any help
+thx
+Michael
 
-Pascal
 
