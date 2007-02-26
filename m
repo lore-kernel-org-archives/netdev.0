@@ -1,236 +1,79 @@
-From: Ron Mercer <ron.mercer@qlogic.com>
-Subject: [PATCH 10/13] qla3xxx: Check return code from pci_map_single() in ql_release_to_lrg_buf_free_list(), ql_populate_free_queue(), ql_alloc_large_buffers(), and ql3xxx_send()
-Date: Mon, 26 Feb 2007 11:06:40 -0800
-Message-ID: <11725168031319-git-send-email-ron.mercer@qlogic.com>
-References: <20070226190450.GA7325@linux-7mw0.qlogic.org>
-Cc: ron.mercer@qlogic.com, romieu@fr.zoreil.com,
-	benjamin.li@qlogic.com, netdev@vger.kernel.org
-To: jeff@garzik.org
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: [RFC][NET] Alignment in mv643xx_eth
+Date: Mon, 26 Feb 2007 19:52:06 +0000
+Message-ID: <20070226195206.GA10188@linux-mips.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-mips@linux-mips.org,
+	Jeff Garzik <jeff@garzik.org>
+To: Dale Farnsworth <dale@farnsworth.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from avexch1.qlogic.com ([198.70.193.115]:15768 "EHLO
-	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030469AbXBZTHq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Feb 2007 14:07:46 -0500
-In-Reply-To: <20070226190450.GA7325@linux-7mw0.qlogic.org>
+Received: from ftp.linux-mips.org ([194.74.144.162]:40260 "EHLO
+	ftp.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752468AbXBZTwS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Feb 2007 14:52:18 -0500
+Received: from localhost.localdomain ([127.0.0.1]:16027 "EHLO
+	dl5rb.ham-radio-op.net") by ftp.linux-mips.org with ESMTP
+	id S28639684AbXBZTwR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Feb 2007 19:52:17 +0000
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Benjamin Li <benjamin.li@qlogic.com>
+The driver contains this little piece of candy:
 
-pci_map_single() could fail.  We need to properly check the return
-code from pci_map_single().  If we can not properly map this address,
-then we should cleanup and return the proper return code.
+#if defined(CONFIG_DMA_NONCOHERENT) || defined(CONFIG_NOT_COHERENT_CACHE)
+#define ETH_DMA_ALIGN           L1_CACHE_BYTES
+#else
+#define ETH_DMA_ALIGN           8
+#endif
 
-Signed-off-by: Benjamin Li <benjamin.li@qlogic.com>
-Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
----
- drivers/net/qla3xxx.c |  114 ++++++++++++++++++++++++++++++++++++++++++++++---
- 1 files changed, 107 insertions(+), 7 deletions(-)
+Any reason why we're not using dma_get_cache_alignment() instead?
 
-diff --git a/drivers/net/qla3xxx.c b/drivers/net/qla3xxx.c
-index d2f4397..63522ea 100755
---- a/drivers/net/qla3xxx.c
-+++ b/drivers/net/qla3xxx.c
-@@ -276,7 +276,8 @@ static void ql_enable_interrupts(struct ql3_adapter *qdev)
- static void ql_release_to_lrg_buf_free_list(struct ql3_adapter *qdev,
- 					    struct ql_rcv_buf_cb *lrg_buf_cb)
- {
--	u64 map;
-+	dma_addr_t map;
-+	int err;
- 	lrg_buf_cb->next = NULL;
- 
- 	if (qdev->lrg_buf_free_tail == NULL) {	/* The list is empty  */
-@@ -304,6 +305,17 @@ static void ql_release_to_lrg_buf_free_list(struct ql3_adapter *qdev,
- 					     qdev->lrg_buffer_len -
- 					     QL_HEADER_SPACE,
- 					     PCI_DMA_FROMDEVICE);
-+			err = pci_dma_mapping_error(map);
-+			if(err) {
-+				printk(KERN_ERR "%s: PCI mapping failed with error: %d\n", 
-+				       qdev->ndev->name, err);
-+				dev_kfree_skb(lrg_buf_cb->skb);
-+				lrg_buf_cb->skb = NULL;
-+
-+				qdev->lrg_buf_skb_check++;
-+				return;
-+			}
-+
- 			lrg_buf_cb->buf_phy_addr_low =
- 			    cpu_to_le32(LS_64BITS(map));
- 			lrg_buf_cb->buf_phy_addr_high =
-@@ -1642,7 +1654,8 @@ static const struct ethtool_ops ql3xxx_ethtool_ops = {
- static int ql_populate_free_queue(struct ql3_adapter *qdev)
- {
- 	struct ql_rcv_buf_cb *lrg_buf_cb = qdev->lrg_buf_free_head;
--	u64 map;
-+	dma_addr_t map;
-+	int err;
- 
- 	while (lrg_buf_cb) {
- 		if (!lrg_buf_cb->skb) {
-@@ -1664,6 +1677,17 @@ static int ql_populate_free_queue(struct ql3_adapter *qdev)
- 						     qdev->lrg_buffer_len -
- 						     QL_HEADER_SPACE,
- 						     PCI_DMA_FROMDEVICE);
-+
-+				err = pci_dma_mapping_error(map);
-+				if(err) {
-+					printk(KERN_ERR "%s: PCI mapping failed with error: %d\n", 
-+					       qdev->ndev->name, err);
-+					dev_kfree_skb(lrg_buf_cb->skb);
-+					lrg_buf_cb->skb = NULL;
-+					break;
-+				}
-+
-+
- 				lrg_buf_cb->buf_phy_addr_low =
- 				    cpu_to_le32(LS_64BITS(map));
- 				lrg_buf_cb->buf_phy_addr_high =
-@@ -2165,7 +2189,9 @@ static int ql_send_map(struct ql3_adapter *qdev,
- 	struct oal *oal;
- 	struct oal_entry *oal_entry;
- 	int len = skb_headlen(skb);
--	u64 map;
-+	dma_addr_t map;
-+	int err;
-+	int completed_segs, i;
- 	int seg_cnt, seg = 0;
- 	int frag_cnt = (int)skb_shinfo(skb)->nr_frags;
- 
-@@ -2178,6 +2204,15 @@ static int ql_send_map(struct ql3_adapter *qdev,
- 	 * Map the skb buffer first.
- 	 */
- 	map = pci_map_single(qdev->pdev, skb->data, len, PCI_DMA_TODEVICE);
-+
-+	err = pci_dma_mapping_error(map);
-+	if(err) {
-+		printk(KERN_ERR "%s: PCI mapping failed with error: %d\n", 
-+		       qdev->ndev->name, err);
-+
-+		return NETDEV_TX_BUSY;
-+	}
-+	
- 	oal_entry = (struct oal_entry *)&mac_iocb_ptr->buf_addr0_low;
- 	oal_entry->dma_lo = cpu_to_le32(LS_64BITS(map));
- 	oal_entry->dma_hi = cpu_to_le32(MS_64BITS(map));
-@@ -2191,10 +2226,9 @@ static int ql_send_map(struct ql3_adapter *qdev,
- 		oal_entry->len =
- 		    cpu_to_le32(le32_to_cpu(oal_entry->len) | OAL_LAST_ENTRY);
- 	} else {
--		int i;
- 		oal = tx_cb->oal;
--		for (i=0; i<frag_cnt; i++,seg++) {
--			skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
-+		for (completed_segs=0; completed_segs<frag_cnt; completed_segs++,seg++) {
-+			skb_frag_t *frag = &skb_shinfo(skb)->frags[completed_segs];
- 			oal_entry++;
- 			if ((seg == 2 && seg_cnt > 3) ||	/* Check for continuation */
- 			    (seg == 7 && seg_cnt > 8) ||	/* requirements. It's strange */
-@@ -2204,6 +2238,15 @@ static int ql_send_map(struct ql3_adapter *qdev,
- 				map = pci_map_single(qdev->pdev, oal,
- 						     sizeof(struct oal),
- 						     PCI_DMA_TODEVICE);
-+
-+				err = pci_dma_mapping_error(map);
-+				if(err) {
-+
-+					printk(KERN_ERR "%s: PCI mapping outbound address list with error: %d\n", 
-+					       qdev->ndev->name, err);
-+					goto map_error;
-+				}
-+
- 				oal_entry->dma_lo = cpu_to_le32(LS_64BITS(map));
- 				oal_entry->dma_hi = cpu_to_le32(MS_64BITS(map));
- 				oal_entry->len =
-@@ -2222,6 +2265,14 @@ static int ql_send_map(struct ql3_adapter *qdev,
- 			    pci_map_page(qdev->pdev, frag->page,
- 					 frag->page_offset, frag->size,
- 					 PCI_DMA_TODEVICE);
-+
-+			err = pci_dma_mapping_error(map);
-+			if(err) {
-+				printk(KERN_ERR "%s: PCI mapping frags failed with error: %d\n", 
-+				       qdev->ndev->name, err);
-+				goto map_error;
-+			}
-+
- 			oal_entry->dma_lo = cpu_to_le32(LS_64BITS(map));
- 			oal_entry->dma_hi = cpu_to_le32(MS_64BITS(map));
- 			oal_entry->len = cpu_to_le32(frag->size);
-@@ -2233,7 +2284,46 @@ static int ql_send_map(struct ql3_adapter *qdev,
- 		oal_entry->len =
- 		    cpu_to_le32(le32_to_cpu(oal_entry->len) | OAL_LAST_ENTRY);
- 	}
-+
- 	return NETDEV_TX_OK;
-+
-+map_error:
-+	/* A PCI mapping failed and now we will need to back out
-+	 * We need to traverse through the oal's and associated pages which 
-+	 * have been mapped and now we must unmap them to clean up properly
-+	 */
-+	
-+	seg = 1;
-+	oal_entry = (struct oal_entry *)&mac_iocb_ptr->buf_addr0_low;
-+	oal = tx_cb->oal;
-+	for (i=0; i<completed_segs; i++,seg++) {
-+		oal_entry++;
-+
-+		if((seg == 2 && seg_cnt > 3) ||        /* Check for continuation */
-+		   (seg == 7 && seg_cnt > 8) ||        /* requirements. It's strange */
-+		   (seg == 12 && seg_cnt > 13) ||      /* but necessary. */
-+		   (seg == 17 && seg_cnt > 18)) {
-+			pci_unmap_single(qdev->pdev,
-+				pci_unmap_addr(&tx_cb->map[seg], mapaddr),
-+				pci_unmap_len(&tx_cb->map[seg], maplen),
-+				 PCI_DMA_TODEVICE);
-+			oal++;
-+			seg++;
-+		}
-+
-+		pci_unmap_page(qdev->pdev,
-+			       pci_unmap_addr(&tx_cb->map[seg], mapaddr),
-+			       pci_unmap_len(&tx_cb->map[seg], maplen),
-+			       PCI_DMA_TODEVICE);
-+	}
-+
-+	pci_unmap_single(qdev->pdev,
-+			 pci_unmap_addr(&tx_cb->map[0], mapaddr),
-+			 pci_unmap_addr(&tx_cb->map[0], maplen),
-+			 PCI_DMA_TODEVICE);
-+
-+	return NETDEV_TX_BUSY;
-+
- }
- 
- /*
-@@ -2546,7 +2636,8 @@ static int ql_alloc_large_buffers(struct ql3_adapter *qdev)
- 	int i;
- 	struct ql_rcv_buf_cb *lrg_buf_cb;
- 	struct sk_buff *skb;
--	u64 map;
-+	dma_addr_t map;
-+	int err;
- 
- 	for (i = 0; i < qdev->num_large_buffers; i++) {
- 		skb = netdev_alloc_skb(qdev->ndev,
-@@ -2576,6 +2667,15 @@ static int ql_alloc_large_buffers(struct ql3_adapter *qdev)
- 					     qdev->lrg_buffer_len -
- 					     QL_HEADER_SPACE,
- 					     PCI_DMA_FROMDEVICE);
-+
-+			err = pci_dma_mapping_error(map);
-+			if(err) {
-+				printk(KERN_ERR "%s: PCI mapping failed with error: %d\n",
-+				       qdev->ndev->name, err);
-+				ql_free_large_buffers(qdev);
-+				return -ENOMEM;
-+			}
-+
- 			pci_unmap_addr_set(lrg_buf_cb, mapaddr, map);
- 			pci_unmap_len_set(lrg_buf_cb, maplen,
- 					  qdev->lrg_buffer_len -
--- 
-1.5.0.rc4.16.g9e258
+  Ralf
 
+Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+
+diff --git a/drivers/net/mv643xx_eth.c b/drivers/net/mv643xx_eth.c
+index d98e53e..3e045a6 100644
+--- a/drivers/net/mv643xx_eth.c
++++ b/drivers/net/mv643xx_eth.c
+@@ -147,13 +147,13 @@ static void mv643xx_eth_rx_refill_descs(struct net_device *dev)
+ 	int unaligned;
+ 
+ 	while (mp->rx_desc_count < mp->rx_ring_size) {
+-		skb = dev_alloc_skb(ETH_RX_SKB_SIZE + ETH_DMA_ALIGN);
++		skb = dev_alloc_skb(ETH_RX_SKB_SIZE + dma_get_cache_alignment());
+ 		if (!skb)
+ 			break;
+ 		mp->rx_desc_count++;
+-		unaligned = (u32)skb->data & (ETH_DMA_ALIGN - 1);
++		unaligned = (u32)skb->data & (dma_get_cache_alignment() - 1);
+ 		if (unaligned)
+-			skb_reserve(skb, ETH_DMA_ALIGN - unaligned);
++			skb_reserve(skb, dma_get_cache_alignment() - unaligned);
+ 		pkt_info.cmd_sts = ETH_RX_ENABLE_INTERRUPT;
+ 		pkt_info.byte_cnt = ETH_RX_SKB_SIZE;
+ 		pkt_info.buf_ptr = dma_map_single(NULL, skb->data,
+diff --git a/drivers/net/mv643xx_eth.h b/drivers/net/mv643xx_eth.h
+index 33c5faf..7cb0a41 100644
+--- a/drivers/net/mv643xx_eth.h
++++ b/drivers/net/mv643xx_eth.h
+@@ -42,17 +42,6 @@
+ #define MAX_DESCS_PER_SKB	1
+ #endif
+ 
+-/*
+- * The MV643XX HW requires 8-byte alignment.  However, when I/O
+- * is non-cache-coherent, we need to ensure that the I/O buffers
+- * we use don't share cache lines with other data.
+- */
+-#if defined(CONFIG_DMA_NONCOHERENT) || defined(CONFIG_NOT_COHERENT_CACHE)
+-#define ETH_DMA_ALIGN		L1_CACHE_BYTES
+-#else
+-#define ETH_DMA_ALIGN		8
+-#endif
+-
+ #define ETH_VLAN_HLEN		4
+ #define ETH_FCS_LEN		4
+ #define ETH_HW_IP_ALIGN		2		/* hw aligns IP header */
