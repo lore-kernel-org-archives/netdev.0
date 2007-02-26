@@ -1,37 +1,53 @@
-From: Divy Le Ray <divy@chelsio.com>
-Subject: Re: [PATCH 3/7] cxgb3 - FW version update
-Date: Sun, 25 Feb 2007 16:36:33 -0800
-Message-ID: <45E22B91.1060702@chelsio.com>
-References: <20070225004401.20831.3292.stgit@localhost.localdomain>	 <1172431719.4717.8.camel@stevo-laptop>  <45E1E810.2000706@garzik.org> <1172440758.4717.17.camel@stevo-laptop> <45E21009.6040706@garzik.org>
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: [NET] sgiseeq: Don't include unnecessary headerfiles.
+Date: Mon, 26 Feb 2007 01:50:34 +0000
+Message-ID: <20070226015034.GA24954@linux-mips.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Steve Wise <swise@opengridcomputing.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain; charset=us-ascii
+To: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.22.49.110]:18145 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933727AbXBZAiM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Feb 2007 19:38:12 -0500
-In-Reply-To: <45E21009.6040706@garzik.org>
+Received: from ftp.linux-mips.org ([194.74.144.162]:48820 "EHLO
+	ftp.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750994AbXBZBva (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Feb 2007 20:51:30 -0500
+Received: from localhost.localdomain ([127.0.0.1]:58566 "EHLO
+	dl5rb.ham-radio-op.net") by ftp.linux-mips.org with ESMTP
+	id S20039013AbXBZBv2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Feb 2007 01:51:28 +0000
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik wrote:
-> Steve Wise wrote:
->>> I would rather fix the code to use constants, and thus avoid this 
->>> problem ever happening again.
->>>
->>>     Jeff
->>>
->>
->> How's this (not tested)?
->
-> seems OK to me
->
->
-I tested it and resubmitted. Thanks fro the fix suggestion and the patch!
+Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
 
-Cheers,
-Divy
+diff --git a/drivers/net/sgiseeq.c b/drivers/net/sgiseeq.c
+index a833e7f..52ed522 100644
+--- a/drivers/net/sgiseeq.c
++++ b/drivers/net/sgiseeq.c
+@@ -12,26 +12,15 @@
+ #include <linux/init.h>
+ #include <linux/types.h>
+ #include <linux/interrupt.h>
+-#include <linux/ioport.h>
+-#include <linux/socket.h>
+-#include <linux/in.h>
+-#include <linux/route.h>
+ #include <linux/slab.h>
+ #include <linux/string.h>
+ #include <linux/delay.h>
+ #include <linux/netdevice.h>
+ #include <linux/etherdevice.h>
+ #include <linux/skbuff.h>
+-#include <linux/bitops.h>
+ 
+-#include <asm/byteorder.h>
+-#include <asm/io.h>
+-#include <asm/system.h>
+-#include <asm/page.h>
+-#include <asm/pgtable.h>
+ #include <asm/sgi/hpc3.h>
+ #include <asm/sgi/ip22.h>
+-#include <asm/sgialib.h>
+ 
+ #include "sgiseeq.h"
+ 
