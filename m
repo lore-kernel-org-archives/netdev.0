@@ -1,56 +1,60 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] Fix oops in xfrm4_dst_destroy()
-Date: Mon, 26 Feb 2007 01:24:37 +0100
-Message-ID: <45E228C5.3060108@trash.net>
-References: <20070225204315.GB31715@strauss.suse.de>
+From: divy@chelsio.com
+Subject: [PATCH 3/7] cxgb3 - FW version update
+Date: Sun, 25 Feb 2007 16:32:37 -0800
+Message-ID: <20070226003237.25670.76606.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Miika Komu <miika@iki.fi>, netdev@vger.kernel.org
-To: Bernhard Walle <bwalle@suse.de>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	swise@opengridcomputing.com
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:53669 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933703AbXBZASt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Feb 2007 19:18:49 -0500
-In-Reply-To: <20070225204315.GB31715@strauss.suse.de>
+Received: from stargate.chelsio.com ([12.22.49.110]:7649 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933721AbXBZAeN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Feb 2007 19:34:13 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Bernhard Walle wrote:
-> With 2.6.21-rc1, I get an oops when running 'ifdown eth0' and an IPsec
-> connection is active. If I shut down the connection before running 'ifdown
-> eth0', then there's no problem.  The critical operation of this script is to
-> kill dhcpd.
-> 
-> The problem is probably caused by commit with git identifier
-> 4337226228e1cfc1d70ee975789c6bd070fb597c (Linus tree) "[IPSEC]: IPv4 over IPv6
-> IPsec tunnel".
-> 
-> This patch fixes that oops. I don't know the network code of the Linux kernel
-> in deep, so if that fix is wrong, please change it. But please fix the oops. :)
+From: Divy Le Ray <divy@chelsio.com>
 
-Looks good, when the xfrm_dst is freed in __xfrm4_bundle_create
-after a failed call to xfrm_dst_lookup the xfrm pointer is not
-set, and this is also expected by xfrm_dst_destroy.
+Update FW version to 3.2
 
-Acked-by: Patrick McHardy <kaber@trash.net>
+Signed-off-by: Divy Le Ray <divy@chelsio.com>
+---
 
-> ---
->  net/ipv4/xfrm4_policy.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> Index: linux-2.6.21-rc1/net/ipv4/xfrm4_policy.c
-> ===================================================================
-> --- linux-2.6.21-rc1.orig/net/ipv4/xfrm4_policy.c
-> +++ linux-2.6.21-rc1/net/ipv4/xfrm4_policy.c
-> @@ -291,7 +291,7 @@ static void xfrm4_dst_destroy(struct dst
->  
->  	if (likely(xdst->u.rt.idev))
->  		in_dev_put(xdst->u.rt.idev);
-> -	if (dst->xfrm->props.family == AF_INET && likely(xdst->u.rt.peer))
-> +	if (dst->xfrm && dst->xfrm->props.family == AF_INET && likely(xdst->u.rt.peer))
->  		inet_putpeer(xdst->u.rt.peer);
->  	xfrm_dst_destroy(xdst);
->  }
+ drivers/net/cxgb3/t3_hw.c   |    6 ++++--
+ drivers/net/cxgb3/version.h |    2 ++
+ 2 files changed, 6 insertions(+), 2 deletions(-)
 
+diff --git a/drivers/net/cxgb3/t3_hw.c b/drivers/net/cxgb3/t3_hw.c
+index 365a7f5..eaa7a2e 100644
+--- a/drivers/net/cxgb3/t3_hw.c
++++ b/drivers/net/cxgb3/t3_hw.c
+@@ -884,11 +884,13 @@ int t3_check_fw_version(struct adapter *
+ 	major = G_FW_VERSION_MAJOR(vers);
+ 	minor = G_FW_VERSION_MINOR(vers);
+ 
+-	if (type == FW_VERSION_T3 && major == 3 && minor == 1)
++	if (type == FW_VERSION_T3 && major == FW_VERSION_MAJOR &&
++	    minor == FW_VERSION_MINOR)
+ 		return 0;
+ 
+ 	CH_ERR(adapter, "found wrong FW version(%u.%u), "
+-	       "driver needs version 3.1\n", major, minor);
++	       "driver needs version %u.%u\n", major, minor,
++	       FW_VERSION_MAJOR, FW_VERSION_MINOR);
+ 	return -EINVAL;
+ }
+ 
+diff --git a/drivers/net/cxgb3/version.h b/drivers/net/cxgb3/version.h
+index 2b67dd5..782a6cf 100644
+--- a/drivers/net/cxgb3/version.h
++++ b/drivers/net/cxgb3/version.h
+@@ -36,4 +36,6 @@
+ #define DRV_NAME "cxgb3"
+ /* Driver version */
+ #define DRV_VERSION "1.0"
++#define FW_VERSION_MAJOR 3
++#define FW_VERSION_MINOR 2
+ #endif				/* __CHELSIO_VERSION_H */
