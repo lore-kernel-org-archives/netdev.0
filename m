@@ -1,44 +1,52 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [PATCH] netxen: do_rom_fast_write error handling
-Date: Mon, 26 Feb 2007 14:51:56 -0800
-Message-ID: <20070226145156.5c0424a3@freekitty>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: [PATCH, RESEND] chelsio: Fix non-NAPI compile
+Date: Mon, 26 Feb 2007 14:58:49 -0800
+Message-ID: <ada1wkczfti.fsf_-_@cisco.com>
+References: <20070220235759.102686172@linux-foundation.org>
+	<adamz38c55r.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "Amit S. Kale" <amitkale@netxen.com>,
-	Jeff Garzik <jgarzik@pobox.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	netdev@vger.kernel.org
+To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:36904 "EHLO smtp.osdl.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1161303AbXBZWwE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Feb 2007 17:52:04 -0500
+Received: from sj-iport-6.cisco.com ([171.71.176.117]:47167 "EHLO
+	sj-iport-6.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161301AbXBZW6x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Feb 2007 17:58:53 -0500
+In-Reply-To: <adamz38c55r.fsf@cisco.com> (Roland Dreier's message of "Tue, 20 Feb 2007 23:59:28 -0800")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Compiler warning spots real error!
+Chelsio without NAPI enabled has been broken (won't compile) since
+3de00b89 ("chelsio: NAPI speed improvement"):
 
-The function do_rom_fast_read called in do_rom_fast_write can fail
-and leave data1 unset. This causes a compile warning.  
-The correct thing is to propagate the error out.
+    drivers/net/chelsio/sge.c: In function `t1_interrupt`:
+    drivers/net/chelsio/sge.c:1716: error: `Q` undeclared (first use in this function)
 
-Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+The change below seems to add back in the declaration and
+initialization of `Q` that was removed by mistake, and at least makes
+the driver compile for me, although I have no hardware and hence no
+way to test whether this actually works.
 
+Signed-off-by: Roland Dreier <rolandd@cisco.com>
 ---
- drivers/net/netxen/netxen_nic_init.c |    5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
+Jeff, I haven't seen any response from Stephen but Divy from Chelsio
+seemed to agree with this patch, so can you please merge it?  Right
+now the build is broken with CONFIG_CHELSIO_T1_NAPI=n.
 
---- pktgen.orig/drivers/net/netxen/netxen_nic_init.c	2007-02-26 14:45:46.000000000 -0800
-+++ pktgen/drivers/net/netxen/netxen_nic_init.c	2007-02-26 14:46:37.000000000 -0800
-@@ -499,7 +499,10 @@
- 		while(1) {
- 			int data1;
+Thanks.
+
+
+diff --git a/drivers/net/chelsio/sge.c b/drivers/net/chelsio/sge.c
+index 89a6827..326d4a6 100644
+--- a/drivers/net/chelsio/sge.c
++++ b/drivers/net/chelsio/sge.c
+@@ -1696,6 +1696,7 @@ irqreturn_t t1_interrupt(int irq, void *cookie)
+ {
+ 	int work_done;
+ 	struct adapter *adapter = cookie;
++	struct respQ *Q = &adapter->sge->respQ;
  
--			do_rom_fast_read(adapter, addridx, &data1);
-+			ret = do_rom_fast_read(adapter, addridx, &data1);
-+			if (ret < 0)
-+				return ret;
-+
- 			if (data1 == data)
- 				break;
+ 	spin_lock(&adapter->async_lock);
  
