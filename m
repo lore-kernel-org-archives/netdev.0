@@ -1,37 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [BUG][2.6.21] af_key: kernel BUG at net/core/skbuff.c:93
-Date: Mon, 26 Feb 2007 15:21:15 -0800 (PST)
-Message-ID: <20070226.152115.25475996.davem@davemloft.net>
-References: <20070226220841.GA7727@dreamland.darkstar.lan>
+From: Chuck Ebbert <cebbert@redhat.com>
+Subject: Re: netconsole module cannot be removed
+Date: Mon, 26 Feb 2007 18:07:48 -0500
+Message-ID: <45E36844.5040402@redhat.com>
+References: <45E3447F.9080706@redhat.com> <20070226133156.3bfd2a74@freekitty>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: kronos.it@gmail.com
+Cc: linux-kernel <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52273
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1161403AbXBZXVR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Feb 2007 18:21:17 -0500
-In-Reply-To: <20070226220841.GA7727@dreamland.darkstar.lan>
+Received: from mx1.redhat.com ([66.187.233.31]:57432 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750740AbXBZXYH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Feb 2007 18:24:07 -0500
+In-Reply-To: <20070226133156.3bfd2a74@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Luca Tettamanti <kronos.it@gmail.com>
-Date: Mon, 26 Feb 2007 23:08:41 +0100
+Stephen Hemminger wrote:
+> On Mon, 26 Feb 2007 15:35:11 -0500
+> Chuck Ebbert <cebbert@redhat.com> wrote:
+> 
+>> Trying to remove netconsole, rmmod goes into a tight loop with
+>> 100% CPU usage. It can't be killed with 'kill -9'. Shutdown
+>> works, though. Kernel is 2.6.20 FC6 config, and I'm 99.9%
+>> sure the module signing has nothing to do with this.
+>>
+> 
+> No it probably has to do with printing a message during module removal.
+> 
 
-> skb_over_panic: text:f1b8a065 len:16 put:16 head:b1a3ba00 data:b1a3ba00 tail:b1a
-> 3ba00 end:b1a3ba90 dev:<NULL>
+Works fine in 2.6.19.5
 
-This panic message doesn't make any sense, it should not have
-triggered.  skb_put() calls skb_over_panic() when:
+Hangs in vanilla 2.6.20 in netpoll_cleanup()
 
-	if (unlikely(skb->tail>skb->end))
-		skb_over_panic(skb, len, current_text_addr());
+Call trace: 
+ flush_cpu_workqueue
+ flush_workqueue
+ cancel_rearming_delayed_workqueue
+ netpoll_cleanup
+ sys_delete_module
 
-but from the panic message it says:
+It varies, but is always in one of the first three functions when you
+do alt-sysrq-p.
 
-tail:b1a3ba00
-end:b1a3ba90
-
-tail is certainly not greater than end.
