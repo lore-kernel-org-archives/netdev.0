@@ -1,38 +1,36 @@
-From: Chuck Ebbert <cebbert@redhat.com>
-Subject: Re: netconsole module cannot be removed
-Date: Mon, 26 Feb 2007 16:40:57 -0500
-Message-ID: <45E353E9.109@redhat.com>
-References: <45E3447F.9080706@redhat.com> <20070226133156.3bfd2a74@freekitty>
+From: "Dale Farnsworth" <dale@farnsworth.org>
+Subject: Re: [RFC][NET] Alignment in mv643xx_eth
+Date: Mon, 26 Feb 2007 14:48:46 -0700
+Message-ID: <20070226214846.GA18375@xyzzy.farnsworth.org>
+References: <20070226195206.GA10188@linux-mips.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Dale Farnsworth <dale@farnsworth.org>, netdev@vger.kernel.org,
+	linux-mips@linux-mips.org, Jeff Garzik <jeff@garzik.org>
+To: Ralf Baechle <ralf@linux-mips.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:32988 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1161219AbXBZVla (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Feb 2007 16:41:30 -0500
-In-Reply-To: <20070226133156.3bfd2a74@freekitty>
+Received: from xyzzy.farnsworth.org ([65.39.95.219]:3216 "HELO farnsworth.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S932503AbXBZVss (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Feb 2007 16:48:48 -0500
+Content-Disposition: inline
+In-Reply-To: <20070226195206.GA10188@linux-mips.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> On Mon, 26 Feb 2007 15:35:11 -0500
-> Chuck Ebbert <cebbert@redhat.com> wrote:
+On Mon, Feb 26, 2007 at 07:52:06PM +0000, Ralf Baechle wrote:
+> The driver contains this little piece of candy:
 > 
->> Trying to remove netconsole, rmmod goes into a tight loop with
->> 100% CPU usage. It can't be killed with 'kill -9'. Shutdown
->> works, though. Kernel is 2.6.20 FC6 config, and I'm 99.9%
->> sure the module signing has nothing to do with this.
->>
+> #if defined(CONFIG_DMA_NONCOHERENT) || defined(CONFIG_NOT_COHERENT_CACHE)
+> #define ETH_DMA_ALIGN           L1_CACHE_BYTES
+> #else
+> #define ETH_DMA_ALIGN           8
+> #endif
 > 
-> No it probably has to do with printing a message during module removal.
-> 
+> Any reason why we're not using dma_get_cache_alignment() instead?
 
-Yeah that could explain it.
+Not that I can think of.
 
-But when I load it after the network has started I can't get it to
-output any kernel messages to the network interface, either. I'll
-try to reproduce this on a vanilla kernel next...
+ACK.
 
+Dale Farnsworth
