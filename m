@@ -1,52 +1,49 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: D-Link DGE-528T (r8159) autonegotation of 1000 Mbps link does not work
-Date: Mon, 26 Feb 2007 21:02:08 +0100
-Message-ID: <20070226200208.GA5384@electric-eye.fr.zoreil.com>
-References: <Pine.LNX.4.64.0702242214120.1830@qfy-uxvtj8-sro4so00-137.qupc.varg.sv>
+From: Sergei Shtylyov <sshtylyov@ru.mvista.com>
+Subject: Re: possible bug in net/tc35815.c in linux-2.6.19
+Date: Mon, 26 Feb 2007 23:07:47 +0300
+Message-ID: <45E33E13.7010007@ru.mvista.com>
+References: <45E031A3.806@googlemail.com>	<45E0B651.2050601@garzik.org>	<20070226102659.GA28439@linux-mips.org> <20070226.200554.125898248.nemoto@toshiba-tops.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, ShuChen <shuchen@realtek.com.tw>,
-	linux-kernel@vger.kernel.org
-To: "Petri T. Koistinen" <petri.koistinen@iki.fi>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030619AbXBZUDL@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0702242214120.1830@qfy-uxvtj8-sro4so00-137.qupc.varg.sv>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: ralf@linux-mips.org, jeff@garzik.org,
+	michal.k.k.piotrowski@gmail.com, pg@cs.stanford.edu,
+	ahennessy@mvista.com, netdev@vger.kernel.org,
+	linux-mips@linux-mips.org
+To: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from h155.mvista.com ([63.81.120.155]:59982 "EHLO imap.sh.mvista.com"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1030634AbXBZUIF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Feb 2007 15:08:05 -0500
+In-Reply-To: <20070226.200554.125898248.nemoto@toshiba-tops.co.jp>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Please Cc: the maintainer from the MAINTAINERS file.
+Hello.
 
-Petri T. Koistinen <petri.koistinen@iki.fi> :
-[...]
-> I just brought two D-Link DGE-528T (uses r8159 driver) network adapters
-> to have nice 1 Gbps home network between two computers.
+Atsushi Nemoto wrote:
 
-- which kernel ?
-- dmesg please ?
+> I know both MontaVista and CELF have new driver for the chip.  If
+> anybody in MontaVista did not complain I can send CELF's one available
+> at http://tree.celinuxforum.org/pubwiki/moin.cgi/PatchArchive.  (it
 
-[...]
-> and when I use this cable I only get 10 Mbps connection when connected
-> another D-Link DGE-528T.
+    Yeah, tc35815_1.c in our looks like the one in the CELF archive (what I 
+didn't get is why they decided to keep both drivers around?)
 
-Try a straight cable between the two D-Link adapters.
+> needs some changes for recent kernel, for example pt_regs removal, but
+> it would be easy).
 
-[...]
-> Do anyone know if there some known bug in auto-negotiation with
-> Realtek 8159 chip? (Or is that just wrong cable?)
-> 
-> Can I force 1000 Mbps link on some other way than giving option to
-> insmod? Using /proc or something?
+> Sergei?
 
-mii-tool or (better) ethtool.
+    I think everybody would be just thankful. :-)
+    There's quite a lot of other TX4938 patches that need pushing into 
+Linux/MIPS -- unfortunetely, this hasn't been done by MV... :-<
 
-[...]
-> What kind of transfer speed you have reached with these cards ? That
-> 15 MiB/s is not what I expected.
+> ---
+> Atsushi Nemoto
 
-It smells like fast ethernet. Even my old PII does better than that with
-a 8169.
+    BTW, does RBTX4938 boot the recent kernels for you? If so, what .config 
+are you using -- I'm afraid something's up with rbhma4500_defconfig?
 
-Please send 'mii-tool -vv' and/or ethtool output + vmstat 1 during test.
-
--- 
-Ueimor
+WBR, Sergei
