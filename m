@@ -1,49 +1,56 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH, RESEND] chelsio: Fix non-NAPI compile
-Date: Mon, 26 Feb 2007 15:00:00 -0800
-Message-ID: <20070226150000.45347455@freekitty>
-References: <20070220235759.102686172@linux-foundation.org>
-	<adamz38c55r.fsf@cisco.com>
-	<ada1wkczfti.fsf_-_@cisco.com>
+From: Jan Engelhardt <jengelh@linux01.gwdg.de>
+Subject: Re: [RFC] div64_64 support
+Date: Tue, 27 Feb 2007 00:02:50 +0100 (MET)
+Message-ID: <Pine.LNX.4.61.0702262348140.23355@yvahk01.tjqt.qr>
+References: <20070223170527.4ca695b2@freekitty> <Pine.LNX.4.61.0702262108010.23355@yvahk01.tjqt.qr>
+ <20070226143127.5c74bec9@freekitty>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
-To: Roland Dreier <rdreier@cisco.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:37146 "EHLO smtp.osdl.org"
+Received: from tmailer.gwdg.de ([134.76.10.23]:60545 "EHLO tmailer.gwdg.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1161334AbXBZXAE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Feb 2007 18:00:04 -0500
-In-Reply-To: <ada1wkczfti.fsf_-_@cisco.com>
+	id S1161380AbXBZXDo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Feb 2007 18:03:44 -0500
+In-Reply-To: <20070226143127.5c74bec9@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 26 Feb 2007 14:58:49 -0800
-Roland Dreier <rdreier@cisco.com> wrote:
 
-> Chelsio without NAPI enabled has been broken (won't compile) since
-> 3de00b89 ("chelsio: NAPI speed improvement"):
-> 
->     drivers/net/chelsio/sge.c: In function `t1_interrupt`:
->     drivers/net/chelsio/sge.c:1716: error: `Q` undeclared (first use in this function)
-> 
-> The change below seems to add back in the declaration and
-> initialization of `Q` that was removed by mistake, and at least makes
-> the driver compile for me, although I have no hardware and hence no
-> way to test whether this actually works.
-> 
-> Signed-off-by: Roland Dreier <rolandd@cisco.com>
-> ---
-> Jeff, I haven't seen any response from Stephen but Divy from Chelsio
-> seemed to agree with this patch, so can you please merge it?  Right
-> now the build is broken with CONFIG_CHELSIO_T1_NAPI=n.
-> 
-> Thanks.
-> 
-> 
+On Feb 26 2007 13:28, Stephen Hemminger wrote:
+>> 
+>> ./arch/arm26/lib/udivdi3.c
+>> ./arch/sh/lib/udivdi3.c
+>> ./arch/sparc/lib/udivdi3.S
+>> 
+>> should not this be consolidated too?
+>
+>Hmm. Those are the GCC internal versions, that are picked up but
+>doing divide in place. Do we want to allow general 64 bit in kernel to
+>be easily used? It could cause sloppy slow code, but it would look
+>cleaner.
 
-I agree it was an obvious goof.
+Then our reviewers should catch it, and if not, the janitors will
+(/me winks at R.P.J.Day and trivial@).
 
+>@@ -134,7 +112,7 @@
+> 	 */
+> 	do {
+> 		x1 = x;
+>-		x = (2 * x + (uint32_t) div64_64(a, x*x)) / 3;
+>+		x = (2 * x + (u32) (a / x*x)) / 3;
+
+Eye see a bug.
+
+Previously there was div64_64(a, x*x) which is equivalent to
+(a)/(x*x), or just: a/(x^2). But now you do a/x*x, which is
+equivalent to a*x/x (in the domain of real numbers). Furthermore,
+a/x*x is a-(a%x), which does not even remotely match a/(x^2).
+
+Please keep the math intact, thank you ;-)
+
+
+
+Jan
 -- 
-Stephen Hemminger <shemminger@linux-foundation.org>
