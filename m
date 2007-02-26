@@ -1,49 +1,54 @@
-From: Sergei Shtylyov <sshtylyov@ru.mvista.com>
-Subject: Re: possible bug in net/tc35815.c in linux-2.6.19
-Date: Mon, 26 Feb 2007 23:07:47 +0300
-Message-ID: <45E33E13.7010007@ru.mvista.com>
-References: <45E031A3.806@googlemail.com>	<45E0B651.2050601@garzik.org>	<20070226102659.GA28439@linux-mips.org> <20070226.200554.125898248.nemoto@toshiba-tops.co.jp>
+From: Jan Engelhardt <jengelh@linux01.gwdg.de>
+Subject: Re: [RFC] div64_64 support
+Date: Mon, 26 Feb 2007 21:09:26 +0100 (MET)
+Message-ID: <Pine.LNX.4.61.0702262108010.23355@yvahk01.tjqt.qr>
+References: <20070223170527.4ca695b2@freekitty>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: ralf@linux-mips.org, jeff@garzik.org,
-	michal.k.k.piotrowski@gmail.com, pg@cs.stanford.edu,
-	ahennessy@mvista.com, netdev@vger.kernel.org,
-	linux-mips@linux-mips.org
-To: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from h155.mvista.com ([63.81.120.155]:59982 "EHLO imap.sh.mvista.com"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1030634AbXBZUIF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Feb 2007 15:08:05 -0500
-In-Reply-To: <20070226.200554.125898248.nemoto@toshiba-tops.co.jp>
+Received: from tmailer.gwdg.de ([134.76.10.23]:38890 "EHLO tmailer.gwdg.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1030637AbXBZUKT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Feb 2007 15:10:19 -0500
+In-Reply-To: <20070223170527.4ca695b2@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
 
-Atsushi Nemoto wrote:
+On Feb 23 2007 17:05, Stephen Hemminger wrote:
+>
+>Since there already two users of full 64 bit division in the kernel,
+>and other places maybe hiding out as well. Add a full 64/64 bit divide.
+>
+>Yes this expensive, but there are places where it is necessary.
+>It is not clear if doing the scaling buys any advantage on 64 bit platforms,
+>so for them a full divide is done.
+>
+>---
+> include/asm-arm/div64.h      |    2 ++
+> include/asm-generic/div64.h  |    8 ++++++++
+> include/asm-m68k/div64.h     |    2 ++
+> include/asm-mips/div64.h     |    8 ++++++++
+> include/asm-um/div64.h       |    1 +
+> include/asm-xtensa/div64.h   |    1 +
+> lib/div64.c                  |   22 ++++++++++++++++++++++
+> net/ipv4/tcp_cubic.c         |   22 ----------------------
+> net/netfilter/xt_connbytes.c |   16 ----------------
+> 9 files changed, 44 insertions(+), 38 deletions(-)
 
-> I know both MontaVista and CELF have new driver for the chip.  If
-> anybody in MontaVista did not complain I can send CELF's one available
-> at http://tree.celinuxforum.org/pubwiki/moin.cgi/PatchArchive.  (it
+Actually, there is udivdi3 support in the kernel
 
-    Yeah, tc35815_1.c in our looks like the one in the CELF archive (what I 
-didn't get is why they decided to keep both drivers around?)
+./arch/arm26/lib/udivdi3.c
+./arch/sh/lib/udivdi3.c
+./arch/sparc/lib/udivdi3.S
 
-> needs some changes for recent kernel, for example pt_regs removal, but
-> it would be easy).
+should not this be consolidated too?
 
-> Sergei?
 
-    I think everybody would be just thankful. :-)
-    There's quite a lot of other TX4938 patches that need pushing into 
-Linux/MIPS -- unfortunetely, this hasn't been done by MV... :-<
 
-> ---
-> Atsushi Nemoto
 
-    BTW, does RBTX4938 boot the recent kernels for you? If so, what .config 
-are you using -- I'm afraid something's up with rbhma4500_defconfig?
-
-WBR, Sergei
+Jan
+-- 
+ft: http://freshmeat.net/p/chaostables/
