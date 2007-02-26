@@ -1,37 +1,44 @@
-From: Jon Paul Maloy <jon.maloy@ericsson.com>
-Subject: Re: reliable bond interface
-Date: Mon, 26 Feb 2007 07:33:55 -0500
-Message-ID: <45E2D3B3.4030908@ericsson.com>
-References: <45E1F29B.4070107@nortel.com>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: Re: [PATCH 0/6] more sky2 patches for 2.6.16.42-rc1
+Date: Mon, 26 Feb 2007 15:35:48 +0100
+Message-ID: <20070226143548.GN29575@stusta.de>
+References: <20070223231042.860031000@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: tipc <tipc-discussion@lists.sourceforge.net>,
-	netdev@vger.kernel.org
-To: Randy Macleod <macleodr@nortel.com>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from imr2.ericy.com ([198.24.6.3]:42209 "EHLO imr2.ericy.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030255AbXBZOJb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Feb 2007 09:09:31 -0500
-In-Reply-To: <45E1F29B.4070107@nortel.com>
+Received: from mailout.stusta.mhn.de ([141.84.69.5]:44668 "EHLO
+	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1030290AbXBZOfr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Feb 2007 09:35:47 -0500
+Content-Disposition: inline
+In-Reply-To: <20070223231042.860031000@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Randy Macleod wrote:
+On Fri, Feb 23, 2007 at 03:10:42PM -0800, Stephen Hemminger wrote:
+> More backport of sky2 stuff.
+> 	* [bugfix] ram buffer setup
+> 	* [bugfix] listen to pause packets
+> 	* [bugfix] big endian
+> 	
+> Optional:
+> 	* add more statistics (add entries to table)
+> 	* add more pci-ids for newer boards
+> 	* update version and email address
 
->   In a different thred,
->
-> Jon Paul Maloy wrote:
-> > One (TIPC user) I know about,who has developed a very interesting
-> > "reliable bond interface" based on this API, doesn't regard his code
-> > to be up to the kernel coding standards yet, although I am trying to
-> > encourage him.
->
->   Sounds interesting! Can you ask this person to post the code or
-> at least to present the basic design on the tipc and/or netdev mailing 
-> list/s?
+Thanks, I've applied all 6 patches.
 
-I am in contact with the author.  You will hear from him. (Or me).
+> Stephen Hemminger
 
-///jon
+cu
+Adrian
+
+-- 
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
+
