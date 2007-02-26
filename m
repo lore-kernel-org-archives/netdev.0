@@ -1,186 +1,77 @@
 From: "Arnaldo Carvalho de Melo" <arnaldo.melo@gmail.com>
 Subject: Re: [PATCH] fix limited slow start bug
-Date: Sun, 25 Feb 2007 23:19:51 -0300
-Message-ID: <39e6f6c70702251819x2698c56et6e996898271a4342@mail.gmail.com>
+Date: Mon, 26 Feb 2007 00:02:59 -0300
+Message-ID: <39e6f6c70702251902g48d445b1o85f0c328c60d32f3@mail.gmail.com>
 References: <6.1.1.1.2.20070225095105.049cd960@192.168.6.12>
 	 <20070225.154311.71091747.davem@davemloft.net>
+	 <39e6f6c70702251819x2698c56et6e996898271a4342@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="----=_Part_97921_18383277.1172456391480"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: simrw@sim-basis.de, netdev@vger.kernel.org
 To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.174]:13741 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751059AbXBZCTy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Feb 2007 21:19:54 -0500
-Received: by ug-out-1314.google.com with SMTP id 44so688080uga
-        for <netdev@vger.kernel.org>; Sun, 25 Feb 2007 18:19:52 -0800 (PST)
-In-Reply-To: <20070225.154311.71091747.davem@davemloft.net>
+Received: from wx-out-0506.google.com ([66.249.82.226]:44729 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751078AbXBZDDB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Feb 2007 22:03:01 -0500
+Received: by wx-out-0506.google.com with SMTP id h31so1217721wxd
+        for <netdev@vger.kernel.org>; Sun, 25 Feb 2007 19:03:00 -0800 (PST)
+In-Reply-To: <39e6f6c70702251819x2698c56et6e996898271a4342@mail.gmail.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-------=_Part_97921_18383277.1172456391480
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-On 2/25/07, David Miller <davem@davemloft.net> wrote:
-> From: Roger While <simrw@sim-basis.de>
-> Date: Sun, 25 Feb 2007 09:55:34 +0100
->
-> > Was anything done about size/member alignment of struct tcp_sock per
-> > mail from last year  -
-> > http://marc.theaimsgroup.com/?l=linux-netdev&m=114318857102290&w=2
+On 2/25/07, Arnaldo Carvalho de Melo <arnaldo.melo@gmail.com> wrote:
+> On 2/25/07, David Miller <davem@davemloft.net> wrote:
+> > From: Roger While <simrw@sim-basis.de>
+> > Date: Sun, 25 Feb 2007 09:55:34 +0100
 > >
-> > (I have no idea what current size is)
+> > > Was anything done about size/member alignment of struct tcp_sock per
+> > > mail from last year  -
+> > > http://marc.theaimsgroup.com/?l=linux-netdev&m=114318857102290&w=2
+> > >
+> > > (I have no idea what current size is)
+> >
+> > Nothing has been done yet but I've been thinking about it a lot
+> > over the past year and I've had some discussions with other
+> > developers such as Arnaldo.
+> >
+> > It's just a matter of me being backlogged, so I never get to
+> > it as often as I would like :)
 >
-> Nothing has been done yet but I've been thinking about it a lot
-> over the past year and I've had some discussions with other
-> developers such as Arnaldo.
+> Attached goes a current (DaveM's net-2.6 git tree build) pahole
+> picture of tcp_sock on UP, 32bits, summary:
 >
-> It's just a matter of me being backlogged, so I never get to
-> it as often as I would like :)
+> }; /* size: 1288, cachelines: 21 */
+>    /* last cacheline: 8 bytes */
+>
+> and for the really curious, take a look at:
+>
+> http://oops.ghostprotocols.net:81/acme/dwarves/tcp_sock.pahole.expand_types.txt
+>
+> All the types are expanded, makes a pretty big picture :-)
+>
 
-Attached goes a current (DaveM's net-2.6 git tree build) pahole
-picture of tcp_sock on UP, 32bits, summary:
+And looking at it I saw I have Ingo's timer debugging option enabled,
+which makes struct timer_list a bit bigger:
 
-}; /* size: 1288, cachelines: 21 */
-   /* last cacheline: 8 bytes */
+struct timer_list {
+        struct list_head {
+                struct list_head * next;           /*     0     4 */
+                struct list_head * prev;           /*     4     4 */
+        } entry;                                   /*     0     8 */
+        long unsigned int expires;                 /*     8     4 */
+        void       (*function)(long unsigned int); /*    12     4 */
+        long unsigned int data;                    /*    16     4 */
+        struct tvec_t_base_s * base;               /*    20     4 */
 
-and for the really curious, take a look at:
+        void *     start_site;                     /*    24     4 */
+        char       start_comm[16];                 /*    28    16 */
+        int        start_pid;                      /*    44     4 */
+} icsk_delack_timer; /*   668    48 */
 
-http://oops.ghostprotocols.net:81/acme/dwarves/tcp_sock.pahole.expand_types.txt
-
-All the types are expanded, makes a pretty big picture :-)
+The three last members are related to debugging, so discount 24 bytes
+times 3, as there are tree struct timer_list inside struct tcp_sock.
 
 - Arnaldo
-
-------=_Part_97921_18383277.1172456391480
-Content-Type: text/plain; name=tcp_sock.pahole.txt; charset=ANSI_X3.4-1968
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_eyma68dn
-Content-Disposition: attachment; filename="tcp_sock.pahole.txt"
-
-W2FjbWVAZmlsbyBuZXQtMi42XSQgcGFob2xlIC4uL09VVFBVVC9xZW11L25ldC0yLjYvdm1saW51
-eCB0Y3Bfc29jawovKiA8ZTQwMTM4PiAvaG9tZS9hY21lL2dpdC9uZXQtMi42L2luY2x1ZGUvbGlu
-dXgvdGNwLmg6MjI3ICovCnN0cnVjdCB0Y3Bfc29jayB7CglzdHJ1Y3QgaW5ldF9jb25uZWN0aW9u
-X3NvY2sgaW5ldF9jb25uOyAgICAgICAgICAgLyogICAgIDAgICA4NDQgKi8KCS8qIC0tLSBjYWNo
-ZWxpbmUgMTMgYm91bmRhcnkgKDgzMiBieXRlcykgd2FzIDEyIGJ5dGVzIGFnbyAtLS0gKi8KCXUx
-NiAgICAgICAgICAgICAgICAgICAgICAgIHRjcF9oZWFkZXJfbGVuOyAgICAgICAvKiAgIDg0NCAg
-ICAgMiAqLwoJdTE2ICAgICAgICAgICAgICAgICAgICAgICAgeG1pdF9zaXplX2dvYWw7ICAgICAg
-IC8qICAgODQ2ICAgICAyICovCglfX2JlMzIgICAgICAgICAgICAgICAgICAgICBwcmVkX2ZsYWdz
-OyAgICAgICAgICAgLyogICA4NDggICAgIDQgKi8KCXUzMiAgICAgICAgICAgICAgICAgICAgICAg
-IHJjdl9ueHQ7ICAgICAgICAgICAgICAvKiAgIDg1MiAgICAgNCAqLwoJdTMyICAgICAgICAgICAg
-ICAgICAgICAgICAgc25kX254dDsgICAgICAgICAgICAgIC8qICAgODU2ICAgICA0ICovCgl1MzIg
-ICAgICAgICAgICAgICAgICAgICAgICBzbmRfdW5hOyAgICAgICAgICAgICAgLyogICA4NjAgICAg
-IDQgKi8KCXUzMiAgICAgICAgICAgICAgICAgICAgICAgIHNuZF9zbWw7ICAgICAgICAgICAgICAv
-KiAgIDg2NCAgICAgNCAqLwoJdTMyICAgICAgICAgICAgICAgICAgICAgICAgcmN2X3RzdGFtcDsg
-ICAgICAgICAgIC8qICAgODY4ICAgICA0ICovCgl1MzIgICAgICAgICAgICAgICAgICAgICAgICBs
-c25kdGltZTsgICAgICAgICAgICAgLyogICA4NzIgICAgIDQgKi8KCXN0cnVjdCB7CgkJc3RydWN0
-IHNrX2J1ZmZfaGVhZCBwcmVxdWV1ZTsgICAgICAgICAgICAvKiAgICAgMCAgICAyOCAqLwoJCXN0
-cnVjdCB0YXNrX3N0cnVjdCAqIHRhc2s7ICAgICAgICAgICAgICAgLyogICAgMjggICAgIDQgKi8K
-CQlzdHJ1Y3QgaW92ZWMgKiAgICAgaW92OyAgICAgICAgICAgICAgICAgIC8qICAgIDMyICAgICA0
-ICovCgkJaW50ICAgICAgICAgICAgICAgIG1lbW9yeTsgICAgICAgICAgICAgICAvKiAgICAzNiAg
-ICAgNCAqLwoJCWludCAgICAgICAgICAgICAgICBsZW47ICAgICAgICAgICAgICAgICAgLyogICAg
-NDAgICAgIDQgKi8KCX0gdWNvcHk7ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAvKiAgIDg3NiAgICA0NCAqLwoJLyogLS0tIGNhY2hlbGluZSAxNCBib3VuZGFyeSAoODk2
-IGJ5dGVzKSB3YXMgMjQgYnl0ZXMgYWdvIC0tLSAqLwoJdTMyICAgICAgICAgICAgICAgICAgICAg
-ICAgc25kX3dsMTsgICAgICAgICAgICAgIC8qICAgOTIwICAgICA0ICovCgl1MzIgICAgICAgICAg
-ICAgICAgICAgICAgICBzbmRfd25kOyAgICAgICAgICAgICAgLyogICA5MjQgICAgIDQgKi8KCXUz
-MiAgICAgICAgICAgICAgICAgICAgICAgIG1heF93aW5kb3c7ICAgICAgICAgICAvKiAgIDkyOCAg
-ICAgNCAqLwoJdTMyICAgICAgICAgICAgICAgICAgICAgICAgbXNzX2NhY2hlOyAgICAgICAgICAg
-IC8qICAgOTMyICAgICA0ICovCgl1MzIgICAgICAgICAgICAgICAgICAgICAgICB3aW5kb3dfY2xh
-bXA7ICAgICAgICAgLyogICA5MzYgICAgIDQgKi8KCXUzMiAgICAgICAgICAgICAgICAgICAgICAg
-IHJjdl9zc3RocmVzaDsgICAgICAgICAvKiAgIDk0MCAgICAgNCAqLwoJdTMyICAgICAgICAgICAg
-ICAgICAgICAgICAgZnJ0b19oaWdobWFyazsgICAgICAgIC8qICAgOTQ0ICAgICA0ICovCgl1OCAg
-ICAgICAgICAgICAgICAgICAgICAgICByZW9yZGVyaW5nOyAgICAgICAgICAgLyogICA5NDggICAg
-IDEgKi8KCXU4ICAgICAgICAgICAgICAgICAgICAgICAgIGZydG9fY291bnRlcjsgICAgICAgICAv
-KiAgIDk0OSAgICAgMSAqLwoJdTggICAgICAgICAgICAgICAgICAgICAgICAgbm9uYWdsZTsgICAg
-ICAgICAgICAgIC8qICAgOTUwICAgICAxICovCgl1OCAgICAgICAgICAgICAgICAgICAgICAgICBr
-ZWVwYWxpdmVfcHJvYmVzOyAgICAgLyogICA5NTEgICAgIDEgKi8KCXUzMiAgICAgICAgICAgICAg
-ICAgICAgICAgIHNydHQ7ICAgICAgICAgICAgICAgICAvKiAgIDk1MiAgICAgNCAqLwoJdTMyICAg
-ICAgICAgICAgICAgICAgICAgICAgbWRldjsgICAgICAgICAgICAgICAgIC8qICAgOTU2ICAgICA0
-ICovCgkvKiAtLS0gY2FjaGVsaW5lIDE1IGJvdW5kYXJ5ICg5NjAgYnl0ZXMpIC0tLSAqLwoJdTMy
-ICAgICAgICAgICAgICAgICAgICAgICAgbWRldl9tYXg7ICAgICAgICAgICAgIC8qICAgOTYwICAg
-ICA0ICovCgl1MzIgICAgICAgICAgICAgICAgICAgICAgICBydHR2YXI7ICAgICAgICAgICAgICAg
-LyogICA5NjQgICAgIDQgKi8KCXUzMiAgICAgICAgICAgICAgICAgICAgICAgIHJ0dF9zZXE7ICAg
-ICAgICAgICAgICAvKiAgIDk2OCAgICAgNCAqLwoJdTMyICAgICAgICAgICAgICAgICAgICAgICAg
-cGFja2V0c19vdXQ7ICAgICAgICAgIC8qICAgOTcyICAgICA0ICovCgl1MzIgICAgICAgICAgICAg
-ICAgICAgICAgICBsZWZ0X291dDsgICAgICAgICAgICAgLyogICA5NzYgICAgIDQgKi8KCXUzMiAg
-ICAgICAgICAgICAgICAgICAgICAgIHJldHJhbnNfb3V0OyAgICAgICAgICAvKiAgIDk4MCAgICAg
-NCAqLwoJc3RydWN0IHRjcF9vcHRpb25zX3JlY2VpdmVkIHJ4X29wdDsgICAgICAgICAgICAgIC8q
-ICAgOTg0ICAgIDI0ICovCgl1MzIgICAgICAgICAgICAgICAgICAgICAgICBzbmRfc3N0aHJlc2g7
-ICAgICAgICAgLyogIDEwMDggICAgIDQgKi8KCXUzMiAgICAgICAgICAgICAgICAgICAgICAgIHNu
-ZF9jd25kOyAgICAgICAgICAgICAvKiAgMTAxMiAgICAgNCAqLwoJdTE2ICAgICAgICAgICAgICAg
-ICAgICAgICAgc25kX2N3bmRfY250OyAgICAgICAgIC8qICAxMDE2ICAgICAyICovCgl1MTYgICAg
-ICAgICAgICAgICAgICAgICAgICBzbmRfY3duZF9jbGFtcDsgICAgICAgLyogIDEwMTggICAgIDIg
-Ki8KCXUzMiAgICAgICAgICAgICAgICAgICAgICAgIHNuZF9jd25kX3VzZWQ7ICAgICAgICAvKiAg
-MTAyMCAgICAgNCAqLwoJLyogLS0tIGNhY2hlbGluZSAxNiBib3VuZGFyeSAoMTAyNCBieXRlcykg
-LS0tICovCgl1MzIgICAgICAgICAgICAgICAgICAgICAgICBzbmRfY3duZF9zdGFtcDsgICAgICAg
-LyogIDEwMjQgICAgIDQgKi8KCXN0cnVjdCBza19idWZmX2hlYWQgICAgICAgIG91dF9vZl9vcmRl
-cl9xdWV1ZTsgICAvKiAgMTAyOCAgICAyOCAqLwoJdTMyICAgICAgICAgICAgICAgICAgICAgICAg
-cmN2X3duZDsgICAgICAgICAgICAgIC8qICAxMDU2ICAgICA0ICovCgl1MzIgICAgICAgICAgICAg
-ICAgICAgICAgICByY3Zfd3VwOyAgICAgICAgICAgICAgLyogIDEwNjAgICAgIDQgKi8KCXUzMiAg
-ICAgICAgICAgICAgICAgICAgICAgIHdyaXRlX3NlcTsgICAgICAgICAgICAvKiAgMTA2NCAgICAg
-NCAqLwoJdTMyICAgICAgICAgICAgICAgICAgICAgICAgcHVzaGVkX3NlcTsgICAgICAgICAgIC8q
-ICAxMDY4ICAgICA0ICovCgl1MzIgICAgICAgICAgICAgICAgICAgICAgICBjb3BpZWRfc2VxOyAg
-ICAgICAgICAgLyogIDEwNzIgICAgIDQgKi8KCXN0cnVjdCB0Y3Bfc2Fja19ibG9jayAgICAgIGR1
-cGxpY2F0ZV9zYWNrWzFdOyAgICAvKiAgMTA3NiAgICAgOCAqLwoJc3RydWN0IHRjcF9zYWNrX2Js
-b2NrICAgICAgc2VsZWN0aXZlX2Fja3NbNF07ICAgIC8qICAxMDg0ICAgIDMyICovCgkvKiAtLS0g
-Y2FjaGVsaW5lIDE3IGJvdW5kYXJ5ICgxMDg4IGJ5dGVzKSB3YXMgMjggYnl0ZXMgYWdvIC0tLSAq
-LwoJc3RydWN0IHRjcF9zYWNrX2Jsb2NrX3dpcmUgcmVjdl9zYWNrX2NhY2hlWzRdOyAgIC8qICAx
-MTE2ICAgIDMyICovCglzdHJ1Y3Qgc2tfYnVmZiAqICAgICAgICAgICBsb3N0X3NrYl9oaW50OyAg
-ICAgICAgLyogIDExNDggICAgIDQgKi8KCS8qIC0tLSBjYWNoZWxpbmUgMTggYm91bmRhcnkgKDEx
-NTIgYnl0ZXMpIC0tLSAqLwoJc3RydWN0IHNrX2J1ZmYgKiAgICAgICAgICAgc2NvcmVib2FyZF9z
-a2JfaGludDsgIC8qICAxMTUyICAgICA0ICovCglzdHJ1Y3Qgc2tfYnVmZiAqICAgICAgICAgICBy
-ZXRyYW5zbWl0X3NrYl9oaW50OyAgLyogIDExNTYgICAgIDQgKi8KCXN0cnVjdCBza19idWZmICog
-ICAgICAgICAgIGZvcndhcmRfc2tiX2hpbnQ7ICAgICAvKiAgMTE2MCAgICAgNCAqLwoJc3RydWN0
-IHNrX2J1ZmYgKiAgICAgICAgICAgZmFzdHBhdGhfc2tiX2hpbnQ7ICAgIC8qICAxMTY0ICAgICA0
-ICovCglpbnQgICAgICAgICAgICAgICAgICAgICAgICBmYXN0cGF0aF9jbnRfaGludDsgICAgLyog
-IDExNjggICAgIDQgKi8KCWludCAgICAgICAgICAgICAgICAgICAgICAgIGxvc3RfY250X2hpbnQ7
-ICAgICAgICAvKiAgMTE3MiAgICAgNCAqLwoJaW50ICAgICAgICAgICAgICAgICAgICAgICAgcmV0
-cmFuc21pdF9jbnRfaGludDsgIC8qICAxMTc2ICAgICA0ICovCglpbnQgICAgICAgICAgICAgICAg
-ICAgICAgICBmb3J3YXJkX2NudF9oaW50OyAgICAgLyogIDExODAgICAgIDQgKi8KCXUxNiAgICAg
-ICAgICAgICAgICAgICAgICAgIGFkdm1zczsgICAgICAgICAgICAgICAvKiAgMTE4NCAgICAgMiAq
-LwoJdTE2ICAgICAgICAgICAgICAgICAgICAgICAgcHJpb3Jfc3N0aHJlc2g7ICAgICAgIC8qICAx
-MTg2ICAgICAyICovCgl1MzIgICAgICAgICAgICAgICAgICAgICAgICBsb3N0X291dDsgICAgICAg
-ICAgICAgLyogIDExODggICAgIDQgKi8KCXUzMiAgICAgICAgICAgICAgICAgICAgICAgIHNhY2tl
-ZF9vdXQ7ICAgICAgICAgICAvKiAgMTE5MiAgICAgNCAqLwoJdTMyICAgICAgICAgICAgICAgICAg
-ICAgICAgZmFja2V0c19vdXQ7ICAgICAgICAgIC8qICAxMTk2ICAgICA0ICovCgl1MzIgICAgICAg
-ICAgICAgICAgICAgICAgICBoaWdoX3NlcTsgICAgICAgICAgICAgLyogIDEyMDAgICAgIDQgKi8K
-CXUzMiAgICAgICAgICAgICAgICAgICAgICAgIHJldHJhbnNfc3RhbXA7ICAgICAgICAvKiAgMTIw
-NCAgICAgNCAqLwoJdTMyICAgICAgICAgICAgICAgICAgICAgICAgdW5kb19tYXJrZXI7ICAgICAg
-ICAgIC8qICAxMjA4ICAgICA0ICovCglpbnQgICAgICAgICAgICAgICAgICAgICAgICB1bmRvX3Jl
-dHJhbnM7ICAgICAgICAgLyogIDEyMTIgICAgIDQgKi8KCS8qIC0tLSBjYWNoZWxpbmUgMTkgYm91
-bmRhcnkgKDEyMTYgYnl0ZXMpIC0tLSAqLwoJdTMyICAgICAgICAgICAgICAgICAgICAgICAgdXJn
-X3NlcTsgICAgICAgICAgICAgIC8qICAxMjE2ICAgICA0ICovCgl1MTYgICAgICAgICAgICAgICAg
-ICAgICAgICB1cmdfZGF0YTsgICAgICAgICAgICAgLyogIDEyMjAgICAgIDIgKi8KCXU4ICAgICAg
-ICAgICAgICAgICAgICAgICAgIHVyZ19tb2RlOyAgICAgICAgICAgICAvKiAgMTIyMiAgICAgMSAq
-LwoJdTggICAgICAgICAgICAgICAgICAgICAgICAgZWNuX2ZsYWdzOyAgICAgICAgICAgIC8qICAx
-MjIzICAgICAxICovCgl1MzIgICAgICAgICAgICAgICAgICAgICAgICBzbmRfdXA7ICAgICAgICAg
-ICAgICAgLyogIDEyMjQgICAgIDQgKi8KCXUzMiAgICAgICAgICAgICAgICAgICAgICAgIHRvdGFs
-X3JldHJhbnM7ICAgICAgICAvKiAgMTIyOCAgICAgNCAqLwoJdTMyICAgICAgICAgICAgICAgICAg
-ICAgICAgYnl0ZXNfYWNrZWQ7ICAgICAgICAgIC8qICAxMjMyICAgICA0ICovCgl1bnNpZ25lZCBp
-bnQgICAgICAgICAgICAgICBrZWVwYWxpdmVfdGltZTsgICAgICAgLyogIDEyMzYgICAgIDQgKi8K
-CXVuc2lnbmVkIGludCAgICAgICAgICAgICAgIGtlZXBhbGl2ZV9pbnR2bDsgICAgICAvKiAgMTI0
-MCAgICAgNCAqLwoJaW50ICAgICAgICAgICAgICAgICAgICAgICAgbGluZ2VyMjsgICAgICAgICAg
-ICAgIC8qICAxMjQ0ICAgICA0ICovCglsb25nIHVuc2lnbmVkIGludCAgICAgICAgICBsYXN0X3N5
-bnFfb3ZlcmZsb3c7ICAgLyogIDEyNDggICAgIDQgKi8KCXUzMiAgICAgICAgICAgICAgICAgICAg
-ICAgIHRzb19kZWZlcnJlZDsgICAgICAgICAvKiAgMTI1MiAgICAgNCAqLwoJc3RydWN0IHsKCQl1
-MzIgICAgICAgICAgICAgICAgcnR0OyAgICAgICAgICAgICAgICAgIC8qICAgICAwICAgICA0ICov
-CgkJdTMyICAgICAgICAgICAgICAgIHNlcTsgICAgICAgICAgICAgICAgICAvKiAgICAgNCAgICAg
-NCAqLwoJCXUzMiAgICAgICAgICAgICAgICB0aW1lOyAgICAgICAgICAgICAgICAgLyogICAgIDgg
-ICAgIDQgKi8KCX0gcmN2X3J0dF9lc3Q7ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAvKiAgMTI1NiAgICAxMiAqLwoJc3RydWN0IHsKCQlpbnQgICAgICAgICAgICAgICAgc3BhY2U7
-ICAgICAgICAgICAgICAgIC8qICAgICAwICAgICA0ICovCgkJdTMyICAgICAgICAgICAgICAgIHNl
-cTsgICAgICAgICAgICAgICAgICAvKiAgICAgNCAgICAgNCAqLwoJCXUzMiAgICAgICAgICAgICAg
-ICB0aW1lOyAgICAgICAgICAgICAgICAgLyogICAgIDggICAgIDQgKi8KCX0gcmN2cV9zcGFjZTsg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAvKiAgMTI2OCAgICAxMiAqLwoJLyog
-LS0tIGNhY2hlbGluZSAyMCBib3VuZGFyeSAoMTI4MCBieXRlcykgLS0tICovCglzdHJ1Y3QgewoJ
-CXUzMiAgICAgICAgICAgICAgICBwcm9iZV9zZXFfc3RhcnQ7ICAgICAgLyogICAgIDAgICAgIDQg
-Ki8KCQl1MzIgICAgICAgICAgICAgICAgcHJvYmVfc2VxX2VuZDsgICAgICAgIC8qICAgICA0ICAg
-ICA0ICovCgl9IG10dV9wcm9iZTsgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-LyogIDEyODAgICAgIDggKi8KfTsgLyogc2l6ZTogMTI4OCwgY2FjaGVsaW5lczogMjEgKi8KICAg
-LyogbGFzdCBjYWNoZWxpbmU6IDggYnl0ZXMgKi8K
-------=_Part_97921_18383277.1172456391480--
