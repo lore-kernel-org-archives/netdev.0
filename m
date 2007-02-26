@@ -1,74 +1,41 @@
-From: "Petri T. Koistinen" <petri.koistinen@iki.fi>
-Subject: D-Link DGE-528T (r8159) autonegotation of 1000 Mbps link does not
- work
-Date: Sun, 25 Feb 2007 15:56:30 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0702242214120.1830@qfy-uxvtj8-sro4so00-137.qupc.varg.sv>
+From: Philip Craig <philipc@snapgear.com>
+Subject: Re: [PATCH 4/5] r8169: more alignment for the 0x8168
+Date: Mon, 26 Feb 2007 17:42:27 +1000
+Message-ID: <45E28F63.8000208@snapgear.com>
+References: <20061203235257.GA3625@electric-eye.fr.zoreil.com> <20061204000327.GE3625@electric-eye.fr.zoreil.com> <45D13578.8040405@snapgear.com> <20070213081439.GA21261@electric-eye.fr.zoreil.com> <Pine.LNX.4.64.0702131730570.14346@cnc.isely.net> <20070223231355.GA10930@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: ShuChen <shuchen@realtek.com.tw>, linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Mike Isely <isely@pobox.com>, Jeff Garzik <jeff@garzik.org>,
+	netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pne-smtpout3-sn2.hy.skanova.net ([81.228.8.111]:36473 "EHLO
-	pne-smtpout3-sn2.hy.skanova.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932855AbXBZH1L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Feb 2007 02:27:11 -0500
+Received: from rex.snapgear.com ([203.143.235.140]:57263 "EHLO
+	cyberguard.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S932785AbXBZHnb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Feb 2007 02:43:31 -0500
+In-Reply-To: <20070223231355.GA10930@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi!
+Francois Romieu wrote:
+> The experimental r8169 patch of the day against 2.6.21-rc1 is available at:
+> http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.21-rc1/
 
-I just brought two D-Link DGE-528T (uses r8159 driver) network adapters
-to have nice 1 Gbps home network between two computers.
+Is 0006-r8169-confusion-between-hardware-and-IP-header-alignment.txt
+the only relevant patch?
 
-I have gigabit crossover cable that is connected like this
+This only partially helps.  Many of the packets are greater than 200
+bytes so copybreak doesn't apply to them.
 
-Pin  Connector #1  Connector #2
-1    white/orange  white/green
-2    orange        green
-3    white/green   white/orange
-4    blue          white/brown
-5    white/blue    brown
-6    green         orange
-7    white/brown   blue
-8    brown         white/blue
-(from: http://logout.sh/computers/net/gigabit/)
+Can we assume anything about the alignment of skb->data?  I think it
+should be 4 byte aligned, otherwise the whole NET_IP_ALIGN thing
+won't work.  All the drivers I looked at just reserve NET_IP_ALIGN
+without checking the alignment first.
 
-and when I use this cable I only get 10 Mbps connection when connected
-another D-Link DGE-528T.
+So can you do something like set align to 0 for RTL_CFG_0 and change
+rtl8169_alloc_rx_skb() to:
+	skb_reserve(skb, align ? (align - 1) & (u32)skb->data : NET_IP_ALIGN);
 
-However if I connect other end of cable to Intel EtherExpress 100 Mbps
-card, I get 100 Mbps connection auto-negotiated OK.
-
-I can however force gigabit link on both D-Link DGE-528T using
-
-	insmod ./r8169.ko media=0x10
-
-command. And I get about 15 MiB/s transfer speed when testing
-with netcat and pmr[1] (without NAPI). Which I count as some kind of
-sucky gigabit connection.
-
-Few questions for you:
-
-Do anyone know if there some known bug in auto-negotiation with
-Realtek 8159 chip? (Or is that just wrong cable?)
-
-Can I force 1000 Mbps link on some other way than giving option to
-insmod? Using /proc or something?
-
-What kind of transfer speed you have reached with these cards? That
-15 MiB/s is not what I expected.
-
-Thanks!
-
-Best regards,
-Petri Koistinen
-
-[1]
-Test setup:
-Server: nc -l -p 2000 </dev/zero
-Client: nc 192.168.1.1 2000 | pmr >/dev/null
-
-pmr (ex. pipemeter) is a command line filter that measures
-bandwidth going through the pipe:
-http://zakalwe.fi/~shd/foss/pmr/pmr-0.12.tar.bz2
-
+BTW, should the alignment expression be:
+	(((u32)skb->data + (align - 1)) & ~(align - 1)) - (u32)skb->data
