@@ -1,36 +1,98 @@
-From: "Dale Farnsworth" <dale@farnsworth.org>
-Subject: Re: [RFC][NET] Alignment in mv643xx_eth
-Date: Mon, 26 Feb 2007 14:48:46 -0700
-Message-ID: <20070226214846.GA18375@xyzzy.farnsworth.org>
-References: <20070226195206.GA10188@linux-mips.org>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: 2.6.21-rc1: known regressions (v2) (part 2)
+Date: Mon, 26 Feb 2007 23:05:21 +0100
+Message-ID: <20070226220521.GB29575@stusta.de>
+References: <Pine.LNX.4.64.0702202043280.4043@woody.linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Dale Farnsworth <dale@farnsworth.org>, netdev@vger.kernel.org,
-	linux-mips@linux-mips.org, Jeff Garzik <jeff@garzik.org>
-To: Ralf Baechle <ralf@linux-mips.org>
+Content-Type: text/plain; charset=utf-8
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	"David P. Reed" <dpreed@reed.com>,
+	Ayaz Abdulla <aabdulla@nvidia.com>, jgarzik@pobox.com,
+	netdev@vger.kernel.org,
+	Albert Hopkins <kernel@marduk.letterboxes.org>,
+	Bob Tracy <rct@gherkin.frus.com>,
+	Mark Brown <broonie@sirena.org.uk>,
+	"Michael S. Tsirkin" <mst@mellanox.co.il>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@elte.hu>,
+	Michal Piotrowski <michal.k.k.piotrowski@gmail.com>,
+	Daniel Walker <dwalker@mvista.com>
+To: Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xyzzy.farnsworth.org ([65.39.95.219]:3216 "HELO farnsworth.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S932503AbXBZVss (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Feb 2007 16:48:48 -0500
+Received: from mailout.stusta.mhn.de ([141.84.69.5]:45079 "EHLO
+	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1161255AbXBZWFW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Feb 2007 17:05:22 -0500
 Content-Disposition: inline
-In-Reply-To: <20070226195206.GA10188@linux-mips.org>
+In-Reply-To: <Pine.LNX.4.64.0702202043280.4043@woody.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 26, 2007 at 07:52:06PM +0000, Ralf Baechle wrote:
-> The driver contains this little piece of candy:
-> 
-> #if defined(CONFIG_DMA_NONCOHERENT) || defined(CONFIG_NOT_COHERENT_CACHE)
-> #define ETH_DMA_ALIGN           L1_CACHE_BYTES
-> #else
-> #define ETH_DMA_ALIGN           8
-> #endif
-> 
-> Any reason why we're not using dma_get_cache_alignment() instead?
+This email lists some known regressions in 2.6.21-rc1 compared to 2.6.20
+that are not yet fixed in Linus' tree.
 
-Not that I can think of.
+If you find your name in the Cc header, you are either submitter of one
+of the bugs, maintainer of an affectected subsystem or driver, a patch
+of you caused a breakage or I'm considering you in any other way possibly
+involved with one or more of these issues.
 
-ACK.
+Due to the huge amount of recipients, please trim the Cc when answering.
 
-Dale Farnsworth
+
+Subject    : forcedeth no longer works
+References : http://bugzilla.kernel.org/show_bug.cgi?id=8090
+Submitter  : David P. Reed <dpreed@reed.com>
+Caused-By  : Ayaz Abdulla <aabdulla@nvidia.com>
+Status     : unknown
+
+
+Subject    : forcedeth: skb_over_panic
+References : http://bugzilla.kernel.org/show_bug.cgi?id=8058
+Submitter  : Albert Hopkins <kernel@marduk.letterboxes.org>
+Status     : unknown
+
+
+Subject    : natsemi ethernet card not detected correctly
+References : http://lkml.org/lkml/2007/2/23/4
+             http://lkml.org/lkml/2007/2/23/7
+Submitter  : Bob Tracy <rct@gherkin.frus.com>
+Caused-By  : Mark Brown <broonie@sirena.org.uk>
+Handled-By : Mark Brown <broonie@sirena.org.uk>
+Patch      : http://lkml.org/lkml/2007/2/23/142
+Status     : patch available
+
+
+Subject    : ThinkPad T60: system doesn't come out of suspend to RAM
+             (CONFIG_NO_HZ)
+References : http://lkml.org/lkml/2007/2/22/391
+Submitter  : Michael S. Tsirkin <mst@mellanox.co.il>
+Handled-By : Thomas Gleixner <tglx@linutronix.de>
+             Ingo Molnar <mingo@elte.hu>
+Status     : unknown
+
+
+Subject    : kernel BUG at kernel/time/tick-sched.c:168  (CONFIG_NO_HZ)
+References : http://lkml.org/lkml/2007/2/16/346
+Submitter  : Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
+Handled-By : Thomas Gleixner <tglx@linutronix.de>
+Status     : problem is being debugged
+
+
+Subject    : BUG: soft lockup detected on CPU#0
+             NOHZ: local_softirq_pending 20  (SMT scheduler)
+References : http://lkml.org/lkml/2007/2/20/257
+Submitter  : Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
+Handled-By : Thomas Gleixner <tglx@linutronix.de>
+             Ingo Molnar <mingo@elte.hu>
+Status     : problem is being debugged
+
+
+Subject    : i386: no boot with nmi_watchdog=1  (clockevents)
+References : http://lkml.org/lkml/2007/2/21/208
+Submitter  : Daniel Walker <dwalker@mvista.com>
+Caused-By  : Thomas Gleixner <tglx@linutronix.de>
+             commit e9e2cdb412412326c4827fc78ba27f410d837e6e
+Handled-By : Thomas Gleixner <tglx@linutronix.de>
+Status     : problem is being debugged
+
