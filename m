@@ -1,67 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: xfrm_add_sa_expire return codes
-Date: Mon, 26 Feb 2007 14:48:54 -0800 (PST)
-Message-ID: <20070226.144854.102122743.davem@davemloft.net>
-References: <499d6ed30702261426r107fb555hd621418376f5c61c@mail.gmail.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: [PATCH] netxen: do_rom_fast_write error handling
+Date: Mon, 26 Feb 2007 14:51:56 -0800
+Message-ID: <20070226145156.5c0424a3@freekitty>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hadi@cyberus.ca
-To: shpedoikal@gmail.com
+Cc: netdev@vger.kernel.org
+To: "Amit S. Kale" <amitkale@netxen.com>,
+	Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48055
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1161295AbXBZWsz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Feb 2007 17:48:55 -0500
-In-Reply-To: <499d6ed30702261426r107fb555hd621418376f5c61c@mail.gmail.com>
+Received: from smtp.osdl.org ([65.172.181.24]:36904 "EHLO smtp.osdl.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1161303AbXBZWwE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Feb 2007 17:52:04 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Kent Yoder" <shpedoikal@gmail.com>
-Date: Mon, 26 Feb 2007 16:26:41 -0600
+Compiler warning spots real error!
 
->   I was browsing through the xfrm_user.c code and noticed that it
-> appears that in xfrm_add_sa_expire, the only possible return codes are
-> -ENOENT and -EINVAL.  Was this intentional, or is this a bug?
+The function do_rom_fast_read called in do_rom_fast_write can fail
+and leave data1 unset. This causes a compile warning.  
+The correct thing is to propagate the error out.
 
-Please use netdev@vger.kernel.org for kernel networking
-discussions, thanks.
+Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
 
-Indeed, and the tabbing on the first "err = " assignment should
-be a clue that some mistake might have been added.
+---
+ drivers/net/netxen/netxen_nic_init.c |    5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-It looks like the code has been like that from day one, I wonder
-how Jamal tested this stuff :-)
-
-I'm going to assume the intended logic, and fix it like this.
-Jamal?
-
-diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-index 2567453..924a2fe 100644
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -1557,14 +1557,13 @@ static int xfrm_add_sa_expire(struct sk_buff *skb, struct nlmsghdr *nlh,
- 	struct xfrm_usersa_info *p = &ue->state;
+--- pktgen.orig/drivers/net/netxen/netxen_nic_init.c	2007-02-26 14:45:46.000000000 -0800
++++ pktgen/drivers/net/netxen/netxen_nic_init.c	2007-02-26 14:46:37.000000000 -0800
+@@ -499,7 +499,10 @@
+ 		while(1) {
+ 			int data1;
  
- 	x = xfrm_state_lookup(&p->id.daddr, p->id.spi, p->id.proto, p->family);
--		err = -ENOENT;
+-			do_rom_fast_read(adapter, addridx, &data1);
++			ret = do_rom_fast_read(adapter, addridx, &data1);
++			if (ret < 0)
++				return ret;
++
+ 			if (data1 == data)
+ 				break;
  
-+	err = -ENOENT;
- 	if (x == NULL)
- 		return err;
- 
--	err = -EINVAL;
--
- 	spin_lock_bh(&x->lock);
-+	err = -EINVAL;
- 	if (x->km.state != XFRM_STATE_VALID)
- 		goto out;
- 	km_state_expired(x, ue->hard, current->pid);
-@@ -1574,6 +1573,7 @@ static int xfrm_add_sa_expire(struct sk_buff *skb, struct nlmsghdr *nlh,
- 		xfrm_audit_log(NETLINK_CB(skb).loginuid, NETLINK_CB(skb).sid,
- 			       AUDIT_MAC_IPSEC_DELSA, 1, NULL, x);
- 	}
-+	err = 0;
- out:
- 	spin_unlock_bh(&x->lock);
- 	xfrm_state_put(x);
