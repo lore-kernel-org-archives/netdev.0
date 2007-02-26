@@ -1,61 +1,38 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [RFC] div64_64 support
-Date: Mon, 26 Feb 2007 13:28:34 -0800
-Message-ID: <20070226132834.70514f19@freekitty>
-References: <20070223170527.4ca695b2@freekitty>
-	<Pine.LNX.4.61.0702262108010.23355@yvahk01.tjqt.qr>
+From: Chuck Ebbert <cebbert@redhat.com>
+Subject: Re: netconsole module cannot be removed
+Date: Mon, 26 Feb 2007 16:40:57 -0500
+Message-ID: <45E353E9.109@redhat.com>
+References: <45E3447F.9080706@redhat.com> <20070226133156.3bfd2a74@freekitty>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Jan Engelhardt <jengelh@linux01.gwdg.de>
+Cc: linux-kernel <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:34855 "EHLO smtp.osdl.org"
+Received: from mx2.redhat.com ([66.187.237.31]:32988 "EHLO mx2.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030528AbXBZV2k (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Feb 2007 16:28:40 -0500
-In-Reply-To: <Pine.LNX.4.61.0702262108010.23355@yvahk01.tjqt.qr>
+	id S1161219AbXBZVla (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Feb 2007 16:41:30 -0500
+In-Reply-To: <20070226133156.3bfd2a74@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 26 Feb 2007 21:09:26 +0100 (MET)
-Jan Engelhardt <jengelh@linux01.gwdg.de> wrote:
-
+Stephen Hemminger wrote:
+> On Mon, 26 Feb 2007 15:35:11 -0500
+> Chuck Ebbert <cebbert@redhat.com> wrote:
 > 
-> On Feb 23 2007 17:05, Stephen Hemminger wrote:
-> >
-> >Since there already two users of full 64 bit division in the kernel,
-> >and other places maybe hiding out as well. Add a full 64/64 bit divide.
-> >
-> >Yes this expensive, but there are places where it is necessary.
-> >It is not clear if doing the scaling buys any advantage on 64 bit platforms,
-> >so for them a full divide is done.
-> >
-> >---
-> > include/asm-arm/div64.h      |    2 ++
-> > include/asm-generic/div64.h  |    8 ++++++++
-> > include/asm-m68k/div64.h     |    2 ++
-> > include/asm-mips/div64.h     |    8 ++++++++
-> > include/asm-um/div64.h       |    1 +
-> > include/asm-xtensa/div64.h   |    1 +
-> > lib/div64.c                  |   22 ++++++++++++++++++++++
-> > net/ipv4/tcp_cubic.c         |   22 ----------------------
-> > net/netfilter/xt_connbytes.c |   16 ----------------
-> > 9 files changed, 44 insertions(+), 38 deletions(-)
+>> Trying to remove netconsole, rmmod goes into a tight loop with
+>> 100% CPU usage. It can't be killed with 'kill -9'. Shutdown
+>> works, though. Kernel is 2.6.20 FC6 config, and I'm 99.9%
+>> sure the module signing has nothing to do with this.
+>>
 > 
-> Actually, there is udivdi3 support in the kernel
+> No it probably has to do with printing a message during module removal.
 > 
-> ./arch/arm26/lib/udivdi3.c
-> ./arch/sh/lib/udivdi3.c
-> ./arch/sparc/lib/udivdi3.S
-> 
-> should not this be consolidated too?
 
+Yeah that could explain it.
 
-Hmm. Those are the GCC internal versions, that are picked up but
-doing divide in place. Do we want to allow general 64 bit in kernel to
-be easily used? It could cause sloppy slow code, but it would look
-cleaner.
+But when I load it after the network has started I can't get it to
+output any kernel messages to the network interface, either. I'll
+try to reproduce this on a vanilla kernel next...
 
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
