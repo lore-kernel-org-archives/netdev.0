@@ -1,65 +1,76 @@
-From: Michael Faber <faber@i4.informatik.rwth-aachen.de>
-Subject: tcp_info struct
-Date: Mon, 26 Feb 2007 18:33:50 +0100
-Message-ID: <45E319FE.8090707@i4.informatik.rwth-aachen.de>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: Re: 2.6.20-rc4-mm1: PCI=n: drivers/net/3c59x.c compile error
+Date: Mon, 26 Feb 2007 09:26:44 -0800
+Message-ID: <20070226092644.aea76b37.randy.dunlap@oracle.com>
+References: <20070111222627.66bb75ab.akpm@osdl.org>
+	<20070124135354.GI17836@stusta.de>
+	<45B76946.1070009@ru.mvista.com>
+	<45D756D7.4060106@ru.mvista.com>
+	<45D75853.1060607@ru.mvista.com>
+	<45E2DF13.9010200@ru.mvista.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: linux-pci@atrey.karlin.mff.cuni.cz, Adrian Bunk <bunk@stusta.de>,
+	Andrew Morton <akpm@osdl.org>, Jeff Garzik <jgarzik@pobox.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Sergei Shtylyov <sshtylyov@ru.mvista.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from i4mail.informatik.RWTH-Aachen.DE ([137.226.12.21]:50265 "EHLO
-	i4mail.informatik.rwth-aachen.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1030376AbXBZR6a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Feb 2007 12:58:30 -0500
-Received: from i4mail (i4mail.informatik.rwth-aachen.de [137.226.12.21])
-	by i4mail.informatik.rwth-aachen.de (Postfix) with ESMTP id 86228188F3
-	for <netdev@vger.kernel.org>; Mon, 26 Feb 2007 18:33:50 +0100 (CET)
+Received: from agminet01.oracle.com ([141.146.126.228]:36825 "EHLO
+	agminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030419AbXBZSaY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Feb 2007 13:30:24 -0500
+In-Reply-To: <45E2DF13.9010200@ru.mvista.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Mon, 26 Feb 2007 16:22:27 +0300 Sergei Shtylyov wrote:
 
-i want to use the tcp_info struct to keep track of some tcp related
-information. This works fine so far, however i'm wondering how to
-interpret some of the values delivered. I would expect values like cwnd
-and sst to be given out in packets regarding the source code. Can anyone
-give me some hints in interpreting the tcp_info values as this option is
-very poor documented and only documentation on how to fill the tcp_info
-struct can be found.
+> Hello, I wrote:
+> 
+> >>>> 3x59x-fix-pci-resource-management.patch causes the following compile 
+> >>>> error with CONFIG_PCI=n:
+> 
+> >>>> <--  snip  -->
+> 
+> >>>> ...
+> >>>>   CC      drivers/net/3c59x.o
+> >>>> /home/bunk/linux/kernel-2.6/linux-2.6.20-rc4-mm1/drivers/net/3c59x.c: 
+> >>>> In function 'vortex_init_one':
+> >>>> /home/bunk/linux/kernel-2.6/linux-2.6.20-rc4-mm1/drivers/net/3c59x.c:961: 
+> >>>> error: implicit declaration of function 'pci_request_regions'
+> >>>> /home/bunk/linux/kernel-2.6/linux-2.6.20-rc4-mm1/drivers/net/3c59x.c:985: 
+> >>>> error: implicit declaration of function 'pci_release_regions'
+> >>>> make[3]: *** [drivers/net/3c59x.o] Error 1
+> 
+> >>>    Grr, at at the same time it's happy with pci_enable_device().
+> >>>    I'd say the problem is in <linux/pci.h>,  not in the patch.
+> 
+> >>    Has there been any patch to fix the "unbalanced" 
+> >> pci_{request|release}_regions() declarations? Am I suposed to create 
+> >> such?
+> 
+> >    Alternatively, vortex_{init|remove_one() and struct pci_driver there 
+> > could have been put under #ifdef CONFIG_PCI (good idea anyway -- should 
+> > reduce driver size on non-PCI systems)...
+> 
+>     I wonder if I may count on any feedback on this -- asking linux-pci now...
+>     The issue is as follows: with my patch pci_{request|release}_regions() may 
+> be called with CONFIG_PCI=n (probably, this never has been a issue before) but 
+> <linux/pci.h> don't have them declared in this case -- unlike 
+> pci_enable_device() which is just empty for CONFIG_PCI=n.
+>     Now, what kind of approach do I take:
+> 
+> - a "fair one", so that pci_{request|release}_regions() get "balanced"
+>    declarations in the header like pci_enable_device();
+> 
+> - a "local one" (and even saving non-PCI kernel from needless bloat), i.e.
+>    #ifdef out functions that are only meaningful with CONFIG_PCI=y)?
+> 
+>     I'm leaning to the second now...
 
-Below are some values i got out of the tcp_info structure with the tcp
-connection in state 8 and the code snippet which uses the tcp_struct.
-Especially the SND_MSS (i would expect this to be 1460) and the ssthresh
-value are strange.
+I'd prefer the fair one -- add stubs to include/linux/pci.h.
 
-tcp_info:
-RTOs = 0, 0WProbes = 0, Backoffs = 0
-RTO = 204 msec, RTT = 7 msec, RTT_var = 3 msec
-lost packets = 0, sacked packets = 0, retransmitted packets = 1
-SND_MSS = 16384, RCV_MSS = 536, ssthresh = 65535, cwnd = 13
-
-
-
-struct tcp_info info;
-
-int optlen=sizeof(struct tcp_info);
-
-if(getsockopt(socket_fd, IPPROTO_TCP, TCP_INFO, &info, &optlen) < 0){
-       // Error Handling
-}
-printf("RTOs = %u, 0WProbes = %u, Backoffs = %u\n\
-            RTO = %u msec, RTT = %u msec, RTT_var = %u msec\n\
-            lost packets = %u, sacked packets = %u, retransmitted
-packets = %u\n\
-            SND_MSS = %u, RCV_MSS = %u, ssthresh = %u, cwnd = %u \n\n",
-            info.tcpi_retransmits, info.tcpi_probes, info.tcpi_backoff,
-            (info.tcpi_rto/1000), (info.tcpi_rtt/1000),
-(info.tcpi_rttvar/1000),
-             info.tcpi_lost, info.tcpi_sacked, info.tcpi_total_retrans,
-            info.tcpi_snd_mss, info.tcpi_rcv_mss,
-info.tcpi_snd_ssthresh, info.tcpi_snd_cwnd);
-
-thx
-Michael
-
-
+---
+~Randy
+*** Remember to use Documentation/SubmitChecklist when testing your code ***
