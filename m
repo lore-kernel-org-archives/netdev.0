@@ -1,35 +1,37 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: natsemi: Fix detection of vanilla natsemi cards
-Date: Tue, 27 Feb 2007 04:31:07 -0500
-Message-ID: <45E3FA5B.8040306@garzik.org>
-References: <20070225153726.GB15068@sirena.org.uk>
+Subject: Re: [PATCH 1/3] chelsio: remove unused code for 1G boards
+Date: Tue, 27 Feb 2007 04:32:17 -0500
+Message-ID: <45E3FAA1.9050503@garzik.org>
+References: <20070220235759.102686172@linux-foundation.org> <20070220235905.097058245@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@linux-foundation.org>,
-	Tim Hockin <thockin@hockin.org>,
-	Jeff Garzik <jgarzik@pobox.com>, Adrian Bunk <bunk@stusta.de>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:47587 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:47599 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1161098AbXB0Jbm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Feb 2007 04:31:42 -0500
-In-Reply-To: <20070225153726.GB15068@sirena.org.uk>
+	id S1161098AbXB0JcT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Feb 2007 04:32:19 -0500
+In-Reply-To: <20070220235905.097058245@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Mark Brown wrote:
-> Bob Tracy <rct@gherkin.frus.com> reported that the addition of support
-> for Aculab E1/T1 cPCI carrier cards broke detection of vanilla natsemi
-> cards.  This patch fixes that: the problem is that the driver-specific
-> ta in the PCI device table is an index into a second table and this
-> had not been updated for the vanilla cards.
+Stephen Hemminger wrote:
+> Some code for Chelsio 1G boards was put in the driver
+> based on the vendor version (minus TOE). Well some of those board
+> versions are only supported with TOE on the vendor driver, so additional
+> dead code was added.
 > 
-> This patch fixes the problem minimally.
+> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
 > 
-> Signed-Off-By: Mark Brown <broonie@sirena.org.uk>
+> ---
+>  drivers/net/chelsio/Makefile      |    4 
+>  drivers/net/chelsio/ixf1010.c     |  505 --------------------------------------
+>  drivers/net/chelsio/vsc8244.c     |  367 ---------------------------
+>  drivers/net/chelsio/vsc8244_reg.h |  172 ------------
+>  4 files changed, 1 insertion(+), 1047 deletions(-)
 
-applied
+applied 1-3 to #upstream (2.6.22)
 
 
