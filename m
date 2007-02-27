@@ -1,8 +1,7 @@
 From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [PATCH 3/4] pktgen: don't use __constant_htonl()
-Date: Tue, 27 Feb 2007 12:12:01 -0800
-Message-ID: <20070227121201.66cfe0da@freekitty>
-References: <20070227120447.55a7e39d@freekitty>
+Subject: [PATCH 1/4] pktgen: use pr_debug
+Date: Tue, 27 Feb 2007 12:04:47 -0800
+Message-ID: <20070227120447.55a7e39d@freekitty>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -10,118 +9,150 @@ Cc: netdev@vger.kernel.org
 To: Robert Olsson <Robert.Olsson@data.slu.se>,
 	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:52665 "EHLO smtp.osdl.org"
+Received: from smtp.osdl.org ([65.172.181.24]:52666 "EHLO smtp.osdl.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752559AbXB0VTo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752564AbXB0VTo (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 27 Feb 2007 16:19:44 -0500
-In-Reply-To: <20070227120447.55a7e39d@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The existing htonl() macro is smart enough to do the same code as
-using __constant_htonl() and it looks cleaner.
+Remove private debug macro and replace with standard version
 
 Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
 
----
- net/core/pktgen.c |   24 ++++++++++++------------
- 1 file changed, 12 insertions(+), 12 deletions(-)
 
---- pktgen.orig/net/core/pktgen.c	2007-02-26 14:40:31.000000000 -0800
-+++ pktgen/net/core/pktgen.c	2007-02-26 15:36:38.000000000 -0800
-@@ -167,7 +167,7 @@
+---
+ net/core/pktgen.c |   34 +++++++++++++++-------------------
+ 1 file changed, 15 insertions(+), 19 deletions(-)
+
+--- pktgen.orig/net/core/pktgen.c	2007-02-26 13:21:54.000000000 -0800
++++ pktgen/net/core/pktgen.c	2007-02-26 13:22:04.000000000 -0800
+@@ -163,9 +163,6 @@
+ 
+ #define VERSION  "pktgen v2.68: Packet Generator for packet performance testing.\n"
+ 
+-/* #define PG_DEBUG(a) a */
+-#define PG_DEBUG(a)
+-
+ /* The buckets are exponential in 'width' */
  #define LAT_BUCKETS_MAX 32
  #define IP_NAME_SZ 32
- #define MAX_MPLS_LABELS 16 /* This is the max label stack depth */
--#define MPLS_STACK_BOTTOM __constant_htonl(0x00000100)
-+#define MPLS_STACK_BOTTOM htonl(0x00000100)
+@@ -1856,8 +1853,7 @@
+ 	int ret = 0;
  
- /* Device flag bits */
- #define F_IPSRC_RND   (1<<0)	/* IP-Src Random  */
-@@ -2297,7 +2297,7 @@
- 	int datalen, iplen;
- 	struct iphdr *iph;
- 	struct pktgen_hdr *pgh = NULL;
--	__be16 protocol = __constant_htons(ETH_P_IP);
-+	__be16 protocol = htons(ETH_P_IP);
- 	__be32 *mpls;
- 	__be16 *vlan_tci = NULL;                 /* Encapsulates priority and VLAN ID */
- 	__be16 *vlan_encapsulated_proto = NULL;  /* packet type ID field (or len) for VLAN tag */
-@@ -2306,10 +2306,10 @@
+ 	mutex_lock(&pktgen_thread_lock);
+-	PG_DEBUG(printk("pktgen: pktgen_mark_device marking %s for removal\n",
+-			ifname));
++	pr_debug("pktgen: pktgen_mark_device marking %s for removal\n", ifname);
  
+ 	while (1) {
  
- 	if (pkt_dev->nr_labels)
--		protocol = __constant_htons(ETH_P_MPLS_UC);
-+		protocol = htons(ETH_P_MPLS_UC);
+@@ -1866,8 +1862,8 @@
+ 			break;	/* success */
  
- 	if (pkt_dev->vlan_id != 0xffff)
--		protocol = __constant_htons(ETH_P_8021Q);
-+		protocol = htons(ETH_P_8021Q);
+ 		mutex_unlock(&pktgen_thread_lock);
+-		PG_DEBUG(printk("pktgen: pktgen_mark_device waiting for %s "
+-				"to disappear....\n", ifname));
++		pr_debug("pktgen: pktgen_mark_device waiting for %s "
++				"to disappear....\n", ifname);
+ 		schedule_timeout_interruptible(msecs_to_jiffies(msec_per_try));
+ 		mutex_lock(&pktgen_thread_lock);
  
- 	/* Update any of the values, used when we're incrementing various
- 	 * fields.
-@@ -2341,14 +2341,14 @@
- 					       pkt_dev->svlan_cfi,
- 					       pkt_dev->svlan_p);
- 			svlan_encapsulated_proto = (__be16 *)skb_put(skb, sizeof(__be16));
--			*svlan_encapsulated_proto = __constant_htons(ETH_P_8021Q);
-+			*svlan_encapsulated_proto = htons(ETH_P_8021Q);
- 		}
- 		vlan_tci = (__be16 *)skb_put(skb, sizeof(__be16));
- 		*vlan_tci = build_tci(pkt_dev->vlan_id,
- 				      pkt_dev->vlan_cfi,
- 				      pkt_dev->vlan_p);
- 		vlan_encapsulated_proto = (__be16 *)skb_put(skb, sizeof(__be16));
--		*vlan_encapsulated_proto = __constant_htons(ETH_P_IP);
-+		*vlan_encapsulated_proto = htons(ETH_P_IP);
+@@ -2847,7 +2843,7 @@
+ 	struct pktgen_dev *pkt_dev;
+ 	int started = 0;
+ 
+-	PG_DEBUG(printk("pktgen: entering pktgen_run. %p\n", t));
++	pr_debug("pktgen: entering pktgen_run. %p\n", t);
+ 
+ 	if_lock(t);
+ 	list_for_each_entry(pkt_dev, &t->if_list, list) {
+@@ -2879,7 +2875,7 @@
+ {
+ 	struct pktgen_thread *t;
+ 
+-	PG_DEBUG(printk("pktgen: entering pktgen_stop_all_threads_ifs.\n"));
++	pr_debug("pktgen: entering pktgen_stop_all_threads_ifs.\n");
+ 
+ 	mutex_lock(&pktgen_thread_lock);
+ 
+@@ -2947,7 +2943,7 @@
+ {
+ 	struct pktgen_thread *t;
+ 
+-	PG_DEBUG(printk("pktgen: entering pktgen_run_all_threads.\n"));
++	pr_debug("pktgen: entering pktgen_run_all_threads.\n");
+ 
+ 	mutex_lock(&pktgen_thread_lock);
+ 
+@@ -3039,7 +3035,7 @@
+ {
+ 	struct pktgen_dev *pkt_dev;
+ 
+-	PG_DEBUG(printk("pktgen: entering pktgen_stop\n"));
++	pr_debug("pktgen: entering pktgen_stop\n");
+ 
+ 	if_lock(t);
+ 
+@@ -3063,7 +3059,7 @@
+ 	struct list_head *q, *n;
+ 	struct pktgen_dev *cur;
+ 
+-	PG_DEBUG(printk("pktgen: entering pktgen_rem_one_if\n"));
++	pr_debug("pktgen: entering pktgen_rem_one_if\n");
+ 
+ 	if_lock(t);
+ 
+@@ -3092,7 +3088,7 @@
+ 
+ 	/* Remove all devices, free mem */
+ 
+-	PG_DEBUG(printk("pktgen: entering pktgen_rem_all_ifs\n"));
++	pr_debug("pktgen: entering pktgen_rem_all_ifs\n");
+ 	if_lock(t);
+ 
+ 	list_for_each_safe(q, n, &t->if_list) {
+@@ -3275,7 +3271,7 @@
+ 
+ 	t->pid = current->pid;
+ 
+-	PG_DEBUG(printk("pktgen: starting pktgen/%d:  pid=%d\n", cpu, current->pid));
++	pr_debug("pktgen: starting pktgen/%d:  pid=%d\n", cpu, current->pid);
+ 
+ 	max_before_softirq = t->max_before_softirq;
+ 
+@@ -3336,13 +3332,13 @@
+ 		set_current_state(TASK_INTERRUPTIBLE);
  	}
  
- 	iph = (struct iphdr *)skb_put(skb, sizeof(struct iphdr));
-@@ -2635,7 +2635,7 @@
- 	int datalen;
- 	struct ipv6hdr *iph;
- 	struct pktgen_hdr *pgh = NULL;
--	__be16 protocol = __constant_htons(ETH_P_IPV6);
-+	__be16 protocol = htons(ETH_P_IPV6);
- 	__be32 *mpls;
- 	__be16 *vlan_tci = NULL;                 /* Encapsulates priority and VLAN ID */
- 	__be16 *vlan_encapsulated_proto = NULL;  /* packet type ID field (or len) for VLAN tag */
-@@ -2643,10 +2643,10 @@
- 	__be16 *svlan_encapsulated_proto = NULL; /* packet type ID field (or len) for SVLAN tag */
+-	PG_DEBUG(printk("pktgen: %s stopping all device\n", t->tsk->comm));
++	pr_debug("pktgen: %s stopping all device\n", t->tsk->comm);
+ 	pktgen_stop(t);
  
- 	if (pkt_dev->nr_labels)
--		protocol = __constant_htons(ETH_P_MPLS_UC);
-+		protocol = htons(ETH_P_MPLS_UC);
+-	PG_DEBUG(printk("pktgen: %s removing all device\n", t->tsk->comm));
++	pr_debug("pktgen: %s removing all device\n", t->tsk->comm);
+ 	pktgen_rem_all_ifs(t);
  
- 	if (pkt_dev->vlan_id != 0xffff)
--		protocol = __constant_htons(ETH_P_8021Q);
-+		protocol = htons(ETH_P_8021Q);
+-	PG_DEBUG(printk("pktgen: %s removing thread.\n", t->tsk->comm));
++	pr_debug("pktgen: %s removing thread.\n", t->tsk->comm);
+ 	pktgen_rem_thread(t);
  
- 	/* Update any of the values, used when we're incrementing various
- 	 * fields.
-@@ -2677,14 +2677,14 @@
- 					       pkt_dev->svlan_cfi,
- 					       pkt_dev->svlan_p);
- 			svlan_encapsulated_proto = (__be16 *)skb_put(skb, sizeof(__be16));
--			*svlan_encapsulated_proto = __constant_htons(ETH_P_8021Q);
-+			*svlan_encapsulated_proto = htons(ETH_P_8021Q);
+ 	return 0;
+@@ -3361,7 +3357,7 @@
  		}
- 		vlan_tci = (__be16 *)skb_put(skb, sizeof(__be16));
- 		*vlan_tci = build_tci(pkt_dev->vlan_id,
- 				      pkt_dev->vlan_cfi,
- 				      pkt_dev->vlan_p);
- 		vlan_encapsulated_proto = (__be16 *)skb_put(skb, sizeof(__be16));
--		*vlan_encapsulated_proto = __constant_htons(ETH_P_IPV6);
-+		*vlan_encapsulated_proto = htons(ETH_P_IPV6);
- 	}
  
- 	iph = (struct ipv6hdr *)skb_put(skb, sizeof(struct ipv6hdr));
-@@ -2710,7 +2710,7 @@
- 	udph->len = htons(datalen + sizeof(struct udphdr));
- 	udph->check = 0;	/* No checksum */
+ 	if_unlock(t);
+-	PG_DEBUG(printk("pktgen: find_dev(%s) returning %p\n", ifname, pkt_dev));
++	pr_debug("pktgen: find_dev(%s) returning %p\n", ifname, pkt_dev);
+ 	return pkt_dev;
+ }
  
--	*(__be32 *) iph = __constant_htonl(0x60000000);	/* Version + flow */
-+	*(__be32 *) iph = htonl(0x60000000);	/* Version + flow */
+@@ -3530,7 +3526,7 @@
+ 				struct pktgen_dev *pkt_dev)
+ {
  
- 	if (pkt_dev->traffic_class) {
- 		/* Version + traffic class + flow (0) */
+-	PG_DEBUG(printk("pktgen: remove_device pkt_dev=%p\n", pkt_dev));
++	pr_debug("pktgen: remove_device pkt_dev=%p\n", pkt_dev);
+ 
+ 	if (pkt_dev->running) {
+ 		printk("pktgen:WARNING: trying to remove a running interface, stopping it now.\n");
