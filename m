@@ -1,38 +1,36 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [RFC][NET] Alignment in mv643xx_eth
-Date: Tue, 27 Feb 2007 04:21:56 -0500
-Message-ID: <45E3F834.70307@garzik.org>
-References: <20070226195206.GA10188@linux-mips.org>
+Subject: Re: [PATCH 1/6] S2IO: Fixes for MSI and MSIX
+Date: Tue, 27 Feb 2007 04:27:37 -0500
+Message-ID: <45E3F989.2050007@garzik.org>
+References: <Pine.GSO.4.10.10702240132020.3434-100000@guinness>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Dale Farnsworth <dale@farnsworth.org>, netdev@vger.kernel.org,
-	linux-mips@linux-mips.org
-To: Ralf Baechle <ralf@linux-mips.org>
+Cc: netdev@vger.kernel.org, leonid.grossman@neterion.com,
+	sreenivasa.honnur@neterion.com, ramkrishna.vep@neterion.com,
+	rastapur.santosh@neterion.com, alicia.pena@neterion.com,
+	sriram.rapuru@neterion.com
+To: Sivakumar Subramani <Sivakumar.Subramani@neterion.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:47504 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:47527 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965034AbXB0JZI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Feb 2007 04:25:08 -0500
-In-Reply-To: <20070226195206.GA10188@linux-mips.org>
+	id S1161086AbXB0J1l (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Feb 2007 04:27:41 -0500
+In-Reply-To: <Pine.GSO.4.10.10702240132020.3434-100000@guinness>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ralf Baechle wrote:
-> The driver contains this little piece of candy:
+Sivakumar Subramani wrote:
+> - Added debug statements to print a debug message if the MSI/MSI-X vector (or)
+>   data is zero.
 > 
-> #if defined(CONFIG_DMA_NONCOHERENT) || defined(CONFIG_NOT_COHERENT_CACHE)
-> #define ETH_DMA_ALIGN           L1_CACHE_BYTES
-> #else
-> #define ETH_DMA_ALIGN           8
-> #endif
+> - This patch removes the code that will enable NAPI for the case of single 
+>   ring and MSI-X / MSI case. There are some issue in the enabling NAPI with
+>   MSI/MSI-X.  So we are turning off NAPI in the case of MSI/MSI-X. 
 > 
-> Any reason why we're not using dma_get_cache_alignment() instead?
-> 
->   Ralf
-> 
-> Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+> Signed-off-by: Sivakumar Subramani <sivakumar.subramani@neterion.com>
 
-applied
+applied 1-6, though turning off NAPI should be temporary, without a 
+better explanation
 
 
