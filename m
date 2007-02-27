@@ -1,158 +1,308 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [PATCH 1/4] pktgen: use pr_debug
-Date: Tue, 27 Feb 2007 12:04:47 -0800
-Message-ID: <20070227120447.55a7e39d@freekitty>
+From: James Morris <jmorris@namei.org>
+Subject: [PATCH] net: Convert xtime.tv_sec to get_seconds()
+Date: Tue, 27 Feb 2007 16:24:49 -0500 (EST)
+Message-ID: <Line.LNX.4.64.0702271622390.32168@d.namei>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev@vger.kernel.org
-To: Robert Olsson <Robert.Olsson@data.slu.se>,
-	"David S. Miller" <davem@davemloft.net>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:52666 "EHLO smtp.osdl.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752564AbXB0VTo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Feb 2007 16:19:44 -0500
+Received: from mail7.sea5.speakeasy.net ([69.17.117.9]:46965 "EHLO
+	mail7.sea5.speakeasy.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751889AbXB0VYy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Feb 2007 16:24:54 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Remove private debug macro and replace with standard version
+Where appropriate, convert references to xtime.tv_sec to the
+get_seconds() helper function.
 
-Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
-
-
+Signed-off-by: James Morris <jmorris@namei.org>
 ---
- net/core/pktgen.c |   34 +++++++++++++++-------------------
- 1 file changed, 15 insertions(+), 19 deletions(-)
 
---- pktgen.orig/net/core/pktgen.c	2007-02-26 13:21:54.000000000 -0800
-+++ pktgen/net/core/pktgen.c	2007-02-26 13:22:04.000000000 -0800
-@@ -163,9 +163,6 @@
- 
- #define VERSION  "pktgen v2.68: Packet Generator for packet performance testing.\n"
- 
--/* #define PG_DEBUG(a) a */
--#define PG_DEBUG(a)
--
- /* The buckets are exponential in 'width' */
- #define LAT_BUCKETS_MAX 32
- #define IP_NAME_SZ 32
-@@ -1856,8 +1853,7 @@
- 	int ret = 0;
- 
- 	mutex_lock(&pktgen_thread_lock);
--	PG_DEBUG(printk("pktgen: pktgen_mark_device marking %s for removal\n",
--			ifname));
-+	pr_debug("pktgen: pktgen_mark_device marking %s for removal\n", ifname);
- 
- 	while (1) {
- 
-@@ -1866,8 +1862,8 @@
- 			break;	/* success */
- 
- 		mutex_unlock(&pktgen_thread_lock);
--		PG_DEBUG(printk("pktgen: pktgen_mark_device waiting for %s "
--				"to disappear....\n", ifname));
-+		pr_debug("pktgen: pktgen_mark_device waiting for %s "
-+				"to disappear....\n", ifname);
- 		schedule_timeout_interruptible(msecs_to_jiffies(msec_per_try));
- 		mutex_lock(&pktgen_thread_lock);
- 
-@@ -2847,7 +2843,7 @@
- 	struct pktgen_dev *pkt_dev;
- 	int started = 0;
- 
--	PG_DEBUG(printk("pktgen: entering pktgen_run. %p\n", t));
-+	pr_debug("pktgen: entering pktgen_run. %p\n", t);
- 
- 	if_lock(t);
- 	list_for_each_entry(pkt_dev, &t->if_list, list) {
-@@ -2879,7 +2875,7 @@
+Please review & apply if ok.
+
+ include/net/tcp.h        |    4 ++--
+ net/ipv4/route.c         |    2 +-
+ net/ipv4/tcp_input.c     |    6 +++---
+ net/ipv4/tcp_ipv4.c      |   10 +++++-----
+ net/ipv4/tcp_minisocks.c |    8 ++++----
+ net/ipv6/xfrm6_output.c  |    2 +-
+ net/rxrpc/main.c         |    2 +-
+ net/xfrm/xfrm_policy.c   |   12 ++++++------
+ net/xfrm/xfrm_state.c    |    6 +++---
+ 9 files changed, 26 insertions(+), 26 deletions(-)
+
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 5c472f2..fbeddcb 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -1011,7 +1011,7 @@ static inline int tcp_paws_check(const s
  {
- 	struct pktgen_thread *t;
+ 	if ((s32)(rx_opt->rcv_tsval - rx_opt->ts_recent) >= 0)
+ 		return 0;
+-	if (xtime.tv_sec >= rx_opt->ts_recent_stamp + TCP_PAWS_24DAYS)
++	if (get_seconds() >= rx_opt->ts_recent_stamp + TCP_PAWS_24DAYS)
+ 		return 0;
  
--	PG_DEBUG(printk("pktgen: entering pktgen_stop_all_threads_ifs.\n"));
-+	pr_debug("pktgen: entering pktgen_stop_all_threads_ifs.\n");
+ 	/* RST segments are not recommended to carry timestamp,
+@@ -1026,7 +1026,7 @@ static inline int tcp_paws_check(const s
  
- 	mutex_lock(&pktgen_thread_lock);
- 
-@@ -2947,7 +2943,7 @@
- {
- 	struct pktgen_thread *t;
- 
--	PG_DEBUG(printk("pktgen: entering pktgen_run_all_threads.\n"));
-+	pr_debug("pktgen: entering pktgen_run_all_threads.\n");
- 
- 	mutex_lock(&pktgen_thread_lock);
- 
-@@ -3039,7 +3035,7 @@
- {
- 	struct pktgen_dev *pkt_dev;
- 
--	PG_DEBUG(printk("pktgen: entering pktgen_stop\n"));
-+	pr_debug("pktgen: entering pktgen_stop\n");
- 
- 	if_lock(t);
- 
-@@ -3063,7 +3059,7 @@
- 	struct list_head *q, *n;
- 	struct pktgen_dev *cur;
- 
--	PG_DEBUG(printk("pktgen: entering pktgen_rem_one_if\n"));
-+	pr_debug("pktgen: entering pktgen_rem_one_if\n");
- 
- 	if_lock(t);
- 
-@@ -3092,7 +3088,7 @@
- 
- 	/* Remove all devices, free mem */
- 
--	PG_DEBUG(printk("pktgen: entering pktgen_rem_all_ifs\n"));
-+	pr_debug("pktgen: entering pktgen_rem_all_ifs\n");
- 	if_lock(t);
- 
- 	list_for_each_safe(q, n, &t->if_list) {
-@@ -3275,7 +3271,7 @@
- 
- 	t->pid = current->pid;
- 
--	PG_DEBUG(printk("pktgen: starting pktgen/%d:  pid=%d\n", cpu, current->pid));
-+	pr_debug("pktgen: starting pktgen/%d:  pid=%d\n", cpu, current->pid);
- 
- 	max_before_softirq = t->max_before_softirq;
- 
-@@ -3336,13 +3332,13 @@
- 		set_current_state(TASK_INTERRUPTIBLE);
+ 	   However, we can relax time bounds for RST segments to MSL.
+ 	 */
+-	if (rst && xtime.tv_sec >= rx_opt->ts_recent_stamp + TCP_PAWS_MSL)
++	if (rst && get_seconds() >= rx_opt->ts_recent_stamp + TCP_PAWS_MSL)
+ 		return 0;
+ 	return 1;
+ }
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 37e0d4d..0b3d7bf 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -2683,7 +2683,7 @@ #endif
+ 		id = rt->peer->ip_id_count;
+ 		if (rt->peer->tcp_ts_stamp) {
+ 			ts = rt->peer->tcp_ts;
+-			tsage = xtime.tv_sec - rt->peer->tcp_ts_stamp;
++			tsage = get_seconds() - rt->peer->tcp_ts_stamp;
+ 		}
  	}
  
--	PG_DEBUG(printk("pktgen: %s stopping all device\n", t->tsk->comm));
-+	pr_debug("pktgen: %s stopping all device\n", t->tsk->comm);
- 	pktgen_stop(t);
- 
--	PG_DEBUG(printk("pktgen: %s removing all device\n", t->tsk->comm));
-+	pr_debug("pktgen: %s removing all device\n", t->tsk->comm);
- 	pktgen_rem_all_ifs(t);
- 
--	PG_DEBUG(printk("pktgen: %s removing thread.\n", t->tsk->comm));
-+	pr_debug("pktgen: %s removing thread.\n", t->tsk->comm);
- 	pktgen_rem_thread(t);
- 
- 	return 0;
-@@ -3361,7 +3357,7 @@
- 		}
- 
- 	if_unlock(t);
--	PG_DEBUG(printk("pktgen: find_dev(%s) returning %p\n", ifname, pkt_dev));
-+	pr_debug("pktgen: find_dev(%s) returning %p\n", ifname, pkt_dev);
- 	return pkt_dev;
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 1a14191..eb613cd 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -2737,7 +2737,7 @@ static int tcp_fast_parse_options(struct
+ static inline void tcp_store_ts_recent(struct tcp_sock *tp)
+ {
+ 	tp->rx_opt.ts_recent = tp->rx_opt.rcv_tsval;
+-	tp->rx_opt.ts_recent_stamp = xtime.tv_sec;
++	tp->rx_opt.ts_recent_stamp = get_seconds();
  }
  
-@@ -3530,7 +3526,7 @@
- 				struct pktgen_dev *pkt_dev)
+ static inline void tcp_replace_ts_recent(struct tcp_sock *tp, u32 seq)
+@@ -2751,7 +2751,7 @@ static inline void tcp_replace_ts_recent
+ 		 */
+ 
+ 		if((s32)(tp->rx_opt.rcv_tsval - tp->rx_opt.ts_recent) >= 0 ||
+-		   xtime.tv_sec >= tp->rx_opt.ts_recent_stamp + TCP_PAWS_24DAYS)
++		   get_seconds() >= tp->rx_opt.ts_recent_stamp + TCP_PAWS_24DAYS)
+ 			tcp_store_ts_recent(tp);
+ 	}
+ }
+@@ -2803,7 +2803,7 @@ static inline int tcp_paws_discard(const
  {
+ 	const struct tcp_sock *tp = tcp_sk(sk);
+ 	return ((s32)(tp->rx_opt.ts_recent - tp->rx_opt.rcv_tsval) > TCP_PAWS_WINDOW &&
+-		xtime.tv_sec < tp->rx_opt.ts_recent_stamp + TCP_PAWS_24DAYS &&
++		get_seconds() < tp->rx_opt.ts_recent_stamp + TCP_PAWS_24DAYS &&
+ 		!tcp_disordered_ack(sk, skb));
+ }
  
--	PG_DEBUG(printk("pktgen: remove_device pkt_dev=%p\n", pkt_dev));
-+	pr_debug("pktgen: remove_device pkt_dev=%p\n", pkt_dev);
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 0ba74bb..b34149b 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -149,7 +149,7 @@ int tcp_twsk_unique(struct sock *sk, str
+ 	 */
+ 	if (tcptw->tw_ts_recent_stamp &&
+ 	    (twp == NULL || (sysctl_tcp_tw_reuse &&
+-			     xtime.tv_sec - tcptw->tw_ts_recent_stamp > 1))) {
++			     get_seconds() - tcptw->tw_ts_recent_stamp > 1))) {
+ 		tp->write_seq = tcptw->tw_snd_nxt + 65535 + 2;
+ 		if (tp->write_seq == 0)
+ 			tp->write_seq = 1;
+@@ -224,7 +224,7 @@ int tcp_v4_connect(struct sock *sk, stru
+ 		 * when trying new connection.
+ 		 */
+ 		if (peer != NULL &&
+-		    peer->tcp_ts_stamp + TCP_PAWS_MSL >= xtime.tv_sec) {
++		    peer->tcp_ts_stamp + TCP_PAWS_MSL >= get_seconds()) {
+ 			tp->rx_opt.ts_recent_stamp = peer->tcp_ts_stamp;
+ 			tp->rx_opt.ts_recent = peer->tcp_ts;
+ 		}
+@@ -1351,7 +1351,7 @@ #endif
+ 		    (dst = inet_csk_route_req(sk, req)) != NULL &&
+ 		    (peer = rt_get_peer((struct rtable *)dst)) != NULL &&
+ 		    peer->v4daddr == saddr) {
+-			if (xtime.tv_sec < peer->tcp_ts_stamp + TCP_PAWS_MSL &&
++			if (get_seconds() < peer->tcp_ts_stamp + TCP_PAWS_MSL &&
+ 			    (s32)(peer->tcp_ts - req->ts_recent) >
+ 							TCP_PAWS_WINDOW) {
+ 				NET_INC_STATS_BH(LINUX_MIB_PAWSPASSIVEREJECTED);
+@@ -1770,7 +1770,7 @@ int tcp_v4_remember_stamp(struct sock *s
  
- 	if (pkt_dev->running) {
- 		printk("pktgen:WARNING: trying to remove a running interface, stopping it now.\n");
+ 	if (peer) {
+ 		if ((s32)(peer->tcp_ts - tp->rx_opt.ts_recent) <= 0 ||
+-		    (peer->tcp_ts_stamp + TCP_PAWS_MSL < xtime.tv_sec &&
++		    (peer->tcp_ts_stamp + TCP_PAWS_MSL < get_seconds() &&
+ 		     peer->tcp_ts_stamp <= tp->rx_opt.ts_recent_stamp)) {
+ 			peer->tcp_ts_stamp = tp->rx_opt.ts_recent_stamp;
+ 			peer->tcp_ts = tp->rx_opt.ts_recent;
+@@ -1791,7 +1791,7 @@ int tcp_v4_tw_remember_stamp(struct inet
+ 		const struct tcp_timewait_sock *tcptw = tcp_twsk((struct sock *)tw);
+ 
+ 		if ((s32)(peer->tcp_ts - tcptw->tw_ts_recent) <= 0 ||
+-		    (peer->tcp_ts_stamp + TCP_PAWS_MSL < xtime.tv_sec &&
++		    (peer->tcp_ts_stamp + TCP_PAWS_MSL < get_seconds() &&
+ 		     peer->tcp_ts_stamp <= tcptw->tw_ts_recent_stamp)) {
+ 			peer->tcp_ts_stamp = tcptw->tw_ts_recent_stamp;
+ 			peer->tcp_ts	   = tcptw->tw_ts_recent;
+diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
+index 30b1e52..0cfc0e2 100644
+--- a/net/ipv4/tcp_minisocks.c
++++ b/net/ipv4/tcp_minisocks.c
+@@ -149,7 +149,7 @@ kill_with_rst:
+ 		tw->tw_substate	  = TCP_TIME_WAIT;
+ 		tcptw->tw_rcv_nxt = TCP_SKB_CB(skb)->end_seq;
+ 		if (tmp_opt.saw_tstamp) {
+-			tcptw->tw_ts_recent_stamp = xtime.tv_sec;
++			tcptw->tw_ts_recent_stamp = get_seconds();
+ 			tcptw->tw_ts_recent	  = tmp_opt.rcv_tsval;
+ 		}
+ 
+@@ -208,7 +208,7 @@ kill:
+ 
+ 		if (tmp_opt.saw_tstamp) {
+ 			tcptw->tw_ts_recent	  = tmp_opt.rcv_tsval;
+-			tcptw->tw_ts_recent_stamp = xtime.tv_sec;
++			tcptw->tw_ts_recent_stamp = get_seconds();
+ 		}
+ 
+ 		inet_twsk_put(tw);
+@@ -460,7 +460,7 @@ struct sock *tcp_create_openreq_child(st
+ 
+ 		if (newtp->rx_opt.tstamp_ok) {
+ 			newtp->rx_opt.ts_recent = req->ts_recent;
+-			newtp->rx_opt.ts_recent_stamp = xtime.tv_sec;
++			newtp->rx_opt.ts_recent_stamp = get_seconds();
+ 			newtp->tcp_header_len = sizeof(struct tcphdr) + TCPOLEN_TSTAMP_ALIGNED;
+ 		} else {
+ 			newtp->rx_opt.ts_recent_stamp = 0;
+@@ -506,7 +506,7 @@ struct sock *tcp_check_req(struct sock *
+ 			 * it can be estimated (approximately)
+ 			 * from another data.
+ 			 */
+-			tmp_opt.ts_recent_stamp = xtime.tv_sec - ((TCP_TIMEOUT_INIT/HZ)<<req->retrans);
++			tmp_opt.ts_recent_stamp = get_seconds() - ((TCP_TIMEOUT_INIT/HZ)<<req->retrans);
+ 			paws_reject = tcp_paws_check(&tmp_opt, th->rst);
+ 		}
+ 	}
+diff --git a/net/ipv6/xfrm6_output.c b/net/ipv6/xfrm6_output.c
+index d6d786b..8e4170f 100644
+--- a/net/ipv6/xfrm6_output.c
++++ b/net/ipv6/xfrm6_output.c
+@@ -76,7 +76,7 @@ static int xfrm6_output_one(struct sk_bu
+ 		x->curlft.bytes += skb->len;
+ 		x->curlft.packets++;
+ 		if (x->props.mode == XFRM_MODE_ROUTEOPTIMIZATION)
+-			x->lastused = (u64)xtime.tv_sec;
++			x->lastused = get_seconds();
+ 
+ 		spin_unlock_bh(&x->lock);
+ 
+diff --git a/net/rxrpc/main.c b/net/rxrpc/main.c
+index baec1f7..cead31b 100644
+--- a/net/rxrpc/main.c
++++ b/net/rxrpc/main.c
+@@ -37,7 +37,7 @@ static int __init rxrpc_initialise(void)
+ 	int ret;
+ 
+ 	/* my epoch value */
+-	rxrpc_epoch = htonl(xtime.tv_sec);
++	rxrpc_epoch = htonl(get_seconds());
+ 
+ 	/* register the /proc interface */
+ #ifdef CONFIG_PROC_FS
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index 946b715..ce356aa 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -268,7 +268,7 @@ static inline unsigned long make_jiffies
+ static void xfrm_policy_timer(unsigned long data)
+ {
+ 	struct xfrm_policy *xp = (struct xfrm_policy*)data;
+-	unsigned long now = (unsigned long)xtime.tv_sec;
++	unsigned long now = get_seconds();
+ 	long next = LONG_MAX;
+ 	int warn = 0;
+ 	int dir;
+@@ -690,7 +690,7 @@ int xfrm_policy_insert(int dir, struct x
+ 	}
+ 	policy->index = delpol ? delpol->index : xfrm_gen_index(policy->type, dir);
+ 	hlist_add_head(&policy->byidx, xfrm_policy_byidx+idx_hash(policy->index));
+-	policy->curlft.add_time = (unsigned long)xtime.tv_sec;
++	policy->curlft.add_time = get_seconds();
+ 	policy->curlft.use_time = 0;
+ 	if (!mod_timer(&policy->timer, jiffies + HZ))
+ 		xfrm_pol_hold(policy);
+@@ -1119,7 +1119,7 @@ #endif
+ 	old_pol = sk->sk_policy[dir];
+ 	sk->sk_policy[dir] = pol;
+ 	if (pol) {
+-		pol->curlft.add_time = (unsigned long)xtime.tv_sec;
++		pol->curlft.add_time = get_seconds();
+ 		pol->index = xfrm_gen_index(pol->type, XFRM_POLICY_MAX+dir);
+ 		__xfrm_policy_link(pol, XFRM_POLICY_MAX+dir);
+ 	}
+@@ -1372,7 +1372,7 @@ restart:
+ 		return 0;
+ 
+ 	family = dst_orig->ops->family;
+-	policy->curlft.use_time = (unsigned long)xtime.tv_sec;
++	policy->curlft.use_time = get_seconds();
+ 	pols[0] = policy;
+ 	npols ++;
+ 	xfrm_nr += pols[0]->xfrm_nr;
+@@ -1668,7 +1668,7 @@ int __xfrm_policy_check(struct sock *sk,
+ 		return 1;
+ 	}
+ 
+-	pol->curlft.use_time = (unsigned long)xtime.tv_sec;
++	pol->curlft.use_time = get_seconds();
+ 
+ 	pols[0] = pol;
+ 	npols ++;
+@@ -1680,7 +1680,7 @@ #ifdef CONFIG_XFRM_SUB_POLICY
+ 		if (pols[1]) {
+ 			if (IS_ERR(pols[1]))
+ 				return 0;
+-			pols[1]->curlft.use_time = (unsigned long)xtime.tv_sec;
++			pols[1]->curlft.use_time = get_seconds();
+ 			npols ++;
+ 		}
+ 	}
+diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+index a35f9e4..ee2561b 100644
+--- a/net/xfrm/xfrm_state.c
++++ b/net/xfrm/xfrm_state.c
+@@ -233,7 +233,7 @@ static inline unsigned long make_jiffies
+ static void xfrm_timer_handler(unsigned long data)
+ {
+ 	struct xfrm_state *x = (struct xfrm_state*)data;
+-	unsigned long now = (unsigned long)xtime.tv_sec;
++	unsigned long now = get_seconds();
+ 	long next = LONG_MAX;
+ 	int warn = 0;
+ 	int err = 0;
+@@ -326,7 +326,7 @@ struct xfrm_state *xfrm_state_alloc(void
+ 		init_timer(&x->rtimer);
+ 		x->rtimer.function = xfrm_replay_timer_handler;
+ 		x->rtimer.data     = (unsigned long)x;
+-		x->curlft.add_time = (unsigned long)xtime.tv_sec;
++		x->curlft.add_time = get_seconds();
+ 		x->lft.soft_byte_limit = XFRM_INF;
+ 		x->lft.soft_packet_limit = XFRM_INF;
+ 		x->lft.hard_byte_limit = XFRM_INF;
+@@ -1049,7 +1049,7 @@ EXPORT_SYMBOL(xfrm_state_update);
+ int xfrm_state_check_expire(struct xfrm_state *x)
+ {
+ 	if (!x->curlft.use_time)
+-		x->curlft.use_time = (unsigned long)xtime.tv_sec;
++		x->curlft.use_time = get_seconds();
+ 
+ 	if (x->km.state != XFRM_STATE_VALID)
+ 		return -EINVAL;
+-- 
+1.4.2.1
+
