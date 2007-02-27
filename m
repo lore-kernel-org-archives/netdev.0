@@ -1,78 +1,48 @@
-From: "Arnaldo Carvalho de Melo" <arnaldo.melo@gmail.com>
-Subject: Re: [NET]: Fix kfree(skb)
-Date: Tue, 27 Feb 2007 19:24:12 -0300
-Message-ID: <39e6f6c70702271424x401c9b5an627e1f926513e1e4@mail.gmail.com>
-References: <20070227.100052.59655152.davem@davemloft.net>
-	 <20070227181425.GA26886@2ka.mipt.ru>
-	 <20070227182001.GA4278@2ka.mipt.ru>
-	 <20070227.102452.102574618.davem@davemloft.net>
+From: Gavin McCullagh <gavin.mccullagh-4eIRXPAgDeg@public.gmane.org>
+Subject: Re: [PATCH] bcm43xx: Fix code for spec changes of 2/7/2007
+Date: Tue, 27 Feb 2007 17:00:00 +0000
+Message-ID: <20070227170000.GZ12087@nuim.ie>
+References: <45cca236.+lL/rsW3DbM3elnk%Larry.Finger@lwfinger.net>
+ <45CCCAE1.9080901@lwfinger.net> <20070209213239.GA11650@srcf.ucam.org>
+ <200702100655.51495.mb@bu3sch.de> <20070210125707.GA21803@srcf.ucam.org>
+Reply-To: Gavin McCullagh <gavin.mccullagh-4eIRXPAgDeg@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: johnpol@2ka.mipt.ru, paul.moore@hp.com, kaber@trash.net,
-	netdev@vger.kernel.org
-To: "David Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.173]:58252 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751950AbXB0WYP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Feb 2007 17:24:15 -0500
-Received: by ug-out-1314.google.com with SMTP id 44so1253709uga
-        for <netdev@vger.kernel.org>; Tue, 27 Feb 2007 14:24:13 -0800 (PST)
-In-Reply-To: <20070227.102452.102574618.davem@davemloft.net>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7BIT
+Cc: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>,
+	Larry Finger <larry.finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
+	Joseph Jezak <josejx-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+To: Matthew Garrett <mjg59-1xO5oi07KQx4cg9Nei1l7Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-reply-to: <20070210125707.GA21803-1xO5oi07KQx4cg9Nei1l7Q@public.gmane.org>
+Content-disposition: inline
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 2/27/07, David Miller <davem@davemloft.net> wrote:
-> From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-> Date: Tue, 27 Feb 2007 21:20:01 +0300
->
-> > On Tue, Feb 27, 2007 at 09:14:25PM +0300, Evgeniy Polyakov (johnpol@2ka.mipt.ru) wrote:
-> > > On Tue, Feb 27, 2007 at 10:00:52AM -0800, David Miller (davem@davemloft.net) wrote:
-> > > > It's unfortunately an easy mistake to make since kfree() accepts any
-> > > > pointer type without warning.
-> > > >
-> > > > What would be really nice is if someone could come up with a way for
-> > > > kfree() to disallow being passed objects that are meant to be released
-> > > > via some other mechanism.  So that, for example:
-> > > >
-> > > >   kfree(skb);
-> > > >
-> > > > would warn or fail to compile, but the kfree_skb() code could go:
-> > > >
-> > > >   kmem_cache_free_I_KNOW_WHAT_I_AM_DOING(skbuff_head_cache, skb);
-> > > >
-> > > > :-)
-> > >
-> > > Something like that? (not tested, will do if starting point looks
-> > > correct - it checks if requested to be freed size is equal to one of the
-> > > kmalloc() size, and warns if kmalloc cache is not that one where
-> > > we are going to free an object):
-> > >
-> > > diff --git a/mm/slab.c b/mm/slab.c
-> > > index c610062..bcb29df 100644
-> > > --- a/mm/slab.c
-> > > +++ b/mm/slab.c
-> > > @@ -3757,6 +3757,15 @@ void kfree(const void *objp)
-> > >     local_irq_save(flags);
-> > >     kfree_debugcheck(objp);
-> > >     c = virt_to_cache(objp);
-> > > +
-> > > +   {
-> > > +           int size = kmem_cache_size(c);
-> > > +           struct cache_sizes *csizep = malloc_sizes;
-> > > +           while (size != csizep->cs_size)
-> >
-> > that needs a check for csizep != NULL too obviously.
-> > Proof of concept, what do you expect? :)
->
-> It's a great run-time check, for sure, and definitely something
-> that we should add when SLAB_DEBUG is enabled.
->
-> A compile-time check would be "really neat" :-)
+Hi,
 
-I guess this is something up for sparse annotations, like what is done
-with __user, etc.
+On Sat, 10 Feb 2007, Matthew Garrett wrote:
 
-- Arnaldo
+> On Sat, Feb 10, 2007 at 06:55:50AM +0100, Michael Buesch wrote:
+> 
+> > It's likely that old cards still work with v4 firmware, but we don't know and
+> > it has to be tested.
+> > 
+> > Care to do so?
+> 
+> I'll check the revision of my 4306, but I think it's probably too new to 
+> be useful, unfortunately...
+
+I have a fairly old 4306 at home which I was lent by my boss and I've been
+struggling to get it working for the past week or two.  What I find is that
+loads of firmwares which I try with bcm43xx-fwcutter complain about the
+firmware being old but then when I get a firmware which is not too old the
+device registers but doesn't seem to work -- iwlist can't see any access
+points and when I set the essid it doesn't associate with the AP.
+
+Can I be helpful as a tester?
+
+Gavin
