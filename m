@@ -1,39 +1,36 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 7/7] cxgb3 - Add SW LRO support
-Date: Tue, 27 Feb 2007 09:53:06 -0500
-Message-ID: <45E445D2.2090900@garzik.org>
-References: <20070225004423.20903.17036.stgit@localhost.localdomain>	 <20070226051304.GA13626@infradead.org> <1172585835.11870.13.camel@stevo-desktop>
+From: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
+Subject: Re: possible bug in net/tc35815.c in linux-2.6.19
+Date: Tue, 27 Feb 2007 23:55:23 +0900 (JST)
+Message-ID: <20070227.235523.25910390.anemo@mba.ocn.ne.jp>
+References: <20070226102659.GA28439@linux-mips.org>
+	<20070226.200554.125898248.nemoto@toshiba-tops.co.jp>
+	<45E33E13.7010007@ru.mvista.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Christoph Hellwig <hch@infradead.org>, divy@chelsio.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Steve Wise <swise@opengridcomputing.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:52079 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751807AbXB0Oxj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Feb 2007 09:53:39 -0500
-In-Reply-To: <1172585835.11870.13.camel@stevo-desktop>
-Sender: netdev-owner@vger.kernel.org
+Cc: ralf@linux-mips.org, jeff@garzik.org,
+	michal.k.k.piotrowski@gmail.com, pg@cs.stanford.edu,
+	ahennessy@mvista.com, netdev@vger.kernel.org,
+	linux-mips@linux-mips.org
+To: sshtylyov@ru.mvista.com
+Return-path: <linux-mips-bounce@linux-mips.org>
+In-Reply-To: <45E33E13.7010007@ru.mvista.com>
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
 List-Id: netdev.vger.kernel.org
 
-Steve Wise wrote:
-> On Mon, 2007-02-26 at 05:13 +0000, Christoph Hellwig wrote:
->> On Sat, Feb 24, 2007 at 04:44:23PM -0800, divy@chelsio.com wrote:
->>> From: Divy Le Ray <divy@chelsio.com>
->>>
->>> Add all-in-sw lro support.
->> Doing this in a LLDD doesn't sound like a good idea.  Have you
->> tried doing this in the core networking code instead?
-> 
-> It looks like both Netxen and Neterion drivers already have this.  So I
-> think for now the LLDD implements LRO.  The stack supports it by virtue
+On Mon, 26 Feb 2007 23:07:47 +0300, Sergei Shtylyov <sshtylyov@ru.mvista.com> wrote:
+>     Yeah, tc35815_1.c in our looks like the one in the CELF archive (what I 
+> didn't get is why they decided to keep both drivers around?)
 
-That's argument to further avoiding compounding the problem, by 
-reinventing the wheel for each driver.
+I think tc35815_1.c can just replace old tc35815.c.  New one lacks
+tc35815_killall() which is currently called by arch/mips/jmr3927 code,
+but there would be no point doing a such thing.  arch/mips/jmr3927
+should be fixed.
 
-	Jeff
+>     I think everybody would be just thankful. :-)
 
+OK, I'll prepare a patch after some cleanup.
 
-
+---
+Atsushi Nemoto
