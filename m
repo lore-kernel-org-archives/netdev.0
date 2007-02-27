@@ -1,71 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Fix "ipOutNoRoutes" counter error for TCP and UDP
-Date: Mon, 26 Feb 2007 17:08:32 -0800 (PST)
-Message-ID: <20070226.170832.71092126.davem@davemloft.net>
-References: <1171465429.7069.18.camel@LINE>
+From: John Heffner <jheffner@psc.edu>
+Subject: [PATCH 1/3] TCP sysctl documentation: tcp_moderate_rcvbuf
+Date: Mon, 26 Feb 2007 20:09:32 -0500
+Message-ID: <45E384CC.2090004@psc.edu>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: weid@np.css.fujitsu.com
+Content-Type: multipart/mixed;
+ boundary="------------070609070202080406010206"
+To: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43254
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1161035AbXB0BId (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Feb 2007 20:08:33 -0500
-In-Reply-To: <1171465429.7069.18.camel@LINE>
+Received: from mailer1.psc.edu ([128.182.58.100]:54929 "EHLO mailer1.psc.edu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1161038AbXB0BJk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Feb 2007 20:09:40 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: weidong <weid@np.css.fujitsu.com>
-Date: Wed, 14 Feb 2007 10:03:49 -0500
+This is a multi-part message in MIME format.
+--------------070609070202080406010206
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-> Hi, All
->   When I tested Linux-2.6.20 and found that counter "ipOutNoRoutes" can
-> not increase correctly.
->   The criteria is RFC2011
-> 
-> ipOutNoRoutes OBJECT-TYPE
->     SYNTAX      Counter32
->     MAX-ACCESS  read-only
->     STATUS      current
->     DESCRIPTION
->             "The number of IP datagrams discarded because no route could
->             be found to transmit them to their destination.  Note that
->             this counter includes any packets counted in ipForwDatagrams
->             which meet this `no-route' criterion.  Note that this
->             includes any datagrams which a host cannot route because all
->             of its default routers are down."
->     ::= { ip 12 }
-> 
-> In current Linux TCP/IP stack, maybe we should not increase this counter
-> in "input path", but only increase it in "output path" due to the TCP/IP
-> stack performance.
-> 
-> Now in "output path", when TCP client tries to connect to an unreachable
-> server(net unreachable, so no route can be found), this counter has no
-> increment. When we use UDP sending UDP datagram to an net unreachable
-> address, this counter also has no increment.
-> 
-> Function need to fix:
-> tcp_v4_connect(); ip4_datagram_connect(); udp_sendmsg();
-> 
-> The following patch can fix the problems mentioned above
 
-Thank you for this patch.
+--------------070609070202080406010206
+Content-Type: text/plain; x-mac-type="0"; x-mac-creator="0";
+ name="doc1.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="doc1.patch"
 
-I think we need to make these checks more carefully.
+Document sysctl tcp_moderate_rcvbuf.
 
-Route lookup can fail for several reasons other than
-no route being available.  Two examples are:
+Signed-off-by: John Heffner <jheffner@psc.edu>
 
-1) Out of memory error while creating route
-2) IPSEC disallows communication to that flow ID
+---
+commit 4c5fd9d3a9ea8b939aed1afda2ac0fc54e3df592
+tree c25c2fd01e076fbb7356a8c37d06d2e22c60f263
+parent aef8811abbc9249a2bd59bd2331bbe523df05d17
+author John Heffner <jheffner@psc.edu> Mon, 26 Feb 2007 19:44:58 -0500
+committer John Heffner <jheffner@psc.edu> Mon, 26 Feb 2007 19:44:58 -0500
 
-As a result, we'll probably best limiting the counter
-increment when the error is either -EHOSTUNREACH or
--ENETUNREACH.
+ Documentation/networking/ip-sysctl.txt |    6 ++++++
+ 1 files changed, 6 insertions(+), 0 deletions(-)
 
-Probably, since this logic will be duplicated to several
-locations, you'll want to implement the test inside of
-a helper inline function.
+diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+index a0f6842..a9ad96b 100644
+--- a/Documentation/networking/ip-sysctl.txt
++++ b/Documentation/networking/ip-sysctl.txt
+@@ -243,6 +243,12 @@ tcp_mem - vector of 3 INTEGERs: min, pressure, max
+ 	Defaults are calculated at boot time from amount of available
+ 	memory.
+ 
++tcp_moderate_rcvbuf - BOOLEAN
++	If set, TCP performs receive buffer autotuning, attempting to
++	automatically size the buffer (no greater than tcp_rmem[2]) to
++	match the size required by the path for full throughput.  Enabled by
++	default.
++
+ tcp_orphan_retries - INTEGER
+ 	How may times to retry before killing TCP connection, closed
+ 	by our side. Default value 7 corresponds to ~50sec-16min
+
+--------------070609070202080406010206--
