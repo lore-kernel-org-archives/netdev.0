@@ -1,45 +1,28 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [NET]: Fix kfree(skb)
-Date: Tue, 27 Feb 2007 12:35:22 -0500
-Message-ID: <200702271235.22671.paul.moore@hp.com>
-References: <45E46518.5070100@trash.net>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [SKGE]: Fix deadlock in skge_tx_timeout
+Date: Tue, 27 Feb 2007 09:42:37 -0800
+Message-ID: <20070227094237.72274f8a@freekitty>
+References: <45E08D27.4030509@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Kernel Netdev Mailing List <netdev@vger.kernel.org>
 To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel7.hp.com ([156.153.255.213]:54575 "EHLO atlrel7.hp.com"
+Received: from smtp.osdl.org ([65.172.181.24]:42229 "EHLO smtp.osdl.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751240AbXB0Rfc convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Feb 2007 12:35:32 -0500
-In-Reply-To: <45E46518.5070100@trash.net>
-Content-Disposition: inline
+	id S1751700AbXB0Rmm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Feb 2007 12:42:42 -0500
+In-Reply-To: <45E08D27.4030509@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday, February 27 2007 12:06:32 pm Patrick McHardy wrote:
-> diff --git a/net/netlabel/netlabel_unlabeled.c
-> b/net/netlabel/netlabel_unlabeled.c index 5bc3718..b931ede 100644
-> --- a/net/netlabel/netlabel_unlabeled.c
-> +++ b/net/netlabel/netlabel_unlabeled.c
-> @@ -173,7 +173,7 @@ static int netlbl_unlabel_list(struct sk
-> =A0=A0=A0=A0=A0=A0=A0=A0return 0;
-> =A0
-> =A0list_failure:
-> -=A0=A0=A0=A0=A0=A0=A0kfree(ans_skb);
-> +=A0=A0=A0=A0=A0=A0=A0kfree_skb(ans_skb);
-> =A0=A0=A0=A0=A0=A0=A0=A0return ret_val;
-> =A0}
+On Sat, 24 Feb 2007 20:08:23 +0100
+Patrick McHardy <kaber@trash.net> wrote:
 
-Acked-by: Paul Moore <paul.moore@hp.com>
+This looks correct. Probably never hit it since the hardware for skge
+is more stable and doesn't timeout.
 
-Thanks for catching this, it looks like I used kfree_skb() elsewhere bu=
-t for=20
-some reason missed it here.
 
---=20
-paul moore
-linux security @ hp
+-- 
+Stephen Hemminger <shemminger@linux-foundation.org>
