@@ -1,31 +1,36 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 1/2] myri10ge: workaround buggy adopted firmwares
-Date: Tue, 27 Feb 2007 04:16:57 -0500
-Message-ID: <45E3F709.7020502@garzik.org>
-References: <45DC7B8C.9070501@myri.com> <45DC7BCD.1070709@myri.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH 1/2] skge: fix transmitter flow control
+Date: Tue, 27 Feb 2007 04:17:05 -0500
+Message-ID: <45E3F711.1040501@pobox.com>
+References: <20070223140300.1c93a375@freekitty>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Brice Goglin <brice@myri.com>
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:47391 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:47397 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1161070AbXB0JQ6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Feb 2007 04:16:58 -0500
-In-Reply-To: <45DC7BCD.1070709@myri.com>
+	id S1161076AbXB0JRH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Feb 2007 04:17:07 -0500
+In-Reply-To: <20070223140300.1c93a375@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Brice Goglin wrote:
-> Work around a bug which occurs when adopting firmware versions
-> 1.4.4 though 1.4.11 where broadcasts are filtered as if they
-> were multicasts.
+Stephen Hemminger wrote:
+> It looks like the skge driver inherited another bug from the sk98lin code.
+> If I send from 1000mbit port to a machine on 100mbit port, the switch should
+> be doing hardware flow control, but no pause frames show up in the statistics.
 > 
-> Signed-off-by: Brice Goglin <brice@myri.com>
+> This is the analog of the recent sky2 fixes. The device needs to listen
+> for multicast pause frames and then not discard them.
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+> 
 > ---
->  drivers/net/myri10ge/myri10ge.c |   27 +++++++++++++++++++++++----
->  1 file changed, 23 insertions(+), 4 deletions(-)
+>  drivers/net/skge.c |   43 ++++++++++++++++++++++++++++++++-----------
+>  drivers/net/skge.h |    3 +--
+>  2 files changed, 33 insertions(+), 13 deletions(-)
 
 applied
 
