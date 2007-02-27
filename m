@@ -1,41 +1,52 @@
-From: "Dan Williams" <dan.j.williams@intel.com>
-Subject: Re: [RFC] div64_64 support
-Date: Mon, 26 Feb 2007 23:21:19 -0700
-Message-ID: <e9c3a7c20702262221i4ce5d2c8r4f55ee70d04c7a70@mail.gmail.com>
-References: <20070223170527.4ca695b2@freekitty>
-	 <Pine.LNX.4.61.0702262108010.23355@yvahk01.tjqt.qr>
-	 <20070226143127.5c74bec9@freekitty>
+From: Amit Kale <amitkale@netxen.com>
+Subject: Re: [PATCH] netxen: do_rom_fast_write error handling
+Date: Tue, 27 Feb 2007 12:11:02 +0530
+Message-ID: <200702271211.02344.amitkale@netxen.com>
+References: <20070226145156.5c0424a3@freekitty>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: "Jan Engelhardt" <jengelh@linux01.gwdg.de>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	"Nicolas Pitre" <nico@cam.org>,
-	"Russell King - ARM Linux" <linux@arm.linux.org.uk>
-To: "Stephen Hemminger" <shemminger@linux-foundation.org>
+Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.187]:61509 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932784AbXB0GVU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Feb 2007 01:21:20 -0500
-Received: by nf-out-0910.google.com with SMTP id o25so80766nfa
-        for <netdev@vger.kernel.org>; Mon, 26 Feb 2007 22:21:19 -0800 (PST)
-In-Reply-To: <20070226143127.5c74bec9@freekitty>
+Received: from 66-126-254-34.unm.net ([66.126.254.34]:4937 "EHLO
+	nxmail.netxen.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S932847AbXB0Gkm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Feb 2007 01:40:42 -0500
+In-Reply-To: <20070226145156.5c0424a3@freekitty>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 2/26/07, Stephen Hemminger <shemminger@linux-foundation.org> wrote:
-> Here is another way to handle the 64 bit divide case.
-> It allows full 64 bit divide by adding the support routine
-> GCC needs.
+Ah.. missed that.
+Thanks.
+-Amit
+
+On Tuesday 27 February 2007 04:21, Stephen Hemminger wrote:
+> Compiler warning spots real error!
 >
-<snip>
-
-I know ARM already went through the process of removing __udivdi3 support:
-http://www.arm.linux.org.uk/developer/patches/viewpatch.php?id=2723/2
-
-Copying Russell and Nicolas as a heads up.
-
---
-Dan
+> The function do_rom_fast_read called in do_rom_fast_write can fail
+> and leave data1 unset. This causes a compile warning.
+> The correct thing is to propagate the error out.
+>
+> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+>
+> ---
+>  drivers/net/netxen/netxen_nic_init.c |    5 ++++-
+>  1 file changed, 4 insertions(+), 1 deletion(-)
+>
+> --- pktgen.orig/drivers/net/netxen/netxen_nic_init.c	2007-02-26
+> 14:45:46.000000000 -0800 +++
+> pktgen/drivers/net/netxen/netxen_nic_init.c	2007-02-26 14:46:37.000000000
+> -0800 @@ -499,7 +499,10 @@
+>  		while(1) {
+>  			int data1;
+>
+> -			do_rom_fast_read(adapter, addridx, &data1);
+> +			ret = do_rom_fast_read(adapter, addridx, &data1);
+> +			if (ret < 0)
+> +				return ret;
+> +
+>  			if (data1 == data)
+>  				break;
