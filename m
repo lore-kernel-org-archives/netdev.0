@@ -1,40 +1,44 @@
-From: Brice Goglin <brice@myri.com>
-Subject: Re: [PATCH 7/7] cxgb3 - Add SW LRO support
-Date: Tue, 27 Feb 2007 17:29:34 +0100
-Message-ID: <45E45C6E.3000504@myri.com>
-References: <20070225004423.20903.17036.stgit@localhost.localdomain>	 <20070226051304.GA13626@infradead.org>	 <1172585835.11870.13.camel@stevo-desktop>  <45E445D2.2090900@garzik.org> <1172588246.11870.24.camel@stevo-desktop>
+From: "Luca Tettamanti" <kronos.it@gmail.com>
+Subject: Re: [BUG][2.6.21] af_key: kernel BUG at net/core/skbuff.c:93
+Date: Tue, 27 Feb 2007 17:34:21 +0100
+Message-ID: <68676e00702270834j17bf7e4bgd50b6e271404927f@mail.gmail.com>
+References: <20070226220841.GA7727@dreamland.darkstar.lan>
+	 <20070227090127.GA1625@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Steve Wise <swise@opengridcomputing.com>, divy@chelsio.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>,
-	Christoph Hellwig <hch@infradead.org>
+Cc: "David Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "Jarek Poplawski" <jarkao2@o2.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl.myri.com ([64.172.73.26]:2001 "EHLO myri.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750829AbXB0Qcu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Feb 2007 11:32:50 -0500
-In-Reply-To: <1172588246.11870.24.camel@stevo-desktop>
+Received: from nz-out-0506.google.com ([64.233.162.233]:27470 "EHLO
+	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751006AbXB0QeW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Feb 2007 11:34:22 -0500
+Received: by nz-out-0506.google.com with SMTP id s1so1620774nze
+        for <netdev@vger.kernel.org>; Tue, 27 Feb 2007 08:34:21 -0800 (PST)
+In-Reply-To: <20070227090127.GA1625@ff.dom.local>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Steve Wise wrote:
-> You're right.  But cxgb3 has it now in the driver (tested and working).
-> Shouldn't it be pulled in?  When the network stack design gets done
-> (which could take a few releases to finalize), all the drivers can be
-> updated to use it.  It doesn't seem reasonable to allow some drivers to
-> support LRO and others to not support it...
->   
+On 2/27/07, Jarek Poplawski <jarkao2@o2.pl> wrote:
+> On 26-02-2007 23:08, Luca Tettamanti wrote:
+> > Hello,
+> > I'm running 2.6.21 (current git, at 9654640d0af). kernel blows up at
+> > startup, when running setkey. Kernel 2.6.20 runs fine. A couple of words
+> ...
+> > ------------[ cut here ]------------
+> > kernel BUG at /home/kronos/src/linux-2.6.git/net/core/skbuff.c:93!
+> > invalid opcode: 0000 [#1]
+>
+> Hi!
+>
+> Could you repeat this with: CONFIG_4KSTACKS=n ?
 
-I have to agree with Steve here. We have been requesting the inclusion
-of myri10ge LRO for 5 months now (before 2.6.19). I could understand
-that duplicating LRO code between s2io and myri10ge was not a good idea
-at this point. But, I now see that Netxen got merged way later (in
-2.6.20) but it got its LRO merged immediately. I guess the LRO is
-already duplicated between s2io and netxen then. It does not look fair
-to me at all.
+Actually I cannot repeat after a make clean, with either stack
+configurations. The original kernel still consistently dies in the
+same point though. Must have been a mis-compilation :(
+Sorry for the noise.
 
-Thank you for understanding our concerns.
-Brice
-
+Luca
