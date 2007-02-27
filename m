@@ -1,71 +1,52 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: need some help on a backport of r8169
-Date: Tue, 27 Feb 2007 22:24:00 +0100
-Message-ID: <20070227212400.GA12760@electric-eye.fr.zoreil.com>
-References: <20070226170941.GA17587@venus.synerway.com> <20070226234831.GA12830@electric-eye.fr.zoreil.com> <20070227110243.GA15657@venus.synerway.com>
+From: "H. Peter Anvin" <hpa@zytor.com>
+Subject: Re: D-Link DGE-528T (r8159) autonegotation of 1000 Mbps link does
+ not work
+Date: Tue, 27 Feb 2007 13:49:41 -0800
+Message-ID: <45E4A775.4020206@zytor.com>
+References: <Pine.LNX.4.64.0702242214120.1830@qfy-uxvtj8-sro4so00-137.qupc.varg.sv>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Pascal GREGIS <pgs@synerway.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, ShuChen <shuchen@realtek.com.tw>,
+	linux-kernel@vger.kernel.org
+To: "Petri T. Koistinen" <petri.koistinen@iki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:55545 "EHLO
-	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752563AbXB0V06 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Feb 2007 16:26:58 -0500
-Content-Disposition: inline
-In-Reply-To: <20070227110243.GA15657@venus.synerway.com>
+Received: from terminus.zytor.com ([192.83.249.54]:36891 "EHLO
+	terminus.zytor.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751835AbXB0Vty (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Feb 2007 16:49:54 -0500
+In-Reply-To: <Pine.LNX.4.64.0702242214120.1830@qfy-uxvtj8-sro4so00-137.qupc.varg.sv>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Please don't do > 80 columns line again. I am not a tty.
+Petri T. Koistinen wrote:
+> Hi!
+> 
+> I just brought two D-Link DGE-528T (uses r8159 driver) network adapters
+> to have nice 1 Gbps home network between two computers.
+> 
+> I have gigabit crossover cable that is connected like this...
+> 
+> Pin  Connector #1  Connector #2
+> 1    white/orange  white/green
+> 2    orange        green
+> 3    white/green   white/orange
+> 4    blue          white/brown
+> 5    white/blue    brown
+> 6    green         orange
+> 7    white/brown   blue
+> 8    brown         white/blue
+> (from: http://logout.sh/computers/net/gigabit/)
 
-Pascal GREGIS <pgs@synerway.com> :
-> Francois Romieu a =E9crit, le Tue 27 Feb 2007 =E0 12:48:31AM :
-[...]
-> Where is this init sequence in the driver? I searched in the code and
-> didn't find something that could satisfy, then I took the 2.6.12.3 r8=
-169.c,
+That's just plain screwy.  Gigabit doesn't use crossover cables *AT 
+ALL*, although some of them *tolerate* the green and orange pairs being 
+crossed for compatibility with older crossover cables.  However, the 
+cable above is just plain weird.  There is absolutely no reason to cross 
+the blue and brown pair.
 
-See hw_start.
+If you know both ends are gigabit, always use a straight-through cable. 
+  If you know at least one end is gigabit (or auto MDI/MDIX), you can 
+almost always use a straight-through cable as well.  Use crossover 
+cables for 10/100 equipment only.
 
-> put it in the 2.6.11.11 source tree, applied my patch, changed
-> synchronize_sched(); to synchronize_kernel(); because the symbol was
-> unknown and then I could turn eth1 on and assign it an ip address but=
- the
-> rx and tx count never grew and when I turned eth0 down (a 8139 card) =
-eth1
-> didn't reply to ping anymore.
-
-Linux kernel 2.6.12 does not support the 8168 (it includes some 8169 fi=
-xes
-though).
-
-[...]
-> > There are 59 r8169 related patches between 2.6.12 and current. Only=
- a few
-> > of those break the API. I'll give it a try tomorrow evening.
-> Hmm... you wrote this mail at 00 h 48 this morning, what did you mean=
- by
-> tomorrow evening?
-
-1. I mean now. See:
-   http://www.fr.zoreil.com/people/francois/backport/r8169/20070227-00
-   (big patch or serie of 54 pieces).
-
-2. Compiled, untested. You know what you have to do.
-
-3. Due to the changes in the driver, one could hope that the link will =
-be
-   autocorrectly set. Please give it a try before using ethtool/mii-too=
-l.
-
-4. The patchkit does not include the latest changes/bugfixes. They are
-   still experimental but some users have a poor 8168 experience withou=
-t
-   them. YMMV. Please send a complete dmesg, lspci -vvx and the brand o=
-f
-   the motherboard if the driver stops working randomly.
-
---=20
-Ueimor
+	-hpa
