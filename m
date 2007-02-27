@@ -1,34 +1,31 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: [BUG][2.6.21] af_key: kernel BUG at net/core/skbuff.c:93
-Date: Tue, 27 Feb 2007 10:01:27 +0100
-Message-ID: <20070227090127.GA1625@ff.dom.local>
-References: <20070226220841.GA7727@dreamland.darkstar.lan>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 2/2] myri10ge: large receive offload
+Date: Tue, 27 Feb 2007 04:15:08 -0500
+Message-ID: <45E3F69C.8010003@garzik.org>
+References: <45DC7B8C.9070501@myri.com> <45DC7BF8.1030507@myri.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Luca Tettamanti <kronos.it@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Brice Goglin <brice@myri.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.go2.pl ([193.17.41.42]:43902 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751467AbXB0I5s (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Feb 2007 03:57:48 -0500
-Content-Disposition: inline
-In-Reply-To: <20070226220841.GA7727@dreamland.darkstar.lan>
+Received: from srv5.dvmed.net ([207.36.208.214]:47347 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1161070AbXB0JPK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Feb 2007 04:15:10 -0500
+In-Reply-To: <45DC7BF8.1030507@myri.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 26-02-2007 23:08, Luca Tettamanti wrote:
-> Hello,
-> I'm running 2.6.21 (current git, at 9654640d0af). kernel blows up at
-> startup, when running setkey. Kernel 2.6.20 runs fine. A couple of words
-...
-> ------------[ cut here ]------------
-> kernel BUG at /home/kronos/src/linux-2.6.git/net/core/skbuff.c:93!
-> invalid opcode: 0000 [#1]
+Brice Goglin wrote:
+> Add Large Receive Offload implemented in software.
+> 
+> Signed-off-by: Brice Goglin <brice@myri.com>
+> ---
+>  drivers/net/myri10ge/myri10ge.c |  422 ++++++++++++++++++++++++++++++++++++++++
+>  1 file changed, 422 insertions(+)
 
-Hi!
+Another patch to do this for another driver just came up as well.  I 
+would rather see some helpers in the net core make this easier on the 
+NIC author, rather than reimplementing the same concept over and over again.
 
-Could you repeat this with: CONFIG_4KSTACKS=n ?
-
-Regards,
-Jarek P.
