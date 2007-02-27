@@ -1,54 +1,71 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] NET: Multiple queue network device support
-Date: Mon, 26 Feb 2007 17:03:17 -0800 (PST)
-Message-ID: <20070226.170317.41636240.davem@davemloft.net>
-References: <20070209000942.5155.78998.stgit@gitlost.site>
-	<20070209000950.5155.24763.stgit@gitlost.site>
+Subject: Re: Fix "ipOutNoRoutes" counter error for TCP and UDP
+Date: Mon, 26 Feb 2007 17:08:32 -0800 (PST)
+Message-ID: <20070226.170832.71092126.davem@davemloft.net>
+References: <1171465429.7069.18.camel@LINE>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, peter.p.waskiewicz.jr@intel.com,
-	jesse.brandeburg@intel.com, auke@foo-projects.org,
-	john.ronciak@intel.com
-To: auke-jan.h.kok@intel.com
+Cc: netdev@vger.kernel.org
+To: weid@np.css.fujitsu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35409
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43254
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S965150AbXB0BDT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Feb 2007 20:03:19 -0500
-In-Reply-To: <20070209000950.5155.24763.stgit@gitlost.site>
+	by vger.kernel.org with ESMTP id S1161035AbXB0BId (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Feb 2007 20:08:33 -0500
+In-Reply-To: <1171465429.7069.18.camel@LINE>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Date: Thu, 08 Feb 2007 16:09:50 -0800
+From: weidong <weid@np.css.fujitsu.com>
+Date: Wed, 14 Feb 2007 10:03:49 -0500
 
-> From: Peter Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+> Hi, All
+>   When I tested Linux-2.6.20 and found that counter "ipOutNoRoutes" can
+> not increase correctly.
+>   The criteria is RFC2011
 > 
-> Added an API and associated supporting routines for multiqueue network
-> devices.  This allows network devices supporting multiple TX queues to
-> configure each queue within the netdevice and manage each queue
-> independantly.  Changes to the PRIO Qdisc also allow a user to map
-> multiple flows to individual TX queues, taking advantage of each queue
-> on the device.
+> ipOutNoRoutes OBJECT-TYPE
+>     SYNTAX      Counter32
+>     MAX-ACCESS  read-only
+>     STATUS      current
+>     DESCRIPTION
+>             "The number of IP datagrams discarded because no route could
+>             be found to transmit them to their destination.  Note that
+>             this counter includes any packets counted in ipForwDatagrams
+>             which meet this `no-route' criterion.  Note that this
+>             includes any datagrams which a host cannot route because all
+>             of its default routers are down."
+>     ::= { ip 12 }
 > 
-> Signed-off-by: Peter Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+> In current Linux TCP/IP stack, maybe we should not increase this counter
+> in "input path", but only increase it in "output path" due to the TCP/IP
+> stack performance.
+> 
+> Now in "output path", when TCP client tries to connect to an unreachable
+> server(net unreachable, so no route can be found), this counter has no
+> increment. When we use UDP sending UDP datagram to an net unreachable
+> address, this counter also has no increment.
+> 
+> Function need to fix:
+> tcp_v4_connect(); ip4_datagram_connect(); udp_sendmsg();
+> 
+> The following patch can fix the problems mentioned above
 
-Thanks for posting this.
+Thank you for this patch.
 
-I was wonding if it would be better to have the ->enqueue() perform
-the mapping operation, store the queue index selected inside of the
-skb, and just use the normal ->hard_start_xmit() to send the packet
-out?
+I think we need to make these checks more carefully.
 
-The only thing to take care of is the per-queue locking, but that
-should be easily doable.
+Route lookup can fail for several reasons other than
+no route being available.  Two examples are:
 
-We might be able to do this even without making sk_buff any larger.
-For example, I suppose skb->priority might be deducable down to
-a u16.  After a quick audit I really cannot see any legitimate use
-of anything larger than 16-bit values, but a more thorough audit
-would be necessary to validate this.
+1) Out of memory error while creating route
+2) IPSEC disallows communication to that flow ID
 
+As a result, we'll probably best limiting the counter
+increment when the error is either -EHOSTUNREACH or
+-ENETUNREACH.
+
+Probably, since this logic will be duplicated to several
+locations, you'll want to implement the test inside of
+a helper inline function.
