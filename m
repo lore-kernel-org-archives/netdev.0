@@ -1,112 +1,37 @@
-From: "Roman Mashak" <romez777@gmail.com>
-Subject: system lockup
-Date: Tue, 27 Feb 2007 10:20:03 +0900
-Message-ID: <40a670230702261720i33be62b0s33c42e397f9cfb6c@mail.gmail.com>
+From: "H. Peter Anvin" <hpa@zytor.com>
+Subject: Re: [RFC] div64_64 support
+Date: Mon, 26 Feb 2007 17:20:34 -0800
+Message-ID: <45E38762.5040407@zytor.com>
+References: <20070223170527.4ca695b2@freekitty>	<Pine.LNX.4.61.0702262108010.23355@yvahk01.tjqt.qr> <20070226132834.70514f19@freekitty>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: Jan Engelhardt <jengelh@linux01.gwdg.de>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.175]:47614 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751405AbXB0BUF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Feb 2007 20:20:05 -0500
-Received: by ug-out-1314.google.com with SMTP id 44so976645uga
-        for <netdev@vger.kernel.org>; Mon, 26 Feb 2007 17:20:04 -0800 (PST)
-Content-Disposition: inline
+Received: from terminus.zytor.com ([192.83.249.54]:39698 "EHLO
+	terminus.zytor.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751395AbXB0BVQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Feb 2007 20:21:16 -0500
+In-Reply-To: <20070226132834.70514f19@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+Stephen Hemminger wrote:
+> 
+> Hmm. Those are the GCC internal versions, that are picked up but
+> doing divide in place. Do we want to allow general 64 bit in kernel to
+> be easily used? It could cause sloppy slow code, but it would look
+> cleaner.
+> 
 
-for learning device drivers I took 8139too.c to explore it. I
-disrupted the code into several logical blocks and now I'm trying to
-implement my own simplified version referring to original code from
-time to time. I have rtl8139d NIC for experiments. So, by now I've
-acomplished the following stages:
-1) detected device
-2) enable PCI device
-3) memory mapped IO initialised
-4) initialization of 'net_device' structure
+... and it would handle datatypes which may be architecture-dependent a 
+lot cleaner.
 
-And I'm stuck on the chip reset. Whenever I load driver and try to
-enable interface (ifconfig eth1 up) my system just hangs, keyboard
-locks up, I can't even use 'SysRq' shortcuts.
+I thought the motivation for div64() was that a 64:32->32 divide could 
+be done a lot faster on a number of platforms (including the important 
+x86) than a generic 64:64->64 divide, but gcc doesn't handle the 
+devolution automatically -- there is no such libgcc function.
 
-I figured out that problem occurs after I initialised chip, i.e. in
-this routine called from 'net_device->open' method:
-
-
-#define CmdTxEnb  (0x04)
-...
-#define RxOK   (0x01)
-#define RxErr   (0x02)
-#define TxOK   (0x04)
-#define TxErr   (0x08)
-#define RxOverFlow  (0x10)
-#define RxUnderrun  (0x20)
-#define RxFIFOOver  (0x40)
-#define CableLen  (0x2000)
-#define TimeOut   (0x4000)
-#define SysErr   (0x8000)
-
-#define INT_MASK (RxOK | RxErr | TxOK | TxErr | RxOverFlow | \
-RxUnderrun | RxFIFOOver | CableLen | TimeOut | SysErr)
-
-
-static void rtl8139_hw_start(struct net_device *dev)
-{
-   struct rtl8139_private *tp = dev->priv;
-   void *ioaddr = tp->mmio_addr;
-   ...
-   writeb(CmdTxEnb, ioaddr + REG_COMMAND);
-   writel(0x00000600, ioaddr + REG_TX_CONFIG);    /* DMA burst size 1024 */
-
-/* init TX buffer DMA addresses */
-for (i = 0; i < NUM_TX_DESC; i++) {
-writel(tp->tx_bufs_dma + (tp->tx_buf[i] - tp->tx_bufs), ioaddr +
-REG_TX_ADDR0 + (i * 4));
-}
-
-
-   /* enable all known interrupts by setting the interrupt mask */
-   writew(INT_MASK, ioaddr + REG_INTR_MASK);
-
-
-   netif_start_queue(dev);
-   return;
-}
-
-
-static int rtl8139_open(struct net_device *dev)
-{
-   int retval;
-   struct rtl8139_private *tp = dev->priv;
-   ...
-   retval = request_irq(dev->irq, rtl8139_interrupt, 0, dev->name, dev);
-   if (retval)
-       return retval;
-
-/* Get memory for TX buffers. Memory must be DMA-able */
-tp->tx_bufs = pci_alloc_consistent(tp->pci_dev, TOTAL_TX_BUF_SIZE,
-&tp->tx_bufs_dma);
-...
-rtl8139_init_ring(dev);
-rtl8139_hw_start(dev);
-
-DPRINTK("init_ring() & hw_start() passed\n");
-
-
-   return;
-}
-
-rtl8139_hw_start() is really invoked and returned, since I'm getting
-printk output. Commenting 'rtl8139_hw_start(dev);' out brings the
-interface up succesfully, that's why I came to conclusion the problem
-is in chip initialization routine.
-
-If anybody has any clue, I'd appreciate to hear it and get advice.
-Thanks in advance.
-
--- 
-Roman
+	-hpa
