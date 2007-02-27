@@ -1,47 +1,41 @@
-From: "Daniel J Blueman" <daniel.blueman@gmail.com>
-Subject: sky2 stable in 2.6.12-rc1 (but still performance problem)...
-Date: Tue, 27 Feb 2007 11:31:58 +0000
-Message-ID: <6278d2220702270331k7b91017ds4c0eb0be4e4e9697@mail.gmail.com>
+From: Steve Wise <swise@opengridcomputing.com>
+Subject: Re: [PATCH 7/7] cxgb3 - Add SW LRO support
+Date: Tue, 27 Feb 2007 08:17:15 -0600
+Message-ID: <1172585835.11870.13.camel@stevo-desktop>
+References: <20070225004423.20903.17036.stgit@localhost.localdomain>
+	 <20070226051304.GA13626@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "Linux Netdev" <netdev@vger.kernel.org>,
-	"Linux Kernel" <linux-kernel@vger.kernel.org>,
-	"Linux Networking" <linux-net@vger.kernel.org>
-To: "Stephen Hemminger" <shemminger@osdl.org>
+Cc: divy@chelsio.com, jeff@garzik.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Christoph Hellwig <hch@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.191]:64801 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933045AbXB0Lb7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Feb 2007 06:31:59 -0500
-Received: by nf-out-0910.google.com with SMTP id o25so149015nfa
-        for <netdev@vger.kernel.org>; Tue, 27 Feb 2007 03:31:58 -0800 (PST)
-Content-Disposition: inline
+Received: from rrcs-24-153-217-226.sw.biz.rr.com ([24.153.217.226]:55834 "EHLO
+	smtp.opengridcomputing.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751624AbXB0ORR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Feb 2007 09:17:17 -0500
+In-Reply-To: <20070226051304.GA13626@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Stephen,
+On Mon, 2007-02-26 at 05:13 +0000, Christoph Hellwig wrote:
+> On Sat, Feb 24, 2007 at 04:44:23PM -0800, divy@chelsio.com wrote:
+> > From: Divy Le Ray <divy@chelsio.com>
+> > 
+> > Add all-in-sw lro support.
+> 
+> Doing this in a LLDD doesn't sound like a good idea.  Have you
+> tried doing this in the core networking code instead?
 
-2.6.21-rc1 is the first kernel where my SysKonnect Yukon 2 hardware
-with the sky2 v1.13 driver is stable under moderate load. Before a few
-GBs of data going over my GigE network quickly with NFSv4 would cause
-transmit timeouts previously, but now fine.
+It looks like both Netxen and Neterion drivers already have this.  So I
+think for now the LLDD implements LRO.  The stack supports it by virtue
+of allowing fragmented skbs that are bigger than the MTU.
 
-I am still observing a performance problem - feels like a wmb() or
-some buffer flushing is missing somewhere - disabling processor clock
-scaling reduces the problem a bit, but does not eliminate it.
+Other drivers implementing LRO:
 
-What are your preferred way of checking performance? I think that the
-TCP send window can grow enough even if ACKs are delayed due to this
-problem, such that TCP does not immediately demonstrate this issue. I
-could restrict the window scaling factor, so it would be bound by the
-data->ACK round-trip latency, which /should/ be low, but I've been
-observing it higher. Maybe I try this.
+drivers/net/s2io.c
+drivers/net/netxen/
 
-I'll see what I get with iperf UDP also, since this shows min, max,
-avg UDP packet latency IIRC.
+Steve.
 
-Thanks for your great work so far though!
-  Dan
--- 
-Daniel J Blueman
