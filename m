@@ -1,31 +1,37 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: need some help on a backport of r8169
-Date: Tue, 27 Feb 2007 00:48:31 +0100
-Message-ID: <20070226234831.GA12830@electric-eye.fr.zoreil.com>
-References: <20070226170941.GA17587@venus.synerway.com>
+From: Jan Engelhardt <jengelh@linux01.gwdg.de>
+Subject: Re: [RFC] div64_64 support
+Date: Tue, 27 Feb 2007 01:05:26 +0100 (MET)
+Message-ID: <Pine.LNX.4.61.0702270103060.23355@yvahk01.tjqt.qr>
+References: <20070223170527.4ca695b2@freekitty> <Pine.LNX.4.61.0702262108010.23355@yvahk01.tjqt.qr>
+ <20070226143127.5c74bec9@freekitty> <Pine.LNX.4.61.0702262348140.23355@yvahk01.tjqt.qr>
+ <20070226154413.4ead571a@freekitty>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Pascal GREGIS <pgs@synerway.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:54213 "EHLO
-	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1161419AbXBZXuw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Feb 2007 18:50:52 -0500
-Content-Disposition: inline
-In-Reply-To: <20070226170941.GA17587@venus.synerway.com>
+Received: from tmailer.gwdg.de ([134.76.10.23]:33267 "EHLO tmailer.gwdg.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751356AbXB0AGY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Feb 2007 19:06:24 -0500
+In-Reply-To: <20070226154413.4ead571a@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Pascal GREGIS <pgs@synerway.com> :
-[...]
-> Could anyone take a look at my patch and tell me what is missing,
 
-- It lacks the adequate registers init sequence for a 8168 for instance.
-- Fix went in between 2.6.11 and 2.6.12.
+On Feb 26 2007 15:44, Stephen Hemminger wrote:
+>> >-		x = (2 * x + (uint32_t) div64_64(a, x*x)) / 3;
+>> >+		x = (2 * x + (u32) (a / x*x)) / 3;
+>> 
+>> Previously there was div64_64(a, x*x) which is equivalent to
+>> (a)/(x*x), or just: a/(x^2). But now you do a/x*x, which is
+>> equivalent to a*x/x (in the domain of real numbers). Furthermore,
+>> a/x*x is a-(a%x), which does not even remotely match a/(x^2).
+>> 
+>Been there, done that, don't want to repeat it...
 
-There are 59 r8169 related patches between 2.6.12 and current. Only a few
-of those break the API. I'll give it a try tomorrow evening.
+I am sorry I don't quite follow.
 
+
+Jan
 -- 
-Ueimor
