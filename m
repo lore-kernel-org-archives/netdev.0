@@ -1,37 +1,39 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 1/2] skge: fix transmitter flow control
-Date: Tue, 27 Feb 2007 04:17:05 -0500
-Message-ID: <45E3F711.1040501@pobox.com>
-References: <20070223140300.1c93a375@freekitty>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 01/13] qla3xxx: Return proper error codes when the 4022/4032
+ is being probed
+Date: Tue, 27 Feb 2007 04:22:07 -0500
+Message-ID: <45E3F83F.6010003@garzik.org>
+References: <20070226190450.GA7325@linux-7mw0.qlogic.org> <11725168032993-git-send-email-ron.mercer@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Cc: romieu@fr.zoreil.com, benjamin.li@qlogic.com,
+	netdev@vger.kernel.org
+To: Ron Mercer <ron.mercer@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:47397 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:47459 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1161076AbXB0JRH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Feb 2007 04:17:07 -0500
-In-Reply-To: <20070223140300.1c93a375@freekitty>
+	id S1161078AbXB0JWK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Feb 2007 04:22:10 -0500
+In-Reply-To: <11725168032993-git-send-email-ron.mercer@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> It looks like the skge driver inherited another bug from the sk98lin code.
-> If I send from 1000mbit port to a machine on 100mbit port, the switch should
-> be doing hardware flow control, but no pause frames show up in the statistics.
+Ron Mercer wrote:
+> From: Benjamin Li <benjamin.li@qlogic.com>
 > 
-> This is the analog of the recent sky2 fixes. The device needs to listen
-> for multicast pause frames and then not discard them.
+> The return code was not properly set when when allocating memory or mapping
+> memory failed.  Depending on the stack, the return code would sometimes
+> return 0, which indicates everything was ok, when in fact there was an error.
+>   This would cause trouble when the module was removed.  Now, we will pass
+> back the proper return code when an error occurs during the PCI probe.
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
-> 
+> Signed-off-by: Benjamin Li <benjamin.li@qlogic.com>
+> Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
 > ---
->  drivers/net/skge.c |   43 ++++++++++++++++++++++++++++++++-----------
->  drivers/net/skge.h |    3 +--
->  2 files changed, 33 insertions(+), 13 deletions(-)
+>  drivers/net/qla3xxx.c |    8 +++++++-
+>  1 files changed, 7 insertions(+), 1 deletions(-)
 
-applied
+applied 1-13
 
 
