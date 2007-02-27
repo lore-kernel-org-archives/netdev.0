@@ -1,45 +1,46 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: xfrm_add_sa_expire return codes
-Date: Mon, 26 Feb 2007 19:31:06 -0500
-Message-ID: <1172536266.4847.4.camel@localhost>
-References: <499d6ed30702261426r107fb555hd621418376f5c61c@mail.gmail.com>
-	 <20070226.144854.102122743.davem@davemloft.net>
-Reply-To: hadi@cyberus.ca
+From: Divy Le Ray <divy@chelsio.com>
+Subject: Re: [PATCH 7/7] cxgb3 - Add SW LRO support
+Date: Mon, 26 Feb 2007 16:55:29 -0800
+Message-ID: <45E38181.5030409@chelsio.com>
+References: <20070225004423.20903.17036.stgit@localhost.localdomain> <20070226051304.GA13626@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: shpedoikal@gmail.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: Christoph Hellwig <hch@infradead.org>, divy@chelsio.com,
+	jeff@garzik.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, swise@opengridcomputing.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nz-out-0506.google.com ([64.233.162.235]:4727 "EHLO
-	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750878AbXB0AbO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Feb 2007 19:31:14 -0500
-Received: by nz-out-0506.google.com with SMTP id s1so1417462nze
-        for <netdev@vger.kernel.org>; Mon, 26 Feb 2007 16:31:10 -0800 (PST)
-In-Reply-To: <20070226.144854.102122743.davem@davemloft.net>
+Received: from [12.22.49.110] ([12.22.49.110]:29448 "EHLO stargate.chelsio.com"
+	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S965045AbXB0A6l (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Feb 2007 19:58:41 -0500
+In-Reply-To: <20070226051304.GA13626@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2007-26-02 at 14:48 -0800, David Miller wrote:
+Christoph Hellwig wrote:
+> On Sat, Feb 24, 2007 at 04:44:23PM -0800, divy@chelsio.com wrote:
+>   
+>> From: Divy Le Ray <divy@chelsio.com>
+>>
+>> Add all-in-sw lro support.
+>>     
+>
+> Doing this in a LLDD doesn't sound like a good idea.  Have you
+> tried doing this in the core networking code instead?
+>   
 
-> Indeed, and the tabbing on the first "err = " assignment should
-> be a clue that some mistake might have been added.
-> 
-> It looks like the code has been like that from day one, I wonder
-> how Jamal tested this stuff :-)
-> 
+We have not tried to implement LRO in the core networking code.
+Today, the available API for a driver to pass packets up is 
+netif_receive_skb/netif_rx.
+Our implementation coalesces pages, then gets a skb to point at the 
+pages and passes it up to the stack.
+LRO in the core networking code would require adding methods to pass up 
+data segments in addition to skbs.
+HW might also be able to assist LRO by identifying the session an 
+incoming packet belongs to,
+thus avoiding the session lookup. The API should also allow for the 
+driver to indicate such info.
 
-I am asking myself the same question staring at that;-> 
-Let me look at the test code tommorow and get back to you. I know my
-test was "passing" ;->
-
-> I'm going to assume the intended logic, and fix it like this.
-> Jamal?
-> 
-
-Looks good - thanks Dave.
-
-cheers,
-jamal
-
+Cheers,
+Divy
