@@ -1,75 +1,112 @@
-From: John Heffner <jheffner@psc.edu>
-Subject: [PATCH 2/3] TCP sysctl documentation: MTU probing
-Date: Mon, 26 Feb 2007 20:09:35 -0500
-Message-ID: <45E384CF.2020800@psc.edu>
+From: "Roman Mashak" <romez777@gmail.com>
+Subject: system lockup
+Date: Tue, 27 Feb 2007 10:20:03 +0900
+Message-ID: <40a670230702261720i33be62b0s33c42e397f9cfb6c@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------090103060204080207070101"
-To: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailer1.psc.edu ([128.182.58.100]:54927 "EHLO mailer1.psc.edu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1161044AbXB0BJl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Feb 2007 20:09:41 -0500
+Received: from ug-out-1314.google.com ([66.249.92.175]:47614 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751405AbXB0BUF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Feb 2007 20:20:05 -0500
+Received: by ug-out-1314.google.com with SMTP id 44so976645uga
+        for <netdev@vger.kernel.org>; Mon, 26 Feb 2007 17:20:04 -0800 (PST)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------090103060204080207070101
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Hello,
+
+for learning device drivers I took 8139too.c to explore it. I
+disrupted the code into several logical blocks and now I'm trying to
+implement my own simplified version referring to original code from
+time to time. I have rtl8139d NIC for experiments. So, by now I've
+acomplished the following stages:
+1) detected device
+2) enable PCI device
+3) memory mapped IO initialised
+4) initialization of 'net_device' structure
+
+And I'm stuck on the chip reset. Whenever I load driver and try to
+enable interface (ifconfig eth1 up) my system just hangs, keyboard
+locks up, I can't even use 'SysRq' shortcuts.
+
+I figured out that problem occurs after I initialised chip, i.e. in
+this routine called from 'net_device->open' method:
 
 
---------------090103060204080207070101
-Content-Type: text/plain; x-mac-type="0"; x-mac-creator="0";
- name="doc3.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="doc3.patch"
+#define CmdTxEnb  (0x04)
+...
+#define RxOK   (0x01)
+#define RxErr   (0x02)
+#define TxOK   (0x04)
+#define TxErr   (0x08)
+#define RxOverFlow  (0x10)
+#define RxUnderrun  (0x20)
+#define RxFIFOOver  (0x40)
+#define CableLen  (0x2000)
+#define TimeOut   (0x4000)
+#define SysErr   (0x8000)
 
-Documentation for sysctls tcp_mtu_probing and tcp_base_mss.
+#define INT_MASK (RxOK | RxErr | TxOK | TxErr | RxOverFlow | \
+RxUnderrun | RxFIFOOver | CableLen | TimeOut | SysErr)
 
-Signed-off-by: John Heffner <jheffner@psc.edu>
 
----
-commit 6da0563572e0a6d0abda9d950f30902844c37862
-tree 6f21ae02c11a1340412a926e8e2f568f5ed3b5a8
-parent 17cb799000caef3b2fed28cc5d0601bb2311efa8
-author John Heffner <jheffner@psc.edu> Mon, 26 Feb 2007 20:02:35 -0500
-committer John Heffner <jheffner@psc.edu> Mon, 26 Feb 2007 20:02:35 -0500
+static void rtl8139_hw_start(struct net_device *dev)
+{
+   struct rtl8139_private *tp = dev->priv;
+   void *ioaddr = tp->mmio_addr;
+   ...
+   writeb(CmdTxEnb, ioaddr + REG_COMMAND);
+   writel(0x00000600, ioaddr + REG_TX_CONFIG);    /* DMA burst size 1024 */
 
- Documentation/networking/ip-sysctl.txt |   12 ++++++++++++
- 1 files changed, 12 insertions(+), 0 deletions(-)
+/* init TX buffer DMA addresses */
+for (i = 0; i < NUM_TX_DESC; i++) {
+writel(tp->tx_bufs_dma + (tp->tx_buf[i] - tp->tx_bufs), ioaddr +
+REG_TX_ADDR0 + (i * 4));
+}
 
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index 891f389..d3aae1f 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -147,6 +147,11 @@ tcp_available_congestion_control - STRING
- 	More congestion control algorithms may be available as modules,
- 	but not loaded.
- 
-+tcp_base_mss - INTEGER
-+	The initial value of search_low to be used by Packetization Layer
-+	Path MTU Discovery (MTU probing).  If MTU probing is enabled,
-+	this is the inital MSS used by the connection.
-+
- tcp_congestion_control - STRING
- 	Set the congestion control algorithm to be used for new
- 	connections. The algorithm "reno" is always available, but
-@@ -249,6 +254,13 @@ tcp_moderate_rcvbuf - BOOLEAN
- 	match the size required by the path for full throughput.  Enabled by
- 	default.
- 
-+tcp_mtu_probing - INTEGER
-+	Controls TCP Packetization-Layer Path MTU Discovery.  Takes three
-+	values:
-+	  0 - Disabled
-+	  1 - Disabled by default, enabled when an ICMP black hole detected
-+	  2 - Always enabled, use initial MSS of tcp_base_mss.
-+
- tcp_no_metrics_save - BOOLEAN
- 	By default, TCP saves various connection metrics in the route cache
- 	when the connection closes, so that connections established in the
 
---------------090103060204080207070101--
+   /* enable all known interrupts by setting the interrupt mask */
+   writew(INT_MASK, ioaddr + REG_INTR_MASK);
+
+
+   netif_start_queue(dev);
+   return;
+}
+
+
+static int rtl8139_open(struct net_device *dev)
+{
+   int retval;
+   struct rtl8139_private *tp = dev->priv;
+   ...
+   retval = request_irq(dev->irq, rtl8139_interrupt, 0, dev->name, dev);
+   if (retval)
+       return retval;
+
+/* Get memory for TX buffers. Memory must be DMA-able */
+tp->tx_bufs = pci_alloc_consistent(tp->pci_dev, TOTAL_TX_BUF_SIZE,
+&tp->tx_bufs_dma);
+...
+rtl8139_init_ring(dev);
+rtl8139_hw_start(dev);
+
+DPRINTK("init_ring() & hw_start() passed\n");
+
+
+   return;
+}
+
+rtl8139_hw_start() is really invoked and returned, since I'm getting
+printk output. Commenting 'rtl8139_hw_start(dev);' out brings the
+interface up succesfully, that's why I came to conclusion the problem
+is in chip initialization routine.
+
+If anybody has any clue, I'd appreciate to hear it and get advice.
+Thanks in advance.
+
+-- 
+Roman
