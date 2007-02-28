@@ -1,53 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: TCP minisock tcp_create_openreq_child() typo?
-Date: Wed, 28 Feb 2007 11:06:33 -0800 (PST)
-Message-ID: <20070228.110633.122616507.davem@davemloft.net>
-References: <200702281203.38112@nienna>
-	<39e6f6c70702280410k2d13afc7k1f870c73b6862676@mail.gmail.com>
+From: Pekka Pietikainen <pp@ee.oulu.fi>
+Subject: Missing VLAN tags in bnx2
+Date: Wed, 28 Feb 2007 21:12:03 +0200
+Message-ID: <20070228191203.GA6576@ee.oulu.fi>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: hidden@balabit.hu, netdev@vger.kernel.org
-To: acme@ghostprotocols.net
+Content-Type: text/plain; charset=iso-8859-1
+To: netdev@vger.kernel.org, mchan@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39885
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S932334AbXB1TGf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Feb 2007 14:06:35 -0500
-In-Reply-To: <39e6f6c70702280410k2d13afc7k1f870c73b6862676@mail.gmail.com>
+Received: from ee.oulu.fi ([130.231.61.23]:39971 "EHLO ee.oulu.fi"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751551AbXB1TiG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Feb 2007 14:38:06 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Arnaldo Carvalho de Melo" <acme@ghostprotocols.net>
-Date: Wed, 28 Feb 2007 09:10:10 -0300
+Just had to spend some time figuring out why a bnx2 card connected to
+a switch monitor port didn't see any vlan tags (when in our scenario the
+tags are pretty vital).  Found the following explanation:
 
-> On 2/28/07, KOVACS Krisztian <hidden@balabit.hu> wrote:
-> >
-> >   Hi,
-> >
-> >   While reading TCP minisock code I've found this suspiciously looking
-> > code fragment:
-> >
-> > - 8< -
-> > struct sock *tcp_create_openreq_child(struct sock *sk, struct request_sock *req, struct sk_buff *skb)
-> > {
-> >         struct sock *newsk = inet_csk_clone(sk, req, GFP_ATOMIC);
-> >
-> >         if (newsk != NULL) {
-> >                 const struct inet_request_sock *ireq = inet_rsk(req);
-> >                 struct tcp_request_sock *treq = tcp_rsk(req);
-> >                 struct inet_connection_sock *newicsk = inet_csk(sk);
-> >                 struct tcp_sock *newtp;
-> > - 8< -
-> >
-> >   The above code initializes newicsk to inet_csk(sk), isn't that supposed
-> > to be inet_csk(newsk)?  As far as I can tell this might leave
-> > icsk_ack.last_seg_size zero even if we do have received data.
-> 
-> Good catch!
-> 
-> David, please apply the attached patch.
-> 
-> Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+[BNX2]: Fix VLAN on ASF
+    
+    Always set up the device to strip incoming VLAN tags when ASF is
+    enabled. ASF firmware will not parse packets correctly if VLAN tags
+    are not stripped
 
-Applied, thanks everyone.
+My fix:
+
+#ifdef I_DONT_KNOW_WHAT_ASF_IS_AND_DONT_REALLY_CARE_EITHER
+        if (REG_RD_IND(bp, bp->shmem_base + BNX2_PORT_FEATURE) &
+            BNX2_PORT_FEATURE_ASF_ENABLED)
+                bp->flags |= ASF_ENABLE_FLAG;
+#endif
+
+Any hope of getting this as a ethtool tunable or something similar?
+There didn't seem to be a BIOS option for this (Dell PE2900), at least.
