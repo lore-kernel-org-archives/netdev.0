@@ -1,8 +1,9 @@
 From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: [PATCH 1/4] pktgen: use pr_debug
-Date: Wed, 28 Feb 2007 17:52:18 +0100
-Message-ID: <17893.45890.879954.565480@robur.slu.se>
+Subject: [PATCH 2/4] pktgen: use random32
+Date: Wed, 28 Feb 2007 17:56:10 +0100
+Message-ID: <17893.46122.730254.596655@robur.slu.se>
 References: <20070227120447.55a7e39d@freekitty>
+	<20070227120603.5a23f0a7@freekitty>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -10,164 +11,175 @@ Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
 	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.slu.se ([130.238.96.70]:53300 "EHLO mx1.slu.se"
+Received: from mx1.slu.se ([130.238.96.70]:53355 "EHLO mx1.slu.se"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932451AbXB1Qza (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Feb 2007 11:55:30 -0500
-In-Reply-To: <20070227120447.55a7e39d@freekitty>
+	id S933147AbXB1Q7W (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Feb 2007 11:59:22 -0500
+In-Reply-To: <20070227120603.5a23f0a7@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
 Thanks!
 
+It seems like network code has preference for net_random() but they
+are the same now.
+
 Signed-off-by: Robert Olsson <robert.olsson@its.uu.se>
+
+Cheers.
 
 					--ro
 
-
-
 Stephen Hemminger writes:
- > Remove private debug macro and replace with standard version
+ > Can use random32() now.
  > 
  > Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
  > 
- > 
  > ---
- >  net/core/pktgen.c |   34 +++++++++++++++-------------------
- >  1 file changed, 15 insertions(+), 19 deletions(-)
+ >  net/core/pktgen.c |   52 +++++++++++++++++++---------------------------------
+ >  1 file changed, 19 insertions(+), 33 deletions(-)
  > 
- > --- pktgen.orig/net/core/pktgen.c	2007-02-26 13:21:54.000000000 -0800
- > +++ pktgen/net/core/pktgen.c	2007-02-26 13:22:04.000000000 -0800
- > @@ -163,9 +163,6 @@
- >  
- >  #define VERSION  "pktgen v2.68: Packet Generator for packet performance testing.\n"
- >  
- > -/* #define PG_DEBUG(a) a */
- > -#define PG_DEBUG(a)
- > -
- >  /* The buckets are exponential in 'width' */
- >  #define LAT_BUCKETS_MAX 32
- >  #define IP_NAME_SZ 32
- > @@ -1856,8 +1853,7 @@
- >  	int ret = 0;
- >  
- >  	mutex_lock(&pktgen_thread_lock);
- > -	PG_DEBUG(printk("pktgen: pktgen_mark_device marking %s for removal\n",
- > -			ifname));
- > +	pr_debug("pktgen: pktgen_mark_device marking %s for removal\n", ifname);
- >  
- >  	while (1) {
- >  
- > @@ -1866,8 +1862,8 @@
- >  			break;	/* success */
- >  
- >  		mutex_unlock(&pktgen_thread_lock);
- > -		PG_DEBUG(printk("pktgen: pktgen_mark_device waiting for %s "
- > -				"to disappear....\n", ifname));
- > +		pr_debug("pktgen: pktgen_mark_device waiting for %s "
- > +				"to disappear....\n", ifname);
- >  		schedule_timeout_interruptible(msecs_to_jiffies(msec_per_try));
- >  		mutex_lock(&pktgen_thread_lock);
- >  
- > @@ -2847,7 +2843,7 @@
- >  	struct pktgen_dev *pkt_dev;
- >  	int started = 0;
- >  
- > -	PG_DEBUG(printk("pktgen: entering pktgen_run. %p\n", t));
- > +	pr_debug("pktgen: entering pktgen_run. %p\n", t);
- >  
- >  	if_lock(t);
- >  	list_for_each_entry(pkt_dev, &t->if_list, list) {
- > @@ -2879,7 +2875,7 @@
- >  {
- >  	struct pktgen_thread *t;
- >  
- > -	PG_DEBUG(printk("pktgen: entering pktgen_stop_all_threads_ifs.\n"));
- > +	pr_debug("pktgen: entering pktgen_stop_all_threads_ifs.\n");
- >  
- >  	mutex_lock(&pktgen_thread_lock);
- >  
- > @@ -2947,7 +2943,7 @@
- >  {
- >  	struct pktgen_thread *t;
- >  
- > -	PG_DEBUG(printk("pktgen: entering pktgen_run_all_threads.\n"));
- > +	pr_debug("pktgen: entering pktgen_run_all_threads.\n");
- >  
- >  	mutex_lock(&pktgen_thread_lock);
- >  
- > @@ -3039,7 +3035,7 @@
- >  {
- >  	struct pktgen_dev *pkt_dev;
- >  
- > -	PG_DEBUG(printk("pktgen: entering pktgen_stop\n"));
- > +	pr_debug("pktgen: entering pktgen_stop\n");
- >  
- >  	if_lock(t);
- >  
- > @@ -3063,7 +3059,7 @@
- >  	struct list_head *q, *n;
- >  	struct pktgen_dev *cur;
- >  
- > -	PG_DEBUG(printk("pktgen: entering pktgen_rem_one_if\n"));
- > +	pr_debug("pktgen: entering pktgen_rem_one_if\n");
- >  
- >  	if_lock(t);
- >  
- > @@ -3092,7 +3088,7 @@
- >  
- >  	/* Remove all devices, free mem */
- >  
- > -	PG_DEBUG(printk("pktgen: entering pktgen_rem_all_ifs\n"));
- > +	pr_debug("pktgen: entering pktgen_rem_all_ifs\n");
- >  	if_lock(t);
- >  
- >  	list_for_each_safe(q, n, &t->if_list) {
- > @@ -3275,7 +3271,7 @@
- >  
- >  	t->pid = current->pid;
- >  
- > -	PG_DEBUG(printk("pktgen: starting pktgen/%d:  pid=%d\n", cpu, current->pid));
- > +	pr_debug("pktgen: starting pktgen/%d:  pid=%d\n", cpu, current->pid);
- >  
- >  	max_before_softirq = t->max_before_softirq;
- >  
- > @@ -3336,13 +3332,13 @@
- >  		set_current_state(TASK_INTERRUPTIBLE);
- >  	}
- >  
- > -	PG_DEBUG(printk("pktgen: %s stopping all device\n", t->tsk->comm));
- > +	pr_debug("pktgen: %s stopping all device\n", t->tsk->comm);
- >  	pktgen_stop(t);
- >  
- > -	PG_DEBUG(printk("pktgen: %s removing all device\n", t->tsk->comm));
- > +	pr_debug("pktgen: %s removing all device\n", t->tsk->comm);
- >  	pktgen_rem_all_ifs(t);
- >  
- > -	PG_DEBUG(printk("pktgen: %s removing thread.\n", t->tsk->comm));
- > +	pr_debug("pktgen: %s removing thread.\n", t->tsk->comm);
- >  	pktgen_rem_thread(t);
- >  
- >  	return 0;
- > @@ -3361,7 +3357,7 @@
- >  		}
- >  
- >  	if_unlock(t);
- > -	PG_DEBUG(printk("pktgen: find_dev(%s) returning %p\n", ifname, pkt_dev));
- > +	pr_debug("pktgen: find_dev(%s) returning %p\n", ifname, pkt_dev);
- >  	return pkt_dev;
+ > --- pktgen.orig/net/core/pktgen.c	2007-02-26 14:34:36.000000000 -0800
+ > +++ pktgen/net/core/pktgen.c	2007-02-26 14:39:53.000000000 -0800
+ > @@ -464,17 +464,6 @@
+ >  	return tmp;
  >  }
  >  
- > @@ -3530,7 +3526,7 @@
- >  				struct pktgen_dev *pkt_dev)
+ > -static inline u32 pktgen_random(void)
+ > -{
+ > -#if 0
+ > -	__u32 n;
+ > -	get_random_bytes(&n, 4);
+ > -	return n;
+ > -#else
+ > -	return net_random();
+ > -#endif
+ > -}
+ > -
+ >  static inline __u64 getCurMs(void)
  >  {
+ >  	struct timeval tv;
+ > @@ -2091,7 +2080,7 @@
+ >  	int flow = 0;
  >  
- > -	PG_DEBUG(printk("pktgen: remove_device pkt_dev=%p\n", pkt_dev));
- > +	pr_debug("pktgen: remove_device pkt_dev=%p\n", pkt_dev);
+ >  	if (pkt_dev->cflows) {
+ > -		flow = pktgen_random() % pkt_dev->cflows;
+ > +		flow = random32() % pkt_dev->cflows;
  >  
- >  	if (pkt_dev->running) {
- >  		printk("pktgen:WARNING: trying to remove a running interface, stopping it now.\n");
+ >  		if (pkt_dev->flows[flow].count > pkt_dev->lflow)
+ >  			pkt_dev->flows[flow].count = 0;
+ > @@ -2103,7 +2092,7 @@
+ >  		__u32 tmp;
+ >  
+ >  		if (pkt_dev->flags & F_MACSRC_RND)
+ > -			mc = pktgen_random() % (pkt_dev->src_mac_count);
+ > +			mc = random32() % pkt_dev->src_mac_count;
+ >  		else {
+ >  			mc = pkt_dev->cur_src_mac_offset++;
+ >  			if (pkt_dev->cur_src_mac_offset >
+ > @@ -2129,7 +2118,7 @@
+ >  		__u32 tmp;
+ >  
+ >  		if (pkt_dev->flags & F_MACDST_RND)
+ > -			mc = pktgen_random() % (pkt_dev->dst_mac_count);
+ > +			mc = random32() % pkt_dev->dst_mac_count;
+ >  
+ >  		else {
+ >  			mc = pkt_dev->cur_dst_mac_offset++;
+ > @@ -2156,24 +2145,23 @@
+ >  		for(i = 0; i < pkt_dev->nr_labels; i++)
+ >  			if (pkt_dev->labels[i] & MPLS_STACK_BOTTOM)
+ >  				pkt_dev->labels[i] = MPLS_STACK_BOTTOM |
+ > -					     ((__force __be32)pktgen_random() &
+ > +					     ((__force __be32)random32() &
+ >  						      htonl(0x000fffff));
+ >  	}
+ >  
+ >  	if ((pkt_dev->flags & F_VID_RND) && (pkt_dev->vlan_id != 0xffff)) {
+ > -		pkt_dev->vlan_id = pktgen_random() % 4096;
+ > +		pkt_dev->vlan_id = random32() & (4096-1);
+ >  	}
+ >  
+ >  	if ((pkt_dev->flags & F_SVID_RND) && (pkt_dev->svlan_id != 0xffff)) {
+ > -		pkt_dev->svlan_id = pktgen_random() % 4096;
+ > +		pkt_dev->svlan_id = random32() & (4096 - 1);
+ >  	}
+ >  
+ >  	if (pkt_dev->udp_src_min < pkt_dev->udp_src_max) {
+ >  		if (pkt_dev->flags & F_UDPSRC_RND)
+ > -			pkt_dev->cur_udp_src =
+ > -			    ((pktgen_random() %
+ > -			      (pkt_dev->udp_src_max - pkt_dev->udp_src_min)) +
+ > -			     pkt_dev->udp_src_min);
+ > +			pkt_dev->cur_udp_src = random32() %
+ > +				(pkt_dev->udp_src_max - pkt_dev->udp_src_min)
+ > +				+ pkt_dev->udp_src_min;
+ >  
+ >  		else {
+ >  			pkt_dev->cur_udp_src++;
+ > @@ -2184,10 +2172,9 @@
+ >  
+ >  	if (pkt_dev->udp_dst_min < pkt_dev->udp_dst_max) {
+ >  		if (pkt_dev->flags & F_UDPDST_RND) {
+ > -			pkt_dev->cur_udp_dst =
+ > -			    ((pktgen_random() %
+ > -			      (pkt_dev->udp_dst_max - pkt_dev->udp_dst_min)) +
+ > -			     pkt_dev->udp_dst_min);
+ > +			pkt_dev->cur_udp_dst = random32() %
+ > +				(pkt_dev->udp_dst_max - pkt_dev->udp_dst_min)
+ > +				+ pkt_dev->udp_dst_min;
+ >  		} else {
+ >  			pkt_dev->cur_udp_dst++;
+ >  			if (pkt_dev->cur_udp_dst >= pkt_dev->udp_dst_max)
+ > @@ -2202,7 +2189,7 @@
+ >  							       saddr_max))) {
+ >  			__u32 t;
+ >  			if (pkt_dev->flags & F_IPSRC_RND)
+ > -				t = ((pktgen_random() % (imx - imn)) + imn);
+ > +				t = random32() % (imx - imn) + imn;
+ >  			else {
+ >  				t = ntohl(pkt_dev->cur_saddr);
+ >  				t++;
+ > @@ -2223,14 +2210,13 @@
+ >  				__be32 s;
+ >  				if (pkt_dev->flags & F_IPDST_RND) {
+ >  
+ > -					t = pktgen_random() % (imx - imn) + imn;
+ > +					t = random32() % (imx - imn) + imn;
+ >  					s = htonl(t);
+ >  
+ >  					while (LOOPBACK(s) || MULTICAST(s)
+ >  					       || BADCLASS(s) || ZERONET(s)
+ >  					       || LOCAL_MCAST(s)) {
+ > -						t = (pktgen_random() %
+ > -						      (imx - imn)) + imn;
+ > +						t = random32() % (imx - imn) + imn;
+ >  						s = htonl(t);
+ >  					}
+ >  					pkt_dev->cur_daddr = s;
+ > @@ -2262,7 +2248,7 @@
+ >  
+ >  			for (i = 0; i < 4; i++) {
+ >  				pkt_dev->cur_in6_daddr.s6_addr32[i] =
+ > -				    (((__force __be32)pktgen_random() |
+ > +				    (((__force __be32)random32() |
+ >  				      pkt_dev->min_in6_daddr.s6_addr32[i]) &
+ >  				     pkt_dev->max_in6_daddr.s6_addr32[i]);
+ >  			}
+ > @@ -2272,9 +2258,9 @@
+ >  	if (pkt_dev->min_pkt_size < pkt_dev->max_pkt_size) {
+ >  		__u32 t;
+ >  		if (pkt_dev->flags & F_TXSIZE_RND) {
+ > -			t = ((pktgen_random() %
+ > -			      (pkt_dev->max_pkt_size - pkt_dev->min_pkt_size))
+ > -			     + pkt_dev->min_pkt_size);
+ > +			t = random32() %
+ > +				(pkt_dev->max_pkt_size - pkt_dev->min_pkt_size)
+ > +				+ pkt_dev->min_pkt_size;
+ >  		} else {
+ >  			t = pkt_dev->cur_pkt_size + 1;
+ >  			if (t > pkt_dev->max_pkt_size)
  > -
  > To unsubscribe from this list: send the line "unsubscribe netdev" in
  > the body of a message to majordomo@vger.kernel.org
