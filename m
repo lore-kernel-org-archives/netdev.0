@@ -1,28 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/4]: Store retransmit queue packets in RB tree.
-Date: Wed, 28 Feb 2007 12:56:19 -0800 (PST)
-Message-ID: <20070228.125619.74747682.davem@davemloft.net>
-References: <20070228.114912.89063615.davem@davemloft.net>
-	<45E5E72E.6070109@cosmosbay.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH 4/4]: Kill fastpath_{skb,cnt}_hint.
+Date: Wed, 28 Feb 2007 13:08:08 -0800
+Message-ID: <20070228130808.4b7a9ea8@localhost.localdomain>
+References: <20070228.114949.18302561.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: dada1@cosmosbay.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52635
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751540AbXB1U4U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Feb 2007 15:56:20 -0500
-In-Reply-To: <45E5E72E.6070109@cosmosbay.com>
+Received: from smtp.osdl.org ([65.172.181.24]:43863 "EHLO smtp.osdl.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751973AbXB1VK5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Feb 2007 16:10:57 -0500
+In-Reply-To: <20070228.114949.18302561.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Wed, 28 Feb 2007 21:33:50 +0100
+On Wed, 28 Feb 2007 11:49:49 -0800 (PST)
+David Miller <davem@davemloft.net> wrote:
 
-> I am not sure this rb_node placement is optimal. rb lookups want to access 
-> rb_node and end_seq. They should be placed in the same cache line :)
+> 
+> commit 71b270d966cd42e29eabcd39434c4ad4d33aa2be
+> Author: David S. Miller <davem@sunset.davemloft.net>
+> Date:   Tue Feb 27 19:28:07 2007 -0800
+> 
+>     [TCP]: Kill fastpath_{skb,cnt}_hint.
+>     
+>     Now that we have per-skb fack_counts and an interval
+>     search mechanism for the retransmit queue, we don't
+>     need these things any more.
+>     
+>     Instead, as we traverse the SACK blocks to tag the
+>     queue, we use the RB tree to lookup the first SKB
+>     covering the SACK block by sequence number.
+>     
+>     Signed-off-by: David S. Miller <davem@davemloft.net>
 
-Definitely an area for improvement for sure, but that's not
-the are of focus of these changes at this point :-)
+I would be happy to see this go.  Have you tried this code with
+a SACK DoS stream? I.e. before you could consume a huge amount
+of cpu time by giving an certain bad sequence of SACK's. This
+code should have a better worst case run time.
