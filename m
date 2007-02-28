@@ -1,60 +1,35 @@
-From: Jean Tourrilhes <jt@hpl.hp.com>
-Subject: Re: [PATCH 2.6.20] kobject net ifindex + rename
-Date: Wed, 28 Feb 2007 10:51:17 -0800
-Message-ID: <20070228185117.GE6134@bougret.hpl.hp.com>
-References: <20070228012741.GA3988@bougret.hpl.hp.com> <1172654165.3681.31.camel@johannes.berg>
-Reply-To: jt@hpl.hp.com
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: Re: [PATCH] Fix broken RBTX4927 support in ne.c
+Date: Wed, 28 Feb 2007 18:57:28 +0000
+Message-ID: <20070228185728.GA16562@linux-mips.org>
+References: <20070301.012223.129448787.anemo@mba.ocn.ne.jp>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Greg Kroah-Hartman <gregkh@suse.de>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux kernel mailing list <linux-kernel@vger.kernel.org>,
+Cc: linux-mips@linux-mips.org, sshtylyov@ru.mvista.com,
 	netdev@vger.kernel.org
-To: Johannes Berg <johannes@sipsolutions.net>
+To: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from madara.hpl.hp.com ([192.6.19.124]:63705 "EHLO madara.hpl.hp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932290AbXB1Swt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Feb 2007 13:52:49 -0500
+Received: from ftp.linux-mips.org ([194.74.144.162]:37611 "EHLO
+	ftp.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932327AbXB1S5j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Feb 2007 13:57:39 -0500
+Received: from localhost.localdomain ([127.0.0.1]:48049 "EHLO
+	dl5rb.ham-radio-op.net") by ftp.linux-mips.org with ESMTP
+	id S28573698AbXB1S5h (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Feb 2007 18:57:37 +0000
 Content-Disposition: inline
-In-Reply-To: <1172654165.3681.31.camel@johannes.berg>
+In-Reply-To: <20070301.012223.129448787.anemo@mba.ocn.ne.jp>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Feb 28, 2007 at 10:16:05AM +0100, Johannes Berg wrote:
-> Hi,
-> 
-> > 	Patch for 2.6.20 is attached.
-> 
-> ... and in the meantime netdevices aren't class_device any more :) IOW,
-> your patch isn't going to work any more.
+On Thu, Mar 01, 2007 at 01:22:23AM +0900, Atsushi Nemoto wrote:
 
-	That's why I always specify the kernel version. I'll look into
-that, I'm sure it's not the end of the world ;-)
+> There are some ifdefs for RBTX4927, but need some more bits.
 
-> Also, I think wireless could benefit from this as well.
+Acked-by: Ralf Baechle <ralf@linux-mips.org>
 
-	In which sense ? Wireless interface are regular netdevices.
+Longer term I think NE2000 will need to support platform_devices.  It's
+been used too widely in too creative ways and we don't want all the
+clutter to deal with that in ne.c.
 
-> >         The kobject framework is well designed, so adding these
-> > features is trivial change and won't run the risk of breaking anything
-> > (famous last words). Obviously, hotplug apps are free to ignore those
-> > additional features.
-> 
-> Why not just add this to base kobject_rename instead? That way,
-> userspace is notified for all renames in sysfs.
-> The patch then collapses down to the change in net's sysfs code to add
-> the ifindex to the environment, and another change in kobject to invoke
-> a new event when a name changes and show the old name.
-
-	I'm just trying to follow the established pattern. Both
-class_device_add() and class_device_del() are generating the
-event. Also, I'm not sure if other subsystem would benefit from it, I
-don't want to generate too many useless events.
-
-> johannes
-
-	Thanks !
-
-	Jean
-
+  Ralf
