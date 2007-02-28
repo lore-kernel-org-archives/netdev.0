@@ -1,39 +1,73 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: [PATCH 1/2] RTNL and flush_scheduled_work deadlocks
-Date: Mon, 19 Feb 2007 08:40:47 +0100
-Message-ID: <20070219074046.GB1900@ff.dom.local>
-References: <20070216072928.GA1599@ff.dom.local> <45D55FF0.8090309@candelatech.com> <20070216103115.517f1a4c@freekitty> <45D60022.9060701@candelatech.com> <20070219061300.GA1640@ff.dom.local> <45D94347.8060405@candelatech.com> <20070219071159.GB1686@ff.dom.local>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: need some help on a backport of r8169
+Date: Thu, 1 Mar 2007 00:08:07 +0100
+Message-ID: <20070228230807.GB23772@electric-eye.fr.zoreil.com>
+References: <20070226170941.GA17587@venus.synerway.com> <20070226234831.GA12830@electric-eye.fr.zoreil.com> <20070227110243.GA15657@venus.synerway.com> <20070227212400.GA12760@electric-eye.fr.zoreil.com> <20070228160133.GA8014@venus.synerway.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org,
-	Kyle Lucke <klucke@us.ibm.com>,
-	Raghavendra Koushik <raghavendra.koushik@neterion.com>,
-	Al Viro <viro@ftp.linux.org.uk>
-To: Ben Greear <greearb@candelatech.com>
+Cc: netdev@vger.kernel.org
+To: pgs@synerway.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.go2.pl ([193.17.41.42]:40213 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750719AbXBSHhY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 19 Feb 2007 02:37:24 -0500
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:52826 "EHLO
+	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751723AbXB1XLB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Feb 2007 18:11:01 -0500
 Content-Disposition: inline
-In-Reply-To: <20070219071159.GB1686@ff.dom.local>
+In-Reply-To: <20070228160133.GA8014@venus.synerway.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 19, 2007 at 08:11:59AM +0100, Jarek Poplawski wrote:
-> On Sun, Feb 18, 2007 at 10:27:19PM -0800, Ben Greear wrote:
-..
-> > You are also changing the semantics of ASSERT_RTNL (assert *this thread* 
-> > has rtnl, from the
-> > old behaviour:  assert *some thread* has rtnl).  It may be better this
-> > way, but it could break code that assumes the old behaviour.
+pgs@synerway.com <pgs@synerway.com> :
+[...]
+> The result is as follows :
+> I boot my new kernel : the r8169 driver is automatically loaded and
+> find the network card and gives me an eth0.
+> I do a ifconfig, eth0 is up, with an IP and RX and TX are not 0.
 
-If any code could assume the old behaviour it's simply
-a bug (eg. doing ASSERT_RTNL two times one after
-another could give different results). And it's
-logically wrong to: the same process is trying to
-acquire the same lock second time (pseudo recursively:
-it makes difficult lock verifying eg. by lockdep). 
+Interesting.
 
-Jarek P.
+> The problem comes here, I do a ping and it seems to have just the time
+> to make the DNS resolution but not further. When I do a new ifconfig,
+> the TX dropped is not 0 anymore. Then I can turn up and down my
+> interface, I won't be able to ping anything.
+
+Ok, almost perfect for a first try. :o)
+
+If you can issue 'ifconfig' and do an ethtool dump of the registers at
+the interesting points in time, it could surely help.
+
+[...]
+> Ah... poor me who thought that the RTL8168 was just like the RTL8169 with
+> a pci express interface... It seems that a PCI-Express RTL8169 also
+> exist right?
+
+Remind me to check it later.
+
+[...]
+> Do you think my problem is the one you mentionned above, without the
+> experimental patches?
+
+It is possible. I should review the diffs too.
+
+Once you have logged the ifconfig/ethtool dump, you can try the serie
+or the patch at:
+
+http://www.fr.zoreil.com/people/francois/backport/r8169/20070228-00
+
+Btw:
+
+[...dmesg dump...]
+> Enabling fast FPU save and restore... done.
+> Enabling unmasked SIMD FPU exception support... done.
+> Checking 'hlt' instruction... OK.
+> ACPI: setting ELCR to 0200 (from 0c08)
+> NET: Registered protocol family 16
+> PCI: PCI BIOS revision 3.00 entry at 0xf0031, last bus=2
+> PCI: Using MMCONFIG
+
+Please disable MMCONFIG.
+
+If you have any PCI latency option in your bios, set it to 64.
+
+-- 
+Ueimor
