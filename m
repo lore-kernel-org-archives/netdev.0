@@ -1,59 +1,82 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH 2/4]: Store retransmit queue packets in RB tree.
-Date: Wed, 28 Feb 2007 21:33:50 +0100
-Message-ID: <45E5E72E.6070109@cosmosbay.com>
-References: <20070228.114912.89063615.davem@davemloft.net>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [PATCH] NetLabel: Verify sensitivity level has a valid CIPSO
+ mapping
+Date: Wed, 28 Feb 2007 15:45:07 -0500 (EST)
+Message-ID: <Line.LNX.4.64.0702281544350.9150@d.namei>
+References: <20070228200140.491071752@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: Paul Moore <paul.moore@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([86.65.150.130]:36725 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751911AbXB1UeI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Feb 2007 15:34:08 -0500
-In-Reply-To: <20070228.114912.89063615.davem@davemloft.net>
+Received: from mail8.sea5.speakeasy.net ([69.17.117.10]:51564 "EHLO
+	mail8.sea5.speakeasy.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932229AbXB1UpM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Feb 2007 15:45:12 -0500
+In-Reply-To: <20070228200140.491071752@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller a =E9crit :
-> commit c387760826bd71103220e06ca7b0bf90a785567e
-> Author: David S. Miller <davem@sunset.davemloft.net>
-> Date:   Tue Feb 27 16:44:42 2007 -0800
->=20
->     [TCP]: Store retransmit queue packets in RB tree.
->    =20
->     Signed-off-by: David S. Miller <davem@davemloft.net>
->=20
-> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-> index 4ff3940..b70fd21 100644
-> --- a/include/linux/skbuff.h
-> +++ b/include/linux/skbuff.h
-> @@ -18,6 +18,7 @@
->  #include <linux/compiler.h>
->  #include <linux/time.h>
->  #include <linux/cache.h>
-> +#include <linux/rbtree.h>
-> =20
->  #include <asm/atomic.h>
->  #include <asm/types.h>
-> @@ -232,6 +233,8 @@ struct sk_buff {
->  	struct sk_buff		*next;
->  	struct sk_buff		*prev;
-> =20
-> +	struct rb_node		rb;
-> +
->  	struct sock		*sk;
->  	struct skb_timeval	tstamp;
->  	struct net_device	*dev;
+On Wed, 28 Feb 2007, Paul Moore wrote:
+
+> The current CIPSO engine has a problem where it does not verify that the given
+> sensitivity level has a valid CIPSO mapping when the "std" CIPSO DOI type is
+> used.  The end result is that bad packets are sent on the wire which should
+> have never been sent in the first place.  This patch corrects this problem by
+> verifying the sensitivity level mapping similar to what is done with the
+> category mapping.  This patch also changes the returned error code in this case
+> to -EPERM to better match what the category mapping verification code returns.
+> 
+> Signed-off-by: Paul Moore <paul.moore@hp.com>
+
+[removed redhat-lspp, which is subscriber only]
+
+Acked-by: James Morris <jmorris@namei.org>
 
 
-I am not sure this rb_node placement is optimal. rb lookups want to acc=
-ess=20
-rb_node and end_seq. They should be placed in the same cache line :)
+> ---
+>  net/ipv4/cipso_ipv4.c |    7 ++++---
+>  1 file changed, 4 insertions(+), 3 deletions(-)
+> 
+> Index: net-2.6_bugfix/net/ipv4/cipso_ipv4.c
+> ===================================================================
+> --- net-2.6_bugfix.orig/net/ipv4/cipso_ipv4.c
+> +++ net-2.6_bugfix/net/ipv4/cipso_ipv4.c
+> @@ -732,11 +732,12 @@ static int cipso_v4_map_lvl_hton(const s
+>  		*net_lvl = host_lvl;
+>  		return 0;
+>  	case CIPSO_V4_MAP_STD:
+> -		if (host_lvl < doi_def->map.std->lvl.local_size) {
+> +		if (host_lvl < doi_def->map.std->lvl.local_size &&
+> +		    doi_def->map.std->lvl.local[host_lvl] < CIPSO_V4_INV_LVL) {
+>  			*net_lvl = doi_def->map.std->lvl.local[host_lvl];
+>  			return 0;
+>  		}
+> -		break;
+> +		return -EPERM;
+>  	}
+>  
+>  	return -EINVAL;
+> @@ -771,7 +772,7 @@ static int cipso_v4_map_lvl_ntoh(const s
+>  			*host_lvl = doi_def->map.std->lvl.cipso[net_lvl];
+>  			return 0;
+>  		}
+> -		break;
+> +		return -EPERM;
+>  	}
+>  
+>  	return -EINVAL;
+> 
+> --
+> paul moore
+> linux security @ hp
+> 
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
 
-next/prev were at the begining of sk_buff, there is no such constraint =
-for rb
-
+-- 
+James Morris
+<jmorris@namei.org>
