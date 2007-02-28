@@ -1,46 +1,51 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: CLOCK_MONOTONIC datagram timestamps by the kernel
-Date: Wed, 28 Feb 2007 10:22:31 -0800
-Message-ID: <20070228102231.05461589@localhost>
-References: <45E5570E.7050301@free.fr>
-	<45E585AD.8050704@free.fr>
+From: Jean Tourrilhes <jt@hpl.hp.com>
+Subject: Re: [PATCH 2.6.20] kobject net ifindex + rename
+Date: Wed, 28 Feb 2007 10:43:14 -0800
+Message-ID: <20070228184314.GC6134@bougret.hpl.hp.com>
+References: <20070228012741.GA3988@bougret.hpl.hp.com> <20070228153617.GA5670@suse.de>
+Reply-To: jt@hpl.hp.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-net@vger.kernel.org, netdev@vger.kernel.org,
-	linux.kernel@free.fr
-To: John <linux.kernel@free.fr>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux kernel mailing list <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Greg KH <gregkh@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:37829 "EHLO smtp.osdl.org"
+Received: from madara.hpl.hp.com ([192.6.19.124]:63109 "EHLO madara.hpl.hp.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932203AbXB1SWe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Feb 2007 13:22:34 -0500
-In-Reply-To: <45E585AD.8050704@free.fr>
+	id S932227AbXB1Sn3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Feb 2007 13:43:29 -0500
+Content-Disposition: inline
+In-Reply-To: <20070228153617.GA5670@suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 28 Feb 2007 14:37:49 +0100
-John <linux.kernel@free.fr> wrote:
-
-> John wrote:
+On Wed, Feb 28, 2007 at 07:36:17AM -0800, Greg KH wrote:
+> On Tue, Feb 27, 2007 at 05:27:41PM -0800, Jean Tourrilhes wrote:
+> > diff -u -p linux/drivers/base/class.j1.c linux/drivers/base/class.c
+> > --- linux/drivers/base/class.j1.c	2007-02-26 18:38:10.000000000 -0800
+> > +++ linux/drivers/base/class.c	2007-02-27 15:52:37.000000000 -0800
+> > @@ -841,6 +841,8 @@ int class_device_rename(struct class_dev
 > 
-> > I know it's possible to have Linux timestamp incoming datagrams as soon
-> > as they are received, then for one to retrieve this timestamp later with
-> > an ioctl command or a recvmsg call.
+> This function is not in the 2.6.21-rc2 kernel, so you might want to
+> rework this patch a bit :)
+
+	It was a trial balloon to gather feedback. I will do.
+
+> Also, it's userspace that causes the rename to happen, so it knows it
+> did it, why should the kernel have to emit a message to tell userspace
+> again what just happened?
+
+	Username is not one big program, but a collection of program,
+and one program does not know what another program do.
+	In particular, udev does not know when people are using
+iproute2 to rename interface and loose its marbles. We don't really
+want to ban iproute2 or udev ;-)
+
+> thanks,
 > 
-> Has it ever been proposed to modify struct skb_timeval to hold 
-> nanosecond stamps instead of just microsecond stamps? Then make the 
-> improved precision somehow available to user space.
-> 
+> greg k-h
 
-I am playing with a couple of possible future changes.
-1. Change skb timestamp to be a timespec instead of timeval, for ABI
-   compatiablity the existing SO_TIMESTAMP has to stay microseconds,
-   but add a new SO_TIMESPEC to get the nanosecond version.
+	Have fun...
 
-   The change gets non trivial because of other uses of timestamp (like vegas)
-   so I gave up for now.
-
-2. Use hardware receive timestamp in Yukon2 to put actual receive time
-   into skb timestamp.  Works, but still figuring out how to manage
-   clock skew/resync.
+	Jean
