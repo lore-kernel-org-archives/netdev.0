@@ -1,53 +1,136 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [NET]: Handle disabled preemption in gfp_any()
-Date: Tue, 27 Feb 2007 17:25:11 -0800
-Message-ID: <20070228012510.GD1919@linux.vnet.ibm.com>
-References: <45E46EE3.9040802@trash.net> <20070227.095657.106265863.davem@davemloft.net>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Jean Tourrilhes <jt@hpl.hp.com>
+Subject: [PATCH 2.6.20] kobject net ifindex + rename
+Date: Tue, 27 Feb 2007 17:27:41 -0800
+Message-ID: <20070228012741.GA3988@bougret.hpl.hp.com>
+Reply-To: jt@hpl.hp.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: kaber@trash.net, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: Greg Kroah-Hartman <gregkh@suse.de>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linux kernel mailing list <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e36.co.us.ibm.com ([32.97.110.154]:49109 "EHLO
-	e36.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751624AbXB1BZR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Feb 2007 20:25:17 -0500
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e36.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id l1S1PFst013538
-	for <netdev@vger.kernel.org>; Tue, 27 Feb 2007 20:25:15 -0500
-Received: from d03av04.boulder.ibm.com (d03av04.boulder.ibm.com [9.17.195.170])
-	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v8.2) with ESMTP id l1S1PFda498238
-	for <netdev@vger.kernel.org>; Tue, 27 Feb 2007 18:25:15 -0700
-Received: from d03av04.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av04.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l1S1PEZv025835
-	for <netdev@vger.kernel.org>; Tue, 27 Feb 2007 18:25:14 -0700
+Received: from madara.hpl.hp.com ([192.6.19.124]:63379 "EHLO madara.hpl.hp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750883AbXB1Bob (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Feb 2007 20:44:31 -0500
 Content-Disposition: inline
-In-Reply-To: <20070227.095657.106265863.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Feb 27, 2007 at 09:56:57AM -0800, David Miller wrote:
-> From: Patrick McHardy <kaber@trash.net>
-> Date: Tue, 27 Feb 2007 18:48:19 +0100
-> 
-> > [NET]: Handle disabled preemption in gfp_any()
-> > 
-> > ctnetlink uses netlink_unicast from an atomic_notifier_chain
-> > (which is called within a RCU read side critical section)
-> > without holding further locks. netlink_unicast calls netlink_trim
-> > with the result of gfp_any() for the gfp flags, which are passed
-> > down to pskb_expand_header. gfp_any() only checks for softirq
-> > context and returns GFP_KERNEL, resulting in this warning:
-> > 
-> > BUG: sleeping function called from invalid context at mm/slab.c:3032
-> > in_atomic():1, irqs_disabled():0
-> > no locks held by rmmod/7010.
-> 
-> Applied, good catch Patrick.
+	Hi all,
 
-Breaks -rt, but I will submit a patch to Ingo to that will make this
-fix work in the -rt context.  I nevertheless agree that this is a good
-catch!!!
+	Various hotplug packages have had trouble dealing with network
+interface being renamed. I've decided to tackle this issue from two
+angles :
+		o export ifindex to those apps, as ifindex is persistent.
+		o expose interface renaming as a hotplug event.
+	Those two changes are complementary, even an application that
+would track interface by ifindex would sometime needs to know about
+ifname change. My assumption is that most apps would still use ifname
+for a long while to be backward compatible with older kernels.
 
-						Thanx, Paul
+	The kobject framework is well designed, so adding these
+features is trivial change and won't run the risk of breaking anything
+(famous last words). Obviously, hotplug apps are free to ignore those
+additional features.
+	Patch for 2.6.20 is attached. The patch was tested on a system
+running the hotplug scripts, and on another system running udev.
+
+	Have fun...
+
+	Jean
+
+Signed-off-by: Jean Tourrilhes <jt@hpl.hp.com>
+
+---------------------------------------------------------
+
+diff -u -p linux/include/linux/kobject.j1.h linux/include/linux/kobject.h
+--- linux/include/linux/kobject.j1.h	2007-02-26 18:37:55.000000000 -0800
++++ linux/include/linux/kobject.h	2007-02-26 18:38:42.000000000 -0800
+@@ -48,6 +48,7 @@ enum kobject_action {
+ 	KOBJ_OFFLINE	= (__force kobject_action_t) 0x06,	/* device offline */
+ 	KOBJ_ONLINE	= (__force kobject_action_t) 0x07,	/* device online */
+ 	KOBJ_MOVE	= (__force kobject_action_t) 0x08,	/* device move */
++	KOBJ_RENAME	= (__force kobject_action_t) 0x09,	/* device renamed */
+ };
+ 
+ struct kobject {
+diff -u -p linux/net/core/net-sysfs.j1.c linux/net/core/net-sysfs.c
+--- linux/net/core/net-sysfs.j1.c	2007-02-27 15:01:08.000000000 -0800
++++ linux/net/core/net-sysfs.c	2007-02-27 15:06:49.000000000 -0800
+@@ -412,6 +412,17 @@ static int netdev_uevent(struct class_de
+ 	if ((size <= 0) || (i >= num_envp))
+ 		return -ENOMEM;
+ 
++	/* pass ifindex to uevent.
++	 * ifindex is useful as it won't change (interface name may change)
++	 * and is what RtNetlink uses natively. */
++	envp[i++] = buf;
++	n = snprintf(buf, size, "IFINDEX=%d", dev->ifindex) + 1;
++	buf += n;
++	size -= n;
++
++	if ((size <= 0) || (i >= num_envp))
++		return -ENOMEM;
++
+ 	envp[i] = NULL;
+ 	return 0;
+ }
+diff -u -p linux/lib/kobject_uevent.j1.c linux/lib/kobject_uevent.c
+--- linux/lib/kobject_uevent.j1.c	2007-02-26 18:38:02.000000000 -0800
++++ linux/lib/kobject_uevent.c	2007-02-26 18:38:42.000000000 -0800
+@@ -52,6 +52,8 @@ static char *action_to_string(enum kobje
+ 		return "online";
+ 	case KOBJ_MOVE:
+ 		return "move";
++	case KOBJ_RENAME:
++		return "rename";
+ 	default:
+ 		return NULL;
+ 	}
+diff -u -p linux/drivers/base/class.j1.c linux/drivers/base/class.c
+--- linux/drivers/base/class.j1.c	2007-02-26 18:38:10.000000000 -0800
++++ linux/drivers/base/class.c	2007-02-27 15:52:37.000000000 -0800
+@@ -841,6 +841,8 @@ int class_device_rename(struct class_dev
+ {
+ 	int error = 0;
+ 	char *old_class_name = NULL, *new_class_name = NULL;
++	char *devname_string = NULL;
++	char *envp[2];
+ 
+ 	class_dev = class_device_get(class_dev);
+ 	if (!class_dev)
+@@ -849,6 +851,15 @@ int class_device_rename(struct class_dev
+ 	pr_debug("CLASS: renaming '%s' to '%s'\n", class_dev->class_id,
+ 		 new_name);
+ 
++	devname_string = kmalloc(strlen(class_dev->class_id) + 15, GFP_KERNEL);
++	if (!devname_string) {
++		class_device_put(class_dev);
++		return -ENOMEM;
++	}
++	sprintf(devname_string, "INTERFACE_OLD=%s", class_dev->class_id);
++	envp[0] = devname_string;
++	envp[1] = NULL;
++
+ #ifdef CONFIG_SYSFS_DEPRECATED
+ 	if (class_dev->dev)
+ 		old_class_name = make_class_name(class_dev->class->name,
+@@ -868,8 +879,16 @@ int class_device_rename(struct class_dev
+ 		sysfs_remove_link(&class_dev->dev->kobj, old_class_name);
+ 	}
+ #endif
++
++	/* This function is only used for network interface.
++	 * Some hotplug package track interfaces by their name and
++	 * therefore want to know when the name is changed by the user. */
++	if(!error)
++		kobject_uevent_env(&class_dev->kobj, KOBJ_RENAME, envp);
++
+ 	class_device_put(class_dev);
+ 
++	kfree(devname_string);
+ 	kfree(old_class_name);
+ 	kfree(new_class_name);
+ 
