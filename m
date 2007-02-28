@@ -1,71 +1,48 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: PATCH:  Second try at vlan mailing list patch.
-Date: Wed, 28 Feb 2007 15:25:59 -0800
-Message-ID: <45E60F87.3070708@candelatech.com>
+From: "Dale Farnsworth" <dale@farnsworth.org>
+Subject: Re: [PATCH 1/2] mv643xx_eth: move mac_addr inside of mv643xx_eth_platform_data
+Date: Wed, 28 Feb 2007 16:40:23 -0700
+Message-ID: <20070228234023.GA15081@xyzzy.farnsworth.org>
+References: <20070228224031.GA8233@xyzzy.farnsworth.org> <20070228151103.0c5a320d@freekitty>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------000206030400020006010602"
-Cc: "David S. Miller" <davem@davemloft.net>
-To: NetDev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:47746 "EHLO ns2.lanforge.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752241AbXB1X0Z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Feb 2007 18:26:25 -0500
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jgarzik@pobox.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-mips@linux-mips.org,
+	Ralf Baechle <ralf@linux-mips.org>
+To: Stephen Hemminger <shemminger@linux-foundation.org>
+Return-path: <linux-mips-bounce@linux-mips.org>
+Content-Disposition: inline
+In-Reply-To: <20070228151103.0c5a320d@freekitty>
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------000206030400020006010602
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+On Wed, Feb 28, 2007 at 03:11:03PM -0800, Stephen Hemminger wrote:
+> On Wed, 28 Feb 2007 15:40:31 -0700
+> "Dale Farnsworth" <dale@farnsworth.org> wrote:
+> 
+> > The information contained within platform_data should be self-contained.
+> > Replace the pointer to a MAC address with the actual MAC address in
+> > struct mv643xx_eth_platform_data.
+> > 
+> > Signed-off-by: Dale Farnsworth <dale@farnsworth.org>
+> > 
+> > Index: b/drivers/net/mv643xx_eth.c
+> > ===================================================================
+> > --- a/drivers/net/mv643xx_eth.c
+> > +++ b/drivers/net/mv643xx_eth.c
+> > @@ -1380,7 +1380,9 @@ static int mv643xx_eth_probe(struct plat
+> >  
+> >  	pd = pdev->dev.platform_data;
+> >  	if (pd) {
+> > -		if (pd->mac_addr)
+> > +		static u8 zero_mac_addr[6] = { 0 };
+> > +
+> > +		if (memcmp(pd->mac_addr, zero_mac_addr, 6) != 0)
+> >  			memcpy(dev->dev_addr, pd->mac_addr, 6);
+> 
+> 
+> is_zero_ether_addr() is faster/cleaner for this
 
-Hopefully, by attaching it as a file it will not screw up the tabs & spaces.
+Thanks.  I follow up with a modified patch in a day or two.
 
-Signed-off-by:  Ben Greear <greearb@candelatech.com>
-
-Thanks,
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
-
-
---------------000206030400020006010602
-Content-Type: text/x-patch;
- name="vlan_ml.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="vlan_ml.patch"
-
-diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
-index 18fcb9f..c4209c8 100644
---- a/net/8021q/vlan.c
-+++ b/net/8021q/vlan.c
-@@ -3,7 +3,8 @@
-  *		Ethernet-type device handling.
-  *
-  * Authors:	Ben Greear <greearb@candelatech.com>
-- *              Please send support related email to: vlan@scry.wanfear.com
-+ *              Please send support related email to: vlan@candelatech.com
-+ *                after subscribing using the link below.
-  *              VLAN Home Page: http://www.candelatech.com/~greear/vlan.html
-  * 
-  * Fixes:
-diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-index e49e252..203cd54 100644
---- a/net/8021q/vlan_dev.c
-+++ b/net/8021q/vlan_dev.c
-@@ -3,7 +3,8 @@
-  *		Ethernet-type device handling.
-  *
-  * Authors:	Ben Greear <greearb@candelatech.com>
-- *              Please send support related email to: vlan@scry.wanfear.com
-+ *              Please send support related email to: vlan@candelatech.com
-+ *                after subscribing using the web page below.
-  *              VLAN Home Page: http://www.candelatech.com/~greear/vlan.html
-  * 
-  * Fixes:       Mar 22 2001: Martin Bokaemper <mbokaemper@unispherenetworks.com>
-
---------------000206030400020006010602--
+-Dale
