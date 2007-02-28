@@ -1,73 +1,50 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: need some help on a backport of r8169
-Date: Thu, 1 Mar 2007 00:08:07 +0100
-Message-ID: <20070228230807.GB23772@electric-eye.fr.zoreil.com>
-References: <20070226170941.GA17587@venus.synerway.com> <20070226234831.GA12830@electric-eye.fr.zoreil.com> <20070227110243.GA15657@venus.synerway.com> <20070227212400.GA12760@electric-eye.fr.zoreil.com> <20070228160133.GA8014@venus.synerway.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH 1/2] mv643xx_eth: move mac_addr inside of
+ mv643xx_eth_platform_data
+Date: Wed, 28 Feb 2007 15:11:03 -0800
+Message-ID: <20070228151103.0c5a320d@freekitty>
+References: <20070228224031.GA8233@xyzzy.farnsworth.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: pgs@synerway.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jgarzik@pobox.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-mips@linux-mips.org,
+	Ralf Baechle <ralf@linux-mips.org>
+To: "Dale Farnsworth" <dale@farnsworth.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:52826 "EHLO
-	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751723AbXB1XLB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Feb 2007 18:11:01 -0500
-Content-Disposition: inline
-In-Reply-To: <20070228160133.GA8014@venus.synerway.com>
+Received: from smtp.osdl.org ([65.172.181.24]:47274 "EHLO smtp.osdl.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752209AbXB1XRk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Feb 2007 18:17:40 -0500
+In-Reply-To: <20070228224031.GA8233@xyzzy.farnsworth.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-pgs@synerway.com <pgs@synerway.com> :
-[...]
-> The result is as follows :
-> I boot my new kernel : the r8169 driver is automatically loaded and
-> find the network card and gives me an eth0.
-> I do a ifconfig, eth0 is up, with an IP and RX and TX are not 0.
+On Wed, 28 Feb 2007 15:40:31 -0700
+"Dale Farnsworth" <dale@farnsworth.org> wrote:
 
-Interesting.
+> The information contained within platform_data should be self-contained.
+> Replace the pointer to a MAC address with the actual MAC address in
+> struct mv643xx_eth_platform_data.
+> 
+> Signed-off-by: Dale Farnsworth <dale@farnsworth.org>
+> 
+> Index: b/drivers/net/mv643xx_eth.c
+> ===================================================================
+> --- a/drivers/net/mv643xx_eth.c
+> +++ b/drivers/net/mv643xx_eth.c
+> @@ -1380,7 +1380,9 @@ static int mv643xx_eth_probe(struct plat
+>  
+>  	pd = pdev->dev.platform_data;
+>  	if (pd) {
+> -		if (pd->mac_addr)
+> +		static u8 zero_mac_addr[6] = { 0 };
+> +
+> +		if (memcmp(pd->mac_addr, zero_mac_addr, 6) != 0)
+>  			memcpy(dev->dev_addr, pd->mac_addr, 6);
 
-> The problem comes here, I do a ping and it seems to have just the time
-> to make the DNS resolution but not further. When I do a new ifconfig,
-> the TX dropped is not 0 anymore. Then I can turn up and down my
-> interface, I won't be able to ping anything.
 
-Ok, almost perfect for a first try. :o)
-
-If you can issue 'ifconfig' and do an ethtool dump of the registers at
-the interesting points in time, it could surely help.
-
-[...]
-> Ah... poor me who thought that the RTL8168 was just like the RTL8169 with
-> a pci express interface... It seems that a PCI-Express RTL8169 also
-> exist right?
-
-Remind me to check it later.
-
-[...]
-> Do you think my problem is the one you mentionned above, without the
-> experimental patches?
-
-It is possible. I should review the diffs too.
-
-Once you have logged the ifconfig/ethtool dump, you can try the serie
-or the patch at:
-
-http://www.fr.zoreil.com/people/francois/backport/r8169/20070228-00
-
-Btw:
-
-[...dmesg dump...]
-> Enabling fast FPU save and restore... done.
-> Enabling unmasked SIMD FPU exception support... done.
-> Checking 'hlt' instruction... OK.
-> ACPI: setting ELCR to 0200 (from 0c08)
-> NET: Registered protocol family 16
-> PCI: PCI BIOS revision 3.00 entry at 0xf0031, last bus=2
-> PCI: Using MMCONFIG
-
-Please disable MMCONFIG.
-
-If you have any PCI latency option in your bios, set it to 64.
+is_zero_ether_addr() is faster/cleaner for this
 
 -- 
-Ueimor
+Stephen Hemminger <shemminger@linux-foundation.org>
