@@ -1,41 +1,41 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: [PATCH 2.6.20] kobject net ifindex + rename
-Date: Wed, 28 Feb 2007 10:52:35 +0100
-Message-ID: <20070228095234.GB1847@ff.dom.local>
-References: <20070228012741.GA3988@bougret.hpl.hp.com> <20070228093437.GA1847@ff.dom.local>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: Run-time kfree check for correct cache [was Re: [NET]: Fix kfree(skb)]
+Date: Wed, 28 Feb 2007 11:10:54 +0100
+Message-ID: <200702281110.54619.dada1@cosmosbay.com>
+References: <20070227.100052.59655152.davem@davemloft.net> <20070227.102452.102574618.davem@davemloft.net> <20070228090258.GA28336@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Greg Kroah-Hartman <gregkh@suse.de>,
-	"David S\. Miller" <davem@davemloft.net>,
-	Linux kernel mailing list <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: jt@hpl.hp.com
+Content-Type: text/plain;
+  charset="koi8-r"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, paul.moore@hp.com,
+	kaber@trash.net, netdev@vger.kernel.org, acme@ghostprotocols.net
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx10.go2.pl ([193.17.41.74]:53462 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932107AbXB1Js4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Feb 2007 04:48:56 -0500
+Received: from pfx2.jmh.fr ([194.153.89.55]:38984 "EHLO pfx2.jmh.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932124AbXB1KLG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Feb 2007 05:11:06 -0500
+In-Reply-To: <20070228090258.GA28336@2ka.mipt.ru>
 Content-Disposition: inline
-In-Reply-To: <20070228093437.GA1847@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Feb 28, 2007 at 10:34:37AM +0100, Jarek Poplawski wrote:
-> On 28-02-2007 02:27, Jean Tourrilhes wrote:
-...
-> > +	/* This function is only used for network interface.
-> > +	 * Some hotplug package track interfaces by their name and
-> > +	 * therefore want to know when the name is changed by the user. */
-> > +	if(!error)
-> > +		kobject_uevent_env(&class_dev->kobj, KOBJ_RENAME, envp);
-> > +
-> >  	class_device_put(class_dev);
-> >  
-> > +	kfree(devname_string);
-> 
-> Maybe I miss something, but it seems kobject_uevent_env copies
-> pointers from envp instead of buffers' contents.
+On Wednesday 28 February 2007 10:02, Evgeniy Polyakov wrote:
+> Attached patch detects in run-time things like:
+> skb = alloc_skb();
+> kfree(skb);
+>
+> where provided to kfree pointer does not belong to kmalloc caches.
+> It is turned on when slab debug config option is enabled.
+>
+> When problem is detected, following warning is printed with hint to
+> what cache/function should be used instead:
 
-And it's enough - sorry.
+It would be less expensive to add a flag 
+#define SLAB_KFREE_NOWARNING 0x00200000UL
 
-Jarek P.
+And OR this flags into cs->flags of all standard caches created by 
+kmem_cache_init() from malloc_sizes[]/cache_names[]
+
+kfree() would then just test this flag.
+
