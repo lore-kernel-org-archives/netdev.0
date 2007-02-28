@@ -1,291 +1,171 @@
 From: Linsys Contractor Mithlesh Thukral <mithlesh@netxen.com>
-Subject: [PATCH 1/3]: Updates, removal of unsupported features and minor bug fixes.
-Date: Wed, 28 Feb 2007 05:14:07 -0800
-Message-ID: <200702281314.l1SDE7Et004331@dut39.unminc.com>
+Subject: [PATCH 2/3]: Fix second rmmod failure observed on PowerPC machines.
+Date: Wed, 28 Feb 2007 05:16:40 -0800
+Message-ID: <200702281316.l1SDGevb004381@dut39.unminc.com>
 Cc: jeff@garzik.org, mithlesh@netxen.com, netxenproj@linsyssoft.com,
 	rob@netxen.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 66-126-254-34.unm.net ([66.126.254.34]:24806 "EHLO
+Received: from 66-126-254-34.unm.net ([66.126.254.34]:15810 "EHLO
 	nxmail.netxen.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932263AbXB1NOI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Feb 2007 08:14:08 -0500
+	with ESMTP id S932273AbXB1NQk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Feb 2007 08:16:40 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-NetXen: Updates, removal of unsupported features and minor bug fixes.
+NetXen: Fix second rmmod failure observed on PowerPC machines.
 
-Signed-off-by: Mithlesh Thukral <mithlesh@netxen.com>
+Signed-off by: Mithlesh Thukral <mithlesh@netxen.com>
 
 ---
- netxen_nic.h          |    4 +
- netxen_nic_ethtool.c  |  144 +++++++++-----------------------------------------
- netxen_nic_main.c     |    4 -
- netxen_nic_phan_reg.h |    3 +
- 4 files changed, 34 insertions(+), 121 deletions(-)
 
-diff --git a/drivers/net/netxen/netxen_nic.h b/drivers/net/netxen/netxen_nic.h
-index 2807ef4..81742e4 100644
---- a/drivers/net/netxen/netxen_nic.h
-+++ b/drivers/net/netxen/netxen_nic.h
-@@ -72,6 +72,8 @@ #define NUM_FLASH_SECTORS (64)
- #define FLASH_SECTOR_SIZE (64 * 1024)
- #define FLASH_TOTAL_SIZE  (NUM_FLASH_SECTORS * FLASH_SECTOR_SIZE)
+ netxen_nic_hw.c   |    5 +++--
+ netxen_nic_init.c |   23 +++++++++++++----------
+ netxen_nic_main.c |    9 ++++-----
+ 3 files changed, 20 insertions(+), 17 deletions(-)
+
+diff --git a/drivers/net/netxen/netxen_nic_hw.c b/drivers/net/netxen/netxen_nic_hw.c
+index deec796..a2877f3 100644
+--- a/drivers/net/netxen/netxen_nic_hw.c
++++ b/drivers/net/netxen/netxen_nic_hw.c
+@@ -508,8 +508,8 @@ void netxen_nic_pci_change_crbwindow(str
+ void netxen_load_firmware(struct netxen_adapter *adapter)
+ {
+ 	int i;
+-	long data, size = 0;
+-	long flashaddr = NETXEN_FLASH_BASE, memaddr = NETXEN_PHANTOM_MEM_BASE;
++	u32 data, size = 0;
++	u32 flashaddr = NETXEN_FLASH_BASE, memaddr = NETXEN_PHANTOM_MEM_BASE;
+ 	u64 off;
+ 	void __iomem *addr;
  
-+#define PHAN_VENDOR_ID 0x4040
-+
- #define RCV_DESC_RINGSIZE	\
- 	(sizeof(struct rcv_desc) * adapter->max_rx_desc_count)
- #define STATUS_DESC_RINGSIZE	\
-@@ -82,7 +84,7 @@ #define TX_RINGSIZE	\
- 	(sizeof(struct netxen_cmd_buffer) * adapter->max_tx_desc_count)
- #define RCV_BUFFSIZE	\
- 	(sizeof(struct netxen_rx_buffer) * rcv_desc->max_rx_desc_count)
--#define find_diff_among(a,b,range) ((a)<(b)?((b)-(a)):((b)+(range)-(a)))
-+#define find_diff_among(a,b,range) ((a)<=(b)?((b)-(a)):((b)+(range)-(a)))
+@@ -951,6 +951,7 @@ void netxen_nic_flash_print(struct netxe
+ 				       netxen_nic_driver_name);
+ 				return;
+ 			}
++			*ptr32 = le32_to_cpu(*ptr32);
+ 			ptr32++;
+ 			addr += sizeof(u32);
+ 		}
+diff --git a/drivers/net/netxen/netxen_nic_init.c b/drivers/net/netxen/netxen_nic_init.c
+index 2f96570..586d32b 100644
+--- a/drivers/net/netxen/netxen_nic_init.c
++++ b/drivers/net/netxen/netxen_nic_init.c
+@@ -38,13 +38,13 @@ #include "netxen_nic_hw.h"
+ #include "netxen_nic_phan_reg.h"
  
- #define NETXEN_NETDEV_STATUS		0x1
- #define NETXEN_RCV_PRODUCER_OFFSET	0
-diff --git a/drivers/net/netxen/netxen_nic_ethtool.c b/drivers/net/netxen/netxen_nic_ethtool.c
-index 6252e9a..986ef98 100644
---- a/drivers/net/netxen/netxen_nic_ethtool.c
-+++ b/drivers/net/netxen/netxen_nic_ethtool.c
-@@ -82,8 +82,7 @@ static const struct netxen_nic_stats net
- #define NETXEN_NIC_STATS_LEN	ARRAY_SIZE(netxen_nic_gstrings_stats)
- 
- static const char netxen_nic_gstrings_test[][ETH_GSTRING_LEN] = {
--	"Register_Test_offline", "EEPROM_Test_offline",
--	"Interrupt_Test_offline", "Loopback_Test_offline",
-+	"Register_Test_on_offline",
- 	"Link_Test_on_offline"
+ struct crb_addr_pair {
+-	long addr;
+-	long data;
++	u32 addr;
++	u32 data;
  };
  
-@@ -394,19 +393,12 @@ netxen_nic_get_regs(struct net_device *d
- 	}
- }
+ #define NETXEN_MAX_CRB_XFORM 60
+ static unsigned int crb_addr_xform[NETXEN_MAX_CRB_XFORM];
+-#define NETXEN_ADDR_ERROR ((unsigned long ) 0xffffffff )
++#define NETXEN_ADDR_ERROR (0xffffffff)
  
--static void
--netxen_nic_get_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
--{
--	wol->supported = WAKE_UCAST | WAKE_MCAST | WAKE_BCAST | WAKE_MAGIC;
--	/* options can be added depending upon the mode */
--	wol->wolopts = 0;
--}
--
- static u32 netxen_nic_test_link(struct net_device *dev)
+ #define crb_addr_transform(name) \
+ 	crb_addr_xform[NETXEN_HW_PX_MAP_CRB_##name] = \
+@@ -252,10 +252,10 @@ void netxen_initialize_adapter_ops(struc
+  * netxen_decode_crb_addr(0 - utility to translate from internal Phantom CRB
+  * address to external PCI CRB address.
+  */
+-unsigned long netxen_decode_crb_addr(unsigned long addr)
++u32 netxen_decode_crb_addr(u32 addr)
  {
- 	struct netxen_port *port = netdev_priv(dev);
- 	struct netxen_adapter *adapter = port->adapter;
- 	__u32 status;
-+	int val;
+ 	int i;
+-	unsigned long base_addr, offset, pci_base;
++	u32 base_addr, offset, pci_base;
  
- 	/* read which mode */
- 	if (adapter->ahw.board_type == NETXEN_NIC_GBE) {
-@@ -415,11 +407,13 @@ static u32 netxen_nic_test_link(struct n
- 					 NETXEN_NIU_GB_MII_MGMT_ADDR_PHY_STATUS,
- 					 &status) != 0)
- 			return -EIO;
--		else
--			return (netxen_get_phy_link(status));
-+		else {
-+			val = netxen_get_phy_link(status);
-+			return !val;
-+		}
- 	} else if (adapter->ahw.board_type == NETXEN_NIC_XGBE) {
--		int val = readl(NETXEN_CRB_NORMALIZE(adapter, CRB_XG_STATE));
--		return val == XG_LINK_UP;
-+		val = readl(NETXEN_CRB_NORMALIZE(adapter, CRB_XG_STATE));
-+		return (val == XG_LINK_UP) ? 0 : 1;
- 	}
- 	return -EIO;
- }
-@@ -606,100 +600,21 @@ netxen_nic_set_pauseparam(struct net_dev
+ 	crb_addr_transform_setup();
  
- static int netxen_nic_reg_test(struct net_device *dev)
+@@ -756,7 +756,7 @@ int netxen_pinit_from_rom(struct netxen_
+ 	int n, i;
+ 	int init_delay = 0;
+ 	struct crb_addr_pair *buf;
+-	unsigned long off;
++	u32 off;
+ 
+ 	/* resetall */
+ 	status = netxen_nic_get_board_info(adapter);
+@@ -813,14 +813,13 @@ int netxen_pinit_from_rom(struct netxen_
+ 			if (verbose)
+ 				printk("%s: PCI:     0x%08x == 0x%08x\n",
+ 				       netxen_nic_driver_name, (unsigned int)
+-				       netxen_decode_crb_addr((unsigned long)
+-							      addr), val);
++				       netxen_decode_crb_addr(addr), val);
+ 		}
+ 		for (i = 0; i < n; i++) {
+ 
+-			off = netxen_decode_crb_addr((unsigned long)buf[i].addr);
++			off = netxen_decode_crb_addr(buf[i].addr);
+ 			if (off == NETXEN_ADDR_ERROR) {
+-				printk(KERN_ERR"CRB init value out of range %lx\n",
++				printk(KERN_ERR"CRB init value out of range %x\n",
+ 					buf[i].addr);
+ 				continue;
+ 			}
+@@ -927,6 +926,10 @@ int netxen_initialize_adapter_offload(st
+ void netxen_free_adapter_offload(struct netxen_adapter *adapter)
  {
--	struct netxen_port *port = netdev_priv(dev);
--	struct netxen_adapter *adapter = port->adapter;
--	u32 data_read, data_written, save;
--	__u32 mode;
--
--	/* 
--	 * first test the "Read Only" registers by writing which mode
--	 */
--	netxen_nic_read_w0(adapter, NETXEN_NIU_MODE, &mode);
--	if (netxen_get_niu_enable_ge(mode)) {	/* GB Mode */
--		netxen_nic_read_w0(adapter,
--				   NETXEN_NIU_GB_MII_MGMT_STATUS(port->portnum),
--				   &data_read);
--
--		save = data_read;
--		if (data_read)
--			data_written = data_read & NETXEN_NIC_INVALID_DATA;
--		else
--			data_written = NETXEN_NIC_INVALID_DATA;
--		netxen_nic_write_w0(adapter,
--				    NETXEN_NIU_GB_MII_MGMT_STATUS(port->
--								  portnum),
--				    data_written);
--		netxen_nic_read_w0(adapter,
--				   NETXEN_NIU_GB_MII_MGMT_STATUS(port->portnum),
--				   &data_read);
--
--		if (data_written == data_read) {
--			netxen_nic_write_w0(adapter,
--					    NETXEN_NIU_GB_MII_MGMT_STATUS(port->
--									  portnum),
--					    save);
--
--			return 0;
--		}
--
--		/* netxen_niu_gb_mii_mgmt_indicators is read only */
--		netxen_nic_read_w0(adapter,
--				   NETXEN_NIU_GB_MII_MGMT_INDICATE(port->
--								   portnum),
--				   &data_read);
--
--		save = data_read;
--		if (data_read)
--			data_written = data_read & NETXEN_NIC_INVALID_DATA;
--		else
--			data_written = NETXEN_NIC_INVALID_DATA;
--		netxen_nic_write_w0(adapter,
--				    NETXEN_NIU_GB_MII_MGMT_INDICATE(port->
--								    portnum),
--				    data_written);
--
--		netxen_nic_read_w0(adapter,
--				   NETXEN_NIU_GB_MII_MGMT_INDICATE(port->
--								   portnum),
--				   &data_read);
--
--		if (data_written == data_read) {
--			netxen_nic_write_w0(adapter,
--					    NETXEN_NIU_GB_MII_MGMT_INDICATE
--					    (port->portnum), save);
--			return 0;
--		}
-+	struct netxen_adapter *adapter = netdev_priv(dev);
-+	u32 data_read, data_written;
- 
--		/* netxen_niu_gb_interface_status is read only */
--		netxen_nic_read_w0(adapter,
--				   NETXEN_NIU_GB_INTERFACE_STATUS(port->
--								  portnum),
--				   &data_read);
-+	netxen_nic_read_w0(adapter, NETXEN_PCIX_PH_REG(0), &data_read);
-+	if ((data_read & 0xffff) != PHAN_VENDOR_ID)
-+	return 1;
- 
--		save = data_read;
--		if (data_read)
--			data_written = data_read & NETXEN_NIC_INVALID_DATA;
--		else
--			data_written = NETXEN_NIC_INVALID_DATA;
--		netxen_nic_write_w0(adapter,
--				    NETXEN_NIU_GB_INTERFACE_STATUS(port->
--								   portnum),
--				    data_written);
-+	data_written = (u32)0xa5a5a5a5;
- 
--		netxen_nic_read_w0(adapter,
--				   NETXEN_NIU_GB_INTERFACE_STATUS(port->
--								  portnum),
--				   &data_read);
-+	netxen_nic_reg_write(adapter, CRB_SCRATCHPAD_TEST, data_written);
-+	data_read = readl(NETXEN_CRB_NORMALIZE(adapter, CRB_SCRATCHPAD_TEST));
-+	if (data_written != data_read)
-+		return 1;
- 
--		if (data_written == data_read) {
--			netxen_nic_write_w0(adapter,
--					    NETXEN_NIU_GB_INTERFACE_STATUS
--					    (port->portnum), save);
--
--			return 0;
--		}
--	}			/* GB Mode */
--	return 1;
-+	return 0;
- }
- 
- static int netxen_nic_diag_test_count(struct net_device *dev)
-@@ -713,26 +628,20 @@ netxen_nic_diag_test(struct net_device *
- {
- 	if (eth_test->flags == ETH_TEST_FL_OFFLINE) {	/* offline tests */
- 		/* link test */
--		if (!(data[4] = (u64) netxen_nic_test_link(dev)))
-+		if ((data[1] = (u64) netxen_nic_test_link(dev)))
- 			eth_test->flags |= ETH_TEST_FL_FAILED;
- 
--		if (netif_running(dev))
--			dev->stop(dev);
--
- 		/* register tests */
--		if (!(data[0] = netxen_nic_reg_test(dev)))
-+		if ((data[0] = netxen_nic_reg_test(dev)))
- 			eth_test->flags |= ETH_TEST_FL_FAILED;
--		/* other tests pass as of now */
--		data[1] = data[2] = data[3] = 1;
--		if (netif_running(dev))
--			dev->open(dev);
- 	} else {		/* online tests */
--		/* link test */
--		if (!(data[4] = (u64) netxen_nic_test_link(dev)))
-+		/* register tests */
-+		if((data[0] = netxen_nic_reg_test(dev)))
- 			eth_test->flags |= ETH_TEST_FL_FAILED;
- 
--		/* other tests pass by default */
--		data[0] = data[1] = data[2] = data[3] = 1;
-+		/* link test */
-+		if ((data[1] = (u64) netxen_nic_test_link(dev)))
-+			eth_test->flags |= ETH_TEST_FL_FAILED;
- 	}
- }
- 
-@@ -783,7 +692,6 @@ struct ethtool_ops netxen_nic_ethtool_op
- 	.get_drvinfo = netxen_nic_get_drvinfo,
- 	.get_regs_len = netxen_nic_get_regs_len,
- 	.get_regs = netxen_nic_get_regs,
--	.get_wol = netxen_nic_get_wol,
- 	.get_link = ethtool_op_get_link,
- 	.get_eeprom_len = netxen_nic_get_eeprom_len,
- 	.get_eeprom = netxen_nic_get_eeprom,
+ 	if (adapter->dummy_dma.addr) {
++		writel(0, NETXEN_CRB_NORMALIZE(adapter,
++			CRB_HOST_DUMMY_BUF_ADDR_HI));
++		writel(0, NETXEN_CRB_NORMALIZE(adapter,
++			CRB_HOST_DUMMY_BUF_ADDR_LO));
+ 		pci_free_consistent(adapter->ahw.pdev,
+ 				    NETXEN_HOST_DUMMY_DMA_SIZE,
+ 				    adapter->dummy_dma.addr,
 diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
-index 1bf3d49..2227504 100644
+index 2227504..7d2525e 100644
 --- a/drivers/net/netxen/netxen_nic_main.c
 +++ b/drivers/net/netxen/netxen_nic_main.c
-@@ -42,8 +42,6 @@ #include "netxen_nic_phan_reg.h"
- #include <linux/dma-mapping.h>
- #include <linux/vmalloc.h>
+@@ -434,13 +434,11 @@ #endif
+ 		adapter->port_count++;
+ 		adapter->port[i] = port;
+ 	}
+-#ifndef CONFIG_PPC64
+ 	writel(0, NETXEN_CRB_NORMALIZE(adapter, CRB_CMDPEG_STATE));
+ 	netxen_pinit_from_rom(adapter, 0);
+ 	udelay(500);
+ 	netxen_load_firmware(adapter);
+ 	netxen_phantom_init(adapter, NETXEN_NIC_PEG_TUNE);
+-#endif
+ 	/*
+ 	 * delay a while to ensure that the Pegs are up & running.
+ 	 * Otherwise, we might see some flaky behaviour.
+@@ -529,12 +527,13 @@ static void __devexit netxen_nic_remove(
+ 		free_irq(adapter->irq, adapter);
+ 	netxen_nic_stop_all_ports(adapter);
+ 	/* leave the hw in the same state as reboot */
+-	netxen_pinit_from_rom(adapter, 0);
+ 	writel(0, NETXEN_CRB_NORMALIZE(adapter, CRB_CMDPEG_STATE));
++	netxen_pinit_from_rom(adapter, 0);
++	udelay(500);
+ 	netxen_load_firmware(adapter);
+ 	netxen_free_adapter_offload(adapter);
  
--#define PHAN_VENDOR_ID 0x4040
--
- MODULE_DESCRIPTION("NetXen Multi port (1/10) Gigabit Network Driver");
- MODULE_LICENSE("GPL");
- MODULE_VERSION(NETXEN_NIC_LINUX_VERSIONID);
-@@ -379,6 +377,8 @@ #endif
- 		netdev->tx_timeout = netxen_tx_timeout;
- 		netdev->watchdog_timeo = HZ;
+-	udelay(500);		/* Delay for a while to drain the DMA engines */
++	mdelay(1000);		/* Delay for a while to drain the DMA engines */
+ 	for (i = 0; i < adapter->port_count; i++) {
+ 		port = adapter->port[i];
+ 		if ((port) && (port->netdev)) {
+@@ -545,7 +544,6 @@ static void __devexit netxen_nic_remove(
  
-+		netxen_nic_change_mtu(netdev, netdev->mtu);
-+
- 		SET_ETHTOOL_OPS(netdev, &netxen_nic_ethtool_ops);
- 		netdev->poll = netxen_nic_poll;
- 		netdev->weight = NETXEN_NETDEV_WEIGHT;
-diff --git a/drivers/net/netxen/netxen_nic_phan_reg.h b/drivers/net/netxen/netxen_nic_phan_reg.h
-index 7879f85..0c7c943 100644
---- a/drivers/net/netxen/netxen_nic_phan_reg.h
-+++ b/drivers/net/netxen/netxen_nic_phan_reg.h
-@@ -102,6 +102,9 @@ #define CRB_CMD_PRODUCER_OFFSET_1   NETX
- #define CRB_CMD_CONSUMER_OFFSET_1   NETXEN_NIC_REG(0x1b0)
- #define CRB_TEMP_STATE              NETXEN_NIC_REG(0x1b4)
+ 	if ((adapter->flags & NETXEN_NIC_MSI_ENABLED))
+ 		pci_disable_msi(pdev);
+-	pci_set_drvdata(pdev, NULL);
+ 	if (adapter->is_up == NETXEN_ADAPTER_UP_MAGIC)
+ 		netxen_free_hw_resources(adapter);
  
-+/* used for ethtool tests */
-+#define CRB_SCRATCHPAD_TEST	    NETXEN_NIC_REG(0x280)
-+
- /*
-  * CrbPortPhanCntrHi/Lo is used to pass the address of HostPhantomIndex address
-  * which can be read by the Phantom host to get producer/consumer indexes from
+@@ -556,6 +554,7 @@ static void __devexit netxen_nic_remove(
+ 
+ 	pci_release_regions(pdev);
+ 	pci_disable_device(pdev);
++	pci_set_drvdata(pdev, NULL);
+ 
+ 	for (ctxid = 0; ctxid < MAX_RCV_CTX; ++ctxid) {
+ 		recv_ctx = &adapter->recv_ctx[ctxid];
