@@ -1,41 +1,92 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: Run-time kfree check for correct cache [was Re: [NET]: Fix kfree(skb)]
-Date: Wed, 28 Feb 2007 11:10:54 +0100
-Message-ID: <200702281110.54619.dada1@cosmosbay.com>
-References: <20070227.100052.59655152.davem@davemloft.net> <20070227.102452.102574618.davem@davemloft.net> <20070228090258.GA28336@2ka.mipt.ru>
+From: John <linux.kernel@free.fr>
+Subject: CLOCK_MONOTONIC datagram timestamps by the kernel
+Date: Wed, 28 Feb 2007 11:18:54 +0100
+Message-ID: <45E5570E.7050301@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="koi8-r"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, paul.moore@hp.com,
-	kaber@trash.net, netdev@vger.kernel.org, acme@ghostprotocols.net
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from pfx2.jmh.fr ([194.153.89.55]:38984 "EHLO pfx2.jmh.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932124AbXB1KLG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Feb 2007 05:11:06 -0500
-In-Reply-To: <20070228090258.GA28336@2ka.mipt.ru>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux.kernel@free.fr
+To: linux-net@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 28 February 2007 10:02, Evgeniy Polyakov wrote:
-> Attached patch detects in run-time things like:
-> skb = alloc_skb();
-> kfree(skb);
->
-> where provided to kfree pointer does not belong to kmalloc caches.
-> It is turned on when slab debug config option is enabled.
->
-> When problem is detected, following warning is printed with hint to
-> what cache/function should be used instead:
+Hello,
 
-It would be less expensive to add a flag 
-#define SLAB_KFREE_NOWARNING 0x00200000UL
+I know it's possible to have Linux timestamp incoming datagrams as soon 
+as they are received, then for one to retrieve this timestamp later with 
+an ioctl command or a recvmsg call.
 
-And OR this flags into cs->flags of all standard caches created by 
-kmem_cache_init() from malloc_sizes[]/cache_names[]
+As far as I understand, one can either do
 
-kfree() would then just test this flag.
+   const int on = 1;
+   setsockopt(sock, SOL_SOCKET, SO_TIMESTAMP, &on, sizeof on);
+
+then use recvmsg()
+
+or not set the SO_TIMESTAMP socket option and just call
+
+   ioctl(sock, SIOCGSTAMP, &tv);
+
+after each datagram has been received.
+
+SIOCGSTAMP
+     Return a struct timeval with the receive timestamp of the last
+packet passed to the user. This is useful for accurate round trip time
+measurements. See setitimer(2) for a description of struct timeval.
+
+
+As far as I understand, this timestamp is given by the CLOCK_REALTIME 
+clock. However, I would like to obtain a timestamp given by the 
+CLOCK_MONOTONIC clock.
+
+Relevant parts of the code (I think):
+
+net/core/dev.c
+
+void net_enable_timestamp(void)
+{
+   atomic_inc(&netstamp_needed);
+}
+
+void __net_timestamp(struct sk_buff *skb)
+{
+   struct timeval tv;
+
+   do_gettimeofday(&tv);
+   skb_set_timestamp(skb, &tv);
+}
+
+static inline void net_timestamp(struct sk_buff *skb)
+{
+   if (atomic_read(&netstamp_needed))
+     __net_timestamp(skb);
+   else {
+     skb->tstamp.off_sec = 0;
+     skb->tstamp.off_usec = 0;
+   }
+}
+
+do_gettimeofday() just calls __get_realtime_clock_ts()
+
+Would it be possible to replace do_gettimeofday() by ktime_get_ts() with 
+the appropriate division by 1000 to convert the struct timespec back 
+into a struct timeval?
+
+void __net_timestamp(struct sk_buff *skb)
+{
+   struct timespec now;
+   struct timeval tv;
+
+   ktime_get_ts(&ts);
+   tv.tv_sec = now.tv_sec;
+   tv->tv_usec = now.tv_nsec/1000;
+   skb_set_timestamp(skb, &tv);
+}
+
+How many apps / drivers would this break?
+
+Is there perhaps a different way to achieve this?
+
+Regards.
 
