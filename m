@@ -1,52 +1,76 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: [PATCH 1/2] [TCP]: Add two new spurious RTO responses to FRTO
-Date: Wed, 28 Feb 2007 13:13:02 +0100
-Message-ID: <20070228121302.GA2983@ff.dom.local>
-References: <Pine.LNX.4.64.0702271738340.19465@kivilampi-30.cs.helsinki.fi>
+From: "Arnaldo Carvalho de Melo" <acme@ghostprotocols.net>
+Subject: Re: TCP minisock tcp_create_openreq_child() typo?
+Date: Wed, 28 Feb 2007 09:10:10 -0300
+Message-ID: <39e6f6c70702280410k2d13afc7k1f870c73b6862676@mail.gmail.com>
+References: <200702281203.38112@nienna>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: =?us-ascii?B?PT9JU08tODg1OS0yP1E/SWxwb19KPUU0cnZpbmVuPz0=?=
-	<ilpo.jarvinen@helsinki.fi>
+Content-Type: multipart/mixed;
+	boundary="----=_Part_33857_13348391.1172664610218"
+Cc: netdev@vger.kernel.org
+To: "KOVACS Krisztian" <hidden@balabit.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.go2.pl ([193.17.41.42]:35076 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932159AbXB1MJT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Feb 2007 07:09:19 -0500
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0702271738340.19465@kivilampi-30.cs.helsinki.fi>
+Received: from nz-out-0506.google.com ([64.233.162.230]:5414 "EHLO
+	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932165AbXB1MKL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Feb 2007 07:10:11 -0500
+Received: by nz-out-0506.google.com with SMTP id s1so126625nze
+        for <netdev@vger.kernel.org>; Wed, 28 Feb 2007 04:10:10 -0800 (PST)
+In-Reply-To: <200702281203.38112@nienna>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 27-02-2007 16:50, Ilpo J=E4rvinen wrote:
-> New sysctl tcp_frto_response is added to select amongst these
-=2E..
-> Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
-> @@ -762,15 +763,17 @@ __u32 tcp_init_cwnd(struct tcp_sock *tp,
->  }
-> =20
->  /* Set slow start threshold and cwnd not falling to slow start */
-> -void tcp_enter_cwr(struct sock *sk)
-> +void tcp_enter_cwr(struct sock *sk, const int set_ssthresh)
->  {
->  	struct tcp_sock *tp =3D tcp_sk(sk);
-> +	const struct inet_connection_sock *icsk =3D inet_csk(sk);
-> =20
->  	tp->prior_ssthresh =3D 0;
->  	tp->bytes_acked =3D 0;
->  	if (inet_csk(sk)->icsk_ca_state < TCP_CA_CWR) {
+------=_Part_33857_13348391.1172664610218
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
--	if (inet_csk(sk)->icsk_ca_state < TCP_CA_CWR) {
-+	if (icsk->icsk_ca_state < TCP_CA_CWR) {
+On 2/28/07, KOVACS Krisztian <hidden@balabit.hu> wrote:
+>
+>   Hi,
+>
+>   While reading TCP minisock code I've found this suspiciously looking
+> code fragment:
+>
+> - 8< -
+> struct sock *tcp_create_openreq_child(struct sock *sk, struct request_sock *req, struct sk_buff *skb)
+> {
+>         struct sock *newsk = inet_csk_clone(sk, req, GFP_ATOMIC);
+>
+>         if (newsk != NULL) {
+>                 const struct inet_request_sock *ireq = inet_rsk(req);
+>                 struct tcp_request_sock *treq = tcp_rsk(req);
+>                 struct inet_connection_sock *newicsk = inet_csk(sk);
+>                 struct tcp_sock *newtp;
+> - 8< -
+>
+>   The above code initializes newicsk to inet_csk(sk), isn't that supposed
+> to be inet_csk(newsk)?  As far as I can tell this might leave
+> icsk_ack.last_seg_size zero even if we do have received data.
 
-Probably something for the next "BTW".
+Good catch!
 
-Regards,
-Jarek P.
+David, please apply the attached patch.
 
->  		tp->undo_marker =3D 0;
-> -		tp->snd_ssthresh =3D inet_csk(sk)->icsk_ca_ops->ssthresh(sk);
-> +		if (set_ssthresh)
-> +			tp->snd_ssthresh =3D icsk->icsk_ca_ops->ssthresh(sk);
-=2E..
+Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+
+Thanks Krisztian!
+
+- Arnaldo
+
+------=_Part_33857_13348391.1172664610218
+Content-Type: text/x-patch; name=newicsk.patch; charset=ANSI_X3.4-1968
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_eypq7kqv
+Content-Disposition: attachment; filename="newicsk.patch"
+
+ZGlmZiAtLWdpdCBhL25ldC9pcHY0L3RjcF9taW5pc29ja3MuYyBiL25ldC9pcHY0L3RjcF9taW5p
+c29ja3MuYwppbmRleCAzMGIxZTUyLi42YjVjNjRmIDEwMDY0NAotLS0gYS9uZXQvaXB2NC90Y3Bf
+bWluaXNvY2tzLmMKKysrIGIvbmV0L2lwdjQvdGNwX21pbmlzb2Nrcy5jCkBAIC0zODEsNyArMzgx
+LDcgQEAgc3RydWN0IHNvY2sgKnRjcF9jcmVhdGVfb3BlbnJlcV9jaGlsZChzdHJ1Y3Qgc29jayAq
+c2ssIHN0cnVjdCByZXF1ZXN0X3NvY2sgKnJlcSwKIAlpZiAobmV3c2sgIT0gTlVMTCkgewogCQlj
+b25zdCBzdHJ1Y3QgaW5ldF9yZXF1ZXN0X3NvY2sgKmlyZXEgPSBpbmV0X3JzayhyZXEpOwogCQlz
+dHJ1Y3QgdGNwX3JlcXVlc3Rfc29jayAqdHJlcSA9IHRjcF9yc2socmVxKTsKLQkJc3RydWN0IGlu
+ZXRfY29ubmVjdGlvbl9zb2NrICpuZXdpY3NrID0gaW5ldF9jc2soc2spOworCQlzdHJ1Y3QgaW5l
+dF9jb25uZWN0aW9uX3NvY2sgKm5ld2ljc2sgPSBpbmV0X2NzayhuZXdzayk7CiAJCXN0cnVjdCB0
+Y3Bfc29jayAqbmV3dHA7CiAKIAkJLyogTm93IHNldHVwIHRjcF9zb2NrICovCg==
+------=_Part_33857_13348391.1172664610218--
