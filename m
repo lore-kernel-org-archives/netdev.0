@@ -1,67 +1,229 @@
-From: Sergei Shtylyov <sshtylyov@ru.mvista.com>
-Subject: Re: [Kgdb-bugreport] [PATCH 2.6.20-rc7] 8139too KGDBoE fix
-Date: Thu, 01 Mar 2007 19:22:06 +0300
-Message-ID: <45E6FDAE.2040009@ru.mvista.com>
-References: <1172746367.2515.31.camel@xenon>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: [PATCH 3/3] bonding: Improve IGMP join processing
+Date: Thu, 1 Mar 2007 11:49:19 -0500
+Message-ID: <20070301164918.GA3199@gospo.rdu.redhat.com>
+References: <200703010103.l2113b22030905@death.nxdomain.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: kgdb-bugreport@lists.sourceforge.net, netdev@vger.kernel.org,
-	Mark Huth <mhuth@mvista.com>
-To: komal <komal@linsyssoft.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, bonding-devel@lists.sourceforge.net,
+	Jeff Garzik <jgarzik@pobox.com>
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from h155.mvista.com ([63.81.120.155]:27237 "EHLO imap.sh.mvista.com"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S965330AbXCAQWQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Mar 2007 11:22:16 -0500
-In-Reply-To: <1172746367.2515.31.camel@xenon>
+Received: from mx1.redhat.com ([66.187.233.31]:46237 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965376AbXCAQvl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Mar 2007 11:51:41 -0500
+Content-Disposition: inline
+In-Reply-To: <200703010103.l2113b22030905@death.nxdomain.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-komal wrote:
-> Hi all,
-
-> 	As the discussion was going on about the effects of trapping the
-> netpoll queue during KGDBoE debugging, I tried avoiding it. So in
-> eth_pre_exception_handler() I did not set net_poll_trap to 1 and did not
-> reset it back to 0 in eth_post_exception_handler() 
-
-> file drivers/net/kgdboe.c
-
-> static void eth_pre_exception_handler(void)
-> {
->         /* Increment the module count when the debugger is active */
->         if (!kgdb_connected)
->                 try_module_get(THIS_MODULE);
-> //      netpoll_set_trap(1);
-> }
+On Wed, Feb 28, 2007 at 05:03:37PM -0800, Jay Vosburgh wrote:
 > 
-> static void eth_post_exception_handler(void)
-> {
->         /* decrement the module count when the debugger detaches */
->         if (!kgdb_connected)
->                 module_put(THIS_MODULE);
-> //      netpoll_set_trap(0);
-> }
+> 	In active-backup mode, the current bonding code duplicates IGMP
+> traffic to all slaves, so that switches are up to date in case of a
+> failover from an active to a backup interface.  If bonding then fails
+> back to the original active interface, it is likely that the "active
+> slave" switch's IGMP forwarding for the port will be out of date until
+> some event occurs to refresh the switch (e.g., a membership query).
+> 
+> 	This patch alters the behavior of bonding to no longer flood
+> IGMP to all ports, and to issue IGMP JOINs to the newly active port at
+> the time of a failover.  This insures that switches are kept up to date
+> for all cases.
+> 
+> 	"GOELLESCH Niels" <niels.goellesch@eurocontrol.int> originally
+> reported this problem, and included a patch.  His original patch was
+> modified by Jay Vosburgh to additionally remove the existing IGMP flood
+> behavior, use RCU, streamline code paths, fix trailing white space, and
+> adjust for style.
+> 
+> Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+> 
 
-    I'm afraid that was a wrong thing to do. We were talking only about 
-disabling CONFIG_NETPOLL_TRAP option
-   BTW, I don't see how CONFIG_NETPOLL_RX actually could influence anything -- 
-looks like it just may be completely removed).
+My only concern is that this code assumes all mcast addresses stored in
+dev->mc-list list are for ipv4 igmp mcast addresses and nothing was done
+for ipv6.
 
-> 	As i started testing KGDBoe, 1st time I did 
-> 	(gdb)info threads
-> 	and it worked, but after that I set breakpoint
-> 	(gdb)break link_path_walk
-> 	after this any of the commands were not working and the test machine
-> went in hang state. 
-> 	To provide more information, I am working on an i386/x86_64 Athlon box,
-> using 2.6.17 kernel and 100Mbps, full-duplex, VIA Rhine network card.
+But this is much better than what we have now, so... 
 
-    This driver also seems prone to TX queue overwrites since its TX ring size 
-is only 16.
+Acked-by: Andy Gospodarek <andy@greyhouse.net>
 
-> -Regards
->  Komal Nawandar
 
-WBR, Sergei
+> 
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+> index 7ec6121..338d452 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -60,6 +60,7 @@ #include <asm/uaccess.h>
+>  #include <linux/errno.h>
+>  #include <linux/netdevice.h>
+>  #include <linux/inetdevice.h>
+> +#include <linux/igmp.h>
+>  #include <linux/etherdevice.h>
+>  #include <linux/skbuff.h>
+>  #include <net/sock.h>
+> @@ -861,6 +862,28 @@ static void bond_mc_delete(struct bondin
+>  	}
+>  }
+>  
+> +
+> +/*
+> + * Retrieve the list of registered multicast addresses for the bonding
+> + * device and retransmit an IGMP JOIN request to the current active
+> + * slave.
+> + */
+> +static void bond_resend_igmp_join_requests(struct bonding *bond)
+> +{
+> +	struct in_device *in_dev;
+> +	struct ip_mc_list *im;
+> +
+> +	rcu_read_lock();
+> +	in_dev = __in_dev_get_rcu(bond->dev);
+> +	if (in_dev) {
+> +		for (im = in_dev->mc_list; im; im = im->next) {
+> +			ip_mc_rejoin_group(im);
+> +		}
+> +	}
+> +
+> +	rcu_read_unlock();
+> +}
+> +
+>  /*
+>   * Totally destroys the mc_list in bond
+>   */
+> @@ -874,6 +897,7 @@ static void bond_mc_list_destroy(struct 
+>  		kfree(dmi);
+>  		dmi = bond->mc_list;
+>  	}
+> +        bond->mc_list = NULL;
+>  }
+>  
+>  /*
+> @@ -967,6 +991,7 @@ static void bond_mc_swap(struct bonding 
+>  		for (dmi = bond->dev->mc_list; dmi; dmi = dmi->next) {
+>  			dev_mc_add(new_active->dev, dmi->dmi_addr, dmi->dmi_addrlen, 0);
+>  		}
+> +		bond_resend_igmp_join_requests(bond);
+>  	}
+>  }
+>  
+> @@ -4017,42 +4042,6 @@ out:
+>  	return 0;
+>  }
+>  
+> -static void bond_activebackup_xmit_copy(struct sk_buff *skb,
+> -                                        struct bonding *bond,
+> -                                        struct slave *slave)
+> -{
+> -	struct sk_buff *skb2 = skb_copy(skb, GFP_ATOMIC);
+> -	struct ethhdr *eth_data;
+> -	u8 *hwaddr;
+> -	int res;
+> -
+> -	if (!skb2) {
+> -		printk(KERN_ERR DRV_NAME ": Error: "
+> -		       "bond_activebackup_xmit_copy(): skb_copy() failed\n");
+> -		return;
+> -	}
+> -
+> -	skb2->mac.raw = (unsigned char *)skb2->data;
+> -	eth_data = eth_hdr(skb2);
+> -
+> -	/* Pick an appropriate source MAC address
+> -	 *	-- use slave's perm MAC addr, unless used by bond
+> -	 *	-- otherwise, borrow active slave's perm MAC addr
+> -	 *	   since that will not be used
+> -	 */
+> -	hwaddr = slave->perm_hwaddr;
+> -	if (!memcmp(eth_data->h_source, hwaddr, ETH_ALEN))
+> -		hwaddr = bond->curr_active_slave->perm_hwaddr;
+> -
+> -	/* Set source MAC address appropriately */
+> -	memcpy(eth_data->h_source, hwaddr, ETH_ALEN);
+> -
+> -	res = bond_dev_queue_xmit(bond, skb2, slave->dev);
+> -	if (res)
+> -		dev_kfree_skb(skb2);
+> -
+> -	return;
+> -}
+>  
+>  /*
+>   * in active-backup mode, we know that bond->curr_active_slave is always valid if
+> @@ -4073,21 +4062,6 @@ static int bond_xmit_activebackup(struct
+>  	if (!bond->curr_active_slave)
+>  		goto out;
+>  
+> -	/* Xmit IGMP frames on all slaves to ensure rapid fail-over
+> -	   for multicast traffic on snooping switches */
+> -	if (skb->protocol == __constant_htons(ETH_P_IP) &&
+> -	    skb->nh.iph->protocol == IPPROTO_IGMP) {
+> -		struct slave *slave, *active_slave;
+> -		int i;
+> -
+> -		active_slave = bond->curr_active_slave;
+> -		bond_for_each_slave_from_to(bond, slave, i, active_slave->next,
+> -		                            active_slave->prev)
+> -			if (IS_UP(slave->dev) &&
+> -			    (slave->link == BOND_LINK_UP))
+> -				bond_activebackup_xmit_copy(skb, bond, slave);
+> -	}
+> -
+>  	res = bond_dev_queue_xmit(bond, skb, bond->curr_active_slave->dev);
+>  
+>  out:
+> diff --git a/include/linux/igmp.h b/include/linux/igmp.h
+> index 9dbb525..a113fe6 100644
+> --- a/include/linux/igmp.h
+> +++ b/include/linux/igmp.h
+> @@ -218,5 +218,7 @@ extern void ip_mc_up(struct in_device *)
+>  extern void ip_mc_down(struct in_device *);
+>  extern void ip_mc_dec_group(struct in_device *in_dev, __be32 addr);
+>  extern void ip_mc_inc_group(struct in_device *in_dev, __be32 addr);
+> +extern void ip_mc_rejoin_group(struct ip_mc_list *im);
+> +
+>  #endif
+>  #endif
+> diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
+> index 0637213..1c6a084 100644
+> --- a/net/ipv4/igmp.c
+> +++ b/net/ipv4/igmp.c
+> @@ -1251,6 +1251,28 @@ out:
+>  }
+>  
+>  /*
+> + *	Resend IGMP JOIN report; used for bonding.
+> + */
+> +void ip_mc_rejoin_group(struct ip_mc_list *im)
+> +{
+> +	struct in_device *in_dev = im->interface;
+> +
+> +#ifdef CONFIG_IP_MULTICAST
+> +	if (im->multiaddr == IGMP_ALL_HOSTS)
+> +		return;
+> +
+> +	if (IGMP_V1_SEEN(in_dev) || IGMP_V2_SEEN(in_dev)) {
+> +		igmp_mod_timer(im, IGMP_Initial_Report_Delay);
+> +		return;
+> +	}
+> +	/* else, v3 */
+> +	im->crcount = in_dev->mr_qrv ? in_dev->mr_qrv :
+> +		IGMP_Unsolicited_Report_Count;
+> +	igmp_ifc_event(in_dev);
+> +#endif
+> +}
+> +
+> +/*
+>   *	A socket has left a multicast group on device dev
+>   */
+>  
+> @@ -2596,3 +2618,4 @@ #endif
+>  EXPORT_SYMBOL(ip_mc_dec_group);
+>  EXPORT_SYMBOL(ip_mc_inc_group);
+>  EXPORT_SYMBOL(ip_mc_join_group);
+> +EXPORT_SYMBOL(ip_mc_rejoin_group);
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
