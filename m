@@ -1,35 +1,46 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: CLOCK_MONOTONIC datagram timestamps by the kernel
-Date: Thu, 1 Mar 2007 17:13:50 +0100
-Message-ID: <200703011713.50522.dada1@cosmosbay.com>
-References: <45E5570E.7050301@free.fr> <200703011230.50596.dada1@cosmosbay.com> <45E6F744.8070106@linux-foundation.org>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Additional run-tme check [Run-time kfree check for correct cache]
+Date: Thu, 1 Mar 2007 19:17:44 +0300
+Message-ID: <20070301161744.GB16344@2ka.mipt.ru>
+References: <20070227.100052.59655152.davem@davemloft.net> <20070227.102452.102574618.davem@davemloft.net> <20070228090258.GA28336@2ka.mipt.ru> <200702281110.54619.dada1@cosmosbay.com> <20070228141652.GA3033@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: John find <linux.kernel@free.fr>, linux-net@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset=koi8-r
+Cc: David Miller <davem@davemloft.net>, paul.moore@hp.com,
+	kaber@trash.net, netdev@vger.kernel.org, acme@ghostprotocols.net,
+	Eric Sesterhenn / Snakebyte <snakebyte@gmx.de>
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pfx2.jmh.fr ([194.153.89.55]:58576 "EHLO pfx2.jmh.fr"
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:53940 "EHLO 2ka.mipt.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965315AbXCAQN5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Mar 2007 11:13:57 -0500
-In-Reply-To: <45E6F744.8070106@linux-foundation.org>
+	id S965318AbXCAQUT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Mar 2007 11:20:19 -0500
 Content-Disposition: inline
+In-Reply-To: <20070228141652.GA3033@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday 01 March 2007 16:54, Stephen Hemminger wrote:
->
-> I like it except changing stamp to stampns all over the place is
-> unnecessary, just change the
-> type.
+Due to slab poisoning after origianl freeing, skb->users will not allow
+subsequent freeing to succeed and fire slab debugging, which ends up
+with obscure bugs.
 
-Well... After seeing the compat code using casts, I felt some external users 
-could try to cast it as well and not detect the new type...
+Patch based on Eric Sesterhenn's <snakebyte@gmx.de> one, I changed
+check to skb>truesize instead of skb->users.counter, since the latter in
+theory can be different than simple integer containing structure.
 
->
-> I assume old tcpdump works as expected.
+--- linux/net/core/skbuff.c.orig	2007-02-28 11:34:13.865540564 +0100
++++ linux/net/core/skbuff.c	2007-03-01 13:42:05.633136591 +0100
+@@ -407,6 +407,11 @@ void kfree_skb(struct sk_buff *skb)
+ {
+ 	if (unlikely(!skb))
+ 		return;
++#ifdef CONFIG_DEBUG_SLAB
++	/* check for double kfree_skb() */
++	WARN_ON(unlikely((skb->truesize & 0xFFFFFFFF) == 0x6b6b6b6b));
++#endif
++
+ 	if (likely(atomic_read(&skb->users) == 1))
+ 		smp_rmb();
+ 	else if (likely(!atomic_dec_and_test(&skb->users)))
 
-Yes, of course...
+-- 
+	Evgeniy Polyakov
