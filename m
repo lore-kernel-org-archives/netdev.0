@@ -1,44 +1,46 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [PATCH 3/3] bonding: Improve IGMP join processing
-Date: Thu, 01 Mar 2007 09:05:26 -0800
-Message-ID: <200703011705.l21H5Q22005750@death.nxdomain.ibm.com>
-References: <200703010103.l2113b22030905@death.nxdomain.ibm.com> <20070301164918.GA3199@gospo.rdu.redhat.com>
-Cc: netdev@vger.kernel.org, bonding-devel@lists.sourceforge.net,
-	Jeff Garzik <jgarzik@pobox.com>
-To: Andy Gospodarek <andy@greyhouse.net>
+From: Michal Schmidt <xschmi00@stud.feec.vutbr.cz>
+Subject: Re: [PATCH] e1000 stop raw interrupts disabled nag from RT
+Date: Thu, 01 Mar 2007 18:11:53 +0100
+Message-ID: <45E70959.4070209@stud.feec.vutbr.cz>
+References: <45E64080.4070004@mvista.com> <45E645F4.2090403@intel.com> <45E65DCF.8050903@mvista.com> <45E70586.60201@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Mark Huth <mhuth@mvista.com>, netdev@vger.kernel.org,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Ingo Molnar <mingo@elte.hu>
+To: "Kok, Auke" <auke-jan.h.kok@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e2.ny.us.ibm.com ([32.97.182.142]:57601 "EHLO e2.ny.us.ibm.com"
+Received: from mx1.redhat.com ([66.187.233.31]:58997 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965410AbXCARFh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Mar 2007 12:05:37 -0500
-Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by e2.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l21H5VXF027825
-	for <netdev@vger.kernel.org>; Thu, 1 Mar 2007 12:05:31 -0500
-Received: from d01av01.pok.ibm.com (d01av01.pok.ibm.com [9.56.224.215])
-	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.2) with ESMTP id l21H5VKP282320
-	for <netdev@vger.kernel.org>; Thu, 1 Mar 2007 12:05:31 -0500
-Received: from d01av01.pok.ibm.com (loopback [127.0.0.1])
-	by d01av01.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l21H5Uqx024365
-	for <netdev@vger.kernel.org>; Thu, 1 Mar 2007 12:05:31 -0500
-In-reply-to: <20070301164918.GA3199@gospo.rdu.redhat.com> 
+	id S965430AbXCAROD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Mar 2007 12:14:03 -0500
+In-Reply-To: <45E70586.60201@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andy Gospodarek <andy@greyhouse.net> wrote:
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
->On Wed, Feb 28, 2007 at 05:03:37PM -0800, Jay Vosburgh wrote:
-[...]
->My only concern is that this code assumes all mcast addresses stored in
->dev->mc-list list are for ipv4 igmp mcast addresses and nothing was done
->for ipv6.
->
->But this is much better than what we have now, so... 
+Kok, Auke wrote:
+> Mark Huth wrote:
+>> Well, I'm not an expert on the realtime patches - but most any patch set 
+>> from Ingo seems to set this off - we've run through a bunch all the way 
+>> since 2.6.10.
+> 
+> that's bizarre, and would imply that Ingo himself never spotted this in ages, 
+> not to mention never tell us about it?
 
-	Agreed, but there's no IPv6 support anywhere in bonding at
-present (for unicast or multicast), so this isn't really a loss.
+Ingo's -rt patches have contained this change to e1000 for some time.
+The code is perfectly fine as is for non-RT kernels, so maybe that's why
+noone felt like telling you about it.
 
-	-J
+Michal
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.5 (GNU/Linux)
+Comment: Using GnuPG with Red Hat - http://enigmail.mozdev.org
 
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
-
+iD8DBQFF5wlZabKV90ewf0QRAse3AJ979xur0u8X1DokSzaAMvLQCWPkXACfU9ss
+xC05DAbFNAaFMLnQrzBKit0=
+=I5mt
+-----END PGP SIGNATURE-----
