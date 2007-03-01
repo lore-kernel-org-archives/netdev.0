@@ -1,57 +1,49 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: [PATCH] e1000 stop raw interrupts disabled nag from RT
-Date: Wed, 28 Feb 2007 19:18:12 -0800
-Message-ID: <45E645F4.2090403@intel.com>
-References: <45E64080.4070004@mvista.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH] bridge: avoid ptype_all packet handling
+Date: Wed, 28 Feb 2007 19:56:11 -0800
+Message-ID: <20070228195611.24cf19ee@deepthought>
+References: <20070228171846.679d8733@dxpl.pdx.osdl.net>
+	<45E62C29.7010203@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, auke-jan.h.kok@intel.com,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>
-To: Mark Huth <mhuth@mvista.com>
+Cc: David Miller <davem@davemloft.net>, bridge@linux-foundation.org,
+	netdev@vger.kernel.org
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:18548 "EHLO mga01.intel.com"
+Received: from smtp.osdl.org ([65.172.181.24]:53505 "EHLO smtp.osdl.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932625AbXCADSP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Feb 2007 22:18:15 -0500
-In-Reply-To: <45E64080.4070004@mvista.com>
+	id S1751942AbXCAD4c (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Feb 2007 22:56:32 -0500
+In-Reply-To: <45E62C29.7010203@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Mark Huth wrote:
-> Current e1000_xmit_frame spews raw interrupt disabled nag messages when
-> used with RT kernel patches.  This patch uses spin_trylock_irqsave,
-> which allows RT patches to properly manage the irq semantics.
+On Wed, 28 Feb 2007 17:28:09 -0800
+Ben Greear <greearb@candelatech.com> wrote:
 
-Looks OK with me on first sight, I'll keep it on my stack and push it upstream 
-after Jesse looks it over.
+> Stephen Hemminger wrote:
+> > I was measuring bridging/routing performance and noticed this.
+> > 
+> > The current code runs the "all packet" type handlers before calling
+> > the bridge hook.  If an application (like some DHCP clients) is
+> > using AF_PACKET, this means that each received packet gets run
+> > through the Berkeley Packet Filter code in sk_run_filter (slow).
+> > 
+> > By moving the bridging hook to run first, the packets flowing
+> > through the bridge get filtered out there. This results in a 14%
+> > improvement in performance, but it does mean that some snooping
+> > applications would miss packets if being used on a bridge.  The
+> > correct way to see all packets on a bridge is to set the bridge
+> > pseudo-device to promiscuous mode.
+> 
+> Seems it would be better to fix these clients to be more selective as
+> to where they bind.
 
-Which -RT paches make this pop up btw? I'd like to repro it.
+The problem is any use of BPF is a lose, if it has to be done to all
+traffic.
 
-Thanks,
+> This breaks the case where you want to see packets on a particular
+> interface, not just the entire bridge, right?
 
-Auke
-
-
-
-
-> Signed-off-by: Mark Huth <mhuth@mvista.com>
-> ---
-> diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-> index 619c892..48f94ee 100644
-> --- a/drivers/net/e1000/e1000_main.c
-> +++ b/drivers/net/e1000/e1000_main.c
-> @@ -3363,12 +3363,9 @@ e1000_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
->  	    (adapter->hw.mac_type == e1000_82573))
->  		e1000_transfer_dhcp_info(adapter, skb);
->  
-> -	local_irq_save(flags);
-> -	if (!spin_trylock(&tx_ring->tx_lock)) {
-> +	if (!spin_trylock_irqsave(&tx_ring->tx_lock, flags))
->  		/* Collision - tell upper layer to requeue */
-> -		local_irq_restore(flags);
->  		return NETDEV_TX_LOCKED;
-> -	}
->  
->  	/* need: count + 2 desc gap to keep tail from touching
->  	 * head, otherwise try next time */
+It might be possible to use promisc counter to handle this.
