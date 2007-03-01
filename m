@@ -1,82 +1,66 @@
-From: Robin Getz <rgetz@blackfin.uclinux.org>
-Subject: Re: [PATCH -mm 3/5] Blackfin: on-chip ethernet MAC controller driver
-Date: Thu, 1 Mar 2007 13:35:26 -0500
-Message-ID: <200703011335.26560.rgetz@blackfin.uclinux.org>
-References: <1172722514.5264.77.camel@roc-desktop> <45E6F6D6.5000804@linux-foundation.org>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: CLOCK_MONOTONIC datagram timestamps by the kernel
+Date: Thu, 1 Mar 2007 10:53:48 -0800
+Message-ID: <20070301105348.04c2fd82@freekitty>
+References: <45E5570E.7050301@free.fr>
+	<200702281555.10309.dada1@cosmosbay.com>
+	<45E5A8AE.3030606@free.fr>
+	<200703011230.50596.dada1@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: bryan.wu@analog.com, "Andrew Morton" <akpm@linux-foundation.org>,
-	jgarzik@pobox.com, linux-kernel@vger.kernel.org,
+Cc: John find <linux.kernel@free.fr>, linux-net@vger.kernel.org,
 	netdev@vger.kernel.org
-To: "Stephen Hemminger" <shemminger@linux-foundation.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965488AbXCASeh@vger.kernel.org>
-In-Reply-To: <45E6F6D6.5000804@linux-foundation.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+To: Eric Dumazet <dada1@cosmosbay.com>
+Return-path: <linux-net-owner@vger.kernel.org>
+In-Reply-To: <200703011230.50596.dada1@cosmosbay.com>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu 1 Mar 2007 10:52, Stephen Hemminger pondered:
-> Wu, Bryan wrote:
-> > Hi folks,
+On Thu, 1 Mar 2007 12:30:50 +0100
+Eric Dumazet <dada1@cosmosbay.com> wrote:
+
+> On Wednesday 28 February 2007 17:07, John wrote:
+> 
 > >
-> > Here is the blackfin on-chip ethernet MAC controller driver for Linux.
+> > Consider an idle Linux 2.6.20-rt8 system, equipped with a single PCI-E
+> > gigabit Ethernet NIC, running on a modern CPU (e.g. Core 2 Duo E6700).
+> > All this system does is time stamp 1000 packets per second.
 > >
-> > Index: linux-2.6/drivers/net/Kconfig
-> > ===================================================================
-> > --- linux-2.6.orig/drivers/net/Kconfig	2007-03-01 11:39:14.000000000
-> > +0800 +++ linux-2.6/drivers/net/Kconfig	2007-03-01 11:39:19.000000000
-> > +0800 @@ -836,6 +836,50 @@
-> >  	  module, say M here and read <file:Documentation/modules.txt> as well
-> >  	  as <file:Documentation/networking/net-modules.txt>.
-> >
-> > +config BFIN_MAC
-> > +	tristate "Blackfin 536/537 on-chip mac support"
-> > +	depends on NET_ETHERNET && (BF537 || BF536) && (!BF537_PORT_H)
-> > +	select CRC32
-> > +	select BFIN_MAC_USE_L1 if DMA_UNCACHED_NONE
-> > +	help
-> > +	  This is the driver for blackfin on-chip mac device. Say Y if you want
-> > it +	  compiled into the kernel. This driver is also available as a
-> > module +	  ( = code which can be inserted in and removed from the running
-> > kernel +	  whenever you want). The module will be called bfin_mac.
-> > +
-> > +config BFIN_MAC_USE_L1
-> > +	bool "Use L1 memory for rx/tx packets"
-> > +	depends on BFIN_MAC && BF537
-> > +	default y
-> > +	help
-> > +	  To get maximum network performace, you should use L1 memory as rx/tx
-> > buffers. +	  Say N here if you want to reserve L1 memory for other uses.
-> > +
-> > +config BFIN_TX_DESC_NUM
-> > +	int "Number of transmit buffer packets"
-> > +	depends on BFIN_MAC
-> > +	range 6 10 if BFIN_MAC_USE_L1
-> > +	range 10 100
-> > +	default "10"
-> > +	help
-> > +	  Set the number of buffer packets used in driver.
-> > +
-> > +config BFIN_RX_DESC_NUM
-> > +	int "Number of receive buffer packets"
-> > +	depends on BFIN_MAC
-> > +	range 20 100 if BFIN_MAC_USE_L1
-> > +	range 20 800
-> > +	default "20"
-> > +	help
-> > +	  Set the number of buffer packets used in driver
+> > Are you claiming that this platform *cannot* handle most packets within
+> > less than 1 microsecond of their arrival?
+> 
+> Yes I claim it.
+> 
+> You expect too much of this platform, unless "most" means 10 % for 
+> you ;)
+> 
+> If you replace "1 us" by "50 us", then yes, it probably can do it, if "most" 
+> means 99%, (not 99.999 %)
+> 
+> Anyway, if you want to play, you can apply this patch on top of 
+> linux-2.6.21-rc2  (nanosecond resolution infrastruture needs 2.6.21)
+> I let you do the adjustments for rt kernel.
+> 
+> I compiled it on my i386 machine, and tested it with a patched libpcap/tcpdump
+> 
+> [PATCH] NET : introduce nanosecond time infrastructure and SIOCGSTAMPNS
+> 
+> It appears some machines are *really* fast and that micro second resolution is 
+> a limiting factor.
+> 
+> This patch converts sk_buff timestamp to use new nanosecond infra (added in 
+> 2.6.21), and introduces a new ioctl SIOCGSTAMPNS to let applications access 
+> nanosecond resolution (ie a timespec instead of timeval)
+> 
+> 
+> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
 >
-> The regular practice is to put these in a device include file, and not
-> make them kernel configurable.
-> Why would you want to make it tuneable at compile time?
 
-It is to attempt to make it easier for our end users to configure&use.
+You probably want to add a SO_TIMESTAMPNS setsockopt() value like existing SO_TIMESTAMP
 
-Most people who use it, want to make some tweaks to the configuration based on 
-their embedded platform. Rather than forcing everyone to make changes to a .c 
-or .h file, we let them manage it in the .config (which is platforms specific 
-anyway).
+Also use NSEC_PER_USEC rather than hardcoded 1000.
 
--Robin
+
+-- 
+Stephen Hemminger <shemminger@linux-foundation.org>
