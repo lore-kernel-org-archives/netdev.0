@@ -1,49 +1,51 @@
-From: Ron Mercer <ron.mercer@qlogic.com>
-Subject: [PATCH] qla3xxx: bugfix for line omitted in previous patch.
-Date: Wed, 28 Feb 2007 16:48:26 -0800
-Message-ID: <20070301004826.GA32624@linux-7mw0.qlogic.org>
-References: <20070226190450.GA7325@linux-7mw0.qlogic.org> <11725168032993-git-send-email-ron.mercer@qlogic.com> <45E3F83F.6010003@garzik.org>
+From: Jean Tourrilhes <jt@hpl.hp.com>
+Subject: Re: [PATCH 2.6.20] kobject net ifindex + rename
+Date: Wed, 28 Feb 2007 16:51:23 -0800
+Message-ID: <20070301005123.GA7116@bougret.hpl.hp.com>
+References: <20070228012741.GA3988@bougret.hpl.hp.com> <20070228153617.GA5670@suse.de> <20070301002647.GA7045@bougret.hpl.hp.com> <1172709466.11911.7.camel@johannes.berg>
+Reply-To: jt@hpl.hp.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, ron.mercer@qlogic.com,
-	benjamin.li@qlogic.com
-To: Jeff Garzik <jeff@garzik.org>
+Cc: Greg KH <gregkh@suse.de>, Jarek Poplawski <jarkao2@o2.pl>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linux kernel mailing list <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from avexch1.qlogic.com ([198.70.193.115]:8941 "EHLO
-	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932841AbXCAAs3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Feb 2007 19:48:29 -0500
+Received: from gundega.hpl.hp.com ([192.6.19.190]:62545 "EHLO
+	gundega.hpl.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932849AbXCAAwm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Feb 2007 19:52:42 -0500
 Content-Disposition: inline
-In-Reply-To: <45E3F83F.6010003@garzik.org>
+In-Reply-To: <1172709466.11911.7.camel@johannes.berg>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Thu, Mar 01, 2007 at 01:37:46AM +0100, Johannes Berg wrote:
+> On Wed, 2007-02-28 at 16:26 -0800, Jean Tourrilhes wrote:
+> 
+> > +	/* This function is only used for network interface.
+> > +	 * Some hotplug package track interfaces by their name and
+> > +	 * therefore want to know when the name is changed by the user. */
+> 
+> Right now, that's true, but wireless is going to start using
+> device_rename pretty soon as well. Could you rephrase this comment?
+> 
+> johannes
 
->From 01751a39d7327acc28dabf4f68930b7e20b279d1 Mon Sep 17 00:00:00 2001
-From: Ron Mercer <ron.mercer@qlogic.com>
-Date: Wed, 28 Feb 2007 16:42:17 -0800
-Subject: [PATCH] [PATCH] qla3xxx: bugfix for line omitted in previous patch.
+	I would prefer to fix the comment when this change actually
+happens. I prefer comments to refer to the current reality, rather
+than past/future situation. When you introduce wireless renaming, you
+will need to verify the whole chain anyway, so you might as well fix
+the comment while merging wireless renaming.
+	Note also that my comment is technically correct. I did not
+say 'netdev' but the more generic term 'network interface', and I
+believe your wireless interface is a 'network interface', even if it's
+not a netdev ;-)
+	But if this really bugs you, please feel free to respin my
+patch.
 
-This missing line caused transmit errors on the Qlogic 4032 chip.
+	Have fun...
 
-Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
----
- drivers/net/qla3xxx.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/qla3xxx.c b/drivers/net/qla3xxx.c
-index 3a14d19..d3f65da 100755
---- a/drivers/net/qla3xxx.c
-+++ b/drivers/net/qla3xxx.c
-@@ -2210,7 +2210,7 @@ static int ql_send_map(struct ql3_adapter *qdev,
- {
- 	struct oal *oal;
- 	struct oal_entry *oal_entry;
--	int len = skb->len;
-+	int len = skb_headlen(skb);
- 	dma_addr_t map;
- 	int err;
- 	int completed_segs, i;
--- 
-1.5.0.rc4.16.g9e258
+	Jean
 
