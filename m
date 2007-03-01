@@ -1,45 +1,47 @@
-From: Marc D Ronell <mronell@alumni.upenn.edu>
-Subject: Network access fails unless tcpdump is running?
-Date: Thu, 01 Mar 2007 14:22:24 -0500
-Message-ID: <87y7mg4vm7.fsf@corps.glidepath.invalid>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: [PATCH 3/3] bonding: Improve IGMP join processing
+Date: Thu, 1 Mar 2007 14:43:06 -0500
+Message-ID: <20070301194305.GB3199@gospo.rdu.redhat.com>
+References: <200703010103.l2113b22030905@death.nxdomain.ibm.com> <20070301164918.GA3199@gospo.rdu.redhat.com> <200703011705.l21H5Q22005750@death.nxdomain.ibm.com> <45E7289F.60406@hp.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org,
+	bonding-devel@lists.sourceforge.net,
+	Jeff Garzik <jgarzik@pobox.com>
+To: Brian Haley <brian.haley@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from main.gmane.org ([80.91.229.2]:59773 "EHLO ciao.gmane.org"
+Received: from mx1.redhat.com ([66.187.233.31]:53473 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965525AbXCATaS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Mar 2007 14:30:18 -0500
-Received: from root by ciao.gmane.org with local (Exim 4.43)
-	id 1HMqyY-0005u3-5B
-	for netdev@vger.kernel.org; Thu, 01 Mar 2007 20:30:02 +0100
-Received: from pool-71-255-169-178.bstnma.east.verizon.net ([71.255.169.178])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Thu, 01 Mar 2007 20:30:02 +0100
-Received: from mronell by pool-71-255-169-178.bstnma.east.verizon.net with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Thu, 01 Mar 2007 20:30:02 +0100
+	id S965543AbXCATn0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Mar 2007 14:43:26 -0500
+Content-Disposition: inline
+In-Reply-To: <45E7289F.60406@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Thu, Mar 01, 2007 at 02:25:19PM -0500, Brian Haley wrote:
+> Jay Vosburgh wrote:
+> >>My only concern is that this code assumes all mcast addresses stored in
+> >>dev->mc-list list are for ipv4 igmp mcast addresses and nothing was done
+> >>for ipv6.
+> >>
+> >>But this is much better than what we have now, so... 
+> >
+> >	Agreed, but there's no IPv6 support anywhere in bonding at
+> >present (for unicast or multicast), so this isn't really a loss.
+> 
+> So forgive my naive question, but what would it take to make IPv6 work? 
+>  I know DAD fails on a test setup I have, but I haven't dug-into why 
+> this is (I can guess), and I'd like to see it working.  I'm willing to 
+> help, even if just to get it limping along.
+> 
 
-Hi,
+Brian,
 
-I can not ping a remote host successfully unless I have "tcpdump -i
-eth0" running, in which case, my network access works fine.  
+If we are easily able to differentiate between the multicast addresses
+in the mc_list as to which are for ipv4 and which are for ipv6 then it
+would be easy to call-out to something in the ipv6 mcast code when
+needed instead of always calling out to ipv4 code.
 
-I am  running Debian etch on  a Dell Inspiron e1505  laptop.  The eth0
-address  is static  on my  local LAN.   Once tcpdump  is  running, the
-laptop can access the network with no problems.
-
-Any help or suggestions to solving this concern are really appreciated.
-
-Thanks,
-
-Marc
-
--- 
-
-
-
+-andy
