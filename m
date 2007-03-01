@@ -1,229 +1,41 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: Re: [PATCH 3/3] bonding: Improve IGMP join processing
-Date: Thu, 1 Mar 2007 11:49:19 -0500
-Message-ID: <20070301164918.GA3199@gospo.rdu.redhat.com>
-References: <200703010103.l2113b22030905@death.nxdomain.ibm.com>
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: Re: [PATCH] e1000 stop raw interrupts disabled nag from RT
+Date: Thu, 01 Mar 2007 08:55:34 -0800
+Message-ID: <45E70586.60201@intel.com>
+References: <45E64080.4070004@mvista.com> <45E645F4.2090403@intel.com> <45E65DCF.8050903@mvista.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, bonding-devel@lists.sourceforge.net,
-	Jeff Garzik <jgarzik@pobox.com>
-To: Jay Vosburgh <fubar@us.ibm.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Kok, Auke" <auke-jan.h.kok@intel.com>, netdev@vger.kernel.org,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Ingo Molnar <mingo@elte.hu>
+To: Mark Huth <mhuth@mvista.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:46237 "EHLO mx1.redhat.com"
+Received: from mga02.intel.com ([134.134.136.20]:28860 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965376AbXCAQvl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Mar 2007 11:51:41 -0500
-Content-Disposition: inline
-In-Reply-To: <200703010103.l2113b22030905@death.nxdomain.ibm.com>
+	id S965395AbXCAQ4M (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Mar 2007 11:56:12 -0500
+In-Reply-To: <45E65DCF.8050903@mvista.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Feb 28, 2007 at 05:03:37PM -0800, Jay Vosburgh wrote:
+Mark Huth wrote:
+> Kok, Auke wrote:
+>> Mark Huth wrote:
+>>> Current e1000_xmit_frame spews raw interrupt disabled nag messages when
+>>> used with RT kernel patches.  This patch uses spin_trylock_irqsave,
+>>> which allows RT patches to properly manage the irq semantics.
+>> Looks OK with me on first sight, I'll keep it on my stack and push it 
+>> upstream after Jesse looks it over.
+>>
+>> Which -RT paches make this pop up btw? I'd like to repro it.
+>>
 > 
-> 	In active-backup mode, the current bonding code duplicates IGMP
-> traffic to all slaves, so that switches are up to date in case of a
-> failover from an active to a backup interface.  If bonding then fails
-> back to the original active interface, it is likely that the "active
-> slave" switch's IGMP forwarding for the port will be out of date until
-> some event occurs to refresh the switch (e.g., a membership query).
-> 
-> 	This patch alters the behavior of bonding to no longer flood
-> IGMP to all ports, and to issue IGMP JOINs to the newly active port at
-> the time of a failover.  This insures that switches are kept up to date
-> for all cases.
-> 
-> 	"GOELLESCH Niels" <niels.goellesch@eurocontrol.int> originally
-> reported this problem, and included a patch.  His original patch was
-> modified by Jay Vosburgh to additionally remove the existing IGMP flood
-> behavior, use RCU, streamline code paths, fix trailing white space, and
-> adjust for style.
-> 
-> Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
-> 
+> Well, I'm not an expert on the realtime patches - but most any patch set 
+> from Ingo seems to set this off - we've run through a bunch all the way 
+> since 2.6.10.
 
-My only concern is that this code assumes all mcast addresses stored in
-dev->mc-list list are for ipv4 igmp mcast addresses and nothing was done
-for ipv6.
+that's bizarre, and would imply that Ingo himself never spotted this in ages, 
+not to mention never tell us about it?
 
-But this is much better than what we have now, so... 
-
-Acked-by: Andy Gospodarek <andy@greyhouse.net>
-
-
-> 
-> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-> index 7ec6121..338d452 100644
-> --- a/drivers/net/bonding/bond_main.c
-> +++ b/drivers/net/bonding/bond_main.c
-> @@ -60,6 +60,7 @@ #include <asm/uaccess.h>
->  #include <linux/errno.h>
->  #include <linux/netdevice.h>
->  #include <linux/inetdevice.h>
-> +#include <linux/igmp.h>
->  #include <linux/etherdevice.h>
->  #include <linux/skbuff.h>
->  #include <net/sock.h>
-> @@ -861,6 +862,28 @@ static void bond_mc_delete(struct bondin
->  	}
->  }
->  
-> +
-> +/*
-> + * Retrieve the list of registered multicast addresses for the bonding
-> + * device and retransmit an IGMP JOIN request to the current active
-> + * slave.
-> + */
-> +static void bond_resend_igmp_join_requests(struct bonding *bond)
-> +{
-> +	struct in_device *in_dev;
-> +	struct ip_mc_list *im;
-> +
-> +	rcu_read_lock();
-> +	in_dev = __in_dev_get_rcu(bond->dev);
-> +	if (in_dev) {
-> +		for (im = in_dev->mc_list; im; im = im->next) {
-> +			ip_mc_rejoin_group(im);
-> +		}
-> +	}
-> +
-> +	rcu_read_unlock();
-> +}
-> +
->  /*
->   * Totally destroys the mc_list in bond
->   */
-> @@ -874,6 +897,7 @@ static void bond_mc_list_destroy(struct 
->  		kfree(dmi);
->  		dmi = bond->mc_list;
->  	}
-> +        bond->mc_list = NULL;
->  }
->  
->  /*
-> @@ -967,6 +991,7 @@ static void bond_mc_swap(struct bonding 
->  		for (dmi = bond->dev->mc_list; dmi; dmi = dmi->next) {
->  			dev_mc_add(new_active->dev, dmi->dmi_addr, dmi->dmi_addrlen, 0);
->  		}
-> +		bond_resend_igmp_join_requests(bond);
->  	}
->  }
->  
-> @@ -4017,42 +4042,6 @@ out:
->  	return 0;
->  }
->  
-> -static void bond_activebackup_xmit_copy(struct sk_buff *skb,
-> -                                        struct bonding *bond,
-> -                                        struct slave *slave)
-> -{
-> -	struct sk_buff *skb2 = skb_copy(skb, GFP_ATOMIC);
-> -	struct ethhdr *eth_data;
-> -	u8 *hwaddr;
-> -	int res;
-> -
-> -	if (!skb2) {
-> -		printk(KERN_ERR DRV_NAME ": Error: "
-> -		       "bond_activebackup_xmit_copy(): skb_copy() failed\n");
-> -		return;
-> -	}
-> -
-> -	skb2->mac.raw = (unsigned char *)skb2->data;
-> -	eth_data = eth_hdr(skb2);
-> -
-> -	/* Pick an appropriate source MAC address
-> -	 *	-- use slave's perm MAC addr, unless used by bond
-> -	 *	-- otherwise, borrow active slave's perm MAC addr
-> -	 *	   since that will not be used
-> -	 */
-> -	hwaddr = slave->perm_hwaddr;
-> -	if (!memcmp(eth_data->h_source, hwaddr, ETH_ALEN))
-> -		hwaddr = bond->curr_active_slave->perm_hwaddr;
-> -
-> -	/* Set source MAC address appropriately */
-> -	memcpy(eth_data->h_source, hwaddr, ETH_ALEN);
-> -
-> -	res = bond_dev_queue_xmit(bond, skb2, slave->dev);
-> -	if (res)
-> -		dev_kfree_skb(skb2);
-> -
-> -	return;
-> -}
->  
->  /*
->   * in active-backup mode, we know that bond->curr_active_slave is always valid if
-> @@ -4073,21 +4062,6 @@ static int bond_xmit_activebackup(struct
->  	if (!bond->curr_active_slave)
->  		goto out;
->  
-> -	/* Xmit IGMP frames on all slaves to ensure rapid fail-over
-> -	   for multicast traffic on snooping switches */
-> -	if (skb->protocol == __constant_htons(ETH_P_IP) &&
-> -	    skb->nh.iph->protocol == IPPROTO_IGMP) {
-> -		struct slave *slave, *active_slave;
-> -		int i;
-> -
-> -		active_slave = bond->curr_active_slave;
-> -		bond_for_each_slave_from_to(bond, slave, i, active_slave->next,
-> -		                            active_slave->prev)
-> -			if (IS_UP(slave->dev) &&
-> -			    (slave->link == BOND_LINK_UP))
-> -				bond_activebackup_xmit_copy(skb, bond, slave);
-> -	}
-> -
->  	res = bond_dev_queue_xmit(bond, skb, bond->curr_active_slave->dev);
->  
->  out:
-> diff --git a/include/linux/igmp.h b/include/linux/igmp.h
-> index 9dbb525..a113fe6 100644
-> --- a/include/linux/igmp.h
-> +++ b/include/linux/igmp.h
-> @@ -218,5 +218,7 @@ extern void ip_mc_up(struct in_device *)
->  extern void ip_mc_down(struct in_device *);
->  extern void ip_mc_dec_group(struct in_device *in_dev, __be32 addr);
->  extern void ip_mc_inc_group(struct in_device *in_dev, __be32 addr);
-> +extern void ip_mc_rejoin_group(struct ip_mc_list *im);
-> +
->  #endif
->  #endif
-> diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
-> index 0637213..1c6a084 100644
-> --- a/net/ipv4/igmp.c
-> +++ b/net/ipv4/igmp.c
-> @@ -1251,6 +1251,28 @@ out:
->  }
->  
->  /*
-> + *	Resend IGMP JOIN report; used for bonding.
-> + */
-> +void ip_mc_rejoin_group(struct ip_mc_list *im)
-> +{
-> +	struct in_device *in_dev = im->interface;
-> +
-> +#ifdef CONFIG_IP_MULTICAST
-> +	if (im->multiaddr == IGMP_ALL_HOSTS)
-> +		return;
-> +
-> +	if (IGMP_V1_SEEN(in_dev) || IGMP_V2_SEEN(in_dev)) {
-> +		igmp_mod_timer(im, IGMP_Initial_Report_Delay);
-> +		return;
-> +	}
-> +	/* else, v3 */
-> +	im->crcount = in_dev->mr_qrv ? in_dev->mr_qrv :
-> +		IGMP_Unsolicited_Report_Count;
-> +	igmp_ifc_event(in_dev);
-> +#endif
-> +}
-> +
-> +/*
->   *	A socket has left a multicast group on device dev
->   */
->  
-> @@ -2596,3 +2618,4 @@ #endif
->  EXPORT_SYMBOL(ip_mc_dec_group);
->  EXPORT_SYMBOL(ip_mc_inc_group);
->  EXPORT_SYMBOL(ip_mc_join_group);
-> +EXPORT_SYMBOL(ip_mc_rejoin_group);
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Ingo?
