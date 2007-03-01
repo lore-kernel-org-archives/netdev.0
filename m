@@ -1,54 +1,74 @@
-From: Baruch Even <baruch@ev-en.org>
-Subject: Re: [PATCH 4/4]: Kill fastpath_{skb,cnt}_hint.
-Date: Thu, 1 Mar 2007 20:13:40 +0200
-Message-ID: <20070301181340.GD25760@galon.ev-en.org>
-References: <20070228.114949.18302561.davem@davemloft.net>
+From: "Mike Frysinger" <vapier.adi@gmail.com>
+Subject: Re: [PATCH -mm 3/5] Blackfin: on-chip ethernet MAC controller driver
+Date: Thu, 1 Mar 2007 13:21:27 -0500
+Message-ID: <8bd0f97a0703011021s3d74b129yaa59ce65142115e0@mail.gmail.com>
+References: <1172722514.5264.77.camel@roc-desktop>
+	 <45E6F6D6.5000804@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: bryan.wu@analog.com, "Andrew Morton" <akpm@linux-foundation.org>,
+	jgarzik@pobox.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: "Stephen Hemminger" <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rrcs-24-123-59-149.central.biz.rr.com ([24.123.59.149]:28668
-	"EHLO galon.ev-en.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965473AbXCASNl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Mar 2007 13:13:41 -0500
+Received: from an-out-0708.google.com ([209.85.132.245]:17399 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965482AbXCASV1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Mar 2007 13:21:27 -0500
+Received: by an-out-0708.google.com with SMTP id b33so464629ana
+        for <netdev@vger.kernel.org>; Thu, 01 Mar 2007 10:21:27 -0800 (PST)
+In-Reply-To: <45E6F6D6.5000804@linux-foundation.org>
 Content-Disposition: inline
-In-Reply-To: <20070228.114949.18302561.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* David Miller <davem@davemloft.net> [070228 21:49]:
-> 
-> commit 71b270d966cd42e29eabcd39434c4ad4d33aa2be
-> Author: David S. Miller <davem@sunset.davemloft.net>
-> Date:   Tue Feb 27 19:28:07 2007 -0800
-> 
->     [TCP]: Kill fastpath_{skb,cnt}_hint.
->     
->     Now that we have per-skb fack_counts and an interval
->     search mechanism for the retransmit queue, we don't
->     need these things any more.
->     
->     Instead, as we traverse the SACK blocks to tag the
->     queue, we use the RB tree to lookup the first SKB
->     covering the SACK block by sequence number.
->     
->     Signed-off-by: David S. Miller <davem@davemloft.net>
+On 3/1/07, Stephen Hemminger <shemminger@linux-foundation.org> wrote:
+> Wu, Bryan wrote:
+> > +config BFIN_MAC
+> > +     tristate "Blackfin 536/537 on-chip mac support"
+> > +     depends on NET_ETHERNET && (BF537 || BF536) && (!BF537_PORT_H)
+> > +     select CRC32
+> > +     select BFIN_MAC_USE_L1 if DMA_UNCACHED_NONE
+> > +     help
+> > +       This is the driver for blackfin on-chip mac device. Say Y if you want it
+> > +       compiled into the kernel. This driver is also available as a module
+> > +       ( = code which can be inserted in and removed from the running kernel
+> > +       whenever you want). The module will be called bfin_mac.
+> > +
+> > +config BFIN_MAC_USE_L1
+> > +     bool "Use L1 memory for rx/tx packets"
+> > +     depends on BFIN_MAC && BF537
+> > +     default y
+> > +     help
+> > +       To get maximum network performace, you should use L1 memory as rx/tx buffers.
+> > +       Say N here if you want to reserve L1 memory for other uses.
+> > +
+> > +config BFIN_TX_DESC_NUM
+> > +     int "Number of transmit buffer packets"
+> > +     depends on BFIN_MAC
+> > +     range 6 10 if BFIN_MAC_USE_L1
+> > +     range 10 100
+> > +     default "10"
+> > +     help
+> > +       Set the number of buffer packets used in driver.
+> > +
+> > +config BFIN_RX_DESC_NUM
+> > +     int "Number of receive buffer packets"
+> > +     depends on BFIN_MAC
+> > +     range 20 100 if BFIN_MAC_USE_L1
+> > +     range 20 800
+> > +     default "20"
+> > +     help
+> > +       Set the number of buffer packets used in driver
+> >
+> The regular practice is to put these in a device include file, and not
+> make them kernel configurable.
 
-If you take this approach it makes sense to also remove the sorting of
-SACKs, the traversal of the SACK blocks will not start from the
-beginning anyway which was the reason for this sorting in the first
-place.
+we're working on moving some of this stuff into the board files rather
+than Kconfig
 
-One drawback for this approach is that you now walk the entire sack
-block when you advance one packet. If you consider a 10,000 packet queue
-which had several losses at the beginning and a large sack block that
-advances from the middle to the end you'll walk a lot of packets for
-that one last stretch of a sack block.
+> Why would you want to make it tuneable at compile time?
 
-One way to handle that is to use the still existing sack fast path to
-detect this case and calculate what is the sequence number to search
-for. Since you know what was the end_seq that was handled last, you can
-search for it as the start_seq and go on from there. Does it make sense?
-
-Baruch
+because it was easier to implement and deploy the first time around ;)
+-mike
