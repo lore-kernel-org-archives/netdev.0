@@ -1,47 +1,37 @@
 From: Andy Gospodarek <andy@greyhouse.net>
-Subject: Re: [PATCH 3/3] bonding: Improve IGMP join processing
-Date: Thu, 1 Mar 2007 14:43:06 -0500
-Message-ID: <20070301194305.GB3199@gospo.rdu.redhat.com>
-References: <200703010103.l2113b22030905@death.nxdomain.ibm.com> <20070301164918.GA3199@gospo.rdu.redhat.com> <200703011705.l21H5Q22005750@death.nxdomain.ibm.com> <45E7289F.60406@hp.com>
+Subject: Re: Network access fails unless tcpdump is running?
+Date: Thu, 1 Mar 2007 15:13:08 -0500
+Message-ID: <20070301201307.GC3199@gospo.rdu.redhat.com>
+References: <87y7mg4vm7.fsf@corps.glidepath.invalid>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org,
-	bonding-devel@lists.sourceforge.net,
-	Jeff Garzik <jgarzik@pobox.com>
-To: Brian Haley <brian.haley@hp.com>
+Cc: netdev@vger.kernel.org
+To: Marc D Ronell <mronell@alumni.upenn.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:53473 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([66.187.233.31]:33772 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965543AbXCATn0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Mar 2007 14:43:26 -0500
+	id S965560AbXCAUNg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Mar 2007 15:13:36 -0500
 Content-Disposition: inline
-In-Reply-To: <45E7289F.60406@hp.com>
+In-Reply-To: <87y7mg4vm7.fsf@corps.glidepath.invalid>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 01, 2007 at 02:25:19PM -0500, Brian Haley wrote:
-> Jay Vosburgh wrote:
-> >>My only concern is that this code assumes all mcast addresses stored in
-> >>dev->mc-list list are for ipv4 igmp mcast addresses and nothing was done
-> >>for ipv6.
-> >>
-> >>But this is much better than what we have now, so... 
-> >
-> >	Agreed, but there's no IPv6 support anywhere in bonding at
-> >present (for unicast or multicast), so this isn't really a loss.
+On Thu, Mar 01, 2007 at 02:22:24PM -0500, Marc D Ronell wrote:
 > 
-> So forgive my naive question, but what would it take to make IPv6 work? 
->  I know DAD fails on a test setup I have, but I haven't dug-into why 
-> this is (I can guess), and I'd like to see it working.  I'm willing to 
-> help, even if just to get it limping along.
+> Hi,
 > 
+> I can not ping a remote host successfully unless I have "tcpdump -i
+> eth0" running, in which case, my network access works fine.  
 
-Brian,
+Interesting that when your interface is in promiscious mode it works
+fine, but otherwise it doesn't.  Do you have all of your iptables rules
+cleared?
 
-If we are easily able to differentiate between the multicast addresses
-in the mc_list as to which are for ipv4 and which are for ipv6 then it
-would be easy to call-out to something in the ipv6 mcast code when
-needed instead of always calling out to ipv4 code.
+> I am  running Debian etch on  a Dell Inspiron e1505  laptop.  The eth0
+> address  is static  on my  local LAN.   Once tcpdump  is  running, the
+> laptop can access the network with no problems.
 
--andy
+What networking hardware is on that laptop?  Can you post the complete
+output of `ethtool -i eth0` and the network device info from the output
+of `lcpci -vvv`?
