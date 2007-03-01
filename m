@@ -1,59 +1,62 @@
-From: Mark Huth <mhuth@mvista.com>
-Subject: Re: [PATCH] e1000 stop raw interrupts disabled nag from RT
-Date: Thu, 01 Mar 2007 14:58:10 -0700
-Message-ID: <45E74C72.1020107@mvista.com>
-References: <45E64080.4070004@mvista.com> <45E645F4.2090403@intel.com> <45E65DCF.8050903@mvista.com> <45E70586.60201@intel.com> <45E70959.4070209@stud.feec.vutbr.cz>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Kok, Auke" <auke-jan.h.kok@intel.com>, netdev@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Ingo Molnar <mingo@elte.hu>
-To: Michal Schmidt <xschmi00@stud.feec.vutbr.cz>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [PATCH 3/3] bonding: Improve IGMP join processing
+Date: Thu, 01 Mar 2007 13:58:33 -0800
+Message-ID: <200703012158.l21LwX22001136@death.nxdomain.ibm.com>
+References: <200703010103.l2113b22030905@death.nxdomain.ibm.com> <20070301164918.GA3199@gospo.rdu.redhat.com> <200703011705.l21H5Q22005750@death.nxdomain.ibm.com> <45E7289F.60406@hp.com> <20070301194305.GB3199@gospo.rdu.redhat.com>
+Cc: Brian Haley <brian.haley@hp.com>, netdev@vger.kernel.org,
+	bonding-devel@lists.sourceforge.net,
+	Jeff Garzik <jgarzik@pobox.com>
+To: Andy Gospodarek <andy@greyhouse.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gateway-1237.mvista.com ([63.81.120.158]:26723 "EHLO
-	gateway-1237.mvista.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030369AbXCAV6M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Mar 2007 16:58:12 -0500
-In-Reply-To: <45E70959.4070209@stud.feec.vutbr.cz>
+Received: from e31.co.us.ibm.com ([32.97.110.149]:50635 "EHLO
+	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030376AbXCAV6g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Mar 2007 16:58:36 -0500
+Received: from westrelay02.boulder.ibm.com (westrelay02.boulder.ibm.com [9.17.195.11])
+	by e31.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id l21LwaJG030451
+	for <netdev@vger.kernel.org>; Thu, 1 Mar 2007 16:58:36 -0500
+Received: from d03av04.boulder.ibm.com (d03av04.boulder.ibm.com [9.17.195.170])
+	by westrelay02.boulder.ibm.com (8.13.8/8.13.8/NCO v8.2) with ESMTP id l21Lwalr539792
+	for <netdev@vger.kernel.org>; Thu, 1 Mar 2007 14:58:36 -0700
+Received: from d03av04.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av04.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l21LwZY3029198
+	for <netdev@vger.kernel.org>; Thu, 1 Mar 2007 14:58:36 -0700
+In-reply-to: <20070301194305.GB3199@gospo.rdu.redhat.com> 
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Andy Gospodarek <andy@greyhouse.net> wrote:
 
+>On Thu, Mar 01, 2007 at 02:25:19PM -0500, Brian Haley wrote:
+[...]
+>> So forgive my naive question, but what would it take to make IPv6 work? 
+>>  I know DAD fails on a test setup I have, but I haven't dug-into why 
+>> this is (I can guess), and I'd like to see it working.  I'm willing to 
+>> help, even if just to get it limping along.
+>> 
+>
+>Brian,
+>
+>If we are easily able to differentiate between the multicast addresses
+>in the mc_list as to which are for ipv4 and which are for ipv6 then it
+>would be easy to call-out to something in the ipv6 mcast code when
+>needed instead of always calling out to ipv4 code.
 
-Michal Schmidt wrote:
-> -----BEGIN PGP SIGNED MESSAGE-----
-> Hash: SHA1
->
-> Kok, Auke wrote:
->   
->> Mark Huth wrote:
->>     
->>> Well, I'm not an expert on the realtime patches - but most any patch set 
->>> from Ingo seems to set this off - we've run through a bunch all the way 
->>> since 2.6.10.
->>>       
->> that's bizarre, and would imply that Ingo himself never spotted this in ages, 
->> not to mention never tell us about it?
->>     
->
-> Ingo's -rt patches have contained this change to e1000 for some time.
-> The code is perfectly fine as is for non-RT kernels, so maybe that's why
-> noone felt like telling you about it.
->
-> Michal
-> -----BEGIN PGP SIGNATURE-----
-> Version: GnuPG v1.4.5 (GNU/Linux)
-> Comment: Using GnuPG with Red Hat - http://enigmail.mozdev.org
->
-> iD8DBQFF5wlZabKV90ewf0QRAse3AJ979xur0u8X1DokSzaAMvLQCWPkXACfU9ss
-> xC05DAbFNAaFMLnQrzBKit0=
-> =I5mt
-> -----END PGP SIGNATURE-----
->   
-Ah, tis true indeed.  This only shows up when one brings a newer driver 
-forward after the RT patch has been applied.  I guess you would need to 
-coordinate this with Ingo.
+	Which covers multicast (at least for the failover case; I think
+the regular support is already pretty address-independent).
 
-Thanks,
-Mark Huth
+	Additionally, the IP address tracking for the ARP monitor
+(bond_glean_dev_ip) needs IPv6 address support.  I seem to recall that
+there's an issue with the slaves each getting separate link local
+addresses automatically assigned, but I haven't fooled with that in a
+while.  There are likely other problems that would crop up during
+serious testing.
+
+	A characterization of what the IPv6 related problems are would
+be a good place to start; I would expect that active-backup mode without
+arp_monitor shouldn't be too difficult to make operable.
+
+	-J
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
