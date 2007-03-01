@@ -1,8 +1,9 @@
 From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
 	<yoshfuji@linux-ipv6.org>
-Subject: [PATCH] [USBNET] DM9501: Add Corega FEther USB-TXC support.
-Date: Thu, 01 Mar 2007 16:44:54 +0900 (JST)
-Message-ID: <20070301.164454.14331566.yoshfuji@linux-ipv6.org>
+Subject: [PATCH (RESEND)] [USBNET] DM9601: Add Corega FEther USB-TXC
+ support.
+Date: Thu, 01 Mar 2007 16:52:05 +0900 (JST)
+Message-ID: <20070301.165205.78649434.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -10,10 +11,10 @@ Cc: davem@davemloft.net, yoshfuji@linux-ipv6.org,
 	netdev@vger.kernel.org
 To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:33714 "EHLO
+Received: from yue.linux-ipv6.org ([203.178.140.15]:33735 "EHLO
 	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751672AbXCAHog (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Mar 2007 02:44:36 -0500
+	with ESMTP id S1752339AbXCAHvp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Mar 2007 02:51:45 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
