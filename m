@@ -1,31 +1,31 @@
-From: Jay Cliburn <jacliburn@bellsouth.net>
-Subject: PCIe NICs that correctly suspend/resume
-Date: Wed, 28 Feb 2007 19:13:01 -0600
-Message-ID: <20070228191301.1f46ed3d@osprey.hogchain.net>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: [PATCH] bonding: make IGMP flooding on active-backup bonds configurable
+Date: Wed, 28 Feb 2007 20:18:14 -0500
+Message-ID: <20070301011814.GB1916@gospo.rdu.redhat.com>
+References: <20070228222331.GA28813@gospo.rdu.redhat.com> <200702282239.l1SMdg22017137@death.nxdomain.ibm.com> <20070301005934.GA1916@gospo.rdu.redhat.com> <200703010108.l2118x22001354@death.nxdomain.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from imf24aec.mail.bellsouth.net ([205.152.59.72]:61103 "EHLO
-	imf24aec.mail.bellsouth.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932887AbXCABNG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Feb 2007 20:13:06 -0500
-Received: from ibm70aec.bellsouth.net ([70.144.215.109])
-          by imf24aec.mail.bellsouth.net with ESMTP
-          id <20070301011303.VFAT24557.imf24aec.mail.bellsouth.net@ibm70aec.bellsouth.net>
-          for <netdev@vger.kernel.org>; Wed, 28 Feb 2007 20:13:03 -0500
-Received: from osprey.hogchain.net ([70.144.215.109])
-          by ibm70aec.bellsouth.net with ESMTP
-          id <20070301011302.QRKN1602.ibm70aec.bellsouth.net@osprey.hogchain.net>
-          for <netdev@vger.kernel.org>; Wed, 28 Feb 2007 20:13:02 -0500
+Received: from mx1.redhat.com ([66.187.233.31]:59097 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932894AbXCABSU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Feb 2007 20:18:20 -0500
+Content-Disposition: inline
+In-Reply-To: <200703010108.l2118x22001354@death.nxdomain.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We're trying to make the Attansic L1 NIC correctly suspend, resume,
-and wake-on-lan.  Can someone point me to a PCIe-based NIC driver in
-the kernel tree that correctly does these things?  I'd like to see how
-it's *supposed* to be done.
+On Wed, Feb 28, 2007 at 05:08:59PM -0800, Jay Vosburgh wrote:
+> >
+> >That sounds like a nice add-on to the existing functionality.  I can see
+> >the value in something dynamic like that, but I can also see the value
+> >in something static like the functionality we have.  Did you plan to
+> >keep the existing functionality intact or just have it done dynamically?
+> 
+> 	Well, I posted the patch just a bit ago, so you can see for
+> yourself, but no, it removes the existing "copy IGMP everywhere"
 
-Thanks,
-Jay
+I see them now -- I'll check them out and make any comments there.
+
