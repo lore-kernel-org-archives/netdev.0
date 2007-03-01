@@ -1,92 +1,216 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 8107] New: dev->header_cache_update has a
- random value
-Date: Thu, 1 Mar 2007 15:30:25 -0800
-Message-ID: <20070301153025.6559a53e@freekitty>
-References: <200703011933.l21JX5hw018666@fire-2.osdl.org>
-	<20070301143417.00b49e81.akpm@linux-foundation.org>
-	<20070301143727.4ba00d04@freekitty>
-	<20070301145423.6ffc52e5.akpm@linux-foundation.org>
+From: "Dale Farnsworth" <dale@farnsworth.org>
+Subject: [PATCH 1/2] mv643xx_eth: move mac_addr inside mv643xx_eth_platform_data
+Date: Thu, 1 Mar 2007 16:31:48 -0700
+Message-ID: <20070301233148.GA19550@xyzzy.farnsworth.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	"bugme-daemon@kernel-bugs.osdl.org"
-	<bugme-daemon@bugzilla.kernel.org>, loveminix@yahoo.com.cn,
-	khc@pm.waw.pl
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-mips@linux-mips.org, Ralf Baechle <ralf@linux-mips.org>
+To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:53898 "EHLO smtp.osdl.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1161186AbXCAXag (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Mar 2007 18:30:36 -0500
-In-Reply-To: <20070301145423.6ffc52e5.akpm@linux-foundation.org>
+Received: from xyzzy.farnsworth.org ([65.39.95.219]:3818 "HELO farnsworth.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1161194AbXCAXbu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Mar 2007 18:31:50 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 1 Mar 2007 14:54:23 -0800
-Andrew Morton <akpm@linux-foundation.org> wrote:
+The information contained within platform_data should be self-contained.
+Replace the pointer to a MAC address with the actual MAC address in
+struct mv643xx_eth_platform_data.
 
-> On Thu, 1 Mar 2007 14:37:27 -0800
-> Stephen Hemminger <shemminger@linux-foundation.org> wrote:
-> 
-> > On Thu, 1 Mar 2007 14:34:17 -0800
-> > Andrew Morton <akpm@linux-foundation.org> wrote:
-> > 
-> > > On Thu, 1 Mar 2007 11:33:05 -0800
-> > > bugme-daemon@bugzilla.kernel.org wrote:
-> > > 
-> > > > http://bugzilla.kernel.org/show_bug.cgi?id=8107
-> > > > 
-> > > >            Summary: dev->header_cache_update has a random value
-> > > >     Kernel Version: 2.6.20
-> > > >             Status: NEW
-> > > >           Severity: high
-> > > >              Owner: jgarzik@pobox.com
-> > > >          Submitter: loveminix@yahoo.com.cn
-> > > > 
-> > > > 
-> > > > Distribution: Kernel 2.6.20
-> > > > 
-> > > > Problem Description:
-> > > > 
-> > > > In struct net_device, there are two fields: hard_header_cache and 
-> > > > header_cache_update, both of which are function pointers. The third field, 
-> > > > hard_header, is also a function pointer. Whenever hard_header points to a valid 
-> > > > function, both hard_header_cache and header_cache_update should have a known 
-> > > > value, either NULL or a valid function pointer. However, in 
-> > > > drivers/net/wan/hdlc_cisco.c, in function static int cisco_ioctl(struct 
-> > > > net_device *dev, struct ifreq *ifr), where dev->hard_header is assigned a valid 
-> > > > function, and dev->hard_header_cache is assigned a known value (NULL), dev-
-> > > > >header_cache_update is not set to a known value:
-> > > > 
-> > > > dev->hard_start_xmit = hdlc->xmit;
-> > > >         dev->hard_header = cisco_hard_header;
-> > > >         dev->hard_header_cache = NULL;
-> > > >         dev->type = ARPHRD_CISCO;
-> > > >         dev->flags = IFF_POINTOPOINT | IFF_NOARP;
-> > > >         dev->addr_len = 0;
-> > > > 
-> > > > This may cause serious problems when dev->header_cache_update is invoked, 
-> > > > because it has an uninitialized value.
-> > > > 
-> > > > Steps to reproduce:
-> > > > 
-> > > > I found this suspicious spot with the help of a code-checking tool.
-> > > > 
-> > > 
-> > > Like this?
-> > 
-> > Not necessary, since any network device must already allocated by
-> > alloc_netdev() and it initializes the whole struct to 0 (NULL).
-> 
-> But ioctl(IF_PROTO_CISCO) can be run multiple times across the lifetime of
-> a net_device?
+Signed-off-by: Dale Farnsworth <dale@farnsworth.org>
 
-Your right, but so far there is no ioctl to take it out of this mode.
-So it is a one way door.
+---
 
-This device never calls hdlc->detach??
+Replaced explicit mac address comparison with a call to is_valid_ether_addr(),
+as suggested by Stephen Hemminger <shemminger@linux-foundation.org>.
 
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+ arch/mips/momentum/jaguar_atx/platform.c |   20 ++++----------------
+ arch/mips/momentum/ocelot_3/platform.c   |   20 ++++----------------
+ arch/mips/momentum/ocelot_c/platform.c   |   12 ++----------
+ drivers/net/mv643xx_eth.c                |    2 +-
+ include/linux/mv643xx.h                  |    2 +-
+ 5 files changed, 12 insertions(+), 44 deletions(-)
+
+Index: b/drivers/net/mv643xx_eth.c
+===================================================================
+--- a/drivers/net/mv643xx_eth.c
++++ b/drivers/net/mv643xx_eth.c
+@@ -1380,7 +1380,7 @@ static int mv643xx_eth_probe(struct plat
+ 
+ 	pd = pdev->dev.platform_data;
+ 	if (pd) {
+-		if (pd->mac_addr)
++		if (is_valid_ether_addr(pd->mac_addr))
+ 			memcpy(dev->dev_addr, pd->mac_addr, 6);
+ 
+ 		if (pd->phy_addr || pd->force_phy_addr)
+Index: b/include/linux/mv643xx.h
+===================================================================
+--- a/include/linux/mv643xx.h
++++ b/include/linux/mv643xx.h
+@@ -1289,7 +1289,6 @@ struct mv64xxx_i2c_pdata {
+ #define MV643XX_ETH_NAME	"mv643xx_eth"
+ 
+ struct mv643xx_eth_platform_data {
+-	char		*mac_addr;	/* pointer to mac address */
+ 	u16		force_phy_addr;	/* force override if phy_addr == 0 */
+ 	u16		phy_addr;
+ 
+@@ -1304,6 +1303,7 @@ struct mv643xx_eth_platform_data {
+ 	u32		tx_sram_size;
+ 	u32		rx_sram_addr;
+ 	u32		rx_sram_size;
++	u8		mac_addr[6];	/* mac address if non-zero*/
+ };
+ 
+ #endif /* __ASM_MV643XX_H */
+Index: b/arch/mips/momentum/jaguar_atx/platform.c
+===================================================================
+--- a/arch/mips/momentum/jaguar_atx/platform.c
++++ b/arch/mips/momentum/jaguar_atx/platform.c
+@@ -47,11 +47,7 @@ static struct resource mv64x60_eth0_reso
+ 	},
+ };
+ 
+-static char eth0_mac_addr[ETH_ALEN];
+-
+ static struct mv643xx_eth_platform_data eth0_pd = {
+-	.mac_addr	= eth0_mac_addr,
+-
+ 	.tx_sram_addr	= MV_SRAM_BASE_ETH0,
+ 	.tx_sram_size	= MV_SRAM_TXRING_SIZE,
+ 	.tx_queue_size	= MV_SRAM_TXRING_SIZE / 16,
+@@ -80,11 +76,7 @@ static struct resource mv64x60_eth1_reso
+ 	},
+ };
+ 
+-static char eth1_mac_addr[ETH_ALEN];
+-
+ static struct mv643xx_eth_platform_data eth1_pd = {
+-	.mac_addr	= eth1_mac_addr,
+-
+ 	.tx_sram_addr	= MV_SRAM_BASE_ETH1,
+ 	.tx_sram_size	= MV_SRAM_TXRING_SIZE,
+ 	.tx_queue_size	= MV_SRAM_TXRING_SIZE / 16,
+@@ -113,11 +105,7 @@ static struct resource mv64x60_eth2_reso
+ 	},
+ };
+ 
+-static char eth2_mac_addr[ETH_ALEN];
+-
+-static struct mv643xx_eth_platform_data eth2_pd = {
+-	.mac_addr	= eth2_mac_addr,
+-};
++static struct mv643xx_eth_platform_data eth2_pd;
+ 
+ static struct platform_device eth2_device = {
+ 	.name		= MV643XX_ETH_NAME,
+@@ -200,9 +188,9 @@ static int __init mv643xx_eth_add_pds(vo
+ 	int ret;
+ 
+ 	get_mac(mac);
+-	eth_mac_add(eth0_mac_addr, mac, 0);
+-	eth_mac_add(eth1_mac_addr, mac, 1);
+-	eth_mac_add(eth2_mac_addr, mac, 2);
++	eth_mac_add(eth0_pd.mac_addr, mac, 0);
++	eth_mac_add(eth1_pd.mac_addr, mac, 1);
++	eth_mac_add(eth2_pd.mac_addr, mac, 2);
+ 	ret = platform_add_devices(mv643xx_eth_pd_devs,
+ 			ARRAY_SIZE(mv643xx_eth_pd_devs));
+ 
+Index: b/arch/mips/momentum/ocelot_3/platform.c
+===================================================================
+--- a/arch/mips/momentum/ocelot_3/platform.c
++++ b/arch/mips/momentum/ocelot_3/platform.c
+@@ -47,11 +47,7 @@ static struct resource mv64x60_eth0_reso
+ 	},
+ };
+ 
+-static char eth0_mac_addr[ETH_ALEN];
+-
+ static struct mv643xx_eth_platform_data eth0_pd = {
+-	.mac_addr	= eth0_mac_addr,
+-
+ 	.tx_sram_addr	= MV_SRAM_BASE_ETH0,
+ 	.tx_sram_size	= MV_SRAM_TXRING_SIZE,
+ 	.tx_queue_size	= MV_SRAM_TXRING_SIZE / 16,
+@@ -80,11 +76,7 @@ static struct resource mv64x60_eth1_reso
+ 	},
+ };
+ 
+-static char eth1_mac_addr[ETH_ALEN];
+-
+ static struct mv643xx_eth_platform_data eth1_pd = {
+-	.mac_addr	= eth1_mac_addr,
+-
+ 	.tx_sram_addr	= MV_SRAM_BASE_ETH1,
+ 	.tx_sram_size	= MV_SRAM_TXRING_SIZE,
+ 	.tx_queue_size	= MV_SRAM_TXRING_SIZE / 16,
+@@ -113,11 +105,7 @@ static struct resource mv64x60_eth2_reso
+ 	},
+ };
+ 
+-static char eth2_mac_addr[ETH_ALEN];
+-
+-static struct mv643xx_eth_platform_data eth2_pd = {
+-	.mac_addr	= eth2_mac_addr,
+-};
++static struct mv643xx_eth_platform_data eth2_pd;
+ 
+ static struct platform_device eth2_device = {
+ 	.name		= MV643XX_ETH_NAME,
+@@ -200,9 +188,9 @@ static int __init mv643xx_eth_add_pds(vo
+ 	int ret;
+ 
+ 	get_mac(mac);
+-	eth_mac_add(eth0_mac_addr, mac, 0);
+-	eth_mac_add(eth1_mac_addr, mac, 1);
+-	eth_mac_add(eth2_mac_addr, mac, 2);
++	eth_mac_add(eth0_pd.mac_addr, mac, 0);
++	eth_mac_add(eth1_pd.mac_addr, mac, 1);
++	eth_mac_add(eth2_pd.mac_addr, mac, 2);
+ 	ret = platform_add_devices(mv643xx_eth_pd_devs,
+ 			ARRAY_SIZE(mv643xx_eth_pd_devs));
+ 
+Index: b/arch/mips/momentum/ocelot_c/platform.c
+===================================================================
+--- a/arch/mips/momentum/ocelot_c/platform.c
++++ b/arch/mips/momentum/ocelot_c/platform.c
+@@ -46,11 +46,7 @@ static struct resource mv64x60_eth0_reso
+ 	},
+ };
+ 
+-static char eth0_mac_addr[ETH_ALEN];
+-
+ static struct mv643xx_eth_platform_data eth0_pd = {
+-	.mac_addr	= eth0_mac_addr,
+-
+ 	.tx_sram_addr	= MV_SRAM_BASE_ETH0,
+ 	.tx_sram_size	= MV_SRAM_TXRING_SIZE,
+ 	.tx_queue_size	= MV_SRAM_TXRING_SIZE / 16,
+@@ -79,11 +75,7 @@ static struct resource mv64x60_eth1_reso
+ 	},
+ };
+ 
+-static char eth1_mac_addr[ETH_ALEN];
+-
+ static struct mv643xx_eth_platform_data eth1_pd = {
+-	.mac_addr	= eth1_mac_addr,
+-
+ 	.tx_sram_addr	= MV_SRAM_BASE_ETH1,
+ 	.tx_sram_size	= MV_SRAM_TXRING_SIZE,
+ 	.tx_queue_size	= MV_SRAM_TXRING_SIZE / 16,
+@@ -174,8 +166,8 @@ static int __init mv643xx_eth_add_pds(vo
+ 	int ret;
+ 
+ 	get_mac(mac);
+-	eth_mac_add(eth0_mac_addr, mac, 0);
+-	eth_mac_add(eth1_mac_addr, mac, 1);
++	eth_mac_add(eth0_pd.mac_addr, mac, 0);
++	eth_mac_add(eth1_pd.mac_addr, mac, 1);
+ 	ret = platform_add_devices(mv643xx_eth_pd_devs,
+ 			ARRAY_SIZE(mv643xx_eth_pd_devs));
+ 
