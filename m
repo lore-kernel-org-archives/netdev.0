@@ -1,41 +1,94 @@
-From: Florian Fainelli <florian.fainelli@int-evry.fr>
-Subject: Network activity LED trigger
-Date: Thu, 1 Mar 2007 22:41:48 +0100
-Message-ID: <200703012241.49165.florian.fainelli@int-evry.fr>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 8107] New: dev->header_cache_update has a
+ random value
+Date: Thu, 1 Mar 2007 14:34:17 -0800
+Message-ID: <20070301143417.00b49e81.akpm@linux-foundation.org>
+References: <200703011933.l21JX5hw018666@fire-2.osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, Richard Purdie <rpurdie@rpsys.net>
+Cc: "bugme-daemon@kernel-bugs.osdl.org"
+	<bugme-daemon@bugzilla.kernel.org>, loveminix@yahoo.com.cn,
+	khc@pm.waw.pl
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-ext.int-evry.fr ([157.159.11.17]:56085 "EHLO
-	smtp-ext.int-evry.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030457AbXCAWUi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Mar 2007 17:20:38 -0500
-Content-Disposition: inline
+Received: from smtp.osdl.org ([65.172.181.24]:45463 "EHLO smtp.osdl.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1161044AbXCAWef (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Mar 2007 17:34:35 -0500
+In-Reply-To: <200703011933.l21JX5hw018666@fire-2.osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi All,
+On Thu, 1 Mar 2007 11:33:05 -0800
+bugme-daemon@bugzilla.kernel.org wrote:
 
-I have been talking a bit with Richard, who is the LED API maintainer, and a 
-LED trigger based on network activity would be something great.
+> http://bugzilla.kernel.org/show_bug.cgi?id=8107
+> 
+>            Summary: dev->header_cache_update has a random value
+>     Kernel Version: 2.6.20
+>             Status: NEW
+>           Severity: high
+>              Owner: jgarzik@pobox.com
+>          Submitter: loveminix@yahoo.com.cn
+> 
+> 
+> Distribution: Kernel 2.6.20
+> 
+> Problem Description:
+> 
+> In struct net_device, there are two fields: hard_header_cache and 
+> header_cache_update, both of which are function pointers. The third field, 
+> hard_header, is also a function pointer. Whenever hard_header points to a valid 
+> function, both hard_header_cache and header_cache_update should have a known 
+> value, either NULL or a valid function pointer. However, in 
+> drivers/net/wan/hdlc_cisco.c, in function static int cisco_ioctl(struct 
+> net_device *dev, struct ifreq *ifr), where dev->hard_header is assigned a valid 
+> function, and dev->hard_header_cache is assigned a known value (NULL), dev-
+> >header_cache_update is not set to a known value:
+> 
+> dev->hard_start_xmit = hdlc->xmit;
+>         dev->hard_header = cisco_hard_header;
+>         dev->hard_header_cache = NULL;
+>         dev->type = ARPHRD_CISCO;
+>         dev->flags = IFF_POINTOPOINT | IFF_NOARP;
+>         dev->addr_len = 0;
+> 
+> This may cause serious problems when dev->header_cache_update is invoked, 
+> because it has an uninitialized value.
+> 
+> Steps to reproduce:
+> 
+> I found this suspicious spot with the help of a code-checking tool.
+> 
 
-There are somethings that concern the network stack :
+Like this?
 
-- should we specify if the network driver is allowed to contribute to
-the LED activity, just like it is done for random generation, at compile time
 
-- I would like to trigger the LED based on one or several network
-interfaces, maybe specify via sysfs which interface triggers which LED,
-and also maybe differentiate the layer-2 activity from the layer-3
-activity for instance
 
-- A led driver could by default be bound to a network driver, or an interface 
-name
+From: Andrew Morton <akpm@linux-foundation.org>
 
-As it could be very intrusive in the network stack, you might want to specify 
-a bit more how you imagine a network activity trigger.
+Fix http://bugzilla.kernel.org/show_bug.cgi?id=8107: we weren't initialising
+the header_cache_update field.
 
-Thanks
--- 
+Cc: Krzysztof Halasa <khc@pm.waw.pl>
+Cc: "David S. Miller" <davem@davemloft.net>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+---
+
+ drivers/net/wan/hdlc_cisco.c |    1 +
+ 1 files changed, 1 insertion(+)
+
+diff -puN drivers/net/wan/hdlc_cisco.c~cisco_ioctl-initialise-header_cache_update drivers/net/wan/hdlc_cisco.c
+--- a/drivers/net/wan/hdlc_cisco.c~cisco_ioctl-initialise-header_cache_update
++++ a/drivers/net/wan/hdlc_cisco.c
+@@ -366,6 +366,7 @@ static int cisco_ioctl(struct net_device
+ 		dev->hard_start_xmit = hdlc->xmit;
+ 		dev->hard_header = cisco_hard_header;
+ 		dev->hard_header_cache = NULL;
++		dev->header_cache_update = NULL;
+ 		dev->type = ARPHRD_CISCO;
+ 		dev->flags = IFF_POINTOPOINT | IFF_NOARP;
+ 		dev->addr_len = 0;
+_
+
