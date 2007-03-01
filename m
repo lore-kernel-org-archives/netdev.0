@@ -1,46 +1,67 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Additional run-tme check [Run-time kfree check for correct cache]
-Date: Thu, 1 Mar 2007 19:17:44 +0300
-Message-ID: <20070301161744.GB16344@2ka.mipt.ru>
-References: <20070227.100052.59655152.davem@davemloft.net> <20070227.102452.102574618.davem@davemloft.net> <20070228090258.GA28336@2ka.mipt.ru> <200702281110.54619.dada1@cosmosbay.com> <20070228141652.GA3033@2ka.mipt.ru>
+From: Sergei Shtylyov <sshtylyov@ru.mvista.com>
+Subject: Re: [Kgdb-bugreport] [PATCH 2.6.20-rc7] 8139too KGDBoE fix
+Date: Thu, 01 Mar 2007 19:22:06 +0300
+Message-ID: <45E6FDAE.2040009@ru.mvista.com>
+References: <1172746367.2515.31.camel@xenon>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: David Miller <davem@davemloft.net>, paul.moore@hp.com,
-	kaber@trash.net, netdev@vger.kernel.org, acme@ghostprotocols.net,
-	Eric Sesterhenn / Snakebyte <snakebyte@gmx.de>
-To: Eric Dumazet <dada1@cosmosbay.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: kgdb-bugreport@lists.sourceforge.net, netdev@vger.kernel.org,
+	Mark Huth <mhuth@mvista.com>
+To: komal <komal@linsyssoft.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:53940 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965318AbXCAQUT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Mar 2007 11:20:19 -0500
-Content-Disposition: inline
-In-Reply-To: <20070228141652.GA3033@2ka.mipt.ru>
+Received: from h155.mvista.com ([63.81.120.155]:27237 "EHLO imap.sh.mvista.com"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S965330AbXCAQWQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Mar 2007 11:22:16 -0500
+In-Reply-To: <1172746367.2515.31.camel@xenon>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Due to slab poisoning after origianl freeing, skb->users will not allow
-subsequent freeing to succeed and fire slab debugging, which ends up
-with obscure bugs.
+komal wrote:
+> Hi all,
 
-Patch based on Eric Sesterhenn's <snakebyte@gmx.de> one, I changed
-check to skb>truesize instead of skb->users.counter, since the latter in
-theory can be different than simple integer containing structure.
+> 	As the discussion was going on about the effects of trapping the
+> netpoll queue during KGDBoE debugging, I tried avoiding it. So in
+> eth_pre_exception_handler() I did not set net_poll_trap to 1 and did not
+> reset it back to 0 in eth_post_exception_handler() 
 
---- linux/net/core/skbuff.c.orig	2007-02-28 11:34:13.865540564 +0100
-+++ linux/net/core/skbuff.c	2007-03-01 13:42:05.633136591 +0100
-@@ -407,6 +407,11 @@ void kfree_skb(struct sk_buff *skb)
- {
- 	if (unlikely(!skb))
- 		return;
-+#ifdef CONFIG_DEBUG_SLAB
-+	/* check for double kfree_skb() */
-+	WARN_ON(unlikely((skb->truesize & 0xFFFFFFFF) == 0x6b6b6b6b));
-+#endif
-+
- 	if (likely(atomic_read(&skb->users) == 1))
- 		smp_rmb();
- 	else if (likely(!atomic_dec_and_test(&skb->users)))
+> file drivers/net/kgdboe.c
 
--- 
-	Evgeniy Polyakov
+> static void eth_pre_exception_handler(void)
+> {
+>         /* Increment the module count when the debugger is active */
+>         if (!kgdb_connected)
+>                 try_module_get(THIS_MODULE);
+> //      netpoll_set_trap(1);
+> }
+> 
+> static void eth_post_exception_handler(void)
+> {
+>         /* decrement the module count when the debugger detaches */
+>         if (!kgdb_connected)
+>                 module_put(THIS_MODULE);
+> //      netpoll_set_trap(0);
+> }
+
+    I'm afraid that was a wrong thing to do. We were talking only about 
+disabling CONFIG_NETPOLL_TRAP option
+   BTW, I don't see how CONFIG_NETPOLL_RX actually could influence anything -- 
+looks like it just may be completely removed).
+
+> 	As i started testing KGDBoe, 1st time I did 
+> 	(gdb)info threads
+> 	and it worked, but after that I set breakpoint
+> 	(gdb)break link_path_walk
+> 	after this any of the commands were not working and the test machine
+> went in hang state. 
+> 	To provide more information, I am working on an i386/x86_64 Athlon box,
+> using 2.6.17 kernel and 100Mbps, full-duplex, VIA Rhine network card.
+
+    This driver also seems prone to TX queue overwrites since its TX ring size 
+is only 16.
+
+> -Regards
+>  Komal Nawandar
+
+WBR, Sergei
