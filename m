@@ -1,75 +1,63 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: Re: [PATCH] bonding: make IGMP flooding on active-backup bonds configurable
-Date: Wed, 28 Feb 2007 19:59:34 -0500
-Message-ID: <20070301005934.GA1916@gospo.rdu.redhat.com>
-References: <20070228222331.GA28813@gospo.rdu.redhat.com> <200702282239.l1SMdg22017137@death.nxdomain.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Jay Vosburgh <fubar@us.ibm.com>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: [PATCH 1/3] bonding: fix double dev_add_pack
+Date: Wed, 28 Feb 2007 17:03:20 -0800
+Message-ID: <200703010103.l2113K22030733@death.nxdomain.ibm.com>
+Cc: Jeff Garzik <jgarzik@pobox.com>
+To: netdev@vger.kernel.org, bonding-devel@lists.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:54370 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932860AbXCAA7l (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Feb 2007 19:59:41 -0500
-Content-Disposition: inline
-In-Reply-To: <200702282239.l1SMdg22017137@death.nxdomain.ibm.com>
+Received: from e33.co.us.ibm.com ([32.97.110.151]:60141 "EHLO
+	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932868AbXCABDY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Feb 2007 20:03:24 -0500
+Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
+	by e33.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id l2113Ntw028262
+	for <netdev@vger.kernel.org>; Wed, 28 Feb 2007 20:03:23 -0500
+Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
+	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v8.2) with ESMTP id l2113Neo539104
+	for <netdev@vger.kernel.org>; Wed, 28 Feb 2007 18:03:23 -0700
+Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av02.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l2113MlB010913
+	for <netdev@vger.kernel.org>; Wed, 28 Feb 2007 18:03:22 -0700
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Feb 28, 2007 at 02:39:42PM -0800, Jay Vosburgh wrote:
-> Andy Gospodarek <andy@greyhouse.net> wrote:
-> 
-> >A while back the following change was made to the bonding code:
-> >
-> >commit df49898a47061e82219c991dfbe9ac6ddf7a866b
-> >Author: John W. Linville <linville@tuxdriver.com>
-> >Date:   Tue Oct 18 21:30:58 2005 -0400
-> >
-> >    [PATCH] bonding: cleanup comment for mode 1 IGMP xmit hack
-> >    
-> >    Expand comment explaining MAC address selection for replicated IGMP
-> >    frames transmitted in bonding mode 1 (active-backup).  Also, a small
-> >    whitespace cleanup.
-> >    
-> >    Signed-off-by: John W. Linville <linville@tuxdriver.com>
-> >    Signed-off-by: Jeff Garzik <jgarzik@pobox.com>
-> >
-> >In general this patch is good, but this tweaks that feature by allowing
-> >that functionality to be enabled and disabled.  This patch adds a new
-> >module option as well as a sysfs entry.  It sets the default to be the
-> >current behavior so existing users shouldn't notice any difference.
-> 
-> 	Why would you want to turn this off?
-> 
 
-When you connect active-backup bonds to 2 separate switches that are in
-'distant' parts of the network you can end up with a bunch of unwanted
-multicast data flowing everywhere and if you don't care whether or not
-your multicast traffic is highly available then it just seems like
-noise.  I thought the flexibility seemed nice.
+	Bonding can erroneously register the same packet_type to receive
+ARPs (for use by ARP validation): once at device open time, and once via
+sysfs.  Since sysfs can change the validate setting (and thus register
+or unregister) at any time, a flag is needed to synchronize with device
+open in order to avoid double registrations, and the simplest place is
+within the packet_type structure itself.  Double unregister is not an
+issue.
 
-> 	Also, I've got a replacement patch for this functionality that
-> seems to be better in all regards. It sends bonus IGMP joins when a
-> failover occurs, rather than simply duplicating them on all slaves (the
-> current system can leave switches in the dark if the slaves fail back to
-> the originals).  As chance would have it, I'm planning to post it as
-> part of a set in a a little while.
-> 
+	Bug reported by Ulrich Oelmann <ulrich.oelmann@web.de>.
 
-That sounds like a nice add-on to the existing functionality.  I can see
-the value in something dynamic like that, but I can also see the value
-in something static like the functionality we have.  Did you plan to
-keep the existing functionality intact or just have it done dynamically?
-
-Is this separate from your workqueue/refactoring patch or does it work
-on the existing code?
+Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
 
 
-> 	-J
-> 
-> ---
-> 	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index a7c8f98..1f263ac 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -3423,6 +3423,9 @@ void bond_register_arp(struct bonding *b
+ {
+ 	struct packet_type *pt = &bond->arp_mon_pt;
+ 
++	if (pt->type)
++		return;
++
+ 	pt->type = htons(ETH_P_ARP);
+ 	pt->dev = NULL; /*bond->dev;XXX*/
+ 	pt->func = bond_arp_rcv;
+@@ -3431,7 +3434,10 @@ void bond_register_arp(struct bonding *b
+ 
+ void bond_unregister_arp(struct bonding *bond)
+ {
+-	dev_remove_pack(&bond->arp_mon_pt);
++	struct packet_type *pt = &bond->arp_mon_pt;
++
++	dev_remove_pack(pt);
++	pt->type = 0;
+ }
+ 
+ /*---------------------------- Hashing Policies -----------------------------*/
