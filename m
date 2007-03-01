@@ -1,86 +1,43 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: [PATCH 2.6.20] kobject net ifindex + rename
-Date: Thu, 1 Mar 2007 08:42:09 +0100
-Message-ID: <20070301074209.GA1735@ff.dom.local>
-References: <20070228012741.GA3988@bougret.hpl.hp.com> <20070228093437.GA1847@ff.dom.local> <20070228184541.GD6134@bougret.hpl.hp.com>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: [PATCH] [USBNET] DM9501: Add Corega FEther USB-TXC support.
+Date: Thu, 01 Mar 2007 16:44:54 +0900 (JST)
+Message-ID: <20070301.164454.14331566.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Greg Kroah-Hartman <gregkh@suse.de>,
-	"David S\. Miller" <davem@davemloft.net>,
-	Linux kernel mailing list <linux-kernel@vger.kernel.org>,
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, yoshfuji@linux-ipv6.org,
 	netdev@vger.kernel.org
-To: Jean Tourrilhes <jt@hpl.hp.com>
+To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx10.go2.pl ([193.17.41.74]:60083 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750828AbXCAHiZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Mar 2007 02:38:25 -0500
-Content-Disposition: inline
-In-Reply-To: <20070228184541.GD6134@bougret.hpl.hp.com>
+Received: from yue.linux-ipv6.org ([203.178.140.15]:33714 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751672AbXCAHog (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Mar 2007 02:44:36 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Feb 28, 2007 at 10:45:41AM -0800, Jean Tourrilhes wrote:
-> On Wed, Feb 28, 2007 at 10:34:37AM +0100, Jarek Poplawski wrote:
-> > On 28-02-2007 02:27, Jean Tourrilhes wrote:
-> > > 	Hi all,
-> > ...
-> > > 	Patch for 2.6.20 is attached. The patch was tested on a system
-> > > running the hotplug scripts, and on another system running udev.
-> > > 
-> > > 	Have fun...
-> > > 
-> > > 	Jean
-> > > 
-> > > Signed-off-by: Jean Tourrilhes <jt@hpl.hp.com>
-> > > 
-> > > ---------------------------------------------------------
-> > ...
-> > > diff -u -p linux/net/core/net-sysfs.j1.c linux/net/core/net-sysfs.c
-> > > --- linux/net/core/net-sysfs.j1.c	2007-02-27 15:01:08.000000000 -0800
-> > > +++ linux/net/core/net-sysfs.c	2007-02-27 15:06:49.000000000 -0800
-> > > @@ -412,6 +412,17 @@ static int netdev_uevent(struct class_de
-> > >  	if ((size <= 0) || (i >= num_envp))
-> > >  		return -ENOMEM;
-> > >  
-> > > +	/* pass ifindex to uevent.
-> > > +	 * ifindex is useful as it won't change (interface name may change)
-> > > +	 * and is what RtNetlink uses natively. */
-> > > +	envp[i++] = buf;
-> > > +	n = snprintf(buf, size, "IFINDEX=%d", dev->ifindex) + 1;
-> > > +	buf += n;
-> > > +	size -= n;
-> > > +
-> > > +	if ((size <= 0) || (i >= num_envp))
-> > 
-> > Btw.:
-> > 1. if size == 10 and snprintf returns 9 (without NULL)
-> >    then n == 10 (with NULL), so isn't it enough (here and above):
-> >  
-> > 	if ((size < 0) || (i >= num_envp))
-> 
-> 	I just cut'n'pasted the code a few line above. If the original
-> code is incorrect, it need fixing. And it will need fixing in probably
-> a lot of places.
+Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+---
+ drivers/usb/net/dm9601.c |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
 
-I think you're kind of responsible for your part, at least.
+diff --git a/drivers/usb/net/dm9601.c b/drivers/usb/net/dm9601.c
+index 4a932e1..c0bc52b 100644
+--- a/drivers/usb/net/dm9601.c
++++ b/drivers/usb/net/dm9601.c
+@@ -571,6 +571,10 @@ static const struct driver_info dm9601_info = {
+ 
+ static const struct usb_device_id products[] = {
+ 	{
++	 USB_DEVICE(0x07aa, 0x9601),	/* Corega FEther USB-TXC */
++	 .driver_info = (unsigned long)&dm9601_info,
++	 },
++	{
+ 	 USB_DEVICE(0x0a46, 0x9601),	/* Davicom USB-100 */
+ 	 .driver_info = (unsigned long)&dm9601_info,
+ 	 },
 
-> 
-> > 2. shouldn't there be (here and above):
-> >  
-> > 		envp[--i] = NULL;
-> > 
-> 
-> 	No, envp is local, so who cares.
-
-But envp[i] isn't (at least here). So, I guess, a caller
-of this function could care.
-
-> > > + 	if ((size <= 0) || (i >= num_envp))
-> > > + 		return -ENOMEM;
-
-And one more thing (not necessarily for you):
-ENOBUFS is probably more adequate here.
-
-Cheers,
-Jarek P.
+-- 
+YOSHIFUJI Hideaki @ USAGI Project  <yoshfuji@linux-ipv6.org>
+GPG-FP  : 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
