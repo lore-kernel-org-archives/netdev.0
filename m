@@ -1,48 +1,51 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: Netem tfifo implementation
-Date: Fri, 02 Mar 2007 20:49:58 +0100
-Message-ID: <45E87FE6.1060503@trash.net>
-References: <f47983b00703021101h344f58e6ife56c01b54f3adaf@mail.gmail.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [RFC] Arp announce (for Xen)
+Date: Fri, 2 Mar 2007 11:59:13 -0800
+Message-ID: <20070302115913.69204ac7@freekitty>
+References: <20070301232443.195603797@goop.org>
+	<20070301232529.648076372@goop.org>
+	<20070301164214.4a40bc59@freekitty>
+	<45E7764A.7000100@goop.org>
+	<20070301173030.754514ec@freekitty>
+	<Pine.LNX.4.64.0703021006470.27021@netcore.fi>
+	<45E86D21.6080208@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Ritesh Kumar <ritesh@cs.unc.edu>
+Cc: Pekka Savola <pekkas@netcore.fi>, netdev@vger.kernel.org
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:48475 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964934AbXCBTuH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Mar 2007 14:50:07 -0500
-In-Reply-To: <f47983b00703021101h344f58e6ife56c01b54f3adaf@mail.gmail.com>
+Received: from smtp.osdl.org ([65.172.181.24]:39272 "EHLO smtp.osdl.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965136AbXCBT7T (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Mar 2007 14:59:19 -0500
+In-Reply-To: <45E86D21.6080208@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ritesh Kumar wrote:
-> Hi,
->    I recently saw the qdisc "tfifo" in the netem module
-> (net/sched/sch_netem.c) when I migrated some of my patches from 2.6.14
-> to 2.6.20. As I understand, tfifo helps in keeping the queue of
-> packets sorted according to their "time_to_send". [tfifo was not
-> present in 2.6.14 perhaps because arrival order of packets was always
-> equal to the departure order]. However, tfifo uses a linear search in
-> the packet queue to find where to enqueue the packet.
->    Quite some time ago (2.6.14 era), I needed a similar functionality
-> from the netem module and I ended up coding a pointer based min-heap
-> for the same. I was wondering if the community was interested in using
-> the min-heap implementation to replace the linear search
-> implementation. I have tested the min-heap quite a few times and it
-> seems to work.
->    The implementation is slightly non-trivial because it uses
-> pointers to maintain the heap structure instead if using good old
-> fixed size arrays. I did this mainly so that the limit of the netem
-> qdisc could be changed on the fly. However, because every sk_buff now
-> needs two pointers for its children nodes, I added an extra
-> (sk_buff*)next2 to struct sk_buff (sorry!). However, this can probably
-> be changed to a pointer inside netem_skb_cb.  Also, because I needed
-> this for personal work and 2.6.14 didn't contain tfifo, I basically
-> removed the embedded qdisc and made netem a classless qdisc with my
-> min heap as the native "queue" (sorry again! :) )
+On Fri, 02 Mar 2007 10:29:53 -0800
+Ben Greear <greearb@candelatech.com> wrote:
 
-The tfifo qdisc has a limit, why not just allocate a fixed-size heap
-based on that?
+> Pekka Savola wrote:
+> > On Thu, 1 Mar 2007, Stephen Hemminger wrote:
+> >> What about implementing the unused arp_announce flag on the inetdevice?
+> >> Something like the following.  Totally untested...
+> >>
+> >> Looks like it either was there (and got removed) or was planned but
+> >> never implemented.
+> IN_DEV_ARP_ANNOUNCE is in 2.6.18, at least..used in arp_solicit in arp.c
+> 
+> I really hope this didn't get removed because I find it very useful!
+> 
+> But, you could certainly add another sysctl...
+> 
+> Thanks,
+> Ben
+> 
 
+yeah, something new like arp_notify? or arp_gratiutous
+
+There are other drivers that do their own arp, they need to be fixed.
+
+-- 
+Stephen Hemminger <shemminger@linux-foundation.org>
