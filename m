@@ -1,45 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] NetLabel: Verify sensitivity level has a valid CIPSO
- mapping
-Date: Fri, 02 Mar 2007 11:23:47 -0800 (PST)
-Message-ID: <20070302.112347.126765771.davem@davemloft.net>
-References: <20070228200140.491071752@hp.com>
-	<200703021112.13063.paul.moore@hp.com>
+Subject: Re: SWS for rcvbuf < MTU
+Date: Fri, 02 Mar 2007 11:25:42 -0800 (PST)
+Message-ID: <20070302.112542.18305896.davem@davemloft.net>
+References: <200703021128.29208.alexandre.sidorenko@hp.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jmorris@namei.org
-To: paul.moore@hp.com
+Cc: netdev@vger.kernel.org
+To: alexandre.sidorenko@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47049
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47052
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S965164AbXCBTXs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Mar 2007 14:23:48 -0500
-In-Reply-To: <200703021112.13063.paul.moore@hp.com>
+	by vger.kernel.org with ESMTP id S965187AbXCBTZn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Mar 2007 14:25:43 -0500
+In-Reply-To: <200703021128.29208.alexandre.sidorenko@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Paul Moore <paul.moore@hp.com>
-Date: Fri, 2 Mar 2007 11:12:12 -0500
+From: Alex Sidorenko <alexandre.sidorenko@hp.com>
+Date: Fri, 2 Mar 2007 11:28:28 -0500
 
-> On Wednesday, February 28 2007 3:01:31 pm Paul Moore wrote:
-> > The current CIPSO engine has a problem where it does not verify that the
-> > given sensitivity level has a valid CIPSO mapping when the "std" CIPSO DOI
-> > type is used.  The end result is that bad packets are sent on the wire
-> > which should have never been sent in the first place.  This patch corrects
-> > this problem by verifying the sensitivity level mapping similar to what is
-> > done with the category mapping.  This patch also changes the returned error
-> > code in this case to -EPERM to better match what the category mapping
-> > verification code returns.
-> >
-> > Signed-off-by: Paul Moore <paul.moore@hp.com>
-> > ---
-> >  net/ipv4/cipso_ipv4.c |    7 ++++---
-> >  1 file changed, 4 insertions(+), 3 deletions(-)
-> 
-> I probably should have been more clear in the original patch posting ... this 
-> is a bugfix patch which I believe should go into 2.6.21 (as well as 
-> the -stable tree, but I know they like to see it hit Linus' tree first).
+> Customer has confirmed that this resolves the problem and decreases
+> CPU usage by his custom application - even when there is no SWS.
 
-I realize this and plan to apply the patch, I'm just backlogged
-at the moment.
+There is rarely ever a reason to set explicit socket receive
+buffer sizes, since the kernel dynamically sizes them based
+upon how the connection is used.
+
+Why do they set it so low?
+
+It is just as easy to fix their performance bug by simply removing
+SO_RCVBUF setting in the application.
