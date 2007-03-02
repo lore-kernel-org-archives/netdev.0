@@ -1,105 +1,58 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: [PATCH 2.6.20] kobject net ifindex + rename
-Date: Fri, 2 Mar 2007 10:18:52 +0100
-Message-ID: <20070302091852.GA1913@ff.dom.local>
-References: <20070228012741.GA3988@bougret.hpl.hp.com> <20070228093437.GA1847@ff.dom.local> <20070228184541.GD6134@bougret.hpl.hp.com> <20070301074209.GA1735@ff.dom.local> <20070301192734.GB9098@bougret.hpl.hp.com>
+From: John <linux.kernel@free.fr>
+Subject: Re: CLOCK_MONOTONIC datagram timestamps by the kernel
+Date: Fri, 02 Mar 2007 10:26:57 +0100
+Message-ID: <45E7EDE1.30805@free.fr>
+References: <45E5570E.7050301@free.fr> <200702281555.10309.dada1@cosmosbay.com> <45E5A8AE.3030606@free.fr> <200703011230.50596.dada1@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Greg Kroah-Hartman <gregkh@suse.de>,
-	"David S\. Miller" <davem@davemloft.net>,
-	Linux kernel mailing list <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: Jean Tourrilhes <jt@hpl.hp.com>
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-net@vger.kernel.org, netdev@vger.kernel.org,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	linux.kernel@free.fr
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx10.go2.pl ([193.17.41.74]:37393 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1422976AbXCBJPI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Mar 2007 04:15:08 -0500
-Content-Disposition: inline
-In-Reply-To: <20070301192734.GB9098@bougret.hpl.hp.com>
+Received: from SMT02001.global-sp.net ([193.168.50.54]:49738 "EHLO
+	SMT02001.global-sp.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1422982AbXCBJqf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Mar 2007 04:46:35 -0500
+In-Reply-To: <200703011230.50596.dada1@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 01, 2007 at 11:27:34AM -0800, Jean Tourrilhes wrote:
-> On Thu, Mar 01, 2007 at 08:42:09AM +0100, Jarek Poplawski wrote:
-> > On Wed, Feb 28, 2007 at 10:45:41AM -0800, Jean Tourrilhes wrote:
-> > > > > +
-> > > > > +	if ((size <= 0) || (i >= num_envp))
-> > > > 
-> > > > Btw.:
-> > > > 1. if size == 10 and snprintf returns 9 (without NULL)
-> > > >    then n == 10 (with NULL), so isn't it enough (here and above):
-> > > >  
-> > > > 	if ((size < 0) || (i >= num_envp))
-> > > 
-> > > 	I just cut'n'pasted the code a few line above. If the original
-> > > code is incorrect, it need fixing. And it will need fixing in probably
-> > > a lot of places.
-> > 
-> > I think you're kind of responsible for your part, at least.
+Eric Dumazet wrote:
+
+> John wrote:
 > 
-> 	I personally don't go fixing stuff without having a full
-> undersunding of the context and why it was done this way. To me it
-> look this test was intentionally done this way, so there may be
-> something I don't know about. I guess I would need to double check
-> more closely what weid calculation the caller does with the buffer
-> size.
-> 	That's why I would prefer a separate patch about those issues
-> that give the opportunity for the stakeholder to really talk about
-> this, rather than slipping it under the carpet.
-
-Sure, but adding a functionality is a kind of fixing, too.
-
-I don't blame you - I simply think that the patch like yours
-is an occasion for people reading this list to look at the
-adjacent code too. So I wrote about my doubts here hoping
-somebody with a better knowledge of this place could verify
-them.
-
-> 	In the worse case, this is not a bug, this just means that we
-> may not use the last char of the buffer.
-
-Sorry, I can't agree with this.
-
+>> Consider an idle Linux 2.6.20-rt8 system, equipped with a single PCI-E
+>> gigabit Ethernet NIC, running on a modern CPU (e.g. Core 2 Duo E6700).
+>> All this system does is time stamp 1000 packets per second.
+>>
+>> Are you claiming that this platform *cannot* handle most packets within
+>> less than 1 microsecond of their arrival?
 > 
-> > > > 2. shouldn't there be (here and above):
-> > > >  
-> > > > 		envp[--i] = NULL;
-> > > > 
-> > > 
-> > > 	No, envp is local, so who cares.
-> > 
-> > But envp[i] isn't (at least here). So, I guess, a caller
-> > of this function could care.
-> 
-> 	Check the full source code of the caller, and you will see
-> that the caller does not care (and it's local to the caller).
+> Yes I claim it. You expect too much of this platform, unless "most" means
+> 10 % for you ;)
 
-I can't agree with this, too. There is no reason to leave
-a bad pointer there - you need to analyze more than one
-caller to verify this now, and any changes in the future
-are endangered, too.
+By "most" I meant more than 50%.
 
-> 
-> > > > > + 	if ((size <= 0) || (i >= num_envp))
-> > > > > + 		return -ENOMEM;
-> > 
-> > And one more thing (not necessarily for you):
-> > ENOBUFS is probably more adequate here.
-> 
-> 	This error should never happen. If it happens, the caller need
-> to be fixed.
+Has someone tried to measure interrupt latency in Linux? I'd like to 
+plot the distribution of network IRQ to interrupt handler latencies.
 
-Yes, but an error handling should be correct or removed,
-if unnecessary.
+> If you replace "1 us" by "50 us", then yes, it probably can do it, if "most" 
+> means 99%, (not 99.999 %)
 
-...
-> 	Note that there are various other things that are puzzling in
-> this function. The internal object name and the symlinks are changed
-> even if the kcore rename returns an error. That does not seem right.
-> 	But, this is separate from this patch...
+I think we need cold, hard numbers at this point :-)
 
-So, I hope somebody will help to make this code perfect!
+> Anyway, if you want to play, you can apply this patch on top of 
+> linux-2.6.21-rc2  (nanosecond resolution infrastructure needs 2.6.21)
+> I let you do the adjustments for rt kernel.
 
-Best regards,
-Jarek P.
+Why does it require 2.6.21?
+
+> This patch converts sk_buff timestamp to use new nanosecond infra
+> (added in 2.6.21)
+
+Is this mentioned somewhere in the 2.6.21-rc1 ChangeLog?
+http://kernel.org/pub/linux/kernel/v2.6/testing/ChangeLog-2.6.21-rc1
+
+Regards.
