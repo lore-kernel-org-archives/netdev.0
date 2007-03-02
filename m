@@ -2,15 +2,15 @@ From: Steve Wise <swise@opengridcomputing.com>
 Subject: [PATCH 2.6.21-rc2] iw_cxgb3: Don't use mm after its freed in
 	iwch_mmap().
 Date: Fri, 02 Mar 2007 16:06:36 -0600
-Message-ID: <1172873196.21241.62.camel__11816.1402795979$1172873212$gmane$org@stevo-desktop>
+Message-ID: <1172873196.21241.62.camel__2964.92970451272$1172873243$gmane$org@stevo-desktop>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: linux-kernel <linux-kernel@vger.kernel.org>,
 	Netdev@vger.kernel.org, General@lists.openfabrics.org
 To: Roland Dreier <rdreier@cisco.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Sender: netdev-owner@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030528AbXCBWGi@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
@@ -66,4 +66,3 @@ index 4af1c0f..f2774ae 100644
  				      len, vma->vm_page_prot);
  	}
  
-
