@@ -1,129 +1,39 @@
-From: NeilBrown <neilb@suse.de>
-Subject: [PATCH 003 of 3] knfsd: Remove CONFIG_IPV6 ifdefs from sunrpc
-	server code.
-Date: Fri, 2 Mar 2007 15:28:35 +1100
-Message-ID: <1070302042835.5796@suse.de>
-References: <20070302151748.5226.patches@notabene>
+From: Ben Greear <greearb@candelatech.com>
+Subject: ppp and routing table rules.
+Date: Thu, 01 Mar 2007 20:46:41 -0800
+Message-ID: <45E7AC31.9030309@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nfs@lists.sourceforge.net,
-	linux-kernel@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <nfs-bounces@lists.sourceforge.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/nfs>,
-	<mailto:nfs-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=nfs>
-List-Post: <mailto:nfs@lists.sourceforge.net>
-List-Help: <mailto:nfs-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/nfs>,
-	<mailto:nfs-request@lists.sourceforge.net?subject=subscribe>
-Sender: nfs-bounces@lists.sourceforge.net
-Errors-To: nfs-bounces@lists.sourceforge.net
+To: NetDev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ns2.lanforge.com ([66.165.47.211]:39759 "EHLO ns2.lanforge.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1422881AbXCBEok (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Mar 2007 23:44:40 -0500
+Received: from [71.112.198.166] (pool-71-112-198-166.sttlwa.dsl-w.verizon.net [71.112.198.166])
+	(authenticated bits=0)
+	by ns2.lanforge.com (8.13.4/8.13.4) with ESMTP id l224idv6031872
+	for <netdev@vger.kernel.org>; Thu, 1 Mar 2007 20:44:39 -0800
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hello!
 
-They don't really save that much, and aren't worth the hassle.
+I have a suspicion (but no proof at this time) that a rule like this:
 
-Signed-off-by: Neil Brown <neilb@suse.de>
+20:     from all iif ppp400 lookup 10001
 
-### Diffstat output
- ./include/linux/sunrpc/svc.h |    2 --
- ./net/sunrpc/svcsock.c       |   13 +++----------
- 2 files changed, 3 insertions(+), 12 deletions(-)
+is not actually working for ppp interfaces.  Before I go adding printk 
+statements, are there any
+stats that would show if packets are hitting a particular rule or 
+routing table?
 
-diff .prev/include/linux/sunrpc/svc.h ./include/linux/sunrpc/svc.h
---- .prev/include/linux/sunrpc/svc.h	2007-03-02 14:20:13.000000000 +1100
-+++ ./include/linux/sunrpc/svc.h	2007-03-02 15:14:11.000000000 +1100
-@@ -194,9 +194,7 @@ static inline void svc_putu32(struct kve
- 
- union svc_addr_u {
-     struct in_addr	addr;
--#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-     struct in6_addr	addr6;
--#endif
- };
- 
- /*
+Thanks,
+Ben
 
-diff .prev/net/sunrpc/svcsock.c ./net/sunrpc/svcsock.c
---- .prev/net/sunrpc/svcsock.c	2007-03-02 15:12:52.000000000 +1100
-+++ ./net/sunrpc/svcsock.c	2007-03-02 15:14:11.000000000 +1100
-@@ -131,13 +131,13 @@ static char *__svc_print_addr(struct soc
- 			NIPQUAD(((struct sockaddr_in *) addr)->sin_addr),
- 			htons(((struct sockaddr_in *) addr)->sin_port));
- 		break;
--#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-+
- 	case AF_INET6:
- 		snprintf(buf, len, "%x:%x:%x:%x:%x:%x:%x:%x, port=%u",
- 			NIP6(((struct sockaddr_in6 *) addr)->sin6_addr),
- 			htons(((struct sockaddr_in6 *) addr)->sin6_port));
- 		break;
--#endif
-+
- 	default:
- 		snprintf(buf, len, "unknown address type: %d", addr->sa_family);
- 		break;
-@@ -449,9 +449,7 @@ svc_wake_up(struct svc_serv *serv)
- 
- union svc_pktinfo_u {
- 	struct in_pktinfo pkti;
--#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
- 	struct in6_pktinfo pkti6;
--#endif
- };
- 
- static void svc_set_cmsg_data(struct svc_rqst *rqstp, struct cmsghdr *cmh)
-@@ -467,7 +465,7 @@ static void svc_set_cmsg_data(struct svc
- 			cmh->cmsg_len = CMSG_LEN(sizeof(*pki));
- 		}
- 		break;
--#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-+
- 	case AF_INET6: {
- 			struct in6_pktinfo *pki = CMSG_DATA(cmh);
- 
-@@ -479,7 +477,6 @@ static void svc_set_cmsg_data(struct svc
- 			cmh->cmsg_len = CMSG_LEN(sizeof(*pki));
- 		}
- 		break;
--#endif
- 	}
- 	return;
- }
-@@ -730,13 +727,11 @@ static inline void svc_udp_get_dest_addr
- 		rqstp->rq_daddr.addr.s_addr = pki->ipi_spec_dst.s_addr;
- 		break;
- 		}
--#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
- 	case AF_INET6: {
- 		struct in6_pktinfo *pki = CMSG_DATA(cmh);
- 		ipv6_addr_copy(&rqstp->rq_daddr.addr6, &pki->ipi6_addr);
- 		break;
- 		}
--#endif
- 	}
- }
- 
-@@ -976,11 +971,9 @@ static inline int svc_port_is_privileged
- 	case AF_INET:
- 		return ntohs(((struct sockaddr_in *)sin)->sin_port)
- 			< PROT_SOCK;
--#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
- 	case AF_INET6:
- 		return ntohs(((struct sockaddr_in6 *)sin)->sin6_port)
- 			< PROT_SOCK;
--#endif
- 	default:
- 		return 0;
- 	}
+-- 
+Ben Greear <greearb@candelatech.com> 
+Candela Technologies Inc  http://www.candelatech.com
 
--------------------------------------------------------------------------
-Take Surveys. Earn Cash. Influence the Future of IT
-Join SourceForge.net's Techsay panel and you'll get the chance to share your
-opinions on IT & business topics through brief surveys-and earn cash
-http://www.techsay.com/default.php?page=join.php&p=sourceforge&CID=DEVDEV
-_______________________________________________
-NFS maillist  -  NFS@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/nfs
+
