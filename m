@@ -1,85 +1,162 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [RFC 1/2] bridge: avoid ptype_all packet handling
-Date: Fri, 2 Mar 2007 15:34:14 -0800
-Message-ID: <20070302153414.4d8304e0@freekitty>
-References: <20070302.132638.38710461.davem@davemloft.net>
-	<20070302140929.262e8460@freekitty>
-	<20070302.144818.99455241.davem@davemloft.net>
-	<20070302.151803.74748558.davem@davemloft.net>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: [Bugme-new] [Bug 8107] New: dev->header_cache_update has a random value
+Date: Sat, 03 Mar 2007 00:38:05 +0100
+Message-ID: <m3d53r6wte.fsf@maximus.localdomain>
+References: <200703011933.l21JX5hw018666@fire-2.osdl.org>
+	<20070301143417.00b49e81.akpm@linux-foundation.org>
+	<m3zm6vk6kd.fsf@maximus.localdomain>
+	<20070302.112325.39160082.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: bridge@linux-foundation.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	Jeff Garzik <jeff@garzik.org>,
+	bugme-daemon@bugzilla.kernel.org, loveminix@yahoo.com.cn
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:47199 "EHLO smtp.osdl.org"
+Received: from khc.piap.pl ([195.187.100.11]:57012 "EHLO khc.piap.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S2992750AbXCBXeS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Mar 2007 18:34:18 -0500
-In-Reply-To: <20070302.151803.74748558.davem@davemloft.net>
+	id S2992752AbXCBXiI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Mar 2007 18:38:08 -0500
+In-Reply-To: <20070302.112325.39160082.davem@davemloft.net> (David Miller's message of "Fri, 02 Mar 2007 11:23:25 -0800 (PST)")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 02 Mar 2007 15:18:03 -0800 (PST)
-David Miller <davem@davemloft.net> wrote:
+Switching HDLC devices from Ethernet-framing mode caused stale ethernet
+function assignments within net_device.
 
-> From: David Miller <davem@davemloft.net>
-> Date: Fri, 02 Mar 2007 14:48:18 -0800 (PST)
-> 
-> > Back to a workable solution, why doesn't DHCP specify a specific
-> > device?  It would fix this performance problem completely, at the
-> > application level.
-> 
-> Since nobody seems to be able to be bothered to actually look
-> at what DHCP clients are doing, I actually did and it's no
-> surprise that broken stuff is happening here.
+Signed-off-by: Krzysztof Halasa <khc@pm.waw.pl>
 
-I was in middle of checking that..
-
-> Here is how dhcp3-3.0.3 binds AF_PACKET sockets, in common/lpf.c:
-> 
-> 	struct sockaddr sa;
->  ...
-> 	/* Bind to the interface name */
-> 	memset (&sa, 0, sizeof sa);
-> 	sa.sa_family = AF_PACKET;
-> 	strncpy (sa.sa_data, (const char *)info -> ifp, sizeof sa.sa_data);
-> 	if (bind (sock, &sa, sizeof sa)) {
-> 		if (errno == ENOPROTOOPT || errno == EPROTONOSUPPORT ||
-> 		    errno == ESOCKTNOSUPPORT || errno == EPFNOSUPPORT ||
-> 		    errno == EAFNOSUPPORT || errno == EINVAL) {
-> 			log_error ("socket: %m - make sure");
-> 			log_error ("CONFIG_PACKET (Packet socket) %s",
-> 				   "and CONFIG_FILTER");
-> 			log_error ("(Socket Filtering) are enabled %s",
-> 				   "in your kernel");
-> 			log_fatal ("configuration!");
-> 		}
-> 		log_fatal ("Bind socket to interface: %m");
-> 	}
-> 
-> So it puts a string into the sockaddr data, and there
-> is no mention of sockaddr_ll, which is what is supposed to be
-> provided as the socket address here, in the entire DHCP tree.
-> 
-> I'm tempted to say I must be missing something here, since I can't see
-> how this could possible work at all.  The string passed in should
-> be interpreted as the ifindex value, and thus trigger a -ENODEV
-> return from AF_PACKET's bind() implementation.
-> 
-> My suspicions are confirmed by the patch here:
-> 
-> http://kernel.org/pub/linux/kernel/people/chuyee/patches/dhcp-3.0/dhcp-3.0-linux_cooked_packet.patch
-
-Can you get FC fixed?
-
-> Really, this bogus bind() explains everything.
-
-Should we add a warning to kernel log, to make distro's fix it?
-
-It might make sense to add a per-device ptype_dev list in network device?
-
-
-
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+diff --git a/drivers/net/wan/hdlc.c b/drivers/net/wan/hdlc.c
+index db354e0..f6e6b63 100644
+--- a/drivers/net/wan/hdlc.c
++++ b/drivers/net/wan/hdlc.c
+@@ -38,7 +38,7 @@
+ #include <linux/hdlc.h>
+ 
+ 
+-static const char* version = "HDLC support module revision 1.20";
++static const char* version = "HDLC support module revision 1.21";
+ 
+ #undef DEBUG_LINK
+ 
+@@ -222,19 +222,30 @@ int hdlc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+ 	return -EINVAL;
+ }
+ 
++static void hdlc_setup_dev(struct net_device *dev)
++{
++/* Re-init all variables changed by HDLC protocol drivers,
++   including ether_setup() called from hdlc_raw_eth.c. */
++	dev->get_stats		 = hdlc_get_stats;
++	dev->flags		 = IFF_POINTOPOINT | IFF_NOARP;
++	dev->mtu		 = HDLC_MAX_MTU;
++	dev->type		 = ARPHRD_RAWHDLC;
++	dev->hard_header_len	 = 16;
++	dev->addr_len		 = 0;
++	dev->hard_header	 = NULL;
++	dev->rebuild_header	 = NULL;
++	dev->set_mac_address	 = NULL;
++	dev->hard_header_cache	 = NULL;
++	dev->header_cache_update = NULL;
++	dev->change_mtu		 = hdlc_change_mtu;
++	dev->hard_header_parse	 = NULL;
++}
++
+ void hdlc_setup(struct net_device *dev)
+ {
+ 	hdlc_device *hdlc = dev_to_hdlc(dev);
+ 
+-	dev->get_stats = hdlc_get_stats;
+-	dev->change_mtu = hdlc_change_mtu;
+-	dev->mtu = HDLC_MAX_MTU;
+-
+-	dev->type = ARPHRD_RAWHDLC;
+-	dev->hard_header_len = 16;
+-
+-	dev->flags = IFF_POINTOPOINT | IFF_NOARP;
+-
++	hdlc_setup_dev(dev);
+ 	hdlc->carrier = 1;
+ 	hdlc->open = 0;
+ 	spin_lock_init(&hdlc->state_lock);
+@@ -294,6 +305,7 @@ void detach_hdlc_protocol(struct net_device *dev)
+ 	}
+ 	kfree(hdlc->state);
+ 	hdlc->state = NULL;
++	hdlc_setup_dev(dev);
+ }
+ 
+ 
+diff --git a/drivers/net/wan/hdlc_cisco.c b/drivers/net/wan/hdlc_cisco.c
+index b0bc5dd..c9664fd 100644
+--- a/drivers/net/wan/hdlc_cisco.c
++++ b/drivers/net/wan/hdlc_cisco.c
+@@ -365,10 +365,7 @@ static int cisco_ioctl(struct net_device *dev, struct ifreq *ifr)
+ 		memcpy(&state(hdlc)->settings, &new_settings, size);
+ 		dev->hard_start_xmit = hdlc->xmit;
+ 		dev->hard_header = cisco_hard_header;
+-		dev->hard_header_cache = NULL;
+ 		dev->type = ARPHRD_CISCO;
+-		dev->flags = IFF_POINTOPOINT | IFF_NOARP;
+-		dev->addr_len = 0;
+ 		netif_dormant_on(dev);
+ 		return 0;
+ 	}
+diff --git a/drivers/net/wan/hdlc_fr.c b/drivers/net/wan/hdlc_fr.c
+index b45ab68..c6c3c75 100644
+--- a/drivers/net/wan/hdlc_fr.c
++++ b/drivers/net/wan/hdlc_fr.c
+@@ -1289,10 +1289,7 @@ static int fr_ioctl(struct net_device *dev, struct ifreq *ifr)
+ 		memcpy(&state(hdlc)->settings, &new_settings, size);
+ 
+ 		dev->hard_start_xmit = hdlc->xmit;
+-		dev->hard_header = NULL;
+ 		dev->type = ARPHRD_FRAD;
+-		dev->flags = IFF_POINTOPOINT | IFF_NOARP;
+-		dev->addr_len = 0;
+ 		return 0;
+ 
+ 	case IF_PROTO_FR_ADD_PVC:
+diff --git a/drivers/net/wan/hdlc_ppp.c b/drivers/net/wan/hdlc_ppp.c
+index e9f7170..4591437 100644
+--- a/drivers/net/wan/hdlc_ppp.c
++++ b/drivers/net/wan/hdlc_ppp.c
+@@ -127,9 +127,7 @@ static int ppp_ioctl(struct net_device *dev, struct ifreq *ifr)
+ 		if (result)
+ 			return result;
+ 		dev->hard_start_xmit = hdlc->xmit;
+-		dev->hard_header = NULL;
+ 		dev->type = ARPHRD_PPP;
+-		dev->addr_len = 0;
+ 		netif_dormant_off(dev);
+ 		return 0;
+ 	}
+diff --git a/drivers/net/wan/hdlc_raw.c b/drivers/net/wan/hdlc_raw.c
+index fe3cae5..e23bc66 100644
+--- a/drivers/net/wan/hdlc_raw.c
++++ b/drivers/net/wan/hdlc_raw.c
+@@ -88,10 +88,7 @@ static int raw_ioctl(struct net_device *dev, struct ifreq *ifr)
+ 			return result;
+ 		memcpy(hdlc->state, &new_settings, size);
+ 		dev->hard_start_xmit = hdlc->xmit;
+-		dev->hard_header = NULL;
+ 		dev->type = ARPHRD_RAWHDLC;
+-		dev->flags = IFF_POINTOPOINT | IFF_NOARP;
+-		dev->addr_len = 0;
+ 		netif_dormant_off(dev);
+ 		return 0;
+ 	}
+diff --git a/drivers/net/wan/hdlc_x25.c b/drivers/net/wan/hdlc_x25.c
+index e4bb9f8..cd7b22f 100644
+--- a/drivers/net/wan/hdlc_x25.c
++++ b/drivers/net/wan/hdlc_x25.c
+@@ -215,9 +215,7 @@ static int x25_ioctl(struct net_device *dev, struct ifreq *ifr)
+ 						   x25_rx, 0)) != 0)
+ 			return result;
+ 		dev->hard_start_xmit = x25_xmit;
+-		dev->hard_header = NULL;
+ 		dev->type = ARPHRD_X25;
+-		dev->addr_len = 0;
+ 		netif_dormant_off(dev);
+ 		return 0;
+ 	}
