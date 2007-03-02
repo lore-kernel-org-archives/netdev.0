@@ -1,81 +1,76 @@
 From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH] NET : convert network timestamps to ktime_t
-Date: Fri, 2 Mar 2007 13:02:10 -0800
-Message-ID: <20070302130210.57883edc@freekitty>
-References: <45E5570E.7050301@free.fr>
-	<200703011230.50596.dada1@cosmosbay.com>
-	<45E6F744.8070106@linux-foundation.org>
-	<200703021538.41284.dada1@cosmosbay.com>
+Subject: Re: Netem tfifo implementation
+Date: Fri, 2 Mar 2007 13:09:43 -0800
+Message-ID: <20070302130943.4920d649@freekitty>
+References: <f47983b00703021101h344f58e6ife56c01b54f3adaf@mail.gmail.com>
+	<45E87FE6.1060503@trash.net>
+	<f47983b00703021256y78d2140ev3f4314f62c849844@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	John find <linux.kernel@free.fr>, netdev@vger.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>
+Cc: "Patrick McHardy" <kaber@trash.net>, netdev@vger.kernel.org
+To: "Ritesh Kumar" <ritesh@cs.unc.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:41158 "EHLO smtp.osdl.org"
+Received: from smtp.osdl.org ([65.172.181.24]:41280 "EHLO smtp.osdl.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965621AbXCBVCm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Mar 2007 16:02:42 -0500
-In-Reply-To: <200703021538.41284.dada1@cosmosbay.com>
+	id S965622AbXCBVJy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Mar 2007 16:09:54 -0500
+In-Reply-To: <f47983b00703021256y78d2140ev3f4314f62c849844@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2 Mar 2007 15:38:41 +0100
-Eric Dumazet <dada1@cosmosbay.com> wrote:
+On Fri, 2 Mar 2007 15:56:54 -0500
+"Ritesh Kumar" <ritesh@cs.unc.edu> wrote:
 
-> We currently use a special structure (struct skb_timeval) and plain 'struct 
-> timeval' to store packet timestamps in sk_buffs and struct sock.
+> On 3/2/07, Patrick McHardy <kaber@trash.net> wrote:
+> > Ritesh Kumar wrote:
+> > > Hi,
+> > >    I recently saw the qdisc "tfifo" in the netem module
+> > > (net/sched/sch_netem.c) when I migrated some of my patches from 2.6.14
+> > > to 2.6.20. As I understand, tfifo helps in keeping the queue of
+> > > packets sorted according to their "time_to_send". [tfifo was not
+> > > present in 2.6.14 perhaps because arrival order of packets was always
+> > > equal to the departure order]. However, tfifo uses a linear search in
+> > > the packet queue to find where to enqueue the packet.
+> > >    Quite some time ago (2.6.14 era), I needed a similar functionality
+> > > from the netem module and I ended up coding a pointer based min-heap
+> > > for the same. I was wondering if the community was interested in using
+> > > the min-heap implementation to replace the linear search
+> > > implementation. I have tested the min-heap quite a few times and it
+> > > seems to work.
+> > >    The implementation is slightly non-trivial because it uses
+> > > pointers to maintain the heap structure instead if using good old
+> > > fixed size arrays. I did this mainly so that the limit of the netem
+> > > qdisc could be changed on the fly. However, because every sk_buff now
+> > > needs two pointers for its children nodes, I added an extra
+> > > (sk_buff*)next2 to struct sk_buff (sorry!). However, this can probably
+> > > be changed to a pointer inside netem_skb_cb.  Also, because I needed
+> > > this for personal work and 2.6.14 didn't contain tfifo, I basically
+> > > removed the embedded qdisc and made netem a classless qdisc with my
+> > > min heap as the native "queue" (sorry again! :) )
+> >
+> > The tfifo qdisc has a limit, why not just allocate a fixed-size heap
+> > based on that?
+> >
+> >
 > 
-> This has some drawbacks :
-> - Fixed resolution of micro second.
-> - Waste of space on 64bit platforms where sizeof(struct timeval)=16
-> 
-> I suggest using ktime_t that is a nice abstraction of high resolution time 
-> services, currently capable of nanosecond resolution.
-> 
-> As sizeof(ktime_t) is 8 bytes, using ktime_t in 'struct sock' permits a 8 byte 
-> shrink of this structure on 64bit architectures. Some other structures also 
-> benefit from this size reduction (struct ipq in ipv4/ip_fragment.c, struct 
-> frag_queue in ipv6/reassembly.c, ...)
-> 
+> The tfifo queue limit itself can be changed and that creates the
+> problem. If we use a fixed heap (say implemented using a fixed size
+> array) then we will have to copy over all pointers from the first
+> array to a reallocated array whenever the queue limit is changed.
+> In retrospect, moving just a few 10s of kilobytes of data doesn't seem
+> that much of a problem... now I feel stupid having put so much effort
+> :).
 > 
 
-You missed a couple of spots.
+Tfifo is a special case because:
+  * timestamps are stored in skb->cb so it is only really usable inside
+    netem that adds timestamps.
+  * insertions are cheap because it walks backwards and netem usually has
+    tnext > tlast.   Only if you have a huge jitter which causes massive reordering
+    and that is unrealistic, would you see a problem.
 
---- tcp-2.6.orig/net/sunrpc/svcsock.c	2007-03-02 12:50:45.000000000 -0800
-+++ tcp-2.6/net/sunrpc/svcsock.c	2007-03-02 12:58:28.000000000 -0800
-@@ -805,16 +805,9 @@
- 		/* possibly an icmp error */
- 		dprintk("svc: recvfrom returned error %d\n", -err);
- 	}
--	if (skb->tstamp.off_sec == 0) {
--		struct timeval tv;
- 
--		tv.tv_sec = xtime.tv_sec;
--		tv.tv_usec = xtime.tv_nsec / NSEC_PER_USEC;
--		skb_set_timestamp(skb, &tv);
--		/* Don't enable netstamp, sunrpc doesn't
--		   need that much accuracy */
--	}
--	skb_get_timestamp(skb, &svsk->sk_sk->sk_stamp);
-+	svsk->sk_sk->sk_stamp = (skb->tstamp.tv64 != 0) ? skb->tstamp
-+		: ktime_get_real();
- 	set_bit(SK_DATA, &svsk->sk_flags); /* there may be more data... */
- 
- 	/*
---- tcp-2.6.orig/kernel/time.c	2007-03-02 12:59:55.000000000 -0800
-+++ tcp-2.6/kernel/time.c	2007-03-02 13:00:08.000000000 -0800
-@@ -469,6 +469,8 @@
- 
- 	return tv;
- }
-+EXPORT_SYMBOL(ns_to_timeval);
-+
- 
- /*
-  * Convert jiffies to milliseconds and back.
-
+You can always make a new qisc and since netem is classless use yours.
 
 
 -- 
