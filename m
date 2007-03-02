@@ -1,54 +1,82 @@
-From: "Michael K. Edwards" <medwards.linux@gmail.com>
-Subject: Re: Extensible hashing and RCU
-Date: Fri, 2 Mar 2007 12:45:36 -0800
-Message-ID: <f2b55d220703021245m5cd5d9eet5e5a9d0d8ffcea41@mail.gmail.com>
-References: <20070204074143.26312.qmail@science.horizon.com>
-	 <20070217131302.GA22732@2ka.mipt.ru>
-	 <20070302085246.GA30951@2ka.mipt.ru>
-	 <200703021056.24100.dada1@cosmosbay.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Fix bugs in "Whether sock accept queue is full" checking
+Date: Fri, 02 Mar 2007 12:51:58 -0800 (PST)
+Message-ID: <20070302.125158.88476099.davem@davemloft.net>
+References: <1171470657.7414.15.camel@LINE>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Evgeniy Polyakov" <johnpol@2ka.mipt.ru>, akepner@sgi.com,
-	linux@horizon.com, davem@davemloft.net, netdev@vger.kernel.org
-To: "Eric Dumazet" <dada1@cosmosbay.com>
+Cc: netdev@vger.kernel.org
+To: weid@np.css.fujitsu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.247]:4794 "EHLO
-	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965587AbXCBUph (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Mar 2007 15:45:37 -0500
-Received: by an-out-0708.google.com with SMTP id b33so854768ana
-        for <netdev@vger.kernel.org>; Fri, 02 Mar 2007 12:45:37 -0800 (PST)
-In-Reply-To: <200703021056.24100.dada1@cosmosbay.com>
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37582
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S965589AbXCBUv7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Mar 2007 15:51:59 -0500
+In-Reply-To: <1171470657.7414.15.camel@LINE>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 3/2/07, Eric Dumazet <dada1@cosmosbay.com> wrote:
-> Thank you for this report. (Still avoiding cache misses studies, while they
-> obviously are the limiting factor)
+From: weidong <weid@np.css.fujitsu.com>
+Date: Wed, 14 Feb 2007 11:30:57 -0500
 
-1)  The entire point of going to a tree-like structure would be to
-allow the leaves to age out of cache (or even forcibly evict them)
-when the structure bloats (generally under DDoS attack), on the theory
-that most of them are bogus and won't be referenced again.  It's not
-about the speed of the data structure -- it's about managing its
-impact on the rest of the system.
+> diff -ruN old/include/net/sock.h new/include/net/sock.h
+> --- old/include/net/sock.h	2007-02-03 08:38:21.000000000 -0500
+> +++ new/include/net/sock.h	2007-02-03 08:38:30.000000000 -0500
+> @@ -426,7 +426,7 @@
+>  
+>  static inline int sk_acceptq_is_full(struct sock *sk)
+>  {
+> -	return sk->sk_ack_backlog > sk->sk_max_ack_backlog;
+> +	return sk->sk_ack_backlog >= sk->sk_max_ack_backlog;
+>  }
+>  
+>  /*
 
-2)  The other entire point of going to a tree-like structure is that
-they're drastically simpler to RCU than hashes, and more generally
-they don't involve individual atomic operations (RCU reaping passes,
-resizing, etc.) that cause big latency hiccups and evict a bunch of
-other stuff from cache.
+I've applied this patch, and also fixed a similar case
+I spotted in AF_UNIX after doing a quick audit.
 
-3)  The third entire point of going to a tree-like structure is to
-have a richer set of efficient operations, since you can give them a
-second "priority"-type index and have "pluck-highest-priority-item",
-three-sided search, and bulk delete operations.  These aren't that
-much harder to RCU than the basic modify-existing-node operation.
+Thank you.
 
-Now can we give these idiotic micro-benchmarks a rest until Robert's
-implementation is tuned and ready for stress-testing?
+commit 626d548a8d145a032cff9237245f8ac9d9056ac1
+Author: David S. Miller <davem@sunset.davemloft.net>
+Date:   Fri Mar 2 12:49:23 2007 -0800
 
-Cheers,
-- Michael
+    [AF_UNIX]: Test against sk_max_ack_backlog properly.
+    
+    This brings things inline with the sk_acceptq_is_full() bug
+    fix.  The limit test should be x >= sk_max_ack_backlog.
+    
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index 6069716..51ca438 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -934,7 +934,7 @@ static long unix_wait_for_peer(struct sock *other, long timeo)
+ 
+ 	sched = !sock_flag(other, SOCK_DEAD) &&
+ 		!(other->sk_shutdown & RCV_SHUTDOWN) &&
+-		(skb_queue_len(&other->sk_receive_queue) >
++		(skb_queue_len(&other->sk_receive_queue) >=
+ 		 other->sk_max_ack_backlog);
+ 
+ 	unix_state_runlock(other);
+@@ -1008,7 +1008,7 @@ restart:
+ 	if (other->sk_state != TCP_LISTEN)
+ 		goto out_unlock;
+ 
+-	if (skb_queue_len(&other->sk_receive_queue) >
++	if (skb_queue_len(&other->sk_receive_queue) >=
+ 	    other->sk_max_ack_backlog) {
+ 		err = -EAGAIN;
+ 		if (!timeo)
+@@ -1381,7 +1381,7 @@ restart:
+ 	}
+ 
+ 	if (unix_peer(other) != sk &&
+-	    (skb_queue_len(&other->sk_receive_queue) >
++	    (skb_queue_len(&other->sk_receive_queue) >=
+ 	     other->sk_max_ack_backlog)) {
+ 		if (!timeo) {
+ 			err = -EAGAIN;
