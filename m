@@ -1,46 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] NetLabel: Verify sensitivity level has a valid CIPSO
- mapping
-Date: Fri, 02 Mar 2007 13:19:45 -0800 (PST)
-Message-ID: <20070302.131945.70218355.davem@davemloft.net>
-References: <20070228200140.491071752@hp.com>
-	<Line.LNX.4.64.0702281544350.9150@d.namei>
+Subject: Re: PATCH: Second try at vlan mailing list patch.
+Date: Fri, 02 Mar 2007 13:22:39 -0800 (PST)
+Message-ID: <20070302.132239.98558350.davem@davemloft.net>
+References: <45E60F87.3070708@candelatech.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: paul.moore@hp.com, netdev@vger.kernel.org
-To: jmorris@namei.org
+Cc: netdev@vger.kernel.org
+To: greearb@candelatech.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38814
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38817
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S965652AbXCBVTq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Mar 2007 16:19:46 -0500
-In-Reply-To: <Line.LNX.4.64.0702281544350.9150@d.namei>
+	by vger.kernel.org with ESMTP id S965657AbXCBVWk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Mar 2007 16:22:40 -0500
+In-Reply-To: <45E60F87.3070708@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: James Morris <jmorris@namei.org>
-Date: Wed, 28 Feb 2007 15:45:07 -0500 (EST)
+From: Ben Greear <greearb@candelatech.com>
+Date: Wed, 28 Feb 2007 15:25:59 -0800
 
-> On Wed, 28 Feb 2007, Paul Moore wrote:
+> Hopefully, by attaching it as a file it will not screw up the tabs & spaces.
 > 
-> > The current CIPSO engine has a problem where it does not verify that the given
-> > sensitivity level has a valid CIPSO mapping when the "std" CIPSO DOI type is
-> > used.  The end result is that bad packets are sent on the wire which should
-> > have never been sent in the first place.  This patch corrects this problem by
-> > verifying the sensitivity level mapping similar to what is done with the
-> > category mapping.  This patch also changes the returned error code in this case
-> > to -EPERM to better match what the category mapping verification code returns.
-> > 
-> > Signed-off-by: Paul Moore <paul.moore@hp.com>
-> 
-> [removed redhat-lspp, which is subscriber only]
-> 
-> Acked-by: James Morris <jmorris@namei.org>
+> Signed-off-by:  Ben Greear <greearb@candelatech.com>
 
-Applied, thanks everyone.
+Nope still doesn't apply.
 
-If -stable inclusion is desired, please submit this patch there.
-You can add my signoff if you want:
-
-Signed-off-by: David S. Miller <davem@davemloft.net>
+I can guess that you didn't try emailing the patch to yourself and
+applying it?  If so I'm basically still your guinea pig each time you
+correct this problem.  How nice that is :-/
