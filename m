@@ -1,74 +1,43 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: Network activity LED trigger
-Date: Fri, 02 Mar 2007 11:19:26 -0500
-Message-ID: <1172852367.5016.20.camel@localhost>
-References: <200703012241.49165.florian.fainelli@int-evry.fr>
-	 <200703021358.52224.florian.fainelli@int-evry.fr>
-	 <1172844668.4864.46.camel@localhost>
-	 <200703021516.06638.florian.fainelli@int-evry.fr>
-	 <1172848619.4845.17.camel@localhost>
-	 <1172851428.11149.140.camel@localhost.localdomain>
-Reply-To: hadi@cyberus.ca
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH] NET : convert network timestamps to ktime_t
+Date: Fri, 2 Mar 2007 08:27:23 -0800
+Message-ID: <20070302082723.7105b0c1@oldman>
+References: <45E5570E.7050301@free.fr>
+	<200703011230.50596.dada1@cosmosbay.com>
+	<45E6F744.8070106@linux-foundation.org>
+	<200703021538.41284.dada1@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Florian Fainelli <florian.fainelli@int-evry.fr>,
-	netdev@vger.kernel.org
-To: Richard Purdie <rpurdie@rpsys.net>
+Cc: David Miller <davem@davemloft.net>,
+	John find <linux.kernel@free.fr>, netdev@vger.kernel.org
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.231]:26732 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S2992576AbXCBQTa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Mar 2007 11:19:30 -0500
-Received: by wx-out-0506.google.com with SMTP id h31so806754wxd
-        for <netdev@vger.kernel.org>; Fri, 02 Mar 2007 08:19:29 -0800 (PST)
-In-Reply-To: <1172851428.11149.140.camel@localhost.localdomain>
+Received: from smtp.osdl.org ([65.172.181.24]:33854 "EHLO smtp.osdl.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S2992583AbXCBQ2A (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Mar 2007 11:28:00 -0500
+In-Reply-To: <200703021538.41284.dada1@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2007-02-03 at 16:03 +0000, Richard Purdie wrote:
-> On Fri, 2007-03-02 at 10:16 -0500, jamal wrote:
+On Fri, 2 Mar 2007 15:38:41 +0100
+Eric Dumazet <dada1@cosmosbay.com> wrote:
 
-> We already have this API, see drivers/leds ;-)
-
-Very cool ;-> I was not aware of the existence of this API.
-Actually i dont think it was available around 2.6.10.
-
-> We have LEDs which show up in sysfs and can be controlled by userspace
-> from there. They can also choose to be controlled by kernel LED
-> 'triggers', for example. we have an IDE disk trigger which shows up
-> activity on IDE disks. Florian would like to see a network trigger.
+> We currently use a special structure (struct skb_timeval) and plain 'struct 
+> timeval' to store packet timestamps in sk_buffs and struct sock.
 > 
+> This has some drawbacks :
+> - Fixed resolution of micro second.
+> - Waste of space on 64bit platforms where sizeof(struct timeval)=16
+> 
+> I suggest using ktime_t that is a nice abstraction of high resolution time 
+> services, currently capable of nanosecond resolution.
+> 
+> As sizeof(ktime_t) is 8 bytes, using ktime_t in 'struct sock' permits a 8 byte 
+> shrink of this structure on 64bit architectures. Some other structures also 
+> benefit from this size reduction (struct ipq in ipv4/ip_fragment.c, struct 
+> frag_queue in ipv6/reassembly.c, ...)
 
-This literally covers most of what i wanted; it may be too late to get
-rid of that user space program but it is something i see you already
-support;->
-
-> The LED trigger code is quite generic and designed to have little impact
-> on the subsystem its added to, at least in terms of code. As always,
-> there will be some runtime overhead though. Ultimately it depends how
-> complex you make the trigger (eg. how many options it has) and where 
-
-
-Well, give me pointers and i will send you a patch for a board i
-currently use:
-http://download.intel.com/design/telecom/techspec/9635.pdf
-which has GPIO LED.
-I take it i would have to write a "driver" using your API?
-
-> and how you hook it into the network subsystem. 
-> I know little about the
-> network subsystem so this is something others will have to advise on.
-
-Other people may have different opionions: I cant think of something
-useful from a network perspective mostly because you cant make it
-generic enough i.e some boards will have LEDs for their NICs and some
-wont. Just as some boards have activity LEDS for their IDE disks. IOW, I
-think general purpose LEDs will probably be very dependent on the
-shipping product.
-
-other than that, great work!
-
-cheers,
-jamal
-
+This is even better. Also comparing ktime_t's is easier if some code needs
+to do that.
