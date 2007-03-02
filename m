@@ -1,82 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Fix bugs in "Whether sock accept queue is full" checking
-Date: Fri, 02 Mar 2007 12:51:58 -0800 (PST)
-Message-ID: <20070302.125158.88476099.davem@davemloft.net>
-References: <1171470657.7414.15.camel@LINE>
+From: Marc D Ronell <mronell@alumni.upenn.edu>
+Subject: Re: Network access fails unless tcpdump is running?
+Date: Fri, 02 Mar 2007 15:53:39 -0500
+Message-ID: <87abyv74fg.fsf@corps.glidepath.invalid>
+References: <87y7mg4vm7.fsf@corps.glidepath.invalid> <20070301201307.GC3199@gospo.rdu.redhat.com>
+ <87ps7s4rbx.fsf@corps.glidepath.invalid>
+ <20070301212245.GD3199@gospo.rdu.redhat.com>
+ <87hct44ka1.fsf@corps.glidepath.invalid>
+ <20070302202658.GA15151@core2.greyhouse.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: weid@np.css.fujitsu.com
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37582
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S965589AbXCBUv7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Mar 2007 15:51:59 -0500
-In-Reply-To: <1171470657.7414.15.camel@LINE>
+Received: from main.gmane.org ([80.91.229.2]:38211 "EHLO ciao.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965612AbXCBUyX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Mar 2007 15:54:23 -0500
+Received: from list by ciao.gmane.org with local (Exim 4.43)
+	id 1HNElc-0003mb-1F
+	for netdev@vger.kernel.org; Fri, 02 Mar 2007 21:54:16 +0100
+Received: from pool-71-255-169-178.bstnma.east.verizon.net ([71.255.169.178])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Fri, 02 Mar 2007 21:54:16 +0100
+Received: from mronell by pool-71-255-169-178.bstnma.east.verizon.net with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Fri, 02 Mar 2007 21:54:16 +0100
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: weidong <weid@np.css.fujitsu.com>
-Date: Wed, 14 Feb 2007 11:30:57 -0500
+"Andy Gospodarek" <gospo@redhat.com> writes:
 
-> diff -ruN old/include/net/sock.h new/include/net/sock.h
-> --- old/include/net/sock.h	2007-02-03 08:38:21.000000000 -0500
-> +++ new/include/net/sock.h	2007-02-03 08:38:30.000000000 -0500
-> @@ -426,7 +426,7 @@
->  
->  static inline int sk_acceptq_is_full(struct sock *sk)
->  {
-> -	return sk->sk_ack_backlog > sk->sk_max_ack_backlog;
-> +	return sk->sk_ack_backlog >= sk->sk_max_ack_backlog;
->  }
->  
->  /*
+>
+> Any chance you can boot back to the old kernel (the one where is was
+> working) and run and ethtool -i eth0 on that one to see what version of
+> the driver was used there?  It's hard to know what may have changed
+> between the 2 versions of the driver since I don't know the starting
+> point.
+>
+> It's also hard to know if this is fixed already since you aren't running
+> the latest upstream kernel.  Downloading, building, and testing the
+> latest from kernel.org would be a good way to know if this is already
+> fixed.
+>
 
-I've applied this patch, and also fixed a similar case
-I spotted in AF_UNIX after doing a quick audit.
+I had already loaded,  compiled, and tested linux-2.6.20.1.  There was
+no change with the newer kernel.  Network connections only worked when
+tcpdump was running.
 
-Thank you.
+Similar for booting with an  older kernel 2.6.17.  I think the problem
+is not with the kernel, but with other system software.  It could take
+a while to debug, so I am just rebuilding.
 
-commit 626d548a8d145a032cff9237245f8ac9d9056ac1
-Author: David S. Miller <davem@sunset.davemloft.net>
-Date:   Fri Mar 2 12:49:23 2007 -0800
+Thanks for your help.
 
-    [AF_UNIX]: Test against sk_max_ack_backlog properly.
-    
-    This brings things inline with the sk_acceptq_is_full() bug
-    fix.  The limit test should be x >= sk_max_ack_backlog.
-    
-    Signed-off-by: David S. Miller <davem@davemloft.net>
+marc
 
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index 6069716..51ca438 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -934,7 +934,7 @@ static long unix_wait_for_peer(struct sock *other, long timeo)
- 
- 	sched = !sock_flag(other, SOCK_DEAD) &&
- 		!(other->sk_shutdown & RCV_SHUTDOWN) &&
--		(skb_queue_len(&other->sk_receive_queue) >
-+		(skb_queue_len(&other->sk_receive_queue) >=
- 		 other->sk_max_ack_backlog);
- 
- 	unix_state_runlock(other);
-@@ -1008,7 +1008,7 @@ restart:
- 	if (other->sk_state != TCP_LISTEN)
- 		goto out_unlock;
- 
--	if (skb_queue_len(&other->sk_receive_queue) >
-+	if (skb_queue_len(&other->sk_receive_queue) >=
- 	    other->sk_max_ack_backlog) {
- 		err = -EAGAIN;
- 		if (!timeo)
-@@ -1381,7 +1381,7 @@ restart:
- 	}
- 
- 	if (unix_peer(other) != sk &&
--	    (skb_queue_len(&other->sk_receive_queue) >
-+	    (skb_queue_len(&other->sk_receive_queue) >=
- 	     other->sk_max_ack_backlog)) {
- 		if (!timeo) {
- 			err = -EAGAIN;
+
