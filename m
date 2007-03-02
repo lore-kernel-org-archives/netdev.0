@@ -1,45 +1,64 @@
-From: Keir Fraser <Keir.Fraser@cl.cam.ac.uk>
-Subject: Re: [RFC] Arp announce (for Xen)
-Date: Fri, 02 Mar 2007 08:46:04 +0000
-Message-ID: <C20D94CC.3237%Keir.Fraser@cl.cam.ac.uk>
-References: <20070301173030.754514ec@freekitty>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: Extensible hashing and RCU
+Date: Fri, 2 Mar 2007 11:52:47 +0300
+Message-ID: <20070302085246.GA30951@2ka.mipt.ru>
+References: <20070204074143.26312.qmail@science.horizon.com> <Pine.LNX.4.61.0702050952590.26852@localhost.localdomain> <20070217131302.GA22732@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: xen-devel@lists.xensource.com, Jeff Garzik <jeff@garzik.org>,
-	Andi Kleen <ak@muc.de>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Chris Wright <chrisw@sous-sol.org>,
-	Ian Pratt <ian.pratt@xensource.com>, Zachary@smtp.osdl.org,
-	virtualization@lists.osdl.org, Andrew Morton <akpm@linux-foundation.org>
-To: Stephen Hemminger <shemminger@linux-foundation.org>,
-	Jeremy Fitzhardinge <jeremy@goop.org>
-Return-path: <xen-devel-bounces@lists.xensource.com>
-In-Reply-To: <20070301173030.754514ec@freekitty>
-List-Unsubscribe: <http://lists.xensource.com/cgi-bin/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xensource.com?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xensource.com>
-List-Help: <mailto:xen-devel-request@lists.xensource.com?subject=help>
-List-Subscribe: <http://lists.xensource.com/cgi-bin/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xensource.com?subject=subscribe>
-Sender: xen-devel-bounces@lists.xensource.com
-Errors-To: xen-devel-bounces@lists.xensource.com
+Content-Type: text/plain; charset=koi8-r
+Cc: linux@horizon.com, davem@davemloft.net, netdev@vger.kernel.org
+To: akepner@sgi.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:49350 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933104AbXCBI6u (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Mar 2007 03:58:50 -0500
+Content-Disposition: inline
+In-Reply-To: <20070217131302.GA22732@2ka.mipt.ru>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 2/3/07 01:30, "Stephen Hemminger" <shemminger@linux-foundation.org>
-wrote:
-
-> What about implementing the unused arp_announce flag on the inetdevice?
-> Something like the following.  Totally untested...
+On Sat, Feb 17, 2007 at 04:13:02PM +0300, Evgeniy Polyakov (johnpol@2ka.mipt.ru) wrote:
+> > >I noticed in an LCA talk mention that apprently extensible hashing
+> > >with RCU access is an unsolved problem.  Here's an idea for solving it.
+> > >....
+> > 
+> > Yes, I have been playing around with the same idea for
+> > doing dynamic resizing of the TCP hashtable.
+> > 
+> > Did a prototype "toy" implementation, and I have a
+> > "half-finished" patch which resizes the TCP hashtable
+> > at runtime. Hmmm, your mail may be the impetus to get
+> > me to finally finish this thing....
 > 
-> Looks like it either was there (and got removed) or was planned but
-> never implemented.
+> Why anyone do not want to use trie - for socket-like loads it has
+> exactly constant search/insert/delete time and scales as hell.
 
-This would be acceptable. It only needs a simple script to poke the correct
-value, and that could be easily integrated into vendor scripts. The general
-idea of being able to have a callback to userspace is okay but we'd like
-something lighter weight for live migration, which is typically done only
-within the scope of a single layer-2 network and hence all that is really
-required is the gratuitous ARP to kick the switch hardware.
+Ok, I've ran an analysis of linked lists and trie traversals and found 
+that (at least on x86) optimized one list traversal is about 4 (!) 
+times faster than one bit lookup in trie traversal (or actually one
+lookup in binary tree-like structure) - that is because of the fact 
+that trie traversal needs to have more instructions per lookup, and at 
+least one additional branch which can not be predicted.
 
- -- Keir
+Tests with rdtsc shows that one bit lookup in trie (actually it is any
+lookup in binary tree structures) is about 3-4 times slower than one
+lookup in linked list.
+
+Since hash table usually has upto 4 elements in each hash entry,
+competing binary tree/trie stucture must get an entry in one lookup,
+which is essentially impossible with usual tree/trie implementations.
+
+Things dramatically change when linked list became too long, but it
+should not happend with proper resizing of the hash table, wildcards
+implementation also introduce additional requirements, which can not be
+easily solved in hash tables.
+
+So I get my words about tree/trie implementation instead of hash table 
+for socket lookup back.
+
+Interested reader can find more details on tests, asm outputs and
+conclusions at:
+http://tservice.net.ru/~s0mbre/blog/2007/03/01#2007_03_01
+
+-- 
+	Evgeniy Polyakov
