@@ -1,58 +1,74 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: [git patches] net driver fixes
-Date: Fri, 02 Mar 2007 08:17:44 -0800
-Message-ID: <45E84E28.9060402@intel.com>
-References: <20070227110233.GA14138@havoc.gtf.org> <Pine.LNX.4.64.0703012001110.7832@woody.linux-foundation.org> <45E7D516.30401@intel.com> <Pine.LNX.4.64.0703020751290.3953@woody.linux-foundation.org>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: Network activity LED trigger
+Date: Fri, 02 Mar 2007 11:19:26 -0500
+Message-ID: <1172852367.5016.20.camel@localhost>
+References: <200703012241.49165.florian.fainelli@int-evry.fr>
+	 <200703021358.52224.florian.fainelli@int-evry.fr>
+	 <1172844668.4864.46.camel@localhost>
+	 <200703021516.06638.florian.fainelli@int-evry.fr>
+	 <1172848619.4845.17.camel@localhost>
+	 <1172851428.11149.140.camel@localhost.localdomain>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>
-To: Linus Torvalds <torvalds@linux-foundation.org>
+Cc: Florian Fainelli <florian.fainelli@int-evry.fr>,
+	netdev@vger.kernel.org
+To: Richard Purdie <rpurdie@rpsys.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:40448 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S2992573AbXCBQSV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Mar 2007 11:18:21 -0500
-In-Reply-To: <Pine.LNX.4.64.0703020751290.3953@woody.linux-foundation.org>
+Received: from wx-out-0506.google.com ([66.249.82.231]:26732 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S2992576AbXCBQTa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Mar 2007 11:19:30 -0500
+Received: by wx-out-0506.google.com with SMTP id h31so806754wxd
+        for <netdev@vger.kernel.org>; Fri, 02 Mar 2007 08:19:29 -0800 (PST)
+In-Reply-To: <1172851428.11149.140.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Linus Torvalds wrote:
-> On Thu, 1 Mar 2007, Kok, Auke wrote:
-> and lspci says:
+On Fri, 2007-02-03 at 16:03 +0000, Richard Purdie wrote:
+> On Fri, 2007-03-02 at 10:16 -0500, jamal wrote:
+
+> We already have this API, see drivers/leds ;-)
+
+Very cool ;-> I was not aware of the existence of this API.
+Actually i dont think it was available around 2.6.10.
+
+> We have LEDs which show up in sysfs and can be controlled by userspace
+> from there. They can also choose to be controlled by kernel LED
+> 'triggers', for example. we have an IDE disk trigger which shows up
+> activity on IDE disks. Florian would like to see a network trigger.
 > 
-> 	00:19.0 Ethernet controller: Intel Corporation 82566DM Gigabit Network Connection (rev 02)
 
-> DMI info isn't very interesting, but it's an all-Intel board:
-> 
-> so it's all-intel chipset, all-intel board, and all-intel BIOS ;)
+This literally covers most of what i wanted; it may be too late to get
+rid of that user space program but it is something i see you already
+support;->
 
-It's like the devil plays with it. We just discussed adding a piece of text 
-about this issue to our README.
+> The LED trigger code is quite generic and designed to have little impact
+> on the subsystem its added to, at least in terms of code. As always,
+> there will be some runtime overhead though. Ultimately it depends how
+> complex you make the trigger (eg. how many options it has) and where 
 
->> there have been problems reported with AMT2 on several chipsets (AMT2 is
->> not supported under linux, unlike AMT1), and having it enabled in the BIOS
->> produces this phenomenon.
-> 
-> Is there some way to at least disable AMT2 from the Linux driver (ie I 
-> assume this is some issue of Intel not documenting it all - but maybe you 
-> can add a "turn off that bit" to the affected chip).
 
-Our suggestion is (IOW will be in the README) to turn AMT2 off completely in the 
-BIOS, but I'll investigate if your suggestion is possible. It may be another 
-workaround but this one indeed hurts.
+Well, give me pointers and i will send you a patch for a board i
+currently use:
+http://download.intel.com/design/telecom/techspec/9635.pdf
+which has GPIO LED.
+I take it i would have to write a "driver" using your API?
 
-> If I'm not the only one to see it, it's obviously not just my personal 
-> ethernet switch bug, but apparently the e1000 becoming confused by some 
-> link detection event (and powering down the switch probably just gets it 
-> out of its confusion).
+> and how you hook it into the network subsystem. 
+> I know little about the
+> network subsystem so this is something others will have to advise on.
 
-No, this fits the description perfectly of this issue. I'll get right on it and 
-owe you a patch for the `e1000: not ready for irq` problem too, which seems to 
-hold out after tests...
+Other people may have different opionions: I cant think of something
+useful from a network perspective mostly because you cant make it
+generic enough i.e some boards will have LEDs for their NICs and some
+wont. Just as some boards have activity LEDS for their IDE disks. IOW, I
+think general purpose LEDs will probably be very dependent on the
+shipping product.
 
-Cheers,
+other than that, great work!
 
-Auke
+cheers,
+jamal
+
