@@ -1,84 +1,51 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: Network activity LED trigger
-Date: Fri, 02 Mar 2007 10:16:58 -0500
-Message-ID: <1172848619.4845.17.camel@localhost>
-References: <200703012241.49165.florian.fainelli@int-evry.fr>
-	 <200703021358.52224.florian.fainelli@int-evry.fr>
-	 <1172844668.4864.46.camel@localhost>
-	 <200703021516.06638.florian.fainelli@int-evry.fr>
-Reply-To: hadi@cyberus.ca
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: [Bugme-new] [Bug 8107] New: dev->header_cache_update has a random value
+Date: Fri, 02 Mar 2007 16:29:06 +0100
+Message-ID: <m3zm6vk6kd.fsf@maximus.localdomain>
+References: <200703011933.l21JX5hw018666@fire-2.osdl.org>
+	<20070301143417.00b49e81.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Richard Purdie <rpurdie@rpsys.net>
-To: Florian Fainelli <florian.fainelli@int-evry.fr>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org,
+	"bugme-daemon@kernel-bugs.osdl.org"
+	<bugme-daemon@bugzilla.kernel.org>, loveminix@yahoo.com.cn
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.230]:61072 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S2992504AbXCBPRD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Mar 2007 10:17:03 -0500
-Received: by wx-out-0506.google.com with SMTP id h31so788196wxd
-        for <netdev@vger.kernel.org>; Fri, 02 Mar 2007 07:17:02 -0800 (PST)
-In-Reply-To: <200703021516.06638.florian.fainelli@int-evry.fr>
+Received: from khc.piap.pl ([195.187.100.11]:35729 "EHLO khc.piap.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S2992513AbXCBP3K (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Mar 2007 10:29:10 -0500
+In-Reply-To: <20070301143417.00b49e81.akpm@linux-foundation.org> (Andrew Morton's message of "Thu, 1 Mar 2007 14:34:17 -0800")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2007-02-03 at 15:16 +0100, Florian Fainelli wrote:
-> Hi,
->=20
-> Le vendredi 2 mars 2007, jamal a =E9crit :
-> > Where are these LEDs typically located? Are you talking about LEDs =
-on a
-> > network card for example? can you light them up in different colors=
-?
->=20
-> Those LEDS are typically controlled by GPIO lines visible in front of=
- the=20
-> device. It is mostly targeted to embedded devices for which you do no=
-t=20
-> necessarily want to assign a LED to a given network interface
->=20
+Andrew Morton <akpm@linux-foundation.org> writes:
 
-Ah, ok - ive worked with a not-so-embedded board that had something tha=
-t
-was accessible via the ICH; i recall writting a user-space program to
-handle it. So instead of calling this just LED, probably find a more
-descriptive name for it; Example GPIO-LED.
+>> However, in 
+>> drivers/net/wan/hdlc_cisco.c, in function static int cisco_ioctl(struct 
+>> net_device *dev, struct ifreq *ifr), where dev->hard_header is assigned a valid 
+>> function, and dev->hard_header_cache is assigned a known value (NULL), dev-
+>> >header_cache_update is not set to a known value:
 
-Those things are tricky to have in a generic code though, no? I.e each
-chipset/board will have different address mappings on where to
-read/write for a specific LED. So you need to deal with that problem
-without requiring changing of the kernel every time an address changes.
-I actually found exactly similar board (some manufacturer) but the
-firmware was slightly different.
+Right, it seems I was never aware of dev->header_cache_update existence.
+I wonder where does the non-NULL value come from? Nevermind.
 
-Heres my view of what would be useful:
-Have them accessible via the kernel, but also have an API from user
-space. This way user space apps can control the LED, but if i wanted to
-do it from the kernel i could as well. In my case i was actually
-monitoring the health of a daemon; it would show off if the daemon was
-not running, green if it was happy, yellow if semi-healthy and Red if i=
-t
-was in trouble.
+> diff -puN drivers/net/wan/hdlc_cisco.c~cisco_ioctl-initialise-header_cache_update drivers/net/wan/hdlc_cisco.c
+> --- a/drivers/net/wan/hdlc_cisco.c~cisco_ioctl-initialise-header_cache_update
+> +++ a/drivers/net/wan/hdlc_cisco.c
+> @@ -366,6 +366,7 @@ static int cisco_ioctl(struct net_device
+>  		dev->hard_start_xmit = hdlc->xmit;
+>  		dev->hard_header = cisco_hard_header;
+>  		dev->hard_header_cache = NULL;
+> +		dev->header_cache_update = NULL;
+>  		dev->type = ARPHRD_CISCO;
+>  		dev->flags = IFF_POINTOPOINT | IFF_NOARP;
+>  		dev->addr_len = 0;
+> _
 
-here are some operations/messages i can see that are useful which you
-probably already have in your API:
+ACK, I think it's the best place.
 
-turn on LED at #x color somecolor
-turn off LED at #y
-query LED info at #x
-dump all LEDs on board - think of this as a discovery
-flicker LED at #z at frequency y color green
-maybe even: "I am a wireless card with no LED, I claim LED #x"
-which is matched by "tell me if anyone owns LED code"
-
-In other words, if you just provide mechanims let people write the
-policies.
-This way if i wanted to tie it to my eth0 i can.=20
-
-Hope that helps.
-
-cheers,
-jamal
-
-
+Is it OK to leave this (and hard_header_cache) set to random value
+if dev->hard_header = NULL (as with other protocols)?
+-- 
+Krzysztof Halasa
