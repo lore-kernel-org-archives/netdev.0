@@ -1,49 +1,38 @@
-From: John Heffner <jheffner@psc.edu>
-Subject: Re: SWS for rcvbuf < MTU
-Date: Fri, 02 Mar 2007 16:16:39 -0500
-Message-ID: <45E89437.3000902@psc.edu>
-References: <200703021128.29208.alexandre.sidorenko@hp.com>	<20070302.112542.18305896.davem@davemloft.net>	<200703021521.58821.alexandre.sidorenko@hp.com> <20070302.123325.28790131.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH][BUG][SECURITY] Re: Weird problem with PPPoE on tap
+ interface
+Date: Fri, 02 Mar 2007 13:18:14 -0800 (PST)
+Message-ID: <20070302.131814.23015047.davem@davemloft.net>
+References: <20070225195455.GC3318@florz.florz.dyndns.org>
+	<20070226102908.GD3318@florz.florz.dyndns.org>
+	<20070228123844.GA28150@florz.florz.dyndns.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: alexandre.sidorenko@hp.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, mostrows@speakeasy.net
+To: florz@gmx.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailer2.psc.edu ([128.182.66.106]:55557 "EHLO mailer2.psc.edu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965640AbXCBVQr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Mar 2007 16:16:47 -0500
-In-Reply-To: <20070302.123325.28790131.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38807
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S965648AbXCBVSP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Mar 2007 16:18:15 -0500
+In-Reply-To: <20070228123844.GA28150@florz.florz.dyndns.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: Alex Sidorenko <alexandre.sidorenko@hp.com>
-> Date: Fri, 2 Mar 2007 15:21:58 -0500
-> 
->> they told us that they use small rcvbuf to throttle bandwidth for this 
->> application. I explained it would be better to use TC for this purpose. They 
->> agreed and will probably redesign their application in the future, but they 
->> cannot do it right now. For the same reason they have to use the old 2.4.20 
->> for a while - in big companies the important production software cannot be 
->> changed quickly. 
->>
->> The fix I suggested is trivial and should have no impact the case of 
->> rcvfbuf>mtu, so I think it makes sense to include it in upstream kernel.
-> 
-> I have no objection to the fix, especially John's version.
-> 
-> I was just curious about the app, thanks for the info :)
+From: Florian Zumbiehl <florz@gmx.de>
+Date: Wed, 28 Feb 2007 13:38:44 +0100
 
-Please don't apply the patch I sent.  I've been thinking about this a 
-bit harder, and it may not fix this particular problem.  (Hard to say 
-without knowing exactly what it is.)  As the comment above 
-__tcp_select_window() states, we do not do full receive-side SWS 
-avoidance because of header prediction.
+> As noone seems to have an opinion on this: Here is a patch that does
+> work for me and that should solve the problem as far as that is easily
+> possible. It is based on the assumption that an interface's ifindex is
+> basically an alias for a local MAC address, so incoming packets now are
+> matched to sockets based on remote MAC, session id, and ifindex of the
+> interface the packet came in on/the socket was bound to by connect().
 
-Alex, you're right I missed that special zero-window case.  I'm still 
-not quite sure I'm completely happy with this patch.  I'd like to think 
-about this a little bit harder...
+I agree with your analysis and have applied your patch.
 
-Thanks,
-   -John
+Another way to implement this would have been to store the
+pre-computed ifindex on the kernel side sockaddr.
+
+Thanks.
