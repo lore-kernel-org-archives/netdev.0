@@ -1,140 +1,64 @@
-From: Alex Sidorenko <alexandre.sidorenko@hp.com>
-Subject: SWS for rcvbuf < MTU
-Date: Fri, 2 Mar 2007 11:28:28 -0500
-Message-ID: <200703021128.29208.alexandre.sidorenko@hp.com>
+From: Norbert Eicker <n.eicker@fz-juelich.de>
+Subject: Re: [PATCH] spidernet: Fix problem sending IP fragments
+Date: Fri, 2 Mar 2007 18:39:15 +0100
+Message-ID: <200703021839.16158.n.eicker@fz-juelich.de>
+References: <200702281521.34277.n.eicker@fz-juelich.de> <1e548a3f0703011452u6dde9c53ifde2fa41fe5f4c38@mail.gmail.com> <20070301233426.GH4717@austin.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
-  charset="us-ascii"
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: Chris Engel <chrisengel@gmail.com>, linuxppc-dev@ozlabs.org,
+	Adam Emerich <aemerich@us.ibm.com>, netdev@vger.kernel.org
+To: Linas Vepstas <linas@austin.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel9.hp.com ([156.153.255.214]:44200 "EHLO atlrel9.hp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S2992556AbXCBQvh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Mar 2007 11:51:37 -0500
-Received: from l3107tux.atl.hp.com (l3107tux.atl.hp.com [15.19.254.15])
-	by atlrel9.hp.com (Postfix) with ESMTP id 57B8A34BD0
-	for <netdev@vger.kernel.org>; Fri,  2 Mar 2007 11:28:19 -0500 (EST)
-Received: from [15.244.201.199] (unknown [15.244.201.199])
-	by l3107tux.atl.hp.com (Postfix) with ESMTP id CD820B2F84
-	for <netdev@vger.kernel.org>; Fri,  2 Mar 2007 11:28:18 -0500 (EST)
+Received: from zam837.fz-juelich.de ([134.94.100.69]:55627 "HELO
+	zam837.fz-juelich.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S2992671AbXCBRjS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Mar 2007 12:39:18 -0500
+In-Reply-To: <20070301233426.GH4717@austin.ibm.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+On Fri 2.3.2007 00:34, Linas Vepstas wrote:
+> On Thu, Mar 01, 2007 at 04:52:54PM -0600, Chris Engel wrote:
+> > I tried to apply this patch to 2.6.21-rc2 and CHECKSUM_HW appears
+> > to be changed to CHECKSUM_COMPLETE
 
-this is a rare corner case met by one of HP partners on 2.4.20 on IA64. 
-Inspecting the sources of the latest 2.6.20.1 (net/ipv4/tcp_output.c) we can 
-see that the bug is still there.
+Oops. I did not test this on the actual 2.6.21-rc2 before sending it.
+It worked fine for me on 2.6.18.
 
-Here is a description of the bug and the suggested fix.
+In the meantime it tested the patch below on 2.6.21.
 
-The problem occurs when the remote host (not necessarily Linux - in our case 
-it was Solaris) does not implement SWS avoidance on sender side. If Linux 
-connection socket has rcvbuf<mtu, we can potentially advertise small rcv_wnd 
-for a long time (SWS).
+> The use of CHECKSUM_HW was replaced by CHECKSUM_PARTIAL and
+> CHECKSUM_COMPLETE on a cae-by-case basis, in the patch series leading
+> up to 2.6.19.  In this case, I'm not sure which should have been
+> used.
 
-The problem is due to SWS avoidance as implemented in __tcp_select_window(). 
-Everything works fine when rcvbuf > mtu. But if we use small rcvbuf (set by 
-SO_RCVBUF), we can go into SWS mode. Let us for simplicity look only at the 
-case when we don't have WS enabled. If we have free_space above full_space/2, 
-we reach the following section:
+In fact CHECKSUM_COMPLETE seems to be used on the receiving side while
+CHECKSUM_PARTIAL is the one to be used while sending frames. Thus the
+latter is the one to chose.
 
+> Norbert, can you resubmit a patch that applies to a more recent
+> kernel? p.s. your emailer replaced tabs by spaces ...
 
-        /* Don't do rounding if we are using window scaling, since the
-         * scaled window will not line up with the MSS boundary anyway.
-         */
-        window = tp->rcv_wnd;
-        if (tp->rx_opt.rcv_wscale) {
-	    <snip>
-        } else {
-                /* Get the largest window that is a nice multiple of mss.
-                 * Window clamp already applied above.
-                 * If our current window offering is within 1 mss of the
-                 * free space we just keep it. This prevents the divide
-                 * and multiply from happening most of the time.
-                 * We also don't do any window rounding when the free space
-                 * is too small.
-                 */
-(1)              if (window <= free_space - mss || window > free_space)
-                        window = (free_space/mss)*mss;
-        }
+so here's the new one:
 
-        return window;
+Fix problem sending IP fragments on spidernet.
 
-What happens if we have a small tp->rcv_wnd and rcvbuf <= mss? In this case 
-condition (1) is almost always false and as a result we'll return 
-unmodified 'window' set to tp->rcv_wnd.  If tp->rcv_wnd is small, it can be 
-reused over and over again.
+Signed-off-by: Norbert Eicker <n.eicker@fz-juelich.de>
+---
+diff --git a/drivers/net/spider_net.c b/drivers/net/spider_net.c
+index 3b91af8..e3019d5 100644
+--- a/drivers/net/spider_net.c
++++ b/drivers/net/spider_net.c
+@@ -719,7 +719,7 @@ spider_net_prepare_tx_descr(struct spide
+			SPIDER_NET_DESCR_CARDOWNED | SPIDER_NET_DMAC_NOCS;
+	spin_unlock_irqrestore(&chain->lock, flags);
 
-For the case rcvbuf <= mss  __tcp_select_window() returns:
+-	if (skb->protocol == htons(ETH_P_IP))
++	if (skb->protocol == htons(ETH_P_IP) && skb->ip_summed == CHECKSUM_PARTIAL)
+		switch (skb->nh.iph->protocol) {
+		case IPPROTO_TCP:
+			hwdescr->dmac_cmd_status |= SPIDER_NET_DMAC_TCP;
 
-  0		if we have free_space < full_space/2	OK
-  mss		if rcvbuf is empty			OK
-  tp->rcv_wnd	in other case				Bad
-
-
-If there is no SWS avoidance on sender side, we can see Linux advertising the 
-same small rcv_wnd over and over again. The problem here is that we never 
-advertise one-half the receiver's buffer space as described e.g. in
-
-"TCP/IP Illustrated" by Stevens (v.1, Chapter 22.3):
-
-"The normal algorithm is for the receiver not to advertise a larger window 
-than it is currently advertising (which can be 0) until the window can be 
-increased by either one full-sized segment (i.e. the MSS being received) or by 
-one-half the receiver's buffer space, whichever is smaller"
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-The fix.
---------
-
-We have not been able to reproduce the problem inside HP as it is unclear what 
-conditions are needed to bring system into SWS mode (this needs very special 
-event timing). HP customer was seeing it every 2-3 days while running a 
-custom application (Solaris<->Linux) that was running with low priority on a 
-busy host running other custom applications with SCHED_RR. After going into 
-SWS mode, his application stayed in it until restarted.
-
-We provided to customer a fix for 2.4.20 only (used by customer in production) 
-by adding another test and returning rcvbuf/2 when needed:
-
---- net/ipv4/tcp_output.c.orig  Wed May  3 20:40:43 2006
-+++ net/ipv4/tcp_output.c       Tue Jan 30 14:24:56 2007
-@@ -641,6 +641,7 @@
-  * Note, we don't "adjust" for TIMESTAMP or SACK option bytes.
-  * Regular options like TIMESTAMP are taken into account.
-  */
-+static const char *SWS_id_string="@#SWS-fix-2";
- u32 __tcp_select_window(struct sock *sk)
- {
-        struct tcp_opt *tp = &sk->tp_pinfo.af_tcp;
-@@ -682,6 +683,9 @@
-        window = tp->rcv_wnd;
-        if (window <= free_space - mss || window > free_space)
-                window = (free_space/mss)*mss;
-+        /* A fix for small rcvbuf asid@hp.com */
-+       else if (mss == full_space && window < full_space/2)
-+               window = full_space/2;
-
-        return window;
- }
-
-
-Customer has confirmed that this resolves the problem and decreases CPU usage 
-by  his custom application - even when there is no SWS.
-
-
-This is a rare corner case and most users will never meet it. But as the fix 
-is trivial, I think it makes sense to include it in upstream sources. 
-
-Regards,
-Alex
-
--- 
-------------------------------------------------------------------
-Alexandre Sidorenko             email: alexs@hplinux.canada.hp.com
-Global Solutions Engineering:   Unix Networking
-Hewlett-Packard (Canada)
-------------------------------------------------------------------
