@@ -1,58 +1,183 @@
-From: John <linux.kernel@free.fr>
-Subject: Re: CLOCK_MONOTONIC datagram timestamps by the kernel
-Date: Fri, 02 Mar 2007 10:26:57 +0100
-Message-ID: <45E7EDE1.30805@free.fr>
-References: <45E5570E.7050301@free.fr> <200702281555.10309.dada1@cosmosbay.com> <45E5A8AE.3030606@free.fr> <200703011230.50596.dada1@cosmosbay.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: Extensible hashing and RCU
+Date: Fri, 2 Mar 2007 10:56:23 +0100
+Message-ID: <200703021056.24100.dada1@cosmosbay.com>
+References: <20070204074143.26312.qmail@science.horizon.com> <20070217131302.GA22732@2ka.mipt.ru> <20070302085246.GA30951@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-net@vger.kernel.org, netdev@vger.kernel.org,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	linux.kernel@free.fr
-To: Eric Dumazet <dada1@cosmosbay.com>
+Content-Type: Multipart/Mixed;
+  boundary="Boundary-00=_IT/5FzyqISvdmTQ"
+Cc: akepner@sgi.com, linux@horizon.com, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from SMT02001.global-sp.net ([193.168.50.54]:49738 "EHLO
-	SMT02001.global-sp.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1422982AbXCBJqf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Mar 2007 04:46:35 -0500
-In-Reply-To: <200703011230.50596.dada1@cosmosbay.com>
+Received: from pfx2.jmh.fr ([194.153.89.55]:40974 "EHLO pfx2.jmh.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1422989AbXCBJ4b (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Mar 2007 04:56:31 -0500
+In-Reply-To: <20070302085246.GA30951@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Eric Dumazet wrote:
+--Boundary-00=_IT/5FzyqISvdmTQ
+Content-Type: text/plain;
+  charset="koi8-r"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-> John wrote:
-> 
->> Consider an idle Linux 2.6.20-rt8 system, equipped with a single PCI-E
->> gigabit Ethernet NIC, running on a modern CPU (e.g. Core 2 Duo E6700).
->> All this system does is time stamp 1000 packets per second.
->>
->> Are you claiming that this platform *cannot* handle most packets within
->> less than 1 microsecond of their arrival?
-> 
-> Yes I claim it. You expect too much of this platform, unless "most" means
-> 10 % for you ;)
+On Friday 02 March 2007 09:52, Evgeniy Polyakov wrote:
 
-By "most" I meant more than 50%.
+> Ok, I've ran an analysis of linked lists and trie traversals and found
+> that (at least on x86) optimized one list traversal is about 4 (!)
+> times faster than one bit lookup in trie traversal (or actually one
+> lookup in binary tree-like structure) - that is because of the fact
+> that trie traversal needs to have more instructions per lookup, and at
+> least one additional branch which can not be predicted.
+>
+> Tests with rdtsc shows that one bit lookup in trie (actually it is any
+> lookup in binary tree structures) is about 3-4 times slower than one
+> lookup in linked list.
+>
+> Since hash table usually has upto 4 elements in each hash entry,
+> competing binary tree/trie stucture must get an entry in one lookup,
+> which is essentially impossible with usual tree/trie implementations.
+>
+> Things dramatically change when linked list became too long, but it
+> should not happend with proper resizing of the hash table, wildcards
+> implementation also introduce additional requirements, which can not be
+> easily solved in hash tables.
+>
+> So I get my words about tree/trie implementation instead of hash table
+> for socket lookup back.
+>
+> Interested reader can find more details on tests, asm outputs and
+> conclusions at:
+> http://tservice.net.ru/~s0mbre/blog/2007/03/01#2007_03_01
 
-Has someone tried to measure interrupt latency in Linux? I'd like to 
-plot the distribution of network IRQ to interrupt handler latencies.
+Thank you for this report. (Still avoiding cache misses studies, while they 
+obviously are the limiting factor)
 
-> If you replace "1 us" by "50 us", then yes, it probably can do it, if "most" 
-> means 99%, (not 99.999 %)
+Anyqay, if data is in cache and you want optimum performance from your cpu,
+you may try to use an algorithm without conditional branches :
+(well 4 in this case for the whole 32 bits tests)
 
-I think we need cold, hard numbers at this point :-)
+gcc -O2 -S -march=i686 test1.c
 
-> Anyway, if you want to play, you can apply this patch on top of 
-> linux-2.6.21-rc2  (nanosecond resolution infrastructure needs 2.6.21)
-> I let you do the adjustments for rt kernel.
 
-Why does it require 2.6.21?
+--Boundary-00=_IT/5FzyqISvdmTQ
+Content-Type: text/plain;
+  charset="koi8-r";
+  name="test1.c"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+	filename="test1.c"
 
-> This patch converts sk_buff timestamp to use new nanosecond infra
-> (added in 2.6.21)
+struct node {
+	struct node *left;
+	struct node *right;
+	int value;
+	};
+struct node *head;
+int v1;
 
-Is this mentioned somewhere in the 2.6.21-rc1 ChangeLog?
-http://kernel.org/pub/linux/kernel/v2.6/testing/ChangeLog-2.6.21-rc1
+#define PASS2(bit) \
+	n2 = n1->left; \
+	right = n1->right; \
+    if (value & (1<<bit)) \
+        n2 = right; \
+	n1 = n2->left; \
+	right = n2->right; \
+	if (value & (2<<bit)) \
+		n1 = right;
 
-Regards.
+main()
+{
+int j;
+unsigned int value = v1;
+struct node *n1 = head, *n2, *right;
+for (j=0; j<4; ++j) {
+	PASS2(0)
+	PASS2(2)
+	PASS2(4)
+	PASS2(6)
+	value >>= 8;
+	}
+printf("result=%p\n", n1);
+}
+
+--Boundary-00=_IT/5FzyqISvdmTQ
+Content-Type: text/plain;
+  charset="koi8-r";
+  name="test1.s"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+	filename="test1.s"
+
+	.file	"test1.c"
+	.section	.rodata.str1.1,"aMS",@progbits,1
+.LC0:
+	.string	"result=%p\n"
+	.text
+	.p2align 4,,15
+.globl main
+	.type	main, @function
+main:
+	leal	4(%esp), %ecx
+	andl	$-16, %esp
+	pushl	-4(%ecx)
+	pushl	%ebp
+	movl	%esp, %ebp
+	pushl	%ebx
+	xorl	%ebx, %ebx
+	pushl	%ecx
+	subl	$16, %esp
+	movl	v1, %ecx
+	movl	head, %edx
+	.p2align 4,,7
+.L2:
+	movl	4(%edx), %eax
+	testb	$1, %cl
+	cmove	(%edx), %eax
+	testb	$2, %cl
+	movl	4(%eax), %edx
+	cmove	(%eax), %edx
+	testb	$4, %cl
+	movl	4(%edx), %eax
+	cmove	(%edx), %eax
+	testb	$8, %cl
+	movl	4(%eax), %edx
+	cmove	(%eax), %edx
+	testb	$16, %cl
+	movl	4(%edx), %eax
+	cmove	(%edx), %eax
+	testb	$32, %cl
+	movl	4(%eax), %edx
+	cmove	(%eax), %edx
+	testb	$64, %cl
+	movl	4(%edx), %eax
+	cmove	(%edx), %eax
+	testb	%cl, %cl
+	movl	4(%eax), %edx
+	cmovns	(%eax), %edx
+	addl	$1, %ebx
+	cmpl	$4, %ebx
+	je	.L19
+	shrl	$8, %ecx
+	jmp	.L2
+	.p2align 4,,7
+.L19:
+	movl	%edx, 4(%esp)
+	movl	$.LC0, (%esp)
+	call	printf
+	addl	$16, %esp
+	popl	%ecx
+	popl	%ebx
+	popl	%ebp
+	leal	-4(%ecx), %esp
+	ret
+	.size	main, .-main
+	.comm	head,4,4
+	.comm	v1,4,4
+	.ident	"GCC: (GNU) 4.1.2 20060928 (prerelease) (Ubuntu 4.1.1-13ubuntu5)"
+	.section	.note.GNU-stack,"",@progbits
+
+--Boundary-00=_IT/5FzyqISvdmTQ--
