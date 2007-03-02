@@ -1,7 +1,7 @@
 From: Stephen Hemminger <shemminger@linux-foundation.org>
 Subject: [RFC 1/2] bridge: avoid ptype_all packet handling
-Date: Fri, 2 Mar 2007 14:09:29 -0800
-Message-ID: <20070302140929.262e8460@freekitty>
+Date: Fri, 2 Mar 2007 14:15:41 -0800
+Message-ID: <20070302141541.2a67eb59@freekitty>
 References: <20070228171846.679d8733@dxpl.pdx.osdl.net>
 	<20070302.132638.38710461.davem@davemloft.net>
 Mime-Version: 1.0
@@ -10,10 +10,10 @@ Content-Transfer-Encoding: 7bit
 Cc: bridge@linux-foundation.org, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:43213 "EHLO smtp.osdl.org"
+Received: from smtp.osdl.org ([65.172.181.24]:43360 "EHLO smtp.osdl.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030589AbXCBWOZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Mar 2007 17:14:25 -0500
+	id S1030592AbXCBWPo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Mar 2007 17:15:44 -0500
 In-Reply-To: <20070302.132638.38710461.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
