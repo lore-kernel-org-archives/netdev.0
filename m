@@ -1,42 +1,64 @@
-From: Andi Kleen <ak@muc.de>
-Subject: Re: [RFC] Arp announce (for Xen)
-Date: 2 Mar 2007 13:54:28 +0100
-Message-ID: <20070302125428.GA67405@muc.de>
-References: <20070301232443.195603797@goop.org>
-	<20070301232529.648076372@goop.org>
-	<20070301164214.4a40bc59@freekitty> <45E7764A.7000100@goop.org>
-	<20070301173030.754514ec@freekitty>
+From: Florian Fainelli <florian.fainelli@int-evry.fr>
+Subject: Re: Network activity LED trigger
+Date: Fri, 2 Mar 2007 13:58:51 +0100
+Message-ID: <200703021358.52224.florian.fainelli@int-evry.fr>
+References: <200703012241.49165.florian.fainelli@int-evry.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Zachary Amsden <zach@vmware.com>, Jeremy Fitzhardinge <jeremy@goop.org>,
-	xen-devel@lists.xensource.com, Jeff Garzik <jeff@garzik.org>,
-	Ian Pratt <ian.pratt@xensource.com>, netdev@vger.kernel.org,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	linux-kernel@vger.kernel.org, Chris Wright <chrisw@sous-sol.org>,
-	virtualization@lists.osdl.org, Andrew Morton <akpm@linux-foundation.org>,
-	Christian Limpach <Christian.Limpach@cl.cam.ac.uk>
-To: Stephen Hemminger <shemminger@linux-foundation.org>
-Return-path: <xen-devel-bounces@lists.xensource.com>
-Date: Fri, 2 Mar 2007 13:54:28 +0100
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Richard Purdie <rpurdie@rpsys.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-ext.int-evry.fr ([157.159.11.17]:40973 "EHLO
+	smtp-ext.int-evry.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1945916AbXCBM73 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Mar 2007 07:59:29 -0500
+In-Reply-To: <200703012241.49165.florian.fainelli@int-evry.fr>
 Content-Disposition: inline
-In-Reply-To: <20070301173030.754514ec@freekitty>
-List-Unsubscribe: <http://lists.xensource.com/cgi-bin/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xensource.com?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xensource.com>
-List-Help: <mailto:xen-devel-request@lists.xensource.com?subject=help>
-List-Subscribe: <http://lists.xensource.com/cgi-bin/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xensource.com?subject=subscribe>
-Sender: xen-devel-bounces@lists.xensource.com
-Errors-To: xen-devel-bounces@lists.xensource.com
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 01, 2007 at 05:30:30PM -0800, Stephen Hemminger wrote:
-> What about implementing the unused arp_announce flag on the inetdevice?
-> Something like the following.  Totally untested...
-> 
-> Looks like it either was there (and got removed) or was planned but
-> never implemented.
+Hi All,
 
-Seems like the right solution to me (if it works)
+Some more thoughts. The IDE activity LED trigger is currently triggered=
+ when a=20
+function is called in the IDE writing/reading routines.
 
--Andi
+In a similar way, we could call the trigger function in net/core/dev.c =
+in=20
+netif_receive_skb and netif_rx ?
+
+I was also thinking that some network NIC already have LEDs, so it is n=
+ot=20
+necessary for those models to "overload" the user with lights everywher=
+e.
+
+Regars, Florian
+
+Le jeudi 1 mars 2007, Florian Fainelli a =C3=A9crit=C2=A0:
+> Hi All,
+>
+> I have been talking a bit with Richard, who is the LED API maintainer=
+, and
+> a LED trigger based on network activity would be something great.
+>
+> There are somethings that concern the network stack :
+>
+> - should we specify if the network driver is allowed to contribute to
+> the LED activity, just like it is done for random generation, at comp=
+ile
+> time
+>
+> - I would like to trigger the LED based on one or several network
+> interfaces, maybe specify via sysfs which interface triggers which LE=
+D,
+> and also maybe differentiate the layer-2 activity from the layer-3
+> activity for instance
+>
+> - A led driver could by default be bound to a network driver, or an
+> interface name
+>
+> As it could be very intrusive in the network stack, you might want to
+> specify a bit more how you imagine a network activity trigger.
+>
+> Thanks
