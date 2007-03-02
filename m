@@ -1,78 +1,59 @@
-From: Eric Paris <eparis@parisplace.org>
-Subject: [PATCH] xfrm audit hook misplaced in pfkey_delete and xfrm_del_sa
-Date: Fri, 02 Mar 2007 15:15:36 -0500
-Message-ID: <1172866536.31047.32.camel@localhost.localdomain>
+From: Alex Sidorenko <alexandre.sidorenko@hp.com>
+Subject: Re: SWS for rcvbuf < MTU
+Date: Fri, 2 Mar 2007 15:21:58 -0500
+Message-ID: <200703021521.58821.alexandre.sidorenko@hp.com>
+References: <200703021128.29208.alexandre.sidorenko@hp.com> <20070302.112542.18305896.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, jmorris@namei.org, vyekkirala@trustedcs.com,
-	cxzhang@watson.ibm.com, sds@tycho.nsa.gov
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:52564 "EHLO mx1.redhat.com"
+Received: from atlrel9.hp.com ([156.153.255.214]:46664 "EHLO atlrel9.hp.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965556AbXCBUPp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Mar 2007 15:15:45 -0500
+	id S965569AbXCBUVp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Mar 2007 15:21:45 -0500
+In-Reply-To: <20070302.112542.18305896.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Inside pfkey_delete and xfrm_del_sa the audit hooks were not called if
-there was any permission/security failures in attempting to do the del
-operation (such as permission denied from security_xfrm_state_delete).
-This patch moves the audit hook to the exit path such that all failures
-(and successes) will actually get audited.
+On March 2, 2007 02:25:42 pm David Miller wrote:
+> From: Alex Sidorenko <alexandre.sidorenko@hp.com>
+> Date: Fri, 2 Mar 2007 11:28:28 -0500
+>
+> > Customer has confirmed that this resolves the problem and decreases
+> > CPU usage by his custom application - even when there is no SWS.
+>
+> There is rarely ever a reason to set explicit socket receive
+> buffer sizes, since the kernel dynamically sizes them based
+> upon how the connection is used.
+>
+> Why do they set it so low?
+>
+> It is just as easy to fix their performance bug by simply removing
+> SO_RCVBUF setting in the application.
 
-Signed-off-by: Eric Paris <eparis@redhat.com>
+Hi David,
 
- net/key/af_key.c     |    5 ++---
- net/xfrm/xfrm_user.c |    5 ++---
- 2 files changed, 4 insertions(+), 6 deletions(-)
+they told us that they use small rcvbuf to throttle bandwidth for this 
+application. I explained it would be better to use TC for this purpose. They 
+agreed and will probably redesign their application in the future, but they 
+cannot do it right now. For the same reason they have to use the old 2.4.20 
+for a while - in big companies the important production software cannot be 
+changed quickly. 
 
-diff --git a/net/key/af_key.c b/net/key/af_key.c
-index 1c58204..d8fc88c 100644
---- a/net/key/af_key.c
-+++ b/net/key/af_key.c
-@@ -1467,9 +1467,6 @@ static int pfkey_delete(struct sock *sk, struct sk_buff *skb, struct sadb_msg *h
- 
- 	err = xfrm_state_delete(x);
- 
--	xfrm_audit_log(audit_get_loginuid(current->audit_context), 0,
--		       AUDIT_MAC_IPSEC_DELSA, err ? 0 : 1, NULL, x);
--
- 	if (err < 0)
- 		goto out;
- 
-@@ -1478,6 +1475,8 @@ static int pfkey_delete(struct sock *sk, struct sk_buff *skb, struct sadb_msg *h
- 	c.event = XFRM_MSG_DELSA;
- 	km_state_notify(x, &c);
- out:
-+	xfrm_audit_log(audit_get_loginuid(current->audit_context), 0,
-+		       AUDIT_MAC_IPSEC_DELSA, err ? 0 : 1, NULL, x);
- 	xfrm_state_put(x);
- 
- 	return err;
-diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-index 956cfe0..4264473 100644
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -530,9 +530,6 @@ static int xfrm_del_sa(struct sk_buff *skb, struct nlmsghdr *nlh,
- 
- 	err = xfrm_state_delete(x);
- 
--	xfrm_audit_log(NETLINK_CB(skb).loginuid, NETLINK_CB(skb).sid,
--		       AUDIT_MAC_IPSEC_DELSA, err ? 0 : 1, NULL, x);
--
- 	if (err < 0)
- 		goto out;
- 
-@@ -542,6 +539,8 @@ static int xfrm_del_sa(struct sk_buff *skb, struct nlmsghdr *nlh,
- 	km_state_notify(x, &c);
- 
- out:
-+	xfrm_audit_log(NETLINK_CB(skb).loginuid, NETLINK_CB(skb).sid,
-+		       AUDIT_MAC_IPSEC_DELSA, err ? 0 : 1, NULL, x);
- 	xfrm_state_put(x);
- 	return err;
- }
+The fix I suggested is trivial and should have no impact the case of 
+rcvfbuf>mtu, so I think it makes sense to include it in upstream kernel.
+
+Regards,
+Alex
 
 
+-- 
+------------------------------------------------------------------
+Alexandre Sidorenko             email: alexs@hplinux.canada.hp.com
+Global Solutions Engineering:   Unix Networking
+Hewlett-Packard (Canada)
+------------------------------------------------------------------
