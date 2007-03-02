@@ -1,72 +1,70 @@
-From: Andrew Morton <akpm@linux-foundation.org>
+From: Johannes Berg <johannes@sipsolutions.net>
 Subject: Re: s390 allmodconfig
-Date: Fri, 2 Mar 2007 03:06:46 -0800
-Message-ID: <20070302030646.0930d263.akpm@linux-foundation.org>
+Date: Fri, 02 Mar 2007 12:11:48 +0100
+Message-ID: <1172833908.3482.20.camel@johannes.berg>
 References: <20070302001811.b103e2b2.akpm@linux-foundation.org>
-	<20070302002512.bd9bbb80.akpm@linux-foundation.org>
-	<1172831904.3482.13.camel@johannes.berg>
+	 <20070302002512.bd9bbb80.akpm@linux-foundation.org>
+	 <1172831904.3482.13.camel@johannes.berg>
+	 <20070302030646.0930d263.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Marcel Holtmann <marcel@holtmann.org>,
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-NETme3ailwwPvW4RlEPh"
+Cc: Martin Schwidefsky <schwidefsky@de.ibm.com>,
+	Marcel Holtmann <marcel@holtmann.org>,
 	"John W. Linville" <linville@tuxdriver.com>,
 	Michael Buesch <mb@bu3sch.de>,
 	Richard Purdie <rpurdie@rpsys.net>, netdev@vger.kernel.org
-To: Johannes Berg <johannes@sipsolutions.net>,
-	Martin Schwidefsky <schwidefsky@de.ibm.com>
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:54118 "EHLO smtp.osdl.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1423015AbXCBLJA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Mar 2007 06:09:00 -0500
-In-Reply-To: <1172831904.3482.13.camel@johannes.berg>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:57162 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1423023AbXCBLMp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Mar 2007 06:12:45 -0500
+In-Reply-To: <20070302030646.0930d263.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 02 Mar 2007 11:38:24 +0100 Johannes Berg <johannes@sipsolutions.net> wrote:
 
-> On Fri, 2007-03-02 at 00:25 -0800, Andrew Morton wrote:
-> 
-> > Probably related to the Kconfig problems.
-> 
-> Yeah, it is. s390 is funny, it doesn't include drivers/Kconfig, I don't
-> think anybody of us would have suspected that.
-> 
-> There doesn't seem to be a reason why it shouldn't have drivers/leds
-> though. drivers/ssb I don't know about, does s390 have pci or pcmcia?
+--=-NETme3ailwwPvW4RlEPh
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-No, s390 doesn't have PCI.
+On Fri, 2007-03-02 at 03:06 -0800, Andrew Morton wrote:
 
-> And the bluetooth stuff is also plain weird, I suppose s390 really
-> should include drivers/hid/Kconfig :)
-> 
-> Same with drivers/char that includes hw_random.
-> 
-> Is there any reason it isn't including drivers/Kconfig? 
-> 
+> No, s390 doesn't have PCI.
 
-s390 is weird ;)   There's no way it'll support any of the hardware which you're
-working on (until they release the s390 laptop).  So all we really want to
-do here is to avoid breaking s390 allmodconfig.
- 
-> I can offer below patch to fix the LED trigger problem, it's probably
-> cleaner to depend on LEDS_TRIGGERS rather than selecting it and
-> NEW_LEDS.
-> 
-> johannes
-> 
-> --- wireless-dev.orig/net/mac80211/Kconfig	2007-03-02 11:18:45.464333268 +0100
-> +++ wireless-dev/net/mac80211/Kconfig	2007-03-02 11:33:24.534333268 +0100
-> @@ -13,9 +13,7 @@ config MAC80211
->  
->  config MAC80211_LEDS
->  	bool "Enable LED triggers"
-> -	depends on MAC80211
-> -	select NEW_LEDS
-> -	select LEDS_TRIGGERS
-> +	depends on MAC80211 && LEDS_TRIGGERS
->  	---help---
->  	This option enables a few LED triggers for different
->  	packet receive/transmit events.
+Ok.
 
-OK, I'll try that, thanks.
+> s390 is weird ;)   There's no way it'll support any of the hardware which=
+ you're
+> working on (until they release the s390 laptop).  So all we really want t=
+o
+> do here is to avoid breaking s390 allmodconfig.
+
+Alright. I think we'll probably have to make bcm43xx and b44 depend on
+SSB instead of selecting it like the LED trigger stuff below.
+
+But I don't see why s390 can't include hw random, led trigger or even
+hid, those are all software features afaict.
+=20
+
+> OK, I'll try that, thanks.
+
+Not that it'll actually help get the compile through... bcm43xx will
+drop fail and bluetooth probably as well.
+
+johannes
+
+--=-NETme3ailwwPvW4RlEPh
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iD8DBQBF6AZ0/ETPhpq3jKURAjsUAJ9mz6gUJ5kkNlaGkhF9b4l8WrSRjgCfXRBZ
+PHzIk6MUMule4O9fA6ItCkc=
+=39nE
+-----END PGP SIGNATURE-----
+
+--=-NETme3ailwwPvW4RlEPh--
+
