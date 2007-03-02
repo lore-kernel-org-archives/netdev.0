@@ -1,58 +1,43 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [RFC] Arp announce (for Xen)
-Date: Thu, 1 Mar 2007 17:30:30 -0800
-Message-ID: <20070301173030.754514ec@freekitty>
-References: <20070301232443.195603797@goop.org>
-	<20070301232529.648076372@goop.org>
-	<20070301164214.4a40bc59@freekitty> <45E7764A.7000100@goop.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Bugme-new] [Bug 8107] New: dev->header_cache_update has a
+ random value
+Date: Thu, 01 Mar 2007 17:33:10 -0800 (PST)
+Message-ID: <20070301.173310.74748069.davem@davemloft.net>
+References: <200703011933.l21JX5hw018666@fire-2.osdl.org>
+	<20070301143417.00b49e81.akpm@linux-foundation.org>
+	<20070301143727.4ba00d04@freekitty>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: xen-devel@lists.xensource.com, Jeff Garzik <jeff@garzik.org>,
-   Ian Pratt <ian.pratt@xensource.com>, netdev@vger.kernel.org,
-   linux-kernel@vger.kernel.org, Chris Wright <chrisw@sous-sol.org>,
-   Andi Kleen <ak@muc.de>, Zachary@smtp.osdl.org,
-   virtualization@lists.osdl.org, Andrew Morton <akpm@linux-foundation.org>
-To: Jeremy Fitzhardinge <jeremy@goop.org>
-Return-path: <virtualization-bounces@lists.osdl.org>
-In-Reply-To: <45E7764A.7000100@goop.org>
-List-Unsubscribe: <https://lists.osdl.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.osdl.org?subject=unsubscribe>
-List-Archive: <http://lists.osdl.org/pipermail/virtualization>
-List-Post: <mailto:virtualization@lists.osdl.org>
-List-Help: <mailto:virtualization-request@lists.osdl.org?subject=help>
-List-Subscribe: <https://lists.osdl.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.osdl.org?subject=subscribe>
-Sender: virtualization-bounces@lists.osdl.org
-Errors-To: virtualization-bounces@lists.osdl.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, loveminix@yahoo.com.cn,
+	khc@pm.waw.pl
+To: shemminger@linux-foundation.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56787
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1422683AbXCBBdN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Mar 2007 20:33:13 -0500
+In-Reply-To: <20070301143727.4ba00d04@freekitty>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-What about implementing the unused arp_announce flag on the inetdevice?
-Something like the following.  Totally untested...
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Date: Thu, 1 Mar 2007 14:37:27 -0800
 
-Looks like it either was there (and got removed) or was planned but
-never implemented.
+> Not necessary, since any network device must already allocated by
+> alloc_netdev() and it initializes the whole struct to 0 (NULL).
 
-diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index e10794d..cefc339 100644
---- a/net/ipv4/devinet.c
-+++ b/net/ipv4/devinet.c
-@@ -1089,6 +1089,16 @@ static int inetdev_event(struct notifier
- 			}
- 		}
- 		ip_mc_up(in_dev);
-+		/* fallthru */
-+
-+	case NETDEV_CHANGEADDR:
-+		/* Send gratuitous ARP in case of address change or new device */
-+		if (IN_DEV_ARP_ANNOUNCE(in_dev))
-+			arp_send(ARPOP_REQUEST, ETH_P_ARP,
-+				 in_dev->ifa_list->ifa_address, dev,
-+				 in_dev->ifa_list->ifa_address, NULL, =
+It is in this case, unfortunately, HDLC protocols can be registers
+several times before the device is brought up and protocol changes
+become disallowed.
 
-+				 dev->dev_addr, NULL);
-+			=
+So you can attach one, then a second one, and the second one has
+to explicitly initialize the pointers potentially set by the
+first one.
 
- 		break;
- 	case NETDEV_DOWN:
- 		ip_mc_down(in_dev);
+On the other hand, you could say that it's the protocol
+->detach() method's responsibility to NULL out these things
+instead of leaving references to function pointers of
+a module that's about the be unloaded.
+
