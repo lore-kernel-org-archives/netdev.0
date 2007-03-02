@@ -1,31 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: PATCH: Second try at vlan mailing list patch.
-Date: Fri, 02 Mar 2007 13:22:39 -0800 (PST)
-Message-ID: <20070302.132239.98558350.davem@davemloft.net>
-References: <45E60F87.3070708@candelatech.com>
+Subject: Re: [PATCH] bridge: avoid ptype_all packet handling
+Date: Fri, 02 Mar 2007 13:26:38 -0800 (PST)
+Message-ID: <20070302.132638.38710461.davem@davemloft.net>
+References: <20070228171846.679d8733@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: greearb@candelatech.com
+Cc: bridge@linux-foundation.org, netdev@vger.kernel.org
+To: shemminger@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38817
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42478
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S965657AbXCBVWk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Mar 2007 16:22:40 -0500
-In-Reply-To: <45E60F87.3070708@candelatech.com>
+	by vger.kernel.org with ESMTP id S965662AbXCBV0j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Mar 2007 16:26:39 -0500
+In-Reply-To: <20070228171846.679d8733@dxpl.pdx.osdl.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ben Greear <greearb@candelatech.com>
-Date: Wed, 28 Feb 2007 15:25:59 -0800
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Date: Wed, 28 Feb 2007 17:18:46 -0800
 
-> Hopefully, by attaching it as a file it will not screw up the tabs & spaces.
+> I was measuring bridging/routing performance and noticed this.
 > 
-> Signed-off-by:  Ben Greear <greearb@candelatech.com>
+> The current code runs the "all packet" type handlers before calling the
+> bridge hook.  If an application (like some DHCP clients) is using AF_PACKET,
+> this means that each received packet gets run through the Berkeley Packet Filter
+> code in sk_run_filter (slow).
 
-Nope still doesn't apply.
+I know we closed this out by saying that even though performance
+sucks, we can't really apply this without breaking things.
 
-I can guess that you didn't try emailing the patch to yourself and
-applying it?  If so I'm basically still your guinea pig each time you
-correct this problem.  How nice that is :-/
+What would be broken is if the DHCP client isn't specifying
+a device ifindex when it binds the AF_PACKET socket.  That
+would be an easy way to fix this performance problem at the
+application level.
+
+The DHCP client should only care about a particular interface's
+traffic, the one it wants to listen on.
