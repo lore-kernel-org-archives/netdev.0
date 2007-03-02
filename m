@@ -1,42 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Bugme-new] [Bug 8107] New: dev->header_cache_update has a
- random value
-Date: Thu, 01 Mar 2007 17:38:43 -0800 (PST)
-Message-ID: <20070301.173843.104646614.davem@davemloft.net>
-References: <20070301143727.4ba00d04@freekitty>
-	<20070301145423.6ffc52e5.akpm@linux-foundation.org>
-	<20070301153025.6559a53e@freekitty>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, loveminix@yahoo.com.cn,
-	khc@pm.waw.pl
-To: shemminger@linux-foundation.org
+From: NeilBrown <neilb@suse.de>
+Subject: [PATCH 000 of 3] knfsd: Resolve IPv6 related link error
+Date: Fri, 2 Mar 2007 15:28:19 +1100
+Message-ID: <20070302151748.5226.patches@notabene>
+Cc: nfs@lists.sourceforge.net, linux-kernel@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49566
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1422706AbXCBBip (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Mar 2007 20:38:45 -0500
-In-Reply-To: <20070301153025.6559a53e@freekitty>
+Received: from mx2.suse.de ([195.135.220.15]:58927 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1422853AbXCBE3Z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Mar 2007 23:29:25 -0500
+Cc: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Date: Thu, 1 Mar 2007 15:30:25 -0800
+Current mainline has a compile linkage problem if both
+  CONFIG_IPV6=m
+  CONFIG_SUNRPC=y
 
-> Your right, but so far there is no ioctl to take it out of this mode.
-> So it is a one way door.
+because net/sunrpc/svcsock.c conditionally used a function defined in the IPv6 module.
 
-You can keep attaching a different new protocol to an HDLC
-device until it is brought up.
+These three patches resolve the issue.
 
-> This device never calls hdlc->detach??
+The problem is caused because svcsock needs to get the source and
+destination address for a udp packet, but doesn't want to just use
+sock_recvmsg like userspace would as it wants to be able to use the
+data directly out of the skbuff rather than copying it (when practical).
 
-The HDLC layer calls the protocol ->detach, but the Cisco
-HDLC code does not have a detach method.
+Currently it copies code from udp.c (both ipv4/ and ipv6/) and this
+causes the problem.
 
-I'm starting to feel that this is the bug, because as it
-stands the Cisco HDLC code leaves stale pointers around
-and then if you unload the Cisco HDLC module things can
-explode.
+This patch changes it to use kernel_recvmsg with a length of 0 and
+flags of MSG_PEEK to get the addresses but leave the data untouched.
+
+A small problem here is that kernel_recvmsg always checks the
+checksum, so in the case of a large packet we will check the checksum
+at a different time to when we copy it out into a buffer, which is not ideal.
+
+So the second patch of this series avoids the check when recv_msg is
+called with size==0 and flags==MSG_PEEK.  This change should be acked
+by someone on netdev before going upsteam!!!  The rest of the series
+is still appropriate without the patch, it is just a small
+optimisation.
+
+Finally the last patch removes all the
+  #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+from sunrpc as it really isn't needed and just hides this sort of problem.
+
+Patches 1 and 3 are suitable for 2.6.21.  Patch 2 needs confirmation.
+
+Thanks,
+NeilBrown
+
+ [PATCH 001 of 3] knfsd: Use recv_msg to get peer address for NFSD instead of code-copying
+ [PATCH 002 of 3] knfsd: Avoid checksum checks when collecting metadata for a UDP packet.
+ [PATCH 003 of 3] knfsd: Remove CONFIG_IPV6 ifdefs from sunrpc server code.
