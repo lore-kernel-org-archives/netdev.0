@@ -1,51 +1,78 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [RFC] Arp announce (for Xen)
-Date: Fri, 2 Mar 2007 11:59:13 -0800
-Message-ID: <20070302115913.69204ac7@freekitty>
-References: <20070301232443.195603797@goop.org>
-	<20070301232529.648076372@goop.org>
-	<20070301164214.4a40bc59@freekitty>
-	<45E7764A.7000100@goop.org>
-	<20070301173030.754514ec@freekitty>
-	<Pine.LNX.4.64.0703021006470.27021@netcore.fi>
-	<45E86D21.6080208@candelatech.com>
+From: Eric Paris <eparis@parisplace.org>
+Subject: [PATCH] xfrm audit hook misplaced in pfkey_delete and xfrm_del_sa
+Date: Fri, 02 Mar 2007 15:15:36 -0500
+Message-ID: <1172866536.31047.32.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Pekka Savola <pekkas@netcore.fi>, netdev@vger.kernel.org
-To: Ben Greear <greearb@candelatech.com>
+Cc: davem@davemloft.net, jmorris@namei.org, vyekkirala@trustedcs.com,
+	cxzhang@watson.ibm.com, sds@tycho.nsa.gov
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:39272 "EHLO smtp.osdl.org"
+Received: from mx1.redhat.com ([66.187.233.31]:52564 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965136AbXCBT7T (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Mar 2007 14:59:19 -0500
-In-Reply-To: <45E86D21.6080208@candelatech.com>
+	id S965556AbXCBUPp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Mar 2007 15:15:45 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 02 Mar 2007 10:29:53 -0800
-Ben Greear <greearb@candelatech.com> wrote:
+Inside pfkey_delete and xfrm_del_sa the audit hooks were not called if
+there was any permission/security failures in attempting to do the del
+operation (such as permission denied from security_xfrm_state_delete).
+This patch moves the audit hook to the exit path such that all failures
+(and successes) will actually get audited.
 
-> Pekka Savola wrote:
-> > On Thu, 1 Mar 2007, Stephen Hemminger wrote:
-> >> What about implementing the unused arp_announce flag on the inetdevice?
-> >> Something like the following.  Totally untested...
-> >>
-> >> Looks like it either was there (and got removed) or was planned but
-> >> never implemented.
-> IN_DEV_ARP_ANNOUNCE is in 2.6.18, at least..used in arp_solicit in arp.c
-> 
-> I really hope this didn't get removed because I find it very useful!
-> 
-> But, you could certainly add another sysctl...
-> 
-> Thanks,
-> Ben
-> 
+Signed-off-by: Eric Paris <eparis@redhat.com>
 
-yeah, something new like arp_notify? or arp_gratiutous
+ net/key/af_key.c     |    5 ++---
+ net/xfrm/xfrm_user.c |    5 ++---
+ 2 files changed, 4 insertions(+), 6 deletions(-)
 
-There are other drivers that do their own arp, they need to be fixed.
+diff --git a/net/key/af_key.c b/net/key/af_key.c
+index 1c58204..d8fc88c 100644
+--- a/net/key/af_key.c
++++ b/net/key/af_key.c
+@@ -1467,9 +1467,6 @@ static int pfkey_delete(struct sock *sk, struct sk_buff *skb, struct sadb_msg *h
+ 
+ 	err = xfrm_state_delete(x);
+ 
+-	xfrm_audit_log(audit_get_loginuid(current->audit_context), 0,
+-		       AUDIT_MAC_IPSEC_DELSA, err ? 0 : 1, NULL, x);
+-
+ 	if (err < 0)
+ 		goto out;
+ 
+@@ -1478,6 +1475,8 @@ static int pfkey_delete(struct sock *sk, struct sk_buff *skb, struct sadb_msg *h
+ 	c.event = XFRM_MSG_DELSA;
+ 	km_state_notify(x, &c);
+ out:
++	xfrm_audit_log(audit_get_loginuid(current->audit_context), 0,
++		       AUDIT_MAC_IPSEC_DELSA, err ? 0 : 1, NULL, x);
+ 	xfrm_state_put(x);
+ 
+ 	return err;
+diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+index 956cfe0..4264473 100644
+--- a/net/xfrm/xfrm_user.c
++++ b/net/xfrm/xfrm_user.c
+@@ -530,9 +530,6 @@ static int xfrm_del_sa(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 
+ 	err = xfrm_state_delete(x);
+ 
+-	xfrm_audit_log(NETLINK_CB(skb).loginuid, NETLINK_CB(skb).sid,
+-		       AUDIT_MAC_IPSEC_DELSA, err ? 0 : 1, NULL, x);
+-
+ 	if (err < 0)
+ 		goto out;
+ 
+@@ -542,6 +539,8 @@ static int xfrm_del_sa(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 	km_state_notify(x, &c);
+ 
+ out:
++	xfrm_audit_log(NETLINK_CB(skb).loginuid, NETLINK_CB(skb).sid,
++		       AUDIT_MAC_IPSEC_DELSA, err ? 0 : 1, NULL, x);
+ 	xfrm_state_put(x);
+ 	return err;
+ }
 
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+
