@@ -1,8 +1,8 @@
 From: NeilBrown <neilb@suse.de>
-Subject: [PATCH 002 of 3] knfsd: Avoid checksum checks when collecting
-	metadata for a UDP packet.
-Date: Fri, 2 Mar 2007 15:28:30 +1100
-Message-ID: <1070302042830.5777@suse.de>
+Subject: [PATCH 003 of 3] knfsd: Remove CONFIG_IPV6 ifdefs from sunrpc
+	server code.
+Date: Fri, 2 Mar 2007 15:28:35 +1100
+Message-ID: <1070302042835.5796@suse.de>
 References: <20070302151748.5226.patches@notabene>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,47 +23,101 @@ Errors-To: nfs-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
 
-When recv_msg is called with a size of 0 and MSG_PEEK (and
-sunrpc/svcsock.c does), it is clear that we only interested in
-metadata (from/to addresses) and not the data, so don't do any
-checksum checking at this point.  Leave that until the data is
-requested.
+They don't really save that much, and aren't worth the hassle.
 
 Signed-off-by: Neil Brown <neilb@suse.de>
 
 ### Diffstat output
- ./net/ipv4/udp.c |    3 +++
- ./net/ipv6/udp.c |    4 ++++
- 2 files changed, 7 insertions(+)
+ ./include/linux/sunrpc/svc.h |    2 --
+ ./net/sunrpc/svcsock.c       |   13 +++----------
+ 2 files changed, 3 insertions(+), 12 deletions(-)
 
-diff .prev/net/ipv4/udp.c ./net/ipv4/udp.c
---- .prev/net/ipv4/udp.c	2007-03-02 14:20:13.000000000 +1100
-+++ ./net/ipv4/udp.c	2007-03-02 15:13:50.000000000 +1100
-@@ -846,6 +846,9 @@ try_again:
- 			goto csum_copy_err;
- 		copy_only = 1;
- 	}
-+	if (len == 0 &&  (flags & MSG_PEEK))
-+		/* avoid checksum concerns when just getting metadata */
-+		copy_only = 1;
+diff .prev/include/linux/sunrpc/svc.h ./include/linux/sunrpc/svc.h
+--- .prev/include/linux/sunrpc/svc.h	2007-03-02 14:20:13.000000000 +1100
++++ ./include/linux/sunrpc/svc.h	2007-03-02 15:14:11.000000000 +1100
+@@ -194,9 +194,7 @@ static inline void svc_putu32(struct kve
  
- 	if (copy_only)
- 		err = skb_copy_datagram_iovec(skb, sizeof(struct udphdr),
+ union svc_addr_u {
+     struct in_addr	addr;
+-#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+     struct in6_addr	addr6;
+-#endif
+ };
+ 
+ /*
 
-diff .prev/net/ipv6/udp.c ./net/ipv6/udp.c
---- .prev/net/ipv6/udp.c	2007-03-02 14:20:13.000000000 +1100
-+++ ./net/ipv6/udp.c	2007-03-02 15:13:50.000000000 +1100
-@@ -151,6 +151,10 @@ try_again:
- 		copy_only = 1;
- 	}
- 
-+	if (len == 0 &&  (flags & MSG_PEEK))
-+		/* avoid checksum concerns when just getting metadata */
-+		copy_only = 1;
+diff .prev/net/sunrpc/svcsock.c ./net/sunrpc/svcsock.c
+--- .prev/net/sunrpc/svcsock.c	2007-03-02 15:12:52.000000000 +1100
++++ ./net/sunrpc/svcsock.c	2007-03-02 15:14:11.000000000 +1100
+@@ -131,13 +131,13 @@ static char *__svc_print_addr(struct soc
+ 			NIPQUAD(((struct sockaddr_in *) addr)->sin_addr),
+ 			htons(((struct sockaddr_in *) addr)->sin_port));
+ 		break;
+-#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
 +
- 	if (copy_only)
- 		err = skb_copy_datagram_iovec(skb, sizeof(struct udphdr),
- 					      msg->msg_iov, copied       );
+ 	case AF_INET6:
+ 		snprintf(buf, len, "%x:%x:%x:%x:%x:%x:%x:%x, port=%u",
+ 			NIP6(((struct sockaddr_in6 *) addr)->sin6_addr),
+ 			htons(((struct sockaddr_in6 *) addr)->sin6_port));
+ 		break;
+-#endif
++
+ 	default:
+ 		snprintf(buf, len, "unknown address type: %d", addr->sa_family);
+ 		break;
+@@ -449,9 +449,7 @@ svc_wake_up(struct svc_serv *serv)
+ 
+ union svc_pktinfo_u {
+ 	struct in_pktinfo pkti;
+-#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+ 	struct in6_pktinfo pkti6;
+-#endif
+ };
+ 
+ static void svc_set_cmsg_data(struct svc_rqst *rqstp, struct cmsghdr *cmh)
+@@ -467,7 +465,7 @@ static void svc_set_cmsg_data(struct svc
+ 			cmh->cmsg_len = CMSG_LEN(sizeof(*pki));
+ 		}
+ 		break;
+-#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
++
+ 	case AF_INET6: {
+ 			struct in6_pktinfo *pki = CMSG_DATA(cmh);
+ 
+@@ -479,7 +477,6 @@ static void svc_set_cmsg_data(struct svc
+ 			cmh->cmsg_len = CMSG_LEN(sizeof(*pki));
+ 		}
+ 		break;
+-#endif
+ 	}
+ 	return;
+ }
+@@ -730,13 +727,11 @@ static inline void svc_udp_get_dest_addr
+ 		rqstp->rq_daddr.addr.s_addr = pki->ipi_spec_dst.s_addr;
+ 		break;
+ 		}
+-#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+ 	case AF_INET6: {
+ 		struct in6_pktinfo *pki = CMSG_DATA(cmh);
+ 		ipv6_addr_copy(&rqstp->rq_daddr.addr6, &pki->ipi6_addr);
+ 		break;
+ 		}
+-#endif
+ 	}
+ }
+ 
+@@ -976,11 +971,9 @@ static inline int svc_port_is_privileged
+ 	case AF_INET:
+ 		return ntohs(((struct sockaddr_in *)sin)->sin_port)
+ 			< PROT_SOCK;
+-#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+ 	case AF_INET6:
+ 		return ntohs(((struct sockaddr_in6 *)sin)->sin6_port)
+ 			< PROT_SOCK;
+-#endif
+ 	default:
+ 		return 0;
+ 	}
 
 -------------------------------------------------------------------------
 Take Surveys. Earn Cash. Influence the Future of IT
