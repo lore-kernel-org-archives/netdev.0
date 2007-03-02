@@ -1,68 +1,83 @@
-From: Steve Wise <swise@opengridcomputing.com>
-Subject: [PATCH 2.6.21-rc2] iw_cxgb3: Don't use mm after its freed in
-	iwch_mmap().
-Date: Fri, 02 Mar 2007 16:06:36 -0600
-Message-ID: <1172873196.21241.62.camel__2964.92970451272$1172873243$gmane$org@stevo-desktop>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: [RFC 2/2] bridge: per device promiscious taps
+Date: Fri, 2 Mar 2007 14:14:18 -0800
+Message-ID: <20070302141418.1daa9047@freekitty>
+References: <20070228171846.679d8733@dxpl.pdx.osdl.net>
+	<20070302.132638.38710461.davem@davemloft.net>
+	<20070302140929.262e8460@freekitty>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel <linux-kernel@vger.kernel.org>,
-	Netdev@vger.kernel.org, General@lists.openfabrics.org
-To: Roland Dreier <rdreier@cisco.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030528AbXCBWGi@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: bridge@linux-foundation.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.osdl.org ([65.172.181.24]:43208 "EHLO smtp.osdl.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1030572AbXCBWOV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Mar 2007 17:14:21 -0500
+In-Reply-To: <20070302140929.262e8460@freekitty>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Part of the next set of bridge patches includes this.
 
-Don't use mm after its freed in iwch_mmap().
+It allows packet capture by interface on a bridge:
+	tcpdump -i eth0
 
-Signed-off-by: Steve Wise <swise@opengridcomputing.com>
----
+will work as expected.
 
- drivers/infiniband/hw/cxgb3/iwch_provider.c |   10 ++++++----
- 1 files changed, 6 insertions(+), 4 deletions(-)
+@@ -128,34 +125,45 @@ static inline int is_link_local(const un
+ int br_handle_frame(struct net_bridge_port *p, struct sk_buff **pskb)
+ {
+ 	struct sk_buff *skb = *pskb;
++	struct sk_buff *skb2 = NULL;
+ 	const unsigned char *dest = eth_hdr(skb)->h_dest;
+ 
+	if (!is_valid_ether_addr(eth_hdr(skb)->h_source))
+		goto err;
 
-diff --git a/drivers/infiniband/hw/cxgb3/iwch_provider.c b/drivers/infiniband/hw/cxgb3/iwch_provider.c
-index 4af1c0f..f2774ae 100644
---- a/drivers/infiniband/hw/cxgb3/iwch_provider.c
-+++ b/drivers/infiniband/hw/cxgb3/iwch_provider.c
-@@ -331,6 +331,7 @@ static int iwch_mmap(struct ib_ucontext 
- 	int ret = 0;
- 	struct iwch_mm_entry *mm;
- 	struct iwch_ucontext *ucontext;
-+	u64 addr;
+ 	if (unlikely(is_link_local(dest))) {
+ 		skb->pkt_type = PACKET_HOST;
+ 		return NF_HOOK(PF_BRIDGE, NF_BR_LOCAL_IN, skb, skb->dev,
+ 			       NULL, br_handle_local_finish) != 0;
+ 	}
++
++	if (unlikely(p->dev->promiscuity > 1))
++		skb2 = skb_clone(skb, GFP_ATOMIC);
  
- 	PDBG("%s pgoff 0x%lx key 0x%x len %d\n", __FUNCTION__, vma->vm_pgoff,
- 	     key, len);
-@@ -345,10 +346,11 @@ static int iwch_mmap(struct ib_ucontext 
- 	mm = remove_mmap(ucontext, key, len);
- 	if (!mm)
- 		return -EINVAL;
-+	addr = mm->addr;
- 	kfree(mm);
+-	if (p->state == BR_STATE_FORWARDING || p->state == BR_STATE_LEARNING) {
++	switch (p->state) {
++	case BR_STATE_FORWARDING:
+ 		if (br_should_route_hook) {
+-			if (br_should_route_hook(pskb))
++			if (br_should_route_hook(pskb)) {
++				kfree_skb(skb2);
+ 				return 0;
++			}
+ 			skb = *pskb;
+ 			dest = eth_hdr(skb)->h_dest;
+ 		}
  
--	if ((mm->addr >= rdev_p->rnic_info.udbell_physbase) &&
--	    (mm->addr < (rdev_p->rnic_info.udbell_physbase +
-+	if ((addr >= rdev_p->rnic_info.udbell_physbase) &&
-+	    (addr < (rdev_p->rnic_info.udbell_physbase +
- 		       rdev_p->rnic_info.udbell_len))) {
+ 		if (!compare_ether_addr(p->br->dev->dev_addr, dest))
+ 			skb->pkt_type = PACKET_HOST;
++		/* fall thru */
  
- 		/*
-@@ -362,7 +364,7 @@ static int iwch_mmap(struct ib_ucontext 
- 		vma->vm_flags |= VM_DONTCOPY | VM_DONTEXPAND;
- 		vma->vm_flags &= ~VM_MAYREAD;
- 		ret = io_remap_pfn_range(vma, vma->vm_start,
--					 mm->addr >> PAGE_SHIFT,
-+					 addr >> PAGE_SHIFT,
- 				         len, vma->vm_page_prot);
- 	} else {
- 
-@@ -370,7 +372,7 @@ static int iwch_mmap(struct ib_ucontext 
- 		 * Map WQ or CQ contig dma memory...
- 		 */
- 		ret = remap_pfn_range(vma, vma->vm_start,
--				      mm->addr >> PAGE_SHIFT,
-+				      addr >> PAGE_SHIFT,
- 				      len, vma->vm_page_prot);
++	case BR_STATE_LEARNING:
+ 		NF_HOOK(PF_BRIDGE, NF_BR_PRE_ROUTING, skb, skb->dev, NULL,
+ 			br_handle_frame_finish);
+-		return 1;
++		break;
++
++	default:
++		kfree_skb(skb);
  	}
  
+-err:
+-	kfree_skb(skb);
+-	return 1;
++	if (likely(!skb2))
++		return 1;
++
++	*pskb = skb2;
++	return 0;
+ }
