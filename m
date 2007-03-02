@@ -1,57 +1,87 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: s390 allmodconfig
-Date: Fri, 2 Mar 2007 03:20:05 -0800
-Message-ID: <20070302032005.93a36b81.akpm@linux-foundation.org>
-References: <20070302001811.b103e2b2.akpm@linux-foundation.org>
-	<20070302002512.bd9bbb80.akpm@linux-foundation.org>
-	<1172831904.3482.13.camel@johannes.berg>
-	<20070302030646.0930d263.akpm@linux-foundation.org>
-	<1172833908.3482.20.camel@johannes.berg>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: [PATCH] [TCP]: FRTO undo response falls back to ratehalving one if
+ ECEd
+Date: Fri, 2 Mar 2007 14:14:19 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0703021329520.19465@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Martin Schwidefsky <schwidefsky@de.ibm.com>,
-	Marcel Holtmann <marcel@holtmann.org>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Michael Buesch <mb@bu3sch.de>,
-	Richard Purdie <rpurdie@rpsys.net>, netdev@vger.kernel.org
-To: Johannes Berg <johannes@sipsolutions.net>
+Content-Type: MULTIPART/MIXED; boundary="-696243703-606204201-1172835271=:19465"
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:54894 "EHLO smtp.osdl.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1423030AbXCBLVV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Mar 2007 06:21:21 -0500
-In-Reply-To: <1172833908.3482.20.camel@johannes.berg>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:45455 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1423051AbXCBMOV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Mar 2007 07:14:21 -0500
+Content-ID: <Pine.LNX.4.64.0703021411060.3770@kivilampi-30.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 02 Mar 2007 12:11:48 +0100 Johannes Berg <johannes@sipsolutions.net> wrote:
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-> On Fri, 2007-03-02 at 03:06 -0800, Andrew Morton wrote:
-> 
-> > No, s390 doesn't have PCI.
-> 
-> Ok.
-> 
-> > s390 is weird ;)   There's no way it'll support any of the hardware which you're
-> > working on (until they release the s390 laptop).  So all we really want to
-> > do here is to avoid breaking s390 allmodconfig.
-> 
-> Alright. I think we'll probably have to make bcm43xx and b44 depend on
-> SSB instead of selecting it like the LED trigger stuff below.
-> 
-> But I don't see why s390 can't include hw random, led trigger or even
-> hid, those are all software features afaict.
->  
-> 
-> > OK, I'll try that, thanks.
-> 
-> Not that it'll actually help get the compile through... bcm43xx will
-> drop fail and bluetooth probably as well.
-> 
+---696243703-606204201-1172835271=:19465
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
+Content-ID: <Pine.LNX.4.64.0703021411061.3770@kivilampi-30.cs.helsinki.fi>
 
-OK, thanks.
+Undoing ssthresh is disabled in fastretrans_alert whenever
+FLAG_ECE is set by clearing prior_ssthresh. This clearing does
+not protect FRTO because FRTO operates before fastretrans_alert.
+Moving the clearing of prior_ssthresh earlier seems to be a
+suboptimal solution to the FRTO case because then FLAG_ECE will
+cause a second ssthresh reduction in try_to_open (the first
+occurred when FRTO was entered). So instead, FRTO falls back
+immediately to the rate halving response, which switches TCP to
+CA_CWR state preventing the latter reduction of ssthresh.
 
-fwiw, http://userweb.kernel.org/~akpm/cross-compilers/ has an s390
-cross-compiler binary.
+If the first ECE arrived before the ACK after which FRTO is able
+to decide RTO as spurious, prior_ssthresh is already cleared.
+Thus no undoing for ssthresh occurs. Besides, FLAG_ECE should be
+set also in the following ACKs resulting in rate halving response
+that sees TCP already in CA_CWR, which again prevents an extra
+ssthresh reduction on that round-trip.
 
+If the first ECE arrived before RTO, ssthresh has already been
+adapted and prior_ssthresh remains cleared on entry because TCP
+is in CA_CWR (the same applies also to a case where FRTO is
+entered more than once and ECE comes in the middle).
+
+I believe that after this patch, FRTO should be ECN-safe and
+even able to take advantage of synergy benefits.
+
+Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
+---
+ net/ipv4/tcp_input.c |    9 ++++++---
+ 1 files changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index dc221a3..bdd6172 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -2592,9 +2592,12 @@ static void tcp_ratehalving_spur_to_resp
+ 	tp->high_seq = tp->frto_highmark; 	/* Smoother w/o this? - ij */
+ }
+ 
+-static void tcp_undo_spur_to_response(struct sock *sk)
++static void tcp_undo_spur_to_response(struct sock *sk, int flag)
+ {
+-	tcp_undo_cwr(sk, 1);
++	if (flag&FLAG_ECE)
++		tcp_ratehalving_spur_to_response(sk);
++	else
++		tcp_undo_cwr(sk, 1);
+ }
+ 
+ /* F-RTO spurious RTO detection algorithm (RFC4138)
+@@ -2680,7 +2683,7 @@ static int tcp_process_frto(struct sock 
+ 		return 1;
+ 	} else /* frto_counter == 2 */ {
+ 		switch (sysctl_tcp_frto_response) {
+-		case 2: tcp_undo_spur_to_response(sk); break;
++		case 2: tcp_undo_spur_to_response(sk, flag); break;
+ 		case 1: tcp_conservative_spur_to_response(tp); break;
+ 		default: tcp_ratehalving_spur_to_response(sk); break;
+ 		}
+-- 
+1.4.2
+---696243703-606204201-1172835271=:19465--
