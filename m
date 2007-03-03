@@ -1,52 +1,42 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [patch 1/1] network: add the missing phy_device speed information
- to phy_mii_ioctl
-Date: Fri, 02 Mar 2007 20:23:06 -0500
-Message-ID: <45E8CDFA.7020609@garzik.org>
-References: <9FD2C54661D3494AB6F269E0D4A74E83019775E1@DSBEXCLUSTER.ad.uiuc.edu>
+From: Jeff Garzik <jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH] schedule wext/rtnl for removal
+Date: Fri, 02 Mar 2007 20:25:01 -0500
+Message-ID: <45E8CE6D.6000801@garzik.org>
+References: <20070301153105.GC5806@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, shanlu@uiuc.edu
-To: Shan Lu <shanlu@cs.uiuc.edu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:55620 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S2992829AbXCCBXM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Mar 2007 20:23:12 -0500
-In-Reply-To: <9FD2C54661D3494AB6F269E0D4A74E83019775E1@DSBEXCLUSTER.ad.uiuc.edu>
-Sender: netdev-owner@vger.kernel.org
+Cc: akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20070301153105.GC5806-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Shan Lu wrote:
-> Changelog:
-> Function `phy_mii_ioctl' returns physical device's information based on
-> user requests. When requested to return the basic mode control register
-> information (BMCR), the original implementation only returns the
-> physical device's duplex information and forgets to return speed
-> information, which should not be because BMCR register is used to hold
-> both duplex and speed information.
+John W. Linville wrote:
+> From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
 > 
-> The patch checks the BMCR value against speed-related flags and fills
-> the return structure's speed field accordingly. 
+> Since wext is being replaced as fast as we can (it'll probably stick
+> around for legacy drivers though) and the wext/netlink stuff was never
+> really used, this schedules it for removal.
 > 
-> Signed-off-by: Shan<shanlu@cs.uiuc.edu>
+> The removal schedule is tight but there are no users of the code, the
+> main user of the wext user interface are the wireless-tools, they only
+> have an alpha version using the netlink interface and even that is
+> incomplete.
 > 
+> Signed-off-by: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+> Signed-off-by: John W. Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
 > ---
-> --- drivers/net/phy/phy.c   2007-03-02 10:40:26.000000000 -0600  2.6.20
-> +++ drivers/net/phy/phy.c   2007-03-02 10:41:39.000000000 -0600
-> @@ -337,6 +337,10 @@ int phy_mii_ioctl(struct phy_device *phy
->                                         phydev->duplex = DUPLEX_FULL;
->                                 else
->                                         phydev->duplex = DUPLEX_HALF;
-> +                               if ((!phydev->autoneg) && (val
-> &BMCR_SPEED1000))
-> +                                       phydev->speed = SPEED_1000;
-> +                               else if ((!phydev->autoneg) && (val &
-> BMCR_SPEED100))
-> +                                       phydev->speed = SPEED_100;
+> Which you consider applying this feature-removal-schedule.txt patch
+> in the current (i.e. pre-2.6.21) timeframe?
+> 
+>  Documentation/feature-removal-schedule.txt |   12 ++++++++++++
+>  1 file changed, 12 insertions(+)
 
-patch is word-wrapped
+When you send this sort of stuff, spam as many lists as reasonable.
 
-
+The removal of a recently-added userspace ABI is an unusual event, and 
+IMO needs discussing.
