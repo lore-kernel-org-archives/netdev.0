@@ -1,54 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/9] ioatdma: Push pending transactions to hardware
- more frequently
-Date: Fri, 02 Mar 2007 20:27:06 -0800 (PST)
-Message-ID: <20070302.202706.95898424.davem@davemloft.net>
-References: <20070303022238.31033.84558.stgit@gitlost.site>
-	<20070303022417.31033.72244.stgit@gitlost.site>
-	<45E8E81F.8070805@garzik.org>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: christopher.leech@intel.com, linux-kernel@vger.kernel.org,
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [RFC 1/2] bridge: avoid ptype_all packet handling
+Date: Sat, 03 Mar 2007 16:38:45 +1100
+Message-ID: <E1HNMxB-0000MP-00@gondolin.me.apana.org.au>
+References: <20070302.151803.74748558.davem@davemloft.net>
+Cc: shemminger@linux-foundation.org, bridge@linux-foundation.org,
 	netdev@vger.kernel.org
-To: jeff@garzik.org
+To: davem@davemloft.net (David Miller)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47084
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S2992945AbXCCE1I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Mar 2007 23:27:08 -0500
-In-Reply-To: <45E8E81F.8070805@garzik.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:3891 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S933368AbXCCFj1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 Mar 2007 00:39:27 -0500
+In-Reply-To: <20070302.151803.74748558.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jeff Garzik <jeff@garzik.org>
-Date: Fri, 02 Mar 2007 22:14:39 -0500
-
-> Chris Leech wrote:
-> > Every 20 descriptors turns out to be to few append commands with
-> > newer/faster CPUs.  Pushing every 4 still cuts down on MMIO writes to an
-> > acceptable level without letting the DMA engine run out of work.
-> > 
-> > Signed-off-by: Chris Leech <christopher.leech@intel.com>
-> > ---
-> > 
-> >  drivers/dma/ioatdma.c |    4 ++--
-> >  1 files changed, 2 insertions(+), 2 deletions(-)
-> > 
-> > diff --git a/drivers/dma/ioatdma.c b/drivers/dma/ioatdma.c
-> > index 8e87261..0f77a9d 100644
-> > --- a/drivers/dma/ioatdma.c
-> > +++ b/drivers/dma/ioatdma.c
-> > @@ -310,7 +310,7 @@ static dma_cookie_t do_ioat_dma_memcpy(struct ioat_dma_chan *ioat_chan,
-> >  	list_splice_init(&new_chain, ioat_chan->used_desc.prev);
-> >  
-> >  	ioat_chan->pending += desc_count;
-> > -	if (ioat_chan->pending >= 20) {
-> > +	if (ioat_chan->pending >= 4) {
+David Miller <davem@davemloft.net> wrote:
 > 
-> This sounds like something that will always be wrong -- or in other 
-> words, always be right for only the latest CPUs.  Can this be made 
-> dynamic, based on some timing factor?
+> I'm tempted to say I must be missing something here, since I can't see
+> how this could possible work at all.  The string passed in should
+> be interpreted as the ifindex value, and thus trigger a -ENODEV
+> return from AF_PACKET's bind() implementation.
 
-In fact I think this has been tweaked twice in the vanilla tree
-already.
+This is using packet_bind_spkt which uses a name instead of ifindex.
+
+As you may recall, I've made a patch to convert it to use the new
+(actually it's not-so-new anymore) AF_PACKET interface.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
