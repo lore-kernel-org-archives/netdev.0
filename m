@@ -1,42 +1,34 @@
-From: Jeff Garzik <jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH] schedule wext/rtnl for removal
-Date: Fri, 02 Mar 2007 20:25:01 -0500
-Message-ID: <45E8CE6D.6000801@garzik.org>
-References: <20070301153105.GC5806@tuxdriver.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 2/3] bonding: only receive ARPs for us
+Date: Fri, 02 Mar 2007 20:26:08 -0500
+Message-ID: <45E8CEB0.3070204@garzik.org>
+References: <200703010103.l2113R22030799@death.nxdomain.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20070301153105.GC5806-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: netdev@vger.kernel.org, bonding-devel@lists.sourceforge.net
+To: Jay Vosburgh <fubar@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:55664 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S2992872AbXCCB0M (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Mar 2007 20:26:12 -0500
+In-Reply-To: <200703010103.l2113R22030799@death.nxdomain.ibm.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-John W. Linville wrote:
-> From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Jay Vosburgh wrote:
+> 	The ARP validation code only needs ARPs for the bonding device.
 > 
-> Since wext is being replaced as fast as we can (it'll probably stick
-> around for legacy drivers though) and the wext/netlink stuff was never
-> really used, this schedules it for removal.
-> 
-> The removal schedule is tight but there are no users of the code, the
-> main user of the wext user interface are the wireless-tools, they only
-> have an alpha version using the netlink interface and even that is
-> incomplete.
-> 
-> Signed-off-by: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-> Signed-off-by: John W. Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-> ---
-> Which you consider applying this feature-removal-schedule.txt patch
-> in the current (i.e. pre-2.6.21) timeframe?
-> 
->  Documentation/feature-removal-schedule.txt |   12 ++++++++++++
->  1 file changed, 12 insertions(+)
+> Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
 
-When you send this sort of stuff, spam as many lists as reasonable.
+I seem to have lost the context of this.  Did this get discussed, and 
+need further revision?
 
-The removal of a recently-added userspace ABI is an unusual event, and 
-IMO needs discussing.
+The three patches from 2/28/2007 look OK to me, and I just wanted to 
+make sure before applying them.
+
+	Jeff
+
+
+
