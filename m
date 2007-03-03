@@ -1,48 +1,47 @@
 From: Chris Leech <christopher.leech@intel.com>
-Subject: [PATCH 1/9] ioatdma: Push pending transactions to hardware more frequently
-Date: Fri, 02 Mar 2007 18:24:17 -0800
-Message-ID: <20070303022417.31033.72244.stgit@gitlost.site>
+Subject: [PATCH 6/9] I/OAT: Add entries to MAINTAINERS for the DMA memcpy subsystem and ioatdma
+Date: Fri, 02 Mar 2007 18:24:28 -0800
+Message-ID: <20070303022428.31033.35708.stgit@gitlost.site>
 References: <20070303022238.31033.84558.stgit@gitlost.site>
 To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [63.64.152.142] ([63.64.152.142]:1463 "EHLO gitlost.site"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S2992909AbXCCCjM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Mar 2007 21:39:12 -0500
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S2992917AbXCCCjT@vger.kernel.org>
 In-Reply-To: <20070303022238.31033.84558.stgit@gitlost.site>
-Sender: netdev-owner@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
-
-Every 20 descriptors turns out to be to few append commands with
-newer/faster CPUs.  Pushing every 4 still cuts down on MMIO writes to an
-acceptable level without letting the DMA engine run out of work.
 
 Signed-off-by: Chris Leech <christopher.leech@intel.com>
 ---
 
- drivers/dma/ioatdma.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ MAINTAINERS |   12 ++++++++++++
+ 1 files changed, 12 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/dma/ioatdma.c b/drivers/dma/ioatdma.c
-index 8e87261..0f77a9d 100644
---- a/drivers/dma/ioatdma.c
-+++ b/drivers/dma/ioatdma.c
-@@ -310,7 +310,7 @@ static dma_cookie_t do_ioat_dma_memcpy(struct ioat_dma_chan *ioat_chan,
- 	list_splice_init(&new_chain, ioat_chan->used_desc.prev);
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 1dfba85..2dd5d23 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -1156,6 +1156,12 @@ M:	tori@unhappy.mine.nu
+ L:	netdev@vger.kernel.org
+ S:	Maintained
  
- 	ioat_chan->pending += desc_count;
--	if (ioat_chan->pending >= 20) {
-+	if (ioat_chan->pending >= 4) {
- 		append = 1;
- 		ioat_chan->pending = 0;
- 	}
-@@ -818,7 +818,7 @@ static void __devexit ioat_remove(struct pci_dev *pdev)
- }
++DMA GENERIC MEMCPY SUBSYSTEM
++P:	Chris Leech
++M:	christopher.leech@intel.com
++L:	linux-kernel@vger.kernel.org
++S:	Maintained
++
+ DOCBOOK FOR DOCUMENTATION
+ P:	Randy Dunlap
+ M:	rdunlap@xenotime.net
+@@ -1777,6 +1783,12 @@ P:	Tigran Aivazian
+ M:	tigran@aivazian.fsnet.co.uk
+ S:	Maintained
  
- /* MODULE API */
--MODULE_VERSION("1.7");
-+MODULE_VERSION("1.9");
- MODULE_LICENSE("GPL");
- MODULE_AUTHOR("Intel Corporation");
- 
-
++INTEL I/OAT DMA DRIVER
++P:	Chris Leech
++M:	christopher.leech@intel.com
++L:	linux-kernel@vger.kernel.org
++S:	Supported
++
+ INTEL IXP4XX RANDOM NUMBER GENERATOR SUPPORT
+ P:	Deepak Saxena
+ M:	dsaxena@plexity.net
