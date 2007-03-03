@@ -1,35 +1,38 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [RFC 1/2] bridge: avoid ptype_all packet handling
-Date: Sat, 03 Mar 2007 16:38:45 +1100
-Message-ID: <E1HNMxB-0000MP-00@gondolin.me.apana.org.au>
+Date: Fri, 02 Mar 2007 21:59:05 -0800 (PST)
+Message-ID: <20070302.215905.74747266.davem@davemloft.net>
 References: <20070302.151803.74748558.davem@davemloft.net>
+	<E1HNMxB-0000MP-00@gondolin.me.apana.org.au>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: shemminger@linux-foundation.org, bridge@linux-foundation.org,
 	netdev@vger.kernel.org
-To: davem@davemloft.net (David Miller)
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:3891 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S933368AbXCCFj1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Mar 2007 00:39:27 -0500
-In-Reply-To: <20070302.151803.74748558.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39136
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S933387AbXCCF7J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 Mar 2007 00:59:09 -0500
+In-Reply-To: <E1HNMxB-0000MP-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller <davem@davemloft.net> wrote:
-> 
-> I'm tempted to say I must be missing something here, since I can't see
-> how this could possible work at all.  The string passed in should
-> be interpreted as the ifindex value, and thus trigger a -ENODEV
-> return from AF_PACKET's bind() implementation.
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Sat, 03 Mar 2007 16:38:45 +1100
 
-This is using packet_bind_spkt which uses a name instead of ifindex.
+> This is using packet_bind_spkt which uses a name instead of ifindex.
 
-As you may recall, I've made a patch to convert it to use the new
-(actually it's not-so-new anymore) AF_PACKET interface.
+So it should be just fine, it should be binding to a specific
+device (by name instead of ifindex) and therefore it should
+only trigger the pt_all hook when the packet arrives on that
+specific device.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> As you may recall, I've made a patch to convert it to use the new
+> (actually it's not-so-new anymore) AF_PACKET interface.
+
+That's right.
+
+So it's still a mystery why dhcp is causing bridge devices
+to trigger the network tap paths on Stephen's machine.
