@@ -1,30 +1,87 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 4/4] pktgen: fix device name handling
-Date: Fri, 02 Mar 2007 16:02:36 -0800 (PST)
-Message-ID: <20070302.160236.85417749.davem@davemloft.net>
-References: <20070227120447.55a7e39d@freekitty>
-	<20070227121312.66b268df@freekitty>
-	<17893.46781.170641.654215@robur.slu.se>
+From: "Ritesh Kumar" <ritesh@cs.unc.edu>
+Subject: Re: Netem tfifo implementation
+Date: Fri, 2 Mar 2007 19:32:41 -0500
+Message-ID: <f47983b00703021632y2b5c96fby1e131f6552afb5ea@mail.gmail.com>
+References: <f47983b00703021101h344f58e6ife56c01b54f3adaf@mail.gmail.com>
+	 <45E87FE6.1060503@trash.net>
+	 <f47983b00703021256y78d2140ev3f4314f62c849844@mail.gmail.com>
+	 <20070302130943.4920d649@freekitty>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org
-To: Robert.Olsson@data.slu.se
+Cc: "Patrick McHardy" <kaber@trash.net>, netdev@vger.kernel.org
+To: "Stephen Hemminger" <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46286
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S2992778AbXCCACi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Mar 2007 19:02:38 -0500
-In-Reply-To: <17893.46781.170641.654215@robur.slu.se>
+Received: from nz-out-0506.google.com ([64.233.162.224]:17442 "EHLO
+	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S2992800AbXCCAcn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Mar 2007 19:32:43 -0500
+Received: by nz-out-0506.google.com with SMTP id s1so1025658nze
+        for <netdev@vger.kernel.org>; Fri, 02 Mar 2007 16:32:42 -0800 (PST)
+In-Reply-To: <20070302130943.4920d649@freekitty>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Date: Wed, 28 Feb 2007 18:07:09 +0100
+On 3/2/07, Stephen Hemminger <shemminger@linux-foundation.org> wrote:
+> On Fri, 2 Mar 2007 15:56:54 -0500
+> "Ritesh Kumar" <ritesh@cs.unc.edu> wrote:
+>
+> > On 3/2/07, Patrick McHardy <kaber@trash.net> wrote:
+> > > Ritesh Kumar wrote:
+> > > > Hi,
+> > > >    I recently saw the qdisc "tfifo" in the netem module
+> > > > (net/sched/sch_netem.c) when I migrated some of my patches from 2.6.14
+> > > > to 2.6.20. As I understand, tfifo helps in keeping the queue of
+> > > > packets sorted according to their "time_to_send". [tfifo was not
+> > > > present in 2.6.14 perhaps because arrival order of packets was always
+> > > > equal to the departure order]. However, tfifo uses a linear search in
+> > > > the packet queue to find where to enqueue the packet.
+> > > >    Quite some time ago (2.6.14 era), I needed a similar functionality
+> > > > from the netem module and I ended up coding a pointer based min-heap
+> > > > for the same. I was wondering if the community was interested in using
+> > > > the min-heap implementation to replace the linear search
+> > > > implementation. I have tested the min-heap quite a few times and it
+> > > > seems to work.
+> > > >    The implementation is slightly non-trivial because it uses
+> > > > pointers to maintain the heap structure instead if using good old
+> > > > fixed size arrays. I did this mainly so that the limit of the netem
+> > > > qdisc could be changed on the fly. However, because every sk_buff now
+> > > > needs two pointers for its children nodes, I added an extra
+> > > > (sk_buff*)next2 to struct sk_buff (sorry!). However, this can probably
+> > > > be changed to a pointer inside netem_skb_cb.  Also, because I needed
+> > > > this for personal work and 2.6.14 didn't contain tfifo, I basically
+> > > > removed the embedded qdisc and made netem a classless qdisc with my
+> > > > min heap as the native "queue" (sorry again! :) )
+> > >
+> > > The tfifo qdisc has a limit, why not just allocate a fixed-size heap
+> > > based on that?
+> > >
+> > >
+> >
+> > The tfifo queue limit itself can be changed and that creates the
+> > problem. If we use a fixed heap (say implemented using a fixed size
+> > array) then we will have to copy over all pointers from the first
+> > array to a reallocated array whenever the queue limit is changed.
+> > In retrospect, moving just a few 10s of kilobytes of data doesn't seem
+> > that much of a problem... now I feel stupid having put so much effort
+> > :).
+> >
+>
+> Tfifo is a special case because:
+>   * timestamps are stored in skb->cb so it is only really usable inside
+>     netem that adds timestamps.
+>   * insertions are cheap because it walks backwards and netem usually has
+>     tnext > tlast.   Only if you have a huge jitter which causes massive reordering
+>     and that is unrealistic, would you see a problem.
+>
 
-> Yes it seems be handle dev name change. So configuration scripts should
-> use ifindex now :)
-> 
-> Signed-off-by: Robert Olsson <robert.olsson@its.uu.se>
+You are right. A huge jitter inside a given flow is unrealistic in
+real networks. It can also cause artificial reordering. However, in
+our lab we use netem (with my changes) to enable per-flow delays. The
+per-flow delays that we use vary a lot and hence we have to go through
+some optimizations.
 
-I will apply all 4 of these patches to net-2.6.22, thanks everyone.
+Thanks for all the feedback.
+
+Ritesh
