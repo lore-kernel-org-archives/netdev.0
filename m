@@ -1,77 +1,77 @@
-From: Baruch Even <baruch@ev-en.org>
-Subject: Re: [PATCH 4/4]: Kill fastpath_{skb,cnt}_hint.
-Date: Sat, 3 Mar 2007 10:12:04 +0200
-Message-ID: <20070303081204.GF25760@galon.ev-en.org>
-References: <20070228.114949.18302561.davem@davemloft.net> <20070301181340.GD25760@galon.ev-en.org> <20070302.222250.41632359.davem@davemloft.net>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [PATCH] spidernet: Fix problem sending IP fragments
+Date: Sat, 03 Mar 2007 09:21:58 +0100
+Message-ID: <1172910118.8184.47.camel@localhost.localdomain>
+References: <200702281521.34277.n.eicker@fz-juelich.de>
+	 <1e548a3f0703011452u6dde9c53ifde2fa41fe5f4c38@mail.gmail.com>
+	 <20070301233426.GH4717@austin.ibm.com>
+	 <200703021839.16158.n.eicker@fz-juelich.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Linas Vepstas <linas@austin.ibm.com>, linuxppc-dev@ozlabs.org,
+	netdev@vger.kernel.org, Adam Emerich <aemerich@us.ibm.com>,
+	Norbert Eicker <n.eicker@fz-juelich.de>
+To: Geoff Levand <geoffrey.levand@am.sony.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rrcs-24-123-59-149.central.biz.rr.com ([24.123.59.149]:39455
-	"EHLO galon.ev-en.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751226AbXCCIMI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Mar 2007 03:12:08 -0500
-Content-Disposition: inline
-In-Reply-To: <20070302.222250.41632359.davem@davemloft.net>
+Received: from gate.crashing.org ([63.228.1.57]:58354 "EHLO gate.crashing.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751247AbXCCIXP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 3 Mar 2007 03:23:15 -0500
+In-Reply-To: <200703021839.16158.n.eicker@fz-juelich.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* David Miller <davem@davemloft.net> [070303 08:22]:
-> BTW, I think I figured out a way to get rid of
-> lost_{skb,cnt}_hint.  The fact of the matter in this case is that
-> the setting of the tag bits always propagates from front of the queue
-> onward.  We don't get holes mid-way.
+Geoff, I suspect gelic_net might have the same problem...
+
+Cheers,
+Ben.
+
+On Fri, 2007-03-02 at 18:39 +0100, Norbert Eicker wrote:
+> On Fri 2.3.2007 00:34, Linas Vepstas wrote:
+> > On Thu, Mar 01, 2007 at 04:52:54PM -0600, Chris Engel wrote:
+> > > I tried to apply this patch to 2.6.21-rc2 and CHECKSUM_HW appears
+> > > to be changed to CHECKSUM_COMPLETE
 > 
-> So what we can do is search the RB-tree for high_seq and walk
-> backwards.  Once we hit something with TCPCB_TAGBITS set, we
-> stop processing as there are no earlier SKBs which we'd need
-> to do anything with.
+> Oops. I did not test this on the actual 2.6.21-rc2 before sending it.
+> It worked fine for me on 2.6.18.
 > 
-> Do you see any problems with that idea?
-
-I think this will be a fairly long walk initially.
-
-You can try an augmented walk. If you are on a node which is tagged
-anything on the right side will be tagged as well since it is smaller,
-so you need to go left. This way you can find the first non-tagged item
-in O(log n).
-
-A bug in this logic is that sequence numbers can and do wrap around.
-
-If you are willing to change the logic of the tree you can remove any
-sacked element from it. Many of the operations are really only
-interested in the non-sacked skbs. This will be similar to my patches
-with the non-sacked list but I still needed the hints since the number
-of lost packets could still be large and some operations (retransmit
-f.ex.) need to get to the end of the list.
-
-
-> scoreboard_skb_hint is a little bit trickier, but it is a similar
-> case to the tcp_lost_skb_hint case.  Except here the termination
-> condition is a relative timeout instead of a sequence number and
-> packet count test.
+> In the meantime it tested the patch below on 2.6.21.
 > 
-> Perhaps for that we can remember some state from the
-> tcp_mark_head_lost() we do first.  In fact, we can start
-> the queue walk from the latest packet which tcp_mark_head_lost()
-> marked with a tag bit.
+> > The use of CHECKSUM_HW was replaced by CHECKSUM_PARTIAL and
+> > CHECKSUM_COMPLETE on a cae-by-case basis, in the patch series leading
+> > up to 2.6.19.  In this case, I'm not sure which should have been
+> > used.
 > 
-> Basically these two algorithms are saying:
+> In fact CHECKSUM_COMPLETE seems to be used on the receiving side while
+> CHECKSUM_PARTIAL is the one to be used while sending frames. Thus the
+> latter is the one to chose.
 > 
-> 1) Mark up to smallest of 'lost' or tp->high_seq.
-> 2) Mark packets after those processed in #1 which have
->    timed out.
+> > Norbert, can you resubmit a patch that applies to a more recent
+> > kernel? p.s. your emailer replaced tabs by spaces ...
 > 
-> Right?
+> so here's the new one:
+> 
+> Fix problem sending IP fragments on spidernet.
+> 
+> Signed-off-by: Norbert Eicker <n.eicker@fz-juelich.de>
+> ---
+> diff --git a/drivers/net/spider_net.c b/drivers/net/spider_net.c
+> index 3b91af8..e3019d5 100644
+> --- a/drivers/net/spider_net.c
+> +++ b/drivers/net/spider_net.c
+> @@ -719,7 +719,7 @@ spider_net_prepare_tx_descr(struct spide
+> 			SPIDER_NET_DESCR_CARDOWNED | SPIDER_NET_DMAC_NOCS;
+> 	spin_unlock_irqrestore(&chain->lock, flags);
+> 
+> -	if (skb->protocol == htons(ETH_P_IP))
+> +	if (skb->protocol == htons(ETH_P_IP) && skb->ip_summed == CHECKSUM_PARTIAL)
+> 		switch (skb->nh.iph->protocol) {
+> 		case IPPROTO_TCP:
+> 			hwdescr->dmac_cmd_status |= SPIDER_NET_DMAC_TCP;
+> 
+> _______________________________________________
+> Linuxppc-dev mailing list
+> Linuxppc-dev@ozlabs.org
+> https://ozlabs.org/mailman/listinfo/linuxppc-dev
 
-Yes. This makes sense, the two algorithms start from the same place. I'd
-even consider merging them into a single walk, unless we know that
-usually on happens without the other.
-
-There is another case like that for tcp_xmit_retrans where the forward
-transmission should only start at the position that the retransmit
-finished. I had that in my old patches and it improved performance at
-the time.
-
-Baruch
