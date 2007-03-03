@@ -1,63 +1,45 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 1/2] tc35815 driver update (part 1)
-Date: Fri, 02 Mar 2007 20:11:14 -0500
-Message-ID: <45E8CB32.5060008@garzik.org>
-References: <20070302.232407.05600700.anemo@mba.ocn.ne.jp>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [PATCH] bridge: avoid ptype_all packet handling
+Date: 03 Mar 2007 03:14:29 +0100
+Message-ID: <p733b4ncbui.fsf@bingen.suse.de>
+References: <45E67B04.2060702@linux-foundation.org>
+	<20070228.232224.74746939.davem@davemloft.net>
+	<45E6802C.2090708@linux-foundation.org>
+	<20070228.233034.74746721.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-mips@linux-mips.org, ralf@linux-mips.org,
-	netdev@vger.kernel.org, sshtylyov@ru.mvista.com
-To: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
+Content-Type: text/plain; charset=us-ascii
+Cc: shemminger@linux-foundation.org, greearb@candelatech.com,
+	bridge@linux-foundation.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:55483 "EHLO mail.dvmed.net"
+Received: from mail.suse.de ([195.135.220.2]:57753 "EHLO mx1.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S2992848AbXCCBLT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Mar 2007 20:11:19 -0500
-In-Reply-To: <20070302.232407.05600700.anemo@mba.ocn.ne.jp>
+	id S2992856AbXCCBO6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Mar 2007 20:14:58 -0500
+In-Reply-To: <20070228.233034.74746721.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Atsushi Nemoto wrote:
-> Current tc35815 driver is very obsolete and less maintained for a long
-> time.  Replace it with a new driver based on one from CELF patch
-> archive.  It was for 2.6.10 kernel so some adjustment and cleanup are
-> added. (remove config.h, SA_ to IRQF_ conversion, etc.)
+David Miller <davem@davemloft.net> writes:
 > 
-> Major advantages are:
-> 
-> * Independent of JMR3927.
->   (Actually independent of MIPS, but AFAIK the chip is used only on
->    MIPS platforms)
-> * TX4938 support.
-> * 64-bit proof.
-> * Asynchronous and on-demand auto negotiation.
-> * High performance on non-coherent architecture.
-> * ethtool support.
-> * Many bugfixes and cleanups.
-> 
-> And next patch add further improvements/bugfixes/cleanups.
-> 
-> Signed-off-by: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
-> ---
-> This is a patch against current linux-mips.org git-tree.
-> 
->  drivers/net/Kconfig     |    3 
->  drivers/net/tc35815.c   | 2070 +++++++++++++++++++++++++++++++---------------
->  include/linux/pci_ids.h |    1 
->  3 files changed, 1440 insertions(+), 634 deletions(-)
+> And in fact that effectively makes the new socket option
+> pointless, since it doesn't buy us anything since we have
+> to support the old stuff fully anyways.
 
-Would you be kind enough to
+I don't think it's pointless because it would still allow
+newer DHCP clients to have less impact on other packets
+when they are active. 
 
-a) provide a URL to a .c file (or post it, if it's under 100K) so that 
-we may more easily review this
+This can matter when you have a system with multiple
+interfaces where DHCP doesn't get a address on one.
 
-b) combine both patches into a single patch.  might as well, since it's 
-a rewrite.
+That's pretty common with many x86 server boards because 
+they come with two NICs by default but must people only
+plug the cable into one. However the distro installers
+run DHCP on all.
 
-c) rediff your patch against linux-2.6.git + Ralf's killall removal 
-patch, and resend.  There were some minor conflicting changes that 
-appeared, though these changes will certainly become irrelevant once 
-your new driver is merged.
+When this happens all packets are always forced through
+ptype_all chains before being rejected by AF_PACKETs device
+bind, which adds some overhead to them. 
 
-
+-Andi
