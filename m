@@ -1,66 +1,153 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: Extensible hashing and RCU
-Date: Sat, 3 Mar 2007 13:46:21 +0300
-Message-ID: <20070303104620.GD22557@2ka.mipt.ru>
-References: <20070204074143.26312.qmail@science.horizon.com> <20070217131302.GA22732@2ka.mipt.ru> <20070302085246.GA30951@2ka.mipt.ru> <200703021056.24100.dada1@cosmosbay.com> <f2b55d220703021245m5cd5d9eet5e5a9d0d8ffcea41@mail.gmail.com>
+From: Roel Bindels <rbindels@gmail.com>
+Subject: Re: anthropology of linux: help needed
+Date: Sat, 03 Mar 2007 12:25:44 +0100
+Message-ID: <esblvr$gao$1@sea.gmane.org>
+References: <45DD893F.5060106@durham.ac.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: Eric Dumazet <dada1@cosmosbay.com>, akepner@sgi.com,
-	linux@horizon.com, davem@davemloft.net, netdev@vger.kernel.org
-To: "Michael K. Edwards" <medwards.linux@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:43289 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750962AbXCCKw4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 3 Mar 2007 05:52:56 -0500
-Content-Disposition: inline
-In-Reply-To: <f2b55d220703021245m5cd5d9eet5e5a9d0d8ffcea41@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-gcc@vger.kernel.org, netdev@vger.kernel.org,
+	linux-hams@vger.kernel.org, linux-doc@vger.kernel.org,
+	linux-newbie@vger.kernel.org, linux-word@vger.kernel.org,
+	linux-lugnuts@vger.kernel.org, linux-new-lists@vger.kernel.org
+To: linux-net@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
+In-Reply-To: <45DD893F.5060106@durham.ac.uk>
+Cc: linux-gcc@vger.kernel.org, netdev@vger.kernel.org,
+	linux-hams@vger.kernel.org, linux-net@vger.kernel.org,
+	linux-newbie@vger.kernel.org, linux-word@vger.kernel.org,
+	linux-lugnuts@vger.kernel.org, linux-new-lists@vger.kernel.org
+Cc: linux-gcc@vger.kernel.org, linux-hams@vger.kernel.org,
+	linux-doc@vger.kernel.org, linux-net@vger.kernel.org,
+	linux-newbie@vger.kernel.org, linux-word@vger.kernel.org,
+	linux-lugnuts@vger.kernel.org, linux-new-lists@vger.kernel.org
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 02, 2007 at 12:45:36PM -0800, Michael K. Edwards (medwards.linux@gmail.com) wrote:
-> On 3/2/07, Eric Dumazet <dada1@cosmosbay.com> wrote:
-> >Thank you for this report. (Still avoiding cache misses studies, while they
-> >obviously are the limiting factor)
-> 
-> 1)  The entire point of going to a tree-like structure would be to
-> allow the leaves to age out of cache (or even forcibly evict them)
-> when the structure bloats (generally under DDoS attack), on the theory
-> that most of them are bogus and won't be referenced again.  It's not
-> about the speed of the data structure -- it's about managing its
-> impact on the rest of the system.
-> 
-> 2)  The other entire point of going to a tree-like structure is that
-> they're drastically simpler to RCU than hashes, and more generally
-> they don't involve individual atomic operations (RCU reaping passes,
-> resizing, etc.) that cause big latency hiccups and evict a bunch of
-> other stuff from cache.
-> 
-> 3)  The third entire point of going to a tree-like structure is to
-> have a richer set of efficient operations, since you can give them a
-> second "priority"-type index and have "pluck-highest-priority-item",
-> three-sided search, and bulk delete operations.  These aren't that
-> much harder to RCU than the basic modify-existing-node operation.
-> 
-> Now can we give these idiotic micro-benchmarks a rest until Robert's
-> implementation is tuned and ready for stress-testing?
+m a a kastrinou-theodoro@durham ac uk schreef:
+> Hello,
+>=20
+> This is a rather strange e-mail for these mailing
+> lists, I know. I am a third year Social Anthropology
+> student in the University of Durham doing my
+> dissertation (thesis) on the Anthropology of
+> GNU/Linux. I would really appreciate if you could help
+> me out and offer some of your time to fill in the
+> questionnaire below- it will only take 2 minutes.
+> Replies will be confidential and everything in the
+> dissertation will be anonymous. Results will be
+> e-mailed to participants upon request.
+>=20
+> Thanks in advance, and... enjoy!
+> Maria Kastrinou
+>=20
+>=20
+>=20
+> QUESTIONS:
+>=20
+> 1. When did you start using GNU/Linux OS?
+6 years ago
+>=20
+>=20
+> 2. What is your level of involvement?
+> newbie/ user/ developer (delete as appropriate)
+developer
+>=20
+>=20
+> 3. Why are you using Linux?
+I like it more than the alternatives
+>=20
+>=20
+> 4. Is Linux fun? How?
+It's safe, flexibel....
+>=20
+>=20
+> 5. Which distribution of Linux do you use?
+=46or clients I normaly use SuSE - sometimes Ubuntu, for servers I use =
+debian.
+>=20
+>=20
+> 6. What in your opinion constitutes a =C2=A1good hack=C2=A2?
+Since hacking is not a negative thing, I think a good hack is some code
+that does the job and also is very nice developed
+>=20
+>=20
+> 7. Would you describe yourself as a =C2=A1hacker=C2=A2?
+if hacker is equelent to software developer, yes. If it is somebody tha=
+t
+cracks (cracker) code then no.
+>=20
+>=20
+> 8. Which super-hero (apart from Tux) do you think
+> would represent Linux best?
+I don't believe superheroes excists. Linux does..
+>=20
+>=20
+> 9. Describe Microsoft OS in one word.
+buggy
+>=20
+>=20
+> 10. How do you view the recent patent agreement
+> between Microsoft and Novell?
+I think NOVELL is a big boy and can play it's own game.
+>=20
+>=20
+> 11. GNU GPL, copyleft and freedom of speech: good, bad
+> or irrelevant?
+very good
+>=20
+>=20
+> 12. How many Linux mailing lists are you a member of?
+10
 
-Mmm, you have learnt new words from other threads :)
-It is not a benchmark, it is analysis of the structure processing.
-All you have written above is correct, since it was said in this thread
-multiple times, but it does not change the fact, that tree traversal is
-slower than list one, so to compete tree (or another algo, which would 
-be even more interesting) implementation must have that in mind and be 
-faster in any (the most) load. As is tree/trie does not have it (it is
-feature of algorithm), but has another advantages (extremely suitable in
-routing cache whihc requires wildcard support and scaling) you did not
-mention - ability to scale without structure recreations.
+>=20
+>=20
+> 13. Would you reply to a question sent through Linux
+> mailing lists and why?
+No ;), open communication
+>=20
+>=20
+> 14. Microsoft vs. Linux: cathedral vs. bazaar or
+> something altogether different?
+Commercial vs Non-Commercial
 
-Btw, you could try to implement something you have written above to show
-its merits, so that it would not be an empty words :)
+>=20
+>=20
+> 15. Open Source or Free Software?
+Open Source
+>=20
+>=20
+> Personal Information:
+> a) Age:
+29
+> b) Gender:
+Male
+> c) Occupation:
+Tutor
+> d) Your current geographic location:
+Netherlands
+>=20
+> Any other comments?
+Nope
+>=20
+>=20
+> Would you like me to e-mail you the results? YES/ NO
+Put them on the list ;)
+>=20
+>=20
+> Hope you enjoyed it!
+>=20
+> THANK YOU!
+>=20
+> Maria
+>=20
+>=20
+>=20
+>=20
+> -
+> To unsubscribe from this list: send the line "unsubscribe linux-gcc" =
+in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>=20
 
-> Cheers,
-> - Michael
-
--- 
-	Evgeniy Polyakov
