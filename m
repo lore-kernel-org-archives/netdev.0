@@ -1,83 +1,70 @@
-From: Bill Fink <billfink@mindspring.com>
-Subject: Re: ppp and routing table rules.
-Date: Sat, 3 Mar 2007 00:54:55 -0500
-Message-ID: <20070303005455.86dd8059.billfink@mindspring.com>
-References: <45E7AC31.9030309@candelatech.com>
-	<45E7C45F.9080805@candelatech.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 4/4]: Kill fastpath_{skb,cnt}_hint.
+Date: Fri, 02 Mar 2007 22:22:50 -0800 (PST)
+Message-ID: <20070302.222250.41632359.davem@davemloft.net>
+References: <20070228.114949.18302561.davem@davemloft.net>
+	<20070301181340.GD25760@galon.ev-en.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: NetDev <netdev@vger.kernel.org>
-To: Ben Greear <greearb@candelatech.com>
+Cc: netdev@vger.kernel.org
+To: baruch@ev-en.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-scoter.atl.sa.earthlink.net ([209.86.89.67]:47323 "EHLO
-	elasmtp-scoter.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S965085AbXCCGDu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Mar 2007 01:03:50 -0500
-In-Reply-To: <45E7C45F.9080805@candelatech.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51567
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751125AbXCCGWv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 Mar 2007 01:22:51 -0500
+In-Reply-To: <20070301181340.GD25760@galon.ev-en.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 01 Mar 2007, Ben Greear wrote:
+From: Baruch Even <baruch@ev-en.org>
+Date: Thu, 1 Mar 2007 20:13:40 +0200
 
-> Ben Greear wrote:
+> If you take this approach it makes sense to also remove the sorting of
+> SACKs, the traversal of the SACK blocks will not start from the
+> beginning anyway which was the reason for this sorting in the first
+> place.
 > 
-> I am sending udp packets through ppp400, and I see them appear on ppp401 
-> as expected.
+> One drawback for this approach is that you now walk the entire sack
+> block when you advance one packet. If you consider a 10,000 packet queue
+> which had several losses at the beginning and a large sack block that
+> advances from the middle to the end you'll walk a lot of packets for
+> that one last stretch of a sack block.
 > 
-> The thing that is bothering me is that all I see on rddVR4 (172.1.2.1) 
-> is arps for 172.1.2.2, but the 'tell' IP is that of the
-> originating ppp400 link, not the IP of rddVR4, as I expected:
-> 
-> 21:47:16.119640 arp who-has 172.1.2.2 tell 11.1.1.3
-> 21:47:17.119371 arp who-has 172.1.2.2 tell 11.1.1.3
-> 21:47:18.119254 arp who-has 172.1.2.2 tell 11.1.1.3
-> 21:47:19.273118 arp who-has 172.1.2.2 tell 11.1.1.3
-> 
-> Unless I'm missing something dumb, a similar setup with all ethernet-ish 
-> network devices
-> works fine.
-> 
-> I have also enabled arp filtering:
-> # Only answer ARPs if it is for the IP on our own interface.
-> echo 2 > /proc/sys/net/ipv4/conf/all/arp_ignore
-> and for every device used in these routing tables:
-> echo 1 > /proc/sys/net/ipv4/conf/[dev]/arp_filter
-> 
-> Any idea what I need to do in order to make  the source IP for the ARP 
-> packet correct?
+> One way to handle that is to use the still existing sack fast path to
+> detect this case and calculate what is the sequence number to search
+> for. Since you know what was the end_seq that was handled last, you can
+> search for it as the start_seq and go on from there. Does it make sense?
 
-Wouldn't that be controlled by arp_announce?
+Thanks for the feedback and these great ideas.
 
-arp_announce - INTEGER
-        Define different restriction levels for announcing the local
-        source IP address from IP packets in ARP requests sent on
-        interface:
-        0 - (default) Use any local address, configured on any interface
-        1 - Try to avoid local addresses that are not in the target's
-        subnet for this interface. This mode is useful when target
-        hosts reachable via this interface require the source IP
-        address in ARP requests to be part of their logical network
-        configured on the receiving interface. When we generate the
-        request we will check all our subnets that include the
-        target IP and will preserve the source address if it is from
-        such subnet. If there is no such subnet we select source
-        address according to the rules for level 2.
-        2 - Always use the best local address for this target.
-        In this mode we ignore the source address in the IP packet
-        and try to select local address that we prefer for talks with
-        the target host. Such local address is selected by looking
-        for primary IP addresses on all our subnets on the outgoing
-        interface that include the target IP address. If no suitable
-        local address is found we select the first local address
-        we have on the outgoing interface or on all other interfaces,
-        with the hope we will receive reply for our request and
-        even sometimes no matter the source IP address we announce.
+BTW, I think I figured out a way to get rid of
+lost_{skb,cnt}_hint.  The fact of the matter in this case is that
+the setting of the tag bits always propagates from front of the queue
+onward.  We don't get holes mid-way.
 
-        The max value from conf/{all,interface}/arp_announce is used.
+So what we can do is search the RB-tree for high_seq and walk
+backwards.  Once we hit something with TCPCB_TAGBITS set, we
+stop processing as there are no earlier SKBs which we'd need
+to do anything with.
 
-        Increasing the restriction level gives more chance for
-        receiving answer from the resolved target while decreasing
-        the level announces more valid sender's information.
+Do you see any problems with that idea?
 
-						-Bill
+scoreboard_skb_hint is a little bit trickier, but it is a similar
+case to the tcp_lost_skb_hint case.  Except here the termination
+condition is a relative timeout instead of a sequence number and
+packet count test.
+
+Perhaps for that we can remember some state from the
+tcp_mark_head_lost() we do first.  In fact, we can start
+the queue walk from the latest packet which tcp_mark_head_lost()
+marked with a tag bit.
+
+Basically these two algorithms are saying:
+
+1) Mark up to smallest of 'lost' or tp->high_seq.
+2) Mark packets after those processed in #1 which have
+   timed out.
+
+Right?
