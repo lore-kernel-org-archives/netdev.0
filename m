@@ -1,84 +1,69 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [patch] at76_usb wireless driver
-Date: Sat, 03 Mar 2007 16:09:48 +0100
-Message-ID: <1172934588.4966.46.camel@johannes.berg>
-References: <20070110145724.GA4171@bogon.ms20.nix>
-	 <20070223221230.GA9965@bogon.ms20.nix>
-	 <20070303150029.GA19940@bogon.ms20.nix>
+From: Florian Fainelli <florian.fainelli@int-evry.fr>
+Subject: [PATCH] Au1000 link beat detection
+Date: Sat, 3 Mar 2007 16:53:11 +0100
+Message-ID: <200703031653.11697.florian.fainelli@int-evry.fr>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-cm3GG6m5wEiypEDQK5dz"
-Cc: netdev@vger.kernel.org,
-	linux-wireless <linux-wireless@vger.kernel.org>
-To: Guido Guenther <agx@sigxcpu.org>
+Content-Type: Multipart/Mixed;
+  boundary="Boundary-00=_nnZ6FHRQrGggw8u"
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:53919 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030305AbXCCPKN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Mar 2007 10:10:13 -0500
-In-Reply-To: <20070303150029.GA19940@bogon.ms20.nix>
+Received: from smtp-ext.int-evry.fr ([157.159.11.17]:46649 "EHLO
+	smtp-ext.int-evry.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030666AbXCCP60 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 Mar 2007 10:58:26 -0500
+Received: from mini.int.alphacore.net (florian.maisel.int-evry.fr [157.159.41.36])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by smtp-ext.int-evry.fr (Postfix) with ESMTP id C40288D1690
+	for <netdev@vger.kernel.org>; Sat,  3 Mar 2007 16:58:07 +0100 (CET)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+--Boundary-00=_nnZ6FHRQrGggw8u
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
---=-cm3GG6m5wEiypEDQK5dz
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+Hi all
 
-Pavel should know better and have told you that wireless got it's own
-list ;)
-Quoting fully to make linux-wireless aware. I guess we'll want to take
-out netdev on replies to this.
+This patch fixes the link beat detection when the cable is not plugged at 
+startup with au1000_eth driver.
 
-johannes
+Signed-off-by: Florian Fainelli <florian.fainelli@int-evry.fr>
+-- 
 
-On Sat, 2007-03-03 at 16:00 +0100, Guido Guenther wrote:
-> Hi,
-> I'd be glad if someone could review the at76_usb wireless driver, it
-> adds support for the at76c503, at76c505 and at76c505a wireless USB
-> adapters. Since it exceeds the lists size limit, please
->     git-clone http://honk.sigxcpu.org/git/at76c503a.git/
->=20
-> The projects homepage is:
->     http://at76c503a.berlios.de/
-> The above git tree is functionally equivalent to the CVS version at
-> berlios but removes support for older kernels, older wireless
-> extensions, C99 style comments, commented out code and shifts things
-> around a little for better readability. This is only done to ease
-> reviewing - there are no functional changes over the CVS archive.
->=20
-> The driver was tested (and is in pracitical use) on at least i386, amd64
-> and powerpc.
->=20
-> Please note that I'm not the author of the driver, the driver itself
-> lists these copyright holders (but none of them showed up on the
-> mailing list during the last couple of months):
->=20
-> Copyright (c) 2002 - 2003 Oliver Kurth
-> Copyright (c) 2004 Joerg Albert <joerg.albert@gmx.de>
-> Copyright (c) 2004 Nick Jones
-> Copyright (c) 2004 Balint Seeber <n0_5p4m_p13453@hotmail.com>
->=20
-> Pavel Roskin, Maxim Grechkin and me were committing to CVS recently.
-> Cheers,
->  -- Guido
->=20
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->=20
+--Boundary-00=_nnZ6FHRQrGggw8u
+Content-Type: text/plain;
+  charset="utf-8";
+  name="005-au1000_eth_link_beat.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="005-au1000_eth_link_beat.patch"
 
---=-cm3GG6m5wEiypEDQK5dz
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
+diff -urN linux-2.6.16.7/drivers/net/au1000_eth.c linux-2.6.16.7.new/drivers/net/au1000_eth.c
+--- linux-2.6.16.7/drivers/net/au1000_eth.c	2006-04-17 23:53:25.000000000 +0200
++++ linux-2.6.16.7.new/drivers/net/au1000_eth.c	2006-04-23 01:42:48.000000000 +0200
+@@ -12,6 +12,9 @@
+  * Author: MontaVista Software, Inc.
+  *         	ppopov@mvista.com or source@mvista.com
+  *
++ *         Bjoern Riemer 2004
++ *           riemer@fokus.fraunhofer.de or riemer@riemer-nt.de
++ *             // fixed the link beat detection with ioctls (SIOCGMIIPHY)
+  * ########################################################################
+  *
+  *  This program is free software; you can distribute it and/or modify it
+@@ -1672,6 +1675,10 @@
+ 	aup->phy_ops->phy_status(dev, aup->phy_addr, &link, &speed);
+ 	control = MAC_DISABLE_RX_OWN | MAC_RX_ENABLE | MAC_TX_ENABLE;
+ #ifndef CONFIG_CPU_LITTLE_ENDIAN
++	/*riemer: fix for startup without cable */
++	if (!link)
++		dev->flags &= ~IFF_RUNNING;
++
+ 	control |= MAC_BIG_ENDIAN;
+ #endif
+ 	if (link && (dev->if_port == IF_PORT_100BASEFX)) {
 
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iD8DBQBF6Y+8/ETPhpq3jKURAicpAJkB5NTfipYJJcGOTkaj5uvYTThz5QCfd4wT
-WoILie/5wQ8RNV3v4bAQRos=
-=BQIh
------END PGP SIGNATURE-----
-
---=-cm3GG6m5wEiypEDQK5dz--
-
+--Boundary-00=_nnZ6FHRQrGggw8u--
