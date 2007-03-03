@@ -1,37 +1,50 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [RFC] div64_64 support
-Date: 03 Mar 2007 03:31:52 +0100
-Message-ID: <p73slcnawh3.fsf@bingen.suse.de>
-References: <20070223170527.4ca695b2@freekitty>
-	<Pine.LNX.4.61.0702262108010.23355@yvahk01.tjqt.qr>
-	<20070226143127.5c74bec9@freekitty>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] [USBNET] DM9501: Add Corega FEther USB-TXC support.
+Date: Fri, 02 Mar 2007 20:33:55 -0500
+Message-ID: <45E8D083.3010907@garzik.org>
+References: <20070301.164454.14331566.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jan Engelhardt <jengelh@linux01.gwdg.de>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Greg KH <greg@kroah.com>
+To: =?UTF-8?B?WU9TSElGVUpJIEhpZGVha2kgLyDlkInol6Toi7HmmI4=?=
+	<yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.suse.de ([195.135.220.15]:34916 "EHLO mx2.suse.de"
+Received: from srv5.dvmed.net ([207.36.208.214]:55766 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S2992880AbXCCBcP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Mar 2007 20:32:15 -0500
-In-Reply-To: <20070226143127.5c74bec9@freekitty>
+	id S2992826AbXCCBd7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Mar 2007 20:33:59 -0500
+In-Reply-To: <20070301.164454.14331566.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger <shemminger@linux-foundation.org> writes:
+YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E wrote:
+> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> ---
+>  drivers/usb/net/dm9601.c |    4 ++++
+>  1 files changed, 4 insertions(+), 0 deletions(-)
+>=20
+> diff --git a/drivers/usb/net/dm9601.c b/drivers/usb/net/dm9601.c
+> index 4a932e1..c0bc52b 100644
+> --- a/drivers/usb/net/dm9601.c
+> +++ b/drivers/usb/net/dm9601.c
+> @@ -571,6 +571,10 @@ static const struct driver_info dm9601_info =3D =
+{
+> =20
+>  static const struct usb_device_id products[] =3D {
+>  	{
+> +	 USB_DEVICE(0x07aa, 0x9601),	/* Corega FEther USB-TXC */
+> +	 .driver_info =3D (unsigned long)&dm9601_info,
+> +	 },
+> +	{
 
-> Here is another way to handle the 64 bit divide case.
-> It allows full 64 bit divide by adding the support routine
-> GCC needs.
 
-Not supplying that was intentional by Linus so that people
-think twice (or more often) before they using such expensive
-operations. A plain / looks too innocent.
+ACK the patch, though I wonder if this shouldn't instead go to Greg.
 
-Is it really needed by CUBIC anyways?  It uses it for getting
-the cubic root, but the algorithm recommended by Hacker's Delight
-(great book) doesn't use any divisions at all. Probably better 
-to use a better algorithm without divisions.
+Honestly, I would prefer that the USB net drivers were moved into=20
+drivers/net with the other net drivers, /then/ I would merge such=20
+patches.  We don't add drivers for PCI-based hardware to=20
+drivers/pci/net, after all...
 
--Andi
