@@ -1,36 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] udp: whitespace fixes
-Date: Fri, 02 Mar 2007 16:50:53 -0800 (PST)
-Message-ID: <20070302.165053.41877637.davem@davemloft.net>
-References: <20070302140449.1e86aef4@freekitty>
-	<20070302.155527.85408614.davem@davemloft.net>
-	<20070302164719.6dfc78c1@freekitty>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH] dma-mapping.h
+Date: Fri, 2 Mar 2007 16:57:23 -0800
+Message-ID: <20070302165723.9eb5ccd1.akpm@linux-foundation.org>
+References: <1171651858.16919.14.camel@dhcp-10-7-81-58.broadcom.com>
+	<45E8C4B6.4050302@garzik.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: shemminger@linux-foundation.org
+Cc: Gary Zambrano <zambrano@broadcom.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37344
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S2992815AbXCCAuz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Mar 2007 19:50:55 -0500
-In-Reply-To: <20070302164719.6dfc78c1@freekitty>
+Received: from smtp.osdl.org ([65.172.181.24]:50323 "EHLO smtp.osdl.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S2992810AbXCCA53 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Mar 2007 19:57:29 -0500
+In-Reply-To: <45E8C4B6.4050302@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Date: Fri, 2 Mar 2007 16:47:19 -0800
+On Fri, 02 Mar 2007 19:43:34 -0500
+Jeff Garzik <jeff@garzik.org> wrote:
 
-> Resend with less garbage...
+> Gary Zambrano wrote:
+> > Added dma_sync_single_range_for_cpu/device to dma-mapping.h in asm-arm &
+> > asm-avr32 to call dma_sync_single_for_cpu/device. This patch enables b44
+> > to compile on systems with these cpus.
+> > This patch was created with the assumption that another method of
+> > dma_sync_single_range_for_cpu/device does not exist on these
+> > architectures.
+> > 
+> > 
+> > Signed-off by: Gary Zambrano <zambrano@broadcom.com>
 > 
-> The udp code is full of bad indenting, extra whitespace and other
-> style confusion.  It makes no sense to declare functions that are used
-> outside the current file (extern) as inline.
+> this patch looks OK to me, but I'm not the one to apply it.  This should 
+> go through Andrew or linux-arch
 > 
-> Signed-off-by: Stephen Hemminger <shemminge@linux-foundation.org>
 
-Looks good, I'll try to apply this when I cut the net-2.6.22
-tree.
+yeah, I split this into separate arm and avr32 patches and queued them up a while
+back.  I need to send them off to Russell and Haavard.  But I'm a bit sluggish
+about forwarding things to the subsystem maintainers.  Perhaps because the
+resutls are so disappointing ;)
 
-Thanks.
