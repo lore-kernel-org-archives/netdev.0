@@ -1,43 +1,33 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [Bonding-devel] [PATCH 2/3] bonding: only receive ARPs for us
-Date: Fri, 02 Mar 2007 20:41:18 -0500
-Message-ID: <45E8D23E.40909@garzik.org>
-References: <200703010103.l2113R22030799@death.nxdomain.ibm.com> <45E8CEB0.3070204@garzik.org> <3729.1172885902@death>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [PATCH] ehea: Optional TX/RX path optimized for SMP
+Date: 03 Mar 2007 04:06:08 +0100
+Message-ID: <p73mz2vauvz.fsf@bingen.suse.de>
+References: <200702231730.58579.ossthema@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bonding-devel@lists.sourceforge.net
-To: Jay Vosburgh <fubar@us.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>,
+	Christoph Raisch <raisch@de.ibm.com>,
+	"Jan-Bernd Themann" <themann@de.ibm.com>,
+	"linux-kernel" <linux-kernel@vger.kernel.org>,
+	"linux-ppc" <linuxppc-dev@ozlabs.org>,
+	Marcus Eder <meder@de.ibm.com>,
+	Thomas Klein <tklein@de.ibm.com>,
+	Stefan Roscher <stefan.roscher@de.ibm.com>
+To: Jan-Bernd Themann <ossthema@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:55840 "EHLO mail.dvmed.net"
+Received: from mx2.suse.de ([195.135.220.15]:36666 "EHLO mx2.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S2992891AbXCCBlT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Mar 2007 20:41:19 -0500
-In-Reply-To: <3729.1172885902@death>
+	id S2992900AbXCCCGc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Mar 2007 21:06:32 -0500
+In-Reply-To: <200702231730.58579.ossthema@de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jay Vosburgh wrote:
-> Jeff Garzik <jeff@garzik.org> wrote:
+Jan-Bernd Themann <ossthema@de.ibm.com> writes:
 > 
->> Jay Vosburgh wrote:
->>> 	The ARP validation code only needs ARPs for the bonding device.
->>>
->>> Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
->> I seem to have lost the context of this.  Did this get discussed, and 
->> need further revision?
-> 
-> 	The further discussion can be (loosely) paraphrased as:
-> 
-> Andy Gospodarek <andy@greyhouse.net>: "Hey, this no workee with IPv6."
-> 
-> Me: "True, but bonding no workee with IPv6 at all."
-> 
-> Andy: "Oh, ok.  Ack."
-> 
-> 	After which followed some preliminary yakkage about fixing up
-> said non-workee IPv6 support.
+> Are there any concerns about this approach?
 
-thanks :)  I'll make sure the 3 patches go into #upstream-fixes
+Yes. You should fix the NAPI code instead of trying to work
+around it.
 
-
+-Andi
