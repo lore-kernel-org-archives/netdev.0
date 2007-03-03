@@ -1,39 +1,48 @@
 From: Chris Leech <christopher.leech@intel.com>
-Subject: [PATCH 5/9] I/OAT: Add documentation for the tcp_dma_copybreak sysctl
-Date: Fri, 02 Mar 2007 18:24:26 -0800
-Message-ID: <20070303022426.31033.35991.stgit@gitlost.site>
+Subject: [PATCH 1/9] ioatdma: Push pending transactions to hardware more frequently
+Date: Fri, 02 Mar 2007 18:24:17 -0800
+Message-ID: <20070303022417.31033.72244.stgit@gitlost.site>
 References: <20070303022238.31033.84558.stgit@gitlost.site>
 To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [63.64.152.142] ([63.64.152.142]:1461 "EHLO gitlost.site"
+Received: from [63.64.152.142] ([63.64.152.142]:1463 "EHLO gitlost.site"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S2992908AbXCCCjL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Mar 2007 21:39:11 -0500
+	id S2992909AbXCCCjM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Mar 2007 21:39:12 -0500
 In-Reply-To: <20070303022238.31033.84558.stgit@gitlost.site>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Every 20 descriptors turns out to be to few append commands with
+newer/faster CPUs.  Pushing every 4 still cuts down on MMIO writes to an
+acceptable level without letting the DMA engine run out of work.
+
 Signed-off-by: Chris Leech <christopher.leech@intel.com>
 ---
 
- Documentation/networking/ip-sysctl.txt |    6 ++++++
- 1 files changed, 6 insertions(+), 0 deletions(-)
+ drivers/dma/ioatdma.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index d3aae1f..9541691 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -413,6 +413,12 @@ tcp_workaround_signed_windows - BOOLEAN
- 	not receive a window scaling option from them.
- 	Default: 0
+diff --git a/drivers/dma/ioatdma.c b/drivers/dma/ioatdma.c
+index 8e87261..0f77a9d 100644
+--- a/drivers/dma/ioatdma.c
++++ b/drivers/dma/ioatdma.c
+@@ -310,7 +310,7 @@ static dma_cookie_t do_ioat_dma_memcpy(struct ioat_dma_chan *ioat_chan,
+ 	list_splice_init(&new_chain, ioat_chan->used_desc.prev);
  
-+tcp_dma_copybreak - INTEGER
-+	Lower limit, in bytes, of the size of socket reads that will be
-+	offloaded to a DMA copy engine, if one is present in the system
-+	and CONFIG_NET_DMA is enabled.
-+	Default: 4096
-+
- CIPSOv4 Variables:
+ 	ioat_chan->pending += desc_count;
+-	if (ioat_chan->pending >= 20) {
++	if (ioat_chan->pending >= 4) {
+ 		append = 1;
+ 		ioat_chan->pending = 0;
+ 	}
+@@ -818,7 +818,7 @@ static void __devexit ioat_remove(struct pci_dev *pdev)
+ }
  
- cipso_cache_enable - BOOLEAN
+ /* MODULE API */
+-MODULE_VERSION("1.7");
++MODULE_VERSION("1.9");
+ MODULE_LICENSE("GPL");
+ MODULE_AUTHOR("Intel Corporation");
+ 
 
