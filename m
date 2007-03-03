@@ -1,35 +1,40 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC 1/2] bridge: avoid ptype_all packet handling
-Date: Sat, 3 Mar 2007 17:42:22 +1100
-Message-ID: <20070303064222.GA1805@gondor.apana.org.au>
-References: <20070302.151803.74748558.davem@davemloft.net> <E1HNMxB-0000MP-00@gondolin.me.apana.org.au> <20070302.215905.74747266.davem@davemloft.net>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH] bridge: avoid ptype_all packet handling
+Date: Fri, 02 Mar 2007 23:09:14 -0800
+Message-ID: <45E91F1A.6050705@linux-foundation.org>
+References: <45E6802C.2090708@linux-foundation.org>	<20070228.233034.74746721.davem@davemloft.net>	<p733b4ncbui.fsf@bingen.suse.de> <20070302.202211.21926049.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: shemminger@linux-foundation.org, bridge@linux-foundation.org,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: andi@firstfloor.org, greearb@candelatech.com,
+	bridge@linux-foundation.org, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:4036 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751141AbXCCGmc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Mar 2007 01:42:32 -0500
-Content-Disposition: inline
-In-Reply-To: <20070302.215905.74747266.davem@davemloft.net>
+Received: from smtp.osdl.org ([65.172.181.24]:56250 "EHLO smtp.osdl.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751187AbXCCHJP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 3 Mar 2007 02:09:15 -0500
+In-Reply-To: <20070302.202211.21926049.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 02, 2007 at 09:59:05PM -0800, David Miller wrote:
-> 
-> So it's still a mystery why dhcp is causing bridge devices
-> to trigger the network tap paths on Stephen's machine.
+David Miller wrote:
+> From: Andi Kleen <andi@firstfloor.org>
+> Date: 03 Mar 2007 03:14:29 +0100
+>
+>   
+>> That's pretty common with many x86 server boards because 
+>> they come with two NICs by default but must people only
+>> plug the cable into one. However the distro installers
+>> run DHCP on all.
+>>     
+>
+> Nope, that's not what I've seen them do, instead they run dhcp on
+> interfaces that report a link being present.
+>   
 
-If this is the ISC DHCP daemon then perhaps it's because Stephen
-didn't specify an interface for it to listen on? By default it'll
-enumerate all broadcast interfaces and listen to each one of them.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Actually, It may be even simpler... I start bridge with a script and 
+there was still a dhclient
+left over running on the original interface.  It was an interesting 
+exercise, and I have new
+tools to help, but still no magic bullet to get up to full line rate.
