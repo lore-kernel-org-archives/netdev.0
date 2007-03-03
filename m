@@ -1,53 +1,83 @@
-From: "Chris Leech" <christopher.leech@intel.com>
-Subject: Re: [PATCH 1/9] ioatdma: Push pending transactions to hardware more frequently
-Date: Fri, 2 Mar 2007 22:00:00 -0800
-Message-ID: <41b516cb0703022200t50f8ad62wfa04030f11649ff2@mail.gmail.com>
-References: <20070303022238.31033.84558.stgit@gitlost.site>
-	 <20070303022417.31033.72244.stgit@gitlost.site>
-	 <45E8E81F.8070805@garzik.org>
-	 <20070302.202706.95898424.davem@davemloft.net>
-Reply-To: chris.leech@gmail.com
+From: Bill Fink <billfink@mindspring.com>
+Subject: Re: ppp and routing table rules.
+Date: Sat, 3 Mar 2007 00:54:55 -0500
+Message-ID: <20070303005455.86dd8059.billfink@mindspring.com>
+References: <45E7AC31.9030309@candelatech.com>
+	<45E7C45F.9080805@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: "David Miller" <davem@davemloft.net>
+Cc: NetDev <netdev@vger.kernel.org>
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nz-out-0506.google.com ([64.233.162.224]:36109 "EHLO
-	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933386AbXCCGAB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Mar 2007 01:00:01 -0500
-Received: by nz-out-0506.google.com with SMTP id s1so1087386nze
-        for <netdev@vger.kernel.org>; Fri, 02 Mar 2007 22:00:00 -0800 (PST)
-In-Reply-To: <20070302.202706.95898424.davem@davemloft.net>
-Content-Disposition: inline
+Received: from elasmtp-scoter.atl.sa.earthlink.net ([209.86.89.67]:47323 "EHLO
+	elasmtp-scoter.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S965085AbXCCGDu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 Mar 2007 01:03:50 -0500
+In-Reply-To: <45E7C45F.9080805@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> > This sounds like something that will always be wrong -- or in other
-> > words, always be right for only the latest CPUs.  Can this be made
-> > dynamic, based on some timing factor?
->
-> In fact I think this has been tweaked twice in the vanilla tree
-> already.
+On Thu, 01 Mar 2007, Ben Greear wrote:
 
-This is actually just the same tweak you remember me posting before
-and I never pushed to get it in mainline, but Jeff's right.  The
-problem isn't so much in the driver itself, as in how it's used by
-I/OAT in the TCP receive code, there are inherent assumptions about
-how long a context switch takes compared to how long an offloaded
-memcpy takes.
+> Ben Greear wrote:
+> 
+> I am sending udp packets through ppp400, and I see them appear on ppp401 
+> as expected.
+> 
+> The thing that is bothering me is that all I see on rddVR4 (172.1.2.1) 
+> is arps for 172.1.2.2, but the 'tell' IP is that of the
+> originating ppp400 link, not the IP of rddVR4, as I expected:
+> 
+> 21:47:16.119640 arp who-has 172.1.2.2 tell 11.1.1.3
+> 21:47:17.119371 arp who-has 172.1.2.2 tell 11.1.1.3
+> 21:47:18.119254 arp who-has 172.1.2.2 tell 11.1.1.3
+> 21:47:19.273118 arp who-has 172.1.2.2 tell 11.1.1.3
+> 
+> Unless I'm missing something dumb, a similar setup with all ethernet-ish 
+> network devices
+> works fine.
+> 
+> I have also enabled arp filtering:
+> # Only answer ARPs if it is for the IP on our own interface.
+> echo 2 > /proc/sys/net/ipv4/conf/all/arp_ignore
+> and for every device used in these routing tables:
+> echo 1 > /proc/sys/net/ipv4/conf/[dev]/arp_filter
+> 
+> Any idea what I need to do in order to make  the source IP for the ARP 
+> packet correct?
 
-I'm working on using completion interrupts for the device so as not to
-end up polling when the CPUs are faster than the code was tuned for,
-and doing it in a way that doesn't introduce extra context switches.
-I'm hoping to have something ready for 2.6.22, or at least ready for
-MM in that time frame.
+Wouldn't that be controlled by arp_announce?
 
-As for this change in the short term, we did go back and make sure
-that it didn't performance worse with the older CPUs supported on
-these platforms.  We should have tested more intermediate values
-instead of just jumping from 1 t o 20 for that threshold.
+arp_announce - INTEGER
+        Define different restriction levels for announcing the local
+        source IP address from IP packets in ARP requests sent on
+        interface:
+        0 - (default) Use any local address, configured on any interface
+        1 - Try to avoid local addresses that are not in the target's
+        subnet for this interface. This mode is useful when target
+        hosts reachable via this interface require the source IP
+        address in ARP requests to be part of their logical network
+        configured on the receiving interface. When we generate the
+        request we will check all our subnets that include the
+        target IP and will preserve the source address if it is from
+        such subnet. If there is no such subnet we select source
+        address according to the rules for level 2.
+        2 - Always use the best local address for this target.
+        In this mode we ignore the source address in the IP packet
+        and try to select local address that we prefer for talks with
+        the target host. Such local address is selected by looking
+        for primary IP addresses on all our subnets on the outgoing
+        interface that include the target IP address. If no suitable
+        local address is found we select the first local address
+        we have on the outgoing interface or on all other interfaces,
+        with the hope we will receive reply for our request and
+        even sometimes no matter the source IP address we announce.
 
-- Chris
+        The max value from conf/{all,interface}/arp_announce is used.
+
+        Increasing the restriction level gives more chance for
+        receiving answer from the resolved target while decreasing
+        the level announces more valid sender's information.
+
+						-Bill
