@@ -1,56 +1,96 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Extensible hashing and RCU
-Date: Sun, 04 Mar 2007 12:36:58 -0800 (PST)
-Message-ID: <20070304.123658.104032879.davem@davemloft.net>
-References: <f2b55d220703021245m5cd5d9eet5e5a9d0d8ffcea41@mail.gmail.com>
-	<20070303104620.GD22557@2ka.mipt.ru>
-	<f2b55d220703040202y7d6e5c72q8b5c8fd3d11fd06a@mail.gmail.com>
+From: Matt Mackall <mpm@selenic.com>
+Subject: Recent wireless breakage (ipw2200, iwconfig, NetworkManager)
+Date: Sun, 4 Mar 2007 16:08:57 -0600
+Message-ID: <20070304220857.GH23311@waste.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: johnpol@2ka.mipt.ru, dada1@cosmosbay.com, akepner@sgi.com,
-	linux@horizon.com, netdev@vger.kernel.org
-To: medwards.linux@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46416
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752474AbXCDUg7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Mar 2007 15:36:59 -0500
-In-Reply-To: <f2b55d220703040202y7d6e5c72q8b5c8fd3d11fd06a@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: Greg KH <greg@kroah.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, yi.zhu@intel.com, jketreno@linux.intel.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751834AbXCDWVj@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Michael K. Edwards" <medwards.linux@gmail.com>
-Date: Sun, 4 Mar 2007 02:02:36 -0800
+Recent kernels are having troubles with wireless for me. Two seemingly
+related problems:
 
-> On 3/3/07, Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
-> > Btw, you could try to implement something you have written above to show
-> > its merits, so that it would not be an empty words :)
-> 
-> Before I implement, I design.  Before I design, I analyze.  Before I
-> analyze, I prototype.  Before I prototype, I gather requirements.
+a) NetworkManager seems oblivious to the existence of my IPW2200
+b) Manual iwconfig waits for 60s and then reports:
 
-How the heck do you ever get to writing ANYTHING if you work that way?
+Error for wireless request "Set Encode" (8B2A) :
+    SET failed on device eth1 ; Operation not supported.
 
-I certainly would never have written one single line of Linux kernel
-code if I had to go through that kind of sequence to actually get to
-writing code.
+During this time, my keyboard in X is unresponsive, but everything
+else seems to be functioning properly. Queued keypresses eventually
+show up. Alt-sysrq-w gives:
 
-And that's definitely not the "Linux way".  You code up ideas as soon
-as you come up with one that has a chance of working, and you see what
-happens.  Sure, you'll throw a lot away, but at least you will "know"
-instead of "think".
+ieee80211_crypt: registered algorithm 'WEP'
+SysRq : Show Blocked State
 
-You have to try things, "DO" stuff, not just sit around and theorize
-and design things and shoot down ideas on every negative minute detail
-you can come up with before you type any code in.  That mode of
-development doesn't inspire people and get a lot of code written.
+                         free                        sibling
+  task             PC    stack   pid father child younger older
+events/0      D C0102D3C     0     4      1             5     3
+(L-TLB)
+       c1d0bf1c 00000046 c1d0ac20 c0102d3c 00000000 c1d0aa70 00000022
+       0000000a
+       c1d0aa70 ca8ed618 00000034 00000cd3 c1d0ab7c 00000287 00000002
+       f581f040
+       00000002 c1d0bf34 00000246 f7b5cb04 c1d0aa70 c038224e c0102c3a
+       00000000
+Call Trace:
+ [<c0102d3c>] __switch_to+0x11b/0x143
+ [<c038224e>] __mutex_lock_slowpath+0xfb/0x1e2
+ [<c0102c3a>] __switch_to+0x19/0x143
+ [<f994a291>] ipw_bg_link_down+0x19/0xbd [ipw2200]
+ [<f994a278>] ipw_bg_link_down+0x0/0xbd [ipw2200]
+ [<c0122604>] run_workqueue+0x97/0x156
+ [<c0122bc7>] worker_thread+0x105/0x12e
+ [<c0112399>] default_wake_function+0x0/0xc
+ [<c0122ac2>] worker_thread+0x0/0x12e
+ [<c01251f7>] kthread+0xa0/0xc9
+ [<c0125157>] kthread+0x0/0xc9
+ [<c0103f87>] kernel_thread_helper+0x7/0x10
+ =======================
+ipw2200/0     D 00000020     0  1985      6          2260  1983
+(L-TLB)
+       f7981f24 00000046 00000001 00000020 c1cdf8c0 00000000 00000000
+       0000000a
+       f7d09030 e1fdc8c3 00000034 0000093a f7d0913c 00000086 00000020
+       f7c4a740
+       00000086 f7981f3c 00000246 f7b5cb04 f7d09030 c038224e f7d09030
+       c0496550
+Call Trace:
+ [<c038224e>] __mutex_lock_slowpath+0xfb/0x1e2
+ [<c0381233>] __sched_text_start+0x4b3/0x56b
+ [<f99445c6>] ipw_bg_gather_stats+0x0/0x27 [ipw2200]
+ [<f99445dd>] ipw_bg_gather_stats+0x17/0x27 [ipw2200]
+ [<c0122604>] run_workqueue+0x97/0x156
+ [<c0122bc7>] worker_thread+0x105/0x12e
+ [<c0112399>] default_wake_function+0x0/0xc
+ [<c0122ac2>] worker_thread+0x0/0x12e
+ [<c01251f7>] kthread+0xa0/0xc9
+ [<c0125157>] kthread+0x0/0xc9
+ [<c0103f87>] kernel_thread_helper+0x7/0x10
+ =======================
+ieee80211_crypt_wep: could not allocate crypto API arc4
+eth1: could not initialize WEP: load module ieee80211_crypt_wep
+ADDRCONF(NETDEV_UP): eth1: link is not ready
 
-I definitely do not think others should use this
-design/prototype/analyze/blah/balh way of developing as an example,
-instead I think folks should use people like Ingo Molnar as an example
-of a good Linux developer.  People like Ingo rewrite the scheduler one
-night because of a tiny cool idea, and even if only 1 out of 10 hacks
-like that turn out to be useful, his work is invaluable and since he's
-actually trying to do things and writing lots of code this inspires
-other people.
+A second attempt to enable WEP via iwconfig succeeds and network
+connectivity is normal. However, NetworkManager still ignores the
+device at this point.
+
+Bisect with Mercurial points to this patch:
+
+$ hg bisect bad
+The first bad revision is:
+changeset:   46985:f701b96bb2f7
+user:        Greg Kroah-Hartman <gregkh@suse.de>
+date:        Wed Feb 07 10:37:11 2007 -0800
+summary:     Network: convert network devices to use struct device
+instead of class_device
+
+which corresponds to 43cb76d91ee85f579a69d42bc8efc08bac560278 in git.
+
+-- 
+ "Love the dolphins," she advised him. "Write by W.A.S.T.E.." 
