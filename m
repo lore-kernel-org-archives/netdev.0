@@ -1,70 +1,114 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [RFC IPROUTE 08/08]: Increase internal clock resolution to nsec
-Date: Sun,  4 Mar 2007 20:15:04 +0100 (MET)
-Message-ID: <20070304191413.22838.98460.sendpatchset@localhost.localdomain>
+Subject: [RFC IPROUTE 06/08]: Add sprint_ticks() function and use in CBQ
+Date: Sun,  4 Mar 2007 20:15:01 +0100 (MET)
+Message-ID: <20070304191410.22838.26864.sendpatchset@localhost.localdomain>
 References: <20070304191402.22838.91224.sendpatchset@localhost.localdomain>
 Cc: Patrick McHardy <kaber@trash.net>, shemminger@linux-foundation.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:61736 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:61734 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752434AbXCDTPF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Mar 2007 14:15:05 -0500
+	with ESMTP id S1752422AbXCDTPD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Mar 2007 14:15:03 -0500
 In-Reply-To: <20070304191402.22838.91224.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[IPROUTE]: Increase internal clock resolution to nsec
+[IPROUTE]: Add sprint_ticks() function and use in CBQ
+
+Add helper function to print ticks to avoid assumptions about clock
+resolution in CBQ.
 
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 
 ---
-commit 8a76c51f61dd3881bba35f8c73aaa92eabaf50da
-tree d4b252b801a14ee19ed77d4a06daaacd8c17b495
-parent 0e0db5d408bdac33eadd9d947c0e6904df26ab8f
+commit 5950296ff76ba81593928a2ee89757d69b2acba9
+tree aca072937195b2011c9f64a305716ddfc1b40c66
+parent c2cf24282b2a051942b18fbf894a9c1b490d925c
 author Patrick McHardy <kaber@trash.net> Sat, 03 Mar 2007 20:30:50 +0100
 committer Patrick McHardy <kaber@trash.net> Sat, 03 Mar 2007 20:30:50 +0100
 
- tc/tc_core.h |    2 +-
- tc/tc_util.c |    7 ++++++-
- 2 files changed, 7 insertions(+), 2 deletions(-)
+ tc/q_cbq.c   |    7 ++++---
+ tc/q_netem.c |    6 ------
+ tc/tc_util.c |    5 +++++
+ tc/tc_util.h |    1 +
+ 4 files changed, 10 insertions(+), 9 deletions(-)
 
-diff --git a/tc/tc_core.h b/tc/tc_core.h
-index a139da6..28bf97a 100644
---- a/tc/tc_core.h
-+++ b/tc/tc_core.h
-@@ -4,7 +4,7 @@ #define _TC_CORE_H_ 1
- #include <asm/types.h>
- #include <linux/pkt_sched.h>
+diff --git a/tc/q_cbq.c b/tc/q_cbq.c
+index 913b26a..f2b4ce8 100644
+--- a/tc/q_cbq.c
++++ b/tc/q_cbq.c
+@@ -418,6 +418,7 @@ static int cbq_print_opt(struct qdisc_ut
+ 	struct tc_cbq_wrropt *wrr = NULL;
+ 	struct tc_cbq_fopt *fopt = NULL;
+ 	struct tc_cbq_ovl *ovl = NULL;
++	SPRINT_BUF(b1);
  
--#define TIME_UNITS_PER_SEC	1000000
-+#define TIME_UNITS_PER_SEC	1000000000
- 
- int  tc_core_time2big(long time);
- long tc_core_time2tick(long time);
-diff --git a/tc/tc_util.c b/tc/tc_util.c
-index a7e4257..a07c6aa 100644
---- a/tc/tc_util.c
-+++ b/tc/tc_util.c
-@@ -228,6 +228,9 @@ int get_time(unsigned *time, const char 
- 		else if (strcasecmp(p, "us") == 0 || strcasecmp(p, "usec")==0 ||
- 			 strcasecmp(p, "usecs") == 0)
- 			t *= TIME_UNITS_PER_SEC/1000000;
-+		else if (strcasecmp(p, "ns") == 0 || strcasecmp(p, "nsec")==0 ||
-+			 strcasecmp(p, "nsecs") == 0)
-+			t *= TIME_UNITS_PER_SEC/1000000000;
- 		else
- 			return -1;
- 	}
-@@ -245,8 +248,10 @@ void print_time(char *buf, int len, __u3
- 		snprintf(buf, len, "%.1fs", tmp/TIME_UNITS_PER_SEC);
- 	else if (tmp >= TIME_UNITS_PER_SEC/1000)
- 		snprintf(buf, len, "%.1fms", tmp/(TIME_UNITS_PER_SEC/1000));
-+	else if (tmp >= TIME_UNITS_PER_SEC/1000000)
-+		snprintf(buf, len, "%.1fus", tmp/(TIME_UNITS_PER_SEC/1000000));
- 	else
--		snprintf(buf, len, "%uus", time);
-+		snprintf(buf, len, "%uns", time);
+ 	if (opt == NULL)
+ 		return 0;
+@@ -500,17 +501,17 @@ static int cbq_print_opt(struct qdisc_ut
+ 	if (lss && show_details) {
+ 		fprintf(f, "\nlevel %u ewma %u avpkt %ub ", lss->level, lss->ewma_log, lss->avpkt);
+ 		if (lss->maxidle) {
+-			fprintf(f, "maxidle %luus ", tc_core_tick2time(lss->maxidle>>lss->ewma_log));
++			fprintf(f, "maxidle %s ", sprint_ticks(lss->maxidle>>lss->ewma_log, b1));
+ 			if (show_raw)
+ 				fprintf(f, "[%08x] ", lss->maxidle);
+ 		}
+ 		if (lss->minidle!=0x7fffffff) {
+-			fprintf(f, "minidle %luus ", tc_core_tick2time(lss->minidle>>lss->ewma_log));
++			fprintf(f, "minidle %s ", sprint_ticks(lss->minidle>>lss->ewma_log, b1));
+ 			if (show_raw)
+ 				fprintf(f, "[%08x] ", lss->minidle);
+ 		}
+ 		if (lss->offtime) {
+-			fprintf(f, "offtime %luus ", tc_core_tick2time(lss->offtime));
++			fprintf(f, "offtime %s ", sprint_ticks(lss->offtime, b1));
+ 			if (show_raw)
+ 				fprintf(f, "[%08x] ", lss->offtime);
+ 		}
+diff --git a/tc/q_netem.c b/tc/q_netem.c
+index 6035c4f..67a2ff3 100644
+--- a/tc/q_netem.c
++++ b/tc/q_netem.c
+@@ -120,12 +120,6 @@ static int get_ticks(__u32 *ticks, const
+ 	return 0;
  }
  
- char * sprint_time(__u32 time, char *buf)
+-static char *sprint_ticks(__u32 ticks, char *buf)
+-{
+-	return sprint_usecs(tc_core_tick2usec(ticks), buf);
+-}
+-
+-
+ static int netem_parse_opt(struct qdisc_util *qu, int argc, char **argv,
+ 			   struct nlmsghdr *n)
+ {
+diff --git a/tc/tc_util.c b/tc/tc_util.c
+index b73fae9..a7e4257 100644
+--- a/tc/tc_util.c
++++ b/tc/tc_util.c
+@@ -255,6 +255,11 @@ char * sprint_time(__u32 time, char *buf
+ 	return buf;
+ }
+ 
++char * sprint_ticks(__u32 ticks, char *buf)
++{
++	return sprint_time(tc_core_tick2time(ticks), buf);
++}
++
+ int get_size(unsigned *size, const char *str)
+ {
+ 	double sz;
+diff --git a/tc/tc_util.h b/tc/tc_util.h
+index b713cf1..eade72d 100644
+--- a/tc/tc_util.h
++++ b/tc/tc_util.h
+@@ -57,6 +57,7 @@ extern char * sprint_size(__u32 size, ch
+ extern char * sprint_qdisc_handle(__u32 h, char *buf);
+ extern char * sprint_tc_classid(__u32 h, char *buf);
+ extern char * sprint_time(__u32 time, char *buf);
++extern char * sprint_ticks(__u32 ticks, char *buf);
+ extern char * sprint_percent(__u32 percent, char *buf);
+ 
+ extern void print_tcstats_attr(FILE *fp, struct rtattr *tb[], char *prefix, struct rtattr **xstats);
