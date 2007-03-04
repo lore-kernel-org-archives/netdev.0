@@ -1,93 +1,56 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: [RFC IPROUTE 07/08]: Handle different kernel clock resolutions
-Date: Sun,  4 Mar 2007 20:15:03 +0100 (MET)
-Message-ID: <20070304191412.22838.24161.sendpatchset@localhost.localdomain>
-References: <20070304191402.22838.91224.sendpatchset@localhost.localdomain>
-Cc: Patrick McHardy <kaber@trash.net>, shemminger@linux-foundation.org
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: Extensible hashing and RCU
+Date: Sun, 04 Mar 2007 12:36:58 -0800 (PST)
+Message-ID: <20070304.123658.104032879.davem@davemloft.net>
+References: <f2b55d220703021245m5cd5d9eet5e5a9d0d8ffcea41@mail.gmail.com>
+	<20070303104620.GD22557@2ka.mipt.ru>
+	<f2b55d220703040202y7d6e5c72q8b5c8fd3d11fd06a@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: johnpol@2ka.mipt.ru, dada1@cosmosbay.com, akepner@sgi.com,
+	linux@horizon.com, netdev@vger.kernel.org
+To: medwards.linux@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:61742 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752444AbXCDTPE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Mar 2007 14:15:04 -0500
-In-Reply-To: <20070304191402.22838.91224.sendpatchset@localhost.localdomain>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46416
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752474AbXCDUg7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Mar 2007 15:36:59 -0500
+In-Reply-To: <f2b55d220703040202y7d6e5c72q8b5c8fd3d11fd06a@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[IPROUTE]: Handle different kernel clock resolutions
+From: "Michael K. Edwards" <medwards.linux@gmail.com>
+Date: Sun, 4 Mar 2007 02:02:36 -0800
 
-Signed-off-by: Patrick McHardy <kaber@trash.net>
+> On 3/3/07, Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
+> > Btw, you could try to implement something you have written above to show
+> > its merits, so that it would not be an empty words :)
+> 
+> Before I implement, I design.  Before I design, I analyze.  Before I
+> analyze, I prototype.  Before I prototype, I gather requirements.
 
----
-commit 0e0db5d408bdac33eadd9d947c0e6904df26ab8f
-tree 950a6f47287bec01e5996bec3f1141b60f3f6f6a
-parent 5950296ff76ba81593928a2ee89757d69b2acba9
-author Patrick McHardy <kaber@trash.net> Sat, 03 Mar 2007 20:30:50 +0100
-committer Patrick McHardy <kaber@trash.net> Sat, 03 Mar 2007 20:30:50 +0100
+How the heck do you ever get to writing ANYTHING if you work that way?
 
- tc/tc_core.c |   26 +++++++++++++++++++-------
- 1 files changed, 19 insertions(+), 7 deletions(-)
+I certainly would never have written one single line of Linux kernel
+code if I had to go through that kind of sequence to actually get to
+writing code.
 
-diff --git a/tc/tc_core.c b/tc/tc_core.c
-index e27254e..58155fb 100644
---- a/tc/tc_core.c
-+++ b/tc/tc_core.c
-@@ -23,9 +23,8 @@ #include <string.h>
- 
- #include "tc_core.h"
- 
--static __u32 t2us=1;
--static __u32 us2t=1;
- static double tick_in_usec = 1;
-+static double clock_factor = 1;
- 
- int tc_core_time2big(long time)
- {
-@@ -48,12 +47,12 @@ long tc_core_tick2time(long tick)
- 
- long tc_core_time2ktime(long time)
- {
--	return time;
-+	return time * clock_factor;
- }
- 
- long tc_core_ktime2time(long ktime)
- {
--	return ktime;
-+	return ktime / clock_factor;
- }
- 
- unsigned tc_calc_xmittime(unsigned rate, unsigned size)
-@@ -98,16 +97,29 @@ int tc_calc_rtable(unsigned bps, __u32 *
- 
- int tc_core_init()
- {
--	FILE *fp = fopen("/proc/net/psched", "r");
-+	FILE *fp;
-+	__u32 clock_res;
-+	__u32 t2us;
-+	__u32 us2t;
- 
-+	fp = fopen("/proc/net/psched", "r");
- 	if (fp == NULL)
- 		return -1;
- 
--	if (fscanf(fp, "%08x%08x", &t2us, &us2t) != 2) {
-+	if (fscanf(fp, "%08x%08x%08x", &t2us, &us2t, &clock_res) != 3) {
- 		fclose(fp);
- 		return -1;
- 	}
- 	fclose(fp);
--	tick_in_usec = (double)t2us/us2t;
-+
-+	/* compatibility hack: for old iproute binaries (ignoring
-+	 * the kernel clock resolution) the kernel advertises a
-+	 * tick multiplier of 1000 in case of nano-second resolution,
-+	 * which really is 1. */
-+	if (clock_res == 1000000000)
-+		t2us = us2t;
-+
-+	clock_factor  = (double)clock_res / TIME_UNITS_PER_SEC;
-+	tick_in_usec = (double)t2us / us2t * clock_factor;
- 	return 0;
- }
+And that's definitely not the "Linux way".  You code up ideas as soon
+as you come up with one that has a chance of working, and you see what
+happens.  Sure, you'll throw a lot away, but at least you will "know"
+instead of "think".
+
+You have to try things, "DO" stuff, not just sit around and theorize
+and design things and shoot down ideas on every negative minute detail
+you can come up with before you type any code in.  That mode of
+development doesn't inspire people and get a lot of code written.
+
+I definitely do not think others should use this
+design/prototype/analyze/blah/balh way of developing as an example,
+instead I think folks should use people like Ingo Molnar as an example
+of a good Linux developer.  People like Ingo rewrite the scheduler one
+night because of a tiny cool idea, and even if only 1 out of 10 hacks
+like that turn out to be useful, his work is invaluable and since he's
+actually trying to do things and writing lots of code this inspires
+other people.
