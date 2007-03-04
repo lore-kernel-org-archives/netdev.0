@@ -1,56 +1,57 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [RFC IPROUTE 00/08]: Time cleanups + nano-second clock resolution support
-Date: Sun,  4 Mar 2007 20:14:53 +0100 (MET)
-Message-ID: <20070304191402.22838.91224.sendpatchset@localhost.localdomain>
+Subject: [RFC IPROUTE 01/08]: tbf: fix latency printing
+Date: Sun,  4 Mar 2007 20:14:55 +0100 (MET)
+Message-ID: <20070304191404.22838.45177.sendpatchset@localhost.localdomain>
+References: <20070304191402.22838.91224.sendpatchset@localhost.localdomain>
 Cc: Patrick McHardy <kaber@trash.net>, shemminger@linux-foundation.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:61720 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:61722 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752411AbXCDTOy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Mar 2007 14:14:54 -0500
+	with ESMTP id S1751988AbXCDTO4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Mar 2007 14:14:56 -0500
+In-Reply-To: <20070304191402.22838.91224.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patchset consists of four parts:
+[IPROUTE]: tbf: fix latency printing
 
-- minor TBF time conversion fix
+The calculated latency is already in usecs, the additional tick2usec
+conversion breaks the calculation with jiffies or tsc clock source.
 
-- consolidation of time calculations: consolidate commonly used expressions
-  with the goal of making it easier to audit for integer overflows when
-  increasing the internally used clock resolution.
+Example:
+
+# tc qdisc add dev dummy0 root tbf latency 20ms burst 10k rate 50mbit
+# tc qdisc show dev dummy0
+qdisc tbf 8002: rate 50000Kbit burst 10Kb lat 15.4ms 
+
+Fixed:
+
+# tc qdisc show dev dummy0
+qdisc tbf 8002: rate 50000Kbit burst 10Kb lat 20ms
+
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+
+---
+commit b17ff630348093476b7679b421aba1797f3d6466
+tree 95acccdac41e6eeeb0a9b270b43d8e0c747f2524
+parent 40076f622e0aacb2b792d3ac1b5d12aa97c4da9c
+author Patrick McHardy <kaber@trash.net> Sat, 03 Mar 2007 19:31:16 +0100
+committer Patrick McHardy <kaber@trash.net> Sat, 03 Mar 2007 19:31:16 +0100
+
+ tc/q_tbf.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/tc/q_tbf.c b/tc/q_tbf.c
+index b8251cb..b50519f 100644
+--- a/tc/q_tbf.c
++++ b/tc/q_tbf.c
+@@ -251,7 +251,7 @@ static int tbf_print_opt(struct qdisc_ut
+ 		if (lat2 > latency)
+ 			latency = lat2;
+ 	}
+-	fprintf(f, "lat %s ", sprint_usecs(tc_core_tick2usec(latency), b1));
++	fprintf(f, "lat %s ", sprint_usecs(latency, b1));
  
-- support for detecting the clock resolution used by the kernel and converting
-  time values as necessary.
-
-- finally, increase the internally used clock resolution to nano-seconds
-
-These patches have been tested (well, TBF and HFSC) with both old kernels
-and patched kernels using nano-second resolution.
-
-
- tc/m_estimator.c  |    4 +--
- tc/m_police.c     |    2 -
- tc/q_cbq.c        |   15 +++++++------
- tc/q_hfsc.c       |   18 +++++++--------
- tc/q_htb.c        |    4 +--
- tc/q_netem.c      |   14 +++---------
- tc/q_tbf.c        |   22 +++++++++----------
- tc/tc_cbq.c       |    8 +++----
- tc/tc_core.c      |   61 ++++++++++++++++++++++++++++++++++++++----------------
- tc/tc_core.h      |   13 +++++++----
- tc/tc_estimator.c |    2 -
- tc/tc_red.c       |    2 -
- tc/tc_util.c      |   40 ++++++++++++++++++++++-------------
- tc/tc_util.h      |    7 +++---
- 14 files changed, 125 insertions(+), 87 deletions(-)
-
-Patrick McHardy:
-      [IPROUTE]: tbf: fix latency printing
-      [IPROUTE]: Use tc_calc_xmittime() where appropriate
-      [IPROUTE]: Introduce tc_calc_xmitsize and use where appropriate
-      [IPROUTE]: Introduce TIME_UNITS_PER_SEC to represent internal clock resolution
-      [IPROUTE]: Replace "usec" by "time" in function names
-      [IPROUTE]: Add sprint_ticks() function and use in CBQ
-      [IPROUTE]: Handle different kernel clock resolutions
-      [IPROUTE]: Increase internal clock resolution to nsec
+ 	return 0;
+ }
