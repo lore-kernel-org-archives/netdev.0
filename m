@@ -1,114 +1,93 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [RFC IPROUTE 06/08]: Add sprint_ticks() function and use in CBQ
-Date: Sun,  4 Mar 2007 20:15:01 +0100 (MET)
-Message-ID: <20070304191410.22838.26864.sendpatchset@localhost.localdomain>
+Subject: [RFC IPROUTE 07/08]: Handle different kernel clock resolutions
+Date: Sun,  4 Mar 2007 20:15:03 +0100 (MET)
+Message-ID: <20070304191412.22838.24161.sendpatchset@localhost.localdomain>
 References: <20070304191402.22838.91224.sendpatchset@localhost.localdomain>
 Cc: Patrick McHardy <kaber@trash.net>, shemminger@linux-foundation.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:61734 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:61742 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752422AbXCDTPD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Mar 2007 14:15:03 -0500
+	with ESMTP id S1752444AbXCDTPE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Mar 2007 14:15:04 -0500
 In-Reply-To: <20070304191402.22838.91224.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[IPROUTE]: Add sprint_ticks() function and use in CBQ
-
-Add helper function to print ticks to avoid assumptions about clock
-resolution in CBQ.
+[IPROUTE]: Handle different kernel clock resolutions
 
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 
 ---
-commit 5950296ff76ba81593928a2ee89757d69b2acba9
-tree aca072937195b2011c9f64a305716ddfc1b40c66
-parent c2cf24282b2a051942b18fbf894a9c1b490d925c
+commit 0e0db5d408bdac33eadd9d947c0e6904df26ab8f
+tree 950a6f47287bec01e5996bec3f1141b60f3f6f6a
+parent 5950296ff76ba81593928a2ee89757d69b2acba9
 author Patrick McHardy <kaber@trash.net> Sat, 03 Mar 2007 20:30:50 +0100
 committer Patrick McHardy <kaber@trash.net> Sat, 03 Mar 2007 20:30:50 +0100
 
- tc/q_cbq.c   |    7 ++++---
- tc/q_netem.c |    6 ------
- tc/tc_util.c |    5 +++++
- tc/tc_util.h |    1 +
- 4 files changed, 10 insertions(+), 9 deletions(-)
+ tc/tc_core.c |   26 +++++++++++++++++++-------
+ 1 files changed, 19 insertions(+), 7 deletions(-)
 
-diff --git a/tc/q_cbq.c b/tc/q_cbq.c
-index 913b26a..f2b4ce8 100644
---- a/tc/q_cbq.c
-+++ b/tc/q_cbq.c
-@@ -418,6 +418,7 @@ static int cbq_print_opt(struct qdisc_ut
- 	struct tc_cbq_wrropt *wrr = NULL;
- 	struct tc_cbq_fopt *fopt = NULL;
- 	struct tc_cbq_ovl *ovl = NULL;
-+	SPRINT_BUF(b1);
+diff --git a/tc/tc_core.c b/tc/tc_core.c
+index e27254e..58155fb 100644
+--- a/tc/tc_core.c
++++ b/tc/tc_core.c
+@@ -23,9 +23,8 @@ #include <string.h>
  
- 	if (opt == NULL)
- 		return 0;
-@@ -500,17 +501,17 @@ static int cbq_print_opt(struct qdisc_ut
- 	if (lss && show_details) {
- 		fprintf(f, "\nlevel %u ewma %u avpkt %ub ", lss->level, lss->ewma_log, lss->avpkt);
- 		if (lss->maxidle) {
--			fprintf(f, "maxidle %luus ", tc_core_tick2time(lss->maxidle>>lss->ewma_log));
-+			fprintf(f, "maxidle %s ", sprint_ticks(lss->maxidle>>lss->ewma_log, b1));
- 			if (show_raw)
- 				fprintf(f, "[%08x] ", lss->maxidle);
- 		}
- 		if (lss->minidle!=0x7fffffff) {
--			fprintf(f, "minidle %luus ", tc_core_tick2time(lss->minidle>>lss->ewma_log));
-+			fprintf(f, "minidle %s ", sprint_ticks(lss->minidle>>lss->ewma_log, b1));
- 			if (show_raw)
- 				fprintf(f, "[%08x] ", lss->minidle);
- 		}
- 		if (lss->offtime) {
--			fprintf(f, "offtime %luus ", tc_core_tick2time(lss->offtime));
-+			fprintf(f, "offtime %s ", sprint_ticks(lss->offtime, b1));
- 			if (show_raw)
- 				fprintf(f, "[%08x] ", lss->offtime);
- 		}
-diff --git a/tc/q_netem.c b/tc/q_netem.c
-index 6035c4f..67a2ff3 100644
---- a/tc/q_netem.c
-+++ b/tc/q_netem.c
-@@ -120,12 +120,6 @@ static int get_ticks(__u32 *ticks, const
+ #include "tc_core.h"
+ 
+-static __u32 t2us=1;
+-static __u32 us2t=1;
+ static double tick_in_usec = 1;
++static double clock_factor = 1;
+ 
+ int tc_core_time2big(long time)
+ {
+@@ -48,12 +47,12 @@ long tc_core_tick2time(long tick)
+ 
+ long tc_core_time2ktime(long time)
+ {
+-	return time;
++	return time * clock_factor;
+ }
+ 
+ long tc_core_ktime2time(long ktime)
+ {
+-	return ktime;
++	return ktime / clock_factor;
+ }
+ 
+ unsigned tc_calc_xmittime(unsigned rate, unsigned size)
+@@ -98,16 +97,29 @@ int tc_calc_rtable(unsigned bps, __u32 *
+ 
+ int tc_core_init()
+ {
+-	FILE *fp = fopen("/proc/net/psched", "r");
++	FILE *fp;
++	__u32 clock_res;
++	__u32 t2us;
++	__u32 us2t;
+ 
++	fp = fopen("/proc/net/psched", "r");
+ 	if (fp == NULL)
+ 		return -1;
+ 
+-	if (fscanf(fp, "%08x%08x", &t2us, &us2t) != 2) {
++	if (fscanf(fp, "%08x%08x%08x", &t2us, &us2t, &clock_res) != 3) {
+ 		fclose(fp);
+ 		return -1;
+ 	}
+ 	fclose(fp);
+-	tick_in_usec = (double)t2us/us2t;
++
++	/* compatibility hack: for old iproute binaries (ignoring
++	 * the kernel clock resolution) the kernel advertises a
++	 * tick multiplier of 1000 in case of nano-second resolution,
++	 * which really is 1. */
++	if (clock_res == 1000000000)
++		t2us = us2t;
++
++	clock_factor  = (double)clock_res / TIME_UNITS_PER_SEC;
++	tick_in_usec = (double)t2us / us2t * clock_factor;
  	return 0;
  }
- 
--static char *sprint_ticks(__u32 ticks, char *buf)
--{
--	return sprint_usecs(tc_core_tick2usec(ticks), buf);
--}
--
--
- static int netem_parse_opt(struct qdisc_util *qu, int argc, char **argv,
- 			   struct nlmsghdr *n)
- {
-diff --git a/tc/tc_util.c b/tc/tc_util.c
-index b73fae9..a7e4257 100644
---- a/tc/tc_util.c
-+++ b/tc/tc_util.c
-@@ -255,6 +255,11 @@ char * sprint_time(__u32 time, char *buf
- 	return buf;
- }
- 
-+char * sprint_ticks(__u32 ticks, char *buf)
-+{
-+	return sprint_time(tc_core_tick2time(ticks), buf);
-+}
-+
- int get_size(unsigned *size, const char *str)
- {
- 	double sz;
-diff --git a/tc/tc_util.h b/tc/tc_util.h
-index b713cf1..eade72d 100644
---- a/tc/tc_util.h
-+++ b/tc/tc_util.h
-@@ -57,6 +57,7 @@ extern char * sprint_size(__u32 size, ch
- extern char * sprint_qdisc_handle(__u32 h, char *buf);
- extern char * sprint_tc_classid(__u32 h, char *buf);
- extern char * sprint_time(__u32 time, char *buf);
-+extern char * sprint_ticks(__u32 ticks, char *buf);
- extern char * sprint_percent(__u32 percent, char *buf);
- 
- extern void print_tcstats_attr(FILE *fp, struct rtattr *tb[], char *prefix, struct rtattr **xstats);
