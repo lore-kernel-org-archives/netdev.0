@@ -1,53 +1,105 @@
-From: "Michael K. Edwards" <medwards.linux@gmail.com>
-Subject: Re: Extensible hashing and RCU
-Date: Sun, 4 Mar 2007 02:02:36 -0800
-Message-ID: <f2b55d220703040202y7d6e5c72q8b5c8fd3d11fd06a@mail.gmail.com>
-References: <20070204074143.26312.qmail@science.horizon.com>
-	 <20070217131302.GA22732@2ka.mipt.ru>
-	 <20070302085246.GA30951@2ka.mipt.ru>
-	 <200703021056.24100.dada1@cosmosbay.com>
-	 <f2b55d220703021245m5cd5d9eet5e5a9d0d8ffcea41@mail.gmail.com>
-	 <20070303104620.GD22557@2ka.mipt.ru>
+From: Florian Zumbiehl <florz@gmx.de>
+Subject: Re: [PATCH][BUG][SECURITY] Re: Weird problem with PPPoE on tap interface
+Date: Sun, 4 Mar 2007 13:09:39 +0100
+Message-ID: <20070304120939.GG28150@florz.florz.dyndns.org>
+References: <20070228123844.GA28150@florz.florz.dyndns.org> <20070302.131814.23015047.davem@davemloft.net> <20070304015516.GE28150@florz.florz.dyndns.org> <20070303.210843.41636777.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Eric Dumazet" <dada1@cosmosbay.com>, akepner@sgi.com,
-	linux@horizon.com, davem@davemloft.net, netdev@vger.kernel.org
-To: "Evgeniy Polyakov" <johnpol@2ka.mipt.ru>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, mostrows@speakeasy.net
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.226]:22569 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751527AbXCDKCn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Mar 2007 05:02:43 -0500
-Received: by wx-out-0506.google.com with SMTP id h31so1251235wxd
-        for <netdev@vger.kernel.org>; Sun, 04 Mar 2007 02:02:42 -0800 (PST)
-In-Reply-To: <20070303104620.GD22557@2ka.mipt.ru>
+Received: from odnb-d9bbf844.pool.mediaWays.net ([217.187.248.68]:2784 "EHLO
+	rain.florz.dyndns.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751461AbXCDMJp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Mar 2007 07:09:45 -0500
 Content-Disposition: inline
+In-Reply-To: <20070303.210843.41636777.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 3/3/07, Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
-> Btw, you could try to implement something you have written above to show
-> its merits, so that it would not be an empty words :)
+> From: Florian Zumbiehl <florz@gmx.de>
+> Date: Sun, 4 Mar 2007 02:55:16 +0100
+> 
+> > Below you find a slightly changed version of the patch
+> 
+> I already applied your first patch, so if you have any
+> fixes to submit please provide them as relative patches
+> to your original change.
+> 
+> Thank you.
 
-Before I implement, I design.  Before I design, I analyze.  Before I
-analyze, I prototype.  Before I prototype, I gather requirements.
-Before I gather requirements, I think -- and the only way I know how
-to think about technical matters is to write down my intuitions and
-compare them against the sea of published research on the topic.  I'm
-only partway through thinking about RCU and DDoS, especially as this
-is on the fringe of my professional expertise and the appropriate
-literature is not currently at my fingertips.
+Here you go ...
 
-The only times that I make exceptions to the above sequence are 1,
-when someone is paying me well to do so (usually to retrofit some kind
-of sanity onto a pile of crap someone else wrote) and 2, when I really
-feel like it.  At present neither exception applies here, although I
-may yet get so het up about threadlets that I go into a coding binge
-(which may or may not produce an RCU splay tree as a side effect).  I
-wouldn't hold my breath if I were you, though; it's the first of what
-promises to be a string of fine weekends, and if I binge on anything
-this spring it's likely to be gardening.
-
-Cheers,
-- Michael
+--- linux-2.6.20/drivers/net/pppoe.c.orig	2007-03-04 13:06:01.000000000 +0100
++++ linux-2.6.20/drivers/net/pppoe.c	2007-03-04 02:11:51.000000000 +0100
+@@ -140,7 +140,7 @@
+ 
+ 	ret = item_hash_table[hash];
+ 
+-	while (ret && !(cmp_addr(&ret->pppoe_pa, sid, addr) && ret->pppoe_dev->ifindex == ifindex))
++	while (ret && !(cmp_addr(&ret->pppoe_pa, sid, addr) && ret->pppoe_ifindex == ifindex))
+ 		ret = ret->next;
+ 
+ 	return ret;
+@@ -153,7 +153,7 @@
+ 
+ 	ret = item_hash_table[hash];
+ 	while (ret) {
+-		if (cmp_2_addr(&ret->pppoe_pa, &po->pppoe_pa) && ret->pppoe_dev->ifindex == po->pppoe_dev->ifindex)
++		if (cmp_2_addr(&ret->pppoe_pa, &po->pppoe_pa) && ret->pppoe_ifindex == po->pppoe_ifindex)
+ 			return -EALREADY;
+ 
+ 		ret = ret->next;
+@@ -174,7 +174,7 @@
+ 	src = &item_hash_table[hash];
+ 
+ 	while (ret) {
+-		if (cmp_addr(&ret->pppoe_pa, sid, addr) && ret->pppoe_dev->ifindex == ifindex) {
++		if (cmp_addr(&ret->pppoe_pa, sid, addr) && ret->pppoe_ifindex == ifindex) {
+ 			*src = ret->next;
+ 			break;
+ 		}
+@@ -529,7 +529,7 @@
+ 
+ 	po = pppox_sk(sk);
+ 	if (po->pppoe_pa.sid) {
+-		delete_item(po->pppoe_pa.sid, po->pppoe_pa.remote, po->pppoe_dev->ifindex);
++		delete_item(po->pppoe_pa.sid, po->pppoe_pa.remote, po->pppoe_ifindex);
+ 	}
+ 
+ 	if (po->pppoe_dev)
+@@ -577,7 +577,7 @@
+ 		pppox_unbind_sock(sk);
+ 
+ 		/* Delete the old binding */
+-		delete_item(po->pppoe_pa.sid,po->pppoe_pa.remote,po->pppoe_dev->ifindex);
++		delete_item(po->pppoe_pa.sid,po->pppoe_pa.remote,po->pppoe_ifindex);
+ 
+ 		if(po->pppoe_dev)
+ 			dev_put(po->pppoe_dev);
+@@ -597,6 +597,7 @@
+ 			goto end;
+ 
+ 		po->pppoe_dev = dev;
++		po->pppoe_ifindex = dev->ifindex;
+ 
+ 		if (!(dev->flags & IFF_UP))
+ 			goto err_put;
+--- linux-2.6.20/include/linux/if_pppox.h.orig	2007-02-09 10:21:19.000000000 +0100
++++ linux-2.6.20/include/linux/if_pppox.h	2007-03-04 02:14:24.000000000 +0100
+@@ -114,6 +114,7 @@
+ #ifdef __KERNEL__
+ struct pppoe_opt {
+ 	struct net_device      *dev;	  /* device associated with socket*/
++	int			ifindex;  /* ifindex of device associated with socket */
+ 	struct pppoe_addr	pa;	  /* what this socket is bound to*/
+ 	struct sockaddr_pppox	relay;	  /* what socket data will be
+ 					     relayed to (PPPoE relaying) */
+@@ -132,6 +133,7 @@
+ 	unsigned short		num;
+ };
+ #define pppoe_dev	proto.pppoe.dev
++#define pppoe_ifindex	proto.pppoe.ifindex
+ #define pppoe_pa	proto.pppoe.pa
+ #define pppoe_relay	proto.pppoe.relay
+ 
