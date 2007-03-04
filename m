@@ -1,234 +1,70 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [RFC IPROUTE 04/08]: Introduce TIME_UNITS_PER_SEC to represent internal clock resolution
-Date: Sun,  4 Mar 2007 20:14:59 +0100 (MET)
-Message-ID: <20070304191408.22838.29389.sendpatchset@localhost.localdomain>
+Subject: [RFC IPROUTE 08/08]: Increase internal clock resolution to nsec
+Date: Sun,  4 Mar 2007 20:15:04 +0100 (MET)
+Message-ID: <20070304191413.22838.98460.sendpatchset@localhost.localdomain>
 References: <20070304191402.22838.91224.sendpatchset@localhost.localdomain>
 Cc: Patrick McHardy <kaber@trash.net>, shemminger@linux-foundation.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:61734 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:61736 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752437AbXCDTPA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Mar 2007 14:15:00 -0500
+	with ESMTP id S1752434AbXCDTPF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Mar 2007 14:15:05 -0500
 In-Reply-To: <20070304191402.22838.91224.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[IPROUTE]: Introduce TIME_UNITS_PER_SEC to represent internal clock resolution
-
-Introduce TIME_UNITS_PER_SEC and conversion functions between internal
-resolution and resolution expected by the kernel (currently implemented as
-NOPs, only needed by HFSC, which currently always uses microseconds).
+[IPROUTE]: Increase internal clock resolution to nsec
 
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 
 ---
-commit d81b168f4017e45343cdd723e653401058f728e9
-tree 7e28041ff488f863e79d8745fde85aaed30dd4ac
-parent 8b41013e2abb8eb6d3c960911d2ce137b40ccd50
+commit 8a76c51f61dd3881bba35f8c73aaa92eabaf50da
+tree d4b252b801a14ee19ed77d4a06daaacd8c17b495
+parent 0e0db5d408bdac33eadd9d947c0e6904df26ab8f
 author Patrick McHardy <kaber@trash.net> Sat, 03 Mar 2007 20:30:50 +0100
 committer Patrick McHardy <kaber@trash.net> Sat, 03 Mar 2007 20:30:50 +0100
 
- tc/q_hfsc.c       |   12 ++++++------
- tc/q_tbf.c        |    8 ++++----
- tc/tc_cbq.c       |    4 ++--
- tc/tc_core.c      |   14 ++++++++++++--
- tc/tc_core.h      |    4 ++++
- tc/tc_estimator.c |    2 +-
- tc/tc_util.c      |   14 +++++++-------
- 7 files changed, 36 insertions(+), 22 deletions(-)
+ tc/tc_core.h |    2 +-
+ tc/tc_util.c |    7 ++++++-
+ 2 files changed, 7 insertions(+), 2 deletions(-)
 
-diff --git a/tc/q_hfsc.c b/tc/q_hfsc.c
-index 4e8c09b..f7a30f2 100644
---- a/tc/q_hfsc.c
-+++ b/tc/q_hfsc.c
-@@ -226,7 +226,7 @@ hfsc_print_sc(FILE *f, char *name, struc
- 
- 	fprintf(f, "%s ", name);
- 	fprintf(f, "m1 %s ", sprint_rate(sc->m1, b1));
--	fprintf(f, "d %s ", sprint_usecs(sc->d, b1));
-+	fprintf(f, "d %s ", sprint_usecs(tc_core_ktime2time(sc->d), b1));
- 	fprintf(f, "m2 %s ", sprint_rate(sc->m2, b1));
- }
- 
-@@ -320,7 +320,7 @@ hfsc_get_sc1(int *argcp, char ***argvp, 
- 		return -1;
- 
- 	sc->m1 = m1;
--	sc->d  = d;
-+	sc->d  = tc_core_time2ktime(d);
- 	sc->m2 = m2;
- 
- 	*argvp = argv;
-@@ -367,13 +367,13 @@ hfsc_get_sc2(int *argcp, char ***argvp, 
- 		return -1;
- 	}
- 
--	if (dmax != 0 && ceil(umax * 1000000.0 / dmax) > rate) {
-+	if (dmax != 0 && ceil(1.0 * umax * TIME_UNITS_PER_SEC / dmax) > rate) {
- 		/*
- 		 * concave curve, slope of first segment is umax/dmax,
- 		 * intersection is at dmax
- 		 */
--		sc->m1 = ceil(umax * 1000000.0 / dmax); /* in bps */
--		sc->d  = dmax;
-+		sc->m1 = ceil(1.0 * umax * TIME_UNITS_PER_SEC / dmax); /* in bps */
-+		sc->d  = tc_core_time2ktime(dmax);
- 		sc->m2 = rate;
- 	} else {
- 		/*
-@@ -381,7 +381,7 @@ hfsc_get_sc2(int *argcp, char ***argvp, 
- 		 * is at dmax - umax / rate
- 		 */
- 		sc->m1 = 0;
--		sc->d  = ceil(dmax - umax * 1000000.0 / rate); /* in usec */
-+		sc->d  = tc_core_time2ktime(ceil(dmax - umax * TIME_UNITS_PER_SEC / rate));
- 		sc->m2 = rate;
- 	}
- 
-diff --git a/tc/q_tbf.c b/tc/q_tbf.c
-index cbfdcd8..a102696 100644
---- a/tc/q_tbf.c
-+++ b/tc/q_tbf.c
-@@ -161,9 +161,9 @@ static int tbf_parse_opt(struct qdisc_ut
- 	}
- 
- 	if (opt.limit == 0) {
--		double lim = opt.rate.rate*(double)latency/1000000 + buffer;
-+		double lim = opt.rate.rate*(double)latency/TIME_UNITS_PER_SEC + buffer;
- 		if (opt.peakrate.rate) {
--			double lim2 = opt.peakrate.rate*(double)latency/1000000 + mtu;
-+			double lim2 = opt.peakrate.rate*(double)latency/TIME_UNITS_PER_SEC + mtu;
- 			if (lim2 < lim)
- 				lim = lim2;
- 		}
-@@ -245,9 +245,9 @@ static int tbf_print_opt(struct qdisc_ut
- 	if (show_raw)
- 		fprintf(f, "limit %s ", sprint_size(qopt->limit, b1));
- 
--	latency = 1000000*(qopt->limit/(double)qopt->rate.rate) - tc_core_tick2usec(qopt->buffer);
-+	latency = TIME_UNITS_PER_SEC*(qopt->limit/(double)qopt->rate.rate) - tc_core_tick2usec(qopt->buffer);
- 	if (qopt->peakrate.rate) {
--		double lat2 = 1000000*(qopt->limit/(double)qopt->peakrate.rate) - tc_core_tick2usec(qopt->mtu);
-+		double lat2 = TIME_UNITS_PER_SEC*(qopt->limit/(double)qopt->peakrate.rate) - tc_core_tick2usec(qopt->mtu);
- 		if (lat2 > latency)
- 			latency = lat2;
- 	}
-diff --git a/tc/tc_cbq.c b/tc/tc_cbq.c
-index 0abcc9d..c7b3a2d 100644
---- a/tc/tc_cbq.c
-+++ b/tc/tc_cbq.c
-@@ -38,7 +38,7 @@ unsigned tc_cbq_calc_maxidle(unsigned bn
- 		if (vxmt > maxidle)
- 			maxidle = vxmt;
- 	}
--	return tc_core_usec2tick(maxidle*(1<<ewma_log)*1000000);
-+	return tc_core_usec2tick(maxidle*(1<<ewma_log)*TIME_UNITS_PER_SEC);
- }
- 
- unsigned tc_cbq_calc_offtime(unsigned bndw, unsigned rate, unsigned avpkt,
-@@ -53,5 +53,5 @@ unsigned tc_cbq_calc_offtime(unsigned bn
- 		offtime *= pow(g, -(double)minburst) - 1;
- 	else
- 		offtime *= 1 + (pow(g, -(double)(minburst-1)) - 1)/(1-g);
--	return tc_core_usec2tick(offtime*1000000);
-+	return tc_core_usec2tick(offtime*TIME_UNITS_PER_SEC);
- }
-diff --git a/tc/tc_core.c b/tc/tc_core.c
-index 1ca4583..07dc4ba 100644
---- a/tc/tc_core.c
-+++ b/tc/tc_core.c
-@@ -46,14 +46,24 @@ long tc_core_tick2usec(long tick)
- 	return tick/tick_in_usec;
- }
- 
-+long tc_core_time2ktime(long time)
-+{
-+	return time;
-+}
-+
-+long tc_core_ktime2time(long ktime)
-+{
-+	return ktime;
-+}
-+
- unsigned tc_calc_xmittime(unsigned rate, unsigned size)
- {
--	return tc_core_usec2tick(1000000*((double)size/rate));
-+	return tc_core_usec2tick(TIME_UNITS_PER_SEC*((double)size/rate));
- }
- 
- unsigned tc_calc_xmitsize(unsigned rate, unsigned ticks)
- {
--	return ((double)rate*tc_core_tick2usec(ticks))/1000000;
-+	return ((double)rate*tc_core_tick2usec(ticks))/TIME_UNITS_PER_SEC;
- }
- 
- /*
 diff --git a/tc/tc_core.h b/tc/tc_core.h
-index ff00f92..b31813d 100644
+index a139da6..28bf97a 100644
 --- a/tc/tc_core.h
 +++ b/tc/tc_core.h
-@@ -4,9 +4,13 @@ #define _TC_CORE_H_ 1
+@@ -4,7 +4,7 @@ #define _TC_CORE_H_ 1
  #include <asm/types.h>
  #include <linux/pkt_sched.h>
  
-+#define TIME_UNITS_PER_SEC	1000000
-+
- int  tc_core_usec2big(long usec);
- long tc_core_usec2tick(long usec);
- long tc_core_tick2usec(long tick);
-+long tc_core_time2ktime(long time);
-+long tc_core_ktime2time(long ktime);
- unsigned tc_calc_xmittime(unsigned rate, unsigned size);
- unsigned tc_calc_xmitsize(unsigned rate, unsigned ticks);
- int tc_calc_rtable(unsigned bps, __u32 *rtab, int cell_log, unsigned mtu, unsigned mpu);
-diff --git a/tc/tc_estimator.c b/tc/tc_estimator.c
-index 434db0f..e559add 100644
---- a/tc/tc_estimator.c
-+++ b/tc/tc_estimator.c
-@@ -26,7 +26,7 @@ #include "tc_core.h"
- int tc_setup_estimator(unsigned A, unsigned time_const, struct tc_estimator *est)
- {
- 	for (est->interval=0; est->interval<=5; est->interval++) {
--		if (A <= (1<<est->interval)*(1000000/4))
-+		if (A <= (1<<est->interval)*(TIME_UNITS_PER_SEC/4))
- 			break;
- 	}
- 	if (est->interval > 5)
+-#define TIME_UNITS_PER_SEC	1000000
++#define TIME_UNITS_PER_SEC	1000000000
+ 
+ int  tc_core_time2big(long time);
+ long tc_core_time2tick(long time);
 diff --git a/tc/tc_util.c b/tc/tc_util.c
-index 8cdb9a1..62113fc 100644
+index a7e4257..a07c6aa 100644
 --- a/tc/tc_util.c
 +++ b/tc/tc_util.c
-@@ -221,13 +221,13 @@ int get_usecs(unsigned *usecs, const cha
- 	if (*p) {
- 		if (strcasecmp(p, "s") == 0 || strcasecmp(p, "sec")==0 ||
- 		    strcasecmp(p, "secs")==0)
--			t *= 1000000;
-+			t *= TIME_UNITS_PER_SEC;
- 		else if (strcasecmp(p, "ms") == 0 || strcasecmp(p, "msec")==0 ||
- 			 strcasecmp(p, "msecs") == 0)
--			t *= 1000;
-+			t *= TIME_UNITS_PER_SEC/1000;
+@@ -228,6 +228,9 @@ int get_time(unsigned *time, const char 
  		else if (strcasecmp(p, "us") == 0 || strcasecmp(p, "usec")==0 ||
  			 strcasecmp(p, "usecs") == 0)
--			t *= 1;
-+			t *= TIME_UNITS_PER_SEC/1000000;
+ 			t *= TIME_UNITS_PER_SEC/1000000;
++		else if (strcasecmp(p, "ns") == 0 || strcasecmp(p, "nsec")==0 ||
++			 strcasecmp(p, "nsecs") == 0)
++			t *= TIME_UNITS_PER_SEC/1000000000;
  		else
  			return -1;
  	}
-@@ -241,10 +241,10 @@ void print_usecs(char *buf, int len, __u
- {
- 	double tmp = usec;
- 
--	if (tmp >= 1000000)
--		snprintf(buf, len, "%.1fs", tmp/1000000);
--	else if (tmp >= 1000)
--		snprintf(buf, len, "%.1fms", tmp/1000);
-+	if (tmp >= TIME_UNITS_PER_SEC)
-+		snprintf(buf, len, "%.1fs", tmp/TIME_UNITS_PER_SEC);
-+	else if (tmp >= TIME_UNITS_PER_SEC/1000)
-+		snprintf(buf, len, "%.1fms", tmp/(TIME_UNITS_PER_SEC/1000));
+@@ -245,8 +248,10 @@ void print_time(char *buf, int len, __u3
+ 		snprintf(buf, len, "%.1fs", tmp/TIME_UNITS_PER_SEC);
+ 	else if (tmp >= TIME_UNITS_PER_SEC/1000)
+ 		snprintf(buf, len, "%.1fms", tmp/(TIME_UNITS_PER_SEC/1000));
++	else if (tmp >= TIME_UNITS_PER_SEC/1000000)
++		snprintf(buf, len, "%.1fus", tmp/(TIME_UNITS_PER_SEC/1000000));
  	else
- 		snprintf(buf, len, "%uus", usec);
+-		snprintf(buf, len, "%uus", time);
++		snprintf(buf, len, "%uns", time);
  }
+ 
+ char * sprint_time(__u32 time, char *buf)
