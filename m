@@ -1,41 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] twcal_jiffie should be unsigned long, not int
-Date: Mon, 05 Mar 2007 13:33:31 -0800 (PST)
-Message-ID: <20070305.133331.45179714.davem@davemloft.net>
-References: <45EBFD13.1060106@symas.com>
-	<200703051528.02564.dada1@cosmosbay.com>
-	<200703051609.21133.dada1@cosmosbay.com>
+From: Chris Stromsoe <cbs@cts.ucla.edu>
+Subject: "skge 0000:01:0a.0: unsupported phy type 0x0"
+Date: Mon, 5 Mar 2007 13:48:29 -0800 (PST)
+Message-ID: <Pine.LNX.4.64.0703051346070.25740@potato.cts.ucla.edu>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, acme@mandriva.com
-To: dada1@cosmosbay.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40834
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S933626AbXCEVdf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Mar 2007 16:33:35 -0500
-In-Reply-To: <200703051609.21133.dada1@cosmosbay.com>
+Received: from smtp-1.smtp.ucla.edu ([169.232.46.136]:49142 "EHLO
+	smtp-1.smtp.ucla.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933670AbXCEV4D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Mar 2007 16:56:03 -0500
+Received: from potato.cts.ucla.edu (potato.cts.ucla.edu [128.97.128.80])
+	by smtp-1.smtp.ucla.edu (8.13.8/8.13.8) with ESMTP id l25LmTRu009825
+	for <netdev@vger.kernel.org>; Mon, 5 Mar 2007 13:48:29 -0800
+Received: from potato.cts.ucla.edu (localhost [127.0.0.1])
+	by potato.cts.ucla.edu (8.13.4/8.13.4/Debian-3sarge3) with ESMTP id l25LmTsx008268
+	for <netdev@vger.kernel.org>; Mon, 5 Mar 2007 13:48:29 -0800
+Received: from localhost (cbs@localhost)
+	by potato.cts.ucla.edu (8.13.4/8.13.4/Submit) with ESMTP id l25LmTLm008265
+	for <netdev@vger.kernel.org>; Mon, 5 Mar 2007 13:48:29 -0800
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Mon, 5 Mar 2007 16:09:21 +0100
+I have a bunch of dual-port SK 98xx cards that work with sk98lin but not 
+with skge.  After loading skge, I get
 
-> While browsing include/net/inet_timewait_sock.h, I found this buggy definition 
-> of twcal_jiffie.
-> 
-> int         twcal_jiffie;
-> 
-> I wonder how inet_twdr_twcal_tick() can really works on x86_64
-> 
-> This seems quite an old bug, it was there before introduction of 
-> inet_timewait_death_row made by Arnaldo Carvalho de Melo.
-> 
-> [PATCH] twcal_jiffie should be unsigned long, not int
-> 
-> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+ACPI: PCI Interrupt 0000:01:0a.0[A] -> Link [LNKC] -> GSI 10 (level, low) -> IRQ 10
+skge 0000:01:0a.0: unsupported phy type 0x0
+ACPI: PCI interrupt for device 0000:01:0a.0 disabled
+skge: probe of 0000:01:0a.0 failed with error -95
 
-Grrr, good catch Eric.  I'll push this fix to -stable too.
 
-Thanks a lot.
+lspci -vv output for the card:
+
+0000:01:0a.0 Ethernet controller: Syskonnect (Schneider & Koch) SK-98xx Gigabit Ethernet Server Adapter (rev 12)
+         Subsystem: Syskonnect (Schneider & Koch) SK-9844 Gigabit Ethernet Server Adapter (SK-NET GE-SX dual link)
+         Control: I/O+ Mem+ BusMaster- SpecCycle- MemWINV+ VGASnoop- ParErr- Stepping- SERR+ FastB2B-
+         Status: Cap+ 66MHz+ UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
+         Interrupt: pin A routed to IRQ 10
+         Region 0: Memory at ff8fc000 (32-bit, non-prefetchable) [size=16K]
+         Region 1: I/O ports at d800 [size=256]
+         Expansion ROM at ff400000 [disabled] [size=128K]
+         Capabilities: [48] Power Management version 1
+                 Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0-,D1-,D2-,D3hot-,D3cold-)
+                 Status: D0 PME-Enable- DSel=0 DScale=1 PME-
+         Capabilities: [50] Vital Product Data
+
+
+
+
+-Chris
