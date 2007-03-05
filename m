@@ -1,50 +1,40 @@
-From: Roel Bindels <rbindels@gmail.com>
-Subject: Why should we teach students Linux??
-Date: Mon, 05 Mar 2007 17:16:48 +0100
-Message-ID: <eshfpg$hl$1@sea.gmane.org>
+From: James Morris <jmorris@namei.org>
+Subject: RE: [PATCH] xfrm_policy delete security check misplaced
+Date: Mon, 5 Mar 2007 11:39:29 -0500 (EST)
+Message-ID: <Line.LNX.4.64.0703051139040.14821@d.namei>
+References: <001501c75f3f$243a3000$cc0a010a@tcssec.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: linux-newbie@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	arch@archlinux.org, linux-users@linux-sxs.org,
-	linux-wlan-user@lists.linux-wlan.com,
-	ubuntu-marketing@lists.ubuntu.com
-To: netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: 'Eric Paris' <eparis@parisplace.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>, jmorris@namei.org,
+	Venkat Yekkirala <vyekkirala@tcsfw4.tcs-sec.com>,
+	cxzhang@watson.ibm.com, Stephen Smalley <sds@tycho.nsa.gov>
+To: Venkat Yekkirala <vyekkirala@trustedcs.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from main.gmane.org ([80.91.229.2]:47079 "EHLO ciao.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752796AbXCEQRG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Mar 2007 11:17:06 -0500
-Received: from list by ciao.gmane.org with local (Exim 4.43)
-	id 1HOFrw-0004yl-W7
-	for netdev@vger.kernel.org; Mon, 05 Mar 2007 17:17:01 +0100
-Received: from a80-100-69-191.adsl.xs4all.nl ([80.100.69.191])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Mon, 05 Mar 2007 17:17:00 +0100
-Received: from rbindels by a80-100-69-191.adsl.xs4all.nl with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Mon, 05 Mar 2007 17:17:00 +0100
+Received: from mail2.sea5.speakeasy.net ([69.17.117.4]:57692 "EHLO
+	mail2.sea5.speakeasy.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933562AbXCEQjd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Mar 2007 11:39:33 -0500
+In-Reply-To: <001501c75f3f$243a3000$cc0a010a@tcssec.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello listers,
+On Mon, 5 Mar 2007, Venkat Yekkirala wrote:
 
-I'm tutor on the Faculty ICT, department NID. This is a bachelor degree
-and we are preparing our students to become something more then just
-System Administrators (such as manager, consulting, etc....). Since this
-department is part of the Microsoft camp, the students are educated
-mostly in this direction, which I think is not a bad thing. A better
-thing would be if we could give our students the opportunity to meat
-both the systems on the same level, at least, that is my opinion.
+> > 
+> > Signed-off-by: Eric Paris <eparis@redhat.com>
+> Acked-by: Venkat Yekkirala <vyekkirala@trustedcs.com> 
 
-To change a curriculum of a study, I need a solid case. So if somebody
-knows a link/document about why we should educate our students in the
-Linux OS, please send it. Or article about the usage of Linux in company's.
+What about your previous comment:
 
-I hope you will all take some time to send me your best links/documents.
+ "I guess you meant to do this here?
+        else if (err)
+                return err; "
 
-with best regards
 
-Roel Bindels
 
+
+-- 
+James Morris
+<jmorris@namei.org>
