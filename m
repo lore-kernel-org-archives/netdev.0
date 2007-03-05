@@ -1,125 +1,57 @@
-From: Adrian Bunk <bunk-HeJ8Db2Gnd6zQB+pC5nmwQ@public.gmane.org>
-Subject: [2.6.21 patch] unconditionally enable SYSFS_DEPRECATED
-Date: Tue, 6 Mar 2007 00:40:52 +0100
-Message-ID: <20070305234052.GR3441@stusta.de>
-References: <20070304220857.GH23311@waste.org> <1173051564.6131.13.camel@johannes.berg> <20070305002550.GI23311@waste.org> <20070305011729.GB7681@kroah.com> <20070305125950.GC26781@thunk.org> <20070305185813.GA31465@kroah.com>
+From: Neil Brown <neilb@suse.de>
+Subject: Re: [NFS] [PATCH 001 of 3] knfsd: Use recv_msg to get peer address for NFSD instead of code-copying
+Date: Tue, 6 Mar 2007 10:47:53 +1100
+Message-ID: <17900.44073.791834.143726@notabene.brown>
+References: <20070302151748.5226.patches@notabene>
+	<1070302042825.5760@suse.de>
+	<200703051953.24900.olaf.kirch@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Theodore Tso <tytso-3s7WtUTddSA@public.gmane.org>, Matt Mackall <mpm-VDJrAJ4Gl5ZBDgjK7y7TUQ@public.gmane.org>,
-	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	yi.zhu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, jketreno-VuQAYsv1563Yd54FQh9/CA@public.gmane.org,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, akpm-3NddpPZAyC0@public.gmane.org
-To: Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20070305185813.GA31465-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: nfs@lists.sourceforge.net,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Olaf Kirch <olaf.kirch@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ns1.suse.de ([195.135.220.2]:39770 "EHLO mx1.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752622AbXCEXtL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Mar 2007 18:49:11 -0500
+In-Reply-To: message from Olaf Kirch on Monday March 5
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 05, 2007 at 10:58:13AM -0800, Greg KH wrote:
+On Monday March 5, olaf.kirch@oracle.com wrote:
+> On Friday 02 March 2007 05:28, NeilBrown wrote:
+> > The sunrpc server code needs to know the source and destination address
+> > for UDP packets so it can reply properly.
+> > It currently copies code out of the network stack to pick the pieces out
+> > of the skb.
+> > This is ugly and causes compile problems with the IPv6 stuff.
 > 
-> Ok, how about the following patch.  Is it acceptable to everyone?
+> ... and this IPv6 code could never have worked anyway:
+
+:-(
+It's hard to test the IPv6 server until we have an IPv6 client I
+guess, so thanks for the code review, even though we aren't going to
+end up using that code...
+
 > 
-> thanks,
-> 
-> greg k-h
-> 
-> ---
->  init/Kconfig |   13 +++++++++++--
->  1 file changed, 11 insertions(+), 2 deletions(-)
-> 
-> --- gregkh-2.6.orig/init/Kconfig
-> +++ gregkh-2.6/init/Kconfig
-> @@ -290,8 +290,17 @@ config SYSFS_DEPRECATED
->  	  that belong to a class, back into the /sys/class heirachy, in
->  	  order to support older versions of udev.
->  
-> -	  If you are using a distro that was released in 2006 or later,
-> -	  it should be safe to say N here.
-> +	  If you are using an OpenSuSE, Gentoo, Ubuntu, or Fedora
-> +	  release from 2007 or later, it should be safe to say N here.
-> +
-> +	  If you are using Debian or other distros that are slow to
-> +	  update HAL, please say Y here.
->...
+> But I find using recvmsg just for getting at the addresses
+> a little awkward too.
 
-The sane solution seems to be to enable SYSFS_DEPRECATED unconditionally 
-for all users, and schedule it's removal for mid-2008 (or later).
+Do you?  It's surely a lot better than code duplication, and it is
+exactly how you would get the information from user-space.
 
-12 months after the first _release_ of a HAL that can live without seems 
-to be the first time when we can consider getting rid of it, since all 
-distributions with at least one release a year should ship it by then.
+>                       And I think to be on the safe side, you
+> should check that you're really looking at a PKTINFO cmsg
+> rather than something else.
 
-Currently, SYSFS_DEPRECATED is only a trap for users.
+Maybe.....
+But is there really a chance that it might not be PKTINFO?
+And what do you do if it isn't?
+Log an error and drop the packet I guess.
 
-Suggested patch below.
+I'll see what I can do.
 
-cu
-Adrian
-
-
-<--  snip  -->
-
-
-unconditionally enable SYSFS_DEPRECATED
-
-This patch unconditionally enables SYSFS_DEPRECATED and schedules it's
-removal for July 2008.
-
-Currently, SYSFS_DEPRECATED is only a trap for users accidentally
-disabling it.
-
-In July 2008, all distributions with at least one release a year should
-be able to run without SYSFS_DEPRECATED.
-
-Signed-off-by: Adrian Bunk <bunk-HeJ8Db2Gnd6zQB+pC5nmwQ@public.gmane.org>
-
-diff --git a/Documentation/feature-removal-schedule.txt b/Documentation/feature-removal-schedule.txt
-index c3b1430..b0bce93 100644
---- a/Documentation/feature-removal-schedule.txt
-+++ b/Documentation/feature-removal-schedule.txt
-@@ -316,3 +316,13 @@ Why:	The option/code is
- Who:	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
- 
- ---------------------------
-+
-+What:	deprecated sysfs files (CONFIG_SYSFS_DEPRECATED)
-+When:	July 2008
-+Why:	None of these features or values should be used any longer,
-+	as they export driver core implementation details to userspace
-+	or export properties which can't be kept stable across kernel
-+	releases.
-+Who:	Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
-+
-+---------------------------
-diff --git a/init/Kconfig b/init/Kconfig
-index f977086..f652b6f 100644
---- a/init/Kconfig
-+++ b/init/Kconfig
-@@ -274,24 +274,9 @@ config CPUSETS
- 	  Say N if unsure.
- 
- config SYSFS_DEPRECATED
--	bool "Create deprecated sysfs files"
-+	bool
- 	default y
- 	help
--	  This option creates deprecated symlinks such as the
--	  "device"-link, the <subsystem>:<name>-link, and the
--	  "bus"-link. It may also add deprecated key in the
--	  uevent environment.
--	  None of these features or values should be used today, as
--	  they export driver core implementation details to userspace
--	  or export properties which can't be kept stable across kernel
--	  releases.
--
--	  If enabled, this option will also move any device structures
--	  that belong to a class, back into the /sys/class heirachy, in
--	  order to support older versions of udev.
--
--	  If you are using a distro that was released in 2006 or later,
--	  it should be safe to say N here.
- 
- config RELAY
- 	bool "Kernel->user space relay support (formerly relayfs)"
+NeilBrown
