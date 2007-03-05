@@ -1,65 +1,51 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [1/6] 2.6.21-rc2: known regressions
-Date: Sun, 4 Mar 2007 18:26:19 -0800
-Message-ID: <20070304182619.6110bd74.akpm@linux-foundation.org>
-References: <Pine.LNX.4.64.0702272105220.12485@woody.linux-foundation.org>
-	<20070305015031.GF3441@stusta.de>
+From: Stephan Maka <stephan@spaceboyz.net>
+Subject: Re: Wifi support for iproute2
+Date: Mon, 5 Mar 2007 03:53:17 +0100
+Message-ID: <20070305025317.GA26342@hooker.hq.c3d2.de>
+References: <20070304012653.GA9587@hooker.hq.c3d2.de> <20070303195324.75eed906@deepthought>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: Ayaz Abdulla <aabdulla@nvidia.com>, Pavel Machek <pavel@ucw.cz>,
-   Garzik <jeff@garzik.org>, Jeff@smtp.osdl.org,
-   Marcel Holtmann <marcel@holtmann.org>, Matt Mackall <mpm@selenic.com>,
-   linux-pm@lists.osdl.org, List <linux-kernel@vger.kernel.org>,
-   Sid Boyce <g3vbv@blueyonder.co.uk>, netdev@vger.kernel.org,
-   bluez-devel@lists.sourceforge.net, maxk@qualcomm.com, Linux@smtp.osdl.org,
-   Mark Lord <lkml@rtr.ca>, Johannes Berg <johannes@sipsolutions.net>,
-   Linus Torvalds <torvalds@linux-foundation.org>,
-   Albert Hopkins <kernel@marduk.letterboxes.org>
-To: Adrian Bunk <bunk@stusta.de>
-Return-path: <linux-pm-bounces@lists.osdl.org>
-In-Reply-To: <20070305015031.GF3441@stusta.de>
-List-Unsubscribe: <https://lists.osdl.org/mailman/listinfo/linux-pm>,
-	<mailto:linux-pm-request@lists.osdl.org?subject=unsubscribe>
-List-Archive: <http://lists.osdl.org/pipermail/linux-pm>
-List-Post: <mailto:linux-pm@lists.osdl.org>
-List-Help: <mailto:linux-pm-request@lists.osdl.org?subject=help>
-List-Subscribe: <https://lists.osdl.org/mailman/listinfo/linux-pm>,
-	<mailto:linux-pm-request@lists.osdl.org?subject=subscribe>
-Sender: linux-pm-bounces@lists.osdl.org
-Errors-To: linux-pm-bounces@lists.osdl.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="9jxsPFA5p3P2qPhR"
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from spaceboyz.net ([217.160.179.236]:1499 "EHLO spaceboyz.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752600AbXCECwQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 4 Mar 2007 21:52:16 -0500
+Content-Disposition: inline
+In-Reply-To: <20070303195324.75eed906@deepthought>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 5 Mar 2007 02:50:31 +0100 Adrian Bunk <bunk@stusta.de> wrote:
 
-> This email lists some known regressions in 2.6.21-rc2 compared to 2.6.20
-> that are not yet fixed in Linus' tree.
+--9jxsPFA5p3P2qPhR
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
+Stephen Hemminger wrote:
+> Don't waste your time with a tool that uses the exist wext API.
+> But a tool that could use cfg80211 would be useful. After the wireless
+> summit in Jan, I put it on my "interesting ideas" list.
 
-We seem to have broken an unusually large amount of stuff this time.
+Ok.
 
-partial post-mortem:
-
-- The ACPICA merge landed in -mm super-late: basically it was in mainline
-  a week afterwards and saw only a single -mm release.
-
-  Part of the reason for this short period in -mm was that ACPICA had its
-  paws all over x86_64 code and conflicted badly with significant changes
-  in the x86_64 tree.
-
-  That happens sometimes.  But when it does, the mess lands in my lap
-  rather than in the laps of the perpetrators.
-
-  Lesson: keep the code well-factored so that different subsystems don't
-  soil each others' kennels.
-
-- The hrtimers/dynticks stuff is simply hard: timekeeping, low-level x86,
-  even APICs.  These are areas in which things break a lot, so churning it
-  was inevitably going to cause problems.
-
-  Lesson: none, I think.  Low-level x86 support is just hard, and
-  changing it breaks things.
+I would be happy if anyone will notify me when this is available without
+going too far from a mainstream kernel.
 
 
-So that accounts for _some_ of the damage, but I wonder if there's more to
-it than that.
+Stephan
+
+--9jxsPFA5p3P2qPhR
+Content-Type: application/pgp-signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.2 (GNU/Linux)
+
+iD8DBQFF64YduKMfCHUX8x0RAh+AAKDRvaX3A3OZGdtBGlZdZI0chLyhKgCdE+JW
+19I3AY6wkbJGh8246gZXpqE=
+=nPJS
+-----END PGP SIGNATURE-----
+
+--9jxsPFA5p3P2qPhR--
