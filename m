@@ -1,72 +1,62 @@
-From: Chris Stromsoe <cbs@cts.ucla.edu>
-Subject: ignore; Re: "skge 0000:01:0a.0: unsupported phy type 0x0"
-Date: Mon, 5 Mar 2007 14:00:27 -0800 (PST)
-Message-ID: <Pine.LNX.4.64.0703051359570.25740@potato.cts.ucla.edu>
-References: <Pine.LNX.4.64.0703051346070.25740@potato.cts.ucla.edu>
+From: Jeffrey Hundstad <jeffrey.hundstad@mnsu.edu>
+Subject: Re: Recent wireless breakage (ipw2200, iwconfig, NetworkManager)
+Date: Mon, 05 Mar 2007 17:05:27 -0600
+Message-ID: <45ECA237.5040006@mnsu.edu>
+References: <20070304220857.GH23311@waste.org> <1173051564.6131.13.camel@johannes.berg> <20070305002550.GI23311@waste.org> <20070305011729.GB7681@kroah.com> <20070305125950.GC26781@thunk.org> <20070305185813.GA31465@kroah.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-8.smtp.ucla.edu ([169.232.47.138]:55880 "EHLO
-	smtp-8.smtp.ucla.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752082AbXCEWvf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Mar 2007 17:51:35 -0500
-Received: from potato.cts.ucla.edu (potato.cts.ucla.edu [128.97.128.80])
-	by smtp-8.smtp.ucla.edu (8.13.8/8.13.8) with ESMTP id l25M0Rgj030354
-	for <netdev@vger.kernel.org>; Mon, 5 Mar 2007 14:00:27 -0800
-Received: from potato.cts.ucla.edu (localhost [127.0.0.1])
-	by potato.cts.ucla.edu (8.13.4/8.13.4/Debian-3sarge3) with ESMTP id l25M0R4T008536
-	for <netdev@vger.kernel.org>; Mon, 5 Mar 2007 14:00:27 -0800
-Received: from localhost (cbs@localhost)
-	by potato.cts.ucla.edu (8.13.4/8.13.4/Submit) with ESMTP id l25M0RrO008533
-	for <netdev@vger.kernel.org>; Mon, 5 Mar 2007 14:00:27 -0800
-In-Reply-To: <Pine.LNX.4.64.0703051346070.25740@potato.cts.ucla.edu>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Theodore Tso <tytso@mit.edu>, Matt Mackall <mpm@selenic.com>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	yi.zhu@intel.com, jketreno@linux.intel.com,
+	linux-wireless <linux-wireless@vger.kernel.org>, akpm@osdl.org
+To: Greg KH <greg@kroah.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752253AbXCEXHN@vger.kernel.org>
+In-Reply-To: <20070305185813.GA31465@kroah.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ignore this.  I rebooted into the wrong kernel and was testing with 2.6.16 
-instead of 2.6.20.  It works fine with 2.6.20.
+Greg KH wrote:
+> On Mon, Mar 05, 2007 at 07:59:50AM -0500, Theodore Tso wrote:
+>   
+> Ok, how about the following patch.  Is it acceptable to everyone?
+>
+> thanks,
+>
+> greg k-h
+>
+> ---
+>  init/Kconfig |   13 +++++++++++--
+>  1 file changed, 11 insertions(+), 2 deletions(-)
+>
+> --- gregkh-2.6.orig/init/Kconfig
+> +++ gregkh-2.6/init/Kconfig
+> @@ -290,8 +290,17 @@ config SYSFS_DEPRECATED
+>  	  that belong to a class, back into the /sys/class heirachy, in
+>  	  order to support older versions of udev.
+>  
+> -	  If you are using a distro that was released in 2006 or later,
+> -	  it should be safe to say N here.
+> +	  If you are using an OpenSuSE, Gentoo, Ubuntu, or Fedora
+> +	  release from 2007 or later, it should be safe to say N here.
+> +
+> +	  If you are using Debian or other distros that are slow to
+> +	  update HAL, please say Y here.
+> +
+> +	  If you have any problems with devices not being found properly
+> +	  from userspace programs, and this option is disabled, say Y
+> +	  here.
+> +
+> +	  If you are unsure about this at all, say Y.
+>  
+>  config RELAY
+>  	bool "Kernel->user space relay support (formerly relayfs)"
 
--Chris
+Since it appears you're trying to offend people with this patch, it 
+would seem appropriate to call someone's mother a "bad" name.  This may 
+be in the style guide; perhaps I should submit a patch.
 
-On Mon, 5 Mar 2007, Chris Stromsoe wrote:
-
-> I have a bunch of dual-port SK 98xx cards that work with sk98lin but not 
-> with skge.  After loading skge, I get
->
-> ACPI: PCI Interrupt 0000:01:0a.0[A] -> Link [LNKC] -> GSI 10 (level, low) -> 
-> IRQ 10
-> skge 0000:01:0a.0: unsupported phy type 0x0
-> ACPI: PCI interrupt for device 0000:01:0a.0 disabled
-> skge: probe of 0000:01:0a.0 failed with error -95
->
->
-> lspci -vv output for the card:
->
-> 0000:01:0a.0 Ethernet controller: Syskonnect (Schneider & Koch) SK-98xx 
-> Gigabit Ethernet Server Adapter (rev 12)
->        Subsystem: Syskonnect (Schneider & Koch) SK-9844 Gigabit Ethernet 
-> Server Adapter (SK-NET GE-SX dual link)
->        Control: I/O+ Mem+ BusMaster- SpecCycle- MemWINV+ VGASnoop- ParErr- 
-> Stepping- SERR+ FastB2B-
->        Status: Cap+ 66MHz+ UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- 
-> <TAbort- <MAbort- >SERR- <PERR-
->        Interrupt: pin A routed to IRQ 10
->        Region 0: Memory at ff8fc000 (32-bit, non-prefetchable) [size=16K]
->        Region 1: I/O ports at d800 [size=256]
->        Expansion ROM at ff400000 [disabled] [size=128K]
->        Capabilities: [48] Power Management version 1
->                Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA 
-> PME(D0-,D1-,D2-,D3hot-,D3cold-)
->                Status: D0 PME-Enable- DSel=0 DScale=1 PME-
->        Capabilities: [50] Vital Product Data
->
->
->
->
-> -Chris
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+-- 
+Jeffrey Hundstad
+PS: Humor (really!) relax.
