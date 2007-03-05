@@ -1,47 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] div64_64 support
-Date: Mon, 05 Mar 2007 16:25:51 -0800 (PST)
-Message-ID: <20070305.162551.41660347.davem@davemloft.net>
-References: <20070226143127.5c74bec9@freekitty>
-	<p73slcnawh3.fsf@bingen.suse.de>
-	<20070305155714.3abe1b5e@freekitty>
+From: Jim Chow <jchow@vmware.com>
+Subject: Re: [PATCH/RFC] Use of uninitialized data in udp_recvmsg().
+Date: Mon, 5 Mar 2007 15:25:10 -0800 (PST)
+Message-ID: <Pine.LNX.4.64.0703051504270.11127@jchow-amax.eng.vmware.com>
+References: <E1HOLBe-000660-00@gondolin.me.apana.org.au>
+ <Pine.LNX.4.64.0703051257520.27979@jchow-amax.eng.vmware.com>
+ <20070305233449.GA24159@gondor.apana.org.au> <20070305235732.GA24642@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: andi@firstfloor.org, jengelh@linux01.gwdg.de,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: shemminger@linux-foundation.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53529
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S932794AbXCFAZx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Mar 2007 19:25:53 -0500
-In-Reply-To: <20070305155714.3abe1b5e@freekitty>
+Received: from smtp-outbound-1.vmware.com ([65.113.40.141]:33724 "EHLO
+	smtp-outbound-1.vmware.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932809AbXCFA2m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Mar 2007 19:28:42 -0500
+In-Reply-To: <20070305235732.GA24642@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Date: Mon, 5 Mar 2007 15:57:14 -0800
+On Tue, 6 Mar 2007, Herbert Xu wrote:
+> It's just too error-prone to rely on it to not have MSG_TRUNC set.
 
-> I tried the code from Hacker's Delight.
-> It is cool, but performance is CPU (and data) dependent:
-> 
-> Average # of usecs per operation:
+Agreed.
 
-Interesting results.
+> I'm going to clean this up for UDP and improve the UDP-lite checksum
+> handling while I'm at it.
 
-The problem with these algorithms that tradoff one or more
-multiplies in order to avoid a divide is that they don't
-give anything and often lose when both multiplies and
-divides are emulated in software.
+Great.  It'll be good to get this years-old UDP bug fixed.
 
-This is particularly true in this cube-root case from Hacker's
-Delight, because it's using 3 multiplies per iteration in place of one
-divide per iteration.
-
-Actually, sorry, there is only one real multiply in there since the
-other two can be computed using addition and shifts.
-
-Another thing is that the non-Hacker's Delight version iterates
-differently for different input values, so the input value space is
-very important to consider when comparing these two pieces of code.
+Thanks,
+Jim
