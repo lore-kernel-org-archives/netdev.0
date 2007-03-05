@@ -1,57 +1,42 @@
-From: Neil Brown <neilb@suse.de>
-Subject: Re: [NFS] [PATCH 001 of 3] knfsd: Use recv_msg to get peer address for NFSD instead of code-copying
-Date: Tue, 6 Mar 2007 10:47:53 +1100
-Message-ID: <17900.44073.791834.143726@notabene.brown>
-References: <20070302151748.5226.patches@notabene>
-	<1070302042825.5760@suse.de>
-	<200703051953.24900.olaf.kirch@oracle.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH/RFC] Use of uninitialized data in udp_recvmsg().
+Date: Tue, 6 Mar 2007 10:57:32 +1100
+Message-ID: <20070305235732.GA24642@gondor.apana.org.au>
+References: <E1HOLBe-000660-00@gondolin.me.apana.org.au> <Pine.LNX.4.64.0703051257520.27979@jchow-amax.eng.vmware.com> <20070305233449.GA24159@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: nfs@lists.sourceforge.net,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Olaf Kirch <olaf.kirch@oracle.com>
+Cc: netdev@vger.kernel.org
+To: Jim Chow <jchow@vmware.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns1.suse.de ([195.135.220.2]:39770 "EHLO mx1.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752622AbXCEXtL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Mar 2007 18:49:11 -0500
-In-Reply-To: message from Olaf Kirch on Monday March 5
+Received: from rhun.apana.org.au ([64.62.148.172]:4759 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S933230AbXCEX5j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Mar 2007 18:57:39 -0500
+Content-Disposition: inline
+In-Reply-To: <20070305233449.GA24159@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Monday March 5, olaf.kirch@oracle.com wrote:
-> On Friday 02 March 2007 05:28, NeilBrown wrote:
-> > The sunrpc server code needs to know the source and destination address
-> > for UDP packets so it can reply properly.
-> > It currently copies code out of the network stack to pick the pieces out
-> > of the skb.
-> > This is ugly and causes compile problems with the IPv6 stuff.
+On Tue, Mar 06, 2007 at 10:34:49AM +1100, Herbert Xu wrote:
+> > 
+> > That's not true.  Please see my post.
+> > 
+> > Specifically, at linux-2.6.20.1/net/ipv4/udp.c:843, it seems that 
+> > udp_recvmsg() can randomly ignore whether the HW has computed a checksum 
+> > and compute it in SW redundantly.
 > 
-> ... and this IPv6 code could never have worked anyway:
+> Sorry, you're right.  This bug has been there for years.
 
-:-(
-It's hard to test the IPv6 server until we have an IPv6 client I
-guess, so thanks for the code review, even though we aren't going to
-end up using that code...
+Actually I think we should fix UDP regardless of whether we initialise
+msg_flags to zero here.  It's just too error-prone to rely on it to not
+have MSG_TRUNC set.
 
-> 
-> But I find using recvmsg just for getting at the addresses
-> a little awkward too.
+I'm going to clean this up for UDP and improve the UDP-lite checksum
+handling while I'm at it.
 
-Do you?  It's surely a lot better than code duplication, and it is
-exactly how you would get the information from user-space.
-
->                       And I think to be on the safe side, you
-> should check that you're really looking at a PKTINFO cmsg
-> rather than something else.
-
-Maybe.....
-But is there really a chance that it might not be PKTINFO?
-And what do you do if it isn't?
-Log an error and drop the packet I guess.
-
-I'll see what I can do.
-
-NeilBrown
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
