@@ -1,42 +1,35 @@
-From: Linsys Contractor Mithlesh Thukral <mithlesh@netxen.com>
-Subject: [PATCH 3/3] NetXen: Fix ping failure of Jumbo frames on MEZ cards.
-Date: Mon, 5 Mar 2007 04:57:09 -0800
-Message-ID: <200703051257.l25Cv9KM005045@dut39.unminc.com>
-Cc: amitkale@netxen.com, jeff@garzik.org, mithlesh@netxen.com,
-	netxenproj@linsyssoft.com, rob@netxen.com
-To: netdev@vger.kernel.org
+From: Theodore Tso <tytso@mit.edu>
+Subject: Re: Recent wireless breakage (ipw2200, iwconfig, NetworkManager)
+Date: Mon, 5 Mar 2007 07:59:50 -0500
+Message-ID: <20070305125950.GC26781@thunk.org>
+References: <20070304220857.GH23311@waste.org> <1173051564.6131.13.camel@johannes.berg> <20070305002550.GI23311@waste.org> <20070305011729.GB7681@kroah.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Matt Mackall <mpm@selenic.com>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	yi.zhu@intel.com, jketreno@linux.intel.com,
+	linux-wireless <linux-wireless@vger.kernel.org>, akpm@osdl.org
+To: Greg KH <greg@kroah.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 66-126-254-34.unm.net ([66.126.254.34]:18686 "EHLO
-	nxmail.netxen.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S933425AbXCEM5K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Mar 2007 07:57:10 -0500
+Received: from thunk.org ([69.25.196.29]:51558 "EHLO thunker.thunk.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933429AbXCENAJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Mar 2007 08:00:09 -0500
+Content-Disposition: inline
+In-Reply-To: <20070305011729.GB7681@kroah.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-NetXen: Fix ping failure of Jumbo frames on MEZ cards.
+On Sun, Mar 04, 2007 at 05:17:29PM -0800, Greg KH wrote:
+> I should not have broken any userspace if CONFIG_SYSFS_DEPRECATED is
+> enabled with that patch.  If that is enabled, and that patch still
+> causes problems, please let me know.
 
-Signed-off by: Mithlesh Thukral <mithlesh@netxen.com>
+But we still need to update the help text for CONFIG_SYS_DEPRECATED to
+make it clear that its deprecation schedule still needs to be 2009 to
+2011 (depending on whether we want to accomodate Debian's glacial
+release schedule).  Certainly the 2006 date which is currently there
+simply isn't accurate.
 
----
-
- drivers/net/netxen/netxen_nic_hw.c |    7 ++++++-
- 1 files changed, 6 insertions(+), 1 deletion(-)
- 
-diff --git a/drivers/net/netxen/netxen_nic_hw.c b/drivers/net/netxen/netxen_nic_hw.c
-index 693d01a..81ebc81 100644
---- a/drivers/net/netxen/netxen_nic_hw.c
-+++ b/drivers/net/netxen/netxen_nic_hw.c
-@@ -962,7 +962,12 @@ int netxen_nic_set_mtu_gb(struct netxen_
- int netxen_nic_set_mtu_xgb(struct netxen_adapter *adapter, int new_mtu)
- {
- 	new_mtu += NETXEN_NIU_HDRSIZE + NETXEN_NIU_TLRSIZE;
--	netxen_nic_write_w0(adapter, NETXEN_NIU_XGE_MAX_FRAME_SIZE, new_mtu);
-+	if (adapter->portnum == 0)
-+		netxen_nic_write_w0(adapter, NETXEN_NIU_XGE_MAX_FRAME_SIZE, 
-+				new_mtu);
-+	else if (adapter->portnum == 1)
-+		netxen_nic_write_w0(adapter, NETXEN_NIU_XG1_MAX_FRAME_SIZE,
-+				new_mtu);
- 	return 0;
- }
- 
+						- Ted
