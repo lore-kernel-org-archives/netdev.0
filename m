@@ -1,47 +1,32 @@
-From: Mark Lord <lkml@rtr.ca>
-Subject: Re: [1/6] 2.6.21-rc2: known regressions
-Date: Sun, 04 Mar 2007 23:01:33 -0500
-Message-ID: <45EB961D.6030808@rtr.ca>
-References: <Pine.LNX.4.64.0702272105220.12485@woody.linux-foundation.org>
-	<20070305015031.GF3441@stusta.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH][UDP]: Fix "whitespace" cleanup
+Date: Sun, 04 Mar 2007 20:15:49 -0800 (PST)
+Message-ID: <20070304.201549.71109671.davem@davemloft.net>
+References: <39e6f6c70703041911u446bb4a0q324d5087237a57a7@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: Ayaz Abdulla <aabdulla@nvidia.com>, Pavel Machek <pavel@ucw.cz>,
-   Jeff Garzik <jeff@garzik.org>, Marcel Holtmann <marcel@holtmann.org>,
-   linux-pm@lists.osdl.org,
-   Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-   Sid Boyce <g3vbv@blueyonder.co.uk>, netdev@vger.kernel.org,
-   bluez-devel@lists.sourceforge.net, maxk@qualcomm.com,
-   Matt Mackall <mpm@selenic.com>, Andrew Morton <akpm@linux-foundation.org>,
-   Linus Torvalds <torvalds@linux-foundation.org>,
-   Johannes Berg <johannes@sipsolutions.net>,
-   Albert Hopkins <kernel@marduk.letterboxes.org>
-To: Adrian Bunk <bunk@stusta.de>
-Return-path: <linux-pm-bounces@lists.osdl.org>
-In-Reply-To: <20070305015031.GF3441@stusta.de>
-List-Unsubscribe: <https://lists.osdl.org/mailman/listinfo/linux-pm>,
-	<mailto:linux-pm-request@lists.osdl.org?subject=unsubscribe>
-List-Archive: <http://lists.osdl.org/pipermail/linux-pm>
-List-Post: <mailto:linux-pm@lists.osdl.org>
-List-Help: <mailto:linux-pm-request@lists.osdl.org?subject=help>
-List-Subscribe: <https://lists.osdl.org/mailman/listinfo/linux-pm>,
-	<mailto:linux-pm-request@lists.osdl.org?subject=subscribe>
-Sender: linux-pm-bounces@lists.osdl.org
-Errors-To: linux-pm-bounces@lists.osdl.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org
+To: acme@ghostprotocols.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47390
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752634AbXCEEPu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Mar 2007 23:15:50 -0500
+In-Reply-To: <39e6f6c70703041911u446bb4a0q324d5087237a57a7@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Adrian Bunk wrote:
->
-> Subject    : Bluetooth RFComm locks up the machine  (device_move() relate=
-d)
-> References : http://lkml.org/lkml/2007/3/4/64
-> Submitter  : Mark Lord <lkml@rtr.ca>
-> Caused-By  : Marcel Holtmann <marcel@holtmann.org>
->              commit c1a3313698895d8ad4760f98642007bf236af2e8
-> Status     : unknown
+From: "Arnaldo Carvalho de Melo" <acme@ghostprotocols.net>
+Date: Mon, 5 Mar 2007 00:11:49 -0300
 
-A 2-line patch exists for fs/sysfs/dir.c to address this.
-Waiting on Greg to apply it or substitute something prettier.  ;)
+> Hi David, Stephen
+> 
+>        Whitespace cleanups have to pass the compile test too ;-) This
+> is just in net-2.6.22 tho :-)
+> 
+> Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
 
-Cheers
+I think I'll just revert Stephen's patch, both revisions were
+done very sloppily, and this lack of compile testing basically
+proves it. :-/
