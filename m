@@ -1,45 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] NET : convert network timestamps to ktime_t
-Date: Sun, 04 Mar 2007 16:19:24 -0800 (PST)
-Message-ID: <20070304.161924.55508971.davem@davemloft.net>
-References: <200703021538.41284.dada1@cosmosbay.com>
-	<20070302130210.57883edc@freekitty>
-	<45E8A936.9050908@cosmosbay.com>
+Subject: Re: [RFC NET_SCHED 00/03]: ktime + nano-second clock resolution
+ for packet schedulers
+Date: Sun, 04 Mar 2007 16:25:57 -0800 (PST)
+Message-ID: <20070304.162557.112625456.davem@davemloft.net>
+References: <20070304190439.21142.66736.sendpatchset@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: shemminger@linux-foundation.org, linux.kernel@free.fr,
-	netdev@vger.kernel.org
-To: dada1@cosmosbay.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, shemminger@linux-foundation.org
+To: kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52053
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58124
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752548AbXCEATZ convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 4 Mar 2007 19:19:25 -0500
-In-Reply-To: <45E8A936.9050908@cosmosbay.com>
+	by vger.kernel.org with ESMTP id S1752563AbXCEAZ6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Mar 2007 19:25:58 -0500
+In-Reply-To: <20070304190439.21142.66736.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=46rom: Eric Dumazet <dada1@cosmosbay.com>
-Date: Fri, 02 Mar 2007 23:46:14 +0100
+From: Patrick McHardy <kaber@trash.net>
+Date: Sun,  4 Mar 2007 20:05:30 +0100 (MET)
 
-> Stephen Hemminger a =E9crit :
-> > You missed a couple of spots.
->=20
-> Arg yes...
- ...
-> > -	}
-> > -	skb_get_timestamp(skb, &svsk->sk_sk->sk_stamp);
-> > +	svsk->sk_sk->sk_stamp =3D (skb->tstamp.tv64 !=3D 0) ? skb->tstamp
-> > +		: ktime_get_real();
->=20
-> Well, if we want to stay in the spirit of old code, we probably want =
-to use=20
-> current_kernel_time() (+ timespec_to_ktime()), because its less expen=
-sive.
->=20
-> And also setting the skb tstamp, no ?
+> These patches convert the GETTIMEOFDAY packet scheduler clock source to
+> ktime (based on Stephen's patch) and add support for using nano-second
+> clock resolution. I chose a scalar time representation within the packet
+> schedulers instead of ktime_t since it minimizes the ktime_to_ns() calls
+> in most cases, it allows to clean up pkt_sched.h quite a bit and HFSC
+> needs it anyway.
+> 
+> Unlike my previous attempt at this, these patches keep old iproute
+> versions working with nano-second resolution with the exception of HFSC.
+> I'm not sure what to do about HFSC yet, so just RFC for now.
 
-Can you guys cook up an integrated patch with all the missing cases
-fixed up as desired, so I can add this to net-2.6.22, thanks?
+This looks great to me.
+
+Frankly, I think now that we have ktime and all of the proper generic
+infrastructure to do this stuff properly, I think we should just use
+ktime for the packet scheduler across the board and just delete all of
+that old by-hand timekeeping selection crap from pkt_sched.h
