@@ -1,45 +1,93 @@
-From: Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
-Subject: Re: Recent wireless breakage (ipw2200, iwconfig, NetworkManager)
-Date: Sun, 4 Mar 2007 17:17:29 -0800
-Message-ID: <20070305011729.GB7681@kroah.com>
-References: <20070304220857.GH23311@waste.org> <1173051564.6131.13.camel@johannes.berg> <20070305002550.GI23311@waste.org>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [1/6] 2.6.21-rc2: known regressions
+Date: Mon, 5 Mar 2007 02:50:31 +0100
+Message-ID: <20070305015031.GF3441@stusta.de>
+References: <Pine.LNX.4.64.0702272105220.12485@woody.linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	yi.zhu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, jketreno-VuQAYsv1563Yd54FQh9/CA@public.gmane.org,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, akpm-3NddpPZAyC0@public.gmane.org
-To: Matt Mackall <mpm-VDJrAJ4Gl5ZBDgjK7y7TUQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: Ayaz Abdulla <aabdulla@nvidia.com>, maxk@qualcomm.com,
+   Jeff Garzik <jeff@garzik.org>, Marcel Holtmann <marcel@holtmann.org>,
+   linux-pm@lists.osdl.org,
+   Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+   Sid Boyce <g3vbv@blueyonder.co.uk>, netdev@vger.kernel.org,
+   bluez-devel@lists.sourceforge.net, Pavel Machek <pavel@ucw.cz>,
+   Matt Mackall <mpm@selenic.com>, Mark Lord <lkml@rtr.ca>,
+   Johannes Berg <johannes@sipsolutions.net>,
+   Albert Hopkins <kernel@marduk.letterboxes.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>,
+   Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-pm-bounces@lists.osdl.org>
 Content-Disposition: inline
-In-Reply-To: <20070305002550.GI23311-1tnLUEbcrg3YtjvyW6yDsg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <Pine.LNX.4.64.0702272105220.12485@woody.linux-foundation.org>
+List-Unsubscribe: <https://lists.osdl.org/mailman/listinfo/linux-pm>,
+	<mailto:linux-pm-request@lists.osdl.org?subject=unsubscribe>
+List-Archive: <http://lists.osdl.org/pipermail/linux-pm>
+List-Post: <mailto:linux-pm@lists.osdl.org>
+List-Help: <mailto:linux-pm-request@lists.osdl.org?subject=help>
+List-Subscribe: <https://lists.osdl.org/mailman/listinfo/linux-pm>,
+	<mailto:linux-pm-request@lists.osdl.org?subject=subscribe>
+Sender: linux-pm-bounces@lists.osdl.org
+Errors-To: linux-pm-bounces@lists.osdl.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Mar 04, 2007 at 06:25:50PM -0600, Matt Mackall wrote:
-> On Mon, Mar 05, 2007 at 12:39:24AM +0100, Johannes Berg wrote:
-> > [adding linux-wireless to CC]
-> > 
-> > On Sun, 2007-03-04 at 16:08 -0600, Matt Mackall wrote:
-> > > Recent kernels are having troubles with wireless for me. Two seemingly
-> > > related problems:
-> > 
-> > I don't think they are related actually.
-> > 
-> > > a) NetworkManager seems oblivious to the existence of my IPW2200
-> > 
-> > This is due to the recent sysfs restructuring I think. IIRC the fix is
-> > to upgrade hal to a current git version.
-> 
-> If that's the cause, the fix is to back out whatever was done to break
-> userspace. Breaking userspace is not ok. Upgrading from 2.6.x to
-> 2.6.x+1 should not entail replacing substantial parts of userspace,
-> especially with NOT-EVEN-FRAKKING-RELEASED-YET CODE. 
+This email lists some known regressions in 2.6.21-rc2 compared to 2.6.20
+that are not yet fixed in Linus' tree.
 
-I should not have broken any userspace if CONFIG_SYSFS_DEPRECATED is
-enabled with that patch.  If that is enabled, and that patch still
-causes problems, please let me know.
+If you find your name in the Cc header, you are either submitter of one
+of the bugs, maintainer of an affectected subsystem or driver, a patch
+of you caused a breakage or I'm considering you in any other way =
 
-thanks,
+possibly involved with one or more of these issues.
 
-greg k-h
+Due to the huge amount of recipients, please trim the Cc when answering.
+
+
+Subject    : kwin dies silently
+References : http://lkml.org/lkml/2007/2/28/112
+Submitter  : Sid Boyce <g3vbv@blueyonder.co.uk>
+Status     : unknown
+
+
+Subject    : resume: slab error in verify_redzone_free(): cache `size-512':
+                     memory outside object was overwritten
+References : http://lkml.org/lkml/2007/2/24/41
+Submitter  : Pavel Machek <pavel@ucw.cz>
+Handled-By : Marcel Holtmann <marcel@holtmann.org>
+Status     : unknown
+
+
+Subject    : bluetooth hardlocks
+References : http://lkml.org/lkml/2007/3/2/85
+Submitter  : Pavel Machek <pavel@ucw.cz>
+Status     : unknown
+
+
+Subject    : Bluetooth RFComm locks up the machine  (device_move() related)
+References : http://lkml.org/lkml/2007/3/4/64
+Submitter  : Mark Lord <lkml@rtr.ca>
+Caused-By  : Marcel Holtmann <marcel@holtmann.org>
+             commit c1a3313698895d8ad4760f98642007bf236af2e8
+Status     : unknown
+
+
+Subject    : kref refcounting breakage
+References : http://lkml.org/lkml/2007/3/2/67
+Submitter  : Andrew Morton <akpm@linux-foundation.org>
+Handled-By : Greg KH <greg@kroah.com>
+Status     : unknown
+
+
+Subject    : wireless breakage (ipw2200, iwconfig, NetworkManager)
+References : http://lkml.org/lkml/2007/3/4/135
+Submitter  : Matt Mackall <mpm@selenic.com>
+Caused-By  : Greg Kroah-Hartman <gregkh@suse.de> (?)
+             commit 43cb76d91ee85f579a69d42bc8efc08bac560278 (?)
+Handled-By : Johannes Berg <johannes@sipsolutions.net>
+Status     : unknown
+
+
+Subject    : forcedeth: skb_over_panic
+References : http://bugzilla.kernel.org/show_bug.cgi?id=3D8058
+Submitter  : Albert Hopkins <kernel@marduk.letterboxes.org>
+Status     : unknown
