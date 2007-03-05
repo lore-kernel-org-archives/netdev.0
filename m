@@ -1,107 +1,87 @@
-From: Sergei Shtylyov <sshtylyov@ru.mvista.com>
-Subject: [PATCH] natsemi: netpoll fixes
-Date: Tue, 6 Mar 2007 00:10:08 +0400
-Message-ID: <200703052310.08359.sshtylyov@ru.mvista.com>
+From: Neil Brown <neilb@suse.de>
+Subject: Re: [PATCH 001 of 3] knfsd: Use recv_msg to get peer address
+	for NFSD instead of code-copying
+Date: Tue, 6 Mar 2007 08:09:12 +1100
+Message-ID: <17900.34552.69250.247125@notabene.brown>
+References: <20070302151748.5226.patches@notabene> <1070302042825.5760@suse.de>
+	<200703051959.56914.olaf.kirch@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mhuth@mvista.com
-To: jgarzik@pobox.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from h155.mvista.com ([63.81.120.155]:61759 "EHLO imap.sh.mvista.com"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751924AbXCEUKT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Mar 2007 15:10:19 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>, nfs@lists.sourceforge.net,
+	linux-kernel@vger.kernel.org
+To: Olaf Kirch <olaf.kirch@oracle.com>
+Return-path: <nfs-bounces@lists.sourceforge.net>
+In-Reply-To: message from Olaf Kirch on Monday March 5
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/nfs>,
+	<mailto:nfs-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=nfs>
+List-Post: <mailto:nfs@lists.sourceforge.net>
+List-Help: <mailto:nfs-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/nfs>,
+	<mailto:nfs-request@lists.sourceforge.net?subject=subscribe>
+Sender: nfs-bounces@lists.sourceforge.net
+Errors-To: nfs-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Fix two issues in this driver's netpoll path: one usual, with spin_unlock_irq()
-enabling interrupts which nobody asks it to do (that has been fixed recently in
-a number of drivers) and one unusual, with poll_controller() method possibly
-causing loss of interrupts due to the interrupt status register being cleared
-by a simple read and the interrpupt handler simply storing it, not accumulating.
+On Monday March 5, olaf.kirch@oracle.com wrote:
+> 
+> Hi Neil,
+> 
+> here's another minor comment:
+> 
+> On Friday 02 March 2007 05:28, NeilBrown wrote:
+> > +static inline void svc_udp_get_dest_address(struct svc_rqst *rqstp,
+> > +					    struct cmsghdr *cmh)
+> >  {
+> >  	switch (rqstp->rq_sock->sk_sk->sk_family) {
+> >  	case AF_INET: {
+> > +		struct in_pktinfo *pki = CMSG_DATA(cmh);
+> > +		rqstp->rq_daddr.addr.s_addr = pki->ipi_spec_dst.s_addr;
+> >  		break;
+> > +		}
+> ...
+> 
+> The daddr that is extracted here will only ever be used to build
+> another PKTINFO cmsg when sending the reply. So it would be
+> much easier to just store the raw control message in the svc_rqst,
+> without looking at its contents, and send it out along with the reply,
+> unchanged.
 
-Signed-off-by: Sergei Shtylyov <sshtylyov@ru.mvista.com>
+Yes, sounds tempting, doesn't it?
+Unfortunately it isn't that simple as I found out when the sunrpc code
+in glibc did exactly that.
 
----
- drivers/net/natsemi.c |   24 +++++++++++++++++++-----
- 1 files changed, 19 insertions(+), 5 deletions(-)
+You see sendmsg will use the interface-number as well as the source
+address from the PKTINFO structure.
 
-Index: linux-2.6/drivers/net/natsemi.c
-===================================================================
---- linux-2.6.orig/drivers/net/natsemi.c
-+++ linux-2.6/drivers/net/natsemi.c
-@@ -2024,6 +2024,7 @@ static int start_tx(struct sk_buff *skb,
- 	struct netdev_private *np = netdev_priv(dev);
- 	void __iomem * ioaddr = ns_ioaddr(dev);
- 	unsigned entry;
-+	unsigned long flags;
- 
- 	/* Note: Ordering is important here, set the field with the
- 	   "ownership" bit last, and only then increment cur_tx. */
-@@ -2037,7 +2038,7 @@ static int start_tx(struct sk_buff *skb,
- 
- 	np->tx_ring[entry].addr = cpu_to_le32(np->tx_dma[entry]);
- 
--	spin_lock_irq(&np->lock);
-+	spin_lock_irqsave(&np->lock, flags);
- 
- 	if (!np->hands_off) {
- 		np->tx_ring[entry].cmd_status = cpu_to_le32(DescOwn | skb->len);
-@@ -2056,7 +2057,7 @@ static int start_tx(struct sk_buff *skb,
- 		dev_kfree_skb_irq(skb);
- 		np->stats.tx_dropped++;
- 	}
--	spin_unlock_irq(&np->lock);
-+	spin_unlock_irqrestore(&np->lock, flags);
- 
- 	dev->trans_start = jiffies;
- 
-@@ -2222,6 +2223,8 @@ static void netdev_rx(struct net_device 
- 		pkt_len = (desc_status & DescSizeMask) - 4;
- 		if ((desc_status&(DescMore|DescPktOK|DescRxLong)) != DescPktOK){
- 			if (desc_status & DescMore) {
-+				unsigned long flags;
-+
- 				if (netif_msg_rx_err(np))
- 					printk(KERN_WARNING
- 						"%s: Oversized(?) Ethernet "
-@@ -2236,12 +2239,12 @@ static void netdev_rx(struct net_device 
- 				 * reset procedure documented in
- 				 * AN-1287. */
- 
--				spin_lock_irq(&np->lock);
-+				spin_lock_irqsave(&np->lock, flags);
- 				reset_rx(dev);
- 				reinit_rx(dev);
- 				writel(np->ring_dma, ioaddr + RxRingPtr);
- 				check_link(dev);
--				spin_unlock_irq(&np->lock);
-+				spin_unlock_irqrestore(&np->lock, flags);
- 
- 				/* We'll enable RX on exit from this
- 				 * function. */
-@@ -2396,8 +2399,19 @@ static struct net_device_stats *get_stat
- #ifdef CONFIG_NET_POLL_CONTROLLER
- static void natsemi_poll_controller(struct net_device *dev)
- {
-+	struct netdev_private *np = netdev_priv(dev);
-+
- 	disable_irq(dev->irq);
--	intr_handler(dev->irq, dev);
-+
-+	/*
-+	 * A real interrupt might have already reached us at this point
-+	 * but NAPI might still haven't called us back.  As the interrupt
-+	 * status register is cleared by reading, we should prevent an
-+	 * interrupt loss in this case...
-+	 */
-+	if (!np->intr_status)
-+		intr_handler(dev->irq, dev);
-+
- 	enable_irq(dev->irq);
- }
- #endif
+Suppose my server has two interfaces (A and B) on two subnets that
+both are connected to some router which is connected to a third subnet
+that my client is on.  Further, suppose my server has only one default
+route, out interface A.
+The client chooses the IP address of interface B and sends a request.
+It arrives on interface B and is processed.
+If the PKTINFO received is passed unchanged to sendmsg, the pack will
+be sent out interface B.  But interfacve B doesn't have a route to
+that client, so the packet is dropped.
 
+This exactly what was happening for me with mountd a few years ago.
+
+So yes, we could just zero the interface field, but I think it is
+clearer to extract that wanted data, then re-insert it.  They really
+are different structures with different meanings (send verse receive)
+which happen to have the same layout.
+
+Thanks,
+NeilBrown
+
+
+-------------------------------------------------------------------------
+Take Surveys. Earn Cash. Influence the Future of IT
+Join SourceForge.net's Techsay panel and you'll get the chance to share your
+opinions on IT & business topics through brief surveys-and earn cash
+http://www.techsay.com/default.php?page=join.php&p=sourceforge&CID=DEVDEV
+_______________________________________________
+NFS maillist  -  NFS@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/nfs
