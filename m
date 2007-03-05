@@ -1,30 +1,59 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH/RFC] Use of uninitialized data in udp_recvmsg().
-Date: Tue, 06 Mar 2007 08:57:42 +1100
-Message-ID: <E1HOLBe-000660-00@gondolin.me.apana.org.au>
-References: <Pine.LNX.4.64.0703051212350.21570@jchow-amax.eng.vmware.com>
-Cc: netdev@vger.kernel.org
-To: jchow@vmware.com (Jim Chow)
+From: Joel Becker <Joel.Becker@oracle.com>
+Subject: Re: Recent wireless breakage (ipw2200, iwconfig, NetworkManager)
+Date: Mon, 5 Mar 2007 13:58:17 -0800
+Message-ID: <20070305215817.GD20528@ca-server1.us.oracle.com>
+References: <20070304220857.GH23311@waste.org> <20070305011625.GA7681@kroah.com> <20070305064229.GJ23311@waste.org> <20070305070248.GA30699@kroah.com> <20070305071325.GK23311@waste.org> <20070305154609.GA3626@irc.pl>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+To: linux-kernel@vger.kernel.org, greg@kroah.com,
+	netdev@vger.kernel.org, yi.zhu@intel.com, jketreno@linux.intel.com,
+	akpm@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:3985 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S933669AbXCEV5u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Mar 2007 16:57:50 -0500
-In-Reply-To: <Pine.LNX.4.64.0703051212350.21570@jchow-amax.eng.vmware.com>
+Received: from agminet01.oracle.com ([141.146.126.228]:12905 "EHLO
+	agminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751895AbXCEV6x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Mar 2007 16:58:53 -0500
+Content-Disposition: inline
+In-Reply-To: <20070305154609.GA3626@irc.pl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jim Chow <jchow@vmware.com> wrote:
-> After inspection of some networking code, it seems there is a use of
-> uninitialized data in udp_recvmsg(),
-> linux-2.6.20.1/net/ipv4/udp.c:843, while testing msg->msg_flags (see
-> the backtrace below).  It looks like sys_recvfrom() is not
+On Mon, Mar 05, 2007 at 04:46:09PM +0100, Tomasz Torcz wrote:
+> On Mon, Mar 05, 2007 at 01:13:26AM -0600, Matt Mackall wrote:
+> > That's not the point. The point is that Debian/unstable as of _this
+> > morning_ doesn't work. For reference, I'm running both the latest
+> > releases of both hal (0.5.8.1-6.1) and network-manager (0.6.4-6). And
+> > there are people telling me I need a copy of HAL out of git that
+> > hasn't even been released for Debian to package. Debian isn't the
+> > problem here.
+> 
+>   hal 0.5.9-rc1 (released, not from git) should work. It will be
+> problably released soon and picked by sane distributions. Debian is very
+> irritating corner case.
 
-msg_flags is set on return and its initial value is not used.
+	As of right now, Fedora Core 6 has hal-0.5.8.1-6.fc6.  This is also
+too old.  Please, stop claiming that Debian unstable is some corner
+case.  No one is talking about Debian stable here.  No one is talking
+about the Enterprise versions of Red Hat or SuSE (you'd find them just
+as irritating with modern kernels).  Debian unstable tracks released
+code as fast or faster than Fedora and OpenSuSE.  They all keep up with
+releases.
+	But the last release of hal is 0.5.8.1.  _Release_, not "release
+candidate".  You can't break that.  You can't break it for a while, if
+you want a sane deprecation schedule.  These are userspace interfaces.
+	Matt is absolutely correct that you should't deprecate a
+userspace<->kernel interface before you've even provided a release of
+the tool that detects the change!
 
-Cheers,
+Joel
+
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+"When ideas fail, words come in very handy." 
+         - Goethe
+
+Joel Becker
+Principal Software Developer
+Oracle
+E-mail: joel.becker@oracle.com
+Phone: (650) 506-8127
