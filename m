@@ -1,86 +1,63 @@
 From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [1/6] 2.6.21-rc2: known regressions
-Date: Tue, 06 Mar 2007 01:55:46 +0100
-Message-ID: <1173142546.15891.63.camel@johannes.berg>
-References: <Pine.LNX.4.64.0702272105220.12485@woody.linux-foundation.org>
-	<20070305015031.GF3441@stusta.de>  <20070305033533.GA28319@kroah.com>
+Subject: compat_sock_common_getsockopt typo?
+Date: Tue, 06 Mar 2007 00:26:51 +0100
+Message-ID: <1173137211.15891.27.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============1304735898=="
-Cc: Ayaz Abdulla <aabdulla@nvidia.com>, Pavel Machek <pavel@ucw.cz>,
-   Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
-   Marcel Holtmann <marcel@holtmann.org>, linux-pm@lists.osdl.org,
-   Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-   Adrian Bunk <bunk@stusta.de>, bluez-devel@lists.sourceforge.net,
-   maxk@qualcomm.com, Matt Mackall <mpm@selenic.com>, Mark Lord <lkml@rtr.ca>,
-   Andrew Morton <akpm@linux-foundation.org>,
-   Sid Boyce <g3vbv@blueyonder.co.uk>,
-   Linus Torvalds <torvalds@linux-foundation.org>,
-   Albert Hopkins <kernel@marduk.letterboxes.org>
-To: Greg KH <greg@kroah.com>
-Return-path: <linux-pm-bounces@lists.osdl.org>
-In-Reply-To: <20070305033533.GA28319@kroah.com>
-List-Unsubscribe: <https://lists.osdl.org/mailman/listinfo/linux-pm>,
-	<mailto:linux-pm-request@lists.osdl.org?subject=unsubscribe>
-List-Archive: <http://lists.osdl.org/pipermail/linux-pm>
-List-Post: <mailto:linux-pm@lists.osdl.org>
-List-Help: <mailto:linux-pm-request@lists.osdl.org?subject=help>
-List-Subscribe: <https://lists.osdl.org/mailman/listinfo/linux-pm>,
-	<mailto:linux-pm-request@lists.osdl.org?subject=subscribe>
-Sender: linux-pm-bounces@lists.osdl.org
-Errors-To: linux-pm-bounces@lists.osdl.org
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-tosyh4j1/RgjOKKP+OpE"
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:59815 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934108AbXCFNLg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2007 08:11:36 -0500
+Received: from [131.234.73.23]
+	by sipsolutions.net with esmtpsa (TLS-1.0:RSA_ARCFOUR_MD5:16)
+	(Exim 4.63)
+	(envelope-from <johannes@sipsolutions.net>)
+	id 1HOZNX-00030T-7O
+	for netdev@vger.kernel.org; Tue, 06 Mar 2007 13:06:55 +0000
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---===============1304735898==
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature";
-	boundary="=-i3jBLRY+r3mxA0BLoyxz"
-
-
---=-i3jBLRY+r3mxA0BLoyxz
+--=-tosyh4j1/RgjOKKP+OpE
 Content-Type: text/plain
 Content-Transfer-Encoding: quoted-printable
 
-On Sun, 2007-03-04 at 19:35 -0800, Greg KH wrote:
+The function reads as follows:
 
-> > Subject    : wireless breakage (ipw2200, iwconfig, NetworkManager)
-> > References : http://lkml.org/lkml/2007/3/4/135
-> > Submitter  : Matt Mackall <mpm@selenic.com>
-> > Caused-By  : Greg Kroah-Hartman <gregkh@suse.de> (?)
-> >              commit 43cb76d91ee85f579a69d42bc8efc08bac560278 (?)
-> > Handled-By : Johannes Berg <johannes@sipsolutions.net>
-> > Status     : unknown
->=20
-> I really think this is a CONFIG_SYSFS_DEPRECATED issue (not being set),
-> but want to get Matt confirm either way before saying this is a real
-> issue or not.
+int compat_sock_common_getsockopt(struct socket *sock, int level, int optna=
+me,
+                                  char __user *optval, int __user *optlen)
+{
+        struct sock *sk =3D sock->sk;
 
-I just tested on my quad powermac that also runs a stock Debian/unstable
-and changing that option makes all the difference. Nevermind that it
-defaults to yes and one needs to turn it off explicitly...
+        if (sk->sk_prot->compat_setsockopt !=3D NULL)
+                                ^^^
+
+                return sk->sk_prot->compat_getsockopt(sk, level, optname,
+                                           ^^^
+                                                      optval, optlen);
+        return sk->sk_prot->getsockopt(sk, level, optname, optval, optlen);
+}
+EXPORT_SYMBOL(compat_sock_common_getsockopt);
+
+Is that intentional to make protocol writers assign both if they want
+compat_setsockopt? :P
 
 johannes
 
---=-i3jBLRY+r3mxA0BLoyxz
+--=-tosyh4j1/RgjOKKP+OpE
 Content-Type: application/pgp-signature; name=signature.asc
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Comment: Johannes Berg (powerbook)
 
-iD8DBQBF7LwS/ETPhpq3jKURAuGuAJ90d8Ucs+DvKGONqv3pqz5OhbORZACgqE1G
-9nOJkgdgY15qW65IIDjPV60=
-=8EIz
+iD8DBQBF7Kc6/ETPhpq3jKURAkDwAKCRGvsINOsO4rghazRIIgu5ocCU9wCgjJ/B
+PsIoVEP0T0iL+CdKzmxdOxA=
+=G58D
 -----END PGP SIGNATURE-----
 
---=-i3jBLRY+r3mxA0BLoyxz--
+--=-tosyh4j1/RgjOKKP+OpE--
 
-
---===============1304735898==
-Content-Type: text/plain; charset="iso-8859-1"
-MIME-Version: 1.0
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
-
-
---===============1304735898==--
