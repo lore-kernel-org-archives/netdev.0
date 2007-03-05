@@ -1,40 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][BUG][SECURITY] Re: Weird problem with PPPoE on tap
- interface
-Date: Sun, 04 Mar 2007 16:03:40 -0800 (PST)
-Message-ID: <20070304.160340.108742143.davem@davemloft.net>
-References: <20070304015516.GE28150@florz.florz.dyndns.org>
-	<20070303.210843.41636777.davem@davemloft.net>
-	<20070304120939.GG28150@florz.florz.dyndns.org>
+Subject: Re: [PATCH] NET : keep sk_backlog near sk_lock
+Date: Sun, 04 Mar 2007 16:05:57 -0800 (PST)
+Message-ID: <20070304.160557.63128876.davem@davemloft.net>
+References: <20070222.012649.119274047.davem@davemloft.net>
+	<200702221122.02806.dada1@cosmosbay.com>
+	<200702221550.15280.dada1@cosmosbay.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mostrows@speakeasy.net
-To: florz@gmx.de
+Cc: netdev@vger.kernel.org
+To: dada1@cosmosbay.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47502
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47507
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752549AbXCEADm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Mar 2007 19:03:42 -0500
-In-Reply-To: <20070304120939.GG28150@florz.florz.dyndns.org>
+	by vger.kernel.org with ESMTP id S1752554AbXCEAF6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Mar 2007 19:05:58 -0500
+In-Reply-To: <200702221550.15280.dada1@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Florian Zumbiehl <florz@gmx.de>
-Date: Sun, 4 Mar 2007 13:09:39 +0100
+From: Eric Dumazet <dada1@cosmosbay.com>
+Date: Thu, 22 Feb 2007 15:50:15 +0100
 
-> > From: Florian Zumbiehl <florz@gmx.de>
-> > Date: Sun, 4 Mar 2007 02:55:16 +0100
-> > 
-> > > Below you find a slightly changed version of the patch
-> > 
-> > I already applied your first patch, so if you have any
-> > fixes to submit please provide them as relative patches
-> > to your original change.
-> > 
-> > Thank you.
+> sk_backlog is a critical field of struct sock. (known famous words)
 > 
-> Here you go ...
+> It is (ab)used in hot paths, in particular in release_sock(), tcp_recvmsg(), 
+> tcp_v4_rcv(), sk_receive_skb().
+> 
+> It really makes sense to place it next to sk_lock, because sk_backlog is only 
+> used after sk_lock locked (and thus memory cache line in L1 cache). This 
+> should reduce cache misses and sk_lock acquisition time.
+> 
+> (In theory, we could only move the head pointer near sk_lock, and leaving tail 
+> far away, because 'tail' is normally not so hot, but keep it simple :) )
+> 
+> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
 
-Applied, thanks a lot Florian.
-
+Applied, thanks a lot Eric.
