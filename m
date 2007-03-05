@@ -1,67 +1,149 @@
 From: KOVACS Krisztian <hidden@balabit.hu>
-Subject: [PATCH/RFC 10/13] Export UDP socket lookup function
-Date: Mon, 05 Mar 2007 16:46:32 +0100
-Message-ID: <20070305154631.3471.85876.stgit@nienna.balabit>
+Subject: [PATCH/RFC 13/13] iptables tproxy match
+Date: Mon, 05 Mar 2007 16:47:02 +0100
+Message-ID: <20070305154702.3471.25476.stgit@nienna.balabit>
 References: <20070305154451.3471.18396.stgit@nienna.balabit>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.balabit.hu ([212.92.18.33]:3020 "EHLO lists.balabit.hu"
+Received: from www.balabit.hu ([212.92.18.33]:2883 "EHLO lists.balabit.hu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933543AbXCEPqd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Mar 2007 10:46:33 -0500
+	id S933550AbXCEPrF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Mar 2007 10:47:05 -0500
 Received: from balabit.hu (unknown [10.80.0.254])
-	by lists.balabit.hu (Postfix) with ESMTP id 5F6DD294023
-	for <netdev@vger.kernel.org>; Mon,  5 Mar 2007 16:46:32 +0100 (CET)
+	by lists.balabit.hu (Postfix) with ESMTP id 05413294020
+	for <netdev@vger.kernel.org>; Mon,  5 Mar 2007 16:47:03 +0100 (CET)
 In-Reply-To: <20070305154451.3471.18396.stgit@nienna.balabit>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The iptables tproxy code has to be able to do UDP socket hash lookups,
-so we have to provide an exported lookup function for this purpose.
+Implements an iptables module which matches packets which have the
+tproxy flag set, that is, packets diverted in the tproxy table.
 
 Signed-off-by: KOVACS Krisztian <hidden@balabit.hu>
 
 ---
 
- include/net/udp.h |    4 ++++
- net/ipv4/udp.c    |    8 ++++++++
- 2 files changed, 12 insertions(+), 0 deletions(-)
+ net/netfilter/Kconfig     |    9 +++++
+ net/netfilter/Makefile    |    1 +
+ net/netfilter/xt_tproxy.c |   77 +++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 87 insertions(+), 0 deletions(-)
 
-diff --git a/include/net/udp.h b/include/net/udp.h
-index 1b921fa..ea5aa31 100644
---- a/include/net/udp.h
-+++ b/include/net/udp.h
-@@ -141,6 +141,10 @@ extern int 	udp_lib_setsockopt(struct sock *sk, int level, int optname,
- 				   char __user *optval, int optlen,
- 				   int (*push_pending_frames)(struct sock *));
+diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
+index 253fce3..b22346e 100644
+--- a/net/netfilter/Kconfig
++++ b/net/netfilter/Kconfig
+@@ -603,6 +603,15 @@ config NETFILTER_XT_MATCH_QUOTA
+ 	  If you want to compile it as a module, say M here and read
+ 	  <file:Documentation/modules.txt>.  If unsure, say `N'.
  
-+extern struct sock *udp4_lib_lookup(__be32 saddr, __be16 sport,
-+				    __be32 daddr, __be16 dport,
-+				    int dif);
++config NETFILTER_XT_MATCH_TPROXY
++	tristate '"tproxy" match support'
++	depends on NETFILTER_XTABLES
++	help
++	  This option adds a `tproxy' match, which allows you to match
++	  packets which have been diverted to local sockets by TProxy.
 +
- DECLARE_SNMP_STAT(struct udp_mib, udp_statistics);
- /*
-  * 	SNMP statistics for UDP and UDP-Lite
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 1d15edc..52695a6 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -285,6 +285,14 @@ static struct sock *__udp4_lib_lookup(__be32 saddr, __be16 sport,
- 	return result;
- }
- 
-+struct sock *udp4_lib_lookup(__be32 saddr, __be16 sport,
-+			     __be32 daddr, __be16 dport,
-+			     int dif)
++	  To compile it as a module, choose M here.  If unsure, say N.
++
+ config NETFILTER_XT_MATCH_REALM
+ 	tristate  '"realm" match support'
+ 	depends on NETFILTER_XTABLES
+diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
+index b2b5c75..83b2fd9 100644
+--- a/net/netfilter/Makefile
++++ b/net/netfilter/Makefile
+@@ -64,6 +64,7 @@ obj-$(CONFIG_NETFILTER_XT_MATCH_MARK) += xt_mark.o
+ obj-$(CONFIG_NETFILTER_XT_MATCH_MULTIPORT) += xt_multiport.o
+ obj-$(CONFIG_NETFILTER_XT_MATCH_POLICY) += xt_policy.o
+ obj-$(CONFIG_NETFILTER_XT_MATCH_PKTTYPE) += xt_pkttype.o
++obj-$(CONFIG_NETFILTER_XT_MATCH_TPROXY) += xt_tproxy.o
+ obj-$(CONFIG_NETFILTER_XT_MATCH_QUOTA) += xt_quota.o
+ obj-$(CONFIG_NETFILTER_XT_MATCH_REALM) += xt_realm.o
+ obj-$(CONFIG_NETFILTER_XT_MATCH_SCTP) += xt_sctp.o
+diff --git a/net/netfilter/xt_tproxy.c b/net/netfilter/xt_tproxy.c
+new file mode 100644
+index 0000000..53f8bee
+--- /dev/null
++++ b/net/netfilter/xt_tproxy.c
+@@ -0,0 +1,77 @@
++/*
++ * Transparent proxy support for Linux/iptables
++ *
++ * Copyright (c) 2007 BalaBit IT Ltd.
++ * Author: Krisztian Kovacs
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ *
++ */
++
++#include <linux/module.h>
++#include <linux/skbuff.h>
++
++#include <linux/netfilter/x_tables.h>
++
++static int
++match(const struct sk_buff *skb,
++      const struct net_device *in,
++      const struct net_device *out,
++      const struct xt_match *match,
++      const void *matchinfo,
++      int offset,
++      unsigned int protoff,
++      int *hotdrop)
 +{
-+	return __udp4_lib_lookup(saddr, sport, daddr, dport, dif, udp_hash);
++	return skb->ip_tproxy;
 +}
-+EXPORT_SYMBOL_GPL(udp4_lib_lookup);
 +
- static inline struct sock *udp_v4_mcast_next(struct sock *sk,
- 					     __be16 loc_port, __be32 loc_addr,
- 					     __be16 rmt_port, __be32 rmt_addr,
++static int
++check(const char *tablename,
++      const void *entry,
++      const struct xt_match *match,
++      void *matchinfo,
++      unsigned int hook_mask)
++{
++	return 1;
++}
++
++static struct xt_match tproxy_matches[] = {
++	{
++		.name		= "tproxy",
++		.match		= match,
++		.matchsize	= 0,
++		.checkentry	= check,
++		.family		= AF_INET,
++		.me		= THIS_MODULE,
++	},
++	{
++		.name		= "tproxy",
++		.match		= match,
++		.matchsize	= 0,
++		.checkentry	= check,
++		.family		= AF_INET6,
++		.me		= THIS_MODULE,
++	},
++};
++
++static int __init xt_tproxy_init(void)
++{
++	return xt_register_matches(tproxy_matches, ARRAY_SIZE(tproxy_matches));
++}
++
++static void __exit xt_tproxy_fini(void)
++{
++	xt_unregister_matches(tproxy_matches, ARRAY_SIZE(tproxy_matches));
++}
++
++module_init(xt_tproxy_init);
++module_exit(xt_tproxy_fini);
++
++MODULE_LICENSE("GPL");
++MODULE_AUTHOR("Krisztian Kovacs <hidden@balabit.hu>");
++MODULE_DESCRIPTION("iptables tproxy match module");
++MODULE_ALIAS("ipt_tproxy");
++MODULE_ALIAS("ip6t_tproxy");
 
