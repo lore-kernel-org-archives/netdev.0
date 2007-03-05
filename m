@@ -1,42 +1,62 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH/RFC] Use of uninitialized data in udp_recvmsg().
-Date: Tue, 6 Mar 2007 10:57:32 +1100
-Message-ID: <20070305235732.GA24642@gondor.apana.org.au>
-References: <E1HOLBe-000660-00@gondolin.me.apana.org.au> <Pine.LNX.4.64.0703051257520.27979@jchow-amax.eng.vmware.com> <20070305233449.GA24159@gondor.apana.org.au>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [RFC] div64_64 support
+Date: Mon, 5 Mar 2007 15:57:14 -0800
+Message-ID: <20070305155714.3abe1b5e@freekitty>
+References: <20070223170527.4ca695b2@freekitty>
+	<Pine.LNX.4.61.0702262108010.23355@yvahk01.tjqt.qr>
+	<20070226143127.5c74bec9@freekitty>
+	<p73slcnawh3.fsf@bingen.suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Jim Chow <jchow@vmware.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Jan Engelhardt <jengelh@linux01.gwdg.de>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:4759 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S933230AbXCEX5j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Mar 2007 18:57:39 -0500
-Content-Disposition: inline
-In-Reply-To: <20070305233449.GA24159@gondor.apana.org.au>
+Received: from smtp.osdl.org ([65.172.181.24]:42067 "EHLO smtp.osdl.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933115AbXCEX53 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Mar 2007 18:57:29 -0500
+In-Reply-To: <p73slcnawh3.fsf@bingen.suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 06, 2007 at 10:34:49AM +1100, Herbert Xu wrote:
-> > 
-> > That's not true.  Please see my post.
-> > 
-> > Specifically, at linux-2.6.20.1/net/ipv4/udp.c:843, it seems that 
-> > udp_recvmsg() can randomly ignore whether the HW has computed a checksum 
-> > and compute it in SW redundantly.
+On 03 Mar 2007 03:31:52 +0100
+Andi Kleen <andi@firstfloor.org> wrote:
+
+> Stephen Hemminger <shemminger@linux-foundation.org> writes:
 > 
-> Sorry, you're right.  This bug has been there for years.
+> > Here is another way to handle the 64 bit divide case.
+> > It allows full 64 bit divide by adding the support routine
+> > GCC needs.
+> 
+> Not supplying that was intentional by Linus so that people
+> think twice (or more often) before they using such expensive
+> operations. A plain / looks too innocent.
+> 
+> Is it really needed by CUBIC anyways?  It uses it for getting
+> the cubic root, but the algorithm recommended by Hacker's Delight
+> (great book) doesn't use any divisions at all. Probably better 
+> to use a better algorithm without divisions.
+> 
 
-Actually I think we should fix UDP regardless of whether we initialise
-msg_flags to zero here.  It's just too error-prone to rely on it to not
-have MSG_TRUNC set.
+I tried the code from Hacker's Delight.
+It is cool, but performance is CPU (and data) dependent:
 
-I'm going to clean this up for UDP and improve the UDP-lite checksum
-handling while I'm at it.
+Average # of usecs per operation:
 
-Cheers,
+		Hacker		Newton
+Pentium 3	68.6	<	90.4
+T2050		98.6	>	92.0
+U1400		450	>	415
+Xeon		70 	<	90
+Xeon (newer)	71	<	78
+
+EM64T		21.8	<	24.6
+AMD64		23.4	<	32.0
+
+It might be worth the change for code size reduction though.
+
+
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Stephen Hemminger <shemminger@linux-foundation.org>
