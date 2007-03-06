@@ -1,93 +1,117 @@
 From: akpm@linux-foundation.org
-Subject: [patch 05/19] revert "drivers/net/tulip/dmfe: support basic carrier detection"
-Date: Tue, 06 Mar 2007 02:41:49 -0800
-Message-ID: <200703061041.l26Afnqh019746@shell0.pdx.osdl.net>
+Subject: [patch 18/19] mv643xx ethernet driver IRQ registration fix
+Date: Tue, 06 Mar 2007 02:42:02 -0800
+Message-ID: <200703061042.l26Ag25d019787@shell0.pdx.osdl.net>
 Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	samuel.thibault@ens-lyon.org, stable@kernel.org,
-	thomas@archlinux.org, val_henson@linux.intel.com
+	giri@lmc.cs.sunysb.edu, dale@farnsworth.org, pgiri@yahoo.com
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:34812 "EHLO smtp.osdl.org"
+Received: from smtp.osdl.org ([65.172.181.24]:34872 "EHLO smtp.osdl.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S964778AbXCFKob (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Mar 2007 05:44:31 -0500
+	id S964785AbXCFKqP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Mar 2007 05:46:15 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Andrew Morton <akpm@linux-foundation.org>
+From: Giridhar Pemmasani <giri@lmc.cs.sunysb.edu>
 
-Revert 7628b0a8c01a02966d2228bdf741ddedb128e8f8.  Thomas Bachler
-reports:
+During initialization, mv643xx driver registers IRQ before setting up tx/rx
+rings.  This causes kernel oops because mv643xx_poll, which gets called
+right after registering IRQ, calls netif_rx_complete, which accesses the rx
+ring (I don't have the oops message anymore; I just remember this sequence
+of calls).  Attached (tested) patch first initializes the rx/tx rings and
+then registers the IRQ.
 
-  Commit 7628b0a8c01a02966d2228bdf741ddedb128e8f8 (drivers/net/tulip/dmfe:
-  support basic carrier detection) breaks networking on my Davicom DM9009. 
-  ethtool always reports there is no link.  tcpdump shows incoming packets,
-  but TX is disabled.  Reverting the above patch fixes the problem.
-
-
-Cc: Samuel Thibault <samuel.thibault@ens-lyon.org>
+Signed-off-by: Giridhar Pemmasani <pgiri@yahoo.com>
+Cc: Dale Farnsworth <dale@farnsworth.org>
 Cc: Jeff Garzik <jeff@garzik.org>
-Cc: Valerie Henson <val_henson@linux.intel.com>
-Cc: Thomas Bachler <thomas@archlinux.org>
-Cc: <stable@kernel.org>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/net/tulip/dmfe.c |    9 +--------
- 1 file changed, 1 insertion(+), 8 deletions(-)
+ drivers/net/mv643xx_eth.c |   40 +++++++++++++++++++-----------------
+ 1 file changed, 22 insertions(+), 18 deletions(-)
 
-diff -puN drivers/net/tulip/dmfe.c~revert-drivers-net-tulip-dmfe-support-basic-carrier-detection drivers/net/tulip/dmfe.c
---- a/drivers/net/tulip/dmfe.c~revert-drivers-net-tulip-dmfe-support-basic-carrier-detection
-+++ a/drivers/net/tulip/dmfe.c
-@@ -187,7 +187,7 @@ struct rx_desc {
- struct dmfe_board_info {
- 	u32 chip_id;			/* Chip vendor/Device ID */
- 	u32 chip_revision;		/* Chip revision */
--	struct DEVICE *dev;		/* net device */
-+	struct DEVICE *next_dev;	/* next device */
- 	struct pci_dev *pdev;		/* PCI device */
- 	spinlock_t lock;
+diff -puN drivers/net/mv643xx_eth.c~mv643xx-ethernet-driver-irq-registration-fix drivers/net/mv643xx_eth.c
+--- a/drivers/net/mv643xx_eth.c~mv643xx-ethernet-driver-irq-registration-fix
++++ a/drivers/net/mv643xx_eth.c
+@@ -787,14 +787,6 @@ static int mv643xx_eth_open(struct net_d
+ 	unsigned int size;
+ 	int err;
  
-@@ -399,8 +399,6 @@ static int __devinit dmfe_init_one (stru
- 	/* Init system & device */
- 	db = netdev_priv(dev);
- 
--	db->dev = dev;
+-	err = request_irq(dev->irq, mv643xx_eth_int_handler,
+-			IRQF_SHARED | IRQF_SAMPLE_RANDOM, dev->name, dev);
+-	if (err) {
+-		printk(KERN_ERR "Can not assign IRQ number to MV643XX_eth%d\n",
+-								port_num);
+-		return -EAGAIN;
+-	}
 -
- 	/* Allocate Tx/Rx descriptor memory */
- 	db->desc_pool_ptr = pci_alloc_consistent(pdev, sizeof(struct tx_desc) * DESC_ALL_CNT + 0x20, &db->desc_pool_dma_ptr);
- 	db->buf_pool_ptr = pci_alloc_consistent(pdev, TX_BUF_ALLOC * TX_DESC_CNT + 4, &db->buf_pool_dma_ptr);
-@@ -428,7 +426,6 @@ static int __devinit dmfe_init_one (stru
- 	dev->poll_controller = &poll_dmfe;
- #endif
- 	dev->ethtool_ops = &netdev_ethtool_ops;
--	netif_carrier_off(db->dev);
- 	spin_lock_init(&db->lock);
+ 	eth_port_init(mp);
  
- 	pci_read_config_dword(pdev, 0x50, &pci_pmr);
-@@ -1053,7 +1050,6 @@ static void netdev_get_drvinfo(struct ne
+ 	memset(&mp->timeout, 0, sizeof(struct timer_list));
+@@ -806,8 +798,7 @@ static int mv643xx_eth_open(struct net_d
+ 								GFP_KERNEL);
+ 	if (!mp->rx_skb) {
+ 		printk(KERN_ERR "%s: Cannot allocate Rx skb ring\n", dev->name);
+-		err = -ENOMEM;
+-		goto out_free_irq;
++		return -ENOMEM;
+ 	}
+ 	mp->tx_skb = kmalloc(sizeof(*mp->tx_skb) * mp->tx_ring_size,
+ 								GFP_KERNEL);
+@@ -861,13 +852,8 @@ static int mv643xx_eth_open(struct net_d
+ 							dev->name, size);
+ 		printk(KERN_ERR "%s: Freeing previously allocated TX queues...",
+ 							dev->name);
+-		if (mp->rx_sram_size)
+-			iounmap(mp->p_tx_desc_area);
+-		else
+-			dma_free_coherent(NULL, mp->tx_desc_area_size,
+-					mp->p_tx_desc_area, mp->tx_desc_dma);
+ 		err = -ENOMEM;
+-		goto out_free_tx_skb;
++		goto out_free_tx_ring;
+ 	}
+ 	memset((void *)mp->p_rx_desc_area, 0, size);
  
- static const struct ethtool_ops netdev_ethtool_ops = {
- 	.get_drvinfo		= netdev_get_drvinfo,
--	.get_link               = ethtool_op_get_link,
- };
+@@ -875,6 +861,14 @@ static int mv643xx_eth_open(struct net_d
  
- /*
-@@ -1148,7 +1144,6 @@ static void dmfe_timer(unsigned long dat
- 		/* Link Failed */
- 		DMFE_DBUG(0, "Link Failed", tmp_cr12);
- 		db->link_failed = 1;
--		netif_carrier_off(db->dev);
+ 	mv643xx_eth_rx_refill_descs(dev);	/* Fill RX ring with skb's */
  
- 		/* For Force 10/100M Half/Full mode: Enable Auto-Nego mode */
- 		/* AUTO or force 1M Homerun/Longrun don't need */
-@@ -1171,8 +1166,6 @@ static void dmfe_timer(unsigned long dat
- 			if ( (db->media_mode & DMFE_AUTO) &&
- 				dmfe_sense_speed(db) )
- 				db->link_failed = 1;
--			else
--				netif_carrier_on(db->dev);
- 			dmfe_process_mode(db);
- 			/* SHOW_MEDIA_TYPE(db->op_mode); */
- 		}
++	err = request_irq(dev->irq, mv643xx_eth_int_handler,
++			IRQF_SHARED | IRQF_SAMPLE_RANDOM, dev->name, dev);
++	if (err) {
++		printk(KERN_ERR "Can not assign IRQ number to MV643XX_eth%d\n",
++			port_num);
++		goto out_free_rx_ring;
++	}
++
+ 	/* Clear any pending ethernet port interrupts */
+ 	mv_write(MV643XX_ETH_INTERRUPT_CAUSE_REG(port_num), 0);
+ 	mv_write(MV643XX_ETH_INTERRUPT_CAUSE_EXTEND_REG(port_num), 0);
+@@ -900,12 +894,22 @@ static int mv643xx_eth_open(struct net_d
+ 
+ 	return 0;
+ 
++out_free_rx_ring:
++	if (mp->rx_sram_size)
++		iounmap(mp->p_rx_desc_area);
++	else
++		dma_free_coherent(NULL, mp->rx_desc_area_size,
++			mp->p_rx_desc_area, mp->rx_desc_dma);
++out_free_tx_ring:
++	if (mp->tx_sram_size)
++		iounmap(mp->p_tx_desc_area);
++	else
++		dma_free_coherent(NULL, mp->tx_desc_area_size,
++				mp->p_tx_desc_area, mp->tx_desc_dma);
+ out_free_tx_skb:
+ 	kfree(mp->tx_skb);
+ out_free_rx_skb:
+ 	kfree(mp->rx_skb);
+-out_free_irq:
+-	free_irq(dev->irq, dev);
+ 
+ 	return err;
+ }
 _
