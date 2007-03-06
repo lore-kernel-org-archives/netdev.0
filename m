@@ -1,51 +1,53 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: wireless extensions vs. 64-bit architectures
-Date: Tue, 06 Mar 2007 15:31:20 +0100
-Message-ID: <1173191480.5415.2.camel@johannes.berg>
-References: <1173144447.15891.93.camel@johannes.berg>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: Packet timestamps (was: Re: Network performance degradation from 2.6.11.12 to 2.6.16.20)
+Date: Tue, 6 Mar 2007 15:38:44 +0100
+Message-ID: <200703061538.45049.dada1@cosmosbay.com>
+References: <200609181850.22851.ak@suse.de> <4514147D.5040803@hp.com> <20070306132551.GB8412@tentacle.sectorb.msk.ru>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-Z0M8FVW2QCgJi18CfauM"
-Cc: netdev <netdev@vger.kernel.org>, Jeff Garzik <jgarzik@pobox.com>,
-	Jean Tourrilhes <jt@hpl.hp.com>,
-	Dan Williams <dcbw@redhat.com>,
-	Jouni Malinen <jkm@devicescape.com>
-To: linux-wireless@vger.kernel.org
+Content-Type: text/plain;
+  charset="koi8-r"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Andi Kleen <ak@suse.de>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	David Miller <davem@davemloft.net>, hawk@diku.dk,
+	harry@atmos.washington.edu, linux-kernel@vger.kernel.org,
+	Rick Jones <rick.jones2@hp.com>
+To: "Vladimir B. Savkin" <master@sectorb.msk.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:50810 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965082AbXCFOeo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2007 09:34:44 -0500
-In-Reply-To: <1173144447.15891.93.camel@johannes.berg>
+Received: from pfx2.jmh.fr ([194.153.89.55]:39661 "EHLO pfx2.jmh.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965879AbXCFOir (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Mar 2007 09:38:47 -0500
+In-Reply-To: <20070306132551.GB8412@tentacle.sectorb.msk.ru>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Tuesday 06 March 2007 14:25, Vladimir B. Savkin wrote:
 
---=-Z0M8FVW2QCgJi18CfauM
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+>  	},
+> +	{
+> +		.ctl_name	= NET_CORE_ACCURATE_TIMESTAMPS,
+> +		.procname	= "accurate_timestamps",
+> +		.data		= &sysctl_accurate_timestamps,
+> +		.maxlen		= sizeof(int),
+> +		.mode		= 0644,
+> +		.proc_handler	= &proc_dointvec
+> +	},
+>  	{ .ctl_name = 0 }
+>  };
+>
+>
+> May I ask about integrating this or a similar solution for those
+> like me who values routing performance (with bind9 running) over
+> minor convinience of having tcpdump always display accurate
+> timestamps?
+>
 
-On Tue, 2007-03-06 at 02:27 +0100, Johannes Berg wrote:
-> Actually, I think it may have the same bug, it seems to be operating
-> with iw_point (or at least its size) too
+Quite frankly I dont like this patch :
 
-I'm told that the code that uses it is only internal and the size isn't
-part of the userspace interface which makes this wrong. But we still
-have many programs relying on ioctls and none relying on the wext/nl
-interface so that isn't really a concern anyway.
+1) Fix applications, do not bloat kernel.
 
-johannes
-
---=-Z0M8FVW2QCgJi18CfauM
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iD8DBQBF7Xs4/ETPhpq3jKURAqz4AJ0Y5WKHzeZiz4h+cNxAj24WCl4hKQCglXeW
-1RHWnx8ZFpPAYEyWKaHNQ0o=
-=hegF
------END PGP SIGNATURE-----
-
---=-Z0M8FVW2QCgJi18CfauM--
+2) "accurate_timestamps" is misleading. 
+	Should be "disable_timestamps" 
 
