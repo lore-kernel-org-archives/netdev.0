@@ -1,31 +1,52 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: TCP 2MSL on loopback
-Date: Tue, 06 Mar 2007 13:25:35 -0800
-Message-ID: <45EDDC4F.7010201@hp.com>
-References: <45EBFD13.1060106@symas.com>	<200703051528.02564.dada1@cosmosbay.com>	<45ED32CA.5080709@symas.com>	<200703061142.00261.dada1@cosmosbay.com>	<45EDB55C.2080803@symas.com> <45EDCA15.4060704@cosmosbay.com>	<45EDCEF5.1070401@symas.com> <45EDD17F.5000203@cosmosbay.com> <45EDD791.4040908@symas.com>
+From: Zacco <zacco@fw.hu>
+Subject: Re: many sockets, slow sendto
+Date: Tue, 06 Mar 2007 22:28:02 +0100
+Message-ID: <45EDDCE2.9060609@fw.hu>
+References: <E1HObHK-0000WB-00@osiris.swi.hu> <p73bqj6b2gk.fsf@bingen.suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=ISO-8859-2; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <dada1@cosmosbay.com>, netdev@vger.kernel.org
-To: Howard Chu <hyc@symas.com>
+Cc: netdev@vger.kernel.org
+To: Andi Kleen <andi@firstfloor.org>, baruch@ev-en.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel10.hp.com ([156.153.255.245]:48586 "EHLO palrel10.hp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965109AbXCFVZj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Mar 2007 16:25:39 -0500
-In-Reply-To: <45EDD791.4040908@symas.com>
+Received: from mta02.mail.t-online.hu ([195.228.240.51]:52108 "EHLO
+	mta02.mail.t-online.hu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965149AbXCFV2F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2007 16:28:05 -0500
+In-Reply-To: <p73bqj6b2gk.fsf@bingen.suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> On the other hand, being able to configure a small MSL for the loopback 
-> device is perfectly safe. Being able to configure a small MSL for other 
-> interfaces may be safe, depending on the rest of the network layout.
+Hi,
 
-A peanut gallery question - I seem to recall prior discussions about how 
-one cannot assume that a packet destined for a given IP address will 
-remain detined for that given IP address as it could go through a module 
-that will rewrite headers etc.
+Thx a lot you for the advice, I'll have a try.
+And sorry for the stupid webmail, I will not use it again.
 
-Is traffic destined for 127.0.0.1 immune from that?
+Zacco
 
-rick jones
+
+Andi Kleen wrote:
+> Zaccomer Lajos <zacco@fw.hu> writes:
+>
+>   
+>> I'm playing around with a simulation, in which many thousands of IP
+>>
+>> addresses (on interface aliases) are used to send/receive TCP/UDP
+>>     
+>
+> Something seems to be wrong with your emailer. It adds a empty
+> line between each real line.
+>
+>   
+>> packets. I noticed that the time of send/sendto increased linearly
+>>
+>> with the number of file descriptors, and I found it rather strange.
+>>     
+>
+> Yes that is strange. I would suggest you use oprofile to identify which
+> parts of the kernel use the CPU time with many descriptors.
+>
+> -Andi
+>
+>   
+
