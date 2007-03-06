@@ -1,64 +1,65 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [Bonding-devel] [PATCH 3/3] bonding: Improve IGMP join processing
-Date: Tue, 06 Mar 2007 15:15:41 -0800
-Message-ID: <11176.1173222941@death>
-References: <OF686AF962.8A54116E-ON88257296.007AF408-88257296.007BC448@us.ibm.com>
-Cc: "Andy Gospodarek" <andy@greyhouse.net>, netdev@vger.kernel.org,
-	Brian Haley <brian.haley@hp.com>,
-	bonding-devel@lists.sourceforge.net, netdev-owner@vger.kernel.org
-To: David Stevens <dlstevens@us.ibm.com>
+From: David Miller <davem@davemloft.net>
+Subject: netlink recvmsg() and MSG_TRUNC
+Date: Tue, 06 Mar 2007 15:19:53 -0800 (PST)
+Message-ID: <20070306.151953.112290310.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e4.ny.us.ibm.com ([32.97.182.144]:52590 "EHLO e4.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030658AbXCFXSL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Mar 2007 18:18:11 -0500
-In-reply-to: <OF686AF962.8A54116E-ON88257296.007AF408-88257296.007BC448@us.ibm.com> 
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38411
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1030688AbXCFXTz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2007 18:19:55 -0500
+Received: from localhost (localhost [127.0.0.1])
+	by sunset.davemloft.net (Postfix) with ESMTP id 31918AE41E1
+	for <netdev@vger.kernel.org>; Tue,  6 Mar 2007 15:19:53 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-David Stevens <dlstevens@us.ibm.com> wrote:
+So if you don't give a large enough buffer to
+recvmsg() for the netlink response a few things
+happen:
 
->It looks to me like "rejoin" is essentially ip_mc_up(), and it'd be better
->to call that than add a nearly identical function.
+1) MSG_TRUNC is set
+2) The length returned and the amount of data copied is the
+   size given in the recvmsg() call
+3) If enough other packets remain in the receive buffer,
+   nlk->cb is left at non-NULL for a partial dump.  This
+   means that you can't just immediately resubmit the
+   original request else you'll get NLMSG_ERROR with error
+   set to -EBUSY.  This is what netlink_dump_start() does
+   when it sees nlk->cb non-NULL.
 
-	Won't ip_mc_up() acquire an additional reference (via
-ip_mc_inc_group) to the IGMP_ALL_HOSTS im->users that would never be
-released (in the case of bonding calling the function out of the blue)?
+Now, the user is basically stuck and there is no real
+way to recover from this besides doing something like
+openning up a new netlink socket and then doing the recvmsg()
+with a larger buffer, wash rinse repeat.
 
-	In looking at it, the ip_mc_rejoin_group function (the new one
-added with the patch) is a lot more like igmp_group_added() than
-ip_mc_up().  I'm not sure if the extra bits in igmp_group_added() are
-worthy of concern; I'm thinking not, since im->loaded shouldn't be zero
-coming in for the bonding case.
+I looked at how some of our standard userspace code handles
+this and it's not pretty:
 
-	I think the meat that the "rejoin" wants is what's in
-igmpv3_send_cr(), which appears to do the actual sending stuff.  I'm not
-sure if that's better to call directly (and risk locking adventures) or
-to just trip the timer via igmp_ifc_event().
+1) iproute2 basically just uses a 16K buffer, signals an error
+   when it sees MSG_TRUNC, and that's it, whoopee
 
-	Anyway, it looks like all of this needs to be done under RTNL,
-which isn't the case, so I need to go off and look into reworking it
-again.
+2) Thomas's libnl believes that recvmsg() will return the
+   true length necessary to receive the whole message, he
+   signals on this to double the buffer size and try the
+   recvmsg() again.  As mentioned recvmsg() never returns
+   a length larger than the given buffer size, so this code
+   never triggers, and if it did it would lose entries because
+   netlink_recvmsg() drops the SKB even when it signals
+   MSG_TRUNC.
 
-	Andy: do you have any work in progress on the sleep / rtnl stuff
-we've been discussing?
+The behavior of dropping the SKB matches what UDP does in
+the case of MSG_TRUNC.
 
->Also, real interfaces already do gratuitous IGMP advertisements when
->they are bounced (the reason there is an ip_mc_up()). Could bonding,
->when failing over, simply mark the master interface as down, switch, and
->then mark the master as up again? In addition to doing the right
->thing for both IPv4 and IPv6 multicasting w/o any code changes in those
->layers, it may have similar benefits for ARP and neighbor discovery, 
->right?
+I guess one thing the user could do when it sees MSG_TRUNC
+is keep calling recvmsg() until the receive queue is emptied
+of packets, in order to get that pesky nlk->cb cleared to
+NULL, then resubmit.
 
-	Marking the master down would, I believe, issue notifiers that
-the device has gone down.  Various things, network manager sort of
-applications in particular, listen to those, so I'm not sure it's a good
-idea.  I think there are other side effects as well, I'm thinking it
-would flush routes associated with the interface as well.
+But that's rediculous and complicated.
 
-	-J
-
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+Any ideas?
