@@ -1,46 +1,55 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [RFC PATCH]: Dynamically sized routing cache hash table.
-Date: Tue, 6 Mar 2007 18:20:45 +0100
-Message-ID: <200703061820.45986.dada1@cosmosbay.com>
-References: <20070305.202632.74752497.davem@davemloft.net> <200703061518.09309.dada1@cosmosbay.com> <17901.40819.204568.650642@robur.slu.se>
+From: Joy Latten <latten@austin.ibm.com>
+Subject: Re: when having to acquire an SA, ipsec drops the packet
+Date: Tue, 06 Mar 2007 11:14:46 -0600
+Message-ID: <1173201286.3085.80.camel@faith.austin.ibm.com>
+References: <200703060147.l261lnjX024435@faith.austin.ibm.com>
+	 <Line.LNX.4.64.0703052216490.18579@d.namei>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	robert.olsson@its.uu.se, npiggin@suse.de
-To: Robert Olsson <Robert.Olsson@data.slu.se>
+Cc: davem@davemloft.net, herbert@gondor.apana.org.au,
+	netdev@vger.kernel.org, paul.moore@hp.com, vyekkirala@TrustedCS.com
+To: James Morris <jmorris@namei.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pfx2.jmh.fr ([194.153.89.55]:42158 "EHLO pfx2.jmh.fr"
+Received: from e1.ny.us.ibm.com ([32.97.182.141]:33630 "EHLO e1.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965363AbXCFRUr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Mar 2007 12:20:47 -0500
-In-Reply-To: <17901.40819.204568.650642@robur.slu.se>
-Content-Disposition: inline
+	id S965371AbXCFRcC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Mar 2007 12:32:02 -0500
+Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
+	by e1.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l26HW0mE023509
+	for <netdev@vger.kernel.org>; Tue, 6 Mar 2007 12:32:00 -0500
+Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
+	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l26HUhtT199586
+	for <netdev@vger.kernel.org>; Tue, 6 Mar 2007 12:30:43 -0500
+Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
+	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l26HUgHs013200
+	for <netdev@vger.kernel.org>; Tue, 6 Mar 2007 12:30:43 -0500
+In-Reply-To: <Line.LNX.4.64.0703052216490.18579@d.namei>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 06 March 2007 18:05, Robert Olsson wrote:
-> Eric Dumazet writes:
->  > Indeed. It would be nice to see how it performs with say 2^20
->  > elements... Because with your data, I wonder if the extra complexity of
->  > the trash is worth it (since most lookups are going to only hit the hash
->  > and give the answer without intermediate nodes)
->
->  I don't know if I understand you fully. Yes in most cases the first lookup
-> via "hash-header" will take us to direct to the correct leaf. If there are
-> "collisions" we have to sort them out by adding intermediate nodes.
+On Mon, 2007-03-05 at 22:21 -0500, James Morris wrote:
+> On Mon, 5 Mar 2007, Joy Latten wrote:
+> 
+> > 5. Around the time the set of SAs for OUT direction are to be
+> >    inserted into SAD, I see another ACQUIRE happening.
+> >    
+> >    I have not yet figured out where this second ACQUIRE comes from
+> >    and why it happens. As long as the minimal SA or set of valid outgoing
+> >    SAs exist in SAD, an ACQUIRE should not happen.
+> 
+> I saw something similar to this some time ago when testing various 
+> failure modes, and discused it with Herbert.
+> 
+> IIRC, there's a larval SA which is not torn down properly by Racoon once 
+> the full SA is established, and the larval SA keeps resending until it 
+> times out.
+> 
+Ok, good to know. 
+I thought a bit more about this last night but am not
+sure best way to fix it. Perhaps a way to keep larval
+SA around until all SAs resulting from xfrm_vec[xfrm_nr]
+are established... oh well, just thinking out loud... :-) 
 
-With 2^20 entries, your actual limit of 2^19 entries in root node will 
-probably show us quite different numbers for order-1,2,3,4... tnodes
 
->
->  Something like where you have resizable hash where is each bucket in turn
-> is a resizable hash etc.
-
-Yes, numbers you gave us basically showed a big root node, and mainly leaves 
-and very few tnodes.
-
-I was interested to see the distribution in case the root-node limit is hit, 
-and we load into the table a *lot* of entries.
-
+Joy
