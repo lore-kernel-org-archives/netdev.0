@@ -1,130 +1,100 @@
-From: Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [2.6.21 patch] unconditionally enable SYSFS_DEPRECATED
-Date: Mon, 5 Mar 2007 17:56:38 -0800
-Message-ID: <20070306015638.GA23756@kroah.com>
-References: <20070304220857.GH23311@waste.org> <1173051564.6131.13.camel@johannes.berg> <20070305002550.GI23311@waste.org> <20070305011729.GB7681@kroah.com> <20070305125950.GC26781@thunk.org> <20070305185813.GA31465@kroah.com> <20070305234052.GR3441@stusta.de> <20070306000722.GA11436@kroah.com> <20070306013020.GN23311@waste.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Adrian Bunk <bunk-HeJ8Db2Gnd6zQB+pC5nmwQ@public.gmane.org>, Theodore Tso <tytso-3s7WtUTddSA@public.gmane.org>,
-	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	yi.zhu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, jketreno-VuQAYsv1563Yd54FQh9/CA@public.gmane.org,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, akpm-3NddpPZAyC0@public.gmane.org
-To: Matt Mackall <mpm-VDJrAJ4Gl5ZBDgjK7y7TUQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20070306013020.GN23311-1tnLUEbcrg3YtjvyW6yDsg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Joy Latten <latten@austin.ibm.com>
+Subject: Re: when having to acquire an SA, ipsec drops the packet
+Date: Mon, 5 Mar 2007 19:47:49 -0600
+Message-ID: <200703060147.l261lnjX024435@faith.austin.ibm.com>
+Cc: herbert@gondor.apana.org.au, jmorris@namei.org,
+	netdev@vger.kernel.org, paul.moore@hp.com, vyekkirala@TrustedCS.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e32.co.us.ibm.com ([32.97.110.150]:60168 "EHLO
+	e32.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965696AbXCFCDr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Mar 2007 21:03:47 -0500
+Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
+	by e32.co.us.ibm.com (8.12.11.20060308/8.13.8) with ESMTP id l2622X9k006248
+	for <netdev@vger.kernel.org>; Mon, 5 Mar 2007 21:02:33 -0500
+Received: from d03av04.boulder.ibm.com (d03av04.boulder.ibm.com [9.17.195.170])
+	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l2623jxJ410386
+	for <netdev@vger.kernel.org>; Mon, 5 Mar 2007 19:03:45 -0700
+Received: from d03av04.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av04.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l2623iEj023209
+	for <netdev@vger.kernel.org>; Mon, 5 Mar 2007 19:03:45 -0700
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 05, 2007 at 07:30:21PM -0600, Matt Mackall wrote:
-> On Mon, Mar 05, 2007 at 04:07:22PM -0800, Greg KH wrote:
-> > On Tue, Mar 06, 2007 at 12:40:52AM +0100, Adrian Bunk wrote:
-> > > On Mon, Mar 05, 2007 at 10:58:13AM -0800, Greg KH wrote:
-> > > > 
-> > > > Ok, how about the following patch.  Is it acceptable to everyone?
-> > > > 
-> > > > thanks,
-> > > > 
-> > > > greg k-h
-> > > > 
-> > > > ---
-> > > >  init/Kconfig |   13 +++++++++++--
-> > > >  1 file changed, 11 insertions(+), 2 deletions(-)
-> > > > 
-> > > > --- gregkh-2.6.orig/init/Kconfig
-> > > > +++ gregkh-2.6/init/Kconfig
-> > > > @@ -290,8 +290,17 @@ config SYSFS_DEPRECATED
-> > > >  	  that belong to a class, back into the /sys/class heirachy, in
-> > > >  	  order to support older versions of udev.
-> > > >  
-> > > > -	  If you are using a distro that was released in 2006 or later,
-> > > > -	  it should be safe to say N here.
-> > > > +	  If you are using an OpenSuSE, Gentoo, Ubuntu, or Fedora
-> > > > +	  release from 2007 or later, it should be safe to say N here.
-> > > > +
-> > > > +	  If you are using Debian or other distros that are slow to
-> > > > +	  update HAL, please say Y here.
-> > > >...
-> > > 
-> > > The sane solution seems to be to enable SYSFS_DEPRECATED unconditionally 
-> > > for all users, and schedule it's removal for mid-2008 (or later).
-> > > 
-> > > 12 months after the first _release_ of a HAL that can live without seems 
-> > > to be the first time when we can consider getting rid of it, since all 
-> > > distributions with at least one release a year should ship it by then.
-> > > 
-> > > Currently, SYSFS_DEPRECATED is only a trap for users.
-> > 
-> > Huh?
-> > 
-> > No, again, I've been using this just fine for about 6 months now.
-> > 
-> > And what about all of the servers not using HAL/NetworkManager?
-> > And what about all of the embedded systems not using either?
-> > 
-> > So to not allow this to be turned off by people who might want to (we
-> > want this for OpenSuSE 10.3, and Fedora 7 also will want this, as will
-> > other distros released this year), is pretty heavy-handed.
-> > 
-> > It also will work in OpenSuSE 10.2 which is already released, and I
-> > think Fedora 6, but I've only limited experience with these.
-> > 
-> > Oh, and Gentoo works just fine, and has been for the past 6 months.
-> >
-> > I would just prefer to come up with an acceptable set of wording that
-> > will work to properly warn people.
-> > 
-> > I proposed one such wording which some people took as a slam against
-> > Debian, which it really was not at all.
-> > 
-> > Does someone else want to propose some other wording instead?
-> 
-> Back up a bit. Let's review:
-> 
-> Problem: NetworkManager stopped working with my ipw2200 on Debian/unstable
-> 
-> Theory A: It broke because I'm not running an as-yet-unreleased HAL.
-> 
->  Then we should revert the patch pronto because it's an unqualified
->  regression.
-> 
-> Theory B: It broke because I'm not running relatively recent HAL.
-> 
->  By all accounts I'm running the latest and greatest HAL and Network
->  Manager, more than recent enough to work.
-> 
-> Theory C: It broke because I've got some goofy config.
-> 
->  My setup passes no arguments to either. The HAL config file is
->  completely bare-bones and there's no sign of any configuration files
->  for Network Manager.
-> 
-> Theory D: It broke for some nebulous Debian-related reason.
-> 
->  That's a bunch of unhelpful crap.
-> 
+>From: Joy Latten <latten@austin.ibm.com>
+>Date: Mon, 05 Feb 2007 14:53:39 -0600
+>
+>> I can run some tests with this patch and report any results... 
+>
+>Please check out the two most recent patches I posted:
+>
+>1) Updated core patch with ipv6 side added.
+>2) Fix for thinko noticed by Venkat.
 
-> Can we come up with an actual theory for what's wrong with my setup, please?
-> Like, perhaps:
-> 
-> Theory E: There's some undiagnosed new breakage that this introduces
-> that no else hit until it went into mainline.
+I have been testing this a lot in the lspp kernel.
+Plan to test also in upstream kernel.
+I am seeing a second ACQUIRE occur while establishing the SAs.
 
-Theory F:  It broke because you are using NetworkManager for your
-network devices and the patches that fix this have not made it into a
-real release?
+My scenario:
+My policy states to use both the ESP and AH protocols (may not
+make much sense but this was for testing purposes).  I get double 
+SAs with only difference being SPI.
 
-I'm just guessing, but does anyone who is having this problem, NOT using
-NetworkManager?
+Here is what I see happening... 
 
-I'm running an old version of HAL just fine, but I'm not using
-NetworkManager here.
+1. Trigger first ACQUIRE via ping or netperf.
 
-I am using NetworkManager on a OpenSuSE 10.3 release, but suse's version
-of NetworkManager is well known to not be anywhere near what is released
-as a tarball :(
+2. xfrm_lookup() calls xfrm_tmpl_resolv() who calls xfrm_state_find().
+   First time around, we need to establish SA, so a minimal SA
+   get allocated and put in SAD, timer is set for the minimal SA
+   to be ACQUIRED and km_query() gets called.
+   
+3. xfrm_tmpl_resolv() returns -EAGAIN causing add_wait_queue(&km_waitq, &wait)
+   and proceeding code to get called waiting for SA to be established.
+   As long as the minimal SA with XFRM_STATE_ACQUIRE is in SAD,
+   we keep waiting...
+   
+4. First set of SAs (one for AH and ESP) for IN direction get inserted in SAD.
+ 
+5. Around the time the set of SAs for OUT direction are to be
+   inserted into SAD, I see another ACQUIRE happening.
+   
+   I have not yet figured out where this second ACQUIRE comes from
+   and why it happens. As long as the minimal SA or set of valid outgoing
+   SAs exist in SAD, an ACQUIRE should not happen.
+   The minimal SA does not get removed from the SAD until the set 
+   of SAs for OUT get added and the xfrm_state_lock
+   released. And the lock pretty much guarantees no one else can step
+   through the SAD until after new SAs are being added...
+   and if someone gets the lock to step though SAD before OUT SAs
+   are added, minimal SA is still there... 
 
-thanks,
+ 6. Since this second ACQUIRE was able to happen, result is identical
+    sets of SAs for the traffic stream. SPIs are only difference.
+ 
+ 7. Noticed something while pasting log info below.
+    Perhaps when outgoing AH SA is added, wake_up(&km_waitq) gets called, 
+    lock released, and minimal SA deleted (xfrm_state_add()), 
+    xfrm_tmpl_resolv() is called and it looks first for the outgoing
+    ESP SA. Since it is not there yet and no minimal SA, then km_query()
+    results in an ACQUIRE just before the outgoing ESP SA gets added.
 
-greg k-h
+    It would explain why I only see it when both ESP and AH are specified...
+    that is if I am thinking correctly... 
+
+Regards,
+Joy Latten
+
+>From my log file:
+
+Mar  5 19:10:02 racoon: INFO: initiate new phase 2 negotiation: 9.3.192.210[500]<=>9.3.189.55[500]
+Mar  5 19:10:03 racoon: INFO: IPsec-SA established: AH/Transport 9.3.189.55[0]->9.3.192.210[0] spi=137942922(0x838d78a)
+Mar  5 19:10:03 racoon: INFO: IPsec-SA established: ESP/Transport 9.3.189.55[0]->9.3.192.210[0] spi=244321490(0xe900cd2)
+Mar  5 19:10:03 racoon: INFO: IPsec-SA established: AH/Transport 9.3.192.210[0]->9.3.189.55[0] spi=38721750(0x24ed8d6)
+Mar  5 19:10:03 racoon: INFO: initiate new phase 2 negotiation: 9.3.192.210[500]<=>9.3.189.55[500]
+Mar  5 19:10:03 racoon: INFO: IPsec-SA established: ESP/Transport 9.3.192.210[0]->9.3.189.55[0] spi=265079770(0xfcccbda)
+Mar  5 19:10:05 racoon: INFO: IPsec-SA established: AH/Transport 9.3.189.55[0]->9.3.192.210[0] spi=108627618(0x67986a2)
+Mar  5 19:10:05 racoon: INFO: IPsec-SA established: ESP/Transport 9.3.189.55[0]->9.3.192.210[0] spi=182973856(0xae7f5a0)
+Mar  5 19:10:05 racoon: INFO: IPsec-SA established: AH/Transport 9.3.192.210[0]->9.3.189.55[0] spi=58486297(0x37c6e19)
+Mar  5 19:10:05 racoon: INFO: IPsec-SA established: ESP/Transport 9.3.192.210[0]->9.3.189.55[0] spi=268295215(0xffddc2f)
