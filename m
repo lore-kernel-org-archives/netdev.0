@@ -1,38 +1,37 @@
-From: ilmari@ilmari.org (Dagfinn Ilmari =?utf-8?Q?Manns=C3=A5ker?=)
-Subject: Re: [RFC] div64_64 support II
-Date: Tue, 06 Mar 2007 18:43:14 +0100
-Message-ID: <d8jlkiagte5.fsf@nygaard.ping.uio.no>
-References: <20070226143127.5c74bec9@freekitty>
-	<p73slcnawh3.fsf@bingen.suse.de> <20070305155714.3abe1b5e@freekitty>
-	<20070305.162551.41660347.davem@davemloft.net>
-	<20070306140412.GA1470@one.firstfloor.org>
+From: Baruch Even <baruch@ev-en.org>
+Subject: Re: many sockets, slow sendto
+Date: Tue, 6 Mar 2007 20:20:39 +0200
+Message-ID: <20070306182039.GJ25760@galon.ev-en.org>
+References: <E1HObHK-0000WB-00@osiris.swi.hu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	shemminger@linux-foundation.org, jengelh@linux01.gwdg.de,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Andi Kleen <andi@firstfloor.org>
+Cc: netdev@vger.kernel.org
+To: Zaccomer Lajos <zacco@fw.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ping.uio.no ([129.240.78.2]:36345 "EHLO ping.uio.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965484AbXCFSRz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Mar 2007 13:17:55 -0500
-In-Reply-To: <20070306140412.GA1470@one.firstfloor.org> (Andi Kleen's message
-	of "Tue, 6 Mar 2007 15:04:12 +0100")
+Received: from rrcs-24-123-59-149.central.biz.rr.com ([24.123.59.149]:62917
+	"EHLO galon.ev-en.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965524AbXCFSUk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2007 13:20:40 -0500
+Content-Disposition: inline
+In-Reply-To: <E1HObHK-0000WB-00@osiris.swi.hu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andi Kleen <andi@firstfloor.org> writes:
+* Zaccomer Lajos <zacco@fw.hu> [070306 17:39]:
+> Hi,
+> 
+> 
+> 
+> I'm playing around with a simulation, in which many thousands of IP
+> 
+> addresses (on interface aliases) are used to send/receive TCP/UDP
+> 
+> packets. I noticed that the time of send/sendto increased linearly
+> 
+> with the number of file descriptors, and I found it rather strange.
 
-> Actually on rereading this: is there really any Linux port
-> that emulates multiplies in software? I thought that was only
-> done on really small microcontrollers or smart cards; but anything
-> 32bit+ that runs Linux should have hardware multiply, shouldn't it?
+To better understand the reason for this problem you should first use
+oprofile to profile the kernel. This will give you the hot spots of the
+kernel, where the kernel (or userspace) spends most of its time.
 
-SPARCv7 (sun4/sun4c) doesn't have hardware mul/div. This includes
-SparcStation 1, 1+, 2, SLC, ELC, IPC and IPX.
-
--- 
-ilmari
-"A disappointingly low fraction of the human race is,
- at any given time, on fire." - Stig Sandbeck Mathisen
+Baruch
