@@ -1,36 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: TCP 2MSL on loopback
-Date: Tue, 06 Mar 2007 13:35:16 -0800 (PST)
-Message-ID: <20070306.133516.104036428.davem@davemloft.net>
-References: <45EDD17F.5000203@cosmosbay.com>
-	<45EDD791.4040908@symas.com>
-	<45EDDC4F.7010201@hp.com>
+Subject: Re: IPv6 Davelopment Tree
+Date: Tue, 06 Mar 2007 13:36:11 -0800 (PST)
+Message-ID: <20070306.133611.78711196.davem@davemloft.net>
+References: <20070223.125301.11635869.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hyc@symas.com, dada1@cosmosbay.com, netdev@vger.kernel.org
-To: rick.jones2@hp.com
+Cc: nhorman@tuxdriver.com, netdev@vger.kernel.org
+To: yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43572
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43579
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1030206AbXCFVfU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2007 16:35:20 -0500
-In-Reply-To: <45EDDC4F.7010201@hp.com>
+	by vger.kernel.org with ESMTP id S1030228AbXCFVgP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2007 16:36:15 -0500
+In-Reply-To: <20070223.125301.11635869.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Rick Jones <rick.jones2@hp.com>
-Date: Tue, 06 Mar 2007 13:25:35 -0800
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Date: Fri, 23 Feb 2007 12:53:01 +0900 (JST)
 
-> > On the other hand, being able to configure a small MSL for the loopback 
-> > device is perfectly safe. Being able to configure a small MSL for other 
-> > interfaces may be safe, depending on the rest of the network layout.
+> I have cooked up new git tree for IPv6 development.
+> It is available as branch named
+> 	2.6.21-rc1-net-2.6-20070223-FOR_DAVEM-20070223
+> at
+> 	<git://git.linux-ipv6.org/gitroot/yoshfuji/linux-2.6-dev.git>.
 > 
-> A peanut gallery question - I seem to recall prior discussions about how 
-> one cannot assume that a packet destined for a given IP address will 
-> remain detined for that given IP address as it could go through a module 
-> that will rewrite headers etc.
+> I will shift to new branch time to time (e.g. every -rc releases) in order
+> to chase the latest tree.
 
-That's right, both netfilter and the packet scheduler actions
-can do that, that's why this whole idea about changing the MSL
-on loopback by default is wrong and pointless.
+What is the current branch name?  I'd like to pull whatever
+you have into my net-2.6.22 tree.
+
+Thank you.
