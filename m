@@ -1,283 +1,93 @@
-From: akpm@linux-foundation.org
-Subject: [patch 2/2] div64_64: common code
-Date: Tue, 06 Mar 2007 02:42:28 -0800
-Message-ID: <200703061042.l26AgS0U019809@shell0.pdx.osdl.net>
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	shemminger@linux-foundation.org, chris@zankel.net,
-	geert@linux-m68k.org, jdike@addtoit.com, ralf@linux-mips.org,
-	rmk@arm.linux.org.uk, zippel@linux-m68k.org
-To: davem@davemloft.net
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: linux 2.6 Ipv4 routing enhancement (fwd)
+Date: Tue, 6 Mar 2007 12:04:54 +0100
+Message-ID: <17901.19158.878755.883322@robur.slu.se>
+References: <Pine.LNX.4.62.0703050953090.24653@alpha.cflinux.hu>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Robert.Olsson@data.slu.se
+To: Richard Kojedzinszky <krichy@cflinux.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:34951 "EHLO smtp.osdl.org"
+Received: from mx1.slu.se ([130.238.96.70]:44655 "EHLO mx1.slu.se"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S964791AbXCFKqy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Mar 2007 05:46:54 -0500
+	id S964931AbXCFLE4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Mar 2007 06:04:56 -0500
+Received: from robur.slu.se (robur.slu.se [130.238.98.12])
+	by mx1.slu.se (8.13.7/8.13.6) with ESMTP id l26B4scZ011344
+	for <netdev@vger.kernel.org>; Tue, 6 Mar 2007 12:04:55 +0100
+In-Reply-To: <Pine.LNX.4.62.0703050953090.24653@alpha.cflinux.hu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@linux-foundation.org>
 
-Implement div64_64(): 64-bit by 64-bit division.  Needed by networking (at
-least).
+Richard Kojedzinszky writes:
 
-Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
-Cc: Russell King <rmk@arm.linux.org.uk>
-Cc: Geert Uytterhoeven <geert@linux-m68k.org>
-Cc: Roman Zippel <zippel@linux-m68k.org>
-Cc: Ralf Baechle <ralf@linux-mips.org>
-Cc: Chris Zankel <chris@zankel.net>
-Cc: Jeff Dike <jdike@addtoit.com>
-Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
----
+ > traffic, and also update the routing table (from BGP), the route cache 
+ > seemed to be the bottleneck, as upon every fib update the whole route 
+ > cache is flushed, and sometimes it took as many cpu cycles to let some 
+ > packets being dropped. Meanwhile i knew that *BSD systems do not use such 
+ > a cache, and of course without it a router can provide a constant 
+ > performance, not depending on the number of different ip flows, and 
+ > updating the fib does not take such a long time.
 
- include/asm-arm/div64.h      |    3 +++
- include/asm-generic/div64.h  |    7 +++++++
- include/asm-i386/div64.h     |    4 ++++
- include/asm-m68k/div64.h     |    3 +++
- include/asm-mips/div64.h     |    4 ++++
- include/asm-um/div64.h       |    1 +
- include/asm-xtensa/div64.h   |    6 ++++++
- lib/Makefile                 |    5 +++--
- lib/div64.c                  |   22 ++++++++++++++++++++++
- net/ipv4/tcp_cubic.c         |   21 ---------------------
- net/netfilter/xt_connbytes.c |   16 ----------------
- 11 files changed, 53 insertions(+), 39 deletions(-)
+ Hmm I think there is cache is *BSD* too  
 
-diff -puN include/asm-arm/div64.h~div64_64-common-code include/asm-arm/div64.h
---- a/include/asm-arm/div64.h~div64_64-common-code
-+++ a/include/asm-arm/div64.h
-@@ -2,6 +2,7 @@
- #define __ASM_ARM_DIV64
+ Anyway you're correct the that the GC and insert/deletion of routes
+ flushes the cache and can causes packets drops when all flows has
+ to get recreated. Yes it's something thats needs to be addressed but
+ it's not that common that people use dynamic routing protocols.
+
+ Anyway Dave and Alexey started to look into this some time ago I got 
+ involved later there were some idea how deal with this. This work 
+ didn't come an end. So if you want to contribute I think we all be 
+ happy. 
+
+ > For this to be solved, i have played with ipv4 routing in linux kernel a 
+ > bit. I have done two separate things:
+ > - developed a new fib algorithm in fib_trie's place for ipv4
+ > - rewrote the kernel not to use it's dst cache
+
+ Just for routing?
+
+ > The fib algorithm is like cisco's CEF (at least if my knowledge is correct), 
+ > but first I use a 16-branching tree, to look up the address by 4 bit steps, and 
+ > each node in this tree contains a simple sub-tree which is a radix tree, of 
+ > course with maximum possible height 4. I think this is very simple, and is 
+ > nearly 3 times faster than fib_trie. Now it has a missing feature: it does not 
+ > export the fib in /proc/net/route.
+
+ Full semantic match... . 
  
- #include <asm/system.h>
-+#include <linux/types.h>
- 
- /*
-  * The semantics of do_div() are:
-@@ -223,4 +224,6 @@
- 
- #endif
- 
-+extern uint64_t div64_64(uint64_t dividend, uint64_t divisor);
-+
- #endif
-diff -puN include/asm-generic/div64.h~div64_64-common-code include/asm-generic/div64.h
---- a/include/asm-generic/div64.h~div64_64-common-code
-+++ a/include/asm-generic/div64.h
-@@ -30,6 +30,11 @@
- 	__rem;							\
-  })
- 
-+static inline uint64_t div64_64(uint64_t dividend, uint64_t divisor)
-+{
-+	return dividend / divisor;
-+}
-+
- #elif BITS_PER_LONG == 32
- 
- extern uint32_t __div64_32(uint64_t *dividend, uint32_t divisor);
-@@ -49,6 +54,8 @@ extern uint32_t __div64_32(uint64_t *div
- 	__rem;						\
-  })
- 
-+extern uint64_t div64_64(uint64_t dividend, uint64_t divisor);
-+
- #else /* BITS_PER_LONG == ?? */
- 
- # error do_div() does not yet support the C64
-diff -puN include/asm-i386/div64.h~div64_64-common-code include/asm-i386/div64.h
---- a/include/asm-i386/div64.h~div64_64-common-code
-+++ a/include/asm-i386/div64.h
-@@ -1,6 +1,8 @@
- #ifndef __I386_DIV64
- #define __I386_DIV64
- 
-+#include <linux/types.h>
-+
- /*
-  * do_div() is NOT a C function. It wants to return
-  * two values (the quotient and the remainder), but
-@@ -45,4 +47,6 @@ div_ll_X_l_rem(long long divs, long div,
- 	return dum2;
- 
- }
-+
-+extern uint64_t div64_64(uint64_t dividend, uint64_t divisor);
- #endif
-diff -puN include/asm-m68k/div64.h~div64_64-common-code include/asm-m68k/div64.h
---- a/include/asm-m68k/div64.h~div64_64-common-code
-+++ a/include/asm-m68k/div64.h
-@@ -1,6 +1,8 @@
- #ifndef _M68K_DIV64_H
- #define _M68K_DIV64_H
- 
-+#include <linux/types.h>
-+
- /* n = n / base; return rem; */
- 
- #define do_div(n, base) ({					\
-@@ -23,4 +25,5 @@
- 	__rem;							\
- })
- 
-+extern uint64_t div64_64(uint64_t dividend, uint64_t divisor);
- #endif /* _M68K_DIV64_H */
-diff -puN include/asm-mips/div64.h~div64_64-common-code include/asm-mips/div64.h
---- a/include/asm-mips/div64.h~div64_64-common-code
-+++ a/include/asm-mips/div64.h
-@@ -9,6 +9,8 @@
- #ifndef _ASM_DIV64_H
- #define _ASM_DIV64_H
- 
-+#include <linux/types.h>
-+
- #if (_MIPS_SZLONG == 32)
- 
- #include <asm/compiler.h>
-@@ -78,6 +80,8 @@
- 	__quot = __quot << 32 | __low; \
- 	(n) = __quot; \
- 	__mod; })
-+
-+extern uint64_t div64_64(uint64_t dividend, uint64_t divisor);
- #endif /* (_MIPS_SZLONG == 32) */
- 
- #if (_MIPS_SZLONG == 64)
-diff -puN include/asm-um/div64.h~div64_64-common-code include/asm-um/div64.h
---- a/include/asm-um/div64.h~div64_64-common-code
-+++ a/include/asm-um/div64.h
-@@ -3,4 +3,5 @@
- 
- #include "asm/arch/div64.h"
- 
-+extern uint64_t div64_64(uint64_t dividend, uint64_t divisor);
- #endif
-diff -puN include/asm-xtensa/div64.h~div64_64-common-code include/asm-xtensa/div64.h
---- a/include/asm-xtensa/div64.h~div64_64-common-code
-+++ a/include/asm-xtensa/div64.h
-@@ -11,9 +11,15 @@
- #ifndef _XTENSA_DIV64_H
- #define _XTENSA_DIV64_H
- 
-+#include <linux/types.h>
-+
- #define do_div(n,base) ({ \
- 	int __res = n % ((unsigned int) base); \
- 	n /= (unsigned int) base; \
- 	__res; })
- 
-+static inline uint64_t div64_64(uint64_t dividend, uint64_t divisor)
-+{
-+	return dividend / divisor;
-+}
- #endif
-diff -puN lib/Makefile~div64_64-common-code lib/Makefile
---- a/lib/Makefile~div64_64-common-code
-+++ a/lib/Makefile
-@@ -4,7 +4,7 @@
- 
- lib-y := ctype.o string.o vsprintf.o cmdline.o \
- 	 rbtree.o radix-tree.o dump_stack.o \
--	 idr.o div64.o int_sqrt.o bitmap.o extable.o prio_tree.o \
-+	 idr.o int_sqrt.o bitmap.o extable.o prio_tree.o \
- 	 sha1.o irq_regs.o reciprocal_div.o
- 
- lib-$(CONFIG_MMU) += ioremap.o
-@@ -12,7 +12,8 @@ lib-$(CONFIG_SMP) += cpumask.o
- 
- lib-y	+= kobject.o kref.o kobject_uevent.o klist.o
- 
--obj-y += sort.o parser.o halfmd4.o debug_locks.o random32.o bust_spinlocks.o
-+obj-y += div64.o sort.o parser.o halfmd4.o debug_locks.o random32.o \
-+	 bust_spinlocks.o
- 
- ifeq ($(CONFIG_DEBUG_KOBJECT),y)
- CFLAGS_kobject.o += -DDEBUG
-diff -puN lib/div64.c~div64_64-common-code lib/div64.c
---- a/lib/div64.c~div64_64-common-code
-+++ a/lib/div64.c
-@@ -58,4 +58,26 @@ uint32_t __div64_32(uint64_t *n, uint32_
- 
- EXPORT_SYMBOL(__div64_32);
- 
-+/* 64bit divisor, dividend and result. dynamic precision */
-+uint64_t div64_64(uint64_t dividend, uint64_t divisor)
-+{
-+	uint32_t d = divisor;
-+
-+	if (divisor > 0xffffffffULL) {
-+		unsigned int shift = fls(divisor >> 32);
-+
-+		d = divisor >> shift;
-+		dividend >>= shift;
-+	}
-+
-+	/* avoid 64 bit division if possible */
-+	if (dividend >> 32)
-+		do_div(dividend, d);
-+	else
-+		dividend = (uint32_t) dividend / d;
-+
-+	return dividend;
-+}
-+EXPORT_SYMBOL(div64_64);
-+
- #endif /* BITS_PER_LONG == 32 */
-diff -puN net/ipv4/tcp_cubic.c~div64_64-common-code net/ipv4/tcp_cubic.c
---- a/net/ipv4/tcp_cubic.c~div64_64-common-code
-+++ a/net/ipv4/tcp_cubic.c
-@@ -93,27 +93,6 @@ static void bictcp_init(struct sock *sk)
- 		tcp_sk(sk)->snd_ssthresh = initial_ssthresh;
- }
- 
--/* 64bit divisor, dividend and result. dynamic precision */
--static inline u_int64_t div64_64(u_int64_t dividend, u_int64_t divisor)
--{
--	u_int32_t d = divisor;
--
--	if (divisor > 0xffffffffULL) {
--		unsigned int shift = fls(divisor >> 32);
--
--		d = divisor >> shift;
--		dividend >>= shift;
--	}
--
--	/* avoid 64 bit division if possible */
--	if (dividend >> 32)
--		do_div(dividend, d);
--	else
--		dividend = (uint32_t) dividend / d;
--
--	return dividend;
--}
--
- /*
-  * calculate the cubic root of x using Newton-Raphson
-  */
-diff -puN net/netfilter/xt_connbytes.c~div64_64-common-code net/netfilter/xt_connbytes.c
---- a/net/netfilter/xt_connbytes.c~div64_64-common-code
-+++ a/net/netfilter/xt_connbytes.c
-@@ -24,22 +24,6 @@ MODULE_AUTHOR("Harald Welte <laforge@net
- MODULE_DESCRIPTION("iptables match for matching number of pkts/bytes per connection");
- MODULE_ALIAS("ipt_connbytes");
- 
--/* 64bit divisor, dividend and result. dynamic precision */
--static u_int64_t div64_64(u_int64_t dividend, u_int64_t divisor)
--{
--	u_int32_t d = divisor;
--
--	if (divisor > 0xffffffffULL) {
--		unsigned int shift = fls(divisor >> 32);
--
--		d = divisor >> shift;
--		dividend >>= shift;
--	}
--
--	do_div(dividend, d);
--	return dividend;
--}
--
- static int
- match(const struct sk_buff *skb,
-       const struct net_device *in,
-_
+ The LC-trie scales tree brancing automatically so looking into linux 
+ router running full BGP feed with 204300 prefixes we see:
+   
+ 1: 27567  2: 10127  3: 8149  4: 3630  5: 1529  6: 558  7: 197  8: 53  16: 1
+
+ Root node is 16-bit too and   Aver depth:     2.60
+ So 3 times faster than fib_trie thats full sensation. How do you test?
+
+ > The second thing i have done to minimize the cpu cycles during the forwarding 
+ > phase, rewriting ip_input.c, route.c and some others to lef.c, and having a 
+ > minimal functionality. I mean, for example, when a packet gets through the lef 
+ > functions, ipsec policies are not checked.
+
+  It would be nice to see a profile before and with your patch 
+
+ > And to be more efficient, I attached a neighbour pointer to each fib entry, and 
+ > using this the lookup + forwarding code is very fast.
+
+ > Of course, the route cache needs very little time to forward packets when there 
+ > are a small number of different ip flows, but when dealing with traffic in an 
+ > ISP at core level, this cannot be stated.
+
+ > So I have done tests with LEF, and compared them to the original linux kernel's 
+ > performance.
+ > With the worst case, LEF performed nearly 90% of the linux kernel with the most 
+ > optimal case. Of course original linux performs poorly with the worst case.
+
+ Send them and with profiles is possible...
+
+ Cheers.
+
+						--ro
