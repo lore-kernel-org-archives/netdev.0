@@ -1,95 +1,148 @@
-From: Howard Chu <hyc@symas.com>
-Subject: Re: TCP 2MSL on loopback
-Date: Tue, 06 Mar 2007 01:22:18 -0800
-Message-ID: <45ED32CA.5080709@symas.com>
-References: <45EBFD13.1060106@symas.com> <200703051528.02564.dada1@cosmosbay.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: [PATCH] NET : Optimizes inet_getpeer()
+Date: Tue, 6 Mar 2007 11:33:20 +0100
+Message-ID: <200703061133.20389.dada1@cosmosbay.com>
+References: <45ED14E6.7090109@cosmosbay.com> <45ED1F35.4070600@cosmosbay.com> <20070306.010523.15263796.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: Multipart/Mixed;
+  boundary="Boundary-00=_wNU7Fspbgjj9gfC"
 Cc: netdev@vger.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from highlandsun.propagation.net ([66.221.212.168]:1238 "EHLO
-	highlandsun.propagation.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933185AbXCFKAj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2007 05:00:39 -0500
-In-Reply-To: <200703051528.02564.dada1@cosmosbay.com>
+Received: from pfx2.jmh.fr ([194.153.89.55]:36622 "EHLO pfx2.jmh.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S934019AbXCFKdY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Mar 2007 05:33:24 -0500
+In-Reply-To: <20070306.010523.15263796.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Eric Dumazet wrote:
-> On Monday 05 March 2007 12:20, Howard Chu wrote:
->> Why is the Maximum Segment Lifetime a global parameter? Surely the
->> maximum possible lifetime of a particular TCP segment depends on the
->> actual connection. At the very least, it would be useful to be able to
->> set it on a per-interface basis. E.g., in the case of the loopback
->> interface, it would be useful to be able to set it to a very small
->> duration.
-> 
-> Hi Howard
-> 
-> I think you should address these questions on netdev instead of linux-kernel.
+--Boundary-00=_wNU7Fspbgjj9gfC
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-OK, I just subscribed to netdev...
+Hi David
 
->> As I note in this draft
->> http://www.ietf.org/internet-drafts/draft-chu-ldap-ldapi-00.txt
->> when doing a connection soak test of OpenLDAP using clients connected
->> through localhost, the entire port range is exhausted in well under a
->> second, at which point the test stalls until a port comes out of
->> TIME_WAIT state so the next connection can be opened.
->>
->> These days it's not uncommon for an OpenLDAP slapd server to handle tens
->> of thousands of connections per second in real use (e.g., at Google, or
->> at various telcos). While the LDAP server is fast enough to saturate
->> even 10gbit ethernet using contemporary CPUs, we have to resort to
->> multiple virtual interfaces just to make sure we have enough port
->> numbers available.
+Please find this patch against net-2.6.22
 
-> I dont uderstand... doesnt slapd server listen for connections on a given 
-> port, like http ? Or is it doing connections like a ftp server ?
+Thank you
 
-No, you're right, it listens on a single port. There is a standard port 
-(389) though of course you can use any port you want.
-> 
-> Of course, if you want to open more than 60.000 concurrent connections, using 
-> 127.0.0.1 address, you might have a problem...
+[PATCH] NET : Optimizes inet_getpeer()
 
-This is probably not something that happens in real world deployments. I 
-But it's not 60,000 concurrent connections, it's 60,000 within a 2 
-minute span.
+1) Some sysctl vars are declared __read_mostly
 
-I'm not saying this is a high priority problem, I only encountered it in 
-a test scenario where I was deliberately trying to max out the server.
+2) We can avoid updating stack[] when doing an AVL lookup only.
 
->> Ideally the 2MSL parameter would be dynamically adjusted based on the
->> route to the destination and the weights associated with those routes.
->> In the simplest case, connections between machines on the same subnet
->> (i.e., no router hops involved) should have a much smaller default value
->> than connections that traverse any routers. I'd settle for a two-level
->> setting - with no router hops, use the small value; with any router hops
->> use the large value.
-> 
-> Well, is it really a MSL problem ?
+    lookup() macro is extended to receive a second parameter, that may be NULL 
+in case of a pure lookup (no need to save the AVL path). This removes 
+unnecessary instructions, because compiler knows if this _stack parameter is 
+NULL or not.
 
-> I did a small test (linux-2.6.21-rc1) and was able to get 1.000.000 
-> connections on localhost on my dual proc machine in one minute, without an 
-> error.
+    text size of net/ipv4/inetpeer.o is 2063 bytes instead of 2107 on x86_64
 
-It's a combination of 2MSL and /proc/sys/net/ipv4/ip_local_port_range - 
-on my system the default port range is 32768-61000. That means if I use 
-up 28232 ports in less than 2MSL then everything stops. netstat will 
-show that all the available port numbers are in TIME_WAIT state. And 
-this is particularly bad because while waiting for the timeout, I can't 
-initiate any new outbound connections of any kind at all - telnet, ssh, 
-whatever, you have to wait for at least one port to free up. 
-(Interesting denial of service there....)
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
 
-Granted, I was running my test on 2.6.18, perhaps 2.6.21 behaves 
-differently.
+--Boundary-00=_wNU7Fspbgjj9gfC
+Content-Type: text/plain;
+  charset="iso-8859-1";
+  name="inetpeer.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+	filename="inetpeer.patch"
 
--- 
-   -- Howard Chu
-   Chief Architect, Symas Corp.  http://www.symas.com
-   Director, Highland Sun        http://highlandsun.com/hyc
-   Chief Architect, OpenLDAP     http://www.openldap.org/project/
+diff --git a/net/ipv4/inetpeer.c b/net/ipv4/inetpeer.c
+index db3ef96..2f44e61 100644
+--- a/net/ipv4/inetpeer.c
++++ b/net/ipv4/inetpeer.c
+@@ -87,10 +87,12 @@ #define PEER_MAXDEPTH 40 /* sufficient f
+ 
+ static int peer_total;
+ /* Exported for sysctl_net_ipv4.  */
+-int inet_peer_threshold = 65536 + 128;	/* start to throw entries more
++int inet_peer_threshold __read_mostly = 65536 + 128;	/* start to throw entries more
+ 					 * aggressively at this stage */
+-int inet_peer_minttl = 120 * HZ;	/* TTL under high load: 120 sec */
+-int inet_peer_maxttl = 10 * 60 * HZ;	/* usual time to live: 10 min */
++int inet_peer_minttl __read_mostly = 120 * HZ;	/* TTL under high load: 120 sec */
++int inet_peer_maxttl __read_mostly = 10 * 60 * HZ;	/* usual time to live: 10 min */
++int inet_peer_gc_mintime __read_mostly = 10 * HZ;
++int inet_peer_gc_maxtime __read_mostly = 120 * HZ;
+ 
+ static struct inet_peer *inet_peer_unused_head;
+ static struct inet_peer **inet_peer_unused_tailp = &inet_peer_unused_head;
+@@ -99,9 +101,6 @@ static DEFINE_SPINLOCK(inet_peer_unused_
+ static void peer_check_expire(unsigned long dummy);
+ static DEFINE_TIMER(peer_periodic_timer, peer_check_expire, 0, 0);
+ 
+-/* Exported for sysctl_net_ipv4.  */
+-int inet_peer_gc_mintime = 10 * HZ,
+-    inet_peer_gc_maxtime = 120 * HZ;
+ 
+ /* Called from ip_output.c:ip_init  */
+ void __init inet_initpeers(void)
+@@ -151,20 +150,27 @@ static void unlink_from_unused(struct in
+ 	spin_unlock_bh(&inet_peer_unused_lock);
+ }
+ 
+-/* Called with local BH disabled and the pool lock held. */
+-#define lookup(daddr) 						\
++/*
++ * Called with local BH disabled and the pool lock held.
++ * _stack is known to be NULL or not at compile time,
++ * so compiler will optimize the if (_stack) tests.
++ */
++#define lookup(_daddr,_stack) 					\
+ ({								\
+ 	struct inet_peer *u, **v;				\
+-	stackptr = stack;					\
+-	*stackptr++ = &peer_root;				\
++	if (_stack) {						\
++		stackptr = _stack;				\
++		*stackptr++ = &peer_root;			\
++	}							\
+ 	for (u = peer_root; u != peer_avl_empty; ) {		\
+-		if (daddr == u->v4daddr)			\
++		if (_daddr == u->v4daddr)			\
+ 			break;					\
+-		if ((__force __u32)daddr < (__force __u32)u->v4daddr)	\
++		if ((__force __u32)_daddr < (__force __u32)u->v4daddr)	\
+ 			v = &u->avl_left;			\
+ 		else						\
+ 			v = &u->avl_right;			\
+-		*stackptr++ = v;				\
++		if (_stack)					\
++			*stackptr++ = v;			\
+ 		u = *v;						\
+ 	}							\
+ 	u;							\
+@@ -288,7 +294,7 @@ static void unlink_from_pool(struct inet
+ 	if (atomic_read(&p->refcnt) == 1) {
+ 		struct inet_peer **stack[PEER_MAXDEPTH];
+ 		struct inet_peer ***stackptr, ***delp;
+-		if (lookup(p->v4daddr) != p)
++		if (lookup(p->v4daddr, stack) != p)
+ 			BUG();
+ 		delp = stackptr - 1; /* *delp[0] == p */
+ 		if (p->avl_left == peer_avl_empty) {
+@@ -373,7 +379,7 @@ struct inet_peer *inet_getpeer(__be32 da
+ 
+ 	/* Look up for the address quickly. */
+ 	read_lock_bh(&peer_pool_lock);
+-	p = lookup(daddr);
++	p = lookup(daddr, NULL);
+ 	if (p != peer_avl_empty)
+ 		atomic_inc(&p->refcnt);
+ 	read_unlock_bh(&peer_pool_lock);
+@@ -400,7 +406,7 @@ struct inet_peer *inet_getpeer(__be32 da
+ 
+ 	write_lock_bh(&peer_pool_lock);
+ 	/* Check if an entry has suddenly appeared. */
+-	p = lookup(daddr);
++	p = lookup(daddr, stack);
+ 	if (p != peer_avl_empty)
+ 		goto out_free;
+ 
+
+--Boundary-00=_wNU7Fspbgjj9gfC--
