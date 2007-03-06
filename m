@@ -1,62 +1,83 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [RFC] div64_64 support
-Date: Mon, 5 Mar 2007 15:57:14 -0800
-Message-ID: <20070305155714.3abe1b5e@freekitty>
-References: <20070223170527.4ca695b2@freekitty>
-	<Pine.LNX.4.61.0702262108010.23355@yvahk01.tjqt.qr>
-	<20070226143127.5c74bec9@freekitty>
-	<p73slcnawh3.fsf@bingen.suse.de>
+From: Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [2.6.21 patch] unconditionally enable SYSFS_DEPRECATED
+Date: Mon, 5 Mar 2007 16:07:22 -0800
+Message-ID: <20070306000722.GA11436@kroah.com>
+References: <20070304220857.GH23311@waste.org> <1173051564.6131.13.camel@johannes.berg> <20070305002550.GI23311@waste.org> <20070305011729.GB7681@kroah.com> <20070305125950.GC26781@thunk.org> <20070305185813.GA31465@kroah.com> <20070305234052.GR3441@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Jan Engelhardt <jengelh@linux01.gwdg.de>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Andi Kleen <andi@firstfloor.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:42067 "EHLO smtp.osdl.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933115AbXCEX53 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Mar 2007 18:57:29 -0500
-In-Reply-To: <p73slcnawh3.fsf@bingen.suse.de>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Theodore Tso <tytso-3s7WtUTddSA@public.gmane.org>, Matt Mackall <mpm-VDJrAJ4Gl5ZBDgjK7y7TUQ@public.gmane.org>,
+	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	yi.zhu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, jketreno-VuQAYsv1563Yd54FQh9/CA@public.gmane.org,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, akpm-3NddpPZAyC0@public.gmane.org
+To: Adrian Bunk <bunk-HeJ8Db2Gnd6zQB+pC5nmwQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20070305234052.GR3441-HeJ8Db2Gnd6zQB+pC5nmwQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 03 Mar 2007 03:31:52 +0100
-Andi Kleen <andi@firstfloor.org> wrote:
-
-> Stephen Hemminger <shemminger@linux-foundation.org> writes:
+On Tue, Mar 06, 2007 at 12:40:52AM +0100, Adrian Bunk wrote:
+> On Mon, Mar 05, 2007 at 10:58:13AM -0800, Greg KH wrote:
+> > 
+> > Ok, how about the following patch.  Is it acceptable to everyone?
+> > 
+> > thanks,
+> > 
+> > greg k-h
+> > 
+> > ---
+> >  init/Kconfig |   13 +++++++++++--
+> >  1 file changed, 11 insertions(+), 2 deletions(-)
+> > 
+> > --- gregkh-2.6.orig/init/Kconfig
+> > +++ gregkh-2.6/init/Kconfig
+> > @@ -290,8 +290,17 @@ config SYSFS_DEPRECATED
+> >  	  that belong to a class, back into the /sys/class heirachy, in
+> >  	  order to support older versions of udev.
+> >  
+> > -	  If you are using a distro that was released in 2006 or later,
+> > -	  it should be safe to say N here.
+> > +	  If you are using an OpenSuSE, Gentoo, Ubuntu, or Fedora
+> > +	  release from 2007 or later, it should be safe to say N here.
+> > +
+> > +	  If you are using Debian or other distros that are slow to
+> > +	  update HAL, please say Y here.
+> >...
 > 
-> > Here is another way to handle the 64 bit divide case.
-> > It allows full 64 bit divide by adding the support routine
-> > GCC needs.
+> The sane solution seems to be to enable SYSFS_DEPRECATED unconditionally 
+> for all users, and schedule it's removal for mid-2008 (or later).
 > 
-> Not supplying that was intentional by Linus so that people
-> think twice (or more often) before they using such expensive
-> operations. A plain / looks too innocent.
+> 12 months after the first _release_ of a HAL that can live without seems 
+> to be the first time when we can consider getting rid of it, since all 
+> distributions with at least one release a year should ship it by then.
 > 
-> Is it really needed by CUBIC anyways?  It uses it for getting
-> the cubic root, but the algorithm recommended by Hacker's Delight
-> (great book) doesn't use any divisions at all. Probably better 
-> to use a better algorithm without divisions.
-> 
+> Currently, SYSFS_DEPRECATED is only a trap for users.
 
-I tried the code from Hacker's Delight.
-It is cool, but performance is CPU (and data) dependent:
+Huh?
 
-Average # of usecs per operation:
+No, again, I've been using this just fine for about 6 months now.
 
-		Hacker		Newton
-Pentium 3	68.6	<	90.4
-T2050		98.6	>	92.0
-U1400		450	>	415
-Xeon		70 	<	90
-Xeon (newer)	71	<	78
+And what about all of the servers not using HAL/NetworkManager?
+And what about all of the embedded systems not using either?
 
-EM64T		21.8	<	24.6
-AMD64		23.4	<	32.0
+So to not allow this to be turned off by people who might want to (we
+want this for OpenSuSE 10.3, and Fedora 7 also will want this, as will
+other distros released this year), is pretty heavy-handed.
 
-It might be worth the change for code size reduction though.
+It also will work in OpenSuSE 10.2 which is already released, and I
+think Fedora 6, but I've only limited experience with these.
 
+Oh, and Gentoo works just fine, and has been for the past 6 months.
 
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+I would just prefer to come up with an acceptable set of wording that
+will work to properly warn people.
+
+I proposed one such wording which some people took as a slam against
+Debian, which it really was not at all.
+
+Does someone else want to propose some other wording instead?
+
+thanks,
+
+greg k-h
