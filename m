@@ -1,49 +1,104 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [PATCH 3/3] bonding: Improve IGMP join processing
-Date: Tue, 06 Mar 2007 12:39:17 -0800
-Message-ID: <22603.1173213557@death>
-References: <200703010103.l2113b22030905@death.nxdomain.ibm.com> <20070301164918.GA3199@gospo.rdu.redhat.com> <200703011705.l21H5Q22005750@death.nxdomain.ibm.com> <45E7289F.60406@hp.com> <20070301194305.GB3199@gospo.rdu.redhat.com> <45EDC730.40007@hp.com>
-Cc: Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org,
-	bonding-devel@lists.sourceforge.net
-To: Brian Haley <brian.haley@hp.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: TCP 2MSL on loopback
+Date: Tue, 06 Mar 2007 21:39:27 +0100
+Message-ID: <45EDD17F.5000203@cosmosbay.com>
+References: <45EBFD13.1060106@symas.com> <200703051528.02564.dada1@cosmosbay.com> <45ED32CA.5080709@symas.com> <200703061142.00261.dada1@cosmosbay.com> <45EDB55C.2080803@symas.com> <45EDCA15.4060704@cosmosbay.com> <45EDCEF5.1070401@symas.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Howard Chu <hyc@symas.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e1.ny.us.ibm.com ([32.97.182.141]:54490 "EHLO e1.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932166AbXCFUj1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Mar 2007 15:39:27 -0500
-Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by e1.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l26KdP9b029746
-	for <netdev@vger.kernel.org>; Tue, 6 Mar 2007 15:39:25 -0500
-Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
-	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l26KdPaH117468
-	for <netdev@vger.kernel.org>; Tue, 6 Mar 2007 15:39:25 -0500
-Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
-	by d01av03.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l26KdOtW004792
-	for <netdev@vger.kernel.org>; Tue, 6 Mar 2007 15:39:25 -0500
-In-reply-to: <45EDC730.40007@hp.com> 
+Received: from gw1.cosmosbay.com ([86.65.150.130]:43564 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932348AbXCFUjj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2007 15:39:39 -0500
+In-Reply-To: <45EDCEF5.1070401@symas.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Brian Haley <brian.haley@hp.com> wrote:
+Howard Chu a =E9crit :
+> Eric Dumazet wrote:
+>> Let me see, any chance you can try the prog on 2.6.20 ?
+>=20
+> Not any time soon.
+>>
+>> If not, please send :
+>>
+>> grep . /proc/sys/net/ipv4/*
+>=20
+> This is the output on the laptop:
+> /proc/sys/net/ipv4/icmp_echo_ignore_all:0
+> /proc/sys/net/ipv4/icmp_echo_ignore_broadcasts:1
+> /proc/sys/net/ipv4/icmp_errors_use_inbound_ifaddr:0
+> /proc/sys/net/ipv4/icmp_ignore_bogus_error_responses:1
+> /proc/sys/net/ipv4/icmp_ratelimit:250
+> /proc/sys/net/ipv4/icmp_ratemask:6168
+> /proc/sys/net/ipv4/igmp_max_memberships:20
+> /proc/sys/net/ipv4/igmp_max_msf:10
+> /proc/sys/net/ipv4/inet_peer_gc_maxtime:120
+> /proc/sys/net/ipv4/inet_peer_gc_mintime:10
+> /proc/sys/net/ipv4/inet_peer_maxttl:600
+> /proc/sys/net/ipv4/inet_peer_minttl:120
+> /proc/sys/net/ipv4/inet_peer_threshold:65664
+> /proc/sys/net/ipv4/ip_default_ttl:64
+> /proc/sys/net/ipv4/ip_dynaddr:0
+> /proc/sys/net/ipv4/ip_forward:0
+> /proc/sys/net/ipv4/ipfrag_high_thresh:262144
+> /proc/sys/net/ipv4/ipfrag_low_thresh:196608
+> /proc/sys/net/ipv4/ipfrag_max_dist:64
+> /proc/sys/net/ipv4/ipfrag_secret_interval:600
+> /proc/sys/net/ipv4/ipfrag_time:30
+> /proc/sys/net/ipv4/ip_local_port_range:32768    61000
+> /proc/sys/net/ipv4/ip_nonlocal_bind:0
+> /proc/sys/net/ipv4/ip_no_pmtu_disc:0
+> /proc/sys/net/ipv4/tcp_abc:0
+> /proc/sys/net/ipv4/tcp_abort_on_overflow:0
+> /proc/sys/net/ipv4/tcp_adv_win_scale:2
+> /proc/sys/net/ipv4/tcp_app_win:31
+> /proc/sys/net/ipv4/tcp_base_mss:512
+> /proc/sys/net/ipv4/tcp_congestion_control:reno
+> /proc/sys/net/ipv4/tcp_dma_copybreak:4096
+> /proc/sys/net/ipv4/tcp_dsack:1
+> /proc/sys/net/ipv4/tcp_ecn:0
+> /proc/sys/net/ipv4/tcp_fack:1
+> /proc/sys/net/ipv4/tcp_fin_timeout:60
+> /proc/sys/net/ipv4/tcp_frto:0
+> /proc/sys/net/ipv4/tcp_keepalive_intvl:75
+> /proc/sys/net/ipv4/tcp_keepalive_probes:9
+> /proc/sys/net/ipv4/tcp_keepalive_time:7200
+> /proc/sys/net/ipv4/tcp_low_latency:0
+> /proc/sys/net/ipv4/tcp_max_orphans:32768
+> /proc/sys/net/ipv4/tcp_max_syn_backlog:1024
+> /proc/sys/net/ipv4/tcp_max_tw_buckets:180000
+> /proc/sys/net/ipv4/tcp_mem:98304        131072  196608
+> /proc/sys/net/ipv4/tcp_moderate_rcvbuf:1
+> /proc/sys/net/ipv4/tcp_mtu_probing:0
+> /proc/sys/net/ipv4/tcp_no_metrics_save:0
+> /proc/sys/net/ipv4/tcp_orphan_retries:0
+> /proc/sys/net/ipv4/tcp_reordering:3
+> /proc/sys/net/ipv4/tcp_retrans_collapse:1
+> /proc/sys/net/ipv4/tcp_retries1:3
+> /proc/sys/net/ipv4/tcp_retries2:15
+> /proc/sys/net/ipv4/tcp_rfc1337:0
+> /proc/sys/net/ipv4/tcp_rmem:4096        87380   4194304
+> /proc/sys/net/ipv4/tcp_sack:1
+> /proc/sys/net/ipv4/tcp_slow_start_after_idle:1
+> /proc/sys/net/ipv4/tcp_stdurg:0
+> /proc/sys/net/ipv4/tcp_synack_retries:5
+> /proc/sys/net/ipv4/tcp_syncookies:1
+> /proc/sys/net/ipv4/tcp_syn_retries:5
+> /proc/sys/net/ipv4/tcp_timestamps:1
+> /proc/sys/net/ipv4/tcp_tso_win_divisor:3
+> /proc/sys/net/ipv4/tcp_tw_recycle:0
+> /proc/sys/net/ipv4/tcp_tw_reuse:0
+> /proc/sys/net/ipv4/tcp_window_scaling:1
+> /proc/sys/net/ipv4/tcp_wmem:4096        16384   4194304
+> /proc/sys/net/ipv4/tcp_workaround_signed_windows:0
 
->Andy Gospodarek wrote:
->> If we are easily able to differentiate between the multicast addresses
->> in the mc_list as to which are for ipv4 and which are for ipv6 then it
->> would be easy to call-out to something in the ipv6 mcast code when
->> needed instead of always calling out to ipv4 code.
->
->I've been unable to figure out exactly what you're referring to in the
->code (bond_main.c), it seems to failover all multicast addresses,
->regardless of what address family they are.  I might have missed something
->in 4K lines of code though?
+Arf... dont tell me you forgot to do this...
 
-	I believe Andy is talking about bond_resend_igmp_join_requests
-being only effective for IGMP v4 and not IGMP v6.  The reason being that
-there is (a) no discrimination between v4 and v6 multicast addresses,
-and (b) for the v6 case, there's no "rejoin" type function as was
-created for IPv4 with the patch.
+echo 1 >/proc/sys/net/ipv4/tcp_tw_recycle
+echo 1 >/proc/sys/net/ipv4/tcp_tw_reuse
 
-	-J
-
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
