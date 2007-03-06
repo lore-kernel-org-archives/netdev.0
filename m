@@ -1,51 +1,39 @@
-From: "xerces8" <xerces8@butn.net>
-Subject: Different routing for one process ?
-Date: Tue, 06 Mar 2007 14:55:38 +0100
-Message-ID: <WorldClient-F200703061455.AA55380210@butn.net>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [RFC PATCH]: Dynamically sized routing cache hash table.
+Date: Tue, 6 Mar 2007 15:18:09 +0100
+Message-ID: <200703061518.09309.dada1@cosmosbay.com>
+References: <20070305.202632.74752497.davem@davemloft.net> <45ED14E6.7090109@cosmosbay.com> <17901.28634.359369.341093@robur.slu.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	robert.olsson@its.uu.se, npiggin@suse.de
+To: Robert Olsson <Robert.Olsson@data.slu.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ikar.perftech.si ([195.246.0.20]:41315 "EHLO ikar.perftech.si"
+Received: from pfx2.jmh.fr ([194.153.89.55]:39315 "EHLO pfx2.jmh.fr"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965043AbXCFOOP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Mar 2007 09:14:15 -0500
-Received: from dedal.perftech.si (unknown [10.12.0.44])
-	by ikar.perftech.si (Spam Firewall) with ESMTP id 8489A56BCA
-	for <netdev@vger.kernel.org>; Tue,  6 Mar 2007 14:55:43 +0100 (CET)
-Received: from WorldClient by butn.net
-	(MDaemon PRO v9.5.4)
-	with ESMTP id 41-md50000231054.msg
-	for <netdev@vger.kernel.org>; Tue, 06 Mar 2007 14:55:40 +0100
+	id S965049AbXCFOSM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Mar 2007 09:18:12 -0500
+In-Reply-To: <17901.28634.359369.341093@robur.slu.se>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-(another repost from linux-net)
+On Tuesday 06 March 2007 14:42, Robert Olsson wrote:
+> Eric Dumazet writes:
+>  > Well, maybe... but after looking robert's trash, I discovered its model
+>  > is essentially a big (2^18 slots) root node (our hash table), and very
+>  > few order:1,2,3 nodes.
+>
+>  It's getting "hashlike" yes. I guess all effective algorithms today is
+> doing some sort of "index" lookup and for large number of entries we cannot
+> expect to find the next node in the same cache line so the "tree depth"
+> becomes a crucial performance factor. IMO nothing can beat a prefect
+> distributed and perfect sized hash. The trash work is an effort to get
+> close with dynamic data structure.
 
-Hi!
- 
-Is there a way to make one process route differently than the rest of the system ?
- 
-My situation is this: I have a PC on a very restrictive network ((P)NAT&filtering). I want to
-run an application that is more or less a SIP telephone client. SIP is of course blocked on
-the network. The only option I see is a tunnel to a friendlier place on the net and route
-the SIP traffic over it. This I already did using OpenVPN. The problem is, that I want to
-the tunnel to be used for SIP only and not toehr net access (due to limited bandwith of
-the tunnel and other reasons).
- 
-My current solution is to run the SIP application inside a VMWare virtual machine, that does
-all it's networking over the tunnel.
- 
-I wonder if I can do it without running vmware, since that seems like shooting a sparrow with a cannon.
- 
-Note that the SIP client can communicate with the entire world, I can not predict who will call me
-and from what IP address.
- 
-(I linger between linux and windows, so if someone knows a person or mail list with windows
-network experts, that would be helpful too)
- 
- 
-Regards,
-David
-
-
+Indeed. It would be nice to see how it performs with say 2^20 elements...
+Because with your data, I wonder if the extra complexity of the trash is worth 
+it (since most lookups are going to only hit the hash and give the answer 
+without intermediate nodes)
