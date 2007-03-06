@@ -1,38 +1,29 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: [PATCH] fix compat_sock_common_getsockopt typo
-Date: Tue, 06 Mar 2007 15:45:36 +0100
-Message-ID: <1173192336.5415.5.camel@johannes.berg>
-References: <1173137211.15891.27.camel@johannes.berg>
-	 <Line.LNX.4.64.0703060942180.22674@d.namei>
+From: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
+Subject: Re: [PATCH] tc35815 driver update (take 2)
+Date: Tue, 06 Mar 2007 23:13:18 +0900 (JST)
+Message-ID: <20070306.231318.05599238.anemo@mba.ocn.ne.jp>
+References: <20070303.235459.25478204.anemo@mba.ocn.ne.jp>
+	<45ED4E64.5030404@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: James Morris <jmorris@namei.org>
+Cc: linux-mips@linux-mips.org, ralf@linux-mips.org,
+	netdev@vger.kernel.org, sshtylyov@ru.mvista.com
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:37684 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965133AbXCFOqK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2007 09:46:10 -0500
-In-Reply-To: <Line.LNX.4.64.0703060942180.22674@d.namei>
+Received: from mba.ocn.ne.jp ([122.1.175.29]:54666 "EHLO smtp.mba.ocn.ne.jp"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965898AbXCFPBb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Mar 2007 10:01:31 -0500
+In-Reply-To: <45ED4E64.5030404@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch fixes a typo in compat_sock_common_getsockopt.
+On Tue, 06 Mar 2007 06:20:04 -0500, Jeff Garzik <jeff@garzik.org> wrote:
+> applied to #upstream, let's give it a good review while it hangs out in 
+> libata-dev.git#ALL and -mm
 
-Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
+Thank you.  I believe you mean netdev-2.6.git :)
 
---- wireless-dev.orig/net/core/sock.c	2007-03-06 15:44:15.618565674 +0100
-+++ wireless-dev/net/core/sock.c	2007-03-06 15:44:25.948565674 +0100
-@@ -1597,7 +1597,7 @@ int compat_sock_common_getsockopt(struct
- {
- 	struct sock *sk = sock->sk;
- 
--	if (sk->sk_prot->compat_setsockopt != NULL)
-+	if (sk->sk_prot->compat_getsockopt != NULL)
- 		return sk->sk_prot->compat_getsockopt(sk, level, optname,
- 						      optval, optlen);
- 	return sk->sk_prot->getsockopt(sk, level, optname, optval, optlen);
-
-
+---
+Atsushi Nemoto
