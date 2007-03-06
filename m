@@ -1,55 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] div64_64 support
-Date: Tue, 06 Mar 2007 13:58:34 -0800 (PST)
-Message-ID: <20070306.135834.26100913.davem@davemloft.net>
-References: <20070306144529.GA2004@one.firstfloor.org>
-	<84C47260-4B57-4568-8197-58F438A6F737@e18.physik.tu-muenchen.de>
-	<20070306102941.32471d57@freekitty>
+Subject: Re: [RFC PATCH] [TCP]: Reworked recovery's TCPCB_LOST marking
+ functions
+Date: Tue, 06 Mar 2007 14:02:24 -0800 (PST)
+Message-ID: <20070306.140224.51861921.davem@davemloft.net>
+References: <20070306194259.GK25760@galon.ev-en.org>
+	<20070306.134726.39155177.davem@davemloft.net>
+	<20070306220146.GO25760@galon.ev-en.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: rkuhn@e18.physik.tu-muenchen.de, andi@firstfloor.org,
-	dada1@cosmosbay.com, jengelh@linux01.gwdg.de,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: shemminger@linux-foundation.org
+Cc: ilpo.jarvinen@helsinki.fi, netdev@vger.kernel.org
+To: baruch@ev-en.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55341
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51154
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1030327AbXCFV6h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2007 16:58:37 -0500
-In-Reply-To: <20070306102941.32471d57@freekitty>
+	by vger.kernel.org with ESMTP id S1030299AbXCFWC1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2007 17:02:27 -0500
+In-Reply-To: <20070306220146.GO25760@galon.ev-en.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Date: Tue, 6 Mar 2007 10:29:41 -0800
+From: Baruch Even <baruch@ev-en.org>
+Date: Wed, 7 Mar 2007 00:01:46 +0200
 
-> /* calculate the cubic root of x using Newton-Raphson */
-> static uint32_t ncubic(uint64_t a)
-> {
-> 	uint64_t x;
+> * David Miller <davem@davemloft.net> [070306 23:47]:
+> > From: Baruch Even <baruch@ev-en.org>
+> > Date: Tue, 6 Mar 2007 21:42:59 +0200
+> > 
+> > > * Ilpo J?rvinen <ilpo.jarvinen@helsinki.fi> [070306 14:52]:
+> > > > +		newtp->highest_sack = treq->snt_isn + 1;
+> > > 
+> > > That's the only initialization that you have for highest_sack, I think
+> > > that you should initialize it when a loss is detected to the start_seq
+> > > of the first packet that wasn't acked.
+> > 
+> > He also sets it in tcp_sacktag_write_queue() like this:
+> > 
+> > +
+> > +				if (after(TCP_SKB_CB(skb)->seq,
+> > +				    tp->highest_sack))
+> > +					tp->highest_sack = TCP_SKB_CB(skb)->seq;
 > 
-> 	/* Initial estimate is based on:
-> 	 * cbrt(x) = exp(log(x) / 3)
-> 	 */
-> 	x = 1u << (fls64(a)/3);
-> 
-> 	/* Converges in 3 iterations to > 32 bits */
-> 
-> 	x = (2 * x + div64_64(a, x*x)) / 3;
-> 	x = (2 * x + div64_64(a, x*x)) / 3;
-> 	x = (2 * x + div64_64(a, x*x)) / 3;
-> 
-> 	return x;
-> }
+> Yes, but that's still not enough if between the start of the connection
+> and the first sack block we already wrapped around to before the old
+> highest_sack. It might not be a common occurrence but it's still
+> something to take care of.
 
-Indeed that will be the fastest variant for cpus with hw
-integer division.
-
-I did a quick sparc64 port, here is what I got:
-
-Function     clocks  mean(us) max(us)  std(us)  total error
-ocubic          529     0.35    15.16     0.66 545101
-ncubic          498     0.33    12.83     0.36 576263
-acbrt           427     0.28    11.04     0.33 547562
-hcbrt           393     0.26    10.18     0.47 2410
+Aha, I see, yes good point.  That would need to be fixed.
