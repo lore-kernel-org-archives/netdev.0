@@ -1,35 +1,39 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [patch 15/19] 3c59x: Handle pci_enable_device() failure while
- resuming
-Date: Tue, 06 Mar 2007 06:11:23 -0500
-Message-ID: <45ED4C5B.8060608@garzik.org>
-References: <200703061041.l26Afx8Q019778@shell0.pdx.osdl.net>
+Subject: Re: [PATCH] pcnet32: only allocate init_block dma consistent
+Date: Tue, 06 Mar 2007 06:13:14 -0500
+Message-ID: <45ED4CCA.7030606@garzik.org>
+References: <20070306021037.GA7139@verizon.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dmonakhov@sw.ru, dmonakhov@openvz.org
-To: akpm@linux-foundation.org
+Cc: netdev@vger.kernel.org
+To: Don Fry <pcnet32@verizon.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:53207 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:53225 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965851AbXCFLL0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Mar 2007 06:11:26 -0500
-In-Reply-To: <200703061041.l26Afx8Q019778@shell0.pdx.osdl.net>
+	id S965849AbXCFLNQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Mar 2007 06:13:16 -0500
+In-Reply-To: <20070306021037.GA7139@verizon.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-akpm@linux-foundation.org wrote:
-> From: Dmitriy Monakhov <dmonakhov@sw.ru>
+Don Fry wrote:
+> The patch below moves the init_block out of the private struct and
+> only allocates init block with pci_alloc_consistent.
 > 
-> Handle pci_enable_device() failure while resuming, we can safely exit here.
+> This has two effects:
 > 
-> Signed-off-by: Monakhov Dmitriy <dmonakhov@openvz.org>
-> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
-> ---
+> 1. Performance increase for non cache coherent machines, because the
+>    CPU only data in the private struct are now cached
 > 
->  drivers/net/3c59x.c |    8 +++++++-
->  1 file changed, 7 insertions(+), 1 deletion(-)
+> 2. locks are working now for platforms, which need to have locks
+>    in cached memory
+> 
+> Also use netdev_priv() instead of dev->priv
+> 
+> Signed-off-by: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
 
-applied patches 15-16
+please separate the netdev_priv() change into a separate, precursor 
+patch, and resend both
 
 
