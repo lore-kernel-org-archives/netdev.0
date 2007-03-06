@@ -1,92 +1,50 @@
-From: Howard Chu <hyc@symas.com>
-Subject: Re: TCP 2MSL on loopback
-Date: Tue, 06 Mar 2007 10:39:24 -0800
-Message-ID: <45EDB55C.2080803@symas.com>
-References: <45EBFD13.1060106@symas.com> <200703051528.02564.dada1@cosmosbay.com> <45ED32CA.5080709@symas.com> <200703061142.00261.dada1@cosmosbay.com>
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: Re: linux 2.6 Ipv4 routing enhancement (fwd)
+Date: Tue, 6 Mar 2007 19:46:15 +0100
+Message-ID: <17901.46839.606994.201834@robur.slu.se>
+References: <Pine.LNX.4.62.0703050953090.24653@alpha.cflinux.hu>
+	<17901.19158.878755.883322@robur.slu.se>
+	<Pine.LNX.4.62.0703061539380.17441@alpha.cflinux.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>
+Cc: Robert Olsson <Robert.Olsson@data.slu.se>, netdev@vger.kernel.org
+To: Richard Kojedzinszky <krichy@cflinux.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from highlandsun.propagation.net ([66.221.212.168]:1985 "EHLO
-	highlandsun.propagation.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S966008AbXCFSpI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2007 13:45:08 -0500
-In-Reply-To: <200703061142.00261.dada1@cosmosbay.com>
+Received: from mx1.slu.se ([130.238.96.70]:53615 "EHLO mx1.slu.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S966007AbXCFSqS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Mar 2007 13:46:18 -0500
+In-Reply-To: <Pine.LNX.4.62.0703061539380.17441@alpha.cflinux.hu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Eric Dumazet wrote:
-> On Tuesday 06 March 2007 10:22, Howard Chu wrote:
-> 
->> It's a combination of 2MSL and /proc/sys/net/ipv4/ip_local_port_range -
->> on my system the default port range is 32768-61000. That means if I use
->> up 28232 ports in less than 2MSL then everything stops. netstat will
->> show that all the available port numbers are in TIME_WAIT state. And
->> this is particularly bad because while waiting for the timeout, I can't
->> initiate any new outbound connections of any kind at all - telnet, ssh,
->> whatever, you have to wait for at least one port to free up.
->> (Interesting denial of service there....)
->>
->> Granted, I was running my test on 2.6.18, perhaps 2.6.21 behaves
->> differently.
-> 
-> Could you try this attached program and tell me whats happen ?
-> 
-> $ gcc -O2 -o socktest socktest.c -lpthread
-> $ time ./socktest -n 100000
-> nb_conn=99999 nb_accp=99999
-> 
-> real    0m5.058s
-> user    0m0.212s
-> sys     0m4.844s
-> 
-> (on my small machine, dell d610 :) )
 
-On my Asus laptop (2GHz Pentium M) the first time I ran it it completed 
-in about 51 seconds, with no errors. I then copied it to another machine 
-and started it up there, and got connect errors right away. I then went 
-back to my laptop and ran it again, and got errors that time.
+Richard Kojedzinszky writes:
 
-This is the laptop run with errors:
-viola:~/src> uname -a
-Linux viola 2.6.18.2-34-default #1 SMP Mon Nov 27 11:46:27 UTC 2006 i686 
-i686 i386 GNU/Linux
-viola:~/src> time ./socktest -n 1000000
-connect error 99
-connect error 99
-connect error 99
-connect error 99
-connect error 99
-connect error 99
-connect error 99
-connect error 99
-connect error 99
-connect error 99
-nb_conn=993757 nb_accp=993757
-1.408u 88.649s 1:42.76 87.6%    0+0k 0+0io 0pf+0w
+ > Sorry for sending the tgz with .svn included. And i did not send 
+ > instructions.
+ > To do a test with fib_trie, issue
+ > $ make clean all ROUTE_ALG=TRIE & ./try a
+ > with fib_radix:
+ > $ make clean all ROUTE_ALG=RADIX & ./try a
+ > with fib_lef:
+ > $ make clean all ROUTE_ALG=LEF SBBITS=4 & ./try a
 
-This is my other system, an AMD X2 3800+ (dual core)
-mandolin:~/src> uname -a
-Linux mandolin 2.6.18.3SMP #9 SMP Sat Nov 25 10:08:51 PST 2006 x86_64 
-x86_64 x86_64 GNU/Linux
-mandolin:~/src> gcc -O2 -o socktest socktest.c -lpthread
-mandolin:~/src> time ./socktest -n 1000000
-connect error 99
-connect error 99
-connect error 99
-connect error 99
-connect error 99
-connect error 99
-connect error 99
-connect error 99
-connect error 99
-connect error 99
-nb_conn=957088 nb_accp=957088
-1.012u 630.991s 5:18.05 198.7%  0+0k 0+0io 0pf+0w
--- 
-   -- Howard Chu
-   Chief Architect, Symas Corp.  http://www.symas.com
-   Director, Highland Sun        http://highlandsun.com/hyc
-   Chief Architect, OpenLDAP     http://www.openldap.org/project/
+ Thanks. First I'll use to do my testing in kernel context and in the 
+ forwarding path with full semantic match so it's not that easy to compare.  
+ But I'll take a look. BTW the you test so you do correct prefix matching?
+ 
+ FYI. some old fib work on robur.slu.se
+
+ # Look with just hlist
+  /pub/Linux/net-development/fib_hlist/
+
+ # 24 bit hash lookup
+  /pub/Linux/net-development/fib_hash2/
+ 
+ And some hlist/hash2/trie comparisons in:
+ /pub/Linux/tmp/trie-talk-kth.pdf
+
+ Cheers
+					--ro
