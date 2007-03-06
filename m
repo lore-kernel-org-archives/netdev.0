@@ -1,55 +1,51 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [RFC] div64_64 support
-Date: Tue, 6 Mar 2007 15:19:20 +0100
-Message-ID: <200703061519.20346.dada1@cosmosbay.com>
-References: <20070223170527.4ca695b2@freekitty> <20070305155714.3abe1b5e@freekitty> <20070306133404.GA864@one.firstfloor.org>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: wireless extensions vs. 64-bit architectures
+Date: Tue, 06 Mar 2007 15:31:20 +0100
+Message-ID: <1173191480.5415.2.camel@johannes.berg>
+References: <1173144447.15891.93.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	Jan Engelhardt <jengelh@linux01.gwdg.de>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Andi Kleen <andi@firstfloor.org>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-Z0M8FVW2QCgJi18CfauM"
+Cc: netdev <netdev@vger.kernel.org>, Jeff Garzik <jgarzik@pobox.com>,
+	Jean Tourrilhes <jt@hpl.hp.com>,
+	Dan Williams <dcbw@redhat.com>,
+	Jouni Malinen <jkm@devicescape.com>
+To: linux-wireless@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pfx2.jmh.fr ([194.153.89.55]:39327 "EHLO pfx2.jmh.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965051AbXCFOTW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Mar 2007 09:19:22 -0500
-In-Reply-To: <20070306133404.GA864@one.firstfloor.org>
-Content-Disposition: inline
+Received: from crystal.sipsolutions.net ([195.210.38.204]:50810 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965082AbXCFOeo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2007 09:34:44 -0500
+In-Reply-To: <1173144447.15891.93.camel@johannes.berg>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 06 March 2007 14:34, Andi Kleen wrote:
 
-> -	return x;
-> +	int s;
-> +	u32 y;
-> +	u64 b;
-> +	u64 bs;
-> +
-> +	y = 0;
-> +	for (s = 63; s >= 0; s -= 3) {
-> +		y = 2 * y;
-> +		b = 3 * y * (y+1) + 1;
-> +		bs = b << s;
-> +		if (x >= bs && (b == (bs>>s))) {  /* avoid overflow */
-> +			x -= bs;
-> +			y++;
-> +		}
-> +	}
-> +	return y;
->  }
->
+--=-Z0M8FVW2QCgJi18CfauM
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-Andi
+On Tue, 2007-03-06 at 02:27 +0100, Johannes Berg wrote:
+> Actually, I think it may have the same bug, it seems to be operating
+> with iw_point (or at least its size) too
 
-<rant>
-Let me see... You throw code like that and expect someone to actually 
-understand it in one year, and be able to correct a bug ?
-</rant>
+I'm told that the code that uses it is only internal and the size isn't
+part of the userspace interface which makes this wrong. But we still
+have many programs relying on ioctls and none relying on the wext/nl
+interface so that isn't really a concern anyway.
 
-Please add something, an URL or even better a nice explanation, per favor...
+johannes
 
-Thank you
+--=-Z0M8FVW2QCgJi18CfauM
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iD8DBQBF7Xs4/ETPhpq3jKURAqz4AJ0Y5WKHzeZiz4h+cNxAj24WCl4hKQCglXeW
+1RHWnx8ZFpPAYEyWKaHNQ0o=
+=hegF
+-----END PGP SIGNATURE-----
+
+--=-Z0M8FVW2QCgJi18CfauM--
+
