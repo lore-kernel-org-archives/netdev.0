@@ -1,103 +1,60 @@
-From: Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [2.6.21 patch] unconditionally enable SYSFS_DEPRECATED
-Date: Mon, 5 Mar 2007 16:41:17 -0800
-Message-ID: <20070306004117.GB12566@kroah.com>
-References: <20070304220857.GH23311@waste.org> <1173051564.6131.13.camel@johannes.berg> <20070305002550.GI23311@waste.org> <20070305011729.GB7681@kroah.com> <20070305125950.GC26781@thunk.org> <20070305185813.GA31465@kroah.com> <20070305234052.GR3441@stusta.de> <20070306000722.GA11436@kroah.com> <20070306003541.GT3441@stusta.de>
+From: Theodore Tso <tytso@mit.edu>
+Subject: Re: Recent wireless breakage (ipw2200, iwconfig, NetworkManager)
+Date: Mon, 5 Mar 2007 19:56:25 -0500
+Message-ID: <20070306005625.GC19634@thunk.org>
+References: <20070304220857.GH23311@waste.org> <20070305011625.GA7681@kroah.com> <20070305064229.GJ23311@waste.org> <20070305070248.GA30699@kroah.com> <20070305071325.GK23311@waste.org> <20070305154609.GA3626@irc.pl> <20070305211425.GR16722@waste.org> <20070306002457.GA7078@brong.net> <20070306003715.GA12566@kroah.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Theodore Tso <tytso-3s7WtUTddSA@public.gmane.org>, Matt Mackall <mpm-VDJrAJ4Gl5ZBDgjK7y7TUQ@public.gmane.org>,
-	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	yi.zhu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, jketreno-VuQAYsv1563Yd54FQh9/CA@public.gmane.org,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, akpm-3NddpPZAyC0@public.gmane.org
-To: Adrian Bunk <bunk-HeJ8Db2Gnd6zQB+pC5nmwQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: Bron Gondwana <brong@fastmail.fm>, Matt Mackall <mpm@selenic.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	yi.zhu@intel.com, jketreno@linux.intel.com, akpm@osdl.org
+To: Greg KH <greg@kroah.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from THUNK.ORG ([69.25.196.29]:47213 "EHLO thunker.thunk.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752697AbXCFA4d (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Mar 2007 19:56:33 -0500
 Content-Disposition: inline
-In-Reply-To: <20070306003541.GT3441-HeJ8Db2Gnd6zQB+pC5nmwQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <20070306003715.GA12566@kroah.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 06, 2007 at 01:35:41AM +0100, Adrian Bunk wrote:
-> On Mon, Mar 05, 2007 at 04:07:22PM -0800, Greg KH wrote:
-> > On Tue, Mar 06, 2007 at 12:40:52AM +0100, Adrian Bunk wrote:
-> > > On Mon, Mar 05, 2007 at 10:58:13AM -0800, Greg KH wrote:
-> > > > 
-> > > > Ok, how about the following patch.  Is it acceptable to everyone?
-> > > > 
-> > > > thanks,
-> > > > 
-> > > > greg k-h
-> > > > 
-> > > > ---
-> > > >  init/Kconfig |   13 +++++++++++--
-> > > >  1 file changed, 11 insertions(+), 2 deletions(-)
-> > > > 
-> > > > --- gregkh-2.6.orig/init/Kconfig
-> > > > +++ gregkh-2.6/init/Kconfig
-> > > > @@ -290,8 +290,17 @@ config SYSFS_DEPRECATED
-> > > >  	  that belong to a class, back into the /sys/class heirachy, in
-> > > >  	  order to support older versions of udev.
-> > > >  
-> > > > -	  If you are using a distro that was released in 2006 or later,
-> > > > -	  it should be safe to say N here.
-> > > > +	  If you are using an OpenSuSE, Gentoo, Ubuntu, or Fedora
-> > > > +	  release from 2007 or later, it should be safe to say N here.
-> > > > +
-> > > > +	  If you are using Debian or other distros that are slow to
-> > > > +	  update HAL, please say Y here.
-> > > >...
-> > > 
-> > > The sane solution seems to be to enable SYSFS_DEPRECATED unconditionally 
-> > > for all users, and schedule it's removal for mid-2008 (or later).
-> > > 
-> > > 12 months after the first _release_ of a HAL that can live without seems 
-> > > to be the first time when we can consider getting rid of it, since all 
-> > > distributions with at least one release a year should ship it by then.
-> > > 
-> > > Currently, SYSFS_DEPRECATED is only a trap for users.
-> > 
-> > Huh?
-> > 
-> > No, again, I've been using this just fine for about 6 months now.
-> > 
-> > And what about all of the servers not using HAL/NetworkManager?
+On Mon, Mar 05, 2007 at 04:37:15PM -0800, Greg KH wrote:
+> But I AM TRYING TO MAKE IT COMPATIBLE!!!
 > 
-> On a server, it shouldn't harm.
+> That's what that config option is there for.  If you happen to be
+> running a newer userspace, a different distro than what is in Debian
+> right now, or don't use HAL and Networkmanager, then disable that
+> option.  Then all of sysfs looks just like it used to, no user visble
+> changes at all.  It doesn't get any more compatible than that.
 
-But if they wanted that option enabled?
+This is great, but I think the real problem isn't the config option,
+but what is changing if the config option isn't enabled.  The claim
+which some, including Matt and Bron, seem to be making is that if you
+turn *off* CONFIG_SYSFS_DEPRECATED, you must be using at least hal
+0.5.9-rc1, released ***yesterday***, or suffer breakages for at least
+some system configurations.
 
-> > And what about all of the embedded systems not using either?
-> 
-> If it was much code, I would have sent a patch that allowed disabling it 
-> if EMBEDDED=y.
+So the problem with putting a date in Kconfig.txt help file, or in
+Documentation/feature-removal-schedule.txt, is that if there are other
+incompatible changes which are added to sysfs in say, December 2007 or
+January 2008, but which are papered over with CONFIG_SYSFS_DEPRECATED,
+and then come June 2008, CONFIG_SYSFS_DEPRECATED is unceremoniously
+ripped out, then users will get screwed.  
 
-It's not a code size issue.  In fact, if the option is enabled, like you
-have done, it builds more code into the kernel than before.
+So the question really is are we really done making changes to sysfs,
+or maybe what we should do is talk about major version numbers to
+sysfs.  Call what we have currently not CONFIG_SYSFS_DEPRECATED, but
+rather CONFIG_SYSFS_LAYOUT_1.  At the moment, CONFIG_SYSFS_LAYOUT_2 is
+undergoing changes, but at some point we need to lock down and state
+that Layout version 2 is never going to change, and then people who
+want changes can go work on CONFIG_SYSFS_LAYOUT_3.  
 
-> > So to not allow this to be turned off by people who might want to (we
-> > want this for OpenSuSE 10.3, and Fedora 7 also will want this, as will
-> > other distros released this year), is pretty heavy-handed.
-> > 
-> > It also will work in OpenSuSE 10.2 which is already released, and I
-> > think Fedora 6, but I've only limited experience with these.
-> > 
-> > Oh, and Gentoo works just fine, and has been for the past 6 months.
-> 
-> For most people, it simply doesn't matter whether SYSFS_DEPRECATED is 
-> on or off.
+The problem with calling CONFIG_SYSFS_DEPRECATED is that people think
+that since it's deprecated, it should be turned off, but if we have
+staged major version numbers, with guarantees of absolute stability
+once a particular major version number is locked down, then it may
+make it a lot easier to talk about what version of hal and udev and
+Network Manager is really needed for different versions.  
 
-Exactly.
-
-> But accidentally disabling SYSFS_DEPRECATED has proven to be a trap 
-> people sometimes fall into - and tracking them down to 
-> SYSFS_DEPRECATED=n sometimes takes some time.
-
-So how do I put up the warning flag any larger than I have?
-
-I do not want this always enabled, that option is not acceptable to me,
-or to the zillions of people who are running a distro that this option
-works just fine on (see above list...)
-
-thanks,
-
-greg k-h
+					- Ted
