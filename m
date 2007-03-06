@@ -1,65 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: netlink recvmsg() and MSG_TRUNC
-Date: Tue, 06 Mar 2007 15:19:53 -0800 (PST)
-Message-ID: <20070306.151953.112290310.davem@davemloft.net>
+Subject: Re: [patch 2/2] div64_64: common code
+Date: Tue, 06 Mar 2007 15:21:40 -0800 (PST)
+Message-ID: <20070306.152140.105428124.davem@davemloft.net>
+References: <200703061042.l26AgS0U019809@shell0.pdx.osdl.net>
+	<20070306.101140.101595874.davem@davemloft.net>
+	<20070306143206.f8c29714.akpm@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, shemminger@linux-foundation.org,
+	chris@zankel.net, geert@linux-m68k.org, jdike@addtoit.com,
+	ralf@linux-mips.org, rmk@arm.linux.org.uk, zippel@linux-m68k.org
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38411
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38416
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1030688AbXCFXTz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2007 18:19:55 -0500
-Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id 31918AE41E1
-	for <netdev@vger.kernel.org>; Tue,  6 Mar 2007 15:19:53 -0800 (PST)
+	by vger.kernel.org with ESMTP id S1030702AbXCFXVn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2007 18:21:43 -0500
+In-Reply-To: <20070306143206.f8c29714.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Andrew Morton <akpm@linux-foundation.org>
+Date: Tue, 6 Mar 2007 14:32:06 -0800
 
-So if you don't give a large enough buffer to
-recvmsg() for the netlink response a few things
-happen:
+> ho hum, I didn't know that, so we missed rc2-mm2.
+> 
+> Could I have symlinks in /pub/scm/linux/kernel/git/davem/ to net-latest and
+> sparc-latest please?
 
-1) MSG_TRUNC is set
-2) The length returned and the amount of data copied is the
-   size given in the recvmsg() call
-3) If enough other packets remain in the receive buffer,
-   nlk->cb is left at non-NULL for a partial dump.  This
-   means that you can't just immediately resubmit the
-   original request else you'll get NLMSG_ERROR with error
-   set to -EBUSY.  This is what netlink_dump_start() does
-   when it sees nlk->cb non-NULL.
+When we are in a merge window, I have only one tree for sparc
+and networking.
 
-Now, the user is basically stuck and there is no real
-way to recover from this besides doing something like
-openning up a new netlink socket and then doing the recvmsg()
-with a larger buffer, wash rinse repeat.
+But when we're in RC mode, I've got multiple trees, one each
+for bug fixes and one for stuff which will get submitted in
+the next merge window.
 
-I looked at how some of our standard userspace code handles
-this and it's not pretty:
+When Linus pulls in the bug fixes, I rebase the merge window trees so
+that all the fixes get integrated to the merge tree and I can resolve
+any conflicts, if any.
 
-1) iproute2 basically just uses a 16K buffer, signals an error
-   when it sees MSG_TRUNC, and that's it, whoopee
-
-2) Thomas's libnl believes that recvmsg() will return the
-   true length necessary to receive the whole message, he
-   signals on this to double the buffer size and try the
-   recvmsg() again.  As mentioned recvmsg() never returns
-   a length larger than the given buffer size, so this code
-   never triggers, and if it did it would lose entries because
-   netlink_recvmsg() drops the SKB even when it signals
-   MSG_TRUNC.
-
-The behavior of dropping the SKB matches what UDP does in
-the case of MSG_TRUNC.
-
-I guess one thing the user could do when it sees MSG_TRUNC
-is keep calling recvmsg() until the receive queue is emptied
-of packets, in order to get that pesky nlk->cb cleared to
-NULL, then resubmit.
-
-But that's rediculous and complicated.
-
-Any ideas?
+So, which one(s) do you want? :-)
