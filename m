@@ -1,55 +1,41 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: [PATCH 3/3] e1000: list e1000-devel mailing list in MAINTAINERS
-Date: Tue, 06 Mar 2007 08:58:06 -0800
-Message-ID: <20070306165806.27452.99099.stgit@localhost.localdomain>
-References: <20070306165802.27452.22955.stgit@localhost.localdomain>
-Content-Type: text/plain; charset=utf-8; format=fixed
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, john.ronciak@intel.com,
-	jesse.brandeburg@intel.com
-To: jgarzik@pobox.com
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: Re: [RFC PATCH]: Dynamically sized routing cache hash table.
+Date: Tue, 6 Mar 2007 18:05:55 +0100
+Message-ID: <17901.40819.204568.650642@robur.slu.se>
+References: <20070305.202632.74752497.davem@davemloft.net>
+	<45ED14E6.7090109@cosmosbay.com>
+	<17901.28634.359369.341093@robur.slu.se>
+	<200703061518.09309.dada1@cosmosbay.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	robert.olsson@its.uu.se, npiggin@suse.de
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:32260 "EHLO mga09.intel.com"
+Received: from mx1.slu.se ([130.238.96.70]:52505 "EHLO mx1.slu.se"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965949AbXCFQ6L (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Mar 2007 11:58:11 -0500
-In-Reply-To: <20070306165802.27452.22955.stgit@localhost.localdomain>
+	id S965956AbXCFRG3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Mar 2007 12:06:29 -0500
+In-Reply-To: <200703061518.09309.dada1@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Auke Kok <auke-jan.h.kok@intel.com>
 
-Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
----
+Eric Dumazet writes:
 
- MAINTAINERS |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
+ > Indeed. It would be nice to see how it performs with say 2^20 elements...
+ > Because with your data, I wonder if the extra complexity of the trash is worth 
+ > it (since most lookups are going to only hit the hash and give the answer 
+ > without intermediate nodes)
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 1dfba85..51efc71 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -1797,6 +1797,7 @@ P:	Jeff Kirsher
- M:	jeffrey.t.kirsher@intel.com
- P:	Auke Kok
- M:	auke-jan.h.kok@intel.com
-+L:	e1000-devel@lists.sourceforge.net
- W:	http://sourceforge.net/projects/e1000/
- S:	Supported
- 
-@@ -1811,6 +1812,7 @@ P:	Jeff Kirsher
- M:	jeffrey.t.kirsher@intel.com
- P:	Auke Kok
- M:	auke-jan.h.kok@intel.com
-+L:	e1000-devel@lists.sourceforge.net
- W:	http://sourceforge.net/projects/e1000/
- S:	Supported
- 
-@@ -1825,6 +1827,7 @@ P:	Jesse Brandeburg
- M:	jesse.brandeburg@intel.com
- P:	Auke Kok
- M:	auke-jan.h.kok@intel.com
-+L:	e1000-devel@lists.sourceforge.net
- W:	http://sourceforge.net/projects/e1000/
- S:	Supported
- 
+ I don't know if I understand you fully. Yes in most cases the first lookup via
+ "hash-header" will take us to direct to the correct leaf. If there are "collisions" 
+ we have to sort them out by adding intermediate nodes.
+
+ Something like where you have resizable hash where is each bucket in turn is a 
+ resizable hash etc.
+
+ Cheers
+						--ro
