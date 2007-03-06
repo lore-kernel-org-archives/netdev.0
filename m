@@ -1,82 +1,63 @@
 From: Johannes Berg <johannes@sipsolutions.net>
-Subject: wireless extensions vs. 64-bit architectures
-Date: Tue, 06 Mar 2007 02:27:26 +0100
-Message-ID: <1173144447.15891.93.camel@johannes.berg>
+Subject: Re: [2.6.21 patch] unconditionally enable SYSFS_DEPRECATED
+Date: Tue, 06 Mar 2007 14:20:50 +0100
+Message-ID: <1173187250.3403.7.camel@johannes.berg>
+References: <20070304220857.GH23311@waste.org>
+	 <1173051564.6131.13.camel@johannes.berg> <20070305002550.GI23311@waste.org>
+	 <20070305011729.GB7681@kroah.com> <20070305125950.GC26781@thunk.org>
+	 <20070305185813.GA31465@kroah.com> <20070305234052.GR3441@stusta.de>
+	 <20070306000722.GA11436@kroah.com> <20070306013020.GN23311@waste.org>
+	 <20070306015638.GA23756@kroah.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-69EhBqzK3yp8CXMy0aPc"
-Cc: netdev <netdev@vger.kernel.org>, Jeff Garzik <jgarzik@pobox.com>,
-	Jean Tourrilhes <jt@hpl.hp.com>,
-	Dan Williams <dcbw@redhat.com>,
-	Jouni Malinen <jkm@devicescape.com>
-To: linux-wireless@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-15IQDM44rstVXjWudRV8"
+Cc: Matt Mackall <mpm@selenic.com>, Adrian Bunk <bunk@stusta.de>,
+	Theodore Tso <tytso@mit.edu>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, yi.zhu@intel.com, jketreno@linux.intel.com,
+	linux-wireless <linux-wireless@vger.kernel.org>, akpm@osdl.org
+To: Greg KH <greg@kroah.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:41255 "EHLO
+Received: from crystal.sipsolutions.net ([195.210.38.204]:38291 "EHLO
 	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933290AbXCFNQf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2007 08:16:35 -0500
+	with ESMTP id S964981AbXCFNVx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2007 08:21:53 -0500
+In-Reply-To: <20070306015638.GA23756@kroah.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---=-69EhBqzK3yp8CXMy0aPc
+--=-15IQDM44rstVXjWudRV8
 Content-Type: text/plain
 Content-Transfer-Encoding: quoted-printable
 
-Hi,
+On Mon, 2007-03-05 at 17:56 -0800, Greg KH wrote:
 
-Wtf! After struggling with some strange problems with zd1211rw (see some
-other mail) I decided to think again about what could possibly cause all
-the other problems I'm having with it. The kernel seems fine, but iw*
-userspace continually segfaults! And it also seems to be not
-reproducible for most other people, I'd asked on IRC once a while.
+> Theory F:  It broke because you are using NetworkManager for your
+> network devices and the patches that fix this have not made it into a
+> real release?
+>=20
+> I'm just guessing, but does anyone who is having this problem, NOT using
+> NetworkManager?
+>=20
+> I'm running an old version of HAL just fine, but I'm not using
+> NetworkManager here.
 
-Well. Some thinking and stracing and thinking later it occurred to me...
-Hell! wext is ioctls and includes this gem:
-
-struct  iw_point
-{
-  void __user   *pointer;       /* Pointer to the data  (in user space) */
-  __u16         length;         /* number of fields or size in bytes */
-  __u16         flags;          /* Optional params */
-};
-
-Of course nobody ever tells you this, but it's used in a shitload of
-places.
-
-Btw, did I mention that I'm running a stock debian powerpc 32-bit
-userspace on my 64-bit machine. Oh and of course wext doesn't have any
-32-in-64 compat code.
-
-/me laughes manically about wext.
-
-And don't tell me the fix is to use the netlink interface to wext.
-Actually, I think it may have the same bug, it seems to be operating
-with iw_point (or at least its size) too but I can't really tell, the
-code's just too clear, I always just see right through it... Oh and I
-still insist on removing the whole pile of junk, netlink interface
-first.
-
-Isn't there any possibility that we can kill userspace interfaces that
-are terminally broken without keeping them for years to come?
-
-Sorry. This is just too frustrating.
+Greg, HAL itself isn't the problem. The problem is that older versions
+of HAL ignore all network devices when this option is not set and thus
+network manager can't pick them up.
 
 johannes
---=20
-Now playing: Nightwish (Century Child) - End Of All Hope
 
-
---=-69EhBqzK3yp8CXMy0aPc
+--=-15IQDM44rstVXjWudRV8
 Content-Type: application/pgp-signature; name=signature.asc
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Comment: Johannes Berg (powerbook)
 
-iD8DBQBF7MN+/ETPhpq3jKURAi4IAKCV0f12tSWsSweSwox/EOni7P5m9wCgrBXJ
-YBHJDtR9CHqrNbKTfEQP07Q=
-=TB7w
+iD8DBQBF7Wqy/ETPhpq3jKURAmEZAKCE3mEn0TqexYxE2hmmdxG99XgqKwCgpetD
+p8rd51qaqJYQZRMK+qUJK60=
+=mau2
 -----END PGP SIGNATURE-----
 
---=-69EhBqzK3yp8CXMy0aPc--
+--=-15IQDM44rstVXjWudRV8--
 
