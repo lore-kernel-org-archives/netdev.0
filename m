@@ -1,104 +1,84 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
+From: Rick Jones <rick.jones2@hp.com>
 Subject: Re: TCP 2MSL on loopback
-Date: Tue, 06 Mar 2007 21:39:27 +0100
-Message-ID: <45EDD17F.5000203@cosmosbay.com>
-References: <45EBFD13.1060106@symas.com> <200703051528.02564.dada1@cosmosbay.com> <45ED32CA.5080709@symas.com> <200703061142.00261.dada1@cosmosbay.com> <45EDB55C.2080803@symas.com> <45EDCA15.4060704@cosmosbay.com> <45EDCEF5.1070401@symas.com>
+Date: Tue, 06 Mar 2007 12:41:00 -0800
+Message-ID: <45EDD1DC.2010200@hp.com>
+References: <45EBFD13.1060106@symas.com>	<200703051528.02564.dada1@cosmosbay.com>	<45ED32CA.5080709@symas.com> <45EDB708.1010103@hp.com> <45EDC00E.8020805@symas.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <dada1@cosmosbay.com>, netdev@vger.kernel.org
 To: Howard Chu <hyc@symas.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([86.65.150.130]:43564 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932348AbXCFUjj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2007 15:39:39 -0500
-In-Reply-To: <45EDCEF5.1070401@symas.com>
+Received: from palrel10.hp.com ([156.153.255.245]:39481 "EHLO palrel10.hp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965109AbXCFUlD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Mar 2007 15:41:03 -0500
+In-Reply-To: <45EDC00E.8020805@symas.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Howard Chu a =E9crit :
-> Eric Dumazet wrote:
->> Let me see, any chance you can try the prog on 2.6.20 ?
->=20
-> Not any time soon.
->>
->> If not, please send :
->>
->> grep . /proc/sys/net/ipv4/*
->=20
-> This is the output on the laptop:
-> /proc/sys/net/ipv4/icmp_echo_ignore_all:0
-> /proc/sys/net/ipv4/icmp_echo_ignore_broadcasts:1
-> /proc/sys/net/ipv4/icmp_errors_use_inbound_ifaddr:0
-> /proc/sys/net/ipv4/icmp_ignore_bogus_error_responses:1
-> /proc/sys/net/ipv4/icmp_ratelimit:250
-> /proc/sys/net/ipv4/icmp_ratemask:6168
-> /proc/sys/net/ipv4/igmp_max_memberships:20
-> /proc/sys/net/ipv4/igmp_max_msf:10
-> /proc/sys/net/ipv4/inet_peer_gc_maxtime:120
-> /proc/sys/net/ipv4/inet_peer_gc_mintime:10
-> /proc/sys/net/ipv4/inet_peer_maxttl:600
-> /proc/sys/net/ipv4/inet_peer_minttl:120
-> /proc/sys/net/ipv4/inet_peer_threshold:65664
-> /proc/sys/net/ipv4/ip_default_ttl:64
-> /proc/sys/net/ipv4/ip_dynaddr:0
-> /proc/sys/net/ipv4/ip_forward:0
-> /proc/sys/net/ipv4/ipfrag_high_thresh:262144
-> /proc/sys/net/ipv4/ipfrag_low_thresh:196608
-> /proc/sys/net/ipv4/ipfrag_max_dist:64
-> /proc/sys/net/ipv4/ipfrag_secret_interval:600
-> /proc/sys/net/ipv4/ipfrag_time:30
-> /proc/sys/net/ipv4/ip_local_port_range:32768    61000
-> /proc/sys/net/ipv4/ip_nonlocal_bind:0
-> /proc/sys/net/ipv4/ip_no_pmtu_disc:0
-> /proc/sys/net/ipv4/tcp_abc:0
-> /proc/sys/net/ipv4/tcp_abort_on_overflow:0
-> /proc/sys/net/ipv4/tcp_adv_win_scale:2
-> /proc/sys/net/ipv4/tcp_app_win:31
-> /proc/sys/net/ipv4/tcp_base_mss:512
-> /proc/sys/net/ipv4/tcp_congestion_control:reno
-> /proc/sys/net/ipv4/tcp_dma_copybreak:4096
-> /proc/sys/net/ipv4/tcp_dsack:1
-> /proc/sys/net/ipv4/tcp_ecn:0
-> /proc/sys/net/ipv4/tcp_fack:1
-> /proc/sys/net/ipv4/tcp_fin_timeout:60
-> /proc/sys/net/ipv4/tcp_frto:0
-> /proc/sys/net/ipv4/tcp_keepalive_intvl:75
-> /proc/sys/net/ipv4/tcp_keepalive_probes:9
-> /proc/sys/net/ipv4/tcp_keepalive_time:7200
-> /proc/sys/net/ipv4/tcp_low_latency:0
-> /proc/sys/net/ipv4/tcp_max_orphans:32768
-> /proc/sys/net/ipv4/tcp_max_syn_backlog:1024
-> /proc/sys/net/ipv4/tcp_max_tw_buckets:180000
-> /proc/sys/net/ipv4/tcp_mem:98304        131072  196608
-> /proc/sys/net/ipv4/tcp_moderate_rcvbuf:1
-> /proc/sys/net/ipv4/tcp_mtu_probing:0
-> /proc/sys/net/ipv4/tcp_no_metrics_save:0
-> /proc/sys/net/ipv4/tcp_orphan_retries:0
-> /proc/sys/net/ipv4/tcp_reordering:3
-> /proc/sys/net/ipv4/tcp_retrans_collapse:1
-> /proc/sys/net/ipv4/tcp_retries1:3
-> /proc/sys/net/ipv4/tcp_retries2:15
-> /proc/sys/net/ipv4/tcp_rfc1337:0
-> /proc/sys/net/ipv4/tcp_rmem:4096        87380   4194304
-> /proc/sys/net/ipv4/tcp_sack:1
-> /proc/sys/net/ipv4/tcp_slow_start_after_idle:1
-> /proc/sys/net/ipv4/tcp_stdurg:0
-> /proc/sys/net/ipv4/tcp_synack_retries:5
-> /proc/sys/net/ipv4/tcp_syncookies:1
-> /proc/sys/net/ipv4/tcp_syn_retries:5
-> /proc/sys/net/ipv4/tcp_timestamps:1
-> /proc/sys/net/ipv4/tcp_tso_win_divisor:3
-> /proc/sys/net/ipv4/tcp_tw_recycle:0
-> /proc/sys/net/ipv4/tcp_tw_reuse:0
-> /proc/sys/net/ipv4/tcp_window_scaling:1
-> /proc/sys/net/ipv4/tcp_wmem:4096        16384   4194304
-> /proc/sys/net/ipv4/tcp_workaround_signed_windows:0
+>> With transparant bridging, nobody knows how long the datagram may be 
+>> out there.  Admittedly, the chances of a datagram living for a full 
+>> two minutes these days is probably nil, but just being in the same IP 
+>> subnet doesn't really mean anything when it comes to physical locality.
+> 
+> 
+> Bridging isn't necessarily a problem though. The 2MSL timeout is 
+> designed to prevent problems from delayed packets that got sent through 
+> multiple paths. In a bridging setup you don't allow multiple paths, 
+> that's what STP is designed to prevent. If you want to configure a 
+> network that allows multiple paths, you need to use a router, not a bridge.
 
-Arf... dont tell me you forgot to do this...
+Well, there is trunking at the data link layer, and in theory there 
+could be an active-standby where the standby took a somewhat different path.
 
-echo 1 >/proc/sys/net/ipv4/tcp_tw_recycle
-echo 1 >/proc/sys/net/ipv4/tcp_tw_reuse
+The timeout is also to cover datagrams which just got "stuck" somewhere 
+too (IIRC) and may not necessarily require a multiple path situation.
 
+> 
+>> SPECweb benchmarking has had to deal with the issue of attempted 
+>> TIME_WAIT reuse going back to 1997.  It deals with it by not relying 
+>> on the client's configured local/anonymous/ephemeral port number range 
+>> and instead making explicit bind() calls in the (more or less) entire 
+>> unpriv port range (actually it may just be from 5000 to 65535 but still)
+> 
+> 
+> That still doesn't solve the problem, it only ~doubles the available 
+> port range. That means it takes 0.6 seconds to trigger the problem 
+> instead of only 0.3 seconds...
+
+True.  Thankfully, the web learned to use persistent connections so 
+later versions of SPECweb benchmarking make use of persistent connections.
+
+> In an environment where connections are opened and closed very quickly 
+> with only a small amount of data carried per connection, it might make 
+> sense to remember the last sequence number used on a port and use that 
+> as the floor of the next randomly generated ISN. Monotonically 
+> increasing sequence numbers aren't a security risk if there's still a 
+> randomly determined gap from one connection to the next. But I don't 
+> think it's necessary to consider this at the moment.
+
+I thought that all the "security types" started squawking if the ISN 
+wasn't completely random?
+
+I've not tried this, but if a client does want to cycle through 
+thousands of connections per second, and if it is the one to initiate 
+connection close, would it be sufficient to only use something like:
+
+socket()
+bind()
+loop:
+connect()
+request()
+response()
+shudtown(SHUT_RDWR)
+goto loop
+
+ie not call close on the FD so there is still a direct link to the 
+connection in TIME_WAIT so one could in theory initiate a new connection 
+from TIME_WAIT?  Then in theory the randomness could be _almost_ the 
+entire sequence space, less the previous connection's window (IIRC).
+
+rick jones
+
+rick jones
