@@ -1,57 +1,28 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] tc35815 driver update (take 2)
-Date: Tue, 06 Mar 2007 06:20:04 -0500
-Message-ID: <45ED4E64.5030404@garzik.org>
-References: <20070303.235459.25478204.anemo@mba.ocn.ne.jp>
+Subject: Re: [2.6 patch] make drivers/net/s2io.c:vlan_strip_flag static
+Date: Tue, 06 Mar 2007 06:20:11 -0500
+Message-ID: <45ED4E6B.50000@garzik.org>
+References: <20070305014925.GX3441@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-mips@linux-mips.org, ralf@linux-mips.org,
-	netdev@vger.kernel.org, sshtylyov@ru.mvista.com
-To: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
+Cc: Sivakumar Subramani <sivakumar.subramani@neterion.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Adrian Bunk <bunk@stusta.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:53326 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:53332 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934080AbXCFLUK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Mar 2007 06:20:10 -0500
-In-Reply-To: <20070303.235459.25478204.anemo@mba.ocn.ne.jp>
+	id S934080AbXCFLUO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Mar 2007 06:20:14 -0500
+In-Reply-To: <20070305014925.GX3441@stusta.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Atsushi Nemoto wrote:
-> Current tc35815 driver is very obsolete and less maintained for a long
-> time.  Replace it with a new driver based on one from CELF patch
-> archive.
+Adrian Bunk wrote:
+> This patch makes the needlessly global vlan_strip_flag static.
 > 
-> Major advantages of CELF version (version 1.23, for kernel 2.6.10) are:
-> 
-> * Independent of JMR3927.
->   (Actually independent of MIPS, but AFAIK the chip is used only on
->    MIPS platforms)
-> * TX4938 support.
-> * 64-bit proof.
-> * Asynchronous and on-demand auto negotiation.
-> * High performance on non-coherent architecture.
-> * ethtool support.
-> * Many bugfixes and cleanups.
-> 
-> And improvoments since version 1.23 are:
-> 
-> * TX4939 support.
-> * NETPOLL support.
-> * NAPI support. (disabled by default)
-> * Reduce memcpy on receiving.
-> * PM support.
-> * Many cleanups and bugfixes.
-> 
-> Signed-off-by: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
-> 
->  drivers/net/Kconfig     |    3 
->  drivers/net/tc35815.c   | 2587 ++++++++++++++++++++++++++++++++++------------
->  include/linux/pci_ids.h |    2 
->  3 files changed, 1917 insertions(+), 675 deletions(-)
+> Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
-applied to #upstream, let's give it a good review while it hangs out in 
-libata-dev.git#ALL and -mm
+applied
 
 
