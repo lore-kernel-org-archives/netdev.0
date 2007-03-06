@@ -1,68 +1,62 @@
 From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [PATCH] tcp_cubic: faster cube root
-Date: Tue, 6 Mar 2007 14:47:06 -0800
-Message-ID: <20070306144706.4585c079@freekitty>
-References: <20070306144529.GA2004@one.firstfloor.org>
-	<84C47260-4B57-4568-8197-58F438A6F737@e18.physik.tu-muenchen.de>
-	<20070306102941.32471d57@freekitty>
-	<20070306.135834.26100913.davem@davemloft.net>
+Subject: Re: [RFC] ARP notify option
+Date: Tue, 6 Mar 2007 14:52:41 -0800
+Message-ID: <20070306145241.5ec1c511@freekitty>
+References: <20070301164214.4a40bc59@freekitty> <45E7764A.7000100@goop.org>
+	<20070301173030.754514ec@freekitty>
+	<20070305.203536.92584097.davem@davemloft.net>
+	<20070306105132.52c77491@freekitty> <45EDDA8F.5060106@nortel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: rkuhn@e18.physik.tu-muenchen.de, andi@firstfloor.org,
-	dada1@cosmosbay.com, jengelh@linux01.gwdg.de,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:34536 "EHLO smtp.osdl.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932510AbXCFWvH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Mar 2007 17:51:07 -0500
-In-Reply-To: <20070306.135834.26100913.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: xen-devel@lists.xensource.com, jeff@garzik.org, ian.pratt@xensource.com,
+   netdev@vger.kernel.org, linux-kernel@vger.kernel.org, chrisw@sous-sol.org,
+   virtualization@lists.osdl.org, akpm@linux-foundation.org,
+   David Miller <davem@davemloft.net>, ak@muc.de
+To: "Chris Friesen" <cfriesen@nortel.com>
+Return-path: <virtualization-bounces@lists.osdl.org>
+In-Reply-To: <45EDDA8F.5060106@nortel.com>
+List-Unsubscribe: <https://lists.osdl.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.osdl.org?subject=unsubscribe>
+List-Archive: <http://lists.osdl.org/pipermail/virtualization>
+List-Post: <mailto:virtualization@lists.osdl.org>
+List-Help: <mailto:virtualization-request@lists.osdl.org?subject=help>
+List-Subscribe: <https://lists.osdl.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.osdl.org?subject=subscribe>
+Sender: virtualization-bounces@lists.osdl.org
+Errors-To: virtualization-bounces@lists.osdl.org
 List-Id: netdev.vger.kernel.org
 
-The Newton-Raphson method is quadratically convergent so
-only a small fixed number of steps are necessary.
-Therefore it is faster to unroll the loop. Since div64_64 is no longer
-inline it won't cause code explosion.
+On Tue, 06 Mar 2007 15:18:07 -0600
+"Chris Friesen" <cfriesen@nortel.com> wrote:
 
-Also fixes a bug that can occur if x^2 was bigger than 32 bits.
+> Stephen Hemminger wrote:
+> =
 
-Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+> > +arp_notify - BOOLEAN
+> > +	Define mode for notification of address and device changes.
+> > +	0 - (default): do nothing
+> > +	1 - Generate gratuitous arp replies when device is brought up
+> > +	    or hardware address changes.
+> =
 
----
- net/ipv4/tcp_cubic.c |   16 +++++-----------
- 1 file changed, 5 insertions(+), 11 deletions(-)
+> Did you consider using gratuitous arp requests instead?  I remember =
 
---- net-2.6.22.orig/net/ipv4/tcp_cubic.c	2007-03-06 12:24:34.000000000 -0800
-+++ net-2.6.22/net/ipv4/tcp_cubic.c	2007-03-06 14:43:37.000000000 -0800
-@@ -96,23 +96,17 @@
-  */
- static u32 cubic_root(u64 a)
- {
--	u32 x, x1;
-+	u64 x;
- 
- 	/* Initial estimate is based on:
- 	 * cbrt(x) = exp(log(x) / 3)
- 	 */
- 	x = 1u << (fls64(a)/3);
- 
--	/*
--	 * Iteration based on:
--	 *                         2
--	 * x    = ( 2 * x  +  a / x  ) / 3
--	 *  k+1          k         k
--	 */
--	do {
--		x1 = x;
--		x = (2 * x + (uint32_t) div64_64(a, x*x)) / 3;
--	} while (abs(x1 - x) > 1);
-+	/* converges to 32 bits in 3 iterations */
-+	x = (2 * x + div64_64(a, x*x)) / 3;
-+	x = (2 * x + div64_64(a, x*x)) / 3;
-+	x = (2 * x + div64_64(a, x*x)) / 3;
- 
- 	return x;
- }
+> reading about some hardware that updated its arp cache on gratuitous =
+
+> requests but not gratuitous replies.
+> =
+
+> Chris
+
+I copied the ARP generation from other places that were doing
+gratuitous ARP already:  Xen and irlan.
+Our local switch used REPLY's to do the same thing.
+
+One could imagine making it a ternary value and having 2 generate
+REQUEST's.
+
+
+-- =
+
+Stephen Hemminger <shemminger@linux-foundation.org>
