@@ -1,195 +1,69 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: TCP 2MSL on loopback
-Date: Tue, 6 Mar 2007 11:42:00 +0100
-Message-ID: <200703061142.00261.dada1@cosmosbay.com>
-References: <45EBFD13.1060106@symas.com> <200703051528.02564.dada1@cosmosbay.com> <45ED32CA.5080709@symas.com>
-Mime-Version: 1.0
-Content-Type: Multipart/Mixed;
-  boundary="Boundary-00=_4VU7Fm540kNnvPf"
-Cc: netdev@vger.kernel.org
-To: Howard Chu <hyc@symas.com>
+From: akpm@linux-foundation.org
+Subject: [patch 03/19] user of the jiffies rounding code: e1000
+Date: Tue, 06 Mar 2007 02:41:48 -0800
+Message-ID: <200703061041.l26AfmEP019740@shell0.pdx.osdl.net>
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
+	arjan@linux.intel.com, auke-jan.h.kok@intel.com
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pfx2.jmh.fr ([194.153.89.55]:36717 "EHLO pfx2.jmh.fr"
+Received: from smtp.osdl.org ([65.172.181.24]:34666 "EHLO smtp.osdl.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752945AbXCFKmG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Mar 2007 05:42:06 -0500
-In-Reply-To: <45ED32CA.5080709@symas.com>
+	id S1752943AbXCFKmU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Mar 2007 05:42:20 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Boundary-00=_4VU7Fm540kNnvPf
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+From: Arjan van de Ven <arjan@linux.intel.com>
 
-On Tuesday 06 March 2007 10:22, Howard Chu wrote:
+Use the round_jiffies() function in e1000.
 
->
-> It's a combination of 2MSL and /proc/sys/net/ipv4/ip_local_port_range -
-> on my system the default port range is 32768-61000. That means if I use
-> up 28232 ports in less than 2MSL then everything stops. netstat will
-> show that all the available port numbers are in TIME_WAIT state. And
-> this is particularly bad because while waiting for the timeout, I can't
-> initiate any new outbound connections of any kind at all - telnet, ssh,
-> whatever, you have to wait for at least one port to free up.
-> (Interesting denial of service there....)
->
-> Granted, I was running my test on 2.6.18, perhaps 2.6.21 behaves
-> differently.
+These timers all were of the "about once a second" or "about once every X
+seconds" variety and several showed up in the "what wakes the cpu up" profiles
+that the tickless patches provide.  Some timers are highly dynamic based on
+network load; but even on low activity systems they still show up so the
+rounding is done only in cases of low activity, allowing higher frequency
+timers in the high activity case.
 
-Could you try this attached program and tell me whats happen ?
+The various hardware watchdogs are an obvious case; they run every 2 seconds
+but aren't otherwise specific of exactly when they need to run.
 
-$ gcc -O2 -o socktest socktest.c -lpthread
-$ time ./socktest -n 100000
-nb_conn=99999 nb_accp=99999
+Signed-off-by: Arjan van de Ven <arjan@linux.intel.com>
+Acked-by: Auke Kok <auke-jan.h.kok@intel.com>
+Cc: Jeff Garzik <jeff@garzik.org>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+---
 
-real    0m5.058s
-user    0m0.212s
-sys     0m4.844s
+ drivers/net/e1000/e1000_main.c |    6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-(on my small machine, dell d610 :) )
-
-
---Boundary-00=_4VU7Fm540kNnvPf
-Content-Type: text/plain;
-  charset="iso-8859-1";
-  name="socktest.c"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
-	filename="socktest.c"
-
-/*
-  Copyright (C) 2007  Eric Dumazet
-
-    This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation; either version 2 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License along
-    with this program; if not, write to the Free Software Foundation, Inc.,
-    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
- */
-#include <pthread.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/resource.h>
-#include <sys/wait.h>
-#include <sys/ioctl.h>
-#include <sys/stat.h>
-#include <sys/time.h>
-#include <sys/poll.h>
-#include <sys/sendfile.h>
-#include <sys/epoll.h>
-
-#include <netinet/in.h>
-#include <netinet/tcp.h>
-#include <arpa/inet.h>
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <errno.h>
-#include <string.h>
-#include <fcntl.h>
-#include <time.h>
-#include <ctype.h>
-#include <netdb.h>
-
-int fd __attribute__((aligned(64)));
-int port = 9999;
-unsigned long nb_acc __attribute__((aligned(64)));
-unsigned long nb_conn1 __attribute__((aligned(64)));
-unsigned long nb_conn2 __attribute__((aligned(64)));
-unsigned long nb_conn3 __attribute__((aligned(64)));
-int limit = 10000/3;
-
-void *do_accept(void *arg)
-{
-int s;
-struct sockaddr_in sa;
-socklen_t addrlen ;
-int flags;
-char buffer[1024];
-
-while (1) {
-	addrlen = sizeof(sa);
-	s = accept(fd, (struct sockaddr *)&sa, &addrlen);
-	if (s == -1) continue;
-	flags = 0;
-	recv(s, buffer, 1024, 0);
-	send(s, "Answer\r\n", 8, 0);
-	close(s);
-	nb_acc++;
-	}
-}
-
-void *do_conn(void *arg)
-{
-int i;
-int on = 1;
-struct sockaddr_in sa;
-unsigned long *cpt = (unsigned long *)arg;
-for (i = 0 ; i < limit ; i++) {
-	int s = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-	int res;
-	setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &on, 4);
-	memset(&sa, 0, sizeof(sa));
-	sa.sin_addr.s_addr = htonl(0x7f000001);
-	sa.sin_port = htons(port);
-	sa.sin_family = AF_INET;
-	res = connect(s, (struct sockaddr *)&sa, sizeof(sa));
-	if (res == 0) {
-		char buffer[1024];
-		send(s, "question\r\n", 10, 0);
-		recv(s, buffer, sizeof(buffer), 0);
-		(*cpt)++;
-		}
-	else {
-		static int errcnt = 0;
-		if (errcnt++ < 10) printf("connect error %d\n", errno);
-		}
-	close(s);
-	}
-}
-
-int main(int argc, char *argv[])
-{
-int on = 1;
-struct sockaddr_in sa;
-pthread_t tid, tid1, tid2, tid3;
-int i;
-void *res;
-
-while ((i = getopt(argc, argv, "Vn:")) != EOF) {
-	if (i == 'n')
-		limit = atoi(optarg) / 3;
-	}
-fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &on, 4);
-memset(&sa, 0, sizeof(sa));
-sa.sin_port = htons(port);
-sa.sin_family = AF_INET;
-if (bind(fd, (struct sockaddr *)&sa, sizeof(sa)) == -1) {
-	perror("bind");
-	return 1;
-	}
-listen(fd, 30000);
-pthread_create(&tid, NULL, do_accept, NULL);
-pthread_create(&tid1, NULL, do_conn, &nb_conn1);
-pthread_create(&tid2, NULL, do_conn, &nb_conn2);
-pthread_create(&tid3, NULL, do_conn, &nb_conn3);
-pthread_join(tid1, &res);
-pthread_join(tid2, &res);
-pthread_join(tid3, &res);
-printf("nb_conn=%lu nb_accp=%lu\n", nb_conn1 + nb_conn2 + nb_conn3, nb_acc);
-return 0;
-}
-
---Boundary-00=_4VU7Fm540kNnvPf--
+diff -puN drivers/net/e1000/e1000_main.c~user-of-the-jiffies-rounding-code-e1000 drivers/net/e1000/e1000_main.c
+--- a/drivers/net/e1000/e1000_main.c~user-of-the-jiffies-rounding-code-e1000
++++ a/drivers/net/e1000/e1000_main.c
+@@ -2652,7 +2652,7 @@ e1000_watchdog(unsigned long data)
+ 
+ 			netif_carrier_on(netdev);
+ 			netif_wake_queue(netdev);
+-			mod_timer(&adapter->phy_info_timer, jiffies + 2 * HZ);
++			mod_timer(&adapter->phy_info_timer, round_jiffies(jiffies + 2 * HZ));
+ 			adapter->smartspeed = 0;
+ 		} else {
+ 			/* make sure the receive unit is started */
+@@ -2669,7 +2669,7 @@ e1000_watchdog(unsigned long data)
+ 			DPRINTK(LINK, INFO, "NIC Link is Down\n");
+ 			netif_carrier_off(netdev);
+ 			netif_stop_queue(netdev);
+-			mod_timer(&adapter->phy_info_timer, jiffies + 2 * HZ);
++			mod_timer(&adapter->phy_info_timer, round_jiffies(jiffies + 2 * HZ));
+ 
+ 			/* 80003ES2LAN workaround--
+ 			 * For packet buffer work-around on link down event;
+@@ -2721,7 +2721,7 @@ e1000_watchdog(unsigned long data)
+ 		e1000_rar_set(&adapter->hw, adapter->hw.mac_addr, 0);
+ 
+ 	/* Reset the timer */
+-	mod_timer(&adapter->watchdog_timer, jiffies + 2 * HZ);
++	mod_timer(&adapter->watchdog_timer, round_jiffies(jiffies + 2 * HZ));
+ }
+ 
+ enum latency_range {
+_
