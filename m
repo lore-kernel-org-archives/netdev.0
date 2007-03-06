@@ -1,45 +1,70 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [NET]: Please revert disallowing zero listen queues
-Date: Tue, 06 Mar 2007 11:11:42 -0800 (PST)
-Message-ID: <20070306.111142.07639258.davem@davemloft.net>
-References: <200703061332.09677@strip-the-willow>
-	<20070306.103706.68156515.davem@davemloft.net>
-	<45EDB8C8.3030302@hp.com>
+Subject: [PATCH]: Revert accept queue backlog change.
+Date: Tue, 06 Mar 2007 11:19:00 -0800 (PST)
+Message-ID: <20070306.111900.41634576.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: gerrit@erg.abdn.ac.uk, netdev@vger.kernel.org,
-	weid@np.css.fujitsu.com
-To: rick.jones2@hp.com
+Cc: netdev@vger.kernel.org
+To: weid@np.css.fujitsu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54930
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42046
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S932778AbXCFTLs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2007 14:11:48 -0500
-In-Reply-To: <45EDB8C8.3030302@hp.com>
+	by vger.kernel.org with ESMTP id S932881AbXCFTTD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2007 14:19:03 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Rick Jones <rick.jones2@hp.com>
-Date: Tue, 06 Mar 2007 10:54:00 -0800
 
-> > So we're not "disallowing" a backlog argument of zero to
-> > listen().  We'll accept that just fine, the only thing that
-> > happens is that you'll get what you ask for, that being
-> > no connections :-)
-> 
-> I'm not sure where HP-UX inherited the 0 = 1 bit - perhaps from BSD, nor 
-> am I sure there is official chapter and verse, but:
-> 
-> <excerpt>
-> backlog is limited to the range of 0 to SOMAXCONN, which is 	defined in 
-> <sys/socket.h>.  SOMAXCONN is currently set to 4096.  If any other 
-> value is specified, the system automatically assigns the closest value 
->      within the range.  A backlog of 0 specifies only 1 pending 
-> connection      is allowed at any given time.
-> </excerpt>
-> 
-> I don't have a Solaris, BSD or AIX manpage for listen handy to check 
-> them but would not be surprised to see they are similar.
+Wei, I have to revert your change, it is incorrect as pointed
+out by other people here on netdev.
 
-Ok, that seals the deal for me, I'll revert the change :)
+BSD sockets basically define the 'backlog' parameter to listen()
+to mean "allow backlog + 1" connections to be queued to the socket.
+This allows a backlog parameter of "0" to allow 1 connection, and
+there are real applications which do this.
+
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 849c7df..2c7d60c 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -426,7 +426,7 @@ static inline void sk_acceptq_added(struct sock *sk)
+ 
+ static inline int sk_acceptq_is_full(struct sock *sk)
+ {
+-	return sk->sk_ack_backlog >= sk->sk_max_ack_backlog;
++	return sk->sk_ack_backlog > sk->sk_max_ack_backlog;
+ }
+ 
+ /*
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index 51ca438..6069716 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -934,7 +934,7 @@ static long unix_wait_for_peer(struct sock *other, long timeo)
+ 
+ 	sched = !sock_flag(other, SOCK_DEAD) &&
+ 		!(other->sk_shutdown & RCV_SHUTDOWN) &&
+-		(skb_queue_len(&other->sk_receive_queue) >=
++		(skb_queue_len(&other->sk_receive_queue) >
+ 		 other->sk_max_ack_backlog);
+ 
+ 	unix_state_runlock(other);
+@@ -1008,7 +1008,7 @@ restart:
+ 	if (other->sk_state != TCP_LISTEN)
+ 		goto out_unlock;
+ 
+-	if (skb_queue_len(&other->sk_receive_queue) >=
++	if (skb_queue_len(&other->sk_receive_queue) >
+ 	    other->sk_max_ack_backlog) {
+ 		err = -EAGAIN;
+ 		if (!timeo)
+@@ -1381,7 +1381,7 @@ restart:
+ 	}
+ 
+ 	if (unix_peer(other) != sk &&
+-	    (skb_queue_len(&other->sk_receive_queue) >=
++	    (skb_queue_len(&other->sk_receive_queue) >
+ 	     other->sk_max_ack_backlog)) {
+ 		if (!timeo) {
+ 			err = -EAGAIN;
