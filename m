@@ -1,43 +1,57 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [patch 18/19] mv643xx ethernet driver IRQ registration fix
-Date: Tue, 06 Mar 2007 06:16:43 -0500
-Message-ID: <45ED4D9B.9090100@garzik.org>
-References: <200703061042.l26Ag25d019787@shell0.pdx.osdl.net>
+Subject: Re: [PATCH] tc35815 driver update (take 2)
+Date: Tue, 06 Mar 2007 06:20:04 -0500
+Message-ID: <45ED4E64.5030404@garzik.org>
+References: <20070303.235459.25478204.anemo@mba.ocn.ne.jp>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, giri@lmc.cs.sunysb.edu,
-	dale@farnsworth.org, pgiri@yahoo.com
-To: akpm@linux-foundation.org
+Cc: linux-mips@linux-mips.org, ralf@linux-mips.org,
+	netdev@vger.kernel.org, sshtylyov@ru.mvista.com
+To: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:53298 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:53326 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965854AbXCFLQp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Mar 2007 06:16:45 -0500
-In-Reply-To: <200703061042.l26Ag25d019787@shell0.pdx.osdl.net>
+	id S934080AbXCFLUK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Mar 2007 06:20:10 -0500
+In-Reply-To: <20070303.235459.25478204.anemo@mba.ocn.ne.jp>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-akpm@linux-foundation.org wrote:
-> From: Giridhar Pemmasani <giri@lmc.cs.sunysb.edu>
+Atsushi Nemoto wrote:
+> Current tc35815 driver is very obsolete and less maintained for a long
+> time.  Replace it with a new driver based on one from CELF patch
+> archive.
 > 
-> During initialization, mv643xx driver registers IRQ before setting up tx/rx
-> rings.  This causes kernel oops because mv643xx_poll, which gets called
-> right after registering IRQ, calls netif_rx_complete, which accesses the rx
-> ring (I don't have the oops message anymore; I just remember this sequence
-> of calls).  Attached (tested) patch first initializes the rx/tx rings and
-> then registers the IRQ.
+> Major advantages of CELF version (version 1.23, for kernel 2.6.10) are:
 > 
-> Signed-off-by: Giridhar Pemmasani <pgiri@yahoo.com>
-> Cc: Dale Farnsworth <dale@farnsworth.org>
-> Cc: Jeff Garzik <jeff@garzik.org>
-> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
-> ---
+> * Independent of JMR3927.
+>   (Actually independent of MIPS, but AFAIK the chip is used only on
+>    MIPS platforms)
+> * TX4938 support.
+> * 64-bit proof.
+> * Asynchronous and on-demand auto negotiation.
+> * High performance on non-coherent architecture.
+> * ethtool support.
+> * Many bugfixes and cleanups.
 > 
->  drivers/net/mv643xx_eth.c |   40 +++++++++++++++++++-----------------
->  1 file changed, 22 insertions(+), 18 deletions(-)
+> And improvoments since version 1.23 are:
+> 
+> * TX4939 support.
+> * NETPOLL support.
+> * NAPI support. (disabled by default)
+> * Reduce memcpy on receiving.
+> * PM support.
+> * Many cleanups and bugfixes.
+> 
+> Signed-off-by: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
+> 
+>  drivers/net/Kconfig     |    3 
+>  drivers/net/tc35815.c   | 2587 ++++++++++++++++++++++++++++++++++------------
+>  include/linux/pci_ids.h |    2 
+>  3 files changed, 1917 insertions(+), 675 deletions(-)
 
-seems sane enough to me, but I would like to get this via Dale, who has 
-been a fairly active maintainer so far
+applied to #upstream, let's give it a good review while it hangs out in 
+libata-dev.git#ALL and -mm
 
 
