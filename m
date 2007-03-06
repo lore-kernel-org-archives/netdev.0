@@ -1,83 +1,59 @@
-From: Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [2.6.21 patch] unconditionally enable SYSFS_DEPRECATED
-Date: Mon, 5 Mar 2007 16:07:22 -0800
-Message-ID: <20070306000722.GA11436@kroah.com>
-References: <20070304220857.GH23311@waste.org> <1173051564.6131.13.camel@johannes.berg> <20070305002550.GI23311@waste.org> <20070305011729.GB7681@kroah.com> <20070305125950.GC26781@thunk.org> <20070305185813.GA31465@kroah.com> <20070305234052.GR3441@stusta.de>
+From: Bron Gondwana <brong@fastmail.fm>
+Subject: Re: Recent wireless breakage (ipw2200, iwconfig, NetworkManager)
+Date: Tue, 6 Mar 2007 11:24:57 +1100
+Message-ID: <20070306002457.GA7078@brong.net>
+References: <20070304220857.GH23311@waste.org> <20070305011625.GA7681@kroah.com> <20070305064229.GJ23311@waste.org> <20070305070248.GA30699@kroah.com> <20070305071325.GK23311@waste.org> <20070305154609.GA3626@irc.pl> <20070305211425.GR16722@waste.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Theodore Tso <tytso-3s7WtUTddSA@public.gmane.org>, Matt Mackall <mpm-VDJrAJ4Gl5ZBDgjK7y7TUQ@public.gmane.org>,
-	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	yi.zhu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, jketreno-VuQAYsv1563Yd54FQh9/CA@public.gmane.org,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, akpm-3NddpPZAyC0@public.gmane.org
-To: Adrian Bunk <bunk-HeJ8Db2Gnd6zQB+pC5nmwQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: linux-kernel@vger.kernel.org, greg@kroah.com,
+	netdev@vger.kernel.org, yi.zhu@intel.com, jketreno@linux.intel.com,
+	akpm@osdl.org
+To: Matt Mackall <mpm@selenic.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932601AbXCFAZR@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20070305234052.GR3441-HeJ8Db2Gnd6zQB+pC5nmwQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <20070305211425.GR16722@waste.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 06, 2007 at 12:40:52AM +0100, Adrian Bunk wrote:
-> On Mon, Mar 05, 2007 at 10:58:13AM -0800, Greg KH wrote:
+On Mon, Mar 05, 2007 at 03:14:25PM -0600, Matt Mackall wrote:
+> On Mon, Mar 05, 2007 at 04:46:09PM +0100, Tomasz Torcz wrote:
+> > > That's not the point. The point is that Debian/unstable as of _this
+> > > morning_ doesn't work. For reference, I'm running both the latest
+> > > releases of both hal (0.5.8.1-6.1) and network-manager (0.6.4-6). And
+> > > there are people telling me I need a copy of HAL out of git that
+> > > hasn't even been released for Debian to package. Debian isn't the
+> > > problem here.
 > > 
-> > Ok, how about the following patch.  Is it acceptable to everyone?
-> > 
-> > thanks,
-> > 
-> > greg k-h
-> > 
-> > ---
-> >  init/Kconfig |   13 +++++++++++--
-> >  1 file changed, 11 insertions(+), 2 deletions(-)
-> > 
-> > --- gregkh-2.6.orig/init/Kconfig
-> > +++ gregkh-2.6/init/Kconfig
-> > @@ -290,8 +290,17 @@ config SYSFS_DEPRECATED
-> >  	  that belong to a class, back into the /sys/class heirachy, in
-> >  	  order to support older versions of udev.
-> >  
-> > -	  If you are using a distro that was released in 2006 or later,
-> > -	  it should be safe to say N here.
-> > +	  If you are using an OpenSuSE, Gentoo, Ubuntu, or Fedora
-> > +	  release from 2007 or later, it should be safe to say N here.
-> > +
-> > +	  If you are using Debian or other distros that are slow to
-> > +	  update HAL, please say Y here.
-> >...
+> >   hal 0.5.9-rc1 (released, not from git) should work. It will be
+> > problably released soon and picked by sane distributions. Debian is very
+> > irritating corner case.
 > 
-> The sane solution seems to be to enable SYSFS_DEPRECATED unconditionally 
-> for all users, and schedule it's removal for mid-2008 (or later).
+> Presumably the -rc1 stands for "release candidate". Which means "not
+> yet released". And when did it show up? 04-Mar-2007 at 18:31. That's
+> right, YESTERDAY. Almost a full month after Greg's commit.
 > 
-> 12 months after the first _release_ of a HAL that can live without seems 
-> to be the first time when we can consider getting rid of it, since all 
-> distributions with at least one release a year should ship it by then.
-> 
-> Currently, SYSFS_DEPRECATED is only a trap for users.
+> For the last time, DEBIAN IS NOT THE PROBLEM.
 
-Huh?
+Can I please second this (having been burned by hell that was udev of
+the 0.5ish era) - Greg, please try to make changes in a cross-compatible
+way so that versions of userspace and kernel are not so closely
+dependant on tracking each other.  The whole 2.6.8 -> 2.6.12 series of
+kernels and associated udevs are fraught with race conditions where
+upgrading one but not the other will leave your machine unbootable.
 
-No, again, I've been using this just fine for about 6 months now.
+I read the "manifesto" for udev showing how crap devfs was, it was
+broken, it could never be fixed etc - yet my experience was that devfs
+systems "just worked"[tm] and udev was very dangerous.  My thinking is
+going to be tarnished by that for a while and my mental image of udev
+is "unreliable POS".  I'm hoping enough good experiences with udev might
+make me feel less scared whenever I have to deal with it.
 
-And what about all of the servers not using HAL/NetworkManager?
-And what about all of the embedded systems not using either?
+Similarly, I'm hoping I don't have to think "oh shit, will this break
+boot" every time I upgrade either a kernel or hal version for the next
+year, because it would really suck to do that all over again.  It
+contributes to the meme that linux is unreliable and perpetually
+unstable.
 
-So to not allow this to be turned off by people who might want to (we
-want this for OpenSuSE 10.3, and Fedora 7 also will want this, as will
-other distros released this year), is pretty heavy-handed.
+Regards,
 
-It also will work in OpenSuSE 10.2 which is already released, and I
-think Fedora 6, but I've only limited experience with these.
-
-Oh, and Gentoo works just fine, and has been for the past 6 months.
-
-I would just prefer to come up with an acceptable set of wording that
-will work to properly warn people.
-
-I proposed one such wording which some people took as a slam against
-Debian, which it really was not at all.
-
-Does someone else want to propose some other wording instead?
-
-thanks,
-
-greg k-h
+Bron.
