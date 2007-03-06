@@ -1,57 +1,67 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [UDP6]: Restore sk_filter optimisation
-Date: Tue, 6 Mar 2007 12:20:10 +1100
-Message-ID: <20070306012010.GA25763@gondor.apana.org.au>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: Recent wireless breakage (ipw2200, iwconfig, NetworkManager)
+Date: Mon, 5 Mar 2007 17:38:22 -0800
+Message-ID: <20070305173822.d48c4004.akpm@linux-foundation.org>
+References: <20070305011625.GA7681@kroah.com>
+	<20070305064229.GJ23311@waste.org>
+	<20070305070248.GA30699@kroah.com>
+	<20070305071325.GK23311@waste.org>
+	<20070305154609.GA3626@irc.pl>
+	<20070305211425.GR16722@waste.org>
+	<20070306002457.GA7078@brong.net>
+	<20070306003715.GA12566@kroah.com>
+	<20070306005625.GC19634@thunk.org>
+	<20070305170849.c042e802.akpm@linux-foundation.org>
+	<20070306011709.GA13667@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Theodore Tso <tytso@mit.edu>, Bron Gondwana <brong@fastmail.fm>,
+	Matt Mackall <mpm@selenic.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, yi.zhu@intel.com, jketreno@linux.intel.com
+To: Greg KH <greg@kroah.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:1098 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S933760AbXCFBUW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Mar 2007 20:20:22 -0500
-Content-Disposition: inline
+Received: from smtp.osdl.org ([65.172.181.24]:45772 "EHLO smtp.osdl.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933794AbXCFBix (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Mar 2007 20:38:53 -0500
+In-Reply-To: <20070306011709.GA13667@kroah.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Dave:
+On Mon, 5 Mar 2007 17:17:09 -0800
+Greg KH <greg@kroah.com> wrote:
 
-[UDP6]: Restore sk_filter optimisation
+> On Mon, Mar 05, 2007 at 05:08:49PM -0800, Andrew Morton wrote:
+> > On Mon, 5 Mar 2007 19:56:25 -0500
+> > Theodore Tso <tytso@mit.edu> wrote:
+> > 
+> > > So the question really is are we really done making changes to sysfs,
+> > > or maybe what we should do is talk about major version numbers to
+> > > sysfs.
+> > 
+> > Perhaps using a config option wasn't the right way to do this - a kernel
+> > boot parameter might be better.
+> 
+> Ok, I have no problem with that if people really want it.  But give me
+> the option to also make it a config option so I don't have to change our
+> bootloaders too.
 
-This reverts the changeset
+Sometimes we provide a config option which provides the default version of
+the boot option.  So:
 
-    [IPV6]: UDPv6 checksum.
+	CONFIG_SYSFS_VERSION=1.2
 
-    We always need to check UDPv6 checksum because it is mandatory.
+and
 
-The sk_filter optimisation has nothing to do whether we verify the
-checksum.  It simply postpones it to the point when the user calls
-recv or poll.
+	if (user_provided_sysfs_version == NULL)
+		user_provided_sysfs_version = CONFIG_SYSFS_VERSION;
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
---
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index 0ad4719..4474480 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -279,8 +279,10 @@ int udpv6_queue_rcv_skb(struct sock * sk, struct sk_buff *skb)
- 		}
- 	}
- 
--	if (udp_lib_checksum_complete(skb))
--		goto drop;
-+	if (sk->sk_filter) {
-+		if (udp_lib_checksum_complete(skb))
-+			goto drop;
-+	}
- 
- 	if ((rc = sock_queue_rcv_skb(sk,skb)) < 0) {
- 		/* Note that an ENOMEM error is charged twice */
+> Does that sound acceptable?
+
+If we make CONFIG_SYSFS_DEPRECATED just a boolean boot option then that
+fixes this problem (we hope) but won't help us next time we want to change
+something.
+
+It all depends on whether sysfs is finished yet ;)
