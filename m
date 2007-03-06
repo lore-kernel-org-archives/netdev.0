@@ -1,32 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [UDP]: Reread uh pointer after pskb_trim
-Date: Mon, 05 Mar 2007 17:03:31 -0800 (PST)
-Message-ID: <20070305.170331.74748857.davem@davemloft.net>
-References: <20070306010020.GA25265@gondor.apana.org.au>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: Recent wireless breakage (ipw2200, iwconfig, NetworkManager)
+Date: Mon, 5 Mar 2007 17:08:49 -0800
+Message-ID: <20070305170849.c042e802.akpm@linux-foundation.org>
+References: <20070304220857.GH23311@waste.org>
+	<20070305011625.GA7681@kroah.com>
+	<20070305064229.GJ23311@waste.org>
+	<20070305070248.GA30699@kroah.com>
+	<20070305071325.GK23311@waste.org>
+	<20070305154609.GA3626@irc.pl>
+	<20070305211425.GR16722@waste.org>
+	<20070306002457.GA7078@brong.net>
+	<20070306003715.GA12566@kroah.com>
+	<20070306005625.GC19634@thunk.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+Cc: Greg KH <greg@kroah.com>, Bron Gondwana <brong@fastmail.fm>,
+	Matt Mackall <mpm@selenic.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, yi.zhu@intel.com, jketreno@linux.intel.com
+To: Theodore Tso <tytso@mit.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56299
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S932860AbXCFBDd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Mar 2007 20:03:33 -0500
-In-Reply-To: <20070306010020.GA25265@gondor.apana.org.au>
+Received: from smtp.osdl.org ([65.172.181.24]:44196 "EHLO smtp.osdl.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933707AbXCFBJL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Mar 2007 20:09:11 -0500
+In-Reply-To: <20070306005625.GC19634@thunk.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Tue, 6 Mar 2007 12:00:20 +1100
+On Mon, 5 Mar 2007 19:56:25 -0500
+Theodore Tso <tytso@mit.edu> wrote:
 
-> Hi Dave:
-> 
-> [UDP]: Reread uh pointer after pskb_trim
-> 
-> The header may have moved when trimming.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> So the question really is are we really done making changes to sysfs,
+> or maybe what we should do is talk about major version numbers to
+> sysfs.
 
-Good catch, I'll apply this and push to -stable, thanks
-Herbert.
+Perhaps using a config option wasn't the right way to do this - a kernel
+boot parameter might be better.
+
+In fact, one could envisage a kernel boot parameter "sysfs_version=N" which 
+will allow distro people to select the sysfs-of-the-day which works with their
+userspace.
+
+Because it does appear that we need _something_ which will get us away from this
+ongoing problem of needing to keep the kernel and userspace synchronised across
+sysfs changes.
