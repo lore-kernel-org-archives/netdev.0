@@ -1,40 +1,45 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [NET]: Please revert disallowing zero listen queues
-Date: Tue, 06 Mar 2007 10:54:00 -0800
-Message-ID: <45EDB8C8.3030302@hp.com>
-References: <200703061332.09677@strip-the-willow> <20070306.103706.68156515.davem@davemloft.net>
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: Re: [RFC PATCH]: Dynamically sized routing cache hash table.
+Date: Tue, 6 Mar 2007 19:55:43 +0100
+Message-ID: <17901.47407.88896.134338@robur.slu.se>
+References: <20070305.202632.74752497.davem@davemloft.net>
+	<200703061518.09309.dada1@cosmosbay.com>
+	<17901.40819.204568.650642@robur.slu.se>
+	<200703061820.45986.dada1@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: gerrit@erg.abdn.ac.uk, netdev@vger.kernel.org,
-	weid@np.css.fujitsu.com
-To: David Miller <davem@davemloft.net>
+Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	robert.olsson@its.uu.se, npiggin@suse.de
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel10.hp.com ([156.153.255.245]:40578 "EHLO palrel10.hp.com"
+Received: from mx1.slu.se ([130.238.96.70]:53728 "EHLO mx1.slu.se"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030358AbXCFSyO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Mar 2007 13:54:14 -0500
-In-Reply-To: <20070306.103706.68156515.davem@davemloft.net>
+	id S965509AbXCFS4T (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Mar 2007 13:56:19 -0500
+In-Reply-To: <200703061820.45986.dada1@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> So we're not "disallowing" a backlog argument of zero to
-> listen().  We'll accept that just fine, the only thing that
-> happens is that you'll get what you ask for, that being
-> no connections :-)
 
-I'm not sure where HP-UX inherited the 0 = 1 bit - perhaps from BSD, nor 
-am I sure there is official chapter and verse, but:
+Eric Dumazet writes:
 
-<excerpt>
-backlog is limited to the range of 0 to SOMAXCONN, which is 	defined in 
-<sys/socket.h>.  SOMAXCONN is currently set to 4096.  If any other 
-value is specified, the system automatically assigns the closest value 
-     within the range.  A backlog of 0 specifies only 1 pending 
-connection      is allowed at any given time.
-</excerpt>
+ > With 2^20 entries, your actual limit of 2^19 entries in root node will 
+ > probably show us quite different numbers for order-1,2,3,4... tnodes
 
-I don't have a Solaris, BSD or AIX manpage for listen handy to check 
-them but would not be surprised to see they are similar.
+ Yeep trie will get deeper and lookup more costly as insert and delete.
+ The 2^19 was that was getting memory alloction problem that I never
+ sorted out.
 
-rick jones
+ > Yes, numbers you gave us basically showed a big root node, and mainly leaves 
+ > and very few tnodes.
+ > 
+ > I was interested to see the distribution in case the root-node limit is hit, 
+ > and we load into the table a *lot* of entries.
+
+ Maxlength etc... well maybe root-restriction should be removed and just have 
+ maxsize instead.
+
+ Cheers
+						--ro
