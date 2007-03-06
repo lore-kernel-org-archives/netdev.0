@@ -1,52 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] Arp announce (for Xen)
-Date: Mon, 05 Mar 2007 20:35:36 -0800 (PST)
-Message-ID: <20070305.203536.92584097.davem@davemloft.net>
-References: <20070301164214.4a40bc59@freekitty>
-	<45E7764A.7000100@goop.org>
-	<20070301173030.754514ec@freekitty>
+Subject: Re: [PATCH] LVS: Send ICMP unreachable responses to end-users when
+ real-servers are removed
+Date: Mon, 05 Mar 2007 20:45:25 -0800 (PST)
+Message-ID: <20070305.204525.85408819.davem@davemloft.net>
+References: <20070211030441.GB3383@verge.net.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jeremy@goop.org, ak@muc.de, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org, virtualization@lists.osdl.org,
-	xen-devel@lists.xensource.com, chrisw@sous-sol.org,
-	zach@vmware.com, rusty@rustcorp.com.au, ian.pratt@xensource.com,
-	Christian.Limpach@cl.cam.ac.uk, netdev@vger.kernel.org,
-	jeff@garzik.org
-To: shemminger@linux-foundation.org
+Cc: netdev@vger.kernel.org, jkrzyszt@tis.icnet.pl, ja@ssi.bg,
+	wensong@linux-vs.org, jmack@wm7d.net, ratz@drugphish.ch
+To: horms@verge.net.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49495
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34347
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752163AbXCFEfl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Mar 2007 23:35:41 -0500
-In-Reply-To: <20070301173030.754514ec@freekitty>
+	by vger.kernel.org with ESMTP id S1752178AbXCFEpa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Mar 2007 23:45:30 -0500
+In-Reply-To: <20070211030441.GB3383@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Date: Thu, 1 Mar 2007 17:30:30 -0800
+From: Horms <horms@verge.net.au>
+Date: Sun, 11 Feb 2007 12:04:43 +0900
 
-> What about implementing the unused arp_announce flag on the inetdevice?
-> Something like the following.  Totally untested...
+> this is a small patch by  Janusz Krzysztofik to ip_route_output_slow()
+> that allows VIP-less LVS linux director to generate packets originating
+> >From VIP if sysctl_ip_nonlocal_bind is set.
 > 
-> Looks like it either was there (and got removed) or was planned but
-> never implemented.
+> In a nutshell, the intention is for an LVS linux director to be able
+> to send ICMP unreachable responses to end-users when real-servers are
+> removed.
+> 
+> http://archive.linuxvirtualserver.org/html/lvs-users/2007-01/msg00106.html
+> 
+> I'm not really sure about the correctness of this approach,
+> so I am sending it here to netdev for review
+> 
+> Cc: Janusz Krzysztofik <jkrzyszt@tis.icnet.pl>
+> Signed-off-by: Simon Horman <horms@verge.net.au>
 
-This idea is fine.  But:
+I'm not against this patch or the idea, I just want to
+think about it some more to make sure there are not bad
+unintended side effects to allowing this.
 
-> +	case NETDEV_CHANGEADDR:
-> +		/* Send gratuitous ARP in case of address change or new device */
-> +		if (IN_DEV_ARP_ANNOUNCE(in_dev))
-> +			arp_send(ARPOP_REQUEST, ETH_P_ARP,
-> +				 in_dev->ifa_list->ifa_address, dev,
-> +				 in_dev->ifa_list->ifa_address, NULL, 
-> +				 dev->dev_addr, NULL);
-
-We'll need to make sure the appropriate 'arp_anounce' address
-selection is employed here.
-
-One idea is to change arp_solicit() such that it can be invoked in
-this context, or provide a new helper function which will do the
-source address selection rules of 'arp_announce' and then invoke
-arp_send() as appropriate for us.
+If someone else could provide some feedback or comments,
+I'd very much appreciate that as well.
