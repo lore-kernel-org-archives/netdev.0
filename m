@@ -1,129 +1,84 @@
-From: =?iso-8859-2?Q?Zaccomer_Lajos?= <zacco@fw.hu>
-Subject: =?iso-8859-2?Q?many_sockets,_slow_sendto?=
-Date: Tue, 06 Mar 2007 16:08:38 +0100
-Message-ID: <E1HObHK-0000WB-00@osiris.swi.hu>
-Reply-To: =?iso-8859-2?Q?Zaccomer_Lajos?= <zacco@fw.hu>
+From: Sergei Shtylyov <sshtylyov@ru.mvista.com>
+Subject: Re: 2.6.20-rc4-mm1: PCI=n: drivers/net/3c59x.c compile error
+Date: Tue, 06 Mar 2007 19:15:12 +0300
+Message-ID: <45ED9390.3000308@ru.mvista.com>
+References: <20070111222627.66bb75ab.akpm@osdl.org> <20070124135354.GI17836@stusta.de> <45B76946.1070009@ru.mvista.com> <45D756D7.4060106@ru.mvista.com> <45D75853.1060607@ru.mvista.com> <45E2DF13.9010200@ru.mvista.com> <20070226092644.aea76b37.randy.dunlap@oracle.com> <20070226211401.GC3810@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Randy Dunlap <randy.dunlap@oracle.com>,
+	linux-pci@atrey.karlin.mff.cuni.cz, Adrian Bunk <bunk@stusta.de>,
+	Andrew Morton <akpm@osdl.org>, Jeff Garzik <jgarzik@pobox.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Greg KH <greg@kroah.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mystic.root.hu ([193.202.82.14]:56712 "EHLO mystic.root.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965157AbXCFPi6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Mar 2007 10:38:58 -0500
-Received: from osiris.swi.hu ([193.202.82.16])
-	by mystic.root.hu with esmtp (Exim 4.63 #1 (Debian))
-	id 1HOb89-0002aB-56
-	for <netdev@vger.kernel.org>; Tue, 06 Mar 2007 15:59:09 +0100
-Received: from www-data by osiris.swi.hu with local (Exim 3.36 #1 (Debian))
-	id 1HObHK-0000WB-00
-	for <netdev@vger.kernel.org>; Tue, 06 Mar 2007 16:08:38 +0100
+Received: from gateway-1237.mvista.com ([63.81.120.155]:7712 "EHLO
+	imap.sh.mvista.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S965289AbXCFQeU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2007 11:34:20 -0500
+In-Reply-To: <20070226211401.GC3810@kroah.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Hello.
 
+Greg KH wrote:
 
+>>>>>>>3x59x-fix-pci-resource-management.patch causes the following compile 
+>>>>>>>error with CONFIG_PCI=n:
 
-I'm playing around with a simulation, in which many thousands of IP
+>>>>>>><--  snip  -->
 
-addresses (on interface aliases) are used to send/receive TCP/UDP
+>>>>>>>...
+>>>>>>>  CC      drivers/net/3c59x.o
+>>>>>>>/home/bunk/linux/kernel-2.6/linux-2.6.20-rc4-mm1/drivers/net/3c59x.c: 
+>>>>>>>In function 'vortex_init_one':
+>>>>>>>/home/bunk/linux/kernel-2.6/linux-2.6.20-rc4-mm1/drivers/net/3c59x.c:961: 
+>>>>>>>error: implicit declaration of function 'pci_request_regions'
+>>>>>>>/home/bunk/linux/kernel-2.6/linux-2.6.20-rc4-mm1/drivers/net/3c59x.c:985: 
+>>>>>>>error: implicit declaration of function 'pci_release_regions'
+>>>>>>>make[3]: *** [drivers/net/3c59x.o] Error 1
 
-packets. I noticed that the time of send/sendto increased linearly
+>>>>>>   Grr, at at the same time it's happy with pci_enable_device().
+>>>>>>   I'd say the problem is in <linux/pci.h>,  not in the patch.
 
-with the number of file descriptors, and I found it rather strange.
-I
+>>>>>   Has there been any patch to fix the "unbalanced" 
+>>>>>pci_{request|release}_regions() declarations? Am I suposed to create 
+>>>>>such?
 
-searched for some related topics, but I couldn't find any (I might
+>>>>   Alternatively, vortex_{init|remove_one() and struct pci_driver there 
+>>>>could have been put under #ifdef CONFIG_PCI (good idea anyway -- should 
+>>>>reduce driver size on non-PCI systems)...
 
-have chosen the wrong keywords).
+>>>    I wonder if I may count on any feedback on this -- asking linux-pci now...
+>>>    The issue is as follows: with my patch pci_{request|release}_regions() may 
+>>>be called with CONFIG_PCI=n (probably, this never has been a issue before) but 
+>>><linux/pci.h> don't have them declared in this case -- unlike 
+>>>pci_enable_device() which is just empty for CONFIG_PCI=n.
+>>>    Now, what kind of approach do I take:
 
-Though, I'm a real kernelnewbie, I made up my mind to follow what is
+>>>- a "fair one", so that pci_{request|release}_regions() get "balanced"
+>>>   declarations in the header like pci_enable_device();
 
-happening in the deep. I used the printk and do_gettimeofday
+>>>- a "local one" (and even saving non-PCI kernel from needless bloat), i.e.
+>>>   #ifdef out functions that are only meaningful with CONFIG_PCI=y)?
 
-functions to print timestamps at certain points of the execution
-path
+>>>    I'm leaning to the second now...
 
-to identify the bottleneck. Each socket is bound to a dedicated IP
+>>I'd prefer the fair one -- add stubs to include/linux/pci.h.
 
-address and each socket is using the very same port number, with the
+> Me too, please just send me a patch adding them to pci.h so you don't
+> have to have #ifdefs in your .c code.
 
-help of SO_REUSEADDR socket option. I use the 2.16.19-r5
+    Erm, before I do that, could somebody explain what
 
-gentoo-sources on my Compaq Evo N1020v laptop. So far, I could get
-to
+#define HAVE_PCI_REQ_REGIONS 2
 
-the following point:
+accompanying their declaration is for? I have't found any references to it in 
+the source. Should I duplicate it for CONFIG_PCI=n case (I guess not)?
 
+> thanks,
 
+> greg k-h
 
-=46unction/macro: Location:
-
-sys_send net/socket.c
-
-sys_sendto net/socket.c
-
-sock_sendmsg net/socket.c
-
-__sock_sendmsg net/socket.c
-
-(*socket_sendmsg)=3Dinet_sendmsg net/ipv4/af_inet.c
-
-(*sendmsg)=3Dudp_sendmsg net/ipv4/udp.c
-
-udp_push_pending_frames net/ipv4/udp.c
-
-ip_push_pending_frames net/ipv4/ip_output.c
-
-NF_HOOK include/linux/netfilter.h
-
-ip_output net/ipv4/ip_output.c
-
-ip_finish_output net/ipv4/ip_output.c
-
-ip_finish_output2 net/ipv4/ip_output.c
-
-dst->heighbour->output=3Ddev_queue_xmit net/core/dev.c
-
-rcu_read_unlock_bh include/linux/rcupdate.c
-
-local_bh_enable kernel/softirq.c
-
-
-
-At this point, I felt really helpless, and I don't even know if I'm
-
-at the right track in this investigation. So, can someone please
-
-help me with advice or links pointing to the info I need? Let me
-know
-
-if you need any further input.
-
-
-
-I expect that sending a packet should not depend on the number of
-
-file descriptors (sockets), it should be a more or less constant
-time
-
-operation. Can you confirm this, or is there something in the kernel
-
-or elsewhere preventing it?
-
-
-
-Any hints are welcome. Thanks a lot!
-
-/Zacco=20
-
-
-
-
-_____________________________________________________________________
- 50Mbyte kereskedelmi webt=E1rhely + korl=E1tlan sz=E1m=FA e-mail + php=
- + sql
-       havi 1,365 Ft-=E9rt!  B=F5vebben:  http://www.swi.hu
- =20
+WBR, Sergei
