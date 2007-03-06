@@ -1,63 +1,52 @@
 From: Johannes Berg <johannes@sipsolutions.net>
-Subject: compat_sock_common_getsockopt typo?
-Date: Tue, 06 Mar 2007 00:26:51 +0100
-Message-ID: <1173137211.15891.27.camel@johannes.berg>
+Subject: Re: Recent wireless breakage (ipw2200, iwconfig, NetworkManager)
+Date: Tue, 06 Mar 2007 01:35:13 +0100
+Message-ID: <1173141313.15891.46.camel@johannes.berg>
+References: <20070304220857.GH23311@waste.org>
+	 <1173051564.6131.13.camel@johannes.berg> <20070305002550.GI23311@waste.org>
+	 <20070305011729.GB7681@kroah.com>  <20070305125950.GC26781@thunk.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-tosyh4j1/RgjOKKP+OpE"
-To: netdev <netdev@vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-irNn/ImGlw9EE0ITbsLd"
+Cc: Greg KH <greg@kroah.com>, Matt Mackall <mpm@selenic.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	yi.zhu@intel.com, jketreno@linux.intel.com,
+	linux-wireless <linux-wireless@vger.kernel.org>, akpm@osdl.org
+To: Theodore Tso <tytso@mit.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:59815 "EHLO
+Received: from crystal.sipsolutions.net ([195.210.38.204]:59836 "EHLO
 	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934108AbXCFNLg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2007 08:11:36 -0500
-Received: from [131.234.73.23]
-	by sipsolutions.net with esmtpsa (TLS-1.0:RSA_ARCFOUR_MD5:16)
-	(Exim 4.63)
-	(envelope-from <johannes@sipsolutions.net>)
-	id 1HOZNX-00030T-7O
-	for netdev@vger.kernel.org; Tue, 06 Mar 2007 13:06:55 +0000
+	with ESMTP id S934108AbXCFNMG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2007 08:12:06 -0500
+In-Reply-To: <20070305125950.GC26781@thunk.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---=-tosyh4j1/RgjOKKP+OpE
+--=-irNn/ImGlw9EE0ITbsLd
 Content-Type: text/plain
 Content-Transfer-Encoding: quoted-printable
 
-The function reads as follows:
+On Mon, 2007-03-05 at 07:59 -0500, Theodore Tso wrote:
 
-int compat_sock_common_getsockopt(struct socket *sock, int level, int optna=
-me,
-                                  char __user *optval, int __user *optlen)
-{
-        struct sock *sk =3D sock->sk;
+>  (depending on whether we want to accomodate Debian's glacial
+> release schedule).=20
 
-        if (sk->sk_prot->compat_setsockopt !=3D NULL)
-                                ^^^
-
-                return sk->sk_prot->compat_getsockopt(sk, level, optname,
-                                           ^^^
-                                                      optval, optlen);
-        return sk->sk_prot->getsockopt(sk, level, optname, optval, optlen);
-}
-EXPORT_SYMBOL(compat_sock_common_getsockopt);
-
-Is that intentional to make protocol writers assign both if they want
-compat_setsockopt? :P
+I don't think Debian updates the kernel to some actual newer version
+either.
 
 johannes
 
---=-tosyh4j1/RgjOKKP+OpE
+--=-irNn/ImGlw9EE0ITbsLd
 Content-Type: application/pgp-signature; name=signature.asc
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Comment: Johannes Berg (powerbook)
 
-iD8DBQBF7Kc6/ETPhpq3jKURAkDwAKCRGvsINOsO4rghazRIIgu5ocCU9wCgjJ/B
-PsIoVEP0T0iL+CdKzmxdOxA=
-=G58D
+iD8DBQBF7LdA/ETPhpq3jKURAoI4AJ9mRDqbdp4V+gTwsLP3g3zhX/Z7bwCgmyO0
+54Boojb3BwP2/6VUCfrV8FM=
+=f2wv
 -----END PGP SIGNATURE-----
 
---=-tosyh4j1/RgjOKKP+OpE--
+--=-irNn/ImGlw9EE0ITbsLd--
 
