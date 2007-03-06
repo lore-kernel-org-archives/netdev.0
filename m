@@ -1,48 +1,33 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [patch 12/19] fix irq problem with NAPI + NETPOLL
-Date: Tue, 6 Mar 2007 03:14:43 -0800
-Message-ID: <20070306031443.d18d8bff.akpm@linux-foundation.org>
-References: <200703061041.l26AfusT019768@shell0.pdx.osdl.net>
-	<45ED4B23.9060000@garzik.org>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH ] pcnet32: Fix PCnet32 performance bug on non-coherent
+ architecutres
+Date: Tue, 06 Mar 2007 06:15:22 -0500
+Message-ID: <45ED4D4A.3020004@garzik.org>
+References: <20070306021309.GB7139@verizon.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, anemo@mba.ocn.ne.jp, davem@davemloft.net,
-	romieu@fr.zoreil.com
-To: Jeff Garzik <jeff@garzik.org>
+Cc: netdev@vger.kernel.org
+To: Don Fry <pcnet32@verizon.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:36266 "EHLO smtp.osdl.org"
+Received: from srv5.dvmed.net ([207.36.208.214]:53265 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933242AbXCFLPO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Mar 2007 06:15:14 -0500
-In-Reply-To: <45ED4B23.9060000@garzik.org>
+	id S934080AbXCFLPY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Mar 2007 06:15:24 -0500
+In-Reply-To: <20070306021309.GB7139@verizon.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 06 Mar 2007 06:06:11 -0500 Jeff Garzik <jeff@garzik.org> wrote:
-
-> akpm@linux-foundation.org wrote:
-> > From: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
-> > 
-> > It seems netif_receive_skb() was designed not to call from irq context, but
-> > NAPI + NETPOLL break this rule.  If netif_receive_skb() was called from irq
-> > context, redirect to netif_rx() instead of processing the skb in that
-> > context.
-> > 
-> > Signed-off-by: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
-> > Cc: Jeff Garzik <jeff@garzik.org>
-> > Cc: Francois Romieu <romieu@fr.zoreil.com>
-> > Cc: "David S. Miller" <davem@davemloft.net>
-> > Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
-> > ---
-> > 
-> >  net/core/dev.c |   11 +++++++++--
-> >  1 file changed, 9 insertions(+), 2 deletions(-)
+Don Fry wrote:
+> The PCnet32 driver always passed the the size of the largest possible packet
+> to the pci_dma_sync_single_for_cpu and pci_dma_sync_single_for_device.
+> This results in a fairly large "colateral damage" in the caches and makes
+> the flush operation itself much slower.  On a system with a 40MHz CPU this
+> patch increases network bandwidth by about 12%.
 > 
-> net/* stuff, I'll let DaveM make the call and apply it...
+> Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+> Acked-by: Don Fry <pcnet32@verizon.net>
 
-argh, sorry, this patch (which is mysteriously called
-8139too-fix-irq-problem-with-napi-netpoll.patch) was supposed to go to
-davem and you were supposed to receive
-8139too-force-media-setting-fix.patch (which you were cc'ed on).
+applied
+
 
