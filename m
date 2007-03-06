@@ -1,43 +1,44 @@
-From: Howard Chu <hyc@symas.com>
-Subject: Re: TCP 2MSL on loopback
-Date: Tue, 06 Mar 2007 13:05:21 -0800
-Message-ID: <45EDD791.4040908@symas.com>
-References: <45EBFD13.1060106@symas.com> <200703051528.02564.dada1@cosmosbay.com> <45ED32CA.5080709@symas.com> <200703061142.00261.dada1@cosmosbay.com> <45EDB55C.2080803@symas.com> <45EDCA15.4060704@cosmosbay.com> <45EDCEF5.1070401@symas.com> <45EDD17F.5000203@cosmosbay.com>
+From: "Chris Friesen" <cfriesen@nortel.com>
+Subject: Re: [RFC] ARP notify option
+Date: Tue, 06 Mar 2007 15:18:07 -0600
+Message-ID: <45EDDA8F.5060106@nortel.com>
+References: <20070301164214.4a40bc59@freekitty>
+	<45E7764A.7000100@goop.org>	<20070301173030.754514ec@freekitty>
+	<20070305.203536.92584097.davem@davemloft.net>
+	<20070306105132.52c77491@freekitty>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from highlandsun.propagation.net ([66.221.212.168]:2242 "EHLO
-	highlandsun.propagation.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751133AbXCFVLJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2007 16:11:09 -0500
-In-Reply-To: <45EDD17F.5000203@cosmosbay.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: xen-devel@lists.xensource.com, jeff@garzik.org, ian.pratt@xensource.com,
+   netdev@vger.kernel.org, linux-kernel@vger.kernel.org, chrisw@sous-sol.org,
+   virtualization@lists.osdl.org, akpm@linux-foundation.org,
+   David Miller <davem@davemloft.net>, ak@muc.de
+To: Stephen Hemminger <shemminger@linux-foundation.org>
+Return-path: <virtualization-bounces@lists.osdl.org>
+In-Reply-To: <20070306105132.52c77491@freekitty>
+List-Unsubscribe: <https://lists.osdl.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.osdl.org?subject=unsubscribe>
+List-Archive: <http://lists.osdl.org/pipermail/virtualization>
+List-Post: <mailto:virtualization@lists.osdl.org>
+List-Help: <mailto:virtualization-request@lists.osdl.org?subject=help>
+List-Subscribe: <https://lists.osdl.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.osdl.org?subject=subscribe>
+Sender: virtualization-bounces@lists.osdl.org
+Errors-To: virtualization-bounces@lists.osdl.org
 List-Id: netdev.vger.kernel.org
 
-Eric Dumazet wrote:
+Stephen Hemminger wrote:
 
-> Arf... dont tell me you forgot to do this...
-> 
-> echo 1 >/proc/sys/net/ipv4/tcp_tw_recycle
-> echo 1 >/proc/sys/net/ipv4/tcp_tw_reuse
+> +arp_notify - BOOLEAN
+> +	Define mode for notification of address and device changes.
+> +	0 - (default): do nothing
+> +	1 - Generate gratuitous arp replies when device is brought up
+> +	    or hardware address changes.
 
-That does not appear to me to be a safe thing to do on a production 
-machine. Tweaks that are only good in a test environment really don't 
-help the testing effort; they just mask a problem that will surface 
-later at deployment time.
+Did you consider using gratuitous arp requests instead?  I remember =
 
-We could run our benchmarks this way and get high rates but no one 
-deploying the server for real use would ever get anything like that, 
-which makes the benchmark figure rather pointless.
+reading about some hardware that updated its arp cache on gratuitous =
 
-On the other hand, being able to configure a small MSL for the loopback 
-device is perfectly safe. Being able to configure a small MSL for other 
-interfaces may be safe, depending on the rest of the network layout.
--- 
-   -- Howard Chu
-   Chief Architect, Symas Corp.  http://www.symas.com
-   Director, Highland Sun        http://highlandsun.com/hyc
-   Chief Architect, OpenLDAP     http://www.openldap.org/project/
+requests but not gratuitous replies.
+
+Chris
