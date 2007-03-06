@@ -1,52 +1,54 @@
 From: akpm@linux-foundation.org
-Subject: [patch 19/19] network: add the missing phy_device speed information to phy_mii_ioctl
-Date: Tue, 06 Mar 2007 02:42:03 -0800
-Message-ID: <200703061042.l26Ag3q4019790@shell0.pdx.osdl.net>
+Subject: [patch 12/19] fix irq problem with NAPI + NETPOLL
+Date: Tue, 06 Mar 2007 02:41:56 -0800
+Message-ID: <200703061041.l26AfusT019768@shell0.pdx.osdl.net>
 Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	shanlu@cs.uiuc.edu
+	anemo@mba.ocn.ne.jp, davem@davemloft.net, romieu@fr.zoreil.com
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:34741 "EHLO smtp.osdl.org"
+Received: from smtp.osdl.org ([65.172.181.24]:34742 "EHLO smtp.osdl.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934077AbXCFKnB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Mar 2007 05:43:01 -0500
+	id S934074AbXCFKnC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Mar 2007 05:43:02 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Shan Lu" <shanlu@cs.uiuc.edu>
+From: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
 
-Function `phy_mii_ioctl' returns physical device's information based on
-user requests.  When requested to return the basic mode control register
-information (BMCR), the original implementation only returns the physical
-device's duplex information and forgets to return speed information, which
-should not be because BMCR register is used to hold both duplex and speed
-information.
+It seems netif_receive_skb() was designed not to call from irq context, but
+NAPI + NETPOLL break this rule.  If netif_receive_skb() was called from irq
+context, redirect to netif_rx() instead of processing the skb in that
+context.
 
-The patch checks the BMCR value against speed-related flags and fills the
-return structure's speed field accordingly.
-
-Signed-off-by: Shan <shanlu@cs.uiuc.edu>
+Signed-off-by: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
 Cc: Jeff Garzik <jeff@garzik.org>
+Cc: Francois Romieu <romieu@fr.zoreil.com>
+Cc: "David S. Miller" <davem@davemloft.net>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/net/phy/phy.c |    6 ++++++
- 1 file changed, 6 insertions(+)
+ net/core/dev.c |   11 +++++++++--
+ 1 file changed, 9 insertions(+), 2 deletions(-)
 
-diff -puN drivers/net/phy/phy.c~network-add-the-missing-phy_device-speed-information-to-phy_mii_ioctl drivers/net/phy/phy.c
---- a/drivers/net/phy/phy.c~network-add-the-missing-phy_device-speed-information-to-phy_mii_ioctl
-+++ a/drivers/net/phy/phy.c
-@@ -382,6 +382,12 @@ int phy_mii_ioctl(struct phy_device *phy
- 					phydev->duplex = DUPLEX_FULL;
- 				else
- 					phydev->duplex = DUPLEX_HALF;
-+				if ((!phydev->autoneg) &&
-+						(val & BMCR_SPEED1000))
-+					phydev->speed = SPEED_1000;
-+				else if ((!phydev->autoneg) &&
-+						(val & BMCR_SPEED100))
-+					phydev->speed = SPEED_100;
- 				break;
- 			case MII_ADVERTISE:
- 				phydev->advertising = val;
+diff -puN net/core/dev.c~8139too-fix-irq-problem-with-napi-netpoll net/core/dev.c
+--- a/net/core/dev.c~8139too-fix-irq-problem-with-napi-netpoll
++++ a/net/core/dev.c
+@@ -1769,8 +1769,15 @@ int netif_receive_skb(struct sk_buff *sk
+ 	__be16 type;
+ 
+ 	/* if we've gotten here through NAPI, check netpoll */
+-	if (skb->dev->poll && netpoll_rx(skb))
+-		return NET_RX_DROP;
++#ifdef CONFIG_NET_POLL_CONTROLLER
++	if (skb->dev->poll && skb->dev->poll_controller) {
++		/* NAPI poll might be called in irq context on NETPOLL */
++		if (in_irq() || irqs_disabled())
++			return netif_rx(skb);
++		if (netpoll_rx(skb))
++			return NET_RX_DROP;
++	}
++#endif
+ 
+ 	if (!skb->tstamp.off_sec)
+ 		net_timestamp(skb);
 _
