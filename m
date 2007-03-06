@@ -1,49 +1,38 @@
-From: "Vladimir B. Savkin" <master@sectorb.msk.ru>
-Subject: Re: Packet timestamps (was: Re: Network performance degradation from 2.6.11.12 to 2.6.16.20)
-Date: Tue, 6 Mar 2007 21:15:00 +0300
-Message-ID: <20070306181459.GA12037@tentacle.sectorb.msk.ru>
-References: <200609181850.22851.ak@suse.de> <200703061538.45049.dada1@cosmosbay.com> <20070306144315.GA9036@tentacle.sectorb.msk.ru> <200703061616.24959.dada1@cosmosbay.com>
+From: ilmari@ilmari.org (Dagfinn Ilmari =?utf-8?Q?Manns=C3=A5ker?=)
+Subject: Re: [RFC] div64_64 support II
+Date: Tue, 06 Mar 2007 18:43:14 +0100
+Message-ID: <d8jlkiagte5.fsf@nygaard.ping.uio.no>
+References: <20070226143127.5c74bec9@freekitty>
+	<p73slcnawh3.fsf@bingen.suse.de> <20070305155714.3abe1b5e@freekitty>
+	<20070305.162551.41660347.davem@davemloft.net>
+	<20070306140412.GA1470@one.firstfloor.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: netdev@vger.kernel.org, Andi Kleen <ak@suse.de>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	David Miller <davem@davemloft.net>, hawk@diku.dk,
-	harry@atmos.washington.edu, linux-kernel@vger.kernel.org,
-	Rick Jones <rick.jones2@hp.com>
-To: Eric Dumazet <dada1@cosmosbay.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	shemminger@linux-foundation.org, jengelh@linux01.gwdg.de,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tentacle.s2s.msu.ru ([193.232.119.109]:35200 "EHLO
-	tentacle.sectorb.msk.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965518AbXCFSPE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2007 13:15:04 -0500
-Content-Disposition: inline
-In-Reply-To: <200703061616.24959.dada1@cosmosbay.com>
+Received: from ping.uio.no ([129.240.78.2]:36345 "EHLO ping.uio.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965484AbXCFSRz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Mar 2007 13:17:55 -0500
+In-Reply-To: <20070306140412.GA1470@one.firstfloor.org> (Andi Kleen's message
+	of "Tue, 6 Mar 2007 15:04:12 +0100")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 06, 2007 at 04:16:24PM +0100, Eric Dumazet wrote:
-> 
-> It would be better to name the tunable "disable_timestamps", default 0 of 
-> course.... 
+Andi Kleen <andi@firstfloor.org> writes:
 
-I agree.
-If networking maintainers are interested, I surely can prepare a patch.
+> Actually on rereading this: is there really any Linux port
+> that emulates multiplies in software? I thought that was only
+> done on really small microcontrollers or smart cards; but anything
+> 32bit+ that runs Linux should have hardware multiply, shouldn't it?
 
-But IMO some way to force TSC usage on x86_64 will be even better.
+SPARCv7 (sun4/sun4c) doesn't have hardware mul/div. This includes
+SparcStation 1, 1+, 2, SLC, ELC, IPC and IPX.
 
-> It would better describe what your patch is actually doing : Even if a tcpdump 
-> is running (so asking for timestamps), it wont have them because the sysctl 
-> disabled them.
-
-Well, tcpdump will have timestamps, but taken at wrong moment.
-But some other applications (that use ip_queue, ulog etc.) will not,
-as I understand.
-
-> 
-> Thank you
-> 
-~
-:wq
-                                        With best regards, 
-                                           Vladimir Savkin. 
-
+-- 
+ilmari
+"A disappointingly low fraction of the human race is,
+ at any given time, on fire." - Stig Sandbeck Mathisen
