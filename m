@@ -1,55 +1,76 @@
-From: Joy Latten <latten@austin.ibm.com>
-Subject: Re: when having to acquire an SA, ipsec drops the packet
-Date: Tue, 06 Mar 2007 11:14:46 -0600
-Message-ID: <1173201286.3085.80.camel@faith.austin.ibm.com>
-References: <200703060147.l261lnjX024435@faith.austin.ibm.com>
-	 <Line.LNX.4.64.0703052216490.18579@d.namei>
-Mime-Version: 1.0
-Content-Type: text/plain
+From: Andy Fleming <afleming@freescale.com>
+Subject: Re: [patch 1/1] network: add the missing phy_device speed information to phy_mii_ioctl
+Date: Tue, 6 Mar 2007 11:33:32 -0600
+Message-ID: <28C12DE1-E0BD-4C5E-8DB9-B722F1877BDF@freescale.com>
+References: <9FD2C54661D3494AB6F269E0D4A74E83019775E1@DSBEXCLUSTER.ad.uiuc.edu>
+Mime-Version: 1.0 (Apple Message framework v752.2)
+Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, herbert@gondor.apana.org.au,
-	netdev@vger.kernel.org, paul.moore@hp.com, vyekkirala@TrustedCS.com
-To: James Morris <jmorris@namei.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e1.ny.us.ibm.com ([32.97.182.141]:33630 "EHLO e1.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965371AbXCFRcC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Mar 2007 12:32:02 -0500
-Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
-	by e1.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l26HW0mE023509
-	for <netdev@vger.kernel.org>; Tue, 6 Mar 2007 12:32:00 -0500
-Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
-	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l26HUhtT199586
-	for <netdev@vger.kernel.org>; Tue, 6 Mar 2007 12:30:43 -0500
-Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
-	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l26HUgHs013200
-	for <netdev@vger.kernel.org>; Tue, 6 Mar 2007 12:30:43 -0500
-In-Reply-To: <Line.LNX.4.64.0703052216490.18579@d.namei>
-Sender: netdev-owner@vger.kernel.org
+Cc: <jeff@garzik.org>, <akpm@linux-foundation.org>,
+	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<shanlu@uiuc.edu>
+To: Shan Lu <shanlu@cs.uiuc.edu>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965384AbXCFRe6@vger.kernel.org>
+In-Reply-To: <9FD2C54661D3494AB6F269E0D4A74E83019775E1@DSBEXCLUSTER.ad.uiuc.edu>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2007-03-05 at 22:21 -0500, James Morris wrote:
-> On Mon, 5 Mar 2007, Joy Latten wrote:
-> 
-> > 5. Around the time the set of SAs for OUT direction are to be
-> >    inserted into SAD, I see another ACQUIRE happening.
-> >    
-> >    I have not yet figured out where this second ACQUIRE comes from
-> >    and why it happens. As long as the minimal SA or set of valid outgoing
-> >    SAs exist in SAD, an ACQUIRE should not happen.
-> 
-> I saw something similar to this some time ago when testing various 
-> failure modes, and discused it with Herbert.
-> 
-> IIRC, there's a larval SA which is not torn down properly by Racoon once 
-> the full SA is established, and the larval SA keeps resending until it 
-> times out.
-> 
-Ok, good to know. 
-I thought a bit more about this last night but am not
-sure best way to fix it. Perhaps a way to keep larval
-SA around until all SAs resulting from xfrm_vec[xfrm_nr]
-are established... oh well, just thinking out loud... :-) 
+
+On Mar 2, 2007, at 11:42, Shan Lu wrote:
+
+> Changelog:
+> Function `phy_mii_ioctl' returns physical device's information  
+> based on
+> user requests. When requested to return the basic mode control  
+> register
+> information (BMCR), the original implementation only returns the
+> physical device's duplex information and forgets to return speed
+> information, which should not be because BMCR register is used to hold
+> both duplex and speed information.
+>
+> The patch checks the BMCR value against speed-related flags and fills
+> the return structure's speed field accordingly.
 
 
-Joy
+I think you've misunderstood what this code does, though I agree, in  
+principle, with your change.  You have modified the SIOCSMIIREG  
+command, which takes in a value, and sets the given register to that  
+value.  The structure which is being filled in is not being  
+returned.  It is the PHY's software representation at runtime.
+
+So this patch probably fixes a bug (I'd have to think harder about it  
+to see if phydev->speed doesn't get updated automatically), but  
+you've modified the *setting* command, not the *getting* command.
+
+Is there a reason you are using this function to get and set the  
+BMCR?  The PHY Lib provides ethtool functions to do this, and they  
+fit better with the design of the PHY Lib.  The mii IOCTL allows you  
+to change the registers any way you want, which potentially breaks  
+the state machine the PHY Lib sets up for tracking such changes.
+
+All that said, I think the change below needs to go in.  See below  
+for inline commentary:
+
+
+>
+> Signed-off-by: Shan<shanlu@cs.uiuc.edu>
+>
+> ---
+> --- drivers/net/phy/phy.c   2007-03-02 10:40:26.000000000 -0600   
+> 2.6.20
+> +++ drivers/net/phy/phy.c   2007-03-02 10:41:39.000000000 -0600
+> @@ -337,6 +337,10 @@ int phy_mii_ioctl(struct phy_device *phy
+>                                         phydev->duplex = DUPLEX_FULL;
+>                                 else
+>                                         phydev->duplex = DUPLEX_HALF;
+> +                               if ((!phydev->autoneg) && (val
+> &BMCR_SPEED1000))
+> +                                       phydev->speed = SPEED_1000;
+> +                               else if ((!phydev->autoneg) && (val &
+> BMCR_SPEED100))
+> +                                       phydev->speed = SPEED_100;
+
+
+Why not also support SPEED_10 if neither bits are set?
+
+Andy
