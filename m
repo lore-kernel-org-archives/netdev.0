@@ -1,32 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 2/2] div64_64: common code
-Date: Tue, 06 Mar 2007 10:11:40 -0800 (PST)
-Message-ID: <20070306.101140.101595874.davem@davemloft.net>
-References: <200703061042.l26AgS0U019809@shell0.pdx.osdl.net>
+From: "Vladimir B. Savkin" <master@sectorb.msk.ru>
+Subject: Re: Packet timestamps (was: Re: Network performance degradation from 2.6.11.12 to 2.6.16.20)
+Date: Tue, 6 Mar 2007 21:15:00 +0300
+Message-ID: <20070306181459.GA12037@tentacle.sectorb.msk.ru>
+References: <200609181850.22851.ak@suse.de> <200703061538.45049.dada1@cosmosbay.com> <20070306144315.GA9036@tentacle.sectorb.msk.ru> <200703061616.24959.dada1@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shemminger@linux-foundation.org,
-	chris@zankel.net, geert@linux-m68k.org, jdike@addtoit.com,
-	ralf@linux-mips.org, rmk@arm.linux.org.uk, zippel@linux-m68k.org
-To: akpm@linux-foundation.org
+Content-Type: text/plain; charset=koi8-r
+Cc: netdev@vger.kernel.org, Andi Kleen <ak@suse.de>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	David Miller <davem@davemloft.net>, hawk@diku.dk,
+	harry@atmos.washington.edu, linux-kernel@vger.kernel.org,
+	Rick Jones <rick.jones2@hp.com>
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43288
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S965453AbXCFSLn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2007 13:11:43 -0500
-In-Reply-To: <200703061042.l26AgS0U019809@shell0.pdx.osdl.net>
+Received: from tentacle.s2s.msu.ru ([193.232.119.109]:35200 "EHLO
+	tentacle.sectorb.msk.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965518AbXCFSPE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2007 13:15:04 -0500
+Content-Disposition: inline
+In-Reply-To: <200703061616.24959.dada1@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: akpm@linux-foundation.org
-Date: Tue, 06 Mar 2007 02:42:28 -0800
-
-> From: Stephen Hemminger <shemminger@linux-foundation.org>
+On Tue, Mar 06, 2007 at 04:16:24PM +0100, Eric Dumazet wrote:
 > 
-> Implement div64_64(): 64-bit by 64-bit division.  Needed by networking (at
-> least).
+> It would be better to name the tunable "disable_timestamps", default 0 of 
+> course.... 
 
-This patch, with the types.h fixes of your's, is already in my
-net-2.6.22 GIT tree if you'd like to start pulling from there
-Andrew.
+I agree.
+If networking maintainers are interested, I surely can prepare a patch.
+
+But IMO some way to force TSC usage on x86_64 will be even better.
+
+> It would better describe what your patch is actually doing : Even if a tcpdump 
+> is running (so asking for timestamps), it wont have them because the sysctl 
+> disabled them.
+
+Well, tcpdump will have timestamps, but taken at wrong moment.
+But some other applications (that use ip_queue, ulog etc.) will not,
+as I understand.
+
+> 
+> Thank you
+> 
+~
+:wq
+                                        With best regards, 
+                                           Vladimir Savkin. 
+
