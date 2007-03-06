@@ -1,31 +1,42 @@
-From: Howard Chu <hyc@symas.com>
-Subject: Re: TCP 2MSL on loopback
-Date: Tue, 06 Mar 2007 15:22:37 -0800
-Message-ID: <45EDF7BD.9060402@symas.com>
-References: <45EDD17F.5000203@cosmosbay.com>	<45EDD791.4040908@symas.com>	<45EDDC4F.7010201@hp.com>	<20070306.133516.104036428.davem@davemloft.net>	<45EDE60D.1030706@symas.com> <20070306145403.6be2c437@freekitty>
+From: Sami Farin <7atbggg02@sneakemail.com>
+Subject: Re: [RFC] div64_64 support
+Date: Wed, 7 Mar 2007 00:24:35 +0200
+Message-ID: <20070306222435.cbpv63ltximq6lrf@m.safari.iki.fi>
+References: <20070223170527.4ca695b2@freekitty> <20070305155714.3abe1b5e@freekitty> <20070306133404.GA864@one.firstfloor.org> <200703061519.20346.dada1@cosmosbay.com> <20070306144529.GA2004@one.firstfloor.org> <84C47260-4B57-4568-8197-58F438A6F737@e18.physik.tu-muenchen.de> <20070306102941.32471d57@freekitty> <20070306215349.hquin7d6pfy2n5d2@m.safari.iki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, rick.jones2@hp.com,
-	dada1@cosmosbay.com, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from highlandsun.propagation.net ([66.221.212.168]:2521 "EHLO
-	highlandsun.propagation.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1030685AbXCFX22 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2007 18:28:28 -0500
-In-Reply-To: <20070306145403.6be2c437@freekitty>
+Received: from pne-smtpout3-sn1.fre.skanova.net ([81.228.11.120]:55884 "EHLO
+	pne-smtpout3-sn1.fre.skanova.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1030715AbXCFXdm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2007 18:33:42 -0500
+Received: from safari.iki.fi (80.223.106.128) by pne-smtpout3-sn1.fre.skanova.net (7.2.075)
+        id 45AE1FD500299B94 for netdev@vger.kernel.org; Tue, 6 Mar 2007 23:24:36 +0100
+Content-Disposition: inline
+In-Reply-To: <20070306215349.hquin7d6pfy2n5d2@m.safari.iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> TCP can not assume anything about the path that a packet may take.
-> We have declared a moratorium on loopback benchmark foolishness.
-> Go optimize the idle loop instead ;-)
-Sure - A delay loop with fewer instructions is a worthwhile optimization 
-because it has less impact on a CPU's instruction cache...
+On Tue, Mar 06, 2007 at 23:53:49 +0200, Sami Farin wrote:
+...
+> And I found bug in gcc-4.1.2, it gave 0 for ncubic results
+> when doing 1000 loops test... gcc-4.0.3 works.
+
+Found it.
+
+--- cbrt-test.c~	2007-03-07 00:20:54.735248105 +0200
++++ cbrt-test.c	2007-03-07 00:21:03.964864343 +0200
+@@ -209,7 +209,7 @@
+ 
+ 	__asm__("bsrl %1,%0\n\t"
+ 		"cmovzl %2,%0"
+-		: "=&r" (r) : "rm" (x), "rm" (-1));
++		: "=&r" (r) : "rm" (x), "rm" (-1) : "memory");
+ 	return r+1;
+ }
+ 
+Now Linux 2.6 does not have "memory" in fls, maybe it causes
+some gcc funnies some people are seeing.
+
 -- 
-   -- Howard Chu
-   Chief Architect, Symas Corp.  http://www.symas.com
-   Director, Highland Sun        http://highlandsun.com/hyc
-   Chief Architect, OpenLDAP     http://www.openldap.org/project/
