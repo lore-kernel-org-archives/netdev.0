@@ -1,23 +1,21 @@
-From: James Morris <jmorris@namei.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: netlink recvmsg() and MSG_TRUNC
-Date: Tue, 6 Mar 2007 18:40:57 -0500 (EST)
-Message-ID: <Line.LNX.4.64.0703061839450.25840@d.namei>
+Date: Wed, 07 Mar 2007 10:49:07 +1100
+Message-ID: <E1HOjP1-0003NM-00@gondolin.me.apana.org.au>
 References: <20070306.151953.112290310.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: davem@davemloft.net (David Miller)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail8.sea5.speakeasy.net ([69.17.117.10]:43205 "EHLO
-	mail8.sea5.speakeasy.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030721AbXCFXk7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2007 18:40:59 -0500
+Received: from rhun.apana.org.au ([64.62.148.172]:3045 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1030728AbXCFXtL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2007 18:49:11 -0500
 In-Reply-To: <20070306.151953.112290310.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 6 Mar 2007, David Miller wrote:
-
+David Miller <davem@davemloft.net> wrote:
+> 
 > I guess one thing the user could do when it sees MSG_TRUNC
 > is keep calling recvmsg() until the receive queue is emptied
 > of packets, in order to get that pesky nlk->cb cleared to
@@ -27,11 +25,13 @@ On Tue, 6 Mar 2007, David Miller wrote:
 > 
 > Any ideas?
 
-Only slightly less complicated: user calls recvmsg() once with a new flag 
-MSG_FLUSH, which causes the queue to be flushed, then resubmits ?
+Which netlink family generates (or needs to generate) unbounded
+messages to user-space? Or indeed which ones generate messages
+greater than 64K (or 4K for that matter)?
 
-
-- James
+Cheers,
 -- 
-James Morris
-<jmorris@namei.org>
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
