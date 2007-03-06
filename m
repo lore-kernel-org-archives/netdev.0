@@ -1,34 +1,36 @@
-From: "Vladimir B. Savkin" <master@sectorb.msk.ru>
-Subject: Re: Packet timestamps (was: Re: Network performance degradation from 2.6.11.12 to 2.6.16.20)
-Date: Tue, 6 Mar 2007 17:43:16 +0300
-Message-ID: <20070306144315.GA9036@tentacle.sectorb.msk.ru>
-References: <200609181850.22851.ak@suse.de> <4514147D.5040803@hp.com> <20070306132551.GB8412@tentacle.sectorb.msk.ru> <200703061538.45049.dada1@cosmosbay.com>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [RFC] div64_64 support
+Date: Tue, 6 Mar 2007 15:45:29 +0100
+Message-ID: <20070306144529.GA2004@one.firstfloor.org>
+References: <20070223170527.4ca695b2@freekitty> <20070305155714.3abe1b5e@freekitty> <20070306133404.GA864@one.firstfloor.org> <200703061519.20346.dada1@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: netdev@vger.kernel.org, Andi Kleen <ak@suse.de>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	David Miller <davem@davemloft.net>, hawk@diku.dk,
-	harry@atmos.washington.edu, linux-kernel@vger.kernel.org,
-	Rick Jones <rick.jones2@hp.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andi Kleen <andi@firstfloor.org>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	Jan Engelhardt <jengelh@linux01.gwdg.de>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tentacle.s2s.msu.ru ([193.232.119.109]:35465 "EHLO
-	tentacle.sectorb.msk.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965888AbXCFOnT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2007 09:43:19 -0500
+Received: from one.firstfloor.org ([213.235.205.2]:33192 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965094AbXCFOpd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2007 09:45:33 -0500
 Content-Disposition: inline
-In-Reply-To: <200703061538.45049.dada1@cosmosbay.com>
+In-Reply-To: <200703061519.20346.dada1@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 06, 2007 at 03:38:44PM +0100, Eric Dumazet wrote:
-> 2) "accurate_timestamps" is misleading. 
-> 	Should be "disable_timestamps" 
+> <rant>
+> Let me see... You throw code like that and expect someone to actually 
+> understand it in one year, and be able to correct a bug ?
 
-Not, if default is 1, as in my patch.
+To be honest I don't expect any bugs in this function.
 
-~
-:wq
-                                        With best regards, 
-                                           Vladimir Savkin. 
+> </rant>
+> 
+> Please add something, an URL or even better a nice explanation, per favor...
 
+It's straight out of Hacker's delight which is referenced in the commit
+log.
+
+-Andi
