@@ -1,95 +1,161 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: Re: 2.6.20-rc4-mm1: PCI=n: drivers/net/3c59x.c compile error
-Date: Tue, 6 Mar 2007 08:47:51 -0800
-Message-ID: <20070306084751.b82a7b84.randy.dunlap@oracle.com>
-References: <20070111222627.66bb75ab.akpm@osdl.org>
-	<20070124135354.GI17836@stusta.de>
-	<45B76946.1070009@ru.mvista.com>
-	<45D756D7.4060106@ru.mvista.com>
-	<45D75853.1060607@ru.mvista.com>
-	<45E2DF13.9010200@ru.mvista.com>
-	<20070226092644.aea76b37.randy.dunlap@oracle.com>
-	<20070226211401.GC3810@kroah.com>
-	<45ED9390.3000308@ru.mvista.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Greg KH <greg@kroah.com>, linux-pci@atrey.karlin.mff.cuni.cz,
-	Adrian Bunk <bunk@stusta.de>, Andrew Morton <akpm@osdl.org>,
-	Jeff Garzik <jgarzik@pobox.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Sergei Shtylyov <sshtylyov@ru.mvista.com>, htejun@gmail.com
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: [PATCH 1/3] e1000: FIX: be ready for incoming irq at pci_request_irq
+Date: Tue, 06 Mar 2007 08:57:21 -0800
+Message-ID: <20070306165721.27434.23796.stgit@localhost.localdomain>
+Content-Type: text/plain; charset=utf-8; format=fixed
+Content-Transfer-Encoding: 8bit
+Cc: torvalds@linux-foundation.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, john.ronciak@intel.com,
+	jesse.brandeburg@intel.com
+To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from agminet01.oracle.com ([141.146.126.228]:35004 "EHLO
-	agminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965920AbXCFQy4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2007 11:54:56 -0500
-In-Reply-To: <45ED9390.3000308@ru.mvista.com>
+Received: from mga02.intel.com ([134.134.136.20]:25695 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965948AbXCFQ5a (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Mar 2007 11:57:30 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 06 Mar 2007 19:15:12 +0300 Sergei Shtylyov wrote:
+From: Auke Kok <auke-jan.h.kok@intel.com>
 
-> Hello.
-> 
-> Greg KH wrote:
-> 
-> >>>>>>>3x59x-fix-pci-resource-management.patch causes the following compile 
-> >>>>>>>error with CONFIG_PCI=n:
-> 
-> >>>>>>><--  snip  -->
-> 
-> >>>>>>>...
-> >>>>>>>  CC      drivers/net/3c59x.o
-> >>>>>>>/home/bunk/linux/kernel-2.6/linux-2.6.20-rc4-mm1/drivers/net/3c59x.c: 
-> >>>>>>>In function 'vortex_init_one':
-> >>>>>>>/home/bunk/linux/kernel-2.6/linux-2.6.20-rc4-mm1/drivers/net/3c59x.c:961: 
-> >>>>>>>error: implicit declaration of function 'pci_request_regions'
-> >>>>>>>/home/bunk/linux/kernel-2.6/linux-2.6.20-rc4-mm1/drivers/net/3c59x.c:985: 
-> >>>>>>>error: implicit declaration of function 'pci_release_regions'
-> >>>>>>>make[3]: *** [drivers/net/3c59x.o] Error 1
-> 
-> >>>>>>   Grr, at at the same time it's happy with pci_enable_device().
-> >>>>>>   I'd say the problem is in <linux/pci.h>,  not in the patch.
-> 
-> >>>>>   Has there been any patch to fix the "unbalanced" 
-> >>>>>pci_{request|release}_regions() declarations? Am I suposed to create 
-> >>>>>such?
-> 
-> >>>>   Alternatively, vortex_{init|remove_one() and struct pci_driver there 
-> >>>>could have been put under #ifdef CONFIG_PCI (good idea anyway -- should 
-> >>>>reduce driver size on non-PCI systems)...
-> 
-> >>>    I wonder if I may count on any feedback on this -- asking linux-pci now...
-> >>>    The issue is as follows: with my patch pci_{request|release}_regions() may 
-> >>>be called with CONFIG_PCI=n (probably, this never has been a issue before) but 
-> >>><linux/pci.h> don't have them declared in this case -- unlike 
-> >>>pci_enable_device() which is just empty for CONFIG_PCI=n.
-> >>>    Now, what kind of approach do I take:
-> 
-> >>>- a "fair one", so that pci_{request|release}_regions() get "balanced"
-> >>>   declarations in the header like pci_enable_device();
-> 
-> >>>- a "local one" (and even saving non-PCI kernel from needless bloat), i.e.
-> >>>   #ifdef out functions that are only meaningful with CONFIG_PCI=y)?
-> 
-> >>>    I'm leaning to the second now...
-> 
-> >>I'd prefer the fair one -- add stubs to include/linux/pci.h.
-> 
-> > Me too, please just send me a patch adding them to pci.h so you don't
-> > have to have #ifdefs in your .c code.
-> 
->     Erm, before I do that, could somebody explain what
-> 
-> #define HAVE_PCI_REQ_REGIONS 2
-> 
-> accompanying their declaration is for? I have't found any references to it in 
-> the source. Should I duplicate it for CONFIG_PCI=n case (I guess not)?
+DEBUG_SHIRQ code exposed that e1000 was not ready for incoming interrupts
+after having called pci_request_irq. This obviously requires us to finish
+our software setup which assigns the irq handler before we request the
+irq.
 
-I wouldn't since it's not used anywhere, but maybe Tejun could comment
-on it...
-
+Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
 ---
-~Randy
-*** Remember to use Documentation/SubmitChecklist when testing your code ***
+
+ drivers/net/e1000/e1000_main.c |   66 +++++++++++++++++++++++++++-------------
+ 1 files changed, 45 insertions(+), 21 deletions(-)
+
+diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
+index 98215fd..fff3bc0 100644
+--- a/drivers/net/e1000/e1000_main.c
++++ b/drivers/net/e1000/e1000_main.c
+@@ -522,14 +522,15 @@ e1000_release_manageability(struct e1000_adapter *adapter)
+ 	}
+ }
+ 
+-int
+-e1000_up(struct e1000_adapter *adapter)
++/**
++ * e1000_configure - configure the hardware for RX and TX
++ * @adapter = private board structure
++ **/
++static void e1000_configure(struct e1000_adapter *adapter)
+ {
+ 	struct net_device *netdev = adapter->netdev;
+ 	int i;
+ 
+-	/* hardware has been reset, we need to reload some things */
+-
+ 	e1000_set_multi(netdev);
+ 
+ 	e1000_restore_vlan(adapter);
+@@ -548,14 +549,20 @@ e1000_up(struct e1000_adapter *adapter)
+ 	}
+ 
+ 	adapter->tx_queue_len = netdev->tx_queue_len;
++}
++
++int e1000_up(struct e1000_adapter *adapter)
++{
++	/* hardware has been reset, we need to reload some things */
++	e1000_configure(adapter);
++
++	clear_bit(__E1000_DOWN, &adapter->flags);
+ 
+ #ifdef CONFIG_E1000_NAPI
+-	netif_poll_enable(netdev);
++	netif_poll_enable(adapter->netdev);
+ #endif
+ 	e1000_irq_enable(adapter);
+ 
+-	clear_bit(__E1000_DOWN, &adapter->flags);
+-
+ 	/* fire a link change interrupt to start the watchdog */
+ 	E1000_WRITE_REG(&adapter->hw, ICS, E1000_ICS_LSC);
+ 	return 0;
+@@ -640,15 +647,15 @@ e1000_down(struct e1000_adapter *adapter)
+ 	 * reschedule our watchdog timer */
+ 	set_bit(__E1000_DOWN, &adapter->flags);
+ 
++#ifdef CONFIG_E1000_NAPI
++	netif_poll_disable(netdev);
++#endif
+ 	e1000_irq_disable(adapter);
+ 
+ 	del_timer_sync(&adapter->tx_fifo_stall_timer);
+ 	del_timer_sync(&adapter->watchdog_timer);
+ 	del_timer_sync(&adapter->phy_info_timer);
+ 
+-#ifdef CONFIG_E1000_NAPI
+-	netif_poll_disable(netdev);
+-#endif
+ 	netdev->tx_queue_len = adapter->tx_queue_len;
+ 	adapter->link_speed = 0;
+ 	adapter->link_duplex = 0;
+@@ -1410,21 +1417,17 @@ e1000_open(struct net_device *netdev)
+ 		return -EBUSY;
+ 
+ 	/* allocate transmit descriptors */
+-	if ((err = e1000_setup_all_tx_resources(adapter)))
++	err = e1000_setup_all_tx_resources(adapter);
++	if (err)
+ 		goto err_setup_tx;
+ 
+ 	/* allocate receive descriptors */
+-	if ((err = e1000_setup_all_rx_resources(adapter)))
+-		goto err_setup_rx;
+-
+-	err = e1000_request_irq(adapter);
++	err = e1000_setup_all_rx_resources(adapter);
+ 	if (err)
+-		goto err_req_irq;
++		goto err_setup_rx;
+ 
+ 	e1000_power_up_phy(adapter);
+ 
+-	if ((err = e1000_up(adapter)))
+-		goto err_up;
+ 	adapter->mng_vlan_id = E1000_MNG_VLAN_NONE;
+ 	if ((adapter->hw.mng_cookie.status &
+ 			  E1000_MNG_DHCP_COOKIE_STATUS_VLAN_SUPPORT)) {
+@@ -1437,12 +1440,33 @@ e1000_open(struct net_device *netdev)
+ 	    e1000_check_mng_mode(&adapter->hw))
+ 		e1000_get_hw_control(adapter);
+ 
++	/* before we allocate an interrupt, we must be ready to handle it.
++	 * Setting DEBUG_SHIRQ in the kernel makes it fire an interrupt
++	 * as soon as we call pci_request_irq, so we have to setup our
++	 * clean_rx handler before we do so.  */
++	e1000_configure(adapter);
++
++	err = e1000_request_irq(adapter);
++	if (err)
++		goto err_req_irq;
++
++	/* From here on the code is the same as e1000_up() */
++	clear_bit(__E1000_DOWN, &adapter->flags);
++
++#ifdef CONFIG_E1000_NAPI
++	netif_poll_enable(netdev);
++#endif
++
++	e1000_irq_enable(adapter);
++
++	/* fire a link status change interrupt to start the watchdog */
++	E1000_WRITE_REG(&adapter->hw, ICS, E1000_ICS_LSC);
++
+ 	return E1000_SUCCESS;
+ 
+-err_up:
+-	e1000_power_down_phy(adapter);
+-	e1000_free_irq(adapter);
+ err_req_irq:
++	e1000_release_hw_control(adapter);
++	e1000_power_down_phy(adapter);
+ 	e1000_free_all_rx_resources(adapter);
+ err_setup_rx:
+ 	e1000_free_all_tx_resources(adapter);
