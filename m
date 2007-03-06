@@ -1,35 +1,35 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 1/3] bonding: fix double dev_add_pack
-Date: Tue, 06 Mar 2007 06:10:12 -0500
-Message-ID: <45ED4C14.2020301@pobox.com>
-References: <200703010103.l2113K22030733@death.nxdomain.ibm.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] natsemi: netpoll fixes
+Date: Tue, 06 Mar 2007 06:10:41 -0500
+Message-ID: <45ED4C31.3080902@garzik.org>
+References: <200703052310.08359.sshtylyov@ru.mvista.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bonding-devel@lists.sourceforge.net
-To: Jay Vosburgh <fubar@us.ibm.com>
+Cc: netdev@vger.kernel.org, mhuth@mvista.com
+To: Sergei Shtylyov <sshtylyov@ru.mvista.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:53162 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:53170 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965845AbXCFLKT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Mar 2007 06:10:19 -0500
-In-Reply-To: <200703010103.l2113K22030733@death.nxdomain.ibm.com>
+	id S965844AbXCFLKn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Mar 2007 06:10:43 -0500
+In-Reply-To: <200703052310.08359.sshtylyov@ru.mvista.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jay Vosburgh wrote:
-> 	Bonding can erroneously register the same packet_type to receive
-> ARPs (for use by ARP validation): once at device open time, and once via
-> sysfs.  Since sysfs can change the validate setting (and thus register
-> or unregister) at any time, a flag is needed to synchronize with device
-> open in order to avoid double registrations, and the simplest place is
-> within the packet_type structure itself.  Double unregister is not an
-> issue.
+Sergei Shtylyov wrote:
+> Fix two issues in this driver's netpoll path: one usual, with spin_unlock_irq()
+> enabling interrupts which nobody asks it to do (that has been fixed recently in
+> a number of drivers) and one unusual, with poll_controller() method possibly
+> causing loss of interrupts due to the interrupt status register being cleared
+> by a simple read and the interrpupt handler simply storing it, not accumulating.
 > 
-> 	Bug reported by Ulrich Oelmann <ulrich.oelmann@web.de>.
+> Signed-off-by: Sergei Shtylyov <sshtylyov@ru.mvista.com>
 > 
-> Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+> ---
+>  drivers/net/natsemi.c |   24 +++++++++++++++++++-----
+>  1 files changed, 19 insertions(+), 5 deletions(-)
 
-applied 1-3
+applied
 
 
