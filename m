@@ -1,48 +1,45 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: [PATCH] ixgb: Use ARRAY_SIZE macro when appropriate.
-Date: Tue, 06 Mar 2007 11:08:28 -0800
-Message-ID: <20070306190828.1882.9647.stgit@localhost.localdomain>
-Content-Type: text/plain; charset=utf-8; format=fixed
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, john.ronciak@intel.com,
-	jesse.brandeburg@intel.com
-To: jgarzik@pobox.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [NET]: Please revert disallowing zero listen queues
+Date: Tue, 06 Mar 2007 11:11:42 -0800 (PST)
+Message-ID: <20070306.111142.07639258.davem@davemloft.net>
+References: <200703061332.09677@strip-the-willow>
+	<20070306.103706.68156515.davem@davemloft.net>
+	<45EDB8C8.3030302@hp.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: gerrit@erg.abdn.ac.uk, netdev@vger.kernel.org,
+	weid@np.css.fujitsu.com
+To: rick.jones2@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:35370 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932770AbXCFTIa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Mar 2007 14:08:30 -0500
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54930
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S932778AbXCFTLs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2007 14:11:48 -0500
+In-Reply-To: <45EDB8C8.3030302@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ahmed S. Darwish <darwish.07@gmail.com>
+From: Rick Jones <rick.jones2@hp.com>
+Date: Tue, 06 Mar 2007 10:54:00 -0800
 
-Signed-off-by: Ahmed S. Darwish <darwish.07@gmail.com>
-Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
----
+> > So we're not "disallowing" a backlog argument of zero to
+> > listen().  We'll accept that just fine, the only thing that
+> > happens is that you'll get what you ask for, that being
+> > no connections :-)
+> 
+> I'm not sure where HP-UX inherited the 0 = 1 bit - perhaps from BSD, nor 
+> am I sure there is official chapter and verse, but:
+> 
+> <excerpt>
+> backlog is limited to the range of 0 to SOMAXCONN, which is 	defined in 
+> <sys/socket.h>.  SOMAXCONN is currently set to 4096.  If any other 
+> value is specified, the system automatically assigns the closest value 
+>      within the range.  A backlog of 0 specifies only 1 pending 
+> connection      is allowed at any given time.
+> </excerpt>
+> 
+> I don't have a Solaris, BSD or AIX manpage for listen handy to check 
+> them but would not be surprised to see they are similar.
 
- drivers/net/ixgb/ixgb_param.c |    4 +---
- 1 files changed, 1 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/ixgb/ixgb_param.c b/drivers/net/ixgb/ixgb_param.c
-index b27442a..c38ce73 100644
---- a/drivers/net/ixgb/ixgb_param.c
-+++ b/drivers/net/ixgb/ixgb_param.c
-@@ -245,8 +245,6 @@ ixgb_validate_option(int *value, struct ixgb_option *opt)
- 	return -1;
- }
- 
--#define LIST_LEN(l) (sizeof(l) / sizeof(l[0]))
--
- /**
-  * ixgb_check_options - Range Checking for Command Line Parameters
-  * @adapter: board private structure
-@@ -335,7 +333,7 @@ ixgb_check_options(struct ixgb_adapter *adapter)
- 			.name = "Flow Control",
- 			.err  = "reading default settings from EEPROM",
- 			.def  = ixgb_fc_tx_pause,
--			.arg  = { .l = { .nr = LIST_LEN(fc_list),
-+			.arg  = { .l = { .nr = ARRAY_SIZE(fc_list),
- 					 .p = fc_list }}
- 		};
- 
+Ok, that seals the deal for me, I'll revert the change :)
