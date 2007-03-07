@@ -1,52 +1,39 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: Multipath routing in Linux 2.6
-Date: Wed, 7 Mar 2007 08:39:32 +0100
-Message-ID: <20070307073932.GA1675@ff.dom.local>
-References: <45EDD0E3.3000906@linpro.no>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [GIT PATCH (TAKE 2)] [NET]: Use {htons,htonl,cpu_to_le16}()
+ where appropriate.
+Date: Tue, 06 Mar 2007 23:42:32 -0800 (PST)
+Message-ID: <20070306.234232.58787816.davem@davemloft.net>
+References: <20070307.145807.117077720.yoshfuji@linux-ipv6.org>
+	<20070307.160821.77089513.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Tore Anderson <tore@linpro.no>
+To: yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx10.go2.pl ([193.17.41.74]:53466 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1161296AbXCGHfe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Mar 2007 02:35:34 -0500
-Content-Disposition: inline
-In-Reply-To: <45EDD0E3.3000906@linpro.no>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41833
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1161288AbXCGHmd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Mar 2007 02:42:33 -0500
+In-Reply-To: <20070307.160821.77089513.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 06-03-2007 21:36, Tore Anderson wrote:
+From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
+Date: Wed, 07 Mar 2007 16:08:21 +0900 (JST)
+
+> Dave,
 > 
->   Hello list,
+> In article <20070307.145807.117077720.yoshfuji@linux-ipv6.org> (at Wed, 07 Mar 2007 14:58:07 +0900 (JST)), YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> says:
 > 
->   I've been trying to figure out how to make equal-cost multipath
->  routing work, with no luck.  Asked on the LARTC list with no success,
+> > Please consider pulling following changesets from the
+> > "net-2.6.22-20070307a-byteorder-20070307" branch at
+> > <git://git.linux-ipv6.org/gitroot/yoshfuji/linux-2.6-dev.git>.
+> 
+> Argh, I found more places to convert in bluetooth.
+> 
+> I've made a new branch "net-2.6.22-20070307a-byteorder-20070307a" at
+> <git://git.linux-ipv6.org/gitroot/yoshfuji/linux-2.6-dev.git>.
 
-It is probably one of the most often asked questions
-on the LARTC, so I'd suggest to look at its archives.
+Pulled, thank you very much.
 
->   I'm sending traffic from a relatively busy network to this table:
-...
->   I've tried loading and unloading the multipath_{wrandom,rr,random,drr}
-
-Multipath with caching doesn't work with forwarding.
-...
->   I feel I'm missing something essential here but I have no idea what.
->  Google only tells me about others having roughly the same problem but
->  never any solution. [...]
-
-It must be this fake google.
-
-Some wrandom suggestions:
-
-CONFIG_IP_ROUTE_MULTIPATH = y
-CONFIG_IP_ROUTE_MULTIPATH_CACHED = n
-rp_filter turned off
-iptables CONNMARK or Julian Anastasov's patch
-more ip route ... & ip rule ...
-go to the LARTC again with: why still doesn't work...
-
-Regards,
-Jarek P.
