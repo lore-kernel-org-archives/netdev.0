@@ -1,35 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [1/1] connector: Bugfix for cn_call_callback()
-Date: Wed, 07 Mar 2007 12:55:56 -0800 (PST)
-Message-ID: <20070307.125556.78708484.davem@davemloft.net>
-References: <20070307121030.GA19089@2ka.mipt.ru>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: [PATCH] udp: net-2.6.22 build fix
+Date: Wed, 7 Mar 2007 13:47:43 -0800
+Message-ID: <20070307134743.42e3b5c7@freekitty>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: philipp.reisner@linbit.com, lars.ellenberg@linbit.com,
-	netdev@vger.kernel.org
-To: johnpol@2ka.mipt.ru
+Cc: netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:32856
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S2992567AbXCGUz6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Mar 2007 15:55:58 -0500
-In-Reply-To: <20070307121030.GA19089@2ka.mipt.ru>
+Received: from smtp.osdl.org ([65.172.181.24]:60477 "EHLO smtp.osdl.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965679AbXCGVrt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Mar 2007 16:47:49 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Date: Wed, 7 Mar 2007 15:10:30 +0300
+Recent change broke build of UDP.
 
-> When system under heavy stress and must allocate new work
-> instead of reusing old one, new work must use correct 
-> completion callback.
-> 
-> Patch is based on Philipp's and Lars' work.
-> I only cleaned small stuff (and removed spaces instead of tabs).
-> 
-> Signed-off-by: Philipp Reisner <philipp.reisner@linbit.com>
-> Signed-off-by: Lars Ellenberg <lars.ellenberg@linbit.com>
-> Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
 
-Applied, thank you.
+--- net-2.6.22.orig/net/ipv4/udp.c	2007-03-07 13:43:59.000000000 -0800
++++ net-2.6.22/net/ipv4/udp.c	2007-03-07 13:45:43.000000000 -0800
+@@ -1283,7 +1283,7 @@
+ 	 * the network is concerned, anyway) as per 4.1.3.4 (MUST).
+ 	 */
+ 	LIMIT_NETDEBUG(KERN_DEBUG "UDP%s: bad checksum. From %d.%d.%d.%d:%d to %d.%d.%d.%d:%d ulen %d\n",
+-		       is_udplite? "-Lite" : "",
++		       proto == IPPROTO_UDPLITE ? "-Lite" : "",
+ 		       NIPQUAD(saddr),
+ 		       ntohs(uh->source),
+ 		       NIPQUAD(daddr),
