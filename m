@@ -1,101 +1,64 @@
 From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: [PATCH 1/2] [TCP]: Add highest_sack seqno, points to globally highest
- SACK
-Date: Wed, 7 Mar 2007 19:50:20 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0703071949210.3770@kivilampi-30.cs.helsinki.fi>
+Subject: Re: [RFC PATCH] [TCP]: Reworked recovery's TCPCB_LOST marking
+ functions
+Date: Wed, 7 Mar 2007 19:48:49 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0703071146091.25669@kivilampi-30.cs.helsinki.fi>
 References: <Pine.LNX.4.64.0703061442440.3770@kivilampi-30.cs.helsinki.fi>
- <20070306194259.GK25760@galon.ev-en.org> <20070306.134726.39155177.davem@davemloft.net>
- <20070306220146.GO25760@galon.ev-en.org>
+ <20070306194259.GK25760@galon.ev-en.org>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696243703-1802085930-1173289820=:3770"
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
 To: Baruch Even <baruch@ev-en.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:37957 "EHLO
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:48280 "EHLO
 	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1422820AbXCGRuV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Mar 2007 12:50:21 -0500
-In-Reply-To: <20070306220146.GO25760@galon.ev-en.org>
+	with ESMTP id S1422797AbXCGRsw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Mar 2007 12:48:52 -0500
+In-Reply-To: <20070306194259.GK25760@galon.ev-en.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+On Tue, 6 Mar 2007, Baruch Even wrote:
 
----696243703-1802085930-1173289820=:3770
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
+> [snip]
+> 
+> > +		newtp->highest_sack = treq->snt_isn + 1;
+> 
+> That's the only initialization that you have for highest_sack, I think
+> that you should initialize it when a loss is detected to the start_seq
+> of the first packet that wasn't acked.
 
-It is maintained only in during slowpath of tcp_ack(). In most
-cases this seqno is available in the last ACK but there is no
-guarantee for that. The new fast recovery loss marking algorithm
-needs this as entry point.
+I agree that this problem exists and in fact I was aware of it, wasn't
+just too keen to solve that yet. However, I'm not sure if the proposed
+solution is adequate solution because the last ACK doesn't necessarily
+contain the all-time highest SACK block (e.g., duplicate ACK reordering),
+this is only remotely possible to cause entry to recovery but
+still. Obviously the recovery cannot (then) be triggered with this:
 
-Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
----
- include/linux/tcp.h      |    2 ++
- net/ipv4/tcp_input.c     |   10 ++++++++++
- net/ipv4/tcp_minisocks.c |    1 +
- 3 files changed, 13 insertions(+), 0 deletions(-)
+	/* Not-A-Trick#2 : Classic rule... */
+        if (tcp_fackets_out(tp) > tp->reordering)
+                return 1;
 
-diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-index b73687a..807fc96 100644
---- a/include/linux/tcp.h
-+++ b/include/linux/tcp.h
-@@ -320,6 +320,8 @@ #endif
- 
- 	struct tcp_sack_block_wire recv_sack_cache[4];
- 
-+	u32	highest_sack;	/* Start seq of globally highest revd SACK (valid only in slowpath) */
-+
- 	/* from STCP, retrans queue hinting */
- 	struct sk_buff* lost_skb_hint;
- 
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 22d0bb0..827171a 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -1188,6 +1188,10 @@ tcp_sacktag_write_queue(struct sock *sk,
- 
- 				if (fack_count > tp->fackets_out)
- 					tp->fackets_out = fack_count;
-+
-+				if (after(TCP_SKB_CB(skb)->seq,
-+				    tp->highest_sack))
-+					tp->highest_sack = TCP_SKB_CB(skb)->seq;
- 			} else {
- 				if (dup_sack && (sacked&TCPCB_RETRANS))
- 					reord = min(fack_count, reord);
-@@ -2762,10 +2766,16 @@ static int tcp_ack(struct sock *sk, stru
- 		else
- 			NET_INC_STATS_BH(LINUX_MIB_TCPPUREACKS);
- 
-+		/* Transition from fast to slow path, is this correct way? */
-+		if (tp->pred_flags)
-+			tp->highest_sack = tp->snd_una;
-+
- 		flag |= tcp_ack_update_window(sk, tp, skb, ack, ack_seq);
- 
- 		if (TCP_SKB_CB(skb)->sacked)
- 			flag |= tcp_sacktag_write_queue(sk, skb, prior_snd_una);
-+		else if (before(tp->highest_sack, tp->snd_una))
-+			tp->highest_sack = tp->snd_una;
- 
- 		if (TCP_ECN_rcv_ecn_echo(tp, skb->h.th))
- 			flag |= FLAG_ECE;
-diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
-index 0a57c36..68d0000 100644
---- a/net/ipv4/tcp_minisocks.c
-+++ b/net/ipv4/tcp_minisocks.c
-@@ -389,6 +389,7 @@ struct sock *tcp_create_openreq_child(st
- 		newtp->pred_flags = 0;
- 		newtp->rcv_wup = newtp->copied_seq = newtp->rcv_nxt = treq->rcv_isn + 1;
- 		newtp->snd_sml = newtp->snd_una = newtp->snd_nxt = treq->snt_isn + 1;
-+		newtp->highest_sack = treq->snt_isn + 1;
- 
- 		tcp_prequeue_init(newtp);
- 
+(would have entered recovery using an earlier ACK that had the highest 
+SACK block) but there are other conditions in tcp_time_to_recover as
+well. I would just keep it in sync whole the time when using slowpath of 
+tcp_ack. Will repost soon it and a bugfixed scoreboard thingie as 
+separated patches (against the current net-2.6.22 + those two patches I 
+list below, which were mentioned in the patch description btw).
+
+> Didn't review the rest, still need to arrange a proper tree with
+> preliminary patches to apply it on. Could you note the kernel you based
+> it on and include all patches applied before it?
+
+I had these patches from David Miller (posted to netdev couple of days / 
+week ago in four patch serie) on the top of it:
+  [TCP]: Abstract out all write queue operations.
+  [TCP]: Store retransmit queue packets in RB tree.
+
+...as I warned earlier, the rest in the David patch series probably 
+conflict (at least linux/tcp.h I think because of hint removals).
+
+
 -- 
-1.4.2
-
----696243703-1802085930-1173289820=:3770--
+ i.
