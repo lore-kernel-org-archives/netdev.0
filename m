@@ -1,30 +1,35 @@
-From: David Miller <davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: netlink recvmsg() and MSG_TRUNC
-Date: Tue, 06 Mar 2007 16:02:02 -0800 (PST)
-Message-ID: <20070306.160202.102574506.davem@davemloft.net>
-References: <20070306.151953.112290310.davem@davemloft.net>
-	<E1HOjP1-0003NM-00@gondolin.me.apana.org.au>
+Date: Wed, 7 Mar 2007 11:04:19 +1100
+Message-ID: <20070307000419.GA13170@gondor.apana.org.au>
+References: <20070306.151953.112290310.davem@davemloft.net> <E1HOjP1-0003NM-00@gondolin.me.apana.org.au> <20070306.160202.102574506.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46348
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1030744AbXCGACF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2007 19:02:05 -0500
-In-Reply-To: <E1HOjP1-0003NM-00@gondolin.me.apana.org.au>
+Received: from rhun.apana.org.au ([64.62.148.172]:3112 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1030748AbXCGAEV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2007 19:04:21 -0500
+Content-Disposition: inline
+In-Reply-To: <20070306.160202.102574506.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Wed, 07 Mar 2007 10:49:07 +1100
+On Tue, Mar 06, 2007 at 04:02:02PM -0800, David Miller wrote:
+>
+> Create a lot of intefaces, try to dump them :-)
 
-> Which netlink family generates (or needs to generate) unbounded
-> messages to user-space? Or indeed which ones generate messages
-> greater than 64K (or 4K for that matter)?
+Dumps should be done using 4K (NLMSG_GOODSIZE) skb's, where is the problem?
 
-Create a lot of intefaces, try to dump them :-)
+> GLIBC can even hit this via it's ifaddrs.c code.
 
-GLIBC can even hit this via it's ifaddrs.c code.
+Do you have a simple test case that I can run?
+
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
