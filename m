@@ -1,38 +1,33 @@
-From: Ralf Baechle <ralf@linux-mips.org>
-Subject: Re: [PATCH 1/2] pcnet32: only allocate init_block dma consistent
-Date: Wed, 7 Mar 2007 04:21:55 +0000
-Message-ID: <20070307042155.GA6495@linux-mips.org>
-References: <20070306184523.GA23268@verizon.net> <20070307031011.GA4281@linux-mips.org> <f2b55d220703061939w731dfcc4t8e0ddcf238203bd@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [UDP]: Reread uh pointer after pskb_trim
+Date: Tue, 06 Mar 2007 20:27:26 -0800 (PST)
+Message-ID: <20070306.202726.48807189.davem@davemloft.net>
+References: <20070306010020.GA25265@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Don Fry <pcnet32@verizon.net>, jgarzik@pobox.com,
-	netdev@vger.kernel.org
-To: "Michael K. Edwards" <medwards.linux@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ftp.linux-mips.org ([194.74.144.162]:56782 "EHLO
-	ftp.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932471AbXCGEXw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2007 23:23:52 -0500
-Received: from localhost.localdomain ([127.0.0.1]:56274 "EHLO
-	dl5rb.ham-radio-op.net") by ftp.linux-mips.org with ESMTP
-	id S20021495AbXCGEXu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Mar 2007 04:23:50 +0000
-Content-Disposition: inline
-In-Reply-To: <f2b55d220703061939w731dfcc4t8e0ddcf238203bd@mail.gmail.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51558
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S932562AbXCGE13 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2007 23:27:29 -0500
+In-Reply-To: <20070306010020.GA25265@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 06, 2007 at 07:39:21PM -0800, Michael K. Edwards wrote:
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Tue, 6 Mar 2007 12:00:20 +1100
 
-> On 3/6/07, Ralf Baechle <ralf@linux-mips.org> wrote:
-> >This small change btw. delivers about ~ 3% extra performance on a very
-> >slow test system.
+> Hi Dave:
 > 
-> Has this change been tested / benchmarked under VMWare?  pcnet32 is
-> the (default?) virtual device presented by VMWare Workstation, and
-> that's probably a large fraction of its use in the field these days.
-> But then Don probably already knows that.  :-)
+> [UDP]: Reread uh pointer after pskb_trim
+> 
+> The header may have moved when trimming.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Price question: why would this patch make a difference under VMware? :-)
+IPV6 got this case right :-)
 
-  Ralf
+Applied, and I'll push this to -stable too.
