@@ -1,46 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 12/19] fix irq problem with NAPI + NETPOLL
-Date: Wed, 07 Mar 2007 15:18:44 -0800 (PST)
-Message-ID: <20070307.151844.102573883.davem@davemloft.net>
-References: <200703061041.l26AfusT019768@shell0.pdx.osdl.net>
+Subject: Re: [PATCH] xfrm_policy delete security check misplaced
+Date: Wed, 07 Mar 2007 15:38:13 -0800 (PST)
+Message-ID: <20070307.153813.116350402.davem@davemloft.net>
+References: <1172860190.31047.11.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, netdev@vger.kernel.org, anemo@mba.ocn.ne.jp,
-	romieu@fr.zoreil.com, shemminger@linux-foundation.org
-To: akpm@linux-foundation.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jamesm@namei.org, vyekkirala@trustedcs.com, cxzhang@watson.ibm.com,
+	sds@tycho.nsa.gov
+To: eparis@parisplace.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43114
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39242
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S965725AbXCGXSq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Mar 2007 18:18:46 -0500
-In-Reply-To: <200703061041.l26AfusT019768@shell0.pdx.osdl.net>
+	by vger.kernel.org with ESMTP id S2992743AbXCGXiQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Mar 2007 18:38:16 -0500
+In-Reply-To: <1172860190.31047.11.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: akpm@linux-foundation.org
-Date: Tue, 06 Mar 2007 02:41:56 -0800
+From: Eric Paris <eparis@parisplace.org>
+Date: Fri, 02 Mar 2007 13:29:50 -0500
 
-> From: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
+> The security hooks to check permissions to remove an xfrm_policy were
+> actually done after the policy was removed.  Since the unlinking and
+> deletion are done in xfrm_policy_by* functions this moves the hooks
+> inside those 2 functions.  There we have all the information needed to
+> do the security check and it can be done before the deletion.  Since
+> auditing requires the result of that security check err has to be passed
+> back and forth from the xfrm_policy_by* functions.  
 > 
-> It seems netif_receive_skb() was designed not to call from irq context, but
-> NAPI + NETPOLL break this rule.  If netif_receive_skb() was called from irq
-> context, redirect to netif_rx() instead of processing the skb in that
-> context.
+> This patch also fixes a bug where a deletion that failed the security
+> check could cause improper accounting on the xfrm_policy
+> (xfrm_get_policy didn't have a put on the exit path for the hold taken
+> by xfrm_policy_by*)
 > 
-> Signed-off-by: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
-> Cc: Jeff Garzik <jeff@garzik.org>
-> Cc: Francois Romieu <romieu@fr.zoreil.com>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+> It also fixes the return code when no policy is found in
+> xfrm_add_pol_expire.  In old code (at least back in the 2.6.18 days) err
+> wasn't used before the return when no policy is found and so the
+> initialization would cause err to be ENOENT.  But since err has since
+> been used above when we don't get a policy back from the xfrm_policy_by*
+> function we would always return 0 instead of the intended ENOENT.  Also
+> fixed some white space damage in the same area. 
+> 
+> Signed-off-by: Eric Paris <eparis@redhat.com>
 
-This patch can't be applied, sorry.
-
-netpoll_rx() should be invokable from hardware interrupt context.
-What is the crash you are seeing?
-
-It looks like perhaps the kfree_skb() calls need to be modified
-in __netpoll_rx().
-
-Stephen?  Maybe this is a result of that set of cleanups you did
-to the netpoll code?  It wouldn't surprise me :)
+Applied.
