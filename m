@@ -1,60 +1,37 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: [ATM] ENI: Convert to struct timeval to ktime_t.
-Date: Wed, 07 Mar 2007 11:31:39 +0900 (JST)
-Message-ID: <20070307.113139.07471835.yoshfuji@linux-ipv6.org>
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: Re: [PATCH 1/2] pcnet32: only allocate init_block dma consistent
+Date: Wed, 7 Mar 2007 03:10:11 +0000
+Message-ID: <20070307031011.GA4281@linux-mips.org>
+References: <20070306184523.GA23268@verizon.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: jgarzik@pobox.com, netdev@vger.kernel.org
+To: Don Fry <pcnet32@verizon.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:34378 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161221AbXCGCbP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2007 21:31:15 -0500
+Received: from ftp.linux-mips.org ([194.74.144.162]:33900 "EHLO
+	ftp.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030778AbXCGDM7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2007 22:12:59 -0500
+Received: from localhost.localdomain ([127.0.0.1]:217 "EHLO
+	dl5rb.ham-radio-op.net") by ftp.linux-mips.org with ESMTP
+	id S20021476AbXCGDM4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Mar 2007 03:12:56 +0000
+Content-Disposition: inline
+In-Reply-To: <20070306184523.GA23268@verizon.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+On Tue, Mar 06, 2007 at 10:45:23AM -0800, Don Fry wrote:
 
---- 
-diff --git a/drivers/atm/eni.c b/drivers/atm/eni.c
-index 8fccf01..0d3a38b 100644
---- a/drivers/atm/eni.c
-+++ b/drivers/atm/eni.c
-@@ -536,7 +536,7 @@ static int rx_aal0(struct atm_vcc *vcc)
- 		return 0;
- 	}
- 	skb_put(skb,length);
--	skb_set_timestamp(skb, &eni_vcc->timestamp);
-+	skb->tstamp = eni_vcc->timestamp;
- 	DPRINTK("got len %ld\n",length);
- 	if (do_rx_dma(vcc,skb,1,length >> 2,length >> 2)) return 1;
- 	eni_vcc->rxing++;
-@@ -701,7 +701,7 @@ static void get_service(struct atm_dev *dev)
- 			DPRINTK("Grr, servicing VCC %ld twice\n",vci);
- 			continue;
- 		}
--		do_gettimeofday(&ENI_VCC(vcc)->timestamp);
-+		ENI_VCC(vcc)->timestamp = ktime_get_real();
- 		ENI_VCC(vcc)->next = NULL;
- 		if (vcc->qos.rxtp.traffic_class == ATM_CBR) {
- 			if (eni_dev->fast)
-diff --git a/drivers/atm/eni.h b/drivers/atm/eni.h
-index 385090c..d04fefb 100644
---- a/drivers/atm/eni.h
-+++ b/drivers/atm/eni.h
-@@ -59,7 +59,7 @@ struct eni_vcc {
- 	int rxing;			/* number of pending PDUs */
- 	int servicing;			/* number of waiting VCs (0 or 1) */
- 	int txing;			/* number of pending TX bytes */
--	struct timeval timestamp;	/* for RX timing */
-+	ktime_t timestamp;		/* for RX timing */
- 	struct atm_vcc *next;		/* next pending RX */
- 	struct sk_buff *last;		/* last PDU being DMAed (used to carry
- 					   discard information) */
+> The patch below moves the init_block out of the private struct and
+> only allocates init block with pci_alloc_consistent. 
+> 
+> This has two effects:
+> 
+> 1. Performance increase for non cache coherent machines, because the
+>    CPU only data in the private struct are now cached
 
--- 
-YOSHIFUJI Hideaki @ USAGI Project  <yoshfuji@linux-ipv6.org>
-GPG-FP  : 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+This small change btw. delivers about ~ 3% extra performance on a very
+slow test system.
+
+  Ralf
