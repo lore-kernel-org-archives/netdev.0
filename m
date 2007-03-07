@@ -1,47 +1,57 @@
-From: Josh Triplett <josh@freedesktop.org>
-Subject: [PATCH] Allow pktgen to work with loopback devices.
-Date: Wed, 07 Mar 2007 04:29:05 -0800
-Message-ID: <45EEB011.5020606@freedesktop.org>
+From: Tore Anderson <tore@linpro.no>
+Subject: [PATCH] Improve cached ECMP documentation
+Date: Wed, 07 Mar 2007 13:37:44 +0100
+Message-ID: <45EEB218.8000804@linpro.no>
+References: <20070307073932.GA1675@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Jeff Garzik <jgarzik@pobox.com>,
-	Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965026AbXCGM3q@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, Jarek Poplawski <jarkao2@o2.pl>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailhub.linpro.no ([213.236.139.167]:42138 "EHLO
+	mailhub.linpro.no" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965133AbXCGMhp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Mar 2007 07:37:45 -0500
+In-Reply-To: <20070307073932.GA1675@ff.dom.local>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-pktgen currently only works on network devices with type ARPHRD_ETHER.  Add
-support for the loopback device, type ARPHRD_LOOPBACK.
+Document that equal-cost multipath routing with caching does not work
+for forwarded packets.
 
-I've tested this on my system, using a modified pktgen.conf-1-1 with
-s/eth1/lo/g, and it works fine; the network device statistics confirm packet
-transmission and receipt.
-
-Thanks to Sarah Bailey for discovering and tracking down the problem.
-
-Signed-off-by: Josh Triplett <josh@freedesktop.org>
+Signed-Off-By: Tore Anderson <tore@linpro.no>
 ---
 
-I intentionally didn't change the error message "not an ethernet device".  For
-the purposes of pktgen, loopback devices act like ethernet devices.
+* Jarek Poplawski
 
- net/core/pktgen.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+> It is probably one of the most often asked questions
+> on the LARTC, so I'd suggest to look at its archives.
+>
+> [...]
+> 
+> Multipath with caching doesn't work with forwarding.
 
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index 74a9a32..6fc6f9d 100644
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -1930,7 +1930,7 @@ static struct net_device *pktgen_setup_dev(struct pktgen_dev *pkt_dev)
- 		printk("pktgen: no such netdevice: \"%s\"\n", pkt_dev->ifname);
- 		goto out;
- 	}
--	if (odev->type != ARPHRD_ETHER) {
-+	if (odev->type != ARPHRD_LOOPBACK && odev->type != ARPHRD_ETHER) {
- 		printk("pktgen: not an ethernet device: \"%s\"\n",
- 		       pkt_dev->ifname);
- 		goto out_put;
--- 
-1.5.0.2
+  Well, I did look at LARTC's archives (and again after reading your
+ mail), still couldn't find anything.  Sorry for bothering you, though.
+ When I disabled the support it worked just fine (no need for iptables
+ CONNMARK trickery or any of Julian's patches), so thanks for your help!
+
+  Anyway, it strikes me as a bit odd that this feature is found under
+ CONFIG_IP_ADVANCED_ROUTER when it doesn't work for routers.  That
+ could at least be better documented - here's a patch to do just that.
+
+--- a/net/ipv4/Kconfig
++++ b/net/ipv4/Kconfig
+@@ -124,6 +124,10 @@ config IP_ROUTE_MULTIPATH_CACHED
+ 	  routing cache. If you say Y here, alternative routes are cached
+ 	  and on cache lookup a route is chosen in a configurable fashion.
+ 
++	  Be warned that this feature does not work for forwarded packets,
++	  and that enabling it will break equal cost multipath routing for
++	  forwarded traffic.
++
+ 	  If unsure, say N.
+ 
+ config IP_ROUTE_MULTIPATH_RR
+
