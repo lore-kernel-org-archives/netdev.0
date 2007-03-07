@@ -1,63 +1,35 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: [Bonding-devel] [PATCH 3/3] bonding: Improve IGMP join processing
-Date: Tue, 6 Mar 2007 19:21:30 -0800
-Message-ID: <OF3F503F34.0DCEF024-ON88257297.0010A9D5-88257297.00126F62@us.ibm.com>
-References: <20070307015012.GA4783@core2.greyhouse.net>
+From: "Michael K. Edwards" <medwards.linux@gmail.com>
+Subject: Re: [PATCH 1/2] pcnet32: only allocate init_block dma consistent
+Date: Tue, 6 Mar 2007 19:39:21 -0800
+Message-ID: <f2b55d220703061939w731dfcc4t8e0ddcf238203bd@mail.gmail.com>
+References: <20070306184523.GA23268@verizon.net>
+	 <20070307031011.GA4281@linux-mips.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: Andy Gospodarek <andy@greyhouse.net>,
-	bonding-devel@lists.sourceforge.net,
-	Brian Haley <brian.haley@hp.com>, fubar@linux.vnet.ibm.com,
-	netdev@vger.kernel.org, netdev-owner@vger.kernel.org
-To: "Andy Gospodarek" <gospo@redhat.com>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Don Fry" <pcnet32@verizon.net>, jgarzik@pobox.com,
+	netdev@vger.kernel.org
+To: "Ralf Baechle" <ralf@linux-mips.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e34.co.us.ibm.com ([32.97.110.152]:60460 "EHLO
-	e34.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030781AbXCGDVf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2007 22:21:35 -0500
-In-Reply-To: <20070307015012.GA4783@core2.greyhouse.net>
+Received: from wr-out-0506.google.com ([64.233.184.230]:28443 "EHLO
+	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030494AbXCGDjX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2007 22:39:23 -0500
+Received: by wr-out-0506.google.com with SMTP id 58so44192wri
+        for <netdev@vger.kernel.org>; Tue, 06 Mar 2007 19:39:22 -0800 (PST)
+In-Reply-To: <20070307031011.GA4281@linux-mips.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
- > >    Marking the master down would, I believe, issue notifiers that
-> > the device has gone down.  Various things, network manager sort of
-> > applications in particular, listen to those, so I'm not sure it's a 
-good
-> > idea.  I think there are other side effects as well, I'm thinking it
-> > would flush routes associated with the interface as well.
+On 3/6/07, Ralf Baechle <ralf@linux-mips.org> wrote:
+> This small change btw. delivers about ~ 3% extra performance on a very
+> slow test system.
 
-[BTW, you can call ip_mc_down()/ip_mc_up() directly w/o getting there
-        from the notifiers -- then no side-effects.]
+Has this change been tested / benchmarked under VMWare?  pcnet32 is
+the (default?) virtual device presented by VMWare Workstation, and
+that's probably a large fraction of its use in the field these days.
+But then Don probably already knows that.  :-)
 
-Andy Gospodarek wrote:
-> 
-> I agree with Jay here.  I hate that bonding has to have so much
-> knowledge about upper layer protocols, but for the ones that are
-> stateful like IGMP we will need fixes like the one proposed.
-
-        I have no problem with bonding having knowledge of ULP's (I
-don't like it, but I don't have to look at it :-) ), but the
-patch is doing it the other way around. What I don't like about the
-proposed patch is that it's adding knowledge of bonding to IGMP.
-        And IGMP does work fine in this case, w/o flooding or the
-proposed patch. It just has the risk of losing multicast packets
-during one query interval, and that only happens if you're
-using a switch that does IGMP snooping.
-        I'd like the patch a lot better if it were basicly this:
-
-mc_bond_fudge(void)
-{
-        ip_mc_down(masterdev);
-/*do whatever you need to do to switch the slave */
-        ip_mc_up(masterdev);
-}
-
-        That doesn't go through the notifier chain, uses existing
-functions, doesn't have any refcnt issues, and most importantly
-could/should reside in a bonding source file and not in igmp.c. :-)
-        But RTNL is required whether you use up/down or roll your
-own variant, so it sounds like you have other issues to resolve too.
-
-                                                        +-DLS
-
-
+Cheers,
+- Michael
