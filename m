@@ -1,127 +1,63 @@
-From: Michal Ostrowski <mostrows@earthlink.net>
+From: Florian Zumbiehl <florz@gmx.de>
 Subject: Re: Session ID 0 with PPPoE
-Date: Wed, 07 Mar 2007 09:24:34 -0600
-Message-ID: <1173281077.13894.48.camel@kdsk1.austin.ibm.com>
-References: <20070304145617.GI28150@florz.florz.dyndns.org>
-	 <1173055606.12398.64.camel@kdsk1.austin.ibm.com>
-	 <20070307143205.GJ28150@florz.florz.dyndns.org>
+Date: Wed, 7 Mar 2007 17:20:02 +0100
+Message-ID: <20070307162002.GK28150@florz.florz.dyndns.org>
+References: <20070304145617.GI28150@florz.florz.dyndns.org> <1173055606.12398.64.camel@kdsk1.austin.ibm.com> <20070307143205.GJ28150@florz.florz.dyndns.org> <1173281077.13894.48.camel@kdsk1.austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Florian Zumbiehl <florz@gmx.de>
+To: Michal Ostrowski <mostrows@earthlink.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from igw2.watson.ibm.com ([129.34.20.6]:36158 "EHLO
-	igw2.watson.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751932AbXCGPYn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Mar 2007 10:24:43 -0500
-In-Reply-To: <20070307143205.GJ28150@florz.florz.dyndns.org>
+Received: from odnb-d9bbdc34.pool.mediaWays.net ([217.187.220.52]:4021 "EHLO
+	rain.florz.dyndns.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1749667AbXCGQUJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Mar 2007 11:20:09 -0500
+Content-Disposition: inline
+In-Reply-To: <1173281077.13894.48.camel@kdsk1.austin.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This change can be made; the unbinding behavior can be removed and SID 0
-can be made valid. I hope I was clear in my previous e-mail that I
-didn't object to this.
+Hi,
 
-PPPoE connections are unstable.  Ethernet frames get dropped.  Things
-die randomly. And yes, you typically want to have a cron job or script
-re-spawning pppd on failure.  Making this change won't increase the
-reliability of these connections in any meaningful way, it won't break
-pppd either.  
+> This change can be made; the unbinding behavior can be removed and SID 0
+> can be made valid. I hope I was clear in my previous e-mail that I
+> didn't object to this.
 
-The only question I have is why is this important to you?  I'm simply
-curious as to what you are trying to accomplish; is this related to some
-other work you are doing or is it correctness as a virtue?
+Not quite. But now I think I got it ;-)
 
--- 
-Michal Ostrowski <mostrows@earthlink.net>
+> PPPoE connections are unstable.  Ethernet frames get dropped.  Things
+> die randomly. And yes, you typically want to have a cron job or script
+> re-spawning pppd on failure.  Making this change won't increase the
+> reliability of these connections in any meaningful way, it won't break
+> pppd either.  
 
+I mean, you are right from my experience that you want to have that for
+pppd (which is why I _do_ have that cron job) - but your rationale
+doesn't look very convincing to me. IP networks are unstable, you know.
+IP packets get dropped. Things (read: TCP peers) die randomly. But no,
+I don't have a cron job that restarts the MTA or web server in case some
+TCP peer died - because they don't exit when some TCP connection times
+out or something.
 
+The very same thing I'd expect from pppd. If I do specify the persist
+and maxfail 0 options, I expect pppd not to exit even when it receives
+complete garbage from the network, much less when it receives completely
+valid packets as per the RFC. The only reasonable reasons for exiting IMO
+are lack of system resources or missing system features/invalid
+configuration. The only reason why I do have a cron job that takes care
+of restarts are all the bugs I encountered in pppd so far that caused
+it to exit because it used the kernel PPP API wrongly in case of reconnects
+or because it leaked ptys until there were none available anymore, not
+the fact that PPP(oE) is a potentially unreliable network protocol or
+because modems do lose their connection at times.
 
-On Wed, 2007-03-07 at 15:32 +0100, Florian Zumbiehl wrote:
-> Hi,
-> 
-> > In the current  code SID 0 indicates that the socket is to be un-bound.
-> 
-> That are the semantics used by the kernel code, yes - but even pppd uses
-> different semantics (which can't quite work, of course ...).
-> 
-> > Supporting unbinding of the socket was intended to permit the PPPoE
-> > session to be reconnected without closing/reopening the socket; which
-> > would mean that you'd have to re-bind the PPPoE/PPP channel bindings.
-> > Thus it is conceivable to swap or renegotiate PPPoE connection
-> > underneath a PPP connection, hypothetically if anyone ever considered
-> > doing so.  Is that worth it?  I don't know.  One could eliminate that
-> > disconnect behavior and I don't think anyone would care.
-> 
-> Well, if _you_ don't even know ... =:-)
-> 
-> Anyway, if it is not to be eliminated, it should be represented some way
-> differently, I guess. Which probably would break backwards compatibility
-> at the userspace API completely, of course, which is a bad thing[tm], so
-> possibly simply changing the semantics to what is already assumed by most
-> userspace applications might be the way to go.
+> The only question I have is why is this important to you?  I'm simply
+> curious as to what you are trying to accomplish; is this related to some
+> other work you are doing or is it correctness as a virtue?
 
-> > I'll conceed that a SID of 0 could appear from outer space.   I've never
-> > seen that happening.
-> 
-> Now, the question is, of course: How many samples is this based on
-> (both, number of connection attempts and number of different peer
-> implementations)?
-> 
-> > The only way I see this being an issue is if a
-> > PPPoE server insists on giving you SID 0 and only SID 0 repeatedly.  And
-> > I've never seen *that* happening.
-> 
-> So, what you are saying is that pppd/kernel-PPP/-PPPoE is so unstable that
-> you shouldn't ever be using it without some cron job/wrapper that takes
-> care of restarts anyway, so some additional bug that causes pppd to exit
-> unexpectedly doesn't matter?
+It isn't extremely important to me as it doesn't affect me. But if for
+any reason, then because I hope that others will take care of bugs that
+they stumble across before they become a potentially difficult to solve
+problem for me, too.
 
-> That is to say: If I didn't overlook anything, pppd (the rp-pppoe plugin,
-> that is) warns you if the PADS' session id field is 0 that the AC was
-> somehow violating the RFC, but then goes on, using 0 as the session id
-> anyway - thus calling connect() with a session id field of 0, obviously
-> assuming that this will bind to session id 0 - which it doesn't.
-> 
-> Now, when it invokes the PPPIOCGCHAN ioctl on that seemingly successfully
-> connect()ed socket, it gets an ENOTCONN - and exits with a fatal error.
-> And exiting with a fatal error isn't quite what I'd expect pppd to do
-> when the peer is behaving correctly according to the RFC, since that will
-> not just cause a retry that might be likely to give a different session
-> id and thus would cause the connection to finally be established with
-> some delay, but rather will break network connectivity until manual
-> intervention.
-> 
-> Of course, you could argue that this is somehow a bug in pppd, as it
-> doesn't use the kernel API correctly. But I assume that fixing the
-> kernel to support sid 0 rather than fixing pppd to "support" sid 0
-> (which would mean implementing an automatic retry when assigned
-> sid 0 by the AC) is somehow the better solution.
-> 
-> > If you'd really like to pursue this, I'll be happy to review and ack
-> > patches in this regard.  However, I don't see what there is to be
-> > actually gained by pursuing this.   I'm open to being convinced; what is
-> > the motivation behind this?  If there is a real problem here I'll be
-> > glad to get involved in fixing it myself.
-> 
-> Now, what is a "real problem"? I haven't noticed this being a problem for
-> me yet, no. But I have been using userspace RP-PPPOE until recently and
-> I am using a cron job that takes care of restarts in case pppd exits for
-> some reason, so it's rather unlikely that I'd notice if it did happen.
-> 
-> But isn't a problem that does occur seldom, is difficult to reproduce,
-> and has more than just temporary effect much worse a problem than something
-> that causes a crash every half an hour and thus is simple to come by using
-> debugging and doesn't surprise you the very moment you need things to
-> simply work?
-
-
-> Actually, IMO the major question is: Is there any application that does
-> (intentionally) make use of this session rebinding/unbinding? Since
-> simply dropping that probably would be the easiest fix to implement.
-> 
-> Florian
-> 
-
-
+Florian
