@@ -1,145 +1,102 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [RFC] ARP notify option
-Date: Wed, 7 Mar 2007 09:00:23 -0800
-Message-ID: <20070307090023.423b97d5@oldman>
-References: <20070301164214.4a40bc59@freekitty> <45E7764A.7000100@goop.org>
-	<20070301173030.754514ec@freekitty>
-	<20070305.203536.92584097.davem@davemloft.net>
-	<20070306105132.52c77491@freekitty> <45EDDA8F.5060106@nortel.com>
-	<Pine.LNX.4.64.0703070838010.8567@netcore.fi>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: xen-devel@lists.xensource.com, jeff@garzik.org, ian.pratt@xensource.com,
-   ak@muc.de, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-   chrisw@sous-sol.org, Chris Friesen <cfriesen@nortel.com>,
-   virtualization@lists.osdl.org, akpm@linux-foundation.org,
-   David Miller <davem@davemloft.net>
-To: Pekka Savola <pekkas@netcore.fi>
-Return-path: <virtualization-bounces@lists.osdl.org>
-In-Reply-To: <Pine.LNX.4.64.0703070838010.8567@netcore.fi>
-List-Unsubscribe: <https://lists.osdl.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.osdl.org?subject=unsubscribe>
-List-Archive: <http://lists.osdl.org/pipermail/virtualization>
-List-Post: <mailto:virtualization@lists.osdl.org>
-List-Help: <mailto:virtualization-request@lists.osdl.org?subject=help>
-List-Subscribe: <https://lists.osdl.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.osdl.org?subject=subscribe>
-Sender: virtualization-bounces@lists.osdl.org
-Errors-To: virtualization-bounces@lists.osdl.org
+From: Greg KH <gregkh@suse.de>
+Subject: [patch 097/101] revert "drivers/net/tulip/dmfe: support basic carrier detection"
+Date: Wed, 07 Mar 2007 09:12:12 -0800
+Message-ID: <20070307171657.461008445@mini.kroah.org>
+References: <20070307171035.150802805@mini.kroah.org>
+Cc: Justin Forbes <jmforbes@linuxtx.org>,
+	Zwane Mwaikambo <zwane@arm.linux.org.uk>,
+	Theodore Ts'o <tytso@mit.edu>,
+	Randy Dunlap <rdunlap@xenotime.net>,
+	Dave Jones <davej@redhat.com>,
+	Chuck Wolber <chuckw@quantumlinux.com>,
+	Chris Wedgwood <reviews@ml.cw.f00f.org>,
+	Michael Krufky <mkrufky@linuxtv.org>,
+	Chuck Ebbert <cebbert@redhat.com>,
+	torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	alan@lxorguk.ukuu.org.uk, netdev@vger.kernel.org,
+	thomas@archlinux.org, val_henson@linux.intel.com,
+	samuel.thibault@ens-lyon.org
+To: linux-kernel@vger.kernel.org, stable@kernel.org, jeff@garzik.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1422919AbXCGRYK@vger.kernel.org>
+Content-Disposition: inline; filename=revert-drivers-net-tulip-dmfe-support-basic-carrier-detection.patch
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 7 Mar 2007 08:42:39 +0200 (EET)
-Pekka Savola <pekkas@netcore.fi> wrote:
 
-> On Tue, 6 Mar 2007, Chris Friesen wrote:
-> > Stephen Hemminger wrote:
-> >>  +arp_notify - BOOLEAN
-> >>  +	Define mode for notification of address and device changes.
-> >>  +	0 - (default): do nothing
-> >>  +	1 - Generate gratuitous arp replies when device is brought up
-> >>  +	    or hardware address changes.
-> >
-> > Did you consider using gratuitous arp requests instead?  I remember rea=
-ding =
+From: Andrew Morton <akpm@linux-foundation.org>
 
-> > about some hardware that updated its arp cache on gratuitous requests b=
-ut not =
+Revert 7628b0a8c01a02966d2228bdf741ddedb128e8f8.  Thomas Bachler
+reports:
 
-> > gratuitous replies.
-> =
-
-> You might be interested in taking a look at:
-> =
-
-> http://tools.ietf.org/id/draft-cheshire-ipv4-acd
-> =
-
-> There has been some follow-up discussion on this in the thread =
-
-> starting at:
-> =
-
-> http://www1.ietf.org/mail-archive/web/int-area/current/msg00611.html
-> =
-
-> In particular, you may be interested in this comment about ARP =
-
-> request and ARP reply for gratuitous ARP:
-> =
-
-> http://www1.ietf.org/mail-archive/web/int-area/current/msg00669.html
-
-Looks like REQUESTS make more sense. (See below). I will
-rework this patch.
-
-5. Why are ARP Announcements performed using ARP Request packets
-   and not ARP Reply packets?
-
-   During IETF deliberation of IPv4 Address Conflict Detection from 2000
-   to 2005, a question that kept being asked repeatedly was, "Shouldn't
-   ARP Announcements be performed using gratuitous ARP Reply packets?"
-
-   On the face of it, this seems reasonable.  A conventional ARP Reply
-   is an answer to a question.  If in fact no question had been asked,
-   then it would be reasonable to describe such a reply as gratuitous. =
-
-   This description would seem to apply perfectly to an ARP
-   Announcement: an answer to an implied question that in fact no one
-   asked.
-
-   However reasonable this may seem in principle, there are two reasons
-   why in practice ARP Request packets are the better choice.  One is
-   historical precedent, and the other is practicality.
+  Commit 7628b0a8c01a02966d2228bdf741ddedb128e8f8 (drivers/net/tulip/dmfe:
+  support basic carrier detection) breaks networking on my Davicom DM9009. 
+  ethtool always reports there is no link.  tcpdump shows incoming packets,
+  but TX is disabled.  Reverting the above patch fixes the problem.
 
 
-Expires 11th January 2006             Cheshire                 [Page 14]
-=0C
-Internet Draft       IPv4 Address Conflict Detection      11th July 2005
+Cc: Samuel Thibault <samuel.thibault@ens-lyon.org>
+Cc: Jeff Garzik <jeff@garzik.org>
+Cc: Valerie Henson <val_henson@linux.intel.com>
+Cc: Thomas Bachler <thomas@archlinux.org>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
 
+---
+ drivers/net/tulip/dmfe.c |    9 +--------
+ 1 file changed, 1 insertion(+), 8 deletions(-)
 
-   The historical precedent is that, as described above in Section 4,
-   Gratuitous ARP is described in Stevens Networking [Ste94] as using
-   ARP Request packets.  BSD Unix, Windows, Mac OS 9, Mac OS X, etc.
-   all use ARP Request packets as described in Stevens.  At this stage,
-   trying to mandate that they all switch to using ARP Reply packets
-   would be futile.
+--- linux-2.6.20.1.orig/drivers/net/tulip/dmfe.c
++++ linux-2.6.20.1/drivers/net/tulip/dmfe.c
+@@ -187,7 +187,7 @@ struct rx_desc {
+ struct dmfe_board_info {
+ 	u32 chip_id;			/* Chip vendor/Device ID */
+ 	u32 chip_revision;		/* Chip revision */
+-	struct DEVICE *dev;		/* net device */
++	struct DEVICE *next_dev;	/* next device */
+ 	struct pci_dev *pdev;		/* PCI device */
+ 	spinlock_t lock;
+ 
+@@ -399,8 +399,6 @@ static int __devinit dmfe_init_one (stru
+ 	/* Init system & device */
+ 	db = netdev_priv(dev);
+ 
+-	db->dev = dev;
+-
+ 	/* Allocate Tx/Rx descriptor memory */
+ 	db->desc_pool_ptr = pci_alloc_consistent(pdev, sizeof(struct tx_desc) * DESC_ALL_CNT + 0x20, &db->desc_pool_dma_ptr);
+ 	db->buf_pool_ptr = pci_alloc_consistent(pdev, TX_BUF_ALLOC * TX_DESC_CNT + 4, &db->buf_pool_dma_ptr);
+@@ -428,7 +426,6 @@ static int __devinit dmfe_init_one (stru
+ 	dev->poll_controller = &poll_dmfe;
+ #endif
+ 	dev->ethtool_ops = &netdev_ethtool_ops;
+-	netif_carrier_off(db->dev);
+ 	spin_lock_init(&db->lock);
+ 
+ 	pci_read_config_dword(pdev, 0x50, &pci_pmr);
+@@ -1053,7 +1050,6 @@ static void netdev_get_drvinfo(struct ne
+ 
+ static const struct ethtool_ops netdev_ethtool_ops = {
+ 	.get_drvinfo		= netdev_get_drvinfo,
+-	.get_link               = ethtool_op_get_link,
+ };
+ 
+ /*
+@@ -1148,7 +1144,6 @@ static void dmfe_timer(unsigned long dat
+ 		/* Link Failed */
+ 		DMFE_DBUG(0, "Link Failed", tmp_cr12);
+ 		db->link_failed = 1;
+-		netif_carrier_off(db->dev);
+ 
+ 		/* For Force 10/100M Half/Full mode: Enable Auto-Nego mode */
+ 		/* AUTO or force 1M Homerun/Longrun don't need */
+@@ -1171,8 +1166,6 @@ static void dmfe_timer(unsigned long dat
+ 			if ( (db->media_mode & DMFE_AUTO) &&
+ 				dmfe_sense_speed(db) )
+ 				db->link_failed = 1;
+-			else
+-				netif_carrier_on(db->dev);
+ 			dmfe_process_mode(db);
+ 			/* SHOW_MEDIA_TYPE(db->op_mode); */
+ 		}
 
-   The practical reason is that ARP Request packets are more likely to
-   work correctly with more existing ARP implementations, some of which
-   may not implement RFC 826 correctly.  The Packet Reception rules in
-   RFC 826 state that the opcode is the last thing to check in packet
-   processing, so it really shouldn't matter, but there may be
-   "creative" implementations that have different packet processing
-   depending on the ar$op field, and there are several reasons why these
-   are more likely to accept gratuitous ARP Requests than gratuitous ARP
-   Replies:
-
-   * An incorrect ARP implementation may expect that ARP Replies are
-     only sent via unicast.  RFC 826 does not say this, but an incorrect
-     implementation may assume it, and the "principle of least surprise"
-     dictates that where there are two or more ways to solve a
-     networking problem that are otherwise equally good, the one with
-     the fewest unusual properties is the one likely to have the fewest
-     interoperability problems with existing implementations.  An ARP
-     Announcement needs to broadcast information to all hosts on the
-     link.  Since ARP Request packets are always broadcast, and ARP
-     Reply packets are not, receiving an ARP Request packet via
-     broadcast is less surprising than receiving an ARP Reply packet via
-     broadcast.
-
-   * An incorrect ARP implementation may expect that ARP Replies are
-     only received in response to ARP Requests that have been issued
-     recently by that implementation.  Unexpected unsolicited Replies
-     may be ignored.
-
-   * An incorrect ARP implementation may ignore ARP Replies where
-     ar$tha doesn't match its hardware address.
-
-   * An incorrect ARP implementation may ignore ARP Replies where
-     ar$tpa doesn't match its IP address.
-
-   In summary, there are more ways that an incorrect ARP implementation
-   might plausibly reject an ARP Reply (which usually occurs as a result
-   of being solicited by the client) than an ARP Request (which is
-   already expected to occur unsolicited).
+--
