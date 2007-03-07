@@ -1,36 +1,30 @@
 From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [IPROUTE][IP]: enabled to manipulate the flags of
- IFA_F_HOMEADDRESS or IFA_F_NODAD from ip.
-Date: Wed, 7 Mar 2007 14:21:38 -0800
-Message-ID: <20070307142138.6c23eb53@freekitty>
-References: <20070308.031543.465784743.takamiya@linux-ipv6.org>
+Subject: netlink regression (since 2.6.18)
+Date: Wed, 7 Mar 2007 14:28:30 -0800
+Message-ID: <20070307142830.307979e6@freekitty>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nakam@linux-ipv6.org
-To: Noriaki TAKAMIYA <takamiya@linux-ipv6.org>
+Cc: netdev@vger.kernel.org
+To: Adrian Bunk <bunk@stusta.de>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:34508 "EHLO smtp.osdl.org"
+Received: from smtp.osdl.org ([65.172.181.24]:34849 "EHLO smtp.osdl.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965698AbXCGWVl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Mar 2007 17:21:41 -0500
-In-Reply-To: <20070308.031543.465784743.takamiya@linux-ipv6.org>
+	id S2992664AbXCGWbp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Mar 2007 17:31:45 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 08 Mar 2007 03:15:43 +0900 (JST)
-Noriaki TAKAMIYA <takamiya@linux-ipv6.org> wrote:
+On a Ubuntu x86_64 machine the command: 
+  tc qdisc ls
+gets a RTNETLINK error. It looks like some data structure alignment
+issue got introduced between 2.6.18 and 2.6.19-rc1 and continues on. 
+Since netlink data structure layout is part of the user ABI, we need to go back
+and keep compatibility.
 
-> Hi, 
-> 
->   This patch enables ip command to add IFA_F_HOMEADDRESS and
->   IFA_F_NODAD flags while adding the IPv6 address.
-> 
-> Signed-off-by: Noriaki TAKAMIYA<takamiya@po.ntts.co.jp>
-> Signed-off-by: Masahide NAKAMURA <nakam@linux-ipv6.org>
->
+Still working out the bisect to find where the problem started.
 
-applied, thanks
 
 -- 
 Stephen Hemminger <shemminger@linux-foundation.org>
