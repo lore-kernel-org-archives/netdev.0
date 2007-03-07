@@ -1,54 +1,101 @@
-From: Greg KH <gregkh@suse.de>
-Subject: [patch 029/101] IPV6: HASHTABLES: Use appropriate seed for caluculating ehash index.
-Date: Wed, 07 Mar 2007 09:11:04 -0800
-Message-ID: <20070307171253.217963492@mini.kroah.org>
-References: <20070307171035.150802805@mini.kroah.org>
-Cc: Justin Forbes <jmforbes@linuxtx.org>,
-	Zwane Mwaikambo <zwane@arm.linux.org.uk>,
-	Theodore Ts'o <tytso@mit.edu>,
-	Randy Dunlap <rdunlap@xenotime.net>,
-	Dave Jones <davej@redhat.com>,
-	Chuck Wolber <chuckw@quantumlinux.com>,
-	Chris Wedgwood <reviews@ml.cw.f00f.org>,
-	Michael Krufky <mkrufky@linuxtv.org>,
-	Chuck Ebbert <cebbert@redhat.com>,
-	torvalds@linux-foundation.org, akpm@linux-foundation.org,
-	alan@lxorguk.ukuu.org.uk, yoshfuji@linux-ipv6.org,
-	netdev@vger.kernel.org, handat@pm.nttdata.co.jp
-To: linux-kernel@vger.kernel.org, stable@kernel.org,
-	davem@davemloft.net
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1422785AbXCGRjb@vger.kernel.org>
-Content-Disposition: inline; filename=ipv6-hashtables-use-appropriate-seed-for-caluculating-ehash-index.patch
-Sender: linux-kernel-owner@vger.kernel.org
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: [PATCH 1/2] [TCP]: Add highest_sack seqno, points to globally highest
+ SACK
+Date: Wed, 7 Mar 2007 19:50:20 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0703071949210.3770@kivilampi-30.cs.helsinki.fi>
+References: <Pine.LNX.4.64.0703061442440.3770@kivilampi-30.cs.helsinki.fi>
+ <20070306194259.GK25760@galon.ev-en.org> <20070306.134726.39155177.davem@davemloft.net>
+ <20070306220146.GO25760@galon.ev-en.org>
+Mime-Version: 1.0
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696243703-1802085930-1173289820=:3770"
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Baruch Even <baruch@ev-en.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:37957 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1422820AbXCGRuV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Mar 2007 12:50:21 -0500
+In-Reply-To: <20070306220146.GO25760@galon.ev-en.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-Tetsuo Handa <handat@pm.nttdata.co.jp> told me that connect(2) with TCPv6
-socket almost always took a few minutes to return when we did not have any
-ports available in the range of net.ipv4.ip_local_port_range.
+---696243703-1802085930-1173289820=:3770
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
 
-The reason was that we used incorrect seed for calculating index of
-hash when we check established sockets in __inet6_check_established().
+It is maintained only in during slowpath of tcp_ack(). In most
+cases this seqno is available in the last ACK but there is no
+guarantee for that. The new fast recovery loss marking algorithm
+needs this as entry point.
 
-Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Signed-off-by: David S. Miller <davem@davemloft.net>
-Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
-
+Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
 ---
- net/ipv6/inet6_hashtables.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ include/linux/tcp.h      |    2 ++
+ net/ipv4/tcp_input.c     |   10 ++++++++++
+ net/ipv4/tcp_minisocks.c |    1 +
+ 3 files changed, 13 insertions(+), 0 deletions(-)
 
---- linux-2.6.20.1.orig/net/ipv6/inet6_hashtables.c
-+++ linux-2.6.20.1/net/ipv6/inet6_hashtables.c
-@@ -172,7 +172,7 @@ static int __inet6_check_established(str
- 	const struct in6_addr *saddr = &np->daddr;
- 	const int dif = sk->sk_bound_dev_if;
- 	const __portpair ports = INET_COMBINED_PORTS(inet->dport, lport);
--	const unsigned int hash = inet6_ehashfn(daddr, inet->num, saddr,
-+	const unsigned int hash = inet6_ehashfn(daddr, lport, saddr,
- 						inet->dport);
- 	struct inet_ehash_bucket *head = inet_ehash_bucket(hinfo, hash);
- 	struct sock *sk2;
+diff --git a/include/linux/tcp.h b/include/linux/tcp.h
+index b73687a..807fc96 100644
+--- a/include/linux/tcp.h
++++ b/include/linux/tcp.h
+@@ -320,6 +320,8 @@ #endif
+ 
+ 	struct tcp_sack_block_wire recv_sack_cache[4];
+ 
++	u32	highest_sack;	/* Start seq of globally highest revd SACK (valid only in slowpath) */
++
+ 	/* from STCP, retrans queue hinting */
+ 	struct sk_buff* lost_skb_hint;
+ 
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 22d0bb0..827171a 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -1188,6 +1188,10 @@ tcp_sacktag_write_queue(struct sock *sk,
+ 
+ 				if (fack_count > tp->fackets_out)
+ 					tp->fackets_out = fack_count;
++
++				if (after(TCP_SKB_CB(skb)->seq,
++				    tp->highest_sack))
++					tp->highest_sack = TCP_SKB_CB(skb)->seq;
+ 			} else {
+ 				if (dup_sack && (sacked&TCPCB_RETRANS))
+ 					reord = min(fack_count, reord);
+@@ -2762,10 +2766,16 @@ static int tcp_ack(struct sock *sk, stru
+ 		else
+ 			NET_INC_STATS_BH(LINUX_MIB_TCPPUREACKS);
+ 
++		/* Transition from fast to slow path, is this correct way? */
++		if (tp->pred_flags)
++			tp->highest_sack = tp->snd_una;
++
+ 		flag |= tcp_ack_update_window(sk, tp, skb, ack, ack_seq);
+ 
+ 		if (TCP_SKB_CB(skb)->sacked)
+ 			flag |= tcp_sacktag_write_queue(sk, skb, prior_snd_una);
++		else if (before(tp->highest_sack, tp->snd_una))
++			tp->highest_sack = tp->snd_una;
+ 
+ 		if (TCP_ECN_rcv_ecn_echo(tp, skb->h.th))
+ 			flag |= FLAG_ECE;
+diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
+index 0a57c36..68d0000 100644
+--- a/net/ipv4/tcp_minisocks.c
++++ b/net/ipv4/tcp_minisocks.c
+@@ -389,6 +389,7 @@ struct sock *tcp_create_openreq_child(st
+ 		newtp->pred_flags = 0;
+ 		newtp->rcv_wup = newtp->copied_seq = newtp->rcv_nxt = treq->rcv_isn + 1;
+ 		newtp->snd_sml = newtp->snd_una = newtp->snd_nxt = treq->snt_isn + 1;
++		newtp->highest_sack = treq->snt_isn + 1;
+ 
+ 		tcp_prequeue_init(newtp);
+ 
+-- 
+1.4.2
 
---
+---696243703-1802085930-1173289820=:3770--
