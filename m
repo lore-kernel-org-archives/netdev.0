@@ -1,35 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp_cubic: faster cube root
-Date: Tue, 06 Mar 2007 20:20:52 -0800 (PST)
-Message-ID: <20070306.202052.03980320.davem@davemloft.net>
-References: <20070306102941.32471d57@freekitty>
-	<20070306.135834.26100913.davem@davemloft.net>
-	<20070306144706.4585c079@freekitty>
+Subject: Re: [PATCH] TCP Yeah: cleanup
+Date: Tue, 06 Mar 2007 20:21:40 -0800 (PST)
+Message-ID: <20070306.202140.36924635.davem@davemloft.net>
+References: <45D97FEA.1080006@gmail.com>
+	<45D98084.5030907@gmail.com>
+	<20070306145605.3731d39d@freekitty>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: rkuhn@e18.physik.tu-muenchen.de, andi@firstfloor.org,
-	dada1@cosmosbay.com, jengelh@linux01.gwdg.de,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Cc: angelo.castellani@gmail.com, netdev@vger.kernel.org,
+	andrea.baiocchi@uniroma1.it, francesco@net.infocom.uniroma1.it
 To: shemminger@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42743
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42752
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1161282AbXCGEUz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2007 23:20:55 -0500
-In-Reply-To: <20070306144706.4585c079@freekitty>
+	by vger.kernel.org with ESMTP id S1161315AbXCGEVm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2007 23:21:42 -0500
+In-Reply-To: <20070306145605.3731d39d@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Stephen Hemminger <shemminger@linux-foundation.org>
-Date: Tue, 6 Mar 2007 14:47:06 -0800
+Date: Tue, 6 Mar 2007 14:56:05 -0800
 
-> The Newton-Raphson method is quadratically convergent so
-> only a small fixed number of steps are necessary.
-> Therefore it is faster to unroll the loop. Since div64_64 is no longer
-> inline it won't cause code explosion.
 > 
-> Also fixes a bug that can occur if x^2 was bigger than 32 bits.
+> Eliminate need for full 6/4/64 divide to compute queue.
+> Variable maxqueue was really a constant.
+> Fix indentation.
 > 
 > Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
 
