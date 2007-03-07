@@ -1,33 +1,38 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: [PATCH]: Revert accept queue backlog change.
-Date: Wed, 7 Mar 2007 09:19:07 +0100
-Message-ID: <20070307081907.GA2268@ff.dom.local>
-References: <20070306.111900.41634576.davem@davemloft.net>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [1/6] 2.6.21-rc2: known regressions
+Date: Wed, 07 Mar 2007 06:06:37 -0500
+Message-ID: <45EE9CBD.9040807@garzik.org>
+References: <Pine.LNX.4.64.0702272105220.12485@woody.linux-foundation.org> <20070305015031.GF3441@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: weid@np.css.fujitsu.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx10.go2.pl ([193.17.41.74]:35752 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S965095AbXCGIPI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Mar 2007 03:15:08 -0500
-Content-Disposition: inline
-In-Reply-To: <20070306.111900.41634576.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Sid Boyce <g3vbv@blueyonder.co.uk>,
+	Pavel Machek <pavel@ucw.cz>,
+	Marcel Holtmann <marcel@holtmann.org>, linux-pm@lists.osdl.org,
+	maxk@qualcomm.com, bluez-devel@lists.sf.net,
+	Mark Lord <lkml@rtr.ca>, Greg KH <greg@kroah.com>,
+	Matt Mackall <mpm@selenic.com>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	netdev@vger.kernel.org
+To: Adrian Bunk <bunk@stusta.de>,
+	Albert Hopkins <kernel@marduk.letterboxes.org>,
+	Ayaz Abdulla <aabdulla@nvidia.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1422725AbXCGLHe@vger.kernel.org>
+In-Reply-To: <20070305015031.GF3441@stusta.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 06-03-2007 20:19, David Miller wrote:
-> Wei, I have to revert your change, it is incorrect as pointed
-> out by other people here on netdev.
-> 
-> BSD sockets basically define the 'backlog' parameter to listen()
-> to mean "allow backlog + 1" connections to be queued to the socket.
-> This allows a backlog parameter of "0" to allow 1 connection, and
-> there are real applications which do this.
+Adrian Bunk wrote:
+> Subject    : forcedeth: skb_over_panic
+> References : http://bugzilla.kernel.org/show_bug.cgi?id=8058
+> Submitter  : Albert Hopkins <kernel@marduk.letterboxes.org>
+> Status     : unknown
 
-Adding this comment somewhere shouldn't break anything,
-I hope.
 
-Regards,
-Jarek P. 
+I think this is fixed by the recent forcedeth 3-patch patchset?  Can 
+Albert or others confirm?
+
+	Jeff
