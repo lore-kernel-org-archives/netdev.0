@@ -1,84 +1,41 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: [1/1] connector: Bugfix for cn_call_callback()
-Date: Wed, 7 Mar 2007 15:10:30 +0300
-Message-ID: <20070307121030.GA19089@2ka.mipt.ru>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [PATCH] tcp_cubic: faster cube root
+Date: Wed, 7 Mar 2007 13:12:46 +0100
+Message-ID: <20070307121246.GA7728@one.firstfloor.org>
+References: <20070306102941.32471d57@freekitty> <20070306.135834.26100913.davem@davemloft.net> <20070306144706.4585c079@freekitty> <20070306.202052.03980320.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: Philipp Reisner <philipp.reisner@linbit.com>,
-	Lars Ellenberg <lars.ellenberg@linbit.com>,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: shemminger@linux-foundation.org, rkuhn@e18.physik.tu-muenchen.de,
+	andi@firstfloor.org, dada1@cosmosbay.com, jengelh@linux01.gwdg.de,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:57474 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751165AbXCGMLF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Mar 2007 07:11:05 -0500
+Received: from one.firstfloor.org ([213.235.205.2]:49120 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751221AbXCGMMs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Mar 2007 07:12:48 -0500
 Content-Disposition: inline
+In-Reply-To: <20070306.202052.03980320.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When system under heavy stress and must allocate new work
-instead of reusing old one, new work must use correct 
-completion callback.
+On Tue, Mar 06, 2007 at 08:20:52PM -0800, David Miller wrote:
+> From: Stephen Hemminger <shemminger@linux-foundation.org>
+> Date: Tue, 6 Mar 2007 14:47:06 -0800
+> 
+> > The Newton-Raphson method is quadratically convergent so
+> > only a small fixed number of steps are necessary.
+> > Therefore it is faster to unroll the loop. Since div64_64 is no longer
+> > inline it won't cause code explosion.
+> > 
+> > Also fixes a bug that can occur if x^2 was bigger than 32 bits.
+> > 
+> > Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+> 
+> Applied, thanks Stephen.
 
-Patch is based on Philipp's and Lars' work.
-I only cleaned small stuff (and removed spaces instead of tabs).
+Well that still needs the ugly div64_64 function. At least my goal was to 
+eliminate that, not make it faster (I don't see any evidence this function 
+is particularly performance critical). You prefer to keep div64_64? 
 
-Signed-off-by: Philipp Reisner <philipp.reisner@linbit.com>
-Signed-off-by: Lars Ellenberg <lars.ellenberg@linbit.com>
-Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-
-diff --git a/drivers/connector/connector.c b/drivers/connector/connector.c
-index a44db75..a905f78 100644
---- a/drivers/connector/connector.c
-+++ b/drivers/connector/connector.c
-@@ -128,7 +128,7 @@ EXPORT_SYMBOL_GPL(cn_netlink_send);
-  */
- static int cn_call_callback(struct cn_msg *msg, void (*destruct_data)(void *), void *data)
- {
--	struct cn_callback_entry *__cbq;
-+	struct cn_callback_entry *__cbq, *__new_cbq;
- 	struct cn_dev *dev = &cdev;
- 	int err = -ENODEV;
- 
-@@ -148,27 +148,27 @@ static int cn_call_callback(struct cn_msg *msg, void (*destruct_data)(void *), v
- 			} else {
- 				struct cn_callback_data *d;
- 				
--				__cbq = kzalloc(sizeof(*__cbq), GFP_ATOMIC);
--				if (__cbq) {
--					d = &__cbq->data;
-+				err = -ENOMEM;
-+				__new_cbq = kzalloc(sizeof(struct cn_callback_entry), GFP_ATOMIC);
-+				if (__new_cbq) {
-+					d = &__new_cbq->data;
- 					d->callback_priv = msg;
- 					d->callback = __cbq->data.callback;
- 					d->ddata = data;
- 					d->destruct_data = destruct_data;
--					d->free = __cbq;
-+					d->free = __new_cbq;
- 
--					INIT_WORK(&__cbq->work,
-+					INIT_WORK(&__new_cbq->work,
- 							&cn_queue_wrapper);
--					
-+
- 					if (queue_work(dev->cbdev->cn_queue,
--						    &__cbq->work))
-+						    &__new_cbq->work))
- 						err = 0;
- 					else {
--						kfree(__cbq);
-+						kfree(__new_cbq);
- 						err = -EINVAL;
- 					}
--				} else
--					err = -ENOMEM;
-+				}
- 			}
- 			break;
- 		}
-
--- 
-	Evgeniy Polyakov
+-Andi
