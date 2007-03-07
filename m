@@ -1,48 +1,59 @@
 From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
 	<yoshfuji@linux-ipv6.org>
-Subject: Re: IPv6 Davelopment Tree
-Date: Wed, 07 Mar 2007 11:30:30 +0900 (JST)
-Message-ID: <20070307.113030.117638901.yoshfuji@linux-ipv6.org>
-References: <20070223.125301.11635869.yoshfuji@linux-ipv6.org>
-	<20070306.133611.78711196.davem@davemloft.net>
+Subject: [ATM] ENI: Convert to struct timeval to ktime_t.
+Date: Wed, 07 Mar 2007 11:31:39 +0900 (JST)
+Message-ID: <20070307.113139.07471835.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nhorman@tuxdriver.com, netdev@vger.kernel.org,
-	yoshfuji@linux-ipv6.org
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:34373 "EHLO
+Received: from yue.linux-ipv6.org ([203.178.140.15]:34378 "EHLO
 	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161217AbXCGCaI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2007 21:30:08 -0500
-In-Reply-To: <20070306.133611.78711196.davem@davemloft.net>
+	with ESMTP id S1161221AbXCGCbP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2007 21:31:15 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dave,
+Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 
-In article <20070306.133611.78711196.davem@davemloft.net> (at Tue, 06 Mar 2007 13:36:11 -0800 (PST)), David Miller <davem@davemloft.net> says:
-
-> From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-> Date: Fri, 23 Feb 2007 12:53:01 +0900 (JST)
-> 
-> > I have cooked up new git tree for IPv6 development.
-> > It is available as branch named
-> > 	2.6.21-rc1-net-2.6-20070223-FOR_DAVEM-20070223
-> > at
-> > 	<git://git.linux-ipv6.org/gitroot/yoshfuji/linux-2.6-dev.git>.
-> > 
-> > I will shift to new branch time to time (e.g. every -rc releases) in order
-> > to chase the latest tree.
-> 
-> What is the current branch name?  I'd like to pull whatever
-> you have into my net-2.6.22 tree.
-
-Please pull from "net-2.6.22-20070307-FOR_DAVEM-20070307" branch at
-	<git://git.linux-ipv6.org/gitroot/yoshfuji/linux-2.6-dev.git>.
-
-Thank you.
+--- 
+diff --git a/drivers/atm/eni.c b/drivers/atm/eni.c
+index 8fccf01..0d3a38b 100644
+--- a/drivers/atm/eni.c
++++ b/drivers/atm/eni.c
+@@ -536,7 +536,7 @@ static int rx_aal0(struct atm_vcc *vcc)
+ 		return 0;
+ 	}
+ 	skb_put(skb,length);
+-	skb_set_timestamp(skb, &eni_vcc->timestamp);
++	skb->tstamp = eni_vcc->timestamp;
+ 	DPRINTK("got len %ld\n",length);
+ 	if (do_rx_dma(vcc,skb,1,length >> 2,length >> 2)) return 1;
+ 	eni_vcc->rxing++;
+@@ -701,7 +701,7 @@ static void get_service(struct atm_dev *dev)
+ 			DPRINTK("Grr, servicing VCC %ld twice\n",vci);
+ 			continue;
+ 		}
+-		do_gettimeofday(&ENI_VCC(vcc)->timestamp);
++		ENI_VCC(vcc)->timestamp = ktime_get_real();
+ 		ENI_VCC(vcc)->next = NULL;
+ 		if (vcc->qos.rxtp.traffic_class == ATM_CBR) {
+ 			if (eni_dev->fast)
+diff --git a/drivers/atm/eni.h b/drivers/atm/eni.h
+index 385090c..d04fefb 100644
+--- a/drivers/atm/eni.h
++++ b/drivers/atm/eni.h
+@@ -59,7 +59,7 @@ struct eni_vcc {
+ 	int rxing;			/* number of pending PDUs */
+ 	int servicing;			/* number of waiting VCs (0 or 1) */
+ 	int txing;			/* number of pending TX bytes */
+-	struct timeval timestamp;	/* for RX timing */
++	ktime_t timestamp;		/* for RX timing */
+ 	struct atm_vcc *next;		/* next pending RX */
+ 	struct sk_buff *last;		/* last PDU being DMAed (used to carry
+ 					   discard information) */
 
 -- 
 YOSHIFUJI Hideaki @ USAGI Project  <yoshfuji@linux-ipv6.org>
