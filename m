@@ -1,91 +1,49 @@
-From: Jean Tourrilhes <jt@hpl.hp.com>
-Subject: Re: wireless extensions vs. 64-bit architectures
-Date: Tue, 6 Mar 2007 18:03:10 -0800
-Message-ID: <20070307020310.GA20466@bougret.hpl.hp.com>
-References: <1173144447.15891.93.camel@johannes.berg> <20070306171316.GA19669@bougret.hpl.hp.com> <200703061943.07350.mb@bu3sch.de>
-Reply-To: jt@hpl.hp.com
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: IPv6 Davelopment Tree
+Date: Wed, 07 Mar 2007 11:30:30 +0900 (JST)
+Message-ID: <20070307.113030.117638901.yoshfuji@linux-ipv6.org>
+References: <20070223.125301.11635869.yoshfuji@linux-ipv6.org>
+	<20070306.133611.78711196.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-	linux-wireless@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-	Jeff Garzik <jgarzik@pobox.com>,
-	Dan Williams <dcbw@redhat.com>,
-	Jouni Malinen <jkm@devicescape.com>
-To: Michael Buesch <mb@bu3sch.de>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: nhorman@tuxdriver.com, netdev@vger.kernel.org,
+	yoshfuji@linux-ipv6.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gundega.hpl.hp.com ([192.6.19.190]:59328 "EHLO
-	gundega.hpl.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161211AbXCGCDp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2007 21:03:45 -0500
-Content-Disposition: inline
-In-Reply-To: <200703061943.07350.mb@bu3sch.de>
+Received: from yue.linux-ipv6.org ([203.178.140.15]:34373 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161217AbXCGCaI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2007 21:30:08 -0500
+In-Reply-To: <20070306.133611.78711196.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 06, 2007 at 07:43:06PM +0100, Michael Buesch wrote:
+Dave,
+
+In article <20070306.133611.78711196.davem@davemloft.net> (at Tue, 06 Mar 2007 13:36:11 -0800 (PST)), David Miller <davem@davemloft.net> says:
+
+> From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> Date: Fri, 23 Feb 2007 12:53:01 +0900 (JST)
 > 
-> Ok, it is wrapping the following ioctls:
+> > I have cooked up new git tree for IPv6 development.
+> > It is available as branch named
+> > 	2.6.21-rc1-net-2.6-20070223-FOR_DAVEM-20070223
+> > at
+> > 	<git://git.linux-ipv6.org/gitroot/yoshfuji/linux-2.6-dev.git>.
+> > 
+> > I will shift to new branch time to time (e.g. every -rc releases) in order
+> > to chase the latest tree.
 > 
-> HANDLE_IOCTL(SIOCGIWRANGE, do_wireless_ioctl)
-> HANDLE_IOCTL(SIOCSIWSPY, do_wireless_ioctl)
-> HANDLE_IOCTL(SIOCGIWSPY, do_wireless_ioctl)
-> HANDLE_IOCTL(SIOCSIWTHRSPY, do_wireless_ioctl)
-> HANDLE_IOCTL(SIOCGIWTHRSPY, do_wireless_ioctl)
-> HANDLE_IOCTL(SIOCGIWAPLIST, do_wireless_ioctl)
-> HANDLE_IOCTL(SIOCGIWSCAN, do_wireless_ioctl)
-> HANDLE_IOCTL(SIOCSIWESSID, do_wireless_ioctl)
-> HANDLE_IOCTL(SIOCGIWESSID, do_wireless_ioctl)
-> HANDLE_IOCTL(SIOCSIWNICKN, do_wireless_ioctl)
-> HANDLE_IOCTL(SIOCGIWNICKN, do_wireless_ioctl)
-> HANDLE_IOCTL(SIOCSIWENCODE, do_wireless_ioctl)
-> HANDLE_IOCTL(SIOCGIWENCODE, do_wireless_ioctl)
-> 
-> What about SIOCSIWSCAN, SIOCSIWENCODEEXT, SIOCGIWENCODEEXT
-> and some others that also use iw_point?
+> What is the current branch name?  I'd like to pull whatever
+> you have into my net-2.6.22 tree.
 
-	Ok, please check the patch attached. I don't have a box to
-test that on, and on my 32 bit kernel it is not even compiled, but I
-believe I got everything all right.
-	Please push that to the usual channels...
+Please pull from "net-2.6.22-20070307-FOR_DAVEM-20070307" branch at
+	<git://git.linux-ipv6.org/gitroot/yoshfuji/linux-2.6-dev.git>.
 
-> Greetings Michael.
+Thank you.
 
-	Thanks again,
-
-	Jean
-
-Signed-off-by: Jean Tourrilhes <jt@hpl.hp.com>
-
-------------------------------------------------------------------
-
-diff -u -p linux/fs/compat_ioctl.j1.c  linux/fs/compat_ioctl.c
---- linux/fs/compat_ioctl.j1.c	2007-03-06 17:49:33.000000000 -0800
-+++ linux/fs/compat_ioctl.c	2007-03-06 17:56:19.000000000 -0800
-@@ -2553,11 +2553,15 @@ HANDLE_IOCTL(I2C_RDWR, do_i2c_rdwr_ioctl
- HANDLE_IOCTL(I2C_SMBUS, do_i2c_smbus_ioctl)
- /* wireless */
- HANDLE_IOCTL(SIOCGIWRANGE, do_wireless_ioctl)
-+HANDLE_IOCTL(SIOCGIWPRIV, do_wireless_ioctl)
-+HANDLE_IOCTL(SIOCGIWSTATS, do_wireless_ioctl)
- HANDLE_IOCTL(SIOCSIWSPY, do_wireless_ioctl)
- HANDLE_IOCTL(SIOCGIWSPY, do_wireless_ioctl)
- HANDLE_IOCTL(SIOCSIWTHRSPY, do_wireless_ioctl)
- HANDLE_IOCTL(SIOCGIWTHRSPY, do_wireless_ioctl)
-+HANDLE_IOCTL(SIOCSIWMLME, do_wireless_ioctl)
- HANDLE_IOCTL(SIOCGIWAPLIST, do_wireless_ioctl)
-+HANDLE_IOCTL(SIOCSIWSCAN, do_wireless_ioctl)
- HANDLE_IOCTL(SIOCGIWSCAN, do_wireless_ioctl)
- HANDLE_IOCTL(SIOCSIWESSID, do_wireless_ioctl)
- HANDLE_IOCTL(SIOCGIWESSID, do_wireless_ioctl)
-@@ -2565,6 +2569,11 @@ HANDLE_IOCTL(SIOCSIWNICKN, do_wireless_i
- HANDLE_IOCTL(SIOCGIWNICKN, do_wireless_ioctl)
- HANDLE_IOCTL(SIOCSIWENCODE, do_wireless_ioctl)
- HANDLE_IOCTL(SIOCGIWENCODE, do_wireless_ioctl)
-+HANDLE_IOCTL(SIOCSIWGENIE, do_wireless_ioctl)
-+HANDLE_IOCTL(SIOCGIWGENIE, do_wireless_ioctl)
-+HANDLE_IOCTL(SIOCSIWENCODEEXT, do_wireless_ioctl)
-+HANDLE_IOCTL(SIOCGIWENCODEEXT, do_wireless_ioctl)
-+HANDLE_IOCTL(SIOCSIWPMKSA, do_wireless_ioctl)
- HANDLE_IOCTL(SIOCSIFBR, old_bridge_ioctl)
- HANDLE_IOCTL(SIOCGIFBR, old_bridge_ioctl)
- HANDLE_IOCTL(RTC_IRQP_READ32, rtc_ioctl)
+-- 
+YOSHIFUJI Hideaki @ USAGI Project  <yoshfuji@linux-ipv6.org>
+GPG-FP  : 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
