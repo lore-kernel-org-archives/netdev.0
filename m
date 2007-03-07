@@ -1,86 +1,91 @@
-From: "Andy Gospodarek" <gospo@redhat.com>
-Subject: Re: [Bonding-devel] [PATCH 3/3] bonding: Improve IGMP join processing
-Date: Tue, 6 Mar 2007 20:50:13 -0500
-Message-ID: <20070307015012.GA4783@core2.greyhouse.net>
-References: <OF686AF962.8A54116E-ON88257296.007AF408-88257296.007BC448@us.ibm.com> <11176.1173222941@death>
+From: Jean Tourrilhes <jt@hpl.hp.com>
+Subject: Re: wireless extensions vs. 64-bit architectures
+Date: Tue, 6 Mar 2007 18:03:10 -0800
+Message-ID: <20070307020310.GA20466@bougret.hpl.hp.com>
+References: <1173144447.15891.93.camel@johannes.berg> <20070306171316.GA19669@bougret.hpl.hp.com> <200703061943.07350.mb@bu3sch.de>
+Reply-To: jt@hpl.hp.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Stevens <dlstevens@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org,
-	Brian Haley <brian.haley@hp.com>,
-	bonding-devel@lists.sourceforge.net, netdev-owner@vger.kernel.org
-To: Jay Vosburgh <fubar@us.ibm.com>
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+	linux-wireless@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+	Jeff Garzik <jgarzik@pobox.com>,
+	Dan Williams <dcbw@redhat.com>,
+	Jouni Malinen <jkm@devicescape.com>
+To: Michael Buesch <mb@bu3sch.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:51658 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1161198AbXCGBtI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Mar 2007 20:49:08 -0500
+Received: from gundega.hpl.hp.com ([192.6.19.190]:59328 "EHLO
+	gundega.hpl.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161211AbXCGCDp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2007 21:03:45 -0500
 Content-Disposition: inline
-In-Reply-To: <11176.1173222941@death>
+In-Reply-To: <200703061943.07350.mb@bu3sch.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 06, 2007 at 03:15:41PM -0800, Jay Vosburgh wrote:
+On Tue, Mar 06, 2007 at 07:43:06PM +0100, Michael Buesch wrote:
 > 
-> David Stevens <dlstevens@us.ibm.com> wrote:
+> Ok, it is wrapping the following ioctls:
 > 
-> >It looks to me like "rejoin" is essentially ip_mc_up(), and it'd be better
-> >to call that than add a nearly identical function.
+> HANDLE_IOCTL(SIOCGIWRANGE, do_wireless_ioctl)
+> HANDLE_IOCTL(SIOCSIWSPY, do_wireless_ioctl)
+> HANDLE_IOCTL(SIOCGIWSPY, do_wireless_ioctl)
+> HANDLE_IOCTL(SIOCSIWTHRSPY, do_wireless_ioctl)
+> HANDLE_IOCTL(SIOCGIWTHRSPY, do_wireless_ioctl)
+> HANDLE_IOCTL(SIOCGIWAPLIST, do_wireless_ioctl)
+> HANDLE_IOCTL(SIOCGIWSCAN, do_wireless_ioctl)
+> HANDLE_IOCTL(SIOCSIWESSID, do_wireless_ioctl)
+> HANDLE_IOCTL(SIOCGIWESSID, do_wireless_ioctl)
+> HANDLE_IOCTL(SIOCSIWNICKN, do_wireless_ioctl)
+> HANDLE_IOCTL(SIOCGIWNICKN, do_wireless_ioctl)
+> HANDLE_IOCTL(SIOCSIWENCODE, do_wireless_ioctl)
+> HANDLE_IOCTL(SIOCGIWENCODE, do_wireless_ioctl)
 > 
-> 	Won't ip_mc_up() acquire an additional reference (via
-> ip_mc_inc_group) to the IGMP_ALL_HOSTS im->users that would never be
-> released (in the case of bonding calling the function out of the blue)?
-> 
-> 	In looking at it, the ip_mc_rejoin_group function (the new one
-> added with the patch) is a lot more like igmp_group_added() than
-> ip_mc_up().  I'm not sure if the extra bits in igmp_group_added() are
-> worthy of concern; I'm thinking not, since im->loaded shouldn't be zero
-> coming in for the bonding case.
-> 
-> 	I think the meat that the "rejoin" wants is what's in
-> igmpv3_send_cr(), which appears to do the actual sending stuff.  I'm not
-> sure if that's better to call directly (and risk locking adventures) or
-> to just trip the timer via igmp_ifc_event().
-> 
-> 	Anyway, it looks like all of this needs to be done under RTNL,
-> which isn't the case, so I need to go off and look into reworking it
-> again.
-> 
-> 	Andy: do you have any work in progress on the sleep / rtnl stuff
-> we've been discussing?
+> What about SIOCSIWSCAN, SIOCSIWENCODEEXT, SIOCGIWENCODEEXT
+> and some others that also use iw_point?
 
-Jay, 
+	Ok, please check the patch attached. I don't have a box to
+test that on, and on my 32 bit kernel it is not even compiled, but I
+believe I got everything all right.
+	Please push that to the usual channels...
 
-I do, but unfortunately it's much closer to the code I'd proposed
-originally than the code you sent me.  The more I audited your code, the
-more I like the design -- until I discovered that every time you pause
-the timers you need to flush the workqueue.  This is bad since you are
-regularly stopping the timers in places where the rtnl lock is taken
-and the currently running work item may need to that lock to complete.
-With a small enough monitor interval I could deadlock pretty quickly.
-Without the benefit of the full stop, I couldn't justify the major
-conversion just yet (plus is feels like keeping a list of the timers is
-re-implementing what workqueues are designed to do for you).
+> Greetings Michael.
 
-I've got a patch that seems decent so far, but its really just at
-timer->workqueue conversion with some bits thrown in correctly stop the
-queues when taking the interface down or when removing the module.
+	Thanks again,
 
-> >Also, real interfaces already do gratuitous IGMP advertisements when
-> >they are bounced (the reason there is an ip_mc_up()). Could bonding,
-> >when failing over, simply mark the master interface as down, switch, and
-> >then mark the master as up again? In addition to doing the right
-> >thing for both IPv4 and IPv6 multicasting w/o any code changes in those
-> >layers, it may have similar benefits for ARP and neighbor discovery, 
-> >right?
-> 
-> 	Marking the master down would, I believe, issue notifiers that
-> the device has gone down.  Various things, network manager sort of
-> applications in particular, listen to those, so I'm not sure it's a good
-> idea.  I think there are other side effects as well, I'm thinking it
-> would flush routes associated with the interface as well.
+	Jean
 
-I agree with Jay here.  I hate that bonding has to have so much
-knowledge about upper layer protocols, but for the ones that are
-stateful like IGMP we will need fixes like the one proposed.
+Signed-off-by: Jean Tourrilhes <jt@hpl.hp.com>
 
+------------------------------------------------------------------
+
+diff -u -p linux/fs/compat_ioctl.j1.c  linux/fs/compat_ioctl.c
+--- linux/fs/compat_ioctl.j1.c	2007-03-06 17:49:33.000000000 -0800
++++ linux/fs/compat_ioctl.c	2007-03-06 17:56:19.000000000 -0800
+@@ -2553,11 +2553,15 @@ HANDLE_IOCTL(I2C_RDWR, do_i2c_rdwr_ioctl
+ HANDLE_IOCTL(I2C_SMBUS, do_i2c_smbus_ioctl)
+ /* wireless */
+ HANDLE_IOCTL(SIOCGIWRANGE, do_wireless_ioctl)
++HANDLE_IOCTL(SIOCGIWPRIV, do_wireless_ioctl)
++HANDLE_IOCTL(SIOCGIWSTATS, do_wireless_ioctl)
+ HANDLE_IOCTL(SIOCSIWSPY, do_wireless_ioctl)
+ HANDLE_IOCTL(SIOCGIWSPY, do_wireless_ioctl)
+ HANDLE_IOCTL(SIOCSIWTHRSPY, do_wireless_ioctl)
+ HANDLE_IOCTL(SIOCGIWTHRSPY, do_wireless_ioctl)
++HANDLE_IOCTL(SIOCSIWMLME, do_wireless_ioctl)
+ HANDLE_IOCTL(SIOCGIWAPLIST, do_wireless_ioctl)
++HANDLE_IOCTL(SIOCSIWSCAN, do_wireless_ioctl)
+ HANDLE_IOCTL(SIOCGIWSCAN, do_wireless_ioctl)
+ HANDLE_IOCTL(SIOCSIWESSID, do_wireless_ioctl)
+ HANDLE_IOCTL(SIOCGIWESSID, do_wireless_ioctl)
+@@ -2565,6 +2569,11 @@ HANDLE_IOCTL(SIOCSIWNICKN, do_wireless_i
+ HANDLE_IOCTL(SIOCGIWNICKN, do_wireless_ioctl)
+ HANDLE_IOCTL(SIOCSIWENCODE, do_wireless_ioctl)
+ HANDLE_IOCTL(SIOCGIWENCODE, do_wireless_ioctl)
++HANDLE_IOCTL(SIOCSIWGENIE, do_wireless_ioctl)
++HANDLE_IOCTL(SIOCGIWGENIE, do_wireless_ioctl)
++HANDLE_IOCTL(SIOCSIWENCODEEXT, do_wireless_ioctl)
++HANDLE_IOCTL(SIOCGIWENCODEEXT, do_wireless_ioctl)
++HANDLE_IOCTL(SIOCSIWPMKSA, do_wireless_ioctl)
+ HANDLE_IOCTL(SIOCSIFBR, old_bridge_ioctl)
+ HANDLE_IOCTL(SIOCGIFBR, old_bridge_ioctl)
+ HANDLE_IOCTL(RTC_IRQP_READ32, rtc_ioctl)
