@@ -1,583 +1,492 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: [NET]: Use {htons,htonl,cpu_to_le16}() where appropriate.
-Date: Wed, 07 Mar 2007 14:58:07 +0900 (JST)
-Message-ID: <20070307.145807.117077720.yoshfuji@linux-ipv6.org>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Update to cube root benchmark code
+Date: Wed, 7 Mar 2007 07:08:38 +0100
+Message-ID: <20070307060838.GI943@1wt.eu>
+References: <20070306144529.GA2004@one.firstfloor.org> <84C47260-4B57-4568-8197-58F438A6F737@e18.physik.tu-muenchen.de> <20070306102941.32471d57@freekitty> <20070306.135834.26100913.davem@davemloft.net> <20070306144706.4585c079@freekitty> <20070306145842.7d7fea84@freekitty>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	rkuhn@e18.physik.tu-muenchen.de, andi@firstfloor.org,
+	dada1@cosmosbay.com, jengelh@linux01.gwdg.de,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:34385 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751240AbXCGF5p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Mar 2007 00:57:45 -0500
+Received: from 1wt.eu ([62.212.114.60]:4982 "EHLO 1wt.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932215AbXCGGNs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Mar 2007 01:13:48 -0500
+Content-Disposition: inline
+In-Reply-To: <20070306145842.7d7fea84@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dave,
+Hi Stephen,
 
-Please consider pulling following changesets from the
-"net-2.6.22-20070307a-byteorder-20070307" branch at
-<git://git.linux-ipv6.org/gitroot/yoshfuji/linux-2.6-dev.git>.
+Thanks for this code, it's easy to experiment with it.
+Let me propose this simple update with a variation on your ncubic() function.
+I noticed that all intermediate results were far below 32 bits, so I did a
+new version which is 30% faster on my athlon with the same results. This is
+because we only use x and a/x^2 in the function, with x very close to cbrt(a).
+So a/x^2 is very close to cbrt(a) which is at most 22 bits. So we only use
+the 32 lower bits of the result of div64_64(), and all intermediate
+computations can be done on 32 bits (including multiplies and divides).
 
-Thank you.
+willy@pcw:~$ ./bictcp 
+Calibrating
+Function     clocks  mean(us) max(us)  std(us)  Avg error
+bictcp         1085     0.70    28.19     2.30 0.172%
+ocubic          869     0.56    22.76     1.23 0.274%
+ncubic          637     0.41    16.29     1.41 0.247%
+ncubic32        435     0.28    11.18     1.03 0.247%
+acbrt           824     0.53    21.03     0.85 0.275%
+hcbrt           547     0.35    13.96     0.42 1.580%
 
-HEADLINES
----------
+I also tried to improve a bit by checking for early convergence and
+returning before last divide, but it is worthless because it almost
+never happens so it does not make the code any faster.
 
-    [NET] 802: Use hton{s,l}() where appropriate.
-    [NET] 8021Q: Use htons() where appropriate.
-    [NET] ATM: Use htons() where appropriate.
-    [NET] BLUETOOTH: Use cpu_to_le16() where appropriate.
-    [NET] CORE: Use htons() where appropriate.
-    [NET] ETHERNET: Use htons() where appropriate.
-    [NET] IEEE80211: Use htons() where appropriate.
-    [NET] IPV4: Use hton{s,l}() where appropriate.
-    [NET] NETFILTER: Use htonl() where appropriate.
-    [NET] SCHED: Use htons() where appropriate.
-    [NET] TIPC: Use htons() where appropriate.
+Here's the code. I think that it would be fine if we merged this
+version since it's supposed to behave better on most 32 bits machines.
 
-DIFFSTAT
---------
+Best regards,
+Willy
 
- net/802/fddi.c                              |    4 ++--
- net/802/hippi.c                             |    4 ++--
- net/8021q/vlan_dev.c                        |    6 +++---
- net/atm/br2684.c                            |    4 ++--
- net/bluetooth/hci_conn.c                    |   18 +++++++++---------
- net/core/netpoll.c                          |    2 +-
- net/ethernet/eth.c                          |    2 +-
- net/ieee80211/ieee80211_tx.c                |    2 +-
- net/ipv4/ipvs/ip_vs_core.c                  |   10 +++++-----
- net/ipv4/ipvs/ip_vs_proto_ah.c              |   16 ++++++++--------
- net/ipv4/ipvs/ip_vs_xmit.c                  |   16 ++++++++--------
- net/ipv4/netfilter/ip_conntrack_proto_tcp.c |    9 ++++-----
- net/netfilter/nf_conntrack_proto_tcp.c      |    9 ++++-----
- net/sched/cls_rsvp.h                        |    2 +-
- net/sched/sch_api.c                         |    2 +-
- net/tipc/eth_media.c                        |    2 +-
- 16 files changed, 53 insertions(+), 55 deletions(-)
+/*
+Here is a better version of the benchmark code.
+It has the original code used in 2.4 version of Cubic for comparison
 
-CHANGESETS
-----------
+-----------------------------------------------------------
+*/
+/* Test and measure perf of cube root algorithms.  */
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdint.h>
+#include <math.h>
+#include <unistd.h>
 
-commit 2893c534ffba19c31c0321f8221eaf844306e951
-Author: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Date:   Wed Mar 7 14:18:33 2007 +0900
+#ifdef __x86_64
 
-    [NET] 802: Use hton{s,l}() where appropriate.
-    
-    Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+#define rdtscll(val) do { \
+     unsigned int __a,__d; \
+     asm volatile("rdtsc" : "=a" (__a), "=d" (__d)); \
+     (val) = ((unsigned long)__a) | (((unsigned long)__d)<<32); \
+} while(0)
 
-diff --git a/net/802/fddi.c b/net/802/fddi.c
-index ace6386..8c86216 100644
---- a/net/802/fddi.c
-+++ b/net/802/fddi.c
-@@ -100,7 +100,7 @@ static int fddi_rebuild_header(struct sk_buff	*skb)
- 	struct fddihdr *fddi = (struct fddihdr *)skb->data;
- 
- #ifdef CONFIG_INET
--	if (fddi->hdr.llc_snap.ethertype == __constant_htons(ETH_P_IP))
-+	if (fddi->hdr.llc_snap.ethertype == htons(ETH_P_IP))
- 		/* Try to get ARP to resolve the header and fill destination address */
- 		return arp_find(fddi->daddr, skb);
- 	else
-@@ -135,7 +135,7 @@ __be16 fddi_type_trans(struct sk_buff *skb, struct net_device *dev)
- 	if(fddi->hdr.llc_8022_1.dsap==0xe0)
- 	{
- 		skb_pull(skb, FDDI_K_8022_HLEN-3);
--		type = __constant_htons(ETH_P_802_2);
-+		type = htons(ETH_P_802_2);
- 	}
- 	else
- 	{
-diff --git a/net/802/hippi.c b/net/802/hippi.c
-index 578f2a3..35dd938 100644
---- a/net/802/hippi.c
-+++ b/net/802/hippi.c
-@@ -60,7 +60,7 @@ static int hippi_header(struct sk_buff *skb, struct net_device *dev,
- 	 * Due to the stupidity of the little endian byte-order we
- 	 * have to set the fp field this way.
- 	 */
--	hip->fp.fixed		= __constant_htonl(0x04800018);
-+	hip->fp.fixed		= htonl(0x04800018);
- 	hip->fp.d2_size		= htonl(len + 8);
- 	hip->le.fc		= 0;
- 	hip->le.double_wide	= 0;	/* only HIPPI 800 for the time being */
-@@ -104,7 +104,7 @@ static int hippi_rebuild_header(struct sk_buff *skb)
- 	 * Only IP is currently supported
- 	 */
- 
--	if(hip->snap.ethertype != __constant_htons(ETH_P_IP))
-+	if(hip->snap.ethertype != htons(ETH_P_IP))
- 	{
- 		printk(KERN_DEBUG "%s: unable to resolve type %X addresses.\n",skb->dev->name,ntohs(hip->snap.ethertype));
- 		return 0;
+# define do_div(n,base) ({					\
+	uint32_t __base = (base);				\
+	uint32_t __rem;						\
+	__rem = ((uint64_t)(n)) % __base;			\
+	(n) = ((uint64_t)(n)) / __base;				\
+	__rem;							\
+ })
 
----
-commit 60e71cd6525fdf2b35c71158bb5441a252e62a0e
-Author: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Date:   Wed Mar 7 14:18:35 2007 +0900
 
-    [NET] 8021Q: Use htons() where appropriate.
-    
-    Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+/**
+ * __ffs - find first bit in word.
+ * @word: The word to search
+ *
+ * Undefined if no bit exists, so code should check against 0 first.
+ */
+static __inline__ unsigned long __ffs(unsigned long word)
+{
+	__asm__("bsfq %1,%0"
+		:"=r" (word)
+		:"rm" (word));
+	return word;
+}
 
-diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-index 2fc8fe2..e961d59 100644
---- a/net/8021q/vlan_dev.c
-+++ b/net/8021q/vlan_dev.c
-@@ -258,7 +258,7 @@ int vlan_skb_recv(struct sk_buff *skb, struct net_device *dev,
- 	 * won't work for fault tolerant netware but does for the rest.
- 	 */
- 	if (*(unsigned short *)rawp == 0xFFFF) {
--		skb->protocol = __constant_htons(ETH_P_802_3);
-+		skb->protocol = htons(ETH_P_802_3);
- 		/* place it back on the queue to be handled by true layer 3 protocols.
- 		 */
- 
-@@ -281,7 +281,7 @@ int vlan_skb_recv(struct sk_buff *skb, struct net_device *dev,
- 	/*
- 	 *	Real 802.2 LLC
- 	 */
--	skb->protocol = __constant_htons(ETH_P_802_2);
-+	skb->protocol = htons(ETH_P_802_2);
- 	/* place it back on the queue to be handled by upper layer protocols.
- 	 */
- 
-@@ -445,7 +445,7 @@ int vlan_dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	 * OTHER THINGS LIKE FDDI/TokenRing/802.3 SNAPs...
- 	 */
- 
--	if (veth->h_vlan_proto != __constant_htons(ETH_P_8021Q)) {
-+	if (veth->h_vlan_proto != htons(ETH_P_8021Q)) {
- 		int orig_headroom = skb_headroom(skb);
- 		unsigned short veth_TCI;
- 
+/*
+ * __fls: find last bit set.
+ * @word: The word to search
+ *
+ * Undefined if no zero exists, so code should check against ~0UL first.
+ */
+static inline unsigned long __fls(unsigned long word)
+{
+	__asm__("bsrq %1,%0"
+		:"=r" (word)
+		:"rm" (word));
+	return word;
+}
 
----
-commit c3f00ba0544698b83892b5a66f2f47937f7fd861
-Author: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Date:   Wed Mar 7 14:18:40 2007 +0900
+/**
+ * ffs - find first bit set
+ * @x: the word to search
+ *
+ * This is defined the same way as
+ * the libc and compiler builtin ffs routines, therefore
+ * differs in spirit from the above ffz (man ffs).
+ */
+static __inline__ int ffs(int x)
+{
+	int r;
 
-    [NET] ATM: Use htons() where appropriate.
-    
-    Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+	__asm__("bsfl %1,%0\n\t"
+		"cmovzl %2,%0" 
+		: "=r" (r) : "rm" (x), "r" (-1));
+	return r+1;
+}
 
-diff --git a/net/atm/br2684.c b/net/atm/br2684.c
-index ec4ebd3..c444f5e 100644
---- a/net/atm/br2684.c
-+++ b/net/atm/br2684.c
-@@ -375,11 +375,11 @@ packet_fails_filter(__be16 type, struct br2684_vcc *brvcc, struct sk_buff *skb)
- {
- 	if (brvcc->filter.netmask == 0)
- 		return 0;			/* no filter in place */
--	if (type == __constant_htons(ETH_P_IP) &&
-+	if (type == htons(ETH_P_IP) &&
- 	    (((struct iphdr *) (skb->data))->daddr & brvcc->filter.
- 	     netmask) == brvcc->filter.prefix)
- 		return 0;
--	if (type == __constant_htons(ETH_P_ARP))
-+	if (type == htons(ETH_P_ARP))
- 		return 0;
- 	/* TODO: we should probably filter ARPs too.. don't want to have
- 	 *   them returning values that don't make sense, or is that ok?
+/**
+ * fls - find last bit set
+ * @x: the word to search
+ *
+ * This is defined the same way as ffs.
+ */
+static inline int fls(int x)
+{
+	int r;
 
----
-commit 8770fa820e63c25efa4ed81c94f1dd3c0b9e4012
-Author: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Date:   Wed Mar 7 14:18:46 2007 +0900
+	__asm__("bsrl %1,%0\n\t"
+		"cmovzl %2,%0"
+		: "=&r" (r) : "rm" (x), "rm" (-1));
+	return r+1;
+}
 
-    [NET] BLUETOOTH: Use cpu_to_le16() where appropriate.
-    
-    Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+/**
+ * fls64 - find last bit set in 64 bit word
+ * @x: the word to search
+ *
+ * This is defined the same way as fls.
+ */
+static inline int fls64(uint64_t x)
+{
+	if (x == 0)
+		return 0;
+	return __fls(x) + 1;
+}
 
-diff --git a/net/bluetooth/hci_conn.c b/net/bluetooth/hci_conn.c
-index f3403fd..b3cb9b6 100644
---- a/net/bluetooth/hci_conn.c
-+++ b/net/bluetooth/hci_conn.c
-@@ -452,21 +452,21 @@ void hci_conn_enter_sniff_mode(struct hci_conn *conn)
- 
- 	if (lmp_sniffsubr_capable(hdev) && lmp_sniffsubr_capable(conn)) {
- 		struct hci_cp_sniff_subrate cp;
--		cp.handle             = __cpu_to_le16(conn->handle);
--		cp.max_latency        = __constant_cpu_to_le16(0);
--		cp.min_remote_timeout = __constant_cpu_to_le16(0);
--		cp.min_local_timeout  = __constant_cpu_to_le16(0);
-+		cp.handle             = cpu_to_le16(conn->handle);
-+		cp.max_latency        = cpu_to_le16(0);
-+		cp.min_remote_timeout = cpu_to_le16(0);
-+		cp.min_local_timeout  = cpu_to_le16(0);
- 		hci_send_cmd(hdev, OGF_LINK_POLICY,
- 				OCF_SNIFF_SUBRATE, sizeof(cp), &cp);
- 	}
- 
- 	if (!test_and_set_bit(HCI_CONN_MODE_CHANGE_PEND, &conn->pend)) {
- 		struct hci_cp_sniff_mode cp;
--		cp.handle       = __cpu_to_le16(conn->handle);
--		cp.max_interval = __cpu_to_le16(hdev->sniff_max_interval);
--		cp.min_interval = __cpu_to_le16(hdev->sniff_min_interval);
--		cp.attempt      = __constant_cpu_to_le16(4);
--		cp.timeout      = __constant_cpu_to_le16(1);
-+		cp.handle       = cpu_to_le16(conn->handle);
-+		cp.max_interval = cpu_to_le16(hdev->sniff_max_interval);
-+		cp.min_interval = cpu_to_le16(hdev->sniff_min_interval);
-+		cp.attempt      = cpu_to_le16(4);
-+		cp.timeout      = cpu_to_le16(1);
- 		hci_send_cmd(hdev, OGF_LINK_POLICY,
- 				OCF_SNIFF_MODE, sizeof(cp), &cp);
- 	}
+static inline uint64_t div64_64(uint64_t dividend, uint64_t divisor)
+{
+	return dividend / divisor;
+}
 
----
-commit 5b7a496edad3eaab8ad5cdd92417f2ed313f534e
-Author: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Date:   Wed Mar 7 14:18:52 2007 +0900
+#elif __i386
 
-    [NET] CORE: Use htons() where appropriate.
-    
-    Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+#define rdtscll(val) \
+     __asm__ __volatile__("rdtsc" : "=A" (val))
 
-diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-index da10194..4b22c4b 100644
---- a/net/core/netpoll.c
-+++ b/net/core/netpoll.c
-@@ -443,7 +443,7 @@ int __netpoll_rx(struct sk_buff *skb)
- 		goto out;
- 
- 	/* check if netpoll clients need ARP */
--	if (skb->protocol == __constant_htons(ETH_P_ARP) &&
-+	if (skb->protocol == htons(ETH_P_ARP) &&
- 	    atomic_read(&trapped)) {
- 		skb_queue_tail(&npi->arp_tx, skb);
- 		return 1;
+/**
+ * ffs - find first bit set
+ * @x: the word to search
+ *
+ * This is defined the same way as
+ * the libc and compiler builtin ffs routines, therefore
+ * differs in spirit from the above ffz() (man ffs).
+ */
+static inline int ffs(int x)
+{
+	int r;
 
----
-commit 2cf31ef94c0ded8a34a31df412135800ac9a144e
-Author: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Date:   Wed Mar 7 14:19:03 2007 +0900
+	__asm__("bsfl %1,%0\n\t"
+		"jnz 1f\n\t"
+		"movl $-1,%0\n"
+		"1:" : "=r" (r) : "rm" (x));
+	return r+1;
+}
 
-    [NET] ETHERNET: Use htons() where appropriate.
-    
-    Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+/**
+ * fls - find last bit set
+ * @x: the word to search
+ *
+ * This is defined the same way as ffs().
+ */
+static inline int fls(int x)
+{
+	int r;
 
-diff --git a/net/ethernet/eth.c b/net/ethernet/eth.c
-index 7391f55..41c5065 100644
---- a/net/ethernet/eth.c
-+++ b/net/ethernet/eth.c
-@@ -228,7 +228,7 @@ int eth_header_cache(struct neighbour *neigh, struct hh_cache *hh)
- 	eth = (struct ethhdr *)
- 	    (((u8 *) hh->hh_data) + (HH_DATA_OFF(sizeof(*eth))));
- 
--	if (type == __constant_htons(ETH_P_802_3))
-+	if (type == htons(ETH_P_802_3))
- 		return -1;
- 
- 	eth->h_proto = type;
+	__asm__("bsrl %1,%0\n\t"
+		"jnz 1f\n\t"
+		"movl $-1,%0\n"
+		"1:" : "=r" (r) : "rm" (x));
+	return r+1;
+}
 
----
-commit 383bf0f5ab9e4f34c61c16a2d2026251553a09ac
-Author: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Date:   Wed Mar 7 14:19:05 2007 +0900
+static inline int fls64(uint64_t x)
+{
+	uint32_t h = x >> 32;
+	if (h)
+		return fls(h) + 32;
+	return fls(x);
+}
 
-    [NET] IEEE80211: Use htons() where appropriate.
-    
-    Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 
-diff --git a/net/ieee80211/ieee80211_tx.c b/net/ieee80211/ieee80211_tx.c
-index 0292d63..3fca434 100644
---- a/net/ieee80211/ieee80211_tx.c
-+++ b/net/ieee80211/ieee80211_tx.c
-@@ -225,7 +225,7 @@ static int ieee80211_classify(struct sk_buff *skb)
- 	struct iphdr *ip;
- 
- 	eth = (struct ethhdr *)skb->data;
--	if (eth->h_proto != __constant_htons(ETH_P_IP))
-+	if (eth->h_proto != htons(ETH_P_IP))
- 		return 0;
- 
- 	ip = skb->nh.iph;
+#define do_div(n,base) ({ \
+	unsigned long __upper, __low, __high, __mod, __base; \
+	__base = (base); \
+	asm("":"=a" (__low), "=d" (__high):"A" (n)); \
+	__upper = __high; \
+	if (__high) { \
+		__upper = __high % (__base); \
+		__high = __high / (__base); \
+	} \
+	asm("divl %2":"=a" (__low), "=d" (__mod):"rm" (__base), "0" (__low), "1" (__upper)); \
+	asm("":"=A" (n):"a" (__low),"d" (__high)); \
+	__mod; \
+})
 
----
-commit b6f37ee32bf6fa670330e35e642f03960eb76251
-Author: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Date:   Wed Mar 7 14:19:10 2007 +0900
 
-    [NET] IPV4: Use hton{s,l}() where appropriate.
-    
-    Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+/* 64bit divisor, dividend and result. dynamic precision */
+static uint64_t div64_64(uint64_t dividend, uint64_t divisor)
+{
+	uint32_t d = divisor;
 
-diff --git a/net/ipv4/ipvs/ip_vs_core.c b/net/ipv4/ipvs/ip_vs_core.c
-index 24d7b66..858686d 100644
---- a/net/ipv4/ipvs/ip_vs_core.c
-+++ b/net/ipv4/ipvs/ip_vs_core.c
-@@ -617,7 +617,7 @@ static int ip_vs_out_icmp(struct sk_buff **pskb, int *related)
- 	*related = 1;
- 
- 	/* reassemble IP fragments */
--	if (skb->nh.iph->frag_off & __constant_htons(IP_MF|IP_OFFSET)) {
-+	if (skb->nh.iph->frag_off & htons(IP_MF|IP_OFFSET)) {
- 		skb = ip_vs_gather_frags(skb, IP_DEFRAG_VS_OUT);
- 		if (!skb)
- 			return NF_STOLEN;
-@@ -659,7 +659,7 @@ static int ip_vs_out_icmp(struct sk_buff **pskb, int *related)
- 		return NF_ACCEPT;
- 
- 	/* Is the embedded protocol header present? */
--	if (unlikely(cih->frag_off & __constant_htons(IP_OFFSET) &&
-+	if (unlikely(cih->frag_off & htons(IP_OFFSET) &&
- 		     pp->dont_defrag))
- 		return NF_ACCEPT;
- 
-@@ -755,7 +755,7 @@ ip_vs_out(unsigned int hooknum, struct sk_buff **pskb,
- 		return NF_ACCEPT;
- 
- 	/* reassemble IP fragments */
--	if (unlikely(iph->frag_off & __constant_htons(IP_MF|IP_OFFSET) &&
-+	if (unlikely(iph->frag_off & htons(IP_MF|IP_OFFSET) &&
- 		     !pp->dont_defrag)) {
- 		skb = ip_vs_gather_frags(skb, IP_DEFRAG_VS_OUT);
- 		if (!skb)
-@@ -861,7 +861,7 @@ ip_vs_in_icmp(struct sk_buff **pskb, int *related, unsigned int hooknum)
- 	*related = 1;
- 
- 	/* reassemble IP fragments */
--	if (skb->nh.iph->frag_off & __constant_htons(IP_MF|IP_OFFSET)) {
-+	if (skb->nh.iph->frag_off & htons(IP_MF|IP_OFFSET)) {
- 		skb = ip_vs_gather_frags(skb,
- 					 hooknum == NF_IP_LOCAL_IN ?
- 					 IP_DEFRAG_VS_IN : IP_DEFRAG_VS_FWD);
-@@ -905,7 +905,7 @@ ip_vs_in_icmp(struct sk_buff **pskb, int *related, unsigned int hooknum)
- 		return NF_ACCEPT;
- 
- 	/* Is the embedded protocol header present? */
--	if (unlikely(cih->frag_off & __constant_htons(IP_OFFSET) &&
-+	if (unlikely(cih->frag_off & htons(IP_OFFSET) &&
- 		     pp->dont_defrag))
- 		return NF_ACCEPT;
- 
-diff --git a/net/ipv4/ipvs/ip_vs_proto_ah.c b/net/ipv4/ipvs/ip_vs_proto_ah.c
-index 8b0505b..a842676 100644
---- a/net/ipv4/ipvs/ip_vs_proto_ah.c
-+++ b/net/ipv4/ipvs/ip_vs_proto_ah.c
-@@ -52,15 +52,15 @@ ah_conn_in_get(const struct sk_buff *skb,
- 	if (likely(!inverse)) {
- 		cp = ip_vs_conn_in_get(IPPROTO_UDP,
- 				       iph->saddr,
--				       __constant_htons(PORT_ISAKMP),
-+				       htons(PORT_ISAKMP),
- 				       iph->daddr,
--				       __constant_htons(PORT_ISAKMP));
-+				       htons(PORT_ISAKMP));
- 	} else {
- 		cp = ip_vs_conn_in_get(IPPROTO_UDP,
- 				       iph->daddr,
--				       __constant_htons(PORT_ISAKMP),
-+				       htons(PORT_ISAKMP),
- 				       iph->saddr,
--				       __constant_htons(PORT_ISAKMP));
-+				       htons(PORT_ISAKMP));
- 	}
- 
- 	if (!cp) {
-@@ -89,15 +89,15 @@ ah_conn_out_get(const struct sk_buff *skb, struct ip_vs_protocol *pp,
- 	if (likely(!inverse)) {
- 		cp = ip_vs_conn_out_get(IPPROTO_UDP,
- 					iph->saddr,
--					__constant_htons(PORT_ISAKMP),
-+					htons(PORT_ISAKMP),
- 					iph->daddr,
--					__constant_htons(PORT_ISAKMP));
-+					htons(PORT_ISAKMP));
- 	} else {
- 		cp = ip_vs_conn_out_get(IPPROTO_UDP,
- 					iph->daddr,
--					__constant_htons(PORT_ISAKMP),
-+					htons(PORT_ISAKMP),
- 					iph->saddr,
--					__constant_htons(PORT_ISAKMP));
-+					htons(PORT_ISAKMP));
- 	}
- 
- 	if (!cp) {
-diff --git a/net/ipv4/ipvs/ip_vs_xmit.c b/net/ipv4/ipvs/ip_vs_xmit.c
-index e1f77bd..f73c5ac 100644
---- a/net/ipv4/ipvs/ip_vs_xmit.c
-+++ b/net/ipv4/ipvs/ip_vs_xmit.c
-@@ -178,7 +178,7 @@ ip_vs_bypass_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
- 
- 	/* MTU checking */
- 	mtu = dst_mtu(&rt->u.dst);
--	if ((skb->len > mtu) && (iph->frag_off&__constant_htons(IP_DF))) {
-+	if ((skb->len > mtu) && (iph->frag_off & htons(IP_DF))) {
- 		ip_rt_put(rt);
- 		icmp_send(skb, ICMP_DEST_UNREACH,ICMP_FRAG_NEEDED, htonl(mtu));
- 		IP_VS_DBG_RL("ip_vs_bypass_xmit(): frag needed\n");
-@@ -245,7 +245,7 @@ ip_vs_nat_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
- 
- 	/* MTU checking */
- 	mtu = dst_mtu(&rt->u.dst);
--	if ((skb->len > mtu) && (iph->frag_off&__constant_htons(IP_DF))) {
-+	if ((skb->len > mtu) && (iph->frag_off & htons(IP_DF))) {
- 		ip_rt_put(rt);
- 		icmp_send(skb, ICMP_DEST_UNREACH,ICMP_FRAG_NEEDED, htonl(mtu));
- 		IP_VS_DBG_RL_PKT(0, pp, skb, 0, "ip_vs_nat_xmit(): frag needed for");
-@@ -329,10 +329,10 @@ ip_vs_tunnel_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
- 
- 	EnterFunction(10);
- 
--	if (skb->protocol != __constant_htons(ETH_P_IP)) {
-+	if (skb->protocol != htons(ETH_P_IP)) {
- 		IP_VS_DBG_RL("ip_vs_tunnel_xmit(): protocol error, "
- 			     "ETH_P_IP: %d, skb protocol: %d\n",
--			     __constant_htons(ETH_P_IP), skb->protocol);
-+			     htons(ETH_P_IP), skb->protocol);
- 		goto tx_error;
- 	}
- 
-@@ -350,9 +350,9 @@ ip_vs_tunnel_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
- 	if (skb->dst)
- 		skb->dst->ops->update_pmtu(skb->dst, mtu);
- 
--	df |= (old_iph->frag_off&__constant_htons(IP_DF));
-+	df |= (old_iph->frag_off & htons(IP_DF));
- 
--	if ((old_iph->frag_off&__constant_htons(IP_DF))
-+	if ((old_iph->frag_off & htons(IP_DF))
- 	    && mtu < ntohs(old_iph->tot_len)) {
- 		icmp_send(skb, ICMP_DEST_UNREACH,ICMP_FRAG_NEEDED, htonl(mtu));
- 		ip_rt_put(rt);
-@@ -445,7 +445,7 @@ ip_vs_dr_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
- 
- 	/* MTU checking */
- 	mtu = dst_mtu(&rt->u.dst);
--	if ((iph->frag_off&__constant_htons(IP_DF)) && skb->len > mtu) {
-+	if ((iph->frag_off & htons(IP_DF)) && skb->len > mtu) {
- 		icmp_send(skb, ICMP_DEST_UNREACH,ICMP_FRAG_NEEDED, htonl(mtu));
- 		ip_rt_put(rt);
- 		IP_VS_DBG_RL("ip_vs_dr_xmit(): frag needed\n");
-@@ -519,7 +519,7 @@ ip_vs_icmp_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
- 
- 	/* MTU checking */
- 	mtu = dst_mtu(&rt->u.dst);
--	if ((skb->len > mtu) && (skb->nh.iph->frag_off&__constant_htons(IP_DF))) {
-+	if ((skb->len > mtu) && (skb->nh.iph->frag_off & htons(IP_DF))) {
- 		ip_rt_put(rt);
- 		icmp_send(skb, ICMP_DEST_UNREACH, ICMP_FRAG_NEEDED, htonl(mtu));
- 		IP_VS_DBG_RL("ip_vs_in_icmp(): frag needed\n");
-diff --git a/net/ipv4/netfilter/ip_conntrack_proto_tcp.c b/net/ipv4/netfilter/ip_conntrack_proto_tcp.c
-index 170d625..88499df 100644
---- a/net/ipv4/netfilter/ip_conntrack_proto_tcp.c
-+++ b/net/ipv4/netfilter/ip_conntrack_proto_tcp.c
-@@ -515,11 +515,10 @@ static void tcp_sack(const struct sk_buff *skb,
- 
- 	/* Fast path for timestamp-only option */
- 	if (length == TCPOLEN_TSTAMP_ALIGNED*4
--	    && *(__be32 *)ptr ==
--		__constant_htonl((TCPOPT_NOP << 24)
--				 | (TCPOPT_NOP << 16)
--				 | (TCPOPT_TIMESTAMP << 8)
--				 | TCPOLEN_TIMESTAMP))
-+	    && *(__be32 *)ptr == htonl((TCPOPT_NOP << 24)
-+				       | (TCPOPT_NOP << 16)
-+				       | (TCPOPT_TIMESTAMP << 8)
-+				       | TCPOLEN_TIMESTAMP))
- 		return;
- 
- 	while (length > 0) {
+	if (divisor > 0xffffffffULL) {
+		unsigned int shift = fls(divisor >> 32);
 
----
-commit efc9c3e5d195de1b13d52b370c370ecd74587a3a
-Author: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Date:   Wed Mar 7 14:21:00 2007 +0900
+		d = divisor >> shift;
+		dividend >>= shift;
+	}
 
-    [NET] NETFILTER: Use htonl() where appropriate.
-    
-    Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+	/* avoid 64 bit division if possible */
+	if (dividend >> 32)
+		do_div(dividend, d);
+	else
+		dividend = (uint32_t) dividend / d;
 
-diff --git a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack_proto_tcp.c
-index 069b85c..f132f75 100644
---- a/net/netfilter/nf_conntrack_proto_tcp.c
-+++ b/net/netfilter/nf_conntrack_proto_tcp.c
-@@ -470,11 +470,10 @@ static void tcp_sack(const struct sk_buff *skb, unsigned int dataoff,
- 
- 	/* Fast path for timestamp-only option */
- 	if (length == TCPOLEN_TSTAMP_ALIGNED*4
--	    && *(__be32 *)ptr ==
--		__constant_htonl((TCPOPT_NOP << 24)
--				 | (TCPOPT_NOP << 16)
--				 | (TCPOPT_TIMESTAMP << 8)
--				 | TCPOLEN_TIMESTAMP))
-+	    && *(__be32 *)ptr == htonl((TCPOPT_NOP << 24)
-+				       | (TCPOPT_NOP << 16)
-+				       | (TCPOPT_TIMESTAMP << 8)
-+				       | TCPOLEN_TIMESTAMP))
- 		return;
- 
- 	while (length > 0) {
+	return dividend;
+}
+#endif
 
----
-commit 6cc0f74b64a80bc14627112e31cc594e818abb68
-Author: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Date:   Wed Mar 7 14:21:20 2007 +0900
+/* Andi Kleen's version */
+uint32_t acbrt(uint64_t x)
+{
+	uint32_t y = 0;
+	int s;
 
-    [NET] SCHED: Use htons() where appropriate.
-    
-    Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+	for (s = 63; s >= 0; s -= 3) {
+		uint64_t b, bs;
 
-diff --git a/net/sched/cls_rsvp.h b/net/sched/cls_rsvp.h
-index 7853621..b6ac0e2 100644
---- a/net/sched/cls_rsvp.h
-+++ b/net/sched/cls_rsvp.h
-@@ -160,7 +160,7 @@ restart:
- 	dst = &nhptr->daddr;
- 	protocol = nhptr->protocol;
- 	xprt = ((u8*)nhptr) + (nhptr->ihl<<2);
--	if (nhptr->frag_off&__constant_htons(IP_MF|IP_OFFSET))
-+	if (nhptr->frag_off & htons(IP_MF|IP_OFFSET))
- 		return -1;
- #endif
- 
-diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-index ecc988a..4a927a5 100644
---- a/net/sched/sch_api.c
-+++ b/net/sched/sch_api.c
-@@ -1146,7 +1146,7 @@ reclassify:
- 
- 	for ( ; tp; tp = tp->next) {
- 		if ((tp->protocol == protocol ||
--			tp->protocol == __constant_htons(ETH_P_ALL)) &&
-+			tp->protocol == htons(ETH_P_ALL)) &&
- 			(err = tp->classify(skb, tp, res)) >= 0) {
- #ifdef CONFIG_NET_CLS_ACT
- 			if ( TC_ACT_RECLASSIFY == err) {
+		y = 2 * y;
+		b = 3 * y * (y+1) + 1;
+		bs = b << s;
+		if (x >= bs && (b == (bs>>s))) {  /* avoid overflow */
+			x -= bs;
+			y++;
+		}
+	}
+	return y;
+}
 
----
-commit 1e243778d99257c143bd104d0e17b3125d602cce
-Author: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Date:   Wed Mar 7 14:21:31 2007 +0900
+/* My version of hacker's delight */
+uint32_t hcbrt(uint64_t x)
+{
+	int s = 60;
+	uint32_t y = 0;
 
-    [NET] TIPC: Use htons() where appropriate.
-    
-    Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+	do {
+		uint64_t b;
+		y = 2*y;
+		b = (uint64_t)(3*y*(y + 1) + 1) << s;
+		s = s - 3;
+		if (x >= b) {
+			x = x - b;
+			y = y + 1;
+		}
+	} while(s >= 0);
 
-diff --git a/net/tipc/eth_media.c b/net/tipc/eth_media.c
-index 9be4839..f71ba9d 100644
---- a/net/tipc/eth_media.c
-+++ b/net/tipc/eth_media.c
-@@ -140,7 +140,7 @@ static int enable_bearer(struct tipc_bearer *tb_ptr)
- 		return -EDQUOT;
- 	if (!eb_ptr->dev) {
- 		eb_ptr->dev = dev;
--		eb_ptr->tipc_packet_type.type = __constant_htons(ETH_P_TIPC);
-+		eb_ptr->tipc_packet_type.type = htons(ETH_P_TIPC);
- 		eb_ptr->tipc_packet_type.dev = dev;
- 		eb_ptr->tipc_packet_type.func = recv_msg;
- 		eb_ptr->tipc_packet_type.af_packet_priv = eb_ptr;
+	return y;
+}
 
----
+/* calculate the cubic root of x using Newton-Raphson */
+static uint32_t ocubic(uint64_t a)
+{
+	uint32_t x, x1;
 
--- 
-YOSHIFUJI Hideaki @ USAGI Project  <yoshfuji@linux-ipv6.org>
-GPG-FP  : 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+	/* Initial estimate is based on:
+	 * cbrt(x) = exp(log(x) / 3)
+	 */
+	x = 1u << (fls64(a)/3);
+
+	/*
+	 * Iteration based on:
+	 *                         2
+	 * x    = ( 2 * x  +  a / x  ) / 3
+	 *  k+1          k         k
+	 */
+	do {
+		x1 = x;
+
+		x = (2 * x + div64_64(a, (uint64_t)x * x)) / 3;
+	} while (abs(x1 - x) > 1);
+
+	return x;
+}
+
+/* calculate the cubic root of x using Newton-Raphson */
+static uint32_t ncubic(uint64_t a)
+{
+	uint64_t x;
+
+	/* Initial estimate is based on:
+	 * cbrt(x) = exp(log(x) / 3)
+	 */
+	x = 1u << (fls64(a)/3);
+
+	/* Converges in 3 iterations to > 32 bits */
+	x = (2 * x + div64_64(a, x*x)) / 3;
+	x = (2 * x + div64_64(a, x*x)) / 3;
+	x = (2 * x + div64_64(a, x*x)) / 3;
+
+	return x;
+}
+
+/* calculate the cubic root of x using Newton-Raphson */
+static uint32_t ncubic32(uint64_t a)
+{
+	uint32_t x;
+
+	/* Initial estimate is based on:
+	 * cbrt(x) = exp(log(x) / 3)
+	 */
+	x = 1u << (fls64(a)/3);
+
+	/* Converges in 3 iterations to > 32 bits */
+	/* We can do 32bit maths here :
+	 *   x ~= cbrt(a) so (a/x^2) ~= cbrt(a) which is about 22 bits max
+	 */
+	x = (2 * x + (uint32_t)div64_64(a, (uint64_t)x*(uint64_t)x)) / 3;
+	x = (2 * x + (uint32_t)div64_64(a, (uint64_t)x*(uint64_t)x)) / 3;
+	x = (2 * x + (uint32_t)div64_64(a, (uint64_t)x*(uint64_t)x)) / 3;
+
+	return x;
+}
+
+/* 65536 times the cubic root of 0,    1,     2,     3,      4,      5,      6,      7*/
+static uint64_t bictcp_table[8] = {0, 65536, 82570, 94519, 104030, 112063, 119087, 125367};
+
+/* calculate the cubic root of x
+   the basic idea is that x can be expressed as i*8^j
+   so cubic_root(x) = cubic_root(i)*2^j
+   in the following code, x is i, and y is 2^j
+   because of integer calculation, there are errors in calculation
+   so finally use binary search to find out the exact solution*/
+static uint32_t bictcp(uint64_t x)
+{
+        uint64_t y, app, target, start, end, mid, start_diff, end_diff;
+
+        if (x == 0)
+                return 0;
+
+        target = x;
+
+        /*first estimate lower and upper bound*/
+        y = 1;
+        while (x >= 8){
+                x = (x >> 3);
+                y = (y << 1);
+        }
+        start = (y*bictcp_table[x])>>16;
+        if (x==7)
+                end = (y<<1);
+        else
+                end = (y*bictcp_table[x+1]+65535)>>16;
+
+        /*binary search for more accurate one*/
+        while (start < end-1) {
+                mid = (start+end) >> 1;
+                app = mid*mid*mid;
+                if (app < target)
+                        start = mid;
+                else if (app > target)
+                        end = mid;
+                else
+                        return mid;
+        }
+
+        /*find the most accurate one from start and end*/
+        app = start*start*start;
+        if (app < target)
+                start_diff = target - app;
+        else
+                start_diff = app - target;
+        app = end*end*end;
+        if (app < target)
+                end_diff = target - app;
+        else
+                end_diff = app - target;
+
+        return (start_diff < end_diff) ? start : end;
+}
+
+
+#define NCASES 1000
+static uint64_t cases[NCASES];
+static double results[NCASES];
+
+static double ticks_per_usec;
+static unsigned long long start, end;
+
+static void dotest(const char *name, uint32_t (*func)(uint64_t))
+{
+	int i;
+	unsigned long long t, mx = 0, sum = 0, sum_sq = 0;
+	double mean, std, err = 0;
+
+	for (i = 0; i < NCASES; i++) {
+		uint64_t x = cases[i];
+		uint32_t v;
+
+		rdtscll(start);
+		v = (*func)(x);
+		rdtscll(end);
+
+		t = end - start;
+		if (t > mx) mx = t;
+		sum += t; sum_sq += t*t;
+
+		err += fabs(((double) v - results[i]) / results[i]);
+	}
+
+	mean = (double) sum / ticks_per_usec / NCASES ;
+	std = sqrtl( (double) sum_sq / ticks_per_usec / NCASES - mean * mean);
+
+	printf("%-10s %8llu %8.2f %8.2f %8.2f %.03f%%\n", name, 
+	       (unsigned long long) sum / NCASES, mean, std, 
+	       (double) mx / ticks_per_usec, err * 100./ NCASES);
+}
+
+
+int main(int argc, char **argv)
+{
+	uint64_t x;
+	int i;
+
+	printf("Calibrating\n");
+	rdtscll(start);
+	sleep(2);
+	rdtscll(end);
+	ticks_per_usec = (double) (end - start) / 2000000.;
+
+	for (i = 0; i < 63; i++) 
+		cases[i] = 1ull << i;
+	x = ~0;
+	while (x != 0) {
+		cases[i++] = x;
+		x >>= 1;
+	}
+	x = ~0;
+	while (x != 0) {
+		cases[i++] = x;
+		x <<= 1;
+	}
+
+	while (i < NCASES)
+		cases[i++] = (uint64_t) random()  * (uint64_t) random();
+
+	for (i = 0; i < NCASES; i++) 
+		results[i] = cbrt((double)cases[i]);
+
+	printf("Function     clocks  mean(us) max(us)  std(us)  Avg error\n");
+	
+#define DOTEST(x)	dotest(#x, x)
+	DOTEST(bictcp);
+	DOTEST(ocubic);
+	DOTEST(ncubic);
+	DOTEST(ncubic32);
+	DOTEST(acbrt);
+	DOTEST(hcbrt);
+	return 0;
+}
+
+
