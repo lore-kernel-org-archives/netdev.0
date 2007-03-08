@@ -1,62 +1,50 @@
-From: Matti Aarnio <matti.aarnio@zmailer.org>
-Subject: We have FUSE, could we have NUSE ?
-Date: Thu, 8 Mar 2007 12:53:20 +0200
-Message-ID: <20070308105320.GB3883@mea-ext.zmailer.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH][SCTP] Re: lockdep: inconsistent lock state ipv6_add_addr/sctp_v6_copy_addrlist (2.6.21-rc1)
+Date: Thu, 08 Mar 2007 22:00:23 +1100
+Message-ID: <E1HPGMB-0002AG-00@gondolin.me.apana.org.au>
+References: <20070308074751.GA2085@ff.dom.local>
+Cc: simon@arlott.org, linux-kernel@vger.kernel.org, sri@us.ibm.com,
+	netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net
+To: jarkao2@o2.pl (Jarek Poplawski)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from z2.cat.iki.fi ([212.16.98.133]:56663 "EHLO z2.cat.iki.fi"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750977AbXCHKxW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Mar 2007 05:53:22 -0500
-Received: (mea@mea-ext) by mail.zmailer.org id S3540234AbXCHKxU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Mar 2007 12:53:20 +0200
-Content-Disposition: inline
+Received: from rhun.apana.org.au ([64.62.148.172]:1416 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751060AbXCHLC1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Mar 2007 06:02:27 -0500
+In-Reply-To: <20070308074751.GA2085@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-(somebody should invent a "better" name for this)
+Jarek Poplawski <jarkao2@o2.pl> wrote:
+> On 25-02-2007 10:08, Simon Arlott wrote:
+>> This happens on every boot if more information is needed:
+>> 
+>> [   37.393715] =================================
+>> [   37.393830] [ INFO: inconsistent lock state ]
+>> [   37.393881] 2.6.21-rc1-git #146
+>> [   37.393929] ---------------------------------
+>> [   37.393979] inconsistent {softirq-on-R} -> {in-softirq-W} usage.
+>> [   37.394040] hotplug/1072 [HC0[0]:SC1[2]:HE1:SE0] takes:
+>> [   37.394092]  (&ndev->lock){-+-?}, at: [<b04a7944>] ipv6_add_addr+0x164/0x1e0
+>> [   37.394308] {softirq-on-R} state was registered at:
+>> [   37.394359]   [<b013fc42>] __lock_acquire+0x622/0xbb0
+>> [   37.394515]   [<b0140652>] lock_acquire+0x62/0x80
+>> [   37.394678]   [<b0511c65>] _read_lock+0x35/0x50
+>> [   37.394834]   [<b050e200>] sctp_v6_copy_addrlist+0x30/0xc0
+> ...
+> 
+> [SCTP] ipv6: inconsistent lock state ipv6_add_addr/sctp_v6_copy_addrlist
+> 
+> lockdep found that dev->lock taken from softirq in ipv6_add_addr
+> is also taken in sctp_v6_copy_addrlist with softirqs enabled, so
+> lockup is possible.
 
-We do have a support of file-system engine in userspace process.
-Could we have a socket interfaced network protocol engine in userspace ?
+Who's calling ipv6_add_addr from softirq context? That's got to be
+wrong because ipv6_add_addr requires the RTNL.
 
-I would like to place things like AX.25 service into userspace, but have
-application codes to use kernel socket API (and even ABI) as if the service
-is in the kernel.
-
-Required bandwidth for many of these protocols is quite small, therefore
-having those within the kernel is unnecessary.  (Not to mention that quite
-many system integrators choose not to turn them on...)
-
-
-The aim of "NUSE" from applications point of view would be to be
-indistinguishable from kernel implemented services.
-
-What would this require from the service hook side ?
-  - Socket read and write can be trivialishly done
-    like a pipe in between processes
-  - Somehow pass ancilliary data for:
-     - socket, socketpair
-     - connect, bind
-     - accept
-     - listen
-     - getpeername, getsockname
-     - sendto, send
-     - recvfrom, revc
-     - setsockopt, getsockopt
-  - poll / epoll ?
-
-Death of the protocol engine process must also destroy all existing
-sockets of the served protocol type, and refuse to generate any new
-sockets of the type.
-
-
-The first protocol that I have in mind to implement on top of this service
-does not need very much of local sockets.
-(It is called "STANAG-5066" - radio data communication on HF frequencies.
-Specification is written by NATO, thus "STANAG", but my use plans for it
-are more along the AX.25 ham-radio things.)
-
-
-/Matti Aarnio
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
