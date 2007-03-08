@@ -1,34 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp_cubic: use 32 bit math
-Date: Wed, 07 Mar 2007 19:51:35 -0800 (PST)
-Message-ID: <20070307.195135.74749102.davem@davemloft.net>
-References: <20070307170731.2b4397e3@freekitty>
-	<20070307.185539.48527371.davem@davemloft.net>
-	<45EF7EB7.8040806@linux-foundation.org>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [PATCH]: TCP RB tree core v2.
+Date: Thu, 8 Mar 2007 06:21:03 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0703080616480.27671@kivilampi-30.cs.helsinki.fi>
+References: <20070307.123743.74748673.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: w@1wt.eu, rkuhn@e18.physik.tu-muenchen.de, andi@firstfloor.org,
-	dada1@cosmosbay.com, jengelh@linux01.gwdg.de,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: shemminger@linux-foundation.org
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39599
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751398AbXCHDvh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Mar 2007 22:51:37 -0500
-In-Reply-To: <45EF7EB7.8040806@linux-foundation.org>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:45214 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751652AbXCHEVF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Mar 2007 23:21:05 -0500
+In-Reply-To: <20070307.123743.74748673.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Date: Wed, 07 Mar 2007 19:10:47 -0800
+On Wed, 7 Mar 2007, David Miller wrote:
 
-> David Miller wrote:
-> > What about Willy Tarreau's supposedly even faster variant?
-> > Or does this incorporate that set of improvements?
-> >   
-> That's what this is:
->     x = (2 * x + (uint32_t)div64_64(a, (uint64_t)x*(uint64_t)x)) / 3;
+> I checked the TCP write queue abstraction patch into the net-2.6.22
+> GIT tree at:
+> 
+> 	kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.22.git
 
-Great, thanks for the clarification.
+While tried to apply your patch below, I noticed it's already there. It 
+turns out that ebbe72e602c1e825c8ec97349095bdd286c0ff24 seems to 
+be a mess, it includes also rbtree stuff you are giving below.
+
+> And below is the current version of the second patch which actually
+> does the RB tree stuff.
+
+...snip...
+
+-- 
+ i.
