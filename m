@@ -1,54 +1,125 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: [PATCH] Add xfrm policy change auditing to pfkey_spdget
-Date: Thu, 8 Mar 2007 12:12:04 -0500 (EST)
-Message-ID: <Line.LNX.4.64.0703081159490.9412@d.namei>
-References: <1172861484.31047.26.camel@localhost.localdomain>
- <20070307.154316.68038380.davem@davemloft.net>  <20070307.160740.77057241.davem@davemloft.net>
- <1173370815.31047.134.camel@localhost.localdomain>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: wireless extensions vs. 64-bit architectures
+Date: Thu, 08 Mar 2007 18:37:07 +0100
+Message-ID: <1173375427.3248.33.camel@johannes.berg>
+References: <1173144447.15891.93.camel@johannes.berg>
+	 <20070306171316.GA19669@bougret.hpl.hp.com>
+	 <200703061943.07350.mb@bu3sch.de>
+	 <20070307020310.GA20466@bougret.hpl.hp.com>
+	 <1173364747.14001.7.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, vyekkirala@trustedcs.com,
-	cxzhang@watson.ibm.com, sds@tycho.nsa.gov
-To: Eric Paris <eparis@parisplace.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.sea5.speakeasy.net ([69.17.117.4]:43369 "EHLO
-	mail2.sea5.speakeasy.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752583AbXCHRMH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Mar 2007 12:12:07 -0500
-In-Reply-To: <1173370815.31047.134.camel@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Jeff Garzik <jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>,
+	Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Jouni Malinen <jkm-r/za7OOdgF0ztatW0fm/fQ@public.gmane.org>
+To: jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1173364747.14001.7.camel-YfaajirXv214zXjbi5bjpg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 8 Mar 2007, Eric Paris wrote:
+On Thu, 2007-03-08 at 15:39 +0100, Johannes Berg wrote:
 
-> which didn't have my fix up because i didn't commit it to my local
-> branch.  Is there a better way to get a diff between my miller tree and
-> 'everything in the branch I have checked out even if it is not
-> committed'?
+> Oh, btw, this also means that we have an information leak on 64-bit
+> kernels. Those alignment bytes aren't ever cleared or anything, they
+> come right from the stack since most users of this just use a struct
+> iw_event on the stack which is then memcpy()ed right into the userspace
+> buffer. For example those bytes 5 through 8 ("50:8A:35:E0") in the first
+> buffer above. This is generally considered a security problem.
 
-I'd suggest you commit all your changes in local branches, then export 
-them as emails via git-format-patch for posting.
+Patch below might fix it. If it does, please send it on to Linus (or
+akpm), stable and whoever else might be interested in backporting it
+(distros? or do they cherrypick from stable?)
 
-Something like:
+I'm unable to test it as I'll be away from my only 64-bit machine for at
+least until the 19th or 20th.
 
- davem-upstream         [1]
-  +- for-davem          [2]
-     +- for-davem-prep  [3]
+Yeah, I know sparse warns about this on 32-bit machines... But it seems
+useless to try to fix that warning.
 
-Do all of your work in [3], so you can manage the queue of patches there 
-before merging/applying them into [2] as a final patch series.
+johannes
 
-So, if one of the commits in [3] needs fixing, you can, for example, 
-export commits up to that with git-format-patch, git-reset --hard to the 
-broken commit, fix, compile, test then reapply the exported commits.  
-Then, once it's all ready, merge into [2] (or export & apply to avoid 
-merge commits).
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: fix information leak in wireless extensions (on 64-bit architectures)
 
-This is just one possible workflow.  There are probably several better.
+On 64-bit architectures wireless extensions leak information from the
+kernel stack due to padding inside structs not being cleared before they
+are copied to userspace.
 
+This is available to unprivileged users since they can listen for
+wireless events and obtain scan results.
 
-- James
--- 
-James Morris
-<jmorris@namei.org>
+This patch fixes it by explicitly clearing the padding.
+
+Signed-off-by: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+
+---
+ include/net/iw_handler.h |   20 ++++++++++++++++++++
+ 1 file changed, 20 insertions(+)
+
+--- wireless-dev.orig/include/net/iw_handler.h	2007-03-08 18:17:43.384642258 +0100
++++ wireless-dev/include/net/iw_handler.h	2007-03-08 18:28:12.704642258 +0100
+@@ -484,6 +484,9 @@ iwe_stream_add_event(char *	stream,		/* 
+ 		     struct iw_event *iwe,	/* Payload */
+ 		     int	event_len)	/* Real size of payload */
+ {
++	/* clear padding */
++	memset((char*)iwe + 4, 0, IW_EV_LCP_LEN - 4);
++
+ 	/* Check if it's possible */
+ 	if(likely((stream + event_len) < ends)) {
+ 		iwe->len = event_len;
+@@ -505,6 +508,10 @@ iwe_stream_add_point(char *	stream,		/* 
+ 		     char *	extra)		/* More payload */
+ {
+ 	int	event_len = IW_EV_POINT_LEN + iwe->u.data.length;
++
++	/* clear padding */
++	memset((char*)iwe + 4, 0, IW_EV_LCP_LEN - 4);
++
+ 	/* Check if it's possible */
+ 	if(likely((stream + event_len) < ends)) {
+ 		iwe->len = event_len;
+@@ -531,6 +538,9 @@ iwe_stream_add_value(char *	event,		/* E
+ 		     struct iw_event *iwe,	/* Payload */
+ 		     int	event_len)	/* Real size of payload */
+ {
++	/* clear padding */
++	memset((char*)iwe + 4, 0, IW_EV_LCP_LEN - 4);
++
+ 	/* Don't duplicate LCP */
+ 	event_len -= IW_EV_LCP_LEN;
+ 
+@@ -558,6 +568,9 @@ iwe_stream_check_add_event(char *	stream
+ 			   int		event_len,	/* Size of payload */
+ 			   int *	perr)		/* Error report */
+ {
++	/* clear padding */
++	memset((char*)iwe + 4, 0, IW_EV_LCP_LEN - 4);
++
+ 	/* Check if it's possible, set error if not */
+ 	if(likely((stream + event_len) < ends)) {
+ 		iwe->len = event_len;
+@@ -582,6 +595,10 @@ iwe_stream_check_add_point(char *	stream
+ 			   int *	perr)		/* Error report */
+ {
+ 	int	event_len = IW_EV_POINT_LEN + iwe->u.data.length;
++
++	/* clear padding */
++	memset((char*)iwe + 4, 0, IW_EV_LCP_LEN - 4);
++
+ 	/* Check if it's possible */
+ 	if(likely((stream + event_len) < ends)) {
+ 		iwe->len = event_len;
+@@ -611,6 +628,9 @@ iwe_stream_check_add_value(char *	event,
+ 			   int		event_len,	/* Size of payload */
+ 			   int *	perr)		/* Error report */
+ {
++	/* clear padding */
++	memset((char*)iwe + 4, 0, IW_EV_LCP_LEN - 4);
++
+ 	/* Don't duplicate LCP */
+ 	event_len -= IW_EV_LCP_LEN;
+ 
