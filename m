@@ -1,36 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp_cubic: use 32 bit math
-Date: Wed, 07 Mar 2007 18:55:39 -0800 (PST)
-Message-ID: <20070307.185539.48527371.davem@davemloft.net>
-References: <20070306145842.7d7fea84@freekitty>
-	<20070307060838.GI943@1wt.eu>
-	<20070307170731.2b4397e3@freekitty>
+Subject: Re: [RFC] display bound packet types
+Date: Wed, 07 Mar 2007 18:56:40 -0800 (PST)
+Message-ID: <20070307.185640.112291663.davem@davemloft.net>
+References: <20070307164259.106c6c08@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: w@1wt.eu, rkuhn@e18.physik.tu-muenchen.de, andi@firstfloor.org,
-	dada1@cosmosbay.com, jengelh@linux01.gwdg.de,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
 To: shemminger@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54762
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54771
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750913AbXCHCzl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Mar 2007 21:55:41 -0500
-In-Reply-To: <20070307170731.2b4397e3@freekitty>
+	by vger.kernel.org with ESMTP id S1751212AbXCHC4l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Mar 2007 21:56:41 -0500
+In-Reply-To: <20070307164259.106c6c08@dxpl.pdx.osdl.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Stephen Hemminger <shemminger@linux-foundation.org>
-Date: Wed, 7 Mar 2007 17:07:31 -0800
+Date: Wed, 7 Mar 2007 16:42:59 -0800
 
-> The basic calculation has to be done in 32 bits to avoid
-> doing 64 bit divide by 3. The value x is only 22bits max
-> so only need full 64 bits only for x^2.
+> While debugging I found it useful to see what packet types are in use.
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+> This creates /proc/net/ptype with the format:
+> 
+> Type Device      Function
+> ALL  eth0     [ffffffff880b01b6] :af_packet:packet_rcv_spkt+0x0
+> 0800          [ffffffff802330f8] ip_rcv+0x0
+> 0011          [ffffffff881021ef] :llc:llc_rcv+0x0
+> 0004          [ffffffff881021ef] :llc:llc_rcv+0x0
+> 0806          [ffffffff8043de7f] arp_rcv+0x0
+> 86dd          [ffffffff880c1b57] :ipv6:ipv6_rcv+0x0
+> 
+> Is it worth the space?
 
-Applied, thanks Stephen.
+I have no objections.
 
-What about Willy Tarreau's supposedly even faster variant?
-Or does this incorporate that set of improvements?
+It would be nice to use kallsyms on that function address
+though.
