@@ -1,47 +1,75 @@
-From: Sami Farin <7atbggg02@sneakemail.com>
-Subject: Re: asm volatile [Was: [RFC] div64_64 support]
-Date: Thu, 8 Mar 2007 20:23:57 +0200
-Message-ID: <20070308182357.nnpvhqqj5qqk2vsx@m.safari.iki.fi>
-References: <20070223170527.4ca695b2@freekitty> <20070305155714.3abe1b5e@freekitty> <20070306133404.GA864@one.firstfloor.org> <200703061519.20346.dada1@cosmosbay.com> <20070306144529.GA2004@one.firstfloor.org> <84C47260-4B57-4568-8197-58F438A6F737@e18.physik.tu-muenchen.de> <20070306102941.32471d57@freekitty> <20070306215349.hquin7d6pfy2n5d2@m.safari.iki.fi> <20070306222435.cbpv63ltximq6lrf@m.safari.iki.fi>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: skge- "soft lockup on CPU#0" with mtu=9000 (2.6.20.1 + web100
+ patch)
+Date: Thu, 8 Mar 2007 11:34:27 -0800
+Message-ID: <20070308113427.6344a7f6@freekitty>
+References: <Pine.LNX.4.64.0703081101390.21717@potato.cts.ucla.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Chris Stromsoe <cbs@cts.ucla.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pne-smtpout3-sn1.fre.skanova.net ([81.228.11.120]:38319 "EHLO
-	pne-smtpout3-sn1.fre.skanova.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933134AbXCHTdn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Mar 2007 14:33:43 -0500
-Received: from safari.iki.fi (80.223.106.128) by pne-smtpout3-sn1.fre.skanova.net (7.2.075)
-        id 45AE1FD5002B9900 for netdev@vger.kernel.org; Thu, 8 Mar 2007 19:23:59 +0100
-Content-Disposition: inline
-In-Reply-To: <20070306222435.cbpv63ltximq6lrf@m.safari.iki.fi>
+Received: from smtp.osdl.org ([65.172.181.24]:59604 "EHLO smtp.osdl.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933213AbXCHTee (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Mar 2007 14:34:34 -0500
+In-Reply-To: <Pine.LNX.4.64.0703081101390.21717@potato.cts.ucla.edu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 07, 2007 at 00:24:35 +0200, Sami Farin wrote:
-> On Tue, Mar 06, 2007 at 23:53:49 +0200, Sami Farin wrote:
-> ...
-> > And I found bug in gcc-4.1.2, it gave 0 for ncubic results
-> > when doing 1000 loops test... gcc-4.0.3 works.
-> 
-> Found it.
-> 
-> --- cbrt-test.c~	2007-03-07 00:20:54.735248105 +0200
-> +++ cbrt-test.c	2007-03-07 00:21:03.964864343 +0200
-> @@ -209,7 +209,7 @@
->  
->  	__asm__("bsrl %1,%0\n\t"
->  		"cmovzl %2,%0"
-> -		: "=&r" (r) : "rm" (x), "rm" (-1));
-> +		: "=&r" (r) : "rm" (x), "rm" (-1) : "memory");
->  	return r+1;
->  }
->  
-> Now Linux 2.6 does not have "memory" in fls, maybe it causes
-> some gcc funnies some people are seeing.
 
-It also works without "memory" if I do "__asm__ volatile".
+[SKGE]: Fix deadlock in skge_tx_timeout
 
-Why some functions have volatile and some have not in include/asm-*/*.h ?
+dev_watchdog() already holds the device lock, don't take it again in
+skge_tx_clean().
 
--- 
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+
+---
+commit 0b1cfafa6f6b8a168d5811d1f65cf540942c52b1
+tree 4d3f252d6618adfe812e9da95cd496bb798e7c7b
+parent 1ca949299260aa49eeba34ff912e2321c8b1f647
+author Patrick McHardy <kaber@trash.net> Sat, 24 Feb 2007 20:05:39 +0100
+committer Patrick McHardy <kaber@trash.net> Sat, 24 Feb 2007 20:05:39 +0100
+
+ drivers/net/skge.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/skge.c b/drivers/net/skge.c
+index e482e7f..4a948c2 100644
+--- a/drivers/net/skge.c
++++ b/drivers/net/skge.c
+@@ -2575,7 +2575,9 @@ static int skge_down(struct net_device *
+ 	skge_led(skge, LED_MODE_OFF);
+ 
+ 	netif_poll_disable(dev);
++	netif_tx_lock_bh(dev);
+ 	skge_tx_clean(dev);
++	netif_tx_unlock_bh(dev);
+ 	skge_rx_clean(skge);
+ 
+ 	kfree(skge->rx_ring.start);
+@@ -2720,7 +2722,6 @@ static void skge_tx_clean(struct net_dev
+ 	struct skge_port *skge = netdev_priv(dev);
+ 	struct skge_element *e;
+ 
+-	netif_tx_lock_bh(dev);
+ 	for (e = skge->tx_ring.to_clean; e != skge->tx_ring.to_use; e = e->next) {
+ 		struct skge_tx_desc *td = e->desc;
+ 		skge_tx_free(skge, e, td->control);
+@@ -2729,7 +2730,6 @@ static void skge_tx_clean(struct net_dev
+ 
+ 	skge->tx_ring.to_clean = e;
+ 	netif_wake_queue(dev);
+-	netif_tx_unlock_bh(dev);
+ }
+ 
+ static void skge_tx_timeout(struct net_device *dev)
+
+
+--------------010402080104080400040104--
+-
+To unsubscribe from this list: send the line "unsubscribe netdev" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
