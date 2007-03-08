@@ -1,70 +1,53 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: [PATCH][SCTP] Re: lockdep: inconsistent lock state ipv6_add_addr/sctp_v6_copy_addrlist (2.6.21-rc1)
-Date: Thu, 8 Mar 2007 08:47:51 +0100
-Message-ID: <20070308074751.GA2085@ff.dom.local>
-References: <45E15215.4070600@simon.arlott.org.uk>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: Re: 2.6.21-rc2-mm2: drivers/net/wireless/libertas/debugfs.c addr bogosity
+Date: Thu, 8 Mar 2007 09:02:28 +0100
+Message-ID: <20070308080228.GK3441@stusta.de>
+References: <20070306004408.d3f6434d.akpm@linux-foundation.org> <20070307224116.GE3441@stusta.de> <20070307150057.4e6342dc.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Sridhar Samudrala <sri@us.ibm.com>, netdev@vger.kernel.org,
-	lksctp-developers@lists.sourceforge.net
-To: Simon Arlott <simon@arlott.org>
+Content-Type: text/plain; charset=utf-8
+Cc: jgarzik@pobox.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.go2.pl ([193.17.41.42]:52645 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S964978AbXCHHnv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Mar 2007 02:43:51 -0500
+Received: from emailhub.stusta.mhn.de ([141.84.69.5]:52862 "EHLO
+	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751450AbXCHICa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Mar 2007 03:02:30 -0500
 Content-Disposition: inline
-In-Reply-To: <45E15215.4070600@simon.arlott.org.uk>
+In-Reply-To: <20070307150057.4e6342dc.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 25-02-2007 10:08, Simon Arlott wrote:
-> This happens on every boot if more information is needed:
+On Wed, Mar 07, 2007 at 03:00:57PM -0800, Andrew Morton wrote:
+> On Wed, 7 Mar 2007 23:41:16 +0100
+> Adrian Bunk <bunk@stusta.de> wrote:
 > 
-> [   37.393715] =================================
-> [   37.393830] [ INFO: inconsistent lock state ]
-> [   37.393881] 2.6.21-rc1-git #146
-> [   37.393929] ---------------------------------
-> [   37.393979] inconsistent {softirq-on-R} -> {in-softirq-W} usage.
-> [   37.394040] hotplug/1072 [HC0[0]:SC1[2]:HE1:SE0] takes:
-> [   37.394092]  (&ndev->lock){-+-?}, at: [<b04a7944>] ipv6_add_addr+0x164/0x1e0
-> [   37.394308] {softirq-on-R} state was registered at:
-> [   37.394359]   [<b013fc42>] __lock_acquire+0x622/0xbb0
-> [   37.394515]   [<b0140652>] lock_acquire+0x62/0x80
-> [   37.394678]   [<b0511c65>] _read_lock+0x35/0x50
-> [   37.394834]   [<b050e200>] sctp_v6_copy_addrlist+0x30/0xc0
-...
+> > On Tue, Mar 06, 2007 at 12:44:08AM -0800, Andrew Morton wrote:
+> > >...
+> > > Changes since 2.6.20-rc2-mm1:
+> > >...
+> > >  git-netdev-all.patch
+> > >...
+> > >  git trees
+> > >...
+> > 
+> > drivers/net/wireless/libertas/debugfs.c contains:
+> >   #define item_addr(n) ((u32) &((wlan_adapter *)0)->n)
+> > 
+> > This is wrong on 64bit architectures.
+> 
+> Is OK - it is simply yet another reimplementation of offsetof().  Hint.
 
-[SCTP] ipv6: inconsistent lock state ipv6_add_addr/sctp_v6_copy_addrlist
+Thanks for the correction - it seems C pointers and me will never become 
+close friends...
 
-lockdep found that dev->lock taken from softirq in ipv6_add_addr
-is also taken in sctp_v6_copy_addrlist with softirqs enabled, so
-lockup is possible.
+cu
+Adrian
 
-Noticed-by: Simon Arlott <simon@arlott.org>
-Signed-off-by: Jarek Poplawski <jarkao2@o2.pl>
+-- 
 
----
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
 
-diff -Nurp linux-2.6.21-rc2-mm2-/net/sctp/ipv6.c linux-2.6.21-rc2-mm2/net/sctp/ipv6.c
---- linux-2.6.21-rc2-mm2-/net/sctp/ipv6.c	2007-02-21 19:46:49.000000000 +0100
-+++ linux-2.6.21-rc2-mm2/net/sctp/ipv6.c	2007-03-07 21:57:37.000000000 +0100
-@@ -360,7 +360,7 @@ static void sctp_v6_copy_addrlist(struct
- 		return;
- 	}
- 
--	read_lock(&in6_dev->lock);
-+	read_lock_bh(&in6_dev->lock);
- 	for (ifp = in6_dev->addr_list; ifp; ifp = ifp->if_next) {
- 		/* Add the address to the local list.  */
- 		addr = t_new(struct sctp_sockaddr_entry, GFP_ATOMIC);
-@@ -374,7 +374,7 @@ static void sctp_v6_copy_addrlist(struct
- 		}
- 	}
- 
--	read_unlock(&in6_dev->lock);
-+	read_unlock_bh(&in6_dev->lock);
- 	rcu_read_unlock();
- }
- 
