@@ -1,80 +1,54 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: wireless extensions vs. 64-bit architectures
-Date: Thu, 08 Mar 2007 17:51:54 +0100
-Message-ID: <1173372714.3248.22.camel@johannes.berg>
-References: <1173144447.15891.93.camel@johannes.berg>
-	 <20070306171316.GA19669@bougret.hpl.hp.com>
-	 <200703061943.07350.mb@bu3sch.de>
-	 <20070307020310.GA20466@bougret.hpl.hp.com>
-	 <1173364747.14001.7.camel@johannes.berg>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [PATCH] Add xfrm policy change auditing to pfkey_spdget
+Date: Thu, 8 Mar 2007 12:12:04 -0500 (EST)
+Message-ID: <Line.LNX.4.64.0703081159490.9412@d.namei>
+References: <1172861484.31047.26.camel@localhost.localdomain>
+ <20070307.154316.68038380.davem@davemloft.net>  <20070307.160740.77057241.davem@davemloft.net>
+ <1173370815.31047.134.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-M+BU7xOXAoctaWZK8ZOO"
-Cc: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Jeff Garzik <jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>,
-	Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Jouni Malinen <jkm-r/za7OOdgF0ztatW0fm/fQ@public.gmane.org>
-To: jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1173364747.14001.7.camel-YfaajirXv214zXjbi5bjpg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, vyekkirala@trustedcs.com,
+	cxzhang@watson.ibm.com, sds@tycho.nsa.gov
+To: Eric Paris <eparis@parisplace.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail2.sea5.speakeasy.net ([69.17.117.4]:43369 "EHLO
+	mail2.sea5.speakeasy.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752583AbXCHRMH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Mar 2007 12:12:07 -0500
+In-Reply-To: <1173370815.31047.134.camel@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Thu, 8 Mar 2007, Eric Paris wrote:
 
---=-M+BU7xOXAoctaWZK8ZOO
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+> which didn't have my fix up because i didn't commit it to my local
+> branch.  Is there a better way to get a diff between my miller tree and
+> 'everything in the branch I have checked out even if it is not
+> committed'?
 
-On Thu, 2007-03-08 at 15:39 +0100, Johannes Berg wrote:
+I'd suggest you commit all your changes in local branches, then export 
+them as emails via git-format-patch for posting.
 
-> Now, I don't know what gcc for ia64 does and I don't have a cross
-> compiler to check, but on powerpc it does this.
+Something like:
 
-As expected, the same happens on x86_64 (thanks to Michael Wu for the
-debug dump):
+ davem-upstream         [1]
+  +- for-davem          [2]
+     +- for-davem-prep  [3]
 
- <1><e13>: Abbrev Number: 17 (DW_TAG_structure_type)
-     DW_AT_sibling     : <e4c>
-     DW_AT_name        : (indirect string, offset: 0x33d): iw_event
-     DW_AT_byte_size   : 24
-     DW_AT_decl_file   : 100
-     DW_AT_decl_line   : 1049
- <2><e20>: Abbrev Number: 18 (DW_TAG_member)
-     DW_AT_name        : len
-     DW_AT_decl_file   : 100
-     DW_AT_decl_line   : 1050
-     DW_AT_type        : <58b>
-     DW_AT_data_member_location: 2 byte block: 23 0     (DW_OP_plus_uconst:=
- 0)
- <2><e2f>: Abbrev Number: 18 (DW_TAG_member)
-     DW_AT_name        : cmd
-     DW_AT_decl_file   : 100
-     DW_AT_decl_line   : 1051
-     DW_AT_type        : <58b>
-     DW_AT_data_member_location: 2 byte block: 23 2     (DW_OP_plus_uconst:=
- 2)
- <2><e3e>: Abbrev Number: 18 (DW_TAG_member)
-     DW_AT_name        : u
-     DW_AT_decl_file   : 100
-     DW_AT_decl_line   : 1052
-     DW_AT_type        : <9bf>
-     DW_AT_data_member_location: 2 byte block: 23 8     (DW_OP_plus_uconst:=
- 8)
+Do all of your work in [3], so you can manage the queue of patches there 
+before merging/applying them into [2] as a final patch series.
 
-Hence, on those machines 32-bit userspace is also broken and we have the
-information leak too.
+So, if one of the commits in [3] needs fixing, you can, for example, 
+export commits up to that with git-format-patch, git-reset --hard to the 
+broken commit, fix, compile, test then reapply the exported commits.  
+Then, once it's all ready, merge into [2] (or export & apply to avoid 
+merge commits).
 
-johannes
+This is just one possible workflow.  There are probably several better.
 
---=-M+BU7xOXAoctaWZK8ZOO
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
 
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iD8DBQBF8D8q/ETPhpq3jKURAmrAAJ9GSY5F9y5u+OJS7gPnrli7ZQDPSwCePkA+
-LSHXACKZ+P1yHZw3+2wRV3A=
-=Tz0P
------END PGP SIGNATURE-----
-
---=-M+BU7xOXAoctaWZK8ZOO--
+- James
+-- 
+James Morris
+<jmorris@namei.org>
