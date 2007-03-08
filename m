@@ -1,67 +1,77 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: wireless extensions vs. 64-bit architectures
-Date: Thu, 08 Mar 2007 23:22:06 +0100
-Message-ID: <1173392526.3831.12.camel@johannes.berg>
-References: <1173144447.15891.93.camel@johannes.berg>
-	 <20070306171316.GA19669@bougret.hpl.hp.com>
-	 <200703061943.07350.mb@bu3sch.de>
-	 <20070307020310.GA20466@bougret.hpl.hp.com>
-	 <1173364747.14001.7.camel@johannes.berg>
-	 <20070308184954.GA24485@bougret.hpl.hp.com>
-	 <1173382042.3248.63.camel@johannes.berg>
-	 <20070308193412.GG23040@devicescape.com>
-	 <1173382802.3248.68.camel@johannes.berg>
-	 <20070308221128.GA24884@bougret.hpl.hp.com>
+From: Chris Stromsoe <cbs@cts.ucla.edu>
+Subject: Re: skge- "soft lockup on CPU#0" with mtu=9000 (2.6.20.1 + web100
+ patch)
+Date: Thu, 8 Mar 2007 14:23:56 -0800 (PST)
+Message-ID: <Pine.LNX.4.64.0703081350510.25051@potato.cts.ucla.edu>
+References: <Pine.LNX.4.64.0703081101390.21717@potato.cts.ucla.edu>
+ <20070308113427.6344a7f6@freekitty> <Pine.LNX.4.64.0703081256440.25051@potato.cts.ucla.edu>
+ <20070308134811.38a8ec81@freekitty>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-gRVbqpQMitVO9qXu6ELY"
-Cc: Jouni Malinen <jkm-r/za7OOdgF0ztatW0fm/fQ@public.gmane.org>, Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Jeff Garzik <jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>, Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-To: jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20070308221128.GA24884-yAE0UhLNZJawPNPzzlOzwdBPR1lH4CV8@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-4.smtp.ucla.edu ([169.232.46.137]:50973 "EHLO
+	smtp-4.smtp.ucla.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030811AbXCHWYx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Mar 2007 17:24:53 -0500
+In-Reply-To: <20070308134811.38a8ec81@freekitty>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Thu, 8 Mar 2007, Stephen Hemminger wrote:
+> On Thu, 8 Mar 2007 13:31:13 -0800 (PST)
+> Chris Stromsoe <cbs@cts.ucla.edu> wrote:
+>
+>> Thanks.  That fixes the soft lockup.
+>>
+>> I've got another problem now.  The cards I'm using are dual port
+>> (sk-9844).  I am bonding both ports together.
+>>
+>> The card presents as eth2 and eth3.  If I remove eth2 from the bond so
+>> that eth3 is the active interface, I get a hard lock (nothing prints to
+>> serial console, sysrq isn't responsive) and have to power cycle.
+>>
+>> This is with plain 2.6.20.1.  I also tested using skge.[ch] from the
+>> current netdev git tree.
+>
+> Which form of bonding failover, there are locking issues with some
+> of the bonding modes. You should ask on the bonding mailing list.
 
---=-gRVbqpQMitVO9qXu6ELY
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+It's active-backup.  Testing with the same setup and e100 works fine. 
+I've done a few tests without the bonding module, using the dual-port 
+separately.
 
-On Thu, 2007-03-08 at 14:11 -0800, Jean Tourrilhes wrote:
+Testing with bonding and skge:
 
-> 	This is exactly what I was pointing out earlier. Well,
-> actually, there may be ways of fixing it in the kernel, but that would
-> be real ugly, and I don't want to go there.
+1) ifenslave bond0 eth2 eth3
+    ifenslave -d bond0 eth3
+    ifenslave -d bond0 eth2   <-- locks up here
 
-Yeah, it would be extremely ugly and involve a lot of copying around
-when the app actually receives the data.
+2) ifenslave bond0 eth2 eth3
+    ifenslave -d bond0 eth2   <-- locks up here
 
-> 	I've just released wireless_tools.29.pre15.tar.gz. This is
-> supposed to include a "band-aid" for that problem. To the best of my
-> knowledge, it should catch the problem and not introduce false
-> positive. I would be glad if you guys would have a quick look into it,
-> because obviously I can't test it.
+3) ifenslave bond0 eth3 eth2
+    ifenslave -d bond0 eth2
+    ifenslave bond0 eth2
+    ifenslave bond0 -d eth3
+    ifenslave bond0 eth3
+    ifenslave -d bond0 eth2   <-- locks up here
 
-I looked at the diff between pre14 and pre15 but have to admit that I
-don't understand the code change. Unfortunately I can't test this until
-the 20th earliest so it'd be good if someone else could test this.
 
-Btw, could you look at the information leak patch I posted? We really
-need to get that fix (or another appropriate one) out asap.
+Testing without bonding:
 
-johannes
+1) ip link set mtu 9000 eth2  <-- eth2 is no longer responsive
+    ip link set mtu 1500 eth2  <-- eth2 remains unresponsive
 
---=-gRVbqpQMitVO9qXu6ELY
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
+2) ifup eth2
+    ifdown eth2
 
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
+    perl -pi -e 's/eth2/eth3/' /etc/network/interfaces
 
-iD8DBQBF8IyO/ETPhpq3jKURAmY+AJ4kBibiCUqvIm+bStJ3epwJR/tX0ACgnO0Z
-TwFT8NV/WroevycvVw8dMOU=
-=Cr0E
------END PGP SIGNATURE-----
+    ifup eth3   <--  locks up here
 
---=-gRVbqpQMitVO9qXu6ELY--
+
+
+
+-Chris
