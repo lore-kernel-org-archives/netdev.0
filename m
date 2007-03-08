@@ -1,57 +1,53 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH 2/2] r8169: fix a race between PCI probe and dev_open
-Date: Fri, 9 Mar 2007 00:00:05 +0100
-Message-ID: <20070308230005.GB27354@electric-eye.fr.zoreil.com>
+From: Chris Stromsoe <cbs@cts.ucla.edu>
+Subject: Re: skge- "soft lockup on CPU#0" with mtu=9000 (2.6.20.1 + web100
+ patch)
+Date: Thu, 8 Mar 2007 15:13:16 -0800 (PST)
+Message-ID: <Pine.LNX.4.64.0703081509110.28233@potato.cts.ucla.edu>
+References: <Pine.LNX.4.64.0703081101390.21717@potato.cts.ucla.edu>
+ <20070308113427.6344a7f6@freekitty> <Pine.LNX.4.64.0703081256440.25051@potato.cts.ucla.edu>
+ <20070308134811.38a8ec81@freekitty> <Pine.LNX.4.64.0703081350510.25051@potato.cts.ucla.edu>
+ <23552.1173395045@death>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Edward Hsu <edward_hsu@realtek.com>,
-	Bernhard Walle <bwalle@suse.de>
-To: jeff@garzik.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	netdev@vger.kernel.org
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:43854 "EHLO
-	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030862AbXCHXF0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Mar 2007 18:05:26 -0500
-Content-Disposition: inline
+Received: from smtp-2.smtp.ucla.edu ([169.232.47.136]:46286 "EHLO
+	smtp-2.smtp.ucla.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030843AbXCHXNk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Mar 2007 18:13:40 -0500
+In-Reply-To: <23552.1173395045@death>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Initialize the timer with the rest of the private-struct.
+On Thu, 8 Mar 2007, Jay Vosburgh wrote:
 
-Signed-off-by: Jeff Garzik <jeff@garzik.org>
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
----
- drivers/net/r8169.c |   10 +++++-----
- 1 files changed, 5 insertions(+), 5 deletions(-)
+> 	If you're running active-backup and not using the ARP monitor 
+> (arp_interval), then I'm not aware of any possible locking problems in 
+> bonding for the kernel version you reference (2.6.20.1).
 
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index 15d954e..688b64d 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -1368,11 +1368,7 @@ static inline void rtl8169_request_timer(struct net_device *dev)
- 	    (tp->phy_version >= RTL_GIGA_PHY_VER_H))
- 		return;
- 
--	init_timer(timer);
--	timer->expires = jiffies + RTL8169_PHY_TIMEOUT;
--	timer->data = (unsigned long)(dev);
--	timer->function = rtl8169_phy_timer;
--	add_timer(timer);
-+	mod_timer(timer, jiffies + RTL8169_PHY_TIMEOUT);
- }
- 
- #ifdef CONFIG_NET_POLL_CONTROLLER
-@@ -1685,6 +1681,10 @@ rtl8169_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	tp->mmio_addr = ioaddr;
- 	tp->align = rtl_cfg_info[ent->driver_data].align;
- 
-+	init_timer(&tp->timer);
-+	tp->timer.data = (unsigned long) dev;
-+	tp->timer.function = rtl8169_phy_timer;
-+
- 	spin_lock_init(&tp->lock);
- 
- 	rc = register_netdev(dev);
--- 
-1.4.4.4
+I'm not using arp_interval.
 
+On Thu, 8 Mar 2007, Jay Vosburgh wrote:
+> Chris Stromsoe <cbs@cts.ucla.edu> wrote:
+>
+>> 1) ip link set mtu 9000 eth2  <-- eth2 is no longer responsive
+>>    ip link set mtu 1500 eth2  <-- eth2 remains unresponsive
+>>
+>> 2) ifup eth2
+>>    ifdown eth2
+>>
+>>    perl -pi -e 's/eth2/eth3/' /etc/network/interfaces
+>>
+>>    ifup eth3   <--  locks up here
+>
+> 	This would seem to suggest a problem with skge itself, although 
+> there might be some other interaction with bonding that causes the 
+> problems for that case.
+
+In both of the above mentioned cases, I was not using bonding.  That was 
+with the skge driver only.
+
+
+-Chris
