@@ -1,54 +1,40 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: wireless extensions vs. 64-bit architectures
-Date: Thu, 08 Mar 2007 20:40:01 +0100
-Message-ID: <1173382802.3248.68.camel@johannes.berg>
-References: <1173144447.15891.93.camel@johannes.berg>
-	 <20070306171316.GA19669@bougret.hpl.hp.com>
-	 <200703061943.07350.mb@bu3sch.de>
-	 <20070307020310.GA20466@bougret.hpl.hp.com>
-	 <1173364747.14001.7.camel@johannes.berg>
-	 <20070308184954.GA24485@bougret.hpl.hp.com>
-	 <1173382042.3248.63.camel@johannes.berg>
-	 <20070308193412.GG23040@devicescape.com>
+From: Paul Moore <paul.moore@hp.com>
+Subject: Re: [PATCH] Add xfrm policy change auditing to pfkey_spdget
+Date: Thu, 8 Mar 2007 15:08:04 -0500
+Message-ID: <200703081508.04186.paul.moore@hp.com>
+References: <1172861484.31047.26.camel@localhost.localdomain> <20070307.160740.77057241.davem@davemloft.net> <1173370815.31047.134.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-AQ2J+NA0w52xtbr+ov3N"
-Cc: jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org, Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Jeff Garzik <jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>, Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-To: Jouni Malinen <jkm-r/za7OOdgF0ztatW0fm/fQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20070308193412.GG23040-r/za7OOdgF0ztatW0fm/fQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Eric Paris <eparis@parisplace.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from atlrel8.hp.com ([156.153.255.206]:45238 "EHLO atlrel8.hp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752627AbXCHUIR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Mar 2007 15:08:17 -0500
+In-Reply-To: <1173370815.31047.134.camel@localhost.localdomain>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Thursday, March 8 2007 11:20:15 am Eric Paris wrote:
+> I lose at using git.  Sorry.  I'll be more careful to check that all of
+> my changes on the current branch are committed before I run my git diff.
+> Or maybe someone will convince me to use git in an all new better way.
 
---=-AQ2J+NA0w52xtbr+ov3N
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+[NOTE: I stripped a lot of addresses from this mail as I suspect it to be 
+somewhat off-topic]
 
-On Thu, 2007-03-08 at 11:34 -0800, Jouni Malinen wrote:
+Perhaps not quite what you were asking for, but I've found quilt[1] to be an 
+*extremely* wonderful tool for creating and manipulating patches to send 
+upstream.  It doesn't replace git, you still need it to fetch/update the 
+source tree, but it plays well with git (there is the "stacked git" project 
+which aims to integrate the two bits of software but I have never tried it).
 
-> Yes, workaround in just iwlib is not enough. If the only possible
-> solution is user space workaround, it better be documented (and
-> communicated to maintainers of user space apps) well so that
-> all user space programs not using iwlib can be modified, too.
+[1] http://savannah.nongnu.org/projects/quilt
 
-The more I think about it the worse it gets. Think about wireless events
-where both 32 and 64-bit userspace programs may be listening... That
-means we can't even fix it in the kernel without breaking something.
-
-johannes
-
---=-AQ2J+NA0w52xtbr+ov3N
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iD8DBQBF8GaR/ETPhpq3jKURAkspAJ0eKz/C5kNMF2fmYcHhBdxs2S+yVwCggqKo
-a3rmXJie8QsxDNHH6YhGWMo=
-=Hxg6
------END PGP SIGNATURE-----
-
---=-AQ2J+NA0w52xtbr+ov3N--
+-- 
+paul moore
+linux security @ hp
