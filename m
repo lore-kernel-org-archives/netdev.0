@@ -1,53 +1,52 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: Re: 2.6.21-rc2-mm2: drivers/net/wireless/libertas/debugfs.c addr bogosity
-Date: Thu, 8 Mar 2007 09:02:28 +0100
-Message-ID: <20070308080228.GK3441@stusta.de>
-References: <20070306004408.d3f6434d.akpm@linux-foundation.org> <20070307224116.GE3441@stusta.de> <20070307150057.4e6342dc.akpm@linux-foundation.org>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: [Bugme-new] [Bug 8132] New: pptp server lockup in   ppp_asynctty_receive()
+Date: Thu, 8 Mar 2007 09:45:39 +0100
+Message-ID: <20070308084539.GA2423@ff.dom.local>
+References: <20070305151331.3cdd98dd.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: jgarzik@pobox.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org,
+	"bugme-daemon\@kernel-bugs\.osdl\.org"
+	<bugme-daemon@bugzilla.kernel.org>, jura@netams.com,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>
 To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from emailhub.stusta.mhn.de ([141.84.69.5]:52862 "EHLO
-	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751450AbXCHICa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Mar 2007 03:02:30 -0500
+Received: from mx10.go2.pl ([193.17.41.74]:51155 "EHLO poczta.o2.pl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1030293AbXCHIlj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Mar 2007 03:41:39 -0500
 Content-Disposition: inline
-In-Reply-To: <20070307150057.4e6342dc.akpm@linux-foundation.org>
+In-Reply-To: <20070305151331.3cdd98dd.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 07, 2007 at 03:00:57PM -0800, Andrew Morton wrote:
-> On Wed, 7 Mar 2007 23:41:16 +0100
-> Adrian Bunk <bunk@stusta.de> wrote:
+On 06-03-2007 00:13, Andrew Morton wrote:
+> On Mon, 5 Mar 2007 14:26:30 -0800
+> bugme-daemon@bugzilla.kernel.org wrote:
 > 
-> > On Tue, Mar 06, 2007 at 12:44:08AM -0800, Andrew Morton wrote:
-> > >...
-> > > Changes since 2.6.20-rc2-mm1:
-> > >...
-> > >  git-netdev-all.patch
-> > >...
-> > >  git trees
-> > >...
-> > 
-> > drivers/net/wireless/libertas/debugfs.c contains:
-> >   #define item_addr(n) ((u32) &((wlan_adapter *)0)->n)
-> > 
-> > This is wrong on 64bit architectures.
-> 
-> Is OK - it is simply yet another reimplementation of offsetof().  Hint.
+>> http://bugzilla.kernel.org/show_bug.cgi?id=8132
+>>
+>>            Summary: pptp server lockup in ppp_asynctty_receive()
+>>     Kernel Version:  2.6.20
+>>             Status: NEW
+>>           Severity: high
+>>              Owner: jgarzik@pobox.com
+>>          Submitter: jura@netams.com
+>>                 CC: jura@netams.com
+>>
+>>
+>> Already several kernel releases i've expirienced different lockups of  vpn 
+>> (pptp) server.
+>> There is more then 200  ppp connections sometimes.
+>> With kernel debug i was able to retrive next information:
 
-Thanks for the correction - it seems C pointers and me will never become 
-close friends...
+Could this be done with:
+CONFIG_PROVE_LOCKING = y
+CONFIG_4KSTACKS = n 
 
-cu
-Adrian
+and, if possible, to send the first full lockdep error
+message with some lines before it? It would be nice to
+try to be more exact when hand writing, too.
 
--- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
-
+Regards,
+Jarek P.
