@@ -1,59 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: asm volatile
-Date: Thu, 08 Mar 2007 14:01:51 -0800 (PST)
-Message-ID: <20070308.140151.95057712.davem@davemloft.net>
-References: <20070306215349.hquin7d6pfy2n5d2@m.safari.iki.fi>
-	<20070306222435.cbpv63ltximq6lrf@m.safari.iki.fi>
-	<20070308182357.nnpvhqqj5qqk2vsx@m.safari.iki.fi>
+From: Jean Tourrilhes <jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org>
+Subject: Re: wireless extensions vs. 64-bit architectures
+Date: Thu, 8 Mar 2007 14:11:28 -0800
+Message-ID: <20070308221128.GA24884@bougret.hpl.hp.com>
+References: <1173144447.15891.93.camel@johannes.berg> <20070306171316.GA19669@bougret.hpl.hp.com> <200703061943.07350.mb@bu3sch.de> <20070307020310.GA20466@bougret.hpl.hp.com> <1173364747.14001.7.camel@johannes.berg> <20070308184954.GA24485@bougret.hpl.hp.com> <1173382042.3248.63.camel@johannes.berg> <20070308193412.GG23040@devicescape.com> <1173382802.3248.68.camel@johannes.berg>
+Reply-To: jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: 7atbggg02@sneakemail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55173
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1030705AbXCHWBv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Mar 2007 17:01:51 -0500
-In-Reply-To: <20070308182357.nnpvhqqj5qqk2vsx@m.safari.iki.fi>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jouni Malinen <jkm-r/za7OOdgF0ztatW0fm/fQ@public.gmane.org>, Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Jeff Garzik <jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>, Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1173382802.3248.68.camel-YfaajirXv214zXjbi5bjpg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Sami Farin <7atbggg02@sneakemail.com>
-Date: Thu, 8 Mar 2007 20:23:57 +0200
-
-> On Wed, Mar 07, 2007 at 00:24:35 +0200, Sami Farin wrote:
-> > On Tue, Mar 06, 2007 at 23:53:49 +0200, Sami Farin wrote:
-> > ...
-> > > And I found bug in gcc-4.1.2, it gave 0 for ncubic results
-> > > when doing 1000 loops test... gcc-4.0.3 works.
-> > 
-> > Found it.
-> > 
-> > --- cbrt-test.c~	2007-03-07 00:20:54.735248105 +0200
-> > +++ cbrt-test.c	2007-03-07 00:21:03.964864343 +0200
-> > @@ -209,7 +209,7 @@
-> >  
-> >  	__asm__("bsrl %1,%0\n\t"
-> >  		"cmovzl %2,%0"
-> > -		: "=&r" (r) : "rm" (x), "rm" (-1));
-> > +		: "=&r" (r) : "rm" (x), "rm" (-1) : "memory");
-> >  	return r+1;
-> >  }
-> >  
-> > Now Linux 2.6 does not have "memory" in fls, maybe it causes
-> > some gcc funnies some people are seeing.
+On Thu, Mar 08, 2007 at 08:40:01PM +0100, Johannes Berg wrote:
+> On Thu, 2007-03-08 at 11:34 -0800, Jouni Malinen wrote:
 > 
-> It also works without "memory" if I do "__asm__ volatile".
+> > Yes, workaround in just iwlib is not enough. If the only possible
+> > solution is user space workaround, it better be documented (and
+> > communicated to maintainers of user space apps) well so that
+> > all user space programs not using iwlib can be modified, too.
 > 
-> Why some functions have volatile and some have not in include/asm-*/*.h ?
+> The more I think about it the worse it gets. Think about wireless events
+> where both 32 and 64-bit userspace programs may be listening... That
+> means we can't even fix it in the kernel without breaking something.
+> 
+> johannes
 
-"volatile" is really only needed if there is some side effect
-that cannot be expressed to gcc which makes ordering over
-the asm wrt. other pieces of code important.
+	This is exactly what I was pointing out earlier. Well,
+actually, there may be ways of fixing it in the kernel, but that would
+be real ugly, and I don't want to go there.
 
-But in these case it should absolutely not be needed.  It's
-simply computing an interger result from some inputs and
-some values in memory.  GCC should see perfectly fine what
-is memory is read by the asm and therefore what ordering
-constraints there are wrt. writes to the same memory location.
+	I've just released wireless_tools.29.pre15.tar.gz. This is
+supposed to include a "band-aid" for that problem. To the best of my
+knowledge, it should catch the problem and not introduce false
+positive. I would be glad if you guys would have a quick look into it,
+because obviously I can't test it.
+
+	Now, about the way forward...
+	First possiblity, we could stick with this band-aid
+permanently.
+
+	Second possiblity : we do the right thing and plan a API
+change to return struct always aligned on 32 bits. This way, when we
+get 128 bit processor, we don't have to add another band aid ;-)
+	It would work like the ESSID changeover. We pick a WE version
+changeover. We introduce userspace that can deal with before and
+after. After 1 or 2 years, we flip the switch. After another 1 or 2
+years, we get rid of backward compatibility.
+
+	Third possibility : we declare 32 bit userspace on 64 bit
+kernel as not supported and advise users to get a 64 bit
+userspace. The number of bug report on that issue would suggest that
+very few users are in this case.
+
+	I know the userspace guys will hate (1) and hate even more (2).
+
+	Regards,
+
+	Jean
