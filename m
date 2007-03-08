@@ -1,78 +1,61 @@
 From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [PATCH 2/8] udp: ipv6 style cleanup
-Date: Thu, 08 Mar 2007 12:52:16 -0800
-Message-ID: <20070308205305.679324956@linux-foundation.org>
+Subject: [PATCH 7/8] net: deinline some functions
+Date: Thu, 08 Mar 2007 12:52:21 -0800
+Message-ID: <20070308205306.161028935@linux-foundation.org>
 References: <20070308205214.580772044@linux-foundation.org>
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:35782 "EHLO smtp.osdl.org"
+Received: from smtp.osdl.org ([65.172.181.24]:35786 "EHLO smtp.osdl.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933326AbXCHUyk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Mar 2007 15:54:40 -0500
-Content-Disposition: inline; filename=udp-2
+	id S933315AbXCHUym (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Mar 2007 15:54:42 -0500
+Content-Disposition: inline; filename=core-deinline.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Fix whitespace around keywords. Eliminate unnecessary ()'s on return
-statements.
+Several functions are marked inline or forced inline, but it
+would be better to let the compiler decide.
 
 Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
 
 ---
- net/ipv6/udp.c |   12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+ net/core/dev.c |   10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
---- net-2.6.22.orig/net/ipv6/udp.c	2007-03-07 10:18:04.000000000 -0800
-+++ net-2.6.22/net/ipv6/udp.c	2007-03-07 10:27:56.000000000 -0800
-@@ -93,10 +93,10 @@
- 					continue;
- 				score++;
- 			}
--			if(score == 4) {
-+			if (score == 4) {
- 				result = sk;
- 				break;
--			} else if(score > badness) {
-+			} else if (score > badness) {
- 				result = sk;
- 				badness = score;
- 			}
-@@ -329,7 +329,7 @@
- 				if (!ipv6_addr_equal(&np->rcv_saddr, loc_addr))
- 					continue;
- 			}
--			if(!inet6_mc_check(s, loc_addr, rmt_addr))
-+			if (!inet6_mc_check(s, loc_addr, rmt_addr))
- 				continue;
- 			return s;
- 		}
-@@ -473,14 +473,14 @@
- 		icmpv6_send(skb, ICMPV6_DEST_UNREACH, ICMPV6_PORT_UNREACH, 0, dev);
- 
- 		kfree_skb(skb);
--		return(0);
-+		return 0;
+--- net-2.6.22.orig/net/core/dev.c	2007-03-07 13:12:17.000000000 -0800
++++ net-2.6.22/net/core/dev.c	2007-03-07 14:50:51.000000000 -0800
+@@ -1676,9 +1676,9 @@
  	}
- 
- 	/* deliver */
- 
- 	udpv6_queue_rcv_skb(sk, skb);
- 	sock_put(sk);
--	return(0);
-+	return 0;
- 
- short_packet:
- 	LIMIT_NETDEBUG(KERN_DEBUG "UDP%sv6: short packet: %d/%u\n",
-@@ -490,7 +490,7 @@
- discard:
- 	UDP6_INC_STATS_BH(UDP_MIB_INERRORS, proto == IPPROTO_UDPLITE);
- 	kfree_skb(skb);
--	return(0);
-+	return 0;
  }
  
- static __inline__ int udpv6_rcv(struct sk_buff **pskb)
+-static __inline__ int deliver_skb(struct sk_buff *skb,
+-				  struct packet_type *pt_prev,
+-				  struct net_device *orig_dev)
++static inline int deliver_skb(struct sk_buff *skb,
++			      struct packet_type *pt_prev,
++			      struct net_device *orig_dev)
+ {
+ 	atomic_inc(&skb->users);
+ 	return pt_prev->func(skb, skb->dev, pt_prev, orig_dev);
+@@ -2068,7 +2068,7 @@
+  *	This is invoked by the /proc filesystem handler to display a device
+  *	in detail.
+  */
+-static __inline__ struct net_device *dev_get_idx(loff_t pos)
++static struct net_device *dev_get_idx(loff_t pos)
+ {
+ 	struct net_device *dev;
+ 	loff_t i;
+@@ -2839,7 +2839,7 @@
+ static DEFINE_SPINLOCK(net_todo_list_lock);
+ static struct list_head net_todo_list = LIST_HEAD_INIT(net_todo_list);
+ 
+-static inline void net_set_todo(struct net_device *dev)
++static void net_set_todo(struct net_device *dev)
+ {
+ 	spin_lock(&net_todo_list_lock);
+ 	list_add_tail(&dev->todo_list, &net_todo_list);
 
 --
 Stephen Hemminger <shemminger@linux-foundation.org>
