@@ -1,65 +1,39 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: We have FUSE, could we have NUSE ?
-Date: Thu, 8 Mar 2007 08:57:54 -0500
-Message-ID: <20070308135754.GA5323@tuxdriver.com>
-References: <20070308105320.GB3883@mea-ext.zmailer.org>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [RFC PATCH 1/2] [TCP]: Add highest_sack seqno, points to globally
+ highest SACK
+Date: Thu, 8 Mar 2007 16:58:00 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0703081651220.14483@kivilampi-30.cs.helsinki.fi>
+References: <Pine.LNX.4.64.0703080658180.27671@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Matti Aarnio <matti.aarnio@zmailer.org>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696243703-2099465579-1173365880=:14483"
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Baruch Even <baruch@ev-en.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:4304 "EHLO ra.tuxdriver.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751979AbXCHOcK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Mar 2007 09:32:10 -0500
-Content-Disposition: inline
-In-Reply-To: <20070308105320.GB3883@mea-ext.zmailer.org>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:49699 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752057AbXCHO6H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Mar 2007 09:58:07 -0500
+In-Reply-To: <Pine.LNX.4.64.0703080658180.27671@kivilampi-30.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 08, 2007 at 12:53:20PM +0200, Matti Aarnio wrote:
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-> The aim of "NUSE" from applications point of view would be to be
-> indistinguishable from kernel implemented services.
-> 
-> What would this require from the service hook side ?
->   - Socket read and write can be trivialishly done
->     like a pipe in between processes
->   - Somehow pass ancilliary data for:
->      - socket, socketpair
->      - connect, bind
->      - accept
->      - listen
->      - getpeername, getsockname
->      - sendto, send
->      - recvfrom, revc
->      - setsockopt, getsockopt
->   - poll / epoll ?
+---696243703-2099465579-1173365880=:14483
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
 
-It is certainly possible to do this by implementing your own socket
-family.  I did such a thing as infrastructure for talking to network
-processors in a former life.  In that case the socket code was talking
-to other kernel code, but getting it to coordinate w/ userland is
-largely a SMOP.  You might consider using (generic?) netlink for
-your backend communications to the userland daemon.  In addition,
-there might be other kernel extensions required (e.g. dynamic socket
-family allocation?).
+On Thu, 8 Mar 2007, Ilpo Järvinen wrote:
 
-> Death of the protocol engine process must also destroy all existing
-> sockets of the served protocol type, and refuse to generate any new
-> sockets of the type.
+> It is maintained only in during slowpath of tcp_ack().
 
-That's up to you (or whomever implements the kernel code).
+I think I'll change this to do the forced synchronization of the 
+highest_sack to snd_una in sacktag_write_queue when tp->sacked_out is zero 
+during entry, which should be much simpler than the current approach.
+...and then use if (!tp->sacked_out) to select between snd_una and 
+highest_sack entry in the scoreboard updater...
 
-> The first protocol that I have in mind to implement on top of this service
-> does not need very much of local sockets.
-> (It is called "STANAG-5066" - radio data communication on HF frequencies.
-> Specification is written by NATO, thus "STANAG", but my use plans for it
-> are more along the AX.25 ham-radio things.)
-
-Nifty. :-)
-
-John
 -- 
-John W. Linville
-linville@tuxdriver.com
+ i.
+---696243703-2099465579-1173365880=:14483--
