@@ -1,36 +1,93 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: netlink regression (since 2.6.18)
-Date: Thu, 8 Mar 2007 13:28:18 -0800
-Message-ID: <20070308132818.4c12830c@freekitty>
-References: <20070307142830.307979e6@freekitty>
+From: Chris Stromsoe <cbs@cts.ucla.edu>
+Subject: Re: skge- "soft lockup on CPU#0" with mtu=9000 (2.6.20.1 + web100
+ patch)
+Date: Thu, 8 Mar 2007 13:31:13 -0800 (PST)
+Message-ID: <Pine.LNX.4.64.0703081256440.25051@potato.cts.ucla.edu>
+References: <Pine.LNX.4.64.0703081101390.21717@potato.cts.ucla.edu>
+ <20070308113427.6344a7f6@freekitty>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Adrian Bunk <bunk@stusta.de>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:37201 "EHLO smtp.osdl.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030480AbXCHVbo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Mar 2007 16:31:44 -0500
-In-Reply-To: <20070307142830.307979e6@freekitty>
+Received: from smtp-5.smtp.ucla.edu ([169.232.47.137]:39642 "EHLO
+	smtp-5.smtp.ucla.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933363AbXCHVcs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Mar 2007 16:32:48 -0500
+In-Reply-To: <20070308113427.6344a7f6@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 7 Mar 2007 14:28:30 -0800
-Stephen Hemminger <shemminger@linux-foundation.org> wrote:
+Thanks.  That fixes the soft lockup.
 
-> On a Ubuntu x86_64 machine the command: 
->   tc qdisc ls
-> gets a RTNETLINK error. It looks like some data structure alignment
-> issue got introduced between 2.6.18 and 2.6.19-rc1 and continues on. 
-> Since netlink data structure layout is part of the user ABI, we need to go back
-> and keep compatibility.
-> 
-> Still working out the bisect to find where the problem started.
+I've got another problem now.  The cards I'm using are dual port 
+(sk-9844).  I am bonding both ports together.
 
-Never mind, it turned out that NET_SCHED wasn't configured on that machine.
+The card presents as eth2 and eth3.  If I remove eth2 from the bond so 
+that eth3 is the active interface, I get a hard lock (nothing prints to 
+serial console, sysrq isn't responsive) and have to power cycle.
+
+This is with plain 2.6.20.1.  I also tested using skge.[ch] from the 
+current netdev git tree.
 
 
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+-Chris
+
+On Thu, 8 Mar 2007, Stephen Hemminger wrote:
+
+>
+> [SKGE]: Fix deadlock in skge_tx_timeout
+>
+> dev_watchdog() already holds the device lock, don't take it again in
+> skge_tx_clean().
+>
+> Signed-off-by: Patrick McHardy <kaber@trash.net>
+>
+> ---
+> commit 0b1cfafa6f6b8a168d5811d1f65cf540942c52b1
+> tree 4d3f252d6618adfe812e9da95cd496bb798e7c7b
+> parent 1ca949299260aa49eeba34ff912e2321c8b1f647
+> author Patrick McHardy <kaber@trash.net> Sat, 24 Feb 2007 20:05:39 +0100
+> committer Patrick McHardy <kaber@trash.net> Sat, 24 Feb 2007 20:05:39 +0100
+>
+> drivers/net/skge.c |    4 ++--
+> 1 files changed, 2 insertions(+), 2 deletions(-)
+>
+> diff --git a/drivers/net/skge.c b/drivers/net/skge.c
+> index e482e7f..4a948c2 100644
+> --- a/drivers/net/skge.c
+> +++ b/drivers/net/skge.c
+> @@ -2575,7 +2575,9 @@ static int skge_down(struct net_device *
+> 	skge_led(skge, LED_MODE_OFF);
+>
+> 	netif_poll_disable(dev);
+> +	netif_tx_lock_bh(dev);
+> 	skge_tx_clean(dev);
+> +	netif_tx_unlock_bh(dev);
+> 	skge_rx_clean(skge);
+>
+> 	kfree(skge->rx_ring.start);
+> @@ -2720,7 +2722,6 @@ static void skge_tx_clean(struct net_dev
+> 	struct skge_port *skge = netdev_priv(dev);
+> 	struct skge_element *e;
+>
+> -	netif_tx_lock_bh(dev);
+> 	for (e = skge->tx_ring.to_clean; e != skge->tx_ring.to_use; e = e->next) {
+> 		struct skge_tx_desc *td = e->desc;
+> 		skge_tx_free(skge, e, td->control);
+> @@ -2729,7 +2730,6 @@ static void skge_tx_clean(struct net_dev
+>
+> 	skge->tx_ring.to_clean = e;
+> 	netif_wake_queue(dev);
+> -	netif_tx_unlock_bh(dev);
+> }
+>
+> static void skge_tx_timeout(struct net_device *dev)
+>
+>
+> --------------010402080104080400040104--
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
