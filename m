@@ -1,40 +1,61 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [PATCH] Add xfrm policy change auditing to pfkey_spdget
-Date: Thu, 8 Mar 2007 15:08:04 -0500
-Message-ID: <200703081508.04186.paul.moore@hp.com>
-References: <1172861484.31047.26.camel@localhost.localdomain> <20070307.160740.77057241.davem@davemloft.net> <1173370815.31047.134.camel@localhost.localdomain>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: [PATCH] sky2: turn off Rx checksum on bad hardware
+Date: Thu, 8 Mar 2007 12:42:30 -0800
+Message-ID: <20070308124230.208b7c9a@freekitty>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Eric Paris <eparis@parisplace.org>
+To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel8.hp.com ([156.153.255.206]:45238 "EHLO atlrel8.hp.com"
+Received: from smtp.osdl.org ([65.172.181.24]:35368 "EHLO smtp.osdl.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752627AbXCHUIR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Mar 2007 15:08:17 -0500
-In-Reply-To: <1173370815.31047.134.camel@localhost.localdomain>
-Content-Disposition: inline
+	id S933190AbXCHUpn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Mar 2007 15:45:43 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday, March 8 2007 11:20:15 am Eric Paris wrote:
-> I lose at using git.  Sorry.  I'll be more careful to check that all of
-> my changes on the current branch are committed before I run my git diff.
-> Or maybe someone will convince me to use git in an all new better way.
+On Yukon FE, occasional hardware receive checksum errors are seen.
+An early indication of the problem is single bit differences in the two
+checksum engines.  Use this as a detection mechanism to turn off Rx
+checksumming.
 
-[NOTE: I stripped a lot of addresses from this mail as I suspect it to be 
-somewhat off-topic]
+Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
 
-Perhaps not quite what you were asking for, but I've found quilt[1] to be an 
-*extremely* wonderful tool for creating and manipulating patches to send 
-upstream.  It doesn't replace git, you still need it to fetch/update the 
-source tree, but it plays well with git (there is the "stacked git" project 
-which aims to integrate the two bits of software but I have never tried it).
+---
+ drivers/net/sky2.c |   24 +++++++++++++++++++++---
+ 1 file changed, 21 insertions(+), 3 deletions(-)
 
-[1] http://savannah.nongnu.org/projects/quilt
-
--- 
-paul moore
-linux security @ hp
+--- sky2-dev.orig/drivers/net/sky2.c	2007-03-05 16:49:31.000000000 -0800
++++ sky2-dev/drivers/net/sky2.c	2007-03-05 16:49:45.000000000 -0800
+@@ -2165,9 +2165,27 @@
+ 			/* fall through */
+ #endif
+ 		case OP_RXCHKS:
+-			skb = sky2->rx_ring[sky2->rx_next].skb;
+-			skb->ip_summed = CHECKSUM_COMPLETE;
+-			skb->csum = status & 0xffff;
++			if (!sky2->rx_csum)
++				break;
++
++			/* Both checksum counters are programmed to start at
++			 * the same offset, so unless there is a problem they
++			 * should match. This failure is an early indication that
++			 * hardware receive checksumming won't work.
++			 */
++			if (likely(status >> 16 == (status & 0xffff))) {
++				skb = sky2->rx_ring[sky2->rx_next].skb;
++				skb->ip_summed = CHECKSUM_COMPLETE;
++				skb->csum = status & 0xffff;
++			} else {
++				printk(KERN_NOTICE PFX "%s: hardware receive "
++				       "checksum problem (status = %#x)\n",
++				       dev->name, status);
++				sky2->rx_csum = 0;
++				sky2_write32(sky2->hw,
++					     Q_ADDR(rxqaddr[le->link], Q_CSR),
++					     BMU_DIS_RX_CHKSUM);
++			}
+ 			break;
+ 
+ 		case OP_TXINDEXLE:
