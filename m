@@ -1,57 +1,60 @@
-From: Valdis.Kletnieks@vt.edu
-Subject: Re: [PATCH 1/5] AF_RXRPC: Add blkcipher accessors for using kernel data directly
-Date: Thu, 08 Mar 2007 17:55:46 -0500
-Message-ID: <200703082255.l28MtkE8030073@turing-police.cc.vt.edu>
-References: <20070308224806.17456.13944.stgit@warthog.cambridge.redhat.com>
-            <20070308224829.17456.97200.stgit@warthog.cambridge.redhat.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="==_Exmh_1173394546_10421P";
-	 micalg=pgp-sha1; protocol="application/pgp-signature"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, herbert.xu@redhat.com,
-	linux-kernel@vger.kernel.org, hch@infradead.org,
-	arjan@infradead.org
-To: David Howells <dhowells@redhat.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030855AbXCHW4K@vger.kernel.org>
-In-Reply-To: Your message of "Thu, 08 Mar 2007 22:48:29 GMT."
-             <20070308224829.17456.97200.stgit@warthog.cambridge.redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: skge- "soft lockup on CPU#0" with mtu=9000 (2.6.20.1 + web100 patch)
+Date: Thu, 08 Mar 2007 15:04:05 -0800
+Message-ID: <23552.1173395045@death>
+References: <Pine.LNX.4.64.0703081101390.21717@potato.cts.ucla.edu> <20070308113427.6344a7f6@freekitty> <Pine.LNX.4.64.0703081256440.25051@potato.cts.ucla.edu> <20070308134811.38a8ec81@freekitty> <Pine.LNX.4.64.0703081350510.25051@potato.cts.ucla.edu>
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	netdev@vger.kernel.org
+To: Chris Stromsoe <cbs@cts.ucla.edu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e4.ny.us.ibm.com ([32.97.182.144]:60038 "EHLO e4.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1030861AbXCHXEM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Mar 2007 18:04:12 -0500
+Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
+	by e4.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l28N49XY005499
+	for <netdev@vger.kernel.org>; Thu, 8 Mar 2007 18:04:09 -0500
+Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
+	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l28N48Xg301306
+	for <netdev@vger.kernel.org>; Thu, 8 Mar 2007 18:04:08 -0500
+Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
+	by d01av03.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l28N48we022746
+	for <netdev@vger.kernel.org>; Thu, 8 Mar 2007 18:04:08 -0500
+In-reply-to: <Pine.LNX.4.64.0703081350510.25051@potato.cts.ucla.edu> 
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---==_Exmh_1173394546_10421P
-Content-Type: text/plain; charset=us-ascii
+Chris Stromsoe <cbs@cts.ucla.edu> wrote:
 
-On Thu, 08 Mar 2007 22:48:29 GMT, David Howells said:
-> 
-> diff --git a/include/linux/crypto.h b/include/linux/crypto.h
-> index 779aa78..ce092fe 100644
-> --- a/include/linux/crypto.h
-> +++ b/include/linux/crypto.h
-> @@ -40,7 +40,10 @@
->  #define CRYPTO_ALG_LARVAL		0x00000010
->  #define CRYPTO_ALG_DEAD			0x00000020
->  #define CRYPTO_ALG_DYING		0x00000040
-> -#define CRYPTO_ALG_ASYNC		0x00000080
-> +
-> +#define CRYPTO_ALG_CAP_MASK		0x00000180	/* capabilities mask */
-> +#define CRYPTO_ALG_ASYNC		0x00000080	/* capable of async operation */
-> +#define CRYPTO_ALG_DMA			0x00000100	/* capable of using of DMA */
+>It's active-backup.  Testing with the same setup and e100 works fine. I've
+>done a few tests without the bonding module, using the dual-port
+>separately.
 
-Would it make sense to define ALG_CAP_MASK as 0xF80 or similar, to reserve
-a few bits? The alternative has somebody else grabbing 0x200 for some other
-purpose, and then when you want to add another capability bit, you end up
-with a CAP_MASK of 0x580 - this way leads to madness and bugs....
+	Somebody else a couple of weeks ago was having similar issues
+running bonding with skge (in 802.3ad mode, in his case) that also
+vanished with different hardware.  I don't have any skge hardware, so I
+can't test it here.  His problem was a failure in 802.3ad negotiation,
+not a system lockup, though.
 
---==_Exmh_1173394546_10421P
-Content-Type: application/pgp-signature
+	If you're running active-backup and not using the ARP monitor
+(arp_interval), then I'm not aware of any possible locking problems in
+bonding for the kernel version you reference (2.6.20.1).
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.7 (GNU/Linux)
-Comment: Exmh version 2.5 07/13/2001
+>1) ip link set mtu 9000 eth2  <-- eth2 is no longer responsive
+>   ip link set mtu 1500 eth2  <-- eth2 remains unresponsive
+>
+>2) ifup eth2
+>   ifdown eth2
+>
+>   perl -pi -e 's/eth2/eth3/' /etc/network/interfaces
+>
+>   ifup eth3   <--  locks up here
 
-iD8DBQFF8JRycC3lWbTT17ARAjMPAJ9BIP7d6PhCrkqVDe/De9gUeO8fLACgj17e
-yrFpNbkD+p7QqSTezk754Mw=
-=ngWq
------END PGP SIGNATURE-----
+	This would seem to suggest a problem with skge itself, although
+there might be some other interaction with bonding that causes the
+problems for that case.
 
---==_Exmh_1173394546_10421P--
+	-J
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
