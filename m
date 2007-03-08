@@ -1,52 +1,62 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: [Bugme-new] [Bug 8132] New: pptp server lockup in   ppp_asynctty_receive()
-Date: Thu, 8 Mar 2007 09:45:39 +0100
-Message-ID: <20070308084539.GA2423@ff.dom.local>
-References: <20070305151331.3cdd98dd.akpm@linux-foundation.org>
+From: Matti Aarnio <matti.aarnio@zmailer.org>
+Subject: We have FUSE, could we have NUSE ?
+Date: Thu, 8 Mar 2007 12:53:20 +0200
+Message-ID: <20070308105320.GB3883@mea-ext.zmailer.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-	"bugme-daemon\@kernel-bugs\.osdl\.org"
-	<bugme-daemon@bugzilla.kernel.org>, jura@netams.com,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>
-To: Andrew Morton <akpm@linux-foundation.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx10.go2.pl ([193.17.41.74]:51155 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1030293AbXCHIlj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Mar 2007 03:41:39 -0500
+Received: from z2.cat.iki.fi ([212.16.98.133]:56663 "EHLO z2.cat.iki.fi"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750977AbXCHKxW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Mar 2007 05:53:22 -0500
+Received: (mea@mea-ext) by mail.zmailer.org id S3540234AbXCHKxU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Mar 2007 12:53:20 +0200
 Content-Disposition: inline
-In-Reply-To: <20070305151331.3cdd98dd.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 06-03-2007 00:13, Andrew Morton wrote:
-> On Mon, 5 Mar 2007 14:26:30 -0800
-> bugme-daemon@bugzilla.kernel.org wrote:
-> 
->> http://bugzilla.kernel.org/show_bug.cgi?id=8132
->>
->>            Summary: pptp server lockup in ppp_asynctty_receive()
->>     Kernel Version:  2.6.20
->>             Status: NEW
->>           Severity: high
->>              Owner: jgarzik@pobox.com
->>          Submitter: jura@netams.com
->>                 CC: jura@netams.com
->>
->>
->> Already several kernel releases i've expirienced different lockups of  vpn 
->> (pptp) server.
->> There is more then 200  ppp connections sometimes.
->> With kernel debug i was able to retrive next information:
+(somebody should invent a "better" name for this)
 
-Could this be done with:
-CONFIG_PROVE_LOCKING = y
-CONFIG_4KSTACKS = n 
+We do have a support of file-system engine in userspace process.
+Could we have a socket interfaced network protocol engine in userspace ?
 
-and, if possible, to send the first full lockdep error
-message with some lines before it? It would be nice to
-try to be more exact when hand writing, too.
+I would like to place things like AX.25 service into userspace, but have
+application codes to use kernel socket API (and even ABI) as if the service
+is in the kernel.
 
-Regards,
-Jarek P.
+Required bandwidth for many of these protocols is quite small, therefore
+having those within the kernel is unnecessary.  (Not to mention that quite
+many system integrators choose not to turn them on...)
+
+
+The aim of "NUSE" from applications point of view would be to be
+indistinguishable from kernel implemented services.
+
+What would this require from the service hook side ?
+  - Socket read and write can be trivialishly done
+    like a pipe in between processes
+  - Somehow pass ancilliary data for:
+     - socket, socketpair
+     - connect, bind
+     - accept
+     - listen
+     - getpeername, getsockname
+     - sendto, send
+     - recvfrom, revc
+     - setsockopt, getsockopt
+  - poll / epoll ?
+
+Death of the protocol engine process must also destroy all existing
+sockets of the served protocol type, and refuse to generate any new
+sockets of the type.
+
+
+The first protocol that I have in mind to implement on top of this service
+does not need very much of local sockets.
+(It is called "STANAG-5066" - radio data communication on HF frequencies.
+Specification is written by NATO, thus "STANAG", but my use plans for it
+are more along the AX.25 ham-radio things.)
+
+
+/Matti Aarnio
