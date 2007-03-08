@@ -1,68 +1,51 @@
-From: "Dale Farnsworth" <dale@farnsworth.org>
-Subject: [PATCH] mv643xx: Clear pending interrupts before calling request_irq
-Date: Wed, 7 Mar 2007 22:21:23 -0700
-Message-ID: <20070308052123.GA5077@xyzzy.farnsworth.org>
-References: <20070306164638.GB22043@xyzzy.farnsworth.org> <983376.58847.qm@web32410.mail.mud.yahoo.com>
+From: David Miller <davem@davemloft.net>
+Subject: TCP RB oops fixed
+Date: Wed, 07 Mar 2007 21:32:50 -0800 (PST)
+Message-ID: <20070307.213250.74747956.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	giri@lmc.cs.sunysb.edu, Giridhar Pemmasani <pgiri@yahoo.com>
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@linux-foundation.org, ilpo.jarvinen@helsinki.fi
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xyzzy.farnsworth.org ([65.39.95.219]:4869 "HELO farnsworth.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S932114AbXCHFVZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Mar 2007 00:21:25 -0500
-Content-Disposition: inline
-In-Reply-To: <983376.58847.qm@web32410.mail.mud.yahoo.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33107
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752227AbXCHFcu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Mar 2007 00:32:50 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Dale Farnsworth <dale@farnsworth.org>
 
-Signed-off-by: Dale Farnsworth <dale@farnsworth.org>
-Acked-by: Giridhar Pemmasani <pgiri@yahoo.com>
+I just checked in a fix for the TSO oops with RB-tree to
+net-2.6.22 as follows:
 
----
+commit 7de509de7c166598b0873dc9ef4c98424307f6b5
+Author: David S. Miller <davem@sunset.davemloft.net>
+Date:   Wed Mar 7 21:31:17 2007 -0800
 
-Giri, thank you very much for reporting the problem and confirming
-the fix.
+    [TCP]: Fix bug in tcp_rb_insert.
+    
+    We should advance rb_parent inside of the while() loop
+    body not in the loop test, otherwise rb_parent is always
+    NULL. :-/
+    
+    Signed-off-by: David S. Miller <davem@davemloft.net>
 
-Jeff, please apply.
-
-Andrew, this patch supersedes the -mm patch:
-	mv643xx-ethernet-driver-irq-registration-fix.patch
-
- drivers/net/mv643xx_eth.c |   10 ++++++----
- 1 file changed, 6 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/mv643xx_eth.c b/drivers/net/mv643xx_eth.c
-index 3e045a6..192b390 100644
---- a/drivers/net/mv643xx_eth.c
-+++ b/drivers/net/mv643xx_eth.c
-@@ -787,6 +787,12 @@ static int mv643xx_eth_open(struct net_device *dev)
- 	unsigned int size;
- 	int err;
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 2599d98..b94debb 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -1252,8 +1252,11 @@ static inline void tcp_rb_insert(struct sk_buff *skb, struct rb_root *root)
  
-+	/* Clear any pending ethernet port interrupts */
-+	mv_write(MV643XX_ETH_INTERRUPT_CAUSE_REG(port_num), 0);
-+	mv_write(MV643XX_ETH_INTERRUPT_CAUSE_EXTEND_REG(port_num), 0);
-+	/* wait for previous write to complete */
-+	mv_read (MV643XX_ETH_INTERRUPT_CAUSE_EXTEND_REG(port_num));
+ 	rb_link = &root->rb_node;
+ 	rb_parent = NULL;
+-	while ((rb_parent = *rb_link) != NULL) {
+-		struct sk_buff *tmp = rb_entry(rb_parent,struct sk_buff,rb);
++	while (*rb_link) {
++		struct sk_buff *tmp;
 +
- 	err = request_irq(dev->irq, mv643xx_eth_int_handler,
- 			IRQF_SHARED | IRQF_SAMPLE_RANDOM, dev->name, dev);
- 	if (err) {
-@@ -875,10 +881,6 @@ static int mv643xx_eth_open(struct net_device *dev)
- 
- 	mv643xx_eth_rx_refill_descs(dev);	/* Fill RX ring with skb's */
- 
--	/* Clear any pending ethernet port interrupts */
--	mv_write(MV643XX_ETH_INTERRUPT_CAUSE_REG(port_num), 0);
--	mv_write(MV643XX_ETH_INTERRUPT_CAUSE_EXTEND_REG(port_num), 0);
--
- 	eth_port_start(dev);
- 
- 	/* Interrupt Coalescing */
-
-
++		rb_parent = *rb_link;
++		tmp = rb_entry(rb_parent,struct sk_buff,rb);
+ 		if (TCP_SKB_CB(tmp)->end_seq > seq) {
+ 			BUG_ON(TCP_SKB_CB(tmp)->seq <= seq);
+ 			rb_link = &rb_parent->rb_left;
