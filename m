@@ -1,71 +1,51 @@
-From: Johannes Berg <johannes@sipsolutions.net>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
 Subject: Re: wireless extensions vs. 64-bit architectures
-Date: Thu, 08 Mar 2007 20:23:26 +0100
-Message-ID: <1173381806.3248.58.camel@johannes.berg>
+Date: Thu, 08 Mar 2007 20:27:22 +0100
+Message-ID: <1173382042.3248.63.camel@johannes.berg>
 References: <1173144447.15891.93.camel@johannes.berg>
 	 <20070306171316.GA19669@bougret.hpl.hp.com>
 	 <200703061943.07350.mb@bu3sch.de>
 	 <20070307020310.GA20466@bougret.hpl.hp.com>
 	 <1173364747.14001.7.camel@johannes.berg>
 	 <20070308184954.GA24485@bougret.hpl.hp.com>
-	 <1173380909.3248.52.camel@johannes.berg>
-	 <20070308191322.GA24598@bougret.hpl.hp.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-7xV/oHDBT9v20XS6TKXv"
-Cc: Michael Buesch <mb@bu3sch.de>, linux-wireless@vger.kernel.org,
-	netdev <netdev@vger.kernel.org>, Jeff Garzik <jgarzik@pobox.com>,
-	Dan Williams <dcbw@redhat.com>,
-	Jouni Malinen <jkm@devicescape.com>
-To: jt@hpl.hp.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:35596 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933057AbXCHTXj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Mar 2007 14:23:39 -0500
-In-Reply-To: <20070308191322.GA24598@bougret.hpl.hp.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-VjUWlSUMKghz3KaPjnFd"
+Cc: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Jeff Garzik <jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>,
+	Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Jouni Malinen <jkm-r/za7OOdgF0ztatW0fm/fQ@public.gmane.org>
+To: jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20070308184954.GA24485-yAE0UhLNZJawPNPzzlOzwdBPR1lH4CV8@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 
---=-7xV/oHDBT9v20XS6TKXv
+--=-VjUWlSUMKghz3KaPjnFd
 Content-Type: text/plain
 Content-Transfer-Encoding: quoted-printable
 
-On Thu, 2007-03-08 at 11:13 -0800, Jean Tourrilhes wrote:
+On Thu, 2007-03-08 at 10:49 -0800, Jean Tourrilhes wrote:
+> 	A proper fix would involve forcing the alignement in the
+> kernel. Unfortunately, that would break 64bit->64bit configs. I think
+> I can build a workaround for this in iwlib.
 
-> 	I'm looking into that. The good thing is that we have
-> redundant information, so we can check that things don't match. It's a
-> bit more complex because some of those take variable parameters.
-
-Yeah, and it also only happens with those event streams I think. But I
-haven't checked other possible places.
-
-> > I'd think this is a kernel bug and 32-bit userspace should rightfully b=
-e
-> > able to expect 32-bit aligned structs, no? Actually fixing it in the
-> > kernel would not be trivial though.
->=20
-> 	What we could do is have every 64 bit kernel return things on
-> a 32 bit boundary, irrespective of userspace used. That would break
-> current 64 bit userspace.
-
-Yeah, the only way to fix the bug without breaking that would be to
-return different structs for the different userspaces which sounds
-really complex.
+Actually, other tools like network manager, wpa supplicant and possibly
+more don't use iwlib afaik and are affected too, so the only real fix
+seems to be possible in the kernel.
 
 johannes
 
---=-7xV/oHDBT9v20XS6TKXv
+--=-VjUWlSUMKghz3KaPjnFd
 Content-Type: application/pgp-signature; name=signature.asc
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Comment: Johannes Berg (powerbook)
 
-iD8DBQBF8GKu/ETPhpq3jKURAsK5AJ98SDBT+IQsa3bfU6rq6FYnEH6czQCdGH7i
-s5GvbCBz2RpfnMTuJ6pg+tU=
-=9qQW
+iD8DBQBF8GOa/ETPhpq3jKURAufVAJ9rn5Xs0kODVf31jtCJAU0e6N0b4ACfYDpv
+ytNYd3/mBS0bVO61rLcZs4Y=
+=PAHo
 -----END PGP SIGNATURE-----
 
---=-7xV/oHDBT9v20XS6TKXv--
-
+--=-VjUWlSUMKghz3KaPjnFd--
