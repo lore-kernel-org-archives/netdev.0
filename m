@@ -1,33 +1,71 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: [PATCH][SCTP] Re: lockdep: inconsistent lock state ipv6_add_addr/sctp_v6_copy_addrlist (2.6.21-rc1)
-Date: Thu, 8 Mar 2007 12:15:21 +0100
-Message-ID: <20070308111521.GA3228@ff.dom.local>
-References: <20070308074751.GA2085@ff.dom.local> <E1HPGMB-0002AG-00@gondolin.me.apana.org.au> <20070308110230.GA9175@gondor.apana.org.au>
+From: Mithlesh Thukral <mithlesh@netxen.com>
+Subject: Re: [PATCH 1/3] NetXen: Make driver use multiple PCI functions
+Date: Thu, 8 Mar 2007 18:17:56 +0530
+Message-ID: <200703081817.57109.mithlesh@netxen.com>
+References: <200703051253.l25CrF7b004967@dut39.unminc.com> <45ED4E81.6010408@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: simon@arlott.org, linux-kernel@vger.kernel.org, sri@us.ibm.com,
-	netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, amitkale@netxen.com,
+	netxenproj@linsyssoft.com, rob@netxen.com
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from poczta.o2.pl ([193.17.41.142]:34726 "EHLO poczta.o2.pl"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751161AbXCHLLV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Mar 2007 06:11:21 -0500
+Received: from svr68.ehostpros.com ([67.15.48.48]:39531 "EHLO
+	svr68.ehostpros.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751677AbXCHMxL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Mar 2007 07:53:11 -0500
+In-Reply-To: <45ED4E81.6010408@garzik.org>
 Content-Disposition: inline
-In-Reply-To: <20070308110230.GA9175@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 08, 2007 at 10:02:30PM +1100, Herbert Xu wrote:
-> On Thu, Mar 08, 2007 at 10:00:23PM +1100, Herbert Xu wrote:
-> > 
-> > Who's calling ipv6_add_addr from softirq context? That's got to be
-> > wrong because ipv6_add_addr requires the RTNL.
-> 
-> Nevermind, I was thinking of ipv6_add_dev.
+On Tuesday 06 March 2007 16:50, Jeff Garzik wrote:
+> Linsys Contractor Mithlesh Thukral wrote:
+> > NetXen: Make driver use multiple PCI functions.
+> > This patch will make NetXen driver work with multiple PCI functions. This
+> > will make the usage of memory resources as well as interrupts more
+> > independent among different functions which results in better throughput.
+> > This change has been done after the multiport capable firmware related
+> > changes are already there in the NetXen's driver in Linux.
+> >
+> > Signed-off by: Mithlesh Thukral <mithlesh@netxen.com>
+> >
+> > ---
+> >
+> >  drivers/net/netxen/netxen_nic.h          |  126 ++---
+> >  drivers/net/netxen/netxen_nic_ethtool.c  |   80 +--
+> >  drivers/net/netxen/netxen_nic_hdr.h      |    8
+> >  drivers/net/netxen/netxen_nic_hw.c       |  213 ++++++--
+> >  drivers/net/netxen/netxen_nic_hw.h       |   18
+> >  drivers/net/netxen/netxen_nic_init.c     |  115 +---
+> >  drivers/net/netxen/netxen_nic_isr.c      |   80 +--
+> >  drivers/net/netxen/netxen_nic_main.c     |  523 ++++++++++-----------
+> >  drivers/net/netxen/netxen_nic_niu.c      |   27 -
+> >  drivers/net/netxen/netxen_nic_phan_reg.h |  125 -----
+> >  10 files changed, 631 insertions(+), 684 deletions(-)
+>
+> applied 1-3 to #upstream (2.6.22)
+hi Gurus,
 
-Anyway - maybe I forgot to say - the full error message
-available on linux-kernel.
+Please bear with my poor understanding about the kernel development process. I 
+have the following query:
 
-Cheers,
-Jarek P.
+1. We have sent these 3 patches which are have lined up for 2.6.22 kernel (as 
+mentioned above).
+2. The tree which is in netdev#upstream doesnt have these 3 above mentioned 
+patches.
+I need to send some patches now. My query is :
+
+1. If i send the patches with respect to current netdev#upstream and if they 
+are accepted, will the 3 patches which are applied for #upstream(2.6.22) 
+not break (i mean not apply cleanly).
+			OR
+I should send the patches with respect to current netdev#upstream tree + above 
+3 patches, so that these 3 patches apply cleanly when 2.6.22 development 
+cycle begins.
+
+Please advice me how to proceed on this.
+
+Thanks,
+Mithlesh Thukral
