@@ -1,72 +1,72 @@
-From: David Howells <dhowells@redhat.com>
-Subject: [PATCH 3/5] AF_RXRPC: Make it possible to merely try to cancel timers
-	and delayed work
-Date: Thu, 08 Mar 2007 22:48:54 +0000
-Message-ID: <20070308224854.17456.71874.stgit@warthog.cambridge.redhat.com>
-References: <20070308224806.17456.13944.stgit@warthog.cambridge.redhat.com>
+From: Pavel Roskin <proski@gnu.org>
+Subject: Re: wireless extensions vs. 64-bit architectures
+Date: Thu, 08 Mar 2007 17:49:48 -0500
+Message-ID: <1173394188.26190.24.camel@dv>
+References: <1173144447.15891.93.camel@johannes.berg>
+	 <20070306171316.GA19669@bougret.hpl.hp.com>
+	 <200703061943.07350.mb@bu3sch.de>
+	 <20070307020310.GA20466@bougret.hpl.hp.com>
+	 <1173364747.14001.7.camel@johannes.berg>
+	 <20070308184954.GA24485@bougret.hpl.hp.com>
+	 <1173382042.3248.63.camel@johannes.berg>
+	 <20070308193412.GG23040@devicescape.com>
+	 <1173382802.3248.68.camel@johannes.berg>
+	 <20070308221128.GA24884@bougret.hpl.hp.com>
+	 <20070308141756.efdfd6da.randy.dunlap@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, hch@infradead.org,
-	arjan@infradead.org, dhowells@redhat.com
-To: davem@davemloft.net, netdev@vger.kernel.org, herbert.xu@redhat.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030852AbXCHWuv@vger.kernel.org>
-In-Reply-To: <20070308224806.17456.13944.stgit@warthog.cambridge.redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: jt@hpl.hp.com, Johannes Berg <johannes@sipsolutions.net>,
+	Jouni Malinen <jkm@devicescape.com>,
+	Michael Buesch <mb@bu3sch.de>, linux-wireless@vger.kernel.org,
+	netdev <netdev@vger.kernel.org>, Jeff Garzik <jgarzik@pobox.com>,
+	Dan Williams <dcbw@redhat.com>
+To: Randy Dunlap <randy.dunlap@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fencepost.gnu.org ([199.232.76.164]:58745 "EHLO
+	fencepost.gnu.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030846AbXCHWt6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Mar 2007 17:49:58 -0500
+Received: from proski by fencepost.gnu.org with local (Exim 4.60)
+	(envelope-from <proski@gnu.org>)
+	id 1HPRPA-0004u4-8R
+	for netdev@vger.kernel.org; Thu, 08 Mar 2007 17:48:12 -0500
+In-Reply-To: <20070308141756.efdfd6da.randy.dunlap@oracle.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Export try_to_del_timer_sync() for use by the RxRPC module.
+On Thu, 2007-03-08 at 14:17 -0800, Randy Dunlap wrote:
+> I think that this is not actually an option since
+> powerpc64 is all 32-bit userspace.
+> Maybe some other arch-es are like this also (?).
 
-Add a try_to_cancel_delayed_work() so that it is possible to merely attempt to
-cancel a delayed work timer.
+I think all other architectures except x86_64 and maybe ia64 would
+prefer to stay 32-bit for performance reasons alone.  As for x86_64 and
+ia64, there is another incentive, namely compatibility with x86, which
+matters if proprietary software is involved.  Finally, using 32-bit
+userspace could cut memory consumption, which is important for some
+uses.
 
-Signed-Off-By: David Howells <dhowells@redhat.com>
----
+Switching 32-bit systems to a 64-bit kernel shouldn't be a big deal.  It
+should be transparent, just like enabling an option to support 4
+gigabytes of memory or 64-bit PCI resources.
 
- include/linux/workqueue.h |   21 +++++++++++++++++++++
- kernel/timer.c            |    2 ++
- 2 files changed, 23 insertions(+), 0 deletions(-)
+32-bit distributions should have an option to install a 64-bit kernel,
+just like it's possible to install a kernel optimized for 586 CPU.  A
+Live CD could benefit from 64-bit kernel because it would allow users to
+chroot to their 64-bit distro installation and repair it, without having
+to provide 64-bit userspace on the CD.
 
-diff --git a/include/linux/workqueue.h b/include/linux/workqueue.h
-index 2a7b38d..40a61ae 100644
---- a/include/linux/workqueue.h
-+++ b/include/linux/workqueue.h
-@@ -204,4 +204,25 @@ static inline int cancel_delayed_work(struct delayed_work *work)
- 	return ret;
- }
- 
-+/**
-+ * try_to_cancel_delayed_work - Try to kill pending scheduled, delayed work
-+ * @work: the work to cancel
-+ *
-+ * Try to kill off a pending schedule_delayed_work().
-+ * - The timer may still be running afterwards, and if so, the work may still
-+ *   be pending
-+ * - Returns -1 if timer still active, 1 if timer removed, 0 if not scheduled
-+ * - Can be called from the work routine; if it's still pending, just return
-+ *   and it'll be called again.
-+ */
-+static inline int try_to_cancel_delayed_work(struct delayed_work *work)
-+{
-+	int ret;
-+
-+	ret = try_to_del_timer_sync(&work->timer);
-+	if (ret > 0)
-+		work_release(&work->work);
-+	return ret;
-+}
-+
- #endif
-diff --git a/kernel/timer.c b/kernel/timer.c
-index 797cccb..447506a 100644
---- a/kernel/timer.c
-+++ b/kernel/timer.c
-@@ -505,6 +505,8 @@ out:
- 	return ret;
- }
- 
-+EXPORT_SYMBOL(try_to_del_timer_sync);
-+
- /**
-  * del_timer_sync - deactivate a timer and wait for the handler to finish.
-  * @timer: the timer to be deactivated
+I think the reason 32-bit userspace on 64-bit kernel is not widespread
+is precisely because of such incompatibilities as the one we are
+discussing.  The need for proper support will grow as laptops with over
+1 gigabyte of memory become a commonplace.
+
+I believe breaking the "u32/k64" compatibility is not an option. I would
+prefer the option two, the changeover.  I don't think wireless
+extensions (or at least the compatible kernel API) should go away soon.
+
+-- 
+Regards,
+Pavel Roskin
+
