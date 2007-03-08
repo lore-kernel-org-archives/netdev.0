@@ -1,93 +1,89 @@
-From: Chris Stromsoe <cbs@cts.ucla.edu>
-Subject: Re: skge- "soft lockup on CPU#0" with mtu=9000 (2.6.20.1 + web100
- patch)
-Date: Thu, 8 Mar 2007 13:31:13 -0800 (PST)
-Message-ID: <Pine.LNX.4.64.0703081256440.25051@potato.cts.ucla.edu>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: skge- "soft lockup on CPU#0" with mtu=9000 (2.6.20.1 + web100 patch)
+Date: Thu, 08 Mar 2007 13:37:41 -0800
+Message-ID: <9975.1173389861@death>
 References: <Pine.LNX.4.64.0703081101390.21717@potato.cts.ucla.edu>
- <20070308113427.6344a7f6@freekitty>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
 Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+To: Chris Stromsoe <cbs@cts.ucla.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-5.smtp.ucla.edu ([169.232.47.137]:39642 "EHLO
-	smtp-5.smtp.ucla.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933363AbXCHVcs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Mar 2007 16:32:48 -0500
-In-Reply-To: <20070308113427.6344a7f6@freekitty>
+Received: from e35.co.us.ibm.com ([32.97.110.153]:38819 "EHLO
+	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030665AbXCHVif (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Mar 2007 16:38:35 -0500
+Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
+	by e35.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id l28LcYfL005121
+	for <netdev@vger.kernel.org>; Thu, 8 Mar 2007 16:38:34 -0500
+Received: from d03av04.boulder.ibm.com (d03av04.boulder.ibm.com [9.17.195.170])
+	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l28LcXSp507674
+	for <netdev@vger.kernel.org>; Thu, 8 Mar 2007 14:38:33 -0700
+Received: from d03av04.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av04.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l28LcXC8010411
+	for <netdev@vger.kernel.org>; Thu, 8 Mar 2007 14:38:33 -0700
+In-reply-to: <Pine.LNX.4.64.0703081101390.21717@potato.cts.ucla.edu> 
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Thanks.  That fixes the soft lockup.
+Chris Stromsoe <cbs@cts.ucla.edu> wrote:
 
-I've got another problem now.  The cards I'm using are dual port 
-(sk-9844).  I am bonding both ports together.
+>Within 2 or 3 minutes after issuing
+>
+>ip link set bond1 mtu 9000
+>
+>I get one "NETDEV WATCHDOG: eth2: transmit timed out" to the console, and
+>then this starts to repeat:
+>
+>BUG: soft lockup detected on CPU#0!
 
-The card presents as eth2 and eth3.  If I remove eth2 from the bond so 
-that eth3 is the active interface, I get a hard lock (nothing prints to 
-serial console, sysrq isn't responsive) and have to power cycle.
+	I believe this is the same bug that is fixed by this change:
 
-This is with plain 2.6.20.1.  I also tested using skge.[ch] from the 
-current netdev git tree.
+commit c4f283b1f275e5528c13c119e5cfc80cdba55d00
+Author: Jay Vosburgh <fubar@us.ibm.com>
+Date:   Wed Feb 28 17:03:20 2007 -0800
+
+    bonding: fix double dev_add_pack
+    
+        Bonding can erroneously register the same packet_type to receive
+    ARPs (for use by ARP validation): once at device open time, and once via
+    sysfs.  Since sysfs can change the validate setting (and thus register
+    or unregister) at any time, a flag is needed to synchronize with device
+    open in order to avoid double registrations, and the simplest place is
+    within the packet_type structure itself.  Double unregister is not an
+    issue.
+    
+        Bug reported by Ulrich Oelmann <ulrich.oelmann@web.de>.
+    
+    Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+    Signed-off-by: Jeff Garzik <jeff@garzik.org>
+
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index ea73ebf..68afcb5 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -3423,6 +3423,9 @@ void bond_register_arp(struct bonding *b
+ {
+ 	struct packet_type *pt = &bond->arp_mon_pt;
+ 
++	if (pt->type)
++		return;
++
+ 	pt->type = htons(ETH_P_ARP);
+ 	pt->dev = NULL; /*bond->dev;XXX*/
+ 	pt->func = bond_arp_rcv;
+@@ -3431,7 +3434,10 @@ void bond_register_arp(struct bonding *b
+ 
+ void bond_unregister_arp(struct bonding *bond)
+ {
+-	dev_remove_pack(&bond->arp_mon_pt);
++	struct packet_type *pt = &bond->arp_mon_pt;
++
++	dev_remove_pack(pt);
++	pt->type = 0;
+ }
+ 
+ /*---------------------------- Hashing Policies -----------------------------*/
 
 
--Chris
+	-J
 
-On Thu, 8 Mar 2007, Stephen Hemminger wrote:
-
->
-> [SKGE]: Fix deadlock in skge_tx_timeout
->
-> dev_watchdog() already holds the device lock, don't take it again in
-> skge_tx_clean().
->
-> Signed-off-by: Patrick McHardy <kaber@trash.net>
->
-> ---
-> commit 0b1cfafa6f6b8a168d5811d1f65cf540942c52b1
-> tree 4d3f252d6618adfe812e9da95cd496bb798e7c7b
-> parent 1ca949299260aa49eeba34ff912e2321c8b1f647
-> author Patrick McHardy <kaber@trash.net> Sat, 24 Feb 2007 20:05:39 +0100
-> committer Patrick McHardy <kaber@trash.net> Sat, 24 Feb 2007 20:05:39 +0100
->
-> drivers/net/skge.c |    4 ++--
-> 1 files changed, 2 insertions(+), 2 deletions(-)
->
-> diff --git a/drivers/net/skge.c b/drivers/net/skge.c
-> index e482e7f..4a948c2 100644
-> --- a/drivers/net/skge.c
-> +++ b/drivers/net/skge.c
-> @@ -2575,7 +2575,9 @@ static int skge_down(struct net_device *
-> 	skge_led(skge, LED_MODE_OFF);
->
-> 	netif_poll_disable(dev);
-> +	netif_tx_lock_bh(dev);
-> 	skge_tx_clean(dev);
-> +	netif_tx_unlock_bh(dev);
-> 	skge_rx_clean(skge);
->
-> 	kfree(skge->rx_ring.start);
-> @@ -2720,7 +2722,6 @@ static void skge_tx_clean(struct net_dev
-> 	struct skge_port *skge = netdev_priv(dev);
-> 	struct skge_element *e;
->
-> -	netif_tx_lock_bh(dev);
-> 	for (e = skge->tx_ring.to_clean; e != skge->tx_ring.to_use; e = e->next) {
-> 		struct skge_tx_desc *td = e->desc;
-> 		skge_tx_free(skge, e, td->control);
-> @@ -2729,7 +2730,6 @@ static void skge_tx_clean(struct net_dev
->
-> 	skge->tx_ring.to_clean = e;
-> 	netif_wake_queue(dev);
-> -	netif_tx_unlock_bh(dev);
-> }
->
-> static void skge_tx_timeout(struct net_device *dev)
->
->
-> --------------010402080104080400040104--
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
