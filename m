@@ -1,60 +1,47 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: skge- "soft lockup on CPU#0" with mtu=9000 (2.6.20.1 + web100 patch)
-Date: Thu, 08 Mar 2007 15:04:05 -0800
-Message-ID: <23552.1173395045@death>
-References: <Pine.LNX.4.64.0703081101390.21717@potato.cts.ucla.edu> <20070308113427.6344a7f6@freekitty> <Pine.LNX.4.64.0703081256440.25051@potato.cts.ucla.edu> <20070308134811.38a8ec81@freekitty> <Pine.LNX.4.64.0703081350510.25051@potato.cts.ucla.edu>
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	netdev@vger.kernel.org
-To: Chris Stromsoe <cbs@cts.ucla.edu>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [PATCH 1/2] r8169: revert bogus BMCR reset
+Date: Thu, 8 Mar 2007 23:59:54 +0100
+Message-ID: <20070308225954.GA27354@electric-eye.fr.zoreil.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Roman Jarosz <kedgedev@centrum.cz>,
+	Rolf Eike Beer <eike-kernel@sf-tec.de>,
+	Edward Hsu <edward_hsu@realtek.com>
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e4.ny.us.ibm.com ([32.97.182.144]:60038 "EHLO e4.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030861AbXCHXEM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Mar 2007 18:04:12 -0500
-Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by e4.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l28N49XY005499
-	for <netdev@vger.kernel.org>; Thu, 8 Mar 2007 18:04:09 -0500
-Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
-	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l28N48Xg301306
-	for <netdev@vger.kernel.org>; Thu, 8 Mar 2007 18:04:08 -0500
-Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
-	by d01av03.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l28N48we022746
-	for <netdev@vger.kernel.org>; Thu, 8 Mar 2007 18:04:08 -0500
-In-reply-to: <Pine.LNX.4.64.0703081350510.25051@potato.cts.ucla.edu> 
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:43852 "EHLO
+	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1030862AbXCHXFV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Mar 2007 18:05:21 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Chris Stromsoe <cbs@cts.ucla.edu> wrote:
+Added during bf793295e1090af84972750898bf8470df5e5419
 
->It's active-backup.  Testing with the same setup and e100 works fine. I've
->done a few tests without the bonding module, using the dual-port
->separately.
+The current code requests a reset but prohibits autoneg, 1000 Mb/s,
+100 Mb/s and full duplex. The 8168 does not like it at all.
 
-	Somebody else a couple of weeks ago was having similar issues
-running bonding with skge (in 802.3ad mode, in his case) that also
-vanished with different hardware.  I don't have any skge hardware, so I
-can't test it here.  His problem was a failure in 802.3ad negotiation,
-not a system lockup, though.
-
-	If you're running active-backup and not using the ARP monitor
-(arp_interval), then I'm not aware of any possible locking problems in
-bonding for the kernel version you reference (2.6.20.1).
-
->1) ip link set mtu 9000 eth2  <-- eth2 is no longer responsive
->   ip link set mtu 1500 eth2  <-- eth2 remains unresponsive
->
->2) ifup eth2
->   ifdown eth2
->
->   perl -pi -e 's/eth2/eth3/' /etc/network/interfaces
->
->   ifup eth3   <--  locks up here
-
-	This would seem to suggest a problem with skge itself, although
-there might be some other interaction with bonding that causes the
-problems for that case.
-
-	-J
-
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 ---
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+ drivers/net/r8169.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index 688b64d..521b5f0 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -572,8 +572,8 @@ static void rtl8169_xmii_reset_enable(void __iomem *ioaddr)
+ {
+ 	unsigned int val;
+ 
+-	mdio_write(ioaddr, MII_BMCR, BMCR_RESET);
+-	val = mdio_read(ioaddr, MII_BMCR);
++	val = mdio_read(ioaddr, MII_BMCR) | BMCR_RESET;
++	mdio_write(ioaddr, MII_BMCR, val & 0xffff);
+ }
+ 
+ static void rtl8169_check_link_status(struct net_device *dev,
+-- 
+1.4.4.4
+
