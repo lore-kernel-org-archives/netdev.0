@@ -1,89 +1,67 @@
-From: Joy Latten <latten@austin.ibm.com>
-Subject: [PATCH]: double SAs are created when using AH and ESP together
-Date: Fri, 9 Mar 2007 17:14:54 -0600
-Message-ID: <200703092314.l29NEsre023870@faith.austin.ibm.com>
-Cc: davem@davemloft.net, eparis@redhat.com,
-	herbert@gondor.apana.org.au, jmorris@namei.org, paul.moore@hp.com,
-	vyekkirala@TrustedCS.com
-To: netdev@vger.kernel.org
+From: Chris Wright <chrisw@sous-sol.org>
+Subject: Re: [PATCH 2/2] [IPV6]: Ensure to truncate result and return full length for sticky options.
+Date: Fri, 9 Mar 2007 15:44:35 -0800
+Message-ID: <20070309234435.GE7920@sequoia.sous-sol.org>
+References: <20070309.101328.78855655.yoshfuji@linux-ipv6.org> <20070308.204845.125566290.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: yoshfuji@linux-ipv6.org, chrisw@sous-sol.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e5.ny.us.ibm.com ([32.97.182.145]:41577 "EHLO e5.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1767649AbXCIXbM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Mar 2007 18:31:12 -0500
-Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by e5.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l29NV9Is003425
-	for <netdev@vger.kernel.org>; Fri, 9 Mar 2007 18:31:09 -0500
-Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
-	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l29NV6Et161434
-	for <netdev@vger.kernel.org>; Fri, 9 Mar 2007 18:31:06 -0500
-Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
-	by d01av02.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l29NUtEa025700
-	for <netdev@vger.kernel.org>; Fri, 9 Mar 2007 18:30:56 -0500
+Received: from 216-99-217-87.dsl.aracnet.com ([216.99.217.87]:37905 "EHLO
+	sous-sol.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1767665AbXCIXoB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Mar 2007 18:44:01 -0500
+Content-Disposition: inline
+In-Reply-To: <20070308.204845.125566290.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2007-03-06 at 14:40 -0500, James Morris wrote:
-On Tue, 6 Mar 2007, Joy Latten wrote:
-> 
-> > > I saw something similar to this some time ago when testing various 
-> > > failure modes, and discused it with Herbert.
-> > > 
-> > > IIRC, there's a larval SA which is not torn down properly by Racoon once 
-> > > the full SA is established, and the larval SA keeps resending until it 
-> > > times out.
-> > > 
-> > Ok, good to know. 
-> > I thought a bit more about this last night but am not
-> > sure best way to fix it. Perhaps a way to keep larval
-> > SA around until all SAs resulting from xfrm_vec[xfrm_nr]
-> > are established... oh well, just thinking out loud... :-) 
-> 
-> I think the solution, if this actually the problem, is for the userland 
-> code to maintain the SAs.
- 
-Gotta agree. :-)
+* David Miller (davem@davemloft.net) wrote:
+> From: YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E <yoshf=
+uji@linux-ipv6.org>
+> Date: Fri, 09 Mar 2007 10:13:28 +0900 (JST)
+>=20
+> > Bug noticed by Chris Wright <chrisw@sous-sol.org>.
+> >=20
+> > Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+>=20
+> Applied, thanks a lot.
 
-I noticed that in xfrm_state_add we look for the larval SA in a few
-places without checking for protocol match. So when using both 
-AH and ESP, whichever one gets added first, deletes the larval SA. 
-It seems AH always gets added first and ESP is always the larval 
-SA's protocol since the xfrm->tmpl has it first. Thus causing the
-additional km_query()
+Crud, I should have noticed this earlier.  This has a problem, min_t(in=
+t)
+means user supplied < 0 is a large copy_to_user (back to leaking memory
+on arch's that don't protect < 0 copy_to_user like i386 does).  Here's
+a simple fix ontop of yoshifuji's two changes.  Hope that's it ;-)
 
-Adding the check eliminates the double SA creation. 
-I know this may not seem like a complete solution and I will 
-continue to test and be on the lookout, but isn't having the
-check a good thing? So far I have tested SAs with just ESP, just AH
-and with both and all seems ok. 
+thanks,
+-chris
+--
 
-Please let me know if this patch is ok. 
-My kernel was 2.6.20-rc3-git3.
+=46rom: Chris Wright <chrisw@sous-sol.org>
+Subject: [IPV6] fix ipv6_getsockopt_sticky copy_to_user leak
 
-Joy 
+User supplied len < 0 can cause leak of kernel memory.
+Use unsigned compare instead.
 
-Signed-off-by: Joy Latten <latten@austin.ibm.com>
+Signed-off-by: Chris Wright <chrisw@sous-sol.org>
+---
+ net/ipv6/ipv6_sockglue.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff -urpN linux-2.6.20.orig/net/xfrm/xfrm_state.c linux-2.6.20.patch/net/xfrm/xfrm_state.c
---- linux-2.6.20.orig/net/xfrm/xfrm_state.c	2007-03-08 17:39:14.000000000 -0600
-+++ linux-2.6.20.patch/net/xfrm/xfrm_state.c	2007-03-09 11:03:25.000000000 -0600
-@@ -704,7 +704,8 @@ static struct xfrm_state *__find_acq_cor
- 		    x->props.mode   != mode ||
- 		    x->props.family != family ||
- 		    x->km.state     != XFRM_STATE_ACQ ||
--		    x->id.spi       != 0)
-+		    x->id.spi       != 0 ||
-+		    x->id.proto	    != proto)
- 			continue;
- 
- 		switch (family) {
-@@ -801,7 +802,8 @@ int xfrm_state_add(struct xfrm_state *x)
- 
- 	if (use_spi && x->km.seq) {
- 		x1 = __xfrm_find_acq_byseq(x->km.seq);
--		if (x1 && xfrm_addr_cmp(&x1->id.daddr, &x->id.daddr, family)) {
-+		if (x1 && ((x1->id.proto != x->id.proto) ||
-+		    xfrm_addr_cmp(&x1->id.daddr, &x->id.daddr, family))) {
- 			xfrm_state_put(x1);
- 			x1 = NULL;
- 		}
+diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
+index a4f06ce..321287b 100644
+--- a/net/ipv6/ipv6_sockglue.c
++++ b/net/ipv6/ipv6_sockglue.c
+@@ -824,7 +824,7 @@ static int ipv6_getsockopt_sticky(struct sock *sk, =
+struct ipv6_txoptions *opt,
+ 	if (!hdr)
+ 		return 0;
+=20
+-	len =3D min_t(int, len, ipv6_optlen(hdr));
++	len =3D min_t(unsigned, len, ipv6_optlen(hdr));
+ 	if (copy_to_user(optval, hdr, len));
+ 		return -EFAULT;
+ 	return ipv6_optlen(hdr);
