@@ -1,346 +1,139 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: RE: [PATCH 1/2] NET: Multiple queue network device support
-Date: Fri, 9 Mar 2007 11:25:55 -0800
-Message-ID: <D5C1322C3E673F459512FB59E0DDC329026E9C45@orsmsx414.amr.corp.intel.com>
-References: <20070309134037.GH521@postel.suug.ch>
+From: Simon Arlott <simon@fire.lp0.eu>
+Subject: netconsole system freeze when cable unplugged
+Date: Fri, 09 Mar 2007 19:35:25 +0000
+Message-ID: <45F1B6FD.1060902@simon.arlott.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
-Content-Transfer-Encoding: 8BIT
-Cc: "David Miller" <davem@davemloft.net>,
-	"Garzik, Jeff" <jgarzik@pobox.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Kok, Auke" <auke@foo-projects.org>,
-	"Ronciak, John" <john.ronciak@intel.com>
-To: "Thomas Graf" <tgraf@suug.ch>,
-	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1767509AbXCIT0E@vger.kernel.org>
-Content-class: urn:content-classes:message
-In-Reply-To: <20070309134037.GH521@postel.suug.ch>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from proxima.lp0.eu ([85.158.45.36]:57708 "EHLO proxima.lp0.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752760AbXCITfb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Mar 2007 14:35:31 -0500
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: Thomas Graf [mailto:tgraf@suug.ch] 
-> Sent: Friday, March 09, 2007 5:41 AM
-> To: Kok, Auke-jan H
-> Cc: David Miller; Garzik, Jeff; netdev@vger.kernel.org; 
-> linux-kernel@vger.kernel.org; Waskiewicz Jr, Peter P; 
-> Brandeburg, Jesse; Kok, Auke; Ronciak, John
-> Subject: Re: [PATCH 1/2] NET: Multiple queue network device support
-> 
-> * Kok, Auke <auke-jan.h.kok@intel.com> 2007-02-08 16:09
-> > diff --git a/net/core/dev.c b/net/core/dev.c index 455d589..42b635c 
-> > 100644
-> > --- a/net/core/dev.c
-> > +++ b/net/core/dev.c
-> > @@ -1477,6 +1477,49 @@ gso:
-> >  	skb->tc_verd = SET_TC_AT(skb->tc_verd,AT_EGRESS);
-> >  #endif
-> >  	if (q->enqueue) {
-> > +#ifdef CONFIG_NET_MULTI_QUEUE_DEVICE
-> > +		int queue_index;
-> > +		/* If we're a multi-queue device, get a queue 
-> index to lock */
-> > +		if (netif_is_multiqueue(dev))
-> > +		{
-> > +			/* Get the queue index and lock it. */
-> > +			if (likely(q->ops->map_queue)) {
-> > +				queue_index = q->ops->map_queue(skb, q);
-> > +				
-> spin_lock(&dev->egress_subqueue[queue_index].queue_lock);
-> > +				rc = q->enqueue(skb, q);
-> > +				/*
-> > +				 * Unlock because the underlying qdisc
-> > +				 * may queue and send a packet from a
-> > +				 * different queue.
-> > +				 */
-> > +				
-> spin_unlock(&dev->egress_subqueue[queue_index].queue_lock);
-> > +				qdisc_run(dev);
-> 
-> I really dislike this asymmetric locking logic, while 
-> enqueue() is called with queue_lock held dequeue() is 
-> repsonsible to acquire the lock for qdisc_restart().
+When I unplug the cable the system just stops responding to anything, 
+at all. No message is printed to the console when the cable is plugged 
+back in.
 
-I don't see how I can make this symmetrical when dealing with more than
-one queue.  If an skb is classified to band 2 which maps to queue 1, we
-lock queue 1, and enqueue the packet.  That queue will not be the first
-queue checked in dequeue for an skb, so I cannot rely on that lock
-protecting queue 0 in dequeue.  Therefore I need to map the skb, lock,
-enqueue, unlock, then go into dequeue and lock the correct queue there.
-If I were to make this symmetrical, then the process of enqueuing and
-dequeuing would be serialized completely, and we'd be back to where we
-started without multiqueue.
+[    0.000000] Linux version 2.6.21-rc3 (byte@redrum) (gcc version 3.4.6 (Gentoo 3.4.6-r1, ssp-3.4.5-1.0, pie-8.7.9)) #3 SMP Fri Mar 9 18:42:22 GMT 2007
+[    0.000000] BIOS-provided physical RAM map:
+[    0.000000] sanitize start
+[    0.000000] sanitize bail 0
+[    0.000000]  BIOS-e801: 0000000000000000 - 000000000009f000 (usable)
+[    0.000000]  BIOS-e801: 0000000000100000 - 000000000c000000 (usable)
+[    0.000000] 192MB LOWMEM available.
+[    0.000000] found SMP MP-table at 000fea90
+[    0.000000] Zone PFN ranges:
+[    0.000000]   DMA             0 ->     4096
+[    0.000000]   Normal       4096 ->    49152
+[    0.000000] early_node_map[1] active PFN ranges
+[    0.000000]     0:        0 ->    49152
+[    0.000000] DMI not present or invalid.
+[    0.000000] Intel MultiProcessor Specification v1.4
+[    0.000000]     Virtual Wire compatibility mode.
+[    0.000000] OEM ID: COMPAQ   Product ID: Workstation  APIC at: 0xFEE00000
+[    0.000000] Processor #1 6:1 APIC version 16
+[    0.000000] Processor #0 6:1 APIC version 16
+[    0.000000] I/O APIC #8 Version 17 at 0xFEC00000.
+[    0.000000] Enabling APIC mode:  Flat.  Using 1 I/O APICs
+[    0.000000] Processors: 2
+[    0.000000] Allocating PCI resources starting at 10000000 (gap: 0c000000:f4000000)
+[    0.000000] Built 1 zonelists.  Total pages: 48768
+[    0.000000] Kernel command line: netconsole=9@192.168.7.200/eth0,1649@192.168.7.255/ console=ttyS0,115200 ip=dhcp root=/dev/nfs init=/bin/bash panic=10
+[    0.000000] Initializing CPU#0
+[    0.000000] PID hash table entries: 1024 (order: 10, 4096 bytes)
+[    0.000000] Detected 199.444 MHz processor.
+[  485.111206] Console: colour dummy device 80x25
+[  486.218671] Dentry cache hash table entries: 32768 (order: 5, 131072 bytes)
+[  486.227388] Inode-cache hash table entries: 16384 (order: 4, 65536 bytes)
+[  486.234789] Pentium Pro with Errata#50 detected. Taking evasive action.
+[  486.346878] Memory: 189764k/196608k available (1268k kernel code, 6452k reserved, 492k data, 184k init, 0k highmem)
+[  486.357430] virtual kernel memory layout:
+[  486.357444]     fixmap  : 0xfffbc000 - 0xfffff000   ( 268 kB)
+[  486.357461]     vmalloc : 0xcc800000 - 0xfffba000   ( 823 MB)
+[  486.357478]     lowmem  : 0xc0000000 - 0xcc000000   ( 192 MB)
+[  486.357494]       .init : 0xc02bf000 - 0xc02ed000   ( 184 kB)
+[  486.357510]       .data : 0xc023d32b - 0xc02b85d0   ( 492 kB)
+[  486.357527]       .text : 0xc0100000 - 0xc023d32b   (1268 kB)
+[  486.396031] Checking if this processor honours the WP bit even in supervisor mode... Ok.
+[  486.562667] Calibrating delay using timer specific routine.. 400.92 BogoMIPS (lpj=2004624)
+[  486.575064] Mount-cache hash table entries: 512
+[  486.587330] CPU: L1 I cache: 8K, L1 D cache: 8K
+[  486.591916] CPU: L2 cache: 256K
+[  486.595475] Checking 'hlt' instruction... OK.
+[  486.633415] Freeing SMP alternatives: 9k freed
+[  486.638843] CPU0: Intel Pentium Pro stepping 07
+[  486.644597] lockdep: not fixing up alternatives.
+[  486.649256] Booting processor 1/0 eip 2000
+[  486.664153] Initializing CPU#1
+[  486.812607] Calibrating delay using timer specific routine.. 398.91 BogoMIPS (lpj=1994559)
+[  486.812755] CPU: L1 I cache: 8K, L1 D cache: 8K
+[  486.812781] CPU: L2 cache: 256K
+[  486.813992] CPU1: Intel Pentium Pro stepping 07
+[  486.837731] Total of 2 processors activated (799.83 BogoMIPS).
+[  486.844201] ExtINT not setup in hardware but reported by MP table
+[  486.851035] ENABLING IO-APIC IRQs
+[  486.855772] ..TIMER: vector=0x31 apic1=0 pin1=2 apic2=0 pin2=0
+[  487.204372] checking TSC synchronization [CPU#0 -> CPU#1]: passed.
+[  487.230906] Brought up 2 CPUs
+[  487.888084] migration_cost=6769
+[  487.904092] NET: Registered protocol family 16
+[  487.927495] PCI: PCI BIOS revision 2.10 entry at 0xe07c4, last bus=1
+[  487.933936] PCI: Using configuration type 1
+[  487.938152] Setting up standard PCI resources
+[  487.951810] PCI: Probing PCI hardware
+[  487.959923] 0000:00:14.1: trying to change BAR0 from 0000 to 01F0
+[  487.966107] 0000:00:14.1: trying to change BAR1 from 0000 to 03F4
+[  487.972246] 0000:00:14.1: trying to change BAR2 from 0000 to 0170
+[  487.978418] 0000:00:14.1: trying to change BAR3 from 0000 to 0374
+[  487.993123] PCI->APIC IRQ transform: 0000:00:08.0[A] -> IRQ 19
+[  487.999018] PCI->APIC IRQ transform: 0000:00:0b.0[A] -> IRQ 16
+[  488.004987] PCI->APIC IRQ transform: 0000:01:0b.0[A] -> IRQ 20
+[  488.010870] PCI->APIC IRQ transform: 0000:01:0c.0[A] -> IRQ 21
+[  488.058792] PCI: Bridge: 0000:00:06.0
+[  488.062512]   IO window: 1000-1fff
+[  488.065964] Time: tsc clocksource has been installed.
+[  488.071119]   MEM window: 50000000-501fffff
+[  488.075398]   PREFETCH window: 10000000-100fffff
+[  488.081935] NET: Registered protocol family 2
+[  488.173953] IP route cache hash table entries: 2048 (order: 1, 8192 bytes)
+[  488.184036] TCP established hash table entries: 8192 (order: 6, 294912 bytes)
+[  488.204285] TCP bind hash table entries: 8192 (order: 6, 262144 bytes)
+[  488.223278] TCP: Hash tables configured (established 8192 bind 8192)
+[  488.229974] TCP reno registered
+[  488.285511] Limiting direct PCI/PCI transfers.
+[  488.334179] Real Time Clock Driver v1.12ac
+[  488.338328] Hangcheck: starting hangcheck timer 0.9.0 (tick is 180 seconds, margin is 60 seconds).
+[  488.347357] Hangcheck: Using get_cycles().
+[  488.351515] Serial: 8250/16550 driver $Revision: 1.90 $ 4 ports, IRQ sharing disabled
+[  488.360916] serial8250: ttyS0 at I/O 0x3f8 (irq = 4) is a 16550A
+[  488.367954] serial8250: ttyS1 at I/O 0x2f8 (irq = 3) is a 16550A
+[  488.381717] 8139too Fast Ethernet driver 0.9.28
+[  488.389601] eth0: RealTek RTL8139 at 0x2400, 00:02:44:47:d3:ee, IRQ 19
+[  488.396487] netconsole: device eth0 not up yet, forcing it
+[  488.402923] eth0: link up, 100Mbps, full-duplex, lpa 0x45E1
+[  488.423119] netconsole: carrier detect appears untrustworthy, waiting 100 ms
+[  489.684118] netconsole: network logging started
+[  489.688832] TCP cubic registered
+[  489.694506] NET: Registered protocol family 10
+[  489.711251] Starting balanced_irq
+[  489.715459] Using IPI Shortcut mode
+[  491.242277] Sending DHCP requests ., OK
+[  491.292256] IP-Config: Got DHCP answer from 192.168.7.4, my address is 192.168.7.200
+[  491.302672] IP-Config: Complete:
+[  491.305876]       device=eth0, addr=192.168.7.200, mask=255.255.255.0, gw=192.168.7.4,
+[  491.314553]      host=Compaq_PW5000, domain=lan, nis-domain=(none),
+[  491.321130]      bootserver=192.168.7.4, rootserver=192.168.7.8, rootpath=/
+[  491.331337] Looking up port of RPC 100003/2 on 192.168.7.8
+[  491.344971] Looking up port of RPC 100005/1 on 192.168.7.8
+[  491.444880] VFS: Mounted root (nfs filesystem) readonly.
+[  491.453750] Freeing unused kernel memory: 184k freed
+[  491.459420] Write protecting the kernel read-only data: 346k
+[  565.518226] eth0: link down
 
-Also, in the multiqueue code path, dev->queue_lock isn't held anywhere,
-it's the subqueue lock.
-
-> 
-> > +				rc = rc == NET_XMIT_BYPASS
-> > +				           ? NET_XMIT_SUCCESS : rc;
-> > +				goto out;
-> > +			} else {
-> > +				printk(KERN_CRIT "Device %s is "
-> > +					"multiqueue, but map_queue is "
-> > +					"undefined in the qdisc!!\n",
-> > +					dev->name);
-> > +				kfree_skb(skb);
-> 
-> Move this check to tc_modify_qdisc(), it's useless to check 
-> this for every packet being delivered.
-
-The patches I sent yesterday modified the non-multiqueue qdiscs to not
-load if the device is multiqueue, so this check can be removed
-altogether.
-
-> 
-> > +			}
-> > +		} else {
-> > +			/* We're not a multi-queue device. */
-> > +			spin_lock(&dev->queue_lock);
-> > +			q = dev->qdisc;
-> > +			if (q->enqueue) {
-> > +				rc = q->enqueue(skb, q);
-> > +				qdisc_run(dev);
-> > +				spin_unlock(&dev->queue_lock);
-> > +				rc = rc == NET_XMIT_BYPASS
-> > +				           ? NET_XMIT_SUCCESS : rc;
-> > +				goto out;
-> > +			}
-> > +			spin_unlock(&dev->queue_lock);
-> 
-> Please don't duplicate already existing code.
-
-I don't want to mix multiqueue and non-multiqueue code in the transmit
-path.  This was an attempt to allow MQ and non-MQ devices to coexist in
-a machine having separate code paths.  Are you suggesting to combine
-them?  That would get very messy trying to determine what type of lock
-to grab (subqueue lock or dev->queue_lock), not to mention grabbing the
-dev->queue_lock would block multiqueue devices in that same codepath.
-
-> 
-> > @@ -130,6 +140,72 @@ static inline int qdisc_restart(struct 
-> net_device *dev)
-> >  		}
-> >  		
-> >  		{
-> > +#ifdef CONFIG_NET_MULTI_QUEUE_DEVICE
-> > +			if (netif_is_multiqueue(dev)) {
-> > +				if (likely(q->ops->map_queue)) {
-> > +					queue_index = 
-> q->ops->map_queue(skb, q);
-> > +				} else {
-> > +					printk(KERN_CRIT "Device %s is "
-> > +						"multiqueue, 
-> but map_queue is "
-> > +						"undefined in 
-> the qdisc!!\n",
-> > +						dev->name);
-> > +					goto requeue;
-> > +				}
-> 
-> Yet another condition completely useless for every transmission.
-
-Yep, this will be removed.  Thanks.
-
-> 
-> > +				
-> spin_unlock(&dev->egress_subqueue[queue_index].queue_lock);
-> > +				/* Check top level device, and 
-> any sub-device */
-> > +				if ((!netif_queue_stopped(dev)) &&
-> > +				  (!netif_subqueue_stopped(dev, 
-> queue_index))) {
-> > +					int ret;
-> > +					ret = 
-> dev->hard_start_subqueue_xmit(skb, dev, queue_index);
-> > +					if (ret == NETDEV_TX_OK) {
-> > +						if (!nolock) {
-> > +							
-> netif_tx_unlock(dev);
-> > +						}
-> > +						return -1;
-> > +					}
-> > +					if (ret == 
-> NETDEV_TX_LOCKED && nolock) {
-> > +						
-> spin_lock(&dev->egress_subqueue[queue_index].queue_lock);
-> > +						goto collision;
-> > +					}
-> > +				}
-> > +				/* NETDEV_TX_BUSY - we need to 
-> requeue */
-> > +				/* Release the driver */
-> > +				if (!nolock) {
-> > +					netif_tx_unlock(dev);
-> > +				}
-> > +				
-> spin_lock(&dev->egress_subqueue[queue_index].queue_lock);
-> > +				q = dev->qdisc;
-> 
-> This is identical to the existing logic except for the 
-> different lock, the additional to check subqueue state and a 
-> different hard_start_xmit call. Share the logic.
-
-Not necessarily.  How we got here and how the locks are working are
-logically different due to the different queues.  I'm working on storing
-the queue index in the skb now from Dave's suggestion, so there will be
-one hard_start_xmit, but the logic is different since the queue lock
-we're grabbing will be different than non-multiqueue.  Perhaps I'm
-missing something here.
-
-> 
-> > +			}
-> > +			else
-> > +			{
-> > +				/* We're a single-queue device */
-> > +				/* And release queue */
-> > +				spin_unlock(&dev->queue_lock);
-> > +				if (!netif_queue_stopped(dev)) {
-> > +					int ret;
-> > +
-> > +					ret = 
-> dev->hard_start_xmit(skb, dev);
-> > +					if (ret == NETDEV_TX_OK) {
-> > +						if (!nolock) {
-> > +							
-> netif_tx_unlock(dev);
-> > +						}
-> > +						
-> spin_lock(&dev->queue_lock);
-> > +						return -1;
-> > +					}
-> > +					if (ret == 
-> NETDEV_TX_LOCKED && nolock) {
-> > +						
-> spin_lock(&dev->queue_lock);
-> > +						goto collision;
-> > +					}
-> > +				}
-> > +				/* NETDEV_TX_BUSY - we need to 
-> requeue */
-> > +				/* Release the driver */
-> > +				if (!nolock) {
-> > +					netif_tx_unlock(dev);
-> > +				}
-> > +				spin_lock(&dev->queue_lock);
-> > +				q = dev->qdisc;
-> 
-> Again, you just copied the existing code into a separate 
-> branch, fix the branching logic!
-
-This is another attempt to keep the two codepaths separate.  The only
-way I see of combining them is to check netif_is_multiqueue() everytime
-I need to grab a lock, which I think would be excessive.
-
-> 
-> > @@ -356,10 +454,18 @@ static struct sk_buff 
-> *pfifo_fast_dequeue(struct Qdisc* qdisc)
-> >  	struct sk_buff_head *list = qdisc_priv(qdisc);
-> >  
-> >  	for (prio = 0; prio < PFIFO_FAST_BANDS; prio++) {
-> > +#ifdef CONFIG_NET_MULTI_QUEUE_DEVICE
-> > +		if (netif_is_multiqueue(qdisc->dev))
-> > +			
-> spin_lock(&qdisc->dev->egress_subqueue[0].queue_lock);
-> > +#endif
-> >  		if (!skb_queue_empty(list + prio)) {
-> >  			qdisc->q.qlen--;
-> >  			return __qdisc_dequeue_head(qdisc, list + prio);
-> >  		}
-> > +#ifdef CONFIG_NET_MULTI_QUEUE_DEVICE
-> > +		if (netif_is_multiqueue(qdisc->dev))
-> > +			
-> spin_unlock(&qdisc->dev->egress_subqueue[0].queue_lock);
-> > +#endif
-> 
-> This lock/unlock for every band definitely screws performance.
-> 
-
-I will move the lock out of the for() loop since every band in
-pfifo_fast maps to queue 0.  Thanks.
-
-> >  	}
-> >  
-> >  	return NULL;
-> > @@ -141,18 +174,53 @@ prio_dequeue(struct Qdisc* sch)
-> >  	struct sk_buff *skb;
-> >  	struct prio_sched_data *q = qdisc_priv(sch);
-> >  	int prio;
-> > +#ifdef CONFIG_NET_MULTI_QUEUE_DEVICE
-> > +	int queue;
-> > +#endif
-> >  	struct Qdisc *qdisc;
-> >  
-> > +	/*
-> > +	 * If we're multiqueue, the basic approach is try the 
-> lock on each
-> > +	 * queue.  If it's locked, either we're already 
-> dequeuing, or enqueue
-> > +	 * is doing something.  Go to the next band if we're 
-> locked.  Once we
-> > +	 * have a packet, unlock the queue.  NOTE: the 
-> underlying qdisc CANNOT
-> > +	 * be a PRIO qdisc, otherwise we will deadlock.  FIXME
-> > +	 */
-> >  	for (prio = 0; prio < q->bands; prio++) {
-> > +#ifdef CONFIG_NET_MULTI_QUEUE_DEVICE
-> > +		if (netif_is_multiqueue(sch->dev)) {
-> > +			queue = q->band2queue[prio];
-> > +			if 
-> (spin_trylock(&sch->dev->egress_subqueue[queue].queue_lock)) {
-> > +				qdisc = q->queues[prio];
-> > +				skb = qdisc->dequeue(qdisc);
-> > +				if (skb) {
-> > +					sch->q.qlen--;
-> > +					skb->priority = prio;
-> > +					
-> spin_unlock(&sch->dev->egress_subqueue[queue].queue_lock);
-> > +					return skb;
-> > +				}
-> > +				
-> spin_unlock(&sch->dev->egress_subqueue[queue].queue_lock);
-> > +			}
-> 
-> Your modified qdisc_restart() expects the queue_lock to be 
-> locked, how can this work?
-
-No, it doesn't expect the lock to be held.  Because of the multiple
-queues, enqueueing and dequeueing are now asynchronous, since I can
-enqueue to queue 0 while dequeuing from queue 1.  dev->queue_lock isn't
-held, so this can happen.  Therefore the spin_trylock() is used in this
-dequeue because I don't want to wait for someone to finish with that
-queue in question (e.g. enqueue working), since that will block all
-other bands/queues after the band in question.  So if the lock isn't
-available to grab, we move to the next band.  If I were to wait for the
-lock, I'd serialize the enqueue/dequeue completely, and block other
-traffic flows in other queues waiting for the lock.
-
-> 
-> > +		} else {
-> > +			qdisc = q->queues[prio];
-> > +			skb = qdisc->dequeue(qdisc);
-> > +			if (skb) {
-> > +				sch->q.qlen--;
-> > +				skb->priority = prio;
-> > +				return skb;
-> > +			}
-> > +		}
-> > +#else
-> >  		qdisc = q->queues[prio];
-> >  		skb = qdisc->dequeue(qdisc);
-> >  		if (skb) {
-> >  			sch->q.qlen--;
-> > +			skb->priority = prio;
-> >  			return skb;
-> >  		}
-> > +#endif
-> >  	}
-> >  	return NULL;
-> > -
-> >  }
-> >  
-> >  static unsigned int prio_drop(struct Qdisc* sch)
-> 
+-- 
+Simon Arlott
