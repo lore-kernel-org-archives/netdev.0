@@ -1,40 +1,43 @@
 From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: about : [NET]: Replace CONFIG_NET_DEBUG with sysctl.
-Date: Fri, 09 Mar 2007 08:22:54 -0800
-Message-ID: <45F189DE.7030206@linux-foundation.org>
-References: <20070308205214.580772044@linux-foundation.org>	<20070308205305.582324346@linux-foundation.org> <20070308.204209.69409441.davem@davemloft.net> <45F0FFE7.1080304@cosmosbay.com>
+Subject: Re: [PATCH 2/5] NetXen: Update the statistics counter for interrupts
+Date: Fri, 09 Mar 2007 08:25:23 -0800
+Message-ID: <45F18A73.1080801@linux-foundation.org>
+References: <200703090808.l2988A48011758@dut39.unminc.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>
+Cc: netdev@vger.kernel.org, amitkale@netxen.com, jeff@garzik.org,
+	netxenproj@linsyssoft.com, rob@netxen.com
+To: Linsys Contractor Mithlesh Thukral <mithlesh@netxen.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:38661 "EHLO smtp.osdl.org"
+Received: from smtp.osdl.org ([65.172.181.24]:38746 "EHLO smtp.osdl.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1767352AbXCIQXL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Mar 2007 11:23:11 -0500
-In-Reply-To: <45F0FFE7.1080304@cosmosbay.com>
+	id S1767354AbXCIQZu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Mar 2007 11:25:50 -0500
+In-Reply-To: <200703090808.l2988A48011758@dut39.unminc.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Eric Dumazet wrote:
-> Hello David and Stephen
+Linsys Contractor Mithlesh Thukral wrote:
+> NetXen: Update the statistics counter for interrupts which have occured.
 >
-> I see git commit 8e2101a9faab43dcf307d46784a1ede7997fe729
-> and its potential problems :
+> Signed-off-by: Mithlesh Thukral <mithlesh@netxen.com>
+> ---
 >
-> Here on my x86_64 machine :
+>  drivers/net/netxen/netxen_nic_main.c |    1 +
+>  1 files changed, 1 insertion(+)
 >
-> ffffffff806e7520 d rtnl_mutex
-> ffffffff806e7538 D net_msg_cost
-> ffffffff806e753c D net_msg_burst
-> ffffffff806e7540 D net_msg_warn
-> ffffffff806e7560 d lweventlist_lock
->
-It probably is worth making a hot/cold map somehow. Ideally some 
-automated version
-of something like oprofile uses (memprofile?)
-> So net_msg_{cost|burst|warn} are on two 'heavy' cachelines.
->
-> I gently ask that any new sysctl is '__read_mostly' tagged.
-Why not all the old one's as well?
+> diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
+> index bfeca9a..5fbf6b0 100644
+> --- a/drivers/net/netxen/netxen_nic_main.c
+> +++ b/drivers/net/netxen/netxen_nic_main.c
+> @@ -1023,6 +1023,7 @@ netxen_handle_int(struct netxen_adapter 
+>  	u32 ret = 0;
+>  
+>  	DPRINTK(INFO, "Entered handle ISR\n");
+> +	adapter->stats.ints++;
+>  
+>   
+You may want to consider the cost of the additional cache miss.
+Either don't bother with this stat, or go to per-cpu stats.
+Plus isn't this already in the statistics kept for /proc/interrupts?
