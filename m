@@ -1,32 +1,54 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: rstp for 2.4 kernel: port state keeps changing
-Date: Fri, 9 Mar 2007 10:55:13 -0800
-Message-ID: <20070309105513.387bfa93@freekitty>
-References: <OFDA8BE66A.E9965C39-ON85257299.005EA6D8-85257299.005FA4F5@smsc.com>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [NET]: Please revert disallowing zero listen queues
+Date: Fri, 09 Mar 2007 14:14:35 -0500
+Message-ID: <45F1B21B.7010402@hp.com>
+References: <200703061332.09677@strip-the-willow>	<20070306.103706.68156515.davem@davemloft.net>	<45EDB8C8.3030302@hp.com> <20070306.111142.07639258.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@linux-foundation.org
-To: Marc.Obbad@smsc.com
+Cc: rick.jones2@hp.com, gerrit@erg.abdn.ac.uk, netdev@vger.kernel.org,
+	weid@np.css.fujitsu.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:44178 "EHLO smtp.osdl.org"
+Received: from atlrel6.hp.com ([156.153.255.205]:47954 "EHLO atlrel6.hp.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1767468AbXCISzR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Mar 2007 13:55:17 -0500
-In-Reply-To: <OFDA8BE66A.E9965C39-ON85257299.005EA6D8-85257299.005FA4F5@smsc.com>
+	id S1752723AbXCITOl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Mar 2007 14:14:41 -0500
+In-Reply-To: <20070306.111142.07639258.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 9 Mar 2007 12:24:40 -0500
-Marc.Obbad@smsc.com wrote:
-
+David Miller wrote:
+> From: Rick Jones <rick.jones2@hp.com>
+> Date: Tue, 06 Mar 2007 10:54:00 -0800
 > 
-> Hi,
+>>> So we're not "disallowing" a backlog argument of zero to
+>>> listen().  We'll accept that just fine, the only thing that
+>>> happens is that you'll get what you ask for, that being
+>>> no connections :-)
+>> I'm not sure where HP-UX inherited the 0 = 1 bit - perhaps from BSD, nor 
+>> am I sure there is official chapter and verse, but:
+>>
+>> <excerpt>
+>> backlog is limited to the range of 0 to SOMAXCONN, which is 	defined in 
+>> <sys/socket.h>.  SOMAXCONN is currently set to 4096.  If any other 
+>> value is specified, the system automatically assigns the closest value 
+>>      within the range.  A backlog of 0 specifies only 1 pending 
+>> connection      is allowed at any given time.
+>> </excerpt>
+>>
+>> I don't have a Solaris, BSD or AIX manpage for listen handy to check 
+>> them but would not be surprised to see they are similar.
 > 
-> I am using RSTP for 2.4 kernel.
+> Ok, that seals the deal for me, I'll revert the change :)
 
-RSTP is not in the mainline kernel tree. Please post the patch or a where the
-source can be downloaded.
+Ahh, crap.  Even Posix wiesel-words around this issue:
 
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+> A backlog argument of 0 may allow the socket to accept connections, in which case
+> the length of the listen queue may be set to an implementation-defined minimum value.
+
+(from http://www.opengroup.org/onlinepubs/009695399/functions/listen.html)
+
+No, to go and fix the SCTP spec....
+
+-vlad
