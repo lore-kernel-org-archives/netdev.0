@@ -1,49 +1,136 @@
-From: "Jouni Malinen" <jkm-r/za7OOdgF0ztatW0fm/fQ@public.gmane.org>
-Subject: Re: wireless extensions vs. 64-bit architectures
-Date: Fri, 9 Mar 2007 15:19:22 -0800
-Message-ID: <20070309231922.GF24143@devicescape.com>
-References: <200703061943.07350.mb@bu3sch.de> <20070307020310.GA20466@bougret.hpl.hp.com> <1173364747.14001.7.camel@johannes.berg> <20070308184954.GA24485@bougret.hpl.hp.com> <1173382042.3248.63.camel@johannes.berg> <20070308193412.GG23040@devicescape.com> <1173382802.3248.68.camel@johannes.berg> <20070308221128.GA24884@bougret.hpl.hp.com> <1173393326.3831.21.camel@johannes.berg> <20070309213531.GA28070@bougret.hpl.hp.com>
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Subject: RE: [PATCH 1/2] NET: Multiple queue network device support
+Date: Fri, 9 Mar 2007 15:27:53 -0800
+Message-ID: <D5C1322C3E673F459512FB59E0DDC329026E9F85@orsmsx414.amr.corp.intel.com>
+References: <20070309230143.GI521@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Jeff Garzik <jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>,
-	Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-To: Jean Tourrilhes <jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20070309213531.GA28070-yAE0UhLNZJawPNPzzlOzwdBPR1lH4CV8@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain;
+	charset="US-ASCII"
+Content-Transfer-Encoding: 8BIT
+Cc: "Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
+	"David Miller" <davem@davemloft.net>,
+	"Garzik, Jeff" <jgarzik@pobox.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Kok, Auke" <auke@foo-projects.org>,
+	"Ronciak, John" <john.ronciak@intel.com>
+To: "Thomas Graf" <tgraf@suug.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:5205 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1767642AbXCIX16 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Mar 2007 18:27:58 -0500
+Content-class: urn:content-classes:message
+In-Reply-To: <20070309230143.GI521@postel.suug.ch>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 09, 2007 at 01:35:31PM -0800, Jean Tourrilhes wrote:
+> * Waskiewicz Jr, Peter P <peter.p.waskiewicz.jr@intel.com> 
+> 2007-03-09 11:25
+> > > > +			}
+> > > > +		} else {
+> > > > +			/* We're not a multi-queue device. */
+> > > > +			spin_lock(&dev->queue_lock);
+> > > > +			q = dev->qdisc;
+> > > > +			if (q->enqueue) {
+> > > > +				rc = q->enqueue(skb, q);
+> > > > +				qdisc_run(dev);
+> > > > +				spin_unlock(&dev->queue_lock);
+> > > > +				rc = rc == NET_XMIT_BYPASS
+> > > > +				           ? 
+> NET_XMIT_SUCCESS : rc;
+> > > > +				goto out;
+> > > > +			}
+> > > > +			spin_unlock(&dev->queue_lock);
+> > > 
+> > > Please don't duplicate already existing code.
+> > 
+> > I don't want to mix multiqueue and non-multiqueue code in 
+> the transmit 
+> > path.  This was an attempt to allow MQ and non-MQ devices 
+> to coexist 
+> > in a machine having separate code paths.  Are you suggesting to 
+> > combine them?  That would get very messy trying to 
+> determine what type 
+> > of lock to grab (subqueue lock or dev->queue_lock), not to mention 
+> > grabbing the
+> > dev->queue_lock would block multiqueue devices in that same 
+> codepath.
+> 
+> The piece of code I quoted above is the branch executed if 
+> multi queue is not enabled. The code you added is 100% 
+> identical to the already existing enqueue logic. Just execute 
+> the existing branch if multi queue is not enabled.
+> 
 
-> 	It's not as bad as it look like. All userspace programs
-> nowadays use either the iwlib or wpa_supplicant. For example,
-> NetworkManager gets its stuff through wpa_supplicant, and kdenetwork
-> uses iwlib. So, in essence, there is only two places to fix.
-> 	Which is why I would like to hear from Jouni.
+I totally agree this is identical code if multiqueue isn't enabled.
+However, when multiqueue is enabled, I don't want to make all network
+drivers implement the subqueue API just to be able to lock the queues.
+So the first thing I check is netif_is_multiqueue(dev), and if it
+*isn't* multiqueue, it will run the existing code.  This way both
+non-multiqueue devices don't have to have any knowledge of the MQ API.
 
-How confident are you of this being the full set? I did not use iwlib
-for two reasons: its license and it not being available (at least at
-that point in time) by default in many Linux distros. I would expect
-someone else having the same reasons, but I have to admit that I have
-not looked into this at all, so this is only a guess.
+> > This is another attempt to keep the two codepaths separate. 
+>  The only 
+> > way I see of combining them is to check netif_is_multiqueue() 
+> > everytime I need to grab a lock, which I think would be excessive.
+> 
+> The code added is 100% identical to the existing code, just 
+> be a little smarter on how you do the ifdefs.
 
-> 	By the way, I've just released version 29.pre16 which has a
-> better band aid. It fixes bugs of the previous version and is more
-> forward compatible (i.e. it's compatible with option 2).
+An example could be an on-board adapter isn't multiqueue, and an
+expansion card you have in your system is.  If I handle multiqueue being
+on with just ifdef's, then I could use the expansion card, but not the
+on-board adapter as-is.  The on-board driver would need to be updated to
+have 1 queue in the multiqueue context, which is what I tried to avoid.
 
-Hmm.. What should I look as the description of the latest proposed
-workaround? I was kind of hoping to see a nice description of the
-problem and proposed change in couple of paragraphs of text.. ;-)
-Anyway, I can see two changes when I diff wireless tools 29.pre14 and
-pre15 that are clearly related to this. Diff of pre14 vs. pre16 or pre15
-vs. pre16 includes more changes and some of them do not seem to be
-related to issue.
+> > > Your modified qdisc_restart() expects the queue_lock to 
+> be locked, 
+> > > how can this work?
+> > 
+> > No, it doesn't expect the lock to be held.  Because of the multiple 
+> > queues, enqueueing and dequeueing are now asynchronous, since I can 
+> > enqueue to queue 0 while dequeuing from queue 1.  dev->queue_lock 
+> > isn't held, so this can happen.  Therefore the 
+> spin_trylock() is used 
+> > in this dequeue because I don't want to wait for someone to finish 
+> > with that queue in question (e.g. enqueue working), since that will 
+> > block all other bands/queues after the band in question.  So if the 
+> > lock isn't available to grab, we move to the next band.  If 
+> I were to 
+> > wait for the lock, I'd serialize the enqueue/dequeue 
+> completely, and 
+> > block other traffic flows in other queues waiting for the lock.
+> 
+> The first thing you do in qdisc_restart() after dequeue()ing 
+> is unlock the sub queue lock. You explicitely unlock it 
+> before calling qdisc_run() so I assume dequeue() is expected 
+> to keep it locked. Something doesn't add up.
 
-Unfortunately I do not have access to any system to test this
-workaround, so I cannot easily test this myself.
+That's the entire point of this extra locking.  enqueue() is going to
+put an skb into a band somewhere that maps to some queue, and there is
+no way to guarantee the skb I retrieve from dequeue() is headed for the
+same queue.  Therefore, I need to unlock the queue after I finish
+enqueuing, since having that lock makes little sense to dequeue().
+dequeue() will then grab *a* lock on a queue; it may be the same one we
+had during enqueue(), but it may not be.  And the placement of the
+unlock of that queue is exactly where it happens in non-multiqueue,
+which is right before the hard_start_xmit().
 
--- 
-Jouni Malinen                                            PGP id EFC895FA
+I concede that the locking model is complex and seems really nasty, but
+to truly separate queue functionality from one another, I see no other
+feasible option than to run locking like this.  I am very open to
+suggestions.
+
+> 
+> BTW, which lock serializes your write access to 
+> qdisc->q.qlen? It used to be dev->queue_lock but that is 
+> apparently not true for multi queue.
+> 
+
+This is a very good catch, because it isn't being protected on the
+entire qdisc right now for PRIO.  However, Chris Leech pointed out the
+LINK_STATE_QDISC_RUNNING bit is serializing things at the qdisc_run()
+level, so that's probably protecting this counter right now.  I'm
+looking at pushing that down into the qdisc, but at the same time I can
+think of something to serialize these stats containers for the qdisc.
