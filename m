@@ -1,122 +1,142 @@
-From: tony@bakeyournoodle.com (Tony Breeds)
-Subject: Re: 2.6.21-rc2-mm2: drivers/net/wireless/libertas/debugfs.c addr bogosity
-Date: Fri, 9 Mar 2007 13:11:46 +1100
-Message-ID: <20070309021146.GL4575@bakeyournoodle.com>
-References: <20070306004408.d3f6434d.akpm@linux-foundation.org> <20070307224116.GE3441@stusta.de> <20070307150057.4e6342dc.akpm@linux-foundation.org>
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Subject: [PATCH] NET: Add packet sock option to return orig_dev to userspace when bonded
+Date: Thu, 8 Mar 2007 18:17:39 -0800
+Message-ID: <D5C1322C3E673F459512FB59E0DDC329026E9753@orsmsx414.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Adrian Bunk <bunk@stusta.de>, jgarzik@pobox.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S2992882AbXCICLu@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20070307150057.4e6342dc.akpm@linux-foundation.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain;
+	charset="US-ASCII"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	"Leech, Christopher" <christopher.leech@intel.com>,
+	<jgarzik@pobox.com>
+To: "David Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:2863 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965157AbXCICRm convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Mar 2007 21:17:42 -0500
+Content-class: urn:content-classes:message
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 07, 2007 at 03:00:57PM -0800, Andrew Morton wrote:
-> On Wed, 7 Mar 2007 23:41:16 +0100
-> Adrian Bunk <bunk@stusta.de> wrote:
-> 
-> > On Tue, Mar 06, 2007 at 12:44:08AM -0800, Andrew Morton wrote:
-> > >...
-> > > Changes since 2.6.20-rc2-mm1:
-> > >...
-> > >  git-netdev-all.patch
-> > >...
-> > >  git trees
-> > >...
-> > 
-> > drivers/net/wireless/libertas/debugfs.c contains:
-> >   #define item_addr(n) ((u32) &((wlan_adapter *)0)->n)
-> > 
-> > This is wrong on 64bit architectures.
-> 
-> Is OK - it is simply yet another reimplementation of offsetof().  Hint.
-
-Perhaps something like?
-
-Against 2.6.21-rc3-mm2
-
-From: Tony Breeds <tony@bakeyournoodle.com>
-
-Cleanup drivers/net/wireless/libertas/debugfs.c to use standard kernel macros and functions.
-
-Signed-off-by: Tony Breeds <tony@bakeyournoodle.com>
+This patch applies against commit
+704e0b01791bfcb75355f269a6f0054a75c9c563
+of branch 'master' from davem/net-2.6.22
 
 ---
-only compile tested on x86
+Summary:
 
- debugfs.c |   41 ++++-------------------------------------
- 1 file changed, 4 insertions(+), 37 deletions(-)
+Peter P. Waskiewicz Jr. <peter.p.waskiewicz.jr@intel.com>
+	NET: Add packet sock option to return orig_dev to userspace when
+bonded
 
-diff --git a/drivers/net/wireless/libertas/debugfs.c b/drivers/net/wireless/libertas/debugfs.c
-index 3ad1e03..51dfd20 100644
---- a/drivers/net/wireless/libertas/debugfs.c
-+++ b/drivers/net/wireless/libertas/debugfs.c
-@@ -1772,8 +1772,8 @@ void libertas_debugfs_remove_one(wlan_private *priv)
- 
- /* debug entry */
- 
--#define item_size(n) (sizeof ((wlan_adapter *)0)->n)
--#define item_addr(n) ((u32) &((wlan_adapter *)0)->n)
-+#define item_size(n)	(FIELD_SIZEOF(wlan_adapter, n))
-+#define item_addr(n)	(offsetof(wlan_adapter, n))
- 
- struct debug_data {
- 	char name[32];
-@@ -1789,40 +1789,7 @@ static struct debug_data items[] = {
- 	{"psstate", item_size(psstate), item_addr(psstate)},
- };
- 
--static int num_of_items = sizeof(items) / sizeof(items[0]);
--
--/**
-- *  @brief convert string to number
-- *
-- *  @param s   	   pointer to numbered string
-- *  @return 	   converted number from string s
-- */
--static int string_to_number(char *s)
--{
--	int r = 0;
--	int base = 0;
--
--	if ((strncmp(s, "0x", 2) == 0) || (strncmp(s, "0X", 2) == 0))
--		base = 16;
--	else
--		base = 10;
--
--	if (base == 16)
--		s += 2;
--
--	for (s = s; *s != 0; s++) {
--		if ((*s >= 48) && (*s <= 57))
--			r = (r * base) + (*s - 48);
--		else if ((*s >= 65) && (*s <= 70))
--			r = (r * base) + (*s - 55);
--		else if ((*s >= 97) && (*s <= 102))
--			r = (r * base) + (*s - 87);
--		else
--			break;
--	}
--
--	return r;
--}
-+static int num_of_items = ARRAY_SIZE(items);
- 
- /**
-  *  @brief proc read function
-@@ -1912,7 +1879,7 @@ static int wlan_debugfs_write(struct file *f, const char __user *buf,
- 			if (!p2)
- 				break;
- 			p2++;
--			r = string_to_number(p2);
-+			r = simple_strtoul(p2, NULL, 0);
- 			if (d[i].size == 1)
- 				*((u8 *) d[i].addr) = (u8) r;
- 			else if (d[i].size == 2)
-Yours Tony
+---
+Add a packet socket option to allow the orig_dev index to be returned to
+userspace when passing traffic through a bonded device.  This is very
+useful
+for layer 2 traffic being able to report which physical device actually
+received the traffic, instead of having the bond hide that information.
 
-  linux.conf.au        http://linux.conf.au/ || http://lca2008.linux.org.au/
-  Jan 28 - Feb 02 2008 The Australian Linux Technical Conference!
+The new option is called PACKET_BONDED_ORIGDEV.
+
+Signed-off-by: Peter P. Waskiewicz Jr. <peter.p.waskiewicz.jr@intel.com>
+
+---
+ include/linux/if_packet.h |    1 +
+ net/packet/af_packet.c    |   34 +++++++++++++++++++++++++++++++---
+ 2 files changed, 32 insertions(+), 3 deletions(-)
+
+diff --git a/include/linux/if_packet.h b/include/linux/if_packet.h
+index f3de05c..b68c177 100644
+--- a/include/linux/if_packet.h
++++ b/include/linux/if_packet.h
+@@ -42,6 +42,7 @@ struct sockaddr_ll
+ #define PACKET_STATISTICS		6
+ #define PACKET_COPY_THRESH		7
+ #define PACKET_AUXDATA			8
++#define PACKET_BONDED_ORIGDEV		9
+ 
+ struct tpacket_stats
+ {
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index f9866a8..05e53a0 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -201,7 +201,8 @@ struct packet_sock {
+ 	struct packet_type	prot_hook;
+ 	spinlock_t		bind_lock;
+ 	unsigned int		running:1,	/* prot_hook is
+attached*/
+-				auxdata:1;
++				auxdata:1,
++				origdev:1;	/* return orig_dev for
+bonds */
+ 	int			ifindex;	/* bound device
+*/
+ 	__be16			num;
+ #ifdef CONFIG_PACKET_MULTICAST
+@@ -528,7 +529,11 @@ static int packet_rcv(struct sk_buff *sk
+ 	sll->sll_hatype = dev->type;
+ 	sll->sll_protocol = skb->protocol;
+ 	sll->sll_pkttype = skb->pkt_type;
+-	sll->sll_ifindex = dev->ifindex;
++	/* Look at all traffic types bound for us - includes BC and MC
+*/
++	if (unlikely(po->origdev) && skb->pkt_type == PACKET_HOST)
++		sll->sll_ifindex = orig_dev->ifindex;
++	else
++		sll->sll_ifindex = dev->ifindex;
+ 	sll->sll_halen = 0;
+ 
+ 	if (dev->hard_header_parse)
+@@ -673,7 +678,11 @@ static int tpacket_rcv(struct sk_buff *s
+ 	sll->sll_hatype = dev->type;
+ 	sll->sll_protocol = skb->protocol;
+ 	sll->sll_pkttype = skb->pkt_type;
+-	sll->sll_ifindex = dev->ifindex;
++	/* Look at all traffic types bound for us - includes BC and MC
+*/
++	if (unlikely(po->origdev) && skb->pkt_type == PACKET_HOST)
++		sll->sll_ifindex = orig_dev->ifindex;
++	else
++		sll->sll_ifindex = dev->ifindex;
+ 
+ 	h->tp_status = status;
+ 	smp_mb();
+@@ -1413,6 +1422,18 @@ packet_setsockopt(struct socket *sock, i
+ 		po->auxdata = !!val;
+ 		return 0;
+ 	}
++	case PACKET_BONDED_ORIGDEV:
++	{
++		int val;
++
++		if (optlen < sizeof(val))
++			return -EINVAL;
++		if (copy_from_user(&val, optval, sizeof(val)))
++			return -EFAULT;
++
++		po->origdev = !!val;
++		return 0;
++	}
+ 	default:
+ 		return -ENOPROTOOPT;
+ 	}
+@@ -1456,6 +1477,13 @@ static int packet_getsockopt(struct sock
+ 
+ 		data = &val;
+ 		break;
++	case PACKET_BONDED_ORIGDEV:
++		if (len > sizeof(int))
++			len = sizeof(int);
++		val = po->origdev;
++
++		data = &val;
++		break;
+ 	default:
+ 		return -ENOPROTOOPT;
+ 	}
+
+
+-- 
+Peter P. Waskiewicz Jr. <peter.p.waskiewicz.jr@intel.com>
