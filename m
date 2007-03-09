@@ -1,42 +1,93 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] mv643xx: Clear pending interrupts before calling request_irq
-Date: Fri, 09 Mar 2007 11:52:15 -0500
-Message-ID: <45F190BF.3050007@garzik.org>
-References: <20070306164638.GB22043@xyzzy.farnsworth.org> <983376.58847.qm@web32410.mail.mud.yahoo.com> <20070308052123.GA5077@xyzzy.farnsworth.org>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] spidernet: Fix problem sending IP fragments
+Date: Fri, 09 Mar 2007 11:53:23 -0500
+Message-ID: <45F19103.3010100@pobox.com>
+References: <20070308231556.GE30703@austin.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	giri@lmc.cs.sunysb.edu, Giridhar Pemmasani <pgiri@yahoo.com>
-To: Dale Farnsworth <dale@farnsworth.org>
+Cc: Norbert Eicker <n.eicker@fz-juelich.de>,
+	Jens Osterkamp <jens@de.ibm.com>,
+	Kou Ishizaki <kou.ishizaki@toshiba.co.jp>,
+	linuxppc-dev@ozlabs.org, netdev@vger.kernel.org
+To: Linas Vepstas <linas@austin.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:57811 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:57858 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1767400AbXCIQwV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Mar 2007 11:52:21 -0500
-In-Reply-To: <20070308052123.GA5077@xyzzy.farnsworth.org>
+	id S1767402AbXCIQxp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Mar 2007 11:53:45 -0500
+In-Reply-To: <20070308231556.GE30703@austin.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dale Farnsworth wrote:
-> From: Dale Farnsworth <dale@farnsworth.org>
+Linas Vepstas wrote:
+> Jeff, 
 > 
-> Signed-off-by: Dale Farnsworth <dale@farnsworth.org>
-> Acked-by: Giridhar Pemmasani <pgiri@yahoo.com>
+> Please apply. The rather long patch description is from the submitter,
+> Norbert Eicker, I don't know if that's alright, or if I should ask to 
+> have it trimmed.
 > 
-> ---
+> Thanks, 
+> --linas
 > 
-> Giri, thank you very much for reporting the problem and confirming
-> the fix.
+> From: Norbert Eicker <n.eicker@fz-juelich.de>
 > 
-> Jeff, please apply.
+> I found out that the spidernet-driver is unable to send fragmented IP 
+> frames.
 > 
-> Andrew, this patch supersedes the -mm patch:
-> 	mv643xx-ethernet-driver-irq-registration-fix.patch
+> Let me just recall the basic structure of "normal" UDP/IP/Ethernet 
+> frames (that actually work):
+>  - It starts with the Ethernet header (dest MAC, src MAC, etc.)
+>  - The next part is occupied by the IP header (version info, length of 
+> packet, id=0, fragment offset=0, checksum, from / to address, etc.)
+>  - Then comes the UDP header (src / dest port, length, checksum)
+>  - Actual payload
+>  - Ethernet checksum
 > 
->  drivers/net/mv643xx_eth.c |   10 ++++++----
->  1 file changed, 6 insertions(+), 4 deletions(-)
+> Now what's different for IP fragment:
+>  - The IP header has id set to some value (same for all fragments), 
+> offset is set appropriately (i.e. 0 for first fragment, following 
+> according to size of other fragments), size is the length of the frame.
+>  - UDP header is unchanged. I.e. length is according to full UDP 
+> datagram, not just the part within the actual frame! But this is only 
+> true within the first frame: all following frames don't have a valid 
+> UDP-header at all.
+> 
+> The spidernet silicon seems to be quite intelligent: It's able to 
+> compute (IP / UDP / Ethernet) checksums on the fly and tests if frames 
+> are conforming to RFC -- at least conforming to RFC on complete frames.
+> 
+> But IP fragments are different as explained above:
+> I.e. for IP fragments containing part of a UDP datagram it sees 
+> incompatible length in the headers for IP and UDP in the first frame 
+> and, thus, skips this frame. But the content *is* correct for IP 
+> fragments. For all following frames it finds (most probably) no valid 
+> UDP header at all. But this *is* also correct for IP fragments.
+> 
+> The Linux IP-stack seems to be clever in this point. It expects the 
+> spidernet to calculate the checksum (since the module claims to be able 
+> to do so) and marks the skb's for "normal" frames accordingly 
+> (ip_summed set to CHECKSUM_HW).
+> But for the IP fragments it does not expect the driver to be capable to 
+> handle the frames appropriately. Thus all checksums are allready 
+> computed. This is also flaged within the skb (ip_summed set to 
+> CHECKSUM_NONE).
+> 
+> Unfortunately the spidernet driver ignores that hints. It tries to send 
+> the IP fragments of UDP datagrams as normal UDP/IP frames. Since they 
+> have different structure the silicon detects them the be not 
+> "well-formed" and skips them.
+> 
+> The following one-liner against 2.6.21-rc2 changes this behavior. If the 
+> IP-stack claims to have done the checksumming, the driver should not 
+> try to checksum (and analyze) the frame but send it as is.
+> 
+> Signed-off-by: Norbert Eicker <n.eicker@fz-juelich.de>
+> Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
 
-applied
+are you sure it can't send out fragmented IP frames?  what's really 
+going on here?
+
+patch was corrupted anyway, and could not be applied...
 
 
