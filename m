@@ -1,93 +1,89 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] spidernet: Fix problem sending IP fragments
-Date: Fri, 09 Mar 2007 11:53:23 -0500
-Message-ID: <45F19103.3010100@pobox.com>
-References: <20070308231556.GE30703@austin.ibm.com>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: [Bonding-devel] [PATCH 3/3] bonding: Improve IGMP join processing
+Date: Fri, 9 Mar 2007 11:53:45 -0500
+Message-ID: <20070309165344.GA29496@gospo.rdu.redhat.com>
+References: <20070307015012.GA4783@core2.greyhouse.net> <OF3F503F34.0DCEF024-ON88257297.0010A9D5-88257297.00126F62@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Norbert Eicker <n.eicker@fz-juelich.de>,
-	Jens Osterkamp <jens@de.ibm.com>,
-	Kou Ishizaki <kou.ishizaki@toshiba.co.jp>,
-	linuxppc-dev@ozlabs.org, netdev@vger.kernel.org
-To: Linas Vepstas <linas@austin.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andy Gospodarek <andy@greyhouse.net>,
+	bonding-devel@lists.sourceforge.net,
+	Brian Haley <brian.haley@hp.com>, fubar@linux.vnet.ibm.com,
+	netdev@vger.kernel.org, netdev-owner@vger.kernel.org
+To: David Stevens <dlstevens@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:57858 "EHLO mail.dvmed.net"
+Received: from mx1.redhat.com ([66.187.233.31]:47809 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1767402AbXCIQxp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Mar 2007 11:53:45 -0500
-In-Reply-To: <20070308231556.GE30703@austin.ibm.com>
+	id S1767390AbXCIQy7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Mar 2007 11:54:59 -0500
+Content-Disposition: inline
+In-Reply-To: <OF3F503F34.0DCEF024-ON88257297.0010A9D5-88257297.00126F62@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Linas Vepstas wrote:
-> Jeff, 
+On Tue, Mar 06, 2007 at 07:21:30PM -0800, David Stevens wrote:
+>  > >    Marking the master down would, I believe, issue notifiers that
+> > > the device has gone down.  Various things, network manager sort of
+> > > applications in particular, listen to those, so I'm not sure it's a 
+> good
+> > > idea.  I think there are other side effects as well, I'm thinking it
+> > > would flush routes associated with the interface as well.
 > 
-> Please apply. The rather long patch description is from the submitter,
-> Norbert Eicker, I don't know if that's alright, or if I should ask to 
-> have it trimmed.
+> [BTW, you can call ip_mc_down()/ip_mc_up() directly w/o getting there
+>         from the notifiers -- then no side-effects.]
 > 
-> Thanks, 
-> --linas
-> 
-> From: Norbert Eicker <n.eicker@fz-juelich.de>
-> 
-> I found out that the spidernet-driver is unable to send fragmented IP 
-> frames.
-> 
-> Let me just recall the basic structure of "normal" UDP/IP/Ethernet 
-> frames (that actually work):
->  - It starts with the Ethernet header (dest MAC, src MAC, etc.)
->  - The next part is occupied by the IP header (version info, length of 
-> packet, id=0, fragment offset=0, checksum, from / to address, etc.)
->  - Then comes the UDP header (src / dest port, length, checksum)
->  - Actual payload
->  - Ethernet checksum
-> 
-> Now what's different for IP fragment:
->  - The IP header has id set to some value (same for all fragments), 
-> offset is set appropriately (i.e. 0 for first fragment, following 
-> according to size of other fragments), size is the length of the frame.
->  - UDP header is unchanged. I.e. length is according to full UDP 
-> datagram, not just the part within the actual frame! But this is only 
-> true within the first frame: all following frames don't have a valid 
-> UDP-header at all.
-> 
-> The spidernet silicon seems to be quite intelligent: It's able to 
-> compute (IP / UDP / Ethernet) checksums on the fly and tests if frames 
-> are conforming to RFC -- at least conforming to RFC on complete frames.
-> 
-> But IP fragments are different as explained above:
-> I.e. for IP fragments containing part of a UDP datagram it sees 
-> incompatible length in the headers for IP and UDP in the first frame 
-> and, thus, skips this frame. But the content *is* correct for IP 
-> fragments. For all following frames it finds (most probably) no valid 
-> UDP header at all. But this *is* also correct for IP fragments.
-> 
-> The Linux IP-stack seems to be clever in this point. It expects the 
-> spidernet to calculate the checksum (since the module claims to be able 
-> to do so) and marks the skb's for "normal" frames accordingly 
-> (ip_summed set to CHECKSUM_HW).
-> But for the IP fragments it does not expect the driver to be capable to 
-> handle the frames appropriately. Thus all checksums are allready 
-> computed. This is also flaged within the skb (ip_summed set to 
-> CHECKSUM_NONE).
-> 
-> Unfortunately the spidernet driver ignores that hints. It tries to send 
-> the IP fragments of UDP datagrams as normal UDP/IP frames. Since they 
-> have different structure the silicon detects them the be not 
-> "well-formed" and skips them.
-> 
-> The following one-liner against 2.6.21-rc2 changes this behavior. If the 
-> IP-stack claims to have done the checksumming, the driver should not 
-> try to checksum (and analyze) the frame but send it as is.
-> 
-> Signed-off-by: Norbert Eicker <n.eicker@fz-juelich.de>
-> Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
 
-are you sure it can't send out fragmented IP frames?  what's really 
-going on here?
+While this might seem like a nice solution if we think only about what
+would cause the smallest change to igmp.c (since you just need to add a
+small patch to export additional symbols), I shudder to think about the
+disruption that this could cause in the network in some cases.
 
-patch was corrupted anyway, and could not be applied...
+> Andy Gospodarek wrote:
+> > 
+> > I agree with Jay here.  I hate that bonding has to have so much
+> > knowledge about upper layer protocols, but for the ones that are
+> > stateful like IGMP we will need fixes like the one proposed.
+> 
+>         I have no problem with bonding having knowledge of ULP's (I
+> don't like it, but I don't have to look at it :-) ), but the
+> patch is doing it the other way around. What I don't like about the
+> proposed patch is that it's adding knowledge of bonding to IGMP.
 
+I disagree with this statement.  Why does adding an extra function to
+aide in the transmission of additional igmp joins cause igmp to have
+knowledge of bonding?
 
+>         And IGMP does work fine in this case, w/o flooding or the
+> proposed patch. It just has the risk of losing multicast packets
+> during one query interval, and that only happens if you're
+> using a switch that does IGMP snooping.
+
+I feel like igmp snooping is a pretty widely used feature and I would
+guess that it is used by anyone doing a/b bonding that has concerns
+about igmp failover.
+
+>         I'd like the patch a lot better if it were basicly this:
+> 
+> mc_bond_fudge(void)
+> {
+>         ip_mc_down(masterdev);
+> /*do whatever you need to do to switch the slave */
+>         ip_mc_up(masterdev);
+> }
+> 
+>         That doesn't go through the notifier chain, uses existing
+> functions, doesn't have any refcnt issues, and most importantly
+> could/should reside in a bonding source file and not in igmp.c. :-)
+>         But RTNL is required whether you use up/down or roll your
+> own variant, so it sounds like you have other issues to resolve too.
+
+The RTNL stuff would be all done work if Jay would just accept my
+workqueue patch.  ;-)
+
+> 
+>                                                         +-DLS
+> 
+> 
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
