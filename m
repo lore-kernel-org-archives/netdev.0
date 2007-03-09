@@ -1,125 +1,96 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH 1/2] NET: Multiple queue network device support
-Date: Sat, 10 Mar 2007 00:01:43 +0100
-Message-ID: <20070309230143.GI521@postel.suug.ch>
-References: <20070309134037.GH521@postel.suug.ch> <D5C1322C3E673F459512FB59E0DDC329026E9C45@orsmsx414.amr.corp.intel.com>
+From: Norbert Eicker <n.eicker@fz-juelich.de>
+Subject: Re: [PATCH] spidernet: Fix problem sending IP fragments
+Date: Sat, 10 Mar 2007 00:16:57 +0100
+Message-ID: <200703100016.58469.n.eicker@fz-juelich.de>
+References: <20070308231556.GE30703@austin.ibm.com>
+	<45F19103.3010100@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
-	David Miller <davem@davemloft.net>,
-	"Garzik, Jeff" <jgarzik@pobox.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Kok, Auke" <auke@foo-projects.org>,
-	"Ronciak, John" <john.ronciak@intel.com>
-To: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:35375 "EHLO postel.suug.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1767606AbXCIXBX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Mar 2007 18:01:23 -0500
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org
+To: Jeff Garzik <jgarzik@pobox.com>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+In-Reply-To: <45F19103.3010100@pobox.com>
 Content-Disposition: inline
-In-Reply-To: <D5C1322C3E673F459512FB59E0DDC329026E9C45@orsmsx414.amr.corp.intel.com>
-Sender: netdev-owner@vger.kernel.org
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-* Waskiewicz Jr, Peter P <peter.p.waskiewicz.jr@intel.com> 2007-03-09 11:25
-> > > +			}
-> > > +		} else {
-> > > +			/* We're not a multi-queue device. */
-> > > +			spin_lock(&dev->queue_lock);
-> > > +			q = dev->qdisc;
-> > > +			if (q->enqueue) {
-> > > +				rc = q->enqueue(skb, q);
-> > > +				qdisc_run(dev);
-> > > +				spin_unlock(&dev->queue_lock);
-> > > +				rc = rc == NET_XMIT_BYPASS
-> > > +				           ? NET_XMIT_SUCCESS : rc;
-> > > +				goto out;
-> > > +			}
-> > > +			spin_unlock(&dev->queue_lock);
-> > 
-> > Please don't duplicate already existing code.
-> 
-> I don't want to mix multiqueue and non-multiqueue code in the transmit
-> path.  This was an attempt to allow MQ and non-MQ devices to coexist in
-> a machine having separate code paths.  Are you suggesting to combine
-> them?  That would get very messy trying to determine what type of lock
-> to grab (subqueue lock or dev->queue_lock), not to mention grabbing the
-> dev->queue_lock would block multiqueue devices in that same codepath.
+On Friday, 9. March 2007 17:53, Jeff Garzik wrote:
+> Linas Vepstas wrote:
+> > Jeff,
+> >
+> > Please apply. The rather long patch description is from the submitter,
+> > Norbert Eicker, I don't know if that's alright, or if I should ask to
+> > have it trimmed.
+> >
+> > Thanks,
+> > --linas
+> >
+> > From: Norbert Eicker <n.eicker@fz-juelich.de>
+> >
+> >
+> > Signed-off-by: Norbert Eicker <n.eicker@fz-juelich.de>
+> > Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
+>
+> are you sure it can't send out fragmented IP frames?  what's really
+> going on here?
 
-The piece of code I quoted above is the branch executed if multi queue
-is not enabled. The code you added is 100% identical to the already
-existing enqueue logic. Just execute the existing branch if multi queue
-is not enabled.
+Pretty sure that fragmented IP frames are not send out. Here's a small test 
+using ttcp and tcpdump reproducing the problem (I assume a MTU of 1500):
 
-> This is another attempt to keep the two codepaths separate.  The only
-> way I see of combining them is to check netif_is_multiqueue() everytime
-> I need to grab a lock, which I think would be excessive.
+You need two node, lets call them src and dest.
 
-The code added is 100% identical to the existing code, just be a little
-smarter on how you do the ifdefs.
+On dest run 'tcpdump -nvvv host src'.
 
-> > >  	}
-> > >  
-> > >  	return NULL;
-> > > @@ -141,18 +174,53 @@ prio_dequeue(struct Qdisc* sch)
-> > >  	struct sk_buff *skb;
-> > >  	struct prio_sched_data *q = qdisc_priv(sch);
-> > >  	int prio;
-> > > +#ifdef CONFIG_NET_MULTI_QUEUE_DEVICE
-> > > +	int queue;
-> > > +#endif
-> > >  	struct Qdisc *qdisc;
-> > >  
-> > > +	/*
-> > > +	 * If we're multiqueue, the basic approach is try the 
-> > lock on each
-> > > +	 * queue.  If it's locked, either we're already 
-> > dequeuing, or enqueue
-> > > +	 * is doing something.  Go to the next band if we're 
-> > locked.  Once we
-> > > +	 * have a packet, unlock the queue.  NOTE: the 
-> > underlying qdisc CANNOT
-> > > +	 * be a PRIO qdisc, otherwise we will deadlock.  FIXME
-> > > +	 */
-> > >  	for (prio = 0; prio < q->bands; prio++) {
-> > > +#ifdef CONFIG_NET_MULTI_QUEUE_DEVICE
-> > > +		if (netif_is_multiqueue(sch->dev)) {
-> > > +			queue = q->band2queue[prio];
-> > > +			if 
-> > (spin_trylock(&sch->dev->egress_subqueue[queue].queue_lock)) {
-> > > +				qdisc = q->queues[prio];
-> > > +				skb = qdisc->dequeue(qdisc);
-> > > +				if (skb) {
-> > > +					sch->q.qlen--;
-> > > +					skb->priority = prio;
-> > > +					
-> > spin_unlock(&sch->dev->egress_subqueue[queue].queue_lock);
-> > > +					return skb;
-> > > +				}
-> > > +				
-> > spin_unlock(&sch->dev->egress_subqueue[queue].queue_lock);
-> > > +			}
-> > 
-> > Your modified qdisc_restart() expects the queue_lock to be 
-> > locked, how can this work?
-> 
-> No, it doesn't expect the lock to be held.  Because of the multiple
-> queues, enqueueing and dequeueing are now asynchronous, since I can
-> enqueue to queue 0 while dequeuing from queue 1.  dev->queue_lock isn't
-> held, so this can happen.  Therefore the spin_trylock() is used in this
-> dequeue because I don't want to wait for someone to finish with that
-> queue in question (e.g. enqueue working), since that will block all
-> other bands/queues after the band in question.  So if the lock isn't
-> available to grab, we move to the next band.  If I were to wait for the
-> lock, I'd serialize the enqueue/dequeue completely, and block other
-> traffic flows in other queues waiting for the lock.
+Furthermore start on dest: 'ttcp -u -r -s'
+and on src: 'ttcp -u -t -s -l 1472 -n 4 dest
 
-The first thing you do in qdisc_restart() after dequeue()ing is unlock
-the sub queue lock. You explicitely unlock it before calling qdisc_run()
-so I assume dequeue() is expected to keep it locked. Something doesn't
-add up.
+tcpdump will show 10 frames received from src, one of size 32 (UDP length 4), 
+four of size 1500 (UDP length 1472) (the payload), five more of size 32 (UDP 
+length 4). The size 32 frames are some startup/closing frames of ttcp.
 
-BTW, which lock serializes your write access to qdisc->q.qlen? It used
-to be dev->queue_lock but that is apparently not true for multi queue.
+Start on dest again: 'ttcp -u -r -s'
+and on src: 'ttcp -u -t -s -l 1473 -n 4 dest
+
+Now tcpdump only sees the six startup/closing frames. The payload frames 
+(which are fragmented by the IP-stack) disappear somehow.
+
+With the patch applied you see in the second case the startup/closing frames 
+plus 4 pairs of frames in between. Each pair consists of one frame of size 
+1500 followed by one of size 21 (with an offset of 1480), i.e. the two 
+fragments of the too large UDP-datagram.
+
+On src tcpdump will show the fragmented IP-frames in both cases (with and 
+without patch applied).
+
+> patch was corrupted anyway, and could not be applied...
+
+Whitespace problem? Let's try again...
+
+Signed-off-by: Norbert Eicker <n.eicker@fz-juelich.de>
+
+diff --git a/drivers/net/spider_net.c b/drivers/net/spider_net.c
+index 3b91af8..e3019d5 100644
+--- a/drivers/net/spider_net.c
++++ b/drivers/net/spider_net.c
+@@ -719,7 +719,7 @@ spider_net_prepare_tx_descr(struct spide
+ 			SPIDER_NET_DESCR_CARDOWNED | SPIDER_NET_DMAC_NOCS;
+ 	spin_unlock_irqrestore(&chain->lock, flags);
+ 
+-	if (skb->protocol == htons(ETH_P_IP))
++	if (skb->protocol == htons(ETH_P_IP) && skb->ip_summed == CHECKSUM_PARTIAL)
+ 		switch (skb->nh.iph->protocol) {
+ 		case IPPROTO_TCP:
+ 			hwdescr->dmac_cmd_status |= SPIDER_NET_DMAC_TCP;
+ 
+-- 
+Fon ++49-(0)2461/61-1492
+http://www.fz-juelich.de
