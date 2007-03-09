@@ -1,28 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] NET: Multiple queue network device support REPOST
-Date: Thu, 08 Mar 2007 23:26:41 -0800 (PST)
-Message-ID: <20070308.232641.74749402.davem@davemloft.net>
-References: <20070308.231142.74749203.davem@davemloft.net>
-	<D5C1322C3E673F459512FB59E0DDC329026E982F@orsmsx414.amr.corp.intel.com>
+Subject: Re: [PATCH] [REVISED] net/ipv4/multipath_wrandom.c: check
+ kmalloc() return value.
+Date: Thu, 08 Mar 2007 23:29:08 -0800 (PST)
+Message-ID: <20070308.232908.92582631.davem@davemloft.net>
+References: <20070308232215.aa512aaa.amit2030@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	christopher.leech@intel.com
-To: peter.p.waskiewicz.jr@intel.com
+Cc: linux-kernel@vger.kernel.org, akpm@osdl.org, netdev@vger.kernel.org
+To: amit2030@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46268
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46271
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S2993047AbXCIH0m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Mar 2007 02:26:42 -0500
-In-Reply-To: <D5C1322C3E673F459512FB59E0DDC329026E982F@orsmsx414.amr.corp.intel.com>
+	by vger.kernel.org with ESMTP id S2993058AbXCIH3I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Mar 2007 02:29:08 -0500
+In-Reply-To: <20070308232215.aa512aaa.amit2030@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Date: Thu, 8 Mar 2007 23:16:58 -0800
+From: Amit Choudhary <amit2030@gmail.com>
+Date: Thu, 8 Mar 2007 23:22:15 -0800
 
-> It seems expensive to change all the skb's if this type of
-> event occurs,
+> Description: Check the return value of kmalloc() in function wrandom_set_nhinfo(), in file net/ipv4/multipath_wrandom.c.
+> 
+> Signed-off-by: Amit Choudhary <amit2030@gmail.com>
 
-The reset functions have to walk all the SKBs anyways.
+This kind of patch has been submitted several times before and it's
+never accepted because you have to do much more than this to recover
+from the allocation error.
+
+There is no error status returned to the caller, so the callers assume
+the operation succeeded, and will either OOPS or crash in some other
+way.
+
+Therefore, just adding some NULL pointer checks and returning is not
+going to fix this bug.
+
+The whole cahce-multipath subsystem has to have it's guts revamped for
+proper error handling.
