@@ -1,37 +1,34 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: [PATCH 0/2] NET: Multiple queue network device support REPOST
-Date: Thu, 08 Mar 2007 22:45:08 -0800
-Message-ID: <45F10274.7070500@intel.com>
-References: <1173420779298-git-send-email-peter.p.waskiewicz.jr@intel.com> <20070308.222154.74746753.davem@davemloft.net>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: about : [NET]: Replace CONFIG_NET_DEBUG with sysctl.
+Date: Fri, 09 Mar 2007 07:59:50 +0100
+Message-ID: <45F105E6.7040608@cosmosbay.com>
+References: <20070308205305.582324346@linux-foundation.org>	<20070308.204209.69409441.davem@davemloft.net>	<45F0FFE7.1080304@cosmosbay.com> <20070308.223748.74750176.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: peter.p.waskiewicz.jr@intel.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, christopher.leech@intel.com
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:29879 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S2993014AbXCIGpL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Mar 2007 01:45:11 -0500
-In-Reply-To: <20070308.222154.74746753.davem@davemloft.net>
+Received: from gw1.cosmosbay.com ([86.65.150.130]:51260 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S2993020AbXCIHAG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Mar 2007 02:00:06 -0500
+In-Reply-To: <20070308.223748.74750176.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> You didn't address my correction the other day wherein I clarified
-> for you that my idea was not to store the queue mapping in
-> skb->priority but rather to shrink skb->priority to a u16 and
-> add a new u16 skb->queue_mapping or whatever field to store the
-> necessary information.
-> 
-> You're just posting a set of patches using the same approach again
-> plus some bug fixes, so there is essentially nothing new for anyone to
-> review.
-> 
-> Why ask for feedback if you fail to take any of it into consideration?
-> :-/
+David Miller a =E9crit :
+> From: Eric Dumazet <dada1@cosmosbay.com>
+> Date: Fri, 09 Mar 2007 07:34:15 +0100
+>=20
+>> I gently ask that any new sysctl is '__read_mostly' tagged.
+>=20
+> People are lazy because you are so gifted at finding this
+> stuff :-)
 
-Where are the patches anyway? They didn't seem to make it either to netdev nor lkml!
+I seeeeeee ;)
 
-Auke
+BTW I missed the patch on netdev, is it just me or netdev have problems=
+ ?
+
