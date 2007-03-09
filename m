@@ -1,133 +1,66 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: about : [NET]: Replace CONFIG_NET_DEBUG with sysctl.
-Date: Fri, 9 Mar 2007 10:06:44 -0800
-Message-ID: <20070309100644.448d186d@freekitty>
-References: <20070308205214.580772044@linux-foundation.org>
-	<20070308205305.582324346@linux-foundation.org>
-	<20070308.204209.69409441.davem@davemloft.net>
-	<45F0FFE7.1080304@cosmosbay.com>
+From: Frank van Maarseveen <frankvm@frankvm.com>
+Subject: Re: 2.6.19/2.6.20 BUG in inet_rtm_newaddr()/__inet_insert_ifa()
+Date: Fri, 9 Mar 2007 19:22:36 +0100
+Message-ID: <20070309182236.GA21587@janus>
+References: <20070309103333.GA17232@janus> <20070309123016.GA4736@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:42777 "EHLO smtp.osdl.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1767451AbXCISHQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Mar 2007 13:07:16 -0500
-In-Reply-To: <45F0FFE7.1080304@cosmosbay.com>
+Received: from frankvm.xs4all.nl ([80.126.170.174]:57614 "EHLO
+	janus.localdomain" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752710AbXCISWh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Mar 2007 13:22:37 -0500
+Content-Disposition: inline
+In-Reply-To: <20070309123016.GA4736@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This was what the patch was (complete with spulling error)...
+On Fri, Mar 09, 2007 at 03:30:17PM +0300, Evgeniy Polyakov wrote:
+> On Fri, Mar 09, 2007 at 11:33:33AM +0100, Frank van Maarseveen (frankvm@frankvm.com) wrote:
+> > Try this:
+> > 
+> > ip addr add 172.18.12.99/21 dev dummy0
+> > ip addr add broadcast 172.18.15.255 dev dummy0
+> 
+> Attached patch fixes the problem.
+> 
+> nlmsg_parse() in rtm_to_ifaddr() sucessfully returns zero, but
+> subsequent check for prefix len and LOCAL ifa fails, so NULL is returned
+> instead of negative error value embedded in the pointer which is
+> expected by error logic in inet_rtm_newaddr().
+> 
+> ---
+> 
+> Return negative error value (embedded in the pointer) instead of returning NULL.
+> 
+> Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+> 
+> diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+> index e10794d..98a00d0 100644
+> --- a/net/ipv4/devinet.c
+> +++ b/net/ipv4/devinet.c
+> @@ -502,8 +502,10 @@ static struct in_ifaddr *rtm_to_ifaddr(struct nlmsghdr *nlh)
+>  		goto errout;
+>  
+>  	ifm = nlmsg_data(nlh);
+> -	if (ifm->ifa_prefixlen > 32 || tb[IFA_LOCAL] == NULL)
+> +	if (ifm->ifa_prefixlen > 32 || tb[IFA_LOCAL] == NULL) {
+> +		err = -EINVAL;
+>  		goto errout;
+> +	}
+>  
+>  	dev = __dev_get_by_index(ifm->ifa_index);
+>  	if (dev == NULL) {
+> 
+> -- 
+> 	Evgeniy Polyakov
 
-Covert network warning messages from a compile time to runtime choice.
-Removes kernel config option and replaces it with new /proc/sys/net/core/warnings.
+Ok that worked.. not as I expected. I don't understand the EINVAL and
+"ip addr" shows no broadcast address for eth0 when a classless address is
+added as the primary (and only) address like in the above example. That's
+why I tried to set it manually in the second "ip" command.
 
-Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>  
-
-
----
- Documentation/filesystems/proc.txt |    9 +++++++++
- include/linux/sysctl.h             |    1 +
- include/net/sock.h                 |   12 +++++-------
- net/Kconfig                        |    7 -------
- net/core/sysctl_net_core.c         |    8 ++++++++
- net/core/utils.c                   |    2 ++
- 6 files changed, 25 insertions(+), 14 deletions(-)
-
---- net-2.6.22.orig/Documentation/filesystems/proc.txt	2007-03-08 11:23:38.000000000 -0800
-+++ net-2.6.22/Documentation/filesystems/proc.txt	2007-03-08 11:26:10.000000000 -0800
-@@ -1421,6 +1421,15 @@
- be dropped.  The  default  settings  limit  warning messages to one every five
- seconds.
- 
-+warnings
-+--------
-+
-+This controls console messages from the networking stack that can occur because
-+of problems on the network like duplicate address or bad checksums. Normally,
-+this should be enabled, but if the problem persists the messages can be
-+disabled.
-+
-+
- netdev_max_backlog
- ------------------
- 
---- net-2.6.22.orig/include/linux/sysctl.h	2007-03-08 11:11:46.000000000 -0800
-+++ net-2.6.22/include/linux/sysctl.h	2007-03-08 11:17:39.000000000 -0800
-@@ -290,6 +290,7 @@
- 	NET_CORE_BUDGET=19,
- 	NET_CORE_AEVENT_ETIME=20,
- 	NET_CORE_AEVENT_RSEQTH=21,
-+	NET_CORE_WARNINGS=22,
- };
- 
- /* /proc/sys/net/ethernet */
---- net-2.6.22.orig/include/net/sock.h	2007-03-08 11:06:36.000000000 -0800
-+++ net-2.6.22/include/net/sock.h	2007-03-08 11:26:17.000000000 -0800
-@@ -1333,14 +1333,12 @@
- /* 
-  *	Enable debug/info messages 
-  */
-+extern int net_msg_warn;
-+#define NETDEBUG(fmt, args...) \
-+	do { if (net_msg_warn) printk(fmt,##args); } while (0)
- 
--#ifdef CONFIG_NETDEBUG
--#define NETDEBUG(fmt, args...)	printk(fmt,##args)
--#define LIMIT_NETDEBUG(fmt, args...) do { if (net_ratelimit()) printk(fmt,##args); } while(0)
--#else
--#define NETDEBUG(fmt, args...)	do { } while (0)
--#define LIMIT_NETDEBUG(fmt, args...) do { } while(0)
--#endif
-+#define LIMIT_NETDEBUG(fmt, args...) \
-+	do { if (net_msg_warn && net_ratelimit()) printk(fmt,##args); } while(0)
- 
- /*
-  * Macros for sleeping on a socket. Use them like this:
---- net-2.6.22.orig/net/Kconfig	2007-03-08 11:21:05.000000000 -0800
-+++ net-2.6.22/net/Kconfig	2007-03-08 11:21:16.000000000 -0800
-@@ -27,13 +27,6 @@
- 
- menu "Networking options"
- 
--config NETDEBUG
--	bool "Network packet debugging"
--	help
--	  You can say Y here if you want to get additional messages useful in
--	  debugging bad packets, but can overwhelm logs under denial of service
--	  attacks.
--
- source "net/packet/Kconfig"
- source "net/unix/Kconfig"
- source "net/xfrm/Kconfig"
---- net-2.6.22.orig/net/core/sysctl_net_core.c	2007-03-08 11:10:40.000000000 -0800
-+++ net-2.6.22/net/core/sysctl_net_core.c	2007-03-08 11:37:18.000000000 -0800
-@@ -136,6 +136,14 @@
- 		.mode		= 0644,
- 		.proc_handler	= &proc_dointvec
- 	},
-+	{
-+		.ctl_name	= NET_CORE_WARNINGS,
-+		.procname	= "warnings",
-+		.data		= &net_msg_warn,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= &proc_dointvec
-+	},
- 	{ .ctl_name = 0 }
- };
- 
---- net-2.6.22.orig/net/core/utils.c	2007-03-08 11:18:09.000000000 -0800
-+++ net-2.6.22/net/core/utils.c	2007-03-08 11:39:08.000000000 -0800
-@@ -32,6 +32,8 @@
- 
- int net_msg_cost = 5*HZ;
- int net_msg_burst = 10;
-+int net_msg_warn = 1;
-+EXPORT_SYMBOL(net_msg_warn);
- 
- /*
-  * All net warning printk()s should be guarded by this function.
+-- 
+Frank
