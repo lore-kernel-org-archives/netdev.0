@@ -1,81 +1,89 @@
-From: Simon Arlott <simon@fire.lp0.eu>
-Subject: Re: netconsole system freeze when cable unplugged
-Date: Fri, 09 Mar 2007 23:30:26 +0000
-Message-ID: <45F1EE12.2070605@simon.arlott.org.uk>
-References: <45F1B6FD.1060902@simon.arlott.org.uk> <20070309204243.GA28441@electric-eye.fr.zoreil.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+From: Joy Latten <latten@austin.ibm.com>
+Subject: [PATCH]: double SAs are created when using AH and ESP together
+Date: Fri, 9 Mar 2007 17:14:54 -0600
+Message-ID: <200703092314.l29NEsre023870@faith.austin.ibm.com>
+Cc: davem@davemloft.net, eparis@redhat.com,
+	herbert@gondor.apana.org.au, jmorris@namei.org, paul.moore@hp.com,
+	vyekkirala@TrustedCS.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from proxima.lp0.eu ([85.158.45.36]:38921 "EHLO proxima.lp0.eu"
+Received: from e5.ny.us.ibm.com ([32.97.182.145]:41577 "EHLO e5.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1767646AbXCIXaa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Mar 2007 18:30:30 -0500
-In-Reply-To: <20070309204243.GA28441@electric-eye.fr.zoreil.com>
+	id S1767649AbXCIXbM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Mar 2007 18:31:12 -0500
+Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
+	by e5.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l29NV9Is003425
+	for <netdev@vger.kernel.org>; Fri, 9 Mar 2007 18:31:09 -0500
+Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
+	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l29NV6Et161434
+	for <netdev@vger.kernel.org>; Fri, 9 Mar 2007 18:31:06 -0500
+Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
+	by d01av02.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l29NUtEa025700
+	for <netdev@vger.kernel.org>; Fri, 9 Mar 2007 18:30:56 -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 09/03/07 20:42, Francois Romieu wrote:
-> Simon Arlott <simon@fire.lp0.eu> :
->> When I unplug the cable the system just stops responding to anything, 
->> at all. No message is printed to the console when the cable is plugged 
->> back in.
+On Tue, 2007-03-06 at 14:40 -0500, James Morris wrote:
+On Tue, 6 Mar 2007, Joy Latten wrote:
 > 
-> rtl8139_interrupt (spin_lock(&tp->lock))
-> -> rtl8139_weird_interrupt
->    -> rtl_check_media
->       -> mii_check_media (printk(KERN_INFO "%s: link down\n", ...))
->          [netpoll stuff here]
->          -> rtl8139_poll_controller
->             -> rtl8139_interrupt
->                *deadlock*
+> > > I saw something similar to this some time ago when testing various 
+> > > failure modes, and discused it with Herbert.
+> > > 
+> > > IIRC, there's a larval SA which is not torn down properly by Racoon once 
+> > > the full SA is established, and the larval SA keeps resending until it 
+> > > times out.
+> > > 
+> > Ok, good to know. 
+> > I thought a bit more about this last night but am not
+> > sure best way to fix it. Perhaps a way to keep larval
+> > SA around until all SAs resulting from xfrm_vec[xfrm_nr]
+> > are established... oh well, just thinking out loud... :-) 
 > 
-> See below for my random stuff of the day. Feel free to open a PR at
-> bugzilla.kernel.org if the issue does not go away.
+> I think the solution, if this actually the problem, is for the userland 
+> code to maintain the SAs.
+ 
+Gotta agree. :-)
 
-The patch doesn't fix it, nothing changes. I'm not sure how this can 
-be debugged if printk won't work...
+I noticed that in xfrm_state_add we look for the larval SA in a few
+places without checking for protocol match. So when using both 
+AH and ESP, whichever one gets added first, deletes the larval SA. 
+It seems AH always gets added first and ESP is always the larval 
+SA's protocol since the xfrm->tmpl has it first. Thus causing the
+additional km_query()
 
-> --------8<-----------------------------------------------------------------
-> 
-> 8139too: netconsole breakage when link changes
-> 
-> rtl8139_interrupt is not supposed to be reentrant but its link
-> management part can emit printk.
-> 
-> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-> 
-> diff --git a/drivers/net/8139too.c b/drivers/net/8139too.c
-> index 99304b2..64467ad 100644
-> --- a/drivers/net/8139too.c
-> +++ b/drivers/net/8139too.c
-> @@ -2215,9 +2215,16 @@ static irqreturn_t rtl8139_interrupt (int irq, void *dev_instance)
->   */
->  static void rtl8139_poll_controller(struct net_device *dev)
->  {
-> -	disable_irq(dev->irq);
-> +	struct rtl8139_private *tp = netdev_priv(dev);
-> +	unsigned long flags;
-> +	int rc;
-> +
-> +	rc = spin_trylock_irqsave(&tp->lock, flags);
-> +	if (!rc)
-> +		return;
-> +	spin_unlock(&tp->lock);
->  	rtl8139_interrupt(dev->irq, dev);
-> -	enable_irq(dev->irq);
-> +	local_irq_restore(flags);
->  }
->  #endif
->  
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Adding the check eliminates the double SA creation. 
+I know this may not seem like a complete solution and I will 
+continue to test and be on the lookout, but isn't having the
+check a good thing? So far I have tested SAs with just ESP, just AH
+and with both and all seems ok. 
 
+Please let me know if this patch is ok. 
+My kernel was 2.6.20-rc3-git3.
 
--- 
-Simon Arlott
+Joy 
+
+Signed-off-by: Joy Latten <latten@austin.ibm.com>
+
+diff -urpN linux-2.6.20.orig/net/xfrm/xfrm_state.c linux-2.6.20.patch/net/xfrm/xfrm_state.c
+--- linux-2.6.20.orig/net/xfrm/xfrm_state.c	2007-03-08 17:39:14.000000000 -0600
++++ linux-2.6.20.patch/net/xfrm/xfrm_state.c	2007-03-09 11:03:25.000000000 -0600
+@@ -704,7 +704,8 @@ static struct xfrm_state *__find_acq_cor
+ 		    x->props.mode   != mode ||
+ 		    x->props.family != family ||
+ 		    x->km.state     != XFRM_STATE_ACQ ||
+-		    x->id.spi       != 0)
++		    x->id.spi       != 0 ||
++		    x->id.proto	    != proto)
+ 			continue;
+ 
+ 		switch (family) {
+@@ -801,7 +802,8 @@ int xfrm_state_add(struct xfrm_state *x)
+ 
+ 	if (use_spi && x->km.seq) {
+ 		x1 = __xfrm_find_acq_byseq(x->km.seq);
+-		if (x1 && xfrm_addr_cmp(&x1->id.daddr, &x->id.daddr, family)) {
++		if (x1 && ((x1->id.proto != x->id.proto) ||
++		    xfrm_addr_cmp(&x1->id.daddr, &x->id.daddr, family))) {
+ 			xfrm_state_put(x1);
+ 			x1 = NULL;
+ 		}
