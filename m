@@ -1,57 +1,45 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: 2.6.19/2.6.20 BUG in inet_rtm_newaddr()/__inet_insert_ifa()
-Date: Fri, 9 Mar 2007 15:30:17 +0300
-Message-ID: <20070309123016.GA4736@2ka.mipt.ru>
-References: <20070309103333.GA17232@janus>
+From: Tejun Heo <htejun@gmail.com>
+Subject: Re: 2.6.20-rc4-mm1: PCI=n: drivers/net/3c59x.c compile error
+Date: Fri, 09 Mar 2007 21:54:10 +0900
+Message-ID: <45F158F2.9040907@gmail.com>
+References: <20070111222627.66bb75ab.akpm@osdl.org>	<20070124135354.GI17836@stusta.de>	<45B76946.1070009@ru.mvista.com>	<45D756D7.4060106@ru.mvista.com>	<45D75853.1060607@ru.mvista.com>	<45E2DF13.9010200@ru.mvista.com>	<20070226092644.aea76b37.randy.dunlap@oracle.com>	<20070226211401.GC3810@kroah.com>	<45ED9390.3000308@ru.mvista.com> <20070306084751.b82a7b84.randy.dunlap@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: netdev@vger.kernel.org
-To: Frank van Maarseveen <frankvm@frankvm.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Sergei Shtylyov <sshtylyov@ru.mvista.com>,
+	Greg KH <greg@kroah.com>, linux-pci@atrey.karlin.mff.cuni.cz,
+	Adrian Bunk <bunk@stusta.de>, Andrew Morton <akpm@osdl.org>,
+	Jeff Garzik <jgarzik@pobox.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Randy Dunlap <randy.dunlap@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:55586 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1767211AbXCIMb3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Mar 2007 07:31:29 -0500
-Content-Disposition: inline
-In-Reply-To: <20070309103333.GA17232@janus>
+Received: from nz-out-0506.google.com ([64.233.162.226]:6043 "EHLO
+	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1767233AbXCIMyR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Mar 2007 07:54:17 -0500
+Received: by nz-out-0506.google.com with SMTP id s1so761193nze
+        for <netdev@vger.kernel.org>; Fri, 09 Mar 2007 04:54:17 -0800 (PST)
+In-Reply-To: <20070306084751.b82a7b84.randy.dunlap@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 09, 2007 at 11:33:33AM +0100, Frank van Maarseveen (frankvm@frankvm.com) wrote:
-> Try this:
+Hello,
+
+Randy Dunlap wrote:
+>>     Erm, before I do that, could somebody explain what
+>>
+>> #define HAVE_PCI_REQ_REGIONS 2
+>>
+>> accompanying their declaration is for? I have't found any references to it in 
+>> the source. Should I duplicate it for CONFIG_PCI=n case (I guess not)?
 > 
-> ip addr add 172.18.12.99/21 dev dummy0
-> ip addr add broadcast 172.18.15.255 dev dummy0
+> I wouldn't since it's not used anywhere, but maybe Tejun could comment
+> on it...
 
-Attached patch fixes the problem.
+This is the first time I see that macro.  There is no user in the whole
+source.  I think the best way is to just kill it.
 
-nlmsg_parse() in rtm_to_ifaddr() sucessfully returns zero, but
-subsequent check for prefix len and LOCAL ifa fails, so NULL is returned
-instead of negative error value embedded in the pointer which is
-expected by error logic in inet_rtm_newaddr().
-
----
-
-Return negative error value (embedded in the pointer) instead of returning NULL.
-
-Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-
-diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index e10794d..98a00d0 100644
---- a/net/ipv4/devinet.c
-+++ b/net/ipv4/devinet.c
-@@ -502,8 +502,10 @@ static struct in_ifaddr *rtm_to_ifaddr(struct nlmsghdr *nlh)
- 		goto errout;
- 
- 	ifm = nlmsg_data(nlh);
--	if (ifm->ifa_prefixlen > 32 || tb[IFA_LOCAL] == NULL)
-+	if (ifm->ifa_prefixlen > 32 || tb[IFA_LOCAL] == NULL) {
-+		err = -EINVAL;
- 		goto errout;
-+	}
- 
- 	dev = __dev_get_by_index(ifm->ifa_index);
- 	if (dev == NULL) {
+Thanks.
 
 -- 
-	Evgeniy Polyakov
+tejun
