@@ -1,45 +1,56 @@
-From: "Arnaldo Carvalho de Melo" <acme@ghostprotocols.net>
-Subject: [PATCH 1/1][UDP]: Use __skb_pull since we have checked it won't fail with pskb_may_pull
-Date: Fri, 9 Mar 2007 11:07:50 -0300
-Message-ID: <39e6f6c70703090607h29e1a0d0lef770fdc02b16eab@mail.gmail.com>
+From: Olaf Kirch <olaf.kirch@oracle.com>
+Subject: Fix for ipv6_setsockopt NULL dereference
+Date: Fri, 9 Mar 2007 15:15:54 +0100
+Message-ID: <200703091515.55985.olaf.kirch@oracle.com>
+References: <200703091207.31877.olaf.kirch@oracle.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="----=_Part_2965_25732734.1173449270891"
-Cc: "Netdev List" <netdev@vger.kernel.org>
-To: "David Miller" <davem@davemloft.net>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.172]:33374 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1767303AbXCIOH4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Mar 2007 09:07:56 -0500
-Received: by ug-out-1314.google.com with SMTP id 44so1335552uga
-        for <netdev@vger.kernel.org>; Fri, 09 Mar 2007 06:07:51 -0800 (PST)
+Received: from agminet01.oracle.com ([141.146.126.228]:57576 "EHLO
+	agminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1767302AbXCIORD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Mar 2007 09:17:03 -0500
+Received: from rgmgw1.us.oracle.com (rgmgw1.us.oracle.com [138.1.186.110])
+	by agminet01.oracle.com (Switch-3.2.4/Switch-3.1.7) with ESMTP id l29EGwIs021304
+	for <netdev@vger.kernel.org>; Fri, 9 Mar 2007 08:17:00 -0600
+Received: from rcsmt250.oracle.com (rcsmt250.oracle.com [148.87.90.195])
+	by rgmgw1.us.oracle.com (Switch-3.2.4/Switch-3.1.7) with ESMTP id l29D60n8023927
+	for <netdev@vger.kernel.org>; Fri, 9 Mar 2007 07:16:57 -0700
+In-Reply-To: <200703091207.31877.olaf.kirch@oracle.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-------=_Part_2965_25732734.1173449270891
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+I came across this bug in http://bugzilla.kernel.org/show_bug.cgi?id=8155
 
-Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+Here's a potential fix.
+
+Olaf
+-- 
+Olaf Kirch  |  --- o --- Nous sommes du soleil we love when we play
+okir@lst.de |    / | \   sol.dhoop.naytheet.ah kin.ir.samse.qurax
+--
+Fix NULL pointer derefence in ipv6_setsockopt, as described in bug #8155.
+
+Signed-off-by: olaf.kirch@oracle.com
 
 ---
- net/ipv4/udp.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ net/ipv6/ipv6_sockglue.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-------=_Part_2965_25732734.1173449270891
-Content-Type: text/x-patch; name=udp__skb_pull.patch; charset=ANSI_X3.4-1968
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_ez2pdjb7
-Content-Disposition: attachment; filename="udp__skb_pull.patch"
-
-ZGlmZiAtLWdpdCBhL25ldC9pcHY0L3VkcC5jIGIvbmV0L2lwdjQvdWRwLmMKaW5kZXggY2EzNTM4
-MC4uMWJiZjU1MSAxMDA2NDQKLS0tIGEvbmV0L2lwdjQvdWRwLmMKKysrIGIvbmV0L2lwdjQvdWRw
-LmMKQEAgLTEwMDIsNyArMTAwMiw3IEBAIHN0YXRpYyBpbnQgdWRwX2VuY2FwX3JjdihzdHJ1Y3Qg
-c29jayAqIHNrLCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiKQogCSAqIHRyYW5zcG9ydCBoZWFkZXIgdG8g
-cG9pbnQgdG8gRVNQLiAgS2VlcCBVRFAgb24gdGhlIHN0YWNrCiAJICogZm9yIGxhdGVyLgogCSAq
-LwotCXNrYi0+aC5yYXcgPSBza2JfcHVsbChza2IsIGxlbik7CisJc2tiLT5oLnJhdyA9IF9fc2ti
-X3B1bGwoc2tiLCBsZW4pOwogCiAJLyogbW9kaWZ5IHRoZSBwcm90b2NvbCAoaXQncyBFU1AhKSAq
-LwogCWlwaC0+cHJvdG9jb2wgPSBJUFBST1RPX0VTUDsK
-------=_Part_2965_25732734.1173449270891--
+Index: build-2.6/net/ipv6/ipv6_sockglue.c
+===================================================================
+--- build-2.6.orig/net/ipv6/ipv6_sockglue.c
++++ build-2.6/net/ipv6/ipv6_sockglue.c
+@@ -413,7 +413,7 @@ static int do_ipv6_setsockopt(struct soc
+ 		}
+ 
+ 		/* routing header option needs extra check */
+-		if (optname == IPV6_RTHDR && opt->srcrt) {
++		if (optname == IPV6_RTHDR && opt && opt->srcrt) {
+ 			struct ipv6_rt_hdr *rthdr = opt->srcrt;
+ 			switch (rthdr->type) {
+ 			case IPV6_SRCRT_TYPE_0:
