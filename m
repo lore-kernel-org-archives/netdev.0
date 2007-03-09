@@ -1,33 +1,50 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: [PATCH 1/2] NET: Multiple queue network device support
-Date: Fri, 9 Mar 2007 08:26:10 +0100
-Message-ID: <20070309072610.GA1662@ff.dom.local>
-References: <20070307.144248.48528321.davem@davemloft.net>
+From: Amit Choudhary <amit2030@gmail.com>
+Subject: [PATCH] [REVISED] net/ipv4/multipath_wrandom.c: check kmalloc()
+ return value.
+Date: Thu, 8 Mar 2007 23:22:15 -0800
+Message-ID: <20070308232215.aa512aaa.amit2030@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: peter.p.waskiewicz.jr@intel.com, jgarzik@pobox.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jesse.brandeburg@intel.com, auke@foo-projects.org,
-	john.ronciak@intel.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from poczta.o2.pl ([193.17.41.142]:39668 "EHLO poczta.o2.pl"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S2993040AbXCIHWI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Mar 2007 02:22:08 -0500
-Content-Disposition: inline
-In-Reply-To: <20070307.144248.48528321.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Linux Kernel <linux-kernel@vger.kernel.org>, akpm@osdl.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S2993050AbXCIHWj@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 07-03-2007 23:42, David Miller wrote:
-> I didn't say to use skb->priority, I said to shrink skb->priority down
-> to a u16 and then make another u16 which will store your queue mapping
-> value.
+Description: Check the return value of kmalloc() in function wrandom_set_nhinfo(), in file net/ipv4/multipath_wrandom.c.
 
-Peter is right: this is fully used by schedulers (prio,
-CBQ, HTB, HFSC...) and would break users' scripts, so I
-wouldn't recommend, too.
+Signed-off-by: Amit Choudhary <amit2030@gmail.com>
 
-Regards,
-Jarek P.
+diff --git a/net/ipv4/multipath_wrandom.c b/net/ipv4/multipath_wrandom.c
+index 92b0482..bcdb1f1 100644
+--- a/net/ipv4/multipath_wrandom.c
++++ b/net/ipv4/multipath_wrandom.c
+@@ -242,6 +242,9 @@ static void wrandom_set_nhinfo(__be32 ne
+ 		target_route = (struct multipath_route *)
+ 			kmalloc(size_rt, GFP_ATOMIC);
+ 
++		if (!target_route)
++			goto error;
++
+ 		target_route->gw = nh->nh_gw;
+ 		target_route->oif = nh->nh_oif;
+ 		memset(&target_route->rcu, 0, sizeof(struct rcu_head));
+@@ -263,6 +266,9 @@ static void wrandom_set_nhinfo(__be32 ne
+ 		target_dest = (struct multipath_dest*)
+ 			kmalloc(size_dst, GFP_ATOMIC);
+ 
++		if (!target_dest)
++			goto error;
++
+ 		target_dest->nh_info = nh;
+ 		target_dest->network = network;
+ 		target_dest->netmask = netmask;
+@@ -275,6 +281,7 @@ static void wrandom_set_nhinfo(__be32 ne
+ 	 * we are finished
+ 	 */
+ 
++ error:
+ 	spin_unlock_bh(&state[state_idx].lock);
+ }
+ 
