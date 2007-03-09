@@ -1,36 +1,69 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [Bridge] rstp for 2.4 kernel: port state keeps changing
-Date: Fri, 9 Mar 2007 12:31:38 -0800
-Message-ID: <20070309123138.5133ee91@freekitty>
-References: <20070309105513.387bfa93@freekitty>
-	<OF42CFC367.708609B4-ON85257299.006F9010-85257299.006FB2D0@smsc.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: netconsole system freeze when cable unplugged
+Date: Fri, 9 Mar 2007 21:42:43 +0100
+Message-ID: <20070309204243.GA28441@electric-eye.fr.zoreil.com>
+References: <45F1B6FD.1060902@simon.arlott.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: bridge@linux-foundation.org, bridge-bounces@lists.osdl.org,
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
 	netdev@vger.kernel.org
-To: Marc.Obbad@smsc.com
+To: Simon Arlott <simon@fire.lp0.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:47623 "EHLO smtp.osdl.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1767488AbXCIUbm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Mar 2007 15:31:42 -0500
-In-Reply-To: <OF42CFC367.708609B4-ON85257299.006F9010-85257299.006FB2D0@smsc.com>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:59485 "EHLO
+	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965817AbXCIUnU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Mar 2007 15:43:20 -0500
+Content-Disposition: inline
+In-Reply-To: <45F1B6FD.1060902@simon.arlott.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 9 Mar 2007 15:20:02 -0500
-Marc.Obbad@smsc.com wrote:
+Simon Arlott <simon@fire.lp0.eu> :
+> When I unplug the cable the system just stops responding to anything, 
+> at all. No message is printed to the console when the cable is plugged 
+> back in.
 
-> I have downloaded RSTP from this site:
-> 
-> 
->       http://developer.osdl.org/shemminger/prototypes/rstp-2.4.zip
-> 
-> 
+rtl8139_interrupt (spin_lock(&tp->lock))
+-> rtl8139_weird_interrupt
+   -> rtl_check_media
+      -> mii_check_media (printk(KERN_INFO "%s: link down\n", ...))
+         [netpoll stuff here]
+         -> rtl8139_poll_controller
+            -> rtl8139_interrupt
+               *deadlock*
 
-That's cool, I didn't know anyone got the old code to work!
+See below for my random stuff of the day. Feel free to open a PR at
+bugzilla.kernel.org if the issue does not go away.
 
+--------8<-----------------------------------------------------------------
 
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+8139too: netconsole breakage when link changes
+
+rtl8139_interrupt is not supposed to be reentrant but its link
+management part can emit printk.
+
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+
+diff --git a/drivers/net/8139too.c b/drivers/net/8139too.c
+index 99304b2..64467ad 100644
+--- a/drivers/net/8139too.c
++++ b/drivers/net/8139too.c
+@@ -2215,9 +2215,16 @@ static irqreturn_t rtl8139_interrupt (int irq, void *dev_instance)
+  */
+ static void rtl8139_poll_controller(struct net_device *dev)
+ {
+-	disable_irq(dev->irq);
++	struct rtl8139_private *tp = netdev_priv(dev);
++	unsigned long flags;
++	int rc;
++
++	rc = spin_trylock_irqsave(&tp->lock, flags);
++	if (!rc)
++		return;
++	spin_unlock(&tp->lock);
+ 	rtl8139_interrupt(dev->irq, dev);
+-	enable_irq(dev->irq);
++	local_irq_restore(flags);
+ }
+ #endif
+ 
