@@ -1,26 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1][UDP]: Use __skb_pull since we have checked it
- won't fail with pskb_may_pull
-Date: Fri, 09 Mar 2007 13:52:14 -0800 (PST)
-Message-ID: <20070309.135214.89037114.davem@davemloft.net>
-References: <39e6f6c70703090607h29e1a0d0lef770fdc02b16eab@mail.gmail.com>
+Subject: Re: Fix for ipv6_setsockopt NULL dereference
+Date: Fri, 09 Mar 2007 13:54:32 -0800 (PST)
+Message-ID: <20070309.135432.129450538.davem@davemloft.net>
+References: <200703091207.31877.olaf.kirch@oracle.com>
+	<200703091515.55985.olaf.kirch@oracle.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: acme@ghostprotocols.net
+To: olaf.kirch@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38474
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38479
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S933380AbXCIVwO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Mar 2007 16:52:14 -0500
-In-Reply-To: <39e6f6c70703090607h29e1a0d0lef770fdc02b16eab@mail.gmail.com>
+	by vger.kernel.org with ESMTP id S1752095AbXCIVyc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Mar 2007 16:54:32 -0500
+In-Reply-To: <200703091515.55985.olaf.kirch@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Arnaldo Carvalho de Melo" <acme@ghostprotocols.net>
-Date: Fri, 9 Mar 2007 11:07:50 -0300
+From: Olaf Kirch <olaf.kirch@oracle.com>
+Date: Fri, 9 Mar 2007 15:15:54 +0100
 
-> Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+> I came across this bug in http://bugzilla.kernel.org/show_bug.cgi?id=8155
+> 
+> Here's a potential fix.
+> 
+> Olaf
+> -- 
+> Olaf Kirch  |  --- o --- Nous sommes du soleil we love when we play
+> okir@lst.de |    / | \   sol.dhoop.naytheet.ah kin.ir.samse.qurax
+> --
+> Fix NULL pointer derefence in ipv6_setsockopt, as described in bug #8155.
+> 
+> Signed-off-by: olaf.kirch@oracle.com
 
-Applied to net-2.6.22, thanks.
+Applied, thanks a lot Olaf.
+
+I'll push this to -stable too.
