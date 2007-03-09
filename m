@@ -1,41 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: about : [NET]: Replace CONFIG_NET_DEBUG with sysctl.
-Date: Thu, 08 Mar 2007 23:14:18 -0800 (PST)
-Message-ID: <20070308.231418.71091399.davem@davemloft.net>
-References: <45F0FFE7.1080304@cosmosbay.com>
-	<20070308.223748.74750176.davem@davemloft.net>
-	<45F105E6.7040608@cosmosbay.com>
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Subject: RE: [PATCH 0/2] NET: Multiple queue network device support REPOST
+Date: Thu, 8 Mar 2007 23:16:58 -0800
+Message-ID: <D5C1322C3E673F459512FB59E0DDC329026E982F@orsmsx414.amr.corp.intel.com>
+References: <20070308.231142.74749203.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org
-To: dada1@cosmosbay.com
+Content-Type: text/plain;
+	charset="US-ASCII"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	"Leech, Christopher" <christopher.leech@intel.com>
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39526
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S2993032AbXCIHO0 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Mar 2007 02:14:26 -0500
-In-Reply-To: <45F105E6.7040608@cosmosbay.com>
+Received: from mga02.intel.com ([134.134.136.20]:13940 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S2993033AbXCIHRA convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Mar 2007 02:17:00 -0500
+Content-class: urn:content-classes:message
+In-Reply-To: <20070308.231142.74749203.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=46rom: Eric Dumazet <dada1@cosmosbay.com>
-Date: Fri, 09 Mar 2007 07:59:50 +0100
+> This is not a problem.
+> 
+> Since the ->enqueue function stores references to the SKBs, 
+> any change of the dev->qdisc has to flush those references 
+> somehow, and it is at that point that you can fixup the skb 
+> queue mappings.
+> 
+> This happens via invoking the qdisc->ops->reset() method.
+> 
 
-> David Miller a =E9crit :
-> > From: Eric Dumazet <dada1@cosmosbay.com>
-> > Date: Fri, 09 Mar 2007 07:34:15 +0100
-> >=20
-> >> I gently ask that any new sysctl is '__read_mostly' tagged.
-> >=20
-> > People are lazy because you are so gifted at finding this
-> > stuff :-)
->=20
-> I seeeeeee ;)
->=20
-> BTW I missed the patch on netdev, is it just me or netdev have proble=
-ms ?
+Thanks Dave.  It seems expensive to change all the skb's if this type of
+event occurs, but I suppose it is a corner case and can be tolerated.
+Please let me make this change and I'll resubmit.
 
-He definitely posted it, perhaps netdev is running a little slow
-or wonky today...
+Also, the first patch set was RFC, and you were the only one to submit
+feedback to me.  :-/  So I figured submitting as an official patch for
+feedback might get more attention.
+
+And to reiterate what Auke asked, what did happen to the patches?  I see
+things getting through the netdev mailing list, but they're not showing
+up on www.spinics.net/lists/netdev.  Was it something I did when
+sending, or did majordomo hiccup?
+
+Thanks,
+
+-PJ Waskiewicz
