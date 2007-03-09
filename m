@@ -1,35 +1,40 @@
 From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: TSO performance wrt 2.614
-Date: Fri, 09 Mar 2007 08:18:54 -0800
-Message-ID: <45F188EE.5000508@linux-foundation.org>
-References: <bb8a0130703082237q2ac1025haf3cd9f590c47aa3@mail.gmail.com>
+Subject: Re: about : [NET]: Replace CONFIG_NET_DEBUG with sysctl.
+Date: Fri, 09 Mar 2007 08:22:54 -0800
+Message-ID: <45F189DE.7030206@linux-foundation.org>
+References: <20070308205214.580772044@linux-foundation.org>	<20070308205305.582324346@linux-foundation.org> <20070308.204209.69409441.davem@davemloft.net> <45F0FFE7.1080304@cosmosbay.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: anandvelu thulasiram <anand.vt@gmail.com>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:38531 "EHLO smtp.osdl.org"
+Received: from smtp.osdl.org ([65.172.181.24]:38661 "EHLO smtp.osdl.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1767357AbXCIQSm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Mar 2007 11:18:42 -0500
-In-Reply-To: <bb8a0130703082237q2ac1025haf3cd9f590c47aa3@mail.gmail.com>
+	id S1767352AbXCIQXL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Mar 2007 11:23:11 -0500
+In-Reply-To: <45F0FFE7.1080304@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-anandvelu thulasiram wrote:
-> Hi all,
->               I'm working on TCP segmentation Offload and I'm using
-> Linux -2.6.14 kernel for this. I'm getting about a 6x increase in
-> sending by turning off TCP segmentation offload. But When I turn on
-> the TSO my performance is getting degraded.  But when I switched back
-> to Linux
-> 2.6.9 kernel I'm getting 16Mbps more when TSO is enabled.
+Eric Dumazet wrote:
+> Hello David and Stephen
 >
-> Is there any TSO patch for linux-2.6.14.
+> I see git commit 8e2101a9faab43dcf307d46784a1ede7997fe729
+> and its potential problems :
 >
+> Here on my x86_64 machine :
 >
-Which hardware and what is the network connection?
-It turns out that older versions of TSO were violating internet 
-congestion control
-and not counting packets properly.
+> ffffffff806e7520 d rtnl_mutex
+> ffffffff806e7538 D net_msg_cost
+> ffffffff806e753c D net_msg_burst
+> ffffffff806e7540 D net_msg_warn
+> ffffffff806e7560 d lweventlist_lock
+>
+It probably is worth making a hot/cold map somehow. Ideally some 
+automated version
+of something like oprofile uses (memprofile?)
+> So net_msg_{cost|burst|warn} are on two 'heavy' cachelines.
+>
+> I gently ask that any new sysctl is '__read_mostly' tagged.
+Why not all the old one's as well?
