@@ -1,36 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] NET: Multiple queue network device support REPOST
-Date: Thu, 08 Mar 2007 23:11:42 -0800 (PST)
-Message-ID: <20070308.231142.74749203.davem@davemloft.net>
-References: <20070308.222154.74746753.davem@davemloft.net>
-	<D5C1322C3E673F459512FB59E0DDC329026E981A@orsmsx414.amr.corp.intel.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	christopher.leech@intel.com
-To: peter.p.waskiewicz.jr@intel.com
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Fw: [Bugme-new] [Bug 8151] New: Established connections not displayed in /proc/tcp/netstat
+Date: Fri, 09 Mar 2007 18:13:17 +1100
+Message-ID: <E1HPZHx-00083P-00@gondolin.me.apana.org.au>
+References: <20070308101947.f77ab27f.akpm@linux-foundation.org>
+Cc: netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
+	getitupsidelines@yahoo.com
+To: akpm@linux-foundation.org (Andrew Morton)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39511
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S2993028AbXCIHLy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Mar 2007 02:11:54 -0500
-In-Reply-To: <D5C1322C3E673F459512FB59E0DDC329026E981A@orsmsx414.amr.corp.intel.com>
+Received: from rhun.apana.org.au ([64.62.148.172]:3139 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S2993027AbXCIHNV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Mar 2007 02:13:21 -0500
+In-Reply-To: <20070308101947.f77ab27f.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Date: Thu, 8 Mar 2007 22:42:19 -0800
+Andrew Morton <akpm@linux-foundation.org> wrote:
+> 
+> Date: Thu, 8 Mar 2007 07:53:57 -0800
+> From: bugme-daemon@bugzilla.kernel.org
+> To: bugme-new@lists.osdl.org
+> Subject: [Bugme-new] [Bug 8151] New: Established connections not displayed in /proc/tcp/netstat
 
-> This was taken into consideration, and I did reply that my concern for
-> doing that could cause stale data in the skb if the queue mapping
-> changed.
+Please try running 'ss -nt' to see if it displays the missing
+connections.  If it does then we can confirm a problem with
+/proc, otherwise the you might have a TCP problem instead.
 
-This is not a problem.
+Note that with a recent kernel you may have to build/load the
+tcp_diag module before 'ss -nt' will work.
 
-Since the ->enqueue function stores references to the SKBs,
-any change of the dev->qdisc has to flush those references
-somehow, and it is at that point that you can fixup the
-skb queue mappings.
-
-This happens via invoking the qdisc->ops->reset() method.
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
