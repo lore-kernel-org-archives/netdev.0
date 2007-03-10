@@ -1,67 +1,70 @@
-From: Simon Arlott <simon@fire.lp0.eu>
-Subject: Re: netconsole system freeze when cable unplugged
-Date: Sat, 10 Mar 2007 14:06:28 +0000
-Message-ID: <45F2BB64.10000@simon.arlott.org.uk>
-References: <45F1B6FD.1060902@simon.arlott.org.uk>	<20070309204243.GA28441@electric-eye.fr.zoreil.com>	<45F1EE12.2070605@simon.arlott.org.uk> <p73r6rx9q28.fsf@bingen.suse.de>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: SSB/b44 build failure
+Date: Sat, 10 Mar 2007 10:03:46 -0500
+Message-ID: <20070310150346.GB5062@tuxdriver.com>
+References: <1173496449.13449@shark.he.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Francois Romieu <romieu@fr.zoreil.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: Andi Kleen <andi@firstfloor.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: mb@bu3sch.de, bunk@stusta.de, netdev@vger.kernel.org,
+	akpm@linux-foundation.org
+To: Randy Dunlap <rdunlap@xenotime.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from proxima.lp0.eu ([85.158.45.36]:36568 "EHLO proxima.lp0.eu"
+Received: from ra.tuxdriver.com ([70.61.120.52]:4148 "EHLO ra.tuxdriver.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1767834AbXCJOGe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 10 Mar 2007 09:06:34 -0500
-In-Reply-To: <p73r6rx9q28.fsf@bingen.suse.de>
+	id S1767844AbXCJPfa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 10 Mar 2007 10:35:30 -0500
+Content-Disposition: inline
+In-Reply-To: <1173496449.13449@shark.he.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 10/03/07 13:38, Andi Kleen wrote:
-> Simon Arlott <simon@fire.lp0.eu> writes:
+On Fri, Mar 09, 2007 at 07:14:09PM -0800, Randy Dunlap wrote:
+> Hi,
 > 
->> On 09/03/07 20:42, Francois Romieu wrote:
->>> Simon Arlott <simon@fire.lp0.eu> :
->>>> When I unplug the cable the system just stops responding to
->>>> anything, at all. No message is printed to the console when the
->>>> cable is plugged back in.
->>> rtl8139_interrupt (spin_lock(&tp->lock))
->>> -> rtl8139_weird_interrupt
->>>    -> rtl_check_media
->>>       -> mii_check_media (printk(KERN_INFO "%s: link down\n", ...))
->>>          [netpoll stuff here]
->>>          -> rtl8139_poll_controller
->>>             -> rtl8139_interrupt
->>>                *deadlock*
->>> See below for my random stuff of the day. Feel free to open a PR at
->>> bugzilla.kernel.org if the issue does not go away.
->> The patch doesn't fix it, nothing changes. I'm not sure how this can
->> be debugged if printk won't work...
+> In 2.6.21-rc3-mm2, with CONFIG_SSB=y but all other SSB kconfig
+> symbols disabled, I get this (on x86_64):
 > 
-> earlyprintk can be called directly (early_printk()) and should
-> work. It won't log over the network of course.
+> drivers/built-in.o: In function `b44_init':
+> b44.c:(.init.text+0x6e04): undefined reference to `ssb_pcihost_register'
+> b44.c:(.init.text+0x6e2c): undefined reference to `ssb_pcihost_unregister'
+> drivers/built-in.o: In function `b44_cleanup':
+> b44.c:(.exit.text+0x63b): undefined reference to `ssb_pcihost_unregister'
+> make: *** [.tmp_vmlinux1] Error 1
 
-It also won't log over the serial console either :(
-(but that's probably a good thing, it's slow enough to boot with tons 
-of messages to the display because of netconsole and nfs).
+FWIW, this is coming from the port of b44 to use the SSB bus which
+I'm carrying in the wireless-dev tree.
 
-rtl8139_interrupt
--> spin_lock(&tp->lock)
--> rtl8139_weird_interrupt
-   -> rtl_check_media
-      -> mii_check_media
-         -> printk(KERN_INFO "%s: link down\n", ...)
-            -> wite_msg
-               -> local_irq_save
-               -> netpoll_send_udp
-                  -> netpoll_send_skb
-                     -> local_irq_save
-                     -> dev->hard_start_xmit(..., ...)
-rtl8139_start_xmit
--> spin_lock_irqsave
-   *deadlock*
+SSB (i.e. "Sonics Silicon Backplane") is a bus used in Broadcom SoCs
+including the b44 and bcm43xx hardware.  The SSB bus driver and the
+b44 port to SSB is being developed by Michael Buesch, the maintainer of
+the bcm43xx driver.  I've been carrying the b44 SSB port in my tree for
+Michael's convenience.  Just an FYI for those wondering what SSB is...
 
+John
+
+P.S.  How about this patch?
+
+From: John W. Linville <linville@tuxdriver.com>
+
+[PATCH] b44: make B44_PCI select SSB_PCIHOST in drivers/net/Kconfig
+
+Signed-off-by: John W. Linville <linville@tuxdriver.com>
+---
+ drivers/net/Kconfig |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index 6a4325b..b2e1deb 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -1402,6 +1402,7 @@ config B44
+ config B44_PCI
+ 	bool "Broadcom 4400 PCI device support"
+ 	depends on B44 && NET_PCI
++	select SSB_PCIHOST
+ 	default y
+ 	help
+ 	  Support for b44 PCI devices.
 -- 
-Simon Arlott
+John W. Linville
+linville@tuxdriver.com
