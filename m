@@ -1,64 +1,121 @@
 From: "Arnaldo Carvalho de Melo" <acme@ghostprotocols.net>
-Subject: [PATCH 06/11] [LLC]: Use skb_reset_mac_header in llc_mac_hdr_init
-Date: Sat, 10 Mar 2007 13:46:22 -0300
-Message-ID: <39e6f6c70703100846i4f62401ar63080f87da05696@mail.gmail.com>
+Subject: [PATCH 07/11] [SK_BUFF]: Introduce skb_set_mac_header()
+Date: Sat, 10 Mar 2007 13:46:27 -0300
+Message-ID: <39e6f6c70703100846t30663494m394d65c5fca78566@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
-	boundary="----=_Part_12171_17974761.1173545182879"
+	boundary="----=_Part_12179_23638747.1173545187228"
 Cc: "Netdev List" <netdev@vger.kernel.org>
 To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.172]:56103 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1767877AbXCJQqY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 10 Mar 2007 11:46:24 -0500
-Received: by ug-out-1314.google.com with SMTP id 44so1698470uga
-        for <netdev@vger.kernel.org>; Sat, 10 Mar 2007 08:46:23 -0800 (PST)
+Received: from an-out-0708.google.com ([209.85.132.247]:35905 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1767877AbXCJQq2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 10 Mar 2007 11:46:28 -0500
+Received: by an-out-0708.google.com with SMTP id b33so1053757ana
+        for <netdev@vger.kernel.org>; Sat, 10 Mar 2007 08:46:27 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-------=_Part_12171_17974761.1173545182879
+------=_Part_12179_23638747.1173545187228
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline
 
-skb_push updates and returns skb->data, so we can just call
-skb_reset_mac_header after the call to skb_push.
+For the cases where we want to set skb->mac.raw to an offset from skb->data.
+
+Simple cases first, the memmove ones and specially pktgen will be left
+for later.
 
 Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
 ---
- net/llc/llc_output.c |    6 ++++--
- 1 files changed, 4 insertions(+), 2 deletions(-)
+ drivers/net/loopback.c       |    2 +-
+ drivers/net/myri_sbus.c      |    2 +-
+ drivers/s390/net/qeth_eddp.c |    2 +-
+ drivers/s390/net/qeth_main.c |    4 ++--
+ include/linux/skbuff.h       |    5 +++++
+ net/atm/br2684.c             |    2 +-
+ 6 files changed, 11 insertions(+), 6 deletions(-)
 
-------=_Part_12171_17974761.1173545182879
+------=_Part_12179_23638747.1173545187228
 Content-Type: text/x-patch;
-	name=0006-LLC-Use-skb_reset_mac_header-in-llc_mac_hdr_init.patch;
+	name=0007-SK_BUFF-Introduce-skb_set_mac_header.patch;
 	charset=ANSI_X3.4-1968
 Content-Transfer-Encoding: base64
-X-Attachment-Id: f_ez4adckk
-Content-Disposition: attachment; filename="0006-LLC-Use-skb_reset_mac_header-in-llc_mac_hdr_init.patch"
+X-Attachment-Id: f_ez4ae45z
+Content-Disposition: attachment; filename="0007-SK_BUFF-Introduce-skb_set_mac_header.patch"
 
-RnJvbSAzZmRiMmZlZjk2Yzg1MjUzMzY5NzRmOWMyY2E0NzllMjdmODFhNDU5IE1vbiBTZXAgMTcg
+RnJvbSBjMjQzZWNkNmFkYWU2MmVlM2Q4NjU4YmEzZjdkZDM2NWZiZTJkYmU2IE1vbiBTZXAgMTcg
 MDA6MDA6MDAgMjAwMQpGcm9tOiBBcm5hbGRvIENhcnZhbGhvIGRlIE1lbG8gPGFjbWVAcmVkaGF0
-LmNvbT4KRGF0ZTogU2F0LCAxMCBNYXIgMjAwNyAxMjoxNzoyOSAtMDMwMApTdWJqZWN0OiBbUEFU
-Q0ggMDYvMTFdIFtMTENdOiBVc2Ugc2tiX3Jlc2V0X21hY19oZWFkZXIgaW4gbGxjX21hY19oZHJf
-aW5pdAoKc2tiX3B1c2ggdXBkYXRlcyBhbmQgcmV0dXJucyBza2ItPmRhdGEsIHNvIHdlIGNhbiBq
-dXN0IGNhbGwKc2tiX3Jlc2V0X21hY19oZWFkZXIgYWZ0ZXIgdGhlIGNhbGwgdG8gc2tiX3B1c2gu
-CgpTaWduZWQtb2ZmLWJ5OiBBcm5hbGRvIENhcnZhbGhvIGRlIE1lbG8gPGFjbWVAcmVkaGF0LmNv
-bT4KLS0tCiBuZXQvbGxjL2xsY19vdXRwdXQuYyB8ICAgIDYgKysrKy0tCiAxIGZpbGVzIGNoYW5n
-ZWQsIDQgaW5zZXJ0aW9ucygrKSwgMiBkZWxldGlvbnMoLSkKCmRpZmYgLS1naXQgYS9uZXQvbGxj
-L2xsY19vdXRwdXQuYyBiL25ldC9sbGMvbGxjX291dHB1dC5jCmluZGV4IDcyOWUyNTEuLjc1NGY0
-ZmUgMTAwNjQ0Ci0tLSBhL25ldC9sbGMvbGxjX291dHB1dC5jCisrKyBiL25ldC9sbGMvbGxjX291
-dHB1dC5jCkBAIC00MSw3ICs0MSw4IEBAIGludCBsbGNfbWFjX2hkcl9pbml0KHN0cnVjdCBza19i
-dWZmICpza2IsCiAJCXN0cnVjdCBuZXRfZGV2aWNlICpkZXYgPSBza2ItPmRldjsKIAkJc3RydWN0
-IHRyaF9oZHIgKnRyaDsKIAotCQlza2ItPm1hYy5yYXcgPSBza2JfcHVzaChza2IsIHNpemVvZigq
-dHJoKSk7CisJCXNrYl9wdXNoKHNrYiwgc2l6ZW9mKCp0cmgpKTsKKwkJc2tiX3Jlc2V0X21hY19o
-ZWFkZXIoc2tiKTsKIAkJdHJoID0gdHJfaGRyKHNrYik7CiAJCXRyaC0+YWMgPSBBQzsKIAkJdHJo
-LT5mYyA9IExMQ19GUkFNRTsKQEAgLTYyLDcgKzYzLDggQEAgaW50IGxsY19tYWNfaGRyX2luaXQo
-c3RydWN0IHNrX2J1ZmYgKnNrYiwKIAkJdW5zaWduZWQgc2hvcnQgbGVuID0gc2tiLT5sZW47CiAJ
-CXN0cnVjdCBldGhoZHIgKmV0aDsKIAotCQlza2ItPm1hYy5yYXcgPSBza2JfcHVzaChza2IsIHNp
-emVvZigqZXRoKSk7CisJCXNrYl9wdXNoKHNrYiwgc2l6ZW9mKCpldGgpKTsKKwkJc2tiX3Jlc2V0
-X21hY19oZWFkZXIoc2tiKTsKIAkJZXRoID0gZXRoX2hkcihza2IpOwogCQlldGgtPmhfcHJvdG8g
-PSBodG9ucyhsZW4pOwogCQltZW1jcHkoZXRoLT5oX2Rlc3QsIGRhLCBFVEhfQUxFTik7Ci0tIAox
-LjUuMC4yCgo=
-------=_Part_12171_17974761.1173545182879--
+LmNvbT4KRGF0ZTogU2F0LCAxMCBNYXIgMjAwNyAxMjozMDo1OCAtMDMwMApTdWJqZWN0OiBbUEFU
+Q0ggMDcvMTFdIFtTS19CVUZGXTogSW50cm9kdWNlIHNrYl9zZXRfbWFjX2hlYWRlcigpCgpGb3Ig
+dGhlIGNhc2VzIHdoZXJlIHdlIHdhbnQgdG8gc2V0IHNrYi0+bWFjLnJhdyB0byBhbiBvZmZzZXQg
+ZnJvbSBza2ItPmRhdGEuCgpTaW1wbGUgY2FzZXMgZmlyc3QsIHRoZSBtZW1tb3ZlIG9uZXMgYW5k
+IHNwZWNpYWxseSBwa3RnZW4gd2lsbCBiZSBsZWZ0IGZvciBsYXRlci4KClNpZ25lZC1vZmYtYnk6
+IEFybmFsZG8gQ2FydmFsaG8gZGUgTWVsbyA8YWNtZUByZWRoYXQuY29tPgotLS0KIGRyaXZlcnMv
+bmV0L2xvb3BiYWNrLmMgICAgICAgfCAgICAyICstCiBkcml2ZXJzL25ldC9teXJpX3NidXMuYyAg
+ICAgIHwgICAgMiArLQogZHJpdmVycy9zMzkwL25ldC9xZXRoX2VkZHAuYyB8ICAgIDIgKy0KIGRy
+aXZlcnMvczM5MC9uZXQvcWV0aF9tYWluLmMgfCAgICA0ICsrLS0KIGluY2x1ZGUvbGludXgvc2ti
+dWZmLmggICAgICAgfCAgICA1ICsrKysrCiBuZXQvYXRtL2JyMjY4NC5jICAgICAgICAgICAgIHwg
+ICAgMiArLQogNiBmaWxlcyBjaGFuZ2VkLCAxMSBpbnNlcnRpb25zKCspLCA2IGRlbGV0aW9ucygt
+KQoKZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2xvb3BiYWNrLmMgYi9kcml2ZXJzL25ldC9sb29w
+YmFjay5jCmluZGV4IDQzODBlNWUuLmE3MWQ4ZTAgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvbmV0L2xv
+b3BiYWNrLmMKKysrIGIvZHJpdmVycy9uZXQvbG9vcGJhY2suYwpAQCAtOTAsNyArOTAsNyBAQCBz
+dGF0aWMgdm9pZCBlbXVsYXRlX2xhcmdlX3NlbmRfb2ZmbG9hZChzdHJ1Y3Qgc2tfYnVmZiAqc2ti
+KQogCQlpZiAoIW5za2IpCiAJCQlicmVhazsKIAkJc2tiX3Jlc2VydmUobnNrYiwgMzIpOwotCQlu
+c2tiLT5tYWMucmF3ID0gbnNrYi0+ZGF0YSAtIDE0OworCQlza2Jfc2V0X21hY19oZWFkZXIobnNr
+YiwgLUVUSF9ITEVOKTsKIAkJbnNrYi0+bmgucmF3ID0gbnNrYi0+ZGF0YTsKIAkJaXBoID0gbnNr
+Yi0+bmguaXBoOwogCQltZW1jcHkobnNrYi0+ZGF0YSwgc2tiLT5uaC5yYXcsIGRvZmZzZXQpOwpk
+aWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvbXlyaV9zYnVzLmMgYi9kcml2ZXJzL25ldC9teXJpX3Ni
+dXMuYwppbmRleCBkZTA5MjY1Li5lMWYxNmZiIDEwMDY0NAotLS0gYS9kcml2ZXJzL25ldC9teXJp
+X3NidXMuYworKysgYi9kcml2ZXJzL25ldC9teXJpX3NidXMuYwpAQCAtMzY4LDcgKzM2OCw3IEBA
+IHN0YXRpYyBfX2JlMTYgbXlyaV90eXBlX3RyYW5zKHN0cnVjdCBza19idWZmICpza2IsIHN0cnVj
+dCBuZXRfZGV2aWNlICpkZXYpCiAJc3RydWN0IGV0aGhkciAqZXRoOwogCXVuc2lnbmVkIGNoYXIg
+KnJhd3A7CiAKLQlza2ItPm1hYy5yYXcgPSBza2ItPmRhdGEgKyBNWVJJX1BBRF9MRU47CisJc2ti
+X3NldF9tYWNfaGVhZGVyKHNrYiwgTVlSSV9QQURfTEVOKTsKIAlza2JfcHVsbChza2IsIGRldi0+
+aGFyZF9oZWFkZXJfbGVuKTsKIAlldGggPSBldGhfaGRyKHNrYik7CiAKZGlmZiAtLWdpdCBhL2Ry
+aXZlcnMvczM5MC9uZXQvcWV0aF9lZGRwLmMgYi9kcml2ZXJzL3MzOTAvbmV0L3FldGhfZWRkcC5j
+CmluZGV4IDkxMGE4YWIuLjg5MzEyNTQgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvczM5MC9uZXQvcWV0
+aF9lZGRwLmMKKysrIGIvZHJpdmVycy9zMzkwL25ldC9xZXRoX2VkZHAuYwpAQCAtNDg2LDcgKzQ4
+Niw3IEBAIHFldGhfZWRkcF9maWxsX2NvbnRleHRfdGNwKHN0cnVjdCBxZXRoX2VkZHBfY29udGV4
+dCAqY3R4LAogCQlyZXR1cm4gLUVOT01FTTsKIAl9CiAJaWYgKHFoZHItPmhkci5sMi5pZCA9PSBR
+RVRIX0hFQURFUl9UWVBFX0xBWUVSMikgewotCQlza2ItPm1hYy5yYXcgPSBza2ItPmRhdGEgKyBz
+aXplb2Yoc3RydWN0IHFldGhfaGRyKTsKKwkJc2tiX3NldF9tYWNfaGVhZGVyKHNrYiwgc2l6ZW9m
+KHN0cnVjdCBxZXRoX2hkcikpOwogCQltZW1jcHkoJmVkZHAtPm1hYywgZXRoX2hkcihza2IpLCBF
+VEhfSExFTik7CiAjaWZkZWYgQ09ORklHX1FFVEhfVkxBTgogCQlpZiAoZWRkcC0+bWFjLmhfcHJv
+dG8gPT0gX19jb25zdGFudF9odG9ucyhFVEhfUF84MDIxUSkpIHsKZGlmZiAtLWdpdCBhL2RyaXZl
+cnMvczM5MC9uZXQvcWV0aF9tYWluLmMgYi9kcml2ZXJzL3MzOTAvbmV0L3FldGhfbWFpbi5jCmlu
+ZGV4IDI4ODIyMDIuLmMwZWU2ZDkgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvczM5MC9uZXQvcWV0aF9t
+YWluLmMKKysrIGIvZHJpdmVycy9zMzkwL25ldC9xZXRoX21haW4uYwpAQCAtMjMwNiw3ICsyMzA2
+LDcgQEAgcWV0aF9yZWJ1aWxkX3NrYl9mYWtlX2xsX3RyKHN0cnVjdCBxZXRoX2NhcmQgKmNhcmQs
+IHN0cnVjdCBza19idWZmICpza2IsCiAJc3RydWN0IGlwaGRyICppcF9oZHI7CiAKIAlRRVRIX0RC
+Rl9URVhUKHRyYWNlLDUsInNrYmZrdHIiKTsKLQlza2ItPm1hYy5yYXcgPSBza2ItPmRhdGEgLSBR
+RVRIX0ZBS0VfTExfTEVOX1RSOworCXNrYl9zZXRfbWFjX2hlYWRlcihza2IsIC1RRVRIX0ZBS0Vf
+TExfTEVOX1RSKTsKIAkvKiB0aGlzIGlzIGEgZmFrZSBldGhlcm5ldCBoZWFkZXIgKi8KIAlmYWtl
+X2hkciA9IHRyX2hkcihza2IpOwogCkBAIC0yMzU5LDcgKzIzNTksNyBAQCBxZXRoX3JlYnVpbGRf
+c2tiX2Zha2VfbGxfZXRoKHN0cnVjdCBxZXRoX2NhcmQgKmNhcmQsIHN0cnVjdCBza19idWZmICpz
+a2IsCiAJc3RydWN0IGlwaGRyICppcF9oZHI7CiAKIAlRRVRIX0RCRl9URVhUKHRyYWNlLDUsInNr
+YmZrZXRoIik7Ci0Jc2tiLT5tYWMucmF3ID0gc2tiLT5kYXRhIC0gUUVUSF9GQUtFX0xMX0xFTl9F
+VEg7CisJc2tiX3NldF9tYWNfaGVhZGVyKHNrYiwgLVFFVEhfRkFLRV9MTF9MRU5fRVRIKTsKIAkv
+KiB0aGlzIGlzIGEgZmFrZSBldGhlcm5ldCBoZWFkZXIgKi8KIAlmYWtlX2hkciA9IGV0aF9oZHIo
+c2tiKTsKIApkaWZmIC0tZ2l0IGEvaW5jbHVkZS9saW51eC9za2J1ZmYuaCBiL2luY2x1ZGUvbGlu
+dXgvc2tidWZmLmgKaW5kZXggMWE4MTU0ZS4uMGZhZjQwZCAxMDA2NDQKLS0tIGEvaW5jbHVkZS9s
+aW51eC9za2J1ZmYuaAorKysgYi9pbmNsdWRlL2xpbnV4L3NrYnVmZi5oCkBAIC05NjMsNiArOTYz
+LDExIEBAIHN0YXRpYyBpbmxpbmUgdm9pZCBza2JfcmVzZXRfbWFjX2hlYWRlcihzdHJ1Y3Qgc2tf
+YnVmZiAqc2tiKQogCXNrYi0+bWFjLnJhdyA9IHNrYi0+ZGF0YTsKIH0KIAorc3RhdGljIGlubGlu
+ZSB2b2lkIHNrYl9zZXRfbWFjX2hlYWRlcihzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBjb25zdCBpbnQg
+b2Zmc2V0KQoreworCXNrYi0+bWFjLnJhdyA9IHNrYi0+ZGF0YSArIG9mZnNldDsKK30KKwogLyoK
+ICAqIENQVXMgb2Z0ZW4gdGFrZSBhIHBlcmZvcm1hbmNlIGhpdCB3aGVuIGFjY2Vzc2luZyB1bmFs
+aWduZWQgbWVtb3J5CiAgKiBsb2NhdGlvbnMuIFRoZSBhY3R1YWwgcGVyZm9ybWFuY2UgaGl0IHZh
+cmllcywgaXQgY2FuIGJlIHNtYWxsIGlmIHRoZQpkaWZmIC0tZ2l0IGEvbmV0L2F0bS9icjI2ODQu
+YyBiL25ldC9hdG0vYnIyNjg0LmMKaW5kZXggOTAwZDQyYy4uYTE2ODZkZiAxMDA2NDQKLS0tIGEv
+bmV0L2F0bS9icjI2ODQuYworKysgYi9uZXQvYXRtL2JyMjY4NC5jCkBAIC00NTgsNyArNDU4LDcg
+QEAgc3RhdGljIHZvaWQgYnIyNjg0X3B1c2goc3RydWN0IGF0bV92Y2MgKmF0bXZjYywgc3RydWN0
+IHNrX2J1ZmYgKnNrYikKIAkvKiBGSVhNRTogdGNwZHVtcCBzaG93cyB0aGF0IHBvaW50ZXIgdG8g
+bWFjIGhlYWRlciBpcyAyIGJ5dGVzIGVhcmxpZXIsCiAJICAgdGhhbiBzaG91bGQgYmUuIFdoYXQg
+ZWxzZSBzaG91bGQgSSBzZXQ/ICovCiAJc2tiX3B1bGwoc2tiLCBwbGVuKTsKLQlza2ItPm1hYy5y
+YXcgPSBza2ItPmRhdGEgLSBFVEhfSExFTjsKKwlza2Jfc2V0X21hY19oZWFkZXIoc2tiLCAtRVRI
+X0hMRU4pOwogCXNrYi0+cGt0X3R5cGUgPSBQQUNLRVRfSE9TVDsKICNpZmRlZiBDT05GSUdfQlIy
+Njg0X0ZBU1RfVFJBTlMKIAlza2ItPnByb3RvY29sID0gKCh1MTYgKikgc2tiLT5kYXRhKVstMV07
+Ci0tIAoxLjUuMC4yCgo=
+------=_Part_12179_23638747.1173545187228--
