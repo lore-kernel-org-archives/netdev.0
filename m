@@ -1,96 +1,45 @@
-From: "Arnaldo Carvalho de Melo" <acme@ghostprotocols.net>
-Subject: [PATCH 08/11] [SK_BUFF] xfrm: Use skb_set_mac_header in the memmove cases
-Date: Sat, 10 Mar 2007 13:48:11 -0300
-Message-ID: <39e6f6c70703100848x19072fe5hb63a9f45bb6fdd22@mail.gmail.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: SSB/b44 build failure
+Date: Sat, 10 Mar 2007 11:22:40 -0500
+Message-ID: <20070310162240.GA3489@tuxdriver.com>
+References: <1173496449.13449@shark.he.net> <20070310150346.GB5062@tuxdriver.com> <20070310153816.GP3441@stusta.de>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="----=_Part_12239_14476614.1173545291143"
-Cc: "Netdev List" <netdev@vger.kernel.org>
-To: "David Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Randy Dunlap <rdunlap@xenotime.net>, mb@bu3sch.de,
+	netdev@vger.kernel.org, akpm@linux-foundation.org
+To: Adrian Bunk <bunk@stusta.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.175]:57835 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1767880AbXCJQsN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 10 Mar 2007 11:48:13 -0500
-Received: by ug-out-1314.google.com with SMTP id 44so1698946uga
-        for <netdev@vger.kernel.org>; Sat, 10 Mar 2007 08:48:12 -0800 (PST)
+Received: from ra.tuxdriver.com ([70.61.120.52]:3213 "EHLO ra.tuxdriver.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933485AbXCJRFh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 10 Mar 2007 12:05:37 -0500
+Content-Disposition: inline
+In-Reply-To: <20070310153816.GP3441@stusta.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-------=_Part_12239_14476614.1173545291143
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+On Sat, Mar 10, 2007 at 04:38:16PM +0100, Adrian Bunk wrote:
+> On Sat, Mar 10, 2007 at 10:03:46AM -0500, John W. Linville wrote:
 
-Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
----
- net/ipv4/xfrm4_mode_tunnel.c |    6 ++++--
- net/ipv6/xfrm6_mode_beet.c   |    6 ++++--
- net/ipv6/xfrm6_mode_tunnel.c |    6 ++++--
- 3 files changed, 12 insertions(+), 6 deletions(-)
+> > diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+> > index 6a4325b..b2e1deb 100644
+> > --- a/drivers/net/Kconfig
+> > +++ b/drivers/net/Kconfig
+> > @@ -1402,6 +1402,7 @@ config B44
+> >  config B44_PCI
+> >  	bool "Broadcom 4400 PCI device support"
+> >  	depends on B44 && NET_PCI
+> > +	select SSB_PCIHOST
+> >  	default y
+> >  	help
+> >  	  Support for b44 PCI devices.
+> 
+> 
+> This also requires a depends or select on SSB.
 
-------=_Part_12239_14476614.1173545291143
-Content-Type: text/x-patch;
-	name=0008-SK_BUFF-xfrm-Use-skb_set_mac_header-in-the-memmov.patch;
-	charset=ANSI_X3.4-1968
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_ez4akzw8
-Content-Disposition: attachment; filename="0008-SK_BUFF-xfrm-Use-skb_set_mac_header-in-the-memmov.patch"
+It depends on B44, which selects SSB.
 
-RnJvbSA4NTg5MzBmOGJkNjUzNWEwNTMyOGY5MmRiNTM2NGI4NjI0MjdkZTJmIE1vbiBTZXAgMTcg
-MDA6MDA6MDAgMjAwMQpGcm9tOiBBcm5hbGRvIENhcnZhbGhvIGRlIE1lbG8gPGFjbWVAcmVkaGF0
-LmNvbT4KRGF0ZTogU2F0LCAxMCBNYXIgMjAwNyAxMjo0MDoyNyAtMDMwMApTdWJqZWN0OiBbUEFU
-Q0ggMDgvMTFdIFtTS19CVUZGXSB4ZnJtOiBVc2Ugc2tiX3NldF9tYWNfaGVhZGVyIGluIHRoZSBt
-ZW1tb3ZlIGNhc2VzCgpTaWduZWQtb2ZmLWJ5OiBBcm5hbGRvIENhcnZhbGhvIGRlIE1lbG8gPGFj
-bWVAcmVkaGF0LmNvbT4KLS0tCiBuZXQvaXB2NC94ZnJtNF9tb2RlX3R1bm5lbC5jIHwgICAgNiAr
-KysrLS0KIG5ldC9pcHY2L3hmcm02X21vZGVfYmVldC5jICAgfCAgICA2ICsrKystLQogbmV0L2lw
-djYveGZybTZfbW9kZV90dW5uZWwuYyB8ICAgIDYgKysrKy0tCiAzIGZpbGVzIGNoYW5nZWQsIDEy
-IGluc2VydGlvbnMoKyksIDYgZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEvbmV0L2lwdjQveGZy
-bTRfbW9kZV90dW5uZWwuYyBiL25ldC9pcHY0L3hmcm00X21vZGVfdHVubmVsLmMKaW5kZXggNDg3
-MmIzMC4uZjA5MDU1ZCAxMDA2NDQKLS0tIGEvbmV0L2lwdjQveGZybTRfbW9kZV90dW5uZWwuYwor
-KysgYi9uZXQvaXB2NC94ZnJtNF9tb2RlX3R1bm5lbC5jCkBAIC05MSw2ICs5MSw3IEBAIHN0YXRp
-YyBpbnQgeGZybTRfdHVubmVsX291dHB1dChzdHJ1Y3QgeGZybV9zdGF0ZSAqeCwgc3RydWN0IHNr
-X2J1ZmYgKnNrYikKIHN0YXRpYyBpbnQgeGZybTRfdHVubmVsX2lucHV0KHN0cnVjdCB4ZnJtX3N0
-YXRlICp4LCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiKQogewogCXN0cnVjdCBpcGhkciAqaXBoID0gc2ti
-LT5uaC5pcGg7CisJY29uc3QgdW5zaWduZWQgY2hhciAqb2xkX21hYzsKIAlpbnQgZXJyID0gLUVJ
-TlZBTDsKIAogCXN3aXRjaCAoaXBoLT5wcm90b2NvbCl7CkBAIC0xMjUsOCArMTI2LDkgQEAgc3Rh
-dGljIGludCB4ZnJtNF90dW5uZWxfaW5wdXQoc3RydWN0IHhmcm1fc3RhdGUgKngsIHN0cnVjdCBz
-a19idWZmICpza2IpCiAJCXNrYi0+cHJvdG9jb2wgPSBodG9ucyhFVEhfUF9JUFY2KTsKIAl9CiAj
-ZW5kaWYKLQlza2ItPm1hYy5yYXcgPSBtZW1tb3ZlKHNrYi0+ZGF0YSAtIHNrYi0+bWFjX2xlbiwK
-LQkJCSAgICAgICBza2ItPm1hYy5yYXcsIHNrYi0+bWFjX2xlbik7CisJb2xkX21hYyA9IHNrYi0+
-bWFjLnJhdzsKKwlza2Jfc2V0X21hY19oZWFkZXIoc2tiLCAtc2tiLT5tYWNfbGVuKTsKKwltZW1t
-b3ZlKHNrYi0+bWFjLnJhdywgb2xkX21hYywgc2tiLT5tYWNfbGVuKTsKIAlza2ItPm5oLnJhdyA9
-IHNrYi0+ZGF0YTsKIAllcnIgPSAwOwogCmRpZmYgLS1naXQgYS9uZXQvaXB2Ni94ZnJtNl9tb2Rl
-X2JlZXQuYyBiL25ldC9pcHY2L3hmcm02X21vZGVfYmVldC5jCmluZGV4IGVkY2ZmZmEuLjUzY2Zl
-MWEgMTAwNjQ0Ci0tLSBhL25ldC9pcHY2L3hmcm02X21vZGVfYmVldC5jCisrKyBiL25ldC9pcHY2
-L3hmcm02X21vZGVfYmVldC5jCkBAIC01OSw2ICs1OSw3IEBAIHN0YXRpYyBpbnQgeGZybTZfYmVl
-dF9vdXRwdXQoc3RydWN0IHhmcm1fc3RhdGUgKngsIHN0cnVjdCBza19idWZmICpza2IpCiBzdGF0
-aWMgaW50IHhmcm02X2JlZXRfaW5wdXQoc3RydWN0IHhmcm1fc3RhdGUgKngsIHN0cnVjdCBza19i
-dWZmICpza2IpCiB7CiAJc3RydWN0IGlwdjZoZHIgKmlwNmg7CisJY29uc3QgdW5zaWduZWQgY2hh
-ciAqb2xkX21hYzsKIAlpbnQgc2l6ZSA9IHNpemVvZihzdHJ1Y3QgaXB2Nmhkcik7CiAJaW50IGVy
-ciA9IC1FSU5WQUw7CiAKQEAgLTY5LDggKzcwLDkgQEAgc3RhdGljIGludCB4ZnJtNl9iZWV0X2lu
-cHV0KHN0cnVjdCB4ZnJtX3N0YXRlICp4LCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiKQogCW1lbW1vdmUo
-c2tiLT5kYXRhLCBza2ItPm5oLnJhdywgc2l6ZSk7CiAJc2tiLT5uaC5yYXcgPSBza2ItPmRhdGE7
-CiAKLQlza2ItPm1hYy5yYXcgPSBtZW1tb3ZlKHNrYi0+ZGF0YSAtIHNrYi0+bWFjX2xlbiwKLQkJ
-CSAgICAgICBza2ItPm1hYy5yYXcsIHNrYi0+bWFjX2xlbik7CisJb2xkX21hYyA9IHNrYi0+bWFj
-LnJhdzsKKwlza2Jfc2V0X21hY19oZWFkZXIoc2tiLCAtc2tiLT5tYWNfbGVuKTsKKwltZW1tb3Zl
-KHNrYi0+bWFjLnJhdywgb2xkX21hYywgc2tiLT5tYWNfbGVuKTsKIAogCWlwNmggPSBza2ItPm5o
-LmlwdjZoOwogCWlwNmgtPnBheWxvYWRfbGVuID0gaHRvbnMoc2tiLT5sZW4gLSBzaXplKTsKZGlm
-ZiAtLWdpdCBhL25ldC9pcHY2L3hmcm02X21vZGVfdHVubmVsLmMgYi9uZXQvaXB2Ni94ZnJtNl9t
-b2RlX3R1bm5lbC5jCmluZGV4IDBiYzg2NmMuLmQyYzU2MGMgMTAwNjQ0Ci0tLSBhL25ldC9pcHY2
-L3hmcm02X21vZGVfdHVubmVsLmMKKysrIGIvbmV0L2lwdjYveGZybTZfbW9kZV90dW5uZWwuYwpA
-QCAtODYsNiArODYsNyBAQCBzdGF0aWMgaW50IHhmcm02X3R1bm5lbF9vdXRwdXQoc3RydWN0IHhm
-cm1fc3RhdGUgKngsIHN0cnVjdCBza19idWZmICpza2IpCiBzdGF0aWMgaW50IHhmcm02X3R1bm5l
-bF9pbnB1dChzdHJ1Y3QgeGZybV9zdGF0ZSAqeCwgc3RydWN0IHNrX2J1ZmYgKnNrYikKIHsKIAlp
-bnQgZXJyID0gLUVJTlZBTDsKKwljb25zdCB1bnNpZ25lZCBjaGFyICpvbGRfbWFjOwogCiAJaWYg
-KHNrYi0+bmgucmF3W0lQNkNCKHNrYiktPm5ob2ZmXSAhPSBJUFBST1RPX0lQVjYKIAkgICAgJiYg
-c2tiLT5uaC5yYXdbSVA2Q0Ioc2tiKS0+bmhvZmZdICE9IElQUFJPVE9fSVBJUCkKQEAgLTEwNyw4
-ICsxMDgsOSBAQCBzdGF0aWMgaW50IHhmcm02X3R1bm5lbF9pbnB1dChzdHJ1Y3QgeGZybV9zdGF0
-ZSAqeCwgc3RydWN0IHNrX2J1ZmYgKnNrYikKIAkJCWlwNmlwX2Vjbl9kZWNhcHN1bGF0ZShza2Ip
-OwogCQlza2ItPnByb3RvY29sID0gaHRvbnMoRVRIX1BfSVApOwogCX0KLQlza2ItPm1hYy5yYXcg
-PSBtZW1tb3ZlKHNrYi0+ZGF0YSAtIHNrYi0+bWFjX2xlbiwKLQkJCSAgICAgICBza2ItPm1hYy5y
-YXcsIHNrYi0+bWFjX2xlbik7CisJb2xkX21hYyA9IHNrYi0+bWFjLnJhdzsKKwlza2Jfc2V0X21h
-Y19oZWFkZXIoc2tiLCAtc2tiLT5tYWNfbGVuKTsKKwltZW1tb3ZlKHNrYi0+bWFjLnJhdywgb2xk
-X21hYywgc2tiLT5tYWNfbGVuKTsKIAlza2ItPm5oLnJhdyA9IHNrYi0+ZGF0YTsKIAllcnIgPSAw
-OwogCi0tIAoxLjUuMC4yCgo=
-------=_Part_12239_14476614.1173545291143--
+John
+-- 
+John W. Linville
+linville@tuxdriver.com
