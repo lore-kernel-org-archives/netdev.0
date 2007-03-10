@@ -1,65 +1,117 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: SSB/b44 build failure
-Date: Sat, 10 Mar 2007 20:27:25 +0100
-Message-ID: <200703102027.25759.mb@bu3sch.de>
-References: <1173496449.13449@shark.he.net> <20070310150346.GB5062@tuxdriver.com> <20070310180541.GA17160@infradead.org>
+From: Sergei Shtylyov <sshtylyov@ru.mvista.com>
+Subject: Re: [PATCH] natsemi: netpoll fixes
+Date: Sat, 10 Mar 2007 23:25:05 +0300
+Message-ID: <45F31421.4010908@ru.mvista.com>
+References: <200703052310.08359.sshtylyov@ru.mvista.com> <20070305224358.GB16290@sirena.org.uk> <45ECE9AC.3090804@mvista.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	Randy Dunlap <rdunlap@xenotime.net>, bunk@stusta.de,
-	netdev@vger.kernel.org, akpm@linux-foundation.org
-To: Christoph Hellwig <hch@infradead.org>
+Cc: jgarzik@pobox.com, netdev@vger.kernel.org
+To: Mark Huth <mhuth@mvista.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:50709
-	"EHLO vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751696AbXCJT2a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 10 Mar 2007 14:28:30 -0500
-In-Reply-To: <20070310180541.GA17160@infradead.org>
-Content-Disposition: inline
+Received: from gateway-1237.mvista.com ([63.81.120.155]:50780 "EHLO
+	imap.sh.mvista.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S932201AbXCJUZQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 10 Mar 2007 15:25:16 -0500
+In-Reply-To: <45ECE9AC.3090804@mvista.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Saturday 10 March 2007 19:05, Christoph Hellwig wrote:
-> On Sat, Mar 10, 2007 at 10:03:46AM -0500, John W. Linville wrote:
-> > FWIW, this is coming from the port of b44 to use the SSB bus which
-> > I'm carrying in the wireless-dev tree.
-> > >
-> > SSB (i.e. "Sonics Silicon Backplane") is a bus used in Broadcom SoCs
-> > including the b44 and bcm43xx hardware.  The SSB bus driver and the
-> > b44 port to SSB is being developed by Michael Buesch, the maintainer of
-> > the bcm43xx driver.  I've been carrying the b44 SSB port in my tree for
-> > Michael's convenience.  Just an FYI for those wondering what SSB is...
-> 
-> Btw, what's the reason this is in wireless-dev?  Could we please merge
-> this code into mainline soonish (aka 2.6.22) instead of interwinding
-> it with totally unrelated wireless changes?
+Hello.
 
-nono, don't. SSB is still in heavy development and this would
-slow it down by magnitudes.
-The reason it's in wireless-dev is, because b44-ssb is simply just
-a "sideeffect" of ssb. ssb is mainly written for bcm43xx. That
-b44 also has a ssb bus is cool, so it can re-use the code. But
-there's _no_ reason to get ssb mainline without bcm43xx going
-mainline, too. b44-mainline does not depend on ssb. Current mainline
-has the ssb code built into b44. The b44 port in wireless-dev just rips
-that code out and uses the ssb subsystem (so it also adds
-a few features to b44. For example the ability to dump and write
-the EEPROM).
+Mark Huth wrote:
 
-It's really helpful to have the development of b44-ssb in
-wireless-dev, because there still are heavy changes in ssb.
-Being required to merge a ssb change through mainline before
-I can implement a new feature (or fix a bug) in bcm43xx-dev is just
-not acceptable.
+>>>  #ifdef CONFIG_NET_POLL_CONTROLLER
+>>>  static void natsemi_poll_controller(struct net_device *dev)
+>>>  {
+>>> +     struct netdev_private *np = netdev_priv(dev);
+>>> +
+>>>       disable_irq(dev->irq);
+>>> -     intr_handler(dev->irq, dev);
+>>> +
+>>> +     /*
+>>> +      * A real interrupt might have already reached us at this point
+>>> +      * but NAPI might still haven't called us back.  As the
+>>> interrupt
+>>> +      * status register is cleared by reading, we should prevent an
+>>> +      * interrupt loss in this case...
+>>> +      */
+>>> +     if (!np->intr_status)
+>>> +             intr_handler(dev->irq, dev);
+>>> +
+>>>       enable_irq(dev->irq);
 
-The _final_ merging is another story. I think a few days before
-wireless-dev is merged mainline ssb and b44-ssb should be merged
-mainline seperately. Just to make it clear that these are not
-wireless related. (ssb is not wireless related, too. Strictly said).
+    Oops, I was going to recast the patch but my attention switched elsewhere 
+for couple of days, and it "slipped" into mainline. I'm now preparing a better 
+patch to also protect...
 
-Short: "totally unrelated wireless changes" is a false statement ;)
+>> Is it possible for this to run at the same time as the NAPI poll?  If so
+>> then it is possible for the netpoll poll to run between np->intr_status
+>> being cleared and netif_rx_complete() being called.  If the hardware
+>> asserts an interrupt at the wrong moment then this could cause the
 
--- 
-Greetings Michael.
+> Well, there is a whole task of analyzing the netpoll conditions under 
+> smp.  There appears to me to be a race with netpoll and NAPI on another 
+> processor, given that netpoll can be called with virtually any system 
+> condition on a debug breakpoint or crash dump initiation.  I'm spending 
+> some time looking into it, but don't have a smoking gun immediately.  
+> Regardless, if such a condition does exist, it is shared across many or 
+> all of the potential netpolled devices.  Since that is exactly the 
+> condition  the suggested patch purports to solve, it is pointless if the 
+> whole NAPI/netpoll race exists.  Such a race would lead to various and 
+> imaginative failures in the system.  So don't fix that problem in a 
+> particular driver.  If it exists, fix it generally in the netpoll/NAPI 
+> infrastructure.
+
+    Any takers? :-)
+
+>> In any case, this is a problem independently of netpoll if the chip
+>> shares an interrupt with anything so the interrupt handler should be
+>> fixed to cope with this situation instead.
+
+> Yes, that would appear so.  If an interrupt line is shared with this 
+> device, then the interrupt handler can be called again, even though the 
+> device's interrupts are disabled on the interface.  So, in the actual 
+> interrupt handler, check the dev->state __LINK_STATE_SCHED flag - if 
+> it's set, leave immediately, it can't be our interrupt. If it's clear, 
+> read the irq enable hardware register.  If enabled, do the rest of the 
+> interrupt handler.
+
+    It seems that there's no need to read it, as it gets set to 0 
+"synchronously" with setting the 'hands_off' flag (except in NAPI callback)...
+
+> Since the isr is disabled only by the interrupt 
+> handler, and enabled only by the poll routine, the race on the interrupt 
+> cause register is prevented.  And, as a byproduct, the netpoll race is 
+> also prevented.  You could just always read the isr enable hardware 
+> register, but that means you always do an operation to the chip, which 
+> can be painfully slow.
+
+    Yeah, it seems currently unjustified.  However IntrEnable would have been 
+an ultimate criterion on taking or ignoring an interrupt otherwise...
+
+> I guess the tradeoff depends on the probability 
+> of getting the isr called when NAPI is active for the device.
+
+    Didn't get it... :-/
+
+> If this results in netpoll not getting a packet right away, that's okay, 
+> since the netpoll users should try again.
+
+    Well, in certain stuations (like KGDBoE), netpoll callback being called 
+*while* NAPI callback is being executed would mean a deadlock, I think (as 
+NAPI callback will never complete)...
+    BTW, it seems I've found another interrupt lossage path in the driver:
+
+netdev_poll() -> netdev_rx() -> reset_rx()
+
+If the netdev_rx() detects an oversized packet, it will call reset_rx() which 
+will spin in a loop "collecting" interrupt status until it sees RxResetDone 
+there.  The issue is 'intr_status' field will get overwritten and interrupt 
+status lost after netdev_rx() returns to netdev_poll().  How do you think, is 
+this corner case worth fixing (by moving netdev_rx() call to the top of a 
+do/while loop)?
+
+> Mark Huth
+
+WBR, Sergei
