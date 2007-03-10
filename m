@@ -1,47 +1,45 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: netconsole system freeze when cable unplugged
-Date: 10 Mar 2007 14:38:23 +0100
-Message-ID: <p73r6rx9q28.fsf@bingen.suse.de>
-References: <45F1B6FD.1060902@simon.arlott.org.uk>
-	<20070309204243.GA28441@electric-eye.fr.zoreil.com>
-	<45F1EE12.2070605@simon.arlott.org.uk>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: 2.6.19/2.6.20 BUG in inet_rtm_newaddr()/__inet_insert_ifa()
+Date: Sat, 10 Mar 2007 16:19:17 +0300
+Message-ID: <20070310131917.GA25794@2ka.mipt.ru>
+References: <20070309103333.GA17232@janus> <20070309123016.GA4736@2ka.mipt.ru> <20070309182236.GA21587@janus>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Francois Romieu <romieu@fr.zoreil.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: Simon Arlott <simon@fire.lp0.eu>
+Content-Type: text/plain; charset=koi8-r
+Cc: netdev@vger.kernel.org
+To: Frank van Maarseveen <frankvm@frankvm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:55313 "EHLO mx2.suse.de"
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:42781 "EHLO 2ka.mipt.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752822AbXCJMjL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 10 Mar 2007 07:39:11 -0500
-In-Reply-To: <45F1EE12.2070605@simon.arlott.org.uk>
+	id S933247AbXCJNTX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 10 Mar 2007 08:19:23 -0500
+Content-Disposition: inline
+In-Reply-To: <20070309182236.GA21587@janus>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Simon Arlott <simon@fire.lp0.eu> writes:
+On Fri, Mar 09, 2007 at 07:22:36PM +0100, Frank van Maarseveen (frankvm@frankvm.com) wrote:
+> Ok that worked.. not as I expected. I don't understand the EINVAL and
+> "ip addr" shows no broadcast address for eth0 when a classless address is
+> added as the primary (and only) address like in the above example. That's
+> why I tried to set it manually in the second "ip" command.
 
-> On 09/03/07 20:42, Francois Romieu wrote:
-> > Simon Arlott <simon@fire.lp0.eu> :
-> >> When I unplug the cable the system just stops responding to
-> >> anything, at all. No message is printed to the console when the
-> >> cable is plugged back in.
-> > rtl8139_interrupt (spin_lock(&tp->lock))
-> > -> rtl8139_weird_interrupt
-> >    -> rtl_check_media
-> >       -> mii_check_media (printk(KERN_INFO "%s: link down\n", ...))
-> >          [netpoll stuff here]
-> >          -> rtl8139_poll_controller
-> >             -> rtl8139_interrupt
-> >                *deadlock*
-> > See below for my random stuff of the day. Feel free to open a PR at
-> > bugzilla.kernel.org if the issue does not go away.
-> 
-> The patch doesn't fix it, nothing changes. I'm not sure how this can
-> be debugged if printk won't work...
+Because you might want not 
 
-earlyprintk can be called directly (early_printk()) and should
-work. It won't log over the network of course.
+ip addr add 172.18.12.99/21 dev dummy0
+ip addr add broadcast 172.18.15.255 dev dummy0
 
--Andi
+but 
+
+ip addr add 172.18.12.99/21 broadcast 172.18.15.255 dev dummy0
+
+Magic of local/global adresses is hidden here.
+
+> -- 
+> Frank
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+-- 
+	Evgeniy Polyakov
