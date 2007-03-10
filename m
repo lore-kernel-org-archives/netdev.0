@@ -1,35 +1,69 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 0/5] NetXen: Driver bug fixes
-Date: Sat, 10 Mar 2007 06:22:04 -0500
-Message-ID: <45F294DC.50300@garzik.org>
-References: <200703090805.l29855n5011673@dut39.unminc.com> <45F191B3.8090609@garzik.org> <200703101239.16417.amitkale@netxen.com>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: [PATCH] tcp_cubic: use 32 bit math
+Date: Sat, 10 Mar 2007 12:48:26 +0100
+Message-ID: <20070310114826.GB1608@1wt.eu>
+References: <20070307170731.2b4397e3@freekitty> <20070307.185539.48527371.davem@davemloft.net> <45EF7EB7.8040806@linux-foundation.org> <20070307.195135.74749102.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linsys Contractor Mithlesh Thukral <mithlesh@netxen.com>,
-	netdev@vger.kernel.org, netxenproj@linsyssoft.com, rob@netxen.com
-To: Amit Kale <amitkale@netxen.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: shemminger@linux-foundation.org, rkuhn@e18.physik.tu-muenchen.de,
+	andi@firstfloor.org, dada1@cosmosbay.com, jengelh@linux01.gwdg.de,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:36089 "EHLO mail.dvmed.net"
+Received: from 1wt.eu ([62.212.114.60]:1102 "EHLO 1wt.eu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752783AbXCJLWJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 10 Mar 2007 06:22:09 -0500
-In-Reply-To: <200703101239.16417.amitkale@netxen.com>
+	id S1766661AbXCJLw6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 10 Mar 2007 06:52:58 -0500
+Content-Disposition: inline
+In-Reply-To: <20070307.195135.74749102.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Amit Kale wrote:
-> On Friday 09 March 2007 22:26, Jeff Garzik wrote:
->> Linsys Contractor Mithlesh Thukral wrote:
->>> Hi All,
->>>
->>> I will be sending updates to NetXen: 1G/10G Ethernet driver in subsequent
->>> mails. The patches will be with respect to netdev#upstream.
->> Are you sure you don't want some of these in #upstream-fixes, queued for
->> 2.6.21-rc?
+On Wed, Mar 07, 2007 at 07:51:35PM -0800, David Miller wrote:
+> From: Stephen Hemminger <shemminger@linux-foundation.org>
+> Date: Wed, 07 Mar 2007 19:10:47 -0800
 > 
-> We really want them in both places. If we send them to #upstream-fixes, 
-> they'll break #upstream. Should we send them against both of these branches?
+> > David Miller wrote:
+> > > What about Willy Tarreau's supposedly even faster variant?
+> > > Or does this incorporate that set of improvements?
+> > >   
+> > That's what this is:
+> >     x = (2 * x + (uint32_t)div64_64(a, (uint64_t)x*(uint64_t)x)) / 3;
+> 
+> Great, thanks for the clarification.
 
-Well, I can drop NetXen patches in #upstream, apply these to 
-#upstream-fixes, and wait for a resend?
+Oh BTW, I have a newer version with a first approximation of the
+cbrt() before the div64_64, which allows us to reduce from 3 div64
+to only 2 div64. This results in a version which is twice as fast
+as the initial one (ncubic), but with slightly less accuracy (0.286%
+compared to 0.247). But I see that other functions such as hcbrt()
+had a 1.5% avg error, so I think this is not dramatic.
+
+Also, I managed to remove all other divides, to be kind with CPUs
+having a slow divide instruction or no divide at all. Since we compute
+on limited range (22 bits), we can multiply then shift right. It shows
+me even slightly better time on pentium-m and athlon, with a slightly
+higher avg error (0.297% compared to 0.286%), and slightly smaller
+code.
+
+I just have to clean experiments from my code to provide a patch.
+David, Stephen, are you interested ?
+
+$ ./bictcp
+fls(0)=0, fls(1)=1, fls(256)=9
+Calibrating
+Function     clocks  mean(us) max(us)  std(us)  Avg error
+bictcp          936     0.61    24.28     1.99 0.172%
+ocubic          886     0.57    23.51     3.18 0.274%
+ncubic          644     0.42    16.59     2.18 0.247%
+ncubic32        444     0.29    11.47     1.50 0.247%
+ncubic32_1      444     0.29    11.56     1.88 0.238%
+ncubic32b3      337     0.22     8.67     0.88 0.286%
+ncubic_ndiv3    329     0.21     8.46     0.69 0.297%
+acbrt           707     0.46    18.05     0.80 0.275%
+hcbrt           644     0.42    16.44     0.51 1.580%
+
+
+Regards,
+Willy
+
