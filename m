@@ -1,71 +1,112 @@
 From: "Arnaldo Carvalho de Melo" <acme@ghostprotocols.net>
-Subject: [PATCH 1/4] [SOCKET]: Export __sock_recv_timestamp
-Date: Sat, 10 Mar 2007 00:59:42 -0300
-Message-ID: <39e6f6c70703091959k1f097529n3452692c3622a501@mail.gmail.com>
+Subject: [PATCH 2/4] [TR]: Use tr_hdr() were appropriate
+Date: Sat, 10 Mar 2007 00:59:48 -0300
+Message-ID: <39e6f6c70703091959t7d19ea53k8a1c274636f1f591@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
-	boundary="----=_Part_7667_9483462.1173499182754"
+	boundary="----=_Part_7671_8622165.1173499188035"
 Cc: "Netdev List" <netdev@vger.kernel.org>
 To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from ug-out-1314.google.com ([66.249.92.171]:23429 "EHLO
 	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965826AbXCJD7p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Mar 2007 22:59:45 -0500
+	with ESMTP id S1752808AbXCJD7t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Mar 2007 22:59:49 -0500
 Received: by ug-out-1314.google.com with SMTP id 44so1564210uga
-        for <netdev@vger.kernel.org>; Fri, 09 Mar 2007 19:59:43 -0800 (PST)
+        for <netdev@vger.kernel.org>; Fri, 09 Mar 2007 19:59:49 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-------=_Part_7667_9483462.1173499182754
+------=_Part_7671_8622165.1173499188035
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline
 
-Kernel: arch/x86_64/boot/bzImage is ready  (#2)
-  MODPOST 1816 modules
-WARNING: "__sock_recv_timestamp" [net/sctp/sctp.ko] undefined!
-WARNING: "__sock_recv_timestamp" [net/packet/af_packet.ko] undefined!
-WARNING: "__sock_recv_timestamp" [net/key/af_key.ko] undefined!
-WARNING: "__sock_recv_timestamp" [net/ipv6/ipv6.ko] undefined!
-WARNING: "__sock_recv_timestamp" [net/atm/atm.ko] undefined!
-make[2]: *** [__modpost] Error 1
-make[1]: *** [modules] Error 2
-make: *** [_all] Error 2
-
 Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
 ---
- net/socket.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+ drivers/net/tokenring/lanstreamer.c |    6 +++---
+ drivers/net/tokenring/olympic.c     |    9 +++++----
+ drivers/s390/net/qeth_main.c        |    2 +-
+ net/802/tr.c                        |    3 ++-
+ 4 files changed, 11 insertions(+), 9 deletions(-)
 
-------=_Part_7667_9483462.1173499182754
-Content-Type: text/x-patch;
-	name=0001-SOCKET-Export-__sock_recv_timestamp.patch;
+------=_Part_7671_8622165.1173499188035
+Content-Type: text/x-patch; name=0002-TR-Use-tr_hdr-were-appropriate.patch;
 	charset=ANSI_X3.4-1968
 Content-Transfer-Encoding: base64
-X-Attachment-Id: f_ez3iwv77
-Content-Disposition: attachment; filename="0001-SOCKET-Export-__sock_recv_timestamp.patch"
+X-Attachment-Id: f_ez3iyw1h
+Content-Disposition: attachment; filename="0002-TR-Use-tr_hdr-were-appropriate.patch"
 
-RnJvbSAyYTdmMzIwZThlNjRlNTZmNWNiN2ZkMDc2ZDk0M2Q3ODVmNTIyMjljIE1vbiBTZXAgMTcg
+RnJvbSA3M2JjYzA1MzYwZWU4NjBhZGRhYTQ4ZjUxYzMxZWZhNWY0NmQ3ZGMyIE1vbiBTZXAgMTcg
 MDA6MDA6MDAgMjAwMQpGcm9tOiBBcm5hbGRvIENhcnZhbGhvIGRlIE1lbG8gPGFjbWVAcmVkaGF0
-LmNvbT4KRGF0ZTogU2F0LCAxMCBNYXIgMjAwNyAwMDozOTozNSAtMDMwMApTdWJqZWN0OiBbUEFU
-Q0ggMS80XSBbU09DS0VUXTogRXhwb3J0IF9fc29ja19yZWN2X3RpbWVzdGFtcAoKS2VybmVsOiBh
-cmNoL3g4Nl82NC9ib290L2J6SW1hZ2UgaXMgcmVhZHkgICgjMikKICBNT0RQT1NUIDE4MTYgbW9k
-dWxlcwpXQVJOSU5HOiAiX19zb2NrX3JlY3ZfdGltZXN0YW1wIiBbbmV0L3NjdHAvc2N0cC5rb10g
-dW5kZWZpbmVkIQpXQVJOSU5HOiAiX19zb2NrX3JlY3ZfdGltZXN0YW1wIiBbbmV0L3BhY2tldC9h
-Zl9wYWNrZXQua29dIHVuZGVmaW5lZCEKV0FSTklORzogIl9fc29ja19yZWN2X3RpbWVzdGFtcCIg
-W25ldC9rZXkvYWZfa2V5LmtvXSB1bmRlZmluZWQhCldBUk5JTkc6ICJfX3NvY2tfcmVjdl90aW1l
-c3RhbXAiIFtuZXQvaXB2Ni9pcHY2LmtvXSB1bmRlZmluZWQhCldBUk5JTkc6ICJfX3NvY2tfcmVj
-dl90aW1lc3RhbXAiIFtuZXQvYXRtL2F0bS5rb10gdW5kZWZpbmVkIQptYWtlWzJdOiAqKiogW19f
-bW9kcG9zdF0gRXJyb3IgMQptYWtlWzFdOiAqKiogW21vZHVsZXNdIEVycm9yIDIKbWFrZTogKioq
-IFtfYWxsXSBFcnJvciAyCgpTaWduZWQtb2ZmLWJ5OiBBcm5hbGRvIENhcnZhbGhvIGRlIE1lbG8g
-PGFjbWVAcmVkaGF0LmNvbT4KLS0tCiBuZXQvc29ja2V0LmMgfCAgICAyICsrCiAxIGZpbGVzIGNo
-YW5nZWQsIDIgaW5zZXJ0aW9ucygrKSwgMCBkZWxldGlvbnMoLSkKCmRpZmYgLS1naXQgYS9uZXQv
-c29ja2V0LmMgYi9uZXQvc29ja2V0LmMKaW5kZXggOTk5NDMzMi4uZWVlYjc3MiAxMDA2NDQKLS0t
-IGEvbmV0L3NvY2tldC5jCisrKyBiL25ldC9zb2NrZXQuYwpAQCAtNjE0LDYgKzYxNCw4IEBAIHZv
-aWQgX19zb2NrX3JlY3ZfdGltZXN0YW1wKHN0cnVjdCBtc2doZHIgKm1zZywgc3RydWN0IHNvY2sg
-KnNrLAogCX0KIH0KIAorRVhQT1JUX1NZTUJPTF9HUEwoX19zb2NrX3JlY3ZfdGltZXN0YW1wKTsK
-Kwogc3RhdGljIGlubGluZSBpbnQgX19zb2NrX3JlY3Ztc2coc3RydWN0IGtpb2NiICppb2NiLCBz
-dHJ1Y3Qgc29ja2V0ICpzb2NrLAogCQkJCSBzdHJ1Y3QgbXNnaGRyICptc2csIHNpemVfdCBzaXpl
-LCBpbnQgZmxhZ3MpCiB7Ci0tIAoxLjUuMC4yCgo=
-------=_Part_7667_9483462.1173499182754--
+LmNvbT4KRGF0ZTogU2F0LCAxMCBNYXIgMjAwNyAwMDo0Mzo0MSAtMDMwMApTdWJqZWN0OiBbUEFU
+Q0ggMi80XSBbVFJdOiBVc2UgdHJfaGRyKCkgd2VyZSBhcHByb3ByaWF0ZQoKU2lnbmVkLW9mZi1i
+eTogQXJuYWxkbyBDYXJ2YWxobyBkZSBNZWxvIDxhY21lQHJlZGhhdC5jb20+Ci0tLQogZHJpdmVy
+cy9uZXQvdG9rZW5yaW5nL2xhbnN0cmVhbWVyLmMgfCAgICA2ICsrKy0tLQogZHJpdmVycy9uZXQv
+dG9rZW5yaW5nL29seW1waWMuYyAgICAgfCAgICA5ICsrKysrLS0tLQogZHJpdmVycy9zMzkwL25l
+dC9xZXRoX21haW4uYyAgICAgICAgfCAgICAyICstCiBuZXQvODAyL3RyLmMgICAgICAgICAgICAg
+ICAgICAgICAgICB8ICAgIDMgKystCiA0IGZpbGVzIGNoYW5nZWQsIDExIGluc2VydGlvbnMoKyks
+IDkgZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvdG9rZW5yaW5nL2xhbnN0
+cmVhbWVyLmMgYi9kcml2ZXJzL25ldC90b2tlbnJpbmcvbGFuc3RyZWFtZXIuYwppbmRleCBlOTk5
+ZmViLi41ZTFiODg0IDEwMDY0NAotLS0gYS9kcml2ZXJzL25ldC90b2tlbnJpbmcvbGFuc3RyZWFt
+ZXIuYworKysgYi9kcml2ZXJzL25ldC90b2tlbnJpbmcvbGFuc3RyZWFtZXIuYwpAQCAtMTYwNywx
+MCArMTYwNywxMiBAQCBzdGF0aWMgdm9pZCBzdHJlYW1lcl9hcmJfY21kKHN0cnVjdCBuZXRfZGV2
+aWNlICpkZXYpCiAJCQkJICAgICAgZnJhbWVfZGF0YSwgYnVmZmVyX2xlbik7CiAJCX0gd2hpbGUg
+KG5leHRfcHRyICYmIChidWZmX29mZiA9IG5leHRfcHRyKSk7CiAKKwkJbWFjX2ZyYW1lLT5kZXYg
+PSBkZXY7CisJCW1hY19mcmFtZS0+cHJvdG9jb2wgPSB0cl90eXBlX3RyYW5zKG1hY19mcmFtZSwg
+ZGV2KTsKICNpZiBTVFJFQU1FUl9ORVRXT1JLX01PTklUT1IKIAkJcHJpbnRrKEtFUk5fV0FSTklO
+RyAiJXM6IFJlY2VpdmVkIE1BQyBGcmFtZSwgZGV0YWlsczogXG4iLAogCQkgICAgICAgZGV2LT5u
+YW1lKTsKLQkJbWFjX2hkciA9IChzdHJ1Y3QgdHJoX2hkciAqKSBtYWNfZnJhbWUtPmRhdGE7CisJ
+CW1hY19oZHIgPSB0cl9oZHIobWFjX2ZyYW1lKTsKIAkJcHJpbnRrKEtFUk5fV0FSTklORwogCQkg
+ICAgICAgIiVzOiBNQUMgRnJhbWUgRGVzdC4gQWRkcjogJTAyeDolMDJ4OiUwMng6JTAyeDolMDJ4
+OiUwMnggXG4iLAogCQkgICAgICAgZGV2LT5uYW1lLCBtYWNfaGRyLT5kYWRkclswXSwgbWFjX2hk
+ci0+ZGFkZHJbMV0sCkBAIC0xNjIyLDggKzE2MjQsNiBAQCBzdGF0aWMgdm9pZCBzdHJlYW1lcl9h
+cmJfY21kKHN0cnVjdCBuZXRfZGV2aWNlICpkZXYpCiAJCSAgICAgICBtYWNfaGRyLT5zYWRkclsy
+XSwgbWFjX2hkci0+c2FkZHJbM10sCiAJCSAgICAgICBtYWNfaGRyLT5zYWRkcls0XSwgbWFjX2hk
+ci0+c2FkZHJbNV0pOwogI2VuZGlmCi0JCW1hY19mcmFtZS0+ZGV2ID0gZGV2OwotCQltYWNfZnJh
+bWUtPnByb3RvY29sID0gdHJfdHlwZV90cmFucyhtYWNfZnJhbWUsIGRldik7CiAJCW5ldGlmX3J4
+KG1hY19mcmFtZSk7CiAKIAkJLyogTm93IHRlbGwgdGhlIGNhcmQgd2UgaGF2ZSBkZWFsdCB3aXRo
+IHRoZSByZWNlaXZlZCBmcmFtZSAqLwpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvdG9rZW5yaW5n
+L29seW1waWMuYyBiL2RyaXZlcnMvbmV0L3Rva2VucmluZy9vbHltcGljLmMKaW5kZXggOGY0ZWNj
+MS4uN2YzMjI2ZSAxMDA2NDQKLS0tIGEvZHJpdmVycy9uZXQvdG9rZW5yaW5nL29seW1waWMuYwor
+KysgYi9kcml2ZXJzL25ldC90b2tlbnJpbmcvb2x5bXBpYy5jCkBAIC0xNDQwLDE2ICsxNDQwLDE3
+IEBAIHN0YXRpYyB2b2lkIG9seW1waWNfYXJiX2NtZChzdHJ1Y3QgbmV0X2RldmljZSAqZGV2KQog
+CQkJbmV4dF9wdHI9cmVhZHcoYnVmX3B0citvZmZzZXRvZihzdHJ1Y3QgbWFjX3JlY2VpdmVfYnVm
+ZmVyLG5leHQpKTsgCiAJCX0gd2hpbGUgKG5leHRfcHRyICYmIChidWZfcHRyPW9seW1waWNfcHJp
+di0+b2x5bXBpY19sYXAgKyBudG9ocyhuZXh0X3B0cikpKTsKIAorCQltYWNfZnJhbWUtPmRldiA9
+IGRldjsgCisJCW1hY19mcmFtZS0+cHJvdG9jb2wgPSB0cl90eXBlX3RyYW5zKG1hY19mcmFtZSwg
+ZGV2KTsKKwogCQlpZiAob2x5bXBpY19wcml2LT5vbHltcGljX25ldHdvcmtfbW9uaXRvcikgeyAK
+IAkJCXN0cnVjdCB0cmhfaGRyICptYWNfaGRyIDsgCiAJCQlwcmludGsoS0VSTl9XQVJOSU5HICIl
+czogUmVjZWl2ZWQgTUFDIEZyYW1lLCBkZXRhaWxzOiBcbiIsZGV2LT5uYW1lKSA7Ci0JCQltYWNf
+aGRyID0gKHN0cnVjdCB0cmhfaGRyICopbWFjX2ZyYW1lLT5kYXRhIDsgCisJCQltYWNfaGRyID0g
+dHJfaGRyKG1hY19mcmFtZSk7IAogCQkJcHJpbnRrKEtFUk5fV0FSTklORyAiJXM6IE1BQyBGcmFt
+ZSBEZXN0LiBBZGRyOiAlMDJ4OiUwMng6JTAyeDolMDJ4OiUwMng6JTAyeCBcbiIsIGRldi0+bmFt
+ZSAsIG1hY19oZHItPmRhZGRyWzBdLCBtYWNfaGRyLT5kYWRkclsxXSwgbWFjX2hkci0+ZGFkZHJb
+Ml0sIG1hY19oZHItPmRhZGRyWzNdLCBtYWNfaGRyLT5kYWRkcls0XSwgbWFjX2hkci0+ZGFkZHJb
+NV0pIDsgCiAJCQlwcmludGsoS0VSTl9XQVJOSU5HICIlczogTUFDIEZyYW1lIFNyY2UuIEFkZHI6
+ICUwMng6JTAyeDolMDJ4OiUwMng6JTAyeDolMDJ4IFxuIiwgZGV2LT5uYW1lICwgbWFjX2hkci0+
+c2FkZHJbMF0sIG1hY19oZHItPnNhZGRyWzFdLCBtYWNfaGRyLT5zYWRkclsyXSwgbWFjX2hkci0+
+c2FkZHJbM10sIG1hY19oZHItPnNhZGRyWzRdLCBtYWNfaGRyLT5zYWRkcls1XSkgOyAKIAkJfQot
+CQltYWNfZnJhbWUtPmRldiA9IGRldiA7IAotCQltYWNfZnJhbWUtPnByb3RvY29sID0gdHJfdHlw
+ZV90cmFucyhtYWNfZnJhbWUsZGV2KTsKLQkJbmV0aWZfcngobWFjX2ZyYW1lKSA7IAkKKwkJbmV0
+aWZfcngobWFjX2ZyYW1lKTsgCQogCQlkZXYtPmxhc3RfcnggPSBqaWZmaWVzOwogCiBkcm9wX2Zy
+YW1lOgpkaWZmIC0tZ2l0IGEvZHJpdmVycy9zMzkwL25ldC9xZXRoX21haW4uYyBiL2RyaXZlcnMv
+czM5MC9uZXQvcWV0aF9tYWluLmMKaW5kZXggZDhhODZmNS4uZjJiOWIxYiAxMDA2NDQKLS0tIGEv
+ZHJpdmVycy9zMzkwL25ldC9xZXRoX21haW4uYworKysgYi9kcml2ZXJzL3MzOTAvbmV0L3FldGhf
+bWFpbi5jCkBAIC0yMzA4LDcgKzIzMDgsNyBAQCBxZXRoX3JlYnVpbGRfc2tiX2Zha2VfbGxfdHIo
+c3RydWN0IHFldGhfY2FyZCAqY2FyZCwgc3RydWN0IHNrX2J1ZmYgKnNrYiwKIAlRRVRIX0RCRl9U
+RVhUKHRyYWNlLDUsInNrYmZrdHIiKTsKIAlza2ItPm1hYy5yYXcgPSBza2ItPmRhdGEgLSBRRVRI
+X0ZBS0VfTExfTEVOX1RSOwogCS8qIHRoaXMgaXMgYSBmYWtlIGV0aGVybmV0IGhlYWRlciAqLwot
+CWZha2VfaGRyID0gKHN0cnVjdCB0cmhfaGRyICopIHNrYi0+bWFjLnJhdzsKKwlmYWtlX2hkciA9
+IHRyX2hkcihza2IpOwogCiAJLyogdGhlIGRlc3RpbmF0aW9uIE1BQyBhZGRyZXNzICovCiAJc3dp
+dGNoIChza2ItPnBrdF90eXBlKXsKZGlmZiAtLWdpdCBhL25ldC84MDIvdHIuYyBiL25ldC84MDIv
+dHIuYwppbmRleCA5NmJkMTQ0Li5hNmE2ZDQ2IDEwMDY0NAotLS0gYS9uZXQvODAyL3RyLmMKKysr
+IGIvbmV0LzgwMi90ci5jCkBAIC0xODksMTEgKzE4OSwxMiBAQCBzdGF0aWMgaW50IHRyX3JlYnVp
+bGRfaGVhZGVyKHN0cnVjdCBza19idWZmICpza2IpCiBfX2JlMTYgdHJfdHlwZV90cmFucyhzdHJ1
+Y3Qgc2tfYnVmZiAqc2tiLCBzdHJ1Y3QgbmV0X2RldmljZSAqZGV2KQogewogCi0Jc3RydWN0IHRy
+aF9oZHIgKnRyaD0oc3RydWN0IHRyaF9oZHIgKilza2ItPmRhdGE7CisJc3RydWN0IHRyaF9oZHIg
+KnRyaDsKIAlzdHJ1Y3QgdHJsbGMgKnRybGxjOwogCXVuc2lnbmVkIHJpZmxlbj0wOwogCiAJc2ti
+LT5tYWMucmF3ID0gc2tiLT5kYXRhOworCXRyaCA9IHRyX2hkcihza2IpOwogCiAJaWYodHJoLT5z
+YWRkclswXSAmIFRSX1JJSSkKIAkJcmlmbGVuID0gKG50b2hzKHRyaC0+cmNmKSAmIFRSX1JDRl9M
+RU5fTUFTSykgPj4gODsKLS0gCjEuNS4wLjIKCg==
+------=_Part_7671_8622165.1173499188035--
