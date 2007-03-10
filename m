@@ -1,61 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Fix net-2.6.22 on sparc
-Date: Fri, 09 Mar 2007 16:24:04 -0800 (PST)
-Message-ID: <20070309.162404.99202412.davem@davemloft.net>
+From: Chris Wright <chrisw@sous-sol.org>
+Subject: Re: [PATCH 2/2] [IPV6]: Ensure to truncate result and return full length for sticky options.
+Date: Fri, 9 Mar 2007 16:30:58 -0800
+Message-ID: <20070310003058.GZ10574@sequoia.sous-sol.org>
+References: <20070309.101328.78855655.yoshfuji@linux-ipv6.org> <20070308.204845.125566290.davem@davemloft.net> <20070309234435.GE7920@sequoia.sous-sol.org> <20070309.161759.69218776.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dada1@cosmosbay.com
+Content-Type: text/plain; charset=us-ascii
+Cc: chrisw@sous-sol.org, yoshfuji@linux-ipv6.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44798
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1767686AbXCJAYF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Mar 2007 19:24:05 -0500
+Received: from 216-99-217-87.dsl.aracnet.com ([216.99.217.87]:60811 "EHLO
+	sous-sol.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1767685AbXCJAaX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Mar 2007 19:30:23 -0500
+Content-Disposition: inline
+In-Reply-To: <20070309.161759.69218776.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+* David Miller (davem@davemloft.net) wrote:
+> 
+> Ugh, Chris, why is this patch against a copy of ipv6_sockglue.c
+> that doesn't have the NULL pointer fix applied?
+> 
+> Nevermind, it's obvious, so I fixed it up by hand, but please
+> patch against current sources expecially when we're all aware
+> of other fixes that have been made to this exact function over
+> the past few days.  Otherwise it makes a lot more work for me.
 
-Eric, please look at whole files you are editing :) I'm sure
-there is probably another case like this or two in the
-other platform socket ioctl allocations you made.
+Shoot, I'm sorry.  I pulled from Linus' tree, then your tree to have
+most uptodate specifically to make sure I had the lastest changes.
+Not sure how that went wrong.
 
-Thanks.
-
-commit 9415518744729743b017da2e08a71c5bb0d94108
-Author: David S. Miller <davem@sunset.davemloft.net>
-Date:   Fri Mar 9 16:22:52 2007 -0800
-
-    [NET]: Fix SO_TIMESTAMPNS values allocated to sparc.
-    
-    They confliced with SO_BROADCAST which already uses the
-    value 0x0020.
-    
-    Signed-off-by: David S. Miller <davem@davemloft.net>
-
-diff --git a/include/asm-sparc/socket.h b/include/asm-sparc/socket.h
-index d77768e..7c14239 100644
---- a/include/asm-sparc/socket.h
-+++ b/include/asm-sparc/socket.h
-@@ -49,7 +49,7 @@
- 
- #define SO_PEERSEC		0x001e
- #define SO_PASSSEC		0x001f
--#define SO_TIMESTAMPNS		0x0020
-+#define SO_TIMESTAMPNS		0x0021
- #define SCM_TIMESTAMPNS		SO_TIMESTAMPNS
- 
- /* Security levels - as per NRL IPv6 - don't actually do anything */
-diff --git a/include/asm-sparc64/socket.h b/include/asm-sparc64/socket.h
-index 1bd9f52..986441d 100644
---- a/include/asm-sparc64/socket.h
-+++ b/include/asm-sparc64/socket.h
-@@ -49,7 +49,7 @@
- 
- #define SO_PEERSEC		0x001e
- #define SO_PASSSEC		0x001f
--#define SO_TIMESTAMPNS		0x0020
-+#define SO_TIMESTAMPNS		0x0021
- #define SCM_TIMESTAMPNS		SO_TIMESTAMPNS
- 
- /* Security levels - as per NRL IPv6 - don't actually do anything */
+thanks,
+-chris
