@@ -1,97 +1,54 @@
-From: Florian Zumbiehl <florz@florz.de>
-Subject: [PATCH 4/4] PPPoE: race between interface going down and release()
-Date: Sun, 11 Mar 2007 05:41:43 +0100
-Message-ID: <20070311044143.GD17712@florz.florz.dyndns.org>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: netconsole system freeze when cable unplugged
+Date: Sun, 11 Mar 2007 08:50:13 +0100
+Message-ID: <20070311075013.GA27670@one.firstfloor.org>
+References: <45F1B6FD.1060902@simon.arlott.org.uk> <20070309204243.GA28441@electric-eye.fr.zoreil.com> <45F1EE12.2070605@simon.arlott.org.uk> <p73r6rx9q28.fsf@bingen.suse.de> <45F2BB64.10000@simon.arlott.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: mostrows@earthlink.net, netdev@vger.kernel.org
+Cc: Andi Kleen <andi@firstfloor.org>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Simon Arlott <simon@fire.lp0.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from odnb-d9bbdd48.pool.mediaWays.net ([217.187.221.72]:3387 "EHLO
-	rain.florz.dyndns.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933153AbXCKElp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 10 Mar 2007 23:41:45 -0500
+Received: from one.firstfloor.org ([213.235.205.2]:45331 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751652AbXCKHuR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 11 Mar 2007 03:50:17 -0400
 Content-Disposition: inline
+In-Reply-To: <45F2BB64.10000@simon.arlott.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Sat, Mar 10, 2007 at 02:06:28PM +0000, Simon Arlott wrote:
+> On 10/03/07 13:38, Andi Kleen wrote:
+> >Simon Arlott <simon@fire.lp0.eu> writes:
+> >
+> >>On 09/03/07 20:42, Francois Romieu wrote:
+> >>>Simon Arlott <simon@fire.lp0.eu> :
+> >>>>When I unplug the cable the system just stops responding to
+> >>>>anything, at all. No message is printed to the console when the
+> >>>>cable is plugged back in.
+> >>>rtl8139_interrupt (spin_lock(&tp->lock))
+> >>>-> rtl8139_weird_interrupt
+> >>>   -> rtl_check_media
+> >>>      -> mii_check_media (printk(KERN_INFO "%s: link down\n", ...))
+> >>>         [netpoll stuff here]
+> >>>         -> rtl8139_poll_controller
+> >>>            -> rtl8139_interrupt
+> >>>               *deadlock*
+> >>>See below for my random stuff of the day. Feel free to open a PR at
+> >>>bugzilla.kernel.org if the issue does not go away.
+> >>The patch doesn't fix it, nothing changes. I'm not sure how this can
+> >>be debugged if printk won't work...
+> >
+> >earlyprintk can be called directly (early_printk()) and should
+> >work. It won't log over the network of course.
+> 
+> It also won't log over the serial console either :(
 
-below you find the last patch for now. It (hopefully) fixes a race
-between a socket being release()d and the interface it's using going
-down. As pppoe_release() didn't lock the socket, and pppoe_flush_dev()
-did the locking in the wrong place, pppoe_flush_dev() could set
-po->pppoe_dev to NULL, which would then cause pppoe_release() to not
-dev_put() the interface, but to still mark the socket as DEAD,
-which in turn would cause pppoe_flush_dev() to not dev_put() the
-interface, effectively leaking one reference to the device, thus making it
-impossible to remove (ignoring the possibility of overflowing the reference
-counter by repeated use of this race ;-).
+It does, you just have to configure it properly.
 
-The thing I'm not quite sure about is whether the "outer"
+earlyprintk=serial,ttySx,baud
 
-|                        if (po->pppoe_dev == dev) {
-
-is actually reliable this way on SMP systems, as far as cache consistency
-is concerned. I left it that way for now, as any alternative locking
-strategies that would lock the socket before doing this comparison seemed
-to be pretty complicated to implement because of the need to drop the
-hash table lock before trying to acquire the socket lock, so I'd rather
-be sure that this actually is a problem before I try to solve it ;-)
-
-Florian
-
----------------------------------------------------------------------------
-diff --git a/drivers/net/pppoe.c b/drivers/net/pppoe.c
-index 1aeac2c..f5abfff 100644
---- a/drivers/net/pppoe.c
-+++ b/drivers/net/pppoe.c
-@@ -253,7 +253,6 @@ static void pppoe_flush_dev(struct net_device *dev)
- 				struct sock *sk = sk_pppox(po);
- 
- 				sock_hold(sk);
--				po->pppoe_dev = NULL;
- 
- 				/* We hold a reference to SK, now drop the
- 				 * hash table lock so that we may attempt
-@@ -263,12 +262,15 @@ static void pppoe_flush_dev(struct net_device *dev)
- 
- 				lock_sock(sk);
- 
--				if (sk->sk_state &
--				    (PPPOX_CONNECTED | PPPOX_BOUND)) {
--					pppox_unbind_sock(sk);
-+				if(po->pppoe_dev==dev){
- 					dev_put(dev);
--					sk->sk_state = PPPOX_ZOMBIE;
--					sk->sk_state_change(sk);
-+					po->pppoe_dev = NULL;
-+					if (sk->sk_state &
-+					    (PPPOX_CONNECTED | PPPOX_BOUND)) {
-+						pppox_unbind_sock(sk);
-+						sk->sk_state = PPPOX_ZOMBIE;
-+						sk->sk_state_change(sk);
-+					}
- 				}
- 
- 				release_sock(sk);
-@@ -504,8 +506,11 @@ static int pppoe_release(struct socket *sock)
- 	if (!sk)
- 		return 0;
- 
--	if (sock_flag(sk, SOCK_DEAD))
-+	lock_sock(sk);
-+	if (sock_flag(sk, SOCK_DEAD)){
-+		release_sock(sk);
- 		return -EBADF;
-+	}
- 
- 	pppox_unbind_sock(sk);
- 
-@@ -526,6 +531,7 @@ static int pppoe_release(struct socket *sock)
- 	sock->sk = NULL;
- 
- 	skb_queue_purge(&sk->sk_receive_queue);
-+	release_sock(sk);
- 	sock_put(sk);
- 
- 	return 0;
+-Andi
