@@ -1,67 +1,66 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: wireless extensions vs. 64-bit architectures
-Date: Sun, 11 Mar 2007 18:40:01 +0100
-Message-ID: <1173634801.3382.8.camel@johannes.berg>
-References: <20070306171316.GA19669@bougret.hpl.hp.com>
-	 <200703061943.07350.mb@bu3sch.de>
-	 <20070307020310.GA20466@bougret.hpl.hp.com>
-	 <1173364747.14001.7.camel@johannes.berg>
-	 <20070308184954.GA24485@bougret.hpl.hp.com>
-	 <1173382042.3248.63.camel@johannes.berg>
-	 <20070308193412.GG23040@devicescape.com>
-	 <1173382802.3248.68.camel@johannes.berg>
-	 <20070308221128.GA24884@bougret.hpl.hp.com>
-	 <1173393326.3831.21.camel@johannes.berg>
-	 <20070309213531.GA28070@bougret.hpl.hp.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-BAevytRqroPi/uMU7YYS"
-Cc: Jouni Malinen <jkm-r/za7OOdgF0ztatW0fm/fQ@public.gmane.org>, Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Jeff Garzik <jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>, Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-To: jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org
+From: Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
+Subject: [PATCH] zd1211rw-mac80211: Use compare_ether_addr()
+Date: Sun, 11 Mar 2007 17:50:41 +0000 (GMT)
+Message-ID: <20070311175041.B53557B409F@zog.reactivated.net>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
 Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20070309213531.GA28070-yAE0UhLNZJawPNPzzlOzwdBPR1lH4CV8@public.gmane.org>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: kune-hUSrv6EASfkEnNRfnnE9gw@public.gmane.org
+Cc: maxime-+3Uz/VIkGlWGglJvpFV4uA@public.gmane.org
 Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+Suggested by Maxime Austruy, based on mac80211 changes from Stephen
+Hemminger
 
---=-BAevytRqroPi/uMU7YYS
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+Signed-off-by: Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
+---
+ drivers/net/wireless/zd1211rw/zd_mac.c |   11 ++++++-----
+ 1 files changed, 6 insertions(+), 5 deletions(-)
 
-On Fri, 2007-03-09 at 13:35 -0800, Jean Tourrilhes wrote:
-
-> 	It's not as bad as it look like. All userspace programs
-> nowadays use either the iwlib or wpa_supplicant. For example,
-> NetworkManager gets its stuff through wpa_supplicant, and kdenetwork
-> uses iwlib. So, in essence, there is only two places to fix.
-
-That's definitely not true, the latest network manager I have sources to
-on my laptop right now (0.6.4) uses iwlib but only iw_get_ext and no
-parsing functions. I would guess that others "use" iwlib like that too.
-
-> 	By the way, I've just released version 29.pre16 which has a
-> better band aid. It fixes bugs of the previous version and is more
-> forward compatible (i.e. it's compatible with option 2).
-
-Can you please also *document* the bandaid and actually *describe* it in
-*words* instead of dense code without comments?
-
-I'm still not convinced that papering over the problem in userspace is a
-real solution.
-
-johannes
-
---=-BAevytRqroPi/uMU7YYS
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iD8DBQBF9D7x/ETPhpq3jKURAublAJ9fHYUnh4T3Iq6P9Tf+xEv3V75HCQCfRn+f
-eVHgiC5NSxVS0oFGdRlt2sA=
-=9l22
------END PGP SIGNATURE-----
-
---=-BAevytRqroPi/uMU7YYS--
+diff --git a/drivers/net/wireless/zd1211rw/zd_mac.c b/drivers/net/wireless/zd1211rw/zd_mac.c
+index 4c5f78e..af5ca04 100644
+--- a/drivers/net/wireless/zd1211rw/drivers/net/wireless/zd1211rw/zd_mac.c
++++ b/drivers/net/wireless/zd1211rw/drivers/net/wireless/zd1211rw/zd_mac.c
+@@ -974,14 +974,14 @@ static int is_data_packet_for_us(struct ieee80211_device *ieee,
+ 	switch (ieee->iw_mode) {
+ 	case IW_MODE_ADHOC:
+ 		if ((fc & (IEEE80211_FCTL_TODS|IEEE80211_FCTL_FROMDS)) != 0 ||
+-		    memcmp(hdr->addr3, ieee->bssid, ETH_ALEN) != 0)
++		    compare_ether_addr(hdr->addr3, ieee->bssid) != 0)
+ 			return 0;
+ 		break;
+ 	case IW_MODE_AUTO:
+ 	case IW_MODE_INFRA:
+ 		if ((fc & (IEEE80211_FCTL_TODS|IEEE80211_FCTL_FROMDS)) !=
+ 		    IEEE80211_FCTL_FROMDS ||
+-		    memcmp(hdr->addr2, ieee->bssid, ETH_ALEN) != 0)
++		    compare_ether_addr(hdr->addr2, ieee->bssid) != 0)
+ 			return 0;
+ 		break;
+ 	default:
+@@ -989,9 +989,9 @@ static int is_data_packet_for_us(struct ieee80211_device *ieee,
+ 		return 0;
+ 	}
+ 
+-	return memcmp(hdr->addr1, netdev->dev_addr, ETH_ALEN) == 0 ||
++	return compare_ether_addr(hdr->addr1, netdev->dev_addr) == 0 ||
+ 	       (is_multicast_ether_addr(hdr->addr1) &&
+-		memcmp(hdr->addr3, netdev->dev_addr, ETH_ALEN) != 0) ||
++		compare_ether_addr(hdr->addr3, netdev->dev_addr) != 0) ||
+ 	       (netdev->flags & IFF_PROMISC);
+ }
+ 
+@@ -1047,7 +1047,8 @@ static void update_qual_rssi(struct zd_mac *mac,
+ 	hdr = (struct ieee80211_hdr_3addr *)buffer;
+ 	if (length < offsetof(struct ieee80211_hdr_3addr, addr3))
+ 		return;
+-	if (memcmp(hdr->addr2, zd_mac_to_ieee80211(mac)->bssid, ETH_ALEN) != 0)
++	if (compare_ether_addr(hdr->addr2,
++	    zd_mac_to_ieee80211(mac)->bssid) != 0)
+ 		return;
+ 
+ 	spin_lock_irqsave(&mac->lock, flags);
+-- 
+1.5.0.3
