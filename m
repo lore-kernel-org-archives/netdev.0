@@ -1,62 +1,262 @@
-From: Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
-Subject: [PATCH] zd1211rw: Use compare_ether_addr()
-Date: Sun, 11 Mar 2007 19:53:40 +0000 (GMT)
-Message-ID: <20070311195340.80E017B409F@zog.reactivated.net>
-Cc: kune-hUSrv6EASfkEnNRfnnE9gw@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Daniel Drake <dsd@gentoo.org>
+Subject: [PATCH] zd1211rw: Add AL2230S RF support
+Date: Sun, 11 Mar 2007 19:54:28 +0000 (GMT)
+Message-ID: <20070311195428.D89F37B40A0@zog.reactivated.net>
+Cc: kune@deine-taler.de
+To: linville@tuxdriver.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mtaout01-winn.ispmail.ntl.com ([81.103.221.47]:22632 "EHLO
+	mtaout01-winn.ispmail.ntl.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932498AbXCKTyh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 11 Mar 2007 15:54:37 -0400
+Cc: linux-wireless@vger.kernel.org
+Cc: netdev@vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Suggested by Maxime Austruy, based on mac80211 changes from Stephen
-Hemminger
+ZD1211 appears to be back in production: a number of new devices have
+been appearing! Some of them are using new radios.
 
-Signed-off-by: Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
+This patch adds support for the next generation AL2230 RF chip which has
+been spotted in a few new devices.
+
+Signed-off-by: Daniel Drake <dsd@gentoo.org>
 ---
- zd_mac.c |   10 +++++-----
- 1 files changed, 5 insertions(+), 5 deletions(-)
+ zd_chip.c      |    5 ++-
+ zd_rf.c        |    2 +-
+ zd_rf.h        |    2 +-
+ zd_rf_al2230.c |   89 ++++++++++++++++++++++++++++++++++++++++++++++----------
+ 4 files changed, 78 insertions(+), 20 deletions(-)
 
-Index: linux/drivers/net/wireless/zd1211rw/zd_mac.c
+Index: linux/drivers/net/wireless/zd1211rw/zd_chip.c
 ===================================================================
---- linux.orig/drivers/net/wireless/zd1211rw/zd_mac.c
-+++ linux/drivers/net/wireless/zd1211rw/zd_mac.c
-@@ -974,14 +974,14 @@ static int is_data_packet_for_us(struct 
- 	switch (ieee->iw_mode) {
- 	case IW_MODE_ADHOC:
- 		if ((fc & (IEEE80211_FCTL_TODS|IEEE80211_FCTL_FROMDS)) != 0 ||
--		    memcmp(hdr->addr3, ieee->bssid, ETH_ALEN) != 0)
-+		    compare_ether_addr(hdr->addr3, ieee->bssid) != 0)
- 			return 0;
- 		break;
- 	case IW_MODE_AUTO:
- 	case IW_MODE_INFRA:
- 		if ((fc & (IEEE80211_FCTL_TODS|IEEE80211_FCTL_FROMDS)) !=
- 		    IEEE80211_FCTL_FROMDS ||
--		    memcmp(hdr->addr2, ieee->bssid, ETH_ALEN) != 0)
-+		    compare_ether_addr(hdr->addr2, ieee->bssid) != 0)
- 			return 0;
- 		break;
- 	default:
-@@ -989,9 +989,9 @@ static int is_data_packet_for_us(struct 
- 		return 0;
- 	}
- 
--	return memcmp(hdr->addr1, netdev->dev_addr, ETH_ALEN) == 0 ||
-+	return compare_ether_addr(hdr->addr1, netdev->dev_addr) == 0 ||
- 	       (is_multicast_ether_addr(hdr->addr1) &&
--		memcmp(hdr->addr3, netdev->dev_addr, ETH_ALEN) != 0) ||
-+		compare_ether_addr(hdr->addr3, netdev->dev_addr) != 0) ||
- 	       (netdev->flags & IFF_PROMISC);
+--- linux.orig/drivers/net/wireless/zd1211rw/zd_chip.c
++++ linux/drivers/net/wireless/zd1211rw/zd_chip.c
+@@ -67,11 +67,12 @@ static int scnprint_id(struct zd_chip *c
+ 	i += scnprint_mac_oui(chip->e2p_mac, buffer+i, size-i);
+ 	i += scnprintf(buffer+i, size-i, " ");
+ 	i += zd_rf_scnprint_id(&chip->rf, buffer+i, size-i);
+-	i += scnprintf(buffer+i, size-i, " pa%1x %c%c%c%c", chip->pa_type,
++	i += scnprintf(buffer+i, size-i, " pa%1x %c%c%c%c%c", chip->pa_type,
+ 		chip->patch_cck_gain ? 'g' : '-',
+ 		chip->patch_cr157 ? '7' : '-',
+ 		chip->patch_6m_band_edge ? '6' : '-',
+-		chip->new_phy_layout ? 'N' : '-');
++		chip->new_phy_layout ? 'N' : '-',
++		chip->al2230s_bit ? 'S' : '-');
+ 	return i;
  }
  
-@@ -1047,7 +1047,7 @@ static void update_qual_rssi(struct zd_m
- 	hdr = (struct ieee80211_hdr_3addr *)buffer;
- 	if (length < offsetof(struct ieee80211_hdr_3addr, addr3))
- 		return;
--	if (memcmp(hdr->addr2, zd_mac_to_ieee80211(mac)->bssid, ETH_ALEN) != 0)
-+	if (compare_ether_addr(hdr->addr2, zd_mac_to_ieee80211(mac)->bssid) != 0)
- 		return;
+Index: linux/drivers/net/wireless/zd1211rw/zd_rf.c
+===================================================================
+--- linux.orig/drivers/net/wireless/zd1211rw/zd_rf.c
++++ linux/drivers/net/wireless/zd1211rw/zd_rf.c
+@@ -34,7 +34,7 @@ static const char *rfs[] = {
+ 	[AL2210_RF]	= "AL2210_RF",
+ 	[MAXIM_NEW_RF]	= "MAXIM_NEW_RF",
+ 	[UW2453_RF]	= "UW2453_RF",
+-	[AL2230S_RF]	= "AL2230S_RF",
++	[UNKNOWN_A_RF]	= "UNKNOWN_A_RF",
+ 	[RALINK_RF]	= "RALINK_RF",
+ 	[INTERSIL_RF]	= "INTERSIL_RF",
+ 	[RF2959_RF]	= "RF2959_RF",
+Index: linux/drivers/net/wireless/zd1211rw/zd_rf.h
+===================================================================
+--- linux.orig/drivers/net/wireless/zd1211rw/zd_rf.h
++++ linux/drivers/net/wireless/zd1211rw/zd_rf.h
+@@ -26,7 +26,7 @@
+ #define AL2210_RF			0x7
+ #define MAXIM_NEW_RF			0x8
+ #define UW2453_RF			0x9
+-#define AL2230S_RF			0xa
++#define UNKNOWN_A_RF			0xa
+ #define RALINK_RF			0xb
+ #define INTERSIL_RF			0xc
+ #define RF2959_RF			0xd
+Index: linux/drivers/net/wireless/zd1211rw/zd_rf_al2230.c
+===================================================================
+--- linux.orig/drivers/net/wireless/zd1211rw/zd_rf_al2230.c
++++ linux/drivers/net/wireless/zd1211rw/zd_rf_al2230.c
+@@ -59,6 +59,18 @@ static const struct zd_ioreq16 zd1211b_i
+ 	{ CR240, 0x57 }, { CR9,   0xe0 },
+ };
  
- 	spin_lock_irqsave(&mac->lock, flags);
++static const struct zd_ioreq16 ioreqs_init_al2230s[] = {
++	{ CR47,   0x1e }, /* MARK_002 */
++	{ CR106,  0x22 },
++	{ CR107,  0x2a }, /* MARK_002 */
++	{ CR109,  0x13 }, /* MARK_002 */
++	{ CR118,  0xf8 }, /* MARK_002 */
++	{ CR119,  0x12 }, { CR122,  0xe0 },
++	{ CR128,  0x10 }, /* MARK_001 from 0xe->0x10 */
++	{ CR129,  0x0e }, /* MARK_001 from 0xd->0x0e */
++	{ CR130,  0x10 }, /* MARK_001 from 0xb->0x0d */
++};
++
+ static int zd1211b_al2230_finalize_rf(struct zd_chip *chip)
+ {
+ 	int r;
+@@ -90,7 +102,7 @@ static int zd1211_al2230_init_hw(struct 
+ 	int r;
+ 	struct zd_chip *chip = zd_rf_to_chip(rf);
+ 
+-	static const struct zd_ioreq16 ioreqs[] = {
++	static const struct zd_ioreq16 ioreqs_init[] = {
+ 		{ CR15,   0x20 }, { CR23,   0x40 }, { CR24,  0x20 },
+ 		{ CR26,   0x11 }, { CR28,   0x3e }, { CR29,  0x00 },
+ 		{ CR44,   0x33 }, { CR106,  0x2a }, { CR107, 0x1a },
+@@ -117,10 +129,9 @@ static int zd1211_al2230_init_hw(struct 
+ 		{ CR119,  0x10 }, { CR120,  0x4f }, { CR121, 0x77 },
+ 		{ CR122,  0xe0 }, { CR137,  0x88 }, { CR252, 0xff },
+ 		{ CR253,  0xff },
++	};
+ 
+-		/* These following happen separately in the vendor driver */
+-		{ },
+-
++	static const struct zd_ioreq16 ioreqs_pll[] = {
+ 		/* shdnb(PLL_ON)=0 */
+ 		{ CR251,  0x2f },
+ 		/* shdnb(PLL_ON)=1 */
+@@ -128,7 +139,7 @@ static int zd1211_al2230_init_hw(struct 
+ 		{ CR138,  0x28 }, { CR203,  0x06 },
+ 	};
+ 
+-	static const u32 rv[] = {
++	static const u32 rv1[] = {
+ 		/* Channel 1 */
+ 		0x03f790,
+ 		0x033331,
+@@ -137,6 +148,9 @@ static int zd1211_al2230_init_hw(struct 
+ 		0x0b3331,
+ 		0x03b812,
+ 		0x00fff3,
++	};
++
++	static const u32 rv2[] = {
+ 		0x000da4,
+ 		0x0f4dc5, /* fix freq shift, 0x04edc5 */
+ 		0x0805b6,
+@@ -148,8 +162,9 @@ static int zd1211_al2230_init_hw(struct 
+ 		0x0bdffc,
+ 		0x00000d,
+ 		0x00500f,
++	};
+ 
+-		/* These writes happen separately in the vendor driver */
++	static const u32 rv3[] = {
+ 		0x00d00f,
+ 		0x004c0f,
+ 		0x00540f,
+@@ -157,11 +172,38 @@ static int zd1211_al2230_init_hw(struct 
+ 		0x00500f,
+ 	};
+ 
+-	r = zd_iowrite16a_locked(chip, ioreqs, ARRAY_SIZE(ioreqs));
++	r = zd_iowrite16a_locked(chip, ioreqs_init, ARRAY_SIZE(ioreqs_init));
+ 	if (r)
+ 		return r;
+ 
+-	r = zd_rfwritev_locked(chip, rv, ARRAY_SIZE(rv), RF_RV_BITS);
++	if (chip->al2230s_bit) {
++		r = zd_iowrite16a_locked(chip, ioreqs_init_al2230s,
++			ARRAY_SIZE(ioreqs_init_al2230s));
++		if (r)
++			return r;
++	}
++
++	r = zd_rfwritev_locked(chip, rv1, ARRAY_SIZE(rv1), RF_RV_BITS);
++	if (r)
++		return r;
++
++	/* improve band edge for AL2230S */
++	if (chip->al2230s_bit)
++		r = zd_rfwrite_locked(chip, 0x000824, RF_RV_BITS);
++	else
++		r = zd_rfwrite_locked(chip, 0x0005a4, RF_RV_BITS);
++	if (r)
++		return r;
++
++	r = zd_rfwritev_locked(chip, rv2, ARRAY_SIZE(rv2), RF_RV_BITS);
++	if (r)
++		return r;
++
++	r = zd_iowrite16a_locked(chip, ioreqs_pll, ARRAY_SIZE(ioreqs_pll));
++	if (r)
++		return r;
++
++	r = zd_rfwritev_locked(chip, rv3, ARRAY_SIZE(rv3), RF_RV_BITS);
+ 	if (r)
+ 		return r;
+ 
+@@ -227,7 +269,9 @@ static int zd1211b_al2230_init_hw(struct
+ 		0x481dc0,
+ 		0xcfff00,
+ 		0x25a000,
++	};
+ 
++	static const u32 rv2[] = {
+ 		/* To improve AL2230 yield, improve phase noise, 4713 */
+ 		0x25a000,
+ 		0xa3b2f0,
+@@ -250,7 +294,7 @@ static int zd1211b_al2230_init_hw(struct
+ 		{ CR251, 0x7f }, /* shdnb(PLL_ON)=1 */
+ 	};
+ 
+-	static const u32 rv2[] = {
++	static const u32 rv3[] = {
+ 		/* To improve AL2230 yield, 4713 */
+ 		0xf01b00,
+ 		0xf01e00,
+@@ -269,18 +313,37 @@ static int zd1211b_al2230_init_hw(struct
+ 	r = zd_iowrite16a_locked(chip, ioreqs1, ARRAY_SIZE(ioreqs1));
+ 	if (r)
+ 		return r;
++
++	if (chip->al2230s_bit) {
++		r = zd_iowrite16a_locked(chip, ioreqs_init_al2230s,
++			ARRAY_SIZE(ioreqs_init_al2230s));
++		if (r)
++			return r;
++	}
++
+ 	r = zd_rfwritev_cr_locked(chip, zd1211b_al2230_table[0], 3);
+ 	if (r)
+ 		return r;
+ 	r = zd_rfwritev_cr_locked(chip, rv1, ARRAY_SIZE(rv1));
+ 	if (r)
+ 		return r;
+-	r = zd_iowrite16a_locked(chip, ioreqs2, ARRAY_SIZE(ioreqs2));
++
++	if (chip->al2230s_bit)
++		r = zd_rfwrite_locked(chip, 0x241000, RF_RV_BITS);
++	else
++		r = zd_rfwrite_locked(chip, 0x25a000, RF_RV_BITS);
+ 	if (r)
+ 		return r;
++
+ 	r = zd_rfwritev_cr_locked(chip, rv2, ARRAY_SIZE(rv2));
+ 	if (r)
+ 		return r;
++	r = zd_iowrite16a_locked(chip, ioreqs2, ARRAY_SIZE(ioreqs2));
++	if (r)
++		return r;
++	r = zd_rfwritev_cr_locked(chip, rv3, ARRAY_SIZE(rv3));
++	if (r)
++		return r;
+ 	r = zd_iowrite16a_locked(chip, ioreqs3, ARRAY_SIZE(ioreqs3));
+ 	if (r)
+ 		return r;
+@@ -358,12 +421,6 @@ int zd_rf_init_al2230(struct zd_rf *rf)
+ {
+ 	struct zd_chip *chip = zd_rf_to_chip(rf);
+ 
+-	if (chip->al2230s_bit) {
+-		dev_err(zd_chip_dev(chip), "AL2230S devices are not yet "
+-			"supported by this driver.\n");
+-		return -ENODEV;
+-	}
+-
+ 	rf->switch_radio_off = al2230_switch_radio_off;
+ 	if (chip->is_zd1211b) {
+ 		rf->init_hw = zd1211b_al2230_init_hw;
