@@ -1,117 +1,82 @@
 From: Florian Zumbiehl <florz@florz.de>
-Subject: [PATCH 1/4] PPPoE: miscellaneous smaller cleanups
-Date: Sun, 11 Mar 2007 05:28:49 +0100
-Message-ID: <20070311042849.GA17712@florz.florz.dyndns.org>
+Subject: [PATCH 2/4] PPPoE: race between interface going down and connect()
+Date: Sun, 11 Mar 2007 05:40:51 +0100
+Message-ID: <20070311044051.GB17712@florz.florz.dyndns.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 To: mostrows@earthlink.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from odnb-d9bbdd48.pool.mediaWays.net ([217.187.221.72]:3828 "EHLO
+Received: from odnb-d9bbdd48.pool.mediaWays.net ([217.187.221.72]:3381 "EHLO
 	rain.florz.dyndns.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933077AbXCKEiH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 10 Mar 2007 23:38:07 -0500
+	with ESMTP id S933147AbXCKEky (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 10 Mar 2007 23:40:54 -0500
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Hi,
 
-below is a patch that just removes dead code/initializers without any
-effect (first access is an assignment) that I stumbled accross while
-reading the source.
+below you find a patch that (hopefully) fixes a race between an interface
+going down and a connect() to a peer on that interface. Before,
+connect() would determine that an interface is up, then the interface
+could go down and all entries referring to that interface in the
+item_hash_table would be marked as ZOMBIEs and their references to
+the device would be freed, and after that, connect() would put a new
+entry into the hash table referring to the device that meanwhile is
+down already - which also would cause unregister_netdevice() to wait
+until the socket has been release()d.
+
+This patch does not suffice if we are not allowed to accept connect()s
+referring to a device that we already acked a NETDEV_GOING_DOWN for
+(that is: all references are only guaranteed to be freed after
+NETDEV_DOWN has been acknowledged, not necessarily after the
+NETDEV_GOING_DOWN already). And if we are allowed to, we could avoid
+looking through the hash table upon NETDEV_GOING_DOWN completely and
+only do that once we get the NETDEV_DOWN ...
 
 Florian
 
 ---------------------------------------------------------------------------
 diff --git a/drivers/net/pppoe.c b/drivers/net/pppoe.c
-index 13f5b22..18d1a4d 100644
+index 18d1a4d..1aeac2c 100644
 --- a/drivers/net/pppoe.c
 +++ b/drivers/net/pppoe.c
-@@ -207,7 +207,7 @@ static inline struct pppox_sock *get_item(unsigned long sid,
- 
- static inline struct pppox_sock *get_item_by_addr(struct sockaddr_pppox *sp)
- {
--	struct net_device *dev = NULL;
-+	struct net_device *dev;
- 	int ifindex;
- 
- 	dev = dev_get_by_name(sp->sa_addr.pppoe.dev);
-@@ -222,9 +222,6 @@ static inline int set_item(struct pppox_sock *po)
- {
- 	int i;
- 
--	if (!po)
--		return -EINVAL;
--
- 	write_lock_bh(&pppoe_hash_lock);
- 	i = __set_item(po);
- 	write_unlock_bh(&pppoe_hash_lock);
-@@ -344,7 +341,7 @@ static struct notifier_block pppoe_notifier = {
- static int pppoe_rcv_core(struct sock *sk, struct sk_buff *skb)
- {
- 	struct pppox_sock *po = pppox_sk(sk);
--	struct pppox_sock *relay_po = NULL;
-+	struct pppox_sock *relay_po;
- 
- 	if (sk->sk_state & PPPOX_BOUND) {
- 		struct pppoe_hdr *ph = (struct pppoe_hdr *) skb->nh.raw;
-@@ -514,7 +511,6 @@ static int pppoe_release(struct socket *sock)
- {
- 	struct sock *sk = sock->sk;
- 	struct pppox_sock *po;
--	int error = 0;
- 
- 	if (!sk)
- 		return 0;
-@@ -543,7 +539,7 @@ static int pppoe_release(struct socket *sock)
- 	skb_queue_purge(&sk->sk_receive_queue);
- 	sock_put(sk);
- 
--	return error;
-+	return 0;
+@@ -218,17 +218,6 @@ static inline struct pppox_sock *get_item_by_addr(struct sockaddr_pppox *sp)
+ 	return get_item(sp->sa_addr.pppoe.sid, sp->sa_addr.pppoe.remote, ifindex);
  }
  
- 
-@@ -762,10 +758,10 @@ static int pppoe_ioctl(struct socket *sock, unsigned int cmd,
- static int pppoe_sendmsg(struct kiocb *iocb, struct socket *sock,
- 		  struct msghdr *m, size_t total_len)
+-static inline int set_item(struct pppox_sock *po)
+-{
+-	int i;
+-
+-	write_lock_bh(&pppoe_hash_lock);
+-	i = __set_item(po);
+-	write_unlock_bh(&pppoe_hash_lock);
+-
+-	return i;
+-}
+-
+ static inline struct pppox_sock *delete_item(unsigned long sid, char *addr, int ifindex)
  {
--	struct sk_buff *skb = NULL;
-+	struct sk_buff *skb;
- 	struct sock *sk = sock->sk;
- 	struct pppox_sock *po = pppox_sk(sk);
--	int error = 0;
-+	int error;
- 	struct pppoe_hdr hdr;
- 	struct pppoe_hdr *ph;
- 	struct net_device *dev;
-@@ -929,10 +925,10 @@ static int pppoe_recvmsg(struct kiocb *iocb, struct socket *sock,
- 		  struct msghdr *m, size_t total_len, int flags)
- {
- 	struct sock *sk = sock->sk;
--	struct sk_buff *skb = NULL;
-+	struct sk_buff *skb;
- 	int error = 0;
- 	int len;
--	struct pppoe_hdr *ph = NULL;
-+	struct pppoe_hdr *ph;
+ 	struct pppox_sock *ret;
+@@ -595,14 +584,18 @@ static int pppoe_connect(struct socket *sock, struct sockaddr *uservaddr,
+ 		po->pppoe_dev = dev;
+ 		po->pppoe_ifindex = dev->ifindex;
  
- 	if (sk->sk_state & PPPOX_BOUND) {
- 		error = -EIO;
-@@ -949,7 +945,6 @@ static int pppoe_recvmsg(struct kiocb *iocb, struct socket *sock,
- 	m->msg_namelen = 0;
+-		if (!(dev->flags & IFF_UP))
++		write_lock_bh(&pppoe_hash_lock);
++		if (!(dev->flags & IFF_UP)){
++			write_unlock_bh(&pppoe_hash_lock);
+ 			goto err_put;
++		}
  
- 	if (skb) {
--		error = 0;
- 		ph = (struct pppoe_hdr *) skb->nh.raw;
- 		len = ntohs(ph->length);
+ 		memcpy(&po->pppoe_pa,
+ 		       &sp->sa_addr.pppoe,
+ 		       sizeof(struct pppoe_addr));
  
-@@ -991,7 +986,7 @@ out:
+-		error = set_item(po);
++		error = __set_item(po);
++		write_unlock_bh(&pppoe_hash_lock);
+ 		if (error < 0)
+ 			goto err_put;
  
- static __inline__ struct pppox_sock *pppoe_get_idx(loff_t pos)
- {
--	struct pppox_sock *po = NULL;
-+	struct pppox_sock *po;
- 	int i = 0;
- 
- 	for (; i < PPPOE_HASH_SIZE; i++) {
