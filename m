@@ -1,287 +1,220 @@
-From: Mark Brown <broonie@sirena.org.uk>
-Subject: Re: [PATCH] natsemi: netpoll fixes
-Date: Sun, 11 Mar 2007 12:16:16 +0000
-Message-ID: <20070311121615.GF8133@sirena.org.uk>
-References: <200703052310.08359.sshtylyov@ru.mvista.com> <20070305224358.GB16290@sirena.org.uk> <45ECE9AC.3090804@mvista.com> <45F31421.4010908@ru.mvista.com>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: [PATCH] Attempt to add suspend/resume support to uli526x
+Date: Sun, 11 Mar 2007 14:47:45 +0100
+Message-ID: <200703111447.46006.rjw@sisk.pl>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="cpvLTH7QU4gwfq3S"
-Cc: Mark Huth <mhuth@mvista.com>, jgarzik@pobox.com,
-	netdev@vger.kernel.org
-To: Sergei Shtylyov <sshtylyov@ru.mvista.com>
+Content-Type: text/plain;
+  charset="iso-8859-2"
+Content-Transfer-Encoding: 7bit
+Cc: pm list <linux-pm@lists.osdl.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cassiel.sirena.org.uk ([80.68.93.111]:4846 "EHLO
-	cassiel.sirena.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933279AbXCKMVW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 11 Mar 2007 08:21:22 -0400
+Received: from ogre.sisk.pl ([217.79.144.158]:39811 "EHLO ogre.sisk.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752246AbXCKNpL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 11 Mar 2007 09:45:11 -0400
 Content-Disposition: inline
-In-Reply-To: <45F31421.4010908@ru.mvista.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi,
 
---cpvLTH7QU4gwfq3S
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+The uli526x network driver doesn't implement .suspend and .resume methods
+and the interface handled by it is unuseable after the resume.  Since I have
+one of these boards in a box which is used to test the suspend/resume
+functionality, I've prepared the appended patch that adds the .suspend and
+.resume routines to the uli526x driver based on the ones implemented by 3c59x.
 
-On Sat, Mar 10, 2007 at 11:25:05PM +0300, Sergei Shtylyov wrote:
+Please have a look at it and let me know if there's anything wrong with it (it
+seems to work and doesn't seem to break anything).
 
->    Oops, I was going to recast the patch but my attention switched=20
->    elsewhere for couple of days, and it "slipped" into mainline. I'm now=
-=20
-> preparing a better patch to also protect...
+Greetings,
+Rafael
 
-Ah, I was also looking at it.  I enclose my current patch which appears
-to work although I have not finished testing it yet.
+---
+ drivers/net/tulip/uli526x.c |  125 ++++++++++++++++++++++++++++++++++++++------
+ 1 file changed, 110 insertions(+), 15 deletions(-)
 
-> >interrupt handler, check the dev->state __LINK_STATE_SCHED flag - if=20
-> >it's set, leave immediately, it can't be our interrupt. If it's clear,=
-=20
-> >read the irq enable hardware register.  If enabled, do the rest of the=
-=20
-> >interrupt handler.
-
->    It seems that there's no need to read it, as it gets set to 0=20
-> "synchronously" with setting the 'hands_off' flag (except in NAPI=20
-> callback)...
-
-hands_off is stronger than that - it's used for sync with some of the
-other code paths like suspend/resume and means "don't touch the chip".
-I've added a new driver local flag instead.
-
->    Yeah, it seems currently unjustified.  However IntrEnable would have=
-=20
->    been an ultimate criterion on taking or ignoring an interrupt otherwis=
-e...
-
-> >I guess the tradeoff depends on the probability=20
-> >of getting the isr called when NAPI is active for the device.
-
->    Didn't get it... :-/
-
-Some systems can provoke this fairly easily - Sokeris have some boards
-where at least three natsemis share a single interrupt line, for example
-(the model I'm looking at has three, they look to have another
-configuration where 5 would end up on the line).
-
->    BTW, it seems I've found another interrupt lossage path in the driver:
-
-> netdev_poll() -> netdev_rx() -> reset_rx()
-
-> If the netdev_rx() detects an oversized packet, it will call reset_rx()=
-=20
-> which will spin in a loop "collecting" interrupt status until it sees=20
-> RxResetDone there.  The issue is 'intr_status' field will get overwritten=
-=20
-> and interrupt status lost after netdev_rx() returns to netdev_poll().  Ho=
-w=20
-> do you think, is this corner case worth fixing (by moving netdev_rx() call
-> to the top of a do/while loop)?
-
-Moving netdev_rx() would fix that one but there's some others too -
-there's one in the timer routine if the chip crashes.  In the case you
-describe above the consequences shouldn't be too bad since it tends to
-only occur at high volume so further traffic will tend to occur and
-cause things to recover - all the testing of that patch was done with
-the bug present and no ill effects.
-
-Subject: natsemi: Fix NAPI for interrupt sharing
-To: Jeff Garzik <jeff@garzik.org>
-Cc: Sergei Shtylyov <sshtylyov@ru.mvista.com>, Simon Blake <simon@citylink.=
-co.nz>, John Philips <johnphilips42@yahoo.com>, netdev@vger.kernel.org
-
-The interrupt status register for the natsemi chips is clear on read and
-was read unconditionally from both the interrupt and from the NAPI poll
-routine, meaning that if the interrupt service routine was called (for=20
-example, due to a shared interrupt) while a NAPI poll was scheduled
-interrupts could be missed.  This patch fixes that by ensuring that the
-interrupt status register is only read when there is no poll scheduled.
-
-It also reverts a workaround for this problem from the netpoll hook.
-
-Thanks to Sergei Shtylyov <sshtylyov@ru.mvista.com> for spotting the
-issue and Simon Blake <simon@citylink.co.nz> for testing resources.
-
-Signed-Off-By: Mark Brown <broonie@sirena.org.uk>
-
-Index: linux-2.6/drivers/net/natsemi.c
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
---- linux-2.6.orig/drivers/net/natsemi.c	2007-03-11 02:32:43.000000000 +0000
-+++ linux-2.6/drivers/net/natsemi.c	2007-03-11 12:09:14.000000000 +0000
-@@ -571,6 +571,8 @@
- 	int oom;
- 	/* Interrupt status */
- 	u32 intr_status;
-+	int poll_active;
-+	spinlock_t intr_lock;
- 	/* Do not touch the nic registers */
- 	int hands_off;
- 	/* Don't pay attention to the reported link state. */
-@@ -812,9 +814,11 @@
- 	pci_set_drvdata(pdev, dev);
- 	np->iosize =3D iosize;
- 	spin_lock_init(&np->lock);
-+	spin_lock_init(&np->intr_lock);
- 	np->msg_enable =3D (debug >=3D 0) ? (1<<debug)-1 : NATSEMI_DEF_MSG;
- 	np->hands_off =3D 0;
- 	np->intr_status =3D 0;
-+	np->poll_active =3D 0;
- 	np->eeprom_size =3D natsemi_pci_info[chip_idx].eeprom_size;
- 	if (natsemi_pci_info[chip_idx].flags & NATSEMI_FLAG_IGNORE_PHY)
- 		np->ignore_phy =3D 1;
-@@ -1406,6 +1410,8 @@
- 	writel(rfcr, ioaddr + RxFilterAddr);
- }
-=20
-+/* MUST be called so that both NAPI poll and ISR are excluded due to
-+ * use of intr_status. */
- static void reset_rx(struct net_device *dev)
+Index: linux-2.6.21-rc3-mm2/drivers/net/tulip/uli526x.c
+===================================================================
+--- linux-2.6.21-rc3-mm2.orig/drivers/net/tulip/uli526x.c	2007-02-04 19:44:54.000000000 +0100
++++ linux-2.6.21-rc3-mm2/drivers/net/tulip/uli526x.c	2007-03-11 14:24:29.000000000 +0100
+@@ -425,21 +425,14 @@ static void __devexit uli526x_remove_one
+ 
+ 
+ /*
+- *	Open the interface.
+- *	The interface is opened whenever "ifconfig" activates it.
++ *	Bring the interface up.
++ *	Used by uli526x_open and uli526x_resume.
+  */
+ 
+-static int uli526x_open(struct net_device *dev)
++static void uli526x_up(struct net_device *dev)
  {
- 	int i;
-@@ -2118,30 +2124,45 @@
- 	struct net_device *dev =3D dev_instance;
- 	struct netdev_private *np =3D netdev_priv(dev);
- 	void __iomem * ioaddr =3D ns_ioaddr(dev);
-+	unsigned long flags;
-+	irqreturn_t status =3D IRQ_NONE;
-=20
- 	if (np->hands_off)
- 		return IRQ_NONE;
-=20
--	/* Reading automatically acknowledges. */
--	np->intr_status =3D readl(ioaddr + IntrStatus);
+-	int ret;
+ 	struct uli526x_board_info *db = netdev_priv(dev);
+ 
+-	ULI526X_DBUG(0, "uli526x_open", 0);
 -
--	if (netif_msg_intr(np))
--		printk(KERN_DEBUG
--		       "%s: Interrupt, status %#08x, mask %#08x.\n",
--		       dev->name, np->intr_status,
--		       readl(ioaddr + IntrMask));
-+	spin_lock_irqsave(&np->intr_lock, flags);
-=20
--	if (!np->intr_status)
--		return IRQ_NONE;
-+	/* Reading IntrStatus automatically acknowledges so don't do
-+	 * that while a poll is scheduled.  */
-+	if (!np->poll_active) {
-+		np->intr_status =3D readl(ioaddr + IntrStatus);
-=20
--	prefetch(&np->rx_skbuff[np->cur_rx % RX_RING_SIZE]);
-+		if (netif_msg_intr(np))
-+			printk(KERN_DEBUG
-+			       "%s: Interrupt, status %#08x, mask %#08x.\n",
-+			       dev->name, np->intr_status,
-+			       readl(ioaddr + IntrMask));
+-	ret = request_irq(dev->irq, &uli526x_interrupt, IRQF_SHARED, dev->name, dev);
+-	if (ret)
+-		return ret;
+-
+ 	/* system variable init */
+ 	db->cr6_data = CR6_DEFAULT | uli526x_cr6_user_set;
+ 	db->tx_packet_cnt = 0;
+@@ -467,7 +460,25 @@ static int uli526x_open(struct net_devic
+ 	db->timer.data = (unsigned long)dev;
+ 	db->timer.function = &uli526x_timer;
+ 	add_timer(&db->timer);
++}
 +
-+		if (np->intr_status) {
-+			prefetch(&np->rx_skbuff[np->cur_rx % RX_RING_SIZE]);
 +
-+			/* Disable interrupts and register for poll */
-+			if (netif_rx_schedule_prep(dev)) {
-+				natsemi_irq_disable(dev);
-+				__netif_rx_schedule(dev);
-+				np->poll_active =3D 1;
-+			} else
-+				printk(KERN_WARNING
-+			       	       "%s: Ignoring interrupt, status %#08x, mask %#08x.\n",
-+				       dev->name, np->intr_status,
-+				       readl(ioaddr + IntrMask));
-=20
--	if (netif_rx_schedule_prep(dev)) {
--		/* Disable interrupts and register for poll */
--		natsemi_irq_disable(dev);
--		__netif_rx_schedule(dev);
-+			status =3D IRQ_HANDLED;
-+		}
- 	}
--	return IRQ_HANDLED;
++/*
++ *	Open the interface.
++ *	The interface is opened whenever "ifconfig" activates it.
++ */
 +
-+	spin_unlock_irqrestore(&np->intr_lock, flags);
-+	return status;
- }
-=20
- /* This is the NAPI poll routine.  As well as the standard RX handling
-@@ -2154,8 +2175,15 @@
-=20
- 	int work_to_do =3D min(*budget, dev->quota);
- 	int work_done =3D 0;
-+	unsigned long flags;
-=20
- 	do {
-+		if (netif_msg_intr(np))
-+			printk(KERN_DEBUG
-+			       "%s: Poll, status %#08x, mask %#08x.\n",
-+			       dev->name, np->intr_status,
-+			       readl(ioaddr + IntrMask));
++static int uli526x_open(struct net_device *dev)
++{
++	int ret;
 +
- 		if (np->intr_status &
- 		    (IntrTxDone | IntrTxIntr | IntrTxIdle | IntrTxErr)) {
- 			spin_lock(&np->lock);
-@@ -2182,14 +2210,19 @@
- 		np->intr_status =3D readl(ioaddr + IntrStatus);
- 	} while (np->intr_status);
-=20
-+	/* We need to ensure that the ISR doesn't run between telling
-+	 * NAPI we're done and enabling the interrupt. */
-+	spin_lock_irqsave(&np->intr_lock, flags);
++	ULI526X_DBUG(0, "uli526x_open", 0);
 +
- 	netif_rx_complete(dev);
-+	np->poll_active =3D 0;
-=20
- 	/* Reenable interrupts providing nothing is trying to shut
- 	 * the chip down. */
--	spin_lock(&np->lock);
--	if (!np->hands_off && netif_running(dev))
-+	if (!np->hands_off)
- 		natsemi_irq_enable(dev);
--	spin_unlock(&np->lock);
-+
-+	spin_unlock_irqrestore(&np->intr_lock, flags);
-=20
++	ret = request_irq(dev->irq, &uli526x_interrupt, IRQF_SHARED, dev->name, dev);
++	if (ret)
++		return ret;
+ 
++	uli526x_up(dev);
  	return 0;
  }
-@@ -2399,19 +2432,8 @@
- #ifdef CONFIG_NET_POLL_CONTROLLER
- static void natsemi_poll_controller(struct net_device *dev)
+ 
+@@ -613,17 +624,15 @@ static int uli526x_start_xmit(struct sk_
+ 
+ 
+ /*
+- *	Stop the interface.
+- *	The interface is stopped when it is brought.
++ *	Take the interface down.
++ *	Used by uli526x_stop and uli526x_suspend.
+  */
+ 
+-static int uli526x_stop(struct net_device *dev)
++static void uli526x_down(struct net_device *dev)
  {
--	struct netdev_private *np =3D netdev_priv(dev);
+ 	struct uli526x_board_info *db = netdev_priv(dev);
+ 	unsigned long ioaddr = dev->base_addr;
+ 
+-	ULI526X_DBUG(0, "uli526x_stop", 0);
 -
- 	disable_irq(dev->irq);
--
--	/*
--	 * A real interrupt might have already reached us at this point
--	 * but NAPI might still haven't called us back.  As the interrupt
--	 * status register is cleared by reading, we should prevent an
--	 * interrupt loss in this case...
--	 */
--	if (!np->intr_status)
--		intr_handler(dev->irq, dev);
--
-+	intr_handler(dev->irq, dev);
- 	enable_irq(dev->irq);
+ 	/* disable system */
+ 	netif_stop_queue(dev);
+ 
+@@ -634,6 +643,21 @@ static int uli526x_stop(struct net_devic
+ 	outl(ULI526X_RESET, ioaddr + DCR0);
+ 	udelay(5);
+ 	phy_write(db->ioaddr, db->phy_addr, 0, 0x8000, db->chip_id);
++}
++
++
++/*
++ *	Stop the interface.
++ *	The interface is stopped when it is brought.
++ */
++
++static int uli526x_stop(struct net_device *dev)
++{
++	struct uli526x_board_info *db = netdev_priv(dev);
++
++	ULI526X_DBUG(0, "uli526x_stop", 0);
++
++	uli526x_down(dev);
+ 
+ 	/* free interrupt */
+ 	free_irq(dev->irq, dev);
+@@ -654,6 +678,73 @@ static int uli526x_stop(struct net_devic
  }
- #endif
-
---=20
-"You grabbed my hand and we fell into it, like a daydream - or a fever."
-
-
-
---cpvLTH7QU4gwfq3S
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.6 (GNU/Linux)
-
-iQCVAwUBRfPzCw2erOLNe+68AQLIuAP8C3Q42GCR9DykmhjjznRe3Mn0ohoTiThA
-SsFC2wQ11vUzefNGRauLnLgpwL4cjX0KuLs9raZaePJkHycchVM1Gh9kEHCZ2tv/
-tFEYr4vyHyyRTs6jv1dRt+oMunWVvvs4eEcIfkDOlWlo9uVfjZgji9VVxVgDn+dJ
-48j7CwKHAjM=
-=7SqR
------END PGP SIGNATURE-----
-
---cpvLTH7QU4gwfq3S--
+ 
+ 
++#ifdef CONFIG_PM
++
++/*
++ *	Suspend the interface.
++ */
++
++static int uli526x_suspend(struct pci_dev *pdev, pm_message_t state)
++{
++	struct net_device *dev = pci_get_drvdata(pdev);
++
++	ULI526X_DBUG(0, "uli526x_suspend", 0);
++
++	if (dev && netdev_priv(dev)) {
++		if (netif_running(dev)) {
++			netif_device_detach(dev);
++			uli526x_down(dev);
++		}
++		pci_save_state(pdev);
++		pci_enable_wake(pdev, pci_choose_state(pdev, state), 0);
++		free_irq(dev->irq, dev);
++		pci_disable_device(pdev);
++		pci_set_power_state(pdev, pci_choose_state(pdev, state));
++	}
++	return 0;
++}
++
++/*
++ *	Resume the interface.
++ */
++
++static int uli526x_resume(struct pci_dev *pdev)
++{
++	struct net_device *dev = pci_get_drvdata(pdev);
++	struct uli526x_board_info *db = netdev_priv(dev);
++	int err;
++
++	ULI526X_DBUG(0, "uli526x_resume", 0);
++
++	if (dev && db) {
++		pci_set_power_state(pdev, PCI_D0);
++		pci_restore_state(pdev);
++		err = pci_enable_device(pdev);
++		if (err) {
++			printk(KERN_WARNING "%s: Could not enable device \n",
++				dev->name);
++			return err;
++		}
++		pci_set_master(pdev);
++		err = request_irq(dev->irq, &uli526x_interrupt, IRQF_SHARED,
++					dev->name, dev);
++		if (err) {
++			printk(KERN_WARNING "%s: Could not reserve IRQ %d\n",
++				dev->name, dev->irq);
++			pci_disable_device(pdev);
++			return err;
++		}
++		if (netif_running(dev)) {
++			uli526x_up(dev);
++			netif_device_attach(dev);
++		}
++	}
++	return 0;
++}
++
++#endif /* CONFIG_PM */
++
++
+ /*
+  *	M5261/M5263 insterrupt handler
+  *	receive the packet to upper layer, free the transmitted packet
+@@ -1683,6 +1774,10 @@ static struct pci_driver uli526x_driver 
+ 	.id_table	= uli526x_pci_tbl,
+ 	.probe		= uli526x_init_one,
+ 	.remove		= __devexit_p(uli526x_remove_one),
++#ifdef CONFIG_PM
++	.suspend	= uli526x_suspend,
++	.resume		= uli526x_resume,
++#endif
+ };
+ 
+ MODULE_AUTHOR("Peer Chen, peer.chen@uli.com.tw");
