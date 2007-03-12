@@ -1,32 +1,46 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: Fw: [Bugme-new] [Bug 8057] New: slab corruption running ip6sic
-Date: Mon, 12 Mar 2007 11:29:45 +0100
-Message-ID: <20070312102945.GC1664@ff.dom.local>
-References: <20070222134918.e2f1af6d.akpm@linux-foundation.org> <20070312102403.GB1664@ff.dom.local>
+From: "Pekka Enberg" <penberg@cs.helsinki.fi>
+Subject: Re: [patch 4/4] [TULIP] Rev tulip version
+Date: Mon, 12 Mar 2007 12:44:12 +0200
+Message-ID: <84144f020703120344n3f5ed52axf0bc1c109b549535@mail.gmail.com>
+References: <20070312093128.577087000@linux.intel.com>
+	 <20070312095912.743760000@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-	"bugme-daemon\@kernel-bugs\.osdl\.org"
-	<bugme-daemon@bugzilla.kernel.org>, snakebyte@gmx.de
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	"Jeff Garzik" <jeff@garzik.org>
+To: "Valerie Henson" <val_henson@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from poczta.o2.pl ([193.17.41.142]:42539 "EHLO poczta.o2.pl"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S965485AbXCLKZe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Mar 2007 06:25:34 -0400
+Received: from nf-out-0910.google.com ([64.233.182.191]:63811 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965511AbXCLKoO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Mar 2007 06:44:14 -0400
+Received: by nf-out-0910.google.com with SMTP id o25so1964189nfa
+        for <netdev@vger.kernel.org>; Mon, 12 Mar 2007 03:44:13 -0700 (PDT)
+In-Reply-To: <20070312095912.743760000@linux.intel.com>
 Content-Disposition: inline
-In-Reply-To: <20070312102403.GB1664@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 12, 2007 at 11:24:03AM +0100, Jarek Poplawski wrote:
-...
-> I think your diagnose is correct (all "return -1" should be
-> changed to "return 0" in xfrm6_input.c).
+Hi,
 
-Sorry! Of course should be:
+On 3/12/07, Valerie Henson <val_henson@linux.intel.com> wrote:
+> --- tulip-2.6-mm-linux.orig/drivers/net/tulip/tulip_core.c
+> +++ tulip-2.6-mm-linux/drivers/net/tulip/tulip_core.c
+> @@ -17,11 +17,11 @@
+>
+>  #define DRV_NAME       "tulip"
+>  #ifdef CONFIG_TULIP_NAPI
+> -#define DRV_VERSION    "1.1.14-NAPI" /* Keep at least for test */
+> +#define DRV_VERSION    "1.1.15-NAPI" /* Keep at least for test */
+>  #else
+> -#define DRV_VERSION    "1.1.14"
+> +#define DRV_VERSION    "1.1.15"
+>  #endif
+> -#define DRV_RELDATE    "May 11, 2002"
+> +#define DRV_RELDATE    "Feb 27, 2007"
 
-I think your diagnose is correct (all "return -1" should be
-changed to "return 0" in xfrm6_rcv_spi()).
+Why not just drop this? What purpose does a per-module revision have
+for in-kernel drivers anyway?
 
-Jarek P.
+                                      Pekka
