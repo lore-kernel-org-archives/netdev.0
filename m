@@ -1,50 +1,78 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [patch 4/4] [TULIP] Rev tulip version
-Date: Mon, 12 Mar 2007 10:07:33 -0400
-Message-ID: <45F55EA5.9080005@garzik.org>
-References: <20070312093128.577087000@linux.intel.com>	 <20070312095912.743760000@linux.intel.com> <84144f020703120344n3f5ed52axf0bc1c109b549535@mail.gmail.com>
+From: "Michael S. Tsirkin" <mst@mellanox.co.il>
+Subject: Re: lockdep question (was Re: IPoIB caused a kernel: BUG: softlockup
+	detected on CPU#0!)
+Date: Mon, 12 Mar 2007 16:20:13 +0200
+Message-ID: <20070312142013.GC21643@mellanox.co.il>
+References: <45E552FC.4040305@mellanox.co.il>
+	<f8ca0a150703030937u61bcd9aj200415b76c00d151@mail.gmail.com>
+	<20070311135051.GA31985@mellanox.co.il>
+	<1173626719.5182.10.camel@lappy>
+	<20070311161231.GC13817@mellanox.co.il>
+	<20070311184819.GA2567@elte.hu>
+	<20070312132826.GB20549@mellanox.co.il>
+	<20070312135112.GA18158@elte.hu>
+Reply-To: "Michael S. Tsirkin" <mst@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Valerie Henson <val_henson@linux.intel.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Pekka Enberg <penberg@cs.helsinki.fi>
+Content-Type: text/plain; charset=us-ascii
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	general@lists.openfabrics.org, Roland Dreier <rdreier@cisco.com>,
+	netdev@vger.kernel.org
+To: Ingo Molnar <mingo@elte.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:50433 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965490AbXCLOHj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Mar 2007 10:07:39 -0400
-In-Reply-To: <84144f020703120344n3f5ed52axf0bc1c109b549535@mail.gmail.com>
+Received: from mu-out-0910.google.com ([209.85.134.190]:2522 "EHLO
+	mu-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965871AbXCLOTd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Mar 2007 10:19:33 -0400
+Received: by mu-out-0910.google.com with SMTP id g7so2056285muf
+        for <netdev@vger.kernel.org>; Mon, 12 Mar 2007 07:19:32 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20070312135112.GA18158@elte.hu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Pekka Enberg wrote:
-> Hi,
+> Quoting Ingo Molnar <mingo@elte.hu>:
+> Subject: Re: lockdep question (was Re: IPoIB caused a kernel: BUG: softlockup detected on CPU#0!)
 > 
-> On 3/12/07, Valerie Henson <val_henson@linux.intel.com> wrote:
->> --- tulip-2.6-mm-linux.orig/drivers/net/tulip/tulip_core.c
->> +++ tulip-2.6-mm-linux/drivers/net/tulip/tulip_core.c
->> @@ -17,11 +17,11 @@
->>
->>  #define DRV_NAME       "tulip"
->>  #ifdef CONFIG_TULIP_NAPI
->> -#define DRV_VERSION    "1.1.14-NAPI" /* Keep at least for test */
->> +#define DRV_VERSION    "1.1.15-NAPI" /* Keep at least for test */
->>  #else
->> -#define DRV_VERSION    "1.1.14"
->> +#define DRV_VERSION    "1.1.15"
->>  #endif
->> -#define DRV_RELDATE    "May 11, 2002"
->> +#define DRV_RELDATE    "Feb 27, 2007"
 > 
-> Why not just drop this? What purpose does a per-module revision have
-> for in-kernel drivers anyway?
+> * Michael S. Tsirkin <mst@mellanox.co.il> wrote:
+> 
+> > > could you turn on CONFIG_SLAB_DEBUG as well?
+> > > 
+> > > that should catch certain types of use-after-free accesses, and 
+> > > lockdep will also warn if a still locked object is freed.
+> > 
+> > Hmm, no, this does not look like use-after-free. I enabled 
+> > CONFIG_SLAB_DEBUG, and I still see the same message, so the memory was 
+> > not overwritten by slab debugger.
+> 
+> that's still not conclusive - the memory might not have been allocated 
+> by slab again to detect it. Your magic-number check definitely shows 
+> some sort of corruption going on, right?
 
-It's the maintainer's call.  Sometimes it eases parsing bug reports, and 
-tracking changes as your drivers get backported to various enterprise 
-operating systems(tm).  Sometimes it just gets in the way.
+Not necessarily in such a direct way.
 
-	Jeff
+I currently think we are somehow getting neighbours where
+neigh->dev points to a loopback device - that's type 772,
+and this seems to make sense.
+I printed out the device name and sure enough it is "lo".
 
+Is it true that sticking the following
 
+static int ipoib_neigh_setup_dev(struct net_device *dev,
+				 struct neigh_parms *parms)
+{
+	parms->neigh_destructor = ipoib_neigh_destructor;
 
+	return 0;
+}
+
+in dev->neigh_setup, as ipoib does, guarantees that neighbour->dev will point to
+the current device for any neighbour which ipoib_neigh_destructor gets?
+
+That's the assumption IPoIB makes, and it seems broken in this instance.
+
+How could that be?
+
+-- 
+MST
