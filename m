@@ -1,216 +1,86 @@
 From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [patch 2/4] net: make seq_operations const
-Date: Mon, 12 Mar 2007 14:08:19 -0700
-Message-ID: <20070312210907.658532320@linux-foundation.org>
-References: <20070312210817.485320783@linux-foundation.org>
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] tcp_cubic: use 32 bit math
+Date: Mon, 12 Mar 2007 14:11:56 -0700
+Message-ID: <20070312141156.08e88b0e@freekitty>
+References: <20070307170731.2b4397e3@freekitty>
+	<20070307.185539.48527371.davem@davemloft.net>
+	<45EF7EB7.8040806@linux-foundation.org>
+	<20070307.195135.74749102.davem@davemloft.net>
+	<20070310114826.GB1608@1wt.eu>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	rkuhn@e18.physik.tu-muenchen.de, andi@firstfloor.org,
+	dada1@cosmosbay.com, jengelh@linux01.gwdg.de,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Willy Tarreau <w@1wt.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:42390 "EHLO smtp.osdl.org"
+Received: from smtp.osdl.org ([65.172.181.24]:42490 "EHLO smtp.osdl.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752954AbXCLVJd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Mar 2007 17:09:33 -0400
-Content-Disposition: inline; filename=net-seq-ops-const.patch
+	id S1752430AbXCLVNt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 Mar 2007 17:13:49 -0400
+In-Reply-To: <20070310114826.GB1608@1wt.eu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The seq_file operations stuff can be marked constant to
-get it out of dirty cache.
+On Sat, 10 Mar 2007 12:48:26 +0100
+Willy Tarreau <w@1wt.eu> wrote:
 
-Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
----
- net/core/dev.c       |    4 ++--
- net/core/dev_mcast.c |    2 +-
- net/core/neighbour.c |    2 +-
- net/core/sock.c      |    2 +-
- net/core/wireless.c  |    2 +-
- net/ipv4/arp.c       |    2 +-
- net/ipv4/fib_hash.c  |    2 +-
- net/ipv4/fib_trie.c  |    4 ++--
- net/ipv4/igmp.c      |    4 ++--
- net/ipv4/ipmr.c      |    4 ++--
- net/ipv4/raw.c       |    2 +-
- net/ipv4/route.c     |    4 ++--
- 12 files changed, 17 insertions(+), 17 deletions(-)
+> On Wed, Mar 07, 2007 at 07:51:35PM -0800, David Miller wrote:
+> > From: Stephen Hemminger <shemminger@linux-foundation.org>
+> > Date: Wed, 07 Mar 2007 19:10:47 -0800
+> > 
+> > > David Miller wrote:
+> > > > What about Willy Tarreau's supposedly even faster variant?
+> > > > Or does this incorporate that set of improvements?
+> > > >   
+> > > That's what this is:
+> > >     x = (2 * x + (uint32_t)div64_64(a, (uint64_t)x*(uint64_t)x)) / 3;
+> > 
+> > Great, thanks for the clarification.
+> 
+> Oh BTW, I have a newer version with a first approximation of the
+> cbrt() before the div64_64, which allows us to reduce from 3 div64
+> to only 2 div64. This results in a version which is twice as fast
+> as the initial one (ncubic), but with slightly less accuracy (0.286%
+> compared to 0.247). But I see that other functions such as hcbrt()
+> had a 1.5% avg error, so I think this is not dramatic.
 
---- net-2.6.22.orig/net/core/dev.c	2007-03-12 12:29:38.000000000 -0700
-+++ net-2.6.22/net/core/dev.c	2007-03-12 12:29:39.000000000 -0700
-@@ -2177,7 +2177,7 @@
- 	return 0;
- }
- 
--static struct seq_operations dev_seq_ops = {
-+static const struct seq_operations dev_seq_ops = {
- 	.start = dev_seq_start,
- 	.next  = dev_seq_next,
- 	.stop  = dev_seq_stop,
-@@ -2197,7 +2197,7 @@
- 	.release = seq_release,
- };
- 
--static struct seq_operations softnet_seq_ops = {
-+static const struct seq_operations softnet_seq_ops = {
- 	.start = softnet_seq_start,
- 	.next  = softnet_seq_next,
- 	.stop  = softnet_seq_stop,
---- net-2.6.22.orig/net/core/dev_mcast.c	2007-03-12 12:05:34.000000000 -0700
-+++ net-2.6.22/net/core/dev_mcast.c	2007-03-12 12:29:39.000000000 -0700
-@@ -264,7 +264,7 @@
- 	return 0;
- }
- 
--static struct seq_operations dev_mc_seq_ops = {
-+static const struct seq_operations dev_mc_seq_ops = {
- 	.start = dev_mc_seq_start,
- 	.next  = dev_mc_seq_next,
- 	.stop  = dev_mc_seq_stop,
---- net-2.6.22.orig/net/core/neighbour.c	2007-03-12 12:05:34.000000000 -0700
-+++ net-2.6.22/net/core/neighbour.c	2007-03-12 12:29:39.000000000 -0700
-@@ -2384,7 +2384,7 @@
- 	return 0;
- }
- 
--static struct seq_operations neigh_stat_seq_ops = {
-+static const struct seq_operations neigh_stat_seq_ops = {
- 	.start	= neigh_stat_seq_start,
- 	.next	= neigh_stat_seq_next,
- 	.stop	= neigh_stat_seq_stop,
---- net-2.6.22.orig/net/core/sock.c	2007-03-12 12:05:58.000000000 -0700
-+++ net-2.6.22/net/core/sock.c	2007-03-12 12:29:39.000000000 -0700
-@@ -1925,7 +1925,7 @@
- 	return 0;
- }
- 
--static struct seq_operations proto_seq_ops = {
-+static const struct seq_operations proto_seq_ops = {
- 	.start  = proto_seq_start,
- 	.next   = proto_seq_next,
- 	.stop   = proto_seq_stop,
---- net-2.6.22.orig/net/core/wireless.c	2007-03-12 12:05:34.000000000 -0700
-+++ net-2.6.22/net/core/wireless.c	2007-03-12 12:29:39.000000000 -0700
-@@ -660,7 +660,7 @@
- 	return 0;
- }
- 
--static struct seq_operations wireless_seq_ops = {
-+static const struct seq_operations wireless_seq_ops = {
- 	.start = dev_seq_start,
- 	.next  = dev_seq_next,
- 	.stop  = dev_seq_stop,
---- net-2.6.22.orig/net/ipv4/arp.c	2007-03-12 12:05:34.000000000 -0700
-+++ net-2.6.22/net/ipv4/arp.c	2007-03-12 12:29:39.000000000 -0700
-@@ -1360,7 +1360,7 @@
- 
- /* ------------------------------------------------------------------------ */
- 
--static struct seq_operations arp_seq_ops = {
-+static const struct seq_operations arp_seq_ops = {
- 	.start  = arp_seq_start,
- 	.next   = neigh_seq_next,
- 	.stop   = neigh_seq_stop,
---- net-2.6.22.orig/net/ipv4/fib_hash.c	2007-03-12 12:05:34.000000000 -0700
-+++ net-2.6.22/net/ipv4/fib_hash.c	2007-03-12 12:29:39.000000000 -0700
-@@ -1027,7 +1027,7 @@
- 	return 0;
- }
- 
--static struct seq_operations fib_seq_ops = {
-+static const struct seq_operations fib_seq_ops = {
- 	.start  = fib_seq_start,
- 	.next   = fib_seq_next,
- 	.stop   = fib_seq_stop,
---- net-2.6.22.orig/net/ipv4/fib_trie.c	2007-03-12 12:05:34.000000000 -0700
-+++ net-2.6.22/net/ipv4/fib_trie.c	2007-03-12 12:29:39.000000000 -0700
-@@ -2332,7 +2332,7 @@
- 	return 0;
- }
- 
--static struct seq_operations fib_trie_seq_ops = {
-+static const struct seq_operations fib_trie_seq_ops = {
- 	.start  = fib_trie_seq_start,
- 	.next   = fib_trie_seq_next,
- 	.stop   = fib_trie_seq_stop,
-@@ -2453,7 +2453,7 @@
- 	return 0;
- }
- 
--static struct seq_operations fib_route_seq_ops = {
-+static const struct seq_operations fib_route_seq_ops = {
- 	.start  = fib_trie_seq_start,
- 	.next   = fib_trie_seq_next,
- 	.stop   = fib_trie_seq_stop,
---- net-2.6.22.orig/net/ipv4/igmp.c	2007-03-12 12:05:34.000000000 -0700
-+++ net-2.6.22/net/ipv4/igmp.c	2007-03-12 12:29:39.000000000 -0700
-@@ -2397,7 +2397,7 @@
- 	return 0;
- }
- 
--static struct seq_operations igmp_mc_seq_ops = {
-+static const struct seq_operations igmp_mc_seq_ops = {
- 	.start	=	igmp_mc_seq_start,
- 	.next	=	igmp_mc_seq_next,
- 	.stop	=	igmp_mc_seq_stop,
-@@ -2571,7 +2571,7 @@
- 	return 0;
- }
- 
--static struct seq_operations igmp_mcf_seq_ops = {
-+static const struct seq_operations igmp_mcf_seq_ops = {
- 	.start	=	igmp_mcf_seq_start,
- 	.next	=	igmp_mcf_seq_next,
- 	.stop	=	igmp_mcf_seq_stop,
---- net-2.6.22.orig/net/ipv4/ipmr.c	2007-03-12 12:05:34.000000000 -0700
-+++ net-2.6.22/net/ipv4/ipmr.c	2007-03-12 12:29:39.000000000 -0700
-@@ -1677,7 +1677,7 @@
- 	return 0;
- }
- 
--static struct seq_operations ipmr_vif_seq_ops = {
-+static const struct seq_operations ipmr_vif_seq_ops = {
- 	.start = ipmr_vif_seq_start,
- 	.next  = ipmr_vif_seq_next,
- 	.stop  = ipmr_vif_seq_stop,
-@@ -1840,7 +1840,7 @@
- 	return 0;
- }
- 
--static struct seq_operations ipmr_mfc_seq_ops = {
-+static const struct seq_operations ipmr_mfc_seq_ops = {
- 	.start = ipmr_mfc_seq_start,
- 	.next  = ipmr_mfc_seq_next,
- 	.stop  = ipmr_mfc_seq_stop,
---- net-2.6.22.orig/net/ipv4/raw.c	2007-03-12 12:05:34.000000000 -0700
-+++ net-2.6.22/net/ipv4/raw.c	2007-03-12 12:29:39.000000000 -0700
-@@ -887,7 +887,7 @@
- 	return 0;
- }
- 
--static struct seq_operations raw_seq_ops = {
-+static const struct seq_operations raw_seq_ops = {
- 	.start = raw_seq_start,
- 	.next  = raw_seq_next,
- 	.stop  = raw_seq_stop,
---- net-2.6.22.orig/net/ipv4/route.c	2007-03-12 12:05:58.000000000 -0700
-+++ net-2.6.22/net/ipv4/route.c	2007-03-12 12:29:39.000000000 -0700
-@@ -364,7 +364,7 @@
- 	return 0;
- }
- 
--static struct seq_operations rt_cache_seq_ops = {
-+static const struct seq_operations rt_cache_seq_ops = {
- 	.start  = rt_cache_seq_start,
- 	.next   = rt_cache_seq_next,
- 	.stop   = rt_cache_seq_stop,
-@@ -470,7 +470,7 @@
- 	return 0;
- }
- 
--static struct seq_operations rt_cpu_seq_ops = {
-+static const struct seq_operations rt_cpu_seq_ops = {
- 	.start  = rt_cpu_seq_start,
- 	.next   = rt_cpu_seq_next,
- 	.stop   = rt_cpu_seq_stop,
+Ignore my hcbrt() it was a less accurate version of andi's stuff.
 
---
+> Also, I managed to remove all other divides, to be kind with CPUs
+> having a slow divide instruction or no divide at all. Since we compute
+> on limited range (22 bits), we can multiply then shift right. It shows
+> me even slightly better time on pentium-m and athlon, with a slightly
+> higher avg error (0.297% compared to 0.286%), and slightly smaller
+> code.
+
+What does the code look like?
+
+ 
+> I just have to clean experiments from my code to provide a patch.
+> David, Stephen, are you interested ?
+> 
+> $ ./bictcp
+> fls(0)=0, fls(1)=1, fls(256)=9
+> Calibrating
+> Function     clocks  mean(us) max(us)  std(us)  Avg error
+> bictcp          936     0.61    24.28     1.99 0.172%
+> ocubic          886     0.57    23.51     3.18 0.274%
+> ncubic          644     0.42    16.59     2.18 0.247%
+> ncubic32        444     0.29    11.47     1.50 0.247%
+> ncubic32_1      444     0.29    11.56     1.88 0.238%
+> ncubic32b3      337     0.22     8.67     0.88 0.286%
+> ncubic_ndiv3    329     0.21     8.46     0.69 0.297%
+> acbrt           707     0.46    18.05     0.80 0.275%
+> hcbrt           644     0.42    16.44     0.51 1.580%
+> 
+> 
+> Regards,
+> Willy
+> 
+
+
+-- 
 Stephen Hemminger <shemminger@linux-foundation.org>
-
