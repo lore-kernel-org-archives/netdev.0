@@ -1,78 +1,52 @@
-From: "Michael S. Tsirkin" <mst@mellanox.co.il>
-Subject: Re: lockdep question (was Re: IPoIB caused a kernel: BUG: softlockup
-	detected on CPU#0!)
-Date: Mon, 12 Mar 2007 16:20:13 +0200
-Message-ID: <20070312142013.GC21643@mellanox.co.il>
-References: <45E552FC.4040305@mellanox.co.il>
-	<f8ca0a150703030937u61bcd9aj200415b76c00d151@mail.gmail.com>
-	<20070311135051.GA31985@mellanox.co.il>
-	<1173626719.5182.10.camel@lappy>
-	<20070311161231.GC13817@mellanox.co.il>
-	<20070311184819.GA2567@elte.hu>
-	<20070312132826.GB20549@mellanox.co.il>
-	<20070312135112.GA18158@elte.hu>
-Reply-To: "Michael S. Tsirkin" <mst@mellanox.co.il>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 0/5] NetXen: Driver bug fixes
+Date: Mon, 12 Mar 2007 10:31:52 -0400
+Message-ID: <45F56458.9020403@garzik.org>
+References: <200703090805.l29855n5011673@dut39.unminc.com> <200703101239.16417.amitkale@netxen.com> <45F294DC.50300@garzik.org> <200703121146.31531.amitkale@netxen.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	general@lists.openfabrics.org, Roland Dreier <rdreier@cisco.com>,
-	netdev@vger.kernel.org
-To: Ingo Molnar <mingo@elte.hu>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Linsys Contractor Mithlesh Thukral <mithlesh@netxen.com>,
+	netdev@vger.kernel.org, netxenproj@linsyssoft.com, rob@netxen.com
+To: Amit Kale <amitkale@netxen.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mu-out-0910.google.com ([209.85.134.190]:2522 "EHLO
-	mu-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965871AbXCLOTd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Mar 2007 10:19:33 -0400
-Received: by mu-out-0910.google.com with SMTP id g7so2056285muf
-        for <netdev@vger.kernel.org>; Mon, 12 Mar 2007 07:19:32 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20070312135112.GA18158@elte.hu>
+Received: from srv5.dvmed.net ([207.36.208.214]:50623 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965864AbXCLOby (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 Mar 2007 10:31:54 -0400
+In-Reply-To: <200703121146.31531.amitkale@netxen.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> Quoting Ingo Molnar <mingo@elte.hu>:
-> Subject: Re: lockdep question (was Re: IPoIB caused a kernel: BUG: softlockup detected on CPU#0!)
+Amit Kale wrote:
+> On Saturday 10 March 2007 16:52, Jeff Garzik wrote:
+>> Amit Kale wrote:
+>>> On Friday 09 March 2007 22:26, Jeff Garzik wrote:
+>>>> Linsys Contractor Mithlesh Thukral wrote:
+>>>>> Hi All,
+>>>>>
+>>>>> I will be sending updates to NetXen: 1G/10G Ethernet driver in
+>>>>> subsequent mails. The patches will be with respect to netdev#upstream.
+>>>> Are you sure you don't want some of these in #upstream-fixes, queued for
+>>>> 2.6.21-rc?
+>>> We really want them in both places. If we send them to #upstream-fixes,
+>>> they'll break #upstream. Should we send them against both of these
+>>> branches?
+>> Well, I can drop NetXen patches in #upstream, apply these to
+>> #upstream-fixes, and wait for a resend?
 > 
+> Could you do that, please? (drop NetXen patches in #upstream)
 > 
-> * Michael S. Tsirkin <mst@mellanox.co.il> wrote:
-> 
-> > > could you turn on CONFIG_SLAB_DEBUG as well?
-> > > 
-> > > that should catch certain types of use-after-free accesses, and 
-> > > lockdep will also warn if a still locked object is freed.
-> > 
-> > Hmm, no, this does not look like use-after-free. I enabled 
-> > CONFIG_SLAB_DEBUG, and I still see the same message, so the memory was 
-> > not overwritten by slab debugger.
-> 
-> that's still not conclusive - the memory might not have been allocated 
-> by slab again to detect it. Your magic-number check definitely shows 
-> some sort of corruption going on, right?
+> We'll resend them against #upstream-fixes.
 
-Not necessarily in such a direct way.
+Will note.
 
-I currently think we are somehow getting neighbours where
-neigh->dev points to a loopback device - that's type 772,
-and this seems to make sense.
-I printed out the device name and sure enough it is "lo".
+Just to be clear, I presume that you will only be resending the bug 
+fixes against #upstream-fixes (2.6.21-rc).  The multiple PCI function 
+stuff is way too big and invasive for 2.6.21-rc, which is why I 
+committed that to #upstream (2.6.22).
 
-Is it true that sticking the following
+	Jeff
 
-static int ipoib_neigh_setup_dev(struct net_device *dev,
-				 struct neigh_parms *parms)
-{
-	parms->neigh_destructor = ipoib_neigh_destructor;
 
-	return 0;
-}
 
-in dev->neigh_setup, as ipoib does, guarantees that neighbour->dev will point to
-the current device for any neighbour which ipoib_neigh_destructor gets?
-
-That's the assumption IPoIB makes, and it seems broken in this instance.
-
-How could that be?
-
--- 
-MST
