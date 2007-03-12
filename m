@@ -1,52 +1,67 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 0/5] NetXen: Driver bug fixes
-Date: Mon, 12 Mar 2007 10:31:52 -0400
-Message-ID: <45F56458.9020403@garzik.org>
-References: <200703090805.l29855n5011673@dut39.unminc.com> <200703101239.16417.amitkale@netxen.com> <45F294DC.50300@garzik.org> <200703121146.31531.amitkale@netxen.com>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [PATCH] NetLabel: parse the CIPSO ranged tag on incoming packets
+Date: Mon, 12 Mar 2007 10:50:41 -0400 (EDT)
+Message-ID: <Line.LNX.4.64.0703121050180.9351@d.namei>
+References: <20070312134615.294091233@flek.zko.hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linsys Contractor Mithlesh Thukral <mithlesh@netxen.com>,
-	netdev@vger.kernel.org, netxenproj@linsyssoft.com, rob@netxen.com
-To: Amit Kale <amitkale@netxen.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: Paul Moore <paul.moore@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:50623 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965864AbXCLOby (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Mar 2007 10:31:54 -0400
-In-Reply-To: <200703121146.31531.amitkale@netxen.com>
+Received: from mail6.sea5.speakeasy.net ([69.17.117.8]:54688 "EHLO
+	mail6.sea5.speakeasy.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030192AbXCLOup (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Mar 2007 10:50:45 -0400
+In-Reply-To: <20070312134615.294091233@flek.zko.hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Amit Kale wrote:
-> On Saturday 10 March 2007 16:52, Jeff Garzik wrote:
->> Amit Kale wrote:
->>> On Friday 09 March 2007 22:26, Jeff Garzik wrote:
->>>> Linsys Contractor Mithlesh Thukral wrote:
->>>>> Hi All,
->>>>>
->>>>> I will be sending updates to NetXen: 1G/10G Ethernet driver in
->>>>> subsequent mails. The patches will be with respect to netdev#upstream.
->>>> Are you sure you don't want some of these in #upstream-fixes, queued for
->>>> 2.6.21-rc?
->>> We really want them in both places. If we send them to #upstream-fixes,
->>> they'll break #upstream. Should we send them against both of these
->>> branches?
->> Well, I can drop NetXen patches in #upstream, apply these to
->> #upstream-fixes, and wait for a resend?
+On Mon, 12 Mar 2007, Paul Moore wrote:
+
+> Commit 484b366932be0b73a22c74a82748ca10a721643e added support for the CIPSO
+> ranged categories tag.  However, it appears that I made a mistake when rebasing
+> then patch to the latest upstream sources for submission and dropped the part
+> of the patch that actually parses the tag on incoming packets.  This patch
+> fixes this mistake by adding the required function call to the
+> cipso_v4_skbuff_getattr() function.
 > 
-> Could you do that, please? (drop NetXen patches in #upstream)
+> I've run this patch over the weekend and have not noticed any problems.
 > 
-> We'll resend them against #upstream-fixes.
+> Signed-off-by: Paul Moore <paul.moore@hp.com>
 
-Will note.
+Acked-by: James Morris <jmorris@namei.org>
 
-Just to be clear, I presume that you will only be resending the bug 
-fixes against #upstream-fixes (2.6.21-rc).  The multiple PCI function 
-stuff is way too big and invasive for 2.6.21-rc, which is why I 
-committed that to #upstream (2.6.22).
+> ---
+>  net/ipv4/cipso_ipv4.c |    5 +++++
+>  1 file changed, 5 insertions(+)
+> 
+> Index: net-2.6_bugfix_2/net/ipv4/cipso_ipv4.c
+> ===================================================================
+> --- net-2.6_bugfix_2.orig/net/ipv4/cipso_ipv4.c
+> +++ net-2.6_bugfix_2/net/ipv4/cipso_ipv4.c
+> @@ -1933,6 +1933,11 @@ int cipso_v4_skbuff_getattr(const struct
+>  						 &cipso_ptr[6],
+>  						 secattr);
+>  		break;
+> +	case CIPSO_V4_TAG_RANGE:
+> +		ret_val = cipso_v4_parsetag_rng(doi_def,
+> +						&cipso_ptr[6],
+> +						secattr);
+> +		break;
+>  	}
+>  
+>  skbuff_getattr_return:
+> 
+> --
+> paul moore
+> linux security @ hp
+> 
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
 
-	Jeff
-
-
-
+-- 
+James Morris
+<jmorris@namei.org>
