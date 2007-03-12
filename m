@@ -1,114 +1,62 @@
 From: "Arnaldo Carvalho de Melo" <acme@ghostprotocols.net>
-Subject: [PATCH 12/18][SK_BUFF] ipv6: More skb_reset_network_header conversions related to skb_pull
-Date: Mon, 12 Mar 2007 01:27:37 -0300
-Message-ID: <39e6f6c70703112127r7c721a76kacaa28a54a92a360@mail.gmail.com>
+Subject: [PATCH 13/18][SK_BUFF] xfrm4: use skb_reset_network_header
+Date: Mon, 12 Mar 2007 01:27:42 -0300
+Message-ID: <39e6f6c70703112127j154805aew334f1d94e7ac73e3@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
-	boundary="----=_Part_27588_32927950.1173673657083"
+	boundary="----=_Part_27592_24906685.1173673662050"
 Cc: "Netdev List" <netdev@vger.kernel.org>
 To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from ug-out-1314.google.com ([66.249.92.175]:50832 "EHLO
 	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965051AbXCLE1i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Mar 2007 00:27:38 -0400
+	with ESMTP id S965059AbXCLE1n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Mar 2007 00:27:43 -0400
 Received: by ug-out-1314.google.com with SMTP id 44so2091317uga
-        for <netdev@vger.kernel.org>; Sun, 11 Mar 2007 21:27:38 -0700 (PDT)
+        for <netdev@vger.kernel.org>; Sun, 11 Mar 2007 21:27:43 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-------=_Part_27588_32927950.1173673657083
+------=_Part_27592_24906685.1173673662050
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline
 
-Now related to this form:
-
-skb->nh.ipv6h = (struct ipv6hdr *)skb_put(skb, length);
-
-That, as the others, is done when skb->tail is still equal to skb->data, making
-the conversion to skb_reset_network_header possible.
-
-Also one more case equivalent to skb->nh.raw = skb->data, of this form:
-
-iph = (struct ipv6hdr *)skb->data;
-<SNIP>
-skb->nh.ipv6h = iph;
+Setting it to skb->h.raw, which is valid, in the (to become) old pointer based
+world order and in the new world of offset based layer headers.
 
 Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
 ---
- net/ipv6/datagram.c              |    5 +++--
- net/ipv6/netfilter/ip6t_REJECT.c |    5 +++--
- net/ipv6/raw.c                   |    4 +++-
- net/sctp/ipv6.c                  |    3 +--
- 4 files changed, 10 insertions(+), 7 deletions(-)
+ net/ipv4/xfrm4_mode_transport.c |    6 ++++--
+ 1 files changed, 4 insertions(+), 2 deletions(-)
 
-------=_Part_27588_32927950.1173673657083
+------=_Part_27592_24906685.1173673662050
 Content-Type: text/x-patch;
-	name=0012-SK_BUFF-ipv6-More-skb_reset_network_header-conver.patch;
+	name=0013-SK_BUFF-xfrm4-use-skb_reset_network_header.patch;
 	charset=ANSI_X3.4-1968
 Content-Transfer-Encoding: base64
-X-Attachment-Id: f_ez6efxz9
-Content-Disposition: attachment; filename="0012-SK_BUFF-ipv6-More-skb_reset_network_header-conver.patch"
+X-Attachment-Id: f_ez6egbx5
+Content-Disposition: attachment; filename="0013-SK_BUFF-xfrm4-use-skb_reset_network_header.patch"
 
-RnJvbSBhMjQ0MGY2ZGVjMmI0ZjNmZDk2OTBiZjFjOWQwMWY5YWFkMTNlOTlkIE1vbiBTZXAgMTcg
+RnJvbSAxYmUwNmY3OWEwMWJmNTc3MzdjYWYxYjcyODBlM2IwNzMzNWIwZjdlIE1vbiBTZXAgMTcg
 MDA6MDA6MDAgMjAwMQpGcm9tOiBBcm5hbGRvIENhcnZhbGhvIGRlIE1lbG8gPGFjbWVAcmVkaGF0
-LmNvbT4KRGF0ZTogU2F0LCAxMCBNYXIgMjAwNyAxOTo1NzoxNSAtMDMwMApTdWJqZWN0OiBbUEFU
-Q0ggMTIvMThdIFtTS19CVUZGXSBpcHY2OiBNb3JlIHNrYl9yZXNldF9uZXR3b3JrX2hlYWRlciBj
-b252ZXJzaW9ucyByZWxhdGVkIHRvIHNrYl9wdWxsCgpOb3cgcmVsYXRlZCB0byB0aGlzIGZvcm06
-Cgpza2ItPm5oLmlwdjZoID0gKHN0cnVjdCBpcHY2aGRyICopc2tiX3B1dChza2IsIGxlbmd0aCk7
-CgpUaGF0LCBhcyB0aGUgb3RoZXJzLCBpcyBkb25lIHdoZW4gc2tiLT50YWlsIGlzIHN0aWxsIGVx
-dWFsIHRvIHNrYi0+ZGF0YSwgbWFraW5nCnRoZSBjb252ZXJzaW9uIHRvIHNrYl9yZXNldF9uZXR3
-b3JrX2hlYWRlciBwb3NzaWJsZS4KCkFsc28gb25lIG1vcmUgY2FzZSBlcXVpdmFsZW50IHRvIHNr
-Yi0+bmgucmF3ID0gc2tiLT5kYXRhLCBvZiB0aGlzIGZvcm06CgppcGggPSAoc3RydWN0IGlwdjZo
-ZHIgKilza2ItPmRhdGE7CjxTTklQPgpza2ItPm5oLmlwdjZoID0gaXBoOwoKU2lnbmVkLW9mZi1i
-eTogQXJuYWxkbyBDYXJ2YWxobyBkZSBNZWxvIDxhY21lQHJlZGhhdC5jb20+Ci0tLQogbmV0L2lw
-djYvZGF0YWdyYW0uYyAgICAgICAgICAgICAgfCAgICA1ICsrKy0tCiBuZXQvaXB2Ni9uZXRmaWx0
-ZXIvaXA2dF9SRUpFQ1QuYyB8ICAgIDUgKysrLS0KIG5ldC9pcHY2L3Jhdy5jICAgICAgICAgICAg
-ICAgICAgIHwgICAgNCArKystCiBuZXQvc2N0cC9pcHY2LmMgICAgICAgICAgICAgICAgICB8ICAg
-IDMgKy0tCiA0IGZpbGVzIGNoYW5nZWQsIDEwIGluc2VydGlvbnMoKyksIDcgZGVsZXRpb25zKC0p
-CgpkaWZmIC0tZ2l0IGEvbmV0L2lwdjYvZGF0YWdyYW0uYyBiL25ldC9pcHY2L2RhdGFncmFtLmMK
-aW5kZXggM2I0ZThkYy4uMzFhMjBmMSAxMDA2NDQKLS0tIGEvbmV0L2lwdjYvZGF0YWdyYW0uYwor
-KysgYi9uZXQvaXB2Ni9kYXRhZ3JhbS5jCkBAIC0yNTEsOCArMjUxLDkgQEAgdm9pZCBpcHY2X2xv
-Y2FsX2Vycm9yKHN0cnVjdCBzb2NrICpzaywgaW50IGVyciwgc3RydWN0IGZsb3dpICpmbCwgdTMy
-IGluZm8pCiAJaWYgKCFza2IpCiAJCXJldHVybjsKIAotCWlwaCA9IChzdHJ1Y3QgaXB2Nmhkciop
-c2tiX3B1dChza2IsIHNpemVvZihzdHJ1Y3QgaXB2NmhkcikpOwotCXNrYi0+bmguaXB2NmggPSBp
-cGg7CisJc2tiX3B1dChza2IsIHNpemVvZihzdHJ1Y3QgaXB2NmhkcikpOworCXNrYl9yZXNldF9u
-ZXR3b3JrX2hlYWRlcihza2IpOworCWlwaCA9IHNrYi0+bmguaXB2Nmg7CiAJaXB2Nl9hZGRyX2Nv
-cHkoJmlwaC0+ZGFkZHIsICZmbC0+Zmw2X2RzdCk7CiAKIAlzZXJyID0gU0tCX0VYVF9FUlIoc2ti
-KTsKZGlmZiAtLWdpdCBhL25ldC9pcHY2L25ldGZpbHRlci9pcDZ0X1JFSkVDVC5jIGIvbmV0L2lw
-djYvbmV0ZmlsdGVyL2lwNnRfUkVKRUNULmMKaW5kZXggNmFiZWU5NC4uNDQ0MWJlZCAxMDA2NDQK
-LS0tIGEvbmV0L2lwdjYvbmV0ZmlsdGVyL2lwNnRfUkVKRUNULmMKKysrIGIvbmV0L2lwdjYvbmV0
-ZmlsdGVyL2lwNnRfUkVKRUNULmMKQEAgLTEyMCw4ICsxMjAsOSBAQCBzdGF0aWMgdm9pZCBzZW5k
-X3Jlc2V0KHN0cnVjdCBza19idWZmICpvbGRza2IpCiAKIAlza2JfcmVzZXJ2ZShuc2tiLCBoaF9s
-ZW4gKyBkc3QtPmhlYWRlcl9sZW4pOwogCi0JaXA2aCA9IG5za2ItPm5oLmlwdjZoID0gKHN0cnVj
-dCBpcHY2aGRyICopCi0JCQkJCXNrYl9wdXQobnNrYiwgc2l6ZW9mKHN0cnVjdCBpcHY2aGRyKSk7
-CisJc2tiX3B1dChuc2tiLCBzaXplb2Yoc3RydWN0IGlwdjZoZHIpKTsKKwlza2JfcmVzZXRfbmV0
-d29ya19oZWFkZXIobnNrYik7CisJaXA2aCA9IG5za2ItPm5oLmlwdjZoOwogCWlwNmgtPnZlcnNp
-b24gPSA2OwogCWlwNmgtPmhvcF9saW1pdCA9IGRzdF9tZXRyaWMoZHN0LCBSVEFYX0hPUExJTUlU
-KTsKIAlpcDZoLT5uZXh0aGRyID0gSVBQUk9UT19UQ1A7CmRpZmYgLS1naXQgYS9uZXQvaXB2Ni9y
-YXcuYyBiL25ldC9pcHY2L3Jhdy5jCmluZGV4IDMwNmQ1ZDguLmYyYjA5YTcgMTAwNjQ0Ci0tLSBh
-L25ldC9pcHY2L3Jhdy5jCisrKyBiL25ldC9pcHY2L3Jhdy5jCkBAIC01NzUsNyArNTc1LDkgQEAg
-c3RhdGljIGludCByYXd2Nl9zZW5kX2hkcmluYyhzdHJ1Y3Qgc29jayAqc2ssIHZvaWQgKmZyb20s
-IGludCBsZW5ndGgsCiAJc2tiLT5wcmlvcml0eSA9IHNrLT5za19wcmlvcml0eTsKIAlza2ItPmRz
-dCA9IGRzdF9jbG9uZSgmcnQtPnUuZHN0KTsKIAotCXNrYi0+bmguaXB2NmggPSBpcGggPSAoc3Ry
-dWN0IGlwdjZoZHIgKilza2JfcHV0KHNrYiwgbGVuZ3RoKTsKKwlza2JfcHV0KHNrYiwgbGVuZ3Ro
-KTsKKwlza2JfcmVzZXRfbmV0d29ya19oZWFkZXIoc2tiKTsKKwlpcGggPSBza2ItPm5oLmlwdjZo
-OwogCiAJc2tiLT5pcF9zdW1tZWQgPSBDSEVDS1NVTV9OT05FOwogCmRpZmYgLS1naXQgYS9uZXQv
-c2N0cC9pcHY2LmMgYi9uZXQvc2N0cC9pcHY2LmMKaW5kZXggNjNmZTEwOS4uM2E5MjcyZiAxMDA2
-NDQKLS0tIGEvbmV0L3NjdHAvaXB2Ni5jCisrKyBiL25ldC9zY3RwL2lwdjYuYwpAQCAtMTIyLDcg
-KzEyMiw2IEBAIFNDVFBfU1RBVElDIHZvaWQgc2N0cF92Nl9lcnIoc3RydWN0IHNrX2J1ZmYgKnNr
-Yiwgc3RydWN0IGluZXQ2X3NrYl9wYXJtICpvcHQsCiAJCQkgICAgIGludCB0eXBlLCBpbnQgY29k
-ZSwgaW50IG9mZnNldCwgX19iZTMyIGluZm8pCiB7CiAJc3RydWN0IGluZXQ2X2RldiAqaWRldjsK
-LQlzdHJ1Y3QgaXB2NmhkciAqaXBoID0gKHN0cnVjdCBpcHY2aGRyICopc2tiLT5kYXRhOwogCXN0
-cnVjdCBzY3RwaGRyICpzaCA9IChzdHJ1Y3Qgc2N0cGhkciAqKShza2ItPmRhdGEgKyBvZmZzZXQp
-OwogCXN0cnVjdCBzb2NrICpzazsKIAlzdHJ1Y3Qgc2N0cF9hc3NvY2lhdGlvbiAqYXNvYzsKQEAg
-LTEzNiw3ICsxMzUsNyBAQCBTQ1RQX1NUQVRJQyB2b2lkIHNjdHBfdjZfZXJyKHN0cnVjdCBza19i
-dWZmICpza2IsIHN0cnVjdCBpbmV0Nl9za2JfcGFybSAqb3B0LAogCS8qIEZpeCB1cCBza2IgdG8g
-bG9vayBhdCB0aGUgZW1iZWRkZWQgbmV0IGhlYWRlci4gKi8KIAlzYXZlaXAgPSBza2ItPm5oLnJh
-dzsKIAlzYXZlc2N0cCAgPSBza2ItPmgucmF3OwotCXNrYi0+bmguaXB2NmggPSBpcGg7CisJc2ti
-X3Jlc2V0X25ldHdvcmtfaGVhZGVyKHNrYik7CiAJc2tiLT5oLnJhdyA9IChjaGFyICopc2g7CiAJ
-c2sgPSBzY3RwX2Vycl9sb29rdXAoQUZfSU5FVDYsIHNrYiwgc2gsICZhc29jLCAmdHJhbnNwb3J0
-KTsKIAkvKiBQdXQgYmFjaywgdGhlIG9yaWdpbmFsIHBvaW50ZXJzLiAqLwotLSAKMS41LjAuMgoK
-
-------=_Part_27588_32927950.1173673657083--
+LmNvbT4KRGF0ZTogU2F0LCAxMCBNYXIgMjAwNyAxOTo1OToxNiAtMDMwMApTdWJqZWN0OiBbUEFU
+Q0ggMTMvMThdIFtTS19CVUZGXSB4ZnJtNDogdXNlIHNrYl9yZXNldF9uZXR3b3JrX2hlYWRlcgoK
+U2V0dGluZyBpdCB0byBza2ItPmgucmF3LCB3aGljaCBpcyB2YWxpZCwgaW4gdGhlICh0byBiZWNv
+bWUpIG9sZCBwb2ludGVyIGJhc2VkCndvcmxkIG9yZGVyIGFuZCBpbiB0aGUgbmV3IHdvcmxkIG9m
+IG9mZnNldCBiYXNlZCBsYXllciBoZWFkZXJzLgoKU2lnbmVkLW9mZi1ieTogQXJuYWxkbyBDYXJ2
+YWxobyBkZSBNZWxvIDxhY21lQHJlZGhhdC5jb20+Ci0tLQogbmV0L2lwdjQveGZybTRfbW9kZV90
+cmFuc3BvcnQuYyB8ICAgIDYgKysrKy0tCiAxIGZpbGVzIGNoYW5nZWQsIDQgaW5zZXJ0aW9ucygr
+KSwgMiBkZWxldGlvbnMoLSkKCmRpZmYgLS1naXQgYS9uZXQvaXB2NC94ZnJtNF9tb2RlX3RyYW5z
+cG9ydC5jIGIvbmV0L2lwdjQveGZybTRfbW9kZV90cmFuc3BvcnQuYwppbmRleCAyOTBjMGYyLi5h
+ODIwZGRlIDEwMDY0NAotLS0gYS9uZXQvaXB2NC94ZnJtNF9tb2RlX3RyYW5zcG9ydC5jCisrKyBi
+L25ldC9pcHY0L3hmcm00X21vZGVfdHJhbnNwb3J0LmMKQEAgLTUwLDggKzUwLDEwIEBAIHN0YXRp
+YyBpbnQgeGZybTRfdHJhbnNwb3J0X2lucHV0KHN0cnVjdCB4ZnJtX3N0YXRlICp4LCBzdHJ1Y3Qg
+c2tfYnVmZiAqc2tiKQogewogCWludCBpaGwgPSBza2ItPmRhdGEgLSBza2ItPmgucmF3OwogCi0J
+aWYgKHNrYi0+aC5yYXcgIT0gc2tiLT5uaC5yYXcpCi0JCXNrYi0+bmgucmF3ID0gbWVtbW92ZShz
+a2ItPmgucmF3LCBza2ItPm5oLnJhdywgaWhsKTsKKwlpZiAoc2tiLT5oLnJhdyAhPSBza2ItPm5o
+LnJhdykgeworCQltZW1tb3ZlKHNrYi0+aC5yYXcsIHNrYi0+bmgucmF3LCBpaGwpOworCQlza2It
+Pm5oLnJhdyA9IHNrYi0+aC5yYXc7CisJfQogCXNrYi0+bmguaXBoLT50b3RfbGVuID0gaHRvbnMo
+c2tiLT5sZW4gKyBpaGwpOwogCXNrYi0+aC5yYXcgPSBza2ItPmRhdGE7CiAJcmV0dXJuIDA7Ci0t
+IAoxLjUuMC4yCgo=
+------=_Part_27592_24906685.1173673662050--
