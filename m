@@ -1,32 +1,19 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [REVISED] net/ipv4/multipath_wrandom.c: check
- kmalloc() return value.
-Date: Mon, 12 Mar 2007 13:56:13 -0700 (PDT)
-Message-ID: <20070312.135613.78710501.davem@davemloft.net>
-References: <Pine.LNX.4.64.0703121411170.13933@sbz-30.cs.Helsinki.FI>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: amit2030@gmail.com, linux-kernel@vger.kernel.org, akpm@osdl.org,
-	netdev@vger.kernel.org
-To: penberg@cs.helsinki.fi
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752923AbXCLU4S@vger.kernel.org>
-In-Reply-To: <Pine.LNX.4.64.0703121411170.13933@sbz-30.cs.Helsinki.FI>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: [patch 0/4] more stuff for 2.6.22
+Date: Mon, 12 Mar 2007 14:08:17 -0700
+Message-ID: <20070312210817.485320783@linux-foundation.org>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.osdl.org ([65.172.181.24]:42389 "EHLO smtp.osdl.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752938AbXCLVJd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 Mar 2007 17:09:33 -0400
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Pekka J Enberg <penberg@cs.helsinki.fi>
-Date: Mon, 12 Mar 2007 14:15:16 +0200 (EET)
+Minor section rearrangements and /net/proc/ptype 
 
-> On 3/9/07, David Miller <davem@davemloft.net> wrote:
-> > The whole cahce-multipath subsystem has to have it's guts revamped for
-> > proper error handling.
-> 
-> (Untested patch follows.)
+--
+Stephen Hemminger <shemminger@linux-foundation.org>
 
-I'm not accepting untested patches, if people want to fix this
-code it cannot be done in a shoddy manner any more, it will
-need to be fixed and tested by people who really care about
-this code.
-
-We need real care for this code or I will remove it in 2.6.23
