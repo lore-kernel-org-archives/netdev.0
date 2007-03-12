@@ -1,96 +1,55 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: RE: [PATCH 1/2] NET: Multiple queue network device support
-Date: Mon, 12 Mar 2007 13:21:16 -0700
-Message-ID: <D5C1322C3E673F459512FB59E0DDC329027335CC@orsmsx414.amr.corp.intel.com>
-References: <20070312085802.GA1664@ff.dom.local>
+From: Jean Tourrilhes <jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org>
+Subject: Re: wireless extensions vs. 64-bit architectures
+Date: Mon, 12 Mar 2007 13:34:53 -0700
+Message-ID: <20070312203453.GA4230@bougret.hpl.hp.com>
+References: <20070308184954.GA24485@bougret.hpl.hp.com> <1173382042.3248.63.camel@johannes.berg> <20070308193412.GG23040@devicescape.com> <1173382802.3248.68.camel@johannes.berg> <20070308221128.GA24884@bougret.hpl.hp.com> <1173393326.3831.21.camel@johannes.berg> <20070309213531.GA28070@bougret.hpl.hp.com> <1173634801.3382.8.camel@johannes.berg> <20070312175639.GA4048@bougret.hpl.hp.com> <20070312182149.GA1785@devicescape.com>
+Reply-To: jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
-Content-Transfer-Encoding: 8BIT
-Cc: "Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
-	"David Miller" <davem@davemloft.net>,
-	"Garzik, Jeff" <jgarzik@pobox.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Kok, Auke" <auke@foo-projects.org>,
-	"Ronciak, John" <john.ronciak@intel.com>
-To: "Jarek Poplawski" <jarkao2@o2.pl>, "Thomas Graf" <tgraf@suug.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:19848 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752859AbXCLUVU convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Mar 2007 16:21:20 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <20070312085802.GA1664@ff.dom.local>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Jeff Garzik <jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>,
+	Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+To: Jouni Malinen <jkm-r/za7OOdgF0ztatW0fm/fQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20070312182149.GA1785-r/za7OOdgF0ztatW0fm/fQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+On Mon, Mar 12, 2007 at 10:21:49AM -0800, Jouni Malinen wrote:
+> On Mon, Mar 12, 2007 at 10:56:39AM -0700, Jean Tourrilhes wrote:
+> 
+> > > I would guess that others "use" iwlib like that too.
+> > 
+> > 	Which others ? The applications that process scan results can
+> > be counted on your fingers. And if you count the one actively
+> > developped, you can use one hand.
+> 
+> Quick search of SIOCGIWSCAN with Google Code Search
+> (http://www.google.com/codesearch) shows quite large set of uses. Most
+> of them are from various drivers, but at least some (e.g., Xsupplicant,
+> waproamd) are from user space applications. I did not actually verify
+> whether any of these would be affected by the 64/32-bit issue, but I
+> would assume some of the apps are indeed parsing the scan results with
+> internal implementation.
 
-> -----Original Message-----
-> From: Jarek Poplawski [mailto:jarkao2@o2.pl] 
-> Sent: Monday, March 12, 2007 1:58 AM
-> To: Thomas Graf
-> Cc: Kok, Auke-jan H; David Miller; Garzik, Jeff; 
-> netdev@vger.kernel.org; linux-kernel@vger.kernel.org; 
-> Waskiewicz Jr, Peter P; Brandeburg, Jesse; Kok, Auke; Ronciak, John
-> Subject: Re: [PATCH 1/2] NET: Multiple queue network device support
-> 
-> On 09-03-2007 14:40, Thomas Graf wrote:
-> > * Kok, Auke <auke-jan.h.kok@intel.com> 2007-02-08 16:09
-> >> diff --git a/net/core/dev.c b/net/core/dev.c index 
-> 455d589..42b635c 
-> >> 100644
-> >> --- a/net/core/dev.c
-> >> +++ b/net/core/dev.c
-> >> @@ -1477,6 +1477,49 @@ gso:
-> >>  	skb->tc_verd = SET_TC_AT(skb->tc_verd,AT_EGRESS);
-> >>  #endif
-> >>  	if (q->enqueue) {
-> >> +#ifdef CONFIG_NET_MULTI_QUEUE_DEVICE
-> >> +		int queue_index;
-> >> +		/* If we're a multi-queue device, get a queue 
-> index to lock */
-> >> +		if (netif_is_multiqueue(dev))
-> >> +		{
-> >> +			/* Get the queue index and lock it. */
-> >> +			if (likely(q->ops->map_queue)) {
-> >> +				queue_index = q->ops->map_queue(skb, q);
-> >> +				
-> spin_lock(&dev->egress_subqueue[queue_index].queue_lock);
-> >> +				rc = q->enqueue(skb, q);
-> 
-> I'm not sure Dave Miller thought about this place, when he 
-> proposed to save the mapping, but I think this could be not 
-> enough. This place is racy: ->map_queue() is called 2 times 
-> and with some filters (and
-> policies/actions) results could differ. And of course the 
-> subqueue lock doesn't prevent any filter from a config change 
-> in the meantime.
-> 
-> After second reading of this patch I have doubts it's the 
-> proper way to solve the problem: there are many subqueues but 
-> we need a top queue (prio here) to mange them, anyway. So, 
-> why not to build this functionality directly into the queue? 
-> There is no difference for a device if skbs are going from 
-> the subqueue or a class, it is only interested in the mapping 
-> result and a possibility to stop and start a subqueue and to 
-> query its status. All this could be done by adding the 
-> callbacks directly to any classful scheduler or, if not 
-> enough, to write some specialized qdisc based on prio. The 
-> possibility to lock only a subqueue instead of a queue could 
-> be analized independently - current proposal doesn't solve 
-> this anyway.
-> 
-> Regards,
-> Jarek P.
-> 
+	Note that you will get such a list on my web page, and if you
+find something not on the list, please send it to me.
+	XSupplicant uses iwlib for scanning.
+	waproamd has not been actively developped for the last 3 years.
+	kdenetwork/KWiFiManager uses iwlib for scanning.
+	Kifi uses iwlib and has not been actively developped for the
+last 2 years.
+	ApRadar has not been actively developped for the last 3 years.
+	SuSE netapplet is no longer on the net. wifi-radar parse the
+output of iwlist.
+	Mandrake net_applet, from what I can gather, use wpa_supplicant.
 
-Thanks again for the feedback.  Given some discussions I had last week
-in the office and the general feedback here, I'm going to remove the new
-per-queue locking and leave the start/stop functions for each queue and
-combine entry points for hard_start_xmit().  I'll get this out asap for
-review once it's been tested here.  If we see issues in the future with
-lock contention on the queues, we can revisit the per-queue locking.
+	Ok, we are left with :
+	wpa_supplicant use its own code.
+	NetworkManager : partially use iwlib, use own code for scanning.
 
-Cheers,
--PJ Waskiewicz
+> Jouni Malinen
+
+	Jean
