@@ -1,49 +1,48 @@
-From: Geert Uytterhoeven <Geert.Uytterhoeven@sonycom.com>
-Subject: Re: [git patches] net driver fixes
-Date: Mon, 12 Mar 2007 11:02:43 +0100 (CET)
-Message-ID: <Pine.LNX.4.62.0703121100260.16343@pademelon.sonytel.be>
-References: <20070306114808.GA22724@havoc.gtf.org>
+From: "Arnaldo Carvalho de Melo" <acme@ghostprotocols.net>
+Subject: Re: [PATCH 04/18][SK_BUFF]: Introduce skb_reset_network_header(skb)
+Date: Mon, 12 Mar 2007 07:14:08 -0300
+Message-ID: <39e6f6c70703120314m1907f4d5sa33522efb14d220c@mail.gmail.com>
+References: <39e6f6c70703112126g6aff108cgc05b490ba39ded73@mail.gmail.com>
+	 <20070312082312.GB14831@infradead.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
-To: Jeff Garzik <jeff@garzik.org>, Jay Vosburgh <fubar@us.ibm.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965481AbXCLKCs@vger.kernel.org>
-In-Reply-To: <20070306114808.GA22724@havoc.gtf.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David Miller" <davem@davemloft.net>,
+	"Netdev List" <netdev@vger.kernel.org>
+To: "Christoph Hellwig" <hch@infradead.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from an-out-0708.google.com ([209.85.132.246]:28088 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965452AbXCLKOJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Mar 2007 06:14:09 -0400
+Received: by an-out-0708.google.com with SMTP id b33so1370967ana
+        for <netdev@vger.kernel.org>; Mon, 12 Mar 2007 03:14:08 -0700 (PDT)
+In-Reply-To: <20070312082312.GB14831@infradead.org>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 6 Mar 2007, Jeff Garzik wrote:
-> Jay Vosburgh (3):
->       bonding: Improve IGMP join processing
+On 3/12/07, Christoph Hellwig <hch@infradead.org> wrote:
+> On Mon, Mar 12, 2007 at 01:26:52AM -0300, Arnaldo Carvalho de Melo wrote:
+> > For the common, open coded 'skb->nh.raw = skb->data' operation, so that we
+> > can
+> > later turn skb->nh.raw into a offset, reducing the size of struct sk_buff in
+> > 64bit land while possibly keeping it as a pointer on 32bit.
+> >
+> > This one touches just the most simple case, next will handle the slightly
+> > more
+> > "complex" cases.
+>
+> I don't like the naming.  Either it should skb_reset_nh to match the field
+> name (with a good kdoc comment explaning what nh means), or the field
+> name should be network_header aswell.  In general I'd prefer the shorter
+> names.
 
-ip_mc_rejoin_group: Kill warning about unused variable `in_dev' when
-CONFIG_IP_MULTICAST is not set.
+The fields will be renamed down the line, when their life as a union
+of pointers will end, becoming just offsets.
 
-Signed-off-by: Geert Uytterhoeven <Geert.Uytterhoeven@sonycom.com>
+> But besides the naming issue this looks like a very nice way to go down.
 
-diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
-index 1c6a084..8cedb2a 100644
---- a/net/ipv4/igmp.c
-+++ b/net/ipv4/igmp.c
-@@ -1255,9 +1255,9 @@ out:
-  */
- void ip_mc_rejoin_group(struct ip_mc_list *im)
- {
-+#ifdef CONFIG_IP_MULTICAST
- 	struct in_device *in_dev = im->interface;
- 
--#ifdef CONFIG_IP_MULTICAST
- 	if (im->multiaddr == IGMP_ALL_HOSTS)
- 		return;
- 
+:-)
 
-Gr{oetje,eeting}s,
-
-						Geert
-
---
-Geert Uytterhoeven -- Sony Network and Software Technology Center Europe (NSCE)
-Geert.Uytterhoeven@sonycom.com ------- The Corporate Village, Da Vincilaan 7-D1
-Voice +32-2-7008453 Fax +32-2-7008622 ---------------- B-1935 Zaventem, Belgium
+- Arnaldo
