@@ -1,98 +1,69 @@
 From: "Arnaldo Carvalho de Melo" <acme@ghostprotocols.net>
-Subject: [PATCH 01/18][PPPOE]: Introduce pppoe_hdr()
-Date: Mon, 12 Mar 2007 01:26:27 -0300
-Message-ID: <39e6f6c70703112126r77aad43ei41731abe01f4204e@mail.gmail.com>
+Subject: [PATCH 02/18][BONDING]: Introduce arp_pkt()
+Date: Mon, 12 Mar 2007 01:26:38 -0300
+Message-ID: <39e6f6c70703112126o61e8b69am238fd08e2368da10@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
-	boundary="----=_Part_27532_4942640.1173673587380"
+	boundary="----=_Part_27544_28405377.1173673598984"
 Cc: "Netdev List" <netdev@vger.kernel.org>
 To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.175]:50832 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965028AbXCLE03 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Mar 2007 00:26:29 -0400
-Received: by ug-out-1314.google.com with SMTP id 44so2091317uga
-        for <netdev@vger.kernel.org>; Sun, 11 Mar 2007 21:26:28 -0700 (PDT)
+Received: from nf-out-0910.google.com ([64.233.182.191]:38258 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965029AbXCLE0l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Mar 2007 00:26:41 -0400
+Received: by nf-out-0910.google.com with SMTP id o25so1864480nfa
+        for <netdev@vger.kernel.org>; Sun, 11 Mar 2007 21:26:40 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-------=_Part_27532_4942640.1173673587380
+------=_Part_27544_28405377.1173673598984
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline
 
 For consistency with all the other skb->nh.raw accessors.
 
-Also do some really obvious simplifications in pppoe_recvmsg, well the
-kfree_skb one is not so obvious, but free() and kfree() have the same behaviour
-(hint :-) ).
-
 Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
 ---
- drivers/net/pppoe.c      |   22 ++++++++--------------
- include/linux/if_pppox.h |    7 +++++++
- 2 files changed, 15 insertions(+), 14 deletions(-)
+ drivers/net/bonding/bond_alb.c |    9 +++++++--
+ 1 files changed, 7 insertions(+), 2 deletions(-)
 
-------=_Part_27532_4942640.1173673587380
-Content-Type: text/x-patch; name=0001-PPPOE-Introduce-pppoe_hdr.patch;
+------=_Part_27544_28405377.1173673598984
+Content-Type: text/x-patch; name=0002-BONDING-Introduce-arp_pkt.patch;
 	charset=ANSI_X3.4-1968
 Content-Transfer-Encoding: base64
-X-Attachment-Id: f_ez6e7ezu
-Content-Disposition: attachment; filename="0001-PPPOE-Introduce-pppoe_hdr.patch"
+X-Attachment-Id: f_ez6e96ci
+Content-Disposition: attachment; filename="0002-BONDING-Introduce-arp_pkt.patch"
 
-RnJvbSA0NGU0N2Q3NGMzM2M4NzdkOWE4NmFiNjZlZDI5YWIxYTFkZjU1ZjM2IE1vbiBTZXAgMTcg
+RnJvbSAwMTdkOGEzMjYyZDcwZjA0ZGUyMmM2NTNlODBlZjExMzdiYWNiODhiIE1vbiBTZXAgMTcg
 MDA6MDA6MDAgMjAwMQpGcm9tOiBBcm5hbGRvIENhcnZhbGhvIGRlIE1lbG8gPGFjbWVAcmVkaGF0
-LmNvbT4KRGF0ZTogU2F0LCAxMCBNYXIgMjAwNyAxNTo1NjowOCAtMDMwMApTdWJqZWN0OiBbUEFU
-Q0ggMDEvMThdIFtQUFBPRV06IEludHJvZHVjZSBwcHBvZV9oZHIoKQoKRm9yIGNvbnNpc3RlbmN5
-IHdpdGggYWxsIHRoZSBvdGhlciBza2ItPm5oLnJhdyBhY2Nlc3NvcnMuCgpBbHNvIGRvIHNvbWUg
-cmVhbGx5IG9idmlvdXMgc2ltcGxpZmljYXRpb25zIGluIHBwcG9lX3JlY3Ztc2csIHdlbGwgdGhl
-CmtmcmVlX3NrYiBvbmUgaXMgbm90IHNvIG9idmlvdXMsIGJ1dCBmcmVlKCkgYW5kIGtmcmVlKCkg
-aGF2ZSB0aGUgc2FtZSBiZWhhdmlvdXIKKGhpbnQgOi0pICkuCgpTaWduZWQtb2ZmLWJ5OiBBcm5h
-bGRvIENhcnZhbGhvIGRlIE1lbG8gPGFjbWVAcmVkaGF0LmNvbT4KLS0tCiBkcml2ZXJzL25ldC9w
-cHBvZS5jICAgICAgfCAgIDIyICsrKysrKysrLS0tLS0tLS0tLS0tLS0KIGluY2x1ZGUvbGludXgv
-aWZfcHBwb3guaCB8ICAgIDcgKysrKysrKwogMiBmaWxlcyBjaGFuZ2VkLCAxNSBpbnNlcnRpb25z
-KCspLCAxNCBkZWxldGlvbnMoLSkKCmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9wcHBvZS5jIGIv
-ZHJpdmVycy9uZXQvcHBwb2UuYwppbmRleCBlYmZhMjk2Li4zMDgwYTQ0IDEwMDY0NAotLS0gYS9k
-cml2ZXJzL25ldC9wcHBvZS5jCisrKyBiL2RyaXZlcnMvbmV0L3BwcG9lLmMKQEAgLTM0Nyw3ICsz
-NDcsNyBAQCBzdGF0aWMgaW50IHBwcG9lX3Jjdl9jb3JlKHN0cnVjdCBzb2NrICpzaywgc3RydWN0
-IHNrX2J1ZmYgKnNrYikKIAlzdHJ1Y3QgcHBwb3hfc29jayAqcmVsYXlfcG8gPSBOVUxMOwogCiAJ
-aWYgKHNrLT5za19zdGF0ZSAmIFBQUE9YX0JPVU5EKSB7Ci0JCXN0cnVjdCBwcHBvZV9oZHIgKnBo
-ID0gKHN0cnVjdCBwcHBvZV9oZHIgKikgc2tiLT5uaC5yYXc7CisJCXN0cnVjdCBwcHBvZV9oZHIg
-KnBoID0gcHBwb2VfaGRyKHNrYik7CiAJCWludCBsZW4gPSBudG9ocyhwaC0+bGVuZ3RoKTsKIAkJ
-c2tiX3B1bGxfcmNzdW0oc2tiLCBzaXplb2Yoc3RydWN0IHBwcG9lX2hkcikpOwogCQlpZiAocHNr
-Yl90cmltX3Jjc3VtKHNrYiwgbGVuKSkKQEAgLTQwMSw3ICs0MDEsNyBAQCBzdGF0aWMgaW50IHBw
-cG9lX3JjdihzdHJ1Y3Qgc2tfYnVmZiAqc2tiLAogCWlmICghKHNrYiA9IHNrYl9zaGFyZV9jaGVj
-ayhza2IsIEdGUF9BVE9NSUMpKSkKIAkJZ290byBvdXQ7CiAKLQlwaCA9IChzdHJ1Y3QgcHBwb2Vf
-aGRyICopIHNrYi0+bmgucmF3OworCXBoID0gcHBwb2VfaGRyKHNrYik7CiAKIAlwbyA9IGdldF9p
-dGVtKCh1bnNpZ25lZCBsb25nKSBwaC0+c2lkLCBldGhfaGRyKHNrYiktPmhfc291cmNlLCBkZXYt
-PmlmaW5kZXgpOwogCWlmIChwbyAhPSBOVUxMKQpAQCAtNDMzLDcgKzQzMyw3IEBAIHN0YXRpYyBp
-bnQgcHBwb2VfZGlzY19yY3Yoc3RydWN0IHNrX2J1ZmYgKnNrYiwKIAlpZiAoIShza2IgPSBza2Jf
-c2hhcmVfY2hlY2soc2tiLCBHRlBfQVRPTUlDKSkpCiAJCWdvdG8gb3V0OwogCi0JcGggPSAoc3Ry
-dWN0IHBwcG9lX2hkciAqKSBza2ItPm5oLnJhdzsKKwlwaCA9IHBwcG9lX2hkcihza2IpOwogCWlm
-IChwaC0+Y29kZSAhPSBQQURUX0NPREUpCiAJCWdvdG8gYWJvcnQ7CiAKQEAgLTkzMSw4ICs5MzEs
-NiBAQCBzdGF0aWMgaW50IHBwcG9lX3JlY3Ztc2coc3RydWN0IGtpb2NiICppb2NiLCBzdHJ1Y3Qg
-c29ja2V0ICpzb2NrLAogCXN0cnVjdCBzb2NrICpzayA9IHNvY2stPnNrOwogCXN0cnVjdCBza19i
-dWZmICpza2IgPSBOVUxMOwogCWludCBlcnJvciA9IDA7Ci0JaW50IGxlbjsKLQlzdHJ1Y3QgcHBw
-b2VfaGRyICpwaCA9IE5VTEw7CiAKIAlpZiAoc2stPnNrX3N0YXRlICYgUFBQT1hfQk9VTkQpIHsK
-IAkJZXJyb3IgPSAtRUlPOwpAQCAtOTQ5LDE5ICs5NDcsMTUgQEAgc3RhdGljIGludCBwcHBvZV9y
-ZWN2bXNnKHN0cnVjdCBraW9jYiAqaW9jYiwgc3RydWN0IHNvY2tldCAqc29jaywKIAltLT5tc2df
-bmFtZWxlbiA9IDA7CiAKIAlpZiAoc2tiKSB7Ci0JCWVycm9yID0gMDsKLQkJcGggPSAoc3RydWN0
-IHBwcG9lX2hkciAqKSBza2ItPm5oLnJhdzsKLQkJbGVuID0gbnRvaHMocGgtPmxlbmd0aCk7CisJ
-CXN0cnVjdCBwcHBvZV9oZHIgKnBoID0gcHBwb2VfaGRyKHNrYik7CisJCWNvbnN0IGludCBsZW4g
-PSBudG9ocyhwaC0+bGVuZ3RoKTsKIAogCQllcnJvciA9IG1lbWNweV90b2lvdmVjKG0tPm1zZ19p
-b3YsICh1bnNpZ25lZCBjaGFyICopICZwaC0+dGFnWzBdLCBsZW4pOwotCQlpZiAoZXJyb3IgPCAw
-KQotCQkJZ290byBkb19za2JfZnJlZTsKLQkJZXJyb3IgPSBsZW47CisJCWlmIChlcnJvciA9PSAw
-KQorCQkJZXJyb3IgPSBsZW47CiAJfQogCi1kb19za2JfZnJlZToKLQlpZiAoc2tiKQotCQlrZnJl
-ZV9za2Ioc2tiKTsKKwlrZnJlZV9za2Ioc2tiKTsKIGVuZDoKIAlyZXR1cm4gZXJyb3I7CiB9CmRp
-ZmYgLS1naXQgYS9pbmNsdWRlL2xpbnV4L2lmX3BwcG94LmggYi9pbmNsdWRlL2xpbnV4L2lmX3Bw
-cG94LmgKaW5kZXggZTMzZWU3Ni4uNzA0NGY4YSAxMDA2NDQKLS0tIGEvaW5jbHVkZS9saW51eC9p
-Zl9wcHBveC5oCisrKyBiL2luY2x1ZGUvbGludXgvaWZfcHBwb3guaApAQCAtMTEyLDYgKzExMiwx
-MyBAQCBzdHJ1Y3QgcHBwb2VfaGRyIHsKIH0gX19hdHRyaWJ1dGVfXyAoKHBhY2tlZCkpOwogCiAj
-aWZkZWYgX19LRVJORUxfXworI2luY2x1ZGUgPGxpbnV4L3NrYnVmZi5oPgorCitzdGF0aWMgaW5s
-aW5lIHN0cnVjdCBwcHBvZV9oZHIgKnBwcG9lX2hkcihjb25zdCBzdHJ1Y3Qgc2tfYnVmZiAqc2ti
-KQoreworCXJldHVybiAoc3RydWN0IHBwcG9lX2hkciAqKXNrYi0+bmgucmF3OworfQorCiBzdHJ1
-Y3QgcHBwb2Vfb3B0IHsKIAlzdHJ1Y3QgbmV0X2RldmljZSAgICAgICpkZXY7CSAgLyogZGV2aWNl
-IGFzc29jaWF0ZWQgd2l0aCBzb2NrZXQqLwogCWludAkJCWlmaW5kZXg7ICAvKiBpZmluZGV4IG9m
-IGRldmljZSBhc3NvY2lhdGVkIHdpdGggc29ja2V0ICovCi0tIAoxLjUuMC4yCgo=
-------=_Part_27532_4942640.1173673587380--
+LmNvbT4KRGF0ZTogU2F0LCAxMCBNYXIgMjAwNyAxNjowNzoxOSAtMDMwMApTdWJqZWN0OiBbUEFU
+Q0ggMDIvMThdIFtCT05ESU5HXTogSW50cm9kdWNlIGFycF9wa3QoKQoKRm9yIGNvbnNpc3RlbmN5
+IHdpdGggYWxsIHRoZSBvdGhlciBza2ItPm5oLnJhdyBhY2Nlc3NvcnMuCgpTaWduZWQtb2ZmLWJ5
+OiBBcm5hbGRvIENhcnZhbGhvIGRlIE1lbG8gPGFjbWVAcmVkaGF0LmNvbT4KLS0tCiBkcml2ZXJz
+L25ldC9ib25kaW5nL2JvbmRfYWxiLmMgfCAgICA5ICsrKysrKystLQogMSBmaWxlcyBjaGFuZ2Vk
+LCA3IGluc2VydGlvbnMoKyksIDIgZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEvZHJpdmVycy9u
+ZXQvYm9uZGluZy9ib25kX2FsYi5jIGIvZHJpdmVycy9uZXQvYm9uZGluZy9ib25kX2FsYi5jCmlu
+ZGV4IDkxNjE2MmMuLjM2YjhlODYgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvbmV0L2JvbmRpbmcvYm9u
+ZF9hbGIuYworKysgYi9kcml2ZXJzL25ldC9ib25kaW5nL2JvbmRfYWxiLmMKQEAgLTEwNCw2ICsx
+MDQsMTEgQEAgc3RydWN0IGFycF9wa3QgewogfTsKICNwcmFnbWEgcGFjaygpCiAKK3N0YXRpYyBp
+bmxpbmUgc3RydWN0IGFycF9wa3QgKmFycF9wa3QoY29uc3Qgc3RydWN0IHNrX2J1ZmYgKnNrYikK
+K3sKKwlyZXR1cm4gKHN0cnVjdCBhcnBfcGt0ICopc2tiLT5uaC5yYXc7Cit9CisKIC8qIEZvcndh
+cmQgZGVjbGFyYXRpb24gKi8KIHN0YXRpYyB2b2lkIGFsYl9zZW5kX2xlYXJuaW5nX3BhY2tldHMo
+c3RydWN0IHNsYXZlICpzbGF2ZSwgdTggbWFjX2FkZHJbXSk7CiAKQEAgLTYxMyw3ICs2MTgsNyBA
+QCBzdGF0aWMgdm9pZCBybGJfcmVxX3VwZGF0ZV9zdWJuZXRfY2xpZW50cyhzdHJ1Y3QgYm9uZGlu
+ZyAqYm9uZCwgdTMyIHNyY19pcCkKIHN0YXRpYyBzdHJ1Y3Qgc2xhdmUgKnJsYl9jaG9vc2VfY2hh
+bm5lbChzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBzdHJ1Y3QgYm9uZGluZyAqYm9uZCkKIHsKIAlzdHJ1
+Y3QgYWxiX2JvbmRfaW5mbyAqYm9uZF9pbmZvID0gJihCT05EX0FMQl9JTkZPKGJvbmQpKTsKLQlz
+dHJ1Y3QgYXJwX3BrdCAqYXJwID0gKHN0cnVjdCBhcnBfcGt0ICopc2tiLT5uaC5yYXc7CisJc3Ry
+dWN0IGFycF9wa3QgKmFycCA9IGFycF9wa3Qoc2tiKTsKIAlzdHJ1Y3Qgc2xhdmUgKmFzc2lnbmVk
+X3NsYXZlOwogCXN0cnVjdCBybGJfY2xpZW50X2luZm8gKmNsaWVudF9pbmZvOwogCXUzMiBoYXNo
+X2luZGV4ID0gMDsKQEAgLTcwMSw3ICs3MDYsNyBAQCBzdGF0aWMgc3RydWN0IHNsYXZlICpybGJf
+Y2hvb3NlX2NoYW5uZWwoc3RydWN0IHNrX2J1ZmYgKnNrYiwgc3RydWN0IGJvbmRpbmcgKmJvbgog
+ICovCiBzdGF0aWMgc3RydWN0IHNsYXZlICpybGJfYXJwX3htaXQoc3RydWN0IHNrX2J1ZmYgKnNr
+Yiwgc3RydWN0IGJvbmRpbmcgKmJvbmQpCiB7Ci0Jc3RydWN0IGFycF9wa3QgKmFycCA9IChzdHJ1
+Y3QgYXJwX3BrdCAqKXNrYi0+bmgucmF3OworCXN0cnVjdCBhcnBfcGt0ICphcnAgPSBhcnBfcGt0
+KHNrYik7CiAJc3RydWN0IHNsYXZlICp0eF9zbGF2ZSA9IE5VTEw7CiAKIAlpZiAoYXJwLT5vcF9j
+b2RlID09IF9fY29uc3RhbnRfaHRvbnMoQVJQT1BfUkVQTFkpKSB7Ci0tIAoxLjUuMC4yCgo=
+------=_Part_27544_28405377.1173673598984--
