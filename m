@@ -1,100 +1,46 @@
-From: "Arnaldo Carvalho de Melo" <acme@ghostprotocols.net>
-Subject: [PATCH 18/18][SK_BUFF]: Introduce skb_set_network_header
-Date: Mon, 12 Mar 2007 01:28:13 -0300
-Message-ID: <39e6f6c70703112128m2f3746d3q719107228e441768@mail.gmail.com>
+From: Amit Kale <amitkale@netxen.com>
+Subject: Re: [PATCH 0/5] NetXen: Driver bug fixes
+Date: Mon, 12 Mar 2007 11:46:31 +0530
+Message-ID: <200703121146.31531.amitkale@netxen.com>
+References: <200703090805.l29855n5011673@dut39.unminc.com> <200703101239.16417.amitkale@netxen.com> <45F294DC.50300@garzik.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="----=_Part_27616_30807882.1173673693969"
-Cc: "Netdev List" <netdev@vger.kernel.org>
-To: "David Miller" <davem@davemloft.net>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Linsys Contractor Mithlesh Thukral <mithlesh@netxen.com>,
+	netdev@vger.kernel.org, netxenproj@linsyssoft.com, rob@netxen.com
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.175]:50832 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965085AbXCLE2P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Mar 2007 00:28:15 -0400
-Received: by ug-out-1314.google.com with SMTP id 44so2091317uga
-        for <netdev@vger.kernel.org>; Sun, 11 Mar 2007 21:28:15 -0700 (PDT)
+Received: from 66-126-254-34.unm.net ([66.126.254.34]:16072 "EHLO
+	nxmail.netxen.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S965143AbXCLGQI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Mar 2007 02:16:08 -0400
+In-Reply-To: <45F294DC.50300@garzik.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-------=_Part_27616_30807882.1173673693969
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+On Saturday 10 March 2007 16:52, Jeff Garzik wrote:
+> Amit Kale wrote:
+> > On Friday 09 March 2007 22:26, Jeff Garzik wrote:
+> >> Linsys Contractor Mithlesh Thukral wrote:
+> >>> Hi All,
+> >>>
+> >>> I will be sending updates to NetXen: 1G/10G Ethernet driver in
+> >>> subsequent mails. The patches will be with respect to netdev#upstream.
+> >>
+> >> Are you sure you don't want some of these in #upstream-fixes, queued for
+> >> 2.6.21-rc?
+> >
+> > We really want them in both places. If we send them to #upstream-fixes,
+> > they'll break #upstream. Should we send them against both of these
+> > branches?
+>
+> Well, I can drop NetXen patches in #upstream, apply these to
+> #upstream-fixes, and wait for a resend?
 
-For the cases where the network header is being set to a offset from skb->data.
+Could you do that, please? (drop NetXen patches in #upstream)
 
-Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
-
-------=_Part_27616_30807882.1173673693969
-Content-Type: text/x-patch;
-	name=0018-SK_BUFF-Introduce-skb_set_network_header.patch;
-	charset=ANSI_X3.4-1968
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_ez6ei8xd
-Content-Disposition: attachment; filename="0018-SK_BUFF-Introduce-skb_set_network_header.patch"
-
-RnJvbSAwM2I1MTA0MDc2OTVhNGFkNGVkYjNjYjU0ZGQ0ODljYTQ4NmUwMTY1IE1vbiBTZXAgMTcg
-MDA6MDA6MDAgMjAwMQpGcm9tOiBBcm5hbGRvIENhcnZhbGhvIGRlIE1lbG8gPGFjbWVAcmVkaGF0
-LmNvbT4KRGF0ZTogU3VuLCAxMSBNYXIgMjAwNyAyMjozOTo0MSAtMDMwMApTdWJqZWN0OiBbUEFU
-Q0ggMTgvMThdIFtTS19CVUZGXTogSW50cm9kdWNlIHNrYl9zZXRfbmV0d29ya19oZWFkZXIKCkZv
-ciB0aGUgY2FzZXMgd2hlcmUgdGhlIG5ldHdvcmsgaGVhZGVyIGlzIGJlaW5nIHNldCB0byBhIG9m
-ZnNldCBmcm9tIHNrYi0+ZGF0YS4KClNpZ25lZC1vZmYtYnk6IEFybmFsZG8gQ2FydmFsaG8gZGUg
-TWVsbyA8YWNtZUByZWRoYXQuY29tPgotLS0KIGluY2x1ZGUvbGludXgvc2tidWZmLmggfCAgICA1
-ICsrKysrCiBuZXQvYXgyNS9heDI1X291dC5jICAgIHwgICAgNiArKysrLS0KIG5ldC9pcHY0L2lw
-X291dHB1dC5jICAgfCAgICA0ICsrLS0KIG5ldC9pcHY0L3RjcF9pbnB1dC5jICAgfCAgICAzICsr
-LQogbmV0L2lwdjYvaXA2X291dHB1dC5jICB8ICAgIDQgKystLQogNSBmaWxlcyBjaGFuZ2VkLCAx
-NSBpbnNlcnRpb25zKCspLCA3IGRlbGV0aW9ucygtKQoKZGlmZiAtLWdpdCBhL2luY2x1ZGUvbGlu
-dXgvc2tidWZmLmggYi9pbmNsdWRlL2xpbnV4L3NrYnVmZi5oCmluZGV4IDUyZTgzMDcuLjJmYjlk
-YzMgMTAwNjQ0Ci0tLSBhL2luY2x1ZGUvbGludXgvc2tidWZmLmgKKysrIGIvaW5jbHVkZS9saW51
-eC9za2J1ZmYuaApAQCAtOTY4LDYgKzk2OCwxMSBAQCBzdGF0aWMgaW5saW5lIHZvaWQgc2tiX3Jl
-c2V0X25ldHdvcmtfaGVhZGVyKHN0cnVjdCBza19idWZmICpza2IpCiAJc2tiLT5uaC5yYXcgPSBz
-a2ItPmRhdGE7CiB9CiAKK3N0YXRpYyBpbmxpbmUgdm9pZCBza2Jfc2V0X25ldHdvcmtfaGVhZGVy
-KHN0cnVjdCBza19idWZmICpza2IsIGNvbnN0IGludCBvZmZzZXQpCit7CisJc2tiLT5uaC5yYXcg
-PSBza2ItPmRhdGEgKyBvZmZzZXQ7Cit9CisKIHN0YXRpYyBpbmxpbmUgaW50IHNrYl9uZXR3b3Jr
-X29mZnNldChjb25zdCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiKQogewogCXJldHVybiBza2ItPm5oLnJh
-dyAtIHNrYi0+ZGF0YTsKZGlmZiAtLWdpdCBhL25ldC9heDI1L2F4MjVfb3V0LmMgYi9uZXQvYXgy
-NS9heDI1X291dC5jCmluZGV4IDAyZGVhODUuLmU2Njk1M2MgMTAwNjQ0Ci0tLSBhL25ldC9heDI1
-L2F4MjVfb3V0LmMKKysrIGIvbmV0L2F4MjUvYXgyNV9vdXQuYwpAQCAtMTQ4LDcgKzE0OCw4IEBA
-IHZvaWQgYXgyNV9vdXRwdXQoYXgyNV9jYiAqYXgyNSwgaW50IHBhY2xlbiwgc3RydWN0IHNrX2J1
-ZmYgKnNrYikKIAogCQkJaWYgKGthOXFmcmFnID09IDEpIHsKIAkJCQlza2JfcmVzZXJ2ZShza2Ju
-LCBmcm9udGxlbiArIDIpOwotCQkJCXNrYm4tPm5oLnJhdyA9IHNrYm4tPmRhdGEgKyBza2JfbmV0
-d29ya19vZmZzZXQoc2tiKTsKKwkJCQlza2Jfc2V0X25ldHdvcmtfaGVhZGVyKHNrYm4sCisJCQkJ
-CQkgICAgICBza2JfbmV0d29ya19vZmZzZXQoc2tiKSk7CiAJCQkJbWVtY3B5KHNrYl9wdXQoc2ti
-biwgbGVuKSwgc2tiLT5kYXRhLCBsZW4pOwogCQkJCXAgPSBza2JfcHVzaChza2JuLCAyKTsKIApA
-QCAtMTYxLDcgKzE2Miw4IEBAIHZvaWQgYXgyNV9vdXRwdXQoYXgyNV9jYiAqYXgyNSwgaW50IHBh
-Y2xlbiwgc3RydWN0IHNrX2J1ZmYgKnNrYikKIAkJCQl9CiAJCQl9IGVsc2UgewogCQkJCXNrYl9y
-ZXNlcnZlKHNrYm4sIGZyb250bGVuICsgMSk7Ci0JCQkJc2tibi0+bmgucmF3ID0gc2tibi0+ZGF0
-YSArIHNrYl9uZXR3b3JrX29mZnNldChza2IpOworCQkJCXNrYl9zZXRfbmV0d29ya19oZWFkZXIo
-c2tibiwKKwkJCQkJCSAgICAgIHNrYl9uZXR3b3JrX29mZnNldChza2IpKTsKIAkJCQltZW1jcHko
-c2tiX3B1dChza2JuLCBsZW4pLCBza2ItPmRhdGEsIGxlbik7CiAJCQkJcCA9IHNrYl9wdXNoKHNr
-Ym4sIDEpOwogCQkJCSpwID0gQVgyNV9QX1RFWFQ7CmRpZmYgLS1naXQgYS9uZXQvaXB2NC9pcF9v
-dXRwdXQuYyBiL25ldC9pcHY0L2lwX291dHB1dC5jCmluZGV4IGVhZTIyODQuLjE1ZGU5ZDQgMTAw
-NjQ0Ci0tLSBhL25ldC9pcHY0L2lwX291dHB1dC5jCisrKyBiL25ldC9pcHY0L2lwX291dHB1dC5j
-CkBAIC05MjgsOSArOTI4LDkgQEAgYWxsb2NfbmV3X3NrYjoKIAkJCSAqCUZpbmQgd2hlcmUgdG8g
-c3RhcnQgcHV0dGluZyBieXRlcy4KIAkJCSAqLwogCQkJZGF0YSA9IHNrYl9wdXQoc2tiLCBmcmFn
-bGVuKTsKLQkJCXNrYi0+bmgucmF3ID0gZGF0YSArIGV4dGhkcmxlbjsKKwkJCXNrYl9zZXRfbmV0
-d29ya19oZWFkZXIoc2tiLCBleHRoZHJsZW4pOworCQkJc2tiLT5oLnJhdyA9IHNrYi0+bmgucmF3
-ICsgZnJhZ2hlYWRlcmxlbjsKIAkJCWRhdGEgKz0gZnJhZ2hlYWRlcmxlbjsKLQkJCXNrYi0+aC5y
-YXcgPSBkYXRhICsgZXh0aGRybGVuOwogCiAJCQlpZiAoZnJhZ2dhcCkgewogCQkJCXNrYi0+Y3N1
-bSA9IHNrYl9jb3B5X2FuZF9jc3VtX2JpdHMoCmRpZmYgLS1naXQgYS9uZXQvaXB2NC90Y3BfaW5w
-dXQuYyBiL25ldC9pcHY0L3RjcF9pbnB1dC5jCmluZGV4IDAwMTkwODMuLjVkYTgyM2EgMTAwNjQ0
-Ci0tLSBhL25ldC9pcHY0L3RjcF9pbnB1dC5jCisrKyBiL25ldC9pcHY0L3RjcF9pbnB1dC5jCkBA
-IC0zNjM0LDcgKzM2MzQsOCBAQCB0Y3BfY29sbGFwc2Uoc3RydWN0IHNvY2sgKnNrLCBzdHJ1Y3Qg
-c2tfYnVmZl9oZWFkICpsaXN0LAogCQkJcmV0dXJuOwogCiAJCXNrYl9zZXRfbWFjX2hlYWRlcihu
-c2tiLCBza2JfbWFjX2hlYWRlcihza2IpIC0gc2tiLT5oZWFkKTsKLQkJbnNrYi0+bmgucmF3ID0g
-bnNrYi0+ZGF0YSArIChza2JfbmV0d29ya19oZWFkZXIoc2tiKSAtIHNrYi0+aGVhZCk7CisJCXNr
-Yl9zZXRfbmV0d29ya19oZWFkZXIobnNrYiwKKwkJCQkgICAgICAgc2tiX25ldHdvcmtfaGVhZGVy
-KHNrYikgLSBza2ItPmhlYWQpOwogCQluc2tiLT5oLnJhdyA9IG5za2ItPmRhdGEgKyAoc2tiLT5o
-LnJhdyAtIHNrYi0+aGVhZCk7CiAKIAkJc2tiX3Jlc2VydmUobnNrYiwgaGVhZGVyKTsKZGlmZiAt
-LWdpdCBhL25ldC9pcHY2L2lwNl9vdXRwdXQuYyBiL25ldC9pcHY2L2lwNl9vdXRwdXQuYwppbmRl
-eCBmMWRmY2MzLi5iZDI1ODI1IDEwMDY0NAotLS0gYS9uZXQvaXB2Ni9pcDZfb3V0cHV0LmMKKysr
-IGIvbmV0L2lwdjYvaXA2X291dHB1dC5jCkBAIC0xMjA2LDkgKzEyMDYsOSBAQCBhbGxvY19uZXdf
-c2tiOgogCQkJICoJRmluZCB3aGVyZSB0byBzdGFydCBwdXR0aW5nIGJ5dGVzCiAJCQkgKi8KIAkJ
-CWRhdGEgPSBza2JfcHV0KHNrYiwgZnJhZ2xlbik7Ci0JCQlza2ItPm5oLnJhdyA9IGRhdGEgKyBl
-eHRoZHJsZW47CisJCQlza2Jfc2V0X25ldHdvcmtfaGVhZGVyKHNrYiwgZXh0aGRybGVuKTsKIAkJ
-CWRhdGEgKz0gZnJhZ2hlYWRlcmxlbjsKLQkJCXNrYi0+aC5yYXcgPSBkYXRhICsgZXh0aGRybGVu
-OworCQkJc2tiLT5oLnJhdyA9IHNrYi0+bmgucmF3ICsgZnJhZ2hlYWRlcmxlbjsKIAogCQkJaWYg
-KGZyYWdnYXApIHsKIAkJCQlza2ItPmNzdW0gPSBza2JfY29weV9hbmRfY3N1bV9iaXRzKAotLSAK
-MS41LjAuMgoK
-------=_Part_27616_30807882.1173673693969--
+We'll resend them against #upstream-fixes.
+Thanks.
+-Amit
