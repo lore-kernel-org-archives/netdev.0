@@ -1,48 +1,73 @@
-From: "Arnaldo Carvalho de Melo" <acme@ghostprotocols.net>
-Subject: Re: [PATCH 04/18][SK_BUFF]: Introduce skb_reset_network_header(skb)
-Date: Mon, 12 Mar 2007 07:14:08 -0300
-Message-ID: <39e6f6c70703120314m1907f4d5sa33522efb14d220c@mail.gmail.com>
-References: <39e6f6c70703112126g6aff108cgc05b490ba39ded73@mail.gmail.com>
-	 <20070312082312.GB14831@infradead.org>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: Fw: [Bugme-new] [Bug 8057] New: slab corruption running ip6sic
+Date: Mon, 12 Mar 2007 11:24:03 +0100
+Message-ID: <20070312102403.GB1664@ff.dom.local>
+References: <20070222134918.e2f1af6d.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David Miller" <davem@davemloft.net>,
-	"Netdev List" <netdev@vger.kernel.org>
-To: "Christoph Hellwig" <hch@infradead.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org,
+	"bugme-daemon\@kernel-bugs\.osdl\.org"
+	<bugme-daemon@bugzilla.kernel.org>, snakebyte@gmx.de
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.246]:28088 "EHLO
-	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965452AbXCLKOJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Mar 2007 06:14:09 -0400
-Received: by an-out-0708.google.com with SMTP id b33so1370967ana
-        for <netdev@vger.kernel.org>; Mon, 12 Mar 2007 03:14:08 -0700 (PDT)
-In-Reply-To: <20070312082312.GB14831@infradead.org>
+Received: from mx10.go2.pl ([193.17.41.74]:36905 "EHLO poczta.o2.pl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S965485AbXCLKTx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 Mar 2007 06:19:53 -0400
 Content-Disposition: inline
+In-Reply-To: <20070222134918.e2f1af6d.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 3/12/07, Christoph Hellwig <hch@infradead.org> wrote:
-> On Mon, Mar 12, 2007 at 01:26:52AM -0300, Arnaldo Carvalho de Melo wrote:
-> > For the common, open coded 'skb->nh.raw = skb->data' operation, so that we
-> > can
-> > later turn skb->nh.raw into a offset, reducing the size of struct sk_buff in
-> > 64bit land while possibly keeping it as a pointer on 32bit.
-> >
-> > This one touches just the most simple case, next will handle the slightly
-> > more
-> > "complex" cases.
->
-> I don't like the naming.  Either it should skb_reset_nh to match the field
-> name (with a good kdoc comment explaning what nh means), or the field
-> name should be network_header aswell.  In general I'd prefer the shorter
-> names.
+On 22-02-2007 22:49, Andrew Morton wrote:
+> 
+> Begin forwarded message:
+> 
+> Date: Thu, 22 Feb 2007 07:56:27 -0800
+> From: bugme-daemon@bugzilla.kernel.org
+> To: bugme-new@lists.osdl.org
+> Subject: [Bugme-new] [Bug 8057] New: slab corruption running ip6sic
+> 
+> 
+> http://bugzilla.kernel.org/show_bug.cgi?id=8057
+> 
+>            Summary: slab corruption running ip6sic
+>     Kernel Version: 2.6.21-rc1
+>             Status: NEW
+>           Severity: normal
+>              Owner: yoshfuji@linux-ipv6.org
+>          Submitter: snakebyte@gmx.de
+> 
+> 
+> Most recent kernel where this bug did *NOT* occur: unknown
+> Distribution: gentoo
+> Hardware Environment: AMD-K6, 400MHz, 288MB Ram
+> Software Environment: ip6sic (http://ip6sic.sourceforge.net/)
+> Problem Description:
+> 
+> When running ip6sic against the loopback interface i get the following kernel
+> messages:
+> 
+> [  199.514486] Slab corruption: start=d0505554, len=156
+> [  199.514704] Redzone: 0x5a2cf071/0x5a2cf071.
+> [  199.514859] Last user: [<c0465813>](kfree_skbmem+0x33/0x80)
+...
 
-The fields will be renamed down the line, when their life as a union
-of pointers will end, becoming just offsets.
+>From bugzilla:
+...
+> Is it possible that the handler frees the skb even if it is not supposed to do so?
+> 
+> 
+> ------- Additional Comment #14 From Eric Sesterhenn 2007-02-28 04:33 -------
+> 
+> the ipcomp handler is xfrm6_rcv(), which calls xfrm6_rcv_spi(), which contrary
+> to all other handlers returns -1 instead of 0 after calling kfree_skb() on the
+> skb. Changing the return value to 0 in xfrm6_input.c:xfrm6_rcv_spi() fixes the
+> problem.
+> But I got no clue at all if this would be a correct fix
 
-> But besides the naming issue this looks like a very nice way to go down.
+I think your diagnose is correct (all "return -1" should be
+changed to "return 0" in xfrm6_input.c).
 
-:-)
-
-- Arnaldo
+Regards,
+Jarek P.
