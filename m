@@ -1,36 +1,53 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [PATCH 04/18][SK_BUFF]: Introduce skb_reset_network_header(skb)
-Date: Mon, 12 Mar 2007 08:23:12 +0000
-Message-ID: <20070312082312.GB14831@infradead.org>
-References: <39e6f6c70703112126g6aff108cgc05b490ba39ded73@mail.gmail.com>
+From: Geert Uytterhoeven <Geert.Uytterhoeven@sonycom.com>
+Subject: Re: [PATCH] spidernet: Fix problem sending IP fragments
+Date: Mon, 12 Mar 2007 09:28:59 +0100 (CET)
+Message-ID: <Pine.LNX.4.62.0703120927570.15144@pademelon.sonytel.be>
+References: <20070308231556.GE30703@austin.ibm.com>  <45F19103.3010100@pobox.com>
+ <200703100016.58469.n.eicker@fz-juelich.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Netdev List <netdev@vger.kernel.org>
-To: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Jeff Garzik <jgarzik@pobox.com>, linuxppc-dev@ozlabs.org,
+	netdev@vger.kernel.org
+To: Norbert Eicker <n.eicker@fz-juelich.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:40391 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965320AbXCLIXR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Mar 2007 04:23:17 -0400
-Content-Disposition: inline
-In-Reply-To: <39e6f6c70703112126g6aff108cgc05b490ba39ded73@mail.gmail.com>
+Received: from vervifontaine.sonytel.be ([80.88.33.193]:41006 "EHLO
+	vervifontaine.sonycom.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S965345AbXCLI3B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Mar 2007 04:29:01 -0400
+In-Reply-To: <200703100016.58469.n.eicker@fz-juelich.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 12, 2007 at 01:26:52AM -0300, Arnaldo Carvalho de Melo wrote:
-> For the common, open coded 'skb->nh.raw = skb->data' operation, so that we 
-> can
-> later turn skb->nh.raw into a offset, reducing the size of struct sk_buff in
-> 64bit land while possibly keeping it as a pointer on 32bit.
+On Sat, 10 Mar 2007, Norbert Eicker wrote:
+> On Friday, 9. March 2007 17:53, Jeff Garzik wrote:
+> > Linas Vepstas wrote:
+> > > Please apply. The rather long patch description is from the submitter,
+> > > Norbert Eicker, I don't know if that's alright, or if I should ask to
+> > > have it trimmed.
+> > >
+> > > Thanks,
+> > > --linas
+> > >
+> > > From: Norbert Eicker <n.eicker@fz-juelich.de>
+> > >
+> > >
+> > > Signed-off-by: Norbert Eicker <n.eicker@fz-juelich.de>
+> > > Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
+> >
+> > are you sure it can't send out fragmented IP frames?  what's really
+> > going on here?
 > 
-> This one touches just the most simple case, next will handle the slightly 
-> more
-> "complex" cases.
+> Pretty sure that fragmented IP frames are not send out. Here's a small test 
+> using ttcp and tcpdump reproducing the problem (I assume a MTU of 1500):
 
-I don't like the naming.  Either it should skb_reset_nh to match the field
-name (with a good kdoc comment explaning what nh means), or the field
-name should be network_header aswell.  In general I'd prefer the shorter
-names.
+Hence if I understand that correctly, NFS over UDP doesn't work at all as NFS
+uses 8 KiB UDP packets by default?
 
-But besides the naming issue this looks like a very nice way to go down.
+Gr{oetje,eeting}s,
+
+						Geert
+
+--
+Geert Uytterhoeven -- Sony Network and Software Technology Center Europe (NSCE)
+Geert.Uytterhoeven@sonycom.com ------- The Corporate Village, Da Vincilaan 7-D1
+Voice +32-2-7008453 Fax +32-2-7008622 ---------------- B-1935 Zaventem, Belgium
