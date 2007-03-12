@@ -1,62 +1,70 @@
 From: "Arnaldo Carvalho de Melo" <acme@ghostprotocols.net>
-Subject: [PATCH 13/18][SK_BUFF] xfrm4: use skb_reset_network_header
-Date: Mon, 12 Mar 2007 01:27:42 -0300
-Message-ID: <39e6f6c70703112127j154805aew334f1d94e7ac73e3@mail.gmail.com>
+Subject: [PATCH 14/18][SK_BUFF] bonding: Set skb->nh.raw relative to skb->mac.raw
+Date: Mon, 12 Mar 2007 01:27:46 -0300
+Message-ID: <39e6f6c70703112127m1fbae211s6098c946ce32ec32@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
-	boundary="----=_Part_27592_24906685.1173673662050"
+	boundary="----=_Part_27596_13818313.1173673666719"
 Cc: "Netdev List" <netdev@vger.kernel.org>
 To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.175]:50832 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965059AbXCLE1n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Mar 2007 00:27:43 -0400
-Received: by ug-out-1314.google.com with SMTP id 44so2091317uga
-        for <netdev@vger.kernel.org>; Sun, 11 Mar 2007 21:27:43 -0700 (PDT)
+Received: from nf-out-0910.google.com ([64.233.182.191]:39453 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965044AbXCLE1y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Mar 2007 00:27:54 -0400
+Received: by nf-out-0910.google.com with SMTP id o25so1864741nfa
+        for <netdev@vger.kernel.org>; Sun, 11 Mar 2007 21:27:52 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-------=_Part_27592_24906685.1173673662050
+------=_Part_27596_13818313.1173673666719
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline
 
-Setting it to skb->h.raw, which is valid, in the (to become) old pointer based
-world order and in the new world of offset based layer headers.
-
 Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
 ---
- net/ipv4/xfrm4_mode_transport.c |    6 ++++--
- 1 files changed, 4 insertions(+), 2 deletions(-)
+ drivers/net/bonding/bond_3ad.c |    4 ++--
+ drivers/net/bonding/bond_alb.c |    2 +-
+ 2 files changed, 3 insertions(+), 3 deletions(-)
 
-------=_Part_27592_24906685.1173673662050
+------=_Part_27596_13818313.1173673666719
 Content-Type: text/x-patch;
-	name=0013-SK_BUFF-xfrm4-use-skb_reset_network_header.patch;
+	name=0014-SK_BUFF-bonding-Set-skb-nh.raw-relative-to-skb.patch;
 	charset=ANSI_X3.4-1968
 Content-Transfer-Encoding: base64
-X-Attachment-Id: f_ez6egbx5
-Content-Disposition: attachment; filename="0013-SK_BUFF-xfrm4-use-skb_reset_network_header.patch"
+X-Attachment-Id: f_ez6egnlo
+Content-Disposition: attachment; filename="0014-SK_BUFF-bonding-Set-skb-nh.raw-relative-to-skb.patch"
 
-RnJvbSAxYmUwNmY3OWEwMWJmNTc3MzdjYWYxYjcyODBlM2IwNzMzNWIwZjdlIE1vbiBTZXAgMTcg
+RnJvbSBjNzFhZjcwNjhjNjZiY2JjMzc3YjFlNDU5M2ViNThiZWM5NjE2OTljIE1vbiBTZXAgMTcg
 MDA6MDA6MDAgMjAwMQpGcm9tOiBBcm5hbGRvIENhcnZhbGhvIGRlIE1lbG8gPGFjbWVAcmVkaGF0
-LmNvbT4KRGF0ZTogU2F0LCAxMCBNYXIgMjAwNyAxOTo1OToxNiAtMDMwMApTdWJqZWN0OiBbUEFU
-Q0ggMTMvMThdIFtTS19CVUZGXSB4ZnJtNDogdXNlIHNrYl9yZXNldF9uZXR3b3JrX2hlYWRlcgoK
-U2V0dGluZyBpdCB0byBza2ItPmgucmF3LCB3aGljaCBpcyB2YWxpZCwgaW4gdGhlICh0byBiZWNv
-bWUpIG9sZCBwb2ludGVyIGJhc2VkCndvcmxkIG9yZGVyIGFuZCBpbiB0aGUgbmV3IHdvcmxkIG9m
-IG9mZnNldCBiYXNlZCBsYXllciBoZWFkZXJzLgoKU2lnbmVkLW9mZi1ieTogQXJuYWxkbyBDYXJ2
-YWxobyBkZSBNZWxvIDxhY21lQHJlZGhhdC5jb20+Ci0tLQogbmV0L2lwdjQveGZybTRfbW9kZV90
-cmFuc3BvcnQuYyB8ICAgIDYgKysrKy0tCiAxIGZpbGVzIGNoYW5nZWQsIDQgaW5zZXJ0aW9ucygr
-KSwgMiBkZWxldGlvbnMoLSkKCmRpZmYgLS1naXQgYS9uZXQvaXB2NC94ZnJtNF9tb2RlX3RyYW5z
-cG9ydC5jIGIvbmV0L2lwdjQveGZybTRfbW9kZV90cmFuc3BvcnQuYwppbmRleCAyOTBjMGYyLi5h
-ODIwZGRlIDEwMDY0NAotLS0gYS9uZXQvaXB2NC94ZnJtNF9tb2RlX3RyYW5zcG9ydC5jCisrKyBi
-L25ldC9pcHY0L3hmcm00X21vZGVfdHJhbnNwb3J0LmMKQEAgLTUwLDggKzUwLDEwIEBAIHN0YXRp
-YyBpbnQgeGZybTRfdHJhbnNwb3J0X2lucHV0KHN0cnVjdCB4ZnJtX3N0YXRlICp4LCBzdHJ1Y3Qg
-c2tfYnVmZiAqc2tiKQogewogCWludCBpaGwgPSBza2ItPmRhdGEgLSBza2ItPmgucmF3OwogCi0J
-aWYgKHNrYi0+aC5yYXcgIT0gc2tiLT5uaC5yYXcpCi0JCXNrYi0+bmgucmF3ID0gbWVtbW92ZShz
-a2ItPmgucmF3LCBza2ItPm5oLnJhdywgaWhsKTsKKwlpZiAoc2tiLT5oLnJhdyAhPSBza2ItPm5o
-LnJhdykgeworCQltZW1tb3ZlKHNrYi0+aC5yYXcsIHNrYi0+bmgucmF3LCBpaGwpOworCQlza2It
-Pm5oLnJhdyA9IHNrYi0+aC5yYXc7CisJfQogCXNrYi0+bmguaXBoLT50b3RfbGVuID0gaHRvbnMo
-c2tiLT5sZW4gKyBpaGwpOwogCXNrYi0+aC5yYXcgPSBza2ItPmRhdGE7CiAJcmV0dXJuIDA7Ci0t
-IAoxLjUuMC4yCgo=
-------=_Part_27592_24906685.1173673662050--
+LmNvbT4KRGF0ZTogU2F0LCAxMCBNYXIgMjAwNyAyMDowOTo0NSAtMDMwMApTdWJqZWN0OiBbUEFU
+Q0ggMTQvMThdIFtTS19CVUZGXSBib25kaW5nOiBTZXQgc2tiLT5uaC5yYXcgcmVsYXRpdmUgdG8g
+c2tiLT5tYWMucmF3CgpTaWduZWQtb2ZmLWJ5OiBBcm5hbGRvIENhcnZhbGhvIGRlIE1lbG8gPGFj
+bWVAcmVkaGF0LmNvbT4KLS0tCiBkcml2ZXJzL25ldC9ib25kaW5nL2JvbmRfM2FkLmMgfCAgICA0
+ICsrLS0KIGRyaXZlcnMvbmV0L2JvbmRpbmcvYm9uZF9hbGIuYyB8ICAgIDIgKy0KIDIgZmlsZXMg
+Y2hhbmdlZCwgMyBpbnNlcnRpb25zKCspLCAzIGRlbGV0aW9ucygtKQoKZGlmZiAtLWdpdCBhL2Ry
+aXZlcnMvbmV0L2JvbmRpbmcvYm9uZF8zYWQuYyBiL2RyaXZlcnMvbmV0L2JvbmRpbmcvYm9uZF8z
+YWQuYwppbmRleCBlM2M5ZTJlLi4wNWM4NzBkIDEwMDY0NAotLS0gYS9kcml2ZXJzL25ldC9ib25k
+aW5nL2JvbmRfM2FkLmMKKysrIGIvZHJpdmVycy9uZXQvYm9uZGluZy9ib25kXzNhZC5jCkBAIC04
+ODUsNyArODg1LDcgQEAgc3RhdGljIGludCBhZF9sYWNwZHVfc2VuZChzdHJ1Y3QgcG9ydCAqcG9y
+dCkKIAogCXNrYi0+ZGV2ID0gc2xhdmUtPmRldjsKIAlza2JfcmVzZXRfbWFjX2hlYWRlcihza2Ip
+OwotCXNrYi0+bmgucmF3ID0gc2tiLT5kYXRhICsgRVRIX0hMRU47CisJc2tiLT5uaC5yYXcgPSBz
+a2ItPm1hYy5yYXcgKyBFVEhfSExFTjsKIAlza2ItPnByb3RvY29sID0gUEtUX1RZUEVfTEFDUERV
+OwogCXNrYi0+cHJpb3JpdHkgPSBUQ19QUklPX0NPTlRST0w7CiAKQEAgLTkyOSw3ICs5MjksNyBA
+QCBzdGF0aWMgaW50IGFkX21hcmtlcl9zZW5kKHN0cnVjdCBwb3J0ICpwb3J0LCBzdHJ1Y3QgbWFy
+a2VyICptYXJrZXIpCiAKIAlza2ItPmRldiA9IHNsYXZlLT5kZXY7CiAJc2tiX3Jlc2V0X21hY19o
+ZWFkZXIoc2tiKTsKLQlza2ItPm5oLnJhdyA9IHNrYi0+ZGF0YSArIEVUSF9ITEVOOworCXNrYi0+
+bmgucmF3ID0gc2tiLT5tYWMucmF3ICsgRVRIX0hMRU47CiAJc2tiLT5wcm90b2NvbCA9IFBLVF9U
+WVBFX0xBQ1BEVTsKIAogCW1hcmtlcl9oZWFkZXIgPSAoc3RydWN0IG1hcmtlcl9oZWFkZXIgKilz
+a2JfcHV0KHNrYiwgbGVuZ3RoKTsKZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2JvbmRpbmcvYm9u
+ZF9hbGIuYyBiL2RyaXZlcnMvbmV0L2JvbmRpbmcvYm9uZF9hbGIuYwppbmRleCAzNmI4ZTg2Li41
+YzJhMTJjIDEwMDY0NAotLS0gYS9kcml2ZXJzL25ldC9ib25kaW5nL2JvbmRfYWxiLmMKKysrIGIv
+ZHJpdmVycy9uZXQvYm9uZGluZy9ib25kX2FsYi5jCkBAIC04OTYsNyArODk2LDcgQEAgc3RhdGlj
+IHZvaWQgYWxiX3NlbmRfbGVhcm5pbmdfcGFja2V0cyhzdHJ1Y3Qgc2xhdmUgKnNsYXZlLCB1OCBt
+YWNfYWRkcltdKQogCQltZW1jcHkoZGF0YSwgJnBrdCwgc2l6ZSk7CiAKIAkJc2tiX3Jlc2V0X21h
+Y19oZWFkZXIoc2tiKTsKLQkJc2tiLT5uaC5yYXcgPSBkYXRhICsgRVRIX0hMRU47CisJCXNrYi0+
+bmgucmF3ID0gc2tiLT5tYWMucmF3ICsgRVRIX0hMRU47CiAJCXNrYi0+cHJvdG9jb2wgPSBwa3Qu
+dHlwZTsKIAkJc2tiLT5wcmlvcml0eSA9IFRDX1BSSU9fQ09OVFJPTDsKIAkJc2tiLT5kZXYgPSBz
+bGF2ZS0+ZGV2OwotLSAKMS41LjAuMgoK
+------=_Part_27596_13818313.1173673666719--
