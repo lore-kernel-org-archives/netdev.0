@@ -1,34 +1,29 @@
-From: Chris Stromsoe <cbs@cts.ucla.edu>
-Subject: Re: [PATCH] skge: set mac address bonding fix
-Date: Mon, 12 Mar 2007 17:37:40 -0700 (PDT)
-Message-ID: <Pine.LNX.4.64.0703121731020.27756@potato.cts.ucla.edu>
-References: <Pine.LNX.4.64.0703081101390.21717@potato.cts.ucla.edu>
- <20070308113427.6344a7f6@freekitty> <Pine.LNX.4.64.0703081256440.25051@potato.cts.ucla.edu>
- <20070308134811.38a8ec81@freekitty> <Pine.LNX.4.64.0703081350510.25051@potato.cts.ucla.edu>
- <23552.1173395045@death> <Pine.LNX.4.64.0703081509110.28233@potato.cts.ucla.edu>
- <Pine.LNX.4.64.0703121504590.25767@potato.cts.ucla.edu>
- <20070312151626.60d00e30@dxpl.pdx.osdl.net> <Pine.LNX.4.64.0703121527320.25767@potato.cts.ucla.edu>
- <20070312161858.5fea9e63@dxpl.pdx.osdl.net>
+From: "Arnaldo Carvalho de Melo" <acme@ghostprotocols.net>
+Subject: [PATCHES 0/6] Turn skb->nh into a union of just one member 8)
+Date: Mon, 12 Mar 2007 22:27:06 -0300
+Message-ID: <39e6f6c70703121827i521e24dbv72dff3ae1d92a268@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Jeff Garzik <jgarzik@pobox.com>, Jay Vosburgh <fubar@us.ibm.com>,
-	netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Netdev List" <netdev@vger.kernel.org>
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-4.smtp.ucla.edu ([169.232.46.137]:55876 "EHLO
-	smtp-4.smtp.ucla.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752512AbXCMAhs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Mar 2007 20:37:48 -0400
-In-Reply-To: <20070312161858.5fea9e63@dxpl.pdx.osdl.net>
+Received: from ug-out-1314.google.com ([66.249.92.170]:48733 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753005AbXCMB1O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Mar 2007 21:27:14 -0400
+Received: by ug-out-1314.google.com with SMTP id 44so77684uga
+        for <netdev@vger.kernel.org>; Mon, 12 Mar 2007 18:27:08 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 12 Mar 2007, Stephen Hemminger wrote:
+Hi David,
 
-> Sounds like a dual-port only problem.. Unfortunately, I don't have 
-> actual dual port skge hardware to test.  Try this:
+          Please consider pulling from:
 
-That doesn't change the behavior at all.  I tested against 2.6.20.2 with 
-skge from git and against 2.6.21-rc3-git7.
+master.kernel.org:/pub/scm/linux/kernel/git/acme/net-2.6.22
 
--Chris
+           As the last csets says its just a temporary situation :-)
+
+- Arnaldo
