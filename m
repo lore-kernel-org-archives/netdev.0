@@ -1,66 +1,43 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [ANNOUNCE] iproute2 2.6.20-070313
-Date: Tue, 13 Mar 2007 15:15:49 -0700
-Message-ID: <20070313151549.332004c9@freekitty>
+From: "Jesse Brandeburg" <jesse.brandeburg@gmail.com>
+Subject: Re: [PATCH 09/15] [TCP]: Introduce tcp_hdrlen() and tcp_optlen()
+Date: Tue, 13 Mar 2007 16:22:37 -0700
+Message-ID: <4807377b0703131622w5dde4304v63fd941f74719a27@mail.gmail.com>
+References: <39e6f6c70703131446r3341c6c0i2a8168fdfcbde868@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: lartc@mailman.ds9a.nl
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: "David Miller" <davem@davemloft.net>,
+	"Netdev List" <netdev@vger.kernel.org>
+To: "Arnaldo Carvalho de Melo" <acme@ghostprotocols.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:38188 "EHLO smtp.osdl.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933764AbXCMWPx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Mar 2007 18:15:53 -0400
+Received: from an-out-0708.google.com ([209.85.132.245]:14501 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752149AbXCMXWi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Mar 2007 19:22:38 -0400
+Received: by an-out-0708.google.com with SMTP id b33so2081080ana
+        for <netdev@vger.kernel.org>; Tue, 13 Mar 2007 16:22:38 -0700 (PDT)
+In-Reply-To: <39e6f6c70703131446r3341c6c0i2a8168fdfcbde868@mail.gmail.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an experimental to the iproute2 command set.
+On 3/13/07, Arnaldo Carvalho de Melo <acme@ghostprotocols.net> wrote:
+> Introduce tcp_hdrlen() and tcp_optlen():
+> The ip_hdrlen() buddy, created to reduce the number of skb->h.th-> uses and to
+> avoid the longer, open coded equivalent.
 
-The version number includes the kernel version to denote what features are
-supported. The same source should build on older systems, but obviously the
-newer kernel features won't be available. As much as possible, this package
-tries to be source compatible across releases.
++static inline unsigned int tcp_hdrlen(const struct sk_buff *skb)
++{
++	return skb->h.th->doff * 4;
++}
++
++static inline unsigned int tcp_optlen(const struct sk_buff *skb)
++{
++	return (skb->h.th->doff - 5) * 4;
++}
 
-It can be downloaded from:
-  http://developer.osdl.org/dev/iproute2/download/iproute2-2.6.20-070313.tar.gz
+acme, good stuff, but does the " * 4" generate equivalent assembly
+with gcc 3/4 as " << 2" ?
 
-Repository:
-  git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2.git
-
-For more info on iproute2 see:
-  http://linux-net.osdl.org/index.php/Iproute2
-
-Changes:
-
-Jamal Hadi Salim:
-      update rest to use nl_mgrp
-      nl_mgrp to crap if base multicast groups exceeded
-      Old bug on tc
-
-Mike Frysinger:
-      do not ignore build failures in subdirs of iproute2
-
-Noriaki TAKAMIYA:
-      enabled to manipulate the flags of IFA_F_HOMEADDRESS or IFA_F_NODAD from ip.
-
-Patrick McHardy:
-      tbf: fix latency printing
-      Use tc_calc_xmittime() where appropriate
-      Introduce tc_calc_xmitsize and use where appropriate
-      Introduce TIME_UNITS_PER_SEC to represent internal clock resolution
-      Replace "usec" by "time" in function names
-      Add sprint_ticks() function and use in CBQ
-      Handle different kernel clock resolutions
-      Increase internal clock resolution to nsec
-
-Stephen Hemminger:
-      netem use read/write for changes
-      fix tc-pfifo and tc-bfifo man pages
-      iptables library fix
-      TC bfifo man page
-      Use kernel headers from 2.6.20.y
-
-Thomas Hisch:
-      Fixes use of uninitialized string
-
+I could assume that the compiler would be smart enough, but every time
+I assume I know what the compiler is doing I get myself in trouble.
