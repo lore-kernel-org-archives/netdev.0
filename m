@@ -1,37 +1,49 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: Removal of multipath cached (was Re: [PATCH] [REVISED] net/ipv4/multipath_wrandom.c: check kmalloc() return value.)
-Date: Tue, 13 Mar 2007 08:05:51 +0100
-Message-ID: <20070313070551.GA1682@ff.dom.local>
-References: <20070308.232908.92582631.davem@davemloft.net> <20070312115137.GA3270@ff.dom.local> <20070312.135311.71086996.davem@davemloft.net> <20070312222236.860fc180.akpm@linux-foundation.org>
+From: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
+Subject: Re: [patch 12/19] fix irq problem with NAPI + NETPOLL
+Date: Tue, 13 Mar 2007 17:14:27 +0900 (JST)
+Message-ID: <20070313.171427.127590092.nemoto@toshiba-tops.co.jp>
+References: <200703061041.l26AfusT019768@shell0.pdx.osdl.net>
+	<20070307.151844.102573883.davem@davemloft.net>
+	<20070308.103513.103776988.nemoto@toshiba-tops.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, amit2030@gmail.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: akpm@linux-foundation.org, jeff@garzik.org, netdev@vger.kernel.org,
+	romieu@fr.zoreil.com, shemminger@linux-foundation.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx10.go2.pl ([193.17.41.74]:44742 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753150AbXCMHBj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Mar 2007 03:01:39 -0400
-Content-Disposition: inline
-In-Reply-To: <20070312222236.860fc180.akpm@linux-foundation.org>
+Received: from topsns2.toshiba-tops.co.jp ([202.230.225.126]:2098 "EHLO
+	topsns2.toshiba-tops.co.jp" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S965109AbXCMIOk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Mar 2007 04:14:40 -0400
+In-Reply-To: <20070308.103513.103776988.nemoto@toshiba-tops.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 12, 2007 at 10:22:36PM -0800, Andrew Morton wrote:
-> > On Mon, 12 Mar 2007 13:53:11 -0700 (PDT) David Miller <davem@davemloft.net> wrote:
-...
-> > And there is absolutely no negotiations about this, I've held back on
-> > this for nearly 2 years, and nothing has happened, this code is not
-> > maintained, nobody cares enough to fix the bugs, and even no
-> > distributions enable it because it causes crashes.
+On Thu, 08 Mar 2007 10:35:13 +0900 (JST), Atsushi Nemoto <anemo@mba.ocn.ne.jp> wrote:
+> > netpoll_rx() should be invokable from hardware interrupt context.
+> > What is the crash you are seeing?
 > 
-> Good stuff.
-> 
-> I suggest you put a big printk explaining the above into 2.6.21.
-> 
+> The problem is not netpoll_rx().  It should be called from irq context.
+> The problem is, netif_receive_skb() is called from irq context though
+> it seems not designed to do so.
 
-Plus official way: Documentation/feature-remove-schedule.txt
-in the next rc-git.
+Unfortunately I could not reproduce the crash, but IIRC the crash was
+happened at upper protocol layer on hardware interrupt context.
 
-Jarek P.
+Anyway, I think main path of netif_receive_skb() should not be
+executed in hardware interrupt context.  Is it wrong?
+
+> > It looks like perhaps the kfree_skb() calls need to be modified
+> > in __netpoll_rx().
+> 
+> Well, it seems an another netpoll bug.
+
+I suppose these kfree_skb() in __netpoll_rx() should be
+dev_kfree_skb_any().  And I found an another abuse which is irrelevant
+to netpoll.  The netif_rx() calls kfree_skb() at its bottom.  The
+netif_rx() should be callable from hardware interrupt context, so it
+should be changed to dev_kfree_skb_any().  Is it right?
+
+---
+Atsushi Nemoto
