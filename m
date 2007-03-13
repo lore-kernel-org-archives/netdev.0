@@ -1,85 +1,61 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [RFC] Get rid of netdev_nit
-Date: Tue, 13 Mar 2007 14:26:35 -0700
-Message-ID: <20070313142635.68966970@freekitty>
-References: <20070312210817.485320783@linux-foundation.org>
-	<20070312210907.509184287@linux-foundation.org>
-	<45F63891.6040307@cosmosbay.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [PATCH 1/2] avoid OPEN_MAX in SCM_MAX_FD
+Date: Tue, 13 Mar 2007 14:28:00 -0700 (PDT)
+Message-ID: <Pine.LNX.4.64.0703131420230.9690@woody.linux-foundation.org>
+References: <20070313200256.CF7411801C5@magilla.sf.frob.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>,
-	David Miller <davem@davemloft.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Benjamin LaHaise <bcrl@kvack.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Roland McGrath <roland@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:36079 "EHLO smtp.osdl.org"
+Received: from smtp.osdl.org ([65.172.181.24]:36166 "EHLO smtp.osdl.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933630AbXCMV1H (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Mar 2007 17:27:07 -0400
-In-Reply-To: <45F63891.6040307@cosmosbay.com>
+	id S933640AbXCMV2Q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Mar 2007 17:28:16 -0400
+In-Reply-To: <20070313200256.CF7411801C5@magilla.sf.frob.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-It isn't any faster to test a boolean global variable than do a 
-simple check for empty list.
 
-Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
----
- net/core/dev.c |   18 +++++-------------
- 1 files changed, 5 insertions(+), 13 deletions(-)
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 3a8590c..f2ae2c9 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -226,12 +226,6 @@ #endif
- *******************************************************************************/
- 
- /*
-- *	For efficiency
-- */
--
--static int netdev_nit;
--
--/*
-  *	Add a protocol ID to the list. Now that the input handler is
-  *	smarter we can dispense with all the messy stuff that used to be
-  *	here.
-@@ -265,10 +259,9 @@ void dev_add_pack(struct packet_type *pt
- 	int hash;
- 
- 	spin_lock_bh(&ptype_lock);
--	if (pt->type == htons(ETH_P_ALL)) {
--		netdev_nit++;
-+	if (pt->type == htons(ETH_P_ALL))
- 		list_add_rcu(&pt->list, &ptype_all);
--	} else {
-+	else {
- 		hash = ntohs(pt->type) & 15;
- 		list_add_rcu(&pt->list, &ptype_base[hash]);
- 	}
-@@ -295,10 +288,9 @@ void __dev_remove_pack(struct packet_typ
- 
- 	spin_lock_bh(&ptype_lock);
- 
--	if (pt->type == htons(ETH_P_ALL)) {
--		netdev_nit--;
-+	if (pt->type == htons(ETH_P_ALL))
- 		head = &ptype_all;
--	} else
-+	else
- 		head = &ptype_base[ntohs(pt->type) & 15];
- 
- 	list_for_each_entry(pt1, head, list) {
-@@ -1333,7 +1325,7 @@ static int dev_gso_segment(struct sk_buf
- int dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
- {
- 	if (likely(!skb->next)) {
--		if (netdev_nit)
-+		if (!list_empty(&ptype_all))
- 			dev_queue_xmit_nit(skb, dev);
- 
- 		if (netif_needs_gso(dev, skb)) {
--- 
-1.4.1
+On Tue, 13 Mar 2007, Roland McGrath wrote:
+> 
+> The OPEN_MAX constant is an arbitrary number with no useful relation to
+> anything.  Nothing should be using it.  SCM_MAX_FD is just an arbitrary
+> constant and it should be clear that its value is chosen in net/scm.h
+> and not actually derived from anything else meaningful in the system.
 
+I'd actually prefer this as part of the "remove OPEN_MAX" patch.
+
+It's certainly nice to have small independent patches in a series, but two 
+one-liners that really aren't all that independent either in practice or 
+in goals doesn't make much sense to me. Much better to just be up-front 
+about things and say: "remove OPEN_MAX, and to do so, just rewrite that 
+other arbitrary constant to not need it any more".
+
+That said, it actually worries me that you should call "_SC_OPEN_MAX". I 
+think the whole POSIX config method is way over-designed (anybody who 
+thinks you should ever have used _SC_HZ or whatever it was called was just 
+crazy), but more importantly, and independently of that worry, I just 
+suspect a lot of programs simply _don't_do_it_.
+
+For example, I know perfectly well that I should use _SC_PATH_MAX, but a 
+*lot* of code simply doesn't care. In git, I used PATH_MAX, and the reason 
+is that
+ - I want a constant for arrays
+ - I don't care that much about the exact value, I just want a reasonable 
+   value for sizing an array for some random path
+ - _SC_PATH_MAX is practically unportable and simply not *useful*.
+
+.. in short, I'm not a big believer in "programs should do Xyz according 
+to some paper standard". Paper standards are written by committees, not 
+programmers, and seldom take issues other than politics into account.
+
+So, what's the likelihood that this will break some old programs? I 
+realize that modern distributions don't put the kernel headers in their 
+user-visible includes any more, but the breakage is most likely exactly 
+for old programs and older distributions.
+
+		Linus
