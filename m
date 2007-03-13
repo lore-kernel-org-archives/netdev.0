@@ -1,54 +1,106 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: Re: [patch 4/4] [TULIP] Rev tulip version
-Date: Tue, 13 Mar 2007 13:07:34 -0400
-Message-ID: <20070313170733.GB28281@gospo.rdu.redhat.com>
-References: <20070312093128.577087000@linux.intel.com> <20070312095912.743760000@linux.intel.com> <84144f020703120344n3f5ed52axf0bc1c109b549535@mail.gmail.com> <45F55EA5.9080005@garzik.org>
+From: "Michal Piotrowski" <michal.k.k.piotrowski@gmail.com>
+Subject: Re: 2.6.21-rc3-git4 ata1.00: qc timeout (cmd 0xef) (crashdump kernel)
+Date: Tue, 13 Mar 2007 19:26:27 +0100
+Message-ID: <6bffcb0e0703131126l724c2a2eh6e1b9bb22c0e40c7@mail.gmail.com>
+References: <6bffcb0e0703090857r14eda34bj92f3fd1d0008edb8@mail.gmail.com>
+	 <45F51218.9030907@gmail.com> <45F5805A.5080509@googlemail.com>
+	 <1173718012.13341.95.camel@localhost.localdomain>
+	 <45F58644.1070905@gmail.com>
+	 <20070312115037.0b39b751@dxpl.pdx.osdl.net>
+	 <45F5A3E4.4010503@gmail.com> <20070312123029.6ad619b0@freekitty>
+	 <45F5AC9A.9030601@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pekka Enberg <penberg@cs.helsinki.fi>,
-	Valerie Henson <val_henson@linux.intel.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:40077 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030797AbXCMRHq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Mar 2007 13:07:46 -0400
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Stephen Hemminger" <shemminger@linux-foundation.org>,
+	tglx@linutronix.de, "Jeff Garzik" <jeff@garzik.org>,
+	linux-ide@vger.kernel.org, "Ingo Molnar" <mingo@elte.hu>,
+	"Bartlomiej Zolnierkiewicz" <bzolnier@gmail.com>,
+	netdev@vger.kernel.org, "Alan Cox" <alan@lxorguk.ukuu.org.uk>
+To: "Tejun Heo" <htejun@gmail.com>
+Return-path: <linux-ide-owner@vger.kernel.org>
+In-Reply-To: <45F5AC9A.9030601@gmail.com>
 Content-Disposition: inline
-In-Reply-To: <45F55EA5.9080005@garzik.org>
-Sender: netdev-owner@vger.kernel.org
+Sender: linux-ide-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 12, 2007 at 10:07:33AM -0400, Jeff Garzik wrote:
-> Pekka Enberg wrote:
-> >Hi,
+On 12/03/07, Tejun Heo <htejun@gmail.com> wrote:
+> Stephen Hemminger wrote:
+> > On Tue, 13 Mar 2007 04:03:00 +0900
+> > Tejun Heo <htejun@gmail.com> wrote:
 > >
-> >On 3/12/07, Valerie Henson <val_henson@linux.intel.com> wrote:
-> >>--- tulip-2.6-mm-linux.orig/drivers/net/tulip/tulip_core.c
-> >>+++ tulip-2.6-mm-linux/drivers/net/tulip/tulip_core.c
-> >>@@ -17,11 +17,11 @@
+> >> Stephen Hemminger wrote:
+> >>>> 1. the controller has IRQ stuck high (infrequent but possible)
+> >>>> 2. the IRQ is already requested by another device
+> >>>> 3. the IRQ gets disabled due to screaming interrupts at the moment
+> >>>> ata_piix does pci_enable_device().
+> >>>>
+> >>>> I think we can be much more resilient to screaming interrupts if we
+> >>>> enable device with IRQ disabled and enable it after the device is
+> >>>> initialized to some level, possibly when requesting IRQ.
+> >>> The first thing the skge driver does is do a chip reset, and that should
+> >>> cause IRQ to be disabled and cleared. The driver has no chance to
+> >>> fix it if the BIOS left the IRQ screaming...
+> >> What if we do something like...
 > >>
-> >> #define DRV_NAME       "tulip"
-> >> #ifdef CONFIG_TULIP_NAPI
-> >>-#define DRV_VERSION    "1.1.14-NAPI" /* Keep at least for test */
-> >>+#define DRV_VERSION    "1.1.15-NAPI" /* Keep at least for test */
-> >> #else
-> >>-#define DRV_VERSION    "1.1.14"
-> >>+#define DRV_VERSION    "1.1.15"
-> >> #endif
-> >>-#define DRV_RELDATE    "May 11, 2002"
-> >>+#define DRV_RELDATE    "Feb 27, 2007"
+> >>      pci_intx(pdev, 0);
+> >>      pci_enable_device(pdev);
+> >>      /* initialize */
+> >>      request_irq(blah blah...);
+> >>      pci_intx(pdev, 1);
+> >>
+> >> Would this work for skge?
+> >>
 > >
-> >Why not just drop this? What purpose does a per-module revision have
-> >for in-kernel drivers anyway?
-> 
-> It's the maintainer's call.  Sometimes it eases parsing bug reports, and 
-> tracking changes as your drivers get backported to various enterprise 
-> operating systems(tm).  Sometimes it just gets in the way.
-> 
+> > Okay for testing, but any change like this should be done in the base
+> > PCI layer, not one off in a particular driver.
+>
+> Yeap, it was a proof-of-concept pseudo code.  I attached a patch to do
+> above in skge.  Please point out if it is broken (e.g. intx needs to be
+> enabled earlier).
+>
+> Michal, can you apply the attached patch and see whether it fixes the
+> problem.
 
-It's good to keep this type of information in drivers.  I've been
-thinking lately that it would be nice to even expand it a little bit
-(maybe include the commit sum) so its easier to help those who aren't
-running the latest upstream kernels on their boxes....
+I think that problem is solved.
 
+Thanks.
+
+>
+> Thanks.
+>
+> --
+> tejun
+>
+> diff --git a/drivers/net/skge.c b/drivers/net/skge.c
+> index eea75a4..2c990f2 100644
+> --- a/drivers/net/skge.c
+> +++ b/drivers/net/skge.c
+> @@ -3585,6 +3585,7 @@ static int __devinit skge_probe(struct pci_dev *pdev,
+>         struct skge_hw *hw;
+>         int err, using_dac = 0;
+>
+> +       pci_intx(pdev, 0);
+>         err = pci_enable_device(pdev);
+>         if (err) {
+>                 dev_err(&pdev->dev, "cannot enable PCI device\n");
+> @@ -3669,6 +3670,7 @@ static int __devinit skge_probe(struct pci_dev *pdev,
+>                        dev->name, pdev->irq);
+>                 goto err_out_unregister;
+>         }
+> +       pci_intx(pdev, 1);
+>         skge_show_addr(dev);
+>
+>         if (hw->ports > 1 && (dev1 = skge_devinit(hw, 1, using_dac))) {
+>
+>
+
+Regards,
+Michal
+
+-- 
+Michal K. K. Piotrowski
+LTG - Linux Testers Group (PL)
+(http://www.stardust.webpages.pl/ltg/)
+LTG - Linux Testers Group (EN)
+(http://www.stardust.webpages.pl/linux_testers_group_en/)
