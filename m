@@ -1,68 +1,59 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: wireless extensions vs. 64-bit architectures
-Date: Tue, 13 Mar 2007 20:42:05 +0100
-Message-ID: <1173814925.12717.6.camel@johannes.berg>
-References: <20070307020310.GA20466@bougret.hpl.hp.com>
-	 <1173364747.14001.7.camel@johannes.berg>
-	 <20070308184954.GA24485@bougret.hpl.hp.com>
-	 <1173382042.3248.63.camel@johannes.berg>
-	 <20070308193412.GG23040@devicescape.com>
-	 <1173382802.3248.68.camel@johannes.berg>
-	 <20070308221128.GA24884@bougret.hpl.hp.com>
-	 <1173393326.3831.21.camel@johannes.berg>
-	 <20070309213531.GA28070@bougret.hpl.hp.com>
-	 <1173634801.3382.8.camel@johannes.berg>
-	 <20070312175639.GA4048@bougret.hpl.hp.com>
+From: Roland McGrath <roland@redhat.com>
+Subject: Re: [PATCH 1/2] avoid OPEN_MAX in SCM_MAX_FD
+Date: Tue, 13 Mar 2007 13:02:56 -0700 (PDT)
+Message-ID: <20070313200256.CF7411801C5@magilla.sf.frob.com>
+References: <20070313141750.GH6209@kvack.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-BhnTqRzedgficb9qNtSJ"
-Cc: Jouni Malinen <jkm-r/za7OOdgF0ztatW0fm/fQ@public.gmane.org>, Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Jeff Garzik <jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>, Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-To: jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20070312175639.GA4048-yAE0UhLNZJawPNPzzlOzwdBPR1lH4CV8@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Benjamin LaHaise <bcrl@kvack.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([66.187.233.31]:37331 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933104AbXCMUDc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Mar 2007 16:03:32 -0400
+In-Reply-To: Benjamin LaHaise's message of  Tuesday, 13 March 2007 10:17:50 -0400 <20070313141750.GH6209@kvack.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+> > -#define SCM_MAX_FD	(OPEN_MAX-1)
+> > +#define SCM_MAX_FD	(NR_OPEN-1)
+> 
+> This is a bad idea.  [...]
 
---=-BhnTqRzedgficb9qNtSJ
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+Ok.  My only agenda is to get rid of OPEN_MAX.
+I then propose the following instead.
 
-On Mon, 2007-03-12 at 10:56 -0700, Jean Tourrilhes wrote:
 
-> 	I did that in the e-mail to Jouni. The problem is that most
-> people are unfamiliar with decoding iwevents, so can't grasp the
-> explanation.
-> 	Basically, for iwpoint, we have an outer lenght and an inner
-> length. If they don't match, we have an alignement issue and just need
-> to pick the payload 8 bytes after the expected location.
-> 	For other events, they have a well known size. If the outer
-> lenght is not the expected size, but is expected+4, you just pick the
-> payload 4 bytes after the expected location.
+Thanks,
+Roland
 
-Ok.
+---
+[PATCH] avoid OPEN_MAX in SCM_MAX_FD
 
-So the plan now is to put this document up somewhere maybe with some
-graphics or whatever, and then send this to distros so they know what
-happens when people hit this bug.
+The OPEN_MAX constant is an arbitrary number with no useful relation to
+anything.  Nothing should be using it.  SCM_MAX_FD is just an arbitrary
+constant and it should be clear that its value is chosen in net/scm.h
+and not actually derived from anything else meaningful in the system.
 
-Does your new version work without padding even on 64-bit arches? Then
-in a few years we can actually remove the padding completely in the
-kernel, right?
+Signed-off-by: Roland McGrath <roland@redhat.com>
+---
+ include/net/scm.h |    5 ++---
+ 1 files changed, 2 insertions(+), 3 deletions(-)
 
-johannes
-
---=-BhnTqRzedgficb9qNtSJ
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iD8DBQBF9v6N/ETPhpq3jKURAv02AJ4h2xXmx4/I80BpDB65r4bcKHhPLQCfZxF+
-XAFf/5dT2bv11B6azhP0EGE=
-=yJcz
------END PGP SIGNATURE-----
-
---=-BhnTqRzedgficb9qNtSJ--
+diff --git a/include/net/scm.h b/include/net/scm.h
+index 5637d5e..2240690 100644  
+--- a/include/net/scm.h
++++ b/include/net/scm.h
+@@ -8,7 +8,7 @@
+ /* Well, we should have at least one descriptor open
+  * to accept passed FDs 8)
+  */
+-#define SCM_MAX_FD	(OPEN_MAX-1)
++#define SCM_MAX_FD	255
+ 
+ struct scm_fp_list
+ {
