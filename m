@@ -1,121 +1,201 @@
-From: John Heffner <jheffner@psc.edu>
-Subject: Re: SWS for rcvbuf < MTU
-Date: Tue, 13 Mar 2007 15:01:50 -0400
-Message-ID: <45F6F51E.6090905@psc.edu>
-References: <200703021521.58821.alexandre.sidorenko@hp.com> <20070302.133839.17868570.davem@davemloft.net> <45EA075C.5010406@psc.edu> <200703051152.27780.alexandre.sidorenko@hp.com>
+From: Johann Borck <johann.borck@densedata.com>
+Subject: considering kevent - the kernel development process
+Date: Tue, 13 Mar 2007 20:03:44 +0100
+Message-ID: <45F6F590.8030909@densedata.com>
+Reply-To: Johann Borck <johann.borck@densedata.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------070502060706050303030208"
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Alex Sidorenko <alexandre.sidorenko@hp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailer2.psc.edu ([128.182.66.106]:51732 "EHLO mailer2.psc.edu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932966AbXCMTCN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Mar 2007 15:02:13 -0400
-In-Reply-To: <200703051152.27780.alexandre.sidorenko@hp.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	Andrew Morton <akpm@osdl.org>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	Chase Venters <chase.venters@clientec.com>,
+	Johann Borck <johann.borck@densedata.com>,
+	linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
+	Jamal Hadi Salim <hadi@cyberus.ca>,
+	Ingo Molnar <mingo@elte.hu>,
+	Johann Borck <johann.borck@densedata.com>,
+	Pavel Machek <pavel@ucw.cz>, Theodore Tso <tytso@mit.edu>,
+	Arjan van de Ven <arjan@infradead.org>,
+	Christoph Hellwig <hch@infradead.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932800AbXCMTBj@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------070502060706050303030208
-Content-Type: text/plain; charset=iso-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+if the next section seems obvious, please skip it
+-----------------------------------------------------------------------=
+--
+There is a need for a generic event handling mechanism in Linux - maybe=
+=20
+it is enough to cite the current CGL Performance Requirements Definitio=
+n
+Version 4.0 at
+http://developer.osdl.org/dev/cgl/cgl40/cgl40-performance.pdf , page 13=
+:
 
-Alex Sidorenko wrote:
-> Here are the values from live kernel (obtained with 'crash') when the host was 
-> in SWS state:
-> 
-> full_space=708		full_space/2=354
-> free_space=393
-> window=76
-> 
-> In this case the test from my original fix, (window < full_space/2),  
-> succeeds. But John's test
-> 
-> free_space > window + full_space/2
-> 393          430
-> 
-> does not. So I suspect that the new fix will not always work. From tcpdump 
-> traces we can see that both hosts exchange with 76-byte packets for a long 
-> time. From customer's application log we see that it continues to read 
-> 76-byte chunks per each read() call - even though more than that is available 
-> in the receive buffer. Technically it's OK for read() to return even after 
-> reading one byte, so if sk->receive_queue contains multiple 76-byte skbuffs 
-> we may return after processing just one skbuff (but we we don't understand 
-> the details of why this happens on customer's system).
-> 
-> Are there any particular reasons why you want to postpone window update until 
-> free_space becomes > window + full_space/2 and not as soon as 
-> free_space > full_space/2? As the only real-life occurance of SWS shows 
-> free_space oscillating slightly above full_space/2, I created the fix 
-> specifically to match this phenomena as seen on customer's host. We reach the 
-> modified section only when (free_space > full_space/2) so it should be OK to 
-> update the window at this point if mss==full_space. 
-> 
-> So yes, we can test John's fix on customer's host but I doubt it will work for 
-> the reasons mentioned above, in brief:
-> 
-> 'window = free_space' instead of 'window=full_space/2' is OK,
-> but the test 'free_space > window + full_space/2' is not for the specific 
-> pattern customer sees on his hosts.
+ PRF.5.0     Efficient Low-Level Asynchronous Events  Priority P1      =
+         =20
+ Description: OSDL CGL specifies that carrier grade Linux shall provide=
+=20
+ an efficient capability for handling a large number of essentially=20
+ simultaneous asynchronous events arriving on multiple channels, such a=
+s
+ multiple sockets or other similar paths. This mechanism is needed to=20
+ enforce system scalability and soft real-time responsiveness by
+ reducing contentions appearing at the kernel level, especially under=20
+ high load.
 
+Ulrich Drepper has written a paper  The Need for Aynchronous,=20
+Zero=ADCopy Network I/O,
+http://people.redhat.com/drepper/newni-slides.pdf
 
-Sorry for the long delay in response, I've been on vacation.  I'm okay 
-with your patch, and I can't think of any real problem with it, except 
-that the behavior is non-standard.  Then again, Linux acking in general 
-is non-standard, which has created the bug in the first place. :)  The 
-only thing I can think where it might still ack too often is if 
-free_space frequently drops just below full_space/2 for a bit then rises 
-above full_space/2.
+A bit older but nice wrt performance-issues is APPLYING THE PROACTOR PA=
+TTERN TO=20
+HIGH-PERFORMANCE WEB SERVERS
+at http://www.cs.wustl.edu/~schmidt/PDF/proactor-jaws.pdf along with=20
+many other research papers on that site.
 
-I've also attached a corrected version of my earlier patch that I think 
-solves the problem you noted.
+-----------------------------------------------------------------------=
+----
 
-Thanks,
-   -John
+So the question is not to be or not to be (at least not for an async=20
+event mechanism) - Linux needs  it. There have been approaches to this,=
+=20
+the both I'm aware of are:
+kevent by Evgeniy Polyakov
+AEM by Frederic Rossi at http://aem.sourceforge.net/ , several years ag=
+o.
 
---------------070502060706050303030208
-Content-Type: text/plain; x-mac-type="0"; x-mac-creator="0";
- name="rcv-sws.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="rcv-sws.patch"
+The discussion about kevent has stalled since Ulrich Drepper left the=20
+thread in November without commenting on many changes
+Evgeniy did to the interface and implementation in response to=20
+requirements formulated by Drepper. The only further statement was this=
+:
 
-Do full receiver-side SWS avoidance when rcvbuf < mss.
+>> Evgeniy Polyakov wrote:
+>>> I think that mean that everybody is happy with APi, design and set =
+of
+>>> features
 
-Signed-off-by: John Heffner <jheffner@psc.edu>
+>On Mon, Feb 12, 2007 at 06:59:17AM -0800, Ulrich Drepper wrote:
+>> No comment means that I still have not been able to test anything si=
+nce
+>> regardless of what version I tried, it failed to build.
 
----
-commit f4333661026621e15549fb75b37be785e4a1c443
-tree 30d46b64ea19634875fdd4656d33f76db526a313
-parent 562aa1d4c6a874373f9a48ac184f662fbbb06a04
-author John Heffner <jheffner@psc.edu> Tue, 13 Mar 2007 14:17:03 -0400
-committer John Heffner <jheffner@psc.edu> Tue, 13 Mar 2007 14:17:03 -0400
+Evgeniy Polyakov wrote:
+>I think if you would provide error message you saw, I fixed that in a
+>couple of moments, doesn't it?
+>
+>I will send new patchset next week when rc1 will be out and your
+>feedback is greatly appreciated.
 
- net/ipv4/tcp_output.c |    9 ++++++++-
- 1 files changed, 8 insertions(+), 1 deletions(-)
+This is hard to believe - the person that the whole process was blockin=
+g=20
+on (in a sane linux-world, hopefully for competence-reasons) wasn't abl=
+e=20
+to build a kernel with that patch? And I was? With almost any version,=20
+without problems?  very hard to believe.
+Then a thread about threadlets/syslets and aio came up - the kernel=20
+developers discussed some kevent-related stuff, Evgeniy brought up his=20
+project again, and after some discussion about benchmarks and behavior,=
+=20
+it was gone again.
+Somehow Evgeniy backed up then - and wrote 'eventfs' to make signal=20
+notifications epollable mentioning that he'd add Posix Timer support if=
+=20
+the concept will be accepted - which wasn't commented at all, but=20
+instead Davide Libenzi came up with two patches for exactly the same=20
+purpose, which raised a lot of feedback.
 
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index dc15113..e621a63 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -1605,8 +1605,15 @@ u32 __tcp_select_window(struct sock *sk)
- 		 * We also don't do any window rounding when the free space
- 		 * is too small.
- 		 */
--		if (window <= free_space - mss || window > free_space)
-+		if (window <= free_space - mss || window > free_space) {
- 			window = (free_space/mss)*mss;
-+		} else if (mss == full_space) {
-+			/* Do full receive-side SWS avoidance
-+			 * when rcvbuf <= mss */
-+			window = tcp_receive_window(tp);
-+			if (free_space > window + full_space/2)
-+				window = free_space;
-+		}
- 	}
- 
- 	return window;
+It can't be more obvious.. Is the consideration of patches (in case of =
+kevent
+major contributions)  completely independent of content and intent?
+Although Evgeniy showed remarkable productivity and dedication to his=20
+project,  included support for stuff that was requested even though he=20
+had objections(posix timers), redesigned parts on request (mainly asked=
+ for by U. Drepper), implemented example programs, implemented many dif=
+ferent event-types and drafted network-aio support, wrote patches for l=
+ighttpd and libevent to show usability in real-life apps, which he was =
+asked to do (because people would then be able to make up their mind), =
+nothing happened. =20
 
---------------070502060706050303030208--
+After the implementation of most of Dreppers requests for change the=20
+thread remained almost silent - at a stage where one would think that=20
+the work on details could start.
+
+On Mon, Feb 12, 2007 at 09:13:35AM -0800, Andrew Morton wrote:
+
+>> > > On Mon, 12 Feb 2007 13:35:10 +0300 Evgeniy Polyakov wrote:
+>> > > Andrew, do you consider kevent for inclusion or declining?
+>>    =20
+> >=20
+> > I haven't had time to think about it in the past month or two, sorr=
+y.
+> >=20
+> > However we might as well get it back in there for review-and-test -=
+ please
+> > send a new patchset once 2.6.21-rc1 is released and copy me on it?
+>  =20
+
+I don't want to attack anyone here, but there is a problem in the way=20
+(at least) kevent is considered. As stated an asynchronous event=20
+mechanism is a crucial thing, and would be a major contribution to the=20
+kernel. It is easy to come to the conclusion that the main=20
+kernel-developers just don't want to accept such a contribution by=20
+someone not already inside that hall of fame. Otherwise, there would be=
+=20
+arguments, discussion, there would be reasons. The attempts to explain=20
+it with lack of time, lack of ability to test or whatever are weak. The=
+y=20
+suffer from the evidence, that related stuff is discussed all over -=20
+compare eventfs vs. signalfd/timerfd threads and look at syslets/thread=
+lets
+thread. Of course one could argue that people with less reputation are=20
+treated differently, because one estimates the relevance of their=20
+contributions lower. But the relevance of the gap that kevent=20
+might fill, and therefore kevent itself, is tremendous. It is=20
+priority 1 as stated in the CGL Performance Requirements Definition - b=
+ut it is not discussed.
+
+So my questions are:
+
+What in general is wrong with kevent?
+
+What, in detail is wrong with kevent / its proposed interface?
+
+What features are missing?
+
+What are the (real) reasons for the way it is discussed?
+
+One argument that can be read often in this context is that no one woul=
+d=20
+use it. That's nonsense, or why is it P1 as stated in the CGL=20
+Performance Requirements Definition? It would be definitely  used, yes=20
+it would change the way people write and think about writing software f=
+or Linux.
+
+To me this looks quite scary - though the need is there, and the needed=
+ functionality is simulated by many frameworks (ACE/Proactor/TProactor,=
+ Twisted, Boost::asio, libevent etc.) the discussion stops - as if it w=
+ouldn't matter. But it does, and so there are things wrong with the dev=
+elopment process, as wrong as contributions like kevent are important f=
+or Linux. All big organizations adhere to institutionalized procedures =
+and become dull wrt change. Their departments tend to preserve their in=
+fluence. Is the institution that is in charge of the final decisions he=
+re (the core kernel developers) open enough to deal with major contribu=
+tions from "outside", to discuss their *value* based on need, relevance=
+, maturity? Or has the control over the process and isolation from mere=
+ mortals become more important than the functionality of the kernel its=
+elf?=20
+Don't get me wrong, this is *not* about inclusion, this is about *discu=
+ssion*!
+
+Johann Borck
