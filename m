@@ -1,119 +1,60 @@
-From: Andi Kleen <ak@suse.de>
+From: Eric Dumazet <dada1@cosmosbay.com>
 Subject: Re: [PATCH] Shrink struct dst_entry a bit
-Date: Tue, 13 Mar 2007 15:31:13 +0100
-Message-ID: <200703131531.14548.ak@suse.de>
-References: <200703131448.15193.ak@suse.de> <200703131510.41651.dada1@cosmosbay.com>
+Date: Tue, 13 Mar 2007 15:44:57 +0100
+Message-ID: <200703131544.57757.dada1@cosmosbay.com>
+References: <200703131448.15193.ak@suse.de> <200703131510.41651.dada1@cosmosbay.com> <200703131531.14548.ak@suse.de>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Eric Dumazet <dada1@cosmosbay.com>
+To: Andi Kleen <ak@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.suse.de ([195.135.220.2]:41242 "EHLO mx1.suse.de"
+Received: from pfx2.jmh.fr ([194.153.89.55]:43114 "EHLO pfx2.jmh.fr"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030405AbXCMObY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Mar 2007 10:31:24 -0400
-In-Reply-To: <200703131510.41651.dada1@cosmosbay.com>
+	id S1030429AbXCMOou (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Mar 2007 10:44:50 -0400
+In-Reply-To: <200703131531.14548.ak@suse.de>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 13 March 2007 15:10, Eric Dumazet wrote:
-> On Tuesday 13 March 2007 14:48, Andi Kleen wrote:
-> > The ICMP rate limiting state can be shorts, we don't send that many ICMPs.
-> > Changing flags to short and reorder fields to be sorted by size to avoid
-> > holes. Move cold fields towards the end.
-> >
-> 
-> Nope, you cannot break the reordering I've done one month ago.
+On Tuesday 13 March 2007 15:31, Andi Kleen wrote:
 
-Ok.  When you do such changes you should always add a comment, otherwise
-it will be always destroyed with the next change.
+> Ok.  When you do such changes you should always add a comment, otherwise
+> it will be always destroyed with the next change.
+>
+> But it seems highly fragile to me anyways because it depends on the exact
+> value of RTAX_MAX which tends to change regularly when someone invents
+> a new attribute. You should probably have moved next out of the dst entry.
 
-But it seems highly fragile to me anyways because it depends on the exact
-value of RTAX_MAX which tends to change regularly when someone invents
-a new attribute. You should probably have moved next out of the dst entry.
+Not an option, unfortunately. But yes, a comment is needed.
+(Before my february patches, the 'next' pointer was forced to be the first 
+field of dst).
 
-Anyways here's a new patch with next still at the end and a comment.
+>
+> Anyways here's a new patch with next still at the end and a comment.
+>
 
--Andi
+Andi, did you actually test your patch ?
 
-Shrink dst_entry a bit.
+Unless I really miss something obvious, rate_last is supposed to store 
+jiffies.
 
-The ICMP rate limiting state can be shorts, we don't send that many ICMPs.
-Changing flags to short and reorder fields to be sorted by size to avoid holes.
-Move cold fields towards the end.
+net/ipv4/route.c:1313:  if (time_after(jiffies, rt->u.dst.rate_last + 
+ip_rt_redirect_silence))
 
-Signed-off-by: Andi Kleen <ak@suse.de>
+So you *cannot* convert it to 'unsigned short'. Really.
 
-Index: linux-2.6.21-rc3-net/include/net/dst.h
-===================================================================
---- linux-2.6.21-rc3-net.orig/include/net/dst.h
-+++ linux-2.6.21-rc3-net/include/net/dst.h
-@@ -40,26 +40,24 @@ struct dst_entry
- 	struct rcu_head		rcu_head;
- 	struct dst_entry	*child;
- 	struct net_device       *dev;
--	short			error;
--	short			obsolete;
--	int			flags;
-+	unsigned long		expires;
-+	short			flags;
- #define DST_HOST		1
- #define DST_NOXFRM		2
- #define DST_NOPOLICY		4
- #define DST_NOHASH		8
- #define DST_BALANCED            0x10
--	unsigned long		expires;
-+	short			error;
-+	short			obsolete;
- 
- 	unsigned short		header_len;	/* more space at head required */
- 	unsigned short		nfheader_len;	/* more non-fragment space at head required */
- 	unsigned short		trailer_len;	/* space to reserve at tail */
- 
--	u32			metrics[RTAX_MAX];
--	struct dst_entry	*path;
--
--	unsigned long		rate_last;	/* rate limiting for ICMP */
--	unsigned long		rate_tokens;
-+	unsigned short		rate_last;	/* rate limiting for ICMP */
-+	unsigned short		rate_tokens;
- 
-+	struct dst_entry	*path;
- 	struct neighbour	*neighbour;
- 	struct hh_cache		*hh;
- 	struct xfrm_state	*xfrm;
-@@ -67,21 +65,26 @@ struct dst_entry
- 	int			(*input)(struct sk_buff*);
- 	int			(*output)(struct sk_buff*);
- 
--#ifdef CONFIG_NET_CLS_ROUTE
--	__u32			tclassid;
--#endif
--
- 	struct  dst_ops	        *ops;
- 		
- 	unsigned long		lastuse;
- 	atomic_t		__refcnt;	/* client references	*/
- 	int			__use;
-+	u32			metrics[RTAX_MAX];
-+
-+#ifdef CONFIG_NET_CLS_ROUTE
-+	__u32			tclassid;
-+#endif
-+
-+	/* Should be at the end to be on the same cache line as 
-+	   the flow information in rtable.  */
- 	union {
- 		struct dst_entry *next;
- 		struct rtable    *rt_next;
- 		struct rt6_info   *rt6_next;
- 		struct dn_route  *dn_next;
- 	};
-+
- 	char			info[0];
- };
- 
+
+However, you could convert it to a u32, and use a helper function :
+
+static inline u32 get_jiffies_32()
+{
+return (u32)jiffies;
+}
+
+and change appropriate code using rate_last
+
+Also, 'lastuse' could use a u32 too, I even had a patch for this one...
 
