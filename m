@@ -1,41 +1,51 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH] Shrink struct dst_entry a bit
-Date: Tue, 13 Mar 2007 15:10:41 +0100
-Message-ID: <200703131510.41651.dada1@cosmosbay.com>
-References: <200703131448.15193.ak@suse.de>
+From: Benjamin LaHaise <bcrl@kvack.org>
+Subject: Re: [PATCH 1/2] avoid OPEN_MAX in SCM_MAX_FD
+Date: Tue, 13 Mar 2007 10:17:50 -0400
+Message-ID: <20070313141750.GH6209@kvack.org>
+References: <20070313083912.89D891801C5@magilla.sf.frob.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Andi Kleen <ak@suse.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Roland McGrath <roland@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pfx2.jmh.fr ([194.153.89.55]:41283 "EHLO pfx2.jmh.fr"
+Received: from kanga.kvack.org ([66.96.29.28]:33873 "EHLO kanga.kvack.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030308AbXCMOKe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Mar 2007 10:10:34 -0400
-In-Reply-To: <200703131448.15193.ak@suse.de>
+	id S1030368AbXCMOSE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Mar 2007 10:18:04 -0400
 Content-Disposition: inline
+In-Reply-To: <20070313083912.89D891801C5@magilla.sf.frob.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 13 March 2007 14:48, Andi Kleen wrote:
-> The ICMP rate limiting state can be shorts, we don't send that many ICMPs.
-> Changing flags to short and reorder fields to be sorted by size to avoid
-> holes. Move cold fields towards the end.
->
+On Tue, Mar 13, 2007 at 01:39:12AM -0700, Roland McGrath wrote:
+> The OPEN_MAX constant is an arbitrary number with no useful relation to
+> anything.  Nothing should be using it.  This patch changes SCM_MAX_FD to
+> use NR_OPEN instead of OPEN_MAX.  This increases the size of the struct
+> scm_fp_list type fourfold, to make it big enough to contain as many file
+> descriptors as could be asked of it.  This size increase may not be very
+> worthwhile, but at any rate if an arbitrary limit unrelated to anything
+> else is being defined it should be done explicitly here with:
 
-Nope, you cannot break the reordering I've done one month ago.
+> -#define SCM_MAX_FD	(OPEN_MAX-1)
+> +#define SCM_MAX_FD	(NR_OPEN-1)
 
-http://git.kernel.org/?p=linux/kernel/git/davem/net-2.6.22.git;a=commit;h=1e19e02ca0c5e33ea73a25127dbe6c3b8fcaac4b
+This is a bad idea.  From linux/fs.h:
 
+#undef NR_OPEN
+#define NR_OPEN (1024*1024)     /* Absolute upper limit on fd num */
 
-[NET]: Reorder fields of struct dst_entry
+There isn't anything I can see guaranteeing that net/scm.h is included 
+before fs.h.  This affects networking and should really be Cc'd to 
+netdev@vger.kernel.org, which will raise the issue that if SCM_MAX_FD is 
+raised, the resulting simple kmalloc() must be changed.  That said, I 
+doubt SCM_MAX_FD really needs to be raised, as applications using many 
+file descriptors are unlikely to try to send their entire file table to 
+another process in one go -- they have to handle the limits imposed by 
+SCM_MAX_FD anyways.
 
-This last patch (but not least :) ) finally moves the next pointer at
-the end of struct dst_entry. This permits to perform route cache
-lookups with a minimal cost of one cache line per entry, instead of
-two.
-
-Both 32bits and 64bits platforms benefit from this new layout.
-
+		-ben
+-- 
+"Time is of no importance, Mr. President, only life is important."
+Don't Email: <zyntrop@kvack.org>.
