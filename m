@@ -1,61 +1,47 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [PATCH 1/2] avoid OPEN_MAX in SCM_MAX_FD
-Date: Tue, 13 Mar 2007 14:28:00 -0700 (PDT)
-Message-ID: <Pine.LNX.4.64.0703131420230.9690@woody.linux-foundation.org>
-References: <20070313200256.CF7411801C5@magilla.sf.frob.com>
+From: Jean Tourrilhes <jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org>
+Subject: Re: wireless extensions vs. 64-bit architectures
+Date: Tue, 13 Mar 2007 14:30:50 -0700
+Message-ID: <20070313213050.GB6272@bougret.hpl.hp.com>
+References: <20070308184954.GA24485@bougret.hpl.hp.com> <1173382042.3248.63.camel@johannes.berg> <20070308193412.GG23040@devicescape.com> <1173382802.3248.68.camel@johannes.berg> <20070308221128.GA24884@bougret.hpl.hp.com> <1173393326.3831.21.camel@johannes.berg> <20070309213531.GA28070@bougret.hpl.hp.com> <1173634801.3382.8.camel@johannes.berg> <20070312175639.GA4048@bougret.hpl.hp.com> <1173814925.12717.6.camel@johannes.berg>
+Reply-To: jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Benjamin LaHaise <bcrl@kvack.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Roland McGrath <roland@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:36166 "EHLO smtp.osdl.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933640AbXCMV2Q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Mar 2007 17:28:16 -0400
-In-Reply-To: <20070313200256.CF7411801C5@magilla.sf.frob.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jouni Malinen <jkm-r/za7OOdgF0ztatW0fm/fQ@public.gmane.org>, Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Jeff Garzik <jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>, Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1173814925.12717.6.camel-YfaajirXv214zXjbi5bjpg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-
-
-On Tue, 13 Mar 2007, Roland McGrath wrote:
+On Tue, Mar 13, 2007 at 08:42:05PM +0100, Johannes Berg wrote:
+> On Mon, 2007-03-12 at 10:56 -0700, Jean Tourrilhes wrote:
 > 
-> The OPEN_MAX constant is an arbitrary number with no useful relation to
-> anything.  Nothing should be using it.  SCM_MAX_FD is just an arbitrary
-> constant and it should be clear that its value is chosen in net/scm.h
-> and not actually derived from anything else meaningful in the system.
+> > 	I did that in the e-mail to Jouni. The problem is that most
+> > people are unfamiliar with decoding iwevents, so can't grasp the
+> > explanation.
+> > 	Basically, for iwpoint, we have an outer lenght and an inner
+> > length. If they don't match, we have an alignement issue and just need
+> > to pick the payload 8 bytes after the expected location.
+> > 	For other events, they have a well known size. If the outer
+> > lenght is not the expected size, but is expected+4, you just pick the
+> > payload 4 bytes after the expected location.
+> 
+> Ok.
+> 
+> So the plan now is to put this document up somewhere maybe with some
+> graphics or whatever, and then send this to distros so they know what
+> happens when people hit this bug.
+> 
+> Does your new version work without padding even on 64-bit arches? Then
+> in a few years we can actually remove the padding completely in the
+> kernel, right?
 
-I'd actually prefer this as part of the "remove OPEN_MAX" patch.
+	You are too smart ;-) Yes, the second version in pre16 does
+exactly that. That's why I had to change the constants.
 
-It's certainly nice to have small independent patches in a series, but two 
-one-liners that really aren't all that independent either in practice or 
-in goals doesn't make much sense to me. Much better to just be up-front 
-about things and say: "remove OPEN_MAX, and to do so, just rewrite that 
-other arbitrary constant to not need it any more".
+> johannes
 
-That said, it actually worries me that you should call "_SC_OPEN_MAX". I 
-think the whole POSIX config method is way over-designed (anybody who 
-thinks you should ever have used _SC_HZ or whatever it was called was just 
-crazy), but more importantly, and independently of that worry, I just 
-suspect a lot of programs simply _don't_do_it_.
-
-For example, I know perfectly well that I should use _SC_PATH_MAX, but a 
-*lot* of code simply doesn't care. In git, I used PATH_MAX, and the reason 
-is that
- - I want a constant for arrays
- - I don't care that much about the exact value, I just want a reasonable 
-   value for sizing an array for some random path
- - _SC_PATH_MAX is practically unportable and simply not *useful*.
-
-.. in short, I'm not a big believer in "programs should do Xyz according 
-to some paper standard". Paper standards are written by committees, not 
-programmers, and seldom take issues other than politics into account.
-
-So, what's the likelihood that this will break some old programs? I 
-realize that modern distributions don't put the kernel headers in their 
-user-visible includes any more, but the breakage is most likely exactly 
-for old programs and older distributions.
-
-		Linus
+	Jean
