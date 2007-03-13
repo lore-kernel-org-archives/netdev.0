@@ -1,148 +1,74 @@
-From: "Arnaldo Carvalho de Melo" <acme@ghostprotocols.net>
-Subject: [PATCH 5/6] [SK_BUFF]: Introduce arp_hdr(), remove skb->nh.arph
-Date: Mon, 12 Mar 2007 22:27:32 -0300
-Message-ID: <39e6f6c70703121827v5c5fef9au59212c7c256a3a2c@mail.gmail.com>
+From: "Ravinandan Arakali \(rarakali\)" <rarakali@cisco.com>
+Subject: Clarification required about select vs wake_up race condition
+Date: Mon, 12 Mar 2007 19:38:10 -0700
+Message-ID: <FA6FB5FA4DA6BF4386D129273B2E3EC30183A413@xmb-sjc-214.amer.cisco.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="----=_Part_13757_24528074.1173749252809"
-Cc: "Netdev List" <netdev@vger.kernel.org>
-To: "David Miller" <davem@davemloft.net>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.248]:32686 "EHLO
-	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753008AbXCMB1e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Mar 2007 21:27:34 -0400
-Received: by an-out-0708.google.com with SMTP id b33so1681571ana
-        for <netdev@vger.kernel.org>; Mon, 12 Mar 2007 18:27:33 -0700 (PDT)
+Received: from sj-iport-6.cisco.com ([171.71.176.117]:22218 "EHLO
+	sj-iport-6.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753065AbXCMCrp convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Mar 2007 22:47:45 -0400
+Received: from sj-core-2.cisco.com (sj-core-2.cisco.com [171.71.177.254])
+	by sj-dkim-2.cisco.com (8.12.11/8.12.11) with ESMTP id l2D2cAcP008661
+	for <netdev@vger.kernel.org>; Mon, 12 Mar 2007 19:38:10 -0700
+Received: from xbh-sjc-211.amer.cisco.com (xbh-sjc-211.cisco.com [171.70.151.144])
+	by sj-core-2.cisco.com (8.12.10/8.12.6) with ESMTP id l2D2cA1V022937
+	for <netdev@vger.kernel.org>; Tue, 13 Mar 2007 02:38:10 GMT
+Content-class: urn:content-classes:message
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-------=_Part_13757_24528074.1173749252809
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+Hi,
+I am facing following problem and was wondering if somebody could help
+me out.
+I reference our char driver below but the question I really have is
+about sleep/wake_up mechanism. So, I thought somebody who is aware of
+this can help me. BTW, this is 2.6.10.
 
-Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
----
- drivers/net/bonding/bond_main.c    |    2 +-
- drivers/net/chelsio/sge.c          |    2 +-
- include/linux/if_arp.h             |    9 +++++++++
- include/linux/skbuff.h             |    1 -
- net/bridge/br_netfilter.c          |    2 +-
- net/core/netpoll.c                 |    2 +-
- net/ipv4/arp.c                     |    4 ++--
- net/ipv4/netfilter/arp_tables.c    |    4 ++--
- net/ipv4/netfilter/arpt_mangle.c   |    2 +-
- net/ipv4/netfilter/ipt_CLUSTERIP.c |    2 +-
- 10 files changed, 19 insertions(+), 11 deletions(-)
+Our char driver(pretty much like all other char drivers) does a
+poll_wait() 
+and returns status depending on whether data is available to be read.
+Even though some data is available to be read(verified using one of our
+internal 
+commands), the select() never wakes up, inspite of any no. of messages
+sent.
 
-------=_Part_13757_24528074.1173749252809
-Content-Type: text/x-patch;
-	name=0005-SK_BUFF-Introduce-arp_hdr-remove-skb-nh.arph.patch;
-	charset=ANSI_X3.4-1968
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_ez7nxf4j
-Content-Disposition: attachment; filename="0005-SK_BUFF-Introduce-arp_hdr-remove-skb-nh.arph.patch"
+To understand this, I was looking at the code of select vs
+wake_up_interruptible().
+I feel I am misunderstanding some part of the kernel code but will be
+glad if 
+somebody can point it out.
 
-RnJvbSBkMTc4ZTNjOTk4ODg0M2E3NzliMmFiYzNiYTViNTBkMWEwNWMxNTdmIE1vbiBTZXAgMTcg
-MDA6MDA6MDAgMjAwMQpGcm9tOiBBcm5hbGRvIENhcnZhbGhvIGRlIE1lbG8gPGFjbWVAcmVkaGF0
-LmNvbT4KRGF0ZTogTW9uLCAxMiBNYXIgMjAwNyAyMDo1NjozMSAtMDMwMApTdWJqZWN0OiBbUEFU
-Q0ggNS82XSBbU0tfQlVGRl06IEludHJvZHVjZSBhcnBfaGRyKCksIHJlbW92ZSBza2ItPm5oLmFy
-cGgKClNpZ25lZC1vZmYtYnk6IEFybmFsZG8gQ2FydmFsaG8gZGUgTWVsbyA8YWNtZUByZWRoYXQu
-Y29tPgotLS0KIGRyaXZlcnMvbmV0L2JvbmRpbmcvYm9uZF9tYWluLmMgICAgfCAgICAyICstCiBk
-cml2ZXJzL25ldC9jaGVsc2lvL3NnZS5jICAgICAgICAgIHwgICAgMiArLQogaW5jbHVkZS9saW51
-eC9pZl9hcnAuaCAgICAgICAgICAgICB8ICAgIDkgKysrKysrKysrCiBpbmNsdWRlL2xpbnV4L3Nr
-YnVmZi5oICAgICAgICAgICAgIHwgICAgMSAtCiBuZXQvYnJpZGdlL2JyX25ldGZpbHRlci5jICAg
-ICAgICAgIHwgICAgMiArLQogbmV0L2NvcmUvbmV0cG9sbC5jICAgICAgICAgICAgICAgICB8ICAg
-IDIgKy0KIG5ldC9pcHY0L2FycC5jICAgICAgICAgICAgICAgICAgICAgfCAgICA0ICsrLS0KIG5l
-dC9pcHY0L25ldGZpbHRlci9hcnBfdGFibGVzLmMgICAgfCAgICA0ICsrLS0KIG5ldC9pcHY0L25l
-dGZpbHRlci9hcnB0X21hbmdsZS5jICAgfCAgICAyICstCiBuZXQvaXB2NC9uZXRmaWx0ZXIvaXB0
-X0NMVVNURVJJUC5jIHwgICAgMiArLQogMTAgZmlsZXMgY2hhbmdlZCwgMTkgaW5zZXJ0aW9ucygr
-KSwgMTEgZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvYm9uZGluZy9ib25k
-X21haW4uYyBiL2RyaXZlcnMvbmV0L2JvbmRpbmcvYm9uZF9tYWluLmMKaW5kZXggN2YxMTM4OC4u
-NzZkMzUwNCAxMDA2NDQKLS0tIGEvZHJpdmVycy9uZXQvYm9uZGluZy9ib25kX21haW4uYworKysg
-Yi9kcml2ZXJzL25ldC9ib25kaW5nL2JvbmRfbWFpbi5jCkBAIC0yNTI0LDcgKzI1MjQsNyBAQCBz
-dGF0aWMgaW50IGJvbmRfYXJwX3JjdihzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBzdHJ1Y3QgbmV0X2Rl
-dmljZSAqZGV2LCBzdHJ1Y3QgcGFjawogCQkJCSAoMiAqIHNpemVvZih1MzIpKSkpKQogCQlnb3Rv
-IG91dF91bmxvY2s7CiAKLQlhcnAgPSBza2ItPm5oLmFycGg7CisJYXJwID0gYXJwX2hkcihza2Ip
-OwogCWlmIChhcnAtPmFyX2hsbiAhPSBkZXYtPmFkZHJfbGVuIHx8CiAJICAgIHNrYi0+cGt0X3R5
-cGUgPT0gUEFDS0VUX09USEVSSE9TVCB8fAogCSAgICBza2ItPnBrdF90eXBlID09IFBBQ0tFVF9M
-T09QQkFDSyB8fApkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvY2hlbHNpby9zZ2UuYyBiL2RyaXZl
-cnMvbmV0L2NoZWxzaW8vc2dlLmMKaW5kZXggYzM1N2Y0NS4uYTQyMDRkZiAxMDA2NDQKLS0tIGEv
-ZHJpdmVycy9uZXQvY2hlbHNpby9zZ2UuYworKysgYi9kcml2ZXJzL25ldC9jaGVsc2lvL3NnZS5j
-CkBAIC0xOTI1LDcgKzE5MjUsNyBAQCBpbnQgdDFfc3RhcnRfeG1pdChzdHJ1Y3Qgc2tfYnVmZiAq
-c2tiLCBzdHJ1Y3QgbmV0X2RldmljZSAqZGV2KQogCQkgKi8KIAkJaWYgKCh1bmxpa2VseSghYWRh
-cHRlci0+c2dlLT5lc3BpYnVnX3NrYltkZXYtPmlmX3BvcnRdKSkpIHsKIAkJCWlmIChza2ItPnBy
-b3RvY29sID09IGh0b25zKEVUSF9QX0FSUCkgJiYKLQkJCSAgICBza2ItPm5oLmFycGgtPmFyX29w
-ID09IGh0b25zKEFSUE9QX1JFUVVFU1QpKSB7CisJCQkgICAgYXJwX2hkcihza2IpLT5hcl9vcCA9
-PSBodG9ucyhBUlBPUF9SRVFVRVNUKSkgewogCQkJCWFkYXB0ZXItPnNnZS0+ZXNwaWJ1Z19za2Jb
-ZGV2LT5pZl9wb3J0XSA9IHNrYjsKIAkJCQkvKiBXZSB3YW50IHRvIHJlLXVzZSB0aGlzIHNrYiBs
-YXRlci4gV2UKIAkJCQkgKiBzaW1wbHkgYnVtcCB0aGUgcmVmZXJlbmNlIGNvdW50IGFuZCBpdApk
-aWZmIC0tZ2l0IGEvaW5jbHVkZS9saW51eC9pZl9hcnAuaCBiL2luY2x1ZGUvbGludXgvaWZfYXJw
-LmgKaW5kZXggN2Y1NzE0Mi4uZWQ3YjkzYyAxMDA2NDQKLS0tIGEvaW5jbHVkZS9saW51eC9pZl9h
-cnAuaAorKysgYi9pbmNsdWRlL2xpbnV4L2lmX2FycC5oCkBAIC0xNDgsNCArMTQ4LDEzIEBAIHN0
-cnVjdCBhcnBoZHIKIAogfTsKIAorI2lmZGVmIF9fS0VSTkVMX18KKyNpbmNsdWRlIDxsaW51eC9z
-a2J1ZmYuaD4KKworc3RhdGljIGlubGluZSBzdHJ1Y3QgYXJwaGRyICphcnBfaGRyKGNvbnN0IHN0
-cnVjdCBza19idWZmICpza2IpCit7CisJcmV0dXJuIChzdHJ1Y3QgYXJwaGRyICopc2tiX25ldHdv
-cmtfaGVhZGVyKHNrYik7Cit9CisjZW5kaWYKKwogI2VuZGlmCS8qIF9MSU5VWF9JRl9BUlBfSCAq
-LwpkaWZmIC0tZ2l0IGEvaW5jbHVkZS9saW51eC9za2J1ZmYuaCBiL2luY2x1ZGUvbGludXgvc2ti
-dWZmLmgKaW5kZXggMzBhN2Q5Yi4uNjQxMzJhYyAxMDA2NDQKLS0tIGEvaW5jbHVkZS9saW51eC9z
-a2J1ZmYuaAorKysgYi9pbmNsdWRlL2xpbnV4L3NrYnVmZi5oCkBAIC0yNTAsNyArMjUwLDYgQEAg
-c3RydWN0IHNrX2J1ZmYgewogCiAJdW5pb24gewogCQlzdHJ1Y3QgaXB2NmhkcgkqaXB2Nmg7Ci0J
-CXN0cnVjdCBhcnBoZHIJKmFycGg7CiAJCXVuc2lnbmVkIGNoYXIJKnJhdzsKIAl9IG5oOwogCmRp
-ZmYgLS1naXQgYS9uZXQvYnJpZGdlL2JyX25ldGZpbHRlci5jIGIvbmV0L2JyaWRnZS9icl9uZXRm
-aWx0ZXIuYwppbmRleCAxMjg4NzAzLi41M2I3M2IzIDEwMDY0NAotLS0gYS9uZXQvYnJpZGdlL2Jy
-X25ldGZpbHRlci5jCisrKyBiL25ldC9icmlkZ2UvYnJfbmV0ZmlsdGVyLmMKQEAgLTY3MCw3ICs2
-NzAsNyBAQCBzdGF0aWMgdW5zaWduZWQgaW50IGJyX25mX2ZvcndhcmRfYXJwKHVuc2lnbmVkIGlu
-dCBob29rLCBzdHJ1Y3Qgc2tfYnVmZiAqKnBza2IsCiAJCSgqcHNrYiktPm5oLnJhdyArPSBWTEFO
-X0hMRU47CiAJfQogCi0JaWYgKHNrYi0+bmguYXJwaC0+YXJfcGxuICE9IDQpIHsKKwlpZiAoYXJw
-X2hkcihza2IpLT5hcl9wbG4gIT0gNCkgewogCQlpZiAoSVNfVkxBTl9BUlAoc2tiKSkgewogCQkJ
-c2tiX3B1c2goKnBza2IsIFZMQU5fSExFTik7CiAJCQkoKnBza2IpLT5uaC5yYXcgLT0gVkxBTl9I
-TEVOOwpkaWZmIC0tZ2l0IGEvbmV0L2NvcmUvbmV0cG9sbC5jIGIvbmV0L2NvcmUvbmV0cG9sbC5j
-CmluZGV4IDRiMzUwNWEuLmQ4MTNhNjUgMTAwNjQ0Ci0tLSBhL25ldC9jb3JlL25ldHBvbGwuYwor
-KysgYi9uZXQvY29yZS9uZXRwb2xsLmMKQEAgLTM2Myw3ICszNjMsNyBAQCBzdGF0aWMgdm9pZCBh
-cnBfcmVwbHkoc3RydWN0IHNrX2J1ZmYgKnNrYikKIAogCXNrYl9yZXNldF9uZXR3b3JrX2hlYWRl
-cihza2IpOwogCXNrYi0+aC5yYXcgPSBza2ItPmRhdGE7Ci0JYXJwID0gc2tiLT5uaC5hcnBoOwor
-CWFycCA9IGFycF9oZHIoc2tiKTsKIAogCWlmICgoYXJwLT5hcl9ocmQgIT0gaHRvbnMoQVJQSFJE
-X0VUSEVSKSAmJgogCSAgICAgYXJwLT5hcl9ocmQgIT0gaHRvbnMoQVJQSFJEX0lFRUU4MDIpKSB8
-fApkaWZmIC0tZ2l0IGEvbmV0L2lwdjQvYXJwLmMgYi9uZXQvaXB2NC9hcnAuYwppbmRleCAwMWQw
-ZThkLi43MTEwNzc5IDEwMDY0NAotLS0gYS9uZXQvaXB2NC9hcnAuYworKysgYi9uZXQvaXB2NC9h
-cnAuYwpAQCAtNzIxLDcgKzcyMSw3IEBAIHN0YXRpYyBpbnQgYXJwX3Byb2Nlc3Moc3RydWN0IHNr
-X2J1ZmYgKnNrYikKIAlpZiAoaW5fZGV2ID09IE5VTEwpCiAJCWdvdG8gb3V0OwogCi0JYXJwID0g
-c2tiLT5uaC5hcnBoOworCWFycCA9IGFycF9oZHIoc2tiKTsKIAogCXN3aXRjaCAoZGV2X3R5cGUp
-IHsKIAlkZWZhdWx0OgpAQCAtOTM3LDcgKzkzNyw3IEBAIHN0YXRpYyBpbnQgYXJwX3JjdihzdHJ1
-Y3Qgc2tfYnVmZiAqc2tiLCBzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LAogCQkJCSAoMiAqIHNpemVv
-Zih1MzIpKSkpKQogCQlnb3RvIGZyZWVza2I7CiAKLQlhcnAgPSBza2ItPm5oLmFycGg7CisJYXJw
-ID0gYXJwX2hkcihza2IpOwogCWlmIChhcnAtPmFyX2hsbiAhPSBkZXYtPmFkZHJfbGVuIHx8CiAJ
-ICAgIGRldi0+ZmxhZ3MgJiBJRkZfTk9BUlAgfHwKIAkgICAgc2tiLT5wa3RfdHlwZSA9PSBQQUNL
-RVRfT1RIRVJIT1NUIHx8CmRpZmYgLS1naXQgYS9uZXQvaXB2NC9uZXRmaWx0ZXIvYXJwX3RhYmxl
-cy5jIGIvbmV0L2lwdjQvbmV0ZmlsdGVyL2FycF90YWJsZXMuYwppbmRleCA1MTcwZjVjLi40YTJl
-ZTJjIDEwMDY0NAotLS0gYS9uZXQvaXB2NC9uZXRmaWx0ZXIvYXJwX3RhYmxlcy5jCisrKyBiL25l
-dC9pcHY0L25ldGZpbHRlci9hcnBfdGFibGVzLmMKQEAgLTI0OSw3ICsyNDksNyBAQCB1bnNpZ25l
-ZCBpbnQgYXJwdF9kb190YWJsZShzdHJ1Y3Qgc2tfYnVmZiAqKnBza2IsCiAJZSA9IGdldF9lbnRy
-eSh0YWJsZV9iYXNlLCBwcml2YXRlLT5ob29rX2VudHJ5W2hvb2tdKTsKIAliYWNrID0gZ2V0X2Vu
-dHJ5KHRhYmxlX2Jhc2UsIHByaXZhdGUtPnVuZGVyZmxvd1tob29rXSk7CiAKLQlhcnAgPSAoKnBz
-a2IpLT5uaC5hcnBoOworCWFycCA9IGFycF9oZHIoKnBza2IpOwogCWRvIHsKIAkJaWYgKGFycF9w
-YWNrZXRfbWF0Y2goYXJwLCAoKnBza2IpLT5kZXYsIGluZGV2LCBvdXRkZXYsICZlLT5hcnApKSB7
-CiAJCQlzdHJ1Y3QgYXJwdF9lbnRyeV90YXJnZXQgKnQ7CkBAIC0zMDEsNyArMzAxLDcgQEAgdW5z
-aWduZWQgaW50IGFycHRfZG9fdGFibGUoc3RydWN0IHNrX2J1ZmYgKipwc2tiLAogCQkJCQkJCQkg
-ICAgIHQtPmRhdGEpOwogCiAJCQkJLyogVGFyZ2V0IG1pZ2h0IGhhdmUgY2hhbmdlZCBzdHVmZi4g
-Ki8KLQkJCQlhcnAgPSAoKnBza2IpLT5uaC5hcnBoOworCQkJCWFycCA9IGFycF9oZHIoKnBza2Ip
-OwogCiAJCQkJaWYgKHZlcmRpY3QgPT0gQVJQVF9DT05USU5VRSkKIAkJCQkJZSA9ICh2b2lkICop
-ZSArIGUtPm5leHRfb2Zmc2V0OwpkaWZmIC0tZ2l0IGEvbmV0L2lwdjQvbmV0ZmlsdGVyL2FycHRf
-bWFuZ2xlLmMgYi9uZXQvaXB2NC9uZXRmaWx0ZXIvYXJwdF9tYW5nbGUuYwppbmRleCBhZjFjODU5
-Li5iNDQ1MGYxIDEwMDY0NAotLS0gYS9uZXQvaXB2NC9uZXRmaWx0ZXIvYXJwdF9tYW5nbGUuYwor
-KysgYi9uZXQvaXB2NC9uZXRmaWx0ZXIvYXJwdF9tYW5nbGUuYwpAQCAtMzAsNyArMzAsNyBAQCB0
-YXJnZXQoc3RydWN0IHNrX2J1ZmYgKipwc2tiLAogCQkqcHNrYiA9IG5za2I7CiAJfQogCi0JYXJw
-ID0gKCpwc2tiKS0+bmguYXJwaDsKKwlhcnAgPSBhcnBfaGRyKCpwc2tiKTsKIAlhcnBwdHIgPSBz
-a2JfbmV0d29ya19oZWFkZXIoKnBza2IpICsgc2l6ZW9mKCphcnApOwogCXBsbiA9IGFycC0+YXJf
-cGxuOwogCWhsbiA9IGFycC0+YXJfaGxuOwpkaWZmIC0tZ2l0IGEvbmV0L2lwdjQvbmV0ZmlsdGVy
-L2lwdF9DTFVTVEVSSVAuYyBiL25ldC9pcHY0L25ldGZpbHRlci9pcHRfQ0xVU1RFUklQLmMKaW5k
-ZXggYjc3NGJmNC4uODNlYjAwZiAxMDA2NDQKLS0tIGEvbmV0L2lwdjQvbmV0ZmlsdGVyL2lwdF9D
-TFVTVEVSSVAuYworKysgYi9uZXQvaXB2NC9uZXRmaWx0ZXIvaXB0X0NMVVNURVJJUC5jCkBAIC01
-MjMsNyArNTIzLDcgQEAgYXJwX21hbmdsZSh1bnNpZ25lZCBpbnQgaG9vaywKIAkgICBjb25zdCBz
-dHJ1Y3QgbmV0X2RldmljZSAqb3V0LAogCSAgIGludCAoKm9rZm4pKHN0cnVjdCBza19idWZmICop
-KQogewotCXN0cnVjdCBhcnBoZHIgKmFycCA9ICgqcHNrYiktPm5oLmFycGg7CisJc3RydWN0IGFy
-cGhkciAqYXJwID0gYXJwX2hkcigqcHNrYik7CiAJc3RydWN0IGFycF9wYXlsb2FkICpwYXlsb2Fk
-OwogCXN0cnVjdCBjbHVzdGVyaXBfY29uZmlnICpjOwogCi0tIAoxLjUuMC4yCgo=
-------=_Part_13757_24528074.1173749252809--
+My understanding:
+The do_select() sets the state of task to TASK_INTERRUPTIBLE and calls
+the driver's poll 
+entry point. In our poll(), let's say immediately after we determine
+that there's nothing 
+to be read, some data arrives causing a wake_up_interruptible() on
+another CPU. 
+The wake up happens in the context of process sending the data. Since
+the receiving process 
+was already added to the list of listeners, from looking at the code of
+try_to_wake_up(), it 
+looks like it can set the state of the receiving process to
+TASK_RUNNING(I don't see any lock 
+preventing this). After this happens, the receiving process goes to
+sleep (because of 
+schedule_timeout called by do_select) but state is still set to
+TASK_RUNNING. In this state, when another message arrives, the
+wake_up_interruptible will not wake the process because of following 
+code in try_to_wake_up() ?
+
+old_state = p->state;
+if (!(old_state & state))
+   goto out;
+
+The above situation seems simplistic so I'm wondering what I am missing
+here ?
+
+Thanks,
+Ravi
