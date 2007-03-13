@@ -1,55 +1,41 @@
-From: Michal Ostrowski <mostrows@earthlink.net>
-Subject: [PATCH 3/4] PPPOE: memory leak when socket is release()d before PPPIOCGCHAN has been called on it
-Date: Tue, 13 Mar 2007 09:09:34 -0500
-Message-ID: <11737949751582-git-send-email-mostrows@earthlink.net>
-References: <11737949753580-git-send-email-mostrows@earthlink.net> <1173794975536-git-send-email-mostrows@earthlink.net>
-Cc: Florian Zumbiehl <florz@florz.de>
-To: mostrows@watson.ibm.com, davem@davemloft.net,
-	netdev@vger.kernel.org
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH] Shrink struct dst_entry a bit
+Date: Tue, 13 Mar 2007 15:10:41 +0100
+Message-ID: <200703131510.41651.dada1@cosmosbay.com>
+References: <200703131448.15193.ak@suse.de>
+Mime-Version: 1.0
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Andi Kleen <ak@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from igw2.watson.ibm.com ([129.34.20.6]:47129 "EHLO
-	igw2.watson.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965755AbXCMOHW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Mar 2007 10:07:22 -0400
-In-Reply-To: <1173794975536-git-send-email-mostrows@earthlink.net>
+Received: from pfx2.jmh.fr ([194.153.89.55]:41283 "EHLO pfx2.jmh.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1030308AbXCMOKe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Mar 2007 10:10:34 -0400
+In-Reply-To: <200703131448.15193.ak@suse.de>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-below you find a patch that fixes a memory leak when a PPPoE socket is
-release()d after it has been connect()ed, but before the PPPIOCGCHAN ioctl
-ever has been called on it.
+On Tuesday 13 March 2007 14:48, Andi Kleen wrote:
+> The ICMP rate limiting state can be shorts, we don't send that many ICMPs.
+> Changing flags to short and reorder fields to be sorted by size to avoid
+> holes. Move cold fields towards the end.
+>
 
-This is somewhat of a security problem, too, since PPPoE sockets can be
-created by any user, so any user can easily allocate all the machine's
-RAM to non-swappable address space and thus DoS the system.
+Nope, you cannot break the reordering I've done one month ago.
 
-Is there any specific reason for PPPoE sockets being available to any
-unprivileged process, BTW? After all, you need a packet socket for the
-discovery stage anyway, so it's unlikely that any unprivileged process
-will ever need to create a PPPoE socket, no? Allocating all session IDs
-for a known AC is a kind of DoS, too, after all - with Juniper ERXes,
-this is really easy, actually, since they don't ever assign session ids
-above 8000 ...
+http://git.kernel.org/?p=linux/kernel/git/davem/net-2.6.22.git;a=commit;h=1e19e02ca0c5e33ea73a25127dbe6c3b8fcaac4b
 
-Signed-off-by: Florian Zumbiehl <florz@florz.de>
-Acked-by: Michal Ostrowski <mostrows@earthlink.net>
----
- drivers/net/pppox.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/pppox.c b/drivers/net/pppox.c
-index 9315046..3f8115d 100644
---- a/drivers/net/pppox.c
-+++ b/drivers/net/pppox.c
-@@ -58,7 +58,7 @@ void pppox_unbind_sock(struct sock *sk)
- {
- 	/* Clear connection to ppp device, if attached. */
- 
--	if (sk->sk_state & (PPPOX_BOUND | PPPOX_ZOMBIE)) {
-+	if (sk->sk_state & (PPPOX_BOUND | PPPOX_CONNECTED | PPPOX_ZOMBIE)) {
- 		ppp_unregister_channel(&pppox_sk(sk)->chan);
- 		sk->sk_state = PPPOX_DEAD;
- 	}
--- 
-1.5.0.g78e90
+[NET]: Reorder fields of struct dst_entry
+
+This last patch (but not least :) ) finally moves the next pointer at
+the end of struct dst_entry. This permits to perform route cache
+lookups with a minimal cost of one cache line per entry, instead of
+two.
+
+Both 32bits and 64bits platforms benefit from this new layout.
 
