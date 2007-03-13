@@ -1,84 +1,89 @@
-From: Sergei Shtylyov <sshtylyov@ru.mvista.com>
-Subject: Re: [PATCH] natsemi: netpoll fixes
-Date: Tue, 13 Mar 2007 16:45:58 +0300
-Message-ID: <45F6AB16.1090300@ru.mvista.com>
-References: <200703052310.08359.sshtylyov@ru.mvista.com> <20070305224358.GB16290@sirena.org.uk> <45ECE9AC.3090804@mvista.com> <45F31421.4010908@ru.mvista.com> <20070311121615.GF8133@sirena.org.uk> <45F5A48A.8040903@mvista.com> <20070313001442.GD21302@sirena.org.uk>
+From: Andi Kleen <ak@suse.de>
+Subject: [PATCH] Shrink struct dst_entry a bit
+Date: Tue, 13 Mar 2007 14:48:14 +0100
+Message-ID: <200703131448.15193.ak@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Mark Huth <mhuth@mvista.com>, jgarzik@pobox.com,
-	netdev@vger.kernel.org
-To: Mark Brown <broonie@sirena.org.uk>
+Cc: davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gateway-1237.mvista.com ([63.81.120.155]:5094 "EHLO
-	imap.sh.mvista.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S965719AbXCMNqS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Mar 2007 09:46:18 -0400
-In-Reply-To: <20070313001442.GD21302@sirena.org.uk>
+Received: from mx2.suse.de ([195.135.220.15]:36487 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965737AbXCMNsc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Mar 2007 09:48:32 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
 
-Mark Brown wrote:
+The ICMP rate limiting state can be shorts, we don't send that many ICMPs.
+Changing flags to short and reorder fields to be sorted by size to avoid holes.
+Move cold fields towards the end.
 
-> Subject: natsemi: Fix NAPI for interrupt sharing
+Signed-off-by: Andi Kleen <ak@suse.de>
 
-> The interrupt status register for the natsemi chips is clear on read and
-> was read unconditionally from both the interrupt and from the NAPI poll
-> routine, meaning that if the interrupt service routine was called (for 
-> example, due to a shared interrupt) while a NAPI poll was scheduled
-> interrupts could be missed.  This patch fixes that by ensuring that the
-> interrupt status register is only read by the interrupt handler when
-> interrupts are enabled from the chip.
-> 
-> It also reverts a workaround for this problem from the netpoll hook and
-> improves the trace for interrupt events.
-> 
-> Thanks to Sergei Shtylyov <sshtylyov@ru.mvista.com> for spotting the
-> issue, Mark Huth <mhuth@mvista.com> for a simpler method and Simon
-> Blake <simon@citylink.co.nz> for testing resources.
-
-> Signed-Off-By: Mark Brown <broonie@sirena.org.uk>
-
-> Index: linux-2.6/drivers/net/natsemi.c
-> ===================================================================
-> --- linux-2.6.orig/drivers/net/natsemi.c	2007-03-11 02:32:43.000000000 +0000
-> +++ linux-2.6/drivers/net/natsemi.c	2007-03-13 00:12:29.000000000 +0000
-[...]
-> @@ -2131,17 +2133,23 @@
->  		       dev->name, np->intr_status,
->  		       readl(ioaddr + IntrMask));
->  
-> -	if (!np->intr_status)
-> -		return IRQ_NONE;
-> -
-> -	prefetch(&np->rx_skbuff[np->cur_rx % RX_RING_SIZE]);
-> +	if (np->intr_status) {
-> +		prefetch(&np->rx_skbuff[np->cur_rx % RX_RING_SIZE]);
->  
-> -	if (netif_rx_schedule_prep(dev)) {
->  		/* Disable interrupts and register for poll */
-> -		natsemi_irq_disable(dev);
-> -		__netif_rx_schedule(dev);
-> +		if (netif_rx_schedule_prep(dev)) {
-> +			natsemi_irq_disable(dev);
-> +			__netif_rx_schedule(dev);
-> +		} else
-> +			printk(KERN_WARNING
-> +		       	       "%s: Ignoring interrupt, status %#08x, mask %#08x.\n",
-> +			       dev->name, np->intr_status,
-> +			       readl(ioaddr + IntrMask));
-> +
-> +		return IRQ_HANDLED;
->  	}
-> -	return IRQ_HANDLED;
-> +
-> +	return IRQ_NONE;
->  }
-
-    The only "complaint" I have is that this "restructuring" seems 
-unnecessary: the only real change it does is an addition of else to the if 
-statement.
-
-WBR, Sergei
+Index: linux-2.6.21-rc3-net/include/net/dst.h
+===================================================================
+--- linux-2.6.21-rc3-net.orig/include/net/dst.h
++++ linux-2.6.21-rc3-net/include/net/dst.h
+@@ -40,26 +40,24 @@ struct dst_entry
+ 	struct rcu_head		rcu_head;
+ 	struct dst_entry	*child;
+ 	struct net_device       *dev;
+-	short			error;
+-	short			obsolete;
+-	int			flags;
++	unsigned long		expires;
++	short			flags;
+ #define DST_HOST		1
+ #define DST_NOXFRM		2
+ #define DST_NOPOLICY		4
+ #define DST_NOHASH		8
+ #define DST_BALANCED            0x10
+-	unsigned long		expires;
++	short			error;
++	short			obsolete;
+ 
+ 	unsigned short		header_len;	/* more space at head required */
+ 	unsigned short		nfheader_len;	/* more non-fragment space at head required */
+ 	unsigned short		trailer_len;	/* space to reserve at tail */
+ 
+-	u32			metrics[RTAX_MAX];
+-	struct dst_entry	*path;
+-
+-	unsigned long		rate_last;	/* rate limiting for ICMP */
+-	unsigned long		rate_tokens;
++	unsigned short		rate_last;	/* rate limiting for ICMP */
++	unsigned short		rate_tokens;
+ 
++	struct dst_entry	*path;
+ 	struct neighbour	*neighbour;
+ 	struct hh_cache		*hh;
+ 	struct xfrm_state	*xfrm;
+@@ -67,10 +65,6 @@ struct dst_entry
+ 	int			(*input)(struct sk_buff*);
+ 	int			(*output)(struct sk_buff*);
+ 
+-#ifdef CONFIG_NET_CLS_ROUTE
+-	__u32			tclassid;
+-#endif
+-
+ 	struct  dst_ops	        *ops;
+ 		
+ 	unsigned long		lastuse;
+@@ -82,6 +76,13 @@ struct dst_entry
+ 		struct rt6_info   *rt6_next;
+ 		struct dn_route  *dn_next;
+ 	};
++
++	u32			metrics[RTAX_MAX];
++
++#ifdef CONFIG_NET_CLS_ROUTE
++	__u32			tclassid;
++#endif
++
+ 	char			info[0];
+ };
+ 
