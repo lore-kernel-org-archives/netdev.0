@@ -1,35 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [git patches] net driver fixes
-Date: Mon, 12 Mar 2007 17:02:53 -0700 (PDT)
-Message-ID: <20070312.170253.122618823.davem@davemloft.net>
-References: <20070306114808.GA22724@havoc.gtf.org>
-	<Pine.LNX.4.62.0703121100260.16343@pademelon.sonytel.be>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: bridge: faster compare for link local addresses
+Date: Mon, 12 Mar 2007 17:05:39 -0700
+Message-ID: <45F5EAD3.8050501@hp.com>
+References: <20070312162015.5d22cd68@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, fubar@us.ibm.com, akpm@linux-foundation.org,
-	torvalds@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Geert.Uytterhoeven@sonycom.com
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53611
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752613AbXCMACy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Mar 2007 20:02:54 -0400
-In-Reply-To: <Pine.LNX.4.62.0703121100260.16343@pademelon.sonytel.be>
+Received: from palrel12.hp.com ([156.153.255.237]:56366 "EHLO palrel12.hp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752634AbXCMAFn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 Mar 2007 20:05:43 -0400
+In-Reply-To: <20070312162015.5d22cd68@dxpl.pdx.osdl.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Geert Uytterhoeven <Geert.Uytterhoeven@sonycom.com>
-Date: Mon, 12 Mar 2007 11:02:43 +0100 (CET)
-
-> On Tue, 6 Mar 2007, Jeff Garzik wrote:
-> > Jay Vosburgh (3):
-> >       bonding: Improve IGMP join processing
+Stephen Hemminger wrote:
+> Use logic operations rather than memcmp() to compare destination
+> address with link local multicast addresses.
 > 
-> ip_mc_rejoin_group: Kill warning about unused variable `in_dev' when
-> CONFIG_IP_MULTICAST is not set.
+> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
 > 
-> Signed-off-by: Geert Uytterhoeven <Geert.Uytterhoeven@sonycom.com>
+> ---
+>  net/bridge/br_input.c |    6 +++++-
+>  1 file changed, 5 insertions(+), 1 deletion(-)
+> 
+> --- netem-dev.orig/net/bridge/br_input.c
+> +++ netem-dev/net/bridge/br_input.c
+> @@ -112,7 +112,11 @@ static int br_handle_local_finish(struct
+>   */
+>  static inline int is_link_local(const unsigned char *dest)
+>  {
+> -	return memcmp(dest, br_group_address, 5) == 0 && (dest[5] & 0xf0) == 0;
+> +	const u16 *a = (const u16 *) dest;
+> +	static const u16 *const b = (const u16 *const ) br_group_address;
+> +	static const u16 m = __constant_cpu_to_be16(0xfff0);
+> +
+> +	return ((a[0] ^ b[0]) | (a[1] ^ b[1]) | ((a[2] ^ b[2]) & m)) == 0;
+>  }
 
-Applied, thanks Geert.
+Being paranoid - are there no worries about the alignment of dest?
+
+rick jones
