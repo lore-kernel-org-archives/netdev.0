@@ -1,51 +1,119 @@
-From: Benjamin LaHaise <bcrl@kvack.org>
-Subject: Re: [PATCH 1/2] avoid OPEN_MAX in SCM_MAX_FD
-Date: Tue, 13 Mar 2007 10:17:50 -0400
-Message-ID: <20070313141750.GH6209@kvack.org>
-References: <20070313083912.89D891801C5@magilla.sf.frob.com>
+From: Andi Kleen <ak@suse.de>
+Subject: Re: [PATCH] Shrink struct dst_entry a bit
+Date: Tue, 13 Mar 2007 15:31:13 +0100
+Message-ID: <200703131531.14548.ak@suse.de>
+References: <200703131448.15193.ak@suse.de> <200703131510.41651.dada1@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Roland McGrath <roland@redhat.com>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kanga.kvack.org ([66.96.29.28]:33873 "EHLO kanga.kvack.org"
+Received: from ns.suse.de ([195.135.220.2]:41242 "EHLO mx1.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030368AbXCMOSE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Mar 2007 10:18:04 -0400
+	id S1030405AbXCMObY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Mar 2007 10:31:24 -0400
+In-Reply-To: <200703131510.41651.dada1@cosmosbay.com>
 Content-Disposition: inline
-In-Reply-To: <20070313083912.89D891801C5@magilla.sf.frob.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 13, 2007 at 01:39:12AM -0700, Roland McGrath wrote:
-> The OPEN_MAX constant is an arbitrary number with no useful relation to
-> anything.  Nothing should be using it.  This patch changes SCM_MAX_FD to
-> use NR_OPEN instead of OPEN_MAX.  This increases the size of the struct
-> scm_fp_list type fourfold, to make it big enough to contain as many file
-> descriptors as could be asked of it.  This size increase may not be very
-> worthwhile, but at any rate if an arbitrary limit unrelated to anything
-> else is being defined it should be done explicitly here with:
+On Tuesday 13 March 2007 15:10, Eric Dumazet wrote:
+> On Tuesday 13 March 2007 14:48, Andi Kleen wrote:
+> > The ICMP rate limiting state can be shorts, we don't send that many ICMPs.
+> > Changing flags to short and reorder fields to be sorted by size to avoid
+> > holes. Move cold fields towards the end.
+> >
+> 
+> Nope, you cannot break the reordering I've done one month ago.
 
-> -#define SCM_MAX_FD	(OPEN_MAX-1)
-> +#define SCM_MAX_FD	(NR_OPEN-1)
+Ok.  When you do such changes you should always add a comment, otherwise
+it will be always destroyed with the next change.
 
-This is a bad idea.  From linux/fs.h:
+But it seems highly fragile to me anyways because it depends on the exact
+value of RTAX_MAX which tends to change regularly when someone invents
+a new attribute. You should probably have moved next out of the dst entry.
 
-#undef NR_OPEN
-#define NR_OPEN (1024*1024)     /* Absolute upper limit on fd num */
+Anyways here's a new patch with next still at the end and a comment.
 
-There isn't anything I can see guaranteeing that net/scm.h is included 
-before fs.h.  This affects networking and should really be Cc'd to 
-netdev@vger.kernel.org, which will raise the issue that if SCM_MAX_FD is 
-raised, the resulting simple kmalloc() must be changed.  That said, I 
-doubt SCM_MAX_FD really needs to be raised, as applications using many 
-file descriptors are unlikely to try to send their entire file table to 
-another process in one go -- they have to handle the limits imposed by 
-SCM_MAX_FD anyways.
+-Andi
 
-		-ben
--- 
-"Time is of no importance, Mr. President, only life is important."
-Don't Email: <zyntrop@kvack.org>.
+Shrink dst_entry a bit.
+
+The ICMP rate limiting state can be shorts, we don't send that many ICMPs.
+Changing flags to short and reorder fields to be sorted by size to avoid holes.
+Move cold fields towards the end.
+
+Signed-off-by: Andi Kleen <ak@suse.de>
+
+Index: linux-2.6.21-rc3-net/include/net/dst.h
+===================================================================
+--- linux-2.6.21-rc3-net.orig/include/net/dst.h
++++ linux-2.6.21-rc3-net/include/net/dst.h
+@@ -40,26 +40,24 @@ struct dst_entry
+ 	struct rcu_head		rcu_head;
+ 	struct dst_entry	*child;
+ 	struct net_device       *dev;
+-	short			error;
+-	short			obsolete;
+-	int			flags;
++	unsigned long		expires;
++	short			flags;
+ #define DST_HOST		1
+ #define DST_NOXFRM		2
+ #define DST_NOPOLICY		4
+ #define DST_NOHASH		8
+ #define DST_BALANCED            0x10
+-	unsigned long		expires;
++	short			error;
++	short			obsolete;
+ 
+ 	unsigned short		header_len;	/* more space at head required */
+ 	unsigned short		nfheader_len;	/* more non-fragment space at head required */
+ 	unsigned short		trailer_len;	/* space to reserve at tail */
+ 
+-	u32			metrics[RTAX_MAX];
+-	struct dst_entry	*path;
+-
+-	unsigned long		rate_last;	/* rate limiting for ICMP */
+-	unsigned long		rate_tokens;
++	unsigned short		rate_last;	/* rate limiting for ICMP */
++	unsigned short		rate_tokens;
+ 
++	struct dst_entry	*path;
+ 	struct neighbour	*neighbour;
+ 	struct hh_cache		*hh;
+ 	struct xfrm_state	*xfrm;
+@@ -67,21 +65,26 @@ struct dst_entry
+ 	int			(*input)(struct sk_buff*);
+ 	int			(*output)(struct sk_buff*);
+ 
+-#ifdef CONFIG_NET_CLS_ROUTE
+-	__u32			tclassid;
+-#endif
+-
+ 	struct  dst_ops	        *ops;
+ 		
+ 	unsigned long		lastuse;
+ 	atomic_t		__refcnt;	/* client references	*/
+ 	int			__use;
++	u32			metrics[RTAX_MAX];
++
++#ifdef CONFIG_NET_CLS_ROUTE
++	__u32			tclassid;
++#endif
++
++	/* Should be at the end to be on the same cache line as 
++	   the flow information in rtable.  */
+ 	union {
+ 		struct dst_entry *next;
+ 		struct rtable    *rt_next;
+ 		struct rt6_info   *rt6_next;
+ 		struct dn_route  *dn_next;
+ 	};
++
+ 	char			info[0];
+ };
+ 
+
