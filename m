@@ -1,61 +1,84 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: bridge: faster compare for link local addresses
-Date: Tue, 13 Mar 2007 14:38:32 +0100
-Message-ID: <200703131438.32570.dada1@cosmosbay.com>
-References: <20070312162015.5d22cd68@dxpl.pdx.osdl.net> <20070312.171029.85409273.davem@davemloft.net> <p731wjt9r9k.fsf@bingen.suse.de>
+From: Sergei Shtylyov <sshtylyov@ru.mvista.com>
+Subject: Re: [PATCH] natsemi: netpoll fixes
+Date: Tue, 13 Mar 2007 16:45:58 +0300
+Message-ID: <45F6AB16.1090300@ru.mvista.com>
+References: <200703052310.08359.sshtylyov@ru.mvista.com> <20070305224358.GB16290@sirena.org.uk> <45ECE9AC.3090804@mvista.com> <45F31421.4010908@ru.mvista.com> <20070311121615.GF8133@sirena.org.uk> <45F5A48A.8040903@mvista.com> <20070313001442.GD21302@sirena.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, rick.jones2@hp.com,
-	shemminger@linux-foundation.org, netdev@vger.kernel.org
-To: Andi Kleen <andi@firstfloor.org>
+Cc: Mark Huth <mhuth@mvista.com>, jgarzik@pobox.com,
+	netdev@vger.kernel.org
+To: Mark Brown <broonie@sirena.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pfx2.jmh.fr ([194.153.89.55]:39323 "EHLO pfx2.jmh.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933318AbXCMNi0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Mar 2007 09:38:26 -0400
-In-Reply-To: <p731wjt9r9k.fsf@bingen.suse.de>
-Content-Disposition: inline
+Received: from gateway-1237.mvista.com ([63.81.120.155]:5094 "EHLO
+	imap.sh.mvista.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S965719AbXCMNqS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Mar 2007 09:46:18 -0400
+In-Reply-To: <20070313001442.GD21302@sirena.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 13 March 2007 15:01, Andi Kleen wrote:
-> David Miller <davem@davemloft.net> writes:
-> > From: Rick Jones <rick.jones2@hp.com>
-> > Date: Mon, 12 Mar 2007 17:05:39 -0700
-> >
-> > > Being paranoid - are there no worries about the alignment of dest?
-> >
-> > If it's an issue, it's an issue elsewhere too, as the places
-> > where Stephen took this idiomatic code from is the code
-> > ethernet handling and that runs on every input packet via
-> > eth_type_trans().
->
-> As a quick note -- when you tell gcc the expected alignment
-> by using correct types then moderm gcc should generate fast inline code
-> for memcpy/memcmp/etc. by itself. It only falls back to a slow generic
-> function when it cannot figure out the alignment or the size.
->
-> So I expect just using u32 * instead of char * should have the same
-> effect and would be somewhat cleaner and the memcmp could be kept.
+Hello.
 
-For memcpy() yes you can have some optimizations.
+Mark Brown wrote:
 
-But memcmp() has a strong semantic (in libc). memcmp(a, b, 6) should do 6 byte 
-compares and conditional branches, regardless of a/b alignment.
-Or use the x86 "rep cmpsb" instruction that basically has the same cost.
+> Subject: natsemi: Fix NAPI for interrupt sharing
 
-The trick we use in compare_ether_addr() reduces to one some arithmetic and 
-one test.
+> The interrupt status register for the natsemi chips is clear on read and
+> was read unconditionally from both the interrupt and from the NAPI poll
+> routine, meaning that if the interrupt service routine was called (for 
+> example, due to a shared interrupt) while a NAPI poll was scheduled
+> interrupts could be missed.  This patch fixes that by ensuring that the
+> interrupt status register is only read by the interrupt handler when
+> interrupts are enabled from the chip.
+> 
+> It also reverts a workaround for this problem from the netpoll hook and
+> improves the trace for interrupt events.
+> 
+> Thanks to Sergei Shtylyov <sshtylyov@ru.mvista.com> for spotting the
+> issue, Mark Huth <mhuth@mvista.com> for a simpler method and Simon
+> Blake <simon@citylink.co.nz> for testing resources.
 
-return ((a[0] ^ b[0]) | (a[1] ^ b[1]) | (a[2] ^ b[2])) != 0;
+> Signed-Off-By: Mark Brown <broonie@sirena.org.uk>
 
-I found this line as clean as memcmp(a, b, 6)
+> Index: linux-2.6/drivers/net/natsemi.c
+> ===================================================================
+> --- linux-2.6.orig/drivers/net/natsemi.c	2007-03-11 02:32:43.000000000 +0000
+> +++ linux-2.6/drivers/net/natsemi.c	2007-03-13 00:12:29.000000000 +0000
+[...]
+> @@ -2131,17 +2133,23 @@
+>  		       dev->name, np->intr_status,
+>  		       readl(ioaddr + IntrMask));
+>  
+> -	if (!np->intr_status)
+> -		return IRQ_NONE;
+> -
+> -	prefetch(&np->rx_skbuff[np->cur_rx % RX_RING_SIZE]);
+> +	if (np->intr_status) {
+> +		prefetch(&np->rx_skbuff[np->cur_rx % RX_RING_SIZE]);
+>  
+> -	if (netif_rx_schedule_prep(dev)) {
+>  		/* Disable interrupts and register for poll */
+> -		natsemi_irq_disable(dev);
+> -		__netif_rx_schedule(dev);
+> +		if (netif_rx_schedule_prep(dev)) {
+> +			natsemi_irq_disable(dev);
+> +			__netif_rx_schedule(dev);
+> +		} else
+> +			printk(KERN_WARNING
+> +		       	       "%s: Ignoring interrupt, status %#08x, mask %#08x.\n",
+> +			       dev->name, np->intr_status,
+> +			       readl(ioaddr + IntrMask));
+> +
+> +		return IRQ_HANDLED;
+>  	}
+> -	return IRQ_HANDLED;
+> +
+> +	return IRQ_NONE;
+>  }
 
-(On x86_64, were alignment is not mandatory, we could do :
+    The only "complaint" I have is that this "restructuring" seems 
+unnecessary: the only real change it does is an addition of else to the if 
+statement.
 
-((*(long *)a ^ *(long*)b) << 16) != 0)
-
-(only if we can always read two extra bytes without faulting, of course :) )
-
+WBR, Sergei
