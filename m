@@ -1,49 +1,38 @@
-From: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
-Subject: Re: [patch 12/19] fix irq problem with NAPI + NETPOLL
-Date: Tue, 13 Mar 2007 17:14:27 +0900 (JST)
-Message-ID: <20070313.171427.127590092.nemoto@toshiba-tops.co.jp>
-References: <200703061041.l26AfusT019768@shell0.pdx.osdl.net>
-	<20070307.151844.102573883.davem@davemloft.net>
-	<20070308.103513.103776988.nemoto@toshiba-tops.co.jp>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: Extensible hashing and RCU
+Date: Tue, 13 Mar 2007 12:32:51 +0300
+Message-ID: <20070313093248.GA14221@2ka.mipt.ru>
+References: <20070204074143.26312.qmail@science.horizon.com> <Pine.LNX.4.61.0702050952590.26852@localhost.localdomain> <20070217131302.GA22732@2ka.mipt.ru> <20070302085246.GA30951@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, jeff@garzik.org, netdev@vger.kernel.org,
-	romieu@fr.zoreil.com, shemminger@linux-foundation.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset=koi8-r
+Cc: linux@horizon.com, davem@davemloft.net, netdev@vger.kernel.org
+To: akepner@sgi.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from topsns2.toshiba-tops.co.jp ([202.230.225.126]:2098 "EHLO
-	topsns2.toshiba-tops.co.jp" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S965109AbXCMIOk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Mar 2007 04:14:40 -0400
-In-Reply-To: <20070308.103513.103776988.nemoto@toshiba-tops.co.jp>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:43220 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965656AbXCMJd1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Mar 2007 05:33:27 -0400
+Content-Disposition: inline
+In-Reply-To: <20070302085246.GA30951@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 08 Mar 2007 10:35:13 +0900 (JST), Atsushi Nemoto <anemo@mba.ocn.ne.jp> wrote:
-> > netpoll_rx() should be invokable from hardware interrupt context.
-> > What is the crash you are seeing?
-> 
-> The problem is not netpoll_rx().  It should be called from irq context.
-> The problem is, netif_receive_skb() is called from irq context though
-> it seems not designed to do so.
+On Fri, Mar 02, 2007 at 11:52:47AM +0300, Evgeniy Polyakov (johnpol@2ka.mipt.ru) wrote:
+> So I get my words about tree/trie implementation instead of hash table 
+> for socket lookup back.
 
-Unfortunately I could not reproduce the crash, but IIRC the crash was
-happened at upper protocol layer on hardware interrupt context.
+Hmm, I was a bit fast to draw a line, there are some possibilities to
+have faster than hash table lookup using different algorithms...
 
-Anyway, I think main path of netif_receive_skb() should not be
-executed in hardware interrupt context.  Is it wrong?
+So, I ask network developers about testing environment for socket lookup
+benchmarking. What would be the best test case to determine performance
+of the lookup algo? Is it enough to replace algo and locking and create
+say one million of connections and try to run trivial web server (that
+is what I'm going to test if there will not be any better suggestion,
+but I only have single-core athlon 64 with 1gb of ram as a test bed and 
+two core duo machines as generators, probably I can use one of them as a
+test machine too. They have gigabit adapters and aree connected over 
+gigabit switch)?
 
-> > It looks like perhaps the kfree_skb() calls need to be modified
-> > in __netpoll_rx().
-> 
-> Well, it seems an another netpoll bug.
-
-I suppose these kfree_skb() in __netpoll_rx() should be
-dev_kfree_skb_any().  And I found an another abuse which is irrelevant
-to netpoll.  The netif_rx() calls kfree_skb() at its bottom.  The
-netif_rx() should be callable from hardware interrupt context, so it
-should be changed to dev_kfree_skb_any().  Is it right?
-
----
-Atsushi Nemoto
+-- 
+	Evgeniy Polyakov
