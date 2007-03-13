@@ -1,60 +1,54 @@
-From: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
-Subject: [PATCH] tc35815: Fix an usage of streaming DMA API.
-Date: Wed, 14 Mar 2007 01:02:20 +0900 (JST)
-Message-ID: <20070314.010220.65192616.anemo@mba.ocn.ne.jp>
-References: <20070303.235459.25478204.anemo@mba.ocn.ne.jp>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: [patch 4/4] [TULIP] Rev tulip version
+Date: Tue, 13 Mar 2007 13:07:34 -0400
+Message-ID: <20070313170733.GB28281@gospo.rdu.redhat.com>
+References: <20070312093128.577087000@linux.intel.com> <20070312095912.743760000@linux.intel.com> <84144f020703120344n3f5ed52axf0bc1c109b549535@mail.gmail.com> <45F55EA5.9080005@garzik.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ralf@linux-mips.org, netdev@vger.kernel.org, jeff@garzik.org,
-	sshtylyov@ru.mvista.com, akpm@linux-foundation.org
-To: linux-mips@linux-mips.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Pekka Enberg <penberg@cs.helsinki.fi>,
+	Valerie Henson <val_henson@linux.intel.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mba.ocn.ne.jp ([122.1.175.29]:61751 "EHLO smtp.mba.ocn.ne.jp"
+Received: from mx1.redhat.com ([66.187.233.31]:40077 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753296AbXCMQCX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Mar 2007 12:02:23 -0400
-In-Reply-To: <20070303.235459.25478204.anemo@mba.ocn.ne.jp>
+	id S1030797AbXCMRHq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Mar 2007 13:07:46 -0400
+Content-Disposition: inline
+In-Reply-To: <45F55EA5.9080005@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The tc35815 driver lacks a call to pci_dma_sync_single_for_device() on
-receiving.  Recent fix of MIPS dma_sync_single_for_cpu() reveal this
-bug.
+On Mon, Mar 12, 2007 at 10:07:33AM -0400, Jeff Garzik wrote:
+> Pekka Enberg wrote:
+> >Hi,
+> >
+> >On 3/12/07, Valerie Henson <val_henson@linux.intel.com> wrote:
+> >>--- tulip-2.6-mm-linux.orig/drivers/net/tulip/tulip_core.c
+> >>+++ tulip-2.6-mm-linux/drivers/net/tulip/tulip_core.c
+> >>@@ -17,11 +17,11 @@
+> >>
+> >> #define DRV_NAME       "tulip"
+> >> #ifdef CONFIG_TULIP_NAPI
+> >>-#define DRV_VERSION    "1.1.14-NAPI" /* Keep at least for test */
+> >>+#define DRV_VERSION    "1.1.15-NAPI" /* Keep at least for test */
+> >> #else
+> >>-#define DRV_VERSION    "1.1.14"
+> >>+#define DRV_VERSION    "1.1.15"
+> >> #endif
+> >>-#define DRV_RELDATE    "May 11, 2002"
+> >>+#define DRV_RELDATE    "Feb 27, 2007"
+> >
+> >Why not just drop this? What purpose does a per-module revision have
+> >for in-kernel drivers anyway?
+> 
+> It's the maintainer's call.  Sometimes it eases parsing bug reports, and 
+> tracking changes as your drivers get backported to various enterprise 
+> operating systems(tm).  Sometimes it just gets in the way.
+> 
 
-Signed-off-by: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
----
-This patch can be applied to netdev-2.6 tree or 2.6.21-rc3-mm2.
+It's good to keep this type of information in drivers.  I've been
+thinking lately that it would be nice to even expand it a little bit
+(maybe include the commit sum) so its easier to help those who aren't
+running the latest upstream kernels on their boxes....
 
-diff --git a/drivers/net/tc35815.c b/drivers/net/tc35815.c
-index ec888db..eed78b5 100644
---- a/drivers/net/tc35815.c
-+++ b/drivers/net/tc35815.c
-@@ -58,12 +58,13 @@
-  *	1.34	Fix netpoll locking.  "BH rule" for NAPI is not enough with
-  *		netpoll, hard_start_xmit might be called from irq context.
-  *		PM support.
-+ *	1.35	Fix an usage of streaming DMA API.
-  */
- 
- #ifdef TC35815_NAPI
--#define DRV_VERSION	"1.34-NAPI"
-+#define DRV_VERSION	"1.35-NAPI"
- #else
--#define DRV_VERSION	"1.34"
-+#define DRV_VERSION	"1.35"
- #endif
- static const char *version = "tc35815.c:v" DRV_VERSION "\n";
- #define MODNAME			"tc35815"
-@@ -1551,6 +1552,11 @@ tc35815_rx(struct net_device *dev)
- 							    PCI_DMA_FROMDEVICE);
- #endif
- 				memcpy(data + offset, rxbuf, len);
-+#ifdef TC35815_DMA_SYNC_ONDEMAND
-+				pci_dma_sync_single_for_device(lp->pci_dev,
-+							       dma, len,
-+							       PCI_DMA_FROMDEVICE);
-+#endif
- 				offset += len;
- 				cur_bd++;
- 			}
