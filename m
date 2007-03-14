@@ -1,39 +1,53 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] tc35815: Fix an usage of streaming DMA API.
-Date: Wed, 14 Mar 2007 05:59:51 -0400
-Message-ID: <45F7C797.4030509@garzik.org>
-References: <20070303.235459.25478204.anemo@mba.ocn.ne.jp>	<20070314.010220.65192616.anemo@mba.ocn.ne.jp>	<20070313120418.554a3a43@freekitty> <20070314.100557.33857330.nemoto@toshiba-tops.co.jp>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+From: =?ISO-8859-1?Q?Jochen_Vo=DF?= <voss@seehuhn.de>
+Subject: Re: [PATCH 1/2] avoid OPEN_MAX in SCM_MAX_FD
+Date: Wed, 14 Mar 2007 09:45:09 +0000
+Message-ID: <A641066C-5E6B-459E-8244-87ECAB378583@seehuhn.de>
+References: <20070314005508.DDC121801C5@magilla.sf.frob.com> <Pine.LNX.4.64.0703131814160.9690@woody.linux-foundation.org>
+Mime-Version: 1.0 (Apple Message framework v752.2)
+Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@linux-foundation.org, linux-mips@linux-mips.org,
-	ralf@linux-mips.org, netdev@vger.kernel.org,
-	sshtylyov@ru.mvista.com, akpm@linux-foundation.org
-To: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
+Cc: Roland McGrath <roland@redhat.com>,
+	Benjamin LaHaise <bcrl@kvack.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:38972 "EHLO mail.dvmed.net"
+Received: from seehuhn.de ([80.68.93.199]:4453 "EHLO seehuhn.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1161006AbXCNJ76 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Mar 2007 05:59:58 -0400
-In-Reply-To: <20070314.100557.33857330.nemoto@toshiba-tops.co.jp>
+	id S1161038AbXCNKJg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Mar 2007 06:09:36 -0400
+In-Reply-To: <Pine.LNX.4.64.0703131814160.9690@woody.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Atsushi Nemoto wrote:
-> On Tue, 13 Mar 2007 12:04:18 -0700, Stephen Hemminger <shemminger@linux-foundation.org> wrote:
->>> + *	1.35	Fix an usage of streaming DMA API.
->>>   */
->> Please don't use comments as changelog anymore. It gets out of date.
->> The use of change control systems has made this practice obsolete.
-> 
-> OK, Jeff, should I send a revised patch dropping this line?
+Hi,
 
-Nah, there's no need to reject the patch on that basis.
+On 14 Mar 2007, at 01:15, Linus Torvalds wrote:
+> On Tue, 13 Mar 2007, Roland McGrath wrote:
+>> Ok, fine.  But PATH_MAX is a real constant that has some meaning  
+>> in the
+>> kernel.  It's perfectly correct to use PATH_MAX as a constant on a  
+>> system
+>> like Linux that defines it and means what it says.  Conversely,  
+>> OPEN_MAX
+>> has no useful relationship with anything the kernel is doing at all.
+>
+> Sure. I'm just saying that some people may use OPEN_MAX the way I know
+> people use PATH_MAX - whether it's what you're supposed to or not.
 
-You should send an additional patch, on top of all others you sent 
-recently, that completely removes the entire changelog from the driver 
-source code :)
+To contribute a data point here: searching for the regular expression
 
-	Jeff
+     \[\ *OPEN_MAX\ *\]
+
+on google code search [1] gives 25 hits for me.  Replacing OPEN_MAX  
+with PATH_MAX results in "about 19,700" hits.
+
+[1] http://www.google.com/codesearch?hl=en&q=+%5C%5B%5C+*OPEN_MAX%5C+* 
+%5C%5D&start=20&sa=N
+
+I hope this helps,
+Jochen
+--
+http://seehuhn.de/
 
 
