@@ -1,8 +1,7 @@
 From: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
-Subject: [PATCH 4/6] IrDA: Delay needed when uploading firmware
-	chunks
-Date: Wed, 14 Mar 2007 21:24:27 +0200
-Message-ID: <20070314192427.GF3397@sortiz.org>
+Subject: [PATCH 5/6] IrDA: stir4200 useless include
+Date: Wed, 14 Mar 2007 21:24:50 +0200
+Message-ID: <20070314192450.GG3397@sortiz.org>
 Reply-To: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,30 +21,27 @@ Sender: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 Errors-To: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-With 42101001.sb firmwares, we need a 10 ms delay between firmware chunks
-upload.
+stir4200 doesn't need to include irlap.h
 
-Patch from Nigel Williams <nigelw-RPmkxMC4wPRY3wPUZjznAg@public.gmane.org>
 Signed-off-by: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
 ---
- drivers/net/irda/irda-usb.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+ drivers/net/irda/stir4200.c |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/irda/irda-usb.c b/drivers/net/irda/irda-usb.c
-index 340ee99..1d510bd 100644
---- a/drivers/net/irda/irda-usb.c
-+++ b/drivers/net/irda/irda-usb.c
-@@ -1057,6 +1057,8 @@ static int stir421x_fw_upload(struct irda_usb_cb *self,
- 
- 		if (ret < 0)
- 			break;
-+
-+		mdelay(10);
- 	}
- 
- 	kfree(patch_block);
+diff --git a/drivers/net/irda/stir4200.c b/drivers/net/irda/stir4200.c
+index 20d306f..45351f2 100644
+--- a/drivers/net/irda/stir4200.c
++++ b/drivers/net/irda/stir4200.c
+@@ -52,7 +52,6 @@
+ #include <linux/kthread.h>
+ #include <linux/freezer.h>
+ #include <net/irda/irda.h>
+-#include <net/irda/irlap.h>
+ #include <net/irda/irda_device.h>
+ #include <net/irda/wrapper.h>
+ #include <net/irda/crc.h>
 -- 
-1.4.4.4
+1.5.0.2
 
 
 -------------------------------------------------------------------------
