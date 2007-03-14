@@ -1,30 +1,54 @@
-From: Jouni Malinen <j@w1.fi>
-Subject: Re: [HOSTAP] Make debug a run-time option
-Date: Wed, 14 Mar 2007 22:05:38 +0000
-Message-ID: <20070314220538.GA23642@hostap.isc.org>
-References: <20070314160356.GA16337@athena.road.mcmartin.ca> <20070314171742.GA20779@hostap.isc.org> <20070314194800.GF3372@tuxdriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] [REVISED] net/ipv4/multipath_wrandom.c: check
+ kmalloc() return value.
+Date: Wed, 14 Mar 2007 15:11:51 -0700 (PDT)
+Message-ID: <20070314.151151.75188950.davem@davemloft.net>
+References: <Pine.LNX.4.64.0703121411170.13933@sbz-30.cs.Helsinki.FI>
+	<20070312.135613.78710501.davem@davemloft.net>
+	<20070314201542.GA4192@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Kyle McMartin <kyle-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, hostap-I1pBevtZXGcAvxtiuMwx3w@public.gmane.org, j@w1.fi
-To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20070314194800.GF3372-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: penberg@cs.helsinki.fi, amit2030@gmail.com,
+	linux-kernel@vger.kernel.org, akpm@osdl.org,
+	netdev@vger.kernel.org, shai@scalex86.org,
+	pravin.shelar@calsoftinc.com, benzi@scalemp.com
+To: kiran@scalex86.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:32887
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752226AbXCNWLy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Mar 2007 18:11:54 -0400
+In-Reply-To: <20070314201542.GA4192@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 14, 2007 at 03:48:00PM -0400, John W. Linville wrote:
+From: Ravikiran G Thirumalai <kiran@scalex86.org>
+Date: Wed, 14 Mar 2007 13:15:42 -0700
 
-> What about a combined approach?  The existing compile-time option
-> could remain while runtime restrictions could be added for when the
-> debug stuff is compiled into the driver?
+> The kernel bugzilla shows zaroo boogs for multipath cached as well.
 
-I would be perfectly fine with doing that assuming the default behavior
-is not changed with this patch (i.e., debugging would be enabled by
-default). I would consider changing the default setting a separate issue
-and for that, it might be more worthwhile approach to identify the debug
-messages that are undesired by default than to disable everything.
+Because _EVERYBODY_ turns it off because we tell them to do so!  Every
+bug reported to the lists is replied to with "that code is
+unbelievably buggy, just turn that off, kthx, bye".  And to reiterate
+no distribution turns it on in there kernels, of course there are no
+bugs reported in code nobody actually runs.
 
--- 
-Jouni Malinen                                            PGP id EFC895FA
+And it's been that way since day one for this code.
+
+I also want to get rid of this code because it causes major
+architectural limitations in the routing code which prevents important
+work we want to do in this area.  Even the most skilled core
+networking developers don't have the stomache to try and repair
+what we have now, and yes they have looked at it and tried.
+
+I'm still very much going to get rid of it, sorry.  It's unrepairable.
+
+My deepest apologies if this inconveniences you personally, but this
+is open source and you can always carry a local patch to obtain the
+functionality.  In fact, it would be awesome if you took up the
+project to rewrite this stuff cleanly from the start, I'd be
+absolutely happy to review and integrate such patches.
+
+But for now, what's in there has to go and there is absolutely
+no question about it.
