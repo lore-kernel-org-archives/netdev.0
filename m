@@ -1,37 +1,34 @@
-From: Olaf Kirch <okir@lst.de>
-Subject: Re: [PATCH 1/2] avoid OPEN_MAX in SCM_MAX_FD
-Date: Wed, 14 Mar 2007 20:52:22 +0100
-Message-ID: <200703142052.24659.okir@lst.de>
-References: <20070314005508.DDC121801C5@magilla.sf.frob.com> <Pine.LNX.4.64.0703131814160.9690@woody.linux-foundation.org>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: Re: [HOSTAP] Make debug a run-time option
+Date: Wed, 14 Mar 2007 15:48:00 -0400
+Message-ID: <20070314194800.GF3372@tuxdriver.com>
+References: <20070314160356.GA16337@athena.road.mcmartin.ca> <20070314171742.GA20779@hostap.isc.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Roland McGrath <roland@redhat.com>,
-	Benjamin LaHaise <bcrl@kvack.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from verein.lst.de ([213.95.11.210]:55057 "EHLO mail.lst.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030250AbXCNTwq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Mar 2007 15:52:46 -0400
-In-Reply-To: <Pine.LNX.4.64.0703131814160.9690@woody.linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+To: Kyle McMartin <kyle-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, hostap-I1pBevtZXGcAvxtiuMwx3w@public.gmane.org, j@w1.fi
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <20070314171742.GA20779-BwHGZ1snBHw4TRp0TYZeXw@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 14 March 2007 02:15, Linus Torvalds wrote:
-> Sure. I'm just saying that some people may use OPEN_MAX the way I know
-> people use PATH_MAX - whether it's what you're supposed to or not.
+On Wed, Mar 14, 2007 at 05:17:42PM +0000, Jouni Malinen wrote:
+> On Wed, Mar 14, 2007 at 12:03:56PM -0400, Kyle McMartin wrote:
+> > Build-time debugging isn't overly useful for distro kernel folks, nor is
+> > enabling huge amounts of debug spew by default. Provide the option of
+> > enabling debugging with module parameters.
+> 
+> While I understand that it would be difficult to change the debug level
+> options with binary distributions, I'm not sure whether I would like to
+> see these changes going in. PRISM2_NO_DEBUG was added to make it
+> possible to reduce the driver size considerably. In addition, the change
 
-glibc removed OPEN_MAX from its header files several years ago. If you
-want to find a piece of code that still uses it, it's most likely something
-that hasn't seen a compiler in years - and will likely continue to do
-so.
+What about a combined approach?  The existing compile-time option
+could remain while runtime restrictions could be added for when the
+debug stuff is compiled into the driver?
 
-Olaf
+John
 -- 
-Olaf Kirch  |  --- o --- Nous sommes du soleil we love when we play
-okir@lst.de |    / | \   sol.dhoop.naytheet.ah kin.ir.samse.qurax
+John W. Linville
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
