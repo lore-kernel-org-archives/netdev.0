@@ -1,62 +1,55 @@
-From: Alex Sidorenko <alexandre.sidorenko@hp.com>
-Subject: Re: SWS for rcvbuf < MTU
-Date: Wed, 14 Mar 2007 12:18:56 -0400
-Message-ID: <200703141218.57179.alexandre.sidorenko@hp.com>
-References: <200703021521.58821.alexandre.sidorenko@hp.com> <200703051152.27780.alexandre.sidorenko@hp.com> <45F6F51E.6090905@psc.edu>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [ANNOUNCE] iproute2 2.6.20-070313
+Date: Wed, 14 Mar 2007 10:14:43 -0700
+Message-ID: <20070314101443.4347efdd@freekitty>
+References: <20070313151549.332004c9@freekitty>
+	<200703141223.48927.arekm@maven.pl>
+	<45F7E527.6030307@trash.net>
+	<200703141316.05509.arekm@maven.pl>
+	<45F7EB5C.5010901@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: John Heffner <jheffner@psc.edu>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Arkadiusz Miskiewicz <arekm@maven.pl>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, lartc@mailman.ds9a.nl
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel8.hp.com ([156.153.255.206]:36119 "EHLO atlrel8.hp.com"
+Received: from smtp.osdl.org ([65.172.181.24]:46547 "EHLO smtp.osdl.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932339AbXCNQSo convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Mar 2007 12:18:44 -0400
-In-Reply-To: <45F6F51E.6090905@psc.edu>
-Content-Disposition: inline
+	id S1752610AbXCNRPC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Mar 2007 13:15:02 -0400
+In-Reply-To: <45F7EB5C.5010901@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On March 13, 2007 03:01:50 pm John Heffner wrote:
-> Sorry for the long delay in response, I've been on vacation. =A0I'm o=
-kay
-> with your patch, and I can't think of any real problem with it, excep=
-t
-> that the behavior is non-standard. =A0Then again, Linux acking in gen=
-eral
-> is non-standard, which has created the bug in the first place. :) =A0=
-The
-> only thing I can think where it might still ack too often is if
-> free_space frequently drops just below full_space/2 for a bit then ri=
-ses
-> above full_space/2.
->
-> I've also attached a corrected version of my earlier patch that I thi=
-nk
-> solves the problem you noted.
+On Wed, 14 Mar 2007 13:32:28 +0100
+Patrick McHardy <kaber@trash.net> wrote:
 
-Hello John,
+> Arkadiusz Miskiewicz wrote:
+> > Hm, why no RTA_FWMASK in HEAD rtnetlink.h
+> > 
+> > http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=blob;f=include/linux/rtnetlink.h;h=4a629ea70cc4ca60a6f486f8653974af68dbe8cd;hb=HEAD
+> > 
+> > and 2.6.19
+> > 
+> > http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=blob;f=include/linux/rtnetlink.h;h=3a18addaed4ccb7436bffc9cf5fd0666f145d35c;hb=0215ffb08ce99e2bb59eca114a99499a4d06e704
+> > 
+> > ?
+> 
+> Its in include/linux/fib_rules.h:
+> 
+> enum
+> {
+> ...
+>         FRA_FWMASK,     /* mask for netfilter mark */
+> 
+>         __FRA_MAX
+> };
+> 
+> RTA_* attributes aren't used for routing rules anymore inside
+> the kernel.
 
-I think your corrected version should avoid the problem I mentioned, bu=
-t I=20
-will still ask the customer to test the new version. It will be interes=
-ting=20
-to compare traffic patterns with those observed with stock kernel and m=
-y=20
-earlier patch.
+But we need to keep them in iproute2 for back compatibility?
 
-It might take some time to do proper testing, I'll inform you as soon a=
-s there=20
-are any results.
-
-Thanks,
-Alex
-
-
---=20
-------------------------------------------------------------------
-Alexandre Sidorenko             email: alexs@hplinux.canada.hp.com
-Global Solutions Engineering:   Unix Networking
-Hewlett-Packard (Canada)
-------------------------------------------------------------------
+-- 
+Stephen Hemminger <shemminger@linux-foundation.org>
