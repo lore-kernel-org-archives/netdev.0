@@ -1,12 +1,13 @@
 From: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
-Subject: [PATCH 5/6] IrDA: stir4200 useless include
-Date: Wed, 14 Mar 2007 21:24:50 +0200
-Message-ID: <20070314192450.GG3397@sortiz.org>
+Subject: [PATCH 6/6] IrDA: Lockdep annotation for hashbin locks
+Date: Wed, 14 Mar 2007 21:25:19 +0200
+Message-ID: <20070314192519.GH3397@sortiz.org>
 Reply-To: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davej-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 Return-path: <irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
 Content-Disposition: inline
@@ -21,25 +22,40 @@ Sender: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 Errors-To: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-stir4200 doesn't need to include irlap.h
+Rmmoding irda triggers a lockdep false positive. We can fix that by assigning
+each hashbin lock to a separate class.
 
+Reported-by: Dave Jones <davej-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 Signed-off-by: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
 ---
- drivers/net/irda/stir4200.c |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
+ include/net/irda/irqueue.h |    1 +
+ net/irda/irqueue.c         |    1 +
+ 2 files changed, 2 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/irda/stir4200.c b/drivers/net/irda/stir4200.c
-index 20d306f..45351f2 100644
---- a/drivers/net/irda/stir4200.c
-+++ b/drivers/net/irda/stir4200.c
-@@ -52,7 +52,6 @@
- #include <linux/kthread.h>
- #include <linux/freezer.h>
- #include <net/irda/irda.h>
--#include <net/irda/irlap.h>
- #include <net/irda/irda_device.h>
- #include <net/irda/wrapper.h>
- #include <net/irda/crc.h>
+diff --git a/include/net/irda/irqueue.h b/include/net/irda/irqueue.h
+index 335b0ac..67cb434 100644
+--- a/include/net/irda/irqueue.h
++++ b/include/net/irda/irqueue.h
+@@ -71,6 +71,7 @@ typedef struct hashbin_t {
+ 	int        hb_size;
+ 	spinlock_t hb_spinlock;		/* HB_LOCK - Can be used by the user */
+ 
++	struct lock_class_key hb_lock_key;
+ 	irda_queue_t* hb_queue[HASHBIN_SIZE] IRDA_ALIGN;
+ 
+ 	irda_queue_t* hb_current;
+diff --git a/net/irda/irqueue.c b/net/irda/irqueue.c
+index 9266233..2871a8a 100644
+--- a/net/irda/irqueue.c
++++ b/net/irda/irqueue.c
+@@ -370,6 +370,7 @@ hashbin_t *hashbin_new(int type)
+ 	/* Make sure all spinlock's are unlocked */
+ 	if ( hashbin->hb_type & HB_LOCK ) {
+ 		spin_lock_init(&hashbin->hb_spinlock);
++		lockdep_set_class(&hashbin->hb_spinlock, &hashbin->hb_lock_key);
+ 	}
+ 
+ 	return hashbin;
 -- 
 1.5.0.2
 
