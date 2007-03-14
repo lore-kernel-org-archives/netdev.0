@@ -1,34 +1,36 @@
-From: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
-Subject: Re: [PATCH] tc35815: Fix an usage of streaming DMA API.
-Date: Wed, 14 Mar 2007 10:05:57 +0900 (JST)
-Message-ID: <20070314.100557.33857330.nemoto@toshiba-tops.co.jp>
-References: <20070303.235459.25478204.anemo@mba.ocn.ne.jp>
-	<20070314.010220.65192616.anemo@mba.ocn.ne.jp>
-	<20070313120418.554a3a43@freekitty>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [PATCH 1/2] avoid OPEN_MAX in SCM_MAX_FD
+Date: Tue, 13 Mar 2007 18:15:29 -0700 (PDT)
+Message-ID: <Pine.LNX.4.64.0703131814160.9690@woody.linux-foundation.org>
+References: <20070314005508.DDC121801C5@magilla.sf.frob.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-mips@linux-mips.org, ralf@linux-mips.org,
-	netdev@vger.kernel.org, jeff@garzik.org, sshtylyov@ru.mvista.com,
-	akpm@linux-foundation.org
-To: shemminger@linux-foundation.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Benjamin LaHaise <bcrl@kvack.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Roland McGrath <roland@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from topsns2.toshiba-tops.co.jp ([202.230.225.126]:45575 "EHLO
-	topsns2.toshiba-tops.co.jp" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752679AbXCNBGD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Mar 2007 21:06:03 -0400
-In-Reply-To: <20070313120418.554a3a43@freekitty>
+Received: from smtp.osdl.org ([65.172.181.24]:47841 "EHLO smtp.osdl.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932529AbXCNBPq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Mar 2007 21:15:46 -0400
+In-Reply-To: <20070314005508.DDC121801C5@magilla.sf.frob.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 13 Mar 2007 12:04:18 -0700, Stephen Hemminger <shemminger@linux-foundation.org> wrote:
-> > + *	1.35	Fix an usage of streaming DMA API.
-> >   */
+
+
+On Tue, 13 Mar 2007, Roland McGrath wrote:
 > 
-> Please don't use comments as changelog anymore. It gets out of date.
-> The use of change control systems has made this practice obsolete.
+> Ok, fine.  But PATH_MAX is a real constant that has some meaning in the
+> kernel.  It's perfectly correct to use PATH_MAX as a constant on a system
+> like Linux that defines it and means what it says.  Conversely, OPEN_MAX
+> has no useful relationship with anything the kernel is doing at all.
 
-OK, Jeff, should I send a revised patch dropping this line?
+Sure. I'm just saying that some people may use OPEN_MAX the way I know 
+people use PATH_MAX - whether it's what you're supposed to or not.
 
----
-Atsushi Nemoto
+I do agree that PATH_MAX is much more appropriate to be used that way, and 
+is more likely to have "real" meaning, I just worry.
+
+		Linus
