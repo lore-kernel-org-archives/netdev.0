@@ -1,53 +1,50 @@
-From: =?ISO-8859-1?Q?Jochen_Vo=DF?= <voss@seehuhn.de>
-Subject: Re: [PATCH 1/2] avoid OPEN_MAX in SCM_MAX_FD
-Date: Wed, 14 Mar 2007 09:45:09 +0000
-Message-ID: <A641066C-5E6B-459E-8244-87ECAB378583@seehuhn.de>
-References: <20070314005508.DDC121801C5@magilla.sf.frob.com> <Pine.LNX.4.64.0703131814160.9690@woody.linux-foundation.org>
-Mime-Version: 1.0 (Apple Message framework v752.2)
-Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Roland McGrath <roland@redhat.com>,
-	Benjamin LaHaise <bcrl@kvack.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from seehuhn.de ([80.68.93.199]:4453 "EHLO seehuhn.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1161038AbXCNKJg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Mar 2007 06:09:36 -0400
-In-Reply-To: <Pine.LNX.4.64.0703131814160.9690@woody.linux-foundation.org>
-Sender: netdev-owner@vger.kernel.org
+From: Arkadiusz Miskiewicz <arekm@maven.pl>
+Subject: Re: [ANNOUNCE] iproute2 2.6.20-070313
+Date: Wed, 14 Mar 2007 12:23:48 +0100
+Message-ID: <200703141223.48927.arekm@maven.pl>
+References: <20070313151549.332004c9@freekitty>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	lartc@mailman.ds9a.nl
+To: Stephen Hemminger <shemminger@linux-foundation.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161142AbXCNLX6@vger.kernel.org>
+In-Reply-To: <20070313151549.332004c9@freekitty>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
-
-On 14 Mar 2007, at 01:15, Linus Torvalds wrote:
-> On Tue, 13 Mar 2007, Roland McGrath wrote:
->> Ok, fine.  But PATH_MAX is a real constant that has some meaning  
->> in the
->> kernel.  It's perfectly correct to use PATH_MAX as a constant on a  
->> system
->> like Linux that defines it and means what it says.  Conversely,  
->> OPEN_MAX
->> has no useful relationship with anything the kernel is doing at all.
+On Tuesday 13 of March 2007, Stephen Hemminger wrote:
+> This is an experimental to the iproute2 command set.
 >
-> Sure. I'm just saying that some people may use OPEN_MAX the way I know
-> people use PATH_MAX - whether it's what you're supposed to or not.
+> The version number includes the kernel version to denote what feature=
+s are
+> supported. The same source should build on older systems, but obvious=
+ly the
+> newer kernel features won't be available. As much as possible, this p=
+ackage
+> tries to be source compatible across releases.
+>
+> It can be downloaded from:
+> =20
+> http://developer.osdl.org/dev/iproute2/download/iproute2-2.6.20-07031=
+3.tar.
+>gz
 
-To contribute a data point here: searching for the regular expression
+This patch
 
-     \[\ *OPEN_MAX\ *\]
+http://www.mail-archive.com/netdev@vger.kernel.org/msg27506.html
 
-on google code search [1] gives 25 hits for me.  Replacing OPEN_MAX  
-with PATH_MAX results in "about 19,700" hits.
+didn't make into upstream linux kernel it seems.
 
-[1] http://www.google.com/codesearch?hl=en&q=+%5C%5B%5C+*OPEN_MAX%5C+* 
-%5C%5D&start=20&sa=N
+The question is - are patches adding some functionality that's not in u=
+pstream=20
+kernel accepted?
 
-I hope this helps,
-Jochen
---
-http://seehuhn.de/
+There is one wrr patch for iproute floating around that I'm thinking ab=
+out.
 
-
+--=20
+Arkadiusz Mi=B6kiewicz        PLD/Linux Team
+arekm / maven.pl            http://ftp.pld-linux.org/
