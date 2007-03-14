@@ -1,54 +1,34 @@
-From: Roland McGrath <roland@redhat.com>
-Subject: Re: [PATCH 1/2] avoid OPEN_MAX in SCM_MAX_FD
-Date: Tue, 13 Mar 2007 17:55:08 -0700 (PDT)
-Message-ID: <20070314005508.DDC121801C5@magilla.sf.frob.com>
-References: <Pine.LNX.4.64.0703131420230.9690@woody.linux-foundation.org>
+From: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
+Subject: Re: [PATCH] tc35815: Fix an usage of streaming DMA API.
+Date: Wed, 14 Mar 2007 10:05:57 +0900 (JST)
+Message-ID: <20070314.100557.33857330.nemoto@toshiba-tops.co.jp>
+References: <20070303.235459.25478204.anemo@mba.ocn.ne.jp>
+	<20070314.010220.65192616.anemo@mba.ocn.ne.jp>
+	<20070313120418.554a3a43@freekitty>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Benjamin LaHaise <bcrl@kvack.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Linus Torvalds <torvalds@linux-foundation.org>
+Cc: linux-mips@linux-mips.org, ralf@linux-mips.org,
+	netdev@vger.kernel.org, jeff@garzik.org, sshtylyov@ru.mvista.com,
+	akpm@linux-foundation.org
+To: shemminger@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:56815 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752674AbXCNAzQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Mar 2007 20:55:16 -0400
-In-Reply-To: Linus Torvalds's message of  Tuesday, 13 March 2007 14:28:00 -0700 <Pine.LNX.4.64.0703131420230.9690@woody.linux-foundation.org>
+Received: from topsns2.toshiba-tops.co.jp ([202.230.225.126]:45575 "EHLO
+	topsns2.toshiba-tops.co.jp" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752679AbXCNBGD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Mar 2007 21:06:03 -0400
+In-Reply-To: <20070313120418.554a3a43@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> I'd actually prefer this as part of the "remove OPEN_MAX" patch.
+On Tue, 13 Mar 2007 12:04:18 -0700, Stephen Hemminger <shemminger@linux-foundation.org> wrote:
+> > + *	1.35	Fix an usage of streaming DMA API.
+> >   */
+> 
+> Please don't use comments as changelog anymore. It gets out of date.
+> The use of change control systems has made this practice obsolete.
 
-Ok.  (But now you're going to argue with me about "remove OPEN_MAX",
-and you haven't said you have any problem with changing SCM_MAX_FD,
-so why make it wait?)
+OK, Jeff, should I send a revised patch dropping this line?
 
-> That said, it actually worries me that you should call "_SC_OPEN_MAX". 
-[...]
-> For example, I know perfectly well that I should use _SC_PATH_MAX, but a 
-> *lot* of code simply doesn't care. In git, I used PATH_MAX, and the reason 
-[...]
-
-Ok, fine.  But PATH_MAX is a real constant that has some meaning in the
-kernel.  It's perfectly correct to use PATH_MAX as a constant on a system
-like Linux that defines it and means what it says.  Conversely, OPEN_MAX
-has no useful relationship with anything the kernel is doing at all.
-
-> So, what's the likelihood that this will break some old programs? I 
-> realize that modern distributions don't put the kernel headers in their 
-> user-visible includes any more, but the breakage is most likely exactly 
-> for old programs and older distributions.
-
-Well, I don't know for sure.  It doesn't seem all that likely to me (not
-like PATH_MAX), as there has been getdtablesize() since before there was
-OPEN_MAX by that name (not to mention before there was Linux).  If things
-use OPEN_MAX as a constant for arrays, they're already broken unless they
-call setrlimit to constrain themselves.  Getting things fixed has to start
-somewhere.
-
-
-Thanks,
-Roland
-
+---
+Atsushi Nemoto
