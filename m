@@ -1,40 +1,38 @@
-From: Jouni Malinen <j@w1.fi>
-Subject: Re: Make debug a run-time option
-Date: Wed, 14 Mar 2007 17:17:42 +0000
-Message-ID: <20070314171742.GA20779@hostap.isc.org>
-References: <20070314160356.GA16337@athena.road.mcmartin.ca>
+From: Holger Eitzenberger <holger@my-eitzenberger.de>
+Subject: [NETLINK] periodically rehash table, why?
+Date: Wed, 14 Mar 2007 18:30:31 +0100
+Message-ID: <877itju408.fsf@kruemel.my-eitzenberger.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: hostap@shmoo.com, netdev@vger.kernel.org, linux-wireless@vger.kernel.org
-To: Kyle McMartin <kyle@canonical.com>
-Return-path: <hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com>
-Content-Disposition: inline
-In-Reply-To: <20070314160356.GA16337@athena.road.mcmartin.ca>
-List-Unsubscribe: <http://lists.shmoo.com/mailman/listinfo/hostap>,
-	<mailto:hostap-request@shmoo.com?subject=unsubscribe>
-List-Archive: <http://lists.shmoo.com/pipermail/hostap>
-List-Post: <mailto:hostap@shmoo.com>
-List-Help: <mailto:hostap-request@shmoo.com?subject=help>
-List-Subscribe: <http://lists.shmoo.com/mailman/listinfo/hostap>,
-	<mailto:hostap-request@shmoo.com?subject=subscribe>
-Sender: hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com
-Errors-To: hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from moutng.kundenserver.de ([212.227.126.183]:64278 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752500AbXCNRaq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Mar 2007 13:30:46 -0400
+Received: from holger by kruemel.my-eitzenberger.de with local (Exim 4.50)
+	id 1HRXJ1-00040J-HF
+	for netdev@vger.kernel.org; Wed, 14 Mar 2007 18:30:31 +0100
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 14, 2007 at 12:03:56PM -0400, Kyle McMartin wrote:
-> Build-time debugging isn't overly useful for distro kernel folks, nor is
-> enabling huge amounts of debug spew by default. Provide the option of
-> enabling debugging with module parameters.
+Hi,
 
-While I understand that it would be difficult to change the debug level
-options with binary distributions, I'm not sure whether I would like to
-see these changes going in. PRISM2_NO_DEBUG was added to make it
-possible to reduce the driver size considerably. In addition, the change
-to the default debug categories (i.e., disable all) may make it more
-difficult to understand reported issues. I would be more open to
-disabling debug messages one-by-one if there is something specific that
-can be agreed to cause more harm than benefit with extra output.
+in nl_pid_hash_dilute() there is:
 
--- 
-Jouni Malinen                                            PGP id EFC895FA
+   if (unlikely(avg > 1) && nl_pid_hash_rehash(hash, 1))
+      return 1;
+
+      if (unlikely(len > avg) && time_after(jiffies, hash->rehash_time)) {
+         nl_pid_hash_rehash(hash, 0);
+         return 1;
+      }
+
+I don't see a reason why periodically rehashing might help in any way
+(without resizing).  Is there a reason for that?
+
+Thanks.  /holger
+      
+
+
+
