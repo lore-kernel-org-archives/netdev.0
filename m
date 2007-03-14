@@ -1,35 +1,45 @@
-From: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
-Subject: Re: [PATCH] tc35815: Fix an usage of streaming DMA API.
-Date: Thu, 15 Mar 2007 00:11:29 +0900 (JST)
-Message-ID: <20070315.001129.126139947.anemo@mba.ocn.ne.jp>
-References: <20070313120418.554a3a43@freekitty>
-	<20070314.100557.33857330.nemoto@toshiba-tops.co.jp>
-	<45F7C797.4030509@garzik.org>
+From: "lee nookx" <lnookx@googlemail.com>
+Subject: kernel routing tables
+Date: Wed, 14 Mar 2007 15:23:23 +0000
+Message-ID: <40d14a940703140823s81d98d9y87e634bc8c31d072@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@linux-foundation.org, linux-mips@linux-mips.org,
-	ralf@linux-mips.org, netdev@vger.kernel.org,
-	sshtylyov@ru.mvista.com, akpm@linux-foundation.org
-To: jeff@garzik.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mba.ocn.ne.jp ([122.1.175.29]:62862 "EHLO smtp.mba.ocn.ne.jp"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1161337AbXCNPLe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Mar 2007 11:11:34 -0400
-In-Reply-To: <45F7C797.4030509@garzik.org>
+Received: from nf-out-0910.google.com ([64.233.182.186]:16709 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752756AbXCNPX1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Mar 2007 11:23:27 -0400
+Received: by nf-out-0910.google.com with SMTP id o25so263237nfa
+        for <netdev@vger.kernel.org>; Wed, 14 Mar 2007 08:23:25 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 14 Mar 2007 05:59:51 -0400, Jeff Garzik <jeff@garzik.org> wrote:
-> > OK, Jeff, should I send a revised patch dropping this line?
-> 
-> Nah, there's no need to reject the patch on that basis.
-> 
-> You should send an additional patch, on top of all others you sent 
-> recently, that completely removes the entire changelog from the driver 
-> source code :)
+Hi all,
 
-OK, Done :)
----
-Atsushi Nemoto
+I am playing with AODV as a routing protocol, and I am having some
+trouble getting it to work. I am using the kernel AODV implementation,
+which works fine on 2.4.x machines.
+
+I am now trying to get it to run on 2.6 kernels.
+
+One of the problems I am having is that I am getting the error:
+
+WARNING: "ip_rt_ioctl" [/home/lnookx/kernel-aodv/aodv.ko] undefined!
+
+
+This function seems to allow me to add or delete the routing entries
+into the kernels routing table.
+
+Have they been deprecated on recent kernels?
+
+
+Can anyone offer any help or suggestions?
+
+
+--lee
+
+
+--
