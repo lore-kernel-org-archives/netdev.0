@@ -1,45 +1,40 @@
-From: "lee nookx" <lnookx@googlemail.com>
-Subject: kernel routing tables
-Date: Wed, 14 Mar 2007 15:23:23 +0000
-Message-ID: <40d14a940703140823s81d98d9y87e634bc8c31d072@mail.gmail.com>
+From: Maciek <lms@inetcafe.eu.org>
+Subject: No buffer space available
+Date: Wed, 14 Mar 2007 16:10:45 +0100
+Message-ID: <711119062.20070314161045@inetcafe.eu.org>
+Reply-To: Maciek <lms@inetcafe.eu.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.186]:16709 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752756AbXCNPX1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Mar 2007 11:23:27 -0400
-Received: by nf-out-0910.google.com with SMTP id o25so263237nfa
-        for <netdev@vger.kernel.org>; Wed, 14 Mar 2007 08:23:25 -0700 (PDT)
-Content-Disposition: inline
+Received: from poczta.isb.com.pl ([80.48.198.2]:42427 "EHLO isb.com.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751149AbXCNPlI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Mar 2007 11:41:08 -0400
+Received: from localhost (localhost.localdomain [127.0.0.1])
+	by isb.com.pl (Postfix) with ESMTP id 3421BB2D6F
+	for <netdev@vger.kernel.org>; Wed, 14 Mar 2007 16:13:37 +0100 (CET)
+Received: from isb.com.pl ([127.0.0.1])
+	by localhost (isb.com.pl [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id 10288-08 for <netdev@vger.kernel.org>;
+	Wed, 14 Mar 2007 16:13:35 +0100 (CET)
+Received: from piechcio (jota.isb.com.pl [80.48.198.14])
+	(using TLSv1 with cipher DES-CBC3-SHA (168/168 bits))
+	(No client certificate requested)
+	by isb.com.pl (Postfix) with ESMTP id E4D49B2D6E
+	for <netdev@vger.kernel.org>; Wed, 14 Mar 2007 16:13:35 +0100 (CET)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi all,
+Hi
+   I have router PC based on Debian Sarge with kernel 2.6.17-14 and 1 ATM card (PROSUM PROATM-155FM)
+  and 3 ethernet cards(2xIntel pro 100 + 1xBroadcom gbit). This server has 1GB Ram. Kernel was patched
+  with PROSUM drivers (nicstar2.tgz).
+   Sometimes I have problem with this router. Ever few days router lose connection with ATM gateway.
+   
+  When I try to send icmp packet to gateway I got message:
+    ping: sendto: No buffer space available ping
+    
+  To connect again with atm gateway I must restart router.
 
-I am playing with AODV as a routing protocol, and I am having some
-trouble getting it to work. I am using the kernel AODV implementation,
-which works fine on 2.4.x machines.
-
-I am now trying to get it to run on 2.6 kernels.
-
-One of the problems I am having is that I am getting the error:
-
-WARNING: "ip_rt_ioctl" [/home/lnookx/kernel-aodv/aodv.ko] undefined!
-
-
-This function seems to allow me to add or delete the routing entries
-into the kernels routing table.
-
-Have they been deprecated on recent kernels?
-
-
-Can anyone offer any help or suggestions?
-
-
---lee
-
-
---
