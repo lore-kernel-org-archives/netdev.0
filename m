@@ -1,83 +1,75 @@
-From: John Heffner <jheffner@psc.edu>
-Subject: [PATCH] tcp_mem initialization
-Date: Wed, 14 Mar 2007 17:25:22 -0400
-Message-ID: <45F86842.8040305@psc.edu>
+From: Sergei Shtylyov <sshtylyov@ru.mvista.com>
+Subject: Re: [Kgdb-bugreport] [PATCH 2.6.20-rc7] 8139too KGDBoE fix
+Date: Thu, 15 Mar 2007 00:40:10 +0300
+Message-ID: <45F86BBA.4050700@ru.mvista.com>
+References: <200701312144.56497.sshtylyov@ru.mvista.com> <45DDBD96.10000@ru.mvista.com> <45DDC7C0.8050100@ru.mvista.com> <200702231238.40474.amitkale@linsyssoft.com> <45F7FBC8.9050700@ru.mvista.com> <45F800F8.5020903@ru.mvista.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------070501040803020901050209"
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Amit S. Kale" <amitkale@linsyssoft.com>,
+	Mithlesh Thukral <mithlesh@linsyssoft.com>,
+	Vitaly Wool <vwool@ru.mvista.com>, Mark Huth <mhuth@mvista.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailer1.psc.edu ([128.182.58.100]:61707 "EHLO mailer1.psc.edu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750874AbXCNVZj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Mar 2007 17:25:39 -0400
+Received: from gateway-1237.mvista.com ([63.81.120.155]:18976 "EHLO
+	imap.sh.mvista.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1422672AbXCNVka (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Mar 2007 17:40:30 -0400
+In-Reply-To: <45F800F8.5020903@ru.mvista.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------070501040803020901050209
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Hello, I wrote:
 
-The current tcp_mem initialization gives values that are really too 
-small for systems with ~256-768 MB of memory, and also for systems with 
-larger page sizes (ia64).  This patch gives an alternate method of 
-initialization that doesn't depend on the cache allocation functions, 
-but I think should still provide a nice curve that gives a smaller 
-fraction of total memory with small-memory systems, while maintaining 
-the same upper bound (pressure at 1/2, max as 3/4) on larger memory systems.
+>>> This thread came up on kgdb-bugreport mailing list. Could you please 
+>>> suggest us what's the correct way of fixing this problem?
 
-   -John
+>>> 1. When running a kgdb on RTL8139 ethernet interface: 8139too driver 
+>>> prints too many "Out-of-sync dirty pointer" messages on console and 
+>>> gdb can't connect to kgdb stub. These messages can be suppressed, 
+>>> though it still results in connection failures frequently. 
 
+>>> 2. Here is how kgdb uses polling mechanism for communication to gdb.  
+>>> kgdb calls netpoll_set_trap(1) just before entering a loop where it 
+>>> communicates to gdb. It calls netpoll_set_trap(0) after it is done 
+>>> and wants to resume a kernel. The communication to gdb goes through 
+>>> netpoll_poll (which calls kgdb rx_hook) and netpoll_send_udp functions.
 
---------------070501040803020901050209
-Content-Type: text/plain; x-mac-type="0"; x-mac-creator="0";
- name="tcp_mem_init.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="tcp_mem_init.patch"
+>>> 3. A queue for an interface may have been stopped by it's driver by 
+>>> calling netif_stop_queue. After this if kgdb attempts to enter 
+>>> communication with gdb, it'll call netpoll_set_trap(1), after which 
+>>> the queue can't be started again. This is a potential deadlock 
+>>> situation. Is there a way out of this?
 
-Change tcp_mem initialization function.  The fraction of total memory is now
-a continuous function of memory size, and independent of page size.
+    No way but at least "emulate" the queue controls...
 
-Signed-off-by: John Heffner <jheffner@psc.edu>
+>>> 4. Is it necessary to call netpoll_set_trap(1) at all before entering 
+>>> gdb communication loop? Even if a driver stops the queue in middle of 
+>>> the communication netpoll_poll and netpoll_send_udp calls can recover 
+>>> from that by calling driver's interrupt and poll routines. Is this a 
+>>> valid statement?
 
----
-commit a4461a36efb376bf01399cfd6f1ad15dc89a8794
-tree 23b2fb9da52b45de8008fc7ea6bb8c10e3a3724b
-parent 8b9909ded6922c33c221b105b26917780cfa497d
-author John Heffner <jheffner@psc.edu> Wed, 14 Mar 2007 17:15:06 -0400
-committer John Heffner <jheffner@psc.edu> Wed, 14 Mar 2007 17:15:06 -0400
+    It seems that having queue control working as usual is dangerous in case 
+of KGDB being active: this leads to wake_softirqd() being called, which seems 
+undesirable (there has been report about the eventual lockup trying to get 
+runqueue lock).
 
- net/ipv4/tcp.c |   13 ++++++++++---
- 1 files changed, 10 insertions(+), 3 deletions(-)
+>>    I'd like to return to this again (having received no feedback)...
+>>    The idea is to change how CONFIG_NETPOLL_TRAP is implemented: 
+>> instead of
+>> completely bypassing queue locking after netpoll_set_trap(1) has been 
+>> called, how about we set and chack some other flag (internal to 
+>> netpoll) telling it that the queue is frozen, i.e. watch the queue 
+>> state using a separate mechanism when traffic trapping is engaged?  
+>> This certainly 
 
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 74c4d10..3834b10 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -2458,11 +2458,18 @@ void __init tcp_init(void)
- 		sysctl_max_syn_backlog = 128;
- 	}
- 
--	/* Allow no more than 3/4 kernel memory (usually less) allocated to TCP */
--	sysctl_tcp_mem[0] = (1536 / sizeof (struct inet_bind_hashbucket)) << order;
--	sysctl_tcp_mem[1] = sysctl_tcp_mem[0] * 4 / 3;
-+	/* Set the pressure threshold to be a fraction of global memory that
-+	 * is up to 1/2 at 256 MB, decreasing toward zero with the amount of
-+	 * memory, with a floor of 128 pages.
-+	 */
-+	limit = min(nr_all_pages, 1UL<<(28-PAGE_SHIFT)) >> (20-PAGE_SHIFT);
-+	limit = (limit * (nr_all_pages >> (20-PAGE_SHIFT))) >> (PAGE_SHIFT-11);
-+	limit = max(limit, 128UL);
-+	sysctl_tcp_mem[0] = limit / 4 * 3;
-+	sysctl_tcp_mem[1] = limit;
- 	sysctl_tcp_mem[2] = sysctl_tcp_mem[0] * 2;
- 
-+	/* Set per-socket limits to no more than 1/128 the pressure threshold */
- 	limit = ((unsigned long)sysctl_tcp_mem[1]) << (PAGE_SHIFT - 7);
- 	max_share = min(4UL*1024*1024, limit);
- 
+>    Well, this certainly won't work, as the bit should be tied to struct 
+> net_device.
 
---------------070501040803020901050209--
+    Well, I hadn't yet discovered npinfo member of net_device before saying 
+that. :-)
+
+>>> Thanks a lot.
+>>> -Amit
+
+WBR, Sergei
