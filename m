@@ -1,36 +1,44 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [PATCH 1/2] avoid OPEN_MAX in SCM_MAX_FD
-Date: Tue, 13 Mar 2007 18:15:29 -0700 (PDT)
-Message-ID: <Pine.LNX.4.64.0703131814160.9690@woody.linux-foundation.org>
-References: <20070314005508.DDC121801C5@magilla.sf.frob.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [RFC IPROUTE 00/08]: Time cleanups + nano-second clock resolution
+ support
+Date: Wed, 14 Mar 2007 09:54:58 +0100
+Message-ID: <45F7B862.4010700@trash.net>
+References: <20070304191402.22838.91224.sendpatchset@localhost.localdomain> <20070313144253.430ef008@freekitty>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Benjamin LaHaise <bcrl@kvack.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Roland McGrath <roland@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:47841 "EHLO smtp.osdl.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932529AbXCNBPq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Mar 2007 21:15:46 -0400
-In-Reply-To: <20070314005508.DDC121801C5@magilla.sf.frob.com>
+Received: from stinky.trash.net ([213.144.137.162]:33865 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933898AbXCNIzP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Mar 2007 04:55:15 -0400
+In-Reply-To: <20070313144253.430ef008@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-
-On Tue, 13 Mar 2007, Roland McGrath wrote:
+Stephen Hemminger wrote:
+> On Sun,  4 Mar 2007 20:14:53 +0100 (MET)
+> Patrick McHardy <kaber@trash.net> wrote:
 > 
-> Ok, fine.  But PATH_MAX is a real constant that has some meaning in the
-> kernel.  It's perfectly correct to use PATH_MAX as a constant on a system
-> like Linux that defines it and means what it says.  Conversely, OPEN_MAX
-> has no useful relationship with anything the kernel is doing at all.
+>>Patrick McHardy:
+>>      [IPROUTE]: tbf: fix latency printing
+>>      [IPROUTE]: Use tc_calc_xmittime() where appropriate
+>>      [IPROUTE]: Introduce tc_calc_xmitsize and use where appropriate
+>>      [IPROUTE]: Introduce TIME_UNITS_PER_SEC to represent internal clock resolution
+>>      [IPROUTE]: Replace "usec" by "time" in function names
+>>      [IPROUTE]: Add sprint_ticks() function and use in CBQ
+>>      [IPROUTE]: Handle different kernel clock resolutions
+>>      [IPROUTE]: Increase internal clock resolution to nsec
+> 
+> 
+> applied all
 
-Sure. I'm just saying that some people may use OPEN_MAX the way I know 
-people use PATH_MAX - whether it's what you're supposed to or not.
+Thanks Stephen, but actually I think the last patch (increase clock
+resolution) shouldn't go in yet. I'm not done yet looking at all
+the compatibility issues and it does change the range of valid
+values for everything dealing with times. Most places I looked
+at still accept reasonable ranges, but I would feel more comfortable
+to make sure everything is fine first.
 
-I do agree that PATH_MAX is much more appropriate to be used that way, and 
-is more likely to have "real" meaning, I just worry.
-
-		Linus
