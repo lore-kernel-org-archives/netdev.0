@@ -1,33 +1,70 @@
-From: Jiri Slaby <jirislaby@gmail.com>
-Subject: Re: 3c59x regression (transmission stop)
-Date: Wed, 14 Mar 2007 15:36:33 +0100
-Message-ID: <45F80871.4040200@gmail.com>
-References: <45F7EB9C.3070208@gmail.com>
+From: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
+Subject: [PATCH] tc35815: Zap changelog from source code
+Date: Thu, 15 Mar 2007 00:10:37 +0900 (JST)
+Message-ID: <20070315.001037.25910308.anemo@mba.ocn.ne.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Linux kernel mailing list <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, vortex@scyld.com
-To: Jiri Slaby <jirislaby@gmail.com>
+Cc: ralf@linux-mips.org, netdev@vger.kernel.org, jeff@garzik.org,
+	sshtylyov@ru.mvista.com, akpm@linux-foundation.org
+To: linux-mips@linux-mips.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from minas.ics.muni.cz ([147.251.4.40]:40311 "EHLO minas.ics.muni.cz"
+Received: from mba.ocn.ne.jp ([122.1.175.29]:58884 "EHLO smtp.mba.ocn.ne.jp"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1161304AbXCNOgm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Mar 2007 10:36:42 -0400
-In-Reply-To: <45F7EB9C.3070208@gmail.com>
+	id S1161333AbXCNPKl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Mar 2007 11:10:41 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jiri Slaby napsal(a):
-> There is nothing significant in dmesg, 2.6.17-rc5 was fine, so this is
-> definitely a regression.
-
-No, it's probably not, it allegedly happened sometimes in 2.6.17-rc5 too,
-I've changed the card.
-
-regards,
--- 
-http://www.fi.muni.cz/~xslaby/            Jiri Slaby
-faculty of informatics, masaryk university, brno, cz
-e-mail: jirislaby gmail com, gpg pubkey fingerprint:
-B674 9967 0407 CE62 ACC8  22A0 32CC 55C3 39D4 7A7E
+Signed-off-by: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
+---
+diff --git a/drivers/net/tc35815.c b/drivers/net/tc35815.c
+index eed78b5..755fdd4 100644
+--- a/drivers/net/tc35815.c
++++ b/drivers/net/tc35815.c
+@@ -20,45 +20,6 @@
+  *
+  * (C) Copyright TOSHIBA CORPORATION 2004-2005
+  * All Rights Reserved.
+- *
+- *  Revision History:
+- *	1.13	64-bit proof.
+- *	1.14	Do not round-up transmit length.
+- *	1.15	Define TC35815_DMA_SYNC_ONDEMAND, cleanup.
+- *	1.16	Fix free_page bug introduced in 1.15
+- *	1.17	Add mii/ethtool ioctl support.
+- *		Remove workaround for early TX4938.  Cleanup.
+- *	1.20	Kernel 2.6.
+- *	1.21	Fix receive packet length (omit CRC).
+- *		Call netif_carrier_on/netif_carrier_off.
+- *		Add kernel/module options (speed, duplex, doforce).
+- *		Do not try "force link mode" by default.
+- *		Reconfigure CAM on restarting.
+- *		Reset PHY on restarting.
+- *		Add workaround for 100MHalf HUB.
+- *	1.22	Minor fix.
+- *	1.23	Minor cleanup.
+- *	1.24	Remove tc35815_setup since new stype option
+- *		("tc35815.speed=10", etc.) can be used for 2.6 kernel.
+- *	1.25	TX4939 support.
+- *	1.26	Minor cleanup.
+- *	1.27	Move TX4939 PCFG.SPEEDn control code out from this driver.
+- *		Cleanup init_dev_addr. (NETDEV_REGISTER event notifier
+- *		can overwrite dev_addr)
+- *		support ETHTOOL_GPERMADDR.
+- *	1.28	Minor cleanup.
+- *	1.29	support netpoll.
+- *	1.30	Minor cleanup.
+- *	1.31	NAPI support. (disabled by default)
+- *		Use DMA_RxAlign_2 if possible.
+- *		Do not use PackedBuffer.
+- *		Cleanup.
+- *	1.32	Fix free buffer management on non-PackedBuffer mode.
+- *	1.33	Fix netpoll build.
+- *	1.34	Fix netpoll locking.  "BH rule" for NAPI is not enough with
+- *		netpoll, hard_start_xmit might be called from irq context.
+- *		PM support.
+- *	1.35	Fix an usage of streaming DMA API.
+  */
+ 
+ #ifdef TC35815_NAPI
