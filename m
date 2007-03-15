@@ -1,55 +1,129 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: ping DOS avoidance?
-Date: Thu, 15 Mar 2007 09:44:43 -0700
-Message-ID: <45F977FB.1050407@hp.com>
-References: <d9dc600703091718m508cdafbm46a4aad9b613d9c1@mail.gmail.com> <d9dc600703141859x3eeddd4cs51b3aea89d4dc32a@mail.gmail.com>
+From: Marc.Obbad@smsc.com
+Subject: Re: [Bridge] rstp for 2.4 kernel: port state keeps changing
+Date: Thu, 15 Mar 2007 13:10:00 -0400
+Message-ID: <OF2B235CAE.4C560998-ON8525729F.005E1121-8525729F.005E4D58@smsc.com>
+References: <45F8E00A.7050908@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Netdev List <netdev@vger.kernel.org>
-To: Luis Carlos Cobo Rus <luiscarlos@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: bridge@linux-foundation.org, bridge-bounces@lists.osdl.org,
+	netdev@vger.kernel.org
+To: ptiwatthanont@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel11.hp.com ([156.153.255.246]:40564 "EHLO palrel11.hp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030580AbXCOQop (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Mar 2007 12:44:45 -0400
-In-Reply-To: <d9dc600703141859x3eeddd4cs51b3aea89d4dc32a@mail.gmail.com>
+Received: from mail.smsc.com ([170.129.50.11]:1847 "EHLO smsc.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1422975AbXCORKT convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Mar 2007 13:10:19 -0400
+In-Reply-To: <45F8E00A.7050908@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I was just asked about something not too different, involving IIRC 
-tnsping.  It got me to looking at ip_sysctl.txt which has:
-
-icmp_ratelimit - INTEGER
-         Limit the maximal rates for sending ICMP packets whose type
-         matches icmp_ratemask (see below) to specific targets.
-         0 to disable any limiting, otherwise the maximal rate in
-         jiffies(1)
-         Default: 100
-
-icmp_ratemask - INTEGER
-         Mask made of ICMP types for which rates are being limited.
-         Significant bits: IHGFEDCBA9876543210
-         Default mask:     0000001100000011000 (6168)
-
-         Bit definitions (see include/linux/icmp.h):
-                 0 Echo Reply
-                 3 Destination Unreachable *
-                 4 Source Quench *
-                 5 Redirect
-                 8 Echo Request
-                 B Time Exceeded *
-                 C Parameter Problem *
-                 D Timestamp Request
-                 E Timestamp Reply
-                 F Info Request
-                 G Info Reply
-                 H Address Mask Request
-                 I Address Mask Reply
-
-         * These are rate limited by default (see default mask above)
+For me, I ma building for Embedded platform.
+Go to Directory where the Makefile is and do this:
 
 
-(I've always been used to masks being specified as hex values)
+make -C  $LINUX_DIR  SUBDIRS=$PWD  modules
+LINUX_DIR should point to LINUX directory
 
-rick jones
+LINUX_DIR=/home/swdev/PPC/linux/   as example
+
+-Marc.
+
+
+
+                                                                                                                        
+             Pasakorn Tiwatthanont                                                                                      
+             <ptiwatthanont@gmail.com>                                                                                  
+             Sent by:                                                                                                To 
+             bridge-bounces@lists.osdl.org               Marc Obbad/SMSC@SMSC                                           
+                                                                                                                     cc 
+                                                         bridge-bounces@lists.osdl.org, bridge@linux-foundation.org,    
+             03/15/2007 01:56 AM                         netdev@vger.kernel.org                                         
+                                                                                                                Subject 
+                                                         Re: [Bridge] rstp for 2.4 kernel: port state keeps changing    
+                      Please respond to                                                                                 
+                   ptiwatthanont@gmail.com                                                                              
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+
+
+
+
+Dear,If don't take your time too much, please explain me how to use
+this patch files.
+
+Thank you very much
+iPAS
+
+Marc.Obbad@smsc.com wrote:
+      I have downloaded RSTP from this site:
+
+
+            http://developer.osdl.org/shemminger/prototypes/rstp-2.4.zip
+
+
+      -Marc
+
+
+
+
+
+
+                   Stephen Hemminger
+
+                   <shemminger@linux-foundation.org>
+
+                   Sent by:
+      To
+                   bridge-bounces@lists.osdl.org               Marc Obbad/SMSC@SMSC
+
+      cc
+                                                               netdev@vger.kernel.org, bridge@linux-foundation.org
+
+                   03/09/2007 01:55 PM
+      Subject
+                                                               Re: [Bridge] rstp for 2.4 kernel: port state keeps
+      changing
+
+
+
+
+
+
+
+
+
+
+      On Fri, 9 Mar 2007 12:24:40 -0500
+      Marc.Obbad@smsc.com wrote:
+
+
+            Hi,
+
+            I am using RSTP for 2.4 kernel.
+
+
+      RSTP is not in the mainline kernel tree. Please post the patch or a where the
+      source can be downloaded.
+
+      --
+      Stephen Hemminger <shemminger@linux-foundation.org>
+      _______________________________________________
+      Bridge mailing list
+      Bridge@lists.osdl.org
+      https://lists.osdl.org/mailman/listinfo/bridge
+
+
+      _______________________________________________
+      Bridge mailing list
+      Bridge@lists.osdl.org
+      https://lists.osdl.org/mailman/listinfo/bridge
+
+        _______________________________________________
+      Bridge mailing list
+      Bridge@lists.osdl.org
+      https://lists.osdl.org/mailman/listinfo/bridge
+
+
