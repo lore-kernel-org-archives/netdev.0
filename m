@@ -1,35 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHES 0/15] skb->h is now a one member union
-Date: Wed, 14 Mar 2007 16:53:00 -0700 (PDT)
-Message-ID: <20070314.165300.108744328.davem@davemloft.net>
-References: <39e6f6c70703131445o730b8de2w153f4a6f685c112d@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [NETLINK] periodically rehash table, why?
+Date: Thu, 15 Mar 2007 11:07:51 +1100
+Message-ID: <E1HRdVX-0003fS-00@gondolin.me.apana.org.au>
+References: <877itju408.fsf@kruemel.my-eitzenberger.de>
 Cc: netdev@vger.kernel.org
-To: acme@ghostprotocols.net
+To: holger@my-eitzenberger.de (Holger Eitzenberger)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58738
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S932402AbXCNXxG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Mar 2007 19:53:06 -0400
-In-Reply-To: <39e6f6c70703131445o730b8de2w153f4a6f685c112d@mail.gmail.com>
+Received: from rhun.apana.org.au ([64.62.148.172]:3716 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1422759AbXCOAH6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Mar 2007 20:07:58 -0400
+In-Reply-To: <877itju408.fsf@kruemel.my-eitzenberger.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Arnaldo Carvalho de Melo" <acme@ghostprotocols.net>
-Date: Tue, 13 Mar 2007 18:45:39 -0300
-
-> Hi David,
+Holger Eitzenberger <holger@my-eitzenberger.de> wrote:
 > 
->          Please consider pulling from:
+> in nl_pid_hash_dilute() there is:
 > 
-> master.kernel.org:/pub/scm/linux/kernel/git/acme/net-2.6.22
+>   if (unlikely(avg > 1) && nl_pid_hash_rehash(hash, 1))
+>      return 1;
 > 
->          We're getting close...
+>      if (unlikely(len > avg) && time_after(jiffies, hash->rehash_time)) {
+>         nl_pid_hash_rehash(hash, 0);
+>         return 1;
+>      }
+> 
+> I don't see a reason why periodically rehashing might help in any way
+> (without resizing).  Is there a reason for that?
 
-Looks great, as usual.
+It's to prevent attackers from guessing the hash secret and causing
+hash chains to grow excessively.
 
-Pulled and pushed out to kernel.org
-
-Thanks!
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
