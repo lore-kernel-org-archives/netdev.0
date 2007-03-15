@@ -1,40 +1,30 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [NETLINK] periodically rehash table, why?
-Date: Thu, 15 Mar 2007 11:07:51 +1100
-Message-ID: <E1HRdVX-0003fS-00@gondolin.me.apana.org.au>
-References: <877itju408.fsf@kruemel.my-eitzenberger.de>
-Cc: netdev@vger.kernel.org
-To: holger@my-eitzenberger.de (Holger Eitzenberger)
+From: "Arnaldo Carvalho de Melo" <acme@ghostprotocols.net>
+Subject: [PATCHES 0/3] Some more skb->{h,nh} patches
+Date: Wed, 14 Mar 2007 21:31:50 -0300
+Message-ID: <39e6f6c70703141731w6c2cc12aj2439ba804c4c8946@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Netdev List" <netdev@vger.kernel.org>
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:3716 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1422759AbXCOAH6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Mar 2007 20:07:58 -0400
-In-Reply-To: <877itju408.fsf@kruemel.my-eitzenberger.de>
+Received: from wr-out-0506.google.com ([64.233.184.238]:40894 "EHLO
+	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1422776AbXCOAbw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Mar 2007 20:31:52 -0400
+Received: by wr-out-0506.google.com with SMTP id i28so384227wra
+        for <netdev@vger.kernel.org>; Wed, 14 Mar 2007 17:31:51 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Holger Eitzenberger <holger@my-eitzenberger.de> wrote:
-> 
-> in nl_pid_hash_dilute() there is:
-> 
->   if (unlikely(avg > 1) && nl_pid_hash_rehash(hash, 1))
->      return 1;
-> 
->      if (unlikely(len > avg) && time_after(jiffies, hash->rehash_time)) {
->         nl_pid_hash_rehash(hash, 0);
->         return 1;
->      }
-> 
-> I don't see a reason why periodically rehashing might help in any way
-> (without resizing).  Is there a reason for that?
+Hi David,
 
-It's to prevent attackers from guessing the hash secret and causing
-hash chains to grow excessively.
+        Please consider pulling from:
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+master.kernel.org:/pub/scm/linux/kernel/git/acme/net-2.6.22
+
+        Will now look if I missed something and start working on the
+offsetization.
+
+- Arnaldo
