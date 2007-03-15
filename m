@@ -1,33 +1,33 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 1/2] NetXen: Bug fix for Jumbo frames on XG card
-Date: Thu, 15 Mar 2007 11:00:07 -0400
-Message-ID: <45F95F77.9070903@garzik.org>
-References: <200703131213.l2DCDDhN008925@dut39.unminc.com>
+Subject: Re: [PATCH] tc35815: Fix an usage of streaming DMA API.
+Date: Thu, 15 Mar 2007 11:03:17 -0400
+Message-ID: <45F96035.2040403@garzik.org>
+References: <20070303.235459.25478204.anemo@mba.ocn.ne.jp> <20070314.010220.65192616.anemo@mba.ocn.ne.jp>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, amitkale@netxen.com,
-	netxenproj@linsyssoft.com, rob@netxen.com
-To: Linsys Contractor Mithlesh Thukral <mithlesh@netxen.com>
+Cc: linux-mips@linux-mips.org, ralf@linux-mips.org,
+	netdev@vger.kernel.org, sshtylyov@ru.mvista.com,
+	akpm@linux-foundation.org
+To: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:50143 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:50182 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030359AbXCOPAK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Mar 2007 11:00:10 -0400
-In-Reply-To: <200703131213.l2DCDDhN008925@dut39.unminc.com>
+	id S1422863AbXCOPD0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Mar 2007 11:03:26 -0400
+In-Reply-To: <20070314.010220.65192616.anemo@mba.ocn.ne.jp>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Linsys Contractor Mithlesh Thukral wrote:
-> NetXen: Set the MTU for the right port depending upon the port number
-> for XG cards.
+Atsushi Nemoto wrote:
+> The tc35815 driver lacks a call to pci_dma_sync_single_for_device() on
+> receiving.  Recent fix of MIPS dma_sync_single_for_cpu() reveal this
+> bug.
 > 
-> Signed-off by: Mithlesh Thukral <mithlesh@netxen.com>
+> Signed-off-by: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
 > ---
-> 
->  drivers/net/netxen/netxen_nic_hw.c |    5 ++++-
->  1 files changed, 4 insertions(+), 1 deletion(-)
+> This patch can be applied to netdev-2.6 tree or 2.6.21-rc3-mm2.
 
-applied 1-2 to #upstream-fixes
+applied to #upstream
 
 
