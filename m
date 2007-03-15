@@ -1,49 +1,42 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [patch 5/6] [TULIP]  Fix SytemError typo
-Date: Thu, 15 Mar 2007 11:29:09 -0400
-Message-ID: <45F96645.2000803@garzik.org>
-References: <20070312093128.577087000@linux.intel.com> <20070312184218.739924000@linux.intel.com>
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Subject: Re: [PATCH] Copy mac_len in skb_clone() as well
+Date: Thu, 15 Mar 2007 19:04:36 +0300
+Message-ID: <20070315160436.GA7482@ms2.inr.ac.ru>
+References: <20070314130711.GA6812@localhost.sw.ru> <20070315.030235.79052031.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: akpm@osdl.org, netdev@vger.kernel.org
-To: Valerie Henson <val_henson@linux.intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: adobriyan@sw.ru, netdev@vger.kernel.org, devel@openvz.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:50435 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1422887AbXCOP3P (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Mar 2007 11:29:15 -0400
-In-Reply-To: <20070312184218.739924000@linux.intel.com>
+Received: from minus.inr.ac.ru ([194.67.69.97]:37482 "HELO ms2.inr.ac.ru"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+	id S1422941AbXCOQOA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Mar 2007 12:14:00 -0400
+Content-Disposition: inline
+In-Reply-To: <20070315.030235.79052031.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Valerie Henson wrote:
-> Fix an annoying typo - SytemError -> SystemError
-> 
-> Signed-off-by: Valerie Henson <val_henson@linux.intel.com>
-> Cc: Jeff Garzik <jeff@garzik.org>
-> 
-> ---
->  drivers/net/tulip/interrupt.c   |    4 ++--
->  drivers/net/tulip/tulip.h       |    2 +-
->  drivers/net/tulip/winbond-840.c |    2 +-
->  3 files changed, 4 insertions(+), 4 deletions(-)
+Hello!
 
-applied 5-6, after fixing the subject lines.
+> What bug triggered that helped you discover this?  Or is it
+> merely from a code audit?
 
-Please note that anything in the subject line between '[' and ']', 
-inclusive, is stripped before applying to the kernel.  Thus, your 
-'[TULIP]' identifier, which tells people which area of the kernel you 
-are modifying, is stripped.
+I asked the same question. :-)
 
-You want to use a subject line like
+openvz added some another fields to skbuff and when it was found
+that they are lost while clone, he tried to figure out how all this works
+and looked for another examples of this kind.
 
-	[patch 4/6] tulip: fix SytemError typo
+As I understand, the problem can be seen only in xfrmX_tunnel_input.
+If uninitialized mac_len obtained from slab is more than current head room
+it could corrupt memory.
 
-For more info see http://linux.yyz.us/patch-format.html and 
-Documentation/SubmittingPatches.
+Also, it looks like the fix is incomplete. copy_skb_header() also does not
+copy this field. But it will be initialized to 0 by alloc_skb in this case
+and xfrmX_tunnel_input() just will not copy mac header.
 
-	Jeff
+Alexey
 
 
 
