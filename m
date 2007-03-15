@@ -1,48 +1,38 @@
-From: Joerg Pommnitz <pommnitz@yahoo.com>
-Subject: IPsec with aes-cbc and geode-aes driver completely freezes 2.6.20.1
-Date: Thu, 15 Mar 2007 06:45:33 -0700 (PDT)
-Message-ID: <20070315134533.21402.qmail@web51408.mail.re2.yahoo.com>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [patch 1/4] network dev read_mostly
+Date: 15 Mar 2007 16:10:52 +0100
+Message-ID: <p731wjq8rur.fsf@bingen.suse.de>
+References: <20070312210817.485320783@linux-foundation.org>
+	<20070312210907.509184287@linux-foundation.org>
+	<20070315021840.GG1246@kvack.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: info-linux@geode.amd.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Benjamin LaHaise <bcrl@kvack.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from web51408.mail.re2.yahoo.com ([206.190.38.187]:41071 "HELO
-	web51408.mail.re2.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1161344AbXCONwN convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Mar 2007 09:52:13 -0400
+Received: from mx2.suse.de ([195.135.220.15]:33938 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965172AbXCOOLt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Mar 2007 10:11:49 -0400
+In-Reply-To: <20070315021840.GG1246@kvack.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello all,
-the subject line basically says it all. I was trying to offload IPsec e=
-ncryption to the hardware encryption engine on my Geode LX800. The exac=
-t same setkey command works fine with software aes.
+Benjamin LaHaise <bcrl@kvack.org> writes:
 
-In case it matters: this is with a MSEP800/A board from DIGITAL-LOGIC A=
-G (see http://www.digitallogic.com/english/products/catalog07/epic_deta=
-il.asp?id=3DMSEP800_L).
+> On Mon, Mar 12, 2007 at 02:08:18PM -0700, Stephen Hemminger wrote:
+> > For Eric, mark packet type and network device watermarks
+> > as read mostly.
+> 
+> The following x86-64 bits might be intersting, as they allow you to 
+> completely eliminate the memory access for run time defined constants.  
 
-Did anybody ever succeed with Geode hardware accelerated IPsec? Did you=
- have to do anything special?
-=20
---=20
+I like the concept, although the patch could still need a few cleanups.
+But it would be useful in a couple of cases.
 
-Regards
+Disadvantage: it will likely lead to even more weird sysctls and hooks
+because one of the best argument against them will be gone then @)
 
-       Joerg
+-Andi
 
-
-
-
-
-
-
-
-=09
-	=09
-___________________________________________________________=20
-Der fr=FChe Vogel f=E4ngt den Wurm. Hier gelangen Sie zum neuen Yahoo! =
-Mail: http://mail.yahoo.de
