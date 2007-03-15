@@ -1,127 +1,123 @@
-From: "Arnaldo Carvalho de Melo" <acme@ghostprotocols.net>
-Subject: [PATCH 3/3] [SK_BUFF]: More skb_put related skb_reset_transport_header
-Date: Wed, 14 Mar 2007 21:32:25 -0300
-Message-ID: <39e6f6c70703141732s2a79119dw7be9e21e61915dbe@mail.gmail.com>
+From: Samir Bellabes <sam@synack.fr>
+Subject: Re: [RFC] [PATCH] Network Events Connector
+Date: Thu, 15 Mar 2007 01:48:27 +0100
+Message-ID: <m24pon72n8.fsf@cerbere.dyndns.info>
+References: <m2irecym8t.fsf@cerbere.dyndns.info>
+	<20070217163422.GB22369@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="----=_Part_52973_17558197.1173918745813"
-Cc: "Netdev List" <netdev@vger.kernel.org>
-To: "David Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wr-out-0506.google.com ([64.233.184.238]:40894 "EHLO
-	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1422777AbXCOAcg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Mar 2007 20:32:36 -0400
-Received: by wr-out-0506.google.com with SMTP id i28so384227wra
-        for <netdev@vger.kernel.org>; Wed, 14 Mar 2007 17:32:36 -0700 (PDT)
+Received: from 119.235.97-84.rev.gaoland.net ([84.97.235.119]:43313 "EHLO
+	cerbere.dyndns.info" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1422801AbXCOAs3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Mar 2007 20:48:29 -0400
+In-Reply-To: <20070217163422.GB22369@2ka.mipt.ru> (Evgeniy Polyakov's message
+	of "Sat, 17 Feb 2007 19:34:22 +0300")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-------=_Part_52973_17558197.1173918745813
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+Evgeniy Polyakov <johnpol@2ka.mipt.ru> writes:
 
-This time we have to set it to skb->tail that is not anymore equal to
-skb->data, so we either add a new helper or just add the skb->tail - skb->data
-offset, for now do the later.
+> On Fri, Feb 09, 2007 at 05:43:14AM +0100, Samir Bellabes (sam@synack.fr) wrote:
+>> Hi,
+>> 
+>> Here is a new feature which can help firewalls to be more application
+>> aware, so more useful for people.
+>> 
+>> Our previous discussion about cn_net and firewalls:
+>> http://marc2.theaimsgroup.com/?t=115976957500002&r=1&w=2
+>> 
+>> Please, I would really like to have feedback and comments on that tool,
+>> in order to improve it.
+>
+> Technical side does have problems.
+> 2. initialization path has problems - hash is allocated after securty
+> hooks and connector moduler are registered.
 
-Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
----
- net/ipv4/igmp.c            |    3 ++-
- net/ipv4/ipvs/ip_vs_xmit.c |    3 ++-
- net/ipv6/mcast.c           |    5 +++--
- net/ipv6/ndisc.c           |   20 ++++++++++++--------
- 4 files changed, 19 insertions(+), 12 deletions(-)
+I see. Here is a patch, to apply on top of previous.
 
-------=_Part_52973_17558197.1173918745813
-Content-Type: text/x-patch;
-	name=0003-SK_BUFF-More-skb_put-related-skb_reset_transport_.patch;
-	charset=ANSI_X3.4-1968
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_ezaguaiu
-Content-Disposition: attachment; filename="0003-SK_BUFF-More-skb_put-related-skb_reset_transport_.patch"
+commit 7c89bcb9cc07b02023c9a43b80ff1df7cb07b900
+Author: Samir Bellabes <sam@synack.fr>
+Date:   Mon Feb 19 15:16:05 2007 +0100
 
-RnJvbSBjMTAyMDgxODZhNThkMTE0OTgwNWQ4YzY0YTI4NDZkNDkwZmNlMmI1IE1vbiBTZXAgMTcg
-MDA6MDA6MDAgMjAwMQpGcm9tOiBBcm5hbGRvIENhcnZhbGhvIGRlIE1lbG8gPGFjbWVAcmVkaGF0
-LmNvbT4KRGF0ZTogV2VkLCAxNCBNYXIgMjAwNyAyMTowNTozNyAtMDMwMApTdWJqZWN0OiBbUEFU
-Q0ggMy8zXSBbU0tfQlVGRl06IE1vcmUgc2tiX3B1dCByZWxhdGVkIHNrYl9yZXNldF90cmFuc3Bv
-cnRfaGVhZGVyCgpUaGlzIHRpbWUgd2UgaGF2ZSB0byBzZXQgaXQgdG8gc2tiLT50YWlsIHRoYXQg
-aXMgbm90IGFueW1vcmUgZXF1YWwgdG8Kc2tiLT5kYXRhLCBzbyB3ZSBlaXRoZXIgYWRkIGEgbmV3
-IGhlbHBlciBvciBqdXN0IGFkZCB0aGUgc2tiLT50YWlsIC0gc2tiLT5kYXRhCm9mZnNldCwgZm9y
-IG5vdyBkbyB0aGUgbGF0ZXIuCgpTaWduZWQtb2ZmLWJ5OiBBcm5hbGRvIENhcnZhbGhvIGRlIE1l
-bG8gPGFjbWVAcmVkaGF0LmNvbT4KLS0tCiBuZXQvaXB2NC9pZ21wLmMgICAgICAgICAgICB8ICAg
-IDMgKystCiBuZXQvaXB2NC9pcHZzL2lwX3ZzX3htaXQuYyB8ICAgIDMgKystCiBuZXQvaXB2Ni9t
-Y2FzdC5jICAgICAgICAgICB8ICAgIDUgKysrLS0KIG5ldC9pcHY2L25kaXNjLmMgICAgICAgICAg
-IHwgICAyMCArKysrKysrKysrKystLS0tLS0tLQogNCBmaWxlcyBjaGFuZ2VkLCAxOSBpbnNlcnRp
-b25zKCspLCAxMiBkZWxldGlvbnMoLSkKCmRpZmYgLS1naXQgYS9uZXQvaXB2NC9pZ21wLmMgYi9u
-ZXQvaXB2NC9pZ21wLmMKaW5kZXggYzA4MWE1Yy4uMWU0OTgxNyAxMDA2NDQKLS0tIGEvbmV0L2lw
-djQvaWdtcC5jCisrKyBiL25ldC9pcHY0L2lnbXAuYwpAQCAtMzMzLDcgKzMzMyw4IEBAIHN0YXRp
-YyBzdHJ1Y3Qgc2tfYnVmZiAqaWdtcHYzX25ld3BhY2soc3RydWN0IG5ldF9kZXZpY2UgKmRldiwg
-aW50IHNpemUpCiAJKCh1OCopJnBpcFsxXSlbMl0gPSAwOwogCSgodTgqKSZwaXBbMV0pWzNdID0g
-MDsKIAotCXNrYi0+aC5yYXcgPSBza2JfcHV0KHNrYiwgc2l6ZW9mKCpwaWcpKTsKKwlza2ItPmgu
-cmF3ID0gc2tiLT5uaC5yYXcgKyBzaXplb2Yoc3RydWN0IGlwaGRyKSArIDQ7CisJc2tiX3B1dChz
-a2IsIHNpemVvZigqcGlnKSk7CiAJcGlnID0gaWdtcHYzX3JlcG9ydF9oZHIoc2tiKTsKIAlwaWct
-PnR5cGUgPSBJR01QVjNfSE9TVF9NRU1CRVJTSElQX1JFUE9SVDsKIAlwaWctPnJlc3YxID0gMDsK
-ZGlmZiAtLWdpdCBhL25ldC9pcHY0L2lwdnMvaXBfdnNfeG1pdC5jIGIvbmV0L2lwdjQvaXB2cy9p
-cF92c194bWl0LmMKaW5kZXggYTdhZWU2OC4uYzYyNzZkMCAxMDA2NDQKLS0tIGEvbmV0L2lwdjQv
-aXB2cy9pcF92c194bWl0LmMKKysrIGIvbmV0L2lwdjQvaXB2cy9pcF92c194bWl0LmMKQEAgLTMy
-Myw2ICszMjMsNyBAQCBpcF92c190dW5uZWxfeG1pdChzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBzdHJ1
-Y3QgaXBfdnNfY29ubiAqY3AsCiAJc3RydWN0IGlwaGRyICAqb2xkX2lwaCA9IGlwX2hkcihza2Ip
-OwogCXU4ICAgICB0b3MgPSBvbGRfaXBoLT50b3M7CiAJX19iZTE2IGRmID0gb2xkX2lwaC0+ZnJh
-Z19vZmY7CisJdW5zaWduZWQgY2hhciAqb2xkX2ggPSBza2JfdHJhbnNwb3J0X2hlYWRlcihza2Ip
-OwogCXN0cnVjdCBpcGhkciAgKmlwaDsJCQkvKiBPdXIgbmV3IElQIGhlYWRlciAqLwogCWludCAg
-ICBtYXhfaGVhZHJvb207CQkJLyogVGhlIGV4dHJhIGhlYWRlciBzcGFjZSBuZWVkZWQgKi8KIAlp
-bnQgICAgbXR1OwpAQCAtMzgwLDcgKzM4MSw3IEBAIGlwX3ZzX3R1bm5lbF94bWl0KHN0cnVjdCBz
-a19idWZmICpza2IsIHN0cnVjdCBpcF92c19jb25uICpjcCwKIAkJb2xkX2lwaCA9IGlwX2hkcihz
-a2IpOwogCX0KIAotCXNrYi0+aC5yYXcgPSAodm9pZCAqKSBvbGRfaXBoOworCXNrYi0+aC5yYXcg
-PSBvbGRfaDsKIAogCS8qIGZpeCBvbGQgSVAgaGVhZGVyIGNoZWNrc3VtICovCiAJaXBfc2VuZF9j
-aGVjayhvbGRfaXBoKTsKZGlmZiAtLWdpdCBhL25ldC9pcHY2L21jYXN0LmMgYi9uZXQvaXB2Ni9t
-Y2FzdC5jCmluZGV4IGM2NDM2ZjUuLjA3ZTg2ZWIgMTAwNjQ0Ci0tLSBhL25ldC9pcHY2L21jYXN0
-LmMKKysrIGIvbmV0L2lwdjYvbWNhc3QuYwpAQCAtMTQyMyw4ICsxNDIzLDkgQEAgc3RhdGljIHN0
-cnVjdCBza19idWZmICptbGRfbmV3cGFjayhzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LCBpbnQgc2l6
-ZSkKIAogCW1lbWNweShza2JfcHV0KHNrYiwgc2l6ZW9mKHJhKSksIHJhLCBzaXplb2YocmEpKTsK
-IAotCXBtciA9KHN0cnVjdCBtbGQyX3JlcG9ydCAqKXNrYl9wdXQoc2tiLCBzaXplb2YoKnBtcikp
-OwotCXNrYi0+aC5yYXcgPSAodW5zaWduZWQgY2hhciAqKXBtcjsKKwlza2Jfc2V0X3RyYW5zcG9y
-dF9oZWFkZXIoc2tiLCBza2ItPnRhaWwgLSBza2ItPmRhdGEpOworCXNrYl9wdXQoc2tiLCBzaXpl
-b2YoKnBtcikpOworCXBtciA9IChzdHJ1Y3QgbWxkMl9yZXBvcnQgKilza2JfdHJhbnNwb3J0X2hl
-YWRlcihza2IpOwogCXBtci0+dHlwZSA9IElDTVBWNl9NTEQyX1JFUE9SVDsKIAlwbXItPnJlc3Yx
-ID0gMDsKIAlwbXItPmNzdW0gPSAwOwpkaWZmIC0tZ2l0IGEvbmV0L2lwdjYvbmRpc2MuYyBiL25l
-dC9pcHY2L25kaXNjLmMKaW5kZXggZjlhODVhYi4uZjhlNjE5NyAxMDA2NDQKLS0tIGEvbmV0L2lw
-djYvbmRpc2MuYworKysgYi9uZXQvaXB2Ni9uZGlzYy5jCkBAIC00OTIsOCArNDkyLDkgQEAgc3Rh
-dGljIHZvaWQgbmRpc2Nfc2VuZF9uYShzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LCBzdHJ1Y3QgbmVp
-Z2hib3VyICpuZWlnaCwKIAlza2JfcmVzZXJ2ZShza2IsIExMX1JFU0VSVkVEX1NQQUNFKGRldikp
-OwogCWlwNl9uZF9oZHIoc2ssIHNrYiwgZGV2LCBzcmNfYWRkciwgZGFkZHIsIElQUFJPVE9fSUNN
-UFY2LCBsZW4pOwogCi0JbXNnID0gKHN0cnVjdCBuZF9tc2cgKilza2JfcHV0KHNrYiwgbGVuKTsK
-LQlza2ItPmgucmF3ID0gKHVuc2lnbmVkIGNoYXIqKW1zZzsKKwlza2Jfc2V0X3RyYW5zcG9ydF9o
-ZWFkZXIoc2tiLCBza2ItPnRhaWwgLSBza2ItPmRhdGEpOworCXNrYl9wdXQoc2tiLCBsZW4pOwor
-CW1zZyA9IChzdHJ1Y3QgbmRfbXNnICopc2tiX3RyYW5zcG9ydF9oZWFkZXIoc2tiKTsKIAogCW1z
-Zy0+aWNtcGguaWNtcDZfdHlwZSA9IE5ESVNDX05FSUdIQk9VUl9BRFZFUlRJU0VNRU5UOwogCW1z
-Zy0+aWNtcGguaWNtcDZfY29kZSA9IDA7CkBAIC01ODMsOCArNTg0LDkgQEAgdm9pZCBuZGlzY19z
-ZW5kX25zKHN0cnVjdCBuZXRfZGV2aWNlICpkZXYsIHN0cnVjdCBuZWlnaGJvdXIgKm5laWdoLAog
-CXNrYl9yZXNlcnZlKHNrYiwgTExfUkVTRVJWRURfU1BBQ0UoZGV2KSk7CiAJaXA2X25kX2hkcihz
-aywgc2tiLCBkZXYsIHNhZGRyLCBkYWRkciwgSVBQUk9UT19JQ01QVjYsIGxlbik7CiAKLQltc2cg
-PSAoc3RydWN0IG5kX21zZyAqKXNrYl9wdXQoc2tiLCBsZW4pOwotCXNrYi0+aC5yYXcgPSAodW5z
-aWduZWQgY2hhciopbXNnOworCXNrYl9zZXRfdHJhbnNwb3J0X2hlYWRlcihza2IsIHNrYi0+dGFp
-bCAtIHNrYi0+ZGF0YSk7CisJc2tiX3B1dChza2IsIGxlbik7CisJbXNnID0gKHN0cnVjdCBuZF9t
-c2cgKilza2JfdHJhbnNwb3J0X2hlYWRlcihza2IpOwogCW1zZy0+aWNtcGguaWNtcDZfdHlwZSA9
-IE5ESVNDX05FSUdIQk9VUl9TT0xJQ0lUQVRJT047CiAJbXNnLT5pY21waC5pY21wNl9jb2RlID0g
-MDsKIAltc2ctPmljbXBoLmljbXA2X2Nrc3VtID0gMDsKQEAgLTY4Myw4ICs2ODUsOSBAQCB2b2lk
-IG5kaXNjX3NlbmRfcnMoc3RydWN0IG5ldF9kZXZpY2UgKmRldiwgc3RydWN0IGluNl9hZGRyICpz
-YWRkciwKIAlza2JfcmVzZXJ2ZShza2IsIExMX1JFU0VSVkVEX1NQQUNFKGRldikpOwogCWlwNl9u
-ZF9oZHIoc2ssIHNrYiwgZGV2LCBzYWRkciwgZGFkZHIsIElQUFJPVE9fSUNNUFY2LCBsZW4pOwog
-Ci0JaGRyID0gKHN0cnVjdCBpY21wNmhkciAqKXNrYl9wdXQoc2tiLCBsZW4pOwotCXNrYi0+aC5y
-YXcgPSAodW5zaWduZWQgY2hhciopaGRyOworCXNrYl9zZXRfdHJhbnNwb3J0X2hlYWRlcihza2Is
-IHNrYi0+dGFpbCAtIHNrYi0+ZGF0YSk7CisJc2tiX3B1dChza2IsIGxlbik7CisJaGRyID0gaWNt
-cDZfaGRyKHNrYik7CiAJaGRyLT5pY21wNl90eXBlID0gTkRJU0NfUk9VVEVSX1NPTElDSVRBVElP
-TjsKIAloZHItPmljbXA2X2NvZGUgPSAwOwogCWhkci0+aWNtcDZfY2tzdW0gPSAwOwpAQCAtMTUx
-OSw4ICsxNTIyLDkgQEAgdm9pZCBuZGlzY19zZW5kX3JlZGlyZWN0KHN0cnVjdCBza19idWZmICpz
-a2IsIHN0cnVjdCBuZWlnaGJvdXIgKm5laWdoLAogCWlwNl9uZF9oZHIoc2ssIGJ1ZmYsIGRldiwg
-JnNhZGRyX2J1ZiwgJmlwdjZfaGRyKHNrYiktPnNhZGRyLAogCQkgICBJUFBST1RPX0lDTVBWNiwg
-bGVuKTsKIAotCWljbXBoID0gKHN0cnVjdCBpY21wNmhkciAqKXNrYl9wdXQoYnVmZiwgbGVuKTsK
-LQlidWZmLT5oLnJhdyA9ICh1bnNpZ25lZCBjaGFyKilpY21waDsKKwlza2Jfc2V0X3RyYW5zcG9y
-dF9oZWFkZXIoYnVmZiwgYnVmZi0+dGFpbCAtIGJ1ZmYtPmRhdGEpOworCXNrYl9wdXQoYnVmZiwg
-bGVuKTsKKwlpY21waCA9IGljbXA2X2hkcihidWZmKTsKIAogCW1lbXNldChpY21waCwgMCwgc2l6
-ZW9mKHN0cnVjdCBpY21wNmhkcikpOwogCWljbXBoLT5pY21wNl90eXBlID0gTkRJU0NfUkVESVJF
-Q1Q7Ci0tIAoxLjUuMC4yCgo=
-------=_Part_52973_17558197.1173918745813--
+    [PATCH] cn_net: fix initialization path
+    
+    'hash' is allocated after the registration of security hooks and
+    connector callback.
+    
+    Noticed by Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+    
+    Signed-off-by: Samir Bellabes <sam@synack.fr>
+
+diff --git a/drivers/connector/cn_net.c b/drivers/connector/cn_net.c
+index 1f681f6..c9eb53e 100644
+--- a/drivers/connector/cn_net.c
++++ b/drivers/connector/cn_net.c
+@@ -537,13 +537,22 @@ static struct security_operations cn_net
+ };
+ 
+ static int __init init(void) {
+-	int err, i;
++	int err = 0, i = 0;
+ 
+-	err = cn_add_callback(&cn_net_event_id, cn_net_event_name, &cn_net_ctl);
++	hash = kzalloc(sizeof(struct list_head) * hash_size, GFP_KERNEL);
++	if (!hash) {
++		printk(KERN_WARNING "cn_net: Failure can't alloc memory for hash\n");
++		err = -ENOMEM;
++		goto out;
++	}
++	
++	for (i = 0; i < hash_size; i++)
++		INIT_LIST_HEAD(&(hash[i]));
+ 
++	err = cn_add_callback(&cn_net_event_id, cn_net_event_name, &cn_net_ctl);
+ 	if (err) {
+ 		printk(KERN_WARNING "cn_net: Failure add connector callback\n");
+-		goto out;
++		goto out_callback;
+ 	}
+ 
+ 	if (register_security(&cn_net_security_ops)) {
+@@ -558,33 +567,15 @@ static int __init init(void) {
+ 		secondary = 1;
+ 	}
+ 
+-
+-	hash = kzalloc(sizeof(struct list_head) * hash_size, GFP_KERNEL);
+-	if (!hash)
+-		goto out_nomem_hash;
+-	
+-	for (i = 0; i < hash_size; i++)
+-		INIT_LIST_HEAD(&(hash[i]));
+-
+-	printk(KERN_INFO "cn_net: module loaded\n");
+-
++	printk(KERN_INFO "cn_net: network events module loaded\n");
+ 	return 0;
+ 
+-out_nomem_hash:
+-	err = -ENOMEM;
+-
+-	if (secondary) {
+-		if (mod_unreg_security(MY_NAME, &cn_net_security_ops))
+-			printk(KERN_INFO "cn_net: Failure unregistering with"
+-			       " primary security module\n");
+-	} else {
+-		if (unregister_security(&cn_net_security_ops))
+-			printk(KERN_INFO "cn_net: Failure unregistering with "
+-			       "kernel\n");
+-	}
+-
+ out_security:
+ 	cn_del_callback(&cn_net_event_id);
++
++out_callback:
++	kfree(hash);
++
+ out:
+ 	return err;
+ }
+
