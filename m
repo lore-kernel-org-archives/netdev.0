@@ -1,42 +1,55 @@
-From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Subject: Re: [PATCH] Copy mac_len in skb_clone() as well
-Date: Thu, 15 Mar 2007 19:04:36 +0300
-Message-ID: <20070315160436.GA7482@ms2.inr.ac.ru>
-References: <20070314130711.GA6812@localhost.sw.ru> <20070315.030235.79052031.davem@davemloft.net>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: ping DOS avoidance?
+Date: Thu, 15 Mar 2007 09:44:43 -0700
+Message-ID: <45F977FB.1050407@hp.com>
+References: <d9dc600703091718m508cdafbm46a4aad9b613d9c1@mail.gmail.com> <d9dc600703141859x3eeddd4cs51b3aea89d4dc32a@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: adobriyan@sw.ru, netdev@vger.kernel.org, devel@openvz.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Netdev List <netdev@vger.kernel.org>
+To: Luis Carlos Cobo Rus <luiscarlos@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from minus.inr.ac.ru ([194.67.69.97]:37482 "HELO ms2.inr.ac.ru"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1422941AbXCOQOA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Mar 2007 12:14:00 -0400
-Content-Disposition: inline
-In-Reply-To: <20070315.030235.79052031.davem@davemloft.net>
+Received: from palrel11.hp.com ([156.153.255.246]:40564 "EHLO palrel11.hp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1030580AbXCOQop (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Mar 2007 12:44:45 -0400
+In-Reply-To: <d9dc600703141859x3eeddd4cs51b3aea89d4dc32a@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello!
+I was just asked about something not too different, involving IIRC 
+tnsping.  It got me to looking at ip_sysctl.txt which has:
 
-> What bug triggered that helped you discover this?  Or is it
-> merely from a code audit?
+icmp_ratelimit - INTEGER
+         Limit the maximal rates for sending ICMP packets whose type
+         matches icmp_ratemask (see below) to specific targets.
+         0 to disable any limiting, otherwise the maximal rate in
+         jiffies(1)
+         Default: 100
 
-I asked the same question. :-)
+icmp_ratemask - INTEGER
+         Mask made of ICMP types for which rates are being limited.
+         Significant bits: IHGFEDCBA9876543210
+         Default mask:     0000001100000011000 (6168)
 
-openvz added some another fields to skbuff and when it was found
-that they are lost while clone, he tried to figure out how all this works
-and looked for another examples of this kind.
+         Bit definitions (see include/linux/icmp.h):
+                 0 Echo Reply
+                 3 Destination Unreachable *
+                 4 Source Quench *
+                 5 Redirect
+                 8 Echo Request
+                 B Time Exceeded *
+                 C Parameter Problem *
+                 D Timestamp Request
+                 E Timestamp Reply
+                 F Info Request
+                 G Info Reply
+                 H Address Mask Request
+                 I Address Mask Reply
 
-As I understand, the problem can be seen only in xfrmX_tunnel_input.
-If uninitialized mac_len obtained from slab is more than current head room
-it could corrupt memory.
-
-Also, it looks like the fix is incomplete. copy_skb_header() also does not
-copy this field. But it will be initialized to 0 by alloc_skb in this case
-and xfrmX_tunnel_input() just will not copy mac header.
-
-Alexey
+         * These are rate limited by default (see default mask above)
 
 
+(I've always been used to masks being specified as hex values)
 
+rick jones
