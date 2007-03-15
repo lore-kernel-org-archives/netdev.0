@@ -1,38 +1,43 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [patch 1/4] network dev read_mostly
-Date: 15 Mar 2007 16:10:52 +0100
-Message-ID: <p731wjq8rur.fsf@bingen.suse.de>
-References: <20070312210817.485320783@linux-foundation.org>
-	<20070312210907.509184287@linux-foundation.org>
-	<20070315021840.GG1246@kvack.org>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: IPsec with aes-cbc and geode-aes driver completely freezes 2.6.20.1
+Date: Thu, 15 Mar 2007 17:15:06 +0300
+Message-ID: <20070315141506.GA8597@2ka.mipt.ru>
+References: <20070315134533.21402.qmail@web51408.mail.re2.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Benjamin LaHaise <bcrl@kvack.org>
+Content-Type: text/plain; charset=koi8-r
+Cc: netdev@vger.kernel.org, info-linux@geode.amd.com
+To: Joerg Pommnitz <pommnitz@yahoo.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:33938 "EHLO mx2.suse.de"
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:42339 "EHLO 2ka.mipt.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965172AbXCOOLt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Mar 2007 10:11:49 -0400
-In-Reply-To: <20070315021840.GG1246@kvack.org>
+	id S1422710AbXCOOPL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Mar 2007 10:15:11 -0400
+Content-Disposition: inline
+In-Reply-To: <20070315134533.21402.qmail@web51408.mail.re2.yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Benjamin LaHaise <bcrl@kvack.org> writes:
-
-> On Mon, Mar 12, 2007 at 02:08:18PM -0700, Stephen Hemminger wrote:
-> > For Eric, mark packet type and network device watermarks
-> > as read mostly.
+On Thu, Mar 15, 2007 at 06:45:33AM -0700, Joerg Pommnitz (pommnitz@yahoo.com) wrote:
+> Hello all,
+> the subject line basically says it all. I was trying to offload IPsec encryption to the hardware encryption engine on my Geode LX800. The exact same setkey command works fine with software aes.
 > 
-> The following x86-64 bits might be intersting, as they allow you to 
-> completely eliminate the memory access for run time defined constants.  
+> In case it matters: this is with a MSEP800/A board from DIGITAL-LOGIC AG (see http://www.digitallogic.com/english/products/catalog07/epic_detail.asp?id=MSEP800_L).
+> 
+> Did anybody ever succeed with Geode hardware accelerated IPsec? Did you have to do anything special?
 
-I like the concept, although the patch could still need a few cleanups.
-But it would be useful in a couple of cases.
+Please enable as much kernel debugging options as possible and rerun the
+test - our mind readers are currently on vacations, so we fail to
+find a problem.
 
-Disadvantage: it will likely lead to even more weird sysctls and hooks
-because one of the best argument against them will be gone then @)
+If there will not be any signs of the problem, try to add several printk
+into main geode crypto functions (there are not that many of them) or
+press various sysrq combinations to determine where stall happens.
 
--Andi
+> -- 
+> 
+> Regards
+> 
+>        Joerg
 
+-- 
+	Evgeniy Polyakov
