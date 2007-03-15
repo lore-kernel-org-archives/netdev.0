@@ -1,891 +1,453 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [RFC] [PATCH] Network Events Connector
-Date: Thu, 15 Mar 2007 21:00:18 +0300
-Message-ID: <20070315180015.GA21745@2ka.mipt.ru>
-References: <m2fy875n9q.fsf@cerbere.dyndns.info>
+From: John Heffner <jheffner@psc.edu>
+Subject: Re: [PATCH] tcp_mem initialization
+Date: Thu, 15 Mar 2007 14:39:29 -0400
+Message-ID: <45F992E1.1060604@psc.edu>
+References: <45F86842.8040305@psc.edu> <20070315.025839.104050310.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
+Content-Type: multipart/mixed;
+ boundary="------------080606060803020603080905"
 Cc: netdev@vger.kernel.org
-To: Samir Bellabes <sam@synack.fr>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:45333 "EHLO 2ka.mipt.ru"
+Received: from mailer2.psc.edu ([128.182.66.106]:60058 "EHLO mailer2.psc.edu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751260AbXCOSAm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Mar 2007 14:00:42 -0400
-Content-Disposition: inline
-In-Reply-To: <m2fy875n9q.fsf@cerbere.dyndns.info>
+	id S1751487AbXCOSjf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Mar 2007 14:39:35 -0400
+In-Reply-To: <20070315.025839.104050310.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 15, 2007 at 02:05:53AM +0100, Samir Bellabes (sam@synack.fr) wrote:
-> Hi,
+This is a multi-part message in MIME format.
+--------------080606060803020603080905
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Hi Samir.
-My comments are below.
-
-> here a updated patch for the network events connector.
-> review are welcome :)
+David Miller wrote:
+> From: John Heffner <jheffner@psc.edu>
+> Date: Wed, 14 Mar 2007 17:25:22 -0400
 > 
-> Thanks.
+>> The current tcp_mem initialization gives values that are really too 
+>> small for systems with ~256-768 MB of memory, and also for systems with 
+>> larger page sizes (ia64).  This patch gives an alternate method of 
+>> initialization that doesn't depend on the cache allocation functions, 
+>> but I think should still provide a nice curve that gives a smaller 
+>> fraction of total memory with small-memory systems, while maintaining 
+>> the same upper bound (pressure at 1/2, max as 3/4) on larger memory systems.
 > 
-> [PATCH] Network Events Connector
+> Indeed, it's really dumb for any of these calculations to be
+> dependant upon the page size.
 > 
-> This patch adds a connector which reports networking's events to
-> userspace.
+> Your patch looks good, and I'll review it further tomorrow and
+> push upstream unless I find some issues with it.
 > 
-> It's sending events when a userspace application is using
-> syscalls so with LSM, we are catching this, at hooks : socket_listen,
-> socket_bind, socket_connect, socket_shutdown and sk_free_security.
-> 
-> Wanted events are dynamically manage from userspace, in a rbtree. A
-> daemon, cn_net_daemon, is listening for the connector in userspace.
-> 
-> daemon and doc are available here :
-> http://people.mandriva.com/~sbellabes/cn_net/
-> 
-> Signed-off-by: Samir Bellabes <sam@synack.fr>
-> 
-> ------------------------------------------------------------------------------
-> 
->  drivers/connector/Kconfig  |    8 
->  drivers/connector/Makefile |    1 
->  drivers/connector/cn_net.c |  618 +++++++++++++++++++++++++++++++++++++++++++++
->  include/linux/cn_net.h     |  122 ++++++++
->  include/linux/connector.h  |    5 
->  5 files changed, 752 insertions(+), 2 deletions(-)
-> 
-> ------------------------------------------------------------------------------
-> 
-> diff --git a/drivers/connector/Kconfig b/drivers/connector/Kconfig
-> index e0bdc0d..0b04952 100644
-> --- a/drivers/connector/Kconfig
-> +++ b/drivers/connector/Kconfig
-> @@ -18,4 +18,12 @@ config PROC_EVENTS
->  	  Provide a connector that reports process events to userspace. Send
->  	  events such as fork, exec, id change (uid, gid, suid, etc), and exit.
->  
-> +config NET_EVENTS
-> +	boolean "Report network events to userspace"
-> +	depends on CONNECTOR=y && SECURITY_NETWORK
-> +	default y
-> +	---help---
-> +	  Provide a connector that reports networking's events to userspace.
-> +	  Send events such as DCCP/TCP listen/close and UDP bind/close.
-> +
->  endmenu
-> diff --git a/drivers/connector/Makefile b/drivers/connector/Makefile
-> index 1f255e4..436bb5d 100644
-> --- a/drivers/connector/Makefile
-> +++ b/drivers/connector/Makefile
-> @@ -1,4 +1,5 @@
->  obj-$(CONFIG_CONNECTOR)		+= cn.o
->  obj-$(CONFIG_PROC_EVENTS)	+= cn_proc.o
-> +obj-$(CONFIG_NET_EVENTS)	+= cn_net.o
->  
->  cn-y				+= cn_queue.o connector.o
-> diff --git a/drivers/connector/cn_net.c b/drivers/connector/cn_net.c
-> new file mode 100644
-> index 0000000..a15f67b
-> --- /dev/null
-> +++ b/drivers/connector/cn_net.c
-> @@ -0,0 +1,618 @@
-> +/* 
-> + * drivers/connector/cn_net.c
-> + *
-> + * Network events connector
-> + * Samir Bellabes <sam@synack.fr>
-> + *
-> + *	This program is free software; you can redistribute it and/or
-> + *	modify it under the terms of the GNU General Public License
-> + *	as published by the Free Software Foundation; either version
-> + *	2 of the License, or (at your option) any later version.
-> + */ 
-> +
-> +#include <linux/kernel.h>
-> +#include <linux/module.h>
-> +#include <linux/skbuff.h>
-> +#include <linux/security.h>
-> +#include <linux/netlink.h>
-> +#include <linux/connector.h>
-> +#include <linux/net.h>
-> +#include <net/sock.h>
-> +#include <net/inet_sock.h>
-> +#include <linux/in.h>
-> +#include <linux/ipv6.h>
-> +#include <linux/in6.h>
-> +#include <linux/rbtree.h>
-> +#include <linux/list.h>
-> +#include <linux/spinlock.h>
-> +#include <linux/random.h>
-> +
-> +#include <linux/cn_net.h>
-> +
-> +static atomic_t net_event_num_listeners = ATOMIC_INIT(0);
-> +static struct cb_id cn_net_event_id = { CN_IDX_NET, CN_VAL_NET };
-> +static char cn_net_event_name[] = "cn_net_event";
-> +static int secondary = 0;
-> +
-> +struct rb_root event_tree = RB_ROOT;
+> Thanks John.
 
-That should be static.
 
-> +static rwlock_t event_lock = RW_LOCK_UNLOCKED;
-> +
-> +#if defined(CONFIG_NET_EVENTS)
-> +#define MY_NAME THIS_MODULE->name
-> +#else
-> +#define MY_NAME "cn_net"
-> +#endif
-> +
+The way it's coded is somewhat opaque since it has to be done with 
+32-bit integer arithmetic.  These plots might help make the motivation 
+behind the code a little clearer.
 
-Why is it needed?
+Thanks,
+   -John
 
-> +#if 0
-> +#define DEBUGP printk
-> +#else
-> +#define DEBUGP(format, args...)
-> +#endif
-> +
-> +/**
-> + * is_same_event()
-> + * check if two events are the same or not
-> + */			 
-> +static unsigned int is_same_event(struct event one, struct event two) {
-> +	return ((one.syscall_num == two.syscall_num) &&
-> +		(one.protocol == two.protocol));
-> +}
+--------------080606060803020603080905
+Content-Type: image/png; x-mac-type="0"; x-mac-creator="0";
+ name="tcp_mem_pressure.png"
+Content-Transfer-Encoding: base64
+Content-Disposition: inline;
+ filename="tcp_mem_pressure.png"
 
-Coding style is broken, place '{' on the next line.
+iVBORw0KGgoAAAANSUhEUgAABLAAAAOECAIAAAA+D1+tAAAACXBIWXMAABcSAAAXEgFnn9JS
+AAAAB3RJTUUH1wMPEh87v998FQAAACJ0RVh0Q3JlYXRpb24gVGltZQAxNS1NYXItMjAwNyAx
+NDozMjowMPYSAwYAAAAkdEVYdFNvZnR3YXJlAE1BVExBQiwgVGhlIE1hdGh3b3JrcywgSW5j
+LrrEUs8AACAASURBVHic7d1tc6NGFoBRMZX//5fZD2QJA6gBAf12z6mtrbHlkTUh9vjJ7W6G
+cRw/AAAAxPOn9AsAAACgDEEIAAAQlCAEAAAIShACAAAEJQgBAACCEoQAAABBCUIAAICgBCEA
+AEBQghAAACAoQQgAABCUIAQAAAhKEAIAAAQlCAEAAIIShAAAAEEJQgAAgKAEIQAAQFCCEAAA
+IChBCAAAEJQgBAAACEoQAgAABCUIAQAAghKEAAAAQQlCAACAoAQhAABAUIIQAAAgKEEIAAAQ
+lCAEAAAIShACAAAEJQgBAACCEoQAAABBCUIAAICgBCEAAEBQghAAACAoQQgAABCUIAQAAAhK
+EAIAAAQlCAEAAIIShAAAAEEJQgAAgKAEIQAAQFCCEAAAIChBCAAAEJQgBAAACEoQAgAABCUI
+AQAAghKEAAAAQQlCAACAoAQhAABAUIIQAAAgKEEIAAAQlCAEAAAIShACAAAEJQgBAACCEoQA
+AABBCUIAAICgBCEAAEBQghAAACAoQQgAABCUIAQAAAhKEAIAAAQlCAEAAIL6p/QLCGcYhuWb
+4zh+e3T10OGjAAAAl5gQZrWqwdV7Vo9eehMAAOAqE8J8poRbTvZ2o276gG+9l34UAADgPBPC
+WqxycRV+6UcBAAB+YEKYz+52QVsBAQCAUgRhAfNkTw0CAAAFCcKShmF4owktJQUAoEsGKo8T
+hAUsdwC+1IS+VHry0r8klOKCdsYF7YwL2hkXtDPGHm9wqEwxvj0BAABlCcJ8hmHwXzUAAIB6
+CMJiVnF46T4TTigFAADus4cwn3Ect0PCbdSlp4hmjAAAwFNMCLNa5d+DbwIAAFxlQphbOuTu
+PAoAAHCJCSEAAEBQghAAACAoN+vskHuwAgDQHz/lvsGEEAAAIChBCAAAEJQgBAAACEoQAgAA
+BCUIAQAAghKEAAAAQQlCAACAoAQhAABAUIIQAAAgKEEIAAAQlCAEAAAIShACAAAEJQgBAACC
+EoQAAABBCUIAAICgBCEAAEBQghAAACAoQQgAABCUIAQAAAhKEAIAAAQlCAEAAIIShAAAAEEJ
+QgAAgKAEIQAAQFCCEAAAIChBCAAAEJQgBAAACEoQAgAABCUIAQAAghKEAAAAQQlCAACAoAQh
+AABAUIIQAAAgKEEIAAAQlCAEAAAIShACAAAEJQgBAACCEoQAAABBCUIAAICgBCEAAEBQghAA
+ACAoQQgAABCUIAQAAAhKEAIAAAQlCAEAAIIShAAAAEEJQgAAgKAEIQAAQFCCEAAAIChBCAAA
+EJQgBAAACEoQAgAABCUIAQAAghKEAAAAQQlCAACAoAQhAABAUIIQAAAgKEEIAAAQlCAEAAAI
+ShACAAAEJQgBAACCEoQAAABBCUIAAICgBCEAAEBQghAAACAoQQgAABCUIAQAAAhKEAIAAAQl
+CAEAAIIShAAAAEEJQgAAgKAEIQAAQFCCEAAAIChBCAAAEJQgBAAACEoQAgAABCUIAQAAghKE
+AAAAQQlCAACAoAQhAABAUIIQAAAgKEEIAAAQlCAEAAAIShACAAAEJQgBAACCEoQAAABBCUIA
+AICgBCEAAEBQghAAACAoQQgAABCUIAQAAAhKEAIAAAQlCAEAAIIShAAAAEEJQgAAgKAEIQAA
+QFCCEAAA/jMMpV8BZPRP6RcAAABVmFJwHEu/DshIEAIAwGcYpCARWTIKAEB0apCwBCEAAKGp
+QSKzZBQAgKBsGgRBCABARAaD8LFkFACAgNQgTAQhAACxqEGYWTKa27C41+m4+FY07N0Ddfz7
+e9W33wsAwElqEJZMCPMZhmFVfbsRmPjtP/9eAACGQQ3Cmglhbqup4DAMy/cczv2mD1CDAACX
+SEHYZUKYzziOP6/znApw/u2yEADgJINBSDAhLGY35+wSBAB4kBSENBPCMubwS1SfASAAAPAq
+E8ICEjU4v2f6mNUOwx8+xZbBIwAQwfTTkB982mIikp8gzO1bDW7fvPP1oPoAgLCkYLvSP8TK
+xTcIwqzOrBQFAOBnNg3CJfYQ5pOuwe1dCgEAuEQNwlWCMLeTs8FVHK7uM7G6CwUAAGoQfmDJ
+aG7bMeDqVvXfHvr22wEAUIPwGxPCWiROHD3zJgBATO47D3eYEOZzmHD3PwAAIBQpCDcJQgAA
+2uPeEvAIQQgAQGMMBuEp9hACAAAEZUIIAEAzrBSFZwlCAAAaIAXhDYIQAIDa2TQIL7GHEACA
+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
+rkJggg==
+--------------080606060803020603080905
+Content-Type: image/png; x-mac-type="0"; x-mac-creator="0";
+ name="tcp_mem_frac.png"
+Content-Transfer-Encoding: base64
+Content-Disposition: inline;
+ filename="tcp_mem_frac.png"
 
-> +/**
-> + * lookup_event()
-> + * look for a match in the rbtree
-> + * returns address of the wanted element if it is in the rbtree, or NULL
-> + */
-> +static struct event_node *lookup_event(struct event ev) {
-> +	struct rb_node *rb_node = event_tree.rb_node;
-> +
-> +	read_lock(&event_lock);
-> +
-> +	while (rb_node) {
-> +		struct event_node *cur = rb_entry(rb_node, struct event_node, ev_node);
-> +		
-> +		if (is_same_event(cur->ev, ev)) {
-> +			read_unlock(&event_lock);
-> +			return cur;
-> +		}
-> +
-> +		if (ev.syscall_num < cur->ev.syscall_num)
-> +			rb_node = rb_node->rb_left;
-> +		else if (ev.syscall_num > cur->ev.syscall_num)
-> +			rb_node = rb_node->rb_right;
-> +		else if (ev.protocol < cur->ev.protocol)
-> +			rb_node = rb_node->rb_left;
-> +		else if (ev.protocol > cur->ev.protocol)
-> +			rb_node = rb_node->rb_right;
-> +	}
-> +
-> +	read_unlock(&event_lock);
-> +	return NULL;
-> +}
-> +
-> +/** 
-> + * check_wanted_data()
-> + * we don't send unwanted informations to userspace, according to the
-> + * dynamic configuration in the rbtree
-> + */
-> +static int check_wanted_event(struct sock *sk, enum cn_net_socket syscall_num) {
-> +	int err = -EINVAL;
-> +	struct event ev;
-> +	
-> +	if (!sk)
-> +		return err;
-> +
-> +	ev.syscall_num = syscall_num;
-> +	ev.protocol = sk->sk_protocol;
-> +	       
-> +	/* check if the event is already registered */
-> +	if (lookup_event(ev))
-> +		err = 0;
-> +
-> +	return err;
-> +}
-> +
-> +/**
-> + * dump_event()
-> + * dump the entire rbtree in log
-> + */
-> +static void dump_event(void) {
-> +	struct rb_node *p = NULL ;
-> +	struct event_node *tmp = NULL;
-> +
-> +	read_lock(&event_lock);
-> +	p = rb_first(&event_tree);
-> +	while (p) {
-> +		tmp = rb_entry(p, struct event_node, ev_node);
-> +		printk(KERN_INFO "%d:%s\n",
-> +		       tmp->ev.protocol, syscall_name[tmp->ev.syscall_num]);
-> +		p = rb_next(p);
-> +	};
-> +	read_unlock(&event_lock);
-> +}
-
-I doubt it should exist - it is purely debug stuff.
-
-> +/**
-> + * remove_all_event()
-> + * delete all events registered in the rbtree
-> + */
-> +static enum ack_err remove_all_event(void) {
-> +	struct rb_node *p = NULL;
-> +	struct event_node *cur = NULL;
-> +
-> +	write_lock(&event_lock);	
-> +	while ((p = rb_first(&event_tree)) != NULL) {
-> +		cur = rb_entry(p, struct event_node, ev_node);
-> +		rb_erase(p, &event_tree);
-> +		kfree(cur);
-> +	}
-> +	write_unlock(&event_lock);
-> +
-> +	/* rbtree is now empty */
-> +	return CN_NET_ACK_SUCCES;
-> +}
-> +
-> +/** 
-> + * alloc_event()
-> + * alloc memory for a event_node, and return pointer to it
-> + */
-> +static struct event_node *alloc_event(void) {
-> +	struct event_node *evn = NULL;
-> +	evn = kzalloc(sizeof(struct event_node), GFP_KERNEL);
-> +	return evn;
-> +}
-> +
-> +/**
-> + * insert_event()
-> + * insert a event in the rbtree
-> + * we are checking if we are trying to register a same event twice
-> + */
-> +static enum ack_err insert_event(struct event ev) {
-> +	struct rb_node **rb_link, *rb_parent;
-> +	struct event_node *new_evn;
-> +	enum ack_err ret = CN_NET_ACK_SUCCES;
-> +
-> +	rb_link = &event_tree.rb_node;
-> +	rb_parent = NULL;
-> +
-> +	write_lock(&event_lock);
-> +
-> +	while(*rb_link) {
-> +		struct event_node *tmp;
-> +
-> +		rb_parent = *rb_link;
-> +		tmp = rb_entry(rb_parent, struct event_node, ev_node);
-> +		
-> +		if (ev.syscall_num < tmp->ev.syscall_num)
-> +			rb_link = &rb_parent->rb_left;
-> +		else if (ev.syscall_num > tmp->ev.syscall_num)
-> +			rb_link = &rb_parent->rb_right;
-> +		else if (ev.protocol < tmp->ev.protocol)
-> +			rb_link = &rb_parent->rb_left;
-> +		else if (ev.protocol > tmp->ev.protocol)
-> +			rb_link = &rb_parent->rb_right;
-> +		else {
-> +			/* event is already registered */
-> +			ret = CN_NET_ACK_EINCONFIG;
-> +			goto out;
-> +		}
-> +	}
-> +
-> +	/* no match: event is added to the tree */
-> +	if ((new_evn = alloc_event()) != NULL) {
-
-This is broken - you allocate under lock with gfp_kernel flags.
-
-I would just allocate event in advance and insert it, if insertion
-fails, event can be freed.
-
-> +		new_evn->ev.syscall_num = ev.syscall_num;
-> +		new_evn->ev.protocol = ev.protocol;
-> +	} else {
-> +		/* can't allocate memory, exiting */
-> +		ret = CN_NET_ACK_ENOMEM;
-> +		goto out;
-> +	}
-> +
-> +	rb_link_node(&new_evn->ev_node, rb_parent, rb_link);
-> +	rb_insert_color(&new_evn->ev_node, &event_tree);
-> +
-> +out:
-> +	write_unlock(&event_lock);
-> +	return ret;
-> +}
-> +
-> +/**
-> + * remove_event()  
-> + * delete a entry from the rbtree
-> + * we are checking if we are trying to delete a unregistered event
-> + */
-> +static enum ack_err remove_event(struct event ev) {
-> +	struct event_node *cur = NULL;
-> +	enum ack_err ret = CN_NET_ACK_EINCONFIG;
-> +	struct rb_node *rb_node = event_tree.rb_node;
-> +
-> +	write_lock(&event_lock);
-> +
-> +	while (rb_node) {
-> +		cur = rb_entry(rb_node, struct event_node, ev_node);
-> +		
-> +		if (is_same_event(cur->ev, ev))
-> +			break;
-> +
-> +		if (ev.syscall_num < cur->ev.syscall_num)
-> +			rb_node = rb_node->rb_left;
-> +		else if (ev.syscall_num > cur->ev.syscall_num)
-> +			rb_node = rb_node->rb_right;
-> +		else if (ev.protocol < cur->ev.protocol)
-> +			rb_node = rb_node->rb_left;
-> +		else if (ev.protocol > cur->ev.protocol)
-> +			rb_node = rb_node->rb_right;
-> +	}
-> +
-> +	if (rb_node) {
-> +		rb_erase(&cur->ev_node, &event_tree);
-> +		kfree(cur);
-> +		ret = CN_NET_ACK_SUCCES;
-> +	}
-> +	write_unlock(&event_lock);
-> +
-> +	return ret;
-> +}
-> +
-> +/**
-> + * do_register()
-> + * check if userpace protocol version is same as kernel protocol version
-> + */
-> +static enum ack_err do_register(__u32 version) {
-> +	enum ack_err err = CN_NET_ACK_SUCCES;
-> +
-> +	DEBUGP(KERN_INFO "do_register: %d %d\n",
-> +	       version, CN_NET_VERSION);
-> +
-> +	if (version == CN_NET_VERSION)
-> +		atomic_inc(&net_event_num_listeners);
-> +	else
-> +		err = CN_NET_ACK_EBADPROTO;
-> +	return err;
-> +}
-> +
-> +/** 
-> + * do_config()
-> + * execute config asked by userspace
-> + * return enum ack_err
-> + */
-> +static enum ack_err do_config(struct msg_config *cfg) {
-> +	enum ack_err err = CN_NET_ACK_SUCCES;
-> +
-> +	DEBUGP(KERN_INFO "do_config: %s %s %d\n",
-> +	       config_name[cfg->config_cmd],
-> +	       syscall_name[cfg->ev.syscall_num],
-> +	       cfg->ev.protocol);
-> +
-> +	switch (cfg->config_cmd) {
-> +	case CN_NET_CONFIG_ADD:
-> +		err = insert_event(cfg->ev);
-> +		break;
-> +	case CN_NET_CONFIG_DEL:
-> +		err= remove_event(cfg->ev);
-> +		break;
-> +	case CN_NET_CONFIG_FLUSH:
-> +		err = remove_all_event();
-
-I would call it 'remove_all_events()'.
-
-> +		break;
-> +	default:
-> +		err = CN_NET_ACK_EINTYPE;
-> +		break;
-> +	};
-> +	
-> +	return err;
-> +}
-> +
-> +/**
-> + * cn_net_ack
-> + * Send an acknowledgement message to userspace
-> + *
-> + * Use 0 for SUCCESS, EFOO otherwise. (see enum ack_err)
-> + */
-> +static void cn_net_ack(enum ack_err err, unsigned int rcvd_seq, unsigned int rcvd_ack, enum msg_type msg_type)
-> +{
-> +	struct cn_msg *m;
-> +	struct net_event *net_ev;
-> +	__u8 buffer[CN_NET_MSG_SIZE];
-> +
-> +	DEBUGP(KERN_INFO "cn_net_ack: listen=%d\n", atomic_read(&net_event_num_listeners));
-> +	
-> +	if (atomic_read(&net_event_num_listeners) < 1 && err != CN_NET_ACK_EBADPROTO)
-> +		return;
-
-Why don't you like CN_NET_ACK_EBADPROTO?
-
-> +	m = (struct cn_msg *) buffer;
-> +	net_ev = (struct net_event *) m->data;
-> +
-> +	net_ev->msg_type = msg_type;
-> +	ktime_get_real_ts(&net_ev->timestamp);
-
-Please be absolutely shure you do not have misalignment here
-and/or different size issues with 32/64 dual arches like x86_64.
-
-> +	net_ev->net_event_data.ack = err;
-> +	memcpy(&m->id, &cn_net_event_id, sizeof(m->id));
-> +	m->seq = rcvd_seq;
-> +	m->ack = rcvd_ack + 1;
-> +	m->len = sizeof(struct net_event);
-> +	cn_netlink_send(m, CN_IDX_NET, gfp_any());
-> +}
-> +
-> +/**
-> + * cn_net_ctl
-> + * connector callback
-> + * @data: message receive from userspace via the connector
-> + */
-> +void cn_net_ctl(void *data) {
-> +	struct cn_msg *m = data;
-> +	struct net_event *net_ev = NULL;
-> +	enum msg_type msg_type;
-> +	enum ack_err err = CN_NET_ACK_SUCCES;
-> +
-> +	if (m->len != sizeof(struct net_event)) {
-> +		printk(KERN_WARNING "cn_net_ctl : message with bad size, discard\n");
-
-Either put it under printk_ratelimit() or discard at all.
-
-> +		return;
-> +	}
-> +
-> +	net_ev = (struct net_event *) m->data;
-> +
-> +	if (net_ev->msg_type != CN_NET_LISTEN && 
-> +	    atomic_read(&net_event_num_listeners) < 1) {
-> +		printk(KERN_WARNING "cn_net_ctl : register first\n");
-
-The same.
-
-> +		return;
-> +	}
-> +	msg_type = CN_NET_ACK;	/* default response message type */
-> +
-> +	switch (net_ev->msg_type) {
-> +	case CN_NET_NONE:	/* want to play ping pong ? */
-> +		msg_type = net_ev->msg_type;
-> +		break;
-> +	case CN_NET_ACK:	/* userspace is ack'ing - check that */
-> +		/* FIXME: we don't send an ACK to an ACK */
-> +		/* we just check which message is ack */
-> +		goto out;
-> +		break;
-> +	case CN_NET_DATA:	/* CN_NET_DATA can't be used by userspace */
-> +		err = CN_NET_ACK_EINTYPE;
-> +		break;
-> +	case CN_NET_CONFIG:	/* configuring kernel's behaviour */
-> +		err = do_config(&(net_ev->net_event_data.config));
-> +		break;
-> +	case CN_NET_LISTEN:	/* userspace is registering */
-> +		err = do_register(net_ev->net_event_data.version);
-> +		break;
-> +	case CN_NET_IGNORE:     /* userspace is unregistering */
-> +		atomic_dec(&net_event_num_listeners);
-> +		break;
-> +	case CN_NET_DUMP:     /* dumping the rbtree -- debug purpose */
-> +		dump_event();
-> +		break;
-> +	default:
-> +		err = CN_NET_ACK_EINTYPE;
-> +		break;
-> +	};
-> +	cn_net_ack(err, m->seq, m->ack, msg_type);
-> +out:
-> +	return;
-> +}
-> +
-> +/**
-> + * cn_net_send_event
-> + * send data to userspace
-> + * @sock: sock which sock->sk->sk_state change to the state identified by @event
-> + */
-> +static void cn_net_send_event(struct sock *sk, struct sockaddr *address,
-> +			      enum cn_net_socket syscall_num) {
-> +			 
-> +	struct net_event *net_ev;
-> +	struct cn_msg *m;
-> +	struct inet_sock *inet = inet_sk(sk);
-> +	struct sockaddr_in *addr4 = NULL;
-> +	struct sockaddr_in6 *addr6 = NULL;
-> +	struct task_struct *me = current;
-> +
-> +	__u8 buffer[CN_NET_MSG_SIZE];
-> +
-> +	DEBUGP(KERN_INFO "cn_net_ack: listen=%d\n", atomic_read(&net_event_num_listeners));
-> +
-> +	if (atomic_read(&net_event_num_listeners) < 1)
-> +		goto out;
-> +	
-> +	m = (struct cn_msg *) buffer;
-> +	net_ev = (struct net_event *) m->data;
-> +	
-> +	switch (syscall_num) {
-> +	case CN_NET_SOCKET_LISTEN:
-> +	case CN_NET_SOCKET_SHUTDOWN:
-> +	case CN_NET_SK_FREE_SECURITY:
-> +		switch (sk->sk_family) {
-> +		case AF_INET:
-> +			net_ev->net_event_data.data.saddr.ipv4 = inet->saddr;
-> +			net_ev->net_event_data.data.daddr.ipv4 = inet->daddr;
-> +			break;
-> +		case AF_INET6:
-> +			memcpy(&(net_ev->net_event_data.data.saddr.ipv6),
-> +			       &(inet->pinet6->saddr), sizeof(struct in6_addr));
-> +			memcpy(&(net_ev->net_event_data.data.daddr.ipv6),
-> +			       &(inet->pinet6->daddr), sizeof(struct in6_addr));
-> +			break;
-> +		default:
-> +			/* other protocol, sending nothing */
-> +			goto out;
-> +			break;
-> +		};
-> +		net_ev->net_event_data.data.sport = ntohs(inet->sport);
-> +		net_ev->net_event_data.data.dport = ntohs(inet->dport);
-> +		break;
-> +	case CN_NET_SOCKET_BIND:
-> +		switch (sk->sk_family) {
-> +		case AF_INET:
-> +			addr4 = (struct sockaddr_in *) address;
-> +			net_ev->net_event_data.data.saddr.ipv4 = addr4->sin_addr.s_addr;
-> +			net_ev->net_event_data.data.daddr.ipv4 = inet->daddr;
-> +			net_ev->net_event_data.data.sport = ntohs(addr4->sin_port);
-> +			net_ev->net_event_data.data.dport = ntohs(inet->dport);
-> +			break;
-> +		case AF_INET6:
-> +			addr6 = (struct sockaddr_in6 *) address;
-> +			memcpy(&(net_ev->net_event_data.data.saddr.ipv6),
-> +			       &(addr6->sin6_addr), sizeof(struct in6_addr));
-> +			memcpy(&(net_ev->net_event_data.data.daddr.ipv6),
-> +			       &(inet->pinet6->daddr), sizeof(struct in6_addr));
-> +			net_ev->net_event_data.data.sport = ntohs(addr6->sin6_port);
-> +			net_ev->net_event_data.data.dport = ntohs(inet->dport);
-> +			break;
-> +		default:
-> +			/* other protocol, sending nothing */
-> +			goto out;
-> +			break;
-> +		};
-> +		break;
-> +	case CN_NET_SOCKET_CONNECT:
-> +		switch (sk->sk_family) {
-> +		case AF_INET:
-> +			addr4 = (struct sockaddr_in *) address;
-> +			net_ev->net_event_data.data.saddr.ipv4 = inet->saddr;
-> +			net_ev->net_event_data.data.daddr.ipv4 = addr4->sin_addr.s_addr;
-> +			net_ev->net_event_data.data.sport = ntohs(inet->sport);
-> +			net_ev->net_event_data.data.dport = ntohs(addr4->sin_port);
-> +			break;
-> +		case AF_INET6:
-> +			addr6 = (struct sockaddr_in6 *) address;
-> +			memcpy(&(net_ev->net_event_data.data.saddr.ipv6),
-> +			       &(inet->pinet6->saddr), sizeof(struct in6_addr));
-> +			memcpy(&(net_ev->net_event_data.data.daddr.ipv6),
-> +			       &(addr6->sin6_addr), sizeof(struct in6_addr));
-> +			net_ev->net_event_data.data.sport = ntohs(inet->sport);
-> +			net_ev->net_event_data.data.dport = ntohs(addr6->sin6_port);
-> +			break;
-> +		default:
-> +			/* other protocol, sending nothing */
-> +			goto out;
-> +			break;
-> +		};
-> +		break;
-> +	default:
-> +		/* Bad syscall_num */
-> +		break;
-> +	};
-> +	net_ev->msg_type = CN_NET_DATA;
-> +	ktime_get_real_ts(&net_ev->timestamp);
-> +	net_ev->net_event_data.data.uid = me->uid;
-> +	get_task_comm(net_ev->net_event_data.data.taskname, me);
-> +	net_ev->net_event_data.data.ev.protocol = sk->sk_protocol;
-> +	net_ev->net_event_data.data.ev.syscall_num = syscall_num;
-> +	net_ev->net_event_data.data.family = sk->sk_family;
-> +	memcpy(&m->id, &cn_net_event_id, sizeof(m->id));
-> +	m->seq = get_random_int();
-
-You generally want to use linear sequence number, although it only
-matters if protocol does support its check - you can use ny number of
-course.
-
-> +	m->ack = 0;
-> +	m->len = sizeof(struct net_event);
-> +	
-> +	cn_netlink_send(m, CN_IDX_NET, gfp_any());
-> +out:
-> +	return;
-> +}
-> +
-> +static int cn_net_socket_listen(struct socket *sock, int backlog) {
-> +
-> +	DEBUGP(KERN_INFO "cn_net_socket_listen\n");
-> +	if (check_wanted_event(sock->sk, CN_NET_SOCKET_LISTEN) == NULL)
-> +		cn_net_send_event(sock->sk, NULL, CN_NET_SOCKET_LISTEN);
-> +
-> +	return 0;
-> +}
-> +
-> +static int cn_net_socket_bind(struct socket *sock,
-> +			      struct sockaddr *address, int addrlen) {
-> +
-> +	DEBUGP(KERN_INFO "cn_net_socket_bind\n");
-> +	if (check_wanted_event(sock->sk, CN_NET_SOCKET_BIND) == NULL)
-> +		cn_net_send_event(sock->sk, address, CN_NET_SOCKET_BIND);
-> +
-> +	return 0;
-> +}
-> +
-> +static int cn_net_socket_connect(struct socket *sock, struct sockaddr *address, int addrlen) {
-> +	
-> +	DEBUGP(KERN_INFO "cn_net_socket_connect\n");
-> +	if (check_wanted_event(sock->sk, CN_NET_SOCKET_CONNECT) == NULL)
-> +		cn_net_send_event(sock->sk, address, CN_NET_SOCKET_CONNECT);
-> +
-> +	return 0;
-> +}
-> +
-> +static int cn_net_socket_shutdown(struct socket *sock, int how) {
-> +
-> +	DEBUGP(KERN_INFO "cn_net_socket_shutdown\n");
-> +	if (check_wanted_event(sock->sk, CN_NET_SOCKET_SHUTDOWN) == NULL)
-> +		cn_net_send_event(sock->sk, NULL, CN_NET_SOCKET_SHUTDOWN);
-> +
-> +	return 0;
-> +}
-> +
-> +static int cn_net_sk_free_security(struct sock *sk) {
-> +	
-> +	DEBUGP(KERN_INFO "cn_net_sk_free_security\n");
-> +	if (check_wanted_event(sk, CN_NET_SK_FREE_SECURITY) == NULL)
-> +		cn_net_send_event(sk, NULL, CN_NET_SK_FREE_SECURITY);
-> +
-> +	return 0;
-> +}
-> +
-> +static struct security_operations cn_net_security_ops = {
-> +	.socket_listen		= cn_net_socket_listen,
-> +	.socket_bind		= cn_net_socket_bind,
-> +	.socket_connect		= cn_net_socket_connect,
-> +	.socket_shutdown	= cn_net_socket_shutdown,
-> +	.sk_free_security	= cn_net_sk_free_security,
-> +};
-> +
-> +static int __init init(void) {
-> +	int err = 0;
-> +
-> +	err = cn_add_callback(&cn_net_event_id, cn_net_event_name, &cn_net_ctl);
-> +	if (err) {
-> +		printk(KERN_WARNING "cn_net: Failure add connector callback\n");
-> +		goto out_callback;
-> +	}
-> +
-> +	if (register_security(&cn_net_security_ops)) {
-> +		printk(KERN_INFO "cn_net: Failure registering with kernel\n");
-> +		if (mod_reg_security(MY_NAME, &cn_net_security_ops)) {
-> +			printk(KERN_WARNING
-> +			       "cn_net: Failure registering with primary security"
-> +			       " module\n");
-> +			err = -EINVAL;
-> +			goto out_security;
-> +		}
-> +		secondary = 1;
-> +	}
-> +
-> +	printk(KERN_INFO "cn_net: network events module loaded\n");
-> +	return 0;
-> +
-> +out_security:
-> +	cn_del_callback(&cn_net_event_id);
-> +
-> +out_callback:
-> +	return err;
-> +}
-> +
-> +static void __exit fini(void) {
-> +	if (secondary) {
-> +		if (mod_unreg_security(MY_NAME, &cn_net_security_ops))
-> +			printk(KERN_INFO "cn_net: Failure unregistering with"
-> +			       " primary security module\n");
-> +	} else {
-> +		if (unregister_security(&cn_net_security_ops))
-> +			printk(KERN_INFO "cn_net: Failure unregistering with "
-> +			       "kernel\n");
-> +	}
-> +	
-> +	cn_del_callback(&cn_net_event_id);
-> +	
-> +	/* clean memory */
-> +	remove_all_event();
-> +
-> +	printk(KERN_INFO "cn_net: network events module unloaded\n");
-> +}
-> +
-> +module_init(init);
-> +module_exit(fini);
-> +
-> +MODULE_DESCRIPTION("Network events module");
-> +MODULE_LICENSE("GPL");
-> +MODULE_AUTHOR("Samir Bellabes <sam@synack.fr>");
-> diff --git a/include/linux/cn_net.h b/include/linux/cn_net.h
-> new file mode 100644
-> index 0000000..0d86715
-> --- /dev/null
-> +++ b/include/linux/cn_net.h
-> @@ -0,0 +1,122 @@
-> +/* 
-> + * include/linux/cn_net.h
-> + *
-> + * Network events connector
-> + * Samir Bellabes <sam@synack.fr>
-> + *
-> + *	This program is free software; you can redistribute it and/or
-> + *	modify it under the terms of the GNU General Public License
-> + *	as published by the Free Software Foundation; either version
-> + *	2 of the License, or (at your option) any later version.
-> + */ 
-> +
-> +#ifndef CN_NET_H
-> +#define CN_NET_H
-> +
-> +#include <linux/time.h>
-> +#include <linux/ipv6.h>
-> +
-> +#define CN_NET_VERSION 0x1
-> +
-> +#define CN_NET_MSG_SIZE (sizeof(struct cn_msg) + sizeof(struct net_event))
-> +
-> +char *syscall_name[] = { "LISTEN", "BIND", "CONNECT", "SHUTDOWN", "SK_FREE" };
-> +char *msg_type_name[] = { "CN_NET_NONE", "CN_NET_ACK", "CN_NET_DATA",
-> +			  "CN_NET_CONFIG", "CN_NET_LISTEN", "CN_NET_IGNORE",
-> +			  "CN_NET_DUMP" };
-> +char *config_name[] = {"CN_NET_CONFIG_ADD", "CN_NET_CONFIG_DEL", "CN_NET_CONFIG_FLUSH" };
-
-Why they should live in header file?
-I would sugest to put them into source and provide appropriate helper
-functions to access strings.
-
-> +/**
-> + * identify which syscall has been called.
-> + */
-> +enum cn_net_socket {
-> +	CN_NET_SOCKET_LISTEN	= 0,
-> +	CN_NET_SOCKET_BIND	= 1,
-> +	CN_NET_SOCKET_CONNECT	= 2,
-> +	CN_NET_SOCKET_SHUTDOWN	= 3,
-> +	CN_NET_SK_FREE_SECURITY = 4,
-> +	CN_NET_SOCKET_MAX	= 5,
-> +};
-> +
-> +/**
-> + * Protocol message type
-> + */
-> +enum msg_type {
-> +	CN_NET_NONE     = 0,
-> +	CN_NET_ACK      = 1,    
-> +	CN_NET_DATA     = 2,
-> +	CN_NET_CONFIG   = 3,
-> +	CN_NET_LISTEN   = 4,
-> +	CN_NET_IGNORE   = 5,
-> +	CN_NET_DUMP	= 6,
-> +};
-> +
-> +/**
-> + * values for CN_NET_ACK messages
-> + */
-> +enum ack_err {
-> +	CN_NET_ACK_SUCCES	= 0,
-> +	CN_NET_ACK_ENOMEM	= 1,
-> +	CN_NET_ACK_EINCONFIG	= 2,
-> +	CN_NET_ACK_EINTYPE	= 3,
-> +	CN_NET_ACK_EBADPROTO	= 4,
-> +};
-> +
-> +/**
-> + * values for CN_NET_CONFIG messages
-> + */
-> +enum config_cmd {
-> +	CN_NET_CONFIG_ADD	= 0,
-> +	CN_NET_CONFIG_DEL	= 1,
-> +	CN_NET_CONFIG_FLUSH	= 2,
-> +};
-> +
-> +struct event {
-> +	enum cn_net_socket syscall_num;
-> +	__u8 protocol;
-> +};
-
-Imho you should not use enum as a type - I would put there two shorts to
-align to 32 bits.
-
-> +struct event_node {
-> +	struct rb_node ev_node;
-> +	struct event ev;
-> +};
-> +
-> +struct msg_config {
-> +	enum config_cmd config_cmd;
-> +	struct event ev; 
-> +};
-> +
-> +struct net_event {
-> +	enum msg_type msg_type;
-> +	struct timespec timestamp;
-
-NO WAY!
-
-It has different size on 32 and 64 bit platforms, you are not allowed to
-use it in code supposed to be seen from userspace.
-
-> +	union {
-> +		/* protocol version number */
-> +		__u32 version;
-> +
-> +		/* generic ack for both userspace and kernel */
-> +		enum ack_err ack;
-> +
-> +		/* send data to userspace */
-> +		struct {
-> +			struct event ev;
-> +			uid_t uid;
-> +			unsigned char taskname[TASK_COMM_LEN];
-> +			unsigned int family;
-> +			union {
-> +				struct in6_addr ipv6;
-> +				__u32 ipv4;
-> +			} saddr;
-> +			union {
-> +				struct in6_addr ipv6;
-> +				__u32 ipv4;
-> +			} daddr;
-> +			unsigned int sport;
-> +			unsigned int dport;
-> +		} data;
-> +
-> +		/* send config to kernel */
-> +		struct msg_config config;
-> +	} net_event_data;
-> +};
-
-And generally all your names in this header suck :)
-Add something uniq to them line cn_event_ or ne_ or somthing else, but
-definitely not 'struct event'.
-
--- 
-	Evgeniy Polyakov
+iVBORw0KGgoAAAANSUhEUgAABLAAAAOECAIAAAA+D1+tAAAACXBIWXMAABcSAAAXEgFnn9JS
+AAAAB3RJTUUH1wMPEh83tmkwPgAAACJ0RVh0Q3JlYXRpb24gVGltZQAxNS1NYXItMjAwNyAx
+NDozMTo1NnCz/ZgAAAAkdEVYdFNvZnR3YXJlAE1BVExBQiwgVGhlIE1hdGh3b3JrcywgSW5j
+LrrEUs8AACAASURBVHic7d3beqs4toDRUF+//ytrX7CLpgUGJI7SHOMqK3Ecm2Id/ppCDCml
+PwAAAOL55+0XAAAAwDsEIQAAQFCCEAAAIChBCAAAEJQgBAAACEoQAgAABCUIAQAAghKEAAAA
+QQlCAACAoAQhAABAUIIQAAAgKEEIAAAQlCAEAAAIShACAAAEJQgBAACCEoQAAABBCUIAAICg
+BCEAAEBQghAAACAoQQgAABCUIAQAAAhKEAIAAAQlCAEAAIIShAAAAEEJQgAAgKAEIQAAQFCC
+EAAAIChBCAAAEJQgBAAACEoQAgAABCUIAQAAghKEAAAAQQlCAACAoAQhAABAUIIQAAAgKEEI
+AAAQlCAEAAAIShACAAAEJQgBAACCEoQAAABBCUIAAICgBCEAAEBQghAAACAoQQgAABCUIAQA
+AAhKEAIAAAQlCAEAAIIShAAAAEEJQgAAgKAEIQAAQFCCEAAAIChBCAAAEJQgBAAACEoQAgAA
+BCUIAQAAghKEAAAAQQlCAACAoAQhAABAUIIQAAAgKEEIAAAQlCAEAAAIShC2ZxiGYRjefhUA
+AEDz/vP2C+AoEQgAAFzLhBAAACAoE8JmpJTGD4wKAQCAS5gQAgAABCUIAQAAgrJktEPWlAIA
+0KXpKiquIgj75LfKZBgGR2POAck4IBkHJOOAzDkaGQck44BkHJDM+QNi7HEHS0YBAACCEoQA
+AABBCUIAAICgBCEAAEBQghAAACAou4y2x3ZVAADAJUwIAQAAghKEAAAAQbldZofcBRUAgP74
+V+4dTAgBAACCEoQAAABBCUIAAICgBCEAAEBQghAAACAoQQgAABCUIAQAAAhKEAIAAAQlCAEA
+AIIShAAAAEEJQgAAgKAEIQAAQFCCEAAAIChBCAAAEJQgBAAACEoQAgAABCUIAQAAghKEAAAA
+QQlCAACAoAQhAABAUIIQAAAgKEEIAAAQlCAEAAAIShACAAAEJQgBAACCEoQAAABBCUIAAICg
+BCEAAEBQghAAACAoQQgAABCUIAQAAAhKEAIAAAQlCAEAAIIShAAAAEEJQgAAgKAEIQAAQFCC
+EAAAIChBCAAAEJQgBAAACEoQAgAABCUIAQAAghKEAAAAQQlCAACAoAQhAABAUIIQAAAgKEEI
+AAAQlCAEAAAIShACAAAEJQgBAACCEoQAAABBCUIAAICgBCEAAEBQghAAACAoQQgAABCUIAQA
+AAhKEAIAAAT1n7dfQHTDMEwfp5QufDAAAMA2E8I3zQNv+cszDwYAANglCN+XUjo4G0z/mn8S
+AACgjiB8zdR44y/HDw42nvWiAADAeYIQAAAgKEEIAAAQlF1G25BSGobh+EWDG4+03BQAgG+y
+R8bzBGEzxiZcfvzrwY+8KAAAuMz2P2Ll4h0EYUtkHgAAcCHXEAIAAAQlCF+T3WciuwtFJruA
+cPvBAAAAR1gy+r7VxdCryWfZNAAAcCETwjdlvbcx8Vt+yXgQAAA4yYTwZb+6TgECAAB3MyEE
+AAAIShACAAAEJQgBAACCEoQAAABBCUIAAICgBCEAAEBQghAAACAoQQgAABCUIAQAAAhKEAIA
+AAQlCAEAAIIShAAAAEEJQgAAgKAEIQAAQFCCEAAAIChBCAAAEJQgBAAACEoQAgAABCUIAQAA
+ghKEAAAAQQlCAACAoAQhAABAUIIQAAAgKEEIAAAQlCAEAAAIShACAAAEJQgBAACCEoQAAABB
+CUIAAICgBCEAAEBQghAAACAoQQgAABCUIAQAAAhKEAIAAAQlCAEAAIIShAAAAEEJQgAAgKAE
+IQAAQFCCEAAAIChBCAAAEJQgBAAACEoQAgAABCUIAQAAghKEAAAAQQlCAACAoAQhAABAUIIQ
+AAAgKEEIAAAQlCAEAAAIShACAAAEJQgBAACCEoQAAABBCUIAAICgBCEAAEBQghAAACAoQQgA
+ABCUIAQAAAhKEAIAAAQlCAEAAIL6z9svILphGKaPU0oXPhgAAGCbCeGb5oG3/OWZBwMAAOwS
+hO9LKR2fDc4frAkBAIAzBOFrxpyb6m78YLvxsgcDAACcIQgBAACCEoRtyOaH2XQRAACggl1G
+G3PwusGNh8lIAAC+yR4ZzxOEbZhvKjP9chiGX3Wn+gAAaM72P2Ll4h0sGW2JTWUAAIALCUIA
+AICgBOFrKvaJyR4MAABwhmsI37dad8u7FE7XDU6PsXAUAAA4w4TwTVnRbQde0YMBAAB2mRC+
+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
+AABJRU5ErkJggg==
+--------------080606060803020603080905--
