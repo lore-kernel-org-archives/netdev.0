@@ -1,43 +1,48 @@
-From: Benjamin LaHaise <bcrl@kvack.org>
-Subject: Re: [patch 1/4] network dev read_mostly
-Date: Thu, 15 Mar 2007 09:17:22 -0400
-Message-ID: <20070315131722.GH1246@kvack.org>
-References: <20070312210907.509184287@linux-foundation.org> <20070315021840.GG1246@kvack.org> <45F8E793.7040603@cosmosbay.com> <20070315.002516.59485075.davem@davemloft.net>
+From: Joerg Pommnitz <pommnitz@yahoo.com>
+Subject: IPsec with aes-cbc and geode-aes driver completely freezes 2.6.20.1
+Date: Thu, 15 Mar 2007 06:45:33 -0700 (PDT)
+Message-ID: <20070315134533.21402.qmail@web51408.mail.re2.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dada1@cosmosbay.com, shemminger@linux-foundation.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: info-linux@geode.amd.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kanga.kvack.org ([66.96.29.28]:54009 "EHLO kanga.kvack.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933541AbXCONRg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Mar 2007 09:17:36 -0400
-Content-Disposition: inline
-In-Reply-To: <20070315.002516.59485075.davem@davemloft.net>
+Received: from web51408.mail.re2.yahoo.com ([206.190.38.187]:41071 "HELO
+	web51408.mail.re2.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1161344AbXCONwN convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Mar 2007 09:52:13 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 15, 2007 at 12:25:16AM -0700, David Miller wrote:
-> Could we obtain %rip relative addressing with the ELF
-> relocation approach I mentioned?
+Hello all,
+the subject line basically says it all. I was trying to offload IPsec e=
+ncryption to the hardware encryption engine on my Geode LX800. The exac=
+t same setkey command works fine with software aes.
 
-I think we can for some of the objects -- things like slab caches are 
-good candidates if we have the initialization done at init time, which 
-would actually be a very cool way of getting rid of the static slab 
-creation calls.  I'll cook something better up on the slab front.
+In case it matters: this is with a MSEP800/A board from DIGITAL-LOGIC A=
+G (see http://www.digitallogic.com/english/products/catalog07/epic_deta=
+il.asp?id=3DMSEP800_L).
 
-As for other variables, many can't be rip relative as they often end up 
-pointing to addresses outside of the +/-2GB range we have there.
+Did anybody ever succeed with Geode hardware accelerated IPsec? Did you=
+ have to do anything special?
+=20
+--=20
 
-The main reason I came up with this was from looking at the various 
-kprobes and notifier chain overhead in common code paths.  In many 
-instances we need a single byte flag showing the feature is in use to 
-jump out of the hot path.
+Regards
 
-Then there are the selinux hooks....
+       Joerg
 
-		-ben
--- 
-"Time is of no importance, Mr. President, only life is important."
-Don't Email: <zyntrop@kvack.org>.
+
+
+
+
+
+
+
+=09
+	=09
+___________________________________________________________=20
+Der fr=FChe Vogel f=E4ngt den Wurm. Hier gelangen Sie zum neuen Yahoo! =
+Mail: http://mail.yahoo.de
