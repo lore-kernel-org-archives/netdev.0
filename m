@@ -1,39 +1,56 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: Re: [PATCH] Tehuti Networks 10GbE Support
-Date: Fri, 16 Mar 2007 10:28:13 -0400
-Message-ID: <20070316142813.GA27140@gospo.rdu.redhat.com>
-References: <20070315140246.GA24146@gospo.rdu.redhat.com> <45F96283.4080208@garzik.org>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: [PATCH 0/5] [RFC] AF_RXRPC socket family implementation [try
+ #2]
+Date: Fri, 16 Mar 2007 15:34:08 +0000
+Message-ID: <20070316153408.3a9a244a@lxorguk.ukuu.org.uk>
+References: <20070316151305.04cbc352@lxorguk.ukuu.org.uk>
+	<20070316125008.3740.44693.stgit@warthog.cambridge.redhat.com>
+	<25571.1174054993@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org,
-	nadav@tehutinetworks.net, baum@tehutinetworks.net
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org, herbert.xu@redhat.com,
+	linux-kernel@vger.kernel.org, hch@infradead.org,
+	arjan@infradead.org
+To: David Howells <dhowells@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:56678 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965095AbXCPO2a (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Mar 2007 10:28:30 -0400
-Content-Disposition: inline
-In-Reply-To: <45F96283.4080208@garzik.org>
+Received: from outpipe-village-512-1.bc.nu ([81.2.110.250]:42745 "EHLO
+	lxorguk.ukuu.org.uk" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S965181AbXCPObO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Mar 2007 10:31:14 -0400
+In-Reply-To: <25571.1174054993@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 15, 2007 at 11:13:07AM -0400, Jeff Garzik wrote:
-> 
-> more bitfields, more endianness bugs.
-> 
-> I stopped reviewing there.  Repost when these issues have been fixed, as 
-> it will be far easier to review the driver then.
-> 
-> Also, do not bother to post the firmware include in email.  Post a URL 
-> to the full patch, or excluded file.  Including the firmware needlessly 
-> eliminates reviewers by causing mailing list software to drop your patch 
-> rather than redistributing it to list members.
-> 
-> 	Jeff
-> 
+On Fri, 16 Mar 2007 14:23:13 +0000
+David Howells <dhowells@redhat.com> wrote:
 
-Thanks for the feedback, Jeff.  I was hoping to have a patch ready
-today, but it will probably be early next week before I can get some of
-this sorted out....
+> Alan Cox <alan@lxorguk.ukuu.org.uk> wrote:
+> 
+> > If your messages are datagrams and unreliable -> SOCK_DGRAM
+> 
+> Nope.
+> 
+> > If your messages are datagrams and reliable -> SOCK_RDM
+> 
+> Nope.
+> 
+> > If your messages are datagrams, reliable and ordered -> SOCK_SEQPACKET
+> 
+> Nope.
+> 
+> > If your messages are streams of bits, reliable and ordered -> SOCK_STREAM
+> 
+> Nope.
 
+So your messages are neither reliable not unreliable, nor ordered, nor
+unordered.
+
+NAK
+
+Until you work out what your messages actually are and use a proper
+standard socket type. And "but there are higher layers" isn't relevant
+here, this is true for Appletalk as well and it doesn't have to go
+inventing new types for everything as you seem to.
+
+Alan
