@@ -1,29 +1,94 @@
 From: "Arnaldo Carvalho de Melo" <acme@ghostprotocols.net>
-Subject: [PATCHES 0/4] sk_buff on a diet, eating onions^Wunions
-Date: Fri, 16 Mar 2007 17:54:12 -0300
-Message-ID: <39e6f6c70703161354u3e460e61k2e2a30fa92644f6d@mail.gmail.com>
+Subject: [PATCH 1/4] [SK_BUFF]: Use the helpers to get the layer header pointer
+Date: Fri, 16 Mar 2007 17:54:17 -0300
+Message-ID: <39e6f6c70703161354v23bc29d7g5a3100db9697c757@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: multipart/mixed;
+	boundary="----=_Part_84469_13548487.1174078457029"
 Cc: "Netdev List" <netdev@vger.kernel.org>
 To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from ug-out-1314.google.com ([66.249.92.175]:33078 "EHLO
 	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965912AbXCPUyO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Mar 2007 16:54:14 -0400
+	with ESMTP id S965917AbXCPUyT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Mar 2007 16:54:19 -0400
 Received: by ug-out-1314.google.com with SMTP id 44so801951uga
-        for <netdev@vger.kernel.org>; Fri, 16 Mar 2007 13:54:13 -0700 (PDT)
-Content-Disposition: inline
+        for <netdev@vger.kernel.org>; Fri, 16 Mar 2007 13:54:18 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi David,
+------=_Part_84469_13548487.1174078457029
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-         Please consider pulling from:
+Some more cases...
 
-master.kernel.org:/pub/scm/linux/kernel/git/acme/net-2.6.22
+Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+---
+ net/ipv4/igmp.c                         |    2 +-
+ net/ipv4/ip_output.c                    |    2 +-
+ net/ipv6/exthdrs.c                      |    2 +-
+ net/ipv6/netfilter/nf_conntrack_reasm.c |    4 ++--
+ 4 files changed, 5 insertions(+), 5 deletions(-)
 
-Thanks a lot!
+------=_Part_84469_13548487.1174078457029
+Content-Type: text/x-patch;
+	name=0001-SK_BUFF-Use-the-helpers-to-get-the-layer-header-p.patch;
+	charset=ANSI_X3.4-1968
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_ezd3vwse
+Content-Disposition: attachment; filename="0001-SK_BUFF-Use-the-helpers-to-get-the-layer-header-p.patch"
 
-- Arnaldo
+RnJvbSA4ZmNmZmRjNWNkMmIxMmI2ZDc5NDBlZjk1MWM3MTc0YzE3ZGQ4NmM2IE1vbiBTZXAgMTcg
+MDA6MDA6MDAgMjAwMQpGcm9tOiBBcm5hbGRvIENhcnZhbGhvIGRlIE1lbG8gPGFjbWVAcmVkaGF0
+LmNvbT4KRGF0ZTogRnJpLCAxNiBNYXIgMjAwNyAxNzoxOTo1NyAtMDMwMApTdWJqZWN0OiBbUEFU
+Q0ggMS80XSBbU0tfQlVGRl06IFVzZSB0aGUgaGVscGVycyB0byBnZXQgdGhlIGxheWVyIGhlYWRl
+ciBwb2ludGVyCgpTb21lIG1vcmUgY2FzZXMuLi4KClNpZ25lZC1vZmYtYnk6IEFybmFsZG8gQ2Fy
+dmFsaG8gZGUgTWVsbyA8YWNtZUByZWRoYXQuY29tPgotLS0KIG5ldC9pcHY0L2lnbXAuYyAgICAg
+ICAgICAgICAgICAgICAgICAgICB8ICAgIDIgKy0KIG5ldC9pcHY0L2lwX291dHB1dC5jICAgICAg
+ICAgICAgICAgICAgICB8ICAgIDIgKy0KIG5ldC9pcHY2L2V4dGhkcnMuYyAgICAgICAgICAgICAg
+ICAgICAgICB8ICAgIDIgKy0KIG5ldC9pcHY2L25ldGZpbHRlci9uZl9jb25udHJhY2tfcmVhc20u
+YyB8ICAgIDQgKystLQogNCBmaWxlcyBjaGFuZ2VkLCA1IGluc2VydGlvbnMoKyksIDUgZGVsZXRp
+b25zKC0pCgpkaWZmIC0tZ2l0IGEvbmV0L2lwdjQvaWdtcC5jIGIvbmV0L2lwdjQvaWdtcC5jCmlu
+ZGV4IDFlNDk4MTcuLjRkNzIxM2IgMTAwNjQ0Ci0tLSBhL25ldC9pcHY0L2lnbXAuYworKysgYi9u
+ZXQvaXB2NC9pZ21wLmMKQEAgLTM0OCw3ICszNDgsNyBAQCBzdGF0aWMgaW50IGlnbXB2M19zZW5k
+cGFjayhzdHJ1Y3Qgc2tfYnVmZiAqc2tiKQogewogCXN0cnVjdCBpcGhkciAqcGlwID0gaXBfaGRy
+KHNrYik7CiAJc3RydWN0IGlnbXBoZHIgKnBpZyA9IGlnbXBfaGRyKHNrYik7Ci0JY29uc3QgaW50
+IGlwbGVuID0gc2tiLT50YWlsIC0gc2tiLT5uaC5yYXc7CisJY29uc3QgaW50IGlwbGVuID0gc2ti
+LT50YWlsIC0gc2tiX25ldHdvcmtfaGVhZGVyKHNrYik7CiAJY29uc3QgaW50IGlnbXBsZW4gPSBz
+a2ItPnRhaWwgLSBza2JfdHJhbnNwb3J0X2hlYWRlcihza2IpOwogCiAJcGlwLT50b3RfbGVuID0g
+aHRvbnMoaXBsZW4pOwpkaWZmIC0tZ2l0IGEvbmV0L2lwdjQvaXBfb3V0cHV0LmMgYi9uZXQvaXB2
+NC9pcF9vdXRwdXQuYwppbmRleCAxMWFiMTAwLi4xMWE2YWM3IDEwMDY0NAotLS0gYS9uZXQvaXB2
+NC9pcF9vdXRwdXQuYworKysgYi9uZXQvaXB2NC9pcF9vdXRwdXQuYwpAQCAtNjAxLDcgKzYwMSw3
+IEBAIHNsb3dfcGF0aDoKIAkJLyoKIAkJICoJQ29weSBhIGJsb2NrIG9mIHRoZSBJUCBkYXRhZ3Jh
+bS4KIAkJICovCi0JCWlmIChza2JfY29weV9iaXRzKHNrYiwgcHRyLCBza2IyLT5oLnJhdywgbGVu
+KSkKKwkJaWYgKHNrYl9jb3B5X2JpdHMoc2tiLCBwdHIsIHNrYl90cmFuc3BvcnRfaGVhZGVyKHNr
+YjIpLCBsZW4pKQogCQkJQlVHKCk7CiAJCWxlZnQgLT0gbGVuOwogCmRpZmYgLS1naXQgYS9uZXQv
+aXB2Ni9leHRoZHJzLmMgYi9uZXQvaXB2Ni9leHRoZHJzLmMKaW5kZXggMzA4NTdhOC4uYWM2NDU1
+NSAxMDA2NDQKLS0tIGEvbmV0L2lwdjYvZXh0aGRycy5jCisrKyBiL25ldC9pcHY2L2V4dGhkcnMu
+YwpAQCAtNDc4LDcgKzQ3OCw3IEBAIGxvb3BlZF9iYWNrOgogCQlrZnJlZV9za2Ioc2tiKTsKIAkJ
+KnNrYnAgPSBza2IgPSBza2IyOwogCQlvcHQgPSBJUDZDQihza2IyKTsKLQkJaGRyID0gKHN0cnVj
+dCBpcHY2X3J0X2hkciAqKSBza2IyLT5oLnJhdzsKKwkJaGRyID0gKHN0cnVjdCBpcHY2X3J0X2hk
+ciAqKXNrYl90cmFuc3BvcnRfaGVhZGVyKHNrYjIpOwogCX0KIAogCWlmIChza2ItPmlwX3N1bW1l
+ZCA9PSBDSEVDS1NVTV9DT01QTEVURSkKZGlmZiAtLWdpdCBhL25ldC9pcHY2L25ldGZpbHRlci9u
+Zl9jb25udHJhY2tfcmVhc20uYyBiL25ldC9pcHY2L25ldGZpbHRlci9uZl9jb25udHJhY2tfcmVh
+c20uYwppbmRleCAwMTU5NTA1Li44NGNlNWIzIDEwMDY0NAotLS0gYS9uZXQvaXB2Ni9uZXRmaWx0
+ZXIvbmZfY29ubnRyYWNrX3JlYXNtLmMKKysrIGIvbmV0L2lwdjYvbmV0ZmlsdGVyL25mX2Nvbm50
+cmFja19yZWFzbS5jCkBAIC02MjcsNyArNjI3LDcgQEAgbmZfY3RfZnJhZzZfcmVhc20oc3RydWN0
+IG5mX2N0X2ZyYWc2X3F1ZXVlICpmcSwgc3RydWN0IG5ldF9kZXZpY2UgKmRldikKIAogCS8qIFdl
+IGhhdmUgdG8gcmVtb3ZlIGZyYWdtZW50IGhlYWRlciBmcm9tIGRhdGFncmFtIGFuZCB0byByZWxv
+Y2F0ZQogCSAqIGhlYWRlciBpbiBvcmRlciB0byBjYWxjdWxhdGUgSUNWIGNvcnJlY3RseS4gKi8K
+LQlza2JfbmV0d29ya19oZWFkZXIoaGVhZClbZnEtPm5ob2Zmc2V0XSA9IGhlYWQtPmgucmF3WzBd
+OworCXNrYl9uZXR3b3JrX2hlYWRlcihoZWFkKVtmcS0+bmhvZmZzZXRdID0gc2tiX3RyYW5zcG9y
+dF9oZWFkZXIoaGVhZClbMF07CiAJbWVtbW92ZShoZWFkLT5oZWFkICsgc2l6ZW9mKHN0cnVjdCBm
+cmFnX2hkciksIGhlYWQtPmhlYWQsCiAJCShoZWFkLT5kYXRhIC0gaGVhZC0+aGVhZCkgLSBzaXpl
+b2Yoc3RydWN0IGZyYWdfaGRyKSk7CiAJaGVhZC0+bWFjLnJhdyArPSBzaXplb2Yoc3RydWN0IGZy
+YWdfaGRyKTsKQEAgLTc4Nyw3ICs3ODcsNyBAQCBzdHJ1Y3Qgc2tfYnVmZiAqbmZfY3RfZnJhZzZf
+Z2F0aGVyKHN0cnVjdCBza19idWZmICpza2IpCiAKIAlza2Jfc2V0X3RyYW5zcG9ydF9oZWFkZXIo
+Y2xvbmUsIGZob2ZmKTsKIAloZHIgPSBpcHY2X2hkcihjbG9uZSk7Ci0JZmhkciA9IChzdHJ1Y3Qg
+ZnJhZ19oZHIgKiljbG9uZS0+aC5yYXc7CisJZmhkciA9IChzdHJ1Y3QgZnJhZ19oZHIgKilza2Jf
+dHJhbnNwb3J0X2hlYWRlcihjbG9uZSk7CiAKIAlpZiAoIShmaGRyLT5mcmFnX29mZiAmIGh0b25z
+KDB4RkZGOSkpKSB7CiAJCURFQlVHUCgiSW52YWxpZCBmcmFnbWVudCBvZmZzZXRcbiIpOwotLSAK
+MS41LjAuMwoK
+------=_Part_84469_13548487.1174078457029--
