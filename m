@@ -1,37 +1,44 @@
-From: Valerie Henson <val_henson@linux.intel.com>
-Subject: Re: [patch 4/6] [TULIP]  Quiet down tulip_stop_rxtx
-Date: Thu, 15 Mar 2007 17:10:10 -0700
-Message-ID: <20070316001010.GE5291@nifty>
-References: <20070312093128.577087000@linux.intel.com> <20070312184218.317747000@linux.intel.com> <45F96556.10205@garzik.org>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 0/6] IrDA: Updates
+Date: Thu, 15 Mar 2007 18:12:02 -0700 (PDT)
+Message-ID: <20070315.181202.59667704.davem@davemloft.net>
+References: <20070314192236.GB3397@sortiz.org>
+	<20070315.030054.78719597.davem@davemloft.net>
+	<20070315230625.GA3478@sortiz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: akpm@osdl.org, netdev@vger.kernel.org,
-	Grant Grundler <grundler@parisc-linux.org>
-To: Jeff Garzik <jeff@garzik.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga06.intel.com ([134.134.136.21]:17939 "EHLO
-	orsmga101.jf.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753436AbXCPAKG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Mar 2007 20:10:06 -0400
-Content-Disposition: inline
-In-Reply-To: <45F96556.10205@garzik.org>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org
+Return-path: <irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <20070315230625.GA3478-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
+	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=irda-users>
+List-Post: <mailto:irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
+	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Sender: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Errors-To: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 15, 2007 at 11:25:10AM -0400, Jeff Garzik wrote:
-> 
-> Here's the problem with this:  this printk is signalling that the DMA 
-> engines have not yet stopped, which is an event of which we should be wary.
-> 
-> While it makes sense to do this patch, since the complaining cards 
-> appear to work anyway, we also need to take into account the times when 
-> this is not a spurious warning.
-> 
-> Thus, I would consider maybe adding a warning somewhere in the 
-> DMA-engine-start region of code, that complains if the DMA engines are 
-> already active, or somesuch.
+From: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
+Date: Fri, 16 Mar 2007 01:06:26 +0200
 
-Yeah, I agree it's signifying a problem, and we should have a warning
-(only one) until we figure out what's going on.  Put on my to-do list.
+> On Thu, Mar 15, 2007 at 03:00:54AM -0700, David Miller wrote:
+> > Please properly segregate things in the future and make sure that you
+> > submit bug fixes against net-2.6 and features against the net-2.6.22
+> > tree.
+> I will resend 2 separate patch sets by tomorrow, forget about this one.
+> 
+> Thanks for your patience.
 
--VAL
+Thank you very much.
+
+
+-------------------------------------------------------------------------
+Take Surveys. Earn Cash. Influence the Future of IT
+Join SourceForge.net's Techsay panel and you'll get the chance to share your
+opinions on IT & business topics through brief surveys-and earn cash
+http://www.techsay.com/default.php?page=join.php&p=sourceforge&CID=DEVDEV
