@@ -1,33 +1,39 @@
-From: David Howells <dhowells@redhat.com>
-Subject: Re: [PATCH 0/5] [RFC] AF_RXRPC socket family implementation [try #2]
-Date: Fri, 16 Mar 2007 14:23:13 +0000
-Message-ID: <25571.1174054993@redhat.com>
-References: <20070316151305.04cbc352@lxorguk.ukuu.org.uk>  <20070316125008.3740.44693.stgit@warthog.cambridge.redhat.com>
-Cc: davem@davemloft.net, netdev@vger.kernel.org, herbert.xu@redhat.com,
-	linux-kernel@vger.kernel.org, hch@infradead.org,
-	arjan@infradead.org
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965154AbXCPOX3@vger.kernel.org>
-In-Reply-To: <20070316151305.04cbc352@lxorguk.ukuu.org.uk> 
-Sender: linux-kernel-owner@vger.kernel.org
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: [PATCH] Tehuti Networks 10GbE Support
+Date: Fri, 16 Mar 2007 10:28:13 -0400
+Message-ID: <20070316142813.GA27140@gospo.rdu.redhat.com>
+References: <20070315140246.GA24146@gospo.rdu.redhat.com> <45F96283.4080208@garzik.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org,
+	nadav@tehutinetworks.net, baum@tehutinetworks.net
+To: Jeff Garzik <jeff@garzik.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([66.187.233.31]:56678 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965095AbXCPO2a (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Mar 2007 10:28:30 -0400
+Content-Disposition: inline
+In-Reply-To: <45F96283.4080208@garzik.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Alan Cox <alan@lxorguk.ukuu.org.uk> wrote:
+On Thu, Mar 15, 2007 at 11:13:07AM -0400, Jeff Garzik wrote:
+> 
+> more bitfields, more endianness bugs.
+> 
+> I stopped reviewing there.  Repost when these issues have been fixed, as 
+> it will be far easier to review the driver then.
+> 
+> Also, do not bother to post the firmware include in email.  Post a URL 
+> to the full patch, or excluded file.  Including the firmware needlessly 
+> eliminates reviewers by causing mailing list software to drop your patch 
+> rather than redistributing it to list members.
+> 
+> 	Jeff
+> 
 
-> If your messages are datagrams and unreliable -> SOCK_DGRAM
+Thanks for the feedback, Jeff.  I was hoping to have a patch ready
+today, but it will probably be early next week before I can get some of
+this sorted out....
 
-Nope.
-
-> If your messages are datagrams and reliable -> SOCK_RDM
-
-Nope.
-
-> If your messages are datagrams, reliable and ordered -> SOCK_SEQPACKET
-
-Nope.
-
-> If your messages are streams of bits, reliable and ordered -> SOCK_STREAM
-
-Nope.
-
-David
