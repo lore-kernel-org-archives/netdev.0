@@ -1,67 +1,69 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: [NET_SCHED]: Fix warning
-Date: Fri, 16 Mar 2007 14:35:04 +0100
-Message-ID: <45FA9D08.4010804@trash.net>
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: [PATCH 2/5] AF_RXRPC: Move generic skbuff stuff from XFRM code to generic code [try #2]
+Date: Fri, 16 Mar 2007 13:36:08 +0000
+Message-ID: <20070316133608.GB2173@infradead.org>
+References: <20070316125008.3740.44693.stgit@warthog.cambridge.redhat.com> <20070316125021.3740.49616.stgit@warthog.cambridge.redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------050309060909060601080307"
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org, herbert.xu@redhat.com,
+	linux-kernel@vger.kernel.org, hch@infradead.org,
+	arjan@infradead.org
+To: David Howells <dhowells@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:53966 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753522AbXCPNfJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Mar 2007 09:35:09 -0400
+Received: from pentafluge.infradead.org ([213.146.154.40]:47247 "EHLO
+	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753519AbXCPNgL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Mar 2007 09:36:11 -0400
+Content-Disposition: inline
+In-Reply-To: <20070316125021.3740.49616.stgit@warthog.cambridge.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------050309060909060601080307
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
+On Fri, Mar 16, 2007 at 12:50:21PM +0000, David Howells wrote:
+> Move generic skbuff stuff from XFRM code to generic code so that AF_RXRPC can
+> use it too.
+> 
+> Signed-Off-By: David Howells <dhowells@redhat.com>
+> ---
+> 
+>  include/linux/skbuff.h |    4 +
+>  include/net/esp.h      |    2 -
+>  net/core/skbuff.c      |  173 ++++++++++++++++++++++++++++++++++++++++++++++++
+>  net/xfrm/xfrm_algo.c   |  169 -----------------------------------------------
+>  4 files changed, 177 insertions(+), 171 deletions(-)
 
-Fix a warning introduced by my patches, seems like I didn't pay
-enough attention ..
+> --- a/include/linux/skbuff.h
+> +++ b/include/linux/skbuff.h
+> @@ -1481,5 +1481,9 @@ static inline int skb_is_gso(const struct sk_buff *skb)
+>  	return skb_shinfo(skb)->gso_size;
+>  }
+>  
+> +struct scatterlist;
 
+normally we try to put structure forward declarations at the top of the
+header instead of spreading it around all over.
 
+> +extern int skb_to_sgvec(struct sk_buff *skb, struct scatterlist *sg, int offset, int len);
+> +extern int skb_cow_data(struct sk_buff *skb, int tailbits, struct sk_buff **trailer);
 
---------------050309060909060601080307
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
+please make sure no line is longer than 80 characters.  Also shouldn't
+prototypes normally be above inlines?  Or at least grouped into logical
+areas?
 
-[NET_SCHED]: Fix warning
+> +/*
+> + * fill a scatter-gather list with pointers into a part of a socket buffer
+> + * chain
+> + */
 
-net/sched/sch_api.c: In function 'psched_show':
-net/sched/sch_api.c:1219: warning: format '%08x' expects type 'unsigned int', but argument 6 has type 's64'
+This could probably use a kdoc comment now that it's a public symbol.
 
-Signed-off-by: Patrick McHardy <kaber@trash.net>
+> +/*
+> + * Check that skb data bits are writable. If they are not, copy data
+> + * to newly created private area. If "tailbits" is given, make sure that
+> + * tailbits bytes beyond current end of skb are writable.
+> + *
+> + * Returns amount of elements of scatterlist to load for subsequent
+> + * transformations and pointer to writable trailer skb.
+> + */
 
----
-commit 4637e33149600f53399e4f36c89f6818671ebc87
-tree 966f51f002a2ed08d3a3a6c2981429c63e8ce7b0
-parent 20bac6a57d8d37deecd8b8101269542fe2c625b0
-author Patrick McHardy <kaber@trash.net> Fri, 16 Mar 2007 14:21:37 +0100
-committer Patrick McHardy <kaber@trash.net> Fri, 16 Mar 2007 14:21:37 +0100
-
- net/sched/sch_api.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
-
-diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-index 047ae62..ecbdc6b 100644
---- a/net/sched/sch_api.c
-+++ b/net/sched/sch_api.c
-@@ -1216,7 +1216,8 @@ static int psched_show(struct seq_file *
- {
- 	seq_printf(seq, "%08x %08x %08x %08x\n",
- 		   (u32)NSEC_PER_USEC, (u32)PSCHED_US2NS(1),
--		   1000000, (u32)NSEC_PER_SEC/ktime_to_ns(KTIME_MONOTONIC_RES));
-+		   1000000,
-+		   (u32)NSEC_PER_SEC/(u32)ktime_to_ns(KTIME_MONOTONIC_RES));
- 
- 	return 0;
- }
-
---------------050309060909060601080307--
+Same here.
