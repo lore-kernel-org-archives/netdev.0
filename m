@@ -1,8 +1,8 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH 1/5] AF_RXRPC: Add blkcipher accessors for using kernel data
-	directly [try #2]
-Date: Fri, 16 Mar 2007 12:50:16 +0000
-Message-ID: <20070316125016.3740.96837.stgit@warthog.cambridge.redhat.com>
+Subject: [PATCH 3/5] AF_RXRPC: Make it possible to merely try to cancel timers
+	and delayed work [try #2]
+Date: Fri, 16 Mar 2007 12:50:26 +0000
+Message-ID: <20070316125026.3740.56876.stgit@warthog.cambridge.redhat.com>
 References: <20070316125008.3740.44693.stgit@warthog.cambridge.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,230 +11,67 @@ Cc: linux-kernel@vger.kernel.org, hch@infradead.org,
 	arjan@infradead.org, dhowells@redhat.com
 To: davem@davemloft.net, netdev@vger.kernel.org, herbert.xu@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:54273 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([66.187.233.31]:54296 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753504AbXCPMud (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Mar 2007 08:50:33 -0400
+	id S1753507AbXCPMuh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Mar 2007 08:50:37 -0400
 In-Reply-To: <20070316125008.3740.44693.stgit@warthog.cambridge.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add blkcipher accessors for using kernel data directly without the use of
-scatter lists.
+Export try_to_del_timer_sync() for use by the RxRPC module.
 
-Also add a CRYPTO_ALG_DMA algorithm capability flag to permit or deny the use
-of DMA and hardware accelerators.  A hardware accelerator may not be used to
-access any arbitrary piece of kernel memory lest it not be in a DMA'able
-region.  Only software algorithms may do that.
-
-If kernel data is going to be accessed directly, then CRYPTO_ALG_DMA must, for
-instance, be passed in the mask of crypto_alloc_blkcipher(), but not the type.
+Add a try_to_cancel_delayed_work() so that it is possible to merely attempt to
+cancel a delayed work timer.
 
 Signed-Off-By: David Howells <dhowells@redhat.com>
 ---
 
- crypto/blkcipher.c     |    2 ++
- crypto/pcbc.c          |   62 ++++++++++++++++++++++++++++++++++++++++++++++++
- include/linux/crypto.h |   53 ++++++++++++++++++++++++++++++++++++++++-
- 3 files changed, 116 insertions(+), 1 deletions(-)
+ include/linux/workqueue.h |   21 +++++++++++++++++++++
+ kernel/timer.c            |    2 ++
+ 2 files changed, 23 insertions(+), 0 deletions(-)
 
-diff --git a/crypto/blkcipher.c b/crypto/blkcipher.c
-index b5befe8..4498b2d 100644
---- a/crypto/blkcipher.c
-+++ b/crypto/blkcipher.c
-@@ -376,6 +376,8 @@ static int crypto_init_blkcipher_ops(struct crypto_tfm *tfm, u32 type, u32 mask)
- 	crt->setkey = setkey;
- 	crt->encrypt = alg->encrypt;
- 	crt->decrypt = alg->decrypt;
-+	crt->encrypt_kernel = alg->encrypt_kernel;
-+	crt->decrypt_kernel = alg->decrypt_kernel;
- 
- 	addr = (unsigned long)crypto_tfm_ctx(tfm);
- 	addr = ALIGN(addr, align);
-diff --git a/crypto/pcbc.c b/crypto/pcbc.c
-index 5174d7f..fa76111 100644
---- a/crypto/pcbc.c
-+++ b/crypto/pcbc.c
-@@ -126,6 +126,36 @@ static int crypto_pcbc_encrypt(struct blkcipher_desc *desc,
- 	return err;
+diff --git a/include/linux/workqueue.h b/include/linux/workqueue.h
+index 2a7b38d..40a61ae 100644
+--- a/include/linux/workqueue.h
++++ b/include/linux/workqueue.h
+@@ -204,4 +204,25 @@ static inline int cancel_delayed_work(struct delayed_work *work)
+ 	return ret;
  }
  
-+static int crypto_pcbc_encrypt_kernel(struct blkcipher_desc *desc,
-+				      u8 *dst, const u8 *src,
-+				      unsigned int nbytes)
++/**
++ * try_to_cancel_delayed_work - Try to kill pending scheduled, delayed work
++ * @work: the work to cancel
++ *
++ * Try to kill off a pending schedule_delayed_work().
++ * - The timer may still be running afterwards, and if so, the work may still
++ *   be pending
++ * - Returns -1 if timer still active, 1 if timer removed, 0 if not scheduled
++ * - Can be called from the work routine; if it's still pending, just return
++ *   and it'll be called again.
++ */
++static inline int try_to_cancel_delayed_work(struct delayed_work *work)
 +{
-+	struct blkcipher_walk walk;
-+	struct crypto_blkcipher *tfm = desc->tfm;
-+	struct crypto_pcbc_ctx *ctx = crypto_blkcipher_ctx(tfm);
-+	struct crypto_cipher *child = ctx->child;
-+	void (*xor)(u8 *, const u8 *, unsigned int bs) = ctx->xor;
++	int ret;
 +
-+	BUG_ON(crypto_tfm_alg_capabilities(crypto_cipher_tfm(child)) &
-+	       CRYPTO_ALG_DMA);
-+
-+	if (nbytes == 0)
-+		return 0;
-+
-+	memset(&walk, 0, sizeof(walk));
-+	walk.src.virt.addr = (u8 *) src;
-+	walk.dst.virt.addr = (u8 *) dst;
-+	walk.nbytes = nbytes;
-+	walk.total = nbytes;
-+	walk.iv = desc->info;
-+
-+	if (walk.src.virt.addr == walk.dst.virt.addr)
-+		nbytes = crypto_pcbc_encrypt_inplace(desc, &walk, child, xor);
-+	else
-+		nbytes = crypto_pcbc_encrypt_segment(desc, &walk, child, xor);
-+	return 0;
++	ret = try_to_del_timer_sync(&work->timer);
++	if (ret > 0)
++		work_release(&work->work);
++	return ret;
 +}
 +
- static int crypto_pcbc_decrypt_segment(struct blkcipher_desc *desc,
- 				       struct blkcipher_walk *walk,
- 				       struct crypto_cipher *tfm,
-@@ -211,6 +241,36 @@ static int crypto_pcbc_decrypt(struct blkcipher_desc *desc,
- 	return err;
+ #endif
+diff --git a/kernel/timer.c b/kernel/timer.c
+index 797cccb..447506a 100644
+--- a/kernel/timer.c
++++ b/kernel/timer.c
+@@ -505,6 +505,8 @@ out:
+ 	return ret;
  }
  
-+static int crypto_pcbc_decrypt_kernel(struct blkcipher_desc *desc,
-+				      u8 *dst, const u8 *src,
-+				      unsigned int nbytes)
-+{
-+	struct blkcipher_walk walk;
-+	struct crypto_blkcipher *tfm = desc->tfm;
-+	struct crypto_pcbc_ctx *ctx = crypto_blkcipher_ctx(tfm);
-+	struct crypto_cipher *child = ctx->child;
-+	void (*xor)(u8 *, const u8 *, unsigned int bs) = ctx->xor;
++EXPORT_SYMBOL(try_to_del_timer_sync);
 +
-+	BUG_ON(crypto_tfm_alg_capabilities(crypto_cipher_tfm(child)) &
-+		CRYPTO_ALG_DMA);
-+
-+	if (nbytes == 0)
-+		return 0;
-+
-+	memset(&walk, 0, sizeof(walk));
-+	walk.src.virt.addr = (u8 *) src;
-+	walk.dst.virt.addr = (u8 *) dst;
-+	walk.nbytes = nbytes;
-+	walk.total = nbytes;
-+	walk.iv = desc->info;
-+
-+	if (walk.src.virt.addr == walk.dst.virt.addr)
-+		nbytes = crypto_pcbc_decrypt_inplace(desc, &walk, child, xor);
-+	else
-+		nbytes = crypto_pcbc_decrypt_segment(desc, &walk, child, xor);
-+	return 0;
-+}
-+
- static void xor_byte(u8 *a, const u8 *b, unsigned int bs)
- {
- 	do {
-@@ -313,6 +373,8 @@ static struct crypto_instance *crypto_pcbc_alloc(void *param, unsigned int len)
- 	inst->alg.cra_blkcipher.setkey = crypto_pcbc_setkey;
- 	inst->alg.cra_blkcipher.encrypt = crypto_pcbc_encrypt;
- 	inst->alg.cra_blkcipher.decrypt = crypto_pcbc_decrypt;
-+	inst->alg.cra_blkcipher.encrypt_kernel = crypto_pcbc_encrypt_kernel;
-+	inst->alg.cra_blkcipher.decrypt_kernel = crypto_pcbc_decrypt_kernel;
- 
- out_put_alg:
- 	crypto_mod_put(alg);
-diff --git a/include/linux/crypto.h b/include/linux/crypto.h
-index 779aa78..ce092fe 100644
---- a/include/linux/crypto.h
-+++ b/include/linux/crypto.h
-@@ -40,7 +40,10 @@
- #define CRYPTO_ALG_LARVAL		0x00000010
- #define CRYPTO_ALG_DEAD			0x00000020
- #define CRYPTO_ALG_DYING		0x00000040
--#define CRYPTO_ALG_ASYNC		0x00000080
-+
-+#define CRYPTO_ALG_CAP_MASK		0x00000180	/* capabilities mask */
-+#define CRYPTO_ALG_ASYNC		0x00000080	/* capable of async operation */
-+#define CRYPTO_ALG_DMA			0x00000100	/* capable of using of DMA */
- 
- /*
-  * Set this bit if and only if the algorithm requires another algorithm of
-@@ -125,6 +128,10 @@ struct blkcipher_alg {
- 	int (*decrypt)(struct blkcipher_desc *desc,
- 		       struct scatterlist *dst, struct scatterlist *src,
- 		       unsigned int nbytes);
-+	int (*encrypt_kernel)(struct blkcipher_desc *desc, u8 *dst,
-+			      const u8 *src, unsigned int nbytes);
-+	int (*decrypt_kernel)(struct blkcipher_desc *desc, u8 *dst,
-+			      const u8 *src, unsigned int nbytes);
- 
- 	unsigned int min_keysize;
- 	unsigned int max_keysize;
-@@ -240,6 +247,10 @@ struct blkcipher_tfm {
- 		       struct scatterlist *src, unsigned int nbytes);
- 	int (*decrypt)(struct blkcipher_desc *desc, struct scatterlist *dst,
- 		       struct scatterlist *src, unsigned int nbytes);
-+	int (*encrypt_kernel)(struct blkcipher_desc *desc, u8 *dst,
-+			      const u8 *src, unsigned int nbytes);
-+	int (*decrypt_kernel)(struct blkcipher_desc *desc, u8 *dst,
-+			      const u8 *src, unsigned int nbytes);
- };
- 
- struct cipher_tfm {
-@@ -372,6 +383,11 @@ static inline u32 crypto_tfm_alg_type(struct crypto_tfm *tfm)
- 	return tfm->__crt_alg->cra_flags & CRYPTO_ALG_TYPE_MASK;
- }
- 
-+static inline u32 crypto_tfm_alg_capabilities(struct crypto_tfm *tfm)
-+{
-+	return tfm->__crt_alg->cra_flags & CRYPTO_ALG_CAP_MASK;
-+}
-+
- static inline unsigned int crypto_tfm_alg_blocksize(struct crypto_tfm *tfm)
- {
- 	return tfm->__crt_alg->cra_blocksize;
-@@ -529,6 +545,23 @@ static inline int crypto_blkcipher_encrypt_iv(struct blkcipher_desc *desc,
- 	return crypto_blkcipher_crt(desc->tfm)->encrypt(desc, dst, src, nbytes);
- }
- 
-+static inline void crypto_blkcipher_encrypt_kernel(struct blkcipher_desc *desc,
-+						   u8 *dst, const u8 *src,
-+						   unsigned int nbytes)
-+{
-+	desc->info = crypto_blkcipher_crt(desc->tfm)->iv;
-+	crypto_blkcipher_crt(desc->tfm)->encrypt_kernel(desc, dst, src,
-+							nbytes);
-+}
-+
-+static inline void crypto_blkcipher_encrypt_kernel_iv(struct blkcipher_desc *desc,
-+						      u8 *dst, const u8 *src,
-+						      unsigned int nbytes)
-+{
-+	crypto_blkcipher_crt(desc->tfm)->encrypt_kernel(desc, dst, src,
-+							nbytes);
-+}
-+
- static inline int crypto_blkcipher_decrypt(struct blkcipher_desc *desc,
- 					   struct scatterlist *dst,
- 					   struct scatterlist *src,
-@@ -546,6 +579,24 @@ static inline int crypto_blkcipher_decrypt_iv(struct blkcipher_desc *desc,
- 	return crypto_blkcipher_crt(desc->tfm)->decrypt(desc, dst, src, nbytes);
- }
- 
-+static inline void crypto_blkcipher_decrypt_kernel(struct blkcipher_desc *desc,
-+						   u8 *dst, const u8 *src,
-+						   unsigned int nbytes)
-+{
-+	desc->info = crypto_blkcipher_crt(desc->tfm)->iv;
-+	crypto_blkcipher_crt(desc->tfm)->decrypt_kernel(desc, dst, src,
-+							nbytes);
-+}
-+
-+static inline
-+void crypto_blkcipher_decrypt_kernel_iv(struct blkcipher_desc *desc,
-+					u8 *dst, const u8 *src,
-+					unsigned int nbytes)
-+{
-+	crypto_blkcipher_crt(desc->tfm)->decrypt_kernel(desc, dst, src,
-+							nbytes);
-+}
-+
- static inline void crypto_blkcipher_set_iv(struct crypto_blkcipher *tfm,
- 					   const u8 *src, unsigned int len)
- {
+ /**
+  * del_timer_sync - deactivate a timer and wait for the handler to finish.
+  * @timer: the timer to be deactivated
 
