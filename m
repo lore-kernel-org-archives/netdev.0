@@ -1,55 +1,40 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [patch 1/4] network dev read_mostly
-Date: Fri, 16 Mar 2007 10:03:04 -0700
-Message-ID: <20070316100304.4eca9907@freekitty>
-References: <20070312210907.509184287@linux-foundation.org>
-	<20070315021840.GG1246@kvack.org>
-	<45F8E793.7040603@cosmosbay.com>
-	<20070315.002516.59485075.davem@davemloft.net>
-	<20070315131722.GH1246@kvack.org>
+From: Masayuki Nakagawa <nakagawa.msy@ncos.nec.co.jp>
+Subject: [PATCH 2.6.21-rc3] IPV6: ipv6_fl_socklist is inadvertently shared.
+Date: Fri, 16 Mar 2007 10:45:42 -0700
+Message-ID: <45FAD7C6.30305@ncos.nec.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, dada1@cosmosbay.com,
-	netdev@vger.kernel.org
-To: Benjamin LaHaise <bcrl@kvack.org>
+Cc: netdev@vger.kernel.org, mhuth@mvista.com,
+	nakagawa.msy@ncos.nec.co.jp
+To: yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:53006 "EHLO smtp.osdl.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965706AbXCPREc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Mar 2007 13:04:32 -0400
-In-Reply-To: <20070315131722.GH1246@kvack.org>
+Received: from gateway-1237.mvista.com ([63.81.120.158]:33391 "EHLO
+	gateway-1237.mvista.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965795AbXCPRqQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Mar 2007 13:46:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 15 Mar 2007 09:17:22 -0400
-Benjamin LaHaise <bcrl@kvack.org> wrote:
+The ipv6_fl_socklist from listening socket is inadvertently shared
+with new socket created for connection.  This leads to a variety of
+interesting, but fatal, bugs. For example, removing one of the
+sockets may lead to the other socket's encountering a page fault
+when the now freed list is referenced.
 
-> On Thu, Mar 15, 2007 at 12:25:16AM -0700, David Miller wrote:
-> > Could we obtain %rip relative addressing with the ELF
-> > relocation approach I mentioned?
-> 
-> I think we can for some of the objects -- things like slab caches are 
-> good candidates if we have the initialization done at init time, which 
-> would actually be a very cool way of getting rid of the static slab 
-> creation calls.  I'll cook something better up on the slab front.
-> 
-> As for other variables, many can't be rip relative as they often end up 
-> pointing to addresses outside of the +/-2GB range we have there.
-> 
-> The main reason I came up with this was from looking at the various 
-> kprobes and notifier chain overhead in common code paths.  In many 
-> instances we need a single byte flag showing the feature is in use to 
-> jump out of the hot path.
-> 
-> Then there are the selinux hooks....
-> 
-> 		-ben
+The fix is to not share the flow label list with the new socket.
 
-There is an ugliness and maintenance vs performance tradeoff here.
-The described implementation leaves me gagging. Is there some way
-to do the same thing with ELF sections and post build processing?
+Signed-off-by: Masayuki Nakagawa <nakagawa.msy@ncos.nec.co.jp>
 
+Index: linux-2.6/net/ipv6/tcp_ipv6.c
+===================================================================
+--- linux-2.6.orig/net/ipv6/tcp_ipv6.c
++++ linux-2.6/net/ipv6/tcp_ipv6.c
+@@ -1453,6 +1453,7 @@ static struct sock * tcp_v6_syn_recv_soc
+ 	   First: no IPv4 options.
+ 	 */
+ 	newinet->opt = NULL;
++	newnp->ipv6_fl_list = NULL;
 
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+ 	/* Clone RX bits */
+ 	newnp->rxopt.all = np->rxopt.all;
