@@ -1,47 +1,67 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [PATCH 1/5] AF_RXRPC: Add blkcipher accessors for using kernel data directly [try #2]
-Date: Fri, 16 Mar 2007 13:32:38 +0000
-Message-ID: <20070316133238.GA2173@infradead.org>
-References: <20070316125008.3740.44693.stgit@warthog.cambridge.redhat.com> <20070316125016.3740.96837.stgit@warthog.cambridge.redhat.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: [NET_SCHED]: Fix warning
+Date: Fri, 16 Mar 2007 14:35:04 +0100
+Message-ID: <45FA9D08.4010804@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org, herbert.xu@redhat.com,
-	linux-kernel@vger.kernel.org, hch@infradead.org,
-	arjan@infradead.org
-To: David Howells <dhowells@redhat.com>
+Content-Type: multipart/mixed;
+ boundary="------------050309060909060601080307"
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:35418 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753508AbXCPNcl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Mar 2007 09:32:41 -0400
-Content-Disposition: inline
-In-Reply-To: <20070316125016.3740.96837.stgit@warthog.cambridge.redhat.com>
+Received: from stinky.trash.net ([213.144.137.162]:53966 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753522AbXCPNfJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Mar 2007 09:35:09 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 16, 2007 at 12:50:16PM +0000, David Howells wrote:
-> Add blkcipher accessors for using kernel data directly without the use of
-> scatter lists.
+This is a multi-part message in MIME format.
+--------------050309060909060601080307
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
 
-I don't quite understand all these indirections.  What's the problem
-with just having a helper that builds the scatterlist for you?
-
-> Also add a CRYPTO_ALG_DMA algorithm capability flag to permit or deny the use
-> of DMA and hardware accelerators.  A hardware accelerator may not be used to
-> access any arbitrary piece of kernel memory lest it not be in a DMA'able
-> region.  Only software algorithms may do that.
-
-We allow dma access to arbitary pieces of _dynamically_ allocated kernel
-memory, and I think using the crypto subsystem on the stack is not allowed
-at all.
+Fix a warning introduced by my patches, seems like I didn't pay
+enough attention ..
 
 
-But the even bigger question is, how does this relate to rxrpc?
 
-> +static inline
-> +void crypto_blkcipher_decrypt_kernel_iv(struct blkcipher_desc *desc,
+--------------050309060909060601080307
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
 
-very odd line split, please put the function name on the same line
-as the qualifiers, or everything including the void on a line of it's
-own.  The first option seems to be the preffered style in this file.
+[NET_SCHED]: Fix warning
 
+net/sched/sch_api.c: In function 'psched_show':
+net/sched/sch_api.c:1219: warning: format '%08x' expects type 'unsigned int', but argument 6 has type 's64'
+
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+
+---
+commit 4637e33149600f53399e4f36c89f6818671ebc87
+tree 966f51f002a2ed08d3a3a6c2981429c63e8ce7b0
+parent 20bac6a57d8d37deecd8b8101269542fe2c625b0
+author Patrick McHardy <kaber@trash.net> Fri, 16 Mar 2007 14:21:37 +0100
+committer Patrick McHardy <kaber@trash.net> Fri, 16 Mar 2007 14:21:37 +0100
+
+ net/sched/sch_api.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
+
+diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+index 047ae62..ecbdc6b 100644
+--- a/net/sched/sch_api.c
++++ b/net/sched/sch_api.c
+@@ -1216,7 +1216,8 @@ static int psched_show(struct seq_file *
+ {
+ 	seq_printf(seq, "%08x %08x %08x %08x\n",
+ 		   (u32)NSEC_PER_USEC, (u32)PSCHED_US2NS(1),
+-		   1000000, (u32)NSEC_PER_SEC/ktime_to_ns(KTIME_MONOTONIC_RES));
++		   1000000,
++		   (u32)NSEC_PER_SEC/(u32)ktime_to_ns(KTIME_MONOTONIC_RES));
+ 
+ 	return 0;
+ }
+
+--------------050309060909060601080307--
