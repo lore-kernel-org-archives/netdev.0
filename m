@@ -1,8 +1,8 @@
 From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: [RFC PATCHv5 2/5] [TCP]: Extracted rexmit hint clearing from the LOST marking code
-Date: Fri, 16 Mar 2007 20:41:03 +0200
-Message-ID: <11740704663404-git-send-email-ilpo.jarvinen@helsinki.fi>
-References: <11740704663475-git-send-email-ilpo.jarvinen@helsinki.fi> <11740704662337-git-send-email-ilpo.jarvinen@helsinki.fi>
+Subject: [RFC PATCHv5 5/5] [TCP]: non-FACK SACK follows conservative SACK loss recovery (RFC3517)
+Date: Fri, 16 Mar 2007 20:41:06 +0200
+Message-ID: <11740704662402-git-send-email-ilpo.jarvinen@helsinki.fi>
+References: <11740704663475-git-send-email-ilpo.jarvinen@helsinki.fi> <11740704662337-git-send-email-ilpo.jarvinen@helsinki.fi> <11740704663404-git-send-email-ilpo.jarvinen@helsinki.fi> <1174070466450-git-send-email-ilpo.jarvinen@helsinki.fi> <11740704661086-git-send-email-ilpo.jarvinen@helsinki.fi>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
@@ -12,77 +12,252 @@ To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from courier.cs.helsinki.fi ([128.214.9.1]:56120 "EHLO
 	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753587AbXCPSlJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Mar 2007 14:41:09 -0400
-In-Reply-To: <11740704662337-git-send-email-ilpo.jarvinen@helsinki.fi>
+	with ESMTP id S1753595AbXCPSlK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Mar 2007 14:41:10 -0400
+In-Reply-To: <11740704661086-git-send-email-ilpo.jarvinen@helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Many assumptions that are true when no reordering or other
+strange events happen are not a part of the RFC3517. FACK
+implementation is based on such assumptions. Previously (before
+the rewrite) the non-FACK SACK was basically doing fast rexmit
+and then it times out all skbs when first cumulative ACK arrives,
+which cannot really be called SACK based recovery :-).
+
+RFC3517 SACK disables these things:
+- Per SKB timeouts & head timeout entry to recovery
+- Marking at least one skb while in recovery (RFC3517 does this
+  only for the fast retransmission but not for the other skbs
+  when cumulative ACKs arrive in the recovery)
+- B & C flavors of loss detection (see comment before
+  tcp_sacktag_write_queue)
+
+This does not implement the "last resort" rule 3 of NextSeg, which
+allows retransmissions also when not enough SACK blocks have yet
+arrived above a segment for IsLost to return true [RFC3517].
+
+The implementation differs from RFC3517 in two points:
+- Rate-halving is used instead of FlightSize / 2
+- Instead of using dupACKs to trigger the recovery, the number
+  of SACK blocks is used as FACK does with SACK blocks+holes
+  (which provides more accurate number). It seems that the
+  difference can affect negatively only if the receiver does not
+  generate SACK blocks at all even though it claimed to be
+  SACK-capable.
+
 Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
 ---
- net/ipv4/tcp_input.c |   31 ++++++++++++++++---------------
- 1 files changed, 16 insertions(+), 15 deletions(-)
+ net/ipv4/tcp_input.c |   59 +++++++++++++++++++++++++++++++-----------=
+--------
+ 1 files changed, 37 insertions(+), 22 deletions(-)
 
 diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index dbc98ce..870404b 100644
+index d34636b..a1b2e14 100644
 --- a/net/ipv4/tcp_input.c
 +++ b/net/ipv4/tcp_input.c
-@@ -1733,6 +1733,20 @@ static inline void tcp_reset_reno_sack(s
- 	tp->left_out =3D tp->lost_out;
+@@ -111,6 +111,7 @@ #define FLAG_FORWARD_PROGRESS	(FLAG_ACKE
+ #define IsReno(tp) ((tp)->rx_opt.sack_ok =3D=3D 0)
+ #define IsFack(tp) ((tp)->rx_opt.sack_ok & 2)
+ #define IsDSack(tp) ((tp)->rx_opt.sack_ok & 4)
++#define Is3517Sack(tp) (!IsReno(tp) && !IsFack(tp))
+=20
+ #define IsSackFrto() (sysctl_tcp_frto =3D=3D 0x2)
+=20
+@@ -1235,7 +1236,7 @@ tcp_sacktag_write_queue(struct sock *sk,
+ 	 * we have to account for reordering! Ugly,
+ 	 * but should help.
+ 	 */
+-	if (lost_retrans && icsk->icsk_ca_state =3D=3D TCP_CA_Recovery) {
++	if (IsFack(tp) && lost_retrans && icsk->icsk_ca_state =3D=3D TCP_CA_R=
+ecovery) {
+ 		struct sk_buff *skb;
+=20
+ 		tcp_for_write_queue(skb, sk) {
+@@ -1554,7 +1555,8 @@ static int tcp_check_sack_reneging(struc
+=20
+ static inline int tcp_fackets_out(struct tcp_sock *tp)
+ {
+-	return IsReno(tp) ? tp->sacked_out+1 : tp->fackets_out;
++	return (IsReno(tp) || Is3517Sack(tp)) ? tp->sacked_out + 1 :
++						tp->fackets_out;
  }
 =20
-+/* RFC: This is from the original, I doubt that this is necessary at a=
-ll:
-+ * clear xmit_retrans hint if seq of this skb is beyond hint. How coul=
-d we
-+ * retransmitted past LOST markings in the first place? I'm not fully =
-sure
-+ * about undo and end of connection cases, which can cause R without L=
-?
-+ */
-+static void tcp_verify_retransmit_hint(struct tcp_sock *tp,
-+				       struct sk_buff *skb)
-+{
-+	if ((tp->retransmit_skb_hint !=3D NULL) &&
-+	    before(TCP_SKB_CB(skb)->seq,
-+	    TCP_SKB_CB(tp->retransmit_skb_hint)->seq))
-+		tp->retransmit_skb_hint =3D skb;
-+}
-+
- /* Mark head of queue up as lost. */
- static void tcp_mark_head_lost(struct sock *sk, struct tcp_sock *tp,
- 			       int packets, u32 high_seq)
-@@ -1762,14 +1776,7 @@ static void tcp_mark_head_lost(struct so
- 		if (!(TCP_SKB_CB(skb)->sacked&TCPCB_TAGBITS)) {
- 			TCP_SKB_CB(skb)->sacked |=3D TCPCB_LOST;
- 			tp->lost_out +=3D tcp_skb_pcount(skb);
--
--			/* clear xmit_retransmit_queue hints
--			 *  if this is beyond hint */
--			if (tp->retransmit_skb_hint !=3D NULL &&
--			    before(TCP_SKB_CB(skb)->seq,
--				   TCP_SKB_CB(tp->retransmit_skb_hint)->seq))
--				tp->retransmit_skb_hint =3D NULL;
--
-+			tcp_verify_retransmit_hint(tp, skb);
- 		}
- 	}
- 	tcp_sync_left_out(tp);
-@@ -1808,13 +1815,7 @@ static void tcp_update_scoreboard(struct
- 			if (!(TCP_SKB_CB(skb)->sacked&TCPCB_TAGBITS)) {
- 				TCP_SKB_CB(skb)->sacked |=3D TCPCB_LOST;
- 				tp->lost_out +=3D tcp_skb_pcount(skb);
--
--				/* clear xmit_retrans hint */
--				if (tp->retransmit_skb_hint &&
--				    before(TCP_SKB_CB(skb)->seq,
--					   TCP_SKB_CB(tp->retransmit_skb_hint)->seq))
--
--					tp->retransmit_skb_hint =3D NULL;
-+				tcp_verify_retransmit_hint(tp, skb);
+ static inline int tcp_skb_timedout(struct sock *sk, struct sk_buff *sk=
+b)
+@@ -1680,7 +1682,7 @@ static int tcp_time_to_recover(struct so
+ 	/* Trick#3 : when we use RFC2988 timer restart, fast
+ 	 * retransmit can be triggered by timeout of queue head.
+ 	 */
+-	if (tcp_head_timedout(sk, tp))
++	if (IsFack(tp) && tcp_head_timedout(sk, tp))
+ 		return 1;
+=20
+ 	/* Trick#4: It is still not OK... But will it be useful to delay
+@@ -1829,24 +1831,33 @@ static void tcp_mark_head_lost_single(st
+  *       entry point right above a known point provided from the backw=
+ards
+  *       walk. Basically the entry point will be next skb after highes=
+t_sack
+  *       or high_seq (if TCP did the skip).
++ *
++ * Implements both FACK and RFC3517 SACK. Only FACK does per skb timeo=
+uts.
++ * Key difference here is that FACK uses both SACK blocks and holes wh=
+ile
++ * RFC3517 is using only SACK blocks when counting for reordering.
+  */
+-static void tcp_update_scoreboard_fack(struct sock *sk, u32 entry_seq)
++static void tcp_update_scoreboard_fack(struct sock *sk, u32 entry_seq,
++				       int fast_rexmit)
+ {
+ 	struct tcp_sock *tp =3D tcp_sk(sk);
+-	int timedout_continue =3D 1;
++	int timedout_continue =3D 0;
+ 	/* Beware: not_marked_skb might be pointing to sk_write_queue */
+ 	struct sk_buff *not_marked_skb;
+ 	struct sk_buff *skb;
+=20
+ 	if (!tp->sacked_out) {
+-		tcp_mark_head_lost_single(sk);
+-		not_marked_skb =3D tcp_write_queue_head(sk);
+-		not_marked_skb =3D tcp_write_queue_next(sk, not_marked_skb);
++		if (IsFack(tp) || fast_rexmit) {
++			tcp_mark_head_lost_single(sk);
++			not_marked_skb =3D tcp_write_queue_head(sk);
++			not_marked_skb =3D tcp_write_queue_next(sk, not_marked_skb);
++			timedout_continue =3D 1;
++		}
+=20
+ 	} else {
+ 		unsigned int holes_seen =3D 0;
+ 		int reentry_to_highest_sack =3D 0;
+=20
++		timedout_continue =3D 1;
+ 		skb =3D tcp_write_queue_find(sk, entry_seq);
+ 		/* If this ever becomes expensive, it can be delayed */
+ 		not_marked_skb =3D tcp_write_queue_next(sk, skb);
+@@ -1857,7 +1868,7 @@ static void tcp_update_scoreboard_fack(s
+ 			/* Delay lookup because it might turn out unnecessary! */
+ 			reentry_to_highest_sack =3D 1;
+ 		} else {
+-			unsigned int reord_count =3D 0;
++			unsigned int reord_count =3D IsFack(tp) ? 0 : 1;
+=20
+ 			/* Phase I: Search until TCP can mark */
+ 			tcp_for_write_queue_backwards_from(skb, sk) {
+@@ -1867,7 +1878,7 @@ static void tcp_update_scoreboard_fack(s
+ 				    (TCP_SKB_CB(skb)->sacked & TCPCB_LOST))
+ 					goto backwards_walk_done;
+=20
+-				if (tcp_skb_timedout(sk, skb))
++				if (IsFack(tp) && tcp_skb_timedout(sk, skb))
+ 					break;
+ 				else {
+ 					timedout_continue =3D 0;
+@@ -1882,7 +1893,9 @@ static void tcp_update_scoreboard_fack(s
+ 				if (!(TCP_SKB_CB(skb)->sacked & TCPCB_SACKED_ACKED))
+ 					not_marked_skb =3D skb;
+=20
+-				reord_count +=3D tcp_skb_pcount(skb);
++				if (IsFack(tp) ||
++				    (TCP_SKB_CB(skb)->sacked & TCPCB_SACKED_ACKED))
++					reord_count +=3D tcp_skb_pcount(skb);
+ 				if (reord_count > tp->reordering)
+ 					break;
+=20
+@@ -1891,7 +1904,7 @@ static void tcp_update_scoreboard_fack(s
  			}
  		}
 =20
+-		if (!tcp_skb_timedout(sk, skb) &&
++		if ((!IsFack(tp) || !tcp_skb_timedout(sk, skb)) &&
+ 		    after(TCP_SKB_CB(skb)->seq, tp->high_seq)) {
+ 			/* RFC: should we have find_below? */
+ 			skb =3D tcp_write_queue_find(sk, tp->high_seq);
+@@ -1918,11 +1931,11 @@ static void tcp_update_scoreboard_fack(s
+ 		}
+=20
+ 		/* Phase III: Nothing is still marked?, mark head then */
+-		if (!tp->lost_out)
++		if ((IsFack(tp) || fast_rexmit) && !tp->lost_out)
+ 			tcp_mark_head_lost_single(sk);
+=20
+ backwards_walk_done:
+-		if (timedout_continue && reentry_to_highest_sack) {
++		if (IsFack(tp) && timedout_continue && reentry_to_highest_sack) {
+ 			/* ...do the delayed lookup */
+ 			skb =3D tcp_write_queue_find(sk, tp->highest_sack);
+ 			not_marked_skb =3D tcp_write_queue_next(sk, skb);
+@@ -1930,7 +1943,7 @@ backwards_walk_done:
+ 	}
+=20
+ 	/* Continue with timedout work */
+-	if (timedout_continue)
++	if (IsFack(tp) && timedout_continue)
+ 		tcp_timedout_mark_forward(sk, not_marked_skb);
+=20
+ 	tcp_sync_left_out(tp);
+@@ -1938,10 +1951,10 @@ backwards_walk_done:
+=20
+ /* Account newly detected lost packet(s) */
+ static void tcp_update_scoreboard(struct sock *sk, struct tcp_sock *tp=
+,
+-				  u32 sack_entry_seq)
++				  u32 sack_entry_seq, int fast_rexmit)
+ {
+ 	if (!IsReno(tp))
+-		tcp_update_scoreboard_fack(sk, sack_entry_seq);
++		tcp_update_scoreboard_fack(sk, sack_entry_seq, fast_rexmit);
+ 	else
+ 		tcp_mark_head_lost_single(sk);
+ }
+@@ -2085,7 +2098,7 @@ static int tcp_try_undo_partial(struct s
+ 				int acked)
+ {
+ 	/* Partial ACK arrived. Force Hoe's retransmit. */
+-	int failed =3D IsReno(tp) || tp->fackets_out>tp->reordering;
++	int failed =3D IsReno(tp) || (tcp_fackets_out(tp) > tp->reordering);
+=20
+ 	if (tcp_may_undo(tp)) {
+ 		/* Plain luck! Hole if filled with delayed
+@@ -2216,6 +2229,7 @@ tcp_fastretrans_alert(struct sock *sk, u
+ 	struct inet_connection_sock *icsk =3D inet_csk(sk);
+ 	struct tcp_sock *tp =3D tcp_sk(sk);
+ 	int is_dupack =3D (tp->snd_una =3D=3D prior_snd_una && !(flag&FLAG_NO=
+T_DUP));
++	int fast_rexmit =3D 0;
+=20
+ 	/* Some technical things:
+ 	 * 1. Reno does not count dupacks (sacked_out) automatically. */
+@@ -2235,11 +2249,11 @@ tcp_fastretrans_alert(struct sock *sk, u
+ 		return;
+=20
+ 	/* C. Process data loss notification, provided it is valid. */
+-	if ((flag&FLAG_DATA_LOST) &&
++	if (IsFack(tp) && (flag&FLAG_DATA_LOST) &&
+ 	    before(tp->snd_una, tp->high_seq) &&
+ 	    icsk->icsk_ca_state !=3D TCP_CA_Open &&
+ 	    tp->fackets_out > tp->reordering) {
+-	    	tcp_update_scoreboard_fack(sk, mark_lost_entry_seq);
++	    	tcp_update_scoreboard_fack(sk, mark_lost_entry_seq, 0);
+ 		NET_INC_STATS_BH(LINUX_MIB_TCPLOSS);
+ 	}
+=20
+@@ -2362,10 +2376,11 @@ tcp_fastretrans_alert(struct sock *sk, u
+ 		tp->bytes_acked =3D 0;
+ 		tp->snd_cwnd_cnt =3D 0;
+ 		tcp_set_ca_state(sk, TCP_CA_Recovery);
++		fast_rexmit =3D 1;
+ 	}
+=20
+-	if (is_dupack || tcp_head_timedout(sk, tp))
+-		tcp_update_scoreboard(sk, tp, mark_lost_entry_seq);
++	if (is_dupack || (IsFack(tp) && tcp_head_timedout(sk, tp)))
++		tcp_update_scoreboard(sk, tp, mark_lost_entry_seq, fast_rexmit);
+ 	tcp_cwnd_down(sk);
+ 	tcp_xmit_retransmit_queue(sk);
+ }
 --=20
 1.4.2
 
