@@ -1,80 +1,48 @@
-From: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH 3/6] IrDA: IrLAP raw mode
-Date: Fri, 16 Mar 2007 22:06:59 +0200
-Message-ID: <20070316200659.GA19314@sortiz.org>
-References: <20070314192331.GD3397@sortiz.org>
-	<200703161102.06417.netdev@axxeo.de>
-Reply-To: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
+From: Jeremy Fitzhardinge <jeremy@goop.org>
+Subject: Re: [patch 13/26] Xen-paravirt_ops: Consistently wrap paravirt ops
+ callsites to make them patchable
+Date: Fri, 16 Mar 2007 13:38:53 -0700
+Message-ID: <45FB005D.9060809@goop.org>
+References: <20070301232443.195603797@goop.org>	<20070301232527.956565107@goop.org>	<20070316092445.GM23174@elte.hu> <20070316.023331.59468179.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Jean Tourrilhes <jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: Ingo Oeser <netdev-BkyiQQGWkgE@public.gmane.org>
-Return-path: <irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <200703161102.06417.netdev-BkyiQQGWkgE@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
-	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=irda-users>
-List-Post: <mailto:irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
-	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Sender: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-Errors-To: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Cc: mingo@elte.hu, ak@muc.de, akpm@linux-foundation.org,
+	linux-kernel@vger.kernel.org, virtualization@lists.osdl.org,
+	xen-devel@lists.xensource.com, chrisw@sous-sol.org,
+	zach@vmware.com, rusty@rustcorp.com.au, anthony@codemonkey.ws,
+	torvalds@linux-foundation.org, NetDev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw.goop.org ([64.81.55.164]:46956 "EHLO mail.goop.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965908AbXCPUjD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Mar 2007 16:39:03 -0400
+In-Reply-To: <20070316.023331.59468179.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Ingo,
+David Miller wrote:
+> Perhaps the problem can be dealt with using ELF relocations.
+>
+> There is another case, discussed yesterday on netdev, where run-time
+> resolution of ELF relocations would be useful (for
+> very-very-very-read-only variables) so if it can solve this problem
+> too it would be nice to have a generic infrastructure for it.
 
-On Fri, Mar 16, 2007 at 11:02:04AM +0100, Ingo Oeser wrote:
-> > --- /dev/null
-> > +++ b/include/net/irda/irlap_raw.h
-> > @@ -0,0 +1,27 @@
-> > +/*
-> > + * Copyright (C) 2007 Samuel Ortiz (samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org)
-> > + *
-> > + * This program is free software; you can redistribute it and/or
-> > + * modify it under the terms of the GNU General Public License as
-> > + * published by the Free Software Foundation, version 2.
-> > + *
-> > + */
-> > +
-> > +#ifndef _IRLAP_RAW_H
-> > +#define _IRLAP_RAW_H
-> > +
-> > +#ifdef CONFIG_IRDA_RAW
-> > +
-> > +int irlap_raw_recv_frame(struct sk_buff *skb, struct net_device *dev);
-> > +int irlap_raw_register_device(struct net_device * dev);
-> > +int irlap_raw_unregister_device(struct net_device * dev);
-> > +
-> > +#else
-> > +
-> > +#define irlap_raw_recv_frame(skbuff, netdev)
-> > +#define irlap_raw_register_device(netdev)
-> > +#define irlap_raw_unregister_device(netdev)
-> 
-> This stuff is usually done this way (functions, which just check arguments and do nothing):
+That's an interesting idea.  Have you or anyone else looked at what it
+would take to code up?
 
-Since those are exported symbols, I think it makes sense to do these checks.
+For this case, I guess you'd walk the relocs looking for references into
+the paravirt_ops structure.  You'd need to check that was a reference
+from an indirect jump or call instruction, which would identify a
+patchable callsite.  The offset into the pv_ops structure would identify
+which operation is involved.  That would be enough to use the existing
+paravirt_ops patch machinery to insert a patch, though it doesn't
+provide quite as much information as the current scheme.  The current
+scheme also tells us how much space is available for patching over, and
+what registers the patched-in code can use/clobber.
 
-> 
-> I would suggest a small helper function here, which compiles into a constant, 
-> if raw_mode is not compiled in.
-> 
-> like
-This would prevent us from adding #ifdefs in the core IrDA code: I'll go for
-it.
+What are the netdev requirements?
 
-Thanks for the comments.
-
-Cheers,
-Samuel.
-
--------------------------------------------------------------------------
-Take Surveys. Earn Cash. Influence the Future of IT
-Join SourceForge.net's Techsay panel and you'll get the chance to share your
-opinions on IT & business topics through brief surveys-and earn cash
-http://www.techsay.com/default.php?page=join.php&p=sourceforge&CID=DEVDEV
+    J
