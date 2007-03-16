@@ -1,75 +1,74 @@
 From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: [RFC PATCH 1/5] [TCP]: Add highest_sack seqno, points to globally highest SACK
-Date: Fri, 16 Mar 2007 16:39:58 +0200
-Message-ID: <11740560021077-git-send-email-ilpo.jarvinen@helsinki.fi>
-References: <11740560023261-git-send-email-ilpo.jarvinen@helsinki.fi>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	"=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: [RFC PATCH 0/5] LOST marking rewrite
+Date: Fri, 16 Mar 2007 16:39:57 +0200
+Message-ID: <11740560023261-git-send-email-ilpo.jarvinen@helsinki.fi>
+Cc: David Miller <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:36759 "EHLO
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:34448 "EHLO
 	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965558AbXCPOkE (ORCPT
+	with ESMTP id S965570AbXCPOkE (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Fri, 16 Mar 2007 10:40:04 -0400
-In-Reply-To: <11740560023261-git-send-email-ilpo.jarvinen@helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-It is guaranteed to be valid only when !tp->sacked_out. In most
-cases this seqno is available in the last ACK but there is no
-guarantee for that. The new fast recovery loss marking algorithm
-needs this as entry point.
 
-Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
----
- include/linux/tcp.h  |    2 ++
- net/ipv4/tcp_input.c |    8 +++++++-
- 2 files changed, 9 insertions(+), 1 deletions(-)
+This patchset provides new LOST detection algorithm. This is part
+of tcp_sock diet program. Removes couple of hints, sadly enough this
+is a tradeoff as one u32 is necessary for the new algorithm even though
+most of the time the last SACK would give all necessary information.
 
-diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-index 09f2d66..9e542d5 100644
---- a/include/linux/tcp.h
-+++ b/include/linux/tcp.h
-@@ -335,6 +335,8 @@ #endif
-=20
- 	struct tcp_sack_block_wire recv_sack_cache[4];
-=20
-+	u32	highest_sack;	/* Start seq of globally highest revd SACK (valid o=
-nly in slowpath) */
-+
- 	/* from STCP, retrans queue hinting */
- 	struct sk_buff* lost_skb_hint;
-=20
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 9c3b4c7..dbc98ce 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -954,8 +954,10 @@ tcp_sacktag_write_queue(struct sock *sk,
- 	int i;
- 	int first_sack_index;
-=20
--	if (!tp->sacked_out)
-+	if (!tp->sacked_out) {
- 		tp->fackets_out =3D 0;
-+		tp->highest_sack =3D tp->snd_una;
-+	}
- 	prior_fackets =3D tp->fackets_out;
-=20
- 	/* Check for D-SACK. */
-@@ -1189,6 +1191,10 @@ tcp_sacktag_write_queue(struct sock *sk,
-=20
- 				if (fack_count > tp->fackets_out)
- 					tp->fackets_out =3D fack_count;
-+
-+				if (after(TCP_SKB_CB(skb)->seq,
-+				    tp->highest_sack))
-+					tp->highest_sack =3D TCP_SKB_CB(skb)->seq;
- 			} else {
- 				if (dup_sack && (sacked&TCPCB_RETRANS))
- 					reord =3D min(fack_count, reord);
---=20
-1.4.2
+It might be useful to add unlikely to the rexmit hint clearing since
+it really shouldn't happen except very very rarely if ever. And maybe
+also the !tp->sacked_out.
+
+I think I have introduced a small problem to the timedout thingie,
+however, we can work around that by faking highest_sack to a higher
+value if timed out loop advances too far to avoid (potentially expensive)
+walking... So that it would be highest_sacked_or_lost (or highest_marked,
+whatever).
+
+
+I tested v4 and found the off-by-one error (though CBI bit me and I'll
+disable it for now on to run cleaner test sets without CBI effects).
+
+    v3-to-v4 changes:
+     - Fixed FACK off-by-one error that was introduced in v3 change
+     - Provided RFC3517 SACK as a separate patch
+     - Added "a fastpath" optimization
+     - Restructured the algorithm to get it cleaner
+     - Decided that there isn't a clear way to handle R without L frames
+       timedout thingie above the reord marking (the old code is quite
+       impossible to follow anyway as does not have any reliable invariants
+       because the timestamps change when -> R transition occurs). Besides,
+       such case is probably too marginal one to do something expensive.
+       Depending on the hint state, the results could be vastly different
+       in the old algo. Thus I did go for a straight forward way: if we have
+       a timed out skb, the remaining will also timeout (this could also be
+       seen as ok defination since R without L should be made R|L at some
+       point!). It could be possible to have some invariants for this if
+       there is cheap way to access the skb right after the last rexmit skb
+       (I have intentionally avoided hint usage since we're hopefully going
+       to farewell them).
+     - Handle !sacked_out case correctly
+     - Guarantee highest_sack in sync only when sacked_out > 0
+     - Rebased to a recent net-2.6.22 (couple of space changes hit the
+       removed area & RB-tree fixes were done)
+    
+    v2-to-v3 changes:
+     - Replace of skipping made worries in it obsolete and now really
+       one skb less is traversed (was promised in v2)
+    
+    v1-to-v2 changes:
+     - Changes non-fack SACK to something less broken; not a complete
+       set of changes (other functions should also be fixed)
+     - Fixed NewReno bugs
+     - More comments & added RFCs to places I'm unsure of
+     - Delayed reord_count increment (traverses now one skb less)
+     - Copied retransmit_hint clearing from the original but I
+       think it's superfluous
+     - Separated highest_sack to own patch
+     - Fixed off-by-one bug in skipping
+
+
 
