@@ -1,49 +1,40 @@
-From: David Howells <dhowells@redhat.com>
-Subject: Re: [PATCH 1/5] AF_RXRPC: Add blkcipher accessors for using kernel data directly [try #2]
-Date: Fri, 16 Mar 2007 13:57:45 +0000
-Message-ID: <25094.1174053465@redhat.com>
-References: <20070316133238.GA2173@infradead.org>  <20070316125008.3740.44693.stgit@warthog.cambridge.redhat.com> <20070316125016.3740.96837.stgit@warthog.cambridge.redhat.com>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: [PATCH 3/5] AF_RXRPC: Make it possible to merely try to cancel
+ timers and delayed work [try #2]
+Date: Fri, 16 Mar 2007 15:07:05 +0000
+Message-ID: <20070316150705.0b2fbeb0@lxorguk.ukuu.org.uk>
+References: <20070316125008.3740.44693.stgit@warthog.cambridge.redhat.com>
+	<20070316125026.3740.56876.stgit@warthog.cambridge.redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 Cc: davem@davemloft.net, netdev@vger.kernel.org, herbert.xu@redhat.com,
-	linux-kernel@vger.kernel.org, arjan@infradead.org
-To: Christoph Hellwig <hch@infradead.org>
+	linux-kernel@vger.kernel.org, hch@infradead.org,
+	arjan@infradead.org, dhowells@redhat.com
+To: David Howells <dhowells@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:46900 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933814AbXCPN6H (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Mar 2007 09:58:07 -0400
-In-Reply-To: <20070316133238.GA2173@infradead.org> 
+Received: from outpipe-village-512-1.bc.nu ([81.2.110.250]:51570 "EHLO
+	lxorguk.ukuu.org.uk" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S964807AbXCPOEG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Mar 2007 10:04:06 -0400
+In-Reply-To: <20070316125026.3740.56876.stgit@warthog.cambridge.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Christoph Hellwig <hch@infradead.org> wrote:
+> +/**
+> + * try_to_cancel_delayed_work - Try to kill pending scheduled, delayed work
+> + * @work: the work to cancel
+> + *
+> + * Try to kill off a pending schedule_delayed_work().
+> + * - The timer may still be running afterwards, and if so, the work may still
+> + *   be pending
+> + * - Returns -1 if timer still active, 1 if timer removed, 0 if not scheduled
+> + * - Can be called from the work routine; if it's still pending, just return
+> + *   and it'll be called again.
+> + */
+> +static inline int try_to_cancel_delayed_work(struct delayed_work *work)
+> +{
+> +	int ret;
 
-> I don't quite understand all these indirections.  What's the problem
-> with just having a helper that builds the scatterlist for you?
+This expands to a fair bit of code and IMHO isn't an inline candidate.
 
-I was trying to avoid building a scatterlist completely.  There's not much
-point because the scatterlist approach involves finding out the page struct and
-then kmapping it just so that the FCrypt algorithm can read 8 or 16 bytes of
-data from kernel space.  Why do that if we can avoid it?  It's a waste of
-processing time, and has to be done on every secure packet.
-
-> We allow dma access to arbitary pieces of _dynamically_ allocated kernel
-> memory, and I think using the crypto subsystem on the stack is not allowed
-> at all.
-
-FCrypt is only available in software as far as I know.  For producing and
-checking packet signatures, using hardware support would be a waste of time as
-the size of the crunched data is so small (a single 8-byte fragment per
-packet).
-
-> But the even bigger question is, how does this relate to rxrpc?
-
-RxRPC has security features, up to and including full packet content encryption
-if you select it.
-
-> very odd line split
-
-It's not really odd.  The "static" and "inline" don't actually add anything to
-the function template.  They're merely scope limiters / optimisation
-controllers, and so make a lot of sense placed on their own line.
-
-David
