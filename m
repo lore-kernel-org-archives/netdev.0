@@ -1,88 +1,240 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [NET_SCHED 00/10]: ktime clocksource + hrtimer
-Date: Fri, 16 Mar 2007 13:45:32 +0100
-Message-ID: <45FA916C.2080501@trash.net>
-References: <20070316053018.22744.76883.sendpatchset@localhost.localdomain> <20070316.023510.41635847.davem@davemloft.net> <45FA6682.10303@trash.net> <20070316124124.GK521@postel.suug.ch>
+From: David Howells <dhowells@redhat.com>
+Subject: [PATCH 1/5] AF_RXRPC: Add blkcipher accessors for using kernel data
+	directly [try #2]
+Date: Fri, 16 Mar 2007 12:50:16 +0000
+Message-ID: <20070316125016.3740.96837.stgit@warthog.cambridge.redhat.com>
+References: <20070316125008.3740.44693.stgit@warthog.cambridge.redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------000201010908000401020104"
-Cc: David Miller <davem@davemloft.net>, devik@cdi.cz,
-	netdev@vger.kernel.org, shemminger@linux-foundation.org
-To: Thomas Graf <tgraf@suug.ch>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, hch@infradead.org,
+	arjan@infradead.org, dhowells@redhat.com
+To: davem@davemloft.net, netdev@vger.kernel.org, herbert.xu@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:53084 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753490AbXCPMpj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Mar 2007 08:45:39 -0400
-In-Reply-To: <20070316124124.GK521@postel.suug.ch>
+Received: from mx1.redhat.com ([66.187.233.31]:54273 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753504AbXCPMud (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Mar 2007 08:50:33 -0400
+In-Reply-To: <20070316125008.3740.44693.stgit@warthog.cambridge.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------000201010908000401020104
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
+Add blkcipher accessors for using kernel data directly without the use of
+scatter lists.
 
-Thomas Graf wrote:
-> * Patrick McHardy <kaber@trash.net> 2007-03-16 10:42
-> 
->>David Miller wrote:
->>
->>>It would be nice to figure out why CBQ isn't working for
->>>you, I know at least some folks have used it successfully
->>>at some point.
->>
->>Probably my own incompetence, I'll see if I can find some
->>scripts that are known to work.
-> 
-> 
-> I'll complain if it stops working, I'm still using CBQ to
-> keep rsync and other bulk flows from interfering with ssh.
-> HTB just doesn't have the same homy touch :-)
+Also add a CRYPTO_ALG_DMA algorithm capability flag to permit or deny the use
+of DMA and hardware accelerators.  A hardware accelerator may not be used to
+access any arbitrary piece of kernel memory lest it not be in a DMA'able
+region.  Only software algorithms may do that.
 
-:)
+If kernel data is going to be accessed directly, then CRYPTO_ALG_DMA must, for
+instance, be passed in the mask of crypto_alloc_blkcipher(), but not the type.
 
-I managed to find a working script in the meantime and discovered
-a bug in my changes, with this patch on top it seems to works fine.
-
-
---------------000201010908000401020104
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
-
-[NET_SCHED]: sch_cbq: fix watchdog scheduled too late
-
-q->now is increased during dequeue and doesn't contain the current time
-afterwards, resulting in a too large timeout value for the qdisc watchdog.
-Use "now" instead, which still contains the current time.
-
-Signed-off-by: Patrick McHardy <kaber@trash.net>
-
+Signed-Off-By: David Howells <dhowells@redhat.com>
 ---
-commit b832b2f5f076cdd050b5b142dae10fcca874a4eb
-tree 19b7dc63ace14cc4a5c0d6d6561487185aef8fdd
-parent 9b85e807e5971a7ceff45ac450392909ea1c6954
-author Patrick McHardy <kaber@trash.net> Fri, 16 Mar 2007 13:12:17 +0100
-committer Patrick McHardy <kaber@trash.net> Fri, 16 Mar 2007 13:12:17 +0100
 
- net/sched/sch_cbq.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ crypto/blkcipher.c     |    2 ++
+ crypto/pcbc.c          |   62 ++++++++++++++++++++++++++++++++++++++++++++++++
+ include/linux/crypto.h |   53 ++++++++++++++++++++++++++++++++++++++++-
+ 3 files changed, 116 insertions(+), 1 deletions(-)
 
-diff --git a/net/sched/sch_cbq.c b/net/sched/sch_cbq.c
-index 0491fad..d83414d 100644
---- a/net/sched/sch_cbq.c
-+++ b/net/sched/sch_cbq.c
-@@ -1070,7 +1070,7 @@ cbq_dequeue(struct Qdisc *sch)
- 		sch->qstats.overlimits++;
- 		if (q->wd_expires)
- 			qdisc_watchdog_schedule(&q->watchdog,
--						q->now + q->wd_expires);
-+						now + q->wd_expires);
- 	}
- 	return NULL;
+diff --git a/crypto/blkcipher.c b/crypto/blkcipher.c
+index b5befe8..4498b2d 100644
+--- a/crypto/blkcipher.c
++++ b/crypto/blkcipher.c
+@@ -376,6 +376,8 @@ static int crypto_init_blkcipher_ops(struct crypto_tfm *tfm, u32 type, u32 mask)
+ 	crt->setkey = setkey;
+ 	crt->encrypt = alg->encrypt;
+ 	crt->decrypt = alg->decrypt;
++	crt->encrypt_kernel = alg->encrypt_kernel;
++	crt->decrypt_kernel = alg->decrypt_kernel;
+ 
+ 	addr = (unsigned long)crypto_tfm_ctx(tfm);
+ 	addr = ALIGN(addr, align);
+diff --git a/crypto/pcbc.c b/crypto/pcbc.c
+index 5174d7f..fa76111 100644
+--- a/crypto/pcbc.c
++++ b/crypto/pcbc.c
+@@ -126,6 +126,36 @@ static int crypto_pcbc_encrypt(struct blkcipher_desc *desc,
+ 	return err;
  }
+ 
++static int crypto_pcbc_encrypt_kernel(struct blkcipher_desc *desc,
++				      u8 *dst, const u8 *src,
++				      unsigned int nbytes)
++{
++	struct blkcipher_walk walk;
++	struct crypto_blkcipher *tfm = desc->tfm;
++	struct crypto_pcbc_ctx *ctx = crypto_blkcipher_ctx(tfm);
++	struct crypto_cipher *child = ctx->child;
++	void (*xor)(u8 *, const u8 *, unsigned int bs) = ctx->xor;
++
++	BUG_ON(crypto_tfm_alg_capabilities(crypto_cipher_tfm(child)) &
++	       CRYPTO_ALG_DMA);
++
++	if (nbytes == 0)
++		return 0;
++
++	memset(&walk, 0, sizeof(walk));
++	walk.src.virt.addr = (u8 *) src;
++	walk.dst.virt.addr = (u8 *) dst;
++	walk.nbytes = nbytes;
++	walk.total = nbytes;
++	walk.iv = desc->info;
++
++	if (walk.src.virt.addr == walk.dst.virt.addr)
++		nbytes = crypto_pcbc_encrypt_inplace(desc, &walk, child, xor);
++	else
++		nbytes = crypto_pcbc_encrypt_segment(desc, &walk, child, xor);
++	return 0;
++}
++
+ static int crypto_pcbc_decrypt_segment(struct blkcipher_desc *desc,
+ 				       struct blkcipher_walk *walk,
+ 				       struct crypto_cipher *tfm,
+@@ -211,6 +241,36 @@ static int crypto_pcbc_decrypt(struct blkcipher_desc *desc,
+ 	return err;
+ }
+ 
++static int crypto_pcbc_decrypt_kernel(struct blkcipher_desc *desc,
++				      u8 *dst, const u8 *src,
++				      unsigned int nbytes)
++{
++	struct blkcipher_walk walk;
++	struct crypto_blkcipher *tfm = desc->tfm;
++	struct crypto_pcbc_ctx *ctx = crypto_blkcipher_ctx(tfm);
++	struct crypto_cipher *child = ctx->child;
++	void (*xor)(u8 *, const u8 *, unsigned int bs) = ctx->xor;
++
++	BUG_ON(crypto_tfm_alg_capabilities(crypto_cipher_tfm(child)) &
++		CRYPTO_ALG_DMA);
++
++	if (nbytes == 0)
++		return 0;
++
++	memset(&walk, 0, sizeof(walk));
++	walk.src.virt.addr = (u8 *) src;
++	walk.dst.virt.addr = (u8 *) dst;
++	walk.nbytes = nbytes;
++	walk.total = nbytes;
++	walk.iv = desc->info;
++
++	if (walk.src.virt.addr == walk.dst.virt.addr)
++		nbytes = crypto_pcbc_decrypt_inplace(desc, &walk, child, xor);
++	else
++		nbytes = crypto_pcbc_decrypt_segment(desc, &walk, child, xor);
++	return 0;
++}
++
+ static void xor_byte(u8 *a, const u8 *b, unsigned int bs)
+ {
+ 	do {
+@@ -313,6 +373,8 @@ static struct crypto_instance *crypto_pcbc_alloc(void *param, unsigned int len)
+ 	inst->alg.cra_blkcipher.setkey = crypto_pcbc_setkey;
+ 	inst->alg.cra_blkcipher.encrypt = crypto_pcbc_encrypt;
+ 	inst->alg.cra_blkcipher.decrypt = crypto_pcbc_decrypt;
++	inst->alg.cra_blkcipher.encrypt_kernel = crypto_pcbc_encrypt_kernel;
++	inst->alg.cra_blkcipher.decrypt_kernel = crypto_pcbc_decrypt_kernel;
+ 
+ out_put_alg:
+ 	crypto_mod_put(alg);
+diff --git a/include/linux/crypto.h b/include/linux/crypto.h
+index 779aa78..ce092fe 100644
+--- a/include/linux/crypto.h
++++ b/include/linux/crypto.h
+@@ -40,7 +40,10 @@
+ #define CRYPTO_ALG_LARVAL		0x00000010
+ #define CRYPTO_ALG_DEAD			0x00000020
+ #define CRYPTO_ALG_DYING		0x00000040
+-#define CRYPTO_ALG_ASYNC		0x00000080
++
++#define CRYPTO_ALG_CAP_MASK		0x00000180	/* capabilities mask */
++#define CRYPTO_ALG_ASYNC		0x00000080	/* capable of async operation */
++#define CRYPTO_ALG_DMA			0x00000100	/* capable of using of DMA */
+ 
+ /*
+  * Set this bit if and only if the algorithm requires another algorithm of
+@@ -125,6 +128,10 @@ struct blkcipher_alg {
+ 	int (*decrypt)(struct blkcipher_desc *desc,
+ 		       struct scatterlist *dst, struct scatterlist *src,
+ 		       unsigned int nbytes);
++	int (*encrypt_kernel)(struct blkcipher_desc *desc, u8 *dst,
++			      const u8 *src, unsigned int nbytes);
++	int (*decrypt_kernel)(struct blkcipher_desc *desc, u8 *dst,
++			      const u8 *src, unsigned int nbytes);
+ 
+ 	unsigned int min_keysize;
+ 	unsigned int max_keysize;
+@@ -240,6 +247,10 @@ struct blkcipher_tfm {
+ 		       struct scatterlist *src, unsigned int nbytes);
+ 	int (*decrypt)(struct blkcipher_desc *desc, struct scatterlist *dst,
+ 		       struct scatterlist *src, unsigned int nbytes);
++	int (*encrypt_kernel)(struct blkcipher_desc *desc, u8 *dst,
++			      const u8 *src, unsigned int nbytes);
++	int (*decrypt_kernel)(struct blkcipher_desc *desc, u8 *dst,
++			      const u8 *src, unsigned int nbytes);
+ };
+ 
+ struct cipher_tfm {
+@@ -372,6 +383,11 @@ static inline u32 crypto_tfm_alg_type(struct crypto_tfm *tfm)
+ 	return tfm->__crt_alg->cra_flags & CRYPTO_ALG_TYPE_MASK;
+ }
+ 
++static inline u32 crypto_tfm_alg_capabilities(struct crypto_tfm *tfm)
++{
++	return tfm->__crt_alg->cra_flags & CRYPTO_ALG_CAP_MASK;
++}
++
+ static inline unsigned int crypto_tfm_alg_blocksize(struct crypto_tfm *tfm)
+ {
+ 	return tfm->__crt_alg->cra_blocksize;
+@@ -529,6 +545,23 @@ static inline int crypto_blkcipher_encrypt_iv(struct blkcipher_desc *desc,
+ 	return crypto_blkcipher_crt(desc->tfm)->encrypt(desc, dst, src, nbytes);
+ }
+ 
++static inline void crypto_blkcipher_encrypt_kernel(struct blkcipher_desc *desc,
++						   u8 *dst, const u8 *src,
++						   unsigned int nbytes)
++{
++	desc->info = crypto_blkcipher_crt(desc->tfm)->iv;
++	crypto_blkcipher_crt(desc->tfm)->encrypt_kernel(desc, dst, src,
++							nbytes);
++}
++
++static inline void crypto_blkcipher_encrypt_kernel_iv(struct blkcipher_desc *desc,
++						      u8 *dst, const u8 *src,
++						      unsigned int nbytes)
++{
++	crypto_blkcipher_crt(desc->tfm)->encrypt_kernel(desc, dst, src,
++							nbytes);
++}
++
+ static inline int crypto_blkcipher_decrypt(struct blkcipher_desc *desc,
+ 					   struct scatterlist *dst,
+ 					   struct scatterlist *src,
+@@ -546,6 +579,24 @@ static inline int crypto_blkcipher_decrypt_iv(struct blkcipher_desc *desc,
+ 	return crypto_blkcipher_crt(desc->tfm)->decrypt(desc, dst, src, nbytes);
+ }
+ 
++static inline void crypto_blkcipher_decrypt_kernel(struct blkcipher_desc *desc,
++						   u8 *dst, const u8 *src,
++						   unsigned int nbytes)
++{
++	desc->info = crypto_blkcipher_crt(desc->tfm)->iv;
++	crypto_blkcipher_crt(desc->tfm)->decrypt_kernel(desc, dst, src,
++							nbytes);
++}
++
++static inline
++void crypto_blkcipher_decrypt_kernel_iv(struct blkcipher_desc *desc,
++					u8 *dst, const u8 *src,
++					unsigned int nbytes)
++{
++	crypto_blkcipher_crt(desc->tfm)->decrypt_kernel(desc, dst, src,
++							nbytes);
++}
++
+ static inline void crypto_blkcipher_set_iv(struct crypto_blkcipher *tfm,
+ 					   const u8 *src, unsigned int len)
+ {
 
---------------000201010908000401020104--
