@@ -1,8 +1,8 @@
 From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: [RFC PATCH 4/5] [TCP]: new LOST marker optimizations
-Date: Fri, 16 Mar 2007 16:40:01 +0200
-Message-ID: <1174056002151-git-send-email-ilpo.jarvinen@helsinki.fi>
-References: <11740560023261-git-send-email-ilpo.jarvinen@helsinki.fi> <11740560021077-git-send-email-ilpo.jarvinen@helsinki.fi> <11740560021541-git-send-email-ilpo.jarvinen@helsinki.fi> <11740560022597-git-send-email-ilpo.jarvinen@helsinki.fi>
+Subject: [RFC PATCH 3/5] [TCP]: Reworked recovery's TCPCB_LOST marking functions
+Date: Fri, 16 Mar 2007 16:40:00 +0200
+Message-ID: <11740560022597-git-send-email-ilpo.jarvinen@helsinki.fi>
+References: <11740560023261-git-send-email-ilpo.jarvinen@helsinki.fi> <11740560021077-git-send-email-ilpo.jarvinen@helsinki.fi> <11740560021541-git-send-email-ilpo.jarvinen@helsinki.fi>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
@@ -10,296 +10,349 @@ Cc: David Miller <davem@davemloft.net>,
 	"=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:46540 "EHLO
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:41645 "EHLO
 	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965574AbXCPOkG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Mar 2007 10:40:06 -0400
-In-Reply-To: <11740560022597-git-send-email-ilpo.jarvinen@helsinki.fi>
+	with ESMTP id S965571AbXCPOkE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Mar 2007 10:40:04 -0400
+In-Reply-To: <11740560021541-git-send-email-ilpo.jarvinen@helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-1) Couple of skb states are mutually exclusive
+Complete rewrite for update_scoreboard and mark_head_lost. Couple
+of hints became unnecessary because of this change, NewReno code
+was greatly simplified. I changed !TCPCB_TAGBITS check from the
+original to a !(S|L) check but it shouldn't make a difference,
+and if there ever is a R only skb TCP will mark it as LOST too
+that is a correct behavior (IMHO). The algorithm uses some ideas
+presented by David Miller and Baruch Even.
 
-Skb cannot be in both S and L states at the same time, adding
-non-S nor L skb count (below highest sack) to that can be
-compared against fackets_out to see if anything below the
-current skb can still be marked with L or not. If they're
-equal (or fackets_out is smaller), the next skb will have L
-set for sure.
+This patch provides an unoptimized version.
 
-2) Create a fastpath for the new LOST marker
-
-The fastpath takes advantage of the fact that the latest ACK
-very likely contains the globally highest SACK block. By
-verifying that is larger than tp->reordering, whole SACK block
-can be skipped while counting for not-to-be marked skbs until
-tp->reordering of them is encountered. Since TCP now can know,
-that should block exists as highest, the marking can begin right
-below it. If the latest ACK does not contain a SACK block that
-reaches all the way to the highest_sack (e.g., due to
-reordering), a slow path is used.
+Seqno lookups require fast lookups that are provided using
+RB-tree patch (which is nowadays included into the latest
+net-2.6.22).
 
 Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
 ---
- net/ipv4/tcp_input.c |  133 +++++++++++++++++++++++++++++++++---------=
+ include/linux/tcp.h  |    4 -
+ include/net/tcp.h    |   11 +++
+ net/ipv4/tcp_input.c |  180 ++++++++++++++++++++++++++++++++++++------=
 --------
- 1 files changed, 87 insertions(+), 46 deletions(-)
+ 3 files changed, 139 insertions(+), 56 deletions(-)
 
+diff --git a/include/linux/tcp.h b/include/linux/tcp.h
+index 9e542d5..728321f 100644
+--- a/include/linux/tcp.h
++++ b/include/linux/tcp.h
+@@ -338,15 +338,11 @@ #endif
+ 	u32	highest_sack;	/* Start seq of globally highest revd SACK (valid o=
+nly in slowpath) */
+=20
+ 	/* from STCP, retrans queue hinting */
+-	struct sk_buff* lost_skb_hint;
+-
+-	struct sk_buff *scoreboard_skb_hint;
+ 	struct sk_buff *retransmit_skb_hint;
+ 	struct sk_buff *forward_skb_hint;
+ 	struct sk_buff *fastpath_skb_hint;
+=20
+ 	int     fastpath_cnt_hint;
+-	int     lost_cnt_hint;
+ 	int     retransmit_cnt_hint;
+ 	int     forward_cnt_hint;
+=20
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index b451127..fe1c4f0 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -1047,8 +1047,6 @@ static inline void tcp_mib_init(void)
+=20
+ /*from STCP */
+ static inline void clear_all_retrans_hints(struct tcp_sock *tp){
+-	tp->lost_skb_hint =3D NULL;
+-	tp->scoreboard_skb_hint =3D NULL;
+ 	tp->retransmit_skb_hint =3D NULL;
+ 	tp->forward_skb_hint =3D NULL;
+ 	tp->fastpath_skb_hint =3D NULL;
+@@ -1194,6 +1192,11 @@ static inline struct sk_buff *tcp_write_
+ 	return skb->next;
+ }
+=20
++static inline struct sk_buff *tcp_write_queue_prev(struct sock *sk, st=
+ruct sk_buff *skb)
++{
++	return skb->prev;
++}
++
+ #define tcp_for_write_queue(skb, sk)					\
+ 		for (skb =3D (sk)->sk_write_queue.next;			\
+ 		     (skb !=3D (struct sk_buff *)&(sk)->sk_write_queue);	\
+@@ -1203,6 +1206,10 @@ #define tcp_for_write_queue_from(skb, sk
+ 		for (; (skb !=3D (struct sk_buff *)&(sk)->sk_write_queue);\
+ 		     skb =3D skb->next)
+=20
++#define tcp_for_write_queue_backwards_from(skb, sk)			\
++		for (; (skb !=3D (struct sk_buff *)&(sk)->sk_write_queue);\
++		     skb =3D skb->prev)
++
+ static inline struct sk_buff *tcp_send_head(struct sock *sk)
+ {
+ 	return sk->sk_send_head;
 diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index f2b3f68..88d3a4c 100644
+index 870404b..f2b3f68 100644
 --- a/net/ipv4/tcp_input.c
 +++ b/net/ipv4/tcp_input.c
-@@ -936,7 +936,8 @@ #endif
-  * account for retransmits accurately.
+@@ -1737,92 +1737,172 @@ static inline void tcp_reset_reno_sack(s
+  * clear xmit_retrans hint if seq of this skb is beyond hint. How coul=
+d we
+  * retransmitted past LOST markings in the first place? I'm not fully =
+sure
+  * about undo and end of connection cases, which can cause R without L=
+?
++ * Anyway, if it was already R (it should be), no need to touch the hi=
+nt.
   */
- static int
--tcp_sacktag_write_queue(struct sock *sk, struct sk_buff *ack_skb, u32 =
-prior_snd_una)
-+tcp_sacktag_write_queue(struct sock *sk, struct sk_buff *ack_skb,
-+			u32 prior_snd_una, u32 *mark_lost_entry_seq)
+ static void tcp_verify_retransmit_hint(struct tcp_sock *tp,
+ 				       struct sk_buff *skb)
  {
- 	const struct inet_connection_sock *icsk =3D inet_csk(sk);
- 	struct tcp_sock *tp =3D tcp_sk(sk);
-@@ -957,7 +958,8 @@ tcp_sacktag_write_queue(struct sock *sk,
- 	if (!tp->sacked_out) {
- 		tp->fackets_out =3D 0;
- 		tp->highest_sack =3D tp->snd_una;
--	}
-+	} else
-+		*mark_lost_entry_seq =3D tp->highest_sack;
- 	prior_fackets =3D tp->fackets_out;
-=20
- 	/* Check for D-SACK. */
-@@ -1212,6 +1214,16 @@ tcp_sacktag_write_queue(struct sock *sk,
- 				tp->retransmit_skb_hint =3D NULL;
- 			}
- 		}
-+
-+		/* Prepare non-reno LOST marking fast path entry point, the
-+		 * last ACK must have the globally highest SACK to use
-+		 * fastpath, if the highest SACK block is larger than
-+		 * tp->reordering, just skip collecting reord_count from
-+		 * it when marking LOSTs later.
-+		 */
-+		if (!before(end_seq, tp->highest_sack) &&
-+		    ((end_seq - start_seq) >=3D tp->reordering * tp->mss_cache))
-+			*mark_lost_entry_seq =3D start_seq;
- 	}
-=20
- 	/* Check for lost retransmit. This superb idea is
-@@ -1815,7 +1827,7 @@ static void tcp_mark_head_lost_single(st
-  *       walk. Basically the entry point will be next skb after highes=
-t_sack
-  *       or high_seq (if TCP did the skip).
-  */
--static void tcp_update_scoreboard_fack(struct sock *sk)
-+static void tcp_update_scoreboard_fack(struct sock *sk, u32 entry_seq)
- {
- 	struct tcp_sock *tp =3D tcp_sk(sk);
- 	int timedout_continue =3D 1;
-@@ -1829,54 +1841,71 @@ static void tcp_update_scoreboard_fack(s
- 		not_marked_skb =3D tcp_write_queue_next(sk, not_marked_skb);
-=20
- 	} else {
--		unsigned int reord_count =3D 0;
-+		unsigned int holes_seen =3D 0;
-+		int reentry_to_highest_sack =3D 0;
-=20
--		skb =3D tcp_write_queue_find(sk, tp->highest_sack);
-+		skb =3D tcp_write_queue_find(sk, entry_seq);
- 		/* If this ever becomes expensive, it can be delayed */
- 		not_marked_skb =3D tcp_write_queue_next(sk, skb);
-+		if (entry_seq !=3D tp->highest_sack) {
-+			/* Not interested in "the last" SACKed one we got */
-+			/* RFC: find_below could help here too */
-+			skb =3D tcp_write_queue_prev(sk, skb);
-+			/* Delay lookup because it might turn out unnecessary! */
-+			reentry_to_highest_sack =3D 1;
-+		} else {
-+			unsigned int reord_count =3D 0;
-=20
--		/* Phase I: Search until TCP can mark */
--		tcp_for_write_queue_backwards_from(skb, sk) {
--			if (TCP_SKB_CB(skb)->sacked & TCPCB_LOST)
--				break;
-+			/* Phase I: Search until TCP can mark */
-+			tcp_for_write_queue_backwards_from(skb, sk) {
-+				if ((tp->fackets_out <=3D tp->sacked_out +
-+							tp->lost_out +
-+							holes_seen) ||
-+				    (TCP_SKB_CB(skb)->sacked & TCPCB_LOST))
-+					goto backwards_walk_done;
-=20
--			if (tcp_skb_timedout(sk, skb))
--				break;
--			else
--				timedout_continue =3D 0;
-+				if (tcp_skb_timedout(sk, skb))
-+					break;
-+				else {
-+					timedout_continue =3D 0;
-+					reentry_to_highest_sack =3D 0;
-+				}
-=20
--			/*
--			 * Isn't marked, thus a possible entrypoint (last skb
--			 * before LOST edge but TCP doesn't know for sure yet)
--			 */
--			if (!(TCP_SKB_CB(skb)->sacked & TCPCB_SACKED_ACKED))
--				not_marked_skb =3D skb;
--
--			reord_count +=3D tcp_skb_pcount(skb);
--			if (reord_count > tp->reordering) {
--				if (after(TCP_SKB_CB(skb)->seq, tp->high_seq)) {
--					/* RFC: should we have find_below? */
--					skb =3D tcp_write_queue_find(sk, tp->high_seq);
-+				/*
-+				 * Isn't marked, thus a possible entrypoint
-+				 * (last skb before LOST edge but TCP doesn't
-+				 * know for sure yet)
-+				 */
-+				if (!(TCP_SKB_CB(skb)->sacked & TCPCB_SACKED_ACKED)) {
- 					not_marked_skb =3D skb;
--					skb =3D tcp_write_queue_prev(sk, skb);
--					/* Timedout top is again uncertain? */
--					if (tcp_skb_timedout(sk, skb))
--						timedout_continue =3D 1;
-+					holes_seen +=3D tcp_skb_pcount(skb);
- 				}
--				/* ...else:
--				 * RFC: Might have to handle skb fragmentation
--				 * here if reord_count > tp->reordering, which
--				 * can be caused by pcount > 1 in the last
--				 * skb... Original does not handle it, btw.
--				 */
--				break;
-+
-+				reord_count +=3D tcp_skb_pcount(skb);
-+				if (reord_count > tp->reordering)
-+					break;
- 			}
- 		}
-=20
-+		if (!tcp_skb_timedout(sk, skb) &&
-+		    after(TCP_SKB_CB(skb)->seq, tp->high_seq)) {
-+			/* RFC: should we have find_below? */
-+			skb =3D tcp_write_queue_find(sk, tp->high_seq);
-+			not_marked_skb =3D skb;
-+			skb =3D tcp_write_queue_prev(sk, skb);
-+			/* Timedout top is again uncertain? */
-+			if (tcp_skb_timedout(sk, skb))
-+				timedout_continue =3D 1;
-+		}
-+		/* RFC: ...else if (!tcp_skb_timedout) do skb fragmentation? */
-+
- 		/* Phase II: Marker */
- 		tcp_for_write_queue_backwards_from(skb, sk) {
--			if (TCP_SKB_CB(skb)->sacked & TCPCB_LOST)
--				break;
-+			if ((tp->fackets_out <=3D tp->sacked_out + tp->lost_out +
-+						holes_seen) ||
-+			    (TCP_SKB_CB(skb)->sacked & TCPCB_LOST))
-+				goto backwards_walk_done;
-+
- 			if (!(TCP_SKB_CB(skb)->sacked & TCPCB_SACKED_ACKED)) {
- 				TCP_SKB_CB(skb)->sacked |=3D TCPCB_LOST;
- 				tp->lost_out +=3D tcp_skb_pcount(skb);
-@@ -1887,6 +1916,13 @@ static void tcp_update_scoreboard_fack(s
- 		/* Phase III: Nothing is still marked?, mark head then */
- 		if (!tp->lost_out)
- 			tcp_mark_head_lost_single(sk);
-+
-+backwards_walk_done:
-+		if (timedout_continue && reentry_to_highest_sack) {
-+			/* ...do the delayed lookup */
-+			skb =3D tcp_write_queue_find(sk, tp->highest_sack);
-+			not_marked_skb =3D tcp_write_queue_next(sk, skb);
-+		}
- 	}
-=20
- 	/* Continue with timedout work */
-@@ -1897,10 +1933,11 @@ static void tcp_update_scoreboard_fack(s
+ 	if ((tp->retransmit_skb_hint !=3D NULL) &&
++	    !(TCP_SKB_CB(skb)->sacked&TCPCB_SACKED_RETRANS) &&
+ 	    before(TCP_SKB_CB(skb)->seq,
+ 	    TCP_SKB_CB(tp->retransmit_skb_hint)->seq))
+ 		tp->retransmit_skb_hint =3D skb;
  }
 =20
- /* Account newly detected lost packet(s) */
+-/* Mark head of queue up as lost. */
+-static void tcp_mark_head_lost(struct sock *sk, struct tcp_sock *tp,
+-			       int packets, u32 high_seq)
++/* Forward walk starting from until a not timedout skb is encountered,=
+ timeout
++ * everything on the way
++ */
++static void tcp_timedout_mark_forward(struct sock *sk, struct sk_buff =
+*skb)
+ {
+-	struct sk_buff *skb;
+-	int cnt;
+-
+-	BUG_TRAP(packets <=3D tp->packets_out);
+-	if (tp->lost_skb_hint) {
+-		skb =3D tp->lost_skb_hint;
+-		cnt =3D tp->lost_cnt_hint;
+-	} else {
+-		skb =3D tcp_write_queue_head(sk);
+-		cnt =3D 0;
+-	}
++	struct tcp_sock *tp =3D tcp_sk(sk);
+=20
+ 	tcp_for_write_queue_from(skb, sk) {
+-		if (skb =3D=3D tcp_send_head(sk))
++		if (skb =3D=3D tcp_send_head(sk) || !tcp_skb_timedout(sk, skb))
+ 			break;
+-		/* TODO: do this better */
+-		/* this is not the most efficient way to do this... */
+-		tp->lost_skb_hint =3D skb;
+-		tp->lost_cnt_hint =3D cnt;
+-		cnt +=3D tcp_skb_pcount(skb);
+-		if (cnt > packets || after(TCP_SKB_CB(skb)->end_seq, high_seq))
+-			break;
+-		if (!(TCP_SKB_CB(skb)->sacked&TCPCB_TAGBITS)) {
++		/* Could be lost already from a previous timedout check */
++		if (!(TCP_SKB_CB(skb)->sacked & TCPCB_LOST)) {
+ 			TCP_SKB_CB(skb)->sacked |=3D TCPCB_LOST;
+ 			tp->lost_out +=3D tcp_skb_pcount(skb);
+ 			tcp_verify_retransmit_hint(tp, skb);
+ 		}
+ 	}
+-	tcp_sync_left_out(tp);
+ }
+=20
+-/* Account newly detected lost packet(s) */
++/* Simple NewReno thing: Mark head LOST if it wasn't yet and it's belo=
+w
++ * high_seq, stop. That's all.
++ */
++static void tcp_mark_head_lost_single(struct sock *sk)
++{
++	struct tcp_sock *tp =3D tcp_sk(sk);
++	struct sk_buff *skb =3D tcp_write_queue_head(sk);
+=20
 -static void tcp_update_scoreboard(struct sock *sk, struct tcp_sock *tp=
 )
++	if (!(TCP_SKB_CB(skb)->sacked & TCPCB_LOST) &&
++	    before(tp->snd_una, tp->high_seq)) {
++		TCP_SKB_CB(skb)->sacked |=3D TCPCB_LOST;
++		tp->lost_out +=3D tcp_skb_pcount(skb);
++		tcp_sync_left_out(tp);
++	}
++}
++
++/* Marks per skb LOST bits with SACK is enabled.
++ *
++ * Algorithm details
++ *
++ * Walk backwards until the first previously LOST marked skb is found =
+(or head
++ * is encountered) starting from highest_sack seq. Phases:
++ *
++ * Ia)  Condition 1, enough SACK blocks to indicate a loss:
++ *       Skip skbs until reord_count >=3D tp->reordering, then continu=
+e from
++ *       min(skb_now->seq, tp->high_seq) and goto Marker.
++ *
++ * Ib)  Condition 2, skbs timed out:
++ *       During walk, also check if the currently processed skb has ti=
+med out.
++ *       If such skb is found, goto Marker (thus if it is found before=
+ skipping
++ *       to tp->high_seq in Ia, no skipping will be done).
++ *
++ * II)  Marker
++ *       Mark every non-SACKed skb that is encountered as LOST. When f=
+irst
++ *       previously LOST marked skb is found, short-circuit.
++ *
++ * III) Polish up
++ *       If no skbs are marked, at least one is marked after the loop.
++ *
++ * IV)  Timedout work to do (if top timedout skb was not encountered)
++ *       If the previous walking didn't reveal the edge after which sk=
+bs are
++ *       not timedout, it might be past the work we've done so far. Th=
+erefore
++ *       call forward walk that marks timedout skbs as LOST starting f=
+rom an
++ *       entry point right above a known point provided from the backw=
+ards
++ *       walk. Basically the entry point will be next skb after highes=
+t_sack
++ *       or high_seq (if TCP did the skip).
++ */
++static void tcp_update_scoreboard_fack(struct sock *sk)
+ {
+-	if (IsFack(tp)) {
+-		int lost =3D tp->fackets_out - tp->reordering;
+-		if (lost <=3D 0)
+-			lost =3D 1;
+-		tcp_mark_head_lost(sk, tp, lost, tp->high_seq);
++	struct tcp_sock *tp =3D tcp_sk(sk);
++	int timedout_continue =3D 1;
++	/* Beware: not_marked_skb might be pointing to sk_write_queue */
++	struct sk_buff *not_marked_skb;
++	struct sk_buff *skb;
++
++	if (!tp->sacked_out) {
++		tcp_mark_head_lost_single(sk);
++		not_marked_skb =3D tcp_write_queue_head(sk);
++		not_marked_skb =3D tcp_write_queue_next(sk, not_marked_skb);
++
+ 	} else {
+-		tcp_mark_head_lost(sk, tp, 1, tp->high_seq);
+-	}
++		unsigned int reord_count =3D 0;
+=20
+-	/* New heuristics: it is possible only after we switched
+-	 * to restart timer each time when something is ACKed.
+-	 * Hence, we can detect timed out packets during fast
+-	 * retransmit without falling to slow start.
+-	 */
+-	if (!IsReno(tp) && tcp_head_timedout(sk, tp)) {
+-		struct sk_buff *skb;
++		skb =3D tcp_write_queue_find(sk, tp->highest_sack);
++		/* If this ever becomes expensive, it can be delayed */
++		not_marked_skb =3D tcp_write_queue_next(sk, skb);
+=20
+-		skb =3D tp->scoreboard_skb_hint ? tp->scoreboard_skb_hint
+-			: tcp_write_queue_head(sk);
++		/* Phase I: Search until TCP can mark */
++		tcp_for_write_queue_backwards_from(skb, sk) {
++			if (TCP_SKB_CB(skb)->sacked & TCPCB_LOST)
++				break;
+=20
+-		tcp_for_write_queue_from(skb, sk) {
+-			if (skb =3D=3D tcp_send_head(sk))
++			if (tcp_skb_timedout(sk, skb))
+ 				break;
+-			if (!tcp_skb_timedout(sk, skb))
++			else
++				timedout_continue =3D 0;
++
++			/*
++			 * Isn't marked, thus a possible entrypoint (last skb
++			 * before LOST edge but TCP doesn't know for sure yet)
++			 */
++			if (!(TCP_SKB_CB(skb)->sacked & TCPCB_SACKED_ACKED))
++				not_marked_skb =3D skb;
++
++			reord_count +=3D tcp_skb_pcount(skb);
++			if (reord_count > tp->reordering) {
++				if (after(TCP_SKB_CB(skb)->seq, tp->high_seq)) {
++					/* RFC: should we have find_below? */
++					skb =3D tcp_write_queue_find(sk, tp->high_seq);
++					not_marked_skb =3D skb;
++					skb =3D tcp_write_queue_prev(sk, skb);
++					/* Timedout top is again uncertain? */
++					if (tcp_skb_timedout(sk, skb))
++						timedout_continue =3D 1;
++				}
++				/* ...else:
++				 * RFC: Might have to handle skb fragmentation
++				 * here if reord_count > tp->reordering, which
++				 * can be caused by pcount > 1 in the last
++				 * skb... Original does not handle it, btw.
++				 */
+ 				break;
++			}
++		}
+=20
+-			if (!(TCP_SKB_CB(skb)->sacked&TCPCB_TAGBITS)) {
++		/* Phase II: Marker */
++		tcp_for_write_queue_backwards_from(skb, sk) {
++			if (TCP_SKB_CB(skb)->sacked & TCPCB_LOST)
++				break;
++			if (!(TCP_SKB_CB(skb)->sacked & TCPCB_SACKED_ACKED)) {
+ 				TCP_SKB_CB(skb)->sacked |=3D TCPCB_LOST;
+ 				tp->lost_out +=3D tcp_skb_pcount(skb);
+ 				tcp_verify_retransmit_hint(tp, skb);
+ 			}
+ 		}
+=20
+-		tp->scoreboard_skb_hint =3D skb;
+-
+-		tcp_sync_left_out(tp);
++		/* Phase III: Nothing is still marked?, mark head then */
++		if (!tp->lost_out)
++			tcp_mark_head_lost_single(sk);
+ 	}
++
++	/* Continue with timedout work */
++	if (timedout_continue)
++		tcp_timedout_mark_forward(sk, not_marked_skb);
++
++	tcp_sync_left_out(tp);
++}
++
++/* Account newly detected lost packet(s) */
 +static void tcp_update_scoreboard(struct sock *sk, struct tcp_sock *tp=
-,
-+				  u32 sack_entry_seq)
- {
- 	if (!IsReno(tp))
--		tcp_update_scoreboard_fack(sk);
-+		tcp_update_scoreboard_fack(sk, sack_entry_seq);
- 	else
- 		tcp_mark_head_lost_single(sk);
+)
++{
++	if (!IsReno(tp))
++		tcp_update_scoreboard_fack(sk);
++	else
++		tcp_mark_head_lost_single(sk);
  }
-@@ -2170,7 +2207,7 @@ static void tcp_mtup_probe_success(struc
-  */
- static void
- tcp_fastretrans_alert(struct sock *sk, u32 prior_snd_una,
--		      int prior_packets, int flag)
-+		      int prior_packets, int flag, u32 mark_lost_entry_seq)
- {
- 	struct inet_connection_sock *icsk =3D inet_csk(sk);
- 	struct tcp_sock *tp =3D tcp_sk(sk);
-@@ -2198,7 +2235,7 @@ tcp_fastretrans_alert(struct sock *sk, u
+=20
+ /* CWND moderation, preventing bursts due to too big ACKs
+@@ -2118,7 +2198,7 @@ tcp_fastretrans_alert(struct sock *sk, u
  	    before(tp->snd_una, tp->high_seq) &&
  	    icsk->icsk_ca_state !=3D TCP_CA_Open &&
  	    tp->fackets_out > tp->reordering) {
--	    	tcp_update_scoreboard_fack(sk);
-+	    	tcp_update_scoreboard_fack(sk, mark_lost_entry_seq);
+-		tcp_mark_head_lost(sk, tp, tp->fackets_out-tp->reordering, tp->high_=
+seq);
++	    	tcp_update_scoreboard_fack(sk);
  		NET_INC_STATS_BH(LINUX_MIB_TCPLOSS);
  	}
 =20
-@@ -2324,7 +2361,7 @@ tcp_fastretrans_alert(struct sock *sk, u
- 	}
-=20
- 	if (is_dupack || tcp_head_timedout(sk, tp))
--		tcp_update_scoreboard(sk, tp);
-+		tcp_update_scoreboard(sk, tp, mark_lost_entry_seq);
- 	tcp_cwnd_down(sk);
- 	tcp_xmit_retransmit_queue(sk);
- }
-@@ -2810,6 +2847,7 @@ static int tcp_ack(struct sock *sk, stru
- 	u32 ack_seq =3D TCP_SKB_CB(skb)->seq;
- 	u32 ack =3D TCP_SKB_CB(skb)->ack_seq;
- 	u32 prior_in_flight;
-+	u32 mark_lost_entry_seq =3D tp->snd_una;
- 	s32 seq_rtt;
- 	int prior_packets;
- 	int frto_cwnd =3D 0;
-@@ -2852,7 +2890,8 @@ static int tcp_ack(struct sock *sk, stru
- 		flag |=3D tcp_ack_update_window(sk, tp, skb, ack, ack_seq);
-=20
- 		if (TCP_SKB_CB(skb)->sacked)
--			flag |=3D tcp_sacktag_write_queue(sk, skb, prior_snd_una);
-+			flag |=3D tcp_sacktag_write_queue(sk, skb, prior_snd_una,
-+							&mark_lost_entry_seq);
-=20
- 		if (TCP_ECN_rcv_ecn_echo(tp, tcp_hdr(skb)))
- 			flag |=3D FLAG_ECE;
-@@ -2882,7 +2921,8 @@ static int tcp_ack(struct sock *sk, stru
- 		if ((flag & FLAG_DATA_ACKED) && !frto_cwnd &&
- 		    tcp_may_raise_cwnd(sk, flag))
- 			tcp_cong_avoid(sk, ack,  seq_rtt, prior_in_flight, 0);
--		tcp_fastretrans_alert(sk, prior_snd_una, prior_packets, flag);
-+		tcp_fastretrans_alert(sk, prior_snd_una, prior_packets, flag,
-+				      mark_lost_entry_seq);
- 	} else {
- 		if ((flag & FLAG_DATA_ACKED) && !frto_cwnd)
- 			tcp_cong_avoid(sk, ack, seq_rtt, prior_in_flight, 1);
-@@ -2906,7 +2946,8 @@ no_queue:
-=20
- old_ack:
- 	if (TCP_SKB_CB(skb)->sacked)
--		tcp_sacktag_write_queue(sk, skb, prior_snd_una);
-+		tcp_sacktag_write_queue(sk, skb, prior_snd_una,
-+					&mark_lost_entry_seq);
-=20
- uninteresting_ack:
- 	SOCK_DEBUG(sk, "Ack %u out of %u:%u\n", ack, tp->snd_una, tp->snd_nxt=
-);
 --=20
 1.4.2
 
