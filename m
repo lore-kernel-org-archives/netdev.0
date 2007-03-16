@@ -1,56 +1,88 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: [PATCH 0/5] [RFC] AF_RXRPC socket family implementation [try
- #2]
-Date: Fri, 16 Mar 2007 15:34:08 +0000
-Message-ID: <20070316153408.3a9a244a@lxorguk.ukuu.org.uk>
-References: <20070316151305.04cbc352@lxorguk.ukuu.org.uk>
-	<20070316125008.3740.44693.stgit@warthog.cambridge.redhat.com>
-	<25571.1174054993@redhat.com>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: [RFC PATCH 2/5] [TCP]: Extracted rexmit hint clearing from the LOST marking code
+Date: Fri, 16 Mar 2007 16:39:59 +0200
+Message-ID: <11740560021541-git-send-email-ilpo.jarvinen@helsinki.fi>
+References: <11740560023261-git-send-email-ilpo.jarvinen@helsinki.fi> <11740560021077-git-send-email-ilpo.jarvinen@helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, herbert.xu@redhat.com,
-	linux-kernel@vger.kernel.org, hch@infradead.org,
-	arjan@infradead.org
-To: David Howells <dhowells@redhat.com>
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	"=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from outpipe-village-512-1.bc.nu ([81.2.110.250]:42745 "EHLO
-	lxorguk.ukuu.org.uk" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S965181AbXCPObO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Mar 2007 10:31:14 -0400
-In-Reply-To: <25571.1174054993@redhat.com>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:46540 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965261AbXCPOkE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Mar 2007 10:40:04 -0400
+In-Reply-To: <11740560021077-git-send-email-ilpo.jarvinen@helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 16 Mar 2007 14:23:13 +0000
-David Howells <dhowells@redhat.com> wrote:
+Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
+---
+ net/ipv4/tcp_input.c |   31 ++++++++++++++++---------------
+ 1 files changed, 16 insertions(+), 15 deletions(-)
 
-> Alan Cox <alan@lxorguk.ukuu.org.uk> wrote:
-> 
-> > If your messages are datagrams and unreliable -> SOCK_DGRAM
-> 
-> Nope.
-> 
-> > If your messages are datagrams and reliable -> SOCK_RDM
-> 
-> Nope.
-> 
-> > If your messages are datagrams, reliable and ordered -> SOCK_SEQPACKET
-> 
-> Nope.
-> 
-> > If your messages are streams of bits, reliable and ordered -> SOCK_STREAM
-> 
-> Nope.
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index dbc98ce..870404b 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -1733,6 +1733,20 @@ static inline void tcp_reset_reno_sack(s
+ 	tp->left_out =3D tp->lost_out;
+ }
+=20
++/* RFC: This is from the original, I doubt that this is necessary at a=
+ll:
++ * clear xmit_retrans hint if seq of this skb is beyond hint. How coul=
+d we
++ * retransmitted past LOST markings in the first place? I'm not fully =
+sure
++ * about undo and end of connection cases, which can cause R without L=
+?
++ */
++static void tcp_verify_retransmit_hint(struct tcp_sock *tp,
++				       struct sk_buff *skb)
++{
++	if ((tp->retransmit_skb_hint !=3D NULL) &&
++	    before(TCP_SKB_CB(skb)->seq,
++	    TCP_SKB_CB(tp->retransmit_skb_hint)->seq))
++		tp->retransmit_skb_hint =3D skb;
++}
++
+ /* Mark head of queue up as lost. */
+ static void tcp_mark_head_lost(struct sock *sk, struct tcp_sock *tp,
+ 			       int packets, u32 high_seq)
+@@ -1762,14 +1776,7 @@ static void tcp_mark_head_lost(struct so
+ 		if (!(TCP_SKB_CB(skb)->sacked&TCPCB_TAGBITS)) {
+ 			TCP_SKB_CB(skb)->sacked |=3D TCPCB_LOST;
+ 			tp->lost_out +=3D tcp_skb_pcount(skb);
+-
+-			/* clear xmit_retransmit_queue hints
+-			 *  if this is beyond hint */
+-			if (tp->retransmit_skb_hint !=3D NULL &&
+-			    before(TCP_SKB_CB(skb)->seq,
+-				   TCP_SKB_CB(tp->retransmit_skb_hint)->seq))
+-				tp->retransmit_skb_hint =3D NULL;
+-
++			tcp_verify_retransmit_hint(tp, skb);
+ 		}
+ 	}
+ 	tcp_sync_left_out(tp);
+@@ -1808,13 +1815,7 @@ static void tcp_update_scoreboard(struct
+ 			if (!(TCP_SKB_CB(skb)->sacked&TCPCB_TAGBITS)) {
+ 				TCP_SKB_CB(skb)->sacked |=3D TCPCB_LOST;
+ 				tp->lost_out +=3D tcp_skb_pcount(skb);
+-
+-				/* clear xmit_retrans hint */
+-				if (tp->retransmit_skb_hint &&
+-				    before(TCP_SKB_CB(skb)->seq,
+-					   TCP_SKB_CB(tp->retransmit_skb_hint)->seq))
+-
+-					tp->retransmit_skb_hint =3D NULL;
++				tcp_verify_retransmit_hint(tp, skb);
+ 			}
+ 		}
+=20
+--=20
+1.4.2
 
-So your messages are neither reliable not unreliable, nor ordered, nor
-unordered.
-
-NAK
-
-Until you work out what your messages actually are and use a proper
-standard socket type. And "but there are higher layers" isn't relevant
-here, this is true for Appletalk as well and it doesn't have to go
-inventing new types for everything as you seem to.
-
-Alan
