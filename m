@@ -1,72 +1,31 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: [PATCH] fib_trie root node settings
-Date: Fri, 16 Mar 2007 12:21:38 +0100
-Message-ID: <17914.32194.959040.400671@robur.slu.se>
+From: Michal Schmidt <mschmidt-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH 1/3] airo: Don't check for NULL before kfree()
+Date: Fri, 16 Mar 2007 12:40:00 +0100
+Message-ID: <45FA8210.7080709@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Robert.Olsson@data.slu.se,
-	Jens.Laas@data.slu.se, hans.liss@its.uu.se
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.slu.se ([130.238.96.70]:54600 "EHLO mx1.slu.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753191AbXCPLVo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Mar 2007 07:21:44 -0400
-Sender: netdev-owner@vger.kernel.org
+Cc: breed-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+It's unnecessary to check for NULL before calling kfree().
 
-The threshold for root node can be more aggressive set to get
-better tree compression. The new setting mekes the root grow 
-from 16 to 19 bits and substansial improvemnt in Aver depth
-this with the current table of 214393 prefixes 
+Signed-off-by: Michal Schmidt <mschmidt-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 
-But really the dynamic resize should need more investigation 
-both in terms convergence and performance and maybe it should 
-be possible to change...
-
-Maybe just for the brave to start with or we may have to back 
-this out.
-
------ Current -------
-Main:
-	Aver depth:     2.59
-	Max depth:      9
-	Leaves:         205530
-	Internal nodes: 52634
-	  1: 26507  2: 11693  3: 8007  4: 3700  5: 1776  6: 658  7: 241  8: 51  16: 1
-	Pointers: 431426
-Null ptrs: 173263
-Total size: 6934  kB
-
------ With the new setting -------
-Main:
-	Aver depth:     2.06
-	Max depth:      8
-	Leaves:         205530
-	Internal nodes: 48235
-	  1: 23812  2: 10023  3: 8089  4: 3972  5: 2332  6: 6  19: 1
-	Pointers: 815276
-Null ptrs: 561512
-Total size: 8330  kB
-
-
-Signed-off-by: Robert Olsson <robert.olsson@its.uu.se>
-
-
-diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-index 7ef5948..1560c54 100644
---- a/net/ipv4/fib_trie.c
-+++ b/net/ipv4/fib_trie.c
-@@ -293,8 +293,8 @@ static inline void check_tnode(const struct tnode *tn)
+diff --git a/drivers/net/wireless/airo.c b/drivers/net/wireless/airo.c
+index a8c2bfe..71ac1f1 100644
+--- a/drivers/net/wireless/airo.c
++++ b/drivers/net/wireless/airo.c
+@@ -2740,8 +2740,6 @@ static int airo_networks_allocate(struct airo_info *ai)
  
- static int halve_threshold = 25;
- static int inflate_threshold = 50;
--static int halve_threshold_root = 15;
--static int inflate_threshold_root = 25; 
-+static int halve_threshold_root = 8;
-+static int inflate_threshold_root = 15; 
- 
- 
- static void __alias_free_mem(struct rcu_head *head)
+ static void airo_networks_free(struct airo_info *ai)
+ {
+-	if (!ai->networks)
+-		return;
+ 	kfree(ai->networks);
+ 	ai->networks = NULL;
+ }
