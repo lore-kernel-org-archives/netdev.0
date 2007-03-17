@@ -1,13 +1,13 @@
 From: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
-Subject: [PATCH 2/4] [net-2.6.22] IrDA: removing stir4200
-	useless include
-Date: Sat, 17 Mar 2007 03:58:02 +0200
-Message-ID: <20070317015802.GB3429@sortiz.org>
+Subject: [PATCH 3/4] [net-2.6.22] IrDA: irda lockdep annotation
+Date: Sat, 17 Mar 2007 03:58:36 +0200
+Message-ID: <20070317015836.GC3429@sortiz.org>
 Reply-To: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Dave Jones <davej-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 Return-path: <irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
 Content-Disposition: inline
@@ -22,25 +22,48 @@ Sender: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 Errors-To: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-stir4200 doesn't need to include irlap.h
+Rmmoding irda triggers a lockdep false positive.
 
+Reported-by: Dave Jones <davej-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 Signed-off-by: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
 ---
- drivers/net/irda/stir4200.c |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
+ net/irda/irqueue.c |    9 ++++++++-
+ 1 files changed, 8 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/irda/stir4200.c b/drivers/net/irda/stir4200.c
-index a22175f..aec86a2 100644
---- a/drivers/net/irda/stir4200.c
-+++ b/drivers/net/irda/stir4200.c
-@@ -52,7 +52,6 @@
- #include <linux/kthread.h>
- #include <linux/freezer.h>
- #include <net/irda/irda.h>
--#include <net/irda/irlap.h>
- #include <net/irda/irda_device.h>
- #include <net/irda/wrapper.h>
- #include <net/irda/crc.h>
+diff --git a/net/irda/irqueue.c b/net/irda/irqueue.c
+index 9266233..d058b46 100644
+--- a/net/irda/irqueue.c
++++ b/net/irda/irqueue.c
+@@ -384,6 +384,9 @@ EXPORT_SYMBOL(hashbin_new);
+  *    for deallocating this structure if it's complex. If not the user can
+  *    just supply kfree, which should take care of the job.
+  */
++#ifdef CONFIG_LOCKDEP
++static int hashbin_lock_depth = 0;
++#endif
+ int hashbin_delete( hashbin_t* hashbin, FREE_FUNC free_func)
+ {
+ 	irda_queue_t* queue;
+@@ -395,7 +398,8 @@ int hashbin_delete( hashbin_t* hashbin, FREE_FUNC free_func)
+ 
+ 	/* Synchronize */
+ 	if ( hashbin->hb_type & HB_LOCK ) {
+-		spin_lock_irqsave(&hashbin->hb_spinlock, flags);
++		spin_lock_irqsave_nested(&hashbin->hb_spinlock, flags,
++					 hashbin_lock_depth++);
+ 	}
+ 
+ 	/*
+@@ -419,6 +423,9 @@ int hashbin_delete( hashbin_t* hashbin, FREE_FUNC free_func)
+ 	/* Release lock */
+ 	if ( hashbin->hb_type & HB_LOCK) {
+ 		spin_unlock_irqrestore(&hashbin->hb_spinlock, flags);
++#ifdef CONFIG_LOCKDEP
++		hashbin_lock_depth--;
++#endif
+ 	}
+ 
+ 	/*
 -- 
 1.5.0.2
 
