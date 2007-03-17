@@ -1,44 +1,58 @@
-From: Samuel Ortiz <samuel@sortiz.org>
-Subject: [PATCH 1/3] [net-2.6] IrDA: Delay needed when uploading firmware chunks
-Date: Sat, 17 Mar 2007 04:03:36 +0200
-Message-ID: <20070317020336.GE3429@sortiz.org>
-Reply-To: Samuel Ortiz <samuel@sortiz.org>
+From: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
+Subject: [PATCH 2/3] [net-2.6] IrDA: irttp_dup spin_lock
+	initialisation
+Date: Sat, 17 Mar 2007 04:04:27 +0200
+Message-ID: <20070317020427.GF3429@sortiz.org>
+Reply-To: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, irda-users@lists.sourceforge.net,
-	nigelw@elder-gods.net
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 26.mail-out.ovh.net ([213.186.42.179]:43976 "HELO
-	26.mail-out.ovh.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S933647AbXCQCDt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Mar 2007 22:03:49 -0400
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Guennadi Liakhovetski <gl-o/hVf8ie6tKzQB+pC5nmwQ@public.gmane.org>,
+	stable-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
+	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=irda-users>
+List-Post: <mailto:irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
+	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Sender: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Errors-To: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-With 42101001.sb firmwares, we need a 10 ms delay between firmware chunks
-upload on irda-usb.
+Without this initialization one gets
 
-Patch from Nigel Williams <nigelw@elder-gods.net>
-Signed-off-by: Samuel Ortiz <samuel@sortiz.org>
+kernel BUG at kernel/rtmutex_common.h:80!
+
+This patch should also be included in the -stable kernel.
+
+Signed-off-by: G. Liakhovetski <gl-o/hVf8ie6tKzQB+pC5nmwQ@public.gmane.org>
+Signed-off-by: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
 ---
- drivers/net/irda/irda-usb.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+ net/irda/irttp.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/irda/irda-usb.c b/drivers/net/irda/irda-usb.c
-index 340ee99..1d510bd 100644
---- a/drivers/net/irda/irda-usb.c
-+++ b/drivers/net/irda/irda-usb.c
-@@ -1057,6 +1057,8 @@ static int stir421x_fw_upload(struct irda_usb_cb *self,
+diff --git a/net/irda/irttp.c b/net/irda/irttp.c
+index a7486b3..da3f2bc 100644
+--- a/net/irda/irttp.c
++++ b/net/irda/irttp.c
+@@ -1455,6 +1455,7 @@ struct tsap_cb *irttp_dup(struct tsap_cb *orig, void *instance)
  
- 		if (ret < 0)
- 			break;
-+
-+		mdelay(10);
- 	}
+ 	/* Not everything should be copied */
+ 	new->notify.instance = instance;
++	spin_lock_init(&new->lock);
+ 	init_timer(&new->todo_timer);
  
- 	kfree(patch_block);
+ 	skb_queue_head_init(&new->rx_queue);
 -- 
 1.5.0.2
 
+
+-------------------------------------------------------------------------
+Take Surveys. Earn Cash. Influence the Future of IT
+Join SourceForge.net's Techsay panel and you'll get the chance to share your
+opinions on IT & business topics through brief surveys-and earn cash
+http://www.techsay.com/default.php?page=join.php&p=sourceforge&CID=DEVDEV
