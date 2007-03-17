@@ -1,12 +1,14 @@
 From: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
-Subject: [PATCH 3/4] [net-2.6.22] IrDA: irda lockdep annotation
-Date: Sat, 17 Mar 2007 03:58:36 +0200
-Message-ID: <20070317015836.GC3429@sortiz.org>
+Subject: [PATCH 4/4] [net-2.6.22] IrDA: SMC SuperIO Chip
+	LPC47N227 not identified properly
+Date: Sat, 17 Mar 2007 03:59:37 +0200
+Message-ID: <20070317015937.GD3429@sortiz.org>
 Reply-To: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Dave Jones <davej-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+Cc: khali-PUYAD+kWke1g9hUCZPvPmw@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, peter.kovar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
 	irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 Return-path: <irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
@@ -22,48 +24,29 @@ Sender: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 Errors-To: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Rmmoding irda triggers a lockdep false positive.
+SMC SuperIO Chip LPC47N227 used for IrDA is not detected because its device
+identification byte can be 0x7A instead of 0x5A.
 
-Reported-by: Dave Jones <davej-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Patch from Peter Kovar <peter.kovar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Cc: Jean Delvare <khali-PUYAD+kWke1g9hUCZPvPmw@public.gmane.org>
+Signed-off-by: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
 Signed-off-by: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
 ---
- net/irda/irqueue.c |    9 ++++++++-
- 1 files changed, 8 insertions(+), 1 deletions(-)
+ drivers/net/irda/smsc-ircc2.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-diff --git a/net/irda/irqueue.c b/net/irda/irqueue.c
-index 9266233..d058b46 100644
---- a/net/irda/irqueue.c
-+++ b/net/irda/irqueue.c
-@@ -384,6 +384,9 @@ EXPORT_SYMBOL(hashbin_new);
-  *    for deallocating this structure if it's complex. If not the user can
-  *    just supply kfree, which should take care of the job.
-  */
-+#ifdef CONFIG_LOCKDEP
-+static int hashbin_lock_depth = 0;
-+#endif
- int hashbin_delete( hashbin_t* hashbin, FREE_FUNC free_func)
+diff --git a/drivers/net/irda/smsc-ircc2.c b/drivers/net/irda/smsc-ircc2.c
+index 103a2d1..e845386 100644
+--- a/drivers/net/irda/smsc-ircc2.c
++++ b/drivers/net/irda/smsc-ircc2.c
+@@ -315,6 +315,7 @@ static struct smsc_chip __initdata lpc_chips_flat[] =
  {
- 	irda_queue_t* queue;
-@@ -395,7 +398,8 @@ int hashbin_delete( hashbin_t* hashbin, FREE_FUNC free_func)
- 
- 	/* Synchronize */
- 	if ( hashbin->hb_type & HB_LOCK ) {
--		spin_lock_irqsave(&hashbin->hb_spinlock, flags);
-+		spin_lock_irqsave_nested(&hashbin->hb_spinlock, flags,
-+					 hashbin_lock_depth++);
- 	}
- 
- 	/*
-@@ -419,6 +423,9 @@ int hashbin_delete( hashbin_t* hashbin, FREE_FUNC free_func)
- 	/* Release lock */
- 	if ( hashbin->hb_type & HB_LOCK) {
- 		spin_unlock_irqrestore(&hashbin->hb_spinlock, flags);
-+#ifdef CONFIG_LOCKDEP
-+		hashbin_lock_depth--;
-+#endif
- 	}
- 
- 	/*
+ 	/* Base address 0x2E or 0x4E */
+ 	{ "47N227",	KEY55_1|FIR|SERx4,	0x5a, 0x00 },
++	{ "47N227",	KEY55_1|FIR|SERx4,	0x7a, 0x00 },
+ 	{ "47N267",	KEY55_1|FIR|SERx4,	0x5e, 0x00 },
+ 	{ NULL }
+ };
 -- 
 1.5.0.2
 
