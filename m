@@ -1,218 +1,412 @@
 From: Finn Thain <fthain@telegraphics.com.au>
-Subject: [PATCH 13/13] mac68k: SONIC interrupt handling
-Date: Sat, 17 Mar 2007 20:09:31 +1100 (EST)
-Message-ID: <Pine.LNX.4.64.0703171734280.4875@loopy.telegraphics.com.au>
+Subject: [PATCH 4/13] mac68k: DP8390 update
+Date: Sat, 17 Mar 2007 20:07:16 +1100 (EST)
+Message-ID: <Pine.LNX.4.64.0703171721410.4818@loopy.telegraphics.com.au>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Thomas Bogendoerfer <tsbogend@alpha.franken.de>,
-	netdev@vger.kernel.org, linux-m68k@vger.kernel.org
+Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
+	linux-m68k@vger.kernel.org
 To: Geert Uytterhoeven <geert@linux-m68k.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from loopy.telegraphics.com.au ([202.45.126.152]:36051 "EHLO
+Received: from loopy.telegraphics.com.au ([202.45.126.152]:36049 "EHLO
 	loopy.telegraphics.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933791AbXCQJaq (ORCPT
+	with ESMTP id S933775AbXCQJaq (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Sat, 17 Mar 2007 05:30:46 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-Install the macsonic interrupt handler on both IRQs when using 
-via_alt_mapping. Otherwise the rare interrupt that still goes to the nubus 
-slot will wedge the nubus.
-
-$ cat /proc/interrupts
-auto       2:      89176 via2
-auto       3:     744367 sonic
-auto       4:          0 scc
-auto       6:     318363 via1
-auto       7:          0 NMI
-mac        9:     119413 framebuffer vbl
-mac       10:       1971 ADB
-mac       14:     198517 timer
-mac       17:      89104 nubus
-mac       19:         72 Mac ESP SCSI
-mac       56:        629 sonic
-mac       62:    1142593 ide0
+Fix the support for C/NET nubus ethernet cards etc. Sync up the DP8390 
+driver with the latest code in the mac68k repo.
 
 Signed-off-by: Finn Thain <fthain@telegraphics.com.au>
 
- drivers/net/jazzsonic.c |   21 +++++++++++++++---
- drivers/net/macsonic.c  |   54 ++++++++++++++++++++++++++++++++++++++++--------
- drivers/net/sonic.c     |   25 ----------------------
- 3 files changed, 63 insertions(+), 37 deletions(-)
+ drivers/net/mac8390.c |  245 +++++++++++++++++++++++++++++++++++---------------
+ 1 file changed, 175 insertions(+), 70 deletions(-)
 
-Index: linux-2.6.20/drivers/net/jazzsonic.c
+Index: linux-2.6.20/drivers/net/mac8390.c
 ===================================================================
---- linux-2.6.20.orig/drivers/net/jazzsonic.c	2007-03-05 23:01:33.000000000 +1100
-+++ linux-2.6.20/drivers/net/jazzsonic.c	2007-03-05 23:01:33.000000000 +1100
-@@ -88,6 +88,21 @@ static unsigned short known_revisions[] 
- 	0xffff			/* end of list */
+--- linux-2.6.20.orig/drivers/net/mac8390.c	2007-03-06 20:14:31.000000000 +1100
++++ linux-2.6.20/drivers/net/mac8390.c	2007-03-06 20:15:01.000000000 +1100
+@@ -14,6 +14,8 @@
+ /* 2001-05-15: support for Cabletron ported from old daynaport driver
+  * and fixed access to Sonic Sys card which masquerades as a Farallon
+  * by rayk@knightsmanor.org */
++/* 2002-12-30: Try to support more cards, some clues from NetBSD driver */
++/* 2003-12-26: Make sure Asante cards always work. */
+ 
+ #include <linux/module.h>
+ #include <linux/kernel.h>
+@@ -61,25 +63,21 @@ static char version[] =
+ #define DAYNA_8390_BASE		0x80000
+ #define DAYNA_8390_MEM		0x00000
+ 
+-#define KINETICS_8390_BASE	0x80000
+-#define KINETICS_8390_MEM	0x00000
+-
+ #define CABLETRON_8390_BASE	0x90000
+ #define CABLETRON_8390_MEM	0x00000
+ 
++#define INTERLAN_8390_BASE	0xE0000
++#define INTERLAN_8390_MEM	0xD0000
++
+ enum mac8390_type {
+ 	MAC8390_NONE = -1,
+ 	MAC8390_APPLE,
+ 	MAC8390_ASANTE,
+-	MAC8390_FARALLON,  /* Apple, Asante, and Farallon are all compatible */
++	MAC8390_FARALLON,
+ 	MAC8390_CABLETRON,
+ 	MAC8390_DAYNA,
+ 	MAC8390_INTERLAN,
+ 	MAC8390_KINETICS,
+-	MAC8390_FOCUS,
+-	MAC8390_SONICSYS,
+-	MAC8390_DAYNA2,
+-	MAC8390_DAYNA3,
  };
  
-+static int jazzsonic_open(struct net_device* dev) {
-+	if (request_irq(dev->irq, &sonic_interrupt, IRQF_DISABLED, "sonic", dev)) {
-+		printk(KERN_ERR "\n%s: unable to get IRQ %d .\n", dev->name, dev->irq);
-+		return -EAGAIN;
-+	}
-+	return sonic_open(dev);
-+}
+ static const char * cardname[] = {
+@@ -90,10 +88,6 @@ static const char * cardname[] = {
+ 	"dayna",
+ 	"interlan",
+ 	"kinetics",
+-	"focus",
+-	"sonic systems",
+-	"dayna2",
+-	"dayna_lc",
+ };
+ 
+ static int word16[] = {
+@@ -104,10 +98,6 @@ static int word16[] = {
+ 	0, /* dayna */
+ 	1, /* interlan */
+ 	0, /* kinetics */
+-	1, /* focus (??) */
+-	1, /* sonic systems  */
+-	1, /* dayna2 */
+-	1, /* dayna-lc */
+ };
+ 
+ /* on which cards do we use NuBus resources? */
+@@ -119,10 +109,12 @@ static int useresources[] = {
+ 	0, /* dayna */
+ 	0, /* interlan */
+ 	0, /* kinetics */
+-	0, /* focus (??) */
+-	1, /* sonic systems */
+-	1, /* dayna2 */
+-	1, /* dayna-lc */
++};
 +
-+static int jazzsonic_close(struct net_device* dev) {
-+	int err;
-+	err = sonic_close(dev);
-+	free_irq(dev->irq, dev);
-+	return err;
-+}
-+
- static int __init sonic_probe1(struct net_device *dev)
++enum mac8390_access {
++	ACCESS_UNKNOWN = 0,
++	ACCESS_32,
++	ACCESS_16,
+ };
+ 
+ extern enum mac8390_type mac8390_ident(struct nubus_dev * dev);
+@@ -134,8 +126,9 @@ static int mac8390_initdev(struct net_de
+ static int mac8390_open(struct net_device * dev);
+ static int mac8390_close(struct net_device * dev);
+ static void mac8390_no_reset(struct net_device *dev);
++static void interlan_reset(struct net_device *dev);
+ 
+-/* Sane (32-bit chunk memory read/write) - Apple/Asante/Farallon do this*/
++/* Sane (32-bit chunk memory read/write) - Some Farallon and Apple do this*/
+ static void sane_get_8390_hdr(struct net_device *dev,
+ 			      struct e8390_pkt_hdr *hdr, int ring_page);
+ static void sane_block_input(struct net_device * dev, int count,
+@@ -172,23 +165,93 @@ static void word_memcpy_fromcard(void *t
+ 
+ enum mac8390_type __init mac8390_ident(struct nubus_dev * dev)
  {
- 	static unsigned version_printed;
-@@ -169,8 +184,8 @@ static int __init sonic_probe1(struct ne
- 	lp->rra_laddr = lp->rda_laddr + (SIZEOF_SONIC_RD * SONIC_NUM_RDS
- 	                     * SONIC_BUS_SCALE(lp->dma_bitmode));
- 
--	dev->open = sonic_open;
--	dev->stop = sonic_close;
-+	dev->open = jazzsonic_open;
-+	dev->stop = jazzsonic_close;
- 	dev->hard_start_xmit = sonic_send_packet;
- 	dev->get_stats = sonic_get_stats;
- 	dev->set_multicast_list = &sonic_multicast_list;
-@@ -260,8 +275,6 @@ MODULE_DESCRIPTION("Jazz SONIC ethernet 
- module_param(sonic_debug, int, 0);
- MODULE_PARM_DESC(sonic_debug, "jazzsonic debug level (1-4)");
- 
--#define SONIC_IRQ_FLAG IRQF_DISABLED
--
- #include "sonic.c"
- 
- static int __devexit jazz_sonic_device_remove (struct platform_device *pdev)
-Index: linux-2.6.20/drivers/net/macsonic.c
-===================================================================
---- linux-2.6.20.orig/drivers/net/macsonic.c	2007-03-05 23:01:33.000000000 +1100
-+++ linux-2.6.20/drivers/net/macsonic.c	2007-03-05 23:01:33.000000000 +1100
-@@ -133,6 +133,49 @@ static inline void bit_reverse_addr(unsi
- 			   nibbletab[(addr[i] >> 4) &0xf]);
+-	if (dev->dr_sw == NUBUS_DRSW_ASANTE)
+-		return MAC8390_ASANTE;
+-	if (dev->dr_sw == NUBUS_DRSW_FARALLON)
+-		return MAC8390_FARALLON;
+-	if (dev->dr_sw == NUBUS_DRSW_KINETICS)
+-		return MAC8390_KINETICS;
+-	if (dev->dr_sw == NUBUS_DRSW_DAYNA)
+-		return MAC8390_DAYNA;
+-	if (dev->dr_sw == NUBUS_DRSW_DAYNA2)
+-		return MAC8390_DAYNA2;
+-	if (dev->dr_sw == NUBUS_DRSW_DAYNA_LC)
+-		return MAC8390_DAYNA3;
+-	if (dev->dr_hw == NUBUS_DRHW_CABLETRON)
+-		return MAC8390_CABLETRON;
++	switch (dev->dr_sw) {
++		case NUBUS_DRSW_3COM:
++			switch (dev->dr_hw) {
++				case NUBUS_DRHW_APPLE_SONIC_NB:
++				case NUBUS_DRHW_APPLE_SONIC_LC:
++				case NUBUS_DRHW_SONNET:
++					return MAC8390_NONE;
++					break;
++				default:
++					return MAC8390_APPLE;
++					break;
++			}
++			break;
++
++		case NUBUS_DRSW_APPLE:
++			switch (dev->dr_hw) {
++				case NUBUS_DRHW_ASANTE_LC:
++					return MAC8390_NONE;
++					break;
++				case NUBUS_DRHW_CABLETRON:
++					return MAC8390_CABLETRON;
++					break;
++				default:
++					return MAC8390_APPLE;
++					break;
++			}
++			break;
++
++		case NUBUS_DRSW_ASANTE:
++			return MAC8390_ASANTE;
++			break;
++
++		case NUBUS_DRSW_TECHWORKS:
++		case NUBUS_DRSW_DAYNA2:
++		case NUBUS_DRSW_DAYNA_LC:
++			if (dev->dr_hw == NUBUS_DRHW_CABLETRON)
++				return MAC8390_CABLETRON;
++			else
++				return MAC8390_APPLE;
++			break;
++
++		case NUBUS_DRSW_FARALLON:
++			return MAC8390_FARALLON;
++			break;
++
++		case NUBUS_DRSW_KINETICS:
++			switch (dev->dr_hw) {
++				case NUBUS_DRHW_INTERLAN:
++					return MAC8390_INTERLAN;
++					break;
++				default:
++					return MAC8390_KINETICS;
++					break;
++			}
++			break;
++
++		case NUBUS_DRSW_DAYNA:
++			// These correspond to Dayna Sonic cards
++			// which use the macsonic driver
++			if (dev->dr_hw == NUBUS_DRHW_SMC9194 ||
++				dev->dr_hw == NUBUS_DRHW_INTERLAN )
++				return MAC8390_NONE;
++			else
++				return MAC8390_DAYNA;
++			break;
++	}
+ 	return MAC8390_NONE;
  }
  
-+static irqreturn_t macsonic_interrupt(int irq, void *dev_id) {
-+	/* Under the A/UX interrupt scheme, the SONIC interrupt comes in at
-+	 * priority level 3. However, we sometimes get the level 2 interrupt
-+	 * as well, which must prevent re-enterance of the sonic handler.
-+	 */
-+	irqreturn_t result;
-+	unsigned long flags;
-+
-+	local_irq_save(flags);
-+	result = sonic_interrupt(irq, dev_id);
-+	local_irq_restore(flags);
-+	return result;
++enum mac8390_access __init mac8390_testio(volatile unsigned long membase)
++{
++	unsigned long outdata = 0xA5A0B5B0;
++	unsigned long indata =  0x00000000;
++	/* Try writing 32 bits */
++	memcpy((char *)membase, (char *)&outdata, 4);
++	/* Now compare them */
++	if (memcmp((char *)&outdata, (char *)membase, 4) == 0)
++		return ACCESS_32;
++	/* Write 16 bit output */
++	word_memcpy_tocard((char *)membase, (char *)&outdata, 4);
++	/* Now read it back */
++	word_memcpy_fromcard((char *)&indata, (char *)membase, 4);
++	if (outdata == indata)
++		return ACCESS_16;
++	return ACCESS_UNKNOWN;
 +}
 +
-+static int macsonic_open(struct net_device* dev) {
-+	if (via_alt_mapping) {
-+		if (request_irq(dev->irq, &macsonic_interrupt, IRQ_FLG_FAST, "sonic", dev)) {
-+			printk(KERN_ERR "\n%s: unable to get IRQ %d .\n", dev->name, dev->irq);
-+			return -EAGAIN;
-+		}
-+		if (request_irq(IRQ_AUTO_3, &sonic_interrupt, IRQ_FLG_FAST, "sonic", dev)) {
-+			printk(KERN_ERR "\n%s: unable to get IRQ %d .\n", dev->name, IRQ_AUTO_3);
-+			free_irq(dev->irq, dev);
-+			return -EAGAIN;
-+		}
-+	} else {
-+		if (request_irq(dev->irq, &sonic_interrupt, IRQ_FLG_FAST, "sonic", dev)) {
-+			printk(KERN_ERR "\n%s: unable to get IRQ %d .\n", dev->name, dev->irq);
-+			return -EAGAIN;
-+		}
-+	}
-+	return sonic_open(dev);
-+}
-+
-+static int macsonic_close(struct net_device* dev) {
-+	int err;
-+	err = sonic_close(dev);
-+	free_irq(dev->irq, dev);
-+	if (via_alt_mapping)
-+		free_irq(IRQ_AUTO_3, dev);
-+	return err;
-+}
-+
- int __init macsonic_init(struct net_device* dev)
+ int __init mac8390_memsize(unsigned long membase)
  {
- 	struct sonic_local* lp = netdev_priv(dev);
-@@ -163,8 +206,8 @@ int __init macsonic_init(struct net_devi
- 	lp->rra_laddr = lp->rda_laddr + (SIZEOF_SONIC_RD * SONIC_NUM_RDS
- 	                     * SONIC_BUS_SCALE(lp->dma_bitmode));
- 
--	dev->open = sonic_open;
--	dev->stop = sonic_close;
-+	dev->open = macsonic_open;
-+	dev->stop = macsonic_close;
- 	dev->hard_start_xmit = sonic_send_packet;
- 	dev->get_stats = sonic_get_stats;
- 	dev->set_multicast_list = &sonic_multicast_list;
-@@ -298,10 +341,7 @@ int __init mac_onboard_sonic_probe(struc
- 	/* Danger!  My arms are flailing wildly!  You *must* set lp->reg_offset
- 	 * and dev->base_addr before using SONIC_READ() or SONIC_WRITE() */
- 	dev->base_addr = ONBOARD_SONIC_REGISTERS;
--	if (via_alt_mapping)
--		dev->irq = IRQ_AUTO_3;
--	else
--		dev->irq = IRQ_NUBUS_9;
-+	dev->irq = IRQ_NUBUS_9;
- 
- 	if (!sonic_version_printed) {
- 		printk(KERN_INFO "%s", version);
-@@ -575,8 +615,6 @@ MODULE_DESCRIPTION("Macintosh SONIC ethe
- module_param(sonic_debug, int, 0);
- MODULE_PARM_DESC(sonic_debug, "macsonic debug level (1-4)");
- 
--#define SONIC_IRQ_FLAG IRQ_FLG_FAST
--
- #include "sonic.c"
- 
- static int __devexit mac_sonic_device_remove (struct platform_device *pdev)
-Index: linux-2.6.20/drivers/net/sonic.c
-===================================================================
---- linux-2.6.20.orig/drivers/net/sonic.c	2007-03-05 23:01:33.000000000 +1100
-+++ linux-2.6.20/drivers/net/sonic.c	2007-03-05 23:01:33.000000000 +1100
-@@ -50,29 +50,6 @@ static int sonic_open(struct net_device 
- 	if (sonic_debug > 2)
- 		printk("sonic_open: initializing sonic driver.\n");
- 
--	/*
--	 * We don't need to deal with auto-irq stuff since we
--	 * hardwire the sonic interrupt.
--	 */
--/*
-- * XXX Horrible work around:  We install sonic_interrupt as fast interrupt.
-- * This means that during execution of the handler interrupt are disabled
-- * covering another bug otherwise corrupting data.  This doesn't mean
-- * this glue works ok under all situations.
-- *
-- * Note (dhd): this also appears to prevent lockups on the Macintrash
-- * when more than one Ethernet card is installed (knock on wood)
-- *
-- * Note (fthain): whether the above is still true is anyones guess. Certainly
-- * the buffer handling algorithms will not tolerate re-entrance without some
-- * mutual exclusion added. Anyway, the memcpy has now been eliminated from the
-- * rx code to make this a faster "fast interrupt".
-- */
--	if (request_irq(dev->irq, &sonic_interrupt, SONIC_IRQ_FLAG, "sonic", dev)) {
--		printk(KERN_ERR "\n%s: unable to get IRQ %d .\n", dev->name, dev->irq);
--		return -EAGAIN;
--	}
--
- 	for (i = 0; i < SONIC_NUM_RRS; i++) {
- 		struct sk_buff *skb = dev_alloc_skb(SONIC_RBSIZE + 2);
- 		if (skb == NULL) {
-@@ -170,8 +147,6 @@ static int sonic_close(struct net_device
+ 	unsigned long flags;
+@@ -287,14 +350,6 @@ struct net_device * __init mac8390_probe
+ 			continue;
+ 		} else {
+ 			nubus_get_rsrc_mem(dev->dev_addr, &ent, 6);
+-			/* Some Sonic Sys cards masquerade as Farallon */
+-			if (cardtype == MAC8390_FARALLON &&
+-					dev->dev_addr[0] == 0x0 &&
+-					dev->dev_addr[1] == 0x40 &&
+-					dev->dev_addr[2] == 0x10) {
+-				/* This is really Sonic Sys card */
+-				cardtype = MAC8390_SONICSYS;
+-			}
  		}
+ 
+ 		if (useresources[cardtype] == 1) {
+@@ -334,6 +389,17 @@ struct net_device * __init mac8390_probe
+ 						dev->mem_start +
+ 						mac8390_memsize(dev->mem_start);
+ 					break;
++				case MAC8390_INTERLAN:
++					dev->base_addr =
++						(int)(ndev->board->slot_addr +
++						INTERLAN_8390_BASE);
++					dev->mem_start =
++						(int)(ndev->board->slot_addr +
++						INTERLAN_8390_MEM);
++					dev->mem_end =
++						dev->mem_start +
++						mac8390_memsize(dev->mem_start);
++					break;
+ 				case MAC8390_CABLETRON:
+ 					dev->base_addr =
+ 						(int)(ndev->board->slot_addr +
+@@ -356,8 +422,8 @@ struct net_device * __init mac8390_probe
+ 
+ 				default:
+ 					printk(KERN_ERR "Card type %s is"
+-							" unsupported, sorry\n",
+-					       cardname[cardtype]);
++					       " unsupported, sorry\n",
++					       ndev->board->name);
+ 					continue;
+ 			}
+ 		}
+@@ -438,7 +504,7 @@ static int __init mac8390_initdev(struct
+ 		24,    26,     28,     30
+ 	};
+ 
+-	int access_bitmode;
++	int access_bitmode = 0;
+ 
+ 	/* Now fill in our stuff */
+ 	dev->open = &mac8390_open;
+@@ -468,29 +534,47 @@ static int __init mac8390_initdev(struct
+ 
+ 	/* Fill in model-specific information and functions */
+ 	switch(type) {
+-	case MAC8390_SONICSYS:
+-		/* 16 bit card, register map is reversed */
+-		ei_status.reset_8390 = &mac8390_no_reset;
+-		ei_status.block_input = &slow_sane_block_input;
+-		ei_status.block_output = &slow_sane_block_output;
+-		ei_status.get_8390_hdr = &slow_sane_get_8390_hdr;
+-		ei_status.reg_offset = back4_offsets;
+-		access_bitmode = 0;
+-		break;
+ 	case MAC8390_FARALLON:
+ 	case MAC8390_APPLE:
++		switch(mac8390_testio(dev->mem_start)) {
++			case ACCESS_UNKNOWN:
++				printk("Don't know how to access card memory!\n");
++				return -ENODEV;
++				break;
++
++			case ACCESS_16:
++				/* 16 bit card, register map is reversed */
++				ei_status.reset_8390 = &mac8390_no_reset;
++				ei_status.block_input = &slow_sane_block_input;
++				ei_status.block_output = &slow_sane_block_output;
++				ei_status.get_8390_hdr = &slow_sane_get_8390_hdr;
++				ei_status.reg_offset = back4_offsets;
++				break;
++
++			case ACCESS_32:
++				/* 32 bit card, register map is reversed */
++				ei_status.reset_8390 = &mac8390_no_reset;
++				ei_status.block_input = &sane_block_input;
++				ei_status.block_output = &sane_block_output;
++				ei_status.get_8390_hdr = &sane_get_8390_hdr;
++				ei_status.reg_offset = back4_offsets;
++				access_bitmode = 1;
++				break;
++		}
++		break;
++
+ 	case MAC8390_ASANTE:
+-	case MAC8390_DAYNA2:
+-	case MAC8390_DAYNA3:
+-		/* 32 bit card, register map is reversed */
+-		/* sane */
++		/* Some Asante cards pass the 32 bit test
++		 * but overwrite system memory when run at 32 bit.
++		 * so we run them all at 16 bit.
++		 */
+ 		ei_status.reset_8390 = &mac8390_no_reset;
+-		ei_status.block_input = &sane_block_input;
+-		ei_status.block_output = &sane_block_output;
+-		ei_status.get_8390_hdr = &sane_get_8390_hdr;
++		ei_status.block_input = &slow_sane_block_input;
++		ei_status.block_output = &slow_sane_block_output;
++		ei_status.get_8390_hdr = &slow_sane_get_8390_hdr;
+ 		ei_status.reg_offset = back4_offsets;
+-		access_bitmode = 1;
+ 		break;
++
+ 	case MAC8390_CABLETRON:
+ 		/* 16 bit card, register map is short forward */
+ 		ei_status.reset_8390 = &mac8390_no_reset;
+@@ -498,21 +582,30 @@ static int __init mac8390_initdev(struct
+ 		ei_status.block_output = &slow_sane_block_output;
+ 		ei_status.get_8390_hdr = &slow_sane_get_8390_hdr;
+ 		ei_status.reg_offset = fwrd2_offsets;
+-		access_bitmode = 0;
+ 		break;
++
+ 	case MAC8390_DAYNA:
+ 	case MAC8390_KINETICS:
+-		/* 16 bit memory */
++		/* 16 bit memory, register map is forward */
+ 		/* dayna and similar */
+ 		ei_status.reset_8390 = &mac8390_no_reset;
+ 		ei_status.block_input = &dayna_block_input;
+ 		ei_status.block_output = &dayna_block_output;
+ 		ei_status.get_8390_hdr = &dayna_get_8390_hdr;
+ 		ei_status.reg_offset = fwrd4_offsets;
+-		access_bitmode = 0;
+ 		break;
++
++	case MAC8390_INTERLAN:
++		/* 16 bit memory, register map is forward */
++		ei_status.reset_8390 = &interlan_reset;
++		ei_status.block_input = &slow_sane_block_input;
++		ei_status.block_output = &slow_sane_block_output;
++		ei_status.get_8390_hdr = &slow_sane_get_8390_hdr;
++	        ei_status.reg_offset = fwrd4_offsets;
++	        break;
++
+ 	default:
+-		printk(KERN_ERR "Card type %s is unsupported, sorry\n", cardname[type]);
++		printk(KERN_ERR "Card type %s is unsupported, sorry\n", ndev->board->name);
+ 		return -ENODEV;
  	}
  
--	free_irq(dev->irq, dev);	/* release the IRQ */
--
+@@ -530,9 +623,9 @@ static int __init mac8390_initdev(struct
+ 				printk(":");
+ 		}
+ 	}
+-	printk(" IRQ %d, shared memory at %#lx-%#lx,  %d-bit access.\n",
+-		   dev->irq, dev->mem_start, dev->mem_end-1,
+-		   access_bitmode?32:16);
++	printk(" IRQ %d, %d KB shared memory at %#lx,  %d-bit access.\n",
++		   dev->irq, (int)((dev->mem_end - dev->mem_start)/0x1000) * 4,
++		   dev->mem_start, access_bitmode?32:16);
  	return 0;
  }
  
+@@ -561,6 +654,18 @@ static void mac8390_no_reset(struct net_
+ 	return;
+ }
+ 
++static void interlan_reset(struct net_device *dev)
++{
++	unsigned char *target=nubus_slot_addr(IRQ2SLOT(dev->irq));
++	if (ei_debug > 1)
++		printk("Need to reset the NS8390 t=%lu...", jiffies);
++	ei_status.txing = 0;
++	target[0xC0000] = 0;
++	if (ei_debug > 1)
++		printk("reset complete\n");
++	return;
++}
++
+ /* dayna_memcpy_fromio/dayna_memcpy_toio */
+ /* directly from daynaport.c by Alan Cox */
+ static void dayna_memcpy_fromcard(struct net_device *dev, void *to, int from, int count)
