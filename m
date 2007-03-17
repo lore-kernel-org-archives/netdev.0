@@ -1,58 +1,44 @@
-From: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
-Subject: [PATCH 4/4] [net-2.6.22] IrDA: SMC SuperIO Chip
-	LPC47N227 not identified properly
-Date: Sat, 17 Mar 2007 03:59:37 +0200
-Message-ID: <20070317015937.GD3429@sortiz.org>
-Reply-To: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
+From: Samuel Ortiz <samuel@sortiz.org>
+Subject: [PATCH 1/3] [net-2.6] IrDA: Delay needed when uploading firmware chunks
+Date: Sat, 17 Mar 2007 04:03:36 +0200
+Message-ID: <20070317020336.GE3429@sortiz.org>
+Reply-To: Samuel Ortiz <samuel@sortiz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: khali-PUYAD+kWke1g9hUCZPvPmw@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, peter.kovar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, irda-users@lists.sourceforge.net,
+	nigelw@elder-gods.net
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 26.mail-out.ovh.net ([213.186.42.179]:43976 "HELO
+	26.mail-out.ovh.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S933647AbXCQCDt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Mar 2007 22:03:49 -0400
 Content-Disposition: inline
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
-	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=irda-users>
-List-Post: <mailto:irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
-	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Sender: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-Errors-To: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-SMC SuperIO Chip LPC47N227 used for IrDA is not detected because its device
-identification byte can be 0x7A instead of 0x5A.
+With 42101001.sb firmwares, we need a 10 ms delay between firmware chunks
+upload on irda-usb.
 
-Patch from Peter Kovar <peter.kovar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Cc: Jean Delvare <khali-PUYAD+kWke1g9hUCZPvPmw@public.gmane.org>
-Signed-off-by: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Signed-off-by: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
+Patch from Nigel Williams <nigelw@elder-gods.net>
+Signed-off-by: Samuel Ortiz <samuel@sortiz.org>
 ---
- drivers/net/irda/smsc-ircc2.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+ drivers/net/irda/irda-usb.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/irda/smsc-ircc2.c b/drivers/net/irda/smsc-ircc2.c
-index 103a2d1..e845386 100644
---- a/drivers/net/irda/smsc-ircc2.c
-+++ b/drivers/net/irda/smsc-ircc2.c
-@@ -315,6 +315,7 @@ static struct smsc_chip __initdata lpc_chips_flat[] =
- {
- 	/* Base address 0x2E or 0x4E */
- 	{ "47N227",	KEY55_1|FIR|SERx4,	0x5a, 0x00 },
-+	{ "47N227",	KEY55_1|FIR|SERx4,	0x7a, 0x00 },
- 	{ "47N267",	KEY55_1|FIR|SERx4,	0x5e, 0x00 },
- 	{ NULL }
- };
+diff --git a/drivers/net/irda/irda-usb.c b/drivers/net/irda/irda-usb.c
+index 340ee99..1d510bd 100644
+--- a/drivers/net/irda/irda-usb.c
++++ b/drivers/net/irda/irda-usb.c
+@@ -1057,6 +1057,8 @@ static int stir421x_fw_upload(struct irda_usb_cb *self,
+ 
+ 		if (ret < 0)
+ 			break;
++
++		mdelay(10);
+ 	}
+ 
+ 	kfree(patch_block);
 -- 
 1.5.0.2
 
-
--------------------------------------------------------------------------
-Take Surveys. Earn Cash. Influence the Future of IT
-Join SourceForge.net's Techsay panel and you'll get the chance to share your
-opinions on IT & business topics through brief surveys-and earn cash
-http://www.techsay.com/default.php?page=join.php&p=sourceforge&CID=DEVDEV
