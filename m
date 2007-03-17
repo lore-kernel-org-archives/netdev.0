@@ -1,75 +1,72 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH] fib_hash removal
-Date: Fri, 16 Mar 2007 08:48:39 -0700
-Message-ID: <20070316154839.GA3626@linux.vnet.ibm.com>
-References: <17914.36807.643615.571195@robur.slu.se>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [patch 13/26] Xen-paravirt_ops: Consistently wrap
+	paravirt ops callsites to make them patchable
+Date: Sat, 17 Mar 2007 21:33:58 +1100
+Message-ID: <1174127638.8897.75.camel@localhost.localdomain>
+References: <20070301232443.195603797@goop.org>
+	<20070301232527.956565107@goop.org>	<20070316092445.GM23174@elte.hu>
+	<20070316.023331.59468179.davem@davemloft.net>
+	<45FB005D.9060809@goop.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	kaber@trash.net, tgr@suug.ch, Jens.Laas@data.slu.se,
-	hans.liss@its.uu.se
-To: Robert Olsson <Robert.Olsson@data.slu.se>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from pool-71-111-94-253.ptldor.dsl-w.verizon.net ([71.111.94.253]:29916
-	"EHLO IBM-8EC8B5596CA.beaverton.ibm.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753795AbXCQT3w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Mar 2007 15:29:52 -0400
-Content-Disposition: inline
-In-Reply-To: <17914.36807.643615.571195@robur.slu.se>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: zach@vmware.com, xen-devel@lists.xensource.com, akpm@linux-foundation.org,
+	ak@muc.de, NetDev <netdev@vger.kernel.org>,
+	linux-kernel@vger.kernel.org, chrisw@sous-sol.org,
+	virtualization@lists.osdl.org, anthony@codemonkey.ws,
+	mingo@elte.hu, torvalds@linux-foundation.org,
+	David Miller <davem@davemloft.net>
+To: Jeremy Fitzhardinge <jeremy@goop.org>
+Return-path: <xen-devel-bounces@lists.xensource.com>
+In-Reply-To: <45FB005D.9060809@goop.org>
+List-Unsubscribe: <http://lists.xensource.com/cgi-bin/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xensource.com?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xensource.com>
+List-Help: <mailto:xen-devel-request@lists.xensource.com?subject=help>
+List-Subscribe: <http://lists.xensource.com/cgi-bin/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xensource.com?subject=subscribe>
+Sender: xen-devel-bounces@lists.xensource.com
+Errors-To: xen-devel-bounces@lists.xensource.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 16, 2007 at 01:38:31PM +0100, Robert Olsson wrote:
+On Fri, 2007-03-16 at 13:38 -0700, Jeremy Fitzhardinge wrote:
+> David Miller wrote:
+> > Perhaps the problem can be dealt with using ELF relocations.
+> >
+> > There is another case, discussed yesterday on netdev, where run-time
+> > resolution of ELF relocations would be useful (for
+> > very-very-very-read-only variables) so if it can solve this problem
+> > too it would be nice to have a generic infrastructure for it.
 > 
-> Hello, Just discussed this Patrick...
+> That's an interesting idea.  Have you or anyone else looked at what it
+> would take to code up?
 > 
-> We have two users of trie_leaf_remove, fn_trie_flush and fn_trie_delete 
-> both are holding RTNL. So there shouldn't be need for this preempt stuff. 
-> This is assumed to a leftover from an older RCU-take.
+> For this case, I guess you'd walk the relocs looking for references into
+> the paravirt_ops structure.  You'd need to check that was a reference
+> from an indirect jump or call instruction, which would identify a
+> patchable callsite.  The offset into the pv_ops structure would identify
+> which operation is involved.
 
-True enough!  One request -- would it be reasonable to add to
-trie_leaf_remove()'s comment to state that RTNL must be held
-by the caller?
+I wrote a whole email on ways to do this, BUT...
 
-						Thanx, Paul
+Perhaps our patching code can already be vastly simplified to something
+like:
 
-> > Mhh .. I think I just remembered something - me incorrectly suggesting
-> > to add it there while we were talking about this at OLS :) IIRC the
-> > idea was to make sure tnode_free (which at that time didn't use
-> > call_rcu) wouldn't free memory while still in use in a rcu read-side
-> > critical section. It should have been synchronize_rcu of course,
-> > but with tnode_free using call_rcu it seems to be completely
-> > unnecessary. So I guess we can simply remove it.
-> 
-> Signed-off-by: Patrick McHardy <kaber@trash.net>
-> Signed-off-by: Robert Olsson <robert.olsson@its.uu.se>
-> 
-> Cheers.
-> 					--ro
-> 
-> 
-> diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-> --- a/net/ipv4/fib_trie.c
-> +++ b/net/ipv4/fib_trie.c
-> @@ -1534,7 +1534,6 @@ static int trie_leaf_remove(struct trie 
->  	t->revision++;
->  	t->size--;
-> 
-> -	preempt_disable();
->  	tp = NODE_PARENT(n);
->  	tnode_free((struct tnode *) n);
-> 
-> @@ -1544,7 +1543,6 @@ static int trie_leaf_remove(struct trie 
->  		rcu_assign_pointer(t->trie, trie_rebalance(t, tp));
->  	} else
->  		rcu_assign_pointer(t->trie, NULL);
-> -	preempt_enable();
-> 
->  	return 1;
->  }
-> 
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+#define pv_patch(call, args...) \
+	asm volatile("8888:"); 
+	call(args);
+	asm volatile("8889:"
+	 [ stuff to put 8889, 8888 and call in fixup section ]
+
+The patching code doesn't even need to decode between those two: it
+simply looks for an indirect call insn (0xff 0xd?).  If it finds more
+than one, it doesn't patch.  If it only finds one, it patches.  We'll
+probably hit them all just doing that.
+
+> What are the netdev requirements?
+
+Reading Ben LaHaise's (very cool!) patch, it's not clear that using
+reloc postprocessing is going to be clearer than open-coding it as he
+has done.
+
+Rusty.
