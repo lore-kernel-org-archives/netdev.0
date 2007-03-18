@@ -1,114 +1,60 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [6/6] 2.6.21-rc4: known regressions
-Date: Sun, 18 Mar 2007 19:49:38 +0100
-Message-ID: <20070318184938.GZ752@stusta.de>
-References: <Pine.LNX.4.64.0703160925270.26106@woody.linux-foundation.org>
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Subject: [ofa-general] Re: dst_ifdown breaks infiniband?
+Date: Sun, 18 Mar 2007 22:12:38 +0300
+Message-ID: <20070318191238.GA20518@ms2.inr.ac.ru>
+References: <20070318155532.GG7958@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	CIJOML <cijoml@volny.cz>, v4l-dvb-maintainer@linuxtv.org,
-	Len Brown <lenb@kernel.org>, davem@davemloft.net,
-	netdev@vger.kernel.org,
-	Albert Hopkins <kernel@marduk.letterboxes.org>,
-	Ayaz Abdulla <aabdulla@nvidia.com>, jgarzik@pobox.com,
-	Michal Piotrowski <michal.k.k.piotrowski@gmail.com>,
-	Takashi Iwai <tiwai@suse.de>, perex@suse.cz,
-	alsa-devel@alsa-project.org,
-	Randy Cushman <rcushman_linux@earthlink.net>,
-	Ismail =?utf-8?Q?D=C3=B6nmez?= <ismail@pardus.org.tr>,
-	Stefan Richter <stefanr@s5r6.in-berlin.de>,
-	Thomas Meyer <thomas@m3y3r.de>,
-	Greg Kroah-Hartman <gregkh@suse.de>, bcollins@debian.org,
-	linux1394-devel@lists.sourceforge.net, Mark Lord <lkml@rtr.ca>,
-	Jim Radford <radford@blackbean.org>,
-	Oliver Neukum <oneukum@suse.de>,
-	linux-usb-devel@lists.sourceforge.net,
-	Catalin Marinas <catalin.marinas@gmail.com>,
-	"Eri
-To: Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932953AbXCRSuZ@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	general@lists.openfabrics.org
+To: "Michael S. Tsirkin" <mst@dev.mellanox.co.il>
+Return-path: <general-bounces@lists.openfabrics.org>
 Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0703160925270.26106@woody.linux-foundation.org>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <20070318155532.GG7958@mellanox.co.il>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-This email lists some known regressions in Linus' tree compared to 2.6.=
-20.
+Hello!
 
-If you find your name in the Cc header, you are either submitter of one
-of the bugs, maintainer of an affectected subsystem or driver, a patch
-of you caused a breakage or I'm considering you in any other way
-possibly involved with one or more of these issues.
+> This is not new code, and should have triggered long time ago,
+> so I am not sure how come we are triggering this only now,
+> but somehow this did not lead to crashes in 2.6.20
 
-Due to the huge amount of recipients, please trim the Cc when answering=
-=2E
+I see. I guess this was plain luck.
 
 
-Subject    : Oops when changing DVB-T adapter
-References : http://lkml.org/lkml/2007/3/9/212
-Submitter  : CIJOML <cijoml@volny.cz>
-Status     : unknown
+> Why is neighbour->dev changed here?
+
+It holds reference to device and prevents its destruction.
+If dst is held somewhere, we cannot destroy the device and deadlock
+while unregister.
+
+We could not invalidate dst->neighbour but it looked safe to invalidate
+neigh->dev after quiescent state. Obviosuly, it is not and it never was safe.
+Was supposed to be repaired asap, but this did not happen. :-(
 
 
-Subject    : ipv6 crash
-References : http://lkml.org/lkml/2007/3/10/2
-Submitter  : Len Brown <lenb@kernel.org>
-Status     : unknown
+> Can dst->neighbour be changed to point to NULL instead, and the neighbour
+> released?
 
+It should be cleared and we should be sure it will not be destroyed
+before quiescent state.
 
-Subject    : forcedeth: skb_over_panic
-References : http://bugzilla.kernel.org/show_bug.cgi?id=3D8058
-Submitter  : Albert Hopkins <kernel@marduk.letterboxes.org>
-Handled-By : Ayaz Abdulla <aabdulla@nvidia.com>
-Status     : submitter was asked to test a patch
+Seems, this is the only correct solution, but to do this we have
+to audit all the places where dst->neighbour is dereferenced for
+RCU safety.
 
+Actually, it is very good you caught this eventually, the bug was
+so _disgusting_ that it was "forgotten" all the time, waiting for
+someone who will point out that the king is naked. :-)
 
-Subject    : snd_intel8x0: divide error: 0000
-References : http://lkml.org/lkml/2007/3/5/252
-Submitter  : Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
-Handled-By : Takashi Iwai <tiwai@suse.de>
-Status     : problem is being debugged
-
-
-Subject    : snd-intel8x0: no 3d surround sound
-References : http://lkml.org/lkml/2007/3/5/164
-Submitter  : Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
-Caused-By  : Randy Cushman <rcushman_linux@earthlink.net>
-             commit 831466f4ad2b5fe23dff77edbe6a7c244435e973
-Handled-By : Takashi Iwai <tiwai@suse.de>
-Status     : patch available
-
-
-Subject    : Oops in __nodemgr_remove_host_dev
-References : http://lkml.org/lkml/2007/3/14/4
-             http://lkml.org/lkml/2007/3/18/87
-Submitter  : Ismail D=C3=B6nmez <ismail@pardus.org.tr>
-             Stefan Richter <stefanr@s5r6.in-berlin.de>
-             Thomas Meyer <thomas@m3y3r.de>
-Caused-By  : Greg Kroah-Hartman <gregkh@suse.de>
-             commit 43cb76d91ee85f579a69d42bc8efc08bac560278
-             commit 40cf67c5fcc513406558c01b91129280208e57bf
-Handled-By : Stefan Richter <stefanr@s5r6.in-berlin.de>
-Status     : problem is being debugged
-
-
-Subject    : USB: Oops when connecting USB 1.1 docks
-References : http://lkml.org/lkml/2007/3/4/266
-Submitter  : Mark Lord <lkml@rtr.ca>
-Caused-By  : Jim Radford <radford@blackbean.org>
-             commit d9a7ecacac5f8274d2afce09aadcf37bdb42b93a
-Handled-By : Oliver Neukum <oneukum@suse.de>
-             Jim Radford <radford@blackbean.org>
-Patch      : http://lkml.org/lkml/2007/3/13/217
-Status     : patch available
-
-
-Subject    : Possible "struct pid" leak from tty_io.c
-References : http://lkml.org/lkml/2007/3/8/222
-Submitter  : Catalin Marinas <catalin.marinas@gmail.com>
-Caused-By  : Eric W. Biederman <ebiederm@xmission.com>
-             commit ab521dc0f8e117fd808d3e425216864d60390500
-Handled-By : Eric W. Biederman <ebiederm@xmission.com>
-Status     : problem is being debugged
+Alexey
