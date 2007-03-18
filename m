@@ -1,81 +1,42 @@
-From: "Michael S. Tsirkin" <mst@dev.mellanox.co.il>
-Subject: [ofa-general] Re: dst_ifdown breaks infiniband?
-Date: Mon, 19 Mar 2007 11:55:45 +0200
-Message-ID: <20070319095545.GF8386@mellanox.co.il>
-References: <20070318155532.GG7958@mellanox.co.il>
-	<20070318191238.GA20518@ms2.inr.ac.ru>
-	<20070318195355.GB11078@mellanox.co.il>
-	<20070318201826.GB27004@ms2.inr.ac.ru>
-	<20070319093632.GB8386@mellanox.co.il>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: [PATCH 0/5] [RFC] AF_RXRPC socket family implementation [try
+ #2]
+Date: Sun, 18 Mar 2007 14:23:15 +0000
+Message-ID: <20070318142315.6f881ec8@lxorguk.ukuu.org.uk>
+References: <20070316153408.3a9a244a@lxorguk.ukuu.org.uk>
+	<20070316151305.04cbc352@lxorguk.ukuu.org.uk>
+	<20070316125008.3740.44693.stgit@warthog.cambridge.redhat.com>
+	<25571.1174054993@redhat.com>
+	<26525.1174058071@redhat.com>
+	<20070316171141.7a4de504@lxorguk.ukuu.org.uk>
+	<076F1B35-BE08-41B4-8294-581EDAFF4ACC@mac.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	general@lists.openfabrics.org, Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	David Miller <davem@davemloft.net>
-To: "Michael S. Tsirkin" <mst@dev.mellanox.co.il>
-Return-path: <general-bounces@lists.openfabrics.org>
-Content-Disposition: inline
-In-Reply-To: <20070319093632.GB8386@mellanox.co.il>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Howells <dhowells@redhat.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, herbert.xu@redhat.com,
+	linux-kernel@vger.kernel.org, hch@infradead.org,
+	arjan@infradead.org
+To: Kyle Moffett <mrmacman_g4@mac.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from outpipe-village-512-1.bc.nu ([81.2.110.250]:47198 "EHLO
+	lxorguk.ukuu.org.uk" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753782AbXCSKAk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Mar 2007 06:00:40 -0400
+In-Reply-To: <076F1B35-BE08-41B4-8294-581EDAFF4ACC@mac.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> Quoting Michael S. Tsirkin <mst@dev.mellanox.co.il>:
-> Subject: Re: dst_ifdown breaks infiniband?
-> 
-> > > Any simpler ideas?
-> > 
-> > Well, if inifiniband destructor really needs to take that lock... no.
-> > Right now I do not see.
-> 
-> OK, this is actually not hard to fix - for infiniband, we can just look at
-> neighbour->dev->type or compare neighbour->dev and
-> neighbour->parms->dev - if they are different, device is being unregistered,
-> so we do not need to do anything in the destructor.
-> 
-> I'll send a patch to openfabrics, shortly.
-> 
-> However, after implementing this fix, I hit what could be use after
-> free at module unloading. Dave, Alexey, Roland, could you take a look at
-> the following please?
-> 
-> Works fine for me (survived a couple of hours of crazy device
-> loading/unloading/up/down/hotplug + link data and state activity)
-> and seems to fix the issue.
-> 
-> ---------
-> 
-> If a device driver sets neigh_destructor in neigh_params, this could
-> get called after the device has been unregistered and the driver module
-> removed.
-> 
-> This is an old bug, but apparently, started to get triggered more infiniband
-> after recent multicast and connected mode changes.
-> 
-> Fix this by delaying dev_put until the neigh_params object is removed.
-> 
-> Signed-off-by: Michael S. Tsirkin <mst@dev.mellanox.co.il>
+> IMHO the problem with classifying RxRPC as a "reliable datagram"  
+> socket is that even an atomic unidirectional communication isn't a  
+> single datagram, it's at least 3; there is shared connection state  
 
-The problem seems real enough but the fix seems no good -
-device unregister gets blocked with
-	unregister_netdevice: waiting for ib0 to become free. Usage count = 1
+Thats fine. Any *reliable* protocol sends more than one packet per
+message you send. RDM is for reliable messages
 
-It seems the parms object can survive indefinitely after device is removed.
+> independent and possibly simultaneous RxRPC calls.  From the digging  
+> around that I did in the kernel socket code a while ago I don't see a  
+> cleaner way of implementing it than a new SOCK_RXRPC.
 
-How about creating a new parms object in dst_ifdown, and pointing neighbour
-to this?
-
-Would that work?
-The advantage of this approach is that neigh->parms is already protected
-by RCU.
-
--- 
-MST
+I disagree entirely. I've still seen no evidence you need a new type for
+this. What does AIX do  out of interest ?
