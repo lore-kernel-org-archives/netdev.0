@@ -1,44 +1,44 @@
-From: Andi Kleen <ak@muc.de>
-Subject: Re: [patch 13/26] Xen-paravirt_ops: Consistently wrap paravirt ops callsites to make them patchable
-Date: 18 Mar 2007 20:30:30 +0100
-Message-ID: <20070318193030.GB71548@muc.de>
-References: <20070316.023331.59468179.davem@davemloft.net> <45FB005D.9060809@goop.org> <1174127638.8897.75.camel@localhost.localdomain> <20070318.003309.71088169.davem@davemloft.net> <20070318120814.GA45869@muc.de> <45FD619D.6030402@goop.org> <20070318170414.GB45869@muc.de> <45FD76E6.4060907@goop.org>
+From: "Michael S. Tsirkin" <mst@dev.mellanox.co.il>
+Subject: [ofa-general] Re: dst_ifdown breaks infiniband?
+Date: Sun, 18 Mar 2007 21:46:38 +0200
+Message-ID: <20070318194638.GA11078@mellanox.co.il>
+References: <20070318155532.GG7958@mellanox.co.il>
+	<20070318191238.GA20518@ms2.inr.ac.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, rusty@rustcorp.com.au,
-	mingo@elte.hu, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org, virtualization@lists.osdl.org,
-	xen-devel@lists.xensource.com, chrisw@sous-sol.org,
-	zach@vmware.com, anthony@codemonkey.ws,
-	torvalds@linux-foundation.org, netdev@vger.kernel.org
-To: Jeremy Fitzhardinge <jeremy@goop.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from colin.muc.de ([193.149.48.1]:2389 "EHLO mail.muc.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750977AbXCRTac (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 18 Mar 2007 15:30:32 -0400
-Date: Sun, 18 Mar 2007 20:30:30 +0100
+Cc: netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	general@lists.openfabrics.org
+To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Return-path: <general-bounces@lists.openfabrics.org>
 Content-Disposition: inline
-In-Reply-To: <45FD76E6.4060907@goop.org>
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <20070318191238.GA20518@ms2.inr.ac.ru>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Mar 18, 2007 at 10:29:10AM -0700, Jeremy Fitzhardinge wrote:
-> Andi Kleen wrote:
-> > You could use the dwarf2 unwind tables. They have exact information
-> > what register has what. But it would likely get complicated.
+> Quoting Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>:
+> Subject: Re: dst_ifdown breaks infiniband?
 > 
-> Yes.  And would they be accurate for hand-written asm, which is where we
-> have this problem?
+> Hello!
+> 
+> > This is not new code, and should have triggered long time ago,
+> > so I am not sure how come we are triggering this only now,
+> > but somehow this did not lead to crashes in 2.6.20
+> 
+> I see. I guess this was plain luck.
 
-Yes. All inline assembly tells gcc what registers are clobbered
-and it fills in the tables. Hand clobbering in inline assembly cannot
-be expressed with the current toolchain, so we moved all those
-out of line.
+Hmm. Something I don't understand: does the code
+in question not run on *each* device unregister?
 
-But again I'm not sure it will work anyways. For once you would
-need large padding around the calls anyways for inline replacement --
-how would you generate that? I expect you would need to put the calls
-into asm() again and with that a custom annotiation format looks reasonable.
+Why do I only see this under stress?
 
--Andi
+-- 
+MST
