@@ -1,53 +1,40 @@
-From: "Arnaldo Carvalho de Melo" <acme@ghostprotocols.net>
-Subject: Re: [PATCH 1/1] [SK_BUFF]: Don't apply the offset of two allocations to the layer headers
-Date: Sun, 18 Mar 2007 00:23:05 -0300
-Message-ID: <39e6f6c70703172023g1fdf736et21be456106983f80@mail.gmail.com>
-References: <20070318031224.GA17811@ghostprotocols.net>
-	 <39e6f6c70703172017g1b86198bw1c586f985dd508a6@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+From: Kyle Moffett <mrmacman_g4@mac.com>
+Subject: Re: [PATCH 0/5] [RFC] AF_RXRPC socket family implementation [try #2]
+Date: Sat, 17 Mar 2007 23:32:17 -0700
+Message-ID: <076F1B35-BE08-41B4-8294-581EDAFF4ACC@mac.com>
+References: <20070316153408.3a9a244a@lxorguk.ukuu.org.uk> <20070316151305.04cbc352@lxorguk.ukuu.org.uk> <20070316125008.3740.44693.stgit@warthog.cambridge.redhat.com> <25571.1174054993@redhat.com> <26525.1174058071@redhat.com> <20070316171141.7a4de504@lxorguk.ukuu.org.uk>
+Mime-Version: 1.0 (Apple Message framework v752.2)
+Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wr-out-0506.google.com ([64.233.184.234]:58141 "EHLO
-	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932096AbXCRDXG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Mar 2007 23:23:06 -0400
-Received: by wr-out-0506.google.com with SMTP id 41so1007339wry
-        for <netdev@vger.kernel.org>; Sat, 17 Mar 2007 20:23:05 -0700 (PDT)
-In-Reply-To: <39e6f6c70703172017g1b86198bw1c586f985dd508a6@mail.gmail.com>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Cc: David Howells <dhowells@redhat.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, herbert.xu@redhat.com,
+	linux-kernel@vger.kernel.org, hch@infradead.org,
+	arjan@infradead.org
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753081AbXCRGdM@vger.kernel.org>
+In-Reply-To: <20070316171141.7a4de504@lxorguk.ukuu.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 3/18/07, Arnaldo Carvalho de Melo <acme@ghostprotocols.net> wrote:
-> On 3/18/07, Arnaldo Carvalho de Melo <acme@ghostprotocols.net> wrote:
-> >
-> > Hi David,
-> >
-> >         Here is the bugger, it wasn't because {transport,network,mac}_header
-> > is unsigned after all :-)
-> >
-> >         Please consider pulling from the usual place:
-> >
-> > master.kernel.org:/pub/scm/linux/kernel/git/acme/net-2.6.22
-> >
-> >         Please lemme know how longer it takes to crash your workstation, I hope
-> > not before next century 8-)
-> >
-> > - Arnaldo
-> >
-> > ---
-> > In pskb_expand_head and copy_skb_header (used in p?skb_copy(expand)?) the
-> > difference of two allocations were being applied to
-> > ->(transport|network|mac)_header, when this is not only not needed but causes
-> > problems, as those headers are now just offsets from ->head.
-> >
-> > This fixes the problem with xfrm (skb_copy_checksum was the first place this
+On Mar 16, 2007, at 10:11:41, Alan Cox wrote:
+>> I know what they are; and I don't think that what's available  
+>> covers it.
+>>
+>>> and use a proper standard socket type.
+>>
+>> Assuming that that list is exhaustive...
 >
-> Argh, skb_checksum_help! lemme fix this comment before its too late...
+> SOCK_RDM seems to match perfectly well here. The point isn't to  
+> enumerate everything in the universe the point is to find "works  
+> like" parallels good enough to avoid more special casing.
 
-Done!
+IMHO the problem with classifying RxRPC as a "reliable datagram"  
+socket is that even an atomic unidirectional communication isn't a  
+single datagram, it's at least 3; there is shared connection state  
+and security context on both sides which pertains to a collection of  
+independent and possibly simultaneous RxRPC calls.  From the digging  
+around that I did in the kernel socket code a while ago I don't see a  
+cleaner way of implementing it than a new SOCK_RXRPC.
 
-- Arnaldo
+Cheers,
+Kyle Moffett
