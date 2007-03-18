@@ -1,65 +1,118 @@
-From: Finn Thain <fthain@telegraphics.com.au>
-Subject: Re: [PATCH 11/13] mac68k: macmace fixes
-Date: Sun, 18 Mar 2007 13:26:37 +1100 (EST)
-Message-ID: <Pine.LNX.4.64.0703181208490.11593@loopy.telegraphics.com.au>
-References: <Pine.LNX.4.64.0703171732250.4875@loopy.telegraphics.com.au>
- <20070317153054.GC14763@cynthia.pants.nu>
+From: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+Subject: [PATCH 1/1] [SK_BUFF]: Don't apply the offset of two allocations to the layer headers
+Date: Sun, 18 Mar 2007 00:12:24 -0300
+Message-ID: <20070318031224.GA17811@ghostprotocols.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Geert Uytterhoeven <geert@linux-m68k.org>,
-	Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
-	linux-m68k@vger.kernel.org
-To: Brad Boyer <flar@allandria.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from loopy.telegraphics.com.au ([202.45.126.152]:42830 "EHLO
-	loopy.telegraphics.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752783AbXCRC0j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Mar 2007 22:26:39 -0400
-In-Reply-To: <20070317153054.GC14763@cynthia.pants.nu>
+Received: from wx-out-0506.google.com ([66.249.82.239]:6069 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752987AbXCRDMa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Mar 2007 23:12:30 -0400
+Received: by wx-out-0506.google.com with SMTP id h31so912984wxd
+        for <netdev@vger.kernel.org>; Sat, 17 Mar 2007 20:12:30 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
+Hi David,
 
-On Sat, 17 Mar 2007, Brad Boyer wrote:
+	Here is the bugger, it wasn't because {transport,network,mac}_header
+is unsigned after all :-)
 
-> On Sat, Mar 17, 2007 at 08:08:33PM +1100, Finn Thain wrote:
-> > Index: linux-2.6.20/drivers/net/Kconfig
-> > ===================================================================
-> > --- linux-2.6.20.orig/drivers/net/Kconfig	2007-03-06 19:22:38.000000000 +1100
-> > +++ linux-2.6.20/drivers/net/Kconfig	2007-03-06 20:15:52.000000000 +1100
-> > @@ -347,8 +347,8 @@ config MACSONIC
-> >  	  be called macsonic.
-> >  
-> >  config MACMACE
-> > -	bool "Macintosh (AV) onboard MACE ethernet (EXPERIMENTAL)"
-> > -	depends on NET_ETHERNET && MAC && EXPERIMENTAL
-> > +	bool "Macintosh (AV) onboard MACE ethernet"
-> > +	depends on NET_ETHERNET && MAC
-> >  	select CRC32
-> >  	help
-> >  	  Support for the onboard AMD 79C940 MACE Ethernet controller used in
-> 
-> Have you tried making this a tristate option? It looked like the code 
-> had all the proper hooks to be built as a module, but it currently isn't 
-> allowed by the Kconfig.
+	Please consider pulling from the usual place:
 
-Yes, I tried it. The problem was the psc global, which wouldn't allow it 
-to link as a module. So this patch just focuses on getting the driver 
-working, which is what the debian devs needed. I wasn't particularly 
-concerned with enhancements, so I just left MACMACE as a boolean.
+master.kernel.org:/pub/scm/linux/kernel/git/acme/net-2.6.22
 
-Even though no other code uses the PSC's DMA engine, there's probably an 
-argument for making the Peripheral Controller Chip a device in it's own 
-right. (Well, it serves as the interrupt controller too. And there are 
-other patches in this series that fix the PSC interrupt problems.)
+	Please lemme know how longer it takes to crash your workstation, I hope
+not before next century 8-)
 
-Modernization needs to happen, but I'm just trying to fix borken stuff 
-because I think that needs to happen first.
+- Arnaldo
 
--f
+---
+In pskb_expand_head and copy_skb_header (used in p?skb_copy(expand)?) the
+difference of two allocations were being applied to
+->(transport|network|mac)_header, when this is not only not needed but causes
+problems, as those headers are now just offsets from ->head.
 
-> 
-> 	Brad Boyer
-> 	flar@allandria.com
-> 
+This fixes the problem with xfrm (skb_copy_checksum was the first place this
+bug would crash the machine, on the first packet being xfrm'ed), so reenable
+the offset code on 64bit arches.
+
+Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+---
+ include/linux/skbuff.h |    4 +---
+ net/core/skbuff.c      |   18 ++++++++++++++----
+ 2 files changed, 15 insertions(+), 7 deletions(-)
+
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 673ca0c..3e4a2bd 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -180,9 +180,7 @@ enum {
+ 	SKB_GSO_TCPV6 = 1 << 4,
+ };
+ 
+-/* #if BITS_PER_LONG > 32 */
+-#if 0
+-/* Disabled for now till the ipsec problem is fixed -acme */
++#if BITS_PER_LONG > 32
+ #define NET_SKBUFF_DATA_USES_OFFSET 1
+ #endif
+ 
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 5db345a..ea03cbf 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -502,11 +502,12 @@ struct sk_buff *skb_clone(struct sk_buff *skb, gfp_t gfp_mask)
+ 
+ static void copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
+ {
++#ifndef NET_SKBUFF_DATA_USES_OFFSET
+ 	/*
+ 	 *	Shift between the two data areas in bytes
+ 	 */
+ 	unsigned long offset = new->data - old->data;
+-
++#endif
+ 	new->sk		= NULL;
+ 	new->dev	= old->dev;
+ 	new->priority	= old->priority;
+@@ -515,9 +516,15 @@ static void copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
+ #ifdef CONFIG_INET
+ 	new->sp		= secpath_get(old->sp);
+ #endif
+-	new->transport_header = old->transport_header + offset;
+-	new->network_header   = old->network_header + offset;
+-	new->mac_header	      = old->mac_header + offset;
++	new->transport_header = old->transport_header;
++	new->network_header   = old->network_header;
++	new->mac_header	      = old->mac_header;
++#ifndef NET_SKBUFF_DATA_USES_OFFSET
++	/* {transport,network,mac}_header are relative to skb->head */
++	new->transport_header += offset;
++	new->network_header   += offset;
++	new->mac_header	      += offset;
++#endif
+ 	memcpy(new->cb, old->cb, sizeof(old->cb));
+ 	new->local_df	= old->local_df;
+ 	new->fclone	= SKB_FCLONE_UNAVAILABLE;
+@@ -693,9 +700,12 @@ int pskb_expand_head(struct sk_buff *skb, int nhead, int ntail,
+ 	skb->end      = data + size;
+ 	skb->data    += off;
+ 	skb->tail    += off;
++#ifndef NET_SKBUFF_DATA_USES_OFFSET
++	/* {transport,network,mac}_header are relative to skb->head */
+ 	skb->transport_header += off;
+ 	skb->network_header   += off;
+ 	skb->mac_header	      += off;
++#endif
+ 	skb->cloned   = 0;
+ 	skb->nohdr    = 0;
+ 	atomic_set(&skb_shinfo(skb)->dataref, 1);
+-- 
+1.5.0.3
+
