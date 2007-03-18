@@ -1,74 +1,83 @@
-From: Dan Aloni <da-x@monatomic.org>
-Subject: Re: [PATCH] tcp_sendpage(): fix broken page iteration
-Date: Sun, 18 Mar 2007 14:50:29 +0200
-Message-ID: <20070318125029.GA6617@localdomain>
-References: <20070318124346.GA6396@localdomain>
+From: "Michael S. Tsirkin" <mst@dev.mellanox.co.il>
+Subject: [ofa-general] dst_ifdown breaks infiniband?
+Date: Sun, 18 Mar 2007 17:55:32 +0200
+Message-ID: <20070318155532.GG7958@mellanox.co.il>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Linux Kernel List <linux-kernel@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from noname.neutralserver.com ([70.84.186.210]:34890 "EHLO
-	noname.neutralserver.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752324AbXCRMul (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Mar 2007 08:50:41 -0400
+To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org, general@lists.openfabrics.org,
+	Roland Dreier <rolandd@cisco.com>, Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Return-path: <general-bounces@lists.openfabrics.org>
 Content-Disposition: inline
-In-Reply-To: <20070318124346.GA6396@localdomain>
-Sender: netdev-owner@vger.kernel.org
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Mar 18, 2007 at 02:43:46PM +0200, Dan Aloni wrote:
-> do_tcp_sendpages() should not iterate 'pages' as an array since 
-> it is not an array of 'struct page *', but a pointer to a single 
-> entity of 'struct page *' passed on the stack as a parameter to 
-> tcp_send_page() (hence it would crash if poffset + psize > PAGE_SIZE,
-> because pages[1] and beyond most probably not constitutes a valid 
-> 'struct page *').
-> 
-> Since 'page' points to an array of 'struct page', the obvious fix 
-> is to iterate that array instead, and that's what the function
-> should have done in the first place.
-> 
-> Applies to 2.6.21-rc4 and above.
+Alexey, Roland,
+In debugging kernel lockup that occurs with IP over InfiniBand in 2.6.21-rc4:
+( https://bugs.openfabrics.org/show_bug.cgi?id=402 )
 
-Oops, forgot the obligtory signed-off:
+I noticed the following code in dst_ifdown:
 
-Signed-off-by: Dan Aloni <da-x@monatomic.org>
+/* Dirty hack. We did it in 2.2 (in __dst_free),
+ * we have _very_ good reasons not to repeat
+ * this mistake in 2.3, but we have no choice
+ * now. _It_ _is_ _explicit_ _deliberate_
+ * _race_ _condition_.
+ *
+ * Commented and originally written by Alexey.
+ */
+static inline void dst_ifdown(struct dst_entry *dst, struct net_device *dev,
+                              int unregister)
+{
+        if (dst->ops->ifdown)
+                dst->ops->ifdown(dst, dev, unregister);
 
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 3834b10..4881c8d 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -501,7 +501,7 @@ static inline void tcp_push(struct sock *sk, struct tcp_sock *tp, int flags,
- 	}
- }
- 
--static ssize_t do_tcp_sendpages(struct sock *sk, struct page **pages, int poffset,
-+static ssize_t do_tcp_sendpages(struct sock *sk, struct page *pages, int poffset,
- 			 size_t psize, int flags)
- {
- 	struct tcp_sock *tp = tcp_sk(sk);
-@@ -527,7 +527,7 @@ static ssize_t do_tcp_sendpages(struct sock *sk, struct page **pages, int poffse
- 
- 	while (psize > 0) {
- 		struct sk_buff *skb = sk->sk_write_queue.prev;
--		struct page *page = pages[poffset / PAGE_SIZE];
-+		struct page *page = &pages[poffset / PAGE_SIZE];
- 		int copy, i, can_coalesce;
- 		int offset = poffset % PAGE_SIZE;
- 		int size = min_t(size_t, psize, PAGE_SIZE - offset);
-@@ -630,7 +630,7 @@ ssize_t tcp_sendpage(struct socket *sock, struct page *page, int offset,
- 
- 	lock_sock(sk);
- 	TCP_CHECK_TIMER(sk);
--	res = do_tcp_sendpages(sk, &page, offset, size, flags);
-+	res = do_tcp_sendpages(sk, page, offset, size, flags);
- 	TCP_CHECK_TIMER(sk);
- 	release_sock(sk);
- 	return res;
+        if (dev != dst->dev)
+                return;
 
+        if (!unregister) {
+                dst->input = dst_discard_in;
+                dst->output = dst_discard_out;
+        } else {
+                dst->dev = &loopback_dev;
+                dev_hold(&loopback_dev);
+                dev_put(dev);
+                if (dst->neighbour && dst->neighbour->dev == dev) {
+                        dst->neighbour->dev = &loopback_dev;
+                        dev_put(dev);
+                        dev_hold(&loopback_dev);
+                }
+        }
+}
 
+The line dst->neighbour->dev = &loopback_dev breaks IP over InfiniBand,
+simply because neighbour->parms still points to an entry that has
+been set up with dev->neigh_setup call from IPoIB neighbour device.
+
+So when neighbour->parms->neigh_destructor is called,
+we get to ipoib_neigh_destructor in drivers/infiniband/ulp/ipoib/ipoib_main.c,
+and that in turn crashes since it needs an infiniband device
+in neighbour dev pointer.
+
+This is not new code, and should have triggered long time ago,
+so I am not sure how come we are triggering this only now,
+but somehow this did not lead to crashes in 2.6.20, but does now in 2.6.21-rc4.
+
+Ideas on how to fix this?
+
+Why is neighbour->dev changed here?
+
+Can dst->neighbour be changed to point to NULL instead, and the neighbour
+released?
+
+Thanks very much,
 -- 
-Dan Aloni
-XIV LTD, http://www.xivstorage.com
-da-x (at) monatomic.org, dan (at) xiv.co.il
+MST
