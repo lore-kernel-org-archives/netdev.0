@@ -1,60 +1,44 @@
-From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Subject: [ofa-general] Re: dst_ifdown breaks infiniband?
-Date: Sun, 18 Mar 2007 22:12:38 +0300
-Message-ID: <20070318191238.GA20518@ms2.inr.ac.ru>
-References: <20070318155532.GG7958@mellanox.co.il>
+From: Andi Kleen <ak@muc.de>
+Subject: Re: [patch 13/26] Xen-paravirt_ops: Consistently wrap paravirt ops callsites to make them patchable
+Date: 18 Mar 2007 20:30:30 +0100
+Message-ID: <20070318193030.GB71548@muc.de>
+References: <20070316.023331.59468179.davem@davemloft.net> <45FB005D.9060809@goop.org> <1174127638.8897.75.camel@localhost.localdomain> <20070318.003309.71088169.davem@davemloft.net> <20070318120814.GA45869@muc.de> <45FD619D.6030402@goop.org> <20070318170414.GB45869@muc.de> <45FD76E6.4060907@goop.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	general@lists.openfabrics.org
-To: "Michael S. Tsirkin" <mst@dev.mellanox.co.il>
-Return-path: <general-bounces@lists.openfabrics.org>
+Cc: David Miller <davem@davemloft.net>, rusty@rustcorp.com.au,
+	mingo@elte.hu, akpm@linux-foundation.org,
+	linux-kernel@vger.kernel.org, virtualization@lists.osdl.org,
+	xen-devel@lists.xensource.com, chrisw@sous-sol.org,
+	zach@vmware.com, anthony@codemonkey.ws,
+	torvalds@linux-foundation.org, netdev@vger.kernel.org
+To: Jeremy Fitzhardinge <jeremy@goop.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from colin.muc.de ([193.149.48.1]:2389 "EHLO mail.muc.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750977AbXCRTac (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 18 Mar 2007 15:30:32 -0400
+Date: Sun, 18 Mar 2007 20:30:30 +0100
 Content-Disposition: inline
-In-Reply-To: <20070318155532.GG7958@mellanox.co.il>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+In-Reply-To: <45FD76E6.4060907@goop.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello!
+On Sun, Mar 18, 2007 at 10:29:10AM -0700, Jeremy Fitzhardinge wrote:
+> Andi Kleen wrote:
+> > You could use the dwarf2 unwind tables. They have exact information
+> > what register has what. But it would likely get complicated.
+> 
+> Yes.  And would they be accurate for hand-written asm, which is where we
+> have this problem?
 
-> This is not new code, and should have triggered long time ago,
-> so I am not sure how come we are triggering this only now,
-> but somehow this did not lead to crashes in 2.6.20
+Yes. All inline assembly tells gcc what registers are clobbered
+and it fills in the tables. Hand clobbering in inline assembly cannot
+be expressed with the current toolchain, so we moved all those
+out of line.
 
-I see. I guess this was plain luck.
+But again I'm not sure it will work anyways. For once you would
+need large padding around the calls anyways for inline replacement --
+how would you generate that? I expect you would need to put the calls
+into asm() again and with that a custom annotiation format looks reasonable.
 
-
-> Why is neighbour->dev changed here?
-
-It holds reference to device and prevents its destruction.
-If dst is held somewhere, we cannot destroy the device and deadlock
-while unregister.
-
-We could not invalidate dst->neighbour but it looked safe to invalidate
-neigh->dev after quiescent state. Obviosuly, it is not and it never was safe.
-Was supposed to be repaired asap, but this did not happen. :-(
-
-
-> Can dst->neighbour be changed to point to NULL instead, and the neighbour
-> released?
-
-It should be cleared and we should be sure it will not be destroyed
-before quiescent state.
-
-Seems, this is the only correct solution, but to do this we have
-to audit all the places where dst->neighbour is dereferenced for
-RCU safety.
-
-Actually, it is very good you caught this eventually, the bug was
-so _disgusting_ that it was "forgotten" all the time, waiting for
-someone who will point out that the king is naked. :-)
-
-Alexey
+-Andi
