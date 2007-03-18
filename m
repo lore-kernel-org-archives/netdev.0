@@ -1,72 +1,65 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [patch 13/26] Xen-paravirt_ops: Consistently wrap
-	paravirt ops callsites to make them patchable
-Date: Sat, 17 Mar 2007 21:33:58 +1100
-Message-ID: <1174127638.8897.75.camel@localhost.localdomain>
-References: <20070301232443.195603797@goop.org>
-	<20070301232527.956565107@goop.org>	<20070316092445.GM23174@elte.hu>
-	<20070316.023331.59468179.davem@davemloft.net>
-	<45FB005D.9060809@goop.org>
+From: Finn Thain <fthain@telegraphics.com.au>
+Subject: Re: [PATCH 11/13] mac68k: macmace fixes
+Date: Sun, 18 Mar 2007 13:26:37 +1100 (EST)
+Message-ID: <Pine.LNX.4.64.0703181208490.11593@loopy.telegraphics.com.au>
+References: <Pine.LNX.4.64.0703171732250.4875@loopy.telegraphics.com.au>
+ <20070317153054.GC14763@cynthia.pants.nu>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: zach@vmware.com, xen-devel@lists.xensource.com, akpm@linux-foundation.org,
-	ak@muc.de, NetDev <netdev@vger.kernel.org>,
-	linux-kernel@vger.kernel.org, chrisw@sous-sol.org,
-	virtualization@lists.osdl.org, anthony@codemonkey.ws,
-	mingo@elte.hu, torvalds@linux-foundation.org,
-	David Miller <davem@davemloft.net>
-To: Jeremy Fitzhardinge <jeremy@goop.org>
-Return-path: <xen-devel-bounces@lists.xensource.com>
-In-Reply-To: <45FB005D.9060809@goop.org>
-List-Unsubscribe: <http://lists.xensource.com/cgi-bin/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xensource.com?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xensource.com>
-List-Help: <mailto:xen-devel-request@lists.xensource.com?subject=help>
-List-Subscribe: <http://lists.xensource.com/cgi-bin/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xensource.com?subject=subscribe>
-Sender: xen-devel-bounces@lists.xensource.com
-Errors-To: xen-devel-bounces@lists.xensource.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Geert Uytterhoeven <geert@linux-m68k.org>,
+	Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
+	linux-m68k@vger.kernel.org
+To: Brad Boyer <flar@allandria.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from loopy.telegraphics.com.au ([202.45.126.152]:42830 "EHLO
+	loopy.telegraphics.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752783AbXCRC0j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Mar 2007 22:26:39 -0400
+In-Reply-To: <20070317153054.GC14763@cynthia.pants.nu>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2007-03-16 at 13:38 -0700, Jeremy Fitzhardinge wrote:
-> David Miller wrote:
-> > Perhaps the problem can be dealt with using ELF relocations.
-> >
-> > There is another case, discussed yesterday on netdev, where run-time
-> > resolution of ELF relocations would be useful (for
-> > very-very-very-read-only variables) so if it can solve this problem
-> > too it would be nice to have a generic infrastructure for it.
+
+
+On Sat, 17 Mar 2007, Brad Boyer wrote:
+
+> On Sat, Mar 17, 2007 at 08:08:33PM +1100, Finn Thain wrote:
+> > Index: linux-2.6.20/drivers/net/Kconfig
+> > ===================================================================
+> > --- linux-2.6.20.orig/drivers/net/Kconfig	2007-03-06 19:22:38.000000000 +1100
+> > +++ linux-2.6.20/drivers/net/Kconfig	2007-03-06 20:15:52.000000000 +1100
+> > @@ -347,8 +347,8 @@ config MACSONIC
+> >  	  be called macsonic.
+> >  
+> >  config MACMACE
+> > -	bool "Macintosh (AV) onboard MACE ethernet (EXPERIMENTAL)"
+> > -	depends on NET_ETHERNET && MAC && EXPERIMENTAL
+> > +	bool "Macintosh (AV) onboard MACE ethernet"
+> > +	depends on NET_ETHERNET && MAC
+> >  	select CRC32
+> >  	help
+> >  	  Support for the onboard AMD 79C940 MACE Ethernet controller used in
 > 
-> That's an interesting idea.  Have you or anyone else looked at what it
-> would take to code up?
+> Have you tried making this a tristate option? It looked like the code 
+> had all the proper hooks to be built as a module, but it currently isn't 
+> allowed by the Kconfig.
+
+Yes, I tried it. The problem was the psc global, which wouldn't allow it 
+to link as a module. So this patch just focuses on getting the driver 
+working, which is what the debian devs needed. I wasn't particularly 
+concerned with enhancements, so I just left MACMACE as a boolean.
+
+Even though no other code uses the PSC's DMA engine, there's probably an 
+argument for making the Peripheral Controller Chip a device in it's own 
+right. (Well, it serves as the interrupt controller too. And there are 
+other patches in this series that fix the PSC interrupt problems.)
+
+Modernization needs to happen, but I'm just trying to fix borken stuff 
+because I think that needs to happen first.
+
+-f
+
 > 
-> For this case, I guess you'd walk the relocs looking for references into
-> the paravirt_ops structure.  You'd need to check that was a reference
-> from an indirect jump or call instruction, which would identify a
-> patchable callsite.  The offset into the pv_ops structure would identify
-> which operation is involved.
-
-I wrote a whole email on ways to do this, BUT...
-
-Perhaps our patching code can already be vastly simplified to something
-like:
-
-#define pv_patch(call, args...) \
-	asm volatile("8888:"); 
-	call(args);
-	asm volatile("8889:"
-	 [ stuff to put 8889, 8888 and call in fixup section ]
-
-The patching code doesn't even need to decode between those two: it
-simply looks for an indirect call insn (0xff 0xd?).  If it finds more
-than one, it doesn't patch.  If it only finds one, it patches.  We'll
-probably hit them all just doing that.
-
-> What are the netdev requirements?
-
-Reading Ben LaHaise's (very cool!) patch, it's not clear that using
-reloc postprocessing is going to be clearer than open-coding it as he
-has done.
-
-Rusty.
+> 	Brad Boyer
+> 	flar@allandria.com
+> 
