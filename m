@@ -1,63 +1,41 @@
-From: divy@chelsio.com
-Subject: [PATCH 2.6.21 4/4] cxgb3 - T3B2 pcie config space
-Date: Sun, 18 Mar 2007 13:10:17 -0700
-Message-ID: <20070318201017.16328.26563.stgit@localhost.localdomain>
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Subject: Re: dst_ifdown breaks infiniband?
+Date: Sun, 18 Mar 2007 23:18:26 +0300
+Message-ID: <20070318201826.GB27004@ms2.inr.ac.ru>
+References: <20070318155532.GG7958@mellanox.co.il> <20070318191238.GA20518@ms2.inr.ac.ru> <20070318195355.GB11078@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	swise@opengridcomputing.com
-To: jeff@garzik.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org, general@lists.openfabrics.org,
+	Roland Dreier <rolandd@cisco.com>
+To: "Michael S. Tsirkin" <mst@dev.mellanox.co.il>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.22.49.110]:30692 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933145AbXCRUKW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Mar 2007 16:10:22 -0400
+Received: from minus.inr.ac.ru ([194.67.69.97]:43867 "HELO ms2.inr.ac.ru"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+	id S1750773AbXCRUS3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 18 Mar 2007 16:18:29 -0400
+Content-Disposition: inline
+In-Reply-To: <20070318195355.GB11078@mellanox.co.il>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Divy Le Ray <divy@chelsio.com>
+Hello!
 
-T3B2 does not lose its pcie config space on reset.
+> > It should be cleared and we should be sure it will not be destroyed
+> > before quiescent state.
+> 
+> I'm confused. didn't you say dst_ifdown is called after quiescent state?
 
-Signed-off-by: Divy Le Ray <divy@chelsio.com>
----
----
+Quiescent state should happen after dst->neighbour is invalidated.
+And this implies that all the users of dst->neighbour check validity
+after dereference and do not use it after quiescent state.
 
- drivers/net/cxgb3/t3_hw.c |   10 ++++++----
- 1 files changed, 6 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/cxgb3/t3_hw.c b/drivers/net/cxgb3/t3_hw.c
-index 983ee81..791ed6d 100644
---- a/drivers/net/cxgb3/t3_hw.c
-+++ b/drivers/net/cxgb3/t3_hw.c
-@@ -3244,15 +3244,17 @@ void early_hw_init(struct adapter *adapt
- }
- 
- /*
-- * Reset the adapter.  PCIe cards lose their config space during reset, PCI-X
-+ * Reset the adapter. 
-+ * Older PCIe cards lose their config space during reset, PCI-X
-  * ones don't.
-  */
- int t3_reset_adapter(struct adapter *adapter)
- {
--	int i;
-+	int i, save_and_restore_pcie = 
-+	    adapter->params.rev < T3_REV_B2 && is_pcie(adapter);
- 	uint16_t devid = 0;
- 
--	if (is_pcie(adapter))
-+	if (save_and_restore_pcie)
- 		pci_save_state(adapter->pdev);
- 	t3_write_reg(adapter, A_PL_RST, F_CRSTWRM | F_CRSTWRMMODE);
- 
-@@ -3270,7 +3272,7 @@ int t3_reset_adapter(struct adapter *ada
- 	if (devid != 0x1425)
- 		return -1;
- 
--	if (is_pcie(adapter))
-+	if (save_and_restore_pcie)
- 		pci_restore_state(adapter->pdev);
- 	return 0;
- }
+> This does not sound like something that's likely to be accepted in 2.6.21, right?
+> 
+> Any simpler ideas?
+
+Well, if inifiniband destructor really needs to take that lock... no.
+Right now I do not see.
+
+Alexey
