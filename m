@@ -1,97 +1,79 @@
-From: "Michael S. Tsirkin" <mst@dev.mellanox.co.il>
-Subject: Re: [ofa-general] Re: dst_ifdown breaks infiniband?
-Date: Mon, 19 Mar 2007 00:42:34 +0200
-Message-ID: <20070318224234.GP11078@mellanox.co.il>
-References: <20070318155532.GG7958@mellanox.co.il>
-	<20070318191238.GA20518@ms2.inr.ac.ru>
-	<20070318202559.GD11078@mellanox.co.il>
-	<m3tzwi8a20.fsf@maxwell.lnxi.com>
-	<20070318223653.GO11078@mellanox.co.il>
-Reply-To: "Michael S. Tsirkin" <mst@dev.mellanox.co.il>
+From: Jeremy Fitzhardinge <jeremy@goop.org>
+Subject: Re: [patch 13/26] Xen-paravirt_ops: Consistently wrap
+ paravirt ops callsites to make them patchable
+Date: Sun, 18 Mar 2007 16:46:26 -0700
+Message-ID: <45FDCF52.4000805@goop.org>
+References: <20070316.023331.59468179.davem@davemloft.net>
+	<45FB005D.9060809@goop.org>
+	<1174127638.8897.75.camel@localhost.localdomain>
+	<20070318.003309.71088169.davem@davemloft.net>
+	<20070318120814.GA45869@muc.de> <45FD619D.6030402@goop.org>
+	<20070318170414.GB45869@muc.de> <45FD76E6.4060907@goop.org>
+	<20070318193030.GB71548@muc.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Eric W. Biederman" <ebiederman@lnxi.com>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	general@lists.openfabrics.org
-To: "Michael S. Tsirkin" <mst@dev.mellanox.co.il>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.169]:2722 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933222AbXCRWlx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Mar 2007 18:41:53 -0400
-Received: by ug-out-1314.google.com with SMTP id 44so1162765uga
-        for <netdev@vger.kernel.org>; Sun, 18 Mar 2007 15:41:52 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20070318223653.GO11078@mellanox.co.il>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: zach@vmware.com, xen-devel@lists.xensource.com, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, rusty@rustcorp.com.au,
+	linux-kernel@vger.kernel.org, chrisw@sous-sol.org,
+	virtualization@lists.osdl.org, anthony@codemonkey.ws,
+	mingo@elte.hu, torvalds@linux-foundation.org,
+	David Miller <davem@davemloft.net>
+To: Andi Kleen <ak@muc.de>
+Return-path: <xen-devel-bounces@lists.xensource.com>
+In-Reply-To: <20070318193030.GB71548@muc.de>
+List-Unsubscribe: <http://lists.xensource.com/cgi-bin/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xensource.com?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xensource.com>
+List-Help: <mailto:xen-devel-request@lists.xensource.com?subject=help>
+List-Subscribe: <http://lists.xensource.com/cgi-bin/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xensource.com?subject=subscribe>
+Sender: xen-devel-bounces@lists.xensource.com
+Errors-To: xen-devel-bounces@lists.xensource.com
 List-Id: netdev.vger.kernel.org
 
-> Quoting Michael S. Tsirkin <mst@dev.mellanox.co.il>:
-> Subject: Re: [ofa-general] Re: dst_ifdown breaks infiniband?
-> 
-> > Quoting Eric W. Biederman <ebiederman@lnxi.com>:
-> > Subject: Re: [ofa-general] Re: dst_ifdown breaks infiniband?
-> > 
-> > "Michael S. Tsirkin" <mst@dev.mellanox.co.il> writes:
-> > 
-> > >> > Why is neighbour->dev changed here?
-> > >> 
-> > >> It holds reference to device and prevents its destruction.
-> > >> If dst is held somewhere, we cannot destroy the device and deadlock
-> > >> while unregister.
-> > >
-> > > BTW, can this ever happen for the loopback device itself?
-> > > Is it ever unregistered?
-> > 
-> > Well I don't think the loopback device is currently but as soon
-> > as we get network namespace support we will have multiple loopback
-> > devices and they will get unregistered when we remove the network
-> > namespace.
-> 
-> Hmm. Then the code moving dst->dev to point to the loopback
-> device will have to be fixed too. I'll post a patch a bit later.
+Andi Kleen wrote:
+> Yes. All inline assembly tells gcc what registers are clobbered
+> and it fills in the tables. Hand clobbering in inline assembly cannot
+> be expressed with the current toolchain, so we moved all those
+> out of line.
+>
+> But again I'm not sure it will work anyways. For once you would
+> need large padding around the calls anyways for inline replacement --
+> how would you generate that? I expect you would need to put the calls
+> into asm() again and with that a custom annotiation format looks reasonable.
 
-Does this look sane (untested)?
+Inlining is most important for very small code: sti, cli, pushf;pop eax,
+etc (in many cases, no-ops).  We'd have at least 5 bytes to work in, and
+maybe more if there are surrounding push/pops to be consumed.
 
-Signed-off-by: Michael S. Tsirkin <mst@dev.mellanox.co.il>
+For example, say we wanted to put a general call for sti into entry.S,
+where its expected it won't touch any registers.  In that case, we'd
+have a sequence like:
 
+    push %eax
+    push %ecx
+    push %edx
+    call paravirt_cli
+    pop %edx
+    pop %ecx
+    pop %eax
+      
 
-diff --git a/net/core/dst.c b/net/core/dst.c
-index 764bccb..8283158 100644
---- a/net/core/dst.c
-+++ b/net/core/dst.c
-@@ -235,6 +236,8 @@ again:
- static inline void dst_ifdown(struct dst_entry *dst, struct net_device *dev,
- 			      int unregister)
- {
-+	struct neighbour *neigh;
-+
- 	if (dst->ops->ifdown)
- 		dst->ops->ifdown(dst, dev, unregister);
- 
-@@ -245,14 +248,13 @@ static inline void dst_ifdown(struct dst_entry *dst, struct net_device *dev,
- 		dst->input = dst_discard_in;
- 		dst->output = dst_discard_out;
- 	} else {
--		dst->dev = &loopback_dev;
--		dev_hold(&loopback_dev);
--		dev_put(dev);
--		if (dst->neighbour && dst->neighbour->dev == dev) {
--			dst->neighbour->dev = &loopback_dev;
--			dev_put(dev);
--			dev_hold(&loopback_dev);
-+		neigh = dst->neighbour;
-+		if (neigh && neigh->dev == dev) {
-+			dst->neighbour = NULL;
-+			neigh_release(neigh);
- 		}
-+		dst->dev = NULL;
-+		dev_put(dev);
- 	}
- }
- 
+If we parse the relocs, then we'd find the reference to paravirt_cli. 
+If we look at the byte before and see 0xe8, then we can see if its a
+call.  If we then work out in each direction and see matched push/pops,
+then we know what registers can be trashed in the call.  This also
+allows us to determine the callsite size, and therefore how much space
+we need for inlining.
 
--- 
-MST
+So in this case, we see that there are 5 bytes for the call and a
+further 6 bytes of push/pops available for inlining.
+
+Of course this is hand-written code anyway, so there's no particular
+burden to having some extra metadata stashed away in another section. 
+For compiler-generated code, we know that it's already expecting
+standard C ABI calling conventions.  The downside, of course, is that
+only the 5 byte call space is available for inline patching.
+
+    J
