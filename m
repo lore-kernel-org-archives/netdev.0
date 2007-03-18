@@ -1,40 +1,28 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp_sendpage(): fix broken page iteration
-Date: Sun, 18 Mar 2007 14:49:27 -0700 (PDT)
-Message-ID: <20070318.144927.78708843.davem@davemloft.net>
-References: <20070318124346.GA6396@localdomain>
+From: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+Subject: [PATCHES 0/2]: Convert skb->{tail,end} to sk_buff_data_t
+Date: Sun, 18 Mar 2007 18:49:28 -0300
+Message-ID: <20070318214927.GB17811@ghostprotocols.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: da-x@monatomic.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43722
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S933280AbXCRVt1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Mar 2007 17:49:27 -0400
-In-Reply-To: <20070318124346.GA6396@localdomain>
+Received: from wx-out-0506.google.com ([66.249.82.234]:50027 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933256AbXCRVte (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Mar 2007 17:49:34 -0400
+Received: by wx-out-0506.google.com with SMTP id h31so1063844wxd
+        for <netdev@vger.kernel.org>; Sun, 18 Mar 2007 14:49:33 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Dan Aloni <da-x@monatomic.org>
-Date: Sun, 18 Mar 2007 14:43:46 +0200
+Hi David,
 
-> do_tcp_sendpages() should not iterate 'pages' as an array since 
-> it is not an array of 'struct page *', but a pointer to a single 
-> entity of 'struct page *' passed on the stack as a parameter to 
-> tcp_send_page() (hence it would crash if poffset + psize > PAGE_SIZE,
-> because pages[1] and beyond most probably not constitutes a valid 
-> 'struct page *').
+	Please consider pulling from:
 
-do_tcp_sendpages() should never get passed poffset+psize>PAGE_SIZE,
-that would be a bug.
+master.kernel.org:/pub/scm/linux/kernel/git/acme/net-2.6.22
 
-Feel free to add a BUG() check for that if you wish, and a fix for any
-caller which violates this.
+Best Regards,
 
-The code is perfectly fine as-is.  It was originally written to accept
-page arrays, but once it was decided that ->sendpage() would only pass
-in one page, we simply modified to caller of do_tcp_sendpages() to
-accomodate this argument passing change, instead of changing
-do_tcp_sendpages() which is totally unnecessary.
+- Arnaldo
