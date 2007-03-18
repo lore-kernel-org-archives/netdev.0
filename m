@@ -1,117 +1,40 @@
-From: "Michael S. Tsirkin" <mst@dev.mellanox.co.il>
-Subject: [ofa-general] Re: dst_ifdown breaks infiniband?
-Date: Sun, 18 Mar 2007 23:20:46 +0200
-Message-ID: <20070318212046.GI11078@mellanox.co.il>
-References: <20070318155532.GG7958@mellanox.co.il>
-	<20070318191238.GA20518@ms2.inr.ac.ru>
-	<20070318203345.GF11078@mellanox.co.il>
-	<20070318210616.GG11078@mellanox.co.il>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] tcp_sendpage(): fix broken page iteration
+Date: Sun, 18 Mar 2007 14:49:27 -0700 (PDT)
+Message-ID: <20070318.144927.78708843.davem@davemloft.net>
+References: <20070318124346.GA6396@localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	general@lists.openfabrics.org, netdev@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@dev.mellanox.co.il>
-Return-path: <general-bounces@lists.openfabrics.org>
-Content-Disposition: inline
-In-Reply-To: <20070318210616.GG11078@mellanox.co.il>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: da-x@monatomic.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43722
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S933280AbXCRVt1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Mar 2007 17:49:27 -0400
+In-Reply-To: <20070318124346.GA6396@localdomain>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> Quoting Michael S. Tsirkin <mst@dev.mellanox.co.il>:
-> Subject: Re: dst_ifdown breaks infiniband?
-> 
-> > Quoting Michael S. Tsirkin <mst@dev.mellanox.co.il>:
-> > Subject: Re: dst_ifdown breaks infiniband?
-> > 
-> > Quoting Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>:
-> > Subject: Re: dst_ifdown breaks infiniband?
-> > > > Can dst->neighbour be changed to point to NULL instead, and the neighbour
-> > > > released?
-> > > 
-> > > It should be cleared and we should be sure it will not be destroyed
-> > > before quiescent state.
-> > > 
-> > > Seems, this is the only correct solution, but to do this we have
-> > > to audit all the places where dst->neighbour is dereferenced for
-> > > RCU safety.
-> > > 
-> > > Actually, it is very good you caught this eventually, the bug was
-> > > so _disgusting_ that it was "forgotten" all the time, waiting for
-> > > someone who will point out that the king is naked. :-)
-> > 
-> > Actually that might not be too bad:
-> > $grep -rIi 'dst->neighbour' net/ | wc -l
-> > 36
-> > 
-> > I'll try to do it.
-> 
-> Here's the list. Looks OK to me. What do you think?
-> 
+From: Dan Aloni <da-x@monatomic.org>
+Date: Sun, 18 Mar 2007 14:43:46 +0200
 
-So Alexey, how does the following (lightly tested) patch look?
-Is this what you had in mind?
+> do_tcp_sendpages() should not iterate 'pages' as an array since 
+> it is not an array of 'struct page *', but a pointer to a single 
+> entity of 'struct page *' passed on the stack as a parameter to 
+> tcp_send_page() (hence it would crash if poffset + psize > PAGE_SIZE,
+> because pages[1] and beyond most probably not constitutes a valid 
+> 'struct page *').
 
------------------------------
+do_tcp_sendpages() should never get passed poffset+psize>PAGE_SIZE,
+that would be a bug.
 
-Fix dst_ifdown for infiniband.
+Feel free to add a BUG() check for that if you wish, and a fix for any
+caller which violates this.
 
-Changing dst->neighbour->dev is unsafe because neigh->parms callbacks
-are set up for specific device.
-We should drop the dst->neighbour reference instead.
-
-Signed-off-by: Michael S. Tsirkin <mst@dev.mellanox.co.il>
-
----
-
-diff --git a/net/core/dst.c b/net/core/dst.c
-index 764bccb..27091a5 100644
---- a/net/core/dst.c
-+++ b/net/core/dst.c
-@@ -15,6 +15,7 @@
- #include <linux/skbuff.h>
- #include <linux/string.h>
- #include <linux/types.h>
-+#include <linux/if_arp.h>
- 
- #include <net/dst.h>
- 
-@@ -235,6 +236,8 @@ again:
- static inline void dst_ifdown(struct dst_entry *dst, struct net_device *dev,
- 			      int unregister)
- {
-+	struct neighbour *neigh;
-+
- 	if (dst->ops->ifdown)
- 		dst->ops->ifdown(dst, dev, unregister);
- 
-@@ -245,13 +248,13 @@ static inline void dst_ifdown(struct dst_entry *dst, struct net_device *dev,
- 		dst->input = dst_discard_in;
- 		dst->output = dst_discard_out;
- 	} else {
-+		neigh = dst->neighbour;
- 		dst->dev = &loopback_dev;
- 		dev_hold(&loopback_dev);
- 		dev_put(dev);
--		if (dst->neighbour && dst->neighbour->dev == dev) {
--			dst->neighbour->dev = &loopback_dev;
--			dev_put(dev);
--			dev_hold(&loopback_dev);
-+		if (neigh && neigh->dev == dev) {
-+			dst->neighbour = NULL;
-+			neigh_release(neigh);
- 		}
- 	}
- }
-
-
--- 
-MST
+The code is perfectly fine as-is.  It was originally written to accept
+page arrays, but once it was decided that ->sendpage() would only pass
+in one page, we simply modified to caller of do_tcp_sendpages() to
+accomodate this argument passing change, instead of changing
+do_tcp_sendpages() which is totally unnecessary.
