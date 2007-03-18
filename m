@@ -1,83 +1,47 @@
-From: "Michael S. Tsirkin" <mst@dev.mellanox.co.il>
-Subject: [ofa-general] dst_ifdown breaks infiniband?
-Date: Sun, 18 Mar 2007 17:55:32 +0200
-Message-ID: <20070318155532.GG7958@mellanox.co.il>
+From: Jeremy Fitzhardinge <jeremy@goop.org>
+Subject: Re: [patch 13/26] Xen-paravirt_ops: Consistently wrap paravirt ops
+ callsites to make them patchable
+Date: Sun, 18 Mar 2007 08:58:21 -0700
+Message-ID: <45FD619D.6030402@goop.org>
+References: <20070316.023331.59468179.davem@davemloft.net> <45FB005D.9060809@goop.org> <1174127638.8897.75.camel@localhost.localdomain> <20070318.003309.71088169.davem@davemloft.net> <20070318120814.GA45869@muc.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, general@lists.openfabrics.org,
-	Roland Dreier <rolandd@cisco.com>, Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Return-path: <general-bounces@lists.openfabrics.org>
-Content-Disposition: inline
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, rusty@rustcorp.com.au,
+	mingo@elte.hu, akpm@linux-foundation.org,
+	linux-kernel@vger.kernel.org, virtualization@lists.osdl.org,
+	xen-devel@lists.xensource.com, chrisw@sous-sol.org,
+	zach@vmware.com, anthony@codemonkey.ws,
+	torvalds@linux-foundation.org, netdev@vger.kernel.org
+To: Andi Kleen <ak@muc.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw.goop.org ([64.81.55.164]:32836 "EHLO mail.goop.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932465AbXCRP6W (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 18 Mar 2007 11:58:22 -0400
+In-Reply-To: <20070318120814.GA45869@muc.de>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Alexey, Roland,
-In debugging kernel lockup that occurs with IP over InfiniBand in 2.6.21-rc4:
-( https://bugs.openfabrics.org/show_bug.cgi?id=402 )
+Andi Kleen wrote:
+>> The idea is _NOT_ that you go look for references to the paravirt_ops
+>> members structure, that would be stupid and you wouldn't be able to
+>> use the most efficient addressing mode on a given cpu, you'd be
+>> patching up indirect calls and crap like that.  Just say no...
+>>     
+>
+> That wouldn't handle inlines though. At least some of the current
+> paravirtops like cli/sti are critical enough to require inlining.
+>   
 
-I noticed the following code in dst_ifdown:
+You could special-case it in the thing handling the relocs; if you're
+relocating to point to a function which you have an inline substitution,
+then inline.
 
-/* Dirty hack. We did it in 2.2 (in __dst_free),
- * we have _very_ good reasons not to repeat
- * this mistake in 2.3, but we have no choice
- * now. _It_ _is_ _explicit_ _deliberate_
- * _race_ _condition_.
- *
- * Commented and originally written by Alexey.
- */
-static inline void dst_ifdown(struct dst_entry *dst, struct net_device *dev,
-                              int unregister)
-{
-        if (dst->ops->ifdown)
-                dst->ops->ifdown(dst, dev, unregister);
+The bigger problem is that you don't know what registers you can
+clobber.  For the pv_ops in hand-written asm, that a big pain.  The code
+either has to assume the worst, or the "relocator" has to do something
+more sophisticated (like look for push/pop pairs surrounding the call,
+perhaps?).
 
-        if (dev != dst->dev)
-                return;
-
-        if (!unregister) {
-                dst->input = dst_discard_in;
-                dst->output = dst_discard_out;
-        } else {
-                dst->dev = &loopback_dev;
-                dev_hold(&loopback_dev);
-                dev_put(dev);
-                if (dst->neighbour && dst->neighbour->dev == dev) {
-                        dst->neighbour->dev = &loopback_dev;
-                        dev_put(dev);
-                        dev_hold(&loopback_dev);
-                }
-        }
-}
-
-The line dst->neighbour->dev = &loopback_dev breaks IP over InfiniBand,
-simply because neighbour->parms still points to an entry that has
-been set up with dev->neigh_setup call from IPoIB neighbour device.
-
-So when neighbour->parms->neigh_destructor is called,
-we get to ipoib_neigh_destructor in drivers/infiniband/ulp/ipoib/ipoib_main.c,
-and that in turn crashes since it needs an infiniband device
-in neighbour dev pointer.
-
-This is not new code, and should have triggered long time ago,
-so I am not sure how come we are triggering this only now,
-but somehow this did not lead to crashes in 2.6.20, but does now in 2.6.21-rc4.
-
-Ideas on how to fix this?
-
-Why is neighbour->dev changed here?
-
-Can dst->neighbour be changed to point to NULL instead, and the neighbour
-released?
-
-Thanks very much,
--- 
-MST
+    J
