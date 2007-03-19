@@ -1,79 +1,66 @@
-From: Jeremy Fitzhardinge <jeremy@goop.org>
-Subject: Re: [patch 13/26] Xen-paravirt_ops: Consistently wrap
- paravirt ops callsites to make them patchable
-Date: Sun, 18 Mar 2007 16:46:26 -0700
-Message-ID: <45FDCF52.4000805@goop.org>
-References: <20070316.023331.59468179.davem@davemloft.net>
-	<45FB005D.9060809@goop.org>
-	<1174127638.8897.75.camel@localhost.localdomain>
-	<20070318.003309.71088169.davem@davemloft.net>
-	<20070318120814.GA45869@muc.de> <45FD619D.6030402@goop.org>
-	<20070318170414.GB45869@muc.de> <45FD76E6.4060907@goop.org>
-	<20070318193030.GB71548@muc.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [ofa-general] Re: dst_ifdown breaks infiniband?
+Date: Sun, 18 Mar 2007 17:13:37 -0700 (PDT)
+Message-ID: <20070318.171337.112622504.davem@davemloft.net>
+References: <m3tzwi8a20.fsf@maxwell.lnxi.com>
+	<20070318223653.GO11078@mellanox.co.il>
+	<20070318224234.GP11078@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: zach@vmware.com, xen-devel@lists.xensource.com, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, rusty@rustcorp.com.au,
-	linux-kernel@vger.kernel.org, chrisw@sous-sol.org,
-	virtualization@lists.osdl.org, anthony@codemonkey.ws,
-	mingo@elte.hu, torvalds@linux-foundation.org,
-	David Miller <davem@davemloft.net>
-To: Andi Kleen <ak@muc.de>
-Return-path: <xen-devel-bounces@lists.xensource.com>
-In-Reply-To: <20070318193030.GB71548@muc.de>
-List-Unsubscribe: <http://lists.xensource.com/cgi-bin/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xensource.com?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xensource.com>
-List-Help: <mailto:xen-devel-request@lists.xensource.com?subject=help>
-List-Subscribe: <http://lists.xensource.com/cgi-bin/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xensource.com?subject=subscribe>
-Sender: xen-devel-bounces@lists.xensource.com
-Errors-To: xen-devel-bounces@lists.xensource.com
+Cc: ebiederman@lnxi.com, kuznet@ms2.inr.ac.ru, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, general@lists.openfabrics.org
+To: mst@dev.mellanox.co.il
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58915
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S964817AbXCSANi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Mar 2007 20:13:38 -0400
+In-Reply-To: <20070318224234.GP11078@mellanox.co.il>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andi Kleen wrote:
-> Yes. All inline assembly tells gcc what registers are clobbered
-> and it fills in the tables. Hand clobbering in inline assembly cannot
-> be expressed with the current toolchain, so we moved all those
-> out of line.
->
-> But again I'm not sure it will work anyways. For once you would
-> need large padding around the calls anyways for inline replacement --
-> how would you generate that? I expect you would need to put the calls
-> into asm() again and with that a custom annotiation format looks reasonable.
+From: "Michael S. Tsirkin" <mst@dev.mellanox.co.il>
+Date: Mon, 19 Mar 2007 00:42:34 +0200
 
-Inlining is most important for very small code: sti, cli, pushf;pop eax,
-etc (in many cases, no-ops).  We'd have at least 5 bytes to work in, and
-maybe more if there are surrounding push/pops to be consumed.
+> > Quoting Michael S. Tsirkin <mst@dev.mellanox.co.il>:
+> > Subject: Re: [ofa-general] Re: dst_ifdown breaks infiniband?
+> > 
+> > > Quoting Eric W. Biederman <ebiederman@lnxi.com>:
+> > > Subject: Re: [ofa-general] Re: dst_ifdown breaks infiniband?
+> > > 
+> > > "Michael S. Tsirkin" <mst@dev.mellanox.co.il> writes:
+> > > 
+> > > >> > Why is neighbour->dev changed here?
+> > > >> 
+> > > >> It holds reference to device and prevents its destruction.
+> > > >> If dst is held somewhere, we cannot destroy the device and deadlock
+> > > >> while unregister.
+> > > >
+> > > > BTW, can this ever happen for the loopback device itself?
+> > > > Is it ever unregistered?
+> > > 
+> > > Well I don't think the loopback device is currently but as soon
+> > > as we get network namespace support we will have multiple loopback
+> > > devices and they will get unregistered when we remove the network
+> > > namespace.
+> > 
+> > Hmm. Then the code moving dst->dev to point to the loopback
+> > device will have to be fixed too. I'll post a patch a bit later.
+> 
+> Does this look sane (untested)?
+> 
+> Signed-off-by: Michael S. Tsirkin <mst@dev.mellanox.co.il>
 
-For example, say we wanted to put a general call for sti into entry.S,
-where its expected it won't touch any registers.  In that case, we'd
-have a sequence like:
+You can't point it at NULL, we don't point it at loopback
+just for fun.
 
-    push %eax
-    push %ecx
-    push %edx
-    call paravirt_cli
-    pop %edx
-    pop %ecx
-    pop %eax
-      
+There can be asynchronous paths elsewhere in the networking still
+referencing the neigh or dst and they will (correctly) feel free to
+derefence whatever device is hanging there.  So transitioning
+to NULL is invalid.
 
-If we parse the relocs, then we'd find the reference to paravirt_cli. 
-If we look at the byte before and see 0xe8, then we can see if its a
-call.  If we then work out in each direction and see matched push/pops,
-then we know what registers can be trashed in the call.  This also
-allows us to determine the callsite size, and therefore how much space
-we need for inlining.
-
-So in this case, we see that there are 5 bytes for the call and a
-further 6 bytes of push/pops available for inlining.
-
-Of course this is hand-written code anyway, so there's no particular
-burden to having some extra metadata stashed away in another section. 
-For compiler-generated code, we know that it's already expecting
-standard C ABI calling conventions.  The downside, of course, is that
-only the 5 byte call space is available for inline patching.
-
-    J
+You guys will need to come up with a better solution for this silly
+situation with network namespaces.  Loopback is always available to
+point dead routes and neighbour entries at, and this assumption is
+massively rooted in the networking.
