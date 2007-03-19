@@ -1,21 +1,19 @@
 From: "Michael S. Tsirkin" <mst@dev.mellanox.co.il>
-Subject: [ofa-general] Re: dst_ifdown breaks infiniband?
-Date: Mon, 19 Mar 2007 07:15:20 +0200
-Message-ID: <20070319051520.GR11078@mellanox.co.il>
-References: <20070318155532.GG7958@mellanox.co.il>
-	<20070318191238.GA20518@ms2.inr.ac.ru>
-	<20070318203345.GF11078@mellanox.co.il>
-	<20070318210616.GG11078@mellanox.co.il>
-	<20070318212046.GI11078@mellanox.co.il>
+Subject: Re: [ofa-general] Re: dst_ifdown breaks infiniband?
+Date: Mon, 19 Mar 2007 07:19:34 +0200
+Message-ID: <20070319051934.GS11078@mellanox.co.il>
+References: <m3tzwi8a20.fsf@maxwell.lnxi.com>
+	<20070318223653.GO11078@mellanox.co.il>
+	<20070318224234.GP11078@mellanox.co.il>
+	<20070318.171337.112622504.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	general@lists.openfabrics.org, netdev@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@dev.mellanox.co.il>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	general@lists.openfabrics.org, kuznet@ms2.inr.ac.ru
+To: David Miller <davem@davemloft.net>
 Return-path: <general-bounces@lists.openfabrics.org>
 Content-Disposition: inline
-In-Reply-To: <20070318212046.GI11078@mellanox.co.il>
+In-Reply-To: <20070318.171337.112622504.davem@davemloft.net>
 List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
 	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
 List-Archive: <http://lists.openfabrics.org/pipermail/general>
@@ -27,55 +25,61 @@ Sender: general-bounces@lists.openfabrics.org
 Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-> Quoting Michael S. Tsirkin <mst@dev.mellanox.co.il>:
-> Subject: Re: dst_ifdown breaks infiniband?
+> Quoting David Miller <davem@davemloft.net>:
+> Subject: Re: [ofa-general] Re: dst_ifdown breaks infiniband?
 > 
-> > Quoting Michael S. Tsirkin <mst@dev.mellanox.co.il>:
-> > Subject: Re: dst_ifdown breaks infiniband?
-> > 
+> From: "Michael S. Tsirkin" <mst@dev.mellanox.co.il>
+> Date: Mon, 19 Mar 2007 00:42:34 +0200
+> 
 > > > Quoting Michael S. Tsirkin <mst@dev.mellanox.co.il>:
-> > > Subject: Re: dst_ifdown breaks infiniband?
+> > > Subject: Re: [ofa-general] Re: dst_ifdown breaks infiniband?
 > > > 
-> > > Quoting Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>:
-> > > Subject: Re: dst_ifdown breaks infiniband?
-> > > > > Can dst->neighbour be changed to point to NULL instead, and the neighbour
-> > > > > released?
+> > > > Quoting Eric W. Biederman <ebiederman@lnxi.com>:
+> > > > Subject: Re: [ofa-general] Re: dst_ifdown breaks infiniband?
 > > > > 
-> > > > It should be cleared and we should be sure it will not be destroyed
-> > > > before quiescent state.
+> > > > "Michael S. Tsirkin" <mst@dev.mellanox.co.il> writes:
 > > > > 
-> > > > Seems, this is the only correct solution, but to do this we have
-> > > > to audit all the places where dst->neighbour is dereferenced for
-> > > > RCU safety.
+> > > > >> > Why is neighbour->dev changed here?
+> > > > >> 
+> > > > >> It holds reference to device and prevents its destruction.
+> > > > >> If dst is held somewhere, we cannot destroy the device and deadlock
+> > > > >> while unregister.
+> > > > >
+> > > > > BTW, can this ever happen for the loopback device itself?
+> > > > > Is it ever unregistered?
 > > > > 
-> > > > Actually, it is very good you caught this eventually, the bug was
-> > > > so _disgusting_ that it was "forgotten" all the time, waiting for
-> > > > someone who will point out that the king is naked. :-)
+> > > > Well I don't think the loopback device is currently but as soon
+> > > > as we get network namespace support we will have multiple loopback
+> > > > devices and they will get unregistered when we remove the network
+> > > > namespace.
 > > > 
-> > > Actually that might not be too bad:
-> > > $grep -rIi 'dst->neighbour' net/ | wc -l
-> > > 36
-> > > 
-> > > I'll try to do it.
+> > > Hmm. Then the code moving dst->dev to point to the loopback
+> > > device will have to be fixed too. I'll post a patch a bit later.
 > > 
-> > Here's the list. Looks OK to me. What do you think?
+> > Does this look sane (untested)?
 > > 
+> > Signed-off-by: Michael S. Tsirkin <mst@dev.mellanox.co.il>
 > 
-> So Alexey, how does the following (lightly tested) patch look?
-> Is this what you had in mind?
+> You can't point it at NULL, we don't point it at loopback
+> just for fun.
 > 
-> -----------------------------
+> There can be asynchronous paths elsewhere in the networking still
+> referencing the neigh or dst and they will (correctly) feel free to
+> derefence whatever device is hanging there.  So transitioning
+> to NULL is invalid.
 > 
-> Fix dst_ifdown for infiniband.
-> 
-> Changing dst->neighbour->dev is unsafe because neigh->parms callbacks
-> are set up for specific device.
-> We should drop the dst->neighbour reference instead.
-> 
-> Signed-off-by: Michael S. Tsirkin <mst@dev.mellanox.co.il>
+> You guys will need to come up with a better solution for this silly
+> situation with network namespaces.  Loopback is always available to
+> point dead routes and neighbour entries at, and this assumption is
+> massively rooted in the networking.
 
-Ugh, looked again and this looks obviously broken.
-Note to self - stop writing code at 23:00.
+Yes, I see this now.
+
+I guess it's best to focus on the original problem with dst_ifdown breaking
+infiniband for now.
+
+For that, we have to audit all the places where dst->neighbour is dereferenced for
+RCU safety, and this is already a massive task.
 
 -- 
 MST
