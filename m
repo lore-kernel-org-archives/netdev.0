@@ -1,89 +1,61 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [patch 13/26] Xen-paravirt_ops: Consistently wrap paravirt ops
-	callsites to make them patchable
-Date: Mon, 19 Mar 2007 11:44:42 -0700 (PDT)
-Message-ID: <Pine.LNX.4.64.0703191138430.6730@woody.linux-foundation.org>
-References: <20070316.023331.59468179.davem@davemloft.net>
-	<45FB005D.9060809@goop.org>
-	<1174127638.8897.75.camel@localhost.localdomain>
-	<20070318.003309.71088169.davem@davemloft.net>
-	<20070318120814.GA45869@muc.de>
-	<1174272469.11680.23.camel@localhost.localdomain>
-	<m1648xxf93.fsf@ebiederm.dsl.xmission.com>
-	<Pine.LNX.4.64.0703191134190.6730@woody.linux-foundation.org>
+ callsites to make them patchable
+Date: Mon, 19 Mar 2007 12:08:54 -0700 (PDT)
+Message-ID: <20070319.120854.30182994.davem@davemloft.net>
+References: <20070318193030.GB71548@muc.de>
+	<45FDCF52.4000805@goop.org>
+	<200703191157.29780.ak@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: xen-devel@lists.xensource.com, virtualization@lists.osdl.org,
-   netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-   David Miller <davem@davemloft.net>, chrisw@sous-sol.org,
-   Andi Kleen <ak@muc.de>, anthony@codemonkey.ws, mingo@elte.hu,
-   akpm@linux-foundation.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <Pine.LNX.4.64.0703191134190.6730@woody.linux-foundation.org>
-List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linux-foundation.org/pipermail/virtualization>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: virtualization@lists.linux-foundation.org, jbeulich@novell.com,
+	jeremy@goop.org, ak@muc.de, xen-devel@lists.xensource.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	chrisw@sous-sol.org, virtualization@lists.osdl.org,
+	anthony@codemonkey.ws, akpm@linux-foundation.org,
+	torvalds@linux-foundation.org, mingo@elte.hu
+To: ak@suse.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57183
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751755AbXCSTIy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Mar 2007 15:08:54 -0400
+In-Reply-To: <200703191157.29780.ak@suse.de>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Andi Kleen <ak@suse.de>
+Date: Mon, 19 Mar 2007 11:57:28 +0100
 
+> On Monday 19 March 2007 00:46, Jeremy Fitzhardinge wrote:
+> > Andi Kleen wrote:
+> > For example, say we wanted to put a general call for sti into entry.S,
+> > where its expected it won't touch any registers.  In that case, we'd
+> > have a sequence like:
+> >
+> >     push %eax
+> >     push %ecx
+> >     push %edx
+> >     call paravirt_cli
+> >     pop %edx
+> >     pop %ecx
+> >     pop %eax
+> 
+> This cannot right now be expressed as inline assembly in the unwinder at all 
+> because there is no way to inject the push/pops into the compiler generated
+> ehframe tables.
+> 
+> [BTW I plan to resubmit the unwinder with some changes]
 
-On Mon, 19 Mar 2007, Linus Torvalds wrote:
-> =
+It's inability to handle sequences like the above sounds to me like
+a very good argument to _not_ merge the unwinder back into the tree.
 
-> So *please* don't believe that you can make it "as cheap" to have some =
+To me, that unwinder is nothing but trouble, it severly limits what
+cases you can use special calling conventions via inline asm (and we
+have done that on several occaisions) and even ignoring that the
+unwinder only works half the time.
 
-> automatic fixup of two sequences, one inlined and one as a "call".  It ma=
-y =
-
-> look so when you look at the single instruction generated, but you're =
-
-> ignoring all the instructions *around* the site.
-
-Side note, you can certainly fix things like this at least in theory, but =
-
-it requires:
-
- - the "call" instruction that is used instead of the inlining should =
-
-   basically have no callee-clobbers. Any paravirt_ops called this way
-   should have a special calling sequence where they simple save and =
-
-   restore all the registers they use.
-
-   This is usually not that bad. Just create a per-architecture wrapper =
-
-   function that saves/restores anything that the C calling convention on =
-
-   that architecture says is clobbered by calls.
-
- - if the function has arguments, and the inlined sequence can take the =
-
-   arguments in arbitrary registers, you are going to penalize the inlined =
-
-   sequence anyway (by forcing some fixed arbitrary register allocation =
-
-   policy).This thing is largely unfixable without some really extreme =
-
-   compiler games (like post-processing the assembler output and having =
-
-   different entry-points depending on where the arguments are..)
-
-.. it will obviously depend on how thngs are done whether these things are =
-
-useful or not. But it does mean that it's always a good idea to just have =
-
-a config option of "turn off all the paravirt crap, because it *does* add =
-
-overhead, and replacing instructions on the fly doesn't make that =
-
-overhead go away".
-
-		Linus
+Please don't subject us to another couple months of hair-pulling only
+to have Linus yank the thing out again, there are certainly more
+useful things to spend time on :-)
