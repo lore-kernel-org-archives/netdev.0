@@ -1,45 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] [SK_BUFF]: Adjust the zeroing up to tail in
- __alloc_skb too
-Date: Mon, 19 Mar 2007 12:16:22 -0700 (PDT)
-Message-ID: <20070319.121622.55507267.davem@davemloft.net>
-References: <20070319135030.GE17811@ghostprotocols.net>
+Subject: Re: 2.6.20.3-rc1 / iproute2 hoplimit 2^32-1 vs 2^8-1
+Date: Mon, 19 Mar 2007 12:18:44 -0700 (PDT)
+Message-ID: <20070319.121844.112623702.davem@davemloft.net>
+References: <Pine.LNX.4.64.0703191706530.3331@netcore.fi>
+	<45FEAA3E.20601@trash.net>
+	<45FEABE1.9050003@trash.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: acme@redhat.com
+Cc: pekkas@netcore.fi, netdev@vger.kernel.org
+To: kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38764
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38768
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751199AbXCSTQW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Mar 2007 15:16:22 -0400
-In-Reply-To: <20070319135030.GE17811@ghostprotocols.net>
+	by vger.kernel.org with ESMTP id S1752336AbXCSTSo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Mar 2007 15:18:44 -0400
+In-Reply-To: <45FEABE1.9050003@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Date: Mon, 19 Mar 2007 10:50:30 -0300
+From: Patrick McHardy <kaber@trash.net>
+Date: Mon, 19 Mar 2007 16:27:29 +0100
 
-> Hi David,
+> Mhh actually this looks intentional:
 > 
-> 	Please pull from:
-> 
-> master.kernel.org:/pub/scm/linux/kernel/git/acme/net-2.6.22
+> icmpv6_send and some other output functions do:
+> 	int hlimit;
+> ...
+>         if (hlimit < 0)
+>                 hlimit = dst_metric(dst, RTAX_HOPLIMIT);
+>         if (hlimit < 0)
+>                 hlimit = ipv6_get_hoplimit(dst->dev);
 
-Pulled, thanks Arnaldo.
-
-Can you please verify the white-space in your patches in the future?
-I have a ton of whitespace warnings from GIT to fix up as I'm rebasing
-the net-2.6.22 tree.  The following "pcheck" script (which I've
-probably posted like 10 or more times) works great for this.
-
-Unfortunately, when you "git commit" stuff GIT doesn't do whitespace
-damange checking by default, only when you are importing patches or
-similar :-/
-
-#!/bin/sh
-set -x
-git apply --check --whitespace=error-all $1
-
+Yep, negative value has a specific meaning.
 
