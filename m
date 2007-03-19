@@ -1,77 +1,44 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: [PATCH 3/3][SCTP]: Increment error counters on user requested HBs.
-Date: Mon, 19 Mar 2007 11:38:10 -0700
-Message-ID: <1174329490.3187.13.camel@w-sridhar2.beaverton.ibm.com>
+From: Chris Wright <chrisw@sous-sol.org>
+Subject: Re: [patch 13/26] Xen-paravirt_ops: Consistently wrap
+	paravirt ops callsites to make them patchable
+Date: Mon, 19 Mar 2007 11:41:37 -0700
+Message-ID: <20070319184137.GB10574@sequoia.sous-sol.org>
+References: <20070316.023331.59468179.davem@davemloft.net>
+	<45FB005D.9060809@goop.org>
+	<1174127638.8897.75.camel@localhost.localdomain>
+	<20070318.003309.71088169.davem@davemloft.net>
+	<20070318120814.GA45869@muc.de>
+	<1174272469.11680.23.camel@localhost.localdomain>
+	<m1648xxf93.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e6.ny.us.ibm.com ([32.97.182.146]:60246 "EHLO e6.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030567AbXCSSjW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 19 Mar 2007 14:39:22 -0400
-Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by e6.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l2JIe98r005112
-	for <netdev@vger.kernel.org>; Mon, 19 Mar 2007 14:40:09 -0400
-Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
-	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l2JIcC8x226196
-	for <netdev@vger.kernel.org>; Mon, 19 Mar 2007 14:38:12 -0400
-Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
-	by d01av02.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l2JIcBuh016780
-	for <netdev@vger.kernel.org>; Mon, 19 Mar 2007 14:38:12 -0400
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: zach@vmware.com, jeremy@goop.org, xen-devel@lists.xensource.com,
+	anthony@codemonkey.ws, virtualization@lists.osdl.org,
+	netdev@vger.kernel.org, Rusty Russell <rusty@rustcorp.com.au>,
+	linux-kernel@vger.kernel.org, chrisw@sous-sol.org,
+	Andi Kleen <ak@muc.de>, mingo@elte.hu, akpm@linux-foundation.org,
+	torvalds@linux-foundation.org, David Miller <davem@davemloft.net>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <xen-devel-bounces@lists.xensource.com>
+Content-Disposition: inline
+In-Reply-To: <m1648xxf93.fsf@ebiederm.dsl.xmission.com>
+List-Unsubscribe: <http://lists.xensource.com/cgi-bin/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xensource.com?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xensource.com>
+List-Help: <mailto:xen-devel-request@lists.xensource.com?subject=help>
+List-Subscribe: <http://lists.xensource.com/cgi-bin/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xensource.com?subject=subscribe>
+Sender: xen-devel-bounces@lists.xensource.com
+Errors-To: xen-devel-bounces@lists.xensource.com
 List-Id: netdev.vger.kernel.org
 
-[SCTP]: Increment error counters on user requested HBs.
+* Eric W. Biederman (ebiederm@xmission.com) wrote:
+> Is it truly critical to inline any of these instructions?
 
-2960bis states (Section 8.3):
+I don't have any current measurements.  But we'd been aiming
+at getting irq_{en,dis}able to a simple memory write to pda.
+But simplicity, maintenance, etc. win over trimming a couple
+cycles, so still worth real look.
 
-   D) Request an on-demand HEARTBEAT on a specific destination transport
-      address of a given association.
-
-   The endpoint should increment the respective error counter of the
-   destination transport address each time a HEARTBEAT is sent to that
-   address and not acknowledged within one RTO.
-
-Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
-Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
-
----
- net/sctp/sm_statefuns.c |   20 ++++++++++++++++++--
- 1 files changed, 18 insertions(+), 2 deletions(-)
-
-diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
-index 70c39ea..e9097cf 100644
---- a/net/sctp/sm_statefuns.c
-+++ b/net/sctp/sm_statefuns.c
-@@ -4342,8 +4342,24 @@ sctp_disposition_t sctp_sf_do_prm_reques
- 					void *arg,
- 					sctp_cmd_seq_t *commands)
- {
--	return sctp_sf_heartbeat(ep, asoc, type, (struct sctp_transport *)arg,
--				 commands);
-+	if (SCTP_DISPOSITION_NOMEM == sctp_sf_heartbeat(ep, asoc, type,
-+				      (struct sctp_transport *)arg, commands))
-+		return SCTP_DISPOSITION_NOMEM;
-+
-+	/*
-+	 * RFC 2960 (bis), section 8.3
-+	 *
-+	 *    D) Request an on-demand HEARTBEAT on a specific destination
-+	 *    transport address of a given association.
-+	 *
-+	 *    The endpoint should increment the respective error  counter of
-+	 *    the destination transport address each time a HEARTBEAT is sent
-+	 *    to that address and not acknowledged within one RTO.
-+	 *
-+	 */
-+	sctp_add_cmd_sf(commands, SCTP_CMD_TRANSPORT_RESET,
-+			SCTP_TRANSPORT(arg));
-+	return SCTP_DISPOSITION_CONSUME;
- }
- 
- /*
-
-
+thanks,
+-chris
