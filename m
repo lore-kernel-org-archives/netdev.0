@@ -1,62 +1,81 @@
-From: Li Yang <leoli@freescale.com>
-Subject: [PATCH] Revert "ucc_geth: returns NETDEV_TX_BUSY when BD ring is
- full"
-Date: Mon, 19 Mar 2007 11:58:02 +0800
-Message-ID: <45FE0A4A.20402@freescale.com>
+From: "Michael S. Tsirkin" <mst@dev.mellanox.co.il>
+Subject: [ofa-general] Re: dst_ifdown breaks infiniband?
+Date: Mon, 19 Mar 2007 07:15:20 +0200
+Message-ID: <20070319051520.GR11078@mellanox.co.il>
+References: <20070318155532.GG7958@mellanox.co.il>
+	<20070318191238.GA20518@ms2.inr.ac.ru>
+	<20070318203345.GF11078@mellanox.co.il>
+	<20070318210616.GG11078@mellanox.co.il>
+	<20070318212046.GI11078@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, michael.barkowski@freescale.com
-To: jeff@garzik.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from az33egw01.freescale.net ([192.88.158.102]:33313 "EHLO
-	az33egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965453AbXCSD4v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Mar 2007 23:56:51 -0400
-Received: from az33smr01.freescale.net (az33smr01.freescale.net [10.64.34.199])
-	by az33egw01.freescale.net (8.12.11/az33egw01) with ESMTP id l2J3uedD003755
-	for <netdev@vger.kernel.org>; Sun, 18 Mar 2007 20:56:41 -0700 (MST)
-Received: from zch01exm20.fsl.freescale.net (zch01exm20.ap.freescale.net [10.192.129.204])
-	by az33smr01.freescale.net (8.13.1/8.13.0) with ESMTP id l2J3udvl021478
-	for <netdev@vger.kernel.org>; Sun, 18 Mar 2007 22:56:40 -0500 (CDT)
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	general@lists.openfabrics.org, netdev@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@dev.mellanox.co.il>
+Return-path: <general-bounces@lists.openfabrics.org>
+Content-Disposition: inline
+In-Reply-To: <20070318212046.GI11078@mellanox.co.il>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-This reverts commit 18babd38547a042a4bfd4154a014d1ad33373eb0.
+> Quoting Michael S. Tsirkin <mst@dev.mellanox.co.il>:
+> Subject: Re: dst_ifdown breaks infiniband?
+> 
+> > Quoting Michael S. Tsirkin <mst@dev.mellanox.co.il>:
+> > Subject: Re: dst_ifdown breaks infiniband?
+> > 
+> > > Quoting Michael S. Tsirkin <mst@dev.mellanox.co.il>:
+> > > Subject: Re: dst_ifdown breaks infiniband?
+> > > 
+> > > Quoting Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>:
+> > > Subject: Re: dst_ifdown breaks infiniband?
+> > > > > Can dst->neighbour be changed to point to NULL instead, and the neighbour
+> > > > > released?
+> > > > 
+> > > > It should be cleared and we should be sure it will not be destroyed
+> > > > before quiescent state.
+> > > > 
+> > > > Seems, this is the only correct solution, but to do this we have
+> > > > to audit all the places where dst->neighbour is dereferenced for
+> > > > RCU safety.
+> > > > 
+> > > > Actually, it is very good you caught this eventually, the bug was
+> > > > so _disgusting_ that it was "forgotten" all the time, waiting for
+> > > > someone who will point out that the king is naked. :-)
+> > > 
+> > > Actually that might not be too bad:
+> > > $grep -rIi 'dst->neighbour' net/ | wc -l
+> > > 36
+> > > 
+> > > I'll try to do it.
+> > 
+> > Here's the list. Looks OK to me. What do you think?
+> > 
+> 
+> So Alexey, how does the following (lightly tested) patch look?
+> Is this what you had in mind?
+> 
+> -----------------------------
+> 
+> Fix dst_ifdown for infiniband.
+> 
+> Changing dst->neighbour->dev is unsafe because neigh->parms callbacks
+> are set up for specific device.
+> We should drop the dst->neighbour reference instead.
+> 
+> Signed-off-by: Michael S. Tsirkin <mst@dev.mellanox.co.il>
 
-Michael Barkowski points out that it's wrong, and I agree.  The
-patch causes a problem rather than fixes one after another
-patch "ucc_geth: Fix BD processing" was applied.  Before that
-patch, current packet should be blocked.  However after the patch
-current packet is ok and we only need to block next.
+Ugh, looked again and this looks obviously broken.
+Note to self - stop writing code at 23:00.
 
-Reported-by: Michael Barkowski <michael.barkowski@freescale.com>
-Signed-off-by: Li Yang <leoli@freescale.com>
----
-Sorry for the mistake I made.
-
- drivers/net/ucc_geth.c |    3 +--
- 1 files changed, 1 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
-index c2db49b..64e5bb4 100644
---- a/drivers/net/ucc_geth.c
-+++ b/drivers/net/ucc_geth.c
-@@ -3609,7 +3609,6 @@ static int ucc_geth_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	if (bd == ugeth->confBd[txQ]) {
- 		if (!netif_queue_stopped(dev))
- 			netif_stop_queue(dev);
--		return NETDEV_TX_BUSY;
- 	}
- 
- 	ugeth->txBd[txQ] = bd;
-@@ -3625,7 +3624,7 @@ static int ucc_geth_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- 	spin_unlock_irq(&ugeth->lock);
- 
--	return NETDEV_TX_OK;
-+	return 0;
- }
- 
- static int ucc_geth_rx(struct ucc_geth_private *ugeth, u8 rxQ, int rx_work_limit)
-
+-- 
+MST
