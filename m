@@ -1,55 +1,48 @@
-From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: [PATCH 1/1] [SK_BUFF]: Adjust the zeroing up to tail in __alloc_skb too
-Date: Mon, 19 Mar 2007 10:50:30 -0300
-Message-ID: <20070319135030.GE17811@ghostprotocols.net>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: [PATCH 0/5] [RFC] AF_RXRPC socket family implementation [try
+ #2]
+Date: Mon, 19 Mar 2007 15:29:59 +0000
+Message-ID: <20070319152959.46a81e57@lxorguk.ukuu.org.uk>
+References: <20070319130428.4b645207@lxorguk.ukuu.org.uk>
+	<20070318142315.6f881ec8@lxorguk.ukuu.org.uk>
+	<20070316153408.3a9a244a@lxorguk.ukuu.org.uk>
+	<20070316151305.04cbc352@lxorguk.ukuu.org.uk>
+	<20070316125008.3740.44693.stgit@warthog.cambridge.redhat.com>
+	<25571.1174054993@redhat.com>
+	<26525.1174058071@redhat.com>
+	<20070316171141.7a4de504@lxorguk.ukuu.org.uk>
+	<076F1B35-BE08-41B4-8294-581EDAFF4ACC@mac.com>
+	<2578.1174305403@redhat.com>
+	<3728.1174309154@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Kyle Moffett <mrmacman_g4@mac.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, herbert.xu@redhat.com,
+	linux-kernel@vger.kernel.org, hch@infradead.org,
+	arjan@infradead.org
+To: David Howells <dhowells@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.226]:21107 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933896AbXCSNuh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Mar 2007 09:50:37 -0400
-Received: by wx-out-0506.google.com with SMTP id h31so1271036wxd
-        for <netdev@vger.kernel.org>; Mon, 19 Mar 2007 06:50:36 -0700 (PDT)
-Content-Disposition: inline
+Received: from outpipe-village-512-1.bc.nu ([81.2.110.250]:33004 "EHLO
+	lxorguk.ukuu.org.uk" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750988AbXCSO10 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Mar 2007 10:27:26 -0400
+In-Reply-To: <3728.1174309154@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi David,
+> > Other RPC types use normal socket types.
+> 
+> They do?  Examples please.  I didn't think Linux, at least, has any other RPC
+> socket families, though I could be wrong as I haven't made a thorough study of
+> them.
 
-	Please pull from:
+SunRPC is implemented in user space and uses the existing TCP/IP layer
+and socket types, even though it is using them in an RPC manner and
+viewed at the RPC layer they are RPCs
 
-master.kernel.org:/pub/scm/linux/kernel/git/acme/net-2.6.22
+>      I have made my client sockets use connect(), but that's just a convenience
+>      and I need to make it possible to avoid doing that to make it useful to
+>      the kernel.  It's similar to SOCK_DGRAM sockets in this respect.
 
-- Arnaldo
-
----
-
-I did it just in alloc_skb_from_cache, forgot __alloc_skb, fixed now.
-
-Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
----
- net/core/skbuff.c |    5 ++++-
- 1 files changed, 4 insertions(+), 1 deletions(-)
-
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index c274ea3..d7d2dc3 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -164,7 +164,10 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
- 	if (!data)
- 		goto nodata;
- 
--	memset(skb, 0, offsetof(struct sk_buff, truesize));
-+	/*
-+	 * See comment in sk_buff definition, just before the 'tail' member
-+	 */
-+	memset(skb, 0, offsetof(struct sk_buff, tail));
- 	skb->truesize = size + sizeof(struct sk_buff);
- 	atomic_set(&skb->users, 1);
- 	skb->head = data;
--- 
-1.5.0.3
-
+So use SOCK_DGRAM, its clearly near enough.
