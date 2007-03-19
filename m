@@ -1,55 +1,65 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: [patch 13/26] Xen-paravirt_ops: Consistently wrap paravirt ops callsites to make them patchable
-Date: Mon, 19 Mar 2007 21:59:42 +0100
-Message-ID: <200703192159.42396.ak@suse.de>
-References: <20070318193030.GB71548@muc.de> <200703191157.29780.ak@suse.de> <20070319.120854.30182994.davem@davemloft.net>
+From: Greg KH <gregkh@suse.de>
+Subject: [patch 24/31] IrDA: irttp_dup spin_lock initialisation
+Date: Mon, 19 Mar 2007 14:40:32 -0700
+Message-ID: <20070319214032.GZ9261@kroah.com>
+References: <20070319213047.710101653@mini.kroah.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: virtualization@lists.linux-foundation.org, jbeulich@novell.com,
-	jeremy@goop.org, xen-devel@lists.xensource.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	chrisw@sous-sol.org, virtualization@lists.osdl.org,
-	anthony@codemonkey.ws, akpm@linux-foundation.org,
-	torvalds@linux-foundation.org, mingo@elte.hu
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Justin Forbes <jmforbes@linuxtx.org>,
+	Zwane Mwaikambo <zwane@arm.linux.org.uk>,
+	Theodore Ts'o <tytso@mit.edu>,
+	Randy Dunlap <rdunlap@xenotime.net>,
+	Dave Jones <davej@redhat.com>,
+	Chuck Wolber <chuckw@quantumlinux.com>,
+	Chris Wedgwood <reviews@ml.cw.f00f.org>,
+	Michael Krufky <mkrufky@linuxtv.org>,
+	Chuck Ebbert <cebbert@redhat.com>,
+	torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	alan@lxorguk.ukuu.org.uk, netdev@vger.kernel.org,
+	Guennadi Liakhovetski <gl@dsa-ac.de>,
+	irda-users@lists.sourceforge.net, Samuel Ortiz <samuel@sortiz.org>
+To: linux-kernel@vger.kernel.org, stable@kernel.org,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor.suse.de ([195.135.220.2]:52640 "EHLO mx1.suse.de"
+Received: from cantor2.suse.de ([195.135.220.15]:59420 "EHLO mx2.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753319AbXCSU7y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 19 Mar 2007 16:59:54 -0400
-In-Reply-To: <20070319.120854.30182994.davem@davemloft.net>
-Content-Disposition: inline
+	id S1030634AbXCSVmc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Mar 2007 17:42:32 -0400
+Content-Disposition: inline; filename="irda-irttp_dup-spin_lock-initialisation.patch"
+In-Reply-To: <20070319213647.GB9261@kroah.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+-stable review patch.  If anyone has any objections, please let us know.
 
-> It's inability to handle sequences like the above sounds to me like
-> a very good argument to _not_ merge the unwinder back into the tree.
+------------------
 
-The unwinder can handle it fine, it is just that gcc right now cannot
-be taught to generate correct unwind tables for it. If paravirt ops
-is widely used i guess it would be possible to find some workaround
-for that though.
+From: Samuel Ortiz <samuel@sortiz.org>
+
+Without this initialization one gets
+
+kernel BUG at kernel/rtmutex_common.h:80!
+
+This patch should also be included in the -stable kernel.
+
+Signed-off-by: G. Liakhovetski <gl@dsa-ac.de>
+Signed-off-by: Samuel Ortiz <samuel@sortiz.org>
+Cc: David Miller <davem@davemloft.net>
+Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
+
+---
+ net/irda/irttp.c |    1 +
+ 1 file changed, 1 insertion(+)
+
+--- a/net/irda/irttp.c
++++ b/net/irda/irttp.c
+@@ -1455,6 +1455,7 @@ struct tsap_cb *irttp_dup(struct tsap_cb
  
-There is one case it truly cannot handle (it would be possible by switching 
-to dwarf3), but that was relatively easily eliminated and wasn't a problem
-imho.
-
-> To me, that unwinder is nothing but trouble, it severly limits what
-> cases you can use special calling conventions via inline asm (and we
-> have done that on several occaisions) and even ignoring that the
-> unwinder only works half the time.
-
-Initially we had some bugs that accounted for near all failures, but they 
-were all fixed in the latest version.
+ 	/* Not everything should be copied */
+ 	new->notify.instance = instance;
++	spin_lock_init(&new->lock);
+ 	init_timer(&new->todo_timer);
  
-> Please don't subject us to another couple months of hair-pulling only
-> to have Linus yank the thing out again, there are certainly more
-> useful things to spend time on :-)
+ 	skb_queue_head_init(&new->rx_queue);
 
-I think better backtraces are a good use of my time. Sorry if you
-disagree on that.
-
--Andi
+-- 
