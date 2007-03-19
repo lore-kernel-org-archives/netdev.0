@@ -1,33 +1,71 @@
-From: Pekka Savola <pekkas@netcore.fi>
-Subject: 2.6.20.3-rc1 / iproute2 hoplimit 2^32-1 vs 2^8-1
-Date: Mon, 19 Mar 2007 17:11:41 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0703191706530.3331@netcore.fi>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: 2.6.20.3-rc1 / iproute2 hoplimit 2^32-1 vs 2^8-1
+Date: Mon, 19 Mar 2007 16:20:30 +0100
+Message-ID: <45FEAA3E.20601@trash.net>
+References: <Pine.LNX.4.64.0703191706530.3331@netcore.fi>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-To: netdev@vger.kernel.org
+Content-Type: multipart/mixed;
+ boundary="------------050404090709020801040401"
+Cc: netdev@vger.kernel.org
+To: Pekka Savola <pekkas@netcore.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from netcore.fi ([193.94.160.1]:53289 "EHLO netcore.fi"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932419AbXCSPLn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 19 Mar 2007 11:11:43 -0400
-Received: from localhost (pekkas@localhost)
-	by netcore.fi (8.12.11.20060614/8.12.11) with ESMTP id l2JFBfkE003426
-	for <netdev@vger.kernel.org>; Mon, 19 Mar 2007 17:11:41 +0200
+Received: from stinky.trash.net ([213.144.137.162]:59021 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965889AbXCSPUd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Mar 2007 11:20:33 -0400
+In-Reply-To: <Pine.LNX.4.64.0703191706530.3331@netcore.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+This is a multi-part message in MIME format.
+--------------050404090709020801040401
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
 
-On kernel based on 2.6.20.3-rc1 (FC6), 'ip -6 r l' shows:
+Pekka Savola wrote:
+> On kernel based on 2.6.20.3-rc1 (FC6), 'ip -6 r l' shows:
+> 
+> default via fe80::212:f0ff:fe5f:c4ec dev eth1  proto kernel  metric
+> 1024  expires 7191sec mtu 1500 advmss 1440 hoplimit 4294967295
+> 
+> (this is the same with iproute2-ss061214 and iproute2-ss070313.)
+> 
+> So, it seems that the data length for hoplimit is not quite right, or
+> it's reported as 2^32-1 instead of 2^8-1...
 
-default via fe80::212:f0ff:fe5f:c4ec dev eth1  proto kernel  metric 1024  expires 7191sec mtu 1500 advmss 1440 hoplimit 4294967295
 
-(this is the same with iproute2-ss061214 and iproute2-ss070313.)
+Does this fix it?
 
-So, it seems that the data length for hoplimit is not quite right, or 
-it's reported as 2^32-1 instead of 2^8-1...
+Signed-off-by: Patrick McHardy <kaber@trash.net>
 
--- 
-Pekka Savola                 "You each name yourselves king, yet the
-Netcore Oy                    kingdom bleeds."
-Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
+--------------050404090709020801040401
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
+
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 0e1f4b2..ec347e5 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1216,7 +1216,7 @@ install_route:
+ 	}
+ 
+ 	if (rt->u.dst.metrics[RTAX_HOPLIMIT-1] == 0)
+-		rt->u.dst.metrics[RTAX_HOPLIMIT-1] = -1;
++		rt->u.dst.metrics[RTAX_HOPLIMIT-1] = 255;
+ 	if (!rt->u.dst.metrics[RTAX_MTU-1])
+ 		rt->u.dst.metrics[RTAX_MTU-1] = ipv6_get_mtu(dev);
+ 	if (!rt->u.dst.metrics[RTAX_ADVMSS-1])
+@@ -1821,7 +1821,7 @@ struct rt6_info *addrconf_dst_alloc(stru
+ 	rt->rt6i_idev = idev;
+ 	rt->u.dst.metrics[RTAX_MTU-1] = ipv6_get_mtu(rt->rt6i_dev);
+ 	rt->u.dst.metrics[RTAX_ADVMSS-1] = ipv6_advmss(dst_mtu(&rt->u.dst));
+-	rt->u.dst.metrics[RTAX_HOPLIMIT-1] = -1;
++	rt->u.dst.metrics[RTAX_HOPLIMIT-1] = 255;
+ 	rt->u.dst.obsolete = -1;
+ 
+ 	rt->rt6i_flags = RTF_UP | RTF_NONEXTHOP;
+
+--------------050404090709020801040401--
