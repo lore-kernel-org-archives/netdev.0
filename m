@@ -1,7 +1,7 @@
 From: "Michael S. Tsirkin" <mst@dev.mellanox.co.il>
 Subject: [ofa-general] Re: dst_ifdown breaks infiniband?
-Date: Mon, 19 Mar 2007 14:12:48 +0200
-Message-ID: <20070319121248.GD18497@mellanox.co.il>
+Date: Mon, 19 Mar 2007 14:13:10 +0200
+Message-ID: <20070319121310.GE18497@mellanox.co.il>
 References: <20070318155532.GG7958@mellanox.co.il>
 	<20070318191238.GA20518@ms2.inr.ac.ru>
 	<20070318195355.GB11078@mellanox.co.il>
