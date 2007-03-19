@@ -1,67 +1,66 @@
-From: ebiederman@lnxi.com (Eric W. Biederman)
-Subject: Re: [ofa-general] Re: dst_ifdown breaks infiniband?
-Date: Sun, 18 Mar 2007 23:30:39 -0600
-Message-ID: <m3aby94x6o.fsf@maxwell.lnxi.com>
-References: <m3tzwi8a20.fsf@maxwell.lnxi.com>
-	<20070318223653.GO11078@mellanox.co.il>
-	<20070318224234.GP11078@mellanox.co.il>
-	<20070318.171337.112622504.davem@davemloft.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [LARTC] [BUG?] ip ru flush && RTNETLINK answers: Numerical result
+ out of range
+Date: Mon, 19 Mar 2007 06:54:15 +0100
+Message-ID: <45FE2587.3050205@trash.net>
+References: <200703190046.47021.luciano@lugmen.org.ar>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	general@lists.openfabrics.org, kuznet@ms2.inr.ac.ru
-To: David Miller <davem@davemloft.net>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <20070318.171337.112622504.davem@davemloft.net> (David Miller's
-	message of "Sun, 18 Mar 2007 17:13:37 -0700 (PDT)")
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: lartc@mailman.ds9a.nl, Linux Netdev List <netdev@vger.kernel.org>,
+	Thomas Graf <tgraf@suug.ch>
+To: Luciano Ruete <luciano@lugmen.org.ar>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:48578 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965634AbXCSFyS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Mar 2007 01:54:18 -0400
+In-Reply-To: <200703190046.47021.luciano@lugmen.org.ar>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller <davem@davemloft.net> writes:
+Luciano Ruete wrote:
+> After an: 
+> # ip ru flush
+> I loose all my ip rules but the priority 0 one. 
+> root@sarasvati:~# ip ru
+> 0:      from all lookup 255
+> root@sarasvati:~#  
+> 
+> Ok with that, but now i'm not able to insert any new rule.
+> This leads to a total loose of conectivity.
+> 
+> root@sarasvati:~# ip ru add from all table default
+> RTNETLINK answers: Numerical result out of range
+> root@sarasvati:~# ip ru add from all lookup main
+> RTNETLINK answers: Numerical result out of range
+> 
+> Even seting the priority value by hand, i got the same error:
+> 
+> root@sarasvati:~# ip ru add from all lookup main priority 32766
+> RTNETLINK answers: Numerical result out of range
+> 
+> To be able to send this e-mail without rebooting i had to insert my gw ip 
+> routes in table 255.
+> 
+> Is this a bug in iproute?
+> 
+> Some adiotional data:
+> ip utility, iproute2-ss060323
+> Linux sarasvati 2.6.20-5-386 #2 Sat Jan 6 14:44:57 UTC 2007 i686 GNU/Linux
 
-> From: "Michael S. Tsirkin" <mst@dev.mellanox.co.il>
-> Date: Mon, 19 Mar 2007 00:42:34 +0200
 
->> > Hmm. Then the code moving dst->dev to point to the loopback
->> > device will have to be fixed too. I'll post a patch a bit later.
->> 
->> Does this look sane (untested)?
->> 
->> Signed-off-by: Michael S. Tsirkin <mst@dev.mellanox.co.il>
->
-> You can't point it at NULL, we don't point it at loopback
-> just for fun.
->
-> There can be asynchronous paths elsewhere in the networking still
-> referencing the neigh or dst and they will (correctly) feel free to
-> derefence whatever device is hanging there.  So transitioning
-> to NULL is invalid.
->
-> You guys will need to come up with a better solution for this silly
-> situation with network namespaces.  Loopback is always available to
-> point dead routes and neighbour entries at, and this assumption is
-> massively rooted in the networking.
+The problem seems to be the nla policy added in 2.6.19 or 2.6.20.
+When specifying a prefix as "all", iproute adds a zero byte long
+attribute (FRA_SRC in this case). The IPv4 fib_rules policy states
+that it has to be exactly 4 bytes long, which makes validation fail.
+This also affects IPv6 and DECnet.
 
-Sure.  In the network namespace case I think the careful ordering of the
-shutdown handles that case.   Even with per network namespace lo
-unregistered it still existed until the network namespace actually
-exited.  And it only happened on exit.  
+I would argue that iproute is broken and shouldn't add a zero
+byte long attribute, but we still need to make sure the kernel
+accepts these attributes as valid.
 
-So while there may be a tiny race there it hasn't been an issue yet
-in practice.
+Thomas, I can't see a clean way to fix this right now that
+doesn't either bloat struct nla_policy or removes FRA_SRC/FRA_DST
+from the policy, could you please look into this? Thanks.
 
-I wasn't proposing that we fix it this way.  I was simply saying that
-there was the possibility for the case to exist.  The existence of
-a per network namespace loopback device is fairly fundamental to the
-network namespace concept.  Heck I think Herbert has been looking at
-it for vserver which almost totally socket isolation.
-
-Eric
