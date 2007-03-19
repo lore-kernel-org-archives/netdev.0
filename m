@@ -1,63 +1,33 @@
-From: "Michael S. Tsirkin" <mst@dev.mellanox.co.il>
-Subject: [ofa-general] Re: dst_ifdown breaks infiniband?
-Date: Mon, 19 Mar 2007 17:13:36 +0200
-Message-ID: <20070319151336.GA24225@mellanox.co.il>
-References: <20070318155532.GG7958@mellanox.co.il>
-	<20070318191238.GA20518@ms2.inr.ac.ru>
-	<20070318195355.GB11078@mellanox.co.il>
-	<20070318201826.GB27004@ms2.inr.ac.ru>
-	<20070319093632.GB8386@mellanox.co.il>
-	<20070319120534.GA28187@ms2.inr.ac.ru>
-	<20070319121248.GD18497@mellanox.co.il>
-	<20070319125919.GA4239@ms2.inr.ac.ru>
+From: Pekka Savola <pekkas@netcore.fi>
+Subject: 2.6.20.3-rc1 / iproute2 hoplimit 2^32-1 vs 2^8-1
+Date: Mon, 19 Mar 2007 17:11:41 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0703191706530.3331@netcore.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	general@lists.openfabrics.org, David Miller <davem@davemloft.net>
-To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Return-path: <general-bounces@lists.openfabrics.org>
-Content-Disposition: inline
-In-Reply-To: <20070319125919.GA4239@ms2.inr.ac.ru>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from netcore.fi ([193.94.160.1]:53289 "EHLO netcore.fi"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932419AbXCSPLn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Mar 2007 11:11:43 -0400
+Received: from localhost (pekkas@localhost)
+	by netcore.fi (8.12.11.20060614/8.12.11) with ESMTP id l2JFBfkE003426
+	for <netdev@vger.kernel.org>; Mon, 19 Mar 2007 17:11:41 +0200
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> Quoting Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>:
-> Subject: Re: dst_ifdown breaks infiniband?
-> 
-> Hello!
-> 
-> > infiniband sets parm->neigh_destructor, and I search for a way to prevent
-> > this destructor from being called after the module has been unloaded.
-> > Ideas?
-> 
-> It must be called in any case to update/release internal ipoib structures.
+Hi,
 
-I don't think there's a problem.
-All we do in destructor is release the ipoib_neigh resource.
-And on device unregister we release all resources anyway.
+On kernel based on 2.6.20.3-rc1 (FC6), 'ip -6 r l' shows:
 
-> The idea is to move call of parm->neigh_destructor from neighbour destructor
-> to the moment when it is unhashed, right after n->dead is set.
->
-> infiniband is the only user (atm clip uses it too, but that use is obviously
-> dummy), so that nobody will be harmed.
+default via fe80::212:f0ff:fe5f:c4ec dev eth1  proto kernel  metric 1024  expires 7191sec mtu 1500 advmss 1440 hoplimit 4294967295
 
-This might work. Could you post a patch to better show what you mean to do?
+(this is the same with iproute2-ss061214 and iproute2-ss070313.)
 
-> But ipoib will have to check for validity of skb->dst->neighbour before
-> attempt to reinitialize private data on dead (n->dead != 0) neighbour.
-
-We set a flag before unregister_netdev and test it in start_xmit so
-that's covered I think.
+So, it seems that the data length for hoplimit is not quite right, or 
+it's reported as 2^32-1 instead of 2^8-1...
 
 -- 
-MST
+Pekka Savola                 "You each name yourselves king, yet the
+Netcore Oy                    kingdom bleeds."
+Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
