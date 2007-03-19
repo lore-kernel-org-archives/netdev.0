@@ -1,33 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] [SK_BUFF]: Adjust the zeroing up to tail in
- __alloc_skb too
-Date: Mon, 19 Mar 2007 14:40:59 -0700 (PDT)
-Message-ID: <20070319.144059.18576524.davem@davemloft.net>
-References: <20070319135030.GE17811@ghostprotocols.net>
-	<20070319.121622.55507267.davem@davemloft.net>
-	<39e6f6c70703191348w6ab21c32nefd9a0fdfcc90917@mail.gmail.com>
+Subject: Re: [PATCH RESEND] NET: Add packet sock option to return orig_dev
+ to userspace when bonded
+Date: Mon, 19 Mar 2007 15:51:07 -0700 (PDT)
+Message-ID: <20070319.155107.102575004.davem@davemloft.net>
+References: <11743414143726-git-send-email-peter.p.waskiewicz.jr@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: acme@ghostprotocols.net
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	christopher.leech@intel.com
+To: peter.p.waskiewicz.jr@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49272
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50253
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1030608AbXCSVk7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Mar 2007 17:40:59 -0400
-In-Reply-To: <39e6f6c70703191348w6ab21c32nefd9a0fdfcc90917@mail.gmail.com>
+	by vger.kernel.org with ESMTP id S965316AbXCSWvH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Mar 2007 18:51:07 -0400
+In-Reply-To: <11743414143726-git-send-email-peter.p.waskiewicz.jr@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Arnaldo Carvalho de Melo" <acme@ghostprotocols.net>
-Date: Mon, 19 Mar 2007 17:48:02 -0300
 
-> OK, I wasn' t expecting any whitspaces, probably were whitespaces
-> already there that were kept,
+I got it the first time, it's just very low priority and very
+deep in my backlog and I'm also about to be away for 3 days.
 
-I am pretty sure this is exactly what happened.
+I have it so you don't need to keep resending it.
 
-> I'll try and check future patches.
-
-Thanks!
+Thanks.
