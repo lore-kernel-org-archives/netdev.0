@@ -1,66 +1,50 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: [PATCH 0/5] [RFC] AF_RXRPC socket family implementation [try
- #2]
-Date: Mon, 19 Mar 2007 13:04:28 +0000
-Message-ID: <20070319130428.4b645207@lxorguk.ukuu.org.uk>
-References: <20070318142315.6f881ec8@lxorguk.ukuu.org.uk>
-	<20070316153408.3a9a244a@lxorguk.ukuu.org.uk>
-	<20070316151305.04cbc352@lxorguk.ukuu.org.uk>
-	<20070316125008.3740.44693.stgit@warthog.cambridge.redhat.com>
-	<25571.1174054993@redhat.com>
-	<26525.1174058071@redhat.com>
-	<20070316171141.7a4de504@lxorguk.ukuu.org.uk>
-	<076F1B35-BE08-41B4-8294-581EDAFF4ACC@mac.com>
-	<2578.1174305403@redhat.com>
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Subject: [ofa-general] Re: dst_ifdown breaks infiniband?
+Date: Mon, 19 Mar 2007 15:05:34 +0300
+Message-ID: <20070319120534.GA28187@ms2.inr.ac.ru>
+References: <20070318155532.GG7958@mellanox.co.il>
+	<20070318191238.GA20518@ms2.inr.ac.ru>
+	<20070318195355.GB11078@mellanox.co.il>
+	<20070318201826.GB27004@ms2.inr.ac.ru>
+	<20070319093632.GB8386@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Kyle Moffett <mrmacman_g4@mac.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, herbert.xu@redhat.com,
-	linux-kernel@vger.kernel.org, hch@infradead.org,
-	arjan@infradead.org
-To: David Howells <dhowells@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from outpipe-village-512-1.bc.nu ([81.2.110.250]:50069 "EHLO
-	lxorguk.ukuu.org.uk" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753804AbXCSMBt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Mar 2007 08:01:49 -0400
-In-Reply-To: <2578.1174305403@redhat.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	general@lists.openfabrics.org, David Miller <davem@davemloft.net>
+To: "Michael S. Tsirkin" <mst@dev.mellanox.co.il>
+Return-path: <general-bounces@lists.openfabrics.org>
+Content-Disposition: inline
+In-Reply-To: <20070319093632.GB8386@mellanox.co.il>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-> message transmission.  You yourself defined RDM to be a datagram service.
-> RxRPC is not, in my opinion, a datagram service, and neither is it a stream
-> service.
+Hello!
 
-Message is what I should have said.
+> If a device driver sets neigh_destructor in neigh_params, this could
+> get called after the device has been unregistered and the driver module
+> removed.
 
-> Interestingly, searching for SOCK_RDM definitions with google shows there's
-> some disagreement as to what it represents.  Some seem to thing it's connection
-> oriented and some that it's connectionless, and some seem to think it's
-> ordered, and some not.
+It is the same problem: if dst->neighbour holds neighbour, it should
+not hold device. parms->dev is not supposed to be used after
+neigh_parms_release(). F.e. set parms->dev to NULL to catch bad references.
 
-Which is just fine, does it need to be one or the other. SOCK_DGRAM an be
-both connection oriented or connectionless.
 
-> 
-> > > independent and possibly simultaneous RxRPC calls.  From the digging  
-> > > around that I did in the kernel socket code a while ago I don't see a  
-> > > cleaner way of implementing it than a new SOCK_RXRPC.
-> 
-> Well, I suggest SOCK_RPC, not SOCK_RXRPC.  There's no particular reason such a
-> flow type has to be limited to RxRPC.
+Do you search for a way to find real inifiniband device in
+ipoib_neigh_destructor()? I guess you will not be able.
+The problem is logical: if destructor needs device, neighbour entry
+_somehow_ have to hold reference to the device (via neigh->dev, neigh->parms,
+whatever). Hence, if we hold neighbour entry, unregister cannot be completed.
+Therefore, destructor cannot refer to device. Q.E.D. :-)
 
-Other RPC types use normal socket types.
+Seems, releasing dst->neighbour is inevitable.
 
-> I'd say that that precludes applicability on two points: firstly, RxRPC is not
-> a datagram layer by the definition I provided in a previous email; and
-> secondly, RxRPC *does* provide some ordering guarantees.
-
-So you want SOCK_SEQPACKET perhaps then ?
-
-> > What does AIX do out of interest ?
-> 
-> I've no way to find out what AIX does, but I suspect it simply doesn't.
-
-Perhaps someone with AIX boxes around (say @ibm.com) could answer ?
+Alexey
