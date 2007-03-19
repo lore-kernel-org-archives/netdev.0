@@ -1,55 +1,62 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [patch 13/26] Xen-paravirt_ops: Consistently wrap paravirt ops
-	callsites to make them patchable
-Date: Mon, 19 Mar 2007 13:47:49 +1100
-Message-ID: <1174272469.11680.23.camel@localhost.localdomain>
-References: <20070316.023331.59468179.davem@davemloft.net>
-	 <45FB005D.9060809@goop.org>
-	 <1174127638.8897.75.camel@localhost.localdomain>
-	 <20070318.003309.71088169.davem@davemloft.net>
-	 <20070318120814.GA45869@muc.de>
+From: Li Yang <leoli@freescale.com>
+Subject: [PATCH] Revert "ucc_geth: returns NETDEV_TX_BUSY when BD ring is
+ full"
+Date: Mon, 19 Mar 2007 11:58:02 +0800
+Message-ID: <45FE0A4A.20402@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, jeremy@goop.org, mingo@elte.hu,
-	akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.osdl.org, xen-devel@lists.xensource.com,
-	chrisw@sous-sol.org, zach@vmware.com, anthony@codemonkey.ws,
-	torvalds@linux-foundation.org, netdev@vger.kernel.org
-To: Andi Kleen <ak@muc.de>
+Cc: netdev@vger.kernel.org, michael.barkowski@freescale.com
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:39541 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933741AbXCSCsT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 18 Mar 2007 22:48:19 -0400
-In-Reply-To: <20070318120814.GA45869@muc.de>
+Received: from az33egw01.freescale.net ([192.88.158.102]:33313 "EHLO
+	az33egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965453AbXCSD4v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Mar 2007 23:56:51 -0400
+Received: from az33smr01.freescale.net (az33smr01.freescale.net [10.64.34.199])
+	by az33egw01.freescale.net (8.12.11/az33egw01) with ESMTP id l2J3uedD003755
+	for <netdev@vger.kernel.org>; Sun, 18 Mar 2007 20:56:41 -0700 (MST)
+Received: from zch01exm20.fsl.freescale.net (zch01exm20.ap.freescale.net [10.192.129.204])
+	by az33smr01.freescale.net (8.13.1/8.13.0) with ESMTP id l2J3udvl021478
+	for <netdev@vger.kernel.org>; Sun, 18 Mar 2007 22:56:40 -0500 (CDT)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 2007-03-18 at 13:08 +0100, Andi Kleen wrote:
-> > The idea is _NOT_ that you go look for references to the paravirt_ops
-> > members structure, that would be stupid and you wouldn't be able to
-> > use the most efficient addressing mode on a given cpu, you'd be
-> > patching up indirect calls and crap like that.  Just say no...
-> 
-> That wouldn't handle inlines though. At least some of the current
-> paravirtops like cli/sti are critical enough to require inlining.
+This reverts commit 18babd38547a042a4bfd4154a014d1ad33373eb0.
 
-Well, we'd patch the inline over the call if we have room.
+Michael Barkowski points out that it's wrong, and I agree.  The
+patch causes a problem rather than fixes one after another
+patch "ucc_geth: Fix BD processing" was applied.  Before that
+patch, current packet should be blocked.  However after the patch
+current packet is ok and we only need to block next.
 
-Magic patching would be neat, but the downsides are that (1) we can't
-expand the patching room and (2) there's no way of attaching clobber
-info to the call site (doing register liveness analysis is not
-appealing).
+Reported-by: Michael Barkowski <michael.barkowski@freescale.com>
+Signed-off-by: Li Yang <leoli@freescale.com>
+---
+Sorry for the mistake I made.
 
-Now, this may not be fatal.  5 bytes is enough for all the native ops to
-be patched inline.   For lguest this covers popf and pushf, but not cli
-and sti (10 bytes): they'd have to be calls.
+ drivers/net/ucc_geth.c |    3 +--
+ 1 files changed, 1 insertions(+), 2 deletions(-)
 
-As for clobber info, it turns out that almost all of the calls can
-clobber %eax, which is probably enough.  We just need to mark the
-handful of asm ones where this isn't true.
-
-Thoughts?
-Rusty.
+diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
+index c2db49b..64e5bb4 100644
+--- a/drivers/net/ucc_geth.c
++++ b/drivers/net/ucc_geth.c
+@@ -3609,7 +3609,6 @@ static int ucc_geth_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	if (bd == ugeth->confBd[txQ]) {
+ 		if (!netif_queue_stopped(dev))
+ 			netif_stop_queue(dev);
+-		return NETDEV_TX_BUSY;
+ 	}
+ 
+ 	ugeth->txBd[txQ] = bd;
+@@ -3625,7 +3624,7 @@ static int ucc_geth_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ 	spin_unlock_irq(&ugeth->lock);
+ 
+-	return NETDEV_TX_OK;
++	return 0;
+ }
+ 
+ static int ucc_geth_rx(struct ucc_geth_private *ugeth, u8 rxQ, int rx_work_limit)
 
