@@ -1,46 +1,32 @@
-From: "Michael S. Tsirkin" <mst@dev.mellanox.co.il>
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
 Subject: Re: [ofa-general] Re: dst_ifdown breaks infiniband?
-Date: Mon, 19 Mar 2007 11:33:15 +0200
-Message-ID: <20070319093315.GA15909@mellanox.co.il>
-References: <20070318155532.GG7958@mellanox.co.il>
-	<20070318191238.GA20518@ms2.inr.ac.ru>
-	<20070318202559.GD11078@mellanox.co.il>
-	<m3tzwi8a20.fsf@maxwell.lnxi.com>
-	<20070318223653.GO11078@mellanox.co.il>
-	<20070318224234.GP11078@mellanox.co.il>
-	<20070319092422.GB9387@ms2.inr.ac.ru>
-Reply-To: "Michael S. Tsirkin" <mst@dev.mellanox.co.il>
+Date: Mon, 19 Mar 2007 12:34:43 +0300
+Message-ID: <20070319093443.GC9387@ms2.inr.ac.ru>
+References: <20070318224234.GP11078@mellanox.co.il> <20070318.171337.112622504.davem@davemloft.net> <m3aby94x6o.fsf@maxwell.lnxi.com> <20070318.231316.59470365.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "Michael S. Tsirkin" <mst@dev.mellanox.co.il>,
-	"Eric W. Biederman" <ebiederman@lnxi.com>, netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+Cc: ebiederman@lnxi.com, mst@dev.mellanox.co.il,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	general@lists.openfabrics.org
-To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.171]:59125 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753416AbXCSJce (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Mar 2007 05:32:34 -0400
-Received: by ug-out-1314.google.com with SMTP id 44so1267678uga
-        for <netdev@vger.kernel.org>; Mon, 19 Mar 2007 02:32:32 -0700 (PDT)
+Received: from minus.inr.ac.ru ([194.67.69.97]:54702 "HELO ms2.inr.ac.ru"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+	id S1751267AbXCSJfC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Mar 2007 05:35:02 -0400
 Content-Disposition: inline
-In-Reply-To: <20070319092422.GB9387@ms2.inr.ac.ru>
+In-Reply-To: <20070318.231316.59470365.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> Quoting Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>:
-> Subject: Re: [ofa-general] Re: dst_ifdown breaks infiniband?
-> 
-> > Does this look sane (untested)?
-> 
-> It does not, unfortunately.
-> 
-> Instead of regular crash in infiniband you will get numerous
-> random NULL pointer dereferences both due to dst->neighbour
-> and due to dst->dev.
+Hello!
 
-Right, I saw this clearly in the morning. Thanks.
+> I think the thing to do is to just leave the loopback references
+> in place, try to unregister the per-namespace loopback device,
+> and that will safely wait for all the references to go away.
 
--- 
-MST
+Yes, it is exactly how it works in openvz. All the sockets are killed,
+queues are cleared, nobody holds references and virtual loopback
+can be unregistered just like another device.
+
+Alexey
