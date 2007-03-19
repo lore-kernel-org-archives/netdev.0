@@ -1,66 +1,44 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [LARTC] [BUG?] ip ru flush && RTNETLINK answers: Numerical result
- out of range
-Date: Mon, 19 Mar 2007 06:54:15 +0100
-Message-ID: <45FE2587.3050205@trash.net>
-References: <200703190046.47021.luciano@lugmen.org.ar>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [ofa-general] Re: dst_ifdown breaks infiniband?
+Date: Sun, 18 Mar 2007 23:13:16 -0700 (PDT)
+Message-ID: <20070318.231316.59470365.davem@davemloft.net>
+References: <20070318224234.GP11078@mellanox.co.il>
+	<20070318.171337.112622504.davem@davemloft.net>
+	<m3aby94x6o.fsf@maxwell.lnxi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: lartc@mailman.ds9a.nl, Linux Netdev List <netdev@vger.kernel.org>,
-	Thomas Graf <tgraf@suug.ch>
-To: Luciano Ruete <luciano@lugmen.org.ar>
+Cc: mst@dev.mellanox.co.il, kuznet@ms2.inr.ac.ru,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	general@lists.openfabrics.org
+To: ebiederman@lnxi.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:48578 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965634AbXCSFyS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Mar 2007 01:54:18 -0400
-In-Reply-To: <200703190046.47021.luciano@lugmen.org.ar>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60084
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S965671AbXCSGNQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Mar 2007 02:13:16 -0400
+In-Reply-To: <m3aby94x6o.fsf@maxwell.lnxi.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Luciano Ruete wrote:
-> After an: 
-> # ip ru flush
-> I loose all my ip rules but the priority 0 one. 
-> root@sarasvati:~# ip ru
-> 0:      from all lookup 255
-> root@sarasvati:~#  
-> 
-> Ok with that, but now i'm not able to insert any new rule.
-> This leads to a total loose of conectivity.
-> 
-> root@sarasvati:~# ip ru add from all table default
-> RTNETLINK answers: Numerical result out of range
-> root@sarasvati:~# ip ru add from all lookup main
-> RTNETLINK answers: Numerical result out of range
-> 
-> Even seting the priority value by hand, i got the same error:
-> 
-> root@sarasvati:~# ip ru add from all lookup main priority 32766
-> RTNETLINK answers: Numerical result out of range
-> 
-> To be able to send this e-mail without rebooting i had to insert my gw ip 
-> routes in table 255.
-> 
-> Is this a bug in iproute?
-> 
-> Some adiotional data:
-> ip utility, iproute2-ss060323
-> Linux sarasvati 2.6.20-5-386 #2 Sat Jan 6 14:44:57 UTC 2007 i686 GNU/Linux
+From: ebiederman@lnxi.com (Eric W. Biederman)
+Date: Sun, 18 Mar 2007 23:30:39 -0600
 
+> Sure.  In the network namespace case I think the careful ordering of the
+> shutdown handles that case.   Even with per network namespace lo
+> unregistered it still existed until the network namespace actually
+> exited.  And it only happened on exit.  
+> 
+> So while there may be a tiny race there it hasn't been an issue yet
+> in practice.
 
-The problem seems to be the nla policy added in 2.6.19 or 2.6.20.
-When specifying a prefix as "all", iproute adds a zero byte long
-attribute (FRA_SRC in this case). The IPv4 fib_rules policy states
-that it has to be exactly 4 bytes long, which makes validation fail.
-This also affects IPv6 and DECnet.
+I think the thing to do is to just leave the loopback references
+in place, try to unregister the per-namespace loopback device,
+and that will safely wait for all the references to go away.
 
-I would argue that iproute is broken and shouldn't add a zero
-byte long attribute, but we still need to make sure the kernel
-accepts these attributes as valid.
+If you do it that way, you should need absolutely no changes to
+the other code in this area.
 
-Thomas, I can't see a clean way to fix this right now that
-doesn't either bloat struct nla_policy or removes FRA_SRC/FRA_DST
-from the policy, could you please look into this? Thanks.
-
+As per Herbert, I think he works on Xen rather than vserver :-)
+Perhaps you're thinking of Alexey Kuznetsov or another one of the
+vserver guys.
