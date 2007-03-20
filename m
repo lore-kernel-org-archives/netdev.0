@@ -1,92 +1,67 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [NET_SCHED]: cls_basic: fix NULL pointer dereference
-Date: Tue, 20 Mar 2007 18:15:00 +0100
-Message-ID: <46001694.9090402@trash.net>
+Subject: [NET_SCHED]: Fix ingress locking
+Date: Tue, 20 Mar 2007 18:15:03 +0100
+Message-ID: <46001697.30409@trash.net>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------050003050402000302090805"
+ boundary="------------040906090908090202040804"
 Cc: Linux Netdev List <netdev@vger.kernel.org>, jamal <hadi@cyberus.ca>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:54680 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:54683 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965309AbXCTRPW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Mar 2007 13:15:22 -0400
+	with ESMTP id S965544AbXCTRPX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Mar 2007 13:15:23 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
---------------050003050402000302090805
+--------------040906090908090202040804
 Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
 
-These two patches fix the cls_basic crash reported by Chris
-Madden and the ingress locking problem.
 
-Please apply, thanks.
-
-
---------------050003050402000302090805
+--------------040906090908090202040804
 Content-Type: text/x-diff;
- name="01.diff"
+ name="02.diff"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline;
- filename="01.diff"
+ filename="02.diff"
 
-[NET_SCHED]: cls_basic: fix NULL pointer dereference
+[NET_SCHED]: Fix ingress locking
 
-cls_basic doesn't allocate tp->root before it is linked into the
-active classifier list, resulting in a NULL pointer dereference
-when packets hit the classifier before its ->change function is
-called.
-
-Reported by Chris Madden <chris@reflexsecurity.com>
+Ingress queueing uses a seperate lock for serializing enqueue operations,
+but fails to properly protect itself against concurrent changes to the
+qdisc tree. Use queue_lock for now since the real fix it quite intrusive.
 
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 
 ---
-commit f1b9a0694552e18e7a43c292d21abe3b51dfcae2
-tree f5ae39c1746fdc1ffbee6c1d90d035ee48ca4904
-parent 0a14fe6e5efd0af0f9c6c01e0433445d615d0110
-author Patrick McHardy <kaber@trash.net> Tue, 20 Mar 2007 16:08:54 +0100
-committer Patrick McHardy <kaber@trash.net> Tue, 20 Mar 2007 16:08:54 +0100
+commit 11985909b582dc688b5a7c0f73f16244224116f4
+tree 0ee26bec34053f6c9b5f905ffbc1437881428eeb
+parent f1b9a0694552e18e7a43c292d21abe3b51dfcae2
+author Patrick McHardy <kaber@trash.net> Tue, 20 Mar 2007 16:11:56 +0100
+committer Patrick McHardy <kaber@trash.net> Tue, 20 Mar 2007 16:11:56 +0100
 
- net/sched/cls_basic.c |   16 +++++++---------
- 1 files changed, 7 insertions(+), 9 deletions(-)
+ net/core/dev.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/sched/cls_basic.c b/net/sched/cls_basic.c
-index fad08e5..70fe36e 100644
---- a/net/sched/cls_basic.c
-+++ b/net/sched/cls_basic.c
-@@ -81,6 +81,13 @@ static void basic_put(struct tcf_proto *
+diff --git a/net/core/dev.c b/net/core/dev.c
+index cf71614..5984b55 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1750,10 +1750,10 @@ static int ing_filter(struct sk_buff *sk
  
- static int basic_init(struct tcf_proto *tp)
- {
-+	struct basic_head *head;
-+
-+	head = kzalloc(sizeof(*head), GFP_KERNEL);
-+	if (head == NULL)
-+		return -ENOBUFS;
-+	INIT_LIST_HEAD(&head->flist);
-+	tp->root = head;
- 	return 0;
- }
+ 		skb->tc_verd = SET_TC_AT(skb->tc_verd,AT_INGRESS);
  
-@@ -176,15 +183,6 @@ static int basic_change(struct tcf_proto
+-		spin_lock(&dev->ingress_lock);
++		spin_lock(&dev->queue_lock);
+ 		if ((q = dev->qdisc_ingress) != NULL)
+ 			result = q->enqueue(skb, q);
+-		spin_unlock(&dev->ingress_lock);
++		spin_unlock(&dev->queue_lock);
+ 
  	}
  
- 	err = -ENOBUFS;
--	if (head == NULL) {
--		head = kzalloc(sizeof(*head), GFP_KERNEL);
--		if (head == NULL)
--			goto errout;
--
--		INIT_LIST_HEAD(&head->flist);
--		tp->root = head;
--	}
--
- 	f = kzalloc(sizeof(*f), GFP_KERNEL);
- 	if (f == NULL)
- 		goto errout;
 
---------------050003050402000302090805--
+--------------040906090908090202040804--
