@@ -1,43 +1,30 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: Oops in filter add
-Date: Tue, 20 Mar 2007 12:02:15 +0100
-Message-ID: <45FFBF37.4030801@trash.net>
-References: <45FEEE35.6090606@reflexsecurity.com>	 <20070319.192206.21926062.davem@davemloft.net>	 <1174373645.4895.15.camel@localhost>  <45FF8602.8040108@trash.net>	 <1174375109.4895.22.camel@localhost>  <45FF8D6A.4010308@trash.net> <1174382739.4864.11.camel@localhost> <45FFBD7F.4010005@reflexsecurity.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, David Miller <davem@davemloft.net>,
-	netdev@vger.kernel.org, tgraf@suug.ch
-To: Chris Madden <chris@reflexsecurity.com>
+From: David Howells <dhowells@redhat.com>
+Subject: Re: [PATCH 0/5] [RFC] AF_RXRPC socket family implementation [try #2]
+Date: Tue, 20 Mar 2007 11:16:45 +0000
+Message-ID: <12125.1174389405@redhat.com>
+References: <20070319190306.44f9a2e5@lxorguk.ukuu.org.uk>  <20070319152959.46a81e57@lxorguk.ukuu.org.uk> <20070319130428.4b645207@lxorguk.ukuu.org.uk> <20070318142315.6f881ec8@lxorguk.ukuu.org.uk> <20070316153408.3a9a244a@lxorguk.ukuu.org.uk> <20070316151305.04cbc352@lxorguk.ukuu.org.uk> <20070316125008.3740.44693.stgit@warthog.cambridge.redhat.com> <25571.1174054993@redhat.com> <26525.1174058071@redhat.com> <20070316171141.7a4de504@lxorguk.ukuu.org.uk> <076F1B35-BE08-41B4-8294-581EDAFF4ACC@mac.com> <2578.1174305403@redhat.com> <3728.1174309154@redhat.com> <25752.1174318898@redhat.com>
+Cc: Kyle Moffett <mrmacman_g4@mac.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, herbert.xu@redhat.com,
+	linux-kernel@vger.kernel.org, hch@infradead.org,
+	arjan@infradead.org
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:46733 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751196AbXCTLCW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Mar 2007 07:02:22 -0400
-In-Reply-To: <45FFBD7F.4010005@reflexsecurity.com>
+Received: from mx1.redhat.com ([66.187.233.31]:57621 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752365AbXCTLRB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Mar 2007 07:17:01 -0400
+In-Reply-To: <20070319190306.44f9a2e5@lxorguk.ukuu.org.uk> 
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Chris Madden wrote:
-> Thanks for all your replies!
-> 
-> One thing I did notice in examining tc_ctl_tfilter was that there is
-> something like:
-> 
->         qdisc_lock_tree(dev);
->         tp->next = *back;
->         *back = tp;
->         qdisc_unlock_tree(dev);
-> 
-> And then proceed to the data structure down below with:
-> 
-> err = tp->ops->change(tp, cl, t->tcm_handle, tca, &fh);
-> 
-> Simply reordering these seems to ameliorate the problem greatly.  I
-> don't know if this is a generic solution or something specific to the
-> basic filter only. 
+Alan Cox <alan@lxorguk.ukuu.org.uk> wrote:
 
+> O> No, it's not.  SOCK_DGRAM is an unreliable, unidirectional datagram passing
+> > service.
+> 
+> Thats funny UDP receives and sends packets.
 
-It might hide the problem, but there are currently a lot of places
-where things can go wrong.
+I meant that the protocol ships a datagram from one peer to another, but
+there's no tie at the protocol level to any datagrams going the other way.
 
+David
