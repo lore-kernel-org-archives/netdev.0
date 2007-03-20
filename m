@@ -1,48 +1,62 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: Re: ping6 to own link-local address
-Date: Tue, 20 Mar 2007 15:16:40 -0700
-Message-ID: <1174429000.3255.3.camel@w-sridhar2.beaverton.ibm.com>
-References: <20070320.101911.50437044.yoshfuji@linux-ipv6.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, CHINEN@jp.ibm.com
-To: YOSHIFUJI Hideaki /
-	 =?UTF-8?Q?=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E?=
-	<yoshfuji@linux-ipv6.org>
+From: David Howells <dhowells@redhat.com>
+Subject: Re: [PATCH 0/5] [RFC] AF_RXRPC socket family implementation [try #3]
+Date: Tue, 20 Mar 2007 22:26:13 +0000
+Message-ID: <15256.1174429573@redhat.com>
+References: <20070320213657.15afe5fa@lxorguk.ukuu.org.uk>  <20070320195856.12853.63473.stgit@warthog.cambridge.redhat.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org, herbert.xu@redhat.com,
+	linux-kernel@vger.kernel.org, hch@infradead.org,
+	arjan@infradead.org, dhowells@redhat.com
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e2.ny.us.ibm.com ([32.97.182.142]:38601 "EHLO e2.ny.us.ibm.com"
+Received: from mx1.redhat.com ([66.187.233.31]:59101 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752022AbXCTWQn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Mar 2007 18:16:43 -0400
-Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by e2.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l2KMGfuR007204
-	for <netdev@vger.kernel.org>; Tue, 20 Mar 2007 18:16:41 -0400
-Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
-	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l2KMGfXQ300414
-	for <netdev@vger.kernel.org>; Tue, 20 Mar 2007 18:16:41 -0400
-Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
-	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l2KMGeHr011935
-	for <netdev@vger.kernel.org>; Tue, 20 Mar 2007 18:16:41 -0400
-In-Reply-To: <20070320.101911.50437044.yoshfuji@linux-ipv6.org>
+	id S1752022AbXCTW0b (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Mar 2007 18:26:31 -0400
+In-Reply-To: <20070320213657.15afe5fa@lxorguk.ukuu.org.uk> 
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2007-03-20 at 10:19 +0100, YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=
-=E8=8B=B1=E6=98=8E wrote:
-> Hello.
->=20
-> Recent 2.6.21-git kernels do not respond to ping6 queries
-> to our own (local) link-local address.  Now bisecting...
+Alan Cox <alan@lxorguk.ukuu.org.uk> wrote:
 
-The following patch seems to be the cause for this regression.
+> - recvmsg not supporting MSG_TRUNC is rather weird and really ought to be
+> fixed one day as its useful to find out the sizeof message pending when
+> combined with MSG_PEEK
 
-[IPV6] ROUTE: Do not route packets to link-local address on other devic=
-e.
+Hmmm...  I hadn't considered that.  I assumed MSG_TRUNC not to be useful as
+arbitrarily chopping bits out of the request or reply would seem to be
+pointless.
 
-http://git.kernel.org/?p=3Dlinux/kernel/git/torvalds/linux-2.6.git;a=3D=
-commitdiff;h=3Da0d78ebf3a0e33a1aeacf2fc518ad9273d6a1c2f
+> - RXRPC_MIN_SECURITY_LEVEL reads into rx->min_sec_level and then if it is
+> invalid reports an error but doesn't restore the valid level
 
-Thanks
-Sridhar
+Fixed.
 
+> - Why does rxrpc_writable always return 0 ?
+
+Good point.  That's slightly tricky to deal with as output messages don't
+remain queued on the socket struct itself.  Hmmm...
+
+One thing I'd like to be able to do is pass the sk_buffs I've set up to UDP
+directly rather than having to call the UDP socket's sendmsg.  That'd eliminate
+a copy.  But I decided to get it working right first, then look at cute
+optimisations like that.
+
+Such a thing would also be useful for the AFS filesystem: it could pass skbuffs
+it has preloaded to AF_RXRPC, which would then hand them on to UDP.
+
+> - rxrpc_process_soft_ACKs doesn't itself limit and check acns->nAcks is
+> always below RXRPC_MAXACKS, as this is a stakc variable it ought to be
+> paranoid about it. I think its ok from the caller check but its very hard
+> to prove...
+
+nAcks is a uint8_t.  If that can exceed RXRPC_MAXACKS (255) then I suspect I'll
+have more pressing worries.  I could put a check in there, but the compiler
+would give me a warning:-/
+
+> It needs a lot more eyes/review due to the complexity and network
+> exposure though - not your fault, whoever designed RXRPC's 8)
+
+It's not an entirely insane protocol:-) Actually, part of the problem is Linux
+itself.
+
+David
