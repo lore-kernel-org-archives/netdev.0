@@ -1,7 +1,8 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH 4/5] AF_RXRPC: Key facility changes for AF_RXRPC [try #3]
-Date: Tue, 20 Mar 2007 19:59:19 +0000
-Message-ID: <20070320195919.12853.63598.stgit@warthog.cambridge.redhat.com>
+Subject: [PATCH 3/5] AF_RXRPC: Make it possible to merely try to cancel timers
+	and delayed work [try #3]
+Date: Tue, 20 Mar 2007 19:59:14 +0000
+Message-ID: <20070320195914.12853.96917.stgit@warthog.cambridge.redhat.com>
 References: <20070320195856.12853.63473.stgit@warthog.cambridge.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,75 +11,67 @@ Cc: linux-kernel@vger.kernel.org, hch@infradead.org,
 	arjan@infradead.org, dhowells@redhat.com
 To: davem@davemloft.net, netdev@vger.kernel.org, herbert.xu@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:52596 "EHLO mx2.redhat.com"
+Received: from mx2.redhat.com ([66.187.237.31]:52635 "EHLO mx2.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753887AbXCTT7t (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Mar 2007 15:59:49 -0400
+	id S1753892AbXCTT74 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Mar 2007 15:59:56 -0400
 In-Reply-To: <20070320195856.12853.63473.stgit@warthog.cambridge.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Export the keyring key type definition and document its availability.
+Export try_to_del_timer_sync() for use by the RxRPC module.
 
-Add alternative types into the key's type_data union to make it more useful.
-Not all users necessarily want to use it as a list_head (AF_RXRPC doesn't, for
-example), so make it clear that it can be used in other ways.
+Add a try_to_cancel_delayed_work() so that it is possible to merely attempt to
+cancel a delayed work timer.
 
 Signed-Off-By: David Howells <dhowells@redhat.com>
 ---
 
- Documentation/keys.txt  |   12 ++++++++++++
- include/linux/key.h     |    2 ++
- security/keys/keyring.c |    2 ++
- 3 files changed, 16 insertions(+), 0 deletions(-)
+ include/linux/workqueue.h |   21 +++++++++++++++++++++
+ kernel/timer.c            |    2 ++
+ 2 files changed, 23 insertions(+), 0 deletions(-)
 
-diff --git a/Documentation/keys.txt b/Documentation/keys.txt
-index 60c665d..81d9aa0 100644
---- a/Documentation/keys.txt
-+++ b/Documentation/keys.txt
-@@ -859,6 +859,18 @@ payload contents" for more information.
- 	void unregister_key_type(struct key_type *type);
+diff --git a/include/linux/workqueue.h b/include/linux/workqueue.h
+index 2a7b38d..40a61ae 100644
+--- a/include/linux/workqueue.h
++++ b/include/linux/workqueue.h
+@@ -204,4 +204,25 @@ static inline int cancel_delayed_work(struct delayed_work *work)
+ 	return ret;
+ }
  
++/**
++ * try_to_cancel_delayed_work - Try to kill pending scheduled, delayed work
++ * @work: the work to cancel
++ *
++ * Try to kill off a pending schedule_delayed_work().
++ * - The timer may still be running afterwards, and if so, the work may still
++ *   be pending
++ * - Returns -1 if timer still active, 1 if timer removed, 0 if not scheduled
++ * - Can be called from the work routine; if it's still pending, just return
++ *   and it'll be called again.
++ */
++static inline int try_to_cancel_delayed_work(struct delayed_work *work)
++{
++	int ret;
++
++	ret = try_to_del_timer_sync(&work->timer);
++	if (ret > 0)
++		work_release(&work->work);
++	return ret;
++}
++
+ #endif
+diff --git a/kernel/timer.c b/kernel/timer.c
+index 797cccb..447506a 100644
+--- a/kernel/timer.c
++++ b/kernel/timer.c
+@@ -505,6 +505,8 @@ out:
+ 	return ret;
+ }
  
-+Under some circumstances, it may be desirable to desirable to deal with a
-+bundle of keys.  The facility provides access to the keyring type for managing
-+such a bundle:
++EXPORT_SYMBOL(try_to_del_timer_sync);
 +
-+	struct key_type key_type_keyring;
-+
-+This can be used with a function such as request_key() to find a specific
-+keyring in a process's keyrings.  A keyring thus found can then be searched
-+with keyring_search().  Note that it is not possible to use request_key() to
-+search a specific keyring, so using keyrings in this way is of limited utility.
-+
-+
- ===================================
- NOTES ON ACCESSING PAYLOAD CONTENTS
- ===================================
-diff --git a/include/linux/key.h b/include/linux/key.h
-index 169f05e..a9220e7 100644
---- a/include/linux/key.h
-+++ b/include/linux/key.h
-@@ -160,6 +160,8 @@ struct key {
- 	 */
- 	union {
- 		struct list_head	link;
-+		unsigned long		x[2];
-+		void			*p[2];
- 	} type_data;
- 
- 	/* key data
-diff --git a/security/keys/keyring.c b/security/keys/keyring.c
-index ad45ce7..88292e3 100644
---- a/security/keys/keyring.c
-+++ b/security/keys/keyring.c
-@@ -66,6 +66,8 @@ struct key_type key_type_keyring = {
- 	.read		= keyring_read,
- };
- 
-+EXPORT_SYMBOL(key_type_keyring);
-+
- /*
-  * semaphore to serialise link/link calls to prevent two link calls in parallel
-  * introducing a cycle
+ /**
+  * del_timer_sync - deactivate a timer and wait for the handler to finish.
+  * @timer: the timer to be deactivated
 
