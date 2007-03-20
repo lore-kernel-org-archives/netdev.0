@@ -1,49 +1,37 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [BUG?] ip ru flush && RTNETLINK answers: Numerical result
-	out of range
-Date: Tue, 20 Mar 2007 07:19:51 +0100
-Message-ID: <45FF7D07.4040103@trash.net>
-References: <200703190046.47021.luciano@lugmen.org.ar>
-	<45FE2587.3050205@trash.net> <20070319152532.GL521@postel.suug.ch>
+Subject: Re: [LARTC] [BUG?] ip ru flush && RTNETLINK answers: Numerical result
+ out of range
+Date: Tue, 20 Mar 2007 07:42:49 +0100
+Message-ID: <45FF8269.3000606@trash.net>
+References: <200703190046.47021.luciano@lugmen.org.ar>	<45FE2587.3050205@trash.net> <20070319152532.GL521@postel.suug.ch> <45FF7D07.4040103@trash.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------080001090807020500090204"
+Content-Type: multipart/mixed;
+ boundary="------------070509070207040209050204"
 Cc: Linux Netdev List <netdev@vger.kernel.org>,
 	"David S. Miller" <davem@davemloft.net>, lartc@mailman.ds9a.nl
 To: Thomas Graf <tgraf@suug.ch>
-Return-path: <lartc-bounces@mailman.ds9a.nl>
-In-Reply-To: <20070319152532.GL521@postel.suug.ch>
-List-Unsubscribe: <http://mailman.ds9a.nl/cgi-bin/mailman/listinfo/lartc>,
-	<mailto:lartc-request@mailman.ds9a.nl?subject=unsubscribe>
-List-Archive: <http://mailman.ds9a.nl/pipermail/lartc>
-List-Post: <mailto:lartc@mailman.ds9a.nl>
-List-Help: <mailto:lartc-request@mailman.ds9a.nl?subject=help>
-List-Subscribe: <http://mailman.ds9a.nl/cgi-bin/mailman/listinfo/lartc>,
-	<mailto:lartc-request@mailman.ds9a.nl?subject=subscribe>
-Sender: lartc-bounces@mailman.ds9a.nl
-Errors-To: lartc-bounces@mailman.ds9a.nl
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:41698 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753530AbXCTGmw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Mar 2007 02:42:52 -0400
+In-Reply-To: <45FF7D07.4040103@trash.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
---------------080001090807020500090204
+--------------070509070207040209050204
 Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
 
-Thomas Graf wrote:
-> * Patrick McHardy <kaber@trash.net> 2007-03-19 06:54
-> 
->>Thomas, I can't see a clean way to fix this right now that
->>doesn't either bloat struct nla_policy or removes FRA_SRC/FRA_DST
->>from the policy, could you please look into this? Thanks.
-> 
-> 
-> I guess the only way is to remove FRA_SRC/FRA_DST from the policy
-> and validate it in configure() based on src_len/dst_len.
+Patrick McHardy wrote:
+> [NET]: Fix fib_rules compatibility breakage
+
+I forgot to remove FRA_SRC/FRA_DST from fib6_rule_policy.
+Updated patch attached.
 
 
-Its not too pretty, but I agree. This patch fixes the problem.
-I'll also push it to -stable.
-
---------------080001090807020500090204
+--------------070509070207040209050204
 Content-Type: text/plain;
  name="x"
 Content-Transfer-Encoding: 7bit
@@ -68,15 +56,15 @@ addresses as "all".
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 
 ---
-commit 39f42dd26f1f9c93b9700e1bace540ed9bb94e46
-tree ecc71ef742d9d636bf129b34ae7a18173377ccc0
+commit 676307508e675dcf434f4f18e619b195f2f503ad
+tree aa87342144b3b19ebddb5011380c3ac96c38dbbc
 parent db98e0b434a6265c451ffe94ec0a29b8d0aaf587
 author Patrick McHardy <kaber@trash.net> Tue, 20 Mar 2007 07:08:38 +0100
-committer Patrick McHardy <kaber@trash.net> Tue, 20 Mar 2007 07:08:38 +0100
+committer Patrick McHardy <kaber@trash.net> Tue, 20 Mar 2007 07:42:19 +0100
 
  net/ipv4/fib_rules.c  |   18 ++++++++++++------
- net/ipv6/fib6_rules.c |   16 ++++++++++++----
- 2 files changed, 24 insertions(+), 10 deletions(-)
+ net/ipv6/fib6_rules.c |   18 ++++++++++++------
+ 2 files changed, 24 insertions(+), 12 deletions(-)
 
 diff --git a/net/ipv4/fib_rules.c b/net/ipv4/fib_rules.c
 index b837c33..9524b2e 100644
@@ -133,10 +121,19 @@ index b837c33..9524b2e 100644
  
  	return 1;
 diff --git a/net/ipv6/fib6_rules.c b/net/ipv6/fib6_rules.c
-index 0862809..a15244e 100644
+index 0862809..6331306 100644
 --- a/net/ipv6/fib6_rules.c
 +++ b/net/ipv6/fib6_rules.c
-@@ -145,6 +145,14 @@ static int fib6_rule_configure(struct fi
+@@ -131,8 +131,6 @@ static int fib6_rule_match(struct fib_ru
+ 
+ static struct nla_policy fib6_rule_policy[FRA_MAX+1] __read_mostly = {
+ 	FRA_GENERIC_POLICY,
+-	[FRA_SRC]	= { .len = sizeof(struct in6_addr) },
+-	[FRA_DST]	= { .len = sizeof(struct in6_addr) },
+ };
+ 
+ static int fib6_rule_configure(struct fib_rule *rule, struct sk_buff *skb,
+@@ -145,6 +143,14 @@ static int fib6_rule_configure(struct fi
  	if (frh->src_len > 128 || frh->dst_len > 128)
  		goto errout;
  
@@ -151,7 +148,7 @@ index 0862809..a15244e 100644
  	if (rule->action == FR_ACT_TO_TBL) {
  		if (rule->table == RT6_TABLE_UNSPEC)
  			goto errout;
-@@ -155,11 +163,11 @@ static int fib6_rule_configure(struct fi
+@@ -155,11 +161,11 @@ static int fib6_rule_configure(struct fi
  		}
  	}
  
@@ -165,7 +162,7 @@ index 0862809..a15244e 100644
  		nla_memcpy(&rule6->dst.addr, tb[FRA_DST],
  			   sizeof(struct in6_addr));
  
-@@ -186,11 +194,11 @@ static int fib6_rule_compare(struct fib_
+@@ -186,11 +192,11 @@ static int fib6_rule_compare(struct fib_
  	if (frh->tos && (rule6->tclass != frh->tos))
  		return 0;
  
@@ -180,16 +177,4 @@ index 0862809..a15244e 100644
  		return 0;
  
 
-
---------------080001090807020500090204
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-LARTC mailing list
-LARTC@mailman.ds9a.nl
-http://mailman.ds9a.nl/cgi-bin/mailman/listinfo/lartc
-
---------------080001090807020500090204--
+--------------070509070207040209050204--
