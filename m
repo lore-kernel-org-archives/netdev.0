@@ -1,77 +1,47 @@
-From: David Howells <dhowells@redhat.com>
-Subject: [PATCH 3/5] AF_RXRPC: Make it possible to merely try to cancel timers
-	and delayed work [try #3]
-Date: Tue, 20 Mar 2007 19:59:14 +0000
-Message-ID: <20070320195914.12853.96917.stgit@warthog.cambridge.redhat.com>
-References: <20070320195856.12853.63473.stgit@warthog.cambridge.redhat.com>
+From: Andi Kleen <ak@muc.de>
+Subject: Re: [patch 13/26] Xen-paravirt_ops: Consistently wrap paravirt ops callsites to make them patchable
+Date: 20 Mar 2007 21:02:42 +0100
+Message-ID: <20070320200242.GA90774@muc.de>
+References: <m1648xxf93.fsf@ebiederm.dsl.xmission.com> <Pine.LNX.4.64.0703191134190.6730@woody.linux-foundation.org> <1174348905.11680.54.camel@localhost.localdomain> <45FF4043.4000805@vmware.com> <45FF770C.7050301@goop.org> <Pine.LNX.4.64.0703200805450.6730@woody.linux-foundation.org> <m1mz27sy82.fsf@ebiederm.dsl.xmission.com> <Pine.LNX.4.64.0703200903500.6730@woody.linux-foundation.org> <20070320192818.GA87860@muc.de> <46003BF1.4090601@vmware.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, hch@infradead.org,
-	arjan@infradead.org, dhowells@redhat.com
-To: davem@davemloft.net, netdev@vger.kernel.org, herbert.xu@redhat.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Jeremy Fitzhardinge <jeremy@goop.org>,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	David Miller <davem@davemloft.net>, mingo@elte.hu,
+	akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.osdl.org, xen-devel@lists.xensource.com,
+	chrisw@sous-sol.org, anthony@codemonkey.ws, netdev@vger.kernel.org
+To: Zachary Amsden <zach@vmware.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:52635 "EHLO mx2.redhat.com"
+Received: from colin.muc.de ([193.149.48.1]:2391 "EHLO mail.muc.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753892AbXCTT74 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Mar 2007 15:59:56 -0400
-In-Reply-To: <20070320195856.12853.63473.stgit@warthog.cambridge.redhat.com>
+	id S934044AbXCTUCo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Mar 2007 16:02:44 -0400
+Date: Tue, 20 Mar 2007 21:02:42 +0100
+Content-Disposition: inline
+In-Reply-To: <46003BF1.4090601@vmware.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Export try_to_del_timer_sync() for use by the RxRPC module.
+> Worth it on 32-bit.  On AMD64, probably not.  On Intel 64-bit, maybe, 
+> but less important than in P4 days.
 
-Add a try_to_cancel_delayed_work() so that it is possible to merely attempt to
-cancel a delayed work timer.
+Well most of Intel 64bit is P4 -- and Intel is still shipping
+millions more of them each quarter.
 
-Signed-Off-By: David Howells <dhowells@redhat.com>
----
+> This could change character completely if used at the tail of a function 
+> where you now have
+> 
+> sti; 1: ret
+> 
+> Which generates an interrupt holdoff on the ret, an unusual thing to do.
 
- include/linux/workqueue.h |   21 +++++++++++++++++++++
- kernel/timer.c            |    2 ++
- 2 files changed, 23 insertions(+), 0 deletions(-)
+Unusual yes, but I don't see how it should cause problems. Or do you
+have anything specific in mind? 
 
-diff --git a/include/linux/workqueue.h b/include/linux/workqueue.h
-index 2a7b38d..40a61ae 100644
---- a/include/linux/workqueue.h
-+++ b/include/linux/workqueue.h
-@@ -204,4 +204,25 @@ static inline int cancel_delayed_work(struct delayed_work *work)
- 	return ret;
- }
- 
-+/**
-+ * try_to_cancel_delayed_work - Try to kill pending scheduled, delayed work
-+ * @work: the work to cancel
-+ *
-+ * Try to kill off a pending schedule_delayed_work().
-+ * - The timer may still be running afterwards, and if so, the work may still
-+ *   be pending
-+ * - Returns -1 if timer still active, 1 if timer removed, 0 if not scheduled
-+ * - Can be called from the work routine; if it's still pending, just return
-+ *   and it'll be called again.
-+ */
-+static inline int try_to_cancel_delayed_work(struct delayed_work *work)
-+{
-+	int ret;
-+
-+	ret = try_to_del_timer_sync(&work->timer);
-+	if (ret > 0)
-+		work_release(&work->work);
-+	return ret;
-+}
-+
- #endif
-diff --git a/kernel/timer.c b/kernel/timer.c
-index 797cccb..447506a 100644
---- a/kernel/timer.c
-+++ b/kernel/timer.c
-@@ -505,6 +505,8 @@ out:
- 	return ret;
- }
- 
-+EXPORT_SYMBOL(try_to_del_timer_sync);
-+
- /**
-  * del_timer_sync - deactivate a timer and wait for the handler to finish.
-  * @timer: the timer to be deactivated
+Worse is probably that on K8 this case might cause a pipeline stall
+if there isn't a prefix in front of the ret.
 
+-Andi
