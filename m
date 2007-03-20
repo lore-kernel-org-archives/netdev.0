@@ -1,42 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH]: ipsecv6 needs a space when printing
-	audit record.
-Date: Mon, 19 Mar 2007 18:47:49 -0700 (PDT)
-Message-ID: <20070319.184749.85418422.davem@davemloft.net>
-References: <200703200014.l2K0ExTL015802@faith.austin.ibm.com>
+From: Jeremy Fitzhardinge <jeremy@goop.org>
+Subject: Re: [patch 13/26] Xen-paravirt_ops: Consistently wrap paravirt ops
+ callsites to make them patchable
+Date: Mon, 19 Mar 2007 18:45:21 -0700
+Message-ID: <45FF3CB1.7080301@goop.org>
+References: <20070316.023331.59468179.davem@davemloft.net> <45FB005D.9060809@goop.org> <1174127638.8897.75.camel@localhost.localdomain> <20070318.003309.71088169.davem@davemloft.net> <20070318120814.GA45869@muc.de> <45FD619D.6030402@goop.org> <20070318170414.GB45869@muc.de> <45FD76E6.4060907@goop.org> <20070318193030.GB71548@muc.de> <45FDCF52.4000805@goop.org> <45FF3793.5050308@vmware.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eparis@redhat.com, redhat-lspp@redhat.com
-To: latten@austin.ibm.com
-Return-path: <redhat-lspp-bounces@redhat.com>
-In-Reply-To: <200703200014.l2K0ExTL015802@faith.austin.ibm.com>
-List-Unsubscribe: <https://www.redhat.com/mailman/listinfo/redhat-lspp>,
-	<mailto:redhat-lspp-request@redhat.com?subject=unsubscribe>
-List-Archive: <https://www.redhat.com/archives/redhat-lspp>
-List-Post: <mailto:redhat-lspp@redhat.com>
-List-Help: <mailto:redhat-lspp-request@redhat.com?subject=help>
-List-Subscribe: <https://www.redhat.com/mailman/listinfo/redhat-lspp>,
-	<mailto:redhat-lspp-request@redhat.com?subject=subscribe>
-Sender: redhat-lspp-bounces@redhat.com
-Errors-To: redhat-lspp-bounces@redhat.com
+Cc: Andi Kleen <ak@muc.de>, David Miller <davem@davemloft.net>,
+	rusty@rustcorp.com.au, mingo@elte.hu, akpm@linux-foundation.org,
+	linux-kernel@vger.kernel.org, virtualization@lists.osdl.org,
+	xen-devel@lists.xensource.com, chrisw@sous-sol.org,
+	anthony@codemonkey.ws, torvalds@linux-foundation.org,
+	netdev@vger.kernel.org
+To: Zachary Amsden <zach@vmware.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw.goop.org ([64.81.55.164]:47613 "EHLO mail.goop.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S966070AbXCTBtx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Mar 2007 21:49:53 -0400
+In-Reply-To: <45FF3793.5050308@vmware.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Joy Latten <latten@austin.ibm.com>
-Date: Mon, 19 Mar 2007 18:14:59 -0600
+Zachary Amsden wrote:
+> Jeremy Fitzhardinge wrote:
+>>  If we then work out in each direction and see matched push/pops,
+>> then we know what registers can be trashed in the call.  This also
+>> allows us to determine the callsite size, and therefore how much space
+>> we need for inlining.
+>>   
+>
+> No, that is a very dangerous suggestion.  You absolutely *cannot* do
+> this safely without explicitly marking the start EIP of this code. 
+> You *must* use metadata to do that.  It is never safe to disassemble
+> backwards or "rewind" EIP for x86 code. 
 
-> This patch adds a space between printing of the src and dst ipv6 addresses.
-> Otherwise, audit or other test tools may fail to process the audit
-> record properly because they cannot find the dst address.
-> 
-> Please let me know if this patch is ok. It is minor fix, but I have
-> tested it and printing ipsecv6 audit record is much better.
-> 
-> Regards,
-> Joy
-> 
-> Signed-off-by: Joy Latten <latten@austin.ibm.com>
-> 
-> Patch is against linux-2.6.20-rc4.
+What do you mean the instruction before is "mov $0x52515000,%eax"?
 
-Seems straightforward enough, applied, thanks Joy.
+Yeah, you're right.  Oh well.
+
+    J
