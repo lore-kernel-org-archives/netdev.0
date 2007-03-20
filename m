@@ -1,168 +1,88 @@
 From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [PATCH 1/3] bridge: eliminate call by reference
-Date: Tue, 20 Mar 2007 14:12:51 -0700
-Message-ID: <20070320141251.3760d87f@dxpl.pdx.osdl.net>
+Subject: [PATCH 3/3] bridge: simpler hash with salt
+Date: Tue, 20 Mar 2007 14:17:09 -0700
+Message-ID: <20070320141709.4ebb79ec@dxpl.pdx.osdl.net>
+References: <20070320141251.3760d87f@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:60768 "EHLO smtp.osdl.org"
+Received: from smtp.osdl.org ([65.172.181.24]:60764 "EHLO smtp.osdl.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751682AbXCTVUQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Mar 2007 17:20:16 -0400
+	id S1753368AbXCTVUN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Mar 2007 17:20:13 -0400
+In-Reply-To: <20070320141251.3760d87f@dxpl.pdx.osdl.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-Change the bridging hook to be simple function with return value
-rather than modifying the skb argument. This could generate better
-code and is cleaner.
-
+Instead of hashing the whole Ethernet address, it should be faster
+to just use the last 4 bytes. Add a random salt value to the hash
+to make it more difficult to construct worst case DoS hash chains.
 
 Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
----
- include/linux/if_bridge.h |    3 ++-
- net/bridge/br_input.c     |   20 +++++++++-----------
- net/bridge/br_private.h   |    3 ++-
- net/core/dev.c            |   31 +++++++++++++++++++------------
- 4 files changed, 32 insertions(+), 25 deletions(-)
 
---- net-2.6.22.orig/net/core/dev.c
-+++ net-2.6.22/net/core/dev.c
-@@ -1686,31 +1686,37 @@ static inline int deliver_skb(struct sk_
- }
- 
- #if defined(CONFIG_BRIDGE) || defined (CONFIG_BRIDGE_MODULE)
--int (*br_handle_frame_hook)(struct net_bridge_port *p, struct sk_buff **pskb);
-+/* These hooks defined here for ATM */
- struct net_bridge;
- struct net_bridge_fdb_entry *(*br_fdb_get_hook)(struct net_bridge *br,
- 						unsigned char *addr);
--void (*br_fdb_put_hook)(struct net_bridge_fdb_entry *ent);
-+void (*br_fdb_put_hook)(struct net_bridge_fdb_entry *ent) __read_mostly;
- 
--static __inline__ int handle_bridge(struct sk_buff **pskb,
--				    struct packet_type **pt_prev, int *ret,
--				    struct net_device *orig_dev)
-+/*
-+ * If bridge module is loaded call bridging hook.
-+ *  returns NULL if packet was consumed.
-+ */
-+struct sk_buff *(*br_handle_frame_hook)(struct net_bridge_port *p,
-+					struct sk_buff *skb) __read_mostly;
-+static inline struct sk_buff *handle_bridge(struct sk_buff *skb,
-+					    struct packet_type **pt_prev, int *ret,
-+					    struct net_device *orig_dev)
- {
- 	struct net_bridge_port *port;
- 
--	if ((*pskb)->pkt_type == PACKET_LOOPBACK ||
--	    (port = rcu_dereference((*pskb)->dev->br_port)) == NULL)
--		return 0;
-+	if (skb->pkt_type == PACKET_LOOPBACK ||
-+	    (port = rcu_dereference(skb->dev->br_port)) == NULL)
-+		return skb;
- 
- 	if (*pt_prev) {
--		*ret = deliver_skb(*pskb, *pt_prev, orig_dev);
-+		*ret = deliver_skb(skb, *pt_prev, orig_dev);
- 		*pt_prev = NULL;
- 	}
- 
--	return br_handle_frame_hook(port, pskb);
-+	return br_handle_frame_hook(port, skb);
- }
- #else
--#define handle_bridge(skb, pt_prev, ret, orig_dev)	(0)
-+#define handle_bridge(skb)	skb
- #endif
- 
- #ifdef CONFIG_NET_CLS_ACT
-@@ -1817,7 +1823,8 @@ int netif_receive_skb(struct sk_buff *sk
- ncls:
- #endif
- 
--	if (handle_bridge(&skb, &pt_prev, &ret, orig_dev))
-+	skb = handle_bridge(skb, &pt_prev, &ret, orig_dev);
-+	if (!skb)
- 		goto out;
- 
- 	type = skb->protocol;
---- net-2.6.22.orig/include/linux/if_bridge.h
-+++ net-2.6.22/include/linux/if_bridge.h
-@@ -105,7 +105,8 @@ struct __fdb_entry
+---
+ net/bridge/br_fdb.c |   17 ++++++++++++-----
+ 1 file changed, 12 insertions(+), 5 deletions(-)
+
+--- skge-dev.orig/net/bridge/br_fdb.c
++++ skge-dev/net/bridge/br_fdb.c
+@@ -20,19 +20,24 @@
  #include <linux/netdevice.h>
+ #include <linux/etherdevice.h>
+ #include <linux/jhash.h>
++#include <linux/random.h>
+ #include <asm/atomic.h>
++#include <asm/unaligned.h>
+ #include "br_private.h"
  
- extern void brioctl_set(int (*ioctl_hook)(unsigned int, void __user *));
--extern int (*br_handle_frame_hook)(struct net_bridge_port *p, struct sk_buff **pskb);
-+extern struct sk_buff *(*br_handle_frame_hook)(struct net_bridge_port *p,
-+					       struct sk_buff *skb);
- extern int (*br_should_route_hook)(struct sk_buff **pskb);
+ static struct kmem_cache *br_fdb_cache __read_mostly;
+ static int fdb_insert(struct net_bridge *br, struct net_bridge_port *source,
+ 		      const unsigned char *addr);
  
- #endif
---- net-2.6.22.orig/net/bridge/br_input.c
-+++ net-2.6.22/net/bridge/br_input.c
-@@ -121,13 +121,11 @@ static inline int is_link_local(const un
- 
- /*
-  * Called via br_handle_frame_hook.
-- * Return 0 if *pskb should be processed furthur
-- *	  1 if *pskb is handled
-+ * Return NULL if skb is handled
-  * note: already called with rcu_read_lock (preempt_disabled)
-  */
--int br_handle_frame(struct net_bridge_port *p, struct sk_buff **pskb)
-+struct sk_buff *br_handle_frame(struct net_bridge_port *p, struct sk_buff *skb)
- {
--	struct sk_buff *skb = *pskb;
- 	const unsigned char *dest = eth_hdr(skb)->h_dest;
- 
- 	if (!is_valid_ether_addr(eth_hdr(skb)->h_source))
-@@ -135,15 +133,15 @@ int br_handle_frame(struct net_bridge_po
- 
- 	if (unlikely(is_link_local(dest))) {
- 		skb->pkt_type = PACKET_HOST;
--		return NF_HOOK(PF_BRIDGE, NF_BR_LOCAL_IN, skb, skb->dev,
--			       NULL, br_handle_local_finish) != 0;
++static u32 fdb_salt __read_mostly;
 +
-+		return (NF_HOOK(PF_BRIDGE, NF_BR_LOCAL_IN, skb, skb->dev,
-+				NULL, br_handle_local_finish) == 0) ? skb : NULL;
- 	}
- 
- 	if (p->state == BR_STATE_FORWARDING || p->state == BR_STATE_LEARNING) {
- 		if (br_should_route_hook) {
--			if (br_should_route_hook(pskb))
--				return 0;
--			skb = *pskb;
-+			if (br_should_route_hook(&skb))
-+				return skb;
- 			dest = eth_hdr(skb)->h_dest;
- 		}
- 
-@@ -152,10 +150,10 @@ int br_handle_frame(struct net_bridge_po
- 
- 		NF_HOOK(PF_BRIDGE, NF_BR_PRE_ROUTING, skb, skb->dev, NULL,
- 			br_handle_frame_finish);
--		return 1;
-+		return NULL;
- 	}
- 
- err:
- 	kfree_skb(skb);
--	return 1;
-+	return NULL;
+ void __init br_fdb_init(void)
+ {
+ 	br_fdb_cache = kmem_cache_create("bridge_fdb_cache",
+ 					 sizeof(struct net_bridge_fdb_entry),
+ 					 0,
+ 					 SLAB_HWCACHE_ALIGN, NULL, NULL);
++	get_random_bytes(&fdb_salt, sizeof(fdb_salt));
  }
---- net-2.6.22.orig/net/bridge/br_private.h
-+++ net-2.6.22/net/bridge/br_private.h
-@@ -182,7 +182,8 @@ extern void br_features_recompute(struct
  
- /* br_input.c */
- extern int br_handle_frame_finish(struct sk_buff *skb);
--extern int br_handle_frame(struct net_bridge_port *p, struct sk_buff **pskb);
-+extern struct sk_buff *br_handle_frame(struct net_bridge_port *p,
-+				       struct sk_buff *skb);
+ void __exit br_fdb_fini(void)
+@@ -44,24 +49,26 @@ void __exit br_fdb_fini(void)
+ /* if topology_changing then use forward_delay (default 15 sec)
+  * otherwise keep longer (default 5 minutes)
+  */
+-static __inline__ unsigned long hold_time(const struct net_bridge *br)
++static inline unsigned long hold_time(const struct net_bridge *br)
+ {
+ 	return br->topology_change ? br->forward_delay : br->ageing_time;
+ }
  
- /* br_ioctl.c */
- extern int br_dev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
+-static __inline__ int has_expired(const struct net_bridge *br,
++static inline int has_expired(const struct net_bridge *br,
+ 				  const struct net_bridge_fdb_entry *fdb)
+ {
+ 	return !fdb->is_static
+ 		&& time_before_eq(fdb->ageing_timer + hold_time(br), jiffies);
+ }
+ 
+-static __inline__ int br_mac_hash(const unsigned char *mac)
++static inline int br_mac_hash(const unsigned char *mac)
+ {
+-	return jhash(mac, ETH_ALEN, 0) & (BR_HASH_SIZE - 1);
++	/* use 1 byte of OUI cnd 3 bytes of NIC */
++	u32 key = get_unaligned((u32 *)(mac + 2));
++	return jhash_1word(key, fdb_salt) & (BR_HASH_SIZE - 1);
+ }
+ 
+-static __inline__ void fdb_delete(struct net_bridge_fdb_entry *f)
++static inline void fdb_delete(struct net_bridge_fdb_entry *f)
+ {
+ 	hlist_del_rcu(&f->hlist);
+ 	br_fdb_put(f);
