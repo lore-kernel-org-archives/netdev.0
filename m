@@ -1,60 +1,55 @@
-From: Samuel Ortiz <samuel@sortiz.org>
-Subject: Re: [PATCH -rt] Fix initialization of spinlock in irttp_dup()
-Date: Tue, 20 Mar 2007 23:50:12 +0200
-Message-ID: <20070320215012.GA4089@sortiz.org>
-References: <20070320192233.GA14543@plexity.net>
-Reply-To: Samuel Ortiz <samuel@sortiz.org>
+From: Zacco <zacco@fw.hu>
+Subject: Re: many sockets, slow sendto
+Date: Tue, 20 Mar 2007 22:59:10 +0100
+Message-ID: <4600592E.80605@fw.hu>
+References: <E1HObHK-0000WB-00@osiris.swi.hu>	<20070306182039.GJ25760@galon.ev-en.org>	<45FF185B.4070007@fw.hu> <20070319.161611.70218081.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Andrew Morton <akpm@osdl.org>,
-	Ingo Molnar <mingo@elte.hu>, Daniel Walker <dwalker@mvista.com>
-To: Deepak Saxena <dsaxena@plexity.net>
+Content-Type: text/plain; charset=ISO-8859-2; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: baruch@ev-en.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp23.orange.fr ([80.12.242.50]:56718 "EHLO smtp23.orange.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753913AbXCTVuU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Mar 2007 17:50:20 -0400
-Content-Disposition: inline
-In-Reply-To: <20070320192233.GA14543@plexity.net>
+Received: from mta01.mail.t-online.hu ([195.228.240.50]:56267 "EHLO
+	mta01.mail.t-online.hu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751729AbXCTV6n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Mar 2007 17:58:43 -0400
+In-Reply-To: <20070319.161611.70218081.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Deepak,
+Hi,
 
-On Tue, Mar 20, 2007 at 12:22:33PM -0700, Deepak Saxena wrote:
-> This was found around the 2.6.10 timeframe when testing with the -rt patch
-> and I believe is still is an issue. irttp_dup() does a memcpy() of the tsap_cb 
-> structure causing the spinlock protecting various fields in the structure to be 
-> duped.  This works OK in the non-RT case but in the RT case we end up with two 
-> mutexes pointing to the same wait_list and leading to an OOPS. Fix is to simply
-> initialize the spinlock after the memcpy().
-This has just made it to the netdev and stable trees.
-See:
-http://git.kernel.org/?p=linux/kernel/git/davem/net-2.6.git;a=commit;h=7bb1bbe615de25d955b974cb47d40fa198154bb9
+David Miller wrote:
+> From: Zacco <zacco@fw.hu>
+> Date: Tue, 20 Mar 2007 00:10:19 +0100
+>
+>   
+>> As you recommended, I used oprofile and it turned out that the 
+>> __udp4_lib_lookup function spent most of the time. There is a udp hash 
+>> table and the sockets are sought based on the 7 LSBs of the destination 
+>> port number. So what happened is now quite obvious: I had many thousands 
+>> of sockets, all with the same destination port, thus linked in the same 
+>> slot of this hash table. I tried using different ports and it
+>> was much faster then.
+>>     
+>
+> There isn't much we can do here.  I bet your destination address
+> is unchanging just like your destination ports.
+>   
+As I'm simulating independent users on one host, each user has a 
+different IP address, but each with the same port. So unlike the port, 
+the address is changing, basically it's a huge A-class range.
 
-Cheers,
-Samuel.
+> UDP apps can and do bind to specific destination addresses and
+> ports, but the source side is usually wild-carded.
+>   
+Right, usually it is, but in my case the source addresses are also 
+bound, otherwise the source address would be the primary address of the 
+physical interface; however, I need to simulate users as if they were on 
+separate hosts.
+> Are both the source address and port fully specified for your
+> sockets?  Maybe we can do something using if that's the case...
+>   
+You made me curious.  :)  What do you have in mind?
 
-
-> Signed-off-by: Deepak Saxena <dsaxena@mvista.com>
-> 
-> diff --git a/net/irda/irttp.c b/net/irda/irttp.c
-> index a7486b3..df2b2f7 100644
-> --- a/net/irda/irttp.c
-> +++ b/net/irda/irttp.c
-> @@ -1441,6 +1441,7 @@ struct tsap_cb *irttp_dup(struct tsap_cb
->  	}
->  	/* Dup */
->  	memcpy(new, orig, sizeof(struct tsap_cb));
-> +	spin_lock_init(&new->lock);
->  
->  	/* We don't need the old instance any more */
->  	spin_unlock_irqrestore(&irttp->tsaps->hb_spinlock, flags);
-> 
-> 
-> -- 
-> Deepak Saxena - dsaxena@plexity.net - http://www.plexity.net
-> 
-> In the end, they will not say, "those were dark times,"  they will ask
-> "why were their poets silent?" - Bertolt Brecht
-
+thx: Zacco
