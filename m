@@ -1,57 +1,35 @@
-From: Matt Mackall <mpm@selenic.com>
-Subject: Re: [RFC][PATCH -mm take3 1/6][resend] marking __init
-Date: Tue, 20 Mar 2007 10:36:27 -0500
-Message-ID: <20070320153627.GF4892@waste.org>
-References: <45FFCF31.3040000@bx.jp.nec.com> <45FFD272.6020105@bx.jp.nec.com>
+From: "Robert Liang" <liangrob@gmail.com>
+Subject: example of tcp dsack undo
+Date: Tue, 20 Mar 2007 10:56:46 -0500
+Message-ID: <3d2301590703200856o32f21bf1g4617c5f8033ca561@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Keiichi KII <k-keiichi@bx.jp.nec.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from waste.org ([66.93.16.53]:56971 "EHLO waste.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753371AbXCTPtJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Mar 2007 11:49:09 -0400
+Received: from nf-out-0910.google.com ([64.233.182.188]:12723 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753868AbXCTP4s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Mar 2007 11:56:48 -0400
+Received: by nf-out-0910.google.com with SMTP id o25so424678nfa
+        for <netdev@vger.kernel.org>; Tue, 20 Mar 2007 08:56:47 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <45FFD272.6020105@bx.jp.nec.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 20, 2007 at 09:24:18PM +0900, Keiichi KII wrote:
-> From: Keiichi KII <k-keiichi@bx.jp.nec.com>
-> 
-> This patch contains the following cleanups.
->  - add __init for initialization functions(option_setup() and
->    init_netconsole()).
-> 
-> Signed-off-by: Keiichi KII <k-keiichi@bx.jp.nec.com>
-> Signed-off-by: Takayoshi Kochi <t-kochi@bq.jp.nec.com>
-> ---
-> Index: linux-mm/drivers/net/netconsole.c
-> ===================================================================
-> --- linux-mm.orig/drivers/net/netconsole.c
-> +++ linux-mm/drivers/net/netconsole.c
-> @@ -91,7 +91,7 @@ static struct console netconsole = {
->  	.write = write_msg
->  };
->  
-> -static int option_setup(char *opt)
-> +static int __init option_setup(char *opt)
->  {
->  	configured = !netpoll_parse_options(&np, opt);
->  	return 1;
-> @@ -99,7 +99,7 @@ static int option_setup(char *opt)
->  
->  __setup("netconsole=", option_setup);
->  
-> -static int init_netconsole(void)
-> +static int __init init_netconsole(void)
->  {
->  	int err;
+Hi,
 
-This is fine.
+While designing some testing examples for the undo mechanisms, I found that
+undo_dsack is only used when the state is Disorder. However, I assume that
+dsack happens when there are retransmissions, which means Recovery or Loss.
 
-Acked-by: Matt Mackall <mpm@selenic.com>
+I can think of an example of receiving dsack following a successful
+recovery. But
+the dsack ACKs old data and can not bring the state into Disorder.
+Can anybody give me an example when *valid* dsack is received while in Disorder
+state.
 
--- 
-Mathematics is the supreme nostalgia of our time.
+
+Thank you!
+
+rl
