@@ -1,95 +1,78 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: Oops in filter add
-Date: Tue, 20 Mar 2007 15:57:57 +0100
-Message-ID: <45FFF675.8040501@trash.net>
-References: <45FEEE35.6090606@reflexsecurity.com>	 <20070319.192206.21926062.davem@davemloft.net> <1174373645.4895.15.camel@localhost> <45FFEC78.2090708@reflexsecurity.com> <45FFF455.80003@trash.net>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [patch 13/26] Xen-paravirt_ops: Consistently wrap paravirt ops
+	callsites to make them patchable
+Date: Tue, 20 Mar 2007 08:09:46 -0700 (PDT)
+Message-ID: <Pine.LNX.4.64.0703200805450.6730@woody.linux-foundation.org>
+References: <20070316.023331.59468179.davem@davemloft.net>
+	<45FB005D.9060809@goop.org>
+	<1174127638.8897.75.camel@localhost.localdomain>
+	<20070318.003309.71088169.davem@davemloft.net>
+	<20070318120814.GA45869@muc.de>
+	<1174272469.11680.23.camel@localhost.localdomain>
+	<m1648xxf93.fsf@ebiederm.dsl.xmission.com>
+	<Pine.LNX.4.64.0703191134190.6730@woody.linux-foundation.org>
+	<1174348905.11680.54.camel@localhost.localdomain>
+	<45FF4043.4000805@vmware.com> <45FF770C.7050301@goop.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------020309020807050808070608"
-Cc: hadi@cyberus.ca, netdev@vger.kernel.org
-To: Chris Madden <chris@reflexsecurity.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:51781 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751326AbXCTO6S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Mar 2007 10:58:18 -0400
-In-Reply-To: <45FFF455.80003@trash.net>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: xen-devel@lists.xensource.com, akpm@linux-foundation.org,
+   virtualization@lists.osdl.org, netdev@vger.kernel.org,
+   linux-kernel@vger.kernel.org, chrisw@sous-sol.org, Andi Kleen <ak@muc.de>,
+   "Eric W. Biederman" <ebiederm@xmission.com>, anthony@codemonkey.ws,
+   mingo@elte.hu, David Miller <davem@davemloft.net>
+To: Jeremy Fitzhardinge <jeremy@goop.org>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <45FF770C.7050301@goop.org>
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/virtualization>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------020309020807050808070608
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-
-Patrick McHardy wrote:
-> Chris Madden wrote:
-> 
->>Ok, I replaced ingress_lock with queue_lock in ing_filter and it died in
->>the same place.  Trace below (looks to be substantively the same)...
->>
->>If I am reading tc_ctl_tfilter correctly, we are adding our new
->>tcf_proto to the end of the list, and it is getting used before the
->>change function is getting executed on it.   Locking the ingress_lock in
->>qdisc_lock_tree ( in addition to the extant queue_lock )seems to have
->>the same effect; I can get  a traceback from that if its useful.
-> 
-> 
-> 
-> The problem is that some classifiers (like basic, fw and route)
-> implement empty ->init functions, although fw and route properly
-> deal with it in their classification functions. The ->init function
-> should allocate and initalize tp->root, which basic fails to do.
-> If you give me a few hours I'll cook up a patch for this.
 
 
-Actually its only cls_basic thats broken, in case of route and fw
-its intentional for backwards-compatibility.
+On Mon, 19 Mar 2007, Jeremy Fitzhardinge wrote:
+>
+> Zachary Amsden wrote:
+> > For VMI, the default clobber was "cc", and you need a way to allow at
+> > least that, because saving and restoring flags is too expensive on x86.
+> =
 
-Can you try this patch please?
+> According to lore (Andi, I think), asm() always clobbers cc. =
 
 
---------------020309020807050808070608
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
+On x86, yes. Practically any instruction will clobber cc anyway, so it's =
 
-diff --git a/net/sched/cls_basic.c b/net/sched/cls_basic.c
-index fad08e5..ed788d0 100644
---- a/net/sched/cls_basic.c
-+++ b/net/sched/cls_basic.c
-@@ -81,6 +81,13 @@ static void basic_put(struct tcf_proto *
- 
- static int basic_init(struct tcf_proto *tp)
- {
-+	struct basic_head *head;
-+
-+	head = kzalloc(sizeof(*head), GFP_KERNEL);
-+	if (head == NULL)
-+		return -ENOMEM;
-+	INIT_LIST_HEAD(&head->flist);
-+	tp->root = head;
- 	return 0;
- }
- 
-@@ -175,16 +182,6 @@ static int basic_change(struct tcf_proto
- 		return basic_set_parms(tp, f, base, tb, tca[TCA_RATE-1]);
- 	}
- 
--	err = -ENOBUFS;
--	if (head == NULL) {
--		head = kzalloc(sizeof(*head), GFP_KERNEL);
--		if (head == NULL)
--			goto errout;
--
--		INIT_LIST_HEAD(&head->flist);
--		tp->root = head;
--	}
--
- 	f = kzalloc(sizeof(*f), GFP_KERNEL);
- 	if (f == NULL)
- 		goto errout;
+the default.
 
---------------020309020807050808070608--
+Although the gcc guys have occasionally been suggesting we should set it =
+
+in our asms.
+
+> Actually, it still does need a temp register.  The sequence for cli is:
+> =
+
+>     mov %fs:xen_vcpu, %eax
+>     movb $1,1(%eax)
+
+We should just do this natively. There's been several tests over the years =
+
+saying that it's much more efficient to do sti/cli as a simple store, and =
+
+handling the "oops, we got an interrupt while interrupts were disabled" as =
+
+a special case.
+
+I have this dim memory that ARM has done it that way for a long time =
+
+because it's so expensive to do a "real" cli/sti.
+
+And I think -rt does it for other reasons. It's just more flexible.
+
+		Linus
