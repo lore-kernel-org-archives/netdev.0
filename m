@@ -1,38 +1,56 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: ping6 to own link-local address
-Date: Wed, 21 Mar 2007 00:26:09 +0100 (CET)
-Message-ID: <20070321.002609.58216683.yoshfuji@linux-ipv6.org>
-References: <20070320.101911.50437044.yoshfuji@linux-ipv6.org>
-	<1174429000.3255.3.camel@w-sridhar2.beaverton.ibm.com>
+From: Jeremy Fitzhardinge <jeremy@goop.org>
+Subject: Re: [patch 13/26] Xen-paravirt_ops: Consistently wrap
+ paravirt ops callsites to make them patchable
+Date: Tue, 20 Mar 2007 16:33:58 -0700
+Message-ID: <46006F66.4030901@goop.org>
+References: <1174272469.11680.23.camel@localhost.localdomain>
+	<m1648xxf93.fsf@ebiederm.dsl.xmission.com>
+	<Pine.LNX.4.64.0703191134190.6730@woody.linux-foundation.org>
+	<1174348905.11680.54.camel@localhost.localdomain>
+	<45FF4043.4000805@vmware.com> <45FF770C.7050301@goop.org>
+	<Pine.LNX.4.64.0703200805450.6730@woody.linux-foundation.org>
+	<m1mz27sy82.fsf@ebiederm.dsl.xmission.com>
+	<Pine.LNX.4.64.0703200903500.6730@woody.linux-foundation.org>
+	<46000C7E.4070001@goop.org> <20070320224324.GL10459@waste.org>
+	<46006963.1020401@vmware.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, CHINEN@jp.ibm.com, yoshfuji@linux-ipv6.org
-To: sri@us.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:35074 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933890AbXCTXZb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Mar 2007 19:25:31 -0400
-In-Reply-To: <1174429000.3255.3.camel@w-sridhar2.beaverton.ibm.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: xen-devel@lists.xensource.com, akpm@linux-foundation.org,
+	virtualization@lists.osdl.org, netdev@vger.kernel.org,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	linux-kernel@vger.kernel.org, chrisw@sous-sol.org, Andi Kleen <ak@muc.de>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	anthony@codemonkey.ws, Matt Mackall <mpm@selenic.com>,
+	mingo@elte.hu, Linus Torvalds <torvalds@linux-foundation.org>,
+	David Miller <davem@davemloft.net>
+To: Zachary Amsden <zach@vmware.com>
+Return-path: <xen-devel-bounces@lists.xensource.com>
+In-Reply-To: <46006963.1020401@vmware.com>
+List-Unsubscribe: <http://lists.xensource.com/cgi-bin/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xensource.com?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xensource.com>
+List-Help: <mailto:xen-devel-request@lists.xensource.com?subject=help>
+List-Subscribe: <http://lists.xensource.com/cgi-bin/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xensource.com?subject=subscribe>
+Sender: xen-devel-bounces@lists.xensource.com
+Errors-To: xen-devel-bounces@lists.xensource.com
 List-Id: netdev.vger.kernel.org
 
-In article <1174429000.3255.3.camel@w-sridhar2.beaverton.ibm.com> (at Tue, 20 Mar 2007 15:16:40 -0700), Sridhar Samudrala <sri@us.ibm.com> says:
+Zachary Amsden wrote:
+> I think Jeremy's idea was to have interrupt handlers leave interrupts
+> disabled on exit if pda.intr_mask was set.  In which case, they would
+> bypass all work and we could never get preempted.
 
-> On Tue, 2007-03-20 at 10:19 +0100, YOSHIFUJI Hideaki / 吉藤英明 wrote:
-> > Hello.
-> > 
-> > Recent 2.6.21-git kernels do not respond to ping6 queries
-> > to our own (local) link-local address.  Now bisecting...
-> 
-> The following patch seems to be the cause for this regression.
-> 
-> [IPV6] ROUTE: Do not route packets to link-local address on other device.
-> 
-> http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=a0d78ebf3a0e33a1aeacf2fc518ad9273d6a1c2f
+Yes, I was worried that if we left the isr without actually handling the
+interrupt, it would still be asserted and we'd just get interrupted
+again.  The idea is that we avoid touching cli/sti for the common case
+of no interrupts while interrupts are disabled, but we'd still need to
+fall back to using them if an interrupt becomes pending.
 
-Right.  Hmm...
+> I don't think leaving hardware interrupts disabled for such a long
+> time is good though. 
 
---yoshfuji
+How long?  It would be no longer than now, and possibly less, wouldn't it?
+
+    J
