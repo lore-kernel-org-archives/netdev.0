@@ -1,78 +1,64 @@
-From: "Michael S. Tsirkin" <mst@dev.mellanox.co.il>
-Subject: Re: dst_ifdown breaks infiniband?
-Date: Tue, 20 Mar 2007 18:02:17 +0200
-Message-ID: <20070320160217.GC31495@mellanox.co.il>
-References: <20070318155532.GG7958@mellanox.co.il>
-	<20070318191238.GA20518@ms2.inr.ac.ru>
-	<20070318195355.GB11078@mellanox.co.il>
-	<20070318201826.GB27004@ms2.inr.ac.ru>
-	<20070319093632.GB8386@mellanox.co.il>
-	<20070319120534.GA28187@ms2.inr.ac.ru>
-	<20070319121248.GD18497@mellanox.co.il>
-	<20070319125919.GA4239@ms2.inr.ac.ru>
-	<20070319151336.GA24225@mellanox.co.il>
-	<20070319232043.GA23359@ms2.inr.ac.ru>
-Reply-To: "Michael S. Tsirkin" <mst@dev.mellanox.co.il>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [patch 13/26] Xen-paravirt_ops: Consistently wrap paravirt ops callsites to make them patchable
+Date: Tue, 20 Mar 2007 09:58:53 -0600
+Message-ID: <m1mz27sy82.fsf@ebiederm.dsl.xmission.com>
+References: <20070316.023331.59468179.davem@davemloft.net>
+	<45FB005D.9060809@goop.org>
+	<1174127638.8897.75.camel@localhost.localdomain>
+	<20070318.003309.71088169.davem@davemloft.net>
+	<20070318120814.GA45869@muc.de>
+	<1174272469.11680.23.camel@localhost.localdomain>
+	<m1648xxf93.fsf@ebiederm.dsl.xmission.com>
+	<Pine.LNX.4.64.0703191134190.6730@woody.linux-foundation.org>
+	<1174348905.11680.54.camel@localhost.localdomain>
+	<45FF4043.4000805@vmware.com> <45FF770C.7050301@goop.org>
+	<Pine.LNX.4.64.0703200805450.6730@woody.linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "Michael S. Tsirkin" <mst@dev.mellanox.co.il>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, general@lists.openfabrics.org,
-	Roland Dreier <rolandd@cisco.com>,
-	David Miller <davem@davemloft.net>
-To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Cc: Jeremy Fitzhardinge <jeremy@goop.org>,
+	Zachary Amsden <zach@vmware.com>,
+	Rusty Russell <rusty@rustcorp.com.au>, Andi Kleen <ak@muc.de>,
+	David Miller <davem@davemloft.net>, mingo@elte.hu,
+	akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.osdl.org, xen-devel@lists.xensource.com,
+	chrisw@sous-sol.org, anthony@codemonkey.ws, netdev@vger.kernel.org
+To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.171]:24421 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751693AbXCTQBh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Mar 2007 12:01:37 -0400
-Received: by ug-out-1314.google.com with SMTP id 44so1658354uga
-        for <netdev@vger.kernel.org>; Tue, 20 Mar 2007 09:01:35 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20070319232043.GA23359@ms2.inr.ac.ru>
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:59257 "EHLO
+	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751695AbXCTQBg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Mar 2007 12:01:36 -0400
+In-Reply-To: <Pine.LNX.4.64.0703200805450.6730@woody.linux-foundation.org>
+	(Linus Torvalds's message of "Tue, 20 Mar 2007 08:09:46 -0700 (PDT)")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> Quoting Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>:
-> Subject: Re: dst_ifdown breaks infiniband?
-> 
-> Hello!
-> 
-> > This might work. Could you post a patch to better show what you mean to do?
-> 
-> Here it is.
-> 
-> ->neigh_destructor() is killed (not used), replaced with ->neigh_cleanup(),
-> which is called when neighbor entry goes to dead state. At this point
-> everything is still valid: neigh->dev, neigh->parms etc.
-> 
-> The device should guarantee that dead neighbor entries (neigh->dead != 0)
-> do not get private part initialized, otherwise nobody will cleanup it.
+Linus Torvalds <torvalds@linux-foundation.org> writes:
 
-OK, I stress-tested this for about 9 hours - apparently this resolves the issues
-I was seeing both with hotplug device unregister and module removal.
+> On Mon, 19 Mar 2007, Jeremy Fitzhardinge wrote:
+>> Actually, it still does need a temp register.  The sequence for cli is:
+>> 
+>>     mov %fs:xen_vcpu, %eax
+>>     movb $1,1(%eax)
+>
+> We should just do this natively. There's been several tests over the years 
+> saying that it's much more efficient to do sti/cli as a simple store, and 
+> handling the "oops, we got an interrupt while interrupts were disabled" as 
+> a special case.
+>
+> I have this dim memory that ARM has done it that way for a long time 
+> because it's so expensive to do a "real" cli/sti.
+>
+> And I think -rt does it for other reasons. It's just more flexible.
 
-This is an old bug, but somehow it did not trigger on
-older kernels - some code restructuring in infiniband is probably
-the reason - so from that POV it's a regression in 2.6.21.
-So now several people are experiencing these crashes.
+If that is the case.  In the normal kernel what would
+the "the oops, we got an interrupt code do?"
+I assume it would leave interrupts disabled when it returns?
+Like we currently do with the delayed disable of normal interrupts?
 
-David, Alexey, what do you think about this patch? Is it right?
-Could this patch be considered for 2.6.21?
+I'm trying to understand the proposed semantics.
 
-Acked-by: Michael S. Tsirkin <mst@dev.mellanox.co.il>
+Looking at the above code snippet.  I guess it is about time to
+merge our per_cpu and pda variables...
 
-> 
-> I think this is enough for ipoib which is the only user of this thing.
-> Initialization private part of neighbor entries happens in ipib
-> start_xmit routine, which is not reached when device is down.
-> But it would be better to add explicit test for neigh->dead
-> in any case.
-
-Additionally, ip over infiniband actually tests a separate flag
-IPOIB_FLAG_ADMIN_UP before looking at an skb.
-This flag is cleared before the device goes down.
-Taken together this should be sufficient I think.
-
--- 
-MST
+Eric
