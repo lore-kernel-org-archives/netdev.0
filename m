@@ -1,72 +1,45 @@
-From: Gerrit Renker <acme@ghostprotocols.net>
-Subject: [PATCH 17/31] [CCID3]: Use MSS for larger initial windows
-Date: Tue, 20 Mar 2007 20:14:28 -0300
-Message-ID: <20070320231428.GF17811@ghostprotocols.net>
+From: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+Subject: [PATCH 18/31] [CCID3]: Fix use of invalid loss intervals
+Date: Tue, 20 Mar 2007 20:15:17 -0300
+Message-ID: <20070320231517.GG17811@ghostprotocols.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.237]:38396 "EHLO
+Received: from wx-out-0506.google.com ([66.249.82.225]:39497 "EHLO
 	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752191AbXCTXOd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Mar 2007 19:14:33 -0400
-Received: by wx-out-0506.google.com with SMTP id h31so66486wxd
-        for <netdev@vger.kernel.org>; Tue, 20 Mar 2007 16:14:33 -0700 (PDT)
+	with ESMTP id S1752206AbXCTXPW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Mar 2007 19:15:22 -0400
+Received: by wx-out-0506.google.com with SMTP id h31so66936wxd
+        for <netdev@vger.kernel.org>; Tue, 20 Mar 2007 16:15:21 -0700 (PDT)
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This improves the slow-start phase by using the MSS
-(as suggested in RFC 4342, sec. 5) instead of the packet size s.
-Also figured out that __u32 is ample resource enough.
+This fixes a bug which uses an invalid comparison.
+The bug resulted in the use of invalid loss intervals.
 
-After applying, I got the following in the logs:
-
-  ccid3_hc_tx_packet_recv: client(f7421700), s=6, MSS=1424, w_init=4380, R_sample=176us, X=24886363
-
-Had the previous variant been used, w_init would have been as low as 24.
-
-Committer note: removed unneeded cast to unsigned long long that was
-                causing a compiler warning on 64bit architectures.
-
-Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Acked-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
+Signed-off-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
+Acked-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
 ---
- net/dccp/ccids/ccid3.c |   10 +++++-----
- 1 files changed, 5 insertions(+), 5 deletions(-)
+ net/dccp/ccids/lib/loss_interval.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/net/dccp/ccids/ccid3.c b/net/dccp/ccids/ccid3.c
-index 0009b39..52dae40 100644
---- a/net/dccp/ccids/ccid3.c
-+++ b/net/dccp/ccids/ccid3.c
-@@ -466,20 +466,20 @@ static void ccid3_hc_tx_packet_recv(struct sock *sk, struct sk_buff *skb)
- 		if (hctx->ccid3hctx_state == TFRC_SSTATE_NO_FBACK) {
- 			/*
- 			 * Larger Initial Windows [RFC 4342, sec. 5]
--			 * We deviate in that we use `s' instead of `MSS'.
- 			 */
--			__u64 w_init = min(4 * hctx->ccid3hctx_s,
--					   max(2 * hctx->ccid3hctx_s, 4380));
-+			__u32 w_init = min(4 * dp->dccps_mss_cache,
-+					   max(2 * dp->dccps_mss_cache, 4380U));
- 			hctx->ccid3hctx_rtt  = r_sample;
- 			hctx->ccid3hctx_x    = scaled_div(w_init << 6, r_sample);
- 			hctx->ccid3hctx_t_ld = now;
+diff --git a/net/dccp/ccids/lib/loss_interval.c b/net/dccp/ccids/lib/loss_interval.c
+index 0a0baef..372d7e7 100644
+--- a/net/dccp/ccids/lib/loss_interval.c
++++ b/net/dccp/ccids/lib/loss_interval.c
+@@ -91,7 +91,7 @@ u32 dccp_li_hist_calc_i_mean(struct list_head *list)
+ 	u32 w_tot  = 0;
  
- 			ccid3_update_send_time(hctx);
- 
--			ccid3_pr_debug("%s(%p), s=%u, w_init=%llu, "
-+			ccid3_pr_debug("%s(%p), s=%u, MSS=%u, w_init=%u, "
- 				       "R_sample=%dus, X=%u\n", dccp_role(sk),
- 				       sk, hctx->ccid3hctx_s,
--				       (unsigned long long)w_init,
-+				       dp->dccps_mss_cache,
-+				       w_init,
- 				       (int)r_sample,
- 				       (unsigned)(hctx->ccid3hctx_x >> 6));
- 
+ 	list_for_each_entry_safe(li_entry, li_next, list, dccplih_node) {
+-		if (li_entry->dccplih_interval != ~0) {
++		if (li_entry->dccplih_interval != ~0U) {
+ 			i_tot0 += li_entry->dccplih_interval * dccp_li_hist_w[i];
+ 			w_tot  += dccp_li_hist_w[i];
+ 			if (i != 0)
 -- 
 1.5.0.3
 
