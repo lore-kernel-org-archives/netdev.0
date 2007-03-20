@@ -1,35 +1,57 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: Oops in filter add
-Date: Tue, 20 Mar 2007 16:13:58 +0100
-Message-ID: <45FFFA36.7080404@trash.net>
-References: <45FEEE35.6090606@reflexsecurity.com> <20070319.192206.21926062.davem@davemloft.net> <1174373645.4895.15.camel@localhost> <45FFEC78.2090708@reflexsecurity.com> <45FFF455.80003@trash.net> <45FFF675.8040501@trash.net> <20070320151151.GM521@postel.suug.ch>
+From: Matt Mackall <mpm@selenic.com>
+Subject: Re: [RFC][PATCH -mm take3 1/6][resend] marking __init
+Date: Tue, 20 Mar 2007 10:36:27 -0500
+Message-ID: <20070320153627.GF4892@waste.org>
+References: <45FFCF31.3040000@bx.jp.nec.com> <45FFD272.6020105@bx.jp.nec.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: Chris Madden <chris@reflexsecurity.com>, hadi@cyberus.ca,
-	netdev@vger.kernel.org
-To: Thomas Graf <tgraf@suug.ch>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Keiichi KII <k-keiichi@bx.jp.nec.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:52115 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933633AbXCTPOG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Mar 2007 11:14:06 -0400
-In-Reply-To: <20070320151151.GM521@postel.suug.ch>
+Received: from waste.org ([66.93.16.53]:56971 "EHLO waste.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753371AbXCTPtJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Mar 2007 11:49:09 -0400
+Content-Disposition: inline
+In-Reply-To: <45FFD272.6020105@bx.jp.nec.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Thomas Graf wrote:
-> * Patrick McHardy <kaber@trash.net> 2007-03-20 15:57
+On Tue, Mar 20, 2007 at 09:24:18PM +0900, Keiichi KII wrote:
+> From: Keiichi KII <k-keiichi@bx.jp.nec.com>
 > 
->>Actually its only cls_basic thats broken, in case of route and fw
->>its intentional for backwards-compatibility.
+> This patch contains the following cleanups.
+>  - add __init for initialization functions(option_setup() and
+>    init_netconsole()).
 > 
-> 
-> Absolutely right, thanks Patrick.
+> Signed-off-by: Keiichi KII <k-keiichi@bx.jp.nec.com>
+> Signed-off-by: Takayoshi Kochi <t-kochi@bq.jp.nec.com>
+> ---
+> Index: linux-mm/drivers/net/netconsole.c
+> ===================================================================
+> --- linux-mm.orig/drivers/net/netconsole.c
+> +++ linux-mm/drivers/net/netconsole.c
+> @@ -91,7 +91,7 @@ static struct console netconsole = {
+>  	.write = write_msg
+>  };
+>  
+> -static int option_setup(char *opt)
+> +static int __init option_setup(char *opt)
+>  {
+>  	configured = !netpoll_parse_options(&np, opt);
+>  	return 1;
+> @@ -99,7 +99,7 @@ static int option_setup(char *opt)
+>  
+>  __setup("netconsole=", option_setup);
+>  
+> -static int init_netconsole(void)
+> +static int __init init_netconsole(void)
+>  {
+>  	int err;
 
+This is fine.
 
-There was a small bug in my patch (broken return value on memory
-allocation failure, not relevant for testing though). I'll push
-the fixed patch to Dave once Chris confirms that it fixes the
-problem he's seeing.
+Acked-by: Matt Mackall <mpm@selenic.com>
 
+-- 
+Mathematics is the supreme nostalgia of our time.
