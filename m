@@ -1,67 +1,74 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: [NET_SCHED]: Fix ingress locking
-Date: Tue, 20 Mar 2007 18:15:03 +0100
-Message-ID: <46001697.30409@trash.net>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [patch 13/26] Xen-paravirt_ops: Consistently wrap paravirt ops
+	callsites to make them patchable
+Date: Tue, 20 Mar 2007 10:27:00 -0700 (PDT)
+Message-ID: <Pine.LNX.4.64.0703201022040.6730@woody.linux-foundation.org>
+References: <20070319.120854.30182994.davem@davemloft.net>
+	<20070319.204712.118947830.davem@davemloft.net>
+	<m13b40wnrb.fsf@ebiederm.dsl.xmission.com>
+	<200703201428.50564.ak@suse.de>
+	<m1ircvswzz.fsf@ebiederm.dsl.xmission.com>
+	<20070320174159.GA4286@bingen.suse.de>
+	<Pine.LNX.4.64.0703200947501.6730@woody.linux-foundation.org>
+	<20070320180359.GB4286@bingen.suse.de>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------040906090908090202040804"
-Cc: Linux Netdev List <netdev@vger.kernel.org>, jamal <hadi@cyberus.ca>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:54683 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965544AbXCTRPX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Mar 2007 13:15:23 -0400
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: xen-devel@lists.xensource.com, netdev@vger.kernel.org, mingo@elte.hu,
+   linux-kernel@vger.kernel.org, jbeulich@novell.com,
+   virtualization@lists.linux-foundation.org, chrisw@sous-sol.org,
+   virtualization@lists.osdl.org, "Eric W. Biederman" <ebiederm@xmission.com>,
+   anthony@codemonkey.ws, akpm@linux-foundation.org,
+   David Miller <davem@davemloft.net>
+To: Andi Kleen <ak@suse.de>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20070320180359.GB4286@bingen.suse.de>
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/virtualization>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------040906090908090202040804
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
 
 
---------------040906090908090202040804
-Content-Type: text/x-diff;
- name="02.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="02.diff"
+On Tue, 20 Mar 2007, Andi Kleen wrote:
+> =
 
-[NET_SCHED]: Fix ingress locking
+> The code never did that. In fact many of the problems we had initially
+> especially came out of that -- the fallback code that would handle
+> this case wasn't fully correct.
 
-Ingress queueing uses a seperate lock for serializing enqueue operations,
-but fails to properly protect itself against concurrent changes to the
-qdisc tree. Use queue_lock for now since the real fix it quite intrusive.
+I don't keep my emails any more, but you *never* fixed the problems in =
 
-Signed-off-by: Patrick McHardy <kaber@trash.net>
+arch/*/kernel/traps.c.
 
----
-commit 11985909b582dc688b5a7c0f73f16244224116f4
-tree 0ee26bec34053f6c9b5f905ffbc1437881428eeb
-parent f1b9a0694552e18e7a43c292d21abe3b51dfcae2
-author Patrick McHardy <kaber@trash.net> Tue, 20 Mar 2007 16:11:56 +0100
-committer Patrick McHardy <kaber@trash.net> Tue, 20 Mar 2007 16:11:56 +0100
+Yes, the kernel/unwind.c issues generally got fixed. The infinite loops in =
 
- net/core/dev.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+the *callers* never did.
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index cf71614..5984b55 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1750,10 +1750,10 @@ static int ing_filter(struct sk_buff *sk
- 
- 		skb->tc_verd = SET_TC_AT(skb->tc_verd,AT_INGRESS);
- 
--		spin_lock(&dev->ingress_lock);
-+		spin_lock(&dev->queue_lock);
- 		if ((q = dev->qdisc_ingress) != NULL)
- 			result = q->enqueue(skb, q);
--		spin_unlock(&dev->ingress_lock);
-+		spin_unlock(&dev->queue_lock);
- 
- 	}
- 
+> Also frankly often your analysis about what went wrong was just
+> incorrect.
 
---------------040906090908090202040804--
+Still in denial, I see.
+
+Do you still claim that "the fallback position always did the right =
+
+thing"? Despite the fact that the unwinder had sometimes *corrupted* the =
+
+incoming information so much that the fallback position was the one that =
+
+oopsed? And no, you didn't fix that.
+
+And no, IT DID NOT use probe_kernel_address like you still claim.
+
+Anyway, you work for Suse, I don't care what you do to the Suse kernel. =
+
+Maybe it will get stable some day. Somehow, I doubt it. =
+
+
+			Linus
