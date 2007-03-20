@@ -1,35 +1,80 @@
-From: Chris Madden <chris@reflexsecurity.com>
-Subject: Re: Oops in filter add
-Date: Tue, 20 Mar 2007 12:27:21 -0400
-Message-ID: <46000B69.8000401@reflexsecurity.com>
-References: <45FEEE35.6090606@reflexsecurity.com> <20070319.192206.21926062.davem@davemloft.net> <1174373645.4895.15.camel@localhost> <45FFEC78.2090708@reflexsecurity.com> <45FFF455.80003@trash.net> <45FFF675.8040501@trash.net> <20070320151151.GM521@postel.suug.ch> <45FFFA36.7080404@trash.net>
+From: Jeremy Fitzhardinge <jeremy@goop.org>
+Subject: Re: [patch 13/26] Xen-paravirt_ops: Consistently wrap
+ paravirt ops callsites to make them patchable
+Date: Tue, 20 Mar 2007 09:31:58 -0700
+Message-ID: <46000C7E.4070001@goop.org>
+References: <20070316.023331.59468179.davem@davemloft.net>
+	<45FB005D.9060809@goop.org>
+	<1174127638.8897.75.camel@localhost.localdomain>
+	<20070318.003309.71088169.davem@davemloft.net>
+	<20070318120814.GA45869@muc.de>
+	<1174272469.11680.23.camel@localhost.localdomain>
+	<m1648xxf93.fsf@ebiederm.dsl.xmission.com>
+	<Pine.LNX.4.64.0703191134190.6730@woody.linux-foundation.org>
+	<1174348905.11680.54.camel@localhost.localdomain>
+	<45FF4043.4000805@vmware.com> <45FF770C.7050301@goop.org>
+	<Pine.LNX.4.64.0703200805450.6730@woody.linux-foundation.org>
+	<m1mz27sy82.fsf@ebiederm.dsl.xmission.com>
+	<Pine.LNX.4.64.0703200903500.6730@woody.linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Thomas Graf <tgraf@suug.ch>, hadi@cyberus.ca,
-	netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from crown.reflexsecurity.com ([72.54.139.163]:46912 "EHLO
-	crown.reflexsecurity.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751784AbXCTQ1Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Mar 2007 12:27:24 -0400
-In-Reply-To: <45FFFA36.7080404@trash.net>
-Sender: netdev-owner@vger.kernel.org
+Cc: Zachary Amsden <zach@vmware.com>, xen-devel@lists.xensource.com,
+	akpm@linux-foundation.org, virtualization@lists.osdl.org,
+	netdev@vger.kernel.org, Rusty Russell <rusty@rustcorp.com.au>,
+	linux-kernel@vger.kernel.org, chrisw@sous-sol.org, Andi Kleen <ak@muc.de>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	anthony@codemonkey.ws, mingo@elte.hu, David Miller <davem@davemloft.net>
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <xen-devel-bounces@lists.xensource.com>
+In-Reply-To: <Pine.LNX.4.64.0703200903500.6730@woody.linux-foundation.org>
+List-Unsubscribe: <http://lists.xensource.com/cgi-bin/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xensource.com?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xensource.com>
+List-Help: <mailto:xen-devel-request@lists.xensource.com?subject=help>
+List-Subscribe: <http://lists.xensource.com/cgi-bin/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xensource.com?subject=subscribe>
+Sender: xen-devel-bounces@lists.xensource.com
+Errors-To: xen-devel-bounces@lists.xensource.com
 List-Id: netdev.vger.kernel.org
 
-Patrick McHardy wrote:
->
-> There was a small bug in my patch (broken return value on memory
-> allocation failure, not relevant for testing though). I'll push
-> the fixed patch to Dave once Chris confirms that it fixes the
-> problem he's seeing.
+Linus Torvalds wrote:
+> On Tue, 20 Mar 2007, Eric W. Biederman wrote:
 >   
-Looks like that may have done it.  I ramped up the traffic on it and did
-thousands of inserts/removals and the box seems happy.
+>> If that is the case.  In the normal kernel what would
+>> the "the oops, we got an interrupt code do?"
+>> I assume it would leave interrupts disabled when it returns?
+>> Like we currently do with the delayed disable of normal interrupts?
+>>     
+>
+> Yeah, disable interrupts, and set a flag that the fake "sti" can test, and 
+> just return without doing anything.
+>
+> (You may or may not also need to do extra work to Ack the hardware 
+> interrupt etc, which may be irq-controller specific. Once the CPU has 
+> accepted the interrupt, you may not be able to just leave it dangling)
+>   
 
-I had ing_filter still locking dev->ingress_lock ( instead of the
-queue_lock suggestion earlier ).   So while that race may still be in
-there, I haven't been able to hit the locking problem.
+So it would be something like:
 
-chris
+    pda.intr_mask = 1;		/* disable interrupts */
+    ...
+    pda.intr_mask = 0;		/* enable interrupts */
+    if (xchg(&pda.intr_pending, 0))	/* check pending */
+    	asm("sti");		/* was pending; isr left cpu interrupts masked */
+      
+
+and in the interrupt handler:
+
+    if (pda.intr_mask) {
+    	pda.intr_pending = 1;
+    	regs->eflags &= ~IF;
+    	maybe_ack_interrupt_controller();
+    	iret
+      
+
+    }
+
+?
+
+    J
