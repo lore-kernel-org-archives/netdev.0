@@ -1,59 +1,42 @@
-From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: [PATCH 5/5] [SK_BUFF] ipv6: Use skb_network_offset in some more places
-Date: Mon, 19 Mar 2007 22:39:55 -0300
-Message-ID: <20070320013955.GK17811@ghostprotocols.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH]: ipsecv6 needs a space when printing
+	audit record.
+Date: Mon, 19 Mar 2007 18:47:49 -0700 (PDT)
+Message-ID: <20070319.184749.85418422.davem@davemloft.net>
+References: <200703200014.l2K0ExTL015802@faith.austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.230]:36826 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965706AbXCTBkA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Mar 2007 21:40:00 -0400
-Received: by wx-out-0506.google.com with SMTP id h31so1497744wxd
-        for <netdev@vger.kernel.org>; Mon, 19 Mar 2007 18:40:00 -0700 (PDT)
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, eparis@redhat.com, redhat-lspp@redhat.com
+To: latten@austin.ibm.com
+Return-path: <redhat-lspp-bounces@redhat.com>
+In-Reply-To: <200703200014.l2K0ExTL015802@faith.austin.ibm.com>
+List-Unsubscribe: <https://www.redhat.com/mailman/listinfo/redhat-lspp>,
+	<mailto:redhat-lspp-request@redhat.com?subject=unsubscribe>
+List-Archive: <https://www.redhat.com/archives/redhat-lspp>
+List-Post: <mailto:redhat-lspp@redhat.com>
+List-Help: <mailto:redhat-lspp-request@redhat.com?subject=help>
+List-Subscribe: <https://www.redhat.com/mailman/listinfo/redhat-lspp>,
+	<mailto:redhat-lspp-request@redhat.com?subject=subscribe>
+Sender: redhat-lspp-bounces@redhat.com
+Errors-To: redhat-lspp-bounces@redhat.com
 List-Id: netdev.vger.kernel.org
 
-So that we reduce the number of direct accesses to skb->data.
+From: Joy Latten <latten@austin.ibm.com>
+Date: Mon, 19 Mar 2007 18:14:59 -0600
 
-Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
----
- net/ipv6/netfilter/ip6_tables.c         |    2 +-
- net/ipv6/netfilter/nf_conntrack_reasm.c |    5 +++--
- 2 files changed, 4 insertions(+), 3 deletions(-)
+> This patch adds a space between printing of the src and dst ipv6 addresses.
+> Otherwise, audit or other test tools may fail to process the audit
+> record properly because they cannot find the dst address.
+> 
+> Please let me know if this patch is ok. It is minor fix, but I have
+> tested it and printing ipsecv6 audit record is much better.
+> 
+> Regards,
+> Joy
+> 
+> Signed-off-by: Joy Latten <latten@austin.ibm.com>
+> 
+> Patch is against linux-2.6.20-rc4.
 
-diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
-index caf9e37..b97aedc 100644
---- a/net/ipv6/netfilter/ip6_tables.c
-+++ b/net/ipv6/netfilter/ip6_tables.c
-@@ -1448,7 +1448,7 @@ static void __exit ip6_tables_fini(void)
- int ipv6_find_hdr(const struct sk_buff *skb, unsigned int *offset,
- 		  int target, unsigned short *fragoff)
- {
--	unsigned int start = (u8 *)(ipv6_hdr(skb) + 1) - skb->data;
-+	unsigned int start = skb_network_offset(skb) + sizeof(struct ipv6hdr);
- 	u8 nexthdr = ipv6_hdr(skb)->nexthdr;
- 	unsigned int len = skb->len - start;
- 
-diff --git a/net/ipv6/netfilter/nf_conntrack_reasm.c b/net/ipv6/netfilter/nf_conntrack_reasm.c
-index b7889ce..721f02d 100644
---- a/net/ipv6/netfilter/nf_conntrack_reasm.c
-+++ b/net/ipv6/netfilter/nf_conntrack_reasm.c
-@@ -707,8 +707,9 @@ static int
- find_prev_fhdr(struct sk_buff *skb, u8 *prevhdrp, int *prevhoff, int *fhoff)
- {
- 	u8 nexthdr = ipv6_hdr(skb)->nexthdr;
--	u8 prev_nhoff = (u8 *)&ipv6_hdr(skb)->nexthdr - skb->data;
--	int start = (u8 *)(ipv6_hdr(skb) + 1) - skb->data;
-+	const int netoff = skb_network_offset(skb);
-+	u8 prev_nhoff = netoff + offsetof(struct ipv6hdr, nexthdr);
-+	int start = netoff + sizeof(struct ipv6hdr);
- 	int len = skb->len - start;
- 	u8 prevhdr = NEXTHDR_IPV6;
- 
--- 
-1.5.0.3
-
+Seems straightforward enough, applied, thanks Joy.
