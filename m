@@ -1,48 +1,58 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [NET]: Fix fib_rules compatibility breakage
-Date: Tue, 20 Mar 2007 17:59:44 +0100
-Message-ID: <46001300.90804@trash.net>
-References: <200703190046.47021.luciano@lugmen.org.ar>
-	<45FE2587.3050205@trash.net> <20070319152532.GL521@postel.suug.ch>
-	<45FF7D07.4040103@trash.net> <45FF8269.3000606@trash.net>
-	<20070320164004.GN521@postel.suug.ch>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [patch 13/26] Xen-paravirt_ops: Consistently wrap paravirt ops callsites to make them patchable
+Date: Tue, 20 Mar 2007 18:00:25 +0100
+Message-ID: <20070320170025.GA14329@elte.hu>
+References: <1174127638.8897.75.camel@localhost.localdomain> <20070318.003309.71088169.davem@davemloft.net> <20070318120814.GA45869@muc.de> <1174272469.11680.23.camel@localhost.localdomain> <m1648xxf93.fsf@ebiederm.dsl.xmission.com> <Pine.LNX.4.64.0703191134190.6730@woody.linux-foundation.org> <1174348905.11680.54.camel@localhost.localdomain> <45FF4043.4000805@vmware.com> <45FF770C.7050301@goop.org> <Pine.LNX.4.64.0703200805450.6730@woody.linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>, lartc@mailman.ds9a.nl
-To: Thomas Graf <tgraf@suug.ch>
-Return-path: <lartc-bounces@mailman.ds9a.nl>
-In-Reply-To: <20070320164004.GN521@postel.suug.ch>
-List-Unsubscribe: <http://mailman.ds9a.nl/cgi-bin/mailman/listinfo/lartc>,
-	<mailto:lartc-request@mailman.ds9a.nl?subject=unsubscribe>
-List-Archive: <http://mailman.ds9a.nl/pipermail/lartc>
-List-Post: <mailto:lartc@mailman.ds9a.nl>
-List-Help: <mailto:lartc-request@mailman.ds9a.nl?subject=help>
-List-Subscribe: <http://mailman.ds9a.nl/cgi-bin/mailman/listinfo/lartc>,
-	<mailto:lartc-request@mailman.ds9a.nl?subject=subscribe>
-Sender: lartc-bounces@mailman.ds9a.nl
-Errors-To: lartc-bounces@mailman.ds9a.nl
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeremy Fitzhardinge <jeremy@goop.org>,
+	Zachary Amsden <zach@vmware.com>,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Andi Kleen <ak@muc.de>, David Miller <davem@davemloft.net>,
+	akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.osdl.org, xen-devel@lists.xensource.com,
+	chrisw@sous-sol.org, anthony@codemonkey.ws, netdev@vger.kernel.org
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx2.mail.elte.hu ([157.181.151.9]:60395 "EHLO mx2.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965346AbXCTRBp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Mar 2007 13:01:45 -0400
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.64.0703200805450.6730@woody.linux-foundation.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Thomas Graf wrote:
-> @@ -242,10 +239,10 @@ static int fib4_rule_compare(struct fib_
->  		return 0;
->  #endif
->  
-> -	if (tb[FRA_SRC] && (rule4->src != nla_get_be32(tb[FRA_SRC])))
-> +	if (frh->src_len && (rule4->src != nla_get_be32(tb[FRA_SRC])))
->  		return 0;
->  
-> -	if (tb[FRA_DST] && (rule4->dst != nla_get_be32(tb[FRA_DST])))
-> +	if (frh->dst_len && (rule4->dst != nla_get_be32(tb[FRA_DST])))
->  		return 0;
->  
 
+* Linus Torvalds <torvalds@linux-foundation.org> wrote:
 
-The presence of the attributes when src_len/dst_len is non-zero
-is only verified in fib_newrule, so this looks like it might crash
-when something broken sets src_len/dst_len to a non-zero value
-without actually adding the attributes.
+> I have this dim memory that ARM has done it that way for a long time 
+> because it's so expensive to do a "real" cli/sti.
+> 
+> And I think -rt does it for other reasons. It's just more flexible.
 
-Other than that it looks fine.
+-rt doesnt wrap cli/sti anymore: spin_lock_irq*() doesnt disable irq 
+flags on -rt, thus the amount of real irqs-off sections is very small 
+and reviewable.
+
+But nevertheless an incarnation of the code survived and is upstream 
+already, in the form of TRACE_IRQFLAGS lockdep code ;) This implements a 
+soft hardirq flag _today_: all that would be needed is for Xen to define 
+raw_local_irq_disable() as a NOP, and to use the 
+current->hardirqs_enabled as 'soft IRQ-off flag'.
+
+Note that ->hardirqs_enabled is self-maintained, i.e. it's not just a 
+stupid shadow of the hardirq flag, it's an independently maintained flag 
+that does not rely on the existence of the hard flag.
+
+[ this code even has its own debugging code, so out-of-sync-flags,
+  double-off and double-on is detected and complained about. So all the 
+  hard stuff has already been done as part of lockdep, and it's even 
+  long-term maintainable because under a native lockdep kernel we check 
+  the soft flag against the hard flag. ]
+
+so i think a soft cli/sti flag support should be merged/unified with the 
+trace_hardirqs_on()/trace_hardirqs_off() code.
+
+	Ingo
