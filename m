@@ -1,41 +1,51 @@
 From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: [PATCH 0/5] [RFC] AF_RXRPC socket family implementation [try
- #3]
-Date: Tue, 20 Mar 2007 21:36:57 +0000
-Message-ID: <20070320213657.15afe5fa@lxorguk.ukuu.org.uk>
-References: <20070320195856.12853.63473.stgit@warthog.cambridge.redhat.com>
+Subject: Re: Re: [patch 13/26] Xen-paravirt_ops: Consistently
+	wrap paravirt ops callsites to make them patchable
+Date: Tue, 20 Mar 2007 21:39:18 +0000
+Message-ID: <20070320213918.116862be@lxorguk.ukuu.org.uk>
+References: <20070319.204712.118947830.davem@davemloft.net>
+	<m13b40wnrb.fsf@ebiederm.dsl.xmission.com>
+	<200703201428.50564.ak@suse.de>
+	<m1ircvswzz.fsf@ebiederm.dsl.xmission.com>
+	<20070320174159.GA4286@bingen.suse.de>
+	<Pine.LNX.4.64.0703200947501.6730@woody.linux-foundation.org>
+	<20070320180359.GB4286@bingen.suse.de>
+	<Pine.LNX.4.64.0703201022040.6730@woody.linux-foundation.org>
+	<20070320192118.GD4286@bingen.suse.de>
+	<Pine.LNX.4.64.0703201145570.6730@woody.linux-foundation.org>
+	<20070320202352.GF4286@bingen.suse.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, herbert.xu@redhat.com,
-	linux-kernel@vger.kernel.org, hch@infradead.org,
-	arjan@infradead.org, dhowells@redhat.com
-To: David Howells <dhowells@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from outpipe-village-512-1.bc.nu ([81.2.110.250]:47305 "EHLO
-	lxorguk.ukuu.org.uk" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752843AbXCTUdm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Mar 2007 16:33:42 -0400
-In-Reply-To: <20070320195856.12853.63473.stgit@warthog.cambridge.redhat.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: jeremy@goop.org, xen-devel@lists.xensource.com, Andi,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Kleen <ak@suse.de>, jbeulich@novell.com,
+	virtualization@lists.linux-foundation.org, chrisw@sous-sol.org,
+	virtualization@lists.osdl.org, "Eric W. Biederman" <ebiederm@xmission.com>,
+	anthony@codemonkey.ws, mingo@elte.hu,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	akpm@linux-foundation.org, linux-kernel@vger.kernel.org
+To: Andi Kleen <ak@suse.de>
+Return-path: <xen-devel-bounces@lists.xensource.com>
+In-Reply-To: <20070320202352.GF4286@bingen.suse.de>
+List-Unsubscribe: <http://lists.xensource.com/cgi-bin/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xensource.com?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xensource.com>
+List-Help: <mailto:xen-devel-request@lists.xensource.com?subject=help>
+List-Subscribe: <http://lists.xensource.com/cgi-bin/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xensource.com?subject=subscribe>
+Sender: xen-devel-bounces@lists.xensource.com
+Errors-To: xen-devel-bounces@lists.xensource.com
 List-Id: netdev.vger.kernel.org
 
-Ok quickly going over the code that hasn't made the list
+> > Because that's really the issue: do you want a "pretty" backtrace, or do 
+> > you want one that is rock solid but has some crud in it.
+> 
+> I just want an as exact backtrace as possible. I also think
+> that we can make the unwinder robust enough.
 
-- recvmsg not supporting MSG_TRUNC is rather weird and really ought to be
-fixed one day as its useful to find out the sizeof message pending when
-combined with MSG_PEEK
+Any reason you can't put the exact back trace in "[xxx]" and the ones we
+see on the stack which dont look like call trace as ?xxx? It makes the
+code a bit trickier but we depend on the quality of traces
 
-- RXRPC_MIN_SECURITY_LEVEL reads into rx->min_sec_level and then if it is
-invalid reports an error but doesn't restore the valid level
-
-- Why does rxrpc_writable always return 0 ?
-
-- rxrpc_process_soft_ACKs doesn't itself limit and check acns->nAcks is
-always below RXRPC_MAXACKS, as this is a stakc variable it ought to be
-paranoid about it. I think its ok from the caller check but its very hard
-to prove...
-
-
-It needs a lot more eyes/review due to the complexity and network
-exposure though - not your fault, whoever designed RXRPC's 8)
+Alan
