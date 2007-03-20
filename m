@@ -1,7 +1,8 @@
 From: Keiichi KII <k-keiichi@bx.jp.nec.com>
-Subject: [RFC][PATCH -mm take3 5/6][resend] switch function of netpoll
-Date: Tue, 20 Mar 2007 21:31:47 +0900
-Message-ID: <45FFD433.8060706@bx.jp.nec.com>
+Subject: [RFC][PATCH -mm take3 6/6][resend] add ioctls for adding/removing
+ target
+Date: Tue, 20 Mar 2007 21:34:09 +0900
+Message-ID: <45FFD4C1.7000103@bx.jp.nec.com>
 References: <45FFCF31.3040000@bx.jp.nec.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-2022-JP
@@ -9,176 +10,269 @@ Content-Transfer-Encoding: 7bit
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 To: mpm@selenic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from TYO201.gate.nec.co.jp ([202.32.8.193]:35200 "EHLO
-	tyo201.gate.nec.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932398AbXCTMby (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Mar 2007 08:31:54 -0400
+Received: from TYO202.gate.nec.co.jp ([202.32.8.206]:42507 "EHLO
+	tyo202.gate.nec.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933112AbXCTMeX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Mar 2007 08:34:23 -0400
 In-Reply-To: <45FFCF31.3040000@bx.jp.nec.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Keiichi KII <k-keiichi@bx.jp.nec.com>
 
-This patch contains switch function of netpoll.
+We add ioctls for adding/removing target.
+If we use NETCONSOLE_ADD_TARGET ioctl, 
+we can dynamically add netconsole target. 
+If we use NETCONSOLE_REMOVE_TARGET ioctl,
+we can dynamically remoe netconsole target.
 
-If "enabled" attribute of certain port is '1', this port is used
-and the configurations of this port are uable to change.
-
-If "enabled" attribute of certain port is '0', this port isn't used
-and the configurations of this port are able to change.
-
--+- /sys/class/misc/
-|-+- netconsole/
-  |-+- port1/
-  | |--- id          [r--r--r--]  id
-  | |--- enabled     [rw-r--r--]  0: disable 1: enable, writable
-  | ...
-  |--- port2/
-  ...
+We attach a sample program for ioctl.
 
 Signed-off-by: Keiichi KII <k-keiichi@bx.jp.nec.com>
 Signed-off-by: Takayoshi Kochi <t-kochi@bq.jp.nec.com>
 ---
-Index: linux-2.6.19.5/drivers/net/netconsole.c
+#include <stdio.h>
+#include <unistd.h>
+#include <string.h>
+#include <stdlib.h>
+#include <stropts.h>
+#include <fcntl.h>
+#include <arpa/inet.h>
+#include <net/if.h>
+#include <linux/if_ether.h>
+
+#define NETCONSOLE_DEV_NAME "/dev/netconsole"
+
+struct command {
+        char *name;
+        char *options;
+        int (*handle_command)(struct command* command,
+                              int argc, char* argv[]);
+        void (*usage)(char *msg);
+
+extern char *optarg;
+
+static void generic_usage(char *msg) {
+        fprintf(stderr, "Usage  : netconfig command [option] [args]\n");
+        fprintf(stderr, "command: add remove help\n");
+        exit(-1);
+                        break;
+                case 's':
+                        address = inet_addr(optarg);
+                        if (address == -1)
+                                (*command->usage)("invlid IP address!\n");
+                        req.local_ip = address;
+                        break;
+                case 'h':
+                default:
+                        (*command->usage)(NULL);
+                }
+        }
+        argc -= optind;
+                if (i != ETH_ALEN)
+                        (*command->usage)("Invalid MAC address!\n");
+                memcpy(req.remote_mac, mac, ETH_ALEN);
+
+        fd = open(NETCONSOLE_DEV_NAME, O_RDWR);
+        if (fd < 0) {
+                fprintf(stderr, "cannot open device" NETCONSOLE_DEV_NAME "\n");
+                return -1;
+        exit(-1);
+
+static int handle_command_remove(struct command *command,
+                                 int argc, char** argv)
+{
+
+        while ((ch = getopt(argc, argv, command->options)) != -1) {
+                switch (ch) {
+                case 'h':
+                default:
+                        (*command->usage)(NULL);
+                }
+        }
+        argc -= optind;
+
+        if (argc != 1)
+
+        id = atoi(argv[0]);
+        fd = open(NETCONSOLE_DEV_NAME, O_RDWR);
+        if (fd < 0) {
+                fprintf(stderr, "can't open device " NETCONSOLE_DEV_NAME "\n");
+                return -1;
+        }
+        if(ioctl(fd, NETCON_REMOVE_TARGET, &id) != 0)
+                perror("remove");
+
+        return 0;
+
+static void usage_remove(char *msg) {
+        fprintf(stderr, "Usage  : netconfig remove id\n");
+        exit(-1);
+
+static int handle_command_help(struct command *command,
+                               int argc, char** argv) {
+
+        return 0;
+
+static void usage_help(char *msg) {
+        generic_usage(NULL);
+                        break;
+                }
+        }
+
+        if (command == NULL)
+                generic_usage(NULL);
+        argc--;
+        argv++;
+
+        if (command->handle_command)
+                (*command->handle_command)(command, argc, argv);
+        else {
+                fprintf(stderr, "function handle_command() isn't set.");
+                exit(-1);
+        }
+        return 0;
+}
+
+Index: linux-mm/fs/compat_ioctl.c
 ===================================================================
---- linux-2.6.19.5.orig/drivers/net/netconsole.c
-+++ linux-2.6.19.5/drivers/net/netconsole.c
-@@ -60,6 +60,7 @@ struct netconsole_target {
- 	struct list_head list;
- 	struct kobject obj;
- 	int id;
-+	int enabled;
- 	struct netpoll np;
- };
+--- linux-mm.orig/fs/compat_ioctl.c
++++ linux-mm/fs/compat_ioctl.c
+@@ -117,6 +117,8 @@
+ #include <linux/dvb/video.h>
+ #include <linux/lp.h>
  
-@@ -128,10 +129,19 @@ static ssize_t show_remote_mac(struct ne
- 		       nt->np.remote_mac[4], nt->np.remote_mac[5]);
++#include <linux/netconsole.h>
++
+ static int do_ioctl32_pointer(unsigned int fd, unsigned int cmd,
+ 			      unsigned long arg, struct file *f)
+ {
+Index: linux-mm/include/linux/compat_ioctl.h
+===================================================================
+--- linux-mm.orig/include/linux/compat_ioctl.h
++++ linux-mm/include/linux/compat_ioctl.h
+@@ -828,3 +828,6 @@ COMPATIBLE_IOCTL(VIDEO_GET_NAVI)
+ COMPATIBLE_IOCTL(VIDEO_SET_ATTRIBUTES)
+ COMPATIBLE_IOCTL(VIDEO_GET_SIZE)
+ COMPATIBLE_IOCTL(VIDEO_GET_FRAME_RATE)
++/* netconsole */
++COMPATIBLE_IOCTL(NETCON_ADD_TARGET)
++ULONG_IOCTL(NETCON_REMOVE_TARGET)
+Index: linux-mm/include/linux/netconsole.h
+===================================================================
+--- /dev/null
++++ linux-mm/include/linux/netconsole.h
+@@ -0,0 +1,18 @@
++#ifndef __NETCONSOLE_H
++#define __NETCONSOLE_H
++
++#include <linux/ioctl.h>
++#include <linux/types.h>
++
++struct netconsole_request {
++	__u32 id;
++	__u8 netdev_name[IFNAMSIZ];
++	__u8 remote_mac[ETH_ALEN];
++	__u32 local_ip, remote_ip;
++	__u16 local_port, remote_port;
++};
++
++#define NETCON_ADD_TARGET _IOW(0xAE, 4, struct netconsole_request)
++#define NETCON_REMOVE_TARGET _IOW(0xAE, 5, int)
++
++#endif /* __NETCONSOLE_H */
+Index: linux-mm/drivers/net/netconsole.c
+===================================================================
+--- linux-mm.orig/drivers/net/netconsole.c
++++ linux-mm/drivers/net/netconsole.c
+@@ -47,6 +47,7 @@
+ #include <linux/netpoll.h>
+ #include <linux/miscdevice.h>
+ #include <linux/inet.h>
++#include <linux/netconsole.h>
+ 
+ MODULE_AUTHOR("Maintainer: Matt Mackall <mpm@selenic.com>");
+ MODULE_DESCRIPTION("Console driver for network interfaces");
+@@ -306,6 +307,64 @@ static void release_target(struct kobjec
+ 	delete_target(nt);
  }
  
-+static ssize_t show_enabled(struct netconsole_target *nt, char *buf)
++static int netconsole_ioctl(struct inode *inode, struct file *file,
++			    unsigned int cmd, unsigned long arg)
 +{
-+	return sprintf(buf, "%d\n", nt->enabled);
++	int id, count;
++	char config[256];
++	char *cur;
++	struct netconsole_request req;
++	struct netconsole_target *nt, *tmp;
++	void __user *argp = (void __user *)arg;
++
++	switch (cmd) {
++	case NETCON_ADD_TARGET:
++		printk(KERN_INFO "netconsole: cmd=NETCON_ADD_TARGET\n");
++		if (copy_from_user(&req, argp, sizeof(req)))
++			return -EFAULT;
++		cur = config;
++		count = sprintf(cur, "%d@", req.local_port);
++		cur += count;
++		if (req.local_ip)
++			count = sprintf(cur, "%d.%d.%d.%d/",
++					NIPQUAD(req.local_ip));
++		else
++			count = sprintf(cur, "/");
++		cur += count;
++		count = sprintf(cur, "%s,", req.netdev_name);
++		cur += count;
++		count = sprintf(cur, "%d@", req.remote_port);
++		cur += count;
++		count = sprintf(cur, "%d.%d.%d.%d/",
++				NIPQUAD(req.remote_ip));
++		cur += count;
++		count = sprintf(cur, "%02x:%02x:%02x:%02x:%02x:%02x",
++				req.remote_mac[0], req.remote_mac[1],
++				req.remote_mac[2], req.remote_mac[3],
++				req.remote_mac[4], req.remote_mac[5]);
++		printk(KERN_INFO "count = %d config=[%s]\n", count, config);
++		if (add_target(config))
++			return -EINVAL;
++		break;
++	case NETCON_REMOVE_TARGET:
++		printk(KERN_INFO "netconsole: cmd=NETCON_REMOVE_TARGET\n");
++		if (copy_from_user(&id, argp, sizeof(int)))
++			return -EFAULT;
++		printk(KERN_INFO "netconsole: id=%d\n", id);
++		list_for_each_entry_safe(nt, tmp, &target_list, list) {
++			if (nt->id == id) {
++				kobject_unregister(&nt->obj);
++				break;
++			}
++		}
++		break;
++	default:
++		return -ENOTTY;
++	}
++
++	return 0;
 +}
 +
- static ssize_t store_local_port(struct netconsole_target *nt, const char *buf,
- 				size_t count)
- {
- 	spin_lock(&target_list_lock);
-+	if (nt->enabled) {
-+		spin_unlock(&target_list_lock);
-+		return -EINVAL;
-+	}
- 	nt->np.local_port = simple_strtol(buf, NULL, 10);
- 	spin_unlock(&target_list_lock);
- 
-@@ -142,6 +152,10 @@ static ssize_t store_remote_port(struct 
- 				size_t count)
- {
- 	spin_lock(&target_list_lock);
-+	if (nt->enabled) {
-+		spin_unlock(&target_list_lock);
-+		return -EINVAL;
-+	}
- 	nt->np.remote_port = simple_strtol(buf, NULL, 10);
- 	spin_unlock(&target_list_lock);
- 
-@@ -152,6 +166,10 @@ static ssize_t store_local_ip(struct net
- 			      size_t count)
- {
- 	spin_lock(&target_list_lock);
-+	if (nt->enabled) {
-+		spin_unlock(&target_list_lock);
-+		return -EINVAL;
-+	}
- 	nt->np.local_ip = ntohl(in_aton(buf));
- 	spin_unlock(&target_list_lock);
- 
-@@ -162,6 +180,10 @@ static ssize_t store_remote_ip(struct ne
- 			       size_t count)
- {
- 	spin_lock(&target_list_lock);
-+	if (nt->enabled) {
-+		spin_unlock(&target_list_lock);
-+		return -EINVAL;
-+	}
- 	nt->np.remote_ip = ntohl(in_aton(buf));
- 	spin_unlock(&target_list_lock);
- 
-@@ -184,12 +206,39 @@ static ssize_t store_remote_mac(struct n
- 	if (i != ETH_ALEN)
- 		return -EINVAL;
- 	spin_lock(&target_list_lock);
-+	if (nt->enabled) {
-+		spin_unlock(&target_list_lock);
-+		return -EINVAL;
-+	}
- 	memcpy(nt->np.remote_mac, input_mac, ETH_ALEN);
- 	spin_unlock(&target_list_lock);
- 
- 	return count;
- }
- 
-+static ssize_t store_enabled(struct netconsole_target *nt, const char *buf,
-+			    size_t count)
-+{
-+	int enabled = 0;
-+
-+	if (count >= 2 && (count != 2 || buf[count - 1] != '\n')) {
-+		printk(KERN_ERR "netconsole: invalid argument: %s\n", buf);
-+		return -EINVAL;
-+	} else if (strncmp(buf, "1", 1) == 0) {
-+		enabled = 1;
-+	} else if(strncmp(buf, "0", 1) == 0) {
-+		enabled = 0;
-+	} else {
-+		printk(KERN_ERR "netconsole: invalid argument: %s\n", buf);
-+		return -EINVAL;
-+	}
-+	spin_lock(&target_list_lock);
-+	nt->enabled = enabled;
-+	spin_unlock(&target_list_lock);
-+
-+	return count;
-+}
-+
- #define NETCON_CLASS_ATTR(_name, _mode, _show, _store) \
- struct target_attr target_attr_##_name = \
-                            __ATTR(_name, _mode, _show, _store)
-@@ -206,6 +255,8 @@ static NETCON_CLASS_ATTR(remote_ip, S_IR
- static NETCON_CLASS_ATTR(local_mac, S_IRUGO, show_local_mac, NULL);
- static NETCON_CLASS_ATTR(remote_mac, S_IRUGO | S_IWUSR,
- 			 show_remote_mac, store_remote_mac);
-+static NETCON_CLASS_ATTR(enabled, S_IRUGO | S_IWUSR,
-+			 show_enabled, store_enabled);
- 
- static struct attribute *target_attrs[] = {
- 	&target_attr_id.attr,
-@@ -215,6 +266,7 @@ static struct attribute *target_attrs[] 
- 	&target_attr_remote_ip.attr,
- 	&target_attr_local_mac.attr,
- 	&target_attr_remote_mac.attr,
-+	&target_attr_enabled.attr,
- 	NULL
+ static struct sysfs_ops target_sysfs_ops = {
+ 	.show = show_target_attr,
+ 	.store = store_target_attr
+@@ -317,9 +376,14 @@ static struct kobj_type target_ktype = {
+ 	.default_attrs = target_attrs,
  };
  
-@@ -313,6 +365,7 @@ static int add_target(char* target_confi
++static struct file_operations miscdev_fops = {
++	.ioctl = netconsole_ioctl,
++};
++
+ static struct miscdevice netconsole_miscdev = {
+ 	.minor = MISC_DYNAMIC_MINOR,
+ 	.name = "netconsole",
++	.fops = &miscdev_fops,
+ };
  
- 	atomic_inc(&target_count);
- 	new_target->id = atomic_read(&target_count);
-+	new_target->enabled = 1;
- 
- 	printk(KERN_INFO "netconsole: add target: "
- 	       "remote ip_addr=%d.%d.%d.%d remote port=%d\n",
-@@ -420,7 +473,8 @@ static void write_msg(struct console *co
- 	for(left = len; left; ) {
- 		frag = min(left, MAX_PRINT_CHUNK);
- 		list_for_each_entry(target, &target_list, list) {
--			netpoll_send_udp(&target->np, msg, frag);
-+			if (target->enabled)
-+				netpoll_send_udp(&target->np, msg, frag);
- 		}
- 		msg += frag;
- 		left -= frag;
+ static struct netpoll np = {
 
 -- 
 
