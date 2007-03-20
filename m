@@ -1,44 +1,73 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: [Xen-devel] Re: [patch 13/26] Xen-paravirt_ops: Consistently wrap paravirt ops callsites to make them patchable
-Date: Tue, 20 Mar 2007 22:49:45 +0100
-Message-ID: <20070320214945.GG4286@bingen.suse.de>
-References: <200703201428.50564.ak@suse.de> <m1ircvswzz.fsf@ebiederm.dsl.xmission.com> <20070320174159.GA4286@bingen.suse.de> <Pine.LNX.4.64.0703200947501.6730@woody.linux-foundation.org> <20070320180359.GB4286@bingen.suse.de> <Pine.LNX.4.64.0703201022040.6730@woody.linux-foundation.org> <20070320192118.GD4286@bingen.suse.de> <Pine.LNX.4.64.0703201145570.6730@woody.linux-foundation.org> <20070320202352.GF4286@bingen.suse.de> <20070320213918.116862be@lxorguk.ukuu.org.uk>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: [PATCH 2/3] bridge: don't route packets while learning
+Date: Tue, 20 Mar 2007 14:15:52 -0700
+Message-ID: <20070320141552.53d39130@dxpl.pdx.osdl.net>
+References: <20070320141251.3760d87f@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andi Kleen <ak@suse.de>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	jeremy@goop.org, xen-devel@lists.xensource.com,
-	netdev@vger.kernel.org, mingo@elte.hu, jbeulich@novell.com,
-	virtualization@lists.linux-foundation.org, chrisw@sous-sol.org,
-	virtualization@lists.osdl.org,
-	"Eric W. Biederman" <ebiederm@xmission.com>, anthony@codemonkey.ws,
-	akpm@linux-foundation.org, David Miller <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.suse.de ([195.135.220.15]:51235 "EHLO mx2.suse.de"
+Received: from smtp.osdl.org ([65.172.181.24]:60763 "EHLO smtp.osdl.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753896AbXCTUu7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Mar 2007 16:50:59 -0400
-Content-Disposition: inline
-In-Reply-To: <20070320213918.116862be@lxorguk.ukuu.org.uk>
+	id S1751682AbXCTVUN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Mar 2007 17:20:13 -0400
+In-Reply-To: <20070320141251.3760d87f@dxpl.pdx.osdl.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 20, 2007 at 09:39:18PM +0000, Alan Cox wrote:
-> > > Because that's really the issue: do you want a "pretty" backtrace, or do 
-> > > you want one that is rock solid but has some crud in it.
-> > 
-> > I just want an as exact backtrace as possible. I also think
-> > that we can make the unwinder robust enough.
-> 
-> Any reason you can't put the exact back trace in "[xxx]" and the ones we
-> see on the stack which dont look like call trace as ?xxx? It makes the
-> code a bit trickier but we depend on the quality of traces
+While in the STP learning state, don't route packets; wait until
+forwarding delay has expired. The purpose of the forwarding delay
+is to detect loops in the network, and if a brouter started up
+and started forwarding, it could cause a flood.
 
-Linus is worried about the unwinder crashing -- that wouldn't help with that.
+Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
 
-What the (now out of tree) unwinder does is to check if it finishes
-the trace and if not fall back to the old unwinder.
+---
+ net/bridge/br_input.c |   17 ++++++++++-------
+ 1 file changed, 10 insertions(+), 7 deletions(-)
 
--Andi
+--- netem.orig/net/bridge/br_input.c
++++ netem/net/bridge/br_input.c
+@@ -129,7 +129,7 @@ struct sk_buff *br_handle_frame(struct n
+ 	const unsigned char *dest = eth_hdr(skb)->h_dest;
+ 
+ 	if (!is_valid_ether_addr(eth_hdr(skb)->h_source))
+-		goto err;
++		goto drop;
+ 
+ 	if (unlikely(is_link_local(dest))) {
+ 		skb->pkt_type = PACKET_HOST;
+@@ -138,22 +138,25 @@ struct sk_buff *br_handle_frame(struct n
+ 				NULL, br_handle_local_finish) == 0) ? skb : NULL;
+ 	}
+ 
+-	if (p->state == BR_STATE_FORWARDING || p->state == BR_STATE_LEARNING) {
++	switch (p->state) {
++	case BR_STATE_FORWARDING:
++
+ 		if (br_should_route_hook) {
+ 			if (br_should_route_hook(&skb))
+ 				return skb;
+ 			dest = eth_hdr(skb)->h_dest;
+ 		}
+-
++		/* fall through */
++	case BR_STATE_LEARNING:
+ 		if (!compare_ether_addr(p->br->dev->dev_addr, dest))
+ 			skb->pkt_type = PACKET_HOST;
+ 
+ 		NF_HOOK(PF_BRIDGE, NF_BR_PRE_ROUTING, skb, skb->dev, NULL,
+ 			br_handle_frame_finish);
+-		return NULL;
++		break;
++	default:
++drop:
++		kfree_skb(skb);
+ 	}
+-
+-err:
+-	kfree_skb(skb);
+ 	return NULL;
+ }
