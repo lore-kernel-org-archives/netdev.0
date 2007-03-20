@@ -1,68 +1,42 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: [patch 13/26] Xen-paravirt_ops: Consistently wrap paravirt ops callsites to make them patchable
-Date: Tue, 20 Mar 2007 19:03:59 +0100
-Message-ID: <20070320180359.GB4286@bingen.suse.de>
-References: <20070319.120854.30182994.davem@davemloft.net> <20070319.204712.118947830.davem@davemloft.net> <m13b40wnrb.fsf@ebiederm.dsl.xmission.com> <200703201428.50564.ak@suse.de> <m1ircvswzz.fsf@ebiederm.dsl.xmission.com> <20070320174159.GA4286@bingen.suse.de> <Pine.LNX.4.64.0703200947501.6730@woody.linux-foundation.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: Oops in filter add
+Date: Tue, 20 Mar 2007 18:06:13 +0100
+Message-ID: <46001485.4030203@trash.net>
+References: <45FEEE35.6090606@reflexsecurity.com> <20070319.192206.21926062.davem@davemloft.net> <1174373645.4895.15.camel@localhost> <45FFEC78.2090708@reflexsecurity.com> <45FFF455.80003@trash.net> <45FFF675.8040501@trash.net> <20070320151151.GM521@postel.suug.ch> <45FFFA36.7080404@trash.net> <46000B69.8000401@reflexsecurity.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andi Kleen <ak@suse.de>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	David Miller <davem@davemloft.net>,
-	virtualization@lists.linux-foundation.org, jbeulich@novell.com,
-	jeremy@goop.org, xen-devel@lists.xensource.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	chrisw@sous-sol.org, virtualization@lists.osdl.org,
-	anthony@codemonkey.ws, akpm@linux-foundation.org, mingo@elte.hu
-To: Linus Torvalds <torvalds@linux-foundation.org>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: Thomas Graf <tgraf@suug.ch>, hadi@cyberus.ca,
+	netdev@vger.kernel.org
+To: Chris Madden <chris@reflexsecurity.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns1.suse.de ([195.135.220.2]:41965 "EHLO mx1.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965496AbXCTRE7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Mar 2007 13:04:59 -0400
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0703200947501.6730@woody.linux-foundation.org>
+Received: from stinky.trash.net ([213.144.137.162]:54479 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965494AbXCTRGq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Mar 2007 13:06:46 -0400
+In-Reply-To: <46000B69.8000401@reflexsecurity.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 20, 2007 at 09:52:42AM -0700, Linus Torvalds wrote:
-> The ones I reported were all about trusting the stack contents implicitly, 
+Chris Madden wrote:
+> Patrick McHardy wrote:
+> 
+>>There was a small bug in my patch (broken return value on memory
+>>allocation failure, not relevant for testing though). I'll push
+>>the fixed patch to Dave once Chris confirms that it fixes the
+>>problem he's seeing.
+>>  
+> 
+> Looks like that may have done it.  I ramped up the traffic on it and did
+> thousands of inserts/removals and the box seems happy.
 
-The latest version added the full double check you wanted - every
-new RSP is validated against the current stack or the exception stacks.
 
-> and assuming that the unwind info was there and valid. Using things like 
+Thanks Chris.
 
-The code never did that. In fact many of the problems we had initially
-especially came out of that -- the fallback code that would handle
-this case wasn't fully correct.
+> I had ing_filter still locking dev->ingress_lock ( instead of the
+> queue_lock suggestion earlier ).   So while that race may still be in
+> there, I haven't been able to hit the locking problem.
 
-> "__get_user()" didn't fix it, because if a WARN_ON() happened while we 
-> held the mm semaphore and the unwind info was bogus, it would take a 
-> page-fault and deadlock.
 
-That was fixed too even before you dropped it by using probe_kernel_address()
-
-> And I told you guys this. Over *months*. And you ignored me. You told me 
-> everything was fine. Each time, somebody else ended up reporting a hang 
-> where the unwinder was at fault. 
-
-That was because most of the bugs were reported many times duplicated --
-and reports from older releases kept streaming in even after the fix
-went in.
-
-Also frankly often your analysis about what went wrong was just
-incorrect.
- 
-> And you clearly *still* haven't accepted the fact that the code was buggy. 
-
-There were some bugs, but they were all fixed. Or at least I hope -- 
-we will find out during testing.
-
-> Does anybody wonder why I wouldn't merge it back?
-
-So do you have an alternative to the unwinder? Don't tell me 
-"real men decode 30+ entry long stack traces with lots of callbacks
-by hand". Or do you prefer to use frame pointers everywhere? 
-
--Andi
-
+I'll push a patch for this as well, we can hopefully go back to using
+ingress_lock in 2.6.22.
