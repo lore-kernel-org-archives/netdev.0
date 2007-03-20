@@ -1,46 +1,50 @@
-From: "Martin Schiller" <mschiller@tdt.de>
-Subject: RE: [PATCH] NAT and requests to unrouted targets
-Date: Tue, 20 Mar 2007 12:56:18 +0100
-Message-ID: <000f01c76ae6$c5bdc880$1a04010a@V505CP>
-References: <000001c766d8$66f1cc00$1a04010a@V505CP> <45F90905.4000408@trash.net> <001101c76711$cf7dc6a0$1a04010a@V505CP> <45FEB411.5050004@trash.net>
+From: Keiichi KII <k-keiichi@bx.jp.nec.com>
+Subject: [RFC][PATCH -mm take3 0/6][resend] proposal for dynamic configurable
+ netconsole
+Date: Tue, 20 Mar 2007 21:10:25 +0900
+Message-ID: <45FFCF31.3040000@bx.jp.nec.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
+Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>,
-	"'Netfilter Development Mailinglist'"
-	<netfilter-devel@lists.netfilter.org>
-To: "'Patrick McHardy'" <kaber@trash.net>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: mpm@selenic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.tdt.de ([195.243.126.82]:56647 "EHLO ns.tdt.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751081AbXCTL40 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Mar 2007 07:56:26 -0400
-Received: from ns (root@localhost)
-	by ns.tdt.de (8.11.6/8.11.6/SuSE Linux 0.5) with SMTP id l2KBuNt06010
-	for <netdev@vger.kernel.org>; Tue, 20 Mar 2007 12:56:23 +0100
-In-Reply-To: <45FEB411.5050004@trash.net>
+Received: from TYO200.gate.nec.co.jp ([210.143.35.50]:36842 "EHLO
+	tyo200.gate.nec.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753842AbXCTMOt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Mar 2007 08:14:49 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Monday, March 19, 2007 5:02 PM, Patrick McHardy wrote:
+From: Keiichi KII <k-keiichi@bx.jp.nec.com>
 
-> Martin Schiller wrote:
->> To be more exactly, it's the examination of
->> "ct->tuplehash[dir].tuple.dst.u.all !=
->> ct->tuplehash[!dir].tuple.src.u.all" which is only be done if XFRM
->> is configured. Since I don't need this anyway, I deactivated XFRM
->> now and my "ping -I" is working now. 
-> 
-> 
-> Could you try this patch (against current -git) with CONFIG_XFRM
-> enabled please? 
+The netconsole is a very useful module for collecting kernel message under
+certain circumstances(e.g. disk logging fails, serial port is unavailable).
 
-I've tried it and the ping is still working now with enabled CONFIG_XFRM.
+But current netconsole is not flexible. For example, if you want to change ip
+address for logging agent, in the case of built-in netconsole, you can't change
+config except for changing boot parameter and rebooting your system, or in the
+case of module netconsole, you need to remove it and reload with different
+parameters.
 
-Thanks for the patch.
+So, I propose the following extended features for netconsole.
 
-Regards,
-Martin
+1) support for multiple logging agents.
+2) add interface to access each parameter of netconsole
+   using sysfs.
+
+[changes since take2]
+-changing kernel base from 2.6.20-rc1-mm1 to 2.6.21-rc3.mm2.
+-using symbolic link for network device.
+-changing in part interface from sysfs to ioctl,
+ because Stephen Hemminger advised us that it is a misuse that
+ sysfs has the behavior with magic side effect such as adding/removing port.
+
+This patch is for linux-2.6.21-rc3-mm2 and is divided to each function.
+Your comments are very welcome.
+
+Signed-off-by: Keiichi KII <k-keiichi@bx.jp.nec.com>
+Signed-off-by: Takayoshi Kochi <t-kochi@bq.jp.nec.com>
+---
 
 
