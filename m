@@ -1,83 +1,41 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: [patch 13/26] Xen-paravirt_ops: Consistently wrap paravirt ops callsites to make them patchable
-Date: Tue, 20 Mar 2007 20:21:19 +0100
-Message-ID: <20070320192118.GD4286@bingen.suse.de>
-References: <20070319.120854.30182994.davem@davemloft.net> <20070319.204712.118947830.davem@davemloft.net> <m13b40wnrb.fsf@ebiederm.dsl.xmission.com> <200703201428.50564.ak@suse.de> <m1ircvswzz.fsf@ebiederm.dsl.xmission.com> <20070320174159.GA4286@bingen.suse.de> <Pine.LNX.4.64.0703200947501.6730@woody.linux-foundation.org> <20070320180359.GB4286@bingen.suse.de> <Pine.LNX.4.64.0703201022040.6730@woody.linux-foundation.org>
+From: Sergei Shtylyov <sshtylyov@ru.mvista.com>
+Subject: Re: [PATCH] Netpoll support for Sibyte MAC
+Date: Tue, 20 Mar 2007 21:35:53 +0300
+Message-ID: <46002989.5000609@ru.mvista.com>
+References: <20070319224311.GA10176@plexity.net> <20070320.102248.68134682.nemoto@toshiba-tops.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andi Kleen <ak@suse.de>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	David Miller <davem@davemloft.net>,
-	virtualization@lists.linux-foundation.org, jbeulich@novell.com,
-	jeremy@goop.org, xen-devel@lists.xensource.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	chrisw@sous-sol.org, virtualization@lists.osdl.org,
-	anthony@codemonkey.ws, akpm@linux-foundation.org, mingo@elte.hu
-To: Linus Torvalds <torvalds@linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: dsaxena@plexity.net, netdev@vger.kernel.org, ralf@linux-mips.org,
+	jeff@garzik.org, linux-mips@linux-mips.org, mlachwani@mvista.com
+To: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:42293 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750699AbXCTSWa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Mar 2007 14:22:30 -0400
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0703201022040.6730@woody.linux-foundation.org>
+Received: from gateway-1237.mvista.com ([63.81.120.155]:60007 "EHLO
+	imap.sh.mvista.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752810AbXCTSf0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Mar 2007 14:35:26 -0400
+In-Reply-To: <20070320.102248.68134682.nemoto@toshiba-tops.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 20, 2007 at 10:27:00AM -0700, Linus Torvalds wrote:
-> 
-> 
-> On Tue, 20 Mar 2007, Andi Kleen wrote:
-> > 
-> > The code never did that. In fact many of the problems we had initially
-> > especially came out of that -- the fallback code that would handle
-> > this case wasn't fully correct.
-> 
-> I don't keep my emails any more, but you *never* fixed the problems in 
-> arch/*/kernel/traps.c.
+Hello.
 
-I fixed that one after you dropped it (hmm, double checking: or at least
-I thought I had fixed it, but don't see the code right now; will redo then) 
-Basically it was just a one liner anyways - always check against all the
-stacks that are there.
+Atsushi Nemoto wrote:
 
+>>NETPOLL support for Sibyte MAC
 
-> Yes, the kernel/unwind.c issues generally got fixed. The infinite loops in 
-> the *callers* never did.
+>>Signed-off-by: Manish Lachwani <mlachwani@mvista.com>
+>>Signed-off-by: Deepak Saxena <dsaxena@mvista.com>
 
-There was later a weaker form that should have caught most loops, but admittedly
-it wasn't 100% bullet-proof with exception stacks.
+> If you added NETPOLL support, do not forget to ensure hard_start_xmit
+> routine callable from interrupt context (or irq disabled).
+> See commit bce305f4fe779f29d99d414685243f5da0803254 for example.
 
-> 
-> > Also frankly often your analysis about what went wrong was just
-> > incorrect.
-> 
-> Still in denial, I see.
-> 
-> Do you still claim that "the fallback position always did the right 
-> thing"
+    You're absolutely right: this driver is very likely to blow up the caller 
+when called with interrupts disabled -- it uses spin_unlock_irq() there! This 
+*must* be fixed.
 
-No initially it was buggy and that caused several of the crashes.
+> ---
+> Atsushi Nemoto
 
-> Despite the fact that the unwinder had sometimes *corrupted* the 
-> incoming information so much that the fallback position was the one that 
-> oopsed? And no, you didn't fix that.
-
-No, it oopsed because it was broken by itself.
-Anyways that got fixed quickly.
-
-> 
-> And no, IT DID NOT use probe_kernel_address like you still claim.
-
-There definitely was a patch that made it use it. You might have
-not merged it though.
- 
-> Anyway, you work for Suse, I don't care what you do to the Suse kernel. 
-> Maybe it will get stable some day. Somehow, I doubt it. 
-
-So what is your proposed alternative to handle long backtraces? 
-You didn't answer that question. Please do, I'm curious about your thoughts
-in this area.
-
--Andi
-
+WBR, Sergei
