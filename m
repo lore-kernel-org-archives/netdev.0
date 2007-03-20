@@ -1,40 +1,43 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: Oops in filter add
-Date: Tue, 20 Mar 2007 08:29:46 +0100
-Message-ID: <45FF8D6A.4010308@trash.net>
-References: <45FEEE35.6090606@reflexsecurity.com>	 <20070319.192206.21926062.davem@davemloft.net>	 <1174373645.4895.15.camel@localhost>  <45FF8602.8040108@trash.net> <1174375109.4895.22.camel@localhost>
+From: Pekka Savola <pekkas@netcore.fi>
+Subject: Re: 2.6.20.3-rc1 / iproute2 hoplimit 2^32-1 vs 2^8-1
+Date: Tue, 20 Mar 2007 10:27:51 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0703201026300.25136@netcore.fi>
+References: <Pine.LNX.4.64.0703191706530.3331@netcore.fi> <45FEAA3E.20601@trash.net>
+ <45FEABE1.9050003@trash.net> <20070319.121844.112623702.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, chris@reflexsecurity.com,
-	netdev@vger.kernel.org, tgraf@suug.ch
-To: hadi@cyberus.ca
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: kaber@trash.net, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:42521 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753341AbXCTH3u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Mar 2007 03:29:50 -0400
-In-Reply-To: <1174375109.4895.22.camel@localhost>
+Received: from netcore.fi ([193.94.160.1]:54609 "EHLO netcore.fi"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753343AbXCTI17 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Mar 2007 04:27:59 -0400
+In-Reply-To: <20070319.121844.112623702.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
-> On Tue, 2007-20-03 at 07:58 +0100, Patrick McHardy wrote:
-> 
-> Ok. It certainly used to matter in the old days.
+On Mon, 19 Mar 2007, David Miller wrote:
+> From: Patrick McHardy <kaber@trash.net>
+> Date: Mon, 19 Mar 2007 16:27:29 +0100
+>
+>> Mhh actually this looks intentional:
+>>
+>> icmpv6_send and some other output functions do:
+>> 	int hlimit;
+>> ...
+>>         if (hlimit < 0)
+>>                 hlimit = dst_metric(dst, RTAX_HOPLIMIT);
+>>         if (hlimit < 0)
+>>                 hlimit = ipv6_get_hoplimit(dst->dev);
+>
+> Yep, negative value has a specific meaning.
 
+Which seems to indicate that the kernel-internal implementation has a 
+need to store a negative TTL.  Reporting it to the userspace as a 
+negative doesn't seem right though?
 
-Actually it has never been used anywhere else but in ing_filter,
-it was introduced together with the TC actions.
-
->>You would need to make qdisc_lock_tree() aware of the difference
->>between ingress and egress.
-> 
-> 
-> If you have the cycles please go ahead - I really dont have much time
-> today (have to present in a few hours and havent even started).
-> I will most certainly look in 1-2 days; for now the queue_lock should
-> suffice; 
-
-
-I'll try, but no promises, I'm a bit behind with various things myself.
+-- 
+Pekka Savola                 "You each name yourselves king, yet the
+Netcore Oy                    kingdom bleeds."
+Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
