@@ -1,49 +1,49 @@
-From: "Arnaldo Carvalho de Melo" <acme@ghostprotocols.net>
-Subject: Re: [PKT_SCHED] atm: Fix missing net/netlink.h include after nlmsg_trim() cleanup
-Date: Tue, 20 Mar 2007 19:27:38 -0300
-Message-ID: <39e6f6c70703201527k5ba5f83h40a0341ce06e4cc4@mail.gmail.com>
-References: <20070320220225.GP521@postel.suug.ch>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [patch 13/26] Xen-paravirt_ops: Consistently wrap
+	paravirt ops callsites to make them patchable
+Date: Wed, 21 Mar 2007 09:41:16 +1100
+Message-ID: <1174430476.11680.123.camel@localhost.localdomain>
+References: <20070316.023331.59468179.davem@davemloft.net>
+	<45FB005D.9060809@goop.org>
+	<1174127638.8897.75.camel@localhost.localdomain>
+	<20070318.003309.71088169.davem@davemloft.net>
+	<20070318120814.GA45869@muc.de>
+	<1174272469.11680.23.camel@localhost.localdomain>
+	<m1648xxf93.fsf@ebiederm.dsl.xmission.com>
+	<Pine.LNX.4.64.0703191134190.6730@woody.linux-foundation.org>
+	<1174348905.11680.54.camel@localhost.localdomain>
+	<45FF4043.4000805@vmware.com> <45FF770C.7050301@goop.org>
+	<Pine.LNX.4.64.0703200805450.6730@woody.linux-foundation.org>
+	<m1mz27sy82.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: "Thomas Graf" <tgraf@suug.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.170]:19224 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751939AbXCTW1o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Mar 2007 18:27:44 -0400
-Received: by ug-out-1314.google.com with SMTP id 44so35065uga
-        for <netdev@vger.kernel.org>; Tue, 20 Mar 2007 15:27:39 -0700 (PDT)
-In-Reply-To: <20070320220225.GP521@postel.suug.ch>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Cc: Zachary Amsden <zach@vmware.com>, Jeremy Fitzhardinge <jeremy@goop.org>,
+	xen-devel@lists.xensource.com, akpm@linux-foundation.org,
+	virtualization@lists.osdl.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, chrisw@sous-sol.org,
+	Andi Kleen <ak@muc.de>, anthony@codemonkey.ws, mingo@elte.hu,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	David Miller <davem@davemloft.net>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <xen-devel-bounces@lists.xensource.com>
+In-Reply-To: <m1mz27sy82.fsf@ebiederm.dsl.xmission.com>
+List-Unsubscribe: <http://lists.xensource.com/cgi-bin/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xensource.com?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xensource.com>
+List-Help: <mailto:xen-devel-request@lists.xensource.com?subject=help>
+List-Subscribe: <http://lists.xensource.com/cgi-bin/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xensource.com?subject=subscribe>
+Sender: xen-devel-bounces@lists.xensource.com
+Errors-To: xen-devel-bounces@lists.xensource.com
 List-Id: netdev.vger.kernel.org
 
-On 3/20/07, Thomas Graf <tgraf@suug.ch> wrote:
-> sch_atm.c:(.text+0x380ed): undefined reference to `nlmsg_trim'
->
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
->
-> diff --git a/net/sched/sch_atm.c b/net/sched/sch_atm.c
-> index 53060e6..daa1644 100644
-> --- a/net/sched/sch_atm.c
-> +++ b/net/sched/sch_atm.c
-> @@ -12,8 +12,8 @@
->  #include <linux/atmdev.h>
->  #include <linux/atmclip.h>
->  #include <linux/netdevice.h>
-> -#include <linux/rtnetlink.h>
->  #include <linux/file.h> /* for fput */
-> +#include <net/netlink.h>
->  #include <net/pkt_sched.h>
->  #include <net/sock.h>
+On Tue, 2007-03-20 at 09:58 -0600, Eric W. Biederman wrote:
+> Looking at the above code snippet.  I guess it is about time to
+> merge our per_cpu and pda variables...
 
-Hey, if it wasn't for Dave to state that he would be out in la-la land
-for three days you wouldn't have the opportunity to figure that I made
-a mistake :-)
+Indeed, thanks for the prod.  Now 2.6.21-rc4-mm1 is out, I'll resend the
+patches.
 
-I noticed that shortly after I made that mistake, but have to wait for
-boss to get back at his super merging abilities :-)
-
-- Arnaldo
+Cheers,
+Rusty.
