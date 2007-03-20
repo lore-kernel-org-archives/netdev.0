@@ -1,35 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: [ofa-general] Re: dst_ifdown breaks infiniband?
-Date: Tue, 20 Mar 2007 16:34:56 -0700 (PDT)
-Message-ID: <20070320.163456.41638776.davem@davemloft.net>
-References: <20070319151336.GA24225@mellanox.co.il>
-	<20070319232043.GA23359@ms2.inr.ac.ru>
-	<20070320160217.GC31495@mellanox.co.il>
+From: "Dale Farnsworth" <dale@farnsworth.org>
+Subject: [PATCH] mv643xx_eth: add mv643xx_eth_shutdown function
+Date: Tue, 20 Mar 2007 16:38:04 -0700
+Message-ID: <20070320233801.GA24374@xyzzy.farnsworth.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, linux-kernel@vger.kernel.org,
-	general@lists.openfabrics.org, netdev@vger.kernel.org
-To: mst@dev.mellanox.co.il
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <20070320160217.GC31495@mellanox.co.il>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jeff Garzik <jgarzik@pobox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from xyzzy.farnsworth.org ([65.39.95.219]:3941 "HELO farnsworth.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S934088AbXCTXiJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Mar 2007 19:38:09 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Michael S. Tsirkin" <mst@dev.mellanox.co.il>
-Date: Tue, 20 Mar 2007 18:02:17 +0200
+From: Dale Farnsworth <dale@farnsworth.org>
 
-> David, Alexey, what do you think about this patch? Is it right?
-> Could this patch be considered for 2.6.21?
-> 
-> Acked-by: Michael S. Tsirkin <mst@dev.mellanox.co.il>
+mv643xx_eth_shutdown is needed for kexec.
 
-I plan to apply it and merge.
+Signed-off-by: Dale Farnsworth <dale@farnsworth.org>
+
+---
+ drivers/net/mv643xx_eth.c |   14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
+
+Index: linux-2.6-powerpc-df/drivers/net/mv643xx_eth.c
+===================================================================
+--- linux-2.6-powerpc-df.orig/drivers/net/mv643xx_eth.c
++++ linux-2.6-powerpc-df/drivers/net/mv643xx_eth.c
+@@ -1516,9 +1516,23 @@ static int mv643xx_eth_shared_remove(str
+ 	return 0;
+ }
+ 
++static void mv643xx_eth_shutdown(struct platform_device *pdev)
++{
++	struct net_device *dev = platform_get_drvdata(pdev);
++	struct mv643xx_private *mp = netdev_priv(dev);
++	unsigned int port_num = mp->port_num;
++
++	/* Mask all interrupts on ethernet port */
++	mv_write(MV643XX_ETH_INTERRUPT_MASK_REG(port_num), 0);
++	mv_read (MV643XX_ETH_INTERRUPT_MASK_REG(port_num));
++
++	eth_port_reset(port_num);
++}
++
+ static struct platform_driver mv643xx_eth_driver = {
+ 	.probe = mv643xx_eth_probe,
+ 	.remove = mv643xx_eth_remove,
++	.shutdown = mv643xx_eth_shutdown,
+ 	.driver = {
+ 		.name = MV643XX_ETH_NAME,
+ 	},
