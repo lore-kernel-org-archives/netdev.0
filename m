@@ -1,7 +1,7 @@
 From: Gerrit Renker <acme@ghostprotocols.net>
 Subject: [PATCH 10/31] [DCCP]: 48-bit sequence number arithmetic
-Date: Tue, 20 Mar 2007 20:06:19 -0300
-Message-ID: <20070320230619.GX17811@ghostprotocols.net>
+Date: Tue, 20 Mar 2007 20:06:36 -0300
+Message-ID: <20070320230636.GY17811@ghostprotocols.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
@@ -9,10 +9,10 @@ To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from wx-out-0506.google.com ([66.249.82.230]:34121 "EHLO
 	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752082AbXCTXGY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Mar 2007 19:06:24 -0400
+	with ESMTP id S1752113AbXCTXGt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Mar 2007 19:06:49 -0400
 Received: by wx-out-0506.google.com with SMTP id h31so64649wxd
-        for <netdev@vger.kernel.org>; Tue, 20 Mar 2007 16:06:23 -0700 (PDT)
+        for <netdev@vger.kernel.org>; Tue, 20 Mar 2007 16:06:48 -0700 (PDT)
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
