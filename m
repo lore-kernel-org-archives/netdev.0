@@ -1,57 +1,54 @@
 From: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
-Subject: [PATCH 21/31] [DCCP]: Always use debug-toggle parameters
-Date: Tue, 20 Mar 2007 20:15:59 -0300
-Message-ID: <20070320231559.GJ17811@ghostprotocols.net>
+Subject: [PATCH 22/31] [DCCP]: More debug information for dccp_wait_for_ccid
+Date: Tue, 20 Mar 2007 20:16:51 -0300
+Message-ID: <20070320231650.GK17811@ghostprotocols.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.225]:39497 "EHLO
+Received: from wx-out-0506.google.com ([66.249.82.231]:40598 "EHLO
 	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932274AbXCTXQE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Mar 2007 19:16:04 -0400
-Received: by wx-out-0506.google.com with SMTP id h31so66936wxd
-        for <netdev@vger.kernel.org>; Tue, 20 Mar 2007 16:16:04 -0700 (PDT)
+	with ESMTP id S932764AbXCTXQz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Mar 2007 19:16:55 -0400
+Received: by wx-out-0506.google.com with SMTP id h31so67362wxd
+        for <netdev@vger.kernel.org>; Tue, 20 Mar 2007 16:16:55 -0700 (PDT)
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Currently debugging output (when configured) is automatically enabled when
-DCCP modules are compiled into the kernel rather than built as loadable modules.
-This is not necessary, since the module parameters in this case become kernel
-commandline parameters, e.g. DCCP or CCID3 debug output can be enabled for a
-static build by appending the following at the boot prompt:
-
-	dccp.dccp_debug=1 	dccp_ccid3.ccid3_debug=1
-
-This patch therefore does away with the more complicated way of always enabling
-debug output for static builds
+This adds more detail in the wait_for_ccid packet scheduling loop.
+In particular, it informs about (i) when delay is used and (ii) why
+a packet is discarded.
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Signed-off-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
 Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
 ---
- net/dccp/dccp.h |    4 ----
- 1 files changed, 0 insertions(+), 4 deletions(-)
+ net/dccp/output.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-diff --git a/net/dccp/dccp.h b/net/dccp/dccp.h
-index 2c5be61..a1768f5 100644
---- a/net/dccp/dccp.h
-+++ b/net/dccp/dccp.h
-@@ -31,13 +31,9 @@
- 					      __stringify(cond));          \
- 			     } while (0)
- 
--#ifdef MODULE
- #define DCCP_PRINTK(enable, fmt, args...)	do { if (enable)	     \
- 							printk(fmt, ##args); \
- 						} while(0)
--#else
--#define DCCP_PRINTK(enable, fmt, args...)	printk(fmt, ##args)
--#endif
- #define DCCP_PR_DEBUG(enable, fmt, a...)	DCCP_PRINTK(enable, KERN_DEBUG \
- 						  "%s: " fmt, __FUNCTION__, ##a)
- 
+diff --git a/net/dccp/output.c b/net/dccp/output.c
+index aa21cc4..c8d843e 100644
+--- a/net/dccp/output.c
++++ b/net/dccp/output.c
+@@ -194,6 +194,7 @@ static int dccp_wait_for_ccid(struct sock *sk, struct sk_buff *skb)
+ 		rc = ccid_hc_tx_send_packet(dp->dccps_hc_tx_ccid, sk, skb);
+ 		if (rc <= 0)
+ 			break;
++		dccp_pr_debug("delayed send by %d msec\n", rc);
+ 		delay = msecs_to_jiffies(rc);
+ 		sk->sk_write_pending++;
+ 		release_sock(sk);
+@@ -255,7 +256,7 @@ void dccp_write_xmit(struct sock *sk, int block)
+ 				DCCP_BUG("err=%d after ccid_hc_tx_packet_sent",
+ 					 err);
+ 		} else {
+-			dccp_pr_debug("packet discarded\n");
++			dccp_pr_debug("packet discarded due to err=%d\n", err);
+ 			kfree_skb(skb);
+ 		}
+ 	}
 -- 
 1.5.0.3
 
