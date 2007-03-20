@@ -1,7 +1,7 @@
 From: Keiichi KII <k-keiichi@bx.jp.nec.com>
-Subject: [RFC][PATCH -mm take3 4/6][resend] using symlink for the net_device
-Date: Tue, 20 Mar 2007 21:30:07 +0900
-Message-ID: <45FFD3CF.2010409@bx.jp.nec.com>
+Subject: [RFC][PATCH -mm take3 5/6][resend] switch function of netpoll
+Date: Tue, 20 Mar 2007 21:31:47 +0900
+Message-ID: <45FFD433.8060706@bx.jp.nec.com>
 References: <45FFCF31.3040000@bx.jp.nec.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-2022-JP
@@ -9,152 +9,176 @@ Content-Transfer-Encoding: 7bit
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 To: mpm@selenic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from TYO202.gate.nec.co.jp ([202.32.8.206]:39860 "EHLO
-	tyo202.gate.nec.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932750AbXCTMaN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Mar 2007 08:30:13 -0400
+Received: from TYO201.gate.nec.co.jp ([202.32.8.193]:35200 "EHLO
+	tyo201.gate.nec.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932398AbXCTMby (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Mar 2007 08:31:54 -0400
 In-Reply-To: <45FFCF31.3040000@bx.jp.nec.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Keiichi KII <k-keiichi@bx.jp.nec.com>
 
-We use symbolic link for net_device.
-The link in sysfs represents the corresponding network etherdevice.
+This patch contains switch function of netpoll.
+
+If "enabled" attribute of certain port is '1', this port is used
+and the configurations of this port are uable to change.
+
+If "enabled" attribute of certain port is '0', this port isn't used
+and the configurations of this port are able to change.
 
 -+- /sys/class/misc/
- |-+- netconsole/
- |-+- port1/
- | |--- id             [r--r--r--]  id
- | |--- net:<net_dev>  [rw-r--r--]  net_dev: eth0,eth1,...
- | ...
- |--- port2/
- ...
+|-+- netconsole/
+  |-+- port1/
+  | |--- id          [r--r--r--]  id
+  | |--- enabled     [rw-r--r--]  0: disable 1: enable, writable
+  | ...
+  |--- port2/
+  ...
 
 Signed-off-by: Keiichi KII <k-keiichi@bx.jp.nec.com>
 Signed-off-by: Takayoshi Kochi <t-kochi@bq.jp.nec.com>
 ---
-Index: linux-mm/drivers/net/netconsole.c
+Index: linux-2.6.19.5/drivers/net/netconsole.c
 ===================================================================
---- linux-mm.orig/drivers/net/netconsole.c
-+++ linux-mm/drivers/net/netconsole.c
-@@ -77,6 +77,9 @@ static int add_target(char* target_confi
- static int setup_target_sysfs(struct netconsole_target *nt);
- static void cleanup_netconsole(void);
- static void delete_target(struct netconsole_target *nt);
-+static char* make_netdev_class_name(char *netdev_name);
-+static int netconsole_event(struct notifier_block *this, unsigned long event,
-+			    void *ptr);
- 
- static int miscdev_configured;
- 
-@@ -275,6 +278,10 @@ static struct netpoll np = {
- 	.remote_mac = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+--- linux-2.6.19.5.orig/drivers/net/netconsole.c
++++ linux-2.6.19.5/drivers/net/netconsole.c
+@@ -60,6 +60,7 @@ struct netconsole_target {
+ 	struct list_head list;
+ 	struct kobject obj;
+ 	int id;
++	int enabled;
+ 	struct netpoll np;
  };
  
-+static struct notifier_block netconsole_notifier = {
-+	.notifier_call = netconsole_event,
-+};
-+
- static int add_target(char* target_config)
- {
- 	int retval = 0;
-@@ -322,10 +329,20 @@ static int add_target(char* target_confi
- 
- static int setup_target_sysfs(struct netconsole_target *nt)
- {
-+	int retval = 0;
-+	char *name;
-+
- 	kobject_set_name(&nt->obj, "port%d", nt->id);
- 	nt->obj.parent = &netconsole_miscdev.this_device->kobj;
- 	nt->obj.ktype = &target_ktype;
--	return kobject_register(&nt->obj);
-+	retval = kobject_register(&nt->obj);
-+	name = make_netdev_class_name(nt->np.dev_name);
-+	if (IS_ERR(name))
-+		return PTR_ERR(name);
-+	retval = sysfs_create_link(&nt->obj, &nt->np.dev->dev.kobj, name);
-+	kfree(name);
-+
-+	return retval;
+@@ -128,10 +129,19 @@ static ssize_t show_remote_mac(struct ne
+ 		       nt->np.remote_mac[4], nt->np.remote_mac[5]);
  }
  
- static void delete_target(struct netconsole_target *nt)
-@@ -337,6 +354,57 @@ static void delete_target(struct netcons
- 	kfree(nt);
- }
- 
-+static char* make_netdev_class_name(char *netdev_name)
++static ssize_t show_enabled(struct netconsole_target *nt, char *buf)
 +{
-+	int size;
-+	char *name;
-+	char *netdev_class_prefix = "net:";
-+
-+	size = strlen(netdev_class_prefix) + strlen(netdev_name) + 1;
-+	name = kmalloc(size, GFP_KERNEL);
-+	if (!name) {
-+		printk(KERN_ERR "netconsole: kmalloc() failed!\n");
-+		return ERR_PTR(-ENOMEM);
-+	}
-+	strcpy(name, netdev_class_prefix);
-+	strcat(name, netdev_name);
-+
-+	return name;
++	return sprintf(buf, "%d\n", nt->enabled);
 +}
 +
-+static int netconsole_event(struct notifier_block *this, unsigned long event,
-+			    void *ptr)
-+{
-+	int error = 0;
-+	char *old_link_name = NULL, *new_link_name = NULL;
-+	struct netconsole_target *nt;
-+	struct net_device *dev = ptr;
-+
-+	if (event == NETDEV_CHANGENAME) {
-+		spin_lock(&target_list_lock);
-+		list_for_each_entry(nt, &target_list, list) {
-+			if (nt->np.dev != dev)
-+				continue;
-+			new_link_name = make_netdev_class_name(dev->name);
-+			old_link_name =
-+				make_netdev_class_name(nt->np.dev_name);
-+			sysfs_remove_link(&nt->obj, old_link_name);
-+			error = sysfs_create_link(&nt->obj,
-+						  &nt->np.dev->dev.kobj,
-+						  new_link_name);
-+			if (error)
-+				printk(KERN_ERR "can't create link: %s\n",
-+				       new_link_name);
-+			strcpy(nt->np.dev_name, dev->name);
-+			kfree(new_link_name);
-+			kfree(old_link_name);
-+		}
+ static ssize_t store_local_port(struct netconsole_target *nt, const char *buf,
+ 				size_t count)
+ {
+ 	spin_lock(&target_list_lock);
++	if (nt->enabled) {
 +		spin_unlock(&target_list_lock);
++		return -EINVAL;
 +	}
+ 	nt->np.local_port = simple_strtol(buf, NULL, 10);
+ 	spin_unlock(&target_list_lock);
+ 
+@@ -142,6 +152,10 @@ static ssize_t store_remote_port(struct 
+ 				size_t count)
+ {
+ 	spin_lock(&target_list_lock);
++	if (nt->enabled) {
++		spin_unlock(&target_list_lock);
++		return -EINVAL;
++	}
+ 	nt->np.remote_port = simple_strtol(buf, NULL, 10);
+ 	spin_unlock(&target_list_lock);
+ 
+@@ -152,6 +166,10 @@ static ssize_t store_local_ip(struct net
+ 			      size_t count)
+ {
+ 	spin_lock(&target_list_lock);
++	if (nt->enabled) {
++		spin_unlock(&target_list_lock);
++		return -EINVAL;
++	}
+ 	nt->np.local_ip = ntohl(in_aton(buf));
+ 	spin_unlock(&target_list_lock);
+ 
+@@ -162,6 +180,10 @@ static ssize_t store_remote_ip(struct ne
+ 			       size_t count)
+ {
+ 	spin_lock(&target_list_lock);
++	if (nt->enabled) {
++		spin_unlock(&target_list_lock);
++		return -EINVAL;
++	}
+ 	nt->np.remote_ip = ntohl(in_aton(buf));
+ 	spin_unlock(&target_list_lock);
+ 
+@@ -184,12 +206,39 @@ static ssize_t store_remote_mac(struct n
+ 	if (i != ETH_ALEN)
+ 		return -EINVAL;
+ 	spin_lock(&target_list_lock);
++	if (nt->enabled) {
++		spin_unlock(&target_list_lock);
++		return -EINVAL;
++	}
+ 	memcpy(nt->np.remote_mac, input_mac, ETH_ALEN);
+ 	spin_unlock(&target_list_lock);
+ 
+ 	return count;
+ }
+ 
++static ssize_t store_enabled(struct netconsole_target *nt, const char *buf,
++			    size_t count)
++{
++	int enabled = 0;
 +
-+	return NOTIFY_DONE;
++	if (count >= 2 && (count != 2 || buf[count - 1] != '\n')) {
++		printk(KERN_ERR "netconsole: invalid argument: %s\n", buf);
++		return -EINVAL;
++	} else if (strncmp(buf, "1", 1) == 0) {
++		enabled = 1;
++	} else if(strncmp(buf, "0", 1) == 0) {
++		enabled = 0;
++	} else {
++		printk(KERN_ERR "netconsole: invalid argument: %s\n", buf);
++		return -EINVAL;
++	}
++	spin_lock(&target_list_lock);
++	nt->enabled = enabled;
++	spin_unlock(&target_list_lock);
++
++	return count;
 +}
 +
- static void write_msg(struct console *con, const char *msg, unsigned int len)
- {
- 	int frag, left;
-@@ -393,6 +461,7 @@ static int __init init_netconsole(void)
- 		miscdev_configured = 1;
+ #define NETCON_CLASS_ATTR(_name, _mode, _show, _store) \
+ struct target_attr target_attr_##_name = \
+                            __ATTR(_name, _mode, _show, _store)
+@@ -206,6 +255,8 @@ static NETCON_CLASS_ATTR(remote_ip, S_IR
+ static NETCON_CLASS_ATTR(local_mac, S_IRUGO, show_local_mac, NULL);
+ static NETCON_CLASS_ATTR(remote_mac, S_IRUGO | S_IWUSR,
+ 			 show_remote_mac, store_remote_mac);
++static NETCON_CLASS_ATTR(enabled, S_IRUGO | S_IWUSR,
++			 show_enabled, store_enabled);
  
- 	register_console(&netconsole);
-+	register_netdevice_notifier(&netconsole_notifier);
+ static struct attribute *target_attrs[] = {
+ 	&target_attr_id.attr,
+@@ -215,6 +266,7 @@ static struct attribute *target_attrs[] 
+ 	&target_attr_remote_ip.attr,
+ 	&target_attr_local_mac.attr,
+ 	&target_attr_remote_mac.attr,
++	&target_attr_enabled.attr,
+ 	NULL
+ };
  
- 	if(!strlen(config)) {
- 		printk(KERN_ERR "netconsole: not configured\n");
-@@ -416,6 +485,7 @@ static void cleanup_netconsole(void)
- 	struct netconsole_target *nt, *tmp;
+@@ -313,6 +365,7 @@ static int add_target(char* target_confi
  
- 	unregister_console(&netconsole);
-+	unregister_netdevice_notifier(&netconsole_notifier);
- 	list_for_each_entry_safe(nt, tmp, &target_list, list) {
- 		kobject_unregister(&nt->obj);
- 	}
+ 	atomic_inc(&target_count);
+ 	new_target->id = atomic_read(&target_count);
++	new_target->enabled = 1;
+ 
+ 	printk(KERN_INFO "netconsole: add target: "
+ 	       "remote ip_addr=%d.%d.%d.%d remote port=%d\n",
+@@ -420,7 +473,8 @@ static void write_msg(struct console *co
+ 	for(left = len; left; ) {
+ 		frag = min(left, MAX_PRINT_CHUNK);
+ 		list_for_each_entry(target, &target_list, list) {
+-			netpoll_send_udp(&target->np, msg, frag);
++			if (target->enabled)
++				netpoll_send_udp(&target->np, msg, frag);
+ 		}
+ 		msg += frag;
+ 		left -= frag;
 
 -- 
 
