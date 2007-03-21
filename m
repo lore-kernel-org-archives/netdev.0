@@ -1,215 +1,53 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [NET] rules: Unified rules dumping
-Date: Wed, 21 Mar 2007 01:12:57 +0100
-Message-ID: <20070321001257.GQ521@postel.suug.ch>
+From: Zachary Amsden <zach@vmware.com>
+Subject: Re: [patch 13/26] Xen-paravirt_ops: Consistently wrap paravirt ops
+ callsites to make them patchable
+Date: Tue, 20 Mar 2007 17:14:45 -0800
+Message-ID: <46008705.6010007@vmware.com>
+References: <1174272469.11680.23.camel@localhost.localdomain> <m1648xxf93.fsf@ebiederm.dsl.xmission.com> <Pine.LNX.4.64.0703191134190.6730@woody.linux-foundation.org> <1174348905.11680.54.camel@localhost.localdomain> <45FF4043.4000805@vmware.com> <45FF770C.7050301@goop.org> <Pine.LNX.4.64.0703200805450.6730@woody.linux-foundation.org> <m1mz27sy82.fsf@ebiederm.dsl.xmission.com> <Pine.LNX.4.64.0703200903500.6730@woody.linux-foundation.org> <46000C7E.4070001@goop.org> <20070320224324.GL10459@waste.org> <46006963.1020401@vmware.com> <46006F66.4030901@goop.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Matt Mackall <mpm@selenic.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Rusty Russell <rusty@rustcorp.com.au>, Andi Kleen <ak@muc.de>,
+	David Miller <davem@davemloft.net>, mingo@elte.hu,
+	akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.osdl.org, xen-devel@lists.xensource.com,
+	chrisw@sous-sol.org, anthony@codemonkey.ws, netdev@vger.kernel.org
+To: Jeremy Fitzhardinge <jeremy@goop.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:44254 "EHLO postel.suug.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751675AbXCUAMh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Mar 2007 20:12:37 -0400
-Content-Disposition: inline
+Received: from smtp-outbound-1.vmware.com ([65.113.40.141]:42948 "EHLO
+	smtp-outbound-1.vmware.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752034AbXCUAOU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Mar 2007 20:14:20 -0400
+In-Reply-To: <46006F66.4030901@goop.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Implements a unified, protocol independant rules dumping function
-which is capable of both, dumping a specific protocol family or
-all of them. This speeds up dumping as less lookups are required.
+Jeremy Fitzhardinge wrote:
+> Zachary Amsden wrote:
+>   
+>> I think Jeremy's idea was to have interrupt handlers leave interrupts
+>> disabled on exit if pda.intr_mask was set.  In which case, they would
+>> bypass all work and we could never get preempted.
+>>     
+>
+> Yes, I was worried that if we left the isr without actually handling the
+> interrupt, it would still be asserted and we'd just get interrupted
+> again.  The idea is that we avoid touching cli/sti for the common case
+> of no interrupts while interrupts are disabled, but we'd still need to
+> fall back to using them if an interrupt becomes pending.
+>
+>   
+>> I don't think leaving hardware interrupts disabled for such a long
+>> time is good though. 
+>>     
+>
+> How long?  It would be no longer than now, and possibly less, wouldn't it?
+>   
 
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
+Hmm.  Perhaps.  Something about the asymmetry bothers me alot though.
 
-Index: net-2.6.22/net/core/fib_rules.c
-===================================================================
---- net-2.6.22.orig/net/core/fib_rules.c	2007-03-21 00:52:30.000000000 +0100
-+++ net-2.6.22/net/core/fib_rules.c	2007-03-21 01:10:10.000000000 +0100
-@@ -363,19 +363,15 @@ nla_put_failure:
- 	return -EMSGSIZE;
- }
- 
--int fib_rules_dump(struct sk_buff *skb, struct netlink_callback *cb, int family)
-+static int dump_rules(struct sk_buff *skb, struct netlink_callback *cb,
-+		      struct fib_rules_ops *ops)
- {
- 	int idx = 0;
- 	struct fib_rule *rule;
--	struct fib_rules_ops *ops;
--
--	ops = lookup_rules_ops(family);
--	if (ops == NULL)
--		return -EAFNOSUPPORT;
- 
- 	rcu_read_lock();
- 	list_for_each_entry(rule, ops->rules_list, list) {
--		if (idx < cb->args[0])
-+		if (idx < cb->args[1])
- 			goto skip;
- 
- 		if (fib_nl_fill_rule(skb, rule, NETLINK_CB(cb->skb).pid,
-@@ -386,13 +382,44 @@ skip:
- 		idx++;
- 	}
- 	rcu_read_unlock();
--	cb->args[0] = idx;
-+	cb->args[1] = idx;
- 	rules_ops_put(ops);
- 
- 	return skb->len;
- }
- 
--EXPORT_SYMBOL_GPL(fib_rules_dump);
-+static int nl_rule_dump(struct sk_buff *skb, struct netlink_callback *cb)
-+{
-+	struct fib_rules_ops *ops;
-+	int idx = 0, family;
-+
-+	family = rtnl_msg_family(cb->nlh);
-+	if (family != AF_UNSPEC) {
-+		/* Protocol specific dump request */
-+		ops = lookup_rules_ops(family);
-+		if (ops == NULL)
-+			return -EAFNOSUPPORT;
-+
-+		return dump_rules(skb, cb, ops);
-+	}
-+
-+	rcu_read_lock();
-+	list_for_each_entry_rcu(ops, &rules_ops, list) {
-+		if (idx < cb->args[0] || !try_module_get(ops->owner))
-+			goto skip;
-+
-+		if (dump_rules(skb, cb, ops) < 0)
-+			break;
-+
-+		cb->args[1] = 0;
-+	skip:
-+		idx++;
-+	}
-+	rcu_read_unlock();
-+	cb->args[0] = idx;
-+
-+	return skb->len;
-+}
- 
- static void notify_rule_change(int event, struct fib_rule *rule,
- 			       struct fib_rules_ops *ops, struct nlmsghdr *nlh,
-@@ -473,7 +500,7 @@ static int __init fib_rules_init(void)
- {
- 	rtnl_register(PF_UNSPEC, RTM_NEWRULE, nl_rule_new, NULL);
- 	rtnl_register(PF_UNSPEC, RTM_DELRULE, nl_rule_del, NULL);
--	rtnl_register(PF_UNSPEC, RTM_GETRULE, NULL, rtnl_dump_all);
-+	rtnl_register(PF_UNSPEC, RTM_GETRULE, NULL, nl_rule_dump);
- 
- 	return register_netdevice_notifier(&fib_rules_notifier);
- }
-Index: net-2.6.22/include/net/fib_rules.h
-===================================================================
---- net-2.6.22.orig/include/net/fib_rules.h	2007-03-21 00:52:30.000000000 +0100
-+++ net-2.6.22/include/net/fib_rules.h	2007-03-21 01:10:10.000000000 +0100
-@@ -97,7 +97,4 @@ extern int			fib_rules_unregister(struct
- extern int			fib_rules_lookup(struct fib_rules_ops *,
- 						 struct flowi *, int flags,
- 						 struct fib_lookup_arg *);
--
--extern int			fib_rules_dump(struct sk_buff *,
--					       struct netlink_callback *, int);
- #endif
-Index: net-2.6.22/net/decnet/dn_rules.c
-===================================================================
---- net-2.6.22.orig/net/decnet/dn_rules.c	2007-03-21 00:52:38.000000000 +0100
-+++ net-2.6.22/net/decnet/dn_rules.c	2007-03-21 01:10:10.000000000 +0100
-@@ -241,11 +241,6 @@ static u32 dn_fib_rule_default_pref(void
- 	return 0;
- }
- 
--static int nl_dn_rules_dump(struct sk_buff *skb, struct netlink_callback *cb)
--{
--	return fib_rules_dump(skb, cb, AF_DECnet);
--}
--
- static struct fib_rules_ops dn_fib_rules_ops = {
- 	.family		= AF_DECnet,
- 	.rule_size	= sizeof(struct dn_fib_rule),
-@@ -265,12 +260,10 @@ void __init dn_fib_rules_init(void)
- {
- 	list_add_tail(&default_rule.common.list, &dn_fib_rules);
- 	fib_rules_register(&dn_fib_rules_ops);
--	rtnl_register(PF_DECnet, RTM_GETRULE, NULL, nl_dn_rules_dump);
- }
- 
- void __exit dn_fib_rules_cleanup(void)
- {
--	rtnl_unregister(PF_DECnet, RTM_GETRULE);
- 	fib_rules_unregister(&dn_fib_rules_ops);
- }
- 
-Index: net-2.6.22/net/ipv4/fib_rules.c
-===================================================================
---- net-2.6.22.orig/net/ipv4/fib_rules.c	2007-03-21 00:52:33.000000000 +0100
-+++ net-2.6.22/net/ipv4/fib_rules.c	2007-03-21 01:10:10.000000000 +0100
-@@ -277,11 +277,6 @@ nla_put_failure:
- 	return -ENOBUFS;
- }
- 
--static int nl_fib4_rule_dump(struct sk_buff *skb, struct netlink_callback *cb)
--{
--	return fib_rules_dump(skb, cb, AF_INET);
--}
--
- static u32 fib4_rule_default_pref(void)
- {
- 	struct list_head *pos;
-@@ -329,6 +324,4 @@ void __init fib4_rules_init(void)
- 	list_add_tail(&default_rule.common.list, &fib4_rules);
- 
- 	fib_rules_register(&fib4_rules_ops);
--
--	rtnl_register(PF_INET, RTM_GETRULE, NULL, nl_fib4_rule_dump);
- }
-Index: net-2.6.22/net/ipv6/fib6_rules.c
-===================================================================
---- net-2.6.22.orig/net/ipv6/fib6_rules.c	2007-03-21 00:52:40.000000000 +0100
-+++ net-2.6.22/net/ipv6/fib6_rules.c	2007-03-21 01:10:10.000000000 +0100
-@@ -221,11 +221,6 @@ nla_put_failure:
- 	return -ENOBUFS;
- }
- 
--static int nl_fib6_rules_dump(struct sk_buff *skb, struct netlink_callback *cb)
--{
--	return fib_rules_dump(skb, cb, AF_INET6);
--}
--
- static u32 fib6_rule_default_pref(void)
- {
- 	return 0x3FFF;
-@@ -259,11 +254,9 @@ void __init fib6_rules_init(void)
- 	list_add_tail(&main_rule.common.list, &fib6_rules);
- 
- 	fib_rules_register(&fib6_rules_ops);
--	__rtnl_register(PF_INET6, RTM_GETRULE, NULL, nl_fib6_rules_dump);
- }
- 
- void fib6_rules_cleanup(void)
- {
--	rtnl_unregister(PF_INET6, RTM_GETRULE);
- 	fib_rules_unregister(&fib6_rules_ops);
- }
-Index: net-2.6.22/include/net/rtnetlink.h
-===================================================================
---- net-2.6.22.orig/include/net/rtnetlink.h	2007-03-21 00:52:26.000000000 +0100
-+++ net-2.6.22/include/net/rtnetlink.h	2007-03-21 01:10:10.000000000 +0100
-@@ -15,4 +15,12 @@ extern int	rtnl_unregister(int protocol,
- extern void	rtnl_unregister_all(int protocol);
- extern int	rtnl_dump_all(struct sk_buff *skb, struct netlink_callback *cb);
- 
-+static inline int rtnl_msg_family(struct nlmsghdr *nlh)
-+{
-+	if (nlmsg_len(nlh) >= sizeof(struct rtgenmsg))
-+		return ((struct rtgenmsg *) nlmsg_data(nlh))->rtgen_family;
-+	else
-+		return AF_UNSPEC;
-+}
-+
- #endif
+Zach
+
