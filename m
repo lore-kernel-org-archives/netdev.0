@@ -1,54 +1,215 @@
-From: Paul Mackerras <paulus@samba.org>
-Subject: Re: [patch 13/26] Xen-paravirt_ops: Consistently wrap paravirt ops
- callsites to make them patchable
-Date: Wed, 21 Mar 2007 11:03:14 +1100
-Message-ID: <17920.30274.608018.34484@cargo.ozlabs.ibm.com>
-References: <20070316.023331.59468179.davem@davemloft.net>
-	<45FB005D.9060809@goop.org>
-	<1174127638.8897.75.camel@localhost.localdomain>
-	<20070318.003309.71088169.davem@davemloft.net>
-	<20070318120814.GA45869@muc.de>
-	<1174272469.11680.23.camel@localhost.localdomain>
-	<m1648xxf93.fsf@ebiederm.dsl.xmission.com>
-	<Pine.LNX.4.64.0703191134190.6730@woody.linux-foundation.org>
-	<1174348905.11680.54.camel@localhost.localdomain>
-	<45FF4043.4000805@vmware.com>
-	<45FF770C.7050301@goop.org>
-	<Pine.LNX.4.64.0703200805450.6730@woody.linux-foundation.org>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [NET] rules: Unified rules dumping
+Date: Wed, 21 Mar 2007 01:12:57 +0100
+Message-ID: <20070321001257.GQ521@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Jeremy Fitzhardinge <jeremy@goop.org>,
-	Zachary Amsden <zach@vmware.com>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Andi Kleen <ak@muc.de>, David Miller <davem@davemloft.net>,
-	mingo@elte.hu, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org, virtualization@lists.osdl.org,
-	xen-devel@lists.xensource.com, chrisw@sous-sol.org,
-	anthony@codemonkey.ws, netdev@vger.kernel.org
-To: Linus Torvalds <torvalds@linux-foundation.org>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:57220 "EHLO ozlabs.org"
+Received: from postel.suug.ch ([194.88.212.233]:44254 "EHLO postel.suug.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751250AbXCUADj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Mar 2007 20:03:39 -0400
-In-Reply-To: <Pine.LNX.4.64.0703200805450.6730@woody.linux-foundation.org>
+	id S1751675AbXCUAMh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Mar 2007 20:12:37 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Linus Torvalds writes:
+Implements a unified, protocol independant rules dumping function
+which is capable of both, dumping a specific protocol family or
+all of them. This speeds up dumping as less lookups are required.
 
-> We should just do this natively. There's been several tests over the years 
-> saying that it's much more efficient to do sti/cli as a simple store, and 
-> handling the "oops, we got an interrupt while interrupts were disabled" as 
-> a special case.
-> 
-> I have this dim memory that ARM has done it that way for a long time 
-> because it's so expensive to do a "real" cli/sti.
-> 
-> And I think -rt does it for other reasons. It's just more flexible.
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-64-bit powerpc does this now as well.
-
-Paul.
+Index: net-2.6.22/net/core/fib_rules.c
+===================================================================
+--- net-2.6.22.orig/net/core/fib_rules.c	2007-03-21 00:52:30.000000000 +0100
++++ net-2.6.22/net/core/fib_rules.c	2007-03-21 01:10:10.000000000 +0100
+@@ -363,19 +363,15 @@ nla_put_failure:
+ 	return -EMSGSIZE;
+ }
+ 
+-int fib_rules_dump(struct sk_buff *skb, struct netlink_callback *cb, int family)
++static int dump_rules(struct sk_buff *skb, struct netlink_callback *cb,
++		      struct fib_rules_ops *ops)
+ {
+ 	int idx = 0;
+ 	struct fib_rule *rule;
+-	struct fib_rules_ops *ops;
+-
+-	ops = lookup_rules_ops(family);
+-	if (ops == NULL)
+-		return -EAFNOSUPPORT;
+ 
+ 	rcu_read_lock();
+ 	list_for_each_entry(rule, ops->rules_list, list) {
+-		if (idx < cb->args[0])
++		if (idx < cb->args[1])
+ 			goto skip;
+ 
+ 		if (fib_nl_fill_rule(skb, rule, NETLINK_CB(cb->skb).pid,
+@@ -386,13 +382,44 @@ skip:
+ 		idx++;
+ 	}
+ 	rcu_read_unlock();
+-	cb->args[0] = idx;
++	cb->args[1] = idx;
+ 	rules_ops_put(ops);
+ 
+ 	return skb->len;
+ }
+ 
+-EXPORT_SYMBOL_GPL(fib_rules_dump);
++static int nl_rule_dump(struct sk_buff *skb, struct netlink_callback *cb)
++{
++	struct fib_rules_ops *ops;
++	int idx = 0, family;
++
++	family = rtnl_msg_family(cb->nlh);
++	if (family != AF_UNSPEC) {
++		/* Protocol specific dump request */
++		ops = lookup_rules_ops(family);
++		if (ops == NULL)
++			return -EAFNOSUPPORT;
++
++		return dump_rules(skb, cb, ops);
++	}
++
++	rcu_read_lock();
++	list_for_each_entry_rcu(ops, &rules_ops, list) {
++		if (idx < cb->args[0] || !try_module_get(ops->owner))
++			goto skip;
++
++		if (dump_rules(skb, cb, ops) < 0)
++			break;
++
++		cb->args[1] = 0;
++	skip:
++		idx++;
++	}
++	rcu_read_unlock();
++	cb->args[0] = idx;
++
++	return skb->len;
++}
+ 
+ static void notify_rule_change(int event, struct fib_rule *rule,
+ 			       struct fib_rules_ops *ops, struct nlmsghdr *nlh,
+@@ -473,7 +500,7 @@ static int __init fib_rules_init(void)
+ {
+ 	rtnl_register(PF_UNSPEC, RTM_NEWRULE, nl_rule_new, NULL);
+ 	rtnl_register(PF_UNSPEC, RTM_DELRULE, nl_rule_del, NULL);
+-	rtnl_register(PF_UNSPEC, RTM_GETRULE, NULL, rtnl_dump_all);
++	rtnl_register(PF_UNSPEC, RTM_GETRULE, NULL, nl_rule_dump);
+ 
+ 	return register_netdevice_notifier(&fib_rules_notifier);
+ }
+Index: net-2.6.22/include/net/fib_rules.h
+===================================================================
+--- net-2.6.22.orig/include/net/fib_rules.h	2007-03-21 00:52:30.000000000 +0100
++++ net-2.6.22/include/net/fib_rules.h	2007-03-21 01:10:10.000000000 +0100
+@@ -97,7 +97,4 @@ extern int			fib_rules_unregister(struct
+ extern int			fib_rules_lookup(struct fib_rules_ops *,
+ 						 struct flowi *, int flags,
+ 						 struct fib_lookup_arg *);
+-
+-extern int			fib_rules_dump(struct sk_buff *,
+-					       struct netlink_callback *, int);
+ #endif
+Index: net-2.6.22/net/decnet/dn_rules.c
+===================================================================
+--- net-2.6.22.orig/net/decnet/dn_rules.c	2007-03-21 00:52:38.000000000 +0100
++++ net-2.6.22/net/decnet/dn_rules.c	2007-03-21 01:10:10.000000000 +0100
+@@ -241,11 +241,6 @@ static u32 dn_fib_rule_default_pref(void
+ 	return 0;
+ }
+ 
+-static int nl_dn_rules_dump(struct sk_buff *skb, struct netlink_callback *cb)
+-{
+-	return fib_rules_dump(skb, cb, AF_DECnet);
+-}
+-
+ static struct fib_rules_ops dn_fib_rules_ops = {
+ 	.family		= AF_DECnet,
+ 	.rule_size	= sizeof(struct dn_fib_rule),
+@@ -265,12 +260,10 @@ void __init dn_fib_rules_init(void)
+ {
+ 	list_add_tail(&default_rule.common.list, &dn_fib_rules);
+ 	fib_rules_register(&dn_fib_rules_ops);
+-	rtnl_register(PF_DECnet, RTM_GETRULE, NULL, nl_dn_rules_dump);
+ }
+ 
+ void __exit dn_fib_rules_cleanup(void)
+ {
+-	rtnl_unregister(PF_DECnet, RTM_GETRULE);
+ 	fib_rules_unregister(&dn_fib_rules_ops);
+ }
+ 
+Index: net-2.6.22/net/ipv4/fib_rules.c
+===================================================================
+--- net-2.6.22.orig/net/ipv4/fib_rules.c	2007-03-21 00:52:33.000000000 +0100
++++ net-2.6.22/net/ipv4/fib_rules.c	2007-03-21 01:10:10.000000000 +0100
+@@ -277,11 +277,6 @@ nla_put_failure:
+ 	return -ENOBUFS;
+ }
+ 
+-static int nl_fib4_rule_dump(struct sk_buff *skb, struct netlink_callback *cb)
+-{
+-	return fib_rules_dump(skb, cb, AF_INET);
+-}
+-
+ static u32 fib4_rule_default_pref(void)
+ {
+ 	struct list_head *pos;
+@@ -329,6 +324,4 @@ void __init fib4_rules_init(void)
+ 	list_add_tail(&default_rule.common.list, &fib4_rules);
+ 
+ 	fib_rules_register(&fib4_rules_ops);
+-
+-	rtnl_register(PF_INET, RTM_GETRULE, NULL, nl_fib4_rule_dump);
+ }
+Index: net-2.6.22/net/ipv6/fib6_rules.c
+===================================================================
+--- net-2.6.22.orig/net/ipv6/fib6_rules.c	2007-03-21 00:52:40.000000000 +0100
++++ net-2.6.22/net/ipv6/fib6_rules.c	2007-03-21 01:10:10.000000000 +0100
+@@ -221,11 +221,6 @@ nla_put_failure:
+ 	return -ENOBUFS;
+ }
+ 
+-static int nl_fib6_rules_dump(struct sk_buff *skb, struct netlink_callback *cb)
+-{
+-	return fib_rules_dump(skb, cb, AF_INET6);
+-}
+-
+ static u32 fib6_rule_default_pref(void)
+ {
+ 	return 0x3FFF;
+@@ -259,11 +254,9 @@ void __init fib6_rules_init(void)
+ 	list_add_tail(&main_rule.common.list, &fib6_rules);
+ 
+ 	fib_rules_register(&fib6_rules_ops);
+-	__rtnl_register(PF_INET6, RTM_GETRULE, NULL, nl_fib6_rules_dump);
+ }
+ 
+ void fib6_rules_cleanup(void)
+ {
+-	rtnl_unregister(PF_INET6, RTM_GETRULE);
+ 	fib_rules_unregister(&fib6_rules_ops);
+ }
+Index: net-2.6.22/include/net/rtnetlink.h
+===================================================================
+--- net-2.6.22.orig/include/net/rtnetlink.h	2007-03-21 00:52:26.000000000 +0100
++++ net-2.6.22/include/net/rtnetlink.h	2007-03-21 01:10:10.000000000 +0100
+@@ -15,4 +15,12 @@ extern int	rtnl_unregister(int protocol,
+ extern void	rtnl_unregister_all(int protocol);
+ extern int	rtnl_dump_all(struct sk_buff *skb, struct netlink_callback *cb);
+ 
++static inline int rtnl_msg_family(struct nlmsghdr *nlh)
++{
++	if (nlmsg_len(nlh) >= sizeof(struct rtgenmsg))
++		return ((struct rtgenmsg *) nlmsg_data(nlh))->rtgen_family;
++	else
++		return AF_UNSPEC;
++}
++
+ #endif
