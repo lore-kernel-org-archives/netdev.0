@@ -1,35 +1,50 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [PATCH -rt] Fix initialization of spinlock in irttp_dup()
-Date: Wed, 21 Mar 2007 08:11:13 +0100
-Message-ID: <20070321071113.GA5894@elte.hu>
-References: <20070320192233.GA14543@plexity.net>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: Oops in filter add
+Date: Wed, 21 Mar 2007 05:33:44 -0400
+Message-ID: <1174469624.16343.2.camel@localhost>
+References: <45FEEE35.6090606@reflexsecurity.com>
+	 <20070319.192206.21926062.davem@davemloft.net>
+	 <1174373645.4895.15.camel@localhost>  <45FF8602.8040108@trash.net>
+	 <1174375109.4895.22.camel@localhost>  <45FF8D6A.4010308@trash.net>
+	 <1174382739.4864.11.camel@localhost>  <45FFBE5A.1020807@trash.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: samuel@sortiz.org, netdev@vger.kernel.org,
-	Andrew Morton <akpm@osdl.org>,
-	Daniel Walker <dwalker@mvista.com>
-To: Deepak Saxena <dsaxena@plexity.net>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, chris@reflexsecurity.com,
+	netdev@vger.kernel.org, tgraf@suug.ch
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.mail.elte.hu ([157.181.151.9]:51296 "EHLO mx2.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932768AbXCUHLe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Mar 2007 03:11:34 -0400
-Content-Disposition: inline
-In-Reply-To: <20070320192233.GA14543@plexity.net>
+Received: from py-out-1112.google.com ([64.233.166.177]:54680 "EHLO
+	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751134AbXCUJrm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Mar 2007 05:47:42 -0400
+Received: by py-out-1112.google.com with SMTP id a29so67282pyi
+        for <netdev@vger.kernel.org>; Wed, 21 Mar 2007 02:47:42 -0700 (PDT)
+In-Reply-To: <45FFBE5A.1020807@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Tue, 2007-20-03 at 11:58 +0100, Patrick McHardy wrote:
+> jamal wrote:
 
-* Deepak Saxena <dsaxena@plexity.net> wrote:
+> > So the resolution (as Dave points out) was wrong. In any case, restoring
+> > queue_lock for now would slow things but will remove the race.
+> 
+> 
+> Yes. I think thats what we should do for 2.6.21, since fixing
+> this while keeping ingress_lock is quite intrusive.
+> 
 
-> This was found around the 2.6.10 timeframe when testing with the -rt 
-> patch and I believe is still is an issue. irttp_dup() does a memcpy() 
-> of the tsap_cb structure causing the spinlock protecting various 
-> fields in the structure to be duped.  This works OK in the non-RT case 
-> but in the RT case we end up with two mutexes pointing to the same 
-> wait_list and leading to an OOPS. Fix is to simply initialize the 
-> spinlock after the memcpy().
+reasonable.
 
-note that memcpy based lock initialization is a problem for lockdep too.
+> I'm on it. I'm using the opportunity to try to simply the qdisc locking.
 
-	Ingo
+Ok, thanks Patrick. 
+BTW, I was just staring at the code and i think i have found probably a
+long standing minor bug on the holding of the tree lock. I will post
+ a patch shortly if i dont get disrupted.
+
+cheers,
+jamal
+
