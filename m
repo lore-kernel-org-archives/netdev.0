@@ -1,83 +1,96 @@
 From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [PATCH 2/5] netem: use better types for time values
-Date: Wed, 21 Mar 2007 10:42:33 -0700
-Message-ID: <20070321174422.564418149@linux-foundation.org>
+Subject: [PATCH 4/5] netem: avoid excessive requeues
+Date: Wed, 21 Mar 2007 10:42:35 -0700
+Message-ID: <20070321174422.767901837@linux-foundation.org>
 References: <20070321174231.890361963@linux-foundation.org>
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:46920 "EHLO smtp.osdl.org"
+Received: from smtp.osdl.org ([65.172.181.24]:46930 "EHLO smtp.osdl.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752846AbXCUR6t (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Mar 2007 13:58:49 -0400
-Content-Disposition: inline; filename=netem-typefix.patch
+	id S933304AbXCUR7D (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Mar 2007 13:59:03 -0400
+Content-Disposition: inline; filename=netem-throttle-opt.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The random number generator always generates 32 bit values.
-The time values are limited by psched_tdiff_t
+The netem code would call getnstimeofday() and dequeue/requeue after
+every packet, even if it was waiting. Avoid this overhead by using
+the throttled flag.
 
 Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
 
 ---
- net/sched/sch_netem.c |   23 +++++++++++++----------
- 1 file changed, 13 insertions(+), 10 deletions(-)
+ net/sched/sch_api.c   |    3 +++
+ net/sched/sch_netem.c |   21 ++++++++++++---------
+ 2 files changed, 15 insertions(+), 9 deletions(-)
 
+--- net-2.6.22.orig/net/sched/sch_api.c
++++ net-2.6.22/net/sched/sch_api.c
+@@ -298,6 +298,7 @@ static enum hrtimer_restart qdisc_watchd
+ 						 timer);
+ 
+ 	wd->qdisc->flags &= ~TCQ_F_THROTTLED;
++	smp_wmb();
+ 	netif_schedule(wd->qdisc->dev);
+ 	return HRTIMER_NORESTART;
+ }
+@@ -315,6 +316,7 @@ void qdisc_watchdog_schedule(struct qdis
+ 	ktime_t time;
+ 
+ 	wd->qdisc->flags |= TCQ_F_THROTTLED;
++	smp_wmb();
+ 	time = ktime_set(0, 0);
+ 	time = ktime_add_ns(time, PSCHED_US2NS(expires));
+ 	hrtimer_start(&wd->timer, time, HRTIMER_MODE_ABS);
+@@ -325,6 +327,7 @@ void qdisc_watchdog_cancel(struct qdisc_
+ {
+ 	hrtimer_cancel(&wd->timer);
+ 	wd->qdisc->flags &= ~TCQ_F_THROTTLED;
++	smp_wmb();
+ }
+ EXPORT_SYMBOL(qdisc_watchdog_cancel);
+ 
 --- net-2.6.22.orig/net/sched/sch_netem.c
 +++ net-2.6.22/net/sched/sch_netem.c
-@@ -56,19 +56,20 @@ struct netem_sched_data {
- 	struct Qdisc	*qdisc;
- 	struct qdisc_watchdog watchdog;
+@@ -272,6 +272,10 @@ static struct sk_buff *netem_dequeue(str
+ 	struct netem_sched_data *q = qdisc_priv(sch);
+ 	struct sk_buff *skb;
  
--	u32 latency;
-+	psched_tdiff_t latency;
-+	psched_tdiff_t jitter;
++	smp_mb();
++	if (sch->flags & TCQ_F_THROTTLED)
++		return NULL;
 +
- 	u32 loss;
- 	u32 limit;
- 	u32 counter;
- 	u32 gap;
--	u32 jitter;
- 	u32 duplicate;
- 	u32 reorder;
- 	u32 corrupt;
+ 	skb = q->qdisc->dequeue(q->qdisc);
+ 	if (skb) {
+ 		const struct netem_skb_cb *cb
+@@ -284,18 +288,17 @@ static struct sk_buff *netem_dequeue(str
+ 		if (PSCHED_TLESS(cb->time_to_send, now)) {
+ 			pr_debug("netem_dequeue: return skb=%p\n", skb);
+ 			sch->q.qlen--;
+-			sch->flags &= ~TCQ_F_THROTTLED;
+ 			return skb;
+-		} else {
+-			qdisc_watchdog_schedule(&q->watchdog, cb->time_to_send);
++		}
  
- 	struct crndstate {
--		unsigned long last;
--		unsigned long rho;
-+		u32 last;
-+		u32 rho;
- 	} delay_cor, loss_cor, dup_cor, reorder_cor, corrupt_cor;
+-			if (q->qdisc->ops->requeue(skb, q->qdisc) != NET_XMIT_SUCCESS) {
+-				qdisc_tree_decrease_qlen(q->qdisc, 1);
+-				sch->qstats.drops++;
+-				printk(KERN_ERR "netem: queue discpline %s could not requeue\n",
+-				       q->qdisc->ops->id);
+-			}
++		if (unlikely(q->qdisc->ops->requeue(skb, q->qdisc) != NET_XMIT_SUCCESS)) {
++			qdisc_tree_decrease_qlen(q->qdisc, 1);
++			sch->qstats.drops++;
++			printk(KERN_ERR "netem: %s could not requeue\n",
++			       q->qdisc->ops->id);
+ 		}
++
++		qdisc_watchdog_schedule(&q->watchdog, cb->time_to_send);
+ 	}
  
- 	struct disttable {
-@@ -95,7 +96,7 @@ static void init_crandom(struct crndstat
-  * Next number depends on last value.
-  * rho is scaled to avoid floating point.
-  */
--static unsigned long get_crandom(struct crndstate *state)
-+static u32 get_crandom(struct crndstate *state)
- {
- 	u64 value, rho;
- 	unsigned long answer;
-@@ -114,11 +115,13 @@ static unsigned long get_crandom(struct 
-  * std deviation sigma.  Uses table lookup to approximate the desired
-  * distribution, and a uniformly-distributed pseudo-random source.
-  */
--static long tabledist(unsigned long mu, long sigma,
--		      struct crndstate *state, const struct disttable *dist)
--{
--	long t, x;
--	unsigned long rnd;
-+static psched_tdiff_t tabledist(psched_tdiff_t mu, psched_tdiff_t sigma,
-+				struct crndstate *state,
-+				const struct disttable *dist)
-+{
-+	psched_tdiff_t x;
-+	long t;
-+	u32 rnd;
- 
- 	if (sigma == 0)
- 		return mu;
+ 	return NULL;
 
 -- 
 
