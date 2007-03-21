@@ -1,125 +1,172 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH 2/3] [IPv4] diag: Use netlink_run_queue() to process the receive queue
-Date: Thu, 22 Mar 2007 00:18:03 +0100
-Message-ID: <20070321231822.387131801@lsx.localdomain>
+Subject: [PATCH 3/3] [NETLINK]: Directly return -EINTR from netlink_dump_start()
+Date: Thu, 22 Mar 2007 00:18:04 +0100
+Message-ID: <20070321231822.524479713@lsx.localdomain>
 References: <20070321231801.342849239@lsx.localdomain>
 Cc: netdev@vger.kernel.org, kaber@trash.net,
 	Thomas Graf <tgraf@suug.ch>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:50346 "EHLO postel.suug.ch"
+Received: from postel.suug.ch ([194.88.212.233]:50351 "EHLO postel.suug.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753147AbXCUXVZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Mar 2007 19:21:25 -0400
-Content-Disposition: inline; filename=inet_diag_queue_run
+	id S1750821AbXCUXVa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Mar 2007 19:21:30 -0400
+Content-Disposition: inline; filename=netlink_dump_start_retval
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Makes use of netlink_run_queue() to process the receive queue and
-converts inet_diag_rcv_msg() to use the type safe netlink interface.
+Now that all users of netlink_dump_start() use netlink_run_queue()
+to process the receive queue, it is possible to return -EINTR from
+netlink_dump_start() directly, therefore simplying the callers.
 
 Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
+Index: net-2.6.22/net/core/rtnetlink.c
+===================================================================
+--- net-2.6.22.orig/net/core/rtnetlink.c	2007-03-21 18:38:32.000000000 +0100
++++ net-2.6.22/net/core/rtnetlink.c	2007-03-22 00:09:35.000000000 +0100
+@@ -858,7 +858,6 @@ static int rtnetlink_rcv_msg(struct sk_b
+ 	int min_len;
+ 	int family;
+ 	int type;
+-	int err;
+ 
+ 	type = nlh->nlmsg_type;
+ 	if (type > RTM_MAX)
+@@ -887,10 +886,7 @@ static int rtnetlink_rcv_msg(struct sk_b
+ 		if (dumpit == NULL)
+ 			return -EINVAL;
+ 
+-		err = netlink_dump_start(rtnl, skb, nlh, dumpit, NULL);
+-		if (err == 0)
+-			err = -EINTR;
+-		return err;
++		return netlink_dump_start(rtnl, skb, nlh, dumpit, NULL);
+ 	}
+ 
+ 	memset(rta_buf, 0, (rtattr_max * sizeof(struct rtattr *)));
 Index: net-2.6.22/net/ipv4/inet_diag.c
 ===================================================================
---- net-2.6.22.orig/net/ipv4/inet_diag.c	2007-03-21 18:40:29.000000000 +0100
-+++ net-2.6.22/net/ipv4/inet_diag.c	2007-03-22 00:08:05.000000000 +0100
-@@ -806,68 +806,48 @@ done:
- 	return skb->len;
- }
- 
--static inline int inet_diag_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
-+static int inet_diag_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
- {
--	if (!(nlh->nlmsg_flags&NLM_F_REQUEST))
--		return 0;
-+	int hdrlen = sizeof(struct inet_diag_req);
- 
--	if (nlh->nlmsg_type >= INET_DIAG_GETSOCK_MAX)
--		goto err_inval;
-+	if (nlh->nlmsg_type >= INET_DIAG_GETSOCK_MAX ||
-+	    nlmsg_len(nlh) < hdrlen)
-+		return -EINVAL;
- 
- 	if (inet_diag_table[nlh->nlmsg_type] == NULL)
+--- net-2.6.22.orig/net/ipv4/inet_diag.c	2007-03-22 00:08:05.000000000 +0100
++++ net-2.6.22/net/ipv4/inet_diag.c	2007-03-22 00:10:05.000000000 +0100
+@@ -818,8 +818,6 @@ static int inet_diag_rcv_msg(struct sk_b
  		return -ENOENT;
  
--	if (NLMSG_LENGTH(sizeof(struct inet_diag_req)) > skb->len)
--		goto err_inval;
--
--	if (nlh->nlmsg_flags&NLM_F_DUMP) {
--		if (nlh->nlmsg_len >
--		    (4 + NLMSG_SPACE(sizeof(struct inet_diag_req)))) {
--			struct rtattr *rta = (void *)(NLMSG_DATA(nlh) +
--						 sizeof(struct inet_diag_req));
--			if (rta->rta_type != INET_DIAG_REQ_BYTECODE ||
--			    rta->rta_len < 8 ||
--			    rta->rta_len >
--			    (nlh->nlmsg_len -
--			     NLMSG_SPACE(sizeof(struct inet_diag_req))))
--				goto err_inval;
--			if (inet_diag_bc_audit(RTA_DATA(rta), RTA_PAYLOAD(rta)))
--				goto err_inval;
--		}
--		return netlink_dump_start(idiagnl, skb, nlh,
--					  inet_diag_dump, NULL);
--	} else
--		return inet_diag_get_exact(skb, nlh);
--
--err_inval:
--	return -EINVAL;
--}
-+	if (nlh->nlmsg_flags & NLM_F_DUMP) {
-+		int err;
- 
-+		if (nlmsg_attrlen(nlh, hdrlen)) {
-+			struct nlattr *attr;
- 
--static inline void inet_diag_rcv_skb(struct sk_buff *skb)
--{
--	if (skb->len >= NLMSG_SPACE(0)) {
+ 	if (nlh->nlmsg_flags & NLM_F_DUMP) {
 -		int err;
--		struct nlmsghdr *nlh = nlmsg_hdr(skb);
-+			attr = nlmsg_find_attr(nlh, hdrlen,
-+					       INET_DIAG_REQ_BYTECODE);
-+			if (attr == NULL ||
-+			    nla_len(attr) < sizeof(struct inet_diag_bc_op) ||
-+			    inet_diag_bc_audit(nla_data(attr), nla_len(attr)))
-+				return -EINVAL;
-+		}
+-
+ 		if (nlmsg_attrlen(nlh, hdrlen)) {
+ 			struct nlattr *attr;
  
--		if (nlh->nlmsg_len < sizeof(*nlh) ||
--		    skb->len < nlh->nlmsg_len)
--			return;
--		err = inet_diag_rcv_msg(skb, nlh);
--		if (err || nlh->nlmsg_flags & NLM_F_ACK)
--			netlink_ack(skb, nlh, err);
-+		err = netlink_dump_start(idiagnl, skb, nlh,
-+					 inet_diag_dump, NULL);
-+		if (err == 0)
-+			err = -EINTR;
-+		return err;
+@@ -831,11 +829,8 @@ static int inet_diag_rcv_msg(struct sk_b
+ 				return -EINVAL;
+ 		}
+ 
+-		err = netlink_dump_start(idiagnl, skb, nlh,
+-					 inet_diag_dump, NULL);
+-		if (err == 0)
+-			err = -EINTR;
+-		return err;
++		return netlink_dump_start(idiagnl, skb, nlh,
++					  inet_diag_dump, NULL);
  	}
+ 
+ 	return inet_diag_get_exact(skb, nlh);
+Index: net-2.6.22/net/netfilter/nf_conntrack_netlink.c
+===================================================================
+--- net-2.6.22.orig/net/netfilter/nf_conntrack_netlink.c	2007-03-21 18:38:32.000000000 +0100
++++ net-2.6.22/net/netfilter/nf_conntrack_netlink.c	2007-03-22 00:08:25.000000000 +0100
+@@ -724,11 +724,8 @@ ctnetlink_get_conntrack(struct sock *ctn
+ 		if (NFNL_MSG_TYPE(nlh->nlmsg_type) == IPCTNL_MSG_CT_GET_CTRZERO)
+ 			return -ENOTSUPP;
+ #endif
+-		err = netlink_dump_start(ctnl, skb, nlh, ctnetlink_dump_table,
+-					 ctnetlink_done);
+-		if (err == 0)
+-			err = -EINTR;
+-		return err;
++		return netlink_dump_start(ctnl, skb, nlh, ctnetlink_dump_table,
++					  ctnetlink_done);
+ 	}
+ 
+ 	if (nfattr_bad_size(cda, CTA_MAX, cta_min))
+@@ -1266,12 +1263,9 @@ ctnetlink_get_expect(struct sock *ctnl, 
+ 		return -EINVAL;
+ 
+ 	if (nlh->nlmsg_flags & NLM_F_DUMP) {
+-		err = netlink_dump_start(ctnl, skb, nlh,
+-					 ctnetlink_exp_dump_table,
+-					 ctnetlink_done);
+-		if (err == 0)
+-			err = -EINTR;
+-		return err;
++		return netlink_dump_start(ctnl, skb, nlh,
++					  ctnetlink_exp_dump_table,
++					  ctnetlink_done);
+ 	}
+ 
+ 	if (cda[CTA_EXPECT_MASTER-1])
+Index: net-2.6.22/net/netlink/af_netlink.c
+===================================================================
+--- net-2.6.22.orig/net/netlink/af_netlink.c	2007-03-22 00:02:36.000000000 +0100
++++ net-2.6.22/net/netlink/af_netlink.c	2007-03-22 00:08:25.000000000 +0100
+@@ -1426,7 +1426,12 @@ int netlink_dump_start(struct sock *ssk,
+ 
+ 	netlink_dump(sk);
+ 	sock_put(sk);
+-	return 0;
 +
-+	return inet_diag_get_exact(skb, nlh);
++	/* We successfully started a dump, by returning -EINTR we
++	 * signal the queue mangement to interrupt processing of
++	 * any netlink messages so userspace gets a chance to read
++	 * the results. */
++	return -EINTR;
  }
  
- static void inet_diag_rcv(struct sock *sk, int len)
+ void netlink_ack(struct sk_buff *in_skb, struct nlmsghdr *nlh, int err)
+Index: net-2.6.22/net/netlink/genetlink.c
+===================================================================
+--- net-2.6.22.orig/net/netlink/genetlink.c	2007-03-21 18:38:32.000000000 +0100
++++ net-2.6.22/net/netlink/genetlink.c	2007-03-22 00:08:25.000000000 +0100
+@@ -323,11 +323,8 @@ static int genl_rcv_msg(struct sk_buff *
+ 		if (ops->dumpit == NULL)
+ 			return -EOPNOTSUPP;
+ 
+-		err = netlink_dump_start(genl_sock, skb, nlh,
+-					 ops->dumpit, ops->done);
+-		if (err == 0)
+-			err = -EINTR;
+-		return err;
++		return netlink_dump_start(genl_sock, skb, nlh,
++					  ops->dumpit, ops->done);
+ 	}
+ 
+ 	if (ops->doit == NULL)
+Index: net-2.6.22/net/xfrm/xfrm_user.c
+===================================================================
+--- net-2.6.22.orig/net/xfrm/xfrm_user.c	2007-03-21 18:38:32.000000000 +0100
++++ net-2.6.22/net/xfrm/xfrm_user.c	2007-03-22 00:10:29.000000000 +0100
+@@ -1857,7 +1857,7 @@ static int xfrm_user_rcv_msg(struct sk_b
  {
--	struct sk_buff *skb;
--	unsigned int qlen = skb_queue_len(&sk->sk_receive_queue);
-+	unsigned int qlen = 0;
+ 	struct rtattr *xfrma[XFRMA_MAX];
+ 	struct xfrm_link *link;
+-	int type, min_len, err;
++	int type, min_len;
  
--	while (qlen-- && (skb = skb_dequeue(&sk->sk_receive_queue))) {
--		inet_diag_rcv_skb(skb);
--		kfree_skb(skb);
--	}
-+	do {
-+		netlink_run_queue(sk, &qlen, &inet_diag_rcv_msg);
-+	} while (qlen);
- }
+ 	type = nlh->nlmsg_type;
+ 	if (type > XFRM_MSG_MAX)
+@@ -1876,10 +1876,7 @@ static int xfrm_user_rcv_msg(struct sk_b
+ 		if (link->dump == NULL)
+ 			return -EINVAL;
  
- static DEFINE_SPINLOCK(inet_diag_register_lock);
+-		err = netlink_dump_start(xfrm_nl, skb, nlh, link->dump, NULL);
+-		if (err == 0)
+-			err = -EINTR;
+-		return err;
++		return netlink_dump_start(xfrm_nl, skb, nlh, link->dump, NULL);
+ 	}
+ 
+ 	memset(xfrma, 0, sizeof(xfrma));
 
 --
 
