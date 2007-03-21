@@ -1,70 +1,233 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH 08/12] [PKT_SCHED] act: Use rtnl registration interface
-Date: Wed, 21 Mar 2007 01:06:01 +0100
-Message-ID: <20070321000710.276893953@lsx.localdomain>
+Subject: [PATCH 09/12] [DECNet]: Use rtnl registration interface
+Date: Wed, 21 Mar 2007 01:06:02 +0100
+Message-ID: <20070321000710.411789508@lsx.localdomain>
 References: <20070321000553.070942307@lsx.localdomain>
 Cc: netdev@vger.kernel.org, Thomas Graf <tgraf@suug.ch>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:44411 "EHLO postel.suug.ch"
+Received: from postel.suug.ch ([194.88.212.233]:44408 "EHLO postel.suug.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752306AbXCUAmK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752207AbXCUAmK (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 20 Mar 2007 20:42:10 -0400
-Content-Disposition: inline; filename=rtnl_reg_act_convert
+Content-Disposition: inline; filename=rtnl_reg_dn_convert
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-Index: net-2.6.22/net/sched/act_api.c
+Index: net-2.6.22/include/net/dn_fib.h
 ===================================================================
---- net-2.6.22.orig/net/sched/act_api.c	2007-03-20 23:53:20.000000000 +0100
-+++ net-2.6.22/net/sched/act_api.c	2007-03-21 00:52:37.000000000 +0100
-@@ -25,7 +25,6 @@
- #include <linux/interrupt.h>
- #include <linux/netdevice.h>
- #include <linux/skbuff.h>
--#include <linux/rtnetlink.h>
- #include <linux/init.h>
- #include <linux/kmod.h>
- #include <net/sock.h>
-@@ -940,7 +939,7 @@ done:
- 	return ret;
- }
+--- net-2.6.22.orig/include/net/dn_fib.h	2007-03-20 23:53:20.000000000 +0100
++++ net-2.6.22/include/net/dn_fib.h	2007-03-21 00:52:38.000000000 +0100
+@@ -148,17 +148,8 @@ extern void dn_fib_rules_cleanup(void);
+ extern unsigned dnet_addr_type(__le16 addr);
+ extern int dn_fib_lookup(struct flowi *fl, struct dn_fib_res *res);
  
--static int tc_ctl_action(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
-+static int nl_act_modify(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
- {
- 	struct rtattr **tca = arg;
- 	u32 pid = skb ? NETLINK_CB(skb).pid : 0;
-@@ -1012,8 +1011,7 @@ find_dump_kind(struct nlmsghdr *n)
- 	return kind;
- }
+-/*
+- * rtnetlink interface
+- */
+-extern int dn_fib_rtm_delroute(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg);
+-extern int dn_fib_rtm_newroute(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg);
+ extern int dn_fib_dump(struct sk_buff *skb, struct netlink_callback *cb);
  
--static int
--tc_dump_action(struct sk_buff *skb, struct netlink_callback *cb)
-+static int nl_act_dump(struct sk_buff *skb, struct netlink_callback *cb)
- {
- 	struct nlmsghdr *nlh;
- 	unsigned char *b = skb_tail_pointer(skb);
-@@ -1077,14 +1075,9 @@ nlmsg_failure:
- 
- static int __init tc_action_init(void)
- {
--	struct rtnetlink_link *link_p = rtnetlink_links[PF_UNSPEC];
+-extern int dn_fib_rtm_delrule(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg);
+-extern int dn_fib_rtm_newrule(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg);
+-extern int dn_fib_dump_rules(struct sk_buff *skb, struct netlink_callback *cb);
 -
--	if (link_p) {
--		link_p[RTM_NEWACTION-RTM_BASE].doit = tc_ctl_action;
--		link_p[RTM_DELACTION-RTM_BASE].doit = tc_ctl_action;
--		link_p[RTM_GETACTION-RTM_BASE].doit = tc_ctl_action;
--		link_p[RTM_GETACTION-RTM_BASE].dumpit = tc_dump_action;
--	}
-+	rtnl_register(PF_UNSPEC, RTM_NEWACTION, nl_act_modify, NULL);
-+	rtnl_register(PF_UNSPEC, RTM_DELACTION, nl_act_modify, NULL);
-+	rtnl_register(PF_UNSPEC, RTM_GETACTION, nl_act_modify, nl_act_dump);
+ extern void dn_fib_free_info(struct dn_fib_info *fi);
  
+ static inline void dn_fib_info_put(struct dn_fib_info *fi)
+Index: net-2.6.22/net/decnet/dn_rules.c
+===================================================================
+--- net-2.6.22.orig/net/decnet/dn_rules.c	2007-03-20 23:53:21.000000000 +0100
++++ net-2.6.22/net/decnet/dn_rules.c	2007-03-21 00:52:38.000000000 +0100
+@@ -241,7 +241,7 @@ static u32 dn_fib_rule_default_pref(void
  	return 0;
  }
+ 
+-int dn_fib_dump_rules(struct sk_buff *skb, struct netlink_callback *cb)
++static int nl_dn_rules_dump(struct sk_buff *skb, struct netlink_callback *cb)
+ {
+ 	return fib_rules_dump(skb, cb, AF_DECnet);
+ }
+@@ -265,10 +265,12 @@ void __init dn_fib_rules_init(void)
+ {
+ 	list_add_tail(&default_rule.common.list, &dn_fib_rules);
+ 	fib_rules_register(&dn_fib_rules_ops);
++	rtnl_register(PF_DECnet, RTM_GETRULE, NULL, nl_dn_rules_dump);
+ }
+ 
+ void __exit dn_fib_rules_cleanup(void)
+ {
++	rtnl_unregister(PF_DECnet, RTM_GETRULE);
+ 	fib_rules_unregister(&dn_fib_rules_ops);
+ }
+ 
+Index: net-2.6.22/net/decnet/dn_fib.c
+===================================================================
+--- net-2.6.22.orig/net/decnet/dn_fib.c	2007-03-20 23:53:20.000000000 +0100
++++ net-2.6.22/net/decnet/dn_fib.c	2007-03-21 00:52:38.000000000 +0100
+@@ -501,7 +501,7 @@ static int dn_fib_check_attr(struct rtms
+ 	return 0;
+ }
+ 
+-int dn_fib_rtm_delroute(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
++int nl_route_del(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
+ {
+ 	struct dn_fib_table *tb;
+ 	struct rtattr **rta = arg;
+@@ -517,7 +517,7 @@ int dn_fib_rtm_delroute(struct sk_buff *
+ 	return -ESRCH;
+ }
+ 
+-int dn_fib_rtm_newroute(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
++static int nl_route_new(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
+ {
+ 	struct dn_fib_table *tb;
+ 	struct rtattr **rta = arg;
+@@ -745,11 +745,13 @@ void __exit dn_fib_cleanup(void)
+ 
+ void __init dn_fib_init(void)
+ {
+-
+ 	dn_fib_table_init();
+ 	dn_fib_rules_init();
+ 
+ 	register_dnaddr_notifier(&dn_fib_dnaddr_notifier);
++
++	rtnl_register(PF_DECnet, RTM_NEWROUTE, nl_route_new, NULL);
++	rtnl_register(PF_DECnet, RTM_DELROUTE, nl_route_del, NULL);
+ }
+ 
+ 
+Index: net-2.6.22/net/decnet/af_decnet.c
+===================================================================
+--- net-2.6.22.orig/net/decnet/af_decnet.c	2007-03-20 23:53:20.000000000 +0100
++++ net-2.6.22/net/decnet/af_decnet.c	2007-03-21 00:52:38.000000000 +0100
+@@ -2413,6 +2413,7 @@ module_init(decnet_init);
+ static void __exit decnet_exit(void)
+ {
+ 	sock_unregister(AF_DECnet);
++	rtnl_unregister_all(PF_DECnet);
+ 	dev_remove_pack(&dn_dix_packet_type);
+ 
+ 	dn_unregister_sysctl();
+Index: net-2.6.22/net/decnet/dn_dev.c
+===================================================================
+--- net-2.6.22.orig/net/decnet/dn_dev.c	2007-03-20 23:53:20.000000000 +0100
++++ net-2.6.22/net/decnet/dn_dev.c	2007-03-21 00:52:38.000000000 +0100
+@@ -645,7 +645,7 @@ static struct nla_policy dn_ifa_policy[I
+ 				    .len = IFNAMSIZ - 1 },
+ };
+ 
+-static int dn_nl_deladdr(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
++static int nl_addr_del(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
+ {
+ 	struct nlattr *tb[IFA_MAX+1];
+ 	struct dn_dev *dn_db;
+@@ -677,7 +677,7 @@ errout:
+ 	return err;
+ }
+ 
+-static int dn_nl_newaddr(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
++static int nl_addr_new(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
+ {
+ 	struct nlattr *tb[IFA_MAX+1];
+ 	struct net_device *dev;
+@@ -789,7 +789,7 @@ errout:
+ 		rtnl_set_sk_err(RTNLGRP_DECnet_IFADDR, err);
+ }
+ 
+-static int dn_nl_dump_ifaddr(struct sk_buff *skb, struct netlink_callback *cb)
++static int nl_addr_dump(struct sk_buff *skb, struct netlink_callback *cb)
+ {
+ 	int idx, dn_idx = 0, skip_ndevs, skip_naddr;
+ 	struct net_device *dev;
+@@ -1447,24 +1447,6 @@ static const struct file_operations dn_d
+ 
+ #endif /* CONFIG_PROC_FS */
+ 
+-static struct rtnetlink_link dnet_rtnetlink_table[RTM_NR_MSGTYPES] =
+-{
+-	[RTM_NEWADDR  - RTM_BASE] = { .doit	= dn_nl_newaddr,	},
+-	[RTM_DELADDR  - RTM_BASE] = { .doit	= dn_nl_deladdr,	},
+-	[RTM_GETADDR  - RTM_BASE] = { .dumpit	= dn_nl_dump_ifaddr,	},
+-#ifdef CONFIG_DECNET_ROUTER
+-	[RTM_NEWROUTE - RTM_BASE] = { .doit	= dn_fib_rtm_newroute,	},
+-	[RTM_DELROUTE - RTM_BASE] = { .doit	= dn_fib_rtm_delroute,	},
+-	[RTM_GETROUTE - RTM_BASE] = { .doit	= dn_cache_getroute,
+-				      .dumpit	= dn_fib_dump,		},
+-	[RTM_GETRULE  - RTM_BASE] = { .dumpit	= dn_fib_dump_rules,	},
+-#else
+-	[RTM_GETROUTE - RTM_BASE] = { .doit	= dn_cache_getroute,
+-				      .dumpit	= dn_cache_dump,	},
+-#endif
+-
+-};
+-
+ static int __initdata addr[2];
+ module_param_array(addr, int, NULL, 0444);
+ MODULE_PARM_DESC(addr, "The DECnet address of this machine: area,node");
+@@ -1485,7 +1467,9 @@ void __init dn_dev_init(void)
+ 
+ 	dn_dev_devices_on();
+ 
+-	rtnetlink_links[PF_DECnet] = dnet_rtnetlink_table;
++	rtnl_register(PF_DECnet, RTM_NEWADDR, nl_addr_new, NULL);
++	rtnl_register(PF_DECnet, RTM_DELADDR, nl_addr_del, NULL);
++	rtnl_register(PF_DECnet, RTM_GETADDR, NULL, nl_addr_dump);
+ 
+ 	proc_net_fops_create("decnet_dev", S_IRUGO, &dn_dev_seq_fops);
+ 
+@@ -1500,8 +1484,6 @@ void __init dn_dev_init(void)
+ 
+ void __exit dn_dev_cleanup(void)
+ {
+-	rtnetlink_links[PF_DECnet] = NULL;
+-
+ #ifdef CONFIG_SYSCTL
+ 	{
+ 		int i;
+Index: net-2.6.22/include/net/dn_route.h
+===================================================================
+--- net-2.6.22.orig/include/net/dn_route.h	2007-03-20 23:53:20.000000000 +0100
++++ net-2.6.22/include/net/dn_route.h	2007-03-21 00:52:38.000000000 +0100
+@@ -18,7 +18,6 @@
+ extern struct sk_buff *dn_alloc_skb(struct sock *sk, int size, gfp_t pri);
+ extern int dn_route_output_sock(struct dst_entry **pprt, struct flowi *, struct sock *sk, int flags);
+ extern int dn_cache_dump(struct sk_buff *skb, struct netlink_callback *cb);
+-extern int dn_cache_getroute(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg);
+ extern void dn_rt_cache_flush(int delay);
+ 
+ /* Masks for flags field */
+Index: net-2.6.22/net/decnet/dn_route.c
+===================================================================
+--- net-2.6.22.orig/net/decnet/dn_route.c	2007-03-20 23:53:20.000000000 +0100
++++ net-2.6.22/net/decnet/dn_route.c	2007-03-21 00:52:38.000000000 +0100
+@@ -1522,7 +1522,7 @@ rtattr_failure:
+ /*
+  * This is called by both endnodes and routers now.
+  */
+-int dn_cache_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh, void *arg)
++static int dn_cache_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh, void *arg)
+ {
+ 	struct rtattr **rta = arg;
+ 	struct rtmsg *rtm = NLMSG_DATA(nlh);
+@@ -1813,6 +1813,13 @@ void __init dn_route_init(void)
+ 	dn_dst_ops.gc_thresh = (dn_rt_hash_mask + 1);
+ 
+ 	proc_net_fops_create("decnet_cache", S_IRUGO, &dn_rt_cache_seq_fops);
++
++#ifdef CONFIG_DECNET_ROUTER
++	rtnl_register(PF_DECnet, RTM_GETROUTE, dn_cache_getroute, dn_fib_dump);
++#else
++	rtnl_register(PF_DECnet, RTM_GETROUTE, dn_cache_getroute,
++		      dn_cache_dump);
++#endif
+ }
+ 
+ void __exit dn_route_cleanup(void)
 
 --
 
