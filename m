@@ -1,260 +1,110 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: [PATCH] netxen: enum and #define cleanups
-Date: Wed, 21 Mar 2007 15:16:23 -0400
-Message-ID: <20070321191622.GA18350@gospo.rdu.redhat.com>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: [PATCH] tcp_cubic: use 32 bit math
+Date: Wed, 21 Mar 2007 20:15:37 +0100
+Message-ID: <20070321191537.GA28914@1wt.eu>
+References: <20070307170731.2b4397e3@freekitty> <20070307.185539.48527371.davem@davemloft.net> <45EF7EB7.8040806@linux-foundation.org> <20070307.195135.74749102.davem@davemloft.net> <20070310114826.GB1608@1wt.eu> <20070312141156.08e88b0e@freekitty> <20070313205020.GA5418@1wt.eu> <20070321115419.483a655a@freekitty>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org, amitkale@netxen.com
+Cc: David Miller <davem@davemloft.net>,
+	rkuhn@e18.physik.tu-muenchen.de, andi@firstfloor.org,
+	dada1@cosmosbay.com, jengelh@linux01.gwdg.de,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:38020 "EHLO mx1.redhat.com"
+Received: from 1wt.eu ([62.212.114.60]:1294 "EHLO 1wt.eu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933782AbXCUTQb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Mar 2007 15:16:31 -0400
+	id S933804AbXCUTUs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Mar 2007 15:20:48 -0400
 Content-Disposition: inline
+In-Reply-To: <20070321115419.483a655a@freekitty>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi Stephen,
 
-This patch cleans up some rather generically named items in the netxen
-driver.  It seems bad to use names like USER_START and FLASH_TOTAL_SIZE,
-so I added a NETXEN_ to the front of them.  
+On Wed, Mar 21, 2007 at 11:54:19AM -0700, Stephen Hemminger wrote:
+> On Tue, 13 Mar 2007 21:50:20 +0100
+> Willy Tarreau <w@1wt.eu> wrote:
 
-This has been compile tested.
+[...] ( cut my boring part )
 
-Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
----
+> > Here are the results classed by speed :
+> > 
+> > /* Sample output on a Pentium-M 600 MHz :
+> > 
+> > Function          clocks mean(us)  max(us)  std(us) Avg err size
+> > ncubic_tab0           79     0.66     7.20     1.04  0.613%  160
+> > ncubic_0div           84     0.70     7.64     1.57  4.521%  192
+> > ncubic_1div          178     1.48    16.27     1.81  0.443%  336
+> > ncubic_tab1          179     1.49    16.34     1.85  0.195%  320
+> > ncubic_ndiv3         263     2.18    24.04     3.59  0.250%  512
+> > ncubic_2div          270     2.24    24.70     2.77  0.187%  512
+> > ncubic32_1           359     2.98    32.81     3.59  0.238%  544
+> > ncubic_3div          361     2.99    33.08     3.79  0.170%  656
+> > ncubic32             364     3.02    33.29     3.51  0.247%  544
+> > ncubic               529     4.39    48.39     4.92  0.247%  720
+> > hcbrt                539     4.47    49.25     5.98  1.580%   96
+> > ocubic               732     4.93    61.83     7.22  0.274%  320
+> > acbrt                842     6.98    76.73     8.55  0.275%  192
+> > bictcp              1032     6.95    86.30     9.04  0.172%  768
+> > 
 
- netxen_nic.h         |   51 ++++++++++++++++++++++++++-------------------------
- netxen_nic_ethtool.c |    8 ++++----
- netxen_nic_hw.c      |   10 +++++-----
- netxen_nic_init.c    |   23 ++++++++++++-----------
- 4 files changed, 47 insertions(+), 45 deletions(-)
+[...]
 
-diff --git a/drivers/net/netxen/netxen_nic.h b/drivers/net/netxen/netxen_nic.h
-index dd8ce35..8310584 100644
---- a/drivers/net/netxen/netxen_nic.h
-+++ b/drivers/net/netxen/netxen_nic.h
-@@ -65,12 +65,13 @@
- 
- #define _NETXEN_NIC_LINUX_MAJOR 3
- #define _NETXEN_NIC_LINUX_MINOR 3
--#define _NETXEN_NIC_LINUX_SUBVERSION 3
--#define NETXEN_NIC_LINUX_VERSIONID  "3.3.3"
-+#define _NETXEN_NIC_LINUX_SUBVERSION 4
-+#define NETXEN_NIC_LINUX_VERSIONID  "3.3.4"
- 
--#define NUM_FLASH_SECTORS (64)
--#define FLASH_SECTOR_SIZE (64 * 1024)
--#define FLASH_TOTAL_SIZE  (NUM_FLASH_SECTORS * FLASH_SECTOR_SIZE)
-+#define NETXEN_NUM_FLASH_SECTORS (64)
-+#define NETXEN_FLASH_SECTOR_SIZE (64 * 1024)
-+#define NETXEN_FLASH_TOTAL_SIZE  (NETXEN_NUM_FLASH_SECTORS \
-+					* NETXEN_FLASH_SECTOR_SIZE)
- 
- #define PHAN_VENDOR_ID 0x4040
- 
-@@ -671,28 +672,28 @@ struct netxen_new_user_info {
- 
- /* Flash memory map */
- typedef enum {
--	CRBINIT_START = 0,	/* Crbinit section */
--	BRDCFG_START = 0x4000,	/* board config */
--	INITCODE_START = 0x6000,	/* pegtune code */
--	BOOTLD_START = 0x10000,	/* bootld */
--	IMAGE_START = 0x43000,	/* compressed image */
--	SECONDARY_START = 0x200000,	/* backup images */
--	PXE_START = 0x3E0000,	/* user defined region */
--	USER_START = 0x3E8000,	/* User defined region for new boards */
--	FIXED_START = 0x3F0000	/* backup of crbinit */
-+	NETXEN_CRBINIT_START = 0,	/* Crbinit section */
-+	NETXEN_BRDCFG_START = 0x4000,	/* board config */
-+	NETXEN_INITCODE_START = 0x6000,	/* pegtune code */
-+	NETXEN_BOOTLD_START = 0x10000,	/* bootld */
-+	NETXEN_IMAGE_START = 0x43000,	/* compressed image */
-+	NETXEN_SECONDARY_START = 0x200000,	/* backup images */
-+	NETXEN_PXE_START = 0x3E0000,	/* user defined region */
-+	NETXEN_USER_START = 0x3E8000,	/* User defined region for new boards */
-+	NETXEN_FIXED_START = 0x3F0000	/* backup of crbinit */
- } netxen_flash_map_t;
- 
--#define USER_START_OLD PXE_START	/* for backward compatibility */
--
--#define FLASH_START		(CRBINIT_START)
--#define INIT_SECTOR		(0)
--#define PRIMARY_START 		(BOOTLD_START)
--#define FLASH_CRBINIT_SIZE 	(0x4000)
--#define FLASH_BRDCFG_SIZE 	(sizeof(struct netxen_board_info))
--#define FLASH_USER_SIZE		(sizeof(struct netxen_user_info)/sizeof(u32))
--#define FLASH_SECONDARY_SIZE 	(USER_START-SECONDARY_START)
--#define NUM_PRIMARY_SECTORS	(0x20)
--#define NUM_CONFIG_SECTORS 	(1)
-+#define NETXEN_USER_START_OLD NETXEN_PXE_START	/* for backward compatibility */
-+
-+#define NETXEN_FLASH_START		(NETXEN_CRBINIT_START)
-+#define NETXEN_INIT_SECTOR		(0)
-+#define NETXEN_PRIMARY_START 		(NETXEN_BOOTLD_START)
-+#define NETXEN_FLASH_CRBINIT_SIZE 	(0x4000)
-+#define NETXEN_FLASH_BRDCFG_SIZE 	(sizeof(struct netxen_board_info))
-+#define NETXEN_FLASH_USER_SIZE		(sizeof(struct netxen_user_info)/sizeof(u32))
-+#define NETXEN_FLASH_SECONDARY_SIZE 	(NETXEN_USER_START-NETXEN_SECONDARY_START)
-+#define NETXEN_NUM_PRIMARY_SECTORS	(0x20)
-+#define NETXEN_NUM_CONFIG_SECTORS 	(1)
- #define PFX "NetXen: "
- extern char netxen_nic_driver_name[];
- 
-diff --git a/drivers/net/netxen/netxen_nic_ethtool.c b/drivers/net/netxen/netxen_nic_ethtool.c
-index ee1b5a2..4dfa76b 100644
---- a/drivers/net/netxen/netxen_nic_ethtool.c
-+++ b/drivers/net/netxen/netxen_nic_ethtool.c
-@@ -94,7 +94,7 @@ static const char netxen_nic_gstrings_test[][ETH_GSTRING_LEN] = {
- 
- static int netxen_nic_get_eeprom_len(struct net_device *dev)
- {
--	return FLASH_TOTAL_SIZE;
-+	return NETXEN_FLASH_TOTAL_SIZE;
- }
- 
- static void
-@@ -475,7 +475,7 @@ netxen_nic_set_eeprom(struct net_device *dev, struct ethtool_eeprom *eeprom,
- 		return 0;
- 	}
- 
--	if (offset == BOOTLD_START) {
-+	if (offset == NETXEN_BOOTLD_START) {
- 		ret = netxen_flash_erase_primary(adapter);
- 		if (ret != FLASH_SUCCESS) {
- 			printk(KERN_ERR "%s: Flash erase failed.\n", 
-@@ -483,10 +483,10 @@ netxen_nic_set_eeprom(struct net_device *dev, struct ethtool_eeprom *eeprom,
- 			return ret;
- 		}
- 
--		ret = netxen_rom_se(adapter, USER_START);
-+		ret = netxen_rom_se(adapter, NETXEN_USER_START);
- 		if (ret != FLASH_SUCCESS)
- 			return ret;
--		ret = netxen_rom_se(adapter, FIXED_START);
-+		ret = netxen_rom_se(adapter, NETXEN_FIXED_START);
- 		if (ret != FLASH_SUCCESS)
- 			return ret;
- 
-diff --git a/drivers/net/netxen/netxen_nic_hw.c b/drivers/net/netxen/netxen_nic_hw.c
-index 6537574..2fe7a3f 100644
---- a/drivers/net/netxen/netxen_nic_hw.c
-+++ b/drivers/net/netxen/netxen_nic_hw.c
-@@ -40,7 +40,7 @@
- #define ADDR_IN_RANGE(addr, low, high)	\
- 	(((addr) <= (high)) && ((addr) >= (low)))
- 
--#define NETXEN_FLASH_BASE	(BOOTLD_START)
-+#define NETXEN_FLASH_BASE	(NETXEN_BOOTLD_START)
- #define NETXEN_PHANTOM_MEM_BASE	(NETXEN_FLASH_BASE)
- #define NETXEN_MAX_MTU		8000 + NETXEN_ENET_HEADER_SIZE + NETXEN_ETH_FCS_SIZE
- #define NETXEN_MIN_MTU		64
-@@ -443,7 +443,7 @@ int netxen_get_flash_mac_addr(struct netxen_adapter *adapter, u64 mac[])
- 	u32 *pmac = (u32 *) & mac[0];
- 
- 	if (netxen_get_flash_block(adapter,
--				   USER_START +
-+				   NETXEN_USER_START +
- 				   offsetof(struct netxen_new_user_info,
- 					    mac_addr),
- 				   FLASH_NUM_PORTS * sizeof(u64), pmac) == -1) {
-@@ -451,7 +451,7 @@ int netxen_get_flash_mac_addr(struct netxen_adapter *adapter, u64 mac[])
- 	}
- 	if (*mac == ~0ULL) {
- 		if (netxen_get_flash_block(adapter,
--					   USER_START_OLD +
-+					   NETXEN_USER_START_OLD +
- 					   offsetof(struct netxen_user_old_info,
- 						    mac_addr),
- 					   FLASH_NUM_PORTS * sizeof(u64),
-@@ -751,7 +751,7 @@ netxen_nic_pci_set_window(struct netxen_adapter *adapter,
- int netxen_nic_get_board_info(struct netxen_adapter *adapter)
- {
- 	int rv = 0;
--	int addr = BRDCFG_START;
-+	int addr = NETXEN_BRDCFG_START;
- 	struct netxen_board_info *boardinfo;
- 	int index;
- 	u32 *ptr32;
-@@ -928,7 +928,7 @@ void netxen_nic_flash_print(struct netxen_adapter *adapter)
- 	u32 fw_build = 0;
- 	char brd_name[NETXEN_MAX_SHORT_NAME];
- 	struct netxen_new_user_info user_info;
--	int i, addr = USER_START;
-+	int i, addr = NETXEN_USER_START;
- 	u32 *ptr32;
- 
- 	struct netxen_board_info *board_info = &(adapter->ahw.boardcfg);
-diff --git a/drivers/net/netxen/netxen_nic_init.c b/drivers/net/netxen/netxen_nic_init.c
-index 229aa1c..abdc04b 100644
---- a/drivers/net/netxen/netxen_nic_init.c
-+++ b/drivers/net/netxen/netxen_nic_init.c
-@@ -586,7 +586,7 @@ int netxen_backup_crbinit(struct netxen_adapter *adapter)
- {
- 	int ret = FLASH_SUCCESS;
- 	int val;
--	char *buffer = kmalloc(FLASH_SECTOR_SIZE, GFP_KERNEL);
-+	char *buffer = kmalloc(NETXEN_FLASH_SECTOR_SIZE, GFP_KERNEL);
- 
- 	if (!buffer)
- 		return -ENOMEM;	
-@@ -602,13 +602,13 @@ int netxen_backup_crbinit(struct netxen_adapter *adapter)
- 		goto out_kfree;
- 
- 	/* copy  sector 0 to sector 63 */
--	ret = netxen_rom_fast_read_words(adapter, CRBINIT_START, 
--						buffer, FLASH_SECTOR_SIZE);
-+	ret = netxen_rom_fast_read_words(adapter, NETXEN_CRBINIT_START, 
-+					buffer, NETXEN_FLASH_SECTOR_SIZE);
- 	if (ret != FLASH_SUCCESS)
- 		goto out_kfree;
- 
--	ret = netxen_rom_fast_write_words(adapter, FIXED_START, 
--						buffer, FLASH_SECTOR_SIZE);
-+	ret = netxen_rom_fast_write_words(adapter, NETXEN_FIXED_START, 
-+					buffer, NETXEN_FLASH_SECTOR_SIZE);
- 	if (ret != FLASH_SUCCESS)
- 		goto out_kfree;
- 
-@@ -655,7 +655,8 @@ void check_erased_flash(struct netxen_adapter *adapter, int addr)
- 	int count = 0, erased_errors = 0;
- 	int range;
- 
--	range = (addr == USER_START) ? FIXED_START : addr + FLASH_SECTOR_SIZE;
-+	range = (addr == NETXEN_USER_START) ? 
-+		NETXEN_FIXED_START : addr + NETXEN_FLASH_SECTOR_SIZE;
- 	
- 	for (i = addr; i < range; i += 4) {
- 		netxen_rom_fast_read(adapter, i, &val);
-@@ -690,7 +691,7 @@ netxen_flash_erase_sections(struct netxen_adapter *adapter, int start, int end)
- 	int i;
- 
- 	for (i = start; i < end; i++) {
--		ret = netxen_rom_se(adapter, i * FLASH_SECTOR_SIZE);
-+		ret = netxen_rom_se(adapter, i * NETXEN_FLASH_SECTOR_SIZE);
- 		if (ret)
- 			break;
- 		ret = netxen_rom_wip_poll(adapter);
-@@ -707,8 +708,8 @@ netxen_flash_erase_secondary(struct netxen_adapter *adapter)
- 	int ret = FLASH_SUCCESS;
- 	int start, end;
- 
--	start = SECONDARY_START / FLASH_SECTOR_SIZE;
--	end   = USER_START / FLASH_SECTOR_SIZE;
-+	start = NETXEN_SECONDARY_START / NETXEN_FLASH_SECTOR_SIZE;
-+	end   = NETXEN_USER_START / NETXEN_FLASH_SECTOR_SIZE;
- 	ret = netxen_flash_erase_sections(adapter, start, end);
- 
- 	return ret;
-@@ -720,8 +721,8 @@ netxen_flash_erase_primary(struct netxen_adapter *adapter)
- 	int ret = FLASH_SUCCESS;
- 	int start, end;
- 
--	start = PRIMARY_START / FLASH_SECTOR_SIZE;
--	end   = SECONDARY_START / FLASH_SECTOR_SIZE;
-+	start = NETXEN_PRIMARY_START / NETXEN_FLASH_SECTOR_SIZE;
-+	end   = NETXEN_SECONDARY_START / NETXEN_FLASH_SECTOR_SIZE;
- 	ret = netxen_flash_erase_sections(adapter, start, end);
- 
- 	return ret;
+> The following version of div64_64 is faster because do_div already
+> optimized for the 32 bit case..
+
+Cool, this is interesting because I first wanted to optimize it but did
+not find how to start with this. You seem to get very good results. BTW,
+you did not append your changes.
+
+However, one thing I do not understand is why your avg error is about 1/3
+below the original one. Was there a precision bug in the original div_64_64
+or did you extend the values used in the test ?
+
+Or perhaps you used -fast-math to build and the original cbrt() is less
+precise in this case ?
+
+> I get the following results on ULV Core Solo (ie slow current processor)
+> and the following on 64bit Core Duo. ncubic_tab1 seems like
+> the best (no additional error and about as fast)
+
+OK. It was the one I preferred too unless tab0's avg error was acceptable.
+
+> ULV Core Solo
+> 
+> Function          clocks mean(us)  max(us)  std(us) Avg err size
+> ncubic_tab0          192    11.24    45.10    15.28  0.450% -2262
+> ncubic_0div          201    11.77    47.23    27.40  3.357% -2404
+> ncubic_1div          324    19.02    76.32    25.82  0.189% -2567
+> ncubic_tab1          326    19.13    76.73    23.71  0.043% -2059
+> ncubic_2div          456    26.72   108.92   493.16  0.028% -2790
+> ncubic_ndiv3         463    27.15   133.37  1889.39  0.104% -3344
+> ncubic32             549    32.18   130.59   508.97  0.041% -3794
+> ncubic32_1           574    33.66   138.32   548.48  0.029% -3604
+> ncubic_3div          581    34.04   140.24   608.55  0.018% -3050
+> ncubic               733    42.92   173.35   523.19  0.041%  299
+> ocubic              1046    61.25   283.68  3305.65  0.027% -2232
+> acbrt               1149    67.32   284.91  1941.55  0.029%  168
+> bictcp              1663    97.41   394.29   604.86  0.017%  628
+> 
+> Core 2 Duo
+> 
+> Function          clocks mean(us)  max(us)  std(us) Avg err size
+> ncubic_0div           74     0.03     1.60     0.07  3.357% -2101
+> ncubic_tab0           74     0.03     1.60     0.04  0.450% -2029
+> ncubic_1div          142     0.07     3.11     1.05  0.189% -2195
+> ncubic_tab1          144     0.07     3.18     1.02  0.043% -1638
+> ncubic_2div          216     0.10     4.74     1.07  0.028% -2326
+> ncubic_ndiv3         219     0.10     4.76     1.04  0.104% -2709
+> ncubic32             269     0.13     5.87     1.13  0.041% -1500
+> ncubic32_1           272     0.13     5.92     1.10  0.029% -2881
+> ncubic               273     0.13     5.96     1.13  0.041% -1763
+> ncubic_3div          290     0.14     6.32     1.01  0.018% -2499
+> acbrt                430     0.20     9.42     1.18  0.029%   77
+> ocubic               444     0.21     9.82     1.82  0.027% -1924
+> bictcp               549     0.26    12.06     1.68  0.017%  236
+
+Thanks,
+Willy
+
