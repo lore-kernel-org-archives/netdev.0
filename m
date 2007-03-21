@@ -1,33 +1,40 @@
-From: "Denys" <denys@visp.net.lb>
-Subject: iproute2-2.6.20-070313 bug ?
-Date: Wed, 21 Mar 2007 20:00:39 +0200
-Message-ID: <20070321175951.M73913@visp.net.lb>
+From: Brice Goglin <brice@myri.com>
+Subject: [RESEND 0/4] was: [PATCH 0/3] myri10ge updates for 2.6.21
+Date: Wed, 21 Mar 2007 19:43:04 +0100
+Message-ID: <46017CB8.3060807@myri.com>
+References: <45FDA22E.1070805@myri.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=koi8-r
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usermail.globalproof.net ([194.146.153.18]:39157 "EHLO
-	usermail.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933306AbXCUSaB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Mar 2007 14:30:01 -0400
-Received: from visp.net.lb (localhost [127.0.0.1])
-	by usermail.globalproof.net (Postfix) with ESMTP id 18D7FBC726
-	for <netdev@vger.kernel.org>; Wed, 21 Mar 2007 20:00:39 +0200 (EET)
+Received: from dsl.myri.com ([64.172.73.26]:1921 "EHLO myri.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S933452AbXCUSpE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Mar 2007 14:45:04 -0400
+In-Reply-To: <45FDA22E.1070805@myri.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Possible i discovered bug, but maybe specific to my setup. 
+Brice Goglin wrote:
+> Hi Jeff,
+>
+> Here's 3 minor updates for myri10ge in 2.6.21:
+> 1. use regular firmware on Serverworks HT2100
+> 2. update wcfifo and intr_coal_delay default values
+> 3. update driver version to 1.3.0-1.225
+>
+> Please apply.
+>
+> Thanks,
+> Brice
+>   
 
-In your sources (tc/tc_core.h) i notice 
-#define TIME_UNITS_PER_SEC    1000000000 
-When i change it to 
-#define TIME_UNITS_PER_SEC      1000000.0 
-(it was value before in sources) 
-everythign works fine. Otherwise tbf not working at all, it is dropping all 
-packets.
+I just got a last minute fix (management of allocated pages was wrong on
+architectures with page size != 4kB. Please drop this serie, I am going
+to resend all the patches.
 
-Did anyone test new iproute2 with tbf?
---
-Virtual ISP S.A.L.
+Thanks,
+Brice
 
