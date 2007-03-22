@@ -1,49 +1,39 @@
-From: David Howells <dhowells@redhat.com>
-Subject: Re: [PATCH 0/5] [RFC] AF_RXRPC socket family implementation [try #3]
-Date: Wed, 21 Mar 2007 18:10:35 +0000
-Message-ID: <24260.1174500635@redhat.com>
-References: <15256.1174429573@redhat.com>  <20070320213657.15afe5fa@lxorguk.ukuu.org.uk> <20070320195856.12853.63473.stgit@warthog.cambridge.redhat.com>
-Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>, davem@davemloft.net,
-	netdev@vger.kernel.org, herbert.xu@redhat.com,
-	linux-kernel@vger.kernel.org, hch@infradead.org,
-	arjan@infradead.org
-To: unlisted-recipients:; (no To-header on input)
+From: David Miller <davem@davemloft.net>
+Subject: Re: many sockets, slow sendto
+Date: Wed, 21 Mar 2007 18:14:16 -0700 (PDT)
+Message-ID: <20070321.181416.71097141.davem@davemloft.net>
+References: <4600592E.80605@fw.hu>
+	<460064C6.5030302@cosmosbay.com>
+	<4601A949.2000005@fw.hu>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: dada1@cosmosbay.com, baruch@ev-en.org, netdev@vger.kernel.org
+To: zacco@fw.hu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:37312 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965145AbXCVA5O (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Mar 2007 20:57:14 -0400
-In-Reply-To: <15256.1174429573@redhat.com> 
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49583
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S932473AbXCVBOQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Mar 2007 21:14:16 -0400
+In-Reply-To: <4601A949.2000005@fw.hu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Howells <dhowells@redhat.com> wrote:
+From: Zacco <zacco@fw.hu>
+Date: Wed, 21 Mar 2007 22:53:13 +0100
 
-> > - recvmsg not supporting MSG_TRUNC is rather weird and really ought to be
-> > fixed one day as its useful to find out the sizeof message pending when
-> > combined with MSG_PEEK
-> 
-> Hmmm...  I hadn't considered that.  I assumed MSG_TRUNC not to be useful as
-> arbitrarily chopping bits out of the request or reply would seem to be
-> pointless.
+> Do you think there is interest in such a modification? If so, how could 
+> we go on with it?
 
-But why do I need to support MSG_TRUNC?  I currently have things arranged so
-that if you do a recvmsg() that doesn't pull everything out of a packet then
-the next time you do a recvmsg() you'll get the next part of the data in that
-packet.  MSG_EOR is flagged when recvmsg copies across the last byte of data
-of a particular phase.
+The best thing you can do is hash on both saddr/sport.  In order
+to handle the saddr==0 case the socket lookup has to try two
+lookups, one with the packets saddr, and one with saddr zero.
+If the first lookup hits, we use that, since a precise match
+should match over one to a wildcard saddr, otherwise we use the
+result of the second lookup.
 
-I might at some point in the future enable recvmsg() to keep pulling packets
-off the Rx queue and copying them into userspace until the userspace buffer is
-full or we find that the next packet is not the logical next in sequence.
+I'm not very inclined to hack on this, so anyone else is welcome
+to.
 
-Hmmm...  I'm actually overloading MSG_EOR.  MSG_EOR is flagged on the last
-data read, and is also flagged for terminal messages (end or reply data,
-abort, net error, final ACK, etc).  I wonder if I should use MSG_MORE (or its
-lack) instead to indicate the end of data, and only set MSG_EOR on the
-terminal message.
-
-MSG_MORE is set by the app to flag to sendmsg() that there's more data to
-come, so it would be consistent to use it for recvmsg() too.
-
-David
+FWIW, pretty much every other networking stack only hashes on sport
+for UDP, just like Linux.
