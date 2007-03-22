@@ -1,75 +1,75 @@
-From: Joy Latten <latten@austin.ibm.com>
-Subject: Re: [PATCH]: Add security check before flushing SAD/SPD
-Date: Thu, 22 Mar 2007 15:23:50 -0600
-Message-ID: <1174598630.3085.285.camel@faith.austin.ibm.com>
-References: <200703221835.l2MIZdDw007850@faith.austin.ibm.com>
-	 <20070322.120139.74735307.davem@davemloft.net>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: RFC: Established connections hash function
+Date: Thu, 22 Mar 2007 23:03:04 +0100
+Message-ID: <4602FD18.7060902@cosmosbay.com>
+References: <391F64D0A7C5463CA2D70362E4B3E7EC@XEON>	<20070322182156.GB17793@2ka.mipt.ru>	<1199CE22A40740D28833A585014BE559@XEON> <20070322.135834.74723088.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: selinux@tycho.nsa.gov, netdev@vger.kernel.org, jmorris@namei.org,
-	vyekkirala@trustedcs.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>, nikb@webmaster.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e2.ny.us.ibm.com ([32.97.182.142]:57527 "EHLO e2.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1161071AbXCVVkT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Mar 2007 17:40:19 -0400
-Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
-	by e2.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l2MLeFDw029508
-	for <netdev@vger.kernel.org>; Thu, 22 Mar 2007 17:40:15 -0400
-Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
-	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l2MLeFXo253402
-	for <netdev@vger.kernel.org>; Thu, 22 Mar 2007 17:40:15 -0400
-Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
-	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l2MLeFqq006121
-	for <netdev@vger.kernel.org>; Thu, 22 Mar 2007 17:40:15 -0400
-In-Reply-To: <20070322.120139.74735307.davem@davemloft.net>
+Received: from www.cosmosbay.com ([86.65.150.131]:35677 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S934246AbXCVWDK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Mar 2007 18:03:10 -0400
+In-Reply-To: <20070322.135834.74723088.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2007-03-22 at 12:01 -0700, David Miller wrote:
-> From: Joy Latten <latten@austin.ibm.com>
-> Date: Thu, 22 Mar 2007 12:35:39 -0600
-> 
-> > Within selinux we check for authorization before deleting entries from
-> > SAD and SPD. 
-> > 
-> > We are not checking for authorization when flushing the SPD and
-> > the SAD. It was perhaps missed in original patch.
-> > 
-> > This patch adds security check when flushing entries from SAD and SPD.
-> > 
-> > Please let me know if this patch is ok.
-> > It was built against linux-2.6.21-rc4-git5. I have also tested it.
-> > 
-> > Signed-off-by: Joy Latten<latten@austin.ibm.com>
-> 
-> I don't understand this and it does not sit well with me.
-> 
-> If we are flushing the policy database, we are flushing it
-> regardless of what the security layer might or might not say.
-> 
-> I would look at this patch differently if there were some
-> security level key being checked for a match here, which is
-> an input key to the flush, but that is not what is happening
-> here as the object is being looked at by itself.
+David Miller a =E9crit :
+> From: "Nikolaos D. Bougalis" <nikb@webmaster.com>
+> Date: Thu, 22 Mar 2007 12:44:09 -0700
+>=20
+>>     People _have_ had problems. _I_ have had problems. And when
+>> someone with a few thousand drones under his control hoses your
+>> servers because he can do math and he leaves you with 20000-item
+>> long chains, _you_ will have problems.
+>=20
+> No need to further argue this point, the people that matter
+> (ie. me :-) understand it, don't worry..
 
-Yes, I understand what you are saying.
-I was concerned about having to check each entry
-to flush database.
+Yes, I recall having one big server hit two years ago by an attack on t=
+cp hash=20
+function. David sent me the patch to use jhash. It's performing well :)
 
-I did this patch because we check for authorization
-when deleting single specified entries from the SAD/SPD. It
-seem like a hole to me that we check for this, but that same
-user/process can delete the entire database with no checks.
+Welcome to the club :)
 
-Unfortunately, each policy entry or SA can have a different security
-label. And that is why I would have to check each entry's
-security label before deleting. To see if the user/process has
-authorization to delete an entry with that security label.
+=3D=3D=3D=3D=3D net/ipv4/tcp_ipv4.c 1.114 vs edited =3D=3D=3D=3D=3D
+--- 1.114/net/ipv4/tcp_ipv4.c    2005-03-26 15:04:35 -08:00
++++ edited/net/ipv4/tcp_ipv4.c    2005-04-05 13:39:52 -07:00
+@@ -103,14 +103,15 @@
+   */
+  int sysctl_local_port_range[2] =3D { 1024, 4999 };
+  int tcp_port_rover =3D 1024 - 1;
++static u32 tcp_v4_hash_rand;
 
-Including selinux list for suggestions.
+  static __inline__ int tcp_hashfn(__u32 laddr, __u16 lport,
+                   __u32 faddr, __u16 fport)
+  {
+-    int h =3D (laddr ^ lport) ^ (faddr ^ fport);
+-    h ^=3D h >> 16;
+-    h ^=3D h >> 8;
+-    return h & (tcp_ehash_size - 1);
++    return jhash_2words(laddr ^ faddr,
++                (lport << 16) | fport,
++                tcp_v4_hash_rand) &
++        (tcp_ehash_size - 1);
+  }
 
-Joy
+ >  static __inline__ int tcp_sk_hashfn(struct sock *sk)
+ > @@ -2626,6 +2627,9 @@
+ >          panic("Failed to create the TCP control socket.\n");
+ >      tcp_socket->sk->sk_allocation   =3D GFP_ATOMIC;
+ >      inet_sk(tcp_socket->sk)->uc_ttl =3D -1;
+ > +
+ > +    get_random_bytes(&tcp_v4_hash_rand, 4);
+ > +    tcp_v4_hash_rand ^=3D jiffies;
+ >
+ >      /* Unhash it so that IP input processing does not even
+ >       * see it, we do not wish this socket to see incoming
+ >
+ >
+
 
