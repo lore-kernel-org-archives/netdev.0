@@ -1,69 +1,51 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: Recent net-2.6.22 patches break bootup!
-Date: Fri, 23 Mar 2007 00:47:04 +0100
-Message-ID: <20070322234704.GA521@postel.suug.ch>
-References: <20070322125955.055083236@lsx.localdomain> <20070322.120619.71102556.davem@davemloft.net> <20070322142753.52fec3ca@localhost>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [PATCH]: Add security check before flushing SAD/SPD
+Date: Thu, 22 Mar 2007 19:49:30 -0400 (EDT)
+Message-ID: <Line.LNX.4.64.0703221943110.24461@d.namei>
+References: <200703221835.l2MIZdDw007850@faith.austin.ibm.com>
+ <20070322.120139.74735307.davem@davemloft.net> <1174598630.3085.285.camel@faith.austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>, selinux@tycho.nsa.gov,
+	netdev@vger.kernel.org, vyekkirala@trustedcs.com
+To: Joy Latten <latten@austin.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:56582 "EHLO postel.suug.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752769AbXCVXqn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Mar 2007 19:46:43 -0400
-Content-Disposition: inline
-In-Reply-To: <20070322142753.52fec3ca@localhost>
+Received: from mail4.sea5.speakeasy.net ([69.17.117.6]:40637 "EHLO
+	mail4.sea5.speakeasy.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752775AbXCVXtd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Mar 2007 19:49:33 -0400
+In-Reply-To: <1174598630.3085.285.camel@faith.austin.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* Stephen Hemminger <shemminger@linux-foundation.org> 2007-03-22 14:27
-> Something is broken now.  If I boot the system (Fedora) it gets to:
-> 
-> Bringing up loopback interface:  RTNETLINK answers: Invalid argument
-> Dump terminated
-> RTNETLINK answers: Invalid argument
-> ....
-> 
-> tg3 device eth0 does not seem to be present, delaying initialization
-> 
-> 
-> then it hangs because cups won't come up without loopback
+On Thu, 22 Mar 2007, Joy Latten wrote:
 
-Thinko. It always returned the first message handler of a rtnl
-family.
+> > I would look at this patch differently if there were some
+> > security level key being checked for a match here, which is
+> > an input key to the flush, but that is not what is happening
+> > here as the object is being looked at by itself.
+> 
+> Yes, I understand what you are saying.
+> I was concerned about having to check each entry
+> to flush database.
+> 
+> I did this patch because we check for authorization
+> when deleting single specified entries from the SAD/SPD. It
+> seem like a hole to me that we check for this, but that same
+> user/process can delete the entire database with no checks.
 
-[RTNL]: Properly return rntl message handler
+Indeed.  Removing an entry is modifying MAC policy, which requires 
+appropriate authorization.
 
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
+The security label is encapsulated with the object, which is why it's 
+passed to the security layer.
 
-Index: net-2.6.22/net/core/rtnetlink.c
-===================================================================
---- net-2.6.22.orig/net/core/rtnetlink.c	2007-03-23 00:31:37.000000000 +0100
-+++ net-2.6.22/net/core/rtnetlink.c	2007-03-23 00:32:52.000000000 +0100
-@@ -122,10 +122,10 @@ static rtnl_doit_func rtnl_get_doit(int 
- 	struct rtnl_link *tab;
- 
- 	tab = rtnl_msg_handlers[protocol];
--	if (tab == NULL || tab->doit == NULL)
-+	if (tab == NULL || tab[msgindex].doit == NULL)
- 		tab = rtnl_msg_handlers[PF_UNSPEC];
- 
--	return tab ? tab->doit : NULL;
-+	return tab ? tab[msgindex].doit : NULL;
- }
- 
- static rtnl_dumpit_func rtnl_get_dumpit(int protocol, int msgindex)
-@@ -133,10 +133,10 @@ static rtnl_dumpit_func rtnl_get_dumpit(
- 	struct rtnl_link *tab;
- 
- 	tab = rtnl_msg_handlers[protocol];
--	if (tab == NULL || tab->dumpit == NULL)
-+	if (tab == NULL || tab[msgindex].dumpit == NULL)
- 		tab = rtnl_msg_handlers[PF_UNSPEC];
- 
--	return tab ? tab->dumpit : NULL;
-+	return tab ? tab[msgindex].dumpit : NULL;
- }
- 
- /**
+Perhaps a better semantic would be to fail the entire flush operation if 
+one of the security checks failed.  e.g. loop through for permissions 
+first, then if all ok, loop through for deletion.
+
+
+- James
+-- 
+James Morris
+<jmorris@namei.org>
