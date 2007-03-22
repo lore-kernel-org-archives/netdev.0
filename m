@@ -1,76 +1,75 @@
-From: Steve Wise <swise@opengridcomputing.com>
-Subject: [ofa-general] [PATCH 2.6.21] iw_cxgb3: Fix a resource leak in
-	cxio_hal_init_ctrl_qp().
-Date: Thu, 22 Mar 2007 16:39:57 -0500
-Message-ID: <1174599597.16862.70.camel@stevo-desktop>
+From: Joy Latten <latten@austin.ibm.com>
+Subject: Re: [PATCH]: Add security check before flushing SAD/SPD
+Date: Thu, 22 Mar 2007 15:23:50 -0600
+Message-ID: <1174598630.3085.285.camel@faith.austin.ibm.com>
+References: <200703221835.l2MIZdDw007850@faith.austin.ibm.com>
+	 <20070322.120139.74735307.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Netdev@vger.kernel.org, linux-kernel <linux-kernel@vger.kernel.org>,
-	General@lists.openfabrics.org
-To: Roland Dreier <rdreier@cisco.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Cc: selinux@tycho.nsa.gov, netdev@vger.kernel.org, jmorris@namei.org,
+	vyekkirala@trustedcs.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e2.ny.us.ibm.com ([32.97.182.142]:57527 "EHLO e2.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1161071AbXCVVkT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Mar 2007 17:40:19 -0400
+Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
+	by e2.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l2MLeFDw029508
+	for <netdev@vger.kernel.org>; Thu, 22 Mar 2007 17:40:15 -0400
+Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
+	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l2MLeFXo253402
+	for <netdev@vger.kernel.org>; Thu, 22 Mar 2007 17:40:15 -0400
+Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
+	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l2MLeFqq006121
+	for <netdev@vger.kernel.org>; Thu, 22 Mar 2007 17:40:15 -0400
+In-Reply-To: <20070322.120139.74735307.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Fix a resource leak in cxio_hal_init_ctrl_qp().
+On Thu, 2007-03-22 at 12:01 -0700, David Miller wrote:
+> From: Joy Latten <latten@austin.ibm.com>
+> Date: Thu, 22 Mar 2007 12:35:39 -0600
+> 
+> > Within selinux we check for authorization before deleting entries from
+> > SAD and SPD. 
+> > 
+> > We are not checking for authorization when flushing the SPD and
+> > the SAD. It was perhaps missed in original patch.
+> > 
+> > This patch adds security check when flushing entries from SAD and SPD.
+> > 
+> > Please let me know if this patch is ok.
+> > It was built against linux-2.6.21-rc4-git5. I have also tested it.
+> > 
+> > Signed-off-by: Joy Latten<latten@austin.ibm.com>
+> 
+> I don't understand this and it does not sit well with me.
+> 
+> If we are flushing the policy database, we are flushing it
+> regardless of what the security layer might or might not say.
+> 
+> I would look at this patch differently if there were some
+> security level key being checked for a match here, which is
+> an input key to the flush, but that is not what is happening
+> here as the object is being looked at by itself.
 
-Signed-off-by: Steve Wise <swise@opengridcomputing.com>
----
+Yes, I understand what you are saying.
+I was concerned about having to check each entry
+to flush database.
 
- drivers/infiniband/hw/cxgb3/cxio_hal.c |   12 ++++++++----
- 1 files changed, 8 insertions(+), 4 deletions(-)
+I did this patch because we check for authorization
+when deleting single specified entries from the SAD/SPD. It
+seem like a hole to me that we check for this, but that same
+user/process can delete the entire database with no checks.
 
-diff --git a/drivers/infiniband/hw/cxgb3/cxio_hal.c b/drivers/infiniband/hw/cxgb3/cxio_hal.c
-index 818cf1a..f5e9aee 100644
---- a/drivers/infiniband/hw/cxgb3/cxio_hal.c
-+++ b/drivers/infiniband/hw/cxgb3/cxio_hal.c
-@@ -498,9 +498,9 @@ static int cxio_hal_init_ctrl_qp(struct 
- 	u64 sge_cmd, ctx0, ctx1;
- 	u64 base_addr;
- 	struct t3_modify_qp_wr *wqe;
--	struct sk_buff *skb = alloc_skb(sizeof(*wqe), GFP_KERNEL);
--
-+	struct sk_buff *skb;
- 
-+	skb = alloc_skb(sizeof(*wqe), GFP_KERNEL);
- 	if (!skb) {
- 		PDBG("%s alloc_skb failed\n", __FUNCTION__);
- 		return -ENOMEM;
-@@ -508,7 +508,7 @@ static int cxio_hal_init_ctrl_qp(struct 
- 	err = cxio_hal_init_ctrl_cq(rdev_p);
- 	if (err) {
- 		PDBG("%s err %d initializing ctrl_cq\n", __FUNCTION__, err);
--		return err;
-+		goto err;
- 	}
- 	rdev_p->ctrl_qp.workq = dma_alloc_coherent(
- 					&(rdev_p->rnic_info.pdev->dev),
-@@ -518,7 +518,8 @@ static int cxio_hal_init_ctrl_qp(struct 
- 					GFP_KERNEL);
- 	if (!rdev_p->ctrl_qp.workq) {
- 		PDBG("%s dma_alloc_coherent failed\n", __FUNCTION__);
--		return -ENOMEM;
-+		err = -ENOMEM;
-+		goto err;
- 	}
- 	pci_unmap_addr_set(&rdev_p->ctrl_qp, mapping,
- 			   rdev_p->ctrl_qp.dma_addr);
-@@ -556,6 +557,9 @@ static int cxio_hal_init_ctrl_qp(struct 
- 	     rdev_p->ctrl_qp.workq, 1 << T3_CTRL_QP_SIZE_LOG2);
- 	skb->priority = CPL_PRIORITY_CONTROL;
- 	return (cxgb3_ofld_send(rdev_p->t3cdev_p, skb));
-+err:
-+	kfree_skb(skb);
-+	return err;
- }
- 
- static int cxio_hal_destroy_ctrl_qp(struct cxio_rdev *rdev_p)
+Unfortunately, each policy entry or SA can have a different security
+label. And that is why I would have to check each entry's
+security label before deleting. To see if the user/process has
+authorization to delete an entry with that security label.
+
+Including selinux list for suggestions.
+
+Joy
+
