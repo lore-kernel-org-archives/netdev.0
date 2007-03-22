@@ -1,215 +1,72 @@
-From: Keiichi KII <k-keiichi@bx.jp.nec.com>
-Subject: Re: [RFC][PATCH -mm take3 6/6][resend] add ioctls for adding/removing
- target
-Date: Thu, 22 Mar 2007 19:05:40 +0900
-Message-ID: <460254F4.8060800@bx.jp.nec.com>
-References: <45FFCF31.3040000@bx.jp.nec.com> <45FFD4C1.7000103@bx.jp.nec.com>
+From: Seved Torstendahl <seved.torstendahl@netinsight.net>
+Subject: PROBLEM: can't initiate empty  e100 eeprom
+Date: Thu, 22 Mar 2007 11:56:44 +0100
+Message-ID: <460260EC.2040806@netinsight.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
-Cc: mpm@selenic.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Keiichi KII <k-keiichi@bx.jp.nec.com>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: jgarzik@pobox.com, netdev@vger.kernel.org
+To: akpm@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from TYO202.gate.nec.co.jp ([202.32.8.206]:40670 "EHLO
-	tyo202.gate.nec.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934093AbXCVKFv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Mar 2007 06:05:51 -0400
-In-Reply-To: <45FFD4C1.7000103@bx.jp.nec.com>
+Received: from ernst.netinsight.se ([212.247.11.2]:1237 "HELO
+	ernst.netinsight.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S934105AbXCVLHC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Mar 2007 07:07:02 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Sorry, I sent the incomplete sample program. 
-So, I send the complete one again.
-Any comments welcom.
 
-#include <stdio.h>
-#include <unistd.h>
-#include <string.h>
-#include <stdlib.h>
-#include <stropts.h>
-#include <fcntl.h>
-#include <arpa/inet.h>
-#include <net/if.h>
-#include <linux/if_ether.h>
-#include <linux/netconsole.h>
+When we receive new CPU bourds the EEPROM for one Ethernet port is unpr=
+ogrammed
+i.e. contains only FF. The first thing to do is to perform some accepen=
+ce tests
+and to set the MAC address on this port using the tool eepro100-diag.
+This worked with earlier kernels but now the e100.c driver refuses to d=
+o this.
 
-#define NETCONSOLE_DEV_NAME "/dev/netconsole"
-#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
+The new module parameter eeprom_bad_csum_allow solves half the problem =
+but
+the check is_valid_ether_addr(...) at line 2669 fails and then the devi=
+ce
+is removed (our line number due to other changes).
 
-struct command {
-	char *name;
-	char *options;
-	int (*handle_command)(struct command* command,
-			      int argc, char* argv[]);
-	void (*usage)(char *msg);
-};
+Suggestion: let the module parameter control this test as in the patch =
+below.
+We don't want to use a DOS tool!
 
-extern char *optarg;
-extern int opterr, optind, errno;
+Regards
+Seved Torstendahl
 
-static void generic_usage(char *msg) {
-	fprintf(stderr, "Usage  : netconfig command [option] [args]\n");
-	fprintf(stderr, "command: add remove help\n");
-	exit(-1);
-}
+--=20
+Seved Torstendahl               Net Insight AB
+Senior SW System Architect      Box 42093, S-126 14 Stockholm, SWEDEN
+tel: + 46 8 685 04 38           Visiting Address: V=E4stberga All=E9 9,=
+ H=E4gersten
+fax: + 46 8 685 04 20           http://www.netinsight.net
 
-static int handle_command_add(struct command* command, int argc, char** argv)
-{
-	int i, fd, ch;
-	unsigned int address;
-	unsigned char mac[ETH_ALEN];
-	struct netconsole_request req = {
-		.netdev_name = "eth0",
-		.local_port = 6665,
-		.remote_port = 6666,
-		.remote_mac = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF},
-	};
 
-	while ((ch = getopt(argc, argv, command->options)) != -1) {
-		switch (ch) {
-		case 'p':
-			req.local_port = atoi(optarg);
-			break;
-		case 's':
-			address = inet_addr(optarg);
-			if (address == -1)
-				(*command->usage)("invlid IP address!\n");
-			req.local_ip = address;
-			break;
-		case 'h':
-		default:
-			(*command->usage)(NULL);
-		}
-	}
-	argc -= optind;
-	argv += optind;
+Index: e100.c
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+RCS file: /cvs/new-sw/kernel/kernel/drivers/net/e100.c,v
+retrieving revision 1.2
+diff -u -r1.2 e100.c
+--- e100.c      23 Oct 2006 13:58:36 -0000      1.2
++++ e100.c      22 Mar 2007 10:09:22 -0000
+@@ -2666,7 +2666,8 @@
 
-	if (argc < 3 || argc > 4)
-		(*command->usage)(NULL);
-
-	memcpy(req.netdev_name, argv[0], IFNAMSIZ);
-	address = inet_addr(argv[1]);
-	if (address == -1)
-		(*command->usage)("invlid IP address!\n");
-	req.remote_ip = address;
-	req.remote_port = atoi(argv[2]);
-	if (argc == 4) {
-		i = 0;
-		mac[i++] = strtol(argv[3], NULL, 16);
-		while ((argv[3] = strchr(argv[3], ':')) != NULL) {
-			argv[3]++;
-			mac[i++] = strtol(argv[3], NULL, 16);
-		}
-		if (i != ETH_ALEN)
-			(*command->usage)("Invalid MAC address!\n");
-		memcpy(req.remote_mac, mac, ETH_ALEN);
-	}
-
-	fd = open(NETCONSOLE_DEV_NAME, O_RDWR);
-	if (fd < 0) {
-		fprintf(stderr, "cannot open device" NETCONSOLE_DEV_NAME "\n");
-		return -1;
-	}
-
-	if(ioctl(fd, NETCON_ADD_TARGET, &req) != 0)
-		perror("add");
-	close(fd);
-
-	return 0;
-}
-
-static void usage_add(char *msg)
-{
-	if (msg != NULL)
-		fprintf(stderr, "%s", msg);
-	fprintf(stderr, "Usage  : netconfig add [-options] dev_name remote_ip "
-		"remote_port [remote_mac]\n");
-	fprintf(stderr, "options:\n");
-	fprintf(stderr, "        -p local_port     :local port number\n");
-	fprintf(stderr, "        -s local_up       :local IP address\n");
-	exit(-1);
-}
-
-static int handle_command_remove(struct command *command,
-				 int argc, char** argv)
-{
-	int fd, id, ch;
-
-	while ((ch = getopt(argc, argv, command->options)) != -1) {
-		switch (ch) {
-		case 'h':
-		default:
-			(*command->usage)(NULL);
-		}
-	}
-	argc -= optind;
-	argv += optind;
-
-	if (argc != 1)
-		(*command->usage)(NULL);
-
-	id = atoi(argv[0]);
-	fd = open(NETCONSOLE_DEV_NAME, O_RDWR);
-	if (fd < 0) {
-		fprintf(stderr, "can't open device " NETCONSOLE_DEV_NAME "\n");
-		return -1;
-	}
-	if(ioctl(fd, NETCON_REMOVE_TARGET, &id) != 0)
-		perror("remove");
-	close(fd);
-
-	return 0;
-}
-
-static void usage_remove(char *msg) {
-	fprintf(stderr, "Usage  : netconfig remove id\n");
-	exit(-1);
-}
-
-static int handle_command_help(struct command *command,
-			       int argc, char** argv) {
-	(*command->usage)(NULL);
-
-	return 0;
-}
-
-static void usage_help(char *msg) {
-	generic_usage(NULL);
-}
-
-static struct command s_commands[] = {
-	{"add", "hp:s:", handle_command_add, usage_add},
-	{"remove", "hp:", handle_command_remove, usage_remove},
-	{"help", NULL, handle_command_help, usage_help},
-};
-
-int main(int argc, char* argv[]) {
-	int i;
-	struct command *command = NULL;
-
-	for(i = 0; i < ARRAY_SIZE(s_commands); i++) {
-		if (argc <= 1)
-			break;
-		if (strcmp(s_commands[i].name, argv[1]) == 0) {
-			command = &s_commands[i];
-			break;
-		}
-	}
-
-	if (command == NULL)
-		generic_usage(NULL);
-	argc--;
-	argv++;
-
-	if (command->handle_command)
-		(*command->handle_command)(command, argc, argv);
-	else {
-		fprintf(stderr, "function handle_command() isn't set.");
-		exit(-1);
-	}
-	return 0;
-}
+         memcpy(netdev->dev_addr, nic->eeprom, ETH_ALEN);
+         memcpy(netdev->perm_addr, nic->eeprom, ETH_ALEN);
+-       if(!is_valid_ether_addr(netdev->perm_addr)) {
++       /* invalid MAC address (ff:ff:ff:ff:ff:ff) accepted, changed at=
+ installation */
++       if (!eeprom_bad_csum_allow && (!is_valid_ether_addr(netdev->per=
+m_addr))) {
+                 DPRINTK(PROBE, ERR, "Invalid MAC address from "
+                         "EEPROM, aborting.\n");
+                 err =3D -EAGAIN;
 
 
 
