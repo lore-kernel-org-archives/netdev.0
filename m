@@ -1,116 +1,73 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [ANN] Unified dynamic storage for different socket types
- instead of separate hash tables.
-Date: Thu, 22 Mar 2007 11:43:04 -0700
-Message-ID: <20070322114304.1e516507@freekitty>
-References: <20070322180957.GA17793@2ka.mipt.ru>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+From: Joy Latten <latten@austin.ibm.com>
+Subject: [PATCH]: Add security check before flushing SAD/SPD
+Date: Thu, 22 Mar 2007 12:35:39 -0600
+Message-ID: <200703221835.l2MIZdDw007850@faith.austin.ibm.com>
+Cc: davem@davemloft.net, jmorris@namei.org, vyekkirala@trustedcs.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:45370 "EHLO smtp.osdl.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934180AbXCVSnQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Mar 2007 14:43:16 -0400
-In-Reply-To: <20070322180957.GA17793@2ka.mipt.ru>
+Received: from e32.co.us.ibm.com ([32.97.110.150]:45007 "EHLO
+	e32.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934186AbXCVSwC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Mar 2007 14:52:02 -0400
+Received: from westrelay02.boulder.ibm.com (westrelay02.boulder.ibm.com [9.17.195.11])
+	by e32.co.us.ibm.com (8.12.11.20060308/8.13.8) with ESMTP id l2MIoFEm008950
+	for <netdev@vger.kernel.org>; Thu, 22 Mar 2007 14:50:15 -0400
+Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
+	by westrelay02.boulder.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l2MIq1U4054268
+	for <netdev@vger.kernel.org>; Thu, 22 Mar 2007 12:52:01 -0600
+Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av03.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l2MIq0QU026527
+	for <netdev@vger.kernel.org>; Thu, 22 Mar 2007 12:52:01 -0600
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Within selinux we check for authorization before deleting entries from
+SAD and SPD. 
 
-> 
-> diff --git a/include/linux/netlink.h b/include/linux/netlink.h
-> index 2a20f48..f11b4e7 100644
-> --- a/include/linux/netlink.h
-> +++ b/include/linux/netlink.h
-> @@ -151,7 +151,6 @@ struct netlink_skb_parms
->  #define NETLINK_CB(skb)		(*(struct netlink_skb_parms*)&((skb)->cb))
->  #define NETLINK_CREDS(skb)	(&NETLINK_CB((skb)).creds)
->  
-> -
->  extern struct sock *netlink_kernel_create(int unit, unsigned int groups, void (*input)(struct sock *sk, int len), struct module *module);
->  extern void netlink_ack(struct sk_buff *in_skb, struct nlmsghdr *nlh, int err);
->  extern int netlink_has_listeners(struct sock *sk, unsigned int group);
+We are not checking for authorization when flushing the SPD and
+the SAD. It was perhaps missed in original patch.
 
-Minor nit this a one line blank only diff, probably just editing crap.
+This patch adds security check when flushing entries from SAD and SPD.
+
+Please let me know if this patch is ok.
+It was built against linux-2.6.21-rc4-git5. I have also tested it.
+
+Joy
+
+Signed-off-by: Joy Latten<latten@austin.ibm.com>
 
 
->  static inline void udp_lib_close(struct sock *sk, long timeout)
-> diff --git a/net/core/sock.c b/net/core/sock.c
-> index 8d65d64..abe1632 100644
-> --- a/net/core/sock.c
-> +++ b/net/core/sock.c
-> @@ -901,7 +901,9 @@ struct sock *sk_clone(const struct sock *sk, const gfp_t priority)
->  		sock_copy(newsk, sk);
->  
->  		/* SANITY */
-> +#ifndef CONFIG_MDT_LOOKUP
->  		sk_node_init(&newsk->sk_node);
-> +#endif
->  		sock_lock_init(newsk);
->  		bh_lock_sock(newsk);
-
-I would rather not see ifdef's in code. Could you just stub
-out the function in the include file?
-
-
->  
-> diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
-> index 9e8ef50..5bfb0dc 100644
-> --- a/net/ipv4/Kconfig
-> +++ b/net/ipv4/Kconfig
-> @@ -1,6 +1,14 @@
->  #
->  # IP configuration
->  #
-> +
-> +config MDT_LOOKUP
-> +	bool "Multidimensional trie socket lookup"
-> +	depends on !INET_TCP_DIAG
-> +	help
-> +	  This option replaces traditional hash table lookup for TCP sockets
-> +	  with multidimensional trie algorithm (similar to judy trie).
-
-So you had to break the TCP_DIAG output to make this work.
-Please fix, the ss command is useful.
-
-> diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-> index cf358c8..8c32545 100644
-> --- a/net/ipv4/af_inet.c
-> +++ b/net/ipv4/af_inet.c
-> @@ -1360,6 +1360,7 @@ fs_initcall(inet_init);
->  /* ------------------------------------------------------------------------ */
->  
->  #ifdef CONFIG_PROC_FS
-> +#ifndef CONFIG_MDT_LOOKUP
->  static int __init ipv4_proc_init(void)
->  {
->  	int rc = 0;
-> @@ -1388,7 +1389,12 @@ out_raw:
->  	rc = -ENOMEM;
->  	goto out;
->  }
-> -
-> +#else
-> +static int __init ipv4_proc_init(void)
-> +{
-> +	return 0;
-> +}
-> +#endif
-
-If you are making it into a stub, why not get rid of it
-completely?
-
-> +
-> +#define MDT_SET_LEAF_STORAGE(leaf, ptr) do { \
-> +	rcu_assign_pointer((leaf), (struct mdt_node *)(((unsigned long)(ptr)) | MDT_LEAF_STRUCT_BIT)); \
-> +} while (0)
-
-Macro yuckinesss.
-
-<rest deleted>
-
-What is the code size change with this?
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+diff -urpN linux-2.6.20.orig/net/xfrm/xfrm_policy.c linux-2.6.20/net/xfrm/xfrm_policy.c
+--- linux-2.6.20.orig/net/xfrm/xfrm_policy.c	2007-03-21 14:25:51.000000000 -0500
++++ linux-2.6.20/net/xfrm/xfrm_policy.c	2007-03-21 14:30:59.000000000 -0500
+@@ -829,6 +829,8 @@ void xfrm_policy_flush(u8 type, struct x
+ 				     &xfrm_policy_inexact[dir], bydst) {
+ 			if (pol->type != type)
+ 				continue;
++			if (security_xfrm_policy_delete(pol))
++				continue;
+ 			hlist_del(&pol->bydst);
+ 			hlist_del(&pol->byidx);
+ 			write_unlock_bh(&xfrm_policy_lock);
+@@ -850,6 +852,8 @@ void xfrm_policy_flush(u8 type, struct x
+ 					     bydst) {
+ 				if (pol->type != type)
+ 					continue;
++				if (security_xfrm_policy_delete(pol))
++					continue;
+ 				hlist_del(&pol->bydst);
+ 				hlist_del(&pol->byidx);
+ 				write_unlock_bh(&xfrm_policy_lock);
+diff -urpN linux-2.6.20.orig/net/xfrm/xfrm_state.c linux-2.6.20/net/xfrm/xfrm_state.c
+--- linux-2.6.20.orig/net/xfrm/xfrm_state.c	2007-03-21 14:25:51.000000000 -0500
++++ linux-2.6.20/net/xfrm/xfrm_state.c	2007-03-21 14:27:48.000000000 -0500
+@@ -400,7 +400,8 @@ void xfrm_state_flush(u8 proto, struct x
+ restart:
+ 		hlist_for_each_entry(x, entry, xfrm_state_bydst+i, bydst) {
+ 			if (!xfrm_state_kern(x) &&
+-			    xfrm_id_proto_match(x->id.proto, proto)) {
++			    xfrm_id_proto_match(x->id.proto, proto) &&
++			    !security_xfrm_state_delete(x)) {
+ 				xfrm_state_hold(x);
+ 				spin_unlock_bh(&xfrm_state_lock);
+ 
