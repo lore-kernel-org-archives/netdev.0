@@ -1,44 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH]: Add security check before flushing SAD/SPD
-Date: Thu, 22 Mar 2007 12:01:39 -0700 (PDT)
-Message-ID: <20070322.120139.74735307.davem@davemloft.net>
-References: <200703221835.l2MIZdDw007850@faith.austin.ibm.com>
+Subject: Re: [ANN] Unified dynamic storage for different socket types
+ instead of separate hash tables.
+Date: Thu, 22 Mar 2007 12:03:46 -0700 (PDT)
+Message-ID: <20070322.120346.41643926.davem@davemloft.net>
+References: <20070322180957.GA17793@2ka.mipt.ru>
+	<20070322114304.1e516507@freekitty>
+	<20070322185944.GA3802@2ka.mipt.ru>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jmorris@namei.org, vyekkirala@trustedcs.com
-To: latten@austin.ibm.com
+Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org
+To: johnpol@2ka.mipt.ru
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36404
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36407
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S965047AbXCVTBk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Mar 2007 15:01:40 -0400
-In-Reply-To: <200703221835.l2MIZdDw007850@faith.austin.ibm.com>
+	by vger.kernel.org with ESMTP id S964917AbXCVTDq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Mar 2007 15:03:46 -0400
+In-Reply-To: <20070322185944.GA3802@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Joy Latten <latten@austin.ibm.com>
-Date: Thu, 22 Mar 2007 12:35:39 -0600
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Date: Thu, 22 Mar 2007 21:59:44 +0300
 
-> Within selinux we check for authorization before deleting entries from
-> SAD and SPD. 
-> 
-> We are not checking for authorization when flushing the SPD and
-> the SAD. It was perhaps missed in original patch.
-> 
-> This patch adds security check when flushing entries from SAD and SPD.
-> 
-> Please let me know if this patch is ok.
-> It was built against linux-2.6.21-rc4-git5. I have also tested it.
-> 
-> Signed-off-by: Joy Latten<latten@austin.ibm.com>
+> Yes, current code does not support statistics.
+> Existing stats run over whole hash table, I do not like such approach,
+> so I will introduce a per-protocol lists of all sockets, which can be
+> accessed from statistics code, but it is next step.
 
-I don't understand this and it does not sit well with me.
+We are _NOT_ bloating up the socket structure even more because your
+data structure does not support a "iterate over all objects"
+operation.
 
-If we are flushing the policy database, we are flushing it
-regardless of what the security layer might or might not say.
-
-I would look at this patch differently if there were some
-security level key being checked for a match here, which is
-an input key to the flush, but that is not what is happening
-here as the object is being looked at by itself.
+We got rid of the linked list of all sockets per-protocol precisely
+for this reason 10 years ago, you cannot add it back, sorry.
