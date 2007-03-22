@@ -1,93 +1,124 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH 5/8] [NETLINK]: Ignore control messages directly in netlink_run_queue()
-Date: Thu, 22 Mar 2007 23:18:09 +0100
-Message-ID: <20070322221850.164365211@lsx.localdomain>
+Subject: [PATCH 7/8] [IPv4] diag: Use netlink_run_queue() to process the receive queue
+Date: Thu, 22 Mar 2007 23:18:11 +0100
+Message-ID: <20070322221850.587457838@lsx.localdomain>
 References: <20070322221804.000124130@lsx.localdomain>
 Cc: netdev@vger.kernel.org, Thomas Graf <tgraf@suug.ch>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:56195 "EHLO postel.suug.ch"
+Received: from postel.suug.ch ([194.88.212.233]:56202 "EHLO postel.suug.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1161159AbXCVWWE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Mar 2007 18:22:04 -0400
-Content-Disposition: inline; filename=netlink_run_queue_ignore_ctrl_msgs
+	id S1161158AbXCVWWM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Mar 2007 18:22:12 -0400
+Content-Disposition: inline; filename=inet_diag_queue_run
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Changes netlink_rcv_skb() to skip netlink controll messages and don't
-pass them on to the message handler.
+Makes use of netlink_run_queue() to process the receive queue and
+converts inet_diag_rcv_msg() to use the type safe netlink interface.
 
 Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-Index: net-2.6.22/net/netlink/af_netlink.c
+Index: net-2.6.22/net/ipv4/inet_diag.c
 ===================================================================
---- net-2.6.22.orig/net/netlink/af_netlink.c	2007-03-22 23:15:33.000000000 +0100
-+++ net-2.6.22/net/netlink/af_netlink.c	2007-03-22 23:15:58.000000000 +0100
-@@ -1479,6 +1479,10 @@ static int netlink_rcv_skb(struct sk_buf
- 		if (!(nlh->nlmsg_flags & NLM_F_REQUEST))
- 			goto skip;
+--- net-2.6.22.orig/net/ipv4/inet_diag.c	2007-03-22 23:15:31.000000000 +0100
++++ net-2.6.22/net/ipv4/inet_diag.c	2007-03-22 23:16:05.000000000 +0100
+@@ -806,68 +806,48 @@ done:
+ 	return skb->len;
+ }
  
-+		/* Skip control messages */
-+		if (nlh->nlmsg_type < NLMSG_MIN_TYPE)
-+			goto skip;
+-static inline int inet_diag_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
++static int inet_diag_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
+ {
+-	if (!(nlh->nlmsg_flags&NLM_F_REQUEST))
+-		return 0;
++	int hdrlen = sizeof(struct inet_diag_req);
+ 
+-	if (nlh->nlmsg_type >= INET_DIAG_GETSOCK_MAX)
+-		goto err_inval;
++	if (nlh->nlmsg_type >= INET_DIAG_GETSOCK_MAX ||
++	    nlmsg_len(nlh) < hdrlen)
++		return -EINVAL;
+ 
+ 	if (inet_diag_table[nlh->nlmsg_type] == NULL)
+ 		return -ENOENT;
+ 
+-	if (NLMSG_LENGTH(sizeof(struct inet_diag_req)) > skb->len)
+-		goto err_inval;
+-
+-	if (nlh->nlmsg_flags&NLM_F_DUMP) {
+-		if (nlh->nlmsg_len >
+-		    (4 + NLMSG_SPACE(sizeof(struct inet_diag_req)))) {
+-			struct rtattr *rta = (void *)(NLMSG_DATA(nlh) +
+-						 sizeof(struct inet_diag_req));
+-			if (rta->rta_type != INET_DIAG_REQ_BYTECODE ||
+-			    rta->rta_len < 8 ||
+-			    rta->rta_len >
+-			    (nlh->nlmsg_len -
+-			     NLMSG_SPACE(sizeof(struct inet_diag_req))))
+-				goto err_inval;
+-			if (inet_diag_bc_audit(RTA_DATA(rta), RTA_PAYLOAD(rta)))
+-				goto err_inval;
+-		}
+-		return netlink_dump_start(idiagnl, skb, nlh,
+-					  inet_diag_dump, NULL);
+-	} else
+-		return inet_diag_get_exact(skb, nlh);
+-
+-err_inval:
+-	return -EINVAL;
+-}
++	if (nlh->nlmsg_flags & NLM_F_DUMP) {
++		int err;
+ 
++		if (nlmsg_attrlen(nlh, hdrlen)) {
++			struct nlattr *attr;
+ 
+-static inline void inet_diag_rcv_skb(struct sk_buff *skb)
+-{
+-	if (skb->len >= NLMSG_SPACE(0)) {
+-		int err;
+-		struct nlmsghdr *nlh = nlmsg_hdr(skb);
++			attr = nlmsg_find_attr(nlh, hdrlen,
++					       INET_DIAG_REQ_BYTECODE);
++			if (attr == NULL ||
++			    nla_len(attr) < sizeof(struct inet_diag_bc_op) ||
++			    inet_diag_bc_audit(nla_data(attr), nla_len(attr)))
++				return -EINVAL;
++		}
+ 
+-		if (nlh->nlmsg_len < sizeof(*nlh) ||
+-		    skb->len < nlh->nlmsg_len)
+-			return;
+-		err = inet_diag_rcv_msg(skb, nlh);
+-		if (err || nlh->nlmsg_flags & NLM_F_ACK)
+-			netlink_ack(skb, nlh, err);
++		err = netlink_dump_start(idiagnl, skb, nlh,
++					 inet_diag_dump, NULL);
++		if (err == 0)
++			err = -EINTR;
++		return err;
+ 	}
 +
- 		if (cb(skb, nlh, &err) < 0) {
- 			/* Not an error, but we have to interrupt processing
- 			 * here. Note: that in this case we do not pull
-Index: net-2.6.22/net/core/rtnetlink.c
-===================================================================
---- net-2.6.22.orig/net/core/rtnetlink.c	2007-03-22 23:15:33.000000000 +0100
-+++ net-2.6.22/net/core/rtnetlink.c	2007-03-22 23:15:58.000000000 +0100
-@@ -863,10 +863,6 @@ rtnetlink_rcv_msg(struct sk_buff *skb, s
++	return inet_diag_get_exact(skb, nlh);
+ }
  
- 	type = nlh->nlmsg_type;
+ static void inet_diag_rcv(struct sock *sk, int len)
+ {
+-	struct sk_buff *skb;
+-	unsigned int qlen = skb_queue_len(&sk->sk_receive_queue);
++	unsigned int qlen = 0;
  
--	/* A control message: ignore them */
--	if (type < RTM_BASE)
--		return 0;
--
- 	/* Unknown message: reply with EINVAL */
- 	if (type > RTM_MAX)
- 		goto err_inval;
-Index: net-2.6.22/net/netlink/genetlink.c
-===================================================================
---- net-2.6.22.orig/net/netlink/genetlink.c	2007-03-22 23:15:33.000000000 +0100
-+++ net-2.6.22/net/netlink/genetlink.c	2007-03-22 23:15:58.000000000 +0100
-@@ -304,9 +304,6 @@ static int genl_rcv_msg(struct sk_buff *
- 	struct genlmsghdr *hdr = nlmsg_data(nlh);
- 	int hdrlen, err = -EINVAL;
+-	while (qlen-- && (skb = skb_dequeue(&sk->sk_receive_queue))) {
+-		inet_diag_rcv_skb(skb);
+-		kfree_skb(skb);
+-	}
++	do {
++		netlink_run_queue(sk, &qlen, &inet_diag_rcv_msg);
++	} while (qlen);
+ }
  
--	if (nlh->nlmsg_type < NLMSG_MIN_TYPE)
--		goto ignore;
--
- 	family = genl_family_find_byid(nlh->nlmsg_type);
- 	if (family == NULL) {
- 		err = -ENOENT;
-@@ -364,9 +361,6 @@ static int genl_rcv_msg(struct sk_buff *
- 	*errp = err = ops->doit(skb, &info);
- 	return err;
- 
--ignore:
--	return 0;
--
- errout:
- 	*errp = err;
- 	return -1;
-Index: net-2.6.22/net/xfrm/xfrm_user.c
-===================================================================
---- net-2.6.22.orig/net/xfrm/xfrm_user.c	2007-03-22 23:15:33.000000000 +0100
-+++ net-2.6.22/net/xfrm/xfrm_user.c	2007-03-22 23:15:58.000000000 +0100
-@@ -1861,10 +1861,6 @@ static int xfrm_user_rcv_msg(struct sk_b
- 
- 	type = nlh->nlmsg_type;
- 
--	/* A control message: ignore them */
--	if (type < XFRM_MSG_BASE)
--		return 0;
--
- 	/* Unknown message: reply with EINVAL */
- 	if (type > XFRM_MSG_MAX)
- 		goto err_einval;
+ static DEFINE_SPINLOCK(inet_diag_register_lock);
 
 --
 
