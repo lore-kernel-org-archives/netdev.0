@@ -1,41 +1,34 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: many sockets, slow sendto
-Date: Thu, 22 Mar 2007 07:43:52 +0100
-Message-ID: <20070322074352.56e3ae2d.dada1@cosmosbay.com>
-References: <4600592E.80605@fw.hu>
-	<460064C6.5030302@cosmosbay.com>
-	<4601ADD8.8040500@cosmosbay.com>
-	<20070321.181510.104045031.davem@davemloft.net>
+From: Keiichi KII <k-keiichi@bx.jp.nec.com>
+Subject: Re: [RFC][PATCH -mm take3 2/6][resend] support multiple logging
+Date: Thu, 22 Mar 2007 19:03:38 +0900
+Message-ID: <4602547A.5000600@bx.jp.nec.com>
+References: <45FFCF31.3040000@bx.jp.nec.com> <45FFD2E5.9070208@bx.jp.nec.com> <b6fcc0a0703200534w179a664dk6bfc6108879bde94@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: zacco@fw.hu, baruch@ev-en.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: mpm@selenic.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Alexey Dobriyan <adobriyan@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.cosmosbay.com ([86.65.150.131]:45515 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752654AbXCVGoH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Mar 2007 02:44:07 -0400
-In-Reply-To: <20070321.181510.104045031.davem@davemloft.net>
+Received: from TYO202.gate.nec.co.jp ([202.32.8.206]:39562 "EHLO
+	tyo202.gate.nec.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030332AbXCVKD7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Mar 2007 06:03:59 -0400
+In-Reply-To: <b6fcc0a0703200534w179a664dk6bfc6108879bde94@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 21 Mar 2007 18:15:10 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
-
-> From: Eric Dumazet <dada1@cosmosbay.com>
-> Date: Wed, 21 Mar 2007 23:12:40 +0100
+Alexey Dobriyan wrote:
+> On 3/20/07, Keiichi KII <k-keiichi@bx.jp.nec.com> wrote:
+>> This patch contains the following changes for supporting multiple logging
+>>  agents.
 > 
-> > I chose in this patch to hash UDP sockets with a hash function that take into 
-> > account both their port number and address : This has a drawback because we 
-> > need two lookups : one with a given address, one with a wildcard (null) address.
+>> +#define CONFIG_SEPARATOR ";"
 > 
-> Thanks for doing this work Eric, I'll review this when I get home
-> tomorrow night or Friday.
-> 
+> CONFIG_* is reserved for configuration options. Since you use
+> it in only one place just use semicolon directly.
 
-You're welcome :)
+Thank you for your reply.
+I'm going to fix this when I send patches next time.
 
-I knew you were busy with this new wii game^Wprogram
 
-:)
