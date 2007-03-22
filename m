@@ -1,57 +1,76 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [PATCH] Fix crash in tg3 when using irqpoll
-Date: Thu, 22 Mar 2007 14:04:27 -0800
-Message-ID: <1174601067.9753.42.camel@dell>
-References: <20070322204635.GA27152@strauss.suse.de>
+From: Steve Wise <swise@opengridcomputing.com>
+Subject: [ofa-general] [PATCH 2.6.21] iw_cxgb3: Fix a resource leak in
+	cxio_hal_init_ctrl_qp().
+Date: Thu, 22 Mar 2007 16:39:57 -0500
+Message-ID: <1174599597.16862.70.camel@stevo-desktop>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "Bernhard Walle" <bwalle@suse.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:3454 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932234AbXCVV1p (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Mar 2007 17:27:45 -0400
-In-Reply-To: <20070322204635.GA27152@strauss.suse.de>
-Sender: netdev-owner@vger.kernel.org
+Cc: Netdev@vger.kernel.org, linux-kernel <linux-kernel@vger.kernel.org>,
+	General@lists.openfabrics.org
+To: Roland Dreier <rdreier@cisco.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2007-03-22 at 21:46 +0100, Bernhard Walle wrote:
+Fix a resource leak in cxio_hal_init_ctrl_qp().
 
-> 
-> This patch makes sure that even the tr32() instruction in the interrupt handler
-> is not executed which accesses PCI memory. Accessing PCI memory when
-> pci_restore_state() is called is a bad idea because that function modifies
-> the BARs of the PCI device.
+Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+---
 
-It is not caused by the BAR as it doesn't get changed in this case.  The
-pci_restore_state() call is to restore the memory enable bit in the PCI
-command register.  The tr32() call in tg3_interrupt() will cause a
-master abort if it is called before the memory enable bit has been
-restored.
+ drivers/infiniband/hw/cxgb3/cxio_hal.c |   12 ++++++++----
+ 1 files changed, 8 insertions(+), 4 deletions(-)
 
-> --- mainline-msi-init.orig/drivers/net/tg3.c
-> +++ mainline-msi-init/drivers/net/tg3.c
-> @@ -3561,7 +3561,10 @@ static irqreturn_t tg3_interrupt(int irq
->  	struct net_device *dev = dev_id;
->  	struct tg3 *tp = netdev_priv(dev);
->  	struct tg3_hw_status *sblk = tp->hw_status;
-> -	unsigned int handled = 1;
-> +	unsigned int handled = 0;
-> +
-> +	if (tg3_irq_sync(tp))
-> +		goto out;
-
-
-This will break other things.  When we disable interrupts, we set the
-irq_sync flag but allow one more interrupt to be generated.  The irq
-handler will simply mask off the interrupt when it sees the irq_sync
-flag.  With the above change, the irq handler can no longer mask off
-this trailing interrupt and you may get screaming interrupts as a
-result.
-
-Thanks for reporting this.  I'll try to come up with a good solution.
-
-
-
+diff --git a/drivers/infiniband/hw/cxgb3/cxio_hal.c b/drivers/infiniband/hw/cxgb3/cxio_hal.c
+index 818cf1a..f5e9aee 100644
+--- a/drivers/infiniband/hw/cxgb3/cxio_hal.c
++++ b/drivers/infiniband/hw/cxgb3/cxio_hal.c
+@@ -498,9 +498,9 @@ static int cxio_hal_init_ctrl_qp(struct 
+ 	u64 sge_cmd, ctx0, ctx1;
+ 	u64 base_addr;
+ 	struct t3_modify_qp_wr *wqe;
+-	struct sk_buff *skb = alloc_skb(sizeof(*wqe), GFP_KERNEL);
+-
++	struct sk_buff *skb;
+ 
++	skb = alloc_skb(sizeof(*wqe), GFP_KERNEL);
+ 	if (!skb) {
+ 		PDBG("%s alloc_skb failed\n", __FUNCTION__);
+ 		return -ENOMEM;
+@@ -508,7 +508,7 @@ static int cxio_hal_init_ctrl_qp(struct 
+ 	err = cxio_hal_init_ctrl_cq(rdev_p);
+ 	if (err) {
+ 		PDBG("%s err %d initializing ctrl_cq\n", __FUNCTION__, err);
+-		return err;
++		goto err;
+ 	}
+ 	rdev_p->ctrl_qp.workq = dma_alloc_coherent(
+ 					&(rdev_p->rnic_info.pdev->dev),
+@@ -518,7 +518,8 @@ static int cxio_hal_init_ctrl_qp(struct 
+ 					GFP_KERNEL);
+ 	if (!rdev_p->ctrl_qp.workq) {
+ 		PDBG("%s dma_alloc_coherent failed\n", __FUNCTION__);
+-		return -ENOMEM;
++		err = -ENOMEM;
++		goto err;
+ 	}
+ 	pci_unmap_addr_set(&rdev_p->ctrl_qp, mapping,
+ 			   rdev_p->ctrl_qp.dma_addr);
+@@ -556,6 +557,9 @@ static int cxio_hal_init_ctrl_qp(struct 
+ 	     rdev_p->ctrl_qp.workq, 1 << T3_CTRL_QP_SIZE_LOG2);
+ 	skb->priority = CPL_PRIORITY_CONTROL;
+ 	return (cxgb3_ofld_send(rdev_p->t3cdev_p, skb));
++err:
++	kfree_skb(skb);
++	return err;
+ }
+ 
+ static int cxio_hal_destroy_ctrl_qp(struct cxio_rdev *rdev_p)
