@@ -1,31 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] tcp: cubic optimization
-Date: Thu, 22 Mar 2007 12:11:39 -0700 (PDT)
-Message-ID: <20070322.121139.85400399.davem@davemloft.net>
-References: <20070321191537.GA28914@1wt.eu>
-	<20070321131532.66e7f0e1@freekitty>
-	<20070321131721.448de522@freekitty>
+Subject: Re: [ANN] Unified dynamic storage for different socket types
+ instead of separate hash tables.
+Date: Thu, 22 Mar 2007 12:14:41 -0700 (PDT)
+Message-ID: <20070322.121441.39171370.davem@davemloft.net>
+References: <20070322185944.GA3802@2ka.mipt.ru>
+	<20070322.120346.41643926.davem@davemloft.net>
+	<20070322190939.GA18792@2ka.mipt.ru>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: w@1wt.eu, rkuhn@e18.physik.tu-muenchen.de, andi@firstfloor.org,
-	dada1@cosmosbay.com, jengelh@linux01.gwdg.de,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: shemminger@linux-foundation.org
+Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org
+To: johnpol@2ka.mipt.ru
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35927
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35932
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S965277AbXCVTLk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Mar 2007 15:11:40 -0400
-In-Reply-To: <20070321131721.448de522@freekitty>
+	by vger.kernel.org with ESMTP id S965405AbXCVTOl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Mar 2007 15:14:41 -0400
+In-Reply-To: <20070322190939.GA18792@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Date: Wed, 21 Mar 2007 13:17:21 -0700
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Date: Thu, 22 Mar 2007 22:09:40 +0300
 
-> Use willy's work in optimizing cube root by having table for small values.
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+> I specially have only one hash structure in the socket - skc_bind_node -
+> to be used for statistics and remove hash and skc_node (and for netlink
+> broadcasting too), so this code reduces socket structure by 12 bytes on
+> x86 (20 bytes on x86_64).
 
-Also applied to net-2.6.22, thanks Stephen.
+Yes, for your trie you've removed quite a bit, but now you're
+going to add 2 pointers right back right?
