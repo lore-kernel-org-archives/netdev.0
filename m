@@ -1,107 +1,61 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: [NET_SCHED 04/11]: kill PSCHED_TLESS
-Date: Fri, 23 Mar 2007 14:35:44 +0100 (MET)
-Message-ID: <20070323133518.10264.68134.sendpatchset@localhost.localdomain>
-References: <20070323133513.10264.16515.sendpatchset@localhost.localdomain>
-Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>
-To: davem@davemloft.net
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: [RFC] remove NLA_STRING NUL trimming
+Date: Fri, 23 Mar 2007 00:12:18 +0100
+Message-ID: <1174605138.3588.54.camel@johannes.berg>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:61423 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934279AbXCWNfp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Mar 2007 09:35:45 -0400
-In-Reply-To: <20070323133513.10264.16515.sendpatchset@localhost.localdomain>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:40310 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1422876AbXCWNl1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Mar 2007 09:41:27 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[NET_SCHED]: kill PSCHED_TLESS
+Looking through the netlink/attr.c code I noticed that NLA_STRING
+attributes that end with a binary NUL have it removed before passing it
+to the consumer.
 
-Signed-off-by: Patrick McHardy <kaber@trash.net>
+For wireless, we have a few places where we need to be able to accept
+any (even binary) values, for example for the SSID; the SSID can validly
+end with \0 and I'd still love to be able to take advantage of
+NLA_STRING and .len = 32 so I don't need to check the length myself.
+However, given the code above, an SSID with a terminating \0 would be
+reduced by one character.
+
+This patch removes the trimming.
+
+Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
 
 ---
-commit 4f8fc418f88c0b7ee6e726b05f27c42d8e20593c
-tree c70508f2e0174aef42aaf99bf0cef4184d7ed07e
-parent 145a1a6010c6b852ffab28c110d8911a6161aa8b
-author Patrick McHardy <kaber@trash.net> Fri, 23 Mar 2007 00:00:55 +0100
-committer Patrick McHardy <kaber@trash.net> Fri, 23 Mar 2007 10:31:28 +0100
+This shouldn't break things if all users that rely on terminating NULs
+have migrated to NLA_NUL_STRING already. I don't see many users of
+NLA_STRING still, but if we can't make that change because some users
+still rely on it trimming the NUL I could also make a patch that
+introduces NLA_BIN_STRING with the changed semantics.
 
- include/net/pkt_sched.h |    1 -
- net/sched/sch_cbq.c     |    7 +++----
- net/sched/sch_netem.c   |    6 +++---
- 3 files changed, 6 insertions(+), 8 deletions(-)
+--- wireless-dev.orig/net/netlink/attr.c	2007-03-23 00:06:41.293435409 +0100
++++ wireless-dev/net/netlink/attr.c	2007-03-23 00:07:13.753435409 +0100
+@@ -56,15 +56,8 @@ static int validate_nla(struct nlattr *n
+ 		if (attrlen < 1)
+ 			return -ERANGE;
+ 
+-		if (pt->len) {
+-			char *buf = nla_data(nla);
+-
+-			if (buf[attrlen - 1] == '\0')
+-				attrlen--;
+-
+-			if (attrlen > pt->len)
+-				return -ERANGE;
+-		}
++		if (pt->len && attrlen > pt->len)
++			return -ERANGE;
+ 		break;
+ 
+ 	default:
 
-diff --git a/include/net/pkt_sched.h b/include/net/pkt_sched.h
-index 32cdf01..49325ff 100644
---- a/include/net/pkt_sched.h
-+++ b/include/net/pkt_sched.h
-@@ -54,7 +54,6 @@ typedef long	psched_tdiff_t;
- #define PSCHED_TDIFF(tv1, tv2)		(long)((tv1) - (tv2))
- #define PSCHED_TDIFF_SAFE(tv1, tv2, bound) \
- 					min_t(long long, (tv1) - (tv2), bound)
--#define PSCHED_TLESS(tv1, tv2)		((tv1) < (tv2))
- #define PSCHED_SET_PASTPERFECT(t)	((t) = 0)
- #define PSCHED_IS_PASTPERFECT(t)	((t) == 0)
- 
-diff --git a/net/sched/sch_cbq.c b/net/sched/sch_cbq.c
-index 290b26b..9e6cdab 100644
---- a/net/sched/sch_cbq.c
-+++ b/net/sched/sch_cbq.c
-@@ -390,7 +390,7 @@ cbq_mark_toplevel(struct cbq_sched_data *q, struct cbq_class *cl)
- 		now = q->now + incr;
- 
- 		do {
--			if (PSCHED_TLESS(cl->undertime, now)) {
-+			if (cl->undertime < now) {
- 				q->toplevel = cl->level;
- 				return;
- 			}
-@@ -845,8 +845,7 @@ cbq_under_limit(struct cbq_class *cl)
- 	if (cl->tparent == NULL)
- 		return cl;
- 
--	if (PSCHED_IS_PASTPERFECT(cl->undertime) ||
--	    !PSCHED_TLESS(q->now, cl->undertime)) {
-+	if (PSCHED_IS_PASTPERFECT(cl->undertime) || q->now >= cl->undertime) {
- 		cl->delayed = 0;
- 		return cl;
- 	}
-@@ -870,7 +869,7 @@ cbq_under_limit(struct cbq_class *cl)
- 		if (cl->level > q->toplevel)
- 			return NULL;
- 	} while (!PSCHED_IS_PASTPERFECT(cl->undertime) &&
--		 PSCHED_TLESS(q->now, cl->undertime));
-+		 q->now < cl->undertime);
- 
- 	cl->delayed = 0;
- 	return cl;
-diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
-index 6044ae7..5d571aa 100644
---- a/net/sched/sch_netem.c
-+++ b/net/sched/sch_netem.c
-@@ -286,7 +286,7 @@ static struct sk_buff *netem_dequeue(struct Qdisc *sch)
- 		/* if more time remaining? */
- 		PSCHED_GET_TIME(now);
- 
--		if (!PSCHED_TLESS(now, cb->time_to_send)) {
-+		if (cb->time_to_send <= now) {
- 			pr_debug("netem_dequeue: return skb=%p\n", skb);
- 			sch->q.qlen--;
- 			return skb;
-@@ -494,7 +494,7 @@ static int tfifo_enqueue(struct sk_buff *nskb, struct Qdisc *sch)
- 
- 	if (likely(skb_queue_len(list) < q->limit)) {
- 		/* Optimize for add at tail */
--		if (likely(skb_queue_empty(list) || !PSCHED_TLESS(tnext, q->oldest))) {
-+		if (likely(skb_queue_empty(list) || tnext >= q->oldest)) {
- 			q->oldest = tnext;
- 			return qdisc_enqueue_tail(nskb, sch);
- 		}
-@@ -503,7 +503,7 @@ static int tfifo_enqueue(struct sk_buff *nskb, struct Qdisc *sch)
- 			const struct netem_skb_cb *cb
- 				= (const struct netem_skb_cb *)skb->cb;
- 
--			if (!PSCHED_TLESS(tnext, cb->time_to_send))
-+			if (tnext >= cb->time_to_send)
- 				break;
- 		}
- 
+
