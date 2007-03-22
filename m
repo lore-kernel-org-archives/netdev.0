@@ -1,36 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 09/12] [DECNet]: Use rtnl registration interface
-Date: Thu, 22 Mar 2007 12:06:36 -0700 (PDT)
-Message-ID: <20070322.120636.104047132.davem@davemloft.net>
-References: <20070322125955.055083236@lsx.localdomain>
-	<20070322130058.360920786@lsx.localdomain>
-	<20070322130754.GA8187@fogou.chygwyn.com>
+Subject: Re: [RESEND] [NET] rules: Unified rules dumping
+Date: Thu, 22 Mar 2007 12:08:27 -0700 (PDT)
+Message-ID: <20070322.120827.78720942.davem@davemloft.net>
+References: <20070322130302.GX521@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, netdev@vger.kernel.org
-To: steve@chygwyn.com
+Cc: netdev@vger.kernel.org
+To: tgraf@suug.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33290
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33296
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S964834AbXCVTGg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Mar 2007 15:06:36 -0400
-In-Reply-To: <20070322130754.GA8187@fogou.chygwyn.com>
+	by vger.kernel.org with ESMTP id S965153AbXCVTI1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Mar 2007 15:08:27 -0400
+In-Reply-To: <20070322130302.GX521@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Steven Whitehouse <steve@chygwyn.com>
-Date: Thu, 22 Mar 2007 13:07:54 +0000
+From: Thomas Graf <tgraf@suug.ch>
+Date: Thu, 22 Mar 2007 14:03:02 +0100
 
-> Hi,
+> Rediffed based on new rtnl registration patches.
 > 
-> On Thu, Mar 22, 2007 at 02:00:04PM +0100, Thomas Graf wrote:
-> > Signed-off-by: Thomas Graf <tgraf@suug.ch>
-> >
-> Acked-by: Steven Whitehouse <swhiteho@redhat.com>
+> Implements a unified, protocol independant rules dumping function
+> which is capable of both, dumping a specific protocol family or
+> all of them. This speeds up dumping as less lookups are required.
 > 
-> for all the DECnet bits & also the DECnet changes in the other patch I saw
-> from you relating to the routing rules,
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-Thanks for helping review Steven.
-
+This also looks good, applied, thanks Thomas.
