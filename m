@@ -1,52 +1,78 @@
-From: Steve Wise <swise@opengridcomputing.com>
-Subject: [ofa-general] [PATCH 2.6.21] iw_cxgb3: Handle build_phys_page_list()
-	failure in iwch_reregister_phys_mem().
-Date: Thu, 22 Mar 2007 10:38:20 -0500
-Message-ID: <1174577900.16862.27.camel@stevo-desktop>
+From: "Nikolaos D. Bougalis" <nikb@webmaster.com>
+Subject: RFC: Established connections hash function
+Date: Thu, 22 Mar 2007 08:39:04 -0700
+Message-ID: <10189ABA61CF4D5AB3881F96C9CACE87@XEON>
+Reply-To: nikb@webmaster.com
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+	format=flowed;
+	charset="iso-8859-1";
+	reply-type=original
 Content-Transfer-Encoding: 7bit
-Cc: Netdev@vger.kernel.org, linux-kernel <linux-kernel@vger.kernel.org>,
-	General@lists.openfabrics.org, Adrian Bunk <bunk@stusta.de>
-To: Roland Dreier <rdreier@cisco.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail1.webmaster.com ([216.152.64.169]:4888 "EHLO
+	mail1.webmaster.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933325AbXCVPoq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Mar 2007 11:44:46 -0400
+Received: from XEON by webmaster.com
+	(Cipher TLSv1:RC4-MD5:128) (MDaemon.PRO.v8.1.3.R)
+	with ESMTP id md50001457151.msg
+	for <netdev@vger.kernel.org>; Thu, 22 Mar 2007 08:39:21 -0800
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+    Hello,
 
-Handle build_phys_page_list() failure in iwch_reregister_phys_mem().
+    I have noticed that the hash function that the kernel uses for
+established TCP/IP connections is rather simplistic, specifically:
 
-Signed-off-by: Steve Wise <swise@opengridcomputing.com>
----
+    h = (local address ^ local_port) ^ (remote_address ^ remote_port);
+    h ^= h >> 16;
+    h ^= h >> 8;
 
- drivers/infiniband/hw/cxgb3/iwch_provider.c |    5 ++++-
- 1 files changed, 4 insertions(+), 1 deletions(-)
+    Now, simple is great, but this has a number of issues, not the least of
+which is that an attacker can very easily cause collisions and force
+extremely long chain lengths, a situation that becomes worse the more
+distinct IP addresses and listening ports a box has.
 
-diff --git a/drivers/infiniband/hw/cxgb3/iwch_provider.c b/drivers/infiniband/hw/cxgb3/iwch_provider.c
-index f2774ae..24e0df0 100644
---- a/drivers/infiniband/hw/cxgb3/iwch_provider.c
-+++ b/drivers/infiniband/hw/cxgb3/iwch_provider.c
-@@ -545,11 +545,14 @@ static int iwch_reregister_phys_mem(stru
- 		php = to_iwch_pd(pd);
- 	if (mr_rereg_mask & IB_MR_REREG_ACCESS)
- 		mh.attr.perms = iwch_ib_to_tpt_access(acc);
--	if (mr_rereg_mask & IB_MR_REREG_TRANS)
-+	if (mr_rereg_mask & IB_MR_REREG_TRANS) {
- 		ret = build_phys_page_list(buffer_list, num_phys_buf,
- 					   iova_start,
- 					   &total_size, &npages,
- 					   &shift, &page_list);
-+		if (ret)
-+			return ret;
-+	}
- 
- 	ret = iwch_reregister_mem(rhp, php, &mh, shift, page_list, npages);
- 	kfree(page_list);
+    Consider, for example, a box that has 20 ports open and 4 consecutive IP
+addresses. An attacker that has an entire class C available can create
+24,576 connections that hash to the same value, resulting in a ridiculously
+overlong chain. With servers that do virtual hosting and have dozens of IPs,
+the situation can become much worse very fast.
+
+    This particular hash seems to be the odd-man out, since most other
+network related hashes in the kernel seem to be Jenkins-based, and some use
+tagged hashing to defeat algorithmic complexity attacks. For example, the
+route hash uses this:
+
+static unsigned int rt_hash_rnd;
+
+static unsigned int rt_hash_code(u32 daddr, u32 saddr)
+{
+        return (jhash_2words(daddr, saddr, rt_hash_rnd)
+                & rt_hash_mask);
+}
+
+    With this in mind, I propose the following replacement for inet_ehashfn,
+which defeats algorithmic complexity attacks and achieves excellent
+distribution:
+
+unsigned int inet_ehashfn(const __be32 laddr, const __u16 lport,
+                          const __be32 faddr, const __be16 fport)
+{
+    return jhash_3words((__force __u32)faddr, (__force __u32)laddr,
+                        (((__force __u32)fport) << 16) + lport,
+                        inet_ehash_rnd);
+}
+
+    where inet_ehash_rnd is initialized once in tcp_init to a random 32-bit
+value.
+
+    I will be more than happy to provide a patch for this, but I figured I
+would solicit some input first.
+
+    Nik B.
+
+
