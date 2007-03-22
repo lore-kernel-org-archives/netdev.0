@@ -1,49 +1,57 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH 0/3] [PATCHSET] netlink error management
-Date: Thu, 22 Mar 2007 20:57:54 +0100
-Message-ID: <20070322195754.GZ521@postel.suug.ch>
-References: <20070321231801.342849239@lsx.localdomain> <20070322.122355.48516149.davem@davemloft.net>
+From: James Chapman <jchapman@katalix.com>
+Subject: Re: L2TP support?
+Date: Thu, 22 Mar 2007 20:13:40 +0000
+Message-ID: <4602E374.4010802@katalix.com>
+References: <4602AA25.6020001@katalix.com> <200703221833.33530.netdev@axxeo.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, kaber@trash.net
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Ingo Oeser <netdev@axxeo.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:55540 "EHLO postel.suug.ch"
+Received: from s36.avahost.net ([74.53.95.194]:37258 "EHLO s36.avahost.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934210AbXCVT5e (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Mar 2007 15:57:34 -0400
-Content-Disposition: inline
-In-Reply-To: <20070322.122355.48516149.davem@davemloft.net>
+	id S1752201AbXCVUNn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Mar 2007 16:13:43 -0400
+In-Reply-To: <200703221833.33530.netdev@axxeo.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* David Miller <davem@davemloft.net> 2007-03-22 12:23
-> From: Thomas Graf <tgraf@suug.ch>
-> Date: Thu, 22 Mar 2007 00:18:01 +0100
+Hi Ingo,
+
+Ingo Oeser wrote:
+> Hi James,
 > 
-> > This series of patches simplifies the error management and
-> > signalization of dump starts of netlink_run_queue() message
-> > handlers. It touches a fair bit of nfnetlink code as the
-> > error pointer has been passed on to subsystems.
+> James Chapman schrieb:
+>> Is there interest in adding L2TP support?
 > 
-> Thomas can you respin these patches?  They no longer apply
-> now that I put your other rtnl_link bits into net-2.6.22
+> Yes, if there is also a user space part somewhere.
 
-I guess I've posted too many patches series, the patches should
-still apply, at least it works in my quilt tree, but depend on
-others. The series I've posted in the correct order are:
+Yes there is. There's a pppd plugin which comes with the openl2tp 
+project, http://sf.net/projects/openl2tp. OpenL2TP supports both LAC and 
+LNS operation. A patch is also available to allow this driver to be used 
+with another L2TP implementation, l2tpd.
 
-[RESEND] rtnetlink message handler registration interface
-  already applied
- 
-[RESEND] [NET] rules: Unified rules dumping
-  already applied
+>> I have a patch which could be submitted for review. The PPPoL2TP driver
+>> presents a PPPoX socket to userspace pppd in the same way as the PPPoE
+>> and PPPoATM drivers. The kernel handles all data traffic, while
+>> userspace daemons do L2TP and PPP control message processing.
+> 
+> Like the pppoe-plugin for pppd? 
 
-[PATCH 0/5] [PATCHSET] Netlink Patches
-  even though there have been objects because of nfnetlink
-  at first, the patches can go in as-is
+Yes. :) The plan is to submit the pppol2tp plugin for pppd for inclusion 
+in the pppd distro after the kernel driver is integrated.
 
-[NETFILTER] nfnetlink: netlink_run_queue() already checks
-                       for NLM_F_REQUEST
+> Yes, please check your patch using the nice checklist in 
+> Documentation/SubmitChecklist and do it in suitable chunks 
+> according to Documentation/SubmittingPatches
 
-[PATCH 0/3] [PATCHSET] netlink error management
+Will do.
+
+-- 
+James Chapman
+Katalix Systems Ltd
+http://www.katalix.com
+Catalysts for your Embedded Linux software development
+
+
