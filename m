@@ -1,48 +1,56 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [NET_SCHED 01/11]: sch_netem: fix off-by-one in send time comparison
-Date: Fri, 23 Mar 2007 14:35:40 +0100 (MET)
-Message-ID: <20070323133514.10264.46311.sendpatchset@localhost.localdomain>
+Subject: [NET_SCHED 02/11]: kill PSCHED_AUDIT_TDIFF
+Date: Fri, 23 Mar 2007 14:35:41 +0100 (MET)
+Message-ID: <20070323133516.10264.38355.sendpatchset@localhost.localdomain>
 References: <20070323133513.10264.16515.sendpatchset@localhost.localdomain>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:61414 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:61417 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934055AbXCWNfl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Mar 2007 09:35:41 -0400
+	with ESMTP id S934065AbXCWNfm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Mar 2007 09:35:42 -0400
 In-Reply-To: <20070323133513.10264.16515.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[NET_SCHED]: sch_netem: fix off-by-one in send time comparison
-
-netem checks PSCHED_TLESS(cb->time_to_send, now) to find out whether it is
-allowed to send a packet, which is equivalent to cb->time_to_send < now.
-Use !PSCHED_TLESS(now, cb->time_to_send) instead to properly handle
-cb->time_to_send == now.
+[NET_SCHED]: kill PSCHED_AUDIT_TDIFF
 
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 
 ---
-commit 9f8c07452088f432c79ac3a8d87d6adebcce57df
-tree 42b214f74b8b2d5bd3065e9f63d8048beb4f3bdc
-parent 3231f075945001667eafaf325abab8c992b3d1e4
-author Patrick McHardy <kaber@trash.net> Thu, 22 Mar 2007 23:57:32 +0100
-committer Patrick McHardy <kaber@trash.net> Fri, 23 Mar 2007 10:31:26 +0100
+commit 4a4a3d59dca71f202ab063b909c84c96c8ea09a7
+tree 4958bfec571a3330bd023ebe50f7b071f6dc7dd7
+parent 9f8c07452088f432c79ac3a8d87d6adebcce57df
+author Patrick McHardy <kaber@trash.net> Thu, 22 Mar 2007 23:58:12 +0100
+committer Patrick McHardy <kaber@trash.net> Fri, 23 Mar 2007 10:31:27 +0100
 
- net/sched/sch_netem.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ include/net/pkt_sched.h |    1 -
+ net/sched/sch_cbq.c     |    2 --
+ 2 files changed, 0 insertions(+), 3 deletions(-)
 
-diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
-index 3e1b633..bc42843 100644
---- a/net/sched/sch_netem.c
-+++ b/net/sched/sch_netem.c
-@@ -286,7 +286,7 @@ static struct sk_buff *netem_dequeue(struct Qdisc *sch)
- 		/* if more time remaining? */
- 		PSCHED_GET_TIME(now);
+diff --git a/include/net/pkt_sched.h b/include/net/pkt_sched.h
+index 6555e57..276d1ad 100644
+--- a/include/net/pkt_sched.h
++++ b/include/net/pkt_sched.h
+@@ -59,7 +59,6 @@ typedef long	psched_tdiff_t;
+ #define PSCHED_TADD(tv, delta)		((tv) += (delta))
+ #define PSCHED_SET_PASTPERFECT(t)	((t) = 0)
+ #define PSCHED_IS_PASTPERFECT(t)	((t) == 0)
+-#define	PSCHED_AUDIT_TDIFF(t)
  
--		if (PSCHED_TLESS(cb->time_to_send, now)) {
-+		if (!PSCHED_TLESS(now, cb->time_to_send)) {
- 			pr_debug("netem_dequeue: return skb=%p\n", skb);
- 			sch->q.qlen--;
- 			return skb;
+ struct qdisc_watchdog {
+ 	struct hrtimer	timer;
+diff --git a/net/sched/sch_cbq.c b/net/sched/sch_cbq.c
+index dcd9c31..57ac6c5 100644
+--- a/net/sched/sch_cbq.c
++++ b/net/sched/sch_cbq.c
+@@ -820,8 +820,6 @@ cbq_update(struct cbq_sched_data *q)
+ 			idle -= L2T(&q->link, len);
+ 			idle += L2T(cl, len);
+ 
+-			PSCHED_AUDIT_TDIFF(idle);
+-
+ 			PSCHED_TADD2(q->now, idle, cl->undertime);
+ 		} else {
+ 			/* Underlimit */
