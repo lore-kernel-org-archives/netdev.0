@@ -1,29 +1,35 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] Netpoll support for Sibyte MAC
-Date: Fri, 23 Mar 2007 01:58:51 -0400
-Message-ID: <46036C9B.3050209@garzik.org>
-References: <20070319224311.GA10176@plexity.net>
+Subject: Re: [PATCH 1/2] ehea: fix for dynamic lpar support
+Date: Fri, 23 Mar 2007 01:58:59 -0400
+Message-ID: <46036CA3.1050304@garzik.org>
+References: <200703221749.42876.ossthema@de.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ralf@linux-mips.org,
-	linux-mips@linux-mips.org, Manish Lachwani <mlachwani@mvista.com>
-To: dsaxena@plexity.net
+Cc: netdev <netdev@vger.kernel.org>,
+	Christoph Raisch <raisch@de.ibm.com>,
+	Jan-Bernd Themann <themann@de.ibm.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	linux-ppc <linuxppc-dev@ozlabs.org>,
+	Marcus Eder <meder@de.ibm.com>,
+	Thomas Klein <tklein@de.ibm.com>,
+	Stefan Roscher <stefan.roscher@de.ibm.com>
+To: Jan-Bernd Themann <ossthema@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:60579 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:60597 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753235AbXCWF6x (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Mar 2007 01:58:53 -0400
-In-Reply-To: <20070319224311.GA10176@plexity.net>
+	id S933675AbXCWF7D (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Mar 2007 01:59:03 -0400
+In-Reply-To: <200703221749.42876.ossthema@de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Deepak Saxena wrote:
-> NETPOLL support for Sibyte MAC
+Jan-Bernd Themann wrote:
+> The patch fixes bugs related to the probe / remove adapter
+> functionality (handling of OFDT nodes)
 > 
-> Signed-off-by: Manish Lachwani <mlachwani@mvista.com>
-> Signed-off-by: Deepak Saxena <dsaxena@mvista.com>
+> Signed-off-by: Jan-Bernd Themann <themann@de.ibm.com>
 
-applied
+applied 1-2
 
 
