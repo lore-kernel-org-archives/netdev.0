@@ -1,30 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [NET_SCHED 00/11]: pkt_sched.h cleanup + misc changes
-Date: Fri, 23 Mar 2007 11:30:19 -0700 (PDT)
-Message-ID: <20070323.113019.97293991.davem@davemloft.net>
-References: <20070323133513.10264.16515.sendpatchset@localhost.localdomain>
+Subject: Re: [PATH 0/6] New SCTP functionality for 2.6.22
+Date: Fri, 23 Mar 2007 11:36:53 -0700 (PDT)
+Message-ID: <20070323.113653.122617199.davem@davemloft.net>
+References: <1174657972645-git-send-email-vladislav.yasevich@hp.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: kaber@trash.net
+Cc: netdev@vger.kernel.org, sri@us.ibm.com,
+	lksctp-developers@lists.sourceforge.net
+To: vladislav.yasevich@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57508
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37821
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753300AbXCWSaT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Mar 2007 14:30:19 -0400
-In-Reply-To: <20070323133513.10264.16515.sendpatchset@localhost.localdomain>
+	by vger.kernel.org with ESMTP id S1753301AbXCWSgy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Mar 2007 14:36:54 -0400
+In-Reply-To: <1174657972645-git-send-email-vladislav.yasevich@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Fri, 23 Mar 2007 14:35:38 +0100 (MET)
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Date: Fri, 23 Mar 2007 09:52:46 -0400
 
-> These patches fix an off-by-one in netem, clean up pkt_sched.h by removing
-> most of the now unnecessary PSCHED time macros and turning the two remaining
-> ones into inline functions, consolidate some common filter destruction code
-> and move the TCQ_F_THROTTLED optimization from netem to qdisc_restart.
 > 
-> Please apply, thanks.
+> This patch series implements additional SCTP socket options.  This
+> was originally submitted too late for 2.6.21, so I am re-submitting
+> for 2.6.22.
+> 
+> Please consider applying.
 
-Patches 1-10 applied.
+All 6 patches applied, thanks Vlad.
