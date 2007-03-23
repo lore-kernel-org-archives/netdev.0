@@ -1,34 +1,37 @@
-From: linux@horizon.com
-Subject: Re: VIA Velocity VLAN vexation
-Date: 23 Mar 2007 14:51:02 -0400
-Message-ID: <20070323185102.16160.qmail@science.horizon.com>
-References: <20070322231626.GA23070@electric-eye.fr.zoreil.com>
-Cc: netdev@vger.kernel.org
-To: linux@horizon.com, romieu@fr.zoreil.com
+From: Eric Paris <eparis@parisplace.org>
+Subject: Re: [PATCH]: Add security check before flushing SAD/SPD
+Date: Fri, 23 Mar 2007 14:50:31 -0400
+Message-ID: <1174675831.10788.79.camel@localhost.localdomain>
+References: <Line.LNX.4.64.0703221943110.24461@d.namei>
+	 <1174628387.10788.53.camel@localhost.localdomain>
+	 <Line.LNX.4.64.0703231441390.30602@d.namei>
+	 <20070323.114724.74563713.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: jmorris@namei.org, latten@austin.ibm.com, selinux@tycho.nsa.gov,
+	netdev@vger.kernel.org, vyekkirala@TrustedCS.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from science.horizon.com ([192.35.100.1]:11331 "HELO
-	science.horizon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1753345AbXCWSvE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Mar 2007 14:51:04 -0400
-In-Reply-To: <20070322231626.GA23070@electric-eye.fr.zoreil.com>
+Received: from mx1.redhat.com ([66.187.233.31]:40781 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753282AbXCWSyP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Mar 2007 14:54:15 -0400
+In-Reply-To: <20070323.114724.74563713.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->> Or should I just get a different gigabit card ?
->
-> This one probably got answered the 2005/11/29. :o)
+On Fri, 2007-03-23 at 11:47 -0700, David Miller wrote:
+> From: James Morris <jmorris@namei.org>
+> Date: Fri, 23 Mar 2007 14:46:48 -0400 (EDT)
+> 
+> > A 'flush' has a semantic implication that all entries will be removed, and 
+> > it should be atomic and either succeed or fail at that granularity.
+> 
+> Correct.
 
-Ah, that's where I asked before.  I misplaced the e-mail.
-I hope you don't mind my asking every year or two.
+Fair enough, does it matter that we have no way to report failure back
+to users who can no longer assume success?
 
-But I don't see any suggestions for an alternative gigabit
-card anywhere.  I had assumed they all mostly worked, but
-now it appears I need to know details.
+-Eric
 
-> I'll got to bed in a few minutes but I'll happily resurrect the
-> velocity vlan patches.
-
-Haven't they been merged upstream already?
-
-
-Anyway, thanks for the reply!
