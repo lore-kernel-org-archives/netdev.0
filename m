@@ -1,35 +1,40 @@
-From: "Nikolaos D. Bougalis" <nikb@webmaster.com>
-Subject: Re: XOR hash beauty solved [Was: RFC: Established connections hash function]
-Date: Fri, 23 Mar 2007 05:51:27 -0700
-Message-ID: <7DA94C1A76514C139BA41D202A7DEDFC@XEON>
-References: <391F64D0A7C5463CA2D70362E4B3E7EC@XEON> <20070322182156.GB17793@2ka.mipt.ru> <1199CE22A40740D28833A585014BE559@XEON> <20070322.135834.74723088.davem@davemloft.net> <20070323080715.GB29991@2ka.mipt.ru> <20070323115805.GA23480@2ka.mipt.ru>
-Reply-To: nikb@webmaster.com
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH 1/1][PKT_CLS] Avoid multiple tree locks
+Date: Fri, 23 Mar 2007 09:12:58 -0400
+Message-ID: <1174655578.4930.12.camel@localhost>
+References: <1174471116.16343.10.camel@localhost>
+	 <4601047A.6050108@trash.net> <46010641.3000009@trash.net>
+	 <4601268D.7090003@trash.net>  <46013B73.2060804@trash.net>
+	 <1174543640.4895.28.camel@localhost>  <46026A31.1090603@trash.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain;
-	format=flowed;
-	charset="koi8-r";
-	reply-type=original
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-To: <netdev@vger.kernel.org>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Thomas Graf <tgraf@suug.ch>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.webmaster.com ([216.152.64.169]:1604 "EHLO
-	mail1.webmaster.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1422847AbXCWMvg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Mar 2007 08:51:36 -0400
-Received: from XEON by webmaster.com
-	(Cipher TLSv1:RC4-MD5:128) (MDaemon.PRO.v8.1.3.R)
-	with ESMTP id md50001458263.msg
-	for <netdev@vger.kernel.org>; Fri, 23 Mar 2007 05:51:44 -0800
-In-Reply-To: <20070323115805.GA23480@2ka.mipt.ru>
+Received: from an-out-0708.google.com ([209.85.132.249]:32822 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933749AbXCWNNE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Mar 2007 09:13:04 -0400
+Received: by an-out-0708.google.com with SMTP id b33so1342801ana
+        for <netdev@vger.kernel.org>; Fri, 23 Mar 2007 06:13:02 -0700 (PDT)
+In-Reply-To: <46026A31.1090603@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> So, briefly saying, jhash_2/3words have safe distribution, but have
-> higher-number of elements waves as a result of folding which is
-> unavoidable for general-purpose hash.
+On Thu, 2007-22-03 at 12:36 +0100, Patrick McHardy wrote:
+> jamal wrote:
+> > On Wed, 2007-21-03 at 15:04 +0100, Patrick McHardy wrote:
 
-    Thanks for the analysis. 
+> We can remove qdisc_tree_lock since with this patch all changes
+> and all tree walking happen under the RTNL. 
+> We still need to keep dev->queue_lock for the data path.
+> 
 
-    -n
+ok, that would work. Should have been obvious to me.
 
+cheers,
+jamal
 
