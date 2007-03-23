@@ -1,37 +1,29 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: VIA Velocity VLAN vexation
-Date: Fri, 23 Mar 2007 22:43:26 +0100
-Message-ID: <20070323214326.GA25478@electric-eye.fr.zoreil.com>
-References: <20070322231626.GA23070@electric-eye.fr.zoreil.com> <20070323185102.16160.qmail@science.horizon.com>
+From: Guennadi Liakhovetski <g.liakhovetski@gmx.de>
+Subject: Re: [git patches] net driver fixes
+Date: Fri, 23 Mar 2007 22:56:31 +0100 (CET)
+Message-ID: <Pine.LNX.4.60.0703232254170.5971@poirot.grange>
+References: <20070323065742.GA17613@havoc.gtf.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: linux@horizon.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:54260 "EHLO
-	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S2992573AbXCWVoH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Mar 2007 17:44:07 -0400
-Content-Disposition: inline
-In-Reply-To: <20070323185102.16160.qmail@science.horizon.com>
+Received: from mail.gmx.net ([213.165.64.20]:51641 "HELO mail.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S934324AbXCWV4d (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Mar 2007 17:56:33 -0400
+In-Reply-To: <20070323065742.GA17613@havoc.gtf.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-linux@horizon.com <linux@horizon.com> :
-[...]
-> But I don't see any suggestions for an alternative gigabit
-> card anywhere.  I had assumed they all mostly worked, but
-> now it appears I need to know details.
+Jeff, might be worth getting the sk_buff leak fix in ppp from 
+http://www.spinics.net/lists/netdev/msg27706.html in 2.6.21 too?
 
-Mostly.
+Don't know how important it is for stable. It was present in 2.6.18 too.
 
-Assuming you won't play with huge jumbo frames, I'd suggest
-a plain old pci 8169 (not a PCIe 8168) for VLAN. 
-
-[...]
-> Haven't they been merged upstream already?
-
-No.
-
--- 
-Ueimor
+Thanks
+Guennadi
+---
+Guennadi Liakhovetski
