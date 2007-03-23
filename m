@@ -1,51 +1,48 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [NET_SCHED 00/11]: pkt_sched.h cleanup + misc changes
-Date: Fri, 23 Mar 2007 14:35:38 +0100 (MET)
-Message-ID: <20070323133513.10264.16515.sendpatchset@localhost.localdomain>
+Subject: [NET_SCHED 01/11]: sch_netem: fix off-by-one in send time comparison
+Date: Fri, 23 Mar 2007 14:35:40 +0100 (MET)
+Message-ID: <20070323133514.10264.46311.sendpatchset@localhost.localdomain>
+References: <20070323133513.10264.16515.sendpatchset@localhost.localdomain>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:61410 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:61414 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934045AbXCWNfk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Mar 2007 09:35:40 -0400
+	with ESMTP id S934055AbXCWNfl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Mar 2007 09:35:41 -0400
+In-Reply-To: <20070323133513.10264.16515.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-These patches fix an off-by-one in netem, clean up pkt_sched.h by removing
-most of the now unnecessary PSCHED time macros and turning the two remaining
-ones into inline functions, consolidate some common filter destruction code
-and move the TCQ_F_THROTTLED optimization from netem to qdisc_restart.
+[NET_SCHED]: sch_netem: fix off-by-one in send time comparison
 
-Please apply, thanks.
+netem checks PSCHED_TLESS(cb->time_to_send, now) to find out whether it is
+allowed to send a packet, which is equivalent to cb->time_to_send < now.
+Use !PSCHED_TLESS(now, cb->time_to_send) instead to properly handle
+cb->time_to_send == now.
 
+Signed-off-by: Patrick McHardy <kaber@trash.net>
 
- include/net/pkt_sched.h   |   24 +++++++-------
- include/net/red.h         |   10 +++---
- include/net/sch_generic.h |   10 +-----
- net/sched/act_police.c    |   17 ++++------
- net/sched/sch_api.c       |   20 ++++++++++--
- net/sched/sch_atm.c       |   17 +---------
- net/sched/sch_cbq.c       |   76 ++++++++++++++++++----------------------------
- net/sched/sch_dsmark.c    |    8 ----
- net/sched/sch_generic.c   |    4 ++
- net/sched/sch_hfsc.c      |   23 +++----------
- net/sched/sch_htb.c       |   24 ++++----------
- net/sched/sch_ingress.c   |    7 ----
- net/sched/sch_netem.c     |   24 +++++---------
- net/sched/sch_prio.c      |    7 ----
- net/sched/sch_tbf.c       |    9 ++---
- 15 files changed, 110 insertions(+), 170 deletions(-)
+---
+commit 9f8c07452088f432c79ac3a8d87d6adebcce57df
+tree 42b214f74b8b2d5bd3065e9f63d8048beb4f3bdc
+parent 3231f075945001667eafaf325abab8c992b3d1e4
+author Patrick McHardy <kaber@trash.net> Thu, 22 Mar 2007 23:57:32 +0100
+committer Patrick McHardy <kaber@trash.net> Fri, 23 Mar 2007 10:31:26 +0100
 
-Patrick McHardy (11):
-      [NET_SCHED]: sch_netem: fix off-by-one in send time comparison
-      [NET_SCHED]: kill PSCHED_AUDIT_TDIFF
-      [NET_SCHED]: kill PSCHED_TADD/PSCHED_TADD2
-      [NET_SCHED]: kill PSCHED_TLESS
-      [NET_SCHED]: kill PSCHED_SET_PASTPERFECT/PSCHED_IS_PASTPERFECT
-      [NET_SCHED]: kill PSCHED_TDIFF
-      [NET_SCHED]: turn PSCHED_TDIFF_SAFE into inline function
-      [NET_SCHED]: turn PSCHED_GET_TIME into inline function
-      [NET_SCHED]: Unline tcf_destroy
-      [NET_SCHED]: qdisc: remove unnecessary memory barriers
-      [NET_SCHED]: qdisc: avoid dequeue while throttled
+ net/sched/sch_netem.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
+index 3e1b633..bc42843 100644
+--- a/net/sched/sch_netem.c
++++ b/net/sched/sch_netem.c
+@@ -286,7 +286,7 @@ static struct sk_buff *netem_dequeue(struct Qdisc *sch)
+ 		/* if more time remaining? */
+ 		PSCHED_GET_TIME(now);
+ 
+-		if (PSCHED_TLESS(cb->time_to_send, now)) {
++		if (!PSCHED_TLESS(now, cb->time_to_send)) {
+ 			pr_debug("netem_dequeue: return skb=%p\n", skb);
+ 			sch->q.qlen--;
+ 			return skb;
