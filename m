@@ -1,40 +1,28 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: [PATCH]: Add security check before flushing SAD/SPD
-Date: Fri, 23 Mar 2007 14:46:48 -0400 (EDT)
-Message-ID: <Line.LNX.4.64.0703231441390.30602@d.namei>
-References: <200703221835.l2MIZdDw007850@faith.austin.ibm.com>
- <20070322.120139.74735307.davem@davemloft.net>  <1174598630.3085.285.camel@faith.austin.ibm.com>
-  <Line.LNX.4.64.0703221943110.24461@d.namei> <1174628387.10788.53.camel@localhost.localdomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: RFC: Established connections hash function
+Date: Fri, 23 Mar 2007 11:46:52 -0700 (PDT)
+Message-ID: <20070323.114652.39155950.davem@davemloft.net>
+References: <4602FD18.7060902@cosmosbay.com>
+	<20070323.001126.40983698.davem@davemloft.net>
+	<46038908.6050501@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Joy Latten <latten@austin.ibm.com>,
-	David Miller <davem@davemloft.net>, selinux@tycho.nsa.gov,
-	netdev@vger.kernel.org, vyekkirala@TrustedCS.com
-To: Eric Paris <eparis@parisplace.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: nikb@webmaster.com, netdev@vger.kernel.org
+To: dada1@cosmosbay.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail7.sea5.speakeasy.net ([69.17.117.9]:56712 "EHLO
-	mail7.sea5.speakeasy.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753314AbXCWSqw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Mar 2007 14:46:52 -0400
-In-Reply-To: <1174628387.10788.53.camel@localhost.localdomain>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50489
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753314AbXCWSqx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Mar 2007 14:46:53 -0400
+In-Reply-To: <46038908.6050501@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 23 Mar 2007, Eric Paris wrote:
+From: Eric Dumazet <dada1@cosmosbay.com>
+Date: Fri, 23 Mar 2007 09:00:08 +0100
 
-> Maybe I'm way out on a limb here but if I am a regular user and I say
-> rm /tmp/* and I only have permissions to delete some of the files I
-> expect just those couple to be delete, not the whole operation denied.
+> I dont consider this new hash as bug fix at all, ie your patch might enter 
+> 2.6.22 normal dev cycle.
 
-I don't think this analogy holds up, as rm is a per-file deletion 
-operation, and it is the shell which expands the wildcard for you.
-
-A 'flush' has a semantic implication that all entries will be removed, and 
-it should be atomic and either succeed or fail at that granularity.
-
-
-
-- James
--- 
-James Morris
-<jmorris@namei.org>
+Ok, I checked the patch into net-2.6.22
