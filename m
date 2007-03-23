@@ -1,151 +1,193 @@
 From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: [PATCH 4/6] [SCTP] Honor flags when setting peer address parameters
-Date: Fri, 23 Mar 2007 09:52:50 -0400
-Message-ID: <1174657973332-git-send-email-vladislav.yasevich@hp.com>
+Subject: [PATCH 6/6] [SCTP] Implement SCTP_MAX_BURST socket option.
+Date: Fri, 23 Mar 2007 09:52:52 -0400
+Message-ID: <11746579733157-git-send-email-vladislav.yasevich@hp.com>
 References: <1174657972645-git-send-email-vladislav.yasevich@hp.com>
 Cc: sri@us.ibm.com, lksctp-developers@lists.sourceforge.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel8.hp.com ([156.153.255.206]:49226 "EHLO atlrel8.hp.com"
+Received: from atlrel9.hp.com ([156.153.255.214]:49621 "EHLO atlrel9.hp.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1422908AbXCWNw4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Mar 2007 09:52:56 -0400
+	id S1422919AbXCWNw7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Mar 2007 09:52:59 -0400
 In-Reply-To: <1174657972645-git-send-email-vladislav.yasevich@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Parameters only take effect when a corresponding flag bit is set
-and a value is specified. This means we need to check the flags
-in addition to checking for non-zero value.
-
 Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
 ---
- include/net/sctp/user.h |   15 +++++++------
- net/sctp/socket.c       |   54 ++++++++++++++++++++++++++++++++++++++--------
- 2 files changed, 52 insertions(+), 17 deletions(-)
+ include/net/sctp/constants.h |    2 +-
+ include/net/sctp/structs.h   |    1 +
+ include/net/sctp/user.h      |    2 +
+ net/sctp/associola.c         |    2 +-
+ net/sctp/protocol.c          |    2 +-
+ net/sctp/socket.c            |   61 ++++++++++++++++++++++++++++++++++++++++++
+ 6 files changed, 67 insertions(+), 3 deletions(-)
 
+diff --git a/include/net/sctp/constants.h b/include/net/sctp/constants.h
+index 5ddb855..bb37724 100644
+--- a/include/net/sctp/constants.h
++++ b/include/net/sctp/constants.h
+@@ -283,7 +283,7 @@ enum { SCTP_MAX_GABS = 16 };
+ #define SCTP_RTO_BETA           2   /* 1/4 when converted to right shifts. */
+ 
+ /* Maximum number of new data packets that can be sent in a burst.  */
+-#define SCTP_MAX_BURST		4
++#define SCTP_DEFAULT_MAX_BURST		4
+ 
+ #define SCTP_CLOCK_GRANULARITY	1	/* 1 jiffy */
+ 
+diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
+index f4bb396..8135815 100644
+--- a/include/net/sctp/structs.h
++++ b/include/net/sctp/structs.h
+@@ -276,6 +276,7 @@ struct sctp_sock {
+ 	__u32 default_context;
+ 	__u32 default_timetolive;
+ 	__u32 default_rcv_context;
++	int max_burst;
+ 
+ 	/* Heartbeat interval: The endpoint sends out a Heartbeat chunk to
+ 	 * the destination address every heartbeat interval. This value
 diff --git a/include/net/sctp/user.h b/include/net/sctp/user.h
-index 4ed7521..80b7afe 100644
+index 1b3153c..6d2b577 100644
 --- a/include/net/sctp/user.h
 +++ b/include/net/sctp/user.h
-@@ -513,16 +513,17 @@ struct sctp_setadaptation {
-  *   address's parameters:
-  */
- enum  sctp_spp_flags {
--	SPP_HB_ENABLE = 1,		/*Enable heartbeats*/
--	SPP_HB_DISABLE = 2,		/*Disable heartbeats*/
-+	SPP_HB_ENABLE = 1<<0,		/*Enable heartbeats*/
-+	SPP_HB_DISABLE = 1<<1,		/*Disable heartbeats*/
- 	SPP_HB = SPP_HB_ENABLE | SPP_HB_DISABLE,
--	SPP_HB_DEMAND = 4,		/*Send heartbeat immediately*/
--	SPP_PMTUD_ENABLE = 8,		/*Enable PMTU discovery*/
--	SPP_PMTUD_DISABLE = 16,		/*Disable PMTU discovery*/
-+	SPP_HB_DEMAND = 1<<2,		/*Send heartbeat immediately*/
-+	SPP_PMTUD_ENABLE = 1<<3,	/*Enable PMTU discovery*/
-+	SPP_PMTUD_DISABLE = 1<<4,	/*Disable PMTU discovery*/
- 	SPP_PMTUD = SPP_PMTUD_ENABLE | SPP_PMTUD_DISABLE,
--	SPP_SACKDELAY_ENABLE = 32,	/*Enable SACK*/
--	SPP_SACKDELAY_DISABLE = 64,	/*Disable SACK*/
-+	SPP_SACKDELAY_ENABLE = 1<<5,	/*Enable SACK*/
-+	SPP_SACKDELAY_DISABLE = 1<<6,	/*Disable SACK*/
- 	SPP_SACKDELAY = SPP_SACKDELAY_ENABLE | SPP_SACKDELAY_DISABLE,
-+	SPP_HB_TIME_IS_ZERO = 1<<7,	/* Set HB delay to 0 */
- };
+@@ -101,6 +101,8 @@ enum sctp_optname {
+ #define SCTP_FRAGMENT_INTERLEAVE SCTP_FRAGMENT_INTERLEAVE
+ 	SCTP_PARTIAL_DELIVERY_POINT,	/* Set/Get partial delivery point */
+ #define SCTP_PARTIAL_DELIVERY_POINT SCTP_PARTIAL_DELIVERY_POINT
++	SCTP_MAX_BURST,		/* Set/Get max burst */
++#define SCTP_MAX_BURST SCTP_MAX_BURST
  
- struct sctp_paddrparams {
+ 	/* Internal Socket Options. Some of the sctp library functions are 
+ 	 * implemented using these socket options.
+diff --git a/net/sctp/associola.c b/net/sctp/associola.c
+index 294be94..2f61d58 100644
+--- a/net/sctp/associola.c
++++ b/net/sctp/associola.c
+@@ -143,7 +143,7 @@ static struct sctp_association *sctp_association_init(struct sctp_association *a
+ 	/* Initialize the maximum mumber of new data packets that can be sent
+ 	 * in a burst.
+ 	 */
+-	asoc->max_burst = sctp_max_burst;
++	asoc->max_burst = sp->max_burst;
+ 
+ 	/* initialize association timers */
+ 	asoc->timeouts[SCTP_EVENT_TIMEOUT_NONE] = 0;
+diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
+index 7c28c9b..c361deb 100644
+--- a/net/sctp/protocol.c
++++ b/net/sctp/protocol.c
+@@ -1042,7 +1042,7 @@ SCTP_STATIC __init int sctp_init(void)
+ 	sctp_cookie_preserve_enable 	= 1;
+ 
+ 	/* Max.Burst		    - 4 */
+-	sctp_max_burst 			= SCTP_MAX_BURST;
++	sctp_max_burst 			= SCTP_DEFAULT_MAX_BURST;
+ 
+ 	/* Association.Max.Retrans  - 10 attempts
+ 	 * Path.Max.Retrans         - 5  attempts (per destination address)
 diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index 2d0c2ee..8939536 100644
+index 8939536..e45cff4 100644
 --- a/net/sctp/socket.c
 +++ b/net/sctp/socket.c
-@@ -2033,6 +2033,10 @@ static int sctp_setsockopt_autoclose(struct sock *sk, char __user *optval,
-  *                     SPP_HB_DEMAND - Request a user initiated heartbeat
-  *                     to be made immediately.
-  *
-+ *                     SPP_HB_TIME_IS_ZERO - Specify's that the time for
-+ *                     heartbeat delayis to be set to the value of 0
-+ *                     milliseconds.
+@@ -2886,6 +2886,36 @@ static int sctp_setsockopt_partial_delivery_point(struct sock *sk,
+ 	return 0; /* is this the right error code? */
+ }
+ 
++/*
++ * 7.1.28.  Set or Get the maximum burst (SCTP_MAX_BURST)
 + *
-  *                     SPP_PMTUD_ENABLE - This field will enable PMTU
-  *                     discovery upon the specified address. Note that
-  *                     if the address feild is empty then all addresses
-@@ -2075,13 +2079,30 @@ static int sctp_apply_peer_addr_params(struct sctp_paddrparams *params,
- 			return error;
- 	}
- 
--	if (params->spp_hbinterval) {
--		if (trans) {
--			trans->hbinterval = msecs_to_jiffies(params->spp_hbinterval);
--		} else if (asoc) {
--			asoc->hbinterval = msecs_to_jiffies(params->spp_hbinterval);
--		} else {
--			sp->hbinterval = params->spp_hbinterval;
-+	/* Note that unless the spp_flag is set to SPP_HB_ENABLE the value of
-+	 * this field is ignored.  Note also that a value of zero indicates
-+	 * the current setting should be left unchanged.
-+	 */
-+	if (params->spp_flags & SPP_HB_ENABLE) { 
++ * This option will allow a user to change the maximum burst of packets
++ * that can be emitted by this association.  Note that the default value
++ * is 4, and some implementations may restrict this setting so that it
++ * can only be lowered.
++ *
++ * NOTE: This text doesn't seem right.  Do this on a socket basis with
++ * future associations inheriting the socket value.
++ */
++static int sctp_setsockopt_maxburst(struct sock *sk,
++				    char __user *optval,
++				    int optlen)
++{
++	int val;
 +
-+		/* Re-zero the interval if the SPP_HB_TIME_IS_ZERO is
-+		 * set.  This lets us use 0 value when this flag
-+		 * is set.
-+		 */
-+		if (params->spp_flags & SPP_HB_TIME_IS_ZERO)
-+			params->spp_hbinterval = 0;
++	if (optlen != sizeof(int))
++		return -EINVAL;
++	if (get_user(val, (int __user *)optval))
++		return -EFAULT;
 +
-+		if (params->spp_hbinterval ||
-+		    (params->spp_flags & SPP_HB_TIME_IS_ZERO)) {
-+			if (trans) {
-+				trans->hbinterval =
-+				    msecs_to_jiffies(params->spp_hbinterval);
-+			} else if (asoc) {
-+				asoc->hbinterval =
-+				    msecs_to_jiffies(params->spp_hbinterval);
-+			} else {
-+				sp->hbinterval = params->spp_hbinterval;
-+			}
- 		}
- 	}
++	if (val < 0)
++		return -EINVAL;
++
++	sctp_sk(sk)->max_burst = val;
++
++	return 0;
++}
++
+ /* API 6.2 setsockopt(), getsockopt()
+  *
+  * Applications use setsockopt() and getsockopt() to set or retrieve
+@@ -3006,6 +3036,9 @@ SCTP_STATIC int sctp_setsockopt(struct sock *sk, int level, int optname,
+ 	case SCTP_FRAGMENT_INTERLEAVE:
+ 		retval = sctp_setsockopt_fragment_interleave(sk, optval, optlen);
+ 		break;
++	case SCTP_MAX_BURST:
++		retval = sctp_setsockopt_maxburst(sk, optval, optlen);
++		break;
+ 	default:
+ 		retval = -ENOPROTOOPT;
+ 		break;
+@@ -3165,6 +3198,7 @@ SCTP_STATIC int sctp_init_sock(struct sock *sk)
+ 	sp->default_timetolive = 0;
  
-@@ -2098,7 +2119,12 @@ static int sctp_apply_peer_addr_params(struct sctp_paddrparams *params,
- 		}
- 	}
+ 	sp->default_rcv_context = 0;
++	sp->max_burst = sctp_max_burst;
  
--	if (params->spp_pathmtu) {
-+	/* When Path MTU discovery is disabled the value specified here will
-+	 * be the "fixed" path mtu (i.e. the value of the spp_flags field must
-+	 * include the flag SPP_PMTUD_DISABLE for this field to have any
-+	 * effect).
-+	 */
-+	if ((params->spp_flags & SPP_PMTUD_DISABLE) && params->spp_pathmtu) {
- 		if (trans) {
- 			trans->pathmtu = params->spp_pathmtu;
- 			sctp_assoc_sync_pmtu(asoc);
-@@ -2129,7 +2155,11 @@ static int sctp_apply_peer_addr_params(struct sctp_paddrparams *params,
- 		}
- 	}
+ 	/* Initialize default setup parameters. These parameters
+ 	 * can be modified with the SCTP_INITMSG socket option or
+@@ -4683,6 +4717,30 @@ static int sctp_getsockopt_partial_delivery_point(struct sock *sk, int len,
+ 	return -ENOTSUPP;
+ }
  
--	if (params->spp_sackdelay) {
-+	/* Note that unless the spp_flag is set to SPP_SACKDELAY_ENABLE the
-+	 * value of this field is ignored.  Note also that a value of zero
-+	 * indicates the current setting should be left unchanged.
-+	 */
-+	if ((params->spp_flags & SPP_SACKDELAY_ENABLE) && params->spp_sackdelay) {
- 		if (trans) {
- 			trans->sackdelay =
- 				msecs_to_jiffies(params->spp_sackdelay);
-@@ -2157,7 +2187,11 @@ static int sctp_apply_peer_addr_params(struct sctp_paddrparams *params,
- 		}
- 	}
- 
--	if (params->spp_pathmaxrxt) {
-+	/* Note that unless the spp_flag is set to SPP_PMTUD_ENABLE the value
-+	 * of this field is ignored.  Note also that a value of zero
-+	 * indicates the current setting should be left unchanged.
-+	 */
-+	if ((params->spp_flags & SPP_PMTUD_ENABLE) && params->spp_pathmaxrxt) {
- 		if (trans) {
- 			trans->pathmaxrxt = params->spp_pathmaxrxt;
- 		} else if (asoc) {
++/*
++ * 7.1.28.  Set or Get the maximum burst (SCTP_MAX_BURST)
++ * (chapter and verse is quoted at sctp_setsockopt_maxburst())
++ */
++static int sctp_getsockopt_maxburst(struct sock *sk, int len,
++				    char __user *optval,
++				    int __user *optlen)
++{
++        int val;
++
++	if (len < sizeof(int))
++		return -EINVAL;
++
++	len = sizeof(int);
++
++	val = sctp_sk(sk)->max_burst;
++	if (put_user(len, optlen))
++		return -EFAULT;
++	if (copy_to_user(optval, &val, len))
++		return -EFAULT;
++
++	return -ENOTSUPP;
++}
++
+ SCTP_STATIC int sctp_getsockopt(struct sock *sk, int level, int optname,
+ 				char __user *optval, int __user *optlen)
+ {
+@@ -4803,6 +4861,9 @@ SCTP_STATIC int sctp_getsockopt(struct sock *sk, int level, int optname,
+ 		retval = sctp_getsockopt_partial_delivery_point(sk, len, optval,
+ 								optlen);
+ 		break;
++	case SCTP_MAX_BURST:
++		retval = sctp_getsockopt_maxburst(sk, len, optval, optlen);
++		break;
+ 	default:
+ 		retval = -ENOPROTOOPT;
+ 		break;
 -- 
 1.5.0.3.438.gc49b2
 
