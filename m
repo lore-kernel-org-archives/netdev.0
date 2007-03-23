@@ -1,53 +1,63 @@
-From: Ayaz Abdulla <aabdulla@nvidia.com>
-Subject: [PATCH 2/2] forcedeth: fix tx timeout
-Date: Fri, 23 Mar 2007 05:50:02 -0500
-Message-ID: <4603B0DA.7070908@nvidia.com>
-Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------070900090702010302040705"
-To: Jeff Garzik <jgarzik@pobox.com>,
-	Manfred Spraul <manfred@colorfullife.com>,
-	Andrew Morton <akpm@osdl.org>, nedev <netdev@vger.kernel.org>
+From: James Chapman <jchapman@katalix.com>
+Subject: [PATCH 0/5 2.6.21-rc4] l2tp: introduce PPP over L2TP driver
+Date: Fri, 23 Mar 2007 23:07:27 GMT
+Message-ID: <200703232307.l2NN7RRx010804@quickie.katalix.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hqemgate01.nvidia.com ([216.228.112.170]:1806 "EHLO
-	HQEMGATE01.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S2992590AbXCWWDo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Mar 2007 18:03:44 -0400
+Received: from s36.avahost.net ([74.53.95.194]:33021 "EHLO s36.avahost.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S2992611AbXCWXIL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Mar 2007 19:08:11 -0400
+Received: from jchapman.plus.com ([84.92.108.75] helo=quickie.katalix.com)
+	by s36.avahost.net with esmtps (TLSv1:AES256-SHA:256)
+	(Exim 4.63)
+	(envelope-from <jchapman@katalix.com>)
+	id 1HUsrY-00055X-K4
+	for netdev@vger.kernel.org; Fri, 23 Mar 2007 18:08:01 -0500
+Received: from quickie.katalix.com (quickie.katalix.com [127.0.0.1])
+	by quickie.katalix.com (8.13.5/8.13.5) with ESMTP id l2NN7Re4010826
+	for <netdev@vger.kernel.org>; Fri, 23 Mar 2007 23:07:28 GMT
+Received: (from james@localhost)
+	by quickie.katalix.com (8.13.5/8.13.5/Submit) id l2NN7RRx010804
+	for netdev@vger.kernel.org; Fri, 23 Mar 2007 23:07:27 GMT
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------070900090702010302040705
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+This patch set adds a driver for PPP over L2TP. Patches to follow.
 
-The tx timeout routine was waking the tx queue conditionally. However, 
-it must call it unconditionally since the dev_watchdog has halted the tx 
-queue before calling the timeout function.
+The implementation uses the existing PPPoX subsystem that is currently
+used only by PPPoE. A userspace daemon handles all L2TP control
+protocol messages, while a PPPoX socket carries user data. The system
+architecture is similar to PPPoE, where a pppd plugin uses the PPPoX
+socket to send/receive PPP frames over an L2TP tunnel. PPP control
+frames are delivered to pppd while data frames are handled entirely by
+the kernel.
 
-Signed-Off-By: Ayaz Abdulla <aabdulla@nvidia.com>
+There are 5 patches in the series:-
 
+1 - pppol2tp driver core. New code.
 
---------------070900090702010302040705
-Content-Type: text/plain;
- name="patch-forcedeth-fix-timeout"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="patch-forcedeth-fix-timeout"
+2 - API changes for L2TP. Adds definitions for L2TP in existing headers.
 
---- orig/drivers/net/forcedeth.c	2007-03-11 20:59:06.000000000 -0500
-+++ new/drivers/net/forcedeth.c	2007-03-11 20:58:59.000000000 -0500
-@@ -2050,9 +2050,10 @@
- 		nv_drain_tx(dev);
- 		nv_init_tx(dev);
- 		setup_hw_rings(dev, NV_SETUP_TX_RING);
--		netif_wake_queue(dev);
- 	}
- 
-+	netif_wake_queue(dev);
-+
- 	/* 4) restart tx engine */
- 	nv_start_tx(dev);
- 	spin_unlock_irq(&np->lock);
+3 - Change to PPPoX core to allow PPPoX protocol modules such as
+    pppol2tp to be autoloaded via modprobe.conf.
 
---------------070900090702010302040705--
+4 - Kernel makefile and config file changes.
+
+5 - Adds an entry to MAINTAINERS file.
+
+The driver is being used on x86, ia64, ppc, arm, mips32 and possibly
+other architectures. It is also known to work on multi-core SMP boxes.
+
+Sparse emits some warnings to do with pointer namespaces in the
+msg_iov code. The same warnings are output by net/socket.c from which
+some of this code is derived.
+
+Although this driver is being actively used in various L2TP setups,
+I'm sure it would benefit from review here.
+
+--
+James Chapman
+Katalix Systems Ltd
+http://www.katalix.com
+Catalysts for your Embedded Linux software development
