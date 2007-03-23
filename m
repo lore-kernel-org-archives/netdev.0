@@ -1,45 +1,66 @@
-From: Linsys Contractor Adhiraj Joshi <adhiraj@netxen.com>
-Subject: [PATCH 2.6.21] NetXen: Fix hardware access for ppc architecture.
-Date: Fri, 23 Mar 2007 07:21:24 -0800
-Message-ID: <200703231521.l2NFLOu4023764@dut39.unminc.com>
-Cc: amitkale@netxen.com, jeff@garzik.org, netxenproj@linsyssoft.com,
-	rob@netxen.com
-To: netdev@vger.kernel.org
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: [PATCH][SCTP]: Update SCTP Maintainers entry
+Date: Fri, 23 Mar 2007 09:28:30 -0700
+Message-ID: <1174667310.32169.9.camel@w-sridhar2.beaverton.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net
+To: davem@davemloft.net, vladislav.yasevich@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 66-126-254-34.unm.net ([66.126.254.34]:12990 "EHLO
-	nxmail.netxen.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S934282AbXCWPnc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Mar 2007 11:43:32 -0400
+Received: from e4.ny.us.ibm.com ([32.97.182.144]:38061 "EHLO e4.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752059AbXCWQ2e (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Mar 2007 12:28:34 -0400
+Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
+	by e4.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l2NGSWbC008552
+	for <netdev@vger.kernel.org>; Fri, 23 Mar 2007 12:28:32 -0400
+Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
+	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l2NGSWYt258274
+	for <netdev@vger.kernel.org>; Fri, 23 Mar 2007 12:28:32 -0400
+Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
+	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l2NGSWW8019834
+	for <netdev@vger.kernel.org>; Fri, 23 Mar 2007 12:28:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-NetXen: Fix for hardware access on big endian machine. 
+Dave,
 
-Signed-off-by: Adhiraj Joshi <adhiraj@netxen.com>
+I have asked Vlad Yasevich to take over the role of primary 
+maintainer of SCTP and he has accepted it. He has been 
+contributing to SCTP for more than 2 years and has become
+more active than me in the past year.
+
+Thanks
+Sridhar
+
+[SCTP]: Update SCTP Maintainers entry
+
+Add Vlad Yasevich as the primary maintainer of SCTP and add a
+link to the project website.
+
+Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
 
 ---
+ MAINTAINERS |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
 
- netxen_nic_init.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletion(-)
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 6d8d5b9..d4bfb9d 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -2928,9 +2928,12 @@ L:	linux-scsi@vger.kernel.org
+ S:	Maintained
+ 
+ SCTP PROTOCOL
++P:	Vlad Yasevich
++M:	vladislav.yasevich@hp.com
+ P:	Sridhar Samudrala
+ M:	sri@us.ibm.com
+ L:	lksctp-developers@lists.sourceforge.net
++W:	http://lksctp.sourceforge.net
+ S:	Supported
+ 
+ SCx200 CPU SUPPORT
 
-diff --git a/drivers/net/netxen/netxen_nic_init.c b/drivers/net/netxen/netxen_nic_init.c
-index 229aa1c..eff965d 100644
---- a/drivers/net/netxen/netxen_nic_init.c
-+++ b/drivers/net/netxen/netxen_nic_init.c
-@@ -438,6 +438,7 @@ do_rom_fast_read_words(struct netxen_ada
- 
- 	for (addridx = addr; addridx < (addr + size); addridx += 4) {
- 		ret = do_rom_fast_read(adapter, addridx, (int *)bytes);
-+		*(int *)bytes = cpu_to_le32(*(int *)bytes);
- 		if (ret != 0)
- 			break;
- 		bytes += 4;
-@@ -497,7 +498,7 @@ static inline int do_rom_fast_write_word
- 		int timeout = 0;
- 		int data;
- 
--		data = *(u32*)bytes;
-+		data = le32_to_cpu((*(u32*)bytes));
- 
- 		ret = do_rom_fast_write(adapter, addridx, data);
- 		if (ret < 0)
+
