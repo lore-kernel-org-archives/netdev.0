@@ -1,35 +1,37 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 1/2] ehea: fix for dynamic lpar support
-Date: Fri, 23 Mar 2007 01:58:59 -0400
-Message-ID: <46036CA3.1050304@garzik.org>
-References: <200703221749.42876.ossthema@de.ibm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH]: Add security check before flushing SAD/SPD
+Date: Thu, 22 Mar 2007 23:22:20 -0700 (PDT)
+Message-ID: <20070322.232220.71113011.davem@davemloft.net>
+References: <1174598630.3085.285.camel@faith.austin.ibm.com>
+	<Line.LNX.4.64.0703221943110.24461@d.namei>
+	<1174628387.10788.53.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Christoph Raisch <raisch@de.ibm.com>,
-	Jan-Bernd Themann <themann@de.ibm.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	linux-ppc <linuxppc-dev@ozlabs.org>,
-	Marcus Eder <meder@de.ibm.com>,
-	Thomas Klein <tklein@de.ibm.com>,
-	Stefan Roscher <stefan.roscher@de.ibm.com>
-To: Jan-Bernd Themann <ossthema@de.ibm.com>
+Cc: jmorris@namei.org, latten@austin.ibm.com, selinux@tycho.nsa.gov,
+	netdev@vger.kernel.org, vyekkirala@TrustedCS.com
+To: eparis@parisplace.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:60597 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933675AbXCWF7D (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Mar 2007 01:59:03 -0400
-In-Reply-To: <200703221749.42876.ossthema@de.ibm.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41365
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753116AbXCWGWU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Mar 2007 02:22:20 -0400
+In-Reply-To: <1174628387.10788.53.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jan-Bernd Themann wrote:
-> The patch fixes bugs related to the probe / remove adapter
-> functionality (handling of OFDT nodes)
-> 
-> Signed-off-by: Jan-Bernd Themann <themann@de.ibm.com>
+From: Eric Paris <eparis@parisplace.org>
+Date: Fri, 23 Mar 2007 01:39:47 -0400
 
-applied 1-2
+> It seems reasonable to me that the check for every policy (which is
+> between current->security->sid and xp->security->ctx_sid) makes sense.
+> There doesn't appear to me right offhand to be anything intrinsic in the
+> code which says that a flush request must flush everything or nothing.
 
+The "intrinsic" part comes from the heritage of routing daemons and
+what they expect from flush operations, these assumption live in the
+ipsec daemons as well.
 
+A daemon, routing or ipsec, is flushing the tables in order to create
+an entirely "clean slate", and they very much expect the policy and
+state tables to be %100 empty after the operation.
