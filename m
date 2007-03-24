@@ -1,108 +1,68 @@
-From: Patrick Ringl <patrick_@freenet.de>
-Subject: [PATCH] fix typo in net/ieee80211/Kconfig
-Date: Sat, 24 Mar 2007 23:56:58 +0100
-Message-ID: <4605ACBA.6040902@freenet.de>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH]: Fix ipv6 round-robin locking
+Date: Sun, 25 Mar 2007 00:40:30 +0100
+Message-ID: <20070324234030.GG521@postel.suug.ch>
+References: <20070324.124436.104040932.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------090604060306070800080007"
-Cc: torvalds@linux-foundation.org, johannes@sipsolutions.net,
-	netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout0.freenet.de ([194.97.50.131]:56194 "EHLO mout0.freenet.de"
+Received: from postel.suug.ch ([194.88.212.233]:40416 "EHLO postel.suug.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932869AbXCXW5G (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 24 Mar 2007 18:57:06 -0400
+	id S932875AbXCXXkK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 24 Mar 2007 19:40:10 -0400
+Content-Disposition: inline
+In-Reply-To: <20070324.124436.104040932.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------090604060306070800080007
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+* David Miller <davem@davemloft.net> 2007-03-24 12:44
+>     As per RFC2461, section 6.3.6, item #2, when no routers on the
+>     matching list are known to be reachable or probably reachable we
+>     do round robin on those available routes so that we make sure
+>     to probe as many of them as possible to detect when one becomes
+>     reachable faster.
+>     
+> +static struct rt6_info *find_match(struct rt6_info *rt, int oif, int strict,
+> +				   int *mpri, struct rt6_info *match)
+>  {
+> +	int m;
+> +
+> +	if (rt6_check_expired(rt))
+> +		goto out;
+> +
+> +	m = rt6_score_route(rt, oif, strict);
+> +	if (m < 0)
+> +		goto out;
+> +
+> +	if (m > *mpri) {
+> +		if (strict & RT6_LOOKUP_F_REACHABLE)
+> +			rt6_probe(match);
+> +		*mpri = m;
+> +		match = rt;
+> +	} else if (strict & RT6_LOOKUP_F_REACHABLE) {
+> +		rt6_probe(rt);
+> +	}
+> +
+> +out:
+> +	return match;
+> +}
 
-Hello,
-this is just a QA / cosmetic fix .. nevertheless the documentation about 
-modules / drivers should be appropriate to the great work of those who 
-write all the real important stuff. :-)
+First of all, I haven't spotted any errors in your patch.
 
-The following patch is against 2.6.21-rc4:
+Seondly, I'm not sure I've fully understood why this round robin mechanism
+is needed to ensure as many routers as possible are probed as soon as
+possible. I'd understand it if we'd only probe just one router per selection
+process but to my undertanding we try and probe _all_ routers as long as
+its score is positive (and rate limitation doesn't step in). The score can
+only be negative  if rt6_check_dev() returns 0, the neighbour state is
+NUD_FAILED or not present at all. I don't see how the position in the list
+would have any affect on this. rt6_select() is called for all routers
+regardless of its score, the position of a router doesn't matter.
 
+The only effect of this code I can see is that we return a different
+_probably_ reachable router while no router is reachable. This would implement
+what item #1 of 6.3.6 proposes.
 
---- /root/dev/linux-2.6.20-o/net/ieee80211/Kconfig    2007-02-04 
-19:44:54.000000000 +0100
-+++ /root/dev/linux-2.6.20/net/ieee80211/Kconfig    2007-03-24 
-23:43:22.000000000 +0100
-@@ -38,7 +38,7 @@
-     Include software based cipher suites in support of IEEE
-     802.11's WEP.  This is needed for WEP as well as 802.1x.
- 
--    This can be compiled as a modules and it will be called
-+    This can be compiled as a module and it will be called
-     "ieee80211_crypt_wep".
- 
- config IEEE80211_CRYPT_CCMP
-@@ -51,7 +51,7 @@
-     (aka TGi, WPA, WPA2, WPA-PSK, etc.) for use with CCMP enabled
-     networks.
- 
--    This can be compiled as a modules and it will be called
-+    This can be compiled as a module and it will be called
-     "ieee80211_crypt_ccmp".
- 
- config IEEE80211_CRYPT_TKIP
-@@ -66,7 +66,7 @@
-     (aka TGi, WPA, WPA2, WPA-PSK, etc.) for use with TKIP enabled
-     networks.
- 
--    This can be compiled as a modules and it will be called
-+    This can be compiled as a module and it will be called
-     "ieee80211_crypt_tkip".
- 
- source "net/ieee80211/softmac/Kconfig"
-
----
-
-regards,
-Patrick
-
-
-
---------------090604060306070800080007
-Content-Type: text/plain;
- name="ieee80211_Kconfig_typo"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="ieee80211_Kconfig_typo"
-
---- /root/dev/linux-2.6.20-o/net/ieee80211/Kconfig	2007-02-04 19:44:54.000000000 +0100
-+++ /root/dev/linux-2.6.20/net/ieee80211/Kconfig	2007-03-24 23:43:22.000000000 +0100
-@@ -38,7 +38,7 @@
- 	Include software based cipher suites in support of IEEE
- 	802.11's WEP.  This is needed for WEP as well as 802.1x.
- 
--	This can be compiled as a modules and it will be called
-+	This can be compiled as a module and it will be called
- 	"ieee80211_crypt_wep".
- 
- config IEEE80211_CRYPT_CCMP
-@@ -51,7 +51,7 @@
- 	(aka TGi, WPA, WPA2, WPA-PSK, etc.) for use with CCMP enabled
- 	networks.
- 
--	This can be compiled as a modules and it will be called
-+	This can be compiled as a module and it will be called
- 	"ieee80211_crypt_ccmp".
- 
- config IEEE80211_CRYPT_TKIP
-@@ -66,7 +66,7 @@
- 	(aka TGi, WPA, WPA2, WPA-PSK, etc.) for use with TKIP enabled
- 	networks.
- 
--	This can be compiled as a modules and it will be called
-+	This can be compiled as a module and it will be called
- 	"ieee80211_crypt_tkip".
- 
- source "net/ieee80211/softmac/Kconfig"
-
---------------090604060306070800080007--
+I'm just making sure we know what we're doing :-)
