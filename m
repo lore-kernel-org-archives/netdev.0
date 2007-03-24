@@ -1,93 +1,71 @@
-From: Sergei Shtylyov <sshtylyov@ru.mvista.com>
-Subject: Re: [PATCH] NAPI support for Sibyte MAC
-Date: Sat, 24 Mar 2007 22:49:19 +0300
-Message-ID: <460580BF.4040904@ru.mvista.com>
-References: <20070323171132.GA1464@broadcom.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 1/5 2.6.21-rc4] l2tp: pppol2tp core
+Date: Sat, 24 Mar 2007 21:56:44 +0100
+Message-ID: <4605908C.6050205@trash.net>
+References: <200703232307.l2NN7Rtg010808@quickie.katalix.com> <46052FC0.8080804@trash.net> <4605758F.90205@katalix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: linux-mips@linux-mips.org, netdev@vger.kernel.org
-To: mason <mason@broadcom.com>
+Cc: netdev@vger.kernel.org
+To: James Chapman <jchapman@katalix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from homer.mvista.com ([63.81.120.155]:30273 "EHLO
-	imap.sh.mvista.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753495AbXCXTsi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 24 Mar 2007 15:48:38 -0400
-In-Reply-To: <20070323171132.GA1464@broadcom.com>
+Received: from stinky.trash.net ([213.144.137.162]:60985 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750821AbXCXU4t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 24 Mar 2007 16:56:49 -0400
+In-Reply-To: <4605758F.90205@katalix.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello, you wrote:
+James Chapman wrote:
+> Patrick McHardy wrote:
+> 
+>> The interaction with UDP sockets looks pretty horrible IMO. On the
+>> send side I don't see why you can't simply build the UDP header
+>> yourself instead of doing these set_fs + sendmsgs hacks. 
+> 
+> 
+> Wouldn't that effectively duplicate the code in udp_sendmsg()? If I
+> don't use a socket, I'd also have to build an IP header and feed the
+> frame into the IP stack for outbound routing. It doesn't feel like the
+> right thing to do.
 
->   This patch completes the NAPI functionality for SB1250 MAC, including making
->   NAPI a kernel option that can be turned on or off and adds the "sbmac_poll"
->   routine.
 
-> Index: linux-2.6.14-cgl/drivers/net/Kconfig
-> ===================================================================
-> --- linux-2.6.14-cgl.orig/drivers/net/Kconfig	2006-09-20 14:58:54.000000000 -0700
-> +++ linux-2.6.14-cgl/drivers/net/Kconfig	2006-09-20 17:04:31.000000000 -0700
+Thats what other tunnel drivers do. Sending UDP is pretty simple, I'd
+expect that it comes down to less code than now.
 
-[...]
+> One reason for using the L2TP tunnel's UDP socket directly was to have
+> the data traffic carried by all sessions in that tunnel use the tunnel's
+> socket buffer, thereby ensuring that one tunnel's data can't starve
+> another tunnel.
 
-> @@ -2075,12 +2143,52 @@
->  		 */
->  
->  		if (isr & (M_MAC_INT_CHANNEL << S_MAC_TX_CH0)) {
-> -			sbdma_tx_process(sc,&(sc->sbm_txdma));
-> +			sbdma_tx_process(sc,&(sc->sbm_txdma), 0);
-> +#ifdef CONFIG_NETPOLL_TRAP
-> +		       if (netpoll_trap()) {
-> +			       if (test_and_clear_bit(__LINK_STATE_XOFF, &dev->state)) 
-> +				       __netif_schedule(dev);
-> +		       }
-> +#endif
->  		}
 
-    This just doesn't make sense. That option is enabled to *prevent* calls to 
-__netif_schedule() -- you can't override it that way. (Well, how it works 
-currently, doesn't make much sense either since it totally breaks the TX queue 
-control -- I was going to post a patch).
+If you use encapsulation sockets and process packets immediately
+that should still not be possible.
 
-> +	if (isr & (M_MAC_INT_CHANNEL << S_MAC_RX_CH0)) {
-> +		if (netif_rx_schedule_prep(dev)) {
-> +			__raw_writeq(0, sc->sbm_imr);
-> +			__netif_rx_schedule(dev);
-> +			/* Depend on the exit from poll to reenable intr */
-> +		}
-> +		else {
-> +			/* may leave some packets behind */
-> +			sbdma_rx_process(sc,&(sc->sbm_rxdma),
-> +					 SBMAC_MAX_RXDESCR * 2, 0);
-> +		}
-> +	}
-> +#else
-> +	/* Non NAPI */
-> +	for (;;) {
-> + 
->  		/*
-> -		 * Receives on channel 0
-> +		 * Read the ISR (this clears the bits in the real
-> +		 * register, except for counter addr)
->  		 */
-> +		isr = __raw_readq(sc->sbm_isr) & ~M_MAC_COUNTER_ADDR;
-> +
-> +		if (isr == 0)
-> +			break;
-> +
-> +		handled = 1;
-> +
-> +		if (isr & (M_MAC_INT_CHANNEL << S_MAC_TX_CH0)) {
-> +			sbdma_tx_process(sc,&(sc->sbm_txdma),
-> +					 SBMAC_MAX_RXDESCR * 2);
-> +#ifdef CONFIG_NETPOLL_TRAP
-> +		       if (netpoll_trap()) {
-> +			       if (test_and_clear_bit(__LINK_STATE_XOFF, &dev->state)) 
-> +				       __netif_schedule(dev);
-> +		       }
-> +#endif
-> +		}
+>> On the
+>> receive side I it would be nice if you could use the encapsulation
+>> socket stuff thats also used by IPsec.
+> 
+> 
+> Can you point me at some example code, please?
 
-    Same here.
 
-WBR, Sergei
+net/ipv4/udp.c: udp_encap_rcv()
+
+>> - pppol2tp_fget: why do you want to open sockets for other processes?
+>>   I hope this can go together with the sendmsg hacks
+> 
+> 
+> There are two userspace daemons: l2tpd and pppd. L2ptd opens a UDP
+> tunnel socket and sets up one or more L2TP sessions in that tunnel. When
+> a new session is established, l2tpd spawns a pppd process (per session).
+> The pppd process creates a PPPoL2TP socket (this driver). The PPPoL2TP
+> socket is associated with the tunnel UDP socket that was created by
+> l2tpd. So on creating a new PPPoX socket, the connect() handling needs
+> to find the UDP socket of the tunnel. Since connect() runs in the
+> context of pppd, it needs a way of doing a sock lookup to find the UDP
+> socket that was created by l2tpd.
+
+
+How about just passing the file descriptor from l2tpd to pppd?
