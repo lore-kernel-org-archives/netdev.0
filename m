@@ -1,48 +1,53 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 1/5 2.6.21-rc4] l2tp: pppol2tp core
-Date: Sat, 24 Mar 2007 15:03:44 +0100
-Message-ID: <46052FC0.8080804@trash.net>
-References: <200703232307.l2NN7Rtg010808@quickie.katalix.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [IPv4] fib: Fix out of bound access of fib_props[]
+Date: Sat, 24 Mar 2007 16:34:36 +0100
+Message-ID: <20070324153435.GE521@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
-To: James Chapman <jchapman@katalix.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:54198 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751917AbXCXODs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 24 Mar 2007 10:03:48 -0400
-In-Reply-To: <200703232307.l2NN7Rtg010808@quickie.katalix.com>
+Received: from postel.suug.ch ([194.88.212.233]:38488 "EHLO postel.suug.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932114AbXCXPeQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 24 Mar 2007 11:34:16 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-James Chapman wrote:
-> [PPPOL2TP]: Add PPP-over-L2TP driver core.
-> 
-> This driver handles only L2TP data frames; control frames are handled
-> by a userspace application. The dfriver implements L2TP using the
-> PPPoX socket family. Data is sent or received using regular socket
-> sendmsg() / recvmsg() calls. Kernel parameters of the socket can be
-> read or modified using ioctl() or [gs]etsockopt() calls.
+Fixes a typo which caused fib_props[] to have the wrong size
+and makes sure the value used to index the array which is
+provided by userspace via netlink is checked to avoid out of
+bound access.
 
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-The interaction with UDP sockets looks pretty horrible IMO. On the
-send side I don't see why you can't simply build the UDP header
-yourself instead of doing these set_fs + sendmsgs hacks. On the
-receive side I it would be nice if you could use the encapsulation
-socket stuff thats also used by IPsec.
-
-A couple of random comments:
-
-- your list locking is broken
-- list_for_each_entry_safe is only needed if you remove something
-  while iterating, its no replacement for locking
-- SOCK_2_SESSION/SOCK_2_TUNNEL are terribly ugly and should
-  probably be inline functions that use BUG_ON in case of an
-  invalid magic
-- You should use skb_queue_walk for queue walking
-- You should use endian-annotated types
-- pppol2tp_fget: why do you want to open sockets for other processes?
-  I hope this can go together with the sendmsg hacks
-
+Index: net-2.6/net/ipv4/fib_frontend.c
+===================================================================
+--- net-2.6.orig/net/ipv4/fib_frontend.c	2007-03-24 15:56:17.000000000 +0100
++++ net-2.6/net/ipv4/fib_frontend.c	2007-03-24 15:57:16.000000000 +0100
+@@ -493,6 +493,11 @@ static int rtm_to_fib_config(struct sk_b
+ 	cfg->fc_nlinfo.pid = NETLINK_CB(skb).pid;
+ 	cfg->fc_nlinfo.nlh = nlh;
+ 
++	if (cfg->fc_type > RTN_MAX) {
++		err = -EINVAL;
++		goto errout;
++	}
++
+ 	nlmsg_for_each_attr(attr, nlh, sizeof(struct rtmsg), remaining) {
+ 		switch (attr->nla_type) {
+ 		case RTA_DST:
+Index: net-2.6/net/ipv4/fib_semantics.c
+===================================================================
+--- net-2.6.orig/net/ipv4/fib_semantics.c	2007-03-24 15:57:42.000000000 +0100
++++ net-2.6/net/ipv4/fib_semantics.c	2007-03-24 15:58:14.000000000 +0100
+@@ -89,7 +89,7 @@ static const struct
+ {
+ 	int	error;
+ 	u8	scope;
+-} fib_props[RTA_MAX + 1] = {
++} fib_props[RTN_MAX + 1] = {
+ 	{
+ 		.error	= 0,
+ 		.scope	= RT_SCOPE_NOWHERE,
