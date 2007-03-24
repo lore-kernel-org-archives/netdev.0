@@ -1,42 +1,29 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: RFC: Established connections hash function
-Date: Sat, 24 Mar 2007 16:29:11 +0300
-Message-ID: <20070324132911.GA5629@2ka.mipt.ru>
-References: <20070324122658.7240.qmail@science.horizon.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 4/5 2.6.21-rc4] l2tp: pppol2tp kbuild changes
+Date: Sat, 24 Mar 2007 15:01:03 +0100
+Message-ID: <46052F1F.1060501@trash.net>
+References: <200703232307.l2NN7Rj4010817@quickie.katalix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: johnpol.2ka.mipt.ru@horizon.com, netdev@vger.kernel.org
-To: linux@horizon.com
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: James Chapman <jchapman@katalix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:45235 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751036AbXCXNa1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 24 Mar 2007 09:30:27 -0400
-Content-Disposition: inline
-In-Reply-To: <20070324122658.7240.qmail@science.horizon.com>
+Received: from stinky.trash.net ([213.144.137.162]:54168 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751901AbXCXOBH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 24 Mar 2007 10:01:07 -0400
+In-Reply-To: <200703232307.l2NN7Rj4010817@quickie.katalix.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Mar 24, 2007 at 08:26:58AM -0400, linux@horizon.com (linux@horizon.com) wrote:
-> > Result with jenkins:
-> > 1 23880
-> > 2 12108
-> > 3 4040
-> > 4 1019
-> > 5 200
-> > 6 30
-> > 7 8
-> > 8 1
-> > 
-> > Xor:
-> > 1 65536
+James Chapman wrote:
+> [PPPOL2TP]: Modify kbuild for the new pppol2tp driver.
 > 
-> Precisely.  This means that the Xor hash SUCKS, because its output is conspicuously
-> non-random.
+> This patch adds a new config option, CONFIG_PPPOL2TP and adds
+> if_pppol2tp.h to the list of exported headers.
 
-XOR hash was specially designed for network environment, so it has the
-ever best result (in this scenario, but it can be too easily controlled by attacker). 
-It is not general purpose hash.
 
--- 
-	Evgeniy Polyakov
+This leaves the tree in a non-compiling state. Please fold into
+the patch that actually adds the source files.
+
