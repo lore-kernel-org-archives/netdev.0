@@ -1,61 +1,98 @@
-From: Florian Zumbiehl <florz@gmx.de>
+From: James Chapman <jchapman@katalix.com>
 Subject: Re: [PATCH 1/5 2.6.21-rc4] l2tp: pppol2tp core
-Date: Sat, 24 Mar 2007 19:07:46 +0100
-Message-ID: <20070324180746.GA3119@florz.florz.dyndns.org>
-References: <200703232307.l2NN7Rtg010808@quickie.katalix.com> <20070324002242.GA26017@florz.florz.dyndns.org> <460561E3.9020502@katalix.com>
+Date: Sat, 24 Mar 2007 19:01:35 +0000
+Message-ID: <4605758F.90205@katalix.com>
+References: <200703232307.l2NN7Rtg010808@quickie.katalix.com> <46052FC0.8080804@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: James Chapman <jchapman@katalix.com>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [77.10.160.141] ([77.10.160.141]:2379 "EHLO
-	rain.florz.dyndns.org" rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S1753458AbXCXSHu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 24 Mar 2007 14:07:50 -0400
-Content-Disposition: inline
-In-Reply-To: <460561E3.9020502@katalix.com>
+Received: from s36.avahost.net ([74.53.95.194]:45603 "EHLO s36.avahost.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932702AbXCXTBh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 24 Mar 2007 15:01:37 -0400
+In-Reply-To: <46052FC0.8080804@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
-
-> Florian Zumbiehl wrote:
-> >Hi,
-> >
-> >>+ * 251003 :	Copied from pppoe.c version 0.6.9.
-> >
-> >you might want to have a look at the patches to the PPPoE code that were
-> >posted to netdev recently, as some of them seem to apply to code that's
-> >left over from pppoe.c.
+Patrick McHardy wrote:
+> James Chapman wrote:
+>> [PPPOL2TP]: Add PPP-over-L2TP driver core.
+>>
+>> This driver handles only L2TP data frames; control frames are handled
+>> by a userspace application. The dfriver implements L2TP using the
+>> PPPoX socket family. Data is sent or received using regular socket
+>> sendmsg() / recvmsg() calls. Kernel parameters of the socket can be
+>> read or modified using ioctl() or [gs]etsockopt() calls.
 > 
-> Do you mean this change?
 > 
->  * 070228 : Fix to allow multiple sessions with same remote MAC and same
->  *	    session id by including the local device ifindex in the
->  *	    tuple identifying a session. This also ensures packets can't
->  *          be injected into a session from interfaces other than the
->  *          one	specified by userspace. Florian Zumbiehl 
->  <florz@gmx.de>
+> The interaction with UDP sockets looks pretty horrible IMO. On the
+> send side I don't see why you can't simply build the UDP header
+> yourself instead of doing these set_fs + sendmsgs hacks. 
+
+Wouldn't that effectively duplicate the code in udp_sendmsg()? If I 
+don't use a socket, I'd also have to build an IP header and feed the 
+frame into the IP stack for outbound routing. It doesn't feel like the 
+right thing to do.
+
+One reason for using the L2TP tunnel's UDP socket directly was to have 
+the data traffic carried by all sessions in that tunnel use the tunnel's 
+socket buffer, thereby ensuring that one tunnel's data can't starve 
+another tunnel.
+
+> On the
+> receive side I it would be nice if you could use the encapsulation
+> socket stuff thats also used by IPsec.
+
+Can you point me at some example code, please?
+
+> A couple of random comments:
 > 
-> The pppoe session hash table isn't used in the pppol2tp code so the 
-> above change doesn't affect pppol2tp. I rechecked the latest pppoe.c and 
-> I don't see other changes that haven't already been incorporated in 
-> pppol2tp. Which specific code in pppol2tp do you think needs to be updated?
+> - your list locking is broken
 
-I meant those that haven't been committed yet (AFAIK):
+Stupid me. Thanks.
 
-http://www.spinics.net/lists/netdev/msg26926.html
-http://www.spinics.net/lists/netdev/msg26927.html
-http://www.spinics.net/lists/netdev/msg26928.html
-http://www.spinics.net/lists/netdev/msg26751.html
-http://www.spinics.net/lists/netdev/msg26752.html
-http://www.spinics.net/lists/netdev/msg26753.html
-http://www.spinics.net/lists/netdev/msg26754.html
-http://www.spinics.net/lists/netdev/msg26787.html
+> - list_for_each_entry_safe is only needed if you remove something
+>   while iterating, its no replacement for locking
 
-(Plus the respective followup postings, of course.)
+I've gotten into a bad habit of always using list_for_each_entry_safe. 
+I'll fix these (with locking).
 
-Some probably don't apply. I didn't have a very detailed look at your
-code, but some certainly do apply.
+> - SOCK_2_SESSION/SOCK_2_TUNNEL are terribly ugly and should
+>   probably be inline functions that use BUG_ON in case of an
+>   invalid magic
 
-Florian
+ok
+
+> - You should use skb_queue_walk for queue walking
+
+ok
+
+> - You should use endian-annotated types
+
+I hadn't noticed them before. Will do.
+
+> - pppol2tp_fget: why do you want to open sockets for other processes?
+>   I hope this can go together with the sendmsg hacks
+
+There are two userspace daemons: l2tpd and pppd. L2ptd opens a UDP 
+tunnel socket and sets up one or more L2TP sessions in that tunnel. When 
+a new session is established, l2tpd spawns a pppd process (per session). 
+The pppd process creates a PPPoL2TP socket (this driver). The PPPoL2TP 
+socket is associated with the tunnel UDP socket that was created by 
+l2tpd. So on creating a new PPPoX socket, the connect() handling needs 
+to find the UDP socket of the tunnel. Since connect() runs in the 
+context of pppd, it needs a way of doing a sock lookup to find the UDP 
+socket that was created by l2tpd.
+
+Thanks for the comments. Please get back to me about the socket usage 
+questions. Meanwhile I'll work on fixing the other things you noted.
+
+-- 
+James Chapman
+Katalix Systems Ltd
+http://www.katalix.com
+Catalysts for your Embedded Linux software development
+
