@@ -1,43 +1,108 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 1/5 2.6.21-rc4] l2tp: pppol2tp core
-Date: Sat, 24 Mar 2007 22:58:16 +0100
-Message-ID: <46059EF8.6050603@trash.net>
-References: <200703232307.l2NN7Rtg010808@quickie.katalix.com>
+From: Patrick Ringl <patrick_@freenet.de>
+Subject: [PATCH] fix typo in net/ieee80211/Kconfig
+Date: Sat, 24 Mar 2007 23:56:58 +0100
+Message-ID: <4605ACBA.6040902@freenet.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: James Chapman <jchapman@katalix.com>
+Content-Type: multipart/mixed;
+ boundary="------------090604060306070800080007"
+Cc: torvalds@linux-foundation.org, johannes@sipsolutions.net,
+	netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:61939 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752778AbXCXV6W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 24 Mar 2007 17:58:22 -0400
-In-Reply-To: <200703232307.l2NN7Rtg010808@quickie.katalix.com>
+Received: from mout0.freenet.de ([194.97.50.131]:56194 "EHLO mout0.freenet.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932869AbXCXW5G (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 24 Mar 2007 18:57:06 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-James Chapman wrote:
-> [PPPOL2TP]: Add PPP-over-L2TP driver core.
+This is a multi-part message in MIME format.
+--------------090604060306070800080007
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-A couple more comments:
+Hello,
+this is just a QA / cosmetic fix .. nevertheless the documentation about 
+modules / drivers should be appropriate to the great work of those who 
+write all the real important stuff. :-)
 
-- seq_file handling doesn't check seq_printf return values and
-  tries to dump the entire hash table at once, which might
-  exceed the available room.
+The following patch is against 2.6.21-rc4:
 
-- there appear to be no checks for duplicate session IDs on
-  session creation.
 
-- try_module_get/put_module in pppol2tp_create look unnecessary
+--- /root/dev/linux-2.6.20-o/net/ieee80211/Kconfig    2007-02-04 
+19:44:54.000000000 +0100
++++ /root/dev/linux-2.6.20/net/ieee80211/Kconfig    2007-03-24 
+23:43:22.000000000 +0100
+@@ -38,7 +38,7 @@
+     Include software based cipher suites in support of IEEE
+     802.11's WEP.  This is needed for WEP as well as 802.1x.
+ 
+-    This can be compiled as a modules and it will be called
++    This can be compiled as a module and it will be called
+     "ieee80211_crypt_wep".
+ 
+ config IEEE80211_CRYPT_CCMP
+@@ -51,7 +51,7 @@
+     (aka TGi, WPA, WPA2, WPA-PSK, etc.) for use with CCMP enabled
+     networks.
+ 
+-    This can be compiled as a modules and it will be called
++    This can be compiled as a module and it will be called
+     "ieee80211_crypt_ccmp".
+ 
+ config IEEE80211_CRYPT_TKIP
+@@ -66,7 +66,7 @@
+     (aka TGi, WPA, WPA2, WPA-PSK, etc.) for use with TKIP enabled
+     networks.
+ 
+-    This can be compiled as a modules and it will be called
++    This can be compiled as a module and it will be called
+     "ieee80211_crypt_tkip".
+ 
+ source "net/ieee80211/softmac/Kconfig"
 
-- kfree can take NULL pointers
+---
 
-- direct dereference of user pointer in pppol2tp_sendmsg debugging
+regards,
+Patrick
 
-- jiffies.h includes conversion functions for HZ <-> msecs
 
-- Any particular reason why the SKB_CB is put after inet_skb_parm?
-  On 64 bit this almost reaches the limit, might be safer to put
-  it at the beginning.
 
+--------------090604060306070800080007
+Content-Type: text/plain;
+ name="ieee80211_Kconfig_typo"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="ieee80211_Kconfig_typo"
+
+--- /root/dev/linux-2.6.20-o/net/ieee80211/Kconfig	2007-02-04 19:44:54.000000000 +0100
++++ /root/dev/linux-2.6.20/net/ieee80211/Kconfig	2007-03-24 23:43:22.000000000 +0100
+@@ -38,7 +38,7 @@
+ 	Include software based cipher suites in support of IEEE
+ 	802.11's WEP.  This is needed for WEP as well as 802.1x.
+ 
+-	This can be compiled as a modules and it will be called
++	This can be compiled as a module and it will be called
+ 	"ieee80211_crypt_wep".
+ 
+ config IEEE80211_CRYPT_CCMP
+@@ -51,7 +51,7 @@
+ 	(aka TGi, WPA, WPA2, WPA-PSK, etc.) for use with CCMP enabled
+ 	networks.
+ 
+-	This can be compiled as a modules and it will be called
++	This can be compiled as a module and it will be called
+ 	"ieee80211_crypt_ccmp".
+ 
+ config IEEE80211_CRYPT_TKIP
+@@ -66,7 +66,7 @@
+ 	(aka TGi, WPA, WPA2, WPA-PSK, etc.) for use with TKIP enabled
+ 	networks.
+ 
+-	This can be compiled as a modules and it will be called
++	This can be compiled as a module and it will be called
+ 	"ieee80211_crypt_tkip".
+ 
+ source "net/ieee80211/softmac/Kconfig"
+
+--------------090604060306070800080007--
