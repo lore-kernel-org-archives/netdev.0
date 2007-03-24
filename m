@@ -1,42 +1,22 @@
-From: Samuel Ortiz <samuel@sortiz.org>
-Subject: Re: [irda-users] [2.6.20-rt8] "Neighbour table overflow."
-Date: Sat, 24 Mar 2007 02:36:08 +0200
-Message-ID: <20070324003608.GB4494@sortiz.org>
-References: <FuqKSqqx.1174476366.8345250.samuel@sortiz.org> <Pine.LNX.4.63.0703211235220.534@pcgl.dsa-ac.de> <Pine.LNX.4.63.0703231309170.534@pcgl.dsa-ac.de>
-Reply-To: Samuel Ortiz <samuel@sortiz.org>
+From: John Heffner <jheffner@psc.edu>
+Subject: [PATCH 0/3] [NET] MTU discovery changes
+Date: Fri, 23 Mar 2007 20:42:46 -0400
+Message-ID: <46047406.4000902@psc.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "irda-users@lists.sourceforge.net" <irda-users@lists.sourceforge.net>,
-	Paul Mackerras <paulus@samba.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Guennadi Liakhovetski <gl@dsa-ac.de>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp25.orange.fr ([193.252.22.23]:27517 "EHLO smtp25.orange.fr"
+Received: from mailer2.psc.edu ([128.182.66.106]:54636 "EHLO mailer2.psc.edu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751924AbXCXAgL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Mar 2007 20:36:11 -0400
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.63.0703231309170.534@pcgl.dsa-ac.de>
+	id S1751970AbXCXAmw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Mar 2007 20:42:52 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 23, 2007 at 01:14:43PM +0100, Guennadi Liakhovetski wrote:
-> On Wed, 21 Mar 2007, Guennadi Liakhovetski wrote:
-> 
-> > On Wed, 21 Mar 2007, Samuel Ortiz wrote:
-> >
-> >> I'm quite sure the leak is in the IrDA code rather than in the ppp or
-> >> ipv4 one, hence the need for full irda debug...
-> 
-> Well, looks like you were wrong, Samuel. 
-Heh, it's good to be wrong sometimes :-)
+These are a few changes to fix/clean up some of the MTU discovery 
+processing with non-stream sockets, and add a probing mode.  See also 
+matching patches to tracepath to take advantage of this.
 
-> Below is a patch that fixes ONE 
-> sk_buff leak (maintainer added to cc: hi, Paul:-)). Still investigating if 
-> there are more there.
-Are you still seeing the skb cache growing with your fix ?
-
-Cheers,
-Samuel.
-
+   -John
