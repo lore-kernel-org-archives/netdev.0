@@ -1,61 +1,106 @@
 From: John Heffner <jheffner@psc.edu>
-Subject: [PATCH 2/3] [NET] Move DF check to ip_forward
-Date: Fri, 23 Mar 2007 20:06:45 -0400
-Message-ID: <11746948061847-git-send-email-jheffner@psc.edu>
-References: <11746948063923-git-send-email-jheffner@psc.edu>
+Subject: [PATCH 1/3] [NET] Do pmtu check in transport layer
+Date: Fri, 23 Mar 2007 20:06:44 -0400
+Message-ID: <11746948063923-git-send-email-jheffner@psc.edu>
 Cc: netdev@vger.kernel.org, John Heffner <jheffner@psc.edu>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailer1.psc.edu ([128.182.58.100]:59455 "EHLO mailer1.psc.edu"
+Received: from mailer1.psc.edu ([128.182.58.100]:59461 "EHLO mailer1.psc.edu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752354AbXCXAp1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752269AbXCXAp1 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 23 Mar 2007 20:45:27 -0400
-In-Reply-To: <11746948063923-git-send-email-jheffner@psc.edu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Do fragmentation check in ip_forward, similar to ipv6 forwarding.  Also add
-a debug printk in the DF check in ip_fragment since we should now never
-reach it.
+Check the pmtu check at the transport layer (for UDP, ICMP and raw), and
+send a local error if socket is PMTUDISC_DO and packet is too big.  This is
+actually a pure bugfix for ipv6.  For ipv4, it allows us to do pmtu checks
+in the same way as for ipv6.
 
 Signed-off-by: John Heffner <jheffner@psc.edu>
 ---
- net/ipv4/ip_forward.c |    8 ++++++++
- net/ipv4/ip_output.c  |    2 ++
- 2 files changed, 10 insertions(+), 0 deletions(-)
+ net/ipv4/ip_output.c  |    4 +++-
+ net/ipv4/raw.c        |    8 +++++---
+ net/ipv6/ip6_output.c |   11 ++++++-----
+ net/ipv6/raw.c        |    7 +++++--
+ 4 files changed, 19 insertions(+), 11 deletions(-)
 
-diff --git a/net/ipv4/ip_forward.c b/net/ipv4/ip_forward.c
-index 369e721..0efb1f5 100644
---- a/net/ipv4/ip_forward.c
-+++ b/net/ipv4/ip_forward.c
-@@ -85,6 +85,14 @@ int ip_forward(struct sk_buff *skb)
- 	if (opt->is_strictroute && rt->rt_dst != rt->rt_gateway)
- 		goto sr_failed;
- 
-+	if (unlikely(skb->len > dst_mtu(&rt->u.dst) &&
-+	             (skb->nh.iph->frag_off & htons(IP_DF))) && !skb->local_df) {
-+		IP_INC_STATS(IPSTATS_MIB_FRAGFAILS);
-+		icmp_send(skb, ICMP_DEST_UNREACH, ICMP_FRAG_NEEDED,
-+			  htonl(dst_mtu(&rt->u.dst)));
-+		goto drop;
-+	}
-+
- 	/* We are about to mangle packet. Copy it! */
- 	if (skb_cow(skb, LL_RESERVED_SPACE(rt->u.dst.dev)+rt->u.dst.header_len))
- 		goto drop;
 diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index 593acf7..90bdd53 100644
+index d096332..593acf7 100644
 --- a/net/ipv4/ip_output.c
 +++ b/net/ipv4/ip_output.c
-@@ -433,6 +433,8 @@ int ip_fragment(struct sk_buff *skb, int (*output)(struct sk_buff*))
- 	iph = skb->nh.iph;
+@@ -822,7 +822,9 @@ int ip_append_data(struct sock *sk,
+ 	fragheaderlen = sizeof(struct iphdr) + (opt ? opt->optlen : 0);
+ 	maxfraglen = ((mtu - fragheaderlen) & ~7) + fragheaderlen;
  
- 	if (unlikely((iph->frag_off & htons(IP_DF)) && !skb->local_df)) {
-+		if (net_ratelimit())
-+			printk(KERN_DEBUG "ip_fragment: requested fragment of packet with DF set\n");
- 		IP_INC_STATS(IPSTATS_MIB_FRAGFAILS);
- 		icmp_send(skb, ICMP_DEST_UNREACH, ICMP_FRAG_NEEDED,
- 			  htonl(dst_mtu(&rt->u.dst)));
+-	if (inet->cork.length + length > 0xFFFF - fragheaderlen) {
++	if (inet->cork.length + length > 0xFFFF - fragheaderlen ||
++	    (inet->pmtudisc >= IP_PMTUDISC_DO &&
++	     inet->cork.length + length > mtu)) {
+ 		ip_local_error(sk, EMSGSIZE, rt->rt_dst, inet->dport, mtu-exthdrlen);
+ 		return -EMSGSIZE;
+ 	}
+diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
+index 87e9c16..f252f4e 100644
+--- a/net/ipv4/raw.c
++++ b/net/ipv4/raw.c
+@@ -271,10 +271,12 @@ static int raw_send_hdrinc(struct sock *sk, void *from, size_t length,
+ 	struct iphdr *iph;
+ 	struct sk_buff *skb;
+ 	int err;
++	int mtu;
+ 
+-	if (length > rt->u.dst.dev->mtu) {
+-		ip_local_error(sk, EMSGSIZE, rt->rt_dst, inet->dport,
+-			       rt->u.dst.dev->mtu);
++	mtu = inet->pmtudisc == IP_PMTUDISC_DO ? dst_mtu(&rt->u.dst) :
++	                                         rt->u.dst.dev->mtu;
++	if (length > mtu) {
++		ip_local_error(sk, EMSGSIZE, rt->rt_dst, inet->dport, mtu);
+ 		return -EMSGSIZE;
+ 	}
+ 	if (flags&MSG_PROBE)
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index 3055169..711dfc3 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -1044,11 +1044,12 @@ int ip6_append_data(struct sock *sk, int getfrag(void *from, char *to,
+ 	fragheaderlen = sizeof(struct ipv6hdr) + rt->u.dst.nfheader_len + (opt ? opt->opt_nflen : 0);
+ 	maxfraglen = ((mtu - fragheaderlen) & ~7) + fragheaderlen - sizeof(struct frag_hdr);
+ 
+-	if (mtu <= sizeof(struct ipv6hdr) + IPV6_MAXPLEN) {
+-		if (inet->cork.length + length > sizeof(struct ipv6hdr) + IPV6_MAXPLEN - fragheaderlen) {
+-			ipv6_local_error(sk, EMSGSIZE, fl, mtu-exthdrlen);
+-			return -EMSGSIZE;
+-		}
++	if ((mtu <= sizeof(struct ipv6hdr) + IPV6_MAXPLEN &&
++	     inet->cork.length + length > sizeof(struct ipv6hdr) + IPV6_MAXPLEN - fragheaderlen) ||
++	    (np->pmtudisc >= IPV6_PMTUDISC_DO &&
++	     inet->cork.length + length > mtu)) {
++		ipv6_local_error(sk, EMSGSIZE, fl, mtu-exthdrlen);
++		return -EMSGSIZE;
+ 	}
+ 
+ 	/*
+diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
+index 306d5d8..75db277 100644
+--- a/net/ipv6/raw.c
++++ b/net/ipv6/raw.c
+@@ -556,9 +556,12 @@ static int rawv6_send_hdrinc(struct sock *sk, void *from, int length,
+ 	struct sk_buff *skb;
+ 	unsigned int hh_len;
+ 	int err;
++	int mtu;
+ 
+-	if (length > rt->u.dst.dev->mtu) {
+-		ipv6_local_error(sk, EMSGSIZE, fl, rt->u.dst.dev->mtu);
++	mtu = np->pmtudisc == IPV6_PMTUDISC_DO ? dst_mtu(&rt->u.dst) :
++	                                         rt->u.dst.dev->mtu;
++	if (length > mtu) {
++		ipv6_local_error(sk, EMSGSIZE, fl, mtu);
+ 		return -EMSGSIZE;
+ 	}
+ 	if (flags&MSG_PROBE)
 -- 
 1.5.0.2.gc260-dirty
 
