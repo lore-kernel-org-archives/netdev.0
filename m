@@ -1,28 +1,81 @@
 From: John Heffner <jheffner@psc.edu>
-Subject: [PATCH 0/2] [iputils] MTU discovery changes
-Date: Fri, 23 Mar 2007 20:46:25 -0400
-Message-ID: <460474E1.9070805@psc.edu>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
+Subject: [PATCH 2/2] [iputils] Use PMTUDISC_PROBE mode if it exists.
+Date: Fri, 23 Mar 2007 20:07:22 -0400
+Message-ID: <11746948421490-git-send-email-jheffner@psc.edu>
+References: <11746948424197-git-send-email-jheffner@psc.edu>
+Cc: netdev@vger.kernel.org, John Heffner <jheffner@psc.edu>
 To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailer2.psc.edu ([128.182.66.106]:54572 "EHLO mailer2.psc.edu"
+Received: from mailer1.psc.edu ([128.182.58.100]:59385 "EHLO mailer1.psc.edu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S2992642AbXCXAqd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Mar 2007 20:46:33 -0400
+	id S2992643AbXCXAqq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Mar 2007 20:46:46 -0400
+In-Reply-To: <11746948424197-git-send-email-jheffner@psc.edu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-These add some changes that make tracepath a little more useful for 
-diagnosing MTU issues.  The length flag helps distinguish between MTU 
-black holes and other types of black holes by allowing you to vary the 
-probe packet lengths.  Using PMTUDISC_PROBE gives you the same results 
-on each run without having to flush the route cache, so you can see 
-where MTU changes in the path actually occur.
+Signed-off-by: John Heffner <jheffner@psc.edu>
+---
+ tracepath.c  |   10 ++++++++--
+ tracepath6.c |   10 ++++++++--
+ 2 files changed, 16 insertions(+), 4 deletions(-)
 
-The PMTUDISC_PROBE patch goes in should be conditional on whether the 
-corresponding kernel patch (just sent) goes in.
+diff --git a/tracepath.c b/tracepath.c
+index 1f901ba..a562d88 100644
+--- a/tracepath.c
++++ b/tracepath.c
+@@ -24,6 +24,10 @@
+ #include <sys/uio.h>
+ #include <arpa/inet.h>
+ 
++#ifndef IP_PMTUDISC_PROBE
++#define IP_PMTUDISC_PROBE	3
++#endif
++
+ struct hhistory
+ {
+ 	int	hops;
+@@ -322,8 +326,10 @@ main(int argc, char **argv)
+ 	}
+ 	memcpy(&target.sin_addr, he->h_addr, 4);
+ 
+-	on = IP_PMTUDISC_DO;
+-	if (setsockopt(fd, SOL_IP, IP_MTU_DISCOVER, &on, sizeof(on))) {
++	on = IP_PMTUDISC_PROBE;
++	if (setsockopt(fd, SOL_IP, IP_MTU_DISCOVER, &on, sizeof(on)) &&
++	    (on = IP_PMTUDISC_DO,
++	     setsockopt(fd, SOL_IP, IP_MTU_DISCOVER, &on, sizeof(on)))) {
+ 		perror("IP_MTU_DISCOVER");
+ 		exit(1);
+ 	}
+diff --git a/tracepath6.c b/tracepath6.c
+index d65230d..6f13a51 100644
+--- a/tracepath6.c
++++ b/tracepath6.c
+@@ -30,6 +30,10 @@
+ #define SOL_IPV6 IPPROTO_IPV6
+ #endif
+ 
++#ifndef IPV6_PMTUDISC_PROBE
++#define IPV6_PMTUDISC_PROBE	3
++#endif
++
+ int overhead = 48;
+ int mtu = 128000;
+ int hops_to = -1;
+@@ -369,8 +373,10 @@ int main(int argc, char **argv)
+ 		mapped = 1;
+ 	}
+ 
+-	on = IPV6_PMTUDISC_DO;
+-	if (setsockopt(fd, SOL_IPV6, IPV6_MTU_DISCOVER, &on, sizeof(on))) {
++	on = IPV6_PMTUDISC_PROBE;
++	if (setsockopt(fd, SOL_IPV6, IPV6_MTU_DISCOVER, &on, sizeof(on)) &&
++	    (on = IPV6_PMTUDISC_DO,
++	     setsockopt(fd, SOL_IPV6, IPV6_MTU_DISCOVER, &on, sizeof(on)))) {
+ 		perror("IPV6_MTU_DISCOVER");
+ 		exit(1);
+ 	}
+-- 
+1.5.0.2.gc260-dirty
 
-   -John
