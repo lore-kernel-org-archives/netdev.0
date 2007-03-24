@@ -1,7 +1,7 @@
 From: "Michael Chan" <mchan@broadcom.com>
-Subject: [TG3 1/3]: Eliminate the unused TG3_FLAG_SPLIT_MODE flag.
-Date: Fri, 23 Mar 2007 16:12:57 -0800
-Message-ID: <1174695177.4834.8.camel@dell>
+Subject: [TG3 2/3]: Exit irq handler during chip reset.
+Date: Fri, 23 Mar 2007 16:13:07 -0800
+Message-ID: <1174695187.4834.9.camel@dell>
 References: <20070322204635.GA27152@strauss.suse.de>
  <1174601067.9753.42.camel@dell> <20070322232048.GC3333@sykes.suse.de>
 Mime-Version: 1.0
@@ -10,96 +10,194 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net, "Bernhard Walle" <bwalle@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:2745 "EHLO MMS3.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:4325 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S2992640AbXCWX3K (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Mar 2007 19:29:10 -0400
+	id S934333AbXCWX3P (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Mar 2007 19:29:15 -0400
 In-Reply-To: <20070322232048.GC3333@sykes.suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[TG3]: Eliminate the unused TG3_FLAG_SPLIT_MODE flag.
+[TG3]: Exit irq handler during chip reset.
 
-This flag to support multiple PCIX split completions was never used
-because of hardware bugs.  This will make room for a new flag.
+On most tg3 chips, the memory enable bit in the PCI command register
+gets cleared during chip reset and must be restored before accessing
+PCI registers using memory cycles.  The chip does not generate
+interrupt during chip reset, but the irq handler can still be called
+because of irq sharing or irqpoll.  Reading a register in the irq
+handler can cause a master abort in this scenario and may result in a
+crash on some architectures.
+
+Use the TG3_FLAG_CHIP_RESETTING flag to tell the irq handler to exit
+without touching any registers.  The checking of the flag is in the
+"slow" path of the irq handler and will not affect normal performance.
+The msi handler is not shared and therefore does not require checking
+the flag.
+
+Thanks to Bernhard Walle <bwalle@suse.de> for reporting the problem.
 
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 8c8f9f4..ab87bb1 100644
+index ab87bb1..9aca100 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -6321,8 +6321,6 @@ static int tg3_reset_hw(struct tg3 *tp, int reset_phy)
- 		      RDMAC_MODE_ADDROFLOW_ENAB | RDMAC_MODE_FIFOOFLOW_ENAB |
- 		      RDMAC_MODE_FIFOURUN_ENAB | RDMAC_MODE_FIFOOREAD_ENAB |
- 		      RDMAC_MODE_LNGREAD_ENAB);
--	if (tp->tg3_flags & TG3_FLAG_SPLIT_MODE)
--		rdmac_mode |= RDMAC_MODE_SPLIT_ENABLE;
- 
- 	/* If statement applies to 5705 and 5750 PCI devices only */
- 	if ((GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5705 &&
-@@ -6495,9 +6493,6 @@ static int tg3_reset_hw(struct tg3 *tp, int reset_phy)
- 		} else if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5704) {
- 			val &= ~(PCIX_CAPS_SPLIT_MASK | PCIX_CAPS_BURST_MASK);
- 			val |= (PCIX_CAPS_MAX_BURST_CPIOB << PCIX_CAPS_BURST_SHIFT);
--			if (tp->tg3_flags & TG3_FLAG_SPLIT_MODE)
--				val |= (tp->split_mode_max_reqs <<
--					PCIX_CAPS_SPLIT_SHIFT);
+@@ -3568,32 +3568,34 @@ static irqreturn_t tg3_interrupt(int irq, void *dev_id)
+ 	 * Reading the PCI State register will confirm whether the
+ 	 * interrupt is ours and will flush the status block.
+ 	 */
+-	if ((sblk->status & SD_STATUS_UPDATED) ||
+-	    !(tr32(TG3PCI_PCISTATE) & PCISTATE_INT_NOT_ACTIVE)) {
+-		/*
+-		 * Writing any value to intr-mbox-0 clears PCI INTA# and
+-		 * chip-internal interrupt pending events.
+-		 * Writing non-zero to intr-mbox-0 additional tells the
+-		 * NIC to stop sending us irqs, engaging "in-intr-handler"
+-		 * event coalescing.
+-		 */
+-		tw32_mailbox(MAILBOX_INTERRUPT_0 + TG3_64BIT_REG_LOW,
+-			     0x00000001);
+-		if (tg3_irq_sync(tp))
++	if (unlikely(!(sblk->status & SD_STATUS_UPDATED))) {
++		if ((tp->tg3_flags & TG3_FLAG_CHIP_RESETTING) ||
++		    (tr32(TG3PCI_PCISTATE) & PCISTATE_INT_NOT_ACTIVE)) {
++			handled = 0;
+ 			goto out;
+-		sblk->status &= ~SD_STATUS_UPDATED;
+-		if (likely(tg3_has_work(tp))) {
+-			prefetch(&tp->rx_rcb[tp->rx_rcb_ptr]);
+-			netif_rx_schedule(dev);		/* schedule NAPI poll */
+-		} else {
+-			/* No work, shared interrupt perhaps?  re-enable
+-			 * interrupts, and flush that PCI write
+-			 */
+-			tw32_mailbox_f(MAILBOX_INTERRUPT_0 + TG3_64BIT_REG_LOW,
+-			     	0x00000000);
  		}
- 		tw32(TG3PCI_X_CAPS, val);
+-	} else {	/* shared interrupt */
+-		handled = 0;
++	}
++
++	/*
++	 * Writing any value to intr-mbox-0 clears PCI INTA# and
++	 * chip-internal interrupt pending events.
++	 * Writing non-zero to intr-mbox-0 additional tells the
++	 * NIC to stop sending us irqs, engaging "in-intr-handler"
++	 * event coalescing.
++	 */
++	tw32_mailbox(MAILBOX_INTERRUPT_0 + TG3_64BIT_REG_LOW, 0x00000001);
++	if (tg3_irq_sync(tp))
++		goto out;
++	sblk->status &= ~SD_STATUS_UPDATED;
++	if (likely(tg3_has_work(tp))) {
++		prefetch(&tp->rx_rcb[tp->rx_rcb_ptr]);
++		netif_rx_schedule(dev);		/* schedule NAPI poll */
++	} else {
++		/* No work, shared interrupt perhaps?  re-enable
++		 * interrupts, and flush that PCI write
++		 */
++		tw32_mailbox_f(MAILBOX_INTERRUPT_0 + TG3_64BIT_REG_LOW,
++		     	0x00000000);
  	}
-@@ -10863,14 +10858,6 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
- 	grc_misc_cfg = tr32(GRC_MISC_CFG);
- 	grc_misc_cfg &= GRC_MISC_CFG_BOARD_ID_MASK;
+ out:
+ 	return IRQ_RETVAL(handled);
+@@ -3611,31 +3613,33 @@ static irqreturn_t tg3_interrupt_tagged(int irq, void *dev_id)
+ 	 * Reading the PCI State register will confirm whether the
+ 	 * interrupt is ours and will flush the status block.
+ 	 */
+-	if ((sblk->status_tag != tp->last_tag) ||
+-	    !(tr32(TG3PCI_PCISTATE) & PCISTATE_INT_NOT_ACTIVE)) {
+-		/*
+-		 * writing any value to intr-mbox-0 clears PCI INTA# and
+-		 * chip-internal interrupt pending events.
+-		 * writing non-zero to intr-mbox-0 additional tells the
+-		 * NIC to stop sending us irqs, engaging "in-intr-handler"
+-		 * event coalescing.
+-		 */
+-		tw32_mailbox(MAILBOX_INTERRUPT_0 + TG3_64BIT_REG_LOW,
+-			     0x00000001);
+-		if (tg3_irq_sync(tp))
++	if (unlikely(sblk->status_tag == tp->last_tag)) {
++		if ((tp->tg3_flags & TG3_FLAG_CHIP_RESETTING) ||
++		    (tr32(TG3PCI_PCISTATE) & PCISTATE_INT_NOT_ACTIVE)) {
++			handled = 0;
+ 			goto out;
+-		if (netif_rx_schedule_prep(dev)) {
+-			prefetch(&tp->rx_rcb[tp->rx_rcb_ptr]);
+-			/* Update last_tag to mark that this status has been
+-			 * seen. Because interrupt may be shared, we may be
+-			 * racing with tg3_poll(), so only update last_tag
+-			 * if tg3_poll() is not scheduled.
+-			 */
+-			tp->last_tag = sblk->status_tag;
+-			__netif_rx_schedule(dev);
+ 		}
+-	} else {	/* shared interrupt */
+-		handled = 0;
++	}
++
++	/*
++	 * writing any value to intr-mbox-0 clears PCI INTA# and
++	 * chip-internal interrupt pending events.
++	 * writing non-zero to intr-mbox-0 additional tells the
++	 * NIC to stop sending us irqs, engaging "in-intr-handler"
++	 * event coalescing.
++	 */
++	tw32_mailbox(MAILBOX_INTERRUPT_0 + TG3_64BIT_REG_LOW, 0x00000001);
++	if (tg3_irq_sync(tp))
++		goto out;
++	if (netif_rx_schedule_prep(dev)) {
++		prefetch(&tp->rx_rcb[tp->rx_rcb_ptr]);
++		/* Update last_tag to mark that this status has been
++		 * seen. Because interrupt may be shared, we may be
++		 * racing with tg3_poll(), so only update last_tag
++		 * if tg3_poll() is not scheduled.
++		 */
++		tp->last_tag = sblk->status_tag;
++		__netif_rx_schedule(dev);
+ 	}
+ out:
+ 	return IRQ_RETVAL(handled);
+@@ -4823,6 +4827,19 @@ static int tg3_chip_reset(struct tg3 *tp)
+ 	if (write_op == tg3_write_flush_reg32)
+ 		tp->write32 = tg3_write32;
  
--	/* Broadcom's driver says that CIOBE multisplit has a bug */
--#if 0
--	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5704 &&
--	    grc_misc_cfg == GRC_MISC_CFG_BOARD_ID_5704CIOBE) {
--		tp->tg3_flags |= TG3_FLAG_SPLIT_MODE;
--		tp->split_mode_max_reqs = SPLIT_MODE_5704_MAX_REQ;
--	}
--#endif
- 	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5705 &&
- 	    (grc_misc_cfg == GRC_MISC_CFG_BOARD_ID_5788 ||
- 	     grc_misc_cfg == GRC_MISC_CFG_BOARD_ID_5788M))
-@@ -11968,14 +11955,12 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
- 		       i == 5 ? '\n' : ':');
++	/* Prevent the irq handler from reading or writing PCI registers
++	 * during chip reset when the memory enable bit in the PCI command
++	 * register may be cleared.  The chip does not generate interrupt
++	 * at this time, but the irq handler may still be called due to irq
++	 * sharing or irqpoll.
++	 */
++	tp->tg3_flags |= TG3_FLAG_CHIP_RESETTING;
++	tp->hw_status->status = 0;
++	tp->hw_status->status_tag = 0;
++	tp->last_tag = 0;
++	smp_mb();
++	synchronize_irq(tp->pdev->irq);
++
+ 	/* do the reset */
+ 	val = GRC_MISC_CFG_CORECLK_RESET;
  
- 	printk(KERN_INFO "%s: RXcsums[%d] LinkChgREG[%d] "
--	       "MIirq[%d] ASF[%d] Split[%d] WireSpeed[%d] "
--	       "TSOcap[%d] \n",
-+	       "MIirq[%d] ASF[%d] WireSpeed[%d] TSOcap[%d]\n",
- 	       dev->name,
- 	       (tp->tg3_flags & TG3_FLAG_RX_CHECKSUMS) != 0,
- 	       (tp->tg3_flags & TG3_FLAG_USE_LINKCHG_REG) != 0,
- 	       (tp->tg3_flags & TG3_FLAG_USE_MI_INTERRUPT) != 0,
- 	       (tp->tg3_flags & TG3_FLAG_ENABLE_ASF) != 0,
--	       (tp->tg3_flags & TG3_FLAG_SPLIT_MODE) != 0,
- 	       (tp->tg3_flags2 & TG3_FLG2_NO_ETH_WIRE_SPEED) == 0,
- 	       (tp->tg3_flags2 & TG3_FLG2_TSO_CAPABLE) != 0);
- 	printk(KERN_INFO "%s: dma_rwctrl[%08x] dma_mask[%d-bit]\n",
+@@ -4904,6 +4921,8 @@ static int tg3_chip_reset(struct tg3 *tp)
+ 
+ 	pci_restore_state(tp->pdev);
+ 
++	tp->tg3_flags &= ~TG3_FLAG_CHIP_RESETTING;
++
+ 	/* Make sure PCI-X relaxed ordering bit is clear. */
+ 	pci_read_config_dword(tp->pdev, TG3PCI_X_CAPS, &val);
+ 	val &= ~PCIX_CAPS_RELAXED_ORDERING;
 diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
-index 086892d..5df8f76 100644
+index 5df8f76..d515ed2 100644
 --- a/drivers/net/tg3.h
 +++ b/drivers/net/tg3.h
-@@ -2223,7 +2223,6 @@ struct tg3 {
+@@ -2223,6 +2223,7 @@ struct tg3 {
  #define TG3_FLAG_40BIT_DMA_BUG		0x08000000
  #define TG3_FLAG_BROKEN_CHECKSUMS	0x10000000
  #define TG3_FLAG_GOT_SERDES_FLOWCTL	0x20000000
--#define TG3_FLAG_SPLIT_MODE		0x40000000
++#define TG3_FLAG_CHIP_RESETTING		0x40000000
  #define TG3_FLAG_INIT_COMPLETE		0x80000000
  	u32				tg3_flags2;
  #define TG3_FLG2_RESTART_TIMER		0x00000001
-@@ -2262,9 +2261,6 @@ struct tg3 {
- #define TG3_FLG2_NO_FWARE_REPORTED	0x40000000
- #define TG3_FLG2_PHY_ADJUST_TRIM	0x80000000
- 
--	u32				split_mode_max_reqs;
--#define SPLIT_MODE_5704_MAX_REQ		3
--
- 	struct timer_list		timer;
- 	u16				timer_counter;
- 	u16				timer_multiplier;
 
 
