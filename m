@@ -1,40 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH]: Fix ipv6 round-robin locking
-Date: Sat, 24 Mar 2007 12:44:36 -0700 (PDT)
-Message-ID: <20070324.124436.104040932.davem@davemloft.net>
+Subject: Re: [6/6] 2.6.21-rc4: known regressions
+Date: Sat, 24 Mar 2007 12:50:46 -0700 (PDT)
+Message-ID: <20070324.125046.112613933.davem@davemloft.net>
+References: <Pine.LNX.4.64.0703160925270.26106@woody.linux-foundation.org>
+	<20070318184938.GZ752@stusta.de>
+	<20070319.193829.102575512.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60322
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752804AbXCXVe4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 24 Mar 2007 17:34:56 -0400
-Sender: netdev-owner@vger.kernel.org
+Cc: torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	linux-kernel@vger.kernel.org, lenb@kernel.org,
+	netdev@vger.kernel.org
+To: bunk@stusta.de
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753336AbXCXVfG@vger.kernel.org>
+In-Reply-To: <20070319.193829.102575512.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: David Miller <davem@davemloft.net>
+Date: Mon, 19 Mar 2007 19:38:29 -0700 (PDT)
 
-There are many, many, many severe SMP locking bugs in the ipv6
-advanced routing selection code.  I wish the author had thought about
-these issues more carefully when writing that code because I'm now
-stuck here fixing all of this :-/
+> From: Adrian Bunk <bunk@stusta.de>
+> Date: Sun, 18 Mar 2007 19:49:38 +0100
+> 
+> > Subject    : ipv6 crash
+> > References : http://lkml.org/lkml/2007/3/10/2
+> > Submitter  : Len Brown <lenb@kernel.org>
+> > Status     : unknown
+> 
+> This is caused by some problem in the router round-robin code in
+> net/ipv6/route.c:rt6_select()
+ ...
+> I'll see if I can come up with something to fix this properly.
 
-The fix for the most serious of them is below, and I'd appreciate
-any feedback if people spot any problems or holes in that approach.
-This will fix bugs that look like an OOPS in fib6_add(), essentially
-rt6_select() corrupts the list by making fn->leaf NULL, this is an
-illegal state and will cause a crash because the fib6_add() code
-(correctly) assumes fn->leaf can never be NULL.
-
-The other bug is that rt6_probe() executes with the per-routing-table
-lock held as a reader, but when NDISC is protected by tunneled IPSEC,
-this can call right back into the routing code and if that tunneled
-IPSEC route lookup COWs a route it will try to take the rwlock as a
-writer and deadlock.
-
-There are probably other bugs of this nature lurking in this new code.
+Here is the fix I came up with and just posted to netdev for
+a quick review, I'll push this to the appropriate places soon
+if nobody spots any problems in it.
 
 commit 4c68db63b8314df3cf30b7fe595a1b8935bb2cb0
 Author: David S. Miller <davem@sunset.davemloft.net>
