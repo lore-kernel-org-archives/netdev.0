@@ -1,50 +1,42 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] make dccp_write_xmit_timer() static again
-Date: Sat, 24 Mar 2007 14:06:52 +0100
-Message-ID: <20070324130652.GJ752@stusta.de>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: RFC: Established connections hash function
+Date: Sat, 24 Mar 2007 16:29:11 +0300
+Message-ID: <20070324132911.GA5629@2ka.mipt.ru>
+References: <20070324122658.7240.qmail@science.horizon.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: acme@mandriva.com, dccp@vger.kernel.org, netdev@vger.kernel.org
-To: Gerrit Renker <gerrit@erg.abdn.ac.uk>,
-	"David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=koi8-r
+Cc: johnpol.2ka.mipt.ru@horizon.com, netdev@vger.kernel.org
+To: linux@horizon.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout.stusta.mhn.de ([141.84.69.5]:33362 "EHLO
-	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751889AbXCXNGt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 24 Mar 2007 09:06:49 -0400
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:45235 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751036AbXCXNa1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 24 Mar 2007 09:30:27 -0400
 Content-Disposition: inline
+In-Reply-To: <20070324122658.7240.qmail@science.horizon.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-dccp_write_xmit_timer() needlessly became global.
+On Sat, Mar 24, 2007 at 08:26:58AM -0400, linux@horizon.com (linux@horizon.com) wrote:
+> > Result with jenkins:
+> > 1 23880
+> > 2 12108
+> > 3 4040
+> > 4 1019
+> > 5 200
+> > 6 30
+> > 7 8
+> > 8 1
+> > 
+> > Xor:
+> > 1 65536
+> 
+> Precisely.  This means that the Xor hash SUCKS, because its output is conspicuously
+> non-random.
 
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
+XOR hash was specially designed for network environment, so it has the
+ever best result (in this scenario, but it can be too easily controlled by attacker). 
+It is not general purpose hash.
 
----
-
- net/dccp/dccp.h  |    1 -
- net/dccp/timer.c |    2 +-
- 2 files changed, 1 insertion(+), 2 deletions(-)
-
---- linux-2.6.21-rc4-mm1/net/dccp/dccp.h.old	2007-03-23 23:39:37.000000000 +0100
-+++ linux-2.6.21-rc4-mm1/net/dccp/dccp.h	2007-03-23 23:39:58.000000000 +0100
-@@ -191,7 +191,6 @@
- 			   const enum dccp_pkt_type pkt_type);
- 
- extern void dccp_write_xmit(struct sock *sk, int block);
--extern void dccp_write_xmit_timer(unsigned long data);
- extern void dccp_write_space(struct sock *sk);
- 
- extern void dccp_init_xmit_timers(struct sock *sk);
---- linux-2.6.21-rc4-mm1/net/dccp/timer.c.old	2007-03-23 23:40:07.000000000 +0100
-+++ linux-2.6.21-rc4-mm1/net/dccp/timer.c	2007-03-23 23:40:14.000000000 +0100
-@@ -262,7 +262,7 @@
- }
- 
- /* Transmit-delay timer: used by the CCIDs to delay actual send time */
--void dccp_write_xmit_timer(unsigned long data)
-+static void dccp_write_xmit_timer(unsigned long data)
- {
- 	struct sock *sk = (struct sock *)data;
- 	struct dccp_sock *dp = dccp_sk(sk);
-
+-- 
+	Evgeniy Polyakov
