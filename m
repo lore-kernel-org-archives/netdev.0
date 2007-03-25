@@ -1,34 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH]: Fix ipv6 round-robin locking
-Date: Sat, 24 Mar 2007 18:15:29 -0700 (PDT)
-Message-ID: <20070324.181529.74749053.davem@davemloft.net>
-References: <20070324.124436.104040932.davem@davemloft.net>
-	<20070324234030.GG521@postel.suug.ch>
+Subject: Re: [PATCH 0/3]: Further reduction of direct access to skb->data
+Date: Sat, 24 Mar 2007 20:20:18 -0700 (PDT)
+Message-ID: <20070324.202018.41636403.davem@davemloft.net>
+References: <20070324210706.GV17811@ghostprotocols.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: tgraf@suug.ch
+To: acme@ghostprotocols.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46265
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47455
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753224AbXCYBPa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 24 Mar 2007 21:15:30 -0400
-In-Reply-To: <20070324234030.GG521@postel.suug.ch>
+	by vger.kernel.org with ESMTP id S932195AbXCYDUT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 24 Mar 2007 23:20:19 -0400
+In-Reply-To: <20070324210706.GV17811@ghostprotocols.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Thomas Graf <tgraf@suug.ch>
-Date: Sun, 25 Mar 2007 00:40:30 +0100
+From: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+Date: Sat, 24 Mar 2007 18:07:06 -0300
 
-> Seondly, I'm not sure I've fully understood why this round robin mechanism
-> is needed to ensure as many routers as possible are probed as soon as
-> possible.
- ...
-> I'm just making sure we know what we're doing :-)
+> Hi David,
+> 
+> 	Please take a look, at first I thought about adding a skb_copy_{from,to}_data,
+> that would do just the memcpy, but then skb_{copy,store}_bits seems to be fit for this
+> purpose, but its more costly in some cases, comments?
+> 
+> 	Available at:
+> 
+> master.kernel.org:/pub/scm/linux/kernel/git/acme/net-2.6.22
+> 
 
-Ignore rt6_probe(), pretend that it's disabled.
-
-It's the neigh probe that occurs when we _return_ and
-_use_ the route for something that elicits the probe
-we are interested in.
+I think you should make the named alias for direct memcpy()
+instead, call it skb_copy_{from,to}_linear_data() so that the
+assumed invariant is well documented.
