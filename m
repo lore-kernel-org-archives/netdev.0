@@ -1,53 +1,49 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [RFC PATCHv5 1/5] [TCP]: Add highest_sack seqno, points to
- globally highest SACK
-Date: Mon, 26 Mar 2007 00:55:57 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0703260034120.9398@kivilampi-30.cs.helsinki.fi>
-References: <11740704663475-git-send-email-ilpo.jarvinen@helsinki.fi>
- <11740704662337-git-send-email-ilpo.jarvinen@helsinki.fi>
- <20070324.210428.78711276.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; boundary="-696243703-140289423-1174858971=:9398"
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:49175 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752769AbXCYV4A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Mar 2007 17:56:00 -0400
-In-Reply-To: <20070324.210428.78711276.davem@davemloft.net>
-Content-ID: <Pine.LNX.4.64.0703260047060.9398@kivilampi-30.cs.helsinki.fi>
-Sender: netdev-owner@vger.kernel.org
+From: Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
+Subject: [PATCH] zd1211rw-mac80211: tweak reset-on-probe behaviour
+Date: Mon, 26 Mar 2007 00:17:54 +0100 (BST)
+Message-ID: <20070325231754.5E2267B409F@zog.reactivated.net>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: kune-hUSrv6EASfkEnNRfnnE9gw@public.gmane.org
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+From: Ulrich Kunitz <kune-hUSrv6EASfkEnNRfnnE9gw@public.gmane.org>
 
----696243703-140289423-1174858971=:9398
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
-Content-ID: <Pine.LNX.4.64.0703260047061.9398@kivilampi-30.cs.helsinki.fi>
+This is an update to the earlier commit 8b4ebaabf12. The argument
+is directly used and an error condition will be handled.
 
-On Sat, 24 Mar 2007, David Miller wrote:
+Here are some sentences about the reason for this commit. There
+have been a larger number of reports of problems after rebooting
+the machine. According to reports the resetting of the stick
+during probe makes this problem disappear. Notify that it doesn't
+help while reloading the module.
 
-> From: "Ilpo_Järvinen" <ilpo.jarvinen@helsinki.fi>
-> Date: Fri, 16 Mar 2007 20:41:02 +0200
-> 
-> > It is guaranteed to be valid only when !tp->sacked_out. In most
-> > cases this seqno is available in the last ACK but there is no
-> > guarantee for that. The new fast recovery loss marking algorithm
-> > needs this as entry point.
-> 
-> It's a shame we keep around multiple values which represent very
-> related values.  For example, this new seqno could be computed
-> using "fackets_out" if we knew also how many holes there were.
+Signed-off-by: Ulrich Kunitz <kune-hUSrv6EASfkEnNRfnnE9gw@public.gmane.org>
+Signed-off-by: Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
+---
+ drivers/net/wireless/mac80211/zd1211rw/zd_usb.c |    7 ++++++-
+ 1 files changed, 6 insertions(+), 1 deletions(-)
 
-It would then be an estimate which is 100% accurate in most cases (when 
-all related skbs are full sized). I think it must never underestimate 
-highest_sack though, it would be quite ok to use fackets_out * mss but any 
-> mss skb would obviously be a problem (if they ever occur)... Are all 
-paths ok with that (this is beoynd the codepaths I'm quite sure of...)?!
-
+diff --git a/drivers/net/wireless/mac80211/zd1211rw/zd_usb.c b/drivers/net/wireless/mac80211/zd1211rw/zd_usb.c
+index 418a8ad..8867110 100644
+--- a/drivers/net/wireless/mac80211/zd1211rw/zd_usb.c
++++ b/drivers/net/wireless/mac80211/zd1211rw/zd_usb.c
+@@ -917,7 +917,12 @@ static int probe(struct usb_interface *intf, const struct usb_device_id *id)
+ 		goto error;
+ 	}
+ 
+-	usb_reset_device(interface_to_usbdev(intf));
++	r = usb_reset_device(udev);
++	if (r) {
++		dev_err(&intf->dev,
++			"couldn't reset usb device. Error number %d\n", r);
++		goto error;
++	}
+ 
+ 	dev = zd_mac_alloc(intf);
+ 	if (dev == NULL) {
 -- 
- i.
----696243703-140289423-1174858971=:9398--
+1.5.0.5
