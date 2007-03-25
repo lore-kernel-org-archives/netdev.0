@@ -1,57 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCHv5 5/5] [TCP]: non-FACK SACK follows conservative
- SACK loss recovery (RFC3517)
-Date: Sat, 24 Mar 2007 21:13:07 -0700 (PDT)
-Message-ID: <20070324.211307.59653456.davem@davemloft.net>
-References: <1174070466450-git-send-email-ilpo.jarvinen@helsinki.fi>
-	<11740704661086-git-send-email-ilpo.jarvinen@helsinki.fi>
-	<11740704662402-git-send-email-ilpo.jarvinen@helsinki.fi>
+Subject: Re: [PATCH 1/3] [NET] Do pmtu check in transport layer
+Date: Sat, 24 Mar 2007 21:14:58 -0700 (PDT)
+Message-ID: <20070324.211458.85418853.davem@davemloft.net>
+References: <11746948063923-git-send-email-jheffner@psc.edu>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: ilpo.jarvinen@helsinki.fi
+To: jheffner@psc.edu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39870
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49550
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S965052AbXCYENI convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 25 Mar 2007 00:13:08 -0400
-In-Reply-To: <11740704662402-git-send-email-ilpo.jarvinen@helsinki.fi>
+	by vger.kernel.org with ESMTP id S965025AbXCYEO7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Mar 2007 00:14:59 -0400
+In-Reply-To: <11746948063923-git-send-email-jheffner@psc.edu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
-Date: Fri, 16 Mar 2007 20:41:06 +0200
+From: John Heffner <jheffner@psc.edu>
+Date: Fri, 23 Mar 2007 20:06:44 -0400
 
-> Many assumptions that are true when no reordering or other
-> strange events happen are not a part of the RFC3517. FACK
-> implementation is based on such assumptions. Previously (before
-> the rewrite) the non-FACK SACK was basically doing fast rexmit
-> and then it times out all skbs when first cumulative ACK arrives,
-> which cannot really be called SACK based recovery :-).
->=20
-> RFC3517 SACK disables these things:
-> - Per SKB timeouts & head timeout entry to recovery
-> - Marking at least one skb while in recovery (RFC3517 does this
->   only for the fast retransmission but not for the other skbs
->   when cumulative ACKs arrive in the recovery)
-> - B & C flavors of loss detection (see comment before
->   tcp_sacktag_write_queue)
->=20
-> This does not implement the "last resort" rule 3 of NextSeg, which
-> allows retransmissions also when not enough SACK blocks have yet
-> arrived above a segment for IsLost to return true [RFC3517].
->=20
-> The implementation differs from RFC3517 in two points:
-> - Rate-halving is used instead of FlightSize / 2
-> - Instead of using dupACKs to trigger the recovery, the number
->   of SACK blocks is used as FACK does with SACK blocks+holes
->   (which provides more accurate number). It seems that the
->   difference can affect negatively only if the receiver does not
->   generate SACK blocks at all even though it claimed to be
->   SACK-capable.
->=20
-> Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
+> Check the pmtu check at the transport layer (for UDP, ICMP and raw), and
+> send a local error if socket is PMTUDISC_DO and packet is too big.  This is
+> actually a pure bugfix for ipv6.  For ipv4, it allows us to do pmtu checks
+> in the same way as for ipv6.
+> 
+> Signed-off-by: John Heffner <jheffner@psc.edu>
 
-I'm OK with this one too, applied, thanks a lot!
+Applied, thanks John.
