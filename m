@@ -1,51 +1,57 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCHv5 4/5] [TCP]: new LOST marker optimizations
-Date: Sat, 24 Mar 2007 21:10:50 -0700 (PDT)
-Message-ID: <20070324.211050.106264545.davem@davemloft.net>
-References: <11740704663404-git-send-email-ilpo.jarvinen@helsinki.fi>
-	<1174070466450-git-send-email-ilpo.jarvinen@helsinki.fi>
+Subject: Re: [RFC PATCHv5 5/5] [TCP]: non-FACK SACK follows conservative
+ SACK loss recovery (RFC3517)
+Date: Sat, 24 Mar 2007 21:13:07 -0700 (PDT)
+Message-ID: <20070324.211307.59653456.davem@davemloft.net>
+References: <1174070466450-git-send-email-ilpo.jarvinen@helsinki.fi>
 	<11740704661086-git-send-email-ilpo.jarvinen@helsinki.fi>
+	<11740704662402-git-send-email-ilpo.jarvinen@helsinki.fi>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
 To: ilpo.jarvinen@helsinki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39867
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39870
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S965010AbXCYEKv convert rfc822-to-8bit
+	by vger.kernel.org with ESMTP id S965052AbXCYENI convert rfc822-to-8bit
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 25 Mar 2007 00:10:51 -0400
-In-Reply-To: <11740704661086-git-send-email-ilpo.jarvinen@helsinki.fi>
+	Sun, 25 Mar 2007 00:13:08 -0400
+In-Reply-To: <11740704662402-git-send-email-ilpo.jarvinen@helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 =46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
-Date: Fri, 16 Mar 2007 20:41:05 +0200
+Date: Fri, 16 Mar 2007 20:41:06 +0200
 
-> 1) Couple of skb states are mutually exclusive
+> Many assumptions that are true when no reordering or other
+> strange events happen are not a part of the RFC3517. FACK
+> implementation is based on such assumptions. Previously (before
+> the rewrite) the non-FACK SACK was basically doing fast rexmit
+> and then it times out all skbs when first cumulative ACK arrives,
+> which cannot really be called SACK based recovery :-).
 >=20
-> Skb cannot be in both S and L states at the same time, adding
-> non-S nor L skb count (below highest sack) to that can be
-> compared against fackets_out to see if anything below the
-> current skb can still be marked with L or not. If they're
-> equal (or fackets_out is smaller), the next skb will have L
-> set for sure.
+> RFC3517 SACK disables these things:
+> - Per SKB timeouts & head timeout entry to recovery
+> - Marking at least one skb while in recovery (RFC3517 does this
+>   only for the fast retransmission but not for the other skbs
+>   when cumulative ACKs arrive in the recovery)
+> - B & C flavors of loss detection (see comment before
+>   tcp_sacktag_write_queue)
 >=20
-> 2) Create a fastpath for the new LOST marker
+> This does not implement the "last resort" rule 3 of NextSeg, which
+> allows retransmissions also when not enough SACK blocks have yet
+> arrived above a segment for IsLost to return true [RFC3517].
 >=20
-> The fastpath takes advantage of the fact that the latest ACK
-> very likely contains the globally highest SACK block. By
-> verifying that is larger than tp->reordering, whole SACK block
-> can be skipped while counting for not-to-be marked skbs until
-> tp->reordering of them is encountered. Since TCP now can know,
-> that should block exists as highest, the marking can begin right
-> below it. If the latest ACK does not contain a SACK block that
-> reaches all the way to the highest_sack (e.g., due to
-> reordering), a slow path is used.
-
-Excellent observation. :)
-
+> The implementation differs from RFC3517 in two points:
+> - Rate-halving is used instead of FlightSize / 2
+> - Instead of using dupACKs to trigger the recovery, the number
+>   of SACK blocks is used as FACK does with SACK blocks+holes
+>   (which provides more accurate number). It seems that the
+>   difference can affect negatively only if the receiver does not
+>   generate SACK blocks at all even though it claimed to be
+>   SACK-capable.
+>=20
 > Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
 
-Patch applied, thanks.
+I'm OK with this one too, applied, thanks a lot!
