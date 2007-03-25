@@ -1,60 +1,39 @@
-From: James Chapman <jchapman@katalix.com>
-Subject: Re: [PATCH 1/5 2.6.21-rc4] l2tp: pppol2tp core
-Date: Sun, 25 Mar 2007 17:12:16 +0100
-Message-ID: <46069F60.3020501@katalix.com>
-References: <200703232307.l2NN7Rtg010808@quickie.katalix.com> <46059EF8.6050603@trash.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [NET]: Fix breakage, use ip_hdr() for DF check in ip_forward
+Date: Sun, 25 Mar 2007 13:27:32 -0700 (PDT)
+Message-ID: <20070325.132732.35663469.davem@davemloft.net>
+References: <11746948063923-git-send-email-jheffner@psc.edu>
+	<11746948061847-git-send-email-jheffner@psc.edu>
+	<20070325133731.GH521@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Cc: jheffner@psc.edu, netdev@vger.kernel.org
+To: tgraf@suug.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s36.avahost.net ([74.53.95.194]:33543 "EHLO s36.avahost.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751695AbXCYQMT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 25 Mar 2007 12:12:19 -0400
-In-Reply-To: <46059EF8.6050603@trash.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33620
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752313AbXCYU1d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Mar 2007 16:27:33 -0400
+In-Reply-To: <20070325133731.GH521@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Patrick McHardy wrote:
-> James Chapman wrote:
->> [PPPOL2TP]: Add PPP-over-L2TP driver core.
+From: Thomas Graf <tgraf@suug.ch>
+Date: Sun, 25 Mar 2007 15:37:31 +0200
+
+> The patch [NET] Move DF check to ip_forward broke net-2.6.22 as
+> skb->nh has been renamed to skb->network_header. Use ip_hdr().
 > 
-> A couple more comments:
-> 
-> - seq_file handling doesn't check seq_printf return values 
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-ack
+Thanks Thomas.
 
->   and
->   tries to dump the entire hash table at once, which might
->   exceed the available room.
+John I'm extremely irritated.  You send me which is obviouly a feature
+patch, which I'm obviously NOT going to apply to the current upstream
+for 2.6.21, which is only accepting bug fixes, yet you do not test
+compile your work and build your patches against my net-2.6.22 tree
+which is where such feature patches are going to get applied?
 
-I thought seq_printf handled large output (multiple pages)? I am aware 
-of the page size limitation of raw proc handlers.
-
-> - there appear to be no checks for duplicate session IDs on
->   session creation.
-> - try_module_get/put_module in pppol2tp_create look unnecessary
-> - kfree can take NULL pointers
-> - direct dereference of user pointer in pppol2tp_sendmsg debugging
-> - jiffies.h includes conversion functions for HZ <-> msecs
-
-all acked
-
-> - Any particular reason why the SKB_CB is put after inet_skb_parm?
->   On 64 bit this almost reaches the limit, might be safer to put
->   it at the beginning.
-
-A long time ago (early 2.6.9-ish?) I had problems with some netfilter 
-setups when I overwrote inet_skb_parm. I'll investigate further.
-
-Thanks for your comments - they're very useful.
-
--- 
-James Chapman
-Katalix Systems Ltd
-http://www.katalix.com
-Catalysts for your Embedded Linux software development
-
+That's just irresponsible, please don't do that again or you'll
+be on my shit list for a good long while.
