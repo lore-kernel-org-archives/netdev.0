@@ -1,39 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [NET]: Fix breakage, use ip_hdr() for DF check in ip_forward
-Date: Sun, 25 Mar 2007 13:27:32 -0700 (PDT)
-Message-ID: <20070325.132732.35663469.davem@davemloft.net>
-References: <11746948063923-git-send-email-jheffner@psc.edu>
-	<11746948061847-git-send-email-jheffner@psc.edu>
-	<20070325133731.GH521@postel.suug.ch>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [RFC PATCHv5 1/5] [TCP]: Add highest_sack seqno, points to
+ globally highest SACK
+Date: Mon, 26 Mar 2007 00:55:57 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0703260034120.9398@kivilampi-30.cs.helsinki.fi>
+References: <11740704663475-git-send-email-ilpo.jarvinen@helsinki.fi>
+ <11740704662337-git-send-email-ilpo.jarvinen@helsinki.fi>
+ <20070324.210428.78711276.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jheffner@psc.edu, netdev@vger.kernel.org
-To: tgraf@suug.ch
+Content-Type: MULTIPART/MIXED; boundary="-696243703-140289423-1174858971=:9398"
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33620
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752313AbXCYU1d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Mar 2007 16:27:33 -0400
-In-Reply-To: <20070325133731.GH521@postel.suug.ch>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:49175 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752769AbXCYV4A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Mar 2007 17:56:00 -0400
+In-Reply-To: <20070324.210428.78711276.davem@davemloft.net>
+Content-ID: <Pine.LNX.4.64.0703260047060.9398@kivilampi-30.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Thomas Graf <tgraf@suug.ch>
-Date: Sun, 25 Mar 2007 15:37:31 +0200
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-> The patch [NET] Move DF check to ip_forward broke net-2.6.22 as
-> skb->nh has been renamed to skb->network_header. Use ip_hdr().
+---696243703-140289423-1174858971=:9398
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
+Content-ID: <Pine.LNX.4.64.0703260047061.9398@kivilampi-30.cs.helsinki.fi>
+
+On Sat, 24 Mar 2007, David Miller wrote:
+
+> From: "Ilpo_Järvinen" <ilpo.jarvinen@helsinki.fi>
+> Date: Fri, 16 Mar 2007 20:41:02 +0200
 > 
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+> > It is guaranteed to be valid only when !tp->sacked_out. In most
+> > cases this seqno is available in the last ACK but there is no
+> > guarantee for that. The new fast recovery loss marking algorithm
+> > needs this as entry point.
+> 
+> It's a shame we keep around multiple values which represent very
+> related values.  For example, this new seqno could be computed
+> using "fackets_out" if we knew also how many holes there were.
 
-Thanks Thomas.
+It would then be an estimate which is 100% accurate in most cases (when 
+all related skbs are full sized). I think it must never underestimate 
+highest_sack though, it would be quite ok to use fackets_out * mss but any 
+> mss skb would obviously be a problem (if they ever occur)... Are all 
+paths ok with that (this is beoynd the codepaths I'm quite sure of...)?!
 
-John I'm extremely irritated.  You send me which is obviouly a feature
-patch, which I'm obviously NOT going to apply to the current upstream
-for 2.6.21, which is only accepting bug fixes, yet you do not test
-compile your work and build your patches against my net-2.6.22 tree
-which is where such feature patches are going to get applied?
-
-That's just irresponsible, please don't do that again or you'll
-be on my shit list for a good long while.
+-- 
+ i.
+---696243703-140289423-1174858971=:9398--
