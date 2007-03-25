@@ -1,30 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/3] [NET] Do pmtu check in transport layer
-Date: Sat, 24 Mar 2007 21:14:58 -0700 (PDT)
-Message-ID: <20070324.211458.85418853.davem@davemloft.net>
+Subject: Re: [PATCH 2/3] [NET] Move DF check to ip_forward
+Date: Sat, 24 Mar 2007 21:17:18 -0700 (PDT)
+Message-ID: <20070324.211718.48528824.davem@davemloft.net>
 References: <11746948063923-git-send-email-jheffner@psc.edu>
+	<11746948061847-git-send-email-jheffner@psc.edu>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: jheffner@psc.edu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49550
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49553
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S965025AbXCYEO7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Mar 2007 00:14:59 -0400
-In-Reply-To: <11746948063923-git-send-email-jheffner@psc.edu>
+	by vger.kernel.org with ESMTP id S965054AbXCYERT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Mar 2007 00:17:19 -0400
+In-Reply-To: <11746948061847-git-send-email-jheffner@psc.edu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: John Heffner <jheffner@psc.edu>
-Date: Fri, 23 Mar 2007 20:06:44 -0400
+Date: Fri, 23 Mar 2007 20:06:45 -0400
 
-> Check the pmtu check at the transport layer (for UDP, ICMP and raw), and
-> send a local error if socket is PMTUDISC_DO and packet is too big.  This is
-> actually a pure bugfix for ipv6.  For ipv4, it allows us to do pmtu checks
-> in the same way as for ipv6.
+> Do fragmentation check in ip_forward, similar to ipv6 forwarding.  Also add
+> a debug printk in the DF check in ip_fragment since we should now never
+> reach it.
 > 
 > Signed-off-by: John Heffner <jheffner@psc.edu>
 
-Applied, thanks John.
+I don't think this debugging log message makes sense considering
+netfilter can potentially do interesting things to the packet.
+
+Therefore I applied your patch without the log message, we can
+discuss it's merits seperately as I like the rest of this patch.
+
+Thanks.
