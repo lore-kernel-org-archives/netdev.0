@@ -1,53 +1,51 @@
-From: Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
-Subject: [PATCH] zd1211rw-mac80211: Fix for monitor mode bug
-Date: Mon, 26 Mar 2007 00:18:17 +0100 (BST)
-Message-ID: <20070325231817.9C5887B409F@zog.reactivated.net>
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Cc: kune-hUSrv6EASfkEnNRfnnE9gw@public.gmane.org
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Daniel Drake <dsd@gentoo.org>
+Subject: [PATCH] zd1211rw-mac80211: Fix NULL dereference on installer exit path
+Date: Mon, 26 Mar 2007 00:18:39 +0100 (BST)
+Message-ID: <20070325231839.AB6BA7B409F@zog.reactivated.net>
+Cc: linux-wireless@vger.kernel.org
+To: linville@tuxdriver.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mtaout03-winn.ispmail.ntl.com ([81.103.221.49]:9887 "EHLO
+	mtaout03-winn.ispmail.ntl.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753367AbXCYXSo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Mar 2007 19:18:44 -0400
+Cc: netdev@vger.kernel.org
+Cc: kune@deine-taler.de
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ulrich Kunitz <kune-hUSrv6EASfkEnNRfnnE9gw@public.gmane.org>
+When dealing with a DEVICE_INSTALLER, dev will be NULL when disconnect()
+is called. This fixes a NULL dereference oops with such devices.
 
-The ZD1211 supports the delivery of packets with a wrong CRC value
-to the host. We switched that feature on in monitor mode, so that
-incomplete packets were delivered.
-
-This problem has been reported to bugzilla.kernel.org as bug 8152.
-This patch fixes it for the mac80211 stack.
-
-Signed-off-by: Ulrich Kunitz <kune-hUSrv6EASfkEnNRfnnE9gw@public.gmane.org>
-Signed-off-by: Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
+Signed-off-by: Daniel Drake <dsd@gentoo.org>
 ---
- drivers/net/wireless/mac80211/zd1211rw/zd_mac.c |   12 ++----------
- 1 files changed, 2 insertions(+), 10 deletions(-)
+ drivers/net/wireless/mac80211/zd1211rw/zd_usb.c |    7 +++++--
+ 1 files changed, 5 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/wireless/mac80211/zd1211rw/zd_mac.c b/drivers/net/wireless/mac80211/zd1211rw/zd_mac.c
-index 097f614..65eabfa 100644
---- a/drivers/net/wireless/mac80211/zd1211rw/zd_mac.c
-+++ b/drivers/net/wireless/mac80211/zd1211rw/zd_mac.c
-@@ -91,17 +91,9 @@ void zd_mac_clear(struct zd_mac *mac)
- 
- static int reset_mode(struct zd_mac *mac)
+diff --git a/drivers/net/wireless/mac80211/zd1211rw/zd_usb.c b/drivers/net/wireless/mac80211/zd1211rw/zd_usb.c
+index 8867110..24d22dc 100644
+--- a/drivers/net/wireless/mac80211/zd1211rw/zd_usb.c
++++ b/drivers/net/wireless/mac80211/zd1211rw/zd_usb.c
+@@ -978,14 +978,17 @@ error:
+ static void disconnect(struct usb_interface *intf)
  {
--	struct zd_ioreq32 ioreqs[] = {
--		{ CR_RX_FILTER, STA_RX_FILTER },
--		{ CR_SNIFFER_ON, 0U },
--	};
--
--	if (mac->mode == IEEE80211_IF_TYPE_MNTR) {
--		ioreqs[0].value = 0xffffffff;
--		ioreqs[1].value = 0x1;
--	}
-+	u32 filter = mac->mode == IEEE80211_IF_TYPE_MNTR ? ~0 : STA_RX_FILTER;
+ 	struct ieee80211_hw *dev = zd_intf_to_dev(intf);
+-	struct zd_mac *mac = zd_dev_mac(dev);
+-	struct zd_usb *usb = &mac->chip.usb;
++	struct zd_mac *mac;
++	struct zd_usb *usb;
  
--	return zd_iowrite32a(&mac->chip, ioreqs, ARRAY_SIZE(ioreqs));
-+	return zd_iowrite32(&mac->chip, CR_RX_FILTER, filter);
- }
+ 	/* Either something really bad happened, or we're just dealing with
+ 	 * a DEVICE_INSTALLER. */
+ 	if (dev == NULL)
+ 		return;
  
- static int zd_mac_open(struct ieee80211_hw *dev)
++	mac = zd_dev_mac(dev);
++	usb = &mac->chip.usb;
++
+ 	dev_dbg_f(zd_usb_dev(usb), "\n");
+ 
+ 	ieee80211_unregister_hw(dev);
 -- 
 1.5.0.5
+
