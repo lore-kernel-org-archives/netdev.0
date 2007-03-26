@@ -1,35 +1,53 @@
-From: Eric Paris <eparis@parisplace.org>
-Subject: Re: [PATCH]: Add security check before flushing SAD/SPD
-Date: Mon, 26 Mar 2007 16:34:11 -0400
-Message-ID: <1174941251.17953.4.camel@localhost.localdomain>
-References: <200703261939.l2QJd7X7012809@faith.austin.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, jmorris@namei.org,
-	selinux@tycho.nsa.gov
-To: Joy Latten <latten@austin.ibm.com>
+From: Ron Mercer <ron.mercer@qlogic.com>
+Subject: [PATCH 2/7] qla3xxx: bugfix: Multi segment sends were getting whacked.
+Date: Mon, 26 Mar 2007 13:42:58 -0700
+Message-ID: <11749417833031-git-send-email-ron.mercer@qlogic.com>
+References: <20070326164650.GA3822@linux-7mw0.qlogic.org>
+Cc: ron.mercer@qlogic.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:49410 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751024AbXCZUeb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Mar 2007 16:34:31 -0400
-In-Reply-To: <200703261939.l2QJd7X7012809@faith.austin.ibm.com>
+Received: from avexch1.qlogic.com ([198.70.193.115]:9929 "EHLO
+	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752997AbXCZUnH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Mar 2007 16:43:07 -0400
+In-Reply-To: <20070326164650.GA3822@linux-7mw0.qlogic.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2007-03-26 at 13:39 -0600, Joy Latten wrote:
-> +			if ((err = security_xfrm_policy_delete(pol)) != 0) {
-> +				xfrm_audit_log(audit_info->loginuid,
-> +					       audit_info->secid,
-> +					       AUDIT_MAC_IPSEC_DELSPD,
-> +					       err ? 0 : 1, pol, NULL);
-> +				return err;
+The proper header length was not being used.
 
-In all of the denial log statements you keep the "err ? 0 : 1" which are
-common among audit, but in this patch we always know that err is 1. Is
-it worth simplifying this down to just a 0 in the all of the
-xfrm_audit_log calls?
+Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
+---
+ drivers/net/qla3xxx.c |    9 ++-------
+ 1 files changed, 2 insertions(+), 7 deletions(-)
 
--Eric
+diff --git a/drivers/net/qla3xxx.c b/drivers/net/qla3xxx.c
+index f645a0d..85850d1 100755
+--- a/drivers/net/qla3xxx.c
++++ b/drivers/net/qla3xxx.c
+@@ -2217,12 +2217,7 @@ static int ql_send_map(struct ql3_adapter *qdev,
+ 	int seg_cnt, seg = 0;
+ 	int frag_cnt = (int)skb_shinfo(skb)->nr_frags;
+ 
+-	seg_cnt = tx_cb->seg_count = ql_get_seg_count(qdev,
+-						      (skb_shinfo(skb)->nr_frags));
+-	if(seg_cnt == -1) {
+-		printk(KERN_ERR PFX"%s: invalid segment count!\n",__func__);
+-		return NETDEV_TX_BUSY;
+-	}
++	seg_cnt = tx_cb->seg_count;
+ 	/*
+ 	 * Map the skb buffer first.
+ 	 */
+@@ -2278,7 +2273,7 @@ static int ql_send_map(struct ql3_adapter *qdev,
+ 				pci_unmap_addr_set(&tx_cb->map[seg], mapaddr,
+ 						   map);
+ 				pci_unmap_len_set(&tx_cb->map[seg], maplen,
+-						  len);
++						  sizeof(struct oal));
+ 				oal_entry = (struct oal_entry *)oal;
+ 				oal++;
+ 				seg++;
+-- 
+1.5.0.rc4.16.g9e258
 
