@@ -1,29 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Correct accept(2) recovery after sock_attach_fd()
-Date: Mon, 26 Mar 2007 14:20:20 -0700 (PDT)
-Message-ID: <20070326.142020.36925087.davem@davemloft.net>
-References: <20070326153431.GA6805@localhost.sw.ru>
+Subject: Re: [PATCH] fib_hash removal
+Date: Mon, 26 Mar 2007 14:22:34 -0700 (PDT)
+Message-ID: <20070326.142234.55510940.davem@davemloft.net>
+References: <17919.51605.319758.456896@robur.slu.se>
+	<20070320160023.GB3577@linux.vnet.ibm.com>
+	<17927.37472.985236.813925@robur.slu.se>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, devel@openvz.org
-To: adobriyan@sw.ru
+Cc: paulmck@linux.vnet.ibm.com, netdev@vger.kernel.org
+To: Robert.Olsson@data.slu.se
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58233
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46331
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753164AbXCZVUV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Mar 2007 17:20:21 -0400
-In-Reply-To: <20070326153431.GA6805@localhost.sw.ru>
+	by vger.kernel.org with ESMTP id S1753211AbXCZVWe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Mar 2007 17:22:34 -0400
+In-Reply-To: <17927.37472.985236.813925@robur.slu.se>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Alexey Dobriyan <adobriyan@sw.ru>
-Date: Mon, 26 Mar 2007 19:34:31 +0400
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Date: Mon, 26 Mar 2007 11:29:04 +0200
 
-> * d_alloc() in sock_attach_fd() fails leaving ->f_dentry of new file NULL
-> * bail out to out_fd label, doing fput()/__fput() on new file
-> * but __fput() assumes valid ->f_dentry and dereferences it
+> Paul E. McKenney writes:
 > 
-> Signed-off-by: Alexey Dobriyan <adobriyan@sw.ru>
+>  > Those of use who dive into networking only occasionally would much
+>  > appreciate this.  ;-)
+> 
+>  No problem here... 
+> 
+>  Cheers
+> 					--ro
+> 
+> Acked-by: Robert Olsson <robert.olsson@its.uu.se>
+> Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com> (but trivial)
 
-Thanks for this bug fix Alexey, patch applied.
+Applied, thanks.
