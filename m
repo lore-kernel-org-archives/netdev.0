@@ -1,39 +1,72 @@
-From: David Miller <davem@davemloft.net>
-Subject: net-2.6.22 rebased...
-Date: Mon, 26 Mar 2007 01:22:49 -0700 (PDT)
-Message-ID: <20070326.012249.123921409.davem@davemloft.net>
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: Re: [PATCH] fib_hash removal
+Date: Mon, 26 Mar 2007 11:29:04 +0200
+Message-ID: <17927.37472.985236.813925@robur.slu.se>
+References: <17914.36807.643615.571195@robur.slu.se>
+	<20070316154839.GA3626@linux.vnet.ibm.com>
+	<17919.51605.319758.456896@robur.slu.se>
+	<20070320160023.GB3577@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, Robert Olsson <Robert.Olsson@data.slu.se>
+To: paulmck@linux.vnet.ibm.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40905
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S933669AbXCZIWv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Mar 2007 04:22:51 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id 028ABAE4297
-	for <netdev@vger.kernel.org>; Mon, 26 Mar 2007 01:22:50 -0700 (PDT)
+Received: from mx1.slu.se ([130.238.96.70]:49461 "EHLO mx1.slu.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753559AbXCZJja (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Mar 2007 05:39:30 -0400
+In-Reply-To: <20070320160023.GB3577@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-I build this tree by cloning the current bug fix net-2.6 tree
-then merging in all of the net-2.6.22 stuff on top, in the
-usual spot:
 
-	kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.22.git
+Paul E. McKenney writes:
 
-I merged in a few of the small "oh shit" type bug fix patches
-into the changeset that caused the problem.
+ > Those of use who dive into networking only occasionally would much
+ > appreciate this.  ;-)
 
-There were also, as usual, several merge conflicts.
+ No problem here... 
 
-I double and triple checked my work, but it's always possible
-that I made mistakes here, so let me know if you see anything
-out of place or flat-out wrong.
+ Cheers
+					--ro
 
-Sanity tested on ix86, and I'm doing build+sanity checks on
-sparc64 and have a "allmodconfig" build going as well.
+Acked-by: Robert Olsson <robert.olsson@its.uu.se>
+Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com> (but trivial)
 
-Thanks!
+
+diff -urpNa -X dontdiff linux-2.6.20/net/ipv4/fib_trie.c linux-2.6.20-fn_trie_RTNL/net/ipv4/fib_trie.c
+--- linux-2.6.20/net/ipv4/fib_trie.c	2007-02-04 10:44:54.000000000 -0800
++++ linux-2.6.20-fn_trie_RTNL/net/ipv4/fib_trie.c	2007-03-20 08:13:59.000000000 -0700
+@@ -1124,6 +1124,9 @@ err:
+ 	return fa_head;
+ }
+ 
++/*
++ * Caller must hold RTNL.
++ */
+ static int fn_trie_insert(struct fib_table *tb, struct fib_config *cfg)
+ {
+ 	struct trie *t = (struct trie *) tb->tb_data;
+@@ -1543,6 +1546,9 @@ static int trie_leaf_remove(struct trie 
+ 	return 1;
+ }
+ 
++/*
++ * Caller must hold RTNL.
++ */
+ static int fn_trie_delete(struct fib_table *tb, struct fib_config *cfg)
+ {
+ 	struct trie *t = (struct trie *) tb->tb_data;
+@@ -1721,6 +1727,9 @@ up:
+ 	return NULL; /* Ready. Root of trie */
+ }
+ 
++/*
++ * Caller must hold RTNL.
++ */
+ static int fn_trie_flush(struct fib_table *tb)
+ {
+ 	struct trie *t = (struct trie *) tb->tb_data;
+
