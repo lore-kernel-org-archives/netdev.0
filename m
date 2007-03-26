@@ -1,150 +1,47 @@
-From: Jose Alberto Reguero <jareguero@telefonica.net>
-Subject: Problem with sockets an 2.6.21-rc5 kernel
-Date: Mon, 26 Mar 2007 23:03:21 +0200
-Message-ID: <200703262303.21448.jareguero@telefonica.net>
+From: "Ahmed S. Darwish" <darwish.07@gmail.com>
+Subject: Re: [PATCH] net: tun/tap: fixed hw address handling
+Date: Mon, 26 Mar 2007 23:05:58 +0200
+Message-ID: <20070326210558.GC21991@Ahmed>
+References: <460632E9.5030508@bristyle.com> <20070326205511.GB21991@Ahmed>
 Mime-Version: 1.0
-Content-Type: Multipart/Mixed;
-  boundary="Boundary-00=_ZUDCG88nFkjtNOH"
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Max Krasnyansky <maxk@qualcomm.com>, vtun@office.satix.net,
+	akpm@osdl.org, jgarzik@pobox.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Brian Braunstein <brian@bristyle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.telefonica.net ([213.4.149.66]:13289 "EHLO
-	ctsmtpout3.frontal.correo" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751739AbXCZVDX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Mar 2007 17:03:23 -0400
-Received: from jar.dominio (80.25.230.35) by ctsmtpout3.frontal.correo (7.2.056.6) (authenticated as jareguero$telefonica.net)
-        id 4607AE2500023D4F for netdev@vger.kernel.org; Mon, 26 Mar 2007 23:03:22 +0200
+Received: from nf-out-0910.google.com ([64.233.182.184]:65333 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753197AbXCZVGU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Mar 2007 17:06:20 -0400
+Received: by nf-out-0910.google.com with SMTP id o25so3029902nfa
+        for <netdev@vger.kernel.org>; Mon, 26 Mar 2007 14:06:18 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20070326205511.GB21991@Ahmed>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Boundary-00=_ZUDCG88nFkjtNOH
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+On Mon, Mar 26, 2007 at 10:55:11PM +0200, ahmed wrote:
+> On Sun, Mar 25, 2007 at 01:29:29AM -0700, Brian Braunstein wrote:
+> > --- linux-2.6.20.4-ORIG/drivers/net/tun.c	2007-03-23 
+> > 12:52:51.000000000 -0700
+> > +++ linux-2.6.20.4/drivers/net/tun.c	2007-03-25 00:44:20.000000000 -0700
+> > @@ -18,6 +18,10 @@
+> > /*
+> >  *  Changes:
+> >  *
+> > + *  Brian Braunstein <linuxkernel@bristyle.com> 2007/03/23
+> > + *    Fixed hw address handling.  Now net_device.dev_addr is kept 
+> > consistent
+> 
+> Your mailer still wrap the long lines mistakenly as it did in the first
+> version of the patch.
+> 
 
-I had two python programs, server.py and client.py(attached)
+It seems a bug in my mutt mail reader (not a feature, it displays other 
+mails long lines without wrapping), sorry.
 
-With server.py in  a kernel 2.6.21-rc5 x86_64 and client.py in the same 
-machine,  server.py get the message.
-
-With server.py in  a kerner 2.6.21-rc5 x86_64 and client.py in another 
-machine, server.py don't get the message.
-
-The same with the programs in c(attached).
-
-With kernel 2.6.20.3 the programs work well.
-
-There are something wrong in the programs?
-
-Thanks.
-
-Jose Alberto
-
---Boundary-00=_ZUDCG88nFkjtNOH
-Content-Type: application/x-python;
-  name="client.py"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
-	filename="client.py"
-
-# Echo client program
-import socket
-
-mcast_adress = "227.234.253.9"
-port = 15922
-
-s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-s.sendto('Hello, world', (mcast_adress, port))
-s.close()
-
---Boundary-00=_ZUDCG88nFkjtNOH
-Content-Type: text/x-csrc;
-  charset="us-ascii";
-  name="client.c"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
-	filename="client.c"
-
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <string.h>
-
-main()
-{
-	int sock = socket (AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-	struct sockaddr_in ClientAddr;
-	memset(&ClientAddr, 0, sizeof(ClientAddr));
-	ClientAddr.sin_family = AF_INET;
-	ClientAddr.sin_addr.s_addr = inet_addr("227.234.253.9");
-	int port = 15922;
-	ClientAddr.sin_port = htons((short) port);
-	char str[] = "Hello, world";
-	sendto(sock, str, strlen(str), 0, (struct sockaddr *)&ClientAddr, sizeof(ClientAddr));
-	close(sock);
-}
-
---Boundary-00=_ZUDCG88nFkjtNOH
-Content-Type: text/x-csrc;
-  charset="us-ascii";
-  name="server.c"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
-	filename="server.c"
-
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <string.h>
-#include <stdio.h>
-
-main()
-{
-        struct sockaddr_in ServerAddr;
-        int sock = socket (AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-        int reuse = 1;
-        setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(int));
-        memset(&ServerAddr, 0, sizeof(ServerAddr));
-        ServerAddr.sin_family = AF_INET;
-        ServerAddr.sin_addr.s_addr = htonl(INADDR_ANY);
-        int port = 15922;
-        ServerAddr.sin_port = htons((short) port);
-        bind(sock, (struct sockaddr *)&ServerAddr, sizeof(ServerAddr));
-        struct ip_mreq mreq;
-	memset(&mreq, 0, sizeof(mreq));
-        mreq.imr_multiaddr.s_addr = inet_addr("227.234.253.9");
-	mreq.imr_interface.s_addr = htonl(INADDR_ANY);
-        setsockopt(sock, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq));
-        char str[100];
-	memset(&str, 0, sizeof(str));
-        recv(sock, str, 100, 0);
-        printf(":%s:\n", str);
-	close (sock);
-}
-
---Boundary-00=_ZUDCG88nFkjtNOH
-Content-Type: application/x-python;
-  name="server.py"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
-	filename="server.py"
-
-# Echo server program
-import socket
-import struct
-
-HOST = ''                 # Symbolic name meaning the local host
-PORT = 15922              # Arbitrary non-privileged port
-mcast_adress = "227.234.253.9"
-
-s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-s.bind((HOST, PORT))
-mreq = struct.pack('4si', socket.inet_aton(mcast_adress), socket.INADDR_ANY)
-s.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
-data = s.recv(1024)
-if (data):
-    print (data)
-s.close()
-
---Boundary-00=_ZUDCG88nFkjtNOH--
+-- 
+Ahmed S. Darwish
+http://darwish.07.googlepages.com
 
