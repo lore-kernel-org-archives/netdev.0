@@ -1,41 +1,57 @@
-From: Paul Mackerras <paulus@samba.org>
-Subject: Re: [irda-users] [2.6.20-rt8] "Neighbour table overflow."
-Date: Mon, 26 Mar 2007 11:02:22 +1000
-Message-ID: <17927.7070.803210.600520@cargo.ozlabs.ibm.com>
-References: <FuqKSqqx.1174476366.8345250.samuel@sortiz.org>
-	<Pine.LNX.4.63.0703211235220.534@pcgl.dsa-ac.de>
-	<Pine.LNX.4.63.0703231309170.534@pcgl.dsa-ac.de>
-	<20070324.221034.45741983.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC PATCHv5 1/5] [TCP]: Add highest_sack seqno, points to
+ globally highest SACK
+Date: Sun, 25 Mar 2007 18:35:22 -0700 (PDT)
+Message-ID: <20070325.183522.15263841.davem@davemloft.net>
+References: <11740704662337-git-send-email-ilpo.jarvinen@helsinki.fi>
+	<20070324.210428.78711276.davem@davemloft.net>
+	<Pine.LNX.4.64.0703260034120.9398@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: gl@dsa-ac.de, samuel@sortiz.org, irda-users@lists.sourceforge.net,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: ilpo.jarvinen@helsinki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:36648 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933290AbXCZBCb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 25 Mar 2007 21:02:31 -0400
-In-Reply-To: <20070324.221034.45741983.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53390
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S933328AbXCZBfX convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 25 Mar 2007 21:35:23 -0400
+In-Reply-To: <Pine.LNX.4.64.0703260034120.9398@kivilampi-30.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller writes:
+=46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+Date: Mon, 26 Mar 2007 00:55:57 +0300 (EEST)
 
-> The PPP generic layer seems to be very careful about it's handling of
-> the ->xmit_pending packet.
+> On Sat, 24 Mar 2007, David Miller wrote:
+>=20
+> > From: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+> > Date: Fri, 16 Mar 2007 20:41:02 +0200
+> >=20
+> > > It is guaranteed to be valid only when !tp->sacked_out. In most
+> > > cases this seqno is available in the last ACK but there is no
+> > > guarantee for that. The new fast recovery loss marking algorithm
+> > > needs this as entry point.
+> >=20
+> > It's a shame we keep around multiple values which represent very
+> > related values.  For example, this new seqno could be computed
+> > using "fackets_out" if we knew also how many holes there were.
+>=20
+> It would then be an estimate which is 100% accurate in most cases (wh=
+en=20
+> all related skbs are full sized). I think it must never underestimate=
+=20
+> highest_sack though, it would be quite ok to use fackets_out * mss bu=
+t any=20
+> > mss skb would obviously be a problem (if they ever occur)... Are al=
+l=20
+> paths ok with that (this is beoynd the codepaths I'm quite sure of...=
+)?!
 
-Mostly, but I think that this is a genuine leak.
+Right, I understand that we really can't even use such an estimate
+because of the "full mss size" assumption.
 
-> I'm really surprised this leak doesn't trigger already via the
-> ppp_synctty.c and ppp_async.c drivers, perhaps they do something to
-> make sure the transmitter gets purged properly when unregistering and
-> therefore ->xmit_pending does not get left non-NULL at unregister
-> time.
-
-At least for ppp_async, I think what saves us is that pppd does a
-TCFLSH ioctl when shutting down the link, which calls
-ppp_async_flush_output, which calls ppp_output_wakeup.
-
-Paul.
+In any event, maybe we can find another way to "integrate" other
+values we maintain in tcp_sock we can be computed from other ones
+cheaply.
