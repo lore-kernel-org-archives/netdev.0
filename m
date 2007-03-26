@@ -1,57 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCHv5 1/5] [TCP]: Add highest_sack seqno, points to
- globally highest SACK
-Date: Sun, 25 Mar 2007 18:35:22 -0700 (PDT)
-Message-ID: <20070325.183522.15263841.davem@davemloft.net>
-References: <11740704662337-git-send-email-ilpo.jarvinen@helsinki.fi>
-	<20070324.210428.78711276.davem@davemloft.net>
-	<Pine.LNX.4.64.0703260034120.9398@kivilampi-30.cs.helsinki.fi>
+Subject: Re: [irda-users] [2.6.20-rt8] "Neighbour table overflow."
+Date: Sun, 25 Mar 2007 18:36:22 -0700 (PDT)
+Message-ID: <20070325.183622.26278284.davem@davemloft.net>
+References: <Pine.LNX.4.63.0703231309170.534@pcgl.dsa-ac.de>
+	<20070324.221034.45741983.davem@davemloft.net>
+	<20070325235058.GA3715@sortiz.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: ilpo.jarvinen@helsinki.fi
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: gl@dsa-ac.de, irda-users@lists.sourceforge.net, paulus@samba.org,
+	netdev@vger.kernel.org
+To: samuel@sortiz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53390
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53396
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S933328AbXCZBfX convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 25 Mar 2007 21:35:23 -0400
-In-Reply-To: <Pine.LNX.4.64.0703260034120.9398@kivilampi-30.cs.helsinki.fi>
+	by vger.kernel.org with ESMTP id S933339AbXCZBgX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Mar 2007 21:36:23 -0400
+In-Reply-To: <20070325235058.GA3715@sortiz.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
-Date: Mon, 26 Mar 2007 00:55:57 +0300 (EEST)
+From: Samuel Ortiz <samuel@sortiz.org>
+Date: Mon, 26 Mar 2007 02:50:59 +0300
 
-> On Sat, 24 Mar 2007, David Miller wrote:
->=20
-> > From: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
-> > Date: Fri, 16 Mar 2007 20:41:02 +0200
-> >=20
-> > > It is guaranteed to be valid only when !tp->sacked_out. In most
-> > > cases this seqno is available in the last ACK but there is no
-> > > guarantee for that. The new fast recovery loss marking algorithm
-> > > needs this as entry point.
-> >=20
-> > It's a shame we keep around multiple values which represent very
-> > related values.  For example, this new seqno could be computed
-> > using "fackets_out" if we knew also how many holes there were.
->=20
-> It would then be an estimate which is 100% accurate in most cases (wh=
-en=20
-> all related skbs are full sized). I think it must never underestimate=
-=20
-> highest_sack though, it would be quite ok to use fackets_out * mss bu=
-t any=20
-> > mss skb would obviously be a problem (if they ever occur)... Are al=
-l=20
-> paths ok with that (this is beoynd the codepaths I'm quite sure of...=
-)?!
+> I still think Guennadi's fix is correct even if you return 0 from the TX
+> function only when you're running out of space. If we unregister the ppp
+> interface before we get a chance to call ppp_output_wake(), then we'll leak
+> an xmit_pending skb.
 
-Right, I understand that we really can't even use such an estimate
-because of the "full mss size" assumption.
+I agree, especially after thinking about this some more.
 
-In any event, maybe we can find another way to "integrate" other
-values we maintain in tcp_sock we can be computed from other ones
-cheaply.
+It's just really weird that we've never hit this before,
+since this logic has been there forever, that's all :-)
