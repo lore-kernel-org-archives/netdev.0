@@ -1,71 +1,72 @@
-From: Joy Latten <latten@austin.ibm.com>
-Subject: Re: [PATCH]: SAD sometimes has double SAs.
-Date: Mon, 26 Mar 2007 17:25:33 -0600
-Message-ID: <1174951534.3085.377.camel@faith.austin.ibm.com>
-References: <200703232258.l2NMwKqH016994@faith.austin.ibm.com>
-	 <1174944899.17953.20.camel@localhost.localdomain>
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: Re: [PATCH/RFC] e1000: Check for hw type before enabling ipv6 TSO
+Date: Mon, 26 Mar 2007 16:48:51 -0700
+Message-ID: <46085BE3.6040009@intel.com>
+References: <1174951189.3347.15.camel@w-sridhar2.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	herbert@gondor.apana.org.au, jmorris@namei.org, paul.moore@hp.com,
-	vyekkirala@trustedcs.com
-To: Eric Paris <eparis@redhat.com>
+Cc: netdev@vger.kernel.org,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	"Tantilov, Emil S" <emil.s.tantilov@intel.com>
+To: Sridhar Samudrala <sri@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e2.ny.us.ibm.com ([32.97.182.142]:57555 "EHLO e2.ny.us.ibm.com"
+Received: from mga09.intel.com ([134.134.136.24]:21560 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933741AbXCZXmI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Mar 2007 19:42:08 -0400
-Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
-	by e2.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l2QNg67k015656
-	for <netdev@vger.kernel.org>; Mon, 26 Mar 2007 19:42:06 -0400
-Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
-	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l2QNg6Di250850
-	for <netdev@vger.kernel.org>; Mon, 26 Mar 2007 19:42:06 -0400
-Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
-	by d01av03.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l2QNg5KS028419
-	for <netdev@vger.kernel.org>; Mon, 26 Mar 2007 19:42:06 -0400
-In-Reply-To: <1174944899.17953.20.camel@localhost.localdomain>
+	id S933786AbXCZXsw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Mar 2007 19:48:52 -0400
+In-Reply-To: <1174951189.3347.15.camel@w-sridhar2.beaverton.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2007-03-26 at 17:34 -0400, Eric Paris wrote:
-> On Fri, 2007-03-23 at 16:58 -0600, Joy Latten wrote:
+Sridhar Samudrala wrote:
+> I think the check for hw type is missing in e1000_set_tso()
+> before enabling ipv6 TSO.
 > 
-> > @@ -710,11 +713,20 @@ static struct xfrm_state *__find_acq_cor
-> >  
-> >  		switch (family) {
-> >  		case AF_INET:
-> > +			if (x->id.daddr.a4 == saddr->a4 &&
-> > +			    x->props.saddr.a4 == daddr->a4)
-> > +				track_opposite = 1;
-> >  			if (x->id.daddr.a4    != daddr->a4 ||
-> >  			    x->props.saddr.a4 != saddr->a4)
-> >  				continue;
-> >  			break;
-> >  		case AF_INET6:
-> > +			if (ipv6_addr_equal((struct in6_addr *)x->id.daddr.a6,
-> > +					     (struct in6_addr *)saddr) ||
-> > +			    ipv6_addr_equal((struct in6_addr *)
-> > +					     x->props.saddr.a6,
-> > +					     (struct in6_addr *)daddr))
-> > +					track_opposite = 1;
-> >  			if (!ipv6_addr_equal((struct in6_addr *)x->id.daddr.a6,
-> >  					     (struct in6_addr *)daddr) ||
-> >  			    !ipv6_addr_equal((struct in6_addr *)
+> e1000_probe() makes sure that NETIF_F_TSO6 is set only if
+> hw.mac_type > e1000_82547_rev_2. But this is not done in
+> e1000_set_tso() that gets called when trying to enable TSO
+> using ethtool.
 > 
-> I'm not at all able to speak on the correctness or validity of the
-> solution, but shouldn't the ipv6 case be a && not an || like the ipv4
-> case?  Isn't this going to match all sorts of things?  Did you test this
-> patch on ipv6 and see it to solve your problem?
+> I noticed this problem when i tried to do an ipv6 netperf
+> test with TSO enabled on 82541 based e1000 card.
 > 
-Will fix this and resend. Sorry, forgot about ipv6. My mistake! :-( 
+> The following patch adds this check to e1000_set_tso()
 
-> I'm also not enjoying the formatting in the ipv6 part where the first
-> time you have the cast on the same time as the object but not the second
-> part where x->props.saddr.a6 is on its own little line.
+
+that looks indeed like an oversight. I'll make sure this is verified and will 
+include this patch in my upstream submission to the kernel maintainer if it 
+checks out,
+
+thanks for posting!
+
+Auke
+
+
 > 
-ok. 
-
-Joy
-
+> Thanks
+> Sridhar
+> 
+> Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
+> 
+> diff --git a/drivers/net/e1000/e1000_ethtool.c b/drivers/net/e1000/e1000_ethtool.c
+> --- a/drivers/net/e1000/e1000_ethtool.c
+> +++ b/drivers/net/e1000/e1000_ethtool.c
+> @@ -351,10 +351,12 @@ e1000_set_tso(struct net_device *netdev, uint32_t data)
+>  	else
+>  		netdev->features &= ~NETIF_F_TSO;
+>  
+> -	if (data)
+> -		netdev->features |= NETIF_F_TSO6;
+> -	else
+> -		netdev->features &= ~NETIF_F_TSO6;
+> +	if (adapter->hw.mac_type > e1000_82547_rev_2) {
+> +		if (data)
+> +			netdev->features |= NETIF_F_TSO6;
+> +		else
+> +			netdev->features &= ~NETIF_F_TSO6;
+> +	}
+>  
+>  	DPRINTK(PROBE, INFO, "TSO is %s\n", data ? "Enabled" : "Disabled");
+>  	adapter->tso_force = TRUE;
+> 
