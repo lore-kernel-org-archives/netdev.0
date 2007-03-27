@@ -1,7 +1,7 @@
 From: Brice Goglin <brice@myri.com>
 Subject: [PATCH 1/1] myri10ge: correctly detect when TSO should be used
-Date: Tue, 27 Mar 2007 21:54:23 +0200
-Message-ID: <4609766F.1010604@myri.com>
+Date: Tue, 27 Mar 2007 21:54:53 +0200
+Message-ID: <4609768D.8020309@myri.com>
 References: <46097617.8050407@myri.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
@@ -9,10 +9,10 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl.myri.com ([64.172.73.26]:1995 "EHLO myri.com"
+Received: from dsl.myri.com ([64.172.73.26]:2026 "EHLO myri.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S964989AbXC0Tz5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Mar 2007 15:55:57 -0400
+	id S965084AbXC0T41 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Mar 2007 15:56:27 -0400
 In-Reply-To: <46097617.8050407@myri.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
@@ -21,6 +21,8 @@ Correctly detect when TSO should be used on transmit by looking at the
 skb->gso_size rather than seeing if the frame was larger than our MTU.
 The old method causes problems when a host with a large (jumbo) MTU is
 sending to a host with a small (standard) MTU.
+
+Signed-off-by: Brice Goglin <brice@myri.com>
 ---
  drivers/net/myri10ge/myri10ge.c |    7 +++----
  1 file changed, 3 insertions(+), 4 deletions(-)
