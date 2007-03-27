@@ -1,61 +1,67 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [IPV6]: Do not set IF_READY if device is down
-Date: Tue, 27 Mar 2007 14:33:24 -0700 (PDT)
-Message-ID: <20070327.143324.58455258.davem@davemloft.net>
-References: <200703080359.l283xo6S012573@hera.kernel.org>
-	<1175003838.3277.41.camel@pmac.infradead.org>
-	<20070327213032.GA30935@gondor.apana.org.au>
+From: "Arnaldo Carvalho de Melo" <acme@ghostprotocols.net>
+Subject: Re: [PATCH 2/2] [SK_BUFF]: Introduce skb_copy_from_linear_data{_offset}
+Date: Tue, 27 Mar 2007 18:33:29 -0300
+Message-ID: <39e6f6c70703271433h5ce06dabv521eaa4436727164@mail.gmail.com>
+References: <20070327194148.GC20303@ghostprotocols.net>
+	 <20070327.140749.106434705.davem@davemloft.net>
+	 <39e6f6c70703271422i3881fc6bw18480e8f1b553e27@mail.gmail.com>
+	 <46098B74.8060404@trash.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: dwmw2@infradead.org, netdev@vger.kernel.org,
-	yoshfuji@linux-ipv6.org
-To: herbert@gondor.apana.org.au
+Cc: "David Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: "Patrick McHardy" <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42065
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S965059AbXC0Vd0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Mar 2007 17:33:26 -0400
-In-Reply-To: <20070327213032.GA30935@gondor.apana.org.au>
+Received: from wr-out-0506.google.com ([64.233.184.237]:12820 "EHLO
+	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965491AbXC0Vdb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Mar 2007 17:33:31 -0400
+Received: by wr-out-0506.google.com with SMTP id 76so2127245wra
+        for <netdev@vger.kernel.org>; Tue, 27 Mar 2007 14:33:30 -0700 (PDT)
+In-Reply-To: <46098B74.8060404@trash.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Wed, 28 Mar 2007 07:30:32 +1000
-
-> On Tue, Mar 27, 2007 at 02:57:18PM +0100, David Woodhouse wrote:
+On 3/27/07, Patrick McHardy <kaber@trash.net> wrote:
+> Arnaldo Carvalho de Melo wrote:
+> > On 3/27/07, David Miller <davem@davemloft.net> wrote:
 > >
-> > >     [IPV6]: Do not set IF_READY if device is down
-> > >     
-> > >     Now that we add the IPv6 device at registration time we don't need
-> > >     to set IF_READY in ipv6_add_dev anymore because we will always get
-> > >     a NETDEV_UP event later on should the device ever become ready.
-> > >     
-> > >     Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-> > >     Signed-off-by: David S. Miller <davem@davemloft.net>
-> > 
-> > This commit seems to have broken NetworkManager, which removes the
-> > link-local IPv6 address from each wireless interface while it's only
-> > intending to use it for scanning, then adds it back when it actually
-> > wants to _use_ the interface in question.
-> 
-> Sorry, that patch is indeed broken.  We do need to set IF_READY in
-> the case where all addresses were deleted (including the link-local)
-> and then recreated.  The IPv6 device will be destroyed and recreated
-> too in that case.
-> 
-> [IPV6]: Set IF_READY if the device is up and has carrier
-> 
-> We still need to set the IF_READY flag in ipv6_add_dev for the case
-> where all addresses (including the link-local) are deleted and then
-> recreated.  In that case the IPv6 device too will be destroyed and
-> then recreated.
-> 
-> In order to prevent the original problem, we simply ensure that
-> the device is up before setting IF_READY.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> >> From: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+> >> Date: Tue, 27 Mar 2007 16:41:48 -0300
+> >>
+> >> > +static inline void skb_move_linear_data(const struct sk_buff *skb,
+> >> > +                                     const int from_offset,
+> >> > +                                     const int to_offset,
+> >> > +                                     const unsigned int len)
+> >> > +{
+> >> > +     memcpy(skb->data + to_offset, skb->data + from_offset, len);
+> >> > +}
+> >> > +
+> >>
+> >> What do you intend to use this for?  There are no users in
+> >> your patch, and I'd be fearful of overlapping cases (which
+> >> ought to be common for anything using this) which therefore
+> >> would require use of memmove() instead of memcpy().
+> >>
+> >> How about we just leave out interfaces until we have a use
+> >> case?
+> >
+> >
+> > I don't want to intend anything with this, was just a brain fart, a
+> > failed attempt to convince me that this was needed, I apologise for
+> > letting this sleep thru, will remove and resubmit, ok?
+>
+>
+> nf_nat_helper.c:mangle_content() could make use of this, but it
+> would need memmove. Something to do this with non-linear packets
+> would be even cooler :)
 
-Applied, thanks Herbert.
+Damn, that was so fast man! For the qeth case that motivated me to try
+the leftover it was like: memcpy is the fastest way, memmove would be
+more costly but more general, when in doubt I just droppped the users
+without removing the infrastructure, nah, lets leave this for another
+day, for now I'll just drop the non-used -new infrastrucure and
+resubmit.
 
-I'll make sure to push this to the relevant -stable places.
+- Arnaldo
