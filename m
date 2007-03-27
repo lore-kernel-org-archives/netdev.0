@@ -1,96 +1,78 @@
 From: akpm@linux-foundation.org
-Subject: [patch 06/10] tulip: fix shutdown DMA/irq race
-Date: Mon, 26 Mar 2007 21:47:25 -0800
-Message-ID: <200703270547.l2R5lPEk008266@shell0.pdx.osdl.net>
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	grundler@parisc-linux.org, val_henson@linux.intel.com
-To: jeff@garzik.org
+Subject: [patch 6/7] drivers/net/bonding/bond_main.c:make 3 functions static
+Date: Mon, 26 Mar 2007 21:50:02 -0800
+Message-ID: <200703270550.l2R5o2A7008391@shell0.pdx.osdl.net>
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org, bunk@stusta.de
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:40427 "EHLO smtp.osdl.org"
+Received: from smtp.osdl.org ([65.172.181.24]:40616 "EHLO smtp.osdl.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934030AbXC0FvE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Mar 2007 01:51:04 -0400
+	id S934043AbXC0FxS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Mar 2007 01:53:18 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Grant Grundler <grundler@parisc-linux.org>
+From: Adrian Bunk <bunk@stusta.de>
 
-IRQs are racing with tulip_down().  DMA can be restarted by the interrupt
-handler _after_ we call tulip_stop_rxtx() and the DMA buffers are unmapped.
- The result is an MCA (hard crash on ia64) because of an IO TLB miss.  The
-long-term fix is to make the interrupt handler shutdown aware.
+This patch makes the following needlessly global functions static:
+- bond_mode_name()
+- bond_sethwaddr()
+- bond_mii_monitor()
 
-Signed-off-by: Grant Grundler <grundler@parisc-linux.org>
-Acked-by: Valerie Henson <val_henson@linux.intel.com>
-Cc: Jeff Garzik <jeff@garzik.org>
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/net/tulip/tulip_core.c |   31 +++++++++++++++++++++----------
- 1 file changed, 21 insertions(+), 10 deletions(-)
+ drivers/net/bonding/bond_main.c |    7 ++++---
+ drivers/net/bonding/bonding.h   |    3 ---
+ 2 files changed, 4 insertions(+), 6 deletions(-)
 
-diff -puN drivers/net/tulip/tulip_core.c~tulip-fix-shutdown-dma-irq-race drivers/net/tulip/tulip_core.c
---- a/drivers/net/tulip/tulip_core.c~tulip-fix-shutdown-dma-irq-race
-+++ a/drivers/net/tulip/tulip_core.c
-@@ -734,23 +734,36 @@ static void tulip_down (struct net_devic
- #endif
- 	spin_lock_irqsave (&tp->lock, flags);
+diff -puN drivers/net/bonding/bond_main.c~drivers-net-bonding-bond_maincmake-3-functions-static drivers/net/bonding/bond_main.c
+--- a/drivers/net/bonding/bond_main.c~drivers-net-bonding-bond_maincmake-3-functions-static
++++ a/drivers/net/bonding/bond_main.c
+@@ -188,7 +188,7 @@ static void bond_send_gratuitous_arp(str
  
-+	/*
-+	  FIXME: We should really add a shutdown-in-progress flag and
-+	  check it in the interrupt handler to see whether we should
-+	  reenable DMA or not.  The preferred ordering here would be:
-+
-+	  stop DMA engine
-+	  disable interrupts
-+	  remove DMA resources
-+	  free_irq()
-+
-+	  The below works but is non-obvious and doesn't match the
-+	  ordering of bring-up. -VAL
-+	*/
-+
- 	/* Disable interrupts by clearing the interrupt mask. */
- 	iowrite32 (0x00000000, ioaddr + CSR7);
-+	ioread32 (ioaddr + CSR7);	/* flush posted write */
+ /*---------------------------- General routines -----------------------------*/
  
--	/* Stop the Tx and Rx processes. */
--	tulip_stop_rxtx(tp);
-+	spin_unlock_irqrestore (&tp->lock, flags);
+-const char *bond_mode_name(int mode)
++static const char *bond_mode_name(int mode)
+ {
+ 	switch (mode) {
+ 	case BOND_MODE_ROUNDROBIN :
+@@ -1225,7 +1225,8 @@ static void bond_detach_slave(struct bon
  
--	/* prepare receive buffers */
--	tulip_refill_rx(dev);
-+	free_irq (dev->irq, dev);	/* no more races after this */
-+	tulip_stop_rxtx(tp);		/* Stop DMA */
+ /*---------------------------------- IOCTL ----------------------------------*/
  
--	/* release any unconsumed transmit buffers */
--	tulip_clean_tx_ring(tp);
-+	/* Put driver back into the state we start with */
-+	tulip_refill_rx(dev);		/* prepare RX buffers */
-+	tulip_clean_tx_ring(tp);	/* clean up unsent TX buffers */
+-int bond_sethwaddr(struct net_device *bond_dev, struct net_device *slave_dev)
++static int bond_sethwaddr(struct net_device *bond_dev,
++			  struct net_device *slave_dev)
+ {
+ 	dprintk("bond_dev=%p\n", bond_dev);
+ 	dprintk("slave_dev=%p\n", slave_dev);
+@@ -2039,7 +2040,7 @@ static int bond_slave_info_query(struct 
+ /*-------------------------------- Monitoring -------------------------------*/
  
- 	if (ioread32 (ioaddr + CSR6) != 0xffffffff)
- 		tp->stats.rx_missed_errors += ioread32 (ioaddr + CSR8) & 0xffff;
- 
--	spin_unlock_irqrestore (&tp->lock, flags);
--
- 	init_timer(&tp->timer);
- 	tp->timer.data = (unsigned long)dev;
- 	tp->timer.function = tulip_tbl[tp->chip_id].media_timer;
-@@ -776,7 +789,6 @@ static int tulip_close (struct net_devic
- 		printk (KERN_DEBUG "%s: Shutting down ethercard, status was %2.2x.\n",
- 			dev->name, ioread32 (ioaddr + CSR5));
- 
--	free_irq (dev->irq, dev);
- 
- 	/* Free all the skbuffs in the Rx queue. */
- 	for (i = 0; i < RX_RING_SIZE; i++) {
-@@ -1747,7 +1759,6 @@ static int tulip_suspend (struct pci_dev
- 		tulip_down(dev);
- 
- 	netif_device_detach(dev);
--	free_irq(dev->irq, dev);
- 
- 	pci_save_state(pdev);
- 	pci_disable_device(pdev);
+ /* this function is called regularly to monitor each slave's link. */
+-void bond_mii_monitor(struct work_struct *work)
++static void bond_mii_monitor(struct work_struct *work)
+ {
+ 	struct bonding *bond = container_of(work, struct bonding, mii_work.work);
+ 	struct net_device *bond_dev = bond->dev;
+diff -puN drivers/net/bonding/bonding.h~drivers-net-bonding-bond_maincmake-3-functions-static drivers/net/bonding/bonding.h
+--- a/drivers/net/bonding/bonding.h~drivers-net-bonding-bond_maincmake-3-functions-static
++++ a/drivers/net/bonding/bonding.h
+@@ -301,13 +301,10 @@ int bond_create_slave_symlinks(struct ne
+ void bond_destroy_slave_symlinks(struct net_device *master, struct net_device *slave);
+ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev);
+ int bond_release(struct net_device *bond_dev, struct net_device *slave_dev);
+-int bond_sethwaddr(struct net_device *bond_dev, struct net_device *slave_dev);
+-void bond_mii_monitor(struct work_struct *work);
+ void bond_loadbalance_arp_mon(struct work_struct *work);
+ void bond_activebackup_arp_mon(struct work_struct *work);
+ void bond_set_mode_ops(struct bonding *bond, int mode);
+ int bond_parse_parm(char *mode_arg, struct bond_parm_tbl *tbl);
+-const char *bond_mode_name(int mode);
+ void bond_select_active_slave(struct bonding *bond);
+ void bond_change_active_slave(struct bonding *bond, struct slave *new_active);
+ void bond_register_arp(struct bonding *);
 _
