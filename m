@@ -1,32 +1,45 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: RFC: Established connections hash function
-Date: 27 Mar 2007 16:11:56 +0200
-Message-ID: <p73lkhi6aj7.fsf@bingen.suse.de>
-References: <10189ABA61CF4D5AB3881F96C9CACE87@XEON>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: Problem with sockets an 2.6.21-rc5 kernel
+Date: Tue, 27 Mar 2007 17:12:56 +0400
+Message-ID: <20070327131256.GA7513@2ka.mipt.ru>
+References: <200703262303.21448.jareguero@telefonica.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: <netdev@vger.kernel.org>
-To: nikb@webmaster.com
+Content-Type: text/plain; charset=koi8-r
+Cc: netdev@vger.kernel.org
+To: Jose Alberto Reguero <jareguero@telefonica.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor.suse.de ([195.135.220.2]:47505 "EHLO mx1.suse.de"
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:50833 "EHLO 2ka.mipt.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753832AbXC0NNL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Mar 2007 09:13:11 -0400
-In-Reply-To: <10189ABA61CF4D5AB3881F96C9CACE87@XEON>
+	id S1753841AbXC0NNQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Mar 2007 09:13:16 -0400
+Content-Disposition: inline
+In-Reply-To: <200703262303.21448.jareguero@telefonica.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-"Nikolaos D. Bougalis" <nikb@webmaster.com> writes:
+On Mon, Mar 26, 2007 at 11:03:21PM +0200, Jose Alberto Reguero (jareguero@telefonica.net) wrote:
+> I had two python programs, server.py and client.py(attached)
 > 
->     I will be more than happy to provide a patch for this, but I figured I
-> would solicit some input first.
+> With server.py in  a kernel 2.6.21-rc5 x86_64 and client.py in the same 
+> machine,  server.py get the message.
+> 
+> With server.py in  a kerner 2.6.21-rc5 x86_64 and client.py in another 
+> machine, server.py don't get the message.
+> 
+> The same with the programs in c(attached).
+> 
+> With kernel 2.6.20.3 the programs work well.
+> 
+> There are something wrong in the programs?
 
-To truly defend against this you would likely need a cryptographic
-hash, which would be likely too slow. 
+Besides full absence of error checks and coding style issues it does not
+seem to contain errors.
 
-If it's a real problem the better fix would be to switch to some
-kind of balanced tree (like Evgeniy is proposing) . 
+And, btw, C program work with 2.6.21-rc5 (git tree
+e0f2e3a06be513352cb4955313ed7e55909acd84) on x86_64.
 
-But I think it can be mostly ignored. 
+server.c application compiled with Debian 4.1.1-21 compiler on x86_64
+sucessfully received message from 2.6.18-3 machine.
 
--Andi
+-- 
+	Evgeniy Polyakov
