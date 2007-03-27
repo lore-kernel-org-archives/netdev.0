@@ -1,38 +1,35 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: IP1000A: About IC Plus IP1000A Linux driver current status
-Date: Wed, 28 Mar 2007 00:24:41 +0200
-Message-ID: <20070327222441.GA20687@electric-eye.fr.zoreil.com>
-References: <1156268234.3622.1.camel@localhost.localdomain> <20060821231455.1ce9474d.rdunlap@xenotime.net> <001b01c7704f$4232a0d0$4964a8c0@icplus.com.tw> <46095A23.9090705@garzik.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] NET: Add TCP connection abort IOCTL
+Date: Tue, 27 Mar 2007 15:30:25 -0700 (PDT)
+Message-ID: <20070327.153025.45876618.davem@davemloft.net>
+References: <20070327214754.GA11677@dag-work>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jesse Huang <jesse@icplus.com.tw>,
-	"Randy.Dunlap" <rdunlap@xenotime.net>, penberg@cs.Helsinki.FI,
-	akpm@osdl.org, dvrabel@cantab.net, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, david@pleyades.net
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.ne, netdev@vger.kernel.org
+To: dagriego@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:58972 "EHLO
-	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934236AbXC0W3S (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Mar 2007 18:29:18 -0400
-Content-Disposition: inline
-In-Reply-To: <46095A23.9090705@garzik.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49693
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S934235AbXC0Wa1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Mar 2007 18:30:27 -0400
+In-Reply-To: <20070327214754.GA11677@dag-work>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik <jeff@garzik.org> :
-> Jesse Huang wrote:
-> >Dear all:
-> >
-> >Would someone tell me the current status of IP1000A Linux Driver?
-> >Would it be putted into Linux Kernel or not?
+From: dagriego@gmail.com (David Griego)
+Date: Tue, 27 Mar 2007 14:47:54 -0700
+
+> Adds an IOCTL for aborting established TCP connections, and is
+> designed to be an HA performance improvement for cleaning up, failure 
+> notification, and application termination.
 > 
-> I forgot what the status of this was?  Didn't it need some cleanups?
+> Signed-off-by:  David Griego <dagriego@gmail.com>
 
-More cleanups than what it already had would be welcome.
+SO_LINGER with a zero linger time plus close() isn't working
+properly?
 
-I will not argue to delay further the inclusion of a driver for this
-device though.
+There is no reason for this ioctl at all.  Either existing
+facilities provide what you need or what you want is a
+protocol violation we can't do.
 
--- 
-Ueimor
