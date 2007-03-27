@@ -1,69 +1,103 @@
 From: akpm@linux-foundation.org
-Subject: [patch 1/7] fix irq problem with NAPI + NETPOLL
-Date: Mon, 26 Mar 2007 21:49:57 -0800
-Message-ID: <200703270549.l2R5nv9E008366@shell0.pdx.osdl.net>
+Subject: [patch 3/7] Delete unused header file linux/if_wanpipe_common.h
+Date: Mon, 26 Mar 2007 21:49:59 -0800
+Message-ID: <200703270549.l2R5nx34008375@shell0.pdx.osdl.net>
 Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	anemo@mba.ocn.ne.jp, jeff@garzik.org, romieu@fr.zoreil.com
+	rpjday@mindspring.com, khc@pm.waw.pl
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:40343 "EHLO smtp.osdl.org"
+Received: from smtp.osdl.org ([65.172.181.24]:40340 "EHLO smtp.osdl.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934044AbXC0FuK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S934049AbXC0FuK (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 27 Mar 2007 01:50:10 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
+From: "Robert P. J. Day" <rpjday@mindspring.com>
 
-This patch is to make netif_receive_skb() robust on NAPI+NETPOLL case.
+Delete the unreferenced header file include/linux/if_wanpipe_common.h,
+as well as the reference to it in the Doc file.
 
-1. netpoll_send_skb() calls netpoll_poll() with interrupt disabled.
-2. netpoll_poll() calls poll_napi().
-3. poll_napi() calls dev->poll().
-4. dev->poll() (for example rtl8139_poll()) calls rtl8139_rx().
-5. rtl8139_rx() calls netif_receive_skb().
-6. netif_receive_skb() calls netpoll_rx().
-
-If netpoll_rx() returned 1, no problem.  If netpoll_rx() returned 0,
-netif_receive_skb() continues to processing the skb with interrupt
-disabled.  It might cause some problems, for example,
-
-netif_receive_skb() -> deliver_skb() -> arp_rcv() -> arp_process() ->
-neigh_lookup() -> read_unlock_bh() -> local_bh_enable() ->
-WARN_ON_ONCE(irqs_disabled()).
-
-The patch tries to avoid this by redirecting skb to netif_rx() if
-netif_receive_skb() was called from irq context or irq disabled.
-
-Signed-off-by: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
-Cc: Jeff Garzik <jeff@garzik.org>
-Cc: Francois Romieu <romieu@fr.zoreil.com>
-Cc: "David S. Miller" <davem@davemloft.net>
+Signed-off-by: Robert P. J. Day <rpjday@mindspring.com>
+Cc: Krzysztof Halasa <khc@pm.waw.pl>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- net/core/dev.c |   11 +++++++++--
- 1 file changed, 9 insertions(+), 2 deletions(-)
+ Documentation/networking/wan-router.txt |    1 
+ include/linux/if_wanpipe_common.h       |   58 ----------------------
+ 2 files changed, 59 deletions(-)
 
-diff -puN net/core/dev.c~fix-irq-problem-with-napi-netpoll net/core/dev.c
---- a/net/core/dev.c~fix-irq-problem-with-napi-netpoll
-+++ a/net/core/dev.c
-@@ -1769,8 +1769,15 @@ int netif_receive_skb(struct sk_buff *sk
- 	__be16 type;
+diff -puN Documentation/networking/wan-router.txt~delete-unused-header-file-linux-if_wanpipe_commonh Documentation/networking/wan-router.txt
+--- a/Documentation/networking/wan-router.txt~delete-unused-header-file-linux-if_wanpipe_commonh
++++ a/Documentation/networking/wan-router.txt
+@@ -250,7 +250,6 @@ PRODUCT COMPONENTS AND RELATED FILES
+ 	sdladrv.h	SDLA support module API definitions
+ 	sdlasfm.h	SDLA firmware module definitions
+ 	if_wanpipe.h	WANPIPE Socket definitions
+-	if_wanpipe_common.h	WANPIPE Socket/Driver common definitions.
+ 	sdlapci.h	WANPIPE PCI definitions
+ 	
  
- 	/* if we've gotten here through NAPI, check netpoll */
--	if (skb->dev->poll && netpoll_rx(skb))
--		return NET_RX_DROP;
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+	if (skb->dev->poll && skb->dev->poll_controller) {
-+		/* NAPI poll might be called in irq context on NETPOLL */
-+		if (in_irq() || irqs_disabled())
-+			return netif_rx(skb);
-+		if (netpoll_rx(skb))
-+			return NET_RX_DROP;
-+	}
-+#endif
- 
- 	if (!skb->tstamp.off_sec)
- 		net_timestamp(skb);
+diff -puN include/linux/if_wanpipe_common.h~delete-unused-header-file-linux-if_wanpipe_commonh /dev/null
+--- a/include/linux/if_wanpipe_common.h
++++ /dev/null
+@@ -1,58 +0,0 @@
+-/*****************************************************************************
+-* if_wanipe_common.h   Sangoma Driver/Socket common area definitions.
+-*
+-* Author:       Nenad Corbic <ncorbic@sangoma.com>
+-*
+-* Copyright:    (c) 2000 Sangoma Technologies Inc.
+-*
+-*               This program is free software; you can redistribute it and/or
+-*               modify it under the terms of the GNU General Public License
+-*               as published by the Free Software Foundation; either version
+-*               2 of the License, or (at your option) any later version.
+-* ============================================================================
+-* Jan 13, 2000  Nenad Corbic      Initial version
+-*****************************************************************************/
+-
+-
+-#ifndef _WANPIPE_SOCK_DRIVER_COMMON_H
+-#define _WANPIPE_SOCK_DRIVER_COMMON_H
+-
+-typedef struct {
+-	struct net_device *slave;
+-	atomic_t packet_sent;
+-	atomic_t receive_block;
+-	atomic_t command;
+-	atomic_t disconnect;
+-	atomic_t driver_busy;
+-	long common_critical;
+-	struct timer_list *tx_timer;
+-	struct sock *sk;		/* Wanpipe Sock bind's here */ 
+-	int (*func)(struct sk_buff *skb, struct net_device *dev, 
+-		    struct sock *sk);
+-
+-	struct work_struct wanpipe_work;    /* deferred keventd work */
+-	unsigned char rw_bind;			  /* Sock bind state */
+-	unsigned char usedby;
+-	unsigned char state;
+-	unsigned char svc;
+-	unsigned short lcn;
+-	void *mbox;
+-} wanpipe_common_t;
+-
+-
+-enum {
+-	WANSOCK_UNCONFIGURED,	/* link/channel is not configured */
+-	WANSOCK_DISCONNECTED,	/* link/channel is disconnected */
+-	WANSOCK_CONNECTING,		/* connection is in progress */
+-	WANSOCK_CONNECTED,		/* link/channel is operational */
+-	WANSOCK_LIMIT,		/* for verification only */
+-	WANSOCK_DUALPORT,		/* for Dual Port cards */
+-	WANSOCK_DISCONNECTING,
+-	WANSOCK_BINDED,
+-	WANSOCK_BIND_LISTEN,
+-	WANSOCK_LISTEN
+-};
+-
+-#endif
+-
+-
 _
