@@ -1,33 +1,32 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: IPv6: Connection reset/timeout under heavy load
-Date: Tue, 27 Mar 2007 19:46:36 +0900 (JST)
-Message-ID: <20070327.194636.63219035.yoshfuji@linux-ipv6.org>
-References: <4608E7CA.3090001@ripe.net>
+From: Janusz Krzysztofik <jkrzyszt@tis.icnet.pl>
+Subject: Re: [PATCH] LVS: Send ICMP unreachable responses to end-users when
+ real-servers are removed
+Date: Tue, 27 Mar 2007 12:53:39 +0200
+Message-ID: <4608F7B3.7030803@tis.icnet.pl>
+References: <20070211030441.GB3383@verge.net.au> <20070326.180408.18304339.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: agoston@ripe.net
+Cc: horms@verge.net.au, netdev@vger.kernel.org, ja@ssi.bg,
+	wensong@linux-vs.org, jmack@wm7d.net, ratz@drugphish.ch
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:35243 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753641AbXC0Kpu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Mar 2007 06:45:50 -0400
-In-Reply-To: <4608E7CA.3090001@ripe.net>
+Received: from d1.icnet.pl ([212.160.220.21]:50866 "EHLO d1.icnet.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753798AbXC0KyB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Mar 2007 06:54:01 -0400
+In-Reply-To: <20070326.180408.18304339.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
-
-(CC: netdev added.)
-
-In article <4608E7CA.3090001@ripe.net> (at Tue, 27 Mar 2007 11:45:46 +0200), Agoston Horvath <agoston@ripe.net> says:
-
-> I'm using kernel 2.6.16.29, libc is 2.3.2.ds1-22sarge5. However, same result was achieved using kernel version 2.6.13 on the same box.
+David Miller wrote:
+>> this is a small patch by  Janusz Krzysztofik to ip_route_output_slow()
+>> that allows VIP-less LVS linux director to generate packets originating
+>> >From VIP if sysctl_ip_nonlocal_bind is set.
 > 
-> I'm out of further ideas. If anyone can give me some pointers about what could be wrong, please, don't spare me.
+> Applied to net-2.6.22, thanks Simon.
 
-Would you test with latest kernel, if possible, please?
+Thank you,
 
---yoshfuji
+Janusz
+
