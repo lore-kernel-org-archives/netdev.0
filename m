@@ -1,92 +1,62 @@
-From: Wei Dong <weidong@cn.fujitsu.com>
-Subject: Re: Fix "ipOutNoRoutes" counter error for TCP and UDP
-Date: Tue, 27 Mar 2007 18:53:22 +0800
-Message-ID: <4608F7A2.7070101@cn.fujitsu.com>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: [patch 5/7] bonding: replace system timer with work queue
+Date: Tue, 27 Mar 2007 08:31:15 -0400
+Message-ID: <20070327123114.GA25218@gospo.rdu.redhat.com>
+References: <200703270550.l2R5o16M008387@shell0.pdx.osdl.net> <20070326215648.58cb392b.akpm@linux-foundation.org> <25159.1174976707@death>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@linux-foundation.org>, davem@davemloft.net,
+	netdev@vger.kernel.org, perex@suse.cz, oleg@tv-sign.ru,
+	shemminger@linux-foundation.org,
+	Andy Gospodarek <andy@greyhouse.net>
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [222.73.24.84] ([222.73.24.84]:53753 "EHLO song.cn.fujitsu.com"
-	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1753830AbXC0MTJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Mar 2007 08:19:09 -0400
+Received: from mx1.redhat.com ([66.187.233.31]:45372 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753806AbXC0McG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Mar 2007 08:32:06 -0400
+Content-Disposition: inline
+In-Reply-To: <25159.1174976707@death>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Mr. David
-	I have modified my patch according to you advice. I think -EHOSTUNREACH
-is only for "input path". In "output" path, we can just simply check
--ENETUNREACH  (^_^), the patch is shown in the end of this mail.
+On Mon, Mar 26, 2007 at 11:25:07PM -0700, Jay Vosburgh wrote:
+> Andrew Morton <akpm@linux-foundation.org> wrote:
+> 
+> >On Mon, 26 Mar 2007 21:50:01 -0800 akpm@linux-foundation.org wrote:
+> >
+> >> Replace system timer with work queue in monitor functions.  The reason for
+> >> this change is that bonding handlers calls various sleeping functions from
+> >> the timer handler which is not allowed.  Because we cannot share the main
+> >> workqueue threads (rtnl_lock is used also in linkwatch_event) - new bond
+> >> workqueue thread is created.
+> >
+> >I have a note here that this patch needs additional work.
+> >
+> >I forget what it was, there has since been no followup and hence I shall now
+> >drop this patch.
+> 
+> 	Andy Gospodarek <andy@greyhouse.net> and I have been working off
+> list to come up with a comprehensive scheme to resolve the various
+> locking problems in bonding all at once, rather than piecemeal.
+> Currently, we believe we've identified all of the problem areas, have
+> worked up a set of locking rules, and are now hashing out an
+> implementation that (hopefully) doesn't suck.
+> 
+> 	The patch referenced above is more or less a functional subset
+> of the work we're doing, in that we'll also be moving the timers to
+> workqueues.
+> 
+> 	Andy, anything to add?
+> 
+> 	-J
+> 
 
-BTW: my E-mail has been changed to weidong@cn.fujitsu.com
+Jay has summed up our work perfectly and Andrew is correct to drop the
+patch.  This patch does the conversion correctly, but it will cause a
+deadlock in the transmit path.
 
- >> Function need to fix:
- >> tcp_v4_connect(); ip4_datagram_connect(); udp_sendmsg();
+Jay and I both hope to have something ready to post pretty soon.
 
- > I think we need to make these checks more carefully.
- >
- > Route lookup can fail for several reasons other than
- > no route being available.  Two examples are:
- >
- > 1) Out of memory error while creating route
- > 2) IPSEC disallows communication to that flow ID
- >
- > As a result, we'll probably best limiting the counter
- > increment when the error is either -EHOSTUNREACH or
- > -ENETUNREACH.
-
-signed-off-by: Wei Dong <weidong@cn.fujitsu.com>
-
-diff -ruNp old/net/ipv4/datagram.c new/net/ipv4/datagram.c
---- old/net/ipv4/datagram.c	2007-03-27 18:15:56.000000000 +0800
-+++ new/net/ipv4/datagram.c	2007-03-27 18:23:58.000000000 +0800
-@@ -50,8 +50,12 @@ int ip4_datagram_connect(struct sock *sk
-  			       RT_CONN_FLAGS(sk), oif,
-  			       sk->sk_protocol,
-  			       inet->sport, usin->sin_port, sk);
--	if (err)
-+	if (err) {
-+		if (err == -ENETUNREACH)
-+			IP_INC_STATS_BH(IPSTATS_MIB_OUTNOROUTES);
-  		return err;
-+	}
-+
-  	if ((rt->rt_flags & RTCF_BROADCAST) && !sock_flag(sk, SOCK_BROADCAST)) {
-  		ip_rt_put(rt);
-  		return -EACCES;
-diff -ruNp old/net/ipv4/tcp_ipv4.c new/net/ipv4/tcp_ipv4.c
---- old/net/ipv4/tcp_ipv4.c	2007-03-27 18:15:56.000000000 +0800
-+++ new/net/ipv4/tcp_ipv4.c	2007-03-27 18:28:38.000000000 +0800
-@@ -192,8 +192,11 @@ int tcp_v4_connect(struct sock *sk, stru
-  			       RT_CONN_FLAGS(sk), sk->sk_bound_dev_if,
-  			       IPPROTO_TCP,
-  			       inet->sport, usin->sin_port, sk);
--	if (tmp < 0)
-+	if (tmp < 0) {
-+		if (tmp == -ENETUNREACH)
-+			IP_INC_STATS_BH(IPSTATS_MIB_OUTNOROUTES);
-  		return tmp;
-+	}
-
-  	if (rt->rt_flags & (RTCF_MULTICAST | RTCF_BROADCAST)) {
-  		ip_rt_put(rt);
-diff -ruNp old/net/ipv4/udp.c new/net/ipv4/udp.c
---- old/net/ipv4/udp.c	2007-03-27 18:15:56.000000000 +0800
-+++ new/net/ipv4/udp.c	2007-03-27 18:26:47.000000000 +0800
-@@ -630,8 +630,11 @@ int udp_sendmsg(struct kiocb *iocb, stru
-  						 .dport = dport } } };
-  		security_sk_classify_flow(sk, &fl);
-  		err = ip_route_output_flow(&rt, &fl, sk, 
-!(msg->msg_flags&MSG_DONTWAIT));
--		if (err)
-+		if (err) {
-+			if (err == -ENETUNREACH)
-+				IP_INC_STATS_BH(IPSTATS_MIB_OUTNOROUTES);
-  			goto out;
-+		}
-
-  		err = -EACCES;
-  		if ((rt->rt_flags & RTCF_BROADCAST) &&
+-andy
 
