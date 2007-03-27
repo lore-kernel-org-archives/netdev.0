@@ -1,30 +1,31 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: has ethtool been patched for 10 gig speed reporting?
-Date: Tue, 27 Mar 2007 11:57:01 -0700
-Message-ID: <460968FD.4020202@hp.com>
+From: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+Subject: [PATCH 0/2] Reduce the number of skb->data direct accesses
+Date: Tue, 27 Mar 2007 16:41:11 -0300
+Message-ID: <20070327194111.GA20303@ghostprotocols.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Linux Network Development list <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel13.hp.com ([156.153.255.238]:44746 "EHLO palrel13.hp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934179AbXC0S5E (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Mar 2007 14:57:04 -0400
-Received: from tardy.cup.hp.com (tardy.cup.hp.com [15.244.56.217])
-	by palrel13.hp.com (Postfix) with ESMTP id CE5BD35103
-	for <netdev@vger.kernel.org>; Tue, 27 Mar 2007 11:57:02 -0700 (PDT)
-Received: from [127.0.0.1] (localhost [127.0.0.1])
-	by tardy.cup.hp.com (8.9.3 (PHNE_28810)/8.9.3 SMKit7.02) with ESMTP id LAA03851
-	for <netdev@vger.kernel.org>; Tue, 27 Mar 2007 11:57:02 -0700 (PDT)
+Received: from wx-out-0506.google.com ([66.249.82.231]:23799 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752609AbXC0Tle (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Mar 2007 15:41:34 -0400
+Received: by wx-out-0506.google.com with SMTP id h31so2590963wxd
+        for <netdev@vger.kernel.org>; Tue, 27 Mar 2007 12:41:33 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I have some 10gig nics and ethtool is reporting unknown for the speed. 
-Is there already a patch, or have I found an opportunity? FWIW, the 
-version five bits from sourceforge still report unknown - are they the 
-latest or are there later bits somewhere?
+Hi David,
 
-thanks,
+	Reworked the patches to not use skb_copy_bits, but some new accessors,
+namely skb_copy_from_linear_data{_offset}().
 
-rick jones
+        Please consider pulling from the usual place:
+
+master.kernel.org:/pub/scm/linux/kernel/git/acme/net-2.6.22
+
+Best Regards,
+
+- Arnaldo
