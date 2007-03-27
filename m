@@ -1,44 +1,59 @@
 From: akpm@linux-foundation.org
-Subject: [patch 09/10] forcedeth: fix tx timeout
-Date: Mon, 26 Mar 2007 21:47:28 -0800
-Message-ID: <200703270547.l2R5lSTx008275@shell0.pdx.osdl.net>
+Subject: [patch 04/10] baycom_ser_fdx: also allow i/o ports >= 0x1000 and enhanced failure logging
+Date: Mon, 26 Mar 2007 21:47:23 -0800
+Message-ID: <200703270547.l2R5lN9j008260@shell0.pdx.osdl.net>
 Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	aabdulla@nvidia.com
+	folkert@vanheusden.com, alan@lxorguk.ukuu.org.uk
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:40123 "EHLO smtp.osdl.org"
+Received: from smtp.osdl.org ([65.172.181.24]:40126 "EHLO smtp.osdl.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934009AbXC0Frc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Mar 2007 01:47:32 -0400
+	id S934009AbXC0Frg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Mar 2007 01:47:36 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ayaz Abdulla <aabdulla@nvidia.com>
+From: Folkert van Heusden <folkert@vanheusden.com>
 
-The tx timeout routine was waking the tx queue conditionally.  However, it
-must call it unconditionally since the dev_watchdog has halted the tx queue
-before calling the timeout function.
+The baycom_ser_fdx driver did not allow i/o ports >= 0x1000.  Now that
+there are pci cards (with rs232 ports) which use for example 0xb800 this
+limit should not exists.
 
-Signed-off-by: Ayaz Abdulla <aabdulla@nvidia.com>
+Also, for non kernel coders find the cause of problems was challenging so I
+added extra logging.
+
+Signed-off-by: Folkert van Heusden <folkert@vanheusden.com>
+Cc: Jeff Garzik <jeff@garzik.org>
+Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/net/forcedeth.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/hamradio/baycom_ser_fdx.c |   13 ++++++++++---
+ 1 file changed, 10 insertions(+), 3 deletions(-)
 
-diff -puN drivers/net/forcedeth.c~forcedeth-fix-tx-timeout drivers/net/forcedeth.c
---- a/drivers/net/forcedeth.c~forcedeth-fix-tx-timeout
-+++ a/drivers/net/forcedeth.c
-@@ -2050,9 +2050,10 @@ static void nv_tx_timeout(struct net_dev
- 		nv_drain_tx(dev);
- 		nv_init_tx(dev);
- 		setup_hw_rings(dev, NV_SETUP_TX_RING);
--		netif_wake_queue(dev);
- 	}
+diff -puN drivers/net/hamradio/baycom_ser_fdx.c~baycom_ser_fdx-also-allow-i-o-ports-=-0x1000-and-enhanced drivers/net/hamradio/baycom_ser_fdx.c
+--- a/drivers/net/hamradio/baycom_ser_fdx.c~baycom_ser_fdx-also-allow-i-o-ports-=-0x1000-and-enhanced
++++ a/drivers/net/hamradio/baycom_ser_fdx.c
+@@ -413,11 +413,18 @@ static int ser12_open(struct net_device 
  
-+	netif_wake_queue(dev);
-+
- 	/* 4) restart tx engine */
- 	nv_start_tx(dev);
- 	spin_unlock_irq(&np->lock);
+ 	if (!dev || !bc)
+ 		return -ENXIO;
+-	if (!dev->base_addr || dev->base_addr > 0x1000-SER12_EXTENT ||
+-	    dev->irq < 2 || dev->irq > 15)
++	if (!dev->base_addr || dev->base_addr > 0xffff-SER12_EXTENT ||
++	    dev->irq < 2 || dev->irq > NR_IRQS) {
++		printk(KERN_INFO "baycom_ser_fdx: invalid portnumber (max %u) "
++				"or irq (2 <= irq <= %d)\n",
++				0xffff-SER12_EXTENT, NR_IRQS);
+ 		return -ENXIO;
+-	if (bc->baud < 300 || bc->baud > 4800)
++	}
++	if (bc->baud < 300 || bc->baud > 4800) {
++		printk(KERN_INFO "baycom_ser_fdx: invalid baudrate "
++				"(300...4800)\n");
+ 		return -EINVAL;
++	}
+ 	if (!request_region(dev->base_addr, SER12_EXTENT, "baycom_ser_fdx")) {
+ 		printk(KERN_WARNING "BAYCOM_SER_FSX: I/O port 0x%04lx busy \n", 
+ 		       dev->base_addr);
 _
