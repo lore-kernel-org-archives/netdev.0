@@ -1,81 +1,103 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: Problem with sockets an 2.6.21-rc5 kernel
-Date: Tue, 27 Mar 2007 18:46:59 +0400
-Message-ID: <20070327144658.GA25125@2ka.mipt.ru>
-References: <200703262303.21448.jareguero@telefonica.net> <20070327131256.GA7513@2ka.mipt.ru> <200703271629.11814.jareguero@telefonica.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: more... iproute2/htb/whatever critical bug ?
+Date: Tue, 27 Mar 2007 17:10:36 +0200
+Message-ID: <460933EC.9060908@trash.net>
+References: <20070321175951.M73913@visp.net.lb>	<46026717.9060909@trash.net>	<20070322124533.M79867@visp.net.lb>	<46027FF2.6020001@trash.net> <20070322101224.3e6bb899@freekitty> <4602B96A.5000308@trash.net> <20070326182654.M24011@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Jay Cliburn <jacliburn@bellsouth.net>
-To: Jose Alberto Reguero <jareguero@telefonica.net>
+Content-Type: multipart/mixed;
+ boundary="------------070509000406030703050207"
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	netdev@vger.kernel.org
+To: Denys <denys@visp.net.lb>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:56957 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932112AbXC0Orq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Mar 2007 10:47:46 -0400
-Content-Disposition: inline
-In-Reply-To: <200703271629.11814.jareguero@telefonica.net>
+Received: from stinky.trash.net ([213.144.137.162]:60732 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751951AbXC0PLs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Mar 2007 11:11:48 -0400
+In-Reply-To: <20070326182654.M24011@visp.net.lb>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 27, 2007 at 04:29:11PM +0200, Jose Alberto Reguero (jaregue=
-ro@telefonica.net) wrote:
-> El Martes, 27 de Marzo de 2007, Evgeniy Polyakov escribi=C3=B3:
-> > On Mon, Mar 26, 2007 at 11:03:21PM +0200, Jose Alberto Reguero=20
-> (jareguero@telefonica.net) wrote:
-> > > I had two python programs, server.py and client.py(attached)
-> > >
-> > > With server.py in  a kernel 2.6.21-rc5 x86_64 and client.py in th=
-e same
-> > > machine,  server.py get the message.
-> > >
-> > > With server.py in  a kerner 2.6.21-rc5 x86_64 and client.py in an=
-other
-> > > machine, server.py don't get the message.
-> > >
-> > > The same with the programs in c(attached).
-> > >
-> > > With kernel 2.6.20.3 the programs work well.
-> > >
-> > > There are something wrong in the programs?
-> >
-> > Besides full absence of error checks and coding style issues it doe=
-s not
-> > seem to contain errors.
-> >
-> > And, btw, C program work with 2.6.21-rc5 (git tree
-> > e0f2e3a06be513352cb4955313ed7e55909acd84) on x86_64.
-> >
-> > server.c application compiled with Debian 4.1.1-21 compiler on x86_=
-64
-> > sucessfully received message from 2.6.18-3 machine.
->=20
-> Thanks. I thought it was a kernel BUG. It is a alt1 driver BUG(Attans=
-ic(R) L1=20
-> Ethernet Network Driver). The error happens with the atl1 driver that=
- comes=20
-> with kernel 2.6.21-rc5. With he original driver from ASUS for M2V mot=
-herboard=20
-> modified to compile with kernel 2.6.21-rc5 there is no problems.
+This is a multi-part message in MIME format.
+--------------070509000406030703050207
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
 
-Did it work with in-kernel driver?
-There is only one remotely related change in the driver:
+Denys wrote:
+> Mar 26 21:20:04 ROUTER-75 [  551.481081] BUG: unable to handle kernel NULL 
+> pointer dereference
+> Mar 26 21:20:04 ROUTER-75 at virtual address 00000074
+> Mar 26 21:20:04 ROUTER-75 [  551.481187]  printing eip:
+> Mar 26 21:20:04 ROUTER-75 [  551.481236] f8a11df1
+> Mar 26 21:20:04 ROUTER-75 [  551.481289] *pde = 00000000
+> Mar 26 21:20:04 ROUTER-75 [  551.481340] Oops: 0000 [#1]
+> Mar 26 21:20:04 ROUTER-75 [  551.481384]
+> Mar 26 21:20:04 ROUTER-75 SMP
+> Mar 26 21:20:04 ROUTER-75
+> Mar 26 21:20:04 ROUTER-75 [  551.481549] Modules linked in:
+> .... long module list
+> ar 26 21:20:04 ROUTER-75 [  551.485237] CPU:    0
+> Mar 26 21:20:04 ROUTER-75 [  551.485238] EIP:    0060:[<f8a11df1>]    Not 
+> tainted VLI
+> Mar 26 21:20:04 ROUTER-75 [  551.485239] EFLAGS: 00010282   (2.6.20.3-build-
+> 0001 #4)
+> Mar 26 21:20:04 ROUTER-75 [  551.485438] EIP is at htb_qlen_notify+0x9/0x79 
+> [sch_htb]
 
--	mta =3D ioread32((hw + REG_RX_HASH_TABLE) + (hash_reg << 2));
-+	mta =3D ioread32((hw->hw_addr + REG_RX_HASH_TABLE) + (hash_reg << 2))=
-;
 
-If it worked before, then spurious ioread() from outside of our
-univercity could lead to good/bad mta value (likely zero or ~0), so app=
-ropriate=20
-multicast list update could succeed.
+Oops, that seems to be my fault. Can you please try the attached patch?
+To reproduce the problem you need to have packets queued while the
+device is going down, so please make sure that is true by flooding
+the device or something like that.
 
-If your programs never worked with this new driver, then it can not be
-easily solved without hardware specifications.
 
-I added Jay Cliburn who submitted the driver to Cc list.
+--------------070509000406030703050207
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
 
-> Jose Alberto
+[NET_SCHED]: sch_htb: fix oops in htb_qlen_notify
 
---=20
-	Evgeniy Polyakov
+htb_delete calls qdisc_tree_decrease_qlen after removing the class from
+the class hash. This makes the ->get operation in qdisc_tree_decrease_qlen
+fail, so it passes a NULL pointer to htb_qlen_notify, causing an oops.
+
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+
+---
+commit 866d03284bf4ae694c8c12c1742dde1c5c06eca7
+tree e43ac244d44b2422f0acb92dc9a48a66f92c2792
+parent 703071b5b93d88d5acb0edd5b9dd86c69ad970f2
+author Patrick McHardy <kaber@trash.net> Tue, 27 Mar 2007 17:07:50 +0200
+committer Patrick McHardy <kaber@trash.net> Tue, 27 Mar 2007 17:07:50 +0200
+
+ net/sched/sch_htb.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
+index 97cbb9a..3c3294d 100644
+--- a/net/sched/sch_htb.c
++++ b/net/sched/sch_htb.c
+@@ -1380,15 +1380,15 @@ static int htb_delete(struct Qdisc *sch, unsigned long arg)
+ 
+ 	sch_tree_lock(sch);
+ 
+-	/* delete from hash and active; remainder in destroy_class */
+-	hlist_del_init(&cl->hlist);
+-
+ 	if (!cl->level) {
+ 		qlen = cl->un.leaf.q->q.qlen;
+ 		qdisc_reset(cl->un.leaf.q);
+ 		qdisc_tree_decrease_qlen(cl->un.leaf.q, qlen);
+ 	}
+ 
++	/* delete from hash and active; remainder in destroy_class */
++	hlist_del_init(&cl->hlist);
++
+ 	if (cl->prio_activity)
+ 		htb_deactivate(q, cl);
+ 
+
+--------------070509000406030703050207--
