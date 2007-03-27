@@ -1,114 +1,44 @@
 From: akpm@linux-foundation.org
-Subject: [patch 05/10] remove unused header file: drivers/net/skfp/h/lnkstat.h
-Date: Mon, 26 Mar 2007 21:47:24 -0800
-Message-ID: <200703270547.l2R5lPLA008263@shell0.pdx.osdl.net>
+Subject: [patch 09/10] forcedeth: fix tx timeout
+Date: Mon, 26 Mar 2007 21:47:28 -0800
+Message-ID: <200703270547.l2R5lSTx008275@shell0.pdx.osdl.net>
 Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	rpjday@mindspring.com
+	aabdulla@nvidia.com
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:40125 "EHLO smtp.osdl.org"
+Received: from smtp.osdl.org ([65.172.181.24]:40123 "EHLO smtp.osdl.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934008AbXC0Frd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Mar 2007 01:47:33 -0400
+	id S934009AbXC0Frc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Mar 2007 01:47:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Robert P. J. Day" <rpjday@mindspring.com>
+From: Ayaz Abdulla <aabdulla@nvidia.com>
 
-Signed-off-by: Robert P. J. Day <rpjday@mindspring.com>
-Cc: Jeff Garzik <jeff@garzik.org>
+The tx timeout routine was waking the tx queue conditionally.  However, it
+must call it unconditionally since the dev_watchdog has halted the tx queue
+before calling the timeout function.
+
+Signed-off-by: Ayaz Abdulla <aabdulla@nvidia.com>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/net/skfp/h/lnkstat.h |   84 ---------------------------------
- 1 file changed, 84 deletions(-)
+ drivers/net/forcedeth.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff -puN drivers/net/skfp/h/lnkstat.h~remove-unused-header-file-drivers-net-skfp-h-lnkstath /dev/null
---- a/drivers/net/skfp/h/lnkstat.h
-+++ /dev/null
-@@ -1,84 +0,0 @@
--/******************************************************************************
-- *
-- *	(C)Copyright 1998,1999 SysKonnect,
-- *	a business unit of Schneider & Koch & Co. Datensysteme GmbH.
-- *
-- *	This program is free software; you can redistribute it and/or modify
-- *	it under the terms of the GNU General Public License as published by
-- *	the Free Software Foundation; either version 2 of the License, or
-- *	(at your option) any later version.
-- *
-- *	The information in this file is provided "AS IS" without warranty.
-- *
-- ******************************************************************************/
--
--/*
-- * Definition of the Error Log Structure
-- * This structure will be copied into the Error Log buffer
-- * during the NDIS General Request ReadErrorLog by the MAC Driver
-- */
--
--struct	s_error_log {
--
--	/*
--	 * place holder for token ring adapter error log (zeros)
--	 */
--	u_char	reserved_0 ;			/* byte 0 inside Error Log */
--	u_char	reserved_1 ;			/* byte 1 */
--	u_char	reserved_2 ;			/* byte 2 */	
--	u_char	reserved_3 ;			/* byte 3 */
--	u_char	reserved_4 ;			/* byte 4 */
--	u_char	reserved_5 ;			/* byte 5 */
--	u_char	reserved_6 ;			/* byte 6 */
--	u_char	reserved_7 ;			/* byte 7 */
--	u_char	reserved_8 ;			/* byte 8 */
--	u_char	reserved_9 ;			/* byte 9 */
--	u_char	reserved_10 ;			/* byte 10 */
--	u_char	reserved_11 ;			/* byte 11 */
--	u_char	reserved_12 ;			/* byte 12 */
--	u_char	reserved_13 ;			/* byte 13 */
--
--	/*
--	 * FDDI link statistics 
--	 */
--/*
-- * smt error low
-- */
--#define SMT_ERL_AEB	(1<<15)			/* A elast. buffer */
--#define SMT_ERL_BLC	(1<<14)			/* B link error condition */
--#define SMT_ERL_ALC	(1<<13)			/* A link error condition */
--#define SMT_ERL_NCC	(1<<12)			/* not copied condition */
--#define SMT_ERL_FEC	(1<<11)			/* frame error condition */
--
--/*
-- * smt event low
-- */
--#define SMT_EVL_NCE	(1<<5)
--
--	u_short	smt_error_low ;			/* byte 14/15 */
--	u_short	smt_error_high ;		/* byte 16/17 */
--	u_short	smt_event_low ;			/* byte 18/19 */
--	u_short	smt_event_high ;		/* byte 20/21 */
--	u_short	connection_policy_violation ;	/* byte 22/23 */
--	u_short port_event ;			/* byte 24/25 */
--	u_short set_count_low ;			/* byte 26/27 */
--	u_short set_count_high ;		/* byte 28/29 */
--	u_short	aci_id_code ;			/* byte 30/31 */
--	u_short	purge_frame_counter ;		/* byte 32/33 */
--
--	/*
--	 * CMT and RMT state machines
--	 */
--	u_short	ecm_state ;			/* byte 34/35 */
--	u_short	pcm_a_state ;			/* byte 36/37 */
--	u_short pcm_b_state ;			/* byte 38/39 */
--	u_short	cfm_state ;			/* byte 40/41 */
--	u_short	rmt_state ;			/* byte 42/43 */
--
--	u_short	not_used[30] ;			/* byte 44-103 */
--
--	u_short	ucode_version_level ;		/* byte 104/105 */
--
--	u_short	not_used_1 ;			/* byte 106/107 */
--	u_short not_used_2 ;			/* byte 108/109 */
--} ;
+diff -puN drivers/net/forcedeth.c~forcedeth-fix-tx-timeout drivers/net/forcedeth.c
+--- a/drivers/net/forcedeth.c~forcedeth-fix-tx-timeout
++++ a/drivers/net/forcedeth.c
+@@ -2050,9 +2050,10 @@ static void nv_tx_timeout(struct net_dev
+ 		nv_drain_tx(dev);
+ 		nv_init_tx(dev);
+ 		setup_hw_rings(dev, NV_SETUP_TX_RING);
+-		netif_wake_queue(dev);
+ 	}
+ 
++	netif_wake_queue(dev);
++
+ 	/* 4) restart tx engine */
+ 	nv_start_tx(dev);
+ 	spin_unlock_irq(&np->lock);
 _
