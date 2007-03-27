@@ -1,106 +1,71 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [NET]: Allow forwarding of ip_summed except CHECKSUM_COMPLETE
-Date: Tue, 27 Mar 2007 15:38:21 +1000
-Message-ID: <20070327053821.GA23596@gondor.apana.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: "David S. Miller" <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	netdev@vger.kernel.org
+From: akpm@linux-foundation.org
+Subject: [patch 01/10] 8139too: force media setting cleanup
+Date: Mon, 26 Mar 2007 21:47:18 -0800
+Message-ID: <200703270547.l2R5lI8L008246@shell0.pdx.osdl.net>
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org, leewkb@yahoo.com
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:4092 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753043AbXC0Fia (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Mar 2007 01:38:30 -0400
-Content-Disposition: inline
+Received: from smtp.osdl.org ([65.172.181.24]:40093 "EHLO smtp.osdl.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933986AbXC0FrX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Mar 2007 01:47:23 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Dave:
+From: Bernard Lee <leewkb@yahoo.com>
 
-[NET]: Allow forwarding of ip_summed except CHECKSUM_COMPLETE
+Setting bit 4 & 5 alone in 8139too module media option does not really
+force 100Mbps full-duplex mode.  When media option bit 0-3 is cleared,
+8139too module does not force media setting.  Therefore, bit 0-3 requires
+to be set for bit 4 & 5 to take effect.  The hidden bit 0-3 setting is not
+stated in module description.
 
-Right now Xen has a horrible hack that lets it forward packets with
-partial checksums.  One of the reasons that CHECKSUM_PARTIAL and
-CHECKSUM_COMPLETE were added is so that we can get rid of this hack
-(where it creates two extra bits in the skbuff to essentially mirror
-ip_summed without being destroyed by the forwarding code).
+It can be fixed by changing rtl8139_private structure default_port bitfield
+from 4-bit to 6-bit.
 
-I had forgotten that I've already gone through all the deivce drivers
-last time around to make sure that they're looking at ip_summed ==
-CHECKSUM_PARTIAL rather than ip_summed != 0 on transmit.  In any case,
-I've now done that again so it should definitely be safe.
+Besides, module media bit 9 is a duplicate of bit 4 (full-duplex).  It is
+suggested that bit 9 is freed.  A remark is added to module description
+that bit 0 can be used to force setting.  It helps to clarify 10Mbps
+half-duplex mode.
 
-Unfortunately nobody has yet added any code to update CHECKSUM_COMPLETE
-values on forward so we I'm setting that to CHECKSUM_NONE.  This should
-be safe to remove for bridging but I'd like to check that code path
-first.
+Signed-off-by: Bernard Lee <leewkb@yahoo.com>
+Cc: Jeff Garzik <jeff@garzik.org>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+---
 
-So here is the patch that lets us get rid of the hack by preserving
-ip_summed (mostly) on forwarded packets.
+ drivers/net/8139too.c |    8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
---
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 4ff3940..6d4243d 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -1481,5 +1481,12 @@ static inline int skb_is_gso(const struct sk_buff *skb)
- 	return skb_shinfo(skb)->gso_size;
- }
+diff -puN drivers/net/8139too.c~8139too-force-media-setting-fix drivers/net/8139too.c
+--- a/drivers/net/8139too.c~8139too-force-media-setting-fix
++++ a/drivers/net/8139too.c
+@@ -586,7 +586,7 @@ struct rtl8139_private {
+ 	signed char phys[4];		/* MII device addresses. */
+ 	char twistie, twist_row, twist_col;	/* Twister tune state. */
+ 	unsigned int watchdog_fired : 1;
+-	unsigned int default_port : 4;	/* Last dev->if_port value. */
++	unsigned int default_port : 6;	/* Last dev->if_port value. */
+ 	unsigned int have_thread : 1;
+ 	spinlock_t lock;
+ 	spinlock_t rx_lock;
+@@ -612,7 +612,7 @@ module_param_array(full_duplex, int, NUL
+ module_param(debug, int, 0);
+ MODULE_PARM_DESC (debug, "8139too bitmapped message enable number");
+ MODULE_PARM_DESC (multicast_filter_limit, "8139too maximum number of filtered multicast addresses");
+-MODULE_PARM_DESC (media, "8139too: Bits 4+9: force full duplex, bit 5: 100Mbps");
++MODULE_PARM_DESC (media, "8139too: bit 0: force setting, bit 4: full duplex, bit 5: 100Mbps");
+ MODULE_PARM_DESC (full_duplex, "8139too: Force full duplex for board(s) (1)");
  
-+static inline void skb_forward_csum(struct sk_buff *skb)
-+{
-+	/* Unfortunately we don't support this one.  Any brave souls? */
-+	if (skb->ip_summed == CHECKSUM_COMPLETE)
-+		skb->ip_summed = CHECKSUM_NONE;
-+}
-+
- #endif	/* __KERNEL__ */
- #endif	/* _LINUX_SKBUFF_H */
-diff --git a/net/bridge/br_forward.c b/net/bridge/br_forward.c
-index 3e45c1a..ada7f49 100644
---- a/net/bridge/br_forward.c
-+++ b/net/bridge/br_forward.c
-@@ -71,7 +71,7 @@ static void __br_forward(const struct net_bridge_port *to, struct sk_buff *skb)
- 
- 	indev = skb->dev;
- 	skb->dev = to->dev;
--	skb->ip_summed = CHECKSUM_NONE;
-+	skb_forward_csum(skb);
- 
- 	NF_HOOK(PF_BRIDGE, NF_BR_FORWARD, skb, indev, skb->dev,
- 			br_forward_finish);
-diff --git a/net/ipv4/ip_forward.c b/net/ipv4/ip_forward.c
-index 369e721..a38037b 100644
---- a/net/ipv4/ip_forward.c
-+++ b/net/ipv4/ip_forward.c
-@@ -67,7 +67,7 @@ int ip_forward(struct sk_buff *skb)
- 	if (skb->pkt_type != PACKET_HOST)
- 		goto drop;
- 
--	skb->ip_summed = CHECKSUM_NONE;
-+	skb_forward_csum(skb);
- 
- 	/*
- 	 *	According to the RFC, we must first decrease the TTL field. If
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index 3055169..ba0143c 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -372,7 +372,7 @@ int ip6_forward(struct sk_buff *skb)
- 		goto drop;
+ static int read_eeprom (void __iomem *ioaddr, int location, int addr_len);
+@@ -1068,8 +1068,8 @@ static int __devinit rtl8139_init_one (s
+ 	/* The lower four bits are the media type. */
+ 	option = (board_idx >= MAX_UNITS) ? 0 : media[board_idx];
+ 	if (option > 0) {
+-		tp->mii.full_duplex = (option & 0x210) ? 1 : 0;
+-		tp->default_port = option & 0xFF;
++		tp->mii.full_duplex = (option & 0x10) ? 1 : 0;
++		tp->default_port = option & 0x3F;
+ 		if (tp->default_port)
+ 			tp->mii.force_media = 1;
  	}
- 
--	skb->ip_summed = CHECKSUM_NONE;
-+	skb_forward_csum(skb);
- 
- 	/*
- 	 *	We DO NOT make any processing on
+_
