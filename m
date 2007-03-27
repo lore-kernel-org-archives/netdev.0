@@ -1,71 +1,59 @@
 From: akpm@linux-foundation.org
-Subject: [patch 01/10] 8139too: force media setting cleanup
-Date: Mon, 26 Mar 2007 21:47:18 -0800
-Message-ID: <200703270547.l2R5lI8L008246@shell0.pdx.osdl.net>
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org, leewkb@yahoo.com
+Subject: [patch 07/10] SUN3/3X Lance trivial fix improved
+Date: Mon, 26 Mar 2007 21:47:26 -0800
+Message-ID: <200703270547.l2R5lQco008269@shell0.pdx.osdl.net>
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
+	gorcunov@gmail.com
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:40093 "EHLO smtp.osdl.org"
+Received: from smtp.osdl.org ([65.172.181.24]:40119 "EHLO smtp.osdl.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933986AbXC0FrX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Mar 2007 01:47:23 -0400
+	id S934003AbXC0Frc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Mar 2007 01:47:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Bernard Lee <leewkb@yahoo.com>
+From: "Cyrill V. Gorcunov" <gorcunov@gmail.com>
 
-Setting bit 4 & 5 alone in 8139too module media option does not really
-force 100Mbps full-duplex mode.  When media option bit 0-3 is cleared,
-8139too module does not force media setting.  Therefore, bit 0-3 requires
-to be set for bit 4 & 5 to take effect.  The hidden bit 0-3 setting is not
-stated in module description.
+This patch adds checking for allocated DVMA memory and granted IRQ line.
 
-It can be fixed by changing rtl8139_private structure default_port bitfield
-from 4-bit to 6-bit.
-
-Besides, module media bit 9 is a duplicate of bit 4 (full-duplex).  It is
-suggested that bit 9 is freed.  A remark is added to module description
-that bit 0 can be used to force setting.  It helps to clarify 10Mbps
-half-duplex mode.
-
-Signed-off-by: Bernard Lee <leewkb@yahoo.com>
-Cc: Jeff Garzik <jeff@garzik.org>
+Signed-off-by: Cyrill V. Gorcunov <gorcunov@gmail.com>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/net/8139too.c |    8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/sun3lance.c |   16 +++++++++++++++-
+ 1 file changed, 15 insertions(+), 1 deletion(-)
 
-diff -puN drivers/net/8139too.c~8139too-force-media-setting-fix drivers/net/8139too.c
---- a/drivers/net/8139too.c~8139too-force-media-setting-fix
-+++ a/drivers/net/8139too.c
-@@ -586,7 +586,7 @@ struct rtl8139_private {
- 	signed char phys[4];		/* MII device addresses. */
- 	char twistie, twist_row, twist_col;	/* Twister tune state. */
- 	unsigned int watchdog_fired : 1;
--	unsigned int default_port : 4;	/* Last dev->if_port value. */
-+	unsigned int default_port : 6;	/* Last dev->if_port value. */
- 	unsigned int have_thread : 1;
- 	spinlock_t lock;
- 	spinlock_t rx_lock;
-@@ -612,7 +612,7 @@ module_param_array(full_duplex, int, NUL
- module_param(debug, int, 0);
- MODULE_PARM_DESC (debug, "8139too bitmapped message enable number");
- MODULE_PARM_DESC (multicast_filter_limit, "8139too maximum number of filtered multicast addresses");
--MODULE_PARM_DESC (media, "8139too: Bits 4+9: force full duplex, bit 5: 100Mbps");
-+MODULE_PARM_DESC (media, "8139too: bit 0: force setting, bit 4: full duplex, bit 5: 100Mbps");
- MODULE_PARM_DESC (full_duplex, "8139too: Force full duplex for board(s) (1)");
+diff -puN drivers/net/sun3lance.c~sun3-3x-lance-trivial-fix-improved drivers/net/sun3lance.c
+--- a/drivers/net/sun3lance.c~sun3-3x-lance-trivial-fix-improved
++++ a/drivers/net/sun3lance.c
+@@ -336,13 +336,27 @@ static int __init lance_probe( struct ne
  
- static int read_eeprom (void __iomem *ioaddr, int location, int addr_len);
-@@ -1068,8 +1068,8 @@ static int __devinit rtl8139_init_one (s
- 	/* The lower four bits are the media type. */
- 	option = (board_idx >= MAX_UNITS) ? 0 : media[board_idx];
- 	if (option > 0) {
--		tp->mii.full_duplex = (option & 0x210) ? 1 : 0;
--		tp->default_port = option & 0xFF;
-+		tp->mii.full_duplex = (option & 0x10) ? 1 : 0;
-+		tp->default_port = option & 0x3F;
- 		if (tp->default_port)
- 			tp->mii.force_media = 1;
- 	}
+ 	/* XXX - leak? */
+ 	MEM = dvma_malloc_align(sizeof(struct lance_memory), 0x10000);
++	if (MEM == NULL) {
++#ifdef CONFIG_SUN3
++		iounmap((void __iomem *)ioaddr);
++#endif
++		printk(KERN_WARNING "SUN3 Lance couldn't allocate DVMA memory\n");
++		return 0;
++	}
+ 
+ 	lp->iobase = (volatile unsigned short *)ioaddr;
+ 	dev->base_addr = (unsigned long)ioaddr; /* informational only */
+ 
+ 	REGA(CSR0) = CSR0_STOP;
+ 
+-	request_irq(LANCE_IRQ, lance_interrupt, IRQF_DISABLED, "SUN3 Lance", dev);
++	if (request_irq(LANCE_IRQ, lance_interrupt, IRQF_DISABLED, "SUN3 Lance", dev) < 0) {
++#ifdef CONFIG_SUN3
++		iounmap((void __iomem *)ioaddr);
++#endif
++		dvma_free((void *)MEM);
++		printk(KERN_WARNING "SUN3 Lance unable to allocate IRQ\n");
++		return 0;
++	}
+ 	dev->irq = (unsigned short)LANCE_IRQ;
+ 
+ 
 _
