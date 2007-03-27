@@ -1,35 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] NET : align inet_protos[] on SMP
-Date: Tue, 27 Mar 2007 14:20:17 -0700 (PDT)
-Message-ID: <20070327.142017.52167359.davem@davemloft.net>
-References: <20070327154704.cd85d943.dada1@cosmosbay.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [NET]: Allow forwarding of ip_summed except CHECKSUM_COMPLETE
+Date: Wed, 28 Mar 2007 07:20:03 +1000
+Message-ID: <20070327212003.GA30862@gondor.apana.org.au>
+References: <20070327053821.GA23596@gondor.apana.org.au> <460983E9.5040005@trash.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dada1@cosmosbay.com
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37254
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S965442AbXC0VUS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Mar 2007 17:20:18 -0400
-In-Reply-To: <20070327154704.cd85d943.dada1@cosmosbay.com>
+Received: from rhun.apana.org.au ([64.62.148.172]:1057 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S965440AbXC0VUO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Mar 2007 17:20:14 -0400
+Content-Disposition: inline
+In-Reply-To: <460983E9.5040005@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Tue, 27 Mar 2007 15:47:04 +0200
-
-> As IPPROTO_TCP is 6, it makes sense to make sure inet_protos[] array is properly cache line aligned to avoid false sharing on SMP.
+On Tue, Mar 27, 2007 at 10:51:53PM +0200, Patrick McHardy wrote:
 > 
-> c0680540 b peer_total
-> c0680544 b inet_peer_unused_head
-> c0680560 B inet_protos
-> 
-> On i386 this example, we can see that inet_protos[IPPROTO_TCP] shares a potentially hot (and modified) cache line.
-> 
-> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+> Just wondering, how does Xen know whether a packet will be forwarded?
 
-Applied, thanks again Eric.
+It's up to Linux to handle it correctly.
 
-We could probably add some const markings to these things as well.
+> The input path doesn't seem to deal with CHECKSUM_PARTIAL correctly,
+> ip_defrag for example resets them to CHECKSUM_NONE, so further checks
+> will fail, others seem to either ignore them or handle them together
+> with CHECKSUM_NONE.
+
+That's OK, Linux/Xen never generates any CHECKSUM_PARTIAL fragments.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
