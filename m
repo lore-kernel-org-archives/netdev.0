@@ -1,61 +1,52 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: APIC error on 32-bit kernel
-Date: Tue, 27 Mar 2007 14:42:20 -0600
-Message-ID: <m14po6xvtf.fsf@ebiederm.dsl.xmission.com>
-References: <20070323200817.1f3e39b9@osprey.hogchain.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [NET]: Allow forwarding of ip_summed except CHECKSUM_COMPLETE
+Date: Tue, 27 Mar 2007 22:51:53 +0200
+Message-ID: <460983E9.5040005@trash.net>
+References: <20070327053821.GA23596@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Jay Cliburn <jacliburn@bellsouth.net>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:35077 "EHLO
-	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965417AbXC0Umg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Mar 2007 16:42:36 -0400
-In-Reply-To: <20070323200817.1f3e39b9@osprey.hogchain.net> (Jay Cliburn's
-	message of "Fri, 23 Mar 2007 20:08:17 -0500")
+Received: from stinky.trash.net ([213.144.137.162]:34372 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934163AbXC0UxO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Mar 2007 16:53:14 -0400
+In-Reply-To: <20070327053821.GA23596@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jay Cliburn <jacliburn@bellsouth.net> writes:
+Herbert Xu wrote:
+> Hi Dave:
+> 
+> [NET]: Allow forwarding of ip_summed except CHECKSUM_COMPLETE
+> 
+> Right now Xen has a horrible hack that lets it forward packets with
+> partial checksums.  One of the reasons that CHECKSUM_PARTIAL and
+> CHECKSUM_COMPLETE were added is so that we can get rid of this hack
+> (where it creates two extra bits in the skbuff to essentially mirror
+> ip_summed without being destroyed by the forwarding code).
+> 
+> I had forgotten that I've already gone through all the deivce drivers
+> last time around to make sure that they're looking at ip_summed ==
+> CHECKSUM_PARTIAL rather than ip_summed != 0 on transmit.  In any case,
+> I've now done that again so it should definitely be safe.
+> 
+> Unfortunately nobody has yet added any code to update CHECKSUM_COMPLETE
+> values on forward so we I'm setting that to CHECKSUM_NONE.  This should
+> be safe to remove for bridging but I'd like to check that code path
+> first.
+> 
+> So here is the patch that lets us get rid of the hack by preserving
+> ip_summed (mostly) on forwarded packets.
 
-> We're trying to track down the source of a problem that occurs whenever
-> the atl1 network driver is activated on a 32-bit 2.6.21-rc4 kernel.  We
-> need help from netdev.
->
-> We can load the driver just fine, but whenever we activate the
-> network, we see APIC errors (a sample of them are shown here,
-> captured from a serial console):
 
-Do you have msi's working in 2.6.21-rc4 in the x86_64 kernel?
+Just wondering, how does Xen know whether a packet will be forwarded?
+The input path doesn't seem to deal with CHECKSUM_PARTIAL correctly,
+ip_defrag for example resets them to CHECKSUM_NONE, so further checks
+will fail, others seem to either ignore them or handle them together
+with CHECKSUM_NONE.
 
-[snip nasty apic errors]
-
-> The machine hangs for about 5-10 seconds, then spontaneously reboots
-> without further console output.
->
-> This is an Asus M2V (Via K8T890) motherboard.
->
-> The problem does not occur on a 32-bit kernel if we boot with
-> pci=nomsi, and it doesn't occur at all on a 64-bit kernel on the same
-> motherboard.
-
-Ok.
-
-My first guess is going to be that something different in the 64bit
-and 32bit kernels.  Either MSI support or how the MSI are setup or
-some bug work around.
-
-A lot of that code is pretty common so...
-
-> We also do not see this problem on Intel-based motherboards, with
-> either 32- or 64-bit kernels.
-
-Can you confirm MSI is enabled in those kernels as well?
-
-> We'd appreciate any pointers to get this solved.  Full error text,
-> dmesg (with atl1 device disabled), lspci, and /proc/interrupts attached.
-
-Thanks.
-
-Eric
