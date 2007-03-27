@@ -1,366 +1,110 @@
-From: Daniel Lezcano <dlezcano@fr.ibm.com>
-Subject: L2 network namespace benchmarking
-Date: Wed, 28 Mar 2007 00:16:34 +0200
-Message-ID: <460997C2.4030902@fr.ibm.com>
+From: Jose Alberto Reguero <jareguero@telefonica.net>
+Subject: Re: Problem with sockets an 2.6.21-rc5 kernel
+Date: Wed, 28 Mar 2007 00:06:14 +0200
+Message-ID: <200703280006.14791.jareguero@telefonica.net>
+References: <200703262303.21448.jareguero@telefonica.net> <200703271741.09949.jareguero@telefonica.net> <200703272030.37843.jareguero@telefonica.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Dmitry Mishin <dim@openvz.org>,
-	"Serge E. Hallyn" <serue@us.ibm.com>
-To: Linux Containers <containers@lists.osdl.org>
+Content-Type: text/plain; charset=iso-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Jay Cliburn <jacliburn@bellsouth.net>
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate8.uk.ibm.com ([195.212.29.141]:45228 "EHLO
-	mtagate8.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934209AbXC0WAi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Mar 2007 18:00:38 -0400
-Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
-	by mtagate8.uk.ibm.com (8.13.8/8.13.8) with ESMTP id l2RM0aLu106184
-	for <netdev@vger.kernel.org>; Tue, 27 Mar 2007 22:00:36 GMT
-Received: from d06av02.portsmouth.uk.ibm.com (d06av02.portsmouth.uk.ibm.com [9.149.37.228])
-	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l2RM0aCt2506784
-	for <netdev@vger.kernel.org>; Tue, 27 Mar 2007 23:00:36 +0100
-Received: from d06av02.portsmouth.uk.ibm.com (loopback [127.0.0.1])
-	by d06av02.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l2RM0Zoc023377
-	for <netdev@vger.kernel.org>; Tue, 27 Mar 2007 23:00:36 +0100
+Received: from smtp.telefonica.net ([213.4.149.66]:46972 "EHLO
+	ctsmtpout2.frontal.correo" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S932778AbXC0WJg convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Mar 2007 18:09:36 -0400
+In-Reply-To: <200703272030.37843.jareguero@telefonica.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-Hi,
-
-I did some benchmarking on the existing L2 network namespaces.
-
-These patches are included in the lxc patchset at:
-    http://lxc.sourceforge.net/patches/2.6.20
-The lxc7 patchset series contains Dmitry's patchset
-The lxc8 patchset series contains Eric's patchset
-
-Here are the following scenarii I made in order to do some simple
-benchmarking on the network namespace. I tested three kernels:
-
-     * Vanilla kernel 2.6.20
-
-     * lxc7 with Dmitry's patchset based on 2.6.20
-       * L3 network namespace has been removed to do testing
-
-     * lxc8 with Eric's patchset based on 2.6.20
-
-I didn't do any tests on Linux-Vserver because it is L3 namespace and
-it is not comparable with the L2 namespace implementation. If anyone
-is interessted by Linux-Vserver performances, that can be found at
-http://lxc.sf.net. Roughly, we know there is no performance
-degradation.
-
-For each kernel, several configurations were tested:
-
- * vanilla, obviously, only one configuration was tested for reference
-   values.
-
- * lxc7, network namespace
-  - compiled out
-  - compiled in
-    - without container
-    - inside a container with ip_forward, route and veth
-    - inside a container with a bridge and veth
-
- * lxc8, network namespace
-  - compiled out
-  - compiled in
-    - without container
-    - inside a container with a real network device (eth1 was moved
-      in the container instead of using an etun device)
-    - inside a container with ip_forward, route and etun
-    - inside a container with a bridge and etun
-
-Each benchmarking has been done with 2 machines running netperf and
-tbench. A dedicated machine with a RH4 kernel run the bench servers.
-
-For each bench, netperf and tbench, the tests are ran on:
-
- * Intel Xeon EM64T, Bi-processor 2,8GHz with hyperthreading
-activated, 4GB of RAM and Gigabyte NIC (tg3)
-
- * AMD Athlon MP 1800+, Bi-processor 1,5GHz, 1GB of RAM and Gigabyte
-   NIC (dl2000)
-
-Each tests are run on these machines in order to have a CPU relative 
-overhead.
-
-
-# bench on vanilla
-===================
-
-
- ----------- --------------------------------------
-| Netperf   | CPU usage (%) | Throughput (Mbits/s) |
- ----------- --------------------------------------
-| on xeon   |      5.99     |        941.38        |
- --------------------------------------------------
-| on athlon |     28.17     |        844.82        |
- --------------------------------------------------
-
- ----------- -----------------------
-| Tbench    | Throughput (MBytes/s) |
- ----------- -----------------------
-| on xeon   |         66.35         |
- -----------------------------------
-| on athlon |         65.31         |
- -----------------------------------
-
-
-# bench from Dmitry's patchset
-==============================
-
-
-1 - with net_ns compiled out
-----------------------------
-
- ----------- -----------------------------------------------------------
-| Netperf   | CPU usage (%) / overhead | Throughput (Mbits/s) / changed |
- ----------- -----------------------------------------------------------
-| on xeon   |      5.93 / -1 %         |        941.32  / 0 %           |
- -----------------------------------------------------------------------
-| on athlon |     28.89 / +2.5 %       |        842.78 / -0.2 %         |
- -----------------------------------------------------------------------
-
- ----------- ---------------------------------
-| Tbench    | Throughput (MBytes/s) / changed |
- ----------- ---------------------------------
-| on xeon   |         67.00 / +0.9 %          |
- ---------------------------------------------
-| on athlon |         65.45 / 0 %             |
- ---------------------------------------------
-
-  Observation : no noticeable overhead
-
-
-2 - with net_ns compiled in
----------------------------
-
-
-    2.1 - without container
-    -----------------------
-
- ----------- -----------------------------------------------------------
-| Netperf   | CPU usage (%) / overhead | Throughput (Mbits/s) / changed |
- ----------- -----------------------------------------------------------
-| on xeon   |      6.23 / +4 %         |        941.35  / 0 %           |
- -----------------------------------------------------------------------
-| on athlon |     28.83 / +2.3 %       |        850.76 / +0.7 %         |
- -----------------------------------------------------------------------
-
- ----------- ---------------------------------
-| Tbench    | Throughput (MBytes/s) / changed |
- ----------- ---------------------------------
-| on xeon   |         67.00 / 0 %             |
- ---------------------------------------------
-| on athlon |         65.45 / 0 %             |
- ---------------------------------------------
-
-  Observation : no noticeable overhead
-
-
-    2.2 - inside the container with veth and routes
-    -----------------------------------------------
-
- ----------- -----------------------------------------------------------
-| Netperf   | CPU usage (%) / overhead | Throughput (Mbits/s) / changed |
- ----------- -----------------------------------------------------------
-| on xeon   |      17.14 / +186.1 %      |        941.34  / 0 %         |
- -----------------------------------------------------------------------
-| on athlon |      49.99 / +77.45 %      |        838.85 / +0.7 %       |
- -----------------------------------------------------------------------
-
- ----------- ---------------------------------
-| Tbench    | Throughput (MBytes/s) / changed |
- ----------- ---------------------------------
-| on xeon   |         66.00 / -0.5 %          |
- ---------------------------------------------
-| on athlon |         61.00 / -6.65 %         |
- ---------------------------------------------
-
-  Observation : CPU overhead is very big, throughput is impacted on
-  the less powerful machine
-
-
-    2.3 - inside the container with veth and bridge
-    -----------------------------------------------
-
- ----------- -----------------------------------------------------------
-| Netperf   | CPU usage (%) / overhead | Throughput (Mbits/s) / changed |
- ----------- -----------------------------------------------------------
-| on xeon   |      19.14 / +299 %      |        941.18  / 0 %           |
- -----------------------------------------------------------------------
-| on athlon |      49.98 / +77.42 %    |        831.65 / -1.5 %         |
- -----------------------------------------------------------------------
-
- ----------- ---------------------------------
-| Tbench    | Throughput (MBytes/s) / changed |
- ----------- ---------------------------------
-| on xeon   |         64.00 / -3.5 %          |
- ---------------------------------------------
-| on athlon |         60.07 / -8.3 %          |
- ---------------------------------------------
-
-  Observation : CPU overhead is very big, throughput is impacted on
-  the less powerful machine
-
-
-# bench from Eric's patchset
-============================
-
-
-1 - with net_ns compiled out
-----------------------------
-
- ----------- -----------------------------------------------------------
-| Netperf   | CPU usage (%) / overhead | Throughput (Mbits/s) / changed |
- ----------- -----------------------------------------------------------
-| on xeon   |      6.04 / +0.8 %       |        941.33  / 0 %           |
- -----------------------------------------------------------------------
-| on athlon |      28.45 / +1 %        |        840.76 /  -0.5 %        |
- -----------------------------------------------------------------------
-
- ----------- ---------------------------------
-| Tbench    | Throughput (MBytes/s) / changed |
- ----------- ---------------------------------
-| on xeon   |         65.69 / -1 %            |
- ---------------------------------------------
-| on athlon |         65.35 / -0.2 %          |
- ---------------------------------------------
-
-  Observation : no noticeable overhead
-
-
-2 - with net_ns compiled in
----------------------------
-
-
-    2.1 - without container
-    -----------------------
-
- ----------- -----------------------------------------------------------
-| Netperf   | CPU usage (%) / overhead | Throughput (Mbits/s) / changed |
- ----------- -----------------------------------------------------------
-| on xeon   |      6.02 / +0.5 %       |        941.34  / 0 %           |
- -----------------------------------------------------------------------
-| on athlon |      27.93 / -0.8 %      |        833.53 /  -1.3 %        |
- -----------------------------------------------------------------------
-
- ----------- ---------------------------------
-| Tbench    | Throughput (MBytes/s) / changed |
- ----------- ---------------------------------
-| on xeon   |         66.00 / -0.5 %          |
- ---------------------------------------------
-| on athlon |         64.94 / -0.9 %          |
- ---------------------------------------------
-
-  Observation : no noticeable overhead
-
-
-    2.2 - inside the container with real device
-    -------------------------------------------
-
- ----------- -----------------------------------------------------------
-| Netperf   | CPU usage (%) / overhead | Throughput (Mbits/s) / changed |
- ----------- -----------------------------------------------------------
-| on xeon   |      5.60 / -6.5 %       |        941.42  / 0 %           |
- -----------------------------------------------------------------------
-| on athlon |      27.73 / -1.5 %      |        835.11 /  +1.5 %        |
- -----------------------------------------------------------------------
-
- ----------- ---------------------------------
-| Tbench    | Throughput (MBytes/s) / changed |
- ----------- ---------------------------------
-| on xeon   |         74.36 / +12 %           |
- ---------------------------------------------
-| on athlon |         70.87 / +8.2 %          |
- ---------------------------------------------
-
-  Observation : no noticeable overhead. The network interface is only
-  used by the container, so I guess it does not interact with another
-  network traffic and that explains the performances are better.
-
-
-    2.3 - inside the container with etun and routes
-    -----------------------------------------------
-
- ----------- -----------------------------------------------------------
-| Netperf   | CPU usage (%) / overhead | Throughput (Mbits/s) / changed |
- ----------- -----------------------------------------------------------
-| on xeon   |      16.25 / +171 %      |        941.31  / 0 %           |
- -----------------------------------------------------------------------
-| on athlon |      49.99 / +77 %       |        828.94 /  -1.9 %        |
- -----------------------------------------------------------------------
-
- ----------- ---------------------------------
-| Tbench    | Throughput (MBytes/s) / changed |
- ----------- ---------------------------------
-| on xeon   |         65.61 / -1.1 %          |
- ---------------------------------------------
-| on athlon |         62.58 / -4.5 %          |
- ---------------------------------------------
-
-  Observation : The CPU overhead is very big. Throughput is a little
-  impacted on the less powerful machine.
-
-
-    2.4 - inside the container with etun and bridge
-    -----------------------------------------------
-
- ----------- -----------------------------------------------------------
-| Netperf   | CPU usage (%) / overhead | Throughput (Mbits/s) / changed |
- ----------- -----------------------------------------------------------
-| on xeon   |      18.39 / +207 %      |        941.30  / 0 %           |
- -----------------------------------------------------------------------
-| on athlon |      49.94 / +77 %       |        823.75 /  -2.5 %        |
- -----------------------------------------------------------------------
-
- ----------- ---------------------------------
-| Tbench    | Throughput (MBytes/s) / changed |
- ----------- ---------------------------------
-| on xeon   |         66.52 / +0.2 %          |
- ---------------------------------------------
-| on athlon |         61.07 / -6.8 %          |
- ---------------------------------------------
-
-  Observation : The CPU overhead is very big. Throughput is a little
-  impacted on the less powerful machine.
-
-
-3. General observations
------------------------
-
-The objective to have no performances degrations, when the network
-namespace is off in the kernel, is reached in both solutions.
-
-When the network is used outside the container and the network
-namespace are compiled in, there is no performance degradations.
-
-Eric's patchset allows to move network devices between namespaces and
-this is clearly a good feature, missing in the Dmitry's patchset. This
-feature helps us to see that the network namespace code does not add
-overhead when using directly the physical network device into the
-container.
-
-The loss of performances is very noticeable inside the container and
-seems to be directly related to the usage of the pair device and the
-specific network configuration needed for the container. When the
-packets are sent by the container, the mac address is for the pair
-device but the IP address is not owned by the host. That directly
-implies to have the host to act as a router and the packets to be
-forwarded. That adds a lot of overhead.
-
-A hack has been made in the ip_forward function to avoid useless
-skb_cow when using the pair device/tunnel device and the overhead
-is reduced by the half.
-
-
-
-Regards.
-
-    -- Daniel
-
-
+El Martes, 27 de Marzo de 2007, Jose Alberto Reguero escribi=F3:
+> El Martes, 27 de Marzo de 2007, Jose Alberto Reguero escribi=F3:
+> > El Martes, 27 de Marzo de 2007, Evgeniy Polyakov escribi=F3:
+> > > On Tue, Mar 27, 2007 at 04:29:11PM +0200, Jose Alberto Reguero
+> >
+> > (jareguero@telefonica.net) wrote:
+> > > > El Martes, 27 de Marzo de 2007, Evgeniy Polyakov escribi=C3=B3:
+> > > > > On Mon, Mar 26, 2007 at 11:03:21PM +0200, Jose Alberto Reguer=
+o
+> > > >
+> > > > (jareguero@telefonica.net) wrote:
+> > > > > > I had two python programs, server.py and client.py(attached=
+)
+> > > > > >
+> > > > > > With server.py in  a kernel 2.6.21-rc5 x86_64 and client.py=
+ in
+> > > > > > the same machine,  server.py get the message.
+> > > > > >
+> > > > > > With server.py in  a kerner 2.6.21-rc5 x86_64 and client.py=
+ in
+> > > > > > another machine, server.py don't get the message.
+> > > > > >
+> > > > > > The same with the programs in c(attached).
+> > > > > >
+> > > > > > With kernel 2.6.20.3 the programs work well.
+> > > > > >
+> > > > > > There are something wrong in the programs?
+> > > > >
+> > > > > Besides full absence of error checks and coding style issues =
+it
+> > > > > does not seem to contain errors.
+> > > > >
+> > > > > And, btw, C program work with 2.6.21-rc5 (git tree
+> > > > > e0f2e3a06be513352cb4955313ed7e55909acd84) on x86_64.
+> > > > >
+> > > > > server.c application compiled with Debian 4.1.1-21 compiler o=
+n
+> > > > > x86_64 sucessfully received message from 2.6.18-3 machine.
+> > > >
+> > > > Thanks. I thought it was a kernel BUG. It is a alt1 driver
+> > > > BUG(Attansic(R) L1 Ethernet Network Driver). The error happens =
+with
+> > > > the atl1 driver that comes with kernel 2.6.21-rc5. With he orig=
+inal
+> > > > driver from ASUS for M2V motherboard modified to compile with k=
+ernel
+> > > > 2.6.21-rc5 there is no problems.
+> > >
+> > > Did it work with in-kernel driver?
+> > > There is only one remotely related change in the driver:
+> > >
+> > > -	mta =3D ioread32((hw + REG_RX_HASH_TABLE) + (hash_reg << 2));
+> > > +	mta =3D ioread32((hw->hw_addr + REG_RX_HASH_TABLE) + (hash_reg =
+<< 2));
+> > >
+> > > If it worked before, then spurious ioread() from outside of our
+> > > univercity could lead to good/bad mta value (likely zero or ~0), =
+so
+> > > appropriate multicast list update could succeed.
+> > >
+> > > If your programs never worked with this new driver, then it can n=
+ot be
+> > > easily solved without hardware specifications.
+> > >
+> > > I added Jay Cliburn who submitted the driver to Cc list.
+> > >
+> > > > Jose Alberto
+> >
+> > The first time i try the kernel driver was with kernel 2.6.21-rc4, =
+and
+> > don't work.  I can help to debug the problem, with some help.
+> >
+> > I have a M2V motherboard with built-in Attansic(R) L1 Ethernet Netw=
+ork
+> > Driver and a Athlon 64 X2 Dual Core processor.
+> >
+> > Jose Alberto
+>
+> I found that the original driver has its own ether_crc_le function, t=
+hat
+> return the value inverted. The attached patch solve the problem.
+>
+> Jose Alberto
+
+if yu you want to apply it in the case that you need it:
+
+Signed-off-by: Jose Alberto Reguero <jareguero@telefonica.net>
+
+Jose Alberto
