@@ -1,32 +1,30 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [patch 5/7] bonding: replace system timer with work queue
-Date: Mon, 26 Mar 2007 21:56:48 -0800
-Message-ID: <20070326215648.58cb392b.akpm@linux-foundation.org>
-References: <200703270550.l2R5o16M008387@shell0.pdx.osdl.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/3] [NET] fib_rules: goto rule action
+Date: Mon, 26 Mar 2007 23:08:27 -0700 (PDT)
+Message-ID: <20070326.230827.98554151.davem@davemloft.net>
+References: <20070326235713.478149847@lsx.localdomain>
+	<20070326.171916.104032809.davem@davemloft.net>
+	<460899D3.60808@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: davem@davemloft.net, netdev@vger.kernel.org, perex@suse.cz,
-	ctindel@users.sourceforge.net, fubar@us.ibm.com, oleg@tv-sign.ru,
-	shemminger@linux-foundation.org
+Cc: tgraf@suug.ch, netdev@vger.kernel.org
+To: shemminger@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:40730 "EHLO smtp.osdl.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934051AbXC0F5F (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Mar 2007 01:57:05 -0400
-In-Reply-To: <200703270550.l2R5o16M008387@shell0.pdx.osdl.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35828
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S965242AbXC0GI2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Mar 2007 02:08:28 -0400
+In-Reply-To: <460899D3.60808@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 26 Mar 2007 21:50:01 -0800 akpm@linux-foundation.org wrote:
+From: Stephen Hemminger <shemminger@osdl.org>
+Date: Mon, 26 Mar 2007 21:13:07 -0700
 
-> Replace system timer with work queue in monitor functions.  The reason for
-> this change is that bonding handlers calls various sleeping functions from
-> the timer handler which is not allowed.  Because we cannot share the main
-> workqueue threads (rtnl_lock is used also in linkwatch_event) - new bond
-> workqueue thread is created.
+> Do we have to worry about self inflicted infinite loops?
+> Shouldn't there be some way to some basic validation?
 
-I have a note here that this patch needs additional work.
+We do, and there is.  You obviously didn't read Thomas's patch.
 
-I forget what it was, there has since been no followup and hence I shall now
-drop this patch.
+He prevents loops by only allowing forward gotos.
