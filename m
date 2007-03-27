@@ -1,43 +1,91 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] LVS: Send ICMP unreachable responses to end-users when
- real-servers are removed
-Date: Mon, 26 Mar 2007 18:04:08 -0700 (PDT)
-Message-ID: <20070326.180408.18304339.davem@davemloft.net>
-References: <20070211030441.GB3383@verge.net.au>
+From: Joy Latten <latten@austin.ibm.com>
+Subject: Re: [PATCH]: SAD sometimes has double SAs.
+Date: Mon, 26 Mar 2007 19:04:27 -0600
+Message-ID: <1174957467.3085.461.camel@faith.austin.ibm.com>
+References: <200703232258.l2NMwKqH016994@faith.austin.ibm.com>
+	 <1174944899.17953.20.camel@localhost.localdomain>
+	 <20070326.144843.72708308.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jkrzyszt@tis.icnet.pl, ja@ssi.bg,
-	wensong@linux-vs.org, jmack@wm7d.net, ratz@drugphish.ch
-To: horms@verge.net.au
+Cc: eparis@redhat.com, netdev@vger.kernel.org,
+	herbert@gondor.apana.org.au, jmorris@namei.org, paul.moore@hp.com,
+	vyekkirala@trustedcs.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40153
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S933887AbXC0BEK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Mar 2007 21:04:10 -0400
-In-Reply-To: <20070211030441.GB3383@verge.net.au>
+Received: from e4.ny.us.ibm.com ([32.97.182.144]:49820 "EHLO e4.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933916AbXC0BU7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Mar 2007 21:20:59 -0400
+Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
+	by e4.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l2R1Kw0g009666
+	for <netdev@vger.kernel.org>; Mon, 26 Mar 2007 21:20:58 -0400
+Received: from d01av01.pok.ibm.com (d01av01.pok.ibm.com [9.56.224.215])
+	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l2R1KweA265946
+	for <netdev@vger.kernel.org>; Mon, 26 Mar 2007 21:20:58 -0400
+Received: from d01av01.pok.ibm.com (loopback [127.0.0.1])
+	by d01av01.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l2R1KvTB030564
+	for <netdev@vger.kernel.org>; Mon, 26 Mar 2007 21:20:57 -0400
+In-Reply-To: <20070326.144843.72708308.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Horms <horms@verge.net.au>
-Date: Sun, 11 Feb 2007 12:04:43 +0900
+On Mon, 2007-03-26 at 14:48 -0700, David Miller wrote:
+> From: Eric Paris <eparis@redhat.com>
+> Date: Mon, 26 Mar 2007 17:34:59 -0400
+> 
+> > I'm not at all able to speak on the correctness or validity of the
+> > solution,
+> 
+> Neither am I yet :)
+> 
+> > but shouldn't the ipv6 case be a && not an || like the ipv4
+> > case?  Isn't this going to match all sorts of things?  Did you test this
+> > patch on ipv6 and see it to solve your problem?
+> > 
+> > I'm also not enjoying the formatting in the ipv6 part where the first
+> > time you have the cast on the same time as the object but not the second
+> > part where x->props.saddr.a6 is on its own little line.
+> 
+> Also, I want to understand what is going to tear down these
+> "other direction" fake entries later on?  I think I can review
+> this patch better if I understand that.
+> 
+I am going to refer to the other-direction-placeholder as the "fake"
+entry. And the larval SA that gets created for the new
+spi as result of a GETSPI message as the "real" entry. 
 
-> Hi,
-> 
-> this is a small patch by  Janusz Krzysztofik to ip_route_output_slow()
-> that allows VIP-less LVS linux director to generate packets originating
-> >From VIP if sysctl_ip_nonlocal_bind is set.
-> 
-> In a nutshell, the intention is for an LVS linux director to be able
-> to send ICMP unreachable responses to end-users when real-servers are
-> removed.
-> 
-> http://archive.linuxvirtualserver.org/html/lvs-users/2007-01/msg00106.html
-> 
-> I'm not really sure about the correctness of this approach,
-> so I am sending it here to netdev for review
-> 
-> Cc: Janusz Krzysztofik <jkrzyszt@tis.icnet.pl>
-> Signed-off-by: Simon Horman <horms@verge.net.au>
+The fake entry gets created when the real entry does and does not have
+an spi. It shares some of the same properties of a "real" larval SA
+(they are created using same code) and it's state
+is marked as XFRM_STATE_ACQ. The real entry has a timeout. So, should
+IKE negotiation fail, take too long, etc... it will eventually timeout
+and be deleted. So does the fake entry. It will timeout and should be
+eventually deleted. (I will test this part tomorrow for assurance.)
+ 
+When the IKE negotiations are successful, xfrm_state_add() and the
+xfrm_state_update() look for larval SAs in that they look for an SA with
+same src, dst, etc... and with state==XFRM_STATE_ACQUIRE. Any that are
+found are deleted and new SA added. This removes the real larval SA, and
+should also remove the fake entry too.     
 
-Applied to net-2.6.22, thanks Simon.
+Of course, this is all based on my assumption that IKE will install
+two SAs, one for incoming and one for outgoing. 
+
+Hopefully this answers how fake entries will be removed. 
+Admittedly, I may miss something or didn't understand something
+correctly as I learn the code, so please let me know. 
+There may even be a better solution that I don't readily see. 
+
+> As it stands, this looks to me like a workaround for an improperly
+> implemented IPSEC daemon.  Joy states it as saying that the current
+> code requires the keying daemon to manage it's SAs, and I wonder
+> whether any other implementation is even valid.
+> 
+My big mouth. :-) But yes, I do think more SA management in 
+userspace would be ideal. 
+
+This fix will hopefully ensure kernel doesn't send any
+extra acquires regardless. 
+
+Joy
