@@ -1,91 +1,85 @@
-From: Joy Latten <latten@austin.ibm.com>
-Subject: Re: [PATCH]: SAD sometimes has double SAs.
-Date: Mon, 26 Mar 2007 19:04:27 -0600
-Message-ID: <1174957467.3085.461.camel@faith.austin.ibm.com>
-References: <200703232258.l2NMwKqH016994@faith.austin.ibm.com>
-	 <1174944899.17953.20.camel@localhost.localdomain>
-	 <20070326.144843.72708308.davem@davemloft.net>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [1/5] 2.6.21-rc5: known regressions
+Date: Tue, 27 Mar 2007 03:59:29 +0200
+Message-ID: <20070327015929.GY16477@stusta.de>
+References: <Pine.LNX.4.64.0703251559560.6730@woody.linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: eparis@redhat.com, netdev@vger.kernel.org,
-	herbert@gondor.apana.org.au, jmorris@namei.org, paul.moore@hp.com,
-	vyekkirala@trustedcs.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Oliver Pinter <oliver.pntr@gmail.com>,
+	Sid Boyce <g3vbv@blueyonder.co.uk>,
+	Boris Mogwitz <boris@macbeth.rhoen.de>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Jose Alberto Reguero <jareguero@telefonica.net>,
+	Ingo Molnar <mingo@elte.hu>,
+	Jesse Brandeburg <jesse.brandeburg@gmail.com>,
+	Auke Kok <auke-jan.h.kok@intel.com>,
+	e1000-devel@lists.sourceforge.net, jgarzik@pobox.com,
+	netdev@vger.kernel.org, Ayaz Abdulla <aabdulla@nvidia.com>,
+	Albert Hopkins <kernel@marduk.letterboxes.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e4.ny.us.ibm.com ([32.97.182.144]:49820 "EHLO e4.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933916AbXC0BU7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Mar 2007 21:20:59 -0400
-Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
-	by e4.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l2R1Kw0g009666
-	for <netdev@vger.kernel.org>; Mon, 26 Mar 2007 21:20:58 -0400
-Received: from d01av01.pok.ibm.com (d01av01.pok.ibm.com [9.56.224.215])
-	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l2R1KweA265946
-	for <netdev@vger.kernel.org>; Mon, 26 Mar 2007 21:20:58 -0400
-Received: from d01av01.pok.ibm.com (loopback [127.0.0.1])
-	by d01av01.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l2R1KvTB030564
-	for <netdev@vger.kernel.org>; Mon, 26 Mar 2007 21:20:57 -0400
-In-Reply-To: <20070326.144843.72708308.davem@davemloft.net>
+Received: from emailhub.stusta.mhn.de ([141.84.69.5]:35496 "EHLO
+	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751483AbXC0B71 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Mar 2007 21:59:27 -0400
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.64.0703251559560.6730@woody.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2007-03-26 at 14:48 -0700, David Miller wrote:
-> From: Eric Paris <eparis@redhat.com>
-> Date: Mon, 26 Mar 2007 17:34:59 -0400
-> 
-> > I'm not at all able to speak on the correctness or validity of the
-> > solution,
-> 
-> Neither am I yet :)
-> 
-> > but shouldn't the ipv6 case be a && not an || like the ipv4
-> > case?  Isn't this going to match all sorts of things?  Did you test this
-> > patch on ipv6 and see it to solve your problem?
-> > 
-> > I'm also not enjoying the formatting in the ipv6 part where the first
-> > time you have the cast on the same time as the object but not the second
-> > part where x->props.saddr.a6 is on its own little line.
-> 
-> Also, I want to understand what is going to tear down these
-> "other direction" fake entries later on?  I think I can review
-> this patch better if I understand that.
-> 
-I am going to refer to the other-direction-placeholder as the "fake"
-entry. And the larval SA that gets created for the new
-spi as result of a GETSPI message as the "real" entry. 
+This email lists some known regressions in Linus' tree compared to 2.6.20.
 
-The fake entry gets created when the real entry does and does not have
-an spi. It shares some of the same properties of a "real" larval SA
-(they are created using same code) and it's state
-is marked as XFRM_STATE_ACQ. The real entry has a timeout. So, should
-IKE negotiation fail, take too long, etc... it will eventually timeout
-and be deleted. So does the fake entry. It will timeout and should be
-eventually deleted. (I will test this part tomorrow for assurance.)
- 
-When the IKE negotiations are successful, xfrm_state_add() and the
-xfrm_state_update() look for larval SAs in that they look for an SA with
-same src, dst, etc... and with state==XFRM_STATE_ACQUIRE. Any that are
-found are deleted and new SA added. This removes the real larval SA, and
-should also remove the fake entry too.     
+If you find your name in the Cc header, you are either submitter of one
+of the bugs, maintainer of an affectected subsystem or driver, a patch
+of you caused a breakage or I'm considering you in any other way
+possibly involved with one or more of these issues.
 
-Of course, this is all based on my assumption that IKE will install
-two SAs, one for incoming and one for outgoing. 
+Due to the huge amount of recipients, please trim the Cc when answering.
 
-Hopefully this answers how fake entries will be removed. 
-Admittedly, I may miss something or didn't understand something
-correctly as I learn the code, so please let me know. 
-There may even be a better solution that I don't readily see. 
 
-> As it stands, this looks to me like a workaround for an improperly
-> implemented IPSEC daemon.  Joy states it as saying that the current
-> code requires the keying daemon to manage it's SAs, and I wonder
-> whether any other implementation is even valid.
-> 
-My big mouth. :-) But yes, I do think more SA management in 
-userspace would be ideal. 
+Subject    : crashes in KDE
+References : http://bugzilla.kernel.org/show_bug.cgi?id=8157
+Submitter  : Oliver Pinter <oliver.pntr@gmail.com>
+Status     : unknown
 
-This fix will hopefully ensure kernel doesn't send any
-extra acquires regardless. 
 
-Joy
+Subject    : kwin dies silently  (sysctl related?)
+References : http://lkml.org/lkml/2007/2/28/112
+Submitter  : Sid Boyce <g3vbv@blueyonder.co.uk>
+             Boris Mogwitz <boris@macbeth.rhoen.de>
+Status     : submitter was asked to bisect further
+
+
+Subject    : problem with sockets
+References : http://lkml.org/lkml/2007/3/21/248
+Submitter  : Jose Alberto Reguero <jareguero@telefonica.net>
+Status     : unknown
+
+
+Subject    : e1000 resume weirdness
+References : http://lkml.org/lkml/2007/3/26/91
+Submitter  : Ingo Molnar <mingo@elte.hu>
+Handled-By : Jesse Brandeburg <jesse.brandeburg@gmail.com>
+             Auke Kok <auke-jan.h.kok@intel.com>
+Status     : problem is being debugged
+
+
+Subject    : forcedeth: sporadic under-load crashes
+References : http://lkml.org/lkml/2007/3/26/63
+Submitter  : Ingo Molnar <mingo@elte.hu>
+Handled-By : Ingo Molnar <mingo@elte.hu>
+             Ayaz Abdulla <aabdulla@nvidia.com>
+Status     : problem is being debugged
+
+
+Subject    : forcedeth: skb_over_panic
+References : http://bugzilla.kernel.org/show_bug.cgi?id=8058
+Submitter  : Albert Hopkins <kernel@marduk.letterboxes.org>
+Handled-By : Ayaz Abdulla <aabdulla@nvidia.com>
+Patch      : http://bugzilla.kernel.org/show_bug.cgi?id=8058
+Status     : patch available
+
+
+
