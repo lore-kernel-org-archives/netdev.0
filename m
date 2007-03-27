@@ -1,93 +1,40 @@
-From: Jose Alberto Reguero <jareguero@telefonica.net>
-Subject: Re: Problem with sockets an 2.6.21-rc5 kernel
-Date: Tue, 27 Mar 2007 17:41:09 +0200
-Message-ID: <200703271741.09949.jareguero@telefonica.net>
-References: <200703262303.21448.jareguero@telefonica.net> <200703271629.11814.jareguero@telefonica.net> <20070327144658.GA25125@2ka.mipt.ru>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: Ethernet Frame Generation
+Date: Tue, 27 Mar 2007 19:47:49 +0400
+Message-ID: <20070327154749.GA31957@2ka.mipt.ru>
+References: <20070327.224537.09436398.yoshfuji@linux-ipv6.org> <20070327142519.GN521@postel.suug.ch> <460937EE.8050703@lionking.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Jay Cliburn <jacliburn@bellsouth.net>
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Content-Type: text/plain; charset=koi8-r
+Cc: netdev@vger.kernel.org
+To: Simba <simba@lionking.at>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.telefonica.net ([213.4.149.66]:36303 "EHLO
-	ctsmtpout1.frontal.correo" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S932267AbXC0PlX convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Mar 2007 11:41:23 -0400
-In-Reply-To: <20070327144658.GA25125@2ka.mipt.ru>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:58211 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932282AbXC0Pr7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Mar 2007 11:47:59 -0400
 Content-Disposition: inline
+In-Reply-To: <460937EE.8050703@lionking.at>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-El Martes, 27 de Marzo de 2007, Evgeniy Polyakov escribi=F3:
-> On Tue, Mar 27, 2007 at 04:29:11PM +0200, Jose Alberto Reguero=20
-(jareguero@telefonica.net) wrote:
-> > El Martes, 27 de Marzo de 2007, Evgeniy Polyakov escribi=C3=B3:
-> > > On Mon, Mar 26, 2007 at 11:03:21PM +0200, Jose Alberto Reguero
-> >
-> > (jareguero@telefonica.net) wrote:
-> > > > I had two python programs, server.py and client.py(attached)
-> > > >
-> > > > With server.py in  a kernel 2.6.21-rc5 x86_64 and client.py in =
-the
-> > > > same machine,  server.py get the message.
-> > > >
-> > > > With server.py in  a kerner 2.6.21-rc5 x86_64 and client.py in
-> > > > another machine, server.py don't get the message.
-> > > >
-> > > > The same with the programs in c(attached).
-> > > >
-> > > > With kernel 2.6.20.3 the programs work well.
-> > > >
-> > > > There are something wrong in the programs?
-> > >
-> > > Besides full absence of error checks and coding style issues it d=
-oes
-> > > not seem to contain errors.
-> > >
-> > > And, btw, C program work with 2.6.21-rc5 (git tree
-> > > e0f2e3a06be513352cb4955313ed7e55909acd84) on x86_64.
-> > >
-> > > server.c application compiled with Debian 4.1.1-21 compiler on x8=
-6_64
-> > > sucessfully received message from 2.6.18-3 machine.
-> >
-> > Thanks. I thought it was a kernel BUG. It is a alt1 driver
-> > BUG(Attansic(R) L1 Ethernet Network Driver). The error happens with=
- the
-> > atl1 driver that comes with kernel 2.6.21-rc5. With he original dri=
-ver
-> > from ASUS for M2V motherboard modified to compile with kernel 2.6.2=
-1-rc5
-> > there is no problems.
->
-> Did it work with in-kernel driver?
-> There is only one remotely related change in the driver:
->
-> -	mta =3D ioread32((hw + REG_RX_HASH_TABLE) + (hash_reg << 2));
-> +	mta =3D ioread32((hw->hw_addr + REG_RX_HASH_TABLE) + (hash_reg << 2=
-));
->
-> If it worked before, then spurious ioread() from outside of our
-> univercity could lead to good/bad mta value (likely zero or ~0), so
-> appropriate multicast list update could succeed.
->
-> If your programs never worked with this new driver, then it can not b=
-e
-> easily solved without hardware specifications.
->
-> I added Jay Cliburn who submitted the driver to Cc list.
->
-> > Jose Alberto
+On Tue, Mar 27, 2007 at 05:27:42PM +0200, Simba (simba@lionking.at) wrote:
+> I am currently working on a new l2/l3 protocol (just for
+> research reasons) and i would like to make a test implementation
+> in the linux kernel.
+> 
+> For this i need to modify the ethernet header and replace it
+> with my header. The payload of this header holds the raw data, or
+> an TCP segment, or an UDP datagram.
 
-The first time i try the kernel driver was with kernel 2.6.21-rc4, and =
-don't=20
-work.  I can help to debug the problem, with some help.
+How will your hardware handle that new protocol?
 
-I have a M2V motherboard with built-in Attansic(R) L1 Ethernet Network =
-Driver=20
-and a Athlon 64 X2 Dual Core processor.
+Anyway, you need to setup skb and call driver's ->hard_start_xmit() 
+callback under tx lock with check if driver allows to transmit data.
 
-Jose Alberto
+Check net/pktgen.c -> pktgen_xmit() function.
 
+The simplest way to receive a packet is about putting your code into 
+netif_receive_skb().
 
+-- 
+	Evgeniy Polyakov
