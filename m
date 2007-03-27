@@ -1,116 +1,46 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH] iproute2: support for goto/nop action and detached flag
-Date: Tue, 27 Mar 2007 02:04:10 +0200
-Message-ID: <20070327000410.GI521@postel.suug.ch>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/3] [NET] fib_rules: goto rule action
+Date: Mon, 26 Mar 2007 17:19:16 -0700 (PDT)
+Message-ID: <20070326.171916.104032809.davem@davemloft.net>
+References: <20070326235450.756924134@lsx.localdomain>
+	<20070326235713.478149847@lsx.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@osdl.org>
+To: tgraf@suug.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:52642 "EHLO postel.suug.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933819AbXC0ADt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Mar 2007 20:03:49 -0400
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48298
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S933847AbXC0ATR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Mar 2007 20:19:17 -0400
+In-Reply-To: <20070326235713.478149847@lsx.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen,
+From: Thomas Graf <tgraf@suug.ch>
+Date: Tue, 27 Mar 2007 01:54:51 +0200
 
-Patch to support the new fib rules features I just posted
-on netdev.
+> This patch adds a new rule action FR_ACT_GOTO which allows
+> to skip a set of rules by jumping to another rule. The rule
+> to jump to is specified via the FRA_GOTO attribute which
+> carries a rule preference.
+> 
+> Referring to a rule which doesn't exists is explicitely allowed.
+> Such goto rules are marked with the flag FIB_RULE_UNRESOLVED
+> and will act like a rule with a non-matching selector. The rule
+> will become functional as soon as its target is present.
+> 
+> The goto action enables performance optimizations by reducing
+> the average number of rules that have to be passed per lookup.
+> 
+> Example:
+> 0:      from all lookup local 
+> 40:     not from all to 192.168.23.128 goto 32766
+> 41:     from all fwmark 0xa blackhole
+> 42:     from all fwmark 0xff blackhole
+> 32766:  from all lookup main 
+> 
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-Index: iproute2.git/include/linux/fib_rules.h
-===================================================================
---- iproute2.git.orig/include/linux/fib_rules.h	2007-03-25 22:26:33.000000000 +0200
-+++ iproute2.git/include/linux/fib_rules.h	2007-03-27 02:00:48.000000000 +0200
-@@ -7,6 +7,8 @@
- /* rule is permanent, and cannot be deleted */
- #define FIB_RULE_PERMANENT	1
- #define FIB_RULE_INVERT		2
-+#define FIB_RULE_UNRESOLVED	4
-+#define FIB_RULE_DEV_DETACHED	8
- 
- struct fib_rule_hdr
- {
-@@ -29,7 +31,7 @@ enum
- 	FRA_DST,	/* destination address */
- 	FRA_SRC,	/* source address */
- 	FRA_IFNAME,	/* interface name */
--	FRA_UNUSED1,
-+	FRA_GOTO,	/* target to jump to (FR_ACT_GOTO) */
- 	FRA_UNUSED2,
- 	FRA_PRIORITY,	/* priority/preference */
- 	FRA_UNUSED3,
-@@ -51,8 +53,8 @@ enum
- {
- 	FR_ACT_UNSPEC,
- 	FR_ACT_TO_TBL,		/* Pass to fixed table */
--	FR_ACT_RES1,
--	FR_ACT_RES2,
-+	FR_ACT_GOTO,		/* Jump to another rule */
-+	FR_ACT_NOP,		/* No operation */
- 	FR_ACT_RES3,
- 	FR_ACT_RES4,
- 	FR_ACT_BLACKHOLE,	/* Drop without notification */
-Index: iproute2.git/ip/iprule.c
-===================================================================
---- iproute2.git.orig/ip/iprule.c	2007-03-25 22:25:28.000000000 +0200
-+++ iproute2.git/ip/iprule.c	2007-03-27 02:00:48.000000000 +0200
-@@ -42,6 +42,7 @@ static void usage(void)
- 	fprintf(stderr, "ACTION := [ table TABLE_ID ]\n");
- 	fprintf(stderr, "          [ prohibit | reject | unreachable ]\n");
- 	fprintf(stderr, "          [ realms [SRCREALM/]DSTREALM ]\n");
-+	fprintf(stderr, "          [ goto NUMBER ]\n");
- 	fprintf(stderr, "TABLE_ID := [ local | main | default | NUMBER ]\n");
- 	exit(-1);
- }
-@@ -144,6 +145,8 @@ int print_rule(const struct sockaddr_nl 
- 
- 	if (tb[RTA_IIF]) {
- 		fprintf(fp, "iif %s ", (char*)RTA_DATA(tb[RTA_IIF]));
-+		if (r->rtm_flags & FIB_RULE_DEV_DETACHED)
-+			fprintf(fp, "[detached] ");
- 	}
- 
- 	table = rtm_get_table(r, tb);
-@@ -171,7 +174,17 @@ int print_rule(const struct sockaddr_nl 
- 					    abuf, sizeof(abuf)));
- 		} else
- 			fprintf(fp, "masquerade");
--	} else if (r->rtm_type != RTN_UNICAST)
-+	} else if (r->rtm_type == FR_ACT_GOTO) {
-+		fprintf(fp, "goto ");
-+		if (tb[FRA_GOTO])
-+			fprintf(fp, "%u", *(__u32 *) RTA_DATA(tb[FRA_GOTO]));
-+		else
-+			fprintf(fp, "none");
-+		if (r->rtm_flags & FIB_RULE_UNRESOLVED)
-+			fprintf(fp, " [unresolved]");
-+	} else if (r->rtm_type == FR_ACT_NOP)
-+		fprintf(fp, "nop");
-+	else if (r->rtm_type != RTN_UNICAST)
- 		fprintf(fp, "%s", rtnl_rtntype_n2a(r->rtm_type, b1, sizeof(b1)));
- 
- 	fprintf(fp, "\n");
-@@ -311,9 +324,19 @@ static int iprule_modify(int cmd, int ar
- 			}
- 			if (matches(*argv, "help") == 0)
- 				usage();
--			if (rtnl_rtntype_a2n(&type, *argv))
-+			else if (matches(*argv, "goto") == 0) {
-+				__u32 target;
-+				type = FR_ACT_GOTO;
-+				NEXT_ARG();
-+				if (get_u32(&target, *argv, 0))
-+					invarg("invalid target\n", *argv);
-+				addattr32(&req.n, sizeof(req), FRA_GOTO, target);
-+			} else if (matches(*argv, "nop") == 0)
-+				type = FR_ACT_NOP;
-+			else if (rtnl_rtntype_a2n(&type, *argv))
- 				invarg("Failed to parse rule type", *argv);
- 			req.r.rtm_type = type;
-+			table_ok = 1;
- 		}
- 		argc--;
- 		argv++;
+This looks excellent, applied to net-2.6.22, thanks Thomas.
