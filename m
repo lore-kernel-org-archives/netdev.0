@@ -1,34 +1,28 @@
-From: Alan Cox <alan@redhat.com>
-Subject: Re: Patch:replace with time_after in drivers/net/eexpress.c
-Date: Wed, 28 Mar 2007 04:46:20 -0400
-Message-ID: <20070328084620.GB21357@devserv.devel.redhat.com>
-References: <1175058871.11584.33.camel@shani-win>
+From: Agoston Horvath <agoston@ripe.net>
+Subject: Re: IPv6: Connection reset/timeout under heavy load
+Date: Wed, 28 Mar 2007 10:48:27 +0200
+Message-ID: <460A2BDB.6080200@ripe.net>
+References: <4608E7CA.3090001@ripe.net> <20070327.194636.63219035.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: philb@gnu.org, alan@redhat.com, netdev@vger.kernel.org,
-	kernel-janitors@osdl.org
-To: Shani <shani.moideen@wipro.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: =?UTF-8?B?WU9TSElGVUpJIEhpZGVha2kgLyDlkInol6Toi7HmmI4=?=
+	<yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:51022 "EHLO mx1.redhat.com"
+Received: from postman.ripe.net ([193.0.0.199]:51977 "EHLO postman.ripe.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753250AbXC1Iqb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Mar 2007 04:46:31 -0400
-Content-Disposition: inline
-In-Reply-To: <1175058871.11584.33.camel@shani-win>
+	id S1752760AbXC1Is2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Mar 2007 04:48:28 -0400
+In-Reply-To: <20070327.194636.63219035.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 28, 2007 at 10:44:31AM +0530, Shani wrote:
-> Hi,
-> 
-> Replacing with time_after in drivers/net/eexpress.c
-> Applies and compiles clean on latest tree.Not tested.
-> 
-> thanks.
-> 
-> Signed-off-by: Shani Moideen <shani.moideen@wipro.com>
+YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E wrote:
+> Would you test with latest kernel, if possible, please?
 
-NAK as not tested. The existing code is known to work so ugly or not
-it is better than untested changes
+=46or the archive: switching to 2.6.20.4 fixed this problem.
 
+Thanks!
 
+Agoston
