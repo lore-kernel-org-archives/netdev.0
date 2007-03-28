@@ -1,31 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Inline net_device_stats
-Date: Wed, 28 Mar 2007 14:26:10 -0700 (PDT)
-Message-ID: <20070328.142610.52167631.davem@davemloft.net>
-References: <1175073418.12230.52.camel@localhost.localdomain>
-	<460A8F38.1050106@osdl.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Xen netfront fixes for changed skbuff in net-2.6.22.git
+Date: Thu, 29 Mar 2007 07:46:04 +1000
+Message-ID: <20070328214604.GA10231@gondor.apana.org.au>
+References: <460AB5A1.1000807@goop.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: rusty@rustcorp.com.au, netdev@vger.kernel.org
-To: shemminger@osdl.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Xen-devel <xen-devel@lists.xensource.com>,
+	NetDev <netdev@vger.kernel.org>,
+	Chris Wright <chrisw@sous-sol.org>
+To: Jeremy Fitzhardinge <jeremy@goop.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50650
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753061AbXC1V0K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Mar 2007 17:26:10 -0400
-In-Reply-To: <460A8F38.1050106@osdl.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:3562 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752897AbXC1VqX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Mar 2007 17:46:23 -0400
+Content-Disposition: inline
+In-Reply-To: <460AB5A1.1000807@goop.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@osdl.org>
-Date: Wed, 28 Mar 2007 08:52:24 -0700
+Hi Jeremy:
 
-> It would make sense to do it per-cpu and 64 bit for the non-error
-> counters.
+On Wed, Mar 28, 2007 at 11:36:17AM -0700, Jeremy Fitzhardinge wrote:
+> 
+> I wonder if you've got a chance to look at netfront in light of the new
+> stuff in davem's network tree  (the stuff that's in
+> http://git.kernel.org/?p=linux/kernel/git/davem/net-2.6.22.git).
 
-Good point, but that's a seperate change.
+I've had a look at now and you can just stuff it into one of the other
+pointers that's still there.  We just need to make sure that it is
+reset properly before we feed the packet into the stack.  The pointer
+skb->dev is one candidate but there are plenty of others.
 
-I have no real objection to Rusty's change and if more than
-one driver uses this thing it's useful, so I'll apply his
-patch.
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
