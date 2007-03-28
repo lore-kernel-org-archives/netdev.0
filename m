@@ -1,35 +1,31 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] atl1: remove unnecessary crc inversion
-Date: Wed, 28 Mar 2007 02:19:53 -0400
-Message-ID: <460A0909.8000607@garzik.org>
-References: <20070328004349.GA2792@osprey.hogchain.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: RFC: Established connections hash function
+Date: Tue, 27 Mar 2007 23:29:33 -0700 (PDT)
+Message-ID: <20070327.232933.71090935.davem@davemloft.net>
+References: <10189ABA61CF4D5AB3881F96C9CACE87@XEON>
+	<p73lkhi6aj7.fsf@bingen.suse.de>
+	<EED7DAB373CC4CB9B576EE1B1FBC9E32@XEON>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: csnook@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, jareguero@telefonica.net,
-	atl1-devel@lists.sourceforge.net
-To: Jay Cliburn <jacliburn@bellsouth.net>
+Cc: netdev@vger.kernel.org, ak@suse.de
+To: nikb@webmaster.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:42353 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933604AbXC1GT4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Mar 2007 02:19:56 -0400
-In-Reply-To: <20070328004349.GA2792@osprey.hogchain.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58402
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S933620AbXC1G3e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Mar 2007 02:29:34 -0400
+In-Reply-To: <EED7DAB373CC4CB9B576EE1B1FBC9E32@XEON>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jay Cliburn wrote:
-> From: Jay Cliburn <jacliburn@bellsouth.net>
-> 
-> The original vendor driver contained a private ether_crc_le() function
-> that produced an inverted crc.  When we changed to the kernel version of
-> ether_crc_le(), we neglected to undo the inversion.  Let's do it now.
-> Discovered by and patch proffered by Jose Alberto Reguero.
-> 
-> Signed-off-by: Jose Alberto Reguero <jareguero@telefonica.net>
-> Signed-off-by: Jay Cliburn <jacliburn@bellsouth.net>
+From: "Nikolaos D. Bougalis" <nikb@webmaster.com>
+Date: Tue, 27 Mar 2007 22:01:38 -0700
 
-applied to #upstream-fixes
+>     What this boils down to is, yes, we can keep patching our own kernels to 
+> use tagged jenkins hashing if this affects us, waiting for something better 
+> to come along.
 
-
+You don't have to patch, I put jenkins into the tree and it will
+hit 2.6.22, we don't need to even discuss this any more and you
+can safely ignore Andi.
