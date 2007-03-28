@@ -1,31 +1,45 @@
-From: John Heffner <jheffner@psc.edu>
-Subject: Re: [PATCH] NET: Add TCP connection abort IOCTL
-Date: Tue, 27 Mar 2007 20:34:18 -0400
-Message-ID: <4609B80A.6070906@psc.edu>
-References: <20070327214754.GA11677@dag-work> <20070327.153025.45876618.davem@davemloft.net> <4609A42A.4040304@mvista.com> <4609B680.7070601@psc.edu>
+From: Jay Cliburn <jacliburn@bellsouth.net>
+Subject: [PATCH] atl1: remove unnecessary crc inversion
+Date: Tue, 27 Mar 2007 19:43:49 -0500
+Message-ID: <20070328004349.GA2792@osprey.hogchain.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Mark Huth <mhuth@mvista.com>, David Miller <davem@davemloft.net>,
-	dagriego@gmail.com, netdev@vger.kernel.org
-To: John Heffner <jheffner@psc.edu>
+Content-Type: text/plain; charset=us-ascii
+Cc: csnook@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, jareguero@telefonica.net,
+	atl1-devel@lists.sourceforge.net
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailer1.psc.edu ([128.182.58.100]:62424 "EHLO mailer1.psc.edu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934289AbXC1Ajf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Mar 2007 20:39:35 -0400
-In-Reply-To: <4609B680.7070601@psc.edu>
+Received: from imf18aec.mail.bellsouth.net ([205.152.59.66]:57887 "EHLO
+	imf18aec.mail.bellsouth.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S934300AbXC1Anv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Mar 2007 20:43:51 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-John Heffner wrote:
-> I also believe this is a useful thing to have.  I'm not 100% sure this 
-> ioctl is the way to go, but it seems reasonable.  This directly 
-> corresponds to writing deleteTcb to the tcpConnectionState variable in 
-> the TCP MIB (RFC 4022).  I don't think it constitutes a protocol violation.
+From: Jay Cliburn <jacliburn@bellsouth.net>
 
-Responding to myself in good form :P  I'll add that there are other ways 
-to do this currently but all I know of are hackish, f.e. using a raw 
-socket to send RST packets to yourself.
+The original vendor driver contained a private ether_crc_le() function
+that produced an inverted crc.  When we changed to the kernel version of
+ether_crc_le(), we neglected to undo the inversion.  Let's do it now.
+Discovered by and patch proffered by Jose Alberto Reguero.
 
-   -John
+Signed-off-by: Jose Alberto Reguero <jareguero@telefonica.net>
+Signed-off-by: Jay Cliburn <jacliburn@bellsouth.net>
+---
+
+ drivers/net/atl1/atl1_hw.c |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/atl1/atl1_hw.c b/drivers/net/atl1/atl1_hw.c
+index 314dbaa..69482e0 100644
+--- a/drivers/net/atl1/atl1_hw.c
++++ b/drivers/net/atl1/atl1_hw.c
+@@ -334,7 +334,6 @@ u32 atl1_hash_mc_addr(struct atl1_hw *hw, u8 *mc_addr)
+ 	int i;
+ 
+ 	crc32 = ether_crc_le(6, mc_addr);
+-	crc32 = ~crc32;
+ 	for (i = 0; i < 32; i++)
+ 		value |= (((crc32 >> i) & 1) << (31 - i));
+ 
