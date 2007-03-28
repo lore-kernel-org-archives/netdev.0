@@ -1,34 +1,42 @@
-From: Bill Davidsen <davidsen@tmr.com>
-Subject: Re: [2.6 patch] the scheduled eepro100 removal
-Date: Wed, 28 Mar 2007 18:17:59 -0400
-Message-ID: <460AE997.90509@tmr.com>
-References: <20070325145810.GI16477@stusta.de>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [PATCH] sis190: new PHY support
+Date: Thu, 29 Mar 2007 00:18:50 +0200
+Message-ID: <20070328221850.GA10571@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S933875AbXC1WRy@vger.kernel.org>
-In-Reply-To: <20070325145810.GI16477@stusta.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Paul Gibbons <paul@pkami.e7even.com>
+To: jeff@garzik.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:48015 "EHLO
+	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933921AbXC1WUW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Mar 2007 18:20:22 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Adrian Bunk wrote:
-> This patch contains the scheduled removal of the eepro100 driver.
-> 
-> Signed-off-by: Adrian Bunk <bunk@stusta.de>
-> 
-> 
-This keeps coming around, but I haven't seen an answer to the questions 
-raised by Eric Piel or Kiszka. I do know that e100 didn't work on some 
-IBM rackmount servers and eepro100 did, but since I'm no longer 
-responsible for those machines I can't retest. Perhaps someone will be 
-able to provide data points.
+Reported to work on the WinFast 761GXK8MB-RS motherboard.
 
-IBM current offerings as of about three years ago, I had a few dozen of 
-them at one time.
+Plain 10/100 Mbps.
 
+Signed-off-by: Paul Gibbons <paul@pkami.e7even.com>
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+---
+ drivers/net/sis190.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/sis190.c b/drivers/net/sis190.c
+index b08508b..34463ce 100644
+--- a/drivers/net/sis190.c
++++ b/drivers/net/sis190.c
+@@ -324,6 +324,7 @@ static struct mii_chip_info {
+ 	u32 feature;
+ } mii_chip_table[] = {
+ 	{ "Broadcom PHY BCM5461", { 0x0020, 0x60c0 }, LAN, F_PHY_BCM5461 },
++	{ "Broadcom PHY AC131",   { 0x0143, 0xbc70 }, LAN, 0 },
+ 	{ "Agere PHY ET1101B",    { 0x0282, 0xf010 }, LAN, 0 },
+ 	{ "Marvell PHY 88E1111",  { 0x0141, 0x0cc0 }, LAN, F_PHY_88E1111 },
+ 	{ "Realtek PHY RTL8201",  { 0x0000, 0x8200 }, LAN, 0 },
 -- 
-Bill Davidsen <davidsen@tmr.com>
-   "We have more to fear from the bungling of the incompetent than from
-the machinations of the wicked."  - from Slashdot
+1.5.0.5
+
