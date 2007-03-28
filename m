@@ -1,43 +1,61 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [1/5] 2.6.21-rc5: known regressions
-Date: Wed, 28 Mar 2007 21:23:27 +0200
-Message-ID: <20070328192327.GA24340@elte.hu>
-References: <Pine.LNX.4.64.0703251559560.6730@woody.linux-foundation.org> <20070327015929.GY16477@stusta.de> <460AB9E8.8070803@intel.com>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [PATCH] [TCP]: Rexmit hint must be cleared instead of setting
+ it
+Date: Wed, 28 Mar 2007 22:29:05 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0703282223540.29833@kivilampi-30.cs.helsinki.fi>
+References: <Pine.LNX.4.64.0703281629360.27182@kivilampi-30.cs.helsinki.fi>
+ <20070328.120709.35017257.davem@davemloft.net> <20070328.121405.49244759.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Adrian Bunk <bunk@stusta.de>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Jesse Brandeburg <jesse.brandeburg@gmail.com>,
-	e1000-devel@lists.sourceforge.net, jgarzik@pobox.com,
-	netdev@vger.kernel.org
-To: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696243703-692498704-1175110145=:29833"
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.mail.elte.hu ([157.181.151.9]:38251 "EHLO mx2.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932404AbXC1TYv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Mar 2007 15:24:51 -0400
-Content-Disposition: inline
-In-Reply-To: <460AB9E8.8070803@intel.com>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:34028 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933204AbXC1T3J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Mar 2007 15:29:09 -0400
+In-Reply-To: <20070328.121405.49244759.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-* Kok, Auke <auke-jan.h.kok@intel.com> wrote:
+---696243703-692498704-1175110145=:29833
+Content-Type: TEXT/PLAIN; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
 
-> Adrian Bunk wrote:
-> >Subject    : e1000 resume weirdness
-> >References : http://lkml.org/lkml/2007/3/26/91
-> >Submitter  : Ingo Molnar <mingo@elte.hu>
-> >Handled-By : Jesse Brandeburg <jesse.brandeburg@gmail.com>
-> >             Auke Kok <auke-jan.h.kok@intel.com>
-> >Status     : problem is being debugged
+On Wed, 28 Mar 2007, David Miller wrote:
 
-> Adrian, you probably want to drop this issue from your list.
+> From: David Miller <davem@davemloft.net>
+> Date: Wed, 28 Mar 2007 12:07:09 -0700 (PDT)
+> 
+> > From: "Ilpo_Järvinen" <ilpo.jarvinen@helsinki.fi>
+> > Date: Wed, 28 Mar 2007 16:31:50 +0300 (EEST)
+> > 
+> > > Stupid error from my side. Even though now that I noticed this,
+> > > I hoped it would have been an optimization but no, the counter
+> > > hint is then incorrect. Thus clearing is necessary for now (I
+> > > still suspect though that this path is never executed).
+> > > 
+> > > Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
+> > 
+> > Better safe than sorry :-)
+> > 
+> > We can start putting more aggressive assertions around if you'd
+> > like to get some invariants like that validated.
+> 
+> In case it's not clear I did apply this patch.
 
-agreed - i have done many suspend/resumes meanwhile, and this condition 
-has not reoccured since then. (and even when it occured, it was 
-transitionary)
+I think more this on Friday, maybe WARN_ON could be placed there so that 
+no harm is being done if it ever get there, probably a candidate for 
+unlikely, if this is really needed. Anyway, applying the NULL this patch 
+does no harm (it was supposed to be that way right from the
+beginning)... :-)
 
-	Ingo
+...but lets keep in mind that the actual goal is, of course, to get rid of 
+the hint altogether, rather than doing these clearing things... :-)
+
+-- 
+ i.
+---696243703-692498704-1175110145=:29833--
