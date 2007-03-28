@@ -1,34 +1,31 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: [IPV6]: Do not set IF_READY if device is down
-Date: Wed, 28 Mar 2007 01:33:30 +0100
-Message-ID: <1175042010.3277.68.camel@pmac.infradead.org>
-References: <200703080359.l283xo6S012573@hera.kernel.org>
-	 <1175003838.3277.41.camel@pmac.infradead.org>
-	 <20070327213032.GA30935@gondor.apana.org.au>
+From: John Heffner <jheffner@psc.edu>
+Subject: Re: [PATCH] NET: Add TCP connection abort IOCTL
+Date: Tue, 27 Mar 2007 20:34:18 -0400
+Message-ID: <4609B80A.6070906@psc.edu>
+References: <20070327214754.GA11677@dag-work> <20070327.153025.45876618.davem@davemloft.net> <4609A42A.4040304@mvista.com> <4609B680.7070601@psc.edu>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: Mark Huth <mhuth@mvista.com>, David Miller <davem@davemloft.net>,
+	dagriego@gmail.com, netdev@vger.kernel.org
+To: John Heffner <jheffner@psc.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:41816 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934268AbXC1Adn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Mar 2007 20:33:43 -0400
-In-Reply-To: <20070327213032.GA30935@gondor.apana.org.au>
+Received: from mailer1.psc.edu ([128.182.58.100]:62424 "EHLO mailer1.psc.edu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S934289AbXC1Ajf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Mar 2007 20:39:35 -0400
+In-Reply-To: <4609B680.7070601@psc.edu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2007-03-28 at 07:30 +1000, Herbert Xu wrote:
-> Sorry, that patch is indeed broken.  We do need to set IF_READY in
-> the case where all addresses were deleted (including the link-local)
-> and then recreated.  The IPv6 device will be destroyed and recreated
-> too in that case. 
+John Heffner wrote:
+> I also believe this is a useful thing to have.  I'm not 100% sure this 
+> ioctl is the way to go, but it seems reasonable.  This directly 
+> corresponds to writing deleteTcb to the tcpConnectionState variable in 
+> the TCP MIB (RFC 4022).  I don't think it constitutes a protocol violation.
 
-Your new patch fixes the problem for me, at least with my test script.
-Thanks.
+Responding to myself in good form :P  I'll add that there are other ways 
+to do this currently but all I know of are hackish, f.e. using a raw 
+socket to send RST packets to yourself.
 
--- 
-dwmw2
-
+   -John
