@@ -1,152 +1,61 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: [PATCH] NET : secure sequence number functions can use nsec
- resolution instead of usec
-Date: Wed, 28 Mar 2007 17:43:22 +0200
-Message-ID: <20070328174322.5d806dd0.dada1@cosmosbay.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [RESEND] [NET] fib_rules: Flush route cache after rule modifications
+Date: Wed, 28 Mar 2007 17:49:03 +0200
+Message-ID: <20070328154903.GO521@postel.suug.ch>
+References: <20070327133845.GM521@postel.suug.ch> <20070328111921.GA2703@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Andi Kleen <andi@firstfloor.org>, netdev <netdev@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, muli@il.ibm.com
+To: davem@davemloft.net, Jarek Poplawski <jarkao2@o2.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pfx2.jmh.fr ([194.153.89.55]:38020 "EHLO pfx2.jmh.fr"
+Received: from postel.suug.ch ([194.88.212.233]:35009 "EHLO postel.suug.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932433AbXC1PnX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Mar 2007 11:43:23 -0400
+	id S932332AbXC1Psm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Mar 2007 11:48:42 -0400
+Content-Disposition: inline
+In-Reply-To: <20070328111921.GA2703@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello David
+* Jarek Poplawski <jarkao2@o2.pl> 2007-03-28 13:19
+> I hope I'm wrong, but isn't this at the cost of admins
+> working with long rules' sets, which (probably) take extra
+> time now?
 
-We could use the nanosec resolution for various functions defined in drivers/char/random.c
-(secure_tcpv6_sequence_number(), secure_tcp_sequence_number(), secure_dccp_sequence_number())
+That's right, it makes the insert and delete operation more
+expensive.
 
-I am not sure if it's a netdev related patch or core kernel, so I have CC Andrew.
+A compromise would be to delay the flushing and wait for
+some time (default 2 seconds) whether more rules or routes
+are being added before flushing.
 
-Thank you
+[NET] fib_rules: delay route cache flush by ip_rt_min_delay
 
-[PATCH] NET : random functions can use nsec resolution instead of usec
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-In order to get more randomness for secure_tcpv6_sequence_number(), secure_tcp_sequence_number(), secure_dccp_sequence_number() functions, we can use the high resolution time services, providing nanosec resolution.
-
-I've also done two kmalloc()/kzalloc() conversions.
-
-Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
-
---- linux-2.6.21-rc5/drivers/char/random.c
-+++ linux-2.6.21-rc5-ed/drivers/char/random.c
-@@ -881,15 +881,15 @@ EXPORT_SYMBOL(get_random_bytes);
-  */
- static void init_std_data(struct entropy_store *r)
+Index: linux/net-2.6.22/net/decnet/dn_rules.c
+===================================================================
+--- linux.orig/net-2.6.22/net/decnet/dn_rules.c	2007-03-28 17:41:22.000000000 +0200
++++ linux/net-2.6.22/net/decnet/dn_rules.c	2007-03-28 17:41:39.000000000 +0200
+@@ -242,7 +242,7 @@ static u32 dn_fib_rule_default_pref(void
+ 
+ static void dn_fib_rule_flush_cache(void)
  {
--	struct timeval tv;
-+	ktime_t now;
- 	unsigned long flags;
- 
- 	spin_lock_irqsave(&r->lock, flags);
- 	r->entropy_count = 0;
- 	spin_unlock_irqrestore(&r->lock, flags);
- 
--	do_gettimeofday(&tv);
--	add_entropy_words(r, (__u32 *)&tv, sizeof(tv)/4);
-+	now = ktime_get_real();
-+	add_entropy_words(r, (__u32 *)&now, sizeof(now)/4);
- 	add_entropy_words(r, (__u32 *)utsname(),
- 			  sizeof(*(utsname()))/4);
- }
-@@ -911,14 +911,12 @@ void rand_initialize_irq(int irq)
- 		return;
- 
- 	/*
--	 * If kmalloc returns null, we just won't use that entropy
-+	 * If kzalloc returns null, we just won't use that entropy
- 	 * source.
- 	 */
--	state = kmalloc(sizeof(struct timer_rand_state), GFP_KERNEL);
--	if (state) {
--		memset(state, 0, sizeof(struct timer_rand_state));
-+	state = kzalloc(sizeof(struct timer_rand_state), GFP_KERNEL);
-+	if (state)
- 		irq_timer_state[irq] = state;
--	}
+-	dn_rt_cache_flush(0);
++	dn_rt_cache_flush(-1);
  }
  
- #ifdef CONFIG_BLOCK
-@@ -927,14 +925,12 @@ void rand_initialize_disk(struct gendisk
- 	struct timer_rand_state *state;
+ static struct fib_rules_ops dn_fib_rules_ops = {
+Index: linux/net-2.6.22/net/ipv4/fib_rules.c
+===================================================================
+--- linux.orig/net-2.6.22/net/ipv4/fib_rules.c	2007-03-28 17:41:18.000000000 +0200
++++ linux/net-2.6.22/net/ipv4/fib_rules.c	2007-03-28 17:41:30.000000000 +0200
+@@ -300,7 +300,7 @@ static size_t fib4_rule_nlmsg_payload(st
  
- 	/*
--	 * If kmalloc returns null, we just won't use that entropy
-+	 * If kzalloc returns null, we just won't use that entropy
- 	 * source.
- 	 */
--	state = kmalloc(sizeof(struct timer_rand_state), GFP_KERNEL);
--	if (state) {
--		memset(state, 0, sizeof(struct timer_rand_state));
-+	state = kzalloc(sizeof(struct timer_rand_state), GFP_KERNEL);
-+	if (state)
- 		disk->random = state;
--	}
+ static void fib4_rule_flush_cache(void)
+ {
+-	rt_cache_flush(0);
++	rt_cache_flush(-1);
  }
- #endif
  
-@@ -1469,7 +1465,6 @@ late_initcall(seqgen_init);
- __u32 secure_tcpv6_sequence_number(__be32 *saddr, __be32 *daddr,
- 				   __be16 sport, __be16 dport)
- {
--	struct timeval tv;
- 	__u32 seq;
- 	__u32 hash[12];
- 	struct keydata *keyptr = get_keyptr();
-@@ -1485,8 +1480,7 @@ __u32 secure_tcpv6_sequence_number(__be3
- 	seq = twothirdsMD4Transform((const __u32 *)daddr, hash) & HASH_MASK;
- 	seq += keyptr->count;
- 
--	do_gettimeofday(&tv);
--	seq += tv.tv_usec + tv.tv_sec * 1000000;
-+	seq += ktime_get_real().tv64;
- 
- 	return seq;
- }
-@@ -1521,7 +1515,6 @@ __u32 secure_ip_id(__be32 daddr)
- __u32 secure_tcp_sequence_number(__be32 saddr, __be32 daddr,
- 				 __be16 sport, __be16 dport)
- {
--	struct timeval tv;
- 	__u32 seq;
- 	__u32 hash[4];
- 	struct keydata *keyptr = get_keyptr();
-@@ -1543,12 +1536,11 @@ __u32 secure_tcp_sequence_number(__be32 
- 	 *	As close as possible to RFC 793, which
- 	 *	suggests using a 250 kHz clock.
- 	 *	Further reading shows this assumes 2 Mb/s networks.
--	 *	For 10 Mb/s Ethernet, a 1 MHz clock is appropriate.
-+	 *	For 10 Gb/s Ethernet, a 1 GHz clock is appropriate.
- 	 *	That's funny, Linux has one built in!  Use it!
- 	 *	(Networks are faster now - should this be increased?)
- 	 */
--	do_gettimeofday(&tv);
--	seq += tv.tv_usec + tv.tv_sec * 1000000;
-+	seq += ktime_get_real().tv64;
- #if 0
- 	printk("init_seq(%lx, %lx, %d, %d) = %d\n",
- 	       saddr, daddr, sport, dport, seq);
-@@ -1598,7 +1590,6 @@ u32 secure_ipv6_port_ephemeral(const __b
- u64 secure_dccp_sequence_number(__be32 saddr, __be32 daddr,
- 				__be16 sport, __be16 dport)
- {
--	struct timeval tv;
- 	u64 seq;
- 	__u32 hash[4];
- 	struct keydata *keyptr = get_keyptr();
-@@ -1611,8 +1602,7 @@ u64 secure_dccp_sequence_number(__be32 s
- 	seq = half_md4_transform(hash, keyptr->secret);
- 	seq |= ((u64)keyptr->count) << (32 - HASH_BITS);
- 
--	do_gettimeofday(&tv);
--	seq += tv.tv_usec + tv.tv_sec * 1000000;
-+	seq += ktime_get_real().tv64;
- 	seq &= (1ull << 48) - 1;
- #if 0
- 	printk("dccp init_seq(%lx, %lx, %d, %d) = %d\n",
+ static struct fib_rules_ops fib4_rules_ops = {
