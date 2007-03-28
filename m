@@ -1,33 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [BNX2]: Fix link interrupt problem.
-Date: Wed, 28 Mar 2007 14:17:49 -0700 (PDT)
-Message-ID: <20070328.141749.93643817.davem@davemloft.net>
-References: <1175119038.7911.11.camel@dell>
+Subject: Re: [PATCH] NET : secure sequence number functions can use nsec
+ resolution instead of usec
+Date: Wed, 28 Mar 2007 14:22:54 -0700 (PDT)
+Message-ID: <20070328.142254.94073845.davem@davemloft.net>
+References: <20070328174322.5d806dd0.dada1@cosmosbay.com>
+	<Line.LNX.4.64.0703281231200.3715@d.namei>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: mchan@broadcom.com
+Cc: dada1@cosmosbay.com, andi@firstfloor.org, netdev@vger.kernel.org,
+	akpm@linux-foundation.org
+To: jmorris@namei.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33869
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54642
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753055AbXC1VRu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Mar 2007 17:17:50 -0400
-In-Reply-To: <1175119038.7911.11.camel@dell>
+	by vger.kernel.org with ESMTP id S1753103AbXC1VWy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Mar 2007 17:22:54 -0400
+In-Reply-To: <Line.LNX.4.64.0703281231200.3715@d.namei>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Michael Chan" <mchan@broadcom.com>
-Date: Wed, 28 Mar 2007 13:57:18 -0800
+From: James Morris <jmorris@namei.org>
+Date: Wed, 28 Mar 2007 12:31:56 -0400 (EDT)
 
-> [BNX2]: Fix link interrupt problem.
+> On Wed, 28 Mar 2007, Eric Dumazet wrote:
 > 
-> bnx2_has_work()'s logic is flawed and can cause the driver to miss
-> a link event.  The fix is to compare the status block's attn_bits
-> and attn_bits_ack to determine if there is a link event.
+> > Hello David
+> > 
+> > We could use the nanosec resolution for various functions defined in drivers/char/random.c
+> > (secure_tcpv6_sequence_number(), secure_tcp_sequence_number(), secure_dccp_sequence_number())
+> > 
+> > I am not sure if it's a netdev related patch or core kernel, so I have CC Andrew.
+> > 
+> > Thank you
+> > 
+> > [PATCH] NET : random functions can use nsec resolution instead of usec
+> > 
+> > In order to get more randomness for secure_tcpv6_sequence_number(), secure_tcp_sequence_number(), secure_dccp_sequence_number() functions, we can use the high resolution time services, providing nanosec resolution.
+> > 
+> > I've also done two kmalloc()/kzalloc() conversions.
+> > 
+> > Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
 > 
-> Update version to 1.5.6.
+> Looks good to me.
 > 
-> Signed-off-by: Michael Chan <mchan@broadcom.com>
+> Acked-by: James Morris <jmorris@namei.org>
 
-Applied, thanks Michael.
+To me too, patch applied, thanks everyone.
