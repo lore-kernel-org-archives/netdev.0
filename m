@@ -1,60 +1,113 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: RFC: Established connections hash function
-Date: Wed, 28 Mar 2007 16:52:55 +0200
-Message-ID: <20070328145255.GA7466@one.firstfloor.org>
-References: <10189ABA61CF4D5AB3881F96C9CACE87@XEON> <p73lkhi6aj7.fsf@bingen.suse.de> <EED7DAB373CC4CB9B576EE1B1FBC9E32@XEON> <200703281129.43783.ak@suse.de> <20070328104505.GA18748@2ka.mipt.ru> <p73y7lh316u.fsf@bingen.suse.de> <20070328155047.4112fb47.dada1@cosmosbay.com>
+From: Joy Latten <latten@austin.ibm.com>
+Subject: Re: [PATCH]: SAD sometimes has double SAs.
+Date: Wed, 28 Mar 2007 09:15:15 -0600
+Message-ID: <1175094915.3085.503.camel@faith.austin.ibm.com>
+References: <200703232258.l2NMwKqH016994@faith.austin.ibm.com>
+	 <1174944899.17953.20.camel@localhost.localdomain>
+	 <20070326.144843.72708308.davem@davemloft.net>
+	 <1174957467.3085.461.camel@faith.austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andi Kleen <andi@firstfloor.org>,
-	Evgeniy Polyakov <johnpol@2ka.mipt.ru>, nikb@webmaster.com,
-	netdev@vger.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: eparis@redhat.com, netdev@vger.kernel.org,
+	herbert@gondor.apana.org.au, jmorris@namei.org, paul.moore@hp.com,
+	vyekkirala@trustedcs.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:53430 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932152AbXC1OxA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Mar 2007 10:53:00 -0400
-Content-Disposition: inline
-In-Reply-To: <20070328155047.4112fb47.dada1@cosmosbay.com>
+Received: from e34.co.us.ibm.com ([32.97.110.152]:40797 "EHLO
+	e34.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751049AbXC1Pbt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Mar 2007 11:31:49 -0400
+Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
+	by e34.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id l2SFVnor023723
+	for <netdev@vger.kernel.org>; Wed, 28 Mar 2007 11:31:49 -0400
+Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
+	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l2SFVmxW093582
+	for <netdev@vger.kernel.org>; Wed, 28 Mar 2007 09:31:48 -0600
+Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av01.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l2SFVltr016451
+	for <netdev@vger.kernel.org>; Wed, 28 Mar 2007 09:31:48 -0600
+In-Reply-To: <1174957467.3085.461.camel@faith.austin.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 28, 2007 at 03:50:47PM +0200, Eric Dumazet wrote:
-> 1) We can now use "struct timespec" to get more bits in init_std_data()
+Last night I browsed the ipsec-tools code and saw places in
+racoon where improvement would actually fix this
+problem. I am working on a patch and will pursue this 
+on the ipsec-tools mailing list.
 
-That would be a good change, but i don't think it would help that much.
-If you know the hardware (e.g. webhost farms tend to have quite
-predictive kit) and the kernel binary and the boot offset from
-the timestamp you can probably guess the range of ns pretty closely
-(let's say down to a few ms). With that it's a small range to search. 
+I apologize for any inconvenience. 
+Eric, sorry as I know you already patched lspp kernel
+for testing. I strongly think this should be fixed
+in userspace. 
 
-> 2) tcp ehash salt is initialized at first socket creation, not boot time. Maybe we have more available entropy at this point.
+The permission check before flushing does still
+need to be added to kernel. 
 
-Sockets are created early too. It would be a little better, but probably
-not much. 
-
-The only true random seed is disk, keyboard/mouse and previous state. previous
-state is typically a relatively late init script, probably after the first
-socket.  Servers tend to have no disk/mouse activity.
-
-Disk may work if you manage to put it after the root mount, but you
-lose on diskless systems. e.g. if the nfsd is built in that wouldn't
-work though because it would create sockets before that.
-
-Getting entropy from network interrupts would avoid the the diskless
-issue, but people are paranoid about that.
-
-
-> 3) We dont want to be 'totally secure'. We only want to raise the level, and eventually see if we have to spend more time on this next year(s). AFAIK we had two different reports from people being hit by the flaw of previous hash. Not really a critical issue.
-
-Yes, but you probably want a complexity of at least 10^5-10^6 to be any
-useful. I don't think you will get that early in boot from random
-unless you use hardware support.
-
+Regards,
+Joy
+  
+On Mon, 2007-03-26 at 19:04 -0600, Joy Latten wrote:
+> On Mon, 2007-03-26 at 14:48 -0700, David Miller wrote:
+> > From: Eric Paris <eparis@redhat.com>
+> > Date: Mon, 26 Mar 2007 17:34:59 -0400
+> > 
+> > > I'm not at all able to speak on the correctness or validity of the
+> > > solution,
+> > 
+> > Neither am I yet :)
+> > 
+> > > but shouldn't the ipv6 case be a && not an || like the ipv4
+> > > case?  Isn't this going to match all sorts of things?  Did you test this
+> > > patch on ipv6 and see it to solve your problem?
+> > > 
+> > > I'm also not enjoying the formatting in the ipv6 part where the first
+> > > time you have the cast on the same time as the object but not the second
+> > > part where x->props.saddr.a6 is on its own little line.
+> > 
+> > Also, I want to understand what is going to tear down these
+> > "other direction" fake entries later on?  I think I can review
+> > this patch better if I understand that.
+> > 
+> I am going to refer to the other-direction-placeholder as the "fake"
+> entry. And the larval SA that gets created for the new
+> spi as result of a GETSPI message as the "real" entry. 
 > 
-> 4) We could add a hard limit on the length of one chain. Even if the bad guys discover a flaw, it wont hurt too much.
-
-Or just use the trie?  It has other advantages too :)
-
--Andi
-
+> The fake entry gets created when the real entry does and does not have
+> an spi. It shares some of the same properties of a "real" larval SA
+> (they are created using same code) and it's state
+> is marked as XFRM_STATE_ACQ. The real entry has a timeout. So, should
+> IKE negotiation fail, take too long, etc... it will eventually timeout
+> and be deleted. So does the fake entry. It will timeout and should be
+> eventually deleted. (I will test this part tomorrow for assurance.)
+>  
+> When the IKE negotiations are successful, xfrm_state_add() and the
+> xfrm_state_update() look for larval SAs in that they look for an SA with
+> same src, dst, etc... and with state==XFRM_STATE_ACQUIRE. Any that are
+> found are deleted and new SA added. This removes the real larval SA, and
+> should also remove the fake entry too.     
+> 
+> Of course, this is all based on my assumption that IKE will install
+> two SAs, one for incoming and one for outgoing. 
+> 
+> Hopefully this answers how fake entries will be removed. 
+> Admittedly, I may miss something or didn't understand something
+> correctly as I learn the code, so please let me know. 
+> There may even be a better solution that I don't readily see. 
+> 
+> > As it stands, this looks to me like a workaround for an improperly
+> > implemented IPSEC daemon.  Joy states it as saying that the current
+> > code requires the keying daemon to manage it's SAs, and I wonder
+> > whether any other implementation is even valid.
+> > 
+> My big mouth. :-) But yes, I do think more SA management in 
+> userspace would be ideal. 
+> 
+> This fix will hopefully ensure kernel doesn't send any
+> extra acquires regardless. 
+> 
+> Joy
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
