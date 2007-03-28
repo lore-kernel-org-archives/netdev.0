@@ -1,50 +1,294 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: LSPP kernels (was Re: [PATCH]: SAD sometimes has double SAs).
-Date: Wed, 28 Mar 2007 13:11:07 -0400 (EDT)
-Message-ID: <Line.LNX.4.64.0703281306560.4569@d.namei>
-References: <200703232258.l2NMwKqH016994@faith.austin.ibm.com>
- <1174944899.17953.20.camel@localhost.localdomain>  <20070326.144843.72708308.davem@davemloft.net>
-  <1174957467.3085.461.camel@faith.austin.ibm.com>
- <1175094915.3085.503.camel@faith.austin.ibm.com>  <Line.LNX.4.64.0703281213060.2266@d.namei>
- <1175100540.13618.67.camel@localhost.localdomain>
+From: "Denys" <denys@visp.net.lb>
+Subject: another critical bug ?
+Date: Wed, 28 Mar 2007 20:38:16 +0300
+Message-ID: <20070328173816.M96174@visp.net.lb>
+References: <20070321175951.M73913@visp.net.lb>	<46026717.9060909@trash.net>	<20070322124533.M79867@visp.net.lb>	<46027FF2.6020001@trash.net> <20070322101224.3e6bb899@freekitty> <4602B96A.5000308@trash.net> <20070326182654.M24011@visp.net.lb> <460933EC.9060908@trash.net> <20070327155922.M1237@visp.net.lb> <46094472.1050807@trash.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Joy Latten <latten@austin.ibm.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Paul Moore <paul.moore@hp.com>,
-	Venkat Yekkirala <vyekkirala@trustedcs.com>,
-	Steve G <linux_4ever@yahoo.com>,
-	Stephen Smalley <sds@tycho.nsa.gov>, selinux@tycho.nsa.gov
-To: Eric Paris <eparis@redhat.com>
+Content-Type: text/plain;
+	charset=koi8-r
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.sea5.speakeasy.net ([69.17.117.3]:53725 "EHLO
-	mail1.sea5.speakeasy.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964780AbXC1RLL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Mar 2007 13:11:11 -0400
-In-Reply-To: <1175100540.13618.67.camel@localhost.localdomain>
+Received: from usermail.globalproof.net ([194.146.153.18]:39495 "EHLO
+	usermail.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965180AbXC1Rij (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Mar 2007 13:38:39 -0400
+Received: from visp.net.lb (localhost [127.0.0.1])
+	by usermail.globalproof.net (Postfix) with ESMTP id C63E7BC295
+	for <netdev@vger.kernel.org>; Wed, 28 Mar 2007 20:38:16 +0300 (EEST)
+In-Reply-To: <46094472.1050807@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 28 Mar 2007, Eric Paris wrote:
+Something more
 
-> It is definitely NOT a shortcut into RHEL.
+With all kernel debug enabled it was not giving this panic (maybe cause 
+system becomes too slow).
 
-Ok, that was a poor choice of words on my part.
+vanilla kernel 2.6.20.3 with htb patch applied, ethernet cards RTL8139
 
-> I don't want to give the impression that upstream is not coming first.
-> All the work is being done upstream either on netdev or linux-audit and
-> then I pull it back into this LSPP kernel she talked about so that
-> people interested primarily in the testing necessary to meet that
-> particular government standard have a neat tidy little prebuild rpm to
-> work with.  Eventually all of these will show up in RHEL, but not until
-> all of the patches i'm dealing with are upstream.
+If u need anythign more - inform me. 
 
-It seems my understanding wasn't clear on the overall workflow.  If the 
-consensus is to stay with this scheme, then please disregard my previous 
-post.
+Not sure it is iproute2, but if you can, just point me to right direction, to 
+who i need to report, it is also happening on interface flood, when i bring 
+it down:
+
+(some data not accepted by kernel maillist, changed to "*")
+
+Mar 28 22:14:36 OFFICE-PPPOE pppoe-server[1456]: Session 1 closed for client 
+00:16:ec:7e:47:ea (172.16.102.2) on eth1
+Mar 28 22:14:36 OFFICE-PPPOE pppoe-server[1456]: Sent PADT
+Mar 28 22:14:36 OFFICE-PPPOE pppoe-server[1456]: PADT: Generic-Error: ******
+Mar 28 22:14:36 OFFICE-PPPOE pppoe-server[1456]: PADT: Generic-Error: 
+Received PADT from peer
+Mar 28 22:14:36 OFFICE-PPPOE pppoe-server[1456]: PADT: Generic-Error: 
+*********
+Mar 28 22:14:36 OFFICE-PPPOE pppoe-server[1456]: Sent PADT
+Mar 28 20:13:29 OFFICE-PPPOE [ 1758.148236] BUG: unable to handle kernel 
+paging request
+Mar 28 20:13:29 OFFICE-PPPOE at virtual address 5b5a596c
+Mar 28 20:13:29 OFFICE-PPPOE [ 1758.148497]  printing eip:
+Mar 28 20:13:29 OFFICE-PPPOE [ 1758.148625] *pde = 00000000
+Mar 28 20:13:29 OFFICE-PPPOE [ 1758.148743] Oops: 0000 [#1]
+Mar 28 20:13:29 OFFICE-PPPOE [ 1758.148798]
+Mar 28 20:13:29 OFFICE-PPPOE SMP
+Mar 28 20:13:29 OFFICE-PPPOE
+Mar 28 20:13:29 OFFICE-PPPOE [ 1758.148992] Modules linked in:
+Mar 28 20:13:29 OFFICE-PPPOE netconsole
+Mar 28 20:13:29 OFFICE-PPPOE xt_mac
+Mar 28 20:13:29 OFFICE-PPPOE xt_tcpmss
+Mar 28 20:13:29 OFFICE-PPPOE ipt_TCPMSS
+Mar 28 20:13:29 OFFICE-PPPOE ipt_REJECT
+Mar 28 20:13:29 OFFICE-PPPOE ts_bm
+Mar 28 20:13:29 OFFICE-PPPOE xt_string
+Mar 28 20:13:29 OFFICE-PPPOE ipt_ttl
+Mar 28 20:13:29 OFFICE-PPPOE ifb
+Mar 28 20:13:29 OFFICE-PPPOE iptable_mangle
+Mar 28 20:13:29 OFFICE-PPPOE xt_MARK
+Mar 28 20:13:29 OFFICE-PPPOE xt_mark
+Mar 28 20:13:29 OFFICE-PPPOE pppoe
+Mar 28 20:13:29 OFFICE-PPPOE pppox
+Mar 28 20:13:29 OFFICE-PPPOE ppp_generic
+Mar 28 20:13:29 OFFICE-PPPOE slhc
+Mar 28 20:13:29 OFFICE-PPPOE xt_tcpudp
+Mar 28 20:13:29 OFFICE-PPPOE em_nbyte
+Mar 28 20:13:29 OFFICE-PPPOE cls_tcindex
+Mar 28 20:13:29 OFFICE-PPPOE act_gact
+Mar 28 20:13:29 OFFICE-PPPOE cls_rsvp
+Mar 28 20:13:29 OFFICE-PPPOE sch_htb
+Mar 28 20:13:29 OFFICE-PPPOE cls_fw
+Mar 28 20:13:29 OFFICE-PPPOE act_mirred
+Mar 28 20:13:29 OFFICE-PPPOE em_u32
+Mar 28 20:13:29 OFFICE-PPPOE sch_red
+Mar 28 20:13:29 OFFICE-PPPOE sch_sfq
+Mar 28 20:13:29 OFFICE-PPPOE sch_tbf
+Mar 28 20:13:29 OFFICE-PPPOE sch_teql
+Mar 28 20:13:29 OFFICE-PPPOE cls_basic
+Mar 28 20:13:29 OFFICE-PPPOE sch_gred
+Mar 28 20:13:29 OFFICE-PPPOE act_pedit
+Mar 28 20:13:29 OFFICE-PPPOE sch_hfsc
+Mar 28 20:13:29 OFFICE-PPPOE cls_rsvp6
+Mar 28 20:13:29 OFFICE-PPPOE sch_ingress
+Mar 28 20:13:29 OFFICE-PPPOE em_meta
+Mar 28 20:13:29 OFFICE-PPPOE em_text
+Mar 28 20:13:29 OFFICE-PPPOE act_ipt
+Mar 28 20:13:29 OFFICE-PPPOE sch_dsmark
+Mar 28 20:13:29 OFFICE-PPPOE sch_prio
+Mar 28 20:13:29 OFFICE-PPPOE sch_netem
+Mar 28 20:13:29 OFFICE-PPPOE act_simple
+Mar 28 20:13:29 OFFICE-PPPOE cls_u32
+Mar 28 20:13:29 OFFICE-PPPOE em_cmp
+Mar 28 20:13:29 OFFICE-PPPOE sch_cbq
+Mar 28 20:13:29 OFFICE-PPPOE cls_route
+Mar 28 20:13:29 OFFICE-PPPOE iptable_nat
+Mar 28 20:13:29 OFFICE-PPPOE nf_conntrack_ipv4
+Mar 28 20:13:29 OFFICE-PPPOE ipt_LOG
+Mar 28 20:13:29 OFFICE-PPPOE ipt_MASQUERADE
+Mar 28 20:13:29 OFFICE-PPPOE ipt_REDIRECT
+Mar 28 20:13:29 OFFICE-PPPOE nf_nat
+Mar 28 20:13:29 OFFICE-PPPOE nf_conntrack
+Mar 28 20:13:29 OFFICE-PPPOE nfnetlink
+Mar 28 20:13:29 OFFICE-PPPOE iptable_filter
+Mar 28 20:13:29 OFFICE-PPPOE ip_tables
+Mar 28 20:13:29 OFFICE-PPPOE x_tables
+Mar 28 20:13:29 OFFICE-PPPOE 8021q
+Mar 28 20:13:29 OFFICE-PPPOE tun
+Mar 28 20:13:29 OFFICE-PPPOE via_velocity
+Mar 28 20:13:29 OFFICE-PPPOE via_rhine
+Mar 28 20:13:29 OFFICE-PPPOE sis900
+Mar 28 20:13:29 OFFICE-PPPOE ne2k_pci
+Mar 28 20:13:29 OFFICE-PPPOE 8390
+Mar 28 20:13:29 OFFICE-PPPOE skge
+Mar 28 20:13:29 OFFICE-PPPOE tg3
+Mar 28 20:13:29 OFFICE-PPPOE 8139too
+Mar 28 20:13:29 OFFICE-PPPOE e1000
+Mar 28 20:13:29 OFFICE-PPPOE e100
+Mar 28 20:13:29 OFFICE-PPPOE block2mtd
+Mar 28 20:13:29 OFFICE-PPPOE usb_storage
+Mar 28 20:13:29 OFFICE-PPPOE mtdblock
+Mar 28 20:13:29 OFFICE-PPPOE mtd_blkdevs
+Mar 28 20:13:29 OFFICE-PPPOE usbhid
+Mar 28 20:13:29 OFFICE-PPPOE uhci_hcd
+Mar 28 20:13:29 OFFICE-PPPOE ehci_hcd
+Mar 28 20:13:29 OFFICE-PPPOE ohci_hcd
+Mar 28 20:13:29 OFFICE-PPPOE usbcore
+Mar 28 20:13:29 OFFICE-PPPOE
+Mar 28 20:13:29 OFFICE-PPPOE [ 1758.153713] CPU:    0
+Mar 28 20:13:29 OFFICE-PPPOE [ 1758.153716] EIP:    0060:[<c02113c7>]    Not 
+tainted VLI
+Mar 28 20:13:29 OFFICE-PPPOE [ 1758.153718] EFLAGS: 00010202   (2.6.20.3-
+build-0005 #18)
+Mar 28 20:13:29 OFFICE-PPPOE [ 1758.153949] EIP is at netif_rx+0x18/0x126
+Mar 28 20:13:29 OFFICE-PPPOE [ 1758.154009] eax: c0c42800   ebx: 5b5a5958   
+ecx: 00000001   edx: c6541c80
+Mar 28 20:13:29 OFFICE-PPPOE [ 1758.154073] esi: c0319800   edi: c6541c80   
+ebp: c02f5f14   esp: c02f5f04
+Mar 28 20:13:29 OFFICE-PPPOE [ 1758.154135] ds: 007b   es: 007b   ss: 0068
+Mar 28 20:13:29 OFFICE-PPPOE [ 1758.154253] Process swapper (pid: 0, 
+ti=c02f4000 task=c02cd440 task.ti=c02f4000)
+Mar 28 20:13:29 OFFICE-PPPOE
+Mar 28 20:13:29 OFFICE-PPPOE [ 1758.154316] Stack:
+Mar 28 20:13:29 OFFICE-PPPOE c020c2bc
+Mar 28 20:13:29 OFFICE-PPPOE c0319c00
+Mar 28 20:13:29 OFFICE-PPPOE c0319800
+Mar 28 20:13:29 OFFICE-PPPOE 00000007
+Mar 28 20:13:29 OFFICE-PPPOE c02f5f24
+Mar 28 20:13:29 OFFICE-PPPOE c8a1925d
+Mar 28 20:13:29 OFFICE-PPPOE c0319c5c
+Mar 28 20:13:29 OFFICE-PPPOE 00000000
+Mar 28 20:13:29 OFFICE-PPPOE
+Mar 28 20:13:29 OFFICE-PPPOE [ 1758.154880]
+Mar 28 20:13:29 OFFICE-PPPOE c02f5f34
+Mar 28 20:13:29 OFFICE-PPPOE c011bd9a
+Mar 28 20:13:29 OFFICE-PPPOE 00000001
+Mar 28 20:13:29 OFFICE-PPPOE c02ea328
+Mar 28 20:13:29 OFFICE-PPPOE c02f5f4c
+Mar 28 20:13:29 OFFICE-PPPOE c011ba5c
+Mar 28 20:13:29 OFFICE-PPPOE 00000000
+Mar 28 20:13:29 OFFICE-PPPOE 00000046
+Mar 28 20:13:29 OFFICE-PPPOE
+Mar 28 20:13:29 OFFICE-PPPOE [ 1758.155536]
+Mar 28 20:13:29 OFFICE-PPPOE 00000000
+Mar 28 20:13:29 OFFICE-PPPOE c1105164
+Mar 28 20:13:29 OFFICE-PPPOE c02f5f58
+Mar 28 20:13:29 OFFICE-PPPOE c011baf3
+Mar 28 20:13:29 OFFICE-PPPOE 00000011
+Mar 28 20:13:29 OFFICE-PPPOE c02f5f60
+Mar 28 20:13:29 OFFICE-PPPOE c011bcb2
+Mar 28 20:13:29 OFFICE-PPPOE c02f5f7c
+Mar 28 20:13:29 OFFICE-PPPOE
+Mar 28 20:13:29 OFFICE-PPPOE [ 1758.156124] Call Trace:
+Mar 28 20:13:29 OFFICE-PPPOE [ 1758.156293]  [<c0103d08>]
+Mar 28 20:13:29 OFFICE-PPPOE show_trace_log_lvl+0x1a/0x2f
+Mar 28 20:13:29 OFFICE-PPPOE [ 1758.156402]  [<c0103dba>]
+Mar 28 20:13:29 OFFICE-PPPOE show_stack_log_lvl+0x9d/0xa5
+Mar 28 20:13:29 OFFICE-PPPOE [ 1758.156564]  [<c0103f5c>]
+Mar 28 20:13:29 OFFICE-PPPOE show_registers+0x19a/0x270
+Mar 28 20:13:29 OFFICE-PPPOE [ 1758.156674]  [<c010414b>]
+Mar 28 20:13:29 OFFICE-PPPOE die+0x119/0x231
+Mar 28 20:13:29 OFFICE-PPPOE [ 1758.156833]  [<c0110853>]
+Mar 28 20:13:29 OFFICE-PPPOE do_page_fault+0x443/0x51c
+Mar 28 20:13:29 OFFICE-PPPOE [ 1758.156943]  [<c026697c>]
+Mar 28 20:13:29 OFFICE-PPPOE error_code+0x7c/0x84
+Mar 28 20:13:29 OFFICE-PPPOE [ 1758.157119]  [<c8a1925d>]
+Mar 28 20:13:29 OFFICE-PPPOE ri_tasklet+0xd3/0x196 [ifb]
+Mar 28 20:13:29 OFFICE-PPPOE [ 1758.157227]  [<c011bd9a>]
+Mar 28 20:13:29 OFFICE-PPPOE tasklet_action+0x4e/0xa8
+Mar 28 20:13:29 OFFICE-PPPOE [ 1758.157401]  [<c011ba5c>]
+Mar 28 20:13:29 OFFICE-PPPOE __do_softirq+0x64/0xc6
+Mar 28 20:13:29 OFFICE-PPPOE [ 1758.157504]  [<c011baf3>]
+Mar 28 20:13:29 OFFICE-PPPOE do_softirq+0x35/0x3a
+Mar 28 20:13:29 OFFICE-PPPOE [ 1758.157665]  [<c011bcb2>]
+Mar 28 20:13:29 OFFICE-PPPOE irq_exit+0x38/0x3a
+Mar 28 20:13:29 OFFICE-PPPOE [ 1758.157768]  [<c01053b1>]
+Mar 28 20:13:29 OFFICE-PPPOE do_IRQ+0x8a/0x9d
+Mar 28 20:13:29 OFFICE-PPPOE [ 1758.157927]  [<c0103763>]
+Mar 28 20:13:29 OFFICE-PPPOE common_interrupt+0x23/0x28
+Mar 28 20:13:29 OFFICE-PPPOE [ 1758.158029]  [<c0101363>]
+Mar 28 20:13:29 OFFICE-PPPOE cpu_idle+0x61/0x76
+Mar 28 20:13:29 OFFICE-PPPOE [ 1758.158188]  [<c010068f>]
+Mar 28 20:13:29 OFFICE-PPPOE rest_init+0x23/0x28
+Mar 28 20:13:29 OFFICE-PPPOE [ 1758.158288]  [<c02f977d>]
+Mar 28 20:13:29 OFFICE-PPPOE start_kernel+0x387/0x38f
+Mar 28 20:13:29 OFFICE-PPPOE [ 1758.158448]  [<00000000>]
+Mar 28 20:13:29 OFFICE-PPPOE _stext+0x3feffc6c/0x19
+Mar 28 20:13:29 OFFICE-PPPOE [ 1758.158550]  =======================
+Mar 28 20:13:29 OFFICE-PPPOE [ 1758.158666] Code:
+Mar 28 20:13:29 OFFICE-PPPOE ed
+Mar 28 20:13:29 OFFICE-PPPOE 53
+Mar 28 20:13:29 OFFICE-PPPOE 05
+Mar 28 20:13:29 OFFICE-PPPOE 00
+Mar 28 20:13:29 OFFICE-PPPOE bf
+Mar 28 20:13:29 OFFICE-PPPOE 01
+Mar 28 20:13:29 OFFICE-PPPOE 00
+Mar 28 20:13:29 OFFICE-PPPOE 00
+Mar 28 20:13:29 OFFICE-PPPOE 00
+Mar 28 20:13:29 OFFICE-PPPOE 83
+Mar 28 20:13:29 OFFICE-PPPOE c4
+Mar 28 20:13:29 OFFICE-PPPOE 1c
+Mar 28 20:13:29 OFFICE-PPPOE 89
+Mar 28 20:13:29 OFFICE-PPPOE f8
+Mar 28 20:13:29 OFFICE-PPPOE 5b
+Mar 28 20:13:29 OFFICE-PPPOE 5e
+Mar 28 20:13:29 OFFICE-PPPOE 5f
+Mar 28 20:13:29 OFFICE-PPPOE 5d
+Mar 28 20:13:29 OFFICE-PPPOE c3
+Mar 28 20:13:29 OFFICE-PPPOE 55
+Mar 28 20:13:29 OFFICE-PPPOE 89
+Mar 28 20:13:29 OFFICE-PPPOE e5
+Mar 28 20:13:29 OFFICE-PPPOE 57
+Mar 28 20:13:29 OFFICE-PPPOE 89
+Mar 28 20:13:29 OFFICE-PPPOE c7
+Mar 28 20:13:29 OFFICE-PPPOE 56
+Mar 28 20:13:29 OFFICE-PPPOE 53
+Mar 28 20:13:29 OFFICE-PPPOE 83
+Mar 28 20:13:29 OFFICE-PPPOE ec
+Mar 28 20:13:29 OFFICE-PPPOE 04
+Mar 28 20:13:29 OFFICE-PPPOE 8b
+Mar 28 20:13:29 OFFICE-PPPOE 40
+Mar 28 20:13:29 OFFICE-PPPOE 14
+Mar 28 20:13:29 OFFICE-PPPOE 8b
+Mar 28 20:13:29 OFFICE-PPPOE 98
+Mar 28 20:13:29 OFFICE-PPPOE e4
+Mar 28 20:13:29 OFFICE-PPPOE 02
+Mar 28 20:13:29 OFFICE-PPPOE 00
+Mar 28 20:13:29 OFFICE-PPPOE 00
+Mar 28 20:13:29 OFFICE-PPPOE 85
+Mar 28 20:13:29 OFFICE-PPPOE db
+Mar 28 20:13:29 OFFICE-PPPOE 74
+Mar 28 20:13:29 OFFICE-PPPOE 38
+Mar 28 20:13:29 OFFICE-PPPOE
+Mar 28 20:13:29 OFFICE-PPPOE 7b
+Mar 28 20:13:29 OFFICE-PPPOE 14
+Mar 28 20:13:29 OFFICE-PPPOE 00
+Mar 28 20:13:29 OFFICE-PPPOE 75
+Mar 28 20:13:29 OFFICE-PPPOE 06
+Mar 28 20:13:29 OFFICE-PPPOE 83
+Mar 28 20:13:29 OFFICE-PPPOE 7b
+Mar 28 20:13:29 OFFICE-PPPOE 0c
+Mar 28 20:13:29 OFFICE-PPPOE 00
+Mar 28 20:13:29 OFFICE-PPPOE 74
+Mar 28 20:13:29 OFFICE-PPPOE 2c
+Mar 28 20:13:29 OFFICE-PPPOE 8d
+Mar 28 20:13:29 OFFICE-PPPOE 73
+Mar 28 20:13:29 OFFICE-PPPOE 10
+Mar 28 20:13:29 OFFICE-PPPOE 89
+Mar 28 20:13:29 OFFICE-PPPOE f0
+Mar 28 20:13:29 OFFICE-PPPOE e8
+Mar 28 20:13:29 OFFICE-PPPOE 3d
+Mar 28 20:13:29 OFFICE-PPPOE 53
+Mar 28 20:13:29 OFFICE-PPPOE 05
+Mar 28 20:13:29 OFFICE-PPPOE
+Mar 28 20:13:29 OFFICE-PPPOE [ 1758.162385] EIP: [<c02113c7>]
+Mar 28 20:13:29 OFFICE-PPPOE netif_rx+0x18/0x126
+Mar 28 20:13:29 OFFICE-PPPOE SS:ESP 0068:c02f5f04
+Mar 28 20:13:29 OFFICE-PPPOE [ 1758.162594]
+Mar 28 20:13:29 OFFICE-PPPOE Kernel panic - not syncing: Fatal exception in 
+interrupt
+Mar 28 20:13:29 OFFICE-PPPOE [ 1758.162719]
+Mar 28 20:13:29 OFFICE-PPPOE Rebooting in 10 seconds..
 
 
--- 
-James Morris
-<jmorris@namei.org>
+
+--
+Virtual ISP S.A.L.
+
