@@ -1,30 +1,31 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: IP1000A: About IC Plus IP1000A Linux driver current status
-Date: Wed, 28 Mar 2007 23:22:12 +0200
-Message-ID: <20070328212212.GA10567@electric-eye.fr.zoreil.com>
-References: <AA68EB0EBA29BA40A06B700C33343EEF011E5CF2@fileserver.icplus.com.tw>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Inline net_device_stats
+Date: Wed, 28 Mar 2007 14:26:10 -0700 (PDT)
+Message-ID: <20070328.142610.52167631.davem@davemloft.net>
+References: <1175073418.12230.52.camel@localhost.localdomain>
+	<460A8F38.1050106@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jeff@garzik.org>,
-	"Randy.Dunlap" <rdunlap@xenotime.net>, penberg@cs.Helsinki.FI,
-	akpm@osdl.org, dvrabel@cantab.net, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, david@pleyades.net
-To: Jesse <Jesse@icplus.com.tw>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753123AbXC1VZZ@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <AA68EB0EBA29BA40A06B700C33343EEF011E5CF2@fileserver.icplus.com.tw>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: rusty@rustcorp.com.au, netdev@vger.kernel.org
+To: shemminger@osdl.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50650
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753061AbXC1V0K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Mar 2007 17:26:10 -0400
+In-Reply-To: <460A8F38.1050106@osdl.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jesse <Jesse@icplus.com.tw> :
-[...]
-> The latest version had been modified by you. 
-> Would you be kindly to do this for me.
+From: Stephen Hemminger <shemminger@osdl.org>
+Date: Wed, 28 Mar 2007 08:52:24 -0700
 
-I have just screwdriven a test machine but I will not finish a
-build/test cycle today.
+> It would make sense to do it per-cpu and 64 bit for the non-error
+> counters.
 
--- 
-Ueimor
+Good point, but that's a seperate change.
 
-Anybody got a battery for my Ultra 10 ?
+I have no real objection to Rusty's change and if more than
+one driver uses this thing it's useful, so I'll apply his
+patch.
