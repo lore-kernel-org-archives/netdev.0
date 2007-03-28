@@ -1,34 +1,207 @@
-From: Chris Snook <csnook@redhat.com>
-Subject: [PATCH] add Attansic L2 PCI ID
-Date: Wed, 28 Mar 2007 19:47:38 -0400
-Message-ID: <20070328234738.GA8042@devserv.devel.redhat.com>
+From: "Denys" <denys@visp.net.lb>
+Subject: another critical bug ?
+Date: Thu, 29 Mar 2007 02:55:16 +0300
+Message-ID: <20070328235517.M35794@visp.net.lb>
+References: <20070321175951.M73913@visp.net.lb>	<46026717.9060909@trash.net>	<20070322124533.M79867@visp.net.lb>	<46027FF2.6020001@trash.net> <20070322101224.3e6bb899@freekitty> <4602B96A.5000308@trash.net> <20070326182654.M24011@visp.net.lb> <460933EC.9060908@trash.net> <20070327155922.M1237@visp.net.lb> <46094472.1050807@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: xiong.huang@atheros.com, jacliburn@bellsouth.net,
-	netdev@vger.kernel.org, csnook@redhat.com
-To: jeff@garzik.org
+Content-Type: text/plain;
+	charset=koi8-r
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:42824 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934046AbXC1Xrr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Mar 2007 19:47:47 -0400
-Content-Disposition: inline
+Received: from usermail.globalproof.net ([194.146.153.18]:37830 "EHLO
+	usermail.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750759AbXC1Xzd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Mar 2007 19:55:33 -0400
+In-Reply-To: <46094472.1050807@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Chris Snook <csnook@redhat.com>
+Tried on 2.6.21-rc5-git3, but preempt enabled
+Same panic, same place seems
 
-Add PCI ID for the Attansic L2 100 Mb ethernet adapter.
+Mar 29 02:50:53 LINUX [  164.644102] BUG: unable to handle kernel paging 
+request
+Mar 29 02:50:53 LINUX at virtual address 0302014c
+Mar 29 02:50:53 LINUX [  164.644242]  printing eip:
+Mar 29 02:50:53 LINUX [  164.644301] *pde = 00000000
+Mar 29 02:50:53 LINUX [  164.644371] Oops: 0000 [#1]
+Mar 29 02:50:53 LINUX [  164.644485] PREEMPT
+Mar 29 02:50:53 LINUX SMP
+Mar 29 02:50:53 LINUX
+Mar 29 02:50:53 LINUX [  164.644629] Modules linked in:
+.... LIST OF MODULES ....
+Mar 29 02:50:53 LINUX [  164.648758] CPU:    0
+Mar 29 02:50:53 LINUX [  164.648760] EIP:    0060:[<c0216e37>]    Not tainted 
+VLI
+Mar 29 02:50:53 LINUX [  164.648762] EFLAGS: 00010206   (2.6.20.3-build-0002 
+#14)
+Mar 29 02:50:53 LINUX [  164.648948] EIP is at netif_rx+0x12/0x115
+Mar 29 02:50:53 LINUX [  164.649011] eax: c33fb000   ebx: 03020100   ecx: 
+00000001   edx: c3380d80
+Mar 29 02:50:53 LINUX [  164.649078] esi: c4cfc000   edi: c3380d80   ebp: 
+00000000   esp: c7fb7f74
+Mar 29 02:50:53 LINUX [  164.649144] ds: 007b   es: 007b   ss: 0068   
+preempt: 00000001
+Mar 29 02:50:53 LINUX [  164.649210] Process softirq-tasklet (pid: 9, 
+ti=c7fb6000 task=c7f9f000 task.ti=c7fb6000)
+Mar 29 02:50:53 LINUX
+Mar 29 02:50:53 LINUX [  164.649276] Stack:
+Mar 29 02:50:53 LINUX c4cfc400
+Mar 29 02:50:53 LINUX c4cfc000
+Mar 29 02:50:53 LINUX 00000000
+Mar 29 02:50:53 LINUX c8a1f268
+Mar 29 02:50:53 LINUX c4cfc45c
+Mar 29 02:50:53 LINUX 000f4240
+Mar 29 02:50:53 LINUX 00000000
+Mar 29 02:50:53 LINUX c011c5d8
+Mar 29 02:50:53 LINUX
+Mar 29 02:50:53 LINUX [  164.649754]
+Mar 29 02:50:53 LINUX c7fb7fac
+Mar 29 02:50:53 LINUX c026ba53
+Mar 29 02:50:53 LINUX 00000006
+Mar 29 02:50:53 LINUX c11c5c98
+Mar 29 02:50:53 LINUX c11c5c98
+Mar 29 02:50:53 LINUX 00000020
+Mar 29 02:50:53 LINUX c011cadf
+Mar 29 02:50:53 LINUX c011cbc9
+Mar 29 02:50:53 LINUX
+Mar 29 02:50:53 LINUX [  164.650231]
+Mar 29 02:50:53 LINUX 00000000
+Mar 29 02:50:53 LINUX 00000001
+Mar 29 02:50:53 LINUX c7fb7fc0
+Mar 29 02:50:53 LINUX 00000032
+Mar 29 02:50:53 LINUX c11c5c98
+Mar 29 02:50:53 LINUX c7fa1ef8
+Mar 29 02:50:53 LINUX c0128757
+Mar 29 02:50:53 LINUX ffffffff
+Mar 29 02:50:53 LINUX
+Mar 29 02:50:53 LINUX [  164.650707] Call Trace:
+Mar 29 02:50:53 LINUX [  164.650829]  [<c8a1f268>]
+Mar 29 02:50:53 LINUX ri_tasklet+0xd5/0x1a1 [ifb]
+Mar 29 02:50:53 LINUX [  164.650954]  [<c011c5d8>]
+Mar 29 02:50:53 LINUX __tasklet_action+0xe5/0x126
+Mar 29 02:50:53 LINUX [  164.651073]  [<c026ba53>]
+Mar 29 02:50:53 LINUX schedule+0xe0/0xfa
+Mar 29 02:50:53 LINUX [  164.651201]  [<c011cadf>]
+Mar 29 02:50:53 LINUX ksoftirqd+0x0/0x178
+Mar 29 02:50:53 LINUX [  164.651312]  [<c011cbc9>]
+Mar 29 02:50:53 LINUX ksoftirqd+0xea/0x178
+Mar 29 02:50:53 LINUX [  164.651443]  [<c0128757>]
+Mar 29 02:50:53 LINUX kthread+0xb2/0xdb
+Mar 29 02:50:53 LINUX [  164.651560]  [<c01286a5>]
+Mar 29 02:50:53 LINUX kthread+0x0/0xdb
+Mar 29 02:50:53 LINUX [  164.651683]  [<c0103a5f>]
+Mar 29 02:50:53 LINUX kernel_thread_helper+0x7/0x10
+Mar 29 02:50:53 LINUX [  164.651823]  =======================
+Mar 29 02:50:53 LINUX [  164.651890] Code:
+Mar 29 02:50:53 LINUX 00
+Mar 29 02:50:53 LINUX eb
+Mar 29 02:50:53 LINUX 0c
+Mar 29 02:50:53 LINUX 89
+Mar 29 02:50:53 LINUX d8
+Mar 29 02:50:53 LINUX e8
+Mar 29 02:50:53 LINUX 7a
+Mar 29 02:50:53 LINUX 5e
+Mar 29 02:50:53 LINUX 05
+Mar 29 02:50:53 LINUX 00
+Mar 29 02:50:53 LINUX e9
+Mar 29 02:50:53 LINUX bb
+Mar 29 02:50:53 LINUX fe
+Mar 29 02:50:53 LINUX ff
+Mar 29 02:50:53 LINUX ff
+Mar 29 02:50:53 LINUX 83
+Mar 29 02:50:53 LINUX c4
+Mar 29 02:50:53 LINUX 14
+Mar 29 02:50:53 LINUX 89
+Mar 29 02:50:53 LINUX f0
+Mar 29 02:50:53 LINUX 5b
+Mar 29 02:50:53 LINUX 5e
+Mar 29 02:50:53 LINUX 5f
+Mar 29 02:50:53 LINUX 5d
+Mar 29 02:50:53 LINUX c3
+Mar 29 02:50:53 LINUX 57
+Mar 29 02:50:53 LINUX 89
+Mar 29 02:50:53 LINUX c7
+Mar 29 02:50:53 LINUX 56
+Mar 29 02:50:53 LINUX 53
+Mar 29 02:50:53 LINUX 8b
+Mar 29 02:50:53 LINUX 40
+Mar 29 02:50:53 LINUX 14
+Mar 29 02:50:53 LINUX 8b
+Mar 29 02:50:53 LINUX 98
+Mar 29 02:50:53 LINUX e4
+Mar 29 02:50:53 LINUX 02
+Mar 29 02:50:53 LINUX 00
+Mar 29 02:50:53 LINUX 00
+Mar 29 02:50:53 LINUX 85
+Mar 29 02:50:53 LINUX db
+Mar 29 02:50:53 LINUX 74
+Mar 29 02:50:53 LINUX 32
+Mar 29 02:50:53 LINUX
+Mar 29 02:50:53 LINUX 7b
+Mar 29 02:50:53 LINUX 4c
+Mar 29 02:50:53 LINUX 00
+Mar 29 02:50:53 LINUX 75
+Mar 29 02:50:53 LINUX 06
+Mar 29 02:50:53 LINUX 83
+Mar 29 02:50:53 LINUX 7b
+Mar 29 02:50:53 LINUX 28
+Mar 29 02:50:53 LINUX 00
+Mar 29 02:50:53 LINUX 74
+Mar 29 02:50:53 LINUX 26
+Mar 29 02:50:53 LINUX 8d
+Mar 29 02:50:53 LINUX 73
+Mar 29 02:50:53 LINUX 2c
+Mar 29 02:50:53 LINUX 89
+Mar 29 02:50:53 LINUX f0
+Mar 29 02:50:53 LINUX e8
+Mar 29 02:50:53 LINUX 65
+Mar 29 02:50:53 LINUX 5e
+Mar 29 02:50:53 LINUX 05
+Mar 29 02:50:53 LINUX
+Mar 29 02:50:53 LINUX [  164.654978] EIP: [<c0216e37>]
+Mar 29 02:50:53 LINUX netif_rx+0x12/0x115
+Mar 29 02:50:53 LINUX SS:ESP 0068:c7fb7f74
+Mar 29 02:50:53 LINUX [  164.655137]
+Mar 29 02:50:53 LINUX Kernel panic - not syncing: Fatal exception
+Mar 29 02:50:53 LINUX [  164.655280]  [<c0118387>]
+Mar 29 02:50:53 LINUX panic+0x50/0xf1
+Mar 29 02:50:53 LINUX [  164.655433]  [<c0104327>]
+Mar 29 02:50:53 LINUX die+0x207/0x23b
+Mar 29 02:50:53 LINUX [  164.655644]  [<c0110879>]
+Mar 29 02:50:53 LINUX do_page_fault+0x46c/0x543
+Mar 29 02:50:53 LINUX [  164.655803]  [<c026b781>]
+Mar 29 02:50:53 LINUX __sched_text_start+0xba1/0xcc8
+Mar 29 02:50:53 LINUX [  164.655973]  [<c011040d>]
+Mar 29 02:50:53 LINUX do_page_fault+0x0/0x543
+Mar 29 02:50:53 LINUX [  164.656114]  [<c026d304>]
+Mar 29 02:50:53 LINUX error_code+0x7c/0x84
+Mar 29 02:50:53 LINUX [  164.656305]  [<c0216e37>]
+Mar 29 02:50:53 LINUX netif_rx+0x12/0x115
+Mar 29 02:50:53 LINUX [  164.656462]  [<c8a1f268>]
+Mar 29 02:50:53 LINUX ri_tasklet+0xd5/0x1a1 [ifb]
+Mar 29 02:50:53 LINUX [  164.656609]  [<c011c5d8>]
+Mar 29 02:50:53 LINUX __tasklet_action+0xe5/0x126
+Mar 29 02:50:53 LINUX [  164.656746]  [<c026ba53>]
+Mar 29 02:50:53 LINUX schedule+0xe0/0xfa
+Mar 29 02:50:53 LINUX [  164.656893]  [<c011cadf>]
+Mar 29 02:50:53 LINUX ksoftirqd+0x0/0x178
+Mar 29 02:50:53 LINUX [  164.657023]  [<c011cbc9>]
+Mar 29 02:50:53 LINUX ksoftirqd+0xea/0x178
+Mar 29 02:50:53 LINUX [  164.657190]  [<c0128757>]
+Mar 29 02:50:53 LINUX kthread+0xb2/0xdb
+Mar 29 02:50:53 LINUX [  164.657328]  [<c01286a5>]
+Mar 29 02:50:53 LINUX kthread+0x0/0xdb
+Mar 29 02:50:53 LINUX [  164.657466]  [<c0103a5f>]
+Mar 29 02:50:53 LINUX kernel_thread_helper+0x7/0x10
+Mar 29 02:50:53 LINUX [  164.657628]  =======================
+Mar 29 02:50:53 LINUX [  164.657703]
+Mar 29 02:50:53 LINUX Rebooting in 10 seconds..
 
-Signed-off-by: Chris Snook <csnook@redhat.com>
 
---- linux-2.6.21-rc5.orig/include/linux/pci_ids.h	2007-03-27 23:26:50.000000000 -0400
-+++ linux-2.6.21-rc5/include/linux/pci_ids.h	2007-03-28 15:11:03.000000000 -0400
-@@ -2090,6 +2090,7 @@
- 
- #define PCI_VENDOR_ID_ATTANSIC		0x1969
- #define PCI_DEVICE_ID_ATTANSIC_L1	0x1048
-+#define PCI_DEVICE_ID_ATTANSIC_L2	0x2048
- 
- #define PCI_VENDOR_ID_JMICRON		0x197B
- #define PCI_DEVICE_ID_JMICRON_JMB360	0x2360
+
+--
+Virtual ISP S.A.L.
+
