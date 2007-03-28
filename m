@@ -1,53 +1,68 @@
-From: Noriaki TAKAMIYA <takamiya@po.ntts.co.jp>
-Subject: Re: [PATCH net-2.6.22] [IPV6] FIB6RULE: Find source address during
- looking up route.
-Date: Wed, 28 Mar 2007 13:02:52 +0900 (JST)
-Message-ID: <20070328.130252.719895987.takamiya@po.ntts.co.jp>
-References: <20070327.224537.09436398.yoshfuji@linux-ipv6.org>
-	<20070327142519.GN521@postel.suug.ch>
-	<20070328.124940.55792158.yoshfuji@linux-ipv6.org>
+From: "Nikolaos D. Bougalis" <nikb@webmaster.com>
+Subject: Re: RFC: Established connections hash function
+Date: Tue, 27 Mar 2007 22:01:38 -0700
+Message-ID: <EED7DAB373CC4CB9B576EE1B1FBC9E32@XEON>
+References: <10189ABA61CF4D5AB3881F96C9CACE87@XEON> <p73lkhi6aj7.fsf@bingen.suse.de>
+Reply-To: nikb@webmaster.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Type: text/plain;
+	format=flowed;
+	charset="iso-8859-1";
+	reply-type=original
 Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, davem@davemloft.net, netdev@vger.kernel.org
-To: yoshfuji@linux-ipv6.org
+Cc: <ak@suse.de>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.ics.ntts.co.jp ([202.32.24.42]:35691 "EHLO
-	mail2.ics.ntts.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753930AbXC1E1U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Mar 2007 00:27:20 -0400
-In-Reply-To: <20070328.124940.55792158.yoshfuji@linux-ipv6.org>
+Received: from mail1.webmaster.com ([216.152.64.169]:3501 "EHLO
+	mail1.webmaster.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753937AbXC1FC0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Mar 2007 01:02:26 -0400
+Received: from XEON by webmaster.com
+	(Cipher TLSv1:RC4-MD5:128) (MDaemon.PRO.v8.1.3.R)
+	with ESMTP id md50001463230.msg
+	for <netdev@vger.kernel.org>; Tue, 27 Mar 2007 22:01:53 -0800
+In-Reply-To: <p73lkhi6aj7.fsf@bingen.suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+"Andi Kleen" (ak@suse.de) wrote:
 
->> Wed, 28 Mar 2007 12:49:40 +0900 (JST)
->> [Subject: Re: [PATCH net-2.6.22] [IPV6] FIB6RULE: Find source address during looking up route.]
->> YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> wrote...
+> To truly defend against this you would likely need a cryptographic
+> hash, which would be likely too slow.
 
-> > Out of curiosity, what sort of rules would have this flag set?
-> > The majority of lookups don't provide a valid source address.
-> > This new address search could become very expensive, because
-> > none of the results are cached.
-> 
-> This flags is used for Mobile IPv6.
-> 
-> Well, for non-connected sockets on hosts, yes,
-> the process might not be light-weight.
-> But, on routers, or once the socket is connected,
-> source address should be always set.
+    I do not think that a cryptographically secure hash is necessary for 
+this. Using a better hash function (i.e. one which does a good job of 
+throroughly mixing the input bits, as jenkins does), is sufficient when 
+combined with a secret per-boot salt, something which is easily demonstrable 
+by test runs.
 
-  Even if you set the rule which has the condition regarding as the
-  source address, this rule is not selected for the first packet
-  because the source address is not chosen yet.
 
-  This fix is required to do source address based routing using
-  fib6_rules.
+> If it's a real problem the better fix would be to switch to some
+> kind of balanced tree (like Evgeniy is proposing) .
 
-#Even if the same routing with subtrees, the same problem is caused.
+    I don't have any special attachment to the Jenkins hash, or to a hash 
+table even. So, _yes_, by all means if a better solution is available let us 
+use it and I'll be the first to cheer. But I don't know if Evgeniy's work is 
+ready for prime time, and I consider plugging in an improved hash function 
+to be an acceptable solution in the meantime.
 
-  Regards,
 
---
-Noriaki TAKAMIYA
+> But I think it can be mostly ignored.
+
+    With all due respect, it cannot. An attacker with a small-sized botnet 
+(which is ~250 hosts) can create chains that contain well in excess of 3000 
+items. A big botnet (and there exist botnets with well over 5000 machines in 
+them) can bring a system to its knees. You may not have gotten bitten by 
+this, but others, including myself and Eric Dumazet have. And I believe that 
+David Miller agrees, although I do not want to put words in his mouth -- or 
+his keyboard, as the case may be.
+
+    What this boils down to is, yes, we can keep patching our own kernels to 
+use tagged jenkins hashing if this affects us, waiting for something better 
+to come along. But isn't it more reasonable to add this into the kernel, at 
+least as a non-default compile time option, and allow administrators to 
+decide whether this is something they want to use?
+
+    -n
+
+
