@@ -1,26 +1,54 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: RFC: Established connections hash function
-Date: Wed, 28 Mar 2007 22:12:45 +0200
-Message-ID: <20070328201245.GA10974@one.firstfloor.org>
-References: <200703281129.43783.ak@suse.de> <20070328104505.GA18748@2ka.mipt.ru> <p73y7lh316u.fsf@bingen.suse.de> <20070328.120429.98555893.davem@davemloft.net>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [BNX2]: Fix link interrupt problem.
+Date: Wed, 28 Mar 2007 13:57:18 -0800
+Message-ID: <1175119038.7911.11.camel@dell>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: andi@firstfloor.org, johnpol@2ka.mipt.ru, nikb@webmaster.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:54191 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965747AbXC1UMs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Mar 2007 16:12:48 -0400
-Content-Disposition: inline
-In-Reply-To: <20070328.120429.98555893.davem@davemloft.net>
+Received: from mms1.broadcom.com ([216.31.210.17]:4759 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753021AbXC1VNF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Mar 2007 17:13:05 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> In my patch the random seed is initialized when the first TCP or DCCP
-> socket is created, at which point we'll have sufficient entropy.
+[BNX2]: Fix link interrupt problem.
 
-See my discussion of this case in a later mail to Evgeniy 
+bnx2_has_work()'s logic is flawed and can cause the driver to miss
+a link event.  The fix is to compare the status block's attn_bits
+and attn_bits_ack to determine if there is a link event.
 
--Andi
+Update version to 1.5.6.
+
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+
+diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+index c12e5ea..d43fe28 100644
+--- a/drivers/net/bnx2.c
++++ b/drivers/net/bnx2.c
+@@ -54,8 +54,8 @@
+ 
+ #define DRV_MODULE_NAME		"bnx2"
+ #define PFX DRV_MODULE_NAME	": "
+-#define DRV_MODULE_VERSION	"1.5.5"
+-#define DRV_MODULE_RELDATE	"February 1, 2007"
++#define DRV_MODULE_VERSION	"1.5.6"
++#define DRV_MODULE_RELDATE	"March 28, 2007"
+ 
+ #define RUN_AT(x) (jiffies + (x))
+ 
+@@ -2033,8 +2033,8 @@ bnx2_has_work(struct bnx2 *bp)
+ 	    (sblk->status_tx_quick_consumer_index0 != bp->hw_tx_cons))
+ 		return 1;
+ 
+-	if (((sblk->status_attn_bits & STATUS_ATTN_BITS_LINK_STATE) != 0) !=
+-	    bp->link_up)
++	if ((sblk->status_attn_bits & STATUS_ATTN_BITS_LINK_STATE) !=
++	    (sblk->status_attn_bits_ack & STATUS_ATTN_BITS_LINK_STATE))
+ 		return 1;
+ 
+ 	return 0;
+
+
