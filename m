@@ -1,62 +1,70 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: RFC: Established connections hash function
-Date: Wed, 28 Mar 2007 15:50:47 +0200
-Message-ID: <20070328155047.4112fb47.dada1@cosmosbay.com>
-References: <10189ABA61CF4D5AB3881F96C9CACE87@XEON>
-	<p73lkhi6aj7.fsf@bingen.suse.de>
-	<EED7DAB373CC4CB9B576EE1B1FBC9E32@XEON>
-	<200703281129.43783.ak@suse.de>
-	<20070328104505.GA18748@2ka.mipt.ru>
-	<p73y7lh316u.fsf@bingen.suse.de>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: [PATCH] [RFC] [TCP]: Catch skb with S+L bugs earlier
+Date: Wed, 28 Mar 2007 17:02:47 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0703281650150.27182@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>, nikb@webmaster.com,
-	netdev@vger.kernel.org
-To: Andi Kleen <andi@firstfloor.org>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696243703-2127767299-1175090567=:27182"
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pfx2.jmh.fr ([194.153.89.55]:32969 "EHLO pfx2.jmh.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751844AbXC1Nus (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Mar 2007 09:50:48 -0400
-In-Reply-To: <p73y7lh316u.fsf@bingen.suse.de>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:40451 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751917AbXC1OCv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Mar 2007 10:02:51 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 28 Mar 2007 16:14:17 +0200
-Andi Kleen <andi@firstfloor.org> wrote:
-> TCP tends to be initialized early before there is anything
-> good in the entropy pool.
-> 
-> static void init_std_data(struct entropy_store *r)
-> {
->         struct timeval tv;
->         unsigned long flags;
-> 
->         spin_lock_irqsave(&r->lock, flags);
->         r->entropy_count = 0;
->         spin_unlock_irqrestore(&r->lock, flags);
-> 
->         do_gettimeofday(&tv);
->         add_entropy_words(r, (__u32 *)&tv, sizeof(tv)/4);
->         add_entropy_words(r, (__u32 *)utsname(),
->                           sizeof(*(utsname()))/4);
-> }
-> 
-> utsname is useless here because it runs before user space has 
-> a chance to set it. The only truly variable thing is the 
-> boot time, which can be guessed with the ns part being brute forced.
-> 
-> To make it secure you would need to do regular rehash like
-> the routing cache which would pick up true randomness on the first
-> rehash.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-Good point, but :
+---696243703-2127767299-1175090567=:27182
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
 
-1) We can now use "struct timespec" to get more bits in init_std_data()
+SACKED_ACKED and LOST are mutually exclusive, thus this
+condition is bug with SACK (IMHO). NewReno, however, could get
+enough duplicate ACKs which increment sacked_out, so it makes
+sense to do this kind of limitting for non-SACK TCP but not for
+SACK-enabled one. Perhaps the author had that in mind but did
+the logic accidently wrong way around?
 
-2) tcp ehash salt is initialized at first socket creation, not boot time. Maybe we have more available entropy at this point.
+Eventually these bugs trigger traps in the tcp_clean_rtx_queue
+but it's much more informative to do this here (excludes some
+other possible bugs).
 
-3) We dont want to be 'totally secure'. We only want to raise the level, and eventually see if we have to spend more time on this next year(s). AFAIK we had two different reports from people being hit by the flaw of previous hash. Not really a critical issue.
+Maybe this BUG_TRAP is too expensive to be included everywhere
+in the TCP code. Should there be some #if to surround it?
 
-4) We could add a hard limit on the length of one chain. Even if the bad guys discover a flaw, it wont hurt too much.
+Compile tested. Sadly enough I don't have time for couple of
+weeks to test this as it would require some setuping, and besides,
+my test machines are occupied currently to other work, but this 
+might also be net-2.6 (or even stable) material if it really
+works (feel free to cut this paragraph or part of it if you
+decide to include this :-)).
+
+Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
+---
+ include/net/tcp.h |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index fe1c4f0..3c8dd13 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -733,9 +733,10 @@ static inline __u32 tcp_current_ssthresh
+ 
+ static inline void tcp_sync_left_out(struct tcp_sock *tp)
+ {
+-	if (tp->rx_opt.sack_ok &&
+-	    (tp->sacked_out >= tp->packets_out - tp->lost_out))
++	if (tp->sacked_out + tp->lost_out > tp->packets_out) {
++		BUG_TRAP(!tp->rx_opt.sack_ok);
+ 		tp->sacked_out = tp->packets_out - tp->lost_out;
++	}
+ 	tp->left_out = tp->sacked_out + tp->lost_out;
+ }
+ 
+-- 
+1.4.2
+
+---696243703-2127767299-1175090567=:27182--
