@@ -1,31 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: RFC: Established connections hash function
-Date: Tue, 27 Mar 2007 23:29:33 -0700 (PDT)
-Message-ID: <20070327.232933.71090935.davem@davemloft.net>
-References: <10189ABA61CF4D5AB3881F96C9CACE87@XEON>
-	<p73lkhi6aj7.fsf@bingen.suse.de>
-	<EED7DAB373CC4CB9B576EE1B1FBC9E32@XEON>
+Subject: Re: [PATCH] NET: Add TCP connection abort IOCTL
+Date: Tue, 27 Mar 2007 23:35:49 -0700 (PDT)
+Message-ID: <20070327.233549.30185448.davem@davemloft.net>
+References: <4609A42A.4040304@mvista.com>
+	<20070327.163620.54190045.davem@davemloft.net>
+	<460A04ED.5050203@cosmosbay.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ak@suse.de
-To: nikb@webmaster.com
+Cc: mhuth@mvista.com, dagriego@gmail.com, davem@davemloft.ne,
+	netdev@vger.kernel.org
+To: dada1@cosmosbay.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58402
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43966
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S933620AbXC1G3e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Mar 2007 02:29:34 -0400
-In-Reply-To: <EED7DAB373CC4CB9B576EE1B1FBC9E32@XEON>
+	by vger.kernel.org with ESMTP id S1751322AbXC1Gft (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Mar 2007 02:35:49 -0400
+In-Reply-To: <460A04ED.5050203@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Nikolaos D. Bougalis" <nikb@webmaster.com>
-Date: Tue, 27 Mar 2007 22:01:38 -0700
+From: Eric Dumazet <dada1@cosmosbay.com>
+Date: Wed, 28 Mar 2007 08:02:21 +0200
 
->     What this boils down to is, yes, we can keep patching our own kernels to 
-> use tagged jenkins hashing if this affects us, waiting for something better 
-> to come along.
+> This is what I thought too at the begining.
+> 
+> But after some thinking I recalled having to reboot machines just because 
+> netfilter was not in (because of noticeable performance hit), and I could find 
+>   the tree to compile netfilter as modules..
+> 
+> When I saw revoke() work in progess, I did react like you : This is coming 
+> from hell...
 
-You don't have to patch, I put jenkins into the tree and it will
-hit 2.6.22, we don't need to even discuss this any more and you
-can safely ignore Andi.
+Another option, similar in vain to what Herbert suggested (the gdb
+hack) is to provide a way for root to open file descriptors of other
+processes and handle it like that.
+
+Then you could just set the linger socket option properly and close it
+up.
+
+Unfortunately we prevent openning of /proc/${PID}/fd/${FD} objects
+when they are sockets for well documented reasons.
+
+Using an ioctl with a socket demux key is just beyond disgusting, it's
+as simple as that.  We have abstractions already for these objects so
+let's use them.
