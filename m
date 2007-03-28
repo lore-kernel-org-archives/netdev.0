@@ -1,46 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1][PKT_CLS] Avoid multiple tree locks
-Date: Tue, 27 Mar 2007 16:44:35 -0700 (PDT)
-Message-ID: <20070327.164435.123974053.davem@davemloft.net>
-References: <46013B73.2060804@trash.net>
-	<1174543640.4895.28.camel@localhost>
-	<46026A31.1090603@trash.net>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH] NET: Add TCP connection abort IOCTL
+Date: Tue, 27 Mar 2007 17:04:24 -0700
+Message-ID: <4609B108.7030302@hp.com>
+References: <20070327214754.GA11677@dag-work> <20070327.153025.45876618.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, netdev@vger.kernel.org, tgraf@suug.ch
-To: kaber@trash.net
+Cc: dagriego@gmail.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33360
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751349AbXC0XpB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Mar 2007 19:45:01 -0400
-In-Reply-To: <46026A31.1090603@trash.net>
+Received: from palrel10.hp.com ([156.153.255.245]:58222 "EHLO palrel10.hp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752812AbXC1AEc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Mar 2007 20:04:32 -0400
+In-Reply-To: <20070327.153025.45876618.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Thu, 22 Mar 2007 12:36:17 +0100
+> There is no reason for this ioctl at all.  Either existing
+> facilities provide what you need or what you want is a
+> protocol violation we can't do.
 
-> jamal wrote:
-> > The mutex is certainly a cleaner approach;
-> > and a lot of the RCU protection would go away. I like it.
-> 
-> Not as much as I initially thought, but at least we would have
-> consistent locking for the dump callbacks.
-> 
-> > Knowing you i sense theres something clever in there that i am 
-> > missing. I dont see how you could get rid of the tree locking
-> > since we need to protect against the data path still, no?
-> > Or are you looking at that as a separate effort?
-> 
-> We can remove qdisc_tree_lock since with this patch all changes
-> and all tree walking happen under the RTNL. We still need to keep
-> dev->queue_lock for the data path.
-> 
-> I'll update the patches to include all rtnetlink users and repost
-> in a day or two.
+I agree that 99 times out of ten such a mechanism serves only as a 
+massive KLUDGE to paper-over application bugs.  I'll also sadly 
+point-out that such a mechanism exists in HP-UX 11.X and I suspect 
+Solaris !-(  I've spent probably the last decade or so attempting to 
+discourage its use in the HP-UX space, but like some daemon from hell it 
+just refuses to die.
 
-The existing weird "first SKB only" locking is unintuitive to
-me as well, so I'm all for these mutex patches once you respin
-them FWIW.
+rick jones
