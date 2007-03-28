@@ -1,40 +1,43 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [1/1] netlink: no need to crash if table does not exist.
-Date: Wed, 28 Mar 2007 12:43:06 +0400
-Message-ID: <20070328084306.GB28242@2ka.mipt.ru>
-References: <20070321104456.GA2637@2ka.mipt.ru> <46010EF5.6010306@trash.net> <20070321105847.GA18221@2ka.mipt.ru> <20070327.164154.48396509.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: ping6 to own link-local address
+Date: Wed, 28 Mar 2007 01:45:33 -0700 (PDT)
+Message-ID: <20070328.014533.112621902.davem@davemloft.net>
+References: <1174429000.3255.3.camel@w-sridhar2.beaverton.ibm.com>
+	<20070321.002609.58216683.yoshfuji@linux-ipv6.org>
+	<20070328.165748.48153731.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: kaber@trash.net, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Transfer-Encoding: 7bit
+Cc: sri@us.ibm.com, netdev@vger.kernel.org, CHINEN@jp.ibm.com
+To: yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:44843 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752674AbXC1Inh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Mar 2007 04:43:37 -0400
-Content-Disposition: inline
-In-Reply-To: <20070327.164154.48396509.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43367
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753235AbXC1Ipe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Mar 2007 04:45:34 -0400
+In-Reply-To: <20070328.165748.48153731.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 27, 2007 at 04:41:54PM -0700, David Miller (davem@davemloft.net) wrote:
-> > There is no problem as-is, but I implement unified cache for different
-> > sockets (currently tcp/udp/raw and netlink are supported), which does
-> > not use that table, so I currently wrap all access code into special
-> > ifdefs, this one can be wrapped too, but since it is not needed, it
-> > saves couple of lines of code.
+From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
+Date: Wed, 28 Mar 2007 16:57:48 +0900 (JST)
+
+> In article <20070321.002609.58216683.yoshfuji@linux-ipv6.org> (at Wed, 21 Mar 2007 00:26:09 +0100 (CET)), YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> says:
 > 
-> It is needed.  It is there to make sure that a kernel netlink
-> socket is not created before the af_netlink init code runs.
+> > In article <1174429000.3255.3.camel@w-sridhar2.beaverton.ibm.com> (at Tue, 20 Mar 2007 15:16:40 -0700), Sridhar Samudrala <sri@us.ibm.com> says:
+> > 
+> > > The following patch seems to be the cause for this regression.
+> > > 
+> > > [IPV6] ROUTE: Do not route packets to link-local address on other device.
+> > > 
+> > > http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=a0d78ebf3a0e33a1aeacf2fc518ad9273d6a1c2f
+> > 
+> > Right.  Hmm...
 > 
-> We've had sequencing bugs like that in the initcall call chain
-> in the past, that's why the check is there.
+> Well, 2.6.21 is coming.  I think it is better to revert it for now.
+> Current situation is more critical than the original.
+> 
+> Dave?
 
-Argh, I see.
-I fail to find exact commit (at least it was not in 2.4 and was created
-before 2.6.12), but it is ineed neeed.
-
-Thanks for explaination.
-
--- 
-	Evgeniy Polyakov
+I will look into this and make some kind of decision on how
+to proceed tomorrow.
