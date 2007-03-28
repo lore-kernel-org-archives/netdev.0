@@ -1,28 +1,33 @@
-From: Agoston Horvath <agoston@ripe.net>
-Subject: Re: IPv6: Connection reset/timeout under heavy load
-Date: Wed, 28 Mar 2007 10:48:27 +0200
-Message-ID: <460A2BDB.6080200@ripe.net>
-References: <4608E7CA.3090001@ripe.net> <20070327.194636.63219035.yoshfuji@linux-ipv6.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: =?UTF-8?B?WU9TSElGVUpJIEhpZGVha2kgLyDlkInol6Toi7HmmI4=?=
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
 	<yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH]: Fix ipv6 round-robin locking
+Date: Wed, 28 Mar 2007 18:16:42 +0900 (JST)
+Message-ID: <20070328.181642.47053702.yoshfuji@linux-ipv6.org>
+References: <20070324.124436.104040932.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, tgraf@suug.ch, yoshfuji@linux-ipv6.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postman.ripe.net ([193.0.0.199]:51977 "EHLO postman.ripe.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752760AbXC1Is2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Mar 2007 04:48:28 -0400
-In-Reply-To: <20070327.194636.63219035.yoshfuji@linux-ipv6.org>
+Received: from yue.linux-ipv6.org ([203.178.140.15]:35318 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965158AbXC1JP5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Mar 2007 05:15:57 -0400
+In-Reply-To: <20070324.124436.104040932.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E wrote:
-> Would you test with latest kernel, if possible, please?
+Hello.
 
-=46or the archive: switching to 2.6.20.4 fixed this problem.
+In article <20070324.124436.104040932.davem@davemloft.net> (at Sat, 24 Mar 2007 12:44:36 -0700 (PDT)), David Miller <davem@davemloft.net> says:
 
-Thanks!
+> The fix for the most serious of them is below, and I'd appreciate
+> any feedback if people spot any problems or holes in that approach.
 
-Agoston
+I hoped we could save some memory per fib6_node,
+but I'm fine with it.
+
+Regards,
+
+--yoshfuji
