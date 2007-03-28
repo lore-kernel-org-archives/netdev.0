@@ -1,68 +1,64 @@
-From: "Nikolaos D. Bougalis" <nikb@webmaster.com>
-Subject: Re: RFC: Established connections hash function
-Date: Tue, 27 Mar 2007 22:01:38 -0700
-Message-ID: <EED7DAB373CC4CB9B576EE1B1FBC9E32@XEON>
-References: <10189ABA61CF4D5AB3881F96C9CACE87@XEON> <p73lkhi6aj7.fsf@bingen.suse.de>
-Reply-To: nikb@webmaster.com
+From: Paul Walmsley <paul@booyaka.com>
+Subject: [PATCH 1/1] Fix hang on IBM Token Ring PCMCIA card ejection
+Date: Tue, 27 Mar 2007 22:57:02 -0600 (MDT)
+Message-ID: <Pine.LNX.4.64.0703272255460.21789@utopia.booyaka.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	format=flowed;
-	charset="iso-8859-1";
-	reply-type=original
-Content-Transfer-Encoding: 7bit
-Cc: <ak@suse.de>
-To: <netdev@vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+To: mikep@linuxtr.net, netdev@vger.kernel.org, linux-tr@linuxtr.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.webmaster.com ([216.152.64.169]:3501 "EHLO
-	mail1.webmaster.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753937AbXC1FC0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Mar 2007 01:02:26 -0400
-Received: from XEON by webmaster.com
-	(Cipher TLSv1:RC4-MD5:128) (MDaemon.PRO.v8.1.3.R)
-	with ESMTP id md50001463230.msg
-	for <netdev@vger.kernel.org>; Tue, 27 Mar 2007 22:01:53 -0800
-In-Reply-To: <p73lkhi6aj7.fsf@bingen.suse.de>
+Received: from utopia.booyaka.com ([72.9.107.138]:57973 "EHLO
+	utopia.booyaka.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753940AbXC1FDn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Mar 2007 01:03:43 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-"Andi Kleen" (ak@suse.de) wrote:
+From: Paul Walmsley <paul@booyaka.com>
 
-> To truly defend against this you would likely need a cryptographic
-> hash, which would be likely too slow.
+Ejecting a PCMCIA IBM Token Ring card that has not had its dev->open()
+called will reliably trigger an uninitialized spinlock oops when
+spinlock debugging is enabled. The system then hangs, occasionally
+softlockup oopsing.  It seems that ibmtr.c:tok_interrupt() doesn't
+expect to be called before tok_open() is called, but tok_interrupt()
+gets called anyway when the card is ejected.  So, set an already-extant
+flag which causes tok_interrupt() to bail out early upon card ejection.
+Tested by inserting and removing the PCMCIA card several times.
 
-    I do not think that a cryptographically secure hash is necessary for 
-this. Using a better hash function (i.e. one which does a good job of 
-throroughly mixing the input bits, as jenkins does), is sufficient when 
-combined with a secret per-boot salt, something which is easily demonstrable 
-by test runs.
-
-
-> If it's a real problem the better fix would be to switch to some
-> kind of balanced tree (like Evgeniy is proposing) .
-
-    I don't have any special attachment to the Jenkins hash, or to a hash 
-table even. So, _yes_, by all means if a better solution is available let us 
-use it and I'll be the first to cheer. But I don't know if Evgeniy's work is 
-ready for prime time, and I consider plugging in an improved hash function 
-to be an acceptable solution in the meantime.
+Applies against 2.6.21-rc5.
 
 
-> But I think it can be mostly ignored.
+Signed-off-by: Paul Walmsley <paul@booyaka.com>
 
-    With all due respect, it cannot. An attacker with a small-sized botnet 
-(which is ~250 hosts) can create chains that contain well in excess of 3000 
-items. A big botnet (and there exist botnets with well over 5000 machines in 
-them) can bring a system to its knees. You may not have gotten bitten by 
-this, but others, including myself and Eric Dumazet have. And I believe that 
-David Miller agrees, although I do not want to put words in his mouth -- or 
-his keyboard, as the case may be.
+---
+  dev/drivers/net/pcmcia/ibmtr_cs.c |   12 ++++++++----
+  1 file changed, 8 insertions(+), 4 deletions(-)
 
-    What this boils down to is, yes, we can keep patching our own kernels to 
-use tagged jenkins hashing if this affects us, waiting for something better 
-to come along. But isn't it more reasonable to add this into the kernel, at 
-least as a non-default compile time option, and allow administrators to 
-decide whether this is something they want to use?
+Index: linux/dev/drivers/net/pcmcia/ibmtr_cs.c
+===================================================================
+--- linux.orig/dev/drivers/net/pcmcia/ibmtr_cs.c
++++ linux/dev/drivers/net/pcmcia/ibmtr_cs.c
+@@ -189,16 +189,20 @@ static void ibmtr_detach(struct pcmcia_d
+  {
+      struct ibmtr_dev_t *info = link->priv;
+      struct net_device *dev = info->dev;
++    struct tok_info *ti = netdev_priv(dev);
 
-    -n
+      DEBUG(0, "ibmtr_detach(0x%p)\n", link);
++
++    /*
++     * When the card removal interrupt hits tok_interrupt(),
++     * bail out early, so we don't crash the machine
++     */
++    ti->sram_phys |= 1;
 
+      if (link->dev_node)
+  	unregister_netdev(dev);
+
+-    {
+-	struct tok_info *ti = netdev_priv(dev);
+-	del_timer_sync(&(ti->tr_timer));
+-    }
++    del_timer_sync(&(ti->tr_timer));
+
+      ibmtr_release(link);
 
