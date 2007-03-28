@@ -1,70 +1,60 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: [PATCH] [RFC] [TCP]: Catch skb with S+L bugs earlier
-Date: Wed, 28 Mar 2007 17:02:47 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0703281650150.27182@kivilampi-30.cs.helsinki.fi>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: RFC: Established connections hash function
+Date: Wed, 28 Mar 2007 16:52:55 +0200
+Message-ID: <20070328145255.GA7466@one.firstfloor.org>
+References: <10189ABA61CF4D5AB3881F96C9CACE87@XEON> <p73lkhi6aj7.fsf@bingen.suse.de> <EED7DAB373CC4CB9B576EE1B1FBC9E32@XEON> <200703281129.43783.ak@suse.de> <20070328104505.GA18748@2ka.mipt.ru> <p73y7lh316u.fsf@bingen.suse.de> <20070328155047.4112fb47.dada1@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696243703-2127767299-1175090567=:27182"
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andi Kleen <andi@firstfloor.org>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>, nikb@webmaster.com,
+	netdev@vger.kernel.org
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:40451 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751917AbXC1OCv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Mar 2007 10:02:51 -0400
+Received: from one.firstfloor.org ([213.235.205.2]:53430 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932152AbXC1OxA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Mar 2007 10:53:00 -0400
+Content-Disposition: inline
+In-Reply-To: <20070328155047.4112fb47.dada1@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+On Wed, Mar 28, 2007 at 03:50:47PM +0200, Eric Dumazet wrote:
+> 1) We can now use "struct timespec" to get more bits in init_std_data()
 
----696243703-2127767299-1175090567=:27182
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
+That would be a good change, but i don't think it would help that much.
+If you know the hardware (e.g. webhost farms tend to have quite
+predictive kit) and the kernel binary and the boot offset from
+the timestamp you can probably guess the range of ns pretty closely
+(let's say down to a few ms). With that it's a small range to search. 
 
-SACKED_ACKED and LOST are mutually exclusive, thus this
-condition is bug with SACK (IMHO). NewReno, however, could get
-enough duplicate ACKs which increment sacked_out, so it makes
-sense to do this kind of limitting for non-SACK TCP but not for
-SACK-enabled one. Perhaps the author had that in mind but did
-the logic accidently wrong way around?
+> 2) tcp ehash salt is initialized at first socket creation, not boot time. Maybe we have more available entropy at this point.
 
-Eventually these bugs trigger traps in the tcp_clean_rtx_queue
-but it's much more informative to do this here (excludes some
-other possible bugs).
+Sockets are created early too. It would be a little better, but probably
+not much. 
 
-Maybe this BUG_TRAP is too expensive to be included everywhere
-in the TCP code. Should there be some #if to surround it?
+The only true random seed is disk, keyboard/mouse and previous state. previous
+state is typically a relatively late init script, probably after the first
+socket.  Servers tend to have no disk/mouse activity.
 
-Compile tested. Sadly enough I don't have time for couple of
-weeks to test this as it would require some setuping, and besides,
-my test machines are occupied currently to other work, but this 
-might also be net-2.6 (or even stable) material if it really
-works (feel free to cut this paragraph or part of it if you
-decide to include this :-)).
+Disk may work if you manage to put it after the root mount, but you
+lose on diskless systems. e.g. if the nfsd is built in that wouldn't
+work though because it would create sockets before that.
 
-Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
----
- include/net/tcp.h |    5 +++--
- 1 files changed, 3 insertions(+), 2 deletions(-)
+Getting entropy from network interrupts would avoid the the diskless
+issue, but people are paranoid about that.
 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index fe1c4f0..3c8dd13 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -733,9 +733,10 @@ static inline __u32 tcp_current_ssthresh
- 
- static inline void tcp_sync_left_out(struct tcp_sock *tp)
- {
--	if (tp->rx_opt.sack_ok &&
--	    (tp->sacked_out >= tp->packets_out - tp->lost_out))
-+	if (tp->sacked_out + tp->lost_out > tp->packets_out) {
-+		BUG_TRAP(!tp->rx_opt.sack_ok);
- 		tp->sacked_out = tp->packets_out - tp->lost_out;
-+	}
- 	tp->left_out = tp->sacked_out + tp->lost_out;
- }
- 
--- 
-1.4.2
 
----696243703-2127767299-1175090567=:27182--
+> 3) We dont want to be 'totally secure'. We only want to raise the level, and eventually see if we have to spend more time on this next year(s). AFAIK we had two different reports from people being hit by the flaw of previous hash. Not really a critical issue.
+
+Yes, but you probably want a complexity of at least 10^5-10^6 to be any
+useful. I don't think you will get that early in boot from random
+unless you use hardware support.
+
+> 
+> 4) We could add a hard limit on the length of one chain. Even if the bad guys discover a flaw, it wont hurt too much.
+
+Or just use the trie?  It has other advantages too :)
+
+-Andi
+
