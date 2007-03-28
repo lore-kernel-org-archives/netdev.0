@@ -1,118 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH]: Extract out DSACK detection logic
-Date: Wed, 28 Mar 2007 16:30:28 -0700 (PDT)
-Message-ID: <20070328.163028.58455314.davem@davemloft.net>
+From: Chris Snook <csnook@redhat.com>
+Subject: [PATCH] add Attansic L2 PCI ID
+Date: Wed, 28 Mar 2007 19:47:38 -0400
+Message-ID: <20070328234738.GA8042@devserv.devel.redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: xiong.huang@atheros.com, jacliburn@bellsouth.net,
+	netdev@vger.kernel.org, csnook@redhat.com
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37233
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S933860AbXC1Xa3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Mar 2007 19:30:29 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id EAEF0AE41A5
-	for <netdev@vger.kernel.org>; Wed, 28 Mar 2007 16:30:28 -0700 (PDT)
+Received: from mx1.redhat.com ([66.187.233.31]:42824 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S934046AbXC1Xrr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Mar 2007 19:47:47 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Chris Snook <csnook@redhat.com>
 
-I'm about to reattempt the hacks to make tcp_sacktag_write_queue()
-use the RB tree lookups.
+Add PCI ID for the Attansic L2 100 Mb ethernet adapter.
 
-In order to make the changes easier to review I'm trying to clean
-up the function a little bit.  This one pulls out the DSACK
-detection logic.
+Signed-off-by: Chris Snook <csnook@redhat.com>
 
-I'm starting to pepper get_unaligned() calls around the sack
-block accesses as I've been getting a few of these in my logs
-on sparc64 lately:
-
-[68089.285478] Kernel unaligned access at TPC[60e3c4] tcp_sacktag_write_queue+0x40/0x86c
-
-it's pretty easy to make it happen with NOP TCP options and
-stuff like that, and we have get_unaligned() calls for other
-TCP options already.
-
-Pushed to net-2.6.22
-
-commit d9367183d9d8fd1853e3bc4d0b1af077553e0e8a
-Author: David S. Miller <davem@sunset.davemloft.net>
-Date:   Wed Mar 28 16:27:47 2007 -0700
-
-    [TCP]: Extract DSACK detection code from tcp_sacktag_write_queue().
-    
-    Signed-off-by: David S. Miller <davem@davemloft.net>
-
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index c855791..a5a8987 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -936,6 +936,39 @@ static void tcp_update_reordering(struct sock *sk, const int metric,
-  * Both of these heuristics are not used in Loss state, when we cannot
-  * account for retransmits accurately.
-  */
-+static int tcp_check_dsack(struct tcp_sock *tp, struct sk_buff *ack_skb,
-+			   struct tcp_sack_block_wire *sp, int num_sacks,
-+			   u32 prior_snd_una)
-+{
-+	u32 start_seq_0 = ntohl(get_unaligned(&sp[0].start_seq));
-+	u32 end_seq_0 = ntohl(get_unaligned(&sp[0].end_seq));
-+	int dup_sack = 0;
-+
-+	if (before(start_seq_0, TCP_SKB_CB(ack_skb)->ack_seq)) {
-+		dup_sack = 1;
-+		tp->rx_opt.sack_ok |= 4;
-+		NET_INC_STATS_BH(LINUX_MIB_TCPDSACKRECV);
-+	} else if (num_sacks > 1) {
-+		u32 end_seq_1 = ntohl(get_unaligned(&sp[1].end_seq));
-+		u32 start_seq_1 = ntohl(get_unaligned(&sp[1].start_seq));
-+
-+		if (!after(end_seq_0, end_seq_1) &&
-+		    !before(start_seq_0, start_seq_1)) {
-+			dup_sack = 1;
-+			tp->rx_opt.sack_ok |= 4;
-+			NET_INC_STATS_BH(LINUX_MIB_TCPDSACKOFORECV);
-+		}
-+	}
-+
-+	/* D-SACK for already forgotten data... Do dumb counting. */
-+	if (dup_sack &&
-+	    !after(end_seq_0, prior_snd_una) &&
-+	    after(end_seq_0, tp->undo_marker))
-+		tp->undo_retrans--;
-+
-+	return dup_sack;
-+}
-+
- static int
- tcp_sacktag_write_queue(struct sock *sk, struct sk_buff *ack_skb,
- 			u32 prior_snd_una, u32 *mark_lost_entry_seq)
-@@ -963,25 +996,7 @@ tcp_sacktag_write_queue(struct sock *sk, struct sk_buff *ack_skb,
- 		*mark_lost_entry_seq = tp->highest_sack;
- 	prior_fackets = tp->fackets_out;
+--- linux-2.6.21-rc5.orig/include/linux/pci_ids.h	2007-03-27 23:26:50.000000000 -0400
++++ linux-2.6.21-rc5/include/linux/pci_ids.h	2007-03-28 15:11:03.000000000 -0400
+@@ -2090,6 +2090,7 @@
  
--	/* Check for D-SACK. */
--	if (before(ntohl(sp[0].start_seq), TCP_SKB_CB(ack_skb)->ack_seq)) {
--		dup_sack = 1;
--		tp->rx_opt.sack_ok |= 4;
--		NET_INC_STATS_BH(LINUX_MIB_TCPDSACKRECV);
--	} else if (num_sacks > 1 &&
--			!after(ntohl(sp[0].end_seq), ntohl(sp[1].end_seq)) &&
--			!before(ntohl(sp[0].start_seq), ntohl(sp[1].start_seq))) {
--		dup_sack = 1;
--		tp->rx_opt.sack_ok |= 4;
--		NET_INC_STATS_BH(LINUX_MIB_TCPDSACKOFORECV);
--	}
--
--	/* D-SACK for already forgotten data...
--	 * Do dumb counting. */
--	if (dup_sack &&
--			!after(ntohl(sp[0].end_seq), prior_snd_una) &&
--			after(ntohl(sp[0].end_seq), tp->undo_marker))
--		tp->undo_retrans--;
-+	dup_sack = tcp_check_dsack(tp, ack_skb, sp, num_sacks, prior_snd_una);
+ #define PCI_VENDOR_ID_ATTANSIC		0x1969
+ #define PCI_DEVICE_ID_ATTANSIC_L1	0x1048
++#define PCI_DEVICE_ID_ATTANSIC_L2	0x2048
  
- 	/* Eliminate too old ACKs, but take into
- 	 * account more or less fresh ones, they can
+ #define PCI_VENDOR_ID_JMICRON		0x197B
+ #define PCI_DEVICE_ID_JMICRON_JMB360	0x2360
