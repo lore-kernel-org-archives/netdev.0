@@ -1,59 +1,45 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [2.6 patch] the scheduled eepro100 removal
-Date: Wed, 28 Mar 2007 18:42:45 -0400
-Message-ID: <460AEF65.8070908@pobox.com>
-References: <20070325145810.GI16477@stusta.de> <460AE997.90509@tmr.com> <460AEB85.1020101@intel.com>
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: Re: [RFT] e100 driver on ARM
+Date: Wed, 28 Mar 2007 16:04:32 -0700
+Message-ID: <460AF480.7050609@intel.com>
+References: <44FC0261.6010807@garzik.org> <20060904123123.GB1285@xi.wantstofly.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Bill Davidsen <davidsen@tmr.com>, Adrian Bunk <bunk@stusta.de>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	saw@saw.sw.com.sg, Jesse Brandeburg <jesse.brandeburg@intel.com>
-To: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Cc: Jeff Garzik <jeff@garzik.org>,
+	Netdev List <netdev@vger.kernel.org>,
+	Linux Kernel <linux-kernel@vger.kernel.org>,
+	Andrew Morton <akpm@osdl.org>,
+	Russell King <rmk+lkml@arm.linux.org.uk>
+To: Lennert Buytenhek <buytenh@wantstofly.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:48433 "EHLO mail.dvmed.net"
+Received: from mga01.intel.com ([192.55.52.88]:31787 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933814AbXC1Wm6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Mar 2007 18:42:58 -0400
-In-Reply-To: <460AEB85.1020101@intel.com>
+	id S965795AbXC1XEe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Mar 2007 19:04:34 -0400
+In-Reply-To: <20060904123123.GB1285@xi.wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Kok, Auke wrote:
-> Bill Davidsen wrote:
->> Adrian Bunk wrote:
->>> This patch contains the scheduled removal of the eepro100 driver.
->>>
->>> Signed-off-by: Adrian Bunk <bunk@stusta.de>
->>>
->>>
->> This keeps coming around, but I haven't seen an answer to the 
->> questions raised by Eric Piel or Kiszka. I do know that e100 didn't 
->> work on some IBM rackmount servers and eepro100 did, but since I'm no 
->> longer responsible for those machines I can't retest. Perhaps someone 
->> will be able to provide data points.
->>
->> IBM current offerings as of about three years ago, I had a few dozen 
->> of them at one time.
+Lennert Buytenhek wrote:
+> On Mon, Sep 04, 2006 at 06:39:29AM -0400, Jeff Garzik wrote:
 > 
-> We have provided a (test) driver which allows e100 to use IO to 
-> communicate with the device, which seems to have helped for one person. 
-> I think we need to work with those changes and see if it helps the other 
-> people resolve their e100 issues. Unfortunately it keeps slipping off to 
-> the low priority list for us.
+>> 1) Does e100 driver work on ARM?
 > 
-> I suggest that we should push this code into -mm for people to test or 
-> something. It's fairly low risk as by default the patch won't enable IO 
-> and thus use the old method of writing to the adapter.
+> FWIW, e100 seems to work okay for me on an intel ixp2400 (xscale based)
+> board, an ixp2850 (xscale based) board and an ixp2350 (xscale3 based)
+> board.  ixp2350 works both with hardware coherency turned on (cpu
+> snoops bus) and turned off (manual dma cache clean/invalidate as usual.)
+> 
+> As for the other ARM platforms that I'm interested in / have hardware
+> for / maintain, the at91/ep93xx/pxa270 don't have PCI, and the other
+> two (iop32x/iop33x) I can't test because I don't have such systems with
+> e100 NICs, but I expect those would work, since they're both xscale
+> based like the ixp2400, and the ixp2400 works.
 
-Sounds sane to me.  My overall opinion on eepro100 removal is that we're 
-not there yet.  Rare problem cases remain where e100 fails but eepro100 
-works, and it's older drivers so its low priority for everybody.
+I just got an iop342 board dropped on my lap. Once it's running, I'll make sure 
+to make this the first thing to test.
 
-Needs to happen, though...
+Cheers,
 
-	Jeff
-
-
-
+Auke
