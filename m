@@ -1,35 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [TCP]: Rexmit hint must be cleared instead of setting
- it
-Date: Wed, 28 Mar 2007 12:07:09 -0700 (PDT)
-Message-ID: <20070328.120709.35017257.davem@davemloft.net>
-References: <Pine.LNX.4.64.0703281629360.27182@kivilampi-30.cs.helsinki.fi>
+Subject: Re: LSPP kernels (was Re: [PATCH]: SAD sometimes has double SAs).
+Date: Wed, 28 Mar 2007 12:12:46 -0700 (PDT)
+Message-ID: <20070328.121246.15264415.davem@davemloft.net>
+References: <1175094915.3085.503.camel@faith.austin.ibm.com>
+	<Line.LNX.4.64.0703281213060.2266@d.namei>
+	<200703281236.58222.paul.moore@hp.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: ilpo.jarvinen@helsinki.fi
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jmorris@namei.org, latten@austin.ibm.com, eparis@redhat.com,
+	netdev@vger.kernel.org, herbert@gondor.apana.org.au,
+	vyekkirala@trustedcs.com, linux_4ever@yahoo.com, sds@tycho.nsa.gov,
+	selinux@tycho.nsa.gov
+To: paul.moore@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42298
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35742
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S965654AbXC1THK convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Mar 2007 15:07:10 -0400
-In-Reply-To: <Pine.LNX.4.64.0703281629360.27182@kivilampi-30.cs.helsinki.fi>
+	by vger.kernel.org with ESMTP id S965646AbXC1TMr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Mar 2007 15:12:47 -0400
+In-Reply-To: <200703281236.58222.paul.moore@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
-Date: Wed, 28 Mar 2007 16:31:50 +0300 (EEST)
+From: Paul Moore <paul.moore@hp.com>
+Date: Wed, 28 Mar 2007 12:36:57 -0400
 
-> Stupid error from my side. Even though now that I noticed this,
-> I hoped it would have been an optimization but no, the counter
-> hint is then incorrect. Thus clearing is necessary for now (I
-> still suspect though that this path is never executed).
->=20
-> Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
+> Does anyone have access to a public site we could use to host a git
+> tree?  If no one has anything available (or is willing to maintain
+> the tree) I might be able to do something.
 
-Better safe than sorry :-)
+It's not difficult to get an account on master.kernel.org
+and also there has been some success with infradead.org as
+well.
 
-We can start putting more aggressive assertions around if you'd
-like to get some invariants like that validated.
+James or someone else could help you get going, and he's
+gone through this process already :)
