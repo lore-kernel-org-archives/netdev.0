@@ -1,113 +1,152 @@
-From: Joy Latten <latten@austin.ibm.com>
-Subject: Re: [PATCH]: SAD sometimes has double SAs.
-Date: Wed, 28 Mar 2007 09:15:15 -0600
-Message-ID: <1175094915.3085.503.camel@faith.austin.ibm.com>
-References: <200703232258.l2NMwKqH016994@faith.austin.ibm.com>
-	 <1174944899.17953.20.camel@localhost.localdomain>
-	 <20070326.144843.72708308.davem@davemloft.net>
-	 <1174957467.3085.461.camel@faith.austin.ibm.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: [PATCH] NET : secure sequence number functions can use nsec
+ resolution instead of usec
+Date: Wed, 28 Mar 2007 17:43:22 +0200
+Message-ID: <20070328174322.5d806dd0.dada1@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: eparis@redhat.com, netdev@vger.kernel.org,
-	herbert@gondor.apana.org.au, jmorris@namei.org, paul.moore@hp.com,
-	vyekkirala@trustedcs.com
+Cc: Andi Kleen <andi@firstfloor.org>, netdev <netdev@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e34.co.us.ibm.com ([32.97.110.152]:40797 "EHLO
-	e34.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751049AbXC1Pbt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Mar 2007 11:31:49 -0400
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e34.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id l2SFVnor023723
-	for <netdev@vger.kernel.org>; Wed, 28 Mar 2007 11:31:49 -0400
-Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
-	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l2SFVmxW093582
-	for <netdev@vger.kernel.org>; Wed, 28 Mar 2007 09:31:48 -0600
-Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av01.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l2SFVltr016451
-	for <netdev@vger.kernel.org>; Wed, 28 Mar 2007 09:31:48 -0600
-In-Reply-To: <1174957467.3085.461.camel@faith.austin.ibm.com>
+Received: from pfx2.jmh.fr ([194.153.89.55]:38020 "EHLO pfx2.jmh.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932433AbXC1PnX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Mar 2007 11:43:23 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Last night I browsed the ipsec-tools code and saw places in
-racoon where improvement would actually fix this
-problem. I am working on a patch and will pursue this 
-on the ipsec-tools mailing list.
+Hello David
 
-I apologize for any inconvenience. 
-Eric, sorry as I know you already patched lspp kernel
-for testing. I strongly think this should be fixed
-in userspace. 
+We could use the nanosec resolution for various functions defined in drivers/char/random.c
+(secure_tcpv6_sequence_number(), secure_tcp_sequence_number(), secure_dccp_sequence_number())
 
-The permission check before flushing does still
-need to be added to kernel. 
+I am not sure if it's a netdev related patch or core kernel, so I have CC Andrew.
 
-Regards,
-Joy
-  
-On Mon, 2007-03-26 at 19:04 -0600, Joy Latten wrote:
-> On Mon, 2007-03-26 at 14:48 -0700, David Miller wrote:
-> > From: Eric Paris <eparis@redhat.com>
-> > Date: Mon, 26 Mar 2007 17:34:59 -0400
-> > 
-> > > I'm not at all able to speak on the correctness or validity of the
-> > > solution,
-> > 
-> > Neither am I yet :)
-> > 
-> > > but shouldn't the ipv6 case be a && not an || like the ipv4
-> > > case?  Isn't this going to match all sorts of things?  Did you test this
-> > > patch on ipv6 and see it to solve your problem?
-> > > 
-> > > I'm also not enjoying the formatting in the ipv6 part where the first
-> > > time you have the cast on the same time as the object but not the second
-> > > part where x->props.saddr.a6 is on its own little line.
-> > 
-> > Also, I want to understand what is going to tear down these
-> > "other direction" fake entries later on?  I think I can review
-> > this patch better if I understand that.
-> > 
-> I am going to refer to the other-direction-placeholder as the "fake"
-> entry. And the larval SA that gets created for the new
-> spi as result of a GETSPI message as the "real" entry. 
-> 
-> The fake entry gets created when the real entry does and does not have
-> an spi. It shares some of the same properties of a "real" larval SA
-> (they are created using same code) and it's state
-> is marked as XFRM_STATE_ACQ. The real entry has a timeout. So, should
-> IKE negotiation fail, take too long, etc... it will eventually timeout
-> and be deleted. So does the fake entry. It will timeout and should be
-> eventually deleted. (I will test this part tomorrow for assurance.)
->  
-> When the IKE negotiations are successful, xfrm_state_add() and the
-> xfrm_state_update() look for larval SAs in that they look for an SA with
-> same src, dst, etc... and with state==XFRM_STATE_ACQUIRE. Any that are
-> found are deleted and new SA added. This removes the real larval SA, and
-> should also remove the fake entry too.     
-> 
-> Of course, this is all based on my assumption that IKE will install
-> two SAs, one for incoming and one for outgoing. 
-> 
-> Hopefully this answers how fake entries will be removed. 
-> Admittedly, I may miss something or didn't understand something
-> correctly as I learn the code, so please let me know. 
-> There may even be a better solution that I don't readily see. 
-> 
-> > As it stands, this looks to me like a workaround for an improperly
-> > implemented IPSEC daemon.  Joy states it as saying that the current
-> > code requires the keying daemon to manage it's SAs, and I wonder
-> > whether any other implementation is even valid.
-> > 
-> My big mouth. :-) But yes, I do think more SA management in 
-> userspace would be ideal. 
-> 
-> This fix will hopefully ensure kernel doesn't send any
-> extra acquires regardless. 
-> 
-> Joy
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thank you
+
+[PATCH] NET : random functions can use nsec resolution instead of usec
+
+In order to get more randomness for secure_tcpv6_sequence_number(), secure_tcp_sequence_number(), secure_dccp_sequence_number() functions, we can use the high resolution time services, providing nanosec resolution.
+
+I've also done two kmalloc()/kzalloc() conversions.
+
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+
+--- linux-2.6.21-rc5/drivers/char/random.c
++++ linux-2.6.21-rc5-ed/drivers/char/random.c
+@@ -881,15 +881,15 @@ EXPORT_SYMBOL(get_random_bytes);
+  */
+ static void init_std_data(struct entropy_store *r)
+ {
+-	struct timeval tv;
++	ktime_t now;
+ 	unsigned long flags;
+ 
+ 	spin_lock_irqsave(&r->lock, flags);
+ 	r->entropy_count = 0;
+ 	spin_unlock_irqrestore(&r->lock, flags);
+ 
+-	do_gettimeofday(&tv);
+-	add_entropy_words(r, (__u32 *)&tv, sizeof(tv)/4);
++	now = ktime_get_real();
++	add_entropy_words(r, (__u32 *)&now, sizeof(now)/4);
+ 	add_entropy_words(r, (__u32 *)utsname(),
+ 			  sizeof(*(utsname()))/4);
+ }
+@@ -911,14 +911,12 @@ void rand_initialize_irq(int irq)
+ 		return;
+ 
+ 	/*
+-	 * If kmalloc returns null, we just won't use that entropy
++	 * If kzalloc returns null, we just won't use that entropy
+ 	 * source.
+ 	 */
+-	state = kmalloc(sizeof(struct timer_rand_state), GFP_KERNEL);
+-	if (state) {
+-		memset(state, 0, sizeof(struct timer_rand_state));
++	state = kzalloc(sizeof(struct timer_rand_state), GFP_KERNEL);
++	if (state)
+ 		irq_timer_state[irq] = state;
+-	}
+ }
+ 
+ #ifdef CONFIG_BLOCK
+@@ -927,14 +925,12 @@ void rand_initialize_disk(struct gendisk
+ 	struct timer_rand_state *state;
+ 
+ 	/*
+-	 * If kmalloc returns null, we just won't use that entropy
++	 * If kzalloc returns null, we just won't use that entropy
+ 	 * source.
+ 	 */
+-	state = kmalloc(sizeof(struct timer_rand_state), GFP_KERNEL);
+-	if (state) {
+-		memset(state, 0, sizeof(struct timer_rand_state));
++	state = kzalloc(sizeof(struct timer_rand_state), GFP_KERNEL);
++	if (state)
+ 		disk->random = state;
+-	}
+ }
+ #endif
+ 
+@@ -1469,7 +1465,6 @@ late_initcall(seqgen_init);
+ __u32 secure_tcpv6_sequence_number(__be32 *saddr, __be32 *daddr,
+ 				   __be16 sport, __be16 dport)
+ {
+-	struct timeval tv;
+ 	__u32 seq;
+ 	__u32 hash[12];
+ 	struct keydata *keyptr = get_keyptr();
+@@ -1485,8 +1480,7 @@ __u32 secure_tcpv6_sequence_number(__be3
+ 	seq = twothirdsMD4Transform((const __u32 *)daddr, hash) & HASH_MASK;
+ 	seq += keyptr->count;
+ 
+-	do_gettimeofday(&tv);
+-	seq += tv.tv_usec + tv.tv_sec * 1000000;
++	seq += ktime_get_real().tv64;
+ 
+ 	return seq;
+ }
+@@ -1521,7 +1515,6 @@ __u32 secure_ip_id(__be32 daddr)
+ __u32 secure_tcp_sequence_number(__be32 saddr, __be32 daddr,
+ 				 __be16 sport, __be16 dport)
+ {
+-	struct timeval tv;
+ 	__u32 seq;
+ 	__u32 hash[4];
+ 	struct keydata *keyptr = get_keyptr();
+@@ -1543,12 +1536,11 @@ __u32 secure_tcp_sequence_number(__be32 
+ 	 *	As close as possible to RFC 793, which
+ 	 *	suggests using a 250 kHz clock.
+ 	 *	Further reading shows this assumes 2 Mb/s networks.
+-	 *	For 10 Mb/s Ethernet, a 1 MHz clock is appropriate.
++	 *	For 10 Gb/s Ethernet, a 1 GHz clock is appropriate.
+ 	 *	That's funny, Linux has one built in!  Use it!
+ 	 *	(Networks are faster now - should this be increased?)
+ 	 */
+-	do_gettimeofday(&tv);
+-	seq += tv.tv_usec + tv.tv_sec * 1000000;
++	seq += ktime_get_real().tv64;
+ #if 0
+ 	printk("init_seq(%lx, %lx, %d, %d) = %d\n",
+ 	       saddr, daddr, sport, dport, seq);
+@@ -1598,7 +1590,6 @@ u32 secure_ipv6_port_ephemeral(const __b
+ u64 secure_dccp_sequence_number(__be32 saddr, __be32 daddr,
+ 				__be16 sport, __be16 dport)
+ {
+-	struct timeval tv;
+ 	u64 seq;
+ 	__u32 hash[4];
+ 	struct keydata *keyptr = get_keyptr();
+@@ -1611,8 +1602,7 @@ u64 secure_dccp_sequence_number(__be32 s
+ 	seq = half_md4_transform(hash, keyptr->secret);
+ 	seq |= ((u64)keyptr->count) << (32 - HASH_BITS);
+ 
+-	do_gettimeofday(&tv);
+-	seq += tv.tv_usec + tv.tv_sec * 1000000;
++	seq += ktime_get_real().tv64;
+ 	seq &= (1ull << 48) - 1;
+ #if 0
+ 	printk("dccp init_seq(%lx, %lx, %d, %d) = %d\n",
