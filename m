@@ -1,77 +1,93 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: APIC error on 32-bit kernel
-Date: Tue, 27 Mar 2007 19:04:27 -0600
-Message-ID: <m18xdiw544.fsf@ebiederm.dsl.xmission.com>
-References: <20070323200817.1f3e39b9@osprey.hogchain.net>
-	<m14po6xvtf.fsf@ebiederm.dsl.xmission.com>
-	<20070327174925.5cefb091@osprey.hogchain.net>
+From: weidong <weidong@cn.fujitsu.com>
+Subject: Re: Fix "ipOutNoRoutes" counter error for TCP and UDP
+Date: Wed, 28 Mar 2007 09:15:03 +0800
+Message-ID: <1175044503.4691.3.camel@RedHat4U4>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, atl1-devel@lists.sourceforge.net
-To: Jay Cliburn <jacliburn@bellsouth.net>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:51213 "EHLO
-	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753922AbXC1BE5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Mar 2007 21:04:57 -0400
-In-Reply-To: <20070327174925.5cefb091@osprey.hogchain.net> (Jay Cliburn's
-	message of "Tue, 27 Mar 2007 17:49:25 -0500")
+Received: from [222.73.24.84] ([222.73.24.84]:53859 "EHLO song.cn.fujitsu.com"
+	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S965536AbXC1BMg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Mar 2007 21:12:36 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jay Cliburn <jacliburn@bellsouth.net> writes:
+Hi Mr. David 
+    I have modified my patch according to you advice. I think -
+EHOSTUNREACH 
+is only for "input path". In "output" path, we can just simply check 
+-ENETUNREACH  (^_^), the patch is shown in the end of this mail. 
 
-> On Tue, 27 Mar 2007 14:42:20 -0600
-> ebiederm@xmission.com (Eric W. Biederman) wrote:
->
-> Thanks for replying, Eric.  I've added atl1-devel to the cc list.
->
->> Do you have msi's working in 2.6.21-rc4 in the x86_64 kernel?
->
-> I can't personally verify it anymore because I removed x86_64 to
-> duplicate the MSI problem on i386, but the driver was working fine under
-> x86_64 in earlier versions of 2.6.21-rcX.  The first hint of a problem
-> was a report on March 12 by a user running a 32-bit 2.6.19 Fedora 6
-> kernel who encountered a kernel panic on network startup.
+BTW: my E-mail has been changed to weidong@cn.fujitsu.com 
 
-Just FYI: You can run a 64bit kernel with a 32bit user space...
+>> Function need to fix: 
+>> tcp_v4_connect(); ip4_datagram_connect(); udp_sendmsg(); 
 
-That this happens as long ago as 2.6.19 is interesting.  That indicates
-this is not a brand new problem, and it also makes the 64bit kernel
-test a little less interesting.
+> I think we need to make these checks more carefully. 
+> 
+> Route lookup can fail for several reasons other than 
+> no route being available.  Two examples are: 
+> 
+> 1) Out of memory error while creating route 
+> 2) IPSEC disallows communication to that flow ID 
+> 
+> As a result, we'll probably best limiting the counter 
+> increment when the error is either -EHOSTUNREACH or 
+> -ENETUNREACH. 
+
+signed-off-by: Wei Dong <weidong@cn.fujitsu.com>
+
+diff -ruNp old/net/ipv4/datagram.c new/net/ipv4/datagram.c
+--- old/net/ipv4/datagram.c	2007-03-27 18:15:56.000000000 +0800
++++ new/net/ipv4/datagram.c	2007-03-27 18:23:58.000000000 +0800
+@@ -50,8 +50,12 @@ int ip4_datagram_connect(struct sock *sk
+ 			       RT_CONN_FLAGS(sk), oif,
+ 			       sk->sk_protocol,
+ 			       inet->sport, usin->sin_port, sk);
+-	if (err)
++	if (err) {
++		if (err == -ENETUNREACH)
++			IP_INC_STATS_BH(IPSTATS_MIB_OUTNOROUTES);
+ 		return err;
++	}
++
+ 	if ((rt->rt_flags & RTCF_BROADCAST) && !sock_flag(sk, SOCK_BROADCAST)) {
+ 		ip_rt_put(rt);
+ 		return -EACCES;
+diff -ruNp old/net/ipv4/tcp_ipv4.c new/net/ipv4/tcp_ipv4.c
+--- old/net/ipv4/tcp_ipv4.c	2007-03-27 18:15:56.000000000 +0800
++++ new/net/ipv4/tcp_ipv4.c	2007-03-27 18:28:38.000000000 +0800
+@@ -192,8 +192,11 @@ int tcp_v4_connect(struct sock *sk, stru
+ 			       RT_CONN_FLAGS(sk), sk->sk_bound_dev_if,
+ 			       IPPROTO_TCP,
+ 			       inet->sport, usin->sin_port, sk);
+-	if (tmp < 0)
++	if (tmp < 0) {
++		if (tmp == -ENETUNREACH)
++			IP_INC_STATS_BH(IPSTATS_MIB_OUTNOROUTES);
+ 		return tmp;
++	}
+ 
+ 	if (rt->rt_flags & (RTCF_MULTICAST | RTCF_BROADCAST)) {
+ 		ip_rt_put(rt);
+diff -ruNp old/net/ipv4/udp.c new/net/ipv4/udp.c
+--- old/net/ipv4/udp.c	2007-03-27 18:15:56.000000000 +0800
++++ new/net/ipv4/udp.c	2007-03-27 18:26:47.000000000 +0800
+@@ -630,8 +630,11 @@ int udp_sendmsg(struct kiocb *iocb, stru
+ 						 .dport = dport } } };
+ 		security_sk_classify_flow(sk, &fl);
+ 		err = ip_route_output_flow(&rt, &fl, sk, !(msg->msg_flags&MSG_DONTWAIT));
+-		if (err)
++		if (err) {
++			if (err == -ENETUNREACH)
++				IP_INC_STATS_BH(IPSTATS_MIB_OUTNOROUTES);
+ 			goto out;
++		}
+ 
+ 		err = -EACCES;
+ 		if ((rt->rt_flags & RTCF_BROADCAST) &&
 
 
->> > We also do not see this problem on Intel-based motherboards, with
->> > either 32- or 64-bit kernels.
->> 
->> Can you confirm MSI is enabled in those kernels as well?
->
-> Absolutely, yes.  MSI is enabled and working for me on a 64-bit
-> kernel on an Intel-based motherboard, and Luca Tettamanti reports no
-> problems running a 32-bit kernel on a similar motherboard.  (Luca wrote
-> the MSI patch for the atl1 driver.)
->
-> We enable MSI by default in the driver.
->
-> I can now stimulate a kernel oops by pinging my router.  Here's the
-> console output.
->
-> ...snip (nothing but a flood of APIC errors above here)...
-> [  103.052000] APIC error on CPU1: 08(08)
-> [  103.052000] APIC error on CPU0: 08(08)
-> [  103.154000] APIC error on CPU1: 08(08)
-> [  103.154000] APIC error on CPU0: 08(08)
-> [  103.256000] APIC error on CPU1: 08(08)
-> [  103.256000] APIC error on CPU0: 08(08)
-> [  103.359000] APIC error on CPU1: 08(08)
-> [  103.359000] APIC error on CPU0: 08(08)
-> [  103.461000] APIC error on CPU1: 08(08)
-> [  103.461000] APIC error on CPU0: 08(08)
->
-> pinged router somewhere about here...
-
-Ok.  I need to look back the initial APIC errors had a different error
-code and I think if we decode that it may give us a clue about what
-is going on.
-
-Eric
