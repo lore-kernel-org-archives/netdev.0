@@ -1,61 +1,38 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCH] [TCP]: Rexmit hint must be cleared instead of setting
- it
-Date: Wed, 28 Mar 2007 22:29:05 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0703282223540.29833@kivilampi-30.cs.helsinki.fi>
-References: <Pine.LNX.4.64.0703281629360.27182@kivilampi-30.cs.helsinki.fi>
- <20070328.120709.35017257.davem@davemloft.net> <20070328.121405.49244759.davem@davemloft.net>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [RESEND] [NET] fib_rules: Flush route cache after rule modifications
+Date: Wed, 28 Mar 2007 21:34:36 +0200
+Message-ID: <20070328193436.GP521@postel.suug.ch>
+References: <20070327133845.GM521@postel.suug.ch> <20070328111921.GA2703@ff.dom.local> <20070328154903.GO521@postel.suug.ch> <20070328.112417.08322226.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696243703-692498704-1175110145=:29833"
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: jarkao2@o2.pl, netdev@vger.kernel.org, muli@il.ibm.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:34028 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933204AbXC1T3J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Mar 2007 15:29:09 -0400
-In-Reply-To: <20070328.121405.49244759.davem@davemloft.net>
+Received: from postel.suug.ch ([194.88.212.233]:36093 "EHLO postel.suug.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933239AbXC1TeQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Mar 2007 15:34:16 -0400
+Content-Disposition: inline
+In-Reply-To: <20070328.112417.08322226.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+* David Miller <davem@davemloft.net> 2007-03-28 11:24
+> Another idea Thomas and I tossed around was to have some kind of way
+> for the rule insertion to indicate that the flush should be deferred
+> and I kind of prefer that explicitness.
 
----696243703-692498704-1175110145=:29833
-Content-Type: TEXT/PLAIN; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
+Right, although I believe the flag should not only defer it
+but not flush at all. This would be the optimal solution
+for scripts which can do a ip ro flush cache as they know
+what they're doing.
 
-On Wed, 28 Mar 2007, David Miller wrote:
+> By default it's better the flush immediately, because the old
+> behavior is totally unexpected.  "I insert a rule and it dosn't
+> show up?", nobody expects that.
 
-> From: David Miller <davem@davemloft.net>
-> Date: Wed, 28 Mar 2007 12:07:09 -0700 (PDT)
-> 
-> > From: "Ilpo_Järvinen" <ilpo.jarvinen@helsinki.fi>
-> > Date: Wed, 28 Mar 2007 16:31:50 +0300 (EEST)
-> > 
-> > > Stupid error from my side. Even though now that I noticed this,
-> > > I hoped it would have been an optimization but no, the counter
-> > > hint is then incorrect. Thus clearing is necessary for now (I
-> > > still suspect though that this path is never executed).
-> > > 
-> > > Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
-> > 
-> > Better safe than sorry :-)
-> > 
-> > We can start putting more aggressive assertions around if you'd
-> > like to get some invariants like that validated.
-> 
-> In case it's not clear I did apply this patch.
-
-I think more this on Friday, maybe WARN_ON could be placed there so that 
-no harm is being done if it ever get there, probably a candidate for 
-unlikely, if this is really needed. Anyway, applying the NULL this patch 
-does no harm (it was supposed to be that way right from the
-beginning)... :-)
-
-...but lets keep in mind that the actual goal is, of course, to get rid of 
-the hint altogether, rather than doing these clearing things... :-)
-
--- 
- i.
----696243703-692498704-1175110145=:29833--
+It's a tough call, I'd favour immediate flush as well but I can
+see the point in delaying by ip_rt_min_delay which can be
+configured by the user. So people can choose to immediately flush
+by setting it to 0. It would also be consistent to the flush
+after route changes, the same delay is used there.
