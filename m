@@ -1,36 +1,35 @@
-From: Steve Wise <swise@opengridcomputing.com>
-Subject: netpoll question
-Date: Wed, 28 Mar 2007 17:03:00 -0500
-Message-ID: <1175119380.28767.4.camel@stevo-laptop>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [Xen-devel] Re: Xen netfront fixes for changed skbuff in	net-2.6.22.git
+Date: Thu, 29 Mar 2007 08:10:35 +1000
+Message-ID: <20070328221035.GA10435@gondor.apana.org.au>
+References: <460AB5A1.1000807@goop.org> <20070328214604.GA10231@gondor.apana.org.au> <460AE46C.9050805@goop.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Chris Wright <chrisw@sous-sol.org>,
+	NetDev <netdev@vger.kernel.org>,
+	Xen-devel <xen-devel@lists.xensource.com>
+To: Jeremy Fitzhardinge <jeremy@goop.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rrcs-24-153-217-226.sw.biz.rr.com ([24.153.217.226]:33918 "EHLO
-	smtp.opengridcomputing.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933382AbXC1WDG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Mar 2007 18:03:06 -0400
-Received: from [172.16.0.69] (aoot.com [67.65.16.241])
-	by smtp.opengridcomputing.com (Postfix) with ESMTP id 234D37C781
-	for <netdev@vger.kernel.org>; Wed, 28 Mar 2007 17:03:04 -0500 (CDT)
+Received: from rhun.apana.org.au ([64.62.148.172]:3675 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S933589AbXC1WKm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Mar 2007 18:10:42 -0400
+Content-Disposition: inline
+In-Reply-To: <460AE46C.9050805@goop.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hey all,
+On Wed, Mar 28, 2007 at 02:55:56PM -0700, Jeremy Fitzhardinge wrote:
+> 
+> Hm, I was wondering if there's a nicer way of getting the same result. 
+> Does it need to be done that way?
 
-I have netpoll question.  How does netpoll work with MSI/X, NAPI, and
-nics that setup multiple RSS style receive queues for a single port?
->From what I can tell, if you're doing something like netdump using
-netpoll for IO, then you might never process incoming packets that get
-posted to the rx queues not associated with the main netdevice structure
-because netpoll only calls the poll() function for the main netdev
-struct.  Not the dummy netdevs setup for multiple rx queues.  
+Actually you could use the skb->cb buffer which can store anything and
+doesn't need to be cleaned up.
 
-Is this the case or am I confused?
-
-Thanks,
-
-
-Steve.
-
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
