@@ -1,35 +1,34 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [Xen-devel] Re: Xen netfront fixes for changed skbuff in	net-2.6.22.git
-Date: Thu, 29 Mar 2007 08:10:35 +1000
-Message-ID: <20070328221035.GA10435@gondor.apana.org.au>
-References: <460AB5A1.1000807@goop.org> <20070328214604.GA10231@gondor.apana.org.au> <460AE46C.9050805@goop.org>
+From: Bill Davidsen <davidsen@tmr.com>
+Subject: Re: [2.6 patch] the scheduled eepro100 removal
+Date: Wed, 28 Mar 2007 18:17:59 -0400
+Message-ID: <460AE997.90509@tmr.com>
+References: <20070325145810.GI16477@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Chris Wright <chrisw@sous-sol.org>,
-	NetDev <netdev@vger.kernel.org>,
-	Xen-devel <xen-devel@lists.xensource.com>
-To: Jeremy Fitzhardinge <jeremy@goop.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:3675 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S933589AbXC1WKm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Mar 2007 18:10:42 -0400
-Content-Disposition: inline
-In-Reply-To: <460AE46C.9050805@goop.org>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S933875AbXC1WRy@vger.kernel.org>
+In-Reply-To: <20070325145810.GI16477@stusta.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 28, 2007 at 02:55:56PM -0700, Jeremy Fitzhardinge wrote:
+Adrian Bunk wrote:
+> This patch contains the scheduled removal of the eepro100 driver.
 > 
-> Hm, I was wondering if there's a nicer way of getting the same result. 
-> Does it need to be done that way?
+> Signed-off-by: Adrian Bunk <bunk@stusta.de>
+> 
+> 
+This keeps coming around, but I haven't seen an answer to the questions 
+raised by Eric Piel or Kiszka. I do know that e100 didn't work on some 
+IBM rackmount servers and eepro100 did, but since I'm no longer 
+responsible for those machines I can't retest. Perhaps someone will be 
+able to provide data points.
 
-Actually you could use the skb->cb buffer which can store anything and
-doesn't need to be cleaned up.
+IBM current offerings as of about three years ago, I had a few dozen of 
+them at one time.
 
-Cheers,
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Bill Davidsen <davidsen@tmr.com>
+   "We have more to fear from the bungling of the incompetent than from
+the machinations of the wicked."  - from Slashdot
