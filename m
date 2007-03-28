@@ -1,45 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: RFC: Established connections hash function
-Date: Wed, 28 Mar 2007 12:04:29 -0700 (PDT)
-Message-ID: <20070328.120429.98555893.davem@davemloft.net>
-References: <200703281129.43783.ak@suse.de>
-	<20070328104505.GA18748@2ka.mipt.ru>
-	<p73y7lh316u.fsf@bingen.suse.de>
+Subject: Re: KERNEL: assertion ((int)tp->sacked_out >= 0) failed at
+ net/ipv4/tcp_input.c (2626)
+Date: Wed, 28 Mar 2007 12:06:04 -0700 (PDT)
+Message-ID: <20070328.120604.38712657.davem@davemloft.net>
+References: <460A5988.2050403@trash.net>
+	<Pine.LNX.4.64.0703281543460.14473@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: johnpol@2ka.mipt.ru, nikb@webmaster.com, netdev@vger.kernel.org
-To: andi@firstfloor.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: kaber@trash.net, netdev@vger.kernel.org
+To: ilpo.jarvinen@helsinki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36991
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42293
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S965685AbXC1TEa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Mar 2007 15:04:30 -0400
-In-Reply-To: <p73y7lh316u.fsf@bingen.suse.de>
+	by vger.kernel.org with ESMTP id S965680AbXC1TGF convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Mar 2007 15:06:05 -0400
+In-Reply-To: <Pine.LNX.4.64.0703281543460.14473@kivilampi-30.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Andi Kleen <andi@firstfloor.org>
-Date: 28 Mar 2007 16:14:17 +0200
+=46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+Date: Wed, 28 Mar 2007 16:24:40 +0300 (EEST)
 
-> Evgeniy Polyakov <johnpol@2ka.mipt.ru> writes:
-> > 
-> > Jenkins hash is far from being simple to crack, although with some
-> > knowledge it can be done faster.
-> 
-> TCP tends to be initialized early before there is anything
-> good in the entropy pool.
+> It seems I'm being guilty to this one, Dave please apply to net-2.6.2=
+2=20
+> (besides this I think the tcp_sync_left_out should be changed but I'l=
+l=20
+> prepare a patch for that later). Btw, how should this kind of email w=
+ith=20
+> some non-patch description+patch be formatted?).
 
-Andi, you're being an idiot.
+Thanks for figuring out the problem so quickly, this formatting
+is fine.
 
-You are spewing endless and uninformed bullshit about this secure hash
-topic, and it must stop now!
+> [PATCH] [TCP]: Timedout loop must skip SACKed skbs too while marking
+>=20
+> Marking skb with both S and L is invalid, and that could easily
+> happen in the timedout loop. Later on the tcp_sync_left_out
+> reduces sacked_out if lost_out + sacked_out > packets_out and
+> then eventually sacked_out underflows triggering a debug trap in
+> tcp_clean_rtx_queue.
+>=20
+> Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
 
-You obviously didn't even read my patch, because if you did you would
-have seen that I don't initialize the random seed until MUCH MUCH
-later _EXACTLY_ to deal with this issue.
-
-In my patch the random seed is initialized when the first TCP or DCCP
-socket is created, at which point we'll have sufficient entropy.
-
-So please stop talking such nonsense about this topic.
+Patch applied, thanks a lot!
