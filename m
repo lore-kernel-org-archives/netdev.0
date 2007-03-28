@@ -1,45 +1,43 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: [RFT] e100 driver on ARM
-Date: Wed, 28 Mar 2007 16:04:32 -0700
-Message-ID: <460AF480.7050609@intel.com>
-References: <44FC0261.6010807@garzik.org> <20060904123123.GB1285@xi.wantstofly.org>
+From: Mark Huth <mhuth@mvista.com>
+Subject: Re: netpoll question
+Date: Wed, 28 Mar 2007 16:28:59 -0700
+Message-ID: <460AFA3B.6090009@mvista.com>
+References: <1175119380.28767.4.camel@stevo-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>,
-	Netdev List <netdev@vger.kernel.org>,
-	Linux Kernel <linux-kernel@vger.kernel.org>,
-	Andrew Morton <akpm@osdl.org>,
-	Russell King <rmk+lkml@arm.linux.org.uk>
-To: Lennert Buytenhek <buytenh@wantstofly.org>
+Cc: netdev@vger.kernel.org
+To: Steve Wise <swise@opengridcomputing.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:31787 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965795AbXC1XEe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Mar 2007 19:04:34 -0400
-In-Reply-To: <20060904123123.GB1285@xi.wantstofly.org>
+Received: from gateway-1237.mvista.com ([63.81.120.158]:24493 "EHLO
+	gateway-1237.mvista.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933847AbXC1X3A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Mar 2007 19:29:00 -0400
+In-Reply-To: <1175119380.28767.4.camel@stevo-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Lennert Buytenhek wrote:
-> On Mon, Sep 04, 2006 at 06:39:29AM -0400, Jeff Garzik wrote:
-> 
->> 1) Does e100 driver work on ARM?
-> 
-> FWIW, e100 seems to work okay for me on an intel ixp2400 (xscale based)
-> board, an ixp2850 (xscale based) board and an ixp2350 (xscale3 based)
-> board.  ixp2350 works both with hardware coherency turned on (cpu
-> snoops bus) and turned off (manual dma cache clean/invalidate as usual.)
-> 
-> As for the other ARM platforms that I'm interested in / have hardware
-> for / maintain, the at91/ep93xx/pxa270 don't have PCI, and the other
-> two (iop32x/iop33x) I can't test because I don't have such systems with
-> e100 NICs, but I expect those would work, since they're both xscale
-> based like the ixp2400, and the ixp2400 works.
+Steve Wise wrote:
+> Hey all,
+>
+> I have netpoll question.  How does netpoll work with MSI/X, NAPI, and
+> nics that setup multiple RSS style receive queues for a single port?
+> >From what I can tell, if you're doing something like netdump using
+> netpoll for IO, then you might never process incoming packets that get
+> posted to the rx queues not associated with the main netdevice structure
+> because netpoll only calls the poll() function for the main netdev
+> struct.  Not the dummy netdevs setup for multiple rx queues.  
+>
+> Is this the case or am I confused?
+>
+> Thanks,
+>
+>
+> Steve
+You are correct.  Netpoll needs a bit of work, especially on the receive 
+side, for multi-queue and some other possible problems related to taking 
+locks when the system is frozen.  If I get some time soon, I'm going to 
+propose an overhaul to address some of these issues that show up in the 
+kgdboe and netdump cases.
 
-I just got an iop342 board dropped on my lap. Once it's running, I'll make sure 
-to make this the first thing to test.
-
-Cheers,
-
-Auke
+Mark Huth
