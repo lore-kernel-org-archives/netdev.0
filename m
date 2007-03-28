@@ -1,53 +1,44 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: L2 network namespace benchmarking
-Date: Wed, 28 Mar 2007 11:08:28 -0700
-Message-ID: <460AAF1C.7000102@hp.com>
-References: <460997C2.4030902@fr.ibm.com>	<m1ircmunre.fsf@ebiederm.dsl.xmission.com> <460A1F82.9090108@free.fr> <m1r6r9r3eo.fsf@ebiederm.dsl.xmission.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RESEND] [NET] fib_rules: Flush route cache after rule
+ modifications
+Date: Wed, 28 Mar 2007 11:24:17 -0700 (PDT)
+Message-ID: <20070328.112417.08322226.davem@davemloft.net>
+References: <20070327133845.GM521@postel.suug.ch>
+	<20070328111921.GA2703@ff.dom.local>
+	<20070328154903.GO521@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Daniel Lezcano <daniel.lezcano@free.fr>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	Linux Containers <containers@lists.osdl.org>,
-	netdev@vger.kernel.org, Dmitry Mishin <dim@openvz.org>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Cc: jarkao2@o2.pl, netdev@vger.kernel.org, muli@il.ibm.com
+To: tgraf@suug.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel11.hp.com ([156.153.255.246]:53956 "EHLO palrel11.hp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965622AbXC1SIe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Mar 2007 14:08:34 -0400
-In-Reply-To: <m1r6r9r3eo.fsf@ebiederm.dsl.xmission.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53236
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S965636AbXC1SYX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Mar 2007 14:24:23 -0400
+In-Reply-To: <20070328154903.GO521@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> If I read the results right it took a 32bit machine from AMD with
-> a gigabit interface before you could measure a throughput difference.
-> That isn't shabby for a non-optimized code path.
+From: Thomas Graf <tgraf@suug.ch>
+Date: Wed, 28 Mar 2007 17:49:03 +0200
 
-Just some paranoid ramblings - one needs to look beyond just whether or 
-not the performance of a bulk transfer test (eg TCP_STREAM) remains able 
-to hit link-rate.  One has to also consider the change in service demand 
-(the normalization of CPU util and throughput).  Also, with 
-functionality like TSO in place, the ability to pass very large things 
-down the stack can help cover for a multitude of path-length sins.  And 
-with either multiple 1G or 10G NICs becoming more and more prevalent, we 
-have another one of those "NIC speed vs CPU speed" switch-overs, so 
-maintaining single-NIC 1 gigabit throughput, while necessary, isn't 
-(IMO) sufficient.
+> * Jarek Poplawski <jarkao2@o2.pl> 2007-03-28 13:19
+> > I hope I'm wrong, but isn't this at the cost of admins
+> > working with long rules' sets, which (probably) take extra
+> > time now?
+> 
+> That's right, it makes the insert and delete operation more
+> expensive.
+> 
+> A compromise would be to delay the flushing and wait for
+> some time (default 2 seconds) whether more rules or routes
+> are being added before flushing.
 
-Soooo, it becomes very important to go beyond just TCP_STREAM tests when 
-evaluating these sorts of things.  Another test to run would be the 
-TCP_RR test.  TCP_RR with single-byte request/response sizes will 
-"bypass" the TSO stuff, and the transaction rate will be more directly 
-affected by the change in path length than a TCP_STREAM test.  It will 
-also show-up quite clearly in the service demand.  Now, with NICs doing 
-interrupt coalescing, if the NIC is strapped "poorly" (IMO) then you may 
-not see a change in transaction rate - it may be getting limited 
-artifically by the NIC's interrupt coalescing.  So, one has to fall-back 
-on service demand, or better yet, disable the interrupt coalescing.
+Another idea Thomas and I tossed around was to have some kind of way
+for the rule insertion to indicate that the flush should be deferred
+and I kind of prefer that explicitness.
 
-Otherwise, measuring peak aggregate request/response becomes necessary.
-
-
-rick jones
-don't be blinded by bit-rate
+By default it's better the flush immediately, because the old
+behavior is totally unexpected.  "I insert a rule and it dosn't
+show up?", nobody expects that.
