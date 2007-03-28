@@ -1,31 +1,30 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 1/7] qla3xxx: bugfix: Add tx control block memset.
-Date: Wed, 28 Mar 2007 02:19:24 -0400
-Message-ID: <460A08EC.1080208@garzik.org>
-References: <20070326164650.GA3822@linux-7mw0.qlogic.org> <11749417831486-git-send-email-ron.mercer@qlogic.com>
+Subject: Re: [patch 07/10] SUN3/3X Lance trivial fix improved
+Date: Wed, 28 Mar 2007 02:19:35 -0400
+Message-ID: <460A08F7.3020105@garzik.org>
+References: <200703270547.l2R5lQco008269@shell0.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Ron Mercer <ron.mercer@qlogic.com>
+Cc: netdev@vger.kernel.org, gorcunov@gmail.com
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:42319 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:42327 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753201AbXC1GTZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Mar 2007 02:19:25 -0400
-In-Reply-To: <11749417831486-git-send-email-ron.mercer@qlogic.com>
+	id S933618AbXC1GTh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Mar 2007 02:19:37 -0400
+In-Reply-To: <200703270547.l2R5lQco008269@shell0.pdx.osdl.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ron Mercer wrote:
-> This was removed in a previous patch to increase performance, but
-> caused a transmit error for the 4032 chip.
+akpm@linux-foundation.org wrote:
+> From: "Cyrill V. Gorcunov" <gorcunov@gmail.com>
 > 
-> Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
-> ---
->  drivers/net/qla3xxx.c |    1 +
->  1 files changed, 1 insertions(+), 0 deletions(-)
+> This patch adds checking for allocated DVMA memory and granted IRQ line.
+> 
+> Signed-off-by: Cyrill V. Gorcunov <gorcunov@gmail.com>
+> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 
-applied 1-4 to #upstream-fixes
+applied to #upstream-fixes
 
 
