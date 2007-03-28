@@ -1,64 +1,77 @@
-From: Paul Walmsley <paul@booyaka.com>
-Subject: [PATCH 1/1] Fix hang on IBM Token Ring PCMCIA card ejection
-Date: Tue, 27 Mar 2007 22:57:02 -0600 (MDT)
-Message-ID: <Pine.LNX.4.64.0703272255460.21789@utopia.booyaka.com>
+From: Shani <shani.moideen@wipro.com>
+Subject: [KJ] Patch:replace with time_after in drivers/net/eexpress.c
+Date: Wed, 28 Mar 2007 10:44:31 +0530
+Message-ID: <1175058871.11584.33.camel@shani-win>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-To: mikep@linuxtr.net, netdev@vger.kernel.org, linux-tr@linuxtr.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from utopia.booyaka.com ([72.9.107.138]:57973 "EHLO
-	utopia.booyaka.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753940AbXC1FDn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Mar 2007 01:03:43 -0400
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: alan@redhat.com, netdev@vger.kernel.org, kernel-janitors@osdl.org
+To: philb@gnu.org
+Return-path: <kernel-janitors-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/kernel-janitors>,
+	<mailto:kernel-janitors-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/kernel-janitors>
+List-Post: <mailto:kernel-janitors@lists.linux-foundation.org>
+List-Help: <mailto:kernel-janitors-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/kernel-janitors>,
+	<mailto:kernel-janitors-request@lists.linux-foundation.org?subject=subscribe>
+Sender: kernel-janitors-bounces@lists.linux-foundation.org
+Errors-To: kernel-janitors-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-From: Paul Walmsley <paul@booyaka.com>
+Hi,
 
-Ejecting a PCMCIA IBM Token Ring card that has not had its dev->open()
-called will reliably trigger an uninitialized spinlock oops when
-spinlock debugging is enabled. The system then hangs, occasionally
-softlockup oopsing.  It seems that ibmtr.c:tok_interrupt() doesn't
-expect to be called before tok_open() is called, but tok_interrupt()
-gets called anyway when the card is ejected.  So, set an already-extant
-flag which causes tok_interrupt() to bail out early upon card ejection.
-Tested by inserting and removing the PCMCIA card several times.
+Replacing with time_after in drivers/net/eexpress.c
+Applies and compiles clean on latest tree.Not tested.
 
-Applies against 2.6.21-rc5.
+thanks.
 
+Signed-off-by: Shani Moideen <shani.moideen@wipro.com>
+----
 
-Signed-off-by: Paul Walmsley <paul@booyaka.com>
+diff --git a/drivers/net/eexpress.c b/drivers/net/eexpress.c
+index 3868b80..7825f78 100644
+--- a/drivers/net/eexpress.c
++++ b/drivers/net/eexpress.c
+@@ -115,6 +115,7 @@
+ #include <linux/mca-legacy.h>
+ #include <linux/spinlock.h>
+ #include <linux/bitops.h>
++#include <linux/jiffies.h>
+ =
 
----
-  dev/drivers/net/pcmcia/ibmtr_cs.c |   12 ++++++++----
-  1 file changed, 8 insertions(+), 4 deletions(-)
+ #include <asm/system.h>
+ #include <asm/io.h>
+@@ -556,7 +557,7 @@ static void unstick_cu(struct net_device *dev)
+ =
 
-Index: linux/dev/drivers/net/pcmcia/ibmtr_cs.c
-===================================================================
---- linux.orig/dev/drivers/net/pcmcia/ibmtr_cs.c
-+++ linux/dev/drivers/net/pcmcia/ibmtr_cs.c
-@@ -189,16 +189,20 @@ static void ibmtr_detach(struct pcmcia_d
-  {
-      struct ibmtr_dev_t *info = link->priv;
-      struct net_device *dev = info->dev;
-+    struct tok_info *ti = netdev_priv(dev);
+ 	if (lp->started)
+ 	{
+-		if ((jiffies - dev->trans_start)>50)
++		if (time_after(jiffies, dev->trans_start + 50))
+ 		{
+ 			if (lp->tx_link=3D=3Dlp->last_tx_restart)
+ 			{
+@@ -612,7 +613,7 @@ static void unstick_cu(struct net_device *dev)
+ 	}
+ 	else
+ 	{
+-		if ((jiffies-lp->init_time)>10)
++		if (time_after(jiffies,lp->init_time + 10))
+ 		{
+ 			unsigned short status =3D scb_status(dev);
+ 			printk(KERN_WARNING "%s: i82586 startup timed out, status %04x, resetti=
+ng...\n",
+@@ -1650,7 +1651,7 @@ eexp_set_multicast(struct net_device *dev)
+ #endif
+                 oj =3D jiffies;
+                 while ((SCB_CUstat(scb_status(dev)) =3D=3D 2) &&
+-                       ((jiffies-oj) < 2000));
++                       (time_after(jiffies, oj + 2000)));
+ 		if (SCB_CUstat(scb_status(dev)) =3D=3D 2)
+ 			printk("%s: warning, CU didn't stop\n", dev->name);
+                 lp->started &=3D ~(STARTED_CU);
 
-      DEBUG(0, "ibmtr_detach(0x%p)\n", link);
-+
-+    /*
-+     * When the card removal interrupt hits tok_interrupt(),
-+     * bail out early, so we don't crash the machine
-+     */
-+    ti->sram_phys |= 1;
+-- =
 
-      if (link->dev_node)
-  	unregister_netdev(dev);
-
--    {
--	struct tok_info *ti = netdev_priv(dev);
--	del_timer_sync(&(ti->tr_timer));
--    }
-+    del_timer_sync(&(ti->tr_timer));
-
-      ibmtr_release(link);
-
+Shani Moideen
