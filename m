@@ -1,77 +1,54 @@
-From: Shani <shani.moideen@wipro.com>
-Subject: [KJ] Patch:replace with time_after in drivers/net/eexpress.c
-Date: Wed, 28 Mar 2007 10:44:31 +0530
-Message-ID: <1175058871.11584.33.camel@shani-win>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH] NET: Add TCP connection abort IOCTL
+Date: Wed, 28 Mar 2007 08:02:21 +0200
+Message-ID: <460A04ED.5050203@cosmosbay.com>
+References: <20070327214754.GA11677@dag-work>
+ <20070327.153025.45876618.davem@davemloft.net> <4609A42A.4040304@mvista.com>
+ <20070327.163620.54190045.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: alan@redhat.com, netdev@vger.kernel.org, kernel-janitors@osdl.org
-To: philb@gnu.org
-Return-path: <kernel-janitors-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/kernel-janitors>,
-	<mailto:kernel-janitors-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linux-foundation.org/pipermail/kernel-janitors>
-List-Post: <mailto:kernel-janitors@lists.linux-foundation.org>
-List-Help: <mailto:kernel-janitors-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/kernel-janitors>,
-	<mailto:kernel-janitors-request@lists.linux-foundation.org?subject=subscribe>
-Sender: kernel-janitors-bounces@lists.linux-foundation.org
-Errors-To: kernel-janitors-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: mhuth@mvista.com, dagriego@gmail.com, davem@davemloft.ne,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sp604005mt.neufgp.fr ([84.96.92.11]:52180 "EHLO smtp.Neuf.fr"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752032AbXC1GCY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Mar 2007 02:02:24 -0400
+Received: from [192.168.30.10] ([86.66.237.74]) by sp604005mt.gpm.neuf.ld
+ (Sun Java System Messaging Server 6.2-5.05 (built Feb 16 2006))
+ with ESMTP id <0JFL00AK9NFX8ZB1@sp604005mt.gpm.neuf.ld> for
+ netdev@vger.kernel.org; Wed, 28 Mar 2007 08:02:22 +0200 (CEST)
+In-reply-to: <20070327.163620.54190045.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+David Miller a =E9crit :
+> From: Mark Huth <mhuth@mvista.com>
+> Date: Tue, 27 Mar 2007 16:09:30 -0700
+>=20
+>> Actually, there are legitimate uses for this sort of API.  The patch=
+=20
+>> allows an administrator to kill specific connections that are in use=
+ by=20
+>> other applications, where the close is not available, since the sock=
+et=20
+>> is owned by another process.
+>=20
+> Anything that wants to act as an external agent to manipulate
+> or terminate connections should use netfilter.
 
-Replacing with time_after in drivers/net/eexpress.c
-Applies and compiles clean on latest tree.Not tested.
+This is what I thought too at the begining.
 
-thanks.
+But after some thinking I recalled having to reboot machines just becau=
+se=20
+netfilter was not in (because of noticeable performance hit), and I cou=
+ld find=20
+  the tree to compile netfilter as modules..
 
-Signed-off-by: Shani Moideen <shani.moideen@wipro.com>
-----
+When I saw revoke() work in progess, I did react like you : This is com=
+ing=20
+from hell...
 
-diff --git a/drivers/net/eexpress.c b/drivers/net/eexpress.c
-index 3868b80..7825f78 100644
---- a/drivers/net/eexpress.c
-+++ b/drivers/net/eexpress.c
-@@ -115,6 +115,7 @@
- #include <linux/mca-legacy.h>
- #include <linux/spinlock.h>
- #include <linux/bitops.h>
-+#include <linux/jiffies.h>
- =
-
- #include <asm/system.h>
- #include <asm/io.h>
-@@ -556,7 +557,7 @@ static void unstick_cu(struct net_device *dev)
- =
-
- 	if (lp->started)
- 	{
--		if ((jiffies - dev->trans_start)>50)
-+		if (time_after(jiffies, dev->trans_start + 50))
- 		{
- 			if (lp->tx_link=3D=3Dlp->last_tx_restart)
- 			{
-@@ -612,7 +613,7 @@ static void unstick_cu(struct net_device *dev)
- 	}
- 	else
- 	{
--		if ((jiffies-lp->init_time)>10)
-+		if (time_after(jiffies,lp->init_time + 10))
- 		{
- 			unsigned short status =3D scb_status(dev);
- 			printk(KERN_WARNING "%s: i82586 startup timed out, status %04x, resetti=
-ng...\n",
-@@ -1650,7 +1651,7 @@ eexp_set_multicast(struct net_device *dev)
- #endif
-                 oj =3D jiffies;
-                 while ((SCB_CUstat(scb_status(dev)) =3D=3D 2) &&
--                       ((jiffies-oj) < 2000));
-+                       (time_after(jiffies, oj + 2000)));
- 		if (SCB_CUstat(scb_status(dev)) =3D=3D 2)
- 			printk("%s: warning, CU didn't stop\n", dev->name);
-                 lp->started &=3D ~(STARTED_CU);
-
--- =
-
-Shani Moideen
