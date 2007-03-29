@@ -1,36 +1,38 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: another critical bug ?
-Date: Thu, 29 Mar 2007 12:58:37 +0200
-Message-ID: <460B9BDD.1020307@trash.net>
-References: <20070321175951.M73913@visp.net.lb>	<46026717.9060909@trash.net>	<20070322124533.M79867@visp.net.lb>	<46027FF2.6020001@trash.net> <20070322101224.3e6bb899@freekitty> <4602B96A.5000308@trash.net> <20070326182654.M24011@visp.net.lb> <460933EC.9060908@trash.net> <20070327155922.M1237@visp.net.lb> <46094472.1050807@trash.net> <20070328235517.M35794@visp.net.lb>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [patch 03/10] strlcpy is smart enough
+Date: Thu, 29 Mar 2007 08:19:14 -0400
+Message-ID: <460BAEC2.1090104@garzik.org>
+References: <200703270547.l2R5lM49008257@shell0.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	netdev@vger.kernel.org
-To: Denys <denys@visp.net.lb>
+Cc: netdev@vger.kernel.org, khali@linux-fr.org, osstklei@de.ibm.com,
+	themann@de.ibm.com
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:40954 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030221AbXC2KwQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Mar 2007 06:52:16 -0400
-In-Reply-To: <20070328235517.M35794@visp.net.lb>
+Received: from srv5.dvmed.net ([207.36.208.214]:52465 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751978AbXC2MTS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Mar 2007 08:19:18 -0400
+In-Reply-To: <200703270547.l2R5lM49008257@shell0.pdx.osdl.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Denys wrote:
-> Tried on 2.6.21-rc5-git3, but preempt enabled
-> Same panic, same place seems
+akpm@linux-foundation.org wrote:
+> From: Jean Delvare <khali@linux-fr.org>
 > 
-> Mar 29 02:50:53 LINUX [  164.644102] BUG: unable to handle kernel paging 
-> request
-> Mar 29 02:50:53 LINUX at virtual address 0302014c
+> strlcpy already accounts for the trailing zero in its length
+> computation, so there is no need to substract one to the buffer size.
+> 
+> Signed-off-by: Jean Delvare <khali@linux-fr.org>
+> Cc: Jan-Bernd Themann <themann@de.ibm.com>
+> Cc: Thomas Klein <osstklei@de.ibm.com>
+> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+> ---
+> 
+>  drivers/net/ehea/ehea_ethtool.c |    4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
 
-> Mar 29 02:50:53 LINUX [  164.648948] EIP is at netif_rx+0x12/0x115
->[...]
-> Mar 29 02:50:53 LINUX [  164.650829]  [<c8a1f268>]
-> Mar 29 02:50:53 LINUX ri_tasklet+0xd5/0x1a1 [ifb]
+applied 3-5
 
 
-Its somehow related to ifb. Please send your .config and the commands
-you use to setup ifb.
