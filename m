@@ -1,44 +1,34 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] add Attansic L2 PCI ID
-Date: Thu, 29 Mar 2007 08:23:12 -0400
-Message-ID: <460BAFB0.7000408@garzik.org>
-References: <20070328234738.GA8042@devserv.devel.redhat.com>
+Subject: Re: [git patches] net driver fixes
+Date: Thu, 29 Mar 2007 08:25:35 -0400
+Message-ID: <460BB03F.6040003@garzik.org>
+References: <20070323065742.GA17613@havoc.gtf.org> <Pine.LNX.4.60.0703232254170.5971@poirot.grange>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: xiong.huang@atheros.com, jacliburn@bellsouth.net,
-	netdev@vger.kernel.org
-To: Chris Snook <csnook@redhat.com>
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
+To: Guennadi Liakhovetski <g.liakhovetski@gmx.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:52503 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:52514 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752277AbXC2MXQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Mar 2007 08:23:16 -0400
-In-Reply-To: <20070328234738.GA8042@devserv.devel.redhat.com>
+	id S1753395AbXC2MZj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Mar 2007 08:25:39 -0400
+In-Reply-To: <Pine.LNX.4.60.0703232254170.5971@poirot.grange>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Chris Snook wrote:
-> From: Chris Snook <csnook@redhat.com>
+Guennadi Liakhovetski wrote:
+> Jeff, might be worth getting the sk_buff leak fix in ppp from 
+> http://www.spinics.net/lists/netdev/msg27706.html in 2.6.21 too?
 > 
-> Add PCI ID for the Attansic L2 100 Mb ethernet adapter.
-> 
-> Signed-off-by: Chris Snook <csnook@redhat.com>
-> 
-> --- linux-2.6.21-rc5.orig/include/linux/pci_ids.h	2007-03-27 23:26:50.000000000 -0400
-> +++ linux-2.6.21-rc5/include/linux/pci_ids.h	2007-03-28 15:11:03.000000000 -0400
-> @@ -2090,6 +2090,7 @@
->  
->  #define PCI_VENDOR_ID_ATTANSIC		0x1969
->  #define PCI_DEVICE_ID_ATTANSIC_L1	0x1048
-> +#define PCI_DEVICE_ID_ATTANSIC_L2	0x2048
+> Don't know how important it is for stable. It was present in 2.6.18 too.
 
-Actually you should be doing the reverse:
+Can you resend the patch to me, please?
 
-Remove PCI_DEVICE_ID_ATTANSIC_L1, and replace the one place that uses it 
-with the hexadecimal constant.
+Easier for the system to apply than the URL...
 
 	Jeff
-
 
 
