@@ -1,32 +1,35 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: Re: [Bonding-devel] quick help with bonding?
-Date: Thu, 29 Mar 2007 14:16:18 -0400
-Message-ID: <20070329181617.GA25770@gospo.rdu.redhat.com>
-References: <460BE5F0.7070606@nortel.com>
+From: "=?ISO-8859-2?Q?Marcin_=A6lusarz?=" <marcin.slusarz@gmail.com>
+Subject: Re: [KJ] Patch:replace with time_after in drivers/net/eexpress.c
+Date: Thu, 29 Mar 2007 20:41:19 +0200
+Message-ID: <4bacf17f0703291141n4b485e80m98be0aaecf1ec81d@mail.gmail.com>
+References: <1175058871.11584.33.camel@shani-win>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, bonding-devel@lists.sourceforge.net,
-	fubar@us.ibm.com, ctindel@users.sourceforge.net
-To: Chris Friesen <cfriesen@nortel.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: philb@gnu.org, alan@redhat.com, netdev@vger.kernel.org,
+	kernel-janitors@osdl.org, jeff@garzik.org
+To: Shani <shani.moideen@wipro.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:42904 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030626AbXC2SRu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Mar 2007 14:17:50 -0400
+Received: from hu-out-0506.google.com ([72.14.214.228]:24838 "EHLO
+	hu-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934314AbXC2SlW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Mar 2007 14:41:22 -0400
+Received: by hu-out-0506.google.com with SMTP id 36so12604299hui
+        for <netdev@vger.kernel.org>; Thu, 29 Mar 2007 11:41:20 -0700 (PDT)
+In-Reply-To: <1175058871.11584.33.camel@shani-win>
 Content-Disposition: inline
-In-Reply-To: <460BE5F0.7070606@nortel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 29, 2007 at 10:14:40AM -0600, Chris Friesen wrote:
-> 
-> I"m doing some experimenting with a new network driver that receives 
-> jumbo frames into multiple separate pages that are then joined together 
-> in a single sk_buff using skb_fill_page_desc().
-> 
-> It behaved fairly well with standard networking, but its behaving 
-> strangely with bonding added to the mix.
-
-
-Can you elaborate on what isn't going well with this driver/hardware?  
-
+2007/3/28, Shani <shani.moideen@wipro.com>:
+> @@ -1650,7 +1651,7 @@ eexp_set_multicast(struct net_device *dev)
+>  #endif
+>                  oj = jiffies;
+>                  while ((SCB_CUstat(scb_status(dev)) == 2) &&
+> -                       ((jiffies-oj) < 2000));
+> +                       (time_after(jiffies, oj + 2000)));
+>                 if (SCB_CUstat(scb_status(dev)) == 2)
+>                         printk("%s: warning, CU didn't stop\n", dev->name);
+>                  lp->started &= ~(STARTED_CU);
+>
+it should be time_before, not time_after...
