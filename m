@@ -1,7 +1,7 @@
 From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: [PATCH 06/19] e1000: Add new register set code
-Date: Thu, 29 Mar 2007 09:40:07 -0700
-Message-ID: <20070329164007.6595.90351.stgit@localhost.localdomain>
+Subject: [PATCH 10/19] e1000: Add 82543 specific hardware code.
+Date: Thu, 29 Mar 2007 09:40:17 -0700
+Message-ID: <20070329164017.6595.58967.stgit@localhost.localdomain>
 References: <20070329163304.6595.81963.stgit@localhost.localdomain>
 Content-Type: text/plain; charset=utf-8; format=fixed
 Content-Transfer-Encoding: 8bit
@@ -12,32 +12,32 @@ Cc: auke-jan.h.kok@intel.com, bruce.w.allan@intel.com,
 	netdev@vger.kernel.org
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:23072 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:8507 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030376AbXC2QkX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Mar 2007 12:40:23 -0400
+	id S1030391AbXC2Qkc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Mar 2007 12:40:32 -0400
 In-Reply-To: <20070329163304.6595.81963.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Jeb Cramer <cramerj@intel.com>
 
-Add e1000_registers.h which contains all supported register sets by e1000
-devices in a single file.
+Adapter-specific code for the 82543.
 
 Signed-off-by: Jeb Cramer <cramerj@intel.com>
 Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
 ---
 
- drivers/net/e1000/e1000_regs.h |  261 ++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 261 insertions(+), 0 deletions(-)
+ drivers/net/e1000/e1000_82543.c | 1643 +++++++++++++++++++++++++++++++++++++++
+ drivers/net/e1000/e1000_82543.h |   45 +
+ 2 files changed, 1688 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/e1000/e1000_regs.h b/drivers/net/e1000/e1000_regs.h
+diff --git a/drivers/net/e1000/e1000_82543.c b/drivers/net/e1000/e1000_82543.c
 new file mode 100644
-index 0000000..ce6175b
+index 0000000..e61e34a
 --- /dev/null
-+++ b/drivers/net/e1000/e1000_regs.h
-@@ -0,0 +1,261 @@
++++ b/drivers/net/e1000/e1000_82543.c
+@@ -0,0 +1,1643 @@
 +/*******************************************************************************
 +
 +  Intel PRO/1000 Linux driver
@@ -66,236 +66,1669 @@ index 0000000..ce6175b
 +
 +*******************************************************************************/
 +
-+#ifndef _E1000_REGS_H_
-+#define _E1000_REGS_H_
-+
-+#define E1000_CTRL     0x00000  /* Device Control - RW */
-+#define E1000_CTRL_DUP 0x00004  /* Device Control Duplicate (Shadow) - RW */
-+#define E1000_STATUS   0x00008  /* Device Status - RO */
-+#define E1000_EECD     0x00010  /* EEPROM/Flash Control - RW */
-+#define E1000_EERD     0x00014  /* EEPROM Read - RW */
-+#define E1000_CTRL_EXT 0x00018  /* Extended Device Control - RW */
-+#define E1000_FLA      0x0001C  /* Flash Access - RW */
-+#define E1000_MDIC     0x00020  /* MDI Control - RW */
-+#define E1000_SCTL     0x00024  /* SerDes Control - RW */
-+#define E1000_FCAL     0x00028  /* Flow Control Address Low - RW */
-+#define E1000_FCAH     0x0002C  /* Flow Control Address High -RW */
-+#define E1000_FEXTNVM  0x00028  /* Future Extended NVM - RW */
-+#define E1000_FCT      0x00030  /* Flow Control Type - RW */
-+#define E1000_VET      0x00038  /* VLAN Ether Type - RW */
-+#define E1000_ICR      0x000C0  /* Interrupt Cause Read - R/clr */
-+#define E1000_ITR      0x000C4  /* Interrupt Throttling Rate - RW */
-+#define E1000_ICS      0x000C8  /* Interrupt Cause Set - WO */
-+#define E1000_IMS      0x000D0  /* Interrupt Mask Set - RW */
-+#define E1000_IMC      0x000D8  /* Interrupt Mask Clear - WO */
-+#define E1000_IAM      0x000E0  /* Interrupt Acknowledge Auto Mask */
-+#define E1000_RCTL     0x00100  /* RX Control - RW */
-+#define E1000_RDTR1    0x02820  /* RX Delay Timer (1) - RW */
-+#define E1000_RDBAL1   0x02900  /* RX Descriptor Base Address Low (1) - RW */
-+#define E1000_RDBAH1   0x02904  /* RX Descriptor Base Address High (1) - RW */
-+#define E1000_RDLEN1   0x02908  /* RX Descriptor Length (1) - RW */
-+#define E1000_RDH1     0x02910  /* RX Descriptor Head (1) - RW */
-+#define E1000_RDT1     0x02918  /* RX Descriptor Tail (1) - RW */
-+#define E1000_FCTTV    0x00170  /* Flow Control Transmit Timer Value - RW */
-+#define E1000_TXCW     0x00178  /* TX Configuration Word - RW */
-+#define E1000_RXCW     0x00180  /* RX Configuration Word - RO */
-+#define E1000_TCTL     0x00400  /* TX Control - RW */
-+#define E1000_TCTL_EXT 0x00404  /* Extended TX Control - RW */
-+#define E1000_TIPG     0x00410  /* TX Inter-packet gap -RW */
-+#define E1000_TBT      0x00448  /* TX Burst Timer - RW */
-+#define E1000_AIT      0x00458  /* Adaptive Interframe Spacing Throttle - RW */
-+#define E1000_LEDCTL   0x00E00  /* LED Control - RW */
-+#define E1000_EXTCNF_CTRL  0x00F00  /* Extended Configuration Control */
-+#define E1000_EXTCNF_SIZE  0x00F08  /* Extended Configuration Size */
-+#define E1000_PHY_CTRL     0x00F10  /* PHY Control Register in CSR */
-+#define E1000_PBA      0x01000  /* Packet Buffer Allocation - RW */
-+#define E1000_PBS      0x01008  /* Packet Buffer Size */
-+#define E1000_EEMNGCTL 0x01010  /* MNG EEprom Control */
-+#define E1000_EEARBC   0x01024  /* EEPROM Auto Read Bus Control */
-+#define E1000_FLASHT   0x01028  /* FLASH Timer Register */
-+#define E1000_EEWR     0x0102C  /* EEPROM Write Register - RW */
-+#define E1000_FLSWCTL  0x01030  /* FLASH control register */
-+#define E1000_FLSWDATA 0x01034  /* FLASH data register */
-+#define E1000_FLSWCNT  0x01038  /* FLASH Access Counter */
-+#define E1000_FLOP     0x0103C  /* FLASH Opcode Register */
-+#define E1000_ERT      0x02008  /* Early Rx Threshold - RW */
-+#define E1000_FCRTL    0x02160  /* Flow Control Receive Threshold Low - RW */
-+#define E1000_FCRTH    0x02168  /* Flow Control Receive Threshold High - RW */
-+#define E1000_PSRCTL   0x02170  /* Packet Split Receive Control - RW */
-+#define E1000_RDBAL    0x02800  /* RX Descriptor Base Address Low - RW */
-+#define E1000_RDBAH    0x02804  /* RX Descriptor Base Address High - RW */
-+#define E1000_RDLEN    0x02808  /* RX Descriptor Length - RW */
-+#define E1000_RDH      0x02810  /* RX Descriptor Head - RW */
-+#define E1000_RDT      0x02818  /* RX Descriptor Tail - RW */
-+#define E1000_RDTR     0x02820  /* RX Delay Timer - RW */
-+#define E1000_RDBAL0   E1000_RDBAL /* RX Desc Base Address Low (0) - RW */
-+#define E1000_RDBAH0   E1000_RDBAH /* RX Desc Base Address High (0) - RW */
-+#define E1000_RDLEN0   E1000_RDLEN /* RX Desc Length (0) - RW */
-+#define E1000_RDH0     E1000_RDH   /* RX Desc Head (0) - RW */
-+#define E1000_RDT0     E1000_RDT   /* RX Desc Tail (0) - RW */
-+#define E1000_RDTR0    E1000_RDTR  /* RX Delay Timer (0) - RW */
-+#define E1000_RXDCTL   0x02828  /* RX Descriptor Control queue 0 - RW */
-+#define E1000_RXDCTL1  0x02928  /* RX Descriptor Control queue 1 - RW */
-+#define E1000_RADV     0x0282C  /* RX Interrupt Absolute Delay Timer - RW */
-+/* Convenience macros
-+ *
-+ * Note: "_n" is the queue number of the register to be written to.
-+ *
-+ * Example usage:
-+ * E1000_RDBAL_REG(current_rx_queue)
-+ *
++/* e1000_82543
++ * e1000_82544
 + */
-+#define E1000_RDBAL_REG(_n)   (E1000_RDBAL + (_n << 8))
-+#define E1000_RDBAH_REG(_n)   (E1000_RDBAH + (_n << 8))
-+#define E1000_RDLEN_REG(_n)   (E1000_RDLEN + (_n << 8))
-+#define E1000_RDH_REG(_n)     (E1000_RDH + (_n << 8))
-+#define E1000_RDT_REG(_n)     (E1000_RDT + (_n << 8))
-+#define E1000_RXDCTL_REG(_n)  (E1000_RXDCTL + (_n << 8))
-+#define E1000_TDBAL_REG(_n)   (E1000_TDBAL + (_n << 8))
-+#define E1000_TDBAH_REG(_n)   (E1000_TDBAH + (_n << 8))
-+#define E1000_TDLEN_REG(_n)   (E1000_TDLEN + (_n << 8))
-+#define E1000_TDH_REG(_n)     (E1000_TDH + (_n << 8))
-+#define E1000_TDT_REG(_n)     (E1000_TDT + (_n << 8))
-+#define E1000_TXDCTL_REG(_n)  (E1000_TXDCTL + (_n << 8))
-+#define E1000_TARC_REG(_n)    (E1000_TARC0 + (_n << 8))
-+#define E1000_RSRPD    0x02C00  /* RX Small Packet Detect - RW */
-+#define E1000_RAID     0x02C08  /* Receive Ack Interrupt Delay - RW */
-+#define E1000_TXDMAC   0x03000  /* TX DMA Control - RW */
-+#define E1000_KABGTXD  0x03004  /* AFE Band Gap Transmit Ref Data */
-+#define E1000_TDFH     0x03410  /* TX Data FIFO Head - RW */
-+#define E1000_TDFT     0x03418  /* TX Data FIFO Tail - RW */
-+#define E1000_TDFHS    0x03420  /* TX Data FIFO Head Saved - RW */
-+#define E1000_TDFTS    0x03428  /* TX Data FIFO Tail Saved - RW */
-+#define E1000_TDFPC    0x03430  /* TX Data FIFO Packet Count - RW */
-+#define E1000_TDBAL    0x03800  /* TX Descriptor Base Address Low - RW */
-+#define E1000_TDBAH    0x03804  /* TX Descriptor Base Address High - RW */
-+#define E1000_TDLEN    0x03808  /* TX Descriptor Length - RW */
-+#define E1000_TDH      0x03810  /* TX Descriptor Head - RW */
-+#define E1000_TDT      0x03818  /* TX Descriptor Tail - RW */
-+#define E1000_TDBAL0   E1000_TDBAL /* TX Descriptor Base Address Low - RW */
-+#define E1000_TDBAH0   E1000_TDBAH /* TX Descriptor Base Address High - RW */
-+#define E1000_TDLEN0   E1000_TDLEN /* TX Descriptor Length - RW */
-+#define E1000_TDH0     E1000_TDH   /* TX Descriptor Head - RW */
-+#define E1000_TDT0     E1000_TDT   /* TX Descriptor Tail - RW */
-+#define E1000_TIDV     0x03820  /* TX Interrupt Delay Value - RW */
-+#define E1000_TXDCTL   0x03828  /* TX Descriptor Control - RW */
-+#define E1000_TADV     0x0382C  /* TX Interrupt Absolute Delay Val - RW */
-+#define E1000_TSPMT    0x03830  /* TCP Segmentation PAD & Min Threshold - RW */
-+#define E1000_TARC0    0x03840  /* TX Arbitration Count (0) */
-+#define E1000_TDBAL1   0x03900  /* TX Desc Base Address Low (1) - RW */
-+#define E1000_TDBAH1   0x03904  /* TX Desc Base Address High (1) - RW */
-+#define E1000_TDLEN1   0x03908  /* TX Desc Length (1) - RW */
-+#define E1000_TDH1     0x03910  /* TX Desc Head (1) - RW */
-+#define E1000_TDT1     0x03918  /* TX Desc Tail (1) - RW */
-+#define E1000_TXDCTL1  0x03928  /* TX Descriptor Control (1) - RW */
-+#define E1000_TARC1    0x03940  /* TX Arbitration Count (1) */
-+#define E1000_CRCERRS  0x04000  /* CRC Error Count - R/clr */
-+#define E1000_ALGNERRC 0x04004  /* Alignment Error Count - R/clr */
-+#define E1000_SYMERRS  0x04008  /* Symbol Error Count - R/clr */
-+#define E1000_RXERRC   0x0400C  /* Receive Error Count - R/clr */
-+#define E1000_MPC      0x04010  /* Missed Packet Count - R/clr */
-+#define E1000_SCC      0x04014  /* Single Collision Count - R/clr */
-+#define E1000_ECOL     0x04018  /* Excessive Collision Count - R/clr */
-+#define E1000_MCC      0x0401C  /* Multiple Collision Count - R/clr */
-+#define E1000_LATECOL  0x04020  /* Late Collision Count - R/clr */
-+#define E1000_COLC     0x04028  /* Collision Count - R/clr */
-+#define E1000_DC       0x04030  /* Defer Count - R/clr */
-+#define E1000_TNCRS    0x04034  /* TX-No CRS - R/clr */
-+#define E1000_SEC      0x04038  /* Sequence Error Count - R/clr */
-+#define E1000_CEXTERR  0x0403C  /* Carrier Extension Error Count - R/clr */
-+#define E1000_RLEC     0x04040  /* Receive Length Error Count - R/clr */
-+#define E1000_XONRXC   0x04048  /* XON RX Count - R/clr */
-+#define E1000_XONTXC   0x0404C  /* XON TX Count - R/clr */
-+#define E1000_XOFFRXC  0x04050  /* XOFF RX Count - R/clr */
-+#define E1000_XOFFTXC  0x04054  /* XOFF TX Count - R/clr */
-+#define E1000_FCRUC    0x04058  /* Flow Control RX Unsupported Count- R/clr */
-+#define E1000_PRC64    0x0405C  /* Packets RX (64 bytes) - R/clr */
-+#define E1000_PRC127   0x04060  /* Packets RX (65-127 bytes) - R/clr */
-+#define E1000_PRC255   0x04064  /* Packets RX (128-255 bytes) - R/clr */
-+#define E1000_PRC511   0x04068  /* Packets RX (255-511 bytes) - R/clr */
-+#define E1000_PRC1023  0x0406C  /* Packets RX (512-1023 bytes) - R/clr */
-+#define E1000_PRC1522  0x04070  /* Packets RX (1024-1522 bytes) - R/clr */
-+#define E1000_GPRC     0x04074  /* Good Packets RX Count - R/clr */
-+#define E1000_BPRC     0x04078  /* Broadcast Packets RX Count - R/clr */
-+#define E1000_MPRC     0x0407C  /* Multicast Packets RX Count - R/clr */
-+#define E1000_GPTC     0x04080  /* Good Packets TX Count - R/clr */
-+#define E1000_GORCL    0x04088  /* Good Octets RX Count Low - R/clr */
-+#define E1000_GORCH    0x0408C  /* Good Octets RX Count High - R/clr */
-+#define E1000_GOTCL    0x04090  /* Good Octets TX Count Low - R/clr */
-+#define E1000_GOTCH    0x04094  /* Good Octets TX Count High - R/clr */
-+#define E1000_RNBC     0x040A0  /* RX No Buffers Count - R/clr */
-+#define E1000_RUC      0x040A4  /* RX Undersize Count - R/clr */
-+#define E1000_RFC      0x040A8  /* RX Fragment Count - R/clr */
-+#define E1000_ROC      0x040AC  /* RX Oversize Count - R/clr */
-+#define E1000_RJC      0x040B0  /* RX Jabber Count - R/clr */
-+#define E1000_MGTPRC   0x040B4  /* Management Packets RX Count - R/clr */
-+#define E1000_MGTPDC   0x040B8  /* Management Packets Dropped Count - R/clr */
-+#define E1000_MGTPTC   0x040BC  /* Management Packets TX Count - R/clr */
-+#define E1000_TORL     0x040C0  /* Total Octets RX Low - R/clr */
-+#define E1000_TORH     0x040C4  /* Total Octets RX High - R/clr */
-+#define E1000_TOTL     0x040C8  /* Total Octets TX Low - R/clr */
-+#define E1000_TOTH     0x040CC  /* Total Octets TX High - R/clr */
-+#define E1000_TPR      0x040D0  /* Total Packets RX - R/clr */
-+#define E1000_TPT      0x040D4  /* Total Packets TX - R/clr */
-+#define E1000_PTC64    0x040D8  /* Packets TX (64 bytes) - R/clr */
-+#define E1000_PTC127   0x040DC  /* Packets TX (65-127 bytes) - R/clr */
-+#define E1000_PTC255   0x040E0  /* Packets TX (128-255 bytes) - R/clr */
-+#define E1000_PTC511   0x040E4  /* Packets TX (256-511 bytes) - R/clr */
-+#define E1000_PTC1023  0x040E8  /* Packets TX (512-1023 bytes) - R/clr */
-+#define E1000_PTC1522  0x040EC  /* Packets TX (1024-1522 Bytes) - R/clr */
-+#define E1000_MPTC     0x040F0  /* Multicast Packets TX Count - R/clr */
-+#define E1000_BPTC     0x040F4  /* Broadcast Packets TX Count - R/clr */
-+#define E1000_TSCTC    0x040F8  /* TCP Segmentation Context TX - R/clr */
-+#define E1000_TSCTFC   0x040FC  /* TCP Segmentation Context TX Fail - R/clr */
-+#define E1000_IAC      0x04100  /* Interrupt Assertion Count */
-+#define E1000_ICRXPTC  0x04104  /* Interrupt Cause Rx Packet Timer Expire Count */
-+#define E1000_ICRXATC  0x04108  /* Interrupt Cause Rx Absolute Timer Expire Count */
-+#define E1000_ICTXPTC  0x0410C  /* Interrupt Cause Tx Packet Timer Expire Count */
-+#define E1000_ICTXATC  0x04110  /* Interrupt Cause Tx Absolute Timer Expire Count */
-+#define E1000_ICTXQEC  0x04118  /* Interrupt Cause Tx Queue Empty Count */
-+#define E1000_ICTXQMTC 0x0411C  /* Interrupt Cause Tx Queue Minimum Threshold Count */
-+#define E1000_ICRXDMTC 0x04120  /* Interrupt Cause Rx Descriptor Minimum Threshold Count */
-+#define E1000_ICRXOC   0x04124  /* Interrupt Cause Receiver Overrun Count */
-+#define E1000_RXCSUM   0x05000  /* RX Checksum Control - RW */
-+#define E1000_RFCTL    0x05008  /* Receive Filter Control*/
-+#define E1000_MTA      0x05200  /* Multicast Table Array - RW Array */
-+#define E1000_RA       0x05400  /* Receive Address - RW Array */
-+#define E1000_VFTA     0x05600  /* VLAN Filter Table Array - RW Array */
-+#define E1000_WUC      0x05800  /* Wakeup Control - RW */
-+#define E1000_WUFC     0x05808  /* Wakeup Filter Control - RW */
-+#define E1000_WUS      0x05810  /* Wakeup Status - RO */
-+#define E1000_MANC     0x05820  /* Management Control - RW */
-+#define E1000_IPAV     0x05838  /* IP Address Valid - RW */
-+#define E1000_IP4AT    0x05840  /* IPv4 Address Table - RW Array */
-+#define E1000_IP6AT    0x05880  /* IPv6 Address Table - RW Array */
-+#define E1000_WUPL     0x05900  /* Wakeup Packet Length - RW */
-+#define E1000_WUPM     0x05A00  /* Wakeup Packet Memory - RO A */
-+#define E1000_FFLT     0x05F00  /* Flexible Filter Length Table - RW Array */
-+#define E1000_HOST_IF  0x08800  /* Host Interface */
-+#define E1000_FFMT     0x09000  /* Flexible Filter Mask Table - RW Array */
-+#define E1000_FFVT     0x09800  /* Flexible Filter Value Table - RW Array */
 +
-+#define E1000_KMRNCTRLSTA 0x00034 /* MAC-PHY interface - RW */
-+#define E1000_MDPHYA      0x0003C /* PHY address - RW */
-+#define E1000_MANC2H      0x05860 /* Management Control To Host - RW */
-+#define E1000_SW_FW_SYNC  0x05B5C /* Software-Firmware Synchronization - RW */
-+#define E1000_GCR         0x05B00 /* PCI-Ex Control */
-+#define E1000_GSCL_1    0x05B10 /* PCI-Ex Statistic Control #1 */
-+#define E1000_GSCL_2    0x05B14 /* PCI-Ex Statistic Control #2 */
-+#define E1000_GSCL_3    0x05B18 /* PCI-Ex Statistic Control #3 */
-+#define E1000_GSCL_4    0x05B1C /* PCI-Ex Statistic Control #4 */
-+#define E1000_FACTPS    0x05B30 /* Function Active and Power State to MNG */
-+#define E1000_SWSM      0x05B50 /* SW Semaphore */
-+#define E1000_FWSM      0x05B54 /* FW Semaphore */
-+#define E1000_FFLT_DBG  0x05F04 /* Debug Register */
-+#define E1000_HICR      0x08F00 /* Host Inteface Control */
++#include "e1000_82543.h"
 +
-+/* RSS registers */
-+#define E1000_CPUVEC    0x02C10 /* CPU Vector Register - RW */
-+#define E1000_MRQC      0x05818 /* Multiple Receive Control - RW */
-+#define E1000_RETA      0x05C00 /* Redirection Table - RW Array */
-+#define E1000_RSSRK     0x05C80 /* RSS Random Key - RW Array */
-+#define E1000_RSSIM     0x05864 /* RSS Interrupt Mask */
-+#define E1000_RSSIR     0x05868 /* RSS Interrupt Request */
++void e1000_init_function_pointers_82543(struct e1000_hw *hw);
++
++static s32       e1000_init_phy_params_82543(struct e1000_hw *hw);
++static s32       e1000_init_nvm_params_82543(struct e1000_hw *hw);
++static s32       e1000_init_mac_params_82543(struct e1000_hw *hw);
++static s32       e1000_read_phy_reg_82543(struct e1000_hw *hw, u32 offset,
++                                          u16 *data);
++static s32       e1000_write_phy_reg_82543(struct e1000_hw *hw, u32 offset,
++                                           u16 data);
++static s32       e1000_phy_force_speed_duplex_82543(struct e1000_hw *hw);
++static s32       e1000_phy_hw_reset_82543(struct e1000_hw *hw);
++static s32       e1000_reset_hw_82543(struct e1000_hw *hw);
++static s32       e1000_init_hw_82543(struct e1000_hw *hw);
++static s32       e1000_setup_link_82543(struct e1000_hw *hw);
++static s32       e1000_setup_copper_link_82543(struct e1000_hw *hw);
++static s32       e1000_setup_fiber_link_82543(struct e1000_hw *hw);
++static s32       e1000_check_for_copper_link_82543(struct e1000_hw *hw);
++static s32       e1000_check_for_fiber_link_82543(struct e1000_hw *hw);
++static s32       e1000_led_on_82543(struct e1000_hw *hw);
++static s32       e1000_led_off_82543(struct e1000_hw *hw);
++static void      e1000_write_vfta_82543(struct e1000_hw *hw, u32 offset,
++                                        u32 value);
++static void      e1000_mta_set_82543(struct e1000_hw *hw, u32 hash_value);
++static void      e1000_clear_hw_cntrs_82543(struct e1000_hw *hw);
++static s32       e1000_config_mac_to_phy_82543(struct e1000_hw *hw);
++static boolean_t e1000_init_phy_disabled_82543(struct e1000_hw *hw);
++static void      e1000_lower_mdi_clk_82543(struct e1000_hw *hw, u32 *ctrl);
++static s32       e1000_polarity_reversal_workaround_82543(struct e1000_hw *hw);
++static void      e1000_raise_mdi_clk_82543(struct e1000_hw *hw, u32 *ctrl);
++static u16       e1000_shift_in_mdi_bits_82543(struct e1000_hw *hw);
++static void      e1000_shift_out_mdi_bits_82543(struct e1000_hw *hw, u32 data,
++                                                u16 count);
++static boolean_t e1000_tbi_compatibility_enabled_82543(struct e1000_hw *hw);
++static void      e1000_set_tbi_sbp_82543(struct e1000_hw *hw, boolean_t state);
++
++struct e1000_dev_spec_82543 {
++	u32  tbi_compatibility;
++	boolean_t dma_fairness;
++	boolean_t init_phy_disabled;
++};
++
++/**
++ *  e1000_init_phy_params_82543 - Init PHY func ptrs.
++ *  @hw: pointer to the HW structure
++ *
++ *  This is a function pointer entry point called by the api module.
++ **/
++static s32
++e1000_init_phy_params_82543(struct e1000_hw *hw)
++{
++	struct e1000_phy_info *phy = &hw->phy;
++	struct e1000_functions *func = &hw->func;
++	s32 ret_val = E1000_SUCCESS;
++
++	DEBUGFUNC("e1000_init_phy_params_82543");
++
++	if (hw->media_type != e1000_media_type_copper) {
++		phy->type               = e1000_phy_none;
++		goto out;
++	}
++
++	phy->addr                       = 1;
++	phy->autoneg_mask               = AUTONEG_ADVERTISE_SPEED_DEFAULT;
++	phy->reset_delay_us             = 10000;
++	phy->type                       = e1000_phy_m88;
++
++	/* Function Pointers */
++	func->check_polarity            = e1000_check_polarity_m88;
++	func->commit_phy                = e1000_phy_sw_reset_generic;
++	func->force_speed_duplex        = e1000_phy_force_speed_duplex_82543;
++	func->get_cable_length          = e1000_get_cable_length_m88;
++	func->get_cfg_done              = e1000_get_cfg_done_generic;
++	func->read_phy_reg              = (hw->mac.type == e1000_82543)
++	                                  ? e1000_read_phy_reg_82543
++	                                  : e1000_read_phy_reg_m88;
++	func->reset_phy                 = (hw->mac.type == e1000_82543)
++	                                  ? e1000_phy_hw_reset_82543
++	                                  : e1000_phy_hw_reset_generic;
++	func->write_phy_reg             = (hw->mac.type == e1000_82543)
++	                                  ? e1000_write_phy_reg_82543
++	                                  : e1000_write_phy_reg_m88;
++	func->get_phy_info              = e1000_get_phy_info_m88;
++
++	/* The external PHY of the 82543 can be in a funky state.
++	 * Resetting helps us read the PHY registers for acquiring
++	 * the PHY ID.
++	 */
++	if (!e1000_init_phy_disabled_82543(hw)) {
++		ret_val = e1000_phy_hw_reset(hw);
++		if (ret_val) {
++			DEBUGOUT("Resetting PHY during init failed.\n");
++			goto out;
++		}
++		msleep(20);
++	}
++
++	ret_val = e1000_get_phy_id(hw);
++	if (ret_val)
++		goto out;
++
++	/* Verify phy id */
++	switch (hw->mac.type) {
++	case e1000_82543:
++		if (phy->id != M88E1000_E_PHY_ID) {
++			ret_val = -E1000_ERR_PHY;
++			goto out;
++		}
++		break;
++	case e1000_82544:
++		if (phy->id != M88E1000_I_PHY_ID) {
++			ret_val = -E1000_ERR_PHY;
++			goto out;
++		}
++		break;
++	default:
++		ret_val = -E1000_ERR_PHY;
++		goto out;
++		break;
++	}
++
++out:
++	return ret_val;
++}
++
++/**
++ *  e1000_init_nvm_params_82543 - Init NVM func ptrs.
++ *  @hw: pointer to the HW structure
++ *
++ *  This is a function pointer entry point called by the api module.
++ **/
++static s32
++e1000_init_nvm_params_82543(struct e1000_hw *hw)
++{
++	struct e1000_nvm_info *nvm = &hw->nvm;
++	struct e1000_functions *func = &hw->func;
++
++	DEBUGFUNC("e1000_init_nvm_params_82543");
++
++	nvm->type               = e1000_nvm_eeprom_microwire;
++	nvm->word_size          = 64;
++	nvm->delay_usec         = 50;
++	nvm->address_bits       =  6;
++	nvm->opcode_bits        =  3;
++
++	/* Function Pointers */
++	func->read_nvm          = e1000_read_nvm_microwire;
++	func->update_nvm        = e1000_update_nvm_checksum_generic;
++	func->valid_led_default = e1000_valid_led_default_generic;
++	func->validate_nvm      = e1000_validate_nvm_checksum_generic;
++	func->write_nvm         = e1000_write_nvm_microwire;
++
++	return E1000_SUCCESS;
++}
++
++/**
++ *  e1000_init_mac_params_82543 - Init MAC func ptrs.
++ *  @hw: pointer to the HW structure
++ *
++ *  This is a function pointer entry point called by the api module.
++ **/
++static s32
++e1000_init_mac_params_82543(struct e1000_hw *hw)
++{
++	struct e1000_mac_info *mac = &hw->mac;
++	struct e1000_functions *func = &hw->func;
++	s32 ret_val;
++
++	DEBUGFUNC("e1000_init_mac_params_82543");
++
++	/* Set media type */
++	switch (hw->device_id) {
++	case E1000_DEV_ID_82543GC_FIBER:
++	case E1000_DEV_ID_82544EI_FIBER:
++		hw->media_type = e1000_media_type_fiber;
++		break;
++	default:
++		hw->media_type = e1000_media_type_copper;
++		break;
++	}
++
++	/* Set mta register count */
++	mac->mta_reg_count = 128;
++	/* Set rar entry count */
++	mac->rar_entry_count = E1000_RAR_ENTRIES;
++
++	/* Function pointers */
++
++	/* bus type/speed/width */
++	func->get_bus_info = e1000_get_bus_info_pci_generic;
++	/* reset */
++	func->reset_hw = e1000_reset_hw_82543;
++	/* hw initialization */
++	func->init_hw = e1000_init_hw_82543;
++	/* link setup */
++	func->setup_link = e1000_setup_link_82543;
++	/* physical interface setup */
++	func->setup_physical_interface =
++	        (hw->media_type == e1000_media_type_copper)
++	                ? e1000_setup_copper_link_82543
++	                : e1000_setup_fiber_link_82543;
++	/* check for link */
++	func->check_for_link =
++	        (hw->media_type == e1000_media_type_copper)
++	                ? e1000_check_for_copper_link_82543
++	                : e1000_check_for_fiber_link_82543;
++	/* link info */
++	func->get_link_up_info =
++	        (hw->media_type == e1000_media_type_copper)
++	                ? e1000_get_speed_and_duplex_copper_generic
++	                : e1000_get_speed_and_duplex_fiber_serdes_generic;
++	/* multicast address update */
++	func->mc_addr_list_update = e1000_mc_addr_list_update_generic;
++	/* writing VFTA */
++	func->write_vfta = e1000_write_vfta_82543;
++	/* clearing VFTA */
++	func->clear_vfta = e1000_clear_vfta_generic;
++	/* setting MTA */
++	func->mta_set = e1000_mta_set_82543;
++	/* turn on/off LED */
++	func->led_on = e1000_led_on_82543;
++	func->led_off = e1000_led_off_82543;
++	/* remove device */
++	func->remove_device = e1000_remove_device_generic;
++	/* clear hardware counters */
++	func->clear_hw_cntrs = e1000_clear_hw_cntrs_82543;
++
++	hw->dev_spec_size = sizeof(struct e1000_dev_spec_82543);
++
++	/* Device-specific structure allocation */
++	ret_val = e1000_alloc_zeroed_dev_spec_struct(hw, hw->dev_spec_size);
++	if (ret_val)
++		goto out;
++
++	/* Set tbi compatibility */
++	if ((hw->mac.type != e1000_82543) ||
++	    (hw->media_type == e1000_media_type_fiber))
++		e1000_set_tbi_compatibility_82543(hw, FALSE);
++
++out:
++	return ret_val;
++}
++
++/**
++ *  e1000_init_function_pointers_82543 - Init func ptrs.
++ *  @hw: pointer to the HW structure
++ *
++ *  The only function explicitly called by the api module to initialize
++ *  all function pointers and parameters.
++ **/
++void
++e1000_init_function_pointers_82543(struct e1000_hw *hw)
++{
++	DEBUGFUNC("e1000_init_function_pointers_82543");
++
++	hw->func.init_mac_params = e1000_init_mac_params_82543;
++	hw->func.init_nvm_params = e1000_init_nvm_params_82543;
++	hw->func.init_phy_params = e1000_init_phy_params_82543;
++}
++
++/**
++ *  e1000_tbi_compatibility_enabled_82543 - Returns TBI compat status
++ *  @hw: pointer to the HW structure
++ *
++ *  Returns the curent status of 10-bit Interface (TBI) compatibility
++ *  (enabled/disabled).
++ **/
++static boolean_t
++e1000_tbi_compatibility_enabled_82543(struct e1000_hw *hw)
++{
++	struct e1000_dev_spec_82543 *dev_spec;
++	boolean_t state = FALSE;
++
++	DEBUGFUNC("e1000_tbi_compatibility_enabled_82543");
++
++	if (hw->mac.type != e1000_82543) {
++		DEBUGOUT("TBI compatibility workaround for 82543 only.\n");
++		goto out;
++	}
++
++	dev_spec = (struct e1000_dev_spec_82543 *)hw->dev_spec;
++
++	if (dev_spec == NULL) {
++		DEBUGOUT("dev_spec pointer is set to NULL.\n");
++		goto out;
++	}
++
++	state = (dev_spec->tbi_compatibility & TBI_COMPAT_ENABLED)
++	        ? TRUE : FALSE;
++
++out:
++	return state;
++}
++
++/**
++ *  e1000_set_tbi_compatibility_82543 - Set TBI compatibility
++ *  @hw: pointer to the HW structure
++ *  @state: enable/disable TBI compatibility
++ *
++ *  Enables or disabled 10-bit Interface (TBI) compatibility.
++ **/
++void
++e1000_set_tbi_compatibility_82543(struct e1000_hw *hw, boolean_t state)
++{
++	struct e1000_dev_spec_82543 *dev_spec;
++
++	DEBUGFUNC("e1000_set_tbi_compatibility_82543");
++
++	if (hw->mac.type != e1000_82543) {
++		DEBUGOUT("TBI compatibility workaround for 82543 only.\n");
++		goto out;
++	}
++
++	dev_spec = (struct e1000_dev_spec_82543 *)hw->dev_spec;
++
++	if (dev_spec == NULL) {
++		DEBUGOUT("dev_spec pointer is set to NULL.\n");
++		goto out;
++	}
++
++	if (state)
++		dev_spec->tbi_compatibility |= TBI_COMPAT_ENABLED;
++	else
++		dev_spec->tbi_compatibility &= ~TBI_COMPAT_ENABLED;
++
++out:
++	return;
++}
++
++/**
++ *  e1000_tbi_sbp_enabled_82543 - Returns TBI SBP status
++ *  @hw: pointer to the HW structure
++ *
++ *  Returns the curent status of 10-bit Interface (TBI) store bad packet (SBP)
++ *  (enabled/disabled).
++ **/
++boolean_t
++e1000_tbi_sbp_enabled_82543(struct e1000_hw *hw)
++{
++	struct e1000_dev_spec_82543 *dev_spec;
++	boolean_t state = FALSE;
++
++	DEBUGFUNC("e1000_tbi_sbp_enabled_82543");
++
++	if (hw->mac.type != e1000_82543) {
++		DEBUGOUT("TBI compatibility workaround for 82543 only.\n");
++		goto out;
++	}
++
++	dev_spec = (struct e1000_dev_spec_82543 *)hw->dev_spec;
++
++	if (dev_spec == NULL) {
++		DEBUGOUT("dev_spec pointer is set to NULL.\n");
++		goto out;
++	}
++
++	state = (dev_spec->tbi_compatibility & TBI_SBP_ENABLED)
++	        ? TRUE : FALSE;
++
++out:
++	return state;
++}
++
++/**
++ *  e1000_set_tbi_sbp_82543 - Set TBI SBP
++ *  @hw: pointer to the HW structure
++ *  @state: enable/disable TBI store bad packet
++ *
++ *  Enables or disabled 10-bit Interface (TBI) store bad packet (SBP).
++ **/
++static void
++e1000_set_tbi_sbp_82543(struct e1000_hw *hw, boolean_t state)
++{
++	struct e1000_dev_spec_82543 *dev_spec;
++
++	DEBUGFUNC("e1000_set_tbi_sbp_82543");
++
++	dev_spec = (struct e1000_dev_spec_82543 *)hw->dev_spec;
++
++	if (state && e1000_tbi_compatibility_enabled_82543(hw))
++		dev_spec->tbi_compatibility |= TBI_SBP_ENABLED;
++	else
++		dev_spec->tbi_compatibility &= ~TBI_SBP_ENABLED;
++
++	return;
++}
++
++/**
++ *  e1000_init_phy_disabled_82543 - Returns init PHY status
++ *  @hw: pointer to the HW structure
++ *
++ *  Returns the current status of whether PHY initialization is disabled.
++ *  True if PHY initialization is disabled else false.
++ **/
++static boolean_t
++e1000_init_phy_disabled_82543(struct e1000_hw *hw)
++{
++	struct e1000_dev_spec_82543 *dev_spec;
++	boolean_t ret_val;
++
++	DEBUGFUNC("e1000_init_phy_disabled_82543");
++
++	if (hw->mac.type != e1000_82543) {
++		ret_val = FALSE;
++		goto out;
++	}
++
++	dev_spec = (struct e1000_dev_spec_82543 *)hw->dev_spec;
++
++	if (dev_spec == NULL) {
++		DEBUGOUT("dev_spec pointer is set to NULL.\n");
++		ret_val = FALSE;
++		goto out;
++	}
++
++	ret_val = dev_spec->init_phy_disabled;
++
++out:
++	return ret_val;
++}
++
++/**
++ *  e1000_tbi_adjust_stats_82543 - Adjust stats when TBI enabled
++ *  @hw: pointer to the HW structure
++ *  @stats: Struct containing statistic register values
++ *  @frame_len: The length of the frame in question
++ *  @mac_addr: The Ethernet destination address of the frame in question
++ *
++ *  Adjusts the statistic counters when a frame is accepted by TBI_ACCEPT
++ **/
++void
++e1000_tbi_adjust_stats_82543(struct e1000_hw *hw, struct e1000_hw_stats *stats,
++                             u32 frame_len, u8 *mac_addr)
++{
++	u64 carry_bit;
++
++	if (e1000_tbi_sbp_enabled_82543(hw) == FALSE)
++		goto out;
++
++	/* First adjust the frame length. */
++	frame_len--;
++	/* We need to adjust the statistics counters, since the hardware
++	 * counters overcount this packet as a CRC error and undercount
++	 * the packet as a good packet
++	 */
++	/* This packet should not be counted as a CRC error.    */
++	stats->crcerrs--;
++	/* This packet does count as a Good Packet Received.    */
++	stats->gprc++;
++
++	/* Adjust the Good Octets received counters             */
++	carry_bit = 0x80000000 & stats->gorcl;
++	stats->gorcl += frame_len;
++	/* If the high bit of Gorcl (the low 32 bits of the Good Octets
++	 * Received Count) was one before the addition,
++	 * AND it is zero after, then we lost the carry out,
++	 * need to add one to Gorch (Good Octets Received Count High).
++	 * This could be simplified if all environments supported
++	 * 64-bit integers.
++	 */
++	if (carry_bit && ((stats->gorcl & 0x80000000) == 0))
++		stats->gorch++;
++	/* Is this a broadcast or multicast?  Check broadcast first,
++	 * since the test for a multicast frame will test positive on
++	 * a broadcast frame.
++	 */
++	if ((mac_addr[0] == 0xff) && (mac_addr[1] == 0xff))
++		/* Broadcast packet */
++		stats->bprc++;
++	else if (*mac_addr & 0x01)
++		/* Multicast packet */
++		stats->mprc++;
++
++	/* In this case, the hardware has overcounted the number of
++	 * oversize frames.
++	 */
++	if ((frame_len == hw->mac.max_frame_size) && (stats->roc > 0))
++		stats->roc--;
++
++	/* Adjust the bin counters when the extra byte put the frame in the
++	 * wrong bin. Remember that the frame_len was adjusted above.
++	 */
++	if (frame_len == 64) {
++		stats->prc64++;
++		stats->prc127--;
++	} else if (frame_len == 127) {
++		stats->prc127++;
++		stats->prc255--;
++	} else if (frame_len == 255) {
++		stats->prc255++;
++		stats->prc511--;
++	} else if (frame_len == 511) {
++		stats->prc511++;
++		stats->prc1023--;
++	} else if (frame_len == 1023) {
++		stats->prc1023++;
++		stats->prc1522--;
++	} else if (frame_len == 1522) {
++		stats->prc1522++;
++	}
++
++out:
++	return;
++}
++
++/**
++ *  e1000_read_phy_reg_82543 - Read PHY register
++ *  @hw: pointer to the HW structure
++ *  @offset: register offset to be read
++ *  @data: pointer to the read data
++ *
++ *  Reads the PHY at offset and stores the information read to data.
++ **/
++static s32
++e1000_read_phy_reg_82543(struct e1000_hw *hw, u32 offset, u16 *data)
++{
++	u32 mdic;
++	s32 ret_val = E1000_SUCCESS;
++
++	DEBUGFUNC("e1000_read_phy_reg_82543");
++
++	if (offset > MAX_PHY_REG_ADDRESS) {
++		DEBUGOUT1("PHY Address %d is out of range\n", offset);
++		ret_val = -E1000_ERR_PARAM;
++		goto out;
++	}
++
++	/* We must first send a preamble through the MDIO pin to signal the
++	 * beginning of an MII instruction.  This is done by sending 32
++	 * consecutive "1" bits.
++	 */
++	e1000_shift_out_mdi_bits_82543(hw, PHY_PREAMBLE, PHY_PREAMBLE_SIZE);
++
++	/* Now combine the next few fields that are required for a read
++	 * operation.  We use this method instead of calling the
++	 * e1000_shift_out_mdi_bits routine five different times.  The format
++	 * of an MII read instruction consists of a shift out of 14 bits and
++	 * is defined as follows:
++	 * 	<Preamble><SOF><Op Code><Phy Addr><Offset>
++	 * followed by a shift in of 18 bits.  This first two bits shifted in
++	 * are TurnAround bits used to avoid contention on the MDIO pin when a
++	 * READ operation is performed.  These two bits are thrown away
++	 * followed by a shift in of 16 bits which contains the desired data.
++	 */
++	mdic = (offset | (hw->phy.addr << 5) |
++		(PHY_OP_READ << 10) | (PHY_SOF << 12));
++
++	e1000_shift_out_mdi_bits_82543(hw, mdic, 14);
++
++	/* Now that we've shifted out the read command to the MII, we need to
++	 * "shift in" the 16-bit value (18 total bits) of the requested PHY
++	 * register address.
++	 */
++	*data = e1000_shift_in_mdi_bits_82543(hw);
++
++out:
++	return ret_val;
++}
++
++/**
++ *  e1000_write_phy_reg_82543 - Write PHY register
++ *  @hw: pointer to the HW structure
++ *  @offset: register offset to be written
++ *  @data: pointer to the data to be written at offset
++ *
++ *  Writes data to the PHY at offset.
++ **/
++static s32
++e1000_write_phy_reg_82543(struct e1000_hw *hw, u32 offset, u16 data)
++{
++	u32 mdic;
++	s32 ret_val = E1000_SUCCESS;
++
++	DEBUGFUNC("e1000_write_phy_reg_82543");
++
++	if (offset > MAX_PHY_REG_ADDRESS) {
++		DEBUGOUT1("PHY Address %d is out of range\n", offset);
++		ret_val = -E1000_ERR_PARAM;
++		goto out;
++	}
++
++	/* We'll need to use the SW defined pins to shift the write command
++	 * out to the PHY. We first send a preamble to the PHY to signal the
++	 * beginning of the MII instruction.  This is done by sending 32
++	 * consecutive "1" bits.
++	 */
++	e1000_shift_out_mdi_bits_82543(hw, PHY_PREAMBLE, PHY_PREAMBLE_SIZE);
++
++	/* Now combine the remaining required fields that will indicate a
++	 * write operation. We use this method instead of calling the
++	 * e1000_shift_out_mdi_bits routine for each field in the command. The
++	 * format of a MII write instruction is as follows:
++	 * <Preamble><SOF><Op Code><Phy Addr><Reg Addr><Turnaround><Data>.
++	 */
++	mdic = ((PHY_TURNAROUND) | (offset << 2) | (hw->phy.addr << 7) |
++	        (PHY_OP_WRITE << 12) | (PHY_SOF << 14));
++	mdic <<= 16;
++	mdic |= (u32) data;
++
++	e1000_shift_out_mdi_bits_82543(hw, mdic, 32);
++
++out:
++	return ret_val;
++}
++
++/**
++ *  e1000_raise_mdi_clk_82543 - Raise Management Data Input clock
++ *  @hw: pointer to the HW structure
++ *  @ctrl: pointer to the control register
++ *
++ *  Raise the management data input clock by setting the MDC bit in the control
++ *  register.
++ **/
++static void
++e1000_raise_mdi_clk_82543(struct e1000_hw *hw, u32 *ctrl)
++{
++	/* Raise the clock input to the Management Data Clock (by setting the
++	 * MDC bit), and then delay a sufficient amount of time.
++	 */
++	E1000_WRITE_REG(hw, E1000_CTRL, (*ctrl | E1000_CTRL_MDC));
++	E1000_WRITE_FLUSH(hw);
++	udelay(10);
++}
++
++/**
++ *  e1000_lower_mdi_clk_82543 - Lower Management Data Input clock
++ *  @hw: pointer to the HW structure
++ *  @ctrl: pointer to the control register
++ *
++ *  Lower the management data input clock by clearing the MDC bit in the control
++ *  register.
++ **/
++static void
++e1000_lower_mdi_clk_82543(struct e1000_hw *hw, u32 *ctrl)
++{
++	/* Lower the clock input to the Management Data Clock (by clearing the
++	 * MDC bit), and then delay a sufficient amount of time.
++	 */
++	E1000_WRITE_REG(hw, E1000_CTRL, (*ctrl & ~E1000_CTRL_MDC));
++	E1000_WRITE_FLUSH(hw);
++	udelay(10);
++}
++
++/**
++ *  e1000_shift_out_mdi_bits_82543 - Shift data bits our to the PHY
++ *  @hw: pointer to the HW structure
++ *  @data: data to send to the PHY
++ *  @count: number of bits to shift out
++ *
++ *  We need to shift 'count' bits out to the PHY.  So, the value in the
++ *  "data" parameter will be shifted out to the PHY one bit at a time.
++ *  In order to do this, "data" must be broken down into bits.
++ **/
++static void
++e1000_shift_out_mdi_bits_82543(struct e1000_hw *hw, u32 data, u16 count)
++{
++	u32 ctrl, mask;
++
++	/* We need to shift "count" number of bits out to the PHY.  So, the
++	 * value in the "data" parameter will be shifted out to the PHY one
++	 * bit at a time.  In order to do this, "data" must be broken down
++	 * into bits.
++	 */
++	mask = 0x01;
++	mask <<= (count -1);
++
++	ctrl = E1000_READ_REG(hw, E1000_CTRL);
++
++	/* Set MDIO_DIR and MDC_DIR direction bits to be used as output pins. */
++	ctrl |= (E1000_CTRL_MDIO_DIR | E1000_CTRL_MDC_DIR);
++
++	while (mask) {
++		/* A "1" is shifted out to the PHY by setting the MDIO bit to
++		 * "1" and then raising and lowering the Management Data Clock.
++		 * A "0" is shifted out to the PHY by setting the MDIO bit to
++		 * "0" and then raising and lowering the clock.
++		 */
++		if (data & mask) ctrl |= E1000_CTRL_MDIO;
++		else ctrl &= ~E1000_CTRL_MDIO;
++
++		E1000_WRITE_REG(hw, E1000_CTRL, ctrl);
++		E1000_WRITE_FLUSH(hw);
++
++		udelay(10);
++
++		e1000_raise_mdi_clk_82543(hw, &ctrl);
++		e1000_lower_mdi_clk_82543(hw, &ctrl);
++
++		mask >>= 1;
++	}
++}
++
++/**
++ *  e1000_shift_in_mdi_bits_82543 - Shift data bits in from the PHY
++ *  @hw: pointer to the HW structure
++ *
++ *  In order to read a register from the PHY, we need to shift 18 bits
++ *  in from the PHY.  Bits are "shifted in" by raising the clock input to
++ *  the PHY (setting the MDC bit), and then reading the value of the data out
++ *  MDIO bit.
++ **/
++static u16
++e1000_shift_in_mdi_bits_82543(struct e1000_hw *hw)
++{
++	u32 ctrl;
++	u16 data = 0;
++	u8 i;
++
++	/* In order to read a register from the PHY, we need to shift in a
++	 * total of 18 bits from the PHY.  The first two bit (turnaround)
++	 * times are used to avoid contention on the MDIO pin when a read
++	 * operation is performed.  These two bits are ignored by us and
++	 * thrown away.  Bits are "shifted in" by raising the input to the
++	 * Management Data Clock (setting the MDC bit) and then reading the
++	 * value of the MDIO bit.
++	 */
++	ctrl = E1000_READ_REG(hw, E1000_CTRL);
++
++	/* Clear MDIO_DIR (SWDPIO1) to indicate this bit is to be used as
++	 * input.
++	 */
++	ctrl &= ~E1000_CTRL_MDIO_DIR;
++	ctrl &= ~E1000_CTRL_MDIO;
++
++	E1000_WRITE_REG(hw, E1000_CTRL, ctrl);
++	E1000_WRITE_FLUSH(hw);
++
++	/* Raise and lower the clock before reading in the data.  This accounts
++	 * for the turnaround bits.  The first clock occurred when we clocked
++	 * out the last bit of the Register Address.
++	 */
++	e1000_raise_mdi_clk_82543(hw, &ctrl);
++	e1000_lower_mdi_clk_82543(hw, &ctrl);
++
++	for (data = 0, i = 0; i < 16; i++) {
++		data <<= 1;
++		e1000_raise_mdi_clk_82543(hw, &ctrl);
++		ctrl = E1000_READ_REG(hw, E1000_CTRL);
++		/* Check to see if we shifted in a "1". */
++		if (ctrl & E1000_CTRL_MDIO)
++			data |= 1;
++		e1000_lower_mdi_clk_82543(hw, &ctrl);
++	}
++
++	e1000_raise_mdi_clk_82543(hw, &ctrl);
++	e1000_lower_mdi_clk_82543(hw, &ctrl);
++
++	return data;
++}
++
++/**
++ *  e1000_phy_force_speed_duplex_82543 - Force speed/duplex for PHY
++ *  @hw: pointer to the HW structure
++ *
++ *  Calls the function to force speed and duplex for the m88 PHY, and
++ *  if the PHY is not auto-negotiating and the speed is forced to 10Mbit,
++ *  then call the function for polarity reversal workaround.
++ **/
++static s32
++e1000_phy_force_speed_duplex_82543(struct e1000_hw *hw)
++{
++	s32 ret_val;
++
++	DEBUGFUNC("e1000_phy_force_speed_duplex_82543");
++
++	ret_val = e1000_phy_force_speed_duplex_m88(hw);
++	if (ret_val)
++		goto out;
++
++	if (!hw->mac.autoneg &&
++	    (hw->mac.forced_speed_duplex & E1000_ALL_10_SPEED))
++		ret_val = e1000_polarity_reversal_workaround_82543(hw);
++
++out:
++	return ret_val;
++}
++
++/**
++ *  e1000_polarity_reversal_workaround_82543 - Workaround polarity reversal
++ *  @hw: pointer to the HW structure
++ *
++ *  When forcing link to 10 Full or 10 Half, the PHY can reverse the polarity
++ *  inadvertantly.  To workaround the issue, we disable the transmitter on
++ *  the PHY until we have established the link partner's link parameters.
++ **/
++static s32
++e1000_polarity_reversal_workaround_82543(struct e1000_hw *hw)
++{
++	s32 ret_val;
++	u16 mii_status_reg;
++	u16 i;
++	boolean_t link;
++
++	/* Polarity reversal workaround for forced 10F/10H links. */
++
++	/* Disable the transmitter on the PHY */
++
++	ret_val = e1000_write_phy_reg(hw, M88E1000_PHY_PAGE_SELECT, 0x0019);
++	if (ret_val)
++		goto out;
++	ret_val = e1000_write_phy_reg(hw, M88E1000_PHY_GEN_CONTROL, 0xFFFF);
++	if (ret_val)
++		goto out;
++
++	ret_val = e1000_write_phy_reg(hw, M88E1000_PHY_PAGE_SELECT, 0x0000);
++	if (ret_val)
++		goto out;
++
++	/* This loop will early-out if the NO link condition has been met.
++	 * In other words, DO NOT use e1000_phy_has_link_generic() here.
++	 */
++	for (i = PHY_FORCE_TIME; i > 0; i--) {
++		/* Read the MII Status Register and wait for Link Status bit
++		 * to be clear.
++		 */
++
++		ret_val = e1000_read_phy_reg(hw, PHY_STATUS, &mii_status_reg);
++		if (ret_val)
++			goto out;
++
++		ret_val = e1000_read_phy_reg(hw, PHY_STATUS, &mii_status_reg);
++		if (ret_val)
++			goto out;
++
++		if ((mii_status_reg & ~MII_SR_LINK_STATUS) == 0)
++			break;
++		mdelay(100);
++	}
++
++	/* Recommended delay time after link has been lost */
++	mdelay(1000);
++
++	/* Now we will re-enable the transmitter on the PHY */
++
++	ret_val = e1000_write_phy_reg(hw, M88E1000_PHY_PAGE_SELECT, 0x0019);
++	if (ret_val)
++		goto out;
++	mdelay(50);
++	ret_val = e1000_write_phy_reg(hw, M88E1000_PHY_GEN_CONTROL, 0xFFF0);
++	if (ret_val)
++		goto out;
++	mdelay(50);
++	ret_val = e1000_write_phy_reg(hw, M88E1000_PHY_GEN_CONTROL, 0xFF00);
++	if (ret_val)
++		goto out;
++	mdelay(50);
++	ret_val = e1000_write_phy_reg(hw, M88E1000_PHY_GEN_CONTROL, 0x0000);
++	if (ret_val)
++		goto out;
++
++	ret_val = e1000_write_phy_reg(hw, M88E1000_PHY_PAGE_SELECT, 0x0000);
++	if (ret_val)
++		goto out;
++
++	/* Read the MII Status Register and wait for Link Status bit
++	 * to be set.
++	 */
++	ret_val = e1000_phy_has_link_generic(hw, PHY_FORCE_TIME, 100000, &link);
++	if (ret_val)
++		goto out;
++
++out:
++	return ret_val;
++}
++
++/**
++ *  e1000_phy_hw_reset_82543 - PHY hardware reset
++ *  @hw: pointer to the HW structure
++ *
++ *  Sets the PHY_RESET_DIR bit in the extended device control register
++ *  to put the PHY into a reset and waits for completion.  Once the reset
++ *  has been accomplished, clear the PHY_RESET_DIR bit to take the PHY out
++ *  of reset.  This is a function pointer entry point called by the api module.
++ **/
++static s32
++e1000_phy_hw_reset_82543(struct e1000_hw *hw)
++{
++	struct e1000_functions *func = &hw->func;
++	u32 ctrl_ext;
++	s32 ret_val;
++
++	DEBUGFUNC("e1000_phy_hw_reset_82543");
++
++	/* Read the Extended Device Control Register, assert the PHY_RESET_DIR
++	 * bit to put the PHY into reset...
++	 */
++	ctrl_ext = E1000_READ_REG(hw, E1000_CTRL_EXT);
++	ctrl_ext |= E1000_CTRL_EXT_SDP4_DIR;
++	ctrl_ext &= ~E1000_CTRL_EXT_SDP4_DATA;
++	E1000_WRITE_REG(hw, E1000_CTRL_EXT, ctrl_ext);
++	E1000_WRITE_FLUSH(hw);
++
++	msleep(10);
++
++	/* ...then take it out of reset. */
++	ctrl_ext |= E1000_CTRL_EXT_SDP4_DATA;
++	E1000_WRITE_REG(hw, E1000_CTRL_EXT, ctrl_ext);
++	E1000_WRITE_FLUSH(hw);
++
++	udelay(150);
++
++	ret_val = func->get_cfg_done(hw);
++
++	return ret_val;
++}
++
++/**
++ *  e1000_reset_hw_82543 - Reset hardware
++ *  @hw: pointer to the HW structure
++ *
++ *  This resets the hardware into a known state.  This is a
++ *  function pointer entry point called by the api module.
++ **/
++static s32
++e1000_reset_hw_82543(struct e1000_hw *hw)
++{
++	u32 ctrl, icr;
++	s32 ret_val = E1000_SUCCESS;
++
++	DEBUGFUNC("e1000_reset_hw_82543");
++
++	DEBUGOUT("Masking off all interrupts\n");
++	E1000_WRITE_REG(hw, E1000_IMC, 0xffffffff);
++
++	E1000_WRITE_REG(hw, E1000_RCTL, 0);
++	E1000_WRITE_REG(hw, E1000_TCTL, E1000_TCTL_PSP);
++	E1000_WRITE_FLUSH(hw);
++
++	e1000_set_tbi_sbp_82543(hw, FALSE);
++
++	/* Delay to allow any outstanding PCI transactions to complete before
++	 * resetting the device
++	 */
++	msleep(10);
++
++	ctrl = E1000_READ_REG(hw, E1000_CTRL);
++
++	DEBUGOUT("Issuing a global reset to 82543/82544 MAC\n");
++	if (hw->mac.type == e1000_82543) {
++		E1000_WRITE_REG(hw, E1000_CTRL, ctrl | E1000_CTRL_RST);
++	} else {
++		/* The 82544 can't ACK the 64-bit write when issuing the
++		 * reset, so use IO-mapping as a workaround.
++		 */
++		E1000_WRITE_REG_IO(hw, E1000_CTRL, ctrl | E1000_CTRL_RST);
++	}
++
++	/* After MAC reset, force reload of NVM to restore power-on
++	 * settings to device.
++	 */
++	e1000_reload_nvm(hw);
++	msleep(2);
++
++	/* Masking off and clearing any pending interrupts */
++	E1000_WRITE_REG(hw, E1000_IMC, 0xffffffff);
++	icr = E1000_READ_REG(hw, E1000_ICR);
++
++	return ret_val;
++}
++
++/**
++ *  e1000_init_hw_82543 - Initialize hardware
++ *  @hw: pointer to the HW structure
++ *
++ *  This inits the hardware readying it for operation.
++ **/
++static s32
++e1000_init_hw_82543(struct e1000_hw *hw)
++{
++	struct e1000_mac_info *mac = &hw->mac;
++	struct e1000_dev_spec_82543 *dev_spec;
++	u32 ctrl;
++	s32 ret_val;
++	u16 i;
++
++	DEBUGFUNC("e1000_init_hw_82543");
++
++	dev_spec = (struct e1000_dev_spec_82543 *)hw->dev_spec;
++
++	if (dev_spec == NULL) {
++		DEBUGOUT("dev_spec pointer is set to NULL.\n");
++		ret_val = -E1000_ERR_CONFIG;
++		goto out;
++	}
++
++	/* Disabling VLAN filtering */
++	E1000_WRITE_REG(hw, E1000_VET, 0);
++	e1000_clear_vfta(hw);
++
++	/* Setup the receive address. */
++	e1000_init_rx_addrs_generic(hw, mac->rar_entry_count);
++
++	/* Zero out the Multicast HASH table */
++	DEBUGOUT("Zeroing the MTA\n");
++	for (i = 0; i < mac->mta_reg_count; i++) {
++		E1000_WRITE_REG_ARRAY(hw, E1000_MTA, i, 0);
++		E1000_WRITE_FLUSH(hw);
++	}
++
++	/* Set the PCI priority bit correctly in the CTRL register.  This
++	 * determines if the adapter gives priority to receives, or if it
++	 * gives equal priority to transmits and receives.
++	 */
++	if (hw->mac.type == e1000_82543 && dev_spec->dma_fairness) {
++		ctrl = E1000_READ_REG(hw, E1000_CTRL);
++		E1000_WRITE_REG(hw, E1000_CTRL, ctrl | E1000_CTRL_PRIOR);
++	}
++
++	e1000_pcix_mmrbc_workaround_generic(hw);
++
++	/* Setup link and flow control */
++	ret_val = e1000_setup_link(hw);
++
++	/* Clear all of the statistics registers (clear on read).  It is
++	 * important that we do this after we have tried to establish link
++	 * because the symbol error count will increment wildly if there
++	 * is no link.
++	 */
++	e1000_clear_hw_cntrs_82543(hw);
++
++out:
++	return ret_val;
++}
++
++/**
++ *  e1000_setup_link_82543 - Setup flow control and link settings
++ *  @hw: pointer to the HW structure
++ *
++ *  Read the EEPROM to determine the initial polarity value and write the
++ *  extended device control register with the information before calling
++ *  the generic setup link function, which does the following:
++ *  Determines which flow control settings to use, then configures flow
++ *  control.  Calls the appropriate media-specific link configuration
++ *  function.  Assuming the adapter has a valid link partner, a valid link
++ *  should be established.  Assumes the hardware has previously been reset
++ *  and the transmitter and receiver are not enabled.
++ **/
++static s32
++e1000_setup_link_82543(struct e1000_hw *hw)
++{
++	u32 ctrl_ext;
++	s32  ret_val;
++	u16 data;
++
++	DEBUGFUNC("e1000_setup_link_82543");
++
++	/* Take the 4 bits from NVM word 0xF that determine the initial
++	 * polarity value for the SW controlled pins, and setup the
++	 * Extended Device Control reg with that info.
++	 * This is needed because one of the SW controlled pins is used for
++	 * signal detection.  So this should be done before phy setup.
++	 */
++	if (hw->mac.type == e1000_82543) {
++		ret_val = e1000_read_nvm(hw, NVM_INIT_CONTROL2_REG, 1, &data);
++		if (ret_val) {
++			DEBUGOUT("NVM Read Error\n");
++			ret_val = -E1000_ERR_NVM;
++			goto out;
++		}
++		ctrl_ext = ((data & NVM_WORD0F_SWPDIO_EXT_MASK) <<
++		            NVM_SWDPIO_EXT_SHIFT);
++		E1000_WRITE_REG(hw, E1000_CTRL_EXT, ctrl_ext);
++	}
++
++	ret_val = e1000_setup_link_generic(hw);
++
++out:
++	return ret_val;
++}
++
++/**
++ *  e1000_setup_copper_link_82543 - Configure copper link settings
++ *  @hw: pointer to the HW structure
++ *
++ *  Configures the link for auto-neg or forced speed and duplex.  Then we check
++ *  for link, once link is established calls to configure collision distance
++ *  and flow control are called.
++ **/
++static s32
++e1000_setup_copper_link_82543(struct e1000_hw *hw)
++{
++	u32 ctrl;
++	s32 ret_val;
++	boolean_t link;
++
++	DEBUGFUNC("e1000_setup_copper_link_82543");
++
++	ctrl = E1000_READ_REG(hw, E1000_CTRL) | E1000_CTRL_SLU;
++	/* With 82543, we need to force speed and duplex on the MAC
++	 * equal to what the PHY speed and duplex configuration is.
++	 * In addition, we need to perform a hardware reset on the
++	 * PHY to take it out of reset.
++	 */
++	if (hw->mac.type == e1000_82543) {
++		ctrl |= (E1000_CTRL_FRCSPD | E1000_CTRL_FRCDPX);
++		E1000_WRITE_REG(hw, E1000_CTRL, ctrl);
++		ret_val = e1000_phy_hw_reset(hw);
++		if (ret_val)
++			goto out;
++		hw->phy.reset_disable = FALSE;
++	} else {
++		ctrl &= ~(E1000_CTRL_FRCSPD | E1000_CTRL_FRCDPX);
++		E1000_WRITE_REG(hw, E1000_CTRL, ctrl);
++	}
++
++	/* Set MDI/MDI-X, Polarity Reversal, and downshift settings */
++	ret_val = e1000_copper_link_setup_m88(hw);
++	if (ret_val)
++		goto out;
++
++	if (hw->mac.autoneg) {
++		/* Setup autoneg and flow control advertisement and perform
++		 * autonegotiation. */
++		ret_val = e1000_copper_link_autoneg(hw);
++		if (ret_val)
++			goto out;
++	} else {
++		/* PHY will be set to 10H, 10F, 100H or 100F
++		 * depending on user settings. */
++		DEBUGOUT("Forcing Speed and Duplex\n");
++		ret_val = e1000_phy_force_speed_duplex_82543(hw);
++		if (ret_val) {
++			DEBUGOUT("Error Forcing Speed and Duplex\n");
++			goto out;
++		}
++	}
++
++	/* Check link status. Wait up to 100 microseconds for link to become
++	 * valid.
++	 */
++	ret_val = e1000_phy_has_link_generic(hw,
++	                                     COPPER_LINK_UP_LIMIT,
++	                                     10,
++	                                     &link);
++	if (ret_val)
++		goto out;
++
++
++	if (link) {
++		DEBUGOUT("Valid link established!!!\n");
++		/* Config the MAC and PHY after link is up */
++		if (hw->mac.type == e1000_82544)
++			e1000_config_collision_dist_generic(hw);
++		else {
++			ret_val = e1000_config_mac_to_phy_82543(hw);
++			if (ret_val)
++				goto out;
++		}
++		ret_val = e1000_config_fc_after_link_up_generic(hw);
++	} else {
++		DEBUGOUT("Unable to establish link!!!\n");
++	}
++
++out:
++	return ret_val;
++}
++
++/**
++ *  e1000_setup_fiber_link_82543 - Setup link for fiber
++ *  @hw: pointer to the HW structure
++ *
++ *  Configures collision distance and flow control for fiber links.  Upon
++ *  successful setup, poll for link.
++ **/
++static s32
++e1000_setup_fiber_link_82543(struct e1000_hw *hw)
++{
++	u32 ctrl;
++	s32 ret_val;
++
++	DEBUGFUNC("e1000_setup_fiber_link_82543");
++
++	ctrl = E1000_READ_REG(hw, E1000_CTRL);
++
++	/* Take the link out of reset */
++	ctrl &= ~E1000_CTRL_LRST;
++
++	e1000_config_collision_dist_generic(hw);
++
++	ret_val = e1000_commit_fc_settings_generic(hw);
++	if (ret_val)
++		goto out;
++
++	DEBUGOUT("Auto-negotiation enabled\n");
++
++	E1000_WRITE_REG(hw, E1000_CTRL, ctrl);
++	E1000_WRITE_FLUSH(hw);
++	msleep(1);
++
++	/* For these adapters, the SW defineable pin 1 is cleared when the
++	 * optics detect a signal.  If we have a signal, then poll for a
++	 * "Link-Up" indication.
++	 */
++	if (!(E1000_READ_REG(hw, E1000_CTRL) & E1000_CTRL_SWDPIN1)) {
++		ret_val = e1000_poll_fiber_serdes_link_generic(hw);
++	} else {
++		DEBUGOUT("No signal detected\n");
++	}
++
++out:
++	return ret_val;
++}
++
++/**
++ *  e1000_check_for_copper_link_82543 - Check for link (Copper)
++ *  @hw: pointer to the HW structure
++ *
++ *  Checks the phy for link, if link exists, do the following:
++ *   - check for downshift
++ *   - do polarity workaround (if necessary)
++ *   - configure collision distance
++ *   - configure flow control after link up
++ *   - configure tbi compatibility
++ **/
++static s32
++e1000_check_for_copper_link_82543(struct e1000_hw *hw)
++{
++	struct e1000_mac_info *mac = &hw->mac;
++	u32 icr, rctl;
++	s32 ret_val;
++	u16 speed, duplex;
++	boolean_t link;
++
++	DEBUGFUNC("e1000_check_for_copper_link_82543");
++
++	if (!mac->get_link_status) {
++		ret_val = E1000_SUCCESS;
++		goto out;
++	}
++
++	ret_val = e1000_phy_has_link_generic(hw, 1, 0, &link);
++	if (ret_val)
++		goto out;
++
++	if (!link)
++		goto out; /* No link detected */
++
++	mac->get_link_status = FALSE;
++
++	e1000_check_downshift_generic(hw);
++
++	/* If we are forcing speed/duplex, then we can return since
++	 * we have already determined whether we have link or not.
++	 */
++	if (!mac->autoneg) {
++		/* If speed and duplex are forced to 10H or 10F, then we will
++		 * implement the polarity reversal workaround.  We disable
++		 * interrupts first, and upon returning, place the devices
++		 * interrupt state to its previous value except for the link
++		 * status change interrupt which will happened due to the
++		 * execution of this workaround.
++		 */
++		if (mac->forced_speed_duplex & E1000_ALL_10_SPEED) {
++			E1000_WRITE_REG(hw, E1000_IMC, 0xFFFFFFFF);
++			ret_val = e1000_polarity_reversal_workaround_82543(hw);
++			icr = E1000_READ_REG(hw, E1000_ICR);
++			E1000_WRITE_REG(hw, E1000_ICS, (icr & ~E1000_ICS_LSC));
++			E1000_WRITE_REG(hw, E1000_IMS, IMS_ENABLE_MASK);
++		}
++
++		ret_val = -E1000_ERR_CONFIG;
++		goto out;
++	}
++
++	/* We have a M88E1000 PHY and Auto-Neg is enabled.  If we
++	 * have Si on board that is 82544 or newer, Auto
++	 * Speed Detection takes care of MAC speed/duplex
++	 * configuration.  So we only need to configure Collision
++	 * Distance in the MAC.  Otherwise, we need to force
++	 * speed/duplex on the MAC to the current PHY speed/duplex
++	 * settings.
++	 */
++	if (mac->type == e1000_82544)
++		e1000_config_collision_dist_generic(hw);
++	else {
++		ret_val = e1000_config_mac_to_phy_82543(hw);
++		if (ret_val) {
++			DEBUGOUT("Error configuring MAC to PHY settings\n");
++			goto out;
++		}
++	}
++
++	/* Configure Flow Control now that Auto-Neg has completed.
++	 * First, we need to restore the desired flow control
++	 * settings because we may have had to re-autoneg with a
++	 * different link partner.
++	 */
++	ret_val = e1000_config_fc_after_link_up_generic(hw);
++	if (ret_val) {
++		DEBUGOUT("Error configuring flow control\n");
++	}
++
++	/* At this point we know that we are on copper and we have
++	 * auto-negotiated link.  These are conditions for checking the link
++	 * partner capability register.  We use the link speed to determine if
++	 * TBI compatibility needs to be turned on or off.  If the link is not
++	 * at gigabit speed, then TBI compatibility is not needed.  If we are
++	 * at gigabit speed, we turn on TBI compatibility.
++	 */
++	if (e1000_tbi_compatibility_enabled_82543(hw)) {
++		ret_val = e1000_get_speed_and_duplex(hw, &speed, &duplex);
++		if (ret_val) {
++			DEBUGOUT("Error getting link speed and duplex\n");
++			return ret_val;
++		}
++		if (speed != SPEED_1000) {
++			/* If link speed is not set to gigabit speed,
++			 * we do not need to enable TBI compatibility.
++			 */
++			if (e1000_tbi_sbp_enabled_82543(hw)) {
++				/* If we previously were in the mode,
++				 * turn it off.
++				 */
++				e1000_set_tbi_sbp_82543(hw, FALSE);
++				rctl = E1000_READ_REG(hw, E1000_RCTL);
++				rctl &= ~E1000_RCTL_SBP;
++				E1000_WRITE_REG(hw, E1000_RCTL, rctl);
++			}
++		} else {
++			/* If TBI compatibility is was previously off,
++			 * turn it on. For compatibility with a TBI link
++			 * partner, we will store bad packets. Some
++			 * frames have an additional byte on the end and
++			 * will look like CRC errors to to the hardware.
++			 */
++			if (!e1000_tbi_sbp_enabled_82543(hw)) {
++				e1000_set_tbi_sbp_82543(hw, TRUE);
++				rctl = E1000_READ_REG(hw, E1000_RCTL);
++				rctl |= E1000_RCTL_SBP;
++				E1000_WRITE_REG(hw, E1000_RCTL, rctl);
++			}
++		}
++	}
++out:
++	return ret_val;
++}
++
++/**
++ *  e1000_check_for_fiber_link_82543 - Check for link (Fiber)
++ *  @hw: pointer to the HW structure
++ *
++ *  Checks for link up on the hardware.  If link is not up and we have
++ *  a signal, then we need to force link up.
++ **/
++static s32
++e1000_check_for_fiber_link_82543(struct e1000_hw *hw)
++{
++	struct e1000_mac_info *mac = &hw->mac;
++	u32 rxcw, ctrl, status;
++	s32 ret_val = E1000_SUCCESS;
++
++	DEBUGFUNC("e1000_check_for_fiber_link_82543");
++
++	ctrl = E1000_READ_REG(hw, E1000_CTRL);
++	status = E1000_READ_REG(hw, E1000_CTRL);
++	rxcw = E1000_READ_REG(hw, E1000_CTRL);
++
++	/* If we don't have link (auto-negotiation failed or link partner
++	 * cannot auto-negotiate), the cable is plugged in (we have signal),
++	 * and our link partner is not trying to auto-negotiate with us (we
++	 * are receiving idles or data), we need to force link up. We also
++	 * need to give auto-negotiation time to complete, in case the cable
++	 * was just plugged in. The autoneg_failed flag does this.
++	 */
++	/* (ctrl & E1000_CTRL_SWDPIN1) == 0 == have signal */
++	if ((!(ctrl & E1000_CTRL_SWDPIN1)) &&
++	    (!(status & E1000_STATUS_LU)) &&
++	    (!(rxcw & E1000_RXCW_C))) {
++		if (mac->autoneg_failed == 0) {
++			mac->autoneg_failed = 1;
++			ret_val = 0;
++			goto out;
++		}
++		DEBUGOUT("NOT RXing /C/, disable AutoNeg and force link.\n");
++
++		/* Disable auto-negotiation in the TXCW register */
++		E1000_WRITE_REG(hw, E1000_TXCW, (mac->txcw & ~E1000_TXCW_ANE));
++
++		/* Force link-up and also force full-duplex. */
++		ctrl = E1000_READ_REG(hw, E1000_CTRL);
++		ctrl |= (E1000_CTRL_SLU | E1000_CTRL_FD);
++		E1000_WRITE_REG(hw, E1000_CTRL, ctrl);
++
++		/* Configure Flow Control after forcing link up. */
++		ret_val = e1000_config_fc_after_link_up_generic(hw);
++		if (ret_val) {
++			DEBUGOUT("Error configuring flow control\n");
++			goto out;
++		}
++	} else if ((ctrl & E1000_CTRL_SLU) && (rxcw & E1000_RXCW_C)) {
++		/* If we are forcing link and we are receiving /C/ ordered
++		 * sets, re-enable auto-negotiation in the TXCW register
++		 * and disable forced link in the Device Control register
++		 * in an attempt to auto-negotiate with our link partner.
++		 */
++		DEBUGOUT("RXing /C/, enable AutoNeg and stop forcing link.\n");
++		E1000_WRITE_REG(hw, E1000_TXCW, mac->txcw);
++		E1000_WRITE_REG(hw, E1000_CTRL, (ctrl & ~E1000_CTRL_SLU));
++
++		mac->serdes_has_link = TRUE;
++	}
++
++out:
++	return ret_val;
++}
++
++/**
++ *  e1000_config_mac_to_phy_82543 - Configure MAC to PHY settings
++ *  @hw: pointer to the HW structure
++ *
++ *  For the 82543 silicon, we need to set the MAC to match the settings
++ *  of the PHY, even if the PHY is auto-negotiating.
++ **/
++static s32
++e1000_config_mac_to_phy_82543(struct e1000_hw *hw)
++{
++	u32 ctrl;
++	s32 ret_val;
++	u16 phy_data;
++
++	DEBUGFUNC("e1000_config_mac_to_phy_82543");
++
++	/* Set the bits to force speed and duplex */
++	ctrl = E1000_READ_REG(hw, E1000_CTRL);
++	ctrl |= (E1000_CTRL_FRCSPD | E1000_CTRL_FRCDPX);
++	ctrl &= ~(E1000_CTRL_SPD_SEL | E1000_CTRL_ILOS);
++
++	/* Set up duplex in the Device Control and Transmit Control
++	 * registers depending on negotiated values.
++	 */
++	ret_val = e1000_read_phy_reg(hw, M88E1000_PHY_SPEC_STATUS, &phy_data);
++	if (ret_val)
++		goto out;
++
++	ctrl &= ~E1000_CTRL_FD;
++	if (phy_data & M88E1000_PSSR_DPLX)
++		ctrl |= E1000_CTRL_FD;
++
++	e1000_config_collision_dist_generic(hw);
++
++	/* Set up speed in the Device Control register depending on
++	 * negotiated values.
++	 */
++	if ((phy_data & M88E1000_PSSR_SPEED) == M88E1000_PSSR_1000MBS)
++		ctrl |= E1000_CTRL_SPD_1000;
++	else if ((phy_data & M88E1000_PSSR_SPEED) == M88E1000_PSSR_100MBS)
++		ctrl |= E1000_CTRL_SPD_100;
++
++	E1000_WRITE_REG(hw, E1000_CTRL, ctrl);
++
++out:
++	return ret_val;
++}
++
++/**
++ *  e1000_write_vfta_82543 - Write value to VLAN filter table
++ *  @hw: pointer to the HW structure
++ *  @offset: the 32-bit offset in which to write the value to.
++ *  @value: the 32-bit value to write at location offset.
++ *
++ *  This writes a 32-bit value to a 32-bit offset in the VLAN filter
++ *  table.
++ **/
++static void
++e1000_write_vfta_82543(struct e1000_hw *hw, u32 offset, u32 value)
++{
++	u32 temp;
++
++	DEBUGFUNC("e1000_write_vfta_82543");
++
++	if ((hw->mac.type == e1000_82544) && (offset & 1)) {
++		temp = E1000_READ_REG_ARRAY(hw, E1000_VFTA, offset - 1);
++		E1000_WRITE_REG_ARRAY(hw, E1000_VFTA, offset, value);
++		E1000_WRITE_FLUSH(hw);
++		E1000_WRITE_REG_ARRAY(hw, E1000_VFTA, offset - 1, temp);
++		E1000_WRITE_FLUSH(hw);
++	} else
++		e1000_write_vfta_generic(hw, offset, value);
++}
++
++/**
++ *  e1000_mta_set_82543 - Set multicast filter table address
++ *  @hw: pointer to the HW structure
++ *  @hash_value: determines the MTA register and bit to set
++ *
++ *  The multicast table address is a register array of 32-bit registers.
++ *  The hash_value is used to determine what register the bit is in, the
++ *  current value is read, the new bit is OR'd in and the new value is
++ *  written back into the register.
++ **/
++static void
++e1000_mta_set_82543(struct e1000_hw *hw, u32 hash_value)
++{
++	u32 hash_bit, hash_reg, mta, temp;
++
++	DEBUGFUNC("e1000_mta_set_82543");
++
++	hash_reg = (hash_value >> 5);
++
++	/* If we are on an 82544 and we are trying to write an odd offset
++	 * in the MTA, save off the previous entry before writing and
++	 * restore the old value after writing.
++	 */
++	if ((hw->mac.type == e1000_82544) && (hash_reg & 1)) {
++		hash_reg &= (hw->mac.mta_reg_count - 1);
++		hash_bit = hash_value & 0x1F;
++		mta = E1000_READ_REG_ARRAY(hw, E1000_MTA, hash_reg);
++		mta |= (1 << hash_bit);
++		temp = E1000_READ_REG_ARRAY(hw, E1000_MTA, hash_reg - 1);
++
++		E1000_WRITE_REG_ARRAY(hw, E1000_MTA, hash_reg, mta);
++		E1000_WRITE_FLUSH(hw);
++		E1000_WRITE_REG_ARRAY(hw, E1000_MTA, hash_reg - 1, temp);
++		E1000_WRITE_FLUSH(hw);
++	} else
++		e1000_mta_set_generic(hw, hash_value);
++}
++
++/**
++ *  e1000_led_on_82543 - Turn on SW controllable LED
++ *  @hw: pointer to the HW structure
++ *
++ *  Turns the SW defined LED on.  This is a function pointer entry point
++ *  called by the api module.
++ **/
++static s32
++e1000_led_on_82543(struct e1000_hw *hw)
++{
++	u32 ctrl = E1000_READ_REG(hw, E1000_CTRL);
++
++	DEBUGFUNC("e1000_led_on_82543");
++
++	if (hw->mac.type == e1000_82544 &&
++	    hw->media_type == e1000_media_type_copper) {
++		/* Clear SW-defineable Pin 0 to turn on the LED */
++		ctrl &= ~E1000_CTRL_SWDPIN0;
++		ctrl |= E1000_CTRL_SWDPIO0;
++	} else {
++		/* Fiber 82544 and all 82543 use this method */
++		ctrl |= E1000_CTRL_SWDPIN0;
++		ctrl |= E1000_CTRL_SWDPIO0;
++	}
++	E1000_WRITE_REG(hw, E1000_CTRL, ctrl);
++
++	return E1000_SUCCESS;
++}
++
++/**
++ *  e1000_led_off_82543 - Turn off SW controllable LED
++ *  @hw: pointer to the HW structure
++ *
++ *  Turns the SW defined LED off.  This is a function pointer entry point
++ *  called by the api module.
++ **/
++static s32
++e1000_led_off_82543(struct e1000_hw *hw)
++{
++	u32 ctrl = E1000_READ_REG(hw, E1000_CTRL);
++
++	DEBUGFUNC("e1000_led_off_82543");
++
++	if (hw->mac.type == e1000_82544 &&
++	    hw->media_type == e1000_media_type_copper) {
++		/* Set SW-defineable Pin 0 to turn off the LED */
++		ctrl |= E1000_CTRL_SWDPIN0;
++		ctrl |= E1000_CTRL_SWDPIO0;
++	} else {
++		ctrl &= ~E1000_CTRL_SWDPIN0;
++		ctrl |= E1000_CTRL_SWDPIO0;
++	}
++	E1000_WRITE_REG(hw, E1000_CTRL, ctrl);
++
++	return E1000_SUCCESS;
++}
++
++/**
++ *  e1000_clear_hw_cntrs_82543 - Clear device specific hardware counters
++ *  @hw: pointer to the HW structure
++ *
++ *  Clears the hardware counters by reading the counter registers.
++ **/
++static void
++e1000_clear_hw_cntrs_82543(struct e1000_hw *hw)
++{
++	volatile u32 temp;
++
++	DEBUGFUNC("e1000_clear_hw_cntrs_82543");
++
++	e1000_clear_hw_cntrs_base_generic(hw);
++
++	temp = E1000_READ_REG(hw, E1000_PRC64);
++	temp = E1000_READ_REG(hw, E1000_PRC127);
++	temp = E1000_READ_REG(hw, E1000_PRC255);
++	temp = E1000_READ_REG(hw, E1000_PRC511);
++	temp = E1000_READ_REG(hw, E1000_PRC1023);
++	temp = E1000_READ_REG(hw, E1000_PRC1522);
++	temp = E1000_READ_REG(hw, E1000_PTC64);
++	temp = E1000_READ_REG(hw, E1000_PTC127);
++	temp = E1000_READ_REG(hw, E1000_PTC255);
++	temp = E1000_READ_REG(hw, E1000_PTC511);
++	temp = E1000_READ_REG(hw, E1000_PTC1023);
++	temp = E1000_READ_REG(hw, E1000_PTC1522);
++
++	temp = E1000_READ_REG(hw, E1000_ALGNERRC);
++	temp = E1000_READ_REG(hw, E1000_RXERRC);
++	temp = E1000_READ_REG(hw, E1000_TNCRS);
++	temp = E1000_READ_REG(hw, E1000_CEXTERR);
++	temp = E1000_READ_REG(hw, E1000_TSCTC);
++	temp = E1000_READ_REG(hw, E1000_TSCTFC);
++}
+diff --git a/drivers/net/e1000/e1000_82543.h b/drivers/net/e1000/e1000_82543.h
+new file mode 100644
+index 0000000..d5f0c5f
+--- /dev/null
++++ b/drivers/net/e1000/e1000_82543.h
+@@ -0,0 +1,45 @@
++/*******************************************************************************
++
++  Intel PRO/1000 Linux driver
++  Copyright(c) 1999 - 2007 Intel Corporation.
++
++  This program is free software; you can redistribute it and/or modify it
++  under the terms and conditions of the GNU General Public License,
++  version 2, as published by the Free Software Foundation.
++
++  This program is distributed in the hope it will be useful, but WITHOUT
++  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++  more details.
++
++  You should have received a copy of the GNU General Public License along with
++  this program; if not, write to the Free Software Foundation, Inc.,
++  51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
++
++  The full GNU General Public License is included in this distribution in
++  the file called "COPYING".
++
++  Contact Information:
++  Linux NICS <linux.nics@intel.com>
++  e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
++  Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
++
++*******************************************************************************/
++
++#ifndef _E1000_82543_H_
++#define _E1000_82543_H_
++
++#include "e1000_api.h"
++
++#define PHY_PREAMBLE      0xFFFFFFFF
++#define PHY_PREAMBLE_SIZE 32
++#define PHY_SOF           0x1
++#define PHY_OP_READ       0x2
++#define PHY_OP_WRITE      0x1
++#define PHY_TURNAROUND    0x2
++
++#define TBI_COMPAT_ENABLED 0x1 /* Global "knob" for the workaround */
++#define TBI_SBP_ENABLED    0x2 /* If TBI_COMPAT_ENABLED,
++                                * then this is the current state (on/off) */
 +
 +#endif
