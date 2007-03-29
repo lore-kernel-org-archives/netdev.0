@@ -1,44 +1,52 @@
-From: Roberto Nibali <ratz@drugphish.ch>
-Subject: Re: [2.6 patch] the scheduled eepro100 removal
-Date: Thu, 29 Mar 2007 10:19:47 +0200
-Message-ID: <460B76A3.6040200@drugphish.ch>
-References: <20070325145810.GI16477@stusta.de> <460AE997.90509@tmr.com>	 <460AEB85.1020101@intel.com> <460AEF65.8070908@pobox.com> <86802c440703282208m1f79c682q876e4d08d9216cd2@mail.gmail.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: RFC: Established connections hash function
+Date: Thu, 29 Mar 2007 13:18:01 +0400
+Message-ID: <20070329091801.GA17268@2ka.mipt.ru>
+References: <10189ABA61CF4D5AB3881F96C9CACE87@XEON> <p73lkhi6aj7.fsf@bingen.suse.de> <EED7DAB373CC4CB9B576EE1B1FBC9E32@XEON> <200703281129.43783.ak@suse.de> <20070328104505.GA18748@2ka.mipt.ru> <p73y7lh316u.fsf@bingen.suse.de> <20070328155047.4112fb47.dada1@cosmosbay.com> <20070328145255.GA7466@one.firstfloor.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>,
-	"Kok, Auke" <auke-jan.h.kok@intel.com>,
-	Bill Davidsen <davidsen@tmr.com>, Adrian Bunk <bunk@stusta.de>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	saw@saw.sw.com.sg, Jesse Brandeburg <jesse.brandeburg@intel.com>
-To: Yinghai Lu <yinghai.lu@amd.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751399AbXC2IT7@vger.kernel.org>
-In-Reply-To: <86802c440703282208m1f79c682q876e4d08d9216cd2@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=koi8-r
+Cc: Eric Dumazet <dada1@cosmosbay.com>, nikb@webmaster.com,
+	netdev@vger.kernel.org
+To: Andi Kleen <andi@firstfloor.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:34168 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753316AbXC2JTd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Mar 2007 05:19:33 -0400
+Content-Disposition: inline
+In-Reply-To: <20070328145255.GA7466@one.firstfloor.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->> Sounds sane to me.  My overall opinion on eepro100 removal is that we're
->> not there yet.  Rare problem cases remain where e100 fails but eepro100
->> works, and it's older drivers so its low priority for everybody.
->>
->> Needs to happen, though...
+On Wed, Mar 28, 2007 at 04:52:55PM +0200, Andi Kleen (andi@firstfloor.org) wrote:
+> > 3) We dont want to be 'totally secure'. We only want to raise the level, and eventually see if we have to spend more time on this next year(s). AFAIK we had two different reports from people being hit by the flaw of previous hash. Not really a critical issue.
 > 
-> It seems that several Tyan Opteron base system that were using IPMI
-> add on card.  the IPMI card share intel 100Mhz nic onboard. you need
-> to use eepro100 instead of e100 otherwise the e100 will shutdown OOB
-> (out of Band) connection for IPMI when shut down the OS.
+> Yes, but you probably want a complexity of at least 10^5-10^6 to be any
+> useful. I don't think you will get that early in boot from random
+> unless you use hardware support.
 
-I find it hard to believe that something as common as IPMI in 
-conjunction with the IPMI technology wasn't tested in Intel's lab. From 
-my experience with Intel Server boards, onboard IPMI (all offered 
-versions) and e100/e1000 NICs, I've never ever experienced any problems 
-operating the BMC over the NIC. Also, I don't quite understand you point 
-about the "IPMI card sharing the 100Mbit/s NIC" onboard? What exactly is 
-shared?
+What we have (had) right now is broken situation, and it must be fixed
+no matter what solution is used. Using more secure hash (and breaking
+Jenkins hash is a bit harder than XOR one, I say it not only from
+theoretical point of view looking into its operations) is a fix.
+It is possible that there is even better fix - there is always something
+better than one has right now, but right now problem must be fixed.
+And David (and Eric, and Nikolaos) fixed that problem in place.
+It can be solved (this time it will be called 'improved') further.
 
-Best regards,
-Roberto Nibali, ratz
+> > 
+> > 4) We could add a hard limit on the length of one chain. Even if the bad guys discover a flaw, it wont hurt too much.
+
+Hard limit should not be used, since it is exactly what attacker wants -
+attacker can get all slots in th hash table and server will not respond
+to other clients at all, although it could, but much slower.
+
+> Or just use the trie?  It has other advantages too :)
+
+As an interested party I should not comment, but I can not resist - 
+yes, it is cool and can be done better :)
+
+> -Andi
+
 -- 
-echo 
-'[q]sa[ln0=aln256%Pln256/snlbx]sb3135071790101768542287578439snlbxq' | dc
+	Evgeniy Polyakov
