@@ -1,92 +1,56 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: [git patches] net driver fixes
-Date: Thu, 29 Mar 2007 16:10:34 -0400
-Message-ID: <20070329201034.GA2177@havoc.gtf.org>
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: [PATCH][IPv6]: Fix incorrect length check in rawv6_sendmsg()
+Date: Thu, 29 Mar 2007 14:17:28 -0700
+Message-ID: <1175203048.16183.14.camel@w-sridhar2.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
-To: Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net, yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from havoc.gtf.org ([69.61.125.42]:51257 "EHLO havoc.gtf.org"
+Received: from e2.ny.us.ibm.com ([32.97.182.142]:53143 "EHLO e2.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030666AbXC2UKf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Mar 2007 16:10:35 -0400
-Content-Disposition: inline
+	id S1030738AbXC2VRe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Mar 2007 17:17:34 -0400
+Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
+	by e2.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l2TLHWGp028083
+	for <netdev@vger.kernel.org>; Thu, 29 Mar 2007 17:17:32 -0400
+Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
+	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l2TLHWgZ257932
+	for <netdev@vger.kernel.org>; Thu, 29 Mar 2007 17:17:32 -0400
+Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
+	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l2TLHVAY030667
+	for <netdev@vger.kernel.org>; Thu, 29 Mar 2007 17:17:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+The check for length in rawv6_sendmsg() is incorrect.
+As len is an unsigned int, (len < 0) will never be TRUE.
+I think checking for IPV6_MAXPLEN(65535) is better.
 
-Please pull from 'upstream-linus' branch of
-master.kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git upstream-linus
+Is it possible to send ipv6 jumbo packets using raw
+sockets? If so, we can remove this check.
 
-to receive the following updates:
+Thanks
+Sridhar
 
- drivers/net/atl1/atl1_main.c         |   10 ++++++++++
- drivers/net/netxen/netxen_nic_init.c |    3 ++-
- drivers/net/sis190.c                 |    1 +
- 3 files changed, 13 insertions(+), 1 deletions(-)
+Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
 
-Chris Snook (1):
-      atl1: save mac address on remove
-
-Francois Romieu (1):
-      sis190: new PHY support
-
-Linsys Contractor Adhiraj Joshi (1):
-      NetXen: Fix hardware access for ppc architecture.
-
-diff --git a/drivers/net/atl1/atl1_main.c b/drivers/net/atl1/atl1_main.c
-index dee3638..8606eac 100644
---- a/drivers/net/atl1/atl1_main.c
-+++ b/drivers/net/atl1/atl1_main.c
-@@ -2320,6 +2320,16 @@ static void __devexit atl1_remove(struct pci_dev *pdev)
- 		return;
+diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
+index 306d5d8..dc11ec3 100644
+--- a/net/ipv6/raw.c
++++ b/net/ipv6/raw.c
+@@ -686,10 +686,7 @@ static int rawv6_sendmsg(struct kiocb *i
+ 	u16 proto;
+ 	int err;
  
- 	adapter = netdev_priv(netdev);
-+
-+	/* Some atl1 boards lack persistent storage for their MAC, and get it
-+	 * from the BIOS during POST.  If we've been messing with the MAC
-+	 * address, we need to save the permanent one.
-+	 */
-+	if (memcmp(adapter->hw.mac_addr, adapter->hw.perm_mac_addr, ETH_ALEN)) {
-+		memcpy(adapter->hw.mac_addr, adapter->hw.perm_mac_addr, ETH_ALEN);
-+		atl1_set_mac_addr(&adapter->hw);
-+	}
-+
- 	iowrite16(0, adapter->hw.hw_addr + REG_GPHY_ENABLE);
- 	unregister_netdev(netdev);
- 	pci_iounmap(pdev, adapter->hw.hw_addr);
-diff --git a/drivers/net/netxen/netxen_nic_init.c b/drivers/net/netxen/netxen_nic_init.c
-index 229aa1c..eff965d 100644
---- a/drivers/net/netxen/netxen_nic_init.c
-+++ b/drivers/net/netxen/netxen_nic_init.c
-@@ -438,6 +438,7 @@ do_rom_fast_read_words(struct netxen_adapter *adapter, int addr,
+-	/* Rough check on arithmetic overflow,
+-	   better check is made in ip6_build_xmit
+-	 */
+-	if (len < 0)
++	if (len > IPV6_MAXPLEN)
+ 		return -EMSGSIZE;
  
- 	for (addridx = addr; addridx < (addr + size); addridx += 4) {
- 		ret = do_rom_fast_read(adapter, addridx, (int *)bytes);
-+		*(int *)bytes = cpu_to_le32(*(int *)bytes);
- 		if (ret != 0)
- 			break;
- 		bytes += 4;
-@@ -497,7 +498,7 @@ static inline int do_rom_fast_write_words(struct netxen_adapter *adapter,
- 		int timeout = 0;
- 		int data;
- 
--		data = *(u32*)bytes;
-+		data = le32_to_cpu((*(u32*)bytes));
- 
- 		ret = do_rom_fast_write(adapter, addridx, data);
- 		if (ret < 0)
-diff --git a/drivers/net/sis190.c b/drivers/net/sis190.c
-index b08508b..34463ce 100644
---- a/drivers/net/sis190.c
-+++ b/drivers/net/sis190.c
-@@ -324,6 +324,7 @@ static struct mii_chip_info {
- 	u32 feature;
- } mii_chip_table[] = {
- 	{ "Broadcom PHY BCM5461", { 0x0020, 0x60c0 }, LAN, F_PHY_BCM5461 },
-+	{ "Broadcom PHY AC131",   { 0x0143, 0xbc70 }, LAN, 0 },
- 	{ "Agere PHY ET1101B",    { 0x0282, 0xf010 }, LAN, 0 },
- 	{ "Marvell PHY 88E1111",  { 0x0141, 0x0cc0 }, LAN, F_PHY_88E1111 },
- 	{ "Realtek PHY RTL8201",  { 0x0000, 0x8200 }, LAN, 0 },
+ 	/* Mirror BSD error message compatibility */
+
+
