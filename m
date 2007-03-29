@@ -1,46 +1,45 @@
-From: "Gerd v. Egidy" <gerd@egidy.de>
-Subject: Re: traffic shaping with NAT: IFB as IMQ replacement?
-Date: Fri, 30 Mar 2007 01:08:00 +0200
-Message-ID: <200703300108.01994.gerd@egidy.de>
-References: <m27it09n5w.fsf@quark.karme-net.hirschau> <1175184716.4881.30.camel@localhost>
+From: Sami Farin <safari-kernel@safari.iki.fi>
+Subject: Re: [PATCH][IPv6]: Fix incorrect length check in rawv6_sendmsg()
+Date: Fri, 30 Mar 2007 01:45:42 +0300
+Message-ID: <20070329224542.dqditwbky7ullnkp@m.safari.iki.fi>
+References: <1175203048.16183.14.camel@w-sridhar2.beaverton.ibm.com> <20070329.142644.70222545.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: 7bit
-Cc: Jens Thiele <karme@berlios.de>, netdev@vger.kernel.org,
-	linuximq@yahoogroups.com
-To: hadi@cyberus.ca
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from re01.intra2net.com ([82.165.28.202]:1056 "EHLO
-	re01.intra2net.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934361AbXC2XsL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Mar 2007 19:48:11 -0400
-In-Reply-To: <1175184716.4881.30.camel@localhost>
+Received: from pne-smtpout4-sn2.hy.skanova.net ([81.228.8.154]:60412 "EHLO
+	pne-smtpout4-sn2.hy.skanova.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S964873AbXC2Xzc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Mar 2007 19:55:32 -0400
+Received: from safari.iki.fi (80.223.106.128) by pne-smtpout4-sn2.hy.skanova.net (7.2.075)
+        id 45B6216900375A04 for netdev@vger.kernel.org; Fri, 30 Mar 2007 00:45:44 +0200
 Content-Disposition: inline
+In-Reply-To: <20070329.142644.70222545.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Thu, Mar 29, 2007 at 14:26:44 -0700, David Miller wrote:
+> From: Sridhar Samudrala <sri@us.ibm.com>
+> Date: Thu, 29 Mar 2007 14:17:28 -0700
+> 
+> > The check for length in rawv6_sendmsg() is incorrect.
+> > As len is an unsigned int, (len < 0) will never be TRUE.
+> > I think checking for IPV6_MAXPLEN(65535) is better.
+> > 
+> > Is it possible to send ipv6 jumbo packets using raw
+> > sockets? If so, we can remove this check.
+> 
+> I don't see why such a limitation against jumbo would exist,
+> does anyone else?
+> 
+> Thanks for catching this Sridhar.  A good compiler should simply
+> fail to compile "if (x < 0)" when 'x' is an unsigned type, don't
+> you think :-)
 
-> > Linux router:
-> > - does NAT for the LANs
-> > - runs local processes communicating with the WAN/Internet
->
-> I understand this requirement; unfortunately when i polled for features
-> majority of people who emailed back were asking for the other things.
-> I have changed my opinion a little since last time because the
-> netfilter/contracking code now does netlink. I believe this could all be
-> achieved in user space. Infact i have started writting some code - the
+gcc warns if you use -W or -Wextra (but not if only -Wall is used):
 
-I'm also interested in shaping NAT. Would you mind telling us what you have in 
-mind with your userspace code? Do you plan something like
+* An unsigned value is compared against zero with '<' or '>='.
 
-tun -> your userspace code -> tun
-             ^
-             | (netlink)
-             v
-          conntrack
+-- 
+Do what you love because life is too short for anything else.
 
-Kind regards,
-
-Gerd
