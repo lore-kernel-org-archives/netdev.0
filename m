@@ -1,38 +1,44 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [patch 03/10] strlcpy is smart enough
-Date: Thu, 29 Mar 2007 08:19:14 -0400
-Message-ID: <460BAEC2.1090104@garzik.org>
-References: <200703270547.l2R5lM49008257@shell0.pdx.osdl.net>
+Subject: Re: [PATCH] add Attansic L2 PCI ID
+Date: Thu, 29 Mar 2007 08:23:12 -0400
+Message-ID: <460BAFB0.7000408@garzik.org>
+References: <20070328234738.GA8042@devserv.devel.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, khali@linux-fr.org, osstklei@de.ibm.com,
-	themann@de.ibm.com
-To: akpm@linux-foundation.org
+Cc: xiong.huang@atheros.com, jacliburn@bellsouth.net,
+	netdev@vger.kernel.org
+To: Chris Snook <csnook@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:52465 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:52503 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751978AbXC2MTS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Mar 2007 08:19:18 -0400
-In-Reply-To: <200703270547.l2R5lM49008257@shell0.pdx.osdl.net>
+	id S1752277AbXC2MXQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Mar 2007 08:23:16 -0400
+In-Reply-To: <20070328234738.GA8042@devserv.devel.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-akpm@linux-foundation.org wrote:
-> From: Jean Delvare <khali@linux-fr.org>
+Chris Snook wrote:
+> From: Chris Snook <csnook@redhat.com>
 > 
-> strlcpy already accounts for the trailing zero in its length
-> computation, so there is no need to substract one to the buffer size.
+> Add PCI ID for the Attansic L2 100 Mb ethernet adapter.
 > 
-> Signed-off-by: Jean Delvare <khali@linux-fr.org>
-> Cc: Jan-Bernd Themann <themann@de.ibm.com>
-> Cc: Thomas Klein <osstklei@de.ibm.com>
-> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
-> ---
+> Signed-off-by: Chris Snook <csnook@redhat.com>
 > 
->  drivers/net/ehea/ehea_ethtool.c |    4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
+> --- linux-2.6.21-rc5.orig/include/linux/pci_ids.h	2007-03-27 23:26:50.000000000 -0400
+> +++ linux-2.6.21-rc5/include/linux/pci_ids.h	2007-03-28 15:11:03.000000000 -0400
+> @@ -2090,6 +2090,7 @@
+>  
+>  #define PCI_VENDOR_ID_ATTANSIC		0x1969
+>  #define PCI_DEVICE_ID_ATTANSIC_L1	0x1048
+> +#define PCI_DEVICE_ID_ATTANSIC_L2	0x2048
 
-applied 3-5
+Actually you should be doing the reverse:
+
+Remove PCI_DEVICE_ID_ATTANSIC_L1, and replace the one place that uses it 
+with the hexadecimal constant.
+
+	Jeff
+
 
 
