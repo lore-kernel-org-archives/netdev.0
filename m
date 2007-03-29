@@ -1,49 +1,48 @@
-From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Subject: RE: [2.6 patch] the scheduled eepro100 removal
-Date: Thu, 29 Mar 2007 09:22:50 -0700
-Message-ID: <36D9DB17C6DE9E40B059440DB8D95F5202357DB0@orsmsx418.amr.corp.intel.com>
-References: <460B76A3.6040200@drugphish.ch>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Jeff Garzik" <jgarzik@pobox.com>,
-	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
-	"Bill Davidsen" <davidsen@tmr.com>, "Adrian Bunk" <bunk@stusta.de>,
-	"Andrew Morton" <akpm@linux-foundation.org>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<saw@saw.sw.com.sg>
-To: "Roberto Nibali" <ratz@drugphish.ch>,
-	"Yinghai Lu" <yinghai.lu@amd.com>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [Bonding-devel] quick help with bonding?
+Date: Thu, 29 Mar 2007 09:24:00 -0700
+Message-ID: <22707.1175185440@death>
+References: <460BE5F0.7070606@nortel.com>
+Cc: netdev@vger.kernel.org, bonding-devel@lists.sourceforge.net
+To: "Chris Friesen" <cfriesen@nortel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:23227 "EHLO mga01.intel.com"
+Received: from e2.ny.us.ibm.com ([32.97.182.142]:37816 "EHLO e2.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933143AbXC2QXE convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Mar 2007 12:23:04 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <460B76A3.6040200@drugphish.ch>
+	id S933069AbXC2QYG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Mar 2007 12:24:06 -0400
+Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
+	by e2.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l2TGO4RJ022454
+	for <netdev@vger.kernel.org>; Thu, 29 Mar 2007 12:24:04 -0400
+Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
+	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l2TGO3B6245950
+	for <netdev@vger.kernel.org>; Thu, 29 Mar 2007 12:24:03 -0400
+Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
+	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l2TGO3fT010730
+	for <netdev@vger.kernel.org>; Thu, 29 Mar 2007 12:24:03 -0400
+In-reply-to: <460BE5F0.7070606@nortel.com> 
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Roberto Nibali wrote:
->>> Sounds sane to me.  My overall opinion on eepro100 removal is that
->>> we're not there yet.  Rare problem cases remain where e100 fails
->>> but eepro100 works, and it's older drivers so its low priority for
->>> everybody. 
->>> 
->>> Needs to happen, though...
->> 
->> It seems that several Tyan Opteron base system that were using IPMI
->> add on card.  the IPMI card share intel 100Mhz nic onboard. you need
->> to use eepro100 instead of e100 otherwise the e100 will shutdown OOB
->> (out of Band) connection for IPMI when shut down the OS.
-> 
-> I find it hard to believe that something as common as IPMI in
-> conjunction with the IPMI technology wasn't tested in Intel's lab.
-> From my experience with Intel Server boards, onboard IPMI (all offered
-> versions) and e100/e1000 NICs, I've never ever experienced any
-> problems operating the BMC over the NIC. Also, I don't quite
-> understand you point about the "IPMI card sharing the 100Mbit/s NIC"
-> onboard? What exactly is shared?
+Chris Friesen <cfriesen@nortel.com> wrote:
 
-It's a legit problem, but only with this *one* system.
+>Could someone either point me to the bonding high level design document 
+>(couldn't find one at the sourceforge project page) or else give me a 
+>quick overview of the code path followed by an incoming packet when 
+>bonding is involved?
+
+	There really isn't a high level design document.
+
+	The input path goes from the driver, which (probably) calls
+netif_receive_skb.  That function does its processing whatnot, the only
+special step for bonding is the processing done by skb_bond() which
+assigns the packet to the bonding device.  In the current mainline,
+skb_bond() also does some stuff to drop traffic on inactive slaves as
+the like.
+
+	After that, the packet follows the regular input path in
+netif_skb_receive.
+
+	-J
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
