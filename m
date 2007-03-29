@@ -1,82 +1,44 @@
-From: Benjamin Thery <benjamin.thery@bull.net>
-Subject: Re: L2 network namespace benchmarking
-Date: Thu, 29 Mar 2007 09:37:58 +0200
-Message-ID: <460B6CD6.4050103@bull.net>
-References: <460997C2.4030902@fr.ibm.com>	<m1ircmunre.fsf@ebiederm.dsl.xmission.com> <460A1F82.9090108@free.fr> <m1r6r9r3eo.fsf@ebiederm.dsl.xmission.com>
+From: Roberto Nibali <ratz@drugphish.ch>
+Subject: Re: [2.6 patch] the scheduled eepro100 removal
+Date: Thu, 29 Mar 2007 10:19:47 +0200
+Message-ID: <460B76A3.6040200@drugphish.ch>
+References: <20070325145810.GI16477@stusta.de> <460AE997.90509@tmr.com>	 <460AEB85.1020101@intel.com> <460AEF65.8070908@pobox.com> <86802c440703282208m1f79c682q876e4d08d9216cd2@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Daniel Lezcano <daniel.lezcano@free.fr>,
-	Linux Containers <containers@lists.osdl.org>,
-	netdev@vger.kernel.org, Dmitry Mishin <dim@openvz.org>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ecfrec.frec.bull.fr ([129.183.4.8]:38688 "EHLO
-	ecfrec.frec.bull.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753298AbXC2HhM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Mar 2007 03:37:12 -0400
-In-Reply-To: <m1r6r9r3eo.fsf@ebiederm.dsl.xmission.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: Jeff Garzik <jgarzik@pobox.com>,
+	"Kok, Auke" <auke-jan.h.kok@intel.com>,
+	Bill Davidsen <davidsen@tmr.com>, Adrian Bunk <bunk@stusta.de>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	saw@saw.sw.com.sg, Jesse Brandeburg <jesse.brandeburg@intel.com>
+To: Yinghai Lu <yinghai.lu@amd.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751399AbXC2IT7@vger.kernel.org>
+In-Reply-To: <86802c440703282208m1f79c682q876e4d08d9216cd2@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Eric W. Biederman wrote:
-> Daniel Lezcano <daniel.lezcano@free.fr> writes:
+>> Sounds sane to me.  My overall opinion on eepro100 removal is that we're
+>> not there yet.  Rare problem cases remain where e100 fails but eepro100
+>> works, and it's older drivers so its low priority for everybody.
+>>
+>> Needs to happen, though...
+> 
+> It seems that several Tyan Opteron base system that were using IPMI
+> add on card.  the IPMI card share intel 100Mhz nic onboard. you need
+> to use eepro100 instead of e100 otherwise the e100 will shutdown OOB
+> (out of Band) connection for IPMI when shut down the OS.
 
-[...]
+I find it hard to believe that something as common as IPMI in 
+conjunction with the IPMI technology wasn't tested in Intel's lab. From 
+my experience with Intel Server boards, onboard IPMI (all offered 
+versions) and e100/e1000 NICs, I've never ever experienced any problems 
+operating the BMC over the NIC. Also, I don't quite understand you point 
+about the "IPMI card sharing the 100Mbit/s NIC" onboard? What exactly is 
+shared?
 
->> * When do you expect to have the network namespace into mainline ?
-> My current goal is to finish my rebase against 2.6.linus_lastest in
-> the next couple of days after having figured out how to deal with sysfs.
-
-Great news!
-I also have some questions about this updated version:
-
-- Have you integrated the bug fixes and cleanups(*) Daniel wrote for
-your previous netns patchset (and the few glitches I reported too)?
-
-(*) available in LXC8 patchset
-
-- Do you already have a public git repository set up for the rebase?
-- If it is private, any plan to make it public soon? (That would be great)
-
-> I have been doing reviewing in more code then I know what to do with,
-> and fighting some very strange bugs during the stabilization window.
-> Which has kept me from doing additional development.  Plus I have
-> had a cold.
-
-I hope you're getting better... and you'll be able to provide us the
-updated patchset very soon :)
-
-[...]
-
-> If I read the results right it took a 32bit machine from AMD with
-> a gigabit interface before you could measure a throughput difference.
-> That isn't shabby for a non-optimized code path.
-
-Indeed the throughput difference is not significant.
-This is very good to see that it stays constant when using the container.
-What I'm more worried about is the CPU load increase. But it seems
-we've identified some of the culprits.
-
-This afternoon I had a look at why the bridge setup isn't better than
-the route setup (section 2.3 and 2.4 of Daniel's report).
-
-In the bridge case, we encounter the same problems as the routes case.
-  The oprofile profile is the same: the most demanding routines are
-pskb_expand_head and csum_partial_copy_generic.
-pskb_expand_head() is also called by skb_cow(), but this time
-skb_cow() is called by netfilter's nf_bridge_copy_header().
-
-We can avoid this copy by removing option CONFIG_BRIDGE_NETFILTER.
-This copy is made even if netfilter is not used on the host.
-Maybe some optimizations can be made in netfilter's code to prevent this.
-
-
-Regards,
-Benjamin
-
+Best regards,
+Roberto Nibali, ratz
 -- 
-B e n j a m i n   T h e r y  - BULL/DT/Open Software R&D
-
-    http://www.bull.com
-
+echo 
+'[q]sa[ln0=aln256%Pln256/snlbx]sb3135071790101768542287578439snlbxq' | dc
