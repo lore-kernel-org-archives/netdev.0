@@ -1,7 +1,7 @@
 From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: [PATCH 09/19] e1000: Add 82542 specific hardware code.
-Date: Thu, 29 Mar 2007 09:40:15 -0700
-Message-ID: <20070329164014.6595.74601.stgit@localhost.localdomain>
+Subject: [PATCH 11/19] e1000: Add 82540 specific hardware code.
+Date: Thu, 29 Mar 2007 09:40:19 -0700
+Message-ID: <20070329164019.6595.12944.stgit@localhost.localdomain>
 References: <20070329163304.6595.81963.stgit@localhost.localdomain>
 Content-Type: text/plain; charset=utf-8; format=fixed
 Content-Transfer-Encoding: 8bit
@@ -12,31 +12,31 @@ Cc: auke-jan.h.kok@intel.com, bruce.w.allan@intel.com,
 	netdev@vger.kernel.org
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:23072 "EHLO mga01.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:13023 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030380AbXC2Qk0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Mar 2007 12:40:26 -0400
+	id S1030400AbXC2Qkr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Mar 2007 12:40:47 -0400
 In-Reply-To: <20070329163304.6595.81963.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Jeb Cramer <cramerj@intel.com>
 
-Adapter-specific code for the 82542.
+Adapter-specific code for the 82540.
 
 Signed-off-by: Jeb Cramer <cramerj@intel.com>
 Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
 ---
 
- drivers/net/e1000/e1000_82542.c |  551 +++++++++++++++++++++++++++++++++++++++
- 1 files changed, 551 insertions(+), 0 deletions(-)
+ drivers/net/e1000/e1000_82540.c |  670 +++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 670 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/e1000/e1000_82542.c b/drivers/net/e1000/e1000_82542.c
+diff --git a/drivers/net/e1000/e1000_82540.c b/drivers/net/e1000/e1000_82540.c
 new file mode 100644
-index 0000000..adca182
+index 0000000..41549b8
 --- /dev/null
-+++ b/drivers/net/e1000/e1000_82542.c
-@@ -0,0 +1,551 @@
++++ b/drivers/net/e1000/e1000_82540.c
+@@ -0,0 +1,670 @@
 +/*******************************************************************************
 +
 +  Intel PRO/1000 Linux driver
@@ -65,94 +65,158 @@ index 0000000..adca182
 +
 +*******************************************************************************/
 +
-+/* e1000_82542 (rev 1 & 2)
++/* e1000_82540
++ * e1000_82545
++ * e1000_82546
++ * e1000_82545_rev_3
++ * e1000_82546_rev_3
 + */
 +
 +#include "e1000_api.h"
 +
-+void e1000_init_function_pointers_82542(struct e1000_hw *hw);
++void e1000_init_function_pointers_82540(struct e1000_hw *hw);
 +
-+static s32  e1000_init_phy_params_82542(struct e1000_hw *hw);
-+static s32  e1000_init_nvm_params_82542(struct e1000_hw *hw);
-+static s32  e1000_init_mac_params_82542(struct e1000_hw *hw);
-+static s32  e1000_get_bus_info_82542(struct e1000_hw *hw);
-+static s32  e1000_reset_hw_82542(struct e1000_hw *hw);
-+static s32  e1000_init_hw_82542(struct e1000_hw *hw);
-+static s32  e1000_setup_link_82542(struct e1000_hw *hw);
-+static s32  e1000_led_on_82542(struct e1000_hw *hw);
-+static s32  e1000_led_off_82542(struct e1000_hw *hw);
-+static void e1000_clear_hw_cntrs_82542(struct e1000_hw *hw);
-+
-+struct e1000_dev_spec_82542 {
-+	boolean_t dma_fairness;
-+};
++static s32  e1000_init_phy_params_82540(struct e1000_hw *hw);
++static s32  e1000_init_nvm_params_82540(struct e1000_hw *hw);
++static s32  e1000_init_mac_params_82540(struct e1000_hw *hw);
++static s32  e1000_adjust_serdes_amplitude_82540(struct e1000_hw *hw);
++static void e1000_clear_hw_cntrs_82540(struct e1000_hw *hw);
++static s32  e1000_init_hw_82540(struct e1000_hw *hw);
++static s32  e1000_reset_hw_82540(struct e1000_hw *hw);
++static s32  e1000_set_phy_mode_82540(struct e1000_hw *hw);
++static s32  e1000_set_vco_speed_82540(struct e1000_hw *hw);
++static s32  e1000_setup_copper_link_82540(struct e1000_hw *hw);
++static s32  e1000_setup_fiber_serdes_link_82540(struct e1000_hw *hw);
 +
 +/**
-+ *  e1000_init_phy_params_82542 - Init PHY func ptrs.
-+ *  @hw: pointer to the HW structure
++ * e1000_init_phy_params_82540 - Init PHY func ptrs.
++ * @hw: pointer to the HW structure
 + *
-+ *  This is a function pointer entry point called by the api module.
++ * This is a function pointer entry point called by the api module.
 + **/
 +static s32
-+e1000_init_phy_params_82542(struct e1000_hw *hw)
++e1000_init_phy_params_82540(struct e1000_hw *hw)
 +{
 +	struct e1000_phy_info *phy = &hw->phy;
++	struct e1000_functions *func = &hw->func;
 +	s32 ret_val = E1000_SUCCESS;
 +
-+	DEBUGFUNC("e1000_init_phy_params_82542");
++	phy->addr                       = 1;
++	phy->autoneg_mask               = AUTONEG_ADVERTISE_SPEED_DEFAULT;
++	phy->reset_delay_us             = 10000;
++	phy->type                       = e1000_phy_m88;
 +
-+	phy->type               = e1000_phy_none;
++	/* Function Pointers */
++	func->check_polarity            = e1000_check_polarity_m88;
++	func->commit_phy                = e1000_phy_sw_reset_generic;
++	func->force_speed_duplex        = e1000_phy_force_speed_duplex_m88;
++	func->get_cable_length          = e1000_get_cable_length_m88;
++	func->get_cfg_done              = e1000_get_cfg_done_generic;
++	func->read_phy_reg              = e1000_read_phy_reg_m88;
++	func->reset_phy                 = e1000_phy_hw_reset_generic;
++	func->write_phy_reg             = e1000_write_phy_reg_m88;
++	func->get_phy_info              = e1000_get_phy_info_m88;
 +
++	ret_val = e1000_get_phy_id(hw);
++	if (ret_val)
++		goto out;
++
++	/* Verify phy id */
++	switch (hw->mac.type) {
++	case e1000_82540:
++	case e1000_82545:
++	case e1000_82545_rev_3:
++	case e1000_82546:
++	case e1000_82546_rev_3:
++		if (phy->id == M88E1011_I_PHY_ID)
++			break;
++		/* Fall Through */
++	default:
++		ret_val = -E1000_ERR_PHY;
++		goto out;
++		break;
++	}
++
++out:
 +	return ret_val;
 +}
 +
 +/**
-+ *  e1000_init_nvm_params_82542 - Init NVM func ptrs.
-+ *  @hw: pointer to the HW structure
++ * e1000_init_nvm_params_82540 - Init NVM func ptrs.
++ * @hw: pointer to the HW structure
 + *
-+ *  This is a function pointer entry point called by the api module.
++ * This is a function pointer entry point called by the api module.
 + **/
 +static s32
-+e1000_init_nvm_params_82542(struct e1000_hw *hw)
++e1000_init_nvm_params_82540(struct e1000_hw *hw)
 +{
 +	struct e1000_nvm_info *nvm = &hw->nvm;
 +	struct e1000_functions *func = &hw->func;
++	u32 eecd = E1000_READ_REG(hw, E1000_EECD);
 +
-+	DEBUGFUNC("e1000_init_nvm_params_82542");
++	DEBUGFUNC("e1000_init_nvm_params_82540");
 +
-+	nvm->address_bits       =  6;
-+	nvm->delay_usec         = 50;
-+	nvm->opcode_bits        =  3;
 +	nvm->type               = e1000_nvm_eeprom_microwire;
-+	nvm->word_size          = 64;
++	nvm->delay_usec         = 50;
++	nvm->opcode_bits        = 3;
++	switch (nvm->override) {
++	case e1000_nvm_override_microwire_large:
++		nvm->address_bits       = 8;
++		nvm->word_size          = 256;
++		break;
++	case e1000_nvm_override_microwire_small:
++		nvm->address_bits       = 6;
++		nvm->word_size          = 64;
++		break;
++	default:
++		nvm->address_bits       = eecd & E1000_EECD_SIZE ? 8 : 6;
++		nvm->word_size          = eecd & E1000_EECD_SIZE ? 256 : 64;
++		break;
++	}
 +
 +	/* Function Pointers */
-+	func->read_nvm          = e1000_read_nvm_microwire;
-+	func->release_nvm       = e1000_stop_nvm;
-+	func->write_nvm         = e1000_write_nvm_microwire;
-+	func->update_nvm        = e1000_update_nvm_checksum_generic;
-+	func->validate_nvm      = e1000_validate_nvm_checksum_generic;
++	func->acquire_nvm        = e1000_acquire_nvm_generic;
++	func->read_nvm           = e1000_read_nvm_microwire;
++	func->release_nvm        = e1000_release_nvm_generic;
++	func->update_nvm         = e1000_update_nvm_checksum_generic;
++	func->valid_led_default  = e1000_valid_led_default_generic;
++	func->validate_nvm       = e1000_validate_nvm_checksum_generic;
++	func->write_nvm          = e1000_write_nvm_microwire;
 +
 +	return E1000_SUCCESS;
 +}
 +
 +/**
-+ *  e1000_init_mac_params_82542 - Init MAC func ptrs.
-+ *  @hw: pointer to the HW structure
++ * e1000_init_mac_params_82540 - Init MAC func ptrs.
++ * @hw: pointer to the HW structure
 + *
-+ *  This is a function pointer entry point called by the api module.
++ * This is a function pointer entry point called by the api module.
 + **/
 +static s32
-+e1000_init_mac_params_82542(struct e1000_hw *hw)
++e1000_init_mac_params_82540(struct e1000_hw *hw)
 +{
 +	struct e1000_mac_info *mac = &hw->mac;
 +	struct e1000_functions *func = &hw->func;
 +	s32 ret_val = E1000_SUCCESS;
 +
-+	DEBUGFUNC("e1000_init_mac_params_82542");
++	DEBUGFUNC("e1000_init_mac_params_82540");
 +
 +	/* Set media type */
-+	hw->media_type = e1000_media_type_fiber;
++	switch (hw->device_id) {
++	case E1000_DEV_ID_82545EM_FIBER:
++	case E1000_DEV_ID_82545GM_FIBER:
++	case E1000_DEV_ID_82546EB_FIBER:
++	case E1000_DEV_ID_82546GB_FIBER:
++		hw->media_type = e1000_media_type_fiber;
++		break;
++	case E1000_DEV_ID_82545GM_SERDES:
++	case E1000_DEV_ID_82546GB_SERDES:
++		hw->media_type = e1000_media_type_internal_serdes;
++		break;
++	default:
++		hw->media_type = e1000_media_type_copper;
++		break;
++	}
 +
 +	/* Set mta register count */
 +	mac->mta_reg_count = 128;
@@ -162,17 +226,39 @@ index 0000000..adca182
 +	/* Function pointers */
 +
 +	/* bus type/speed/width */
-+	func->get_bus_info = e1000_get_bus_info_82542;
++	func->get_bus_info = e1000_get_bus_info_pci_generic;
 +	/* reset */
-+	func->reset_hw = e1000_reset_hw_82542;
++	func->reset_hw = e1000_reset_hw_82540;
 +	/* hw initialization */
-+	func->init_hw = e1000_init_hw_82542;
++	func->init_hw = e1000_init_hw_82540;
 +	/* link setup */
-+	func->setup_link = e1000_setup_link_82542;
-+	/* phy/fiber/serdes setup */
-+	func->setup_physical_interface = e1000_setup_fiber_serdes_link_generic;
++	func->setup_link = e1000_setup_link_generic;
++	/* physical interface setup */
++	func->setup_physical_interface =
++	        (hw->media_type == e1000_media_type_copper)
++	                ? e1000_setup_copper_link_82540
++	                : e1000_setup_fiber_serdes_link_82540;
 +	/* check for link */
-+	func->check_for_link = e1000_check_for_fiber_link_generic;
++	switch (hw->media_type) {
++	case e1000_media_type_copper:
++		func->check_for_link = e1000_check_for_copper_link_generic;
++		break;
++	case e1000_media_type_fiber:
++		func->check_for_link = e1000_check_for_fiber_link_generic;
++		break;
++	case e1000_media_type_internal_serdes:
++		func->check_for_link = e1000_check_for_serdes_link_generic;
++		break;
++	default:
++		ret_val = -E1000_ERR_CONFIG;
++		goto out;
++		break;
++	}
++	/* link info */
++	func->get_link_up_info =
++	        (hw->media_type == e1000_media_type_copper)
++	                ? e1000_get_speed_and_duplex_copper_generic
++	                : e1000_get_speed_and_duplex_fiber_serdes_generic;
 +	/* multicast address update */
 +	func->mc_addr_list_update = e1000_mc_addr_list_update_generic;
 +	/* writing VFTA */
@@ -181,397 +267,418 @@ index 0000000..adca182
 +	func->clear_vfta = e1000_clear_vfta_generic;
 +	/* setting MTA */
 +	func->mta_set = e1000_mta_set_generic;
++	/* setup LED */
++	func->setup_led = e1000_setup_led_generic;
++	/* cleanup LED */
++	func->cleanup_led = e1000_cleanup_led_generic;
 +	/* turn on/off LED */
-+	func->led_on = e1000_led_on_82542;
-+	func->led_off = e1000_led_off_82542;
-+	/* remove device */
-+	func->remove_device = e1000_remove_device_generic;
++	func->led_on = e1000_led_on_generic;
++	func->led_off = e1000_led_off_generic;
 +	/* clear hardware counters */
-+	func->clear_hw_cntrs = e1000_clear_hw_cntrs_82542;
-+	/* link info */
-+	func->get_link_up_info = e1000_get_speed_and_duplex_fiber_serdes_generic;
-+
-+	hw->dev_spec_size = sizeof(struct e1000_dev_spec_82542);
-+
-+	/* Device-specific structure allocation */
-+	ret_val = e1000_alloc_zeroed_dev_spec_struct(hw, hw->dev_spec_size);
-+
-+	return ret_val;
-+}
-+
-+/**
-+ *  e1000_init_function_pointers_82542 - Init func ptrs.
-+ *  @hw: pointer to the HW structure
-+ *
-+ *  The only function explicitly called by the api module to initialize
-+ *  all function pointers and parameters.
-+ **/
-+void
-+e1000_init_function_pointers_82542(struct e1000_hw *hw)
-+{
-+	DEBUGFUNC("e1000_init_function_pointers_82542");
-+
-+	hw->func.init_mac_params = e1000_init_mac_params_82542;
-+	hw->func.init_nvm_params = e1000_init_nvm_params_82542;
-+	hw->func.init_phy_params = e1000_init_phy_params_82542;
-+}
-+
-+/**
-+ *  e1000_get_bus_info_82542 - Obtain bus information for adapter
-+ *  @hw: pointer to the HW structure
-+ *
-+ *  This will obtain information about the HW bus for which the
-+ *  adaper is attached and stores it in the hw structure.  This is a function
-+ *  pointer entry point called by the api module.
-+ **/
-+static s32
-+e1000_get_bus_info_82542(struct e1000_hw *hw)
-+{
-+	DEBUGFUNC("e1000_get_bus_info_82542");
-+
-+	hw->bus.type = e1000_bus_type_pci;
-+	hw->bus.speed = e1000_bus_speed_unknown;
-+	hw->bus.width = e1000_bus_width_unknown;
-+
-+	return E1000_SUCCESS;
-+}
-+
-+/**
-+ *  e1000_reset_hw_82542 - Reset hardware
-+ *  @hw: pointer to the HW structure
-+ *
-+ *  This resets the hardware into a known state.  This is a
-+ *  function pointer entry point called by the api module.
-+ **/
-+static s32
-+e1000_reset_hw_82542(struct e1000_hw *hw)
-+{
-+	struct e1000_bus_info *bus = &hw->bus;
-+	s32 ret_val = E1000_SUCCESS;
-+	u32 ctrl, icr;
-+
-+	DEBUGFUNC("e1000_reset_hw_82542");
-+
-+	if (hw->revision_id == E1000_REVISION_2) {
-+		DEBUGOUT("Disabling MWI on 82542 rev 2\n");
-+		e1000_pci_clear_mwi(hw);
-+	}
-+
-+	DEBUGOUT("Masking off all interrupts\n");
-+	E1000_WRITE_REG(hw, E1000_IMC, 0xffffffff);
-+
-+	E1000_WRITE_REG(hw, E1000_RCTL, 0);
-+	E1000_WRITE_REG(hw, E1000_TCTL, E1000_TCTL_PSP);
-+	E1000_WRITE_FLUSH(hw);
-+
-+	/* Delay to allow any outstanding PCI transactions to complete before
-+	 * resetting the device
-+	 */
-+	msleep(10);
-+
-+	ctrl = E1000_READ_REG(hw, E1000_CTRL);
-+
-+	DEBUGOUT("Issuing a global reset to 82542/82543 MAC\n");
-+	E1000_WRITE_REG(hw, E1000_CTRL, ctrl | E1000_CTRL_RST);
-+
-+	e1000_reload_nvm(hw);
-+	msleep(2);
-+
-+	E1000_WRITE_REG(hw, E1000_IMC, 0xffffffff);
-+	icr = E1000_READ_REG(hw, E1000_ICR);
-+
-+	if (hw->revision_id == E1000_REVISION_2) {
-+		if (bus->pci_cmd_word & PCI_COMMAND_INVALIDATE)
-+			e1000_pci_set_mwi(hw);
-+	}
-+
-+	return ret_val;
-+}
-+
-+/**
-+ *  e1000_init_hw_82542 - Initialize hardware
-+ *  @hw: pointer to the HW structure
-+ *
-+ *  This inits the hardware readying it for operation.  This is a
-+ *  function pointer entry point called by the api module.
-+ **/
-+static s32
-+e1000_init_hw_82542(struct e1000_hw *hw)
-+{
-+	struct e1000_mac_info *mac = &hw->mac;
-+	struct e1000_dev_spec_82542 *dev_spec;
-+	s32 ret_val = E1000_SUCCESS;
-+	u32 ctrl;
-+	u16 i;
-+
-+	DEBUGFUNC("e1000_init_hw_82542");
-+
-+	dev_spec = (struct e1000_dev_spec_82542 *)hw->dev_spec;
-+
-+	/* Disabling VLAN filtering */
-+	E1000_WRITE_REG(hw, E1000_VET, 0);
-+	e1000_clear_vfta(hw);
-+
-+	/* For 82542 (rev 2.0), disable MWI and put the receiver into reset */
-+	if (hw->revision_id == E1000_REVISION_2) {
-+		DEBUGOUT("Disabling MWI on 82542 rev 2.0\n");
-+		e1000_pci_clear_mwi(hw);
-+		E1000_WRITE_REG(hw, E1000_RCTL, E1000_RCTL_RST);
-+		E1000_WRITE_FLUSH(hw);
-+		msleep(5);
-+	}
-+
-+	/* Setup the receive address. */
-+	e1000_init_rx_addrs_generic(hw, mac->rar_entry_count);
-+
-+	/* For 82542 (rev 2.0), take the receiver out of reset and enable MWI */
-+	if (hw->revision_id == E1000_REVISION_2) {
-+		E1000_WRITE_REG(hw, E1000_RCTL, 0);
-+		E1000_WRITE_FLUSH(hw);
-+		msleep(1);
-+		if (hw->bus.pci_cmd_word & PCI_COMMAND_INVALIDATE)
-+			e1000_pci_set_mwi(hw);
-+	}
-+
-+	/* Zero out the Multicast HASH table */
-+	DEBUGOUT("Zeroing the MTA\n");
-+	for (i = 0; i < mac->mta_reg_count; i++)
-+		E1000_WRITE_REG_ARRAY(hw, E1000_MTA, i, 0);
-+
-+	/* Set the PCI priority bit correctly in the CTRL register.  This
-+	 * determines if the adapter gives priority to receives, or if it
-+	 * gives equal priority to transmits and receives.
-+	 */
-+	if (dev_spec->dma_fairness) {
-+		ctrl = E1000_READ_REG(hw, E1000_CTRL);
-+		E1000_WRITE_REG(hw, E1000_CTRL, ctrl | E1000_CTRL_PRIOR);
-+	}
-+
-+	/* Setup link and flow control */
-+	ret_val = e1000_setup_link_82542(hw);
-+
-+	/* Clear all of the statistics registers (clear on read).  It is
-+	 * important that we do this after we have tried to establish link
-+	 * because the symbol error count will increment wildly if there
-+	 * is no link.
-+	 */
-+	e1000_clear_hw_cntrs_82542(hw);
-+
-+	return ret_val;
-+}
-+
-+/**
-+ *  e1000_setup_link_82542 - Setup flow control and link settings
-+ *  @hw: pointer to the HW structure
-+ *
-+ *  Determines which flow control settings to use, then configures flow
-+ *  control.  Calls the appropriate media-specific link configuration
-+ *  function.  Assuming the adapter has a valid link partner, a valid link
-+ *  should be established.  Assumes the hardware has previously been reset
-+ *  and the transmitter and receiver are not enabled.  This is a function
-+ *  pointer entry point called by the api module.
-+ **/
-+static s32
-+e1000_setup_link_82542(struct e1000_hw *hw)
-+{
-+	struct e1000_mac_info *mac = &hw->mac;
-+	struct e1000_functions *func = &hw->func;
-+	s32 ret_val = E1000_SUCCESS;
-+
-+	DEBUGFUNC("e1000_setup_link_82542");
-+
-+	ret_val = e1000_set_default_fc_generic(hw);
-+	if (ret_val)
-+		goto out;
-+
-+	mac->fc &= ~e1000_fc_tx_pause;
-+
-+	if (mac->report_tx_early == 1)
-+		mac->fc &= ~e1000_fc_rx_pause;
-+
-+	/* We want to save off the original Flow Control configuration just in
-+	 * case we get disconnected and then reconnected into a different hub
-+	 * or switch with different Flow Control capabilities.
-+	 */
-+	mac->original_fc = mac->fc;
-+
-+	DEBUGOUT1("After fix-ups FlowControl is now = %x\n", mac->fc);
-+
-+	/* Call the necessary subroutine to configure the link. */
-+	ret_val = func->setup_physical_interface(hw);
-+	if (ret_val)
-+		goto out;
-+
-+	/* Initialize the flow control address, type, and PAUSE timer
-+	 * registers to their default values.  This is done even if flow
-+	 * control is disabled, because it does not hurt anything to
-+	 * initialize these registers.
-+	 */
-+	DEBUGOUT("Initializing Flow Control address, type and timer regs\n");
-+
-+	E1000_WRITE_REG(hw, E1000_FCAL, FLOW_CONTROL_ADDRESS_LOW);
-+	E1000_WRITE_REG(hw, E1000_FCAH, FLOW_CONTROL_ADDRESS_HIGH);
-+	E1000_WRITE_REG(hw, E1000_FCT, FLOW_CONTROL_TYPE);
-+
-+	E1000_WRITE_REG(hw, E1000_FCTTV, mac->fc_pause_time);
-+
-+	ret_val = e1000_set_fc_watermarks_generic(hw);
++	func->clear_hw_cntrs = e1000_clear_hw_cntrs_82540;
 +
 +out:
 +	return ret_val;
 +}
 +
 +/**
-+ *  e1000_led_on_82542 - Turn on SW controllable LED
-+ *  @hw: pointer to the HW structure
++ * e1000_init_function_pointers_82540 - Init func ptrs.
++ * @hw: pointer to the HW structure
 + *
-+ *  Turns the SW defined LED on.  This is a function pointer entry point
-+ *  called by the api module.
++ * The only function explicitly called by the api module to initialize
++ * all function pointers and parameters.
 + **/
-+static s32
-+e1000_led_on_82542(struct e1000_hw *hw)
++void
++e1000_init_function_pointers_82540(struct e1000_hw *hw)
 +{
-+	u32 ctrl = E1000_READ_REG(hw, E1000_CTRL);
++	DEBUGFUNC("e1000_init_function_pointers_82540");
 +
-+	DEBUGFUNC("e1000_led_on_82542");
-+
-+	ctrl |= E1000_CTRL_SWDPIN0;
-+	ctrl |= E1000_CTRL_SWDPIO0;
-+	E1000_WRITE_REG(hw, E1000_CTRL, ctrl);
-+
-+	return E1000_SUCCESS;
++	hw->func.init_mac_params = e1000_init_mac_params_82540;
++	hw->func.init_nvm_params = e1000_init_nvm_params_82540;
++	hw->func.init_phy_params = e1000_init_phy_params_82540;
 +}
 +
 +/**
-+ *  e1000_led_off_82542 - Turn off SW controllable LED
++ *  e1000_reset_hw_82540 - Reset hardware
 + *  @hw: pointer to the HW structure
 + *
-+ *  Turns the SW defined LED off.  This is a function pointer entry point
-+ *  called by the api module.
++ *  This resets the hardware into a known state.  This is a
++ *  function pointer entry point called by the api module.
 + **/
 +static s32
-+e1000_led_off_82542(struct e1000_hw *hw)
++e1000_reset_hw_82540(struct e1000_hw *hw)
 +{
-+	u32 ctrl = E1000_READ_REG(hw, E1000_CTRL);
++	u32 ctrl, icr, manc;
++	s32 ret_val = E1000_SUCCESS;
 +
-+	DEBUGFUNC("e1000_led_off_82542");
++	DEBUGFUNC("e1000_reset_hw_82540");
 +
-+	ctrl &= ~E1000_CTRL_SWDPIN0;
-+	ctrl |= E1000_CTRL_SWDPIO0;
-+	E1000_WRITE_REG(hw, E1000_CTRL, ctrl);
++	DEBUGOUT("Masking off all interrupts\n");
++	E1000_WRITE_REG(hw, E1000_IMC, 0xFFFFFFFF);
 +
-+	return E1000_SUCCESS;
-+}
++	E1000_WRITE_REG(hw, E1000_RCTL, 0);
++	E1000_WRITE_REG(hw, E1000_TCTL, E1000_TCTL_PSP);
++	E1000_WRITE_FLUSH(hw);
 +
-+/**
-+ *  e1000_translate_register_82542 - Translate the proper regiser offset
-+ *  @reg: e1000 register to be read
-+ *
-+ *  Registers in 82542 are located in different offsets than other adapters
-+ *  even though they function in the same manner.  This function takes in
-+ *  the name of the register to read and returns the correct offset for
-+ *  82542 silicon.
-+ **/
-+u32
-+e1000_translate_register_82542(u32 reg)
-+{
-+	/* Some of the 82542 registers are located at different
-+	 * offsets than they are in newer adapters.
-+	 * Despite the difference in location, the registers
-+	 * function in the same manner.
++	/* Delay to allow any outstanding PCI transactions to complete
++	 * before resetting the device.
 +	 */
-+	switch (reg) {
-+	case E1000_RA:
-+		reg = 0x00040;
++	msleep(10);
++
++	ctrl = E1000_READ_REG(hw, E1000_CTRL);
++
++	DEBUGOUT("Issuing a global reset to 82540/82545/82546 MAC\n");
++	switch (hw->mac.type) {
++	case e1000_82545_rev_3:
++	case e1000_82546_rev_3:
++		E1000_WRITE_REG(hw, E1000_CTRL_DUP, ctrl | E1000_CTRL_RST);
 +		break;
-+	case E1000_RDTR:
-+		reg = 0x00108;
++	default:
++		/* These controllers can't ack the 64-bit write when
++		 * issuing the reset, so we use IO-mapping as a
++		 * workaround to issue the reset.
++		 */
++		E1000_WRITE_REG_IO(hw, E1000_CTRL, ctrl | E1000_CTRL_RST);
 +		break;
-+	case E1000_RDBAL:
-+		reg = 0x00110;
-+		break;
-+	case E1000_RDBAH:
-+		reg = 0x00114;
-+		break;
-+	case E1000_RDLEN:
-+		reg = 0x00118;
-+		break;
-+	case E1000_RDH:
-+		reg = 0x00120;
-+		break;
-+	case E1000_RDT:
-+		reg = 0x00128;
-+		break;
-+	case E1000_RDBAL1:
-+		reg = 0x00138;
-+		break;
-+	case E1000_RDBAH1:
-+		reg = 0x0013C;
-+		break;
-+	case E1000_RDLEN1:
-+		reg = 0x00140;
-+		break;
-+	case E1000_RDH1:
-+		reg = 0x00148;
-+		break;
-+	case E1000_RDT1:
-+		reg = 0x00150;
-+		break;
-+	case E1000_FCRTH:
-+		reg = 0x00160;
-+		break;
-+	case E1000_FCRTL:
-+		reg = 0x00168;
-+		break;
-+	case E1000_MTA:
-+		reg = 0x00200;
-+		break;
-+	case E1000_TDBAL:
-+		reg = 0x00420;
-+		break;
-+	case E1000_TDBAH:
-+		reg = 0x00424;
-+		break;
-+	case E1000_TDLEN:
-+		reg = 0x00428;
-+		break;
-+	case E1000_TDH:
-+		reg = 0x00430;
-+		break;
-+	case E1000_TDT:
-+		reg = 0x00438;
-+		break;
-+	case E1000_TIDV:
-+		reg = 0x00440;
-+		break;
-+	case E1000_VFTA:
-+		reg = 0x00600;
-+		break;
-+	case E1000_TDFH:
-+		reg = 0x08010;
-+		break;
-+	case E1000_TDFT:
-+		reg = 0x08018;
-+		break;
++	}
++
++	/* Wait for EEPROM reload */
++	msleep(5);
++
++	/* Disable HW ARPs on ASF enabled adapters */
++	manc = E1000_READ_REG(hw, E1000_MANC);
++	manc &= ~E1000_MANC_ARP_EN;
++	E1000_WRITE_REG(hw, E1000_MANC, manc);
++
++	E1000_WRITE_REG(hw, E1000_IMC, 0xffffffff);
++	icr = E1000_READ_REG(hw, E1000_ICR);
++
++	return ret_val;
++}
++
++/**
++ *  e1000_init_hw_82540 - Initialize hardware
++ *  @hw: pointer to the HW structure
++ *
++ *  This inits the hardware readying it for operation.  This is a
++ *  function pointer entry point called by the api module.
++ **/
++static s32
++e1000_init_hw_82540(struct e1000_hw *hw)
++{
++	struct e1000_mac_info *mac = &hw->mac;
++	u32 txdctl, ctrl_ext;
++	s32 ret_val = E1000_SUCCESS;
++	u16 i;
++
++	DEBUGFUNC("e1000_init_hw_82540");
++
++	/* Initialize identification LED */
++	ret_val = e1000_id_led_init_generic(hw);
++	if (ret_val) {
++		DEBUGOUT("Error initializing identification LED\n");
++		goto out;
++	}
++
++	/* Disabling VLAN filtering */
++	DEBUGOUT("Initializing the IEEE VLAN\n");
++	if (mac->type < e1000_82545_rev_3) {
++		E1000_WRITE_REG(hw, E1000_VET, 0);
++	}
++	e1000_clear_vfta(hw);
++
++	/* Setup the receive address. */
++	e1000_init_rx_addrs_generic(hw, mac->rar_entry_count);
++
++	/* Zero out the Multicast HASH table */
++	DEBUGOUT("Zeroing the MTA\n");
++	for (i = 0; i < mac->mta_reg_count; i++) {
++		E1000_WRITE_REG_ARRAY(hw, E1000_MTA, i, 0);
++		/* Avoid back to back register writes by adding the register
++		 * read (flush).  This is to protect against some strange
++		 * bridge configurations that may issue Memory Write Block
++		 * (MWB) to our register space.  The *_rev_3 hardware at
++		 * least doesn't respond correctly to every other dword in an
++		 * MWB to our register space.
++		 */
++		E1000_WRITE_FLUSH(hw);
++	}
++
++	if (mac->type < e1000_82545_rev_3)
++		e1000_pcix_mmrbc_workaround_generic(hw);
++
++	/* Setup link and flow control */
++	ret_val = e1000_setup_link(hw);
++
++	txdctl = E1000_READ_REG(hw, E1000_TXDCTL);
++	txdctl = (txdctl & ~E1000_TXDCTL_WTHRESH) |
++	         E1000_TXDCTL_FULL_TX_DESC_WB;
++	E1000_WRITE_REG(hw, E1000_TXDCTL, txdctl);
++
++	/* Clear all of the statistics registers (clear on read).  It is
++	 * important that we do this after we have tried to establish link
++	 * because the symbol error count will increment wildly if there
++	 * is no link.
++	 */
++	e1000_clear_hw_cntrs_82540(hw);
++
++	if ((hw->device_id == E1000_DEV_ID_82546GB_QUAD_COPPER) ||
++	    (hw->device_id == E1000_DEV_ID_82546GB_QUAD_COPPER_KSP3)) {
++		ctrl_ext = E1000_READ_REG(hw, E1000_CTRL_EXT);
++		/* Relaxed ordering must be disabled to avoid a parity
++		 * error crash in a PCI slot. */
++		ctrl_ext |= E1000_CTRL_EXT_RO_DIS;
++		E1000_WRITE_REG(hw, E1000_CTRL_EXT, ctrl_ext);
++	}
++
++out:
++	return ret_val;
++}
++
++/**
++ *  e1000_setup_copper_link_82540 - Configure copper link settings
++ *  @hw: pointer to the HW structure
++ *
++ *  Calls the appropriate function to configure the link for auto-neg or forced
++ *  speed and duplex.  Then we check for link, once link is established calls
++ *  to configure collision distance and flow control are called.  If link is
++ *  not established, we return -E1000_ERR_PHY (-2).  This is a function
++ *  pointer entry point called by the api module.
++ **/
++static s32
++e1000_setup_copper_link_82540(struct e1000_hw *hw)
++{
++	u32 ctrl;
++	s32 ret_val = E1000_SUCCESS;
++	u16 data;
++
++	DEBUGFUNC("e1000_setup_copper_link_82540");
++
++	ctrl = E1000_READ_REG(hw, E1000_CTRL);
++	ctrl |= E1000_CTRL_SLU;
++	ctrl &= ~(E1000_CTRL_FRCSPD | E1000_CTRL_FRCDPX);
++	E1000_WRITE_REG(hw, E1000_CTRL, ctrl);
++
++	ret_val = e1000_set_phy_mode_82540(hw);
++	if (ret_val)
++		goto out;
++
++	if (hw->mac.type == e1000_82545_rev_3 ||
++	    hw->mac.type == e1000_82546_rev_3) {
++		ret_val = e1000_read_phy_reg(hw, M88E1000_PHY_SPEC_CTRL, &data);
++		if (ret_val)
++			goto out;
++		data |= 0x00000008;
++		ret_val = e1000_write_phy_reg(hw, M88E1000_PHY_SPEC_CTRL, data);
++		if (ret_val)
++			goto out;
++	}
++
++	ret_val = e1000_copper_link_setup_m88(hw);
++	if (ret_val)
++		goto out;
++
++	ret_val = e1000_setup_copper_link_generic(hw);
++
++out:
++	return ret_val;
++}
++
++/**
++ *  e1000_setup_fiber_serdes_link_82540 - Setup link for fiber/serdes
++ *  @hw: pointer to the HW structure
++ *
++ *  Set the output amplitude to the value in the EEPROM and adjust the VCO
++ *  speed to improve Bit Error Rate (BER) performance.  Configures collision
++ *  distance and flow control for fiber and serdes links.  Upon successful
++ *  setup, poll for link.  This is a function pointer entry point called by
++ *  the api module.
++ **/
++static s32
++e1000_setup_fiber_serdes_link_82540(struct e1000_hw *hw)
++{
++	struct e1000_mac_info *mac = &hw->mac;
++	s32 ret_val = E1000_SUCCESS;
++
++	DEBUGFUNC("e1000_setup_fiber_serdes_link_82540");
++
++	switch (mac->type) {
++	case e1000_82545_rev_3:
++	case e1000_82546_rev_3:
++		if (hw->media_type == e1000_media_type_internal_serdes) {
++			/* If we're on serdes media, adjust the output
++			 * amplitude to value set in the EEPROM.
++			 */
++			ret_val = e1000_adjust_serdes_amplitude_82540(hw);
++			if (ret_val)
++				goto out;
++		}
++		/* Adjust VCO speed to improve BER performance */
++		ret_val = e1000_set_vco_speed_82540(hw);
++		if (ret_val)
++			goto out;
 +	default:
 +		break;
 +	}
 +
-+	return reg;
++	ret_val = e1000_setup_fiber_serdes_link_generic(hw);
++
++out:
++	return ret_val;
 +}
 +
 +/**
-+ *  e1000_clear_hw_cntrs_82542 - Clear device specific hardware counters
++ *  e1000_adjust_serdes_amplitude_82540 - Adjust amplitude based on EEPROM
++ *  @hw: pointer to the HW structure
++ *
++ *  Adjust the SERDES ouput amplitude based on the EEPROM settings.
++ **/
++static s32
++e1000_adjust_serdes_amplitude_82540(struct e1000_hw *hw)
++{
++	s32 ret_val = E1000_SUCCESS;
++	u16 nvm_data;
++
++	DEBUGFUNC("e1000_adjust_serdes_amplitude_82540");
++
++	ret_val = e1000_read_nvm(hw, NVM_SERDES_AMPLITUDE, 1, &nvm_data);
++	if (ret_val) {
++		goto out;
++	}
++
++	if (nvm_data != NVM_RESERVED_WORD) {
++		/* Adjust serdes output amplitude only. */
++		nvm_data &= NVM_SERDES_AMPLITUDE_MASK;
++		ret_val = e1000_write_phy_reg(hw,
++		                             M88E1000_PHY_EXT_CTRL,
++		                             nvm_data);
++		if (ret_val)
++			goto out;
++	}
++
++out:
++	return ret_val;
++}
++
++/**
++ *  e1000_set_vco_speed_82540 - Set VCO speed for better performance
++ *  @hw: pointer to the HW structure
++ *
++ *  Set the VCO speed to improve Bit Error Rate (BER) performance.
++ **/
++static s32
++e1000_set_vco_speed_82540(struct e1000_hw *hw)
++{
++	s32  ret_val = E1000_SUCCESS;
++	u16 default_page = 0;
++	u16 phy_data;
++
++	DEBUGFUNC("e1000_set_vco_speed_82540");
++
++	/* Set PHY register 30, page 5, bit 8 to 0 */
++
++	ret_val = e1000_read_phy_reg(hw,
++	                            M88E1000_PHY_PAGE_SELECT,
++	                            &default_page);
++	if (ret_val)
++		goto out;
++
++	ret_val = e1000_write_phy_reg(hw, M88E1000_PHY_PAGE_SELECT, 0x0005);
++	if (ret_val)
++		goto out;
++
++	ret_val = e1000_read_phy_reg(hw, M88E1000_PHY_GEN_CONTROL, &phy_data);
++	if (ret_val)
++		goto out;
++
++	phy_data &= ~M88E1000_PHY_VCO_REG_BIT8;
++	ret_val = e1000_write_phy_reg(hw, M88E1000_PHY_GEN_CONTROL, phy_data);
++	if (ret_val)
++		goto out;
++
++	/* Set PHY register 30, page 4, bit 11 to 1 */
++
++	ret_val = e1000_write_phy_reg(hw, M88E1000_PHY_PAGE_SELECT, 0x0004);
++	if (ret_val)
++		goto out;
++
++	ret_val = e1000_read_phy_reg(hw, M88E1000_PHY_GEN_CONTROL, &phy_data);
++	if (ret_val)
++		goto out;
++
++	phy_data |= M88E1000_PHY_VCO_REG_BIT11;
++	ret_val = e1000_write_phy_reg(hw, M88E1000_PHY_GEN_CONTROL, phy_data);
++	if (ret_val)
++		goto out;
++
++	ret_val = e1000_write_phy_reg(hw, M88E1000_PHY_PAGE_SELECT,
++	                              default_page);
++
++out:
++	return ret_val;
++}
++
++/**
++ *  e1000_set_phy_mode_82540 - Set PHY to class A mode
++ *  @hw: pointer to the HW structure
++ *
++ *  Sets the PHY to class A mode and assumes the following operations will
++ *  follow to enable the new class mode:
++ *    1.  Do a PHY soft reset.
++ *    2.  Restart auto-negotiation or force link.
++ **/
++static s32
++e1000_set_phy_mode_82540(struct e1000_hw *hw)
++{
++	struct e1000_phy_info *phy = &hw->phy;
++	s32 ret_val = E1000_SUCCESS;
++	u16 nvm_data;
++
++	DEBUGFUNC("e1000_set_phy_mode_82540");
++
++	if (hw->mac.type != e1000_82545_rev_3)
++		goto out;
++
++	ret_val = e1000_read_nvm(hw, NVM_PHY_CLASS_WORD, 1, &nvm_data);
++	if (ret_val) {
++		ret_val = -E1000_ERR_PHY;
++		goto out;
++	}
++
++	if ((nvm_data != NVM_RESERVED_WORD) && (nvm_data & NVM_PHY_CLASS_A)) {
++		ret_val = e1000_write_phy_reg(hw, M88E1000_PHY_PAGE_SELECT,
++					      0x000B);
++		if (ret_val) {
++			ret_val = -E1000_ERR_PHY;
++			goto out;
++		}
++		ret_val = e1000_write_phy_reg(hw,
++					     M88E1000_PHY_GEN_CONTROL,
++					     0x8104);
++		if (ret_val) {
++			ret_val = -E1000_ERR_PHY;
++			goto out;
++		}
++
++		phy->reset_disable = FALSE;
++	}
++
++out:
++	return ret_val;
++}
++
++/**
++ *  e1000_clear_hw_cntrs_82540 - Clear device specific hardware counters
 + *  @hw: pointer to the HW structure
 + *
 + *  Clears the hardware counters by reading the counter registers.
 + **/
 +static void
-+e1000_clear_hw_cntrs_82542(struct e1000_hw *hw)
++e1000_clear_hw_cntrs_82540(struct e1000_hw *hw)
 +{
 +	volatile u32 temp;
 +
-+	DEBUGFUNC("e1000_clear_hw_cntrs_82542");
++	DEBUGFUNC("e1000_clear_hw_cntrs_82540");
 +
 +	e1000_clear_hw_cntrs_base_generic(hw);
 +
@@ -587,4 +694,16 @@ index 0000000..adca182
 +	temp = E1000_READ_REG(hw, E1000_PTC511);
 +	temp = E1000_READ_REG(hw, E1000_PTC1023);
 +	temp = E1000_READ_REG(hw, E1000_PTC1522);
++
++	temp = E1000_READ_REG(hw, E1000_ALGNERRC);
++	temp = E1000_READ_REG(hw, E1000_RXERRC);
++	temp = E1000_READ_REG(hw, E1000_TNCRS);
++	temp = E1000_READ_REG(hw, E1000_CEXTERR);
++	temp = E1000_READ_REG(hw, E1000_TSCTC);
++	temp = E1000_READ_REG(hw, E1000_TSCTFC);
++
++	temp = E1000_READ_REG(hw, E1000_MGTPRC);
++	temp = E1000_READ_REG(hw, E1000_MGTPDC);
++	temp = E1000_READ_REG(hw, E1000_MGTPTC);
 +}
++
