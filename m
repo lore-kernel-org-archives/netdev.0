@@ -1,28 +1,36 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: [RESEND] [NET] fib_rules: Flush route cache after rule modifications
-Date: Thu, 29 Mar 2007 12:15:57 +0200
-Message-ID: <20070329101557.GB1772@ff.dom.local>
-References: <20070327133845.GM521@postel.suug.ch> <20070328111921.GA2703@ff.dom.local> <20070328154903.GO521@postel.suug.ch> <20070328.112417.08322226.davem@davemloft.net> <20070328193436.GP521@postel.suug.ch> <20070329100326.GA1772@ff.dom.local>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: another critical bug ?
+Date: Thu, 29 Mar 2007 12:58:37 +0200
+Message-ID: <460B9BDD.1020307@trash.net>
+References: <20070321175951.M73913@visp.net.lb>	<46026717.9060909@trash.net>	<20070322124533.M79867@visp.net.lb>	<46027FF2.6020001@trash.net> <20070322101224.3e6bb899@freekitty> <4602B96A.5000308@trash.net> <20070326182654.M24011@visp.net.lb> <460933EC.9060908@trash.net> <20070327155922.M1237@visp.net.lb> <46094472.1050807@trash.net> <20070328235517.M35794@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	muli@il.ibm.com
-To: Thomas Graf <tgraf@suug.ch>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	netdev@vger.kernel.org
+To: Denys <denys@visp.net.lb>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from poczta.o2.pl ([193.17.41.142]:55309 "EHLO poczta.o2.pl"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S934173AbXC2KLK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Mar 2007 06:11:10 -0400
-Content-Disposition: inline
-In-Reply-To: <20070329100326.GA1772@ff.dom.local>
+Received: from stinky.trash.net ([213.144.137.162]:40954 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030221AbXC2KwQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Mar 2007 06:52:16 -0400
+In-Reply-To: <20070328235517.M35794@visp.net.lb>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 29, 2007 at 12:03:26PM +0200, Jarek Poplawski wrote:
-...
-> rt_cache_flush - it's not for all (I know - we don't like
-> multipath - but untill it's here...)[...] 
+Denys wrote:
+> Tried on 2.6.21-rc5-git3, but preempt enabled
+> Same panic, same place seems
+> 
+> Mar 29 02:50:53 LINUX [  164.644102] BUG: unable to handle kernel paging 
+> request
+> Mar 29 02:50:53 LINUX at virtual address 0302014c
 
-Sorry, I forgot it's already not there...
+> Mar 29 02:50:53 LINUX [  164.648948] EIP is at netif_rx+0x12/0x115
+>[...]
+> Mar 29 02:50:53 LINUX [  164.650829]  [<c8a1f268>]
+> Mar 29 02:50:53 LINUX ri_tasklet+0xd5/0x1a1 [ifb]
 
-Jarek P.
+
+Its somehow related to ifb. Please send your .config and the commands
+you use to setup ifb.
