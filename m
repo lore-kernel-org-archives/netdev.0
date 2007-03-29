@@ -1,590 +1,92 @@
-From: Mark Mason <mmason@upwardaccess.com>
-Subject: [PATCH] add NAPI support to sb1250-mac.c (take 2)
-Date: Thu, 29 Mar 2007 12:42:40 -0700
-Message-ID: <20070329194240.GA11810@upwardaccess.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: [git patches] net driver fixes
+Date: Thu, 29 Mar 2007 16:10:34 -0400
+Message-ID: <20070329201034.GA2177@havoc.gtf.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org, jgarzik@pobox.com,
-	akpm@linux-foundation.org
+Cc: netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
+To: Andrew Morton <akpm@linux-foundation.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 70-89-178-179-BusName-Oregon.hfc.comcastbusiness.net ([70.89.178.179]:34846
-	"EHLO hawaii.site" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1030653AbXC2UB7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Mar 2007 16:01:59 -0400
+Received: from havoc.gtf.org ([69.61.125.42]:51257 "EHLO havoc.gtf.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1030666AbXC2UKf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Mar 2007 16:10:35 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Patch to add NAPI support to sb1250-mac.c (rev 2).  This patch differs from
-the last in that the NAPI support isn't marked as experimental, nor is it
-configurable (ie. once applied - NAPI is enabled all the time).  This was
-based on feedback from Ralf and others.
 
-Signed-off-by: Mark Mason <mason@broadcom.com>
+Please pull from 'upstream-linus' branch of
+master.kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git upstream-linus
 
----
- drivers/net/sb1250-mac.c |  278 ++++++++++++++++++++++++++++++----------------
- 1 files changed, 182 insertions(+), 96 deletions(-)
+to receive the following updates:
 
-diff --git a/drivers/net/sb1250-mac.c b/drivers/net/sb1250-mac.c
-index 103c317..f8df1ec 100644
---- a/drivers/net/sb1250-mac.c
-+++ b/drivers/net/sb1250-mac.c
-@@ -95,19 +95,28 @@ MODULE_PARM_DESC(full_duplex, "1-" __MODULE_STRING(MAX_UNITS));
- #endif
+ drivers/net/atl1/atl1_main.c         |   10 ++++++++++
+ drivers/net/netxen/netxen_nic_init.c |    3 ++-
+ drivers/net/sis190.c                 |    1 +
+ 3 files changed, 13 insertions(+), 1 deletions(-)
+
+Chris Snook (1):
+      atl1: save mac address on remove
+
+Francois Romieu (1):
+      sis190: new PHY support
+
+Linsys Contractor Adhiraj Joshi (1):
+      NetXen: Fix hardware access for ppc architecture.
+
+diff --git a/drivers/net/atl1/atl1_main.c b/drivers/net/atl1/atl1_main.c
+index dee3638..8606eac 100644
+--- a/drivers/net/atl1/atl1_main.c
++++ b/drivers/net/atl1/atl1_main.c
+@@ -2320,6 +2320,16 @@ static void __devexit atl1_remove(struct pci_dev *pdev)
+ 		return;
  
- #ifdef CONFIG_SBMAC_COALESCE
--static int int_pktcnt = 0;
--module_param(int_pktcnt, int, S_IRUGO);
--MODULE_PARM_DESC(int_pktcnt, "Packet count");
-+static int int_pktcnt_tx = 255;
-+module_param(int_pktcnt_tx, int, S_IRUGO);
-+MODULE_PARM_DESC(int_pktcnt_tx, "TX packet count");
- 
--static int int_timeout = 0;
--module_param(int_timeout, int, S_IRUGO);
--MODULE_PARM_DESC(int_timeout, "Timeout value");
-+static int int_timeout_tx = 255;
-+module_param(int_timeout_tx, int, S_IRUGO);
-+MODULE_PARM_DESC(int_timeout_tx, "TX timeout value");
+ 	adapter = netdev_priv(netdev);
 +
-+static int int_pktcnt_rx = 64;
-+module_param(int_pktcnt_rx, int, S_IRUGO);
-+MODULE_PARM_DESC(int_pktcnt_rx, "RX packet count");
-+
-+static int int_timeout_rx = 64;
-+module_param(int_timeout_rx, int, S_IRUGO);
-+MODULE_PARM_DESC(int_timeout_rx, "RX timeout value");
- #endif
- 
- #include <asm/sibyte/sb1250.h>
- #if defined(CONFIG_SIBYTE_BCM1x55) || defined(CONFIG_SIBYTE_BCM1x80)
- #include <asm/sibyte/bcm1480_regs.h>
- #include <asm/sibyte/bcm1480_int.h>
-+#define R_MAC_DMA_OODPKTLOST_RX	R_MAC_DMA_OODPKTLOST
- #elif defined(CONFIG_SIBYTE_SB1250) || defined(CONFIG_SIBYTE_BCM112X)
- #include <asm/sibyte/sb1250_regs.h>
- #include <asm/sibyte/sb1250_int.h>
-@@ -155,8 +164,8 @@ typedef enum { sbmac_state_uninit, sbmac_state_off, sbmac_state_on,
- 
- #define NUMCACHEBLKS(x) (((x)+SMP_CACHE_BYTES-1)/SMP_CACHE_BYTES)
- 
--#define SBMAC_MAX_TXDESCR	32
--#define SBMAC_MAX_RXDESCR	32
-+#define SBMAC_MAX_TXDESCR	256
-+#define SBMAC_MAX_RXDESCR	256
- 
- #define ETHER_ALIGN	2
- #define ETHER_ADDR_LEN	6
-@@ -185,10 +194,10 @@ typedef struct sbmacdma_s {
- 	 * associated with it.
- 	 */
- 
--	struct sbmac_softc *sbdma_eth;	        /* back pointer to associated MAC */
--	int              sbdma_channel;	/* channel number */
-+	struct sbmac_softc *sbdma_eth;	    /* back pointer to associated MAC */
-+	int              sbdma_channel;	    /* channel number */
- 	int		 sbdma_txdir;       /* direction (1=transmit) */
--	int		 sbdma_maxdescr;	/* total # of descriptors in ring */
-+	int		 sbdma_maxdescr;    /* total # of descriptors in ring */
- #ifdef CONFIG_SBMAC_COALESCE
- 	int		 sbdma_int_pktcnt;  /* # descriptors rx/tx before interrupt*/
- 	int		 sbdma_int_timeout; /* # usec rx/tx interrupt */
-@@ -197,13 +206,16 @@ typedef struct sbmacdma_s {
- 	volatile void __iomem *sbdma_config0;	/* DMA config register 0 */
- 	volatile void __iomem *sbdma_config1;	/* DMA config register 1 */
- 	volatile void __iomem *sbdma_dscrbase;	/* Descriptor base address */
--	volatile void __iomem *sbdma_dscrcnt;     /* Descriptor count register */
-+	volatile void __iomem *sbdma_dscrcnt;   /* Descriptor count register */
- 	volatile void __iomem *sbdma_curdscr;	/* current descriptor address */
-+	volatile void __iomem *sbdma_oodpktlost;/* pkt drop (rx only) */
-+
- 
- 	/*
- 	 * This stuff is for maintenance of the ring
- 	 */
- 
-+	sbdmadscr_t     *sbdma_dscrtable_unaligned;
- 	sbdmadscr_t     *sbdma_dscrtable;	/* base of descriptor table */
- 	sbdmadscr_t     *sbdma_dscrtable_end; /* end of descriptor table */
- 
-@@ -286,8 +298,8 @@ static int sbdma_add_rcvbuffer(sbmacdma_t *d,struct sk_buff *m);
- static int sbdma_add_txbuffer(sbmacdma_t *d,struct sk_buff *m);
- static void sbdma_emptyring(sbmacdma_t *d);
- static void sbdma_fillring(sbmacdma_t *d);
--static void sbdma_rx_process(struct sbmac_softc *sc,sbmacdma_t *d);
--static void sbdma_tx_process(struct sbmac_softc *sc,sbmacdma_t *d);
-+static int sbdma_rx_process(struct sbmac_softc *sc,sbmacdma_t *d, int work_to_do, int poll);
-+static void sbdma_tx_process(struct sbmac_softc *sc,sbmacdma_t *d, int poll);
- static int sbmac_initctx(struct sbmac_softc *s);
- static void sbmac_channel_start(struct sbmac_softc *s);
- static void sbmac_channel_stop(struct sbmac_softc *s);
-@@ -308,6 +320,8 @@ static struct net_device_stats *sbmac_get_stats(struct net_device *dev);
- static void sbmac_set_rx_mode(struct net_device *dev);
- static int sbmac_mii_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
- static int sbmac_close(struct net_device *dev);
-+static int sbmac_poll(struct net_device *poll_dev, int *budget);
-+
- static int sbmac_mii_poll(struct sbmac_softc *s,int noisy);
- static int sbmac_mii_probe(struct net_device *dev);
- 
-@@ -679,6 +693,10 @@ static void sbdma_initctx(sbmacdma_t *d,
- 			  int txrx,
- 			  int maxdescr)
- {
-+#ifdef CONFIG_SBMAC_COALESCE
-+	int int_pktcnt, int_timeout;
-+#endif
-+
- 	/*
- 	 * Save away interesting stuff in the structure
- 	 */
-@@ -728,6 +746,11 @@ static void sbdma_initctx(sbmacdma_t *d,
- 		s->sbm_base + R_MAC_DMA_REGISTER(txrx,chan,R_MAC_DMA_DSCR_CNT);
- 	d->sbdma_curdscr =
- 		s->sbm_base + R_MAC_DMA_REGISTER(txrx,chan,R_MAC_DMA_CUR_DSCRADDR);
-+	if (d->sbdma_txdir)
-+		d->sbdma_oodpktlost = NULL;
-+	else
-+		d->sbdma_oodpktlost =
-+			s->sbm_base + R_MAC_DMA_REGISTER(txrx,chan,R_MAC_DMA_OODPKTLOST_RX);
- 
- 	/*
- 	 * Allocate memory for the ring
-@@ -735,6 +758,7 @@ static void sbdma_initctx(sbmacdma_t *d,
- 
- 	d->sbdma_maxdescr = maxdescr;
- 
-+	d->sbdma_dscrtable_unaligned =
- 	d->sbdma_dscrtable = (sbdmadscr_t *)
- 		kmalloc((d->sbdma_maxdescr+1)*sizeof(sbdmadscr_t), GFP_KERNEL);
- 
-@@ -765,12 +789,14 @@ static void sbdma_initctx(sbmacdma_t *d,
- 	 * Setup Rx/Tx DMA coalescing defaults
- 	 */
- 
-+	int_pktcnt = (txrx == DMA_TX) ? int_pktcnt_tx : int_pktcnt_rx;
- 	if ( int_pktcnt ) {
- 		d->sbdma_int_pktcnt = int_pktcnt;
- 	} else {
- 		d->sbdma_int_pktcnt = 1;
- 	}
- 
-+	int_timeout = (txrx == DMA_TX) ? int_timeout_tx : int_timeout_rx;
- 	if ( int_timeout ) {
- 		d->sbdma_int_timeout = int_timeout;
- 	} else {
-@@ -1130,30 +1156,41 @@ static void sbdma_fillring(sbmacdma_t *d)
- 
- 
- /**********************************************************************
-- *  SBDMA_RX_PROCESS(sc,d)
-+ *  SBDMA_RX_PROCESS(sc,d,work_to_do,poll)
-  *
-  *  Process "completed" receive buffers on the specified DMA channel.
-- *  Note that this isn't really ideal for priority channels, since
-- *  it processes all of the packets on a given channel before
-- *  returning.
-  *
-  *  Input parameters:
-- *	   sc - softc structure
-- *  	   d - DMA channel context
-+ *            sc - softc structure
-+ *  	       d - DMA channel context
-+ *    work_to_do - no. of packets to process before enabling interrupt 
-+ *                 again (for NAPI)
-+ *          poll - 1: using polling (for NAPI)
-  *
-  *  Return value:
-  *  	   nothing
-  ********************************************************************* */
- 
--static void sbdma_rx_process(struct sbmac_softc *sc,sbmacdma_t *d)
-+static int sbdma_rx_process(struct sbmac_softc *sc,sbmacdma_t *d,
-+                             int work_to_do, int poll)
- {
- 	int curidx;
- 	int hwidx;
- 	sbdmadscr_t *dsc;
- 	struct sk_buff *sb;
- 	int len;
--
--	for (;;) {
-+	int work_done = 0;
-+	int dropped = 0;
-+
-+	prefetch(d);
-+  
-+again:
-+	/* Check if the HW dropped any frames */
-+	sc->sbm_stats.rx_fifo_errors
-+	    += __raw_readq(sc->sbm_rxdma.sbdma_oodpktlost) & 0xffff;
-+	__raw_writeq(0, sc->sbm_rxdma.sbdma_oodpktlost);
-+  	
-+	while (work_to_do-- > 0) {
- 		/*
- 		 * figure out where we are (as an index) and where
- 		 * the hardware is (also as an index)
-@@ -1165,7 +1202,12 @@ static void sbdma_rx_process(struct sbmac_softc *sc,sbmacdma_t *d)
- 		 * (sbdma_remptr) and the physical address (sbdma_curdscr CSR)
- 		 */
- 
--		curidx = d->sbdma_remptr - d->sbdma_dscrtable;
-+		dsc = d->sbdma_remptr;
-+		curidx = dsc - d->sbdma_dscrtable;
-+
-+		prefetch(dsc);
-+		prefetch(&d->sbdma_ctxtable[curidx]);
-+
- 		hwidx = (int) (((__raw_readq(d->sbdma_curdscr) & M_DMA_CURDSCR_ADDR) -
- 				d->sbdma_dscrtable_phys) / sizeof(sbdmadscr_t));
- 
-@@ -1176,13 +1218,12 @@ static void sbdma_rx_process(struct sbmac_softc *sc,sbmacdma_t *d)
- 		 */
- 
- 		if (curidx == hwidx)
--			break;
-+			goto done;
- 
- 		/*
- 		 * Otherwise, get the packet's sk_buff ptr back
- 		 */
- 
--		dsc = &(d->sbdma_dscrtable[curidx]);
- 		sb = d->sbdma_ctxtable[curidx];
- 		d->sbdma_ctxtable[curidx] = NULL;
- 
-@@ -1194,17 +1235,22 @@ static void sbdma_rx_process(struct sbmac_softc *sc,sbmacdma_t *d)
- 		 * receive ring.
- 		 */
- 
--		if (!(dsc->dscr_a & M_DMA_ETHRX_BAD)) {
--
-+		if (likely (!(dsc->dscr_a & M_DMA_ETHRX_BAD))) {
-+ 
- 			/*
- 			 * Add a new buffer to replace the old one.  If we fail
- 			 * to allocate a buffer, we're going to drop this
- 			 * packet and put it right back on the receive ring.
- 			 */
- 
--			if (sbdma_add_rcvbuffer(d,NULL) == -ENOBUFS) {
--				sc->sbm_stats.rx_dropped++;
-+			if (unlikely (sbdma_add_rcvbuffer(d,NULL) == 
-+				      -ENOBUFS)) {
-+ 				sc->sbm_stats.rx_dropped++;
- 				sbdma_add_rcvbuffer(d,sb); /* re-add old buffer */
-+				/* No point in continuing at the moment */
-+				printk(KERN_ERR "dropped packet (1)\n");
-+				d->sbdma_remptr = SBDMA_NEXTBUF(d,sbdma_remptr);
-+				goto done;
- 			} else {
- 				/*
- 				 * Set length into the packet
-@@ -1216,8 +1262,6 @@ static void sbdma_rx_process(struct sbmac_softc *sc,sbmacdma_t *d)
- 				 * receive ring.  Pass the buffer to
- 				 * the kernel
- 				 */
--				sc->sbm_stats.rx_bytes += len;
--				sc->sbm_stats.rx_packets++;
- 				sb->protocol = eth_type_trans(sb,d->sbdma_eth->sbm_dev);
- 				/* Check hw IPv4/TCP checksum if supported */
- 				if (sc->rx_hw_checksum == ENABLE) {
-@@ -1229,8 +1273,22 @@ static void sbdma_rx_process(struct sbmac_softc *sc,sbmacdma_t *d)
- 						sb->ip_summed = CHECKSUM_NONE;
- 					}
- 				}
--
--				netif_rx(sb);
-+				prefetch(sb->data);
-+				prefetch((const void *)(((char *)sb->data)+32));
-+				if (poll)
-+					dropped = netif_receive_skb(sb);
-+				else 
-+					dropped = netif_rx(sb);
-+
-+				if (dropped == NET_RX_DROP) {
-+					sc->sbm_stats.rx_dropped++;
-+					d->sbdma_remptr = SBDMA_NEXTBUF(d,sbdma_remptr);
-+					goto done;
-+				}
-+				else {
-+					sc->sbm_stats.rx_bytes += len;
-+					sc->sbm_stats.rx_packets++;
-+				}
- 			}
- 		} else {
- 			/*
-@@ -1247,12 +1305,16 @@ static void sbdma_rx_process(struct sbmac_softc *sc,sbmacdma_t *d)
- 		 */
- 
- 		d->sbdma_remptr = SBDMA_NEXTBUF(d,sbdma_remptr);
--
-+		work_done++;
-+	}
-+	if (!poll) {
-+		work_to_do = 32;
-+		goto again; /* collect fifo drop statistics again */
- 	}
-+done:
-+	return work_done;
- }
- 
--
--
- /**********************************************************************
-  *  SBDMA_TX_PROCESS(sc,d)
-  *
-@@ -1264,22 +1326,30 @@ static void sbdma_rx_process(struct sbmac_softc *sc,sbmacdma_t *d)
-  *
-  *  Input parameters:
-  *      sc - softc structure
-- *  	   d - DMA channel context
-+ *  	 d - DMA channel context
-+ *    poll - 1: using polling (for NAPI)
-  *
-  *  Return value:
-  *  	   nothing
-  ********************************************************************* */
- 
--static void sbdma_tx_process(struct sbmac_softc *sc,sbmacdma_t *d)
-+static void sbdma_tx_process(struct sbmac_softc *sc,sbmacdma_t *d, int poll)
- {
- 	int curidx;
- 	int hwidx;
- 	sbdmadscr_t *dsc;
- 	struct sk_buff *sb;
- 	unsigned long flags;
-+	int packets_handled = 0;
- 
- 	spin_lock_irqsave(&(sc->sbm_lock), flags);
- 
-+	if (d->sbdma_remptr == d->sbdma_addptr)
-+	  goto end_unlock;
-+
-+	hwidx = (int) (((__raw_readq(d->sbdma_curdscr) & M_DMA_CURDSCR_ADDR) -
-+			d->sbdma_dscrtable_phys) / sizeof(sbdmadscr_t));
-+ 
- 	for (;;) {
- 		/*
- 		 * figure out where we are (as an index) and where
-@@ -1293,8 +1363,6 @@ static void sbdma_tx_process(struct sbmac_softc *sc,sbmacdma_t *d)
- 		 */
- 
- 		curidx = d->sbdma_remptr - d->sbdma_dscrtable;
--		hwidx = (int) (((__raw_readq(d->sbdma_curdscr) & M_DMA_CURDSCR_ADDR) -
--				d->sbdma_dscrtable_phys) / sizeof(sbdmadscr_t));
- 
- 		/*
- 		 * If they're the same, that means we've processed all
-@@ -1332,6 +1400,8 @@ static void sbdma_tx_process(struct sbmac_softc *sc,sbmacdma_t *d)
- 
- 		d->sbdma_remptr = SBDMA_NEXTBUF(d,sbdma_remptr);
- 
-+		packets_handled++;
-+
- 	}
- 
- 	/*
-@@ -1340,8 +1410,10 @@ static void sbdma_tx_process(struct sbmac_softc *sc,sbmacdma_t *d)
- 	 * watermark on the transmit queue.
- 	 */
- 
--	netif_wake_queue(d->sbdma_eth->sbm_dev);
-+	if (packets_handled)
-+		netif_wake_queue(d->sbdma_eth->sbm_dev);
- 
-+end_unlock:
- 	spin_unlock_irqrestore(&(sc->sbm_lock), flags);
- 
- }
-@@ -1415,9 +1487,9 @@ static int sbmac_initctx(struct sbmac_softc *s)
- 
- static void sbdma_uninitctx(struct sbmacdma_s *d)
- {
--	if (d->sbdma_dscrtable) {
--		kfree(d->sbdma_dscrtable);
--		d->sbdma_dscrtable = NULL;
-+	if (d->sbdma_dscrtable_unaligned) {
-+		kfree(d->sbdma_dscrtable_unaligned);
-+		d->sbdma_dscrtable_unaligned = d->sbdma_dscrtable = NULL;
- 	}
- 
- 	if (d->sbdma_ctxtable) {
-@@ -1615,15 +1687,9 @@ static void sbmac_channel_start(struct sbmac_softc *s)
- #endif
- 
- #ifdef CONFIG_SBMAC_COALESCE
--	/*
--	 * Accept any TX interrupt and EOP count/timer RX interrupts on ch 0
--	 */
- 	__raw_writeq(((M_MAC_INT_EOP_COUNT | M_MAC_INT_EOP_TIMER) << S_MAC_TX_CH0) |
- 		       ((M_MAC_INT_EOP_COUNT | M_MAC_INT_EOP_TIMER) << S_MAC_RX_CH0), s->sbm_imr);
- #else
--	/*
--	 * Accept any kind of interrupt on TX and RX DMA channel 0
--	 */
- 	__raw_writeq((M_MAC_INT_CHANNEL << S_MAC_TX_CH0) |
- 		       (M_MAC_INT_CHANNEL << S_MAC_RX_CH0), s->sbm_imr);
- #endif
-@@ -2056,57 +2122,46 @@ static irqreturn_t sbmac_intr(int irq,void *dev_instance)
- 	uint64_t isr;
- 	int handled = 0;
- 
--	for (;;) {
--
--		/*
--		 * Read the ISR (this clears the bits in the real
--		 * register, except for counter addr)
--		 */
--
--		isr = __raw_readq(sc->sbm_isr) & ~M_MAC_COUNTER_ADDR;
-+	/*
-+	 * Read the ISR (this clears the bits in the real
-+	 * register, except for counter addr)
++	/* Some atl1 boards lack persistent storage for their MAC, and get it
++	 * from the BIOS during POST.  If we've been messing with the MAC
++	 * address, we need to save the permanent one.
 +	 */
- 
--		if (isr == 0)
--			break;
-+	isr = __raw_readq(sc->sbm_isr) & ~M_MAC_COUNTER_ADDR;
- 
--		handled = 1;
-+	if (isr == 0)
-+		return IRQ_RETVAL(0);
-+	handled = 1;
- 
--		/*
--		 * Transmits on channel 0
--		 */
-+	/*
-+	 * Transmits on channel 0
-+	 */
- 
--		if (isr & (M_MAC_INT_CHANNEL << S_MAC_TX_CH0)) {
--			sbdma_tx_process(sc,&(sc->sbm_txdma));
-+	if (isr & (M_MAC_INT_CHANNEL << S_MAC_TX_CH0)) {
-+		sbdma_tx_process(sc,&(sc->sbm_txdma), 0);
-+#ifdef CONFIG_NETPOLL_TRAP
-+		if (netpoll_trap()) {
-+			if (test_and_clear_bit(__LINK_STATE_XOFF, &dev->state)) 
-+				__netif_schedule(dev);
- 		}
-+#endif
-+	}
- 
--		/*
--		 * Receives on channel 0
--		 */
--
--		/*
--		 * It's important to test all the bits (or at least the
--		 * EOP_SEEN bit) when deciding to do the RX process
--		 * particularly when coalescing, to make sure we
--		 * take care of the following:
--		 *
--		 * If you have some packets waiting (have been received
--		 * but no interrupt) and get a TX interrupt before
--		 * the RX timer or counter expires, reading the ISR
--		 * above will clear the timer and counter, and you
--		 * won't get another interrupt until a packet shows
--		 * up to start the timer again.  Testing
--		 * EOP_SEEN here takes care of this case.
--		 * (EOP_SEEN is part of M_MAC_INT_CHANNEL << S_MAC_RX_CH0)
--		 */
--
--
--		if (isr & (M_MAC_INT_CHANNEL << S_MAC_RX_CH0)) {
--			sbdma_rx_process(sc,&(sc->sbm_rxdma));
-+	if (isr & (M_MAC_INT_CHANNEL << S_MAC_RX_CH0)) {
-+		if (netif_rx_schedule_prep(dev)) {
-+			__raw_writeq(0, sc->sbm_imr);
-+			__netif_rx_schedule(dev);
-+			/* Depend on the exit from poll to reenable intr */
-+		}
-+		else {
-+			/* may leave some packets behind */
-+			sbdma_rx_process(sc,&(sc->sbm_rxdma),
-+					 SBMAC_MAX_RXDESCR * 2, 0);
- 		}
- 	}
- 	return IRQ_RETVAL(handled);
- }
- 
--
- /**********************************************************************
-  *  SBMAC_START_TX(skb,dev)
-  *
-@@ -2236,8 +2291,6 @@ static void sbmac_setmulti(struct sbmac_softc *sc)
- 	}
- }
- 
--
--
- #if defined(SBMAC_ETH0_HWADDR) || defined(SBMAC_ETH1_HWADDR) || defined(SBMAC_ETH2_HWADDR) || defined(SBMAC_ETH3_HWADDR)
- /**********************************************************************
-  *  SBMAC_PARSE_XDIGIT(str)
-@@ -2400,9 +2453,10 @@ static int sbmac_init(struct net_device *dev, int idx)
- 	dev->do_ioctl           = sbmac_mii_ioctl;
- 	dev->tx_timeout         = sbmac_tx_timeout;
- 	dev->watchdog_timeo     = TX_TIMEOUT;
--
- 	dev->change_mtu         = sb1250_change_mtu;
--
-+	dev->poll               = sbmac_poll;
-+	dev->weight             = 16;
-+ 
- 	/* This is needed for PASS2 for Rx H/W checksum feature */
- 	sbmac_set_iphdr_offset(sc);
- 
-@@ -2799,7 +2853,39 @@ static int sbmac_close(struct net_device *dev)
- 	return 0;
- }
- 
-+static int sbmac_poll(struct net_device *dev, int *budget)
-+{
-+	int work_to_do;
-+	int work_done;
-+	struct sbmac_softc *sc = netdev_priv(dev);
-+
-+	work_to_do = min(*budget, dev->quota);
-+	work_done = sbdma_rx_process(sc, &(sc->sbm_rxdma), work_to_do, 1);
-+
-+	if (work_done > work_to_do)
-+		printk(KERN_ERR "%s exceeded work_to_do budget=%d quota=%d work-done=%d\n",
-+		       sc->sbm_dev->name, *budget, dev->quota, work_done);
- 
-+	sbdma_tx_process(sc, &(sc->sbm_txdma), 1);
-+
-+	*budget -= work_done;
-+	dev->quota -= work_done;
-+
-+	if (work_done < work_to_do) {
-+		netif_rx_complete(dev);
-+
-+#ifdef CONFIG_SBMAC_COALESCE
-+		__raw_writeq(((M_MAC_INT_EOP_COUNT | M_MAC_INT_EOP_TIMER) << S_MAC_TX_CH0) |
-+			     ((M_MAC_INT_EOP_COUNT | M_MAC_INT_EOP_TIMER) << S_MAC_RX_CH0), 
-+			     sc->sbm_imr);
-+#else
-+		__raw_writeq((M_MAC_INT_CHANNEL << S_MAC_TX_CH0) |
-+			     (M_MAC_INT_CHANNEL << S_MAC_RX_CH0), sc->sbm_imr);
-+#endif
++	if (memcmp(adapter->hw.mac_addr, adapter->hw.perm_mac_addr, ETH_ALEN)) {
++		memcpy(adapter->hw.mac_addr, adapter->hw.perm_mac_addr, ETH_ALEN);
++		atl1_set_mac_addr(&adapter->hw);
 +	}
 +
-+	return (work_done >= work_to_do);
-+}
+ 	iowrite16(0, adapter->hw.hw_addr + REG_GPHY_ENABLE);
+ 	unregister_netdev(netdev);
+ 	pci_iounmap(pdev, adapter->hw.hw_addr);
+diff --git a/drivers/net/netxen/netxen_nic_init.c b/drivers/net/netxen/netxen_nic_init.c
+index 229aa1c..eff965d 100644
+--- a/drivers/net/netxen/netxen_nic_init.c
++++ b/drivers/net/netxen/netxen_nic_init.c
+@@ -438,6 +438,7 @@ do_rom_fast_read_words(struct netxen_adapter *adapter, int addr,
  
- #if defined(SBMAC_ETH0_HWADDR) || defined(SBMAC_ETH1_HWADDR) || defined(SBMAC_ETH2_HWADDR) || defined(SBMAC_ETH3_HWADDR)
- static void
-@@ -2886,7 +2972,7 @@ sbmac_init_module(void)
+ 	for (addridx = addr; addridx < (addr + size); addridx += 4) {
+ 		ret = do_rom_fast_read(adapter, addridx, (int *)bytes);
++		*(int *)bytes = cpu_to_le32(*(int *)bytes);
+ 		if (ret != 0)
+ 			break;
+ 		bytes += 4;
+@@ -497,7 +498,7 @@ static inline int do_rom_fast_write_words(struct netxen_adapter *adapter,
+ 		int timeout = 0;
+ 		int data;
  
- 		/*
- 		 * The R_MAC_ETHERNET_ADDR register will be set to some nonzero
--		 * value for us by the firmware if we're going to use this MAC.
-+		 * value for us by the firmware if we are going to use this MAC.
- 		 * If we find a zero, skip this MAC.
- 		 */
+-		data = *(u32*)bytes;
++		data = le32_to_cpu((*(u32*)bytes));
  
--- 
-1.1.6.g9c88
-
+ 		ret = do_rom_fast_write(adapter, addridx, data);
+ 		if (ret < 0)
+diff --git a/drivers/net/sis190.c b/drivers/net/sis190.c
+index b08508b..34463ce 100644
+--- a/drivers/net/sis190.c
++++ b/drivers/net/sis190.c
+@@ -324,6 +324,7 @@ static struct mii_chip_info {
+ 	u32 feature;
+ } mii_chip_table[] = {
+ 	{ "Broadcom PHY BCM5461", { 0x0020, 0x60c0 }, LAN, F_PHY_BCM5461 },
++	{ "Broadcom PHY AC131",   { 0x0143, 0xbc70 }, LAN, 0 },
+ 	{ "Agere PHY ET1101B",    { 0x0282, 0xf010 }, LAN, 0 },
+ 	{ "Marvell PHY 88E1111",  { 0x0141, 0x0cc0 }, LAN, F_PHY_88E1111 },
+ 	{ "Realtek PHY RTL8201",  { 0x0000, 0x8200 }, LAN, 0 },
