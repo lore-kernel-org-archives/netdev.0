@@ -1,68 +1,82 @@
-From: David Acker <dacker@roinet.com>
-Subject: Re: [RFT] e100 driver on ARM
-Date: Thu, 29 Mar 2007 01:17:38 -0400
-Message-ID: <460B4BF2.1070803@roinet.com>
-References: <44FC0261.6010807@garzik.org> <20060904123123.GB1285@xi.wantstofly.org> <460AF480.7050609@intel.com>
+From: Benjamin Thery <benjamin.thery@bull.net>
+Subject: Re: L2 network namespace benchmarking
+Date: Thu, 29 Mar 2007 09:37:58 +0200
+Message-ID: <460B6CD6.4050103@bull.net>
+References: <460997C2.4030902@fr.ibm.com>	<m1ircmunre.fsf@ebiederm.dsl.xmission.com> <460A1F82.9090108@free.fr> <m1r6r9r3eo.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Lennert Buytenhek <buytenh@wantstofly.org>,
-	Jeff Garzik <jeff@garzik.org>,
-	Netdev List <netdev@vger.kernel.org>,
-	Linux Kernel <linux-kernel@vger.kernel.org>,
-	Andrew Morton <akpm@osdl.org>,
-	Russell King <rmk+lkml@arm.linux.org.uk>
-To: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Cc: Daniel Lezcano <daniel.lezcano@free.fr>,
+	Linux Containers <containers@lists.osdl.org>,
+	netdev@vger.kernel.org, Dmitry Mishin <dim@openvz.org>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-72-92-88-10.phlapa.fios.verizon.net ([72.92.88.10]:46486
-	"EHLO smtp.roinet.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753184AbXC2FXy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Mar 2007 01:23:54 -0400
-In-Reply-To: <460AF480.7050609@intel.com>
+Received: from ecfrec.frec.bull.fr ([129.183.4.8]:38688 "EHLO
+	ecfrec.frec.bull.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753298AbXC2HhM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Mar 2007 03:37:12 -0400
+In-Reply-To: <m1r6r9r3eo.fsf@ebiederm.dsl.xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Kok, Auke wrote:
-> Lennert Buytenhek wrote:
->> On Mon, Sep 04, 2006 at 06:39:29AM -0400, Jeff Garzik wrote:
->>
->>> 1) Does e100 driver work on ARM?
->>
->> FWIW, e100 seems to work okay for me on an intel ixp2400 (xscale based)
->> board, an ixp2850 (xscale based) board and an ixp2350 (xscale3 based)
->> board.  ixp2350 works both with hardware coherency turned on (cpu
->> snoops bus) and turned off (manual dma cache clean/invalidate as usual.)
->>
->> As for the other ARM platforms that I'm interested in / have hardware
->> for / maintain, the at91/ep93xx/pxa270 don't have PCI, and the other
->> two (iop32x/iop33x) I can't test because I don't have such systems with
->> e100 NICs, but I expect those would work, since they're both xscale
->> based like the ixp2400, and the ixp2400 works.
-> 
-> I just got an iop342 board dropped on my lap. Once it's running, I'll 
-> make sure to make this the first thing to test.
-> 
+Eric W. Biederman wrote:
+> Daniel Lezcano <daniel.lezcano@free.fr> writes:
 
-I have a pxa255 based system with PCI added to it.  The e100 would have 
-memory corruption in its receive buffers detected by slab debugging 
-unless I put in the patch to use the S-bit.
+[...]
 
-Here is a link to the patch posting:
-http://kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.20-rc3/2.6.20-rc3-mm1/broken-out/git-netdev-all.patch
-Search for e100.c.
+>> * When do you expect to have the network namespace into mainline ?
+> My current goal is to finish my rebase against 2.6.linus_lastest in
+> the next couple of days after having figured out how to deal with sysfs.
 
-http://www-gatago.com/linux/kernel/15457063.html - This discussion seems 
-to hit the issue.
+Great news!
+I also have some questions about this updated version:
 
-There appears to be a race on the cache line where the EL bit and the 
-next packet info live. In my case the hardware appeared to write to a 
-free packet.  The S-bit seems to make the hardware stop and spin on the 
-bit, while the EL bit seems to let the hardware try to use that packet.
+- Have you integrated the bug fixes and cleanups(*) Daniel wrote for
+your previous netns patchset (and the few glitches I reported too)?
 
-This race would occur less often when the receive buffer chain is always 
-refilled before the hardware can use them up.  On our 400 Mhz Xscale, we 
-can use up all 256 buffers if the PCI bus has another busy device on it. 
-  In our case it is an 802.11g miniPCI card and our software was routing 
-all ethernet packets to the wireless interface and vice versa while TCP 
-streams were running accross these connections.
--Ack
+(*) available in LXC8 patchset
+
+- Do you already have a public git repository set up for the rebase?
+- If it is private, any plan to make it public soon? (That would be great)
+
+> I have been doing reviewing in more code then I know what to do with,
+> and fighting some very strange bugs during the stabilization window.
+> Which has kept me from doing additional development.  Plus I have
+> had a cold.
+
+I hope you're getting better... and you'll be able to provide us the
+updated patchset very soon :)
+
+[...]
+
+> If I read the results right it took a 32bit machine from AMD with
+> a gigabit interface before you could measure a throughput difference.
+> That isn't shabby for a non-optimized code path.
+
+Indeed the throughput difference is not significant.
+This is very good to see that it stays constant when using the container.
+What I'm more worried about is the CPU load increase. But it seems
+we've identified some of the culprits.
+
+This afternoon I had a look at why the bridge setup isn't better than
+the route setup (section 2.3 and 2.4 of Daniel's report).
+
+In the bridge case, we encounter the same problems as the routes case.
+  The oprofile profile is the same: the most demanding routines are
+pskb_expand_head and csum_partial_copy_generic.
+pskb_expand_head() is also called by skb_cow(), but this time
+skb_cow() is called by netfilter's nf_bridge_copy_header().
+
+We can avoid this copy by removing option CONFIG_BRIDGE_NETFILTER.
+This copy is made even if netfilter is not used on the host.
+Maybe some optimizations can be made in netfilter's code to prevent this.
+
+
+Regards,
+Benjamin
+
+-- 
+B e n j a m i n   T h e r y  - BULL/DT/Open Software R&D
+
+    http://www.bull.com
+
