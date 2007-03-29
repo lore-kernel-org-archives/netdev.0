@@ -1,52 +1,62 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: RFC: Established connections hash function
-Date: Thu, 29 Mar 2007 13:18:01 +0400
-Message-ID: <20070329091801.GA17268@2ka.mipt.ru>
-References: <10189ABA61CF4D5AB3881F96C9CACE87@XEON> <p73lkhi6aj7.fsf@bingen.suse.de> <EED7DAB373CC4CB9B576EE1B1FBC9E32@XEON> <200703281129.43783.ak@suse.de> <20070328104505.GA18748@2ka.mipt.ru> <p73y7lh316u.fsf@bingen.suse.de> <20070328155047.4112fb47.dada1@cosmosbay.com> <20070328145255.GA7466@one.firstfloor.org>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: [RESEND] [NET] fib_rules: Flush route cache after rule modifications
+Date: Thu, 29 Mar 2007 12:03:26 +0200
+Message-ID: <20070329100326.GA1772@ff.dom.local>
+References: <20070327133845.GM521@postel.suug.ch> <20070328111921.GA2703@ff.dom.local> <20070328154903.GO521@postel.suug.ch> <20070328.112417.08322226.davem@davemloft.net> <20070328193436.GP521@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: Eric Dumazet <dada1@cosmosbay.com>, nikb@webmaster.com,
-	netdev@vger.kernel.org
-To: Andi Kleen <andi@firstfloor.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	muli@il.ibm.com
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:34168 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753316AbXC2JTd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Mar 2007 05:19:33 -0400
+Received: from mx2.go2.pl ([193.17.41.42]:45071 "EHLO poczta.o2.pl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750797AbXC2J6k (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Mar 2007 05:58:40 -0400
 Content-Disposition: inline
-In-Reply-To: <20070328145255.GA7466@one.firstfloor.org>
+In-Reply-To: <20070328193436.GP521@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 28, 2007 at 04:52:55PM +0200, Andi Kleen (andi@firstfloor.org) wrote:
-> > 3) We dont want to be 'totally secure'. We only want to raise the level, and eventually see if we have to spend more time on this next year(s). AFAIK we had two different reports from people being hit by the flaw of previous hash. Not really a critical issue.
+On Wed, Mar 28, 2007 at 09:34:36PM +0200, Thomas Graf wrote:
+> * David Miller <davem@davemloft.net> 2007-03-28 11:24
+> > Another idea Thomas and I tossed around was to have some kind of way
+> > for the rule insertion to indicate that the flush should be deferred
+> > and I kind of prefer that explicitness.
 > 
-> Yes, but you probably want a complexity of at least 10^5-10^6 to be any
-> useful. I don't think you will get that early in boot from random
-> unless you use hardware support.
+> Right, although I believe the flag should not only defer it
+> but not flush at all. This would be the optimal solution
+> for scripts which can do a ip ro flush cache as they know
+> what they're doing.
+> 
+> > By default it's better the flush immediately, because the old
+> > behavior is totally unexpected.  "I insert a rule and it dosn't
+> > show up?", nobody expects that.
+> 
+> It's a tough call, I'd favour immediate flush as well but I can
+> see the point in delaying by ip_rt_min_delay which can be
+> configured by the user. So people can choose to immediately flush
+> by setting it to 0. It would also be consistent to the flush
+> after route changes, the same delay is used there.
+> 
 
-What we have (had) right now is broken situation, and it must be fixed
-no matter what solution is used. Using more secure hash (and breaking
-Jenkins hash is a bit harder than XOR one, I say it not only from
-theoretical point of view looking into its operations) is a fix.
-It is possible that there is even better fix - there is always something
-better than one has right now, but right now problem must be fixed.
-And David (and Eric, and Nikolaos) fixed that problem in place.
-It can be solved (this time it will be called 'improved') further.
+Of course you both are right - but (...I've some doubts):
 
-> > 
-> > 4) We could add a hard limit on the length of one chain. Even if the bad guys discover a flaw, it wont hurt too much.
+- there is a difference between tools: route or ip route
+(as a successor) and ip rule; the latter is intended for
+advanced things, so users have to expect... (or RTFM!).
+ 
+- of course immediate flush seems to be more natural, but
+it isn't like that and rules (other rules) are changed,
+so maybe some transitory way is needed; these 2s look
+like a good compromise, but after looking into
+rt_cache_flush - it's not for all (I know - we don't like
+multipath - but untill it's here...) and these locks and
+timers aren't for free, too; so, IMHO, something like
+-n[oflush] option is a mustbe.
 
-Hard limit should not be used, since it is exactly what attacker wants -
-attacker can get all slots in th hash table and server will not respond
-to other clients at all, although it could, but much slower.
+- for consistency probably all ip "objects" should be
+verified: "to flush or not to flush" by default.
 
-> Or just use the trie?  It has other advantages too :)
-
-As an interested party I should not comment, but I can not resist - 
-yes, it is cool and can be done better :)
-
-> -Andi
-
--- 
-	Evgeniy Polyakov
+Cheers,
+Jarek P.
