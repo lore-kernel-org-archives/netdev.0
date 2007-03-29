@@ -1,44 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: DECnet routing rule resolution
-Date: Thu, 29 Mar 2007 11:43:06 -0700 (PDT)
-Message-ID: <20070329.114306.112621613.davem@davemloft.net>
-References: <1175185450.1636.124.camel@quoit.chygwyn.com>
+Subject: Re: [IFB]: Fix crash on input device removal
+Date: Thu, 29 Mar 2007 11:49:52 -0700 (PDT)
+Message-ID: <20070329.114952.85409594.davem@davemloft.net>
+References: <460BE9B8.8030901@trash.net>
+	<1175187135.4881.34.camel@localhost>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, netdev@vger.kernel.org, pcaulfie@redhat.com
-To: swhiteho@redhat.com
+Cc: kaber@trash.net, netdev@vger.kernel.org
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60421
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60394
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S934322AbXC2SnI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Mar 2007 14:43:08 -0400
-In-Reply-To: <1175185450.1636.124.camel@quoit.chygwyn.com>
+	by vger.kernel.org with ESMTP id S933084AbXC2St4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Mar 2007 14:49:56 -0400
+In-Reply-To: <1175187135.4881.34.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Steven Whitehouse <swhiteho@redhat.com>
-Date: Thu, 29 Mar 2007 17:24:10 +0100
+From: jamal <hadi@cyberus.ca>
+Date: Thu, 29 Mar 2007 12:52:15 -0400
 
-> One of the effects of the recent tidy up of the DECnet routing rules
-> code is that we are no longer able to see the difference between reading
-> a rule of type FR_ACT_UNREACHABLE returning -ENETUNREACH and simply
-> running out of rules to look at, which also returns the same thing.
+> On Thu, 2007-29-03 at 18:30 +0200, Patrick McHardy wrote:
+> > Fix the crash reported in the "another critical bug ?" thread,
+> > which turned out to be caused by a stale input_dev pointer.
+> > The patch applies to current -git and latest -stable.
+> > 
 > 
-> The DECnet code used to return -ESRCH if it ran out of rules in which
-> case the test in dn_route.c (which resulted in DECnet falling back to
-> endnode routing in the -ESRCH case) no longer works.
+> Mucho Gracias Patrick. Dont know if the ack is needed, but here it is.
 > 
-> So there seems to be several options to try and solve this: one is to
-> change the error return for running out of rules in
-> fib_rules.c:fib_rules_lookup() to something else (but then that has a
-> knock on effect in the ipv4 code). Another is to add the "not found"
-> error return as a parameter in the struct fib_rules_ops so that both
-> protocols can have their preferred error return. Both solutions seem a
-> bit messy, so I thought I'd ask for some guidance on this before writing
-> a patch,
+> Acked-by: Jamal Hadi Salim <hadi@cyberus.ca>
 
-I think we should be able to return -ESRCH (a more sensible error
-value if you ask me) across the board.
+It's clear that going to an ifindex for input_dev was inevitably,
+thanks for taking care of this Patrick!
 
-Thomas what do you think?
+Patch applied, and I'll push to -stable too.
