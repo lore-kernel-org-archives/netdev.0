@@ -1,45 +1,46 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [-MM GIT PULL] e1000: fixes, API rewrite, cleanups
-Date: Thu, 29 Mar 2007 17:13:43 -0700
-Message-ID: <20070329171343.69abfc13.akpm@linux-foundation.org>
-References: <20070329225815.C977F40951@ahkok-mobl.jf.intel.com>
-	<20070329165739.04003147.akpm@linux-foundation.org>
-	<460C53CC.3010207@intel.com>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: [Bonding-devel] quick help with bonding?
+Date: Thu, 29 Mar 2007 20:36:31 -0400
+Message-ID: <20070330003630.GA18319@gospo.rdu.redhat.com>
+References: <460BE5F0.7070606@nortel.com> <20070329181617.GA25770@gospo.rdu.redhat.com> <460C38EF.1080509@nortel.com> <4074.1175207458@death> <460C4EFE.6030505@nortel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: jesse.brandeburg@intel.com, john.ronciak@intel.com,
-	arjan@linux.intel.com, netdev@vger.kernel.org, jgarzik@pobox.com
-To: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jay Vosburgh <fubar@us.ibm.com>, netdev@vger.kernel.org,
+	bonding-devel@lists.sourceforge.net
+To: Chris Friesen <cfriesen@nortel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:43895 "EHLO smtp.osdl.org"
+Received: from mx1.redhat.com ([66.187.233.31]:34367 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934379AbXC3ANt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Mar 2007 20:13:49 -0400
-In-Reply-To: <460C53CC.3010207@intel.com>
+	id S934380AbXC3Agh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Mar 2007 20:36:37 -0400
+Content-Disposition: inline
+In-Reply-To: <460C4EFE.6030505@nortel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 29 Mar 2007 17:03:24 -0700
-"Kok, Auke" <auke-jan.h.kok@intel.com> wrote:
-
-> > The current davem diff is 2.2MB, touching 852 files.  Nobody breathe...
->
-
-Just for giggles:
-
-git-net:          852 files changed, 10326 insertions(+), 27095 deletions(-)
-git-netdev-all:   146 files changed, 39390 insertions(+), 3099 deletions(-)
-git-wireless:     201 files changed, 85602 insertions(+), 620 deletions(-)
-git-e1000:         32 files changed, 20117 insertions(+), 13478 deletions(-)
-git-ipwireless_cs: 11 files changed, 3619 insertions(+)
-
-for a total of nearly 8MB of networking diff.  They flower in the
-Spring, obviously.
-
+On Thu, Mar 29, 2007 at 05:42:54PM -0600, Chris Friesen wrote:
+> Jay Vosburgh wrote:
 > 
-> it looks about right. I'll try to verify tomorrow that it is OK.
+> > 	2.6.10 is pretty old, and there have been a number of fixes to
+> > the bonding ARP monitor since then, so it may be that it is simply
+> > misbehaving (presuming that you're running the 2.6.10 bonding driver).
+> > Are you in a position to test against a more recent kernel (and/or
+> > bonding driver)?  Does the miimon misbehave in a similar fashion?
+> 
+> Testing a more recent kernel is problematic.  A new bonding driver could 
+> be possible, assuming the code hasn't changed too much.
 
-I'll get what I have now compiling and booting and then I'll shove
-another -mm out the door.  Hopefully this evening..
+If you are looking for a decent source for patches you could consider
+downloading the latest source-rpm from RHEL4/CentOS4.  The bonding
+driver in those releases have been updated to much later code and I can
+tell you from personal experience they work pretty well.  You may need
+to do some backporting to get the latest arp-monitoring features, but
+let me know if you need a hand with that, I might have some laying
+around. ;)
+ 
+> I just did another experiment.  Normally we boot via eth4 (which then 
+> becomes part of the bond  with eth5 at init time).  If I boot via eth6 
+> instead, it appears as though the problem doesn't show up.
 
+Does eth6 use the same hardware/driver as eth4/5?  (Sorry if I missed
+that in the thread, but didn't see if you indicated that it did.)
