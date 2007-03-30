@@ -1,62 +1,73 @@
-From: Bill Davidsen <davidsen@tmr.com>
-Subject: Re: [2.6 patch] the scheduled eepro100 removal
-Date: Fri, 30 Mar 2007 12:40:29 -0400
-Message-ID: <460D3D7D.70702@tmr.com>
-References: <36D9DB17C6DE9E40B059440DB8D95F5202357DB0@orsmsx418.amr.corp.intel.com>
+From: =?iso-8859-1?Q?Bj=F6rn?= Steinbrink <B.Steinbrink@gmx.de>
+Subject: Re: [BUG] ethX misnumbered and one missing in mii-tool
+Date: Fri, 30 Mar 2007 18:43:11 +0200
+Message-ID: <20070330164311.GA10235@atjola.homenet>
+References: <1175203383.6219.8.camel@localhost> <4807377b0703292121o6eef3bf2l998878cfd677d821@mail.gmail.com> <1175240543.6219.10.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Roberto Nibali <ratz@drugphish.ch>,
-	Yinghai Lu <yinghai.lu@amd.com>,
-	Jeff Garzik <jgarzik@pobox.com>,
-	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
-	Adrian Bunk <bunk@stusta.de>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	saw@saw.sw.com.sg
-To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.tmr.com ([64.65.253.246]:53163 "EHLO gaimboi.tmr.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753932AbXC3Qmg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Mar 2007 12:42:36 -0400
-In-Reply-To: <36D9DB17C6DE9E40B059440DB8D95F5202357DB0@orsmsx418.amr.corp.intel.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jesse Brandeburg <jesse.brandeburg@gmail.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	NetDEV list <netdev@vger.kernel.org>
+To: Andrei Popa <andrei.popa@i-neo.ro>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753939AbXC3QnQ@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1175240543.6219.10.camel@localhost>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Brandeburg, Jesse wrote:
-> Roberto Nibali wrote:
->   
->>>> Sounds sane to me.  My overall opinion on eepro100 removal is that
->>>> we're not there yet.  Rare problem cases remain where e100 fails
->>>> but eepro100 works, and it's older drivers so its low priority for
->>>> everybody. 
->>>>
->>>> Needs to happen, though...
->>>>         
->>> It seems that several Tyan Opteron base system that were using IPMI
->>> add on card.  the IPMI card share intel 100Mhz nic onboard. you need
->>> to use eepro100 instead of e100 otherwise the e100 will shutdown OOB
->>> (out of Band) connection for IPMI when shut down the OS.
->>>       
->> I find it hard to believe that something as common as IPMI in
->> conjunction with the IPMI technology wasn't tested in Intel's lab.
->> From my experience with Intel Server boards, onboard IPMI (all offered
->> versions) and e100/e1000 NICs, I've never ever experienced any
->> problems operating the BMC over the NIC. Also, I don't quite
->> understand you point about the "IPMI card sharing the 100Mbit/s NIC"
->> onboard? What exactly is shared?
->>     
->
-> It's a legit problem, but only with this *one* system.
->
->   
-Of course the eepro100 driver is not taking a lot of maintenance either, 
-removing it is not critical as long as there is a legitimate need to 
-support old hardware.
+On 2007.03.30 10:42:23 +0300, Andrei Popa wrote:
+> On Thu, 2007-03-29 at 21:21 -0700, Jesse Brandeburg wrote:
+> with kernel 2.6.20.4(and build in e1000 driver):
+> zeus ~ # uname -a
+> Linux zeus 2.6.20.4-zeus3 #3 SMP Wed Mar 28 13:44:50 EEST 2007 x86_64
+> Intel(R) Xeon(TM) CPU 3.00GHz GenuineIntel GNU/Linux
+>=20
+> the devices are recognized ok as eth0,eth1.eth2,eth3,eth4 but misnume=
+red
+> and one missing int mii-tool/ethtool
+>=20
+> Intel(R) PRO/1000 Network Driver - version 7.3.15-k2-NAPI
+> Copyright (c) 1999-2006 Intel Corporation.
+> ACPI: PCI Interrupt 0000:03:00.0[A] -> GSI 16 (level, low) -> IRQ 16
+> PCI: Setting latency timer of device 0000:03:00.0 to 64
+> e1000: 0000:03:00.0: e1000_probe: (PCI Express:2.5Gb/s:Width x4)
+> 00:15:17:21:0c:08
+> e1000: eth0: e1000_probe: Intel(R) PRO/1000 Network Connection
+> ACPI: PCI Interrupt 0000:03:00.1[B] -> GSI 17 (level, low) -> IRQ 17
+> PCI: Setting latency timer of device 0000:03:00.1 to 64
+> e1000: 0000:03:00.1: e1000_probe: (PCI Express:2.5Gb/s:Width x4)
+> 00:15:17:21:0c:09
+> e1000: eth1: e1000_probe: Intel(R) PRO/1000 Network Connection
+> ACPI: PCI Interrupt 0000:05:00.0[A] -> GSI 18 (level, low) -> IRQ 18
+> PCI: Setting latency timer of device 0000:05:00.0 to 64
+> e1000: 0000:05:00.0: e1000_probe: (PCI Express:2.5Gb/s:Width x4)
+> 00:15:17:17:b7:68
+> e1000: eth2: e1000_probe: Intel(R) PRO/1000 Network Connection
+> ACPI: PCI Interrupt 0000:05:00.1[B] -> GSI 19 (level, low) -> IRQ 19
+> PCI: Setting latency timer of device 0000:05:00.1 to 64
+> e1000: 0000:05:00.1: e1000_probe: (PCI Express:2.5Gb/s:Width x4)
+> 00:15:17:17:b7:69
+> e1000: eth3: e1000_probe: Intel(R) PRO/1000 Network Connection
+> ACPI: PCI Interrupt 0000:06:02.0[A] -> GSI 27 (level, low) -> IRQ 27
+> e1000: 0000:06:02.0: e1000_probe: (PCI-X:100MHz:64-bit)
+> 00:0e:0c:ba:a8:50
+> e1000: eth4: e1000_probe: Intel(R) PRO/1000 Network Connection
+>=20
+> zeus ~ # mii-tool
+> eth2: no link
+> eth5: negotiated 100baseTx-FD, link ok
+> eth6: no link
+> eth7: no link
+> zeus ~ #
+>=20
+> ethtool shows the same
 
--- 
-bill davidsen <davidsen@tmr.com>
-  CTO TMR Associates, Inc
-  Doing interesting things with small computers since 1979
+The "misnaming" might be due to udev renaming the devices. Here, on
+debian, there are automatically created static rules for network device=
+s
+in /etc/udev/rules.d/z25_persistent-net.rules, which you might want to
+adjust to meet your expectations.
 
+HTH
+Bj=F6rn
