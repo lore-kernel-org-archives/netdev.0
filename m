@@ -1,48 +1,164 @@
-From: "Predrag Hodoba" <predrag.hodoba@gmail.com>
-Subject: Re: [PATCH] NET: Add TCP connection abort IOCTL
-Date: Fri, 30 Mar 2007 17:10:38 +0200
-Message-ID: <46d726f90703300810q619e8bbmb5b15a58ff37bbed@mail.gmail.com>
-References: <20070327214754.GA11677@dag-work>
-	 <20070327.153025.45876618.davem@davemloft.net>
-	 <46d726f90703290756k1894b0aal8df85d46d8c2a25e@mail.gmail.com>
-	 <20070329.114139.55510589.davem@davemloft.net>
-	 <460C6348.5030904@osdl.org>
+From: "Dmitry Torokhov" <dmitry.torokhov@gmail.com>
+Subject: Re: [RFC] rfkill - Add support for input key to control wireless radio
+Date: Fri, 30 Mar 2007 11:28:10 -0400
+Message-ID: <d120d5000703300828k5baf3c7x3716148b2e08d17f@mail.gmail.com>
+References: <200612031936.34343.IvDoorn@gmail.com>
+	 <200701311220.51971.IvDoorn@gmail.com>
+	 <200703300127.40849.dtor@insightbb.com>
+	 <200703301659.48047.IvDoorn@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: dagriego@gmail.com, netdev@vger.kernel.org
-To: "Stephen Hemminger" <shemminger@osdl.org>,
-	"David Miller" <davem@davemloft.net>
+Cc: "Stephen Hemminger" <shemminger@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	"John Linville" <linville@tuxdriver.com>,
+	"Jiri Benc" <jbenc@suse.cz>,
+	"Lennart Poettering" <lennart@poettering.net>,
+	"Johannes Berg" <johannes@sipsolutions.net>,
+	"Larry Finger" <Larry.Finger@lwfinger.net>
+To: "Ivo van Doorn" <ivdoorn@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.183]:58726 "EHLO
-	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753348AbXC3PKj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Mar 2007 11:10:39 -0400
-Received: by py-out-1112.google.com with SMTP id a29so243400pyi
-        for <netdev@vger.kernel.org>; Fri, 30 Mar 2007 08:10:39 -0700 (PDT)
-In-Reply-To: <460C6348.5030904@osdl.org>
+Received: from wr-out-0506.google.com ([64.233.184.238]:21066 "EHLO
+	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751998AbXC3P2M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Mar 2007 11:28:12 -0400
+Received: by wr-out-0506.google.com with SMTP id 76so697113wra
+        for <netdev@vger.kernel.org>; Fri, 30 Mar 2007 08:28:12 -0700 (PDT)
+In-Reply-To: <200703301659.48047.IvDoorn@gmail.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 30/03/07, Stephen Hemminger <shemminger@osdl.org> wrote:
-> David Miller wrote:
+On 3/30/07, Ivo van Doorn <ivdoorn@gmail.com> wrote:
+> Hi,
+>
+> > I am very sorry for taking so much time to respond but finally I went
+> > through the patch and I still have the same objection as before -
+> > it mixes two logically (and often physically) separated objects into
+> > a single entity. I think that RF switch and button should be separate
+> > entities, created and destroyed independently of each other. This way
+> > everything handled uniformly by the kernel.
+>
+> ok. Sounds good as well. :)
+>
+> > I attempted to rework the rfkill core supprt and simplify it and
+> > came up with the patch below. Network card drivers that are able
+> > to control state of their RF transmitters allocate and register
+> > rfkill structures. Every rfkill structure belongs to one of
+> > RF classes (WLAN, Bluetooth or IRDA) and exports its name, type,
+> > state and "user_claim" through sysfs.
 > >
-> > Something being in the CGL specification is to me exactly a great
-> > reason NOT to add it.  That specification is so full of garbage it's
-> > unbelievable.
-> >
-> > Thanks, you've given me one more reason not to even remotely consider
-> > adding this feature.
-> >
-> Agreed, CGL is a vendor driven group that has always wanted to replicate
-> proprietary misfeatures onto Linux.  There is a real requirement to
-> provide high availability but there should be no requirement to implement
-> the solution in the same crap way as legacy Unix.
+> > There is also an input handler that catces KEY_WLAN and KEY_BLUETOOTH
+> > events passing through input system and toggles state of all RF
+> > switches of appropriate type registered with rfkill system (unless
+> > a switch was claimed by userspace in which case it is left alone).
+> > I think this provides basic functionality that most of the users need
+> > and any advanced control will have to be done from userspace.
+>
+> Shouldn't a KEY_IRDA be added as well?
+> It isn't currently defined in input.h yet, but perhaps it actually should?
+> Or is IRDA treated differently for a specific reason?
 
-OK, let's put aside CGL and legacy Unices.
+Do we actually have cards with IRDA switches? We are kind of tight in
+input KEY_ namespace so I am hesitant to add defines before there
+actual users.
 
-Still, I don't see how the case I mentioned can easily be handled.
-(The case being - effective clean up of all affected client TCP
-connections, following failover of the server IP address from active
-to passive node in a highly available cluster).
+>
+> > In a followup patch there is a skeleton code for creating polled
+> > input devices. For cards that have button physically connected
+> > their drivers will have to register a separate input device and
+> > let either input handler or userspace application take care of
+> > switching RF state appropriately.
+> >
+> > My only concern is where rfkill code should live. Since it is no
+> > longer dependent on input core (embedded systems might disable
+> > rfkill-input and use bare rfkill and control state from userspace)
+> > it does not need to live in drivers/input.
+>
+> How about:
+> rfkill -> drivers/misc
+
+Not in net?
+
+> rfkill_input -> input/misc
+
+I can go both ways on this one as it crosses line between input and
+rfkill. I think from user/Kconfig point of view it is better to keep
+it together with rfkill: user woudl select rfkill option and right
+then and there decide if he wants to give the kernel ability to
+automatically control RF switche
+
+> input_polldev -> lib/ (perhaps small namechange to rfkill_polldev?)
+
+No, I do not want to change name - I have bunch of drivers that can me
+converted to use this skeleton - wistron, aaedkbd, hdaps, ams,
+cobalt_btns. It is also pure input-related function so it is the only
+module that definitely belongs to drivers/input/misc.
+
+> It would scatter the components a bit, but since each of those modules
+> has its own specific task this would make the most sense.
+> And by setting the depends and select fields for the menu entries correctly
+> it shouldn't be too big of a problem.
+>
+> > Please let me know what you think.
+>
+> Just to get it straight on how these 3 modules would cooperate (before I start mixing things up) ;)
+>
+>  - rfkill
+>        - Drivers register to the rfkill module, rfkill
+>        - Provides the sysfs interface
+>        - Drivers that don't require polling should report the events to this module
+
+Not quite. Drivers that have buttons do not require polling still
+should create an input device and register it with input layer. Except
+that with interrupt-driven devices there is not much you can stub out
+so you just have to do input_allocate_device/input_register_device.
+
+>
+>  - rfkill_input
+>        - Provides input device visible to userspace
+>
+
+No, rfkill-input is not an input device but input handler (or input
+interface). It routes input events from buttons into switches (see
+below).
+
+>  - input_polldev
+>        - Handlers polling, where the driver should check what the previous state was and the driver
+>          should send the event to rfkill.
+
+This is the input device visible to userspace and kernel. It polls
+state of the button and sends KEY_WLAN/KEY_BLUETOOTH events through
+input layer. They get distributed through various input handlers such
+as evdev and rfkill-input. Evdev provides route for events to
+userspace where application can listen to events and then toggle RF
+switches according to the current policy via
+/sys/class/rfkill/rfkillXXX/state. Rfkill-input provides in-kernel
+route for events into rfkill system. If rfkill-input is loaded
+switches that are not claimed by userspace will be toggled
+automatically.
+
+Does this make sense?
+
+Note that we don't start polling the state of button until tare are
+users of that input device. If rfkill-input is loaded then there is a
+user right away. Otherwise we wait for userspace to open evdev node.
+
+>
+> personally I would prefer enforcing drivers to call
+> allocate()
+> register()
+> unregister()
+> free()
+>
+> Especially with unregister() doing the same steps as free() (put_device)
+> might be somwhat confusing. But might be just me. ;)
+>
+
+I know but for refcounted objects you can't really tell when they will
+actually be freed. It depends when their last user drops off.
+
+BTW, I can't either as I don't have any laptops with RF swtches ;)
+
+-- 
+Dmitry
