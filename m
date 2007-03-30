@@ -1,65 +1,48 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: Re: [1/5] 2.6.21-rc5: known regressions
-Date: Fri, 30 Mar 2007 20:04:44 +0200
-Message-ID: <20070330180444.GH14134@stusta.de>
-References: <Pine.LNX.4.64.0703251559560.6730@woody.linux-foundation.org> <20070327015929.GY16477@stusta.de> <460AB9E8.8070803@intel.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH] NET: Add TCP connection abort IOCTL
+Date: Fri, 30 Mar 2007 11:33:32 -0700
+Message-ID: <460D57FC.6080007@linux-foundation.org>
+References: <20070327214754.GA11677@dag-work>	 <20070327.153025.45876618.davem@davemloft.net>	 <46d726f90703290756k1894b0aal8df85d46d8c2a25e@mail.gmail.com>	 <20070329.114139.55510589.davem@davemloft.net>	 <460C6348.5030904@osdl.org> <46d726f90703300810q619e8bbmb5b15a58ff37bbed@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Ingo Molnar <mingo@elte.hu>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Jesse Brandeburg <jesse.brandeburg@gmail.com>,
-	e1000-devel@lists.sourceforge.net, jgarzik@pobox.com,
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, dagriego@gmail.com,
 	netdev@vger.kernel.org
-To: "Kok, Auke" <auke-jan.h.kok@intel.com>
+To: Predrag Hodoba <predrag.hodoba@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout.stusta.mhn.de ([141.84.69.5]:38730 "EHLO
-	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752226AbXC3SEp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Mar 2007 14:04:45 -0400
-Content-Disposition: inline
-In-Reply-To: <460AB9E8.8070803@intel.com>
+Received: from smtp.osdl.org ([65.172.181.24]:46794 "EHLO smtp.osdl.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751286AbXC3Sdh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 Mar 2007 14:33:37 -0400
+In-Reply-To: <46d726f90703300810q619e8bbmb5b15a58ff37bbed@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 28, 2007 at 11:54:32AM -0700, Kok, Auke wrote:
-> Adrian Bunk wrote:
-> >Subject    : e1000 resume weirdness
-> >References : http://lkml.org/lkml/2007/3/26/91
-> >Submitter  : Ingo Molnar <mingo@elte.hu>
-> >Handled-By : Jesse Brandeburg <jesse.brandeburg@gmail.com>
-> >             Auke Kok <auke-jan.h.kok@intel.com>
-> >Status     : problem is being debugged
-> 
-> The issue comes from a corner case and the underlying problem is that e1000 
-> isn't stopping tx properly. We have a fix for this pending in our tree that 
-> I'll push upstream for 2.6.22 to Jeff, but I don't think this should be a 
-> blocker and it's probably is not a regression at all, the gap has always 
-> been present.
-> 
-> on a side note, this is probably fixed easily by turning the adapters 
-> detect_tx_hung flag off in e1000_down, so if someone spots this reoccurring 
-> somewhat regularly, please contact me so we can debug it. I myself have a 
-> system suspend/resuming in circles for an hour now with traffic flying 
-> across without a single hit on it....
-> 
-> Adrian, you probably want to drop this issue from your list.
-
-Thanks for the update, dropped as non-regression.
-
-> Cheers,
-> 
-> 
-> Auke
-
-cu
-Adrian
-
--- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
+Predrag Hodoba wrote:
+> On 30/03/07, Stephen Hemminger <shemminger@osdl.org> wrote:
+>> David Miller wrote:
+>> >
+>> > Something being in the CGL specification is to me exactly a great
+>> > reason NOT to add it.  That specification is so full of garbage it's
+>> > unbelievable.
+>> >
+>> > Thanks, you've given me one more reason not to even remotely consider
+>> > adding this feature.
+>> >
+>> Agreed, CGL is a vendor driven group that has always wanted to replicate
+>> proprietary misfeatures onto Linux.  There is a real requirement to
+>> provide high availability but there should be no requirement to 
+>> implement
+>> the solution in the same crap way as legacy Unix.
+>
+> OK, let's put aside CGL and legacy Unices.
+>
+> Still, I don't see how the case I mentioned can easily be handled.
+> (The case being - effective clean up of all affected client TCP
+> connections, following failover of the server IP address from active
+> to passive node in a highly available cluster).
+Why clean them up? The client connections will timeout and they can
+reconnect. Actively killing them early does nothing helpful. Just like
+the CGL requirement for forced unmount, the forced operation introduces
+a whole bunch of race conditions and shared file descriptor problems.
 
