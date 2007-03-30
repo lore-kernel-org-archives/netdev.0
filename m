@@ -1,37 +1,35 @@
-From: Thomas Graf <tgraf@suug.ch>
+From: David Miller <davem@davemloft.net>
 Subject: Re: tcp crash in net-2.6 tree
-Date: Sat, 31 Mar 2007 00:10:54 +0200
-Message-ID: <20070330221053.GR521@postel.suug.ch>
-References: <20070329230917.63c3f79c.akpm@linux-foundation.org> <Pine.LNX.4.64.0703301618510.23854@kivilampi-30.cs.helsinki.fi> <20070330.144347.68157619.davem@davemloft.net>
+Date: Fri, 30 Mar 2007 15:12:28 -0700 (PDT)
+Message-ID: <20070330.151228.93642549.davem@davemloft.net>
+References: <Pine.LNX.4.64.0703301618510.23854@kivilampi-30.cs.helsinki.fi>
+	<20070330.144347.68157619.davem@davemloft.net>
+	<20070330150603.edeb2023.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: ilpo.jarvinen@helsinki.fi, akpm@linux-foundation.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ilpo.jarvinen@helsinki.fi, netdev@vger.kernel.org
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:51378 "EHLO postel.suug.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932266AbXC3WKe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Mar 2007 18:10:34 -0400
-Content-Disposition: inline
-In-Reply-To: <20070330.144347.68157619.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45121
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S932458AbXC3WMp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Mar 2007 18:12:45 -0400
+In-Reply-To: <20070330150603.edeb2023.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* David Miller <davem@davemloft.net> 2007-03-30 14:43
-> Let's not speculate, let's find out for sure if snd_una is
-> surpassing high_seq while we're in this state.
+From: Andrew Morton <akpm@linux-foundation.org>
+Date: Fri, 30 Mar 2007 15:06:03 -0700
+
+> > Andrew please give this debugging patch a spin,
 > 
-> Andrew please give this debugging patch a spin, and also what
-> is your workload?  I'd like to play with it too.
-> 
-> I've tried to code this patch so that if the bug triggers your
-> machine shouldn't crash and burn completely, just spit out the
-> log message.
+> OK, will take a look at that this evening, hopefully.
 
-I'm running into the same bug as Andew, i was able to reproduce
-using Dave's patch within minutes:
+BTW, Thomas Graf can also reproduce this and he is about
+to post a log message from my patch.
 
-TCP BUG: high_seq==NULL [c3c9cc54] q[c3c94edc] t[c3c9cc54]
+> distccd seems to be rather good at triggering networking problems - I think
+> that's the third one I've seen in the past few years.
 
-The after(snd_una, high_seq) check is not triggered.
+Agreed, I remember the other hairy problems distcc could trigger.
