@@ -1,79 +1,69 @@
-From: Shani Moideen <shani.moideen@wipro.com>
-Subject: [PATCH-resend]drivers/net/eexpress.c replace with time_after &&
-	time_before in drivers/net/eexpress.c
-Date: Fri, 30 Mar 2007 15:19:45 +0530
-Message-ID: <1175248186.2494.31.camel@shani-win>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: tcp crash in net-2.6 tree
+Date: Fri, 30 Mar 2007 15:06:03 -0700
+Message-ID: <20070330150603.edeb2023.akpm@linux-foundation.org>
+References: <20070329230917.63c3f79c.akpm@linux-foundation.org>
+	<Pine.LNX.4.64.0703301618510.23854@kivilampi-30.cs.helsinki.fi>
+	<20070330.144347.68157619.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: kernel-janitors@osdl.org, netdev@vger.kernel.org
-To: jeff@garzik.org, marcin.slusarz@gmail.com, philb@gnu.org
+Cc: ilpo.jarvinen@helsinki.fi, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wip-cdc-wd.wipro.com ([203.91.201.26]:39378 "EHLO
-	wip-cdc-wd.wipro.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1945966AbXC3JuD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Mar 2007 05:50:03 -0400
+Received: from smtp.osdl.org ([65.172.181.24]:54686 "EHLO smtp.osdl.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932185AbXC3WGd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 Mar 2007 18:06:33 -0400
+In-Reply-To: <20070330.144347.68157619.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Fri, 30 Mar 2007 14:43:47 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
 
- Resending the patch with few corrections related to time_after and
-time_before in drivers/net/eexpress.c as suggested by Marcin slusarz.
+> From: "Ilpo_J__rvinen" <ilpo.jarvinen@helsinki.fi>
+> Date: Fri, 30 Mar 2007 17:33:28 +0300 (EEST)
+> 
+> > If there is nothing at high_seq (application hasn't given any data to/past 
+> > that point), the search fails to find any skb and returns NULL... But I 
+> > have no idea how this can happen? As TCP does after(skb->seq, 
+> > tp->high_seq) (even in the quoted code block) guaranteeing that something 
+> > is there after the high_seq for TCP to step temporarily on... So at least 
+> > one skb should have it's end_seq after tp->high_seq (actually there 
+> > should be at least two valid skbs after tp->high_seq since the used 
+> > sequence number space does not have holes), which should be enough to get 
+> > an existing skb from write_queue_find?!
+> > 
+> > I also checked all call paths to tcp_update_scoreboard_fack to make sure 
+> > that snd_una hasn't gone past high_seq and found nothing suspicious (and 
+> > that wouldn't return NULL anyway I think)...
+> 
+> Let's not speculate, let's find out for sure if snd_una is
+> surpassing high_seq while we're in this state.
+> 
+> Andrew please give this debugging patch a spin,
 
-thanks.
+OK, will take a look at that this evening, hopefully.
+
+> and also what
+> is your workload?  I'd like to play with it too.
+
+I use an x86_64 box as a distcc server: shove .i fiels at it, get .o files
+sent back.  I was using it thusly and noticed that it had died.
+
+Also, an x86_64 box I have here at google was hanging yesterday and that
+appears to have stopped since I removed a couple of x86_64 patches and
+git-net.  I'm in the process of working out what fixed it...
 
 
-Signed-off-by: Shani Moideen <shani.moideen@wipro.com>
-----
+> I've tried to code this patch so that if the bug triggers your
+> machine shouldn't crash and burn completely, just spit out the
+> log message.
 
-diff --git a/drivers/net/eexpress.c b/drivers/net/eexpress.c
-index 3868b80..1321757 100644
---- a/drivers/net/eexpress.c
-+++ b/drivers/net/eexpress.c
-@@ -115,6 +115,7 @@
- #include <linux/mca-legacy.h>
- #include <linux/spinlock.h>
- #include <linux/bitops.h>
-+#include <linux/jiffies.h>
- 
- #include <asm/system.h>
- #include <asm/io.h>
-@@ -556,7 +557,7 @@ static void unstick_cu(struct net_device *dev)
- 
- 	if (lp->started)
- 	{
--		if ((jiffies - dev->trans_start)>50)
-+		if (time_after( jiffies, dev->trans_start + 50))
- 		{
- 			if (lp->tx_link==lp->last_tx_restart)
- 			{
-@@ -612,7 +613,7 @@ static void unstick_cu(struct net_device *dev)
- 	}
- 	else
- 	{
--		if ((jiffies-lp->init_time)>10)
-+		if (time_after(jiffies, lp->init_time + 10))
- 		{
- 			unsigned short status = scb_status(dev);
- 			printk(KERN_WARNING "%s: i82586 startup timed out, status %04x, resetting...\n",
-@@ -776,7 +777,7 @@ static unsigned short eexp_start_irq(struct net_device *dev,
- static void eexp_cmd_clear(struct net_device *dev)
- {
- 	unsigned long int oldtime = jiffies;
--	while (scb_rdcmd(dev) && ((jiffies-oldtime)<10));
-+	while (scb_rdcmd(dev) && (time_before(jiffies, oldtime + 10)));
- 	if (scb_rdcmd(dev)) {
- 		printk("%s: command didn't clear\n", dev->name);
- 	}
-@@ -1650,7 +1651,7 @@ eexp_set_multicast(struct net_device *dev)
- #endif
-                 oj = jiffies;
-                 while ((SCB_CUstat(scb_status(dev)) == 2) &&
--                       ((jiffies-oj) < 2000));
-+                       (time_before(jiffies, oj + 2000)));
- 		if (SCB_CUstat(scb_status(dev)) == 2)
- 			printk("%s: warning, CU didn't stop\n", dev->name);
-                 lp->started &= ~(STARTED_CU);
+ok..  I don't know how repeatable the distcc crash is.  We'll see.
 
--- 
-Shani Moideen
+distccd seems to be rather good at triggering networking problems - I think
+that's the third one I've seen in the past few years.
+
+
