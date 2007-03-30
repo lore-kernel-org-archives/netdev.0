@@ -1,93 +1,79 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: tcp crash in net-2.6 tree
-Date: Fri, 30 Mar 2007 14:43:47 -0700 (PDT)
-Message-ID: <20070330.144347.68157619.davem@davemloft.net>
-References: <20070329230917.63c3f79c.akpm@linux-foundation.org>
-	<Pine.LNX.4.64.0703301618510.23854@kivilampi-30.cs.helsinki.fi>
+From: Shani Moideen <shani.moideen@wipro.com>
+Subject: [PATCH-resend]drivers/net/eexpress.c replace with time_after &&
+	time_before in drivers/net/eexpress.c
+Date: Fri, 30 Mar 2007 15:19:45 +0530
+Message-ID: <1175248186.2494.31.camel@shani-win>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org
-To: ilpo.jarvinen@helsinki.fi
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: kernel-janitors@osdl.org, netdev@vger.kernel.org
+To: jeff@garzik.org, marcin.slusarz@gmail.com, philb@gnu.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49232
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753981AbXC3Vv1 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Mar 2007 17:51:27 -0400
-In-Reply-To: <Pine.LNX.4.64.0703301618510.23854@kivilampi-30.cs.helsinki.fi>
+Received: from wip-cdc-wd.wipro.com ([203.91.201.26]:39378 "EHLO
+	wip-cdc-wd.wipro.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1945966AbXC3JuD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Mar 2007 05:50:03 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
-Date: Fri, 30 Mar 2007 17:33:28 +0300 (EEST)
 
-> If there is nothing at high_seq (application hasn't given any data to=
-/past=20
-> that point), the search fails to find any skb and returns NULL... But=
- I=20
-> have no idea how this can happen? As TCP does after(skb->seq,=20
-> tp->high_seq) (even in the quoted code block) guaranteeing that somet=
-hing=20
-> is there after the high_seq for TCP to step temporarily on... So at l=
-east=20
-> one skb should have it's end_seq after tp->high_seq (actually there=20
-> should be at least two valid skbs after tp->high_seq since the used=20
-> sequence number space does not have holes), which should be enough to=
- get=20
-> an existing skb from write_queue_find?!
->=20
-> I also checked all call paths to tcp_update_scoreboard_fack to make s=
-ure=20
-> that snd_una hasn't gone past high_seq and found nothing suspicious (=
-and=20
-> that wouldn't return NULL anyway I think)...
+ Resending the patch with few corrections related to time_after and
+time_before in drivers/net/eexpress.c as suggested by Marcin slusarz.
 
-Let's not speculate, let's find out for sure if snd_una is
-surpassing high_seq while we're in this state.
+thanks.
 
-Andrew please give this debugging patch a spin, and also what
-is your workload?  I'd like to play with it too.
 
-I've tried to code this patch so that if the bug triggers your
-machine shouldn't crash and burn completely, just spit out the
-log message.
+Signed-off-by: Shani Moideen <shani.moideen@wipro.com>
+----
 
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 97b9be2..605b5a8 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -1936,14 +1936,32 @@ static void tcp_update_scoreboard_fack(struct s=
-ock *sk, u32 entry_seq,
-=20
- 		if ((!IsFack(tp) || !tcp_skb_timedout(sk, skb)) &&
- 		    after(TCP_SKB_CB(skb)->seq, tp->high_seq)) {
-+			if (after(tp->snd_una, tp->high_seq)) {
-+				printk(KERN_ALERT "TCP BUG: snd_una>high_seq "
-+				       "[%08x:%08x]\n",
-+				       tp->snd_una, tp->high_seq);
-+				goto skip;
-+			}
- 			/* RFC: should we have find_below? */
- 			skb =3D tcp_write_queue_find(sk, tp->high_seq);
-+			if (!skb) {
-+				struct sk_buff *head =3D tcp_write_queue_head(sk);
-+				struct sk_buff *tail =3D tcp_write_queue_tail(sk);
-+				printk(KERN_ALERT "TCP BUG: high_seq=3D=3DNULL "
-+				       "[%08x] q[%08x] t[%08x]\n",
-+				       tp->high_seq,
-+				       TCP_SKB_CB(head)->seq,
-+				       TCP_SKB_CB(tail)->end_seq);
-+				goto skip;
-+				      =20
-+			}
- 			not_marked_skb =3D skb;
- 			skb =3D tcp_write_queue_prev(sk, skb);
- 			/* Timedout top is again uncertain? */
- 			if (tcp_skb_timedout(sk, skb))
- 				timedout_continue =3D 1;
- 		}
-+skip:
- 		/* RFC: ...else if (!tcp_skb_timedout) do skb fragmentation? */
-=20
- 		/* Phase II: Marker */
+diff --git a/drivers/net/eexpress.c b/drivers/net/eexpress.c
+index 3868b80..1321757 100644
+--- a/drivers/net/eexpress.c
++++ b/drivers/net/eexpress.c
+@@ -115,6 +115,7 @@
+ #include <linux/mca-legacy.h>
+ #include <linux/spinlock.h>
+ #include <linux/bitops.h>
++#include <linux/jiffies.h>
+ 
+ #include <asm/system.h>
+ #include <asm/io.h>
+@@ -556,7 +557,7 @@ static void unstick_cu(struct net_device *dev)
+ 
+ 	if (lp->started)
+ 	{
+-		if ((jiffies - dev->trans_start)>50)
++		if (time_after( jiffies, dev->trans_start + 50))
+ 		{
+ 			if (lp->tx_link==lp->last_tx_restart)
+ 			{
+@@ -612,7 +613,7 @@ static void unstick_cu(struct net_device *dev)
+ 	}
+ 	else
+ 	{
+-		if ((jiffies-lp->init_time)>10)
++		if (time_after(jiffies, lp->init_time + 10))
+ 		{
+ 			unsigned short status = scb_status(dev);
+ 			printk(KERN_WARNING "%s: i82586 startup timed out, status %04x, resetting...\n",
+@@ -776,7 +777,7 @@ static unsigned short eexp_start_irq(struct net_device *dev,
+ static void eexp_cmd_clear(struct net_device *dev)
+ {
+ 	unsigned long int oldtime = jiffies;
+-	while (scb_rdcmd(dev) && ((jiffies-oldtime)<10));
++	while (scb_rdcmd(dev) && (time_before(jiffies, oldtime + 10)));
+ 	if (scb_rdcmd(dev)) {
+ 		printk("%s: command didn't clear\n", dev->name);
+ 	}
+@@ -1650,7 +1651,7 @@ eexp_set_multicast(struct net_device *dev)
+ #endif
+                 oj = jiffies;
+                 while ((SCB_CUstat(scb_status(dev)) == 2) &&
+-                       ((jiffies-oj) < 2000));
++                       (time_before(jiffies, oj + 2000)));
+ 		if (SCB_CUstat(scb_status(dev)) == 2)
+ 			printk("%s: warning, CU didn't stop\n", dev->name);
+                 lp->started &= ~(STARTED_CU);
+
+-- 
+Shani Moideen
