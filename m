@@ -1,59 +1,29 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: [PATCH] Ensure local assignment bit on tun device MAC addr
-Date: Fri, 30 Mar 2007 21:03:40 -0400 (EDT)
-Message-ID: <Line.LNX.4.64.0703302103180.29590@d.namei>
-References: <1175302152.12230.414.camel@localhost.localdomain>
+From: lsorense@csclub.uwaterloo.ca (Lennart Sorensen)
+Subject: Re: [BUG] ethX misnumbered and one missing in mii-tool
+Date: Fri, 30 Mar 2007 12:35:38 -0400
+Message-ID: <20070330163538.GC3510@csclub.uwaterloo.ca>
+References: <1175203383.6219.8.camel@localhost> <4807377b0703292121o6eef3bf2l998878cfd677d821@mail.gmail.com> <1175240543.6219.10.camel@localhost>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Rusty Russell <rusty@rustcorp.com.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jesse Brandeburg <jesse.brandeburg@gmail.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	NetDEV list <netdev@vger.kernel.org>
+To: Andrei Popa <andrei.popa@i-neo.ro>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail3.sea5.speakeasy.net ([69.17.117.5]:55502 "EHLO
-	mail3.sea5.speakeasy.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933234AbXCaBDo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Mar 2007 21:03:44 -0400
-In-Reply-To: <1175302152.12230.414.camel@localhost.localdomain>
+Received: from csclub1.cs.uwaterloo.ca ([129.97.7.226]:34769 "EHLO
+	caffeine.csclub.uwaterloo.ca" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753914AbXC3Qfj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Mar 2007 12:35:39 -0400
+Content-Disposition: inline
+In-Reply-To: <1175240543.6219.10.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 31 Mar 2007, Rusty Russell wrote:
+On Fri, Mar 30, 2007 at 10:42:23AM +0300, Andrei Popa wrote:
+> ethtool reports the same
 
-> This becomes especially important after the tun patch sitting in the -mm
-> tree is applied, but it works standalone.  Please apply.  (See netdev
-> posting Message-Id: <200703270550.l2R5o0Mh008378@shell0.pdx.osdl.net>)
-> 
-> ==
-> The effect of this bug was made worse by Brian Braunstein's patch to keep
-> net_device.dev_addr and tun.dev_addr in sync.
-> 
-> Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+Is udev running and having fun renumbering interfaces as they are being
+detected in order to keep "consistent" interface names?
 
-Acked-by: James Morris <jmorris@namei.org>
-
-> 
-> diff -r fd8c40f4f533 drivers/net/tun.c
-> --- a/drivers/net/tun.c	Fri Mar 30 17:02:19 2007 +1000
-> +++ b/drivers/net/tun.c	Sat Mar 31 10:30:47 2007 +1000
-> @@ -507,9 +507,7 @@ static int tun_set_iff(struct file *file
->  		tun->flags = flags;
->  		/* Be promiscuous by default to maintain previous behaviour. */
->  		tun->if_flags = IFF_PROMISC;
-> -		/* Generate random Ethernet address. */
-> -		*(u16 *)tun->dev_addr = htons(0x00FF);
-> -		get_random_bytes(tun->dev_addr + sizeof(u16), 4);
-> +		random_ether_addr(tun->dev_addr);
->  		memset(tun->chr_filter, 0, sizeof tun->chr_filter);
->  
->  		tun_net_init(dev);
-> 
-> 
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-
--- 
-James Morris
-<jmorris@namei.org>
+--
+Len Sorensen
