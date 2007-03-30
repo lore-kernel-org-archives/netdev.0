@@ -1,85 +1,78 @@
-From: "Denys" <denys@visp.net.lb>
-Subject: Re: more iproute2 issues (not critical)
-Date: Sat, 31 Mar 2007 05:31:03 +0300
-Message-ID: <20070331023011.M8101@visp.net.lb>
-References: <20070321175951.M73913@visp.net.lb> <46026717.9060909@trash.net> <20070322124533.M79867@visp.net.lb> <46027FF2.6020001@trash.net> <20070322101224.3e6bb899@freekitty> <20070331021401.M17326@visp.net.lb>
+From: Sergei Shtylyov <sshtylyov@ru.mvista.com>
+Subject: [PATCH] netpoll: trapping fix/cleanup
+Date: Fri, 30 Mar 2007 23:40:27 +0400
+Message-ID: <200703302340.27343.sshtylyov@ru.mvista.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
-	charset=koi8-r
-Cc: netdev@vger.kernel.org
-To: "Denys" <denys@visp.net.lb>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	Patrick McHardy <kaber@trash.net>
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, shemminger@linux-foundation.org,
+	mhuth@mvista.com, kgdb-bugreport@lists.sourceforge.net
+To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usermail.globalproof.net ([194.146.153.18]:52655 "EHLO
-	usermail.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933382AbXCaCbS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Mar 2007 22:31:18 -0400
-In-Reply-To: <20070331021401.M17326@visp.net.lb>
+Received: from gateway-1237.mvista.com ([63.81.120.155]:3285 "EHLO
+	imap.sh.mvista.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752331AbXC3Tjz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Mar 2007 15:39:55 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ooops, sorry, it seems my fault, no library exist on this system.
-But i guess it must not coredump in this case? Is it possible to check if 
-library not exist and just print some nice message?
-It is trivial i guess.
+CONFIG_NETPOLL_TRAP causes the TX queue controls to be completely bypassed in
+the netpoll's "trapped" mode which easily causes overflows in the drivers with
+short TX queues (most notably, in 8139too with its 4-deep queue).
+Make this option more sensible by only bypassing TX softirq wakeup and remove
+CONFIG_NETPOLL_RX option completely since there is *no* code depending on it.
 
-On Sat, 31 Mar 2007 05:26:00 +0300, Denys wrote
-> While running tc monitor
-> 
-> defaulthost ~ #/sbin/tc2 monitor
-> qdisc prio 1: dev if92 root bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 
-> 1 1 1 1 qdisc tbf 2: dev if92 parent 1:1 rate 121600bit burst 512Kb 
-> peakrate 1280Kbit minburst 16Kb lat 500.0ms filter dev if92 parent 
-> 1: protocol ip pref 5 u32 fh 800::800 order 2048 key ht 800 bkt 0 
-> flowid 3:1  match c2929918/ffffffff at 12 filter dev if92 parent 1: 
-> protocol ip pref 5 u32 fh 800::801 order 2049 key ht 800 bkt 0 
-> flowid 3:1  match c292991a/ffffffff at 12 filter dev if92 parent 1: 
-> protocol ip pref 5 u32 fh 800::802 order 2050 key ht 800 bkt 0 
-> flowid 3:1  match 02020266/ffffffff at 12 filter dev if92 parent 1: 
-> protocol ip pref 5 u32 fh 800::803 order 2051 key ht 800 bkt 0 
-> flowid 3:1  match 02020269/ffffffff at 12 filter dev if92 parent 1: 
-> protocol ip pref 5 u32 fh 800::804 order 2052 key ht 800 bkt 0 
-> flowid 3:1  match 0202026a/ffffffff at 12 filter dev if92 parent 1: 
-> protocol ip pref 10 u32 fh 801::800 order 2048 key ht 801 bkt 0 
-> flowid 2:1  match 00000000/00000000 at 16 deleted filter dev ifb0 
-> parent 1: protocol ip pref 117 fw deleted class htb 1:117 dev ifb0 
-> root leaf 117: prio 0 rate 32000bit ceil 32000bit burst 1604b cburst 
-> 1604b class htb 1:117 dev ifb0 root prio 0 rate 32000bit ceil 
-> 32000bit burst 1604b cburst 1604b qdisc sfq 117: dev ifb0 parent 
-> 1:117 limit 128p quantum 1514b perturb 5sec filter dev ifb0 parent 
-> 1: protocol ip pref 117 fw handle 0x75 classid 1:117 qdisc ingress 
-> ffff: dev if92 parent ffff:fff1 ---------------- filter dev if92 
-> parent ffff: protocol ip pref 5 u32 fh 800::800 order 2048 key ht 
-> 800 bkt 0 flowid 1:1  match 02020266/ffffffff at 16 filter dev if92 
-> parent ffff: protocol ip pref 5 u32 fh 800::801 order 2049 key ht 
-> 800 bkt 0 flowid 1:1  match 02020269/ffffffff at 16 filter dev if92 
-> parent ffff: protocol ip pref 5 u32 fh 800::802 order 2050 key ht 
-> 800 bkt 0 flowid 1:1  match 0202026a/ffffffff at 16 filter dev if92 
-> parent ffff: protocol ip pref 5 u32 fh 800::803 order 2051 key ht 
-> 800 bkt 0 flowid 1:1  match c2929918/ffffffff at 16 filter dev if92 
-> parent ffff: protocol ip pref 5 u32 fh 800::804 order 2052 key ht 
-> 800 bkt 0 flowid 1:1  match c292991a/ffffffff at 16 filter dev if92 
-> parent ffff: protocol ip pref 10 u32 fh 801::800 order 2048 key ht 
-> 801 bkt 0 flowid 1:1  match 00000000/00000000 at 0        action 
-> order 1: tablename: mangle  hook: NF_IP_PRE_ROUTING Segmentation 
-> fault (core dumped)
-> 
-> Program terminated with signal 11, Segmentation fault.
-> #0  0x08069f38 in get_target_name (name=0xbfa397f2 "MARK") at m_ipt.c:219
-> 219             char path[strlen(lib_dir) + sizeof ("/libipt_.so") + 
-> strlen(name)];
-> 
-> Do you need "bt full" ?
-> Compiled from git tree, but not latest (a little bit more fresh than 
-> latest release).
-> 
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Signed-off-by: Sergei Shtylyov <sshtylyov@ru.mvista.com>
 
+---
 
---
-Virtual ISP S.A.L.
+ drivers/net/Kconfig       |    5 -----
+ include/linux/netdevice.h |    8 +++-----
+ 2 files changed, 3 insertions(+), 10 deletions(-)
+
+Index: linux-2.6/include/linux/netdevice.h
+===================================================================
+--- linux-2.6.orig/include/linux/netdevice.h
++++ linux-2.6/include/linux/netdevice.h
+@@ -647,8 +647,10 @@ static inline void netif_start_queue(str
+ static inline void netif_wake_queue(struct net_device *dev)
+ {
+ #ifdef CONFIG_NETPOLL_TRAP
+-	if (netpoll_trap())
++	if (netpoll_trap()) {
++		clear_bit(__LINK_STATE_XOFF, &dev->state);
+ 		return;
++	}
+ #endif
+ 	if (test_and_clear_bit(__LINK_STATE_XOFF, &dev->state))
+ 		__netif_schedule(dev);
+@@ -656,10 +658,6 @@ static inline void netif_wake_queue(stru
+ 
+ static inline void netif_stop_queue(struct net_device *dev)
+ {
+-#ifdef CONFIG_NETPOLL_TRAP
+-	if (netpoll_trap())
+-		return;
+-#endif
+ 	set_bit(__LINK_STATE_XOFF, &dev->state);
+ }
+ 
+Index: linux-2.6/drivers/net/Kconfig
+===================================================================
+--- linux-2.6.orig/drivers/net/Kconfig
++++ linux-2.6/drivers/net/Kconfig
+@@ -2928,11 +2928,6 @@ endif #NETDEVICES
+ config NETPOLL
+ 	def_bool NETCONSOLE
+ 
+-config NETPOLL_RX
+-	bool "Netpoll support for trapping incoming packets"
+-	default n
+-	depends on NETPOLL
+-
+ config NETPOLL_TRAP
+ 	bool "Netpoll traffic trapping"
+ 	default n
 
