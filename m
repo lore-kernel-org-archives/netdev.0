@@ -1,48 +1,58 @@
-From: "Jeff Chua" <jeff.chua.linux@gmail.com>
-Subject: Re: [3/4] 2.6.21-rc5: known regressions (v2)
-Date: Sat, 31 Mar 2007 10:52:59 +0800
-Message-ID: <b6a2187b0703301952s6042fbfdu2e15e0f868a958f4@mail.gmail.com>
-References: <Pine.LNX.4.64.0703251559560.6730@woody.linux-foundation.org>
-	 <20070330213220.GO14134@stusta.de>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH 19/19] e1000: major part of the new API changes
+Date: Fri, 30 Mar 2007 13:19:37 -0700
+Message-ID: <460D70D9.5020704@linux-foundation.org>
+References: <20070329163304.6595.81963.stgit@localhost.localdomain> <20070329164038.6595.18817.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Linus Torvalds" <torvalds@linux-foundation.org>,
-	"Andrew Morton" <akpm@linux-foundation.org>,
-	"Linux Kernel Mailing List" <linux-kernel@vger.kernel.org>,
-	"Dave Jones" <davej@redhat.com>,
-	"Jeremy Fitzhardinge" <jeremy@goop.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>, pavel@suse.cz,
-	linux-pm@lists.osdl.org, gregkh@suse.de,
-	linux-pci@atrey.karlin.mff.cuni.cz,
-	"Tobias Doerffel" <tobias.doerffel@gmail.com>,
-	"Len Brown" <len.brown@intel.com>, linux-acpi@vger.kernel.org,
-	"Thomas Gleixner" <tglx@linutronix.de>,
-	"Soeren Sonnenburg" <kernel@nn7.de>, jgarzik@pobox.com,
-	linux-ide@vger.kernel.org, "Marcus Better" <marcus@better.se>,
-	adaplas@gmail.com, "Jens Axboe" <jens.axboe@oracle.com>,
-	"Mike Harris" <atarimike@wavecable.com>,
-	"Michal Piotrowski" <michal.k.k.piotrowski@gmail.com>,
-	"Stephen Hemminger" <shemminger@linux-foundation.org>,
-To: "Adrian Bunk" <bunk@stusta.de>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <20070330213220.GO14134@stusta.de>
-Content-Disposition: inline
-Sender: linux-acpi-owner@vger.kernel.org
+Cc: jeff@garzik.org, bruce.w.allan@intel.com,
+	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
+	cramerj@intel.com, john.ronciak@intel.com,
+	arjan.van.de.ven@intel.com, akpm@linux-foundation.org,
+	netdev@vger.kernel.org
+To: Auke Kok <auke-jan.h.kok@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.osdl.org ([65.172.181.24]:50863 "EHLO smtp.osdl.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753549AbXC3UTr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 Mar 2007 16:19:47 -0400
+In-Reply-To: <20070329164038.6595.18817.stgit@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 3/31/07, Adrian Bunk <bunk@stusta.de> wrote:
 
-> Subject    : ThinkPad doesn't resume from suspend to RAM
-> References : http://lkml.org/lkml/2007/2/27/80
->              http://lkml.org/lkml/2007/2/28/348
-> Submitter  : Jens Axboe <jens.axboe@oracle.com>
->              Jeff Chua <jeff.chua.linux@gmail.com>
-> Status     : unknown
+>  
+> +s32
+> +e1000_alloc_zeroed_dev_spec_struct(struct e1000_hw *hw, u32 size)
+> +{
+> +	hw->dev_spec = kmalloc(size, GFP_KERNEL);
+> +
+> +	if (!hw->dev_spec)
+> +		return -ENOMEM;
+> +
+> +	memset(hw->dev_spec, 0, size);
+> +
+> +	return E1000_SUCCESS;
+> +}
+>   
 
-Fixed with CONFIG_NO_HZ unset and patch from Maxim
-(http://lkml.org/lkml/2007/3/29/108).
+This is what is wrong with a lot of the new code. It is written as
+verbose as possible.
 
-Thanks,
-Jeff,
+What is wrong with open coded
+    hw->dev_spec = kzalloc(size, GFP_KERNEL).
+> +
+> +void
+> +e1000_free_dev_spec_struct(struct e1000_hw *hw)
+> +{
+> +	if (!hw->dev_spec)
+> +		return;
+> +
+> +	kfree(hw->dev_spec);
+> +}
+> +
+>   
+Almost looks like you contracted this out to someone paid by the LOC.
+
+
