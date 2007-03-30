@@ -1,73 +1,103 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: 2.6.21-rc5-mm3: fix e1000 compilation
-Date: Fri, 30 Mar 2007 10:27:50 -0700
-Message-ID: <460D4896.9090302@intel.com>
-References: <20070330085029.GA6556@localhost.sw.ru>	<460D2108.1080101@intel.com>	<20070330100104.9b770cd8.akpm@linux-foundation.org> <20070330100709.44127796.randy.dunlap@oracle.com>
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: Re: [PATCH][IPv6]: Fix incorrect length check in rawv6_sendmsg()
+Date: Fri, 30 Mar 2007 10:47:04 -0700
+Message-ID: <1175276825.23146.1.camel@w-sridhar2.beaverton.ibm.com>
+References: <1175203048.16183.14.camel@w-sridhar2.beaverton.ibm.com>
+	 <20070329.142644.70222545.davem@davemloft.net>
+	 <20070330.091316.58970851.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Randy Dunlap <randy.dunlap@oracle.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>,
-	Alexey Dobriyan <adobriyan@sw.ru>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: YOSHIFUJI Hideaki /
+	 =?UTF-8?Q?=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E?=
+	<yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:42508 "EHLO mga09.intel.com"
+Received: from e4.ny.us.ibm.com ([32.97.182.144]:35461 "EHLO e4.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751612AbXC3R16 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Mar 2007 13:27:58 -0400
-In-Reply-To: <20070330100709.44127796.randy.dunlap@oracle.com>
+	id S1752205AbXC3RrI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 Mar 2007 13:47:08 -0400
+Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
+	by e4.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l2UHl74K011257
+	for <netdev@vger.kernel.org>; Fri, 30 Mar 2007 13:47:07 -0400
+Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
+	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l2UHl6eP292174
+	for <netdev@vger.kernel.org>; Fri, 30 Mar 2007 13:47:06 -0400
+Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
+	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l2UHl6Lf024085
+	for <netdev@vger.kernel.org>; Fri, 30 Mar 2007 13:47:06 -0400
+In-Reply-To: <20070330.091316.58970851.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Randy Dunlap wrote:
-> On Fri, 30 Mar 2007 10:01:04 -0700 Andrew Morton wrote:
-> 
->> On Fri, 30 Mar 2007 07:39:04 -0700 "Kok, Auke" <auke-jan.h.kok@intel.com> wrote:
->>
->>> Alexey Dobriyan wrote:
->>>>   CC [M]  drivers/net/e1000/e1000_main.o
->>>> drivers/net/e1000/e1000_main.c: In function 'e1000_tso':
->>>> drivers/net/e1000/e1000_main.c:2968: error: dereferencing pointer to incomplete type
->>>> 	...
->>>>
->>> can you send me your config? I'd like to see why nobody here didn't spot this on 
->>> any of our tests.
->>>
->> test.kernel.org got thoroughly broken by e1000, but Alexey's patch fixed things
->> up.
-> 
-> My daily/nightly builds were also broken by it...
+On Fri, 2007-03-30 at 09:13 +0900, YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=
+=E8=8B=B1=E6=98=8E wrote:
+> In article <20070329.142644.70222545.davem@davemloft.net> (at Thu, 29=
+ Mar 2007 14:26:44 -0700 (PDT)), David Miller <davem@davemloft.net> say=
+s:
+>=20
+> > From: Sridhar Samudrala <sri@us.ibm.com>
+> > Date: Thu, 29 Mar 2007 14:17:28 -0700
+> >=20
+> > > The check for length in rawv6_sendmsg() is incorrect.
+> > > As len is an unsigned int, (len < 0) will never be TRUE.
+> > > I think checking for IPV6_MAXPLEN(65535) is better.
+> > >=20
+> > > Is it possible to send ipv6 jumbo packets using raw
+> > > sockets? If so, we can remove this check.
+> >=20
+> > I don't see why such a limitation against jumbo would exist,
+> > does anyone else?
+> >=20
+> > Thanks for catching this Sridhar.  A good compiler should simply
+> > fail to compile "if (x < 0)" when 'x' is an unsigned type, don't
+> > you think :-)
+>=20
+> Dave, we use "int" for returning value,
+> so we should fix this anyway, IMHO;
+> we should not allow len > INT_MAX.
+>=20
+> Don't you think so?
+>=20
+> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 
-turns out that NETIF_F_TSO6 is defined even if CONFIG_IPV6 is turned off, which 
-is what broke e1000. That in itself might be a problem. Perhaps this should be 
-fixed in netdevice.h (gratuitous bad inline patch below) but I'm not sure if 
-people would appreciate this, as it's rather ugly, and it gets all horrible when 
-people disable TCP protocol support...
+Acked-by: Sridhar Samudrala <sri@us.ibm.com>
 
-In any case, I was not suspecting this at all. The patch to e1000 is fine with me.
+>=20
+> diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
+> index 306d5d8..203e069 100644
+> --- a/net/ipv6/raw.c
+> +++ b/net/ipv6/raw.c
+> @@ -687,9 +687,9 @@ static int rawv6_sendmsg(struct kiocb *iocb, stru=
+ct sock *sk,
+>  	int err;
+>=20
+>  	/* Rough check on arithmetic overflow,
+> -	   better check is made in ip6_build_xmit
+> +	   better check is made in ip6_append_data().
+>  	 */
+> -	if (len < 0)
+> +	if (len > INT_MAX)
+>  		return -EMSGSIZE;
+>=20
+>  	/* Mirror BSD error message compatibility */
+> diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+> index 0ad4719..f590db5 100644
+> --- a/net/ipv6/udp.c
+> +++ b/net/ipv6/udp.c
+> @@ -615,7 +615,7 @@ do_udp_sendmsg:
+>  		return udp_sendmsg(iocb, sk, msg, len);
+>=20
+>  	/* Rough check on arithmetic overflow,
+> -	   better check is made in ip6_build_xmit
+> +	   better check is made in ip6_append_data().
+>  	   */
+>  	if (len > INT_MAX - sizeof(struct udphdr))
+>  		return -EMSGSIZE;
+>=20
+> --yoshfuji
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-Auke
-
-
----
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 1a52854..f077137 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -331,10 +331,16 @@ struct net_device
-  #define NETIF_F_UFO            (SKB_GSO_UDP << NETIF_F_GSO_SHIFT)
-  #define NETIF_F_GSO_ROBUST     (SKB_GSO_DODGY << NETIF_F_GSO_SHIFT)
-  #define NETIF_F_TSO_ECN        (SKB_GSO_TCP_ECN << NETIF_F_GSO_SHIFT)
-+#ifdef CONFIG_IPV6
-  #define NETIF_F_TSO6           (SKB_GSO_TCPV6 << NETIF_F_GSO_SHIFT)
-+#endif
-
-         /* List of features with software fallbacks. */
-+#ifdef CONFIG_IPV6
-  #define NETIF_F_GSO_SOFTWARE   (NETIF_F_TSO | NETIF_F_TSO_ECN | NETIF_F_TSO6)
-+#else
-+#define NETIF_F_GSO_SOFTWARE   (NETIF_F_TSO | NETIF_F_TSO_ECN)
-+#endif
-
-  #define NETIF_F_GEN_CSUM       (NETIF_F_NO_CSUM | NETIF_F_HW_CSUM)
-  #define NETIF_F_ALL_CSUM       (NETIF_F_IP_CSUM | NETIF_F_GEN_CSUM)
