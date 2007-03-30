@@ -1,34 +1,27 @@
-From: "Chris Friesen" <cfriesen@nortel.com>
-Subject: Re: [Bonding-devel] quick help with bonding?
-Date: Thu, 29 Mar 2007 19:26:07 -0600
-Message-ID: <460C672F.404@nortel.com>
-References: <460BE5F0.7070606@nortel.com> <20070329181617.GA25770@gospo.rdu.redhat.com> <460C38EF.1080509@nortel.com> <4074.1175207458@death> <460C4EFE.6030505@nortel.com> <20070330003630.GA18319@gospo.rdu.redhat.com> <460C658C.7090803@nortel.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: net nasties in davem's tree
+Date: Thu, 29 Mar 2007 18:37:30 -0700
+Message-ID: <20070329183730.566f41c6.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Jay Vosburgh <fubar@us.ibm.com>, netdev@vger.kernel.org,
-	bonding-devel@lists.sourceforge.net
-To: Andy Gospodarek <andy@greyhouse.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zcars04e.nortel.com ([47.129.242.56]:49662 "EHLO
-	zcars04e.nortel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1945922AbXC3B0P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Mar 2007 21:26:15 -0400
-In-Reply-To: <460C658C.7090803@nortel.com>
+Received: from smtp.osdl.org ([65.172.181.24]:45401 "EHLO smtp.osdl.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752609AbXC3Bhc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Mar 2007 21:37:32 -0400
+Received: from shell0.pdx.osdl.net (fw.osdl.org [65.172.181.6])
+	by smtp.osdl.org (8.12.8/8.12.8) with ESMTP id l2U1bVkB007745
+	(version=TLSv1/SSLv3 cipher=EDH-RSA-DES-CBC3-SHA bits=168 verify=NO)
+	for <netdev@vger.kernel.org>; Thu, 29 Mar 2007 18:37:31 -0700
+Received: from akpm.corp.google.com (shell0.pdx.osdl.net [10.9.0.31])
+	by shell0.pdx.osdl.net (8.13.1/8.11.6) with SMTP id l2U1bUTv017442
+	for <netdev@vger.kernel.org>; Thu, 29 Mar 2007 18:37:31 -0700
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Chris Friesen wrote:
-> Andy Gospodarek wrote:
-> 
->> If you are looking for a decent source for patches you could consider
->> downloading the latest source-rpm from RHEL4/CentOS4.  The bonding
->> driver in those releases have been updated to much later code and I can
->> tell you from personal experience they work pretty well.
-
-> I'm just about to load a kernel with a backport of bonding from 2.6.14. 
->  I'll try it out and if it doesn't help I'll try the RHEL4 one.
-
-No joy on the 2.6.14 backport, so I guess I'll try the RHEL4 route.
-
-Chris
+drivers/net/3c523.c: In function 'elmc_send_packet':
+drivers/net/3c523.c:1148: warning: passing argument 2 of 'skb_copy_from_linear_data' discards qualifiers from pointer target type
+drivers/net/ni52.c: In function 'ni52_send_packet':
+drivers/net/ni52.c:1185: warning: passing argument 2 of 'skb_copy_from_linear_data' discards qualifiers from pointer target type
