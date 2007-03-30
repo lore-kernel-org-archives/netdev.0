@@ -1,75 +1,55 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [2/4] 2.6.21-rc5: known regressions (v2)
-Date: Fri, 30 Mar 2007 23:32:15 +0200
-Message-ID: <20070330213215.GN14134@stusta.de>
-References: <Pine.LNX.4.64.0703251559560.6730@woody.linux-foundation.org>
+From: Steven Whitehouse <swhiteho@redhat.com>
+Subject: [NET] Change "not found" return value for rule lookup
+Date: Fri, 30 Mar 2007 10:13:55 +0100
+Message-ID: <1175246035.1636.138.camel@quoit.chygwyn.com>
+References: <1175185450.1636.124.camel@quoit.chygwyn.com>
+	 <20070329.114306.112621613.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Hans-Georg Rist <hg.rist@web.de>, perex@suse.cz,
-	alsa-devel@alsa-project.org,
-	Michal Piotrowski <michal.k.k.piotrowski@gmail.com>,
-	Andi Kleen <ak@suse.de>, Oliver Neukum <oneukum@suse.de>,
-	greg@kroah.com, linux-usb-devel@lists.sourceforge.net,
-	Marcelo Tosatti <marcelo@kvack.org>, CIJOML <cijoml@volny.cz>,
-	v4l-dvb-maintainer@linuxtv.org, Ingo Molnar <mingo@elte.hu>,
-	Ayaz Abdulla <aabdulla@nvidia.com>, jgarzik@pobox.com,
-	netdev@vger.kernel.org
-To: Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932178AbXC3VcT@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0703251559560.6730@woody.linux-foundation.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: tgraf@suug.ch, netdev@vger.kernel.org, pcaulfie@redhat.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([66.187.233.31]:54610 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1945951AbXC3JHf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 Mar 2007 05:07:35 -0400
+In-Reply-To: <20070329.114306.112621613.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This email lists some known regressions in Linus' tree compared to 2.6.20.
+>From 657baf6bbaa8302660d6b218149dcb5546b9b08c Mon Sep 17 00:00:00 2001
+From: Steven Whitehouse <swhiteho@redhat.com>
+Date: Fri, 30 Mar 2007 09:06:34 +0100
+Subject: [PATCH] [NET] Change "not found" return value for rule lookup
 
-If you find your name in the Cc header, you are either submitter of one
-of the bugs, maintainer of an affectected subsystem or driver, a patch
-of you caused a breakage or I'm considering you in any other way
-possibly involved with one or more of these issues.
+This changes the "not found" error return for the lookup
+function to -ESRCH so that it can be distinguished from
+the case where a rule or route resulting in -ENETUNREACH
+has been found during the search.
 
-Due to the huge amount of recipients, please trim the Cc when answering.
+It fixes a bug where if DECnet was compiled with routing
+support, but no routes were added to the routing table,
+it was failing to fall back to endnode routing.
 
+Signed-off-by: Steven Whitehouse <swhiteho@redhat.com>
+Signed-off-by: Patrick Caulfield <pcaulfie@redhat.com>
 
-Subject    : snd_hda_intel doesn't work with ASUS M2V mainboard
-References : http://bugzilla.kernel.org/show_bug.cgi?id=8273
-Submitter  : Hans-Georg Rist <hg.rist@web.de>
-Status     : unknown
-
-
-Subject    : snd_intel8x0: divide error: 0000
-References : http://lkml.org/lkml/2007/3/5/252
-Submitter  : Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
-Status     : unknown
-
-
-Subject    : hal daemon crashes after pulling a USB serial device
-References : http://www.opensubscriber.com/message/linux-usb-devel@lists.sourceforge.net/6369800.html
-Submitter  : Andi Kleen <ak@suse.de>
-Handled-By : Oliver Neukum <oneukum@suse.de>
-Status     : problem is being debugged
-
-
-Subject    : USB: iPod doesn't work  (CONFIG_USB_SUSPEND)
-References : http://lkml.org/lkml/2007/3/21/320
-Submitter  : Tino Keitel <tino.keitel@gmx.de>
-Caused-By  : Marcelo Tosatti <marcelo@kvack.org>
-             commit 1d619f128ba911cd3e6d6ad3475f146eb92f5c27
-Handled-By : Oliver Neukum <oneukum@suse.de>
-Status     : problem is being debuggged
+diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
+index 06f304a..cb2dae1 100644
+--- a/net/core/fib_rules.c
++++ b/net/core/fib_rules.c
+@@ -164,7 +164,7 @@ jumped:
+ 		}
+ 	}
+ 
+-	err = -ENETUNREACH;
++	err = -ESRCH;
+ out:
+ 	rcu_read_unlock();
+ 
+-- 
+1.4.4.2
 
 
-Subject    : USB: Oops when changing DVB-T adapter
-References : http://lkml.org/lkml/2007/3/9/212
-Submitter  : CIJOML <cijoml@volny.cz>
-Status     : unknown
 
-
-Subject    : forcedeth: sporadic under-load crashes
-References : http://lkml.org/lkml/2007/3/26/63
-Submitter  : Ingo Molnar <mingo@elte.hu>
-Handled-By : Ingo Molnar <mingo@elte.hu>
-             Ayaz Abdulla <aabdulla@nvidia.com>
-Status     : problem is being debugged
