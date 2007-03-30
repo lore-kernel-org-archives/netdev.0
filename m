@@ -1,83 +1,65 @@
-From: "Denys" <denys@visp.net.lb>
-Subject: more iproute2 issues (not critical)
-Date: Sat, 31 Mar 2007 05:26:00 +0300
-Message-ID: <20070331021401.M17326@visp.net.lb>
-References: <20070321175951.M73913@visp.net.lb> <46026717.9060909@trash.net> <20070322124533.M79867@visp.net.lb> <46027FF2.6020001@trash.net> <20070322101224.3e6bb899@freekitty>
+From: "Predrag Hodoba" <predrag.hodoba@gmail.com>
+Subject: Re: [PATCH] NET: Add TCP connection abort IOCTL
+Date: Fri, 30 Mar 2007 21:09:17 +0200
+Message-ID: <46d726f90703301209o1147385fx9151c10f95e16684@mail.gmail.com>
+References: <20070327214754.GA11677@dag-work>
+	 <20070327.153025.45876618.davem@davemloft.net>
+	 <46d726f90703290756k1894b0aal8df85d46d8c2a25e@mail.gmail.com>
+	 <20070329.114139.55510589.davem@davemloft.net>
+	 <460C6348.5030904@osdl.org>
+	 <46d726f90703300810q619e8bbmb5b15a58ff37bbed@mail.gmail.com>
+	 <460D57FC.6080007@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=koi8-r
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>,
-	Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David Miller" <davem@davemloft.net>, dagriego@gmail.com,
+	netdev@vger.kernel.org
+To: "Stephen Hemminger" <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usermail.globalproof.net ([194.146.153.18]:38319 "EHLO
-	usermail.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933325AbXCaC0O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Mar 2007 22:26:14 -0400
-In-Reply-To: <20070322101224.3e6bb899@freekitty>
+Received: from nz-out-0506.google.com ([64.233.162.225]:3438 "EHLO
+	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751610AbXC3TJR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Mar 2007 15:09:17 -0400
+Received: by nz-out-0506.google.com with SMTP id s1so509553nze
+        for <netdev@vger.kernel.org>; Fri, 30 Mar 2007 12:09:17 -0700 (PDT)
+In-Reply-To: <460D57FC.6080007@linux-foundation.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-While running tc monitor
+On 30/03/07, Stephen Hemminger <shemminger@linux-foundation.org> wrote:
+> Predrag Hodoba wrote:
+> > On 30/03/07, Stephen Hemminger <shemminger@osdl.org> wrote:
+> >> David Miller wrote:
+> >> >
+> >> > Something being in the CGL specification is to me exactly a great
+> >> > reason NOT to add it.  That specification is so full of garbage it's
+> >> > unbelievable.
+> >> >
+> >> > Thanks, you've given me one more reason not to even remotely consider
+> >> > adding this feature.
+> >> >
+> >> Agreed, CGL is a vendor driven group that has always wanted to replicate
+> >> proprietary misfeatures onto Linux.  There is a real requirement to
+> >> provide high availability but there should be no requirement to
+> >> implement
+> >> the solution in the same crap way as legacy Unix.
+> >
+> > OK, let's put aside CGL and legacy Unices.
+> >
+> > Still, I don't see how the case I mentioned can easily be handled.
+> > (The case being - effective clean up of all affected client TCP
+> > connections, following failover of the server IP address from active
+> > to passive node in a highly available cluster).
+>
+> Why clean them up? The client connections will timeout and they can
+> reconnect. Actively killing them early does nothing helpful. Just like
+> the CGL requirement for forced unmount, the forced operation introduces
+> a whole bunch of race conditions and shared file descriptor problems.
 
-defaulthost ~ #/sbin/tc2 monitor
-qdisc prio 1: dev if92 root bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
-qdisc tbf 2: dev if92 parent 1:1 rate 121600bit burst 512Kb peakrate 1280Kbit 
-minburst 16Kb lat 500.0ms
-filter dev if92 parent 1: protocol ip pref 5 u32 fh 800::800 order 2048 key 
-ht 800 bkt 0 flowid 3:1
-  match c2929918/ffffffff at 12
-filter dev if92 parent 1: protocol ip pref 5 u32 fh 800::801 order 2049 key 
-ht 800 bkt 0 flowid 3:1
-  match c292991a/ffffffff at 12
-filter dev if92 parent 1: protocol ip pref 5 u32 fh 800::802 order 2050 key 
-ht 800 bkt 0 flowid 3:1
-  match 02020266/ffffffff at 12
-filter dev if92 parent 1: protocol ip pref 5 u32 fh 800::803 order 2051 key 
-ht 800 bkt 0 flowid 3:1
-  match 02020269/ffffffff at 12
-filter dev if92 parent 1: protocol ip pref 5 u32 fh 800::804 order 2052 key 
-ht 800 bkt 0 flowid 3:1
-  match 0202026a/ffffffff at 12
-filter dev if92 parent 1: protocol ip pref 10 u32 fh 801::800 order 2048 key 
-ht 801 bkt 0 flowid 2:1
-  match 00000000/00000000 at 16
-deleted filter dev ifb0 parent 1: protocol ip pref 117 fw
-deleted class htb 1:117 dev ifb0 root leaf 117: prio 0 rate 32000bit ceil 
-32000bit burst 1604b cburst 1604b
-class htb 1:117 dev ifb0 root prio 0 rate 32000bit ceil 32000bit burst 1604b 
-cburst 1604b
-qdisc sfq 117: dev ifb0 parent 1:117 limit 128p quantum 1514b perturb 5sec
-filter dev ifb0 parent 1: protocol ip pref 117 fw handle 0x75 classid 1:117
-qdisc ingress ffff: dev if92 parent ffff:fff1 ----------------
-filter dev if92 parent ffff: protocol ip pref 5 u32 fh 800::800 order 2048 
-key ht 800 bkt 0 flowid 1:1
-  match 02020266/ffffffff at 16
-filter dev if92 parent ffff: protocol ip pref 5 u32 fh 800::801 order 2049 
-key ht 800 bkt 0 flowid 1:1
-  match 02020269/ffffffff at 16
-filter dev if92 parent ffff: protocol ip pref 5 u32 fh 800::802 order 2050 
-key ht 800 bkt 0 flowid 1:1
-  match 0202026a/ffffffff at 16
-filter dev if92 parent ffff: protocol ip pref 5 u32 fh 800::803 order 2051 
-key ht 800 bkt 0 flowid 1:1
-  match c2929918/ffffffff at 16
-filter dev if92 parent ffff: protocol ip pref 5 u32 fh 800::804 order 2052 
-key ht 800 bkt 0 flowid 1:1
-  match c292991a/ffffffff at 16
-filter dev if92 parent ffff: protocol ip pref 10 u32 fh 801::800 order 2048 
-key ht 801 bkt 0 flowid 1:1
-  match 00000000/00000000 at 0
-        action order 1: tablename: mangle  hook: NF_IP_PRE_ROUTING
-Segmentation fault (core dumped)
-
-Program terminated with signal 11, Segmentation fault.
-#0  0x08069f38 in get_target_name (name=0xbfa397f2 "MARK") at m_ipt.c:219
-219             char path[strlen(lib_dir) + sizeof ("/libipt_.so") + 
-strlen(name)];
-
-Do you need "bt full" ?
-Compiled from git tree, but not latest (a little bit more fresh than latest 
-release).
-
-
+Well, it depends on how fast you have to react on failure. For
+data-center grade high-availability it is, as you said, enough to wait
+for clients to timeout. For telco (or similar, more demanding) grade
+of high-availability, timeout just takes too long. You typically have
+to discover failure using some kind of heartbeat mechanism and clean
+up immediately ...
