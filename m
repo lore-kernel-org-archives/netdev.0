@@ -1,40 +1,39 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH] NET: Add TCP connection abort IOCTL
-Date: Thu, 29 Mar 2007 18:09:28 -0700
-Message-ID: <460C6348.5030904@osdl.org>
-References: <20070327214754.GA11677@dag-work>	<20070327.153025.45876618.davem@davemloft.net>	<46d726f90703290756k1894b0aal8df85d46d8c2a25e@mail.gmail.com> <20070329.114139.55510589.davem@davemloft.net>
+From: "Chris Friesen" <cfriesen@nortel.com>
+Subject: Re: [Bonding-devel] quick help with bonding?
+Date: Thu, 29 Mar 2007 19:19:08 -0600
+Message-ID: <460C658C.7090803@nortel.com>
+References: <460BE5F0.7070606@nortel.com> <20070329181617.GA25770@gospo.rdu.redhat.com> <460C38EF.1080509@nortel.com> <4074.1175207458@death> <460C4EFE.6030505@nortel.com> <20070330003630.GA18319@gospo.rdu.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: predrag.hodoba@gmail.com, dagriego@gmail.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: Jay Vosburgh <fubar@us.ibm.com>, netdev@vger.kernel.org,
+	bonding-devel@lists.sourceforge.net
+To: Andy Gospodarek <andy@greyhouse.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:45021 "EHLO smtp.osdl.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934202AbXC3BJe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Mar 2007 21:09:34 -0400
-In-Reply-To: <20070329.114139.55510589.davem@davemloft.net>
+Received: from zrtps0kp.nortel.com ([47.140.192.56]:34558 "EHLO
+	zrtps0kp.nortel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934366AbXC3BTW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Mar 2007 21:19:22 -0400
+In-Reply-To: <20070330003630.GA18319@gospo.rdu.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: "Predrag Hodoba" <predrag.hodoba@gmail.com>
-> Date: Thu, 29 Mar 2007 16:56:22 +0200
->
->   
->> Need for such an API is to a degree indicated in the Carrier Grade Linux
->> requirements by The Linux Foundation (former OSDL).
->>     
->
-> Something being in the CGL specification is to me exactly a great
-> reason NOT to add it.  That specification is so full of garbage it's
-> unbelievable.
->
-> Thanks, you've given me one more reason not to even remotely consider
-> adding this feature.
->   
-Agreed, CGL is a vendor driven group that has always wanted to replicate
-proprietary misfeatures onto Linux.  There is a real requirement to
-provide high availability but there should be no requirement to implement
-the solution in the same crap way as legacy Unix.
+Andy Gospodarek wrote:
+
+> If you are looking for a decent source for patches you could consider
+> downloading the latest source-rpm from RHEL4/CentOS4.  The bonding
+> driver in those releases have been updated to much later code and I can
+> tell you from personal experience they work pretty well.  You may need
+> to do some backporting to get the latest arp-monitoring features, but
+> let me know if you need a hand with that, I might have some laying
+> around. ;)
+
+I'm just about to load a kernel with a backport of bonding from 2.6.14. 
+  I'll try it out and if it doesn't help I'll try the RHEL4 one.
+
+> Does eth6 use the same hardware/driver as eth4/5?  (Sorry if I missed
+> that in the thread, but didn't see if you indicated that it did.)
+
+No, eth6 is an AMD-8111.
+
+Chris
