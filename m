@@ -1,55 +1,37 @@
-From: Steven Whitehouse <swhiteho@redhat.com>
-Subject: [NET] Change "not found" return value for rule lookup
-Date: Fri, 30 Mar 2007 10:13:55 +0100
-Message-ID: <1175246035.1636.138.camel@quoit.chygwyn.com>
-References: <1175185450.1636.124.camel@quoit.chygwyn.com>
-	 <20070329.114306.112621613.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: 2.6.21-rc5-mm3: fix e1000 compilation
+Date: Fri, 30 Mar 2007 14:20:25 -0700 (PDT)
+Message-ID: <20070330.142025.02298139.davem@davemloft.net>
+References: <20070330100104.9b770cd8.akpm@linux-foundation.org>
+	<20070330100709.44127796.randy.dunlap@oracle.com>
+	<460D4896.9090302@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, netdev@vger.kernel.org, pcaulfie@redhat.com
-To: David Miller <davem@davemloft.net>
+Cc: akpm@linux-foundation.org, adobriyan@sw.ru,
+	randy.dunlap@oracle.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: auke-jan.h.kok@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:54610 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1945951AbXC3JHf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Mar 2007 05:07:35 -0400
-In-Reply-To: <20070329.114306.112621613.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49231
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754073AbXC3VvQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Mar 2007 17:51:16 -0400
+In-Reply-To: <460D4896.9090302@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->From 657baf6bbaa8302660d6b218149dcb5546b9b08c Mon Sep 17 00:00:00 2001
-From: Steven Whitehouse <swhiteho@redhat.com>
-Date: Fri, 30 Mar 2007 09:06:34 +0100
-Subject: [PATCH] [NET] Change "not found" return value for rule lookup
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Date: Fri, 30 Mar 2007 10:27:50 -0700
 
-This changes the "not found" error return for the lookup
-function to -ESRCH so that it can be distinguished from
-the case where a rule or route resulting in -ENETUNREACH
-has been found during the search.
+> turns out that NETIF_F_TSO6 is defined even if CONFIG_IPV6 is turned
+> off, which is what broke e1000. That in itself might be a
+> problem. Perhaps this should be fixed in netdevice.h (gratuitous bad
+> inline patch below) but I'm not sure if people would appreciate
+> this, as it's rather ugly, and it gets all horrible when people
+> disable TCP protocol support...
 
-It fixes a bug where if DECnet was compiled with routing
-support, but no routes were added to the routing table,
-it was failing to fall back to endnode routing.
+No, I don't think we should do this.
 
-Signed-off-by: Steven Whitehouse <swhiteho@redhat.com>
-Signed-off-by: Patrick Caulfield <pcaulfie@redhat.com>
-
-diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
-index 06f304a..cb2dae1 100644
---- a/net/core/fib_rules.c
-+++ b/net/core/fib_rules.c
-@@ -164,7 +164,7 @@ jumped:
- 		}
- 	}
- 
--	err = -ENETUNREACH;
-+	err = -ESRCH;
- out:
- 	rcu_read_unlock();
- 
--- 
-1.4.4.2
-
-
-
+We have the vlan acceleration flags available when 802.1Q is
+disabled, same situation, and just as valid.
