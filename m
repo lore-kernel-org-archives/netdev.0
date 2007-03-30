@@ -1,103 +1,65 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: Re: [PATCH][IPv6]: Fix incorrect length check in rawv6_sendmsg()
-Date: Fri, 30 Mar 2007 10:47:04 -0700
-Message-ID: <1175276825.23146.1.camel@w-sridhar2.beaverton.ibm.com>
-References: <1175203048.16183.14.camel@w-sridhar2.beaverton.ibm.com>
-	 <20070329.142644.70222545.davem@davemloft.net>
-	 <20070330.091316.58970851.yoshfuji@linux-ipv6.org>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: Re: [1/5] 2.6.21-rc5: known regressions
+Date: Fri, 30 Mar 2007 20:04:44 +0200
+Message-ID: <20070330180444.GH14134@stusta.de>
+References: <Pine.LNX.4.64.0703251559560.6730@woody.linux-foundation.org> <20070327015929.GY16477@stusta.de> <460AB9E8.8070803@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: YOSHIFUJI Hideaki /
-	 =?UTF-8?Q?=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E?=
-	<yoshfuji@linux-ipv6.org>
+Cc: Ingo Molnar <mingo@elte.hu>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Jesse Brandeburg <jesse.brandeburg@gmail.com>,
+	e1000-devel@lists.sourceforge.net, jgarzik@pobox.com,
+	netdev@vger.kernel.org
+To: "Kok, Auke" <auke-jan.h.kok@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e4.ny.us.ibm.com ([32.97.182.144]:35461 "EHLO e4.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752205AbXC3RrI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Mar 2007 13:47:08 -0400
-Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by e4.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l2UHl74K011257
-	for <netdev@vger.kernel.org>; Fri, 30 Mar 2007 13:47:07 -0400
-Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
-	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l2UHl6eP292174
-	for <netdev@vger.kernel.org>; Fri, 30 Mar 2007 13:47:06 -0400
-Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
-	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l2UHl6Lf024085
-	for <netdev@vger.kernel.org>; Fri, 30 Mar 2007 13:47:06 -0400
-In-Reply-To: <20070330.091316.58970851.yoshfuji@linux-ipv6.org>
+Received: from mailout.stusta.mhn.de ([141.84.69.5]:38730 "EHLO
+	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752226AbXC3SEp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Mar 2007 14:04:45 -0400
+Content-Disposition: inline
+In-Reply-To: <460AB9E8.8070803@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2007-03-30 at 09:13 +0900, YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=
-=E8=8B=B1=E6=98=8E wrote:
-> In article <20070329.142644.70222545.davem@davemloft.net> (at Thu, 29=
- Mar 2007 14:26:44 -0700 (PDT)), David Miller <davem@davemloft.net> say=
-s:
->=20
-> > From: Sridhar Samudrala <sri@us.ibm.com>
-> > Date: Thu, 29 Mar 2007 14:17:28 -0700
-> >=20
-> > > The check for length in rawv6_sendmsg() is incorrect.
-> > > As len is an unsigned int, (len < 0) will never be TRUE.
-> > > I think checking for IPV6_MAXPLEN(65535) is better.
-> > >=20
-> > > Is it possible to send ipv6 jumbo packets using raw
-> > > sockets? If so, we can remove this check.
-> >=20
-> > I don't see why such a limitation against jumbo would exist,
-> > does anyone else?
-> >=20
-> > Thanks for catching this Sridhar.  A good compiler should simply
-> > fail to compile "if (x < 0)" when 'x' is an unsigned type, don't
-> > you think :-)
->=20
-> Dave, we use "int" for returning value,
-> so we should fix this anyway, IMHO;
-> we should not allow len > INT_MAX.
->=20
-> Don't you think so?
->=20
-> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+On Wed, Mar 28, 2007 at 11:54:32AM -0700, Kok, Auke wrote:
+> Adrian Bunk wrote:
+> >Subject    : e1000 resume weirdness
+> >References : http://lkml.org/lkml/2007/3/26/91
+> >Submitter  : Ingo Molnar <mingo@elte.hu>
+> >Handled-By : Jesse Brandeburg <jesse.brandeburg@gmail.com>
+> >             Auke Kok <auke-jan.h.kok@intel.com>
+> >Status     : problem is being debugged
+> 
+> The issue comes from a corner case and the underlying problem is that e1000 
+> isn't stopping tx properly. We have a fix for this pending in our tree that 
+> I'll push upstream for 2.6.22 to Jeff, but I don't think this should be a 
+> blocker and it's probably is not a regression at all, the gap has always 
+> been present.
+> 
+> on a side note, this is probably fixed easily by turning the adapters 
+> detect_tx_hung flag off in e1000_down, so if someone spots this reoccurring 
+> somewhat regularly, please contact me so we can debug it. I myself have a 
+> system suspend/resuming in circles for an hour now with traffic flying 
+> across without a single hit on it....
+> 
+> Adrian, you probably want to drop this issue from your list.
 
-Acked-by: Sridhar Samudrala <sri@us.ibm.com>
+Thanks for the update, dropped as non-regression.
 
->=20
-> diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
-> index 306d5d8..203e069 100644
-> --- a/net/ipv6/raw.c
-> +++ b/net/ipv6/raw.c
-> @@ -687,9 +687,9 @@ static int rawv6_sendmsg(struct kiocb *iocb, stru=
-ct sock *sk,
->  	int err;
->=20
->  	/* Rough check on arithmetic overflow,
-> -	   better check is made in ip6_build_xmit
-> +	   better check is made in ip6_append_data().
->  	 */
-> -	if (len < 0)
-> +	if (len > INT_MAX)
->  		return -EMSGSIZE;
->=20
->  	/* Mirror BSD error message compatibility */
-> diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-> index 0ad4719..f590db5 100644
-> --- a/net/ipv6/udp.c
-> +++ b/net/ipv6/udp.c
-> @@ -615,7 +615,7 @@ do_udp_sendmsg:
->  		return udp_sendmsg(iocb, sk, msg, len);
->=20
->  	/* Rough check on arithmetic overflow,
-> -	   better check is made in ip6_build_xmit
-> +	   better check is made in ip6_append_data().
->  	   */
->  	if (len > INT_MAX - sizeof(struct udphdr))
->  		return -EMSGSIZE;
->=20
-> --yoshfuji
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Cheers,
+> 
+> 
+> Auke
+
+cu
+Adrian
+
+-- 
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
 
