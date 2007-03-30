@@ -1,46 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: tcp crash in net-2.6 tree
-Date: Fri, 30 Mar 2007 15:15:01 -0700 (PDT)
-Message-ID: <20070330.151501.98861701.davem@davemloft.net>
-References: <Pine.LNX.4.64.0703301618510.23854@kivilampi-30.cs.helsinki.fi>
-	<20070330.144347.68157619.davem@davemloft.net>
-	<20070330221053.GR521@postel.suug.ch>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: traffic shaping with NAT: IFB as IMQ replacement?
+Date: Fri, 30 Mar 2007 08:33:26 -0400
+Message-ID: <1175258006.4879.5.camel@localhost>
+References: <m27it09n5w.fsf@quark.karme-net.hirschau>
+	 <1175184716.4881.30.camel@localhost>  <200703300108.01994.gerd@egidy.de>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: ilpo.jarvinen@helsinki.fi, akpm@linux-foundation.org,
-	netdev@vger.kernel.org
-To: tgraf@suug.ch
+Cc: Jens Thiele <karme@berlios.de>, netdev@vger.kernel.org,
+	linuximq@yahoogroups.com
+To: "Gerd v. Egidy" <gerd@egidy.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45127
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S932562AbXC3WPR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Mar 2007 18:15:17 -0400
-In-Reply-To: <20070330221053.GR521@postel.suug.ch>
+Received: from wx-out-0506.google.com ([66.249.82.227]:21987 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750837AbXC3Mdc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Mar 2007 08:33:32 -0400
+Received: by wx-out-0506.google.com with SMTP id h31so511239wxd
+        for <netdev@vger.kernel.org>; Fri, 30 Mar 2007 05:33:32 -0700 (PDT)
+In-Reply-To: <200703300108.01994.gerd@egidy.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Thomas Graf <tgraf@suug.ch>
-Date: Sat, 31 Mar 2007 00:10:54 +0200
+On Fri, 2007-30-03 at 01:08 +0200, Gerd v. Egidy wrote:
 
-> * David Miller <davem@davemloft.net> 2007-03-30 14:43
-> > Let's not speculate, let's find out for sure if snd_una is
-> > surpassing high_seq while we're in this state.
-> > 
-> > Andrew please give this debugging patch a spin, and also what
-> > is your workload?  I'd like to play with it too.
-> > 
-> > I've tried to code this patch so that if the bug triggers your
-> > machine shouldn't crash and burn completely, just spit out the
-> > log message.
+> I'm also interested in shaping NAT. Would you mind telling us what you have in 
+> mind with your userspace code? Do you plan something like
 > 
-> I'm running into the same bug as Andew, i was able to reproduce
-> using Dave's patch within minutes:
+> tun -> your userspace code -> tun
+>              ^
+>              | (netlink)
+>              v
+>           conntrack
 > 
-> TCP BUG: high_seq==NULL [c3c9cc54] q[c3c94edc] t[c3c9cc54]
-> 
-> The after(snd_una, high_seq) check is not triggered.
 
-So tp->high_seq points to the tail packet end sequence.
+Conntrack is already a perfomance hog - so using user space in that
+manner is sinful. The idea is to use contrack netlink to setup tc
+rules with ifb. 
+In any case, if you are interested talk to me privately;
+i have received a few emails since i posted but mostly for people who
+want to test.  If you are in that category please just keep pinging me
+and i will feel guilty and get it done.
 
-Ilpo does this clear things up?
+cheers,
+jamal
+
