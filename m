@@ -1,52 +1,69 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: 2.6.21-rc5-mm3: fix e1000 compilation
-Date: Fri, 30 Mar 2007 07:39:04 -0700
-Message-ID: <460D2108.1080101@intel.com>
-References: <20070330085029.GA6556@localhost.sw.ru>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: [PATCH] [TCP]: SACK reneging clears stale recv_sack_cache
+Date: Fri, 30 Mar 2007 17:55:46 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0703301740060.23854@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: akpm@osdl.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, auke-jan.h.kok@intel.com
-To: Alexey Dobriyan <adobriyan@sw.ru>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696243703-1869638151-1175266546=:23854"
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:21808 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751973AbXC3OjH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Mar 2007 10:39:07 -0400
-In-Reply-To: <20070330085029.GA6556@localhost.sw.ru>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:51976 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753350AbXC3Ozu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Mar 2007 10:55:50 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Alexey Dobriyan wrote:
->   CC [M]  drivers/net/e1000/e1000_main.o
-> drivers/net/e1000/e1000_main.c: In function 'e1000_tso':
-> drivers/net/e1000/e1000_main.c:2968: error: dereferencing pointer to incomplete type
-> 	...
-> 
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-can you send me your config? I'd like to see why nobody here didn't spot this on 
-any of our tests.
+---696243703-1869638151-1175266546=:23854
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
 
-thanks,
+Though not very efficient, the previous way of maintaining a
+stale SACK cache past reneging protected better against misuse
+because receiver couldn't cause set-clear ping-pong for
+SACKED_ACKED for a large number of skbs.
 
-Auke
+Mostly copy-paste from sacktag clearer. Compile tested.
 
+Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
+---
+ net/ipv4/tcp_input.c |   11 +++++++++--
+ 1 files changed, 9 insertions(+), 2 deletions(-)
 
-> --- a/drivers/net/e1000/e1000_main.c
-> +++ b/drivers/net/e1000/e1000_main.c
-> @@ -32,6 +32,8 @@ #include <linux/init.h>
->  #include <linux/vmalloc.h>
->  #include <linux/pagemap.h>
->  #include <linux/netdevice.h>
-> +#include <linux/tcp.h>
-> +#include <linux/ipv6.h>
->  #include <net/checksum.h>
->  #include <net/ip6_checksum.h>
->  #include <linux/mii.h>
-> 
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 97b9be2..ea196de 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -1509,7 +1509,7 @@ void tcp_enter_loss(struct sock *sk, int
+ 	const struct inet_connection_sock *icsk = inet_csk(sk);
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	struct sk_buff *skb;
+-	int cnt = 0;
++	int cnt = 0, i;
+ 
+ 	/* Reduce ssthresh if it has not yet been made inside this window. */
+ 	if (icsk->icsk_ca_state <= TCP_CA_Disorder || tp->snd_una == tp->high_seq ||
+@@ -1527,8 +1527,15 @@ void tcp_enter_loss(struct sock *sk, int
+ 
+ 	/* Push undo marker, if it was plain RTO and nothing
+ 	 * was retransmitted. */
+-	if (!how)
++	if (!how) {
+ 		tp->undo_marker = tp->snd_una;
++	} else {
++		/* We're going to flush SACKed state, every SACK counts again */
++		for (i = 0; i < ARRAY_SIZE(tp->recv_sack_cache); i++) {
++			tp->recv_sack_cache[i].start_seq = 0;
++			tp->recv_sack_cache[i].end_seq = 0;
++		}
++	}
+ 
+ 	tcp_for_write_queue(skb, sk) {
+ 		if (skb == tcp_send_head(sk))
+-- 
+1.4.2
+
+---696243703-1869638151-1175266546=:23854--
