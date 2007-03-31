@@ -1,66 +1,68 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: [PATCH 19/19] e1000: major part of the new API changes
-Date: Fri, 30 Mar 2007 13:56:32 -0700
-Message-ID: <460D7980.5090600@intel.com>
-References: <20070329163304.6595.81963.stgit@localhost.localdomain> <20070329164038.6595.18817.stgit@localhost.localdomain> <460D70D9.5020704@linux-foundation.org>
+From: "Predrag Hodoba" <predrag.hodoba@gmail.com>
+Subject: Re: [PATCH] NET: Add TCP connection abort IOCTL
+Date: Sat, 31 Mar 2007 08:25:09 +0200
+Message-ID: <46d726f90703302325k3473ff1fy86e732d657f671b@mail.gmail.com>
+References: <20070327214754.GA11677@dag-work>
+	 <20070327.153025.45876618.davem@davemloft.net>
+	 <46d726f90703290756k1894b0aal8df85d46d8c2a25e@mail.gmail.com>
+	 <20070329.114139.55510589.davem@davemloft.net>
+	 <460C6348.5030904@osdl.org>
+	 <46d726f90703300810q619e8bbmb5b15a58ff37bbed@mail.gmail.com>
+	 <460D57FC.6080007@linux-foundation.org>
+	 <46d726f90703301209o1147385fx9151c10f95e16684@mail.gmail.com>
+	 <460D7722.8030403@hp.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, bruce.w.allan@intel.com,
-	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
-	cramerj@intel.com, john.ronciak@intel.com, arjan@linux.intel.com,
-	akpm@linux-foundation.org, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Cc: "Stephen Hemminger" <shemminger@linux-foundation.org>,
+	"David Miller" <davem@davemloft.net>, dagriego@gmail.com,
+	netdev@vger.kernel.org
+To: "Rick Jones" <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:11675 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753629AbXC3U4f (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Mar 2007 16:56:35 -0400
-In-Reply-To: <460D70D9.5020704@linux-foundation.org>
+Received: from nz-out-0506.google.com ([64.233.162.239]:40355 "EHLO
+	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750759AbXCaGZK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 31 Mar 2007 02:25:10 -0400
+Received: by nz-out-0506.google.com with SMTP id s1so611847nze
+        for <netdev@vger.kernel.org>; Fri, 30 Mar 2007 23:25:10 -0700 (PDT)
+In-Reply-To: <460D7722.8030403@hp.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
->>  
->> +s32
->> +e1000_alloc_zeroed_dev_spec_struct(struct e1000_hw *hw, u32 size)
->> +{
->> +	hw->dev_spec = kmalloc(size, GFP_KERNEL);
->> +
->> +	if (!hw->dev_spec)
->> +		return -ENOMEM;
->> +
->> +	memset(hw->dev_spec, 0, size);
->> +
->> +	return E1000_SUCCESS;
->> +}
->>   
-> 
-> This is what is wrong with a lot of the new code. It is written as
-> verbose as possible.
-> 
-> What is wrong with open coded
->     hw->dev_spec = kzalloc(size, GFP_KERNEL).
+On 30/03/07, Rick Jones <rick.jones2@hp.com> wrote:
+> If the switchover from active to standby is "commanded" then there is
+> the opportunity to "tell" the applications on the server to close their
+> connections - either explicitly with some sort of defined interface, or
+> implicitly by killing the processes.  Then the IP can be brought-up on
+> the standby and processes started/enabled/whatever and the clients can
+> establish their new connections.  The ioctl here (at least if it is like
+> the tcp_discon options in HP-UX/Solaris) wouldn't be any better than
+> just killing the process in so far as what happens on the network - in
+> fact, it could be worse since the RST will not be retransmitted if lost,
+> but FINs would.  So, the ioctl could still leave clients twisting in the
+> ether waiting for their application-level heartbeats to kick-in anyway.
+>   Heck, depending on their heartbeat lengths, even the FIN stuff if lost
+> could leave them depending on their heartbeats.
+>
+> If the switchover from active to standby is "uncommanded" it probably
+> means the primary went belly-up which means you don't have the
+> opportunity to make an ioctl call anyway, and you are back to the
+> heartbeats.
+>
+> rick jones
 
-nothing, I'll make sure that we change this. Please remember that this code was 
-written over a period of about 1 year, and a lot of cleanups that happened in 
-other parts of e1000 may very well have been overlooked. Also, it may be "ugly" 
-but it's definately not wrong at all.
+What I meant is - it could be used on ***client***. Because clients
+are left stranded with invalid connections when a primary fails (your
+"uncommanded" switchover scenario). If you wait for them to timeout,
+that will indeed happen, but it takes time and you are not back online
+as fast as you would like. If cluster's services running on a client
+already know about the failover (by means of "heartbeat" and observing
+change in cluster membership), then they can propagate that knowledge
+to all processes uneccessarily blocked in their socket calls towards
+the failed IP address. If these connections are forcibly disconnected,
+the respective sockets' calls would return with error code and their
+processes can reconnect in few seconds after the failure and continue
+to do what they are meant to do.
 
->> +
->> +void
->> +e1000_free_dev_spec_struct(struct e1000_hw *hw)
->> +{
->> +	if (!hw->dev_spec)
->> +		return;
->> +
->> +	kfree(hw->dev_spec);
->> +}
->> +
->>   
-> Almost looks like you contracted this out to someone paid by the LOC.
-
-will fix, thanks for the comments.
-
-Auke
-
+predrag
