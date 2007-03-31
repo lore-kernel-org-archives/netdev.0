@@ -1,63 +1,60 @@
-From: divy@chelsio.com
-Subject: [PATCH 2.6.21 4/4] cxgb3 - Firwmare update
-Date: Sat, 31 Mar 2007 00:23:30 -0700
-Message-ID: <20070331072330.4748.57940.stgit@localhost.localdomain>
+From: ijjarvin@cs.helsinki.fi
+Subject: Re: tcp crash in net-2.6 tree
+Date: Sat, 31 Mar 2007 13:19:06 +0300 (EEST)
+Message-ID: <mFVio6um.1175336346.4693300.ijjarvin@cs.helsinki.fi>
+References: <20070330.151501.98861701.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	swise@opengridcomputing.com
-To: jeff@garzik.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751766AbXCaHX6@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "ilpo.jarvinen@helsinki.fi" <ilpo.jarvinen@helsinki.fi>,
+	"akpm@linux-foundation.org" <akpm@linux-foundation.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: davem@davemloft.net, tgraf@suug.ch
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:41053 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752808AbXCaKTI convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 31 Mar 2007 06:19:08 -0400
+In-Reply-To: <20070330.151501.98861701.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Divy Le Ray <divy@chelsio.com>
 
-Introduce FW micro version.
-Bump up FW version to 3.3.0
+On 3/31/2007, "David Miller" <davem@davemloft.net> wrote:
+> From: Thomas Graf <tgraf@suug.ch>
+> Date: Sat, 31 Mar 2007 00:10:54 +0200
+> 
+> > * David Miller <davem@davemloft.net> 2007-03-30 14:43
+> > > Let's not speculate, let's find out for sure if snd_una is
+> > > surpassing high_seq while we're in this state.
+> > >
+> > > Andrew please give this debugging patch a spin, and also what
+> > > is your workload?  I'd like to play with it too.
+> > >
+> > > I've tried to code this patch so that if the bug triggers your
+> > > machine shouldn't crash and burn completely, just spit out the
+> > > log message.
+> >
+> > I'm running into the same bug as Andew, i was able to reproduce
+> > using Dave's patch within minutes:
+> >
+> > TCP BUG: high_seq==NULL [c3c9cc54] q[c3c94edc] t[c3c9cc54]
+> >
+> > The after(snd_una, high_seq) check is not triggered.
+> 
+> So tp->high_seq points to the tail packet end sequence.
+> 
+> Ilpo does this clear things up?
 
-Signed-off-by: Divy Le Ray <divy@chelsio.com>
----
+Thanks for the info.
 
- drivers/net/cxgb3/cxgb3_main.c |    4 ++--
- drivers/net/cxgb3/version.h    |    5 ++++-
- 2 files changed, 6 insertions(+), 3 deletions(-)
+I think that the if condition before the write_queue_find should check if
+skb is valid before doing after(TCP_SKB_CB(skb)->seq, tp->high_seq), it
+is pointing to sk_write_queue rather than a valid skb when the previous
+loop exits (there might be a similar problem later in the code too). I
+apologize I cannot provide a good patch at this point of time because I
+moved on Thursday and the ISP hasn't yet activated the access link
+(writing this from a library machine).
 
-diff --git a/drivers/net/cxgb3/cxgb3_main.c b/drivers/net/cxgb3/cxgb3_main.c
-index 512daf7..26240fd 100644
---- a/drivers/net/cxgb3/cxgb3_main.c
-+++ b/drivers/net/cxgb3/cxgb3_main.c
-@@ -721,7 +721,7 @@ static void bind_qsets(struct adapter *a
- 	}
- }
- 
--#define FW_FNAME "t3fw-%d.%d.bin"
-+#define FW_FNAME "t3fw-%d.%d.%d.bin"
- 
- static int upgrade_fw(struct adapter *adap)
- {
-@@ -731,7 +731,7 @@ static int upgrade_fw(struct adapter *ad
- 	struct device *dev = &adap->pdev->dev;
- 
- 	snprintf(buf, sizeof(buf), FW_FNAME, FW_VERSION_MAJOR,
--		 FW_VERSION_MINOR);
-+		 FW_VERSION_MINOR, FW_VERSION_MICRO);
- 	ret = request_firmware(&fw, buf, dev);
- 	if (ret < 0) {
- 		dev_err(dev, "could not upgrade firmware: unable to load %s\n",
-diff --git a/drivers/net/cxgb3/version.h b/drivers/net/cxgb3/version.h
-index 82278f8..042e27e 100644
---- a/drivers/net/cxgb3/version.h
-+++ b/drivers/net/cxgb3/version.h
-@@ -36,6 +36,9 @@
- #define DRV_NAME "cxgb3"
- /* Driver version */
- #define DRV_VERSION "1.0-ko"
-+
-+/* Firmware version */
- #define FW_VERSION_MAJOR 3
--#define FW_VERSION_MINOR 2
-+#define FW_VERSION_MINOR 3
-+#define FW_VERSION_MICRO 0
- #endif				/* __CHELSIO_VERSION_H */
+--
+ i.
