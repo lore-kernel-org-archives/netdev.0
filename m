@@ -1,37 +1,63 @@
-From: Paul Mackerras <paulus@samba.org>
-Subject: Re: Fw: kernel oops at ppp
-Date: Sun, 1 Apr 2007 12:24:35 +1000
-Message-ID: <17935.6115.518506.249844@cargo.ozlabs.ibm.com>
-References: <20070331121633.858312f1.akpm@linux-foundation.org>
+From: Shinta Sugimoto <shinta@sfc.wide.ad.jp>
+Subject: umip-0.3 release
+Date: Sun, 01 Apr 2007 11:46:38 +0900
+Message-ID: <20070401114512.E3E8.SHINTA@sfc.wide.ad.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="US-ASCII"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Stephan Helas <shelas@web.de>
-To: Andrew Morton <akpm@linux-foundation.org>
+Cc: usagi-core@linux-ipv6.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:45798 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751280AbXDACYn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 31 Mar 2007 22:24:43 -0400
-In-Reply-To: <20070331121633.858312f1.akpm@linux-foundation.org>
+Received: from mail.sfc.wide.ad.jp ([203.178.142.146]:48429 "EHLO
+	mail.sfc.wide.ad.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751762AbXDAC7S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 31 Mar 2007 22:59:18 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andrew Morton writes:
+(sorry if you receive multiple copies of this notice)
 
-> From: Stephan Helas <shelas@web.de>
-> To: linux-kernel@vger.kernel.org
-> Subject: kernel oops at ppp
-> 
-> 
-> Hello,
-> 
-> i got oops on unsing UMTS - hsdpa card merlin xu870 using ppp.
+Announcement of umip-0.3 release
 
-What is a "UMTS - hsdpa card merlin xu870"?
+The USAGI Project is pleased to announce the release of umip-0.3
+which is a patch set for MIPL2 software suite and the latest Linux
+kernel (2.6.21-rc5).  umip-0.3 can be downloaded from the following
+location:
 
-At a guess I would say that whatever ppp channel code is being used
-hasn't left any header room on a received skb, but without knowing
-what ppp channel module is being used it's hard to say.
+- Userland tarball:
+ftp://ftp.linux-ipv6.org/pub/usagi/patch/mipv6/umip-0.3/daemon/tarball/mipv6-daemon-umip-0.3.tar.gz
 
-Paul.
+- Userland patch set:
+ftp://ftp.linux-ipv6.org/pub/usagi/patch/mipv6/umip-0.3/daemon/patch
+
+- Kernel patch set:
+ftp://ftp.linux-ipv6.org/pub/usagi/patch/mipv6/umip-0.3/kernel/patch/
+
+The Helsinki University of Technology (HUT) Go-Core Project and the
+USAGI Project have been developing MIPL2 cooperatively which is a
+Mobile IPv6 (MIPv6) stack on Linux-2.6.  Since 2006, the USAGI
+Project has been focusing on merging MIPv6 kernel patches into the
+mainline kernel source tree and most of the patches have already
+been integrated into the source tree.  However, there has been no
+publicly available userland of MIPL2 which runs on the latest kernel.
+
+umip-0.3 contains patches for both userland daemon (mip6d) and
+kernel.  The userland patches are against the MIPL-2.0.2 source
+codes and they are required mainly because there were some design
+changes of the MIPv6 kernel patches during the merging process.
+The userland patches will be sent to the HUT Go-Core Project members.
+The kernel patches are against Linux kernel 2.6.21-rc5 and those
+are required to make MIPv6-specific routing and XFRM policy management
+work properly.  Some of the kernel patches are intended for the
+mainline kernel, which will be sent to the Linux network community ML.
+The other kernel patches are experimental and they are not intended
+for the mainline kernel.
+
+With the mip6d and kernel of umip-0.3, one can leverage MIPv6
+protocol (MN/HA/CN) with or without IPsec configuration.  Although
+the main features of MIPv6 have been confirmed to work as expected
+with umip-0.3, there are some known issues and those can be found
+at <http://www.linux-ipv6.org/memo/mipv6/>.
+
+
+
