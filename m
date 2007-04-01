@@ -1,63 +1,101 @@
-From: Shinta Sugimoto <shinta@sfc.wide.ad.jp>
-Subject: umip-0.3 release
-Date: Sun, 01 Apr 2007 11:46:38 +0900
-Message-ID: <20070401114512.E3E8.SHINTA@sfc.wide.ad.jp>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: r8169 null pointer dereference
+Date: Sun, 1 Apr 2007 12:00:00 +0200
+Message-ID: <20070401100000.GA23965@electric-eye.fr.zoreil.com>
+References: <20070331195046.1fdda7c2@osprey.hogchain.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: usagi-core@linux-ipv6.org
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Jay Cliburn <jacliburn@bellsouth.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.sfc.wide.ad.jp ([203.178.142.146]:48429 "EHLO
-	mail.sfc.wide.ad.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751762AbXDAC7S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 31 Mar 2007 22:59:18 -0400
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:49918 "EHLO
+	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751527AbXDAKAh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 1 Apr 2007 06:00:37 -0400
+Content-Disposition: inline
+In-Reply-To: <20070331195046.1fdda7c2@osprey.hogchain.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-(sorry if you receive multiple copies of this notice)
+Jay Cliburn <jacliburn@bellsouth.net> :
+> Francois,
+> 
+> I get this on 2.6.21-rc5 and earlier kernels going back to at least
+> 2.6.20-git14, both i386 and x86_64, dual-core AM2 and LGA775
+> motherboards, using two different RTL8169 PCI add-in cards.  Has anyone
+> else reported it?
 
-Announcement of umip-0.3 release
+No. It does not look like a post 2.6.20 r8169 regresssion. Can you publish
+the output of an 'objdump -S r8169.ko' someplace and test the patch below
+against 2.6.21-rc5
 
-The USAGI Project is pleased to announce the release of umip-0.3
-which is a patch set for MIPL2 software suite and the latest Linux
-kernel (2.6.21-rc5).  umip-0.3 can be downloaded from the following
-location:
-
-- Userland tarball:
-ftp://ftp.linux-ipv6.org/pub/usagi/patch/mipv6/umip-0.3/daemon/tarball/mipv6-daemon-umip-0.3.tar.gz
-
-- Userland patch set:
-ftp://ftp.linux-ipv6.org/pub/usagi/patch/mipv6/umip-0.3/daemon/patch
-
-- Kernel patch set:
-ftp://ftp.linux-ipv6.org/pub/usagi/patch/mipv6/umip-0.3/kernel/patch/
-
-The Helsinki University of Technology (HUT) Go-Core Project and the
-USAGI Project have been developing MIPL2 cooperatively which is a
-Mobile IPv6 (MIPv6) stack on Linux-2.6.  Since 2006, the USAGI
-Project has been focusing on merging MIPv6 kernel patches into the
-mainline kernel source tree and most of the patches have already
-been integrated into the source tree.  However, there has been no
-publicly available userland of MIPL2 which runs on the latest kernel.
-
-umip-0.3 contains patches for both userland daemon (mip6d) and
-kernel.  The userland patches are against the MIPL-2.0.2 source
-codes and they are required mainly because there were some design
-changes of the MIPv6 kernel patches during the merging process.
-The userland patches will be sent to the HUT Go-Core Project members.
-The kernel patches are against Linux kernel 2.6.21-rc5 and those
-are required to make MIPv6-specific routing and XFRM policy management
-work properly.  Some of the kernel patches are intended for the
-mainline kernel, which will be sent to the Linux network community ML.
-The other kernel patches are experimental and they are not intended
-for the mainline kernel.
-
-With the mip6d and kernel of umip-0.3, one can leverage MIPv6
-protocol (MN/HA/CN) with or without IPsec configuration.  Although
-the main features of MIPv6 have been confirmed to work as expected
-with umip-0.3, there are some known issues and those can be found
-at <http://www.linux-ipv6.org/memo/mipv6/>.
-
-
-
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index 521b5f0..2ecf8e9 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -1751,16 +1751,10 @@ static int rtl8169_open(struct net_devic
+ {
+ 	struct rtl8169_private *tp = netdev_priv(dev);
+ 	struct pci_dev *pdev = tp->pci_dev;
+-	int retval;
++	int retval = -ENOMEM;
+ 
+-	rtl8169_set_rxbufsize(tp, dev);
+ 
+-	retval =
+-	    request_irq(dev->irq, rtl8169_interrupt, IRQF_SHARED, dev->name, dev);
+-	if (retval < 0)
+-		goto out;
+-
+-	retval = -ENOMEM;
++	rtl8169_set_rxbufsize(tp, dev);
+ 
+ 	/*
+ 	 * Rx and Tx desscriptors needs 256 bytes alignment.
+@@ -1769,19 +1763,24 @@ static int rtl8169_open(struct net_devic
+ 	tp->TxDescArray = pci_alloc_consistent(pdev, R8169_TX_RING_BYTES,
+ 					       &tp->TxPhyAddr);
+ 	if (!tp->TxDescArray)
+-		goto err_free_irq;
++		goto out;
+ 
+ 	tp->RxDescArray = pci_alloc_consistent(pdev, R8169_RX_RING_BYTES,
+ 					       &tp->RxPhyAddr);
+ 	if (!tp->RxDescArray)
+-		goto err_free_tx;
++		goto err_free_tx_0;
+ 
+ 	retval = rtl8169_init_ring(dev);
+ 	if (retval < 0)
+-		goto err_free_rx;
++		goto err_free_rx_1;
+ 
+ 	INIT_DELAYED_WORK(&tp->task, NULL);
+ 
++	retval = request_irq(dev->irq, rtl8169_interrupt, IRQF_SHARED,
++			     dev->name, dev);
++	if (retval < 0)
++		goto err_release_ring_2;
++
+ 	rtl8169_hw_start(dev);
+ 
+ 	rtl8169_request_timer(dev);
+@@ -1790,14 +1789,14 @@ static int rtl8169_open(struct net_devic
+ out:
+ 	return retval;
+ 
+-err_free_rx:
++err_release_ring_2:
++	rtl8169_rx_clear(tp);
++err_free_rx_1:
+ 	pci_free_consistent(pdev, R8169_RX_RING_BYTES, tp->RxDescArray,
+ 			    tp->RxPhyAddr);
+-err_free_tx:
++err_free_tx_0:
+ 	pci_free_consistent(pdev, R8169_TX_RING_BYTES, tp->TxDescArray,
+ 			    tp->TxPhyAddr);
+-err_free_irq:
+-	free_irq(dev->irq, dev);
+ 	goto out;
+ }
+ 
