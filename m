@@ -1,8 +1,8 @@
 From: Stefan Richter <stefanr@s5r6.in-berlin.de>
-Subject: [PATCH linux1394-2.6.git 09/15] ieee1394: eth1394: omit useless
-	set_mac_address callback
-Date: Mon, 2 Apr 2007 02:19:48 +0200 (CEST)
-Message-ID: <tkrat.79f8bc185088681f@s5r6.in-berlin.de>
+Subject: [PATCH linux1394-2.6.git 10/15] ieee1394: eth1394: don't use
+	alloc_etherdev
+Date: Mon, 2 Apr 2007 02:20:37 +0200 (CEST)
+Message-ID: <tkrat.0a8d07dc26569210@s5r6.in-berlin.de>
 References: <tkrat.7cdc7f6a1e6d9f28@s5r6.in-berlin.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,52 +23,92 @@ Sender: linux1394-devel-bounces@lists.sourceforge.net
 Errors-To: linux1394-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-We can't reconfigure the MAC address, hence we don't need the callback.
-
 Signed-off-by: Stefan Richter <stefanr@s5r6.in-berlin.de>
 ---
- drivers/ieee1394/eth1394.c |   14 +-------------
- 1 file changed, 1 insertion(+), 13 deletions(-)
+ drivers/ieee1394/eth1394.c |   20 +++++---------------
+ 1 file changed, 5 insertions(+), 15 deletions(-)
 
 Index: linux/drivers/ieee1394/eth1394.c
 ===================================================================
 --- linux.orig/drivers/ieee1394/eth1394.c
 +++ linux/drivers/ieee1394/eth1394.c
-@@ -178,8 +178,6 @@ static int ether1394_header_cache(struct
- static void ether1394_header_cache_update(struct hh_cache *hh,
- 					  struct net_device *dev,
- 					  unsigned char *haddr);
--static int ether1394_mac_addr(struct net_device *dev, void *p);
--
- static int ether1394_tx(struct sk_buff *skb, struct net_device *dev);
- static void ether1394_iso(struct hpsb_iso *iso);
+@@ -50,7 +50,6 @@
  
-@@ -516,7 +514,7 @@ static void ether1394_init_dev(struct ne
+ #include <linux/netdevice.h>
+ #include <linux/inetdevice.h>
+-#include <linux/etherdevice.h>
+ #include <linux/if_arp.h>
+ #include <linux/if_ether.h>
+ #include <linux/ip.h>
+@@ -498,10 +497,8 @@ static void ether1394_reset_priv(struct 
+ 	spin_unlock_irqrestore(&priv->lock, flags);
+ }
+ 
+-/* This function is called right before register_netdev */
+ static void ether1394_init_dev(struct net_device *dev)
+ {
+-	/* Our functions */
+ 	dev->open		= ether1394_open;
+ 	dev->stop		= ether1394_stop;
+ 	dev->hard_start_xmit	= ether1394_tx;
+@@ -514,10 +511,9 @@ static void ether1394_init_dev(struct ne
  	dev->hard_header_cache	= ether1394_header_cache;
  	dev->header_cache_update= ether1394_header_cache_update;
  	dev->hard_header_parse	= ether1394_header_parse;
--	dev->set_mac_address	= ether1394_mac_addr;
-+	dev->set_mac_address	= NULL;
+-	dev->set_mac_address	= NULL;
++
  	SET_ETHTOOL_OPS(dev, &ethtool_ops);
  
- 	/* Some constants */
-@@ -758,16 +756,6 @@ static void ether1394_header_cache_updat
- 	memcpy((u8 *)hh->hh_data + 16 - ETH1394_HLEN, haddr, dev->addr_len);
+-	/* Some constants */
+ 	dev->watchdog_timeo	= ETHER1394_TIMEOUT;
+ 	dev->flags		= IFF_BROADCAST | IFF_MULTICAST;
+ 	dev->features		= NETIF_F_HIGHDMA;
+@@ -525,7 +521,8 @@ static void ether1394_init_dev(struct ne
+ 	dev->hard_header_len 	= ETH1394_HLEN;
+ 	dev->type		= ARPHRD_IEEE1394;
+ 
+-	ether1394_reset_priv(dev, 1);
++	/* FIXME: This value was copied from ether_setup(). Is it too much? */
++	dev->tx_queue_len	= 1000;
  }
  
--static int ether1394_mac_addr(struct net_device *dev, void *p)
--{
--	if (netif_running(dev))
--		return -EBUSY;
+ /*
+@@ -555,11 +552,7 @@ static void ether1394_add_host(struct hp
+ 		return;
+ 	}
+ 
+-	/* We should really have our own alloc_hpsbdev() function in
+-	 * net_init.c instead of calling the one for ethernet then hijacking
+-	 * it for ourselves.  That way we'd be a real networking device. */
+-	dev = alloc_etherdev(sizeof (struct eth1394_priv));
 -
--	/* Not going to allow setting the MAC address, we really need to use
--	 * the real one supplied by the hardware */
--	 return -EINVAL;
--}
++	dev = alloc_netdev(sizeof(*priv), "eth%d", ether1394_init_dev);
+ 	if (dev == NULL) {
+ 		ETH1394_PRINT_G(KERN_ERR, "Out of memory\n");
+ 		goto out;
+@@ -572,21 +565,18 @@ static void ether1394_add_host(struct hp
+ #endif
+ 
+ 	priv = netdev_priv(dev);
 -
- /******************************************
-  * Datagram reception code
-  ******************************************/
+ 	INIT_LIST_HEAD(&priv->ip_node_list);
+-
+ 	spin_lock_init(&priv->lock);
+ 	priv->host = host;
+ 	priv->local_fifo = fifo_addr;
+ 
+ 	hi = hpsb_create_hostinfo(&eth1394_highlevel, host, sizeof(*hi));
+-
+ 	if (hi == NULL) {
+ 		ETH1394_PRINT_G(KERN_ERR, "Out of memory\n");
+ 		goto out;
+ 	}
+ 
+-	ether1394_init_dev(dev);
++	ether1394_reset_priv(dev, 1);
+ 
+ 	if (register_netdev(dev)) {
+ 		ETH1394_PRINT_G(KERN_ERR, "Cannot register the driver\n");
 
 -- 
 Stefan Richter
