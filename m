@@ -1,38 +1,77 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: tcp crash in net-2.6 tree
-Date: Mon, 2 Apr 2007 23:06:01 +0200
-Message-ID: <20070402210601.GS521@postel.suug.ch>
-References: <mFVio6um.1175336346.4693300.ijjarvin@cs.helsinki.fi> <Pine.LNX.4.64.0704021133220.28337@kivilampi-30.cs.helsinki.fi> <20070402.020232.25465868.davem@davemloft.net>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [PATCH 2/2] r8169: fix suspend/resume for down interface
+Date: Mon, 2 Apr 2007 23:01:11 +0200
+Message-ID: <20070402210111.GB23368@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: ilpo.jarvinen@helsinki.fi, akpm@linux-foundation.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Arnaud Patard <apatard@mandriva.com>, netdev@vger.kernel.org
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:41058 "EHLO postel.suug.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965858AbXDBVFl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Apr 2007 17:05:41 -0400
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:35488 "EHLO
+	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965884AbXDBVEc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Apr 2007 17:04:32 -0400
 Content-Disposition: inline
-In-Reply-To: <20070402.020232.25465868.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* David Miller <davem@davemloft.net> 2007-04-02 02:02
-> From: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
-> Date: Mon, 2 Apr 2007 11:38:51 +0300 (EEST)
->=20
-> > [PATCH] [TCP]: Fix invalid skb referencing in LOST marker code
-> >=20
-> > The after() referenced an invalid skb if loop exited when skb had
-> > reached sk_write_queue. I chose to move this part inside the loop
-> > where the skb is valid (so no need to check for that like I first
-> > suggested), which also allows dropping of couple of conditions
-> > from the if.
-> >=20
-> > Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
->=20
-> Patch applied, thanks a lot Ilpo.
+The PM hooks are no-op if the r8169 interface is down (i.e. !IFF_UP).
+However, as the chipset is enabled, the device will not work after a
+suspend/resume cycle. The patch always issue the required PCI suspend
+sequence and removes the module unload/reload workaround.
 
-I can no longer trigger the bug, thanks Ilpo.
+Signed-off-by: Arnaud Patard <apatard@mandriva.com>
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+---
+ drivers/net/r8169.c |   13 +++++++------
+ 1 files changed, 7 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index 60f630e..6a77b8a 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -2890,7 +2890,7 @@ static int rtl8169_suspend(struct pci_dev *pdev, pm_message_t state)
+ 	void __iomem *ioaddr = tp->mmio_addr;
+ 
+ 	if (!netif_running(dev))
+-		goto out;
++		goto out_pci_suspend;
+ 
+ 	netif_device_detach(dev);
+ 	netif_stop_queue(dev);
+@@ -2904,10 +2904,11 @@ static int rtl8169_suspend(struct pci_dev *pdev, pm_message_t state)
+ 
+ 	spin_unlock_irq(&tp->lock);
+ 
++out_pci_suspend:
+ 	pci_save_state(pdev);
+ 	pci_enable_wake(pdev, pci_choose_state(pdev, state), tp->wol_enabled);
+ 	pci_set_power_state(pdev, pci_choose_state(pdev, state));
+-out:
++
+ 	return 0;
+ }
+ 
+@@ -2915,15 +2916,15 @@ static int rtl8169_resume(struct pci_dev *pdev)
+ {
+ 	struct net_device *dev = pci_get_drvdata(pdev);
+ 
++	pci_set_power_state(pdev, PCI_D0);
++	pci_restore_state(pdev);
++	pci_enable_wake(pdev, PCI_D0, 0);
++
+ 	if (!netif_running(dev))
+ 		goto out;
+ 
+ 	netif_device_attach(dev);
+ 
+-	pci_set_power_state(pdev, PCI_D0);
+-	pci_restore_state(pdev);
+-	pci_enable_wake(pdev, PCI_D0, 0);
+-
+ 	rtl8169_schedule_work(dev, rtl8169_reset_task);
+ out:
+ 	return 0;
+-- 
+1.5.0.5
+
