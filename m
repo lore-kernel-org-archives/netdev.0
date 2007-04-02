@@ -1,39 +1,31 @@
-From: Christian Kujau <christian@g-house.de>
-Subject: Re: 2.6.20.4: NETDEV WATCHDOG and lockups
-Date: Mon, 2 Apr 2007 22:15:27 +0100 (BST)
-Message-ID: <Pine.LNX.4.64.0704022212490.3963@sheep.housecafe.de>
-References: <Pine.LNX.4.64.0704022012300.3963@sheep.housecafe.de>
- <46116570.3050109@redhat.com>
+From: "Chris Friesen" <cfriesen@nortel.com>
+Subject: Re: quick help with bonding?
+Date: Mon, 02 Apr 2007 16:28:17 -0600
+Message-ID: <46118381.5030801@nortel.com>
+References: <460BE5F0.7070606@nortel.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	malte@g-house.de
-To: Chuck Ebbert <cebbert@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: bonding-devel@lists.sourceforge.net, fubar@us.ibm.com,
+	ctindel@users.sourceforge.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.g-housing.de ([81.169.133.75]:55116 "EHLO mail.g-house.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965992AbXDBWHH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Apr 2007 18:07:07 -0400
-In-Reply-To: <46116570.3050109@redhat.com>
+Received: from zrtps0kn.nortel.com ([47.140.192.55]:62176 "EHLO
+	zrtps0kn.nortel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965983AbXDBW2f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Apr 2007 18:28:35 -0400
+In-Reply-To: <460BE5F0.7070606@nortel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2 Apr 2007, Chuck Ebbert wrote:
->> Please see http://nerdbynature.de/bits/2.6.20.4/ for details for both
->> hosts and feel free to ask for more details. Although both boxes are in
->> production we'll be happy test more bootoptions/patches and the like.
->
-> Where is the info from before you changed to "noapic"? Or were the
-> machines always using XT-PIC for all the interrupts???
+Chris Friesen wrote:
 
-Who, didn't notice the XT-PIC in /proc/interrupts. From the count of 
-your questionmarks I figure it's a bad thing then?
+> It behaved fairly well with standard networking, but its behaving 
+> strangely with bonding added to the mix.
 
-@Malte, do we still have this information around?
+Thanks to everyone for the suggestions and help.
 
-Thanks,
-Christian.
--- 
-BOFH excuse #63:
+It turns out it was actually a driver problem that was more easily 
+manifested by the timing of the way bonding changed the link MTU.
 
-not properly grounded, please bury computer
+Chris
