@@ -1,8 +1,7 @@
 From: Stefan Richter <stefanr@s5r6.in-berlin.de>
-Subject: [PATCH linux1394-2.6.git 07/15] ieee1394: eth1394: make MTU
-	configurable
-Date: Mon, 2 Apr 2007 02:18:13 +0200 (CEST)
-Message-ID: <tkrat.6cd13266811f2f6d@s5r6.in-berlin.de>
+Subject: [PATCH linux1394-2.6.git 08/15] eth1394: CONFIG_INET is always defined
+Date: Mon, 2 Apr 2007 02:19:02 +0200 (CEST)
+Message-ID: <tkrat.be2ddb1e91e2f590@s5r6.in-berlin.de>
 References: <tkrat.7cdc7f6a1e6d9f28@s5r6.in-berlin.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,63 +22,42 @@ Sender: linux1394-devel-bounces@lists.sourceforge.net
 Errors-To: linux1394-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
+because CONFIG_IEEE1394_ETH1394 depends on it.
+
 Signed-off-by: Stefan Richter <stefanr@s5r6.in-berlin.de>
 ---
- drivers/ieee1394/eth1394.c |   20 ++++++++++++++------
- 1 file changed, 14 insertions(+), 6 deletions(-)
+ drivers/ieee1394/eth1394.c |   16 ++++------------
+ 1 file changed, 4 insertions(+), 12 deletions(-)
 
 Index: linux/drivers/ieee1394/eth1394.c
 ===================================================================
 --- linux.orig/drivers/ieee1394/eth1394.c
 +++ linux/drivers/ieee1394/eth1394.c
-@@ -136,9 +136,6 @@ static const int hdr_type_len[] = {
- 	sizeof(struct eth1394_sf_hdr)
- };
- 
--/* For now, this needs to be 1500, so that XP works with us */
--#define ETH1394_DATA_LEN	ETH_DATA_LEN
+@@ -715,21 +715,13 @@ static int ether1394_header(struct sk_bu
+ static int ether1394_rebuild_header(struct sk_buff *skb)
+ {
+ 	struct eth1394hdr *eth = (struct eth1394hdr *)skb->data;
+-	struct net_device *dev = skb->dev;
 -
- static const u16 eth1394_speedto_maxpayload[] = {
- /*     S100, S200, S400, S800, S1600, S3200 */
- 	512, 1024, 2048, 4096,  4096,  4096
-@@ -158,8 +155,19 @@ static int max_partial_datagrams = 25;
- module_param(max_partial_datagrams, int, S_IRUGO | S_IWUSR);
- MODULE_PARM_DESC(max_partial_datagrams,
- 		 "Maximum number of partially received fragmented datagrams "
--		 "(default = 25).");
-+		 "(default = 25)");
+-	switch (eth->h_proto) {
  
-+/*
-+ * RFC 2734 says: "IP-capable nodes may operate with an MTU size larger than
-+ * the default [1500 octets], but the means by which a larger MTU is configured
-+ * are beyond the scope of this document."
-+ *
-+ * Leave it at the default 1500 for interoperability.
-+ * Raise it for performance tuning.
-+ */
-+static int eth1394_data_len = 1500;
-+module_param_named(mtu, eth1394_data_len, int, S_IRUGO | S_IWUSR);
-+MODULE_PARM_DESC(mtu, "MTU (default = 1500)");
+-#ifdef CONFIG_INET
+-	case __constant_htons(ETH_P_IP):
++	if (eth->h_proto == htons(ETH_P_IP))
+  		return arp_find((unsigned char *)&eth->h_dest, skb);
+-#endif
+-	default:
+-		ETH1394_PRINT(KERN_DEBUG, dev->name,
+-			      "unable to resolve type %04x addresses.\n",
+-			      ntohs(eth->h_proto));
+-		break;
+-	}
  
- static int ether1394_header(struct sk_buff *skb, struct net_device *dev,
- 			    unsigned short type, void *daddr, void *saddr,
-@@ -268,7 +276,7 @@ static int ether1394_change_mtu(struct n
- 		((struct eth1394_priv *)netdev_priv(dev))->host->csr.max_rec;
- 
- 	if (new_mtu < 68 ||
--	    new_mtu > ETH1394_DATA_LEN ||
-+	    new_mtu > eth1394_data_len ||
- 	    new_mtu > (1 << (max_rec + 1)) - sizeof(union eth1394_hdr) -
- 		      ETHER1394_GASP_OVERHEAD)
- 		return -EINVAL;
-@@ -480,7 +488,7 @@ static void ether1394_reset_priv(struct 
- 	if (set_mtu) {
- 		int max_payload = 1 << (host->csr.max_rec + 1);
- 
--		dev->mtu = min(ETH1394_DATA_LEN,
-+		dev->mtu = min(eth1394_data_len,
- 			       (int)(max_payload - sizeof(union eth1394_hdr) -
- 				     ETHER1394_GASP_OVERHEAD));
++	ETH1394_PRINT(KERN_DEBUG, skb->dev->name,
++		      "unable to resolve type %04x addresses\n",
++		      ntohs(eth->h_proto));
+ 	return 0;
+ }
  
 
 -- 
