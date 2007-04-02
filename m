@@ -1,57 +1,37 @@
-From: "Peter Trifonov" <petert@dcn.infos.ru>
-Subject: PROBLEM: sky2 hangs
-Date: Mon, 2 Apr 2007 22:12:27 +0400
-Message-ID: <20070402181228.198B54AC19@dcn.infos.ru>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [patch 10/10] forcedeth: work around NULL skb dereference crash
+Date: Mon, 2 Apr 2007 21:10:14 +0200
+Message-ID: <20070402191014.GC2081@elte.hu>
+References: <20070402115325.GA945@elte.hu> <DBFABB80F7FD3143A911F9E6CFD477B0189CB20B@hqemmail02.nvidia.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: akpm@linux-foundation.org, jeff@garzik.org, netdev@vger.kernel.org
+To: Ayaz Abdulla <AAbdulla@nvidia.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw-9cor.infos.ru ([195.209.229.106]:50735 "EHLO dcn.infos.ru"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S965632AbXDBSoq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Apr 2007 14:44:46 -0400
-Received: from dcn.research.dcn (localhost.research.dcn [127.0.0.1])
-	by dcn.research.dcn (Postfix) with SMTP id 4B0B64AC7F
-	for <netdev@vger.kernel.org>; Mon,  2 Apr 2007 22:12:37 +0400 (MSD)
-Received: from kas30pipe.localhost (localhost.research.dcn [127.0.0.1])
-	by dcn.infos.ru (Postfix) with ESMTP id 378384AC66
-	for <netdev@vger.kernel.org>; Mon,  2 Apr 2007 22:12:28 +0400 (MSD)
-Received: from bomb (bomb.research.dcn [10.0.103.25])
-	by dcn.infos.ru (Postfix) with ESMTP id 198B54AC19
-	for <netdev@vger.kernel.org>; Mon,  2 Apr 2007 22:12:28 +0400 (MSD)
+Received: from mx2.mail.elte.hu ([157.181.151.9]:51424 "EHLO mx2.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965709AbXDBTKc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Apr 2007 15:10:32 -0400
+Content-Disposition: inline
+In-Reply-To: <DBFABB80F7FD3143A911F9E6CFD477B0189CB20B@hqemmail02.nvidia.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
 
-I have got a PC based on Gigabyte GA-965P-S3 motherboard with an integrated
-Marvell Yukon 88E8056 PCI-E gigabit ethernet controller. 
+* Ayaz Abdulla <AAbdulla@nvidia.com> wrote:
 
-I am using OpenSuSe Linux 10.2 x64/SMP  with 2.6.18.2-34-default kernel.
+> I had responded eariler to the thread asking you to try out the patch
+> found in bug 8058:
+> http://bugzilla.kernel.org/show_bug.cgi?id=8058
+> 
+> I believe that is the caush of the NULL skb dereference issue.
 
-Everything works fine when the network load is low. However, if a big file
-transfer is initiated,
-the network stops working completely,  and the following message is logged:
+ah, sorry - i checked the wrong thread for your mail!
 
-Apr  2 20:44:07 bullet-lin kernel: sky2 0000:04:00.0: pci hw error (0x2010)
+(btw., could you please bump the default for max_interrupt_work up from 
+6 to at least 30? Bursts of 30 packets isnt hard to trigger, it happens 
+commonly on my box - and 6 are trivial to trigger and the messages look 
+quite alarming to the untrained eye and the condition also hurts 
+performance. Thanks!)
 
-In some cases the system freezes in a short time after this. 
-
-ifconfig up/down and reloading the sky2 kernel module does not help.
-ifconfig says also "unknown device 4364 rev. 13"
-
-The driver provided by Marvell fails to compile. 
-
-Everything works perfectly under WinXP x64.
-
-
-Please let me know if there is a way to make this NIC to work under Linux.
-
-Many thanks in advance. 
-
-With best regards,
-P. Trifonov 
-
-
+	Ingo
