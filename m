@@ -1,51 +1,57 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: NIC data corruption
-Date: Mon, 2 Apr 2007 20:07:17 +0200
-Message-ID: <20070402180717.GA32435@one.firstfloor.org>
-References: <20070401012736.GT15189@vitelus.com> <20070401030315.GA24080@jim.sh> <20070401043905.GV15189@vitelus.com> <p737iswqjq4.fsf@bingen.suse.de> <46114158.2030007@hp.com>
+From: "Peter Trifonov" <petert@dcn.infos.ru>
+Subject: PROBLEM: sky2 hangs
+Date: Mon, 2 Apr 2007 22:12:27 +0400
+Message-ID: <20070402181228.198B54AC19@dcn.infos.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andi Kleen <andi@firstfloor.org>,
-	Aaron Lehmann <aaronl@vitelus.com>, Jim Paris <jim@jtan.com>,
-	netdev@vger.kernel.org
-To: Rick Jones <rick.jones2@hp.com>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:37707 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965621AbXDBSHX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Apr 2007 14:07:23 -0400
-Content-Disposition: inline
-In-Reply-To: <46114158.2030007@hp.com>
+Received: from gw-9cor.infos.ru ([195.209.229.106]:50735 "EHLO dcn.infos.ru"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S965632AbXDBSoq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Apr 2007 14:44:46 -0400
+Received: from dcn.research.dcn (localhost.research.dcn [127.0.0.1])
+	by dcn.research.dcn (Postfix) with SMTP id 4B0B64AC7F
+	for <netdev@vger.kernel.org>; Mon,  2 Apr 2007 22:12:37 +0400 (MSD)
+Received: from kas30pipe.localhost (localhost.research.dcn [127.0.0.1])
+	by dcn.infos.ru (Postfix) with ESMTP id 378384AC66
+	for <netdev@vger.kernel.org>; Mon,  2 Apr 2007 22:12:28 +0400 (MSD)
+Received: from bomb (bomb.research.dcn [10.0.103.25])
+	by dcn.infos.ru (Postfix) with ESMTP id 198B54AC19
+	for <netdev@vger.kernel.org>; Mon,  2 Apr 2007 22:12:28 +0400 (MSD)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 02, 2007 at 10:46:00AM -0700, Rick Jones wrote:
-> I changed the title to be more accurate, and culled the distribution to 
-> individuals and netdev
-> 
-> The mention of trying to turn-off CKO and see if the data corruption 
-> goes away leads me to ask a possibly "delicate" question:
-> 
->   Should "Linux" only enable CKO on those NICs certified to have
->   ECC/parity throughout their _entire_ data path?
+Hello,
 
-Even with reliable software checksumming you can have quite a lot of undetected
-errors (there was a interesting study about this some years ago). 
-If you really care about your data you should use SSL or some
-other protocol with strong checksums.
+I have got a PC based on Gigabyte GA-965P-S3 motherboard with an integrated
+Marvell Yukon 88E8056 PCI-E gigabit ethernet controller. 
 
-That said it would probably make quite a lot of people unhappy
-because it would make their NICs much slower and the occasional
-bit error that is missed by the NIC is likely not a big issue for them.
+I am using OpenSuSe Linux 10.2 x64/SMP  with 2.6.18.2-34-default kernel.
 
-What might be a good idea would to have some optional knob 
-somewhere that allows to disable hardware checksumming for NICs
-that are not trusted this way. But then someone would need to 
-do the necessary research for the hundreds of NICs Linux support
+Everything works fine when the network load is low. However, if a big file
+transfer is initiated,
+the network stops working completely,  and the following message is logged:
 
-Just providing a general global "disable hardware checksumming"
-knob for the paranoid would be much easier. I guess that would
-be a good idea.
+Apr  2 20:44:07 bullet-lin kernel: sky2 0000:04:00.0: pci hw error (0x2010)
 
--Andi
+In some cases the system freezes in a short time after this. 
+
+ifconfig up/down and reloading the sky2 kernel module does not help.
+ifconfig says also "unknown device 4364 rev. 13"
+
+The driver provided by Marvell fails to compile. 
+
+Everything works perfectly under WinXP x64.
+
+
+Please let me know if there is a way to make this NIC to work under Linux.
+
+Many thanks in advance. 
+
+With best regards,
+P. Trifonov 
+
 
