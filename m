@@ -1,37 +1,31 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [patch 10/10] forcedeth: work around NULL skb dereference crash
-Date: Mon, 2 Apr 2007 21:10:14 +0200
-Message-ID: <20070402191014.GC2081@elte.hu>
-References: <20070402115325.GA945@elte.hu> <DBFABB80F7FD3143A911F9E6CFD477B0189CB20B@hqemmail02.nvidia.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: PROBLEM: sky2 hangs
+Date: Mon, 2 Apr 2007 12:41:10 -0700
+Message-ID: <20070402124110.1c5f98d4@oldman>
+References: <20070402181228.198B54AC19@dcn.infos.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: akpm@linux-foundation.org, jeff@garzik.org, netdev@vger.kernel.org
-To: Ayaz Abdulla <AAbdulla@nvidia.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>
+To: "Peter Trifonov" <petert@dcn.infos.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.mail.elte.hu ([157.181.151.9]:51424 "EHLO mx2.mail.elte.hu"
+Received: from smtp.osdl.org ([65.172.181.24]:41756 "EHLO smtp.osdl.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965709AbXDBTKc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Apr 2007 15:10:32 -0400
-Content-Disposition: inline
-In-Reply-To: <DBFABB80F7FD3143A911F9E6CFD477B0189CB20B@hqemmail02.nvidia.com>
+	id S965757AbXDBTls (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Apr 2007 15:41:48 -0400
+In-Reply-To: <20070402181228.198B54AC19@dcn.infos.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Mon, 2 Apr 2007 22:12:27 +0400
+"Peter Trifonov" <petert@dcn.infos.ru> wrote:
 
-* Ayaz Abdulla <AAbdulla@nvidia.com> wrote:
-
-> I had responded eariler to the thread asking you to try out the patch
-> found in bug 8058:
-> http://bugzilla.kernel.org/show_bug.cgi?id=8058
+> Hello,
 > 
-> I believe that is the caush of the NULL skb dereference issue.
+> I have got a PC based on Gigabyte GA-965P-S3 motherboard with an integrated
+> Marvell Yukon 88E8056 PCI-E gigabit ethernet controller. 
+> 
+> I am using OpenSuSe Linux 10.2 x64/SMP  with 2.6.18.2-34-default kernel.
 
-ah, sorry - i checked the wrong thread for your mail!
-
-(btw., could you please bump the default for max_interrupt_work up from 
-6 to at least 30? Bursts of 30 packets isnt hard to trigger, it happens 
-commonly on my box - and 6 are trivial to trigger and the messages look 
-quite alarming to the untrained eye and the condition also hurts 
-performance. Thanks!)
-
-	Ingo
+There have been several updates since 2.6.18. Please try and reproduce with
+2.6.20 or later kernel. Or contact the vendor to update their kernel.
