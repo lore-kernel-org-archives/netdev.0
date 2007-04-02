@@ -1,56 +1,52 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: Poor UDP performance using 2.6.21-rc5-rt5
-Date: Mon, 2 Apr 2007 08:30:18 +0200
-Message-ID: <20070402063018.GA10209@elte.hu>
-References: <461004CE.1030009@ieee.org> <461010F9.7040706@us.ibm.com> <20070402055509.GC3284@elte.hu>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: intermittant petabyte usage reported with broadcom nic
+Date: Mon, 2 Apr 2007 00:13:00 -0700
+Message-ID: <20070402001300.3b66007d.akpm@linux-foundation.org>
+References: <20070402014319.GA8345@zip.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Dave Sperry <dave_sperry@ieee.org>, linux-rt-users@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: Nivedita Singhvi <niv@us.ibm.com>
-Return-path: <linux-rt-users-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20070402055509.GC3284@elte.hu>
-Sender: linux-rt-users-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: CaT <cat@zip.com.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.osdl.org ([65.172.181.24]:42217 "EHLO smtp.osdl.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753359AbXDBHNE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Apr 2007 03:13:04 -0400
+In-Reply-To: <20070402014319.GA8345@zip.com.au>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Mon, 2 Apr 2007 11:43:19 +1000 CaT <cat@zip.com.au> wrote:
 
-* Ingo Molnar <mingo@elte.hu> wrote:
+> I take minute by minute snapshots of network traffic by sampling
+> /proc/net/dev and most of the time everything works fine. Occasionally
+> though I get petabyte byte traffic and corresponding packet traffic.
 
-> one thing to check would be whether both kernels use the same 
-> clocksource, via:
+How frequently?
+
+Are you able to provide some actual numbers (expected and actual values),
+so we can look at the bit patterns?
+
+> This happens on an AMD64, dual core smp box with Broadcom NetXtreme II
+> nics.
+
+What driver drivers that?  b44.c?
+
+> The issue happens with both nics but at different times. The same
+> sampling code runs on p4 boxes with ht on and e1000 nics without issues
+> so I don't believe it's an issue with my code (famous last words :)
+> which just does an re to extract the data on a per-line basis and prints
+> it out. Still, I'll be adding code to log any big readings and hopefully
+> it'll happen again sooner rather then later.
 > 
->  cat /sys/devices/system/clocksource/clocksource0/current_clocksource
-> 
-> but at first sight there's no clocksource related overhead in the 
-> oprofile.
+> There is no preemption involved and the kernel is a monolythic build of
+> 2.6.19.[12] (there are two servers).
 
-i've started a similar netperf test and clocksource overhead dominates 
-the profile:
+We do perform racy 64-bit updates of some of the stats counters.  But
+that'll only affect 32-bit kernels and I'm assuming you're running a 64-bit
+kernel on that AMD64 box (are you?)
 
-   5553 handle_fasteoi_irq                        26.1934
-   5940 nv_start_xmit_optimized                    6.6892
-   6014 ack_ioapic_quirk_irq                      44.5481
-   7591 mask_IO_APIC_irq                         154.9184
-   8155 __copy_from_user_ll                       37.4083
-  13371 io_apic_base                             417.8438
-  13565 get_next_timer_interrupt                  29.7478
-  13966 __modify_IO_APIC_irq                     151.8043
-  14213 do_irqd                                   22.7045
-  17834 unmask_IO_APIC_irq                       424.6190
-  20503 __schedule                                 6.4455
-  48456 cpu_idle                                 180.8060
- 170001 acpi_pm_read                             8947.4211
- 517107 total                                      0.1566
+Plus it's odd that both the byte-counters and the packet-counters go wonky
+at the same time.
 
-acpi_pm_read() amounts to 32% overhead!
-
-i'm not sure why the oprofile results show no clocksource overhead - the 
--rt kernel typically uses the pm-timer on Opterons.
-
-to get more comparable results, boot the vanilla kernel with the 
-"apicpmtimer" boot option, and/or do this after bootup:
-
- echo acpi_pm > /sys/devices/system/clocksource/clocksource0/current_clocksource
-
-	Ingo
