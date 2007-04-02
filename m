@@ -1,7 +1,8 @@
 From: Stefan Richter <stefanr@s5r6.in-berlin.de>
-Subject: [PATCH linux1394-2.6.git 08/15] eth1394: CONFIG_INET is always defined
-Date: Mon, 2 Apr 2007 02:19:02 +0200 (CEST)
-Message-ID: <tkrat.be2ddb1e91e2f590@s5r6.in-berlin.de>
+Subject: [PATCH linux1394-2.6.git 09/15] ieee1394: eth1394: omit useless
+	set_mac_address callback
+Date: Mon, 2 Apr 2007 02:19:48 +0200 (CEST)
+Message-ID: <tkrat.79f8bc185088681f@s5r6.in-berlin.de>
 References: <tkrat.7cdc7f6a1e6d9f28@s5r6.in-berlin.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,43 +23,52 @@ Sender: linux1394-devel-bounces@lists.sourceforge.net
 Errors-To: linux1394-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-because CONFIG_IEEE1394_ETH1394 depends on it.
+We can't reconfigure the MAC address, hence we don't need the callback.
 
 Signed-off-by: Stefan Richter <stefanr@s5r6.in-berlin.de>
 ---
- drivers/ieee1394/eth1394.c |   16 ++++------------
- 1 file changed, 4 insertions(+), 12 deletions(-)
+ drivers/ieee1394/eth1394.c |   14 +-------------
+ 1 file changed, 1 insertion(+), 13 deletions(-)
 
 Index: linux/drivers/ieee1394/eth1394.c
 ===================================================================
 --- linux.orig/drivers/ieee1394/eth1394.c
 +++ linux/drivers/ieee1394/eth1394.c
-@@ -715,21 +715,13 @@ static int ether1394_header(struct sk_bu
- static int ether1394_rebuild_header(struct sk_buff *skb)
- {
- 	struct eth1394hdr *eth = (struct eth1394hdr *)skb->data;
--	struct net_device *dev = skb->dev;
+@@ -178,8 +178,6 @@ static int ether1394_header_cache(struct
+ static void ether1394_header_cache_update(struct hh_cache *hh,
+ 					  struct net_device *dev,
+ 					  unsigned char *haddr);
+-static int ether1394_mac_addr(struct net_device *dev, void *p);
 -
--	switch (eth->h_proto) {
+ static int ether1394_tx(struct sk_buff *skb, struct net_device *dev);
+ static void ether1394_iso(struct hpsb_iso *iso);
  
--#ifdef CONFIG_INET
--	case __constant_htons(ETH_P_IP):
-+	if (eth->h_proto == htons(ETH_P_IP))
-  		return arp_find((unsigned char *)&eth->h_dest, skb);
--#endif
--	default:
--		ETH1394_PRINT(KERN_DEBUG, dev->name,
--			      "unable to resolve type %04x addresses.\n",
--			      ntohs(eth->h_proto));
--		break;
--	}
+@@ -516,7 +514,7 @@ static void ether1394_init_dev(struct ne
+ 	dev->hard_header_cache	= ether1394_header_cache;
+ 	dev->header_cache_update= ether1394_header_cache_update;
+ 	dev->hard_header_parse	= ether1394_header_parse;
+-	dev->set_mac_address	= ether1394_mac_addr;
++	dev->set_mac_address	= NULL;
+ 	SET_ETHTOOL_OPS(dev, &ethtool_ops);
  
-+	ETH1394_PRINT(KERN_DEBUG, skb->dev->name,
-+		      "unable to resolve type %04x addresses\n",
-+		      ntohs(eth->h_proto));
- 	return 0;
+ 	/* Some constants */
+@@ -758,16 +756,6 @@ static void ether1394_header_cache_updat
+ 	memcpy((u8 *)hh->hh_data + 16 - ETH1394_HLEN, haddr, dev->addr_len);
  }
  
+-static int ether1394_mac_addr(struct net_device *dev, void *p)
+-{
+-	if (netif_running(dev))
+-		return -EBUSY;
+-
+-	/* Not going to allow setting the MAC address, we really need to use
+-	 * the real one supplied by the hardware */
+-	 return -EINVAL;
+-}
+-
+ /******************************************
+  * Datagram reception code
+  ******************************************/
 
 -- 
 Stefan Richter
