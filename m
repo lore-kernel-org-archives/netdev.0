@@ -1,60 +1,30 @@
-From: "Ayaz Abdulla" <AAbdulla@nvidia.com>
-Subject: RE: [patch 10/10] forcedeth: work around NULL skb dereference crash
-Date: Mon, 2 Apr 2007 10:34:47 -0700
-Message-ID: <DBFABB80F7FD3143A911F9E6CFD477B0189CB20B@hqemmail02.nvidia.com>
-References: <20070402115325.GA945@elte.hu>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: NIC data corruption
+Date: Mon, 02 Apr 2007 10:46:00 -0700
+Message-ID: <46114158.2030007@hp.com>
+References: <20070401012736.GT15189@vitelus.com>	<20070401030315.GA24080@jim.sh> <20070401043905.GV15189@vitelus.com> <p737iswqjq4.fsf@bingen.suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <jeff@garzik.org>, <netdev@vger.kernel.org>
-To: "Ingo Molnar" <mingo@elte.hu>, <akpm@linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Aaron Lehmann <aaronl@vitelus.com>, Jim Paris <jim@jtan.com>,
+	netdev@vger.kernel.org
+To: Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hqemgate01.nvidia.com ([216.228.112.170]:16468 "EHLO
-	HQEMGATE01.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752801AbXDBRf5 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Apr 2007 13:35:57 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <20070402115325.GA945@elte.hu>
+Received: from palrel10.hp.com ([156.153.255.245]:60536 "EHLO palrel10.hp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752900AbXDBRqE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Apr 2007 13:46:04 -0400
+In-Reply-To: <p737iswqjq4.fsf@bingen.suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I had responded eariler to the thread asking you to try out the patch
-found in bug 8058:
-http://bugzilla.kernel.org/show_bug.cgi?id=8058
+I changed the title to be more accurate, and culled the distribution to 
+individuals and netdev
 
-I believe that is the caush of the NULL skb dereference issue.
+The mention of trying to turn-off CKO and see if the data corruption 
+goes away leads me to ask a possibly "delicate" question:
 
-Thanks,
-Ayaz
+   Should "Linux" only enable CKO on those NICs certified to have
+   ECC/parity throughout their _entire_ data path?
 
-
------Original Message-----
-From: Ingo Molnar [mailto:mingo@elte.hu] 
-Sent: Monday, April 02, 2007 4:53 AM
-To: akpm@linux-foundation.org
-Cc: jeff@garzik.org; netdev@vger.kernel.org; Ayaz Abdulla
-Subject: Re: [patch 10/10] forcedeth: work around NULL skb dereference
-crash
-
-
-* akpm@linux-foundation.org <akpm@linux-foundation.org> wrote:
-
-> From: Ingo Molnar <mingo@elte.hu>
-> 
-> work around a NULL skb dereference crash that occurs during high load.
-> 
-> Signed-off-by: Ingo Molnar <mingo@elte.hu>
-> Cc: Ayaz Abdulla <aabdulla@nvidia.com>
-> Cc: Jeff Garzik <jeff@garzik.org>
-> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
-
-ping? No reaction from the forcedeth.c maintainer, yet.
-
-	Ingo
------------------------------------------------------------------------------------
-This email message is for the sole use of the intended recipient(s) and may contain
-confidential information.  Any unauthorized review, use, disclosure or distribution
-is prohibited.  If you are not the intended recipient, please contact the sender by
-reply email and destroy all copies of the original message.
------------------------------------------------------------------------------------
+rick jones
