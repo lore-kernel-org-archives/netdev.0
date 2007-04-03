@@ -1,57 +1,65 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: [bug] forcedeth: hung interface under load
-Date: Tue, 3 Apr 2007 09:05:14 +0200
-Message-ID: <20070403070514.GA22940@elte.hu>
-References: <20070402115325.GA945@elte.hu> <DBFABB80F7FD3143A911F9E6CFD477B0189CB20B@hqemmail02.nvidia.com> <20070403062629.GA13210@elte.hu>
+From: Mitsuru Chinen <mitch@linux.vnet.ibm.com>
+Subject: [PATCH] [IPv6] Exclude truncated packets from InHdrErrors
+ statistics
+Date: Tue, 3 Apr 2007 15:55:51 +0900
+Message-ID: <20070403155551.a84db4f0.mitch@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: akpm@linux-foundation.org, jeff@garzik.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Adrian Bunk <bunk@stusta.de>
-To: Ayaz Abdulla <AAbdulla@nvidia.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org,
+	YOSHIFUJI Hideaki / =?ISO-2022-JP?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.mail.elte.hu ([157.181.151.9]:39083 "EHLO mx2.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753416AbXDCHFe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Apr 2007 03:05:34 -0400
-Content-Disposition: inline
-In-Reply-To: <20070403062629.GA13210@elte.hu>
+Received: from e35.co.us.ibm.com ([32.97.110.153]:33576 "EHLO
+	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932282AbXDCHdC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Apr 2007 03:33:02 -0400
+Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
+	by e35.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id l337X1aT026300
+	for <netdev@vger.kernel.org>; Tue, 3 Apr 2007 03:33:01 -0400
+Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
+	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l337X1mR155712
+	for <netdev@vger.kernel.org>; Tue, 3 Apr 2007 01:33:01 -0600
+Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av02.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l337X1xa029939
+	for <netdev@vger.kernel.org>; Tue, 3 Apr 2007 01:33:01 -0600
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Incoming trancated packets are counted as not only InTruncatedPkts but
+also InHdrErrors. They should be counted as InTruncatedPkts only.
 
-* Ingo Molnar <mingo@elte.hu> wrote:
+Signed-off-by: Mitsuru Chinen <mitch@linux.vnet.ibm.com>
+---
+ net/ipv6/ip6_input.c |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
 
-> 
-> > I had responded eariler to the thread asking you to try out the patch
-> > found in bug 8058:
-> > http://bugzilla.kernel.org/show_bug.cgi?id=8058
-> > 
-> > I believe that is the caush of the NULL skb dereference issue.
-> 
-> there's a different type of regression now: under high load i dont get 
-> a crash, i get a hung interface instead. No error packets or other 
-> weird interface state - just a hung interface. [...]
+diff --git a/net/ipv6/ip6_input.c b/net/ipv6/ip6_input.c
+index f225fa1..be0ee8a 100644
+--- a/net/ipv6/ip6_input.c
++++ b/net/ipv6/ip6_input.c
+@@ -108,8 +108,10 @@ int ipv6_rcv(struct sk_buff *skb, struct
+ 
+ 	/* pkt_len may be zero if Jumbo payload option is present */
+ 	if (pkt_len || hdr->nexthdr != NEXTHDR_HOP) {
+-		if (pkt_len + sizeof(struct ipv6hdr) > skb->len)
+-			goto truncated;
++		if (pkt_len + sizeof(struct ipv6hdr) > skb->len) {
++			IP6_INC_STATS_BH(idev, IPSTATS_MIB_INTRUNCATEDPKTS);
++			goto drop;
++		}
+ 		if (pskb_trim_rcsum(skb, pkt_len + sizeof(struct ipv6hdr))) {
+ 			IP6_INC_STATS_BH(idev, IPSTATS_MIB_INHDRERRORS);
+ 			goto drop;
+@@ -128,8 +130,6 @@ int ipv6_rcv(struct sk_buff *skb, struct
+ 	rcu_read_unlock();
+ 
+ 	return NF_HOOK(PF_INET6,NF_IP6_PRE_ROUTING, skb, dev, NULL, ip6_rcv_finish);
+-truncated:
+-	IP6_INC_STATS_BH(idev, IPSTATS_MIB_INTRUNCATEDPKTS);
+ err:
+ 	IP6_INC_STATS_BH(idev, IPSTATS_MIB_INHDRERRORS);
+ drop:
+-- 
+1.4.3.4
 
-the interface stats do not change from that point on:
-
-eth1      Link encap:Ethernet  HWaddr 00:13:D4:DC:41:12
-          inet addr:10.0.1.12  Bcast:10.0.1.255  Mask:255.255.255.0
-          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-          RX packets:14976 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:3928743 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:1000
-          RX bytes:1028544 (1004.4 KiB)  TX bytes:4126766510 (3.8 GiB)
-          Interrupt:16 Base address:0xa000
-
-and the irq count does not change either:
-
- 16:        816    3463148   IO-APIC-fasteoi   eth1
-
-no matter what i do to the interface. So it's completely stuck. 
-No kernel messages either - apparently nv_tx_timeout() never triggered.
-
-note, the hang occurs faster if you set max_interrupt_work to a really 
-low value (such as 0). [ The hang occurs _much_ faster if you apply the 
--rt patch and enable PREEMPT_RT - but the hang occurs on mainline too. ]
-
-	Ingo
