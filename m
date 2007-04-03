@@ -1,111 +1,66 @@
-From: John Heffner <jheffner@psc.edu>
-Subject: [PATCH 1/2] [iputils] Fix asymm messages.
-Date: Tue,  3 Apr 2007 14:20:34 -0400
-Message-ID: <1175624435275-git-send-email-jheffner@psc.edu>
-Cc: netdev@vger.kernel.org, John Heffner <jheffner@psc.edu>
-To: yoshfuji@linux-ipv6.org
+From: Ramkrishna Vepa <ramkrishna.vepa@neterion.com>
+Subject: [PATCH]S2io: Change of driver maintainers
+Date: Tue, 03 Apr 2007 13:18:19 -0700
+Message-ID: <1175631499.4681.5.camel@mandrake>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org, jeff@garzik.org, alicia.pena@neterion.com,
+	ram.vepa@neterion.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailer1.psc.edu ([128.182.58.100]:58794 "EHLO mailer1.psc.edu"
+Received: from mx.neterion.com ([72.1.205.142]:3303 "EHLO owa.neterion.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753569AbXDCTSZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Apr 2007 15:18:25 -0400
+	id S1422693AbXDCUSV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Apr 2007 16:18:21 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We should only print the asymm messages in tracepath/6 when you receive a
-TTL expired message, because this is the only time when we'd expect the
-same number of hops back as our TTL was set to for a symmetric path.
----
- tracepath.c  |   25 ++++++++++++-------------
- tracepath6.c |   25 ++++++++++++-------------
- 2 files changed, 24 insertions(+), 26 deletions(-)
+- Changed the maintainers for the S2io driver.
+(Resending; forgot to send to netdev)
 
-diff --git a/tracepath.c b/tracepath.c
-index a562d88..d035a1e 100644
---- a/tracepath.c
-+++ b/tracepath.c
-@@ -163,19 +163,6 @@ restart:
- 		}
- 	}
+Signed-off-by: Ramkrishna Vepa <ram.vepa@neterion.com>
+---
+diff -pNur linux-2.6.org/drivers/net/s2io.c linux-2.6/drivers/net/s2io.c
+--- linux-2.6.org/drivers/net/s2io.c	2007-03-29 18:49:39.000000000 -0700
++++ linux-2.6/drivers/net/s2io.c	2007-03-29 19:06:52.000000000 -0700
+@@ -84,7 +84,7 @@
+ #include "s2io.h"
+ #include "s2io-regs.h"
  
--	if (rethops>=0) {
--		if (rethops<=64)
--			rethops = 65-rethops;
--		else if (rethops<=128)
--			rethops = 129-rethops;
--		else
--			rethops = 256-rethops;
--		if (sndhops>=0 && rethops != sndhops)
--			printf("asymm %2d ", rethops);
--		else if (sndhops<0 && rethops != ttl)
--			printf("asymm %2d ", rethops);
--	}
--
- 	if (rettv) {
- 		int diff = (tv.tv_sec-rettv->tv_sec)*1000000+(tv.tv_usec-rettv->tv_usec);
- 		printf("%3d.%03dms ", diff/1000, diff%1000);
-@@ -204,6 +191,18 @@ restart:
- 		if (e->ee_origin == SO_EE_ORIGIN_ICMP &&
- 		    e->ee_type == 11 &&
- 		    e->ee_code == 0) {
-+			if (rethops>=0) {
-+				if (rethops<=64)
-+					rethops = 65-rethops;
-+				else if (rethops<=128)
-+					rethops = 129-rethops;
-+				else
-+					rethops = 256-rethops;
-+				if (sndhops>=0 && rethops != sndhops)
-+					printf("asymm %2d ", rethops);
-+				else if (sndhops<0 && rethops != ttl)
-+					printf("asymm %2d ", rethops);
-+			}
- 			printf("\n");
- 			break;
- 		}
-diff --git a/tracepath6.c b/tracepath6.c
-index 6f13a51..a010218 100644
---- a/tracepath6.c
-+++ b/tracepath6.c
-@@ -176,19 +176,6 @@ restart:
- 		}
- 	}
+-#define DRV_VERSION "2.0.19.1"
++#define DRV_VERSION "2.0.22.1"
  
--	if (rethops>=0) {
--		if (rethops<=64)
--			rethops = 65-rethops;
--		else if (rethops<=128)
--			rethops = 129-rethops;
--		else
--			rethops = 256-rethops;
--		if (sndhops>=0 && rethops != sndhops)
--			printf("asymm %2d ", rethops);
--		else if (sndhops<0 && rethops != ttl)
--			printf("asymm %2d ", rethops);
--	}
--
- 	if (rettv) {
- 		int diff = (tv.tv_sec-rettv->tv_sec)*1000000+(tv.tv_usec-rettv->tv_usec);
- 		printf("%3d.%03dms ", diff/1000, diff%1000);
-@@ -220,6 +207,18 @@ restart:
- 		    (e->ee_origin == SO_EE_ORIGIN_ICMP6 &&
- 		     e->ee_type == 3 &&
- 		     e->ee_code == 0)) {
-+			if (rethops>=0) {
-+				if (rethops<=64)
-+					rethops = 65-rethops;
-+				else if (rethops<=128)
-+					rethops = 129-rethops;
-+				else
-+					rethops = 256-rethops;
-+				if (sndhops>=0 && rethops != sndhops)
-+					printf("asymm %2d ", rethops);
-+				else if (sndhops<0 && rethops != ttl)
-+					printf("asymm %2d ", rethops);
-+			}
- 			printf("\n");
- 			break;
- 		}
--- 
-1.5.0.2.gc260-dirty
+ /* S2io Driver name & version. */
+ static char s2io_driver_name[] = "Neterion";
+@@ -394,7 +394,6 @@ static const u64 fix_mac[] = {
+ 	END_SIGN
+ };
+ 
+-MODULE_AUTHOR("Raghavendra Koushik <raghavendra.koushik@neterion.com>");
+ MODULE_LICENSE("GPL");
+ MODULE_VERSION(DRV_VERSION);
+ 
+diff -pNur linux-2.6.org/MAINTAINERS linux-2.6/MAINTAINERS
+--- linux-2.6.org/MAINTAINERS	2007-03-29 18:49:39.000000000 -0700
++++ linux-2.6/MAINTAINERS	2007-03-29 19:00:46.000000000 -0700
+@@ -2470,6 +2470,19 @@ M:	adaplas@gmail.com
+ L:	linux-fbdev-devel@lists.sourceforge.net (subscribers-only)
+ S:	Maintained
+ 
++NETERION (S2IO) Xframe 10GbE DRIVER
++P:	Ramkrishna Vepa
++M:	ram.vepa@neterion.com
++P:	Rastapur Santosh
++M:	santosh.rastapur@neterion.com
++P:	Sivakumar Subramani
++M:	sivakumar.subramani@neterion.com
++P:	Sreenivasa Honnur
++M:	sreenivasa.honnur@neterion.com
++L:	netdev@vger.kernel.org
++W:	http://trac.neterion.com/cgi-bin/trac.cgi/wiki/TitleIndex?anonymous
++S:	Supported
++
+ OPENCORES I2C BUS DRIVER
+ P:	Peter Korsgaard
+ M:	jacmet@sunsite.dk
 
