@@ -1,63 +1,43 @@
-From: Christian Kujau <christian@g-house.de>
-Subject: Re: 2.6.20.4: NETDEV WATCHDOG and lockups
-Date: Tue, 3 Apr 2007 06:46:40 +0100 (BST)
-Message-ID: <Pine.LNX.4.64.0704030634470.3963@sheep.housecafe.de>
-References: <Pine.LNX.4.64.0704022012300.3963@sheep.housecafe.de>
- <200704030120.29619.lenb@kernel.org>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [patch 10/10] forcedeth: work around NULL skb dereference crash
+Date: Tue, 3 Apr 2007 08:26:29 +0200
+Message-ID: <20070403062629.GA13210@elte.hu>
+References: <20070402115325.GA945@elte.hu> <DBFABB80F7FD3143A911F9E6CFD477B0189CB20B@hqemmail02.nvidia.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	malte@g-house.de
-To: Len Brown <lenb@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.g-housing.de ([81.169.133.75]:35605 "EHLO mail.g-house.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753077AbXDCFqq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Apr 2007 01:46:46 -0400
-In-Reply-To: <200704030120.29619.lenb@kernel.org>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: akpm@linux-foundation.org, jeff@garzik.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Ayaz Abdulla <AAbdulla@nvidia.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753396AbXDCG0u@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <DBFABB80F7FD3143A911F9E6CFD477B0189CB20B@hqemmail02.nvidia.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 3 Apr 2007, Len Brown wrote:
-> Which increased stability, disabling ACPI, or disabling the IOAPIC?
 
-To be honest, we're not sure. See below.
+* Ayaz Abdulla <AAbdulla@nvidia.com> wrote:
 
-> Your box has MPS, so you should be able to use the IOAPIC in either mode.
+> I had responded eariler to the thread asking you to try out the patch
+> found in bug 8058:
+> http://bugzilla.kernel.org/show_bug.cgi?id=8058
+> 
+> I believe that is the caush of the NULL skb dereference issue.
 
-MPS - Multiprocessor Specification? SMP? Yes, it'd be good to use the 
-IOAPIC again.
+there's a different type of regression now: under high load i dont get a 
+crash, i get a hung interface instead. No error packets or other weird 
+interface state - just a hung interface. The condition happens after a 
+stream of:
 
-> Note that you can do these both independently at boot-time with "acpi=off"
-> and "noapic", respectively.
-> eg. 4 combos
-> 1. <default - no boot params>
-> 2. noapic
-> 3. acpi=off
-> 4. acpi=off noapic
-> you started with #1, and are running hard-coded #4 now, but skipped #2 
-> and #3
+ eth1: too many iterations (6) in nv_nic_irq.
+ eth1: too many iterations (6) in nv_nic_irq.
+ eth1: too many iterations (6) in nv_nic_irq.
+ eth1: too many iterations (6) in nv_nic_irq.
+ eth1: too many iterations (6) in nv_nic_irq.
 
-Indeed, we skipped quite a few options. As mentioned before, the boxes 
-are in production already so we don't have much time to play around and
-we were just happy when they survived a few hours :(
+If i increase max_interrupt_work from 5 to 50 to paper over this 
+condition then the hangs go away. So i suspect there might still be a 
+queue-wakeup problem in one of these paths - or that a filled up tx ring 
+somehow gets stuck. (and i've got commits 3ba4d093fe8a26f and 
+fcc5f2665c81e08, so all the latest stuff that is upstream at the moment)
 
-But yes, we'll try booting with "acpi=off" and enabled IOAPIC again.
-
-@Malte: when will we be able to do so?
-
-Len et al., do you even suggest to use ACPI on a server system at all? I 
-myself always thought of ACPI being evil and to avoid when possible 
-(thus switching it off completely on a serversystem).
-
-Since these NETDEV WATCHDOG issues seems to be a "known issue" (kinda, 
-since the many postings on the lists in the past), is there something 
-else we should look into? Would more debug .config options help to find 
-out why they lock up?
-
-Thanks for your comments,
-Christian.
--- 
-BOFH excuse #340:
-
-Well fix that in the next (upgrade, update, patch release, service pack).
+	Ingo
