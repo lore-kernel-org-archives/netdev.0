@@ -1,31 +1,40 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH 0/2] [iputils] MTU discovery changes
-Date: Tue, 03 Apr 2007 17:46:45 +0900 (JST)
-Message-ID: <20070403.174645.80510508.yoshfuji@linux-ipv6.org>
-References: <460474E1.9070805@psc.edu>
-	<20070403.174506.118959743.yoshfuji@linux-ipv6.org>
+From: Christian Kujau <christian@g-house.de>
+Subject: Re: 2.6.20.4: NETDEV WATCHDOG and lockups
+Date: Tue, 3 Apr 2007 10:47:16 +0100 (BST)
+Message-ID: <Pine.LNX.4.64.0704031036440.3963@sheep.housecafe.de>
+References: <20070403065810.GA1832@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: jheffner@psc.edu
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	malte@g-house.de
+To: Jarek Poplawski <jarkao2@o2.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:40241 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933232AbXDCIpz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Apr 2007 04:45:55 -0400
-In-Reply-To: <20070403.174506.118959743.yoshfuji@linux-ipv6.org>
+Received: from ns2.g-housing.de ([81.169.133.75]:48103 "EHLO mail.g-house.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965442AbXDCJrV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Apr 2007 05:47:21 -0400
+In-Reply-To: <20070403065810.GA1832@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In article <20070403.174506.118959743.yoshfuji@linux-ipv6.org> (at Tue, 03 Apr 2007 17:45:06 +0900 (JST)), YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> says:
+On Tue, 3 Apr 2007, Jarek Poplawski wrote:
+> Did you try with 8139cp instead of 8139too?
 
-> > The PMTUDISC_PROBE patch goes in should be conditional on whether the 
-> > corresponding kernel patch (just sent) goes in.
-> 
-> Please update documents (docs/*.sgml) as well.  Thanks.
+I forgot about that, thanks.
 
-doc/*.sgml. Sorry for typo.
+> (Maybe even try some other card to narrow the problem?)
 
---yoshfuji
+We're try to convince our hosting provider to replace the NIC with a 
+e1000.
+
+> You could also try to test without ehci, if it's possible.
+
+Sure, I think USB is not needed.
+
+thanks for your input!
+
+Christian.
+-- 
+BOFH excuse #387:
+
+Your computer's union contract is set to expire at midnight.
