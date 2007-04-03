@@ -1,66 +1,73 @@
-From: Ramkrishna Vepa <ramkrishna.vepa@neterion.com>
-Subject: [PATCH]S2io: Change of driver maintainers
-Date: Tue, 03 Apr 2007 13:18:19 -0700
-Message-ID: <1175631499.4681.5.camel@mandrake>
+From: "Julian Shao Liu" <shaoliu@uiuc.edu>
+Subject: RE: [RFC] TCP Illinois preliminary version
+Date: Tue, 3 Apr 2007 15:25:39 -0500
+Message-ID: <200704032025.l33KPdxh003174@expredir5.cites.uiuc.edu>
+References: <20070402204458.5aa6c0c7@oldman>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+	charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, jeff@garzik.org, alicia.pena@neterion.com,
-	ram.vepa@neterion.com
+Cc: <chaitanya_tk@tamu.edu>, <jgarrison@tamu.edu>,
+	<srikant@ifp.uiuc.edu>, <tbasar@control.csl.uiuc.edu>,
+	<jheffner@psc.edu>, <netdev@vger.kernel.org>
+To: "'Stephen Hemminger'" <shemminger@linux-foundation.org>,
+	"'David Miller'" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx.neterion.com ([72.1.205.142]:3303 "EHLO owa.neterion.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1422693AbXDCUSV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Apr 2007 16:18:21 -0400
+Received: from expredir5.cites.uiuc.edu ([128.174.5.96]:34761 "EHLO
+	expredir5.cites.uiuc.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1422671AbXDCU0Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Apr 2007 16:26:16 -0400
+In-Reply-To: <20070402204458.5aa6c0c7@oldman>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-- Changed the maintainers for the S2io driver.
-(Resending; forgot to send to netdev)
+HI Stephen,
 
-Signed-off-by: Ramkrishna Vepa <ram.vepa@neterion.com>
----
-diff -pNur linux-2.6.org/drivers/net/s2io.c linux-2.6/drivers/net/s2io.c
---- linux-2.6.org/drivers/net/s2io.c	2007-03-29 18:49:39.000000000 -0700
-+++ linux-2.6/drivers/net/s2io.c	2007-03-29 19:06:52.000000000 -0700
-@@ -84,7 +84,7 @@
- #include "s2io.h"
- #include "s2io-regs.h"
+Do you wish me to check the modified code of the implementation in your
+first email yesterday? I have noticed the modification and have not had a
+chance to check that. I can check it tonight. 
+
+BTW, are all the changes in that first email?
+
+Best regards!
  
--#define DRV_VERSION "2.0.19.1"
-+#define DRV_VERSION "2.0.22.1"
+Yours sincerely,
+Shao Liu (Julian)
  
- /* S2io Driver name & version. */
- static char s2io_driver_name[] = "Neterion";
-@@ -394,7 +394,6 @@ static const u64 fix_mac[] = {
- 	END_SIGN
- };
- 
--MODULE_AUTHOR("Raghavendra Koushik <raghavendra.koushik@neterion.com>");
- MODULE_LICENSE("GPL");
- MODULE_VERSION(DRV_VERSION);
- 
-diff -pNur linux-2.6.org/MAINTAINERS linux-2.6/MAINTAINERS
---- linux-2.6.org/MAINTAINERS	2007-03-29 18:49:39.000000000 -0700
-+++ linux-2.6/MAINTAINERS	2007-03-29 19:00:46.000000000 -0700
-@@ -2470,6 +2470,19 @@ M:	adaplas@gmail.com
- L:	linux-fbdev-devel@lists.sourceforge.net (subscribers-only)
- S:	Maintained
- 
-+NETERION (S2IO) Xframe 10GbE DRIVER
-+P:	Ramkrishna Vepa
-+M:	ram.vepa@neterion.com
-+P:	Rastapur Santosh
-+M:	santosh.rastapur@neterion.com
-+P:	Sivakumar Subramani
-+M:	sivakumar.subramani@neterion.com
-+P:	Sreenivasa Honnur
-+M:	sreenivasa.honnur@neterion.com
-+L:	netdev@vger.kernel.org
-+W:	http://trac.neterion.com/cgi-bin/trac.cgi/wiki/TitleIndex?anonymous
-+S:	Supported
-+
- OPENCORES I2C BUS DRIVER
- P:	Peter Korsgaard
- M:	jacmet@sunsite.dk
+University of Illinois at Urbana Champaign
+Coordinated Science Laboratory and Department of Electrical and Computer
+Engineering
+www.ews.uiuc.edu/~shaoliu
+
+-----Original Message-----
+From: Stephen Hemminger [mailto:shemminger@linux-foundation.org] 
+Sent: Monday, April 02, 2007 10:45 PM
+To: David Miller
+Cc: shaoliu@uiuc.edu; chaitanya_tk@tamu.edu; jgarrison@tamu.edu;
+srikant@ifp.uiuc.edu; tbasar@control.csl.uiuc.edu; jheffner@psc.edu;
+netdev@vger.kernel.org
+Subject: Re: [RFC] TCP Illinois preliminary version
+
+On Mon, 02 Apr 2007 20:39:37 -0700 (PDT) David Miller <davem@davemloft.net>
+wrote:
+
+> From: Stephen Hemminger <shemminger@linux-foundation.org>
+> Date: Mon, 2 Apr 2007 20:15:25 -0700
+> 
+> > Preliminary version if TCP Illinois for 2.6.22.
+> > It needs more testing and refinement but it captures the basic 
+> > concepts.
+> 
+> No objections from me and I don't see any obvious problems.
+> 
+> Would you like me to stuff this into net-2.6.22 now so that it can get 
+> some more exposure and people banging on it or would you like me to 
+> wait a bit?
+> 
+> Thanks.
+
+I would like one of the originators to check the math. 
+
+In case you are worried, I received assurance from Shao Liu that they
+decided not to pursue patent and doing a Linux version was okay.
 
