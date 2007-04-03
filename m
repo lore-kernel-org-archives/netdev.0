@@ -1,64 +1,111 @@
 From: John Heffner <jheffner@psc.edu>
-Subject: [PATCH 2/2] [iputils] Re-probe at same TTL after MTU reduction.
-Date: Tue,  3 Apr 2007 14:20:35 -0400
-Message-ID: <11756244353377-git-send-email-jheffner@psc.edu>
-References: <1175624435275-git-send-email-jheffner@psc.edu>
+Subject: [PATCH 1/2] [iputils] Fix asymm messages.
+Date: Tue,  3 Apr 2007 14:20:34 -0400
+Message-ID: <1175624435275-git-send-email-jheffner@psc.edu>
 Cc: netdev@vger.kernel.org, John Heffner <jheffner@psc.edu>
 To: yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailer1.psc.edu ([128.182.58.100]:58796 "EHLO mailer1.psc.edu"
+Received: from mailer1.psc.edu ([128.182.58.100]:58794 "EHLO mailer1.psc.edu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753562AbXDCTSZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753569AbXDCTSZ (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 3 Apr 2007 15:18:25 -0400
-In-Reply-To: <1175624435275-git-send-email-jheffner@psc.edu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This fixes a bug that would miss a hop after an ICMP packet too big message,
-since it would continue increase the TTL without probing again.
+We should only print the asymm messages in tracepath/6 when you receive a
+TTL expired message, because this is the only time when we'd expect the
+same number of hops back as our TTL was set to for a symmetric path.
 ---
- tracepath.c  |    6 ++++++
- tracepath6.c |    6 ++++++
- 2 files changed, 12 insertions(+), 0 deletions(-)
+ tracepath.c  |   25 ++++++++++++-------------
+ tracepath6.c |   25 ++++++++++++-------------
+ 2 files changed, 24 insertions(+), 26 deletions(-)
 
 diff --git a/tracepath.c b/tracepath.c
-index d035a1e..19b2c6b 100644
+index a562d88..d035a1e 100644
 --- a/tracepath.c
 +++ b/tracepath.c
-@@ -352,8 +352,14 @@ main(int argc, char **argv)
- 			exit(1);
+@@ -163,19 +163,6 @@ restart:
  		}
+ 	}
  
-+restart:
- 		for (i=0; i<3; i++) {
-+			int old_mtu;
-+			
-+			old_mtu = mtu;
- 			res = probe_ttl(fd, ttl);
-+			if (mtu != old_mtu)
-+				goto restart;
- 			if (res == 0)
- 				goto done;
- 			if (res > 0)
+-	if (rethops>=0) {
+-		if (rethops<=64)
+-			rethops = 65-rethops;
+-		else if (rethops<=128)
+-			rethops = 129-rethops;
+-		else
+-			rethops = 256-rethops;
+-		if (sndhops>=0 && rethops != sndhops)
+-			printf("asymm %2d ", rethops);
+-		else if (sndhops<0 && rethops != ttl)
+-			printf("asymm %2d ", rethops);
+-	}
+-
+ 	if (rettv) {
+ 		int diff = (tv.tv_sec-rettv->tv_sec)*1000000+(tv.tv_usec-rettv->tv_usec);
+ 		printf("%3d.%03dms ", diff/1000, diff%1000);
+@@ -204,6 +191,18 @@ restart:
+ 		if (e->ee_origin == SO_EE_ORIGIN_ICMP &&
+ 		    e->ee_type == 11 &&
+ 		    e->ee_code == 0) {
++			if (rethops>=0) {
++				if (rethops<=64)
++					rethops = 65-rethops;
++				else if (rethops<=128)
++					rethops = 129-rethops;
++				else
++					rethops = 256-rethops;
++				if (sndhops>=0 && rethops != sndhops)
++					printf("asymm %2d ", rethops);
++				else if (sndhops<0 && rethops != ttl)
++					printf("asymm %2d ", rethops);
++			}
+ 			printf("\n");
+ 			break;
+ 		}
 diff --git a/tracepath6.c b/tracepath6.c
-index a010218..65c4a4a 100644
+index 6f13a51..a010218 100644
 --- a/tracepath6.c
 +++ b/tracepath6.c
-@@ -422,8 +422,14 @@ int main(int argc, char **argv)
- 			exit(1);
+@@ -176,19 +176,6 @@ restart:
  		}
+ 	}
  
-+restart:
- 		for (i=0; i<3; i++) {
-+			int old_mtu;
-+			
-+			old_mtu = mtu;
- 			res = probe_ttl(fd, ttl);
-+			if (mtu != old_mtu)
-+				goto restart;
- 			if (res == 0)
- 				goto done;
- 			if (res > 0)
+-	if (rethops>=0) {
+-		if (rethops<=64)
+-			rethops = 65-rethops;
+-		else if (rethops<=128)
+-			rethops = 129-rethops;
+-		else
+-			rethops = 256-rethops;
+-		if (sndhops>=0 && rethops != sndhops)
+-			printf("asymm %2d ", rethops);
+-		else if (sndhops<0 && rethops != ttl)
+-			printf("asymm %2d ", rethops);
+-	}
+-
+ 	if (rettv) {
+ 		int diff = (tv.tv_sec-rettv->tv_sec)*1000000+(tv.tv_usec-rettv->tv_usec);
+ 		printf("%3d.%03dms ", diff/1000, diff%1000);
+@@ -220,6 +207,18 @@ restart:
+ 		    (e->ee_origin == SO_EE_ORIGIN_ICMP6 &&
+ 		     e->ee_type == 3 &&
+ 		     e->ee_code == 0)) {
++			if (rethops>=0) {
++				if (rethops<=64)
++					rethops = 65-rethops;
++				else if (rethops<=128)
++					rethops = 129-rethops;
++				else
++					rethops = 256-rethops;
++				if (sndhops>=0 && rethops != sndhops)
++					printf("asymm %2d ", rethops);
++				else if (sndhops<0 && rethops != ttl)
++					printf("asymm %2d ", rethops);
++			}
+ 			printf("\n");
+ 			break;
+ 		}
 -- 
 1.5.0.2.gc260-dirty
 
