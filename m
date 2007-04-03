@@ -1,7 +1,7 @@
 From: Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
-Subject: [PATCH] zd1211rw: Remove invalid CR write during ZD1211 phy reset
-Date: Tue,  3 Apr 2007 23:17:10 +0100 (BST)
-Message-ID: <20070403221710.89FD07B409F@zog.reactivated.net>
+Subject: [PATCH] zd1211rw: Fix E2P_PHY_REG patching
+Date: Tue,  3 Apr 2007 23:17:37 +0100 (BST)
+Message-ID: <20070403221737.3473A7B409F@zog.reactivated.net>
 Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
 Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
@@ -10,44 +10,69 @@ Cc: kune-hUSrv6EASfkEnNRfnnE9gw@public.gmane.org
 Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-The vendor driver only does the CR123 write for non-USB devices (which
-don't exist on the consumer market)
+Due to conflicting/confusing defines in the vendor driver, we were
+reading E2P_PHY_REG from the wrong location.
+
+CR157 patching was slightly incorrect in that the vendor driver only
+patches in an 8-bit value, whereas we were patching 24 bits.
+
+Additionally, CR157 patching was happening on both zd1211 and zd1211b,
+but this should only happen on zd1211.
 
 Signed-off-by: Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
+Signed-off-by: Ulrich Kunitz <kune-hUSrv6EASfkEnNRfnnE9gw@public.gmane.org>
 ---
- zd_chip.c |   22 +++++++++++-----------
- 1 files changed, 11 insertions(+), 11 deletions(-)
+ zd_chip.c |   11 +++--------
+ zd_chip.h |    2 +-
+ 2 files changed, 4 insertions(+), 9 deletions(-)
 
 Index: linux/drivers/net/wireless/zd1211rw/zd_chip.c
 ===================================================================
 --- linux.orig/drivers/net/wireless/zd1211rw/zd_chip.c
 +++ linux/drivers/net/wireless/zd1211rw/zd_chip.c
-@@ -684,17 +684,17 @@ static int zd1211_hw_reset_phy(struct zd
- 		{ CR111, 0x27 }, { CR112, 0x27 }, { CR113, 0x27 },
- 		{ CR114, 0x27 }, { CR115, 0x26 }, { CR116, 0x24 },
- 		{ CR117, 0xfc }, { CR118, 0xfa }, { CR120, 0x4f },
--		{ CR123, 0x27 }, { CR125, 0xaa }, { CR127, 0x03 },
--		{ CR128, 0x14 }, { CR129, 0x12 }, { CR130, 0x10 },
--		{ CR131, 0x0C }, { CR136, 0xdf }, { CR137, 0x40 },
--		{ CR138, 0xa0 }, { CR139, 0xb0 }, { CR140, 0x99 },
--		{ CR141, 0x82 }, { CR142, 0x54 }, { CR143, 0x1c },
--		{ CR144, 0x6c }, { CR147, 0x07 }, { CR148, 0x4c },
--		{ CR149, 0x50 }, { CR150, 0x0e }, { CR151, 0x18 },
--		{ CR160, 0xfe }, { CR161, 0xee }, { CR162, 0xaa },
--		{ CR163, 0xfa }, { CR164, 0xfa }, { CR165, 0xea },
--		{ CR166, 0xbe }, { CR167, 0xbe }, { CR168, 0x6a },
--		{ CR169, 0xba }, { CR170, 0xba }, { CR171, 0xba },
-+		{ CR125, 0xaa }, { CR127, 0x03 }, { CR128, 0x14 },
-+		{ CR129, 0x12 }, { CR130, 0x10 }, { CR131, 0x0C },
-+		{ CR136, 0xdf }, { CR137, 0x40 }, { CR138, 0xa0 },
-+		{ CR139, 0xb0 }, { CR140, 0x99 }, { CR141, 0x82 },
-+		{ CR142, 0x54 }, { CR143, 0x1c }, { CR144, 0x6c },
-+		{ CR147, 0x07 }, { CR148, 0x4c }, { CR149, 0x50 },
-+		{ CR150, 0x0e }, { CR151, 0x18 }, { CR160, 0xfe },
-+		{ CR161, 0xee }, { CR162, 0xaa }, { CR163, 0xfa },
-+		{ CR164, 0xfa }, { CR165, 0xea }, { CR166, 0xbe },
-+		{ CR167, 0xbe }, { CR168, 0x6a }, { CR169, 0xba },
-+		{ CR170, 0xba }, { CR171, 0xba },
- 		/* Note: CR204 must lead the CR203 */
- 		{ CR204, 0x7d },
- 		{ },
+@@ -593,16 +593,16 @@ int zd_chip_unlock_phy_regs(struct zd_ch
+ 	return r;
+ }
+ 
+-/* CR157 can be optionally patched by the EEPROM */
++/* CR157 can be optionally patched by the EEPROM for original ZD1211 */
+ static int patch_cr157(struct zd_chip *chip)
+ {
+ 	int r;
+-	u32 value;
++	u16 value;
+ 
+ 	if (!chip->patch_cr157)
+ 		return 0;
+ 
+-	r = zd_ioread32_locked(chip, &value, E2P_PHY_REG);
++	r = zd_ioread16_locked(chip, &value, E2P_PHY_REG);
+ 	if (r)
+ 		return r;
+ 
+@@ -792,11 +792,6 @@ static int zd1211b_hw_reset_phy(struct z
+ 		goto out;
+ 
+ 	r = zd_iowrite16a_locked(chip, ioreqs, ARRAY_SIZE(ioreqs));
+-	if (r)
+-		goto unlock;
+-
+-	r = patch_cr157(chip);
+-unlock:
+ 	t = zd_chip_unlock_phy_regs(chip);
+ 	if (t && !r)
+ 		r = t;
+Index: linux/drivers/net/wireless/zd1211rw/zd_chip.h
+===================================================================
+--- linux.orig/drivers/net/wireless/zd1211rw/zd_chip.h
++++ linux/drivers/net/wireless/zd1211rw/zd_chip.h
+@@ -641,8 +641,8 @@ enum {
+  * also only 11 channels. */
+ #define E2P_ALLOWED_CHANNEL	E2P_DATA(0x18)
+ 
+-#define E2P_PHY_REG		E2P_DATA(0x1a)
+ #define E2P_DEVICE_VER		E2P_DATA(0x20)
++#define E2P_PHY_REG		E2P_DATA(0x25)
+ #define E2P_36M_CAL_VALUE1	E2P_DATA(0x28)
+ #define E2P_36M_CAL_VALUE2      E2P_DATA(0x2a)
+ #define E2P_36M_CAL_VALUE3      E2P_DATA(0x2c)
