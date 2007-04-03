@@ -1,40 +1,49 @@
-From: Christian Kujau <christian@g-house.de>
-Subject: Re: 2.6.20.4: NETDEV WATCHDOG and lockups
-Date: Tue, 3 Apr 2007 10:47:16 +0100 (BST)
-Message-ID: <Pine.LNX.4.64.0704031036440.3963@sheep.housecafe.de>
-References: <20070403065810.GA1832@ff.dom.local>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: IPsec PMTUD problem
+Date: Tue, 3 Apr 2007 19:55:10 +1000
+Message-ID: <20070403095510.GA7754@gondor.apana.org.au>
+References: <46110ED1.9070209@trash.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	malte@g-house.de
-To: Jarek Poplawski <jarkao2@o2.pl>
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.g-housing.de ([81.169.133.75]:48103 "EHLO mail.g-house.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965442AbXDCJrV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Apr 2007 05:47:21 -0400
-In-Reply-To: <20070403065810.GA1832@ff.dom.local>
+Received: from rhun.apana.org.au ([64.62.148.172]:1269 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S965028AbXDCJzT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Apr 2007 05:55:19 -0400
+Content-Disposition: inline
+In-Reply-To: <46110ED1.9070209@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 3 Apr 2007, Jarek Poplawski wrote:
-> Did you try with 8139cp instead of 8139too?
+Hi Patrick:
 
-I forgot about that, thanks.
+On Mon, Apr 02, 2007 at 04:10:25PM +0200, Patrick McHardy wrote:
+> I noticed a problem with PMTUD between two IPsec tunnel endpoints.
+> When sending a packet larger than the PMTU with IP_DF from one
+> tunnel endpoint to the other, xfrm4_output sends an ICMP frag.
+> required with the IPsec MTU. Since the addresses match the tunnel
+> endpoints, this updates the MTU for the XFRM route with the value
+> that was calculated for the entire bundle, which in turn causes
+> a decrease for the bundle, resulting in further ICMP frag. required
+> messages until the minimum is reached.
 
-> (Maybe even try some other card to narrow the problem?)
+I presume you're using the same pair of addresses inside and
+outside the tunnel? If so the problem is that the kernel doesn't
+distinguish between internal ICMP errors and external ones.
+So when an MTU update occurs for the internal pair the external
+pair is also affected.
 
-We're try to convince our hosting provider to replace the NIC with a 
-e1000.
+We'd need some field in the routing cache to distinguish the
+two pairs.
 
-> You could also try to test without ehci, if it's possible.
+Of course the easy work-around is to use distinct addresses
+within IPsec tunnels.
 
-Sure, I think USB is not needed.
-
-thanks for your input!
-
-Christian.
+Cheers,
 -- 
-BOFH excuse #387:
-
-Your computer's union contract is set to expire at midnight.
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
