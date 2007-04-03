@@ -1,46 +1,40 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [RFC] TCP Illinois preliminary version
-Date: Mon, 2 Apr 2007 20:44:58 -0700
-Message-ID: <20070402204458.5aa6c0c7@oldman>
-References: <20070312164311.13b5fcec@freekitty>
-	<200703142247.l2EMln1o000338@expredir5.cites.uiuc.edu>
-	<20070402201525.3d18a080@localhost.localdomain>
-	<20070402.203937.59657200.davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 1/9] AF_RXRPC: Add blkcipher accessors for using kernel data directly
+Date: Tue, 3 Apr 2007 13:50:19 +1000
+Message-ID: <20070403035019.GA4798@gondor.apana.org.au>
+References: <20070402224449.31568.17833.stgit@warthog.cambridge.redhat.com> <20070402224458.31568.45303.stgit@warthog.cambridge.redhat.com> <20070402.202215.21596343.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: shaoliu@uiuc.edu, chaitanya_tk@tamu.edu, jgarrison@tamu.edu,
-	srikant@ifp.uiuc.edu, tbasar@control.csl.uiuc.edu,
-	jheffner@psc.edu, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: dhowells@redhat.com, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:59439 "EHLO smtp.osdl.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751648AbXDCDpx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Apr 2007 23:45:53 -0400
-In-Reply-To: <20070402.203937.59657200.davem@davemloft.net>
+Received: from rhun.apana.org.au ([64.62.148.172]:3832 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751691AbXDCDuf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Apr 2007 23:50:35 -0400
+Content-Disposition: inline
+In-Reply-To: <20070402.202215.21596343.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 02 Apr 2007 20:39:37 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
+On Mon, Apr 02, 2007 at 08:22:15PM -0700, David Miller wrote:
+> 
+> I'll let Herbert, the crypto layer maintainer, decide on this one.
+> I can put it into net-2.6.22 in order to make the RXRPC integration
+> easier if Herbert is OK with this.
+> 
+> Please be sure to CC: Herbert and/or the crypto lists on any future
+> crypto layer patches David, thanks.
 
-> From: Stephen Hemminger <shemminger@linux-foundation.org>
-> Date: Mon, 2 Apr 2007 20:15:25 -0700
-> 
-> > Preliminary version if TCP Illinois for 2.6.22.
-> > It needs more testing and refinement but it captures the
-> > basic concepts.
-> 
-> No objections from me and I don't see any obvious problems.
-> 
-> Would you like me to stuff this into net-2.6.22 now so that
-> it can get some more exposure and people banging on it or
-> would you like me to wait a bit?
-> 
-> Thanks.
+I'm OK with the concept but this is going to conflict with the async
+stuff that I'm about to push into cryptodev-2.6.
 
-I would like one of the originators to check the math. 
+Would it be possible to just use the existing scatterlist interface
+for now? We can simplify it later when things settle down.
 
-In case you are worried, I received assurance from Shao Liu that they decided
-not to pursue patent and doing a Linux version was okay.
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
