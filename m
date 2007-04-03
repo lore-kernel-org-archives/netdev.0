@@ -1,251 +1,297 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: [XFRM]: Optimize MTU calculation
-Date: Tue, 03 Apr 2007 18:36:32 +0200
-Message-ID: <46128290.5060701@trash.net>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: [PATCH] TCP Illinois congestion control
+Date: Tue, 3 Apr 2007 09:16:56 -0700
+Message-ID: <20070403091656.769e5368@localhost.localdomain>
+References: <20070312164311.13b5fcec@freekitty>
+	<200703142247.l2EMln1o000338@expredir5.cites.uiuc.edu>
+	<20070402201525.3d18a080@localhost.localdomain>
+	<20070402.203937.59657200.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------040306000601010601020205"
-Cc: Herbert Xu <herbert@gondor.apana.org.au>
-To: Kernel Netdev Mailing List <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: shaoliu@uiuc.edu, chaitanya_tk@tamu.edu, jgarrison@tamu.edu,
+	srikant@ifp.uiuc.edu, tbasar@control.csl.uiuc.edu,
+	jheffner@psc.edu, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:38341 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933884AbXDCQgd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Apr 2007 12:36:33 -0400
+Received: from smtp.osdl.org ([65.172.181.24]:59724 "EHLO smtp.osdl.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932985AbXDCQpe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Apr 2007 12:45:34 -0400
+In-Reply-To: <20070402.203937.59657200.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------040306000601010601020205
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
+This is a new implementation of TCP Illinois invented by Shao Liu
+at University of Illinois. It is a another variant of Reno which adapts
+the alpha and beta parameters based on RTT. The basic idea is to increase
+window less rapidly as delay approaches the maximum. See the papers
+and talks to get a more complete description.
 
-I've updated my IPsec MTU optimization patch I've posted a couple
-of month ago to net-2.6.22 and added the further optimization
-suggested by Herbert to account for the space lost due to alignment
-in the room reserved for IP options in transport mode.
+Please consider for 2.6.22.
 
-Tested with IPv4 and IPv6 in tunnel and transport mode. Beet mode
-is untested since no keying daemon seems to support it.
-
-
---------------040306000601010601020205
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
-
-[XFRM]: Optimize MTU calculation
-
-Replace the probing based MTU estimation, which usually takes 2-3 iterations
-to find a fitting value and may underestimate the MTU, by an exact calculation.
-
-Also fixes underestimation of the XFRM trailer_len, which causes unnecessary
-reallocations.
-
-Signed-off-by: Patrick McHardy <kaber@trash.net>
-
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 ---
-commit f4de4e63b441ce18a7ef19256fcb85ea737e45bb
-tree 7b1feb6d5a47467c6e6a74f19e589e53534c2b56
-parent 565b89fa1b7c55b69f66af0ba1e84addbf9a0e1a
-author Patrick McHardy <kaber@trash.net> Tue, 03 Apr 2007 17:20:47 +0200
-committer Patrick McHardy <kaber@trash.net> Tue, 03 Apr 2007 17:20:47 +0200
+ net/ipv4/Kconfig        |   13 +++
+ net/ipv4/Makefile       |    1 +
+ net/ipv4/tcp_illinois.c |  212 +++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 226 insertions(+), 0 deletions(-)
+ create mode 100644 net/ipv4/tcp_illinois.c
 
- include/net/xfrm.h    |    2 +-
- net/ipv4/esp4.c       |   30 ++++++++++++++++++------------
- net/ipv6/esp6.c       |   22 ++++++++++++----------
- net/xfrm/xfrm_state.c |   36 ++++++++----------------------------
- 4 files changed, 39 insertions(+), 51 deletions(-)
-
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 5a00aa8..e144a25 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -279,7 +279,7 @@ struct xfrm_type
- 	xfrm_address_t		*(*local_addr)(struct xfrm_state *, xfrm_address_t *);
- 	xfrm_address_t		*(*remote_addr)(struct xfrm_state *, xfrm_address_t *);
- 	/* Estimate maximal size of result of transformation of a dgram */
--	u32			(*get_max_size)(struct xfrm_state *, int size);
-+	u32			(*get_mtu)(struct xfrm_state *, int size);
- };
+diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
+index dc61e66..e62aee0 100644
+--- a/net/ipv4/Kconfig
++++ b/net/ipv4/Kconfig
+@@ -588,6 +588,19 @@ config TCP_CONG_YEAH
+ 	For further details look here:
+ 	  http://wil.cs.caltech.edu/pfldnet2007/paper/YeAH_TCP.pdf
  
- extern int xfrm_register_type(struct xfrm_type *type, unsigned short family);
-diff --git a/net/ipv4/esp4.c b/net/ipv4/esp4.c
-index 5e56139..24238fb 100644
---- a/net/ipv4/esp4.c
-+++ b/net/ipv4/esp4.c
-@@ -272,32 +272,34 @@ out:
- 	return -EINVAL;
- }
- 
--static u32 esp4_get_max_size(struct xfrm_state *x, int mtu)
-+static u32 esp4_get_mtu(struct xfrm_state *x, int mtu)
- {
- 	struct esp_data *esp = x->data;
- 	u32 blksize = ALIGN(crypto_blkcipher_blocksize(esp->conf.tfm), 4);
--	int enclen = 0;
-+	u32 align = max_t(u32, blksize, esp->conf.padlen);
-+	u32 rem;
++config TCP_CONG_ILLINOIS
++	tristate "TCP Illinois"
++	depends on EXPERIMENTAL
++	default n
++	---help---
++	TCP-Illinois is a sender-side modificatio of TCP Reno for
++	high speed long delay links. It uses round-trip-time to
++	adjust the alpha and beta parameters to achieve a higher average
++	throughput and maintain fairness.
 +
-+	mtu -= x->props.header_len + esp->auth.icv_trunc_len;
-+	rem = mtu & (align - 1);
-+	mtu &= ~(align - 1);
- 
- 	switch (x->props.mode) {
- 	case XFRM_MODE_TUNNEL:
--		mtu = ALIGN(mtu +2, blksize);
- 		break;
- 	default:
- 	case XFRM_MODE_TRANSPORT:
- 		/* The worst case */
--		mtu = ALIGN(mtu + 2, 4) + blksize - 4;
-+		mtu -= blksize - 4;
-+		mtu += min_t(u32, blksize - 4, rem);
- 		break;
- 	case XFRM_MODE_BEET:
- 		/* The worst case. */
--		enclen = IPV4_BEET_PHMAXLEN;
--		mtu = ALIGN(mtu + enclen + 2, blksize);
-+		mtu -= IPV4_BEET_PHMAXLEN;
-+		mtu += min_t(u32, IPV4_BEET_PHMAXLEN, rem);
- 		break;
- 	}
- 
--	if (esp->conf.padlen)
--		mtu = ALIGN(mtu, esp->conf.padlen);
--
--	return mtu + x->props.header_len + esp->auth.icv_trunc_len - enclen;
-+	return mtu - 2;
- }
- 
- static void esp4_err(struct sk_buff *skb, u32 info)
-@@ -340,6 +342,7 @@ static int esp_init_state(struct xfrm_state *x)
- {
- 	struct esp_data *esp = NULL;
- 	struct crypto_blkcipher *tfm;
-+	u32 align;
- 
- 	/* null auth and encryption can have zero length keys */
- 	if (x->aalg) {
-@@ -421,7 +424,10 @@ static int esp_init_state(struct xfrm_state *x)
- 		}
- 	}
- 	x->data = esp;
--	x->props.trailer_len = esp4_get_max_size(x, 0) - x->props.header_len;
-+	align = ALIGN(crypto_blkcipher_blocksize(esp->conf.tfm), 4);
-+	if (esp->conf.padlen)
-+		align = max_t(u32, align, esp->conf.padlen);
-+	x->props.trailer_len = align + 1 + esp->auth.icv_trunc_len;
- 	return 0;
- 
- error:
-@@ -438,7 +444,7 @@ static struct xfrm_type esp_type =
- 	.proto	     	= IPPROTO_ESP,
- 	.init_state	= esp_init_state,
- 	.destructor	= esp_destroy,
--	.get_max_size	= esp4_get_max_size,
-+	.get_mtu	= esp4_get_mtu,
- 	.input		= esp_input,
- 	.output		= esp_output
- };
-diff --git a/net/ipv6/esp6.c b/net/ipv6/esp6.c
-index b8e8914..61af22d 100644
---- a/net/ipv6/esp6.c
-+++ b/net/ipv6/esp6.c
-@@ -235,22 +235,24 @@ out:
- 	return ret;
- }
- 
--static u32 esp6_get_max_size(struct xfrm_state *x, int mtu)
-+static u32 esp6_get_mtu(struct xfrm_state *x, int mtu)
- {
- 	struct esp_data *esp = x->data;
- 	u32 blksize = ALIGN(crypto_blkcipher_blocksize(esp->conf.tfm), 4);
-+	u32 align = max_t(u32, blksize, esp->conf.padlen);
-+	u32 rem;
- 
--	if (x->props.mode == XFRM_MODE_TUNNEL) {
--		mtu = ALIGN(mtu + 2, blksize);
--	} else {
--		/* The worst case. */
-+	mtu -= x->props.header_len + esp->auth.icv_trunc_len;
-+	rem = mtu & (align - 1);
-+	mtu &= ~(align - 1);
++	For further details see:
++	  http://www.ews.uiuc.edu/~shaoliu/tcpillinois/index.html
 +
-+	if (x->props.mode != XFRM_MODE_TUNNEL) {
- 		u32 padsize = ((blksize - 1) & 7) + 1;
--		mtu = ALIGN(mtu + 2, padsize) + blksize - padsize;
-+		mtu -= blksize - padsize;
-+		mtu += min_t(u32, blksize - padsize, rem);
- 	}
--	if (esp->conf.padlen)
--		mtu = ALIGN(mtu, esp->conf.padlen);
+ choice
+ 	prompt "Default TCP congestion control"
+ 	default DEFAULT_CUBIC
+diff --git a/net/ipv4/Makefile b/net/ipv4/Makefile
+index eeb94d5..4ff6c15 100644
+--- a/net/ipv4/Makefile
++++ b/net/ipv4/Makefile
+@@ -50,6 +50,7 @@ obj-$(CONFIG_TCP_CONG_VENO) += tcp_veno.o
+ obj-$(CONFIG_TCP_CONG_SCALABLE) += tcp_scalable.o
+ obj-$(CONFIG_TCP_CONG_LP) += tcp_lp.o
+ obj-$(CONFIG_TCP_CONG_YEAH) += tcp_yeah.o
++obj-$(CONFIG_TCP_CONG_ILLINOIS) += tcp_illinois.o
+ obj-$(CONFIG_NETLABEL) += cipso_ipv4.o
  
--	return mtu + x->props.header_len + esp->auth.icv_trunc_len;
-+	return mtu - 2;
- }
- 
- static void esp6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
-@@ -380,7 +382,7 @@ static struct xfrm_type esp6_type =
- 	.proto	     	= IPPROTO_ESP,
- 	.init_state	= esp6_init_state,
- 	.destructor	= esp6_destroy,
--	.get_max_size	= esp6_get_max_size,
-+	.get_mtu	= esp6_get_mtu,
- 	.input		= esp6_input,
- 	.output		= esp6_output,
- 	.hdr_offset	= xfrm6_find_1stfragopt,
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index a237dfd..790b608 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -1666,37 +1666,17 @@ void xfrm_state_delete_tunnel(struct xfrm_state *x)
- }
- EXPORT_SYMBOL(xfrm_state_delete_tunnel);
- 
--/*
-- * This function is NOT optimal.  For example, with ESP it will give an
-- * MTU that's usually two bytes short of being optimal.  However, it will
-- * usually give an answer that's a multiple of 4 provided the input is
-- * also a multiple of 4.
-- */
- int xfrm_state_mtu(struct xfrm_state *x, int mtu)
- {
--	int res = mtu;
--
--	res -= x->props.header_len;
--
--	for (;;) {
--		int m = res;
--
--		if (m < 68)
--			return 68;
--
--		spin_lock_bh(&x->lock);
--		if (x->km.state == XFRM_STATE_VALID &&
--		    x->type && x->type->get_max_size)
--			m = x->type->get_max_size(x, m);
--		else
--			m += x->props.header_len;
--		spin_unlock_bh(&x->lock);
--
--		if (m <= mtu)
--			break;
--		res -= (m - mtu);
--	}
-+	int res;
- 
-+	spin_lock_bh(&x->lock);
-+	if (x->km.state == XFRM_STATE_VALID &&
-+	    x->type && x->type->get_mtu)
-+		res = x->type->get_mtu(x, mtu);
-+	else
-+		res = mtu;
-+	spin_unlock_bh(&x->lock);
- 	return res;
- }
- 
+ obj-$(CONFIG_XFRM) += xfrm4_policy.o xfrm4_state.o xfrm4_input.o \
+diff --git a/net/ipv4/tcp_illinois.c b/net/ipv4/tcp_illinois.c
+new file mode 100644
+index 0000000..f7c0b76
+--- /dev/null
++++ b/net/ipv4/tcp_illinois.c
+@@ -0,0 +1,212 @@
++/*
++ * TCP Illinois congestion control.
++ * Home page:
++ *	http://www.ews.uiuc.edu/~shaoliu/tcpillinois/index.html
++ *
++ * The algorithm is described in:
++ * "TCP-Illinois: A Loss and Delay-Based Congestion Control Algorithm
++ *  for High-Speed Networks"
++ *  http://www.ews.uiuc.edu/~shaoliu/papersandslides/tcpillinois_10pages.pdf
++ *
++ * Implemented from description in paper and ns-2 simulation.
++ * Copyright (C) 2007 Stephen Hemminger <shemminger@linux-foundation.org>
++ */
++
++#include <linux/module.h>
++#include <net/tcp.h>
++#include <linux/skbuff.h>
++#include <linux/inet_diag.h>
++
++#define ALPHA_SHIFT	7
++#define ALPHA_SCALE	(1u<<ALPHA_SHIFT)
++#define ALPHA_MIN	(ALPHA_SCALE/10)
++#define ALPHA_MAX	(10*ALPHA_SCALE)
++#define ALPHA_BASE	ALPHA_SCALE		/* 1.0 */
++
++#define BETA_SHIFT	6
++#define BETA_SCALE	(1u<<BETA_SHIFT)
++#define BETA_MIN	(BETA_SCALE/8)
++#define BETA_MAX	(BETA_SCALE/2)
++#define BETA_BASE	BETA_MAX		/* 0.5 */
++
++static int win_thresh __read_mostly = 15;
++module_param(win_thresh, int, 0644);
++MODULE_PARM_DESC(win_thresh, "Window threshold for starting adaptive sizing");
++
++/* TCP Illinois Parameters */
++struct tcp_illinois {
++	u32	min_rtt;
++	u32	max_rtt;
++	u32	avg_rtt;
++};
++
++static void tcp_illinois_init(struct sock *sk)
++{
++	struct tcp_illinois *ca = inet_csk_ca(sk);
++
++	ca->min_rtt = 0x7fffffff;
++}
++
++/*
++ * Keep track of min, max and average RTT
++ *
++ * In the paper, it implies that they want average of RTT over
++ * last window of packets. Doing that exactly would require too much
++ * memory (W samples). So we use a sliding average.
++ */
++static void tcp_illinois_rtt_calc(struct sock *sk, u32 rtt)
++{
++	struct tcp_sock *tp = tcp_sk(sk);
++	struct tcp_illinois *ca = inet_csk_ca(sk);
++
++	/* Compute sliding average over last N packets */
++	ca->avg_rtt = (ca->avg_rtt * (tp->snd_cwnd-1) + rtt) / tp->snd_cwnd;
++
++	if (rtt < ca->min_rtt)
++		ca->min_rtt = rtt;
++
++	if (rtt > ca->max_rtt)
++		ca->max_rtt = rtt;
++}
++
++/*
++ * Compute value of alpha used for additive increase.
++ * If small window then use 1.0, equivalent to Reno.
++ *
++ * For larger windows, adjust based on average delay.
++ * A. If average delay is at minimum (we are uncongested),
++ *    then use large alpha (10.0) to increase faster.
++ * B. If average delay is at maximum (getting congested)
++ *    then use small alpha (1.0)
++ *
++ * The result is a convex window growth curve.
++ */
++static inline u32 alpha(const struct sock *sk)
++{
++	const struct tcp_sock *tp = tcp_sk(sk);
++	const struct tcp_illinois *ca = inet_csk_ca(sk);
++	u32 dm, da;
++
++	if (tp->snd_cwnd < win_thresh)
++		return ALPHA_BASE;	/* same as Reno (1.0) */
++
++	dm = ca->max_rtt - ca->min_rtt;	/* max queuing delay */
++	da = ca->avg_rtt - ca->min_rtt; /* avg queuing delay */
++
++	return (dm * ALPHA_MAX) /
++		(dm - (da  * (ALPHA_MAX - ALPHA_MIN)) / ALPHA_MIN);
++}
++
++/*
++ * Increase window in response to successful acknowledgment.
++ */
++static void tcp_illinois_cong_avoid(struct sock *sk, u32 ack, u32 rtt,
++				    u32 in_flight, int flag)
++{
++	struct tcp_sock *tp = tcp_sk(sk);
++
++	/* RFC2861 only increase cwnd if fully utilized */
++	if (!tcp_is_cwnd_limited(sk, in_flight))
++		return;
++
++	/* In slow start */
++	if (tp->snd_cwnd <= tp->snd_ssthresh)
++		tcp_slow_start(tp);
++
++	else {
++		/* additive increase  cwnd += alpha / cwnd */
++		if ((tp->snd_cwnd_cnt * alpha(sk)) >> ALPHA_SHIFT >= tp->snd_cwnd) {
++			if (tp->snd_cwnd < tp->snd_cwnd_clamp)
++				tp->snd_cwnd++;
++			tp->snd_cwnd_cnt = 0;
++		} else
++			tp->snd_cwnd_cnt++;
++	}
++}
++
++/*
++ * Beta used for multiplicative decrease.
++ * For small window sizes returns same value as Reno (0.5)
++ * 
++ * If delay is small (10% of max) then beta = 1/8
++ * If delay is up to 80% of max then beta = 1/2
++ * In between is a linear function
++ */
++static inline u32 beta(const struct sock *sk)
++{
++	const struct tcp_sock *tp = tcp_sk(sk);
++	const struct tcp_illinois *ca = inet_csk_ca(sk);
++	u32 dm, d2, d3, da;
++
++	if (tp->snd_cwnd < win_thresh)
++		return BETA_BASE;
++
++	dm = ca->max_rtt - ca->min_rtt;
++	da = ca->avg_rtt - ca->min_rtt;
++
++	d2 = dm / 10;
++	if (da <= d2)
++		return BETA_MIN;
++	d3 = (8 * dm) / 10;
++	if (da >= d3 || d3 <= d2)
++		return BETA_MAX;
++
++	return (BETA_MIN * d3 - BETA_MAX * d2 + (BETA_MAX - BETA_MIN) * da)
++		/ (d3 - d2);
++}
++
++static u32 tcp_illinois_ssthresh(struct sock *sk)
++{
++	struct tcp_sock *tp = tcp_sk(sk);
++
++	/* Multiplicative decrease */
++	return max((tp->snd_cwnd * beta(sk)) >> BETA_SHIFT, 2U);
++}
++
++/* Extract info for TCP socket info provided via netlink. 
++ * We aren't really doing Vegas, but we can provide RTT info
++ */
++static void tcp_illinois_get_info(struct sock *sk, u32 ext,
++			       struct sk_buff *skb)
++{
++	const struct tcp_illinois *ca = inet_csk_ca(sk);
++
++	if (ext & (1 << (INET_DIAG_VEGASINFO - 1))) {
++		struct tcpvegas_info info = {
++			.tcpv_enabled = 1,
++			.tcpv_rtt = ca->avg_rtt,
++			.tcpv_minrtt = ca->min_rtt,
++		};
++
++		nla_put(skb, INET_DIAG_VEGASINFO, sizeof(info), &info);
++	}
++}
++
++static struct tcp_congestion_ops tcp_illinois = {
++	.init		= tcp_illinois_init,
++	.ssthresh	= tcp_illinois_ssthresh,
++	.min_cwnd	= tcp_reno_min_cwnd,
++	.cong_avoid	= tcp_illinois_cong_avoid,
++	.rtt_sample	= tcp_illinois_rtt_calc,
++	.get_info	= tcp_illinois_get_info,
++
++	.owner		= THIS_MODULE,
++	.name		= "illinois",
++};
++
++static int __init tcp_illinois_register(void)
++{
++	return tcp_register_congestion_control(&tcp_illinois);
++}
++
++static void __exit tcp_illinois_unregister(void)
++{
++	tcp_unregister_congestion_control(&tcp_illinois);
++}
++
++module_init(tcp_illinois_register);
++module_exit(tcp_illinois_unregister);
++
++MODULE_AUTHOR("Stephen Hemminger, Shao Liu");
++MODULE_LICENSE("GPL");
++MODULE_DESCRIPTION("Illinois TCP");
+-- 
+1.5.0.5
 
---------------040306000601010601020205--
