@@ -1,43 +1,37 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [patch 10/10] forcedeth: work around NULL skb dereference crash
-Date: Tue, 3 Apr 2007 08:26:29 +0200
-Message-ID: <20070403062629.GA13210@elte.hu>
-References: <20070402115325.GA945@elte.hu> <DBFABB80F7FD3143A911F9E6CFD477B0189CB20B@hqemmail02.nvidia.com>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: 2.6.20.4: NETDEV WATCHDOG and lockups
+Date: Tue, 3 Apr 2007 08:58:11 +0200
+Message-ID: <20070403065810.GA1832@ff.dom.local>
+References: <Pine.LNX.4.64.0704022012300.3963@sheep.housecafe.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: akpm@linux-foundation.org, jeff@garzik.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Ayaz Abdulla <AAbdulla@nvidia.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753396AbXDCG0u@vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	malte@g-house.de
+To: Christian Kujau <evil@g-house.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx10.go2.pl ([193.17.41.74]:51196 "EHLO poczta.o2.pl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753309AbXDCGyN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Apr 2007 02:54:13 -0400
 Content-Disposition: inline
-In-Reply-To: <DBFABB80F7FD3143A911F9E6CFD477B0189CB20B@hqemmail02.nvidia.com>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <Pine.LNX.4.64.0704022012300.3963@sheep.housecafe.de>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-* Ayaz Abdulla <AAbdulla@nvidia.com> wrote:
-
-> I had responded eariler to the thread asking you to try out the patch
-> found in bug 8058:
-> http://bugzilla.kernel.org/show_bug.cgi?id=8058
+On 02-04-2007 21:41, Christian Kujau wrote:
 > 
-> I believe that is the caush of the NULL skb dereference issue.
+> Hi there,
+> 
+> we have serious problems with 2 of our servers: both shiny new amd64 
+> dual core, with both 2GB RAM, 32bit kernel+userland (Debian/testing).
+> Both servers have 2 NICs, RTL8139 (eth0, irq10) and RTL8169s
+> (eth1, irq11).
 
-there's a different type of regression now: under high load i dont get a 
-crash, i get a hung interface instead. No error packets or other weird 
-interface state - just a hung interface. The condition happens after a 
-stream of:
+Hi,
 
- eth1: too many iterations (6) in nv_nic_irq.
- eth1: too many iterations (6) in nv_nic_irq.
- eth1: too many iterations (6) in nv_nic_irq.
- eth1: too many iterations (6) in nv_nic_irq.
- eth1: too many iterations (6) in nv_nic_irq.
+Did you try with 8139cp instead of 8139too?
+(Maybe even try some other card to narrow the problem?)
+You could also try to test without ehci, if it's possible.
 
-If i increase max_interrupt_work from 5 to 50 to paper over this 
-condition then the hangs go away. So i suspect there might still be a 
-queue-wakeup problem in one of these paths - or that a filled up tx ring 
-somehow gets stuck. (and i've got commits 3ba4d093fe8a26f and 
-fcc5f2665c81e08, so all the latest stuff that is upstream at the moment)
-
-	Ingo
+Regards,
+Jarek P.
