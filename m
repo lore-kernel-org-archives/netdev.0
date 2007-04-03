@@ -1,9 +1,7 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH 2/8] AF_RXRPC: Make it possible to merely try to cancel timers
-	and delayed work [try #2]
-Date: Tue, 03 Apr 2007 15:01:19 +0100
-Message-ID: <20070403140119.20369.19067.stgit@warthog.cambridge.redhat.com>
-References: <20070403140108.20369.59745.stgit@warthog.cambridge.redhat.com>
+Subject: [PATCH 0/8] AF_RXRPC socket family and AFS rewrite [try #2]
+Date: Tue, 03 Apr 2007 15:01:08 +0100
+Message-ID: <20070403140108.20369.59745.stgit@warthog.cambridge.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -11,64 +9,87 @@ Cc: herbert@gondor.apana.org.au, linux-kernel@vger.kernel.org,
 	linux-fsdevel@vger.kernel.org, netdev@vger.kernel.org,
 	dhowells@redhat.com
 To: torvalds@osdl.org, akpm@osdl.org
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <20070403140108.20369.59745.stgit@warthog.cambridge.redhat.com>
-Sender: linux-fsdevel-owner@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx2.redhat.com ([66.187.237.31]:36620 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S966184AbXDCOB7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Apr 2007 10:01:59 -0400
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Export try_to_del_timer_sync() for use by the RxRPC module.
 
-Add a try_to_cancel_delayed_work() so that it is possible to merely attempt to
-cancel a delayed work timer.
+The first of these patches together provide secure client-side RxRPC
+connectivity as a Linux kernel socket family.  Only the RxRPC transport/session
+side is supplied - the presentation side (marshalling the data) is left to the
+client.  Copies of the patches can be found here:
 
-Signed-Off-By: David Howells <dhowells@redhat.com>
----
+	http://people.redhat.com/~dhowells/rxrpc/series
+	http://people.redhat.com/~dhowells/rxrpc/01-move-skb-generic.diff
+	http://people.redhat.com/~dhowells/rxrpc/02-timers.diff
+	http://people.redhat.com/~dhowells/rxrpc/03-keys.diff
+	http://people.redhat.com/~dhowells/rxrpc/04-af_rxrpc.diff
 
- include/linux/workqueue.h |   21 +++++++++++++++++++++
- kernel/timer.c            |    2 ++
- 2 files changed, 23 insertions(+), 0 deletions(-)
+Further patches make the in-kernel AFS filesystem use AF_RXRPC and delete the
+old RxRPC implementation:
 
-diff --git a/include/linux/workqueue.h b/include/linux/workqueue.h
-index 2a7b38d..40a61ae 100644
---- a/include/linux/workqueue.h
-+++ b/include/linux/workqueue.h
-@@ -204,4 +204,25 @@ static inline int cancel_delayed_work(struct delayed_work *work)
- 	return ret;
- }
- 
-+/**
-+ * try_to_cancel_delayed_work - Try to kill pending scheduled, delayed work
-+ * @work: the work to cancel
-+ *
-+ * Try to kill off a pending schedule_delayed_work().
-+ * - The timer may still be running afterwards, and if so, the work may still
-+ *   be pending
-+ * - Returns -1 if timer still active, 1 if timer removed, 0 if not scheduled
-+ * - Can be called from the work routine; if it's still pending, just return
-+ *   and it'll be called again.
-+ */
-+static inline int try_to_cancel_delayed_work(struct delayed_work *work)
-+{
-+	int ret;
-+
-+	ret = try_to_del_timer_sync(&work->timer);
-+	if (ret > 0)
-+		work_release(&work->work);
-+	return ret;
-+}
-+
- #endif
-diff --git a/kernel/timer.c b/kernel/timer.c
-index 440048a..ba4d6e0 100644
---- a/kernel/timer.c
-+++ b/kernel/timer.c
-@@ -505,6 +505,8 @@ out:
- 	return ret;
- }
- 
-+EXPORT_SYMBOL(try_to_del_timer_sync);
-+
- /**
-  * del_timer_sync - deactivate a timer and wait for the handler to finish.
-  * @timer: the timer to be deactivated
+	http://people.redhat.com/~dhowells/rxrpc/05-afs-cleanup.diff
+	http://people.redhat.com/~dhowells/rxrpc/06-af_rxrpc-kernel.diff
+	http://people.redhat.com/~dhowells/rxrpc/07-af_rxrpc-afs.diff
+	http://people.redhat.com/~dhowells/rxrpc/08-af_rxrpc-delete-old.diff
 
+The userspace access methods make use of the control data passed to/by
+sendmsg() and recvmsg().  See the three simple test programs:
+
+	http://people.redhat.com/~dhowells/rxrpc/klog.c
+	http://people.redhat.com/~dhowells/rxrpc/rxrpc.c
+	http://people.redhat.com/~dhowells/rxrpc/listen.c
+
+TODO:
+
+ (*) Make certain parameters (such as connection timeouts) userspace
+     configurable.
+
+ (*) Make userspace utilities use it; librxrpc.
+
+ (*) Userspace documentation.
+
+ (*) KerberosV security.
+
+Changes:
+
+ (*) SOCK_RPC has been removed.  SOCK_DGRAM is now used instead.
+
+ (*) I've add a facility whereby calls can be made to destinations other than
+     the connect() address of a client socket by making use of msg_name in the
+     msghdr struct when using sendmsg() to send the first data packet of a
+     call.  Indeed, a client socket need not be connected before being used
+     so.
+
+ (*) I've also added a facility whereby client calls may also be made on
+     server sockets, again by using msg_name in the msghdr struct.  In such a
+     case, the server's local transport endpoint is used.
+
+ (*) I've made the write buffer space check available to various callers
+     (sk_write_space) and implemented poll support.
+
+ (*) Rewrote rxrpc_recvmsg().  It now concatenates adjacent data messages from
+     the same call when delivering them.
+
+ (*) Updated the documentation to include notes on recvmsg, cover control
+     messages and cover SOL_RXRPC-level socket options.
+
+ (*) Provided an in-kernel interface to give in-kernel utilities easier access
+     to the facility.
+
+ (*) Made fs/afs/ use it.
+
+ (*) Deleted the old contents of net/rxrpc/.
+
+ (*) Use the scatterlist interface to the crypto API for now.  The patch that
+     added the direct access interface conflicts with patches Herbert Xu is
+     producing, so I've dropped it for the moment.
+
+ (*) Moved a bug fix to make secure connection reuse from the af_rxrpc-kernel
+     patch to the af_rxrpc main patch.
+
+David
