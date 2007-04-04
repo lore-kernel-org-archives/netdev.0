@@ -1,51 +1,50 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: 2.6.20.4: NETDEV WATCHDOG and lockups
-Date: Wed, 4 Apr 2007 13:21:00 +0200
-Message-ID: <20070404112100.GA1979@ff.dom.local>
-References: <20070403065810.GA1832@ff.dom.local> <Pine.LNX.4.64.0704031618070.3963@sheep.housecafe.de>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [XFRM]: Optimize MTU calculation
+Date: Wed, 04 Apr 2007 15:07:34 +0200
+Message-ID: <4613A316.8090805@trash.net>
+References: <46128290.5060701@trash.net> <4612B268.6060204@hiit.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	malte@g-house.de, Francois Romieu <romieu@fr.zoreil.com>
-To: Christian Kujau <christian@g-house.de>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: Kernel Netdev Mailing List <netdev@vger.kernel.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Miika Komu <miika@iki.fi>
+To: DiegoB <diego.beltrami@hiit.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx10.go2.pl ([193.17.41.74]:38026 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S2992853AbXDDLP7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Apr 2007 07:15:59 -0400
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0704031618070.3963@sheep.housecafe.de>
+Received: from stinky.trash.net ([213.144.137.162]:58514 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S2992896AbXDDNHg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Apr 2007 09:07:36 -0400
+In-Reply-To: <4612B268.6060204@hiit.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 03, 2007 at 04:19:46PM +0100, Christian Kujau wrote:
-> On Tue, 3 Apr 2007, Jarek Poplawski wrote:
-> >Did you try with 8139cp instead of 8139too?
+DiegoB wrote:
+> Patrick McHardy wrote:
 > 
-> Tried that, 8139cp could not be loaded :(
-
-Sorry for misleading!
-
-> >(Maybe even try some other card to narrow the problem?)
-> >You could also try to test without ehci, if it's possible.
+>> I've updated my IPsec MTU optimization patch I've posted a couple
+>> of month ago to net-2.6.22 and added the further optimization
+>> suggested by Herbert to account for the space lost due to alignment
+>> in the room reserved for IP options in transport mode.
+>>
+>> Tested with IPv4 and IPv6 in tunnel and transport mode. Beet mode
+>> is untested since no keying daemon seems to support it.
 > 
-> USB has been disabled completely. After booting with 'acpi=off lapic' 
-> the box survived ~30min then locked up again and rebooted.
+> 
+> Actually for BEET mode you can check the following:
+> 
+> http://hipl.hiit.fi/
+> http://www.openhip.org/
+> http://www.hip4inter.net/
 
-So, it's a lot sooner than before. (BTW, isn't there anything
-in debug log?) I see both CPUs did interrupt handling again.
-Maybe it's a real locking problem. Here are some more
-suggestions for testing (if you don't find anything better):
-- try without SMP, so: 'acpi=off lapic nosmp'
-- lock debugging turned on as much as possible
-plus maybe for curiosity:
-- different CONFIG_HZ
-- 8139TOO_PIO = y
 
-...
-> IRQ-problems with the Un-Interruptible-Power-Supply
+Thanks for the pointers, I'm using manual keying for testing now.
+It took me a while to properly set it up though since I wasn't
+expecting that I need to specify a selector for the inbound SA.
+Is there a reason for not using x->props.saddr/x->id.daddr during
+inbound processing as on the output side?
 
-I wouldn't be surprised... 
-
-Cheers,
-Jarek P.
+draft-nikander-esp-beet-mode-06.txt states ".. MUST contain the
+outer source and destination addresses, as defined in the SA"
+for both inbound and outbound processing, so I think it would
+be easier to handle this symetrical.
