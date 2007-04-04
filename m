@@ -1,39 +1,33 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: r8169 doesn't work
-Date: Wed, 4 Apr 2007 22:21:35 +0200
-Message-ID: <20070404202135.GA7809@electric-eye.fr.zoreil.com>
-References: <87ircdtbkn.fsf@duaron.myhome.or.jp> <20070403212836.GA12963@electric-eye.fr.zoreil.com> <87ejn13zl7.fsf@duaron.myhome.or.jp> <20070403215651.GB12963@electric-eye.fr.zoreil.com> <87abxo53wp.fsf@duaron.myhome.or.jp>
+From: "Gagan Arneja" <gaagaan@gmail.com>
+Subject: tg3 reset_task question
+Date: Wed, 4 Apr 2007 13:34:12 -0700
+Message-ID: <d66d623f0704041334m5e0c68ebw777f621c779e1153@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: OGAWA Hirofumi <hirofumi@mail.parknet.co.jp>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:42077 "EHLO
-	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753075AbXDDUYh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Apr 2007 16:24:37 -0400
+Received: from ug-out-1314.google.com ([66.249.92.174]:49425 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750717AbXDDUeT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Apr 2007 16:34:19 -0400
+Received: by ug-out-1314.google.com with SMTP id 44so798806uga
+        for <netdev@vger.kernel.org>; Wed, 04 Apr 2007 13:34:13 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <87abxo53wp.fsf@duaron.myhome.or.jp>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-OGAWA Hirofumi <hirofumi@mail.parknet.co.jp> :
-[...]
-> That patchset works fine for me. (i386 + smp, i386 + up, x86_64 + smp)
+Can't this BUG_ON be hit very easily:
 
-Cool.
+static void tg3_irq_quiesce(struct tg3 *tp)
+{
+        BUG_ON(tp->irq_sync);
+...
+}
 
-> I hope to include those patches to 2.6.21.
+tg3_reset_task could easily be racing with another thread, that calls
+tg3_full_lock(tp, 1); e.g tg3_change_mtu. Maybe I'm missing something
+obvious.
 
-The patchkit is scheduled for the next merge window. It fixes things for
-some users but:
-1. it missed the merge window of 2.6.21
-2. it is not completely non-intrusive
-3. it has been tested in -mm or by users whose driver did not work
-
--> too late in the release cycle.
-
--- 
-Ueimor
-
-Anybody got a battery for my Ultra 10 ?
+--
+Gagan
