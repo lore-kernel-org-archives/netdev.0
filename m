@@ -1,34 +1,33 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 1/2] r8169: issue request_irq after the private data are
- completely initialized
-Date: Tue, 03 Apr 2007 22:31:49 -0400
-Message-ID: <46130E15.9090807@garzik.org>
-References: <20070402205959.GA23368@electric-eye.fr.zoreil.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] add NAPI support to sb1250-mac.c (take 2)
+Date: Tue, 03 Apr 2007 22:33:20 -0400
+Message-ID: <46130E70.9030305@pobox.com>
+References: <20070329194240.GA11810@upwardaccess.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jay Cliburn <jacliburn@bellsouth.net>, netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org
+To: Mark Mason <mmason@upwardaccess.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:40256 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:40273 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S966190AbXDDCbx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Apr 2007 22:31:53 -0400
-In-Reply-To: <20070402205959.GA23368@electric-eye.fr.zoreil.com>
+	id S966295AbXDDCdW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Apr 2007 22:33:22 -0400
+In-Reply-To: <20070329194240.GA11810@upwardaccess.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Francois Romieu wrote:
-> The irq handler schedules a NAPI poll request unconditionally as soon as
-> the status register is not clean. It has been there - and wrong - for
-> ages but a recent timing change made it apparently easier to trigger.
+Mark Mason wrote:
+> Patch to add NAPI support to sb1250-mac.c (rev 2).  This patch differs from
+> the last in that the NAPI support isn't marked as experimental, nor is it
+> configurable (ie. once applied - NAPI is enabled all the time).  This was
+> based on feedback from Ralf and others.
 > 
-> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-> Cc: Jay Cliburn <jacliburn@bellsouth.net>
+> Signed-off-by: Mark Mason <mason@broadcom.com>
+> 
 > ---
->  drivers/net/r8169.c |   33 ++++++++++++++++++---------------
->  1 files changed, 18 insertions(+), 15 deletions(-)
+>  drivers/net/sb1250-mac.c |  278 ++++++++++++++++++++++++++++++----------------
+>  1 files changed, 182 insertions(+), 96 deletions(-)
 
-applied 1-2
-
+seems OK but doesn't apply
 
