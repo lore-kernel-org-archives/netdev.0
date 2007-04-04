@@ -1,38 +1,40 @@
-From: OGAWA Hirofumi <hirofumi@mail.parknet.co.jp>
-Subject: Re: r8169 doesn't work
-Date: Thu, 05 Apr 2007 04:35:18 +0900
-Message-ID: <87abxo53wp.fsf@duaron.myhome.or.jp>
-References: <87ircdtbkn.fsf@duaron.myhome.or.jp>
-	<20070403212836.GA12963@electric-eye.fr.zoreil.com>
-	<87ejn13zl7.fsf@duaron.myhome.or.jp>
-	<20070403215651.GB12963@electric-eye.fr.zoreil.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: TCP congestion control for fast, short-distance networks ?
+Date: Wed, 04 Apr 2007 12:55:46 -0700 (PDT)
+Message-ID: <20070404.125546.87742905.davem@davemloft.net>
+References: <20070404153911.GA32019@galon.ev-en.org>
+	<8C944E930D99B5D-244-E4B@FWM-D41.sysops.aol.com>
+	<20070404161121.GB32019@galon.ev-en.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: davef1624@aol.com, shemminger@linux-foundation.org,
+	netdev@vger.kernel.org
+To: baruch@ev-en.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.parknet.jp ([210.171.160.80]:3744 "EHLO parknet.jp"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S2992549AbXDDTf2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Apr 2007 15:35:28 -0400
-Received: from ibmpc.myhome.or.jp ([210.171.168.39]:4500)
-	by parknet.jp with [XMail 1.21 ESMTP Server]
-	id <S11DA8> for <netdev@vger.kernel.org> from <hirofumi@mail.parknet.co.jp>;
-	Thu, 5 Apr 2007 04:35:59 +0900
-In-Reply-To: <20070403215651.GB12963@electric-eye.fr.zoreil.com> (Francois Romieu's message of "Tue\, 3 Apr 2007 23\:56\:51 +0200")
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44909
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1766915AbXDDTzr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Apr 2007 15:55:47 -0400
+In-Reply-To: <20070404161121.GB32019@galon.ev-en.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Francois Romieu <romieu@fr.zoreil.com> writes:
+From: Baruch Even <baruch@ev-en.org>
+Date: Wed, 4 Apr 2007 19:11:21 +0300
 
-> [...]
->> Oh, thanks. I'll try.
->
-> Excellent.
+> * davef1624@aol.com <davef1624@aol.com> [070404 19:03]:
+> > Thanks - so you are suggesting we enable 802.3 flow-control / pause-frames?
+> > (it's currently disabled)
+> 
+> I do, but do test it before you bet on it. I've never tested such a
+> scenario but from my experience the lower the rtt the lesser are the
+> problems that the high speed algorithms are trying to solve.
 
-That patchset works fine for me. (i386 + smp, i386 + up, x86_64 + smp)
-I hope to include those patches to 2.6.21.
+Congestion control, at the TCP level, is from one perspective
+completely senseless on local high-speed networks.  The reason is that
+once any kind of congestion at that level is detected, the condition
+is gone by the time you could even possibly respond to it.
 
-Thanks.
--- 
-OGAWA Hirofumi <hirofumi@mail.parknet.co.jp>
+So with that in mind, reno is as good as anything and yes do use
+pause frames.
