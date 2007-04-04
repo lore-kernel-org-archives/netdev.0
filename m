@@ -1,71 +1,144 @@
-From: "Denys" <denys@visp.net.lb>
-Subject: Re: one more... iproute commands lockup whole system
-Date: Wed, 4 Apr 2007 17:35:12 +0300
-Message-ID: <20070404143256.M86656@visp.net.lb>
-References: <20070321175951.M73913@visp.net.lb> <46026717.9060909@trash.net> <20070322124533.M79867@visp.net.lb> <46027FF2.6020001@trash.net> <20070322101224.3e6bb899@freekitty>  <20070404000054.M58020@visp.net.lb> <1175649016.3957.10.camel@localhost> <461301C0.2050409@trash.net> <20070404020622.M69215@visp.net.lb> <1175684114.4088.12.camel@localhost> <20070404125231.M65138@visp.net.lb> <1175695810.4063.10.camel@localhost>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [-mm patch] net/: possible cleanups
+Date: Wed, 4 Apr 2007 17:25:43 +0200
+Message-ID: <20070404152543.GM27660@stusta.de>
+References: <20070402224745.71a25af7.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=koi8-r
-Cc: Patrick McHardy <kaber@trash.net>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	netdev@vger.kernel.org
-To: hadi@cyberus.ca
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from usermail.globalproof.net ([194.146.153.18]:60790 "EHLO
-	usermail.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S2992927AbXDDPXR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Apr 2007 11:23:17 -0400
-In-Reply-To: <1175695810.4063.10.camel@localhost>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S2992950AbXDDPZs@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20070402224745.71a25af7.akpm@linux-foundation.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Yes, it is real setup by the way, i just copy&paste script here. I tried to 
-remove some commands to leave only minimum to reproduce the problem.
-Right now i dont have another ethernet card on that system, i will add it 
-today, when i come back home and i will test in different situations. Also it 
-is interesting, how system will act when i will redirect from eth0 to ppp0, 
-tunnels, device with hardware offloading to device without hardware 
-offloading and etc.
-
-On Wed, 04 Apr 2007 10:10:10 -0400, jamal wrote
-> On Wed, 2007-04-04 at 15:56 +0300, Denys wrote:
-> 
-> > Rules:
-> > tc qdisc del dev eth0.5 root
-> > tc qdisc add dev eth0.5 handle 1: root htb
-> > tc class add dev eth0.5 parent 1:0 classid 1:2 htb rate 128Kbit
-> > 
-> > tc qdisc add dev eth0.5 parent 1:2 handle 2: prio
-> > 
-> > tc filter add dev eth0.5 parent 1: protocol ip prio 10 u32 \
-> > match ip src 195.69.208.253/32 flowid 1:2
-> > 
-> > tc filter add dev eth0.5 parent 2: protocol ip prio 10 u32 \
-> >     match ip src 195.69.208.253/32 flowid 2:1 \
-> >     action mirred egress redirect dev eth0.6
-> >
-> > (it is not working, but just i tried few things)
-> >
-> 
-> This will still mean the physical device is eventually going to be 
-> eth0. You are hanging, correct?
-> If you redirected to another vlan ontop of a different physical
-> ethernet, and the problem persists then it will be worrisome.
-> Actually i am begining to doubt myself. Maybe the vlan device is acting
-> strangely. I will try to test your simple setup towards the end of 
-> day and see what happens.
-> 
-> cheers,
-> jamal
-> 
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+On Mon, Apr 02, 2007 at 10:47:45PM -0700, Andrew Morton wrote:
+>...
+> Changes since 2.6.21-rc5-mm3:
+>...
+>  git-net.patch
+>...
+>  git trees.
+>...
 
 
---
-Denys Fedoryshchenko
-Technical Manager
-Virtual ISP S.A.L.
+This patch contains the following possible cleanups:
+- make the following needlessly global variables static:
+  - core/rtnetlink.c: struct rtnl_msg_handlers[]
+  - netfilter/nf_conntrack_proto.c: struct nf_ct_protos[] 
+- make the following needlessly global functions static:
+  - core/rtnetlink.c: rtnl_dump_all()
+  - netlink/af_netlink.c: netlink_queue_skip()
 
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
+
+---
+
+ include/net/netfilter/nf_conntrack_l4proto.h |    1 -
+ include/net/netlink.h                        |    2 --
+ include/net/rtnetlink.h                      |    1 -
+ net/core/rtnetlink.c                         |    6 ++----
+ net/netfilter/nf_conntrack_proto.c           |    2 +-
+ net/netlink/af_netlink.c                     |    4 ++--
+ 6 files changed, 5 insertions(+), 11 deletions(-)
+
+--- linux-2.6.21-rc5-mm4/include/net/rtnetlink.h.old	2007-04-03 23:58:30.000000000 +0200
++++ linux-2.6.21-rc5-mm4/include/net/rtnetlink.h	2007-04-03 23:58:35.000000000 +0200
+@@ -13,7 +13,6 @@
+ 			      rtnl_doit_func, rtnl_dumpit_func);
+ extern int	rtnl_unregister(int protocol, int msgtype);
+ extern void	rtnl_unregister_all(int protocol);
+-extern int	rtnl_dump_all(struct sk_buff *skb, struct netlink_callback *cb);
+ 
+ static inline int rtnl_msg_family(struct nlmsghdr *nlh)
+ {
+--- linux-2.6.21-rc5-mm4/net/core/rtnetlink.c.old	2007-04-03 23:34:49.000000000 +0200
++++ linux-2.6.21-rc5-mm4/net/core/rtnetlink.c	2007-04-03 23:58:44.000000000 +0200
+@@ -101,7 +101,7 @@
+ 	return 0;
+ }
+ 
+-struct rtnl_link *rtnl_msg_handlers[NPROTO];
++static struct rtnl_link *rtnl_msg_handlers[NPROTO];
+ 
+ static inline int rtm_msgindex(int msgtype)
+ {
+@@ -771,7 +771,7 @@
+ 	return err;
+ }
+ 
+-int rtnl_dump_all(struct sk_buff *skb, struct netlink_callback *cb)
++static int rtnl_dump_all(struct sk_buff *skb, struct netlink_callback *cb)
+ {
+ 	int idx;
+ 	int s_idx = cb->family;
+@@ -795,8 +795,6 @@
+ 	return skb->len;
+ }
+ 
+-EXPORT_SYMBOL_GPL(rtnl_dump_all);
+-
+ void rtmsg_ifinfo(int type, struct net_device *dev, unsigned change)
+ {
+ 	struct sk_buff *skb;
+--- linux-2.6.21-rc5-mm4/include/net/netfilter/nf_conntrack_l4proto.h.old	2007-04-04 01:22:41.000000000 +0200
++++ linux-2.6.21-rc5-mm4/include/net/netfilter/nf_conntrack_l4proto.h	2007-04-04 01:22:50.000000000 +0200
+@@ -97,7 +97,6 @@
+ extern struct nf_conntrack_l4proto nf_conntrack_l4proto_generic;
+ 
+ #define MAX_NF_CT_PROTO 256
+-extern struct nf_conntrack_l4proto **nf_ct_protos[PF_MAX];
+ 
+ extern struct nf_conntrack_l4proto *
+ __nf_ct_l4proto_find(u_int16_t l3proto, u_int8_t l4proto);
+--- linux-2.6.21-rc5-mm4/net/netfilter/nf_conntrack_proto.c.old	2007-04-04 00:00:26.000000000 +0200
++++ linux-2.6.21-rc5-mm4/net/netfilter/nf_conntrack_proto.c	2007-04-04 00:00:43.000000000 +0200
+@@ -28,7 +28,7 @@
+ #include <net/netfilter/nf_conntrack_l4proto.h>
+ #include <net/netfilter/nf_conntrack_core.h>
+ 
+-struct nf_conntrack_l4proto **nf_ct_protos[PF_MAX] __read_mostly;
++static struct nf_conntrack_l4proto **nf_ct_protos[PF_MAX] __read_mostly;
+ struct nf_conntrack_l3proto *nf_ct_l3protos[AF_MAX] __read_mostly;
+ EXPORT_SYMBOL_GPL(nf_ct_l3protos);
+ 
+--- linux-2.6.21-rc5-mm4/include/net/netlink.h.old	2007-04-04 00:01:21.000000000 +0200
++++ linux-2.6.21-rc5-mm4/include/net/netlink.h	2007-04-04 00:01:52.000000000 +0200
+@@ -217,8 +217,6 @@
+ extern void		netlink_run_queue(struct sock *sk, unsigned int *qlen,
+ 					  int (*cb)(struct sk_buff *,
+ 						    struct nlmsghdr *));
+-extern void		netlink_queue_skip(struct nlmsghdr *nlh,
+-					   struct sk_buff *skb);
+ extern int		nlmsg_notify(struct sock *sk, struct sk_buff *skb,
+ 				     u32 pid, unsigned int group, int report,
+ 				     gfp_t flags);
+--- linux-2.6.21-rc5-mm4/net/netlink/af_netlink.c.old	2007-04-04 00:01:59.000000000 +0200
++++ linux-2.6.21-rc5-mm4/net/netlink/af_netlink.c	2007-04-04 00:02:22.000000000 +0200
+@@ -117,6 +117,7 @@
+ 
+ static int netlink_dump(struct sock *sk);
+ static void netlink_destroy_callback(struct netlink_callback *cb);
++static void netlink_queue_skip(struct nlmsghdr *nlh, struct sk_buff *skb);
+ 
+ static DEFINE_RWLOCK(nl_table_lock);
+ static atomic_t nl_table_users = ATOMIC_INIT(0);
+@@ -1555,7 +1556,7 @@
+  * Pulls the given netlink message off the socket buffer so the next
+  * call to netlink_queue_run() will not reconsider the message.
+  */
+-void netlink_queue_skip(struct nlmsghdr *nlh, struct sk_buff *skb)
++static void netlink_queue_skip(struct nlmsghdr *nlh, struct sk_buff *skb)
+ {
+ 	int msglen = NLMSG_ALIGN(nlh->nlmsg_len);
+ 
+@@ -1838,7 +1839,6 @@
+ 
+ EXPORT_SYMBOL(netlink_ack);
+ EXPORT_SYMBOL(netlink_run_queue);
+-EXPORT_SYMBOL(netlink_queue_skip);
+ EXPORT_SYMBOL(netlink_broadcast);
+ EXPORT_SYMBOL(netlink_dump_start);
+ EXPORT_SYMBOL(netlink_kernel_create);
