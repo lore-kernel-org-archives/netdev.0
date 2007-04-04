@@ -1,50 +1,68 @@
 From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: tg3 reset_task question
-Date: Wed, 4 Apr 2007 15:10:07 -0700
-Message-ID: <20070404151007.2648621f@localhost>
-References: <d66d623f0704041334m5e0c68ebw777f621c779e1153@mail.gmail.com>
-	<1175722621.7911.63.camel@dell>
-	<4614105B.4080105@gmail.com>
+Subject: [RFT] proxy arp deadlock possible
+Date: Wed, 4 Apr 2007 15:26:35 -0700
+Message-ID: <20070404152635.7c3ba33e@localhost>
+References: <20070404213050.GA19261@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Michael Chan <mchan@broadcom.com>, netdev@vger.kernel.org
-To: Gagan Arneja <gaagaan@gmail.com>
+Cc: netdev@vger.kernel.org
+To: Dave Jones <davej@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:57994 "EHLO smtp.osdl.org"
+Received: from smtp.osdl.org ([65.172.181.24]:58280 "EHLO smtp.osdl.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751209AbXDDWKL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Apr 2007 18:10:11 -0400
-In-Reply-To: <4614105B.4080105@gmail.com>
+	id S1750782AbXDDW0q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Apr 2007 18:26:46 -0400
+In-Reply-To: <20070404213050.GA19261@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 04 Apr 2007 13:53:47 -0700
-Gagan Arneja <gaagaan@gmail.com> wrote:
+Thanks Dave, there is a classic AB BA deadlock here.
+We should break the dependency like this.
 
-> I like the counting semaphore idea.
-> 
-> --
-> Gagan
-> 
-> Michael Chan wrote:
-> > On Wed, 2007-04-04 at 13:34 -0700, Gagan Arneja wrote:
-> >> Can't this BUG_ON be hit very easily:
-> >>
-> >> static void tg3_irq_quiesce(struct tg3 *tp)
-> >> {
-> >>         BUG_ON(tp->irq_sync);
-> >> ...
-> >> }
-> >>
-> >> tg3_reset_task could easily be racing with another thread, that calls
-> >> tg3_full_lock(tp, 1); e.g tg3_change_mtu. Maybe I'm missing something
-> >> obvious.
-> >>
-> > 
-> > Yes, you're right.  Perhaps we should get the rtnl first before
-> > tg3_full_lock(), or turn irq_sync into an atomic counter that allows
-> > nesting.
+Could someone who uses proxy ARP test this?
+-----
 
-When you start reinventing windows locks or the BKL, you know
-you are going down the wrong path
+Need to drop one of the locks to avoid deadlock between
+proxy arp and incoming arp receive.
+---
+ net/core/neighbour.c |   10 +++++++++-
+ 1 files changed, 9 insertions(+), 1 deletions(-)
+
+diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+index cfc6001..d6b3a62 100644
+--- a/net/core/neighbour.c
++++ b/net/core/neighbour.c
+@@ -1212,6 +1212,7 @@ static void neigh_proxy_process(unsigned
+ 	unsigned long now = jiffies;
+ 	struct sk_buff *skb;
+ 
++rescan:
+ 	spin_lock(&tbl->proxy_queue.lock);
+ 
+ 	skb = tbl->proxy_queue.next;
+@@ -1224,13 +1225,20 @@ static void neigh_proxy_process(unsigned
+ 		if (tdif <= 0) {
+ 			struct net_device *dev = back->dev;
+ 			__skb_unlink(back, &tbl->proxy_queue);
++
++			/* drop lock to avoid deadlock */
++			spin_unlock(&tbl->proxy_queue.lock);
++
+ 			if (tbl->proxy_redo && netif_running(dev))
+ 				tbl->proxy_redo(back);
+ 			else
+ 				kfree_skb(back);
+ 
+ 			dev_put(dev);
+-		} else if (!sched_next || tdif < sched_next)
++			goto rescan;
++		}
++
++		if (!sched_next || tdif < sched_next)
+ 			sched_next = tdif;
+ 	}
+ 	del_timer(&tbl->proxy_timer);
+-- 
+1.4.1
+
