@@ -1,46 +1,36 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] netpoll: trapping fix/cleanup
-Date: Tue, 03 Apr 2007 22:30:46 -0400
-Message-ID: <46130DD6.6050707@pobox.com>
-References: <200703302340.27343.sshtylyov@ru.mvista.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 2.6.21 1/4] cxgb3 - Safeguard TCAM size usage
+Date: Tue, 03 Apr 2007 22:31:30 -0400
+Message-ID: <46130E02.3020806@garzik.org>
+References: <20070331072313.4694.92549.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shemminger@linux-foundation.org,
-	mhuth@mvista.com, kgdb-bugreport@lists.sourceforge.net
-To: Sergei Shtylyov <sshtylyov@ru.mvista.com>
-Return-path: <kgdb-bugreport-bounces@lists.sourceforge.net>
-In-Reply-To: <200703302340.27343.sshtylyov@ru.mvista.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/kgdb-bugreport>,
-	<mailto:kgdb-bugreport-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=kgdb-bugreport>
-List-Post: <mailto:kgdb-bugreport@lists.sourceforge.net>
-List-Help: <mailto:kgdb-bugreport-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/kgdb-bugreport>,
-	<mailto:kgdb-bugreport-request@lists.sourceforge.net?subject=subscribe>
-Sender: kgdb-bugreport-bounces@lists.sourceforge.net
-Errors-To: kgdb-bugreport-bounces@lists.sourceforge.net
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	swise@opengridcomputing.com
+To: divy@chelsio.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:40237 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S966268AbXDDCbe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Apr 2007 22:31:34 -0400
+In-Reply-To: <20070331072313.4694.92549.stgit@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Sergei Shtylyov wrote:
-> CONFIG_NETPOLL_TRAP causes the TX queue controls to be completely bypassed in
-> the netpoll's "trapped" mode which easily causes overflows in the drivers with
-> short TX queues (most notably, in 8139too with its 4-deep queue).
-> Make this option more sensible by only bypassing TX softirq wakeup and remove
-> CONFIG_NETPOLL_RX option completely since there is *no* code depending on it.
+divy@chelsio.com wrote:
+> From: Divy Le Ray <divy@chelsio.com>
 > 
-> Signed-off-by: Sergei Shtylyov <sshtylyov@ru.mvista.com>
+> Ensure that the TCAM active region size is at least 16.
+> 
+> Signed-off-by: Divy Le Ray <divy@chelsio.com>
+> ---
+> 
+>  drivers/net/cxgb3/common.h        |    3 +++
+>  drivers/net/cxgb3/cxgb3_main.c    |    7 +++++--
+>  drivers/net/cxgb3/cxgb3_offload.c |    4 +++-
+>  3 files changed, 11 insertions(+), 3 deletions(-)
 
-ACK but (a) DaveM not me should apply this, and (b) I would check with 
-netpoll people to see what that define is there for.
-
-	Jeff
+applied 1-4
 
 
-
-
--------------------------------------------------------------------------
-Take Surveys. Earn Cash. Influence the Future of IT
-Join SourceForge.net's Techsay panel and you'll get the chance to share your
-opinions on IT & business topics through brief surveys-and earn cash
-http://www.techsay.com/default.php?page=join.php&p=sourceforge&CID=DEVDEV
