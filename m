@@ -1,52 +1,69 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: one more... iproute commands lockup whole system
-Date: Wed, 04 Apr 2007 09:58:22 -0400
-Message-ID: <1175695102.4063.4.camel@localhost>
-References: <20070321175951.M73913@visp.net.lb> <46026717.9060909@trash.net>
-	 <20070322124533.M79867@visp.net.lb> <46027FF2.6020001@trash.net>
-	 <20070322101224.3e6bb899@freekitty>  <20070404000054.M58020@visp.net.lb>
-	 <1175649016.3957.10.camel@localhost> <461301C0.2050409@trash.net>
-	 <20070404020622.M69215@visp.net.lb> <1175684114.4088.12.camel@localhost>
-	 <4613A9F6.8000307@trash.net>
-Reply-To: hadi@cyberus.ca
+From: Sergei Shtylyov <sshtylyov@ru.mvista.com>
+Subject: Re: [PATCH] netpoll: trapping fix/cleanup
+Date: Wed, 04 Apr 2007 17:03:54 +0400
+Message-ID: <4613A23A.7080505@ru.mvista.com>
+References: <200703302340.27343.sshtylyov@ru.mvista.com>
+	<46130DD6.6050707@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Denys <denys@visp.net.lb>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.232]:1154 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753845AbXDDN6Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Apr 2007 09:58:25 -0400
-Received: by wx-out-0506.google.com with SMTP id h31so229918wxd
-        for <netdev@vger.kernel.org>; Wed, 04 Apr 2007 06:58:25 -0700 (PDT)
-In-Reply-To: <4613A9F6.8000307@trash.net>
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, mpm@selenic.com,
+	shemminger@linux-foundation.org, mhuth@mvista.com,
+	kgdb-bugreport@lists.sourceforge.net
+To: Jeff Garzik <jgarzik@pobox.com>
+Return-path: <kgdb-bugreport-bounces@lists.sourceforge.net>
+In-Reply-To: <46130DD6.6050707@pobox.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/kgdb-bugreport>,
+	<mailto:kgdb-bugreport-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=kgdb-bugreport>
+List-Post: <mailto:kgdb-bugreport@lists.sourceforge.net>
+List-Help: <mailto:kgdb-bugreport-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/kgdb-bugreport>,
+	<mailto:kgdb-bugreport-request@lists.sourceforge.net?subject=subscribe>
+Sender: kgdb-bugreport-bounces@lists.sourceforge.net
+Errors-To: kgdb-bugreport-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2007-04-04 at 15:36 +0200, Patrick McHardy wrote:
+Hello.
 
-> 
-> We have a loop counter (RTTL) in tc_verd. For some reason it is reset
-> after ing_filter though.
-> 
+Jeff Garzik wrote:
 
-Essentially it is valuable just to avoid a lot of stacking (separate
-issue) and not to avoid the locking issue he is seeing.
+>> CONFIG_NETPOLL_TRAP causes the TX queue controls to be completely 
+>> bypassed in
+>> the netpoll's "trapped" mode which easily causes overflows in the 
+>> drivers with
+>> short TX queues (most notably, in 8139too with its 4-deep queue).
+>> Make this option more sensible by only bypassing TX softirq wakeup and 
+>> remove
+>> CONFIG_NETPOLL_RX option completely since there is *no* code depending 
+>> on it.
 
+>> Signed-off-by: Sergei Shtylyov <sshtylyov@ru.mvista.com>
 
-> It would be interesting to find out what the problem is exactly.
-> The configuration itself looks harmless, so I'm guessing its
-> rather a deadlock than a loop.
+> ACK but (a) DaveM not me should apply this,
 
-We know it is a deadlock. 
-If you redirect the first time queue lock for eth0 will be held, before
-it is released if you do another redirect, it will again be heading
-towards eth0 and it will deadlock on grabbing the queue lock.
+    Oops, sorry. But he's only mentioned as IPv4/v6 maintainer. :-)
 
-cheers,
-jamal
+> and (b) I would check with 
+> netpoll people to see what that define  is there for.
 
+    Amit Kale and I were already asking about CONFIG_NETPOLL_TRAP here 1+ 
+months ago and got no replies. Well I'll try to CC Matt Mackall...
+    If you mean CONFIG_NETPOLL_RX, there was #ifdef's in the early version of 
+netpoll support:
+
+http://git.kernel.org/?p=linux/kernel/git/tglx/history.git;a=commitdiff;h=8fb9cf8ab6c0ccb1b17b32c05dc9da3cc96ac229
+
+but later they were removed but the option left:	
+
+http://git.kernel.org/?p=linux/kernel/git/tglx/history.git;a=commitdiff;h=e3c265bcf67f21d847e970e71504890f61f37824
+
+>     Jeff
+
+WBR, Sergei
+
+-------------------------------------------------------------------------
+Take Surveys. Earn Cash. Influence the Future of IT
+Join SourceForge.net's Techsay panel and you'll get the chance to share your
+opinions on IT & business topics through brief surveys-and earn cash
+http://www.techsay.com/default.php?page=join.php&p=sourceforge&CID=DEVDEV
