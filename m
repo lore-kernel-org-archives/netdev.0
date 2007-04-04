@@ -1,78 +1,42 @@
-From: Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
-Subject: [PATCH] zd1211rw: Fix E2P_PHY_REG patching
-Date: Tue,  3 Apr 2007 23:17:37 +0100 (BST)
-Message-ID: <20070403221737.3473A7B409F@zog.reactivated.net>
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Cc: kune-hUSrv6EASfkEnNRfnnE9gw@public.gmane.org
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: "Denys" <denys@visp.net.lb>
+Subject: one more... iproute commands lockup whole system
+Date: Wed, 4 Apr 2007 03:03:12 +0300
+Message-ID: <20070404000054.M58020@visp.net.lb>
+References: <20070321175951.M73913@visp.net.lb> <46026717.9060909@trash.net> <20070322124533.M79867@visp.net.lb> <46027FF2.6020001@trash.net> <20070322101224.3e6bb899@freekitty>
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset=koi8-r
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>,
+	Patrick McHardy <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from usermail.globalproof.net ([194.146.153.18]:55638 "EHLO
+	usermail.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S2992500AbXDDAMC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Apr 2007 20:12:02 -0400
+In-Reply-To: <20070322101224.3e6bb899@freekitty>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Due to conflicting/confusing defines in the vendor driver, we were
-reading E2P_PHY_REG from the wrong location.
+I'm not sure it is mistake or error, but i feel it is dangerous, cause 
+commands locking up the system, no kernel panic, no oops, so only watchdog 
+can save poor server (and not sure this even)
 
-CR157 patching was slightly incorrect in that the vendor driver only
-patches in an 8-bit value, whereas we were patching 24 bits.
+Commands to lockup system (just i am giving my example, i didnt sort out what 
+exactly locked up system, i guess redirecting to eth0.5, which is not 
+intended for that):
 
-Additionally, CR157 patching was happening on both zd1211 and zd1211b,
-but this should only happen on zd1211.
+vconfig add eth0 5
+ifconfig eth0.5 192.168.1.2 netmask 255.255.255.128
 
-Signed-off-by: Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
-Signed-off-by: Ulrich Kunitz <kune-hUSrv6EASfkEnNRfnnE9gw@public.gmane.org>
----
- zd_chip.c |   11 +++--------
- zd_chip.h |    2 +-
- 2 files changed, 4 insertions(+), 9 deletions(-)
+tc qdisc add dev eth0 ingress
+tc filter add dev eth0 parent ffff: protocol ip prio 6 u32 \
+match ip src 195.69.208.252/32 flowid 1:16 \
+action police rate 64kbit burst 90k pipe \
+action mirred egress mirror dev eth0.5
 
-Index: linux/drivers/net/wireless/zd1211rw/zd_chip.c
-===================================================================
---- linux.orig/drivers/net/wireless/zd1211rw/zd_chip.c
-+++ linux/drivers/net/wireless/zd1211rw/zd_chip.c
-@@ -593,16 +593,16 @@ int zd_chip_unlock_phy_regs(struct zd_ch
- 	return r;
- }
- 
--/* CR157 can be optionally patched by the EEPROM */
-+/* CR157 can be optionally patched by the EEPROM for original ZD1211 */
- static int patch_cr157(struct zd_chip *chip)
- {
- 	int r;
--	u32 value;
-+	u16 value;
- 
- 	if (!chip->patch_cr157)
- 		return 0;
- 
--	r = zd_ioread32_locked(chip, &value, E2P_PHY_REG);
-+	r = zd_ioread16_locked(chip, &value, E2P_PHY_REG);
- 	if (r)
- 		return r;
- 
-@@ -792,11 +792,6 @@ static int zd1211b_hw_reset_phy(struct z
- 		goto out;
- 
- 	r = zd_iowrite16a_locked(chip, ioreqs, ARRAY_SIZE(ioreqs));
--	if (r)
--		goto unlock;
--
--	r = patch_cr157(chip);
--unlock:
- 	t = zd_chip_unlock_phy_regs(chip);
- 	if (t && !r)
- 		r = t;
-Index: linux/drivers/net/wireless/zd1211rw/zd_chip.h
-===================================================================
---- linux.orig/drivers/net/wireless/zd1211rw/zd_chip.h
-+++ linux/drivers/net/wireless/zd1211rw/zd_chip.h
-@@ -641,8 +641,8 @@ enum {
-  * also only 11 channels. */
- #define E2P_ALLOWED_CHANNEL	E2P_DATA(0x18)
- 
--#define E2P_PHY_REG		E2P_DATA(0x1a)
- #define E2P_DEVICE_VER		E2P_DATA(0x20)
-+#define E2P_PHY_REG		E2P_DATA(0x25)
- #define E2P_36M_CAL_VALUE1	E2P_DATA(0x28)
- #define E2P_36M_CAL_VALUE2      E2P_DATA(0x2a)
- #define E2P_36M_CAL_VALUE3      E2P_DATA(0x2c)
+--
+Denys Fedoryshchenko
+Technical Manager
+Virtual ISP S.A.L.
+
