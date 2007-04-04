@@ -1,60 +1,62 @@
-From: Baruch Even <baruch@ev-en.org>
-Subject: Re: TCP congestion control for fast, short-distance networks ?
-Date: Wed, 4 Apr 2007 19:11:21 +0300
-Message-ID: <20070404161121.GB32019@galon.ev-en.org>
-References: <20070403091656.769e5368@localhost.localdomain> <200704032113.l33LDVhp025035@expredir6.cites.uiuc.edu> <20070404080743.5e67245a@localhost.localdomain> <8C944E41FEE84B1-244-BFF@FWM-D41.sysops.aol.com> <20070404153911.GA32019@galon.ev-en.org> <8C944E930D99B5D-244-E4B@FWM-D41.sysops.aol.com>
+From: "Ron Mercer" <ron.mercer@qlogic.com>
+Subject: RE: [-mm patch] make drivers/net/qla3xxx.c:PHY_DEVICES[] static
+Date: Wed, 4 Apr 2007 10:11:12 -0700
+Message-ID: <0BB3E5E7462EEA4295BC02D49691DC07A253EB@AVEXCH1.qlogic.org>
+References: <46130EA4.4000403@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org
-To: davef1624@aol.com
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>
+To: "Jeff Garzik" <jgarzik@pobox.com>, "Adrian Bunk" <bunk@stusta.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rrcs-24-123-59-149.central.biz.rr.com ([24.123.59.149]:48796
-	"EHLO galon.ev-en.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753512AbXDDQLW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Apr 2007 12:11:22 -0400
-Content-Disposition: inline
-In-Reply-To: <8C944E930D99B5D-244-E4B@FWM-D41.sysops.aol.com>
+Received: from avexch1.qlogic.com ([198.70.193.115]:47190 "EHLO
+	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751572AbXDDRL3 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Apr 2007 13:11:29 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <46130EA4.4000403@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* davef1624@aol.com <davef1624@aol.com> [070404 19:03]:
-> Thanks - so you are suggesting we enable 802.3 flow-control / pause-frames?
-> (it's currently disabled)
+Adrian,
 
-I do, but do test it before you bet on it. I've never tested such a
-scenario but from my experience the lower the rtt the lesser are the
-problems that the high speed algorithms are trying to solve.
+Sorry about the upper case stuff.  The new PHY code was ported from our
+firmware guys and the case didn't not get changed.  I normally will make
+such changes but it didn't get done this time.  I will clean it up in
+the near future.
 
-Baruch
+Ron 
 
-> 
 > -----Original Message-----
-> From: baruch@ev-en.org
-> To: davef1624@aol.com
-> Cc: shemminger@linux-foundation.org; netdev@vger.kernel.org
-> Sent: Wed, 4 Apr 2007 8:39 AM
-> Subject: Re: TCP congestion control for fast, short-distance networks ?
+> From: Jeff Garzik [mailto:jgarzik@pobox.com] 
+> Sent: Tuesday, April 03, 2007 7:34 PM
+> To: Adrian Bunk
+> Cc: Andrew Morton; Linux Driver; 
+> linux-kernel@vger.kernel.org; netdev@vger.kernel.org
+> Subject: Re: [-mm patch] make 
+> drivers/net/qla3xxx.c:PHY_DEVICES[] static
 > 
->  * davef1624@aol.com <davef1624@aol.com> [070404 18:29]:
-> >Hello,
-> >
-> >We are currently using both 1 Gb & 10 Gb links, that interconnect 
-> several
-> servers that are very *local* to
-> >each other.
-> >Typical RTT times range from 0.2 ms - 0.3 ms.
-> >
-> >We are currently using TCP reno - is there a more suitable congestion 
-> control
-> algorithm for our
-> >application,
-> >especially using the 10 Gb links ?
-> >(Most of the High-Speed TCP algorithms seem suitable for large RTT,
-> long-distance networks).
+> Adrian Bunk wrote:
+> > On Fri, Mar 30, 2007 at 01:05:59AM -0700, Andrew Morton wrote:
+> >> ...
+> >> Changes since 2.6.21-rc5-mm2:
+> >> ...
+> >>  git-netdev-all.patch
+> >> ...
+> >>  git trees
+> >> ...
+> > 
+> > 
+> > This patch makes the needlessly global PHY_DEVICES[] static.
+> > 
+> > Signed-off-by: Adrian Bunk <bunk@stusta.de>
+> > 
+> > ---
+> > 
+> > BTW: Why is the name uppercase?
 > 
-> I'm not aware of any tests for high speed links with very low RTTs, but
-> I suspect that the new algorithms will not change much, if the
-> connections you have are indeed local than the Ethernet pause mechanism
-> is more effective for the flow control you need.
+> applied
 > 
-> Baruch
+> 
+> 
