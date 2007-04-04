@@ -1,41 +1,38 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: Silent corruption with r8169
-Date: Wed, 4 Apr 2007 20:45:04 +0200
-Message-ID: <20070404184504.GB7814@electric-eye.fr.zoreil.com>
-References: <20070401012736.GT15189@vitelus.com> <20070401030315.GA24080@jim.sh> <20070401043905.GV15189@vitelus.com> <p737iswqjq4.fsf@bingen.suse.de>
+From: OGAWA Hirofumi <hirofumi@mail.parknet.co.jp>
+Subject: Re: r8169 doesn't work
+Date: Thu, 05 Apr 2007 04:35:18 +0900
+Message-ID: <87abxo53wp.fsf@duaron.myhome.or.jp>
+References: <87ircdtbkn.fsf@duaron.myhome.or.jp>
+	<20070403212836.GA12963@electric-eye.fr.zoreil.com>
+	<87ejn13zl7.fsf@duaron.myhome.or.jp>
+	<20070403215651.GB12963@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Aaron Lehmann <aaronl@vitelus.com>, Jim Paris <jim@jtan.com>,
-	linux-kernel@vger.kernel.org, linux-ide@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Andi Kleen <andi@firstfloor.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753967AbXDDStK@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <p737iswqjq4.fsf@bingen.suse.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.parknet.jp ([210.171.160.80]:3744 "EHLO parknet.jp"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S2992549AbXDDTf2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Apr 2007 15:35:28 -0400
+Received: from ibmpc.myhome.or.jp ([210.171.168.39]:4500)
+	by parknet.jp with [XMail 1.21 ESMTP Server]
+	id <S11DA8> for <netdev@vger.kernel.org> from <hirofumi@mail.parknet.co.jp>;
+	Thu, 5 Apr 2007 04:35:59 +0900
+In-Reply-To: <20070403215651.GB12963@electric-eye.fr.zoreil.com> (Francois Romieu's message of "Tue\, 3 Apr 2007 23\:56\:51 +0200")
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andi Kleen <andi@firstfloor.org> :
-> Aaron Lehmann <aaronl@vitelus.com> writes:
-> 
-> [adding netdev]
-> [meta-comment: I wish people wouldn't use such unnecessarily broad subjects 
-> -- how is it the x86-64 port's or AMD's fault when you have broken hardware? 
-> Would anybody write "Silent corruption on i386" or "Silent corruption 
-> on Intel" or "Silent corruption on Linux"?]
+Francois Romieu <romieu@fr.zoreil.com> writes:
 
-I hope you feel better now that I changed the subject.
+> [...]
+>> Oh, thanks. I'll try.
+>
+> Excellent.
 
-Aaron, I see no clear suspect between 2.6.20.1 and current -git
-that could explain nor fix a corruption in the r8169 driver.
+That patchset works fine for me. (i386 + smp, i386 + up, x86_64 + smp)
+I hope to include those patches to 2.6.21.
 
-Can you apply on top of latest 2.6.21-rc5-git the patches available at
-http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.21-rc5/r8169-20070402
-
-000[12]-r8169-foo-bar.patch have been committed a few minutes ago: you
-should check if they apply or not.
-
-netconsole appears compiled as a module. Is it used ?
-
+Thanks.
 -- 
-Ueimor
+OGAWA Hirofumi <hirofumi@mail.parknet.co.jp>
