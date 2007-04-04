@@ -1,75 +1,41 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: TCP congestion control for fast, short-distance networks ?
-Date: Wed, 4 Apr 2007 10:39:44 -0700
-Message-ID: <20070404103944.1b15de16@freekitty>
-References: <20070403091656.769e5368@localhost.localdomain>
-	<200704032113.l33LDVhp025035@expredir6.cites.uiuc.edu>
-	<20070404080743.5e67245a@localhost.localdomain>
-	<8C944E41FEE84B1-244-BFF@FWM-D41.sysops.aol.com>
-	<20070404153911.GA32019@galon.ev-en.org>
-	<8C944E930D99B5D-244-E4B@FWM-D41.sysops.aol.com>
-	<20070404161121.GB32019@galon.ev-en.org>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: 2.6.20.4: NETDEV WATCHDOG and lockups
+Date: Wed, 4 Apr 2007 20:10:10 +0200
+Message-ID: <20070404181010.GA7814@electric-eye.fr.zoreil.com>
+References: <Pine.LNX.4.64.0704022012300.3963@sheep.housecafe.de> <20070403205744.GB12969@electric-eye.fr.zoreil.com> <Pine.LNX.4.64.0704041342390.3963@sheep.housecafe.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: davef1624@aol.com, netdev@vger.kernel.org
-To: Baruch Even <baruch@ev-en.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	malte@g-house.de
+To: Christian Kujau <christian@g-house.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:49198 "EHLO smtp.osdl.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752201AbXDDRjv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Apr 2007 13:39:51 -0400
-In-Reply-To: <20070404161121.GB32019@galon.ev-en.org>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:49512 "EHLO
+	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S934087AbXDDSMh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Apr 2007 14:12:37 -0400
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.64.0704041342390.3963@sheep.housecafe.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 4 Apr 2007 19:11:21 +0300
-Baruch Even <baruch@ev-en.org> wrote:
+Christian Kujau <christian@g-house.de> :
+[...]
+> Actually I was thinking about *using* netconsole, since even setting up 
+> remote (userspace-)syslog left nothing on the syslog-server, when the 
+> machine crashed. But if it's b0rked in 8139, I will refrain from doing 
+> so.
 
-> * davef1624@aol.com <davef1624@aol.com> [070404 19:03]:
-> > Thanks - so you are suggesting we enable 802.3 flow-control / pause-frames?
-> > (it's currently disabled)
-> 
-> I do, but do test it before you bet on it. I've never tested such a
-> scenario but from my experience the lower the rtt the lesser are the
-> problems that the high speed algorithms are trying to solve.
-> 
-> Baruch
-> 
-> > 
-> > -----Original Message-----
-> > From: baruch@ev-en.org
-> > To: davef1624@aol.com
-> > Cc: shemminger@linux-foundation.org; netdev@vger.kernel.org
-> > Sent: Wed, 4 Apr 2007 8:39 AM
-> > Subject: Re: TCP congestion control for fast, short-distance networks ?
-> > 
-> >  * davef1624@aol.com <davef1624@aol.com> [070404 18:29]:
-> > >Hello,
-> > >
-> > >We are currently using both 1 Gb & 10 Gb links, that interconnect 
-> > several
-> > servers that are very *local* to
-> > >each other.
-> > >Typical RTT times range from 0.2 ms - 0.3 ms.
-> > >
-> > >We are currently using TCP reno - is there a more suitable congestion 
-> > control
-> > algorithm for our
-> > >application,
-> > >especially using the 10 Gb links ?
-> > >(Most of the High-Speed TCP algorithms seem suitable for large RTT,
-> > long-distance networks).
-> > 
-> > I'm not aware of any tests for high speed links with very low RTTs, but
-> > I suspect that the new algorithms will not change much, if the
-> > connections you have are indeed local than the Ethernet pause mechanism
-> > is more effective for the flow control you need.
-> > 
-> > Baruch
+Please refrain :o)
 
-Pause helps (if the hardware works). But on very high speed links with low
-RTT, your main source of throttling is lack of bus bandwidth on receiver.
+No serial cable ?
+
+> >4 - try:
+> >   http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.21-rc5/r8169-20070402
+> 
+> Are they in -rc5 yet or 'not in -rc5 but should be applied to -rc5'?
+
+'not in -rc5 but should be applied to -rc5 though the first two at the
+bottom (000[12]-r8169-blah-blah.patch) are now in latest -git'.
 
 -- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+Ueimor
