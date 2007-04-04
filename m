@@ -1,68 +1,50 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [RFT] proxy arp deadlock possible
-Date: Wed, 4 Apr 2007 15:26:35 -0700
-Message-ID: <20070404152635.7c3ba33e@localhost>
-References: <20070404213050.GA19261@redhat.com>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [kvm-devel] QEMU PIC indirection patch for in-kernel APIC work
+Date: Thu, 05 Apr 2007 09:19:27 +1000
+Message-ID: <1175728768.12230.593.camel@localhost.localdomain>
+References: <4613B438.60107@codemonkey.ws> <4613B89F.8090806@qumranet.com>
+	 <4613BC6B.1070708@codemonkey.ws> <4613BF07.50606@qumranet.com>
+	 <4613C993.9020405@codemonkey.ws> <4613CC01.1090500@qumranet.com>
+	 <4613CDB2.4000903@codemonkey.ws> <4613D001.3040606@qumranet.com>
+	 <20070404200112.GA6070@elte.hu> <4614098F.2030307@us.ibm.com>
+	 <20070404212103.GA19026@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Dave Jones <davej@redhat.com>
+Cc: Anthony Liguori <aliguori@us.ibm.com>,
+	kvm-devel@lists.sourceforge.net, netdev <netdev@vger.kernel.org>
+To: Ingo Molnar <mingo@elte.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:58280 "EHLO smtp.osdl.org"
+Received: from ozlabs.org ([203.10.76.45]:47668 "EHLO ozlabs.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750782AbXDDW0q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Apr 2007 18:26:46 -0400
-In-Reply-To: <20070404213050.GA19261@redhat.com>
+	id S1752759AbXDDXUQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Apr 2007 19:20:16 -0400
+In-Reply-To: <20070404212103.GA19026@elte.hu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Thanks Dave, there is a classic AB BA deadlock here.
-We should break the dependency like this.
+On Wed, 2007-04-04 at 23:21 +0200, Ingo Molnar wrote:
+> * Anthony Liguori <aliguori@us.ibm.com> wrote:
+> 
+> > But why is it a good thing to do PV drivers in the kernel?  You lose 
+> > flexibility and functionality to gain performance. [...]
+> 
+> in Linux a kernel-space network driver can still be tunneled over 
+> user-space code, and hence you can add arbitrary add-on functionality 
+> (and thus have flexibility), without slowing down the common case (which 
+> would be to tunnel the guest's network traffic into the firewall rules 
+> of the kernel. No need to touch user-space for any of that).
 
-Could someone who uses proxy ARP test this?
------
+You didn't quote Anthony's point about "it's more about there not being
+good enough userspace interfaces to do network IO."
 
-Need to drop one of the locks to avoid deadlock between
-proxy arp and incoming arp receive.
----
- net/core/neighbour.c |   10 +++++++++-
- 1 files changed, 9 insertions(+), 1 deletions(-)
+It's easier to write a kernel-space network driver, but it's not
+obviously the right thing to do until we can show that an efficient
+packet-level userspace interface isn't possible.  I don't think that's
+been done, and it would be interesting to try.
 
-diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index cfc6001..d6b3a62 100644
---- a/net/core/neighbour.c
-+++ b/net/core/neighbour.c
-@@ -1212,6 +1212,7 @@ static void neigh_proxy_process(unsigned
- 	unsigned long now = jiffies;
- 	struct sk_buff *skb;
- 
-+rescan:
- 	spin_lock(&tbl->proxy_queue.lock);
- 
- 	skb = tbl->proxy_queue.next;
-@@ -1224,13 +1225,20 @@ static void neigh_proxy_process(unsigned
- 		if (tdif <= 0) {
- 			struct net_device *dev = back->dev;
- 			__skb_unlink(back, &tbl->proxy_queue);
-+
-+			/* drop lock to avoid deadlock */
-+			spin_unlock(&tbl->proxy_queue.lock);
-+
- 			if (tbl->proxy_redo && netif_running(dev))
- 				tbl->proxy_redo(back);
- 			else
- 				kfree_skb(back);
- 
- 			dev_put(dev);
--		} else if (!sched_next || tdif < sched_next)
-+			goto rescan;
-+		}
-+
-+		if (!sched_next || tdif < sched_next)
- 			sched_next = tdif;
- 	}
- 	del_timer(&tbl->proxy_timer);
--- 
-1.4.1
+Cheers,
+Rusty.
+
+
 
