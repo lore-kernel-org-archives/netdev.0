@@ -1,37 +1,53 @@
-From: Baruch Even <baruch@ev-en.org>
-Subject: Re: TCP congestion control for fast, short-distance networks ?
-Date: Wed, 4 Apr 2007 18:39:11 +0300
-Message-ID: <20070404153911.GA32019@galon.ev-en.org>
-References: <20070403091656.769e5368@localhost.localdomain> <200704032113.l33LDVhp025035@expredir6.cites.uiuc.edu> <20070404080743.5e67245a@localhost.localdomain> <8C944E41FEE84B1-244-BFF@FWM-D41.sysops.aol.com>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [SCTP] Initialization collision problem
+Date: Wed, 04 Apr 2007 11:44:32 -0400
+Message-ID: <4613C7E0.3030705@hp.com>
+References: <5F14EEE91CB6694A86535A0A028D9C5501555FEF@tx14exm60.ds.mot.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org
-To: davef1624@aol.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	"lksctp-developers@lists.sourceforge.net"
+	<lksctp-developers@lists.sourceforge.net>
+To: Isaula Oscar-QOI000 <Oscar.Isaula@motorola.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rrcs-24-123-59-149.central.biz.rr.com ([24.123.59.149]:48668
-	"EHLO galon.ev-en.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S2992969AbXDDPjN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Apr 2007 11:39:13 -0400
-Content-Disposition: inline
-In-Reply-To: <8C944E41FEE84B1-244-BFF@FWM-D41.sysops.aol.com>
+Received: from atlrel8.hp.com ([156.153.255.206]:60390 "EHLO atlrel8.hp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S2992974AbXDDPoe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Apr 2007 11:44:34 -0400
+In-Reply-To: <5F14EEE91CB6694A86535A0A028D9C5501555FEF@tx14exm60.ds.mot.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* davef1624@aol.com <davef1624@aol.com> [070404 18:29]:
-> Hello,
-> 
-> We are currently using both 1 Gb & 10 Gb links, that interconnect several servers that are very *local* to 
-> each other.
-> Typical RTT times range from 0.2 ms - 0.3 ms.
-> 
-> We are currently using TCP reno - is there a more suitable congestion control algorithm for our 
-> application,
-> especially using the 10 Gb links ?
-> (Most of the High-Speed TCP algorithms seem suitable for large RTT, long-distance networks).
+[For SCTP questions, please use netdev or lksctp-developers list]
 
-I'm not aware of any tests for high speed links with very low RTTs, but
-I suspect that the new algorithms will not change much, if the
-connections you have are indeed local than the Ethernet pause mechanism
-is more effective for the flow control you need.
+Hi Oscar
 
-Baruch
+Isaula Oscar-QOI000 wrote:
+> I ran into a problem where LKSCTP is reporting a SCTM_COMM_UP indication
+> to the User application but is giving back a value of zero for the
+> assoc_id.
+> 
+> Attached are the SCTP debugs for the period in question.
+> 
+> A couple of things that I would like to note about my setup. One is that
+> I'm running Kernel version 2.6.10 (I know is old but I can't move to a
+> newer version due to custom drivers). The second thing is that the link
+> between the two SCTP node is a very noisy and some messages are getting
+> lost (i.e. the INIT_ACK from the peer in this particular case).
+> 
+> After analyzing the SCTP code I came out with the following code
+> changes:
+> 
+
+It does appear to be a genuine bug in lkSCTP, but your solution is
+not correct.
+
+The problem is that the original association didn't get the
+association id yet in this particular scenario.
+
+Let me take a deeper look at this to see if I can figure our
+a better solution.
+
+Thanks
+-vlad
