@@ -1,7 +1,7 @@
 From: Andi Kleen <ak@suse.de>
-Subject: [PATCH] Uninline tcp_done
-Date: Thu, 5 Apr 2007 12:44:03 +0200
-Message-ID: <200704051244.03511.ak@suse.de>
+Subject: [PATCH] Move sk_setup_caps out of line
+Date: Thu, 5 Apr 2007 12:46:21 +0200
+Message-ID: <200704051246.21134.ak@suse.de>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="us-ascii"
@@ -9,74 +9,67 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.suse.de ([195.135.220.2]:41164 "EHLO mx1.suse.de"
+Received: from mx2.suse.de ([195.135.220.15]:47538 "EHLO mx2.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S966079AbXDEKoI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Apr 2007 06:44:08 -0400
+	id S966080AbXDEKqZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Apr 2007 06:46:25 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-The function is quite big and has several call sites and nothing
-to collapse by compiler optimization on inlining.
-
-Besides it's nicer to read in a in .c file.
+It is far too large to be an inline and not in any hot paths.
 
 Signed-off-by: Andi Kleen <ak@suse.de>
 
-Index: linux-2.6.21-rc3-net/include/net/tcp.h
+Index: linux-2.6.21-rc1-net/include/net/sock.h
 ===================================================================
---- linux-2.6.21-rc3-net.orig/include/net/tcp.h
-+++ linux-2.6.21-rc3-net/include/net/tcp.h
-@@ -918,21 +918,7 @@ static inline void tcp_set_state(struct 
- #endif	
+--- linux-2.6.21-rc1-net.orig/include/net/sock.h
++++ linux-2.6.21-rc1-net/include/net/sock.h
+@@ -1083,19 +1083,7 @@ static inline int sk_can_gso(const struc
+ 	return net_gso_ok(sk->sk_route_caps, sk->sk_gso_type);
  }
  
--static inline void tcp_done(struct sock *sk)
+-static inline void sk_setup_caps(struct sock *sk, struct dst_entry *dst)
 -{
--	if(sk->sk_state == TCP_SYN_SENT || sk->sk_state == TCP_SYN_RECV)
--		TCP_INC_STATS_BH(TCP_MIB_ATTEMPTFAILS);
--
--	tcp_set_state(sk, TCP_CLOSE);
--	tcp_clear_xmit_timers(sk);
--
--	sk->sk_shutdown = SHUTDOWN_MASK;
--
--	if (!sock_flag(sk, SOCK_DEAD))
--		sk->sk_state_change(sk);
--	else
--		inet_csk_destroy_sock(sk);
+-	__sk_dst_set(sk, dst);
+-	sk->sk_route_caps = dst->dev->features;
+-	if (sk->sk_route_caps & NETIF_F_GSO)
+-		sk->sk_route_caps |= NETIF_F_GSO_MASK;
+-	if (sk_can_gso(sk)) {
+-		if (dst->header_len)
+-			sk->sk_route_caps &= ~NETIF_F_GSO_MASK;
+-		else 
+-			sk->sk_route_caps |= NETIF_F_SG | NETIF_F_HW_CSUM;
+-	}
 -}
-+extern void tcp_done(struct sock *sk);
++extern void sk_setup_caps(struct sock *sk, struct dst_entry *dst);
  
- static inline void tcp_sack_reset(struct tcp_options_received *rx_opt)
+ static inline void sk_charge_skb(struct sock *sk, struct sk_buff *skb)
  {
-Index: linux-2.6.21-rc3-net/net/ipv4/tcp.c
+Index: linux-2.6.21-rc1-net/net/core/sock.c
 ===================================================================
---- linux-2.6.21-rc3-net.orig/net/ipv4/tcp.c
-+++ linux-2.6.21-rc3-net/net/ipv4/tcp.c
-@@ -2372,6 +2372,23 @@ void __tcp_put_md5sig_pool(void)
- EXPORT_SYMBOL(__tcp_put_md5sig_pool);
- #endif
+--- linux-2.6.21-rc1-net.orig/net/core/sock.c
++++ linux-2.6.21-rc1-net/net/core/sock.c
+@@ -970,6 +970,21 @@ out:
  
-+void tcp_done(struct sock *sk)
+ EXPORT_SYMBOL_GPL(sk_clone);
+ 
++void sk_setup_caps(struct sock *sk, struct dst_entry *dst)
 +{
-+	if(sk->sk_state == TCP_SYN_SENT || sk->sk_state == TCP_SYN_RECV)
-+		TCP_INC_STATS_BH(TCP_MIB_ATTEMPTFAILS);
-+
-+	tcp_set_state(sk, TCP_CLOSE);
-+	tcp_clear_xmit_timers(sk);
-+
-+	sk->sk_shutdown = SHUTDOWN_MASK;
-+
-+	if (!sock_flag(sk, SOCK_DEAD))
-+		sk->sk_state_change(sk);
-+	else
-+		inet_csk_destroy_sock(sk);
++	__sk_dst_set(sk, dst);
++	sk->sk_route_caps = dst->dev->features;
++	if (sk->sk_route_caps & NETIF_F_GSO)
++		sk->sk_route_caps |= NETIF_F_GSO_MASK;
++	if (sk_can_gso(sk)) {
++		if (dst->header_len)
++			sk->sk_route_caps &= ~NETIF_F_GSO_MASK;
++		else 
++			sk->sk_route_caps |= NETIF_F_SG | NETIF_F_HW_CSUM;
++	}
 +}
-+EXPORT_SYMBOL_GPL(tcp_done);
++EXPORT_SYMBOL_GPL(sk_setup_caps);
 +
- extern void __skb_cb_too_small_for_tcp(int, int);
- extern struct tcp_congestion_ops tcp_reno;
- 
+ void __init sk_init(void)
+ {
+ 	if (num_physpages <= 4096) {
