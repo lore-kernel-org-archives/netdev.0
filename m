@@ -1,43 +1,45 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: tg3 reset_task question
-Date: Thu, 5 Apr 2007 21:58:07 +1000
-Message-ID: <20070405115807.GB10972@gondor.apana.org.au>
-References: <d66d623f0704041334m5e0c68ebw777f621c779e1153@mail.gmail.com> <1175722621.7911.63.camel@dell> <4614105B.4080105@gmail.com> <20070404151007.2648621f@localhost>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: IPsec PMTUD problem
+Date: Thu, 05 Apr 2007 14:09:20 +0200
+Message-ID: <4614E6F0.10905@trash.net>
+References: <46110ED1.9070209@trash.net> <20070403095510.GA7754@gondor.apana.org.au> <46128187.4090601@trash.net> <20070405120425.GC10972@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Gagan Arneja <gaagaan@gmail.com>,
-	Michael Chan <mchan@broadcom.com>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:3795 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1766962AbXDEL6m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Apr 2007 07:58:42 -0400
-Content-Disposition: inline
-In-Reply-To: <20070404151007.2648621f@localhost>
+Received: from stinky.trash.net ([213.144.137.162]:49679 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S2992511AbXDEMJ0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Apr 2007 08:09:26 -0400
+In-Reply-To: <20070405120425.GC10972@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 04, 2007 at 10:10:07PM +0000, Stephen Hemminger wrote:
->
-> > > Yes, you're right.  Perhaps we should get the rtnl first before
-> > > tg3_full_lock(), or turn irq_sync into an atomic counter that allows
-> > > nesting.
+Herbert Xu wrote:
+> On Tue, Apr 03, 2007 at 06:32:07PM +0200, Patrick McHardy wrote:
 > 
-> When you start reinventing windows locks or the BKL, you know
-> you are going down the wrong path
+>>I'm not sure I understand how this would work, the ICMP message
+>>looks the same in both cases. Or are you suggesting to
+>>differentiate based on the source of the ICMP message?
+> 
+> 
+> Actually you're right, this can't work in the general case.  Even
+> if we had real devices for IPsec tunnels, there is still no way to
+> reliably figure out which device we should attribute a given MTU
+> event to if the same address appears on more than one device.
+> 
+> 
+>>Yes, that would work as a workaround, but it still seems like
+>>something worth fixing.
+> 
+> 
+> One possible solution is to not send MTU errors to ourselves since
+> we it wouldn't give us any new information.  We'd need to audit the
+> users of icmp_send to make sure that there isn't a legitimate case
+> where we'd want to do that.
 
-Actually, I think what Michael's suggesting is quite different.
-This would be a simple counter that tells the IRQ handlers to
-not process any events.  So this isn't really a lock as such.
 
-FWIW I think the counter sounds better than using the RTNL since
-with the latter you'd have to figure out whether you're in an
-RTNL context or not (e.g., tg3_suspend would also need to grab it).
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+One such case is delivery of errors to sockets. We'd need to make
+sure the errors are delivered some other way.
