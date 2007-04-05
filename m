@@ -1,75 +1,111 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: pci-e e1000 not responding to ARPs sometimes?
-Date: Thu, 05 Apr 2007 13:17:43 -0700
-Message-ID: <46155967.1040904@candelatech.com>
+From: Paolo Galtieri <pgaltieri@mvista.com>
+Subject: Re: Bug in SCTP with SCTP_BINDX_REM_ADDR
+Date: Thu, 05 Apr 2007 13:25:45 -0700
+Message-ID: <46155B49.4030206@mvista.com>
+References: <4614FAE6.3070409@mvista.com> <461548E6.4030008@hp.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-To: NetDev <netdev@vger.kernel.org>
+Cc: netdev@vger.kernel.org, sri@us.ibm.com
+To: Vlad Yasevich <vladislav.yasevich@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:58915 "EHLO ns2.lanforge.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1767289AbXDEURo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Apr 2007 16:17:44 -0400
-Received: from [192.168.100.224] (static-71-121-249-218.sttlwa.dsl-w.verizon.net [71.121.249.218])
-	(authenticated bits=0)
-	by ns2.lanforge.com (8.13.4/8.13.4) with ESMTP id l35KHhb9011676
-	for <netdev@vger.kernel.org>; Thu, 5 Apr 2007 13:17:44 -0700
+Received: from homer.mvista.com ([63.81.120.158]:8460 "EHLO
+	gateway-1237.mvista.com" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S1753292AbXDEUZn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Apr 2007 16:25:43 -0400
+In-Reply-To: <461548E6.4030008@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Here's the revises patch
 
-We're seeing some strange behavior on several systems with onboard
-PCI-e pro/1000 NICs.  The behavior is generally that we cannot connect
-into a system until we ping from that system out.  It often happens
-with our tainted 2.6.18.2 kernel, but we also see similar problems on
-the 2.6.20.? FC5 kernel.  It appears to me that the NIC gets into some
-funky state where it will not receive traffic until a packet is sent
-out of the interface.  After that, it works fine, at least for a while.
+Paolo
 
-At this point, I am just curious if anyone else is seeing anything
-similar, or if there are any known problems of this nature
-with the 2.6.18 e1000 driver.
+Signed-off-by: Paolo Galtieri <pgaltieri@mvista.com>
 
-Here is lspci for one of the affected systems:
-
-
-00:00.0 Host bridge: Intel Corporation Server Memory Contoller Hub (rev b1)
-00:02.0 PCI bridge: Intel Corporation Server PCI Express x8 Port 2-3 (rev b1)
-00:08.0 System peripheral: Intel Corporation Server DMA Controller (rev b1)
-00:10.0 Host bridge: Intel Corporation Server Error Reporting Registers (rev b1)
-00:10.1 Host bridge: Intel Corporation Server Error Reporting Registers (rev b1)
-00:10.2 Host bridge: Intel Corporation Server Error Reporting Registers (rev b1)
-00:11.0 Host bridge: Intel Corporation Reserved Registers (rev b1)
-00:13.0 Host bridge: Intel Corporation Reserved Registers (rev b1)
-00:15.0 Host bridge: Intel Corporation Server FBD Registers (rev b1)
-00:16.0 Host bridge: Intel Corporation Server FBD Registers (rev b1)
-00:1c.0 PCI bridge: Intel Corporation Enterprise Southbridge PCI Express Root Port 1 (rev 09)
-00:1d.0 USB Controller: Intel Corporation Enterprise Southbridge UHCI USB #1 (rev 09)
-00:1d.1 USB Controller: Intel Corporation Enterprise Southbridge UHCI USB #2 (rev 09)
-00:1d.2 USB Controller: Intel Corporation Enterprise Southbridge UHCI USB #3 (rev 09)
-00:1d.3 USB Controller: Intel Corporation Enterprise Southbridge UHCI USB #4 (rev 09)
-00:1d.7 USB Controller: Intel Corporation Enterprise Southbridge EHCI USB (rev 09)
-00:1e.0 PCI bridge: Intel Corporation 82801 PCI Bridge (rev d9)
-00:1f.0 ISA bridge: Intel Corporation Enterprise Southbridge LPC (rev 09)
-00:1f.2 IDE interface: Intel Corporation Enterprise Southbridge SATA cc=IDE (rev 09)
-00:1f.3 SMBus: Intel Corporation Enterprise Southbridge SMBus (rev 09)
-01:00.0 PCI bridge: Intel Corporation Enterprise Southbridge PCI Express Upstream Port (rev 01)
-01:00.3 PCI bridge: Intel Corporation Enterprise Southbridge PCI Express to PCI-X Bridge (rev 01)
-02:00.0 PCI bridge: Intel Corporation Enterprise Southbridge PCI Express Downstream Port E1 (rev 01)
-02:02.0 PCI bridge: Intel Corporation Enterprise Southbridge PCI Express Downstream Port E3 (rev 01)
-04:00.0 Ethernet controller: Intel Corporation Enterprise Southbridge DPT LAN Copper (rev 01)
-04:00.1 Ethernet controller: Intel Corporation Enterprise Southbridge DPT LAN Copper (rev 01)
-05:01.0 PCI bridge: IBM PCI-X to PCI-X Bridge (rev 03)
-06:04.0 Ethernet controller: Intel Corporation 82546GB Gigabit Ethernet Controller (rev 03)
-06:04.1 Ethernet controller: Intel Corporation 82546GB Gigabit Ethernet Controller (rev 03)
-06:06.0 Ethernet controller: Intel Corporation 82546GB Gigabit Ethernet Controller (rev 03)
-06:06.1 Ethernet controller: Intel Corporation 82546GB Gigabit Ethernet Controller (rev 03)
-08:01.0 VGA compatible controller: ATI Technologies Inc ES1000 (rev 02)
+--- net/sctp/socket.c.orig      2007-04-05 12:59:15.000000000 -0700
++++ net/sctp/socket.c   2007-04-05 13:11:37.000000000 -0700
+@@ -627,6 +627,12 @@ int sctp_bindx_rem(struct sock *sk, stru
+                        retval = -EINVAL;
+                        goto err_bindx_rem;
+                }
++
++               if (!af->addr_valid(&saveaddr, sp)) {
++                       retval = -EADDRNOTAVAIL;
++                       goto err_bindx_rem;
++               }
++
+                if (sa_addr->v4.sin_port != htons(bp->port)) {
+                        retval = -EINVAL;
+                        goto err_bindx_rem;
 
 
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
-
+Vlad Yasevich wrote:
+> Hi Paolo
+>
+> Paolo Galtieri wrote:
+>> What is happening is that the check for IPV6_ADDR_MAPPED that occurs
+>> during the add is missing when you do the remove and hence the IPv6
+>> address is never mapped to the IPv4 address causing the lookup to
+>> fail.  Below is the patch to add the necessary checks to do the
+>> mapping.  This patch is against 2.6.21-rc5
+>>
+>> Does this make sense?  Any comments are appreciated.
+>>
+>
+> Yes, it makes perfect sense; however, I think you can just use
+> af->addr_valid() instead of adding a special case below.
+>
+> If that works, can you regenerate the patch and provide a
+> Signed-off-by line so I can incorporate that.
+>
+> Thanks
+> -vlad
+>
+>> Thank you,
+>> Paolo
+>>
+>> I've attached the test program - compile as gcc -o bindx-test-ipv6 
+>> bindx-test-ipv6.c -lsctp
+>> ================================ >8 
+>> ==========================================
+>> --- net/sctp/socket.c.orig      2007-04-04 13:22:59.000000000 -0700
+>> +++ net/sctp/socket.c   2007-04-04 13:25:35.000000000 -0700
+>> @@ -627,6 +627,27 @@ int sctp_bindx_rem(struct sock *sk, stru
+>>                        retval = -EINVAL;
+>>                        goto err_bindx_rem;
+>>                }
+>> +               /*
+>> +                * It's possible that we mapped an IPV6 addr to an 
+>> IPV4 addr
+>> +                * during the sctp_bindx_add() operation.  This will 
+>> happen if
+>> +                * the IPV6 address we assigned to an interface is a 
+>> mapped
+>> +                * address, e.g. ::ffff:192.0.2.128.  If we have 
+>> mapped an IPV6
+>> +                * address to an IPV4 address during the add we need 
+>> to make
+>> +                * sure we do the same thing during the remove, 
+>> otherwise we
+>> +                * wont find a match on the address_list.
+>> +                */
+>> +
+>> +               if (af->sa_family == AF_INET6) {
+>> +                       struct in6_addr *in6;
+>> +                       int type;
+>> +
+>> +                       in6 = (struct in6_addr *)&sa_addr->v6.sin6_addr;
+>> +                       type = ipv6_addr_type(in6);
+>> +
+>> +                       if (type == IPV6_ADDR_MAPPED)
+>> +                               sctp_v6_map_v4(sa_addr);
+>> +               }
+>> +
+>>                if (sa_addr->v4.sin_port != htons(bp->port)) {
+>>                        retval = -EINVAL;
+>>                        goto err_bindx_rem;
+>>
+>>
+>
+>
