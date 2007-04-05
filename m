@@ -1,68 +1,51 @@
-From: Valerie Henson <val_henson@linux.intel.com>
-Subject: Re: [PATCH] fix MCA when shutting down tulip quad-NIC
-Date: Thu, 5 Apr 2007 14:34:17 -0700
-Message-ID: <20070405213415.GA22707@nifty>
-References: <20070403211916.GA25570@aepfle.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] NET: Multiqueue network device support, replayed.
+Date: Thu, 05 Apr 2007 14:35:27 -0700 (PDT)
+Message-ID: <20070405.143527.63129672.davem@davemloft.net>
+References: <D5C1322C3E673F459512FB59E0DDC329029ADBC2@orsmsx414.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: andrew.patterson@hp.com, netdev@vger.kernel.org
-To: Olaf Hering <olaf@aepfle.de>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jeb.j.cramer@intel.com, christopher.leech@intel.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jgarzik@pobox.com, auke-jan.h.kok@intel.com
+To: peter.p.waskiewicz.jr@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga06.intel.com ([134.134.136.21]:31200 "EHLO
-	orsmga101.jf.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1767331AbXDEVeU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Apr 2007 17:34:20 -0400
-Content-Disposition: inline
-In-Reply-To: <20070403211916.GA25570@aepfle.de>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50550
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1767339AbXDEVf2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Apr 2007 17:35:28 -0400
+In-Reply-To: <D5C1322C3E673F459512FB59E0DDC329029ADBC2@orsmsx414.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 03, 2007 at 11:19:16PM +0200, Olaf Hering wrote:
-> From: andrew.patterson@hp.com
-> 
->  https://bugzilla.novell.com/show_bug.cgi?id=SUSE39204
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Date: Thu, 5 Apr 2007 14:33:19 -0700
 
-Wow, registering for Novell's bugzilla is painful.  And in the end I
-get "Access denied" on that bug.  Can you give us this information
-some other way?
-
-> Shutting down the network causes an MCA because of an IO TLB error when
-> a DEC quad 10/100 card is in any slot.  This problem was originally seen
-> on an HP rx4640.
-
-I'm not clear on why pci_disable_device() would fix this bug.  Do you
-have an explanation (or can copy one out of the bug report)?  I'm
-hesitant to make even obviously correct changes to the tulip driver
-without good evidence, given the incredible variety of buggy hardware
-out there.
-
-This looks to me like another iteration of the shutdown DMA/irq race
-at first glance.  Grant has a patch for it; I'm working on one I
-consider cleaner.
-
--VAL
-
+> David,
+> 	Please consider pulling from my git tree:
 > 
+> 	git-pull git://lost.foo-projects.org/~ppwaskie/git/net-2.6.22
+> multiqueue
 > 
-> Signed-off-by: Olaf Hering <olaf@aepfle.de>
+> This is a branch named 'multiqueue' of a recent pull from your tree with
+> an updated implementation of the multiqueue implementation we've been
+> working on.  Included in this is:
 > 
-> ---
-> 
-> Andrew: Why is it tp->pdev instead of pdev?
+> 1) A simplified API where all drivers will allocate a queue struct for
+> each queue on the NIC.
+> 2) A transparent stack change for both non-mq and mq devices to use the
+> same codepath.
+> 3) Remove the per-queue locking model, and just use the per-queue
+> netif_{start|stop|wake}_subqueue() functions for multiqueue management.
+> 4) Updated multiqueue documentation in Documentation/networking
+> describing the implementation and base driver requirements to implement
+> multiqueue support.
 
-> 
->  drivers/net/tulip/tulip_core.c |    1 +
->  1 file changed, 1 insertion(+)
-> 
-> Index: b/drivers/net/tulip/tulip_core.c
-> ===================================================================
-> --- a/drivers/net/tulip/tulip_core.c
-> +++ b/drivers/net/tulip/tulip_core.c
-> @@ -1798,6 +1798,7 @@ static void __devexit tulip_remove_one (
->  		return;
->  
->  	tp = netdev_priv(dev);
-> +	pci_disable_device(tp->pdev);
->  	unregister_netdev(dev);
->  	pci_free_consistent (pdev,
->  			     sizeof (struct tulip_rx_desc) * RX_RING_SIZE +
+Thanks for following up on this work, but it really needs to be
+reviewed here on netdev, I really can't just pull this into my
+tree until it is reviewed properly here.
+
+So, please post the new feature as a set of patches.
+
+Thanks a lot.
