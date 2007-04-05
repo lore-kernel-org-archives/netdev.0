@@ -1,111 +1,51 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFT] proxy arp deadlock possible
-Date: Thu, 5 Apr 2007 15:32:01 +1000
-Message-ID: <20070405053201.GA8423@gondor.apana.org.au>
-References: <E1HZG5h-0001oF-00@gondolin.me.apana.org.au> <1175735443.3270.11.camel@laptopd505.fenrus.org>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: 2.6.20.4: NETDEV WATCHDOG and lockups
+Date: Thu, 5 Apr 2007 08:20:00 +0200
+Message-ID: <20070405062000.GA1717@ff.dom.local>
+References: <20070403065810.GA1832@ff.dom.local> <Pine.LNX.4.64.0704031618070.3963@sheep.housecafe.de> <20070404112100.GA1979@ff.dom.local> <Pine.LNX.4.64.0704041412310.3963@sheep.housecafe.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	davem@davemloft.net, mingo@elte.hu, davej@redhat.com,
-	netdev@vger.kernel.org
-To: Arjan van de Ven <arjan@infradead.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	malte@g-house.de, Francois Romieu <romieu@fr.zoreil.com>
+To: Christian Kujau <christian@g-house.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:2256 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1161206AbXDEFcn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Apr 2007 01:32:43 -0400
+Received: from mx12.go2.pl ([193.17.41.142]:42345 "EHLO poczta.o2.pl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1161216AbXDEGO7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Apr 2007 02:14:59 -0400
 Content-Disposition: inline
-In-Reply-To: <1175735443.3270.11.camel@laptopd505.fenrus.org>
+In-Reply-To: <Pine.LNX.4.64.0704041412310.3963@sheep.housecafe.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 04, 2007 at 06:10:42PM -0700, Arjan van de Ven wrote:
+On Wed, Apr 04, 2007 at 02:20:23PM +0100, Christian Kujau wrote:
+> On Wed, 4 Apr 2007, Jarek Poplawski wrote:
+> >So, it's a lot sooner than before. (BTW, isn't there anything
+> >in debug log?)
 > 
-> what's the exact lockdep output here?
+> No, nothing. I've set up remote-syslgging to the other node (node1 
+> logging to node2 and vice versa) - nothing :(
+> 
+> >I see both CPUs did interrupt handling again.
+> 
+> Yes, when booting with 'lapic' both CPUs/cores are handling interrupts 
+> again. However, since 'lapic' seems to lead to crashes here, we would be 
+> more than happy to just boot with 'noapic' but have 'irqbalance' 
+> working. Unfortunately, irqbalance is unable to write to 
+> /proc/irq/*/smp_affinity (did not help to disable CONFIG_IRQBALANCE).
 
-Here's the original report:
+I hope you are right, but maybe it's not lapic's fault?
+Probably the fastest way to know would be to try with
+some other card, yet.
 
-=======================================================
-[ INFO: possible circular locking dependency detected ]
-2.6.20-1.2933.fc6debug #1
--------------------------------------------------------
-swapper/0 is trying to acquire lock:
- (&tbl->lock){-+-+}, at: [<c05d5664>] neigh_lookup+0x43/0xa2
+> >Maybe it's a real locking problem. Here are some more
+> >suggestions for testing (if you don't find anything better):
+> >- try without SMP, so: 'acpi=off lapic nosmp'
 
-but task is already holding lock:
- (&list->lock#4){-+..}, at: [<c05d65c8>] neigh_proxy_process+0x20/0xc2
+BTW, I'm not sure acpi should be turned off with any
+modern hardware. Did you tried to compile with
+CONFIG_ACPI = y, all other acpi options off, and maybe
+to tweak only with 'pci=...' boot parameter?
 
-which lock already depends on the new lock.
-
-
-the existing dependency chain (in reverse order) is:
-
--> #2 (&list->lock#4){-+..}:
-       [<c043f4f2>] __lock_acquire+0x913/0xa43
-       [<c043f933>] lock_acquire+0x56/0x6f
-       [<c06325df>] _spin_lock_irqsave+0x34/0x44
-       [<c05cbb87>] skb_dequeue+0x12/0x43
-       [<c05cc9d4>] skb_queue_purge+0x14/0x1b
-       [<c05d5b70>] neigh_update+0x349/0x3a5
-       [<c060cd37>] arp_process+0x4d1/0x50a
-       [<c060ce53>] arp_rcv+0xe3/0x100
-       [<c05d0e43>] netif_receive_skb+0x2db/0x35a
-       [<c05d2806>] process_backlog+0x95/0xf6
-       [<c05d29ed>] net_rx_action+0xa1/0x1a8
-       [<c042c1f6>] __do_softirq+0x6f/0xe2
-       [<c04063c6>] do_softirq+0x61/0xd0
-       [<ffffffff>] 0xffffffff
-
--> #1 (&n->lock){-+-+}:
-       [<c043f4f2>] __lock_acquire+0x913/0xa43
-       [<c043f933>] lock_acquire+0x56/0x6f
-       [<c063231e>] _write_lock+0x2b/0x38
-       [<c05d74b7>] neigh_periodic_timer+0x99/0x138
-       [<c042f053>] run_timer_softirq+0x104/0x168
-       [<c042c1f6>] __do_softirq+0x6f/0xe2
-       [<c04063c6>] do_softirq+0x61/0xd0
-       [<ffffffff>] 0xffffffff
-
--> #0 (&tbl->lock){-+-+}:
-       [<c043f3f3>] __lock_acquire+0x814/0xa43
-       [<c043f933>] lock_acquire+0x56/0x6f
-       [<c06323d6>] _read_lock_bh+0x30/0x3d
-       [<c05d5664>] neigh_lookup+0x43/0xa2
-       [<c05d6317>] neigh_event_ns+0x2c/0x7a
-       [<c060cbec>] arp_process+0x386/0x50a
-       [<c060ce78>] parp_redo+0x8/0xa
-       [<c05d660e>] neigh_proxy_process+0x66/0xc2
-       [<c042f053>] run_timer_softirq+0x104/0x168
-       [<c042c1f6>] __do_softirq+0x6f/0xe2
-       [<c04063c6>] do_softirq+0x61/0xd0
-       [<ffffffff>] 0xffffffff
-
-other info that might help us debug this:
-
-1 lock held by swapper/0:
- #0:  (&list->lock#4){-+..}, at: [<c05d65c8>] neigh_proxy_process+0x20/0xc2
-
-stack backtrace:
- [<c04051dd>] show_trace_log_lvl+0x1a/0x2f
- [<c0405782>] show_trace+0x12/0x14
- [<c0405806>] dump_stack+0x16/0x18
- [<c043dcf5>] print_circular_bug_tail+0x5f/0x68
- [<c043f3f3>] __lock_acquire+0x814/0xa43
- [<c043f933>] lock_acquire+0x56/0x6f
- [<c06323d6>] _read_lock_bh+0x30/0x3d
- [<c05d5664>] neigh_lookup+0x43/0xa2
- [<c05d6317>] neigh_event_ns+0x2c/0x7a
- [<c060cbec>] arp_process+0x386/0x50a
- [<c060ce78>] parp_redo+0x8/0xa
- [<c05d660e>] neigh_proxy_process+0x66/0xc2
- [<c042f053>] run_timer_softirq+0x104/0x168
- [<c042c1f6>] __do_softirq+0x6f/0xe2
- [<c04063c6>] do_softirq+0x61/0xd0
- =======================
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Regards,
+Jarek P.
