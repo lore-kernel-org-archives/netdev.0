@@ -1,40 +1,39 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [SC92031]: Fix priv->lock context (was: 2.6.21-rc5-mm4)
-Date: Thu, 5 Apr 2007 21:44:31 +1000
-Message-ID: <20070405114431.GA10972@gondor.apana.org.au>
-References: <20070404190402.609cbd65.akpm@linux-foundation.org>
+Subject: Re: tg3 reset_task question
+Date: Thu, 5 Apr 2007 21:58:07 +1000
+Message-ID: <20070405115807.GB10972@gondor.apana.org.au>
+References: <d66d623f0704041334m5e0c68ebw777f621c779e1153@mail.gmail.com> <1175722621.7911.63.camel@dell> <4614105B.4080105@gmail.com> <20070404151007.2648621f@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "Antonino A. Daplas" <adaplas@pol.net>,
-	Jeff Garzik <jgarzik@pobox.com>
-To: Andrew Morton <akpm@linux-foundation.org>
+Cc: Gagan Arneja <gaagaan@gmail.com>,
+	Michael Chan <mchan@broadcom.com>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:3754 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:3795 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1766952AbXDELpJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Apr 2007 07:45:09 -0400
+	with ESMTP id S1766962AbXDEL6m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Apr 2007 07:58:42 -0400
 Content-Disposition: inline
-In-Reply-To: <20070404190402.609cbd65.akpm@linux-foundation.org>
+In-Reply-To: <20070404151007.2648621f@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 05, 2007 at 02:04:02AM +0000, Andrew Morton wrote:
+On Wed, Apr 04, 2007 at 10:10:07PM +0000, Stephen Hemminger wrote:
+>
+> > > Yes, you're right.  Perhaps we should get the rtnl first before
+> > > tg3_full_lock(), or turn irq_sync into an atomic counter that allows
+> > > nesting.
 > 
-> This looks like a locking bug in the ipv6 changes in davem's devel tree.
-> There are no relevant changes to drivers/net/sc92031.c in rc5-mm4.
+> When you start reinventing windows locks or the BKL, you know
+> you are going down the wrong path
 
-Actually, this looks like a latent bug in sc92031.  It's calling
-spin_lock in the dev->open function on a lock that's held in BH
-context.
+Actually, I think what Michael's suggesting is quite different.
+This would be a simple counter that tells the IRQ handlers to
+not process any events.  So this isn't really a lock as such.
 
-[SC92031]: Fix priv->lock context
-
-The spin_lock calls made in dev->open and dev->close must disable
-BH since open/close are made in process context.  Conversely, the
-call in dev->hard_start_xmit does not need to disable BH since it
-is already executing with BH disabled.
-
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+FWIW I think the counter sounds better than using the RTNL since
+with the latter you'd have to figure out whether you're in an
+RTNL context or not (e.g., tg3_suspend would also need to grab it).
 
 Cheers,
 -- 
