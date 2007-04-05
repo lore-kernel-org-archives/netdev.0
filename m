@@ -1,7 +1,7 @@
 From: Andi Kleen <ak@suse.de>
-Subject: [PATCH] Move sk_setup_caps out of line
-Date: Thu, 5 Apr 2007 12:46:21 +0200
-Message-ID: <200704051246.21134.ak@suse.de>
+Subject: [PATCH] Eliminate some unnecessary gotos in tcp v4 hash handling
+Date: Thu, 5 Apr 2007 12:48:44 +0200
+Message-ID: <200704051248.44989.ak@suse.de>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="us-ascii"
@@ -9,67 +9,77 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:47538 "EHLO mx2.suse.de"
+Received: from mx2.suse.de ([195.135.220.15]:47608 "EHLO mx2.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S966080AbXDEKqZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Apr 2007 06:46:25 -0400
+	id S966086AbXDEKst (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Apr 2007 06:48:49 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-It is far too large to be an inline and not in any hot paths.
+The compiler eliminates them anyways and this makes the code easier to read
+and shorter.
 
 Signed-off-by: Andi Kleen <ak@suse.de>
 
-Index: linux-2.6.21-rc1-net/include/net/sock.h
+Index: linux-2.6.21-rc3-net/net/ipv4/tcp_ipv4.c
 ===================================================================
---- linux-2.6.21-rc1-net.orig/include/net/sock.h
-+++ linux-2.6.21-rc1-net/include/net/sock.h
-@@ -1083,19 +1083,7 @@ static inline int sk_can_gso(const struc
- 	return net_gso_ok(sk->sk_route_caps, sk->sk_gso_type);
+--- linux-2.6.21-rc3-net.orig/net/ipv4/tcp_ipv4.c
++++ linux-2.6.21-rc3-net/net/ipv4/tcp_ipv4.c
+@@ -2052,8 +2052,7 @@ static void *established_get_first(struc
+ 			if (sk->sk_family != st->family) {
+ 				continue;
+ 			}
+-			rc = sk;
+-			goto out;
++			return sk;
+ 		}
+ 		st->state = TCP_SEQ_STATE_TIME_WAIT;
+ 		inet_twsk_for_each(tw, node,
+@@ -2061,13 +2060,11 @@ static void *established_get_first(struc
+ 			if (tw->tw_family != st->family) {
+ 				continue;
+ 			}
+-			rc = tw;
+-			goto out;
++			return tw;
+ 		}
+ 		read_unlock(&tcp_hashinfo.ehash[st->bucket].lock);
+ 		st->state = TCP_SEQ_STATE_ESTABLISHED;
+ 	}
+-out:
+ 	return rc;
  }
  
--static inline void sk_setup_caps(struct sock *sk, struct dst_entry *dst)
--{
--	__sk_dst_set(sk, dst);
--	sk->sk_route_caps = dst->dev->features;
--	if (sk->sk_route_caps & NETIF_F_GSO)
--		sk->sk_route_caps |= NETIF_F_GSO_MASK;
--	if (sk_can_gso(sk)) {
--		if (dst->header_len)
--			sk->sk_route_caps &= ~NETIF_F_GSO_MASK;
--		else 
--			sk->sk_route_caps |= NETIF_F_SG | NETIF_F_HW_CSUM;
--	}
--}
-+extern void sk_setup_caps(struct sock *sk, struct dst_entry *dst);
+@@ -2088,10 +2085,8 @@ get_tw:
+ 		while (tw && tw->tw_family != st->family) {
+ 			tw = tw_next(tw);
+ 		}
+-		if (tw) {
+-			cur = tw;
+-			goto out;
+-		}
++		if (tw)
++			return tw; 
+ 		read_unlock(&tcp_hashinfo.ehash[st->bucket].lock);
+ 		st->state = TCP_SEQ_STATE_ESTABLISHED;
  
- static inline void sk_charge_skb(struct sock *sk, struct sk_buff *skb)
- {
-Index: linux-2.6.21-rc1-net/net/core/sock.c
-===================================================================
---- linux-2.6.21-rc1-net.orig/net/core/sock.c
-+++ linux-2.6.21-rc1-net/net/core/sock.c
-@@ -970,6 +970,21 @@ out:
+@@ -2111,16 +2106,12 @@ get_tw:
  
- EXPORT_SYMBOL_GPL(sk_clone);
+ 	sk_for_each_from(sk, node) {
+ 		if (sk->sk_family == st->family)
+-			goto found;
++			return sk; 
+ 	}
  
-+void sk_setup_caps(struct sock *sk, struct dst_entry *dst)
-+{
-+	__sk_dst_set(sk, dst);
-+	sk->sk_route_caps = dst->dev->features;
-+	if (sk->sk_route_caps & NETIF_F_GSO)
-+		sk->sk_route_caps |= NETIF_F_GSO_MASK;
-+	if (sk_can_gso(sk)) {
-+		if (dst->header_len)
-+			sk->sk_route_caps &= ~NETIF_F_GSO_MASK;
-+		else 
-+			sk->sk_route_caps |= NETIF_F_SG | NETIF_F_HW_CSUM;
-+	}
-+}
-+EXPORT_SYMBOL_GPL(sk_setup_caps);
-+
- void __init sk_init(void)
- {
- 	if (num_physpages <= 4096) {
+ 	st->state = TCP_SEQ_STATE_TIME_WAIT;
+ 	tw = tw_head(&tcp_hashinfo.ehash[st->bucket].twchain);
+ 	goto get_tw;
+-found:
+-	cur = sk;
+-out:
+-	return cur;
+ }
+ 
+ static void *established_get_idx(struct seq_file *seq, loff_t pos)
