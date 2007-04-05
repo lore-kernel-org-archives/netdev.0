@@ -1,46 +1,33 @@
-From: Dave Jones <davej@redhat.com>
-Subject: Re: [RFT] proxy arp deadlock possible
-Date: Thu, 5 Apr 2007 00:49:47 -0400
-Message-ID: <20070405044947.GB29736@redhat.com>
-References: <E1HZG5h-0001oF-00@gondolin.me.apana.org.au> <1175735443.3270.11.camel@laptopd505.fenrus.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] [IPv6] Exclude truncated packets from InHdrErrors
+ statistics
+Date: Wed, 04 Apr 2007 23:55:09 -0700 (PDT)
+Message-ID: <20070404.235509.96682906.davem@davemloft.net>
+References: <20070403155551.a84db4f0.mitch@linux.vnet.ibm.com>
+	<20070405.022152.102590102.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	davem@davemloft.net, mingo@elte.hu, netdev@vger.kernel.org
-To: Arjan van de Ven <arjan@infradead.org>
+Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Transfer-Encoding: 7bit
+Cc: mitch@linux.vnet.ibm.com, netdev@vger.kernel.org
+To: yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:57658 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1161250AbXDEGSH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Apr 2007 02:18:07 -0400
-Content-Disposition: inline
-In-Reply-To: <1175735443.3270.11.camel@laptopd505.fenrus.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49275
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1945968AbXDEGzJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Apr 2007 02:55:09 -0400
+In-Reply-To: <20070405.022152.102590102.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 04, 2007 at 06:10:42PM -0700, Arjan van de Ven wrote:
- > On Thu, 2007-04-05 at 10:44 +1000, Herbert Xu wrote:
- > > Stephen Hemminger <shemminger@linux-foundation.org> wrote:
- > > > Thanks Dave, there is a classic AB BA deadlock here.
- > > > We should break the dependency like this.
- > > > 
- > > > Could someone who uses proxy ARP test this?
- > > 
- > > Sorry Stephen, this isn't necessary.  The lockdep thing is
- > > simply confused here.  It's treating tbl->proxy_queue as the
- > > same thing as neigh->arp_queue when they're clearly different.
- > > 
- > > I'm disappointed that after all this time lockdep is still
- > > producing bogus reports like this.  I'm sure we've been
- > > through this particular issue many times already.
- > 
- > 
- > what's the exact lockdep output here?
+From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
+Date: Thu, 05 Apr 2007 02:21:52 +0900 (JST)
 
-http://www.mail-archive.com/netdev@vger.kernel.org/msg35266.html
+> In article <20070403155551.a84db4f0.mitch@linux.vnet.ibm.com> (at Tue, 3 Apr 2007 15:55:51 +0900), Mitsuru Chinen <mitch@linux.vnet.ibm.com> says:
+> 
+> > Incoming trancated packets are counted as not only InTruncatedPkts but
+> > also InHdrErrors. They should be counted as InTruncatedPkts only.
+> > 
+> > Signed-off-by: Mitsuru Chinen <mitch@linux.vnet.ibm.com>
+> Acked-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 
-	Dave
-
--- 
-http://www.codemonkey.org.uk
+Applied, thanks everyone.
