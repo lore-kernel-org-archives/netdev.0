@@ -1,85 +1,61 @@
-From: Andi Kleen <ak@suse.de>
-Subject: [PATCH] Eliminate some unnecessary gotos in tcp v4 hash handling
-Date: Thu, 5 Apr 2007 12:48:44 +0200
-Message-ID: <200704051248.44989.ak@suse.de>
+From: Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>
+Subject: Re: QEMU PIC indirection patch for in-kernel APIC work
+Date: Thu, 5 Apr 2007 12:55:40 +0200
+Message-ID: <20070405105540.GA12124@elte.hu>
+References: <4613BF07.50606@qumranet.com> <4613C993.9020405@codemonkey.ws>
+	<4613CC01.1090500@qumranet.com> <4613CDB2.4000903@codemonkey.ws>
+	<4613D001.3040606@qumranet.com> <20070404200112.GA6070@elte.hu>
+	<4614098F.2030307@us.ibm.com> <20070404212103.GA19026@elte.hu>
+	<1175728768.12230.593.camel@localhost.localdomain>
+	<20070405093033.GC25448@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:47608 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S966086AbXDEKst (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Apr 2007 06:48:49 -0400
+Cc: kvm-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Rusty Russell <rusty-8n+1lVoiYb80n/F98K4Iww@public.gmane.org>
+Return-path: <kvm-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <20070405093033.GC25448-X9Un+BFzKDI@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/kvm-devel>,
+	<mailto:kvm-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=kvm-devel>
+List-Post: <mailto:kvm-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:kvm-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/kvm-devel>,
+	<mailto:kvm-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Sender: kvm-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Errors-To: kvm-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 
-The compiler eliminates them anyways and this makes the code easier to read
-and shorter.
+* Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org> wrote:
 
-Signed-off-by: Andi Kleen <ak@suse.de>
+> * Rusty Russell <rusty-8n+1lVoiYb80n/F98K4Iww@public.gmane.org> wrote:
+> 
+> > It's easier to write a kernel-space network driver, but it's not 
+> > obviously the right thing to do until we can show that an efficient 
+> > packet-level userspace interface isn't possible.  I don't think 
+> > that's been done, and it would be interesting to try.
+> 
+> yes, i agree in theory, [...]
 
-Index: linux-2.6.21-rc3-net/net/ipv4/tcp_ipv4.c
-===================================================================
---- linux-2.6.21-rc3-net.orig/net/ipv4/tcp_ipv4.c
-+++ linux-2.6.21-rc3-net/net/ipv4/tcp_ipv4.c
-@@ -2052,8 +2052,7 @@ static void *established_get_first(struc
- 			if (sk->sk_family != st->family) {
- 				continue;
- 			}
--			rc = sk;
--			goto out;
-+			return sk;
- 		}
- 		st->state = TCP_SEQ_STATE_TIME_WAIT;
- 		inet_twsk_for_each(tw, node,
-@@ -2061,13 +2060,11 @@ static void *established_get_first(struc
- 			if (tw->tw_family != st->family) {
- 				continue;
- 			}
--			rc = tw;
--			goto out;
-+			return tw;
- 		}
- 		read_unlock(&tcp_hashinfo.ehash[st->bucket].lock);
- 		st->state = TCP_SEQ_STATE_ESTABLISHED;
- 	}
--out:
- 	return rc;
- }
- 
-@@ -2088,10 +2085,8 @@ get_tw:
- 		while (tw && tw->tw_family != st->family) {
- 			tw = tw_next(tw);
- 		}
--		if (tw) {
--			cur = tw;
--			goto out;
--		}
-+		if (tw)
-+			return tw; 
- 		read_unlock(&tcp_hashinfo.ehash[st->bucket].lock);
- 		st->state = TCP_SEQ_STATE_ESTABLISHED;
- 
-@@ -2111,16 +2106,12 @@ get_tw:
- 
- 	sk_for_each_from(sk, node) {
- 		if (sk->sk_family == st->family)
--			goto found;
-+			return sk; 
- 	}
- 
- 	st->state = TCP_SEQ_STATE_TIME_WAIT;
- 	tw = tw_head(&tcp_hashinfo.ehash[st->bucket].twchain);
- 	goto get_tw;
--found:
--	cur = sk;
--out:
--	return cur;
- }
- 
- static void *established_get_idx(struct seq_file *seq, loff_t pos)
+let me explain my position a bit more verbosely:
+
+i agree in terms of 'network driver' (and more generally in terms of 
+'device', which includes network, storage, console, etc. devices): 
+having a user-space driver option should still be possible and it should 
+be integrated well. Qemu is quite rich and flexible in these areas and 
+we dont want to throw away or isolate that body of code.
+
+but i dont agree in terms of PIC code, which is the main argument in 
+this particular thread. There's little precedent for any add-ons for 
+PICs in user-space, nor any particular PIC handling richness in Qemu 
+that we'd like to preserve.
+
+	Ingo
+
+-------------------------------------------------------------------------
+Take Surveys. Earn Cash. Influence the Future of IT
+Join SourceForge.net's Techsay panel and you'll get the chance to share your
+opinions on IT & business topics through brief surveys-and earn cash
+http://www.techsay.com/default.php?page=join.php&p=sourceforge&CID=DEVDEV
