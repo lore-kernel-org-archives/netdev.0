@@ -1,27 +1,44 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: Silent corruption with r8169
-Date: Thu, 5 Apr 2007 13:41:27 +0200
-Message-ID: <20070405114127.GA19143@one.firstfloor.org>
-References: <20070401012736.GT15189@vitelus.com> <20070401030315.GA24080@jim.sh> <20070401043905.GV15189@vitelus.com> <p737iswqjq4.fsf@bingen.suse.de> <20070404184504.GB7814@electric-eye.fr.zoreil.com> <20070404200603.GX15189@vitelus.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [SC92031]: Fix priv->lock context (was: 2.6.21-rc5-mm4)
+Date: Thu, 5 Apr 2007 21:44:31 +1000
+Message-ID: <20070405114431.GA10972@gondor.apana.org.au>
+References: <20070404190402.609cbd65.akpm@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Francois Romieu <romieu@fr.zoreil.com>,
-	Andi Kleen <andi@firstfloor.org>, Jim Paris <jim@jtan.com>,
-	linux-kernel@vger.kernel.org, linux-ide@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Aaron Lehmann <aaronl@vitelus.com>
-Return-path: <linux-ide-owner@vger.kernel.org>
+Cc: netdev@vger.kernel.org, "Antonino A. Daplas" <adaplas@pol.net>,
+	Jeff Garzik <jgarzik@pobox.com>
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:3754 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1766952AbXDELpJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Apr 2007 07:45:09 -0400
 Content-Disposition: inline
-In-Reply-To: <20070404200603.GX15189@vitelus.com>
-Sender: linux-ide-owner@vger.kernel.org
+In-Reply-To: <20070404190402.609cbd65.akpm@linux-foundation.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> I'll try to get to testing this, but I'm wondering if people may have
-> misunderstood my original post. I don't get any corruption over
-> Ethernet; it's just corruption on the filesystem during certain load
-> patterns that involve the Realtek ethernet card.
+On Thu, Apr 05, 2007 at 02:04:02AM +0000, Andrew Morton wrote:
+> 
+> This looks like a locking bug in the ipv6 changes in davem's devel tree.
+> There are no relevant changes to drivers/net/sc92031.c in rc5-mm4.
 
-When disabling hardware checksums helps then you know the corruption
-is on the Ethernetside. Otherwise it's somewhere else.
+Actually, this looks like a latent bug in sc92031.  It's calling
+spin_lock in the dev->open function on a lock that's held in BH
+context.
 
--Andi
+[SC92031]: Fix priv->lock context
+
+The spin_lock calls made in dev->open and dev->close must disable
+BH since open/close are made in process context.  Conversely, the
+call in dev->hard_start_xmit does not need to disable BH since it
+is already executing with BH disabled.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
