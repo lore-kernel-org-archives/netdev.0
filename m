@@ -1,117 +1,75 @@
-From: Sergei Shtylyov <sshtylyov@ru.mvista.com>
-Subject: [PATCH] 8139too: harden against TX ring overflow
-Date: Thu, 5 Apr 2007 23:50:59 +0400
-Message-ID: <200704052350.59464.sshtylyov@ru.mvista.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: pci-e e1000 not responding to ARPs sometimes?
+Date: Thu, 05 Apr 2007 13:17:43 -0700
+Message-ID: <46155967.1040904@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mhuth@mvista.com,
-	kgdb-bugreport@lists.sourceforge.net
-To: jgarzik@pobox.com
+To: NetDev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gateway-1237.mvista.com ([63.81.120.155]:53758 "EHLO
-	imap.sh.mvista.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1767273AbXDETuJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Apr 2007 15:50:09 -0400
-Content-Disposition: inline
+Received: from ns2.lanforge.com ([66.165.47.211]:58915 "EHLO ns2.lanforge.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1767289AbXDEURo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Apr 2007 16:17:44 -0400
+Received: from [192.168.100.224] (static-71-121-249-218.sttlwa.dsl-w.verizon.net [71.121.249.218])
+	(authenticated bits=0)
+	by ns2.lanforge.com (8.13.4/8.13.4) with ESMTP id l35KHhb9011676
+	for <netdev@vger.kernel.org>; Thu, 5 Apr 2007 13:17:44 -0700
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This driver's 4-packet deep TX queue is too sensible to the "careless" callers
-ignoring its state (like netpoll in trapped mode), so add "queue full" check at
-the start of the hard_start_xmit() method (only under #ifndef RTL8139_NDEBUG,
-otherwise the queue will get stuck once dirty pointer gets out of sync); switch
-to using appropriate mnemonics for the return values while at it.
-Also, the out-of-sync dirty pointer check is misplaced in rtl8139_tx_interrupt()
-which causes TX descriptors to be inspected more than once in case the pointer
-really gets out-of-sync (and incrementing the dirty pointer always by 4 is just
-not enough, e.g. KGDBoE managed to stuff 20+ extra buffers into the queue) --
-place it before the loop and limit the loop to only look through 4 descriptors
-at most, so that already overwritten descriptors are just not counted.
 
-Signed-off-by: Sergei Shtylyov <sshtylyov@ru.mvista.com>
+We're seeing some strange behavior on several systems with onboard
+PCI-e pro/1000 NICs.  The behavior is generally that we cannot connect
+into a system until we ping from that system out.  It often happens
+with our tainted 2.6.18.2 kernel, but we also see similar problems on
+the 2.6.20.? FC5 kernel.  It appears to me that the NIC gets into some
+funky state where it will not receive traffic until a packet is sent
+out of the interface.  After that, it works fine, at least for a while.
 
----
+At this point, I am just curious if anyone else is seeing anything
+similar, or if there are any known problems of this nature
+with the 2.6.18 e1000 driver.
 
- drivers/net/8139too.c |   31 ++++++++++++++++++++-----------
- 1 files changed, 20 insertions(+), 11 deletions(-)
+Here is lspci for one of the affected systems:
 
-Index: linux-2.6/drivers/net/8139too.c
-===================================================================
---- linux-2.6.orig/drivers/net/8139too.c
-+++ linux-2.6/drivers/net/8139too.c
-@@ -90,7 +90,7 @@
- */
- 
- #define DRV_NAME	"8139too"
--#define DRV_VERSION	"0.9.28"
-+#define DRV_VERSION	"0.9.31"
- 
- 
- #include <linux/module.h>
-@@ -1708,6 +1708,13 @@ static int rtl8139_start_xmit (struct sk
- 	unsigned int len = skb->len;
- 	unsigned long flags;
- 
-+#ifndef RTL8139_NDEBUG
-+	if (unlikely((tp->cur_tx - tp->dirty_tx) >= NUM_TX_DESC)) {
-+		printk(KERN_ERR "%s: TX queue full!\n", dev->name);
-+		return NETDEV_TX_BUSY;
-+	}
-+#endif
-+
- 	/* Calculate the next Tx descriptor entry. */
- 	entry = tp->cur_tx % NUM_TX_DESC;
- 
-@@ -1720,7 +1727,7 @@ static int rtl8139_start_xmit (struct sk
- 	} else {
- 		dev_kfree_skb(skb);
- 		tp->stats.tx_dropped++;
--		return 0;
-+		return NETDEV_TX_OK;
- 	}
- 
- 	spin_lock_irqsave(&tp->lock, flags);
-@@ -1740,7 +1747,7 @@ static int rtl8139_start_xmit (struct sk
- 		printk (KERN_DEBUG "%s: Queued Tx packet size %u to slot %d.\n",
- 			dev->name, len, entry);
- 
--	return 0;
-+	return NETDEV_TX_OK;
- }
- 
- 
-@@ -1755,6 +1762,16 @@ static void rtl8139_tx_interrupt (struct
- 
- 	dirty_tx = tp->dirty_tx;
- 	tx_left = tp->cur_tx - dirty_tx;
-+
-+#ifndef RTL8139_NDEBUG
-+	if (unlikely(tx_left > NUM_TX_DESC)) {
-+		printk(KERN_ERR "%s: Out-of-sync dirty pointer, %ld vs. %ld.\n",
-+		       dev->name, dirty_tx, tp->cur_tx);
-+		tx_left  = NUM_TX_DESC;
-+		dirty_tx = tp->cur_tx - NUM_TX_DESC;
-+	}
-+#endif /* RTL8139_NDEBUG */
-+
- 	while (tx_left > 0) {
- 		int entry = dirty_tx % NUM_TX_DESC;
- 		int txstatus;
-@@ -1797,14 +1814,6 @@ static void rtl8139_tx_interrupt (struct
- 		tx_left--;
- 	}
- 
--#ifndef RTL8139_NDEBUG
--	if (tp->cur_tx - dirty_tx > NUM_TX_DESC) {
--		printk (KERN_ERR "%s: Out-of-sync dirty pointer, %ld vs. %ld.\n",
--		        dev->name, dirty_tx, tp->cur_tx);
--		dirty_tx += NUM_TX_DESC;
--	}
--#endif /* RTL8139_NDEBUG */
--
- 	/* only wake the queue if we did work, and the queue is stopped */
- 	if (tp->dirty_tx != dirty_tx) {
- 		tp->dirty_tx = dirty_tx;
+
+00:00.0 Host bridge: Intel Corporation Server Memory Contoller Hub (rev b1)
+00:02.0 PCI bridge: Intel Corporation Server PCI Express x8 Port 2-3 (rev b1)
+00:08.0 System peripheral: Intel Corporation Server DMA Controller (rev b1)
+00:10.0 Host bridge: Intel Corporation Server Error Reporting Registers (rev b1)
+00:10.1 Host bridge: Intel Corporation Server Error Reporting Registers (rev b1)
+00:10.2 Host bridge: Intel Corporation Server Error Reporting Registers (rev b1)
+00:11.0 Host bridge: Intel Corporation Reserved Registers (rev b1)
+00:13.0 Host bridge: Intel Corporation Reserved Registers (rev b1)
+00:15.0 Host bridge: Intel Corporation Server FBD Registers (rev b1)
+00:16.0 Host bridge: Intel Corporation Server FBD Registers (rev b1)
+00:1c.0 PCI bridge: Intel Corporation Enterprise Southbridge PCI Express Root Port 1 (rev 09)
+00:1d.0 USB Controller: Intel Corporation Enterprise Southbridge UHCI USB #1 (rev 09)
+00:1d.1 USB Controller: Intel Corporation Enterprise Southbridge UHCI USB #2 (rev 09)
+00:1d.2 USB Controller: Intel Corporation Enterprise Southbridge UHCI USB #3 (rev 09)
+00:1d.3 USB Controller: Intel Corporation Enterprise Southbridge UHCI USB #4 (rev 09)
+00:1d.7 USB Controller: Intel Corporation Enterprise Southbridge EHCI USB (rev 09)
+00:1e.0 PCI bridge: Intel Corporation 82801 PCI Bridge (rev d9)
+00:1f.0 ISA bridge: Intel Corporation Enterprise Southbridge LPC (rev 09)
+00:1f.2 IDE interface: Intel Corporation Enterprise Southbridge SATA cc=IDE (rev 09)
+00:1f.3 SMBus: Intel Corporation Enterprise Southbridge SMBus (rev 09)
+01:00.0 PCI bridge: Intel Corporation Enterprise Southbridge PCI Express Upstream Port (rev 01)
+01:00.3 PCI bridge: Intel Corporation Enterprise Southbridge PCI Express to PCI-X Bridge (rev 01)
+02:00.0 PCI bridge: Intel Corporation Enterprise Southbridge PCI Express Downstream Port E1 (rev 01)
+02:02.0 PCI bridge: Intel Corporation Enterprise Southbridge PCI Express Downstream Port E3 (rev 01)
+04:00.0 Ethernet controller: Intel Corporation Enterprise Southbridge DPT LAN Copper (rev 01)
+04:00.1 Ethernet controller: Intel Corporation Enterprise Southbridge DPT LAN Copper (rev 01)
+05:01.0 PCI bridge: IBM PCI-X to PCI-X Bridge (rev 03)
+06:04.0 Ethernet controller: Intel Corporation 82546GB Gigabit Ethernet Controller (rev 03)
+06:04.1 Ethernet controller: Intel Corporation 82546GB Gigabit Ethernet Controller (rev 03)
+06:06.0 Ethernet controller: Intel Corporation 82546GB Gigabit Ethernet Controller (rev 03)
+06:06.1 Ethernet controller: Intel Corporation 82546GB Gigabit Ethernet Controller (rev 03)
+08:01.0 VGA compatible controller: ATI Technologies Inc ES1000 (rev 02)
+
+
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
 
