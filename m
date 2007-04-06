@@ -1,39 +1,92 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [kvm-devel] QEMU PIC indirection patch for in-kernel APIC work
-Date: Fri, 6 Apr 2007 13:07:27 +0200
-Message-ID: <20070406110727.GA1701@elte.hu>
-References: <4613CC01.1090500@qumranet.com> <4613CDB2.4000903@codemonkey.ws> <4613D001.3040606@qumranet.com> <20070404200112.GA6070@elte.hu> <4614098F.2030307@us.ibm.com> <20070404212103.GA19026@elte.hu> <1175728768.12230.593.camel@localhost.localdomain> <20070405093033.GC25448@elte.hu> <4615086C.9060306@us.ibm.com> <20070406103746.GA24596@elte.hu>
+From: Benjamin Thery <benjamin.thery@bull.net>
+Subject: Re: L2 network namespace benchmarking (resend with Service Demand)
+Date: Fri, 06 Apr 2007 13:19:36 +0200
+Message-ID: <46162CC8.7080708@bull.net>
+References: <460D1BBC.9090602@fr.ibm.com> <m1d52i9bfg.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Rusty Russell <rusty@rustcorp.com.au>,
-	kvm-devel@lists.sourceforge.net, netdev <netdev@vger.kernel.org>
-To: Anthony Liguori <aliguori@us.ibm.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Daniel Lezcano <dlezcano@fr.ibm.com>,
+	Linux Containers <containers@lists.osdl.org>,
+	netdev@vger.kernel.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.mail.elte.hu ([157.181.151.9]:50058 "EHLO mx2.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1766729AbXDFLHp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Apr 2007 07:07:45 -0400
-Content-Disposition: inline
-In-Reply-To: <20070406103746.GA24596@elte.hu>
+Received: from ecfrec.frec.bull.fr ([129.183.4.8]:40384 "EHLO
+	ecfrec.frec.bull.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1766729AbXDFLTa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Apr 2007 07:19:30 -0400
+In-Reply-To: <m1d52i9bfg.fsf@ebiederm.dsl.xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-* Ingo Molnar <mingo@elte.hu> wrote:
-
-> * Anthony Liguori <aliguori@us.ibm.com> wrote:
+Eric W. Biederman wrote:
+> Daniel Lezcano <dlezcano@fr.ibm.com> writes:
 > 
-> > [...] Did Linux have extremely high quality code in 1994?
+>> Hi,
+>>
+>> as suggested Rick, I added the Service Demand results to the matrix.
 > 
-> yes! It was crutial to strive for extremely high quality code all the 
-> time. That was the only way to grow Linux's codebase, which was 
-> ~300,000 lines of code in 1994, to the current 7.2+ million lines of 
-> code, without losing maintainability. [...]
+> A couple of random thoughts in trying to understand the numbers you are
+> seeing.
+> 
+> - Checksum offloading?
+> 
+>   You have noted that with the bridge netfilter support disabled you
+>   are still seeing additional checksum overhead.  Just like you are
+>   seeing in the routing case.
+> 
+>   Is it possible the problem is simply that etun doesn't support
+>   checksum offloading, while your normal test hardware does?
 
-in fact Linux 1.0, released in early 1994, was only 170,000 LOC:
+Looks like you are 100% correct.
+I feel a bit stupid I didn't think about this "small" difference 
+between real NIC and etun.
 
-  http://www.kernel.org/pub/linux/kernel/v1.0/linux-1.0.tar.gz
+If I turn off checksum offloading on my physical NIC, the checksum 
+"overhead" (load) measured by oprofile is about the same in both case: 
+when running netperf through a real NIC or through an etun tunnel first.
 
-and i just looked at a few random files in it - it's pretty clean.
+Benjamin
 
-	Ingo
+> - Tagged VLANs?
+>   
+>   Currently you have tested bridging and routing to get the packets to
+>   a network namespace.  Could you test tagged vlans?
+> 
+>   I'm just curious if we have anything in the network stack today that
+>   will multiplex a NIC without measurable overhead.
+> 
+> - Without NETNS?
+> 
+>   We should probably see if we can setup the same configuration we are
+>   testing without network namespaces (just multiple interfaces on the
+>   same machine) and see if we can still measure the same overhead.
+>   Just to confirm the overhead is not a network namespace related
+>   thing.
+> 
+>   I know we can configure the same case with bridging and I am fairly
+>   confident that we will see the same overhead without network
+>   namespaces.
+> 
+>   Of the top of my head I am insufficiently clever to think how we
+>   could configure the routing case without network namespaces,
+>   although we might be able to force it and if so it would be
+>   interesting to measure.
+> 
+> I will work to get the etun setup races fixed and to fix whatever
+> obvious feature deficiencies it has (like no configurable MTU support)
+> and see if I can get that pushed upstream.  That should make it easier
+> for other people to reproduce what we are seeing.
+> 
+> Eric
+> _______________________________________________
+> Containers mailing list
+> Containers@lists.linux-foundation.org
+> https://lists.linux-foundation.org/mailman/listinfo/containers
+> 
+
+
+-- 
+B e n j a m i n   T h e r y  - BULL/DT/Open Software R&D
+
+    http://www.bull.com
