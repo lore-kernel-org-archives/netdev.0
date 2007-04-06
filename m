@@ -1,31 +1,38 @@
-From: Christian Kujau <christian@g-house.de>
-Subject: Re: 2.6.20.4: NETDEV WATCHDOG and lockups
-Date: Fri, 6 Apr 2007 19:27:19 +0100 (BST)
-Message-ID: <Pine.LNX.4.64.0704061926000.3963@sheep.housecafe.de>
-References: <20070403065810.GA1832@ff.dom.local>
- <Pine.LNX.4.64.0704031618070.3963@sheep.housecafe.de> <20070404112100.GA1979@ff.dom.local>
- <Pine.LNX.4.64.0704041412310.3963@sheep.housecafe.de>
- <Pine.LNX.4.64.0704061852270.3963@sheep.housecafe.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: ping6 to own link-local address
+Date: Fri, 06 Apr 2007 11:43:27 -0700 (PDT)
+Message-ID: <20070406.114327.23014357.davem@davemloft.net>
+References: <20070328.014533.112621902.davem@davemloft.net>
+	<20070406.163531.51929668.yoshfuji@linux-ipv6.org>
+	<20070406.010248.112289290.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Christian Kujau <christian@g-house.de>
+Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Transfer-Encoding: 7bit
+Cc: sri@us.ibm.com, netdev@vger.kernel.org, CHINEN@jp.ibm.com,
+	torvalds@linux-foundation.org
+To: yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.g-housing.de ([81.169.133.75]:37481 "EHLO mail.g-house.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S2993057AbXDFS1W (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Apr 2007 14:27:22 -0400
-In-Reply-To: <Pine.LNX.4.64.0704061852270.3963@sheep.housecafe.de>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56817
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750700AbXDFSn2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Apr 2007 14:43:28 -0400
+In-Reply-To: <20070406.010248.112289290.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 6 Apr 2007, Christian Kujau wrote:
-> but yes, this seem to be different problems, for the curious among you I've 
-> put details here: http://nerdbynature.de/bits/2.6.20.4/db2/
+From: David Miller <davem@davemloft.net>
+Date: Fri, 06 Apr 2007 01:02:48 -0700 (PDT)
 
-that's http://nerdbynature.de/bits/2.6.20.4/db1/2/ ....sorry.
+> From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
+> Date: Fri, 06 Apr 2007 16:35:31 +0900 (JST)
+> 
+> > Dave?
+> > 
+> > I do think this is a regression in 2.6.21-rcs, and it is much
+> > better to revert it.
+> 
+> My apologies, I promise I will look into this tomorrow.
 
--- 
-BOFH excuse #270:
+Ok, I will revert this change, it does seem to be the best way to fix
+this for now as I cannot figure out how to quickly fix this bug.
 
-Someone has messed up the kernel pointers
