@@ -1,69 +1,62 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH] net: Add etun driver
-Date: Fri, 06 Apr 2007 15:01:46 -0700
-Message-ID: <4616C34A.4020503@candelatech.com>
-References: <m1abxl5j4s.fsf@ebiederm.dsl.xmission.com>	<20070406133420.2f098bc6@localhost>	<4616BDEA.1080502@candelatech.com> <20070406135447.112c182c@localhost>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: tg3: unable to handle null pointer dereference [Re: Linux
+ 2.6.21-rc6]
+Date: Fri, 06 Apr 2007 15:57:13 -0700
+Message-ID: <1175900233.7911.87.camel@dell>
+References: <Pine.LNX.4.64.0704051944230.6730@woody.linux-foundation.org>
+ <20070406214014.GF3346@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Jeff Garzik <jgarzik@pobox.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	Dmitry Mishin <dim@openvz.org>,
-	Linux Containers <containers@lists.osdl.org>
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Cc: "Linus Torvalds" <torvalds@linux-foundation.org>,
+	"LKML" <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
+To: "Nishanth Aravamudan" <nacc@us.ibm.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:32824 "EHLO ns2.lanforge.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:3204 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933174AbXDFWCa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Apr 2007 18:02:30 -0400
-In-Reply-To: <20070406135447.112c182c@localhost>
+	id S933165AbXDFWMV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Apr 2007 18:12:21 -0400
+In-Reply-To: <20070406214014.GF3346@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> On Fri, 06 Apr 2007 14:38:50 -0700
-> Ben Greear <greearb@candelatech.com> wrote:
->
->   
->> Stephen Hemminger wrote:
->>     
->>> Why not implement a true virtual network rather than simple
->>> tunnel pairs?
->>>   
->>>       
->> What would a true virtual network do?  You mean with routers and such?
->>     
->
-> Rather than just a pair, you could do address matching of destination
-> address.
->   
-At layer-2, you can already do this by adding the etun device to a 
-bridge and let the bridge
-do the work.
+On Fri, 2007-04-06 at 14:40 -0700, Nishanth Aravamudan wrote:
 
-At layer-3, you can use the routing tables...and all of the other clever 
-logic of the linux
-kernel.
+> 2.6.21-rc5 is ok. 2.6.21-rc6 results in
+> 
+> [   14.241665] Unable to handle kernel NULL pointer dereference (address 0000000000000000)
 
-Imagine what you could do if you had 2000 ethernet ports on your machine 
-and lots of
-loop-back cables..that is essentially what etun gives you...
+Sorry, I think this should fix it:
 
-Lord knows I love writing virtual devices..but it always seems to turn 
-out best if you
-leave each piece simple and use the normal linux tools and features to 
-put the simple
-features together into something much more powerful.
+[TG3]: Fix crash during tg3_init_one().
 
-Ben
+The driver will crash when the chip has been initialized by EFI before
+tg3_init_one().  In this case, the driver will call tg3_chip_reset()
+before allocating consistent memory.
+
+The bug is fixed by checking for tp->hw_status before accessing it
+during tg3_chip_reset().
+
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+
+diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+index 0acee9f..256969e 100644
+--- a/drivers/net/tg3.c
++++ b/drivers/net/tg3.c
+@@ -4834,8 +4834,10 @@ static int tg3_chip_reset(struct tg3 *tp)
+ 	 * sharing or irqpoll.
+ 	 */
+ 	tp->tg3_flags |= TG3_FLAG_CHIP_RESETTING;
+-	tp->hw_status->status = 0;
+-	tp->hw_status->status_tag = 0;
++	if (tp->hw_status) {
++		tp->hw_status->status = 0;
++		tp->hw_status->status_tag = 0;
++	}
+ 	tp->last_tag = 0;
+ 	smp_mb();
+ 	synchronize_irq(tp->pdev->irq);
 
 
--- 
-Ben Greear <greearb@candelatech.com> 
-Candela Technologies Inc  http://www.candelatech.com
 
 
