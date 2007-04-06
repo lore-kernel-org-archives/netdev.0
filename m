@@ -1,61 +1,60 @@
-From: Daniel Lezcano <dlezcano@fr.ibm.com>
-Subject: network namespace website
-Date: Fri, 06 Apr 2007 15:26:54 +0200
-Message-ID: <46164A9E.2090705@fr.ibm.com>
+From: Sergei Shtylyov <sshtylyov@ru.mvista.com>
+Subject: Re: [Kgdb-bugreport] [PATCH] 8139too: harden against TX ring overflow
+Date: Fri, 06 Apr 2007 18:40:23 +0400
+Message-ID: <46165BD7.2090605@ru.mvista.com>
+References: <E1HZdZ2-000620-00@gondolin.me.apana.org.au> <200704060901.28628.amitkale@linsyssoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	David Stevens <dlstevens@us.ibm.com>,
-	Benjamin Thery <benjamin.thery@bull.net>
-To: netdev@vger.kernel.org,
-	Linux Containers <containers@lists.osdl.org>
+Cc: kgdb-bugreport@lists.sourceforge.net,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	netdev@vger.kernel.org, jgarzik@pobox.com, mhuth@mvista.com
+To: "Amit S. Kale" <amitkale@linsyssoft.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate5.de.ibm.com ([195.212.29.154]:17519 "EHLO
-	mtagate5.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932664AbXDFN06 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Apr 2007 09:26:58 -0400
-Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
-	by mtagate5.de.ibm.com (8.13.8/8.13.8) with ESMTP id l36DQvxZ105106
-	for <netdev@vger.kernel.org>; Fri, 6 Apr 2007 13:26:57 GMT
-Received: from d12av02.megacenter.de.ibm.com (d12av02.megacenter.de.ibm.com [9.149.165.228])
-	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l36DQv844059374
-	for <netdev@vger.kernel.org>; Fri, 6 Apr 2007 15:26:57 +0200
-Received: from d12av02.megacenter.de.ibm.com (loopback [127.0.0.1])
-	by d12av02.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l36DQuh7032182
-	for <netdev@vger.kernel.org>; Fri, 6 Apr 2007 15:26:57 +0200
+Received: from rtsoft2.corbina.net ([85.21.88.2]:37922 "HELO
+	mail.dev.rtsoft.ru" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
+	with SMTP id S1767672AbXDFOjY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Apr 2007 10:39:24 -0400
+In-Reply-To: <200704060901.28628.amitkale@linsyssoft.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Hello.
 
-Eric Biederman has posted a few weeks ago a RFC-patchset concerning the 
-network namespace.
-I ported it to the 2.6.20 kernel and uploaded the patchset to
+Amit S. Kale wrote:
 
-http://lxc.sourceforge.net/network.php
+>>>This driver's 4-packet deep TX queue is too sensible to the "careless"
+>>>callers ignoring its state (like netpoll in trapped mode), so add "queue
+>>>full" check at the start of the hard_start_xmit() method (only under
+>>>#ifndef RTL8139_NDEBUG, otherwise the queue will get stuck once dirty
+>>>pointer gets out of sync); switch to using appropriate mnemonics for the
+>>>return values while at it.
 
-For the part I had to used (TCP/UDP-IPV4 with usual ethernet device), I 
-found the patchset pretty stable.
+>>Could you please describe this netpoll scenario in more detail?
+>>More importantly, why wouldn't we fix netpoll instead?
 
-You can find in the website:
+> We're trying to figure out a way of fixing netpoll. Don't know what the 
+> solution is yet.
 
-    - a global description of what is the network namespace
-    - a howto for the network namespace configuration
-    - a benchmarking matrix
-    - the network namespace patchset for 2.6.20 kernel
+> Here is what happens: in KGDB we set netpoll trapped flag. This prevents 
+> stopping and starting of a netdev queue. Interfaces that have a small ring 
+> (8139) run into a problem because of this. When the ring goes full, it can't 
+> stop the queue. This doesn't make sense since in absence of ring descriptors, 
+> the device can't transmit any more packets. Sergie had posted one more patch 
+> last week that lets us start and stop queues in trapped state.
+> 
+> This patch fixes the 8139 side behavior in this context.
 
-I hope that can helps to answer what is ? , what for ?, how to use ? 
-questions.
+    Not really -- the patch doesn't seem necessary in this context.  It's just 
+an attempt to make the driver more robust against out-of-sync dirty pointer 
+and posting packets to already stopped queue -- that check constituting the 
+second part is still necessary in certain out-of-sync pointer situation where 
+the queue may erroneously be woken up, i.e. with the difference between the 
+dirty_tx and cur_tx is multiple of 4 by the end of loop (well, I guess that 
+has happened only with netpoll in trapped mode so far).  Remember that all 
+these checks are done only when the driver debugging is enabled (it *is* 
+enabled by default though).
 
-If you have any questions or feedbacks, feel free to send an email to 
-containers@ mailing list
+> -Amit
 
-Thanks.
-
-    -- Daniel
-
-
-
-
-
+MBR, Sergei
