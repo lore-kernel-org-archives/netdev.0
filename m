@@ -1,45 +1,49 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: pci-e e1000 not responding to ARPs sometimes?
-Date: Fri, 06 Apr 2007 14:51:34 -0700
-Message-ID: <4616C0E6.1010802@candelatech.com>
-References: <08FE5CC30C9A3F41BF819A502CF7BF6E010A654D@fmsmsx411.amr.corp.intel.com> <4615DEC4.4070107@candelatech.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH] net: Add etun driver
+Date: Fri, 6 Apr 2007 13:54:47 -0700
+Message-ID: <20070406135447.112c182c@localhost>
+References: <m1abxl5j4s.fsf@ebiederm.dsl.xmission.com>
+	<20070406133420.2f098bc6@localhost>
+	<4616BDEA.1080502@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "Tantilov, Emil S" <emil.s.tantilov@intel.com>,
-	NetDev <netdev@vger.kernel.org>
-To: unlisted-recipients:; (no To-header on input)
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Jeff Garzik <jgarzik@pobox.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	Dmitry Mishin <dim@openvz.org>,
+	Linux Containers <containers@lists.osdl.org>
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:47714 "EHLO ns2.lanforge.com"
+Received: from smtp.osdl.org ([65.172.181.24]:35566 "EHLO smtp.osdl.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750699AbXDFVvg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Apr 2007 17:51:36 -0400
-In-Reply-To: <4615DEC4.4070107@candelatech.com>
+	id S1751572AbXDFVzl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Apr 2007 17:55:41 -0400
+In-Reply-To: <4616BDEA.1080502@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ben Greear wrote:
-> Tantilov, Emil S wrote:
->> Sorry for the top post.
->>
->> I believe this is a known issue and it was fixed in the kernel driver as
->> well (maybe it didn't make it into FC5 kernel?).
->> See the following:
->> http://article.gmane.org/gmane.linux.network/52168/match=e1000+factps+mn
->> gcg
->>   
->
-> Thank you!  I've added this patch and we will do some testing on it 
-> tomorrow.
-> I will let you know how it works out.
+On Fri, 06 Apr 2007 14:38:50 -0700
+Ben Greear <greearb@candelatech.com> wrote:
 
-The systems have been running clean ever since applying this patch.
+> Stephen Hemminger wrote:
+> > Why not implement a true virtual network rather than simple
+> > tunnel pairs?
+> >   
+> What would a true virtual network do?  You mean with routers and such?
 
-Thanks,
-Ben
+Rather than just a pair, you could do address matching of destination
+address.
 
--- 
-Ben Greear <greearb@candelatech.com> 
-Candela Technologies Inc  http://www.candelatech.com
-
-
+> 
+> I use my redirect device (basically same as etun) to join virtual 
+> routers together,
+> but all of the virtual routing (and bridging, etc) logic is already in 
+> the kernel
+> and just has to be configured properly....
+> 
+> Ben
+> 
