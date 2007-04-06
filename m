@@ -1,92 +1,61 @@
-From: Benjamin Thery <benjamin.thery@bull.net>
-Subject: Re: L2 network namespace benchmarking (resend with Service Demand)
-Date: Fri, 06 Apr 2007 13:19:36 +0200
-Message-ID: <46162CC8.7080708@bull.net>
-References: <460D1BBC.9090602@fr.ibm.com> <m1d52i9bfg.fsf@ebiederm.dsl.xmission.com>
+From: Daniel Lezcano <dlezcano@fr.ibm.com>
+Subject: network namespace website
+Date: Fri, 06 Apr 2007 15:26:54 +0200
+Message-ID: <46164A9E.2090705@fr.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Daniel Lezcano <dlezcano@fr.ibm.com>,
-	Linux Containers <containers@lists.osdl.org>,
-	netdev@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	David Stevens <dlstevens@us.ibm.com>,
+	Benjamin Thery <benjamin.thery@bull.net>
+To: netdev@vger.kernel.org,
+	Linux Containers <containers@lists.osdl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ecfrec.frec.bull.fr ([129.183.4.8]:40384 "EHLO
-	ecfrec.frec.bull.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1766729AbXDFLTa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Apr 2007 07:19:30 -0400
-In-Reply-To: <m1d52i9bfg.fsf@ebiederm.dsl.xmission.com>
+Received: from mtagate5.de.ibm.com ([195.212.29.154]:17519 "EHLO
+	mtagate5.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932664AbXDFN06 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Apr 2007 09:26:58 -0400
+Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
+	by mtagate5.de.ibm.com (8.13.8/8.13.8) with ESMTP id l36DQvxZ105106
+	for <netdev@vger.kernel.org>; Fri, 6 Apr 2007 13:26:57 GMT
+Received: from d12av02.megacenter.de.ibm.com (d12av02.megacenter.de.ibm.com [9.149.165.228])
+	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l36DQv844059374
+	for <netdev@vger.kernel.org>; Fri, 6 Apr 2007 15:26:57 +0200
+Received: from d12av02.megacenter.de.ibm.com (loopback [127.0.0.1])
+	by d12av02.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l36DQuh7032182
+	for <netdev@vger.kernel.org>; Fri, 6 Apr 2007 15:26:57 +0200
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Eric W. Biederman wrote:
-> Daniel Lezcano <dlezcano@fr.ibm.com> writes:
-> 
->> Hi,
->>
->> as suggested Rick, I added the Service Demand results to the matrix.
-> 
-> A couple of random thoughts in trying to understand the numbers you are
-> seeing.
-> 
-> - Checksum offloading?
-> 
->   You have noted that with the bridge netfilter support disabled you
->   are still seeing additional checksum overhead.  Just like you are
->   seeing in the routing case.
-> 
->   Is it possible the problem is simply that etun doesn't support
->   checksum offloading, while your normal test hardware does?
+Hi,
 
-Looks like you are 100% correct.
-I feel a bit stupid I didn't think about this "small" difference 
-between real NIC and etun.
+Eric Biederman has posted a few weeks ago a RFC-patchset concerning the 
+network namespace.
+I ported it to the 2.6.20 kernel and uploaded the patchset to
 
-If I turn off checksum offloading on my physical NIC, the checksum 
-"overhead" (load) measured by oprofile is about the same in both case: 
-when running netperf through a real NIC or through an etun tunnel first.
+http://lxc.sourceforge.net/network.php
 
-Benjamin
+For the part I had to used (TCP/UDP-IPV4 with usual ethernet device), I 
+found the patchset pretty stable.
 
-> - Tagged VLANs?
->   
->   Currently you have tested bridging and routing to get the packets to
->   a network namespace.  Could you test tagged vlans?
-> 
->   I'm just curious if we have anything in the network stack today that
->   will multiplex a NIC without measurable overhead.
-> 
-> - Without NETNS?
-> 
->   We should probably see if we can setup the same configuration we are
->   testing without network namespaces (just multiple interfaces on the
->   same machine) and see if we can still measure the same overhead.
->   Just to confirm the overhead is not a network namespace related
->   thing.
-> 
->   I know we can configure the same case with bridging and I am fairly
->   confident that we will see the same overhead without network
->   namespaces.
-> 
->   Of the top of my head I am insufficiently clever to think how we
->   could configure the routing case without network namespaces,
->   although we might be able to force it and if so it would be
->   interesting to measure.
-> 
-> I will work to get the etun setup races fixed and to fix whatever
-> obvious feature deficiencies it has (like no configurable MTU support)
-> and see if I can get that pushed upstream.  That should make it easier
-> for other people to reproduce what we are seeing.
-> 
-> Eric
-> _______________________________________________
-> Containers mailing list
-> Containers@lists.linux-foundation.org
-> https://lists.linux-foundation.org/mailman/listinfo/containers
-> 
+You can find in the website:
+
+    - a global description of what is the network namespace
+    - a howto for the network namespace configuration
+    - a benchmarking matrix
+    - the network namespace patchset for 2.6.20 kernel
+
+I hope that can helps to answer what is ? , what for ?, how to use ? 
+questions.
+
+If you have any questions or feedbacks, feel free to send an email to 
+containers@ mailing list
+
+Thanks.
+
+    -- Daniel
 
 
--- 
-B e n j a m i n   T h e r y  - BULL/DT/Open Software R&D
 
-    http://www.bull.com
+
+
