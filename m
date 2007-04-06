@@ -1,167 +1,62 @@
-From: Masahide NAKAMURA <nakam@linux-ipv6.org>
-Subject: [RFC] [PATCH] [XFRM]: Restrict upper layer information by bundle.
-Date: Fri,  6 Apr 2007 16:25:39 +0900
-Message-ID: <11758443392651-git-send-email-nakam@linux-ipv6.org>
-Cc: netdev@vger.kernel.org, Masahide NAKAMURA <nakam@linux-ipv6.org>
-To: davem@davemloft.net
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [kvm-devel] QEMU PIC indirection patch for in-kernel APIC work
+Date: Fri, 6 Apr 2007 12:37:46 +0200
+Message-ID: <20070406103746.GA24596@elte.hu>
+References: <4613C993.9020405@codemonkey.ws> <4613CC01.1090500@qumranet.com> <4613CDB2.4000903@codemonkey.ws> <4613D001.3040606@qumranet.com> <20070404200112.GA6070@elte.hu> <4614098F.2030307@us.ibm.com> <20070404212103.GA19026@elte.hu> <1175728768.12230.593.camel@localhost.localdomain> <20070405093033.GC25448@elte.hu> <4615086C.9060306@us.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Rusty Russell <rusty@rustcorp.com.au>,
+	kvm-devel@lists.sourceforge.net, netdev <netdev@vger.kernel.org>
+To: Anthony Liguori <aliguori@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usagi020.linux-ipv6.org ([203.178.140.20]:60843 "EHLO
-	neptune.linux-ipv6.org" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S1767549AbXDFIWb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Apr 2007 04:22:31 -0400
+Received: from mx3.mail.elte.hu ([157.181.1.138]:47309 "EHLO mx3.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751280AbXDFKiP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Apr 2007 06:38:15 -0400
+Content-Disposition: inline
+In-Reply-To: <4615086C.9060306@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On MIPv6 usage, XFRM sub policy is enabled.
-When main (IPsec) and sub (MIPv6) policy selectors have the same
-address set but different upper layer information (i.e. protocol
-number and its ports or type/code), multiple bundle should be created.
-However, currently we have issue to use the same bundle created for
-the first time with all flows covered by the case.
 
-It is useful for the bundle to have the upper layer information
-to be restructured correctly if it does not match with the flow.
+* Anthony Liguori <aliguori@us.ibm.com> wrote:
 
-1. Bundle was created by two policies
-Selector from another policy is added to xfrm_dst.
-If the flow does not match the selector, it goes to slow path to
-restructure new bundle by single policy.
+> [...] Did Linux have extremely high quality code in 1994?
 
-2. Bundle was created by one policy
-Flow cache is added to xfrm_dst as originated one. If the flow does
-not match the cache, it goes to slow path to try searching another
-policy.
+yes! It was crutial to strive for extremely high quality code all the 
+time. That was the only way to grow Linux's codebase, which was ~300,000 
+lines of code in 1994, to the current 7.2+ million lines of code, 
+without losing maintainability. Code quality is more important than any 
+feature. 99% of feature patches sent to lkml get rejected in the first 
+review round on quality/design grounds, it always takes at least a 
+couple of iterations to make it nice and clean. Look at Apache, it's 
+evolving along the same lines. Or Samba. Or any of the really large and 
+important OSS projects. (even X, after years of struggle and stagnation, 
+seems to have gotten this point now.) In the past 10 years the OSS 
+community wrote more than 1 billion lines of new code (!), and all the 
+successful projects have a clean codebase. _It cannot be done any other 
+way_, because cleanliness and pride over good code is what keeps 
+developers and it is what attracts new developers.
 
-Signed-off-by: Masahide NAKAMURA <nakam@linux-ipv6.org>
----
- include/net/flow.h     |    6 +++++
- include/net/xfrm.h     |   10 ++++++++
- net/xfrm/xfrm_policy.c |   55 ++++++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 71 insertions(+), 0 deletions(-)
+now this doesnt mean that Linux's code quality is good in every spot - 
+it's an eternal fight. But the core subsystems are pretty damn clean. 
+When i prepare patches for the Linux kernel more than 50% of the work i 
+do is related to making the changes clean, or cleaning up some existing 
+aspect of the kernel that the new code triggers. Often it's 90% of the 
+work!
 
-diff --git a/include/net/flow.h b/include/net/flow.h
-index ce4b10d..f3cc1f8 100644
---- a/include/net/flow.h
-+++ b/include/net/flow.h
-@@ -97,4 +97,10 @@ extern void *flow_cache_lookup(struct flowi *key, u16 family, u8 dir,
- extern void flow_cache_flush(void);
- extern atomic_t flow_cache_genid;
- 
-+static inline int flow_cache_uli_match(struct flowi *fl1, struct flowi *fl2)
-+{
-+	return (fl1->proto == fl2->proto &&
-+		!memcmp(&fl1->uli_u, &fl2->uli_u, sizeof(fl1->uli_u)));
-+}
-+
- #endif
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 5a00aa8..c216c5e 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -584,6 +584,10 @@ struct xfrm_dst
- 		struct rt6_info		rt6;
- 	} u;
- 	struct dst_entry *route;
-+#ifdef CONFIG_XFRM_SUB_POLICY
-+	struct flowi *origin;
-+	struct xfrm_selector *partner;
-+#endif
- 	u32 genid;
- 	u32 route_mtu_cached;
- 	u32 child_mtu_cached;
-@@ -596,6 +600,12 @@ static inline void xfrm_dst_destroy(struct xfrm_dst *xdst)
- 	dst_release(xdst->route);
- 	if (likely(xdst->u.dst.xfrm))
- 		xfrm_state_put(xdst->u.dst.xfrm);
-+#ifdef CONFIG_XFRM_SUB_POLICY
-+	kfree(xdst->origin);
-+	xdst->origin = NULL;
-+	kfree(xdst->partner);
-+	xdst->partner = NULL;
-+#endif
- }
- 
- extern void xfrm_dst_ifdown(struct dst_entry *dst, struct net_device *dev);
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index 1942575..4a2f68f 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -1330,6 +1330,40 @@ xfrm_bundle_create(struct xfrm_policy *policy, struct xfrm_state **xfrm, int nx,
- 	return err;
- }
- 
-+static int inline
-+xfrm_dst_alloc_copy(void **target, void *src, int size)
-+{
-+	if (!*target) {
-+		*target = kmalloc(size, GFP_ATOMIC);
-+		if (!*target)
-+			return -ENOMEM;
-+	}
-+	memcpy(*target, src, size);
-+	return 0;
-+}
-+
-+static int inline
-+xfrm_dst_update_parent(struct dst_entry *dst, struct xfrm_selector *sel)
-+{
-+#ifdef CONFIG_XFRM_SUB_POLICY
-+	struct xfrm_dst *xdst = (struct xfrm_dst *)dst;
-+	return xfrm_dst_alloc_copy((void **)&(xdst->partner),
-+				   sel, sizeof(*sel));
-+#else
-+	return 0;
-+#endif
-+}
-+
-+static int inline
-+xfrm_dst_update_origin(struct dst_entry *dst, struct flowi *fl)
-+{
-+#ifdef CONFIG_XFRM_SUB_POLICY
-+	struct xfrm_dst *xdst = (struct xfrm_dst *)dst;
-+	return xfrm_dst_alloc_copy((void **)&(xdst->origin), fl, sizeof(*fl));
-+#else
-+	return 0;
-+#endif
-+}
- 
- static int stale_bundle(struct dst_entry *dst);
- 
-@@ -1518,6 +1552,18 @@ restart:
- 			err = -EHOSTUNREACH;
- 			goto error;
- 		}
-+
-+		if (npols > 1)
-+			err = xfrm_dst_update_parent(dst, &pols[1]->selector);
-+		else
-+			err = xfrm_dst_update_origin(dst, fl);
-+		if (unlikely(err)) {
-+			write_unlock_bh(&policy->lock);
-+			if (dst)
-+				dst_free(dst);
-+			goto error;
-+		}
-+
- 		dst->next = policy->bundles;
- 		policy->bundles = dst;
- 		dst_hold(dst);
-@@ -1933,6 +1979,15 @@ int xfrm_bundle_ok(struct xfrm_policy *pol, struct xfrm_dst *first,
- 	if (!dst_check(dst->path, ((struct xfrm_dst *)dst)->path_cookie) ||
- 	    (dst->dev && !netif_running(dst->dev)))
- 		return 0;
-+#ifdef CONFIG_XFRM_SUB_POLICY
-+	if (fl) {
-+		if (first->origin && !flow_cache_uli_match(first->origin, fl))
-+			return 0;
-+		if (first->partner &&
-+		    !xfrm_selector_match(first->partner, fl, family))
-+			return 0;
-+	}
-+#endif
- 
- 	last = NULL;
- 
--- 
-1.5.0.1.GIT
+the 'get functionality now, clean up later' mentality is what leads to 
+throwaway, use-once codebases that the majority of closed-source 
+projects do. Once the cruft level reaches a certain threshold it's 
+cheaper to just throw away old code and just rewrite the whole thing 
+(users and costs be damned). Cleanups must not be an afterthought, code 
+cleanliness and gradual code evolution is _the_ most valuable property 
+of OSS codebases.
 
+i guess my negative Qemu experience is dominated by my recent failure of 
+trying to untangle its timer code, so that qemu properly adopts to 
+changes in PIT/lapic programming and maps that correctly to OS timers. 
+(so that a dynticks/NO_HZ guest's reduced irq rate becomes visible on 
+the host too) I'll be a happy camper if that's fixed ;-)
+
+	Ingo
