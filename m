@@ -1,60 +1,46 @@
 From: Rusty Russell <rusty@rustcorp.com.au>
 Subject: Re: [kvm-devel] QEMU PIC indirection patch for in-kernel APIC work
-Date: Fri, 06 Apr 2007 11:02:37 +1000
-Message-ID: <1175821357.12230.642.camel@localhost.localdomain>
-References: <4613B438.60107@codemonkey.ws> <4613B89F.8090806@qumranet.com>
-	 <4613BC6B.1070708@codemonkey.ws> <4613BF07.50606@qumranet.com>
-	 <4613C993.9020405@codemonkey.ws> <4613CC01.1090500@qumranet.com>
-	 <4613CDB2.4000903@codemonkey.ws> <4613D001.3040606@qumranet.com>
+Date: Fri, 06 Apr 2007 11:16:01 +1000
+Message-ID: <1175822161.12230.652.camel@localhost.localdomain>
+References: <4613CDB2.4000903@codemonkey.ws> <4613D001.3040606@qumranet.com>
 	 <20070404200112.GA6070@elte.hu> <4614098F.2030307@us.ibm.com>
 	 <20070404212103.GA19026@elte.hu>
 	 <1175728768.12230.593.camel@localhost.localdomain>
-	 <4614A294.3000607@qumranet.com>
+	 <20070405093033.GC25448@elte.hu> <4614C846.7070605@qumranet.com>
+	 <20070405102656.GA5595@elte.hu> <4614DCE1.70905@qumranet.com>
+	 <20070405113655.GA21542@elte.hu>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Ingo Molnar <mingo@elte.hu>, kvm-devel@lists.sourceforge.net,
+Cc: Avi Kivity <avi@qumranet.com>, kvm-devel@lists.sourceforge.net,
 	netdev <netdev@vger.kernel.org>
-To: Avi Kivity <avi@qumranet.com>
+To: Ingo Molnar <mingo@elte.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:47424 "EHLO ozlabs.org"
+Received: from ozlabs.org ([203.10.76.45]:41616 "EHLO ozlabs.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S2992834AbXDFBC5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Apr 2007 21:02:57 -0400
-In-Reply-To: <4614A294.3000607@qumranet.com>
+	id S1767468AbXDFBQU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Apr 2007 21:16:20 -0400
+In-Reply-To: <20070405113655.GA21542@elte.hu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2007-04-05 at 10:17 +0300, Avi Kivity wrote:
-> Rusty Russell wrote:
-> > You didn't quote Anthony's point about "it's more about there not being
-> > good enough userspace interfaces to do network IO."
-> >
-> > It's easier to write a kernel-space network driver, but it's not
-> > obviously the right thing to do until we can show that an efficient
-> > packet-level userspace interface isn't possible.  I don't think that's
-> > been done, and it would be interesting to try.
-> >   
-> 
-> In the case of networking, the copyful interfaces on receive are driven 
-> by the hardware not knowing how to split the header from the data.  On 
-> transmit I agree, it could be made copyless from userspace (somthing 
-> like sendfilev, only not file oriented).
+On Thu, 2007-04-05 at 13:36 +0200, Ingo Molnar wrote:
+> prototyping new kernel APIs to implement user-space network drivers, on 
+> a crufty codebase is not something that should be done lightly.
 
-Hi Avi,
+I think you overestimate my radicalism.  I was considering readv() and
+writev() on the tap device.
 
-	I don't think you've thought about this very hard.  The receive copy is
-completely independent with whether the packet is going to the guest via
-a kernel driver or via userspace, so not relevant.
+Qemu's infrastructure may hurt kvm here, but lguest won't be able to use
+that excuse.
 
-	And if all packets from the card are going to the guest, you can
-deliver directly.  Userspace or kernel, no difference.
+> track issue for the *PIC question at 
+> hand. PICs are not network devices, they are essential platform 
+> components and almost an extended part of the CPU.)
 
-	And we have a "sendfilev not file oriented": it's called "writev" 8)
+Definitely, I'm only interested in stealing^H^H^Hsharing KVM devices.
+The subject is now deeply misleading 8(
 
-	An in-kernel driver can avoid system call overhead and page references.
-But a better tap device helps more than just KVM.
-
+Cheers,
 Rusty.
-
 
