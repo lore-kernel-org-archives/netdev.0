@@ -1,60 +1,59 @@
-From: Sergei Shtylyov <sshtylyov@ru.mvista.com>
-Subject: Re: [Kgdb-bugreport] [PATCH] 8139too: harden against TX ring overflow
-Date: Fri, 06 Apr 2007 18:40:23 +0400
-Message-ID: <46165BD7.2090605@ru.mvista.com>
-References: <E1HZdZ2-000620-00@gondolin.me.apana.org.au> <200704060901.28628.amitkale@linsyssoft.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: L2 network namespace benchmarking (resend with Service Demand)
+Date: Fri, 06 Apr 2007 08:25:48 -0600
+Message-ID: <m1veg98tqr.fsf@ebiederm.dsl.xmission.com>
+References: <460D1BBC.9090602@fr.ibm.com>
+	<m1d52i9bfg.fsf@ebiederm.dsl.xmission.com> <46162CC8.7080708@bull.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: kgdb-bugreport@lists.sourceforge.net,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	netdev@vger.kernel.org, jgarzik@pobox.com, mhuth@mvista.com
-To: "Amit S. Kale" <amitkale@linsyssoft.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Daniel Lezcano <dlezcano@fr.ibm.com>,
+	Linux Containers <containers@lists.osdl.org>,
+	netdev@vger.kernel.org
+To: Benjamin Thery <benjamin.thery@bull.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtsoft2.corbina.net ([85.21.88.2]:37922 "HELO
-	mail.dev.rtsoft.ru" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
-	with SMTP id S1767672AbXDFOjY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Apr 2007 10:39:24 -0400
-In-Reply-To: <200704060901.28628.amitkale@linsyssoft.com>
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:34602 "EHLO
+	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1767660AbXDFO0c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Apr 2007 10:26:32 -0400
+In-Reply-To: <46162CC8.7080708@bull.net> (Benjamin Thery's message of "Fri, 06
+	Apr 2007 13:19:36 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
+Benjamin Thery <benjamin.thery@bull.net> writes:
 
-Amit S. Kale wrote:
+> Eric W. Biederman wrote:
 
->>>This driver's 4-packet deep TX queue is too sensible to the "careless"
->>>callers ignoring its state (like netpoll in trapped mode), so add "queue
->>>full" check at the start of the hard_start_xmit() method (only under
->>>#ifndef RTL8139_NDEBUG, otherwise the queue will get stuck once dirty
->>>pointer gets out of sync); switch to using appropriate mnemonics for the
->>>return values while at it.
+>> A couple of random thoughts in trying to understand the numbers you are
+>> seeing.
+>>
+>> - Checksum offloading?
+>>
+>>   You have noted that with the bridge netfilter support disabled you
+>>   are still seeing additional checksum overhead.  Just like you are
+>>   seeing in the routing case.
+>>
+>>   Is it possible the problem is simply that etun doesn't support
+>>   checksum offloading, while your normal test hardware does?
+>
+> Looks like you are 100% correct.
+> I feel a bit stupid I didn't think about this "small" difference between real
+> NIC and etun.
+>
+> If I turn off checksum offloading on my physical NIC, the checksum "overhead"
+> (load) measured by oprofile is about the same in both case: when running netperf
+> through a real NIC or through an etun tunnel first.
 
->>Could you please describe this netpoll scenario in more detail?
->>More importantly, why wouldn't we fix netpoll instead?
+Interesting.  You can also 'enable' checksum offloading when using etun with
+ethtool.  Which should just tell the kernel not to do checksumming.  A
+bad idea in general but it might be useful in confirming where the
+performance overhead is coming from, and when used with routing I
+believe it is safe.  When used with bridging I don't know.
 
-> We're trying to figure out a way of fixing netpoll. Don't know what the 
-> solution is yet.
+Thinking about it the ideal situation is to preserve skb->ip_summed it
+if came from another device, instead of unconditionally setting it.
+I need to take a good hard look at etun_xmit and make certain we
+are dotting all of the i's and crossing all of the t's for best
+performance and compatibility with the rest of the network stack.
 
-> Here is what happens: in KGDB we set netpoll trapped flag. This prevents 
-> stopping and starting of a netdev queue. Interfaces that have a small ring 
-> (8139) run into a problem because of this. When the ring goes full, it can't 
-> stop the queue. This doesn't make sense since in absence of ring descriptors, 
-> the device can't transmit any more packets. Sergie had posted one more patch 
-> last week that lets us start and stop queues in trapped state.
-> 
-> This patch fixes the 8139 side behavior in this context.
-
-    Not really -- the patch doesn't seem necessary in this context.  It's just 
-an attempt to make the driver more robust against out-of-sync dirty pointer 
-and posting packets to already stopped queue -- that check constituting the 
-second part is still necessary in certain out-of-sync pointer situation where 
-the queue may erroneously be woken up, i.e. with the difference between the 
-dirty_tx and cur_tx is multiple of 4 by the end of loop (well, I guess that 
-has happened only with netpoll in trapped mode so far).  Remember that all 
-these checks are done only when the driver debugging is enabled (it *is* 
-enabled by default though).
-
-> -Amit
-
-MBR, Sergei
+Eric
