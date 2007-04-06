@@ -1,12 +1,10 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
+From: Ben Greear <greearb@candelatech.com>
 Subject: Re: [PATCH] net: Add etun driver
-Date: Fri, 6 Apr 2007 13:54:47 -0700
-Message-ID: <20070406135447.112c182c@localhost>
-References: <m1abxl5j4s.fsf@ebiederm.dsl.xmission.com>
-	<20070406133420.2f098bc6@localhost>
-	<4616BDEA.1080502@candelatech.com>
+Date: Fri, 06 Apr 2007 15:01:46 -0700
+Message-ID: <4616C34A.4020503@candelatech.com>
+References: <m1abxl5j4s.fsf@ebiederm.dsl.xmission.com>	<20070406133420.2f098bc6@localhost>	<4616BDEA.1080502@candelatech.com> <20070406135447.112c182c@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
 	Jeff Garzik <jgarzik@pobox.com>,
@@ -16,34 +14,56 @@ Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
 	Daniel Lezcano <dlezcano@fr.ibm.com>,
 	Dmitry Mishin <dim@openvz.org>,
 	Linux Containers <containers@lists.osdl.org>
-To: Ben Greear <greearb@candelatech.com>
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:35566 "EHLO smtp.osdl.org"
+Received: from ns2.lanforge.com ([66.165.47.211]:32824 "EHLO ns2.lanforge.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751572AbXDFVzl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Apr 2007 17:55:41 -0400
-In-Reply-To: <4616BDEA.1080502@candelatech.com>
+	id S933174AbXDFWCa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Apr 2007 18:02:30 -0400
+In-Reply-To: <20070406135447.112c182c@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 06 Apr 2007 14:38:50 -0700
-Ben Greear <greearb@candelatech.com> wrote:
+Stephen Hemminger wrote:
+> On Fri, 06 Apr 2007 14:38:50 -0700
+> Ben Greear <greearb@candelatech.com> wrote:
+>
+>   
+>> Stephen Hemminger wrote:
+>>     
+>>> Why not implement a true virtual network rather than simple
+>>> tunnel pairs?
+>>>   
+>>>       
+>> What would a true virtual network do?  You mean with routers and such?
+>>     
+>
+> Rather than just a pair, you could do address matching of destination
+> address.
+>   
+At layer-2, you can already do this by adding the etun device to a 
+bridge and let the bridge
+do the work.
 
-> Stephen Hemminger wrote:
-> > Why not implement a true virtual network rather than simple
-> > tunnel pairs?
-> >   
-> What would a true virtual network do?  You mean with routers and such?
+At layer-3, you can use the routing tables...and all of the other clever 
+logic of the linux
+kernel.
 
-Rather than just a pair, you could do address matching of destination
-address.
+Imagine what you could do if you had 2000 ethernet ports on your machine 
+and lots of
+loop-back cables..that is essentially what etun gives you...
 
-> 
-> I use my redirect device (basically same as etun) to join virtual 
-> routers together,
-> but all of the virtual routing (and bridging, etc) logic is already in 
-> the kernel
-> and just has to be configured properly....
-> 
-> Ben
-> 
+Lord knows I love writing virtual devices..but it always seems to turn 
+out best if you
+leave each piece simple and use the normal linux tools and features to 
+put the simple
+features together into something much more powerful.
+
+Ben
+
+
+-- 
+Ben Greear <greearb@candelatech.com> 
+Candela Technologies Inc  http://www.candelatech.com
+
+
