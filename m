@@ -1,141 +1,67 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: [PATCH] mii: add kernel-doc notation
-Date: Fri, 6 Apr 2007 11:08:24 -0700
-Message-ID: <20070406110824.b113fff1.randy.dunlap@oracle.com>
+From: Christian Kujau <christian@g-house.de>
+Subject: Re: 2.6.20.4: NETDEV WATCHDOG and lockups
+Date: Fri, 6 Apr 2007 19:19:25 +0100 (BST)
+Message-ID: <Pine.LNX.4.64.0704061852270.3963@sheep.housecafe.de>
+References: <20070403065810.GA1832@ff.dom.local>
+ <Pine.LNX.4.64.0704031618070.3963@sheep.housecafe.de> <20070404112100.GA1979@ff.dom.local>
+ <Pine.LNX.4.64.0704041412310.3963@sheep.housecafe.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: jgarzik <jgarzik@pobox.com>
-To: netdev <netdev@vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Jarek Poplawski <jarkao2@o2.pl>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, malte@g-house.de,
+	Francois Romieu <romieu@fr.zoreil.com>
+To: Christian Kujau <christian@g-house.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rgminet01.oracle.com ([148.87.113.118]:28037 "EHLO
-	rgminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934126AbXDFSG3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Apr 2007 14:06:29 -0400
+Received: from ns2.g-housing.de ([81.169.133.75]:37304 "EHLO mail.g-house.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S2993049AbXDFSTf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Apr 2007 14:19:35 -0400
+In-Reply-To: <Pine.LNX.4.64.0704041412310.3963@sheep.housecafe.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Randy Dunlap <randy.dunlap@oracle.com>
+On Wed, 4 Apr 2007, Christian Kujau wrote:
+>> Maybe it's a real locking problem. Here are some more
+>> suggestions for testing (if you don't find anything better):
+>> - try without SMP, so: 'acpi=off lapic nosmp'
 
-Add kernel-doc notation to drivers/net/mii.c functions.
+We were able to have our hosting provider to replace the 8139too with a 
+E100, the onboard r8169 stayed of course. After this, the box came back 
+fine...only to lock up again shortly after :(
 
-Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
----
- drivers/net/mii.c |   57 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 57 insertions(+)
+So again we spoke to our hosting provider and they just took out the 2 
+SATA disks and put them in a completely new system: amd64 dualcore 
+again, 2 GB ram, r8169 onboard NIC, e100 pci-slot NIC. Now booting 
+2.6.20.4 and even 2.6.18-4-k7 (the debian kernel) with IOAPIC eabled 
+seems to work, meaning the box is up since yesterday evening and 
+interrupts are shared. Not equally, but still:
 
---- linux-2.6.21-rc6.orig/drivers/net/mii.c
-+++ linux-2.6.21-rc6/drivers/net/mii.c
-@@ -33,6 +33,13 @@
- #include <linux/ethtool.h>
- #include <linux/mii.h>
- 
-+/**
-+ * mii_ethtool_gset - get settings that are specified in @ecmd
-+ * @mii: MII interface
-+ * @ecmd: requested ethtool_cmd
-+ *
-+ * Returns 0 for success, negative on error.
-+ */
- int mii_ethtool_gset(struct mii_if_info *mii, struct ethtool_cmd *ecmd)
- {
- 	struct net_device *dev = mii->dev;
-@@ -114,6 +121,13 @@ int mii_ethtool_gset(struct mii_if_info 
- 	return 0;
- }
- 
-+/**
-+ * mii_ethtool_sset - set settings that are specified in @ecmd
-+ * @mii: MII interface
-+ * @ecmd: requested ethtool_cmd
-+ *
-+ * Returns 0 for success, negative on error.
-+ */
- int mii_ethtool_sset(struct mii_if_info *mii, struct ethtool_cmd *ecmd)
- {
- 	struct net_device *dev = mii->dev;
-@@ -207,6 +221,10 @@ int mii_ethtool_sset(struct mii_if_info 
- 	return 0;
- }
- 
-+/**
-+ * mii_check_gmii_support - check if the MII supports Gb interfaces
-+ * @mii: the MII interface
-+ */
- int mii_check_gmii_support(struct mii_if_info *mii)
- {
- 	int reg;
-@@ -221,6 +239,12 @@ int mii_check_gmii_support(struct mii_if
- 	return 0;
- }
- 
-+/**
-+ * mii_link_ok - is link status up/ok
-+ * @mii: the MII interface
-+ *
-+ * Returns 1 if the MII reports link status up/ok, 0 otherwise.
-+ */
- int mii_link_ok (struct mii_if_info *mii)
- {
- 	/* first, a dummy read, needed to latch some MII phys */
-@@ -230,6 +254,12 @@ int mii_link_ok (struct mii_if_info *mii
- 	return 0;
- }
- 
-+/**
-+ * mii_nway_restart - restart NWay (autonegotiation) for this interface
-+ * @mii: the MII interface
-+ *
-+ * Returns 0 on success, negative on error.
-+ */
- int mii_nway_restart (struct mii_if_info *mii)
- {
- 	int bmcr;
-@@ -247,6 +277,14 @@ int mii_nway_restart (struct mii_if_info
- 	return r;
- }
- 
-+/**
-+ * mii_check_link - check MII link status
-+ * @mii: MII interface
-+ *
-+ * If the link status changed (previous != current), call
-+ * netif_carrier_on() if current link status is Up or call
-+ * netif_carrier_off() if current link status is Down.
-+ */
- void mii_check_link (struct mii_if_info *mii)
- {
- 	int cur_link = mii_link_ok(mii);
-@@ -258,6 +296,15 @@ void mii_check_link (struct mii_if_info 
- 		netif_carrier_off(mii->dev);
- }
- 
-+/**
-+ * mii_check_media - check the MII interface for a duplex change
-+ * @mii: the MII interface
-+ * @ok_to_print: OK to print link up/down messages
-+ * @init_media: OK to save duplex mode in @mii
-+ *
-+ * Returns 1 if the duplex mode changed, 0 if not.
-+ * If the media type is forced, always returns 0.
-+ */
- unsigned int mii_check_media (struct mii_if_info *mii,
- 			      unsigned int ok_to_print,
- 			      unsigned int init_media)
-@@ -326,6 +373,16 @@ unsigned int mii_check_media (struct mii
- 	return 0; /* duplex did not change */
- }
- 
-+/**
-+ * generic_mii_ioctl - main MII ioctl interface
-+ * @mii_if: the MII interface
-+ * @mii_data: MII ioctl data structure
-+ * @cmd: MII ioctl command
-+ * @duplex_chg_out: pointer to @duplex_changed status if there was no
-+ *	ioctl error
-+ *
-+ * Returns 0 on success, negative on error.
-+ */
- int generic_mii_ioctl(struct mii_if_info *mii_if,
- 		      struct mii_ioctl_data *mii_data, int cmd,
- 		      unsigned int *duplex_chg_out)
+# cat /proc/interrupts
+            CPU0       CPU1
+   0:        111          0   IO-APIC-edge      timer
+   1:          7          9   IO-APIC-edge      i8042
+   4:        260          1   IO-APIC-edge      serial
+   6:          0          3   IO-APIC-edge      floppy
+   8:          0          1   IO-APIC-edge      rtc
+   9:          0          0   IO-APIC-fasteoi   acpi
+  16:        157     575579   IO-APIC-fasteoi   eth0
+  17:    3812553          1   IO-APIC-fasteoi   eth1
+  19:     100651    8262484   IO-APIC-fasteoi   libata
+NMI:          0          0
+LOC:   17272991   17266237
+ERR:          0
+MIS:          0
+
+While this is a good thing, we now have different problems: our 2nd sata 
+drive is not usable any more, but we again we doubt hardware problems, 
+because this disk has been replaced already back in the old box...
+
+but yes, this seem to be different problems, for the curious among 
+you I've put details here: http://nerdbynature.de/bits/2.6.20.4/db2/
+
+Thanks to all who have replied,
+Christian.
+-- 
+BOFH excuse #209:
+
+Only people with names beginning with 'A' are getting mail this week (a la Microsoft)
