@@ -1,49 +1,54 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: ping6 to own link-local address
-Date: Fri, 06 Apr 2007 16:35:31 +0900 (JST)
-Message-ID: <20070406.163531.51929668.yoshfuji@linux-ipv6.org>
-References: <20070321.002609.58216683.yoshfuji@linux-ipv6.org>
-	<20070328.165748.48153731.yoshfuji@linux-ipv6.org>
-	<20070328.014533.112621902.davem@davemloft.net>
+From: "Way Chuang Ang" <wcang79@gmail.com>
+Subject: low TCP throughput for small MTU and high delay
+Date: Fri, 6 Apr 2007 15:42:54 +0800
+Message-ID: <51d384e10704060042o56c7df6dw6b21259c5a8a1f9b@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: sri@us.ibm.com, netdev@vger.kernel.org, CHINEN@jp.ibm.com,
-	yoshfuji@linux-ipv6.org, torvalds@linux-foundation.org
-To: davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:40593 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1767542AbXDFHei (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Apr 2007 03:34:38 -0400
-In-Reply-To: <20070328.014533.112621902.davem@davemloft.net>
+Received: from wx-out-0506.google.com ([66.249.82.238]:4162 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1767543AbXDFHm4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Apr 2007 03:42:56 -0400
+Received: by wx-out-0506.google.com with SMTP id h31so848744wxd
+        for <netdev@vger.kernel.org>; Fri, 06 Apr 2007 00:42:55 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
+Hi all,
 
-In article <20070328.014533.112621902.davem@davemloft.net> (at Wed, 28 Mar 2007 01:45:33 -0700 (PDT)), David Miller <davem@davemloft.net> says:
+I encountered a strange behaviour during iperf TCP test. When I set
+MTU of ethernet device to 170 and incurred a delay of 250ms via netem
+on sender's side, the throughput was 115Kbps. From the output of
+tcp_probe the snd_cwnd peaked and stayed at 50 for the whole duration
+of the test and snd_ssthresh was 100. It never went pass slow start.
+>From the output of the sender is always hindered by the small window
+size of 5824 bytes advertised by the receiver.
 
-> > > > [IPV6] ROUTE: Do not route packets to link-local address on other device.
-> > > > 
-> > > > http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=a0d78ebf3a0e33a1aeacf2fc518ad9273d6a1c2f
-> > > 
-> > > Right.  Hmm...
-> > 
-> > Well, 2.6.21 is coming.  I think it is better to revert it for now.
-> > Current situation is more critical than the original.
-> > 
-> > Dave?
-> 
-> I will look into this and make some kind of decision on how
-> to proceed tomorrow.
+Under the same situation where all the environment variables were
+same, I set MTU of sender to 180 and repeated the iperf test. It
+managed to achieve average throughput of 2.18Mbps. snd_cwnd (1252)
+managed to exceed snd_ssthresh (1117). The weird thing is the receiver
+advertised a bigger window size of 371968, thus sender can send more
+data before waiting for acknowledgement.
 
-Dave?
+So my question is what causes the receiver to advertise bigger window
+size for 180 byte MTU? If you have any explanation for this behaviour,
+please tell. The sender advertised MSS of 256bytes for both MTU sizes.
+I tried TCP hybla as well, but the throughput results were the same
+with the default (BIC).
 
-I do think this is a regression in 2.6.21-rcs, and it is much
-better to revert it.
+Both sender (x86 - 32 bit) and receiver  (x86- 64bit) are Fedora Core
+6 machines. Brief specs of these machines:
+Distro: FC6
+Kernel version: 2.6.18-1.2849
+Processor: Intel P4 2.8 GHz
 
-Thank you.
+Thank you in advance.
 
---yoshfuji
+Regards,
+Ang Way Chuang
+--------------------------
+aka Idiot
