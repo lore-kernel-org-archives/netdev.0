@@ -1,31 +1,69 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: ping6 to own link-local address
-Date: Fri, 06 Apr 2007 01:02:48 -0700 (PDT)
-Message-ID: <20070406.010248.112289290.davem@davemloft.net>
-References: <20070328.165748.48153731.yoshfuji@linux-ipv6.org>
-	<20070328.014533.112621902.davem@davemloft.net>
-	<20070406.163531.51929668.yoshfuji@linux-ipv6.org>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: L2 network namespace benchmarking (resend with Service Demand)
+Date: Fri, 06 Apr 2007 02:03:47 -0600
+Message-ID: <m1d52i9bfg.fsf@ebiederm.dsl.xmission.com>
+References: <460D1BBC.9090602@fr.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
-Content-Transfer-Encoding: 7bit
-Cc: sri@us.ibm.com, netdev@vger.kernel.org, CHINEN@jp.ibm.com,
-	torvalds@linux-foundation.org
-To: yoshfuji@linux-ipv6.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Containers <containers@lists.osdl.org>,
+	netdev@vger.kernel.org
+To: Daniel Lezcano <dlezcano@fr.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58901
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S932469AbXDFICx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Apr 2007 04:02:53 -0400
-In-Reply-To: <20070406.163531.51929668.yoshfuji@linux-ipv6.org>
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:36970 "EHLO
+	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932501AbXDFIE1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Apr 2007 04:04:27 -0400
+In-Reply-To: <460D1BBC.9090602@fr.ibm.com> (Daniel Lezcano's message of "Fri,
+	30 Mar 2007 16:16:28 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
-Date: Fri, 06 Apr 2007 16:35:31 +0900 (JST)
+Daniel Lezcano <dlezcano@fr.ibm.com> writes:
 
-> Dave?
-> 
-> I do think this is a regression in 2.6.21-rcs, and it is much
-> better to revert it.
+> Hi,
+>
+> as suggested Rick, I added the Service Demand results to the matrix.
 
-My apologies, I promise I will look into this tomorrow.
+A couple of random thoughts in trying to understand the numbers you are
+seeing.
+
+- Checksum offloading?
+
+  You have noted that with the bridge netfilter support disabled you
+  are still seeing additional checksum overhead.  Just like you are
+  seeing in the routing case.
+
+  Is it possible the problem is simply that etun doesn't support
+  checksum offloading, while your normal test hardware does?
+
+- Tagged VLANs?
+  
+  Currently you have tested bridging and routing to get the packets to
+  a network namespace.  Could you test tagged vlans?
+
+  I'm just curious if we have anything in the network stack today that
+  will multiplex a NIC without measurable overhead.
+
+- Without NETNS?
+
+  We should probably see if we can setup the same configuration we are
+  testing without network namespaces (just multiple interfaces on the
+  same machine) and see if we can still measure the same overhead.
+  Just to confirm the overhead is not a network namespace related
+  thing.
+
+  I know we can configure the same case with bridging and I am fairly
+  confident that we will see the same overhead without network
+  namespaces.
+
+  Of the top of my head I am insufficiently clever to think how we
+  could configure the routing case without network namespaces,
+  although we might be able to force it and if so it would be
+  interesting to measure.
+
+I will work to get the etun setup races fixed and to fix whatever
+obvious feature deficiencies it has (like no configurable MTU support)
+and see if I can get that pushed upstream.  That should make it easier
+for other people to reproduce what we are seeing.
+
+Eric
