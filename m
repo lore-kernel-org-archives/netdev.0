@@ -1,34 +1,44 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [kvm-devel] QEMU PIC indirection patch for in-kernel APIC work
-Date: Fri, 6 Apr 2007 20:59:18 +0200
-Message-ID: <20070406185918.GA14863@elte.hu>
-References: <20070404200112.GA6070@elte.hu> <4614098F.2030307@us.ibm.com> <20070404212103.GA19026@elte.hu> <1175728768.12230.593.camel@localhost.localdomain> <20070405093033.GC25448@elte.hu> <4614C846.7070605@qumranet.com> <20070405102656.GA5595@elte.hu> <4614DCE1.70905@qumranet.com> <20070405113655.GA21542@elte.hu> <1175822161.12230.652.camel@localhost.localdomain>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [PATCH] net: Add etun driver
+Date: Fri, 06 Apr 2007 13:57:25 -0700
+Message-ID: <adak5wp6x1m.fsf@cisco.com>
+References: <m1abxl5j4s.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Avi Kivity <avi@qumranet.com>, kvm-devel@lists.sourceforge.net,
-	netdev <netdev@vger.kernel.org>
-To: Rusty Russell <rusty@rustcorp.com.au>
+Cc: Jeff Garzik <jgarzik@pobox.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	Ben Greear <greearb@candelatech.com>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	Dmitry Mishin <dim@openvz.org>,
+	Linux Containers <containers@lists.osdl.org>
+To: ebiederm@xmission.com (Eric W. Biederman)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.mail.elte.hu ([157.181.151.9]:38657 "EHLO mx2.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750909AbXDFS7f (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Apr 2007 14:59:35 -0400
-Content-Disposition: inline
-In-Reply-To: <1175822161.12230.652.camel@localhost.localdomain>
+Received: from sj-iport-6.cisco.com ([171.71.176.117]:7582 "EHLO
+	sj-iport-6.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932950AbXDFU5k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Apr 2007 16:57:40 -0400
+In-Reply-To: <m1abxl5j4s.fsf@ebiederm.dsl.xmission.com> (Eric W. Biederman's message of "Fri, 06 Apr 2007 14:43:15 -0600")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+ > +/*
+ > + * The higher levels take care of making this non-reentrant (it's
+ > + * called with bh's disabled).
+ > + */
+ > +static int etun_xmit(struct sk_buff *skb, struct net_device *tx_dev)
 
-* Rusty Russell <rusty@rustcorp.com.au> wrote:
+You have this comment, but then...
 
-> > prototyping new kernel APIs to implement user-space network drivers, 
-> > on a crufty codebase is not something that should be done lightly.
-> 
-> I think you overestimate my radicalism.  I was considering readv() and 
-> writev() on the tap device.
+ > +	dev->features		= NETIF_F_FRAGLIST
+ > +				  | NETIF_F_HIGHDMA
+ > +				  | NETIF_F_LLTX;
 
-ok :-) How would packeting be handled, or would this be alike a raw 
-socket in essence, but not in 'peek' but 'filter through' mode? I think 
-it's not quite trivial. (but maybe i'm way too radical again :)
+you set LLTX, which means that the upper layers _don't_ make sure that
+your xmit routine is not reentrant.
 
-	Ingo
+It looks like the impact of multiple simultaneous xmit calls is just
+the possibility of screwing up the statistics, but still I think you
+want to drop the LLTX feature (since you have no lock of your own to
+try and take).
