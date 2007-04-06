@@ -1,246 +1,61 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: [XFRM]: Optimize MTU calculation
-Date: Fri, 06 Apr 2007 21:48:49 +0200
-Message-ID: <4616A421.9040502@trash.net>
+From: Stephan Helas <shelas@web.de>
+Subject: Re: Fw: kernel oops at ppp
+Date: Fri, 06 Apr 2007 22:33:58 +0200
+Message-ID: <4616AEB6.3080607@web.de>
+References: <20070331121633.858312f1.akpm@linux-foundation.org> <17935.6115.518506.249844@cargo.ozlabs.ibm.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------010906070501060604080509"
-Cc: Kernel Netdev Mailing List <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org
+To: Paul Mackerras <paulus@samba.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:45913 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932406AbXDFTsx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Apr 2007 15:48:53 -0400
+Received: from fmmailgate03.web.de ([217.72.192.234]:58347 "EHLO
+	fmmailgate03.web.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932854AbXDFUeF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Apr 2007 16:34:05 -0400
+In-Reply-To: <17935.6115.518506.249844@cargo.ozlabs.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------010906070501060604080509
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-
-Optimize IPsec MTU calculation. Now also tested with beet mode.
+>Paul Mackerras wrote:
+> What is a "UMTS - hsdpa card merlin xu870"?
 
 
+It is a Novatel Wireless Card, using usb-serial driver airprime
 
---------------010906070501060604080509
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
+http://www.novatelwireless.com/support/merlin-xu870-linux.html
 
-[XFRM]: Optimize MTU calculation
 
-Replace the probing based MTU estimation, which usually takes 2-3 iterations
-to find a fitting value and may underestimate the MTU, by an exact calculation.
+> At a guess I would say that whatever ppp channel code is being used
+> hasn't left any header room on a received skb, but without knowing
+> what ppp channel module is being used it's hard to say.
+> 
+> Paul.
 
-Also fix underestimation of the XFRM trailer_len, which causes unnecessary
-reallocations.
+After some Experiments with 2.6.21-rc (2.6.20 crash with airprime on
+boot), i belive its the wrong driver. To enable Support for this Card i
+added the pci-device string to airprime.c
 
-Signed-off-by: Patrick McHardy <kaber@trash.net>
+--------- drivers/usb/serial/airprime.c -----------
 
----
-commit 02ce45c1de8a2de2f02cc6f3d88583706575142b
-tree e97b27090af4a3767df52c16ea23ea9851a97c58
-parent c543abe080ba68e9040ca819bab2a6ff2ad90c15
-author Patrick McHardy <kaber@trash.net> Thu, 05 Apr 2007 14:02:07 +0200
-committer Patrick McHardy <kaber@trash.net> Thu, 05 Apr 2007 14:02:07 +0200
+static struct usb_device_id id_table [] = {
+ { USB_DEVICE(0x0c88, 0x17da) }, /* Kyocera Wireless KPC650/Passport */
+ { USB_DEVICE(0x413c, 0x8115) }, /* Dell Wireless HSDPA 5500 */
+ ^^^^^^^^^^^
+ { USB_DEVICE(0x1410, 0x1430) }, /* Novatel Wireless Merlin XU870 */
+ { },
+};
 
- include/net/xfrm.h    |    2 +-
- net/ipv4/esp4.c       |   30 ++++++++++++++++++------------
- net/ipv6/esp6.c       |   22 ++++++++++++----------
- net/xfrm/xfrm_state.c |   36 ++++++++----------------------------
- 4 files changed, 39 insertions(+), 51 deletions(-)
+--------- drivers/usb/serial/airprime.c -----------
 
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 5a00aa8..e144a25 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -279,7 +279,7 @@ struct xfrm_type
- 	xfrm_address_t		*(*local_addr)(struct xfrm_state *, xfrm_address_t *);
- 	xfrm_address_t		*(*remote_addr)(struct xfrm_state *, xfrm_address_t *);
- 	/* Estimate maximal size of result of transformation of a dgram */
--	u32			(*get_max_size)(struct xfrm_state *, int size);
-+	u32			(*get_mtu)(struct xfrm_state *, int size);
- };
- 
- extern int xfrm_register_type(struct xfrm_type *type, unsigned short family);
-diff --git a/net/ipv4/esp4.c b/net/ipv4/esp4.c
-index 5e56139..24238fb 100644
---- a/net/ipv4/esp4.c
-+++ b/net/ipv4/esp4.c
-@@ -272,32 +272,34 @@ out:
- 	return -EINVAL;
- }
- 
--static u32 esp4_get_max_size(struct xfrm_state *x, int mtu)
-+static u32 esp4_get_mtu(struct xfrm_state *x, int mtu)
- {
- 	struct esp_data *esp = x->data;
- 	u32 blksize = ALIGN(crypto_blkcipher_blocksize(esp->conf.tfm), 4);
--	int enclen = 0;
-+	u32 align = max_t(u32, blksize, esp->conf.padlen);
-+	u32 rem;
-+
-+	mtu -= x->props.header_len + esp->auth.icv_trunc_len;
-+	rem = mtu & (align - 1);
-+	mtu &= ~(align - 1);
- 
- 	switch (x->props.mode) {
- 	case XFRM_MODE_TUNNEL:
--		mtu = ALIGN(mtu +2, blksize);
- 		break;
- 	default:
- 	case XFRM_MODE_TRANSPORT:
- 		/* The worst case */
--		mtu = ALIGN(mtu + 2, 4) + blksize - 4;
-+		mtu -= blksize - 4;
-+		mtu += min_t(u32, blksize - 4, rem);
- 		break;
- 	case XFRM_MODE_BEET:
- 		/* The worst case. */
--		enclen = IPV4_BEET_PHMAXLEN;
--		mtu = ALIGN(mtu + enclen + 2, blksize);
-+		mtu -= IPV4_BEET_PHMAXLEN;
-+		mtu += min_t(u32, IPV4_BEET_PHMAXLEN, rem);
- 		break;
- 	}
- 
--	if (esp->conf.padlen)
--		mtu = ALIGN(mtu, esp->conf.padlen);
--
--	return mtu + x->props.header_len + esp->auth.icv_trunc_len - enclen;
-+	return mtu - 2;
- }
- 
- static void esp4_err(struct sk_buff *skb, u32 info)
-@@ -340,6 +342,7 @@ static int esp_init_state(struct xfrm_state *x)
- {
- 	struct esp_data *esp = NULL;
- 	struct crypto_blkcipher *tfm;
-+	u32 align;
- 
- 	/* null auth and encryption can have zero length keys */
- 	if (x->aalg) {
-@@ -421,7 +424,10 @@ static int esp_init_state(struct xfrm_state *x)
- 		}
- 	}
- 	x->data = esp;
--	x->props.trailer_len = esp4_get_max_size(x, 0) - x->props.header_len;
-+	align = ALIGN(crypto_blkcipher_blocksize(esp->conf.tfm), 4);
-+	if (esp->conf.padlen)
-+		align = max_t(u32, align, esp->conf.padlen);
-+	x->props.trailer_len = align + 1 + esp->auth.icv_trunc_len;
- 	return 0;
- 
- error:
-@@ -438,7 +444,7 @@ static struct xfrm_type esp_type =
- 	.proto	     	= IPPROTO_ESP,
- 	.init_state	= esp_init_state,
- 	.destructor	= esp_destroy,
--	.get_max_size	= esp4_get_max_size,
-+	.get_mtu	= esp4_get_mtu,
- 	.input		= esp_input,
- 	.output		= esp_output
- };
-diff --git a/net/ipv6/esp6.c b/net/ipv6/esp6.c
-index b8e8914..61af22d 100644
---- a/net/ipv6/esp6.c
-+++ b/net/ipv6/esp6.c
-@@ -235,22 +235,24 @@ out:
- 	return ret;
- }
- 
--static u32 esp6_get_max_size(struct xfrm_state *x, int mtu)
-+static u32 esp6_get_mtu(struct xfrm_state *x, int mtu)
- {
- 	struct esp_data *esp = x->data;
- 	u32 blksize = ALIGN(crypto_blkcipher_blocksize(esp->conf.tfm), 4);
-+	u32 align = max_t(u32, blksize, esp->conf.padlen);
-+	u32 rem;
- 
--	if (x->props.mode == XFRM_MODE_TUNNEL) {
--		mtu = ALIGN(mtu + 2, blksize);
--	} else {
--		/* The worst case. */
-+	mtu -= x->props.header_len + esp->auth.icv_trunc_len;
-+	rem = mtu & (align - 1);
-+	mtu &= ~(align - 1);
-+
-+	if (x->props.mode != XFRM_MODE_TUNNEL) {
- 		u32 padsize = ((blksize - 1) & 7) + 1;
--		mtu = ALIGN(mtu + 2, padsize) + blksize - padsize;
-+		mtu -= blksize - padsize;
-+		mtu += min_t(u32, blksize - padsize, rem);
- 	}
--	if (esp->conf.padlen)
--		mtu = ALIGN(mtu, esp->conf.padlen);
- 
--	return mtu + x->props.header_len + esp->auth.icv_trunc_len;
-+	return mtu - 2;
- }
- 
- static void esp6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
-@@ -380,7 +382,7 @@ static struct xfrm_type esp6_type =
- 	.proto	     	= IPPROTO_ESP,
- 	.init_state	= esp6_init_state,
- 	.destructor	= esp6_destroy,
--	.get_max_size	= esp6_get_max_size,
-+	.get_mtu	= esp6_get_mtu,
- 	.input		= esp6_input,
- 	.output		= esp6_output,
- 	.hdr_offset	= xfrm6_find_1stfragopt,
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index a237dfd..790b608 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -1666,37 +1666,17 @@ void xfrm_state_delete_tunnel(struct xfrm_state *x)
- }
- EXPORT_SYMBOL(xfrm_state_delete_tunnel);
- 
--/*
-- * This function is NOT optimal.  For example, with ESP it will give an
-- * MTU that's usually two bytes short of being optimal.  However, it will
-- * usually give an answer that's a multiple of 4 provided the input is
-- * also a multiple of 4.
-- */
- int xfrm_state_mtu(struct xfrm_state *x, int mtu)
- {
--	int res = mtu;
--
--	res -= x->props.header_len;
--
--	for (;;) {
--		int m = res;
--
--		if (m < 68)
--			return 68;
--
--		spin_lock_bh(&x->lock);
--		if (x->km.state == XFRM_STATE_VALID &&
--		    x->type && x->type->get_max_size)
--			m = x->type->get_max_size(x, m);
--		else
--			m += x->props.header_len;
--		spin_unlock_bh(&x->lock);
--
--		if (m <= mtu)
--			break;
--		res -= (m - mtu);
--	}
-+	int res;
- 
-+	spin_lock_bh(&x->lock);
-+	if (x->km.state == XFRM_STATE_VALID &&
-+	    x->type && x->type->get_mtu)
-+		res = x->type->get_mtu(x, mtu);
-+	else
-+		res = mtu;
-+	spin_unlock_bh(&x->lock);
- 	return res;
- }
- 
 
---------------010906070501060604080509--
+After reading some Information about option.c, i saerch and found the
+Device-String in option.c
+
+After Loading this Modul, the card works now for me.
+
+
+
+Best Regards and Great Thx for helping me
+Stephan
+
