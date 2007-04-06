@@ -1,59 +1,58 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: L2 network namespace benchmarking (resend with Service Demand)
-Date: Fri, 06 Apr 2007 08:25:48 -0600
-Message-ID: <m1veg98tqr.fsf@ebiederm.dsl.xmission.com>
-References: <460D1BBC.9090602@fr.ibm.com>
-	<m1d52i9bfg.fsf@ebiederm.dsl.xmission.com> <46162CC8.7080708@bull.net>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: Re: 2.6.21 linux tree?  Re: [PATCH] sky2: reliable recovery
+Date: Fri, 6 Apr 2007 09:25:01 -0700
+Message-ID: <20070406092501.a9a252b5.randy.dunlap@oracle.com>
+References: <8C93279E2B7D917-1728-84ED@webmail-dd15.sysops.aol.com>
+	<20070312124525.2ec8fd14@dxpl.pdx.osdl.net>
+	<8C933095A0BFE81-1728-A925@webmail-dd15.sysops.aol.com>
+	<20070312152309.4f2652af@freekitty>
+	<8C93A5EDEA67428-E84-3CD4@WEBMAIL-RB06.sysops.aol.com>
+	<20070322084716.21572d71@localhost.localdomain>
+	<8C93AFF7F21F7F6-E84-6718@WEBMAIL-RB06.sysops.aol.com>
+	<20070322215016.493a6af7@localhost.localdomain>
+	<8C94036C4FFBA18-AD4-43A6@FWM-D41.sysops.aol.com>
+	<20070403173747.6be269fb@localhost.localdomain>
+	<8C9446D33724837-1E6C-2A00@FWM-D41.sysops.aol.com>
+	<20070403182137.59084935@localhost.localdomain>
+	<8C94470311E3A7F-1E6C-2ACF@FWM-D41.sysops.aol.com>
+	<20070404111043.28ecce69@freekitty>
+	<8C94679FD30AF6B-244-6779@FWM-D41.sysops.aol.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Lezcano <dlezcano@fr.ibm.com>,
-	Linux Containers <containers@lists.osdl.org>,
-	netdev@vger.kernel.org
-To: Benjamin Thery <benjamin.thery@bull.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org
+To: davef1624@aol.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:34602 "EHLO
-	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1767660AbXDFO0c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Apr 2007 10:26:32 -0400
-In-Reply-To: <46162CC8.7080708@bull.net> (Benjamin Thery's message of "Fri, 06
-	Apr 2007 13:19:36 +0200")
+Received: from rgminet01.oracle.com ([148.87.113.118]:45556 "EHLO
+	rgminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752674AbXDFQXI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Apr 2007 12:23:08 -0400
+In-Reply-To: <8C94679FD30AF6B-244-6779@FWM-D41.sysops.aol.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Benjamin Thery <benjamin.thery@bull.net> writes:
+On Fri, 06 Apr 2007 11:47:17 -0400 davef1624@aol.com wrote:
 
-> Eric W. Biederman wrote:
+> Where can I download the 2.6.21 linux kernel source?
+> 
+> I can't seem to find it under:  www.kernel.org/pub/linux/kernel/v2.6
+> 
+> thanks
+> Dave
 
->> A couple of random thoughts in trying to understand the numbers you are
->> seeing.
->>
->> - Checksum offloading?
->>
->>   You have noted that with the bridge netfilter support disabled you
->>   are still seeing additional checksum overhead.  Just like you are
->>   seeing in the routing case.
->>
->>   Is it possible the problem is simply that etun doesn't support
->>   checksum offloading, while your normal test hardware does?
->
-> Looks like you are 100% correct.
-> I feel a bit stupid I didn't think about this "small" difference between real
-> NIC and etun.
->
-> If I turn off checksum offloading on my physical NIC, the checksum "overhead"
-> (load) measured by oprofile is about the same in both case: when running netperf
-> through a real NIC or through an etun tunnel first.
+2.6.21 final has not been released yet.
+http://www.kernel.org/kdist/finger_banner reports:
 
-Interesting.  You can also 'enable' checksum offloading when using etun with
-ethtool.  Which should just tell the kernel not to do checksumming.  A
-bad idea in general but it might be useful in confirming where the
-performance overhead is coming from, and when used with routing I
-believe it is safe.  When used with bridging I don't know.
+The latest stable version of the Linux kernel is:           2.6.20.5
+The latest prepatch for the stable Linux kernel tree is:    2.6.21-rc6
+The latest 2.4 version of the Linux kernel is:              2.4.34.2
+The latest prepatch for the 2.4 Linux kernel tree is:       2.4.35-pre2
+The latest 2.2 version of the Linux kernel is:              2.2.26
+The latest prepatch for the 2.2 Linux kernel tree is:       2.2.27-rc2
+The latest -mm patch to the stable Linux kernels is:        2.6.21-rc5-mm4
 
-Thinking about it the ideal situation is to preserve skb->ip_summed it
-if came from another device, instead of unconditionally setting it.
-I need to take a good hard look at etun_xmit and make certain we
-are dotting all of the i's and crossing all of the t's for best
-performance and compatibility with the rest of the network stack.
+where -rcN is release candidate number N.
 
-Eric
+---
+~Randy
+*** Remember to use Documentation/SubmitChecklist when testing your code ***
