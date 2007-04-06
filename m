@@ -1,35 +1,31 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH net-2.6.22 TAKE 2] [IPV6] FIB6RULE: Find source address
- during looking up route.
-Date: Fri, 06 Apr 2007 16:53:13 +0900 (JST)
-Message-ID: <20070406.165313.96529522.yoshfuji@linux-ipv6.org>
-References: <20070328.130808.21341937.yoshfuji@linux-ipv6.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: ping6 to own link-local address
+Date: Fri, 06 Apr 2007 01:02:48 -0700 (PDT)
+Message-ID: <20070406.010248.112289290.davem@davemloft.net>
+References: <20070328.165748.48153731.yoshfuji@linux-ipv6.org>
+	<20070328.014533.112621902.davem@davemloft.net>
+	<20070406.163531.51929668.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=iso-2022-jp
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, takamiya@linux-ipv6.org,
-	netdev@vger.kernel.org
-To: davem@davemloft.net
+Cc: sri@us.ibm.com, netdev@vger.kernel.org, CHINEN@jp.ibm.com,
+	torvalds@linux-foundation.org
+To: yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:40601 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753654AbXDFHwU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Apr 2007 03:52:20 -0400
-In-Reply-To: <20070328.130808.21341937.yoshfuji@linux-ipv6.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58901
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S932469AbXDFICx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Apr 2007 04:02:53 -0400
+In-Reply-To: <20070406.163531.51929668.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In article <20070328.130808.21341937.yoshfuji@linux-ipv6.org> (at Wed, 28 Mar 2007 13:08:08 +0900 (JST)), YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> says:
+From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
+Date: Fri, 06 Apr 2007 16:35:31 +0900 (JST)
 
-> When looking up route for destination with rules with
-> source address restrictions, we may need to find a source
-> address for the traffic if not given.
+> Dave?
 > 
-> Based on patch from Noriaki TAKAMIYA <takamiya@po.ntts.co.jp>.
-> 
-> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> I do think this is a regression in 2.6.21-rcs, and it is much
+> better to revert it.
 
-Dave? How about this?
-
---yoshfuji
+My apologies, I promise I will look into this tomorrow.
