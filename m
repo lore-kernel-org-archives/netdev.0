@@ -1,46 +1,51 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [kvm-devel] QEMU PIC indirection patch for in-kernel APIC work
-Date: Fri, 06 Apr 2007 11:16:01 +1000
-Message-ID: <1175822161.12230.652.camel@localhost.localdomain>
-References: <4613CDB2.4000903@codemonkey.ws> <4613D001.3040606@qumranet.com>
-	 <20070404200112.GA6070@elte.hu> <4614098F.2030307@us.ibm.com>
-	 <20070404212103.GA19026@elte.hu>
-	 <1175728768.12230.593.camel@localhost.localdomain>
-	 <20070405093033.GC25448@elte.hu> <4614C846.7070605@qumranet.com>
-	 <20070405102656.GA5595@elte.hu> <4614DCE1.70905@qumranet.com>
-	 <20070405113655.GA21542@elte.hu>
+From: "Antonino A. Daplas" <adaplas@pol.net>
+Subject: Re: [SC92031]: Fix priv->lock context
+Date: Fri, 6 Apr 2007 09:10:05 +0800 (PHT)
+Message-ID: <41624.10.250.10.1.1175821805.squirrel@webmail.medscape.com>
+References: <20070404190402.609cbd65.akpm@linux-foundation.org>
+        <20070405114431.GA10972@gondor.apana.org.au>
+        <20070405.095929.79068467.davem@davemloft.net>
+        <20070405215703.GA21219@gondor.apana.org.au>
+Reply-To: adaplas@pol.net
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Avi Kivity <avi@qumranet.com>, kvm-devel@lists.sourceforge.net,
-	netdev <netdev@vger.kernel.org>
-To: Ingo Molnar <mingo@elte.hu>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: <davem@davemloft.net>, <akpm@linux-foundation.org>,
+	<netdev@vger.kernel.org>, <adaplas@pol.net>, <jgarzik@pobox.com>
+To: <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:41616 "EHLO ozlabs.org"
+Received: from sf01.pol.net ([63.240.86.10]:38177 "EHLO sf01.pol.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1767468AbXDFBQU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Apr 2007 21:16:20 -0400
-In-Reply-To: <20070405113655.GA21542@elte.hu>
+	id S1767366AbXDFBP6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Apr 2007 21:15:58 -0400
+In-Reply-To: <20070405215703.GA21219@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2007-04-05 at 13:36 +0200, Ingo Molnar wrote:
-> prototyping new kernel APIs to implement user-space network drivers, on 
-> a crufty codebase is not something that should be done lightly.
+> On Thu, Apr 05, 2007 at 09:59:29AM -0700, David Miller wrote:
+>>
+>> Where is the patch? :-)
+>>
+>> Second time you've done this in two days Herbert, tsk tsk :)))
+>
+> The patch was so easy that it was left as an exercise to the reader :)
 
-I think you overestimate my radicalism.  I was considering readv() and
-writev() on the tap device.
+I did try, but it was too much for me :-)
 
-Qemu's infrastructure may hurt kvm here, but lguest won't be able to use
-that excuse.
+>
+> [SC92031]: Fix priv->lock context
+>
+> The spin_lock calls made in dev->open and dev->close must disable
+> BH since open/close are made in process context.  Conversely, the
+> call in dev->hard_start_xmit does not need to disable BH since it
+> is already executing with BH disabled.
+>
 
-> track issue for the *PIC question at 
-> hand. PICs are not network devices, they are essential platform 
-> components and almost an extended part of the CPU.)
+Yes, this patch did the trick.
 
-Definitely, I'm only interested in stealing^H^H^Hsharing KVM devices.
-The subject is now deeply misleading 8(
+Thanks.
 
-Cheers,
-Rusty.
+Tony
+
+
 
