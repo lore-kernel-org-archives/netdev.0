@@ -1,67 +1,40 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: mm snapshot broken-out-2007-04-07-03-27.tar.gz uploaded
-Date: Sat, 7 Apr 2007 13:10:00 -0700
-Message-ID: <20070407131000.e3007eac.akpm@linux-foundation.org>
-References: <200704071029.l37ATdKR032505@shell0.pdx.osdl.net>
-	<4617F455.2050401@googlemail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	"Rafael J. Wysocki" <rjw@sisk.pl>, Pavel Machek <pavel@ucw.cz>
-To: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965712AbXDGUKi@vger.kernel.org>
-In-Reply-To: <4617F455.2050401@googlemail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: [PATCH 3/4] sky2: turn on clocks when doing resume
+Date: Sat, 07 Apr 2007 16:02:27 -0700
+Message-ID: <20070407230325.823715638@linux-foundation.org>
+References: <20070407230224.486666854@linux-foundation.org>
+Cc: netdev@vger.kernel.org
+To: Jeff Garzik <jgarzik@pobox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.osdl.org ([65.172.181.24]:36294 "EHLO smtp.osdl.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752368AbXDGXnM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 7 Apr 2007 19:43:12 -0400
+Content-Disposition: inline; filename=sky2-ec-clocks-resume.patch
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 07 Apr 2007 21:43:17 +0200 Michal Piotrowski <michal.k.k.piotro=
-wski@gmail.com> wrote:
+Some of these chips are disabled until clock is enabled.
+This fixes:
+     http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=404107
 
-> akpm@linux-foundation.org napisa=C5=82(a):
-> > The mm snapshot broken-out-2007-04-07-03-27.tar.gz has been uploade=
-d to
-> >=20
-> >    ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/mm/broken-out-=
-2007-04-07-03-27.tar.gz
-> >=20
-> > It contains the following patches against 2.6.21-rc6:
->=20
-> suspend-to-disk doesn't work when pktgen module is loaded.
->=20
-> Stopping kernel threads timed out after 20 seconds (2 tasks refusing =
-to freeze):
->  kpktgend_0
->  kpktgend_1
-> Restarting tasks ... done.
-> swsusp: Basic memory bitmaps freed
+Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
 
-This?
 
---- a/net/core/pktgen.c~pktgen-add-try_to_freeze
-+++ a/net/core/pktgen.c
-@@ -128,6 +128,7 @@
- #include <linux/ioport.h>
- #include <linux/interrupt.h>
- #include <linux/capability.h>
-+#include <linux/freezer.h>
- #include <linux/delay.h>
- #include <linux/timer.h>
- #include <linux/list.h>
-@@ -3325,6 +3326,8 @@ static int pktgen_thread_worker(void *ar
- 			t->control &=3D ~(T_REMDEV);
- 		}
-=20
-+		try_to_freeze();
+--- netdev-2.6.orig/drivers/net/sky2.c	2007-04-07 15:11:48.000000000 -0700
++++ netdev-2.6/drivers/net/sky2.c	2007-04-07 15:12:31.000000000 -0700
+@@ -3770,6 +3770,11 @@
+ 		goto out;
+ 
+ 	pci_enable_wake(pdev, PCI_D0, 0);
 +
- 		set_current_state(TASK_INTERRUPTIBLE);
- 	}
-=20
-_
++	/* Re-enable all clocks */
++	if (hw->chip_id == CHIP_ID_YUKON_EX || hw->chip_id == CHIP_ID_YUKON_EC_U)
++		sky2_pci_write32(hw, PCI_DEV_REG3, 0);
++
+ 	sky2_reset(hw);
+ 
+ 	sky2_write32(hw, B0_IMSK, Y2_IS_BASE);
 
-> http://www.stardust.webpages.pl/files/tbf/bitis-gabonica/broken-out-2=
-007-04-07-03-27/mm-serialconsole2.log
->=20
-> Anyway, this kernel is pretty stable :)
+--
 
-Is appreciated, thanks.
