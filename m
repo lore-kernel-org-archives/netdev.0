@@ -1,92 +1,156 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH] net: Add etun driver
-Date: Sat, 07 Apr 2007 00:31:01 -0700
-Message-ID: <461748B5.30904@candelatech.com>
-References: <m1abxl5j4s.fsf@ebiederm.dsl.xmission.com>	<4616B9A5.7090800@candelatech.com>	<m1y7l53pl8.fsf@ebiederm.dsl.xmission.com>	<461710A7.4040108@candelatech.com> <m1irc84uf4.fsf@ebiederm.dsl.xmission.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	Dmitry Mishin <dim@openvz.org>,
-	Linux Containers <containers@lists.osdl.org>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:51191 "EHLO ns2.lanforge.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965452AbXDGHbm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 7 Apr 2007 03:31:42 -0400
-In-Reply-To: <m1irc84uf4.fsf@ebiederm.dsl.xmission.com>
-Sender: netdev-owner@vger.kernel.org
+From: Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
+Subject: [PATCH] zd1211rw-mac80211: rework band edge patching
+Date: Sat,  7 Apr 2007 15:44:55 +0100 (BST)
+Message-ID: <20070407144456.171A57B409F@zog.reactivated.net>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: kune-hUSrv6EASfkEnNRfnnE9gw@public.gmane.org
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Eric W. Biederman wrote:
-> Ben Greear <greearb@candelatech.com> writes:
->
->   
->> I guess that will do, but then if you ever change the strings, any user-space
->> that is
->> depending on this will break or have to be modified with additional cruft.  It
->> seems
->> cleaner to me to have an ioctl or a specific place in /proc or some other
->> virtual
->> fs, but I can deal with it either way...
->>     
->
-> True if the name of the driver changes from etun there is an issue.
->   
-So, how about a sysfs field for this too, something like 'is-etun' or 
-whatever...
-Or, IOCTL works fine too, of course.
->   
->>>> Also, how do you find the peer device from user-space?  This would be very
->>>> useful
->>>> for anyone trying to manage these devices with a user-space program.
->>>>
->>>>         
->>> Currently "ethtool -S <interface>"
->>> And read the partner_ifindex.
->>>
->>>       
->> Ok, that will work.  Again, my personal preference is for a single specific
->> ioctl or proc'ish file
->> to read the specific value instead of having to parse strings, but this will do.
->>     
->
-> Hmm. I guess there is string parsing to identify the index.
->
-> I guess a sysfs device attribute would work as well.
->   
-Yes, that would be much appreciated.
->   
->>> Further whoever generates the pair specifies the initial set of names.
->>>
->>>       
->> Yeah, but you can't depend on knowing that in an interesting environment.
->>     
->
-> Frankly.  In an interesting environment I haven't been able to think of a
-> way to successfully say anything about the partner device.
->
-> The problem is that all identifiers are namespace local so the remote side
-> is not in the current namespace the ifindex or the device name mean nothing.
->
-> In that case the only remotely usable value I can return is the mac address
-> of the other side.
->   
-Couldn't you also show the peer's name-space id in that case?
+This change allows RF drivers to provide their own 6M band edge patching
+implementation, while providing a generic implementation shared by most
+currently supported RF's.
 
-MAC could be duplicated, so that's not a very good key.
+The upcoming ZD1211B/AL7230B code will use this to define its own
+patching function, which is different from the other RF configurations.
 
-Thanks,
-Ben
+Signed-off-by: Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
+---
+ drivers/net/wireless/mac80211/zd1211rw/zd_chip.c   |   16 ++++++++++++----
+ drivers/net/wireless/mac80211/zd1211rw/zd_chip.h   |    1 +
+ drivers/net/wireless/mac80211/zd1211rw/zd_rf.c     |   14 ++++++++++++++
+ drivers/net/wireless/mac80211/zd1211rw/zd_rf.h     |    9 ++++-----
+ .../net/wireless/mac80211/zd1211rw/zd_rf_al2230.c  |    2 +-
+ .../net/wireless/mac80211/zd1211rw/zd_rf_al7230b.c |    2 +-
+ 6 files changed, 33 insertions(+), 11 deletions(-)
 
-
+diff --git a/drivers/net/wireless/mac80211/zd1211rw/zd_chip.c b/drivers/net/wireless/mac80211/zd1211rw/zd_chip.c
+index 3b1cd65..303c38d 100644
+--- a/drivers/net/wireless/mac80211/zd1211rw/zd_chip.c
++++ b/drivers/net/wireless/mac80211/zd1211rw/zd_chip.c
+@@ -615,16 +615,24 @@ static int patch_cr157(struct zd_chip *chip)
+  * Vendor driver says: for FCC regulation, enabled per HWFeature 6M band edge
+  * bit (for AL2230, AL2230S)
+  */
+-static int patch_6m_band_edge(struct zd_chip *chip, int channel)
++static int patch_6m_band_edge(struct zd_chip *chip, u8 channel)
++{
++	ZD_ASSERT(mutex_is_locked(&chip->mutex));
++	if (!chip->patch_6m_band_edge)
++		return 0;
++
++	return zd_rf_patch_6m_band_edge(&chip->rf, channel);
++}
++
++/* Generic implementation of 6M band edge patching, used by most RFs via
++ * zd_rf_generic_patch_6m() */
++int zd_chip_generic_patch_6m_band(struct zd_chip *chip, int channel)
+ {
+ 	struct zd_ioreq16 ioreqs[] = {
+ 		{ CR128, 0x14 }, { CR129, 0x12 }, { CR130, 0x10 },
+ 		{ CR47,  0x1e },
+ 	};
+ 
+-	if (!chip->patch_6m_band_edge || !chip->rf.patch_6m_band_edge)
+-		return 0;
+-
+ 	/* FIXME: Channel 11 is not the edge for all regulatory domains. */
+ 	if (channel == 1 || channel == 11)
+ 		ioreqs[0].value = 0x12;
+diff --git a/drivers/net/wireless/mac80211/zd1211rw/zd_chip.h b/drivers/net/wireless/mac80211/zd1211rw/zd_chip.h
+index 0a8f0e5..584b1c8 100644
+--- a/drivers/net/wireless/mac80211/zd1211rw/zd_chip.h
++++ b/drivers/net/wireless/mac80211/zd1211rw/zd_chip.h
+@@ -828,6 +828,7 @@ int zd_chip_enable_rx(struct zd_chip *chip);
+ void zd_chip_disable_rx(struct zd_chip *chip);
+ int zd_chip_enable_hwint(struct zd_chip *chip);
+ int zd_chip_disable_hwint(struct zd_chip *chip);
++int zd_chip_generic_patch_6m_band(struct zd_chip *chip, int channel);
+ 
+ static inline int zd_get_encryption_type(struct zd_chip *chip, u32 *type)
+ {
+diff --git a/drivers/net/wireless/mac80211/zd1211rw/zd_rf.c b/drivers/net/wireless/mac80211/zd1211rw/zd_rf.c
+index 9af8c16..7407409 100644
+--- a/drivers/net/wireless/mac80211/zd1211rw/zd_rf.c
++++ b/drivers/net/wireless/mac80211/zd1211rw/zd_rf.c
+@@ -161,3 +161,17 @@ int zd_switch_radio_off(struct zd_rf *rf)
+ 		r = t;
+ 	return r;
+ }
++
++int zd_rf_patch_6m_band_edge(struct zd_rf *rf, u8 channel)
++{
++	if (!rf->patch_6m_band_edge)
++		return 0;
++
++	return rf->patch_6m_band_edge(rf, channel);
++}
++
++int zd_rf_generic_patch_6m(struct zd_rf *rf, u8 channel)
++{
++	return zd_chip_generic_patch_6m_band(zd_rf_to_chip(rf), channel);
++}
++
+diff --git a/drivers/net/wireless/mac80211/zd1211rw/zd_rf.h b/drivers/net/wireless/mac80211/zd1211rw/zd_rf.h
+index 1110724..a05186b 100644
+--- a/drivers/net/wireless/mac80211/zd1211rw/zd_rf.h
++++ b/drivers/net/wireless/mac80211/zd1211rw/zd_rf.h
+@@ -47,11 +47,6 @@ struct zd_rf {
+ 	u8 type;
+ 
+ 	u8 channel;
+-	/*
+-	 * Whether this RF should patch the 6M band edge
+-	 * (assuming E2P_POD agrees)
+-	 */
+-	u8 patch_6m_band_edge:1;
+ 
+ 	/* whether channel integration and calibration should be updated
+ 	 * defaults to 1 (yes) */
+@@ -66,6 +61,7 @@ struct zd_rf {
+ 	int (*switch_radio_on)(struct zd_rf *rf);
+ 	int (*switch_radio_off)(struct zd_rf *rf);
+ 	void (*clear)(struct zd_rf *rf);
++	int (*patch_6m_band_edge)(struct zd_rf *rf, u8 channel);
+ };
+ 
+ const char *zd_rf_name(u8 type);
+@@ -85,6 +81,9 @@ static inline int zd_rf_should_update_pwr_int(struct zd_rf *rf)
+ 	return rf->update_channel_int;
+ }
+ 
++int zd_rf_patch_6m_band_edge(struct zd_rf *rf, u8 channel);
++int zd_rf_generic_patch_6m(struct zd_rf *rf, u8 channel);
++
+ /* Functions for individual RF chips */
+ 
+ int zd_rf_init_rf2959(struct zd_rf *rf);
+diff --git a/drivers/net/wireless/mac80211/zd1211rw/zd_rf_al2230.c b/drivers/net/wireless/mac80211/zd1211rw/zd_rf_al2230.c
+index 85a9ad2..511392a 100644
+--- a/drivers/net/wireless/mac80211/zd1211rw/zd_rf_al2230.c
++++ b/drivers/net/wireless/mac80211/zd1211rw/zd_rf_al2230.c
+@@ -431,6 +431,6 @@ int zd_rf_init_al2230(struct zd_rf *rf)
+ 		rf->set_channel = zd1211_al2230_set_channel;
+ 		rf->switch_radio_on = zd1211_al2230_switch_radio_on;
+ 	}
+-	rf->patch_6m_band_edge = 1;
++	rf->patch_6m_band_edge = zd_rf_generic_patch_6m;
+ 	return 0;
+ }
+diff --git a/drivers/net/wireless/mac80211/zd1211rw/zd_rf_al7230b.c b/drivers/net/wireless/mac80211/zd1211rw/zd_rf_al7230b.c
+index bd07c9b..d2c3ee6 100644
+--- a/drivers/net/wireless/mac80211/zd1211rw/zd_rf_al7230b.c
++++ b/drivers/net/wireless/mac80211/zd1211rw/zd_rf_al7230b.c
+@@ -269,6 +269,6 @@ int zd_rf_init_al7230b(struct zd_rf *rf)
+ 	rf->set_channel = al7230b_set_channel;
+ 	rf->switch_radio_on = al7230b_switch_radio_on;
+ 	rf->switch_radio_off = al7230b_switch_radio_off;
+-	rf->patch_6m_band_edge = 1;
++	rf->patch_6m_band_edge = zd_rf_generic_patch_6m;
+ 	return 0;
+ }
 -- 
-Ben Greear <greearb@candelatech.com> 
-Candela Technologies Inc  http://www.candelatech.com
-
-
+1.5.1
