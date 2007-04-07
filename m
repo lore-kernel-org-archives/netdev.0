@@ -1,77 +1,67 @@
-From: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
+From: Andrew Morton <akpm@linux-foundation.org>
 Subject: Re: mm snapshot broken-out-2007-04-07-03-27.tar.gz uploaded
-Date: Sat, 07 Apr 2007 21:43:17 +0200
-Message-ID: <4617F455.2050401@googlemail.com>
+Date: Sat, 7 Apr 2007 13:10:00 -0700
+Message-ID: <20070407131000.e3007eac.akpm@linux-foundation.org>
 References: <200704071029.l37ATdKR032505@shell0.pdx.osdl.net>
+	<4617F455.2050401@googlemail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	"Rafael J. Wysocki" <rjw@sisk.pl>, Pavel Machek <pavel@ucw.cz>
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mu-out-0910.google.com ([209.85.134.185]:36391 "EHLO
-	mu-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S966297AbXDGTnh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Apr 2007 15:43:37 -0400
-Received: by mu-out-0910.google.com with SMTP id w9so1615769mue
-        for <netdev@vger.kernel.org>; Sat, 07 Apr 2007 12:43:35 -0700 (PDT)
-In-Reply-To: <200704071029.l37ATdKR032505@shell0.pdx.osdl.net>
-Sender: netdev-owner@vger.kernel.org
+To: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965712AbXDGUKi@vger.kernel.org>
+In-Reply-To: <4617F455.2050401@googlemail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-akpm@linux-foundation.org napisa=B3(a):
-> The mm snapshot broken-out-2007-04-07-03-27.tar.gz has been uploaded =
-to
+On Sat, 07 Apr 2007 21:43:17 +0200 Michal Piotrowski <michal.k.k.piotro=
+wski@gmail.com> wrote:
+
+> akpm@linux-foundation.org napisa=C5=82(a):
+> > The mm snapshot broken-out-2007-04-07-03-27.tar.gz has been uploade=
+d to
+> >=20
+> >    ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/mm/broken-out-=
+2007-04-07-03-27.tar.gz
+> >=20
+> > It contains the following patches against 2.6.21-rc6:
 >=20
->    ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/mm/broken-out-20=
-07-04-07-03-27.tar.gz
+> suspend-to-disk doesn't work when pktgen module is loaded.
 >=20
-> It contains the following patches against 2.6.21-rc6:
+> Stopping kernel threads timed out after 20 seconds (2 tasks refusing =
+to freeze):
+>  kpktgend_0
+>  kpktgend_1
+> Restarting tasks ... done.
+> swsusp: Basic memory bitmaps freed
 
-suspend-to-disk doesn't work when pktgen module is loaded.
+This?
 
-Stopping kernel threads timed out after 20 seconds (2 tasks refusing to=
- freeze):
- kpktgend_0
- kpktgend_1
-Restarting tasks ... done.
-swsusp: Basic memory bitmaps freed
+--- a/net/core/pktgen.c~pktgen-add-try_to_freeze
++++ a/net/core/pktgen.c
+@@ -128,6 +128,7 @@
+ #include <linux/ioport.h>
+ #include <linux/interrupt.h>
+ #include <linux/capability.h>
++#include <linux/freezer.h>
+ #include <linux/delay.h>
+ #include <linux/timer.h>
+ #include <linux/list.h>
+@@ -3325,6 +3326,8 @@ static int pktgen_thread_worker(void *ar
+ 			t->control &=3D ~(T_REMDEV);
+ 		}
+=20
++		try_to_freeze();
++
+ 		set_current_state(TASK_INTERRUPTIBLE);
+ 	}
+=20
+_
 
-http://www.stardust.webpages.pl/files/tbf/bitis-gabonica/broken-out-200=
-7-04-07-03-27/mm-serialconsole2.log
+> http://www.stardust.webpages.pl/files/tbf/bitis-gabonica/broken-out-2=
+007-04-07-03-27/mm-serialconsole2.log
+>=20
+> Anyway, this kernel is pretty stable :)
 
-Anyway, this kernel is pretty stable :)
-
-aio_dio_bugs - ok
-aiostress - ok
-bash_shared_mapping - ok
-bonnie - ok
-cpu_hotplug - ok
-cyclictest - ok
-dbench - ok
-fsfuzzer - ok
-fs_mark - ok
-fsx - ok
-interbench - ok
-iozone -ok
-isic - ok
-linus_stress - ok
-ltp - ptrace bug
-pi_tests - ok
-rmaptest - ok
-rtlinuxtests - ok
-rttester - ok
-scrashme - ok
-spew - ok
-stress - ok
-
-Regards,
-Michal
-
---=20
-Michal K. K. Piotrowski
-LTG - Linux Testers Group (PL)
-(http://www.stardust.webpages.pl/ltg/)
-LTG - Linux Testers Group (EN)
-(http://www.stardust.webpages.pl/linux_testers_group_en/)
+Is appreciated, thanks.
