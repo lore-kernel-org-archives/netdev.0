@@ -1,51 +1,54 @@
-From: Nishanth Aravamudan <nacc@us.ibm.com>
-Subject: Re: tg3: unable to handle null pointer dereference
-Date: Fri, 6 Apr 2007 18:53:01 -0700
-Message-ID: <20070407015301.GA9537@us.ibm.com>
-References: <Pine.LNX.4.64.0704051944230.6730@woody.linux-foundation.org> <20070406214014.GF3346@us.ibm.com> <1175900233.7911.87.camel@dell> <20070406.173600.38712619.davem@davemloft.net>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH] net: Add etun driver
+Date: Fri, 06 Apr 2007 20:06:43 -0600
+Message-ID: <m1y7l53pl8.fsf@ebiederm.dsl.xmission.com>
+References: <m1abxl5j4s.fsf@ebiederm.dsl.xmission.com>
+	<4616B9A5.7090800@candelatech.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: mchan@broadcom.com, torvalds@linux-foundation.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964932AbXDGBz4@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20070406.173600.38712619.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Jeff Garzik <jgarzik@pobox.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	Dmitry Mishin <dim@openvz.org>,
+	Linux Containers <containers@lists.osdl.org>
+To: Ben Greear <greearb@candelatech.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:53179 "EHLO
+	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965042AbXDGCI3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Apr 2007 22:08:29 -0400
+In-Reply-To: <4616B9A5.7090800@candelatech.com> (Ben Greear's message of "Fri,
+	06 Apr 2007 14:20:37 -0700")
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 06.04.2007 [17:36:00 -0700], David Miller wrote:
-> From: "Michael Chan" <mchan@broadcom.com>
-> Date: Fri, 06 Apr 2007 15:57:13 -0700
-> 
-> > On Fri, 2007-04-06 at 14:40 -0700, Nishanth Aravamudan wrote:
-> > 
-> > > 2.6.21-rc5 is ok. 2.6.21-rc6 results in
-> > > 
-> > > [   14.241665] Unable to handle kernel NULL pointer dereference (address 0000000000000000)
-> > 
-> > Sorry, I think this should fix it:
-> > 
-> > [TG3]: Fix crash during tg3_init_one().
-> > 
-> > The driver will crash when the chip has been initialized by EFI before
-> > tg3_init_one().  In this case, the driver will call tg3_chip_reset()
-> > before allocating consistent memory.
-> > 
-> > The bug is fixed by checking for tp->hw_status before accessing it
-> > during tg3_chip_reset().
-> > 
-> > Signed-off-by: Michael Chan <mchan@broadcom.com>
-> 
-> Applied, thanks Michael.
+Ben Greear <greearb@candelatech.com> writes:
 
-FWIW, tested, no panic.
+> Is there any way to tell for certain if an interface is a etun or not?  Maybe
+> a file could be found (or not) in sysfs somewhere?
 
-Tested-by: Nishanth Aravamudan <nacc@us.ibm.com>
+Link for any decent network driver ethtool -i <interface>
 
-Thanks,
-Nish
+> Also, how do you find the peer device from user-space?  This would be very
+> useful
+> for anyone trying to manage these devices with a user-space program.
 
--- 
-Nishanth Aravamudan <nacc@us.ibm.com>
-IBM Linux Technology Center
+Currently "ethtool -S <interface>"
+And read the partner_ifindex.
+
+Further whoever generates the pair specifies the initial set of names.
+
+> When you are creating new devices, I think you should check to make
+> sure there isn't already a device with that name.
+
+alloc_netdev doesn't let you register two devices with the same name,
+and I check the return status of alloc_netdev. 
+
+> In general though, I look forward to this being in the kernel so I can drop
+> my redirect device code from my out-of-tree patch.
+
+Thanks.
+
+Eric
