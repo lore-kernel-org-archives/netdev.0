@@ -1,65 +1,44 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: mm snapshot broken-out-2007-04-07-03-27.tar.gz uploaded
-Date: Sun, 8 Apr 2007 12:42:45 +0000
-Message-ID: <20070408124244.GA4404@ucw.cz>
-References: <200704071029.l37ATdKR032505@shell0.pdx.osdl.net> <4617F455.2050401@googlemail.com> <20070407131000.e3007eac.akpm@linux-foundation.org>
+From: "Arnaldo Carvalho de Melo" <acme@ghostprotocols.net>
+Subject: Re: [XFRM]: esp: fix skb_tail_pointer conversion bug
+Date: Sun, 8 Apr 2007 10:07:29 -0300
+Message-ID: <39e6f6c70704080607u729e72bbq4ac5fddfe144ef18@mail.gmail.com>
+References: <461886F6.1010308@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	"Rafael J. Wysocki" <rjw@sisk.pl>
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"Kernel Netdev Mailing List" <netdev@vger.kernel.org>
+To: "Patrick McHardy" <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gprs189-60.eurotel.cz ([160.218.189.60]:1070 "EHLO spitz.ucw.cz"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751052AbXDHMm5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 8 Apr 2007 08:42:57 -0400
+Received: from ik-out-1112.google.com ([66.249.90.183]:31108 "EHLO
+	ik-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751110AbXDHNHb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Apr 2007 09:07:31 -0400
+Received: by ik-out-1112.google.com with SMTP id c21so927150ika
+        for <netdev@vger.kernel.org>; Sun, 08 Apr 2007 06:07:29 -0700 (PDT)
+In-Reply-To: <461886F6.1010308@trash.net>
 Content-Disposition: inline
-In-Reply-To: <20070407131000.e3007eac.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi!
+On 4/8/07, Patrick McHardy <kaber@trash.net> wrote:
+>
+> [XFRM]: esp: fix skb_tail_pointer conversion bug
+>
+> Fix incorrect switch of "trailer" skb by "skb" during skb_tail_pointer
+> conversion:
+>
+> -       *(u8*)(trailer->tail - 1) = top_iph->protocol;
+> +       *(skb_tail_pointer(skb) - 1) = top_iph->protocol;
+>
+> -       *(u8 *)(trailer->tail - 1) = *skb_network_header(skb);
+> +       *(skb_tail_pointer(skb) - 1) = *skb_network_header(skb);
+>
+>
+> Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-> > > The mm snapshot broken-out-2007-04-07-03-27.tar.gz has been uploaded to
-> > > 
-> > >    ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/mm/broken-out-2007-04-07-03-27.tar.gz
-> > > 
-> > > It contains the following patches against 2.6.21-rc6:
-> > 
-> > suspend-to-disk doesn't work when pktgen module is loaded.
-> > 
-> > Stopping kernel threads timed out after 20 seconds (2 tasks refusing to freeze):
-> >  kpktgend_0
-> >  kpktgend_1
-> > Restarting tasks ... done.
-> > swsusp: Basic memory bitmaps freed
-> 
-> This?
-> 
-> --- a/net/core/pktgen.c~pktgen-add-try_to_freeze
-> +++ a/net/core/pktgen.c
-> @@ -128,6 +128,7 @@
->  #include <linux/ioport.h>
->  #include <linux/interrupt.h>
->  #include <linux/capability.h>
-> +#include <linux/freezer.h>
->  #include <linux/delay.h>
->  #include <linux/timer.h>
->  #include <linux/list.h>
-> @@ -3325,6 +3326,8 @@ static int pktgen_thread_worker(void *ar
->  			t->control &= ~(T_REMDEV);
->  		}
->  
-> +		try_to_freeze();
-> +
->  		set_current_state(TASK_INTERRUPTIBLE);
+Signed-off-by: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
 
-I'd actually prefer freezing it while in INTERRUPTIBLE, but both
-versions are probably okay.
+Thanks Patrick, for this one and the other fixes for the offset conversion.
 
-							Pavel
-
--- 
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
+- Arnaldo
