@@ -1,87 +1,75 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [SK_BUFF]: Fix missing offset adjustment in skb_copy_expand
-Date: Sun, 08 Apr 2007 03:47:49 +0200
-Message-ID: <461849C5.8000507@trash.net>
+Subject: [SK_BUFF]: Fix missing offset adjustment in pskb_expand_head
+Date: Sun, 08 Apr 2007 03:47:39 +0200
+Message-ID: <461849BB.4090805@trash.net>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------080909020407010105030200"
+ boundary="------------070807090403020603040502"
 Cc: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
 	Kernel Netdev Mailing List <netdev@vger.kernel.org>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:37381 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:37376 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965393AbXDHBrw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Apr 2007 21:47:52 -0400
+	with ESMTP id S965379AbXDHBro (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Apr 2007 21:47:44 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
---------------080909020407010105030200
+--------------070807090403020603040502
 Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
 
+These patches fix two crashes I was getting with net-2.6.22
+on 64 bit caused by missing skb header offset adjustments
+when changing the headroom length.
 
---------------080909020407010105030200
+
+--------------070807090403020603040502
 Content-Type: text/plain;
- name="02.diff"
+ name="01.diff"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline;
- filename="02.diff"
+ filename="01.diff"
 
-[SK_BUFF]: Fix missing offset adjustment in skb_copy_expand
+[SK_BUFF]: Fix missing offset adjustment in pskb_expand_head
 
-skb_copy_expand changes the headroom, so it needs to adjust the header
-offsets by the difference between the old and the new value.
+Since we're increasing the headroom, the header offsets need to be
+increased by the same amount as well.
 
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 
 ---
-commit 9cb76fae709a9303777286998baa457b0730a225
-tree 2ea619c7daf9c5e6829dad6d502386eb9c922700
-parent fb98b03719ad23840ca005edbba3c86ef1e3282c
-author Patrick McHardy <kaber@trash.net> Sun, 08 Apr 2007 03:36:49 +0200
-committer Patrick McHardy <kaber@trash.net> Sun, 08 Apr 2007 03:36:49 +0200
+commit fb98b03719ad23840ca005edbba3c86ef1e3282c
+tree 25821494e6032e487f3d197fa1392206b0004583
+parent 5899a39783bd49bd6b926eaeafc16c7276620f63
+author Patrick McHardy <kaber@trash.net> Sun, 08 Apr 2007 03:17:49 +0200
+committer Patrick McHardy <kaber@trash.net> Sun, 08 Apr 2007 03:17:49 +0200
 
- net/core/skbuff.c |   11 ++++++++++-
- 1 files changed, 10 insertions(+), 1 deletions(-)
+ net/core/skbuff.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
 diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 5c9ee94..f2cffd4 100644
+index e60864e..5c9ee94 100644
 --- a/net/core/skbuff.c
 +++ b/net/core/skbuff.c
-@@ -794,7 +794,9 @@ struct sk_buff *skb_copy_expand(const struct sk_buff *skb,
- 	 */
- 	struct sk_buff *n = alloc_skb(newheadroom + skb->len + newtailroom,
- 				      gfp_mask);
-+	int oldheadroom = skb_headroom(skb);
- 	int head_copy_len, head_copy_off;
-+	int off = 0;
- 
- 	if (!n)
- 		return NULL;
-@@ -804,7 +806,7 @@ struct sk_buff *skb_copy_expand(const struct sk_buff *skb,
- 	/* Set the tail pointer and length */
- 	skb_put(n, skb->len);
- 
--	head_copy_len = skb_headroom(skb);
-+	head_copy_len = oldheadroom;
- 	head_copy_off = 0;
- 	if (newheadroom <= head_copy_len)
- 		head_copy_len = newheadroom;
-@@ -818,6 +820,13 @@ struct sk_buff *skb_copy_expand(const struct sk_buff *skb,
- 
- 	copy_skb_header(n, skb);
- 
-+#ifdef NET_SKBUFF_DATA_USES_OFFSET
-+	off                  = newheadroom - oldheadroom;
+@@ -725,14 +725,15 @@ int pskb_expand_head(struct sk_buff *skb, int nhead, int ntail,
+ 	skb->data    += off;
+ #ifdef NET_SKBUFF_DATA_USES_OFFSET
+ 	skb->end      = size;
++	off           = nhead;
+ #else
+ 	skb->end      = skb->head + size;
 +#endif
-+	n->transport_header += off;
-+	n->network_header   += off;
-+	n->mac_header	    += off;
-+
- 	return n;
- }
- 
+ 	/* {transport,network,mac}_header and tail are relative to skb->head */
+ 	skb->tail	      += off;
+ 	skb->transport_header += off;
+ 	skb->network_header   += off;
+ 	skb->mac_header	      += off;
+-#endif
+ 	skb->cloned   = 0;
+ 	skb->nohdr    = 0;
+ 	atomic_set(&skb_shinfo(skb)->dataref, 1);
 
---------------080909020407010105030200--
+--------------070807090403020603040502--
