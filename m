@@ -1,95 +1,83 @@
-From: Avi Kivity <avi@qumranet.com>
-Subject: Re: [kvm-devel] QEMU PIC indirection patch for in-kernel APIC work
-Date: Sun, 08 Apr 2007 08:36:14 +0300
-Message-ID: <46187F4E.1080807@qumranet.com>
-References: <4613B438.60107@codemonkey.ws> <4613B89F.8090806@qumranet.com>
- <4613BC6B.1070708@codemonkey.ws> <4613BF07.50606@qumranet.com>
- <4613C993.9020405@codemonkey.ws> <4613CC01.1090500@qumranet.com>
- <4613CDB2.4000903@codemonkey.ws> <4613D001.3040606@qumranet.com>
- <20070404200112.GA6070@elte.hu> <4614098F.2030307@us.ibm.com>
- <20070404212103.GA19026@elte.hu>
- <1175728768.12230.593.camel@localhost.localdomain>
- <4614A294.3000607@qumranet.com>
- <1175821357.12230.642.camel@localhost.localdomain>
+From: Patrick McHardy <kaber@trash.net>
+Subject: [XFRM]: esp: fix skb_tail_pointer conversion bug
+Date: Sun, 08 Apr 2007 08:08:54 +0200
+Message-ID: <461886F6.1010308@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7BIT
-Cc: Ingo Molnar <mingo@elte.hu>, kvm-devel@lists.sourceforge.net,
-	netdev <netdev@vger.kernel.org>
-To: Rusty Russell <rusty@rustcorp.com.au>
+Content-Type: multipart/mixed;
+ boundary="------------070807020904050809040507"
+Cc: Kernel Netdev Mailing List <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtaout4.012.net.il ([84.95.2.10]:21122 "EHLO mtaout4.012.net.il"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751821AbXDHFgR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 8 Apr 2007 01:36:17 -0400
-Received: from firebolt.argo.co.il ([80.178.163.252])
- by i_mtaout4.012.net.il (HyperSendmail v2004.12)
- with ESMTP id <0JG500FF3ZKFTDU0@i_mtaout4.012.net.il> for
- netdev@vger.kernel.org; Sun, 08 Apr 2007 08:36:15 +0300 (IDT)
-In-reply-to: <1175821357.12230.642.camel@localhost.localdomain>
+Received: from stinky.trash.net ([213.144.137.162]:40691 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752365AbXDHGI7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Apr 2007 02:08:59 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Rusty Russell wrote:
-> On Thu, 2007-04-05 at 10:17 +0300, Avi Kivity wrote:
->   
->> Rusty Russell wrote:
->>     
->>> You didn't quote Anthony's point about "it's more about there not being
->>> good enough userspace interfaces to do network IO."
->>>
->>> It's easier to write a kernel-space network driver, but it's not
->>> obviously the right thing to do until we can show that an efficient
->>> packet-level userspace interface isn't possible.  I don't think that's
->>> been done, and it would be interesting to try.
->>>   
->>>       
->> In the case of networking, the copyful interfaces on receive are driven 
->> by the hardware not knowing how to split the header from the data.  On 
->> transmit I agree, it could be made copyless from userspace (somthing 
->> like sendfilev, only not file oriented).
->>     
->
-> Hi Avi,
->
-> 	I don't think you've thought about this very hard.  The receive copy is
-> completely independent with whether the packet is going to the guest via
-> a kernel driver or via userspace, so not relevant.
->   
+This is a multi-part message in MIME format.
+--------------070807020904050809040507
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
 
-A packet received in the kernel cannot be made available to userspace in 
-a safe manner without a copy, as it will not be aligned with page 
-boundaries, so userspace cannot examine the packet until after one copy 
-has occured.  After userspace has determined what to do with the packet, 
-another copy must take place to get it there.
 
-There's a counterexample, mmapped sockets, but that works only when all 
-packets arriving on a card are exposed to the same process.  This is 
-useful for tcpdump or for what you outline below but is hardly generic.
+--------------070807020904050809040507
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
 
-> 	And if all packets from the card are going to the guest, you can
-> deliver directly.  Userspace or kernel, no difference.
->   
+[XFRM]: esp: fix skb_tail_pointer conversion bug
 
-That is not the common case.  Nor is it true when there is a mismatch 
-between the card's capabilties and guest expectations and constraints.  
-For example, guest memory is not physically contiguous so a NIC that 
-won't do scatter/gather will require bouncing (or an iommu, but that's 
-not here yet).
+Fix incorrect switch of "trailer" skb by "skb" during skb_tail_pointer
+conversion:
 
-> 	And we have a "sendfilev not file oriented": it's called "writev" 8)
->   
+-       *(u8*)(trailer->tail - 1) = top_iph->protocol;
++       *(skb_tail_pointer(skb) - 1) = top_iph->protocol;
 
-writev() cannot be made copyless for networking.  One needs an async 
-interface so the kernel can complete the write after the NIC acks the 
-dma transfer, or a kernel driver.
+-       *(u8 *)(trailer->tail - 1) = *skb_network_header(skb);
++       *(skb_tail_pointer(skb) - 1) = *skb_network_header(skb);
 
-> 	An in-kernel driver can avoid system call overhead and page references.
-> But a better tap device helps more than just KVM.
->   
 
-I'll believe it when I see it.
+Signed-off-by: Patrick McHardy <kaber@trash.net>
 
--- 
-Do not meddle in the internals of kernels, for they are subtle and quick to panic.
+---
+commit c43f271709475c491e425086b8c4a166ae4f3478
+tree d9a52c51bd4a03f7d7f7930a25d8fc38d96db8e5
+parent 5b83c3481951802b1fa171718e022565d78185a7
+author Patrick McHardy <kaber@trash.net> Sun, 08 Apr 2007 08:07:01 +0200
+committer Patrick McHardy <kaber@trash.net> Sun, 08 Apr 2007 08:07:01 +0200
 
+ net/ipv4/esp4.c |    2 +-
+ net/ipv6/esp6.c |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv4/esp4.c b/net/ipv4/esp4.c
+index 7459251..47c95e8 100644
+--- a/net/ipv4/esp4.c
++++ b/net/ipv4/esp4.c
+@@ -64,7 +64,7 @@ static int esp_output(struct xfrm_state *x, struct sk_buff *skb)
+ 	esph = (struct ip_esp_hdr *)(skb_network_header(skb) +
+ 				     top_iph->ihl * 4);
+ 	top_iph->tot_len = htons(skb->len + alen);
+-	*(skb_tail_pointer(skb) - 1) = top_iph->protocol;
++	*(skb_tail_pointer(trailer) - 1) = top_iph->protocol;
+ 
+ 	/* this is non-NULL only with UDP Encapsulation */
+ 	if (x->encap) {
+diff --git a/net/ipv6/esp6.c b/net/ipv6/esp6.c
+index 61af22d..7107bb7 100644
+--- a/net/ipv6/esp6.c
++++ b/net/ipv6/esp6.c
+@@ -91,7 +91,7 @@ static int esp6_output(struct xfrm_state *x, struct sk_buff *skb)
+ 	top_iph = (struct ipv6hdr *)__skb_push(skb, hdr_len);
+ 	esph = (struct ipv6_esp_hdr *)skb_transport_header(skb);
+ 	top_iph->payload_len = htons(skb->len + alen - sizeof(*top_iph));
+-	*(skb_tail_pointer(skb) - 1) = *skb_network_header(skb);
++	*(skb_tail_pointer(trailer) - 1) = *skb_network_header(skb);
+ 	*skb_network_header(skb) = IPPROTO_ESP;
+ 
+ 	esph->spi = x->id.spi;
+
+--------------070807020904050809040507--
