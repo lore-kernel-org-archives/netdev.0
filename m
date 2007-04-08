@@ -1,83 +1,50 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: [XFRM]: esp: fix skb_tail_pointer conversion bug
-Date: Sun, 08 Apr 2007 08:08:54 +0200
-Message-ID: <461886F6.1010308@trash.net>
+From: Muli Ben-Yehuda <muli-7z/5BgaJwgfQT0dZR+AlfA@public.gmane.org>
+Subject: Re: QEMU PIC indirection patch for in-kernel APIC work
+Date: Sun, 8 Apr 2007 12:04:29 +0300
+Message-ID: <20070408090429.GB26210@rhun.ibm.com>
+References: <4613CC01.1090500@qumranet.com> <4613CDB2.4000903@codemonkey.ws>
+	<4613D001.3040606@qumranet.com> <20070404200112.GA6070@elte.hu>
+	<4614098F.2030307@us.ibm.com> <20070404212103.GA19026@elte.hu>
+	<1175728768.12230.593.camel@localhost.localdomain>
+	<4614A294.3000607@qumranet.com>
+	<1175821357.12230.642.camel@localhost.localdomain>
+	<46187F4E.1080807@qumranet.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------070807020904050809040507"
-Cc: Kernel Netdev Mailing List <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:40691 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752365AbXDHGI7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Apr 2007 02:08:59 -0400
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: kvm-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Avi Kivity <avi-atKUWr5tajBWk0Htik3J/w@public.gmane.org>
+Return-path: <kvm-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <46187F4E.1080807-atKUWr5tajBWk0Htik3J/w@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/kvm-devel>,
+	<mailto:kvm-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=kvm-devel>
+List-Post: <mailto:kvm-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:kvm-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/kvm-devel>,
+	<mailto:kvm-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Sender: kvm-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Errors-To: kvm-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------070807020904050809040507
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
+On Sun, Apr 08, 2007 at 08:36:14AM +0300, Avi Kivity wrote:
 
+> That is not the common case.  Nor is it true when there is a
+> mismatch between the card's capabilties and guest expectations and
+> constraints.  For example, guest memory is not physically contiguous
+> so a NIC that won't do scatter/gather will require bouncing (or an
+> iommu, but that's not here yet).
 
---------------070807020904050809040507
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
+Actually, Allen Key from Intel just posted the first VT-d patches to
+xen-devel a couple of days ago. I wonder if anyone is working on kvm
+support (which would require Linux support).
 
-[XFRM]: esp: fix skb_tail_pointer conversion bug
+Cheers,
+Muli
 
-Fix incorrect switch of "trailer" skb by "skb" during skb_tail_pointer
-conversion:
-
--       *(u8*)(trailer->tail - 1) = top_iph->protocol;
-+       *(skb_tail_pointer(skb) - 1) = top_iph->protocol;
-
--       *(u8 *)(trailer->tail - 1) = *skb_network_header(skb);
-+       *(skb_tail_pointer(skb) - 1) = *skb_network_header(skb);
-
-
-Signed-off-by: Patrick McHardy <kaber@trash.net>
-
----
-commit c43f271709475c491e425086b8c4a166ae4f3478
-tree d9a52c51bd4a03f7d7f7930a25d8fc38d96db8e5
-parent 5b83c3481951802b1fa171718e022565d78185a7
-author Patrick McHardy <kaber@trash.net> Sun, 08 Apr 2007 08:07:01 +0200
-committer Patrick McHardy <kaber@trash.net> Sun, 08 Apr 2007 08:07:01 +0200
-
- net/ipv4/esp4.c |    2 +-
- net/ipv6/esp6.c |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv4/esp4.c b/net/ipv4/esp4.c
-index 7459251..47c95e8 100644
---- a/net/ipv4/esp4.c
-+++ b/net/ipv4/esp4.c
-@@ -64,7 +64,7 @@ static int esp_output(struct xfrm_state *x, struct sk_buff *skb)
- 	esph = (struct ip_esp_hdr *)(skb_network_header(skb) +
- 				     top_iph->ihl * 4);
- 	top_iph->tot_len = htons(skb->len + alen);
--	*(skb_tail_pointer(skb) - 1) = top_iph->protocol;
-+	*(skb_tail_pointer(trailer) - 1) = top_iph->protocol;
- 
- 	/* this is non-NULL only with UDP Encapsulation */
- 	if (x->encap) {
-diff --git a/net/ipv6/esp6.c b/net/ipv6/esp6.c
-index 61af22d..7107bb7 100644
---- a/net/ipv6/esp6.c
-+++ b/net/ipv6/esp6.c
-@@ -91,7 +91,7 @@ static int esp6_output(struct xfrm_state *x, struct sk_buff *skb)
- 	top_iph = (struct ipv6hdr *)__skb_push(skb, hdr_len);
- 	esph = (struct ipv6_esp_hdr *)skb_transport_header(skb);
- 	top_iph->payload_len = htons(skb->len + alen - sizeof(*top_iph));
--	*(skb_tail_pointer(skb) - 1) = *skb_network_header(skb);
-+	*(skb_tail_pointer(trailer) - 1) = *skb_network_header(skb);
- 	*skb_network_header(skb) = IPPROTO_ESP;
- 
- 	esph->spi = x->id.spi;
-
---------------070807020904050809040507--
+-------------------------------------------------------------------------
+Take Surveys. Earn Cash. Influence the Future of IT
+Join SourceForge.net's Techsay panel and you'll get the chance to share your
+opinions on IT & business topics through brief surveys-and earn cash
+http://www.techsay.com/default.php?page=join.php&p=sourceforge&CID=DEVDEV
