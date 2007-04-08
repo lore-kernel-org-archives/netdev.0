@@ -1,44 +1,46 @@
-From: "Arnaldo Carvalho de Melo" <acme@ghostprotocols.net>
-Subject: Re: [XFRM]: esp: fix skb_tail_pointer conversion bug
-Date: Sun, 8 Apr 2007 10:07:29 -0300
-Message-ID: <39e6f6c70704080607u729e72bbq4ac5fddfe144ef18@mail.gmail.com>
-References: <461886F6.1010308@trash.net>
+From: "Michal Piotrowski" <michal.k.k.piotrowski@gmail.com>
+Subject: Re: mm snapshot broken-out-2007-04-07-03-27.tar.gz uploaded
+Date: Sun, 8 Apr 2007 15:26:31 +0200
+Message-ID: <6bffcb0e0704080626nfb89c3cif9fd572a4ac58a30@mail.gmail.com>
+References: <200704071029.l37ATdKR032505@shell0.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"Kernel Netdev Mailing List" <netdev@vger.kernel.org>
-To: "Patrick McHardy" <kaber@trash.net>
+Cc: "Andrew Morton" <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
+To: "Thomas Gleixner" <tglx@linutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ik-out-1112.google.com ([66.249.90.183]:31108 "EHLO
-	ik-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751110AbXDHNHb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Apr 2007 09:07:31 -0400
-Received: by ik-out-1112.google.com with SMTP id c21so927150ika
-        for <netdev@vger.kernel.org>; Sun, 08 Apr 2007 06:07:29 -0700 (PDT)
-In-Reply-To: <461886F6.1010308@trash.net>
+Received: from py-out-1112.google.com ([64.233.166.180]:1391 "EHLO
+	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751185AbXDHN0b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Apr 2007 09:26:31 -0400
+Received: by py-out-1112.google.com with SMTP id a29so816917pyi
+        for <netdev@vger.kernel.org>; Sun, 08 Apr 2007 06:26:31 -0700 (PDT)
+In-Reply-To: <200704071029.l37ATdKR032505@shell0.pdx.osdl.net>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 4/8/07, Patrick McHardy <kaber@trash.net> wrote:
+On 07/04/07, akpm@linux-foundation.org <akpm@linux-foundation.org> wrote:
+> The mm snapshot broken-out-2007-04-07-03-27.tar.gz has been uploaded to
 >
-> [XFRM]: esp: fix skb_tail_pointer conversion bug
+>    ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/mm/broken-out-2007-04-07-03-27.tar.gz
 >
-> Fix incorrect switch of "trailer" skb by "skb" during skb_tail_pointer
-> conversion:
->
-> -       *(u8*)(trailer->tail - 1) = top_iph->protocol;
-> +       *(skb_tail_pointer(skb) - 1) = top_iph->protocol;
->
-> -       *(u8 *)(trailer->tail - 1) = *skb_network_header(skb);
-> +       *(skb_tail_pointer(skb) - 1) = *skb_network_header(skb);
->
->
-> Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-Signed-off-by: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+Thomas,
 
-Thanks Patrick, for this one and the other fixes for the offset conversion.
+I get a lot of "NOHZ: local_softirq_pending 0a" messages, when I run
+netperf2 test.
 
-- Arnaldo
+http://www.stardust.webpages.pl/files/tbf/bitis-gabonica/broken-out-2007-04-07-03-27/mm-config
+http://www.stardust.webpages.pl/files/tbf/bitis-gabonica/broken-out-2007-04-07-03-27/mm-dmesg2
+
+Regards,
+Michal
+
+-- 
+Michal K. K. Piotrowski
+LTG - Linux Testers Group (PL)
+(http://www.stardust.webpages.pl/ltg/)
+LTG - Linux Testers Group (EN)
+(http://www.stardust.webpages.pl/linux_testers_group_en/)
