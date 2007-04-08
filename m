@@ -1,88 +1,114 @@
-From: Jay Cliburn <jacliburn@bellsouth.net>
-Subject: Re: APIC error on 32-bit kernel
-Date: Sun, 8 Apr 2007 13:38:22 -0500
-Message-ID: <20070408133822.3868e6ff@osprey.hogchain.net>
-References: <20070323200817.1f3e39b9@osprey.hogchain.net>
+From: W Agtail <wagtail@iol.ie>
+Subject: Re: two gateways with one NIC
+Date: Sun, 08 Apr 2007 20:29:07 +0100
+Message-ID: <1176060547.686.95.camel@owl.home.ie>
+References: <1176003353.686.45.camel@owl.home.ie>
+	 <20070408150123.GA3511@csclub.uwaterloo.ca>
+	 <1176048615.686.78.camel@owl.home.ie>
+	 <20070408182210.GJ3508@csclub.uwaterloo.ca>
+Reply-To: wagtail@iol.ie
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Lennart Sorensen <lsorense@csclub.uwaterloo.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from imf22aec.mail.bellsouth.net ([205.152.59.70]:58580 "EHLO
-	imf22aec.mail.bellsouth.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751744AbXDHSiZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Apr 2007 14:38:25 -0400
-In-Reply-To: <20070323200817.1f3e39b9@osprey.hogchain.net>
+Received: from cpc1-york1-0-0-cust229.leed.cable.ntl.com ([82.3.204.230]:4788
+	"EHLO owl.home.ie" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751922AbXDHT3P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Apr 2007 15:29:15 -0400
+In-Reply-To: <20070408182210.GJ3508@csclub.uwaterloo.ca>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[Adding linux-kernel to the cc list, hoping for wider exposure.]
+Hi, please refer to comments below.
 
-On Fri, 23 Mar 2007 20:08:17 -0500
-Jay Cliburn <jacliburn@bellsouth.net> wrote:
-
-> We're trying to track down the source of a problem that occurs
-> whenever the atl1 network driver is activated on a 32-bit 2.6.21-rc4
-
-and -rc5, -rc6, 2.6.20.x, 2.6.19.3, and probably others.
-
-> We can load the driver just fine, but whenever we activate the
-> network, we see APIC errors (a sample of them are shown here,
-> captured from a serial console):
+On Sun, 2007-04-08 at 14:22 -0400, Lennart Sorensen wrote:
+> On Sun, Apr 08, 2007 at 05:10:15PM +0100, W Agtail wrote:
+> > Hi, and thanks very much for your response. Your guess sounds spot on. 
+> > 
+> > As you've mentioned, using one sync group works quite well and gives you
+> > an active/passive LVS cluster (not sure of correct terminology here -
+> > sorry), thus all traffic goes via LVS1, leaving LVS2 not doing much
+> > unless LVS1 fails.
+> > 
+> > I thought it would be a cool idea to setup two sync groups to ultimately
+> > handle several Apache instances on the two Apache servers. This way,
+> > both LVS servers would be used in a kind of active/active fashion and
+> > would be a master/slave to each other. For example, vip1 & gw1 could
+> > possibly end up on LVS2 with vip2 & gw2.
+> > 
+> > The challenge though in having two sync groups, with two GWs. I would
+> > like all traffic coming through vip1 to be returned via gw1 and all
+> > traffic coming through vip2 to be returned via gw2.
+> > 
+> > I am using keepalived (v1.1.13) with two sync groups. One with vip1 &
+> > gw1 and another with vip2 & gw2. Port 8088 will always comes through
+> > vip1/gw1, load balancing to web1:8088 and web2:8088. Port 8089 will
+> > always come through vip2/gw2, load balancing to web1:8089 and web2:8089.
+> > 
+> > Web1's default gw is set to gw1 and web2's default gw is set to gw2. But
+> > this causing issues when say, vip1:8088 gets forwarded through gw1 to
+> > web2:8088 and doesn't get back back via gw2. To get round this, I need
+> > something like iproute2 on web2 to send all 8088 traffic back through
+> > gw1.
 > 
-> [root@hawk ~]# echo 8 > /proc/sys/kernel/printk
-> [root@hawk ~]# [   93.942012] process `sysctl' is using deprecated
-> sysctl (sysc.
-> [   94.396609] atl1: eth0 link is up 1000 Mbps full duplex
-> [   94.498887] APIC error on CPU0: 00(08)
-> [   94.498534] APIC error on CPU1: 00(08)
-> [   94.550079] APIC error on CPU0: 08(08)
-> [   94.549725] APIC error on CPU1: 08(08)
-> [   94.600915] APIC error on CPU1: 08(08)
-> [   94.601276] APIC error on CPU0: 08(08)
-> [   94.652108] APIC error on CPU1: 08(08)
-> [   94.652470] APIC error on CPU0: 08(08)
-> [   94.703659] APIC error on CPU0: 08(08)
-> [   94.703305] APIC error on CPU1: 08(08)
-> [   94.754852] APIC error on CPU0: 08(40)
-> [   94.806045] APIC error on CPU0: 40(08)
-> [   94.805692] APIC error on CPU1: 08(08)
-> [   94.857238] APIC error on CPU0: 08(08)
-> [   94.856884] APIC error on CPU1: 08(08)
-> [   94.908432] APIC error on CPU0: 08(08)
-> [   94.908078] APIC error on CPU1: 08(08)
-> [snip, more of the same]
-> [   98.901156] APIC error on CPU1: 08(08)
-> [   98.952702] APIC error on CPU0: 08(08)
-> [   98.952349] APIC error on CPU1: 08(08)
-> [   99.003895] APIC error on CPU0: 08(08)
-> [   99.003542] APIC error on CPU1: 08(08)
+> You have to set up both web servers to use the same gateway.  You can
+> setup an alternate routing table and tag packets from the apache on port
+> 8089 to use the other gateway IP instead, but any traffic handled by
+> LVS1 _must_ be returned through LVS1.  So both web servers have to have
+> identical configuration (which is also much simpler to maintain).
 > 
-> The machine hangs for about 5-10 seconds, then spontaneously reboots
-> without further console output.
-
-I can prompt an oops by pinging my router while the apic errors are
-scrolling by.
-
+> You can use iptables to tag packets matching the source port of 8089 and
+> have ip route route all packets with that specific tag using an
+> alternate routing table, which will then use the other LVS.
 > 
-> This is an Asus M2V (Via K8T890) motherboard.
+> So if you have two VRRP groups, you have port 8088 return by the regular
+> default gateway going to the first group IP, and you have tagging flag
+> all port 8089 packets to go through the second vrrp IP.  If an LVS
+> fails, both vrrp groups end up on the working LVS and everything still
+> works, but while both works, one LVS handles one port, and the other the
+> other port.  Of course routing packets is hardly a lot of work, so it
+> may not really be worth the bother to do anything extra with two groups.
+> You really have to configure both web servers identically though in
+> terms of routes.
+
+This is what I'm trying to achieve with the following iptables/iproute2
+configuration on both web servers:
+
+iptables -t mangle -A PREROUTING -p tcp --dport 8088 -i eth0 -j LOG
+--log-prefix "fwmark 1: "
+iptables -t mangle -A PREROUTING -p tcp --dport 8089 -i eth0 -j LOG
+--log-prefix "fwmark 2: "
+
+iptables -t mangle -A PREROUTING -p tcp --dport 8088 -i eth0 -j MARK
+--set-mark 1
+iptables -t mangle -A PREROUTING -p tcp --dport 8089 -i eth0 -j MARK
+--set-mark 2
+
+iptables -t mangle -A PREROUTING -m mark --mark 1 -j LOG --log-prefix
+"marked 1: "
+iptables -t mangle -A PREROUTING -m mark --mark 2 -j LOG --log-prefix
+"marked 2: "
+
+ip route add table 1 default via 10.18.35.11 dev eth0 # GW1
+ip route add table 2 default via 10.18.35.21 dev eth0 # GW2
+
+ip rule add fwmark 1 table 1
+ip rule add fwmark 2 table 2
+
+On web2, the default gw is set to gw2 and in /var/log/messages, I can
+see packets appear to be marked. However, for some reason, 8088 is still
+routing back via gw2 (default gw) rather than being routed via gw1,
+which I'm trying to do with the above ip rules etc.
+
+Is the above the correct syntax? or I guess I could totally be missing
+the plot?
+
+Many thanks for your time on this one.
+
+> > Hope this makes a little more sense to what I'm trying to achieve?
+> > Thanks again.
 > 
-> The problem does not occur on a 32-bit kernel if we boot with
-> pci=nomsi, and it doesn't occur at all on a 64-bit kernel on the same
-> motherboard.
-> 
-> We also do not see this problem on Intel-based motherboards, with
-> either 32- or 64-bit kernels.
-
-A full raft of documentation -- including acpidump and
-linux-firmware-kit output, console capture, kernel config, lspci -vvxxx
-(with apic=debug boot option), dmesg, and /proc/interrupts -- is
-available at http://www.hogchain.net/m2v/apic-problem/
-
-If this is a motherboard problem, that's fine; I'd just like to know
-the details so I tell users something more than "it's a motherboard
-problem."
-
-Thanks,
-Jay
+> --
+> Len Sorensen
