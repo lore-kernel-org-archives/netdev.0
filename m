@@ -1,50 +1,65 @@
-From: Muli Ben-Yehuda <muli-7z/5BgaJwgfQT0dZR+AlfA@public.gmane.org>
-Subject: Re: QEMU PIC indirection patch for in-kernel APIC work
-Date: Sun, 8 Apr 2007 12:04:29 +0300
-Message-ID: <20070408090429.GB26210@rhun.ibm.com>
-References: <4613CC01.1090500@qumranet.com> <4613CDB2.4000903@codemonkey.ws>
-	<4613D001.3040606@qumranet.com> <20070404200112.GA6070@elte.hu>
-	<4614098F.2030307@us.ibm.com> <20070404212103.GA19026@elte.hu>
-	<1175728768.12230.593.camel@localhost.localdomain>
-	<4614A294.3000607@qumranet.com>
-	<1175821357.12230.642.camel@localhost.localdomain>
-	<46187F4E.1080807@qumranet.com>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: mm snapshot broken-out-2007-04-07-03-27.tar.gz uploaded
+Date: Sun, 8 Apr 2007 12:42:45 +0000
+Message-ID: <20070408124244.GA4404@ucw.cz>
+References: <200704071029.l37ATdKR032505@shell0.pdx.osdl.net> <4617F455.2050401@googlemail.com> <20070407131000.e3007eac.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: kvm-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Avi Kivity <avi-atKUWr5tajBWk0Htik3J/w@public.gmane.org>
-Return-path: <kvm-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	"Rafael J. Wysocki" <rjw@sisk.pl>
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gprs189-60.eurotel.cz ([160.218.189.60]:1070 "EHLO spitz.ucw.cz"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751052AbXDHMm5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 8 Apr 2007 08:42:57 -0400
 Content-Disposition: inline
-In-Reply-To: <46187F4E.1080807-atKUWr5tajBWk0Htik3J/w@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/kvm-devel>,
-	<mailto:kvm-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=kvm-devel>
-List-Post: <mailto:kvm-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:kvm-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/kvm-devel>,
-	<mailto:kvm-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Sender: kvm-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-Errors-To: kvm-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+In-Reply-To: <20070407131000.e3007eac.akpm@linux-foundation.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Apr 08, 2007 at 08:36:14AM +0300, Avi Kivity wrote:
+Hi!
 
-> That is not the common case.  Nor is it true when there is a
-> mismatch between the card's capabilties and guest expectations and
-> constraints.  For example, guest memory is not physically contiguous
-> so a NIC that won't do scatter/gather will require bouncing (or an
-> iommu, but that's not here yet).
+> > > The mm snapshot broken-out-2007-04-07-03-27.tar.gz has been uploaded to
+> > > 
+> > >    ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/mm/broken-out-2007-04-07-03-27.tar.gz
+> > > 
+> > > It contains the following patches against 2.6.21-rc6:
+> > 
+> > suspend-to-disk doesn't work when pktgen module is loaded.
+> > 
+> > Stopping kernel threads timed out after 20 seconds (2 tasks refusing to freeze):
+> >  kpktgend_0
+> >  kpktgend_1
+> > Restarting tasks ... done.
+> > swsusp: Basic memory bitmaps freed
+> 
+> This?
+> 
+> --- a/net/core/pktgen.c~pktgen-add-try_to_freeze
+> +++ a/net/core/pktgen.c
+> @@ -128,6 +128,7 @@
+>  #include <linux/ioport.h>
+>  #include <linux/interrupt.h>
+>  #include <linux/capability.h>
+> +#include <linux/freezer.h>
+>  #include <linux/delay.h>
+>  #include <linux/timer.h>
+>  #include <linux/list.h>
+> @@ -3325,6 +3326,8 @@ static int pktgen_thread_worker(void *ar
+>  			t->control &= ~(T_REMDEV);
+>  		}
+>  
+> +		try_to_freeze();
+> +
+>  		set_current_state(TASK_INTERRUPTIBLE);
 
-Actually, Allen Key from Intel just posted the first VT-d patches to
-xen-devel a couple of days ago. I wonder if anyone is working on kvm
-support (which would require Linux support).
+I'd actually prefer freezing it while in INTERRUPTIBLE, but both
+versions are probably okay.
 
-Cheers,
-Muli
+							Pavel
 
--------------------------------------------------------------------------
-Take Surveys. Earn Cash. Influence the Future of IT
-Join SourceForge.net's Techsay panel and you'll get the chance to share your
-opinions on IT & business topics through brief surveys-and earn cash
-http://www.techsay.com/default.php?page=join.php&p=sourceforge&CID=DEVDEV
+-- 
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
