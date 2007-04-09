@@ -1,46 +1,65 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] NET: Multiqueue network device support.
-Date: Mon, 09 Apr 2007 13:37:53 -0700 (PDT)
-Message-ID: <20070409.133753.108740229.davem@davemloft.net>
-References: <20070409204908.31370.9954.stgit@gitlost.site>
-	<20070409205052.31370.97137.stgit@gitlost.site>
+Subject: [PATCH]: Fix slow_start_after_idle
+Date: Mon, 09 Apr 2007 13:35:20 -0700 (PDT)
+Message-ID: <20070409.133520.59467340.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jgarzik@pobox.com, cramerj@intel.com, auke-jan.h.kok@intel.com,
-	christopher.leech@intel.com
-To: peter.p.waskiewicz.jr@intel.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965522AbXDIUhy@vger.kernel.org>
-In-Reply-To: <20070409205052.31370.97137.stgit@gitlost.site>
-Sender: linux-kernel-owner@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50869
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S965030AbXDIUfU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Apr 2007 16:35:20 -0400
+Received: from localhost (localhost [127.0.0.1])
+	by sunset.davemloft.net (Postfix) with ESMTP id 4CAC3AB4158
+	for <netdev@vger.kernel.org>; Mon,  9 Apr 2007 13:35:20 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Peter P.Waskiewicz Jr. <peter.p.waskiewicz.jr@intel.com>
-Date: Mon, 09 Apr 2007 13:50:52 -0700
 
-> From: Peter P. Waskiewicz Jr. <peter.p.waskiewicz.jr@intel.com>
-> 
-> Added an API and associated supporting routines for multiqueue network devices.
-> This allows network devices supporting multiple TX queues to configure each
-> queue within the netdevice and manage each queue independantly.  Changes to the
-> PRIO Qdisc also allow a user to map multiple flows to individual TX queues,
-> taking advantage of each queue on the device.
-> 
-> Signed-off-by: Peter P. Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+When a user sets tcp_slow_start_after_idle to zero they want the
+congestion window to not time out, that's why we added the sysctl in
+the first place.
 
-This looks definitely better than the previous implementation,
-myself and others will review this in more depth though.
+But in the cases where this matters, the user can still get screwed
+over by congestion window validation, so we should apply the
+slow_start_after_idle test there too.
 
-> + 	alloc_size = (sizeof(struct net_device_subqueue) * queue_count);
-> + 
-> + 	p = kzalloc(alloc_size, GFP_KERNEL);
-> + 	if (!p) {
-> + 		printk(KERN_ERR "alloc_netdev: Unable to allocate queues.\n");
-> + 		return NULL;
-> + 	}
-> + 
-> + 	dev->egress_subqueue = (struct net_device_subqueue *)p;
+I just checked this into net-2.6 and will push to -stable
+as well after Linus takes this.
 
-No need for a cast, 'p' is "void *".
+commit 15d33c070ddde99f7368e6b17b71d22c866f97d9
+Author: David S. Miller <davem@sunset.davemloft.net>
+Date:   Mon Apr 9 13:23:14 2007 -0700
+
+    [TCP]: slow_start_after_idle should influence cwnd validation too
+    
+    For the cases that slow_start_after_idle are meant to deal
+    with, it is almost a certainty that the congestion window
+    tests will think the connection is application limited and
+    we'll thus decrease the cwnd there too.  This defeats the
+    whole point of setting slow_start_after_idle to zero.
+    
+    So test it there too.
+    
+    We do not cancel out the entire tcp_cwnd_validate() function
+    so that if the sysctl is changed we still have the validation
+    state maintained.
+    
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 688b955..3c24881 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -943,7 +943,8 @@ static void tcp_cwnd_validate(struct sock *sk, struct tcp_sock *tp)
+ 		if (tp->packets_out > tp->snd_cwnd_used)
+ 			tp->snd_cwnd_used = tp->packets_out;
+ 
+-		if ((s32)(tcp_time_stamp - tp->snd_cwnd_stamp) >= inet_csk(sk)->icsk_rto)
++		if (sysctl_tcp_slow_start_after_idle &&
++		    (s32)(tcp_time_stamp - tp->snd_cwnd_stamp) >= inet_csk(sk)->icsk_rto)
+ 			tcp_cwnd_application_limited(sk);
+ 	}
+ }
