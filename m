@@ -1,39 +1,55 @@
-From: Robin Getz <rgetz@blackfin.uclinux.org>
-Subject: Re: [PATCH] CONFIG_PACKET_MMAP should depend on MMU
-Date: Mon, 9 Apr 2007 16:08:22 -0400
-Message-ID: <200704091608.23270.rgetz@blackfin.uclinux.org>
-References: <6d6a94c50704082001y5c13c865ic3d70217aba7d181@mail.gmail.com> <20070409.095523.122833625.davem@davemloft.net> <20070409.114323.78734391.davem@davemloft.net>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH] net: Add etun driver
+Date: Mon, 09 Apr 2007 22:03:54 +0200
+Message-ID: <1176149034.8459.36.camel@johannes.berg>
+References: <m1ps6g5229.fsf@ebiederm.dsl.xmission.com>
+	 <1176136628.8459.34.camel@johannes.berg> <461A70A5.8060607@trash.net>
+	 <20070409.114402.45491411.davem@davemloft.net>
+	 <m1mz1h1guo.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: bryan.wu@analog.com, alan@lxorguk.ukuu.org.uk,
-	waltje@uwalt.nl.mugnet.org, aubreylee@gmail.com,
-	netdev@vger.kernel.org, akpm@osdl.org,
-	linux-kernel@vger.kernel.org, "David Howells" <dhowells@redhat.com>
-To: "David Miller" <davem@davemloft.net>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-NOhn081qnCN4LO5xwpa5"
+Cc: David Miller <davem@davemloft.net>, kaber@trash.net,
+	akpm@linux-foundation.org, dim@openvz.org, netdev@vger.kernel.org,
+	jgarzik@pobox.com, containers@lists.osdl.org, kuznet@ms2.inr.ac.ru,
+	shemminger@linux-foundation.org, greearb@candelatech.com
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nwd2mail10.analog.com ([137.71.25.55]:3705 "EHLO
-	nwd2mail10.analog.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965396AbXDIUGt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Apr 2007 16:06:49 -0400
-In-Reply-To: <20070409.114323.78734391.davem@davemloft.net>
-Content-Disposition: inline
+Received: from crystal.sipsolutions.net ([195.210.38.204]:44997 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965418AbXDIUDu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Apr 2007 16:03:50 -0400
+In-Reply-To: <m1mz1h1guo.fsf@ebiederm.dsl.xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon 9 Apr 2007 14:43, David Miller pondered:
-> From: David Miller <davem@davemloft.net>
-> Date: Mon, 09 Apr 2007 09:55:23 -0700 (PDT)
-> >
-> > I will apply this patch.
->
-> Actually I won't, the other comments in this thread make a lot
-> of sense, we should try to make it build and work just as we
-> do for other similar things on no-MMU.
 
-Great. Any pointers in the right direction to remove the requirement of 
-vm_insert_page() in the noMMU case?
+--=-NOhn081qnCN4LO5xwpa5
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-Thanks
--Robin
+On Mon, 2007-04-09 at 13:35 -0600, Eric W. Biederman wrote:
+>=20
+> Nor have I seen a rigorous adherence to all new network configuration
+> using netlink.  The wireless code doesn't even seem to really try.
+
+You're talking about the wext stuff that was invented ten years ago.
+cfg80211/nl80211 which I was talking about actually does use netlink
+almost exclusively (and you can add virtual interfaces using netlink)
+but we also provided some easy sysfs attributes.
+
+johannes
+
+--=-NOhn081qnCN4LO5xwpa5
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iD8DBQBGGpwq/ETPhpq3jKURAskCAJ4iCjFq79TFXtYk37AHG+ZxSUN06wCgjI3O
+M0ifCCiWwamNFihJIFARRCc=
+=5cWN
+-----END PGP SIGNATURE-----
+
+--=-NOhn081qnCN4LO5xwpa5--
+
