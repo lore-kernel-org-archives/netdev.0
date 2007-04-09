@@ -1,33 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] NET: Multiqueue network device support.
-Date: Mon, 09 Apr 2007 13:46:31 -0700 (PDT)
-Message-ID: <20070409.134631.71091422.davem@davemloft.net>
-References: <20070409.133753.108740229.davem@davemloft.net>
-	<D5C1322C3E673F459512FB59E0DDC329029E3EE5@orsmsx414.amr.corp.intel.com>
+Subject: Re: [PATCH] net: Add etun driver
+Date: Mon, 09 Apr 2007 11:37:30 -0700 (PDT)
+Message-ID: <20070409.113730.71114683.davem@davemloft.net>
+References: <1176136628.8459.34.camel@johannes.berg>
+	<461A70A5.8060607@trash.net>
+	<461A829C.7050703@candelatech.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jgarzik@pobox.com, cramerj@intel.com, auke-jan.h.kok@intel.com,
-	christopher.leech@intel.com
-To: peter.p.waskiewicz.jr@intel.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965663AbXDIUqc@vger.kernel.org>
-In-Reply-To: <D5C1322C3E673F459512FB59E0DDC329029E3EE5@orsmsx414.amr.corp.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: kaber@trash.net, johannes@sipsolutions.net, ebiederm@xmission.com,
+	shemminger@linux-foundation.org, jgarzik@pobox.com,
+	akpm@linux-foundation.org, netdev@vger.kernel.org,
+	kuznet@ms2.inr.ac.ru, dlezcano@fr.ibm.com, dim@openvz.org,
+	containers@lists.osdl.org
+To: greearb@candelatech.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45342
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753358AbXDIShb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Apr 2007 14:37:31 -0400
+In-Reply-To: <461A829C.7050703@candelatech.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Date: Mon, 9 Apr 2007 13:43:11 -0700
+From: Ben Greear <greearb@candelatech.com>
+Date: Mon, 09 Apr 2007 11:14:52 -0700
 
-> True, but the assignment for "dev" above also casts this void * to
-> struct net_device *:
+> Patrick McHardy wrote:
 > 
->         dev = (struct net_device *)
->                 (((long)p + NETDEV_ALIGN_CONST) & ~NETDEV_ALIGN_CONST);
->         dev->padded = (char *)dev - (char *)p;
+> > It would be nice if someone would finally come up with a generic
+> > interface based on netlink (RTM_NEWLINK) instead of adding yet
+> > another couple of homegrown interfaces.
 > 
-> Shall I remove my cast?
+> My preference is for ioctls, procfs, or similar that does not
+> require extra libraries.  Ethtool is an ioctl based approach,
+> so that could potentially be used, though I'm not sure if
+> that's the right place to put it...
 
-I think so.  Casts tend to be red flags during patch review,
-so don't add them when not necessary and let's remove the
-unnecessary ones too.
+I totally disagree.
+
+Netlink doesn't require libraries, the libraries just make using it
+easier.  It's a simple protocol sent over a socket, if you include
+the right headers you can do it all yourself.
+
+We shouldn't fail to use our proper core network configuration
+interface just because it's inconvenient for you.
