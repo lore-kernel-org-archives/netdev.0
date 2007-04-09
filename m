@@ -1,35 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [XFRM]: beet: fix worst case header_len calculation
-Date: Mon, 09 Apr 2007 11:48:40 -0700 (PDT)
-Message-ID: <20070409.114840.18284797.davem@davemloft.net>
-References: <461859F3.50303@trash.net>
+From: lsorense@csclub.uwaterloo.ca (Lennart Sorensen)
+Subject: Re: two gateways with one NIC
+Date: Mon, 9 Apr 2007 17:23:02 -0400
+Message-ID: <20070409212302.GF2299@csclub.uwaterloo.ca>
+References: <20070409145403.GB2299@csclub.uwaterloo.ca> <1176134180.686.102.camel@owl.home.ie> <20070409161142.GC2299@csclub.uwaterloo.ca> <461A663E.4050904@trash.net> <20070409161932.GA2302@csclub.uwaterloo.ca> <1176138144.686.115.camel@owl.home.ie> <20070409172343.GD2299@csclub.uwaterloo.ca> <1176141931.686.120.camel@owl.home.ie> <20070409181158.GB2302@csclub.uwaterloo.ca> <1176143047.686.123.camel@owl.home.ie>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: kaber@trash.net
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+To: W Agtail <wagtail@iol.ie>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51391
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753401AbXDISsl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Apr 2007 14:48:41 -0400
-In-Reply-To: <461859F3.50303@trash.net>
+Received: from csclub1.cs.uwaterloo.ca ([129.97.7.226]:38141 "EHLO
+	caffeine.csclub.uwaterloo.ca" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S965915AbXDIVXF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Apr 2007 17:23:05 -0400
+Content-Disposition: inline
+In-Reply-To: <1176143047.686.123.camel@owl.home.ie>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Sun, 08 Apr 2007 04:56:51 +0200
-
-> The pskb_copy_expand crash I was seeing was triggered by BEET
-> mode not calculating the SA's header_len value for the worst
-> case, causing skb headroom expansions. This patch uses the
-> worst case value by including the maximum length of the pseudo
-> header.
+On Mon, Apr 09, 2007 at 07:24:07PM +0100, W Agtail wrote:
+> Yup, I've been flushing iptables each time. This is what we have atm:
+> iptables -n -v -t mangle -L
 > 
-> The patch applies on top of the MTU optimization patch.
+> Chain PREROUTING (policy ACCEPT 12656 packets, 2518K bytes)
+>  pkts bytes target     prot opt in     out     source
+> destination
+>     0     0 LOG        tcp  --  *      *       0.0.0.0/0
+> 0.0.0.0/0           tcp spt:8088 LOG flags 0 level 4 prefix `fwmark 1: '
+>     0     0 LOG        tcp  --  *      *       0.0.0.0/0
+> 0.0.0.0/0           tcp spt:8089 LOG flags 0 level 4 prefix `fwmark 2: '
+>     0     0 MARK       tcp  --  *      *       0.0.0.0/0
+> 0.0.0.0/0           tcp spt:8088 MARK set 0x1
+>     0     0 MARK       tcp  --  *      *       0.0.0.0/0
+> 0.0.0.0/0           tcp spt:8089 MARK set 0x2
+>     0     0 LOG        all  --  *      *       0.0.0.0/0
+> 0.0.0.0/0           MARK match 0x1 LOG flags 0 level 4 prefix `marked 1:
+> '
+>     0     0 LOG        all  --  *      *       0.0.0.0/0
+> 0.0.0.0/0           MARK match 0x2 LOG flags 0 level 4 prefix `marked 2:
+> '
+> 
+> Chain INPUT (policy ACCEPT 10664 packets, 2438K bytes)
+>  pkts bytes target     prot opt in     out     source
+> destination
+> 
+> Chain FORWARD (policy ACCEPT 0 packets, 0 bytes)
+>  pkts bytes target     prot opt in     out     source
+> destination
+> 
+> Chain OUTPUT (policy ACCEPT 6311 packets, 896K bytes)
+>  pkts bytes target     prot opt in     out     source
+> destination
+> 
+> Chain POSTROUTING (policy ACCEPT 6311 packets, 896K bytes)
+>  pkts bytes target     prot opt in     out     source
+> destination
 
-Applied, thanks Patrick.
+Odd how the packet count on those mangle table entries is 0.  It seems
+like it is never even getting to there.  Do you need a rule in the
+output chain telling it to send some packets to the mangle table?  That
+doesn't make sense either though.
 
-Can you backport this to 2.6.21 for me, if you think we should
-bother?  Thanks.
-
+--
+Len Sorensen
