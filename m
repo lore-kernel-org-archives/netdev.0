@@ -1,48 +1,48 @@
-From: Jan Engelhardt <jengelh@linux01.gwdg.de>
-Subject: Re: [PATCH 2/2] NET: Multiqueue network device support implementation.
-Date: Mon, 9 Apr 2007 23:33:36 +0200 (MEST)
-Message-ID: <Pine.LNX.4.61.0704092332030.22295@yvahk01.tjqt.qr>
-References: <20070409212723.31670.27976.stgit@gitlost.site>
- <20070409212841.31670.59366.stgit@gitlost.site>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [SC92031]: Fix priv->lock context
+Date: Mon, 09 Apr 2007 15:01:49 -0400
+Message-ID: <461A8D9D.6070604@pobox.com>
+References: <20070405114431.GA10972@gondor.apana.org.au> <20070405.095929.79068467.davem@davemloft.net> <20070405215703.GA21219@gondor.apana.org.au> <20070409.115625.08346514.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, jgarzik@pobox.com, cramerj@intel.com,
-	auke-jan.h.kok@intel.com, christopher.leech@intel.com
-To: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, adaplas@pol.net
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tmailer.gwdg.de ([134.76.10.23]:40129 "EHLO tmailer.gwdg.de"
+Received: from srv5.dvmed.net ([207.36.208.214]:57034 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932074AbXDIVko (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Apr 2007 17:40:44 -0400
-In-Reply-To: <20070409212841.31670.59366.stgit@gitlost.site>
+	id S964896AbXDITCI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Apr 2007 15:02:08 -0400
+In-Reply-To: <20070409.115625.08346514.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+David Miller wrote:
+> From: Herbert Xu <herbert@gondor.apana.org.au>
+> Date: Fri, 6 Apr 2007 07:57:03 +1000
+> 
+>> On Thu, Apr 05, 2007 at 09:59:29AM -0700, David Miller wrote:
+>>> Where is the patch? :-)
+>>>
+>>> Second time you've done this in two days Herbert, tsk tsk :)))
+>> The patch was so easy that it was left as an exercise to the reader :)
+>>
+>> [SC92031]: Fix priv->lock context
+>>
+>> The spin_lock calls made in dev->open and dev->close must disable
+>> BH since open/close are made in process context.  Conversely, the
+>> call in dev->hard_start_xmit does not need to disable BH since it
+>> is already executing with BH disabled.
+>>
+>> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> 
+> Applied, either Jeff or myself will make sure this gets into
+> Linus's tree.
+
+Sounds like you got this one?
+
+	Jeff
 
 
-On Apr 9 2007 14:28, Peter P Waskiewicz Jr wrote:
->@@ -3345,6 +3358,7 @@ void free_netdev(struct net_device *dev)
-> {
-> #ifdef CONFIG_SYSFS
-> 	/*  Compatibility with error handling in drivers */
->+	kfree((char *)dev->egress_subqueue);
-> 	if (dev->reg_state == NETREG_UNINITIALIZED) {
-> 		kfree((char *)dev - dev->padded);
-> 		return;
->@@ -3356,6 +3370,7 @@ void free_netdev(struct net_device *dev)
-> 	/* will free via device release */
-> 	put_device(&dev->dev);
-> #else
->+	kfree((char *)dev->egress_subqueue);
-> 	kfree((char *)dev - dev->padded);
-> #endif
-> }
 
-Ahem. Explain that cast.
-
-
-
-Jan
--- 
