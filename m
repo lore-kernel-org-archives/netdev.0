@@ -1,42 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [XFRM]: esp: fix skb_tail_pointer conversion bug
-Date: Mon, 09 Apr 2007 11:46:30 -0700 (PDT)
-Message-ID: <20070409.114630.27927768.davem@davemloft.net>
-References: <461886F6.1010308@trash.net>
-	<39e6f6c70704080607u729e72bbq4ac5fddfe144ef18@mail.gmail.com>
+Subject: Re: [SK_BUFF]: Fix missing offset adjustment in pskb_expand_head
+Date: Mon, 09 Apr 2007 11:45:19 -0700 (PDT)
+Message-ID: <20070409.114519.115938516.davem@davemloft.net>
+References: <461849BB.4090805@trash.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, netdev@vger.kernel.org
-To: acme@ghostprotocols.net
+Cc: acme@ghostprotocols.net, netdev@vger.kernel.org
+To: kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51383
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51376
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752864AbXDISqb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Apr 2007 14:46:31 -0400
-In-Reply-To: <39e6f6c70704080607u729e72bbq4ac5fddfe144ef18@mail.gmail.com>
+	by vger.kernel.org with ESMTP id S1753376AbXDISpU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Apr 2007 14:45:20 -0400
+In-Reply-To: <461849BB.4090805@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Arnaldo Carvalho de Melo" <acme@ghostprotocols.net>
-Date: Sun, 8 Apr 2007 10:07:29 -0300
+From: Patrick McHardy <kaber@trash.net>
+Date: Sun, 08 Apr 2007 03:47:39 +0200
 
-> On 4/8/07, Patrick McHardy <kaber@trash.net> wrote:
-> >
-> > [XFRM]: esp: fix skb_tail_pointer conversion bug
-> >
-> > Fix incorrect switch of "trailer" skb by "skb" during skb_tail_pointer
-> > conversion:
-> >
-> > -       *(u8*)(trailer->tail - 1) = top_iph->protocol;
-> > +       *(skb_tail_pointer(skb) - 1) = top_iph->protocol;
-> >
-> > -       *(u8 *)(trailer->tail - 1) = *skb_network_header(skb);
-> > +       *(skb_tail_pointer(skb) - 1) = *skb_network_header(skb);
-> >
-> >
-> > Signed-off-by: Patrick McHardy <kaber@trash.net>
-> 
-> Signed-off-by: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+> These patches fix two crashes I was getting with net-2.6.22
+> on 64 bit caused by missing skb header offset adjustments
+> when changing the headroom length.
 
-Applied, thanks everyone.
+Applied.
