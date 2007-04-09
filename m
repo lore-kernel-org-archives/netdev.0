@@ -1,92 +1,46 @@
-From: =?ISO-8859-1?Q?Sven_K=F6hler?= <skoehler@upb.de>
-Subject: Re: Bridge & it's MAC address question
-Date: Mon, 09 Apr 2007 20:30:12 +0200
-Message-ID: <eve0nv$ang$1@sea.gmane.org>
-References: <200610301527.15018.dim@openvz.org>
-	<20061030072837.51177183@localhost.localdomain>
-	<20061215131908.GC11579@xi.wantstofly.org>
-	<20061215075236.321e6a07@localhost.localdomain>
-	<20061215160429.GC12679@xi.wantstofly.org>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [PATCH] net: Add etun driver
+Date: Mon, 09 Apr 2007 11:14:52 -0700
+Message-ID: <461A829C.7050703@candelatech.com>
+References: <m1abxl5j4s.fsf@ebiederm.dsl.xmission.com>	 <20070406133420.2f098bc6@localhost>	 <m1ps6g5229.fsf@ebiederm.dsl.xmission.com> <1176136628.8459.34.camel@johannes.berg> <461A70A5.8060607@trash.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============0495348450=="
-Cc: netdev@vger.kernel.org
-To: bridge@osdl.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20061215160429.GC12679@xi.wantstofly.org>
-List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linux-foundation.org/pipermail/bridge>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	Jeff Garzik <jgarzik@pobox.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	Dmitry Mishin <dim@openvz.org>,
+	Linux Containers <containers@lists.osdl.org>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ns2.lanforge.com ([66.165.47.211]:49025 "EHLO ns2.lanforge.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752820AbXDISQ3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Apr 2007 14:16:29 -0400
+In-Reply-To: <461A70A5.8060607@trash.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---===============0495348450==
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature";
-	boundary="------------enig1061B7BCFA9BE5D055CB8C32"
+Patrick McHardy wrote:
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig1061B7BCFA9BE5D055CB8C32
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+> It would be nice if someone would finally come up with a generic
+> interface based on netlink (RTM_NEWLINK) instead of adding yet
+> another couple of homegrown interfaces.
 
->>>> The bridge physical address is the minimum of all the attached devic=
-es.
->>>> This is done because the STP standard requires it.  You can reset it=
+My preference is for ioctls, procfs, or similar that does not
+require extra libraries.  Ethtool is an ioctl based approach,
+so that could potentially be used, though I'm not sure if
+that's the right place to put it...
 
->>>> to be the same as any of the attached devices. This will not cause a=
-
->>>> problem unless using STP.
->>> You can in fact use any MAC address.  The STP standard recommends usi=
-ng
->>> the minimum address, as that is deterministic, and so it doesn't depe=
-nd
->>> on the order in which you enslave subdevices.
->> So should restriction be lifted?
->=20
-> We should definitely allow users to override the MAC address of a
-> bridge interface.
-
-Yes, i would love to have that feature.
-
-I'm using a bridge for a Xen host machine. Interfaces of the Xen guests
-are dynamically added to and removed from the bridge. At the moment, i
-create and add a tun interface to the bridge, so the bridge has a valid
-mac address at all.
+Ben
 
 
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
 
---------------enig1061B7BCFA9BE5D055CB8C32
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.6 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
-
-iD8DBQFGGoY07Ww7FjRBE4ARAhMiAJsGB9iky4m+w2mKJbSVlePBjkJUuwCfb85u
-m0xiaTudL9NmPtJ7qfbF3rI=
-=J6Zj
------END PGP SIGNATURE-----
-
---------------enig1061B7BCFA9BE5D055CB8C32--
-
-
---===============0495348450==
-Content-Type: text/plain; charset="iso-8859-1"
-MIME-Version: 1.0
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
-
-_______________________________________________
-Bridge mailing list
-Bridge@lists.linux-foundation.org
-https://lists.linux-foundation.org/mailman/listinfo/bridge
-
---===============0495348450==--
