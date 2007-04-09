@@ -1,70 +1,48 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH] net: Add etun driver
-Date: Mon, 09 Apr 2007 13:35:11 -0600
-Message-ID: <m1mz1h1guo.fsf@ebiederm.dsl.xmission.com>
-References: <m1ps6g5229.fsf@ebiederm.dsl.xmission.com>
-	<1176136628.8459.34.camel@johannes.berg> <461A70A5.8060607@trash.net>
-	<20070409.114402.45491411.davem@davemloft.net>
+From: Jan Engelhardt <jengelh@linux01.gwdg.de>
+Subject: Re: [PATCH 2/2] NET: Multiqueue network device support implementation.
+Date: Mon, 9 Apr 2007 23:33:36 +0200 (MEST)
+Message-ID: <Pine.LNX.4.61.0704092332030.22295@yvahk01.tjqt.qr>
+References: <20070409212723.31670.27976.stgit@gitlost.site>
+ <20070409212841.31670.59366.stgit@gitlost.site>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kaber@trash.net, akpm@linux-foundation.org, dim@openvz.org,
-	netdev@vger.kernel.org, johannes@sipsolutions.net,
-	jgarzik@pobox.com, containers@lists.osdl.org, kuznet@ms2.inr.ac.ru,
-	shemminger@linux-foundation.org, greearb@candelatech.com
-To: David Miller <davem@davemloft.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, jgarzik@pobox.com, cramerj@intel.com,
+	auke-jan.h.kok@intel.com, christopher.leech@intel.com
+To: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:39623 "EHLO
-	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753460AbXDITjR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Apr 2007 15:39:17 -0400
-In-Reply-To: <20070409.114402.45491411.davem@davemloft.net> (David Miller's
-	message of "Mon, 09 Apr 2007 11:44:02 -0700 (PDT)")
+Received: from tmailer.gwdg.de ([134.76.10.23]:40129 "EHLO tmailer.gwdg.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932074AbXDIVko (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Apr 2007 17:40:44 -0400
+In-Reply-To: <20070409212841.31670.59366.stgit@gitlost.site>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller <davem@davemloft.net> writes:
-
-> From: Patrick McHardy <kaber@trash.net>
-> Date: Mon, 09 Apr 2007 18:58:13 +0200
->
->> It would be nice if someone would finally come up with a generic
->> interface based on netlink (RTM_NEWLINK) instead of adding yet
->> another couple of homegrown interfaces.
->
-> I absolutely agree, using these ioctls and sysfs/procfs crap
-> is totally insane given that we have a core mechanism for
-> network configuration.
-
-The core mechanism for network configuration does not support creating
-virtual devices in a extensible reusable way.
-
-In particular the tunnel types supported by iproute2 are hard coded
-into the user space tool and into the kernel interface.  The interface
-seems to be not the least bit extensible for creating new types of 
-non hardware backed network devices.
-
-So I don't see a readily usable mechanism for network configuration in
-netlink.  The fact that netlink it uses unreliable packets and an
-asynchronous interface just adds to the difficulty in making use of
-it.
-
-Nor have I seen a rigorous adherence to all new network configuration
-using netlink.  The wireless code doesn't even seem to really try.
-
-So I don't believe anyone has found a good maintainable, unix
-compatible configuration mechanism for maintaining anything yet.
+Hi,
 
 
-Regardless I really don't care what the interface is as long as people
-agree and I don't have to rewrite significant portions of user space
-to allow people to use it.
+On Apr 9 2007 14:28, Peter P Waskiewicz Jr wrote:
+>@@ -3345,6 +3358,7 @@ void free_netdev(struct net_device *dev)
+> {
+> #ifdef CONFIG_SYSFS
+> 	/*  Compatibility with error handling in drivers */
+>+	kfree((char *)dev->egress_subqueue);
+> 	if (dev->reg_state == NETREG_UNINITIALIZED) {
+> 		kfree((char *)dev - dev->padded);
+> 		return;
+>@@ -3356,6 +3370,7 @@ void free_netdev(struct net_device *dev)
+> 	/* will free via device release */
+> 	put_device(&dev->dev);
+> #else
+>+	kfree((char *)dev->egress_subqueue);
+> 	kfree((char *)dev - dev->padded);
+> #endif
+> }
 
-Since whatever user space interface we pick we will be stuck with
-we might as well review it as closely as we can and figure out what
-we can live with.
+Ahem. Explain that cast.
 
 
-Just to be contrary I'm tempted to add a sysctl interface.  No one has
-even mentioned class of user space interfaces yet.
 
-Eric
+Jan
+-- 
