@@ -1,47 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Add etun driver
-Date: Mon, 09 Apr 2007 11:37:30 -0700 (PDT)
-Message-ID: <20070409.113730.71114683.davem@davemloft.net>
-References: <1176136628.8459.34.camel@johannes.berg>
-	<461A70A5.8060607@trash.net>
-	<461A829C.7050703@candelatech.com>
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Subject: RE: [PATCH 2/2] NET: Multiqueue network device support implementation.
+Date: Mon, 9 Apr 2007 14:52:12 -0700
+Message-ID: <D5C1322C3E673F459512FB59E0DDC329029E400C@orsmsx414.amr.corp.intel.com>
+References: <Pine.LNX.4.61.0704092332030.22295@yvahk01.tjqt.qr>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, johannes@sipsolutions.net, ebiederm@xmission.com,
-	shemminger@linux-foundation.org, jgarzik@pobox.com,
-	akpm@linux-foundation.org, netdev@vger.kernel.org,
-	kuznet@ms2.inr.ac.ru, dlezcano@fr.ibm.com, dim@openvz.org,
-	containers@lists.osdl.org
-To: greearb@candelatech.com
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <jgarzik@pobox.com>,
+	"cramerj" <cramerj@intel.com>,
+	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
+	"Leech, Christopher" <christopher.leech@intel.com>
+To: "Jan Engelhardt" <jengelh@linux01.gwdg.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45342
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753358AbXDIShb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Apr 2007 14:37:31 -0400
-In-Reply-To: <461A829C.7050703@candelatech.com>
+Received: from mga03.intel.com ([143.182.124.21]:38117 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753047AbXDIVwP convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Apr 2007 17:52:15 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <Pine.LNX.4.61.0704092332030.22295@yvahk01.tjqt.qr>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ben Greear <greearb@candelatech.com>
-Date: Mon, 09 Apr 2007 11:14:52 -0700
-
-> Patrick McHardy wrote:
+> Hi,
 > 
-> > It would be nice if someone would finally come up with a generic
-> > interface based on netlink (RTM_NEWLINK) instead of adding yet
-> > another couple of homegrown interfaces.
 > 
-> My preference is for ioctls, procfs, or similar that does not
-> require extra libraries.  Ethtool is an ioctl based approach,
-> so that could potentially be used, though I'm not sure if
-> that's the right place to put it...
+> On Apr 9 2007 14:28, Peter P Waskiewicz Jr wrote:
+> >@@ -3345,6 +3358,7 @@ void free_netdev(struct net_device *dev)  {  
+> >#ifdef CONFIG_SYSFS
+> > 	/*  Compatibility with error handling in drivers */
+> >+	kfree((char *)dev->egress_subqueue);
+> > 	if (dev->reg_state == NETREG_UNINITIALIZED) {
+> > 		kfree((char *)dev - dev->padded);
+> > 		return;
+> >@@ -3356,6 +3370,7 @@ void free_netdev(struct net_device *dev)
+> > 	/* will free via device release */
+> > 	put_device(&dev->dev);
+> > #else
+> >+	kfree((char *)dev->egress_subqueue);
+> > 	kfree((char *)dev - dev->padded);
+> > #endif
+> > }
+> 
+> Ahem. Explain that cast.
 
-I totally disagree.
+Jan,
+	This can be removed if needed; however, I'm just copying what
+the other kfree()'s are doing in this function.  Any instance of a
+typecast that I introduced in these patches are just following what
+others have done in that section of the code.  So the cast is just for
+consistency in this particular area.  If you'd like me to remove it, I
+can do that.
 
-Netlink doesn't require libraries, the libraries just make using it
-easier.  It's a simple protocol sent over a socket, if you include
-the right headers you can do it all yourself.
+Thanks,
 
-We shouldn't fail to use our proper core network configuration
-interface just because it's inconvenient for you.
+-PJ Waskiewicz
