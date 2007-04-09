@@ -1,66 +1,71 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH] net: Add etun driver
-Date: Mon, 09 Apr 2007 18:37:08 +0200
-Message-ID: <1176136628.8459.34.camel@johannes.berg>
-References: <m1abxl5j4s.fsf@ebiederm.dsl.xmission.com>
-	 <20070406133420.2f098bc6@localhost>
-	 <m1ps6g5229.fsf@ebiederm.dsl.xmission.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: [NET_SCHED 2.6.21]: cls_tcindex: fix compatibility breakage
+Date: Mon, 09 Apr 2007 18:30:42 +0200
+Message-ID: <461A6A32.2040809@trash.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-Vg10kErGQGG/o8WKLqGn"
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	Jeff Garzik <jgarzik@pobox.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	Ben Greear <greearb@candelatech.com>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	Dmitry Mishin <dim@openvz.org>,
-	Linux Containers <containers@lists.osdl.org>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: multipart/mixed;
+ boundary="------------070803040308050407030501"
+Cc: Kernel Netdev Mailing List <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:35683 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S966233AbXDIQhx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Apr 2007 12:37:53 -0400
-In-Reply-To: <m1ps6g5229.fsf@ebiederm.dsl.xmission.com>
+Received: from stinky.trash.net ([213.144.137.162]:39789 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S966197AbXDIQas (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Apr 2007 12:30:48 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+This is a multi-part message in MIME format.
+--------------070803040308050407030501
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
 
---=-Vg10kErGQGG/o8WKLqGn
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+Fix tcindex userspace compatibility breakage on big-endian.
+Patch applies to current -git and -stable.
 
-On Fri, 2007-04-06 at 20:51 -0600, Eric W. Biederman wrote:
 
-> The only sysfs attributes that were always available that I could find
-> were module parameters.  A little odd because we can specify them on
-> the kernel command line, or when loading the module in addition to
-> being available at run time. =20
->=20
-> It gives me a general interface that is usable so long as the module
-> is loaded, and does not depend on the availability of any specific
-> network device.  I will happily use any other interface that gives
-> me the same level of functionality for the roughly the same level
-> of effort.
+--------------070803040308050407030501
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
 
-Just for consideration, in wireless we currently create virtual network
-devices by having a "add_iface" and "remove_iface" sysfs files below the
-ieee80211 class.
+[NET_SCHED]: cls_tcindex: fix compatibility breakage
 
-johannes
+Userspace uses an integer for TCA_TCINDEX_SHIFT, the kernel was changed
+to expect and use a u16 value in 2.6.11, which broke compatibility on
+big endian machines. Change back to use int.
 
---=-Vg10kErGQGG/o8WKLqGn
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
+Reported by Ole Reinartz <ole.reinartz@gmx.de>
 
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
+Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-iD8DBQBGGmu0/ETPhpq3jKURArALAJ95X4RKH0SobCjtoxPaHxqU42YlBwCeI7A7
-HM6NlSQPQJHwBr0CjO4Fwe8=
-=aA71
------END PGP SIGNATURE-----
+---
+commit 763d781919d5a69bea12c8f191486c562f16f515
+tree 6dc589cde5689766059f32d451b65ff1f40509e0
+parent 526a622afe930173cae35fe53948f380f0c04fef
+author Patrick McHardy <kaber@trash.net> Mon, 09 Apr 2007 05:55:58 +0200
+committer Patrick McHardy <kaber@trash.net> Mon, 09 Apr 2007 05:55:58 +0200
 
---=-Vg10kErGQGG/o8WKLqGn--
+ net/sched/cls_tcindex.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
+diff --git a/net/sched/cls_tcindex.c b/net/sched/cls_tcindex.c
+index 040e2d2..7563fdc 100644
+--- a/net/sched/cls_tcindex.c
++++ b/net/sched/cls_tcindex.c
+@@ -245,9 +245,9 @@ tcindex_set_parms(struct tcf_proto *tp, unsigned long base, u32 handle,
+ 	}
+ 
+ 	if (tb[TCA_TCINDEX_SHIFT-1]) {
+-		if (RTA_PAYLOAD(tb[TCA_TCINDEX_SHIFT-1]) < sizeof(u16))
++		if (RTA_PAYLOAD(tb[TCA_TCINDEX_SHIFT-1]) < sizeof(int))
+ 			goto errout;
+-		cp.shift = *(u16 *) RTA_DATA(tb[TCA_TCINDEX_SHIFT-1]);
++		cp.shift = *(int *) RTA_DATA(tb[TCA_TCINDEX_SHIFT-1]);
+ 	}
+ 
+ 	err = -EBUSY;
+
+--------------070803040308050407030501--
