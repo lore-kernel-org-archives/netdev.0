@@ -1,51 +1,28 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] net: Add etun driver
-Date: Mon, 09 Apr 2007 22:11:29 +0200
-Message-ID: <461A9DF1.8080904@trash.net>
-References: <m1ps6g5229.fsf@ebiederm.dsl.xmission.com>	<1176136628.8459.34.camel@johannes.berg> <461A70A5.8060607@trash.net>	<20070409.114402.45491411.davem@davemloft.net> <m1mz1h1guo.fsf@ebiederm.dsl.xmission.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [NET_SCHED 2.6.21]: cls_tcindex: fix compatibility breakage
+Date: Mon, 09 Apr 2007 11:42:51 -0700 (PDT)
+Message-ID: <20070409.114251.97268455.davem@davemloft.net>
+References: <461A6A32.2040809@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
-	dim@openvz.org, netdev@vger.kernel.org, johannes@sipsolutions.net,
-	jgarzik@pobox.com, containers@lists.osdl.org, kuznet@ms2.inr.ac.ru,
-	shemminger@linux-foundation.org, greearb@candelatech.com
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Cc: netdev@vger.kernel.org
+To: kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:43466 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965513AbXDIULv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Apr 2007 16:11:51 -0400
-In-Reply-To: <m1mz1h1guo.fsf@ebiederm.dsl.xmission.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40182
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753364AbXDISmw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Apr 2007 14:42:52 -0400
+In-Reply-To: <461A6A32.2040809@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Eric W. Biederman wrote:
-> The core mechanism for network configuration does not support creating
-> virtual devices in a extensible reusable way.
-> 
-> In particular the tunnel types supported by iproute2 are hard coded
-> into the user space tool and into the kernel interface.  The interface
-> seems to be not the least bit extensible for creating new types of 
-> non hardware backed network devices.
+From: Patrick McHardy <kaber@trash.net>
+Date: Mon, 09 Apr 2007 18:30:42 +0200
 
+> Fix tcindex userspace compatibility breakage on big-endian.
+> Patch applies to current -git and -stable.
 
-Yes, it sucks.
+Applied, thanks Patrick.
 
-> So I don't see a readily usable mechanism for network configuration in
-> netlink.
-
-
-Thats why I suggested that we should create one, ideally before adding
-more sysfs/proc/ioctl/... based interfaces, which we'll have a hard time
-getting rid of again.
-
-I could take care of this if you don't mind waiting until 2.6.23.
-
-> The fact that netlink it uses unreliable packets and an
-> asynchronous interface just adds to the difficulty in making use of
-> it.
-
-
-Its reliable on the userspace->kernel path as long as you don't use
-MSG_DONTWAIT.
+I'll push to -stable later today.
