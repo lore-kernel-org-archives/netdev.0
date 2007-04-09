@@ -1,58 +1,39 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: RE: [PATCH 2/2] NET: Multiqueue network device support implementation.
-Date: Mon, 9 Apr 2007 14:52:12 -0700
-Message-ID: <D5C1322C3E673F459512FB59E0DDC329029E400C@orsmsx414.amr.corp.intel.com>
-References: <Pine.LNX.4.61.0704092332030.22295@yvahk01.tjqt.qr>
+From: Robin Getz <rgetz@blackfin.uclinux.org>
+Subject: Re: [PATCH] CONFIG_PACKET_MMAP should depend on MMU
+Date: Mon, 9 Apr 2007 16:08:22 -0400
+Message-ID: <200704091608.23270.rgetz@blackfin.uclinux.org>
+References: <6d6a94c50704082001y5c13c865ic3d70217aba7d181@mail.gmail.com> <20070409.095523.122833625.davem@davemloft.net> <20070409.114323.78734391.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <jgarzik@pobox.com>,
-	"cramerj" <cramerj@intel.com>,
-	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
-	"Leech, Christopher" <christopher.leech@intel.com>
-To: "Jan Engelhardt" <jengelh@linux01.gwdg.de>
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: bryan.wu@analog.com, alan@lxorguk.ukuu.org.uk,
+	waltje@uwalt.nl.mugnet.org, aubreylee@gmail.com,
+	netdev@vger.kernel.org, akpm@osdl.org,
+	linux-kernel@vger.kernel.org, "David Howells" <dhowells@redhat.com>
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:38117 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753047AbXDIVwP convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Apr 2007 17:52:15 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <Pine.LNX.4.61.0704092332030.22295@yvahk01.tjqt.qr>
+Received: from nwd2mail10.analog.com ([137.71.25.55]:3705 "EHLO
+	nwd2mail10.analog.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965396AbXDIUGt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Apr 2007 16:06:49 -0400
+In-Reply-To: <20070409.114323.78734391.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> Hi,
-> 
-> 
-> On Apr 9 2007 14:28, Peter P Waskiewicz Jr wrote:
-> >@@ -3345,6 +3358,7 @@ void free_netdev(struct net_device *dev)  {  
-> >#ifdef CONFIG_SYSFS
-> > 	/*  Compatibility with error handling in drivers */
-> >+	kfree((char *)dev->egress_subqueue);
-> > 	if (dev->reg_state == NETREG_UNINITIALIZED) {
-> > 		kfree((char *)dev - dev->padded);
-> > 		return;
-> >@@ -3356,6 +3370,7 @@ void free_netdev(struct net_device *dev)
-> > 	/* will free via device release */
-> > 	put_device(&dev->dev);
-> > #else
-> >+	kfree((char *)dev->egress_subqueue);
-> > 	kfree((char *)dev - dev->padded);
-> > #endif
-> > }
-> 
-> Ahem. Explain that cast.
+On Mon 9 Apr 2007 14:43, David Miller pondered:
+> From: David Miller <davem@davemloft.net>
+> Date: Mon, 09 Apr 2007 09:55:23 -0700 (PDT)
+> >
+> > I will apply this patch.
+>
+> Actually I won't, the other comments in this thread make a lot
+> of sense, we should try to make it build and work just as we
+> do for other similar things on no-MMU.
 
-Jan,
-	This can be removed if needed; however, I'm just copying what
-the other kfree()'s are doing in this function.  Any instance of a
-typecast that I introduced in these patches are just following what
-others have done in that section of the code.  So the cast is just for
-consistency in this particular area.  If you'd like me to remove it, I
-can do that.
+Great. Any pointers in the right direction to remove the requirement of 
+vm_insert_page() in the noMMU case?
 
-Thanks,
-
--PJ Waskiewicz
+Thanks
+-Robin
