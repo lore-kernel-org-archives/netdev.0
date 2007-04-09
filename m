@@ -1,56 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] CONFIG_PACKET_MMAP should depend on MMU
-Date: Mon, 09 Apr 2007 11:43:23 -0700 (PDT)
-Message-ID: <20070409.114323.78734391.davem@davemloft.net>
-References: <6d6a94c50704082001y5c13c865ic3d70217aba7d181@mail.gmail.com>
-	<1176112223.17975.8.camel@roc-desktop>
-	<20070409.095523.122833625.davem@davemloft.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] net: Add etun driver
+Date: Mon, 09 Apr 2007 20:45:51 +0200
+Message-ID: <461A89DF.1030307@trash.net>
+References: <m1abxl5j4s.fsf@ebiederm.dsl.xmission.com>	 <20070406133420.2f098bc6@localhost>	 <m1ps6g5229.fsf@ebiederm.dsl.xmission.com> <1176136628.8459.34.camel@johannes.berg> <461A70A5.8060607@trash.net> <461A829C.7050703@candelatech.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: alan@lxorguk.ukuu.org.uk, waltje@uWalt.NL.Mugnet.ORG,
-	aubreylee@gmail.com, netdev@vger.kernel.org, akpm@osdl.org,
-	linux-kernel@vger.kernel.org
-To: bryan.wu@analog.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753396AbXDISnZ@vger.kernel.org>
-In-Reply-To: <20070409.095523.122833625.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	Jeff Garzik <jgarzik@pobox.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	Dmitry Mishin <dim@openvz.org>,
+	Linux Containers <containers@lists.osdl.org>
+To: Ben Greear <greearb@candelatech.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:42137 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753401AbXDISqJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Apr 2007 14:46:09 -0400
+In-Reply-To: <461A829C.7050703@candelatech.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: David Miller <davem@davemloft.net>
-Date: Mon, 09 Apr 2007 09:55:23 -0700 (PDT)
-
-> From: "Wu, Bryan" <bryan.wu@analog.com>
-> Date: Mon, 09 Apr 2007 17:50:22 +0800
+Ben Greear wrote:
+> Patrick McHardy wrote:
 > 
-> > On Mon, 2007-04-09 at 11:01 +0800, Aubrey Li wrote:
-> > > The option CONFIG_PACKET_MMAP should depend on MMU.
-> > > 
-> > > Signed-off-by: Aubrey.Li <aubreylee@gmail.com>
-> > > ---
-> > >  net/packet/Kconfig |    2 +-
-> > >  1 files changed, 1 insertions(+), 1 deletions(-)
-> > > 
-> > > diff --git a/net/packet/Kconfig b/net/packet/Kconfig
-> > > index 34ff93f..959c272 100644
-> > > --- a/net/packet/Kconfig
-> > > +++ b/net/packet/Kconfig
-> > > @@ -17,7 +17,7 @@ config PACKET
-> > > 
-> > >  config PACKET_MMAP
-> > >  	bool "Packet socket: mmapped IO"
-> > > -	depends on PACKET
-> > > +	depends on PACKET && MMU
-> > >  	help
-> > >  	  If you say Y here, the Packet protocol driver will use an IO
-> > >  	  mechanism that results in faster communication.
-> > 
-> > Yeah, this is a bug found on blackfin arch and it is also for other
-> > NOMMU arch. Is there any solution for this? We think Aubrey's idea
-> > works.
+>> It would be nice if someone would finally come up with a generic
+>> interface based on netlink (RTM_NEWLINK) instead of adding yet
+>> another couple of homegrown interfaces.
 > 
-> I will apply this patch.
+> 
+> My preference is for ioctls, procfs, or similar that does not
+> require extra libraries.  Ethtool is an ioctl based approach,
+> so that could potentially be used, though I'm not sure if
+> that's the right place to put it...
 
-Actually I won't, the other comments in this thread make a lot
-of sense, we should try to make it build and work just as we
-do for other similar things on no-MMU.
+
+Extra libraries is one of the least important points in my opinion,
+I also guess pretty much anyone using a software device already has
+iproute installed, which could easily support all of them.
+
+The more important things to consider are in my opinion extendability
+and atomicity of changes and dumps:
+
+- ioctls: atomicity, not easily extendable
+- sysfs: no atomicity, easily extendable
+- procfs: if atomicity not easily extendable, but can of course also
+  be used similar to sysfs
+
+Only netlink offers both in an easy to use fashion and is already used
+for the main parts of network configuration anyway.
