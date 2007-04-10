@@ -1,66 +1,62 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [PATCH 2/2] NET: Multiqueue network device support implementation.
-Date: Tue, 10 Apr 2007 12:20:49 +0400
-Message-ID: <20070410082049.GC16621@2ka.mipt.ru>
-References: <20070409212723.31670.27976.stgit@gitlost.site> <20070409212841.31670.59366.stgit@gitlost.site>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH] net: Add etun driver
+Date: Tue, 10 Apr 2007 08:18:56 +0200
+Message-ID: <1176185936.8459.62.camel@johannes.berg>
+References: <m1ps6g5229.fsf@ebiederm.dsl.xmission.com>
+	 <1176136628.8459.34.camel@johannes.berg> <461A70A5.8060607@trash.net>
+	 <20070409.114402.45491411.davem@davemloft.net>
+	 <m1mz1h1guo.fsf@ebiederm.dsl.xmission.com> <461A9DF1.8080904@trash.net>
+	 <1176150557.8459.47.camel@johannes.berg> <461AD517.2000906@trash.net>
+	 <1176184028.8459.58.camel@johannes.berg>
+	 <m1ejmszrpr.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, jgarzik@pobox.com, cramerj@intel.com,
-	auke-jan.h.kok@intel.com, christopher.leech@intel.com
-To: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-rcZ7VfZcWcLbXIURBq/X"
+Cc: Patrick McHardy <kaber@trash.net>, greearb@candelatech.com,
+	containers@lists.osdl.org, shemminger@linux-foundation.org,
+	kuznet@ms2.inr.ac.ru, dim@openvz.org, netdev@vger.kernel.org,
+	akpm@linux-foundation.org, jgarzik@pobox.com,
+	David Miller <davem@davemloft.net>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:58314 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030470AbXDJIVf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Apr 2007 04:21:35 -0400
-Content-Disposition: inline
-In-Reply-To: <20070409212841.31670.59366.stgit@gitlost.site>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:60550 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030395AbXDJGSo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Apr 2007 02:18:44 -0400
+In-Reply-To: <m1ejmszrpr.fsf@ebiederm.dsl.xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 09, 2007 at 02:28:41PM -0700, Peter P Waskiewicz Jr (peter.p.waskiewicz.jr@intel.com) wrote:
-> + 	alloc_size = (sizeof(struct net_device_subqueue) * queue_count);
-> + 
-> + 	p = kzalloc(alloc_size, GFP_KERNEL);
-> + 	if (!p) {
-> + 		printk(KERN_ERR "alloc_netdev: Unable to allocate queues.\n");
-> + 		return NULL;
 
-I think you either do not want to print it, or want additional details
-about device...
+--=-rcZ7VfZcWcLbXIURBq/X
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-> + 	}
-> + 
-> + 	dev->egress_subqueue = p;
-> + 	dev->egress_subqueue_count = queue_count;
-> +
->  	dev->get_stats = maybe_internal_stats;
->  	setup(dev);
->  	strcpy(dev->name, name);
->  	return dev;
->  }
-> -EXPORT_SYMBOL(alloc_netdev);
-> +EXPORT_SYMBOL(alloc_netdev_mq);
->  
->  /**
->   *	free_netdev - free network device
-> @@ -3345,6 +3358,7 @@ void free_netdev(struct net_device *dev)
->  {
->  #ifdef CONFIG_SYSFS
->  	/*  Compatibility with error handling in drivers */
-> +	kfree((char *)dev->egress_subqueue);
->  	if (dev->reg_state == NETREG_UNINITIALIZED) {
->  		kfree((char *)dev - dev->padded);
->  		return;
-> @@ -3356,6 +3370,7 @@ void free_netdev(struct net_device *dev)
->  	/* will free via device release */
->  	put_device(&dev->dev);
->  #else
-> +	kfree((char *)dev->egress_subqueue);
+On Tue, 2007-04-10 at 00:08 -0600, Eric W. Biederman wrote:
 
-Still casting :)
+> How are you specifying which piece of hardware today?  By interface name?
 
+By wiphy index, which is just the hardware identifier we give each
+802.11 device present on the system (if it uses cfg80211)
 
--- 
-	Evgeniy Polyakov
+> What function do your virtual devices serve?
+
+Basically you can have a monitor, access point and WDS link running on
+the same 802.11 MAC at the same time and that's what we need to present,
+each one as a netdev.
+
+johannes
+
+--=-rcZ7VfZcWcLbXIURBq/X
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iD8DBQBGGyxQ/ETPhpq3jKURAqImAJ4wY8EczYOedDWb827SNry5hFUtSACgkmEG
+BuVQJHWf+MGGlD9T7xRQPd4=
+=zAGL
+-----END PGP SIGNATURE-----
+
+--=-rcZ7VfZcWcLbXIURBq/X--
+
