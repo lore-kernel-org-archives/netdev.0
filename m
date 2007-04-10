@@ -1,34 +1,47 @@
 From: Dmitry Torokhov <dtor@insightbb.com>
-Subject: Re: [RFC] RF Kill
-Date: Tue, 10 Apr 2007 02:29:31 -0400
-Message-ID: <200704100229.32393.dtor@insightbb.com>
-References: <200704100158.58451.dtor@insightbb.com>
+Subject: [RFC] RF Kill
+Date: Tue, 10 Apr 2007 01:58:56 -0400
+Message-ID: <200704100158.58451.dtor@insightbb.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
-  charset="iso-8859-1"
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 Cc: ivdoorn@gmail.com, linville@tuxdriver.com,
 	David Miller <davem@davemloft.net>,
 	Andrew Morton <akpm@linux-foundation.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gateway.insightbb.com ([74.128.0.19]:29014 "EHLO
-	asav01.insightbb.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030413AbXDJG3g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Apr 2007 02:29:36 -0400
-In-Reply-To: <200704100158.58451.dtor@insightbb.com>
+Received: from gateway.insightbb.com ([74.128.0.19]:45742 "EHLO
+	asav14.insightbb.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030360AbXDJF7G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Apr 2007 01:59:06 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 10 April 2007 01:58, Dmitry Torokhov wrote:
-> Hi,
-> 
-> This is a modified version of rfkill patch that provides infrastructure
-> for controlling state of RF transmitters found on various cards.
+Hi,
 
-Well, Andrew found bunch of issues with the patch so here is an
-updated version...
+This is a modified version of rfkill patch that provides infrastructure
+for controlling state of RF transmitters found on various cards. It
+works as follows:
+
+Network card drivers that are able to control state of their RF
+transmitters allocate and register rfkill structures. Every rfkill
+structure belongs to one of RF classes (WLAN, Bluetooth or IRDA)
+and exports its name, type, state and "user_claim" through sysfs.
+Drivers implementing RF switches must supply toggle_radio() method
+for controlling switch.  
+
+There is also an input handler that catches KEY_WLAN and KEY_BLUETOOTH
+events passing through input system and toggles state of all RF
+switches of appropriate type registered with rfkill system (unless
+a switch was claimed by userspace in which case it is left alone).
+I think this provides basic functionality that most of the users need
+and any advanced control will have to be done from userspace.
+
+Creation of input devices that emit KEY_WLAN and KEY_BLUETOOTH is
+outside of scope of rfkill infrastructure but input core will
+provide a skeleton for easy implementation of simple polled buttons.
 
 -- 
 Dmitry
@@ -42,20 +55,20 @@ Signed-off-by Ivo van Doorn <IvDoorn@gmail.com>
 Signed-off-by: Dmitry Torokhov <dtor@mail.ru>
 ---
 
- include/linux/rfkill.h    |   87 +++++++++
+ include/linux/rfkill.h    |   85 +++++++++
  net/Kconfig               |    1 
  net/Makefile              |    1 
  net/rfkill/Kconfig        |   24 ++
  net/rfkill/Makefile       |    6 
- net/rfkill/rfkill-input.c |  170 +++++++++++++++++++
- net/rfkill/rfkill.c       |  406 ++++++++++++++++++++++++++++++++++++++++++++++
- 7 files changed, 695 insertions(+)
+ net/rfkill/rfkill-input.c |  169 +++++++++++++++++++
+ net/rfkill/rfkill.c       |  400 ++++++++++++++++++++++++++++++++++++++++++++++
+ 7 files changed, 686 insertions(+)
 
 Index: work/include/linux/rfkill.h
 ===================================================================
 --- /dev/null
 +++ work/include/linux/rfkill.h
-@@ -0,0 +1,87 @@
+@@ -0,0 +1,85 @@
 +#ifndef __RFKILL_H
 +#define __RFKILL_H
 +
@@ -79,8 +92,6 @@ Index: work/include/linux/rfkill.h
 + * 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 + */
 +
-+#include <linux/list.h>
-+#include <linux/mutex.h>
 +#include <linux/device.h>
 +
 +/**
@@ -211,7 +222,7 @@ Index: work/net/rfkill/rfkill-input.c
 ===================================================================
 --- /dev/null
 +++ work/net/rfkill/rfkill-input.c
-@@ -0,0 +1,170 @@
+@@ -0,0 +1,169 @@
 +/*
 + * Input layer to RF Kill interface connector
 + *
@@ -278,7 +289,7 @@ Index: work/net/rfkill/rfkill-input.c
 +	spin_unlock_irqrestore(&task->lock, flags);
 +}
 +
-+#define DEFINE_RFKILL_TASK(n, t)			\
++#define DECLARE_RFKILL_TASK(n, t)			\
 +	struct rfkill_task n = {			\
 +		.work = __WORK_INITIALIZER(n.work,	\
 +				rfkill_task_handler),	\
@@ -289,22 +300,22 @@ Index: work/net/rfkill/rfkill-input.c
 +		.current_state = RFKILL_STATE_ON,	\
 +	}
 +
-+static DEFINE_RFKILL_TASK(rfkill_wlan, RFKILL_TYPE_WLAN);
-+static DEFINE_RFKILL_TASK(rfkill_bt, RFKILL_TYPE_BLUETOOTH);
++static DECLARE_RFKILL_TASK(rfkill_wlan, RFKILL_TYPE_WLAN);
++static DECLARE_RFKILL_TASK(rfkill_bt, RFKILL_TYPE_BLUETOOTH);
 +
 +static void rfkill_event(struct input_handle *handle, unsigned int type,
 +		        unsigned int code, int down)
 +{
 +	if (type == EV_KEY && down == 1) {
 +		switch (code) {
-+		case KEY_WLAN:
-+			rfkill_schedule_toggle(&rfkill_wlan);
-+			break;
-+		case KEY_BLUETOOTH:
-+			rfkill_schedule_toggle(&rfkill_bt);
-+			break;
-+		default:
-+			break;
++			case KEY_WLAN:
++				rfkill_schedule_toggle(&rfkill_wlan);
++				break;
++			case KEY_BLUETOOTH:
++				rfkill_schedule_toggle(&rfkill_bt);
++				break;
++			default:
++				break;
 +		}
 +	}
 +}
@@ -351,14 +362,13 @@ Index: work/net/rfkill/rfkill-input.c
 +	{
 +		.flags = INPUT_DEVICE_ID_MATCH_EVBIT | INPUT_DEVICE_ID_MATCH_KEYBIT,
 +		.evbit = { BIT(EV_KEY) },
-+		.keybit = { [LONG(KEY_WLAN)] = BIT(KEY_WLAN) },
++		.keybit = { [LONG(KEY_WLAN)] = BIT(KEY_WLAN) }
 +	},
 +	{
 +		.flags = INPUT_DEVICE_ID_MATCH_EVBIT | INPUT_DEVICE_ID_MATCH_KEYBIT,
 +		.evbit = { BIT(EV_KEY) },
-+		.keybit = { [LONG(KEY_BLUETOOTH)] = BIT(KEY_BLUETOOTH) },
++		.keybit = { [LONG(KEY_BLUETOOTH)] = BIT(KEY_BLUETOOTH) }
 +	},
-+	{ }
 +};
 +
 +static struct input_handler rfkill_handler = {
@@ -386,7 +396,7 @@ Index: work/net/rfkill/rfkill.c
 ===================================================================
 --- /dev/null
 +++ work/net/rfkill/rfkill.c
-@@ -0,0 +1,406 @@
+@@ -0,0 +1,400 @@
 +/*
 + * Copyright (C) 2006 Ivo van Doorn
 + * Copyright (C) 2007 Dmitry Torokhov
@@ -588,7 +598,6 @@ Index: work/net/rfkill/rfkill.c
 +	module_put(THIS_MODULE);
 +}
 +
-+#ifdef CONFIG_PM
 +static int rfkill_suspend(struct device *dev, pm_message_t state)
 +{
 +	struct rfkill *rfkill = to_rfkill(dev);
@@ -626,16 +635,13 @@ Index: work/net/rfkill/rfkill.c
 +	dev->power.power_state = PMSG_ON;
 +	return 0;
 +}
-+#endif
 +
 +static struct class rfkill_class = {
 +	.name		= "rfkill",
 +	.dev_release	= rfkill_release,
 +	.dev_attrs	= rfkill_dev_attrs,
-+#ifdef CONFIG_PM
 +	.suspend	= rfkill_suspend,
 +	.resume		= rfkill_resume,
-+#endif
 +};
 +
 +static int rfkill_add_switch(struct rfkill *rfkill)
@@ -694,8 +700,6 @@ Index: work/net/rfkill/rfkill.c
 +	dev->class = &rfkill_class;
 +	dev->parent = parent;
 +	device_initialize(dev);
-+
-+	__module_get(THIS_MODULE);
 +
 +	return rfkill;
 +}
