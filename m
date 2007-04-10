@@ -1,37 +1,62 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 2/2] NET: Multiqueue network device support.
-Date: Wed, 11 Apr 2007 20:49:43 +1000
-Message-ID: <E1HbaOV-0004rc-00@gondolin.me.apana.org.au>
-References: <D5C1322C3E673F459512FB59E0DDC329029E3EE5@orsmsx414.amr.corp.intel.com>
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, jgarzik@pobox.com, cramerj@intel.com,
-	auke-jan.h.kok@intel.com, christopher.leech@intel.com
-To: peter.p.waskiewicz.jr@intel.com (Waskiewicz Jr, Peter P)
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH] net: Add etun driver
+Date: Tue, 10 Apr 2007 23:16:59 +0200
+Message-ID: <1176239819.10381.10.camel@johannes.berg>
+References: <m1ps6g5229.fsf@ebiederm.dsl.xmission.com>
+	 <1176136628.8459.34.camel@johannes.berg> <461A70A5.8060607@trash.net>
+	 <20070409.114402.45491411.davem@davemloft.net>
+	 <m1mz1h1guo.fsf@ebiederm.dsl.xmission.com>  <461A9DF1.8080904@trash.net>
+	 <1176150557.8459.47.camel@johannes.berg>  <461AD517.2000906@trash.net>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-TJUVvMleZmXqDukrANvE"
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
+	dim@openvz.org, netdev@vger.kernel.org, jgarzik@pobox.com,
+	containers@lists.osdl.org, kuznet@ms2.inr.ac.ru,
+	shemminger@linux-foundation.org, greearb@candelatech.com
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:3159 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752185AbXDKKt5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Apr 2007 06:49:57 -0400
-In-Reply-To: <D5C1322C3E673F459512FB59E0DDC329029E3EE5@orsmsx414.amr.corp.intel.com>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:33425 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752082AbXDKLHA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Apr 2007 07:07:00 -0400
+In-Reply-To: <461AD517.2000906@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Waskiewicz Jr, Peter P <peter.p.waskiewicz.jr@intel.com> wrote:
-> 
-> True, but the assignment for "dev" above also casts this void * to
-> struct net_device *:
-> 
->        dev = (struct net_device *)
->                (((long)p + NETDEV_ALIGN_CONST) & ~NETDEV_ALIGN_CONST);
->        dev->padded = (char *)dev - (char *)p;
-> 
-> Shall I remove my cast?
 
-This is totally different as it's casting a "long", not a "void *".
+--=-TJUVvMleZmXqDukrANvE
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+On Tue, 2007-04-10 at 02:06 +0200, Patrick McHardy wrote:
+
+> Same way as the current RTM_SETLINK message works, but with creating
+> a new link in advance. It works fine in other subsystems, so I don't
+> see why it would in this case as well. Some subsystems do it in an
+> atomic fashion (network schedulers for example), some first create
+> the object, then configure it (network classifiers in the non-compat
+> cases). In the network device case I suppose the later should work
+> fine since a device needs to be set UP in a second action before
+> it really does anything.
+
+Looking at br_netlink.c it seems that this sort of contradicts why
+generic netlink was done, now all the sudden everything that wants to
+create new links need its own netlink protocol number, no?
+
+johannes
+
+--=-TJUVvMleZmXqDukrANvE
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iD8DBQBGG/7L/ETPhpq3jKURAkHEAJ9kdvCDE0rZlhbQ4R2vzdcqYs+gSQCgqlGm
+ypyEg4vN09clN0LFGfitAsk=
+=Vjn9
+-----END PGP SIGNATURE-----
+
+--=-TJUVvMleZmXqDukrANvE--
+
