@@ -1,71 +1,64 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: [ofa-general] RFC: "mlx4" drivers for Mellanox ConnectX HCAs
-Date: Mon, 09 Apr 2007 21:17:30 -0700
-Message-ID: <adawt0k3lt1.fsf@cisco.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH] net: Add etun driver
+Date: Tue, 10 Apr 2007 07:47:08 +0200
+Message-ID: <1176184028.8459.58.camel@johannes.berg>
+References: <m1ps6g5229.fsf@ebiederm.dsl.xmission.com>
+	 <1176136628.8459.34.camel@johannes.berg> <461A70A5.8060607@trash.net>
+	 <20070409.114402.45491411.davem@davemloft.net>
+	 <m1mz1h1guo.fsf@ebiederm.dsl.xmission.com>  <461A9DF1.8080904@trash.net>
+	 <1176150557.8459.47.camel@johannes.berg>  <461AD517.2000906@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: general@lists.openfabrics.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <general-bounces@lists.openfabrics.org>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-phCWgN6prEtFR2zwuGF4"
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
+	dim@openvz.org, netdev@vger.kernel.org, jgarzik@pobox.com,
+	containers@lists.osdl.org, kuznet@ms2.inr.ac.ru,
+	shemminger@linux-foundation.org, greearb@candelatech.com
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:51966 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030351AbXDJFrI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Apr 2007 01:47:08 -0400
+In-Reply-To: <461AD517.2000906@trash.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I'd like to announce preliminary versions of a set of "mlx4" drivers
-for Mellanox's new ConnectX InfiniBand/10 gigabit ethernet adapters.
-(These are Mellanox's 4th generation of adapters, hence the mlx4 name)
-Because these adapters can operate as both an ethernet NIC and an
-InfiniBand HCA (at the same time!), the driver is split up into three
-pieces:
 
-    mlx4_core: Basic support for hardware, managing resources, sending
-      commands to firmware, etc.  Lives in drivers/net/mlx4 (so that
-      it gets built in a natural way for ethernet support, even if
-      CONFIG_INFINIBAND=n) and exports its API in include/linux/mlx4.
+--=-phCWgN6prEtFR2zwuGF4
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-    mlx4_ib: InfiniBand HCA driver, sits between the IB midlayer and
-      mlx4_core.  Lives in drivers/infiniband/hw/mlx4.
+On Tue, 2007-04-10 at 02:06 +0200, Patrick McHardy wrote:
 
-    mlx4_eth: Ethernet NIC driver, sits between networking stack and
-      mlx4_core.  Also lives in drivers/net/mlx4.  This is just a stub
-      right now, because firmware support for ethernet mode is still
-      too immature.
+> Same way as the current RTM_SETLINK message works, but with creating
+> a new link in advance. It works fine in other subsystems, so I don't
+> see why it would in this case as well. Some subsystems do it in an
+> atomic fashion (network schedulers for example), some first create
+> the object, then configure it (network classifiers in the non-compat
+> cases). In the network device case I suppose the later should work
+> fine since a device needs to be set UP in a second action before
+> it really does anything.
 
-In fact, the ConnectX hardware has support for fibre channel stuff
-too, so in the future there may also be an FC HBA driver layered on
-top of mlx4_core as well.
+Our virtual devices are always associated with a piece of hardware, and
+we really want them to be associated with that at all times, even when
+not UP. Everything else seems like a huge complication if only because
+then we can't have whoever will be responsible for the device allocate
+it's private space area.
 
-I will post a full set of patches for review via email once I've had a
-chance to clean things up and split things into reasonable sized
-chunks (the full patch is > 300 KB right now), but for those who are
-interested, you can grab the connectx branch of my infiniband.git tree:
+johannes
 
-    git://git.kernel.org/pub/scm/linux/kernel/git/roland/infiniband.git connectx
+--=-phCWgN6prEtFR2zwuGF4
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
 
-I've also put this code in my for-mm branch, so it should appear in
-the next -mm kernel whenever Andrew has time to get one out.
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
 
-Any and all comments are appreciated; my current plan is to merge the
-mlx4_core and mlx4_ib drivers for 2.6.22, and I hope that mlx4_eth
-will be ready for 2.6.23.
+iD8DBQBGGyTb/ETPhpq3jKURAtoDAJ9+JsW6DETvaTgVhLuHIGU+U2EDqwCfQEVu
+XCLerQnx2d98MllRHvWBOac=
+=u4EW
+-----END PGP SIGNATURE-----
 
-I've tried to flag areas that are not fully implemented or still need
-work, and there are quite a few places that need cleanup, but the
-driver is at least able to run IP-over-InfiniBand and some basic
-userspace direct access tests.
+--=-phCWgN6prEtFR2zwuGF4--
 
-Speaking of direct access, a preliminary version of a userspace driver
-that works with libibverbs is available from:
-
-    git://git.kernel.org/pub/scm/libs/infiniband/libmlx4.git
-
-
-Thanks to the crew at Mellanox for lots of help with sample code and
-debugging, as well as early access to the hardware!
