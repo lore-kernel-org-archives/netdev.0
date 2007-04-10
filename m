@@ -1,66 +1,41 @@
-From: Evgeniy Polyakov <johnpol-9fLWQ3dKdXwox3rIn2DAYQ@public.gmane.org>
-Subject: Re: QEMU PIC indirection patch for in-kernel APIC work
-Date: Tue, 10 Apr 2007 15:50:37 +0400
-Message-ID: <20070410115035.GA2247@2ka.mipt.ru>
-References: <1175821357.12230.642.camel@localhost.localdomain>
-	<46187F4E.1080807@qumranet.com>
-	<1176087018.11664.65.camel@localhost.localdomain>
-	<4619E6DC.3010804@qumranet.com>
-	<1176111984.11664.90.camel@localhost.localdomain>
-	<461A41CA.9080201@qumranet.com>
-	<20070410080729.GB16621@2ka.mipt.ru>
-	<461B48A8.1060904@qumranet.com>
-	<20070410085825.GA20004@2ka.mipt.ru>
-	<461B7334.8090807@qumranet.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] net: Add etun driver
+Date: Tue, 10 Apr 2007 14:05:46 +0200
+Message-ID: <461B7D9A.50902@trash.net>
+References: <m1ps6g5229.fsf@ebiederm.dsl.xmission.com>	 <1176136628.8459.34.camel@johannes.berg> <461A70A5.8060607@trash.net>	 <20070409.114402.45491411.davem@davemloft.net>	 <m1mz1h1guo.fsf@ebiederm.dsl.xmission.com>  <461A9DF1.8080904@trash.net>	 <1176150557.8459.47.camel@johannes.berg>  <461AD517.2000906@trash.net>	 <1176184028.8459.58.camel@johannes.berg>  <461B4242.1040602@trash.net>	 <1176196734.8459.74.camel@johannes.berg>  <461B5E42.2030900@trash.net>	 <1176200879.8459.77.camel@johannes.berg>  <461B6B22.3090009@trash.net>	 <1176202930.8459.81.camel@johannes.berg>  <461B7060.8000407@trash.net> <1176204297.8459.86.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: kvm-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Avi Kivity <avi-atKUWr5tajBWk0Htik3J/w@public.gmane.org>
-Return-path: <kvm-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <461B7334.8090807-atKUWr5tajBWk0Htik3J/w@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/kvm-devel>,
-	<mailto:kvm-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=kvm-devel>
-List-Post: <mailto:kvm-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:kvm-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/kvm-devel>,
-	<mailto:kvm-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Sender: kvm-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-Errors-To: kvm-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
+	dim@openvz.org, netdev@vger.kernel.org, jgarzik@pobox.com,
+	containers@lists.osdl.org, kuznet@ms2.inr.ac.ru,
+	shemminger@linux-foundation.org, greearb@candelatech.com
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:59012 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965042AbXDJMGW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Apr 2007 08:06:22 -0400
+In-Reply-To: <1176204297.8459.86.camel@johannes.berg>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 10, 2007 at 02:21:24PM +0300, Avi Kivity (avi-atKUWr5tajBWk0Htik3J/w@public.gmane.org) wrote:
-> >You want to implement zero-copy network device between host and guest, if
-> >I understood this thread correctly?
-> >So, for sending part, device allocates pages from receiver's memory (or
-> >from shared memory), receiver gets an 'interrupt' and got pages from own
-> >memory, which are attached to new skb and transferred up to the network
-> >stack.
-> >It can be extended to use shared ring of pages.
-> >  
-> 
-> This is what Xen does.  It is actually less performant than copying, IIRC.
-> 
-> The problem with flipping pages around is that physical addresses are 
-> cached both in the kvm mmu and in the on-chip tlbs, necessitating 
-> expensive page table walks and tlb invalidation IPIs.
+Johannes Berg wrote:
+> Fair enough. Then the question however remains whether wireless should
+> try to do all things it needs in one or try leveraging multiple things
+> from other places. Thoughts?
 
-Hmm, I'm not familiar with Xen driver, but similar technique was used
-with zero-copy network sniffer some time ago, substituting userspace
-pages with pages containing skb data was about 25-50% faster than
-copying 1500 bytes in general, and in order of 10 times faster in some
-cases.
 
-Check a link please in case we are talking about different ideas:
-http://marc.info/?l=linux-netdev&m=112262743505711&w=2
+I know too little about wireless to judge really this. My opinion is
+that if it is possible to add and configure an interface (even if
+only for simple cases) without knowledge about driver internals by
+setting a few parameters, it would probably make sense to use
+RTM_NEWLINK as well. If a userspace daemon or complex knowledge of
+driver internals is needed, it probably should stay seperated.
 
--- 
-	Evgeniy Polyakov
+So simply put: if I can implement support for
+"ip wireless add dev wlan0 mode managed essid ... key ..."
+in less than 100 lines and get a working connection afterwards, it
+seems worth it.
 
--------------------------------------------------------------------------
-Take Surveys. Earn Cash. Influence the Future of IT
-Join SourceForge.net's Techsay panel and you'll get the chance to share your
-opinions on IT & business topics through brief surveys-and earn cash
-http://www.techsay.com/default.php?page=join.php&p=sourceforge&CID=DEVDEV
