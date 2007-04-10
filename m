@@ -1,79 +1,63 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: RE: [PATCH 2/2] NET: Multiqueue network device support implementation.
-Date: Tue, 10 Apr 2007 08:41:49 -0700
-Message-ID: <D5C1322C3E673F459512FB59E0DDC329029E448D@orsmsx414.amr.corp.intel.com>
-References: <20070410082049.GC16621@2ka.mipt.ru>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: two gateways with one NIC
+Date: Tue, 10 Apr 2007 08:32:00 -0700
+Message-ID: <461BADF0.3060207@candelatech.com>
+References: <20070408150123.GA3511@csclub.uwaterloo.ca>	 <1176048615.686.78.camel@owl.home.ie>	 <20070408182210.GJ3508@csclub.uwaterloo.ca>	 <1176060547.686.95.camel@owl.home.ie>	 <20070409145403.GB2299@csclub.uwaterloo.ca>	 <1176134180.686.102.camel@owl.home.ie>	 <20070409161142.GC2299@csclub.uwaterloo.ca> <461A663E.4050904@trash.net>	 <20070409161932.GA2302@csclub.uwaterloo.ca>	 <1176138144.686.115.camel@owl.home.ie>	 <20070409172343.GD2299@csclub.uwaterloo.ca>	 <1176141931.686.120.camel@owl.home.ie>  <461A81E6.7030006@candelatech.com> <1176212802.686.129.camel@owl.home.ie>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <jgarzik@pobox.com>,
-	"cramerj" <cramerj@intel.com>,
-	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
-	"Leech, Christopher" <christopher.leech@intel.com>
-To: "Evgeniy Polyakov" <johnpol@2ka.mipt.ru>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Lennart Sorensen <lsorense@csclub.uwaterloo.ca>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+To: wagtail@iol.ie
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:36902 "EHLO mga09.intel.com"
+Received: from ns2.lanforge.com ([66.165.47.211]:43623 "EHLO ns2.lanforge.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030867AbXDJPlz convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Apr 2007 11:41:55 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <20070410082049.GC16621@2ka.mipt.ru>
+	id S1030825AbXDJPcO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Apr 2007 11:32:14 -0400
+In-Reply-To: <1176212802.686.129.camel@owl.home.ie>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> On Mon, Apr 09, 2007 at 02:28:41PM -0700, Peter P Waskiewicz 
-> Jr (peter.p.waskiewicz.jr@intel.com) wrote:
-> > + 	alloc_size = (sizeof(struct net_device_subqueue) * queue_count);
-> > + 
-> > + 	p = kzalloc(alloc_size, GFP_KERNEL);
-> > + 	if (!p) {
-> > + 		printk(KERN_ERR "alloc_netdev: Unable to 
-> allocate queues.\n");
-> > + 		return NULL;
-> 
-> I think you either do not want to print it, or want 
-> additional details about device...
+W Agtail wrote:
+> On Mon, 2007-04-09 at 11:11 -0700, Ben Greear wrote:
+>   
+>> W Agtail wrote:
+>>     
+>>> Nice one, but unfortunately still doesn't work.
+>>> I'm now not seeing any marked messages in /var/log/messages and traffic
+>>> still going via gw2 for port 8088.
+>>>       
+>> Maybe you could use something like my mac-vlan virtual device to make
+>> your single NIC look like two NICs?  You can find links to the patch and
+>> the macvlan-config tool on this page:
+>>
+>> http://www.candelatech.com/~greear/vlan.html
+>>
+>> Ben
+>>
+>>
+>>     
+>
+> Thanks Ben, this looks quite an interesting idea.
+> Is it possible to create /etc/sysconfig/network-scripts/* in the same
+> way as ethN:N scripts I wonder?
+>   
+No idea...I create these things using mvl_config tool.  At the least, 
+you could
+edit rc.local or similar.
 
-Ok.  This is essentially the same output printed if the netdev itself
-cannot be allocated.  Should I update both strings to have more
-device-specific information?
+Thanks,
+Ben
 
-> 
-> > + 	}
-> > + 
-> > + 	dev->egress_subqueue = p;
-> > + 	dev->egress_subqueue_count = queue_count;
-> > +
-> >  	dev->get_stats = maybe_internal_stats;
-> >  	setup(dev);
-> >  	strcpy(dev->name, name);
-> >  	return dev;
-> >  }
-> > -EXPORT_SYMBOL(alloc_netdev);
-> > +EXPORT_SYMBOL(alloc_netdev_mq);
-> >  
-> >  /**
-> >   *	free_netdev - free network device
-> > @@ -3345,6 +3358,7 @@ void free_netdev(struct net_device *dev)  {  
-> > #ifdef CONFIG_SYSFS
-> >  	/*  Compatibility with error handling in drivers */
-> > +	kfree((char *)dev->egress_subqueue);
-> >  	if (dev->reg_state == NETREG_UNINITIALIZED) {
-> >  		kfree((char *)dev - dev->padded);
-> >  		return;
-> > @@ -3356,6 +3370,7 @@ void free_netdev(struct net_device *dev)
-> >  	/* will free via device release */
-> >  	put_device(&dev->dev);
-> >  #else
-> > +	kfree((char *)dev->egress_subqueue);
-> 
-> Still casting :)
-
-The latest repost removes these casts.
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>   
 
 
-Thanks for the feedback,
+-- 
+Ben Greear <greearb@candelatech.com> 
+Candela Technologies Inc  http://www.candelatech.com
 
--PJ Waskiewicz
+
