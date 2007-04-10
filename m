@@ -1,120 +1,193 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: [PATCH 1/2] [SCTP] Fix assertion (!atomic_read(&sk->sk_rmem_alloc)) failed message
-Date: Tue, 10 Apr 2007 17:21:23 -0400
-Message-ID: <11762400842444-git-send-email-vladislav.yasevich@hp.com>
-References: <11762400848-git-send-email-vladislav.yasevich@hp.com>
-Cc: netdev@vger.kernel.org, Tsutomu Fujii <t-fujii@nb.jp.nec.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel9.hp.com ([156.153.255.214]:43185 "EHLO atlrel9.hp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753897AbXDJVVa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Apr 2007 17:21:30 -0400
-In-Reply-To: <11762400848-git-send-email-vladislav.yasevich@hp.com>
-Sender: netdev-owner@vger.kernel.org
+From: Jan Engelhardt <jengelh@linux01.gwdg.de>
+Subject: [PATCH 17/30] Use menuconfig objects - IPVS
+Date: Tue, 10 Apr 2007 23:25:59 +0200 (MEST)
+Message-ID: <Pine.LNX.4.61.0704102323370.32056@yvahk01.tjqt.qr>
+References: <Pine.LNX.4.61.0704102046520.32056@yvahk01.tjqt.qr>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org, Neil Horman <nhorman@redhat.com>
+To: Wensong Zhang <wensong@linux-vs.org>,
+	Simon Horman <horms@verge.net.au>, Julian Anastasov <ja@ssi.bg>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753912AbXDJVaB@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.61.0704102046520.32056@yvahk01.tjqt.qr>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Tsutomu Fujii <t-fujii@nb.jp.nec.com>
 
-In current implementation, LKSCTP does receive buffer accounting for
-data in sctp_receive_queue and pd_lobby. However, LKSCTP don't do
-accounting for data in frag_list when data is fragmented. In addition,
-LKSCTP doesn't do accounting for data in reasm and lobby queue in
-structure sctp_ulpq.
-When there are date in these queue, assertion failed message is printed
-in inet_sock_destruct because sk_rmem_alloc of oldsk does not become 0
-when socket is destroyed.
+Use menuconfigs instead of menus, so the whole menu can be disabled at        
+once instead of going through all options.
 
-Signed-off-by: Tsutomu Fujii <t-fujii@nb.jp.nec.com>
-Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
----
- net/sctp/socket.c |   48 ++++++++++++++++++++++++++++++++++++++++++++----
- 1 files changed, 44 insertions(+), 4 deletions(-)
+Signed-off-by: Jan Engelhardt <jengelh@gmx.de>
 
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index 536298c..523e73e 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -5638,6 +5638,36 @@ void sctp_wait_for_close(struct sock *sk, long timeout)
- 	finish_wait(sk->sk_sleep, &wait);
- }
+Index: linux-2.6.21-rc5/net/ipv4/ipvs/Kconfig
+===================================================================
+--- linux-2.6.21-rc5.orig/net/ipv4/ipvs/Kconfig
++++ linux-2.6.21-rc5/net/ipv4/ipvs/Kconfig
+@@ -1,10 +1,7 @@
+ #
+ # IP Virtual Server configuration
+ #
+-menu	"IP: Virtual Server Configuration"
+-	depends on NETFILTER
+-
+-config	IP_VS
++menuconfig IP_VS
+ 	tristate "IP virtual server support (EXPERIMENTAL)"
+ 	depends on NETFILTER
+ 	---help---
+@@ -25,9 +22,10 @@ config	IP_VS
+ 	  If you want to compile it in kernel, say Y. To compile it as a
+ 	  module, choose M here. If unsure, say N.
  
-+static void sctp_sock_rfree_frag(struct sk_buff *skb)
-+{
-+	struct sk_buff *frag;
++if IP_VS
 +
-+	if (!skb->data_len)
-+		goto done;
-+
-+	/* Don't forget the fragments. */
-+	for (frag = skb_shinfo(skb)->frag_list; frag; frag = frag->next)
-+		sctp_sock_rfree_frag(frag);
-+
-+done:
-+	sctp_sock_rfree(skb);
-+}
-+
-+static void sctp_skb_set_owner_r_frag(struct sk_buff *skb, struct sock *sk)
-+{
-+	struct sk_buff *frag;
-+
-+	if (!skb->data_len)
-+		goto done;
-+
-+	/* Don't forget the fragments. */
-+	for (frag = skb_shinfo(skb)->frag_list; frag; frag = frag->next)
-+		sctp_skb_set_owner_r_frag(frag, sk);
-+
-+done:
-+	sctp_skb_set_owner_r(skb, sk);
-+}
-+
- /* Populate the fields of the newsk from the oldsk and migrate the assoc
-  * and its messages to the newsk.
-  */
-@@ -5692,10 +5722,10 @@ static void sctp_sock_migrate(struct sock *oldsk, struct sock *newsk,
- 	sctp_skb_for_each(skb, &oldsk->sk_receive_queue, tmp) {
- 		event = sctp_skb2event(skb);
- 		if (event->asoc == assoc) {
--			sctp_sock_rfree(skb);
-+			sctp_sock_rfree_frag(skb);
- 			__skb_unlink(skb, &oldsk->sk_receive_queue);
- 			__skb_queue_tail(&newsk->sk_receive_queue, skb);
--			sctp_skb_set_owner_r(skb, newsk);
-+			sctp_skb_set_owner_r_frag(skb, newsk);
- 		}
- 	}
+ config	IP_VS_DEBUG
+ 	bool "IP virtual server debugging"
+-	depends on IP_VS
+ 	---help---
+ 	  Say Y here if you want to get additional messages useful in
+ 	  debugging the IP virtual server code. You can change the debug
+@@ -35,7 +33,6 @@ config	IP_VS_DEBUG
  
-@@ -5723,10 +5753,10 @@ static void sctp_sock_migrate(struct sock *oldsk, struct sock *newsk,
- 		sctp_skb_for_each(skb, &oldsp->pd_lobby, tmp) {
- 			event = sctp_skb2event(skb);
- 			if (event->asoc == assoc) {
--				sctp_sock_rfree(skb);
-+				sctp_sock_rfree_frag(skb);
- 				__skb_unlink(skb, &oldsp->pd_lobby);
- 				__skb_queue_tail(queue, skb);
--				sctp_skb_set_owner_r(skb, newsk);
-+				sctp_skb_set_owner_r_frag(skb, newsk);
- 			}
- 		}
+ config	IP_VS_TAB_BITS
+ 	int "IPVS connection table size (the Nth power of 2)"
+-	depends on IP_VS 
+ 	default "12" 
+ 	---help---
+ 	  The IPVS connection hash table uses the chaining scheme to handle
+@@ -61,42 +58,35 @@ config	IP_VS_TAB_BITS
+ 	  needed for your box.
  
-@@ -5738,6 +5768,16 @@ static void sctp_sock_migrate(struct sock *oldsk, struct sock *newsk,
+ comment "IPVS transport protocol load balancing support"
+-        depends on IP_VS
  
- 	}
+ config	IP_VS_PROTO_TCP
+ 	bool "TCP load balancing support"
+-	depends on IP_VS
+ 	---help---
+ 	  This option enables support for load balancing TCP transport
+ 	  protocol. Say Y if unsure.
  
-+	sctp_skb_for_each(skb, &assoc->ulpq.reasm, tmp) {
-+		sctp_sock_rfree_frag(skb);
-+		sctp_skb_set_owner_r_frag(skb, newsk);
-+	}
-+
-+	sctp_skb_for_each(skb, &assoc->ulpq.lobby, tmp) {
-+		sctp_sock_rfree_frag(skb);
-+		sctp_skb_set_owner_r_frag(skb, newsk);
-+	}
-+
- 	/* Set the type of socket to indicate that it is peeled off from the
- 	 * original UDP-style socket or created with the accept() call on a
- 	 * TCP-style socket..
--- 
-1.5.0.3.438.gc49b2
-
+ config	IP_VS_PROTO_UDP
+ 	bool "UDP load balancing support"
+-	depends on IP_VS
+ 	---help---
+ 	  This option enables support for load balancing UDP transport
+ 	  protocol. Say Y if unsure.
+ 
+ config	IP_VS_PROTO_ESP
+ 	bool "ESP load balancing support"
+-	depends on IP_VS
+ 	---help---
+ 	  This option enables support for load balancing ESP (Encapsulation
+ 	  Security Payload) transport protocol. Say Y if unsure.
+ 
+ config	IP_VS_PROTO_AH
+ 	bool "AH load balancing support"
+-	depends on IP_VS
+ 	---help---
+ 	  This option enables support for load balancing AH (Authentication
+ 	  Header) transport protocol. Say Y if unsure.
+ 
+ comment "IPVS scheduler"
+-        depends on IP_VS
+ 
+ config	IP_VS_RR
+ 	tristate "round-robin scheduling"
+-	depends on IP_VS
+ 	---help---
+ 	  The robin-robin scheduling algorithm simply directs network
+ 	  connections to different real servers in a round-robin manner.
+@@ -106,7 +96,6 @@ config	IP_VS_RR
+  
+ config	IP_VS_WRR
+         tristate "weighted round-robin scheduling" 
+-	depends on IP_VS
+ 	---help---
+ 	  The weighted robin-robin scheduling algorithm directs network
+ 	  connections to different real servers based on server weights
+@@ -120,7 +109,6 @@ config	IP_VS_WRR
+ 
+ config	IP_VS_LC
+         tristate "least-connection scheduling"
+-        depends on IP_VS
+ 	---help---
+ 	  The least-connection scheduling algorithm directs network
+ 	  connections to the server with the least number of active 
+@@ -131,7 +119,6 @@ config	IP_VS_LC
+ 
+ config	IP_VS_WLC
+         tristate "weighted least-connection scheduling"
+-        depends on IP_VS
+ 	---help---
+ 	  The weighted least-connection scheduling algorithm directs network
+ 	  connections to the server with the least active connections
+@@ -142,7 +129,6 @@ config	IP_VS_WLC
+ 
+ config	IP_VS_LBLC
+ 	tristate "locality-based least-connection scheduling"
+-        depends on IP_VS
+ 	---help---
+ 	  The locality-based least-connection scheduling algorithm is for
+ 	  destination IP load balancing. It is usually used in cache cluster.
+@@ -157,7 +143,6 @@ config	IP_VS_LBLC
+ 
+ config  IP_VS_LBLCR
+ 	tristate "locality-based least-connection with replication scheduling"
+-        depends on IP_VS
+ 	---help---
+ 	  The locality-based least-connection with replication scheduling
+ 	  algorithm is also for destination IP load balancing. It is 
+@@ -176,7 +161,6 @@ config  IP_VS_LBLCR
+ 
+ config	IP_VS_DH
+ 	tristate "destination hashing scheduling"
+-        depends on IP_VS
+ 	---help---
+ 	  The destination hashing scheduling algorithm assigns network
+ 	  connections to the servers through looking up a statically assigned
+@@ -187,7 +171,6 @@ config	IP_VS_DH
+ 
+ config	IP_VS_SH
+ 	tristate "source hashing scheduling"
+-        depends on IP_VS
+ 	---help---
+ 	  The source hashing scheduling algorithm assigns network
+ 	  connections to the servers through looking up a statically assigned
+@@ -198,7 +181,6 @@ config	IP_VS_SH
+ 
+ config	IP_VS_SED
+ 	tristate "shortest expected delay scheduling"
+-        depends on IP_VS
+ 	---help---
+ 	  The shortest expected delay scheduling algorithm assigns network
+ 	  connections to the server with the shortest expected delay. The 
+@@ -212,7 +194,6 @@ config	IP_VS_SED
+ 
+ config	IP_VS_NQ
+ 	tristate "never queue scheduling"
+-        depends on IP_VS
+ 	---help---
+ 	  The never queue scheduling algorithm adopts a two-speed model.
+ 	  When there is an idle server available, the job will be sent to
+@@ -225,11 +206,10 @@ config	IP_VS_NQ
+ 	  module, choose M here. If unsure, say N.
+ 
+ comment 'IPVS application helper'
+-	depends on IP_VS
+ 
+ config	IP_VS_FTP
+   	tristate "FTP protocol helper"
+-        depends on IP_VS && IP_VS_PROTO_TCP
++        depends on IP_VS_PROTO_TCP
+ 	---help---
+ 	  FTP is a protocol that transfers IP address and/or port number in
+ 	  the payload. In the virtual server via Network Address Translation,
+@@ -241,4 +221,4 @@ config	IP_VS_FTP
+ 	  If you want to compile it in kernel, say Y. To compile it as a
+ 	  module, choose M here. If unsure, say N.
+ 
+-endmenu
++endif # IP_VS
+#<EOF>
