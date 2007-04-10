@@ -1,71 +1,64 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH] net: Add etun driver
-Date: Tue, 10 Apr 2007 15:48:08 +0200
-Message-ID: <1176212889.8459.100.camel@johannes.berg>
-References: <m1ps6g5229.fsf@ebiederm.dsl.xmission.com>
-	 <1176136628.8459.34.camel@johannes.berg> <461A70A5.8060607@trash.net>
-	 <20070409.114402.45491411.davem@davemloft.net>
-	 <m1mz1h1guo.fsf@ebiederm.dsl.xmission.com>  <461A9DF1.8080904@trash.net>
-	 <1176150557.8459.47.camel@johannes.berg>  <461AD517.2000906@trash.net>
-	 <1176184028.8459.58.camel@johannes.berg>  <461B4242.1040602@trash.net>
-	 <1176196734.8459.74.camel@johannes.berg>  <461B5E42.2030900@trash.net>
-	 <1176200879.8459.77.camel@johannes.berg>  <461B6B22.3090009@trash.net>
-	 <1176202930.8459.81.camel@johannes.berg>  <461B7060.8000407@trash.net>
-	 <1176204297.8459.86.camel@johannes.berg>  <461B7D9A.50902@trash.net>
+From: Brice Goglin <brice@myri.com>
+Subject: [PATCH 2/3] myri10ge: more Intel chipsets providing aligned PCIe
+ completions
+Date: Tue, 10 Apr 2007 21:21:39 +0200
+Message-ID: <461BE3C3.3020800@myri.com>
+References: <461BE372.2000600@myri.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-XyAThWPwt8VY2c4T1D3d"
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
-	dim@openvz.org, netdev@vger.kernel.org, jgarzik@pobox.com,
-	containers@lists.osdl.org, kuznet@ms2.inr.ac.ru,
-	shemminger@linux-foundation.org, greearb@candelatech.com
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:42154 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753761AbXDJNrk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Apr 2007 09:47:40 -0400
-In-Reply-To: <461B7D9A.50902@trash.net>
+Received: from dsl.myri.com ([64.172.73.26]:2017 "EHLO myri.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753286AbXDJTWl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Apr 2007 15:22:41 -0400
+In-Reply-To: <461BE372.2000600@myri.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Add the Intel 5000 southbridge (aka Intel 6310/6311/6321ESB) PCIe ports
+and the Intel E30x0 chipsets to the whitelist of aligned PCIe completion.
 
---=-XyAThWPwt8VY2c4T1D3d
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+Signed-off-by: Brice Goglin <brice@myri.com>
+---
+ drivers/net/myri10ge/myri10ge.c |   17 +++++++++++++++++
+ 1 file changed, 17 insertions(+)
 
-On Tue, 2007-04-10 at 14:05 +0200, Patrick McHardy wrote:
->=20
-> I know too little about wireless to judge really this. My opinion is
-> that if it is possible to add and configure an interface (even if
-> only for simple cases) without knowledge about driver internals by
-> setting a few parameters, it would probably make sense to use
-> RTM_NEWLINK as well. If a userspace daemon or complex knowledge of
-> driver internals is needed, it probably should stay seperated.
+Index: linux-rc/drivers/net/myri10ge/myri10ge.c
+===================================================================
+--- linux-rc.orig/drivers/net/myri10ge/myri10ge.c	2007-04-10 21:03:59.000000000 +0200
++++ linux-rc/drivers/net/myri10ge/myri10ge.c	2007-04-10 21:04:35.000000000 +0200
+@@ -2487,6 +2487,10 @@
+ 
+ #define PCI_DEVICE_ID_INTEL_E5000_PCIE23 0x25f7
+ #define PCI_DEVICE_ID_INTEL_E5000_PCIE47 0x25fa
++#define PCI_DEVICE_ID_INTEL_6300ESB_PCIEE1 0x3510
++#define PCI_DEVICE_ID_INTEL_6300ESB_PCIEE4 0x351b
++#define PCI_DEVICE_ID_INTEL_E3000_PCIE	0x2779
++#define PCI_DEVICE_ID_INTEL_E3010_PCIE	0x277a
+ #define PCI_DEVICE_ID_SERVERWORKS_HT2100_PCIE_FIRST 0x140
+ #define PCI_DEVICE_ID_SERVERWORKS_HT2100_PCIE_LAST 0x142
+ 
+@@ -2526,6 +2530,18 @@
+ 				PCI_DEVICE_ID_SERVERWORKS_HT2100_PCIE_FIRST
+ 				&& bridge->device <=
+ 				PCI_DEVICE_ID_SERVERWORKS_HT2100_PCIE_LAST)
++			    /* All Intel E3000/E3010 PCIE ports */
++			    || (bridge->vendor == PCI_VENDOR_ID_INTEL
++				&& (bridge->device ==
++				    PCI_DEVICE_ID_INTEL_E3000_PCIE
++				    || bridge->device ==
++				    PCI_DEVICE_ID_INTEL_E3010_PCIE))
++			    /* All Intel 6310/6311/6321ESB PCIE ports */
++			    || (bridge->vendor == PCI_VENDOR_ID_INTEL
++				&& bridge->device >=
++				PCI_DEVICE_ID_INTEL_6300ESB_PCIEE1
++				&& bridge->device <=
++				PCI_DEVICE_ID_INTEL_6300ESB_PCIEE4)
+ 			    /* All Intel E5000 PCIE ports */
+ 			    || (bridge->vendor == PCI_VENDOR_ID_INTEL
+ 				&& bridge->device >=
 
-It still is though we're moving towards the userspace daemon thing.
-
-> So simply put: if I can implement support for
-> "ip wireless add dev wlan0 mode managed essid ... key ..."
-> in less than 100 lines and get a working connection afterwards, it
-> seems worth it.
-
-For completely open networks (no "key ...") or just WEP (static key) it
-could probably be done, but I don't see how right now.
-
-johannes
-
---=-XyAThWPwt8VY2c4T1D3d
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iD8DBQBGG5WY/ETPhpq3jKURApOBAJwKR/rJ7lFnFEv5syfF3iuJRS1CcACgpSiE
-ABh5Ac+S8J9YLfdskOJtM98=
-=7DLb
------END PGP SIGNATURE-----
-
---=-XyAThWPwt8VY2c4T1D3d--
 
