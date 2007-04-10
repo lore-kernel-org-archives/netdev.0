@@ -1,44 +1,63 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] NET: [UPDATED] Multiqueue network device support implementation.
-Date: Tue, 10 Apr 2007 11:04:57 +0200
-Message-ID: <461B5339.50700@trash.net>
-References: <D5C1322C3E673F459512FB59E0DDC329029E42C6@orsmsx414.amr.corp.intel.com>
+From: Avi Kivity <avi@qumranet.com>
+Subject: Re: [kvm-devel] QEMU PIC indirection patch for in-kernel APIC work
+Date: Tue, 10 Apr 2007 11:19:52 +0300
+Message-ID: <461B48A8.1060904@qumranet.com>
+References: <4614098F.2030307@us.ibm.com> <20070404212103.GA19026@elte.hu>
+ <1175728768.12230.593.camel@localhost.localdomain>
+ <4614A294.3000607@qumranet.com>
+ <1175821357.12230.642.camel@localhost.localdomain>
+ <46187F4E.1080807@qumranet.com>
+ <1176087018.11664.65.camel@localhost.localdomain>
+ <4619E6DC.3010804@qumranet.com>
+ <1176111984.11664.90.camel@localhost.localdomain>
+ <461A41CA.9080201@qumranet.com> <20070410080729.GB16621@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, jgarzik@pobox.com,
-	cramerj <cramerj@intel.com>,
-	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
-	"Leech, Christopher" <christopher.leech@intel.com>
-To: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Content-Type: text/plain; charset=KOI8-R
+Content-Transfer-Encoding: 7BIT
+Cc: Rusty Russell <rusty@rustcorp.com.au>, Ingo Molnar <mingo@elte.hu>,
+	kvm-devel@lists.sourceforge.net, netdev <netdev@vger.kernel.org>
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:55413 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S966127AbXDJJFd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Apr 2007 05:05:33 -0400
-In-Reply-To: <D5C1322C3E673F459512FB59E0DDC329029E42C6@orsmsx414.amr.corp.intel.com>
+Received: from mtaout2.012.net.il ([84.95.2.4]:23719 "EHLO mtaout2.012.net.il"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S966107AbXDJIkd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Apr 2007 04:40:33 -0400
+Received: from firebolt.argo.co.il ([80.178.163.252])
+ by i_mtaout2.012.net.il (HyperSendmail v2004.12)
+ with ESMTP id <0JG900BJ5WVAYTT0@i_mtaout2.012.net.il> for
+ netdev@vger.kernel.org; Tue, 10 Apr 2007 11:28:22 +0300 (IDT)
+In-reply-to: <20070410080729.GB16621@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Waskiewicz Jr, Peter P wrote:
-> Thanks Pat for the initial feedback.  I can post a set of patches to
-> e1000 using the new API; I'll try to get them out asap (need to apply to
-> this kernel tree).
+Evgeniy Polyakov wrote:
+> On Mon, Apr 09, 2007 at 04:38:18PM +0300, Avi Kivity (avi@qumranet.com) wrote:
+>   
+>>> But I don't get this "we can enhance the kernel but not userspace" vibe
+>>> 8(
+>>>  
+>>>       
+>> I've been waiting for network aio since ~2003.  If it arrives in the 
+>> next few days, I'm all for it; much more than kvm can use it 
+>> profitably.  But I'm not going to write that interface myself.
+>>     
+>
+> Hmm, you missed at least two implementations of network aio in the 
+> previous year, and now with syslets we can have third one.
+>   
 
+I meant, network aio in the mainline kernel.  I am aware of the various
+out-of-tree implementations.
 
-Thanks.
+> But it looks from this discussion, that it will not prevent from
+> changing in-kernel driver - place a hook into skb allocation path and
+> allocate data from opposing memory - get pages from another side and put
+> them into fragments, then copy headers into skb->data.
+>   
 
-> However, the PRIO qdisc still uses the priority in
-> the bands for dequeueing priority, and will feed the queues on the NIC.
-> The e1000, and any other multiqueue NIC, will schedule Tx based on how
-> the PRIO qdisc feeds the queues.  So the only priority here is the
-> dequeuing priority from the kernel.  The e1000 will use the new API for
-> starting/stopping the individual queues based on the descriptors
-> available, much like it does today for the global queue.
+I don't understand this (opposing memory, another side?).  Can you
+elaborate?
 
-
-Packets will only be dequeued from a band if the associated subqueue
-is active, which moves the decision from prio to the driver, no?
-What policy does e1000 use for scheduling its internal queues?
+-- 
+Do not meddle in the internals of kernels, for they are subtle and quick to panic.
 
