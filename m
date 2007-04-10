@@ -1,98 +1,75 @@
-From: Kim Phillips <kim.phillips@freescale.com>
-Subject: [PATCH] Add support for running the Marvell m88e1111 PHY in RGMII
- mode
-Date: Tue, 10 Apr 2007 16:57:23 -0500
-Message-ID: <20070410165723.472fdc69.kim.phillips@freescale.com>
+From: Jan Engelhardt <jengelh@linux01.gwdg.de>
+Subject: [PATCH 23/30] Use menuconfig objects - netdev
+Date: Tue, 10 Apr 2007 23:36:53 +0200 (MEST)
+Message-ID: <Pine.LNX.4.61.0704102335020.32056@yvahk01.tjqt.qr>
+References: <Pine.LNX.4.61.0704102046520.32056@yvahk01.tjqt.qr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>
-To: netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Andrew Morton <akpm@linux-foundation.org>,
+	Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from de01egw02.freescale.net ([192.88.165.103]:57110 "EHLO
-	de01egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753925AbXDJV5a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Apr 2007 17:57:30 -0400
+Received: from tmailer.gwdg.de ([134.76.10.23]:56165 "EHLO tmailer.gwdg.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753504AbXDJVjP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Apr 2007 17:39:15 -0400
+In-Reply-To: <Pine.LNX.4.61.0704102046520.32056@yvahk01.tjqt.qr>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-also adds RX & TX delay bits to help boards with clock skew problems.
 
-Signed-off-by: Kim Phillips <kim.phillips@freescale.com>
----
-please consider for 2.6.22
+Use menuconfigs instead of menus, so the whole menu can be disabled at        
+once instead of going through all options.
 
- drivers/net/phy/marvell.c |   43 +++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 43 insertions(+), 0 deletions(-)
+Signed-off-by: Jan Engelhardt <jengelh@gmx.de>
 
-diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
-index 22aec5c..0b2d4db 100644
---- a/drivers/net/phy/marvell.c
-+++ b/drivers/net/phy/marvell.c
-@@ -54,6 +54,12 @@
- #define MII_M1111_PHY_LED_CONTROL	0x18
- #define MII_M1111_PHY_LED_DIRECT	0x4100
- #define MII_M1111_PHY_LED_COMBINE	0x411c
-+#define MII_M1111_PHY_EXT_CR		0x14
-+#define MII_M1111_RX_DELAY		0x80
-+#define MII_M1111_TX_DELAY		0x2
-+#define MII_M1111_PHY_EXT_SR		0x1b
-+#define MII_M1111_HWCFG_MODE_MASK	0xf
-+#define MII_M1111_HWCFG_MODE_RGMII	0xb
+Index: linux-2.6.21-rc5/drivers/net/Kconfig
+===================================================================
+--- linux-2.6.21-rc5.orig/drivers/net/Kconfig
++++ linux-2.6.21-rc5/drivers/net/Kconfig
+@@ -1897,8 +1897,12 @@ endmenu
+ #	Gigabit Ethernet
+ #
  
- MODULE_DESCRIPTION("Marvell PHY driver");
- MODULE_AUTHOR("Andy Fleming");
-@@ -131,6 +137,42 @@ static int marvell_config_aneg(struct phy_device *phydev)
- 	return err;
- }
+-menu "Ethernet (1000 Mbit)"
++menuconfig NETDEV_1000
++	bool "Ethernet (1000 Mbit)"
+ 	depends on !UML
++	default y
++
++if NETDEV_1000
  
-+static int m88e1111_config_init(struct phy_device *phydev)
-+{
-+	int err;
-+
-+	if (phydev->interface == PHY_INTERFACE_MODE_RGMII) {
-+		int temp;
-+
-+		temp = phy_read(phydev, MII_M1111_PHY_EXT_CR);
-+		if (temp < 0)
-+			return temp;
-+
-+		temp |= (MII_M1111_RX_DELAY | MII_M1111_TX_DELAY);
-+
-+		err = phy_write(phydev, MII_M1111_PHY_EXT_CR, temp);
-+		if (err < 0)
-+			return err;
-+
-+		temp = phy_read(phydev, MII_M1111_PHY_EXT_SR);
-+		if (temp < 0)
-+			return temp;
-+
-+		temp &= ~(MII_M1111_HWCFG_MODE_MASK);
-+		temp |= MII_M1111_HWCFG_MODE_RGMII;
-+
-+		err = phy_write(phydev, MII_M1111_PHY_EXT_SR, temp);
-+		if (err < 0)
-+			return err;
-+	}
-+
-+	err = phy_write(phydev, MII_BMCR, BMCR_RESET);
-+	if (err < 0)
-+		return err;
-+
-+	return 0;
-+}
-+
- static int m88e1145_config_init(struct phy_device *phydev)
- {
- 	int err;
-@@ -216,6 +258,7 @@ static struct phy_driver m88e1111s_driver = {
- 	.read_status = &genphy_read_status,
- 	.ack_interrupt = &marvell_ack_interrupt,
- 	.config_intr = &marvell_config_intr,
-+	.config_init = &m88e1111_config_init,
- 	.driver = {.owner = THIS_MODULE,},
- };
+ config ACENIC
+ 	tristate "Alteon AceNIC/3Com 3C985/NetGear GA620 Gigabit support"
+@@ -2327,14 +2331,18 @@ config ATL1
+ 	  To compile this driver as a module, choose M here.  The module
+ 	  will be called atl1.
  
--- 
-1.5.0.1
-
+-endmenu
++endif # NETDEV_1000
+ 
+ #
+ #	10 Gigabit Ethernet
+ #
+ 
+-menu "Ethernet (10000 Mbit)"
++menuconfig NETDEV_10000
++	bool "Ethernet (10000 Mbit)"
+ 	depends on !UML
++	default y
++
++if NETDEV_10000
+ 
+ config CHELSIO_T1
+         tristate "Chelsio 10Gb Ethernet support"
+@@ -2493,7 +2501,7 @@ config PASEMI_MAC
+ 	  This driver supports the on-chip 1/10Gbit Ethernet controller on
+ 	  PA Semi's PWRficient line of chips.
+ 
+-endmenu
++endif # NETDEV_10000
+ 
+ source "drivers/net/tokenring/Kconfig"
+ 
+#<EOF>
