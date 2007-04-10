@@ -1,193 +1,112 @@
 From: Jan Engelhardt <jengelh@linux01.gwdg.de>
-Subject: [PATCH 17/30] Use menuconfig objects - IPVS
-Date: Tue, 10 Apr 2007 23:25:59 +0200 (MEST)
-Message-ID: <Pine.LNX.4.61.0704102323370.32056@yvahk01.tjqt.qr>
+Subject: [PATCH 21/30] Use menuconfig objects - PHY
+Date: Tue, 10 Apr 2007 23:33:05 +0200 (MEST)
+Message-ID: <Pine.LNX.4.61.0704102331230.32056@yvahk01.tjqt.qr>
 References: <Pine.LNX.4.61.0704102046520.32056@yvahk01.tjqt.qr>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, Neil Horman <nhorman@redhat.com>
-To: Wensong Zhang <wensong@linux-vs.org>,
-	Simon Horman <horms@verge.net.au>, Julian Anastasov <ja@ssi.bg>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753912AbXDJVaB@vger.kernel.org>
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from tmailer.gwdg.de ([134.76.10.23]:54535 "EHLO tmailer.gwdg.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751922AbXDJVeW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Apr 2007 17:34:22 -0400
 In-Reply-To: <Pine.LNX.4.61.0704102046520.32056@yvahk01.tjqt.qr>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+
+(No MAINTAINERS entry. MODULE_AUTHOR lines exist, but without addresses.)
 
 Use menuconfigs instead of menus, so the whole menu can be disabled at        
 once instead of going through all options.
 
 Signed-off-by: Jan Engelhardt <jengelh@gmx.de>
 
-Index: linux-2.6.21-rc5/net/ipv4/ipvs/Kconfig
+Index: linux-2.6.21-rc5/drivers/net/phy/Kconfig
 ===================================================================
---- linux-2.6.21-rc5.orig/net/ipv4/ipvs/Kconfig
-+++ linux-2.6.21-rc5/net/ipv4/ipvs/Kconfig
-@@ -1,10 +1,7 @@
+--- linux-2.6.21-rc5.orig/drivers/net/phy/Kconfig
++++ linux-2.6.21-rc5/drivers/net/phy/Kconfig
+@@ -2,9 +2,7 @@
+ # PHY Layer Configuration
  #
- # IP Virtual Server configuration
- #
--menu	"IP: Virtual Server Configuration"
--	depends on NETFILTER
+ 
+-menu "PHY device support"
 -
--config	IP_VS
-+menuconfig IP_VS
- 	tristate "IP virtual server support (EXPERIMENTAL)"
- 	depends on NETFILTER
- 	---help---
-@@ -25,9 +22,10 @@ config	IP_VS
- 	  If you want to compile it in kernel, say Y. To compile it as a
- 	  module, choose M here. If unsure, say N.
+-config PHYLIB
++menuconfig PHYLIB
+ 	tristate "PHY Device support and infrastructure"
+ 	depends on NET_ETHERNET && (BROKEN || !S390)
+ 	help
+@@ -12,59 +10,52 @@ config PHYLIB
+ 	  devices.  This option provides infrastructure for
+ 	  managing PHY devices.
  
-+if IP_VS
++if PHYLIB
 +
- config	IP_VS_DEBUG
- 	bool "IP virtual server debugging"
--	depends on IP_VS
+ comment "MII PHY device drivers"
+-	depends on PHYLIB
+ 
+ config MARVELL_PHY
+ 	tristate "Drivers for Marvell PHYs"
+-	depends on PHYLIB
  	---help---
- 	  Say Y here if you want to get additional messages useful in
- 	  debugging the IP virtual server code. You can change the debug
-@@ -35,7 +33,6 @@ config	IP_VS_DEBUG
- 
- config	IP_VS_TAB_BITS
- 	int "IPVS connection table size (the Nth power of 2)"
--	depends on IP_VS 
- 	default "12" 
+ 	  Currently has a driver for the 88E1011S
+ 	
+ config DAVICOM_PHY
+ 	tristate "Drivers for Davicom PHYs"
+-	depends on PHYLIB
  	---help---
- 	  The IPVS connection hash table uses the chaining scheme to handle
-@@ -61,42 +58,35 @@ config	IP_VS_TAB_BITS
- 	  needed for your box.
+ 	  Currently supports dm9161e and dm9131
  
- comment "IPVS transport protocol load balancing support"
--        depends on IP_VS
- 
- config	IP_VS_PROTO_TCP
- 	bool "TCP load balancing support"
--	depends on IP_VS
+ config QSEMI_PHY
+ 	tristate "Drivers for Quality Semiconductor PHYs"
+-	depends on PHYLIB
  	---help---
- 	  This option enables support for load balancing TCP transport
- 	  protocol. Say Y if unsure.
+ 	  Currently supports the qs6612
  
- config	IP_VS_PROTO_UDP
- 	bool "UDP load balancing support"
--	depends on IP_VS
+ config LXT_PHY
+ 	tristate "Drivers for the Intel LXT PHYs"
+-	depends on PHYLIB
  	---help---
- 	  This option enables support for load balancing UDP transport
- 	  protocol. Say Y if unsure.
+ 	  Currently supports the lxt970, lxt971
  
- config	IP_VS_PROTO_ESP
- 	bool "ESP load balancing support"
--	depends on IP_VS
+ config CICADA_PHY
+ 	tristate "Drivers for the Cicada PHYs"
+-	depends on PHYLIB
  	---help---
- 	  This option enables support for load balancing ESP (Encapsulation
- 	  Security Payload) transport protocol. Say Y if unsure.
+ 	  Currently supports the cis8204
++
+ config VITESSE_PHY
+         tristate "Drivers for the Vitesse PHYs"
+-        depends on PHYLIB
+         ---help---
+           Currently supports the vsc8244
  
- config	IP_VS_PROTO_AH
- 	bool "AH load balancing support"
--	depends on IP_VS
+ config SMSC_PHY
+ 	tristate "Drivers for SMSC PHYs"
+-	depends on PHYLIB
  	---help---
- 	  This option enables support for load balancing AH (Authentication
- 	  Header) transport protocol. Say Y if unsure.
+ 	  Currently supports the LAN83C185 PHY
  
- comment "IPVS scheduler"
--        depends on IP_VS
- 
- config	IP_VS_RR
- 	tristate "round-robin scheduling"
--	depends on IP_VS
+ config BROADCOM_PHY
+ 	tristate "Drivers for Broadcom PHYs"
+-	depends on PHYLIB
  	---help---
- 	  The robin-robin scheduling algorithm simply directs network
- 	  connections to different real servers in a round-robin manner.
-@@ -106,7 +96,6 @@ config	IP_VS_RR
-  
- config	IP_VS_WRR
-         tristate "weighted round-robin scheduling" 
--	depends on IP_VS
- 	---help---
- 	  The weighted robin-robin scheduling algorithm directs network
- 	  connections to different real servers based on server weights
-@@ -120,7 +109,6 @@ config	IP_VS_WRR
+ 	  Currently supports the BCM5411, BCM5421 and BCM5461 PHYs.
  
- config	IP_VS_LC
-         tristate "least-connection scheduling"
--        depends on IP_VS
+ config FIXED_PHY
+ 	tristate "Drivers for PHY emulation on fixed speed/link"
+-	depends on PHYLIB
  	---help---
- 	  The least-connection scheduling algorithm directs network
- 	  connections to the server with the least number of active 
-@@ -131,7 +119,6 @@ config	IP_VS_LC
- 
- config	IP_VS_WLC
-         tristate "weighted least-connection scheduling"
--        depends on IP_VS
- 	---help---
- 	  The weighted least-connection scheduling algorithm directs network
- 	  connections to the server with the least active connections
-@@ -142,7 +129,6 @@ config	IP_VS_WLC
- 
- config	IP_VS_LBLC
- 	tristate "locality-based least-connection scheduling"
--        depends on IP_VS
- 	---help---
- 	  The locality-based least-connection scheduling algorithm is for
- 	  destination IP load balancing. It is usually used in cache cluster.
-@@ -157,7 +143,6 @@ config	IP_VS_LBLC
- 
- config  IP_VS_LBLCR
- 	tristate "locality-based least-connection with replication scheduling"
--        depends on IP_VS
- 	---help---
- 	  The locality-based least-connection with replication scheduling
- 	  algorithm is also for destination IP load balancing. It is 
-@@ -176,7 +161,6 @@ config  IP_VS_LBLCR
- 
- config	IP_VS_DH
- 	tristate "destination hashing scheduling"
--        depends on IP_VS
- 	---help---
- 	  The destination hashing scheduling algorithm assigns network
- 	  connections to the servers through looking up a statically assigned
-@@ -187,7 +171,6 @@ config	IP_VS_DH
- 
- config	IP_VS_SH
- 	tristate "source hashing scheduling"
--        depends on IP_VS
- 	---help---
- 	  The source hashing scheduling algorithm assigns network
- 	  connections to the servers through looking up a statically assigned
-@@ -198,7 +181,6 @@ config	IP_VS_SH
- 
- config	IP_VS_SED
- 	tristate "shortest expected delay scheduling"
--        depends on IP_VS
- 	---help---
- 	  The shortest expected delay scheduling algorithm assigns network
- 	  connections to the server with the shortest expected delay. The 
-@@ -212,7 +194,6 @@ config	IP_VS_SED
- 
- config	IP_VS_NQ
- 	tristate "never queue scheduling"
--        depends on IP_VS
- 	---help---
- 	  The never queue scheduling algorithm adopts a two-speed model.
- 	  When there is an idle server available, the job will be sent to
-@@ -225,11 +206,10 @@ config	IP_VS_NQ
- 	  module, choose M here. If unsure, say N.
- 
- comment 'IPVS application helper'
--	depends on IP_VS
- 
- config	IP_VS_FTP
-   	tristate "FTP protocol helper"
--        depends on IP_VS && IP_VS_PROTO_TCP
-+        depends on IP_VS_PROTO_TCP
- 	---help---
- 	  FTP is a protocol that transfers IP address and/or port number in
- 	  the payload. In the virtual server via Network Address Translation,
-@@ -241,4 +221,4 @@ config	IP_VS_FTP
- 	  If you want to compile it in kernel, say Y. To compile it as a
- 	  module, choose M here. If unsure, say N.
+ 	  Adds the driver to PHY layer to cover the boards that do not have any PHY bound,
+ 	  but with the ability to manipulate the speed/link in software. The relevant MII
+@@ -79,5 +70,4 @@ config FIXED_MII_100_FDX
+ 	bool "Emulation for 100M Fdx fixed PHY behavior"
+ 	depends on FIXED_PHY
  
 -endmenu
-+endif # IP_VS
+-
++endif # PHYLIB
 #<EOF>
