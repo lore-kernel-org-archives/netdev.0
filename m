@@ -1,57 +1,53 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH] net: Add etun driver
-Date: Tue, 10 Apr 2007 11:18:54 +0200
-Message-ID: <1176196734.8459.74.camel@johannes.berg>
-References: <m1ps6g5229.fsf@ebiederm.dsl.xmission.com>
-	 <1176136628.8459.34.camel@johannes.berg> <461A70A5.8060607@trash.net>
-	 <20070409.114402.45491411.davem@davemloft.net>
-	 <m1mz1h1guo.fsf@ebiederm.dsl.xmission.com>  <461A9DF1.8080904@trash.net>
-	 <1176150557.8459.47.camel@johannes.berg>  <461AD517.2000906@trash.net>
-	 <1176184028.8459.58.camel@johannes.berg>  <461B4242.1040602@trash.net>
+From: Avi Kivity <avi@qumranet.com>
+Subject: Re: [kvm-devel] QEMU PIC indirection patch for in-kernel APIC work
+Date: Tue, 10 Apr 2007 14:21:24 +0300
+Message-ID: <461B7334.8090807@qumranet.com>
+References: <1175728768.12230.593.camel@localhost.localdomain> <4614A294.3000607@qumranet.com> <1175821357.12230.642.camel@localhost.localdomain> <46187F4E.1080807@qumranet.com> <1176087018.11664.65.camel@localhost.localdomain> <4619E6DC.3010804@qumranet.com> <1176111984.11664.90.camel@localhost.localdomain> <461A41CA.9080201@qumranet.com> <20070410080729.GB16621@2ka.mipt.ru> <461B48A8.1060904@qumranet.com> <20070410085825.GA20004@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-HpJzC18nhz+R1v8q1fPM"
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
-	dim@openvz.org, netdev@vger.kernel.org, jgarzik@pobox.com,
-	containers@lists.osdl.org, kuznet@ms2.inr.ac.ru,
-	shemminger@linux-foundation.org, greearb@candelatech.com
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=KOI8-R; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Rusty Russell <rusty@rustcorp.com.au>, Ingo Molnar <mingo@elte.hu>,
+	kvm-devel@lists.sourceforge.net, netdev <netdev@vger.kernel.org>
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:49430 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965111AbXDJJSf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Apr 2007 05:18:35 -0400
-In-Reply-To: <461B4242.1040602@trash.net>
+Received: from il.qumranet.com ([82.166.9.18]:36278 "EHLO il.qumranet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932179AbXDJLV1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Apr 2007 07:21:27 -0400
+In-Reply-To: <20070410085825.GA20004@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Evgeniy Polyakov wrote:
+>>> But it looks from this discussion, that it will not prevent from
+>>> changing in-kernel driver - place a hook into skb allocation path and
+>>> allocate data from opposing memory - get pages from another side and put
+>>> them into fragments, then copy headers into skb->data.
+>>>   
+>>>       
+>> I don't understand this (opposing memory, another side?).  Can you
+>> elaborate?
+>>     
+>
+> You want to implement zero-copy network device between host and guest, if
+> I understood this thread correctly?
+> So, for sending part, device allocates pages from receiver's memory (or
+> from shared memory), receiver gets an 'interrupt' and got pages from own
+> memory, which are attached to new skb and transferred up to the network
+> stack.
+> It can be extended to use shared ring of pages.
+>   
 
---=-HpJzC18nhz+R1v8q1fPM
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+This is what Xen does.  It is actually less performant than copying, IIRC.
 
-On Tue, 2007-04-10 at 09:52 +0200, Patrick McHardy wrote:
+The problem with flipping pages around is that physical addresses are 
+cached both in the kvm mmu and in the on-chip tlbs, necessitating 
+expensive page table walks and tlb invalidation IPIs.
 
-> Shouldn't be a problem either. Creating the device atomically also
-> prevents that anything else is setting them UP before they're fully
-> configured.
+Note that for sending from the guest an external host can be done 
+copylessly, and for the receive side using a dma engine (like I/OAT) can 
+reduce the cost of the copy.
 
-How would you do it generically then? I'm absolutely not opposed to the
-idea but for now haven't seen how to do it.
-
-johannes
-
---=-HpJzC18nhz+R1v8q1fPM
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iD8DBQBGG1Z9/ETPhpq3jKURAneQAJsF05l34ljwloX8q9PnYzVgITjMfgCdH9VU
-aYJT7Sspsj5DynrBVOmaxB4=
-=FmzM
------END PGP SIGNATURE-----
-
---=-HpJzC18nhz+R1v8q1fPM--
+-- 
+error compiling committee.c: too many arguments to function
 
