@@ -1,39 +1,27 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] NET : loopback driver can use loopback_dev integrated
- net_device_stats
-Date: Tue, 10 Apr 2007 13:26:00 -0700 (PDT)
-Message-ID: <20070410.132600.31447268.davem@davemloft.net>
-References: <20070410192912.b60e86bf.dada1@cosmosbay.com>
+From: Brice Goglin <brice@myri.com>
+Subject: [PATCH 0/3] last myri10ge updates for 2.6.21
+Date: Tue, 10 Apr 2007 21:20:18 +0200
+Message-ID: <461BE372.2000600@myri.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rusty@rustcorp.com.au
-To: dada1@cosmosbay.com
+Cc: netdev@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39139
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1030565AbXDJUZ7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Apr 2007 16:25:59 -0400
-In-Reply-To: <20070410192912.b60e86bf.dada1@cosmosbay.com>
+Received: from dsl.myri.com ([64.172.73.26]:1976 "EHLO myri.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753156AbXDJTVY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Apr 2007 15:21:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Tue, 10 Apr 2007 19:29:12 +0200
+Hi Jeff,
 
-> Hi David
-> 
-> Please find this patch against net-2.6.22
-> 
-> Thank you
-> 
-> [PATCH] NET : loopback driver can use loopback_dev integrated net_device_stats
-> 
-> Rusty added a new 'stats' field to struct net_device.
-> 
-> loopback driver can use it instead of declaring another struct net_device_stats
-> This saves some memory.
-> 
-> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+In case it is not too late for 2.6.21, here are 3 minor fixes for myri10ge:
+1. fix management of the firmware 4KB boundary crossing restriction
+2. more Intel chipsets providing aligned PCIe completions
+3. update driver version to 1.3.0-1.233
 
-Applied, thanks Eric.
+Thanks,
+Brice
+
