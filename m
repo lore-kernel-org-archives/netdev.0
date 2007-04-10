@@ -1,43 +1,57 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH] net: Add etun driver
-Date: Tue, 10 Apr 2007 00:08:48 -0600
-Message-ID: <m1ejmszrpr.fsf@ebiederm.dsl.xmission.com>
-References: <m1ps6g5229.fsf@ebiederm.dsl.xmission.com>
-	<1176136628.8459.34.camel@johannes.berg> <461A70A5.8060607@trash.net>
-	<20070409.114402.45491411.davem@davemloft.net>
-	<m1mz1h1guo.fsf@ebiederm.dsl.xmission.com>
-	<461A9DF1.8080904@trash.net> <1176150557.8459.47.camel@johannes.berg>
-	<461AD517.2000906@trash.net> <1176184028.8459.58.camel@johannes.berg>
+From: Evgeniy Polyakov <johnpol-9fLWQ3dKdXwox3rIn2DAYQ@public.gmane.org>
+Subject: Re: QEMU PIC indirection patch for in-kernel APIC work
+Date: Tue, 10 Apr 2007 12:07:29 +0400
+Message-ID: <20070410080729.GB16621@2ka.mipt.ru>
+References: <4614098F.2030307@us.ibm.com> <20070404212103.GA19026@elte.hu>
+	<1175728768.12230.593.camel@localhost.localdomain>
+	<4614A294.3000607@qumranet.com>
+	<1175821357.12230.642.camel@localhost.localdomain>
+	<46187F4E.1080807@qumranet.com>
+	<1176087018.11664.65.camel@localhost.localdomain>
+	<4619E6DC.3010804@qumranet.com>
+	<1176111984.11664.90.camel@localhost.localdomain>
+	<461A41CA.9080201@qumranet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>, greearb@candelatech.com,
-	containers@lists.osdl.org, shemminger@linux-foundation.org,
-	kuznet@ms2.inr.ac.ru, dim@openvz.org, netdev@vger.kernel.org,
-	akpm@linux-foundation.org, jgarzik@pobox.com,
-	David Miller <davem@davemloft.net>
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:39627 "EHLO
-	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030384AbXDJGMT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Apr 2007 02:12:19 -0400
-In-Reply-To: <1176184028.8459.58.camel@johannes.berg> (Johannes Berg's message
-	of "Tue, 10 Apr 2007 07:47:08 +0200")
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: kvm-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Avi Kivity <avi-atKUWr5tajBWk0Htik3J/w@public.gmane.org>
+Return-path: <kvm-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <461A41CA.9080201-atKUWr5tajBWk0Htik3J/w@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/kvm-devel>,
+	<mailto:kvm-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=kvm-devel>
+List-Post: <mailto:kvm-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:kvm-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/kvm-devel>,
+	<mailto:kvm-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Sender: kvm-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Errors-To: kvm-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Johannes Berg <johannes@sipsolutions.net> writes:
+On Mon, Apr 09, 2007 at 04:38:18PM +0300, Avi Kivity (avi-atKUWr5tajBWk0Htik3J/w@public.gmane.org) wrote:
+> >But I don't get this "we can enhance the kernel but not userspace" vibe
+> >8(
+> >  
+> 
+> I've been waiting for network aio since ~2003.  If it arrives in the 
+> next few days, I'm all for it; much more than kvm can use it 
+> profitably.  But I'm not going to write that interface myself.
 
-> Our virtual devices are always associated with a piece of hardware, and
-> we really want them to be associated with that at all times, even when
-> not UP. Everything else seems like a huge complication if only because
-> then we can't have whoever will be responsible for the device allocate
-> it's private space area.
+Hmm, you missed at least two implementations of network aio in the 
+previous year, and now with syslets we can have third one.
 
-How are you specifying which piece of hardware today?  By interface name?
+But it looks from this discussion, that it will not prevent from
+changing in-kernel driver - place a hook into skb allocation path and
+allocate data from opposing memory - get pages from another side and put
+them into fragments, then copy headers into skb->data.
 
-What function do your virtual devices serve?
+-- 
+	Evgeniy Polyakov
 
-I'm trying to wrap my head around the model.
-
-Eric
+-------------------------------------------------------------------------
+Take Surveys. Earn Cash. Influence the Future of IT
+Join SourceForge.net's Techsay panel and you'll get the chance to share your
+opinions on IT & business topics through brief surveys-and earn cash
+http://www.techsay.com/default.php?page=join.php&p=sourceforge&CID=DEVDEV
