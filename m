@@ -1,45 +1,44 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: RE: [PATCH] NET: [UPDATED] Multiqueue network device support implementation.
-Date: Mon, 9 Apr 2007 18:40:21 -0700
-Message-ID: <D5C1322C3E673F459512FB59E0DDC329029E42C6@orsmsx414.amr.corp.intel.com>
-References: <461ADA18.8010206@trash.net>
+From: divy@chelsio.com
+Subject: [PATCH 2.6.21 1/3] cxgb3 - avoid deadlock with mac watchdog
+Date: Mon, 09 Apr 2007 20:10:22 -0700
+Message-ID: <20070410031022.12878.81342.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <jgarzik@pobox.com>,
-	"cramerj" <cramerj@intel.com>,
-	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
-	"Leech, Christopher" <christopher.leech@intel.com>
-To: "Patrick McHardy" <kaber@trash.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	swise@opengridcomputing.com
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:16898 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030283AbXDJBkY convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Apr 2007 21:40:24 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <461ADA18.8010206@trash.net>
+Received: from stargate.chelsio.com ([12.22.49.110]:24160 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932933AbXDJDKY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Apr 2007 23:10:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> This indeed looks a lot better than the first patch. I'm too 
-> tired to fully review this now, but could you please post the 
-> corresponding e1000 patch? From a quick look I'm guessing 
-> that this patch changes the behaviour of the prio qdisc from 
-> strict priority to whatever scheduling mechanism e1000 uses 
-> for its queues when the multiqueue config option is enabled, 
-> which might surprise people.
-> 
+From: Divy Le Ray <divy@chelsio.com>
 
-Thanks Pat for the initial feedback.  I can post a set of patches to
-e1000 using the new API; I'll try to get them out asap (need to apply to
-this kernel tree).  However, the PRIO qdisc still uses the priority in
-the bands for dequeueing priority, and will feed the queues on the NIC.
-The e1000, and any other multiqueue NIC, will schedule Tx based on how
-the PRIO qdisc feeds the queues.  So the only priority here is the
-dequeuing priority from the kernel.  The e1000 will use the new API for
-starting/stopping the individual queues based on the descriptors
-available, much like it does today for the global queue.
+Fix a deadlock when the interface s configured down and 
+the watchdog tack is sleeping on rtnl_lock.
 
--PJ Waskiewicz
+Signed-off-by: Divy Le Ray <divy@chelsio.com>
+---
+
+ drivers/net/cxgb3/cxgb3_main.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/cxgb3/cxgb3_main.c b/drivers/net/cxgb3/cxgb3_main.c
+index 26240fd..c6ebe25 100644
+--- a/drivers/net/cxgb3/cxgb3_main.c
++++ b/drivers/net/cxgb3/cxgb3_main.c
+@@ -2119,7 +2119,9 @@ static void check_t3b2_mac(struct adapte
+ {
+ 	int i;
+ 
+-	rtnl_lock();                      /* synchronize with ifdown */
++	if (!rtnl_trylock())	/* synchronize with ifdown */
++		return;
++
+ 	for_each_port(adapter, i) {
+ 		struct net_device *dev = adapter->port[i];
+ 		struct port_info *p = netdev_priv(dev);
