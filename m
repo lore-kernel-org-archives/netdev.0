@@ -1,41 +1,48 @@
-From: Brice Goglin <brice@myri.com>
-Subject: [PATCH 3/3] myri10ge: update driver version to 1.3.0-1.233
-Date: Tue, 10 Apr 2007 21:22:19 +0200
-Message-ID: <461BE3EB.2080509@myri.com>
-References: <461BE372.2000600@myri.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [GIT PULL] bridge update for 2.6.22
+Date: Tue, 10 Apr 2007 13:23:55 -0700 (PDT)
+Message-ID: <20070410.132355.63995586.davem@davemloft.net>
+References: <20070409135552.5eee2bc8@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
+To: shemminger@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl.myri.com ([64.172.73.26]:1783 "EHLO myri.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753174AbXDJTXU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Apr 2007 15:23:20 -0400
-In-Reply-To: <461BE372.2000600@myri.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39134
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1030528AbXDJUXz convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Apr 2007 16:23:55 -0400
+In-Reply-To: <20070409135552.5eee2bc8@dxpl.pdx.osdl.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Update the myri10ge driver version number to 1.3.0-1.233.
+=46rom: Stephen Hemminger <shemminger@linux-foundation.org>
+Date: Mon, 9 Apr 2007 13:55:52 -0700
 
-Signed-off-by: Brice Goglin <brice@myri.com>
----
- drivers/net/myri10ge/myri10ge.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> Here is an update to bridging code for net-2.6.22
+>=20
+> The following changes since commit 532122caf3f7573760c5ec523bc3be1460=
+6bb8f2:
+>   Ilpo J=E4rvinen (1):
+>         [TCP]: Simplify LOST marker code
+>=20
+> are found in the git repository at:
+>=20
+>   master.kernel.org:/pub/scm/linux/kernel/git/shemminger/bridge-2.6.2=
+2.git
+>=20
+> Akinobu Mita (1):
+>       bridge: check kmem_cache_create() error
+>=20
+> Stephen Hemminger (7):
+>       bridge: eliminate call by reference
+>       bridge: don't route packets while learning
+>       bridge: simpler hash with salt
+>       bridge: add sysfs hook to flush forwarding table
+>       bridge: add support for user mode STP
+>       bridge: change when netlink events go to STP
+>       bridge: allow changing hardware address to any valid address
 
-Index: linux-rc/drivers/net/myri10ge/myri10ge.c
-===================================================================
---- linux-rc.orig/drivers/net/myri10ge/myri10ge.c	2007-04-10 21:11:08.000000000 +0200
-+++ linux-rc/drivers/net/myri10ge/myri10ge.c	2007-04-10 21:11:11.000000000 +0200
-@@ -71,7 +71,7 @@
- #include "myri10ge_mcp.h"
- #include "myri10ge_mcp_gen_header.h"
- 
--#define MYRI10GE_VERSION_STR "1.3.0-1.227"
-+#define MYRI10GE_VERSION_STR "1.3.0-1.233"
- 
- MODULE_DESCRIPTION("Myricom 10G driver (10GbE)");
- MODULE_AUTHOR("Maintainer: help@myri.com");
-
-
+Pulled, thanks a lot Stephen.
