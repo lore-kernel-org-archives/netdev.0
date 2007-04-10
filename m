@@ -1,104 +1,49 @@
-From: <gregkh@suse.de>
-Subject: patch phy-rwsem-removal.patch added to gregkh-2.6 tree
-Date: Mon, 09 Apr 2007 16:03:47 -0700
-Message-ID: <20070409230429.39A8DC6CC34@imap.suse.de>
-To: greg@kroah.com, gregkh@suse.de, netdev@vger.kernel.org
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] net: Add etun driver
+Date: Tue, 10 Apr 2007 02:06:47 +0200
+Message-ID: <461AD517.2000906@trash.net>
+References: <m1ps6g5229.fsf@ebiederm.dsl.xmission.com>	 <1176136628.8459.34.camel@johannes.berg> <461A70A5.8060607@trash.net>	 <20070409.114402.45491411.davem@davemloft.net>	 <m1mz1h1guo.fsf@ebiederm.dsl.xmission.com>  <461A9DF1.8080904@trash.net> <1176150557.8459.47.camel@johannes.berg>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
+	dim@openvz.org, netdev@vger.kernel.org, jgarzik@pobox.com,
+	containers@lists.osdl.org, kuznet@ms2.inr.ac.ru,
+	shemminger@linux-foundation.org, greearb@candelatech.com
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.suse.de ([195.135.220.2]:50445 "EHLO mx1.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752490AbXDIXEc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Apr 2007 19:04:32 -0400
+Received: from stinky.trash.net ([213.144.137.162]:47164 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753670AbXDJAHK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Apr 2007 20:07:10 -0400
+In-Reply-To: <1176150557.8459.47.camel@johannes.berg>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-This is a note to let you know that I've just added the patch titled
-
-     Subject: PHY: remove rwsem use from phy core
-
-to my gregkh-2.6 tree.  Its filename is
-
-     phy-rwsem-removal.patch
-
-This tree can be found at 
-    http://www.kernel.org/pub/linux/kernel/people/gregkh/gregkh-2.6/patches/
-
-
->From foo@baz Tue Apr  9 12:12:43 2002
-Date: Mon, 9 Apr 2007 11:52:31 -0400 (EDT)
-To: Greg KH <greg@kroah.com>
-From: Greg Kroah-Hartman <gregkh@suse.de>
-Subject: PHY: remove rwsem use from phy core
-
-The subsystem rwsem is not used by the driver core at all, so the use of
-it in the phy code doesn't make any sense.  They might possibly
-want to use a local lock, but I am unsure about that.
-
-Cc: netdev <netdev@vger.kernel.org>
-Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
-
----
- drivers/net/phy/fixed.c      |    6 ------
- drivers/net/phy/phy_device.c |    9 +--------
- 2 files changed, 1 insertion(+), 14 deletions(-)
-
---- a/drivers/net/phy/fixed.c
-+++ b/drivers/net/phy/fixed.c
-@@ -276,21 +276,15 @@ static int fixed_mdio_register_device(in
- 	   artificially, we are binding the driver here by hand;
- 	   it will be the same for all the fixed phys anyway.
- 	 */
--	down_write(&phydev->dev.bus->subsys.rwsem);
--
- 	phydev->dev.driver = &fixed_mdio_driver.driver;
- 
- 	err = phydev->dev.driver->probe(&phydev->dev);
- 	if(err < 0) {
- 		printk(KERN_ERR "Phy %s: problems with fixed driver\n",phydev->dev.bus_id);
--		up_write(&phydev->dev.bus->subsys.rwsem);
- 		goto probe_fail;
- 	}
- 
- 	err = device_bind_driver(&phydev->dev);
--
--	up_write(&phydev->dev.bus->subsys.rwsem);
--
- 	if (err)
- 		goto probe_fail;
- 
---- a/drivers/net/phy/phy_device.c
-+++ b/drivers/net/phy/phy_device.c
-@@ -208,16 +208,12 @@ struct phy_device *phy_attach(struct net
- 	 * exist, and we should use the genphy driver. */
- 	if (NULL == d->driver) {
- 		int err;
--		down_write(&d->bus->subsys.rwsem);
- 		d->driver = &genphy_driver.driver;
- 
- 		err = d->driver->probe(d);
--
- 		if (err >= 0)
- 			err = device_bind_driver(d);
- 
--		up_write(&d->bus->subsys.rwsem);
--
- 		if (err)
- 			return ERR_PTR(err);
- 	}
-@@ -258,11 +254,8 @@ void phy_detach(struct phy_device *phyde
- 	 * was using the generic driver), we unbind the device
- 	 * from the generic driver so that there's a chance a
- 	 * real driver could be loaded */
--	if (phydev->dev.driver == &genphy_driver.driver) {
--		down_write(&phydev->dev.bus->subsys.rwsem);
-+	if (phydev->dev.driver == &genphy_driver.driver)
- 		device_release_driver(&phydev->dev);
--		up_write(&phydev->dev.bus->subsys.rwsem);
--	}
- }
- EXPORT_SYMBOL(phy_detach);
- 
+Johannes Berg wrote:
+> On Mon, 2007-04-09 at 22:11 +0200, Patrick McHardy wrote:
+> 
+> 
+>>Thats why I suggested that we should create one, ideally before adding
+>>more sysfs/proc/ioctl/... based interfaces, which we'll have a hard time
+>>getting rid of again.
+> 
+> 
+> But then how would we configure initial parameters along with creating
+> the interface? That's something that's good to have, and I don't see how
+> you can allow it generically.
+> 
+> Then again, you can of course always add an interface and then change
+> its operating parameters etc. but that isn't atomic any more.
 
 
-Patches currently in gregkh-2.6 which might be from greg@kroah.com are
+Same way as the current RTM_SETLINK message works, but with creating
+a new link in advance. It works fine in other subsystems, so I don't
+see why it would in this case as well. Some subsystems do it in an
+atomic fashion (network schedulers for example), some first create
+the object, then configure it (network classifiers in the non-compat
+cases). In the network device case I suppose the later should work
+fine since a device needs to be set UP in a second action before
+it really does anything.
 
