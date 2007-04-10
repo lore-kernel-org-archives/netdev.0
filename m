@@ -1,63 +1,39 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: two gateways with one NIC
-Date: Tue, 10 Apr 2007 08:32:00 -0700
-Message-ID: <461BADF0.3060207@candelatech.com>
-References: <20070408150123.GA3511@csclub.uwaterloo.ca>	 <1176048615.686.78.camel@owl.home.ie>	 <20070408182210.GJ3508@csclub.uwaterloo.ca>	 <1176060547.686.95.camel@owl.home.ie>	 <20070409145403.GB2299@csclub.uwaterloo.ca>	 <1176134180.686.102.camel@owl.home.ie>	 <20070409161142.GC2299@csclub.uwaterloo.ca> <461A663E.4050904@trash.net>	 <20070409161932.GA2302@csclub.uwaterloo.ca>	 <1176138144.686.115.camel@owl.home.ie>	 <20070409172343.GD2299@csclub.uwaterloo.ca>	 <1176141931.686.120.camel@owl.home.ie>  <461A81E6.7030006@candelatech.com> <1176212802.686.129.camel@owl.home.ie>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] NET : loopback driver can use loopback_dev integrated
+ net_device_stats
+Date: Tue, 10 Apr 2007 13:26:00 -0700 (PDT)
+Message-ID: <20070410.132600.31447268.davem@davemloft.net>
+References: <20070410192912.b60e86bf.dada1@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Lennart Sorensen <lsorense@csclub.uwaterloo.ca>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-To: wagtail@iol.ie
+Cc: netdev@vger.kernel.org, rusty@rustcorp.com.au
+To: dada1@cosmosbay.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:43623 "EHLO ns2.lanforge.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030825AbXDJPcO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Apr 2007 11:32:14 -0400
-In-Reply-To: <1176212802.686.129.camel@owl.home.ie>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39139
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1030565AbXDJUZ7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Apr 2007 16:25:59 -0400
+In-Reply-To: <20070410192912.b60e86bf.dada1@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-W Agtail wrote:
-> On Mon, 2007-04-09 at 11:11 -0700, Ben Greear wrote:
->   
->> W Agtail wrote:
->>     
->>> Nice one, but unfortunately still doesn't work.
->>> I'm now not seeing any marked messages in /var/log/messages and traffic
->>> still going via gw2 for port 8088.
->>>       
->> Maybe you could use something like my mac-vlan virtual device to make
->> your single NIC look like two NICs?  You can find links to the patch and
->> the macvlan-config tool on this page:
->>
->> http://www.candelatech.com/~greear/vlan.html
->>
->> Ben
->>
->>
->>     
->
-> Thanks Ben, this looks quite an interesting idea.
-> Is it possible to create /etc/sysconfig/network-scripts/* in the same
-> way as ethN:N scripts I wonder?
->   
-No idea...I create these things using mvl_config tool.  At the least, 
-you could
-edit rc.local or similar.
+From: Eric Dumazet <dada1@cosmosbay.com>
+Date: Tue, 10 Apr 2007 19:29:12 +0200
 
-Thanks,
-Ben
+> Hi David
+> 
+> Please find this patch against net-2.6.22
+> 
+> Thank you
+> 
+> [PATCH] NET : loopback driver can use loopback_dev integrated net_device_stats
+> 
+> Rusty added a new 'stats' field to struct net_device.
+> 
+> loopback driver can use it instead of declaring another struct net_device_stats
+> This saves some memory.
+> 
+> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
 
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->   
-
-
--- 
-Ben Greear <greearb@candelatech.com> 
-Candela Technologies Inc  http://www.candelatech.com
-
-
+Applied, thanks Eric.
