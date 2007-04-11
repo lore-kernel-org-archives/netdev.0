@@ -1,37 +1,38 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH 17/30] Use menuconfig objects - IPVS
-Date: Wed, 11 Apr 2007 13:55:03 +0900
-Message-ID: <20070411045501.GD15641@verge.net.au>
-References: <Pine.LNX.4.61.0704102046520.32056@yvahk01.tjqt.qr> <Pine.LNX.4.61.0704102323370.32056@yvahk01.tjqt.qr>
+From: "Ritesh Kumar" <ritesh@cs.unc.edu>
+Subject: accessing TCP port numbers of an skb in a qdisc
+Date: Wed, 11 Apr 2007 00:33:45 -0400
+Message-ID: <f47983b00704102133o65ba670br4ff00c4f19e115a0@mail.gmail.com>
+References: <f47983b00704102131q3787f294pa15b3006f7ce8ade@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Wensong Zhang <wensong@linux-vs.org>, Julian Anastasov <ja@ssi.bg>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, Neil Horman <nhorman@redhat.com>
-To: Jan Engelhardt <jengelh@linux01.gwdg.de>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from koto.vergenet.net ([210.128.90.7]:33236 "EHLO koto.vergenet.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030811AbXDKEzK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Apr 2007 00:55:10 -0400
+Received: from wr-out-0506.google.com ([64.233.184.233]:40264 "EHLO
+	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161187AbXDKEdq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Apr 2007 00:33:46 -0400
+Received: by wr-out-0506.google.com with SMTP id 71so45168wri
+        for <netdev@vger.kernel.org>; Tue, 10 Apr 2007 21:33:46 -0700 (PDT)
+In-Reply-To: <f47983b00704102131q3787f294pa15b3006f7ce8ade@mail.gmail.com>
 Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.61.0704102323370.32056@yvahk01.tjqt.qr>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 10, 2007 at 11:25:59PM +0200, Jan Engelhardt wrote:
-> 
-> Use menuconfigs instead of menus, so the whole menu can be disabled at        
-> once instead of going through all options.
-> 
-> Signed-off-by: Jan Engelhardt <jengelh@gmx.de>
+Hi,
+    For some per-flow queue management work I need to access TCP port
+numbers of an skb inside a qdisc (i.e. in qdisc enqueue and dequeue
+functions). Can I assume that skb->data always points to the head of
+the IP header of the packet? If that is the case will the following
+statements do the trick?
 
-This seems to work fine to me.
+if(skb->nh.iph->protocol == IPPROTO_TCP) {
+    skb->h.raw = skb->data + (skb->nh.iph->ihl*4);
+    /* read the tcp port numbers in
+     * skb->h.th->source and skb->h.th->dest
+     */
+}
 
-Signed-off-by: Simon Horman <horms@verge.net.au>
+Thanks a lot for your help!
 
--- 
-Horms
-  H: http://www.vergenet.net/~horms/
-  W: http://www.valinux.co.jp/en/
-
+Ritesh
