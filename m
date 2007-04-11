@@ -1,52 +1,55 @@
-From: Brice Goglin <brice@myri.com>
-Subject: Re: [PATCH 2/3] myri10ge: more Intel chipsets providing aligned PCIe
- completions
-Date: Wed, 11 Apr 2007 20:39:18 +0200
-Message-ID: <461D2B56.5050603@myri.com>
-References: <461BE372.2000600@myri.com> <461BE3C3.3020800@myri.com> <461D04AC.4020306@garzik.org>
+From: Ben Greear <greearb@candelatech.com>
+Subject: TCP connection stops after high load.
+Date: Wed, 11 Apr 2007 11:50:18 -0700
+Message-ID: <461D2DEA.4010806@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
+To: NetDev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl.myri.com ([64.172.73.26]:1808 "EHLO myri.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751308AbXDKSkU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Apr 2007 14:40:20 -0400
-In-Reply-To: <461D04AC.4020306@garzik.org>
+Received: from ns2.lanforge.com ([66.165.47.211]:40754 "EHLO ns2.lanforge.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932081AbXDKSuT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Apr 2007 14:50:19 -0400
+Received: from [192.168.100.224] (static-71-121-249-218.sttlwa.dsl-w.verizon.net [71.121.249.218])
+	(authenticated bits=0)
+	by ns2.lanforge.com (8.13.4/8.13.4) with ESMTP id l3BIoIUH008926
+	for <netdev@vger.kernel.org>; Wed, 11 Apr 2007 11:50:18 -0700
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik wrote:
->> @@ -2526,6 +2530,18 @@
->>                  PCI_DEVICE_ID_SERVERWORKS_HT2100_PCIE_FIRST
->>                  && bridge->device <=
->>                  PCI_DEVICE_ID_SERVERWORKS_HT2100_PCIE_LAST)
->> +                /* All Intel E3000/E3010 PCIE ports */
->> +                || (bridge->vendor == PCI_VENDOR_ID_INTEL
->> +                && (bridge->device ==
->> +                    PCI_DEVICE_ID_INTEL_E3000_PCIE
->> +                    || bridge->device ==
->> +                    PCI_DEVICE_ID_INTEL_E3010_PCIE))
->> +                /* All Intel 6310/6311/6321ESB PCIE ports */
->> +                || (bridge->vendor == PCI_VENDOR_ID_INTEL
->> +                && bridge->device >=
->> +                PCI_DEVICE_ID_INTEL_6300ESB_PCIEE1
->> +                && bridge->device <=
->> +                PCI_DEVICE_ID_INTEL_6300ESB_PCIEE4)
->>                  /* All Intel E5000 PCIE ports */
->>                  || (bridge->vendor == PCI_VENDOR_ID_INTEL
->>                  && bridge->device >=
->
-> though I'm applying this, long term this should probably move out of
-> myri driver
+Back in May of last year, I reported this problem, but worked
+around it at the time by changing the kernel memory settings
+in the networking stack.  I reproduced the problem again today
+with the previously working kernel memory settings..which is not
+supprising since I just papered over the bug last time.
 
-Right, we are worried about this already-too-long list. Even if we could
-imagine having some dedicated functions/quirks or whatever to do this in
-the PCI core, we are not sure somebody else will ever use this feature.
-For now, we are exploring better ways to decide which firmware to use,
-and we currently hope to remove the whitelist entirely in the near future.
+The problem is that I set up a TCP connection with bi-directional traffic
+of around 800Mbps, doing large (20k - 64k writes and reads) between two ports on
+the same machine (this 2.6.18.2 kernel is tainted with my full patch set,
+but I also reproduced with only the non-tainted send-to-self patch applied
+last may on the 2.6.16 kernel, so I assume the bug is not particular to my patch
+set).
 
-Brice
+At first, all is well, but within 5-10 minutes, the TCP connection will stall
+and I only see a massive amount of duplicate ACKs on the link.  Before,
+I sometimes saw OOM messages, but this time there are no OOM messages.  The system
+has a two-port pro/1000 fibre NIC, 1GB RAM, kernel 2.6.18.2 + hacks, etc.
+Stopping and starting the connection allows traffic to flow again (if briefly).
+Starting a new connection works fine even if the old one is still stalled,
+so it's not a global memory exhaustion problem.
+
+So, I would like to dig into this problem myself since no one else
+is reporting this type of problem, but I am quite ignorant of the TCP
+stack implementation.  Based on the dup-acks I see on the wire, I assume
+the TCP state machine is messed up somehow.  Could anyone point me to
+likely places in the TCP stack to start looking for this bug?
+
+Thanks,
+Ben
+
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
 
