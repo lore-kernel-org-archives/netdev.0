@@ -1,57 +1,73 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] NET: [UPDATED] Multiqueue network device support implementation.
-Date: Wed, 11 Apr 2007 19:03:29 +0200
-Message-ID: <461D14E1.6020100@trash.net>
-References: <D5C1322C3E673F459512FB59E0DDC32902A1A535@orsmsx414.amr.corp.intel.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [GIT PULL] bridge update for 2.6.22
+Date: Wed, 11 Apr 2007 10:05:05 -0700
+Message-ID: <20070411100505.0b4fb14e@freekitty>
+References: <20070409135552.5eee2bc8@dxpl.pdx.osdl.net>
+	<461C6FF2.2000700@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, jgarzik@pobox.com,
-	cramerj <cramerj@intel.com>,
-	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
-	"Leech, Christopher" <christopher.leech@intel.com>
-To: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Cc: Bart De Schuymer <bdschuym@pandora.be>, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:57287 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753289AbXDKRDi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Apr 2007 13:03:38 -0400
-In-Reply-To: <D5C1322C3E673F459512FB59E0DDC32902A1A535@orsmsx414.amr.corp.intel.com>
+Received: from smtp.osdl.org ([65.172.181.24]:52700 "EHLO smtp.osdl.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753381AbXDKRFO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Apr 2007 13:05:14 -0400
+In-Reply-To: <461C6FF2.2000700@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Waskiewicz Jr, Peter P wrote:
->>Packets will only be dequeued from a band if the associated 
->>subqueue is active, which moves the decision from prio to the 
->>driver, no?
->>What policy does e1000 use for scheduling its internal queues?
->>
+On Wed, 11 Apr 2007 07:19:46 +0200
+Patrick McHardy <kaber@trash.net> wrote:
+
+> Stephen Hemminger wrote:
+> > diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
+> > index a260679..8a55276 100644
+> > --- a/net/bridge/br_input.c
+> > +++ b/net/bridge/br_input.c
+> >  	if (unlikely(is_link_local(dest))) {
+> >  		skb->pkt_type = PACKET_HOST;
+> > -		return NF_HOOK(PF_BRIDGE, NF_BR_LOCAL_IN, skb, skb->dev,
+> > -			       NULL, br_handle_local_finish) != 0;
+> > +
+> > +		return (NF_HOOK(PF_BRIDGE, NF_BR_LOCAL_IN, skb, skb->dev,
+> > +				NULL, br_handle_local_finish) == 0) ? skb : NULL;
+> >  	}
 > 
 > 
-> E1000 is handed the skb's from PRIO to whichever queue the PRIO flows
-> dictate (based on band2queue mapping, tc filters, or TOS to
-> skb->priority filtering).  Once the skb hits the e1000, the internal
-> policy is round-robin on the hardware queues to dequeue and transmit on
-> the wire.  I agree the NIC does influence the decision of which band an
-> skb will be dequeued from based on available descriptors, etc., but
-> that's one of the goals of multiqueue: don't allow another traffic flow
-> in one queue stop or impact another separate flow.
+> I Just want to note, this is broken in multiple ways (not by this
+> patch, it was already broken before). When a packet is stolen or
+> queued, NF_HOOK will return 0, but the packet is not owned by the
+> caller anymore, so we have a potential use-after-free. Additionally
+> the okfn owns the skb and needs to make sure it continues its path,
+> which br_handle_local_finish doesn't do, resulting in leaks and
+> broken queueing. The fix looks quite ugly, bf_handle_local_finish
+> would need to pass the skb back to netif_receive_skb just after the
+> handle_bridge call.
+
+That wouldn't work because it would still think the packet is coming
+in on a bridge port and recurse into the bridge hook.  For normal
+local traffic the bridge input path changes the device from originating
+device to the bridge pseudo-device. That won't work for this case
+because then all packets would look as if they came from
+bridge pseudo-device which confuse STP and other protocols.
+
+Maybe this whole link local stuff can be reworked.  Originally
+it went direct to STP code, but this meant we dropped all other
+types. The user level RSTP code (not done yet), originally was
+going to use LLC, but it turned out to be crap so it will use AF_PACKET bound
+to the 802_2 type, so it doesn't really care if all packets arrive on
+the bridge pseudo-device. The kernel STP code 
+can be fixed to look at skb->orig_dev instead.
+
+ 
+> All this is not a problem for mainline currently since ebtables
+> doesn't support QUEUE yet, but since its mentioned on the TODO
+> list and in any case is incorrect use of NF_HOOK it feels worth
+> mentioning.
+> 
 
 
-Yes, I'm not saying its wrong, but it will surprise users that put a
-prio qdisc on a multiqueue device without knowing anything about the
-multiqueue capabilities and suddenly don't have strict priority
-anymore. If it changes the behaviour, it should be explicitly enabled
-by the user in the prio qdisc configuration. This would also allow
-to move the band2queue mapping policy to userspace.
-
-> Once NICs start using hardware-based priority scheduling (wireless?), we
-> can use a round-robin type qdisc in the kernel to dequeue, and let the
-> hardware directly decide how important one flow is over another.
-
-
-You bring up a good point, it would be good to hear the opinion from
-one of the wireless people on this since they have their own multiqueue
-scheduler in the wireless-dev tree.
-
+-- 
+Stephen Hemminger <shemminger@linux-foundation.org>
