@@ -1,61 +1,59 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: RE: [PATCH] NET: [UPDATED] Multiqueue network device support implementation.
-Date: Wed, 11 Apr 2007 09:52:50 -0700
-Message-ID: <D5C1322C3E673F459512FB59E0DDC32902A1A535@orsmsx414.amr.corp.intel.com>
-References: <461B5339.50700@trash.net>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH] net: Add etun driver
+Date: Wed, 11 Apr 2007 18:59:12 +0200
+Message-ID: <1176310753.3826.13.camel@johannes.berg>
+References: <m1ps6g5229.fsf@ebiederm.dsl.xmission.com>
+	 <1176136628.8459.34.camel@johannes.berg> <461A70A5.8060607@trash.net>
+	 <20070409.114402.45491411.davem@davemloft.net>
+	 <m1mz1h1guo.fsf@ebiederm.dsl.xmission.com>  <461A9DF1.8080904@trash.net>
+	 <1176150557.8459.47.camel@johannes.berg>  <461AD517.2000906@trash.net>
+	 <1176239819.10381.10.camel@johannes.berg>  <461D09AD.9060603@trash.net>
+	 <1176309793.3826.7.camel@johannes.berg>  <461D1251.8050709@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <jgarzik@pobox.com>,
-	"cramerj" <cramerj@intel.com>,
-	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
-	"Leech, Christopher" <christopher.leech@intel.com>
-To: "Patrick McHardy" <kaber@trash.net>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-90NYUV/0+KnzFitZgZt2"
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
+	dim@openvz.org, netdev@vger.kernel.org, jgarzik@pobox.com,
+	containers@lists.osdl.org, kuznet@ms2.inr.ac.ru,
+	shemminger@linux-foundation.org, greearb@candelatech.com
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:11177 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753368AbXDKQwx convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Apr 2007 12:52:53 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <461B5339.50700@trash.net>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:48650 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753381AbXDKQ6L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Apr 2007 12:58:11 -0400
+In-Reply-To: <461D1251.8050709@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> Thanks.
-> 
-> > However, the PRIO qdisc still uses the priority in the bands for 
-> > dequeueing priority, and will feed the queues on the NIC.
-> > The e1000, and any other multiqueue NIC, will schedule Tx 
-> based on how 
-> > the PRIO qdisc feeds the queues.  So the only priority here is the 
-> > dequeuing priority from the kernel.  The e1000 will use the new API 
-> > for starting/stopping the individual queues based on the 
-> descriptors 
-> > available, much like it does today for the global queue.
-> 
-> 
-> Packets will only be dequeued from a band if the associated 
-> subqueue is active, which moves the decision from prio to the 
-> driver, no?
-> What policy does e1000 use for scheduling its internal queues?
-> 
 
-E1000 is handed the skb's from PRIO to whichever queue the PRIO flows
-dictate (based on band2queue mapping, tc filters, or TOS to
-skb->priority filtering).  Once the skb hits the e1000, the internal
-policy is round-robin on the hardware queues to dequeue and transmit on
-the wire.  I agree the NIC does influence the decision of which band an
-skb will be dequeued from based on available descriptors, etc., but
-that's one of the goals of multiqueue: don't allow another traffic flow
-in one queue stop or impact another separate flow.
+--=-90NYUV/0+KnzFitZgZt2
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-Once NICs start using hardware-based priority scheduling (wireless?), we
-can use a round-robin type qdisc in the kernel to dequeue, and let the
-hardware directly decide how important one flow is over another.
+On Wed, 2007-04-11 at 18:52 +0200, Patrick McHardy wrote:
 
-Hope this answers your question.
+> I'm not sure I'm following. I was under the impression that the
+> conclusion of yesterdays discussion was that its probably not
+> worth using rtnetlink for wireless so it will continue to use
+> generic netlink exclusively, but even if that is wrong, nothing
+> would prevent adding a "rtnetlink family" for wireless as well.
 
-Cheers,
--PJ Waskiewicz
+Oh, ok. Yeah nothing stops us from doing that, of course.
+
+johannes
+
+--=-90NYUV/0+KnzFitZgZt2
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iD8DBQBGHRPg/ETPhpq3jKURAtFyAKC0k/cy8o9yAy16XD46kMnoqqc8fQCeMwvl
+dWAsf/csVepcXpxEBxb2o/A=
+=4D61
+-----END PGP SIGNATURE-----
+
+--=-90NYUV/0+KnzFitZgZt2--
+
