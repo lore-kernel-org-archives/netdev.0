@@ -1,16 +1,16 @@
 From: <gregkh@suse.de>
 Subject: patch 8139too-rtnl-and-flush_scheduled_work-deadlock.patch queued to -stable tree
-Date: Wed, 11 Apr 2007 11:53:03 -0700
-Message-ID: <20070411185335.65C78D2F0FB@imap.suse.de>
+Date: Wed, 11 Apr 2007 12:02:11 -0700
+Message-ID: <20070411190244.01913C8CBCB@imap.suse.de>
 References: <4615E00C.9070406@candelatech.com>
 Cc: <stable@kernel.org>
 To: romieu@fr.zoreil.com, greearb@candelatech.com, gregkh@suse.de,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor.suse.de ([195.135.220.2]:37416 "EHLO mx1.suse.de"
+Received: from ns.suse.de ([195.135.220.2]:38260 "EHLO mx1.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S964780AbXDKSxp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Apr 2007 14:53:45 -0400
+	id S1753536AbXDKTCq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Apr 2007 15:02:46 -0400
 In-Reply-To: <4615E00C.9070406@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
