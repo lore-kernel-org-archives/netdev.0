@@ -1,7 +1,7 @@
 From: Greg KH <gregkh@suse.de>
-Subject: [patch 06/31] sky2: turn on clocks when doing resume
-Date: Wed, 11 Apr 2007 15:51:32 -0700
-Message-ID: <20070411225132.GG24814@kroah.com>
+Subject: [patch 07/31] sky2: phy workarounds for Yukon EC-U A1
+Date: Wed, 11 Apr 2007 15:51:36 -0700
+Message-ID: <20070411225136.GH24814@kroah.com>
 References: <20070411224329.866978349@mini.kroah.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -18,8 +18,8 @@ Cc: Justin Forbes <jmforbes@linuxtx.org>,
 	alan@lxorguk.ukuu.org.uk, netdev@vger.kernel.org,
 	Stephen Hemminger <shemminger@linux-foundation.org>
 To: linux-kernel@vger.kernel.org, stable@kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161408AbXDKXEm@vger.kernel.org>
-Content-Disposition: inline; filename="sky2-ec-clocks-resume.patch"
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161413AbXDKXFb@vger.kernel.org>
+Content-Disposition: inline; filename="sky2-ec-u-a1.patch"
 In-Reply-To: <20070411225100.GA24814@kroah.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
@@ -29,39 +29,39 @@ List-Id: netdev.vger.kernel.org
 ------------------
 From: Stephen Hemminger <shemminger@linux-foundation.org>
 
-Some of these chips are disabled until clock is enabled.
-This fixes:
-     http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=404107
+The workaround Yukon EC-U wasn't comparing with correct
+version and wasn't doing correct setup. Without it, 88e8056
+throws all sorts of errors.
 
 Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
 Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
 
 ---
- drivers/net/sky2.c |    7 +++++++
- 1 file changed, 7 insertions(+)
+ drivers/net/sky2.c |    6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
 --- a/drivers/net/sky2.c
 +++ b/drivers/net/sky2.c
-@@ -2421,6 +2421,10 @@ static int sky2_reset(struct sky2_hw *hw
- 		return -EOPNOTSUPP;
+@@ -524,9 +524,9 @@ static void sky2_phy_init(struct sky2_hw
+ 		ledover &= ~PHY_M_LED_MO_RX;
  	}
  
-+	/* Make sure and enable all clocks */
-+	if (hw->chip_id == CHIP_ID_YUKON_EC_U)
-+		sky2_pci_write32(hw, PCI_DEV_REG3, 0);
-+
- 	hw->chip_rev = (sky2_read8(hw, B2_MAC_CFG) & CFG_CHIP_R_MSK) >> 4;
+-	if (hw->chip_id == CHIP_ID_YUKON_EC_U && hw->chip_rev == CHIP_REV_YU_EC_A1) {
++	if (hw->chip_id == CHIP_ID_YUKON_EC_U &&
++	    hw->chip_rev == CHIP_REV_YU_EC_U_A1) {
+ 		/* apply fixes in PHY AFE */
+-		pg = gm_phy_read(hw, port, PHY_MARV_EXT_ADR);
+ 		gm_phy_write(hw, port, PHY_MARV_EXT_ADR, 255);
  
- 	/* This rev is really old, and requires untested workarounds */
-@@ -3639,6 +3643,9 @@ static int sky2_resume(struct pci_dev *p
+ 		/* increase differential signal amplitude in 10BASE-T */
+@@ -538,7 +538,7 @@ static void sky2_phy_init(struct sky2_hw
+ 		gm_phy_write(hw, port, 0x17, 0x2002);
  
- 	pci_restore_state(pdev);
- 	pci_enable_wake(pdev, PCI_D0, 0);
-+
-+	if (hw->chip_id == CHIP_ID_YUKON_EC_U)
-+		sky2_pci_write32(hw, PCI_DEV_REG3, 0);
- 	sky2_set_power_state(hw, PCI_D0);
+ 		/* set page register to 0 */
+-		gm_phy_write(hw, port, PHY_MARV_EXT_ADR, pg);
++		gm_phy_write(hw, port, PHY_MARV_EXT_ADR, 0);
+ 	} else {
+ 		gm_phy_write(hw, port, PHY_MARV_LED_CTRL, ledctrl);
  
- 	err = sky2_reset(hw);
 
 -- 
