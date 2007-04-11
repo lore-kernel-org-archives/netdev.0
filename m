@@ -1,43 +1,37 @@
-From: Guennadi Liakhovetski <gl@dsa-ac.de>
-Subject: Re: [irda-users] [BUG] 2.6.20.1-rt8 irnet + pppd recursive spinlock...
-Date: Wed, 11 Apr 2007 12:02:41 +0200 (CEST)
-Message-ID: <Pine.LNX.4.63.0704111158530.534@pcgl.dsa-ac.de>
-References: <Pine.LNX.4.63.0704050846480.534@pcgl.dsa-ac.de>
- <Pine.LNX.4.63.0704051250170.534@pcgl.dsa-ac.de> <20070407005926.GE4177@sortiz.org>
- <20070410181037.GA3780@sortiz.org>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Paul Mackerras <paulus@samba.org>,
-	irda-users@lists.sourceforge.net, linux-rt-users@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Samuel Ortiz <samuel@sortiz.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 2/2] NET: Multiqueue network device support.
+Date: Wed, 11 Apr 2007 20:49:43 +1000
+Message-ID: <E1HbaOV-0004rc-00@gondolin.me.apana.org.au>
+References: <D5C1322C3E673F459512FB59E0DDC329029E3EE5@orsmsx414.amr.corp.intel.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, jgarzik@pobox.com, cramerj@intel.com,
+	auke-jan.h.kok@intel.com, christopher.leech@intel.com
+To: peter.p.waskiewicz.jr@intel.com (Waskiewicz Jr, Peter P)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.dsa-ac.de ([62.112.80.99]:56397 "EHLO mail.dsa-ac.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751956AbXDKKCo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Apr 2007 06:02:44 -0400
-In-Reply-To: <20070410181037.GA3780@sortiz.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:3159 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752185AbXDKKt5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Apr 2007 06:49:57 -0400
+In-Reply-To: <D5C1322C3E673F459512FB59E0DDC329029E3EE5@orsmsx414.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 10 Apr 2007, Samuel Ortiz wrote:
+Waskiewicz Jr, Peter P <peter.p.waskiewicz.jr@intel.com> wrote:
+> 
+> True, but the assignment for "dev" above also casts this void * to
+> struct net_device *:
+> 
+>        dev = (struct net_device *)
+>                (((long)p + NETDEV_ALIGN_CONST) & ~NETDEV_ALIGN_CONST);
+>        dev->padded = (char *)dev - (char *)p;
+> 
+> Shall I remove my cast?
 
-> The patch below schedules irnet_flow_indication() asynchronously. Could
-> you please give it a try (it builds, but I couldn't test it...) ? :
+This is totally different as it's casting a "long", not a "void *".
 
-I'm afraid, your patch makes it worse - with my patch to ppp_generic it 
-worked 5 hours before Ir stopped, remaining at 4mbaud, and only discovery 
-timer was expiring periodically without actually doing anything; with your 
-patch the same happens in about 5 minutes.
-
-I'll double-verify it, and then will try the same work-queue approach, but 
-from ppp_generic, rather than from irttp, combining our 2 patches.
-
-Thanks
-Guennadi
----------------------------------
-Guennadi Liakhovetski, Ph.D.
-DSA Daten- und Systemtechnik GmbH
-Pascalstr. 28
-D-52076 Aachen
-Germany
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
