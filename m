@@ -1,7 +1,7 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH 6/8] AFS: AF_RXRPC key changes
-Date: Wed, 11 Apr 2007 20:10:27 +0100
-Message-ID: <20070411191027.15499.8147.stgit@warthog.cambridge.redhat.com>
+Subject: [PATCH 7/8] AFS: Permit key to be cached in nameidata
+Date: Wed, 11 Apr 2007 20:10:32 +0100
+Message-ID: <20070411191032.15499.78083.stgit@warthog.cambridge.redhat.com>
 References: <20070411190956.15499.55352.stgit@warthog.cambridge.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -14,135 +14,123 @@ In-Reply-To: <20070411190956.15499.55352.stgit@warthog.cambridge.redhat.com>
 Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Make two changes to the AF_RXRPC key handling to make it easier for AFS to
-use:
+Permit a key to be cached in the nameidata struct so that it only needs to be
+looked up once when doing the sequence of d_revalidate(), permission(),
+follow_link() and lookup() calls involved in a pathwalk.
 
- (1) Export key_type_rxrpc so that AFS can request keys of this type.
+This is used by the AFS filesystem to avoid repeatedly having to call
+request_key().  Once looked up, the key is then available as the kernel walks
+to the tree until such a time as the kernel crosses to a non-AFS mountpoint or
+an AFS mountpoint in a different cell.
 
- (2) Make it possible to have keys that represent "no security".  These are
-     created by instantiating the keys with no data.
+The cache works like this:
+
+ (1) The nameidata::key pointer is initialised to NULL at the start of the
+     pathwalk (do_path_lookup()).  path_release() and co. release the key it
+     points to.
+
+ (2) Any filesystem operation performed during the pathwalk that has access to
+     the nameidata (lookup, permission, follow_link, d_revalidate) can look at
+     the key - if non-NULL - and if it's what they're looking for they can use
+     it.
+
+     If there's a key there of potential interest, the key's type and
+     description should be checked to make sure the key is permissible.
+
+     If of interest, key_validate() should be called to make sure the key is
+     still usable.  If it isn't, the error should be passed back rather than
+     the key lookup being redone on the basis that some earlier step is now no
+     longer valid.
+
+ (3) Any operation that is not interested in the key can either ignore it or
+     release it and clear the pointer.
+
+ (4) If an operation wants to put its own key there, it should release the old
+     key and set the pointer to point to its own key with the key's usage count
+     incremented.  This could be encapsulated in a function something like
+     this:
+
+	void set_nd_key(struct nameidata *nd, struct key *key)
+	{
+		key_put(nd->key);
+		nd->key = key_get(key);
+	}
+
+Unfortunately there isn't currently a way to pass the key onto the inode
+operations for create(), link(), unlink(), and suchlike, nor is there a way to
+pass it to the open() file op without adding a struct key pointer argument to
+each of these.
+
+This might also be useful for NFS and CIFS.
 
 Signed-Off-By: David Howells <dhowells@redhat.com>
 ---
 
- include/keys/rxrpc-type.h |   22 ++++++++++++++++++++++
- net/rxrpc/af_rxrpc.c      |    2 ++
- net/rxrpc/ar-key.c        |   10 +++++++++-
- net/rxrpc/ar-output.c     |    6 +++++-
- 4 files changed, 38 insertions(+), 2 deletions(-)
+ fs/namei.c            |    5 +++++
+ fs/open.c             |    7 +++++--
+ include/linux/namei.h |    1 +
+ 3 files changed, 11 insertions(+), 2 deletions(-)
 
-diff --git a/include/keys/rxrpc-type.h b/include/keys/rxrpc-type.h
-new file mode 100644
-index 0000000..e2ee73a
---- /dev/null
-+++ b/include/keys/rxrpc-type.h
-@@ -0,0 +1,22 @@
-+/* RxRPC key type
-+ *
-+ * Copyright (C) 2007 Red Hat, Inc. All Rights Reserved.
-+ * Written by David Howells (dhowells@redhat.com)
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * as published by the Free Software Foundation; either version
-+ * 2 of the License, or (at your option) any later version.
-+ */
-+
-+#ifndef _KEYS_RXRPC_TYPE_H
-+#define _KEYS_RXRPC_TYPE_H
-+
-+#include <linux/key.h>
-+
-+/*
-+ * key type for AF_RXRPC keys
-+ */
-+extern struct key_type key_type_rxrpc;
-+
-+#endif /* _KEYS_USER_TYPE_H */
-diff --git a/net/rxrpc/af_rxrpc.c b/net/rxrpc/af_rxrpc.c
-index 115ad19..9e37e4f 100644
---- a/net/rxrpc/af_rxrpc.c
-+++ b/net/rxrpc/af_rxrpc.c
-@@ -299,6 +299,8 @@ struct rxrpc_call *rxrpc_kernel_begin_call(struct socket *sock,
- 
- 	if (!key)
- 		key = rx->key;
-+	if (key && !key->payload.data)
-+		key = NULL; /* a no-security key */
- 
- 	bundle = rxrpc_get_bundle(rx, trans, key, service_id, gfp);
- 	if (IS_ERR(bundle)) {
-diff --git a/net/rxrpc/ar-key.c b/net/rxrpc/ar-key.c
-index 869a96c..7e049ff 100644
---- a/net/rxrpc/ar-key.c
-+++ b/net/rxrpc/ar-key.c
-@@ -19,6 +19,7 @@
- #include <linux/crypto.h>
- #include <net/sock.h>
- #include <net/af_rxrpc.h>
-+#include <keys/rxrpc-type.h>
- #include <keys/user-type.h>
- #include "ar-internal.h"
- 
-@@ -40,6 +41,8 @@ struct key_type key_type_rxrpc = {
- 	.describe	= rxrpc_describe,
- };
- 
-+EXPORT_SYMBOL(key_type_rxrpc);
-+
- /*
-  * rxrpc server defined keys take "<serviceId>:<securityIndex>" as the
-  * description and an 8-byte decryption key as the payload
-@@ -63,6 +66,8 @@ struct key_type key_type_rxrpc_s = {
-  *	12	4	kvno
-  *	16	8	session key
-  *	24	[len]	ticket
-+ *
-+ * if no data is provided, then a no-security key is made
-  */
- static int rxrpc_instantiate(struct key *key, const void *data, size_t datalen)
+diff --git a/fs/namei.c b/fs/namei.c
+index ee60cc4..7a59d12 100644
+--- a/fs/namei.c
++++ b/fs/namei.c
+@@ -350,6 +350,8 @@ void path_release(struct nameidata *nd)
  {
-@@ -74,6 +79,10 @@ static int rxrpc_instantiate(struct key *key, const void *data, size_t datalen)
+ 	dput(nd->dentry);
+ 	mntput(nd->mnt);
++	key_put(nd->key);
++	nd->key = NULL;
+ }
  
- 	_enter("{%x},,%zu", key_serial(key), datalen);
+ /*
+@@ -360,6 +362,8 @@ void path_release_on_umount(struct nameidata *nd)
+ {
+ 	dput(nd->dentry);
+ 	mntput_no_expire(nd->mnt);
++	key_put(nd->key);
++	nd->key = NULL;
+ }
  
-+	/* handle a no-security key */
-+	if (!data && datalen == 0)
-+		return 0;
-+
- 	/* get the key interface version number */
- 	ret = -EINVAL;
- 	if (datalen <= 4 || !data)
-@@ -287,7 +296,6 @@ int rxrpc_get_server_data_key(struct rxrpc_connection *conn,
- 		struct rxkad_key tsec;
- 	} data;
+ /**
+@@ -1108,6 +1112,7 @@ static int fastcall do_path_lookup(int dfd, const char *name,
+ 	struct file *file;
+ 	struct fs_struct *fs = current->fs;
  
--
- 	_enter("");
++	nd->key = NULL;
+ 	nd->last_type = LAST_ROOT; /* if there are only slashes... */
+ 	nd->flags = flags;
+ 	nd->depth = 0;
+diff --git a/fs/open.c b/fs/open.c
+index c989fb4..77bd2a5 100644
+--- a/fs/open.c
++++ b/fs/open.c
+@@ -822,10 +822,13 @@ struct file *nameidata_to_filp(struct nameidata *nd, int flags)
+ 	/* Pick up the filp from the open intent */
+ 	filp = nd->intent.open.file;
+ 	/* Has the filesystem initialised the file for us? */
+-	if (filp->f_path.dentry == NULL)
++	if (filp->f_path.dentry == NULL) {
+ 		filp = __dentry_open(nd->dentry, nd->mnt, flags, filp, NULL);
+-	else
++		key_put(nd->key);
++		nd->key = NULL;
++	} else {
+ 		path_release(nd);
++	}
+ 	return filp;
+ }
  
- 	key = key_alloc(&key_type_rxrpc, "x", 0, 0, current, 0,
-diff --git a/net/rxrpc/ar-output.c b/net/rxrpc/ar-output.c
-index ed7f3f4..d2d0baa 100644
---- a/net/rxrpc/ar-output.c
-+++ b/net/rxrpc/ar-output.c
-@@ -132,6 +132,7 @@ int rxrpc_client_sendmsg(struct kiocb *iocb, struct rxrpc_sock *rx,
- 	enum rxrpc_command cmd;
- 	struct rxrpc_call *call;
- 	unsigned long user_call_ID = 0;
-+	struct key *key;
- 	__be16 service_id;
- 	u32 abort_code = 0;
- 	int ret;
-@@ -153,7 +154,10 @@ int rxrpc_client_sendmsg(struct kiocb *iocb, struct rxrpc_sock *rx,
- 				(struct sockaddr_rxrpc *) msg->msg_name;
- 			service_id = htons(srx->srx_service);
- 		}
--		bundle = rxrpc_get_bundle(rx, trans, rx->key, service_id,
-+		key = rx->key;
-+		if (key && !rx->key->payload.data)
-+			key = NULL;
-+		bundle = rxrpc_get_bundle(rx, trans, key, service_id,
- 					  GFP_KERNEL);
- 		if (IS_ERR(bundle))
- 			return PTR_ERR(bundle);
+diff --git a/include/linux/namei.h b/include/linux/namei.h
+index d39a5a6..d677408 100644
+--- a/include/linux/namei.h
++++ b/include/linux/namei.h
+@@ -17,6 +17,7 @@ enum { MAX_NESTED_LINKS = 8 };
+ struct nameidata {
+ 	struct dentry	*dentry;
+ 	struct vfsmount *mnt;
++	struct key	*key;
+ 	struct qstr	last;
+ 	unsigned int	flags;
+ 	int		last_type;
 
