@@ -1,33 +1,51 @@
-From: "J. Bruce Fields" <bfields@fieldses.org>
-Subject: Re: [PATCH 8/8] AFS: Add security support
-Date: Wed, 11 Apr 2007 16:17:36 -0400
-Message-ID: <20070411201736.GD3704@fieldses.org>
-References: <20070411193844.GC3704@fieldses.org> <20070411190956.15499.55352.stgit@warthog.cambridge.redhat.com> <20070411191037.15499.67852.stgit@warthog.cambridge.redhat.com> <18379.1176322232@redhat.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: TCP connection stops after high load.
+Date: Wed, 11 Apr 2007 13:26:36 -0700
+Message-ID: <461D447C.4070408@candelatech.com>
+References: <461D2DEA.4010806@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: torvalds@osdl.org, akpm@osdl.org, linux-kernel@vger.kernel.org,
-	linux-fsdevel@vger.kernel.org, netdev@vger.kernel.org
-To: David Howells <dhowells@redhat.com>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <18379.1176322232@redhat.com>
-Sender: linux-fsdevel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: NetDev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ns2.lanforge.com ([66.165.47.211]:42202 "EHLO ns2.lanforge.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965338AbXDKU0h (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Apr 2007 16:26:37 -0400
+Received: from [192.168.100.224] (static-71-121-249-218.sttlwa.dsl-w.verizon.net [71.121.249.218])
+	(authenticated bits=0)
+	by ns2.lanforge.com (8.13.4/8.13.4) with ESMTP id l3BKQalD015894
+	for <netdev@vger.kernel.org>; Wed, 11 Apr 2007 13:26:36 -0700
+In-Reply-To: <461D2DEA.4010806@candelatech.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 11, 2007 at 09:10:32PM +0100, David Howells wrote:
-> J. Bruce Fields <bfields@fieldses.org> wrote:
-> 
-> > Just curious--when is the actual crypto done?  There doesn't seem to be
-> > any in this patch.
-> 
-> See AF_RXRPC patch:
-> 
-> 	http://people.redhat.com/~dhowells/rxrpc/04-af_rxrpc.diff
-> 
-> You turn on CONFIG_RXKAD and load the rxkad module thus built (assuming you
-> haven't built it in) after loading the af_rxrpc module.  I probably should've
-> mentioned that in the cover.
+Ben Greear wrote:
+> Back in May of last year, I reported this problem, but worked
+> around it at the time by changing the kernel memory settings
+> in the networking stack.  I reproduced the problem again today
+> with the previously working kernel memory settings..which is not
+> supprising since I just papered over the bug last time.
 
-Oh, I see--didn't think to check net/rxrpc.  Thanks!
+So, I have been poking around.  Disabling tso makes the problem happen
+sooner (< 1 minute).  Changing the tcp_congestion_control does not help.
 
---b.
+Interestingly, I found this page mentioning a SACK problem in Linux:
+http://www-didc.lbl.gov/TCP-tuning/linux.html
+
+I tried disabling SACK, but the problem still happens.  However,
+I do see the CWND go to 1 as soon as the connection stalls (I'm not
+sure exactly which happens first.)  Before the stall, I see CWND
+reported in the ~40 range.
+
+Maybe something similar to the SACK bug can happen on very fast, very
+low latency links, with large send/receive buffers configured?
+
+Thanks,
+Ben
+
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
+
