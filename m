@@ -1,7 +1,8 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH 0/8] AFS: Add security support and fix bugs
-Date: Wed, 11 Apr 2007 20:09:56 +0100
-Message-ID: <20070411190956.15499.55352.stgit@warthog.cambridge.redhat.com>
+Subject: [PATCH 5/8] AFS: Handle multiple mounts of an AFS superblock correctly
+Date: Wed, 11 Apr 2007 20:10:22 +0100
+Message-ID: <20070411191022.15499.88226.stgit@warthog.cambridge.redhat.com>
+References: <20070411190956.15499.55352.stgit@warthog.cambridge.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -9,56 +10,67 @@ Cc: linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
 	netdev@vger.kernel.org, dhowells@redhat.com
 To: torvalds@osdl.org, akpm@osdl.org
 Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <20070411190956.15499.55352.stgit@warthog.cambridge.redhat.com>
 Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Handle multiple mounts of an AFS superblock correctly, checking to see whether
+the superblock is already initialised after calling sget() rather than just
+unconditionally stamping all over it.
 
-These patches build on the patchset labelled "AF_RXRPC socket family and AFS
-rewrite".  The patches are also available for http download.
+Also delete the "silent" parameter to afs_fill_super() as it's not used and
+can, in any case, be obtained from sb->s_flags.
 
-Firstly, the patches fix a number of bugs in AF_RXRPC:
+Signed-Off-By: David Howells <dhowells@redhat.com>
+---
 
-	http://people.redhat.com/~dhowells/rxrpc/09-af_rxrpc-own-workqueues.diff
-	http://people.redhat.com/~dhowells/rxrpc/10-af_rxrpc-fixes.diff
+ fs/afs/super.c |   26 ++++++++++++++++----------
+ 1 files changed, 16 insertions(+), 10 deletions(-)
 
-Secondly, they fix some bugs in the AFS filesystem:
+diff --git a/fs/afs/super.c b/fs/afs/super.c
+index efc4fe6..77e6875 100644
+--- a/fs/afs/super.c
++++ b/fs/afs/super.c
+@@ -212,7 +212,7 @@ static int afs_test_super(struct super_block *sb, void *data)
+ /*
+  * fill in the superblock
+  */
+-static int afs_fill_super(struct super_block *sb, void *data, int silent)
++static int afs_fill_super(struct super_block *sb, void *data)
+ {
+ 	struct afs_mount_params *params = data;
+ 	struct afs_super_info *as = NULL;
+@@ -319,17 +319,23 @@ static int afs_get_sb(struct file_system_type *fs_type,
+ 		goto error;
+ 	}
+ 
+-	sb->s_flags = flags;
+-
+-	ret = afs_fill_super(sb, &params, flags & MS_SILENT ? 1 : 0);
+-	if (ret < 0) {
+-		up_write(&sb->s_umount);
+-		deactivate_super(sb);
+-		goto error;
++	if (!sb->s_root) {
++		/* initial superblock/root creation */
++		_debug("create");
++		sb->s_flags = flags;
++		ret = afs_fill_super(sb, &params);
++		if (ret < 0) {
++			up_write(&sb->s_umount);
++			deactivate_super(sb);
++			goto error;
++		}
++		sb->s_flags |= MS_ACTIVE;
++	} else {
++		_debug("reuse");
++		ASSERTCMP(sb->s_flags, &, MS_ACTIVE);
+ 	}
+-	sb->s_flags |= MS_ACTIVE;
+-	simple_set_mnt(mnt, sb);
+ 
++	simple_set_mnt(mnt, sb);
+ 	afs_put_volume(params.volume);
+ 	afs_put_cell(params.default_cell);
+ 	_leave(" = 0 [%p]", sb);
 
-	http://people.redhat.com/~dhowells/rxrpc/11-afs-callback-wq.diff
-	http://people.redhat.com/~dhowells/rxrpc/12-afs-vlocation.diff
-	http://people.redhat.com/~dhowells/rxrpc/13-afs-multimount.diff
-
-And finally, they add security support to AFS:
-
-	http://people.redhat.com/~dhowells/rxrpc/14-afs-rxrpc-key.diff
-	http://people.redhat.com/~dhowells/rxrpc/15-afs-nameidata-key.diff
-	http://people.redhat.com/~dhowells/rxrpc/16-afs-security.diff
-
-
-A security key is acquired by running the klog program:
-
-	http://people.redhat.com/~dhowells/rxrpc/klog.c
-
-This is compiled by:
-
-	make klog CFLAGS="-Wall -g" LDLIBS="-lcrypto -lcrypt -lkrb4 -lkeyutils"
-
-And then run by:
-
-	./klog
-
-Note that at the moment this is a rough and ready test program that has the
-username, realm, password and proposed key timeout compiled in.  Note also that
-it will only talk to the AFS kaserver.
-
-
-If a security key is acquired, then all subsequent operations - including VL
-lookups and mounts - performed with that session keyring will be authenticated
-using that key.  The key can be viewed like so:
-
-	[root@andromeda ~]# keyctl show
-	Session Keyring
-	       -3 --alswrv      0     0  keyring: _ses.3268
-		2 --alswrv      0     0   \_ keyring: _uid.0
-	111416553 --als--v      0     0   \_ rxrpc: afs@CAMBRIDGE.REDHAT.COM
-
-David
