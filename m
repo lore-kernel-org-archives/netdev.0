@@ -1,62 +1,46 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH] net: Add etun driver
-Date: Tue, 10 Apr 2007 23:16:59 +0200
-Message-ID: <1176239819.10381.10.camel@johannes.berg>
-References: <m1ps6g5229.fsf@ebiederm.dsl.xmission.com>
-	 <1176136628.8459.34.camel@johannes.berg> <461A70A5.8060607@trash.net>
-	 <20070409.114402.45491411.davem@davemloft.net>
-	 <m1mz1h1guo.fsf@ebiederm.dsl.xmission.com>  <461A9DF1.8080904@trash.net>
-	 <1176150557.8459.47.camel@johannes.berg>  <461AD517.2000906@trash.net>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [NET]: Get rid of NETIF_F_INTERNAL_STATS
+Date: Wed, 11 Apr 2007 22:15:51 +1000
+Message-ID: <1176293751.14322.14.camel@localhost.localdomain>
+References: <20070411075602.GA17635@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-TJUVvMleZmXqDukrANvE"
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
-	dim@openvz.org, netdev@vger.kernel.org, jgarzik@pobox.com,
-	containers@lists.osdl.org, kuznet@ms2.inr.ac.ru,
-	shemminger@linux-foundation.org, greearb@candelatech.com
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Jeff Garzik <jgarzik@pobox.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:33425 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752082AbXDKLHA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Apr 2007 07:07:00 -0400
-In-Reply-To: <461AD517.2000906@trash.net>
+Received: from ozlabs.org ([203.10.76.45]:37886 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752338AbXDKMQP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Apr 2007 08:16:15 -0400
+In-Reply-To: <20070411075602.GA17635@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Wed, 2007-04-11 at 17:56 +1000, Herbert Xu wrote:
+> Hi:
+> 
+> [NET]: Get rid of NETIF_F_INTERNAL_STATS
+> 
+> The recently added NETIF_F_INTERNAL_STATS isn't very useful.  If the
+> device driver needs to set it then it can always override get_stats
+> instead.  All existing drivers that have stats (which should be every
+> one) will override get_stats anyway.  Those that don't have stats
+> (if there are any) wouldn't hurt from having a get_stats that just
+> returns zeros everywhere.
 
---=-TJUVvMleZmXqDukrANvE
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+Actually, I did this precisely because I really didn't want to start
+exposing bogus stats in /proc/net/dev.  An audit might clarify if this
+is an actual issue.
 
-On Tue, 2007-04-10 at 02:06 +0200, Patrick McHardy wrote:
+> So we can simply get rid of this flag.
+> 
+> This also fixes a potential crash in those get_stats callers that
+> don't check for a NULL return value (e.g., /proc/net/dev).
 
-> Same way as the current RTM_SETLINK message works, but with creating
-> a new link in advance. It works fine in other subsystems, so I don't
-> see why it would in this case as well. Some subsystems do it in an
-> atomic fashion (network schedulers for example), some first create
-> the object, then configure it (network classifiers in the non-compat
-> cases). In the network device case I suppose the later should work
-> fine since a device needs to be set UP in a second action before
-> it really does anything.
+Hmm, I thought it did that in my original patch?
 
-Looking at br_netlink.c it seems that this sort of contradicts why
-generic netlink was done, now all the sudden everything that wants to
-create new links need its own netlink protocol number, no?
+Rusty.
 
-johannes
-
---=-TJUVvMleZmXqDukrANvE
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iD8DBQBGG/7L/ETPhpq3jKURAkHEAJ9kdvCDE0rZlhbQ4R2vzdcqYs+gSQCgqlGm
-ypyEg4vN09clN0LFGfitAsk=
-=Vjn9
------END PGP SIGNATURE-----
-
---=-TJUVvMleZmXqDukrANvE--
 
