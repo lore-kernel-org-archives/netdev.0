@@ -1,45 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: TCP connection stops after high load.
-Date: Wed, 11 Apr 2007 14:39:54 -0700 (PDT)
-Message-ID: <20070411.143954.101495445.davem@davemloft.net>
-References: <461D4DD7.7020207@candelatech.com>
-	<20070411.141143.82097512.davem@davemloft.net>
-	<461D5394.9040409@candelatech.com>
+From: Kim Phillips <kim.phillips@freescale.com>
+Subject: Re: phylib usage
+Date: Wed, 11 Apr 2007 16:42:34 -0500
+Message-ID: <20070411164234.2c64bd92.kim.phillips@freescale.com>
+References: <1176230461.7526.20.camel@dhollis-lnx.sunera.com>
+	<20070410172052.16eae78c.kim.phillips@freescale.com>
+	<20070411010356.GC9526@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: greearb@candelatech.com
+Cc: dhollis@davehollis.com, netdev@vger.kernel.org
+To: Lennert Buytenhek <buytenh@wantstofly.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41361
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1161213AbXDKVjx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Apr 2007 17:39:53 -0400
-In-Reply-To: <461D5394.9040409@candelatech.com>
+Received: from de01egw01.freescale.net ([192.88.165.102]:41208 "EHLO
+	de01egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161242AbXDKVmj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Apr 2007 17:42:39 -0400
+In-Reply-To: <20070411010356.GC9526@xi.wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ben Greear <greearb@candelatech.com>
-Date: Wed, 11 Apr 2007 14:31:00 -0700
+On Wed, 11 Apr 2007 03:03:56 +0200
+Lennert Buytenhek <buytenh@wantstofly.org> wrote:
 
-> I've spent solid weeks tracking down obscure races.
+> On Tue, Apr 10, 2007 at 05:20:52PM -0500, Kim Phillips wrote:
+> 
+> > (note I'm coming from an embedded world here.)
+> 
+> Please read this:
+> 
+> 	http://marc.info/?l=linux-netdev&m=116527863300952&w=2
 
-I've spent solid weeks tracking down kernel stack corruption and scsi
-problems on sparc64, as well as attending to my network maintainer
-duties, what is your point?
+Not sure how to interpret that.  My point was I don't see as much PHY variation in non-embedded applications.
 
-> I'm hoping that someone who knows the tcp stack will have some idea
-> of places to look based on the reported symptoms so that I don't
-> have to spend another solid week chasing this one.
-
-If you can reproduce the bug and others cannot, you are the one in the
-best possible situation to add diagnostics and figure out what's
-wrong.  Please do this.
-
-You get a lot from Linux in your work, but you sure grumble a lot when
-you might need to give even a smidgen back.  You just dump random
-pieces of information at this list and expect other people to just fix
-it for you.  It's this part of your attitude that I absolutely do not
-like.  Other people are able to report bugs in a pleasant and
-non-selfish way that makes me want to go and fix the bug for them
-proactively, you do not.
+Kim
