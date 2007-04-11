@@ -1,75 +1,50 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 1/3] myri10ge: fix management of the firmware 4KB boundary
- crossing restriction
-Date: Wed, 11 Apr 2007 11:55:18 -0400
-Message-ID: <461D04E6.5020103@garzik.org>
-References: <461BE372.2000600@myri.com> <461BE3A4.9080205@myri.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] net: Add etun driver
+Date: Wed, 11 Apr 2007 18:15:41 +0200
+Message-ID: <461D09AD.9060603@trash.net>
+References: <m1ps6g5229.fsf@ebiederm.dsl.xmission.com>	 <1176136628.8459.34.camel@johannes.berg> <461A70A5.8060607@trash.net>	 <20070409.114402.45491411.davem@davemloft.net>	 <m1mz1h1guo.fsf@ebiederm.dsl.xmission.com>  <461A9DF1.8080904@trash.net>	 <1176150557.8459.47.camel@johannes.berg>  <461AD517.2000906@trash.net> <1176239819.10381.10.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Brice Goglin <brice@myri.com>
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
+	dim@openvz.org, netdev@vger.kernel.org, jgarzik@pobox.com,
+	containers@lists.osdl.org, kuznet@ms2.inr.ac.ru,
+	shemminger@linux-foundation.org, greearb@candelatech.com
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:46899 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753157AbXDKPzT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Apr 2007 11:55:19 -0400
-In-Reply-To: <461BE3A4.9080205@myri.com>
+Received: from stinky.trash.net ([213.144.137.162]:56335 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753179AbXDKQPv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Apr 2007 12:15:51 -0400
+In-Reply-To: <1176239819.10381.10.camel@johannes.berg>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Brice Goglin wrote:
-> Simpler way of dealing with the firmware 4KB boundary crossing
-> restriction for rx buffers.  This fixes a variety of memory
-> corruption issues when using an "uncommon" MTU with a 16KB
-> page size.
+Johannes Berg wrote:
+> On Tue, 2007-04-10 at 02:06 +0200, Patrick McHardy wrote:
 > 
-> Signed-off-by: Brice Goglin <brice@myri.com>
-> ---
->  drivers/net/myri10ge/myri10ge.c |   19 ++++++++-----------
->  1 file changed, 8 insertions(+), 11 deletions(-)
 > 
-> Index: linux-rc/drivers/net/myri10ge/myri10ge.c
-> ===================================================================
-> --- linux-rc.orig/drivers/net/myri10ge/myri10ge.c	2007-04-06 09:05:17.000000000 +0200
-> +++ linux-rc/drivers/net/myri10ge/myri10ge.c	2007-04-10 21:03:59.000000000 +0200
-> @@ -900,19 +900,9 @@
->  	/* try to refill entire ring */
->  	while (rx->fill_cnt != (rx->cnt + rx->mask + 1)) {
->  		idx = rx->fill_cnt & rx->mask;
-> -
-> -		if ((bytes < MYRI10GE_ALLOC_SIZE / 2) &&
-> -		    (rx->page_offset + bytes <= MYRI10GE_ALLOC_SIZE)) {
-> +		if (rx->page_offset + bytes <= MYRI10GE_ALLOC_SIZE) {
->  			/* we can use part of previous page */
->  			get_page(rx->page);
-> -#if MYRI10GE_ALLOC_SIZE > 4096
-> -			/* Firmware cannot cross 4K boundary.. */
-> -			if ((rx->page_offset >> 12) !=
-> -			    ((rx->page_offset + bytes - 1) >> 12)) {
-> -				rx->page_offset =
-> -				    (rx->page_offset + bytes) & ~4095;
-> -			}
-> -#endif
->  		} else {
->  			/* we need a new page */
->  			page =
-> @@ -941,6 +931,13 @@
->  
->  		/* start next packet on a cacheline boundary */
->  		rx->page_offset += SKB_DATA_ALIGN(bytes);
-> +
-> +#if MYRI10GE_ALLOC_SIZE > 4096
-> +		/* don't cross a 4KB boundary */
-> +		if ((rx->page_offset >> 12) !=
-> +		    ((rx->page_offset + bytes - 1) >> 12))
-> +			rx->page_offset = (rx->page_offset + 4096) & ~4095;
-> +#endif
->  		rx->fill_cnt++;
->  
->  		/* copy 8 descriptors to the firmware at a time */
+>>Same way as the current RTM_SETLINK message works, but with creating
+>>a new link in advance. It works fine in other subsystems, so I don't
+>>see why it would in this case as well. Some subsystems do it in an
+>>atomic fashion (network schedulers for example), some first create
+>>the object, then configure it (network classifiers in the non-compat
+>>cases). In the network device case I suppose the later should work
+>>fine since a device needs to be set UP in a second action before
+>>it really does anything.
 > 
+> 
+> Looking at br_netlink.c it seems that this sort of contradicts why
+> generic netlink was done, now all the sudden everything that wants to
+> create new links need its own netlink protocol number, no?
 
-applied 1-3
 
+No, generic netlink avoids allocating netlink families. br_netlink
+uses the same netlink family as the other network configuration stuff
+(NETLINK_ROUTE), but a different rtgen_family (which matches the
+address families). But you have a valid point, if we want to use
+this for things like bonding or VLAN that aren't actually address
+families, we should consider introducing "rtnetlink families" to
+avoid adding AF_BONDING, AF_8021Q etc.
 
