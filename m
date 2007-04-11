@@ -1,84 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: link error : 2.6.21-rc6-mm1 for s390
-Date: Tue, 10 Apr 2007 22:11:01 -0700 (PDT)
-Message-ID: <20070410.221101.110908614.davem@davemloft.net>
-References: <20070410182937.8169c672.akpm@linux-foundation.org>
-	<20070410.183629.57444787.davem@davemloft.net>
-	<20070410184738.dc1c5943.akpm@linux-foundation.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [GIT PULL] bridge update for 2.6.22
+Date: Wed, 11 Apr 2007 07:19:46 +0200
+Message-ID: <461C6FF2.2000700@trash.net>
+References: <20070409135552.5eee2bc8@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: mathieu.desnoyers@polymtl.ca, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, shemminger@linux-foundation.org,
-	heiko.carstens@de.ibm.com
-To: akpm@linux-foundation.org
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	netdev@vger.kernel.org
+To: Bart De Schuymer <bdschuym@pandora.be>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44900
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1161195AbXDKFLA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Apr 2007 01:11:00 -0400
-In-Reply-To: <20070410184738.dc1c5943.akpm@linux-foundation.org>
+Received: from stinky.trash.net ([213.144.137.162]:43748 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161196AbXDKFUi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Apr 2007 01:20:38 -0400
+In-Reply-To: <20070409135552.5eee2bc8@dxpl.pdx.osdl.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Andrew Morton <akpm@linux-foundation.org>
-Date: Tue, 10 Apr 2007 18:47:38 -0700
+Stephen Hemminger wrote:
+> diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
+> index a260679..8a55276 100644
+> --- a/net/bridge/br_input.c
+> +++ b/net/bridge/br_input.c
+>  	if (unlikely(is_link_local(dest))) {
+>  		skb->pkt_type = PACKET_HOST;
+> -		return NF_HOOK(PF_BRIDGE, NF_BR_LOCAL_IN, skb, skb->dev,
+> -			       NULL, br_handle_local_finish) != 0;
+> +
+> +		return (NF_HOOK(PF_BRIDGE, NF_BR_LOCAL_IN, skb, skb->dev,
+> +				NULL, br_handle_local_finish) == 0) ? skb : NULL;
+>  	}
 
-> attribute(weak) would give a nicer result?
-> 
-> We'd also need to remove s390's EXPORT_SYMBOL(__div64_32), so s390 ends up
-> using lib/div64.c's EXPORT_SYMBOL().
 
-Ok, here is the version of the fix I'll use for now:
+I Just want to note, this is broken in multiple ways (not by this
+patch, it was already broken before). When a packet is stolen or
+queued, NF_HOOK will return 0, but the packet is not owned by the
+caller anymore, so we have a potential use-after-free. Additionally
+the okfn owns the skb and needs to make sure it continues its path,
+which br_handle_local_finish doesn't do, resulting in leaks and
+broken queueing. The fix looks quite ugly, bf_handle_local_finish
+would need to pass the skb back to netif_receive_skb just after the
+handle_bridge call.
 
-commit c3abb3b8d41814ce4691cc4cc3998b0f5242c8d0
-Author: David S. Miller <davem@sunset.davemloft.net>
-Date:   Tue Apr 10 22:10:39 2007 -0700
+All this is not a problem for mainline currently since ebtables
+doesn't support QUEUE yet, but since its mentioned on the TODO
+list and in any case is incorrect use of NF_HOOK it feels worth
+mentioning.
 
-    [S390]: Fix build on 31-bit.
-    
-    Allow s390 to properly override the generic
-    __div64_32() implementation by:
-    
-    1) Using obj-y for div64.o in s390's makefile instead
-       of lib-y
-    
-    2) Adding the weak attribute to the generic implementation.
-    
-    Signed-off-by: David S. Miller <davem@davemloft.net>
-
-diff --git a/arch/s390/lib/Makefile b/arch/s390/lib/Makefile
-index 7a44fed..59aea65 100644
---- a/arch/s390/lib/Makefile
-+++ b/arch/s390/lib/Makefile
-@@ -5,6 +5,6 @@
- EXTRA_AFLAGS := -traditional
- 
- lib-y += delay.o string.o uaccess_std.o uaccess_pt.o qrnnd.o
--lib-$(CONFIG_32BIT) += div64.o
-+obj-$(CONFIG_32BIT) += div64.o
- lib-$(CONFIG_64BIT) += uaccess_mvcos.o
- lib-$(CONFIG_SMP) += spinlock.o
-diff --git a/arch/s390/lib/div64.c b/arch/s390/lib/div64.c
-index 0481f34..a5f8300 100644
---- a/arch/s390/lib/div64.c
-+++ b/arch/s390/lib/div64.c
-@@ -147,5 +147,3 @@ uint32_t __div64_32(uint64_t *n, uint32_t base)
- }
- 
- #endif /* MARCH_G5 */
--
--EXPORT_SYMBOL(__div64_32);
-diff --git a/lib/div64.c b/lib/div64.c
-index 74f0c8c..b71cf93 100644
---- a/lib/div64.c
-+++ b/lib/div64.c
-@@ -23,7 +23,7 @@
- /* Not needed on 64bit architectures */
- #if BITS_PER_LONG == 32
- 
--uint32_t __div64_32(uint64_t *n, uint32_t base)
-+uint32_t __attribute__((weak)) __div64_32(uint64_t *n, uint32_t base)
- {
- 	uint64_t rem = *n;
- 	uint64_t b = base;
