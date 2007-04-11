@@ -1,54 +1,43 @@
-From: Esben Nielsen <nielsen.esben@googlemail.com>
-Subject: Re: [PATCH 20/30] Use menuconfig objects - ARCNET
-Date: Wed, 11 Apr 2007 11:10:27 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0704111040000.13800@frodo.shire>
-References: <Pine.LNX.4.61.0704102046520.32056@yvahk01.tjqt.qr>
- <Pine.LNX.4.61.0704102329540.32056@yvahk01.tjqt.qr>
- <Pine.LNX.4.64.0704111014330.13800@frodo.shire> <Pine.LNX.4.61.0704111034170.32056@yvahk01.tjqt.qr>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [NET]: Get rid of NETIF_F_INTERNAL_STATS
+Date: Wed, 11 Apr 2007 22:23:17 +1000
+Message-ID: <20070411122317.GA21159@gondor.apana.org.au>
+References: <20070411075602.GA17635@gondor.apana.org.au> <1176293751.14322.14.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Jan Engelhardt <jengelh@linux01.gwdg.de>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751559AbXDKJKg@vger.kernel.org>
-In-Reply-To: <Pine.LNX.4.61.0704111034170.32056@yvahk01.tjqt.qr>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Jeff Garzik <jgarzik@pobox.com>
+To: Rusty Russell <rusty@rustcorp.com.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:3690 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752064AbXDKMXd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Apr 2007 08:23:33 -0400
+Content-Disposition: inline
+In-Reply-To: <1176293751.14322.14.camel@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Wed, Apr 11, 2007 at 10:15:51PM +1000, Rusty Russell wrote:
+> 
+> Actually, I did this precisely because I really didn't want to start
+> exposing bogus stats in /proc/net/dev.  An audit might clarify if this
+> is an actual issue.
 
+Fair enough.  Still returning zeros when get_stats isn't available
+would seem safe enough.  I wasn't able to find any drivers which
+didn't have get_stats.
 
-On Wed, 11 Apr 2007, Jan Engelhardt wrote:
+> > This also fixes a potential crash in those get_stats callers that
+> > don't check for a NULL return value (e.g., /proc/net/dev).
+> 
+> Hmm, I thought it did that in my original patch?
 
->
-> On Apr 11 2007 10:30, Esben Nielsen wrote:
->> On Tue, 10 Apr 2007, Jan Engelhardt wrote:
->>>
->>> (Wow, not a single MODULE_AUTHOR line in drivers/net/arcnet/ ...)
->>
->> ArcNet is old. Almost nobody is using it anymore. I used it at my
->> former job, since we used it as control network. A lot of companies
->> still does quitely, but not in combination with Linux.
+Sorry, I was looking at the wrong tree.
 
-Let me correct myself: I have only know of one company using the Linux 
-ArcNet combination in production. But there must be other companies using 
-ArcNet playing with Linux in R&D.
-
->
-> So send some removal patches :)
-
-No. Somebody (like me) in those companise use them sporadically for their 
-PCI/PCMCIA cards. The vendor have some basic Windoze drives. Missing Linux 
-drivers should not be yet another obstacle for using Linux.
-
-They might also one day want to run Linux on their embedded platform - 
-especially with preempt-realtime. When I at my former job got Linux to boot
-at our embedded platform their I could almost immediately use the onboard
-ArcNet controller. For the propriatary OS otherwise used on those platforms it
-took many man weeks to write a driver.
-
-Keeping support for old devices in the kernel tree is a good for Linux. It 
-should take too long updating it for API changes and although they might 
-not work, but if the occational user is capable enough, he can soon fix 
-them. If they are are removed the occational user will choose another OS.
-
-Esben
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
