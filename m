@@ -1,51 +1,74 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 2.6.21 1/3] cxgb3 - avoid deadlock with mac watchdog
-Date: Wed, 11 Apr 2007 11:55:07 -0400
-Message-ID: <461D04DB.80001@garzik.org>
-References: <20070410031022.12878.81342.stgit@localhost.localdomain>
+Subject: Re: [PATCH 1/3] myri10ge: fix management of the firmware 4KB boundary
+ crossing restriction
+Date: Wed, 11 Apr 2007 11:55:18 -0400
+Message-ID: <461D04E6.5020103@garzik.org>
+References: <461BE372.2000600@myri.com> <461BE3A4.9080205@myri.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	swise@opengridcomputing.com
-To: divy@chelsio.com
+Cc: netdev@vger.kernel.org
+To: Brice Goglin <brice@myri.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:46890 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:46899 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753152AbXDKPzJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Apr 2007 11:55:09 -0400
-In-Reply-To: <20070410031022.12878.81342.stgit@localhost.localdomain>
+	id S1753157AbXDKPzT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Apr 2007 11:55:19 -0400
+In-Reply-To: <461BE3A4.9080205@myri.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-divy@chelsio.com wrote:
-> From: Divy Le Ray <divy@chelsio.com>
+Brice Goglin wrote:
+> Simpler way of dealing with the firmware 4KB boundary crossing
+> restriction for rx buffers.  This fixes a variety of memory
+> corruption issues when using an "uncommon" MTU with a 16KB
+> page size.
 > 
-> Fix a deadlock when the interface s configured down and 
-> the watchdog tack is sleeping on rtnl_lock.
-> 
-> Signed-off-by: Divy Le Ray <divy@chelsio.com>
+> Signed-off-by: Brice Goglin <brice@myri.com>
 > ---
+>  drivers/net/myri10ge/myri10ge.c |   19 ++++++++-----------
+>  1 file changed, 8 insertions(+), 11 deletions(-)
 > 
->  drivers/net/cxgb3/cxgb3_main.c |    4 +++-
->  1 files changed, 3 insertions(+), 1 deletions(-)
-> 
-> diff --git a/drivers/net/cxgb3/cxgb3_main.c b/drivers/net/cxgb3/cxgb3_main.c
-> index 26240fd..c6ebe25 100644
-> --- a/drivers/net/cxgb3/cxgb3_main.c
-> +++ b/drivers/net/cxgb3/cxgb3_main.c
-> @@ -2119,7 +2119,9 @@ static void check_t3b2_mac(struct adapte
->  {
->  	int i;
+> Index: linux-rc/drivers/net/myri10ge/myri10ge.c
+> ===================================================================
+> --- linux-rc.orig/drivers/net/myri10ge/myri10ge.c	2007-04-06 09:05:17.000000000 +0200
+> +++ linux-rc/drivers/net/myri10ge/myri10ge.c	2007-04-10 21:03:59.000000000 +0200
+> @@ -900,19 +900,9 @@
+>  	/* try to refill entire ring */
+>  	while (rx->fill_cnt != (rx->cnt + rx->mask + 1)) {
+>  		idx = rx->fill_cnt & rx->mask;
+> -
+> -		if ((bytes < MYRI10GE_ALLOC_SIZE / 2) &&
+> -		    (rx->page_offset + bytes <= MYRI10GE_ALLOC_SIZE)) {
+> +		if (rx->page_offset + bytes <= MYRI10GE_ALLOC_SIZE) {
+>  			/* we can use part of previous page */
+>  			get_page(rx->page);
+> -#if MYRI10GE_ALLOC_SIZE > 4096
+> -			/* Firmware cannot cross 4K boundary.. */
+> -			if ((rx->page_offset >> 12) !=
+> -			    ((rx->page_offset + bytes - 1) >> 12)) {
+> -				rx->page_offset =
+> -				    (rx->page_offset + bytes) & ~4095;
+> -			}
+> -#endif
+>  		} else {
+>  			/* we need a new page */
+>  			page =
+> @@ -941,6 +931,13 @@
 >  
-> -	rtnl_lock();                      /* synchronize with ifdown */
-> +	if (!rtnl_trylock())	/* synchronize with ifdown */
-> +		return;
+>  		/* start next packet on a cacheline boundary */
+>  		rx->page_offset += SKB_DATA_ALIGN(bytes);
 > +
->  	for_each_port(adapter, i) {
->  		struct net_device *dev = adapter->port[i];
->  		struct port_info *p = netdev_priv(dev);
-
+> +#if MYRI10GE_ALLOC_SIZE > 4096
+> +		/* don't cross a 4KB boundary */
+> +		if ((rx->page_offset >> 12) !=
+> +		    ((rx->page_offset + bytes - 1) >> 12))
+> +			rx->page_offset = (rx->page_offset + 4096) & ~4095;
+> +#endif
+>  		rx->fill_cnt++;
+>  
+>  		/* copy 8 descriptors to the firmware at a time */
+> 
 
 applied 1-3
 
