@@ -1,102 +1,50 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [SK_BUFF]: Fix missing offset adjustment in skb_copy_expand
-Date: Wed, 11 Apr 2007 02:42:59 +0200
-Message-ID: <461C2F13.1080808@trash.net>
-References: <461849C5.8000507@trash.net>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: [PATCH] Add support for running the Marvell m88e1111 PHY in RGMII mode
+Date: Wed, 11 Apr 2007 03:01:58 +0200
+Message-ID: <20070411010158.GB9526@xi.wantstofly.org>
+References: <20070410165723.472fdc69.kim.phillips@freescale.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------000809040502070202040406"
-Cc: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
-	Kernel Netdev Mailing List <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Jeff Garzik <jgarzik@pobox.com>
+To: Kim Phillips <kim.phillips@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:39745 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932359AbXDKAnK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Apr 2007 20:43:10 -0400
-In-Reply-To: <461849C5.8000507@trash.net>
+Received: from alephnull.demon.nl ([83.160.184.112]:52791 "EHLO
+	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161133AbXDKBCB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Apr 2007 21:02:01 -0400
+Content-Disposition: inline
+In-Reply-To: <20070410165723.472fdc69.kim.phillips@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------000809040502070202040406
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
+On Tue, Apr 10, 2007 at 04:57:23PM -0500, Kim Phillips wrote:
 
-Hi Dave,
+> also adds RX & TX delay bits to help boards with clock skew problems.
 
-Patrick McHardy wrote:
-> [SK_BUFF]: Fix missing offset adjustment in skb_copy_expand
-> 
-> skb_copy_expand changes the headroom, so it needs to adjust the header
-> offsets by the difference between the old and the new value.
+This doesn't make sense at all.
 
+RGMII specifies that clock and data are generated simultaneously.  The
+necessary 1.5-2ns of clock delay is either achieved by routing the RGMII
+clock net to have that amount of skew, or by programming the RGMII
+receiver to add that amount of clock delay internally.
 
-it seems like you missed this one. Attached again for your convenience.
+So, boards that have 'clock skew problems' should have RX & TX delay
+turned OFF.  Boards that route the clock nets without any skew should
+have RX & TX delay turned on.
 
-
-
---------------000809040502070202040406
-Content-Type: text/x-diff;
- name="02.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="02.diff"
-
-[SK_BUFF]: Fix missing offset adjustment in skb_copy_expand
-
-skb_copy_expand changes the headroom, so it needs to adjust the header
-offsets by the difference between the old and the new value.
-
-Signed-off-by: Patrick McHardy <kaber@trash.net>
-
----
-commit 9cb76fae709a9303777286998baa457b0730a225
-tree 2ea619c7daf9c5e6829dad6d502386eb9c922700
-parent fb98b03719ad23840ca005edbba3c86ef1e3282c
-author Patrick McHardy <kaber@trash.net> Sun, 08 Apr 2007 03:36:49 +0200
-committer Patrick McHardy <kaber@trash.net> Sun, 08 Apr 2007 03:36:49 +0200
-
- net/core/skbuff.c |   11 ++++++++++-
- 1 files changed, 10 insertions(+), 1 deletions(-)
-
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 5c9ee94..f2cffd4 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -794,7 +794,9 @@ struct sk_buff *skb_copy_expand(const struct sk_buff *skb,
- 	 */
- 	struct sk_buff *n = alloc_skb(newheadroom + skb->len + newtailroom,
- 				      gfp_mask);
-+	int oldheadroom = skb_headroom(skb);
- 	int head_copy_len, head_copy_off;
-+	int off = 0;
- 
- 	if (!n)
- 		return NULL;
-@@ -804,7 +806,7 @@ struct sk_buff *skb_copy_expand(const struct sk_buff *skb,
- 	/* Set the tail pointer and length */
- 	skb_put(n, skb->len);
- 
--	head_copy_len = skb_headroom(skb);
-+	head_copy_len = oldheadroom;
- 	head_copy_off = 0;
- 	if (newheadroom <= head_copy_len)
- 		head_copy_len = newheadroom;
-@@ -818,6 +820,13 @@ struct sk_buff *skb_copy_expand(const struct sk_buff *skb,
- 
- 	copy_skb_header(n, skb);
- 
-+#ifdef NET_SKBUFF_DATA_USES_OFFSET
-+	off                  = newheadroom - oldheadroom;
-+#endif
-+	n->transport_header += off;
-+	n->network_header   += off;
-+	n->mac_header	    += off;
-+
- 	return n;
- }
- 
+Your patch unconditionally enables clock delay in the 88e1111, which
+only makes sense if the RGMII data and clock nets are routed to have
+the approximate same amount of delay.  Which means that it is entirely
+board-specific whether this should be enabled or not.  If you enable
+the 88e1111 internal RX/TX clock delay feature on a board that also
+routes the RGMII clock nets to have the appropriate amount of skew,
+things are likely to break entirely.
 
 
---------------000809040502070202040406--
+> [...]
+> +
+> +		temp |= (MII_M1111_RX_DELAY | MII_M1111_TX_DELAY);
+
+Enabling this unconditionally is just wrong.
+
+I.e. the patch is wrong, and the description is wrong too.
