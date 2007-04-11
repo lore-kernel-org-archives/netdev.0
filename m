@@ -1,50 +1,58 @@
-From: Patrick McHardy <kaber@trash.net>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
 Subject: Re: [PATCH] net: Add etun driver
-Date: Wed, 11 Apr 2007 18:15:41 +0200
-Message-ID: <461D09AD.9060603@trash.net>
-References: <m1ps6g5229.fsf@ebiederm.dsl.xmission.com>	 <1176136628.8459.34.camel@johannes.berg> <461A70A5.8060607@trash.net>	 <20070409.114402.45491411.davem@davemloft.net>	 <m1mz1h1guo.fsf@ebiederm.dsl.xmission.com>  <461A9DF1.8080904@trash.net>	 <1176150557.8459.47.camel@johannes.berg>  <461AD517.2000906@trash.net> <1176239819.10381.10.camel@johannes.berg>
+Date: Wed, 11 Apr 2007 09:16:06 -0700
+Message-ID: <20070411091606.04d73b31@freekitty>
+References: <m1ps6g5229.fsf@ebiederm.dsl.xmission.com>
+	<1176136628.8459.34.camel@johannes.berg>
+	<461A70A5.8060607@trash.net>
+	<20070409.114402.45491411.davem@davemloft.net>
+	<m1mz1h1guo.fsf@ebiederm.dsl.xmission.com>
+	<461A9DF1.8080904@trash.net>
+	<1176150557.8459.47.camel@johannes.berg>
+	<461AD517.2000906@trash.net>
+	<1176239819.10381.10.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+Cc: Patrick McHardy <kaber@trash.net>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
 	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
 	dim@openvz.org, netdev@vger.kernel.org, jgarzik@pobox.com,
 	containers@lists.osdl.org, kuznet@ms2.inr.ac.ru,
-	shemminger@linux-foundation.org, greearb@candelatech.com
+	greearb@candelatech.com
 To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:56335 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753179AbXDKQPv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Apr 2007 12:15:51 -0400
+Received: from smtp.osdl.org ([65.172.181.24]:50601 "EHLO smtp.osdl.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752864AbXDKQRK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Apr 2007 12:17:10 -0400
 In-Reply-To: <1176239819.10381.10.camel@johannes.berg>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Johannes Berg wrote:
+On Tue, 10 Apr 2007 23:16:59 +0200
+Johannes Berg <johannes@sipsolutions.net> wrote:
+
 > On Tue, 2007-04-10 at 02:06 +0200, Patrick McHardy wrote:
 > 
-> 
->>Same way as the current RTM_SETLINK message works, but with creating
->>a new link in advance. It works fine in other subsystems, so I don't
->>see why it would in this case as well. Some subsystems do it in an
->>atomic fashion (network schedulers for example), some first create
->>the object, then configure it (network classifiers in the non-compat
->>cases). In the network device case I suppose the later should work
->>fine since a device needs to be set UP in a second action before
->>it really does anything.
-> 
+> > Same way as the current RTM_SETLINK message works, but with creating
+> > a new link in advance. It works fine in other subsystems, so I don't
+> > see why it would in this case as well. Some subsystems do it in an
+> > atomic fashion (network schedulers for example), some first create
+> > the object, then configure it (network classifiers in the non-compat
+> > cases). In the network device case I suppose the later should work
+> > fine since a device needs to be set UP in a second action before
+> > it really does anything.
 > 
 > Looking at br_netlink.c it seems that this sort of contradicts why
 > generic netlink was done, now all the sudden everything that wants to
 > create new links need its own netlink protocol number, no?
+> 
+> johannes
+
+Bridging is different since there was already a bridge protocol number assigned,
+there was no point in doing generic netlink.
 
 
-No, generic netlink avoids allocating netlink families. br_netlink
-uses the same netlink family as the other network configuration stuff
-(NETLINK_ROUTE), but a different rtgen_family (which matches the
-address families). But you have a valid point, if we want to use
-this for things like bonding or VLAN that aren't actually address
-families, we should consider introducing "rtnetlink families" to
-avoid adding AF_BONDING, AF_8021Q etc.
-
+---
+Stephen Hemminger <shemminger@linux-foundation.org>
