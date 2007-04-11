@@ -1,49 +1,132 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: + ppp_generic-fix-lockdep-warning.patch added to -mm tree
-Date: Wed, 11 Apr 2007 01:58:56 -0700
-Message-ID: <20070411015856.8caed97b.akpm@linux-foundation.org>
-References: <200703282353.l2SNr2iL023119@shell0.pdx.osdl.net>
-	<01ef01c77bfe$4cdfe640$0202fea9@Jura>
-	<20070411000932.1f00f395.akpm@linux-foundation.org>
-	<028701c77c16$bcd68a90$0202fea9@Jura>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: [PATCH 2/2] [TCP] FRTO: RFC4138 allows Nagle override when new data must be sent
+Date: Wed, 11 Apr 2007 12:25:51 +0300
+Message-ID: <1176283551509-git-send-email-ilpo.jarvinen@helsinki.fi>
+References: <11762835513275-git-send-email-ilpo.jarvinen@helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: <jarkao2@o2.pl>, <paulus@samba.org>, <netdev@vger.kernel.org>
-To: "Yuriy N. Shkandybin" <jura@netams.com>
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:38956 "EHLO smtp.osdl.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751544AbXDKJCU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Apr 2007 05:02:20 -0400
-In-Reply-To: <028701c77c16$bcd68a90$0202fea9@Jura>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:56766 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751657AbXDKJZw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Apr 2007 05:25:52 -0400
+In-Reply-To: <11762835513275-git-send-email-ilpo.jarvinen@helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 11 Apr 2007 12:52:28 +0400 "Yuriy N. Shkandybin" <jura@netams.com> wrote:
+This is a corner case where less than MSS sized new data thingie
+is awaiting in the send queue. For F-RTO to work correctly, a
+new data segment must be sent at certain point or F-RTO cannot
+be used at all. RFC4138 allows overriding of Nagle at that
+point.
 
-> 
-> 
-> > (added netdev)
-> >
-> > On Wed, 11 Apr 2007 09:57:33 +0400 "Yuriy N. Shkandybin" <jura@netams.com> 
-> > wrote:
-> >
-> >> I've tested  2.6.21-rc6-mm1
-> >> Linux vpn1 2.6.21-rc6-mm1 #4 SMP Wed Apr 11 03:34:26 MSD 2007 x86_64
-> >> Intel(R) Pentium(R) D CPU 2.80GHz GenuineIntel GNU/Linux
-> >>
-> >> warn appeares upon first pppoe connection to rp-pppoe server in kernel 
-> >> mode
-> >>
-> >
-> > Thanks.  So you're saying that
-> > ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.21-rc6/2.6.21-rc6-mm1/broken-out/ppp_generic-fix-lockdep-warning.patch
-> > did not fix anything?
-> As i understand this patch already in -mm tree, so I've booted into last mm 
-> kernel and received this locked warning.
-> Or i've mistaked and should apply this patch manually?
+Implementation uses frto_counter states 2 and 3 to distinguish
+when Nagle override is needed.
 
-No, that's OK - that patch is indeed in 2.6.21-rc6-mm1.  It appears that it
-did not fix this bug.
+Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
+---
+ include/net/tcp.h     |    5 +++++
+ net/ipv4/tcp_input.c  |   13 ++++++++-----
+ net/ipv4/tcp_output.c |    6 ++++--
+ 3 files changed, 17 insertions(+), 7 deletions(-)
+
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index fe1c4f0..0abf7db 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -1217,9 +1217,14 @@ static inline struct sk_buff *tcp_send_h
+=20
+ static inline void tcp_advance_send_head(struct sock *sk, struct sk_bu=
+ff *skb)
+ {
++	struct tcp_sock *tp =3D tcp_sk(sk);
++
+ 	sk->sk_send_head =3D tcp_write_queue_next(sk, skb);
+ 	if (sk->sk_send_head =3D=3D (struct sk_buff *)&sk->sk_write_queue)
+ 		sk->sk_send_head =3D NULL;
++	/* Don't override Nagle indefinately with F-RTO */
++	if (tp->frto_counter =3D=3D 2)
++		tp->frto_counter =3D 3;
+ }
+=20
+ static inline void tcp_check_send_head(struct sock *sk, struct sk_buff=
+ *skb_unlinked)
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 21fd8fb..7c1a0dc 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -2776,7 +2776,9 @@ static void tcp_undo_spur_to_response(st
+  *                  algorithm is not part of the F-RTO detection algor=
+ithm
+  *                  given in RFC4138 but can be selected separately).
+  * Otherwise (basically on duplicate ACK), RTO was (likely) caused by =
+a loss
+- * and TCP falls back to conventional RTO recovery.
++ * and TCP falls back to conventional RTO recovery. F-RTO allows overr=
+iding
++ * of Nagle, this is done using frto_counter states 2 and 3, when a ne=
+w data
++ * segment of any size sent during F-RTO, state 2 is upgraded to 3.
+  *
+  * Rationale: if the RTO was spurious, new ACKs should arrive from the
+  * original window even after we transmit two new data segments.
+@@ -2805,7 +2807,7 @@ static int tcp_process_frto(struct sock=20
+ 		inet_csk(sk)->icsk_retransmits =3D 0;
+=20
+ 	if (!before(tp->snd_una, tp->frto_highmark)) {
+-		tcp_enter_frto_loss(sk, tp->frto_counter + 1, flag);
++		tcp_enter_frto_loss(sk, (tp->frto_counter =3D=3D 1 ? 2 : 3), flag);
+ 		return 1;
+ 	}
+=20
+@@ -2831,7 +2833,7 @@ static int tcp_process_frto(struct sock=20
+ 			return 1;
+ 		}
+=20
+-		if ((tp->frto_counter =3D=3D 2) &&
++		if ((tp->frto_counter >=3D 2) &&
+ 		    (!(flag&FLAG_FORWARD_PROGRESS) ||
+ 		     ((flag&FLAG_DATA_SACKED) && !(flag&FLAG_ONLY_ORIG_SACKED)))) {
+ 			/* RFC4138 shortcoming (see comment above) */
+@@ -2848,14 +2850,15 @@ static int tcp_process_frto(struct sock=20
+ 		if (!tcp_send_head(sk) ||
+ 		    after(TCP_SKB_CB(tcp_send_head(sk))->end_seq,
+ 				     tp->snd_una + tp->snd_wnd)) {
+-			tcp_enter_frto_loss(sk, tp->frto_counter + 1, flag);
++			tcp_enter_frto_loss(sk, (tp->frto_counter =3D=3D 1 ? 2 : 3),
++					    flag);
+ 			return 1;
+ 		}
+=20
+ 		tp->snd_cwnd =3D tcp_packets_in_flight(tp) + 2;
+ 		tp->frto_counter =3D 2;
+ 		return 1;
+-	} else /* frto_counter =3D=3D 2 */ {
++	} else {
+ 		switch (sysctl_tcp_frto_response) {
+ 		case 2:
+ 			tcp_undo_spur_to_response(sk, flag);
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index f2d9aa5..e8e6abb 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -1030,8 +1030,10 @@ static inline int tcp_nagle_test(struct=20
+ 	if (nonagle & TCP_NAGLE_PUSH)
+ 		return 1;
+=20
+-	/* Don't use the nagle rule for urgent data (or for the final FIN).  =
+*/
+-	if (tp->urg_mode ||
++	/* Don't use the nagle rule for urgent data (or for the final FIN).
++	 * Nagle can be ignored during F-RTO too (see RFC4138).
++	 */
++	if (tp->urg_mode || (tp->frto_counter =3D=3D 2) ||
+ 	    (TCP_SKB_CB(skb)->flags & TCPCB_FLAG_FIN))
+ 		return 1;
+=20
+--=20
+1.4.2
 
