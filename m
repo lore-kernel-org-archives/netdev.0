@@ -1,54 +1,43 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: TCP connection stops after high load.
-Date: Wed, 11 Apr 2007 14:31:00 -0700
-Message-ID: <461D5394.9040409@candelatech.com>
-References: <461D447C.4070408@candelatech.com>	<20070411.134804.50594117.davem@davemloft.net>	<461D4DD7.7020207@candelatech.com> <20070411.141143.82097512.davem@davemloft.net>
+From: Kim Phillips <kim.phillips@freescale.com>
+Subject: Re: [PATCH] Add support for running the Marvell m88e1111 PHY in
+ RGMII mode
+Date: Wed, 11 Apr 2007 16:36:49 -0500
+Message-ID: <20070411163649.2d055676.kim.phillips@freescale.com>
+References: <20070410165723.472fdc69.kim.phillips@freescale.com>
+	<20070411010158.GB9526@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, jgarzik@pobox.com
+To: Lennert Buytenhek <buytenh@wantstofly.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:42431 "EHLO ns2.lanforge.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932184AbXDKVbD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Apr 2007 17:31:03 -0400
-In-Reply-To: <20070411.141143.82097512.davem@davemloft.net>
+Received: from de01egw01.freescale.net ([192.88.165.102]:40442 "EHLO
+	de01egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965345AbXDKVg4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Apr 2007 17:36:56 -0400
+In-Reply-To: <20070411010158.GB9526@xi.wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: Ben Greear <greearb@candelatech.com>
-> Date: Wed, 11 Apr 2007 14:06:31 -0700
+On Wed, 11 Apr 2007 03:01:58 +0200
+Lennert Buytenhek <buytenh@wantstofly.org> wrote:
+
+> On Tue, Apr 10, 2007 at 04:57:23PM -0500, Kim Phillips wrote:
 > 
->> Does the CWND == 1 count as solid?  Any idea how/why this would go
->> to 1 in conjunction with the dup acks?
->>
->> For the dup acks, I see nothing *but* dup acks on the wire...going in
->> both directions interestingly, at greater than 100,000 packets per second.
->>
->> I don't mind adding printks...and I've started reading through the code,
->> but there is a lot of it, and indiscriminate printks will likely just
->> hide the problem because it will slow down performance so much.
+> > also adds RX & TX delay bits to help boards with clock skew
+> > problems.
 > 
-> If you know that it doesn't take Einstein to figure out that maybe you
-> should add logging when CWND is one and we're sending out an ACK?
- >
-> This is why I think you're very lazy Ben and I get very agitated with
-> all of your reports, you put zero effort into thinking about how to
-> debug the problem even though you know full well how to do it.
+<snip>
+> 
+> > [...]
+> > +
+> > +		temp |= (MII_M1111_RX_DELAY | MII_M1111_TX_DELAY);
+> 
+> Enabling this unconditionally is just wrong.
+> 
 
-I've spent solid weeks tracking down obscure races.  I'm hoping that
-someone who knows the tcp stack will have some idea of places to look
-based on the reported symptoms so that I don't have to spend another
-solid week chasing this one.  If not, so be it..I'm still working on
-this between sending emails.  For what it's worth, the problem (or something similar)
-is reproducible on a stock FC5 .18-ish kernel as well, running between
-two machines, 2 ports each.
+I agree.  There needs to be a way for the platform code to communicate
+board specific quirkiness to the phylib (I just haven't figured out how
+to yet).
 
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
-
+Kim
