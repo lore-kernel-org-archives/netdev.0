@@ -1,33 +1,40 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: [ofa-general] Re: [PATCH 2.6.21] iw_cxgb3 - Add
-	set_tcb_rpl_handler.
-Date: Thu, 12 Apr 2007 10:30:48 -0700
-Message-ID: <adamz1dh54n.fsf@cisco.com>
-References: <1176382594.9396.1.camel@stevo-desktop>
-	<461E45C3.2050400@chelsio.com> <adaveg1ipki.fsf@cisco.com>
-	<1176392566.9396.11.camel@stevo-desktop> <ada3b35ink7.fsf@cisco.com>
+From: Dave Jiang <djiang@mvista.com>
+Subject: [PATCH] gianfar needs crc32 lib dependency
+Date: Thu, 12 Apr 2007 10:57:06 -0700
+Message-ID: <20070412175706.GA12664@blade.az.mvista.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Netdev@vger.kernel.org, Divy Le Ray <divy@chelsio.com>,
-	OpenFabrics General <general@lists.openfabrics.org>,
-	Jeff Garzik <jeff@garzik.org>, linux-kernel <linux-kernel@vger.kernel.org>
-To: Steve Wise <swise@opengridcomputing.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <ada3b35ink7.fsf@cisco.com> (Roland Dreier's message of "Thu,
-	12 Apr 2007 09:07:20 -0700")
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Content-Type: text/plain; charset=iso-8859-1
+Cc: galak@kernel.crashing.org, afleming@freescale.com,
+	sshtylyov@ru.mvista.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gateway-1237.mvista.com ([63.81.120.158]:51971 "EHLO
+	gateway-1237.mvista.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030624AbXDLRy6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Apr 2007 13:54:58 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Never mind, I see that "cxgb3 - missing CPL hanler and register
-setting." has appeared in Linus's tree.  Steve, I'll ask Linus to pull
-this fix today.  Jeff, never mind my question since it's too late now.
 
- - R.
+Gianfar needs crc32 to be selected to compile. 
+
+Signed-off-by: Dave Jiang <djiang@mvista.com>
+
+--
+ drivers/net/Kconfig |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+--
+
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index 8aa8dd0..2516e0b 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -2274,6 +2274,7 @@ config GIANFAR
+ 	tristate "Gianfar Ethernet"
+ 	depends on 85xx || 83xx || PPC_86xx
+ 	select PHYLIB
++	select CRC32
+ 	help
+ 	  This driver supports the Gigabit TSEC on the MPC83xx, MPC85xx,
+ 	  and MPC86xx family of chips, and the FEC on the 8540.
