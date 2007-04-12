@@ -1,84 +1,109 @@
-From: "Robert Iakobashvili" <coroberti@gmail.com>
-Subject: TCP connection stops after high load.
-Date: Thu, 12 Apr 2007 23:11:14 +0200
-Message-ID: <7e63f56c0704121411w6faea114g756d780b5a011463@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: TCP connection stops after high load.
+Date: Thu, 12 Apr 2007 14:15:50 -0700 (PDT)
+Message-ID: <20070412.141550.133265618.davem@davemloft.net>
+References: <7e63f56c0704121411w6faea114g756d780b5a011463@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Ben Greear" <greearb@candelatech.com>
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, greearb@candelatech.com
+To: coroberti@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.173]:57237 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753789AbXDLVLQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Apr 2007 17:11:16 -0400
-Received: by ug-out-1314.google.com with SMTP id 44so419345uga
-        for <netdev@vger.kernel.org>; Thu, 12 Apr 2007 14:11:15 -0700 (PDT)
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42689
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753856AbXDLVPt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Apr 2007 17:15:49 -0400
+In-Reply-To: <7e63f56c0704121411w6faea114g756d780b5a011463@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Ben,
+From: "Robert Iakobashvili" <coroberti@gmail.com>
+Date: Thu, 12 Apr 2007 23:11:14 +0200
 
-On 4/11/07, Ben Greear <greearb@candelatech.com> wrote:
->  The problem is that I set up a TCP connection with bi-directional traffic
-> of around 800Mbps, doing large (20k - 64k writes and reads) between two ports on
-> the same machine (this 2.6.18.2  kernel is tainted with my full patch set,
-> but I also reproduced with only the non-tainted send-to-self patch applied
-> last may on the 2.6.16 kernel, so I assume the bug is not particular to my patch
-> set).
->
->  At first, all is well, but within 5-10 minutes, the TCP connection will stall
-> and I only see a massive amount of duplicate ACKs on the link.
->
+> It works good with  2.6.11.8 and debian 2.6.18.3-i686 image.
+> 
+> At the same Intel Pentium-4 PC with the same about kernel configuration
+> (make oldconfig using Debian config-2.6.18.3-i686) the setup fails with the
+> tcp-connections stalled after 1000 established connections when the kernel
+> is 2.6.20.6 or 2.6.19.5.
+> 
+> It stalls even earlier, when lighttpd used with the default (poll ())
+> demultiplexing
+> after 500 connections or when apache2 web server used (memory?) - after 100
+> connections.
+> 
+> I am currently going to try vanilla 2.6.18.3 and, if with it also
+> fails, to look through
+> Debian patches, trying to figure out, what is the delta.
+> 
+> strace-ing and logs has revealed actually 2 scenarios of failures.
+> Connections are established successfully and:
+> - request sent and there is no response;
+> - partial response received and the connection stalls.
 
-Just today I have faced some problems in the setup lighttpd server
-(epoll demultiplexing and increased max-fds num) against curl-loader,
-generating HTTP client load, both on the same host.
+The following patch is not the cause, but it likely
+exacerbates the problem, can you revert the following
+patch from your kernel and see if it changes the behavior?
 
-curl-loader adds 1000-8000 secondary IPv4 addresses to
-eth0 interface. Then it opens 20-200 virtual HTTP clients per second till the
-steady state number. Each client opens its socket, binds to a
-secondary IP-address
-and connects to the web server with further HTTP GET/POST, etc
-response, etc
+commit 7b4f4b5ebceab67ce440a61081a69f0265e17c2a
+Author: John Heffner <jheffner@psc.edu>
+Date:   Sat Mar 25 01:34:07 2006 -0800
 
-It works good with  2.6.11.8 and debian 2.6.18.3-i686 image.
+    [TCP]: Set default max buffers from memory pool size
+    
+    This patch sets the maximum TCP buffer sizes (available to automatic
+    buffer tuning, not to setsockopt) based on the TCP memory pool size.
+    The maximum sndbuf and rcvbuf each will be up to 4 MB, but no more
+    than 1/128 of the memory pressure threshold.
+    
+    Signed-off-by: John Heffner <jheffner@psc.edu>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
 
-At the same Intel Pentium-4 PC with the same about kernel configuration
-(make oldconfig using Debian config-2.6.18.3-i686) the setup fails with the
-tcp-connections stalled after 1000 established connections when the kernel
-is 2.6.20.6 or 2.6.19.5.
-
-It stalls even earlier, when lighttpd used with the default (poll ())
-demultiplexing
-after 500 connections or when apache2 web server used (memory?) - after 100
-connections.
-
-I am currently going to try vanilla 2.6.18.3 and, if with it also
-fails, to look through
-Debian patches, trying to figure out, what is the delta.
-
-strace-ing and logs has revealed actually 2 scenarios of failures.
-Connections are established successfully and:
-- request sent and there is no response;
-- partial response received and the connection stalls.
-
-I will also try to collect some streams by tcpdump, using
-the filtering by a client side source-ip.
-
-Already tried going from BIC to Reno - not helpful, and loading
-from the loopback (lo) - same picture.
-
-Don't fill yourself alone, it may be the same problem, that
-we encounter.
-
-Sincerely,
- Robert Iakobashvili,
-coroberti %x40 gmail %x2e com
-...................................................................
-Navigare necesse est, vivere non est necesse
-...................................................................
-http://curl-loader.sourceforge.net
-An open-source HTTP/S, FTP/S traffic
-generating, and web testing tool.
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 4b0272c..591e96d 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -276,8 +276,8 @@ atomic_t tcp_orphan_count = ATOMIC_INIT(0);
+ EXPORT_SYMBOL_GPL(tcp_orphan_count);
+ 
+ int sysctl_tcp_mem[3];
+-int sysctl_tcp_wmem[3] = { 4 * 1024, 16 * 1024, 128 * 1024 };
+-int sysctl_tcp_rmem[3] = { 4 * 1024, 87380, 87380 * 2 };
++int sysctl_tcp_wmem[3];
++int sysctl_tcp_rmem[3];
+ 
+ EXPORT_SYMBOL(sysctl_tcp_mem);
+ EXPORT_SYMBOL(sysctl_tcp_rmem);
+@@ -2081,7 +2081,8 @@ __setup("thash_entries=", set_thash_entries);
+ void __init tcp_init(void)
+ {
+ 	struct sk_buff *skb = NULL;
+-	int order, i;
++	unsigned long limit;
++	int order, i, max_share;
+ 
+ 	if (sizeof(struct tcp_skb_cb) > sizeof(skb->cb))
+ 		__skb_cb_too_small_for_tcp(sizeof(struct tcp_skb_cb),
+@@ -2155,12 +2156,16 @@ void __init tcp_init(void)
+ 	sysctl_tcp_mem[1] = 1024 << order;
+ 	sysctl_tcp_mem[2] = 1536 << order;
+ 
+-	if (order < 3) {
+-		sysctl_tcp_wmem[2] = 64 * 1024;
+-		sysctl_tcp_rmem[0] = PAGE_SIZE;
+-		sysctl_tcp_rmem[1] = 43689;
+-		sysctl_tcp_rmem[2] = 2 * 43689;
+-	}
++	limit = ((unsigned long)sysctl_tcp_mem[1]) << (PAGE_SHIFT - 7);
++	max_share = min(4UL*1024*1024, limit);
++
++	sysctl_tcp_wmem[0] = SK_STREAM_MEM_QUANTUM;
++	sysctl_tcp_wmem[1] = 16*1024;
++	sysctl_tcp_wmem[2] = max(64*1024, max_share);
++
++	sysctl_tcp_rmem[0] = SK_STREAM_MEM_QUANTUM;
++	sysctl_tcp_rmem[1] = 87380;
++	sysctl_tcp_rmem[2] = max(87380, max_share);
+ 
+ 	printk(KERN_INFO "TCP: Hash tables configured "
+ 	       "(established %d bind %d)\n",
