@@ -1,85 +1,31 @@
-From: Steve Wise <swise@opengridcomputing.com>
-Subject: [ofa-general] [PATCH 2.6.21] iw_cxgb3 - Add set_tcb_rpl_handler.
-Date: Thu, 12 Apr 2007 07:56:34 -0500
-Message-ID: <1176382594.9396.1.camel@stevo-desktop>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: TCP connection stops after high load.
+Date: 12 Apr 2007 16:48:10 +0200
+Message-ID: <p73y7kx7iol.fsf@bingen.suse.de>
+References: <461D2DEA.4010806@candelatech.com>
+	<461D447C.4070408@candelatech.com>
+	<20070411.134804.50594117.davem@davemloft.net>
+	<461D4DD7.7020207@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Netdev@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
-	Divy Le Ray <divy@chelsio.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	OpenFabrics General <general@lists.openfabrics.org>
-To: Roland Dreier <rdreier@cisco.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Ben Greear <greearb@candelatech.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cantor.suse.de ([195.135.220.2]:48246 "EHLO mx1.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753812AbXDLNt5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Apr 2007 09:49:57 -0400
+In-Reply-To: <461D4DD7.7020207@candelatech.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hey Roland,
+Ben Greear <greearb@candelatech.com> writes:
+> 
+> I don't mind adding printks...and I've started reading through the code,
+> but there is a lot of it, and indiscriminate printks will likely just
+> hide the problem because it will slow down performance so much.
 
-This patch is needed for iw_cxgb3 to handle a change in the cxgb3 driver
-posted by Divy that Jeff recently applied.  If the cxgb3 change is
-destined for 2.6.21, then this change to iw_cxgb3 also needs to go in
-(otherwise we get an error log entry for every rdma connection).  
+You could add /proc/net/snmp counters for interesting events (e.g. GFP_ATOMIC
+allocations failing). Perhaps netstat -s already shows something interesting.
 
-It was an oversight that this patch didn't really get included in Divy's
-series since the two go together.
-
-See http://marc.info/?l=linux-netdev&m=117617444422260&w=2
-
-
-Thanks,
-
-Steve.
-
-
----
-
-
-Add set_tcb_rpl_handler.
-
-The Ethernet Driver no longer handles SET_TCB replies.
-
-Signed-off-by: Steve Wise <swise@opengridcomputing.com>
----
-
- drivers/infiniband/hw/cxgb3/iwch_cm.c |   12 ++++++++++++
- 1 files changed, 12 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/infiniband/hw/cxgb3/iwch_cm.c b/drivers/infiniband/hw/cxgb3/iwch_cm.c
-index d0ed1d3..2d2de9b 100644
---- a/drivers/infiniband/hw/cxgb3/iwch_cm.c
-+++ b/drivers/infiniband/hw/cxgb3/iwch_cm.c
-@@ -2026,6 +2026,17 @@ static int sched(struct t3cdev *tdev, st
- 	return 0;
- }
- 
-+static int set_tcb_rpl(struct t3cdev *tdev, struct sk_buff *skb, void *ctx)
-+{
-+	struct cpl_set_tcb_rpl *rpl = cplhdr(skb);
-+
-+	if (rpl->status != CPL_ERR_NONE) {
-+		printk(KERN_ERR MOD "Unexpected SET_TCB_RPL status %u "
-+		       "for tid %u\n", rpl->status, GET_TID(rpl));
-+	}
-+	return CPL_RET_BUF_DONE;
-+}
-+
- int __init iwch_cm_init(void)
- {
- 	skb_queue_head_init(&rxq);
-@@ -2053,6 +2064,7 @@ int __init iwch_cm_init(void)
- 	t3c_handlers[CPL_ABORT_REQ_RSS] = sched;
- 	t3c_handlers[CPL_RDMA_TERMINATE] = sched;
- 	t3c_handlers[CPL_RDMA_EC_STATUS] = sched;
-+	t3c_handlers[CPL_SET_TCB_RPL] = set_tcb_rpl;
- 
- 	/*
- 	 * These are the real handlers that are called from a
+-Andi
