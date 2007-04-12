@@ -1,31 +1,73 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: intermittant petabyte usage reported with broadcom nic
-Date: Thu, 12 Apr 2007 16:15:26 -0700
-Message-ID: <adaslb5dw1d.fsf@cisco.com>
-References: <20070402014319.GA8345@zip.com.au>
-	<20070402001300.3b66007d.akpm@linux-foundation.org>
-	<20070412225249.GU8345@zip.com.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch 13/26] Xen-paravirt_ops: Consistently wrap paravirt ops
+	callsites to make them patchable
+Date: Thu, 12 Apr 2007 16:16:23 -0700 (PDT)
+Message-ID: <20070412.161623.71575524.davem@davemloft.net>
+References: <45FF770C.7050301@goop.org>
+	<Pine.LNX.4.64.0703200805450.6730@woody.linux-foundation.org>
+	<17920.30274.608018.34484@cargo.ozlabs.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: CaT <cat@zip.com.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-6.cisco.com ([171.71.176.117]:6924 "EHLO
-	sj-iport-6.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752262AbXDLXPk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Apr 2007 19:15:40 -0400
-In-Reply-To: <20070412225249.GU8345@zip.com.au> (cat@zip.com.au's message of "Fri, 13 Apr 2007 08:52:49 +1000")
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: xen-devel@lists.xensource.com, virtualization@lists.osdl.org,
+   netdev@vger.kernel.org, linux-kernel@vger.kernel.org, chrisw@sous-sol.org,
+   ak@muc.de, ebiederm@xmission.com, anthony@codemonkey.ws, mingo@elte.hu,
+   torvalds@linux-foundation.org, akpm@linux-foundation.org
+To: paulus@samba.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <17920.30274.608018.34484@cargo.ozlabs.ibm.com>
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/virtualization>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
- > Apr  9 06:19:04 '  eth0:14250798570591813804 2284720007938 18638    0    0 18638          0  27375938 1556640980159 3345714490    0    0    0     0       0          0 '
+From: Paul Mackerras <paulus@samba.org>
+Date: Wed, 21 Mar 2007 11:03:14 +1100
 
-One odd thing is that crazy number 14250798570591813804 is
-c5c501cbc5c500ac in hex.  I dunno what the significant of the 0xc5 bit
-pattern is though...
+> Linus Torvalds writes:
+> =
 
-The other line has 220898233988841368, which is 0x310c9c6006a7f98, not
-nearly so regular a patter.
+> > We should just do this natively. There's been several tests over the ye=
+ars =
 
-I don't think I'm helping much...
+> > saying that it's much more efficient to do sti/cli as a simple store, a=
+nd =
+
+> > handling the "oops, we got an interrupt while interrupts were disabled"=
+ as =
+
+> > a special case.
+> > =
+
+> > I have this dim memory that ARM has done it that way for a long time =
+
+> > because it's so expensive to do a "real" cli/sti.
+> > =
+
+> > And I think -rt does it for other reasons. It's just more flexible.
+> =
+
+> 64-bit powerpc does this now as well.
+
+I was curious about this so I had a look.
+
+There appears to be three pieces of state used to manage this
+on powerpc, PACASOFTIRQEN(r13), PACAHARDIRQEN(r13) and the
+SOFTE() in the stackframe.
+
+Plus there is all of this complicated logic on trap entry and
+exit to manage these three values properly.
+
+local_irq_restore() doesn't look like a simple piece of code
+either.  Logically it should be simple, update the software
+binary state, and if enabling see if any interrupts came in
+while we were disable so we can run them.
+
+Given all of that, is it really cheaper than just flipping the
+bit in the cpu control register? :-/
