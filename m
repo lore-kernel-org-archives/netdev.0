@@ -1,130 +1,184 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: TCP connection stops after high load.
-Date: Thu, 12 Apr 2007 09:12:16 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0704120903320.28337@kivilampi-30.cs.helsinki.fi>
-References: <461D2DEA.4010806@candelatech.com>
+From: Masahide NAKAMURA <nakam@linux-ipv6.org>
+Subject: Re: [RFC] [PATCH] [XFRM]: Restrict upper layer information by bundle.
+Date: Thu, 12 Apr 2007 14:42:00 +0900
+Message-ID: <461DC6A8.9040501@linux-ipv6.org>
+References: <11758443392651-git-send-email-nakam@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696243703-3358595-1176358336=:28337"
-Cc: NetDev <netdev@vger.kernel.org>
-To: Ben Greear <greearb@candelatech.com>
+Content-Type: text/plain; charset=Shift_JIS
+Content-Transfer-Encoding: 7bit
+Cc: Masahide NAKAMURA <nakam@linux-ipv6.org>, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:45124 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1945909AbXDLGMT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Apr 2007 02:12:19 -0400
-In-Reply-To: <461D2DEA.4010806@candelatech.com>
+Received: from [203.178.140.9] ([203.178.140.9]:50275 "EHLO mail.gomagoma.org"
+	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1945900AbXDLGMR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Apr 2007 02:12:17 -0400
+In-Reply-To: <11758443392651-git-send-email-nakam@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+Hello,
 
----696243703-3358595-1176358336=:28337
-Content-Type: TEXT/PLAIN; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
+I sent the patch, which is required for IPsec usage by Mobile IPv6.
+I have not obtained any comments yet. Does anybody have it?
 
-On Wed, 11 Apr 2007, Ben Greear wrote:
+I hope it to be applied.
 
-> The problem is that I set up a TCP connection with bi-directional traffic
-> of around 800Mbps, doing large (20k - 64k writes and reads) between two ports
-> on
-> the same machine (this 2.6.18.2 kernel is tainted with my full patch set,
-> but I also reproduced with only the non-tainted send-to-self patch applied
-> last may on the 2.6.16 kernel, so I assume the bug is not particular to my
-> patch
-> set).
+Thanks,
+
+
+Masahide NAKAMURA wrote:
+> On MIPv6 usage, XFRM sub policy is enabled.
+> When main (IPsec) and sub (MIPv6) policy selectors have the same
+> address set but different upper layer information (i.e. protocol
+> number and its ports or type/code), multiple bundle should be created.
+> However, currently we have issue to use the same bundle created for
+> the first time with all flows covered by the case.
 > 
-> At first, all is well, but within 5-10 minutes, the TCP connection will stall
-> and I only see a massive amount of duplicate ACKs on the link.  Before,
-> I sometimes saw OOM messages, but this time there are no OOM messages.  The
-> system
-> has a two-port pro/1000 fibre NIC, 1GB RAM, kernel 2.6.18.2 + hacks, etc.
-> Stopping and starting the connection allows traffic to flow again (if
-> briefly).
-> Starting a new connection works fine even if the old one is still stalled,
-> so it's not a global memory exhaustion problem.
->
-> So, I would like to dig into this problem myself since no one else
-> is reporting this type of problem, but I am quite ignorant of the TCP
-> stack implementation.  Based on the dup-acks I see on the wire, I assume
-> the TCP state machine is messed up somehow.  Could anyone point me to
-> likely places in the TCP stack to start looking for this bug?
+> It is useful for the bundle to have the upper layer information
+> to be restructured correctly if it does not match with the flow.
+> 
+> 1. Bundle was created by two policies
+> Selector from another policy is added to xfrm_dst.
+> If the flow does not match the selector, it goes to slow path to
+> restructure new bundle by single policy.
+> 
+> 2. Bundle was created by one policy
+> Flow cache is added to xfrm_dst as originated one. If the flow does
+> not match the cache, it goes to slow path to try searching another
+> policy.
+> 
+> Signed-off-by: Masahide NAKAMURA <nakam@linux-ipv6.org>
+> ---
+>  include/net/flow.h     |    6 +++++
+>  include/net/xfrm.h     |   10 ++++++++
+>  net/xfrm/xfrm_policy.c |   55 ++++++++++++++++++++++++++++++++++++++++++++++++
+>  3 files changed, 71 insertions(+), 0 deletions(-)
+> 
+> diff --git a/include/net/flow.h b/include/net/flow.h
+> index ce4b10d..f3cc1f8 100644
+> --- a/include/net/flow.h
+> +++ b/include/net/flow.h
+> @@ -97,4 +97,10 @@ extern void *flow_cache_lookup(struct flowi *key, u16 family, u8 dir,
+>  extern void flow_cache_flush(void);
+>  extern atomic_t flow_cache_genid;
+>  
+> +static inline int flow_cache_uli_match(struct flowi *fl1, struct flowi *fl2)
+> +{
+> +	return (fl1->proto == fl2->proto &&
+> +		!memcmp(&fl1->uli_u, &fl2->uli_u, sizeof(fl1->uli_u)));
+> +}
+> +
+>  #endif
+> diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+> index 5a00aa8..c216c5e 100644
+> --- a/include/net/xfrm.h
+> +++ b/include/net/xfrm.h
+> @@ -584,6 +584,10 @@ struct xfrm_dst
+>  		struct rt6_info		rt6;
+>  	} u;
+>  	struct dst_entry *route;
+> +#ifdef CONFIG_XFRM_SUB_POLICY
+> +	struct flowi *origin;
+> +	struct xfrm_selector *partner;
+> +#endif
+>  	u32 genid;
+>  	u32 route_mtu_cached;
+>  	u32 child_mtu_cached;
+> @@ -596,6 +600,12 @@ static inline void xfrm_dst_destroy(struct xfrm_dst *xdst)
+>  	dst_release(xdst->route);
+>  	if (likely(xdst->u.dst.xfrm))
+>  		xfrm_state_put(xdst->u.dst.xfrm);
+> +#ifdef CONFIG_XFRM_SUB_POLICY
+> +	kfree(xdst->origin);
+> +	xdst->origin = NULL;
+> +	kfree(xdst->partner);
+> +	xdst->partner = NULL;
+> +#endif
+>  }
+>  
+>  extern void xfrm_dst_ifdown(struct dst_entry *dst, struct net_device *dev);
+> diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+> index 1942575..4a2f68f 100644
+> --- a/net/xfrm/xfrm_policy.c
+> +++ b/net/xfrm/xfrm_policy.c
+> @@ -1330,6 +1330,40 @@ xfrm_bundle_create(struct xfrm_policy *policy, struct xfrm_state **xfrm, int nx,
+>  	return err;
+>  }
+>  
+> +static int inline
+> +xfrm_dst_alloc_copy(void **target, void *src, int size)
+> +{
+> +	if (!*target) {
+> +		*target = kmalloc(size, GFP_ATOMIC);
+> +		if (!*target)
+> +			return -ENOMEM;
+> +	}
+> +	memcpy(*target, src, size);
+> +	return 0;
+> +}
+> +
+> +static int inline
+> +xfrm_dst_update_parent(struct dst_entry *dst, struct xfrm_selector *sel)
+> +{
+> +#ifdef CONFIG_XFRM_SUB_POLICY
+> +	struct xfrm_dst *xdst = (struct xfrm_dst *)dst;
+> +	return xfrm_dst_alloc_copy((void **)&(xdst->partner),
+> +				   sel, sizeof(*sel));
+> +#else
+> +	return 0;
+> +#endif
+> +}
+> +
+> +static int inline
+> +xfrm_dst_update_origin(struct dst_entry *dst, struct flowi *fl)
+> +{
+> +#ifdef CONFIG_XFRM_SUB_POLICY
+> +	struct xfrm_dst *xdst = (struct xfrm_dst *)dst;
+> +	return xfrm_dst_alloc_copy((void **)&(xdst->origin), fl, sizeof(*fl));
+> +#else
+> +	return 0;
+> +#endif
+> +}
+>  
+>  static int stale_bundle(struct dst_entry *dst);
+>  
+> @@ -1518,6 +1552,18 @@ restart:
+>  			err = -EHOSTUNREACH;
+>  			goto error;
+>  		}
+> +
+> +		if (npols > 1)
+> +			err = xfrm_dst_update_parent(dst, &pols[1]->selector);
+> +		else
+> +			err = xfrm_dst_update_origin(dst, fl);
+> +		if (unlikely(err)) {
+> +			write_unlock_bh(&policy->lock);
+> +			if (dst)
+> +				dst_free(dst);
+> +			goto error;
+> +		}
+> +
+>  		dst->next = policy->bundles;
+>  		policy->bundles = dst;
+>  		dst_hold(dst);
+> @@ -1933,6 +1979,15 @@ int xfrm_bundle_ok(struct xfrm_policy *pol, struct xfrm_dst *first,
+>  	if (!dst_check(dst->path, ((struct xfrm_dst *)dst)->path_cookie) ||
+>  	    (dst->dev && !netif_running(dst->dev)))
+>  		return 0;
+> +#ifdef CONFIG_XFRM_SUB_POLICY
+> +	if (fl) {
+> +		if (first->origin && !flow_cache_uli_match(first->origin, fl))
+> +			return 0;
+> +		if (first->partner &&
+> +		    !xfrm_selector_match(first->partner, fl, family))
+> +			return 0;
+> +	}
+> +#endif
+>  
+>  	last = NULL;
+>  
 
-Since your doing bidirectional, try this patch below (probably you'll have 
-apply it manually to 2.6.18 series due to space changes that were made 
-after it in net/ hierarchy). I suspect it's a part of the problem but 
-there could be other things as well because this should only hinder TCP
-before RTO occurs:
 
-[PATCH] [TCP]: Fix ratehalving with bidirectional flows
-
-Actually, the ratehalving seems to work too well, as cwnd is
-reduced on every second ACK even though the packets in flight
-remains unchanged. Recoveries in a bidirectional flows suffer
-quite badly because of this, both NewReno and SACK are affected.
-
-After this patch, rate halving is performed per ACK only if
-packets in flight was supposedly changed too.
-
-Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
----
- net/ipv4/tcp_input.c |   23 +++++++++++++----------
- 1 files changed, 13 insertions(+), 10 deletions(-)
-
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 322e43c..bf0f74c 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -1823,19 +1823,22 @@ static inline u32 tcp_cwnd_min(const str
- }
- 
- /* Decrease cwnd each second ack. */
--static void tcp_cwnd_down(struct sock *sk)
-+static void tcp_cwnd_down(struct sock *sk, int flag)
- {
- 	struct tcp_sock *tp = tcp_sk(sk);
- 	int decr = tp->snd_cwnd_cnt + 1;
-+
-+	if ((flag&FLAG_FORWARD_PROGRESS) ||
-+	    (IsReno(tp) && !(flag&FLAG_NOT_DUP))) {
-+		tp->snd_cwnd_cnt = decr&1;
-+		decr >>= 1;
- 
--	tp->snd_cwnd_cnt = decr&1;
--	decr >>= 1;
-+		if (decr && tp->snd_cwnd > tcp_cwnd_min(sk))
-+			tp->snd_cwnd -= decr;
- 
--	if (decr && tp->snd_cwnd > tcp_cwnd_min(sk))
--		tp->snd_cwnd -= decr;
--
--	tp->snd_cwnd = min(tp->snd_cwnd, tcp_packets_in_flight(tp)+1);
--	tp->snd_cwnd_stamp = tcp_time_stamp;
-+		tp->snd_cwnd = min(tp->snd_cwnd, tcp_packets_in_flight(tp)+1);
-+		tp->snd_cwnd_stamp = tcp_time_stamp;
-+	}
- }
- 
- /* Nothing was retransmitted or returned timestamp is less
-@@ -2020,7 +2023,7 @@ static void tcp_try_to_open(struct sock 
- 		}
- 		tcp_moderate_cwnd(tp);
- 	} else {
--		tcp_cwnd_down(sk);
-+		tcp_cwnd_down(sk, flag);
- 	}
- }
- 
-@@ -2220,7 +2223,7 @@ tcp_fastretrans_alert(struct sock *sk, u
- 
- 	if (is_dupack || tcp_head_timedout(sk, tp))
- 		tcp_update_scoreboard(sk, tp);
--	tcp_cwnd_down(sk);
-+	tcp_cwnd_down(sk, flag);
- 	tcp_xmit_retransmit_queue(sk);
- }
- 
 -- 
-1.4.2
-
----696243703-3358595-1176358336=:28337--
+Masahide NAKAMURA
