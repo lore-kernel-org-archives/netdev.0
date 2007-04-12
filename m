@@ -1,87 +1,130 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: kernel BUG at net/core/skbuff.c in linux-2.6.21-rc6
-Date: Thu, 12 Apr 2007 07:43:39 +0200
-Message-ID: <461DC70B.4000500@trash.net>
-References: <19061b0b0704071111m65c70d1ei736de86ad2f09a82@mail.gmail.com>	 <20070407.234708.93384523.davem@davemloft.net>	 <19061b0b0704081315g3593d652s70e9b5b0dcfcf966@mail.gmail.com>	 <19061b0b0704100219w4749e5fby9b400edca9bf334d@mail.gmail.com>	 <9a8748490704100425t34ebafcdq866a923df80b9aca@mail.gmail.com> <19061b0b0704112218j13688c16xc755d66147f8fe6a@mail.gmail.com>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: TCP connection stops after high load.
+Date: Thu, 12 Apr 2007 09:12:16 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0704120903320.28337@kivilampi-30.cs.helsinki.fi>
+References: <461D2DEA.4010806@candelatech.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------040504000905010000070902"
-Cc: linux-kernel@vger.kernel.org,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Bartek <poemann@gmail.com>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696243703-3358595-1176358336=:28337"
+Cc: NetDev <netdev@vger.kernel.org>
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:37076 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161560AbXDLFoG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Apr 2007 01:44:06 -0400
-In-Reply-To: <19061b0b0704112218j13688c16xc755d66147f8fe6a@mail.gmail.com>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:45124 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1945909AbXDLGMT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Apr 2007 02:12:19 -0400
+In-Reply-To: <461D2DEA.4010806@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------040504000905010000070902
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-Bartek wrote:
-> Hopefully, this time it my bug report should be ok :):
+---696243703-3358595-1176358336=:28337
+Content-Type: TEXT/PLAIN; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
+
+On Wed, 11 Apr 2007, Ben Greear wrote:
+
+> The problem is that I set up a TCP connection with bi-directional traffic
+> of around 800Mbps, doing large (20k - 64k writes and reads) between two ports
+> on
+> the same machine (this 2.6.18.2 kernel is tainted with my full patch set,
+> but I also reproduced with only the non-tainted send-to-self patch applied
+> last may on the 2.6.16 kernel, so I assume the bug is not particular to my
+> patch
+> set).
 > 
-> Apr 11 23:53:38 localhost pppd[31289]: rcvd [proto=0x7689] e1 cd 33 f6
-> fd f7 52 e6 58 c9 73 98 bc ff ad d5 b5 a3 e5 d9 1e 77 76 0a 1c 87 59
-> bf 44 cc ac 3b ...
-> Apr 11 23:53:38 localhost pppd[31289]: Unsupported protocol 0x7689 received
-> Apr 11 23:53:38 localhost pppd[31289]: sent [LCP ProtRej id=0x9 76 89
-> e1 cd 33 f6 fd f7 52 e6 58 c9 73 98 bc ff ad d5 b5 a3 e5 d9 1e 77 76
-> 0a 1c 87 59 bf 44 cc ...]
-> Apr 11 23:53:38 localhost pppd[31289]: rcvd [proto=0xda7d] 15 19 45 3c
-> e0 ac 44 92 3b c4 8e 75 6b b8 4a 9f 4a 3a 22 63 d3 a1 56 98 47 62 bc
-> cd a6 8e d5 77 ...
-> Apr 11 23:53:38 localhost pppd[31289]: Unsupported protocol 0xda7d received
-> Apr 11 23:53:38 localhost pppd[31289]: sent [LCP ProtRej id=0xa da 7d
-> 15 19 45 3c e0 ac 44 92 3b c4 8e 75 6b b8 4a 9f 4a 3a 22 63 d3 a1 56
-> 98 47 62 bc cd a6 8e ...]
-> Apr 11 23:53:40 localhost kernel: skb_under_panic: text:f8c62c0e
-> len:291 put:1 head:ddc94800 data:ddc947ff tail:ddc94922 end:ddc94e00
-> dev:<NULL>
+> At first, all is well, but within 5-10 minutes, the TCP connection will stall
+> and I only see a massive amount of duplicate ACKs on the link.  Before,
+> I sometimes saw OOM messages, but this time there are no OOM messages.  The
+> system
+> has a two-port pro/1000 fibre NIC, 1GB RAM, kernel 2.6.18.2 + hacks, etc.
+> Stopping and starting the connection allows traffic to flow again (if
+> briefly).
+> Starting a new connection works fine even if the old one is still stalled,
+> so it's not a global memory exhaustion problem.
+>
+> So, I would like to dig into this problem myself since no one else
+> is reporting this type of problem, but I am quite ignorant of the TCP
+> stack implementation.  Based on the dup-acks I see on the wire, I assume
+> the TCP state machine is messed up somehow.  Could anyone point me to
+> likely places in the TCP stack to start looking for this bug?
 
+Since your doing bidirectional, try this patch below (probably you'll have 
+apply it manually to 2.6.18 series due to space changes that were made 
+after it in net/ hierarchy). I suspect it's a part of the problem but 
+there could be other things as well because this should only hinder TCP
+before RTO occurs:
 
-It seems we fail to reserve enough headroom for the case
-buf[0] == PPP_ALLSTATIONS and buf[1] != PPP_UI.
+[PATCH] [TCP]: Fix ratehalving with bidirectional flows
 
-Can you try this patch please?
+Actually, the ratehalving seems to work too well, as cwnd is
+reduced on every second ACK even though the packets in flight
+remains unchanged. Recoveries in a bidirectional flows suffer
+quite badly because of this, both NewReno and SACK are affected.
 
+After this patch, rate halving is performed per ACK only if
+packets in flight was supposedly changed too.
 
---------------040504000905010000070902
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
+Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
+---
+ net/ipv4/tcp_input.c |   23 +++++++++++++----------
+ 1 files changed, 13 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/ppp_async.c b/drivers/net/ppp_async.c
-index 933e2f3..c68e37f 100644
---- a/drivers/net/ppp_async.c
-+++ b/drivers/net/ppp_async.c
-@@ -890,6 +890,8 @@ ppp_async_input(struct asyncppp *ap, const unsigned char *buf,
-  				ap->rpkt = skb;
-  			}
-  			if (skb->len == 0) {
-+				int headroom = 0;
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 322e43c..bf0f74c 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -1823,19 +1823,22 @@ static inline u32 tcp_cwnd_min(const str
+ }
+ 
+ /* Decrease cwnd each second ack. */
+-static void tcp_cwnd_down(struct sock *sk)
++static void tcp_cwnd_down(struct sock *sk, int flag)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	int decr = tp->snd_cwnd_cnt + 1;
 +
-  				/* Try to get the payload 4-byte aligned.
-  				 * This should match the
-  				 * PPP_ALLSTATIONS/PPP_UI/compressed tests in
-@@ -897,7 +899,10 @@ ppp_async_input(struct asyncppp *ap, const unsigned char *buf,
-  				 * enough chars here to test buf[1] and buf[2].
-  				 */
- 				if (buf[0] != PPP_ALLSTATIONS)
--					skb_reserve(skb, 2 + (buf[0] & 1));
-+					headroom += 2;
-+				if (buf[0] & 1)
-+					headroom += 1;
-+				skb_reserve(skb, headroom);
- 			}
- 			if (n > skb_tailroom(skb)) {
- 				/* packet overflowed MRU */
++	if ((flag&FLAG_FORWARD_PROGRESS) ||
++	    (IsReno(tp) && !(flag&FLAG_NOT_DUP))) {
++		tp->snd_cwnd_cnt = decr&1;
++		decr >>= 1;
+ 
+-	tp->snd_cwnd_cnt = decr&1;
+-	decr >>= 1;
++		if (decr && tp->snd_cwnd > tcp_cwnd_min(sk))
++			tp->snd_cwnd -= decr;
+ 
+-	if (decr && tp->snd_cwnd > tcp_cwnd_min(sk))
+-		tp->snd_cwnd -= decr;
+-
+-	tp->snd_cwnd = min(tp->snd_cwnd, tcp_packets_in_flight(tp)+1);
+-	tp->snd_cwnd_stamp = tcp_time_stamp;
++		tp->snd_cwnd = min(tp->snd_cwnd, tcp_packets_in_flight(tp)+1);
++		tp->snd_cwnd_stamp = tcp_time_stamp;
++	}
+ }
+ 
+ /* Nothing was retransmitted or returned timestamp is less
+@@ -2020,7 +2023,7 @@ static void tcp_try_to_open(struct sock 
+ 		}
+ 		tcp_moderate_cwnd(tp);
+ 	} else {
+-		tcp_cwnd_down(sk);
++		tcp_cwnd_down(sk, flag);
+ 	}
+ }
+ 
+@@ -2220,7 +2223,7 @@ tcp_fastretrans_alert(struct sock *sk, u
+ 
+ 	if (is_dupack || tcp_head_timedout(sk, tp))
+ 		tcp_update_scoreboard(sk, tp);
+-	tcp_cwnd_down(sk);
++	tcp_cwnd_down(sk, flag);
+ 	tcp_xmit_retransmit_queue(sk);
+ }
+ 
+-- 
+1.4.2
 
---------------040504000905010000070902--
+---696243703-3358595-1176358336=:28337--
