@@ -1,47 +1,35 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: [PATCH] Add support for running the Marvell m88e1111 PHY in RGMII mode
-Date: Thu, 12 Apr 2007 02:43:15 +0200
-Message-ID: <20070412004315.GD15021@xi.wantstofly.org>
-References: <20070410165723.472fdc69.kim.phillips@freescale.com> <20070411010158.GB9526@xi.wantstofly.org> <20070411163649.2d055676.kim.phillips@freescale.com>
+From: Benjamin LaHaise <bcrl@kvack.org>
+Subject: Re: TCP connection stops after high load.
+Date: Wed, 11 Apr 2007 21:06:24 -0400
+Message-ID: <20070412010624.GO13621@kvack.org>
+References: <461D2DEA.4010806@candelatech.com> <461D447C.4070408@candelatech.com> <20070411.134804.50594117.davem@davemloft.net> <461D4DD7.7020207@candelatech.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jgarzik@pobox.com
-To: Kim Phillips <kim.phillips@freescale.com>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alephnull.demon.nl ([83.160.184.112]:54306 "EHLO
-	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753736AbXDLAnT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Apr 2007 20:43:19 -0400
+Received: from kanga.kvack.org ([66.96.29.28]:48916 "EHLO kanga.kvack.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753805AbXDLBG0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Apr 2007 21:06:26 -0400
 Content-Disposition: inline
-In-Reply-To: <20070411163649.2d055676.kim.phillips@freescale.com>
+In-Reply-To: <461D4DD7.7020207@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 11, 2007 at 04:36:49PM -0500, Kim Phillips wrote:
-
-> > On Tue, Apr 10, 2007 at 04:57:23PM -0500, Kim Phillips wrote:
-> > 
-> > > also adds RX & TX delay bits to help boards with clock skew
-> > > problems.
-> > 
-> <snip>
-> > 
-> > > [...]
-> > > +
-> > > +		temp |= (MII_M1111_RX_DELAY | MII_M1111_TX_DELAY);
-> > 
-> > Enabling this unconditionally is just wrong.
+On Wed, Apr 11, 2007 at 02:06:31PM -0700, Ben Greear wrote:
+> For the dup acks, I see nothing *but* dup acks on the wire...going in
+> both directions interestingly, at greater than 100,000 packets per second.
 > 
-> I agree.  There needs to be a way for the platform code to
-> communicate board specific quirkiness to the phylib
+> I don't mind adding printks...and I've started reading through the code,
+> but there is a lot of it, and indiscriminate printks will likely just
+> hide the problem because it will slow down performance so much.
 
-(I'm not sure whether it's really a quirk, as the RGMII spec allows
-both modes.)
+What do the timestamps look like?  PAWS contains logic which will drop 
+packets if the timestamps are too old compared to what the receiver 
+expects.
 
-
-> (I just haven't figured out how to yet).
-
-Maybe offer separate RGMII and RGMII-ID[*] mode choices?
-
-
-[*] RGMII with Internal Delay (RGMII specification nomenclature)
+		-ben
+-- 
+"Time is of no importance, Mr. President, only life is important."
+Don't Email: <zyntrop@kvack.org>.
