@@ -1,51 +1,85 @@
-From: "Aubrey Li" <aubreylee@gmail.com>
-Subject: udp checksum issue in netpoll mode.
-Date: Thu, 12 Apr 2007 18:31:30 +0800
-Message-ID: <6d6a94c50704120331m36957148iae111ab7324c88c2@mail.gmail.com>
+From: Steve Wise <swise@opengridcomputing.com>
+Subject: [ofa-general] [PATCH 2.6.21] iw_cxgb3 - Add set_tcb_rpl_handler.
+Date: Thu, 12 Apr 2007 07:56:34 -0500
+Message-ID: <1176382594.9396.1.camel@stevo-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	"Linux Kernel" <linux-kernel@vger.kernel.org>
-To: "Stephen Hemminger" <shemminger@osdl.org>,
-	"Herbert Xu" <herbert@gondor.apana.org.au>,
-	"Matt Mackall" <mpm@selenic.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wr-out-0506.google.com ([64.233.184.226]:8850 "EHLO
-	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1945960AbXDLKbb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Apr 2007 06:31:31 -0400
-Received: by wr-out-0506.google.com with SMTP id 76so414922wra
-        for <netdev@vger.kernel.org>; Thu, 12 Apr 2007 03:31:31 -0700 (PDT)
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Cc: Netdev@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
+	Divy Le Ray <divy@chelsio.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	OpenFabrics General <general@lists.openfabrics.org>
+To: Roland Dreier <rdreier@cisco.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-I think we discussed this issue before.
+Hey Roland,
 
-The current checksum function doesn't consider the kind of packet
-which is padded to reach a specific minimum length. I believe that's
-the problem caused my test case failed. Is this issue fixed? Or is it
-acceptable if I make a patch not calculating this kind of packet?
+This patch is needed for iw_cxgb3 to handle a change in the cxgb3 driver
+posted by Divy that Jeff recently applied.  If the cxgb3 change is
+destined for 2.6.21, then this change to iw_cxgb3 also needs to go in
+(otherwise we get an error log entry for every rdma connection).  
+
+It was an oversight that this patch didn't really get included in Divy's
+series since the two go together.
+
+See http://marc.info/?l=linux-netdev&m=117617444422260&w=2
+
 
 Thanks,
--Aubrey
-===============================================
-static __sum16 checksum_udp(struct sk_buff *skb, struct udphdr *uh,
-                            unsigned short ulen, __be32 saddr, __be32 daddr)
-{
-        __wsum psum;
 
-        if (uh->check == 0 || skb->ip_summed == CHECKSUM_UNNECESSARY)
-                return 0;
+Steve.
 
-        psum = csum_tcpudp_nofold(saddr, daddr, ulen, IPPROTO_UDP, 0);
-        if (skb->ip_summed == CHECKSUM_COMPLETE &&
-            !csum_fold(csum_add(psum, skb->csum)))
-                return 0;
 
-        skb->csum = psum;
+---
 
-        return __skb_checksum_complete(skb);
-}
-===============================================
+
+Add set_tcb_rpl_handler.
+
+The Ethernet Driver no longer handles SET_TCB replies.
+
+Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+---
+
+ drivers/infiniband/hw/cxgb3/iwch_cm.c |   12 ++++++++++++
+ 1 files changed, 12 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/infiniband/hw/cxgb3/iwch_cm.c b/drivers/infiniband/hw/cxgb3/iwch_cm.c
+index d0ed1d3..2d2de9b 100644
+--- a/drivers/infiniband/hw/cxgb3/iwch_cm.c
++++ b/drivers/infiniband/hw/cxgb3/iwch_cm.c
+@@ -2026,6 +2026,17 @@ static int sched(struct t3cdev *tdev, st
+ 	return 0;
+ }
+ 
++static int set_tcb_rpl(struct t3cdev *tdev, struct sk_buff *skb, void *ctx)
++{
++	struct cpl_set_tcb_rpl *rpl = cplhdr(skb);
++
++	if (rpl->status != CPL_ERR_NONE) {
++		printk(KERN_ERR MOD "Unexpected SET_TCB_RPL status %u "
++		       "for tid %u\n", rpl->status, GET_TID(rpl));
++	}
++	return CPL_RET_BUF_DONE;
++}
++
+ int __init iwch_cm_init(void)
+ {
+ 	skb_queue_head_init(&rxq);
+@@ -2053,6 +2064,7 @@ int __init iwch_cm_init(void)
+ 	t3c_handlers[CPL_ABORT_REQ_RSS] = sched;
+ 	t3c_handlers[CPL_RDMA_TERMINATE] = sched;
+ 	t3c_handlers[CPL_RDMA_EC_STATUS] = sched;
++	t3c_handlers[CPL_SET_TCB_RPL] = set_tcb_rpl;
+ 
+ 	/*
+ 	 * These are the real handlers that are called from a
