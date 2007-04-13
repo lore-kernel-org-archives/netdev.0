@@ -1,117 +1,156 @@
 From: Kim Phillips <kim.phillips@freescale.com>
-Subject: [PATCH v2 5/7] ucc_geth: Implement Transmit on Demand support
-Date: Fri, 13 Apr 2007 01:26:19 -0500
-Message-ID: <20070413012619.60c37cca.kim.phillips@freescale.com>
+Subject: [PATCH v2] phylib: enable RGMII-ID on the Marvell m88e1111 PHY
+Date: Fri, 13 Apr 2007 01:26:56 -0500
+Message-ID: <20070413012656.5f65ffd1.kim.phillips@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: Jeff Garzik <jgarzik@pobox.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from de01egw01.freescale.net ([192.88.165.102]:39519 "EHLO
+Received: from de01egw01.freescale.net ([192.88.165.102]:39610 "EHLO
 	de01egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752093AbXDMG1M (ORCPT
+	with ESMTP id S1751905AbXDMG1M (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Fri, 13 Apr 2007 02:27:12 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Michael Reiss <michael.f.reiss@freescale.com>
+Support for configuring RGMII-ID (RGMII with internal delay) mode on the
+88e1111 and 88e1145.
 
-Transmit on Demand: Fix spelling in config option, and make it actually enable TOD.
+Also renamed 88e1111s -> 88e1111 (no references to an 88e1111s part were
+found), and fixed some whitespace.
 
-Signed-off-by: Michael Reiss <michael.f.reiss@freescale.com>
-Signed-off-by: Michael Barkowski <michael.barkowski@freescale.com>
 Signed-off-by: Kim Phillips <kim.phillips@freescale.com>
 ---
- arch/powerpc/sysdev/qe_lib/ucc_fast.c |    3 +++
- drivers/net/Kconfig                   |    4 ++--
- drivers/net/ucc_geth.c                |   15 +++++++--------
- include/asm-powerpc/ucc_fast.h        |    3 +++
- 4 files changed, 15 insertions(+), 10 deletions(-)
+this version sets the delay bits conditionally
 
-diff --git a/arch/powerpc/sysdev/qe_lib/ucc_fast.c b/arch/powerpc/sysdev/qe_lib/ucc_fast.c
-index a457ac1..66137bf 100644
---- a/arch/powerpc/sysdev/qe_lib/ucc_fast.c
-+++ b/arch/powerpc/sysdev/qe_lib/ucc_fast.c
-@@ -210,6 +210,9 @@ int ucc_fast_init(struct ucc_fast_info * uf_info, struct ucc_fast_private ** ucc
- 	uf_regs = uccf->uf_regs;
- 	uccf->p_ucce = (u32 *) & (uf_regs->ucce);
- 	uccf->p_uccm = (u32 *) & (uf_regs->uccm);
-+#ifdef CONFIG_UGETH_TX_ON_DEMAND
-+	uccf->p_utodr = (u16 *) & (uf_regs->utodr);
-+#endif
- #ifdef STATISTICS
- 	uccf->tx_frames = 0;
- 	uccf->rx_frames = 0;
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 8c7be7f..c0de6fe 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -2292,8 +2292,8 @@ config UGETH_FILTERING
- 	bool "Mac address filtering support"
- 	depends on UCC_GETH
+ drivers/net/phy/marvell.c |   62 +++++++++++++++++++++++++++++++++++++++------
+ 1 files changed, 54 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
+index 22aec5c..b87f8d2 100644
+--- a/drivers/net/phy/marvell.c
++++ b/drivers/net/phy/marvell.c
+@@ -54,6 +54,12 @@
+ #define MII_M1111_PHY_LED_CONTROL	0x18
+ #define MII_M1111_PHY_LED_DIRECT	0x4100
+ #define MII_M1111_PHY_LED_COMBINE	0x411c
++#define MII_M1111_PHY_EXT_CR		0x14
++#define MII_M1111_RX_DELAY		0x80
++#define MII_M1111_TX_DELAY		0x2
++#define MII_M1111_PHY_EXT_SR		0x1b
++#define MII_M1111_HWCFG_MODE_MASK	0xf
++#define MII_M1111_HWCFG_MODE_RGMII	0xb
  
--config UGETH_TX_ON_DEMOND
--	bool "Transmit on Demond support"
-+config UGETH_TX_ON_DEMAND
-+	bool "Transmit on Demand support"
- 	depends on UCC_GETH
- 
- config MV643XX_ETH
-diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
-index 1a16ab2..60844a6 100644
---- a/drivers/net/ucc_geth.c
-+++ b/drivers/net/ucc_geth.c
-@@ -1626,14 +1626,6 @@ static int init_phy(struct net_device *dev)
+ MODULE_DESCRIPTION("Marvell PHY driver");
+ MODULE_AUTHOR("Andy Fleming");
+@@ -131,6 +137,45 @@ static int marvell_config_aneg(struct phy_device *phydev)
+ 	return err;
  }
  
- 
--#ifdef CONFIG_UGETH_TX_ON_DEMOND
--static int ugeth_transmit_on_demand(struct ucc_geth_private *ugeth)
--{
--	struct ucc_fastransmit_on_demand(ugeth->uccf);
--
--	return 0;
--}
--#endif
- 
- static int ugeth_graceful_stop_tx(struct ucc_geth_private *ugeth)
++static int m88e1111_config_init(struct phy_device *phydev)
++{
++	int err;
++
++	if ((phydev->interface == PHY_INTERFACE_MODE_RGMII) ||
++	    (phydev->interface == PHY_INTERFACE_MODE_RGMII_ID)) {
++		int temp;
++
++		if (phydev->interface == PHY_INTERFACE_MODE_RGMII_ID) {
++			temp = phy_read(phydev, MII_M1111_PHY_EXT_CR);
++			if (temp < 0)
++				return temp;
++
++			temp |= (MII_M1111_RX_DELAY | MII_M1111_TX_DELAY);
++
++			err = phy_write(phydev, MII_M1111_PHY_EXT_CR, temp);
++			if (err < 0)
++				return err;
++		}
++
++		temp = phy_read(phydev, MII_M1111_PHY_EXT_SR);
++		if (temp < 0)
++			return temp;
++
++		temp &= ~(MII_M1111_HWCFG_MODE_MASK);
++		temp |= MII_M1111_HWCFG_MODE_RGMII;
++
++		err = phy_write(phydev, MII_M1111_PHY_EXT_SR, temp);
++		if (err < 0)
++			return err;
++	}
++
++	err = phy_write(phydev, MII_BMCR, BMCR_RESET);
++	if (err < 0)
++		return err;
++
++	return 0;
++}
++
+ static int m88e1145_config_init(struct phy_device *phydev)
  {
-@@ -3343,6 +3335,9 @@ static void ucc_geth_timeout(struct net_device *dev)
- static int ucc_geth_start_xmit(struct sk_buff *skb, struct net_device *dev)
- {
- 	struct ucc_geth_private *ugeth = netdev_priv(dev);
-+#ifdef CONFIG_UGETH_TX_ON_DEMAND
-+	struct ucc_fast_private *uccf;
-+#endif
- 	u8 *bd;			/* BD pointer */
- 	u32 bd_status;
- 	u8 txQ = 0;
-@@ -3401,6 +3396,10 @@ static int ucc_geth_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 		out_be16(ugeth->p_cpucount[txQ], ugeth->cpucount[txQ]);
- 	}
+ 	int err;
+@@ -152,7 +197,7 @@ static int m88e1145_config_init(struct phy_device *phydev)
+ 	if (err < 0)
+ 		return err;
  
-+#ifdef CONFIG_UGETH_TX_ON_DEMAND
-+	uccf = ugeth->uccf;
-+	out_be16(uccf->p_utodr, UCC_FAST_TOD);
-+#endif
- 	spin_unlock_irq(&ugeth->lock);
+-	if (phydev->interface == PHY_INTERFACE_MODE_RGMII) {
++	if (phydev->interface == PHY_INTERFACE_MODE_RGMII_ID) {
+ 		int temp = phy_read(phydev, MII_M1145_PHY_EXT_CR);
+ 		if (temp < 0)
+ 			return temp;
+@@ -206,7 +251,7 @@ static struct phy_driver m88e1101_driver = {
+ 	.driver = {.owner = THIS_MODULE,},
+ };
+ 
+-static struct phy_driver m88e1111s_driver = {
++static struct phy_driver m88e1111_driver = {
+ 	.phy_id = 0x01410cc0,
+ 	.phy_id_mask = 0xfffffff0,
+ 	.name = "Marvell 88E1111",
+@@ -216,6 +261,7 @@ static struct phy_driver m88e1111s_driver = {
+ 	.read_status = &genphy_read_status,
+ 	.ack_interrupt = &marvell_ack_interrupt,
+ 	.config_intr = &marvell_config_intr,
++	.config_init = &m88e1111_config_init,
+ 	.driver = {.owner = THIS_MODULE,},
+ };
+ 
+@@ -241,9 +287,9 @@ static int __init marvell_init(void)
+ 	if (ret)
+ 		return ret;
+ 
+-	ret = phy_driver_register(&m88e1111s_driver);
++	ret = phy_driver_register(&m88e1111_driver);
+ 	if (ret)
+-		goto err1111s;
++		goto err1111;
+ 
+ 	ret = phy_driver_register(&m88e1145_driver);
+ 	if (ret)
+@@ -251,9 +297,9 @@ static int __init marvell_init(void)
  
  	return 0;
-diff --git a/include/asm-powerpc/ucc_fast.h b/include/asm-powerpc/ucc_fast.h
-index 39d1c90..f529f70 100644
---- a/include/asm-powerpc/ucc_fast.h
-+++ b/include/asm-powerpc/ucc_fast.h
-@@ -159,6 +159,9 @@ struct ucc_fast_private {
- 	struct ucc_fast *uf_regs;	/* a pointer to memory map of UCC regs. */
- 	u32 *p_ucce;		/* a pointer to the event register in memory. */
- 	u32 *p_uccm;		/* a pointer to the mask register in memory. */
-+#ifdef CONFIG_UGETH_TX_ON_DEMAND
-+	u16 *p_utodr;		/* pointer to the transmit on demand register */
-+#endif
- 	int enabled_tx;		/* Whether channel is enabled for Tx (ENT) */
- 	int enabled_rx;		/* Whether channel is enabled for Rx (ENR) */
- 	int stopped_tx;		/* Whether channel has been stopped for Tx
+ 
+-      err1145:
+-	phy_driver_unregister(&m88e1111s_driver);
+-      err1111s:
++err1145:
++	phy_driver_unregister(&m88e1111_driver);
++err1111:
+ 	phy_driver_unregister(&m88e1101_driver);
+ 	return ret;
+ }
+@@ -261,7 +307,7 @@ static int __init marvell_init(void)
+ static void __exit marvell_exit(void)
+ {
+ 	phy_driver_unregister(&m88e1101_driver);
+-	phy_driver_unregister(&m88e1111s_driver);
++	phy_driver_unregister(&m88e1111_driver);
+ 	phy_driver_unregister(&m88e1145_driver);
+ }
+ 
 -- 
 1.5.0.1
 
