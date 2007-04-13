@@ -1,195 +1,78 @@
 From: Kim Phillips <kim.phillips@freescale.com>
-Subject: [PATCH v2] phylib: add the ICPlus IP175C PHY driver
-Date: Fri, 13 Apr 2007 01:26:46 -0500
-Message-ID: <20070413012646.51d400d1.kim.phillips@freescale.com>
+Subject: [PATCH v2 6/7] ucc_geth: fixes for ucc_geth_memclean
+Date: Fri, 13 Apr 2007 01:26:29 -0500
+Message-ID: <20070413012629.17873777.kim.phillips@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: Jeff Garzik <jgarzik@pobox.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from de01egw02.freescale.net ([192.88.165.103]:37352 "EHLO
+Received: from de01egw02.freescale.net ([192.88.165.103]:37307 "EHLO
 	de01egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751892AbXDMG1M (ORCPT
+	with ESMTP id S1750992AbXDMG1M (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Fri, 13 Apr 2007 02:27:12 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The ICPlus IP175C sports a 100Mbit/s 4-port switch in addition
-to a dedicated 100Mbit/s WAN port.
+From: Nicu Ioan Petru <ionut.nicu@freescale.com>
 
-Signed-off-by: Michael Barkowski <michael.barkowski@freescale.com>
+The ucc_geth_memclean function can be called before the Tx BD rings, Rx
+BD rings and associated socket buffers are allocated (for example if
+ucc_fast_init fails). The current code doesn't check if p_tx_bd_ring[i]
+is null, generating a kernel panic when trying to free the associated
+socket buffers.
+
+The function can also fail when accessing the uninitialized list_head
+structures ugeth->group_hash_q and ugeth->ind_hash_q. In the current
+implementation the list heads are initialized only when
+maxGroupAddrInHash and maxIndAddrInHash are positive values, although I
+think it's better to always initialize them.
+
+Signed-off-by: Ionut Nicu <ionut.nicu@freescale.com>
 Signed-off-by: Kim Phillips <kim.phillips@freescale.com>
 ---
-this version sets MII0 speed and duplex.
+ drivers/net/ucc_geth.c |   13 ++++++-------
+ 1 files changed, 6 insertions(+), 7 deletions(-)
 
- drivers/net/phy/Kconfig  |    6 ++
- drivers/net/phy/Makefile |    1 +
- drivers/net/phy/icplus.c |  128 ++++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 135 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/phy/icplus.c
-
-diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
-index f994f12..91cf33e 100644
---- a/drivers/net/phy/Kconfig
-+++ b/drivers/net/phy/Kconfig
-@@ -62,6 +62,12 @@ config BROADCOM_PHY
- 	---help---
- 	  Currently supports the BCM5411, BCM5421 and BCM5461 PHYs.
+diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
+index 60844a6..20bc105 100644
+--- a/drivers/net/ucc_geth.c
++++ b/drivers/net/ucc_geth.c
+@@ -2133,6 +2133,8 @@ static void ucc_geth_memclean(struct ucc_geth_private *ugeth)
+ 	}
+ 	for (i = 0; i < ugeth->ug_info->numQueuesTx; i++) {
+ 		bd = ugeth->p_tx_bd_ring[i];
++		if (!bd)
++			continue;
+ 		for (j = 0; j < ugeth->ug_info->bdRingLenTx[i]; j++) {
+ 			if (ugeth->tx_skbuff[i][j]) {
+ 				dma_unmap_single(NULL,
+@@ -2300,6 +2302,10 @@ static int ucc_struct_init(struct ucc_geth_private *ugeth)
+ 	ug_info = ugeth->ug_info;
+ 	uf_info = &ug_info->uf_info;
  
-+config ICPLUS_PHY
-+	tristate "Drivers for ICPlus PHYs"
-+	depends on PHYLIB
-+	---help---
-+	  Currently supports the IP175C PHY.
++	/* Create CQs for hash tables */
++	INIT_LIST_HEAD(&ugeth->group_hash_q);
++	INIT_LIST_HEAD(&ugeth->ind_hash_q);
 +
- config FIXED_PHY
- 	tristate "Drivers for PHY emulation on fixed speed/link"
- 	depends on PHYLIB
-diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
-index bcd1efb..8885650 100644
---- a/drivers/net/phy/Makefile
-+++ b/drivers/net/phy/Makefile
-@@ -11,4 +11,5 @@ obj-$(CONFIG_QSEMI_PHY)		+= qsemi.o
- obj-$(CONFIG_SMSC_PHY)		+= smsc.o
- obj-$(CONFIG_VITESSE_PHY)	+= vitesse.o
- obj-$(CONFIG_BROADCOM_PHY)	+= broadcom.o
-+obj-$(CONFIG_ICPLUS_PHY)	+= icplus.o
- obj-$(CONFIG_FIXED_PHY)		+= fixed.o
-diff --git a/drivers/net/phy/icplus.c b/drivers/net/phy/icplus.c
-new file mode 100644
-index 0000000..babdb2e
---- /dev/null
-+++ b/drivers/net/phy/icplus.c
-@@ -0,0 +1,128 @@
-+/*
-+ * Driver for ICPlus PHYs
-+ *
-+ * Copyright (c) 2007 Freescale Semiconductor, Inc.
-+ *
-+ * This program is free software; you can redistribute  it and/or modify it
-+ * under  the terms of  the GNU General  Public License as published by the
-+ * Free Software Foundation;  either version 2 of the  License, or (at your
-+ * option) any later version.
-+ *
-+ */
-+#include <linux/kernel.h>
-+#include <linux/string.h>
-+#include <linux/errno.h>
-+#include <linux/unistd.h>
-+#include <linux/slab.h>
-+#include <linux/interrupt.h>
-+#include <linux/init.h>
-+#include <linux/delay.h>
-+#include <linux/netdevice.h>
-+#include <linux/etherdevice.h>
-+#include <linux/skbuff.h>
-+#include <linux/spinlock.h>
-+#include <linux/mm.h>
-+#include <linux/module.h>
-+#include <linux/mii.h>
-+#include <linux/ethtool.h>
-+#include <linux/phy.h>
-+
-+#include <asm/io.h>
-+#include <asm/irq.h>
-+#include <asm/uaccess.h>
-+
-+MODULE_DESCRIPTION("ICPlus IP175C PHY driver");
-+MODULE_AUTHOR("Michael Barkowski");
-+MODULE_LICENSE("GPL");
-+
-+static int ip175c_config_init(struct phy_device *phydev)
-+{
-+	int err, i;
-+	static int full_reset_performed = 0;
-+
-+	if (full_reset_performed == 0) {
-+
-+		/* master reset */
-+		err = phydev->bus->write(phydev->bus, 30, 0, 0x175c);
-+		if (err < 0)
-+			return err;
-+
-+		/* data sheet specifies reset period is 2 msec */
-+		udelay(3000);
-+
-+		/* enable IP175C mode */
-+		err = phydev->bus->write(phydev->bus, 29, 31, 0x175c);
-+		if (err < 0)
-+			return err;
-+
-+		/* Set MII0 speed and duplex (in PHY mode) */
-+		err = phydev->bus->write(phydev->bus, 29, 22, 0x420);
-+		if (err < 0)
-+			return err;
-+
-+		for (i=0; i<5; i++) {
-+			err = phydev->bus->write(phydev->bus, i, MII_BMCR, BMCR_RESET);
-+		}
-+		udelay(3000);
-+
-+		full_reset_performed = 1;
-+	}
-+
-+	if (phydev->addr != 4) {
-+		phydev->state = PHY_RUNNING;
-+		phydev->speed = SPEED_100;
-+		phydev->duplex = DUPLEX_FULL;
-+		phydev->link = 1;
-+		netif_carrier_on(phydev->attached_dev);
-+	}
-+
-+	return 0;
-+}
-+
-+static int ip175c_read_status(struct phy_device *phydev)
-+{
-+	if (phydev->addr == 4) { /* if WAN port */
-+		genphy_read_status(phydev);
-+	} else {
-+		/* Don't need to read status for switch ports */
-+		phydev->irq = PHY_IGNORE_INTERRUPT;
-+	}
-+
-+	return 0;
-+}
-+
-+
-+static int ip175c_config_aneg(struct phy_device *phydev)
-+{
-+	if (phydev->addr == 4) { /* if WAN port */
-+		genphy_config_aneg(phydev);
-+	}
-+
-+	return 0;
-+}
-+
-+
-+static struct phy_driver ip175c_driver = {
-+	.phy_id		= 0x02430d80,
-+	.name		= "ICPlus IP175C",
-+	.phy_id_mask	= 0x0ffffff0,
-+	.features	= PHY_BASIC_FEATURES,
-+	.config_init	= &ip175c_config_init,
-+	.config_aneg	= &ip175c_config_aneg,
-+	.read_status	= &ip175c_read_status,
-+	.driver		= { .owner = THIS_MODULE,},
-+};
-+
-+static int __init ip175c_init(void)
-+{
-+	return phy_driver_register(&ip175c_driver);
-+}
-+
-+static void __exit ip175c_exit(void)
-+{
-+	phy_driver_unregister(&ip175c_driver);
-+}
-+
-+module_init(ip175c_init);
-+module_exit(ip175c_exit);
-+
+ 	if (!((uf_info->bd_mem_part == MEM_PART_SYSTEM) ||
+ 	      (uf_info->bd_mem_part == MEM_PART_MURAM))) {
+ 		ugeth_err("%s: Bad memory partition value.", __FUNCTION__);
+@@ -3132,13 +3138,6 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+ 		for (j = 0; j < NUM_OF_PADDRS; j++)
+ 			ugeth_82xx_filtering_clear_addr_in_paddr(ugeth, (u8) j);
+ 
+-		/* Create CQs for hash tables */
+-		if (ug_info->maxGroupAddrInHash > 0) {
+-			INIT_LIST_HEAD(&ugeth->group_hash_q);
+-		}
+-		if (ug_info->maxIndAddrInHash > 0) {
+-			INIT_LIST_HEAD(&ugeth->ind_hash_q);
+-		}
+ 		p_82xx_addr_filt =
+ 		    (struct ucc_geth_82xx_address_filtering_pram *) ugeth->
+ 		    p_rx_glbl_pram->addressfiltering;
 -- 
 1.5.0.1
 
