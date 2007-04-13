@@ -1,65 +1,57 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: PATCH[1/1]: kernel panic when large security contexts in ACQUIRE
-Date: Fri, 13 Apr 2007 13:51:24 -0400 (EDT)
-Message-ID: <Line.LNX.4.64.0704131351080.20794@d.namei>
-References: <200704131504.l3DF4lYF031824@faith.austin.ibm.com>
+From: Jamie webb <j@jwebb.sygneca.com>
+Subject: Re: PROBLEM: tg3 spitting out uninitialized memory
+Date: Fri, 13 Apr 2007 18:51:40 +0100
+Message-ID: <461FC32C.4060309@jwebb.sygneca.com>
+References: <461D57E9.3000300@jwebb.sygneca.com> <p73tzvl7ilg.fsf@bingen.suse.de> <1176410380.11425.5.camel@dell>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Joy Latten <latten@austin.ibm.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Andi Kleen <andi@firstfloor.org>, netdev@vger.kernel.org
+To: Michael Chan <mchan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail8.sea5.speakeasy.net ([69.17.117.10]:58952 "EHLO
-	mail8.sea5.speakeasy.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753761AbXDMRv2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Apr 2007 13:51:28 -0400
-In-Reply-To: <200704131504.l3DF4lYF031824@faith.austin.ibm.com>
+Received: from mercury.sygneca.com ([83.142.230.29]:45418 "EHLO
+	mx2.sygneca.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754100AbXDMRvp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Apr 2007 13:51:45 -0400
+In-Reply-To: <1176410380.11425.5.camel@dell>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 13 Apr 2007, Joy Latten wrote:
+Michael Chan wrote:
+> On Thu, 2007-04-12 at 16:50 +0200, Andi Kleen wrote:
+>> Jamie webb <j@jwebb.sygneca.com> writes:
+>>
+>>> Hi there
+>>>
+>>> I have a Dell PE860 with built-in BCM5721, which is reported as
+>>> working fine with the tg3 driver, however I have been getting sporadic
+>>> data corruption, mostly evident as SSH MAC errors.
+>> FWIW i also saw this (data corruption with tg3) occasionally,
+>> but never repeatable or with a packet dump.
+>>
+> My suggestion is to try turning tx checksum off (ethtool -K eth0 tx off)
+> to see if it makes a difference.  I'm not aware of checksum problem on
+> 5721, but it is worth trying.  See if the other end is reporting TCP
+> checksum errors also.
 
-> 
-> Signed-off-by: Joy Latten <latten@austin.ibm.com>
+Well, so far so good. I'll let you know if it happens again, but it 
+looks like that's fixed it.
 
-Acked-by: James Morris <jmorris@namei.org>
+Further testing showed that I also had to disable rx checksumming, 
+otherwise I was getting random kernel crashes. Presumably it was not 
+only reading data from random memory locations, but also writing in the 
+wrong place...
 
+So, do I understand correctly that this is causing the CPU rather than 
+the NIC to do the checksumming?
 
-> 
-> 
-> diff -urpN linux-2.6.20/net/xfrm/xfrm_user.c linux-2.6.20.patch/net/xfrm/xfrm_user.c
-> --- linux-2.6.20/net/xfrm/xfrm_user.c	2007-04-12 15:12:27.000000000 -0500
-> +++ linux-2.6.20.patch/net/xfrm/xfrm_user.c	2007-04-13 09:32:35.000000000 -0500
-> @@ -272,9 +272,8 @@ static int attach_encap_tmpl(struct xfrm
->  }
->  
->  
-> -static inline int xfrm_user_sec_ctx_size(struct xfrm_policy *xp)
-> +static inline int xfrm_user_sec_ctx_size(struct xfrm_sec_ctx *xfrm_ctx)
->  {
-> -	struct xfrm_sec_ctx *xfrm_ctx = xp->security;
->  	int len = 0;
->  
->  	if (xfrm_ctx) {
-> @@ -2170,7 +2169,7 @@ static int xfrm_send_acquire(struct xfrm
->  
->  	len = RTA_SPACE(sizeof(struct xfrm_user_tmpl) * xp->xfrm_nr);
->  	len += NLMSG_SPACE(sizeof(struct xfrm_user_acquire));
-> -	len += RTA_SPACE(xfrm_user_sec_ctx_size(xp));
-> +	len += RTA_SPACE(xfrm_user_sec_ctx_size(x->security));
->  #ifdef CONFIG_XFRM_SUB_POLICY
->  	len += RTA_SPACE(sizeof(struct xfrm_userpolicy_type));
->  #endif
-> @@ -2280,7 +2279,7 @@ static int xfrm_exp_policy_notify(struct
->  
->  	len = RTA_SPACE(sizeof(struct xfrm_user_tmpl) * xp->xfrm_nr);
->  	len += NLMSG_SPACE(sizeof(struct xfrm_user_polexpire));
-> -	len += RTA_SPACE(xfrm_user_sec_ctx_size(xp));
-> +	len += RTA_SPACE(xfrm_user_sec_ctx_size(xp->security));
->  #ifdef CONFIG_XFRM_SUB_POLICY
->  	len += RTA_SPACE(sizeof(struct xfrm_userpolicy_type));
->  #endif
-> 
+Is this a reasonable permanent solution?
 
--- 
-James Morris
-<jmorris@namei.org>
+Crashing aside, I'm a little nervous about putting into production a box 
+that might for example randomly decide to serve up its SSL private keys 
+halfway through an email message...
+
+Cheers
+
+/J
+
