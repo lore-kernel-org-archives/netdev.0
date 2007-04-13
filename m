@@ -1,45 +1,78 @@
 From: David Howells <dhowells@redhat.com>
-Subject: Possible bug in netlink_recvmsg()
-Date: Fri, 13 Apr 2007 19:08:31 +0100
-Message-ID: <1864.1176487711@redhat.com>
+Subject: [PATCH] AF_NETLINK: Support MSG_TRUNC passed to recvmsg()
+Date: Fri, 13 Apr 2007 20:17:08 +0100
+Message-ID: <20070413191708.19621.91658.stgit@warthog.cambridge.redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: dhowells@redhat.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:43881 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([66.187.233.31]:41283 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754122AbXDMSIh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 Apr 2007 14:08:37 -0400
+	id S932129AbXDMTRT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 Apr 2007 15:17:19 -0400
 Received: from int-mx1.corp.redhat.com (int-mx1.corp.redhat.com [172.16.52.254])
-	by mx1.redhat.com (8.13.1/8.13.1) with ESMTP id l3DI8aFN018607
-	for <netdev@vger.kernel.org>; Fri, 13 Apr 2007 14:08:36 -0400
-Received: from warthog.cambridge.redhat.com (warthog.cambridge.redhat.com [172.16.18.73])
-	by int-mx1.corp.redhat.com (8.13.1/8.13.1) with ESMTP id l3DI8ZxW031582
-	for <netdev@vger.kernel.org>; Fri, 13 Apr 2007 14:08:35 -0400
-Received: from redhat.com (localhost.localdomain [127.0.0.1])
-	by warthog.cambridge.redhat.com (8.13.8/8.13.8) with ESMTP id l3DI8Vn4001865
-	for <netdev@vger.kernel.org>; Fri, 13 Apr 2007 19:08:31 +0100
+	by mx1.redhat.com (8.13.1/8.13.1) with ESMTP id l3DJHG0h003027
+	for <netdev@vger.kernel.org>; Fri, 13 Apr 2007 15:17:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Support MSG_TRUNC when passed to recvmsg() as an argument on an AF_NETLINK
+socket.  In such a case, the full size of the packet at the front of the Rx
+queue should be returned, including any of it discarded when MSG_TRUNC is set
+by recvmsg() on return.
 
-As I understand it, according to the recvmsg() manual page, if the packet
-being returned is larger than the buffer provided, and the protocol does not
-support piecemeal reception of data, then:
+If MSG_TRUNC is not set, then only the amount of data read into the buffer is
+returned, and any discarded data goes uncounted.
 
- (1) the buffer should be filled,
+This is according to the recvmsg() manual page.  AFS will make use of this
+feature to work out the buffer size required to receive a netlink message by
+combining MSG_TRUNC with MSG_PEEK.
 
- (2) MSG_TRUNC should be set in msg_flags, and
+This feature is useful on netlink sockets as recvmsg() there just discards any
+of the packet that won't fit in the buffer.
 
- (3) the length of the full packet, including the discarded bit should be
-     returned.
+Signed-Off-By: David Howells <dhowells@redhat.com>
+---
 
-AF_NETLINK sockets, however, do not do (3).  See this bit in netlink_recvmsg():
+ net/netlink/af_netlink.c |   15 +++++++++------
+ 1 files changed, 9 insertions(+), 6 deletions(-)
 
-	copied = skb->len;
-	if (len < copied) {
-		msg->msg_flags |= MSG_TRUNC;
-		copied = len;
-	}
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index e73d8f5..6288dd1 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -1194,7 +1194,7 @@ static int netlink_recvmsg(struct kiocb *kiocb, struct socket *sock,
+ 	struct sock *sk = sock->sk;
+ 	struct netlink_sock *nlk = nlk_sk(sk);
+ 	int noblock = flags&MSG_DONTWAIT;
+-	size_t copied;
++	size_t copy, copied;
+ 	struct sk_buff *skb;
+ 	int err;
+ 
+@@ -1209,14 +1209,17 @@ static int netlink_recvmsg(struct kiocb *kiocb, struct socket *sock,
+ 
+ 	msg->msg_namelen = 0;
+ 
+-	copied = skb->len;
+-	if (len < copied) {
+-		msg->msg_flags |= MSG_TRUNC;
+-		copied = len;
++	copied = copy = skb->len;
++	if (len < copy) {
++		copy = len;
++		if (!(flags & MSG_TRUNC)) {
++			copied = len;
++			msg->msg_flags |= MSG_TRUNC;
++		}
+ 	}
+ 
+ 	skb->h.raw = skb->data;
+-	err = skb_copy_datagram_iovec(skb, 0, msg->msg_iov, copied);
++	err = skb_copy_datagram_iovec(skb, 0, msg->msg_iov, copy);
+ 
+ 	if (msg->msg_name) {
+ 		struct sockaddr_nl *addr = (struct sockaddr_nl*)msg->msg_name;
 
-Or is this only true if the caller of recvmsg() passes MSG_TRUNC in?
-
-David
