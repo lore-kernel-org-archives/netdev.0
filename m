@@ -1,75 +1,61 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: [PATCH tcp-2.6] [TCP]: Catch skb with S+L bugs earlier
-Date: Fri, 13 Apr 2007 17:46:10 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0704131737110.28337@kivilampi-30.cs.helsinki.fi>
+From: David Hollis <dhollis@davehollis.com>
+Subject: Re: phylib usage
+Date: Fri, 13 Apr 2007 14:53:10 +0000
+Message-ID: <1176475990.3766.3.camel@dhollis-lnx.sunera.com>
+References: <1176230461.7526.20.camel@dhollis-lnx.sunera.com>
+	<20070410172052.16eae78c.kim.phillips@freescale.com>
+	<20070411010356.GC9526@xi.wantstofly.org>
+	<20070411164234.2c64bd92.kim.phillips@freescale.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696243703-304686413-1176475570=:28337"
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Lennert Buytenhek <buytenh@wantstofly.org>, netdev@vger.kernel.org
+To: Kim Phillips <kim.phillips@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:36040 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754023AbXDMOqM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Apr 2007 10:46:12 -0400
+Received: from vms048pub.verizon.net ([206.46.252.48]:54082 "EHLO
+	vms048pub.verizon.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754032AbXDMPEo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Apr 2007 11:04:44 -0400
+Received: from smtp.davehollis.com ([71.251.104.144])
+ by vms048.mailsrvcs.net (Sun Java System Messaging Server 6.2-6.01 (built Apr
+ 3 2006)) with ESMTPA id <0JGF00AS2YVRJQO1@vms048.mailsrvcs.net> for
+ netdev@vger.kernel.org; Fri, 13 Apr 2007 09:57:28 -0500 (CDT)
+In-reply-to: <20070411164234.2c64bd92.kim.phillips@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+On Wed, 2007-04-11 at 16:42 -0500, Kim Phillips wrote:
+> On Wed, 11 Apr 2007 03:03:56 +0200
+> Lennert Buytenhek <buytenh@wantstofly.org> wrote:
+> 
+> > On Tue, Apr 10, 2007 at 05:20:52PM -0500, Kim Phillips wrote:
+> > 
+> > > (note I'm coming from an embedded world here.)
+> > 
+> > Please read this:
+> > 
+> > 	http://marc.info/?l=linux-netdev&m=116527863300952&w=2
+> 
+> Not sure how to interpret that.  My point was I don't see as much PHY variation in non-embedded applications.
+> 
+> Kim
 
----696243703-304686413-1176475570=:28337
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
+There may not be as much, but there definitely are still cases where
+there are devices that may have one of three or four different PHYs.
+I'm not in the embedded world, but while I know that there are
+differences, it isn't THAT different that something as potentially
+useful as PHY abstraction wouldn't be useful for regular PCI/USB network
+interfaces.
 
-SACKED_ACKED and LOST are mutually exclusive with SACK, thus
-having their sum larger than packets_out is bug with SACK.
-Eventually these bugs trigger traps in the tcp_clean_rtx_queue
-with SACK but it's much more informative to do this here.
+Or are there too many cases where NIC x needs to do these fiddlings with
+PHY y, where as NIC z has to do different fiddlings with PHY y?
 
-Non-SACK TCP, however, could get more than packets_out duplicate
-ACKs which each increment sacked_out, so it makes sense to do
-this kind of limitting for non-SACK TCP but not for SACK enabled
-one. Perhaps the author had the opposite in mind but did the
-logic accidently wrong way around? Anyway, the sacked_out
-incrementer code for non-SACK already deals this issue before
-calling sync_left_out so this trapping can be done
-unconditionally.
+Again, I don't have a lot of experience with Ethernet devices but in
+looking at a lot of the different driver code, it looks like they all
+fiddle with the PHYs in basically the same way, though some drivers do
+more, some less.  Most likely due to lack of access to errata and such
+or issues just not cropping up that need to be fixed.
 
-
-Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
----
-Please consider this for tcp-2.6...
-
-While testing F-RTO, I had also this compiled in. Did some random things 
-here and there with both SACK and NewReno. Nothing seemed to trigger 
-this... :-) Besides that I have checked all places where lost_out is being 
-incremented (with Reno) that they are not cause problems when 
-sacked_out is close to packets_out already...
-
-Old kernels should be safe since we have had no reports of failures  
-(i.e., SACK scoreboard leaks) and NewReno code already considers this 
-case... But it helps in future if somebody ever breaks this invariant 
-accidently.
-
- include/net/tcp.h |    4 +---
- 1 files changed, 1 insertions(+), 3 deletions(-)
-
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 0abf7db..89a357a 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -733,9 +733,7 @@ static inline __u32 tcp_current_ssthresh
- 
- static inline void tcp_sync_left_out(struct tcp_sock *tp)
- {
--	if (tp->rx_opt.sack_ok &&
--	    (tp->sacked_out >= tp->packets_out - tp->lost_out))
--		tp->sacked_out = tp->packets_out - tp->lost_out;
-+	BUG_ON(tp->sacked_out + tp->lost_out > tp->packets_out);
- 	tp->left_out = tp->sacked_out + tp->lost_out;
- }
- 
 -- 
-1.4.2
+David Hollis <dhollis@davehollis.com>
 
----696243703-304686413-1176475570=:28337--
