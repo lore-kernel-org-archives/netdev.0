@@ -1,78 +1,61 @@
-From: David Howells <dhowells@redhat.com>
-Subject: [PATCH] AF_NETLINK: Support MSG_TRUNC passed to recvmsg()
-Date: Fri, 13 Apr 2007 20:17:08 +0100
-Message-ID: <20070413191708.19621.91658.stgit@warthog.cambridge.redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Possible bug in netlink_recvmsg()
+Date: Fri, 13 Apr 2007 14:11:17 -0700 (PDT)
+Message-ID: <20070413.141117.101862281.davem@davemloft.net>
+References: <1864.1176487711@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dhowells@redhat.com
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: dhowells@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:41283 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932129AbXDMTRT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 Apr 2007 15:17:19 -0400
-Received: from int-mx1.corp.redhat.com (int-mx1.corp.redhat.com [172.16.52.254])
-	by mx1.redhat.com (8.13.1/8.13.1) with ESMTP id l3DJHG0h003027
-	for <netdev@vger.kernel.org>; Fri, 13 Apr 2007 15:17:16 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58599
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1030325AbXDMVLQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Apr 2007 17:11:16 -0400
+In-Reply-To: <1864.1176487711@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Support MSG_TRUNC when passed to recvmsg() as an argument on an AF_NETLINK
-socket.  In such a case, the full size of the packet at the front of the Rx
-queue should be returned, including any of it discarded when MSG_TRUNC is set
-by recvmsg() on return.
+From: David Howells <dhowells@redhat.com>
+Date: Fri, 13 Apr 2007 19:08:31 +0100
 
-If MSG_TRUNC is not set, then only the amount of data read into the buffer is
-returned, and any discarded data goes uncounted.
+> AF_NETLINK sockets, however, do not do (3).  See this bit in netlink_recvmsg():
+> 
+> 	copied = skb->len;
+> 	if (len < copied) {
+> 		msg->msg_flags |= MSG_TRUNC;
+> 		copied = len;
+> 	}
+> 
+> Or is this only true if the caller of recvmsg() passes MSG_TRUNC in?
 
-This is according to the recvmsg() manual page.  AFS will make use of this
-feature to work out the buffer size required to receive a netlink message by
-combining MSG_TRUNC with MSG_PEEK.
+See this fix in my net-2.6.22 tree:
 
-This feature is useful on netlink sockets as recvmsg() there just discards any
-of the packet that won't fit in the buffer.
+commit ad495d7b6cfcd1bc2eaf06c42699be0bb5d84234
+Author: David S. Miller <davem@sunset.davemloft.net>
+Date:   Tue Mar 6 17:02:35 2007 -0800
 
-Signed-Off-By: David Howells <dhowells@redhat.com>
----
-
- net/netlink/af_netlink.c |   15 +++++++++------
- 1 files changed, 9 insertions(+), 6 deletions(-)
+    [NETLINK]: Mirror UDP MSG_TRUNC semantics.
+    
+    If the user passes MSG_TRUNC in via msg_flags, return
+    the full packet size not the truncated size.
+    
+    Idea from Herbert Xu and Thomas Graf.
+    
+    Signed-off-by: David S. Miller <davem@davemloft.net>
 
 diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index e73d8f5..6288dd1 100644
+index e73d8f5..b31a732 100644
 --- a/net/netlink/af_netlink.c
 +++ b/net/netlink/af_netlink.c
-@@ -1194,7 +1194,7 @@ static int netlink_recvmsg(struct kiocb *kiocb, struct socket *sock,
- 	struct sock *sk = sock->sk;
- 	struct netlink_sock *nlk = nlk_sk(sk);
- 	int noblock = flags&MSG_DONTWAIT;
--	size_t copied;
-+	size_t copy, copied;
- 	struct sk_buff *skb;
- 	int err;
+@@ -1242,6 +1242,9 @@ static int netlink_recvmsg(struct kiocb *kiocb, struct socket *sock,
  
-@@ -1209,14 +1209,17 @@ static int netlink_recvmsg(struct kiocb *kiocb, struct socket *sock,
+ 	scm_recv(sock, msg, siocb->scm, flags);
  
- 	msg->msg_namelen = 0;
- 
--	copied = skb->len;
--	if (len < copied) {
--		msg->msg_flags |= MSG_TRUNC;
--		copied = len;
-+	copied = copy = skb->len;
-+	if (len < copy) {
-+		copy = len;
-+		if (!(flags & MSG_TRUNC)) {
-+			copied = len;
-+			msg->msg_flags |= MSG_TRUNC;
-+		}
- 	}
- 
- 	skb->h.raw = skb->data;
--	err = skb_copy_datagram_iovec(skb, 0, msg->msg_iov, copied);
-+	err = skb_copy_datagram_iovec(skb, 0, msg->msg_iov, copy);
- 
- 	if (msg->msg_name) {
- 		struct sockaddr_nl *addr = (struct sockaddr_nl*)msg->msg_name;
-
++	if (flags & MSG_TRUNC)
++		copied = skb->len;
++
+ out:
+ 	netlink_rcv_wake(sk);
+ 	return err ? : copied;
