@@ -1,51 +1,48 @@
-From: "Michal Piotrowski" <michal.k.k.piotrowski@gmail.com>
-Subject: Re: [3/4] 2.6.21-rc5: known regressions (v2)
-Date: Fri, 13 Apr 2007 18:32:14 +0200
-Message-ID: <6bffcb0e0704130932q215a2deby91141c8d3c78bde7@mail.gmail.com>
-References: <Pine.LNX.4.64.0703251559560.6730@woody.linux-foundation.org>
-	<20070330213220.GO14134@stusta.de>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: TCP connection stops after high load.
+Date: Fri, 13 Apr 2007 18:41:11 +0200
+Message-ID: <20070413184111.0ab12e32.dada1@cosmosbay.com>
+References: <461D2DEA.4010806@candelatech.com>
+	<461D447C.4070408@candelatech.com>
+	<20070411.134804.50594117.davem@davemloft.net>
+	<461D4DD7.7020207@candelatech.com>
+	<p73y7kx7iol.fsf@bingen.suse.de>
+	<461E7377.3020708@candelatech.com>
+	<20070412201940.7f570b6d.dada1@cosmosbay.com>
+	<C8747F59-1852-4002-83C2-93883376AF15@mac.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-   netdev@vger.kernel.org, Linus Torvalds <torvalds@linux-foundation.org>,
-   Andrew Morton <akpm@linux-foundation.org>, linux-pm@lists.osdl.org,
-   Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: "Adrian Bunk" <bunk@stusta.de>
-Return-path: <linux-pm-bounces@lists.linux-foundation.org>
-In-Reply-To: <20070330213220.GO14134@stusta.de>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/linux-pm>,
-	<mailto:linux-pm-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linux-foundation.org/pipermail/linux-pm>
-List-Post: <mailto:linux-pm@lists.linux-foundation.org>
-List-Help: <mailto:linux-pm-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/linux-pm>,
-	<mailto:linux-pm-request@lists.linux-foundation.org?subject=subscribe>
-Sender: linux-pm-bounces@lists.linux-foundation.org
-Errors-To: linux-pm-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Ben Greear <greearb@candelatech.com>,
+	Andi Kleen <andi@firstfloor.org>, netdev@vger.kernel.org,
+	bcrl@kvack.org
+To: Daniel Schaffrath <danielschaffrath@mac.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from pfx2.jmh.fr ([194.153.89.55]:52202 "EHLO pfx2.jmh.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754086AbXDMQlL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 Apr 2007 12:41:11 -0400
+In-Reply-To: <C8747F59-1852-4002-83C2-93883376AF15@mac.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 30/03/07, Adrian Bunk <bunk@stusta.de> wrote:
-> Subject    : suspend to disk hangs  (skge)
-> References : http://lkml.org/lkml/2007/3/27/212
-> Submitter  : Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
-> Caused-By  : Stephen Hemminger <shemminger@linux-foundation.org>
->              commit a504e64ab42bcc27074ea37405d06833ed6e0820
-> Status     : unknown
+On Fri, 13 Apr 2007 18:10:12 +0200
+Daniel Schaffrath <danielschaffrath@mac.com> wrote:
+> 
+> On 2007/04/12  , at 20:19, Eric Dumazet wrote:
+> >
+> > Warning : tcpdump can lie, telling you packets being transmited  
+> > several time.
+> Maybe you have further pointers how come that tcpdump lies about  
+> duplicated packets?
+> 
 
-This problem is fixed in 2.6.21-rc6-git5 (commit
-692412b31ffb5df00197ea591dd635fc07506c02).
+dev_queue_xmit_nit() is called before attempting to send packet to device.
 
-Huge thanks to Stephen.
+If device could not accept the packet (hard_start_xmit() returns an error), packet is requeued and retried later.
+each retry means call ev_queue_xmit_nit() again, so tcpdump/sniffers can 'see' packet transmited several times. 
 
-Regards,
-Michal
+This is why I asked for "tc -s -d qdisc" results : to check the requeue counter (not its absolute value, but relative to number of packets sent)
 
--- =
+See dev_hard_start_xmit() in net/core/dev.c
 
-Michal K. K. Piotrowski
-LTG - Linux Testers Group (PL)
-(http://www.stardust.webpages.pl/ltg/)
-LTG - Linux Testers Group (EN)
-(http://www.stardust.webpages.pl/linux_testers_group_en/)
