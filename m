@@ -1,32 +1,101 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: TCP connection stops after high load.
-Date: Fri, 13 Apr 2007 11:09:52 +0400
-Message-ID: <20070413070951.GB2138@2ka.mipt.ru>
-References: <461D2DEA.4010806@candelatech.com> <461D447C.4070408@candelatech.com> <20070411.134804.50594117.davem@davemloft.net> <461D4DD7.7020207@candelatech.com> <p73y7kx7iol.fsf@bingen.suse.de> <461E7377.3020708@candelatech.com> <20070412201940.7f570b6d.dada1@cosmosbay.com> <461E8496.2050003@candelatech.com> <461E998A.8080409@cosmosbay.com> <461EA662.5090801@candelatech.com>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: [PATCH] [IPV6] SNMP: Fix {In,Out}NoRoutes statistics.
+Date: Fri, 13 Apr 2007 17:39:48 +0900 (JST)
+Message-ID: <20070413.173948.133962302.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: Eric Dumazet <dada1@cosmosbay.com>,
-	Andi Kleen <andi@firstfloor.org>, netdev@vger.kernel.org,
-	bcrl@kvack.org
-To: Ben Greear <greearb@candelatech.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org,
+	mitch@linux.vnet.ibm.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:37411 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752360AbXDMHLv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 Apr 2007 03:11:51 -0400
-Content-Disposition: inline
-In-Reply-To: <461EA662.5090801@candelatech.com>
+Received: from yue.linux-ipv6.org ([203.178.140.15]:41485 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752906AbXDMIiu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Apr 2007 04:38:50 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 12, 2007 at 02:36:34PM -0700, Ben Greear (greearb@candelatech.com) wrote:
-> I am not sure if the problem is fixed or just harder to hit,
-> but for now it looks good.
+A packet which is being discarded because of no routes in the
+forwarding path should not be counted as OutNoRoutes but as
+InNoRoutes.
+Additionally, on this occasion, a packet whose destinaion is
+not valid should be counted as InAddrErrors separately.
 
-Wasn't default congestion control algo changed between that kernel
-releases?
-With such small rtt like in your setup there could be some obscure bug,
-try to set different one and check if it still works good/bad.
+Based on patch from Mitsuru Chinen <mitch@linux.vnet.ibm.com>.
 
+Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+---
+ net/ipv6/route.c |   31 ++++++++++++++++++++-----------
+ 1 files changed, 20 insertions(+), 11 deletions(-)
+
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 3931b33..ad058a9 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1775,13 +1775,22 @@ int ipv6_route_ioctl(unsigned int cmd, void __user *arg)
+  *	Drop the packet on the floor
+  */
+ 
+-static inline int ip6_pkt_drop(struct sk_buff *skb, int code)
+-{
+-	int type = ipv6_addr_type(&skb->nh.ipv6h->daddr);
+-	if (type == IPV6_ADDR_ANY || type == IPV6_ADDR_RESERVED)
+-		IP6_INC_STATS(ip6_dst_idev(skb->dst), IPSTATS_MIB_INADDRERRORS);
+-
+-	IP6_INC_STATS(ip6_dst_idev(skb->dst), IPSTATS_MIB_OUTNOROUTES);
++static inline int ip6_pkt_drop(struct sk_buff *skb, int code,
++			       int ipstats_mib_noroutes)
++{
++	int type;
++	switch (ipstats_mib_noroutes) {
++	case IPSTATS_MIB_INNOROUTES:
++		type = ipv6_addr_type(&skb->nh.ipv6h->daddr);
++		if (type == IPV6_ADDR_ANY || type == IPV6_ADDR_RESERVED) {
++			IP6_INC_STATS(ip6_dst_idev(skb->dst), IPSTATS_MIB_INADDRERRORS);
++			break;
++		}
++		/* FALLTHROUGH */
++	case IPSTATS_MIB_OUTNOROUTES:
++		IP6_INC_STATS(ip6_dst_idev(skb->dst), ipstats_mib_noroutes);
++		break;
++	}
+ 	icmpv6_send(skb, ICMPV6_DEST_UNREACH, code, 0, skb->dev);
+ 	kfree_skb(skb);
+ 	return 0;
+@@ -1789,26 +1798,26 @@ static inline int ip6_pkt_drop(struct sk_buff *skb, int code)
+ 
+ static int ip6_pkt_discard(struct sk_buff *skb)
+ {
+-	return ip6_pkt_drop(skb, ICMPV6_NOROUTE);
++	return ip6_pkt_drop(skb, ICMPV6_NOROUTE, IPSTATS_MIB_INNOROUTES);
+ }
+ 
+ static int ip6_pkt_discard_out(struct sk_buff *skb)
+ {
+ 	skb->dev = skb->dst->dev;
+-	return ip6_pkt_discard(skb);
++	return ip6_pkt_drop(skb, ICMPV6_NOROUTE, IPSTATS_MIB_OUTNOROUTES);
+ }
+ 
+ #ifdef CONFIG_IPV6_MULTIPLE_TABLES
+ 
+ static int ip6_pkt_prohibit(struct sk_buff *skb)
+ {
+-	return ip6_pkt_drop(skb, ICMPV6_ADM_PROHIBITED);
++	return ip6_pkt_drop(skb, ICMPV6_ADM_PROHIBITED, IPSTATS_MIB_INNOROUTES);
+ }
+ 
+ static int ip6_pkt_prohibit_out(struct sk_buff *skb)
+ {
+ 	skb->dev = skb->dst->dev;
+-	return ip6_pkt_prohibit(skb);
++	return ip6_pkt_drop(skb, ICMPV6_ADM_PROHIBITED, IPSTATS_MIB_OUTNOROUTES);
+ }
+ 
+ static int ip6_pkt_blk_hole(struct sk_buff *skb)
 -- 
-	Evgeniy Polyakov
+1.5.1
+
+
