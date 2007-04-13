@@ -1,71 +1,51 @@
-From: Daniel Schaffrath <danielschaffrath@mac.com>
-Subject: Re: TCP connection stops after high load.
-Date: Fri, 13 Apr 2007 18:10:12 +0200
-Message-ID: <C8747F59-1852-4002-83C2-93883376AF15@mac.com>
-References: <461D2DEA.4010806@candelatech.com> <461D447C.4070408@candelatech.com> <20070411.134804.50594117.davem@davemloft.net> <461D4DD7.7020207@candelatech.com> <p73y7kx7iol.fsf@bingen.suse.de> <461E7377.3020708@candelatech.com> <20070412201940.7f570b6d.dada1@cosmosbay.com>
-Mime-Version: 1.0 (Apple Message framework v752.3)
-Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Ben Greear <greearb@candelatech.com>,
-	Andi Kleen <andi@firstfloor.org>, netdev@vger.kernel.org,
-	bcrl@kvack.org
-To: Eric Dumazet <dada1@cosmosbay.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpout.mac.com ([17.250.248.186]:58772 "EHLO smtpout.mac.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754073AbXDMQRT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 Apr 2007 12:17:19 -0400
-In-Reply-To: <20070412201940.7f570b6d.dada1@cosmosbay.com>
-Sender: netdev-owner@vger.kernel.org
+From: "Michal Piotrowski" <michal.k.k.piotrowski@gmail.com>
+Subject: Re: [3/4] 2.6.21-rc5: known regressions (v2)
+Date: Fri, 13 Apr 2007 18:32:14 +0200
+Message-ID: <6bffcb0e0704130932q215a2deby91141c8d3c78bde7@mail.gmail.com>
+References: <Pine.LNX.4.64.0703251559560.6730@woody.linux-foundation.org>
+	<20070330213220.GO14134@stusta.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+   netdev@vger.kernel.org, Linus Torvalds <torvalds@linux-foundation.org>,
+   Andrew Morton <akpm@linux-foundation.org>, linux-pm@lists.osdl.org,
+   Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: "Adrian Bunk" <bunk@stusta.de>
+Return-path: <linux-pm-bounces@lists.linux-foundation.org>
+In-Reply-To: <20070330213220.GO14134@stusta.de>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/linux-pm>,
+	<mailto:linux-pm-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/linux-pm>
+List-Post: <mailto:linux-pm@lists.linux-foundation.org>
+List-Help: <mailto:linux-pm-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/linux-pm>,
+	<mailto:linux-pm-request@lists.linux-foundation.org?subject=subscribe>
+Sender: linux-pm-bounces@lists.linux-foundation.org
+Errors-To: linux-pm-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
+On 30/03/07, Adrian Bunk <bunk@stusta.de> wrote:
+> Subject    : suspend to disk hangs  (skge)
+> References : http://lkml.org/lkml/2007/3/27/212
+> Submitter  : Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
+> Caused-By  : Stephen Hemminger <shemminger@linux-foundation.org>
+>              commit a504e64ab42bcc27074ea37405d06833ed6e0820
+> Status     : unknown
 
-On 2007/04/12  , at 20:19, Eric Dumazet wrote:
+This problem is fixed in 2.6.21-rc6-git5 (commit
+692412b31ffb5df00197ea591dd635fc07506c02).
 
-> On Thu, 12 Apr 2007 10:59:19 -0700
-> Ben Greear <greearb@candelatech.com> wrote:
->>
->> Here is a tcpdump of the connection in the stalled state.  As you  
->> can see by
->> the 'time' output, it's running at around 100,000 packets per  
->> second.  tcpdump
->> dropped the vast majority of these.  Based on the network  
->> interface stats, I
->> believe both sides of the connection are sending acks at about the  
->> same
->> rate (about 160kpps when tcpdump is not running it seems).
->
-> Warning : tcpdump can lie, telling you packets being transmited  
-> several time.
-Maybe you have further pointers how come that tcpdump lies about  
-duplicated packets?
+Huge thanks to Stephen.
 
-Thanks a lot,
-Daniel
+Regards,
+Michal
 
+-- =
 
-
-
->
-> And yes, tcpdump slow things down because of enabling accurate  
-> timestamping of packets.
->
->>
->>
->> 10:46:46.541490 IP 20.20.20.20.33011 > 20.20.20.30.33012: . ack 48  
->> win 6132 <nop,nop,timestamp 85158912 84963208>
->> 10:46:46.541494 IP 20.20.20.30.33012 > 20.20.20.20.33011: . ack 1  
->> win 114 <nop,nop,timestamp 85158912 84963208>
->> 10:46:46.541567 IP 20.20.20.30.33012 > 20.20.20.20.33011: . ack 1  
->> win 114 <nop,nop,timestamp 85158912 84963208>
->> 10:46:46.541653 IP 20.20.20.30.33012 > 20.20.20.20.33011: . ack 1  
->> win 114 <nop,nop,timestamp 85158912 84963208>
->> 10:46:46.541886 IP 20.20.20.30.33012 > 20.20.20.20.33011: . ack 1  
->> win 114 <nop,nop,timestamp 85158912 84963208>
->> 10:46:46.541891 IP 20.20.20.20.33011 > 20.20.20.30.33012: . ack 48  
->> win 6132 <nop,nop,timestamp 85158912 84963208>
->> 10:46:46.541895 IP 20.20.20.30.33012 > 20.20.20.20.33011: . ack 1  
->> win 114 <nop,nop,timestamp 85158912 84963208>
->> 10:46:46.541988 IP 20.20.20.30.33012 > 20.20.20.20.33011: . ack 1  
->> win 114 <nop,nop,timestamp 85158912 84963208>
-
+Michal K. K. Piotrowski
+LTG - Linux Testers Group (PL)
+(http://www.stardust.webpages.pl/ltg/)
+LTG - Linux Testers Group (EN)
+(http://www.stardust.webpages.pl/linux_testers_group_en/)
