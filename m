@@ -1,156 +1,195 @@
 From: Kim Phillips <kim.phillips@freescale.com>
-Subject: [PATCH v2] phylib: enable RGMII-ID on the Marvell m88e1111 PHY
-Date: Fri, 13 Apr 2007 01:26:56 -0500
-Message-ID: <20070413012656.5f65ffd1.kim.phillips@freescale.com>
+Subject: [PATCH v2] phylib: add the ICPlus IP175C PHY driver
+Date: Fri, 13 Apr 2007 01:26:46 -0500
+Message-ID: <20070413012646.51d400d1.kim.phillips@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: Jeff Garzik <jgarzik@pobox.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from de01egw01.freescale.net ([192.88.165.102]:39610 "EHLO
-	de01egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751905AbXDMG1M (ORCPT
+Received: from de01egw02.freescale.net ([192.88.165.103]:37352 "EHLO
+	de01egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751892AbXDMG1M (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Fri, 13 Apr 2007 02:27:12 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Support for configuring RGMII-ID (RGMII with internal delay) mode on the
-88e1111 and 88e1145.
+The ICPlus IP175C sports a 100Mbit/s 4-port switch in addition
+to a dedicated 100Mbit/s WAN port.
 
-Also renamed 88e1111s -> 88e1111 (no references to an 88e1111s part were
-found), and fixed some whitespace.
-
+Signed-off-by: Michael Barkowski <michael.barkowski@freescale.com>
 Signed-off-by: Kim Phillips <kim.phillips@freescale.com>
 ---
-this version sets the delay bits conditionally
+this version sets MII0 speed and duplex.
 
- drivers/net/phy/marvell.c |   62 +++++++++++++++++++++++++++++++++++++++------
- 1 files changed, 54 insertions(+), 8 deletions(-)
+ drivers/net/phy/Kconfig  |    6 ++
+ drivers/net/phy/Makefile |    1 +
+ drivers/net/phy/icplus.c |  128 ++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 135 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/phy/icplus.c
 
-diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
-index 22aec5c..b87f8d2 100644
---- a/drivers/net/phy/marvell.c
-+++ b/drivers/net/phy/marvell.c
-@@ -54,6 +54,12 @@
- #define MII_M1111_PHY_LED_CONTROL	0x18
- #define MII_M1111_PHY_LED_DIRECT	0x4100
- #define MII_M1111_PHY_LED_COMBINE	0x411c
-+#define MII_M1111_PHY_EXT_CR		0x14
-+#define MII_M1111_RX_DELAY		0x80
-+#define MII_M1111_TX_DELAY		0x2
-+#define MII_M1111_PHY_EXT_SR		0x1b
-+#define MII_M1111_HWCFG_MODE_MASK	0xf
-+#define MII_M1111_HWCFG_MODE_RGMII	0xb
+diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+index f994f12..91cf33e 100644
+--- a/drivers/net/phy/Kconfig
++++ b/drivers/net/phy/Kconfig
+@@ -62,6 +62,12 @@ config BROADCOM_PHY
+ 	---help---
+ 	  Currently supports the BCM5411, BCM5421 and BCM5461 PHYs.
  
- MODULE_DESCRIPTION("Marvell PHY driver");
- MODULE_AUTHOR("Andy Fleming");
-@@ -131,6 +137,45 @@ static int marvell_config_aneg(struct phy_device *phydev)
- 	return err;
- }
- 
-+static int m88e1111_config_init(struct phy_device *phydev)
++config ICPLUS_PHY
++	tristate "Drivers for ICPlus PHYs"
++	depends on PHYLIB
++	---help---
++	  Currently supports the IP175C PHY.
++
+ config FIXED_PHY
+ 	tristate "Drivers for PHY emulation on fixed speed/link"
+ 	depends on PHYLIB
+diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
+index bcd1efb..8885650 100644
+--- a/drivers/net/phy/Makefile
++++ b/drivers/net/phy/Makefile
+@@ -11,4 +11,5 @@ obj-$(CONFIG_QSEMI_PHY)		+= qsemi.o
+ obj-$(CONFIG_SMSC_PHY)		+= smsc.o
+ obj-$(CONFIG_VITESSE_PHY)	+= vitesse.o
+ obj-$(CONFIG_BROADCOM_PHY)	+= broadcom.o
++obj-$(CONFIG_ICPLUS_PHY)	+= icplus.o
+ obj-$(CONFIG_FIXED_PHY)		+= fixed.o
+diff --git a/drivers/net/phy/icplus.c b/drivers/net/phy/icplus.c
+new file mode 100644
+index 0000000..babdb2e
+--- /dev/null
++++ b/drivers/net/phy/icplus.c
+@@ -0,0 +1,128 @@
++/*
++ * Driver for ICPlus PHYs
++ *
++ * Copyright (c) 2007 Freescale Semiconductor, Inc.
++ *
++ * This program is free software; you can redistribute  it and/or modify it
++ * under  the terms of  the GNU General  Public License as published by the
++ * Free Software Foundation;  either version 2 of the  License, or (at your
++ * option) any later version.
++ *
++ */
++#include <linux/kernel.h>
++#include <linux/string.h>
++#include <linux/errno.h>
++#include <linux/unistd.h>
++#include <linux/slab.h>
++#include <linux/interrupt.h>
++#include <linux/init.h>
++#include <linux/delay.h>
++#include <linux/netdevice.h>
++#include <linux/etherdevice.h>
++#include <linux/skbuff.h>
++#include <linux/spinlock.h>
++#include <linux/mm.h>
++#include <linux/module.h>
++#include <linux/mii.h>
++#include <linux/ethtool.h>
++#include <linux/phy.h>
++
++#include <asm/io.h>
++#include <asm/irq.h>
++#include <asm/uaccess.h>
++
++MODULE_DESCRIPTION("ICPlus IP175C PHY driver");
++MODULE_AUTHOR("Michael Barkowski");
++MODULE_LICENSE("GPL");
++
++static int ip175c_config_init(struct phy_device *phydev)
 +{
-+	int err;
++	int err, i;
++	static int full_reset_performed = 0;
 +
-+	if ((phydev->interface == PHY_INTERFACE_MODE_RGMII) ||
-+	    (phydev->interface == PHY_INTERFACE_MODE_RGMII_ID)) {
-+		int temp;
++	if (full_reset_performed == 0) {
 +
-+		if (phydev->interface == PHY_INTERFACE_MODE_RGMII_ID) {
-+			temp = phy_read(phydev, MII_M1111_PHY_EXT_CR);
-+			if (temp < 0)
-+				return temp;
-+
-+			temp |= (MII_M1111_RX_DELAY | MII_M1111_TX_DELAY);
-+
-+			err = phy_write(phydev, MII_M1111_PHY_EXT_CR, temp);
-+			if (err < 0)
-+				return err;
-+		}
-+
-+		temp = phy_read(phydev, MII_M1111_PHY_EXT_SR);
-+		if (temp < 0)
-+			return temp;
-+
-+		temp &= ~(MII_M1111_HWCFG_MODE_MASK);
-+		temp |= MII_M1111_HWCFG_MODE_RGMII;
-+
-+		err = phy_write(phydev, MII_M1111_PHY_EXT_SR, temp);
++		/* master reset */
++		err = phydev->bus->write(phydev->bus, 30, 0, 0x175c);
 +		if (err < 0)
 +			return err;
++
++		/* data sheet specifies reset period is 2 msec */
++		udelay(3000);
++
++		/* enable IP175C mode */
++		err = phydev->bus->write(phydev->bus, 29, 31, 0x175c);
++		if (err < 0)
++			return err;
++
++		/* Set MII0 speed and duplex (in PHY mode) */
++		err = phydev->bus->write(phydev->bus, 29, 22, 0x420);
++		if (err < 0)
++			return err;
++
++		for (i=0; i<5; i++) {
++			err = phydev->bus->write(phydev->bus, i, MII_BMCR, BMCR_RESET);
++		}
++		udelay(3000);
++
++		full_reset_performed = 1;
 +	}
 +
-+	err = phy_write(phydev, MII_BMCR, BMCR_RESET);
-+	if (err < 0)
-+		return err;
++	if (phydev->addr != 4) {
++		phydev->state = PHY_RUNNING;
++		phydev->speed = SPEED_100;
++		phydev->duplex = DUPLEX_FULL;
++		phydev->link = 1;
++		netif_carrier_on(phydev->attached_dev);
++	}
 +
 +	return 0;
 +}
 +
- static int m88e1145_config_init(struct phy_device *phydev)
- {
- 	int err;
-@@ -152,7 +197,7 @@ static int m88e1145_config_init(struct phy_device *phydev)
- 	if (err < 0)
- 		return err;
- 
--	if (phydev->interface == PHY_INTERFACE_MODE_RGMII) {
-+	if (phydev->interface == PHY_INTERFACE_MODE_RGMII_ID) {
- 		int temp = phy_read(phydev, MII_M1145_PHY_EXT_CR);
- 		if (temp < 0)
- 			return temp;
-@@ -206,7 +251,7 @@ static struct phy_driver m88e1101_driver = {
- 	.driver = {.owner = THIS_MODULE,},
- };
- 
--static struct phy_driver m88e1111s_driver = {
-+static struct phy_driver m88e1111_driver = {
- 	.phy_id = 0x01410cc0,
- 	.phy_id_mask = 0xfffffff0,
- 	.name = "Marvell 88E1111",
-@@ -216,6 +261,7 @@ static struct phy_driver m88e1111s_driver = {
- 	.read_status = &genphy_read_status,
- 	.ack_interrupt = &marvell_ack_interrupt,
- 	.config_intr = &marvell_config_intr,
-+	.config_init = &m88e1111_config_init,
- 	.driver = {.owner = THIS_MODULE,},
- };
- 
-@@ -241,9 +287,9 @@ static int __init marvell_init(void)
- 	if (ret)
- 		return ret;
- 
--	ret = phy_driver_register(&m88e1111s_driver);
-+	ret = phy_driver_register(&m88e1111_driver);
- 	if (ret)
--		goto err1111s;
-+		goto err1111;
- 
- 	ret = phy_driver_register(&m88e1145_driver);
- 	if (ret)
-@@ -251,9 +297,9 @@ static int __init marvell_init(void)
- 
- 	return 0;
- 
--      err1145:
--	phy_driver_unregister(&m88e1111s_driver);
--      err1111s:
-+err1145:
-+	phy_driver_unregister(&m88e1111_driver);
-+err1111:
- 	phy_driver_unregister(&m88e1101_driver);
- 	return ret;
- }
-@@ -261,7 +307,7 @@ static int __init marvell_init(void)
- static void __exit marvell_exit(void)
- {
- 	phy_driver_unregister(&m88e1101_driver);
--	phy_driver_unregister(&m88e1111s_driver);
-+	phy_driver_unregister(&m88e1111_driver);
- 	phy_driver_unregister(&m88e1145_driver);
- }
- 
++static int ip175c_read_status(struct phy_device *phydev)
++{
++	if (phydev->addr == 4) { /* if WAN port */
++		genphy_read_status(phydev);
++	} else {
++		/* Don't need to read status for switch ports */
++		phydev->irq = PHY_IGNORE_INTERRUPT;
++	}
++
++	return 0;
++}
++
++
++static int ip175c_config_aneg(struct phy_device *phydev)
++{
++	if (phydev->addr == 4) { /* if WAN port */
++		genphy_config_aneg(phydev);
++	}
++
++	return 0;
++}
++
++
++static struct phy_driver ip175c_driver = {
++	.phy_id		= 0x02430d80,
++	.name		= "ICPlus IP175C",
++	.phy_id_mask	= 0x0ffffff0,
++	.features	= PHY_BASIC_FEATURES,
++	.config_init	= &ip175c_config_init,
++	.config_aneg	= &ip175c_config_aneg,
++	.read_status	= &ip175c_read_status,
++	.driver		= { .owner = THIS_MODULE,},
++};
++
++static int __init ip175c_init(void)
++{
++	return phy_driver_register(&ip175c_driver);
++}
++
++static void __exit ip175c_exit(void)
++{
++	phy_driver_unregister(&ip175c_driver);
++}
++
++module_init(ip175c_init);
++module_exit(ip175c_exit);
++
 -- 
 1.5.0.1
 
