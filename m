@@ -1,50 +1,55 @@
-From: Paul Mackerras <paulus@samba.org>
+From: David Miller <davem@davemloft.net>
 Subject: Re: kernel BUG at net/core/skbuff.c in linux-2.6.21-rc6
-Date: Sun, 15 Apr 2007 02:49:28 +1000
-Message-ID: <17953.1560.855914.274514@cargo.ozlabs.ibm.com>
-References: <9a8748490704100425t34ebafcdq866a923df80b9aca@mail.gmail.com>
-	<19061b0b0704112218j13688c16xc755d66147f8fe6a@mail.gmail.com>
-	<461DC70B.4000500@trash.net>
+Date: Sat, 14 Apr 2007 10:04:41 -0700 (PDT)
+Message-ID: <20070414.100441.15000708.davem@davemloft.net>
+References: <461DC70B.4000500@trash.net>
 	<20070413.161635.26523891.davem@davemloft.net>
+	<17953.1560.855914.274514@cargo.ozlabs.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: kaber@trash.net, poemann@gmail.com, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: paulus@samba.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:41024 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751328AbXDNQta (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 14 Apr 2007 12:49:30 -0400
-In-Reply-To: <20070413.161635.26523891.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57178
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753008AbXDNREu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Apr 2007 13:04:50 -0400
+In-Reply-To: <17953.1560.855914.274514@cargo.ozlabs.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller writes:
+From: Paul Mackerras <paulus@samba.org>
+Date: Sun, 15 Apr 2007 02:49:28 +1000
 
-> > It seems we fail to reserve enough headroom for the case
-> > buf[0] == PPP_ALLSTATIONS and buf[1] != PPP_UI.
-> > 
-> > Can you try this patch please?
-> 
-> Any confirmation of this fix yet?
+> I didn't see the patch (the message that this is a reply to is the
+> first one that I have seen in this thread), so I can't comment on it.
 
-Indeed, ppp_async doesn't handle that case correctly.
+Here is Patrick McHardy's patch:
 
-RFC 1662 says:
-
-      The Control field is a single octet, which contains the binary
-      sequence 00000011 (hexadecimal 0x03), the Unnumbered Information
-      (UI) command with the Poll/Final (P/F) bit set to zero.
-
-      The use of other Control field values may be defined at a later
-      time, or by prior agreement.  Frames with unrecognized Control
-      field values SHOULD be silently discarded.
-
-In what situation were we getting the frames that cause the problem?
-
-I didn't see the patch (the message that this is a reply to is the
-first one that I have seen in this thread), so I can't comment on it.
-
-Paul.
+diff --git a/drivers/net/ppp_async.c b/drivers/net/ppp_async.c
+index 933e2f3..c68e37f 100644
+--- a/drivers/net/ppp_async.c
++++ b/drivers/net/ppp_async.c
+@@ -890,6 +890,8 @@ ppp_async_input(struct asyncppp *ap, const unsigned char *buf,
+  				ap->rpkt = skb;
+  			}
+  			if (skb->len == 0) {
++				int headroom = 0;
++
+  				/* Try to get the payload 4-byte aligned.
+  				 * This should match the
+  				 * PPP_ALLSTATIONS/PPP_UI/compressed tests in
+@@ -897,7 +899,10 @@ ppp_async_input(struct asyncppp *ap, const unsigned char *buf,
+  				 * enough chars here to test buf[1] and buf[2].
+  				 */
+ 				if (buf[0] != PPP_ALLSTATIONS)
+-					skb_reserve(skb, 2 + (buf[0] & 1));
++					headroom += 2;
++				if (buf[0] & 1)
++					headroom += 1;
++				skb_reserve(skb, headroom);
+ 			}
+ 			if (n > skb_tailroom(skb)) {
+ 				/* packet overflowed MRU */
