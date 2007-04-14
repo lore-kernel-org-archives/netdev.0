@@ -1,89 +1,50 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: [IPv4] fib: Fix out of bound access of fib_props[]
-Date: Sat, 14 Apr 2007 17:48:36 +0200
-Message-ID: <20070414154836.GA1758@1wt.eu>
-References: <20070324153435.GE521@postel.suug.ch> <20070324.203339.71087299.davem@davemloft.net> <20070414142655.GA21327@1wt.eu>
+From: Paul Mackerras <paulus@samba.org>
+Subject: Re: kernel BUG at net/core/skbuff.c in linux-2.6.21-rc6
+Date: Sun, 15 Apr 2007 02:49:28 +1000
+Message-ID: <17953.1560.855914.274514@cargo.ozlabs.ibm.com>
+References: <9a8748490704100425t34ebafcdq866a923df80b9aca@mail.gmail.com>
+	<19061b0b0704112218j13688c16xc755d66147f8fe6a@mail.gmail.com>
+	<461DC70B.4000500@trash.net>
+	<20070413.161635.26523891.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: tgraf@suug.ch, netdev@vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: kaber@trash.net, poemann@gmail.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:1866 "EHLO 1wt.eu"
+Received: from ozlabs.org ([203.10.76.45]:41024 "EHLO ozlabs.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751197AbXDNPsn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 14 Apr 2007 11:48:43 -0400
-Content-Disposition: inline
-In-Reply-To: <20070414142655.GA21327@1wt.eu>
+	id S1751328AbXDNQta (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 14 Apr 2007 12:49:30 -0400
+In-Reply-To: <20070413.161635.26523891.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Apr 14, 2007 at 04:26:55PM +0200, Willy Tarreau wrote:
-> On Sat, Mar 24, 2007 at 08:33:39PM -0700, David Miller wrote:
-> > From: Thomas Graf <tgraf@suug.ch>
-> > Date: Sat, 24 Mar 2007 16:34:36 +0100
+David Miller writes:
+
+> > It seems we fail to reserve enough headroom for the case
+> > buf[0] == PPP_ALLSTATIONS and buf[1] != PPP_UI.
 > > 
-> > > Fixes a typo which caused fib_props[] to have the wrong size
-> > > and makes sure the value used to index the array which is
-> > > provided by userspace via netlink is checked to avoid out of
-> > > bound access.
-> > > 
-> > > Signed-off-by: Thomas Graf <tgraf@suug.ch>
-> > 
-> > Applied, thanks.
+> > Can you try this patch please?
 > 
-> Thomas, David, it seems to me that 2.4 needs the same fix for the
-> typo, but I see no place where we may add the check for > RTN_MAX.
-> Maybe this last one is not needed. If someone could enlighten me,
-> or at least provide a means to test if the bug it present, it would
-> help me.
+> Any confirmation of this fix yet?
 
-Finally, I think I have the correct fix below. Please someone confirm
-or tell me I'm nuts.
+Indeed, ppp_async doesn't handle that case correctly.
 
-Thanks in advance,
-Willy
+RFC 1662 says:
 
+      The Control field is a single octet, which contains the binary
+      sequence 00000011 (hexadecimal 0x03), the Unnumbered Information
+      (UI) command with the Poll/Final (P/F) bit set to zero.
 
->From 230c62b9e7000cfb407a079a21ad0f077f164b21 Mon Sep 17 00:00:00 2001
-From: Willy Tarreau <w@1wt.eu>
-Date: Sat, 14 Apr 2007 17:44:03 +0200
-Subject: [IPv4] fib: Fix out of bound access of fib_props[]
+      The use of other Control field values may be defined at a later
+      time, or by prior agreement.  Frames with unrecognized Control
+      field values SHOULD be silently discarded.
 
-Backported from 2.6. Bug found and fixed by Thomas Graf :
+In what situation were we getting the frames that cause the problem?
 
-Fixes a typo which caused fib_props[] to have the wrong size
-and makes sure the value used to index the array which is
-provided by userspace via netlink is checked to avoid out of
-bound access.
----
- net/ipv4/fib_semantics.c |    7 ++++++-
- 1 files changed, 6 insertions(+), 1 deletions(-)
+I didn't see the patch (the message that this is a reply to is the
+first one that I have seen in this thread), so I can't comment on it.
 
-diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-index afdf4bb..b930371 100644
---- a/net/ipv4/fib_semantics.c
-+++ b/net/ipv4/fib_semantics.c
-@@ -83,7 +83,7 @@ static struct
- {
- 	int	error;
- 	u8	scope;
--} fib_props[RTA_MAX+1] = {
-+} fib_props[RTN_MAX+1] = {
-         { 0, RT_SCOPE_NOWHERE},		/* RTN_UNSPEC */
- 	{ 0, RT_SCOPE_UNIVERSE},	/* RTN_UNICAST */
- 	{ 0, RT_SCOPE_HOST},		/* RTN_LOCAL */
-@@ -431,6 +431,11 @@ fib_create_info(const struct rtmsg *r, struct kern_rta *rta,
- 	const int nhs = 1;
- #endif
- 
-+	if (r->rtm_type > RTN_MAX) {
-+		err = -EINVAL;
-+		goto errout;
-+	}
-+
- 	/* Fast check to catch the most weird cases */
- 	if (fib_props[r->rtm_type].scope > r->rtm_scope)
- 		goto err_inval;
--- 
-1.4.4.4
-
+Paul.
