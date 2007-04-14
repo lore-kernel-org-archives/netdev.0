@@ -1,50 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: TCP connection stops after high load.
-Date: Fri, 13 Apr 2007 22:37:39 -0700 (PDT)
-Message-ID: <20070413.223739.27452745.davem@davemloft.net>
-References: <E1HcZlg-0006Bi-00@gondolin.me.apana.org.au>
-	<46206737.8000307@cosmosbay.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, danielschaffrath@mac.com,
-	greearb@candelatech.com, andi@firstfloor.org,
-	netdev@vger.kernel.org, bcrl@kvack.org
-To: dada1@cosmosbay.com
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: kernel BUG at net/core/skbuff.c in linux-2.6.21-rc6
+Date: Sat, 14 Apr 2007 16:00:12 +1000
+Message-ID: <E1HcbIy-0006Pt-00@gondolin.me.apana.org.au>
+References: <20070413.161635.26523891.davem@davemloft.net>
+Cc: kaber@trash.net, poemann@gmail.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, paulus@samba.org
+To: davem@davemloft.net (David Miller)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56922
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1161098AbXDNFhi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Apr 2007 01:37:38 -0400
-In-Reply-To: <46206737.8000307@cosmosbay.com>
+Received: from rhun.apana.org.au ([64.62.148.172]:1495 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S964974AbXDNGAj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Apr 2007 02:00:39 -0400
+In-Reply-To: <20070413.161635.26523891.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Sat, 14 Apr 2007 07:31:35 +0200
+David Miller <davem@davemloft.net> wrote:
+>
+>> It seems we fail to reserve enough headroom for the case
+>> buf[0] == PPP_ALLSTATIONS and buf[1] != PPP_UI.
+>> 
+>> Can you try this patch please?
+> 
+> Any confirmation of this fix yet?
 
-> When did tg3 model changed exactly ?
+FWIW the fix definitely looks correct (the bug has been there for
+years at least) and it does match the crash dump.  In fact, there
+is only a single skb_push (the only thing that can generate an under
+panic) in ppp_async.c and this is the one that Patrick has fixed.
 
-June of 2006:
-
-commit 00b7050426da8e7e58c889c5c80a19920d2d41b3
-Author: Michael Chan <mchan@broadcom.com>
-Date:   Sat Jun 17 21:58:45 2006 -0700
-
-    [TG3]: Convert to non-LLTX
-    
-    Herbert Xu pointed out that it is unsafe to call netif_tx_disable()
-    from LLTX drivers because it uses dev->xmit_lock to synchronize
-    whereas LLTX drivers use private locks.
-    
-    Convert tg3 to non-LLTX to fix this issue. tg3 is a lockless driver
-    where hard_start_xmit and tx completion handling can run concurrently
-    under normal conditions. A tx_lock is only needed to prevent
-    netif_stop_queue and netif_wake_queue race condtions when the queue
-    is full.
-    
-    So whether we use LLTX or non-LLTX, it makes practically no
-    difference.
-    
-    Signed-off-by: Michael Chan <mchan@broadcom.com>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
