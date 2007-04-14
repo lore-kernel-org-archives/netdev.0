@@ -1,37 +1,70 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [NET]: Get rid of NETIF_F_INTERNAL_STATS
-Date: Fri, 13 Apr 2007 16:19:50 -0700 (PDT)
-Message-ID: <20070413.161950.26975931.davem@davemloft.net>
-References: <20070411075602.GA17635@gondor.apana.org.au>
-	<1176293751.14322.14.camel@localhost.localdomain>
-	<20070411122317.GA21159@gondor.apana.org.au>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [1/3] 2.6.21-rc6: known regressions
+Date: Sat, 14 Apr 2007 02:36:25 +0200
+Message-ID: <20070414003625.GS5907@stusta.de>
+References: <Pine.LNX.4.64.0704051944230.6730@woody.linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: rusty@rustcorp.com.au, netdev@vger.kernel.org, jgarzik@pobox.com
-To: herbert@gondor.apana.org.au
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55339
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1030882AbXDMXTu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Apr 2007 19:19:50 -0400
-In-Reply-To: <20070411122317.GA21159@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Stephen Clark <Stephen.Clark@seclark.us>, jgarzik@pobox.com,
+	linux-ide@vger.kernel.org,
+	Michal Jaegermann <michal@ellpspace.math.ualberta.ca>,
+	lenb@kernel.org, linux-acpi@vger.kernel.org,
+	netdev@vger.kernel.org, Dave Jones <davej@redhat.com>,
+	cramerj@intel.com, john.ronciak@intel.com,
+	jeffrey.t.kirsher@intel.com, auke-jan.h.kok@intel.com,
+	e1000-devel@lists.sourceforge.net, Ingo Molnar <mingo@elte.hu>,
+	Ayaz Abdulla <aabdulla@nvidia.com>
+To: Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-ide-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.64.0704051944230.6730@woody.linux-foundation.org>
+Sender: linux-ide-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Wed, 11 Apr 2007 22:23:17 +1000
+This email lists some known regressions in Linus' tree compared to 2.6.20.
 
-> On Wed, Apr 11, 2007 at 10:15:51PM +1000, Rusty Russell wrote:
-> > 
-> > Actually, I did this precisely because I really didn't want to start
-> > exposing bogus stats in /proc/net/dev.  An audit might clarify if this
-> > is an actual issue.
-> 
-> Fair enough.  Still returning zeros when get_stats isn't available
-> would seem safe enough.  I wasn't able to find any drivers which
-> didn't have get_stats.
+If you find your name in the Cc header, you are either submitter of one
+of the bugs, maintainer of an affectected subsystem or driver, a patch
+of you caused a breakage or I'm considering you in any other way
+possibly involved with one or more of these issues.
 
-Given this, I'll drop Herbert's patch for now.
+Due to the huge amount of recipients, please trim the Cc when answering.
 
-Let me know if I should apply something, in fact send it to me :)
+
+Subject    : ali_pata: boot from CD fails
+References : http://lkml.org/lkml/2007/3/31/160
+Submitter  : Stephen Clark <Stephen.Clark@seclark.us>
+Status     : unknown
+
+
+Subject    : kernels fail to boot with drives on ATIIXP controller
+             (ACPI/IRQ related)
+References : https://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=229621
+             http://lkml.org/lkml/2007/3/4/257
+Submitter  : Michal Jaegermann <michal@ellpspace.math.ualberta.ca>
+Status     : unknown
+
+
+Subject    : boot failure: rtl8139: exception in interrupt routine
+References : http://lkml.org/lkml/2007/3/31/160
+Submitter  : Stephen Clark <Stephen.Clark@seclark.us>
+Status     : unknown
+
+
+Subject    : laptops with e1000: lockups
+References : https://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=229603
+Submitter  : Dave Jones <davej@redhat.com>
+Handled-By : Jesse Brandeburg <jesse.brandeburg@intel.com>
+Status     : problem is being debugged
+
+
+Subject    : forcedeth: interface hangs under load
+References : http://lkml.org/lkml/2007/4/3/39
+Submitter  : Ingo Molnar <mingo@elte.hu>
+Handled-By : Ingo Molnar <mingo@elte.hu>
+             Ayaz Abdulla <aabdulla@nvidia.com>
+Status     : problem is being debugged
+
+
