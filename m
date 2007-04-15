@@ -1,61 +1,55 @@
-From: "Robert P. J. Day" <rpjday@mindspring.com>
-Subject: {Spam?} Re: {Spam?} [PATCH] NET: Remove obsolete traffic shaper code.
-Date: Sat, 14 Apr 2007 20:06:26 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.0704141959190.22316@localhost.localdomain>
-References: <Pine.LNX.4.64.0704141925310.22138@localhost.localdomain>
- <5640c7e00704141646k44334de9g99dc509bf96bac5f@mail.gmail.com>
+From: Paul Mackerras <paulus@samba.org>
+Subject: Re: kernel BUG at net/core/skbuff.c in linux-2.6.21-rc6
+Date: Sun, 15 Apr 2007 10:50:37 +1000
+Message-ID: <17953.30429.220756.818283@cargo.ozlabs.ibm.com>
+References: <461DC70B.4000500@trash.net>
+	<20070413.161635.26523891.davem@davemloft.net>
+	<17953.1560.855914.274514@cargo.ozlabs.ibm.com>
+	<20070414.100441.15000708.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: kaber@trash.net, poemann@gmail.com, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
-To: Ian McDonald <ian.mcdonald@jandi.co.nz>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nic.NetDirect.CA ([216.16.235.2]:54381 "EHLO
-	rubicon.netdirect.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750962AbXDOAHt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Apr 2007 20:07:49 -0400
-In-Reply-To: <5640c7e00704141646k44334de9g99dc509bf96bac5f@mail.gmail.com>
+Received: from ozlabs.org ([203.10.76.45]:50331 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751856AbXDOAuf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 14 Apr 2007 20:50:35 -0400
+In-Reply-To: <20070414.100441.15000708.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+David Miller writes:
 
-(i'm betting that the mail server i use back in canada is going to tag
-this yet again with "{Spam?}" since i'm in california at the moment
-and i'll just bet it's freaking out seeing stuff coming from a totally
-unknown IP address.  i've already sent an email to the admins about
-this.  sorry.)
+> Here is Patrick McHardy's patch:
 
-On Sun, 15 Apr 2007, Ian McDonald wrote:
+So this doesn't change process_input_packet(), which treats the case
+where the first byte is 0xff (PPP_ALLSTATIONS) but the second byte is
+0x03 (PPP_UI) as indicating a packet with a PPP protocol number of
+0xff.  Arguably that's wrong since PPP protocol 0xff is reserved, and
+the RFC does envision the possibility of receiving frames where the
+control field has values other than 0x03.
 
-> On 4/15/07, Robert P. J. Day <rpjday@mindspring.com> wrote:
-> >
-> > Remove the obsolete code for the traffic shaper.
-> >
-> > Signed-off-by: Robert P. J. Day <rpjday@mindspring.com>
-> >
-> Apart from the merits of removing this which I can't comment on, I
-> thought the usual procedure was to place a removal in
-> Documentation/feature-removal-schedule.txt to notify people of what
-> is going to be removed. Then wait the period you determine there and
-> then remove.
+Therefore I think this patch is probably better.  Could people try it
+out and let me know if it fixes the problem?
 
-in fact, according to this:
+Paul.
 
-http://lkml.org/lkml/2006/1/13/139
-
-that notice was put in the feature removal file well over a year ago,
-during 2.6.15.  so that would seem to be more than adequate time for
-everyone to prepare for it.  but it must have been deleted from that
-file since then as well.
-
-i probably should have mentioned that in my initial posting.
-
-rday
--- 
-========================================================================
-Robert P. J. Day
-Linux Consulting, Training and Annoying Kernel Pedantry
-Waterloo, Ontario, CANADA
-
-http://fsdev.net/wiki/index.php?title=Main_Page
-========================================================================
+diff --git a/drivers/net/ppp_async.c b/drivers/net/ppp_async.c
+index 933e2f3..caabbc4 100644
+--- a/drivers/net/ppp_async.c
++++ b/drivers/net/ppp_async.c
+@@ -802,9 +802,9 @@ process_input_packet(struct asyncppp *ap)
+ 
+ 	/* check for address/control and protocol compression */
+ 	p = skb->data;
+-	if (p[0] == PPP_ALLSTATIONS && p[1] == PPP_UI) {
++	if (p[0] == PPP_ALLSTATIONS) {
+ 		/* chop off address/control */
+-		if (skb->len < 3)
++		if (p[1] != PPP_UI || skb->len < 3)
+ 			goto err;
+ 		p = skb_pull(skb, 2);
+ 	}
