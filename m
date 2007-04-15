@@ -1,88 +1,89 @@
-From: "Robert Iakobashvili" <coroberti@gmail.com>
-Subject: Re: TCP connection stops after high load.
-Date: Sun, 15 Apr 2007 15:14:44 +0300
-Message-ID: <7e63f56c0704150514q3b1271e8lcc9e8f30387d7540@mail.gmail.com>
-References: <7e63f56c0704121411w6faea114g756d780b5a011463@mail.gmail.com>
-	 <20070412.141550.133265618.davem@davemloft.net>
+From: "Robert P. J. Day" <rpjday@mindspring.com>
+Subject: {Spam?} Re: {Spam?} Re: {Spam?} [PATCH] NET: Remove obsolete traffic shaper
+ code.
+Date: Sun, 15 Apr 2007 09:37:42 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0704150921410.24386@localhost.localdomain>
+References: <Pine.LNX.4.64.0704141925310.22138@localhost.localdomain>
+ <5640c7e00704141646k44334de9g99dc509bf96bac5f@mail.gmail.com>
+ <Pine.LNX.4.64.0704141959190.22316@localhost.localdomain>
+ <5640c7e00704141948n5f82cd8fl64092c720954175f@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, greearb@candelatech.com
-To: "David Miller" <davem@davemloft.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org, Adrian Bunk <bunk@stusta.de>
+To: Ian McDonald <ian.mcdonald@jandi.co.nz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.171]:24716 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752864AbXDOMOp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Apr 2007 08:14:45 -0400
-Received: by ug-out-1314.google.com with SMTP id 44so884715uga
-        for <netdev@vger.kernel.org>; Sun, 15 Apr 2007 05:14:44 -0700 (PDT)
-In-Reply-To: <20070412.141550.133265618.davem@davemloft.net>
-Content-Disposition: inline
+Received: from nic.NetDirect.CA ([216.16.235.2]:48240 "EHLO
+	rubicon.netdirect.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750740AbXDONks (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Apr 2007 09:40:48 -0400
+In-Reply-To: <5640c7e00704141948n5f82cd8fl64092c720954175f@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 4/13/07, David Miller <davem@davemloft.net> wrote:
-> From: "Robert Iakobashvili" <coroberti@gmail.com>
-> Date: Thu, 12 Apr 2007 23:11:14 +0200
+On Sun, 15 Apr 2007, Ian McDonald wrote:
+
+> On 4/15/07, Robert P. J. Day <rpjday@mindspring.com> wrote:
+> > in fact, according to this:
+> >
+> > http://lkml.org/lkml/2006/1/13/139
+> >
+> > that notice was put in the feature removal file well over a year ago,
+> > during 2.6.15.  so that would seem to be more than adequate time for
+> > everyone to prepare for it.  but it must have been deleted from that
+> > file since then as well.
 >
-> > It works good with  2.6.11.8 and debian 2.6.18.3-i686 image.
-> >
-> > At the same Intel Pentium-4 PC with the same about kernel configuration
-> > (make oldconfig using Debian config-2.6.18.3-i686) the setup fails with the
-> > tcp-connections stalled after 1000 established connections when the kernel
-> > is 2.6.20.6 or 2.6.19.5.
-> >
-> > It stalls even earlier, when lighttpd used with the default (poll ())
-> > demultiplexing
-> > after 500 connections or when apache2 web server used (memory?) - after 100
-> > connections.
-> >
-> > I am currently going to try vanilla 2.6.18.3 and, if with it also
-> > fails, to look through
-> > Debian patches, trying to figure out, what is the delta.
+> Yes and that was never merged and so was resent on January 19th, 2006:
+> http://www.nabble.com/-2.6-patch--schedule-SHAPER-for-removal-t949871.html
+>
+> At that point people debated about it being too short notice and the
+> patch never went in.
+>
+> I therefore think we can't just remove with NO notice.
 
-Vanilla 2.6.18.3 works for me perfectly, whereas 2.6.19.5 and
-2.6.20.6 do not.
+  i have no dog in this fight one way or the other.  i was just in a
+housecleaning mood and the shaper stuff looked old and relatively
+dead, that's all.  if there's a good reason to keep it, fine.
 
-Looking into the tcp /proc entries of 2.6.18.3 versus 2.6.19.5
-tcp_rmem and tcp_wmem are the same, whereas tcp_mem are
-much different:
+  but it seems fairly clear that this *is* a dead feature:
 
-kernel                  tcp_mem
----------------------------------------
-2.6.18.3    12288 16384 24576
-2.6.19.5      3072    4096   6144
+===================================================
+$ git show 3b6a792f6ace33584897d1af08630c9acc0ce221
+commit 3b6a792f6ace33584897d1af08630c9acc0ce221
+Author: Jiri Slaby <jirislaby@gmail.com>
+Date:   Mon Nov 6 14:34:48 2006 -0800
 
+    [NET]: kconfig, correct traffic shaper
 
-Is not it done deliberately by the below patch:
+    As Patrick McHardy <kaber@trash.net> suggested, Traffic Shaper is now
+    obsolete and alternative to it is no longer CBQ, since its problems with
+    virtual devices, alter Kconfig text to reflect this -- put a link to the
+    traffic schedulers as a whole.
 
-commit 9e950efa20dc8037c27509666cba6999da9368e8
-Author: John Heffner <jheffner@psc.edu>
-Date:   Mon Nov 6 23:10:51 2006 -0800
+    Signed-off-by: Jiri Slaby <jirislaby@gmail.com>
+    Acked-by: Patrick McHardy <kaber@trash.net>
+    Signed-off-by: Andrew Morton <akpm@osdl.org>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+==================================================
 
-    [TCP]: Don't use highmem in tcp hash size calculation.
+  so given that the discussion of getting rid of this feature started
+well over a year ago, coupled with the fact that its own Kconfig entry
+has listed it as "OBSOLETE" for over five months now, plus that it has
+very few references left in the tree, well, maybe it's not outrageous
+to think that it really can be tossed.
 
-    This patch removes consideration of high memory when determining TCP
-    hash table sizes.  Taking into account high memory results in tcp_mem
-    values that are too large.
+  but, like i said, i have no vested interest in this one way or the
+other, except for a fondness for getting rid of dead stuff.
 
-Is it a feature?
+rday
 
-My machine has:
-MemTotal:       484368 kB
-and
-for all kernel configurations are actually the same with
-CONFIG_HIGHMEM4G=y
-
-Thanks,
-
+p.s.  if it shouldn't be removed, maybe someone would like to add an
+entry to the feature removal file for it.
 -- 
-Sincerely,
-Robert Iakobashvili,
-coroberti %x40 gmail %x2e com
-...................................................................
-Navigare necesse est, vivere non est necesse
-...................................................................
-http://curl-loader.sourceforge.net
-An open-source HTTP/S, FTP/S traffic
-generating, and web testing tool.
+========================================================================
+Robert P. J. Day
+Linux Consulting, Training and Annoying Kernel Pedantry
+Waterloo, Ontario, CANADA
+
+http://fsdev.net/wiki/index.php?title=Main_Page
+========================================================================
