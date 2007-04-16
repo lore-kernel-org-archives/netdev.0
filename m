@@ -1,46 +1,54 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: r8169 2.2LK: Low link speed after suspend
-Date: Mon, 16 Apr 2007 23:09:40 +0200
-Message-ID: <20070416210940.GA13710@electric-eye.fr.zoreil.com>
-References: <200704162241.31729.peter.missel@onlinehome.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Peter Missel <peter.missel@onlinehome.de>
+From: Sebastian Kuzminsky <seb@highlab.com>
+Subject: bug in tcp?
+Date: Mon, 16 Apr 2007 16:28:22 -0600
+Message-ID: <E1HdZgM-0001n2-F0@highlab.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:57853 "EHLO
-	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030975AbXDPVNN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Apr 2007 17:13:13 -0400
-Content-Disposition: inline
-In-Reply-To: <200704162241.31729.peter.missel@onlinehome.de>
+Received: from alnrmhc12.comcast.net ([204.127.225.92]:34837 "EHLO
+	alnrmhc12.comcast.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753973AbXDPWiU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Apr 2007 18:38:20 -0400
+Received: from seb (helo=highlab.com)
+	by highlab.com with local-esmtp (Exim 4.63)
+	(envelope-from <seb@highlab.com>)
+	id 1HdZgM-0001n2-F0
+	for netdev@vger.kernel.org; Mon, 16 Apr 2007 16:28:22 -0600
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Peter Missel <peter.missel@onlinehome.de> :
-[...]
-> Entering standby, the link speed goes down to 100 Mb as expected; the link 
-> stays up during standby/suspend (for WOL purposes apparently).
+I'm seeing some weird behavior in TCP.  The issue is perfectly
+reproducible using netcat and other programs.  This is what I do:
 
-Yes.
+    1.  Open a TCP connection over the loopback (over IPv4).
 
-> Now after resume, the link is working OK but doesn't come back up to normal 
-> gigabit operation. ifdown, unloading and reloading the r8169 module, and then 
-> ifup again fixes it.
-> 
-> If there's something more I can do to help debug this, please let me know. 
-> Please be sure to copy me, since my list traffic here is still somewhat 
-> unreliable. Thanks.
+    2.  Send a couple of bytes of data each way.  No problems.
 
-Can you try 2.6.21-rc7 + (either):
-- http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.21-rc7/r8169-20070416
-- http://www.fr.zoreil.com/people/francois/misc/20070416-2.6.21-rc7-r8169-test.patch
+    3.  Wait about 120 hours with no writes on either side of the
+        connection.
 
-If it does not work better, please fill an entry for it at bugzilla.kernel.org,
-Cc: it to me and attach the output of a registers dump taken from mii-tool before
-suspend and after a failed resume.
+    4.  write() a few bytes to the server's socket.  I'd expect the data
+        to go through, but it doesnt.  I see the TCP frame from the
+        server to the client, but instead of an ACK, the client sends
+        back a RST.  netstat shows the bytes sitting in the server's
+        socket's send-buffer.
+
+    5.  write a few bytes to the client's socket.  The server gets
+        these immediately.
+
+    6.  On the next server-to-client retransmit, the client gets the
+        bytes from the server.  After this, the connection works normally.
+
+
+The libpcap capture file is here (only shows steps 4-6):
+
+    http://highlab.com/~seb/tcp-idleness-bug
+
+
+The behavior is reproducible on all kernels I've tried: 2.4.32, 2.6.19.1,
+and 2.6.20.4.  I dont think it's iptables-related, though I'm rerunning
+the tests on a machine without iptables to be sure.  I'll have results
+for you in 120 hours.  ;-)
+
 
 -- 
-Ueimor
-
-Anybody got a battery for my Ultra 10 ?
+Sebastian Kuzminsky
