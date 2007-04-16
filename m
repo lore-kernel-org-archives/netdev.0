@@ -1,166 +1,91 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH 3/7] NetXen: Multi PCI support for Quad cards
-Date: Mon, 16 Apr 2007 10:49:24 -0700
-Message-ID: <20070416104924.07ad9919@dxpl.pdx.osdl.net>
-References: <200704131539.l3DFdVen002569@dut39.unminc.com>
+From: John Heffner <jheffner@psc.edu>
+Subject: Re: TCP connection stops after high load.
+Date: Mon, 16 Apr 2007 14:07:55 -0400
+Message-ID: <4623BB7B.3010705@psc.edu>
+References: <7e63f56c0704121411w6faea114g756d780b5a011463@mail.gmail.com>	 <20070412.141550.133265618.davem@davemloft.net>	 <7e63f56c0704150514q3b1271e8lcc9e8f30387d7540@mail.gmail.com>	 <46224561.9010801@psc.edu> <7e63f56c0704150849r5b019962v296b4266021a6fe1@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, amitkale@netxen.com, jeff@garzik.org,
-	mithlesh@netxen.com, netxenproj@linsyssoft.com, rob@netxen.com
-To: Linsys Contractor Mithlesh Thukral <mithlesh@netxen.com>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	greearb@candelatech.com
+To: Robert Iakobashvili <coroberti@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:44145 "EHLO smtp.osdl.org"
+Received: from mailer2.psc.edu ([128.182.66.106]:57484 "EHLO mailer2.psc.edu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753208AbXDPSDv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Apr 2007 14:03:51 -0400
-In-Reply-To: <200704131539.l3DFdVen002569@dut39.unminc.com>
+	id S1753251AbXDPSH7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Apr 2007 14:07:59 -0400
+In-Reply-To: <7e63f56c0704150849r5b019962v296b4266021a6fe1@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 13 Apr 2007 08:39:31 -0700
-Linsys Contractor Mithlesh Thukral <mithlesh@netxen.com> wrote:
+Robert Iakobashvili wrote:
+> Hi John,
+> 
+> On 4/15/07, John Heffner <jheffner@psc.edu> wrote:
+>> Robert Iakobashvili wrote:
+>> > Vanilla 2.6.18.3 works for me perfectly, whereas 2.6.19.5 and
+>> > 2.6.20.6 do not.
+>> >
+>> > Looking into the tcp /proc entries of 2.6.18.3 versus 2.6.19.5
+>> > tcp_rmem and tcp_wmem are the same, whereas tcp_mem are
+>> > much different:
+>> >
+>> > kernel                  tcp_mem
+>> > ---------------------------------------
+>> > 2.6.18.3    12288 16384 24576
+>> > 2.6.19.5      3072    4096   6144
+> 
+>> Another patch that went in right around that time:
+>>
+>> commit 52bf376c63eebe72e862a1a6e713976b038c3f50
+>> Author: John Heffner <jheffner@psc.edu>
+>> Date:   Tue Nov 14 20:25:17 2006 -0800
+>>
+>>      [TCP]: Fix up sysctl_tcp_mem initialization.
+>> (This has been changed again for 2.6.21.)
+>>
+>> In the dmesg, there should be some messages like this:
+>> IP route cache hash table entries: 32768 (order: 5, 131072 bytes)
+>> TCP established hash table entries: 131072 (order: 8, 1048576 bytes)
+>> TCP bind hash table entries: 65536 (order: 6, 262144 bytes)
+>> TCP: Hash tables configured (established 131072 bind 65536)
+>>
+>> What do yours say?
+> 
+> For the 2.6.19.5, where we have this problem:
+>> From dmsg:
+> IP route cache hash table entries: 4096 (order: 2, 16384 bytes)
+> TCP established hash table entries: 16384 (order: 5, 131072 bytes)
+> TCP bind hash table entries: 8192 (order: 4, 65536 bytes)
+> 
+> #cat /proc/sys/net/ipv4/tcp_mem
+> 3072    4096    6144
+> 
+> MemTotal:       484368 kB
+> CONFIG_HIGHMEM4G=y
 
-> NetXen: Fix the multi PCI function for cards with more than 2 ports.
-> This patch fixes the working of multi PCI capable driver on cards with 
-> more than 2 ports by adding the addresses for their rings and sizes.
-> 
-> Signed-off by: Mithlesh Thukral <mithlesh@netxen.com>
-> 
-> ---
-> 
->  drivers/net/netxen/netxen_nic_hw.c       |  119 +++++++++++++++++++--
->  drivers/net/netxen/netxen_nic_init.c     |    4 
->  drivers/net/netxen/netxen_nic_main.c     |   61 +++++-----
->  drivers/net/netxen/netxen_nic_phan_reg.h |    6 -
->  4 files changed, 146 insertions(+), 44 deletions(-)
-> 
-> diff --git a/drivers/net/netxen/netxen_nic_hw.c b/drivers/net/netxen/netxen_nic_hw.c
-> index a066208..274a261 100644
-> --- a/drivers/net/netxen/netxen_nic_hw.c
-> +++ b/drivers/net/netxen/netxen_nic_hw.c
-> @@ -140,8 +140,105 @@ struct netxen_recv_crb recv_crb_register
->  	 NETXEN_NIC_REG(0x180),
->  	 /* crb_status_ring_size */
->  	 NETXEN_NIC_REG(0x184),
-> -
->  	 },
-> +	/*
-> +	 * Instance 3,
-> +	 */
-> +	{
-> +	  {
-> +	    {
-> +	    /* crb_rcv_producer_offset: */
-> +	    NETXEN_NIC_REG(0x1d8),
-> +	    /* crb_rcv_consumer_offset: */
-> +	    NETXEN_NIC_REG(0x1dc),
-> +	    /* crb_gloablrcv_ring: */
-> +	    NETXEN_NIC_REG(0x1f0),
-> +	    /* crb_rcv_ring_size */
-> +	    NETXEN_NIC_REG(0x1f4),
-> +	    },
-> +	    /* Jumbo frames */
-> +	    {
-> +	    /* crb_rcv_producer_offset: */		    
-> +	    NETXEN_NIC_REG(0x1f8),
-> +	    /* crb_rcv_consumer_offset: */
-> +	    NETXEN_NIC_REG(0x1fc),
-> +	    /* crb_gloablrcv_ring: */
-> +	    NETXEN_NIC_REG(0x200),
-> +	    /* crb_rcv_ring_size */
-> +	    NETXEN_NIC_REG(0x204),
-> +	    },
-> +	    /* LRO */
-> +	    {
-> +	    /* crb_rcv_producer_offset: */
-> +	    NETXEN_NIC_REG(0x208),
-> +	    /* crb_rcv_consumer_offset: */
-> +	    NETXEN_NIC_REG(0x20c),
-> +	    /* crb_gloablrcv_ring: */
-> +	    NETXEN_NIC_REG(0x210),
-> +	    /* crb_rcv_ring_size */
-> +	    NETXEN_NIC_REG(0x214),
-> +	    }
-> +	  },
-> +	  /* crb_rcvstatus_ring: */
-> +	  NETXEN_NIC_REG(0x218),
-> +	  /* crb_rcv_status_producer: */
-> +	  NETXEN_NIC_REG(0x21c),
-> +	  /* crb_rcv_status_consumer: */
-> +	  NETXEN_NIC_REG(0x220),
-> +	  /* crb_rcvpeg_state: */
-> +	  NETXEN_NIC_REG(0x224),
-> +	  /* crb_status_ring_size */
-> +	  NETXEN_NIC_REG(0x228),
-> +	},
-> +	/*
-> +	 * Instance 4,
-> +	 */
-> +	{
-> +	  {
-> +	    {
-> +	    /* crb_rcv_producer_offset: */
-> +	    NETXEN_NIC_REG(0x22c),
-> +	    /* crb_rcv_consumer_offset: */
-> +	    NETXEN_NIC_REG(0x230),
-> +	    /* crb_gloablrcv_ring: */
-> +	    NETXEN_NIC_REG(0x234),
-> +	    /* crb_rcv_ring_size */
-> +	    NETXEN_NIC_REG(0x238),
-> +	    },
-> +	    /* Jumbo frames */
-> +	    {
-> +	    /* crb_rcv_producer_offset: */ 
-> +	    NETXEN_NIC_REG(0x23c),
-> +	    /* crb_rcv_consumer_offset: */
-> +	    NETXEN_NIC_REG(0x240),
-> +	    /* crb_gloablrcv_ring: */
-> +	    NETXEN_NIC_REG(0x244),
-> +	    /* crb_rcv_ring_size */
-> +	    NETXEN_NIC_REG(0x248),
-> +	    },
-> +	    /* LRO */
-> +	    {
-> +	    /* crb_rcv_producer_offset: */
-> +	    NETXEN_NIC_REG(0x24c),
-> +	    /* crb_rcv_consumer_offset: */
-> +	    NETXEN_NIC_REG(0x250),
-> +	    /* crb_gloablrcv_ring: */
-> +	    NETXEN_NIC_REG(0x254),
-> +	    /* crb_rcv_ring_size */
-> +	    NETXEN_NIC_REG(0x258),
-> +	    }
-> +	  },
-> +	  /* crb_rcvstatus_ring: */
-> +	  NETXEN_NIC_REG(0x25c),
-> +	  /* crb_rcv_status_producer: */
-> +	  NETXEN_NIC_REG(0x260),
-> +	  /* crb_rcv_status_consumer: */
-> +	  NETXEN_NIC_REG(0x264),
-> +	  /* crb_rcvpeg_state: */
-> +	  NETXEN_NIC_REG(0x268),
-> +	  /* crb_status_ring_size */
-> +	  NETXEN_NIC_REG(0x26c),
-> +	},
->  };
->  
->  u64 ctx_addr_sig_regs[][3] = {
-> @@ -294,6 +391,7 @@ int netxen_nic_hw_resources(struct netxe
->  	u32 card_cmdring = 0;
->  	struct netxen_recv_context *recv_ctx;
->  	struct netxen_rcv_desc_ctx *rcv_desc;
-> +	int func_id = adapter->portnum;
->  
->  	DPRINTK(INFO, "crb_base: %lx %x", NETXEN_PCI_CRBSPACE,
->  		PCI_OFFSET_SECOND_RANGE(adapter, NETXEN_PCI_CRBSPACE));
-> @@ -341,7 +439,7 @@ int netxen_nic_hw_resources(struct netxe
->  			    &adapter->ctx_desc_pdev);
->  
->  	printk(KERN_INFO "ctx_desc_phys_addr: 0x%llx\n",
-> -	       (unsigned long long) adapter->ctx_desc_phys_addr);
-> +	       (u64) adapter->ctx_desc_phys_addr);
 
-This will give a warning on 64 bit platforms because format doesn't match
-width. You need to cast to (unsigned long long).
+Yes, this difference is caused by the commit above.  The old way didn't 
+really make a lot of sense, since it was different based on smp/non-smp 
+and page size, and had large discontinuities at 512MB and every power of 
+two.  It was hard to make the limit never larger than the memory pool 
+but never too small either, when based on the hash table size.
 
+The current net-2.6 (2.6.21) has a redesigned tcp_mem initialization 
+that should give you more appropriate values, something like 45408 60546 
+90816.  For reference:
+
+Commit: 53cdcc04c1e85d4e423b2822b66149b6f2e52c2c
+Author: John Heffner <jheffner@psc.edu> Fri, 16 Mar 2007 15:04:03 -0700
+
+     [TCP]: Fix tcp_mem[] initialization.
+
+     Change tcp_mem initialization function.  The fraction of total memory
+     is now a continuous function of memory size, and independent of page
+     size.
+
+     Signed-off-by: John Heffner <jheffner@psc.edu>
+     Signed-off-by: David S. Miller <davem@davemloft.net>
+
+Thanks,
+   -John
