@@ -1,55 +1,38 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH net-2.6.22 1/3] [TCP]: Sed magic converts func(sk, tp,
- ...) -> func(sk, ...)
-Date: Mon, 16 Apr 2007 16:41:23 +0200
-Message-ID: <46238B13.5070201@trash.net>
-References: <1176727728729-git-send-email-ilpo.jarvinen@helsinki.fi> <20070416134818.GA15915@infradead.org> <Pine.LNX.4.64.0704161703170.28337@kivilampi-30.cs.helsinki.fi>
+From: David Acker <dacker@roinet.com>
+Subject: Re: [RFT] e100 driver on ARM
+Date: Mon, 16 Apr 2007 11:07:36 -0400
+Message-ID: <46239138.4040408@roinet.com>
+References: <44FC0261.6010807@garzik.org> <20060904123123.GB1285@xi.wantstofly.org> <460AF480.7050609@intel.com> <460B4BF2.1070803@roinet.com> <20070329141041.GA3510@csclub.uwaterloo.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Christoph Hellwig <hch@infradead.org>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>
-To: =?ISO-8859-15?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Kok, Auke" <auke-jan.h.kok@intel.com>,
+	Lennert Buytenhek <buytenh@wantstofly.org>,
+	Jeff Garzik <jeff@garzik.org>,
+	Netdev List <netdev@vger.kernel.org>,
+	Linux Kernel <linux-kernel@vger.kernel.org>,
+	Andrew Morton <akpm@osdl.org>,
+	Russell King <rmk+lkml@arm.linux.org.uk>
+To: Lennart Sorensen <lsorense@csclub.uwaterloo.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:41819 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030682AbXDPOl2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Apr 2007 10:41:28 -0400
-In-Reply-To: <Pine.LNX.4.64.0704161703170.28337@kivilampi-30.cs.helsinki.fi>
+Received: from static-72-92-88-10.phlapa.fios.verizon.net ([72.92.88.10]:46353
+	"EHLO smtp.roinet.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752844AbXDPPFu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Apr 2007 11:05:50 -0400
+In-Reply-To: <20070329141041.GA3510@csclub.uwaterloo.ca>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ilpo J=E4rvinen wrote:
-> Tweaked newlines manually & fixed four warnings that were
-> introduced.
+Lennart Sorensen wrote:
+> Which PCI host controller are you using with the PXA255?  We tried using
+> a PXA255 based system with a PCI controller a couple of years ago and
+> have to change to a different cpu in the end due to the PCI controller
+> simply not being valid PCI.  The PXA255 wasn't designed for PCI, and I
+> get the impression that non of the PCI companion chips for it do a good
+> enough job to actually add it correctly.
+> 
 
-Not all of them it seems:
+Sorry for the delay in responding...my wife and I just had twins!
 
-> -static inline void tcp_fast_path_check(struct sock *sk, struct tcp_s=
-ock *tp)
-> +static inline void tcp_fast_path_check(struct sock *sk)
->  {
-> +	struct tcp_sock *tp =3D tcp_sk(sk);
-
-^ missing newline
-
->  	if (skb_queue_empty(&tp->out_of_order_queue) &&
->  	    tp->rcv_wnd &&
->  	    atomic_read(&sk->sk_rmem_alloc) < sk->sk_rcvbuf &&
-> @@ -778,18 +779,19 @@ static inline void tcp_minshall_update(s
->  		tp->snd_sml =3D TCP_SKB_CB(skb)->end_seq;
->  }
-> =20
-> -static inline void tcp_check_probe_timer(struct sock *sk, struct tcp=
-_sock *tp)
-> +static inline void tcp_check_probe_timer(struct sock *sk)
->  {
-> +	struct tcp_sock *tp =3D tcp_sk(sk);
-
-^ same here .. quite a few follow
-
->  	const struct inet_connection_sock *icsk =3D inet_csk(sk);
->  	if (!tp->packets_out && !icsk->icsk_pending)
->  		inet_csk_reset_xmit_timer(sk, ICSK_TIME_PROBE0,
->  					  icsk->icsk_rto, TCP_RTO_MAX);
->  }
+We are using the IT8152G RISC-to-PCI companion chip.
+-Ack
