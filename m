@@ -1,210 +1,219 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [NET_SCHED 04/04]: Eliminate qdisc_tree_lock
-Date: Mon, 16 Apr 2007 09:51:57 +0200 (MEST)
-Message-ID: <20070416074954.19262.99623.sendpatchset@localhost.localdomain>
-References: <20070416074949.19262.73702.sendpatchset@localhost.localdomain>
-Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>
-To: davem@davemloft.net
+Subject: [NET_SCHED]: ingress: switch back to using ingress_lock
+Date: Mon, 16 Apr 2007 09:53:55 +0200
+Message-ID: <46232B93.1000807@trash.net>
+Mime-Version: 1.0
+Content-Type: multipart/mixed;
+ boundary="------------090505010909010007020706"
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:34171 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:34248 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932431AbXDPHv6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Apr 2007 03:51:58 -0400
-In-Reply-To: <20070416074949.19262.73702.sendpatchset@localhost.localdomain>
+	with ESMTP id S932514AbXDPH4A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Apr 2007 03:56:00 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[NET_SCHED]: Eliminate qdisc_tree_lock
+This is a multi-part message in MIME format.
+--------------090505010909010007020706
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
 
-Since we're now holding the rtnl during the entire dump operation, we
-can remove qdisc_tree_lock, whose only purpose is to protect dump
-callbacks from concurrent changes to the qdisc tree.
+This patch fixes a few spots for using ingress_lock for the ingress
+qdisc again and switches ing_filter back to use it.
+
+Applies on top of the netlink dump patches.
+
+
+--------------090505010909010007020706
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
+
+[NET_SCHED]: ingress: switch back to using ingress_lock
+
+Switch ingress queueing back to use ingress_lock. qdisc_lock_tree now locks
+both the ingress and egress qdiscs on the device. All changes to data that
+might be used on both ingress and egress needs to be protected by using
+qdisc_lock_tree instead of manually taking dev->queue_lock. Additionally
+the qdisc stats_lock needs to be initialized to ingress_lock for ingress
+qdiscs.
 
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 
 ---
-commit cc965189583f5a980e1fc6acaf708c47d3661a22
-tree faede9cc5c6b86b39517c56c71caa6942e748f20
-parent 49310148887f3d7a6b78809b0a771628be4ef0a8
-author Patrick McHardy <kaber@trash.net> Mon, 16 Apr 2007 09:05:39 +0200
-committer Patrick McHardy <kaber@trash.net> Mon, 16 Apr 2007 09:05:39 +0200
+commit d053117e309fa2cc5fd9f39890bcadc148e79202
+tree 6cad0c900beb67101bf4f84cbf55338d3d302e42
+parent cc965189583f5a980e1fc6acaf708c47d3661a22
+author Patrick McHardy <kaber@trash.net> Mon, 16 Apr 2007 09:05:48 +0200
+committer Patrick McHardy <kaber@trash.net> Mon, 16 Apr 2007 09:05:48 +0200
 
- include/net/pkt_sched.h |    2 --
- net/sched/cls_api.c     |    2 --
- net/sched/sch_api.c     |   22 +++-------------------
- net/sched/sch_generic.c |   29 +++++++----------------------
- 4 files changed, 10 insertions(+), 45 deletions(-)
+ net/core/dev.c          |    4 ++--
+ net/sched/cls_route.c   |    4 ++--
+ net/sched/sch_api.c     |   26 +++++++++++++++-----------
+ net/sched/sch_generic.c |    6 +++++-
+ net/sched/sch_ingress.c |    9 ++-------
+ 5 files changed, 26 insertions(+), 23 deletions(-)
 
-diff --git a/include/net/pkt_sched.h b/include/net/pkt_sched.h
-index b2cc9a8..5754d53 100644
---- a/include/net/pkt_sched.h
-+++ b/include/net/pkt_sched.h
-@@ -13,8 +13,6 @@ struct qdisc_walker
- 	int	(*fn)(struct Qdisc *, unsigned long cl, struct qdisc_walker *);
- };
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 7f31d0f..c8f5ea9 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1747,10 +1747,10 @@ static int ing_filter(struct sk_buff *skb)
  
--extern rwlock_t qdisc_tree_lock;
--
- #define QDISC_ALIGNTO		32
- #define QDISC_ALIGN(len)	(((len) + QDISC_ALIGNTO-1) & ~(QDISC_ALIGNTO-1))
+ 		skb->tc_verd = SET_TC_AT(skb->tc_verd,AT_INGRESS);
  
-diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
-index ca3da50..ebf94ed 100644
---- a/net/sched/cls_api.c
-+++ b/net/sched/cls_api.c
-@@ -400,7 +400,6 @@ static int tc_dump_tfilter(struct sk_buff *skb, struct netlink_callback *cb)
- 	if ((dev = dev_get_by_index(tcm->tcm_ifindex)) == NULL)
- 		return skb->len;
+-		spin_lock(&dev->queue_lock);
++		spin_lock(&dev->ingress_lock);
+ 		if ((q = dev->qdisc_ingress) != NULL)
+ 			result = q->enqueue(skb, q);
+-		spin_unlock(&dev->queue_lock);
++		spin_unlock(&dev->ingress_lock);
  
--	read_lock(&qdisc_tree_lock);
- 	if (!tcm->tcm_parent)
- 		q = dev->qdisc_sleeping;
- 	else
-@@ -457,7 +456,6 @@ errout:
- 	if (cl)
- 		cops->put(q, cl);
- out:
--	read_unlock(&qdisc_tree_lock);
- 	dev_put(dev);
- 	return skb->len;
+ 	}
+ 
+diff --git a/net/sched/cls_route.c b/net/sched/cls_route.c
+index e92d716..cc941d0 100644
+--- a/net/sched/cls_route.c
++++ b/net/sched/cls_route.c
+@@ -89,9 +89,9 @@ static __inline__ int route4_fastmap_hash(u32 id, int iif)
+ static inline
+ void route4_reset_fastmap(struct net_device *dev, struct route4_head *head, u32 id)
+ {
+-	spin_lock_bh(&dev->queue_lock);
++	qdisc_lock_tree(dev);
+ 	memset(head->fastmap, 0, sizeof(head->fastmap));
+-	spin_unlock_bh(&dev->queue_lock);
++	qdisc_unlock_tree(dev);
  }
+ 
+ static inline void
 diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-index 2e863bd..0ce6914 100644
+index 0ce6914..8699e70 100644
 --- a/net/sched/sch_api.c
 +++ b/net/sched/sch_api.c
-@@ -191,7 +191,7 @@ int unregister_qdisc(struct Qdisc_ops *qops)
-    (root qdisc, all its children, children of children etc.)
-  */
+@@ -500,12 +500,16 @@ qdisc_create(struct net_device *dev, u32 handle, struct rtattr **tca, int *errp)
  
--static struct Qdisc *__qdisc_lookup(struct net_device *dev, u32 handle)
-+struct Qdisc *qdisc_lookup(struct net_device *dev, u32 handle)
- {
- 	struct Qdisc *q;
+ 	if (handle == TC_H_INGRESS) {
+ 		sch->flags |= TCQ_F_INGRESS;
++		sch->stats_lock = &dev->ingress_lock;
+ 		handle = TC_H_MAKE(TC_H_INGRESS, 0);
+-	} else if (handle == 0) {
+-		handle = qdisc_alloc_handle(dev);
+-		err = -ENOMEM;
+-		if (handle == 0)
+-			goto err_out3;
++	} else {
++		sch->stats_lock = &dev->queue_lock;
++		if (handle == 0) {
++			handle = qdisc_alloc_handle(dev);
++			err = -ENOMEM;
++			if (handle == 0)
++				goto err_out3;
++		}
+ 	}
  
-@@ -202,16 +202,6 @@ static struct Qdisc *__qdisc_lookup(struct net_device *dev, u32 handle)
- 	return NULL;
- }
- 
--struct Qdisc *qdisc_lookup(struct net_device *dev, u32 handle)
--{
--	struct Qdisc *q;
--
--	read_lock(&qdisc_tree_lock);
--	q = __qdisc_lookup(dev, handle);
--	read_unlock(&qdisc_tree_lock);
--	return q;
--}
--
- static struct Qdisc *qdisc_leaf(struct Qdisc *p, u32 classid)
- {
- 	unsigned long cl;
-@@ -405,7 +395,7 @@ void qdisc_tree_decrease_qlen(struct Qdisc *sch, unsigned int n)
- 	if (n == 0)
- 		return;
- 	while ((parentid = sch->parent)) {
--		sch = __qdisc_lookup(sch->dev, TC_H_MAJ(parentid));
-+		sch = qdisc_lookup(sch->dev, TC_H_MAJ(parentid));
- 		cops = sch->ops->cl_ops;
- 		if (cops->qlen_notify) {
- 			cl = cops->get(sch, parentid);
-@@ -905,7 +895,6 @@ static int tc_dump_qdisc(struct sk_buff *skb, struct netlink_callback *cb)
- 			continue;
- 		if (idx > s_idx)
- 			s_q_idx = 0;
--		read_lock(&qdisc_tree_lock);
- 		q_idx = 0;
- 		list_for_each_entry(q, &dev->qdisc_list, list) {
- 			if (q_idx < s_q_idx) {
-@@ -913,13 +902,10 @@ static int tc_dump_qdisc(struct sk_buff *skb, struct netlink_callback *cb)
- 				continue;
- 			}
- 			if (tc_fill_qdisc(skb, q, q->parent, NETLINK_CB(cb->skb).pid,
--					  cb->nlh->nlmsg_seq, NLM_F_MULTI, RTM_NEWQDISC) <= 0) {
--				read_unlock(&qdisc_tree_lock);
-+					  cb->nlh->nlmsg_seq, NLM_F_MULTI, RTM_NEWQDISC) <= 0)
- 				goto done;
--			}
- 			q_idx++;
+ 	sch->handle = handle;
+@@ -654,9 +658,9 @@ static int tc_get_qdisc(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
+ 			return err;
+ 		if (q) {
+ 			qdisc_notify(skb, n, clid, q, NULL);
+-			spin_lock_bh(&dev->queue_lock);
++			qdisc_lock_tree(dev);
+ 			qdisc_destroy(q);
+-			spin_unlock_bh(&dev->queue_lock);
++			qdisc_unlock_tree(dev);
  		}
--		read_unlock(&qdisc_tree_lock);
+ 	} else {
+ 		qdisc_notify(skb, n, clid, NULL, q);
+@@ -789,17 +793,17 @@ graft:
+ 		err = qdisc_graft(dev, p, clid, q, &old_q);
+ 		if (err) {
+ 			if (q) {
+-				spin_lock_bh(&dev->queue_lock);
++				qdisc_lock_tree(dev);
+ 				qdisc_destroy(q);
+-				spin_unlock_bh(&dev->queue_lock);
++				qdisc_unlock_tree(dev);
+ 			}
+ 			return err;
+ 		}
+ 		qdisc_notify(skb, n, clid, old_q, q);
+ 		if (old_q) {
+-			spin_lock_bh(&dev->queue_lock);
++			qdisc_lock_tree(dev);
+ 			qdisc_destroy(old_q);
+-			spin_unlock_bh(&dev->queue_lock);
++			qdisc_unlock_tree(dev);
+ 		}
  	}
- 
- done:
-@@ -1142,7 +1128,6 @@ static int tc_dump_tclass(struct sk_buff *skb, struct netlink_callback *cb)
- 	s_t = cb->args[0];
- 	t = 0;
- 
--	read_lock(&qdisc_tree_lock);
- 	list_for_each_entry(q, &dev->qdisc_list, list) {
- 		if (t < s_t || !q->ops->cl_ops ||
- 		    (tcm->tcm_parent &&
-@@ -1164,7 +1149,6 @@ static int tc_dump_tclass(struct sk_buff *skb, struct netlink_callback *cb)
- 			break;
- 		t++;
- 	}
--	read_unlock(&qdisc_tree_lock);
- 
- 	cb->args[0] = t;
- 
+ 	return 0;
 diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index 52eb343..1894eb7 100644
+index 1894eb7..3385ee5 100644
 --- a/net/sched/sch_generic.c
 +++ b/net/sched/sch_generic.c
-@@ -36,34 +36,23 @@
- 
- /* Main transmission queue. */
- 
--/* Main qdisc structure lock.
--
--   However, modifications
--   to data, participating in scheduling must be additionally
--   protected with dev->queue_lock spinlock.
--
--   The idea is the following:
--   - enqueue, dequeue are serialized via top level device
--     spinlock dev->queue_lock.
--   - tree walking is protected by read_lock(qdisc_tree_lock)
--     and this lock is used only in process context.
--   - updates to tree are made only under rtnl semaphore,
--     hence this lock may be made without local bh disabling.
--
--   qdisc_tree_lock must be grabbed BEFORE dev->queue_lock!
-+/* Modifications to data participating in scheduling must be protected with
-+ * dev->queue_lock spinlock.
-+ *
-+ * The idea is the following:
-+ * - enqueue, dequeue are serialized via top level device
-+ *   spinlock dev->queue_lock.
-+ * - updates to tree and tree walking are only done under the rtnl mutex.
+@@ -42,16 +42,20 @@
+  * The idea is the following:
+  * - enqueue, dequeue are serialized via top level device
+  *   spinlock dev->queue_lock.
++ * - ingress filtering is serialized via top level device
++ *   spinlock dev->ingress_lock.
+  * - updates to tree and tree walking are only done under the rtnl mutex.
   */
--DEFINE_RWLOCK(qdisc_tree_lock);
  
  void qdisc_lock_tree(struct net_device *dev)
  {
--	write_lock(&qdisc_tree_lock);
  	spin_lock_bh(&dev->queue_lock);
++	spin_lock(&dev->ingress_lock);
  }
  
  void qdisc_unlock_tree(struct net_device *dev)
  {
++	spin_unlock(&dev->ingress_lock);
  	spin_unlock_bh(&dev->queue_lock);
--	write_unlock(&qdisc_tree_lock);
  }
  
- /*
-@@ -528,15 +517,11 @@ void dev_activate(struct net_device *dev)
- 				printk(KERN_INFO "%s: activation failed\n", dev->name);
- 				return;
- 			}
--			write_lock(&qdisc_tree_lock);
- 			list_add_tail(&qdisc->list, &dev->qdisc_list);
--			write_unlock(&qdisc_tree_lock);
- 		} else {
- 			qdisc =  &noqueue_qdisc;
- 		}
--		write_lock(&qdisc_tree_lock);
- 		dev->qdisc_sleeping = qdisc;
--		write_unlock(&qdisc_tree_lock);
+@@ -431,7 +435,6 @@ struct Qdisc *qdisc_alloc(struct net_device *dev, struct Qdisc_ops *ops)
+ 	sch->dequeue = ops->dequeue;
+ 	sch->dev = dev;
+ 	dev_hold(dev);
+-	sch->stats_lock = &dev->queue_lock;
+ 	atomic_set(&sch->refcnt, 1);
+ 
+ 	return sch;
+@@ -447,6 +450,7 @@ struct Qdisc * qdisc_create_dflt(struct net_device *dev, struct Qdisc_ops *ops,
+ 	sch = qdisc_alloc(dev, ops);
+ 	if (IS_ERR(sch))
+ 		goto errout;
++	sch->stats_lock = &dev->queue_lock;
+ 	sch->parent = parentid;
+ 
+ 	if (!ops->init || ops->init(sch, NULL) == 0)
+diff --git a/net/sched/sch_ingress.c b/net/sched/sch_ingress.c
+index 1fb60ab..ad22dc6 100644
+--- a/net/sched/sch_ingress.c
++++ b/net/sched/sch_ingress.c
+@@ -248,16 +248,11 @@ ing_hook(unsigned int hook, struct sk_buff **pskb,
+ 		skb->dev ? (*pskb)->dev->name : "(no dev)",
+ 		skb->len);
+ 
+-/*
+-revisit later: Use a private since lock dev->queue_lock is also
+-used on the egress (might slow things for an iota)
+-*/
+-
+ 	if (dev->qdisc_ingress) {
+-		spin_lock(&dev->queue_lock);
++		spin_lock(&dev->ingress_lock);
+ 		if ((q = dev->qdisc_ingress) != NULL)
+ 			fwres = q->enqueue(skb, q);
+-		spin_unlock(&dev->queue_lock);
++		spin_unlock(&dev->ingress_lock);
  	}
  
- 	if (!netif_carrier_ok(dev))
+ 	return fwres;
+
+--------------090505010909010007020706--
