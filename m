@@ -1,104 +1,51 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [1/2] 2.6.21-rc7: known regressions
-Date: Mon, 16 Apr 2007 02:37:14 +0200
-Message-ID: <20070416003714.GL3691@stusta.de>
-References: <Pine.LNX.4.64.0704151659570.5473@woody.linux-foundation.org>
+From: Dave Jones <davej@redhat.com>
+Subject: 2.6.21rc7 e1000 media-detect oddness.
+Date: Sun, 15 Apr 2007 23:45:39 -0400
+Message-ID: <20070416034539.GC21217@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Hans-Georg Rist <hg.rist@web.de>, perex@suse.cz,
-	alsa-devel@alsa-project.org,
-	Michal Piotrowski <michal.k.k.piotrowski@gmail.com>,
-	Stephen Clark <Stephen.Clark@seclark.us>, jgarzik@pobox.com,
-	linux-ide@vger.kernel.org,
-	Michal Jaegermann <michal@ellpspace.math.ualberta.ca>,
-	lenb@kernel.org, linux-acpi@vger.kernel.org,
-	netdev@vger.kernel.org, Dave Jones <davej@redhat.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	e1000-devel@lists.sourceforge.net, Ingo Molnar <mingo@elte.hu>,
-	Ayaz Abdulla <aabdulla@nvidia.com>,
-	David Miller <davem@davemloft.net>, Andi Kleen <ak@suse.de>,
-	Oliver Neukum <oneukum@suse.de>, greg@kroah.com,
-	linux-usb-devel@lists.sourceforge.net, CIJOML <cijoml@volny.cz>,
-	Markus Rechberger <markus.rechberger@amd.com>,
-	v4l-dvb-maintainer@linuxtv.org
-To: Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-acpi-owner@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([66.187.233.31]:51469 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754427AbXDPDpm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 15 Apr 2007 23:45:42 -0400
+Received: from int-mx1.corp.redhat.com (int-mx1.corp.redhat.com [172.16.52.254])
+	by mx1.redhat.com (8.13.1/8.13.1) with ESMTP id l3G3jeSF003997
+	for <netdev@vger.kernel.org>; Sun, 15 Apr 2007 23:45:41 -0400
+Received: from gelk.kernelslacker.org (vpn-248-7.boston.redhat.com [10.13.248.7])
+	by int-mx1.corp.redhat.com (8.13.1/8.13.1) with ESMTP id l3G3jews025187
+	for <netdev@vger.kernel.org>; Sun, 15 Apr 2007 23:45:40 -0400
+Received: from gelk.kernelslacker.org (localhost.localdomain [127.0.0.1])
+	by gelk.kernelslacker.org (8.13.8/8.13.8) with ESMTP id l3G3je6i002055
+	for <netdev@vger.kernel.org>; Sun, 15 Apr 2007 23:45:40 -0400
+Received: (from davej@localhost)
+	by gelk.kernelslacker.org (8.13.8/8.13.8/Submit) id l3G3jdue002054
+	for netdev@vger.kernel.org; Sun, 15 Apr 2007 23:45:39 -0400
 Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0704151659570.5473@woody.linux-foundation.org>
-Sender: linux-acpi-owner@vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This email lists some known regressions in Linus' tree compared to 2.6.20.
+I booted up 2.6.21rc7 without an ethernet cable plugged in,
+and noticed this..
 
-If you find your name in the Cc header, you are either submitter of one
-of the bugs, maintainer of an affectected subsystem or driver, a patch
-of you caused a breakage or I'm considering you in any other way
-possibly involved with one or more of these issues.
+e1000: 0000:02:00.0: e1000_probe: The EEPROM Checksum Is Not Valid
+e1000: probe of 0000:02:00.0 failed with error -5
 
-Due to the huge amount of recipients, please trim the Cc when answering.
+I plugged a cable in, did rmmod e1000;modprobe e1000, and got this..
 
+e1000: 0000:02:00.0: e1000_probe: (PCI Express:2.5Gb/s:Width x1) 00:16:d3:3a:62:d3
+e1000: eth0: e1000_probe: Intel(R) PRO/1000 Network Connection
+e1000: eth0: e1000_watchdog: NIC Link is Up 100 Mbps Full Duplex, Flow Control: RX
+e1000: eth0: e1000_watchdog: 10/100 speed: disabling TSO
 
-Subject    : snd_hda_intel doesn't work with ASUS M2V mainboard
-References : http://bugzilla.kernel.org/show_bug.cgi?id=8273
-Submitter  : Hans-Georg Rist <hg.rist@web.de>
-Status     : unknown
+and it works fine..
+Why would no cable make it think the EEPROM is invalid ?
 
+I repeated this a few times, just to be sure it wasn't a fluke, and it
+seems to happen 100% reproducably.
 
-Subject    : snd_intel8x0: divide error: 0000
-References : http://lkml.org/lkml/2007/3/5/252
-Submitter  : Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
-Status     : unknown
+	Dave
 
-
-Subject    : ali_pata: boot from CD fails
-References : http://lkml.org/lkml/2007/3/31/160
-Submitter  : Stephen Clark <Stephen.Clark@seclark.us>
-Status     : unknown
-
-
-Subject    : kernels fail to boot with drives on ATIIXP controller
-             (ACPI/IRQ related)
-References : https://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=229621
-             http://lkml.org/lkml/2007/3/4/257
-Submitter  : Michal Jaegermann <michal@ellpspace.math.ualberta.ca>
-Status     : unknown
-
-
-Subject    : boot failure: rtl8139: exception in interrupt routine
-References : http://lkml.org/lkml/2007/3/31/160
-Submitter  : Stephen Clark <Stephen.Clark@seclark.us>
-Status     : unknown
-
-
-Subject    : laptops with e1000: lockups
-References : https://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=229603
-Submitter  : Dave Jones <davej@redhat.com>
-Handled-By : Jesse Brandeburg <jesse.brandeburg@intel.com>
-Status     : problem is being debugged
-
-
-Subject    : forcedeth: interface hangs under load
-References : http://lkml.org/lkml/2007/4/3/39
-             http://www.spinics.net/lists/netdev/msg28981.html
-Submitter  : Ingo Molnar <mingo@elte.hu>
-Handled-By : Ingo Molnar <mingo@elte.hu>
-             Ayaz Abdulla <aabdulla@nvidia.com>
-             David Miller <davem@davemloft.net>
-Status     : problem is being debugged
-
-
-Subject    : hal daemon crashes after pulling a USB serial device
-References : http://www.opensubscriber.com/message/linux-usb-devel@lists.sourceforge.net/6369800.html
-Submitter  : Andi Kleen <ak@suse.de>
-Handled-By : Oliver Neukum <oneukum@suse.de>
-Status     : problem is being debugged
-
-
-Subject    : Oops when changing USB DVB-T adapter
-References : http://lkml.org/lkml/2007/3/9/212
-             http://lkml.org/lkml/2007/4/5/154
-Submitter  : CIJOML <cijoml@volny.cz>
-Handled-By : Markus Rechberger <markus.rechberger@amd.com>
-Status     : patches available
-
+-- 
+http://www.codemonkey.org.uk
