@@ -1,65 +1,71 @@
-From: Pavel Emelianov <xemul@sw.ru>
-Subject: Re: [PATCH] Don't attach callback to a going-away netlink socket
-Date: Mon, 16 Apr 2007 15:58:10 +0400
-Message-ID: <462364D2.6010700@sw.ru>
-References: <46236082.3000101@sw.ru> <46236102.2080706@trash.net>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: [PATCH 2/3] [TCP]: Fix unused variable warnings (tcp_sock *tp no longer needed)
+Date: Mon, 16 Apr 2007 15:48:47 +0300
+Message-ID: <1176727728273-git-send-email-ilpo.jarvinen@helsinki.fi>
+References: <1176727728729-git-send-email-ilpo.jarvinen@helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	devel@openvz.org, Linux Netdev List <netdev@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.233.200]:7629 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752204AbXDPLxn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Apr 2007 07:53:43 -0400
-In-Reply-To: <46236102.2080706@trash.net>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:49172 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030515AbXDPMsu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Apr 2007 08:48:50 -0400
+In-Reply-To: <1176727728729-git-send-email-ilpo.jarvinen@helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Patrick McHardy wrote:
-> Pavel Emelianov wrote:
->> From: Denis Lunev <den@openvz.org>
->>
->> There is a race between netlink_dump_start() and netlink_release()
->> that can lead to the situation when a netlink socket with non-zero
->> callback is freed.
-> 
-> 
-> Can you describe the race in more detail please?
-> 
-> 
+Manual completion to func(sk, tp, ...) -> func(sk, ...)
+conversion.
 
-Here it is:
+Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
+---
+ net/ipv4/tcp_input.c  |    1 -
+ net/ipv4/tcp_output.c |    3 ---
+ 2 files changed, 0 insertions(+), 4 deletions(-)
 
-CPU1:                           CPU2
-netlink_release():              netlink_dump_start():
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index cd167a5..877239f 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -3879,7 +3879,6 @@ static void tcp_check_space(struct sock=20
+=20
+ static inline void tcp_data_snd_check(struct sock *sk)
+ {
+-	struct tcp_sock *tp =3D tcp_sk(sk);
+ 	tcp_push_pending_frames(sk);
+ 	tcp_check_space(sk);
+ }
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 473ec06..d17159a 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -1441,7 +1441,6 @@ static int tcp_write_xmit(struct sock *s
+ void __tcp_push_pending_frames(struct sock *sk,
+ 			       unsigned int cur_mss, int nonagle)
+ {
+-	struct tcp_sock *tp =3D tcp_sk(sk);
+ 	struct sk_buff *skb =3D tcp_send_head(sk);
+=20
+ 	if (skb) {
+@@ -2039,7 +2038,6 @@ void tcp_send_fin(struct sock *sk)
+  */
+ void tcp_send_active_reset(struct sock *sk, gfp_t priority)
+ {
+-	struct tcp_sock *tp =3D tcp_sk(sk);
+ 	struct sk_buff *skb;
+=20
+ 	/* NOTE: No TCP options attached and we never retransmit this. */
+@@ -2369,7 +2367,6 @@ void tcp_send_ack(struct sock *sk)
+ {
+ 	/* If we have been reset, we may not send again. */
+ 	if (sk->sk_state !=3D TCP_CLOSE) {
+-		struct tcp_sock *tp =3D tcp_sk(sk);
+ 		struct sk_buff *buff;
+=20
+ 		/* We are not putting this on the write queue, so
+--=20
+1.4.2
 
-                                sk = netlink_lookup(); /* OK */
-
-netlink_remove();
-
-spin_lock(&nlk->cb_lock);
-if (nlk->cb) { /* false */
-  ...
-}
-spin_unlock(&nlk->cb_lock);
-
-                                spin_lock(&nlk->cb_lock);
-                                if (nlk->cb) { /* false */
-                                         ...
-                                }
-                                nlk->cb = cb;
-                                spin_unlock(&nlk->cb_lock);
-                                ...
-sock_orphan(sk);
-/*
- * proceed with releasing
- * the socket
- */
-
-The proposal it to make sock_orphan before detaching the callback
-in netlink_release() and to check for the sock to be SOCK_DEAD in
-netlink_dump_start() before setting a new callback.
