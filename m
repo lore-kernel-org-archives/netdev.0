@@ -1,82 +1,65 @@
-From: "Robert Iakobashvili" <coroberti@gmail.com>
-Subject: Re: TCP connection stops after high load.
-Date: Sun, 15 Apr 2007 18:49:06 +0300
-Message-ID: <7e63f56c0704150849r5b019962v296b4266021a6fe1@mail.gmail.com>
-References: <7e63f56c0704121411w6faea114g756d780b5a011463@mail.gmail.com>
-	 <20070412.141550.133265618.davem@davemloft.net>
-	 <7e63f56c0704150514q3b1271e8lcc9e8f30387d7540@mail.gmail.com>
-	 <46224561.9010801@psc.edu>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [kvm-devel] QEMU PIC indirection patch for in-kernel APIC work
+Date: Mon, 16 Apr 2007 10:22:46 +1000
+Message-ID: <1176682966.14322.193.camel@localhost.localdomain>
+References: <4613B438.60107@codemonkey.ws> <4613B89F.8090806@qumranet.com>
+	 <4613BC6B.1070708@codemonkey.ws> <4613BF07.50606@qumranet.com>
+	 <4613C993.9020405@codemonkey.ws> <4613CC01.1090500@qumranet.com>
+	 <4613CDB2.4000903@codemonkey.ws> <4613D001.3040606@qumranet.com>
+	 <20070404200112.GA6070@elte.hu> <4614098F.2030307@us.ibm.com>
+	 <20070404212103.GA19026@elte.hu>
+	 <1175728768.12230.593.camel@localhost.localdomain>
+	 <4614A294.3000607@qumranet.com>
+	 <1175821357.12230.642.camel@localhost.localdomain>
+	 <46187F4E.1080807@qumranet.com>
+	 <1176087018.11664.65.camel@localhost.localdomain>
+	 <4619E6DC.3010804@qumranet.com>
+	 <1176111984.11664.90.camel@localhost.localdomain>
+	 <461A41CA.9080201@qumranet.com>
+	 <1176263593.26372.84.camel@localhost.localdomain>
+	 <461C6360.1060908@qumranet.com>
+	 <1176297794.14322.72.camel@localhost.localdomain>
+	 <461CF098.3090003@qumranet.com>
+	 <1176334200.14322.133.camel@localhost.localdomain>
+	 <461DA849.50406@qumranet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "David Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	greearb@candelatech.com
-To: "John Heffner" <jheffner@psc.edu>
+Cc: Ingo Molnar <mingo@elte.hu>, kvm-devel@lists.sourceforge.net,
+	netdev <netdev@vger.kernel.org>
+To: Avi Kivity <avi@qumranet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.175]:6688 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752966AbXDOPtH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Apr 2007 11:49:07 -0400
-Received: by ug-out-1314.google.com with SMTP id 44so912668uga
-        for <netdev@vger.kernel.org>; Sun, 15 Apr 2007 08:49:06 -0700 (PDT)
-In-Reply-To: <46224561.9010801@psc.edu>
-Content-Disposition: inline
+Received: from ozlabs.org ([203.10.76.45]:37542 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754123AbXDPAXW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 15 Apr 2007 20:23:22 -0400
+In-Reply-To: <461DA849.50406@qumranet.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi John,
+On Thu, 2007-04-12 at 06:32 +0300, Avi Kivity wrote:
+> I hadn't considered an always-blocking (or unbuffered) networking API. 
+> It's very counter to current APIs, but does make sense with things like
+> syslets.  Without syslets, I don't think it's very useful as you need
+> some artificial threads to keep things humming along.
+> 
+> (How would userspace specify it? O_DIRECT when opening the tap?)
 
-On 4/15/07, John Heffner <jheffner@psc.edu> wrote:
-> Robert Iakobashvili wrote:
-> > Vanilla 2.6.18.3 works for me perfectly, whereas 2.6.19.5 and
-> > 2.6.20.6 do not.
-> >
-> > Looking into the tcp /proc entries of 2.6.18.3 versus 2.6.19.5
-> > tcp_rmem and tcp_wmem are the same, whereas tcp_mem are
-> > much different:
-> >
-> > kernel                  tcp_mem
-> > ---------------------------------------
-> > 2.6.18.3    12288 16384 24576
-> > 2.6.19.5      3072    4096   6144
+TBH, I hadn't thought that far.  Tap already has those IFF_NO_PI etc
+flags, but it might make sense to just be the default.  From userspace's
+POV it's not a semantic change.
 
-> Another patch that went in right around that time:
->
-> commit 52bf376c63eebe72e862a1a6e713976b038c3f50
-> Author: John Heffner <jheffner@psc.edu>
-> Date:   Tue Nov 14 20:25:17 2006 -0800
->
->      [TCP]: Fix up sysctl_tcp_mem initialization.
-> (This has been changed again for 2.6.21.)
->
-> In the dmesg, there should be some messages like this:
-> IP route cache hash table entries: 32768 (order: 5, 131072 bytes)
-> TCP established hash table entries: 131072 (order: 8, 1048576 bytes)
-> TCP bind hash table entries: 65536 (order: 6, 262144 bytes)
-> TCP: Hash tables configured (established 131072 bind 65536)
->
-> What do yours say?
+OK, just tested: I can get 230,000 packets (28 byte UDP) through the tun
+device in a second (130,000 actually out the 100-base-T NIC, 100,000
+dropped).  If the tun driver's write() blocks until the skb is
+destroyed, it's 4,000 packets.
 
-For the 2.6.19.5, where we have this problem:
->From dmsg:
-IP route cache hash table entries: 4096 (order: 2, 16384 bytes)
-TCP established hash table entries: 16384 (order: 5, 131072 bytes)
-TCP bind hash table entries: 8192 (order: 4, 65536 bytes)
+So your intuition was right: skb_free latency on xmit (at least for this
+e1000) is far too large for anything but an async solution.
 
-#cat /proc/sys/net/ipv4/tcp_mem
-3072    4096    6144
+Will ponder further.
 
-MemTotal:       484368 kB
-CONFIG_HIGHMEM4G=y
+Thanks!
+Rusty.
 
-Thanks,
 
-Sincerely,
-Robert Iakobashvili,
-coroberti %x40 gmail %x2e com
-...................................................................
-Navigare necesse est, vivere non est necesse
-...................................................................
-http://curl-loader.sourceforge.net
-An open-source HTTP/S, FTP/S traffic
-generating, and web testing tool.
