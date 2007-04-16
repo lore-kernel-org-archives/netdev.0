@@ -1,86 +1,77 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: intermittant petabyte usage reported with broadcom nic
-Date: Mon, 16 Apr 2007 12:10:51 -0700
-Message-ID: <1176750651.6217.3.camel@dell>
-References: <20070402014319.GA8345@zip.com.au>
- <20070402001300.3b66007d.akpm@linux-foundation.org>
- <20070402074108.GB8345@zip.com.au> <1176596401.5847.7.camel@dell>
+From: "Robert Iakobashvili" <coroberti@gmail.com>
+Subject: Re: TCP connection stops after high load.
+Date: Mon, 16 Apr 2007 20:51:54 +0200
+Message-ID: <7e63f56c0704161151p405c4597x5fbac6021b635d84@mail.gmail.com>
+References: <7e63f56c0704121411w6faea114g756d780b5a011463@mail.gmail.com>
+	 <20070412.141550.133265618.davem@davemloft.net>
+	 <7e63f56c0704150514q3b1271e8lcc9e8f30387d7540@mail.gmail.com>
+	 <46224561.9010801@psc.edu>
+	 <7e63f56c0704150849r5b019962v296b4266021a6fe1@mail.gmail.com>
+	 <4623BB7B.3010705@psc.edu>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Andrew Morton" <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: "CaT" <cat@zip.com.au>
+Cc: "David Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	greearb@candelatech.com
+To: "John Heffner" <jheffner@psc.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:2095 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754153AbXDPSZY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Apr 2007 14:25:24 -0400
-In-Reply-To: <1176596401.5847.7.camel@dell>
+Received: from ug-out-1314.google.com ([66.249.92.173]:8220 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754213AbXDPSv4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Apr 2007 14:51:56 -0400
+Received: by ug-out-1314.google.com with SMTP id 44so1190434uga
+        for <netdev@vger.kernel.org>; Mon, 16 Apr 2007 11:51:54 -0700 (PDT)
+In-Reply-To: <4623BB7B.3010705@psc.edu>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2007-04-14 at 17:20 -0700, Michael Chan wrote:
+> >> Robert Iakobashvili wrote:
+> >> > Vanilla 2.6.18.3 works for me perfectly, whereas 2.6.19.5 and
+> >> > 2.6.20.6 do not.
+> >> >
+> >> > Looking into the tcp /proc entries of 2.6.18.3 versus 2.6.19.5
+> >> > tcp_rmem and tcp_wmem are the same, whereas tcp_mem are
+> >> > much different:
+> >> >
+> >> > kernel                  tcp_mem
+> >> > ---------------------------------------
+> >> > 2.6.18.3    12288 16384 24576
+> >> > 2.6.19.5      3072    4096   6144
+> >
+> >> Another patch that went in right around that time:
+> >>
+> >> commit 52bf376c63eebe72e862a1a6e713976b038c3f50
+> >> Author: John Heffner <jheffner@psc.edu>
+> >> Date:   Tue Nov 14 20:25:17 2006 -0800
+> >>
+> >>      [TCP]: Fix up sysctl_tcp_mem initialization.
+> >> (This has been changed again for 2.6.21.)
+> >>
 
-> I also like Andi's idea of using change_page_attr() to isolate the
-> problem.  I'll try to send you a debug patch in the next few days to try
-> that out.  Thanks.
-> 
-Here's the debug patch for x86 only that will change the statistics
-memory block to read-only.  If the kernel is corrupting it, you should
-get a page fault that will crash the system.  If you continue to see
-bogus counters, it is definitely a firmware or hardware problem.  Please
-try it and let me know.  Thanks.
-
-diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-index 0b7aded..b7d491b 100644
---- a/drivers/net/bnx2.c
-+++ b/drivers/net/bnx2.c
-@@ -47,6 +47,7 @@
- #include <linux/prefetch.h>
- #include <linux/cache.h>
- #include <linux/zlib.h>
-+#include <asm/cacheflush.h>
- 
- #include "bnx2.h"
- #include "bnx2_fw.h"
-@@ -436,6 +437,8 @@ bnx2_free_mem(struct bnx2 *bp)
- 		}
- 	}
- 	if (bp->status_blk) {
-+		change_page_attr(virt_to_page(bp->status_blk), 1, PAGE_KERNEL);
-+		global_flush_tlb();
- 		pci_free_consistent(bp->pdev, bp->status_stats_size,
- 				    bp->status_blk, bp->status_blk_mapping);
- 		bp->status_blk = NULL;
-@@ -501,6 +504,7 @@ bnx2_alloc_mem(struct bnx2 *bp)
- 	bp->status_stats_size = status_blk_size +
- 				sizeof(struct statistics_block);
- 
-+	bp->status_stats_size = PAGE_SIZE;
- 	bp->status_blk = pci_alloc_consistent(bp->pdev, bp->status_stats_size,
- 					      &bp->status_blk_mapping);
- 	if (bp->status_blk == NULL)
-@@ -508,6 +512,10 @@ bnx2_alloc_mem(struct bnx2 *bp)
- 
- 	memset(bp->status_blk, 0, bp->status_stats_size);
- 
-+	/* x86 debug code to see if the kernel is corrupting the statistics */
-+	change_page_attr(virt_to_page(bp->status_blk), 1, PAGE_KERNEL_RO);
-+	global_flush_tlb();
-+
- 	bp->stats_blk = (void *) ((unsigned long) bp->status_blk +
- 				  status_blk_size);
- 
-@@ -4307,7 +4315,9 @@ bnx2_timer(unsigned long data)
- 	msg = (u32) ++bp->fw_drv_pulse_wr_seq;
- 	REG_WR_IND(bp, bp->shmem_base + BNX2_DRV_PULSE_MB, msg);
- 
-+#if 0
- 	bp->stats_blk->stat_FwRxDrop = REG_RD_IND(bp, BNX2_FW_RX_DROP_COUNT);
-+#endif
- 
- 	if (bp->phy_flags & PHY_SERDES_FLAG) {
- 		if (CHIP_NUM(bp) == CHIP_NUM_5706)
+> Yes, this difference is caused by the commit above.
+> The current net-2.6 (2.6.21) has a redesigned tcp_mem initialization
+> that should give you more appropriate values, something like 45408 60546
+> 90816.  For reference:
+> Commit: 53cdcc04c1e85d4e423b2822b66149b6f2e52c2c
+> Author: John Heffner <jheffner@psc.edu> Fri, 16 Mar 2007 15:04:03 -0700
+>
+>      [TCP]: Fix tcp_mem[] initialization.
+>      Change tcp_mem initialization function.  The fraction of total memory
+>      is now a continuous function of memory size, and independent of page
+>      size.
 
 
+Kernels 2.6.19 and 2.6.20 series are effectively broken right now.
+Don't you wish to patch them?
+
+-- 
+Sincerely,
+Robert Iakobashvili,
+coroberti %x40 gmail %x2e com
+...................................................................
+Navigare necesse est, vivere non est necesse
+...................................................................
+http://curl-loader.sourceforge.net
+An open-source HTTP/S, FTP/S traffic
+generating, and web testing tool.
