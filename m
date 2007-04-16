@@ -1,71 +1,48 @@
-From: Peter Missel <peter.missel@onlinehome.de>
-Subject: r8169 2.2LK: Low link speed after suspend
-Date: Mon, 16 Apr 2007 22:41:31 +0200
-Message-ID: <200704162241.31729.peter.missel@onlinehome.de>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 8338] New: NAT of TCP connections broken
+Date: Mon, 16 Apr 2007 13:48:28 -0700
+Message-ID: <20070416134828.5885b451.akpm@linux-foundation.org>
+References: <200704162035.l3GKZlTI002693@fire-2.osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
+Cc: "bugme-daemon@kernel-bugs.osdl.org"
+	<bugme-daemon@bugzilla.kernel.org>, ernisv@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.183]:52817 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753586AbXDPUle (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Apr 2007 16:41:34 -0400
-Content-Disposition: inline
+Received: from smtp.osdl.org ([65.172.181.24]:49934 "EHLO smtp.osdl.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754255AbXDPUsf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Apr 2007 16:48:35 -0400
+In-Reply-To: <200704162035.l3GKZlTI002693@fire-2.osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Greetings!
-
-I have a SuSE 10.2 64-bit installation that uses a Realtek PCI GbE chip in 
-D-Link disguise (lspci see below).
-
-While this works rather well after a normal boot sequence, I don't get a 
-gigabit link after resume from standby or suspend-to-disk.
-
-Entering standby, the link speed goes down to 100 Mb as expected; the link 
-stays up during standby/suspend (for WOL purposes apparently).
-
-Now after resume, the link is working OK but doesn't come back up to normal 
-gigabit operation. ifdown, unloading and reloading the r8169 module, and then 
-ifup again fixes it.
-
-If there's something more I can do to help debug this, please let me know. 
-Please be sure to copy me, since my list traffic here is still somewhat 
-unreliable. Thanks.
-
-regards,
-Peter
-
-00:0d.0 Ethernet controller: D-Link System Inc DGE-528T Gigabit Ethernet 
-Adapter (rev 10)
-	Subsystem: D-Link System Inc DGE-528T Gigabit Ethernet Adapter
-	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop- ParErr- Stepping- 
-SERR- FastB2B-
-	Status: Cap+ 66MHz+ UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- <TAbort- 
-<MAbort- >SERR- <PERR-
-	Latency: 32 (8000ns min, 16000ns max), Cache Line Size: 64 bytes
-	Interrupt: pin A routed to IRQ 185
-	Region 0: I/O ports at eb00 [size=256]
-	Region 1: Memory at e812c000 (32-bit, non-prefetchable) [size=256]
-	[virtual] Expansion ROM at 50020000 [disabled] [size=128K]
-	Capabilities: [dc] Power Management version 2
-		Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=375mA PME(D0-,D1+,D2+,D3hot+,D3cold+)
-		Status: D0 PME-Enable- DSel=0 DScale=0 PME-
-00: 86 11 00 43 17 00 b0 02 10 00 00 02 10 20 00 00
-10: 01 eb 00 00 00 c0 12 e8 00 00 00 00 00 00 00 00
-20: 00 00 00 00 00 00 00 00 00 00 00 00 86 11 00 43
-30: 00 00 00 00 dc 00 00 00 00 00 00 00 0b 01 20 40
-40: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-50: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-60: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-70: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-80: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-90: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-a0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-b0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-c0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-d0: 00 00 00 00 00 00 00 00 00 00 00 00 01 00 c2 f7
-e0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-f0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+> On Mon, 16 Apr 2007 13:35:47 -0700 bugme-daemon@bugzilla.kernel.org wrote:
+> http://bugzilla.kernel.org/show_bug.cgi?id=8338
+> 
+>            Summary: NAT of TCP connections broken
+>     Kernel Version: 2.6.20.7
+>             Status: NEW
+>           Severity: high
+>              Owner: networking_netfilter-iptables@kernel-bugs.osdl.org
+>          Submitter: ernisv@gmail.com
+> 
+> 
+> Most recent kernel where this bug did *NOT* occur: 2.6.18
+> Distribution: Debian
+> Hardware Environment: amd64 4200x2
+> Software Environment:
+> Problem Description:
+> I'm using my debian box for sharing internet connection. After update to 
+> debian's 2.6.20 kernel (and adjusting new kernel configuration for NAT) NAT of 
+> TCP connections stoped working, while ICMP and UDP is working (ping, traceroute 
+> and DNS). When trying to open web page on a PC from my LAN (tried with linux 
+> and winxp), it sends the request but is unable to receive correct response from 
+> any site. On the router PC www works ok. 
+> 
+> I tried both new "Independent connection tracking" as well as "Dependent 
+> (obsolete) connection tracking" options with no luck.
+> 
+> tcp_window_scaling setting seems to have no effect.
+> 
