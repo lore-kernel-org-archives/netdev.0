@@ -1,65 +1,32 @@
-From: divy@chelsio.com
-Subject: [PATCH 2.6.21 2/2] cxgb3 - PHY interrupts and GPIO pins.
-Date: Tue, 17 Apr 2007 11:06:36 -0700
-Message-ID: <20070417180636.17068.90012.stgit@localhost.localdomain>
+From: Robin Getz <rgetz@blackfin.uclinux.org>
+Subject: Re: [PATCH] CONFIG_PACKET_MMAP should depend on MMU
+Date: Tue, 17 Apr 2007 14:30:20 -0400
+Message-ID: <200704171430.21075.rgetz@blackfin.uclinux.org>
+References: <200704091146.32346.rgetz@blackfin.uclinux.org> <200704101952.05380.rgetz@blackfin.uclinux.org> <6d6a94c50704170336l62fc9ael1e58197e6c3853ba@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain;
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	swise@opengridcomputing.com
-To: jeff@garzik.org
+Cc: uaca@alumni.uv.es, bryan.wu@analog.com,
+	"Alan Cox" <alan@lxorguk.ukuu.org.uk>, waltje@uwalt.nl.mugnet.org,
+	netdev@vger.kernel.org, "Andrew Morton" <akpm@osdl.org>,
+	"Linux Kernel" <linux-kernel@vger.kernel.org>
+To: "Aubrey Li" <aubreylee@gmail.com>,
+	"David Howells" <dhowells@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.22.49.110]:31492 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161301AbXDQSGj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Apr 2007 14:06:39 -0400
+Received: from nwd2mail11.analog.com ([137.71.25.57]:29202 "EHLO
+	nwd2mail11.analog.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161371AbXDQS2g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Apr 2007 14:28:36 -0400
+In-Reply-To: <6d6a94c50704170336l62fc9ael1e58197e6c3853ba@mail.gmail.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Divy Le Ray <divy@chelsio.com>
+On Tue 17 Apr 2007 06:36, Aubrey Li pondered:
+> Here, in the attachment I wrote a small test app. Please correct if
+> there is anything wrong, and feel free to improve it.
 
-Remove assumption that PHY interrupts use GPIOs 3 and 5.
-Deal with PHY interrupts connected to any GPIO pins.
+Thanks. 
 
-Signed-off-by: Divy Le Ray <divy@chelsio.com>
----
-
- drivers/net/cxgb3/t3_hw.c |   18 ++++++++++++------
- 1 files changed, 12 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/net/cxgb3/t3_hw.c b/drivers/net/cxgb3/t3_hw.c
-index d83f075..fb485d0 100644
---- a/drivers/net/cxgb3/t3_hw.c
-+++ b/drivers/net/cxgb3/t3_hw.c
-@@ -1523,19 +1523,25 @@ static int mac_intr_handler(struct adapt
-  */
- int t3_phy_intr_handler(struct adapter *adapter)
- {
--	static const int intr_gpio_bits[] = { 8, 0x20 };
--
-+	u32 mask, gpi = adapter_info(adapter)->gpio_intr;
- 	u32 i, cause = t3_read_reg(adapter, A_T3DBG_INT_CAUSE);
- 
- 	for_each_port(adapter, i) {
--		if (cause & intr_gpio_bits[i]) {
--			struct cphy *phy = &adap2pinfo(adapter, i)->phy;
--			int phy_cause = phy->ops->intr_handler(phy);
-+		struct port_info *p = adap2pinfo(adapter, i);
-+
-+		mask = gpi - (gpi & (gpi - 1));
-+		gpi -= mask;
-+
-+		if (!(p->port_type->caps & SUPPORTED_IRQ))
-+			continue;
-+
-+		if (cause & mask) {
-+			int phy_cause = p->phy.ops->intr_handler(&p->phy);
- 
- 			if (phy_cause & cphy_cause_link_change)
- 				t3_link_changed(adapter, i);
- 			if (phy_cause & cphy_cause_fifo_error)
--				phy->fifo_errors++;
-+				p->phy.fifo_errors++;
- 		}
- 	}
- 
+David - Does this give you what you need?
