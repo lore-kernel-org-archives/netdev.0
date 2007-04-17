@@ -1,82 +1,73 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [1/2] 2.6.21-rc7: known regressions
-Date: Mon, 16 Apr 2007 20:41:19 -0400
-Message-ID: <462417AF.50406@pobox.com>
-References: <20070416003714.GL3691@stusta.de> <36D9DB17C6DE9E40B059440DB8D95F5202505C7E@orsmsx418.amr.corp.intel.com> <20070417003212.GB22804@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	Adrian Bunk <bunk@stusta.de>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Hans-Georg Rist <hg.rist@web.de>, perex@suse.cz,
-	alsa-devel@alsa-project.org,
-	Michal Piotrowski <michal.k.k.piotrowski@gmail.com>,
-	Stephen Clark <Stephen.Clark@seclark.us>,
-	linux-ide@vger.kernel.org,
-	Michal Jaegermann <michal@ellpspace.math.ualberta.ca>,
-	lenb@kernel.org, linux-acpi@vger.kernel.org,
-	netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
-	Ingo Molnar <mingo@elte.hu>,
-	Ayaz Abdulla <aabdulla@nvidia.com>,
-	David Miller <davem@davemloft.net>, Andi Kleen <ak@suse.de>,
-	Oliver Neukum <oneukum@suse.de>, greg@kroah.com,
-	linux-usb-devel@lists.sourceforge.net, CIJOML <cijoml@volny.cz>,
-	Markus Rechberger <markus.rechberger@amd.com>,
-	v4l-dvb-maintainer@linuxtv.org
-To: Dave Jones <davej@redhat.com>
-Return-path: <linux-ide-owner@vger.kernel.org>
-In-Reply-To: <20070417003212.GB22804@redhat.com>
-Sender: linux-ide-owner@vger.kernel.org
+From: Michael Ellerman <michael@ellerman.id.au>
+Subject: [PATCH] Fix sparse errors in drivers/net/ibmveth.c
+Date: Tue, 17 Apr 2007 13:12:55 +1000
+Message-ID: <20070417031314.BC404DDED4@ozlabs.org>
+Cc: Andrew Morton <akpm@osdl.org>, <netdev@vger.kernel.org>,
+	<santil@us.ibm.com>
+To: <jgarzik@pobox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ozlabs.org ([203.10.76.45]:50082 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1031053AbXDQDNQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Apr 2007 23:13:16 -0400
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dave Jones wrote:
-> On Mon, Apr 16, 2007 at 05:14:40PM -0700, Brandeburg, Jesse wrote:
->  > Adrian Bunk wrote:
->  > > Subject    : laptops with e1000: lockups
->  > > References :
->  > > https://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=229603 
->  > > Submitter  : Dave Jones <davej@redhat.com>
->  > > Handled-By : Jesse Brandeburg <jesse.brandeburg@intel.com>
->  > > Status     : problem is being debugged
->  > 
->  > this is being actively debugged, here is what we have so far:
->  > o v2.6.20: crashes during boot, unless noacpi and nousb bootparams used
->  > o v2.6.21-rc6: some userspace issue, crashes just after root mount
->  > without init=/bin/bash
->  > o v2.6.2X: serial console in docking station spews goo at all speeds
->  > with console=ttyS0,bbbbn8 . work continues on this, as we don't know if
->  > there are kernel panic messages during the hard lock.
->  > o fedora 7 test kernel 2948: boots okay, have been using this as only
->  > truly working kernel on this machine.
->  > 
->  > one reproduction of the problem was had with scp -l 5000 <file> <remote>
->  > when linked at 100Mb/Full.  Tried probably 20 other times same test with
->  > no repro, ugh.
->  > 
->  > Otherwise, slogging through continues.  We are actively working on this
->  > in case it *is* an e1000 issue.  Right now the repro is so unlikely we
->  > could hardly tell if we fixed it.
-> 
-> FWIW, I can reproduce this pretty much ondemand, on 100M through
-> the ethernet port on a netgear wireless AP.
-> A number of our Fedora7 testers are also able to easily reproduce this.
-> To isolate e1000, for tomorrows test build I've reverted e1000 to
-> the same code that was in 2.6.20.  If that works out without causing
-> hangs, I'll try and narrow down further which of the dozen csets
-> is responsible.
+drivers/net/ibmveth.c:96:46: error: marked inline, but without a definition
+drivers/net/ibmveth.c:96: warning: 'ibmveth_rxq_harvest_buffer' declared inline after being called
+drivers/net/ibmveth.c:96: warning: previous declaration of 'ibmveth_rxq_harvest_buffer' was here
 
-Also, there are e1000 fixes in -mm.  At the time (rc2? rc3?) I felt it 
-was best to get that into -mm for testing, rather than fast-tracking it 
-to 2.6.21.
+Just let the compiler decide, as it happens gcc 4.~ inlines it anyway.
 
-But hey, see if they help.
+drivers/net/ibmveth.c:957:71: warning: Using plain integer as NULL pointer
+drivers/net/ibmveth.c:964:85: warning: Using plain integer as NULL pointer
 
-It's the netdev-2.6.git#e1000-fixes branch, if you are git-ified.  I was 
-going to push them first thing 2.6.22.
+Split the long lines as well, ugly, but < 80 columns.
 
-	Jeff
+Signed-off-by: Michael Ellerman <michael@ellerman.id.au>
+---
 
+ drivers/net/ibmveth.c |   10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
 
-
+Index: powerpc/drivers/net/ibmveth.c
+===================================================================
+--- powerpc.orig/drivers/net/ibmveth.c
++++ powerpc/drivers/net/ibmveth.c
+@@ -93,7 +93,7 @@ static void ibmveth_proc_unregister_driv
+ static void ibmveth_proc_register_adapter(struct ibmveth_adapter *adapter);
+ static void ibmveth_proc_unregister_adapter(struct ibmveth_adapter *adapter);
+ static irqreturn_t ibmveth_interrupt(int irq, void *dev_instance);
+-static inline void ibmveth_rxq_harvest_buffer(struct ibmveth_adapter *adapter);
++static void ibmveth_rxq_harvest_buffer(struct ibmveth_adapter *adapter);
+ static struct kobj_type ktype_veth_pool;
+ 
+ #ifdef CONFIG_PROC_FS
+@@ -389,7 +389,7 @@ static void ibmveth_rxq_recycle_buffer(s
+ 	}
+ }
+ 
+-static inline void ibmveth_rxq_harvest_buffer(struct ibmveth_adapter *adapter)
++static void ibmveth_rxq_harvest_buffer(struct ibmveth_adapter *adapter)
+ {
+ 	ibmveth_remove_buffer_from_pool(adapter, adapter->rx_queue.queue_addr[adapter->rx_queue.index].correlator);
+ 
+@@ -954,14 +954,16 @@ static int __devinit ibmveth_probe(struc
+ 	ibmveth_debug_printk_no_adapter("entering ibmveth_probe for UA 0x%x\n",
+ 					dev->unit_address);
+ 
+-	mac_addr_p = (unsigned char *) vio_get_attribute(dev, VETH_MAC_ADDR, 0);
++	mac_addr_p = (unsigned char *) vio_get_attribute(dev,
++						VETH_MAC_ADDR, NULL);
+ 	if(!mac_addr_p) {
+ 		printk(KERN_ERR "(%s:%3.3d) ERROR: Can't find VETH_MAC_ADDR "
+ 				"attribute\n", __FILE__, __LINE__);
+ 		return 0;
+ 	}
+ 
+-	mcastFilterSize_p= (unsigned int *) vio_get_attribute(dev, VETH_MCAST_FILTER_SIZE, 0);
++	mcastFilterSize_p = (unsigned int *) vio_get_attribute(dev,
++						VETH_MCAST_FILTER_SIZE, NULL);
+ 	if(!mcastFilterSize_p) {
+ 		printk(KERN_ERR "(%s:%3.3d) ERROR: Can't find "
+ 				"VETH_MCAST_FILTER_SIZE attribute\n",
