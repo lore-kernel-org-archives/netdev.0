@@ -1,39 +1,63 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Bugme-new] [Bug 8320] New: replacing route in kernel doesn't
- send netlink message
-Date: Mon, 16 Apr 2007 17:10:16 -0700 (PDT)
-Message-ID: <20070416.171016.43503207.davem@davemloft.net>
-References: <461D26CB.3010508@trash.net>
-	<1176400428.24446.40.camel@nt.wq.cz>
-	<4623029A.2090906@trash.net>
+From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Subject: RE: [1/2] 2.6.21-rc7: known regressions
+Date: Mon, 16 Apr 2007 17:14:40 -0700
+Message-ID: <36D9DB17C6DE9E40B059440DB8D95F5202505C7E@orsmsx418.amr.corp.intel.com>
+References: <20070416003714.GL3691@stusta.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: milon@wq.cz, akpm@linux-foundation.org, netdev@vger.kernel.org,
-	bugme-daemon@bugzilla.kernel.org
-To: kaber@trash.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37396
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754088AbXDQAKQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Apr 2007 20:10:16 -0400
-In-Reply-To: <4623029A.2090906@trash.net>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Hans-Georg Rist" <hg.rist@web.de>, <perex@suse.cz>,
+	<alsa-devel@alsa-project.org>,
+	"Michal Piotrowski" <michal.k.k.piotrowski@gmail.com>,
+	"Stephen Clark" <Stephen.Clark@seclark.us>, <jgarzik@pobox.com>,
+	<linux-ide@vger.kernel.org>,
+	"Michal Jaegermann" <michal@ellpspace.math.ualberta.ca>,
+	<lenb@kernel.org>, <linux-acpi@vger.kernel.org>,
+	<netdev@vger.kernel.org>, "Dave Jones" <davej@redhat.com>,
+	<e1000-devel@lists.sourceforge.net>, "Ingo Molnar" <mingo@elte.hu>,
+	"Ayaz Abdulla" <aabdulla@nvidia.com>,
+	"David Miller" <davem@davemloft.net>, "Andi Kleen" <ak@suse.de>,
+	"Oliver Neukum" <oneukum@suse.de>, <greg@kroah.com>,
+	<linux-usb-devel@lists.sourceforge.net>,
+	"CIJOML" <cijoml@volny.cz>,
+	"Markus Rechberger" <markus.rechberger@amd.com>,
+	<v4l-dvb-maintainer@linuxtv.org>
+To: "Adrian Bunk" <bunk@stusta.de>,
+	"Linus Torvalds" <torvalds@linux-foundation.org>,
+	"Andrew Morton" <akpm@linux-foundation.org>
+Return-path: <linux-acpi-owner@vger.kernel.org>
+Content-class: urn:content-classes:message
+In-Reply-To: <20070416003714.GL3691@stusta.de>
+Sender: linux-acpi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Mon, 16 Apr 2007 06:59:06 +0200
+Adrian Bunk wrote:
+> Subject    : laptops with e1000: lockups
+> References :
+> https://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=229603 
+> Submitter  : Dave Jones <davej@redhat.com>
+> Handled-By : Jesse Brandeburg <jesse.brandeburg@intel.com>
+> Status     : problem is being debugged
 
-> RTM_DELROUTE + RTM_NEWROUTE seem to be safer, although you're correct
-> that it might cause userspace to perform some action upon receiving
-> the DELROUTE message since the update is non-atomic. So I really don't
-> know, I'm in favour of having notifications for replacements, but I
-> fear we might break something.
+this is being actively debugged, here is what we have so far:
+o v2.6.20: crashes during boot, unless noacpi and nousb bootparams used
+o v2.6.21-rc6: some userspace issue, crashes just after root mount
+without init=/bin/bash
+o v2.6.2X: serial console in docking station spews goo at all speeds
+with console=ttyS0,bbbbn8 . work continues on this, as we don't know if
+there are kernel panic messages during the hard lock.
+o fedora 7 test kernel 2948: boots okay, have been using this as only
+truly working kernel on this machine.
 
-We can cry foul about a broken application if an application following
-the API correctly would interpret the new messages correctly.
+one reproduction of the problem was had with scp -l 5000 <file> <remote>
+when linked at 100Mb/Full.  Tried probably 20 other times same test with
+no repro, ugh.
 
-I think it doesn't make sense to do a delete then a newroute for
-the atomicity issues, and therefore the replace makes the most
-sense as long as existing correct uses of the API would not
-explode on this.
+Otherwise, slogging through continues.  We are actively working on this
+in case it *is* an e1000 issue.  Right now the repro is so unlikely we
+could hardly tell if we fixed it.
+
+Jesse
+
+PS .config available on request
