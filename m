@@ -1,71 +1,173 @@
-From: "Robert Iakobashvili" <coroberti@gmail.com>
-Subject: Re: TCP connection stops after high load.
-Date: Tue, 17 Apr 2007 10:58:04 +0300
-Message-ID: <7e63f56c0704170058m35d44a8ajfe5d97c4c7a8d87a@mail.gmail.com>
-References: <7e63f56c0704150849r5b019962v296b4266021a6fe1@mail.gmail.com>
-	 <4623BB7B.3010705@psc.edu>
-	 <7e63f56c0704161151p405c4597x5fbac6021b635d84@mail.gmail.com>
-	 <20070416.121558.48807497.davem@davemloft.net>
+From: Mithlesh Thukral <mithlesh@netxen.com>
+Subject: Re: [PATCH 3/7] NetXen: Multi PCI support for Quad cards
+Date: Tue, 17 Apr 2007 13:24:53 +0530
+Message-ID: <200704171324.53996.mithlesh@netxen.com>
+References: <200704131539.l3DFdVen002569@dut39.unminc.com> <20070416104924.07ad9919@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: jheffner@psc.edu, netdev@vger.kernel.org, greearb@candelatech.com,
-	"Michael Moser" <moser.michael@gmail.com>
-To: "David Miller" <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, amitkale@netxen.com, jeff@garzik.org,
+	netxenproj@linsyssoft.com, rob@netxen.com
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.170]:48569 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752388AbXDQH6F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Apr 2007 03:58:05 -0400
-Received: by ug-out-1314.google.com with SMTP id 44so105480uga
-        for <netdev@vger.kernel.org>; Tue, 17 Apr 2007 00:58:04 -0700 (PDT)
-In-Reply-To: <20070416.121558.48807497.davem@davemloft.net>
+Received: from svr68.ehostpros.com ([67.15.48.48]:20890 "EHLO
+	svr68.ehostpros.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752462AbXDQIBc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Apr 2007 04:01:32 -0400
+In-Reply-To: <20070416104924.07ad9919@dxpl.pdx.osdl.net>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David,
-
-On 4/16/07, David Miller <davem@davemloft.net> wrote:
-> > > Commit: 53cdcc04c1e85d4e423b2822b66149b6f2e52c2c
-> > > Author: John Heffner <jheffner@psc.edu> Fri, 16 Mar 2007 15:04:03 -0700
-> > >
-> > >      [TCP]: Fix tcp_mem[] initialization.
-> > >      Change tcp_mem initialization function.  The fraction of total memory
-> > >      is now a continuous function of memory size, and independent of page
-> > >      size.
-> >
-> >
-> > Kernels 2.6.19 and 2.6.20 series are effectively broken right now.
-> > Don't you wish to patch them?
+On Monday 16 April 2007 23:19, Stephen Hemminger wrote:
+> On Fri, 13 Apr 2007 08:39:31 -0700
 >
-> Can you verify that this patch actually fixes your problem?
+> Linsys Contractor Mithlesh Thukral <mithlesh@netxen.com> wrote:
+> > NetXen: Fix the multi PCI function for cards with more than 2 ports.
+> > This patch fixes the working of multi PCI capable driver on cards with
+> > more than 2 ports by adding the addresses for their rings and sizes.
+> >
+> > Signed-off by: Mithlesh Thukral <mithlesh@netxen.com>
+> >
+> > ---
+> >
+> >  drivers/net/netxen/netxen_nic_hw.c       |  119 +++++++++++++++++++--
+> >  drivers/net/netxen/netxen_nic_init.c     |    4
+> >  drivers/net/netxen/netxen_nic_main.c     |   61 +++++-----
+> >  drivers/net/netxen/netxen_nic_phan_reg.h |    6 -
+> >  4 files changed, 146 insertions(+), 44 deletions(-)
+> >
+> > diff --git a/drivers/net/netxen/netxen_nic_hw.c
+> > b/drivers/net/netxen/netxen_nic_hw.c index a066208..274a261 100644
+> > --- a/drivers/net/netxen/netxen_nic_hw.c
+> > +++ b/drivers/net/netxen/netxen_nic_hw.c
+> > @@ -140,8 +140,105 @@ struct netxen_recv_crb recv_crb_register
+> >  	 NETXEN_NIC_REG(0x180),
+> >  	 /* crb_status_ring_size */
+> >  	 NETXEN_NIC_REG(0x184),
+> > -
+> >  	 },
+> > +	/*
+> > +	 * Instance 3,
+> > +	 */
+> > +	{
+> > +	  {
+> > +	    {
+> > +	    /* crb_rcv_producer_offset: */
+> > +	    NETXEN_NIC_REG(0x1d8),
+> > +	    /* crb_rcv_consumer_offset: */
+> > +	    NETXEN_NIC_REG(0x1dc),
+> > +	    /* crb_gloablrcv_ring: */
+> > +	    NETXEN_NIC_REG(0x1f0),
+> > +	    /* crb_rcv_ring_size */
+> > +	    NETXEN_NIC_REG(0x1f4),
+> > +	    },
+> > +	    /* Jumbo frames */
+> > +	    {
+> > +	    /* crb_rcv_producer_offset: */
+> > +	    NETXEN_NIC_REG(0x1f8),
+> > +	    /* crb_rcv_consumer_offset: */
+> > +	    NETXEN_NIC_REG(0x1fc),
+> > +	    /* crb_gloablrcv_ring: */
+> > +	    NETXEN_NIC_REG(0x200),
+> > +	    /* crb_rcv_ring_size */
+> > +	    NETXEN_NIC_REG(0x204),
+> > +	    },
+> > +	    /* LRO */
+> > +	    {
+> > +	    /* crb_rcv_producer_offset: */
+> > +	    NETXEN_NIC_REG(0x208),
+> > +	    /* crb_rcv_consumer_offset: */
+> > +	    NETXEN_NIC_REG(0x20c),
+> > +	    /* crb_gloablrcv_ring: */
+> > +	    NETXEN_NIC_REG(0x210),
+> > +	    /* crb_rcv_ring_size */
+> > +	    NETXEN_NIC_REG(0x214),
+> > +	    }
+> > +	  },
+> > +	  /* crb_rcvstatus_ring: */
+> > +	  NETXEN_NIC_REG(0x218),
+> > +	  /* crb_rcv_status_producer: */
+> > +	  NETXEN_NIC_REG(0x21c),
+> > +	  /* crb_rcv_status_consumer: */
+> > +	  NETXEN_NIC_REG(0x220),
+> > +	  /* crb_rcvpeg_state: */
+> > +	  NETXEN_NIC_REG(0x224),
+> > +	  /* crb_status_ring_size */
+> > +	  NETXEN_NIC_REG(0x228),
+> > +	},
+> > +	/*
+> > +	 * Instance 4,
+> > +	 */
+> > +	{
+> > +	  {
+> > +	    {
+> > +	    /* crb_rcv_producer_offset: */
+> > +	    NETXEN_NIC_REG(0x22c),
+> > +	    /* crb_rcv_consumer_offset: */
+> > +	    NETXEN_NIC_REG(0x230),
+> > +	    /* crb_gloablrcv_ring: */
+> > +	    NETXEN_NIC_REG(0x234),
+> > +	    /* crb_rcv_ring_size */
+> > +	    NETXEN_NIC_REG(0x238),
+> > +	    },
+> > +	    /* Jumbo frames */
+> > +	    {
+> > +	    /* crb_rcv_producer_offset: */
+> > +	    NETXEN_NIC_REG(0x23c),
+> > +	    /* crb_rcv_consumer_offset: */
+> > +	    NETXEN_NIC_REG(0x240),
+> > +	    /* crb_gloablrcv_ring: */
+> > +	    NETXEN_NIC_REG(0x244),
+> > +	    /* crb_rcv_ring_size */
+> > +	    NETXEN_NIC_REG(0x248),
+> > +	    },
+> > +	    /* LRO */
+> > +	    {
+> > +	    /* crb_rcv_producer_offset: */
+> > +	    NETXEN_NIC_REG(0x24c),
+> > +	    /* crb_rcv_consumer_offset: */
+> > +	    NETXEN_NIC_REG(0x250),
+> > +	    /* crb_gloablrcv_ring: */
+> > +	    NETXEN_NIC_REG(0x254),
+> > +	    /* crb_rcv_ring_size */
+> > +	    NETXEN_NIC_REG(0x258),
+> > +	    }
+> > +	  },
+> > +	  /* crb_rcvstatus_ring: */
+> > +	  NETXEN_NIC_REG(0x25c),
+> > +	  /* crb_rcv_status_producer: */
+> > +	  NETXEN_NIC_REG(0x260),
+> > +	  /* crb_rcv_status_consumer: */
+> > +	  NETXEN_NIC_REG(0x264),
+> > +	  /* crb_rcvpeg_state: */
+> > +	  NETXEN_NIC_REG(0x268),
+> > +	  /* crb_status_ring_size */
+> > +	  NETXEN_NIC_REG(0x26c),
+> > +	},
+> >  };
+> >
+> >  u64 ctx_addr_sig_regs[][3] = {
+> > @@ -294,6 +391,7 @@ int netxen_nic_hw_resources(struct netxe
+> >  	u32 card_cmdring = 0;
+> >  	struct netxen_recv_context *recv_ctx;
+> >  	struct netxen_rcv_desc_ctx *rcv_desc;
+> > +	int func_id = adapter->portnum;
+> >
+> >  	DPRINTK(INFO, "crb_base: %lx %x", NETXEN_PCI_CRBSPACE,
+> >  		PCI_OFFSET_SECOND_RANGE(adapter, NETXEN_PCI_CRBSPACE));
+> > @@ -341,7 +439,7 @@ int netxen_nic_hw_resources(struct netxe
+> >  			    &adapter->ctx_desc_pdev);
+> >
+> >  	printk(KERN_INFO "ctx_desc_phys_addr: 0x%llx\n",
+> > -	       (unsigned long long) adapter->ctx_desc_phys_addr);
+> > +	       (u64) adapter->ctx_desc_phys_addr);
+>
+> This will give a warning on 64 bit platforms because format doesn't match
+> width. You need to cast to (unsigned long long).
+Thanks for pointing this out.
+I will fix this in a repost of the patch set.
 
-Yes, it fixes.
-
-After the patch curl-loader works with patched 2.6.19.7 and
-with patched 2.6.20.7 using simulteneous 3000 local connections smothly,
-and even better than with referred as a "good" 2.6.18.3.
-
-
-Besides that the tcp_mem status for my machine:
-
-kernel                             tcp_mem
-------------------------------------------------------
-2.6.19.7                     3072    4096     6144
-2.6.19.7-patched    45696   60928   91392
-2.6.20.7                     3072    4096     6144
-2.6.20.7-patched    45696   60928   91392
-
-The patch was applied smothly just with line offsets.
-
--- 
-Sincerely,
-Robert Iakobashvili,
-coroberti %x40 gmail %x2e com
-...................................................................
-Navigare necesse est, vivere non est necesse
-...................................................................
-http://curl-loader.sourceforge.net
-An open-source HTTP/S, FTP/S traffic
-generating, and web testing tool.
+Regards,
+Mithlesh Thukral
