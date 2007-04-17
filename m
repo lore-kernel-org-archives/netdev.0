@@ -1,69 +1,66 @@
-From: "Alexandra N. Kossovsky" <Alexandra.Kossovsky@oktetlabs.ru>
-Subject: [PATCH 2.6.20] networking: bonding documentation fix for multiple bonding interfaces
-Date: Tue, 17 Apr 2007 11:49:58 +0400
-Message-ID: <20070417074956.GA20123@oktetlabs.ru>
+From: "Jerome Borsboom" <j.borsboom@erasmusmc.nl>
+Subject: Re: [PATCH] parse ip:port strings correctly in in4_pton
+Date: Tue, 17 Apr 2007 10:27:17 +0200
+Message-ID: <4624A105.26924.380F9F@j.borsboom.erasmusmc.nl>
+References: <Pine.LNX.4.64.0704161001280.1519@knorkaan.xs4all.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, akpm@osdl.org
-To: lkml@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: netdev@vger.kernel.org
+To: Jerome Borsboom <j.borsboom@erasmusmc.nl>,
+	Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shelob.oktetlabs.ru ([82.179.117.235]:45470 "EHLO
-	shelob.oktetlabs.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752683AbXDQIPi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Apr 2007 04:15:38 -0400
-Content-Disposition: inline
+Received: from lists.erasmusmc.nl ([156.83.10.20]:61230 "EHLO
+	lists.erasmusmc.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752851AbXDQIhf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Apr 2007 04:37:35 -0400
+Received: from localhost (localhost.erasmusmc.nl [127.0.0.1])
+	by lists.erasmusmc.nl (Postfix) with ESMTP id 20054EB64C4
+	for <netdev@vger.kernel.org>; Tue, 17 Apr 2007 10:28:20 +0200 (CEST)
+Received: from lists.erasmusmc.nl ([127.0.0.1])
+	by localhost (lists.erasmusmc.nl [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id 7mdfT590VHaq for <netdev@vger.kernel.org>;
+	Tue, 17 Apr 2007 10:28:19 +0200 (CEST)
+Received: from rbox6.erasmusmc.nl (rbox6.erasmusmc.nl [156.83.10.16])
+	by lists.erasmusmc.nl (Postfix) with ESMTP id EEA52EB64BB
+	for <netdev@vger.kernel.org>; Tue, 17 Apr 2007 10:28:19 +0200 (CEST)
+In-reply-to: <46233E7C.10407@trash.net>
+Content-description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Fix bonding driver documentation for the case of multiple bonding interfaces.
+> Jerome Borsboom wrote:
+> > in4_pton converts a textual representation of an ip4 address into an
+> > integer representation. However, when the textual representation is of
+> > in the form ip:port, c.f. 192.168.1.1:5060, and 'delim' is set to -1,
+> > the function bails out when parsing the colon.
+> > 
+> > It makes sense to allow the colon as a delimiting character without
+> > explicitly having to set it through the 'delim' variable as there can be
+> > no ambiguity in the point where the ip address is completely parsed.
+> > Furthermore, this function is indeed called from nf_conntrack_sip.c in
+> > this way to parse textual ip:port combinations which fails as stated above.
+> 
+> 
+> What about IPv6? in6_pton behaves similar and is also used by
+> nf_conntrack_sip.
+> 
 
-Signed-off-by: "Alexandra N. Kossovsky" <Alexandra.Kossovsky@oktetlabs.ru>
----
---- a/Documentation/networking/bonding.txt	2007-04-17 11:29:42.000000000 +0400
-+++ b/Documentation/networking/bonding.txt	2007-04-17 11:35:54.000000000 +0400
-@@ -920,40 +920,9 @@
- documented above.
- 
- 	To create multiple bonding devices with differing options, it
--is necessary to load the bonding driver multiple times.  Note that
--current versions of the sysconfig network initialization scripts
--handle this automatically; if your distro uses these scripts, no
--special action is needed.  See the section Configuring Bonding
--Devices, above, if you're not sure about your network initialization
--scripts.
--
--	To load multiple instances of the module, it is necessary to
--specify a different name for each instance (the module loading system
--requires that every loaded module, even multiple instances of the same
--module, have a unique name).  This is accomplished by supplying
--multiple sets of bonding options in /etc/modprobe.conf, for example:
--	
--alias bond0 bonding
--options bond0 -o bond0 mode=balance-rr miimon=100
--
--alias bond1 bonding
--options bond1 -o bond1 mode=balance-alb miimon=50
--
--	will load the bonding module two times.  The first instance is
--named "bond0" and creates the bond0 device in balance-rr mode with an
--miimon of 100.  The second instance is named "bond1" and creates the
--bond1 device in balance-alb mode with an miimon of 50.
--
--	In some circumstances (typically with older distributions),
--the above does not work, and the second bonding instance never sees
--its options.  In that case, the second options line can be substituted
--as follows:
--
--install bond1 /sbin/modprobe --ignore-install bonding -o bond1 \
--	mode=balance-alb miimon=50
-+is necessary to use bonding parameters exported by sysfs, documented
-+in the section below.
- 
--	This may be repeated any number of times, specifying a new and
--unique name in place of bond1 for each subsequent instance.
- 
- 3.4 Configuring Bonding Manually via Sysfs
- ------------------------------------------
--- 
-Alexandra N. Kossovsky
-OKTET Labs (http://www.oktetlabs.ru/)
+I have looked a bit more into this. The current behaviour of 
+in6_pton is correct. As I said before, the colon is the separator 
+within the IPv6 address and hence cannot be used to indicate a tcp 
+or udp port. RFC 2732 states that when a tcp or udp port is included 
+in an IPv6 URL it must be in the form '[IPv6-address]:port'. Here 
+the rectangular braces make clear where the ip-address part ends and 
+the port part begins. However, in[46]_pton are made to only change 
+the representation of an ip-address and do not and should not bother 
+about any other stuff like the rectangular braces in an IPv6 
+reference or the colon in an IPv4+port combination. My patch 
+corrects the unnecessary error in the case in an IPv4-address+port 
+combination.
+
+Related to this is the fact that nf_conntrack_sip wrongly assumes 
+unbraced IPv6 adresses. RFC 3261 states that in all cases where an 
+IPv6 reference is used, it should be enclosed in rectangular braces. 
+Current behaviour is clearly wrong. I will see if I can come up with 
+a patch to correct this error in nf_conntrack_sip.
