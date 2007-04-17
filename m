@@ -1,37 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: TCP connection stops after high load.
-Date: Tue, 17 Apr 2007 12:51:59 -0700 (PDT)
-Message-ID: <20070417.125159.43010586.davem@davemloft.net>
-References: <7e63f56c0704170058m35d44a8ajfe5d97c4c7a8d87a@mail.gmail.com>
-	<20070417.123941.119226635.davem@davemloft.net>
-	<4625246E.2090700@psc.edu>
+Subject: Re: [PATCH 2/2] [SCTP] Unmap v4mapped addresses during
+ SCTP_BINDX_REM_ADDR operation.
+Date: Tue, 17 Apr 2007 12:53:44 -0700 (PDT)
+Message-ID: <20070417.125344.41948535.davem@davemloft.net>
+References: <11762400848-git-send-email-vladislav.yasevich@hp.com>
+	<11762400843295-git-send-email-vladislav.yasevich@hp.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: coroberti@gmail.com, netdev@vger.kernel.org,
-	greearb@candelatech.com, moser.michael@gmail.com
-To: jheffner@psc.edu
+Cc: netdev@vger.kernel.org, pgaltieri@mvista.com
+To: vladislav.yasevich@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57563
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57573
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1161029AbXDQTv5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Apr 2007 15:51:57 -0400
-In-Reply-To: <4625246E.2090700@psc.edu>
+	by vger.kernel.org with ESMTP id S1161140AbXDQTxm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Apr 2007 15:53:42 -0400
+In-Reply-To: <11762400843295-git-send-email-vladislav.yasevich@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: John Heffner <jheffner@psc.edu>
-Date: Tue, 17 Apr 2007 15:47:58 -0400
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Date: Tue, 10 Apr 2007 17:21:24 -0400
 
-> My only reservation in submitting this to -stable is that it will in 
-> many cases increase the default tcp_mem values, which in turn can 
-> increase the default tcp_rmem values, and therefore the window scale. 
-> There will be some set of people with broken firewalls who trigger that 
-> problem for the first time by upgrading along the stable branch.  While 
-> it's not our fault, it could cause some complaints...
+> From: Paolo Galtieri <pgaltieri@mvista.com>
+> 
+> During the sctp_bindx() call to add additional addresses to the
+> endpoint, any v4mapped addresses are converted and stored as regular
+> v4 addresses.  However, when trying to remove these addresses, the
+> v4mapped addresses are not converted and the operation fails.  This
+> patch unmaps the addresses on during the remove operation as well.
+> 
+> Signed-off-by: Paolo Galtieri <pgaltieri@mvista.com>
+> Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
 
-It is a very valid concern.
-
-However this is fixing a problem where we are in the wrong,
-whereas the firewall issues are external and should not
-block us from being able to fix our own bugs :-)
+Patch applied, thank you.
