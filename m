@@ -1,45 +1,51 @@
-From: "Robert Iakobashvili" <coroberti@gmail.com>
-Subject: Re: TCP connection stops after high load.
-Date: Tue, 17 Apr 2007 21:58:16 +0200
-Message-ID: <7e63f56c0704171258r6802e599h67555edbe7dd7552@mail.gmail.com>
-References: <7e63f56c0704161151p405c4597x5fbac6021b635d84@mail.gmail.com>
-	 <20070416.121558.48807497.davem@davemloft.net>
-	 <7e63f56c0704170058m35d44a8ajfe5d97c4c7a8d87a@mail.gmail.com>
-	 <20070417.123941.119226635.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [BRIDGE] Unaligned access on IA64 when comparing ethernet
+ addresses
+Date: Tue, 17 Apr 2007 13:09:29 -0700 (PDT)
+Message-ID: <20070417.130929.59470175.davem@davemloft.net>
+References: <4624B44A.9040509@sw.ru>
+	<20070417.123135.56861973.davem@davemloft.net>
+	<4625263D.1000709@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jheffner@psc.edu, netdev@vger.kernel.org, greearb@candelatech.com,
-	moser.michael@gmail.com
-To: "David Miller" <davem@davemloft.net>
+Cc: xemul@sw.ru, netdev@vger.kernel.org, bridge@lists.osdl.org,
+	devel@openvz.org
+To: shemminger@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.173]:29769 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161186AbXDQT6S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Apr 2007 15:58:18 -0400
-Received: by ug-out-1314.google.com with SMTP id 44so257817uga
-        for <netdev@vger.kernel.org>; Tue, 17 Apr 2007 12:58:17 -0700 (PDT)
-In-Reply-To: <20070417.123941.119226635.davem@davemloft.net>
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46540
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1161218AbXDQUJ0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Apr 2007 16:09:26 -0400
+In-Reply-To: <4625263D.1000709@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> > Yes, it fixes.
->
-> Thanks, I will submit it to -stable branch.
->
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Date: Tue, 17 Apr 2007 12:55:41 -0700
 
-David and John,
-Thanks for your caring and attention.
+> David Miller wrote:
+> > From: Pavel Emelianov <xemul@sw.ru>
+> > Date: Tue, 17 Apr 2007 15:49:30 +0400
+> >
+> >   
+> >> From: Evgeny Kravtsunov <emkravts@openvz.org>
+> >>
+> >> compare_ether_addr() implicitly requires that the addresses
+> >> passed are 2-bytes aligned in memory.
+> >>
+> >> This is not true for br_stp_change_bridge_id() and
+> >> br_stp_recalculate_bridge_id() in which one of the addresses
+> >> is unsigned char *, and thus may not be 2-bytes aligned.
+> >>
+> >> Signed-off-by: Evgeny Kravtsunov <emkravts@openvz.org>
+> >> Signed-off-by: Kirill Korotaev <dev@openvz.org>
+> >> Signed-off-by: Pavel Emelianov <xemul@openvz.org>
+> >>     
+> >
+> > Patch applied, thank you.
+> >   
+> I had a better way, I'll fix.
 
-
--- 
-Sincerely,
-Robert Iakobashvili,
-coroberti %x40 gmail %x2e com
-...................................................................
-Navigare necesse est, vivere non est necesse
-...................................................................
-http://curl-loader.sourceforge.net
-An open-source HTTP/S, FTP/S traffic
-generating, and web testing tool.
+You better hurry I want today's fixes I applied out to Linus this
+afternoon.
