@@ -1,44 +1,37 @@
-From: Roland Dreier <rdreier-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 2.6] WE-22 : prevent information leak on 64 bit
-Date: Tue, 17 Apr 2007 14:59:52 -0700
-Message-ID: <adaejmi1x2f.fsf@cisco.com>
-References: <20070323003116.GC2712@bougret.hpl.hp.com>
-	<1175508410.23438.75.camel@johannes.berg>
-	<20070417170820.GB22372@bougret.hpl.hp.com>
-	<20070417183442.GE8633@tuxdriver.com>
-	<20070417211859.GB22897@bougret.hpl.hp.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: r8169 2.2LK: Low link speed after suspend
+Date: Wed, 18 Apr 2007 00:30:27 +0200
+Message-ID: <20070417223027.GA9517@electric-eye.fr.zoreil.com>
+References: <200704162241.31729.peter.missel@onlinehome.de> <20070416210940.GA13710@electric-eye.fr.zoreil.com> <200704172236.43280.peter.missel@onlinehome.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20070417211859.GB22897-yAE0UhLNZJawPNPzzlOzwdBPR1lH4CV8@public.gmane.org> (Jean Tourrilhes's message of "Tue, 17 Apr 2007 14:19:00 -0700")
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: netdev@vger.kernel.org
+To: Peter Missel <peter.missel@onlinehome.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:50180 "EHLO
+	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1161397AbXDQWdQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Apr 2007 18:33:16 -0400
+Content-Disposition: inline
+In-Reply-To: <200704172236.43280.peter.missel@onlinehome.de>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
- > > This API was controversial and mostly unwelcome from the start.
- > > It was ridiculed as "ioctls over netlink" at the last kernel summit.
- > 
- > 	Which is complete FUD. In that case, the whole RtNetlink can
- > be classified as "ioctls over netlink".
+Peter Missel <peter.missel@onlinehome.de> :
+[...]
+> Does this patchset work against kernel 2.6.18, or, better yet, is there a 
+> separate source package that lets me build the current driver on this older 
+> kernel?
 
-The problem is that WE over netlink is basically using netlink to
-transfer the same binary blobs as the WE ioctls, rather than using
-properly structured netlink messages.
+Hardly: the r8169 driver has been modified by ~40 patches from 2.6.18 to now.
 
- > > One of the objections to having merged the API was that _if_ it were
- > > to gain users then we would have to carry that maintenance burden
- > > ad infinitum.
- > 
- > 	More FUD. It does not add any new commands. The proof is in
- > the pudding, no change was needed in any driver to support it,
- > therefore it could not have added any burden on any compatibility
- > layer.
+There is an ugly hack^W^W quick backport for 2.6.18 at:
+http://www.fr.zoreil.com/people/francois/backport/r8169/20070418-00
 
-The point is that if WE over netlink is used by applications, then the
-kernel must maintain that ABI (of WE over netlink) forever.
+It compiles but I do not know if it works and I strongly suggest to use
+a more recent kernel package anyway.
 
- - R.
+-- 
+Ueimor
+
+Anybody got a battery for my Ultra 10 ?
