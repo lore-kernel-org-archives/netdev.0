@@ -1,62 +1,71 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCH net-2.6.22 1/3] [TCP]: Sed magic converts func(sk, tp,
- ...) -> func(sk, ...)
-Date: Tue, 17 Apr 2007 10:45:47 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0704171033590.20010@kivilampi-30.cs.helsinki.fi>
-References: <Pine.LNX.4.64.0704161758020.28337@kivilampi-30.cs.helsinki.fi>
- <462396F5.9030907@trash.net> <Pine.LNX.4.64.0704161913400.28337@kivilampi-30.cs.helsinki.fi>
- <20070416.171604.26532491.davem@davemloft.net>
+From: "Robert Iakobashvili" <coroberti@gmail.com>
+Subject: Re: TCP connection stops after high load.
+Date: Tue, 17 Apr 2007 10:58:04 +0300
+Message-ID: <7e63f56c0704170058m35d44a8ajfe5d97c4c7a8d87a@mail.gmail.com>
+References: <7e63f56c0704150849r5b019962v296b4266021a6fe1@mail.gmail.com>
+	 <4623BB7B.3010705@psc.edu>
+	 <7e63f56c0704161151p405c4597x5fbac6021b635d84@mail.gmail.com>
+	 <20070416.121558.48807497.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; boundary="-696243703-954150138-1176795464=:20010"
-Cc: kaber@trash.net, hch@infradead.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: jheffner@psc.edu, netdev@vger.kernel.org, greearb@candelatech.com,
+	"Michael Moser" <moser.michael@gmail.com>
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:36109 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751861AbXDQHpu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Apr 2007 03:45:50 -0400
-In-Reply-To: <20070416.171604.26532491.davem@davemloft.net>
-Content-ID: <Pine.LNX.4.64.0704171037540.20010@kivilampi-30.cs.helsinki.fi>
+Received: from ug-out-1314.google.com ([66.249.92.170]:48569 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752388AbXDQH6F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Apr 2007 03:58:05 -0400
+Received: by ug-out-1314.google.com with SMTP id 44so105480uga
+        for <netdev@vger.kernel.org>; Tue, 17 Apr 2007 00:58:04 -0700 (PDT)
+In-Reply-To: <20070416.121558.48807497.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+David,
 
----696243703-954150138-1176795464=:20010
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
-Content-ID: <Pine.LNX.4.64.0704171037541.20010@kivilampi-30.cs.helsinki.fi>
-
-On Mon, 16 Apr 2007, David Miller wrote:
-> From: "Ilpo_Järvinen" <ilpo.jarvinen@helsinki.fi>
-> Date: Mon, 16 Apr 2007 19:19:02 +0300 (EEST)
-> 
-> > [PATCH] [TCP]: Sed magic converts func(sk, tp, ...) -> func(sk, ...)
-> 
-> I was trying to spread out the net-2.6.22 tree from the tcp-2.6
-> one so that we could do the experimental TCP stuff in the tcp-2.6
-> tree and leave other networking changes for net-2.6.22
-> 
-> Putting in TCP cleanups which touch a lot of code into net-2.6.22
-> defeats that effort because now there will be all kinds of rejects and
-> merge errors people will have to deal with if they clone a net-2.6.22
-> tree then pull in tcp-2.6 to do some TCP hacking which is valid.
-> 
-> I suppose we can live with that, and just tell people to just pull
-> tcp-2.6 into a fresh linux-2.6 tree straight, but it's going to make
-> rebasing difficult for me as well.
+On 4/16/07, David Miller <davem@davemloft.net> wrote:
+> > > Commit: 53cdcc04c1e85d4e423b2822b66149b6f2e52c2c
+> > > Author: John Heffner <jheffner@psc.edu> Fri, 16 Mar 2007 15:04:03 -0700
+> > >
+> > >      [TCP]: Fix tcp_mem[] initialization.
+> > >      Change tcp_mem initialization function.  The fraction of total memory
+> > >      is now a continuous function of memory size, and independent of page
+> > >      size.
+> >
+> >
+> > Kernels 2.6.19 and 2.6.20 series are effectively broken right now.
+> > Don't you wish to patch them?
 >
-> net-2.6.22 is already approaching 350 patches, it's a monster and
-> the merge conflicts and rebasing pain are really getting hard to
-> deal with.
+> Can you verify that this patch actually fixes your problem?
 
-I fully understand your concerns (I had already though that you might 
-rather want to put this kind of thing to tcp-2.6)... It will be almost 
-trivial to base it to tcp-2.6 because it's, well, (mostly) automated.
-I'll try to get that done today so you'll have less worries... :-)
+Yes, it fixes.
 
+After the patch curl-loader works with patched 2.6.19.7 and
+with patched 2.6.20.7 using simulteneous 3000 local connections smothly,
+and even better than with referred as a "good" 2.6.18.3.
+
+
+Besides that the tcp_mem status for my machine:
+
+kernel                             tcp_mem
+------------------------------------------------------
+2.6.19.7                     3072    4096     6144
+2.6.19.7-patched    45696   60928   91392
+2.6.20.7                     3072    4096     6144
+2.6.20.7-patched    45696   60928   91392
+
+The patch was applied smothly just with line offsets.
 
 -- 
- i.
----696243703-954150138-1176795464=:20010--
+Sincerely,
+Robert Iakobashvili,
+coroberti %x40 gmail %x2e com
+...................................................................
+Navigare necesse est, vivere non est necesse
+...................................................................
+http://curl-loader.sourceforge.net
+An open-source HTTP/S, FTP/S traffic
+generating, and web testing tool.
