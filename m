@@ -1,78 +1,56 @@
-From: Jean Tourrilhes <jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH 2.6] WE-22 : prevent information leak on 64 bit
-Date: Tue, 17 Apr 2007 10:08:20 -0700
-Message-ID: <20070417170820.GB22372@bougret.hpl.hp.com>
-References: <20070323003116.GC2712@bougret.hpl.hp.com> <1175508410.23438.75.camel@johannes.berg>
-Reply-To: jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org
+From: lsorense@csclub.uwaterloo.ca (Lennart Sorensen)
+Subject: Re: [RFT] e100 driver on ARM
+Date: Tue, 17 Apr 2007 13:35:07 -0400
+Message-ID: <20070417173507.GB5575@csclub.uwaterloo.ca>
+References: <44FC0261.6010807@garzik.org> <20060904123123.GB1285@xi.wantstofly.org> <460AF480.7050609@intel.com> <460B4BF2.1070803@roinet.com> <20070329141041.GA3510@csclub.uwaterloo.ca> <46239138.4040408@roinet.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: "Kok, Auke" <auke-jan.h.kok@intel.com>,
+	Lennert Buytenhek <buytenh@wantstofly.org>,
+	Jeff Garzik <jeff@garzik.org>,
+	Netdev List <netdev@vger.kernel.org>,
+	Linux Kernel <linux-kernel@vger.kernel.org>,
+	Andrew Morton <akpm@osdl.org>,
+	Russell King <rmk+lkml@arm.linux.org.uk>
+To: David Acker <dacker@roinet.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161216AbXDQRfK@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1175508410.23438.75.camel-YfaajirXv214zXjbi5bjpg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <46239138.4040408@roinet.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 02, 2007 at 12:06:50PM +0200, Johannes Berg wrote:
+On Mon, Apr 16, 2007 at 11:07:36AM -0400, David Acker wrote:
+> Lennart Sorensen wrote:
+> >Which PCI host controller are you using with the PXA255?  We tried using
+> >a PXA255 based system with a PCI controller a couple of years ago and
+> >have to change to a different cpu in the end due to the PCI controller
+> >simply not being valid PCI.  The PXA255 wasn't designed for PCI, and I
+> >get the impression that non of the PCI companion chips for it do a good
+> >enough job to actually add it correctly.
+> >
 > 
-> Jean Tourrilhes wrote :
-> > 	Johannes Berg discovered that kernel space was leaking to
-> > userspace on 64 bit platform. He made a first patch to fix that. This
-> > is an improved version of his patch.
-> > 	This was tested on 2.6.21-rc4. Would you mind pushing that
-> > upstream ?
+> Sorry for the delay in responding...my wife and I just had twins!
 > 
-> Just FYI. This patch applies with rejects in net/core/rtnetlink.c and
-> net/core/wireless.c to wireless-dev. The changes in those two files can
-> be ignored completely since they affect only the removed
-> wext-over-netlink interface.
-> 
-> johannes
+> We are using the IT8152G RISC-to-PCI companion chip.
 
-	I'm sorry to have to write this e-mail. But this incident is
-completely opposed to the ideal of FreeSoftware/OpenSource and
-demonstrate some of the bad politics happening in Linux.
+Well the IT8152G+PXA255 combination used on the SBC we tried a couple of
+years ago did not work.  The PCI bus had errors and the SBC maker gave
+up trying to fix it.  We switched to a Geode SC1200 based board instead
+which works fine PCI wise.
 
-	First, I'm the current active maintainer of the
-wext-over-netlink interface, and nobody bothered to even 'inform' me
-about its removal, let alone consult with me.
-	This shows a complete lack of courtesy and a total disrespect
-to the concept of maintainer, basically some people are just second
-class citizens.
+My suspicision (although it is only that) is that the PXA255 trying to
+access memory may cause interruptions in PCI bus master transfers, which
+is of course not permitted by the PCI spec (at least the way I read it).
+We tried it with RTL8139, AMD 972 (both ethernet) as well as a number of
+T1/E1 and DDS wan cards from sangoma.  The wan cards had the most issues
+with it (they drivers and hardware would get out of sync due to PCI bus
+problems), while the ethernet just had occational packet corruption.  I
+will certainly never consider using a PXA + ITE pci controller
+combination ever again.  Too bad since the performance of the PXA is
+amazing.  The PXA chips are not designed to speak to PCI, and the ITE
+companion chip doesn't quite do the job of pretending it was.  I would
+expect problems if you do pci bus master transfers and/or any kind of
+PCI bus traffic load.
 
-	Second, there is no technical justification to such decision,
-it's just plain politics. I would agree that for the vast majority of
-people, this API was useless, as any work in progress. But, it is
-maintained (by me), it is not causing any technical issue, for those
-people it's not compiled in (i.e. no bloat), it is not causing bugs
-and not preventing other code to be merged in the kernel.
-	Therefore a purely politic decision.
-
-	Now, I've got a problem with your attitude in this matter,
-Johannes. It's now the second time you remove features from code I
-maintain by pure fiat, and you have engaged in a long running FUD
-campain about my code. This is totally disgraceful of a Linux
-maintainer, and you should know it.
-	If the only way you have to promote your code is by actively
-destroying my code, then you have a real issue. Your code should stand
-on its own merit, without the need of attacking other people's work
-and playing political tricks.
-	I hope you will note that I never disparaged your code, I
-never prevented its inclusion in Linux and I never attempted to
-control the Linux Wireless space and left plenty of space for new
-developpers.
-
-	You still have a lot to learn, like all of us. You still don't
-understand Wireless Extensions (as your FUD shows) and why it's still
-so popular despite all its warts. You don't get the value of not
-burning bridges with other developpers and professional conduct.
-
-	By the way : don't bother replying to this e-mail, nothing
-good will come of it.
-
-	Have fun...
-
-	Jean
+--
+Len Sorensen
