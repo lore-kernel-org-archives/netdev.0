@@ -1,132 +1,62 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [NET]: Get rid of alloc_skb code duplication
-Date: Tue, 17 Apr 2007 21:57:46 +1000
-Message-ID: <20070417115746.GA20287@gondor.apana.org.au>
+From: Jean-Daniel Pauget <jd@disjunkt.com>
+Subject: Re: intermittant petabyte usage reported with broadcom nic
+Date: Tue, 17 Apr 2007 14:01:48 +0200
+Message-ID: <20070417120148.GB5510@disjunkt.com>
+References: <20070402014319.GA8345@zip.com.au> <20070402001300.3b66007d.akpm@linux-foundation.org> <20070402074108.GB8345@zip.com.au> <1176596401.5847.7.camel@dell> <1176750651.6217.3.camel@dell> <20070416234348.GF8345@zip.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Michael Chan <mchan@broadcom.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: CaT <cat@zip.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:4564 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753873AbXDQL56 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Apr 2007 07:57:58 -0400
+Received: from smtp19.orange.fr ([80.12.242.17]:63316 "EHLO smtp19.orange.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752658AbXDQMJJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Apr 2007 08:09:09 -0400
 Content-Disposition: inline
+In-Reply-To: <20070416234348.GF8345@zip.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Dave:
+On Tue, Apr 17, 2007 at 09:43:48AM +1000, CaT wrote:
+> On Mon, Apr 16, 2007 at 12:10:51PM -0700, Michael Chan wrote:
+> > On Sat, 2007-04-14 at 17:20 -0700, Michael Chan wrote:
+> >=20
+> > Here's the debug patch for x86 only that will change the statistics
+> > memory block to read-only.  If the kernel is corrupting it, you sho=
+uld
+> > get a page fault that will crash the system.  If you continue to se=
+e
+> > bogus counters, it is definitely a firmware or hardware problem.  P=
+lease
+> > try it and let me know.  Thanks.
+[.../...]
+> Perhaps Jean-Daniel, who is also experiencing this problem and seemin=
+gly
+> more frequently then I, has a box that he could run your patch on. I
+> think we both run pretty-much the same hardware (Dell [12]950s).
+    Dell 1950/2950 indeed...
 
-[NET]: Get rid of alloc_skb code duplication
+    if there is any way to catch that writing without crashing the syst=
+em=20
+    (even to the price of some slowness) I can test it. if not, I can't=
+=20
+    because all my available targets are remote administrated and invol=
+ved=20
+    with production processes.
+    if luckilly one of them gets free, I'll to apply the latest patch y=
+ou'd=20
+    provide me. I may also try it one day I'm close to those machines, =
+so=20
+    keep me in the list of up to date patches.
 
-The skb initialisation code is shared between alloc_skb and
-alloc_skb_from_cache.  Now I don't know what actually uses
-the latter so perhaps we could simply get rid of it.
+--=20
+    Jean-Daniel Pauget
 
-However, if we're to keep it, then let's move the common code
-out as they've started diverging.
+    T=E9l: +33 (0)2 33 17 20 16
+    2, rue Andr=E9 PELCA
+    50580 Denneville-Plage
+    France
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
---
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index fae7f94..db4f526 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -128,6 +128,31 @@ EXPORT_SYMBOL(skb_truesize_bug);
-  *
-  */
- 
-+static void init_skb(struct sk_buff *skb, u8 *data, unsigned int size)
-+{
-+	struct skb_shared_info *shinfo;
-+
-+	/*
-+	 * See comment in sk_buff definition, just before the 'tail' member
-+	 */
-+	memset(skb, 0, offsetof(struct sk_buff, tail));
-+	skb->truesize = size + sizeof(struct sk_buff);
-+	atomic_set(&skb->users, 1);
-+	skb->head = data;
-+	skb->data = data;
-+	skb_reset_tail_pointer(skb);
-+	skb->end = skb->tail + size;
-+	/* make sure we initialize shinfo sequentially */
-+	shinfo = skb_shinfo(skb);
-+	atomic_set(&shinfo->dataref, 1);
-+	shinfo->nr_frags  = 0;
-+	shinfo->gso_size = 0;
-+	shinfo->gso_segs = 0;
-+	shinfo->gso_type = 0;
-+	shinfo->ip6_frag_id = 0;
-+	shinfo->frag_list = NULL;
-+}
-+
- /**
-  *	__alloc_skb	-	allocate a network buffer
-  *	@size: size to allocate
-@@ -147,7 +172,6 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
- 			    int fclone, int node)
- {
- 	struct kmem_cache *cache;
--	struct skb_shared_info *shinfo;
- 	struct sk_buff *skb;
- 	u8 *data;
- 
-@@ -164,25 +188,7 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
- 	if (!data)
- 		goto nodata;
- 
--	/*
--	 * See comment in sk_buff definition, just before the 'tail' member
--	 */
--	memset(skb, 0, offsetof(struct sk_buff, tail));
--	skb->truesize = size + sizeof(struct sk_buff);
--	atomic_set(&skb->users, 1);
--	skb->head = data;
--	skb->data = data;
--	skb_reset_tail_pointer(skb);
--	skb->end = skb->tail + size;
--	/* make sure we initialize shinfo sequentially */
--	shinfo = skb_shinfo(skb);
--	atomic_set(&shinfo->dataref, 1);
--	shinfo->nr_frags  = 0;
--	shinfo->gso_size = 0;
--	shinfo->gso_segs = 0;
--	shinfo->gso_type = 0;
--	shinfo->ip6_frag_id = 0;
--	shinfo->frag_list = NULL;
-+	init_skb(skb, data, size);
- 
- 	if (fclone) {
- 		struct sk_buff *child = skb + 1;
-@@ -233,23 +239,8 @@ struct sk_buff *alloc_skb_from_cache(struct kmem_cache *cp,
- 	data = kmem_cache_alloc(cp, gfp_mask);
- 	if (!data)
- 		goto nodata;
--	/*
--	 * See comment in sk_buff definition, just before the 'tail' member
--	 */
--	memset(skb, 0, offsetof(struct sk_buff, tail));
--	skb->truesize = size + sizeof(struct sk_buff);
--	atomic_set(&skb->users, 1);
--	skb->head = data;
--	skb->data = data;
--	skb_reset_tail_pointer(skb);
--	skb->end  = skb->tail + size;
- 
--	atomic_set(&(skb_shinfo(skb)->dataref), 1);
--	skb_shinfo(skb)->nr_frags  = 0;
--	skb_shinfo(skb)->gso_size = 0;
--	skb_shinfo(skb)->gso_segs = 0;
--	skb_shinfo(skb)->gso_type = 0;
--	skb_shinfo(skb)->frag_list = NULL;
-+	init_skb(skb, data, size);
- out:
- 	return skb;
- nodata:
