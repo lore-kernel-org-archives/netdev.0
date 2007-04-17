@@ -1,33 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] KEY: Fix conversion between IPSEC_MODE_xxx and
- XFRM_MODE_xxx.
-Date: Tue, 17 Apr 2007 12:38:51 -0700 (PDT)
-Message-ID: <20070417.123851.56978012.davem@davemloft.net>
-References: <20070417.171517.53528528.yoshfuji@linux-ipv6.org>
+Subject: Re: TCP connection stops after high load.
+Date: Tue, 17 Apr 2007 12:39:41 -0700 (PDT)
+Message-ID: <20070417.123941.119226635.davem@davemloft.net>
+References: <7e63f56c0704161151p405c4597x5fbac6021b635d84@mail.gmail.com>
+	<20070416.121558.48807497.davem@davemloft.net>
+	<7e63f56c0704170058m35d44a8ajfe5d97c4c7a8d87a@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kazunori@miyazawa.org
-To: yoshfuji@linux-ipv6.org
+Cc: jheffner@psc.edu, netdev@vger.kernel.org, greearb@candelatech.com,
+	moser.michael@gmail.com
+To: coroberti@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37379
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37384
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1031159AbXDQTit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Apr 2007 15:38:49 -0400
-In-Reply-To: <20070417.171517.53528528.yoshfuji@linux-ipv6.org>
+	by vger.kernel.org with ESMTP id S1031159AbXDQTjj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Apr 2007 15:39:39 -0400
+In-Reply-To: <7e63f56c0704170058m35d44a8ajfe5d97c4c7a8d87a@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
-Date: Tue, 17 Apr 2007 17:15:17 +0900 (JST)
+From: "Robert Iakobashvili" <coroberti@gmail.com>
+Date: Tue, 17 Apr 2007 10:58:04 +0300
 
-> From: Kazunori MIYAZAWA <miyazawa@linux-ipv6.org>
-> Subject: [PATCH] KEY: Fix conversion between IPSEC_MODE_xxx and XFRM_MODE_xxx.
+> David,
 > 
-> We should not blindly convert between IPSEC_MODE_xxx and XFRM_MODE_xxx just
-> by incrementing / decrementing because the assumption is not true any longer.
+> On 4/16/07, David Miller <davem@davemloft.net> wrote:
+> > > > Commit: 53cdcc04c1e85d4e423b2822b66149b6f2e52c2c
+> > > > Author: John Heffner <jheffner@psc.edu> Fri, 16 Mar 2007 15:04:03 -0700
+> > > >
+> > > >      [TCP]: Fix tcp_mem[] initialization.
+> > > >      Change tcp_mem initialization function.  The fraction of total memory
+> > > >      is now a continuous function of memory size, and independent of page
+> > > >      size.
+> > >
+> > >
+> > > Kernels 2.6.19 and 2.6.20 series are effectively broken right now.
+> > > Don't you wish to patch them?
+> >
+> > Can you verify that this patch actually fixes your problem?
 > 
-> Signed-off-by: Kazunori MIYAZAWA <miyazawa@linux-ipv6.org>
-> Singed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> Yes, it fixes.
 
-Patch applied, thank you.
+Thanks, I will submit it to -stable branch.
