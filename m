@@ -1,43 +1,52 @@
-From: Philip Craig <philipc@snapgear.com>
-Subject: Re: bug in tcp?
-Date: Tue, 17 Apr 2007 16:13:06 +1000
-Message-ID: <46246572.9020108@snapgear.com>
-References: <E1HdZgM-0001n2-F0@highlab.com> <462450C5.5080702@snapgear.com> <E1HdgLb-0005eU-Ji@highlab.com>
+From: "Aubrey Li" <aubreylee@gmail.com>
+Subject: [PATCH] Fix UDP checksum issue in net poll mode.
+Date: Tue, 17 Apr 2007 14:53:48 +0800
+Message-ID: <6d6a94c50704162353p2b96b3e4kd05489a59aa9bba7@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Sebastian Kuzminsky <seb@highlab.com>
+Cc: netdev@vger.kernel.org,
+	"Linux Kernel" <linux-kernel@vger.kernel.org>
+To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
+	jmorris@namei.org, kaber@coreworks.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rex.snapgear.com ([203.143.235.140]:50176 "EHLO
-	cyberguard.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751130AbXDQGOE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Apr 2007 02:14:04 -0400
-In-Reply-To: <E1HdgLb-0005eU-Ji@highlab.com>
+Received: from wx-out-0506.google.com ([66.249.82.231]:8727 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751674AbXDQGxt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Apr 2007 02:53:49 -0400
+Received: by wx-out-0506.google.com with SMTP id h31so1923732wxd
+        for <netdev@vger.kernel.org>; Mon, 16 Apr 2007 23:53:49 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Sebastian Kuzminsky wrote:
-> Weird.  Why does sending a message from the client make it go again?
+In net poll mode, the current checksum function doesn't consider the
+kind of packet which is padded to reach a specific minimum length. I
+believe that's the problem causing my test case failed. The following
+patch fixed this issue.
 
-The rule that allows packets with an "ESTABLISHED" state only matches
-packets for which the connection is in netfilter's conntrack table.
-The connection is removed from the table after the 5 days of idle.
-It is only added again if netfilter accepts a packet for that connection.
-So the packet from the client will cause it to be added.
+Signed-off-by: Aubrey.Li <aubreylee@gmail.com>
+---
+ net/core/netpoll.c |    7 +++++++
+ 1 files changed, 7 insertions(+), 0 deletions(-)
 
-> If that's the case, it seems like a simple fix would be to enable TCP
-> keepalive in my app, that would keep netfilter from timing out, right?
-> That seems better than extending the netfilter timeout.
+diff --git a/net/core/netpoll.c b/net/core/netpoll.c
+index 823215d..522e441 100644
+--- a/net/core/netpoll.c
++++ b/net/core/netpoll.c
+@@ -471,6 +471,13 @@ int __netpoll_rx(struct sk_buff *skb)
+ 	if (skb->len < len || len < iph->ihl*4)
+ 		goto out;
 
-Yes that would work.
++	/*
++	 * Our transport medium may have padded the buffer out.
++	 * Now We trim to the true length of the frame.
++	 */
++	if (pskb_trim_rcsum(skb, len))
++		goto out;
++
+ 	if (iph->protocol != IPPROTO_UDP)
+ 		goto out;
 
-> How do people normally handle this?
-
-Change the timeout or use keepalives.  I can't think of any other way.
-The 5 days is a compromise between keeping valid connections and
-timing out dead connections.  There will always be connections for
-which it times out too fast or too slow.  I don't think there are
-any drawbacks to increasing the timeout if you aren't a router,
-but as long as there is a timeout, you need keepalives to be sure.
-
+-- 
+1.5.1
