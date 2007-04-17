@@ -1,92 +1,51 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: Re: [PATCH 2.6] WE-22 : prevent information leak on 64 bit
-Date: Tue, 17 Apr 2007 14:34:42 -0400
-Message-ID: <20070417183442.GE8633@tuxdriver.com>
-References: <20070323003116.GC2712@bougret.hpl.hp.com> <1175508410.23438.75.camel@johannes.berg> <20070417170820.GB22372@bougret.hpl.hp.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [NET]: Get rid of alloc_skb code duplication
+Date: Tue, 17 Apr 2007 12:29:55 -0700 (PDT)
+Message-ID: <20070417.122955.48397449.davem@davemloft.net>
+References: <20070417115746.GA20287@gondor.apana.org.au>
+	<20070417130347.GA2632@infradead.org>
+	<20070417141743.GA21473@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Jean Tourrilhes <jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20070417170820.GB22372-yAE0UhLNZJawPNPzzlOzwdBPR1lH4CV8@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: hch@infradead.org, netdev@vger.kernel.org, keir@xensource.com
+To: herbert@gondor.apana.org.au
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54693
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1031132AbXDQT3w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Apr 2007 15:29:52 -0400
+In-Reply-To: <20070417141743.GA21473@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 17, 2007 at 10:08:20AM -0700, Jean Tourrilhes wrote:
-> On Mon, Apr 02, 2007 at 12:06:50PM +0200, Johannes Berg wrote:
-> > 
-> > Jean Tourrilhes wrote :
-> > > 	Johannes Berg discovered that kernel space was leaking to
-> > > userspace on 64 bit platform. He made a first patch to fix that. This
-> > > is an improved version of his patch.
-> > > 	This was tested on 2.6.21-rc4. Would you mind pushing that
-> > > upstream ?
-> > 
-> > Just FYI. This patch applies with rejects in net/core/rtnetlink.c and
-> > net/core/wireless.c to wireless-dev. The changes in those two files can
-> > be ignored completely since they affect only the removed
-> > wext-over-netlink interface.
-> > 
-> > johannes
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Wed, 18 Apr 2007 00:17:43 +1000
+
+> On Tue, Apr 17, 2007 at 02:03:47PM +0100, Christoph Hellwig wrote:
+> >
+> > It was put in for Xen, but if you as the resident beat the crap out
+> > of Xen networking guru don't know about it we should probably just
+> > kill it.  Especially as we usually kill dead code pretty fast.
 > 
-> 	I'm sorry to have to write this e-mail. But this incident is
-> completely opposed to the ideal of FreeSoftware/OpenSource and
-> demonstrate some of the bad politics happening in Linux.
+> Heh, I wasn't touching Xen back then.
 > 
-> 	First, I'm the current active maintainer of the
-> wext-over-netlink interface, and nobody bothered to even 'inform' me
-> about its removal, let alone consult with me.
+> That's good news actually.  Xen has now killed their custom alloc_skb
+> so this is no longer needed.  Besides, even if they needed it they'll
+> have to patch it in anyway since you've already killed the ifdef that
+> lets them have a custom alloc_skb :)
+> 
+> [NET]: Get rid of alloc_skb_from_cache
+> 
+> Since this was added originally for Xen, and Xen has recently (~2.6.18)
+> stopped using this function, we can safely get rid of it.  Good timing
+> too since this function has started to bit rot.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Honestly, most of us thought you weren't interested.
+Applied.  You missed the arch/x86_64/kernel/functionlist reference
+but I took care of that for you :-)
 
-> 	This shows a complete lack of courtesy and a total disrespect
-> to the concept of maintainer, basically some people are just second
-> class citizens.
-
-I'm sorry that you are upset.  I do not believe any disrespect was
-intended.
-
-> 	Second, there is no technical justification to such decision,
-> it's just plain politics. I would agree that for the vast majority of
-> people, this API was useless, as any work in progress. But, it is
-> maintained (by me), it is not causing any technical issue, for those
-> people it's not compiled in (i.e. no bloat), it is not causing bugs
-> and not preventing other code to be merged in the kernel.
-> 	Therefore a purely politic decision.
-
-I would not call it politics, but I do not want to split hairs.
-
-This API was controversial and mostly unwelcome from the start.
-It was ridiculed as "ioctls over netlink" at the last kernel summit.
-It is widely regarded as less of a solution and more of an extension
-to a problem.
-
-One of the objections to having merged the API was that _if_ it were
-to gain users then we would have to carry that maintenance burden
-ad infinitum.  This fear was already beginning to be confirmed by the
-efforts at maintaining WE compatibility in cfg80211.  Since there were
-(thankfully) still no users and only compatibility headaches from
-maintaining it, Johannes wanted to remove the code, and I consented
-to his request.
-
-I wish you would not view this as a personal issue.  Your contributions
-are certainly welcome in general.  We just don't see any benefit from
-keeping this code around as we move forward.
-
-Again, I am terribly sorry that this was a surprise to you.  I will be
-sure to communicate with you directly should another such issue arise.
-
-> 	By the way : don't bother replying to this e-mail, nothing
-> good will come of it.
-
-Hopefully that isn't totally true...
-
-Regards,
-
-John
--- 
-John W. Linville
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+I'm going to push this into 2.6.21 because the sooner this dies
+the better, even though it will make for some net-2.6.22 merge
+hassles for me.
