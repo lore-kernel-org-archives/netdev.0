@@ -1,47 +1,39 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [Bugme-new] [Bug 8320] New: replacing route in kernel doesn't
- send netlink message
-Date: Tue, 17 Apr 2007 14:58:21 +0200
-Message-ID: <4624C46D.1030609@trash.net>
-References: <461D26CB.3010508@trash.net>	<1176400428.24446.40.camel@nt.wq.cz>	<4623029A.2090906@trash.net> <20070416.171016.43503207.davem@davemloft.net>
+Subject: Re: [Bugme-new] [Bug 8338] New: NAT of TCP connections broken
+Date: Tue, 17 Apr 2007 15:00:57 +0200
+Message-ID: <4624C509.5020409@trash.net>
+References: <200704162035.l3GKZlTI002693@fire-2.osdl.org> <20070416134828.5885b451.akpm@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: milon@wq.cz, akpm@linux-foundation.org, netdev@vger.kernel.org,
-	bugme-daemon@bugzilla.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org,
+	"bugme-daemon@kernel-bugs.osdl.org"
+	<bugme-daemon@bugzilla.kernel.org>
+To: Andrew Morton <akpm@linux-foundation.org>, ernisv@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:32814 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:32872 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753947AbXDQM6q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Apr 2007 08:58:46 -0400
-In-Reply-To: <20070416.171016.43503207.davem@davemloft.net>
+	with ESMTP id S1753931AbXDQNBW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Apr 2007 09:01:22 -0400
+In-Reply-To: <20070416134828.5885b451.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: Patrick McHardy <kaber@trash.net>
-> Date: Mon, 16 Apr 2007 06:59:06 +0200
-> 
-> 
->>RTM_DELROUTE + RTM_NEWROUTE seem to be safer, although you're correct
->>that it might cause userspace to perform some action upon receiving
->>the DELROUTE message since the update is non-atomic. So I really don't
->>know, I'm in favour of having notifications for replacements, but I
->>fear we might break something.
-> 
-> 
-> We can cry foul about a broken application if an application following
-> the API correctly would interpret the new messages correctly.
-> 
-> I think it doesn't make sense to do a delete then a newroute for
-> the atomicity issues, and therefore the replace makes the most
-> sense as long as existing correct uses of the API would not
-> explode on this.
+Andrew Morton wrote:
+>>On Mon, 16 Apr 2007 13:35:47 -0700 bugme-daemon@bugzilla.kernel.org wrote:
+>>http://bugzilla.kernel.org/show_bug.cgi?id=8338
+>>
+>>I'm using my debian box for sharing internet connection. After update to 
+>>debian's 2.6.20 kernel (and adjusting new kernel configuration for NAT) NAT of 
+>>TCP connections stoped working, while ICMP and UDP is working (ping, traceroute 
+>>and DNS). When trying to open web page on a PC from my LAN (tried with linux 
+>>and winxp), it sends the request but is unable to receive correct response from 
+>>any site. On the router PC www works ok. 
+>>
+>>I tried both new "Independent connection tracking" as well as "Dependent 
+>>(obsolete) connection tracking" options with no luck.
+>>
+>>tcp_window_scaling setting seems to have no effect.
 
 
-They shouldn't, worst case is that they ignore NLM_F_REPLACE and treat
-it as a completely new route, which is at least half way correct and
-not really worse than today.
-
-Milan, could you cook up another patch which uses NLM_F_REPLACE?
+Please send packet dumps from both the incoming and outgoing interfaces.
