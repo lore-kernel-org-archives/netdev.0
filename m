@@ -1,57 +1,63 @@
-From: Mitsuru Chinen <mitch@linux.vnet.ibm.com>
-Subject: [PATCH 6/6] [IPV4] SNMP: Display new statistics at /proc/net/snmp
-Date: Tue, 17 Apr 2007 20:14:36 +0900
-Message-ID: <20070417201436.ab8f3f7a.mitch@linux.vnet.ibm.com>
-References: <20070417200944.bd82ded2.mitch@linux.vnet.ibm.com>
+From: Pavel Emelianov <xemul@sw.ru>
+Subject: [BRIDGE] Unaligned access on IA64 when comparing ethernet addresses
+Date: Tue, 17 Apr 2007 15:49:30 +0400
+Message-ID: <4624B44A.9040509@sw.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Mitsuru Chinen <mitch@linux.vnet.ibm.com>
-To: netdev@vger.kernel.org
+Cc: bridge@lists.osdl.org, devel@openvz.org
+To: David Miller <davem@davemloft.net>,
+	shemminger@linux-foundation.org,
+	Linux Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e1.ny.us.ibm.com ([32.97.182.141]:42758 "EHLO e1.ny.us.ibm.com"
+Received: from mailhub.sw.ru ([195.214.233.200]:5165 "EHLO relay.sw.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753821AbXDQLOt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Apr 2007 07:14:49 -0400
-Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by e1.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l3HBEmm1023530
-	for <netdev@vger.kernel.org>; Tue, 17 Apr 2007 07:14:48 -0400
-Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
-	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l3HBEmDd530112
-	for <netdev@vger.kernel.org>; Tue, 17 Apr 2007 07:14:48 -0400
-Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
-	by d01av02.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l3HBEg2A028469
-	for <netdev@vger.kernel.org>; Tue, 17 Apr 2007 07:14:42 -0400
-In-Reply-To: <20070417200944.bd82ded2.mitch@linux.vnet.ibm.com>
+	id S1753862AbXDQLoy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Apr 2007 07:44:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This displays the statistics specified in the updated IP-MIB RFC
-(RFC4293) at /proc/net/snmp. As new statistics are placed as the
-last elements, this change wouldn't affect netstat, net-snmp, etc.
+From: Evgeny Kravtsunov <emkravts@openvz.org>
 
-Signed-off-by: Mitsuru Chinen <mitch@linux.vnet.ibm.com>
+compare_ether_addr() implicitly requires that the addresses
+passed are 2-bytes aligned in memory.
+
+This is not true for br_stp_change_bridge_id() and
+br_stp_recalculate_bridge_id() in which one of the addresses
+is unsigned char *, and thus may not be 2-bytes aligned.
+
+Signed-off-by: Evgeny Kravtsunov <emkravts@openvz.org>
+Signed-off-by: Kirill Korotaev <dev@openvz.org>
+Signed-off-by: Pavel Emelianov <xemul@openvz.org>
+
 ---
- net/ipv4/proc.c |    6 ++++++
- 1 files changed, 6 insertions(+), 0 deletions(-)
 
-diff --git a/net/ipv4/proc.c b/net/ipv4/proc.c
-index ae68a69..cc4c80a 100644
---- a/net/ipv4/proc.c
-+++ b/net/ipv4/proc.c
-@@ -119,6 +119,12 @@ static const struct snmp_mib snmp4_ipsta
- 	SNMP_MIB_ITEM("FragOKs", IPSTATS_MIB_FRAGOKS),
- 	SNMP_MIB_ITEM("FragFails", IPSTATS_MIB_FRAGFAILS),
- 	SNMP_MIB_ITEM("FragCreates", IPSTATS_MIB_FRAGCREATES),
-+	SNMP_MIB_ITEM("InNoRoutes", IPSTATS_MIB_INNOROUTES),
-+	SNMP_MIB_ITEM("InTruncatedPkts", IPSTATS_MIB_INTRUNCATEDPKTS),
-+	SNMP_MIB_ITEM("InMcastPkts", IPSTATS_MIB_INMCASTPKTS),
-+	SNMP_MIB_ITEM("OutMcastPkts", IPSTATS_MIB_OUTMCASTPKTS),
-+	SNMP_MIB_ITEM("InBcastPkts", IPSTATS_MIB_INBCASTPKTS),
-+	SNMP_MIB_ITEM("OutBcastPkts", IPSTATS_MIB_OUTBCASTPKTS),
- 	SNMP_MIB_SENTINEL
- };
+--- a/net/bridge/br_stp_if.c	2006-09-20 07:42:06.000000000 +0400
++++ b/net/bridge/br_stp_if.c	2007-04-13 12:28:08.000000000 +0400
+@@ -124,7 +124,9 @@ void br_stp_disable_port(struct net_brid
+ /* called under bridge lock */
+ void br_stp_change_bridge_id(struct net_bridge *br, const unsigned char *addr)
+ {
+-	unsigned char oldaddr[6];
++	/* should be aligned on 2 bytes for compare_ether_addr() */
++	unsigned short oldaddr_aligned[ETH_ALEN >> 1];
++	unsigned char *oldaddr = (unsigned char *)oldaddr_aligned;
+ 	struct net_bridge_port *p;
+ 	int wasroot;
  
--- 
-1.4.3.4
-
+@@ -149,11 +151,14 @@ void br_stp_change_bridge_id(struct net_
+ 		br_become_root_bridge(br);
+ }
+ 
+-static const unsigned char br_mac_zero[6];
++/* should be aligned on 2 bytes for compare_ether_addr() */
++static const unsigned short br_mac_zero_aligned[ETH_ALEN >> 1];
+ 
+ /* called under bridge lock */
+ void br_stp_recalculate_bridge_id(struct net_bridge *br)
+ {
++	const unsigned char *br_mac_zero =
++			(const unsigned char *)br_mac_zero_aligned;
+ 	const unsigned char *addr = br_mac_zero;
+ 	struct net_bridge_port *p;
+ 
