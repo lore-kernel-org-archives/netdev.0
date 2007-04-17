@@ -1,44 +1,43 @@
-From: Sebastian Kuzminsky <seb@highlab.com>
+From: Philip Craig <philipc@snapgear.com>
 Subject: Re: bug in tcp?
-Date: Mon, 16 Apr 2007 23:35:23 -0600
-Message-ID: <E1HdgLb-0005eU-Ji@highlab.com>
-References: <E1HdZgM-0001n2-F0@highlab.com> <462450C5.5080702@snapgear.com>
-Cc: netdev@vger.kernel.org, Sebastian Kuzminsky <seb@highlab.com>
-To: Philip Craig <philipc@snapgear.com>
+Date: Tue, 17 Apr 2007 16:13:06 +1000
+Message-ID: <46246572.9020108@snapgear.com>
+References: <E1HdZgM-0001n2-F0@highlab.com> <462450C5.5080702@snapgear.com> <E1HdgLb-0005eU-Ji@highlab.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Sebastian Kuzminsky <seb@highlab.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sccrmhc11.comcast.net ([63.240.77.81]:38034 "EHLO
-	sccrmhc11.comcast.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753975AbXDQFfk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Apr 2007 01:35:40 -0400
-In-reply-to: <462450C5.5080702@snapgear.com> 
+Received: from rex.snapgear.com ([203.143.235.140]:50176 "EHLO
+	cyberguard.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751130AbXDQGOE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Apr 2007 02:14:04 -0400
+In-Reply-To: <E1HdgLb-0005eU-Ji@highlab.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Philip Craig <philipc@snapgear.com> wrote:
-> It sounds like it could easily be iptables related, if you have iptables
-> rules that only allow new connections in the client to server direction,
-> which is quite normal.
+Sebastian Kuzminsky wrote:
+> Weird.  Why does sending a message from the client make it go again?
 
-Sure I have those standard rules.
+The rule that allows packets with an "ESTABLISHED" state only matches
+packets for which the connection is in netfilter's conntrack table.
+The connection is removed from the table after the 5 days of idle.
+It is only added again if netfilter accepts a packet for that connection.
+So the packet from the client will cause it to be added.
 
-iptables -A INPUT -p tcp -m state --state ESTABLISHED -j ACCEPT
-iptables -A INPUT -p tcp --syn --dport ssh -j ACCEPT
-iptables -A INPUT -p tcp --syn --dport http -j ACCEPT
-... etc
+> If that's the case, it seems like a simple fix would be to enable TCP
+> keepalive in my app, that would keep netfilter from timing out, right?
+> That seems better than extending the netfilter timeout.
 
+Yes that would work.
 
-> The default iptables timeout for TCP connections is 5 days.
-> So after 5 days of idle, any packets from the server will be treated
-> as a new connection and the iptables rules will drop them.
+> How do people normally handle this?
 
-Weird.  Why does sending a message from the client make it go again?
+Change the timeout or use keepalives.  I can't think of any other way.
+The 5 days is a compromise between keeping valid connections and
+timing out dead connections.  There will always be connections for
+which it times out too fast or too slow.  I don't think there are
+any drawbacks to increasing the timeout if you aren't a router,
+but as long as there is a timeout, you need keepalives to be sure.
 
-If that's the case, it seems like a simple fix would be to enable TCP
-keepalive in my app, that would keep netfilter from timing out, right?
-That seems better than extending the netfilter timeout.
-
-How do people normally handle this?
-
-
--- 
-Sebastian Kuzminsky
