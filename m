@@ -1,39 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] [SCTP] Fix assertion
- (!atomic_read(&sk->sk_rmem_alloc)) failed message
-Date: Tue, 17 Apr 2007 12:53:30 -0700 (PDT)
-Message-ID: <20070417.125330.132931482.davem@davemloft.net>
-References: <11762400848-git-send-email-vladislav.yasevich@hp.com>
-	<11762400842444-git-send-email-vladislav.yasevich@hp.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [BRIDGE] Unaligned access on IA64 when comparing ethernet addresses
+Date: Tue, 17 Apr 2007 12:55:41 -0700
+Message-ID: <4625263D.1000709@linux-foundation.org>
+References: <4624B44A.9040509@sw.ru> <20070417.123135.56861973.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, t-fujii@nb.jp.nec.com
-To: vladislav.yasevich@hp.com
+Cc: xemul@sw.ru, netdev@vger.kernel.org, bridge@lists.osdl.org,
+	devel@openvz.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57570
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1161126AbXDQTx2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Apr 2007 15:53:28 -0400
-In-Reply-To: <11762400842444-git-send-email-vladislav.yasevich@hp.com>
+Received: from smtp.osdl.org ([65.172.181.24]:60510 "EHLO smtp.osdl.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1161159AbXDQT4J (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Apr 2007 15:56:09 -0400
+In-Reply-To: <20070417.123135.56861973.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Date: Tue, 10 Apr 2007 17:21:23 -0400
-
-> From: Tsutomu Fujii <t-fujii@nb.jp.nec.com>
-> 
-> In current implementation, LKSCTP does receive buffer accounting for
-> data in sctp_receive_queue and pd_lobby. However, LKSCTP don't do
-> accounting for data in frag_list when data is fragmented. In addition,
-> LKSCTP doesn't do accounting for data in reasm and lobby queue in
-> structure sctp_ulpq.
-> When there are date in these queue, assertion failed message is printed
-> in inet_sock_destruct because sk_rmem_alloc of oldsk does not become 0
-> when socket is destroyed.
-> 
-> Signed-off-by: Tsutomu Fujii <t-fujii@nb.jp.nec.com>
-> Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
-
-Patch applied.
+David Miller wrote:
+> From: Pavel Emelianov <xemul@sw.ru>
+> Date: Tue, 17 Apr 2007 15:49:30 +0400
+>
+>   
+>> From: Evgeny Kravtsunov <emkravts@openvz.org>
+>>
+>> compare_ether_addr() implicitly requires that the addresses
+>> passed are 2-bytes aligned in memory.
+>>
+>> This is not true for br_stp_change_bridge_id() and
+>> br_stp_recalculate_bridge_id() in which one of the addresses
+>> is unsigned char *, and thus may not be 2-bytes aligned.
+>>
+>> Signed-off-by: Evgeny Kravtsunov <emkravts@openvz.org>
+>> Signed-off-by: Kirill Korotaev <dev@openvz.org>
+>> Signed-off-by: Pavel Emelianov <xemul@openvz.org>
+>>     
+>
+> Patch applied, thank you.
+>   
+I had a better way, I'll fix.
