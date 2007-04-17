@@ -1,95 +1,78 @@
-From: <gregkh@suse.de>
-Subject: patch qeth-remove-usage-of-subsys_rwsem.patch added to gregkh-2.6 tree
-Date: Tue, 17 Apr 2007 09:52:29 -0700
-Message-ID: <20070417165444.E6072D4D35B@imap.suse.de>
-References: <20070417130138.37089b7b@gondolin.boeblingen.de.ibm.com>
-To: cornelia.huck@de.ibm.com, fpavlic@de.ibm.com, greg@kroah.com,
-	gregkh@suse.de, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.suse.de ([195.135.220.15]:58823 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1031187AbXDQQyr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Apr 2007 12:54:47 -0400
-In-Reply-To: <20070417130138.37089b7b@gondolin.boeblingen.de.ibm.com>
-Sender: netdev-owner@vger.kernel.org
+From: Jean Tourrilhes <jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH 2.6] WE-22 : prevent information leak on 64 bit
+Date: Tue, 17 Apr 2007 10:08:20 -0700
+Message-ID: <20070417170820.GB22372@bougret.hpl.hp.com>
+References: <20070323003116.GC2712@bougret.hpl.hp.com> <1175508410.23438.75.camel@johannes.berg>
+Reply-To: jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1175508410.23438.75.camel-YfaajirXv214zXjbi5bjpg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+On Mon, Apr 02, 2007 at 12:06:50PM +0200, Johannes Berg wrote:
+> 
+> Jean Tourrilhes wrote :
+> > 	Johannes Berg discovered that kernel space was leaking to
+> > userspace on 64 bit platform. He made a first patch to fix that. This
+> > is an improved version of his patch.
+> > 	This was tested on 2.6.21-rc4. Would you mind pushing that
+> > upstream ?
+> 
+> Just FYI. This patch applies with rejects in net/core/rtnetlink.c and
+> net/core/wireless.c to wireless-dev. The changes in those two files can
+> be ignored completely since they affect only the removed
+> wext-over-netlink interface.
+> 
+> johannes
 
-This is a note to let you know that I've just added the patch titled
+	I'm sorry to have to write this e-mail. But this incident is
+completely opposed to the ideal of FreeSoftware/OpenSource and
+demonstrate some of the bad politics happening in Linux.
 
-     Subject: qeth: Remove usage of subsys.rwsem
+	First, I'm the current active maintainer of the
+wext-over-netlink interface, and nobody bothered to even 'inform' me
+about its removal, let alone consult with me.
+	This shows a complete lack of courtesy and a total disrespect
+to the concept of maintainer, basically some people are just second
+class citizens.
 
-to my gregkh-2.6 tree.  Its filename is
+	Second, there is no technical justification to such decision,
+it's just plain politics. I would agree that for the vast majority of
+people, this API was useless, as any work in progress. But, it is
+maintained (by me), it is not causing any technical issue, for those
+people it's not compiled in (i.e. no bloat), it is not causing bugs
+and not preventing other code to be merged in the kernel.
+	Therefore a purely politic decision.
 
-     qeth-remove-usage-of-subsys_rwsem.patch
+	Now, I've got a problem with your attitude in this matter,
+Johannes. It's now the second time you remove features from code I
+maintain by pure fiat, and you have engaged in a long running FUD
+campain about my code. This is totally disgraceful of a Linux
+maintainer, and you should know it.
+	If the only way you have to promote your code is by actively
+destroying my code, then you have a real issue. Your code should stand
+on its own merit, without the need of attacking other people's work
+and playing political tricks.
+	I hope you will note that I never disparaged your code, I
+never prevented its inclusion in Linux and I never attempted to
+control the Linux Wireless space and left plenty of space for new
+developpers.
 
-This tree can be found at 
-    http://www.kernel.org/pub/linux/kernel/people/gregkh/gregkh-2.6/patches/
+	You still have a lot to learn, like all of us. You still don't
+understand Wireless Extensions (as your FUD shows) and why it's still
+so popular despite all its warts. You don't get the value of not
+burning bridges with other developpers and professional conduct.
 
+	By the way : don't bother replying to this e-mail, nothing
+good will come of it.
 
->From cornelia.huck@de.ibm.com  Tue Apr 17 09:44:49 2007
-From: Cornelia Huck <cornelia.huck@de.ibm.com>
-Date: Tue, 17 Apr 2007 13:01:38 +0200
-Subject: qeth: Remove usage of subsys.rwsem
-To: Greg K-H <greg@kroah.com>, Frank Pavlic <fpavlic@de.ibm.com>
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-Message-ID: <20070417130138.37089b7b@gondolin.boeblingen.de.ibm.com>
+	Have fun...
 
-the current driver tree contains the removal of subsys.rwsem.
-Unfortunately, this breaks qeth. However, it should be no problem to
-fix the walking of the devices for /proc/qeth:
-
-No need to take subsys.rwsem during walking the devices,
-driver_find_devices() should already suffice.
-
-Signed-off-by: Cornelia Huck <cornelia.huck@de.ibm.com>
-Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
-
----
- drivers/s390/net/qeth_proc.c |    2 --
- 1 file changed, 2 deletions(-)
-
---- a/drivers/s390/net/qeth_proc.c
-+++ b/drivers/s390/net/qeth_proc.c
-@@ -37,7 +37,6 @@ qeth_procfile_seq_start(struct seq_file 
- 	struct device *dev = NULL;
- 	loff_t nr = 0;
- 
--	down_read(&qeth_ccwgroup_driver.driver.bus->subsys.rwsem);
- 	if (*offset == 0)
- 		return SEQ_START_TOKEN;
- 	while (1) {
-@@ -53,7 +52,6 @@ qeth_procfile_seq_start(struct seq_file 
- static void
- qeth_procfile_seq_stop(struct seq_file *s, void* it)
- {
--	up_read(&qeth_ccwgroup_driver.driver.bus->subsys.rwsem);
- }
- 
- static void *
-
-
-Patches currently in gregkh-2.6 which might be from cornelia.huck@de.ibm.com are
-
-driver/driver-core-per-subsystem-multithreaded-probing.patch
-driver/driver-core-don-t-fail-attaching-the-device-if-it-cannot-be-bound.patch
-driver/driver-core-suppress-uevents-via-filter.patch
-driver/driver-core-switch-firmware_class-to-uevent_suppress.patch
-driver/uevent-use-add_uevent_var-instead-of-open-coding-it.patch
-driver/sysfs-add-sysfs_dirent-s_name.patch
-driver/sysfs-add-sysfs_dirent-s_parent.patch
-driver/sysfs-consolidate-sysfs_dirent-creation-functions.patch
-driver/sysfs-fix-error-handling-in-binattr-write.patch
-driver/sysfs-fix-i_ino-handling-in-sysfs.patch
-driver/sysfs-flatten-cleanup-paths-in-sysfs_add_link-and-create_dir.patch
-driver/sysfs-implement-bin_buffer.patch
-driver/sysfs-implement-kobj_sysfs_assoc_lock.patch
-driver/sysfs-make-sysfs_dirent-s_element-a-union.patch
-driver/sysfs-move-release_sysfs_dirent-to-dir.c.patch
-driver/sysfs-reimplement-symlink-using-sysfs_dirent-tree.patch
-driver/sysfs-implement-sysfs_dirent-active-reference-and-immediate-disconnect.patch
-driver/sysfs-kill-attribute-file-orphaning.patch
-driver/sysfs-kill-unnecessary-attribute-owner.patch
-driver/sysfs-make-lockdep-ignore-s_active.patch
-driver/kobject-kobject_add-reference-leak.patch
-driver/qeth-remove-usage-of-subsys_rwsem.patch
+	Jean
