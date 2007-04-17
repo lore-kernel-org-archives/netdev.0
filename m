@@ -1,51 +1,44 @@
-From: Cornelia Huck <cornelia.huck@de.ibm.com>
-Subject: [Patch driver tree] qeth: Remove usage of subsys.rwsem
-Date: Tue, 17 Apr 2007 13:01:38 +0200
-Message-ID: <20070417130138.37089b7b@gondolin.boeblingen.de.ibm.com>
+From: Mitsuru Chinen <mitch@linux.vnet.ibm.com>
+Subject: [PATCH 0/6] SNMP: new statistics specified in RFC4293
+Date: Tue, 17 Apr 2007 20:09:44 +0900
+Message-ID: <20070417200944.bd82ded2.mitch@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel <linux-kernel@vger.kernel.org>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Greg K-H <greg@kroah.com>, Frank Pavlic <fpavlic@de.ibm.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate7.de.ibm.com ([195.212.29.156]:38065 "EHLO
-	mtagate7.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753625AbXDQK7H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Apr 2007 06:59:07 -0400
+Received: from e4.ny.us.ibm.com ([32.97.182.144]:36809 "EHLO e4.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753648AbXDQLJ5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Apr 2007 07:09:57 -0400
+Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
+	by e4.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l3HB9vEq005183
+	for <netdev@vger.kernel.org>; Tue, 17 Apr 2007 07:09:57 -0400
+Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
+	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v8.3) with ESMTP id l3HB9vMW556928
+	for <netdev@vger.kernel.org>; Tue, 17 Apr 2007 07:09:57 -0400
+Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
+	by d01av02.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l3HB9oFp019976
+	for <netdev@vger.kernel.org>; Tue, 17 Apr 2007 07:09:50 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Hi all,
 
-the current driver tree contains the removal of subsys.rwsem.
-Unfortunately, this breaks qeth. However, it should be no problem to
-fix the walking of the devices for /proc/qeth:
+Let me post a patch set to net-2.6.22 tree for new IPv4 statistics
+specified in the updated RFC (RFC4293). All of them (except broadcast
+statistics) are already supported in IPv6 stack. However they are not
+supported in IPv4 stack yet.
 
-No need to take subsys.rwsem during walking the devices,
-driver_find_devices() should already suffice.
+The patch set consists of following 6 patches:
 
-Signed-off-by: Cornelia Huck <cornelia.huck@de.ibm.com>
+  [PATCH 1/6] SNMP: Add definitions for {In,Out}BcastPkts
+  [PATCH 2/6] [IPV4] SNMP: Support InNoRoutes
+  [PATCH 3/6] [IPV4] SNMP: Support InTruncatedPkts
+  [PATCH 4/6] [IPV4] SNMP: Support InMcastPkts and InBcastPkts
+  [PATCH 5/6] [IPV4] SNMP: Support OutMcastPkts and OutBcastPkts
+  [PATCH 6/6] [IPV4] SNMP: Display new statistics at /proc/net/snmp
 
----
- drivers/s390/net/qeth_proc.c |    2 --
- 1 files changed, 2 deletions(-)
-
---- linux.orig/drivers/s390/net/qeth_proc.c
-+++ linux/drivers/s390/net/qeth_proc.c
-@@ -37,7 +37,6 @@ qeth_procfile_seq_start(struct seq_file 
- 	struct device *dev = NULL;
- 	loff_t nr = 0;
- 
--	down_read(&qeth_ccwgroup_driver.driver.bus->subsys.rwsem);
- 	if (*offset == 0)
- 		return SEQ_START_TOKEN;
- 	while (1) {
-@@ -53,7 +52,6 @@ qeth_procfile_seq_start(struct seq_file 
- static void
- qeth_procfile_seq_stop(struct seq_file *s, void* it)
- {
--	up_read(&qeth_ccwgroup_driver.driver.bus->subsys.rwsem);
- }
- 
- static void *
+Best Regards,
+----
+Mitsuru Chinen <mitch@linux.vnet.ibm.com>
