@@ -1,47 +1,69 @@
-From: Pavel Emelianov <xemul@sw.ru>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Subject: Re: [NETLINK] Don't attach callback to a going-away netlink socket
-Date: Wed, 18 Apr 2007 13:03:56 +0400
-Message-ID: <4625DEFC.7040701@sw.ru>
-References: <4625D3D2.9030507@sw.ru> <20070418081707.GA29267@2ka.mipt.ru> <4625D7A8.5030209@sw.ru> <20070418084416.GB4241@2ka.mipt.ru>
+Date: Wed, 18 Apr 2007 13:07:20 +0400
+Message-ID: <20070418090720.GA25070@2ka.mipt.ru>
+References: <4625D3D2.9030507@sw.ru> <20070418081707.GA29267@2ka.mipt.ru> <4625D637.2040308@trash.net> <20070418084206.GA4241@2ka.mipt.ru> <4625DBE2.5090402@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=KOI8-R
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
+Content-Type: text/plain; charset=koi8-r
+Cc: Pavel Emelianov <xemul@sw.ru>, David Miller <davem@davemloft.net>,
 	Linux Netdev List <netdev@vger.kernel.org>,
 	Andrew Morton <akpm@osdl.org>,
 	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	devel@openvz.org, Patrick McHardy <kaber@trash.net>,
-	Kirill Korotaev <dev@openvz.org>
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161460AbXDRI7H@vger.kernel.org>
-In-Reply-To: <20070418084416.GB4241@2ka.mipt.ru>
-Sender: linux-kernel-owner@vger.kernel.org
+	devel@openvz.org, Kirill Korotaev <dev@openvz.org>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:59622 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751570AbXDRJIN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Apr 2007 05:08:13 -0400
+Content-Disposition: inline
+In-Reply-To: <4625DBE2.5090402@trash.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Evgeniy Polyakov wrote:
-> On Wed, Apr 18, 2007 at 12:32:40PM +0400, Pavel Emelianov (xemul@sw.ru) wrote:
->> Evgeniy Polyakov wrote:
->>> On Wed, Apr 18, 2007 at 12:16:18PM +0400, Pavel Emelianov (xemul@sw.ru) wrote:
->>>> Sorry, I forgot to put netdev and David in Cc when I first sent it.
->>>>
->>>> There is a race between netlink_dump_start() and netlink_release()
->>>> that can lead to the situation when a netlink socket with non-zero
->>>> callback is freed.
->>> Out of curiosity, why not to fix a netlink_dump_start() to remove
->>> callback in error path, since in 'no-error' path it removes it in
->> Error path is not relevant here. The problem is that we
->> keep a calback on a socket that is about to be freed.
+On Wed, Apr 18, 2007 at 10:50:42AM +0200, Patrick McHardy (kaber@trash.net) wrote:
+> >>It already does (netlink_destroy_callback), but that doesn't help
+> >>with this race though since without this patch we don't enter the
+> >>error path.
+> > 
+> > I thought that with releasing a socket, which will have a callback
+> > attached only results in a leak of the callback? In that case we can
+> > just free it in dump() just like it is done in no-error path already.
+> > Or do I miss something additional?
 > 
-> Yes, you are right, that it will not be freed in netlink_release(), 
-> but it will be freed in netlink_dump() after it is processed (in no-error 
-> path only though).
+> That would only work if there is nothing to dump (cb->dump returns 0).
+> Otherwise it is not freed.
+
+That is what I referred to as error path. Btw, with positive return
+value we end up in subsequent call to input which will free callback
+under lock as expected.
+
+I do not object against the patch, just want to make a clear vision about
+dumps - if callback is allocated to be used in dump only, then we could
+just free it there without passing to next round.
+
+> >>The problem is asynchronous processing of the dump request in the
+> >>context of a different process. Process requests a dump, message
+> >>is queued and process returns from sendmsg since some other process
+> >>is already processing the queue. Then the process closes the socket,
+> >>resulting in netlink_release being called. When the dump request
+> >>is finally processed the race Pavel described might happen. This
+> >>can only happen for netlink families that use mutex_try_lock for
+> >>queue processing of course.
+> > 
+> > 
+> > Doesn't it called from ->sk_data_ready() which is synchronous with
+> > respect to sendmsg, not sure about conntrack though, but it looks so?
 > 
+> 
+> Yes, but for kernel sockets we end up calling the input function,
+> which when mutex_trylock is used returns immediately when some
+> other process is already processing the queue, so the requesting
+> process might close the socket before the request is processed.
 
-But error path will leak it. On success path we would have
-a leaked packet in sk_write_queue, since we did't see it in
-skb_queue_purge() while doing netlink_release().
+So far it is only netfilter and gennetlink, we would see huge dump 
+from netlink_sock_destruct.
+Anyway, that is possible situation, thanks for clearing this up.
 
-Of course we can place the struts in code to handle the case
-when we have a released socket with the attached callback, but
-it is more correct (IMHO) not to allow to attach the callbacks
-to dead sockets.
+-- 
+	Evgeniy Polyakov
