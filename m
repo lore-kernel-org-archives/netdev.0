@@ -1,66 +1,54 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH 2.6] WE-22 : prevent information leak on 64 bit
-Date: Wed, 18 Apr 2007 12:18:11 +0200
-Message-ID: <1176891491.6141.63.camel@johannes.berg>
-References: <20070323003116.GC2712@bougret.hpl.hp.com>
-	 <1175508410.23438.75.camel@johannes.berg>
-	 <20070417170820.GB22372@bougret.hpl.hp.com>
+From: Keiichi KII <k-keiichi@bx.jp.nec.com>
+Subject: [RFC][PATCH -mm take4 0/6] proposal for dynamic configurable netconsole
+Date: Wed, 18 Apr 2007 20:49:48 +0900
+Message-ID: <462605DC.2080804@bx.jp.nec.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-CrSHNBiciv6FsUBsIlJ3"
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
+Content-Type: text/plain; charset=ISO-2022-JP
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, linux-kernel-owner@vger.kernel.org,
 	netdev@vger.kernel.org
-To: jt@hpl.hp.com
+To: mpm@selenic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:33746 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1422808AbXDRKPy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Apr 2007 06:15:54 -0400
-In-Reply-To: <20070417170820.GB22372@bougret.hpl.hp.com>
+Received: from TYO201.gate.nec.co.jp ([202.32.8.193]:61733 "EHLO
+	tyo201.gate.nec.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1422887AbXDRLuS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Apr 2007 07:50:18 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Keiichi KII <k-keiichi@bx.jp.nec.com>
 
---=-CrSHNBiciv6FsUBsIlJ3
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+The netconsole is a very useful module for collecting kernel message under
+certain circumstances(e.g. disk logging fails, serial port is unavailable).
 
-Jean,
+But current netconsole is not flexible. For example, if you want to change ip
+address for logging agent, in the case of built-in netconsole, you can't change
+config except for changing boot parameter and rebooting your system, or in the
+case of module netconsole, you need to remove it and reload with different
+parameters.
 
-> 	First, I'm the current active maintainer of the
-> wext-over-netlink interface, and nobody bothered to even 'inform' me
-> about its removal, let alone consult with me.
+By adopting my patches, the current netconsole becomes a little complex.
+But the kernel messages(especially panic messages) is significant information
+ to solve bugs and troubles promptly and we have been losing serial console
+port with PCs and Servers.
 
-I definitely should have copied you on the feature-removal schedule
-patch for wext-over-netlink and then the actual removal in wireless-dev;
-please accept my apologies for not doing that, it was not done in bad
-faith. It was never my intention to demote you to a "second class
-citizen", I'm sorry you feel that way.
+I think that we need the environment in which we can collect kernel messages
+flexibly.
 
-I have previously (and multiple times) given technical justification for
-removing this code (even recorded in the kernel changelog now) and I
-contend your allegation that it is a political issue. Others in this
-thread have pointed out the technical issues with wext and wext/nl so I
-will not repeat them.
+So, I propose the following extended features for netconsole.
 
-I hope that despite my mistakes in handling the wext/nl removal we will
-be able to work together in the future to have wext fully supported with
-clear semantics for backwards compatibility while the kernel internally
-migrates towards cfg80211.
+1) support for multiple logging agents.
+2) add interface to access each parameter of netconsole
+   using sysfs.
 
-johannes
+[changes since take3]
+-changing kernel base from 2.6.21-rc3-mm2 to 2.6.21-rc6-mm1.
+-introducing CONFIG_NETCONSOLE_DYNCON.
+-cleanup
 
---=-CrSHNBiciv6FsUBsIlJ3
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
+Your comments are very welcome.
 
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iD8DBQBGJfBi/ETPhpq3jKURAmQwAKCnkstoiNfYGyE6NocnCIISsRHiIACfTPzm
-Vx24BYZqnoPVGRm8qiu3Hek=
-=DqGm
------END PGP SIGNATURE-----
-
---=-CrSHNBiciv6FsUBsIlJ3--
+Signed-off-by: Keiichi KII <k-keiichi@bx.jp.nec.com>
+Signed-off-by: Takayoshi Kochi <t-kochi@bq.jp.nec.com>
+---
 
