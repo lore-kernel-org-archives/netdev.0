@@ -1,374 +1,122 @@
-From: Keiichi KII <k-keiichi@bx.jp.nec.com>
-Subject: [RFC][PATCH -mm take4 6/6] add ioctls for adding/removing target
-Date: Wed, 18 Apr 2007 21:14:55 +0900
-Message-ID: <46260BBF.2070202@bx.jp.nec.com>
-References: <462605DC.2080804@bx.jp.nec.com>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: kernel BUG at net/core/skbuff.c in linux-2.6.21-rc6
+Date: Wed, 18 Apr 2007 14:42:33 +0200
+Message-ID: <20070418124233.GA2218@ff.dom.local>
+References: <17953.30429.220756.818283@cargo.ozlabs.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, kaber@trash.net,
+	poemann@gmail.com, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
-To: mpm@selenic.com
+To: Paul Mackerras <paulus@samba.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from TYO202.gate.nec.co.jp ([202.32.8.206]:45895 "EHLO
-	tyo202.gate.nec.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1422957AbXDRMPG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Apr 2007 08:15:06 -0400
-In-Reply-To: <462605DC.2080804@bx.jp.nec.com>
+Received: from mx2.go2.pl ([193.17.41.42]:56379 "EHLO poczta.o2.pl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1422897AbXDRMhB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Apr 2007 08:37:01 -0400
+Content-Disposition: inline
+In-Reply-To: <17953.30429.220756.818283@cargo.ozlabs.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Keiichi KII <k-keiichi@bx.jp.nec.com>
+Hi,
 
-We add ioctls for adding/removing target.
-If we use NETCONSOLE_ADD_TARGET ioctl, 
-we can dynamically add netconsole target.
-If we use NETCONSOLE_REMOVE_TARGET ioctl,
-we can dynamically remoe netconsole target.
+I didn't analyse this bug report but probably it
+is nearly connected with one of the bugs visible in
+a log from this submit:
 
-We attach a sample program for ioctl.
+http://bugzilla.kernel.org/show_bug.cgi?id=8132
 
-Signed-off-by: Keiichi KII <k-keiichi@bx.jp.nec.com>
-Signed-off-by: Takayoshi Kochi <t-kochi@bq.jp.nec.com>
----
-/*
- * This software is a sample program for ioctl of netconsole.
- * You can add/remove netconsole port by using this software.
- *
- * Keiichi KII <k-keiichi@bx.jp.nec.com>
- * Copyright (C) 2007 by Keiichi KII
- * This software is under GPL version 2 of the license.
- */
+On 15-04-2007 02:50, Paul Mackerras wrote:
+> David Miller writes:
+> 
+>> Here is Patrick McHardy's patch:
+> 
+> So this doesn't change process_input_packet(), which treats the case
+> where the first byte is 0xff (PPP_ALLSTATIONS) but the second byte is
+> 0x03 (PPP_UI) as indicating a packet with a PPP protocol number of
+> 0xff.  Arguably that's wrong since PPP protocol 0xff is reserved, and
+> the RFC does envision the possibility of receiving frames where the
+> control field has values other than 0x03.
+> 
+> Therefore I think this patch is probably better.  Could people try it
+> out and let me know if it fixes the problem?
+> 
+> Paul.
+> 
+> diff --git a/drivers/net/ppp_async.c b/drivers/net/ppp_async.c
+> index 933e2f3..caabbc4 100644
+> --- a/drivers/net/ppp_async.c
+> +++ b/drivers/net/ppp_async.c
+> @@ -802,9 +802,9 @@ process_input_packet(struct asyncppp *ap)
+>  
+>  	/* check for address/control and protocol compression */
+>  	p = skb->data;
+> -	if (p[0] == PPP_ALLSTATIONS && p[1] == PPP_UI) {
+> +	if (p[0] == PPP_ALLSTATIONS) {
+>  		/* chop off address/control */
+> -		if (skb->len < 3)
+> +		if (p[1] != PPP_UI || skb->len < 3)
+>  			goto err;
+>  		p = skb_pull(skb, 2);
+>  	}
 
-#include <stdio.h>
-#include <unistd.h>
-#include <string.h>
-#include <stdlib.h>
-#include <stropts.h>
-#include <fcntl.h>
-#include <arpa/inet.h>
-#include <net/if.h>
-#include <linux/if_ether.h>
-#include <linux/netconsole.h>
+Let's look farther:
 
-#define NETCONSOLE_DEV_NAME "/dev/netconsole"
-#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
+>        proto = p[0];
+>        if (proto & 1) {
+>                /* protocol is compressed */
+>                skb_push(skb, 1)[0] = 0;
 
-struct command {
-	char *name;
-	char *options;
-	int (*handle_command)(struct command* command, int argc, char* argv[]);
-	void (*usage)(char *msg);
-};
+BTW - about Patrick's patch:
 
-extern char *optarg;
-extern int opterr, optind, errno;
+skb_push seems to be dependent here on the 1-st char of
+skb->data, if above (p[0] != PPP_ALLSTATIONS), but on the
+3-rd char otherwise (after skb_pull). But, Patrick's patch
+reserves the place for this, looking always at 1-st char
+(buf[0]) independently of PPP_ALLSTATIONS char presence,
+or otherwise - always treating this char as protocol char.
+It looks safe because of PPP_ALLSTATION current value,
+but isn't too understandable.
 
-static void generic_usage(char *msg) {
-	fprintf(stderr, "Usage  : netconfig command [option] [args]\n");
-	fprintf(stderr, "command: add remove help\n");
-	exit(-1);
-}
+On the other hand, without any reservation in the
+ppp_async_input for the (buf[0] == PPP_ALLSTATIONS) case,
+probably 4-byte alignement isn't achieved as planned. 
 
-static int handle_command_add(struct command* command, int argc, char** argv)
-{
-	int i, fd, ch;
-	unsigned int address;
-	unsigned char mac[ETH_ALEN];
-	struct netconsole_request req = {
-		.netdev_name = "eth0",
-		.local_port = 6665,
-		.remote_port = 6666,
-		.remote_mac = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF},
-	};
+>        } else {
+>                if (skb->len < 2)
+>                        goto err;
+>                proto = (proto << 8) + p[1];
+>                if (proto == PPP_LCP)
+>                        async_lcp_peek(ap, p, skb->len, 1);
+>        }
+>
+>        /* queue the frame to be processed */
+>        skb->cb[0] = ap->state;
+>        skb_queue_tail(&ap->rqueue, skb);
+>        ap->rpkt = NULL;
+>        ap->state = 0;
+>        return;
+>
+> err:
+>        /* frame had an error, remember that, reset SC_TOSS & SC_ESCAPE */
+>        ap->state = SC_PREV_ERROR;
+>        if (skb) {
+>                /* make skb appear as freshly allocated */
 
-	while ((ch = getopt(argc, argv, command->options)) != -1) {
-		switch (ch) {
-		case 'p':
-			req.local_port = atoi(optarg);
-			break;
-		case 's':
-			address = inet_addr(optarg);
-			if (address == -1)
-				(*command->usage)("invlid IP address!\n");
-			req.local_ip = address;
-			break;
-		case 'h':
-		default:
-			(*command->usage)(NULL);
-		}
-	}
-	argc -= optind;
-	argv += optind;
+Probably this isn't always true and here the problem
+started...
 
-	if (argc < 3 || argc > 4)
-		(*command->usage)(NULL);
+>                skb_trim(skb, 0);
+>                skb_reserve(skb, - skb_headroom(skb));
 
-	memcpy(req.netdev_name, argv[0], IFNAMSIZ);
-	address = inet_addr(argv[1]);
-	if (address == -1)
-		(*command->usage)("invlid IP address!\n");
-	req.remote_ip = address;
-	req.remote_port = atoi(argv[2]);
-	if (argc == 4) {
-		i = 0;
-		mac[i++] = strtol(argv[3], NULL, 16);
-		while ((argv[3] = strchr(argv[3], ':')) != NULL) {
-			argv[3]++;
-			mac[i++] = strtol(argv[3], NULL, 16);
-		}
-		if (i != ETH_ALEN)
-			(*command->usage)("Invalid MAC address!\n");
-		memcpy(req.remote_mac, mac, ETH_ALEN);
-	}
+Isn't here lost e.g. NET_SKB_PAD probably reserved by
+dev_alloc_skb?
 
-	fd = open(NETCONSOLE_DEV_NAME, O_RDWR);
-	if (fd < 0) {
-		fprintf(stderr, "cannot open device" NETCONSOLE_DEV_NAME "\n");
-		return -1;
-	}
+On the other hand - this kind of pad can very good hide
+similar reservation problems in many other places - maybe
+it should be omitted or somehow counted in WARNs when some
+debugging options are active?
 
-	if(ioctl(fd, NETCON_ADD_TARGET, &req) != 0)
-		perror("add");
-	close(fd);
-
-	return 0;
-}
-
-static void usage_add(char *msg)
-{
-	if (msg != NULL)
-		fprintf(stderr, "%s", msg);
-	fprintf(stderr, "Usage  : netconfig add [-options] dev_name remote_ip "
-		"remote_port [remote_mac]\n");
-	fprintf(stderr, "options:\n");
-	fprintf(stderr, "        -p local_port     :local port number\n");
-	fprintf(stderr, "        -s local_up       :local IP address\n");
-	exit(-1);
-}
-
-static int handle_command_remove(struct command *command,
-				 int argc, char** argv)
-{
-	int fd, id, ch;
-
-	while ((ch = getopt(argc, argv, command->options)) != -1) {
-		switch (ch) {
-		case 'h':
-		default:
-			(*command->usage)(NULL);
-		}
-	}
-	argc -= optind;
-	argv += optind;
-
-	if (argc != 1)
-		(*command->usage)(NULL);
-
-	id = atoi(argv[0]);
-	fd = open(NETCONSOLE_DEV_NAME, O_RDWR);
-	if (fd < 0) {
-		fprintf(stderr, "can't open device " NETCONSOLE_DEV_NAME "\n");
-		return -1;
-	}
-	if(ioctl(fd, NETCON_REMOVE_TARGET, &id) != 0)
-		perror("remove");
-	close(fd);
-
-	return 0;
-}
-
-static void usage_remove(char *msg)
-{
-	fprintf(stderr, "Usage  : netconfig remove id\n");
-	exit(-1);
-}
-
-static int handle_command_help(struct command *command, int argc, char** argv)
-{
-	(*command->usage)(NULL);
-
-	return 0;
-}
-
-static void usage_help(char *msg)
-{
-	generic_usage(NULL);
-}
-
-static struct command s_commands[] = {
-	{"add", "hp:s:", handle_command_add, usage_add},
-	{"remove", "hp:", handle_command_remove, usage_remove},
-	{"help", NULL, handle_command_help, usage_help},
-};
-
-int main(int argc, char* argv[])
-{
-	int i;
-	struct command *command = NULL;
-
-	for(i = 0; i < ARRAY_SIZE(s_commands); i++) {
-		if (argc <= 1)
-			break;
-		if (strcmp(s_commands[i].name, argv[1]) == 0) {
-			command = &s_commands[i];
-			break;
-		}
-	}
-
-	if (command == NULL)
-		generic_usage(NULL);
-	argc--;
-	argv++;
-
-	if (command->handle_command)
-		(*command->handle_command)(command, argc, argv);
-	else {
-		fprintf(stderr, "function handle_command() isn't set.");
-		exit(-1);
-	}
-	return 0;
-}
-Index: mm/fs/compat_ioctl.c
-===================================================================
---- mm.orig/fs/compat_ioctl.c
-+++ mm/fs/compat_ioctl.c
-@@ -116,6 +116,8 @@
- #include <linux/dvb/video.h>
- #include <linux/lp.h>
- 
-+#include <linux/netconsole.h>
-+
- static int do_ioctl32_pointer(unsigned int fd, unsigned int cmd,
- 			      unsigned long arg, struct file *f)
- {
-Index: mm/include/linux/compat_ioctl.h
-===================================================================
---- mm.orig/include/linux/compat_ioctl.h
-+++ mm/include/linux/compat_ioctl.h
-@@ -828,3 +828,6 @@ COMPATIBLE_IOCTL(VIDEO_GET_NAVI)
- COMPATIBLE_IOCTL(VIDEO_SET_ATTRIBUTES)
- COMPATIBLE_IOCTL(VIDEO_GET_SIZE)
- COMPATIBLE_IOCTL(VIDEO_GET_FRAME_RATE)
-+/* netconsole */
-+COMPATIBLE_IOCTL(NETCON_ADD_TARGET)
-+ULONG_IOCTL(NETCON_REMOVE_TARGET)
-Index: mm/include/linux/netconsole.h
-===================================================================
---- /dev/null
-+++ mm/include/linux/netconsole.h
-@@ -0,0 +1,18 @@
-+#ifndef __NETCONSOLE_H
-+#define __NETCONSOLE_H
-+
-+#include <linux/ioctl.h>
-+#include <linux/types.h>
-+
-+struct netconsole_request {
-+	__u32 id;
-+	__u8 netdev_name[IFNAMSIZ];
-+	__u8 remote_mac[ETH_ALEN];
-+	__u32 local_ip, remote_ip;
-+	__u16 local_port, remote_port;
-+};
-+
-+#define NETCON_ADD_TARGET _IOW(0xAE, 4, struct netconsole_request)
-+#define NETCON_REMOVE_TARGET _IOW(0xAE, 5, int)
-+
-+#endif /* __NETCONSOLE_H */
-Index: mm/drivers/net/netconsole.c
-===================================================================
---- mm.orig/drivers/net/netconsole.c
-+++ mm/drivers/net/netconsole.c
-@@ -47,6 +47,7 @@
- #include <linux/netpoll.h>
- #include <linux/miscdevice.h>
- #include <linux/inet.h>
-+#include <linux/netconsole.h>
- 
- MODULE_AUTHOR("Maintainer: Matt Mackall <mpm@selenic.com>");
- MODULE_DESCRIPTION("Console driver for network interfaces");
-@@ -313,6 +314,64 @@ static void release_target(struct kobjec
- 	remove_target(nt);
- }
- 
-+static int netconsole_ioctl(struct inode *inode, struct file *file,
-+			    unsigned int cmd, unsigned long arg)
-+{
-+	int id, count;
-+	char config[256];
-+	char *cur;
-+	struct netconsole_request req;
-+	struct netconsole_target *nt, *tmp;
-+	void __user *argp = (void __user *)arg;
-+
-+	switch (cmd) {
-+	case NETCON_ADD_TARGET:
-+		printk(KERN_INFO "netconsole: cmd=NETCON_ADD_TARGET\n");
-+		if (copy_from_user(&req, argp, sizeof(req)))
-+			return -EFAULT;
-+		cur = config;
-+		count = sprintf(cur, "%d@", req.local_port);
-+		cur += count;
-+		if (req.local_ip)
-+			count = sprintf(cur, "%d.%d.%d.%d/",
-+					NIPQUAD(req.local_ip));
-+		else
-+			count = sprintf(cur, "/");
-+		cur += count;
-+		count = sprintf(cur, "%s,", req.netdev_name);
-+		cur += count;
-+		count = sprintf(cur, "%d@", req.remote_port);
-+		cur += count;
-+		count = sprintf(cur, "%d.%d.%d.%d/",
-+				NIPQUAD(req.remote_ip));
-+		cur += count;
-+		count = sprintf(cur, "%02x:%02x:%02x:%02x:%02x:%02x",
-+				req.remote_mac[0], req.remote_mac[1],
-+				req.remote_mac[2], req.remote_mac[3],
-+				req.remote_mac[4], req.remote_mac[5]);
-+		printk(KERN_INFO "count = %d config=[%s]\n", count, config);
-+		if (add_target(config))
-+			return -EINVAL;
-+		break;
-+	case NETCON_REMOVE_TARGET:
-+		printk(KERN_INFO "netconsole: cmd=NETCON_REMOVE_TARGET\n");
-+		if (copy_from_user(&id, argp, sizeof(int)))
-+			return -EFAULT;
-+		printk(KERN_INFO "netconsole: id=%d\n", id);
-+		list_for_each_entry_safe(nt, tmp, &target_list, list) {
-+			if (nt->id == id) {
-+				kobject_unregister(&nt->obj);
-+				break;
-+			}
-+		}
-+		break;
-+	default:
-+		return -ENOTTY;
-+	}
-+
-+	return 0;
-+}
-+
- static struct sysfs_ops target_sysfs_ops = {
- 	.show = show_target_attr,
- 	.store = store_target_attr
-@@ -324,9 +383,14 @@ static struct kobj_type target_ktype = {
- 	.default_attrs = target_attrs,
- };
- 
-+static struct file_operations miscdev_fops = {
-+	.ioctl = netconsole_ioctl,
-+};
-+
- static struct miscdevice netconsole_miscdev = {
- 	.minor = MISC_DYNAMIC_MINOR,
- 	.name = "netconsole",
-+	.fops = &miscdev_fops,
- };
- 
- static struct notifier_block netconsole_notifier = {
-
--- 
-
-
+Regards,
+Jarek P.
