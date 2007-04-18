@@ -1,41 +1,96 @@
 From: Pavel Emelianov <xemul@sw.ru>
-Subject: Re: [BRIDGE] Unaligned access on IA64 when comparing ethernet addresses
-Date: Wed, 18 Apr 2007 10:43:56 +0400
-Message-ID: <4625BE2C.1030801@sw.ru>
-References: <4624B44A.9040509@sw.ru>	<20070417.123135.56861973.davem@davemloft.net>	<4625263D.1000709@linux-foundation.org>	<20070417.130929.59470175.davem@davemloft.net> <20070417133723.00031f82@mini>
+Subject: [NETLINK] Don't attach callback to a going-away netlink socket
+Date: Wed, 18 Apr 2007 12:16:18 +0400
+Message-ID: <4625D3D2.9030507@sw.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	bridge@lists.osdl.org, devel@openvz.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Cc: devel@openvz.org, Patrick McHardy <kaber@trash.net>,
+	Kirill Korotaev <dev@openvz.org>
+To: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Andrew Morton <akpm@osdl.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.233.200]:23654 "EHLO relay.sw.ru"
+Received: from mailhub.sw.ru ([195.214.233.200]:27922 "EHLO relay.sw.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752016AbXDRGjL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Apr 2007 02:39:11 -0400
-In-Reply-To: <20070417133723.00031f82@mini>
+	id S933040AbXDRIMK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Apr 2007 04:12:10 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[snip]
+Sorry, I forgot to put netdev and David in Cc when I first sent it.
 
-> --- linux-2.6.orig/net/bridge/br_private.h	2007-04-17
-> 13:26:48.000000000 -0700 +++ linux-2.6/net/bridge/br_private.h
-> 2007-04-17 13:30:29.000000000 -0700 @@ -36,7 +36,7 @@
->  {
->  	unsigned char	prio[2];
->  	unsigned char	addr[6];
-> -};
-> +} __attribute__((aligned(8)));
+There is a race between netlink_dump_start() and netlink_release()
+that can lead to the situation when a netlink socket with non-zero
+callback is freed.
 
-Why "8"? Mustn't it be "16"? Address is to be 2-bytes aligned...
+Here it is:
 
->  struct mac_addr
->  {
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+CPU1:                           CPU2
+netlink_release():              netlink_dump_start():
 
+                                sk = netlink_lookup(); /* OK */
+
+netlink_remove();
+
+spin_lock(&nlk->cb_lock);
+if (nlk->cb) { /* false */
+  ...
+}
+spin_unlock(&nlk->cb_lock);
+
+                                spin_lock(&nlk->cb_lock);
+                                if (nlk->cb) { /* false */
+                                         ...
+                                }
+                                nlk->cb = cb;
+                                spin_unlock(&nlk->cb_lock);
+                                ...
+sock_orphan(sk);
+/*
+ * proceed with releasing
+ * the socket
+ */
+
+The proposal it to make sock_orphan before detaching the callback
+in netlink_release() and to check for the sock to be SOCK_DEAD in
+netlink_dump_start() before setting a new callback.
+
+Signed-off-by: Denis Lunev <den@openvz.org>
+Signed-off-by: Kirill Korotaev <dev@openvz.org>
+Signed-off-by: Pavel Emelianov <xemul@openvz.org>
+Acked-by: Patrick McHardy <kaber@trash.net>
+
+---
+
+--- a/net/netlink/af_netlink.c	2004-10-25 12:12:23.000000000 +0400
++++ b/net/netlink/af_netlink.c	2004-10-28 16:26:12.000000000 +0400
+@@ -255,6 +255,7 @@ static int netlink_release(struct socket
+ 		return 0;
+ 
+ 	netlink_remove(sk);
++	sock_orphan(sk);
+ 	nlk = nlk_sk(sk);
+ 
+ 	spin_lock(&nlk->cb_lock);
+@@ -269,7 +270,6 @@ static int netlink_release(struct socket
+ 	/* OK. Socket is unlinked, and, therefore,
+ 	   no new packets will arrive */
+ 
+-	sock_orphan(sk);
+ 	sock->sk = NULL;
+ 	wake_up_interruptible_all(&nlk->wait);
+ 
+@@ -942,9 +942,9 @@ int netlink_dump_start(struct sock *ssk,
+ 		return -ECONNREFUSED;
+ 	}
+ 	nlk = nlk_sk(sk);
+-	/* A dump is in progress... */
++	/* A dump or destruction is in progress... */
+ 	spin_lock(&nlk->cb_lock);
+-	if (nlk->cb) {
++	if (nlk->cb || sock_flag(sk, SOCK_DEAD)) {
+ 		spin_unlock(&nlk->cb_lock);
+ 		netlink_destroy_callback(cb);
+ 		sock_put(sk);
