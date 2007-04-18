@@ -1,46 +1,43 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+From: Patrick McHardy <kaber@trash.net>
 Subject: Re: [NETLINK] Don't attach callback to a going-away netlink socket
-Date: Wed, 18 Apr 2007 13:14:18 +0400
-Message-ID: <20070418091418.GA7117@2ka.mipt.ru>
-References: <4625D3D2.9030507@sw.ru> <20070418081707.GA29267@2ka.mipt.ru> <4625D7A8.5030209@sw.ru> <20070418084416.GB4241@2ka.mipt.ru> <4625DEFC.7040701@sw.ru>
+Date: Wed, 18 Apr 2007 11:16:50 +0200
+Message-ID: <4625E202.8040604@trash.net>
+References: <4625D3D2.9030507@sw.ru> <20070418081707.GA29267@2ka.mipt.ru> <4625D637.2040308@trash.net> <20070418084206.GA4241@2ka.mipt.ru> <4625DBE2.5090402@trash.net> <20070418090720.GA25070@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: David Miller <davem@davemloft.net>,
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: Pavel Emelianov <xemul@sw.ru>, David Miller <davem@davemloft.net>,
 	Linux Netdev List <netdev@vger.kernel.org>,
 	Andrew Morton <akpm@osdl.org>,
 	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	devel@openvz.org, Patrick McHardy <kaber@trash.net>,
-	Kirill Korotaev <dev@openvz.org>
-To: Pavel Emelianov <xemul@sw.ru>
+	devel@openvz.org, Kirill Korotaev <dev@openvz.org>
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:45765 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1422689AbXDRJPQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Apr 2007 05:15:16 -0400
-Content-Disposition: inline
-In-Reply-To: <4625DEFC.7040701@sw.ru>
+Received: from stinky.trash.net ([213.144.137.162]:54710 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751682AbXDRJRH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Apr 2007 05:17:07 -0400
+In-Reply-To: <20070418090720.GA25070@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 18, 2007 at 01:03:56PM +0400, Pavel Emelianov (xemul@sw.ru) wrote:
-> > Yes, you are right, that it will not be freed in netlink_release(), 
-> > but it will be freed in netlink_dump() after it is processed (in no-error 
-> > path only though).
-> > 
+Evgeniy Polyakov wrote:
+> On Wed, Apr 18, 2007 at 10:50:42AM +0200, Patrick McHardy (kaber@trash.net) wrote:
 > 
-> But error path will leak it. On success path we would have
-> a leaked packet in sk_write_queue, since we did't see it in
-> skb_queue_purge() while doing netlink_release().
+>>>I thought that with releasing a socket, which will have a callback
+>>>attached only results in a leak of the callback? In that case we can
+>>>just free it in dump() just like it is done in no-error path already.
+>>>Or do I miss something additional?
+>>
+>>That would only work if there is nothing to dump (cb->dump returns 0).
+>>Otherwise it is not freed.
 > 
-> Of course we can place the struts in code to handle the case
-> when we have a released socket with the attached callback, but
-> it is more correct (IMHO) not to allow to attach the callbacks
-> to dead sockets.
+> 
+> That is what I referred to as error path. Btw, with positive return
+> value we end up in subsequent call to input which will free callback
+> under lock as expected.
 
-That is why I've asked why such approach is used but not freeing
-callback in errror (well, no-dump name is better to describe that path)
-path, and more generally, why callback is attached, but not freed in the
-function, but instead is freed next time dump started.
 
--- 
-	Evgeniy Polyakov
+No, nothing is going to call netlink_dump after the initial call since
+the socket is gone.
+
