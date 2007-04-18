@@ -1,54 +1,26 @@
-From: Peter Missel <peter.missel@onlinehome.de>
-Subject: Re: r8169 2.2LK: Low link speed after suspend
-Date: Wed, 18 Apr 2007 01:39:07 +0200
-Message-ID: <200704180139.07442.peter.missel@onlinehome.de>
-References: <200704162241.31729.peter.missel@onlinehome.de> <200704172236.43280.peter.missel@onlinehome.de> <20070417223027.GA9517@electric-eye.fr.zoreil.com>
+From: Philip Craig <philipc@snapgear.com>
+Subject: Re: bug in tcp?
+Date: Wed, 18 Apr 2007 10:03:02 +1000
+Message-ID: <46256036.8000308@snapgear.com>
+References: <E1HdZgM-0001n2-F0@highlab.com> <462450C5.5080702@snapgear.com> <E1HdgLb-0005eU-Ji@highlab.com> <46246572.9020108@snapgear.com> <E1HdoAU-0001Ao-T8@highlab.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+To: Sebastian Kuzminsky <seb@highlab.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.188]:52723 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1031298AbXDQXjQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Apr 2007 19:39:16 -0400
-In-Reply-To: <20070417223027.GA9517@electric-eye.fr.zoreil.com>
-Content-Disposition: inline
+Received: from rex.snapgear.com ([203.143.235.140]:55410 "EHLO
+	cyberguard.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752906AbXDRAEI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Apr 2007 20:04:08 -0400
+In-Reply-To: <E1HdoAU-0001Ao-T8@highlab.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Francois,
+Sebastian Kuzminsky wrote:
+> Why did the packet from the client cause the connection to be added back
+> to the conntrack table, but the packet from the server did not?
 
-and thanks again for the quick replies.
+Because the packet from the client was accepted (by a different
+iptables rule).
 
-> > Does this patchset work against kernel 2.6.18, or, better yet, is there a
-> > separate source package that lets me build the current driver on this
-> > older kernel?
->
-> Hardly: the r8169 driver has been modified by ~40 patches from 2.6.18 to
-> now.
->
-> There is an ugly hack^W^W quick backport for 2.6.18 at:
-> http://www.fr.zoreil.com/people/francois/backport/r8169/20070418-00
->
-> It compiles but I do not know if it works and I strongly suggest to use
-> a more recent kernel package anyway.
-
-I'll do my best - a kernel update is certainly not possible on this particular 
-machine, simply because it is a user workstation that is actually being 
-used ;)
-
-Also, mii-tool doesn't appear to be included anywhere in this (SuSE 10.2 x64) 
-installation, so I'll have to look into building this from source.
-
-Meanwhile, a new bit of information that maybe gives a hint: 
-
-ethtool -d shows reg 0x6C "PHY status" changes from 0x6b (erroneous 100TX 
-link) to 0x73 (correct 1000TX link). What ethtool dumps aren't MII registers, 
-so I doubt that this tells us anything useful, but here it is anyway.
-
-Bonne nuit!
-
-Peter
