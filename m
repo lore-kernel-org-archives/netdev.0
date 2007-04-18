@@ -1,122 +1,150 @@
 From: olof@lixom.net (Olof Johansson)
-Subject: [PATCH] [0/5] [v2] pasemi_mac: minor bugfixes
-Date: Wed, 18 Apr 2007 01:25:12 -0500
-Message-ID: <20070418062512.GB11308@lixom.net>
+Subject: [PATCH] [2/5] [v2] pasemi_mac: irq mapping changes
+Date: Wed, 18 Apr 2007 01:25:36 -0500
+Message-ID: <20070418062536.GC11308@lixom.net>
 References: <20070416061654.GB19783@lixom.net> <20070418062451.GA11308@lixom.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
 To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lixom.net ([66.141.50.11]:55023 "EHLO mail.lixom.net"
+Received: from lixom.net ([66.141.50.11]:55042 "EHLO mail.lixom.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751947AbXDRGGw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Apr 2007 02:06:52 -0400
+	id S1753708AbXDRGHQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Apr 2007 02:07:16 -0400
 Content-Disposition: inline
 In-Reply-To: <20070418062451.GA11308@lixom.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ethernet bugfixes:
-
-* Move the was_full/wake_queue logic from tx_intr to clean_tx
-* Fix polarity in checks in pasemi_mac_close
+Fixes for ethernet IRQ mapping, to be done in the driver instead of in
+the platform setup code.
 
 
 Signed-off-by: Olof Johansson <olof@lixom.net>
 
 
-Index: linux-2.6/drivers/net/pasemi_mac.c
+Index: powerpc/arch/powerpc/platforms/pasemi/pci.c
 ===================================================================
---- linux-2.6.orig/drivers/net/pasemi_mac.c
-+++ linux-2.6/drivers/net/pasemi_mac.c
-@@ -451,9 +451,12 @@ static int pasemi_mac_clean_tx(struct pa
- 	struct pas_dma_xct_descr *dp;
- 	int start, count;
- 	int flags;
-+	int was_full;
- 
- 	spin_lock_irqsave(&mac->tx->lock, flags);
- 
-+	was_full = mac->tx->next_to_clean - mac->tx->next_to_use == TX_RING_SIZE;
-+
- 	start = mac->tx->next_to_clean;
- 	count = 0;
- 
-@@ -478,6 +481,9 @@ static int pasemi_mac_clean_tx(struct pa
- 	mac->tx->next_to_clean += count;
- 	spin_unlock_irqrestore(&mac->tx->lock, flags);
- 
-+	if (was_full)
-+		netif_wake_queue(mac->netdev);
-+
- 	return count;
+--- powerpc.orig/arch/powerpc/platforms/pasemi/pci.c
++++ powerpc/arch/powerpc/platforms/pasemi/pci.c
+@@ -163,19 +163,6 @@ static void __init pas_fixup_phb_resourc
  }
  
-@@ -512,9 +518,6 @@ static irqreturn_t pasemi_mac_tx_intr(in
- 	struct net_device *dev = data;
+ 
+-void __devinit pas_pci_irq_fixup(struct pci_dev *dev)
+-{
+-	/* DMA is special, 84 interrupts (128 -> 211), all but 128
+-	 * need to be mapped by hand here.
+-	 */
+-	if (dev->vendor == 0x1959 && dev->device == 0xa007) {
+-		int i;
+-		for (i = 129; i < 212; i++)
+-			irq_create_mapping(NULL, i);
+-	}
+-}
+-
+-
+ void __init pas_pci_init(void)
+ {
+ 	struct device_node *np, *root;
+Index: powerpc/arch/powerpc/platforms/pasemi/setup.c
+===================================================================
+--- powerpc.orig/arch/powerpc/platforms/pasemi/setup.c
++++ powerpc/arch/powerpc/platforms/pasemi/setup.c
+@@ -240,5 +240,4 @@ define_machine(pas) {
+ 	.check_legacy_ioport    = pas_check_legacy_ioport,
+ 	.progress		= pas_progress,
+ 	.machine_check_exception = pas_machine_check_handler,
+-	.pci_irq_fixup		= pas_pci_irq_fixup,
+ };
+Index: powerpc/drivers/net/pasemi_mac.c
+===================================================================
+--- powerpc.orig/drivers/net/pasemi_mac.c
++++ powerpc/drivers/net/pasemi_mac.c
+@@ -33,6 +33,8 @@
+ #include <linux/tcp.h>
+ #include <net/checksum.h>
+ 
++#include <asm/irq.h>
++
+ #include "pasemi_mac.h"
+ 
+ 
+@@ -537,6 +539,7 @@ static irqreturn_t pasemi_mac_tx_intr(in
+ static int pasemi_mac_open(struct net_device *dev)
+ {
  	struct pasemi_mac *mac = netdev_priv(dev);
- 	unsigned int reg;
--	int was_full;
--
--	was_full = mac->tx->next_to_clean - mac->tx->next_to_use == TX_RING_SIZE;
++	int base_irq;
+ 	unsigned int flags;
+ 	int ret;
  
- 	if (!(*mac->tx_status & PAS_STATUS_INT))
- 		return IRQ_NONE;
-@@ -528,9 +531,6 @@ static irqreturn_t pasemi_mac_tx_intr(in
- 	pci_write_config_dword(mac->iob_pdev, PAS_IOB_DMA_TXCH_RESET(mac->dma_txch),
- 			       reg);
+@@ -600,28 +603,37 @@ static int pasemi_mac_open(struct net_de
+ 	netif_start_queue(dev);
+ 	netif_poll_enable(dev);
  
--	if (was_full)
--		netif_wake_queue(dev);
--
- 	return IRQ_HANDLED;
- }
- 
-@@ -662,40 +665,37 @@ static int pasemi_mac_close(struct net_d
- 		pci_read_config_dword(mac->dma_pdev,
- 				      PAS_DMA_TXCHAN_TCMDSTA(mac->dma_txch),
- 				      &stat);
--		if (stat & PAS_DMA_TXCHAN_TCMDSTA_ACT)
-+		if (!(stat & PAS_DMA_TXCHAN_TCMDSTA_ACT))
- 			break;
- 		cond_resched();
+-	ret = request_irq(mac->dma_pdev->irq + mac->dma_txch,
+-			  &pasemi_mac_tx_intr, IRQF_DISABLED,
++	/* Interrupts are a bit different for our DMA controller: While
++	 * it's got one a regular PCI device header, the interrupt there
++	 * is really the base of the range it's using. Each tx and rx
++	 * channel has it's own interrupt source.
++	 */
++
++	base_irq = virq_to_hw(mac->dma_pdev->irq);
++
++	mac->tx_irq = irq_create_mapping(NULL, base_irq + mac->dma_txch);
++	mac->rx_irq = irq_create_mapping(NULL, base_irq + 20 + mac->dma_txch);
++
++	ret = request_irq(mac->tx_irq, &pasemi_mac_tx_intr, IRQF_DISABLED,
+ 			  mac->tx->irq_name, dev);
+ 	if (ret) {
+ 		dev_err(&mac->pdev->dev, "request_irq of irq %d failed: %d\n",
+-		       mac->dma_pdev->irq + mac->dma_txch, ret);
++			base_irq + mac->dma_txch, ret);
+ 		goto out_tx_int;
  	}
  
--	if (!(stat & PAS_DMA_TXCHAN_TCMDSTA_ACT)) {
-+	if (stat & PAS_DMA_TXCHAN_TCMDSTA_ACT)
- 		dev_err(&mac->dma_pdev->dev, "Failed to stop tx channel\n");
--	}
- 
- 	for (retries = 0; retries < MAX_RETRIES; retries++) {
- 		pci_read_config_dword(mac->dma_pdev,
- 				      PAS_DMA_RXCHAN_CCMDSTA(mac->dma_rxch),
- 				      &stat);
--		if (stat & PAS_DMA_RXCHAN_CCMDSTA_ACT)
-+		if (!(stat & PAS_DMA_RXCHAN_CCMDSTA_ACT))
- 			break;
- 		cond_resched();
+-	ret = request_irq(mac->dma_pdev->irq + 20 + mac->dma_rxch,
+-			  &pasemi_mac_rx_intr, IRQF_DISABLED,
++	ret = request_irq(mac->rx_irq, &pasemi_mac_rx_intr, IRQF_DISABLED,
+ 			  mac->rx->irq_name, dev);
+ 	if (ret) {
+ 		dev_err(&mac->pdev->dev, "request_irq of irq %d failed: %d\n",
+-		       mac->dma_pdev->irq + 20 + mac->dma_rxch, ret);
++			base_irq + 20 + mac->dma_rxch, ret);
+ 		goto out_rx_int;
  	}
  
--	if (!(stat & PAS_DMA_RXCHAN_CCMDSTA_ACT)) {
-+	if (stat & PAS_DMA_RXCHAN_CCMDSTA_ACT)
- 		dev_err(&mac->dma_pdev->dev, "Failed to stop rx channel\n");
--	}
+ 	return 0;
  
- 	for (retries = 0; retries < MAX_RETRIES; retries++) {
- 		pci_read_config_dword(mac->dma_pdev,
- 				      PAS_DMA_RXINT_RCMDSTA(mac->dma_if),
- 				      &stat);
--		if (stat & PAS_DMA_RXINT_RCMDSTA_ACT)
-+		if (!(stat & PAS_DMA_RXINT_RCMDSTA_ACT))
- 			break;
- 		cond_resched();
- 	}
+ out_rx_int:
+-	free_irq(mac->dma_pdev->irq + mac->dma_txch, dev);
++	free_irq(mac->tx_irq, dev);
+ out_tx_int:
+ 	netif_poll_disable(dev);
+ 	netif_stop_queue(dev);
+@@ -705,8 +717,8 @@ static int pasemi_mac_close(struct net_d
+ 	pci_write_config_dword(mac->dma_pdev,
+ 			       PAS_DMA_RXINT_RCMDSTA(mac->dma_if), 0);
  
--	if (!(stat & PAS_DMA_RXINT_RCMDSTA_ACT)) {
-+	if (stat & PAS_DMA_RXINT_RCMDSTA_ACT)
- 		dev_err(&mac->dma_pdev->dev, "Failed to stop rx interface\n");
--	}
+-	free_irq(mac->dma_pdev->irq + mac->dma_txch, dev);
+-	free_irq(mac->dma_pdev->irq + 20 + mac->dma_rxch, dev);
++	free_irq(mac->tx_irq, dev);
++	free_irq(mac->rx_irq, dev);
  
- 	/* Then, disable the channel. This must be done separately from
- 	 * stopping, since you can't disable when active.
+ 	/* Free resources */
+ 	pasemi_mac_free_rx_resources(dev);
+Index: powerpc/drivers/net/pasemi_mac.h
+===================================================================
+--- powerpc.orig/drivers/net/pasemi_mac.h
++++ powerpc/drivers/net/pasemi_mac.h
+@@ -73,6 +73,8 @@ struct pasemi_mac {
+ 
+ 	struct pasemi_mac_txring *tx;
+ 	struct pasemi_mac_rxring *rx;
++	unsigned long	tx_irq;
++	unsigned long	rx_irq;
+ };
+ 
+ /* Software status descriptor (desc_info) */
