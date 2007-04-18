@@ -1,42 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [SCTP] Do not interleave non-fragments when in partial
- delivery
-Date: Wed, 18 Apr 2007 14:11:40 -0700 (PDT)
-Message-ID: <20070418.141140.66177794.davem@davemloft.net>
-References: <46266597.2000705@hp.com>
-	<20070418.132408.15264893.davem@davemloft.net>
-	<4626850A.2060008@hp.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: lksctp-developers@lists.sourceforge.net, netdev@vger.kernel.org
-To: vladislav.yasevich@hp.com
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: kernel BUG at net/core/skbuff.c in linux-2.6.21-rc6
+Date: Thu, 19 Apr 2007 07:35:47 +1000
+Message-ID: <E1HeHoZ-0000Y6-00@gondolin.me.apana.org.au>
+References: <17953.30429.220756.818283@cargo.ozlabs.ibm.com>
+Cc: davem@davemloft.net, kaber@trash.net, poemann@gmail.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: paulus@samba.org (Paul Mackerras)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43864
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S2992721AbXDRVLh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Apr 2007 17:11:37 -0400
-In-Reply-To: <4626850A.2060008@hp.com>
+Received: from rhun.apana.org.au ([64.62.148.172]:1701 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S2992815AbXDRVhG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Apr 2007 17:37:06 -0400
+In-Reply-To: <17953.30429.220756.818283@cargo.ozlabs.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Date: Wed, 18 Apr 2007 16:52:26 -0400
+Hi Paul:
 
-> David Miller wrote:
-> > From: Vlad Yasevich <vladislav.yasevich@hp.com>
-> > Date: Wed, 18 Apr 2007 14:38:15 -0400
-> > 
-> >> This is a bug fix, but done on top of 2.6.22 tree.  I am trying
-> >> to minimize the amount of conflict this would cause during merge
-> >> by doing it this way.  However, if you would rather keep all the bugfixes
-> >> in net-2.6, I can do that too, but that _will_ give you conflicts.
-> > 
-> > I've already determined that I'm destined to deal with tons
-> > of conclicts anyways :-)
-> > 
-> > I'll backport this to net-2.6 unless you beat me to it :-)
+Paul Mackerras <paulus@samba.org> wrote:
 > 
-> attached :)
+> So this doesn't change process_input_packet(), which treats the case
+> where the first byte is 0xff (PPP_ALLSTATIONS) but the second byte is
+> 0x03 (PPP_UI) as indicating a packet with a PPP protocol number of
+> 0xff.  Arguably that's wrong since PPP protocol 0xff is reserved, and
+> the RFC does envision the possibility of receiving frames where the
+> control field has values other than 0x03.
 
-Thanks a lot, applied.
+Your fix is probably needed too.  However, I think the issue that Patrick
+was trying to fix is the case where p[0] != PPP_ALLSTATIONS and therefore
+we'd still have a problem there.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
