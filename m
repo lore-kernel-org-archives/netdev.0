@@ -1,38 +1,152 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [NETLINK] Don't attach callback to a going-away netlink socket
-Date: Wed, 18 Apr 2007 13:29:03 +0400
-Message-ID: <20070418092903.GA16910@2ka.mipt.ru>
-References: <4625D3D2.9030507@sw.ru> <20070418081707.GA29267@2ka.mipt.ru> <4625D637.2040308@trash.net> <20070418084206.GA4241@2ka.mipt.ru> <4625DBE2.5090402@trash.net> <20070418090720.GA25070@2ka.mipt.ru> <4625E202.8040604@trash.net>
+From: Diego Beltrami <Diego.Beltrami@hiit.fi>
+Subject: ESP interfamily tunnel bug?
+Date: Wed, 18 Apr 2007 13:10:19 +0300
+Message-ID: <1176891019.4625ee8b2ab66@webmail.hiit.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: Pavel Emelianov <xemul@sw.ru>, David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Andrew Morton <akpm@osdl.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	devel@openvz.org, Kirill Korotaev <dev@openvz.org>
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: kaber@trash.net, kazunori@miyazawa.org,
+	herbert@gondor.apana.org.au, yoshfuji@linux-ipv6.org, miika@iki.fi
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:58273 "EHLO 2ka.mipt.ru"
+Received: from creon.otaverkko.fi ([212.68.0.5]:44195 "EHLO creon.otaverkko.fi"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1422720AbXDRJaS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Apr 2007 05:30:18 -0400
-Content-Disposition: inline
-In-Reply-To: <4625E202.8040604@trash.net>
+	id S1422797AbXDRKK0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Apr 2007 06:10:26 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 18, 2007 at 11:16:50AM +0200, Patrick McHardy (kaber@trash.net) wrote:
-> > That is what I referred to as error path. Btw, with positive return
-> > value we end up in subsequent call to input which will free callback
-> > under lock as expected.
-> 
-> 
-> No, nothing is going to call netlink_dump after the initial call since
-> the socket is gone.
+Hi,
 
-Argh, userspace socket's sk_data_rady() if dump returned positive value.
-So, callback is not freed to allow to put several pages before
-NLMSG_DONE via single dump?
+we have discovered a routing related problem in ESP tunnel and beet mode.
+We don't know whether it is a bug in the XFRM, or just in the way the
+virtual addresses and the corresponding routes are set-up. We set up a
+dummy0 device for the virtual addresses:
 
--- 
-	Evgeniy Polyakov
+root@mekong:~# ip addr show dummy0
+5: dummy0: <BROADCAST,NOARP,UP,10000> mtu 1500 qdisc noqueue
+     link/ether 92:09:fe:11:81:1b brd ff:ff:ff:ff:ff:ff
+     inet6 2001:72:e6d3:1cf3:e11d:5bb0:b99:e85e/28 scope global
+        valid_lft forever preferred_lft forever
+     inet6 2001:74:32e0:df36:e862:3963:523e:dd7d/28 scope global
+        valid_lft forever preferred_lft forever
+     inet6 2001:73:d3a8:8723:d572:7549:7f2c:e590/28 scope global
+        valid_lft forever preferred_lft forever
+     inet6 2001:75:a2e6:aad6:e901:dd1c:ba95:e300/28 scope global
+        valid_lft forever preferred_lft forever
+     inet6 fe80::9009:feff:fe11:811b/64 scope link
+        valid_lft forever preferred_lft forever
+
+And then we have routes for the virtual addresses:
+
+root@mekong:~# ip -6 route
+2001:72:e6d3:1cf3:e11d:5bb0:b99:e85e dev dummy0  metric 1024  expires
+21334305sec mtu 1500 advmss 1440 metric 10 4294967295
+2001:73:d3a8:8723:d572:7549:7f2c:e590 dev dummy0  metric 1024  expires
+21334305sec mtu 1500 advmss 1440 metric 10 4294967295
+2001:74:32e0:df36:e862:3963:523e:dd7d dev dummy0  metric 1024  expires
+21334305sec mtu 1500 advmss 1440 metric 10 4294967295
+2001:75:a2e6:aad6:e901:dd1c:ba95:e300 dev dummy0  metric 1024  expires
+21334305sec mtu 1500 advmss 1440 metric 10 4294967295
+2001:70::/28 dev dummy0  metric 256  expires 21334305sec mtu 1500 advmss
+1440 metric 10 4294967295
+fe80::/64 dev dummy0  metric 256  expires 21334305sec mtu 1500 advmss 1440
+metric 10 4294967295
+ff00::/8 dev eth0  metric 256  expires 21325454sec mtu 1500 advmss 1440
+metric 10 4294967295
+ff00::/8 dev dummy0  metric 256  expires 21334305sec mtu 1500 advmss 1440
+metric 10 4294967295
+unreachable default dev lo  proto none  metric -1  error -101 metric 10
+255
+
+...and set-up policies and associations. The virtual IPv6 addresses
+are inner and IPv4 addresses are outer addresses:
+
+root@mekong:~/projects/hipl--userspace--2.6# ip xfrm policy show
+src 2001:76:7d5a:88d7:51af:cdd1:6bf5:3d15/128 dst
+2001:74:32e0:df36:e862:3963:523e:dd7d/128
+         dir in priority 0
+         tmpl src c1a7:bb82:: dst c0a8:65::
+                 proto esp reqid 0 mode beet
+src 2001:74:32e0:df36:e862:3963:523e:dd7d/128 dst
+2001:76:7d5a:88d7:51af:cdd1:6bf5:3d15/128
+         dir out priority 0
+         tmpl src c0a8:65:: dst c1a7:bb82::
+                 proto esp reqid 0 mode beet
+
+root@mekong:~/projects/hipl--userspace--2.6# ip xfrm state show
+src 193.167.187.130 dst 192.168.0.101
+         proto esp spi 0xf556c7c7 reqid 0 mode beet
+         replay-window 0
+         auth sha1 0xab327b944011c94a0c54a097b4752e23f377ff34
+         enc aes 0x882a334830b1cd14b9e411ec37a4242f
+         encap type espinudp-nonike sport 50500 dport 50500
+               addr 193.167.187.130
+         sel src 2001:76:7d5a:88d7:51af:cdd1:6bf5:3d15/0
+             dst 2001:74:32e0:df36:e862:3963:523e:dd7d/0
+             src 192.168.0.101 dst 193.167.187.130
+         proto esp spi 0x1663f3a4 reqid 0 mode beet
+         replay-window 0
+         auth sha1 0x9f07dabce4abf2ebfe45e247ede2cf15f9156a13
+         enc aes 0xfc50593b9af6d296b042a16ca00bad20
+         encap type espinudp-nonike
+             sport 50500 dport 50500 addr 192.168.0.101
+         sel src 2001:74:32e0:df36:e862:3963:523e:dd7d/0
+             dst 2001:76:7d5a:88d7:51af:cdd1:6bf5:3d15/0
+
+And then we try to ping6 the virtual address:
+
+root@mekong:~/projects/hipl--userspace--2.6# ping6 -I
+2001:0074:32e0:df36:e862:3963:523e:dd7d
+2001:76:7d5a:88d7:51af:cdd1:6bf5:3d15
+PING
+2001:76:7d5a:88d7:51af:cdd1:6bf5:3d15(2001:76:7d5a:88d7:51af:cdd1:6bf5:3d15)
+from 2001:74:32e0:df36:e862:3963:523e:dd7d : 56 data bytes
+ping: sendmsg: Network is unreachable
+ping: sendmsg: Network is unreachable
+
+Tcpdump shows no traffic at the host. We can repeat the problem both with
+tunnel and beet modes in 2.6.21-rc6 (and also in 2.6.17.14).
+
+I have tried also "ip rule stuff" but it seems that it does not rule with
+IPv6 :) It does help either to reduce the number of virtual addresses to a
+single one. It is weird that the ESP actually works some combinations of
+virtual addresses (4 of 16) in both directions, or works unidirectionally
+on some and does not work at all on the rest. I verified the
+unidirectional property using a simple UDP based application: sender xmits
+UDP packet, receiver gets it ok, but cannot respond. So, the problem is in
+the transmission of packets.
+
+I traced the ENETUNREACH in the kernel side to here:
+
+net/ipv4/route.c:ip_route_output_slow:
+         if (fib_lookup(&fl, &res)) {
+         ....
+                if (dev_out)
+                         dev_put(dev_out);
+                 err = -ENETUNREACH;
+
+FIB lookup up is returning an error net/ipv4/fib_rules:
+
+int fib_lookup(const struct flowi *flp, struct fib_result *res)
+{
+...
+         hlist_for_each_entry_rcu(r, node, &fib_rules, hlist) {
+...
+                 case RTN_UNREACHABLE:
+                         rcu_read_unlock();
+                         return -ENETUNREACH;
+
+I wonder if the problem is related to one that Yoshifugi has filed:
+
+http://bugzilla.kernel.org/show_bug.cgi?id=8349
+
+The bug does not usually occur with machines that in the same
+physical network, so I guess it is a routing problem. Any ideas or hints?
+
+Miika & Diego
+
+
+
+
+
