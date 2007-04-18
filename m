@@ -1,152 +1,66 @@
-From: Diego Beltrami <Diego.Beltrami@hiit.fi>
-Subject: ESP interfamily tunnel bug?
-Date: Wed, 18 Apr 2007 13:10:19 +0300
-Message-ID: <1176891019.4625ee8b2ab66@webmail.hiit.fi>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH 2.6] WE-22 : prevent information leak on 64 bit
+Date: Wed, 18 Apr 2007 12:18:11 +0200
+Message-ID: <1176891491.6141.63.camel@johannes.berg>
+References: <20070323003116.GC2712@bougret.hpl.hp.com>
+	 <1175508410.23438.75.camel@johannes.berg>
+	 <20070417170820.GB22372@bougret.hpl.hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: kaber@trash.net, kazunori@miyazawa.org,
-	herbert@gondor.apana.org.au, yoshfuji@linux-ipv6.org, miika@iki.fi
-To: netdev@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-CrSHNBiciv6FsUBsIlJ3"
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: jt@hpl.hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from creon.otaverkko.fi ([212.68.0.5]:44195 "EHLO creon.otaverkko.fi"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1422797AbXDRKK0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Apr 2007 06:10:26 -0400
+Received: from crystal.sipsolutions.net ([195.210.38.204]:33746 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1422808AbXDRKPy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Apr 2007 06:15:54 -0400
+In-Reply-To: <20070417170820.GB22372@bougret.hpl.hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
 
-we have discovered a routing related problem in ESP tunnel and beet mode.
-We don't know whether it is a bug in the XFRM, or just in the way the
-virtual addresses and the corresponding routes are set-up. We set up a
-dummy0 device for the virtual addresses:
+--=-CrSHNBiciv6FsUBsIlJ3
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-root@mekong:~# ip addr show dummy0
-5: dummy0: <BROADCAST,NOARP,UP,10000> mtu 1500 qdisc noqueue
-     link/ether 92:09:fe:11:81:1b brd ff:ff:ff:ff:ff:ff
-     inet6 2001:72:e6d3:1cf3:e11d:5bb0:b99:e85e/28 scope global
-        valid_lft forever preferred_lft forever
-     inet6 2001:74:32e0:df36:e862:3963:523e:dd7d/28 scope global
-        valid_lft forever preferred_lft forever
-     inet6 2001:73:d3a8:8723:d572:7549:7f2c:e590/28 scope global
-        valid_lft forever preferred_lft forever
-     inet6 2001:75:a2e6:aad6:e901:dd1c:ba95:e300/28 scope global
-        valid_lft forever preferred_lft forever
-     inet6 fe80::9009:feff:fe11:811b/64 scope link
-        valid_lft forever preferred_lft forever
+Jean,
 
-And then we have routes for the virtual addresses:
+> 	First, I'm the current active maintainer of the
+> wext-over-netlink interface, and nobody bothered to even 'inform' me
+> about its removal, let alone consult with me.
 
-root@mekong:~# ip -6 route
-2001:72:e6d3:1cf3:e11d:5bb0:b99:e85e dev dummy0  metric 1024  expires
-21334305sec mtu 1500 advmss 1440 metric 10 4294967295
-2001:73:d3a8:8723:d572:7549:7f2c:e590 dev dummy0  metric 1024  expires
-21334305sec mtu 1500 advmss 1440 metric 10 4294967295
-2001:74:32e0:df36:e862:3963:523e:dd7d dev dummy0  metric 1024  expires
-21334305sec mtu 1500 advmss 1440 metric 10 4294967295
-2001:75:a2e6:aad6:e901:dd1c:ba95:e300 dev dummy0  metric 1024  expires
-21334305sec mtu 1500 advmss 1440 metric 10 4294967295
-2001:70::/28 dev dummy0  metric 256  expires 21334305sec mtu 1500 advmss
-1440 metric 10 4294967295
-fe80::/64 dev dummy0  metric 256  expires 21334305sec mtu 1500 advmss 1440
-metric 10 4294967295
-ff00::/8 dev eth0  metric 256  expires 21325454sec mtu 1500 advmss 1440
-metric 10 4294967295
-ff00::/8 dev dummy0  metric 256  expires 21334305sec mtu 1500 advmss 1440
-metric 10 4294967295
-unreachable default dev lo  proto none  metric -1  error -101 metric 10
-255
+I definitely should have copied you on the feature-removal schedule
+patch for wext-over-netlink and then the actual removal in wireless-dev;
+please accept my apologies for not doing that, it was not done in bad
+faith. It was never my intention to demote you to a "second class
+citizen", I'm sorry you feel that way.
 
-...and set-up policies and associations. The virtual IPv6 addresses
-are inner and IPv4 addresses are outer addresses:
+I have previously (and multiple times) given technical justification for
+removing this code (even recorded in the kernel changelog now) and I
+contend your allegation that it is a political issue. Others in this
+thread have pointed out the technical issues with wext and wext/nl so I
+will not repeat them.
 
-root@mekong:~/projects/hipl--userspace--2.6# ip xfrm policy show
-src 2001:76:7d5a:88d7:51af:cdd1:6bf5:3d15/128 dst
-2001:74:32e0:df36:e862:3963:523e:dd7d/128
-         dir in priority 0
-         tmpl src c1a7:bb82:: dst c0a8:65::
-                 proto esp reqid 0 mode beet
-src 2001:74:32e0:df36:e862:3963:523e:dd7d/128 dst
-2001:76:7d5a:88d7:51af:cdd1:6bf5:3d15/128
-         dir out priority 0
-         tmpl src c0a8:65:: dst c1a7:bb82::
-                 proto esp reqid 0 mode beet
+I hope that despite my mistakes in handling the wext/nl removal we will
+be able to work together in the future to have wext fully supported with
+clear semantics for backwards compatibility while the kernel internally
+migrates towards cfg80211.
 
-root@mekong:~/projects/hipl--userspace--2.6# ip xfrm state show
-src 193.167.187.130 dst 192.168.0.101
-         proto esp spi 0xf556c7c7 reqid 0 mode beet
-         replay-window 0
-         auth sha1 0xab327b944011c94a0c54a097b4752e23f377ff34
-         enc aes 0x882a334830b1cd14b9e411ec37a4242f
-         encap type espinudp-nonike sport 50500 dport 50500
-               addr 193.167.187.130
-         sel src 2001:76:7d5a:88d7:51af:cdd1:6bf5:3d15/0
-             dst 2001:74:32e0:df36:e862:3963:523e:dd7d/0
-             src 192.168.0.101 dst 193.167.187.130
-         proto esp spi 0x1663f3a4 reqid 0 mode beet
-         replay-window 0
-         auth sha1 0x9f07dabce4abf2ebfe45e247ede2cf15f9156a13
-         enc aes 0xfc50593b9af6d296b042a16ca00bad20
-         encap type espinudp-nonike
-             sport 50500 dport 50500 addr 192.168.0.101
-         sel src 2001:74:32e0:df36:e862:3963:523e:dd7d/0
-             dst 2001:76:7d5a:88d7:51af:cdd1:6bf5:3d15/0
+johannes
 
-And then we try to ping6 the virtual address:
+--=-CrSHNBiciv6FsUBsIlJ3
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
 
-root@mekong:~/projects/hipl--userspace--2.6# ping6 -I
-2001:0074:32e0:df36:e862:3963:523e:dd7d
-2001:76:7d5a:88d7:51af:cdd1:6bf5:3d15
-PING
-2001:76:7d5a:88d7:51af:cdd1:6bf5:3d15(2001:76:7d5a:88d7:51af:cdd1:6bf5:3d15)
-from 2001:74:32e0:df36:e862:3963:523e:dd7d : 56 data bytes
-ping: sendmsg: Network is unreachable
-ping: sendmsg: Network is unreachable
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
 
-Tcpdump shows no traffic at the host. We can repeat the problem both with
-tunnel and beet modes in 2.6.21-rc6 (and also in 2.6.17.14).
+iD8DBQBGJfBi/ETPhpq3jKURAmQwAKCnkstoiNfYGyE6NocnCIISsRHiIACfTPzm
+Vx24BYZqnoPVGRm8qiu3Hek=
+=DqGm
+-----END PGP SIGNATURE-----
 
-I have tried also "ip rule stuff" but it seems that it does not rule with
-IPv6 :) It does help either to reduce the number of virtual addresses to a
-single one. It is weird that the ESP actually works some combinations of
-virtual addresses (4 of 16) in both directions, or works unidirectionally
-on some and does not work at all on the rest. I verified the
-unidirectional property using a simple UDP based application: sender xmits
-UDP packet, receiver gets it ok, but cannot respond. So, the problem is in
-the transmission of packets.
-
-I traced the ENETUNREACH in the kernel side to here:
-
-net/ipv4/route.c:ip_route_output_slow:
-         if (fib_lookup(&fl, &res)) {
-         ....
-                if (dev_out)
-                         dev_put(dev_out);
-                 err = -ENETUNREACH;
-
-FIB lookup up is returning an error net/ipv4/fib_rules:
-
-int fib_lookup(const struct flowi *flp, struct fib_result *res)
-{
-...
-         hlist_for_each_entry_rcu(r, node, &fib_rules, hlist) {
-...
-                 case RTN_UNREACHABLE:
-                         rcu_read_unlock();
-                         return -ENETUNREACH;
-
-I wonder if the problem is related to one that Yoshifugi has filed:
-
-http://bugzilla.kernel.org/show_bug.cgi?id=8349
-
-The bug does not usually occur with machines that in the same
-physical network, so I guess it is a routing problem. Any ideas or hints?
-
-Miika & Diego
-
-
-
-
+--=-CrSHNBiciv6FsUBsIlJ3--
 
