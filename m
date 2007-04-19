@@ -1,31 +1,34 @@
-From: "Jonathan Hutchins" <hutchins@tarcanfel.org>
-Subject: tiacx100 problem
-Date: Thu, 19 Apr 2007 15:30:19 -0500 (CDT)
-Message-ID: <34104.192.168.76.5.1177014619.squirrel@mercury>
+From: "Chris Friesen" <cfriesen@nortel.com>
+Subject: Re: AF_PACKET how to get the original netdev from a packet received
+ from a bonded master
+Date: Thu, 19 Apr 2007 14:55:33 -0600
+Message-ID: <4627D745.2000004@nortel.com>
+References: <41b516cb0704181652o6a05b570t511ee23373a0b3ac@mail.gmail.com> <20070418.170749.07021824.davem@davemloft.net> <41b516cb0704181717l2c6c15a0j9ae275d15c6b22f4@mail.gmail.com> <20070418.180622.35354420.davem@davemloft.net> <41b516cb0704181902q646c4f9bvc34e79393ee974a3@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, chavey@google.com,
+	netdev@vger.kernel.org
+To: Chris Leech <chris.leech@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 64-151-34-11.dyn.everestkc.net ([64.151.34.11]:1836 "EHLO
-	mercury.tarcanfel.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1422667AbXDSUsw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Apr 2007 16:48:52 -0400
+Received: from zrtps0kn.nortel.com ([47.140.192.55]:51795 "EHLO
+	zrtps0kn.nortel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1766981AbXDSUz5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Apr 2007 16:55:57 -0400
+In-Reply-To: <41b516cb0704181902q646c4f9bvc34e79393ee974a3@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I believe the following error message is from the tiacx driver, and is not
-related to the firmware:
-"unknown chip and EEPROM version combination (ACX100, v0), don't know how
-to parse config options yet. Please report"
+Chris Leech wrote:
 
-This is for an SMC2435W, part number 99-012084-036.  While it appears to
-load, the card registers as eth1 instead of wlan0, and iwlist reports
-"eth1      Interface doesn't support scanning."  iwconfig will not
-actually set the essid for the card.
+> Just to give you an idea of our motivation around this, we're looking
+> at layer 2 configuration protocols implemented from user space.
 
-Running Mandriva 2007.1, kernel 2.6.17-5mdv on a Toshiba Satellite A15-S129.
+I'd like to second the intent of this patch.  We've been maintaining a 
+patch against 2.6.10 for a while now that exports the original ingress 
+device to userspace via ancilliary data.  We use it in combination with 
+bonding.
 
-This card worked under Mandriva 9.1.
+Was never submitted to mainline because we're on an old kernel.
 
-The firmware source page listed on sourceforge's site is no longer available.
+Chris
