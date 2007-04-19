@@ -1,33 +1,28 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [GIT PATCH] Exporting IPv6 statistics via netlink.
-Date: Thu, 19 Apr 2007 17:58:55 +0900 (JST)
-Message-ID: <20070419.175855.130993987.yoshfuji@linux-ipv6.org>
-References: <20070419.154209.131781981.yoshfuji@linux-ipv6.org>
-	<20070419084412.GD521@postel.suug.ch>
+From: Frank Pavlic <fpavlic@de.ibm.com>
+Subject: [PATCH 0/3] [AF_IUCV/IUCV]: net-2.6.22 fixes
+Date: Thu, 19 Apr 2007 11:10:52 +0200
+Message-ID: <20070419091052.GB14586@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: tgraf@suug.ch
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:43671 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161305AbXDSI5v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Apr 2007 04:57:51 -0400
-In-Reply-To: <20070419084412.GD521@postel.suug.ch>
+Received: from mtagate3.uk.ibm.com ([195.212.29.136]:13143 "EHLO
+	mtagate3.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S2993212AbXDSJKD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Apr 2007 05:10:03 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In article <20070419084412.GD521@postel.suug.ch> (at Thu, 19 Apr 2007 10:44:12 +0200), Thomas Graf <tgraf@suug.ch> says:
+Hi Dave,
+following three patches contain fixes for AF_IUCV socket support and
+for iucv, the base code for IUCV related actions in z/VM .
+I made these patches against net-2.6.22, 
+but they should also apply to net-2.6 without any conflicts.
+Well it works on my copy :-). 
+I will make another patchset for net-2.6 if you want me to do so. 
 
-> * YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org> 2007-04-19 15:42
-> > 
-> > Please consider pulling following changesets for supporting exporting
-> > stats information via netlink, on top of net-2.6.22.
-> 
-> The netlink bits are perfectly fine, why the dependency on proc fs?
+Thank you.
 
-I'll follow up to eliminate such dependency afterwards.
-
---yoshfuji
+Frank
