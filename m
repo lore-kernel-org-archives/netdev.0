@@ -1,34 +1,53 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [Bugme-new] [Bug 8320] New: replacing route in kernel doesn't
- send netlink message
-Date: Thu, 19 Apr 2007 14:12:19 +0200
-Message-ID: <46275CA3.1070503@trash.net>
-References: <461D26CB.3010508@trash.net>	 <1176400428.24446.40.camel@nt.wq.cz>	<4623029A.2090906@trash.net>	 <20070416.171016.43503207.davem@davemloft.net> <4624C46D.1030609@trash.net>	 <1176900487.8348.36.camel@nt.wq.cz> <462625E4.8030802@trash.net> <1176982238.5032.22.camel@nt.wq.cz>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [BRIDGE] Unaligned access on IA64 when comparing ethernet
+ addresses
+Date: Thu, 19 Apr 2007 16:14:23 +0200
+Message-ID: <20070419161423.a8f5c4f0.dada1@cosmosbay.com>
+References: <4625BE2C.1030801@sw.ru>
+	<20070418.012804.95897126.davem@davemloft.net>
+	<20070418074439.1ba41718@localhost.localdomain>
+	<20070418.130422.88477383.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org
-To: =?ISO-8859-15?Q?Milan_Koci=E1n?= <milon@wq.cz>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@linux-foundation.org, xemul@sw.ru,
+	netdev@vger.kernel.org, bridge@lists.osdl.org, devel@openvz.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:50935 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S2993245AbXDSMMi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Apr 2007 08:12:38 -0400
-In-Reply-To: <1176982238.5032.22.camel@nt.wq.cz>
+Received: from smtp23.orange.fr ([193.252.22.30]:60537 "EHLO smtp23.orange.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S637777AbXDSOOf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Apr 2007 10:14:35 -0400
+In-Reply-To: <20070418.130422.88477383.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Milan Koci=E1n wrote:
-> ok, here is new version. Sign is in patch. Is it correct?
->=20
-> --- a/net/ipv4/fib_hash.c	2007-04-18 12:50:11.000000000 +0200
-> +++ b/net/ipv4/fib_hash.c	2007-04-19 10:21:04.267136960 +0200
-> [...]
-> Signed-off-by: Milan Kocian <milon@wq.cz>
+On Wed, 18 Apr 2007 13:04:22 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
+
+> 
+> Although I don't think gcc does anything fancy since we don't
+> use memcmp().  It's a tradeoff, we'd like to use unsigned long
+> comparisons when both objects are aligned correctly but we also
+> don't want it to use any more than one potentially mispredicted
+> branch.
+
+Again, memcmp() *cannot* be optimized, because its semantic is to compare bytes.
+
+memcpy() can take into account alignement if known at compile time, not memcmp()
+
+http://lists.openwall.net/netdev/2007/03/13/31
 
 
-Looks good, thanks.
-
-Acked-by: Patrick McHardy <kaber@trash.net>
+> 
+> We could add some alignment tests to the ethernet address
+> comparison code, but it's probably more trouble than it's
+> worth.
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+-- 
+Eric Dumazet <dada1@cosmosbay.com>
 
