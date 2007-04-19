@@ -1,28 +1,28 @@
 From: David Howells <dhowells@redhat.com>
-Subject: Re: Possible bug in netlink_recvmsg()
-Date: Thu, 19 Apr 2007 17:07:34 +0100
-Message-ID: <8969.1176998854@redhat.com>
-References: <20070413.141117.101862281.davem@davemloft.net>  <1864.1176487711@redhat.com>
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Subject: Re: Getting the new RxRPC patches upstream
+Date: Thu, 19 Apr 2007 17:18:12 +0100
+Message-ID: <9134.1176999492@redhat.com>
+References: <m1hcrcmkh9.fsf@ebiederm.dsl.xmission.com>  <m1lkgoms4j.fsf@ebiederm.dsl.xmission.com> <11769696211263-git-send-email-ebiederm@xmission.com> <m1slawn9eb.fsf@ebiederm.dsl.xmission.com> <29341.1176975158@redhat.com> <2969.1176992303@redhat.com>
+Cc: "<Andrew Morton" <akpm@osdl.org>, containers@lists.osdl.org,
+	Oleg Nesterov <oleg@tv-sign.ru>,
+	Christoph Hellwig <hch@infradead.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: ebiederm@xmission.com (Eric W. Biederman)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:57911 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([66.187.233.31]:33831 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1766835AbXDSQHo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Apr 2007 12:07:44 -0400
-In-Reply-To: <20070413.141117.101862281.davem@davemloft.net> 
+	id S1766845AbXDSQSi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Apr 2007 12:18:38 -0400
+In-Reply-To: <m1hcrcmkh9.fsf@ebiederm.dsl.xmission.com> 
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller <davem@davemloft.net> wrote:
+Eric W. Biederman <ebiederm@xmission.com> wrote:
 
-> See this fix in my net-2.6.22 tree:
-> 
-> commit ad495d7b6cfcd1bc2eaf06c42699be0bb5d84234
-> Author: David S. Miller <davem@sunset.davemloft.net>
-> Date:   Tue Mar 6 17:02:35 2007 -0800
+> Ok.  I don't see any patches in -mm so I was assuming these patches have
+> not been queued up anywhere.
 
-Ummm... That seems to conflict with something in your net-2.6 tree.  Which one
-should I use?
+They haven't been quite yet.  Is it your intention to kill these features in
+2.6.22?
 
 David
