@@ -1,22 +1,24 @@
 From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
 	<yoshfuji@linux-ipv6.org>
-Subject: [GIT PATCH]
-Date: Thu, 19 Apr 2007 15:40:41 +0900 (JST)
-Message-ID: <20070419.154041.114746344.yoshfuji@linux-ipv6.org>
+Subject: [GIT PATCH] Exporting IPv6 statistics via netlink.
+Date: Thu, 19 Apr 2007 15:42:09 +0900 (JST)
+Message-ID: <20070419.154209.131781981.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: yoshfuji@linux-ipv6.org, tgraf@suug.ch, netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:43645 "EHLO
+Received: from yue.linux-ipv6.org ([203.178.140.15]:43650 "EHLO
 	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S2993117AbXDSGje (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Apr 2007 02:39:34 -0400
+	with ESMTP id S2993118AbXDSGlC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Apr 2007 02:41:02 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Hello.
+
+(Sorry for resending..., I failed to put an appropriate subject line...)
 
 Please consider pulling following changesets for supporting exporting
 stats information via netlink, on top of net-2.6.22.
