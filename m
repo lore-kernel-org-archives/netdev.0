@@ -1,46 +1,28 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: Getting the new RxRPC patches upstream
-Date: Thu, 19 Apr 2007 09:50:42 -0600
-Message-ID: <m1hcrcmkh9.fsf@ebiederm.dsl.xmission.com>
-References: <m1lkgoms4j.fsf@ebiederm.dsl.xmission.com>
-	<11769696211263-git-send-email-ebiederm@xmission.com>
-	<m1slawn9eb.fsf@ebiederm.dsl.xmission.com>
-	<29341.1176975158@redhat.com> <2969.1176992303@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "<Andrew Morton" <akpm@osdl.org>, containers@lists.osdl.org,
-	Oleg Nesterov <oleg@tv-sign.ru>,
-	Christoph Hellwig <hch@infradead.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: David Howells <dhowells@redhat.com>
+From: David Howells <dhowells@redhat.com>
+Subject: Re: Possible bug in netlink_recvmsg()
+Date: Thu, 19 Apr 2007 17:07:34 +0100
+Message-ID: <8969.1176998854@redhat.com>
+References: <20070413.141117.101862281.davem@davemloft.net>  <1864.1176487711@redhat.com>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:40112 "EHLO
-	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1766824AbXDSPwJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Apr 2007 11:52:09 -0400
-In-Reply-To: <2969.1176992303@redhat.com> (David Howells's message of "Thu, 19
-	Apr 2007 15:18:23 +0100")
+Received: from mx1.redhat.com ([66.187.233.31]:57911 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1766835AbXDSQHo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Apr 2007 12:07:44 -0400
+In-Reply-To: <20070413.141117.101862281.davem@davemloft.net> 
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Howells <dhowells@redhat.com> writes:
+David Miller <davem@davemloft.net> wrote:
 
-> Eric W. Biederman <ebiederm@xmission.com> wrote:
->
->> What is the ETA on your patches?
->
-> That depends on Dave Miller now, I think.  I'm assuming they need to go
-> through the network GIT tree to get to Linus.  Certainly Andrew Morton seems
-> to think so.
+> See this fix in my net-2.6.22 tree:
+> 
+> commit ad495d7b6cfcd1bc2eaf06c42699be0bb5d84234
+> Author: David S. Miller <davem@sunset.davemloft.net>
+> Date:   Tue Mar 6 17:02:35 2007 -0800
 
-Ok.  I don't see any patches in -mm so I was assuming these patches have
-not been queued up anywhere.
+Ummm... That seems to conflict with something in your net-2.6 tree.  Which one
+should I use?
 
-As long as these things happen in a reasonably timely manner so I can
-remove the export of kernel_thread and kill daemonize I really don't care.
-
-If you have written them they are quite likely better then my minimal
-patches which were quite restrained because of my limited ability to
-test these things.
-
-Eric
+David
