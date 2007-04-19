@@ -1,28 +1,49 @@
-From: David Howells <dhowells@redhat.com>
-Subject: Re: Getting the new RxRPC patches upstream
-Date: Thu, 19 Apr 2007 17:18:12 +0100
-Message-ID: <9134.1176999492@redhat.com>
-References: <m1hcrcmkh9.fsf@ebiederm.dsl.xmission.com>  <m1lkgoms4j.fsf@ebiederm.dsl.xmission.com> <11769696211263-git-send-email-ebiederm@xmission.com> <m1slawn9eb.fsf@ebiederm.dsl.xmission.com> <29341.1176975158@redhat.com> <2969.1176992303@redhat.com>
-Cc: "<Andrew Morton" <akpm@osdl.org>, containers@lists.osdl.org,
-	Oleg Nesterov <oleg@tv-sign.ru>,
-	Christoph Hellwig <hch@infradead.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: ebiederm@xmission.com (Eric W. Biederman)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:33831 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1766845AbXDSQSi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Apr 2007 12:18:38 -0400
-In-Reply-To: <m1hcrcmkh9.fsf@ebiederm.dsl.xmission.com> 
-Sender: netdev-owner@vger.kernel.org
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: Unaligned access on IA64 when comparing ethernet
+	addresses
+Date: Thu, 19 Apr 2007 11:18:57 -0700
+Message-ID: <20070419111857.62241675@dxpl.pdx.osdl.net>
+References: <4625BE2C.1030801@sw.ru>
+	<20070418.012804.95897126.davem@davemloft.net>
+	<20070418074439.1ba41718@localhost.localdomain>
+	<20070418.130422.88477383.davem@davemloft.net>
+	<20070419161423.a8f5c4f0.dada1@cosmosbay.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, bridge@lists.osdl.org,
+        David Miller <davem@davemloft.net>, devel@openvz.org, xemul@sw.ru
+To: Eric Dumazet <dada1@cosmosbay.com>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <20070419161423.a8f5c4f0.dada1@cosmosbay.com>
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/bridge>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Eric W. Biederman <ebiederm@xmission.com> wrote:
+On Thu, 19 Apr 2007 16:14:23 +0200
+Eric Dumazet <dada1@cosmosbay.com> wrote:
 
-> Ok.  I don't see any patches in -mm so I was assuming these patches have
-> not been queued up anywhere.
+> On Wed, 18 Apr 2007 13:04:22 -0700 (PDT)
+> David Miller <davem@davemloft.net> wrote:
+> 
+> > 
+> > Although I don't think gcc does anything fancy since we don't
+> > use memcmp().  It's a tradeoff, we'd like to use unsigned long
+> > comparisons when both objects are aligned correctly but we also
+> > don't want it to use any more than one potentially mispredicted
+> > branch.
+> 
+> Again, memcmp() *cannot* be optimized, because its semantic is to compare bytes.
+> 
+> memcpy() can take into account alignement if known at compile time, not memcmp()
+> 
+> http://lists.openwall.net/netdev/2007/03/13/31
 
-They haven't been quite yet.  Is it your intention to kill these features in
-2.6.22?
-
-David
+It can if we order bytes in the bridge id properly.  See ktime_t for example.
