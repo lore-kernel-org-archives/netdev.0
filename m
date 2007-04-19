@@ -1,49 +1,32 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: Unaligned access on IA64 when comparing ethernet
-	addresses
-Date: Thu, 19 Apr 2007 11:18:57 -0700
-Message-ID: <20070419111857.62241675@dxpl.pdx.osdl.net>
-References: <4625BE2C.1030801@sw.ru>
-	<20070418.012804.95897126.davem@davemloft.net>
-	<20070418074439.1ba41718@localhost.localdomain>
-	<20070418.130422.88477383.davem@davemloft.net>
-	<20070419161423.a8f5c4f0.dada1@cosmosbay.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] gianfar needs crc32 lib dependency
+Date: Thu, 19 Apr 2007 15:03:22 -0400
+Message-ID: <4627BCFA.6050207@garzik.org>
+References: <20070412175706.GA12664@blade.az.mvista.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@lists.osdl.org,
-        David Miller <davem@davemloft.net>, devel@openvz.org, xemul@sw.ru
-To: Eric Dumazet <dada1@cosmosbay.com>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20070419161423.a8f5c4f0.dada1@cosmosbay.com>
-List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linux-foundation.org/pipermail/bridge>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Cc: netdev@vger.kernel.org, galak@kernel.crashing.org,
+	afleming@freescale.com, sshtylyov@ru.mvista.com
+To: Dave Jiang <djiang@mvista.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:59964 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1766928AbXDSTD0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Apr 2007 15:03:26 -0400
+In-Reply-To: <20070412175706.GA12664@blade.az.mvista.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 19 Apr 2007 16:14:23 +0200
-Eric Dumazet <dada1@cosmosbay.com> wrote:
+Dave Jiang wrote:
+> Gianfar needs crc32 to be selected to compile. 
+> 
+> Signed-off-by: Dave Jiang <djiang@mvista.com>
+> 
+> --
+>  drivers/net/Kconfig |    1 +
+>  1 files changed, 1 insertions(+), 0 deletions(-)
 
-> On Wed, 18 Apr 2007 13:04:22 -0700 (PDT)
-> David Miller <davem@davemloft.net> wrote:
-> 
-> > 
-> > Although I don't think gcc does anything fancy since we don't
-> > use memcmp().  It's a tradeoff, we'd like to use unsigned long
-> > comparisons when both objects are aligned correctly but we also
-> > don't want it to use any more than one potentially mispredicted
-> > branch.
-> 
-> Again, memcmp() *cannot* be optimized, because its semantic is to compare bytes.
-> 
-> memcpy() can take into account alignement if known at compile time, not memcmp()
-> 
-> http://lists.openwall.net/netdev/2007/03/13/31
+applied
 
-It can if we order bytes in the bridge id properly.  See ktime_t for example.
+
