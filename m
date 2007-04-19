@@ -1,133 +1,102 @@
-From: Milind Arun Choudhary <milindchoudhary@gmail.com>
-Subject: [KJ][PATCH]SPIN_LOCK_UNLOCKED cleanup in drivers/atm, net
-Date: Thu, 19 Apr 2007 17:32:19 +0530
-Message-ID: <20070419120219.GA12373@arun.site>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: [GIT PATCH] Exporting IPv6 statistics via netlink.
+Date: Thu, 19 Apr 2007 21:04:54 +0900 (JST)
+Message-ID: <20070419.210454.79003206.yoshfuji@linux-ipv6.org>
+References: <20070419.154209.131781981.yoshfuji@linux-ipv6.org>
+	<20070419084412.GD521@postel.suug.ch>
+	<20070419.175855.130993987.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrw Morton <akpm@linux-foundation.org>,
-	LKML <linux-kernel@vger.kernel.org>, chas@cmf.nrl.navy.mil,
-	davem@davemloft.net, jgarzik@pobox.com
-To: Kernel Janitors <kernel-janitors@lists.osdl.org>,
-	linux-atm-general@lists.sourceforge.net,
-	NET-DEV <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: tgraf@suug.ch, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.170]:36819 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S2993244AbXDSL74 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Apr 2007 07:59:56 -0400
-Received: by ug-out-1314.google.com with SMTP id 44so657334uga
-        for <netdev@vger.kernel.org>; Thu, 19 Apr 2007 04:59:54 -0700 (PDT)
-Content-Disposition: inline
+Received: from yue.linux-ipv6.org ([203.178.140.15]:43680 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S2993252AbXDSMDt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Apr 2007 08:03:49 -0400
+In-Reply-To: <20070419.175855.130993987.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-SPIN_LOCK_UNLOCKED cleanup,use __SPIN_LOCK_UNLOCKED instead
+In article <20070419.175855.130993987.yoshfuji@linux-ipv6.org> (at Thu, 19 Apr 2007 17:58:55 +0900 (JST)), YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> says:
 
-Signed-off-by: Milind Arun Choudhary <milindchoudhary@gmail.com>
+> In article <20070419084412.GD521@postel.suug.ch> (at Thu, 19 Apr 2007 10:44:12 +0200), Thomas Graf <tgraf@suug.ch> says:
+> 
+> > * YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org> 2007-04-19 15:42
+> > > 
+> > > Please consider pulling following changesets for supporting exporting
+> > > stats information via netlink, on top of net-2.6.22.
+> > 
+> > The netlink bits are perfectly fine, why the dependency on proc fs?
+> 
+> I'll follow up to eliminate such dependency afterwards.
+
+Here it is.
+
+All changesets are available on the
+    net-2.6.22-20070417-stats-20070419
+branch at
+    <git://git.linux-ipv6.org/gitroot/yoshfuji/linux-2.6-dev.git>.
 
 ---
+[IPV6] SNMP: Export statistics via netlink without CONFIG_PROC_FS.
 
- drivers/atm/atmtcp.c |    2 +-
- net/atm/clip.c       |    2 +-
- net/atm/lec.c        |    2 +-
- net/atm/mpc.c        |    2 +-
- net/atm/signaling.c  |    2 +-
- net/dccp/minisocks.c |    2 +-
- net/ipv6/mip6.c      |    2 +-
- 7 files changed, 7 insertions(+), 7 deletions(-)
+Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+---
+ net/ipv6/proc.c |   10 ++++------
+ 1 files changed, 4 insertions(+), 6 deletions(-)
 
-
-diff --git a/drivers/atm/atmtcp.c b/drivers/atm/atmtcp.c
-index fc518d8..3fde97b 100644
---- a/drivers/atm/atmtcp.c
-+++ b/drivers/atm/atmtcp.c
-@@ -352,7 +352,7 @@ static struct atm_dev atmtcp_control_dev = {
- 	.ops		= &atmtcp_c_dev_ops,
- 	.type		= "atmtcp",
- 	.number		= 999,
--	.lock		= SPIN_LOCK_UNLOCKED
-+	.lock		= __SPIN_LOCK_UNLOCKED(atmtcp_control_dev.lock)
+diff --git a/net/ipv6/proc.c b/net/ipv6/proc.c
+index 5c3ce1c..c847cef 100644
+--- a/net/ipv6/proc.c
++++ b/net/ipv6/proc.c
+@@ -141,6 +141,7 @@ static struct snmp_mib snmp6_udplite6_list[] = {
+ 	SNMP_MIB_ITEM("UdpLite6OutDatagrams", UDP_MIB_OUTDATAGRAMS),
+ 	SNMP_MIB_SENTINEL
  };
++#endif	/* CONFIG_PROC_FS */
  
+ static unsigned long
+ fold_field(void *mib[], int offt)
+@@ -155,6 +156,7 @@ fold_field(void *mib[], int offt)
+ 	return res;
+ }
  
-diff --git a/net/atm/clip.c b/net/atm/clip.c
-index 8c38258..d41137d 100644
---- a/net/atm/clip.c
-+++ b/net/atm/clip.c
-@@ -702,7 +702,7 @@ static struct atm_dev atmarpd_dev = {
- 	.ops =			&atmarpd_dev_ops,
- 	.type =			"arpd",
- 	.number = 		999,
--	.lock =			SPIN_LOCK_UNLOCKED
-+	.lock =			__SPIN_LOCK_UNLOCKED(atmarpd_dev.lock)
++#ifdef CONFIG_PROC_FS
+ static inline void
+ snmp6_seq_show_item(struct seq_file *seq, void **mib, struct snmp_mib *itemlist)
+ {
+@@ -206,6 +208,7 @@ static const struct file_operations snmp6_seq_fops = {
+ 	.llseek	 = seq_lseek,
+ 	.release = single_release,
  };
++#endif	/* CONFIG_PROC_FS */
  
+ static inline void
+ __snmp6_fill_stats(u64 *stats, void **mib, int items, int bytes)
+@@ -232,6 +235,7 @@ snmp6_fill_stats(u64 *stats, struct inet6_dev *idev, int attrtype, int bytes)
+ 	}
+ }
  
-diff --git a/net/atm/lec.c b/net/atm/lec.c
-index 3d804d6..7747586 100644
---- a/net/atm/lec.c
-+++ b/net/atm/lec.c
-@@ -630,7 +630,7 @@ static struct atm_dev lecatm_dev = {
- 	.ops = &lecdev_ops,
- 	.type = "lec",
- 	.number = 999,		/* dummy device number */
--	.lock = SPIN_LOCK_UNLOCKED
-+	.lock = __SPIN_LOCK_UNLOCKED(lecatm_dev.lock)
- };
++#ifdef CONFIG_PROC_FS
+ int snmp6_register_dev(struct inet6_dev *idev)
+ {
+ 	struct proc_dir_entry *p;
+@@ -309,12 +313,6 @@ int snmp6_unregister_dev(struct inet6_dev *idev)
+ 	return 0;
+ }
  
- /*
-diff --git a/net/atm/mpc.c b/net/atm/mpc.c
-index cb3c004..2f0df1f 100644
---- a/net/atm/mpc.c
-+++ b/net/atm/mpc.c
-@@ -734,7 +734,7 @@ static struct atm_dev mpc_dev = {
- 	.ops	= &mpc_ops,
- 	.type	= "mpc",
- 	.number	= 42,
--	.lock	= SPIN_LOCK_UNLOCKED
-+	.lock	= __SPIN_LOCK_UNLOCKED(mpc_dev.lock)
- 	/* members not explicitly initialised will be 0 */
- };
+-void
+-snmp6_fill_stats(u64 *stats, struct inet6_dev *idev, int attrtype, int bytes)
+-{
+-	memset(stats, 0, sizeof(bytes));
+-}
+-
+ #endif	/* CONFIG_PROC_FS */
  
-diff --git a/net/atm/signaling.c b/net/atm/signaling.c
-index 31d98b5..d14baaf 100644
---- a/net/atm/signaling.c
-+++ b/net/atm/signaling.c
-@@ -256,7 +256,7 @@ static struct atm_dev sigd_dev = {
- 	.ops =		&sigd_dev_ops,
- 	.type =		"sig",
- 	.number =	999,
--	.lock =		SPIN_LOCK_UNLOCKED
-+	.lock =		__SPIN_LOCK_UNLOCKED(sigd_dev.lock)
- };
- 
- 
-diff --git a/net/dccp/minisocks.c b/net/dccp/minisocks.c
-index 6d235b3..e18e249 100644
---- a/net/dccp/minisocks.c
-+++ b/net/dccp/minisocks.c
-@@ -27,7 +27,7 @@
- struct inet_timewait_death_row dccp_death_row = {
- 	.sysctl_max_tw_buckets = NR_FILE * 2,
- 	.period		= DCCP_TIMEWAIT_LEN / INET_TWDR_TWKILL_SLOTS,
--	.death_lock	= SPIN_LOCK_UNLOCKED,
-+	.death_lock	= __SPIN_LOCK_UNLOCKED(dccp_death_row.death_lock),
- 	.hashinfo	= &dccp_hashinfo,
- 	.tw_timer	= TIMER_INITIALIZER(inet_twdr_hangman, 0,
- 					    (unsigned long)&dccp_death_row),
-diff --git a/net/ipv6/mip6.c b/net/ipv6/mip6.c
-index 0afcabd..7aac558 100644
---- a/net/ipv6/mip6.c
-+++ b/net/ipv6/mip6.c
-@@ -122,7 +122,7 @@ struct mip6_report_rate_limiter {
- };
- 
- static struct mip6_report_rate_limiter mip6_report_rl = {
--	.lock = SPIN_LOCK_UNLOCKED
-+	.lock = __SPIN_LOCK_UNLOCKED(mip6_report_rl.lock)
- };
- 
- static int mip6_destopt_input(struct xfrm_state *x, struct sk_buff *skb)
-
+ int snmp6_alloc_dev(struct inet6_dev *idev)
 -- 
-Milind Arun Choudhary
+1.5.1
+
