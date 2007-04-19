@@ -1,32 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [NETLINK] Don't attach callback to a going-away netlink socket
-Date: Wed, 18 Apr 2007 17:06:36 -0700 (PDT)
-Message-ID: <20070418.170636.77057313.davem@davemloft.net>
-References: <4625D3D2.9030507@sw.ru>
+From: "Chris Leech" <chris.leech@gmail.com>
+Subject: Re: AF_PACKET how to get the original netdev from a packet received from a bonded master
+Date: Wed, 18 Apr 2007 17:17:45 -0700
+Message-ID: <41b516cb0704181717l2c6c15a0j9ae275d15c6b22f4@mail.gmail.com>
+References: <97949e3e0704181605v39e24bh18ac278adc8b823f@mail.gmail.com>
+	 <20070418.162523.68157230.davem@davemloft.net>
+	 <41b516cb0704181652o6a05b570t511ee23373a0b3ac@mail.gmail.com>
+	 <20070418.170749.07021824.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, akpm@osdl.org,
-	linux-kernel@vger.kernel.org, devel@openvz.org, kaber@trash.net,
-	dev@openvz.org
-To: xemul@sw.ru
+Cc: chavey@google.com, netdev@vger.kernel.org
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48645
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1030522AbXDSAGe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Apr 2007 20:06:34 -0400
-In-Reply-To: <4625D3D2.9030507@sw.ru>
+Received: from nz-out-0506.google.com ([64.233.162.228]:13485 "EHLO
+	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S2993021AbXDSARq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Apr 2007 20:17:46 -0400
+Received: by nz-out-0506.google.com with SMTP id s1so301028nze
+        for <netdev@vger.kernel.org>; Wed, 18 Apr 2007 17:17:45 -0700 (PDT)
+In-Reply-To: <20070418.170749.07021824.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Pavel Emelianov <xemul@sw.ru>
-Date: Wed, 18 Apr 2007 12:16:18 +0400
+On 4/18/07, David Miller <davem@davemloft.net> wrote:
+> Ok, it will give you one level of decapsulation.
+>
+> What do we tell people who want 2 devices previous? :-)
 
-> The proposal it to make sock_orphan before detaching the callback
-> in netlink_release() and to check for the sock to be SOCK_DEAD in
-> netlink_dump_start() before setting a new callback.
+I can tell you that the intent of PJs patch was to provide the ifindex
+of the physical interface that a packet entered the system on,
+regardless of how many layers of encapsulation are involved.
 
-As discussed in this thread there might be other ways to a
-approach this, but this fix is good for now.
-
-Patch applied, thank you.
+Of course it may not actually do that ...
