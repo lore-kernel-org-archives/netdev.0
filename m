@@ -1,24 +1,29 @@
-From: David Howells <dhowells@redhat.com>
-Subject: Getting the new RxRPC patches upstream
-Date: Thu, 19 Apr 2007 15:18:23 +0100
-Message-ID: <2969.1176992303@redhat.com>
-References: <m1lkgoms4j.fsf@ebiederm.dsl.xmission.com>  <11769696211263-git-send-email-ebiederm@xmission.com> <m1slawn9eb.fsf@ebiederm.dsl.xmission.com> <29341.1176975158@redhat.com>
-Cc: "<Andrew Morton" <akpm@osdl.org>, containers@lists.osdl.org,
-	Oleg Nesterov <oleg@tv-sign.ru>,
-	Christoph Hellwig <hch@infradead.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: ebiederm@xmission.com (Eric W. Biederman)
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1766739AbXDSOSu@vger.kernel.org>
-In-Reply-To: <m1lkgoms4j.fsf@ebiederm.dsl.xmission.com> 
-Sender: linux-kernel-owner@vger.kernel.org
+From: Linsys Contractor Mithlesh Thukral <mithlesh@netxen.com>
+Subject: [PATCH 0/7] NetXen: Make driver use multiple PCI functions
+Date: Thu, 19 Apr 2007 07:49:02 -0700
+Message-ID: <200704191449.l3JEn2hG032213@dut39.unminc.com>
+Cc: amitkale@netxen.com, jeff@garzik.org, netxenproj@linsyssoft.com,
+	rob@netxen.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 66-126-254-34.unm.net ([66.126.254.34]:4469 "EHLO
+	nxmail.netxen.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S637785AbXDSOtE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Apr 2007 10:49:04 -0400
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Eric W. Biederman <ebiederm@xmission.com> wrote:
+hi All,
 
-> What is the ETA on your patches?
+Thanks Christoph and Stephen for your feedback. I am resending the 7 patches
+after incorporating their suggestions.
+These patches are with respect to netdev#upstream and we wish their inclusion 
+in 2.6.22 kernel.
 
-That depends on Dave Miller now, I think.  I'm assuming they need to go
-through the network GIT tree to get to Linus.  Certainly Andrew Morton seems
-to think so.
+Out of these the first 2 patches were already accepted into the netdev tree, 
+but we have requested them to be dropped. So we are resending those 2.
+Please see the following thread for more details :
+http://www.spinics.net/lists/netdev/msg26805.html
 
-David
+Regards,
+Mithlesh Thukral
