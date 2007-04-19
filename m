@@ -1,45 +1,92 @@
-From: "Chris Leech" <chris.leech@gmail.com>
-Subject: Re: AF_PACKET how to get the original netdev from a packet received from a bonded master
-Date: Wed, 18 Apr 2007 19:02:47 -0700
-Message-ID: <41b516cb0704181902q646c4f9bvc34e79393ee974a3@mail.gmail.com>
-References: <41b516cb0704181652o6a05b570t511ee23373a0b3ac@mail.gmail.com>
-	 <20070418.170749.07021824.davem@davemloft.net>
-	 <41b516cb0704181717l2c6c15a0j9ae275d15c6b22f4@mail.gmail.com>
-	 <20070418.180622.35354420.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: chavey@google.com, netdev@vger.kernel.org
-To: "David Miller" <davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [NETLINK] Don't attach callback to a going-away netlink socket
+Date: Thu, 19 Apr 2007 12:13:51 +1000
+Message-ID: <E1HeM9f-0001Dt-00@gondolin.me.apana.org.au>
+References: <20070418.170636.77057313.davem@davemloft.net>
+Cc: xemul@sw.ru, netdev@vger.kernel.org, akpm@osdl.org,
+	linux-kernel@vger.kernel.org, devel@openvz.org, kaber@trash.net,
+	dev@openvz.org
+To: davem@davemloft.net (David Miller)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wr-out-0506.google.com ([64.233.184.239]:54127 "EHLO
-	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1031058AbXDSCCs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Apr 2007 22:02:48 -0400
-Received: by wr-out-0506.google.com with SMTP id 76so381659wra
-        for <netdev@vger.kernel.org>; Wed, 18 Apr 2007 19:02:48 -0700 (PDT)
-In-Reply-To: <20070418.180622.35354420.davem@davemloft.net>
-Content-Disposition: inline
+Received: from rhun.apana.org.au ([64.62.148.172]:2691 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S2993107AbXDSCOa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Apr 2007 22:14:30 -0400
+In-Reply-To: <20070418.170636.77057313.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 4/18/07, David Miller <davem@davemloft.net> wrote:
+David Miller <davem@davemloft.net> wrote:
+> 
+> As discussed in this thread there might be other ways to a
+> approach this, but this fix is good for now.
+> 
+> Patch applied, thank you.
 
-> Ok, I'll try to remember to high-priority reviewing PJ's patch
-> on my next rebase of the net-2.6.22 tree which should be
-> tonight or tomorrow sometime.
+Actually I was going to suggest something like this:
 
-Thanks Dave, PJ is offline this week so I'm trying to keep an eye out
-for discussions related to his various patches :-)
+[NETLINK]: Kill CB only when socket is unused
 
-Just to give you an idea of our motivation around this, we're looking
-at layer 2 configuration protocols implemented from user space.  As an
-example Link Layer Discovery Protocol could be used to detect trunking
-misconfiguration, but only if you can track that information for the
-underlying interfaces of a bond.  Things like 802.1x authenticated
-links in a bond would have a similar issue of needing to configure
-each underlying interface before bringing up the bond, but with LLDP
-there's the added fun of being able to receive updated notifications
-of configuration changes from the link partner at any time.
+Since we can still receive packets until all references to the
+socket are gone, we don't need to kill the CB until that happens.
+This also aligns ourselves with the receive queue purging which
+happens at that point.
 
-- Chris
+Original patch by Pavel Emelianov who noticed this race condition.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index 0be19b7..914884c 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -139,6 +139,15 @@ static struct hlist_head *nl_pid_hashfn(struct nl_pid_hash *hash, u32 pid)
+ 
+ static void netlink_sock_destruct(struct sock *sk)
+ {
++	struct netlink_sock *nlk = nlk_sk(sk);
++
++	WARN_ON(mutex_is_locked(nlk_sk(sk)->cb_mutex));
++	if (nlk->cb) {
++		if (nlk->cb->done)
++			nlk->cb->done(nlk->cb);
++		netlink_destroy_callback(nlk->cb);
++	}
++
+ 	skb_queue_purge(&sk->sk_receive_queue);
+ 
+ 	if (!sock_flag(sk, SOCK_DEAD)) {
+@@ -147,7 +156,6 @@ static void netlink_sock_destruct(struct sock *sk)
+ 	}
+ 	BUG_TRAP(!atomic_read(&sk->sk_rmem_alloc));
+ 	BUG_TRAP(!atomic_read(&sk->sk_wmem_alloc));
+-	BUG_TRAP(!nlk_sk(sk)->cb);
+ 	BUG_TRAP(!nlk_sk(sk)->groups);
+ }
+ 
+@@ -450,17 +458,7 @@ static int netlink_release(struct socket *sock)
+ 	netlink_remove(sk);
+ 	nlk = nlk_sk(sk);
+ 
+-	mutex_lock(nlk->cb_mutex);
+-	if (nlk->cb) {
+-		if (nlk->cb->done)
+-			nlk->cb->done(nlk->cb);
+-		netlink_destroy_callback(nlk->cb);
+-		nlk->cb = NULL;
+-	}
+-	mutex_unlock(nlk->cb_mutex);
+-
+-	/* OK. Socket is unlinked, and, therefore,
+-	   no new packets will arrive */
++	/* OK. Socket is unlinked. */
+ 
+ 	sock_orphan(sk);
+ 	sock->sk = NULL;
