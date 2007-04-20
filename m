@@ -1,45 +1,45 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 8342] New: sctp_getsockopt_local_addrs_old()
- calls copy_to_user() while a spinlock is held
-Date: Fri, 20 Apr 2007 14:35:00 -0700
-Message-ID: <20070420143500.cdac0fab.akpm@linux-foundation.org>
-References: <200704162134.l3GLYMuF004745@fire-2.osdl.org>
+From: Andi Kleen <ak@suse.de>
+Subject: SIOCGIFCOUNT
+Date: Sat, 21 Apr 2007 00:04:51 +0200
+Message-ID: <200704210004.51278.ak@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "bugme-daemon@kernel-bugs.osdl.org"
-	<bugme-daemon@bugzilla.kernel.org>, matthias.kaehlcke@gmail.com,
-	lksctp-developers@lists.sourceforge.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([65.172.181.25]:55937 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1767262AbXDTVfm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Apr 2007 17:35:42 -0400
-In-Reply-To: <200704162134.l3GLYMuF004745@fire-2.osdl.org>
+Received: from mx1.suse.de ([195.135.220.2]:54518 "EHLO mx1.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1767284AbXDTWE4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Apr 2007 18:04:56 -0400
+Received: from Relay1.suse.de (mail2.suse.de [195.135.221.8])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by mx1.suse.de (Postfix) with ESMTP id 24835122EC
+	for <netdev@vger.kernel.org>; Sat, 21 Apr 2007 00:04:55 +0200 (CEST)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 16 Apr 2007 14:34:22 -0700
-bugme-daemon@bugzilla.kernel.org wrote:
 
-> http://bugzilla.kernel.org/show_bug.cgi?id=8342
-> 
->            Summary: sctp_getsockopt_local_addrs_old() calls copy_to_user()
->                     while a spinlock is held
->     Kernel Version: 2.6.20
->             Status: NEW
->           Severity: normal
->              Owner: acme@ghostprotocols.net
->          Submitter: matthias.kaehlcke@gmail.com
-> 
-> 
-> Problem Description:
-> 
-> sctp_getsockopt_local_addrs_old() in net/sctp/socket.c calls copy_to_user()
-> while the spinlock addr_lock is held. this should not be done as copy_to_user()
-> might sleep. the call to sctp_copy_laddrs_to_user() while holding the lock is
-> also problematic as it calls copy_to_user()
-> 
 
-yup.
+Hi,
+
+A recent 32bit jdk spews these messages on x86-64
+
+ioctl32(java:3877): Unknown cmd fd(3) cmd(00008938){00} arg(bfa4c844) on socket:[4470216]
+..
+
+0x8938 is SIOCGIFCOUNT. As far as I can see it is only defined in sockios.h, but not 
+implemented?
+
+Should it be removed from the include file or implemented?
+
+I probably will add a dummy compat ioctl entry to shut the JDK up at least.
+
+-Andi
+
+
+
+
+ 
