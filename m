@@ -1,65 +1,59 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 4/4] PPPoE: race between interface going down and
- release()
-Date: Fri, 20 Apr 2007 16:27:56 -0700 (PDT)
-Message-ID: <20070420.162756.78644819.davem@davemloft.net>
-References: <20070311044143.GD17712@florz.florz.dyndns.org>
-	<1173667016.24373.36.camel@kdsk1.austin.ibm.com>
+Subject: Re: [Bugme-new] [Bug 8057] New: slab corruption running ip6sic
+Date: Fri, 20 Apr 2007 16:35:15 -0700 (PDT)
+Message-ID: <20070420.163515.26929060.davem@davemloft.net>
+References: <20070222134918.e2f1af6d.akpm@linux-foundation.org>
+	<20070312102403.GB1664@ff.dom.local>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: florz@florz.de, netdev@vger.kernel.org
-To: mostrows@earthlink.net
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, snakebyte@gmx.de
+To: jarkao2@o2.pl
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55250
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50336
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751349AbXDTX1w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Apr 2007 19:27:52 -0400
-In-Reply-To: <1173667016.24373.36.camel@kdsk1.austin.ibm.com>
+	by vger.kernel.org with ESMTP id S1751980AbXDTXfO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Apr 2007 19:35:14 -0400
+In-Reply-To: <20070312102403.GB1664@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Michal Ostrowski <mostrows@earthlink.net>
-Date: Sun, 11 Mar 2007 21:36:56 -0500
+From: Jarek Poplawski <jarkao2@o2.pl>
+Date: Mon, 12 Mar 2007 11:24:03 +0100
 
-> Attached below is my take on how to address this problem.  
-> This addresses any concerns you may have had about checking po->pppoe_dev==NULL,
-> because accesses to this field are now synchronized with pppoe_hash_lock.
+> > the ipcomp handler is xfrm6_rcv(), which calls xfrm6_rcv_spi(), which contrary
+> > to all other handlers returns -1 instead of 0 after calling kfree_skb() on the
+> > skb. Changing the return value to 0 in xfrm6_input.c:xfrm6_rcv_spi() fixes the
+> > problem.
+> > But I got no clue at all if this would be a correct fix
 > 
-> Once we can settle on a fix for this, I'll deal with the SID==0 issue 
-> (trying to do that now would just cause patch conflicts).
+> I think your diagnose is correct (all "return -1" should be
+> changed to "return 0" in xfrm6_input.c).
 
-This patch doesn't apply becuase in the actual pppoe.c code:
+Unfortunately, that won't work.
 
-> -	read_lock_bh(&pppoe_hash_lock);
-> +	write_lock_bh(&pppoe_hash_lock);
->  	for (hash = 0; hash < PPPOE_HASH_SIZE; hash++) {
->  		struct pppox_sock *po = item_hash_table[hash];
->  
->  		while (po != NULL) {
-> -			if (po->pppoe_dev == dev) {
-> -				struct sock *sk = sk_pppox(po);
-> -
-> -				sock_hold(sk);
-> -
-> -				/* We hold a reference to SK, now drop the
-> -				 * hash table lock so that we may attempt
-> -				 * to lock the socket (which can sleep).
-> -				 */
+The return value logic for proto->handler() is different in
+IPV6's ip6_input.c than it is for IPV4's ip_input.c.
 
-That code doesn't look like that.  At the end, instead there is:
+IPv4 goes:
 
-			     sock_hold(sk);
-			     po->pppoe_dev = NULL;
+			ret = ipprot->handler(skb);
+			if (ret < 0) {
+				protocol = -ret;
+				goto resubmit;
+			}
 
-and that goes back all the way to 2.6.12 and beyond before
-we moved over to GIT.
+whereas IPV6 goes:
 
-So I'm having trouble figuring out what tree you generated
-that patch against :-)  Perhaps there was an earlier patch
-I missed or something.
+		ret = ipprot->handler(&skb);
+		if (ret > 0)
+			goto resubmit;
 
-But I won't second guess and leave it to you to let me know
-what I should actually apply.
+There was a good reason why things were done differently for
+this case, but I don't remember what that reason was.
 
-Thanks.
+Anyways, changing -1 to 0 in xfrm6_input.c will break everything
+even though it might make this crash go away. :-)))
+
+
