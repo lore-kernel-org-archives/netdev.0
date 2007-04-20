@@ -1,49 +1,32 @@
-From: Borislav Petkov <bbpetkov@yahoo.de>
-Subject: [PATCH] Olympic (IBM PCI tokenring): handle return codes of register_netdev
-Date: Fri, 20 Apr 2007 08:52:32 +0200
-Message-ID: <20070420065232.GA5165@zmei.tnic>
-Reply-To: bbpetkov@yahoo.de
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC][PATCH -mm take4 6/6] add ioctls for adding/removing
+ target
+Date: Thu, 19 Apr 2007 23:59:08 -0700 (PDT)
+Message-ID: <20070419.235908.122942095.davem@davemloft.net>
+References: <46260BBF.2070202@bx.jp.nec.com>
+	<20070419211630.70c20706.akpm@linux-foundation.org>
+	<20070419223909.00e8285d@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kernel-janitors@lists.osdl.org
-To: linux-tr@linuxtr.net, netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: akpm@linux-foundation.org, k-keiichi@bx.jp.nec.com,
+	mpm@selenic.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: shemminger@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp109.plus.mail.re2.yahoo.com ([206.190.53.34]:41881 "HELO
-	smtp109.plus.mail.re2.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1423030AbXDTGxI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Apr 2007 02:53:08 -0400
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54929
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753981AbXDTG7H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Apr 2007 02:59:07 -0400
+In-Reply-To: <20070419223909.00e8285d@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Handle return codes of register_netdev().
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Date: Thu, 19 Apr 2007 22:39:09 -0700
 
-Signed-off-by: Borislav Petkov <bbpetkov@yahoo.de>
+> Should't this just be a network ioctl against an UDP (AF_INET,
+> SOCK_DGRAM) socket?  Also consider netconsole over IPV6 for future
+> enhancement.
 
-
-Index: 21-rc7/drivers/net/tokenring/olympic.c
-===================================================================
---- 21-rc7.orig/drivers/net/tokenring/olympic.c
-+++ 21-rc7/drivers/net/tokenring/olympic.c
-@@ -264,7 +264,10 @@ static int __devinit olympic_probe(struc
- 	SET_NETDEV_DEV(dev, &pdev->dev);
- 
- 	pci_set_drvdata(pdev,dev) ; 
--	register_netdev(dev) ; 
-+
-+	if (register_netdev(dev))
-+		goto op_free_iomap;
-+
- 	printk("Olympic: %s registered as: %s\n",olympic_priv->olympic_card_name,dev->name);
- 	if (olympic_priv->olympic_network_monitor) { /* Must go after register_netdev as we need the device name */ 
- 		char proc_name[20] ; 
-@@ -281,7 +284,8 @@ op_free_iomap:
- 	if (olympic_priv->olympic_lap)
- 		iounmap(olympic_priv->olympic_lap);
- 
--	free_netdev(dev);
-+	if (dev)
-+		free_netdev(dev);
- op_release_dev:
- 	pci_release_regions(pdev); 
- 
+If it's on a socket use a socket option :-)
