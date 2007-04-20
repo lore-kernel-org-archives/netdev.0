@@ -1,63 +1,56 @@
-From: "Aubrey Li" <aubreylee@gmail.com>
-Subject: Re: [PATCH] CONFIG_PACKET_MMAP should depend on MMU
-Date: Fri, 20 Apr 2007 21:14:43 +0800
-Message-ID: <6d6a94c50704200614n3e258142n4008029171656d23@mail.gmail.com>
-References: <200704091146.32346.rgetz@blackfin.uclinux.org>
-	 <1176112223.17975.8.camel@roc-desktop> <9561.1176209728@redhat.com>
-	 <200704101952.05380.rgetz@blackfin.uclinux.org>
-	 <6d6a94c50704170336l62fc9ael1e58197e6c3853ba@mail.gmail.com>
-	 <2817.1176910411@redhat.com>
-	 <6d6a94c50704192146k5bbe2aefr31fa5726bf1c1e54@mail.gmail.com>
-	 <1016.1177055893@redhat.com>
-	 <6d6a94c50704200139vb9b24f6y77a6d23544c8f7b9@mail.gmail.com>
-	 <2181.1177059532@redhat.com>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [1/3] 2.6.21-rc6: known regressions
+Date: Fri, 20 Apr 2007 15:39:52 +0200
+Message-ID: <20070420133952.GA17749@elte.hu>
+References: <Pine.LNX.4.64.0704051944230.6730@woody.linux-foundation.org>
+	<20070414003625.GS5907@stusta.de>
+	<Pine.LNX.4.64.0704131821020.28042@woody.linux-foundation.org>
+	<20070414062143.GA12707@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "Robin Getz" <rgetz@blackfin.uclinux.org>, uaca@alumni.uv.es,
-	bryan.wu@analog.com, "Alan Cox" <alan@lxorguk.ukuu.org.uk>,
-	waltje@uwalt.nl.mugnet.org, netdev@vger.kernel.org,
-	"Andrew Morton" <akpm@osdl.org>,
-	"Linux Kernel" <linux-kernel@vger.kernel.org>
-To: "David Howells" <dhowells@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.250]:1988 "EHLO
-	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S2993092AbXDTNOp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Apr 2007 09:14:45 -0400
-Received: by an-out-0708.google.com with SMTP id b33so921599ana
-        for <netdev@vger.kernel.org>; Fri, 20 Apr 2007 06:14:43 -0700 (PDT)
-In-Reply-To: <2181.1177059532@redhat.com>
+Cc: Ayaz Abdulla <aabdulla@nvidia.com>,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	Adrian Bunk <bunk@stusta.de>, Greg KH <greg@kroah.com>,
+	Dave Jones <davej@redhat.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Jeff Garzik <jgarzik@pobox.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <20070414062143.GA12707@elte.hu>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On 4/20/07, David Howells <dhowells@redhat.com> wrote:
-> Aubrey Li <aubreylee@gmail.com> wrote:
->
-> > as checked in packet_set_ring, buffer size must be a multiple of PAGE_SIZE,
-> > --------------------packet_set_ring------------------------
-> > if (unlikely(req->tp_block_size & (PAGE_SIZE - 1)))
-> >
-> > So why not use __get_free_pages rather than kmalloc,
->
-> Because kmalloc() may be able to get us a smaller chunk of memory.  Actually,
-> calling __get_free_pages() might be a better, and then release the excess
-> pages.
->
 
->> so that we have pagetables to count?
+* Ingo Molnar <mingo@elte.hu> wrote:
 
->There are no pagetables in NOMMU-mode.
+> > The 6b6b6b6b pattern is POISON_FREE, implying some kind of slab 
+> > misuse, most likely a use-after-free, although possibly just due to 
+> > overrunning a slab into the next one or something like that.
+> 
+> unfortunately, while being at -rc6 based kernel #445 meanwhile, this 
+> incident was the only time i saw this problem. [...]
 
-Hmm..., I'm thinking some codes in memory reclaim depend on
-NR_FILE_MMAPED like follows
-----snip----
-if (zone_page_state(zone, NR_FILE_PAGES) -
-                        zone_page_state(zone, NR_FILE_MAPPED) >
-                        zone->min_unmapped_pages)
-----snip----
-Since we are enabling packet mmap feature, we should take its mapped
-pages into count of NR_FILE_MAPPED.
+meanwhile i'm at kernel bootup #657, and still this crash did not 
+reoccur. So it could have been some pre-existing sysfs bug that triggers 
+only extremely rarely. I'd suggest that this bug have its priority 
+lowered (to not hold up a v2.6.21 release) - there's no smoking gun and 
+no reproducer. I'll keep an eye on it.
 
--Aubrey
+	Ingo
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by DB2 Express
+Download DB2 Express C - the FREE version of DB2 express and take
+control of your XML. No limits. Just data. Click to get it now.
+http://sourceforge.net/powerbar/db2/
