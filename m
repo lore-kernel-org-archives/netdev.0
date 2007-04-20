@@ -1,70 +1,119 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [1/3] 2.6.21-rc6: known regressions
-Date: Fri, 20 Apr 2007 15:46:27 +0200
-Message-ID: <20070420134627.GA18195@elte.hu>
-References: <Pine.LNX.4.64.0704051944230.6730@woody.linux-foundation.org>
-	<20070414003625.GS5907@stusta.de>
-	<Pine.LNX.4.64.0704131821020.28042@woody.linux-foundation.org>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: [PATCH] sis900: Allocate rx replacement buffer before rx operation
+Date: Fri, 20 Apr 2007 09:54:58 -0400
+Message-ID: <20070420135458.GB16191@hmsreliant.homelinux.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Ayaz Abdulla <aabdulla@nvidia.com>,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	Adrian Bunk <bunk@stusta.de>, Greg KH <greg@kroah.com>,
-	Dave Jones <davej@redhat.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Jeff Garzik <jgarzik@pobox.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, venza@brownhat.org, nhorman@tuxdriver.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ra.tuxdriver.com ([70.61.120.52]:2447 "EHLO ra.tuxdriver.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754052AbXDTNzl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Apr 2007 09:55:41 -0400
 Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0704131821020.28042@woody.linux-foundation.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hey there-
+	The sis900 driver appears to have a bug in which the receive routine
+passes the skbuff holding the received frame to the network stack before
+refilling the buffer in the rx ring.  If a new skbuff cannot be allocated, the
+driver simply leaves a hole in the rx ring, which causes the driver to stop
+receiving frames and become non-recoverable without an rmmod/insmod according to
+reporters.  This patch reverses that order, attempting to allocate a replacement
+buffer first, and receiving the new frame only if one can be allocated.  If no
+skbuff can be allocated, the current skbuf in the rx ring is recycled, dropping
+the current frame, but keeping the NIC operational.
 
-* Linus Torvalds <torvalds@linux-foundation.org> wrote:
+Thanks & Regards
+Neil
 
-> [...] I think the hangs that Ingo sees with forcedeth were preceded by 
-> mysterious and "impossible" NULL pointer oopses. Ingo?
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
 
-update: the 'forcedeth NULL pointer oops' problem got resolved by one of 
-these commits:
 
- commit 3ba4d093fe8a26f5f2da94411bf8732fa6e9da86
- Author: Ayaz Abdulla <aabdulla@nvidia.com>
- Date:   Fri Mar 23 05:50:02 2007 -0500
+ sis900.c |   44 ++++++++++++++++++++------------------------
+ 1 file changed, 20 insertions(+), 24 deletions(-)
 
-     forcedeth: fix tx timeout
 
- commit fcc5f2665c81e087fb95143325ed769a41128d50
- Author: Ayaz Abdulla <aabdulla@nvidia.com>
- Date:   Fri Mar 23 05:49:37 2007 -0500
+commit b11e33ae6b479f2e7f83b9dc148f0f24d47530bd
+Author: Neil Horman <nhorman@redhat.com>
+Date:   Mon Feb 12 09:47:45 2007 -0500
 
-     forcedeth: fix nic poll
+    fixing buffer refill problem on sis900
 
-it never reoccured since this went upstream - so i'd close the NULL 
-dereference bug.
-
-furthermore, i havent seen the 'forcedeth interface hangs' problem 
-trigger with recent kernels (havent seen it trigger for the past 2 
-weeks), but no forcedeth specific change went into the kernel since i 
-last reproduced a hang so either it got fixed by something else, or the 
-hang is very rare. We could lower its priority for v2.6.21. If it ever 
-happens again i'll send another ethtool dump to Ayaz.
-
-	Ingo
-
--------------------------------------------------------------------------
-This SF.net email is sponsored by DB2 Express
-Download DB2 Express C - the FREE version of DB2 express and take
-control of your XML. No limits. Just data. Click to get it now.
-http://sourceforge.net/powerbar/db2/
+diff --git a/drivers/net/sis900.c b/drivers/net/sis900.c
+index fb2b530..a6a0f09 100644
+--- a/drivers/net/sis900.c
++++ b/drivers/net/sis900.c
+@@ -1755,6 +1755,24 @@ static int sis900_rx(struct net_device *net_dev)
+ 		} else {
+ 			struct sk_buff * skb;
+ 
++			pci_unmap_single(sis_priv->pci_dev,
++				sis_priv->rx_ring[entry].bufptr, RX_BUF_SIZE,
++				PCI_DMA_FROMDEVICE);
++
++			/* refill the Rx buffer, what if there is not enought
++			 * memory for new socket buffer ?? */
++			if ((skb = dev_alloc_skb(RX_BUF_SIZE)) == NULL) {
++				/*
++				 * Not enough memory to refill the buffer
++				 * so we need to recycle the old one so
++				 * as to avoid creating a memory hole
++				 * in the rx ring
++				 */
++				skb = sis_priv->rx_skbuff[entry];
++				sis_priv->stats.rx_dropped++;
++				goto refill_rx_ring;
++			}	
++
+ 			/* This situation should never happen, but due to
+ 			   some unknow bugs, it is possible that
+ 			   we are working on NULL sk_buff :-( */
+@@ -1768,9 +1786,6 @@ static int sis900_rx(struct net_device *net_dev)
+ 				break;
+ 			}
+ 
+-			pci_unmap_single(sis_priv->pci_dev,
+-				sis_priv->rx_ring[entry].bufptr, RX_BUF_SIZE,
+-				PCI_DMA_FROMDEVICE);
+ 			/* give the socket buffer to upper layers */
+ 			skb = sis_priv->rx_skbuff[entry];
+ 			skb_put(skb, rx_size);
+@@ -1783,33 +1798,14 @@ static int sis900_rx(struct net_device *net_dev)
+ 			net_dev->last_rx = jiffies;
+ 			sis_priv->stats.rx_bytes += rx_size;
+ 			sis_priv->stats.rx_packets++;
+-
+-			/* refill the Rx buffer, what if there is not enought
+-			 * memory for new socket buffer ?? */
+-			if ((skb = dev_alloc_skb(RX_BUF_SIZE)) == NULL) {
+-				/* not enough memory for skbuff, this makes a
+-				 * "hole" on the buffer ring, it is not clear
+-				 * how the hardware will react to this kind
+-				 * of degenerated buffer */
+-				if (netif_msg_rx_status(sis_priv))
+-					printk(KERN_INFO "%s: Memory squeeze,"
+-						"deferring packet.\n",
+-						net_dev->name);
+-				sis_priv->rx_skbuff[entry] = NULL;
+-				/* reset buffer descriptor state */
+-				sis_priv->rx_ring[entry].cmdsts = 0;
+-				sis_priv->rx_ring[entry].bufptr = 0;
+-				sis_priv->stats.rx_dropped++;
+-				sis_priv->cur_rx++;
+-				break;
+-			}
++			sis_priv->dirty_rx++;
++refill_rx_ring:
+ 			skb->dev = net_dev;
+ 			sis_priv->rx_skbuff[entry] = skb;
+ 			sis_priv->rx_ring[entry].cmdsts = RX_BUF_SIZE;
+                 	sis_priv->rx_ring[entry].bufptr =
+ 				pci_map_single(sis_priv->pci_dev, skb->data,
+ 					RX_BUF_SIZE, PCI_DMA_FROMDEVICE);
+-			sis_priv->dirty_rx++;
+ 		}
+ 		sis_priv->cur_rx++;
+ 		entry = sis_priv->cur_rx % NUM_RX_DESC;
