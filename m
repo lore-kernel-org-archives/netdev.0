@@ -1,100 +1,76 @@
-From: Kazunori MIYAZAWA <kazunori@miyazawa.org>
-Subject: [PATCH][IPSEC] fix panic when using inter address familiy IPsec on
- loopback
-Date: Fri, 20 Apr 2007 19:02:51 +0900
-Message-ID: <20070420190251.292bea8a.kazunori@miyazawa.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Miika Komu <miika@iki.fi>, Diego Beltrami <Diego.Beltrami@hiit.fi>,
-	netdev@vger.kernel.org, usagi-core@linux-ipv6.org
-To: David Miller <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>
+From: David Howells <dhowells@redhat.com>
+Subject: Re: Getting the new RxRPC patches upstream
+Date: Fri, 20 Apr 2007 11:41:46 +0100
+Message-ID: <4713.1177065706@redhat.com>
+References: <20070420.015838.83621529.davem@davemloft.net>  <29341.1176975158@redhat.com> <2969.1176992303@redhat.com> <1101.1177056127@redhat.com>
+Cc: ebiederm@xmission.com, akpm@osdl.org, containers@lists.osdl.org,
+	oleg@tv-sign.ru, hch@infradead.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usagi004.linux-ipv6.org ([203.178.140.4]:41738 "EHLO
-	miyazawa.org" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1754345AbXDTKC6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Apr 2007 06:02:58 -0400
+Received: from mx1.redhat.com ([66.187.233.31]:53870 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1767049AbXDTKmS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Apr 2007 06:42:18 -0400
+In-Reply-To: <20070420.015838.83621529.davem@davemloft.net> 
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+David Miller <davem@davemloft.net> wrote:
 
-I send patches to fix panic when using inter
-address family IPsec on loopback device.
+> Now that Herbert cleared up the crypto layer issues
+> the only problem left is that there are generic changes
+> in there which are not strictly networking but which
+> your subsequent networking changes depend upon.
+>
+> This is a mess, and makes merging your work into the
+> net-2.6.22 tree more difficult.
 
-These patches can be applied to current linux-2.6 and
-should also be net-2.6.
+There are only two non-net patches that AF_RXRPC depends on:
 
-Best regards, 
+ (1) The key facility changes.  That's all my code anyway, and shouldn't be a
+     problem to merge unless someone else has put some changes in there that I
+     don't know about.
 
-Signed-off-by: Kazunori MIYAZAWA <kazunori@miyazawa.org>
----
- net/ipv4/xfrm4_input.c       |    6 ++----
- net/ipv4/xfrm4_mode_tunnel.c |    2 ++
- net/ipv6/xfrm6_input.c       |    6 ++----
- net/ipv6/xfrm6_mode_tunnel.c |    1 +
- 4 files changed, 7 insertions(+), 8 deletions(-)
+ (2) try_to_cancel_delayed_work().  I suppose I could use
+     cancel_delayed_work() instead, but that's less efficient as it waits for
+     the timer completion function to finish.
 
-diff --git a/net/ipv4/xfrm4_input.c b/net/ipv4/xfrm4_input.c
-index 78e80de..9fcf6d8 100644
---- a/net/ipv4/xfrm4_input.c
-+++ b/net/ipv4/xfrm4_input.c
-@@ -138,10 +138,8 @@ int xfrm4_rcv_encap(struct sk_buff *skb,
- 	nf_reset(skb);
- 
- 	if (decaps) {
--		if (!(skb->dev->flags&IFF_LOOPBACK)) {
--			dst_release(skb->dst);
--			skb->dst = NULL;
--		}
-+		dst_release(skb->dst);
-+		skb->dst = NULL;
- 		netif_rx(skb);
- 		return 0;
- 	} else {
-diff --git a/net/ipv4/xfrm4_mode_tunnel.c b/net/ipv4/xfrm4_mode_tunnel.c
-index ceb4376..5115574 100644
---- a/net/ipv4/xfrm4_mode_tunnel.c
-+++ b/net/ipv4/xfrm4_mode_tunnel.c
-@@ -84,6 +84,8 @@ #endif
- 	top_iph->saddr = x->props.saddr.a4;
- 	top_iph->daddr = x->id.daddr.a4;
- 
-+	skb->protocol = htons(ETH_P_IP);
-+
- 	memset(&(IPCB(skb)->opt), 0, sizeof(struct ip_options));
- 	return 0;
- }
-diff --git a/net/ipv6/xfrm6_input.c b/net/ipv6/xfrm6_input.c
-index 31f651f..c53c0d3 100644
---- a/net/ipv6/xfrm6_input.c
-+++ b/net/ipv6/xfrm6_input.c
-@@ -104,10 +104,8 @@ int xfrm6_rcv_spi(struct sk_buff *skb, _
- 	nf_reset(skb);
- 
- 	if (decaps) {
--		if (!(skb->dev->flags&IFF_LOOPBACK)) {
--			dst_release(skb->dst);
--			skb->dst = NULL;
--		}
-+		dst_release(skb->dst);
-+		skb->dst = NULL;
- 		netif_rx(skb);
- 		return -1;
- 	} else {
-diff --git a/net/ipv6/xfrm6_mode_tunnel.c b/net/ipv6/xfrm6_mode_tunnel.c
-index 0bc866c..8741bcd 100644
---- a/net/ipv6/xfrm6_mode_tunnel.c
-+++ b/net/ipv6/xfrm6_mode_tunnel.c
-@@ -80,6 +80,7 @@ static int xfrm6_tunnel_output(struct xf
- 	top_iph->hop_limit = dst_metric(dst->child, RTAX_HOPLIMIT);
- 	ipv6_addr_copy(&top_iph->saddr, (struct in6_addr *)&x->props.saddr);
- 	ipv6_addr_copy(&top_iph->daddr, (struct in6_addr *)&x->id.daddr);
-+	skb->protocol = htons(ETH_P_IPV6);
- 	return 0;
- }
- 
--- 
-1.4.1
+And one that AFS depends on:
 
+ (3) Cache the key in nameidata.  I still don't have Al's agreement on this,
+     but it's purely caching, so I could drop that patch for the moment and
+     excise the stuff that uses it from my AFS patches if that would help.
+
+Do you class the AFS patches as "networking changes"?
+
+Do you want me to consolidate my patches to make things simpler for you?
+
+Do you want me to rebase my patches onto net-2.6.22?
+
+I have the following patches, in order, available now, though I haven't yet
+released the last few (they can all be downloaded from my RH people pages):
+
+	move-skb-generic.diff  (you've got this)
+	timers.diff
+	keys.diff
+	af_rxrpc.diff
+	afs-cleanup.diff
+	af_rxrpc-kernel.diff
+	af_rxrpc-afs.diff
+	af_rxrpc-delete-old.diff
+	af_rxrpc-own-workqueues.diff
+	af_rxrpc-fixes.diff
+	afs-callback-wq.diff
+	afs-vlocation.diff
+	afs-multimount.diff
+	afs-rxrpc-key.diff
+	afs-nameidata-key.diff
+	afs-security.diff
+	afs-doc.diff
+	netlink-support-MSG_TRUNC.diff  (you've got this)
+	afs-get-capabilities.diff
+	afs-initcallbackstate3.diff
+	afs-dir-write-support.diff
+
+David
