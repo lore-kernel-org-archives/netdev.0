@@ -1,43 +1,39 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Associating connection tracking with a physical device.
-Date: Fri, 20 Apr 2007 15:50:12 -0700
-Message-ID: <462943A4.5060309@candelatech.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/0] Re-try changes for PMTUDISC_PROBE
+Date: Fri, 20 Apr 2007 15:55:42 -0700 (PDT)
+Message-ID: <20070420.155542.132926912.davem@davemloft.net>
+References: <11746948063923-git-send-email-jheffner@psc.edu>
+	<4619FBEE.70103@trash.net>
+	<4626C0BE.2050205@psc.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: NetDev <netdev@vger.kernel.org>
+Cc: kaber@trash.net, netdev@vger.kernel.org
+To: jheffner@psc.edu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:55506 "EHLO ns2.lanforge.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1767299AbXDTWuN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Apr 2007 18:50:13 -0400
-Received: from [192.168.100.224] (static-71-121-249-218.sttlwa.dsl-w.verizon.net [71.121.249.218])
-	(authenticated bits=0)
-	by ns2.lanforge.com (8.13.4/8.13.4) with ESMTP id l3KMoCW5030510
-	for <netdev@vger.kernel.org>; Fri, 20 Apr 2007 15:50:12 -0700
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36827
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1767305AbXDTWzj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Apr 2007 18:55:39 -0400
+In-Reply-To: <4626C0BE.2050205@psc.edu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I am trying to NAT routed connections between pairs of devices very
-much like the etun patch recently posted.
+From: John Heffner <jheffner@psc.edu>
+Date: Wed, 18 Apr 2007 21:07:10 -0400
 
-As far as I can tell, this is failing because the connection tracking
-does not take the interface into account.  The result is that if you
-send on etun1a, receive on etun1b, and then route internally to
-etun2a for transmit, the packet uses the same nfct (printk shows
-the 'id' of the ct is the same even though the skb->dev has changed.)
-This appears to make it impossible to NAT on etun2a in this scenario.
+> This backs out the the transport layer MTU checks that don't work.  As a 
+> consequence, I had to back out the PMTUDISC_PROBE patch as well.  These 
+> patches should fix the problem with ipv6 that the transport layer change 
+> tried to address, and re-implement PMTUDISC_PROBE.  I think this 
+> approach is nicer than the last one, since it doesn't require a bit in 
+> struct sk_buff.
 
-I believe what is needed to make this work is the addition of some
-extra fields in the conn-tracking tuple, or perhaps some explicit test
-for the outgoing netdev.
+Since I was rebasing net-2.6.22, here is what I did.  I simply
+elided the two patches you backed out, then I'll add patch
+3 and 4, the new one's, on top.
 
-Does that sound like the right approach for enabling NAT in this case?
+This will show up when I publish the rebased net-2.6.22 tree
+which I hope will happen later this evening.
 
-Thanks,
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
-
+Thanks!
