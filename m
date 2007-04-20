@@ -1,11 +1,10 @@
 From: Ingo Molnar <mingo@elte.hu>
 Subject: Re: [1/3] 2.6.21-rc6: known regressions
-Date: Fri, 20 Apr 2007 15:39:52 +0200
-Message-ID: <20070420133952.GA17749@elte.hu>
+Date: Fri, 20 Apr 2007 15:46:27 +0200
+Message-ID: <20070420134627.GA18195@elte.hu>
 References: <Pine.LNX.4.64.0704051944230.6730@woody.linux-foundation.org>
 	<20070414003625.GS5907@stusta.de>
 	<Pine.LNX.4.64.0704131821020.28042@woody.linux-foundation.org>
-	<20070414062143.GA12707@elte.hu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -19,7 +18,7 @@ Cc: Ayaz Abdulla <aabdulla@nvidia.com>,
 To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <e1000-devel-bounces@lists.sourceforge.net>
 Content-Disposition: inline
-In-Reply-To: <20070414062143.GA12707@elte.hu>
+In-Reply-To: <Pine.LNX.4.64.0704131821020.28042@woody.linux-foundation.org>
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=e1000-devel>
@@ -32,20 +31,35 @@ Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
 
-* Ingo Molnar <mingo@elte.hu> wrote:
+* Linus Torvalds <torvalds@linux-foundation.org> wrote:
 
-> > The 6b6b6b6b pattern is POISON_FREE, implying some kind of slab 
-> > misuse, most likely a use-after-free, although possibly just due to 
-> > overrunning a slab into the next one or something like that.
-> 
-> unfortunately, while being at -rc6 based kernel #445 meanwhile, this 
-> incident was the only time i saw this problem. [...]
+> [...] I think the hangs that Ingo sees with forcedeth were preceded by 
+> mysterious and "impossible" NULL pointer oopses. Ingo?
 
-meanwhile i'm at kernel bootup #657, and still this crash did not 
-reoccur. So it could have been some pre-existing sysfs bug that triggers 
-only extremely rarely. I'd suggest that this bug have its priority 
-lowered (to not hold up a v2.6.21 release) - there's no smoking gun and 
-no reproducer. I'll keep an eye on it.
+update: the 'forcedeth NULL pointer oops' problem got resolved by one of 
+these commits:
+
+ commit 3ba4d093fe8a26f5f2da94411bf8732fa6e9da86
+ Author: Ayaz Abdulla <aabdulla@nvidia.com>
+ Date:   Fri Mar 23 05:50:02 2007 -0500
+
+     forcedeth: fix tx timeout
+
+ commit fcc5f2665c81e087fb95143325ed769a41128d50
+ Author: Ayaz Abdulla <aabdulla@nvidia.com>
+ Date:   Fri Mar 23 05:49:37 2007 -0500
+
+     forcedeth: fix nic poll
+
+it never reoccured since this went upstream - so i'd close the NULL 
+dereference bug.
+
+furthermore, i havent seen the 'forcedeth interface hangs' problem 
+trigger with recent kernels (havent seen it trigger for the past 2 
+weeks), but no forcedeth specific change went into the kernel since i 
+last reproduced a hang so either it got fixed by something else, or the 
+hang is very rare. We could lower its priority for v2.6.21. If it ever 
+happens again i'll send another ethtool dump to Ayaz.
 
 	Ingo
 
