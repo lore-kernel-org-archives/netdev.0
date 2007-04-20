@@ -1,36 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: SIOCGIFCOUNT
-Date: Fri, 20 Apr 2007 15:41:33 -0700 (PDT)
-Message-ID: <20070420.154133.76947512.davem@davemloft.net>
-References: <200704210004.51278.ak@suse.de>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Associating connection tracking with a physical device.
+Date: Fri, 20 Apr 2007 15:50:12 -0700
+Message-ID: <462943A4.5060309@candelatech.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ak@suse.de
+To: NetDev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44567
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754514AbXDTWla (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Apr 2007 18:41:30 -0400
-In-Reply-To: <200704210004.51278.ak@suse.de>
+Received: from ns2.lanforge.com ([66.165.47.211]:55506 "EHLO ns2.lanforge.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1767299AbXDTWuN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Apr 2007 18:50:13 -0400
+Received: from [192.168.100.224] (static-71-121-249-218.sttlwa.dsl-w.verizon.net [71.121.249.218])
+	(authenticated bits=0)
+	by ns2.lanforge.com (8.13.4/8.13.4) with ESMTP id l3KMoCW5030510
+	for <netdev@vger.kernel.org>; Fri, 20 Apr 2007 15:50:12 -0700
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Andi Kleen <ak@suse.de>
-Date: Sat, 21 Apr 2007 00:04:51 +0200
+I am trying to NAT routed connections between pairs of devices very
+much like the etun patch recently posted.
 
-> 0x8938 is SIOCGIFCOUNT. As far as I can see it is only defined in
-> sockios.h, but not implemented?
->
-> Should it be removed from the include file or implemented?
+As far as I can tell, this is failing because the connection tracking
+does not take the interface into account.  The result is that if you
+send on etun1a, receive on etun1b, and then route internally to
+etun2a for transmit, the packet uses the same nfct (printk shows
+the 'id' of the ct is the same even though the skb->dev has changed.)
+This appears to make it impossible to NAT on etun2a in this scenario.
 
-Unless we can be %100 certain not one build will break by removing it,
-we should keep it around.
+I believe what is needed to make this work is the addition of some
+extra fields in the conn-tracking tuple, or perhaps some explicit test
+for the outgoing netdev.
 
-> I probably will add a dummy compat ioctl entry to shut the JDK up at least.
+Does that sound like the right approach for enabling NAT in this case?
 
-Yes, but please do this generically so that the warning gets
-quieted on all compat platforms that might hit this.
+Thanks,
+Ben
 
-Thanks.
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
+
