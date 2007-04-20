@@ -1,73 +1,42 @@
-From: Matt Mackall <mpm@selenic.com>
-Subject: Re: [RFC][PATCH -mm take4 2/6] support multiple logging
-Date: Fri, 20 Apr 2007 13:21:10 -0500
-Message-ID: <20070420182109.GR11115@waste.org>
-References: <462605DC.2080804@bx.jp.nec.com> <462609D1.50300@bx.jp.nec.com> <20070419210813.a599c54f.akpm@linux-foundation.org> <46288D11.4000801@bx.jp.nec.com> <20070420111526.01ad7f4c.akpm@linux-foundation.org>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: Getting the new RxRPC patches upstream
+Date: Fri, 20 Apr 2007 11:38:05 -0700
+Message-ID: <20070420113805.c4877dc8.akpm@linux-foundation.org>
+References: <20070420.015838.83621529.davem@davemloft.net>
+	<29341.1176975158@redhat.com>
+	<2969.1176992303@redhat.com>
+	<1101.1177056127@redhat.com>
+	<4713.1177065706@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Keiichi KII <k-keiichi@bx.jp.nec.com>, davem@davemloft.net,
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, ebiederm@xmission.com,
+	containers@lists.osdl.org, oleg@tv-sign.ru, hch@infradead.org,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
+To: David Howells <dhowells@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from waste.org ([66.93.16.53]:48980 "EHLO waste.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1767181AbXDTSed (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Apr 2007 14:34:33 -0400
-Content-Disposition: inline
-In-Reply-To: <20070420111526.01ad7f4c.akpm@linux-foundation.org>
+Received: from smtp1.linux-foundation.org ([65.172.181.25]:46996 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1767188AbXDTSjq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Apr 2007 14:39:46 -0400
+In-Reply-To: <4713.1177065706@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Apr 20, 2007 at 11:15:26AM -0700, Andrew Morton wrote:
-> On Fri, 20 Apr 2007 18:51:13 +0900
-> Keiichi KII <k-keiichi@bx.jp.nec.com> wrote:
-> 
-> > > I started to do some cleanups and fixups here, but abandoned it when it was
-> > > all getting a bit large.
-> > > 
-> > > Here are some fixes against this patch:
-> > 
-> > I'm going to fix my patches by following your reviews and send new patches 
-> > on the LKML and the netdev ML in a few days.
-> > 
-> 
-> Well..  before you can finish this work we need to decide upon what the
-> interface to userspace will be.
-> 
-> - The miscdev isn't appropriate
-> 
-> - netlink remains a possibility
-> 
-> - Stephen suggests an ioctl against a socket and davem suggests socket
->   options, but it's unclear to me how that socket will get bound to
->   netconsole?
+On Fri, 20 Apr 2007 11:41:46 +0100
+David Howells <dhowells@redhat.com> wrote:
 
-Yeah, that's a bit of a head-scratcher.
-
-> either way, I agree with the overall thrust of this work: netconsole is
-> useful in production environments, can become more useful and will need
-> runtime configurability.
+> There are only two non-net patches that AF_RXRPC depends on:
 > 
+>  (1) The key facility changes.  That's all my code anyway, and shouldn't be a
+>      problem to merge unless someone else has put some changes in there that I
+>      don't know about.
 > 
-> I wonder if we're approaching this in the right way, however...
-> 
-> At a high level, netconsole is just a flow of UDP packets between two
-> machines.  The kernel already has rich and well-understood ways of creating
-> and configuring such flows.
-> 
-> So...  instead of creating a brand new way of configuring such a flow via
-> sysfs and ioctl, could we instead create a flow using the existing
-> mechanisms (presumably the socket API) and then "transfer" the information
-> from that flow over to netconsole by some means??
+>  (2) try_to_cancel_delayed_work().  I suppose I could use
+>      cancel_delayed_work() instead, but that's less efficient as it waits for
+>      the timer completion function to finish.
 
-We don't really have anything that corresponds to netpoll's
-connections at higher levels.
-
-I'm tempted to say we should make this work more like the dummy
-network device. ie:
-
-modprobe netconsole -o netcon1 [params]
-modprobe netconsole -o netcon2 [params]
-
--- 
-Mathematics is the supreme nostalgia of our time.
+There are significant workqueue changes in -mm and I plan to send them
+in for 2.6.22.  I doubt if there's anything in there which directly
+affects cancel_delayed_work(), but making changes of this nature against
+2.6.21 might lead to grief.
