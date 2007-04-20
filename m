@@ -1,119 +1,122 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [PATCH] sis900: Allocate rx replacement buffer before rx operation
-Date: Fri, 20 Apr 2007 09:54:58 -0400
-Message-ID: <20070420135458.GB16191@hmsreliant.homelinux.net>
+From: Milan Kocian <milon@wq.cz>
+Subject: [patch 1/1] networking: fix sending netlink message when replace route
+Date: Fri, 20 Apr 2007 16:07:42 +0200
+Message-ID: <20070420140742.GA30839@wq.cz>
+References: <461D26CB.3010508@trash.net> <1176400428.24446.40.camel@nt.wq.cz> <4623029A.2090906@trash.net> <20070416.171016.43503207.davem@davemloft.net> <4624C46D.1030609@trash.net> <1176900487.8348.36.camel@nt.wq.cz> <462625E4.8030802@trash.net> <1176982238.5032.22.camel@nt.wq.cz> <46275CA3.1070503@trash.net> <20070419144245.2a0a0905.akpm@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, venza@brownhat.org, nhorman@tuxdriver.com
-To: netdev@vger.kernel.org
+Cc: Patrick McHardy <kaber@trash.net>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	bugme-daemon@bugzilla.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:2447 "EHLO ra.tuxdriver.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754052AbXDTNzl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Apr 2007 09:55:41 -0400
+Received: from fw.wq.cz ([82.202.95.52]:43848 "EHLO nt.wq.cz"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S2993013AbXDTOIF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Apr 2007 10:08:05 -0400
 Content-Disposition: inline
+In-Reply-To: <20070419144245.2a0a0905.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hey there-
-	The sis900 driver appears to have a bug in which the receive routine
-passes the skbuff holding the received frame to the network stack before
-refilling the buffer in the rx ring.  If a new skbuff cannot be allocated, the
-driver simply leaves a hole in the rx ring, which causes the driver to stop
-receiving frames and become non-recoverable without an rmmod/insmod according to
-reporters.  This patch reverses that order, attempting to allocate a replacement
-buffer first, and receiving the new frame only if one can be allocated.  If no
-skbuff can be allocated, the current skbuf in the rx ring is recycled, dropping
-the current frame, but keeping the NIC operational.
+From: Milan Kocian <milon@wq.cz>
 
-Thanks & Regards
-Neil
+When you replace route via ip r r command the netlink multicast message
+is not send. This patch corrects it. NL message is sent with
+NLM_F_REPLACE flag. [Bug 8320]
+---
 
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-
-
- sis900.c |   44 ++++++++++++++++++++------------------------
- 1 file changed, 20 insertions(+), 24 deletions(-)
-
-
-commit b11e33ae6b479f2e7f83b9dc148f0f24d47530bd
-Author: Neil Horman <nhorman@redhat.com>
-Date:   Mon Feb 12 09:47:45 2007 -0500
-
-    fixing buffer refill problem on sis900
-
-diff --git a/drivers/net/sis900.c b/drivers/net/sis900.c
-index fb2b530..a6a0f09 100644
---- a/drivers/net/sis900.c
-+++ b/drivers/net/sis900.c
-@@ -1755,6 +1755,24 @@ static int sis900_rx(struct net_device *net_dev)
- 		} else {
- 			struct sk_buff * skb;
- 
-+			pci_unmap_single(sis_priv->pci_dev,
-+				sis_priv->rx_ring[entry].bufptr, RX_BUF_SIZE,
-+				PCI_DMA_FROMDEVICE);
-+
-+			/* refill the Rx buffer, what if there is not enought
-+			 * memory for new socket buffer ?? */
-+			if ((skb = dev_alloc_skb(RX_BUF_SIZE)) == NULL) {
-+				/*
-+				 * Not enough memory to refill the buffer
-+				 * so we need to recycle the old one so
-+				 * as to avoid creating a memory hole
-+				 * in the rx ring
-+				 */
-+				skb = sis_priv->rx_skbuff[entry];
-+				sis_priv->stats.rx_dropped++;
-+				goto refill_rx_ring;
-+			}	
-+
- 			/* This situation should never happen, but due to
- 			   some unknow bugs, it is possible that
- 			   we are working on NULL sk_buff :-( */
-@@ -1768,9 +1786,6 @@ static int sis900_rx(struct net_device *net_dev)
- 				break;
- 			}
- 
--			pci_unmap_single(sis_priv->pci_dev,
--				sis_priv->rx_ring[entry].bufptr, RX_BUF_SIZE,
--				PCI_DMA_FROMDEVICE);
- 			/* give the socket buffer to upper layers */
- 			skb = sis_priv->rx_skbuff[entry];
- 			skb_put(skb, rx_size);
-@@ -1783,33 +1798,14 @@ static int sis900_rx(struct net_device *net_dev)
- 			net_dev->last_rx = jiffies;
- 			sis_priv->stats.rx_bytes += rx_size;
- 			sis_priv->stats.rx_packets++;
--
--			/* refill the Rx buffer, what if there is not enought
--			 * memory for new socket buffer ?? */
--			if ((skb = dev_alloc_skb(RX_BUF_SIZE)) == NULL) {
--				/* not enough memory for skbuff, this makes a
--				 * "hole" on the buffer ring, it is not clear
--				 * how the hardware will react to this kind
--				 * of degenerated buffer */
--				if (netif_msg_rx_status(sis_priv))
--					printk(KERN_INFO "%s: Memory squeeze,"
--						"deferring packet.\n",
--						net_dev->name);
--				sis_priv->rx_skbuff[entry] = NULL;
--				/* reset buffer descriptor state */
--				sis_priv->rx_ring[entry].cmdsts = 0;
--				sis_priv->rx_ring[entry].bufptr = 0;
--				sis_priv->stats.rx_dropped++;
--				sis_priv->cur_rx++;
--				break;
--			}
-+			sis_priv->dirty_rx++;
-+refill_rx_ring:
- 			skb->dev = net_dev;
- 			sis_priv->rx_skbuff[entry] = skb;
- 			sis_priv->rx_ring[entry].cmdsts = RX_BUF_SIZE;
-                 	sis_priv->rx_ring[entry].bufptr =
- 				pci_map_single(sis_priv->pci_dev, skb->data,
- 					RX_BUF_SIZE, PCI_DMA_FROMDEVICE);
--			sis_priv->dirty_rx++;
+--- a/net/ipv4/fib_hash.c	2007-04-18 12:50:11.000000000 +0200
++++ b/net/ipv4/fib_hash.c	2007-04-19 10:21:04.267136960 +0200
+@@ -457,6 +457,8 @@
+ 			fib_release_info(fi_drop);
+ 			if (state & FA_S_ACCESSED)
+ 				rt_cache_flush(-1);
++			rtmsg_fib(RTM_NEWROUTE, key, fa, cfg->fc_dst_len, tb->tb_id,
++				  &cfg->fc_nlinfo, NLM_F_REPLACE);
+ 			return 0;
  		}
- 		sis_priv->cur_rx++;
- 		entry = sis_priv->cur_rx % NUM_RX_DESC;
+ 
+@@ -524,7 +526,7 @@
+ 	rt_cache_flush(-1);
+ 
+ 	rtmsg_fib(RTM_NEWROUTE, key, new_fa, cfg->fc_dst_len, tb->tb_id,
+-		  &cfg->fc_nlinfo);
++		  &cfg->fc_nlinfo, 0);
+ 	return 0;
+ 
+ out_free_new_fa:
+@@ -590,7 +592,7 @@
+ 
+ 		fa = fa_to_delete;
+ 		rtmsg_fib(RTM_DELROUTE, key, fa, cfg->fc_dst_len,
+-			  tb->tb_id, &cfg->fc_nlinfo);
++			  tb->tb_id, &cfg->fc_nlinfo, 0);
+ 
+ 		kill_fn = 0;
+ 		write_lock_bh(&fib_hash_lock);
+--- a/net/ipv4/fib_trie.c	2007-04-18 12:50:11.000000000 +0200
++++ b/net/ipv4/fib_trie.c	2007-04-19 11:41:14.537864656 +0200
+@@ -1205,6 +1205,8 @@
+ 			fib_release_info(fi_drop);
+ 			if (state & FA_S_ACCESSED)
+ 				rt_cache_flush(-1);
++			rtmsg_fib(RTM_NEWROUTE, htonl(key), new_fa, plen, tb->tb_id,
++				  &cfg->fc_nlinfo, NLM_F_REPLACE);
+ 			goto succeeded;
+ 		}
+ 		/* Error if we find a perfect match which
+@@ -1256,7 +1258,7 @@
+ 
+ 	rt_cache_flush(-1);
+ 	rtmsg_fib(RTM_NEWROUTE, htonl(key), new_fa, plen, tb->tb_id,
+-		  &cfg->fc_nlinfo);
++		  &cfg->fc_nlinfo, 0);
+ succeeded:
+ 	return 0;
+ 
+@@ -1599,7 +1601,7 @@
+ 
+ 	fa = fa_to_delete;
+ 	rtmsg_fib(RTM_DELROUTE, htonl(key), fa, plen, tb->tb_id,
+-		  &cfg->fc_nlinfo);
++		  &cfg->fc_nlinfo, 0);
+ 
+ 	l = fib_find_node(t, key);
+ 	li = find_leaf_info(l, plen);
+--- a/net/ipv4/fib_semantics.c	2007-04-18 12:50:11.000000000 +0200
++++ b/net/ipv4/fib_semantics.c	2007-04-19 10:22:06.852622520 +0200
+@@ -301,7 +301,8 @@
+ }
+ 
+ void rtmsg_fib(int event, __be32 key, struct fib_alias *fa,
+-	       int dst_len, u32 tb_id, struct nl_info *info)
++	       int dst_len, u32 tb_id, struct nl_info *info,
++	       unsigned int nlm_flags)
+ {
+ 	struct sk_buff *skb;
+ 	u32 seq = info->nlh ? info->nlh->nlmsg_seq : 0;
+@@ -313,7 +314,7 @@
+ 
+ 	err = fib_dump_info(skb, info->pid, seq, event, tb_id,
+ 			    fa->fa_type, fa->fa_scope, key, dst_len,
+-			    fa->fa_tos, fa->fa_info, 0);
++			    fa->fa_tos, fa->fa_info, nlm_flags);
+ 	/* failure implies BUG in fib_nlmsg_size() */
+ 	BUG_ON(err < 0);
+ 
+--- a/net/ipv4/fib_lookup.h	2007-04-18 12:50:11.000000000 +0200
++++ b/net/ipv4/fib_lookup.h	2007-04-19 10:23:11.637773680 +0200
+@@ -30,7 +30,8 @@
+ 			 int dst_len, u8 tos, struct fib_info *fi,
+ 			 unsigned int);
+ extern void rtmsg_fib(int event, __be32 key, struct fib_alias *fa,
+-		      int dst_len, u32 tb_id, struct nl_info *info);
++		      int dst_len, u32 tb_id, struct nl_info *info,
++		      unsigned int nlm_flags);
+ extern struct fib_alias *fib_find_alias(struct list_head *fah,
+ 					u8 tos, u32 prio);
+ extern int fib_detect_death(struct fib_info *fi, int order,
+
+Signed-off-by: Milan Kocian <milon@wq.cz>
+
