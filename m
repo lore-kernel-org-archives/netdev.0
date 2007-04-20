@@ -1,48 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Getting the new RxRPC patches upstream
-Date: Fri, 20 Apr 2007 01:58:38 -0700 (PDT)
-Message-ID: <20070420.015838.83621529.davem@davemloft.net>
-References: <29341.1176975158@redhat.com>
-	<2969.1176992303@redhat.com>
-	<1101.1177056127@redhat.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ebiederm@xmission.com, akpm@osdl.org, containers@lists.osdl.org,
-	oleg@tv-sign.ru, hch@infradead.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: dhowells@redhat.com
+From: David Howells <dhowells@redhat.com>
+Subject: Re: [PATCH] CONFIG_PACKET_MMAP should depend on MMU
+Date: Fri, 20 Apr 2007 09:58:52 +0100
+Message-ID: <2181.1177059532@redhat.com>
+References: <6d6a94c50704200139vb9b24f6y77a6d23544c8f7b9@mail.gmail.com>  <200704091146.32346.rgetz@blackfin.uclinux.org> <1176112223.17975.8.camel@roc-desktop> <9561.1176209728@redhat.com> <200704101952.05380.rgetz@blackfin.uclinux.org> <6d6a94c50704170336l62fc9ael1e58197e6c3853ba@mail.gmail.com> <2817.1176910411@redhat.com> <6d6a94c50704192146k5bbe2aefr31fa5726bf1c1e54@mail.gmail.com> <1016.1177055893@redhat.com>
+Cc: "Robin Getz" <rgetz@blackfin.uclinux.org>, uaca@alumni.uv.es,
+	bryan.wu@analog.com, "Alan Cox" <alan@lxorguk.ukuu.org.uk>,
+	waltje@uwalt.nl.mugnet.org, netdev@vger.kernel.org,
+	"Andrew Morton" <akpm@osdl.org>,
+	"Linux Kernel" <linux-kernel@vger.kernel.org>
+To: "Aubrey Li" <aubreylee@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53554
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1766516AbXDTI6f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Apr 2007 04:58:35 -0400
-In-Reply-To: <1101.1177056127@redhat.com>
+Received: from mx1.redhat.com ([66.187.233.31]:44322 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1766692AbXDTI7W (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Apr 2007 04:59:22 -0400
+In-Reply-To: <6d6a94c50704200139vb9b24f6y77a6d23544c8f7b9@mail.gmail.com> 
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: David Howells <dhowells@redhat.com>
-Date: Fri, 20 Apr 2007 09:02:07 +0100
+Aubrey Li <aubreylee@gmail.com> wrote:
 
-> David Miller <davem@davemloft.net> wrote:
+> as checked in packet_set_ring, buffer size must be a multiple of PAGE_SIZE,
+> --------------------packet_set_ring------------------------
+> if (unlikely(req->tp_block_size & (PAGE_SIZE - 1)))
 > 
-> > I applied already the patches I thought were appropriate,
-> > you had some crypto layer changes that you need to work
-> > out with Herbert Xu before the rest can be applied.
-> 
-> Should the rest of it go via Andrew's tree then?
+> So why not use __get_free_pages rather than kmalloc,
 
-Now that Herbert cleared up the crypto layer issues
-the only problem left is that there are generic changes
-in there which are not strictly networking but which
-your subsequent networking changes depend upon.
+Because kmalloc() may be able to get us a smaller chunk of memory.  Actually,
+calling __get_free_pages() might be a better, and then release the excess
+pages.
 
-This is a mess, and makes merging your work into the
-net-2.6.22 tree more difficult.
+> so that we have pagetables to count?
 
-Is it possible for your changes to be purely networking
-and not need those changes outside of the networking?
+There are no pagetables in NOMMU-mode.
 
-I guess one of them was just a symbol export which I
-could add to the net-2.6.22 tree, but weren't there some
-more involved non-networking bits in there?
+David
