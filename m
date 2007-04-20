@@ -1,52 +1,65 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [PATCH] skbuff: skb_store_bits const is backwards
-Date: Fri, 20 Apr 2007 16:13:14 -0700
-Message-ID: <20070420161314.21e8fa24@dxpl.pdx.osdl.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 4/4] PPPoE: race between interface going down and
+ release()
+Date: Fri, 20 Apr 2007 16:27:56 -0700 (PDT)
+Message-ID: <20070420.162756.78644819.davem@davemloft.net>
+References: <20070311044143.GD17712@florz.florz.dyndns.org>
+	<1173667016.24373.36.camel@kdsk1.austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: florz@florz.de, netdev@vger.kernel.org
+To: mostrows@earthlink.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([65.172.181.25]:60475 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750700AbXDTXOj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Apr 2007 19:14:39 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55250
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751349AbXDTX1w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Apr 2007 19:27:52 -0400
+In-Reply-To: <1173667016.24373.36.camel@kdsk1.austin.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Getting warnings becuase skb_store_bits has skb as constant,
-but the function overwrites it. Looks like const was on the
-wrong side.
+From: Michal Ostrowski <mostrows@earthlink.net>
+Date: Sun, 11 Mar 2007 21:36:56 -0500
 
-Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+> Attached below is my take on how to address this problem.  
+> This addresses any concerns you may have had about checking po->pppoe_dev==NULL,
+> because accesses to this field are now synchronized with pppoe_hash_lock.
+> 
+> Once we can settle on a fix for this, I'll deal with the SID==0 issue 
+> (trying to do that now would just cause patch conflicts).
 
----
- include/linux/skbuff.h |    4 ++--
- net/core/skbuff.c      |    2 +-
- 2 files changed, 3 insertions(+), 3 deletions(-)
+This patch doesn't apply becuase in the actual pppoe.c code:
 
---- net-2.6.22.orig/include/linux/skbuff.h
-+++ net-2.6.22/include/linux/skbuff.h
-@@ -1491,8 +1491,8 @@ extern __wsum	       skb_checksum(const 
- 				    int len, __wsum csum);
- extern int	       skb_copy_bits(const struct sk_buff *skb, int offset,
- 				     void *to, int len);
--extern int	       skb_store_bits(const struct sk_buff *skb, int offset,
--				      void *from, int len);
-+extern int	       skb_store_bits(struct sk_buff *skb, int offset,
-+				      const void *from, int len);
- extern __wsum	       skb_copy_and_csum_bits(const struct sk_buff *skb,
- 					      int offset, u8 *to, int len,
- 					      __wsum csum);
---- net-2.6.22.orig/net/core/skbuff.c
-+++ net-2.6.22/net/core/skbuff.c
-@@ -1188,7 +1188,7 @@ fault:
-  *	traversing fragment lists and such.
-  */
- 
--int skb_store_bits(const struct sk_buff *skb, int offset, void *from, int len)
-+int skb_store_bits(struct sk_buff *skb, int offset, const void *from, int len)
- {
- 	int i, copy;
- 	int start = skb_headlen(skb);
+> -	read_lock_bh(&pppoe_hash_lock);
+> +	write_lock_bh(&pppoe_hash_lock);
+>  	for (hash = 0; hash < PPPOE_HASH_SIZE; hash++) {
+>  		struct pppox_sock *po = item_hash_table[hash];
+>  
+>  		while (po != NULL) {
+> -			if (po->pppoe_dev == dev) {
+> -				struct sock *sk = sk_pppox(po);
+> -
+> -				sock_hold(sk);
+> -
+> -				/* We hold a reference to SK, now drop the
+> -				 * hash table lock so that we may attempt
+> -				 * to lock the socket (which can sleep).
+> -				 */
+
+That code doesn't look like that.  At the end, instead there is:
+
+			     sock_hold(sk);
+			     po->pppoe_dev = NULL;
+
+and that goes back all the way to 2.6.12 and beyond before
+we moved over to GIT.
+
+So I'm having trouble figuring out what tree you generated
+that patch against :-)  Perhaps there was an earlier patch
+I missed or something.
+
+But I won't second guess and leave it to you to let me know
+what I should actually apply.
+
+Thanks.
