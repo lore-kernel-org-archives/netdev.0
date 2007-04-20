@@ -1,9 +1,9 @@
 From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [RFC][PATCH -mm take4 2/6] support multiple logging
-Date: Thu, 19 Apr 2007 21:08:13 -0700
-Message-ID: <20070419210813.a599c54f.akpm@linux-foundation.org>
+Subject: Re: [RFC][PATCH -mm take4 4/6] using symlink for the net_device
+Date: Thu, 19 Apr 2007 21:12:39 -0700
+Message-ID: <20070419211239.6f22ee2c.akpm@linux-foundation.org>
 References: <462605DC.2080804@bx.jp.nec.com>
-	<462609D1.50300@bx.jp.nec.com>
+	<46260AE2.9080107@bx.jp.nec.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -11,200 +11,114 @@ Cc: mpm@selenic.com, davem@davemloft.net, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
 To: Keiichi KII <k-keiichi@bx.jp.nec.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([65.172.181.25]:53233 "EHLO
+Received: from smtp1.linux-foundation.org ([65.172.181.25]:41427 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754363AbXDTEI3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Apr 2007 00:08:29 -0400
-In-Reply-To: <462609D1.50300@bx.jp.nec.com>
+	by vger.kernel.org with ESMTP id S1754412AbXDTEM5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Apr 2007 00:12:57 -0400
+In-Reply-To: <46260AE2.9080107@bx.jp.nec.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 18 Apr 2007 21:06:41 +0900 Keiichi KII <k-keiichi@bx.jp.nec.com> wrote:
+On Wed, 18 Apr 2007 21:11:14 +0900 Keiichi KII <k-keiichi@bx.jp.nec.com> wrote:
 
 > From: Keiichi KII <k-keiichi@bx.jp.nec.com>
 > 
-> This patch contains the following changes for supporting multiple logging
->  agents.
-> 
-> 1. extend netconsole to multiple netpolls
->    To send kernel messages to multiple logging agents, extend netcosnole
->     to be able to use multiple netpolls. Each netpoll sends kernel messages
->     to its own logging agent.
-> 
-> 2. change config parameter format
->    We change config parameter format from single configuration to multiple 
->    configurations separated by ';'.
-> 
->    ex) sending kernel messages to destination1 and destination2 using eth0.
->     modprobe netconsole \
->             netconsole="@/eth0,@[destination1]/;@/eth0,@[destination2]/"
-> 
-> 3. introduce CONFIG_NETCONSOLE_DYNCON config to change between 
->    existing netconsole and netconsole applying the above function.
-> 
-> Signed-off-by: Keiichi KII <k-keiichi@bx.jp.nec.com>
-> Signed-off-by: Takayoshi Kochi <t-kochi@bq.jp.nec.com>
-> ---
-> Index: mm/drivers/net/netconsole.c
-> ===================================================================
-> --- mm.orig/drivers/net/netconsole.c
-> +++ mm/drivers/net/netconsole.c
-> @@ -61,15 +61,102 @@ static struct netpoll np = {
->  	.remote_port = 6666,
->  	.remote_mac = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+> We use symbolic link for net_device.
+
+As Stephen said, please fully document the new interfaces in netconsole.txt.
+
+Please also cc netdev@vger.kernel.org on all networking-related patches.
+
+> +static char *make_netdev_class_name(char *netdev_name);
+> +static int netconsole_event(struct notifier_block *this, unsigned long event,
+> +			    void *ptr);
+
+Please try order things in a way which minimises the number of
+forward-declarations, as long as such ordering doesn't make the code
+illogical (it usually doesn't).
+
+>  static int miscdev_configured;
+>  
+> @@ -274,12 +277,77 @@ static struct miscdevice netconsole_misc
+>  	.name = "netconsole",
 >  };
-> -static int configured = 0;
 >  
->  #define MAX_PRINT_CHUNK 1000
->  
-> +#ifdef CONFIG_NETCONSOLE_DYNCON
-> +struct netconsole_target {
-> +	struct list_head list;
-> +	int id;
-> +	struct netpoll np;
+> +static struct notifier_block netconsole_notifier = {
+> +	.notifier_call = netconsole_event,
 > +};
 > +
-> +static LIST_HEAD(target_list);
-> +static DEFINE_SPINLOCK(target_list_lock);
+>  static int setup_target_sysfs(struct netconsole_target *nt)
+>  {
+> +	int retval = 0;
+> +	char *name;
 > +
-> +static int add_target(char* target_config);
-> +static void remove_target(struct netconsole_target *nt);
-> +static void cleanup_netconsole(void);
+>  	kobject_set_name(&nt->obj, "port%d", nt->id);
+>  	nt->obj.parent = &netconsole_miscdev.this_device->kobj;
+>  	nt->obj.ktype = &target_ktype;
+> -	return kobject_register(&nt->obj);
+> +	retval = kobject_register(&nt->obj);
+> +	name = make_netdev_class_name(nt->np.dev_name);
+> +	if (IS_ERR(name))
+> +		return PTR_ERR(name);
+> +	retval = sysfs_create_link(&nt->obj, &nt->np.dev->dev.kobj, name);
+> +	kfree(name);
+> +
+> +	return retval;
+> +}
+> +
+> +static char *make_netdev_class_name(char *netdev_name)
+> +{
+> +	int size;
+> +	char *name;
+> +	char *netdev_class_prefix = "net:";
+> +
+> +	size = strlen(netdev_class_prefix) + strlen(netdev_name) + 1;
+> +	name = kmalloc(size, GFP_KERNEL);
+> +	if (!name) {
+> +		printk(KERN_ERR "netconsole: kmalloc() failed!\n");
+> +		return ERR_PTR(-ENOMEM);
+> +	}
+> +	strcpy(name, netdev_class_prefix);
+> +	strcat(name, netdev_name);
+> +
+> +	return name;
+> +}
 
-I started to do some cleanups and fixups here, but abandoned it when it was
-all getting a bit large.
+I think this whole function can be replaced by one call to kasprintf()
 
-Here are some fixes against this patch:
+> +static int netconsole_event(struct notifier_block *this, unsigned long event,
+> +			    void *ptr)
+> +{
+> +	int error = 0;
+> +	char *old_link_name = NULL, *new_link_name = NULL;
+> +	struct netconsole_target *nt;
+> +	struct net_device *dev = ptr;
+> +
+> +	if (event == NETDEV_CHANGENAME) {
+> +		spin_lock(&target_list_lock);
+> +		list_for_each_entry(nt, &target_list, list) {
+> +			if (nt->np.dev != dev)
+> +				continue;
+> +			new_link_name = make_netdev_class_name(dev->name);
+> +			old_link_name =
+> +				make_netdev_class_name(nt->np.dev_name);
 
+The error return from make_netdev_class_name() is being ignored here.
 
-- Fix Kconfig
-
-- Avoid need for forward-declared statics
-
-- Coding style:
-
-	fix `if' layout
-	unneeded braces
-
-- use spin_lock_irqsave() and _restore()
-
-
-
-diff -puN drivers/net/Kconfig~netconsole-support-multiple-logging-fix drivers/net/Kconfig
---- a/drivers/net/Kconfig~netconsole-support-multiple-logging-fix
-+++ a/drivers/net/Kconfig
-@@ -2965,9 +2965,11 @@ config NETCONSOLE_DYNCON
- 	bool "Support for multiple logging and UI for netconsole"
- 	depends on NETCONSOLE
- 	---help---
--	This option enables multiple logging and changing dynamically
--	 configurations (e.g. IP adderss, port number and so on)
--	 by using sysfs and ioctl.
-+	  This option enables multiple logging and changing dynamically
-+	  configurations (e.g. IP address, port number and so on)
-+	  by using sysfs and ioctl.
-+	  See <file:Documentation/networking/netconsole.txt> for details.
-+
- endif #NETDEVICES
- 
- config NETPOLL
-diff -puN drivers/net/netconsole.c~netconsole-support-multiple-logging-fix drivers/net/netconsole.c
---- a/drivers/net/netconsole.c~netconsole-support-multiple-logging-fix
-+++ a/drivers/net/netconsole.c
-@@ -74,10 +74,6 @@ struct netconsole_target {
- static LIST_HEAD(target_list);
- static DEFINE_SPINLOCK(target_list_lock);
- 
--static int add_target(char* target_config);
--static void remove_target(struct netconsole_target *nt);
--static void cleanup_netconsole(void);
--
- static int add_target(char* target_config)
- {
- 	int retval = 0;
-@@ -142,27 +138,24 @@ static void write_msg(struct console *co
- 	if (list_empty(&target_list))
- 		return;
- 
--	local_irq_save(flags);
--	spin_lock(&target_list_lock);
-+	spin_lock_irqsave(&target_list_lock, flags);
- 
--	for(left = len; left; ) {
-+	for (left = len; left; ) {
- 		frag = min(left, MAX_PRINT_CHUNK);
--		list_for_each_entry(target, &target_list, list) {
-+		list_for_each_entry(target, &target_list, list)
- 			netpoll_send_udp(&target->np, msg, frag);
--		}
- 		msg += frag;
- 		left -= frag;
- 	}
- 
--	spin_unlock(&target_list_lock);
--	local_irq_restore(flags);
-+	spin_unlock_irqrestore(&target_list_lock, flags);
- #else
- 	if (!np.dev)
- 		return;
- 
- 	local_irq_save(flags);
- 
--	for(left = len; left; ) {
-+	for (left = len; left; ) {
- 		frag = min(left, MAX_PRINT_CHUNK);
- 		netpoll_send_udp(&np, msg, frag);
- 		msg += frag;
-@@ -189,6 +182,20 @@ static int __init option_setup(char *opt
- __setup("netconsole=", option_setup);
- #endif
- 
-+static void cleanup_netconsole(void)
-+{
-+#ifdef CONFIG_NETCONSOLE_DYNCON
-+	struct netconsole_target *nt, *tmp;
-+
-+	unregister_console(&netconsole);
-+	list_for_each_entry_safe(nt, tmp, &target_list, list)
-+		remove_target(nt);
-+#else
-+	unregister_console(&netconsole);
-+	netpoll_cleanup(&np);
-+#endif /* CONFIG_NETCONSOLE_DYNCON */
-+}
-+
- static int __init init_netconsole(void)
- {
- 	char *tmp = config;
-@@ -196,7 +203,7 @@ static int __init init_netconsole(void)
- 	char *p;
- 
- 	register_console(&netconsole);
--	if(!strlen(config)) {
-+	if (!strlen(config)) {
- 		printk(KERN_ERR "netconsole: not configured\n");
- 		return 0;
- 	}
-@@ -220,20 +227,5 @@ static int __init init_netconsole(void)
- 	return 0;
- }
- 
--static void cleanup_netconsole(void)
--{
--#ifdef CONFIG_NETCONSOLE_DYNCON
--	struct netconsole_target *nt, *tmp;
--
--	unregister_console(&netconsole);
--	list_for_each_entry_safe(nt, tmp, &target_list, list) {
--		remove_target(nt);
--	}
--#else
--	unregister_console(&netconsole);
--	netpoll_cleanup(&np);
--#endif /* CONFIG_NETCONSOLE_DYNCON */
--}
--
- module_init(init_netconsole);
- module_exit(cleanup_netconsole);
-_
+> +			sysfs_remove_link(&nt->obj, old_link_name);
+> +			error = sysfs_create_link(&nt->obj,
+> +						  &nt->np.dev->dev.kobj,
+> +						  new_link_name);
+> +			if (error)
+> +				printk(KERN_ERR "can't create link: %s\n",
+> +				       new_link_name);
+> +			strcpy(nt->np.dev_name, dev->name);
+> +			kfree(new_link_name);
+> +			kfree(old_link_name);
+> +		}
+> +		spin_unlock(&target_list_lock);
+> +	}
+> +
+> +	return NOTIFY_DONE;
+>  }
 
