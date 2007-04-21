@@ -1,51 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: SIOCGIFCOUNT
-Date: Sat, 21 Apr 2007 10:40:47 -0700 (PDT)
-Message-ID: <20070421.104047.41636018.davem@davemloft.net>
-References: <200704210004.51278.ak@suse.de>
-	<20070420.154133.76947512.davem@davemloft.net>
-	<200704211148.52705.ak@suse.de>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 2/7] [IrDA] af_irda: Silence kernel message
+ in irda_recvmsg_stream
+Date: Sat, 21 Apr 2007 10:43:50 -0700 (PDT)
+Message-ID: <20070421.104350.130236274.davem@davemloft.net>
+References: <20070418214750.515230054@sortiz.org>
+	<20070420.220900.45154094.davem@davemloft.net>
+	<20070421120152.GB4337@sortiz.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ak@suse.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59481
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753952AbXDURkx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Apr 2007 13:40:53 -0400
-In-Reply-To: <200704211148.52705.ak@suse.de>
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, olaf.kirch-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org,
+	irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org
+Return-path: <irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <20070421120152.GB4337-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
+	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=irda-users>
+List-Post: <mailto:irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
+	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Sender: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Errors-To: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Andi Kleen <ak@suse.de>
-Date: Sat, 21 Apr 2007 11:48:52 +0200
+From: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
+Date: Sat, 21 Apr 2007 15:01:52 +0300
 
-> On Saturday 21 April 2007 00:41:33 David Miller wrote:
-> > From: Andi Kleen <ak@suse.de>
-> > Date: Sat, 21 Apr 2007 00:04:51 +0200
+> On Fri, Apr 20, 2007 at 10:09:00PM -0700, David Miller wrote:
+> > There were some conflicts in this one wrt. the sock_orphan()
+> > bug fix we put into mainline recently, but I did my best
+> > to resolve it when I applied this to net-2.6.22
 > > 
-> > > 0x8938 is SIOCGIFCOUNT. As far as I can see it is only defined in
-> > > sockios.h, but not implemented?
-> > >
-> > > Should it be removed from the include file or implemented?
-> > 
-> > Unless we can be %100 certain not one build will break by removing it,
-> > we should keep it around.
-> 
-> Ok, but should it not be implemented for the non compat case too?
-> I assume java has some reason to call it.
+> > You can have a look and verify things when I put up my net-2.6.2
+> > tree later this evening.
+> Verified. It's all good, thanks a lot.
 
-It probably just is one of those silly:
+Thanks for checking.
 
-#ifdef SIOCGIFCOUNT
-	ret = try_to_use_SIOCGIFCOUNT();
-#endif
-
-type code blocks that we find in just about every wonky
-source tree out there.
-
-There is no reason to add an implementation of it, and
-the compat layer should just return the same error
-code that the non-compat code will.
+-------------------------------------------------------------------------
+This SF.net email is sponsored by DB2 Express
+Download DB2 Express C - the FREE version of DB2 express and take
+control of your XML. No limits. Just data. Click to get it now.
+http://sourceforge.net/powerbar/db2/
