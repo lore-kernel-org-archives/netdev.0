@@ -1,37 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: net-2.6.22 and tcp-2.6 rebased...
-Date: Fri, 20 Apr 2007 23:47:33 -0700 (PDT)
-Message-ID: <20070420.234733.50322125.davem@davemloft.net>
+From: Andi Kleen <ak@suse.de>
+Subject: Re: SIOCGIFCOUNT
+Date: Sat, 21 Apr 2007 11:48:52 +0200
+Message-ID: <200704211148.52705.ak@suse.de>
+References: <200704210004.51278.ak@suse.de> <20070420.154133.76947512.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, linville@tuxdriver.com
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42104
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S932943AbXDUGrb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Apr 2007 02:47:31 -0400
+Received: from mx1.suse.de ([195.135.220.2]:53411 "EHLO mx1.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754539AbXDUJsz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 21 Apr 2007 05:48:55 -0400
+In-Reply-To: <20070420.154133.76947512.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Saturday 21 April 2007 00:41:33 David Miller wrote:
+> From: Andi Kleen <ak@suse.de>
+> Date: Sat, 21 Apr 2007 00:04:51 +0200
+> 
+> > 0x8938 is SIOCGIFCOUNT. As far as I can see it is only defined in
+> > sockios.h, but not implemented?
+> >
+> > Should it be removed from the include file or implemented?
+> 
+> Unless we can be %100 certain not one build will break by removing it,
+> we should keep it around.
 
-It was a multi-day uphill battle but I got it done just
-now.
+Ok, but should it not be implemented for the non compat case too?
+I assume java has some reason to call it.
 
-	kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.22.git
-	kernel.org:/pub/scm/linux/kernel/git/davem/tcp-2.6.git
-
-As before, tcp-2.6.git is net-2.6.22 cloned with the TCP RB-Tree
-work added.
-
-An allmodconfig build went ok for me on sparc64, and I'm about
-to reboot my workstation into the tcp-2.6 tree to give that
-some basic sanity checks.
-
-Andrew, I know you're still majorly backlogged but this is just
-a heads up that I've rebased.  I even had conflicts with
-Linus's tree as he checked things in about a half hour ago
-but it should go all clean now against his current tree.
-
-John, would love to see those wireless patches soon :-)
+-Andi
