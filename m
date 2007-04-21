@@ -1,37 +1,64 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: SIOCGIFCOUNT
-Date: Sat, 21 Apr 2007 11:48:52 +0200
-Message-ID: <200704211148.52705.ak@suse.de>
-References: <200704210004.51278.ak@suse.de> <20070420.154133.76947512.davem@davemloft.net>
+From: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH 5/7] [IrDA] IrDA monitor mode
+Date: Sat, 21 Apr 2007 14:42:40 +0300
+Message-ID: <20070421114239.GA4337@sortiz.org>
+References: <20070418213202.214829666@sortiz.org>
+	<20070418214751.455457680@sortiz.org>
+	<20070420.221143.132446079.davem@davemloft.net>
+Reply-To: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.suse.de ([195.135.220.2]:53411 "EHLO mx1.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754539AbXDUJsz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 21 Apr 2007 05:48:55 -0400
-In-Reply-To: <20070420.154133.76947512.davem@davemloft.net>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <20070420.221143.132446079.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
+	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=irda-users>
+List-Post: <mailto:irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
+	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Sender: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Errors-To: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Saturday 21 April 2007 00:41:33 David Miller wrote:
-> From: Andi Kleen <ak@suse.de>
-> Date: Sat, 21 Apr 2007 00:04:51 +0200
-> 
-> > 0x8938 is SIOCGIFCOUNT. As far as I can see it is only defined in
-> > sockios.h, but not implemented?
-> >
-> > Should it be removed from the include file or implemented?
-> 
-> Unless we can be %100 certain not one build will break by removing it,
-> we should keep it around.
+Hi Dave,
 
-Ok, but should it not be implemented for the non compat case too?
-I assume java has some reason to call it.
+On Fri, Apr 20, 2007 at 10:11:43PM -0700, David Miller wrote:
+> From: samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org
+> Date: Thu, 19 Apr 2007 00:32:07 +0300
+> 
+> > Through a protocol specific ioctl, one can disable IrDA TX in order to
+> > monitor an IrDA link.
+> > 
+> > Signed-off-by: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
+> 
+> I'd really rather see IRDA use netlink instead of these
+> wonky ioctls, but whatever, if you want to put this dirty
+> into your stack and you're the maintainer I can't really
+> stop you :-)
+I actually asked for your advice about it some time ago:
+http://marc.info/?l=linux-netdev&m=117590341703544&w=2
+But by looking at the flow of emails on netdev sent to you (and that's only
+netdev...), I can easily see how you could have missed it :-)
 
--Andi
+Regarding this patch, I came up with this ioctl because I thought
+implementing an IrDA netlink layer would be an overkill for just one single
+command.
+What I propose is that you revert this patch before we introduce a new ioctl
+upstream while I start implementing a netlink IrDA layer. Would that be ok
+with you, or can we let this new ioctl in and have it coexisting with a future
+netlink layer ?
+
+Cheers,
+Samuel.
+
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by DB2 Express
+Download DB2 Express C - the FREE version of DB2 express and take
+control of your XML. No limits. Just data. Click to get it now.
+http://sourceforge.net/powerbar/db2/
