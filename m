@@ -1,30 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6.22 1/3] [TCP]: Sed magic converts func(sk, tp,
- ...) -> func(sk, ...)
-Date: Fri, 20 Apr 2007 22:18:28 -0700 (PDT)
-Message-ID: <20070420.221828.105172765.davem@davemloft.net>
-References: <Pine.LNX.4.64.0704161758020.28337@kivilampi-30.cs.helsinki.fi>
-	<462396F5.9030907@trash.net>
-	<Pine.LNX.4.64.0704161913400.28337@kivilampi-30.cs.helsinki.fi>
+Subject: net-2.6.22 and tcp-2.6 rebased...
+Date: Fri, 20 Apr 2007 23:47:33 -0700 (PDT)
+Message-ID: <20070420.234733.50322125.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: kaber@trash.net, hch@infradead.org, netdev@vger.kernel.org
-To: ilpo.jarvinen@helsinki.fi
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: akpm@linux-foundation.org, linville@tuxdriver.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56410
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42104
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753729AbXDUFSZ convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 21 Apr 2007 01:18:25 -0400
-In-Reply-To: <Pine.LNX.4.64.0704161913400.28337@kivilampi-30.cs.helsinki.fi>
+	by vger.kernel.org with ESMTP id S932943AbXDUGrb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Apr 2007 02:47:31 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
-Date: Mon, 16 Apr 2007 19:19:02 +0300 (EEST)
 
-> [PATCH] [TCP]: Sed magic converts func(sk, tp, ...) -> func(sk, ...)
+It was a multi-day uphill battle but I got it done just
+now.
 
-I decided to apply this to my net-2.6.22 tree, I'll deal with
-the tcp-2.6 merge conflicts as best as I can.
+	kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.22.git
+	kernel.org:/pub/scm/linux/kernel/git/davem/tcp-2.6.git
+
+As before, tcp-2.6.git is net-2.6.22 cloned with the TCP RB-Tree
+work added.
+
+An allmodconfig build went ok for me on sparc64, and I'm about
+to reboot my workstation into the tcp-2.6 tree to give that
+some basic sanity checks.
+
+Andrew, I know you're still majorly backlogged but this is just
+a heads up that I've rebased.  I even had conflicts with
+Linus's tree as he checked things in about a half hour ago
+but it should go all clean now against his current tree.
+
+John, would love to see those wireless patches soon :-)
