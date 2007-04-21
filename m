@@ -1,29 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT PATCH] Exporting IPv6 statistics via netlink.
-Date: Fri, 20 Apr 2007 22:15:46 -0700 (PDT)
-Message-ID: <20070420.221546.62677515.davem@davemloft.net>
-References: <20070419084412.GD521@postel.suug.ch>
-	<20070419.175855.130993987.yoshfuji@linux-ipv6.org>
-	<20070419.210454.79003206.yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH net-2.6.22 1/3] [TCP]: Sed magic converts func(sk, tp,
+ ...) -> func(sk, ...)
+Date: Fri, 20 Apr 2007 22:18:28 -0700 (PDT)
+Message-ID: <20070420.221828.105172765.davem@davemloft.net>
+References: <Pine.LNX.4.64.0704161758020.28337@kivilampi-30.cs.helsinki.fi>
+	<462396F5.9030907@trash.net>
+	<Pine.LNX.4.64.0704161913400.28337@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
-Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, netdev@vger.kernel.org
-To: yoshfuji@linux-ipv6.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: kaber@trash.net, hch@infradead.org, netdev@vger.kernel.org
+To: ilpo.jarvinen@helsinki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56406
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56410
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754516AbXDUFPn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Apr 2007 01:15:43 -0400
-In-Reply-To: <20070419.210454.79003206.yoshfuji@linux-ipv6.org>
+	by vger.kernel.org with ESMTP id S1753729AbXDUFSZ convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 21 Apr 2007 01:18:25 -0400
+In-Reply-To: <Pine.LNX.4.64.0704161913400.28337@kivilampi-30.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
-Date: Thu, 19 Apr 2007 21:04:54 +0900 (JST)
+=46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+Date: Mon, 16 Apr 2007 19:19:02 +0300 (EEST)
 
-> [IPV6] SNMP: Export statistics via netlink without CONFIG_PROC_FS.
-> 
-> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> [PATCH] [TCP]: Sed magic converts func(sk, tp, ...) -> func(sk, ...)
 
-I applied this to my net-2.6.22 tree, thank you.
+I decided to apply this to my net-2.6.22 tree, I'll deal with
+the tcp-2.6 merge conflicts as best as I can.
