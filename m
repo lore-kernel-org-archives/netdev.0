@@ -1,46 +1,32 @@
-From: David Miller <davem@davemloft.net>
+From: Andi Kleen <ak@suse.de>
 Subject: Re: [RFC] SIOCGIFCOUNT implementation
-Date: Mon, 23 Apr 2007 14:26:30 -0700 (PDT)
-Message-ID: <20070423.142630.21932914.davem@davemloft.net>
-References: <200704211148.52705.ak@suse.de>
-	<20070421.104047.41636018.davem@davemloft.net>
-	<20070423141226.1c2127ce@localhost.localdomain>
+Date: Mon, 23 Apr 2007 23:30:56 +0200
+Message-ID: <200704232330.57086.ak@suse.de>
+References: <200704211148.52705.ak@suse.de> <20070423141226.1c2127ce@localhost.localdomain> <20070423.142630.21932914.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: ak@suse.de, netdev@vger.kernel.org
-To: shemminger@linux-foundation.org
+Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48968
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754262AbXDWV0X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Apr 2007 17:26:23 -0400
-In-Reply-To: <20070423141226.1c2127ce@localhost.localdomain>
+Received: from cantor2.suse.de ([195.135.220.15]:33086 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753221AbXDWVbA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Apr 2007 17:31:00 -0400
+In-Reply-To: <20070423.142630.21932914.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Date: Mon, 23 Apr 2007 14:12:26 -0700
+ 
+> Please also tell me what legacy application could actually
+> use this thing when BSD itself doesn't even implement it?
 
-> Trivial implementation of SIOCGIFCOUNT.
-> If you search the archives, this was suggested and rejected
-> 6 years ago. But there maybe legacy Unix applications that
-> could actually use it.
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+Some version of java seems to. I see a lot of:
 
-It makes no sense given that you can get this information
-with SIOCGIFCONF by supplying a NULL ifc.ifc_buf buffer.
-The equivalent of SIOCGIFCOUNT can be obtained by dividing ifc.ifc_len
-by the size of one interface entry.
+ioctl32(java:30851): Unknown cmd fd(3) cmd(00008938){00} arg(bfbb87c4) on socket:[334628709]
 
-Please also tell me what legacy application could actually
-use this thing when BSD itself doesn't even implement it?
+But just rejecting it is probably ok.
 
-A google code search for SIOCGIFCOUNT is fun too.
-
-In fact SIOCGIFCOUNT aparently got removed in 2.2.x, so
-let's keep it that way.
-
-There is no reason to add support for this, truly.
-
+-Andi
