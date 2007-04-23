@@ -1,27 +1,56 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] drivers/net/wireless/Kconfig: correct minor typo
-Date: Mon, 23 Apr 2007 13:29:09 -0700 (PDT)
-Message-ID: <20070423.132909.88702007.davem@davemloft.net>
-References: <20070423183443.GD5883@tuxdriver.com>
-	<20070423213519.2692d0fd@localhost>
-	<20070423195313.GG5883@tuxdriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: net-2.6.22 UDP stalls/hangs
+Date: Mon, 23 Apr 2007 13:37:30 -0700 (PDT)
+Message-ID: <20070423.133730.115642229.davem@davemloft.net>
+References: <20070423130734.d3d90b20.akpm@linux-foundation.org>
+	<20070423.131810.78710074.davem@davemloft.net>
+	<20070423132719.b7cf1c9e.akpm@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org, stefano.brivio-hl5o88x/ua9eoWH0uzbU5w@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20070423195313.GG5883-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: netdev@vger.kernel.org
+To: akpm@linux-foundation.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35640
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754174AbXDWUhX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Apr 2007 16:37:23 -0400
+In-Reply-To: <20070423132719.b7cf1c9e.akpm@linux-foundation.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Date: Mon, 23 Apr 2007 15:53:13 -0400
+From: Andrew Morton <akpm@linux-foundation.org>
+Date: Mon, 23 Apr 2007 13:27:19 -0700
 
-> Correct minor typo in drivers/net/wireless/Kconfig identified by
-> Stefano Brivio <stefano.brivio-hl5o88x/ua9eoWH0uzbU5w@public.gmane.org>.
+> On Mon, 23 Apr 2007 13:18:10 -0700 (PDT)
+> David Miller <davem@davemloft.net> wrote:
 > 
-> Signed-off-by: John W. Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+> > From: Andrew Morton <akpm@linux-foundation.org>
+> > Date: Mon, 23 Apr 2007 13:07:34 -0700
+> > 
+> > > The interesting bit is:
+> >  ...
+> > > I think I saw the same problem maybe 1.5 weeks ago on this machine, but I
+> > > didn't have time to investigate further.  So it's not some recent thing.
+> > 
+> > My initial reaction is that DNS responses are being lost or dropped
+> > for some reason.
+> 
+> Plausible.   I'll try booting it with the ethernet unplugged.
 
-Applied, thanks John.
+That won't test the same scenerio.
+
+If the network cable is unplugged, ARP responses won't arrive and
+therefore sendmsg() calls will return with a host unreachable error.
+
+The situation you need to recreate is specifically UDP packets getting
+dropped.
+
+The reason I wanted the tcpdump trace is so that we can see whether
+the problem is UDP packets going out or going in which are being
+mangled/dropped.
+
+You don't need a hub to get a dump.  Instead you can run a caching
+named on some other system, configure your FC6 box to use that system
+for DNS via /etc/resolv.conf, then run tcpdump on the caching named
+machine.
