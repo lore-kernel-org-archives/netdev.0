@@ -1,48 +1,27 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: net-2.6.22 UDP stalls/hangs
-Date: Mon, 23 Apr 2007 13:27:19 -0700
-Message-ID: <20070423132719.b7cf1c9e.akpm@linux-foundation.org>
-References: <20070423130734.d3d90b20.akpm@linux-foundation.org>
-	<20070423.131810.78710074.davem@davemloft.net>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] drivers/net/wireless/Kconfig: correct minor typo
+Date: Mon, 23 Apr 2007 13:29:09 -0700 (PDT)
+Message-ID: <20070423.132909.88702007.davem@davemloft.net>
+References: <20070423183443.GD5883@tuxdriver.com>
+	<20070423213519.2692d0fd@localhost>
+	<20070423195313.GG5883@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([65.172.181.25]:59813 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752897AbXDWU1X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Apr 2007 16:27:23 -0400
-In-Reply-To: <20070423.131810.78710074.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org, stefano.brivio-hl5o88x/ua9eoWH0uzbU5w@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20070423195313.GG5883-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 23 Apr 2007 13:18:10 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Date: Mon, 23 Apr 2007 15:53:13 -0400
 
-> From: Andrew Morton <akpm@linux-foundation.org>
-> Date: Mon, 23 Apr 2007 13:07:34 -0700
+> Correct minor typo in drivers/net/wireless/Kconfig identified by
+> Stefano Brivio <stefano.brivio-hl5o88x/ua9eoWH0uzbU5w@public.gmane.org>.
 > 
-> > The interesting bit is:
->  ...
-> > I think I saw the same problem maybe 1.5 weeks ago on this machine, but I
-> > didn't have time to investigate further.  So it's not some recent thing.
-> 
-> My initial reaction is that DNS responses are being lost or dropped
-> for some reason.
+> Signed-off-by: John W. Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
 
-Plausible.   I'll try booting it with the ethernet unplugged.
-
-> Please run tcpdump on the network while this machine comes up and
-> see if DNS requests and replies are going back and forth
-> correctly.
-
-hm.  That would require a hub and rather a lot of head-scratching.
-
-> Also, please indicate what kind of network card is in this computer.
-
-e1000:
-
-05:00.0 Ethernet controller: Intel Corporation 80003ES2LAN Gigabit Ethernet Controller (Copper) (rev 01)
-
+Applied, thanks John.
