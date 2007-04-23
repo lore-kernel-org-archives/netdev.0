@@ -1,8 +1,8 @@
 From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: [PATCH] refactor wireless Kconfig
-Date: Mon, 23 Apr 2007 14:34:43 -0400
-Message-ID: <20070423183443.GD5883@tuxdriver.com>
-References: <20070423183334.GC5883@tuxdriver.com>
+Subject: [PATCH] cfg80211: new wireless config infrastructure
+Date: Mon, 23 Apr 2007 14:36:34 -0400
+Message-ID: <20070423183634.GE5883@tuxdriver.com>
+References: <20070423183334.GC5883@tuxdriver.com> <20070423183443.GD5883@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
@@ -10,439 +10,736 @@ Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76
 To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
 Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20070423183334.GC5883-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+In-Reply-To: <20070423183443.GD5883-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
 Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
 
-This patch refactors the wireless Kconfig all over and already
-introduces net/wireless/Kconfig with just the WEXT bit for now,
-the cfg80211 patch will add to that as well.
+This patch creates the core cfg80211 code along with some sysfs bits.
+This is a stripped down version to allow mac80211 to function, but
+doesn't include any configuration yet except for creating and removing
+virtual interfaces.
+
+This patch includes the nl80211 header file but it only contains the
+interface types which the cfg80211 interface for creating virtual
+interfaces relies on.
 
 Signed-off-by: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
 Signed-off-by: John W. Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
 ---
- drivers/net/Makefile                  |    2 +-
- drivers/net/wireless/Kconfig          |  120 ++++++++++++++-------------------
- drivers/net/wireless/bcm43xx/Kconfig  |    3 +-
- drivers/net/wireless/hostap/Kconfig   |    3 +-
- drivers/net/wireless/zd1211rw/Kconfig |    3 +-
- net/Kconfig                           |   11 ++-
- net/Makefile                          |    2 +
- net/ieee80211/Kconfig                 |    3 +-
- net/wireless/Kconfig                  |   23 ++++++
- net/wireless/Makefile                 |    1 +
- 10 files changed, 92 insertions(+), 79 deletions(-)
- create mode 100644 net/wireless/Kconfig
- create mode 100644 net/wireless/Makefile
+ CREDITS                   |    6 ++
+ MAINTAINERS               |    6 ++
+ include/linux/Kbuild      |    1 +
+ include/linux/netdevice.h |    4 +
+ include/linux/nl80211.h   |   38 ++++++++
+ include/net/cfg80211.h    |   36 ++++++++
+ include/net/wireless.h    |  139 ++++++++++++++++++++++++++++++
+ net/wireless/Kconfig      |    3 +
+ net/wireless/Makefile     |    4 +-
+ net/wireless/core.c       |  209 +++++++++++++++++++++++++++++++++++++++++++++
+ net/wireless/core.h       |   49 +++++++++++
+ net/wireless/sysfs.c      |   80 +++++++++++++++++
+ net/wireless/sysfs.h      |    9 ++
+ 13 files changed, 583 insertions(+), 1 deletions(-)
+ create mode 100644 include/linux/nl80211.h
+ create mode 100644 include/net/cfg80211.h
+ create mode 100644 include/net/wireless.h
+ create mode 100644 net/wireless/core.c
+ create mode 100644 net/wireless/core.h
+ create mode 100644 net/wireless/sysfs.c
+ create mode 100644 net/wireless/sysfs.h
 
-diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index 33af833..5852732 100644
---- a/drivers/net/Makefile
-+++ b/drivers/net/Makefile
-@@ -206,7 +206,7 @@ obj-$(CONFIG_TR) += tokenring/
- obj-$(CONFIG_WAN) += wan/
- obj-$(CONFIG_ARCNET) += arcnet/
- obj-$(CONFIG_NET_PCMCIA) += pcmcia/
--obj-$(CONFIG_NET_RADIO) += wireless/
-+obj-y += wireless/
- obj-$(CONFIG_NET_TULIP) += tulip/
- obj-$(CONFIG_HAMRADIO) += hamradio/
- obj-$(CONFIG_IRDA) += irda/
-diff --git a/drivers/net/wireless/Kconfig b/drivers/net/wireless/Kconfig
-index ece3d9c..880c628 100644
---- a/drivers/net/wireless/Kconfig
-+++ b/drivers/net/wireless/Kconfig
-@@ -2,47 +2,21 @@
- # Wireless LAN device configuration
- #
+diff --git a/CREDITS b/CREDITS
+index e3e7271..dede114 100644
+--- a/CREDITS
++++ b/CREDITS
+@@ -317,6 +317,12 @@ S: 2322 37th Ave SW
+ S: Seattle, Washington 98126-2010
+ S: USA
  
--menu "Wireless LAN (non-hamradio)"
--	depends on NETDEVICES
--
--config NET_RADIO
--	bool "Wireless LAN drivers (non-hamradio) & Wireless Extensions"
--	select WIRELESS_EXT
--	---help---
--	  Support for wireless LANs and everything having to do with radio,
--	  but not with amateur radio or FM broadcasting.
--
--	  Saying Y here also enables the Wireless Extensions (creates
--	  /proc/net/wireless and enables iwconfig access). The Wireless
--	  Extension is a generic API allowing a driver to expose to the user
--	  space configuration and statistics specific to common Wireless LANs.
--	  The beauty of it is that a single set of tool can support all the
--	  variations of Wireless LANs, regardless of their type (as long as
--	  the driver supports Wireless Extension). Another advantage is that
--	  these parameters may be changed on the fly without restarting the
--	  driver (or Linux). If you wish to use Wireless Extensions with
--	  wireless PCMCIA (PC-) cards, you need to say Y here; you can fetch
--	  the tools from
--	  <http://www.hpl.hp.com/personal/Jean_Tourrilhes/Linux/Tools.html>.
-+menu "Wireless LAN"
- 
--config NET_WIRELESS_RTNETLINK
--	bool "Wireless Extension API over RtNetlink"
--	depends on NET_RADIO
-+config WLAN_PRE80211
-+	bool "Wireless LAN (pre-802.11)"
-+	depends on NETDEVICES
- 	---help---
--	  Support the Wireless Extension API over the RtNetlink socket
--	  in addition to the traditional ioctl interface (selected above).
-+	  Say Y if you have any pre-802.11 wireless LAN hardware.
- 
--	  For now, few tools use this facility, but it might grow in the
--	  future. The only downside is that it adds 4.5 kB to your kernel.
--
--# Note : the cards are obsolete (can't buy them anymore), but the drivers
--# are not, as people are still using them...
--comment "Obsolete Wireless cards support (pre-802.11)"
--	depends on NET_RADIO && (INET || ISA || PCMCIA)
-+	  This option does not affect the kernel build, it only
-+	  let's you choose drivers.
- 
- config STRIP
- 	tristate "STRIP (Metricom starmode radio IP)"
--	depends on NET_RADIO && INET
-+	depends on INET && WLAN_PRE80211
-+	select WIRELESS_EXT
- 	---help---
- 	  Say Y if you have a Metricom radio and intend to use Starmode Radio
- 	  IP. STRIP is a radio protocol developed for the MosquitoNet project
-@@ -65,7 +39,8 @@ config STRIP
- 
- config ARLAN
- 	tristate "Aironet Arlan 655 & IC2200 DS support"
--	depends on NET_RADIO && ISA && !64BIT
-+	depends on ISA && !64BIT && WLAN_PRE80211
-+	select WIRELESS_EXT
- 	---help---
- 	  Aironet makes Arlan, a class of wireless LAN adapters. These use the
- 	  www.Telxon.com chip, which is also used on several similar cards.
-@@ -80,7 +55,8 @@ config ARLAN
- 
- config WAVELAN
- 	tristate "AT&T/Lucent old WaveLAN & DEC RoamAbout DS ISA support"
--	depends on NET_RADIO && ISA
-+	depends on ISA && WLAN_PRE80211
-+	select WIRELESS_EXT
- 	---help---
- 	  The Lucent WaveLAN (formerly NCR and AT&T; or DEC RoamAbout DS) is
- 	  a Radio LAN (wireless Ethernet-like Local Area Network) using the
-@@ -107,7 +83,8 @@ config WAVELAN
- 
- config PCMCIA_WAVELAN
- 	tristate "AT&T/Lucent old WaveLAN Pcmcia wireless support"
--	depends on NET_RADIO && PCMCIA
-+	depends on PCMCIA && WLAN_PRE80211
-+	select WIRELESS_EXT
- 	help
- 	  Say Y here if you intend to attach an AT&T/Lucent Wavelan PCMCIA
- 	  (PC-card) wireless Ethernet networking card to your computer.  This
-@@ -118,7 +95,8 @@ config PCMCIA_WAVELAN
- 
- config PCMCIA_NETWAVE
- 	tristate "Xircom Netwave AirSurfer Pcmcia wireless support"
--	depends on NET_RADIO && PCMCIA
-+	depends on PCMCIA && WLAN_PRE80211
-+	select WIRELESS_EXT
- 	help
- 	  Say Y here if you intend to attach this type of PCMCIA (PC-card)
- 	  wireless Ethernet networking card to your computer.
-@@ -126,12 +104,20 @@ config PCMCIA_NETWAVE
- 	  To compile this driver as a module, choose M here: the module will be
- 	  called netwave_cs.  If unsure, say N.
- 
--comment "Wireless 802.11 Frequency Hopping cards support"
--	depends on NET_RADIO && PCMCIA
++N: Johannes Berg
++E: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
++W: http://johannes.sipsolutions.net/
++P: 1024D/9AB78CA5 AD02 0176 4E29 C137 1DF6 08D2 FC44 CF86 9AB7 8CA5
++D: powerpc & 802.11 hacker
 +
-+config WLAN_80211
-+	bool "Wireless LAN (IEEE 802.11)"
-+	depends on NETDEVICES
-+	---help---
-+	  Say Y if you have any 802.11 wireless LAN hardware.
+ N: Stephen R. van den Berg (AKA BuGless)
+ E: berg-C+EoYKesnrCVdxy9aTz+TbwNW4aj8/RQWV23jfQ1LcY@public.gmane.org
+ D: General kernel, gcc, and libc hacker
+diff --git a/MAINTAINERS b/MAINTAINERS
+index a15ec1a..3994eee 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -894,6 +894,12 @@ M:	maxextreme-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+ L:	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+ S:	Maintained
+ 
++CFG80211 and NL80211
++P:	Johannes Berg
++M:	johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
++L:	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
++S:	Maintained
 +
-+	  This option does not affect the kernel build, it only
-+	  let's you choose drivers.
+ COMMON INTERNET FILE SYSTEM (CIFS)
+ P:	Steve French
+ M:	sfrench-eUNUBHrolfbYtjvyW6yDsg@public.gmane.org
+diff --git a/include/linux/Kbuild b/include/linux/Kbuild
+index ea86f2e..4ff0f57 100644
+--- a/include/linux/Kbuild
++++ b/include/linux/Kbuild
+@@ -113,6 +113,7 @@ header-y += netrom.h
+ header-y += nfs2.h
+ header-y += nfs4_mount.h
+ header-y += nfs_mount.h
++header-y += nl80211.h
+ header-y += oom.h
+ header-y += param.h
+ header-y += pci_regs.h
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 71fc8ff..584c199 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -42,6 +42,8 @@
+ struct vlan_group;
+ struct ethtool_ops;
+ struct netpoll_info;
++/* 802.11 specific */
++struct wireless_dev;
+ 					/* source back-compat hooks */
+ #define SET_ETHTOOL_OPS(netdev,ops) \
+ 	( (netdev)->ethtool_ops = (ops) )
+@@ -400,6 +402,8 @@ struct net_device
+ 	void                    *ip6_ptr;       /* IPv6 specific data */
+ 	void			*ec_ptr;	/* Econet specific data	*/
+ 	void			*ax25_ptr;	/* AX.25 specific data */
++	struct wireless_dev	*ieee80211_ptr;	/* IEEE 802.11 specific data,
++						   assign before registering */
  
- config PCMCIA_RAYCS
- 	tristate "Aviator/Raytheon 2.4MHz wireless support"
--	depends on NET_RADIO && PCMCIA
-+	depends on PCMCIA && WLAN_80211
-+	select WIRELESS_EXT
- 	---help---
- 	  Say Y here if you intend to attach an Aviator/Raytheon PCMCIA
- 	  (PC-card) wireless Ethernet networking card to your computer.
-@@ -141,12 +127,10 @@ config PCMCIA_RAYCS
- 	  To compile this driver as a module, choose M here: the module will be
- 	  called ray_cs.  If unsure, say N.
- 
--comment "Wireless 802.11b ISA/PCI cards support"
--	depends on NET_RADIO && (ISA || PCI || PPC_PMAC || PCMCIA)
--
- config IPW2100
- 	tristate "Intel PRO/Wireless 2100 Network Connection"
--	depends on NET_RADIO && PCI
-+	depends on PCI && WLAN_80211
-+	select WIRELESS_EXT
- 	select FW_LOADER
- 	select IEEE80211
- 	---help---
-@@ -200,7 +184,8 @@ config IPW2100_DEBUG
- 
- config IPW2200
- 	tristate "Intel PRO/Wireless 2200BG and 2915ABG Network Connection"
--	depends on NET_RADIO && PCI
-+	depends on PCI && WLAN_80211
-+	select WIRELESS_EXT
- 	select FW_LOADER
- 	select IEEE80211
- 	---help---
-@@ -282,7 +267,8 @@ config IPW2200_DEBUG
- 
- config AIRO
- 	tristate "Cisco/Aironet 34X/35X/4500/4800 ISA and PCI cards"
-- 	depends on NET_RADIO && ISA_DMA_API && (PCI || BROKEN)
-+	depends on ISA_DMA_API && WLAN_80211 && (PCI || BROKEN)
-+	select WIRELESS_EXT
- 	select CRYPTO
- 	---help---
- 	  This is the standard Linux driver to support Cisco/Aironet ISA and
-@@ -299,7 +285,8 @@ config AIRO
- 
- config HERMES
- 	tristate "Hermes chipset 802.11b support (Orinoco/Prism2/Symbol)"
--	depends on NET_RADIO && (PPC_PMAC || PCI || PCMCIA)
-+	depends on (PPC_PMAC || PCI || PCMCIA) && WLAN_80211
-+	select WIRELESS_EXT
- 	---help---
- 	  A driver for 802.11b wireless cards based on the "Hermes" or
- 	  Intersil HFA384x (Prism 2) MAC controller.  This includes the vast
-@@ -373,7 +360,8 @@ config PCI_HERMES
- 
- config ATMEL
-       tristate "Atmel at76c50x chipset  802.11b support"
--      depends on NET_RADIO && (PCI || PCMCIA)
-+      depends on (PCI || PCMCIA) && WLAN_80211
-+      select WIRELESS_EXT
-       select FW_LOADER
-       select CRC32
-        ---help---
-@@ -394,13 +382,9 @@ config PCI_ATMEL
-         Enable support for PCI and mini-PCI cards containing the
-         Atmel at76c506 chip.
- 
--# If Pcmcia is compiled in, offer Pcmcia cards...
--comment "Wireless 802.11b Pcmcia/Cardbus cards support"
--	depends on NET_RADIO && PCMCIA
--
- config PCMCIA_HERMES
- 	tristate "Hermes PCMCIA card support"
--	depends on NET_RADIO && PCMCIA && HERMES
-+	depends on PCMCIA && HERMES
- 	---help---
- 	  A driver for "Hermes" chipset based PCMCIA wireless adaptors, such
- 	  as the Lucent WavelanIEEE/Orinoco cards and their OEM (Cabletron/
-@@ -420,7 +404,7 @@ config PCMCIA_HERMES
- 
- config PCMCIA_SPECTRUM
- 	tristate "Symbol Spectrum24 Trilogy PCMCIA card support"
--	depends on NET_RADIO && PCMCIA && HERMES
-+	depends on PCMCIA && HERMES
- 	select FW_LOADER
- 	---help---
- 
-@@ -434,7 +418,8 @@ config PCMCIA_SPECTRUM
- 
- config AIRO_CS
- 	tristate "Cisco/Aironet 34X/35X/4500/4800 PCMCIA cards"
--	depends on NET_RADIO && PCMCIA && (BROKEN || !M32R)
-+	depends on PCMCIA && (BROKEN || !M32R) && WLAN_80211
-+	select WIRELESS_EXT
- 	select CRYPTO
- 	select CRYPTO_AES
- 	---help---
-@@ -458,7 +443,8 @@ config AIRO_CS
- 
- config PCMCIA_ATMEL
- 	tristate "Atmel at76c502/at76c504 PCMCIA cards"
--	depends on NET_RADIO && ATMEL && PCMCIA
-+	depends on ATMEL && PCMCIA
-+	select WIRELESS_EXT
- 	select FW_LOADER
- 	select CRC32
- 	---help---
-@@ -467,17 +453,17 @@ config PCMCIA_ATMEL
- 
- config PCMCIA_WL3501
-       tristate "Planet WL3501 PCMCIA cards"
--      depends on NET_RADIO && EXPERIMENTAL && PCMCIA
-+      depends on EXPERIMENTAL && PCMCIA && WLAN_80211
-+      select WIRELESS_EXT
-        ---help---
-          A driver for WL3501 PCMCIA 802.11 wireless cards made by Planet.
- 	 It has basic support for Linux wireless extensions and initial
- 	 micro support for ethtool.
- 
--comment "Prism GT/Duette 802.11(a/b/g) PCI/Cardbus support"
--	depends on NET_RADIO && PCI
- config PRISM54
- 	tristate 'Intersil Prism GT/Duette/Indigo PCI/Cardbus' 
--	depends on PCI && NET_RADIO && EXPERIMENTAL
-+	depends on PCI && EXPERIMENTAL && WLAN_80211
-+	select WIRELESS_EXT
- 	select FW_LOADER
- 	---help---
- 	  Enable PCI and Cardbus support for the following chipset based cards:
-@@ -523,7 +509,8 @@ config PRISM54
- 
- config USB_ZD1201
- 	tristate "USB ZD1201 based Wireless device support"
--	depends on USB && NET_RADIO
-+	depends on USB && WLAN_80211
-+	select WIRELESS_EXT
- 	select FW_LOADER
- 	---help---
- 	  Say Y if you want to use wireless LAN adapters based on the ZyDAS
-@@ -542,11 +529,4 @@ source "drivers/net/wireless/hostap/Kconfig"
- source "drivers/net/wireless/bcm43xx/Kconfig"
- source "drivers/net/wireless/zd1211rw/Kconfig"
- 
--# yes, this works even when no drivers are selected
--config NET_WIRELESS
--	bool
--	depends on NET_RADIO && (ISA || PCI || PPC_PMAC || PCMCIA)
--	default y
--
- endmenu
--
-diff --git a/drivers/net/wireless/bcm43xx/Kconfig b/drivers/net/wireless/bcm43xx/Kconfig
-index 533993f..ce397e4 100644
---- a/drivers/net/wireless/bcm43xx/Kconfig
-+++ b/drivers/net/wireless/bcm43xx/Kconfig
-@@ -1,6 +1,7 @@
- config BCM43XX
- 	tristate "Broadcom BCM43xx wireless support"
--	depends on PCI && IEEE80211 && IEEE80211_SOFTMAC && NET_RADIO && EXPERIMENTAL
-+	depends on PCI && IEEE80211 && IEEE80211_SOFTMAC && WLAN_80211 && EXPERIMENTAL
-+	select WIRELESS_EXT
- 	select FW_LOADER
- 	select HW_RANDOM
- 	---help---
-diff --git a/drivers/net/wireless/hostap/Kconfig b/drivers/net/wireless/hostap/Kconfig
-index 308f773..1fef331 100644
---- a/drivers/net/wireless/hostap/Kconfig
-+++ b/drivers/net/wireless/hostap/Kconfig
-@@ -1,6 +1,7 @@
- config HOSTAP
- 	tristate "IEEE 802.11 for Host AP (Prism2/2.5/3 and WEP/TKIP/CCMP)"
--	depends on NET_RADIO
-+	depends on WLAN_80211
-+	select WIRELESS_EXT
- 	select IEEE80211
- 	select IEEE80211_CRYPT_WEP
- 	---help---
-diff --git a/drivers/net/wireless/zd1211rw/Kconfig b/drivers/net/wireless/zd1211rw/Kconfig
-index 66ed55b..d1ab24a 100644
---- a/drivers/net/wireless/zd1211rw/Kconfig
-+++ b/drivers/net/wireless/zd1211rw/Kconfig
-@@ -1,6 +1,7 @@
- config ZD1211RW
- 	tristate "ZyDAS ZD1211/ZD1211B USB-wireless support"
--	depends on USB && IEEE80211 && IEEE80211_SOFTMAC && NET_RADIO && EXPERIMENTAL
-+	depends on USB && IEEE80211_SOFTMAC && WLAN_80211 && EXPERIMENTAL
-+	select WIRELESS_EXT
- 	select FW_LOADER
- 	---help---
- 	  This is an experimental driver for the ZyDAS ZD1211/ZD1211B wireless
-diff --git a/net/Kconfig b/net/Kconfig
-index e2d9b3b..ae1817d 100644
---- a/net/Kconfig
-+++ b/net/Kconfig
-@@ -212,14 +212,17 @@ endmenu
- source "net/ax25/Kconfig"
- source "net/irda/Kconfig"
- source "net/bluetooth/Kconfig"
--source "net/ieee80211/Kconfig"
--
--config WIRELESS_EXT
--	bool
- 
- config FIB_RULES
- 	bool
- 
-+menu "Wireless"
+ /*
+  * Cache line mostly used on receive path (including eth_type_trans())
+diff --git a/include/linux/nl80211.h b/include/linux/nl80211.h
+new file mode 100644
+index 0000000..9a30ba2
+--- /dev/null
++++ b/include/linux/nl80211.h
+@@ -0,0 +1,38 @@
++#ifndef __LINUX_NL80211_H
++#define __LINUX_NL80211_H
++/*
++ * 802.11 netlink interface public header
++ *
++ * Copyright 2006, 2007 Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
++ */
 +
-+source "net/wireless/Kconfig"
-+source "net/ieee80211/Kconfig"
++/**
++ * enum nl80211_iftype - (virtual) interface types
++ * @NL80211_IFTYPE_UNSPECIFIED: unspecified type, driver decides
++ * @NL80211_IFTYPE_ADHOC: independent BSS member
++ * @NL80211_IFTYPE_STATION: managed BSS member
++ * @NL80211_IFTYPE_AP: access point
++ * @NL80211_IFTYPE_AP_VLAN: VLAN interface for access points
++ * @NL80211_IFTYPE_WDS: wireless distribution interface
++ * @NL80211_IFTYPE_MONITOR: monitor interface receiving all frames
++ * @__NL80211_IFTYPE_AFTER_LAST: internal use
++ *
++ * These values are used with the NL80211_ATTR_IFTYPE
++ * to set the type of an interface.
++ *
++ */
++enum nl80211_iftype {
++	NL80211_IFTYPE_UNSPECIFIED,
++	NL80211_IFTYPE_ADHOC,
++	NL80211_IFTYPE_STATION,
++	NL80211_IFTYPE_AP,
++	NL80211_IFTYPE_AP_VLAN,
++	NL80211_IFTYPE_WDS,
++	NL80211_IFTYPE_MONITOR,
 +
-+endmenu
++	/* keep last */
++	__NL80211_IFTYPE_AFTER_LAST
++};
++#define NL80211_IFTYPE_MAX (__NL80211_IFTYPE_AFTER_LAST - 1)
 +
- endif   # if NET
- endmenu # Networking
- 
-diff --git a/net/Makefile b/net/Makefile
-index 4854ac5..29bbe19 100644
---- a/net/Makefile
-+++ b/net/Makefile
-@@ -52,3 +52,5 @@ obj-$(CONFIG_IUCV)		+= iucv/
- ifeq ($(CONFIG_NET),y)
- obj-$(CONFIG_SYSCTL)		+= sysctl_net.o
- endif
++#endif /* __LINUX_NL80211_H */
+diff --git a/include/net/cfg80211.h b/include/net/cfg80211.h
+new file mode 100644
+index 0000000..783a114
+--- /dev/null
++++ b/include/net/cfg80211.h
+@@ -0,0 +1,36 @@
++#ifndef __NET_CFG80211_H
++#define __NET_CFG80211_H
 +
-+obj-y				+= wireless/
-diff --git a/net/ieee80211/Kconfig b/net/ieee80211/Kconfig
-index 6ef766e..1438ade 100644
---- a/net/ieee80211/Kconfig
-+++ b/net/ieee80211/Kconfig
-@@ -56,7 +56,8 @@ config IEEE80211_CRYPT_CCMP
- 
- config IEEE80211_CRYPT_TKIP
- 	tristate "IEEE 802.11i TKIP encryption"
--	depends on IEEE80211 && NET_RADIO
-+	depends on IEEE80211
-+	select WIRELESS_EXT
- 	select CRYPTO
- 	select CRYPTO_MICHAEL_MIC
- 	select CRYPTO_ECB
++#include <linux/netlink.h>
++#include <linux/skbuff.h>
++#include <net/genetlink.h>
++
++/*
++ * 802.11 configuration in-kernel interface
++ *
++ * Copyright 2006 Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
++ */
++
++/* from net/wireless.h */
++struct wiphy;
++
++/**
++ * struct cfg80211_ops - backend description for wireless configuration
++ *
++ * This struct is registered by fullmac card drivers and/or wireless stacks
++ * in order to handle configuration requests on their interfaces.
++ *
++ * All callbacks except where otherwise noted should return 0
++ * on success or a negative error code.
++ *
++ * @add_virtual_intf: create a new virtual interface with the given name
++ *
++ * @del_virtual_intf: remove the virtual interface determined by ifindex.
++ */
++struct cfg80211_ops {
++	int	(*add_virtual_intf)(struct wiphy *wiphy, char *name,
++				    unsigned int type);
++	int	(*del_virtual_intf)(struct wiphy *wiphy, int ifindex);
++};
++
++#endif /* __NET_CFG80211_H */
+diff --git a/include/net/wireless.h b/include/net/wireless.h
+new file mode 100644
+index 0000000..d30c4ba
+--- /dev/null
++++ b/include/net/wireless.h
+@@ -0,0 +1,139 @@
++#ifndef __NET_WIRELESS_H
++#define __NET_WIRELESS_H
++
++/*
++ * 802.11 device management
++ *
++ * Copyright 2007	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
++ */
++
++#include <linux/netdevice.h>
++#include <linux/debugfs.h>
++#include <linux/list.h>
++#include <net/cfg80211.h>
++
++/**
++ * struct wiphy - wireless hardware description
++ * @idx: the wiphy index assigned to this item
++ * @class_dev: the class device representing /sys/class/ieee80211/<wiphy-name>
++ */
++struct wiphy {
++	/* assign these fields before you register the wiphy */
++
++	/* permanent MAC address */
++	u8 perm_addr[ETH_ALEN];
++
++	/* If multiple wiphys are registered and you're handed e.g.
++	 * a regular netdev with assigned ieee80211_ptr, you won't
++	 * know whether it points to a wiphy your driver has registered
++	 * or not. Assign this to something global to your driver to
++	 * help determine whether you own this wiphy or not. */
++	void *privid;
++
++	/* fields below are read-only, assigned by cfg80211 */
++
++	/* the item in /sys/class/ieee80211/ points to this,
++	 * you need use set_wiphy_dev() (see below) */
++	struct device dev;
++
++	/* dir in debugfs: ieee80211/<wiphyname> */
++	struct dentry *debugfsdir;
++
++	char priv[0] __attribute__((__aligned__(NETDEV_ALIGN)));
++};
++
++/** struct wireless_dev - wireless per-netdev state
++ *
++ * This structure must be allocated by the driver/stack
++ * that uses the ieee80211_ptr field in struct net_device
++ * (this is intentional so it can be allocated along with
++ * the netdev.)
++ *
++ * @wiphy: pointer to hardware description
++ */
++struct wireless_dev {
++	struct wiphy *wiphy;
++
++	/* private to the generic wireless code */
++	struct list_head list;
++	struct net_device *netdev;
++};
++
++/**
++ * wiphy_priv - return priv from wiphy
++ */
++static inline void *wiphy_priv(struct wiphy *wiphy)
++{
++	BUG_ON(!wiphy);
++	return &wiphy->priv;
++}
++
++/**
++ * set_wiphy_dev - set device pointer for wiphy
++ */
++static inline void set_wiphy_dev(struct wiphy *wiphy, struct device *dev)
++{
++	wiphy->dev.parent = dev;
++}
++
++/**
++ * wiphy_dev - get wiphy dev pointer
++ */
++static inline struct device *wiphy_dev(struct wiphy *wiphy)
++{
++	return wiphy->dev.parent;
++}
++
++/**
++ * wiphy_name - get wiphy name
++ */
++static inline char *wiphy_name(struct wiphy *wiphy)
++{
++	return wiphy->dev.bus_id;
++}
++
++/**
++ * wdev_priv - return wiphy priv from wireless_dev
++ */
++static inline void *wdev_priv(struct wireless_dev *wdev)
++{
++	BUG_ON(!wdev);
++	return wiphy_priv(wdev->wiphy);
++}
++
++/**
++ * wiphy_new - create a new wiphy for use with cfg80211
++ *
++ * create a new wiphy and associate the given operations with it.
++ * @sizeof_priv bytes are allocated for private use.
++ *
++ * the returned pointer must be assigned to each netdev's
++ * ieee80211_ptr for proper operation.
++ */
++struct wiphy *wiphy_new(struct cfg80211_ops *ops, int sizeof_priv);
++
++/**
++ * wiphy_register - register a wiphy with cfg80211
++ *
++ * register the given wiphy
++ *
++ * Returns a non-negative wiphy index or a negative error code.
++ */
++extern int wiphy_register(struct wiphy *wiphy);
++
++/**
++ * wiphy_unregister - deregister a wiphy from cfg80211
++ *
++ * unregister a device with the given priv pointer.
++ * After this call, no more requests can be made with this priv
++ * pointer, but the call may sleep to wait for an outstanding
++ * request that is being handled.
++ */
++extern void wiphy_unregister(struct wiphy *wiphy);
++
++/**
++ * wiphy_free - free wiphy
++ */
++extern void wiphy_free(struct wiphy *wiphy);
++
++#endif /* __NET_WIRELESS_H */
 diff --git a/net/wireless/Kconfig b/net/wireless/Kconfig
-new file mode 100644
-index 0000000..ca2f05c
---- /dev/null
+index ca2f05c..1863c0b 100644
+--- a/net/wireless/Kconfig
 +++ b/net/wireless/Kconfig
-@@ -0,0 +1,23 @@
-+config WIRELESS_EXT
-+	bool "Wireless extensions"
-+	default n
-+	---help---
-+	  This option enables the legacy wireless extensions
-+	  (wireless network interface configuration via ioctls.)
+@@ -1,3 +1,6 @@
++config CFG80211
++        tristate "Improved wireless configuration API"
 +
-+	  Wireless extensions will be replaced by cfg80211 and
-+	  will be required only by legacy drivers that implement
-+	  wireless extension handlers.
-+
-+	  Say N (if you can) unless you know you need wireless
-+	  extensions for external modules.
-+
-+config NET_WIRELESS_RTNETLINK
-+	bool "Wireless Extension API over RtNetlink"
-+	depends on WIRELESS_EXT
-+	---help---
-+	  Support the Wireless Extension API over the RtNetlink socket
-+	  in addition to the traditional ioctl interface (selected above).
-+
-+	  For now, few tools use this facility, but it might grow in the
-+	  future. The only downside is that it adds 4.5 kB to your kernel.
+ config WIRELESS_EXT
+ 	bool "Wireless extensions"
+ 	default n
 diff --git a/net/wireless/Makefile b/net/wireless/Makefile
-new file mode 100644
-index 0000000..cf4e3d9
---- /dev/null
+index cf4e3d9..3f082ff 100644
+--- a/net/wireless/Makefile
 +++ b/net/wireless/Makefile
-@@ -0,0 +1 @@
-+# dummy file for now
+@@ -1 +1,3 @@
+-# dummy file for now
++obj-$(CONFIG_CFG80211) += cfg80211.o
++
++cfg80211-y += core.o sysfs.o
+diff --git a/net/wireless/core.c b/net/wireless/core.c
+new file mode 100644
+index 0000000..532e1e0
+--- /dev/null
++++ b/net/wireless/core.c
+@@ -0,0 +1,209 @@
++/*
++ * This is the linux wireless configuration interface.
++ *
++ * Copyright 2006, 2007		Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
++ */
++
++#include <linux/if.h>
++#include <linux/module.h>
++#include <linux/err.h>
++#include <linux/mutex.h>
++#include <linux/list.h>
++#include <linux/nl80211.h>
++#include <linux/debugfs.h>
++#include <linux/notifier.h>
++#include <linux/device.h>
++#include <net/genetlink.h>
++#include <net/cfg80211.h>
++#include <net/wireless.h>
++#include "core.h"
++#include "sysfs.h"
++
++/* name for sysfs, %d is appended */
++#define PHY_NAME "phy"
++
++MODULE_AUTHOR("Johannes Berg");
++MODULE_LICENSE("GPL");
++MODULE_DESCRIPTION("wireless configuration support");
++
++/* RCU might be appropriate here since we usually
++ * only read the list, and that can happen quite
++ * often because we need to do it for each command */
++LIST_HEAD(cfg80211_drv_list);
++DEFINE_MUTEX(cfg80211_drv_mutex);
++static int wiphy_counter;
++
++/* for debugfs */
++static struct dentry *ieee80211_debugfs_dir;
++
++/* exported functions */
++
++struct wiphy *wiphy_new(struct cfg80211_ops *ops, int sizeof_priv)
++{
++	struct cfg80211_registered_device *drv;
++	int alloc_size;
++
++	alloc_size = sizeof(*drv) + sizeof_priv;
++
++	drv = kzalloc(alloc_size, GFP_KERNEL);
++	if (!drv)
++		return NULL;
++
++	drv->ops = ops;
++
++	mutex_lock(&cfg80211_drv_mutex);
++
++	if (unlikely(wiphy_counter<0)) {
++		/* ugh, wrapped! */
++		kfree(drv);
++		return NULL;
++	}
++	drv->idx = wiphy_counter;
++
++	/* give it a proper name */
++	snprintf(drv->wiphy.dev.bus_id, BUS_ID_SIZE,
++		 PHY_NAME "%d", drv->idx);
++
++	/* now increase counter for the next time */
++	wiphy_counter++;
++	mutex_unlock(&cfg80211_drv_mutex);
++
++	mutex_init(&drv->mtx);
++	mutex_init(&drv->devlist_mtx);
++	INIT_LIST_HEAD(&drv->netdev_list);
++
++	device_initialize(&drv->wiphy.dev);
++	drv->wiphy.dev.class = &ieee80211_class;
++	drv->wiphy.dev.platform_data = drv;
++
++	return &drv->wiphy;
++}
++EXPORT_SYMBOL(wiphy_new);
++
++int wiphy_register(struct wiphy *wiphy)
++{
++	struct cfg80211_registered_device *drv = wiphy_to_dev(wiphy);
++	int res;
++
++	mutex_lock(&cfg80211_drv_mutex);
++
++
++	res = device_add(&drv->wiphy.dev);
++	if (res)
++		goto out_unlock;
++
++	list_add(&drv->list, &cfg80211_drv_list);
++
++	/* add to debugfs */
++	drv->wiphy.debugfsdir =
++		debugfs_create_dir(wiphy_name(&drv->wiphy),
++				   ieee80211_debugfs_dir);
++
++	res = 0;
++out_unlock:
++	mutex_unlock(&cfg80211_drv_mutex);
++	return res;
++}
++EXPORT_SYMBOL(wiphy_register);
++
++void wiphy_unregister(struct wiphy *wiphy)
++{
++	struct cfg80211_registered_device *drv = wiphy_to_dev(wiphy);
++
++	mutex_lock(&cfg80211_drv_mutex);
++
++	/* hold registered driver mutex during list removal as well
++	 * to make sure no commands are in progress at the moment */
++	mutex_lock(&drv->mtx);
++	list_del(&drv->list);
++	mutex_unlock(&drv->mtx);
++
++	device_del(&drv->wiphy.dev);
++	debugfs_remove(drv->wiphy.debugfsdir);
++
++	mutex_unlock(&cfg80211_drv_mutex);
++}
++EXPORT_SYMBOL(wiphy_unregister);
++
++void cfg80211_dev_free(struct cfg80211_registered_device *drv)
++{
++	mutex_destroy(&drv->mtx);
++	mutex_destroy(&drv->devlist_mtx);
++	kfree(drv);
++}
++
++void wiphy_free(struct wiphy *wiphy)
++{
++	put_device(&wiphy->dev);
++}
++EXPORT_SYMBOL(wiphy_free);
++
++static int cfg80211_netdev_notifier_call(struct notifier_block * nb,
++					 unsigned long state,
++					 void *ndev)
++{
++	struct net_device *dev = ndev;
++	struct cfg80211_registered_device *rdev;
++
++	if (!dev->ieee80211_ptr)
++		return 0;
++
++	rdev = wiphy_to_dev(dev->ieee80211_ptr->wiphy);
++
++	switch (state) {
++	case NETDEV_REGISTER:
++		mutex_lock(&rdev->devlist_mtx);
++		list_add(&dev->ieee80211_ptr->list, &rdev->netdev_list);
++		if (sysfs_create_link(&dev->dev.kobj, &rdev->wiphy.dev.kobj,
++				      "phy80211")) {
++			printk(KERN_ERR "wireless: failed to add phy80211 "
++				"symlink to netdev!\n");
++		}
++		dev->ieee80211_ptr->netdev = dev;
++		mutex_unlock(&rdev->devlist_mtx);
++		break;
++	case NETDEV_UNREGISTER:
++		mutex_lock(&rdev->devlist_mtx);
++		if (!list_empty(&dev->ieee80211_ptr->list)) {
++			sysfs_remove_link(&dev->dev.kobj, "phy80211");
++			list_del_init(&dev->ieee80211_ptr->list);
++		}
++		mutex_unlock(&rdev->devlist_mtx);
++		break;
++	}
++
++	return 0;
++}
++
++static struct notifier_block cfg80211_netdev_notifier = {
++	.notifier_call = cfg80211_netdev_notifier_call,
++};
++
++static int cfg80211_init(void)
++{
++	int err = wiphy_sysfs_init();
++	if (err)
++		goto out_fail_sysfs;
++
++	err = register_netdevice_notifier(&cfg80211_netdev_notifier);
++	if (err)
++		goto out_fail_notifier;
++
++	ieee80211_debugfs_dir = debugfs_create_dir("ieee80211", NULL);
++
++	return 0;
++
++out_fail_notifier:
++	wiphy_sysfs_exit();
++out_fail_sysfs:
++	return err;
++}
++module_init(cfg80211_init);
++
++static void cfg80211_exit(void)
++{
++	debugfs_remove(ieee80211_debugfs_dir);
++	unregister_netdevice_notifier(&cfg80211_netdev_notifier);
++	wiphy_sysfs_exit();
++}
++module_exit(cfg80211_exit);
+diff --git a/net/wireless/core.h b/net/wireless/core.h
+new file mode 100644
+index 0000000..158db1e
+--- /dev/null
++++ b/net/wireless/core.h
+@@ -0,0 +1,49 @@
++/*
++ * Wireless configuration interface internals.
++ *
++ * Copyright 2006, 2007 Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
++ */
++#ifndef __NET_WIRELESS_CORE_H
++#define __NET_WIRELESS_CORE_H
++#include <linux/mutex.h>
++#include <linux/list.h>
++#include <linux/netdevice.h>
++#include <net/genetlink.h>
++#include <net/wireless.h>
++#include <net/cfg80211.h>
++
++struct cfg80211_registered_device {
++	struct cfg80211_ops *ops;
++	struct list_head list;
++	/* we hold this mutex during any call so that
++	 * we cannot do multiple calls at once, and also
++	 * to avoid the deregister call to proceed while
++	 * any call is in progress */
++	struct mutex mtx;
++
++	/* wiphy index, internal only */
++	int idx;
++
++	/* associate netdev list */
++	struct mutex devlist_mtx;
++	struct list_head netdev_list;
++
++	/* must be last because of the way we do wiphy_priv(),
++	 * and it should at least be aligned to NETDEV_ALIGN */
++	struct wiphy wiphy __attribute__((__aligned__(NETDEV_ALIGN)));
++};
++
++static inline
++struct cfg80211_registered_device *wiphy_to_dev(struct wiphy *wiphy)
++{
++	BUG_ON(!wiphy);
++	return container_of(wiphy, struct cfg80211_registered_device, wiphy);
++}
++
++extern struct mutex cfg80211_drv_mutex;
++extern struct list_head cfg80211_drv_list;
++
++/* free object */
++extern void cfg80211_dev_free(struct cfg80211_registered_device *drv);
++
++#endif /* __NET_WIRELESS_CORE_H */
+diff --git a/net/wireless/sysfs.c b/net/wireless/sysfs.c
+new file mode 100644
+index 0000000..3ebae14
+--- /dev/null
++++ b/net/wireless/sysfs.c
+@@ -0,0 +1,80 @@
++/*
++ * This file provides /sys/class/ieee80211/<wiphy name>/
++ * and some default attributes.
++ *
++ * Copyright 2005-2006	Jiri Benc <jbenc-AlSwsSmVLrQ@public.gmane.org>
++ * Copyright 2006	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
++ *
++ * This file is GPLv2 as found in COPYING.
++ */
++
++#include <linux/device.h>
++#include <linux/module.h>
++#include <linux/netdevice.h>
++#include <linux/nl80211.h>
++#include <linux/rtnetlink.h>
++#include <net/cfg80211.h>
++#include "sysfs.h"
++#include "core.h"
++
++static inline struct cfg80211_registered_device *dev_to_rdev(
++	struct device *dev)
++{
++	return container_of(dev, struct cfg80211_registered_device, wiphy.dev);
++}
++
++static ssize_t _show_index(struct device *dev, struct device_attribute *attr,
++			   char *buf)
++{
++	return sprintf(buf, "%d\n", dev_to_rdev(dev)->idx);
++}
++
++static ssize_t _show_permaddr(struct device *dev,
++			      struct device_attribute *attr,
++			      char *buf)
++{
++	char *addr = dev_to_rdev(dev)->wiphy.perm_addr;
++
++	return sprintf(buf, "%.2x:%.2x:%.2x:%.2x:%.2x:%.2x\n",
++		       addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
++}
++
++static struct device_attribute ieee80211_dev_attrs[] = {
++	__ATTR(index, S_IRUGO, _show_index, NULL),
++	__ATTR(macaddress, S_IRUGO, _show_permaddr, NULL),
++	{}
++};
++
++static void wiphy_dev_release(struct device *dev)
++{
++	struct cfg80211_registered_device *rdev = dev_to_rdev(dev);
++
++	cfg80211_dev_free(rdev);
++}
++
++static int wiphy_uevent(struct device *dev, char **envp,
++			int num_envp, char *buf, int size)
++{
++	/* TODO, we probably need stuff here */
++	return 0;
++}
++
++struct class ieee80211_class = {
++	.name = "ieee80211",
++	.owner = THIS_MODULE,
++	.dev_release = wiphy_dev_release,
++	.dev_attrs = ieee80211_dev_attrs,
++#ifdef CONFIG_HOTPLUG
++	.dev_uevent = wiphy_uevent,
++#endif
++};
++
++int wiphy_sysfs_init(void)
++{
++	return class_register(&ieee80211_class);
++}
++
++void wiphy_sysfs_exit(void)
++{
++	class_unregister(&ieee80211_class);
++}
+diff --git a/net/wireless/sysfs.h b/net/wireless/sysfs.h
+new file mode 100644
+index 0000000..65acbeb
+--- /dev/null
++++ b/net/wireless/sysfs.h
+@@ -0,0 +1,9 @@
++#ifndef __WIRELESS_SYSFS_H
++#define __WIRELESS_SYSFS_H
++
++extern int wiphy_sysfs_init(void);
++extern void wiphy_sysfs_exit(void);
++
++extern struct class ieee80211_class;
++
++#endif /* __WIRELESS_SYSFS_H */
 -- 
 1.5.0.6
 
