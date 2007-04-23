@@ -1,46 +1,33 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH/RESEND] ehea: fix for dlpar and sysfs entries
-Date: Mon, 23 Apr 2007 15:54:04 +0200
-Message-ID: <200704231554.06110.arnd@arndb.de>
-References: <200704231358.53479.ossthema@de.ibm.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 0/5 2.6.21-rc7] l2tp: introduce PPP over L2TP driver
+Date: Mon, 23 Apr 2007 17:07:40 +0200
+Message-ID: <462CCBBC.1010009@trash.net>
+References: <200704231255.l3NCte3Y028365@quickie.katalix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jan-Bernd Themann <ossthema@de.ibm.com>,
-	Jeff Garzik <jeff@garzik.org>,
-	Thomas Klein <tklein@de.ibm.com>,
-	Jan-Bernd Themann <themann@de.ibm.com>,
-	netdev <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Christoph Raisch <raisch@de.ibm.com>,
-	Marcus Eder <meder@de.ibm.com>,
-	Stefan Roscher <stefan.roscher@de.ibm.com>
-To: linuxppc-dev@ozlabs.org
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: James Chapman <jchapman@katalix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.179]:63982 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750925AbXDWNyP convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Apr 2007 09:54:15 -0400
-In-Reply-To: <200704231358.53479.ossthema@de.ibm.com>
-Content-Disposition: inline
+Received: from stinky.trash.net ([213.144.137.162]:48907 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751555AbXDWPHq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Apr 2007 11:07:46 -0400
+In-Reply-To: <200704231255.l3NCte3Y028365@quickie.katalix.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Monday 23 April 2007, Jan-Bernd Themann wrote:
-> - dlpar fix:=20
-> =A0=A0=A0=A0=A0=A0=A0=A0certain resources may only be allocated when =
-first
-> =A0=A0=A0=A0=A0=A0=A0=A0logical port is available, and must be remove=
-d when
-> =A0=A0=A0=A0=A0=A0=A0=A0last logical port has been removed
->=20
-> - sysfs entries:
-> =A0=A0=A0=A0=A0=A0=A0=A0create symbolic link from each logical port t=
-o ehea driver
->=20
+James Chapman wrote:
+> This patch set adds a driver for PPP over L2TP. Patches to follow.
+> 
+> The following changes have been made since the previous version
+> submitted 23-MAR-07, addressing review comments received so far:-
+> 
+> - Fold makefile changes into the patches that add new source files.
 
-I can't see anything wrong with the patch contents, but if you know tha=
-t there
-are two changes, you really should make it two separate patches.
 
-	Arnd <><
+The reason to do this was to keep the tree compiling at all stages,
+which this patchset still doesn't do. You should first add your changes
+to other files (like skb_queue_walk_safe, ppp headers, ...), then
+add the code that uses them.
+
