@@ -1,61 +1,69 @@
-From: "Laurent Chavey" <chavey@google.com>
-Subject: is CONFIG_NET_CLS_ACT always set ?
-Date: Mon, 23 Apr 2007 14:19:41 -0700
-Message-ID: <97949e3e0704231419o21062b6cl5b8cf38e1b412b05@mail.gmail.com>
+From: Ismail =?iso-8859-1?q?D=F6nmez?= <ismail@pardus.org.tr>
+Subject: Re: Problem with commit a0ee18b9b7d3847976c6fb315c06a34fb296de0e
+Date: Tue, 24 Apr 2007 00:23:13 +0300
+Message-ID: <200704240023.13565.ismail@pardus.org.tr>
+References: <200704231506.34410.ismail@pardus.org.tr> <200704232209.10288.ismail@pardus.org.tr> <20070423211740.GE521@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: multipart/signed;
+  boundary="nextPart2882338.C4eRiltsX6";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.45.13]:8908 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754238AbXDWVTs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Apr 2007 17:19:48 -0400
-Received: from zps75.corp.google.com (zps75.corp.google.com [172.25.146.75])
-	by smtp-out.google.com with ESMTP id l3NLJl7J025074
-	for <netdev@vger.kernel.org>; Mon, 23 Apr 2007 14:19:47 -0700
-Received: from wr-out-0506.google.com (wrai31.prod.google.com [10.54.60.31])
-	by zps75.corp.google.com with ESMTP id l3NLJeB1002992
-	for <netdev@vger.kernel.org>; Mon, 23 Apr 2007 14:19:41 -0700
-Received: by wr-out-0506.google.com with SMTP id i31so1739939wra
-        for <netdev@vger.kernel.org>; Mon, 23 Apr 2007 14:19:41 -0700 (PDT)
-Content-Disposition: inline
+Received: from ns2.uludag.org.tr ([193.140.100.220]:59133 "EHLO uludag.org.tr"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754246AbXDWVVz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Apr 2007 17:21:55 -0400
+In-Reply-To: <20070423211740.GE521@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-if CONFIG_NET_CLS_ACT is not defined, then is the
-code below correct ?
+--nextPart2882338.C4eRiltsX6
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
+On Tuesday 24 April 2007 00:17:40 Thomas Graf wrote:
+> * Ismail D?nmez <ismail@pardus.org.tr> 2007-04-23 22:09
+>
+> > Yes I know the fix is in but I wondered why its creating such problems
+> > with 2.6.18 kernel, guess it depends on some other commits.
+>
+> As long as you apply the complete patch including the additional
+> sanity check for RTN_MAX it should work perfectly fine on 2.6.18.
 
-netif_receive_skb()
----------------------------
-	list_for_each_entry_rcu(ptype, &ptype_all, list) {
-		if (!ptype->dev || ptype->dev == skb->dev) {
-			if (pt_prev)
-				ret = deliver_skb(skb, pt_prev);
-			pt_prev = ptype;
-		}
-	}
+The sanity check part doesn't seem to apply to 2.6.18.
 
-#ifdef CONFIG_NET_CLS_ACT
-	if (pt_prev) {
-		ret = deliver_skb(skb, pt_prev);
-		pt_prev = NULL; /* noone else should process this after*/
-	} else {
-		skb->tc_verd = SET_TC_OK2MUNGE(skb->tc_verd);
-	}
+> I can't think of any connection between the patch and the errors
+> you are seeing.
+>
+> Are you absolutely sure the errors you see are directly connected
+> to applying the patch?
 
-	ret = ing_filter(skb);
+Yes actually I am but I'll re-test and see. Thanks.
 
-	if (ret == TC_ACT_SHOT || (ret == TC_ACT_STOLEN)) {
-		kfree_skb(skb);
-		goto out;
-	}
+Regards,
+ismail
 
-	skb->tc_verd = 0;
-ncls:
-#endif
-handle_diverter(skb);
+=2D-=20
+Life is a game, and if you aren't in it to win,
+what the heck are you still doing here?
 
-if (handle_bridge(&skb, &pt_prev, &ret))
-	goto out;
+=2D- Linus Torvalds (talking about open source development)
+
+--nextPart2882338.C4eRiltsX6
+Content-Type: application/pgp-signature; name=signature.asc 
+Content-Description: This is a digitally signed message part.
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.3 (GNU/Linux)
+
+iD8DBQBGLSPBGp0leluI9UwRAjm6AJ9/sYGxQx201chxlROAKZ0xKJCOPACdE3vt
+DWNXGHjDue+LBGGHYVnTAW0=
+=nZY4
+-----END PGP SIGNATURE-----
+
+--nextPart2882338.C4eRiltsX6--
