@@ -1,40 +1,40 @@
-From: "Dale Farnsworth" <dale@farnsworth.org>
-Subject: Re: [PATCH 2/5 2.6.21-rc7] l2tp: pppol2tp changes to existing ppp kernel headers
-Date: 23 Apr 2007 09:21:58 -0700
-Message-ID: <20070423162158.9449.qmail@farnsworth.org>
-References: <200704231601.l3NG13hW030163@quickie.katalix.com>
-To: jchapman@katalix.com, netdev@vger.kernel.org
+From: Oleg Nesterov <oleg@tv-sign.ru>
+Subject: Re: Getting the new RxRPC patches upstream
+Date: Mon, 23 Apr 2007 21:11:57 +0400
+Message-ID: <20070423171157.GA205@tv-sign.ru>
+References: <20070420212835.GA863@tv-sign.ru> <20070420.015838.83621529.davem@davemloft.net> <29341.1176975158@redhat.com> <2969.1176992303@redhat.com> <1101.1177056127@redhat.com> <4713.1177065706@redhat.com> <20070420113805.c4877dc8.akpm@linux-foundation.org> <1355.1177317176@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>, ebiederm@xmission.com,
+	containers@lists.osdl.org, hch@infradead.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: David Howells <dhowells@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xyzzy.farnsworth.org ([65.39.95.219]:4506 "HELO farnsworth.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1754016AbXDWQWA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Apr 2007 12:22:00 -0400
-In-Reply-To: <200704231601.l3NG13hW030163@quickie.katalix.com>
+Received: from mail.screens.ru ([213.234.233.54]:46243 "EHLO mail.screens.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1030576AbXDWRMK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Apr 2007 13:12:10 -0400
+Content-Disposition: inline
+In-Reply-To: <1355.1177317176@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-James Chapman wrote:
-> [L2TP]: Modify kernel headers for L2TP.
-
-Since the Subject: line becomes the first line of the commit comments,
-the above line is redundant.
-
-> This patch adds L2TP definitions to existing PPP and socket headers.
+On 04/23, David Howells wrote:
 > 
-> Signed-off-by: James Chapman <jchapman@katalix.com>
+> > We only care when del_timer() returns true. In that case, if the timer
+> > function still runs (possible for single-threaded wqs), it has already
+> > passed __queue_work().
 > 
-> ---
-> 
-> Add struct sockaddr_pppol2tp to carry L2TP-specific address
-> information for the PPPoX (PPPoL2TP) socket. Unfortunately we can't
-> use the union inside struct sockaddr_pppox because the L2TP-specific
-> data is larger than the current size of the union and we must preserve
-> the size of struct sockaddr_pppox for binary compatibility.
-> 
-> Also add an ioctl to allow userspace to obtain L2TP counters and state
-> from the kernel.
+> Why do you assume that?
 
-In my opinion, the above info is sufficiently useful to be included
-commit comments.
+If del_timer() returns true, the timer was pending. This means it was started
+by work->func() (note that __run_timers() clears timer_pending() before calling
+timer->function). This in turn means that delayed_work_timer_fn() has already
+called __queue_work(dwork), otherwise work->func() has no chance to run.
 
--Dale Farnsworth
+When del_timer() returns true and delayed_work_timer_fn() doesn't run we are
+safe, this doesn't differ from del_timer_sync().
+
+Oleg.
+
