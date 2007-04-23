@@ -1,31 +1,61 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: Problem with commit a0ee18b9b7d3847976c6fb315c06a34fb296de0e
-Date: Mon, 23 Apr 2007 23:17:40 +0200
-Message-ID: <20070423211740.GE521@postel.suug.ch>
-References: <200704231506.34410.ismail@pardus.org.tr> <20070423.115125.97295475.davem@davemloft.net> <200704232209.10288.ismail@pardus.org.tr>
+From: "Laurent Chavey" <chavey@google.com>
+Subject: is CONFIG_NET_CLS_ACT always set ?
+Date: Mon, 23 Apr 2007 14:19:41 -0700
+Message-ID: <97949e3e0704231419o21062b6cl5b8cf38e1b412b05@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Ismail =?iso-8859-1?Q?D=F6nmez?= <ismail@pardus.org.tr>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:55635 "EHLO postel.suug.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754227AbXDWVRT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Apr 2007 17:17:19 -0400
+Received: from smtp-out.google.com ([216.239.45.13]:8908 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754238AbXDWVTs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Apr 2007 17:19:48 -0400
+Received: from zps75.corp.google.com (zps75.corp.google.com [172.25.146.75])
+	by smtp-out.google.com with ESMTP id l3NLJl7J025074
+	for <netdev@vger.kernel.org>; Mon, 23 Apr 2007 14:19:47 -0700
+Received: from wr-out-0506.google.com (wrai31.prod.google.com [10.54.60.31])
+	by zps75.corp.google.com with ESMTP id l3NLJeB1002992
+	for <netdev@vger.kernel.org>; Mon, 23 Apr 2007 14:19:41 -0700
+Received: by wr-out-0506.google.com with SMTP id i31so1739939wra
+        for <netdev@vger.kernel.org>; Mon, 23 Apr 2007 14:19:41 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <200704232209.10288.ismail@pardus.org.tr>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* Ismail D?nmez <ismail@pardus.org.tr> 2007-04-23 22:09
-> Yes I know the fix is in but I wondered why its creating such problems with 
-> 2.6.18 kernel, guess it depends on some other commits.
+if CONFIG_NET_CLS_ACT is not defined, then is the
+code below correct ?
 
-As long as you apply the complete patch including the additional
-sanity check for RTN_MAX it should work perfectly fine on 2.6.18.
 
-I can't think of any connection between the patch and the errors
-you are seeing.
+netif_receive_skb()
+---------------------------
+	list_for_each_entry_rcu(ptype, &ptype_all, list) {
+		if (!ptype->dev || ptype->dev == skb->dev) {
+			if (pt_prev)
+				ret = deliver_skb(skb, pt_prev);
+			pt_prev = ptype;
+		}
+	}
 
-Are you absolutely sure the errors you see are directly connected
-to applying the patch?
+#ifdef CONFIG_NET_CLS_ACT
+	if (pt_prev) {
+		ret = deliver_skb(skb, pt_prev);
+		pt_prev = NULL; /* noone else should process this after*/
+	} else {
+		skb->tc_verd = SET_TC_OK2MUNGE(skb->tc_verd);
+	}
+
+	ret = ing_filter(skb);
+
+	if (ret == TC_ACT_SHOT || (ret == TC_ACT_STOLEN)) {
+		kfree_skb(skb);
+		goto out;
+	}
+
+	skb->tc_verd = 0;
+ncls:
+#endif
+handle_diverter(skb);
+
+if (handle_bridge(&skb, &pt_prev, &ret))
+	goto out;
