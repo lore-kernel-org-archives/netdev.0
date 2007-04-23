@@ -1,32 +1,48 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: [RFC] SIOCGIFCOUNT implementation
-Date: Mon, 23 Apr 2007 23:30:56 +0200
-Message-ID: <200704232330.57086.ak@suse.de>
-References: <200704211148.52705.ak@suse.de> <20070423141226.1c2127ce@localhost.localdomain> <20070423.142630.21932914.davem@davemloft.net>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: net-2.6.22 UDP stalls/hangs
+Date: Mon, 23 Apr 2007 14:45:57 -0700
+Message-ID: <20070423144557.8c74c4b0.akpm@linux-foundation.org>
+References: <20070423132719.b7cf1c9e.akpm@linux-foundation.org>
+	<20070423.133730.115642229.davem@davemloft.net>
+	<20070423135639.26ca125a.akpm@linux-foundation.org>
+	<20070423.141706.92341313.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:33086 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753221AbXDWVbA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Apr 2007 17:31:00 -0400
-In-Reply-To: <20070423.142630.21932914.davem@davemloft.net>
-Content-Disposition: inline
+Received: from smtp1.linux-foundation.org ([65.172.181.25]:55301 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754183AbXDWVqJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Apr 2007 17:46:09 -0400
+In-Reply-To: <20070423.141706.92341313.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
- 
-> Please also tell me what legacy application could actually
-> use this thing when BSD itself doesn't even implement it?
+On Mon, 23 Apr 2007 14:17:06 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
 
-Some version of java seems to. I see a lot of:
+> > Is nscd the caching named which you're referring to?
+> 
+> I would respond, but I first checked how many responses show up when
+> giving "caching named fedora" to google, and decided that you can
+> figure it out yourself :-)
+> 
+> More seriously, you need to install the "caching-nameserver" package
+> it appears, on Fedora.
 
-ioctl32(java:30851): Unknown cmd fd(3) cmd(00008938){00} arg(bfbb87c4) on socket:[334628709]
+The machine on which I'd need to run the caching nameserver is in fact
+running hacked-about Ubuntu.  It's on the corporate network so I risk being
+chased by angry people with pointy sticks and `apt-cache search nameserver'
+and `apt-cache search caching' don't come up with anything useful.
 
-But just rejecting it is probably ok.
+Sigh.  Looks like I'll need to drag in the hub from home tomorrow.
 
--Andi
+Or git-bisect.  Seems that rc7-mm1 isn't getting any closer.  I guess I'll
+need to drop git-net and git-wireless and a bunch of other stuff for now so
+I can get in and diagnose all the other bugs.
+
+
+Let me play around with udpspam a bit.  It doesn't _have_ to be the
+resolver.  Are there any simple UDP-based client/server test apps around?
