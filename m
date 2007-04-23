@@ -1,58 +1,95 @@
-From: Lokesh <lokeshnb@intoto.com>
-Subject: Async processing using NetFilters
-Date: Mon, 23 Apr 2007 18:05:53 +0530
-Message-ID: <200704231231.l3NCVlhD014873@brahma.intotoind.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; format=flowed
+From: James Chapman <jchapman@katalix.com>
+Subject: [PATCH 0/5 2.6.21-rc7] l2tp: introduce PPP over L2TP driver
+Date: Mon, 23 Apr 2007 13:55:40 +0100
+Message-ID: <200704231255.l3NCte3Y028365@quickie.katalix.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ip-66-80-10-146.dsl.sca.megapath.net ([66.80.10.146]:3948 "EHLO
-	barracuda.intoto.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1030994AbXDWMne (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Apr 2007 08:43:34 -0400
-Received: from brahma.intotoind.com (unknown [172.16.1.10])
-	by barracuda.intoto.com (Spam Firewall) with ESMTP id 52694444F9
-	for <netdev@vger.kernel.org>; Mon, 23 Apr 2007 05:31:56 -0700 (PDT)
-Received: from Lokesh.intoto.com (4mc78.hyd.intoto.com [172.16.4.78])
-	by brahma.intotoind.com (8.12.11/8.12.8) with ESMTP id l3NCVlhD014873
-	for <netdev@vger.kernel.org>; Mon, 23 Apr 2007 18:01:48 +0530
+Received: from s36.avahost.net ([74.53.95.194]:37601 "EHLO s36.avahost.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1161529AbXDWM4W (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Apr 2007 08:56:22 -0400
+Received: from jchapman.plus.com ([84.92.108.75] helo=quickie.katalix.com)
+	by s36.avahost.net with esmtps (TLSv1:AES256-SHA:256)
+	(Exim 4.63)
+	(envelope-from <jchapman@katalix.com>)
+	id 1Hfy5a-0006w4-Gk
+	for netdev@vger.kernel.org; Mon, 23 Apr 2007 07:56:18 -0500
+Received: from quickie.katalix.com (quickie.katalix.com [127.0.0.1])
+	by quickie.katalix.com (8.13.5/8.13.5) with ESMTP id l3NCte1T028367
+	for <netdev@vger.kernel.org>; Mon, 23 Apr 2007 13:55:40 +0100
+Received: (from james@localhost)
+	by quickie.katalix.com (8.13.5/8.13.5/Submit) id l3NCte3Y028365
+	for netdev@vger.kernel.org; Mon, 23 Apr 2007 13:55:40 +0100
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi All,
-I posted this to Netfiler list but got no response.
-dont know if it is a right place to ask this question, but any 
-answer/clue will be helpful to me.
-Thanks
--Lokesh
+This patch set adds a driver for PPP over L2TP. Patches to follow.
 
+The following changes have been made since the previous version
+submitted 23-MAR-07, addressing review comments received so far:-
 
->I'm using Linux RedHat 9  kernel version 2.4.20-8
->I want to do some asynchronous processing of packets in my kernel 
->module that is registered as
->Netfilter Hook. I tried to make use of NF_QUEUE but found that only 
->one call back function per
->protocol family (PF) is provided and already some module (probably 
->NET_LINK socket interface)
->is making use of it for PF_INET.  Is there any way to use NF_QUEUE 
->facility without disturbing
->NET_LINK ? why per hook registration of call back function of 
->NF_QUEUE is not provided?
->How to proceed if someone had to do async processing of packets so 
->that pkts can be queued to crypto hardware processing unit and can 
->be safely reinjected back into kernel later so that other registered 
->hooks can get pkts?
->any help is highly appreciated.
->Thanks
+- Fold makefile changes into the patches that add new source files.
 
+- Make API structures 64-bit safe by avoiding holes inserted by the
+  compiler for field alignment.
 
+- Fix list locking.
 
-********************************************************************************
-This email message (including any attachments) is for the sole use of the intended recipient(s) 
-and may contain confidential, proprietary and privileged information. Any unauthorized review, 
-use, disclosure or distribution is prohibited. If you are not the intended recipient, 
-please immediately notify the sender by reply email and destroy all copies of the original message. 
-Thank you.
- 
-Intoto Inc. 
+- Use inlines rather than macros for obtaining local context
+  pointers. (Previous code obscured use of variables and labels in
+  macros.)
 
+- Use endian-annotated types where appropriate.
+
+- Use skb_queue_walk() for walking skb lists.
+
+- Add check that session doesn't already exist before allowing it to
+  be created.
+
+- Remove unnecessary try_module_get() / put_module() calls.
+
+- No need to check for NULL before calling kfree().
+
+- Use macros in jiffies.h for time/jiffy conversion.
+
+- Minimize size of L2TP's private data that is stored in skb->cb[].
+
+- Change transmit path to build UDP header locally and transmit using
+  ip_queue_xmit() rather than use the UDP socket's sendmsg(). This
+  change also avoids the use of a kernel thread to do the transmit.
+
+- Fix seq file code to avoid potential buffer overflow when there are
+  lots of tunnels/sessions.
+
+- Fix some socket refcount/lock bugs. Fixes derived from recent pppoe
+  patches. 
+
+The implementation uses the existing PPPoX subsystem that is currently
+used only by PPPoE. A userspace daemon handles all L2TP control
+protocol messages, while a PPPoX socket carries user data. The system
+architecture is similar to PPPoE, where a pppd plugin uses the PPPoX
+socket to send/receive PPP frames over an L2TP tunnel. PPP control
+frames are delivered to pppd while data frames are handled entirely by
+the kernel.
+
+There are 5 patches in the series:-
+
+1 - pppol2tp driver core. New code. Requires patches 2 & 3.
+
+2 - API changes for L2TP. Adds definitions for L2TP in existing headers.
+
+3 - Introduce skb_queue_walk_safe() macro.
+
+4 - Change to PPPoX core to allow PPPoX protocol modules such as
+    pppol2tp to be autoloaded via modprobe.conf.
+
+5 - Adds an entry to MAINTAINERS file.
+
+The driver is being used on x86, ia64, ppc, arm, mips32 and possibly
+other architectures. It is also known to work on multi-core SMP boxes.
+
+--
+James Chapman
+Katalix Systems Ltd
+http://www.katalix.com
+Catalysts for your Embedded Linux software development
