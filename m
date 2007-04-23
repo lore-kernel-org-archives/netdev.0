@@ -1,27 +1,62 @@
-From: David Howells <dhowells@redhat.com>
-Subject: Re: Getting the new RxRPC patches upstream
-Date: Mon, 23 Apr 2007 09:32:56 +0100
-Message-ID: <1355.1177317176@redhat.com>
-References: <20070420212835.GA863@tv-sign.ru>  <20070420.015838.83621529.davem@davemloft.net> <29341.1176975158@redhat.com> <2969.1176992303@redhat.com> <1101.1177056127@redhat.com> <4713.1177065706@redhat.com> <20070420113805.c4877dc8.akpm@linux-foundation.org>
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	David Miller <davem@davemloft.net>, ebiederm@xmission.com,
-	containers@lists.osdl.org, hch@infradead.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Oleg Nesterov <oleg@tv-sign.ru>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Suspicious fackets_out handling
+Date: Mon, 23 Apr 2007 14:28:21 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0704231218440.28337@kivilampi-30.cs.helsinki.fi>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>
+To: Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:48552 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753917AbXDWIdb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Apr 2007 04:33:31 -0400
-In-Reply-To: <20070420212835.GA863@tv-sign.ru> 
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:57503 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161441AbXDWL2Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Apr 2007 07:28:25 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi,
 
-> We only care when del_timer() returns true. In that case, if the timer
-> function still runs (possible for single-threaded wqs), it has already
-> passed __queue_work().
 
-Why do you assume that?
+While looking through the users of fackets_out, i found this from 
+tcp_fragment(...):
 
-David
+	/* If this packet has been sent out already, we must
+         * adjust the various packet counters.
+         */
+        if (!before(tp->snd_nxt, TCP_SKB_CB(buff)->end_seq)) {
+		int diff = old_factor - tcp_skb_pcount(skb) -
+                        tcp_skb_pcount(buff);
+
+		[...snip...]
+
+		if (diff > 0) {
+                        /* Adjust Reno SACK estimate. */
+                        if (!tp->rx_opt.sack_ok) {
+                                tp->sacked_out -= diff;
+                                if ((int)tp->sacked_out < 0)
+                                        tp->sacked_out = 0;
+                                tcp_sync_left_out(tp);
+                        }
+
+                        tp->fackets_out -= diff;
+                        if ((int)tp->fackets_out < 0)
+                                tp->fackets_out = 0;
+                }
+	}
+	[...]
+
+There are IMHO two problems in it. First of all, nothing ensures that the 
+skb TCP is fragmenting is actually below the forwardmost sack block (and 
+thus is included to the fackets_out)... What I'm not sure of though, is 
+how to fix this in net-2.6(.22), it is due to the fact that there is no 
+pointer/seq which can be used in testing for it like in tcp-2.6 which has 
+the highest_sack. Second problem is even more obvious: if adjustment here 
+is being done and the sacktag code then uses fastpath at the arrival of 
+the next ACK, the sacktag code will use a stale value from 
+fastpath_cnt_hint and fails to notice all that math TCP did here unless we 
+start clearing fastpath_skb_hint.
+
+
+-- 
+ i.
