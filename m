@@ -1,37 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: net-2.6.22 UDP stalls/hangs
-Date: Mon, 23 Apr 2007 13:18:10 -0700 (PDT)
-Message-ID: <20070423.131810.78710074.davem@davemloft.net>
-References: <20070423130734.d3d90b20.akpm@linux-foundation.org>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: [PATCH] drivers/net/wireless/Kconfig: correct minor typo
+Date: Mon, 23 Apr 2007 15:53:13 -0400
+Message-ID: <20070423195313.GG5883@tuxdriver.com>
+References: <20070423183334.GC5883@tuxdriver.com> <20070423183443.GD5883@tuxdriver.com> <20070423213519.2692d0fd@localhost>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: akpm@linux-foundation.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35019
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752387AbXDWUSE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Apr 2007 16:18:04 -0400
-In-Reply-To: <20070423130734.d3d90b20.akpm@linux-foundation.org>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org,
+	Stefano Brivio <stefano.brivio-hl5o88x/ua9eoWH0uzbU5w@public.gmane.org>
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20070423213519.2692d0fd@localhost>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Andrew Morton <akpm@linux-foundation.org>
-Date: Mon, 23 Apr 2007 13:07:34 -0700
+Correct minor typo in drivers/net/wireless/Kconfig identified by
+Stefano Brivio <stefano.brivio-hl5o88x/ua9eoWH0uzbU5w@public.gmane.org>.
 
-> The interesting bit is:
- ...
-> I think I saw the same problem maybe 1.5 weeks ago on this machine, but I
-> didn't have time to investigate further.  So it's not some recent thing.
+Signed-off-by: John W. Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+---
+diff --git a/drivers/net/wireless/Kconfig b/drivers/net/wireless/Kconfig
+index 880c628..4426841 100644
+--- a/drivers/net/wireless/Kconfig
++++ b/drivers/net/wireless/Kconfig
+@@ -11,7 +11,7 @@ config WLAN_PRE80211
+ 	  Say Y if you have any pre-802.11 wireless LAN hardware.
+ 
+ 	  This option does not affect the kernel build, it only
+-	  let's you choose drivers.
++	  lets you choose drivers.
+ 
+ config STRIP
+ 	tristate "STRIP (Metricom starmode radio IP)"
+@@ -112,7 +112,7 @@ config WLAN_80211
+ 	  Say Y if you have any 802.11 wireless LAN hardware.
+ 
+ 	  This option does not affect the kernel build, it only
+-	  let's you choose drivers.
++	  lets you choose drivers.
+ 
+ config PCMCIA_RAYCS
+ 	tristate "Aviator/Raytheon 2.4MHz wireless support"
 
-My initial reaction is that DNS responses are being lost or dropped
-for some reason.
-
-Please run tcpdump on the network while this machine comes up and
-see if DNS requests and replies are going back and forth
-correctly.
-
-Also, please indicate what kind of network card is in this computer.
-
-Thanks.
+-- 
+John W. Linville
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
