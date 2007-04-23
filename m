@@ -1,71 +1,71 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [2/3] 2.6.21-rc7: known regressions (v2)
-Date: Mon, 23 Apr 2007 23:48:57 +0200
-Message-ID: <20070423214857.GC3468@stusta.de>
-References: <Pine.LNX.4.64.0704151659570.5473@woody.linux-foundation.org>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: net-2.6.22 UDP stalls/hangs
+Date: Mon, 23 Apr 2007 15:12:40 -0700
+Message-ID: <20070423151240.0e8cabed.akpm@linux-foundation.org>
+References: <20070423132719.b7cf1c9e.akpm@linux-foundation.org>
+	<20070423.133730.115642229.davem@davemloft.net>
+	<20070423135639.26ca125a.akpm@linux-foundation.org>
+	<20070423.141706.92341313.davem@davemloft.net>
+	<20070423144557.8c74c4b0.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Olaf Kirch <okir@lst.de>, lenb@kernel.org,
-	linux-acpi@vger.kernel.org,
-	Michal Jaegermann <michal@ellpspace.math.ualberta.ca>,
-	jgarzik@pobox.com, linux-ide@vger.kernel.org,
-	Stephen Clark <Stephen.Clark@seclark.us>,
-	netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Robert Peterson <rpeterso@redhat.com>, linux-driver@qlogic.com,
-	James.Bottomley@SteelEye.com, linux-scsi@vger.kernel.org
-To: Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0704151659570.5473@woody.linux-foundation.org>
-Sender: linux-acpi-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1.linux-foundation.org ([65.172.181.25]:32816 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754339AbXDWWNN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Apr 2007 18:13:13 -0400
+In-Reply-To: <20070423144557.8c74c4b0.akpm@linux-foundation.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This email lists some known regressions in Linus' tree compared to 2.6.20.
+On Mon, 23 Apr 2007 14:45:57 -0700
+Andrew Morton <akpm@linux-foundation.org> wrote:
 
-If you find your name in the Cc header, you are either submitter of one
-of the bugs, maintainer of an affectected subsystem or driver, a patch
-of you caused a breakage or I'm considering you in any other way
-possibly involved with one or more of these issues.
+> Let me play around with udpspam a bit.
 
-Due to the huge amount of recipients, please trim the Cc when answering.
+tcpdump does show stuff coming in when I run udpspam against the test
+machine from another host.
 
-
-Subject    : ACPI: Crashes + hangs during modprobe processor
-                   unless "processor.nocst"
-References : http://bugzilla.kernel.org/show_bug.cgi?id=8346
-Submitter  : Olaf Kirch <okir@lst.de>
-Status     : unknown
+More rtnl weirdness.  Running `ifup eth0' gave me:
 
 
-Subject    : kernels fail to boot with drives on ATIIXP controller
-             (ACPI/IRQ related)
-References : https://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=229621
-             http://lkml.org/lkml/2007/3/4/257
-Submitter  : Michal Jaegermann <michal@ellpspace.math.ualberta.ca>
-Status     : unknown
+Apr 23 14:53:57 localhost smartd[4051]: smartd has fork()ed into background mode. New PID=4051. 
+Apr 23 14:56:47 localhost kernel: ADDRCONF(NETDEV_UP): eth0: link is not ready
+Apr 23 14:56:47 localhost kernel: e1000: eth0: e1000_watchdog_task: NIC Link is Up 1000 Mbps Full Duplex, Flow Control: RX
+Apr 23 14:56:47 localhost kernel: ADDRCONF(NETDEV_CHANGE): eth0: link becomes ready
+Apr 23 14:56:48 localhost dhclient: DHCPREQUEST on eth0 to 255.255.255.255 port 67
+Apr 23 14:56:48 localhost dhclient: DHCPACK from 172.18.119.253
+Apr 23 14:56:48 localhost avahi-daemon[3971]: New relevant interface eth0.IPv4 for mDNS.
+Apr 23 14:56:48 localhost avahi-daemon[3971]: Joining mDNS multicast group on interface eth0.IPv4 with address 172.18.116.155.
+Apr 23 14:56:48 localhost avahi-daemon[3971]: Registering new address record for 172.18.116.155 on eth0.
+Apr 23 14:56:48 localhost avahi-daemon[3971]: Withdrawing address record for 172.18.116.155 on eth0.
+Apr 23 14:56:48 localhost avahi-daemon[3971]: Leaving mDNS multicast group on interface eth0.IPv4 with address 172.18.116.155.
+Apr 23 14:56:48 localhost avahi-daemon[3971]: iface.c: interface_mdns_mcast_join() called but no local address available.
+Apr 23 14:56:48 localhost avahi-daemon[3971]: Interface eth0.IPv4 no longer relevant for mDNS.
+Apr 23 14:56:48 localhost avahi-daemon[3971]: New relevant interface eth0.IPv4 for mDNS.
+Apr 23 14:56:48 localhost avahi-daemon[3971]: Joining mDNS multicast group on interface eth0.IPv4 with address 172.18.116.155.
+Apr 23 14:56:48 localhost kernel: RTNL: assertion failed at net/ipv4/igmp.c (1205)
+Apr 23 14:56:48 localhost kernel: 
+Apr 23 14:56:48 localhost kernel: Call Trace:
+Apr 23 14:56:48 localhost kernel:  [<ffffffff8049340c>] ip_mc_inc_group+0x3e/0x1f2
+Apr 23 14:56:48 localhost kernel:  [<ffffffff80493b2b>] ip_mc_join_group+0xca/0xe8
+Apr 23 14:56:48 localhost kernel:  [<ffffffff8047e441>] do_ip_setsockopt+0x6db/0x9d7
+Apr 23 14:56:48 localhost kernel:  [<ffffffff8029696e>] autoremove_wake_function+0x0/0x2e
+Apr 23 14:56:48 localhost kernel:  [<ffffffff80336018>] selinux_inode_getattr+0x50/0x5e
+Apr 23 14:56:48 localhost kernel:  [<ffffffff80333c56>] socket_has_perm+0x5b/0x68
+Apr 23 14:56:48 localhost kernel:  [<ffffffff8047e7e5>] ip_setsockopt+0x22/0x86
+Apr 23 14:56:48 localhost kernel:  [<ffffffff8045587b>] sys_setsockopt+0x8f/0xb5
+Apr 23 14:56:48 localhost kernel:  [<ffffffff8025911e>] system_call+0x7e/0x83
+Apr 23 14:56:48 localhost kernel: 
+Apr 23 14:56:48 localhost NET[4351]: /sbin/dhclient-script : updated /etc/resolv.conf
+Apr 23 14:56:48 localhost avahi-daemon[3971]: Registering new address record for 172.18.116.155 on eth0.
+Apr 23 14:56:48 localhost dhclient: bound to 172.18.116.155 -- renewal in 3205 seconds.
+Apr 23 14:56:49 localhost avahi-daemon[3971]: New relevant interface eth0.IPv6 for mDNS.
+Apr 23 14:56:49 localhost avahi-daemon[3971]: Joining mDNS multicast group on interface eth0.IPv6 with address fe80::204:23ff:fec6:d7d2.
+Apr 23 14:56:49 localhost avahi-daemon[3971]: Registering new address record for fe80::204:23ff:fec6:d7d2 on eth0.
 
-
-Subject    : ali_pata: boot from CD fails
-References : http://lkml.org/lkml/2007/3/31/160
-Submitter  : Stephen Clark <Stephen.Clark@seclark.us>
-Status     : unknown
-
-
-Subject    : boot failure: rtl8139: exception in interrupt routine
-References : http://lkml.org/lkml/2007/3/31/160
-Submitter  : Stephen Clark <Stephen.Clark@seclark.us>
-Status     : unknown
-
-
-Subject    : qla2xxx driver no longer works
-References : http://lkml.org/lkml/2007/4/16/49
-             http://lkml.org/lkml/2007/4/20/224
-Submitter  : David Miller <davem@davemloft.net>
-             Robert Peterson <rpeterso@redhat.com>
-Handled-By : David Miller <davem@davemloft.net>
-Patch      : http://lkml.org/lkml/2007/4/16/234
-Status     : patch was suggested
-
-
+which is just stupid.  The rtnl_lock() is right there in ip_mc_join_group().
+And this is a different architecture and config and compiler from yesterday's
+fun.  And no scheduler patches involved here.
