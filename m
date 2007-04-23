@@ -1,31 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [irda-users] [PATCH 5/7] [IrDA] IrDA monitor mode
-Date: Sun, 22 Apr 2007 12:59:48 -0700 (PDT)
-Message-ID: <20070422.125948.92569899.davem@davemloft.net>
-References: <20070421114239.GA4337@sortiz.org>
-	<20070421.104600.30183443.davem@davemloft.net>
-	<20070422112906.GA4588@sortiz.org>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: [Bugme-new] [Bug 8057] New: slab corruption running ip6sic
+Date: Mon, 23 Apr 2007 08:44:16 +0200
+Message-ID: <20070423064416.GB1684@ff.dom.local>
+References: <20070222134918.e2f1af6d.akpm@linux-foundation.org> <20070312102403.GB1664@ff.dom.local> <20070420.163515.26929060.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, irda-users@lists.sourceforge.net
-To: samuel@sortiz.org
+Content-Type: text/plain; charset=us-ascii
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, snakebyte@gmx.de
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46526
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1030820AbXDVT7y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Apr 2007 15:59:54 -0400
-In-Reply-To: <20070422112906.GA4588@sortiz.org>
+Received: from mx12.go2.pl ([193.17.41.142]:42341 "EHLO poczta.o2.pl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751122AbXDWGic (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Apr 2007 02:38:32 -0400
+Content-Disposition: inline
+In-Reply-To: <20070420.163515.26929060.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Samuel Ortiz <samuel@sortiz.org>
-Date: Sun, 22 Apr 2007 14:29:07 +0300
-
-> Fair enough, let's revert, and I'll come back to you with an IrDA netlink
-> layer:
+On Fri, Apr 20, 2007 at 04:35:15PM -0700, David Miller wrote:
+> From: Jarek Poplawski <jarkao2@o2.pl>
+> Date: Mon, 12 Mar 2007 11:24:03 +0100
 > 
-> ---
-> This reverts commit 8eb943bbb8d2b59a5dccfed691da2e3797ef7e8e.
+> > > the ipcomp handler is xfrm6_rcv(), which calls xfrm6_rcv_spi(), which contrary
+> > > to all other handlers returns -1 instead of 0 after calling kfree_skb() on the
+> > > skb. Changing the return value to 0 in xfrm6_input.c:xfrm6_rcv_spi() fixes the
+> > > problem.
+> > > But I got no clue at all if this would be a correct fix
+> > 
+> > I think your diagnose is correct (all "return -1" should be
+> > changed to "return 0" in xfrm6_input.c).
 
-Applied, thanks.
+I've corrected this, yet:
+
+"Sorry! Of course should be:
+I think your diagnose is correct (all "return -1" should be
+changed to "return 0" in xfrm6_rcv_spi())."
+
+It's just like Eric diagnosed:
+
+xfrm6_rcv() calls tunnel6_rcv(), which calls handlers->handler()
+and if handler() returns anything but 0, skb is kfreed. But
+handler: xfrm6_tunnel_rcv() calls xfrm6_rcv_spi() and returns its
+return without changing, which is only 1 and -1. It seems, in
+every -1 case skb is kfreed by xfrm6_rcv_spi() or by functions
+called by it, probably meaning skb was handled (delivered or
+kfreed). The only path where skb is not kfreed returns 1.
+
+tunnel6_rcv() treats both returns the same way - so some skbs
+are kfreed 2 times.
+
+Regards,
+Jarek P.
