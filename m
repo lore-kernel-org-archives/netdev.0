@@ -1,69 +1,46 @@
-From: Ismail =?iso-8859-1?q?D=F6nmez?= <ismail@pardus.org.tr>
-Subject: Re: Problem with commit a0ee18b9b7d3847976c6fb315c06a34fb296de0e
-Date: Tue, 24 Apr 2007 00:23:13 +0300
-Message-ID: <200704240023.13565.ismail@pardus.org.tr>
-References: <200704231506.34410.ismail@pardus.org.tr> <200704232209.10288.ismail@pardus.org.tr> <20070423211740.GE521@postel.suug.ch>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC] SIOCGIFCOUNT implementation
+Date: Mon, 23 Apr 2007 14:26:30 -0700 (PDT)
+Message-ID: <20070423.142630.21932914.davem@davemloft.net>
+References: <200704211148.52705.ak@suse.de>
+	<20070421.104047.41636018.davem@davemloft.net>
+	<20070423141226.1c2127ce@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart2882338.C4eRiltsX6";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Thomas Graf <tgraf@suug.ch>
+Cc: ak@suse.de, netdev@vger.kernel.org
+To: shemminger@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.uludag.org.tr ([193.140.100.220]:59133 "EHLO uludag.org.tr"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754246AbXDWVVz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Apr 2007 17:21:55 -0400
-In-Reply-To: <20070423211740.GE521@postel.suug.ch>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48968
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754262AbXDWV0X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Apr 2007 17:26:23 -0400
+In-Reply-To: <20070423141226.1c2127ce@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart2882338.C4eRiltsX6
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Date: Mon, 23 Apr 2007 14:12:26 -0700
 
-On Tuesday 24 April 2007 00:17:40 Thomas Graf wrote:
-> * Ismail D?nmez <ismail@pardus.org.tr> 2007-04-23 22:09
->
-> > Yes I know the fix is in but I wondered why its creating such problems
-> > with 2.6.18 kernel, guess it depends on some other commits.
->
-> As long as you apply the complete patch including the additional
-> sanity check for RTN_MAX it should work perfectly fine on 2.6.18.
+> Trivial implementation of SIOCGIFCOUNT.
+> If you search the archives, this was suggested and rejected
+> 6 years ago. But there maybe legacy Unix applications that
+> could actually use it.
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-The sanity check part doesn't seem to apply to 2.6.18.
+It makes no sense given that you can get this information
+with SIOCGIFCONF by supplying a NULL ifc.ifc_buf buffer.
+The equivalent of SIOCGIFCOUNT can be obtained by dividing ifc.ifc_len
+by the size of one interface entry.
 
-> I can't think of any connection between the patch and the errors
-> you are seeing.
->
-> Are you absolutely sure the errors you see are directly connected
-> to applying the patch?
+Please also tell me what legacy application could actually
+use this thing when BSD itself doesn't even implement it?
 
-Yes actually I am but I'll re-test and see. Thanks.
+A google code search for SIOCGIFCOUNT is fun too.
 
-Regards,
-ismail
+In fact SIOCGIFCOUNT aparently got removed in 2.2.x, so
+let's keep it that way.
 
-=2D-=20
-Life is a game, and if you aren't in it to win,
-what the heck are you still doing here?
+There is no reason to add support for this, truly.
 
-=2D- Linus Torvalds (talking about open source development)
-
---nextPart2882338.C4eRiltsX6
-Content-Type: application/pgp-signature; name=signature.asc 
-Content-Description: This is a digitally signed message part.
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.3 (GNU/Linux)
-
-iD8DBQBGLSPBGp0leluI9UwRAjm6AJ9/sYGxQx201chxlROAKZ0xKJCOPACdE3vt
-DWNXGHjDue+LBGGHYVnTAW0=
-=nZY4
------END PGP SIGNATURE-----
-
---nextPart2882338.C4eRiltsX6--
