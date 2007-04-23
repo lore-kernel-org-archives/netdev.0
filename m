@@ -1,81 +1,336 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: [XFRM]: beet: fix pseudo header length value
-Date: Mon, 23 Apr 2007 13:30:49 +0200
-Message-ID: <462C98E9.4020504@trash.net>
+From: Jan-Bernd Themann <ossthema@de.ibm.com>
+Subject: [PATCH/RESEND] ehea: fix for dlpar and sysfs entries
+Date: Mon, 23 Apr 2007 13:58:53 +0200
+Message-ID: <200704231358.53479.ossthema@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------080401020006090700020003"
-Cc: Diego Beltrami <Diego.Beltrami@hiit.fi>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Christoph Raisch <raisch@de.ibm.com>,
+	"Jan-Bernd Themann" <themann@de.ibm.com>,
+	"linux-kernel" <linux-kernel@vger.kernel.org>,
+	"linux-ppc" <linuxppc-dev@ozlabs.org>,
+	Marcus Eder <meder@de.ibm.com>,
+	Thomas Klein <tklein@de.ibm.com>,
+	Stefan Roscher <stefan.roscher@de.ibm.com>
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:44257 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161411AbXDWLaw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Apr 2007 07:30:52 -0400
+Received: from mtagate1.uk.ibm.com ([195.212.29.134]:34337 "EHLO
+	mtagate1.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754137AbXDWMNW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Apr 2007 08:13:22 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------080401020006090700020003
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
+This patch includes:
+- dlpar fix: 
+	certain resources may only be allocated when first
+	logical port is available, and must be removed when
+	last logical port has been removed
 
+- sysfs entries:
+	create symbolic link from each logical port to ehea driver
 
---------------080401020006090700020003
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
-
-[XFRM]: beet: fix pseudo header length value
-
-draft-nikander-esp-beet-mode-07.txt is not entirely clear on how the length
-value of the pseudo header should be calculated, it states "The Header Length
-field contains the length of the pseudo header, IPv4 options, and padding in
-8 octets units.", but also states "Length in octets (Header Len + 1) * 8".
-draft-nikander-esp-beet-mode-08-pre1.txt [1] clarifies this, the header length
-should not include the first 8 byte.
-
-This change affects backwards compatibility, but option encapsulation didn't
-work until very recently anyway.
-
-[1] http://users.piuha.net/jmelen/BEET/draft-nikander-esp-beet-mode-08-pre1.txt
-
-Signed-off-by: Patrick McHardy <kaber@trash.net>
-
+Signed-off-by: Jan-Bernd Themann <themann@de.ibm.com>
 ---
-commit 4b33b63040d82c55a90eb8ff2d6054bf719514f6
-tree c23f5b82272fcef02e804314971b55728185cab7
-parent 0f851021c0f91e5073fa89f26b5ac68e23df8e11
-author Patrick McHardy <kaber@trash.net> Mon, 23 Apr 2007 13:26:27 +0200
-committer Patrick McHardy <kaber@trash.net> Mon, 23 Apr 2007 13:26:27 +0200
 
- net/ipv4/xfrm4_mode_beet.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/ipv4/xfrm4_mode_beet.c b/net/ipv4/xfrm4_mode_beet.c
-index f68dfd8..d419e15 100644
---- a/net/ipv4/xfrm4_mode_beet.c
-+++ b/net/ipv4/xfrm4_mode_beet.c
-@@ -52,7 +52,7 @@ static int xfrm4_beet_output(struct xfrm_state *x, struct sk_buff *skb)
- 
- 		ph = (struct ip_beet_phdr *)skb->h.raw;
- 		ph->padlen = 4 - (optlen & 4);
--		ph->hdrlen = (optlen + ph->padlen + sizeof(*ph)) / 8;
-+		ph->hdrlen = optlen / 8;
- 		ph->nexthdr = top_iph->protocol;
- 		if (ph->padlen)
- 			memset(ph + 1, IPOPT_NOP, ph->padlen);
-@@ -85,7 +85,7 @@ static int xfrm4_beet_input(struct xfrm_state *x, struct sk_buff *skb)
- 		ph = (struct ip_beet_phdr *)(skb->h.ipiph + 1);
- 
- 		phlen = sizeof(*ph) + ph->padlen;
--		optlen = ph->hdrlen * 8 - phlen;
-+		optlen = ph->hdrlen * 8 + (IPV4_BEET_PHMAXLEN - phlen);
- 		if (optlen < 0 || optlen & 3 || optlen > 250)
- 			goto out;
- 
+This patch applies on top of the netdev upstream branch for 2.6.22
 
---------------080401020006090700020003--
+
+
+diff --git a/drivers/net/ehea/ehea.h b/drivers/net/ehea/ehea.h
+index 1405d0b..173994d 100644
+--- a/drivers/net/ehea/ehea.h
++++ b/drivers/net/ehea/ehea.h
+@@ -39,7 +39,7 @@ #include <asm/abs_addr.h>
+ #include <asm/io.h>
+ 
+ #define DRV_NAME	"ehea"
+-#define DRV_VERSION	"EHEA_0055"
++#define DRV_VERSION	"EHEA_0056"
+ 
+ #define EHEA_MSG_DEFAULT (NETIF_MSG_LINK | NETIF_MSG_TIMER \
+ 	| NETIF_MSG_RX_ERR | NETIF_MSG_TX_ERR)
+diff --git a/drivers/net/ehea/ehea_main.c b/drivers/net/ehea/ehea_main.c
+index a36a023..f9f3133 100644
+--- a/drivers/net/ehea/ehea_main.c
++++ b/drivers/net/ehea/ehea_main.c
+@@ -78,6 +78,28 @@ MODULE_PARM_DESC(sq_entries, " Number of
+ 		 __MODULE_STRING(EHEA_DEF_ENTRIES_SQ) ")");
+ MODULE_PARM_DESC(use_mcs, " 0:NAPI, 1:Multiple receive queues, Default = 1 ");
+ 
++static int port_name_cnt = 0;
++
++static int __devinit ehea_probe_adapter(struct ibmebus_dev *dev,
++                                        const struct of_device_id *id);
++
++static int __devexit ehea_remove(struct ibmebus_dev *dev);
++
++static struct of_device_id ehea_device_table[] = {
++	{
++		.name = "lhea",
++		.compatible = "IBM,lhea",
++	},
++	{},
++};
++
++static struct ibmebus_driver ehea_driver = {
++	.name = "ehea",
++	.id_table = ehea_device_table,
++	.probe = ehea_probe_adapter,
++	.remove = ehea_remove,
++};
++
+ void ehea_dump(void *adr, int len, char *msg) {
+ 	int x;
+ 	unsigned char *deb = adr;
+@@ -2108,6 +2130,28 @@ static int ehea_clean_all_portres(struct
+ 	return ret;
+ }
+ 
++static void ehea_remove_adapter_mr (struct ehea_adapter *adapter)
++{
++	int i;
++
++	for (i=0; i < EHEA_MAX_PORTS; i++)
++		if (adapter->port[i])
++			return;
++
++	ehea_rem_mr(&adapter->mr);
++}
++
++static int ehea_add_adapter_mr (struct ehea_adapter *adapter)
++{
++	int i;
++
++	for (i=0; i < EHEA_MAX_PORTS; i++)
++		if (adapter->port[i])
++			return 0;
++
++	return ehea_reg_kernel_mr(adapter, &adapter->mr);
++}
++
+ static int ehea_up(struct net_device *dev)
+ {
+ 	int ret, i;
+@@ -2361,6 +2405,34 @@ static void __devinit logical_port_relea
+ 	of_node_put(port->ofdev.node);
+ }
+ 
++static int ehea_driver_sysfs_add(struct device *dev,
++                                 struct device_driver *driver)
++{
++	int ret;
++
++	ret = sysfs_create_link(&driver->kobj, &dev->kobj,
++				kobject_name(&dev->kobj));
++	if (ret == 0) {
++		ret = sysfs_create_link(&dev->kobj, &driver->kobj,
++					"driver");
++		if (ret)
++			sysfs_remove_link(&driver->kobj,
++					  kobject_name(&dev->kobj));
++	}
++	return ret;
++}
++
++static void ehea_driver_sysfs_remove(struct device *dev,
++                                     struct device_driver *driver)
++{
++	struct device_driver *drv = driver;
++
++	if (drv) {
++		sysfs_remove_link(&drv->kobj, kobject_name(&dev->kobj));
++		sysfs_remove_link(&dev->kobj, "driver");
++	}
++}
++
+ static struct device *ehea_register_port(struct ehea_port *port,
+ 					 struct device_node *dn)
+ {
+@@ -2368,8 +2440,9 @@ static struct device *ehea_register_port
+ 
+ 	port->ofdev.node = of_node_get(dn);
+ 	port->ofdev.dev.parent = &port->adapter->ebus_dev->ofdev.dev;
++	port->ofdev.dev.bus = &ibmebus_bus_type;
+ 
+-	sprintf(port->ofdev.dev.bus_id, "port%d", port->logical_port_id);
++	sprintf(port->ofdev.dev.bus_id, "port%d", port_name_cnt++);
+ 	port->ofdev.dev.release = logical_port_release;
+ 
+ 	ret = of_device_register(&port->ofdev);
+@@ -2384,8 +2457,16 @@ static struct device *ehea_register_port
+ 		goto out_unreg_of_dev;
+ 	}
+ 
++	ret = ehea_driver_sysfs_add(&port->ofdev.dev, &ehea_driver.driver);
++	if (ret) {
++		ehea_error("failed to register sysfs driver link");
++		goto out_rem_dev_file;
++	}
++
+ 	return &port->ofdev.dev;
+ 
++out_rem_dev_file:
++	device_remove_file(&port->ofdev.dev, &dev_attr_log_port_id);
+ out_unreg_of_dev:
+ 	of_device_unregister(&port->ofdev);
+ out:
+@@ -2394,6 +2475,7 @@ out:
+ 
+ static void ehea_unregister_port(struct ehea_port *port)
+ {
++	ehea_driver_sysfs_remove(&port->ofdev.dev, &ehea_driver.driver);
+ 	device_remove_file(&port->ofdev.dev, &dev_attr_log_port_id);
+ 	of_device_unregister(&port->ofdev);
+ }
+@@ -2520,7 +2602,6 @@ static int ehea_setup_ports(struct ehea_
+ 	struct device_node *eth_dn = NULL;
+ 
+ 	u32 *dn_log_port_id;
+-	int port_setup_ok = 0;
+ 	int i = 0;
+ 
+ 	lhea_dn = adapter->ebus_dev->ofdev.node;
+@@ -2534,6 +2615,12 @@ static int ehea_setup_ports(struct ehea_
+ 			continue;
+ 		}
+ 
++		if (ehea_add_adapter_mr(adapter)) {
++			ehea_error("creating MR failed");
++			of_node_put(eth_dn);
++			return -EIO;
++		}
++
+ 		adapter->port[i] = ehea_setup_single_port(adapter,
+ 							  *dn_log_port_id,
+ 							  eth_dn);
+@@ -2541,18 +2628,13 @@ static int ehea_setup_ports(struct ehea_
+ 			ehea_info("%s -> logical port id #%d",
+ 				  adapter->port[i]->netdev->name,
+ 				  *dn_log_port_id);
++		else
++			ehea_remove_adapter_mr(adapter);
++
+ 		i++;
+ 	};
+ 
+-	/* Check for succesfully set up ports */
+-	for (i = 0; i < EHEA_MAX_PORTS; i++)
+-		if (adapter->port[i])
+-			port_setup_ok++;
+-
+-	if (port_setup_ok)
+-		return 0;	/* At least some ports are setup correctly */
+-
+-	return -EINVAL;
++	return 0;
+ }
+ 
+ static struct device_node *ehea_get_eth_dn(struct ehea_adapter *adapter,
+@@ -2604,6 +2686,11 @@ static ssize_t ehea_probe_port(struct de
+ 		return -EINVAL;
+ 	}
+ 
++	if (ehea_add_adapter_mr(adapter)) {
++		ehea_error("creating MR failed");
++		return -EIO;
++	}
++
+ 	port = ehea_setup_single_port(adapter, logical_port_id, eth_dn);
+ 
+ 	of_node_put(eth_dn);
+@@ -2617,8 +2704,10 @@ static ssize_t ehea_probe_port(struct de
+ 
+ 		ehea_info("added %s (logical port id=%d)", port->netdev->name,
+ 			  logical_port_id);
+-	} else
++	} else {
++		ehea_remove_adapter_mr(adapter);
+ 		return -EIO;
++	}
+ 
+ 	return (ssize_t) count;
+ }
+@@ -2653,6 +2742,8 @@ static ssize_t ehea_remove_port(struct d
+ 		return -EINVAL;
+ 	}
+ 
++	ehea_remove_adapter_mr(adapter);
++
+ 	return (ssize_t) count;
+ }
+ 
+@@ -2713,18 +2804,13 @@ static int __devinit ehea_probe_adapter(
+ 
+ 	dev->ofdev.dev.driver_data = adapter;
+ 
+-	ret = ehea_reg_kernel_mr(adapter, &adapter->mr);
+-	if (ret) {
+-		dev_err(&dev->ofdev.dev, "reg_mr_adapter failed\n");
+-		goto out_free_ad;
+-	}
+ 
+ 	/* initialize adapter and ports */
+ 	/* get adapter properties */
+ 	ret = ehea_sense_adapter_attr(adapter);
+ 	if (ret) {
+ 		dev_err(&dev->ofdev.dev, "sense_adapter_attr failed: %d", ret);
+-		goto out_free_res;
++		goto out_free_ad;
+ 	}
+ 
+ 	adapter->neq = ehea_create_eq(adapter,
+@@ -2732,7 +2818,7 @@ static int __devinit ehea_probe_adapter(
+ 	if (!adapter->neq) {
+ 		ret = -EIO;
+ 		dev_err(&dev->ofdev.dev, "NEQ creation failed");
+-		goto out_free_res;
++		goto out_free_ad;
+ 	}
+ 
+ 	tasklet_init(&adapter->neq_tasklet, ehea_neq_tasklet,
+@@ -2777,9 +2863,6 @@ out_free_irq:
+ out_kill_eq:
+ 	ehea_destroy_eq(adapter->neq);
+ 
+-out_free_res:
+-	ehea_rem_mr(&adapter->mr);
+-
+ out_free_ad:
+ 	kfree(adapter);
+ out:
+@@ -2805,7 +2888,7 @@ static int __devexit ehea_remove(struct 
+ 	tasklet_kill(&adapter->neq_tasklet);
+ 
+ 	ehea_destroy_eq(adapter->neq);
+-	ehea_rem_mr(&adapter->mr);
++	ehea_remove_adapter_mr(adapter);
+ 	kfree(adapter);
+ 	return 0;
+ }
+@@ -2838,21 +2921,6 @@ static int check_module_parm(void)
+ 	return ret;
+ }
+ 
+-static struct of_device_id ehea_device_table[] = {
+-	{
+-		.name = "lhea",
+-		.compatible = "IBM,lhea",
+-	},
+-	{},
+-};
+-
+-static struct ibmebus_driver ehea_driver = {
+-	.name = "ehea",
+-	.id_table = ehea_device_table,
+-	.probe = ehea_probe_adapter,
+-	.remove = ehea_remove,
+-};
+-
+ int __init ehea_module_init(void)
+ {
+ 	int ret;
