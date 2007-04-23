@@ -1,82 +1,107 @@
-From: Rick Jones <rick.jones2@hp.com>
+From: Andrew Morton <akpm@linux-foundation.org>
 Subject: Re: net-2.6.22 UDP stalls/hangs
-Date: Mon, 23 Apr 2007 16:14:48 -0700
-Message-ID: <462D3DE8.1040106@hp.com>
-References: <20070423.141706.92341313.davem@davemloft.net>	<20070423144557.8c74c4b0.akpm@linux-foundation.org>	<20070423151240.0e8cabed.akpm@linux-foundation.org>	<20070423.151531.70219647.davem@davemloft.net> <20070423153714.71b9d99e.akpm@linux-foundation.org>
+Date: Mon, 23 Apr 2007 16:35:34 -0700
+Message-ID: <20070423163534.9b6bfe6a.akpm@linux-foundation.org>
+References: <20070423151240.0e8cabed.akpm@linux-foundation.org>
+	<20070423.151531.70219647.davem@davemloft.net>
+	<20070423153714.71b9d99e.akpm@linux-foundation.org>
+	<20070423.154509.116354989.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
+Cc: netdev@vger.kernel.org, acme@redhat.com,
+	herbert@gondor.apana.org.au
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel12.hp.com ([156.153.255.237]:42767 "EHLO palrel12.hp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754478AbXDWXOy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Apr 2007 19:14:54 -0400
-In-Reply-To: <20070423153714.71b9d99e.akpm@linux-foundation.org>
+Received: from smtp1.linux-foundation.org ([65.172.181.25]:59082 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754533AbXDWXg2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Apr 2007 19:36:28 -0400
+In-Reply-To: <20070423.154509.116354989.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> Oh well, one thing at a time.  The good news is that I can reproduce the
-> problem with netperf.
-> 
-> kpm:/usr/src/netperf-2.4.3> netperf -H akpm2 -t UDP_RR
-> UDP REQUEST/RESPONSE TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to akpm2 (172.18.116.155) port 0 AF_INET
-> netperf: receive_response: no response received. errno 0 counter 0
-> 
-> That's running netserver on the test machine.
-> 
-> The machine running netperf is 172.18.116.160 and the test machine running
-> netserver is 172.18.116.155
-> 
-> tcpdump from the test machine:
-> 
-> 15:24:37.924210 802.1d config 8000.00:18:74:5d:04:66.80ae root 0066.00:15:c7:20:57:c0 pathcost 4 age 1 max 20 hello 2 fdelay 15 
-> 15:24:38.859309 IP 172.18.119.252.hsrp > 224.0.0.2.hsrp: HSRPv0-hello 20: state=standby group=1 addr=172.18.119.254
-> 15:24:39.078273 IP 172.18.119.253.hsrp > 224.0.0.2.hsrp: HSRPv0-hello 20: state=active group=1 addr=172.18.119.254
-> 15:24:39.924074 802.1d config 8000.00:18:74:5d:04:66.80ae root 0066.00:15:c7:20:57:c0 pathcost 4 age 1 max 20 hello 2 fdelay 15 
-> 15:24:40.017081 IP 172.24.0.7.domain > 172.18.116.57.37456:  59635 4/7/6 CNAME[|domain]
-> 15:24:41.383433 IP 172.18.116.160.33137 > 172.18.116.155.12865: S 2760291763:2760291763(0) win 5840 <mss 1460,sackOK,timestamp 1967355840 0,nop,wscale 8>
-> 15:24:41.383479 IP 172.18.116.155.12865 > 172.18.116.160.33137: S 1640262480:1640262480(0) ack 2760291764 win 5792 <mss 1460,sackOK,timestamp 7714 1967355840,nop,wscale 7>
-> 15:24:41.383683 IP 172.18.116.160.33137 > 172.18.116.155.12865: . ack 1 win 23 <nop,nop,timestamp 1967355840 7714>
-> 15:24:41.383883 IP 172.18.116.160.33137 > 172.18.116.155.12865: P 1:257(256) ack 1 win 23 <nop,nop,timestamp 1967355840 7714>
-> 15:24:41.383902 IP 172.18.116.155.12865 > 172.18.116.160.33137: . ack 257 win 54 <nop,nop,timestamp 7714 1967355840>
-> 15:24:41.384065 IP 172.18.116.155.12865 > 172.18.116.160.33137: P 1:257(256) ack 257 win 54 <nop,nop,timestamp 7714 1967355840>
-> 15:24:41.587266 IP 172.18.116.155.12865 > 172.18.116.160.33137: P 1:257(256) ack 257 win 54 <nop,nop,timestamp 7765 1967355840>
-> 15:24:41.839234 IP 172.18.119.252.hsrp > 224.0.0.2.hsrp: HSRPv0-hello 20: state=standby group=1 addr=172.18.119.254
-> 15:24:41.924303 802.1d config 8000.00:18:74:5d:04:66.80ae root 0066.00:15:c7:20:57:c0 pathcost 4 age 1 max 20 hello 2 fdelay 15 
-> 15:24:41.995285 IP 172.18.116.155.12865 > 172.18.116.160.33137: P 1:257(256) ack 257 win 54 <nop,nop,timestamp 7867 1967355840>
-> 15:24:42.030341 IP 172.18.119.253.hsrp > 224.0.0.2.hsrp: HSRPv0-hello 20: state=active group=1 addr=172.18.119.254
-> 15:24:42.811330 IP 172.18.116.155.12865 > 172.18.116.160.33137: P 1:257(256) ack 257 win 54 <nop,nop,timestamp 8071 1967355840>
-> 15:24:43.924183 802.1d config 8000.00:18:74:5d:04:66.80ae root 0066.00:15:c7:20:57:c0 pathcost 4 age 1 max 20 hello 2 fdelay 15 
-> 15:24:44.121880 IP 172.24.0.7.domain > 172.18.116.22.46700:  52073* 1/4/4 A[|domain]
-> 15:24:44.443419 IP 172.18.116.155.12865 > 172.18.116.160.33137: P 1:257(256) ack 257 win 54 <nop,nop,timestamp 8479 1967355840>
-> 15:24:44.723257 IP 172.18.119.252.hsrp > 224.0.0.2.hsrp: HSRPv0-hello 20: state=standby group=1 addr=172.18.119.254
-> 15:24:44.886356 IP 172.18.119.253.hsrp > 224.0.0.2.hsrp: HSRPv0-hello 20: state=active group=1 addr=172.18.119.254
-> 15:24:45.924263 802.1d config 8000.00:18:74:5d:04:66.80ae root 0066.00:15:c7:20:57:c0 pathcost 4 age 1 max 20 hello 2 fdelay 15 
-> 15:24:47.659300 IP 172.18.119.252.hsrp > 224.0.0.2.hsrp: HSRPv0-hello 20: state=standby group=1 addr=172.18.119.254
-> 15:24:47.707599 IP 172.18.116.155.12865 > 172.18.116.160.33137: P 1:257(256) ack 257 win 54 <nop,nop,timestamp 9295 1967355840>
-> 15:24:47.874419 IP 172.18.119.253.hsrp > 224.0.0.2.hsrp: HSRPv0-hello 20: state=active group=1 addr=172.18.119.254
-> 15:24:47.952350 802.1d config 8000.00:18:74:5d:04:66.80ae root 0066.00:15:c7:20:57:c0 pathcost 4 age 1 max 20 hello 2 fdelay 15 
-> 15:24:48.037569 IP 172.24.0.7.domain > 172.18.117.18.46665:  59092 2/7/6 CNAME[|domain]
-> 
-> So I think we did a bit of TCP chatter then no UDP at all?
+On Mon, 23 Apr 2007 15:45:09 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
 
-Looks that way, and on top if it got no results back from netserver on 
-the control (TCP, port 12865) connection.  Adding some -d's to the 
-global options will cause netperf to regurgitate what messages it is 
-sending and such.
+> From: Andrew Morton <akpm@linux-foundation.org>
+> Date: Mon, 23 Apr 2007 15:37:14 -0700
+> 
+> > So I think we did a bit of TCP chatter then no UDP at all?
+> > 
+> > It's interesting that the test machine can see other people's DNS queries
+> > go past.
+> 
+> It's mysterious alright.
+> 
+> I can't say that the UDP's are going out corrupted because tcpdump
+> seems to decode the DNS queries just fine.  Hmmm, if you're sending
+> this out on the broken machine we can't rule out corrupted checksums.
+> 
+> And if tcpdump doesn't see the UDP replies it means that it isn't even
+> reaching the device, let alone the stack.  At least that rules out
+> the stack dropping UDP packets for some reason.
+> 
+> It's possible we've stuffed up some expectation the e1000 driver
+> has for TX checksum offload.  Turn off TX checksums with
+> "ethtool -K eth0 tx off" and see if that makes the problem
+> go away.  Next, try "ethtool -K eth0 rx off".
+> 
+> I suspect skb_transport_offset() might be wrong for UDP packets
+> for some reason, as that's what drivers/net/e1000/e1000_main.c
+> e1000_tx_csum() depend upon.
+> 
+> Either that or some error in Herbert's recent checksum offload
+> handling changes, such as, in fact I am highly suspicious of
+> the second change listed below, you may want to try reverting
+> just that one:
 
-I'd have expected that even if no UDP traffic could flow between netperf 
-and netserver the timer running in the netserver _should_ have gotten it 
-out of the recv()/recvfrom() call in recv_udp_rr() (src/nettest_bsd.c) 
-and that netperf would then report a "normal" result of just 0 
-transactions per second.
+Bingo.
 
-Either that timer didn't get set, didn't fire, or was insufficient to 
-get netserver out of that recv() on the UDP socket, or comms between the 
-two system got fubar for TCP too.
+> commit 8952d6c988ec31070732117f353666a4b9a09fea
+> Author: Herbert Xu <herbert@gondor.apana.org.au>
+> Date:   Mon Apr 9 11:59:39 2007 -0700
+> 
+>     [NET]: Treat CHECKSUM_PARTIAL as CHECKSUM_UNNECESSARY
+>     
+>     When a transmitted packet is looped back directly, CHECKSUM_PARTIAL
+>     maps to the semantics of CHECKSUM_UNNECESSARY.  Therefore we should
+>     treat it as such in the stack.
+>     
+>     Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+>     Signed-off-by: David S. Miller <davem@davemloft.net>
+>
+> commit 7f8be19f5a5737ce6ad670756183235c71b560bb
+> Author: Herbert Xu <herbert@gondor.apana.org.au>
+> Date:   Mon Apr 9 11:59:07 2007 -0700
+> 
+>     [NET]: Use csum_start offset instead of skb_transport_header
+>     
+>     The skb transport pointer is currently used to specify the start
+>     of the checksum region for transmit checksum offload.  Unfortunately,
+>     the same pointer is also used during receive side processing.
+>     
+>     This creates a problem when we want to retransmit a received
+>     packet with partial checksums since the skb transport pointer
+>     would be overwritten.
+>     
+>     This patch solves this problem by creating a new 16-bit csum_start
+>     offset value to replace the skb transport header for the purpose
+>     of checksums.  This offset is calculated from skb->head so that
+>     it does not have to change when skb->data changes.
+>     
+>     No extra space is required since csum_offset itself fits within
+>     a 16-bit word so we can use the other 16 bits for csum_start.
+>     
+>     For backwards compatibility, just before we push a packet with
+>     partial checksums off into the device driver, we set the skb
+>     transport header to what it would have been under the old scheme.
+>     
+>     Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+>     Signed-off-by: David S. Miller <davem@davemloft.net>
 
-rick jones
+Reverting both 8952d6c988ec31070732117f353666a4b9a09fea and
+7f8be19f5a5737ce6ad670756183235c71b560bb fixes it.  Reverting only
+7f8be19f5a5737ce6ad670756183235c71b560bb also fixes it.
 
-
+Thanks.
