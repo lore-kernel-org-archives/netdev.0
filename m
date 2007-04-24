@@ -1,59 +1,78 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: is CONFIG_NET_CLS_ACT always set ?
-Date: Mon, 23 Apr 2007 20:02:57 -0400
-Message-ID: <1177372977.4096.24.camel@localhost>
-References: <97949e3e0704231419o21062b6cl5b8cf38e1b412b05@mail.gmail.com>
-	 <1177369190.4096.13.camel@localhost>
-	 <97949e3e0704231608n6f43807en1ee6e27265c641ba@mail.gmail.com>
-Reply-To: hadi@cyberus.ca
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: net-2.6.22 UDP stalls/hangs
+Date: Tue, 24 Apr 2007 10:04:58 +1000
+Message-ID: <20070424000458.GA21838@gondor.apana.org.au>
+References: <20070423151240.0e8cabed.akpm@linux-foundation.org> <20070423.151531.70219647.davem@davemloft.net> <20070423153714.71b9d99e.akpm@linux-foundation.org> <20070423.154509.116354989.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Laurent Chavey <chavey@google.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org, acme@redhat.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.230]:2581 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030881AbXDXADB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Apr 2007 20:03:01 -0400
-Received: by wx-out-0506.google.com with SMTP id h31so1985910wxd
-        for <netdev@vger.kernel.org>; Mon, 23 Apr 2007 17:03:01 -0700 (PDT)
-In-Reply-To: <97949e3e0704231608n6f43807en1ee6e27265c641ba@mail.gmail.com>
+Received: from rhun.apana.org.au ([64.62.148.172]:4027 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1030811AbXDXAFu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Apr 2007 20:05:50 -0400
+Content-Disposition: inline
+In-Reply-To: <20070423.154509.116354989.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2007-23-04 at 16:08 -0700, Laurent Chavey wrote:
-> sorry for the trick question.
+On Mon, Apr 23, 2007 at 03:45:09PM -0700, David Miller wrote:
 > 
-> I was simply making a modification to the skb tap code
-> to allow tcpdump to work on the slave interface and not
-> just the bonded one. 
+> Either that or some error in Herbert's recent checksum offload
+> handling changes, such as, in fact I am highly suspicious of
+> the second change listed below, you may want to try reverting
+> just that one:
 
-If you dont mind: what is the goal? I am not sure i want to see the
-packets on a backup interface in a bond active/backup - but you may
-have some good reason.
+Indeed.  My change depended on drivers correctly using csum_offset
+instead of the old csum field.  That was wrong anyway since sparse
+would now warn against that usage.  However, prior to my change it
+was harmless.
 
-> The code change requires a change to
-> the for loop code and it follow on to the call to deliver_skb().
-> 
+[NETDRV]: Perform missing csum_offset conversions
 
-Iam assuming you have taken care of the code above that which drops the
-packet if not destined for master? 
+When csum_offset was introduced we did a conversion from csum to
+csum_offset where applicable.  A couple of drivers were missed in
+this process.
 
-> In the process of adding the code, I noticed that if (at least
-> that is how I read the code)
-> CONFIG_NET_CLS_ACT is not defined then
-> the last pt_prev is call after the diverter and bridge code
-> have handled the skb.  This would only occur for bridged skb
-> that one wanted to tap.
-> 
+It was harmless to begin with since the two fields coincided.  Now
+that we've made them different with the addition of csum_start, the
+missed drivers must be converted or they can't send packets out at
+all that require checksum offload.
+     
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-The bridge code does the right thing if you follow handle bridge.
-The old diverter (you must be looking at an old kernel, because it is
-gone) was supposed to be able to steal packets.
-I am not sure if that answers your question.
-
-cheers,
-jamal
-
-
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+diff --git a/drivers/net/atl1/atl1_main.c b/drivers/net/atl1/atl1_main.c
+index d60c221..4b1d4d1 100644
+--- a/drivers/net/atl1/atl1_main.c
++++ b/drivers/net/atl1/atl1_main.c
+@@ -1328,7 +1328,7 @@ static int atl1_tx_csum(struct atl1_adapter *adapter, struct sk_buff *skb,
+ 
+ 	if (likely(skb->ip_summed == CHECKSUM_PARTIAL)) {
+ 		cso = skb_transport_offset(skb);
+-		css = cso + skb->csum;
++		css = cso + skb->csum_offset;
+ 		if (unlikely(cso & 0x1)) {
+ 			printk(KERN_DEBUG "%s: payload offset != even number\n",
+ 				atl1_driver_name);
+diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
+index 610216e..48e2ade 100644
+--- a/drivers/net/e1000/e1000_main.c
++++ b/drivers/net/e1000/e1000_main.c
+@@ -2959,7 +2959,8 @@ e1000_tx_csum(struct e1000_adapter *adapter, struct e1000_tx_ring *tx_ring,
+ 
+ 		context_desc->lower_setup.ip_config = 0;
+ 		context_desc->upper_setup.tcp_fields.tucss = css;
+-		context_desc->upper_setup.tcp_fields.tucso = css + skb->csum;
++		context_desc->upper_setup.tcp_fields.tucso =
++			css + skb->csum_offset;
+ 		context_desc->upper_setup.tcp_fields.tucse = 0;
+ 		context_desc->tcp_seg_setup.data = 0;
+ 		context_desc->cmd_and_length = cpu_to_le32(E1000_TXD_CMD_DEXT);
