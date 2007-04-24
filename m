@@ -1,78 +1,49 @@
-From: Jiri Kosina <jikos@jikos.cz>
-Subject: Re: 2.6.21-rc7: BUG: sleeping function called from
- invalid context at net/core/sock.c:1523
-Date: Tue, 24 Apr 2007 09:59:38 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0704240954200.20657@twin.jikos.cz>
-References: <E1HgBjF-0007Q9-00@gondolin.me.apana.org.au>
-Reply-To: BlueZ development <bluez-devel@lists.sourceforge.net>
+From: Keiichi KII <k-keiichi@bx.jp.nec.com>
+Subject: Re: [RFC][PATCH -mm take4 2/6] support multiple logging
+Date: Tue, 24 Apr 2007 17:14:28 +0900
+Message-ID: <462DBC64.9070102@bx.jp.nec.com>
+References: <462605DC.2080804@bx.jp.nec.com>	<462609D1.50300@bx.jp.nec.com>	<20070419210813.a599c54f.akpm@linux-foundation.org>	<46288D11.4000801@bx.jp.nec.com> <20070420111526.01ad7f4c.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jeremy@goop.org, netdev@vger.kernel.org,
-	Marcel Holtmann <marcel@holtmann.org>, Greg KH <gregkh@suse.de>,
-	linux-kernel@vger.kernel.org, clg@fr.ibm.com,
-	bluez-devel@lists.sourceforge.net, maxk@qualcomm.com
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <bluez-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <E1HgBjF-0007Q9-00@gondolin.me.apana.org.au>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/bluez-devel>,
-	<mailto:bluez-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=bluez-devel>
-List-Post: <mailto:bluez-devel@lists.sourceforge.net>
-List-Help: <mailto:bluez-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/bluez-devel>,
-	<mailto:bluez-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: bluez-devel-bounces@lists.sourceforge.net
-Errors-To: bluez-devel-bounces@lists.sourceforge.net
+Cc: mpm@selenic.com, davem@davemloft.net, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from TYO202.gate.nec.co.jp ([202.32.8.206]:58089 "EHLO
+	tyo202.gate.nec.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754178AbXDXIPl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Apr 2007 04:15:41 -0400
+In-Reply-To: <20070420111526.01ad7f4c.akpm@linux-foundation.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 24 Apr 2007, Herbert Xu wrote:
-
-> > Hmm, *sigh*. I guess the patch below fixes the problem, but it is a 
-> > masterpiece in the field of ugliness. And I am not sure whether it is 
-> > completely correct either. Are there any immediate ideas for better 
-> > solution with respect to how struct sock locking works?
-> Please cc such patches to netdev.  Thanks.
-
-Hi Herbert,
-
-well it's pretty much bluetooth-specific, and bluez-devel was CCed, but 
-OK.
-
-> > diff --git a/net/bluetooth/hci_sock.c b/net/bluetooth/hci_sock.c
-> > index 71f5cfb..c5c93cd 100644
-> > --- a/net/bluetooth/hci_sock.c
-> > +++ b/net/bluetooth/hci_sock.c
-> > @@ -656,7 +656,10 @@ static int hci_sock_dev_event(struct notifier_block *this, unsigned long event,
-> >                /* Detach sockets from device */
-> >                read_lock(&hci_sk_list.lock);
-> >                sk_for_each(sk, node, &hci_sk_list.head) {
-> > -                       lock_sock(sk);
-> > +                       if (in_atomic())
-> > +                               bh_lock_sock(sk);
-> > +                       else
-> > +                               lock_sock(sk);
+> On Fri, 20 Apr 2007 18:51:13 +0900
+> Keiichi KII <k-keiichi@bx.jp.nec.com> wrote:
 > 
-> This doesn't do what you think it does.  bh_lock_sock can still succeed
-> even with lock_sock held by someone else.
+>>> I started to do some cleanups and fixups here, but abandoned it when it was
+>>> all getting a bit large.
+>>>
+>>> Here are some fixes against this patch:
+>> I'm going to fix my patches by following your reviews and send new patches 
+>> on the LKML and the netdev ML in a few days.
+>>
+> 
+> Well..  before you can finish this work we need to decide upon what the
+> interface to userspace will be.
+> 
+> - The miscdev isn't appropriate
+> 
 
-I know, this was precisely the reason why I converted the bh_lock_sock() 
-to lock_sock() here some time ago (as it was racy with 
-l2cap_connect_cfm()).
-
-> Does this need to occur immediately when an event occurs? If not I'd
-> suggest moving this into a workqueue.
-
-Will have to check whether this will be processed properly in time when 
-going to suspend.
-
-Thanks,
+Why isn't miscdev appropriate? 
+We just shouldn't use miscdev for networking conventionally?
 
 -- 
-Jiri Kosina
+Keiichi KII
+NEC Corporation OSS Promotion Center
+E-mail: k-keiichi@bx.jp.nec.com
 
--------------------------------------------------------------------------
-This SF.net email is sponsored by DB2 Express
-Download DB2 Express C - the FREE version of DB2 express and take
-control of your XML. No limits. Just data. Click to get it now.
-http://sourceforge.net/powerbar/db2/
+
+
+
+
