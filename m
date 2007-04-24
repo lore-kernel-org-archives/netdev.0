@@ -1,38 +1,38 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [net-2.6.22] [TCP]: Fix linkage errors.
-Date: Tue, 24 Apr 2007 18:03:48 +0200
-Message-ID: <20070424180348.2d40fbcb.dada1@cosmosbay.com>
-References: <20070425.001743.19811068.yoshfuji@linux-ipv6.org>
-	<20070424155324.GL3468@stusta.de>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: PROBLEM: sky2 hangs
+Date: Tue, 24 Apr 2007 09:07:28 -0700
+Message-ID: <20070424090728.638e8ab7@oldman>
+References: <20070424081557.1b8f6b31@oldman>
+	<20070424152234.0E5E14AC6B@dcn.infos.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: YOSHIFUJI Hideaki / =?ISO-8859-1?B?X19fX19fX19fX19f?=
-	<yoshfuji@linux-ipv6.org>, davem@davemloft.net,
-	shemminger@osdl.org, netdev@vger.kernel.org,
-	Thomas Gleixner <tglx@linutronix.de>
-To: Adrian Bunk <bunk@stusta.de>
+Cc: <netdev@vger.kernel.org>
+To: "Peter Trifonov" <petert@dcn.infos.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pfx2.jmh.fr ([194.153.89.55]:43279 "EHLO pfx2.jmh.fr"
+Received: from smtp.osdl.org ([65.172.181.24]:53665 "EHLO smtp.osdl.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1161775AbXDXQDy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Apr 2007 12:03:54 -0400
-In-Reply-To: <20070424155324.GL3468@stusta.de>
+	id S1161814AbXDXQHi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Apr 2007 12:07:38 -0400
+In-Reply-To: <20070424152234.0E5E14AC6B@dcn.infos.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 24 Apr 2007 17:53:24 +0200
-Adrian Bunk <bunk@stusta.de> wrote:
-> Couldn't this be better solved by adding something like the following 
-> to include/linux/ktime.h ?
+On Tue, 24 Apr 2007 19:22:34 +0400
+"Peter Trifonov" <petert@dcn.infos.ru> wrote:
+
+> Dear Stephen,
 > 
-> static inline s64 ktime_to_us(const ktime_t kt)
-> {
->    return (s64) kt.tv.sec * USEC_PER_SEC + kt.tv.nsec / NSEC_PER_USEC;
-> }
 > 
+> > I bet you have 88e8056 chip.  There is some problem with the 
+> Yes.
+> > bus interface and the sky2 driver (and the vendor sk98lin 
+> > driver), that causes all sorts of out of order device access 
+> > problems.  Still investigating....
+> Windows driver works perfectly with it...
+>
 
-Please check again include/linux/ktime.h
+windows is still 32 bit
+> I can give you SSH access to that box if this can help you. 
 
-tv struct is defined inside 'ktime_t' only if BITS_PER_LONG != 64 && !defined(CONFIG_KTIME_SCALAR)
-
+Thanks but I have a system with same problem.
