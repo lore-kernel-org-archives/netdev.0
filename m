@@ -1,87 +1,75 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: netlink locking warnings in 2.6.21-rc7-mm1
-Date: Tue, 24 Apr 2007 12:42:50 -0700
-Message-ID: <20070424124250.d55789cd.akpm@linux-foundation.org>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [PATCH] usb-net/pegasus: fix pegasus carrier detection
+Date: Tue, 24 Apr 2007 16:24:46 -0400
+Message-ID: <1177446286.18030.13.camel@localhost.localdomain>
+References: <1177424406.13684.5.camel@localhost.localdomain>
+	 <462E3508.1030703@garzik.org> <20070424170429.GA13668@kroah.com>
+	 <58298.85.91.128.158.1177436881.squirrel@nucleusys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: Greg KH <greg@kroah.com>, Jeff Garzik <jeff@garzik.org>,
+	netdev@vger.kernel.org
+To: petkan@nucleusys.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([65.172.181.25]:52685 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1423073AbXDXTmx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Apr 2007 15:42:53 -0400
-Received: from shell0.pdx.osdl.net (fw.osdl.org [65.172.181.6])
-	by smtp1.linux-foundation.org (8.13.5.20060308/8.13.5/Debian-3ubuntu1.1) with ESMTP id l3OJgpTE007163
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Tue, 24 Apr 2007 12:42:52 -0700
-Received: from box (shell0.pdx.osdl.net [10.9.0.31])
-	by shell0.pdx.osdl.net (8.13.1/8.11.6) with SMTP id l3OJgox8017463
-	for <netdev@vger.kernel.org>; Tue, 24 Apr 2007 12:42:50 -0700
+Received: from mx1.redhat.com ([66.187.233.31]:49245 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754368AbXDXUVD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Apr 2007 16:21:03 -0400
+In-Reply-To: <58298.85.91.128.158.1177436881.squirrel@nucleusys.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-http://test.kernel.org/abat/84786/debug/console.log is saying
+On Tue, 2007-04-24 at 20:48 +0300, petkan@nucleusys.com wrote:
+> > On Tue, Apr 24, 2007 at 12:49:12PM -0400, Jeff Garzik wrote:
+> >>  Long term, Greg seemed OK with moving the net drivers from
+> >> drivers/usb/net
+> >>  to drivers/usb/net, in line with the current policy of placing net
+> >> drivers
+> >>  in drivers/net/*, bus agnostic.  After that move, sending to netdev and
+> >> me
+> >>  (as you did here) would be the preferred avenue.
+> >
+> > Speaking of which, do you want me to do this in the 2.6.22-rc1
+> > timeframe?  Usually big code moves like this are good to do right after
+> > rc1 comes out as the major churn is usually completed then.
+> 
+> Sorry to interfere, but could you guys wait until tomorrow before applying
+> the patch to your respective GIT trees?  I'd like to check if the code is
+> doing the right thing and avoid patch reversal.
 
-Starting udevd BUG: at kernel/mutex-debug.c:82 debug_mutex_unlock()
+Original problem was that the patch I referenced in the commit message
+from Jan 6 2006 switched the return value semantics from
+read_mii_word().  Before the patch, read_mii_word returned 1 on success,
+0 on error.  After the patch, it returns the generally accepted 0 on
+success and !0 on error.
 
-Call Trace:
- [<ffffffff80244b71>] debug_mutex_unlock+0x161/0x170
- [<ffffffff804b759c>] __mutex_unlock_slowpath+0x5c/0x160
- [<ffffffff80467902>] netlink_dump+0x82/0x1e0
- [<ffffffff8046a042>] netlink_dump_start+0x142/0x180
- [<ffffffff80461be0>] rtnl_dump_ifinfo+0x0/0x90
- [<ffffffff80461be0>] rtnl_dump_ifinfo+0x0/0x90
- [<ffffffff80461e26>] rtnetlink_rcv_msg+0xe6/0x240
- [<ffffffff80461d40>] rtnetlink_rcv_msg+0x0/0x240
- [<ffffffff80468bf9>] netlink_run_queue+0xb9/0x140
- [<ffffffff80461cc4>] rtnetlink_rcv+0x34/0x60
- [<ffffffff804690b2>] netlink_data_ready+0x12/0x50
- [<ffffffff80467bbb>] netlink_sendskb+0x2b/0x50
- [<ffffffff80468fc1>] netlink_sendmsg+0x221/0x300
- [<ffffffff8044d1cb>] sock_sendmsg+0xcb/0x100
- [<ffffffff8023f420>] autoremove_wake_function+0x0/0x30
- [<ffffffff80262d62>] __handle_mm_fault+0x1d2/0x8b0
- [<ffffffff8044c17e>] move_addr_to_kernel+0x2e/0x40
- [<ffffffff8044d5f6>] sys_sendto+0x146/0x1b0
- [<ffffffff8044dd6d>] move_addr_to_user+0x5d/0x70
- [<ffffffff8044e34b>] sys_getsockname+0xcb/0xe0
- [<ffffffff80209b5e>] system_call+0x7e/0x83
+That causes set_carrier() to return immediately rather than fiddle with
+netif_carrier_*.  When the Jan 6 2006 patch went in changing the return
+values, set_carrier() was not updated for the new return values.
+Nothing else in the code cares about read_mii_word()'s return value
+except set_carrier().
 
-which is
+But when the card is brought up and no cable is plugged in,
+intr_callback() gets called repeatedly, which itself repeatedly calls
+netif_carrier_on() due to the NO_CARRIER check.  The comment there about
+"NO_CARRIER kicks in on TX failure" seems accurate, because even with no
+cable plugged in, and therefore no packets getting transmitted, the
+NO_CARRIER check is never true on the Belkin part.  Therefore,
+netif_carrier_on() is always called as a result of the failure of d[0] &
+NO_CARRIER, turning carrier back on even if there is no cable plugged
+in.  This bulldozes over the MII carrier_check routine too.
 
+I don't think the intr_callback() code should ever turn the carrier
+_on_, because there's that 2*HZ MII carrier check which can certainly
+handle the carrier on/off stuff.
 
-static int netlink_dump(struct sock *sk)
-{
-	...
-	len = cb->dump(skb, cb);
+LINK_STATUS appears valid on the Belkin part too, so we can add that as
+a reverse-quirk and use LINK_STATUS on parts where it works.  If you
+think that the NO_CARRIER check should be in _addition_ to the
+LINK_STATUS check, that's fine with me, provided that the NO_CARRIER
+check only turns carrier off.
 
-	if (len > 0) {
--->		mutex_unlock(nlk->cb_mutex);
-		skb_queue_tail(&sk->sk_receive_queue, skb);
-		sk->sk_data_ready(sk, len);
-		return 0;
-	}
+Dan
 
-and
-
-void debug_mutex_unlock(struct mutex *lock)
-{
-	if (unlikely(!debug_locks))
-		return;
-
--->	DEBUG_LOCKS_WARN_ON(lock->owner != current_thread_info());
-	DEBUG_LOCKS_WARN_ON(lock->magic != lock);
-
-so it's complaining that cb_mutex is being release by a thread other than
-the one which acquired it.  I'm unable to reproduce it with their config,
-naturally.
-
-Can anyone see any conceivable way in which this can happen?  There's some
-moderately tricky-looking rewriting of the ->cb_mutex pointer happening in
-there.  If that were to happen concurrently then this might happen?
-
-otoh, we're seeing several fairly unrelated whacko things coming out of the
-lock debugging code in that kernel and I'm wondering if there's some common
-bug which is causing false positives.
 
