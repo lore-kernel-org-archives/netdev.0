@@ -1,50 +1,25 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: [RFC] bridge: if no STP then forward all BPDU's
-Date: Wed, 25 Apr 2007 01:22:09 +0200
-Message-ID: <20070424232209.GA14399@xi.wantstofly.org>
-References: <20070424161226.0372f5e8@dxpl.pdx.osdl.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-2.6.22] [IPV4]: Fix build without procfs.
+Date: Tue, 24 Apr 2007 16:22:58 -0700 (PDT)
+Message-ID: <20070424.162258.04054256.davem@davemloft.net>
+References: <20070425.002048.109830535.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+To: yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alephnull.demon.nl ([83.160.184.112]:46182 "EHLO
-	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753965AbXDXXWO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Apr 2007 19:22:14 -0400
-Content-Disposition: inline
-In-Reply-To: <20070424161226.0372f5e8@dxpl.pdx.osdl.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34297
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754650AbXDXXWv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Apr 2007 19:22:51 -0400
+In-Reply-To: <20070425.002048.109830535.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 24, 2007 at 04:12:26PM -0700, Stephen Hemminger wrote:
+From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
+Date: Wed, 25 Apr 2007 00:20:48 +0900 (JST)
 
-> The bridge code by default captures all spanning tree packets and
-> doesn't forward them. I propose that this might not be a good idea.
+> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 
-As far as I remember, the original bridge code did pass through BPDUs
-when STP was disabled.  I think that that is the only right way to
-behave.
-
-
-> --- bridge-2.6.22.orig/net/bridge/br_input.c
-> +++ bridge-2.6.22/net/bridge/br_input.c
-> @@ -131,8 +131,16 @@ struct sk_buff *br_handle_frame(struct n
->  	if (!is_valid_ether_addr(eth_hdr(skb)->h_source))
->  		goto drop;
->  
-> -	if (unlikely(is_link_local(dest))) {
-> -		skb->pkt_type = PACKET_HOST;
-> +	/*
-> +	 * If STP is running, then trap all link-local (802.1x) frames
-> +	 * process through normal receive path.
-> +	 *
-> +	 * For safety, if not running STP then act as a completely transparent
-> +	 * device. This means that if STP is running on another machine, it
-> +	 * can still detect cycles.
-> +	 */
-> +	if (p->br->stp_enabled != BR_NO_STP && is_link_local(dest)) {
-> +		/* skb->pkt_type should already be PACKET_MULTICAST */
-
-(Does this check include PAUSE frames?  We still don't want to
-forward PAUSE frames in any case..)
+Applied, thanks!
