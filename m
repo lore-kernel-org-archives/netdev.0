@@ -1,45 +1,52 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: [PATCH] cfg80211: update comment for locking
-Date: Tue, 24 Apr 2007 11:22:36 +0200
-Message-ID: <1177406557.3528.19.camel@johannes.berg>
-References: <20070423183334.GC5883@tuxdriver.com>
-	 <20070423183443.GD5883@tuxdriver.com> <20070423183634.GE5883@tuxdriver.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org
-To: "John W. Linville" <linville@tuxdriver.com>
+From: David Howells <dhowells@redhat.com>
+Subject: Re: Getting the new RxRPC patches upstream
+Date: Tue, 24 Apr 2007 14:37:04 +0100
+Message-ID: <9767.1177421824@redhat.com>
+References: <20070423171157.GA205@tv-sign.ru>  <20070420212835.GA863@tv-sign.ru> <20070420.015838.83621529.davem@davemloft.net> <29341.1176975158@redhat.com> <2969.1176992303@redhat.com> <1101.1177056127@redhat.com> <4713.1177065706@redhat.com> <20070420113805.c4877dc8.akpm@linux-foundation.org> <1355.1177317176@redhat.com>
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>, ebiederm@xmission.com,
+	containers@lists.osdl.org, hch@infradead.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Oleg Nesterov <oleg@tv-sign.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:36641 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754612AbXDXJTk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Apr 2007 05:19:40 -0400
-In-Reply-To: <20070423183634.GE5883@tuxdriver.com>
+Received: from mx1.redhat.com ([66.187.233.31]:45032 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1422651AbXDXNhi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Apr 2007 09:37:38 -0400
+In-Reply-To: <20070423171157.GA205@tv-sign.ru> 
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds a comment that was part of my rtnl locking patch for
-cfg80211 but which I forgot for the merge.
+Oleg Nesterov <oleg@tv-sign.ru> wrote:
 
-Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
+> > > We only care when del_timer() returns true. In that case, if the timer
+> > > function still runs (possible for single-threaded wqs), it has already
+> > > passed __queue_work().
+> > 
+> > Why do you assume that?
 
----
- include/net/cfg80211.h |    4 ++++
- 1 file changed, 4 insertions(+)
+Sorry, I should have been more clear.  I meant the assumption that we only
+care about a true return from del_timer().
 
---- net-2.6.22.orig/include/net/cfg80211.h	2007-04-24 11:20:47.538813880 +0200
-+++ net-2.6.22/include/net/cfg80211.h	2007-04-24 11:21:26.388813880 +0200
-@@ -23,6 +23,10 @@ struct wiphy;
-  * All callbacks except where otherwise noted should return 0
-  * on success or a negative error code.
-  *
-+ * All operations are currently invoked under rtnl for consistency with the
-+ * wireless extensions but this is subject to reevaluation as soon as this
-+ * code is used more widely and we have a first user without wext.
-+ *
-  * @add_virtual_intf: create a new virtual interface with the given name
-  *
-  * @del_virtual_intf: remove the virtual interface determined by ifindex.
+> If del_timer() returns true, the timer was pending. This means it was
+> started by work->func() (note that __run_timers() clears timer_pending()
+> before calling timer->function). This in turn means that
+> delayed_work_timer_fn() has already called __queue_work(dwork), otherwise
+> work->func() has no chance to run.
 
+But if del_timer() returns 0, then there may be a problem.  We can't tell the
+difference between the following two cases:
 
+ (1) The timer hadn't been started.
+
+ (2) The timer had been started, has expired and is no longer pending, but
+     another CPU is running its handler routine.
+
+try_to_del_timer_sync() _does_, however, distinguish between these cases: the
+first is the 0 return, the second is the -1 return, and the case where it
+dequeued the timer is the 1 return.
+
+BTW, can a timer handler be preempted?  I assume not...  But it can be delayed
+by interrupt processing.
+
+David
