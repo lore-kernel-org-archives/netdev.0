@@ -1,100 +1,66 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: [net-2.6.22] [TCP]: Fix linkage errors.
-Date: Wed, 25 Apr 2007 00:17:43 +0900 (JST)
-Message-ID: <20070425.001743.19811068.yoshfuji@linux-ipv6.org>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: PROBLEM: sky2 hangs
+Date: Tue, 24 Apr 2007 08:15:57 -0700
+Message-ID: <20070424081557.1b8f6b31@oldman>
+References: <20070403151908.41E574AC7F@dcn.infos.ru>
+	<20070424082451.25E3C4AC19@dcn.infos.ru>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@osdl.org, netdev@vger.kernel.org
-To: davem@davemloft.net
+Cc: <netdev@vger.kernel.org>
+To: "Peter Trifonov" <petert@dcn.infos.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:32835 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161796AbXDXPRs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Apr 2007 11:17:48 -0400
+Received: from smtp.osdl.org ([65.172.181.24]:52531 "EHLO smtp.osdl.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1422721AbXDXPQH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Apr 2007 11:16:07 -0400
+In-Reply-To: <20070424082451.25E3C4AC19@dcn.infos.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Recent ktime_t changes had introduced linkage errors.
+On Tue, 24 Apr 2007 12:24:51 +0400
+"Peter Trifonov" <petert@dcn.infos.ru> wrote:
 
-| WARNING: "__divdi3" [net/ipv4/tcp_veno.ko] undefined!
-| WARNING: "__divdi3" [net/ipv4/tcp_vegas.ko] undefined!
-| WARNING: "__divdi3" [net/ipv4/tcp_lp.ko] undefined!
-| WARNING: "__divdi3" [net/ipv4/tcp_illinois.ko] undefined!
+> Dear Stephen,
+> 
+> Unfortunately the problems with sky2 started again. 
+> 
+> From time to time NIC stops working. The system log contains the following
+> messages:
+> Apr 24 11:50:43 bullet-lin kernel: sky2 eth0: Link is up at 1000 Mbps, full
+> duplex, flow control both
+> Apr 24 11:51:55 bullet-lin kernel: sky2 0000:04:00.0: pci hw error (0x2010)
+> Apr 24 11:53:32 bullet-lin kernel: sky2 eth0: disabling interface
+> Apr 24 11:53:35 bullet-lin kernel: sky2 eth0: enabling interface
+> Apr 24 11:53:35 bullet-lin kernel: sky2 eth0: ram buffer 0K
+> Apr 24 11:53:37 bullet-lin kernel: sky2 eth0: Link is up at 1000 Mbps, full
+> duplex, flow control both
+> Apr 24 12:06:32 bullet-lin kernel: sky2 eth0: tx timeout
+> Apr 24 12:06:32 bullet-lin kernel: sky2 eth0: transmit ring 1 .. 472
+> report=1 done=1
+> Apr 24 12:06:32 bullet-lin kernel: sky2 hardware hung? flushing
+> Apr 24 12:06:32 bullet-lin kernel: sky2 eth0: transmit descriptor error
+> (hardware problem)
+> Apr 24 12:06:32 bullet-lin kernel: sky2 eth0: Link is down.
+> Apr 24 12:06:38 bullet-lin kernel: sky2 eth0: Link is up at 1000 Mbps, full
+> duplex, flow control both
+> Apr 24 12:06:38 bullet-lin kernel: sky2 eth0: transmit descriptor error
+> (hardware problem)
+> Apr 24 12:06:38 bullet-lin kernel: sky2 eth0: Link is down.
+> Apr 24 12:06:41 bullet-lin kernel: sky2 eth0: Link is up at 1000 Mbps, full
+> duplex, flow control both
+> Apr 24 12:06:41 bullet-lin kernel: sky2 eth0: transmit descriptor error
+> (hardware problem)
+> .....
+> 
+> I am running 2.6.20.4 X86-64 kernel
+> 
+> With best regards,
+> P. Trifonov  
 
-Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+I bet you have 88e8056 chip.  There is some problem with the bus interface
+and the sky2 driver (and the vendor sk98lin driver), that causes all sorts
+of out of order device access problems.  Still investigating....
 
----
-diff --git a/net/ipv4/tcp_illinois.c b/net/ipv4/tcp_illinois.c
-index 8e31659..0cec615 100644
---- a/net/ipv4/tcp_illinois.c
-+++ b/net/ipv4/tcp_illinois.c
-@@ -87,10 +87,12 @@ static void tcp_illinois_acked(struct sock *sk, u32 pkts_acked, ktime_t last)
- {
- 	struct illinois *ca = inet_csk_ca(sk);
- 	u32 rtt;
-+	struct timeval tv;
- 
- 	ca->acked = pkts_acked;
- 
--	rtt = ktime_to_ns(net_timedelta(last)) / NSEC_PER_USEC;
-+	tv = ktime_to_timeval(net_timedelta(last));
-+	rtt = tv.tv_sec * USEC_PER_SEC + tv.tv_usec;
- 
- 	/* ignore bogus values, this prevents wraparound in alpha math */
- 	if (rtt > RTT_MAX)
-diff --git a/net/ipv4/tcp_lp.c b/net/ipv4/tcp_lp.c
-index b4e062a..0b990ea 100644
---- a/net/ipv4/tcp_lp.c
-+++ b/net/ipv4/tcp_lp.c
-@@ -265,8 +265,10 @@ static void tcp_lp_pkts_acked(struct sock *sk, u32 num_acked, ktime_t last)
- {
- 	struct tcp_sock *tp = tcp_sk(sk);
- 	struct lp *lp = inet_csk_ca(sk);
-+	struct timeval tv;
- 
--	tcp_lp_rtt_sample(sk,  ktime_to_ns(net_timedelta(last)) / NSEC_PER_USEC);
-+	tv = ktime_to_timeval(net_timedelta(last));
-+	tcp_lp_rtt_sample(sk, tv.tv_sec * USEC_PER_SEC + tv.tv_usec);
- 
- 	/* calc inference */
- 	if (tcp_time_stamp > tp->rx_opt.rcv_tsecr)
-diff --git a/net/ipv4/tcp_vegas.c b/net/ipv4/tcp_vegas.c
-index 0f0ee7f..c13dc16 100644
---- a/net/ipv4/tcp_vegas.c
-+++ b/net/ipv4/tcp_vegas.c
-@@ -116,9 +116,11 @@ void tcp_vegas_pkts_acked(struct sock *sk, u32 cnt, ktime_t last)
- {
- 	struct vegas *vegas = inet_csk_ca(sk);
- 	u32 vrtt;
-+	struct timeval tv;
- 
- 	/* Never allow zero rtt or baseRTT */
--	vrtt = (ktime_to_ns(net_timedelta(last)) / NSEC_PER_USEC) + 1;
-+	tv = ktime_to_timeval(net_timedelta(last));
-+	vrtt = tv.tv_sec * USEC_PER_SEC + tv.tv_usec;
- 
- 	/* Filter to find propagation delay: */
- 	if (vrtt < vegas->baseRTT)
-diff --git a/net/ipv4/tcp_veno.c b/net/ipv4/tcp_veno.c
-index 0b50d06..a439c49 100644
---- a/net/ipv4/tcp_veno.c
-+++ b/net/ipv4/tcp_veno.c
-@@ -73,9 +73,11 @@ static void tcp_veno_pkts_acked(struct sock *sk, u32 cnt, ktime_t last)
- {
- 	struct veno *veno = inet_csk_ca(sk);
- 	u32 vrtt;
-+	struct timeval tv;
- 
- 	/* Never allow zero rtt or baseRTT */
--	vrtt = (ktime_to_ns(net_timedelta(last)) / NSEC_PER_USEC) + 1;
-+	tv = ktime_to_timeval(net_timedelta(last));
-+	vrtt = tv.tv_sec * USEC_PER_SEC + tv.tv_usec;
- 
- 	/* Filter to find propagation delay: */
- 	if (vrtt < veno->basertt)
-
--- 
-YOSHIFUJI Hideaki @ USAGI Project  <yoshfuji@linux-ipv6.org>
-GPG-FP  : 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+For 2.6.21, I ended up blacklisting this version of the chip until the problem
+is resolved.
