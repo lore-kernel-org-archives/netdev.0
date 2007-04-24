@@ -1,114 +1,98 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: [PATCH 7/9] wext: reduce inline abuse
-Date: Tue, 24 Apr 2007 20:07:39 +0200
-Message-ID: <20070424180849.651555000@sipsolutions.net>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: [PATCH 4/9] wext: remove options
+Date: Tue, 24 Apr 2007 20:07:36 +0200
+Message-ID: <20070424180848.394200000@sipsolutions.net>
 References: <20070424180732.371620000@sipsolutions.net>
 Mime-Version: 1.0
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-	jt@hpl.hp.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:33727 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1423077AbXDZJk1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2007 05:40:27 -0400
-Content-Disposition: inline; filename=wext-uninline.patch
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline; filename=wext-remove-options.patch
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This patch removes a bunch of inline abuse from wext. Most functions
-that were marked inline are only used once so the compiler will inline
-them anyway, others are used multiple times but there's no requirement
-for them to be inline since they aren't in any fast paths.
+This patch kills the two options in wext that are required to be enabled
+anyway because they influence the userspace API.
 
-Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
+Signed-off-by: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
 
 ---
- net/wireless/wext.c |   29 ++++++++++-------------------
- 1 file changed, 10 insertions(+), 19 deletions(-)
+ net/wireless/wext.c |   15 ---------------
+ 1 file changed, 15 deletions(-)
 
---- net-2.6.22.orig/net/wireless/wext.c	2007-04-24 19:13:50.288804911 +0200
-+++ net-2.6.22/net/wireless/wext.c	2007-04-24 19:18:49.198804911 +0200
-@@ -440,10 +440,8 @@ static const int event_type_pk_size[] = 
+--- net-2.6.22.orig/net/wireless/wext.c	2007-04-24 18:59:13.258804911 +0200
++++ net-2.6.22/net/wireless/wext.c	2007-04-24 18:59:34.138804911 +0200
+@@ -101,12 +101,6 @@
+ 
+ #include <asm/uaccess.h>		/* copy_to_user() */
+ 
+-/**************************** CONSTANTS ****************************/
+-
+-/* Options */
+-#define WE_EVENT_RTNETLINK	/* Propagate events using RtNetlink */
+-#define WE_SET_EVENT		/* Generate an event on some set commands */
+-
+ /************************* GLOBAL VARIABLES *************************/
+ /*
+  * You should not use global variables, because of re-entrancy.
+@@ -741,12 +735,10 @@ static int ioctl_standard_call(struct ne
+ 		/* No extra arguments. Trivial to handle */
+ 		ret = handler(dev, &info, &(iwr->u), NULL);
+ 
+-#ifdef WE_SET_EVENT
+ 		/* Generate an event to notify listeners of the change */
+ 		if ((descr->flags & IW_DESCR_FLAG_EVENT) &&
+ 		   ((ret == 0) || (ret == -EIWCOMMIT)))
+ 			wireless_send_event(dev, cmd, &(iwr->u), NULL);
+-#endif	/* WE_SET_EVENT */
+ 	} else {
+ 		char *	extra;
+ 		int	extra_size;
+@@ -859,7 +851,6 @@ static int ioctl_standard_call(struct ne
+ 				ret =  -EFAULT;
+ 		}
+ 
+-#ifdef WE_SET_EVENT
+ 		/* Generate an event to notify listeners of the change */
+ 		if ((descr->flags & IW_DESCR_FLAG_EVENT) &&
+ 		   ((ret == 0) || (ret == -EIWCOMMIT))) {
+@@ -871,7 +862,6 @@ static int ioctl_standard_call(struct ne
+ 				wireless_send_event(dev, cmd, &(iwr->u),
+ 						    extra);
+ 		}
+-#endif	/* WE_SET_EVENT */
+ 
+ 		/* Cleanup - I told you it wasn't that long ;-) */
+ 		kfree(extra);
+@@ -1121,7 +1111,6 @@ int wext_handle_ioctl(struct ifreq *ifr,
+  * Most often, the event will be propagated through rtnetlink
+  */
+ 
+-#ifdef WE_EVENT_RTNETLINK
  /* ---------------------------------------------------------------- */
  /*
-  * Return the driver handler associated with a specific Wireless Extension.
-- * Called from various place, so make sure it remains efficient.
-  */
--static inline iw_handler get_handler(struct net_device *dev,
--				     unsigned int cmd)
-+static iw_handler get_handler(struct net_device *dev, unsigned int cmd)
- {
- 	/* Don't "optimise" the following variable, it will crash */
- 	unsigned int	index;		/* *MUST* be unsigned */
-@@ -470,7 +468,7 @@ static inline iw_handler get_handler(str
+  * Locking...
+@@ -1225,8 +1214,6 @@ static inline void rtmsg_iwinfo(struct n
+ 	tasklet_schedule(&wireless_nlevent_tasklet);
+ }
+ 
+-#endif	/* WE_EVENT_RTNETLINK */
+-
+ /* ---------------------------------------------------------------- */
  /*
-  * Get statistics out of the driver
-  */
--static inline struct iw_statistics *get_wireless_stats(struct net_device *dev)
-+static struct iw_statistics *get_wireless_stats(struct net_device *dev)
- {
- 	/* New location */
- 	if ((dev->wireless_handlers != NULL) &&
-@@ -500,7 +498,7 @@ static inline struct iw_statistics *get_
-  * netif_running(dev) test. I'm open on that one...
-  * Hopefully, the driver will remember to do a commit in "open()" ;-)
-  */
--static inline int call_commit_handler(struct net_device *	dev)
-+static int call_commit_handler(struct net_device *dev)
- {
- 	if ((netif_running(dev)) &&
- 	   (dev->wireless_handlers->standard[0] != NULL)) {
-@@ -622,8 +620,8 @@ static int iw_handler_get_private(struct
- /*
-  * Print one entry (line) of /proc/net/wireless
-  */
--static __inline__ void wireless_seq_printf_stats(struct seq_file *seq,
--						 struct net_device *dev)
-+static void wireless_seq_printf_stats(struct seq_file *seq,
-+				      struct net_device *dev)
- {
- 	/* Get stats from the driver */
- 	struct iw_statistics *stats = get_wireless_stats(dev);
-@@ -892,10 +890,8 @@ static int ioctl_standard_call(struct ne
-  * a iw_handler but process it in your ioctl handler (i.e. use the
-  * old driver API).
-  */
--static inline int ioctl_private_call(struct net_device *	dev,
--				     struct ifreq *		ifr,
--				     unsigned int		cmd,
--				     iw_handler		handler)
-+static int ioctl_private_call(struct net_device *dev, struct ifreq *ifr,
-+			      unsigned int cmd, iw_handler handler)
- {
- 	struct iwreq *			iwr = (struct iwreq *) ifr;
- 	const struct iw_priv_args *	descr = NULL;
-@@ -1134,11 +1130,8 @@ static DECLARE_TASKLET(wireless_nlevent_
-  * current wireless config. Dumping the wireless config is far too
-  * expensive (for each parameter, the driver need to query the hardware).
-  */
--static inline int rtnetlink_fill_iwinfo(struct sk_buff *	skb,
--					struct net_device *	dev,
--					int			type,
--					char *			event,
--					int			event_len)
-+static int rtnetlink_fill_iwinfo(struct sk_buff *skb, struct net_device *dev,
-+				 int type, char *event, int event_len)
- {
- 	struct ifinfomsg *r;
- 	struct nlmsghdr  *nlh;
-@@ -1172,9 +1165,7 @@ rtattr_failure:
-  * Andrzej Krzysztofowicz mandated that I used a IFLA_XXX field
-  * within a RTM_NEWLINK event.
-  */
--static inline void rtmsg_iwinfo(struct net_device *	dev,
--				char *			event,
--				int			event_len)
-+static void rtmsg_iwinfo(struct net_device *dev, char *event, int event_len)
- {
- 	struct sk_buff *skb;
- 	int size = NLMSG_GOODSIZE;
+  * Main event dispatcher. Called from other parts and drivers.
+@@ -1305,10 +1292,8 @@ void wireless_send_event(struct net_devi
+ 	if (extra != NULL)
+ 		memcpy(((char *) event) + hdr_len, extra, extra_len);
+ 
+-#ifdef WE_EVENT_RTNETLINK
+ 	/* Send via the RtNetlink event channel */
+ 	rtmsg_iwinfo(dev, (char *) event, event_len);
+-#endif	/* WE_EVENT_RTNETLINK */
+ 
+ 	/* Cleanup */
+ 	kfree(event);
 
 --
-
