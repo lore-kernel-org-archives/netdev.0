@@ -1,204 +1,117 @@
-From: James Chapman <jchapman@katalix.com>
-Subject: Re: [PATCH 3/5 2.6.21-rc7] l2tp: pppol2tp core
-Date: Tue, 24 Apr 2007 20:17:45 +0100
-Message-ID: <462E57D9.3030606@katalix.com>
-References: <200704231601.l3NG13TN030167@quickie.katalix.com> <462E29D9.8000600@trash.net>
+From: Oleg Nesterov <oleg@tv-sign.ru>
+Subject: Re: Getting the new RxRPC patches upstream
+Date: Tue, 24 Apr 2007 23:34:04 +0400
+Message-ID: <20070424193404.GA5042@tv-sign.ru>
+References: <29341.1176975158@redhat.com> <2969.1176992303@redhat.com> <1101.1177056127@redhat.com> <4713.1177065706@redhat.com> <20070420113805.c4877dc8.akpm@linux-foundation.org> <1355.1177317176@redhat.com> <9767.1177421824@redhat.com> <15160.1177429867@redhat.com> <16575.1177433907@redhat.com> <17966.1177438970@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>, ebiederm@xmission.com,
+	containers@lists.osdl.org, hch@infradead.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: David Howells <dhowells@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s36.avahost.net ([74.53.95.194]:42059 "EHLO s36.avahost.net"
+Received: from mail.screens.ru ([213.234.233.54]:59600 "EHLO mail.screens.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1423021AbXDXTRu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Apr 2007 15:17:50 -0400
-In-Reply-To: <462E29D9.8000600@trash.net>
+	id S1423056AbXDXTe2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Apr 2007 15:34:28 -0400
+Content-Disposition: inline
+In-Reply-To: <17966.1177438970@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Patrick McHardy wrote:
-> James Chapman wrote:
->> +static void pppol2tp_recv_dequeue(struct pppol2tp_session *session)
->> +{
->> +	struct sk_buff *skb;
->> +	struct sk_buff *tmp;
->> +
->> +	/* If the pkt at the head of the queue has the nr that we
->> +	 * expect to send up next, dequeue it and any other
->> +	 * in-sequence packets behind it.
->> +	 */
->> +	spin_lock(&session->reorder_q.lock);
->> +	skb_queue_walk_safe(&session->reorder_q, skb, tmp) {
->> +		spin_unlock(&session->reorder_q.lock);
->> +
->> +		if (time_after(jiffies, PPPOL2TP_SKB_CB(skb)->expires)) {
->> +			session->stats.rx_seq_discards++;
->> +			session->stats.rx_errors++;
->> +			PRINTK(session->debug, PPPOL2TP_MSG_SEQ, KERN_DEBUG,
->> +			       "%s: oos pkt %hu len %d discarded (too old), "
->> +			       "waiting for %hu, reorder_q_len=%d\n",
->> +			       session->name, PPPOL2TP_SKB_CB(skb)->ns,
->> +			       PPPOL2TP_SKB_CB(skb)->length, session->nr,
->> +			       skb_queue_len(&session->reorder_q));
->> +			skb_unlink(skb, &session->reorder_q);
->> +			kfree_skb(skb);
+On 04/24, David Howells wrote:
+>
+> Oleg Nesterov <oleg@tv-sign.ru> wrote:
 > 
+> > Sure, I'll grep for cancel_delayed_work(). But unless I missed something,
+> > this change should be completely transparent for all users. Otherwise, it
+> > is buggy.
 > 
-> Since you drop the lock above, what prevents this from running
-> concurrently on two CPUs and freeing the skb twice?
-
-Good catch. Thanks!
-
->> +static int pppol2tp_recv_core(struct sock *sock, struct sk_buff *skb)
->> +{
->> +	struct pppol2tp_session *session = NULL;
->> +	struct pppol2tp_tunnel *tunnel;
->> +	unsigned char *ptr;
->> +	u16 hdrflags;
->> +	u16 tunnel_id, session_id;
->> +	int length;
->> +
->> +	tunnel = pppol2tp_sock_to_tunnel(sock);
->> +	if (tunnel == NULL)
->> +		goto error;
->> +
->> +	/* Short packet? */
->> +	if (skb->len < sizeof(struct udphdr)) {
->> +		PRINTK(tunnel->debug, PPPOL2TP_MSG_DATA, KERN_INFO,
->> +		       "%s: recv short packet (len=%d)\n", tunnel->name, skb->len);
->> +		goto error;
->> +	}
->> +
->> +	/* Point to L2TP header */
->> +	ptr = skb->data + sizeof(struct udphdr);
->> +
->> +	/* Get L2TP header flags */
->> +	hdrflags = ntohs(*(u16*)ptr);
+> I guess you will have to make sure that cancel_delayed_work() is always
+> followed by a flush of the workqueue, otherwise you might get this situation:
 > 
-> __be16 here and elsewhere please.
-
-ok
-
->> +/* The data_ready hook on the UDP socket. Scan the incoming packet list for
->> + * packets to process. Only control or bad data packets are delivered to
->> + * userspace.
->> + */
->> +static void pppol2tp_data_ready(struct sock *sk, int len)
->> +{
->> +	struct pppol2tp_tunnel *tunnel;
->> +	struct sk_buff *skb;
->> +
->> +	tunnel = pppol2tp_sock_to_tunnel(sk);
->> +	if (tunnel == NULL)
->> +		goto end;
->> +
->> +	PRINTK(tunnel->debug, PPPOL2TP_MSG_DATA, KERN_DEBUG,
->> +	       "%s: received %d bytes\n", tunnel->name, len);
->> +
->> +	skb = skb_dequeue(&sk->sk_receive_queue);
->> +	if (skb != NULL) {
->> +		if (pppol2tp_recv_core(sk, skb)) {
->> +			skb_queue_head(&sk->sk_receive_queue, skb);
->> +			tunnel->old_data_ready(sk, len);
+> 	CPU 0				CPU 1
+> 	===============================	=======================
+> 					<timer expires>
+> 	cancel_delayed_work(x) == 0	-->delayed_work_timer_fn(x)
+> 	kfree(x);			-->do_IRQ()
+> 	y = kmalloc(); // reuses x
+> 					<--do_IRQ()
+> 					__queue_work(x)
+> 	--- OOPS ---
 > 
+> That's my main concern.  If you are certain that can't happen, then fair
+> enough.
+
+Yes sure. Note that this is documented:
+
+	/*
+	 * Kill off a pending schedule_delayed_work().  Note that the work callback
+	 * function may still be running on return from cancel_delayed_work().  Run
+	 * flush_workqueue() or cancel_work_sync() to wait on it.
+	 */
+
+This comment is not very precise though. If the work doesn't re-arm itself,
+we need cancel_work_sync() only if cancel_delayed_work() returns 0.
+
+So there is no difference with the proposed change. Except, return value == 0
+means:
+
+	currently (del_timer_sync): callback may still be running or scheduled
+
+	with del_timer: may still be running, or scheduled, or will be scheduled
+	right now.
+
+However, this is the same from the caller POV.
+
+> Can you show me a patch illustrating exactly how you want to change
+> cancel_delayed_work()?  I can't remember whether you've done so already, but
+> if you have, I can't find it.  Is it basically this?:
 > 
-> Still the ugly old_data_ready/old_sk_destruct and pppol2tp_fget hacks.
-
-I added comments in the code about why I think pppol2tp_fget is needed. 
-This driver handles PPP-over-L2TP sockets. These are attached to a plain 
-UDP (L2TP) socket. When a pppol2tp socket is created, it is provided 
-with the fd of the UDP (L2TP) tunnel socket. The tunnel socket is 
-created by l2tpd, which passes the fd to pppd when it forks pppd for 
-each session in the tunnel. Since it is pppd that does the connect on 
-the pppol2tp socket (this driver) it needs to get the UDP socket via the 
-passed fd/pid. Is there another way to do this?
-
-> What prevents you from using encapsulation sockets 
-
-It would break L2TP/IPSec. There isn't a way to stack encapsulations.
-
- > to get rid of this
- > stuff and have ppp_generic filter out non-data frames for userspace
- > as for other ppp drivers?
-
-Not sure what you mean. ppp_generic is doing that.
-
->> +static int pppol2tp_proc_open(struct inode *inode, struct file *file);
->> +static int pppol2tp_proc_release(struct inode *inode, struct file *file);
->> +static void *pppol2tp_seq_start(struct seq_file *m, loff_t *_pos);
->> +static void *pppol2tp_seq_next(struct seq_file *p, void *v, loff_t *pos);
->> +static void pppol2tp_seq_stop(struct seq_file *p, void *v);
->> +static int pppol2tp_seq_show(struct seq_file *m, void *v);
+>  static inline int cancel_delayed_work(struct delayed_work *work)
+>  {
+>  	int ret;
 > 
+> -	ret = del_timer_sync(&work->timer);
+> +	ret = del_timer(&work->timer);
+>  	if (ret)
+>  		work_release(&work->work);
+>  	return ret;
+>  }
+
+Yes, exactly. The patch is trivial, but I need some time to write the
+understandable changelog...
+
+> I was thinking this situation might be a problem:
 > 
-> Please avoid these by reordering the code.
-
-Ok.
-
->> +/* Used by sort()
->> + */
->> +static void pppol2tp_seq_swap(void *a, void *b, int size)
->> +{
->> +	struct pppol2tp_seq_data tmp;
->> +	struct pppol2tp_seq_data *left = a;
->> +	struct pppol2tp_seq_data *right = b;
->> +
->> +	tmp = *left;
->> +	*left = *right;
->> +	*right = tmp;
->> +}
->> +
->> +/* Used by sort()
->> + */
->> +static int pppol2tp_seq_cmp(const void *a, const void *b)
->> +{
->> +	const struct pppol2tp_seq_data *left = a;
->> +	const struct pppol2tp_seq_data *right = b;
->> +
->> +	if (left->tunnel_id < right->tunnel_id)
->> +		return -1;
->> +	if (left->tunnel_id > right->tunnel_id)
->> +		return 1;
->> +	if (left->session_id < right->session_id)
->> +		return -1;
->> +	if (left->session_id > right->session_id)
->> +		return 1;
->> +	return 0;
->> +}
+> 	CPU 0				CPU 1
+> 	===============================	=======================
+> 					<timer expires>
+> 	cancel_delayed_work(x) == 0	-->delayed_work_timer_fn(x)
+> 	schedule_delayed_work(x,0)	-->do_IRQ()
+> 	<keventd scheduled>
+> 	x->work()
+> 					<--do_IRQ()
+> 					__queue_work(x)
 > 
-> Why is this needed? Can't userspace sort them itself in case it really
-> needs some defined ordering?
+> But it won't, will it?
 
-Personal preference. I don't think it's a lot of code, but I don't have 
-a problem removing it.
+Yes, I think this should be OK. schedule_delayed_work() will notice
+_PENDING and abort, so the last "x->work()" doesn't happen.
 
->> +static void pppol2tp_seq_tunnel_show(struct seq_file *m, void *v)
->> +{
->> +	struct pppol2tp_tunnel *tunnel = v;
->> +
->> +	seq_printf(m, "\nTUNNEL '%s', %c %d MAGIC %s\n",
->> +		   tunnel->name,
->> +		   (tunnel == tunnel->sock->sk_user_data) ? 'Y':'N',
->> +		   atomic_read(&tunnel->ref_count) - 1,
->> +		   (tunnel->magic == L2TP_TUNNEL_MAGIC) ? "OK" : "BAD");
->> +	seq_printf(m, " %08x %llu/%llu/%llu %llu/%llu/%llu\n",
->> +		   tunnel->debug,
->> +		   tunnel->stats.tx_packets, tunnel->stats.tx_bytes,
->> +		   tunnel->stats.tx_errors,
->> +		   tunnel->stats.rx_packets, tunnel->stats.rx_bytes,
->> +		   tunnel->stats.rx_errors);
-> 
-> 
-> Still no return value checks.
+What can happen is
 
-Are they needed now that I changed the seq file handling such that a new 
-buffer should be provided per tunnel and per session. I looked for 
-examples of seq_printf and almost all don't use the return value.
+					<timer expires>
+	cancel_delayed_work(x) == 0
+					-->delayed_work_timer_fn(x)
+					__queue_work(x)
+					<keventd scheduled>
+					x->work()
+	schedule_delayed_work(x,0)
+	<the work is scheduled again>
 
--- 
-James Chapman
-Katalix Systems Ltd
-http://www.katalix.com
-Catalysts for your Embedded Linux software development
+, so we can have an "unneeded schedule", but this is very unlikely.
+
+Oleg.
 
