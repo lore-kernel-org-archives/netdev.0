@@ -1,117 +1,87 @@
-From: Oleg Nesterov <oleg@tv-sign.ru>
-Subject: Re: Getting the new RxRPC patches upstream
-Date: Tue, 24 Apr 2007 23:34:04 +0400
-Message-ID: <20070424193404.GA5042@tv-sign.ru>
-References: <29341.1176975158@redhat.com> <2969.1176992303@redhat.com> <1101.1177056127@redhat.com> <4713.1177065706@redhat.com> <20070420113805.c4877dc8.akpm@linux-foundation.org> <1355.1177317176@redhat.com> <9767.1177421824@redhat.com> <15160.1177429867@redhat.com> <16575.1177433907@redhat.com> <17966.1177438970@redhat.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: netlink locking warnings in 2.6.21-rc7-mm1
+Date: Tue, 24 Apr 2007 12:42:50 -0700
+Message-ID: <20070424124250.d55789cd.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	David Miller <davem@davemloft.net>, ebiederm@xmission.com,
-	containers@lists.osdl.org, hch@infradead.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: David Howells <dhowells@redhat.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.screens.ru ([213.234.233.54]:59600 "EHLO mail.screens.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1423056AbXDXTe2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Apr 2007 15:34:28 -0400
-Content-Disposition: inline
-In-Reply-To: <17966.1177438970@redhat.com>
+Received: from smtp1.linux-foundation.org ([65.172.181.25]:52685 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1423073AbXDXTmx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Apr 2007 15:42:53 -0400
+Received: from shell0.pdx.osdl.net (fw.osdl.org [65.172.181.6])
+	by smtp1.linux-foundation.org (8.13.5.20060308/8.13.5/Debian-3ubuntu1.1) with ESMTP id l3OJgpTE007163
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Tue, 24 Apr 2007 12:42:52 -0700
+Received: from box (shell0.pdx.osdl.net [10.9.0.31])
+	by shell0.pdx.osdl.net (8.13.1/8.11.6) with SMTP id l3OJgox8017463
+	for <netdev@vger.kernel.org>; Tue, 24 Apr 2007 12:42:50 -0700
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 04/24, David Howells wrote:
->
-> Oleg Nesterov <oleg@tv-sign.ru> wrote:
-> 
-> > Sure, I'll grep for cancel_delayed_work(). But unless I missed something,
-> > this change should be completely transparent for all users. Otherwise, it
-> > is buggy.
-> 
-> I guess you will have to make sure that cancel_delayed_work() is always
-> followed by a flush of the workqueue, otherwise you might get this situation:
-> 
-> 	CPU 0				CPU 1
-> 	===============================	=======================
-> 					<timer expires>
-> 	cancel_delayed_work(x) == 0	-->delayed_work_timer_fn(x)
-> 	kfree(x);			-->do_IRQ()
-> 	y = kmalloc(); // reuses x
-> 					<--do_IRQ()
-> 					__queue_work(x)
-> 	--- OOPS ---
-> 
-> That's my main concern.  If you are certain that can't happen, then fair
-> enough.
+http://test.kernel.org/abat/84786/debug/console.log is saying
 
-Yes sure. Note that this is documented:
+Starting udevd BUG: at kernel/mutex-debug.c:82 debug_mutex_unlock()
 
-	/*
-	 * Kill off a pending schedule_delayed_work().  Note that the work callback
-	 * function may still be running on return from cancel_delayed_work().  Run
-	 * flush_workqueue() or cancel_work_sync() to wait on it.
-	 */
+Call Trace:
+ [<ffffffff80244b71>] debug_mutex_unlock+0x161/0x170
+ [<ffffffff804b759c>] __mutex_unlock_slowpath+0x5c/0x160
+ [<ffffffff80467902>] netlink_dump+0x82/0x1e0
+ [<ffffffff8046a042>] netlink_dump_start+0x142/0x180
+ [<ffffffff80461be0>] rtnl_dump_ifinfo+0x0/0x90
+ [<ffffffff80461be0>] rtnl_dump_ifinfo+0x0/0x90
+ [<ffffffff80461e26>] rtnetlink_rcv_msg+0xe6/0x240
+ [<ffffffff80461d40>] rtnetlink_rcv_msg+0x0/0x240
+ [<ffffffff80468bf9>] netlink_run_queue+0xb9/0x140
+ [<ffffffff80461cc4>] rtnetlink_rcv+0x34/0x60
+ [<ffffffff804690b2>] netlink_data_ready+0x12/0x50
+ [<ffffffff80467bbb>] netlink_sendskb+0x2b/0x50
+ [<ffffffff80468fc1>] netlink_sendmsg+0x221/0x300
+ [<ffffffff8044d1cb>] sock_sendmsg+0xcb/0x100
+ [<ffffffff8023f420>] autoremove_wake_function+0x0/0x30
+ [<ffffffff80262d62>] __handle_mm_fault+0x1d2/0x8b0
+ [<ffffffff8044c17e>] move_addr_to_kernel+0x2e/0x40
+ [<ffffffff8044d5f6>] sys_sendto+0x146/0x1b0
+ [<ffffffff8044dd6d>] move_addr_to_user+0x5d/0x70
+ [<ffffffff8044e34b>] sys_getsockname+0xcb/0xe0
+ [<ffffffff80209b5e>] system_call+0x7e/0x83
 
-This comment is not very precise though. If the work doesn't re-arm itself,
-we need cancel_work_sync() only if cancel_delayed_work() returns 0.
+which is
 
-So there is no difference with the proposed change. Except, return value == 0
-means:
 
-	currently (del_timer_sync): callback may still be running or scheduled
+static int netlink_dump(struct sock *sk)
+{
+	...
+	len = cb->dump(skb, cb);
 
-	with del_timer: may still be running, or scheduled, or will be scheduled
-	right now.
+	if (len > 0) {
+-->		mutex_unlock(nlk->cb_mutex);
+		skb_queue_tail(&sk->sk_receive_queue, skb);
+		sk->sk_data_ready(sk, len);
+		return 0;
+	}
 
-However, this is the same from the caller POV.
+and
 
-> Can you show me a patch illustrating exactly how you want to change
-> cancel_delayed_work()?  I can't remember whether you've done so already, but
-> if you have, I can't find it.  Is it basically this?:
-> 
->  static inline int cancel_delayed_work(struct delayed_work *work)
->  {
->  	int ret;
-> 
-> -	ret = del_timer_sync(&work->timer);
-> +	ret = del_timer(&work->timer);
->  	if (ret)
->  		work_release(&work->work);
->  	return ret;
->  }
+void debug_mutex_unlock(struct mutex *lock)
+{
+	if (unlikely(!debug_locks))
+		return;
 
-Yes, exactly. The patch is trivial, but I need some time to write the
-understandable changelog...
+-->	DEBUG_LOCKS_WARN_ON(lock->owner != current_thread_info());
+	DEBUG_LOCKS_WARN_ON(lock->magic != lock);
 
-> I was thinking this situation might be a problem:
-> 
-> 	CPU 0				CPU 1
-> 	===============================	=======================
-> 					<timer expires>
-> 	cancel_delayed_work(x) == 0	-->delayed_work_timer_fn(x)
-> 	schedule_delayed_work(x,0)	-->do_IRQ()
-> 	<keventd scheduled>
-> 	x->work()
-> 					<--do_IRQ()
-> 					__queue_work(x)
-> 
-> But it won't, will it?
+so it's complaining that cb_mutex is being release by a thread other than
+the one which acquired it.  I'm unable to reproduce it with their config,
+naturally.
 
-Yes, I think this should be OK. schedule_delayed_work() will notice
-_PENDING and abort, so the last "x->work()" doesn't happen.
+Can anyone see any conceivable way in which this can happen?  There's some
+moderately tricky-looking rewriting of the ->cb_mutex pointer happening in
+there.  If that were to happen concurrently then this might happen?
 
-What can happen is
-
-					<timer expires>
-	cancel_delayed_work(x) == 0
-					-->delayed_work_timer_fn(x)
-					__queue_work(x)
-					<keventd scheduled>
-					x->work()
-	schedule_delayed_work(x,0)
-	<the work is scheduled again>
-
-, so we can have an "unneeded schedule", but this is very unlikely.
-
-Oleg.
+otoh, we're seeing several fairly unrelated whacko things coming out of the
+lock debugging code in that kernel and I'm wondering if there's some common
+bug which is causing false positives.
 
