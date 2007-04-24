@@ -1,118 +1,204 @@
-From: Jon Paul Maloy <jon.maloy@ericsson.com>
-Subject: [Fwd: [PATCH] [TIPC]: Enhancements to msg_set_bits() routine]
-Date: Tue, 24 Apr 2007 14:56:30 -0400
-Message-ID: <462E52DE.5000900@ericsson.com>
+From: James Chapman <jchapman@katalix.com>
+Subject: Re: [PATCH 3/5 2.6.21-rc7] l2tp: pppol2tp core
+Date: Tue, 24 Apr 2007 20:17:45 +0100
+Message-ID: <462E57D9.3030606@katalix.com>
+References: <200704231601.l3NG13TN030167@quickie.katalix.com> <462E29D9.8000600@trash.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------090903030302010209040607"
-To: davem@davemloft.net, netdev@vger.kernel.org,
-	Jon Paul Maloy <jon.maloy@ericsson.com>,
-	Per Liden <per.liden@ericsson.com>,
-	"Stephens, Allan" <allan.stephens@windriver.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from imr1.ericy.com ([198.24.6.9]:42794 "EHLO imr1.ericy.com"
+Received: from s36.avahost.net ([74.53.95.194]:42059 "EHLO s36.avahost.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754349AbXDXS4d (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Apr 2007 14:56:33 -0400
+	id S1423021AbXDXTRu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Apr 2007 15:17:50 -0400
+In-Reply-To: <462E29D9.8000600@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------090903030302010209040607
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Patrick McHardy wrote:
+> James Chapman wrote:
+>> +static void pppol2tp_recv_dequeue(struct pppol2tp_session *session)
+>> +{
+>> +	struct sk_buff *skb;
+>> +	struct sk_buff *tmp;
+>> +
+>> +	/* If the pkt at the head of the queue has the nr that we
+>> +	 * expect to send up next, dequeue it and any other
+>> +	 * in-sequence packets behind it.
+>> +	 */
+>> +	spin_lock(&session->reorder_q.lock);
+>> +	skb_queue_walk_safe(&session->reorder_q, skb, tmp) {
+>> +		spin_unlock(&session->reorder_q.lock);
+>> +
+>> +		if (time_after(jiffies, PPPOL2TP_SKB_CB(skb)->expires)) {
+>> +			session->stats.rx_seq_discards++;
+>> +			session->stats.rx_errors++;
+>> +			PRINTK(session->debug, PPPOL2TP_MSG_SEQ, KERN_DEBUG,
+>> +			       "%s: oos pkt %hu len %d discarded (too old), "
+>> +			       "waiting for %hu, reorder_q_len=%d\n",
+>> +			       session->name, PPPOL2TP_SKB_CB(skb)->ns,
+>> +			       PPPOL2TP_SKB_CB(skb)->length, session->nr,
+>> +			       skb_queue_len(&session->reorder_q));
+>> +			skb_unlink(skb, &session->reorder_q);
+>> +			kfree_skb(skb);
+> 
+> 
+> Since you drop the lock above, what prevents this from running
+> concurrently on two CPUs and freeing the skb twice?
 
-This patch makes two enhancements to msg_set_bits():
+Good catch. Thanks!
 
-1) It now ignores any bits of the new field value that are not
-   covered by the mask being used.  (Previously, if the new value
-   exceeded the size of the mask the extra bits could corrupt
-   other fields in the message header word being updated.)
+>> +static int pppol2tp_recv_core(struct sock *sock, struct sk_buff *skb)
+>> +{
+>> +	struct pppol2tp_session *session = NULL;
+>> +	struct pppol2tp_tunnel *tunnel;
+>> +	unsigned char *ptr;
+>> +	u16 hdrflags;
+>> +	u16 tunnel_id, session_id;
+>> +	int length;
+>> +
+>> +	tunnel = pppol2tp_sock_to_tunnel(sock);
+>> +	if (tunnel == NULL)
+>> +		goto error;
+>> +
+>> +	/* Short packet? */
+>> +	if (skb->len < sizeof(struct udphdr)) {
+>> +		PRINTK(tunnel->debug, PPPOL2TP_MSG_DATA, KERN_INFO,
+>> +		       "%s: recv short packet (len=%d)\n", tunnel->name, skb->len);
+>> +		goto error;
+>> +	}
+>> +
+>> +	/* Point to L2TP header */
+>> +	ptr = skb->data + sizeof(struct udphdr);
+>> +
+>> +	/* Get L2TP header flags */
+>> +	hdrflags = ntohs(*(u16*)ptr);
+> 
+> __be16 here and elsewhere please.
 
-2) The code has been optimized to minimize the number of run-time
-   endianness conversion operations by leveraging the fact that the
-   mask (and, in some cases, the value as well) is constant and the
-   necessary conversion can be performed by the compiler.
+ok
 
-Apply the attached patch, or pull from:
+>> +/* The data_ready hook on the UDP socket. Scan the incoming packet list for
+>> + * packets to process. Only control or bad data packets are delivered to
+>> + * userspace.
+>> + */
+>> +static void pppol2tp_data_ready(struct sock *sk, int len)
+>> +{
+>> +	struct pppol2tp_tunnel *tunnel;
+>> +	struct sk_buff *skb;
+>> +
+>> +	tunnel = pppol2tp_sock_to_tunnel(sk);
+>> +	if (tunnel == NULL)
+>> +		goto end;
+>> +
+>> +	PRINTK(tunnel->debug, PPPOL2TP_MSG_DATA, KERN_DEBUG,
+>> +	       "%s: received %d bytes\n", tunnel->name, len);
+>> +
+>> +	skb = skb_dequeue(&sk->sk_receive_queue);
+>> +	if (skb != NULL) {
+>> +		if (pppol2tp_recv_core(sk, skb)) {
+>> +			skb_queue_head(&sk->sk_receive_queue, skb);
+>> +			tunnel->old_data_ready(sk, len);
+> 
+> 
+> Still the ugly old_data_ready/old_sk_destruct and pppol2tp_fget hacks.
 
- git://tipc.cslab.ericsson.net/pub/git/tipc.git
+I added comments in the code about why I think pppol2tp_fget is needed. 
+This driver handles PPP-over-L2TP sockets. These are attached to a plain 
+UDP (L2TP) socket. When a pppol2tp socket is created, it is provided 
+with the fd of the UDP (L2TP) tunnel socket. The tunnel socket is 
+created by l2tpd, which passes the fd to pppd when it forks pppd for 
+each session in the tunnel. Since it is pppd that does the connect on 
+the pppol2tp socket (this driver) it needs to get the UDP socket via the 
+passed fd/pid. Is there another way to do this?
 
- (rebased on linux/kernel/git/davem/net-2.6.git)
+> What prevents you from using encapsulation sockets 
 
-Summary:
+It would break L2TP/IPSec. There isn't a way to stack encapsulations.
 
- net/tipc/msg.h |   11 +++++++----
- 1 files changed, 7 insertions(+), 4 deletions(-)
+ > to get rid of this
+ > stuff and have ppp_generic filter out non-data frames for userspace
+ > as for other ppp drivers?
 
+Not sure what you mean. ppp_generic is doing that.
 
-///Jon
+>> +static int pppol2tp_proc_open(struct inode *inode, struct file *file);
+>> +static int pppol2tp_proc_release(struct inode *inode, struct file *file);
+>> +static void *pppol2tp_seq_start(struct seq_file *m, loff_t *_pos);
+>> +static void *pppol2tp_seq_next(struct seq_file *p, void *v, loff_t *pos);
+>> +static void pppol2tp_seq_stop(struct seq_file *p, void *v);
+>> +static int pppol2tp_seq_show(struct seq_file *m, void *v);
+> 
+> 
+> Please avoid these by reordering the code.
 
+Ok.
 
+>> +/* Used by sort()
+>> + */
+>> +static void pppol2tp_seq_swap(void *a, void *b, int size)
+>> +{
+>> +	struct pppol2tp_seq_data tmp;
+>> +	struct pppol2tp_seq_data *left = a;
+>> +	struct pppol2tp_seq_data *right = b;
+>> +
+>> +	tmp = *left;
+>> +	*left = *right;
+>> +	*right = tmp;
+>> +}
+>> +
+>> +/* Used by sort()
+>> + */
+>> +static int pppol2tp_seq_cmp(const void *a, const void *b)
+>> +{
+>> +	const struct pppol2tp_seq_data *left = a;
+>> +	const struct pppol2tp_seq_data *right = b;
+>> +
+>> +	if (left->tunnel_id < right->tunnel_id)
+>> +		return -1;
+>> +	if (left->tunnel_id > right->tunnel_id)
+>> +		return 1;
+>> +	if (left->session_id < right->session_id)
+>> +		return -1;
+>> +	if (left->session_id > right->session_id)
+>> +		return 1;
+>> +	return 0;
+>> +}
+> 
+> Why is this needed? Can't userspace sort them itself in case it really
+> needs some defined ordering?
 
+Personal preference. I don't think it's a lot of code, but I don't have 
+a problem removing it.
 
---------------090903030302010209040607
-Content-Type: text/x-patch;
- name="0001-TIPC-Enhancements-to-msg_set_bits-routine.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename*0="0001-TIPC-Enhancements-to-msg_set_bits-routine.patch"
+>> +static void pppol2tp_seq_tunnel_show(struct seq_file *m, void *v)
+>> +{
+>> +	struct pppol2tp_tunnel *tunnel = v;
+>> +
+>> +	seq_printf(m, "\nTUNNEL '%s', %c %d MAGIC %s\n",
+>> +		   tunnel->name,
+>> +		   (tunnel == tunnel->sock->sk_user_data) ? 'Y':'N',
+>> +		   atomic_read(&tunnel->ref_count) - 1,
+>> +		   (tunnel->magic == L2TP_TUNNEL_MAGIC) ? "OK" : "BAD");
+>> +	seq_printf(m, " %08x %llu/%llu/%llu %llu/%llu/%llu\n",
+>> +		   tunnel->debug,
+>> +		   tunnel->stats.tx_packets, tunnel->stats.tx_bytes,
+>> +		   tunnel->stats.tx_errors,
+>> +		   tunnel->stats.rx_packets, tunnel->stats.rx_bytes,
+>> +		   tunnel->stats.rx_errors);
+> 
+> 
+> Still no return value checks.
 
->From 1c3c79c4c79aa8a665ddf41c08b4363cbb946950 Mon Sep 17 00:00:00 2001
-From: Jon Paul Maloy <jon.maloy@ericsson.com>
-Date: Mon, 23 Apr 2007 11:49:07 -0400
-Subject: [PATCH 1/1] [TIPC]: Enhancements to msg_set_bits() routine
+Are they needed now that I changed the seq file handling such that a new 
+buffer should be provided per tunnel and per session. I looked for 
+examples of seq_printf and almost all don't use the return value.
 
-This patch makes two enhancements to msg_set_bits():
-
-1) It now ignores any bits of the new field value that are not
-   covered by the mask being used.  (Previously, if the new value
-   exceeded the size of the mask the extra bits could corrupt
-   other fields in the message header word being updated.)
-
-2) The code has been optimized to minimize the number of run-time
-   endianness conversion operations by leveraging the fact that the
-   mask (and, in some cases, the value as well) is constant and the
-   necessary conversion can be performed by the compiler.
-
-Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
-Signed-off-by: Jon Paul Maloy <jon.maloy@ericsson.com>
----
- net/tipc/msg.h |   11 +++++++----
- 1 files changed, 7 insertions(+), 4 deletions(-)
-
-diff --git a/net/tipc/msg.h b/net/tipc/msg.h
-index 62d5490..5c64e55 100644
---- a/net/tipc/msg.h
-+++ b/net/tipc/msg.h
-@@ -1,8 +1,8 @@
- /*
-  * net/tipc/msg.h: Include file for TIPC message header routines
-  *
-- * Copyright (c) 2000-2006, Ericsson AB
-- * Copyright (c) 2005, Wind River Systems
-+ * Copyright (c) 2000-2007, Ericsson AB
-+ * Copyright (c) 2005-2007, Wind River Systems
-  * All rights reserved.
-  *
-  * Redistribution and use in source and binary forms, with or without
-@@ -71,8 +71,11 @@ static inline void msg_set_word(struct tipc_msg *m, u32 w, u32 val)
- static inline void msg_set_bits(struct tipc_msg *m, u32 w,
- 				u32 pos, u32 mask, u32 val)
- {
--	u32 word = msg_word(m,w) & ~(mask << pos);
--	msg_set_word(m, w, (word |= (val << pos)));
-+	val = (val & mask) << pos;
-+	val = htonl(val);
-+	mask = htonl(mask << pos);
-+	m->hdr[w] &= ~mask;
-+	m->hdr[w] |= val;
- }
- 
- /*
 -- 
-1.5.0.5
+James Chapman
+Katalix Systems Ltd
+http://www.katalix.com
+Catalysts for your Embedded Linux software development
 
-
-
---------------090903030302010209040607--
