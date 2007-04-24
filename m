@@ -1,53 +1,41 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: Re: [net-2.6.22] [TCP]: Fix linkage errors.
-Date: Tue, 24 Apr 2007 20:17:46 +0200
-Message-ID: <20070424181746.GP3468@stusta.de>
-References: <20070425.001743.19811068.yoshfuji@linux-ipv6.org> <20070424155324.GL3468@stusta.de> <20070424180348.2d40fbcb.dada1@cosmosbay.com>
+From: petkan@nucleusys.com
+Subject: Re: [PATCH] usb-net/pegasus: fix pegasus carrier detection
+Date: Tue, 24 Apr 2007 20:48:01 +0300 (EEST)
+Message-ID: <58298.85.91.128.158.1177436881.squirrel@nucleusys.com>
+References: <1177424406.13684.5.camel@localhost.localdomain>
+    <462E3508.1030703@garzik.org> <20070424170429.GA13668@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: YOSHIFUJI Hideaki / ____________ <yoshfuji@linux-ipv6.org>,
-	davem@davemloft.net, shemminger@osdl.org, netdev@vger.kernel.org,
-	Thomas Gleixner <tglx@linutronix.de>
-To: Eric Dumazet <dada1@cosmosbay.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "Jeff Garzik" <jeff@garzik.org>, "Dan Williams" <dcbw@redhat.com>,
+	"Petko Manolov" <petkan@nucleusys.com>, netdev@vger.kernel.org
+To: "Greg KH" <greg@kroah.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout.stusta.mhn.de ([141.84.69.5]:33040 "EHLO
-	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1422823AbXDXSRf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Apr 2007 14:17:35 -0400
-Content-Disposition: inline
-In-Reply-To: <20070424180348.2d40fbcb.dada1@cosmosbay.com>
+Received: from n152-u15.estnet.bg ([89.253.152.15]:4061 "EHLO
+	zztop.nucleusys.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1422894AbXDXSSk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Apr 2007 14:18:40 -0400
+In-Reply-To: <20070424170429.GA13668@kroah.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 24, 2007 at 06:03:48PM +0200, Eric Dumazet wrote:
-> On Tue, 24 Apr 2007 17:53:24 +0200
-> Adrian Bunk <bunk@stusta.de> wrote:
-> > Couldn't this be better solved by adding something like the following 
-> > to include/linux/ktime.h ?
-> > 
-> > static inline s64 ktime_to_us(const ktime_t kt)
-> > {
-> >    return (s64) kt.tv.sec * USEC_PER_SEC + kt.tv.nsec / NSEC_PER_USEC;
-> > }
-> > 
-> 
-> Please check again include/linux/ktime.h
-> 
-> tv struct is defined inside 'ktime_t' only if BITS_PER_LONG != 64 && !defined(CONFIG_KTIME_SCALAR)
+> On Tue, Apr 24, 2007 at 12:49:12PM -0400, Jeff Garzik wrote:
+>>  Long term, Greg seemed OK with moving the net drivers from
+>> drivers/usb/net
+>>  to drivers/usb/net, in line with the current policy of placing net
+>> drivers
+>>  in drivers/net/*, bus agnostic.  After that move, sending to netdev and
+>> me
+>>  (as you did here) would be the preferred avenue.
+>
+> Speaking of which, do you want me to do this in the 2.6.22-rc1
+> timeframe?  Usually big code moves like this are good to do right after
+> rc1 comes out as the major churn is usually completed then.
 
-That's the difference between a "what about" suggestion and an actual 
-patch...
+Sorry to interfere, but could you guys wait until tomorrow before applying
+the patch to your respective GIT trees?  I'd like to check if the code is
+doing the right thing and avoid patch reversal.
 
-I was merely suggesting solvin it through a ktime_to_us(), not 
-presenting a complete and tested patch.
-
-cu
-Adrian
-
--- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
+cheers,
+Petko
 
