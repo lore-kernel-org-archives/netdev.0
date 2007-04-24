@@ -1,7 +1,7 @@
 From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: [PATCH 5/9] wext: cleanup early ioctl call path
-Date: Tue, 24 Apr 2007 20:07:37 +0200
-Message-ID: <20070424180848.814070000@sipsolutions.net>
+Subject: [PATCH 2/9] wext: clean up how wext is called
+Date: Tue, 24 Apr 2007 20:07:34 +0200
+Message-ID: <20070424180847.533947000@sipsolutions.net>
 References: <20070424180732.371620000@sipsolutions.net>
 Mime-Version: 1.0
 Content-Transfer-Encoding: 7bit
@@ -9,109 +9,192 @@ Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76
 	jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org
 To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline; filename=wext-cleanup.patch
+Content-Disposition: inline; filename=cleanup-wext-call.patch
 Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This patch makes the code in wireless_process_ioctl somewhat more readable.
+This patch cleans up the call paths from the core code into wext.
 
 Signed-off-by: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
 
 ---
- net/wireless/wext.c |   73 ++++++++++++++++++----------------------------------
- 1 file changed, 26 insertions(+), 47 deletions(-)
+ include/net/iw_handler.h |   11 +----------
+ include/net/wext.h       |   24 ++++++++++++++++++++++++
+ net/core/dev.c           |   34 ++++------------------------------
+ net/wireless/wext.c      |   28 ++++++++++++++++++++++++----
+ 4 files changed, 53 insertions(+), 44 deletions(-)
 
---- net-2.6.22.orig/net/wireless/wext.c	2007-04-24 19:05:57.648804911 +0200
-+++ net-2.6.22/net/wireless/wext.c	2007-04-24 19:10:51.038804911 +0200
-@@ -1035,53 +1035,31 @@ static int wireless_process_ioctl(struct
- 	/* A bunch of special cases, then the generic case...
- 	 * Note that 'cmd' is already filtered in dev_ioctl() with
- 	 * (cmd >= SIOCIWFIRST && cmd <= SIOCIWLAST) */
--	switch (cmd) {
--	case SIOCGIWSTATS:
--		/* Get Wireless Stats */
--		return ioctl_standard_call(dev,
--					   ifr,
--					   cmd,
-+	if (cmd == SIOCGIWSTATS)
-+		return ioctl_standard_call(dev, ifr, cmd,
- 					   &iw_handler_get_iwstats);
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ net-2.6.22/include/net/wext.h	2007-04-24 18:51:23.568804911 +0200
+@@ -0,0 +1,24 @@
++#ifndef __NET_WEXT_H
++#define __NET_WEXT_H
++
++/*
++ * wireless extensions interface to the core code
++ */
++
++#ifdef CONFIG_WIRELESS_EXT
++extern int wext_proc_init(void);
++extern int wext_handle_ioctl(struct ifreq *ifr, unsigned int cmd,
++			     void __user *arg);
++#else
++static inline int wext_proc_init()
++{
++	return 0;
++}
++static inline int wext_handle_ioctl(struct ifreq *ifr, unsigned int cmd,
++				    void __user *arg)
++{
++	return -EINVAL;
++}
++#endif
++
++#endif /* __NET_WEXT_H */
+--- net-2.6.22.orig/net/core/dev.c	2007-04-24 18:50:45.888804911 +0200
++++ net-2.6.22/net/core/dev.c	2007-04-24 18:51:23.568804911 +0200
+@@ -109,7 +109,7 @@
+ #include <linux/netpoll.h>
+ #include <linux/rcupdate.h>
+ #include <linux/delay.h>
+-#include <linux/wireless.h>
++#include <net/wext.h>
+ #include <net/iw_handler.h>
+ #include <asm/current.h>
+ #include <linux/audit.h>
+@@ -2348,12 +2348,6 @@ static const struct file_operations ptyp
+ };
  
--	case SIOCGIWPRIV:
--		/* Check if we have some wireless handlers defined */
--		if (dev->wireless_handlers != NULL) {
--			/* We export to user space the definition of
--			 * the private handler ourselves */
--			return ioctl_standard_call(dev,
--						   ifr,
--						   cmd,
--						   &iw_handler_get_private);
--		}
--		// ## Fall-through for old API ##
--	default:
--		/* Generic IOCTL */
--		/* Basic check */
--		if (!netif_device_present(dev))
--			return -ENODEV;
--		/* New driver API : try to find the handler */
--		handler = get_handler(dev, cmd);
--		if (handler != NULL) {
--			/* Standard and private are not the same */
--			if (cmd < SIOCIWFIRSTPRIV)
--				return ioctl_standard_call(dev,
--							   ifr,
--							   cmd,
--							   handler);
--			else
--				return ioctl_private_call(dev,
--							  ifr,
--							  cmd,
--							  handler);
--		}
--		/* Old driver API : call driver ioctl handler */
--		if (dev->do_ioctl) {
--			return dev->do_ioctl(dev, ifr, cmd);
--		}
--		return -EOPNOTSUPP;
-+	if (cmd == SIOCGIWPRIV && dev->wireless_handlers)
-+		return ioctl_standard_call(dev, ifr, cmd,
-+					   &iw_handler_get_private);
-+
-+	/* Basic check */
-+	if (!netif_device_present(dev))
-+		return -ENODEV;
-+
-+	/* New driver API : try to find the handler */
-+	handler = get_handler(dev, cmd);
-+	if (handler) {
-+		/* Standard and private are not the same */
-+		if (cmd < SIOCIWFIRSTPRIV)
-+			return ioctl_standard_call(dev, ifr, cmd, handler);
-+		else
-+			return ioctl_private_call(dev, ifr, cmd, handler);
+ 
+-#ifdef CONFIG_WIRELESS_EXT
+-extern int wireless_proc_init(void);
+-#else
+-#define wireless_proc_init() 0
+-#endif
+-
+ static int __init dev_proc_init(void)
+ {
+ 	int rc = -ENOMEM;
+@@ -2365,7 +2359,7 @@ static int __init dev_proc_init(void)
+ 	if (!proc_net_fops_create("ptype", S_IRUGO, &ptype_seq_fops))
+ 		goto out_dev2;
+ 
+-	if (wireless_proc_init())
++	if (wext_proc_init())
+ 		goto out_softnet;
+ 	rc = 0;
+ out:
+@@ -2923,29 +2917,9 @@ int dev_ioctl(unsigned int cmd, void __u
+ 					ret = -EFAULT;
+ 				return ret;
+ 			}
+-#ifdef CONFIG_WIRELESS_EXT
+ 			/* Take care of Wireless Extensions */
+-			if (cmd >= SIOCIWFIRST && cmd <= SIOCIWLAST) {
+-				/* If command is `set a parameter', or
+-				 * `get the encoding parameters', check if
+-				 * the user has the right to do it */
+-				if (IW_IS_SET(cmd) || cmd == SIOCGIWENCODE
+-				    || cmd == SIOCGIWENCODEEXT) {
+-					if (!capable(CAP_NET_ADMIN))
+-						return -EPERM;
+-				}
+-				dev_load(ifr.ifr_name);
+-				rtnl_lock();
+-				/* Follow me in net/wireless/wext.c */
+-				ret = wireless_process_ioctl(&ifr, cmd);
+-				rtnl_unlock();
+-				if (IW_IS_GET(cmd) &&
+-				    copy_to_user(arg, &ifr,
+-						 sizeof(struct ifreq)))
+-					ret = -EFAULT;
+-				return ret;
+-			}
+-#endif	/* CONFIG_WIRELESS_EXT */
++			if (cmd >= SIOCIWFIRST && cmd <= SIOCIWLAST)
++				return wext_handle_ioctl(&ifr, cmd, arg);
+ 			return -EINVAL;
  	}
--	/* Not reached */
--	return -EINVAL;
-+	/* Old driver API : call driver ioctl handler */
-+	if (dev->do_ioctl)
-+		return dev->do_ioctl(dev, ifr, cmd);
-+	return -EOPNOTSUPP;
+ }
+--- net-2.6.22.orig/include/net/iw_handler.h	2007-04-24 18:54:01.678804911 +0200
++++ net-2.6.22/include/net/iw_handler.h	2007-04-24 18:56:27.328804911 +0200
+@@ -431,16 +431,7 @@ struct iw_public_data {
+  * Those may be called only within the kernel.
+  */
+ 
+-/* First : function strictly used inside the kernel */
+-
+-/* Handle /proc/net/wireless, called in net/code/dev.c */
+-extern int dev_get_wireless_info(char * buffer, char **start, off_t offset,
+-				 int length);
+-
+-/* Handle IOCTLs, called in net/core/dev.c */
+-extern int wireless_process_ioctl(struct ifreq *ifr, unsigned int cmd);
+-
+-/* Second : functions that may be called by driver modules */
++/* functions that may be called by driver modules */
+ 
+ /* Send a single event to user space */
+ extern void wireless_send_event(struct net_device *	dev,
+--- net-2.6.22.orig/net/wireless/wext.c	2007-04-24 18:51:31.288804911 +0200
++++ net-2.6.22/net/wireless/wext.c	2007-04-24 19:04:20.818804911 +0200
+@@ -97,6 +97,7 @@
+ #include <linux/wireless.h>		/* Pretty obvious */
+ #include <net/iw_handler.h>		/* New driver API */
+ #include <net/netlink.h>
++#include <net/wext.h>
+ 
+ #include <asm/uaccess.h>		/* copy_to_user() */
+ 
+@@ -696,7 +697,7 @@ static const struct file_operations wire
+ 	.release = seq_release,
+ };
+ 
+-int __init wireless_proc_init(void)
++int __init wext_proc_init(void)
+ {
+ 	/* Create /proc/net/wireless entry */
+ 	if (!proc_net_fops_create("wireless", S_IRUGO, &wireless_seq_fops))
+@@ -1075,11 +1076,10 @@ static inline int ioctl_private_call(str
+ 
+ /* ---------------------------------------------------------------- */
+ /*
+- * Main IOCTl dispatcher. Called from the main networking code
+- * (dev_ioctl() in net/core/dev.c).
++ * Main IOCTl dispatcher.
+  * Check the type of IOCTL and call the appropriate wrapper...
+  */
+-int wireless_process_ioctl(struct ifreq *ifr, unsigned int cmd)
++static int wireless_process_ioctl(struct ifreq *ifr, unsigned int cmd)
+ {
+ 	struct net_device *dev;
+ 	iw_handler	handler;
+@@ -1143,6 +1143,26 @@ int wireless_process_ioctl(struct ifreq 
+ 	return -EINVAL;
  }
  
- /* entry point from dev ioctl */
-@@ -1093,9 +1071,10 @@ int wext_handle_ioctl(struct ifreq *ifr,
- 	/* If command is `set a parameter', or
- 	 * `get the encoding parameters', check if
- 	 * the user has the right to do it */
--	if (IW_IS_SET(cmd) || cmd == SIOCGIWENCODE || cmd == SIOCGIWENCODEEXT)
--		if (!capable(CAP_NET_ADMIN))
--			return -EPERM;
-+	if ((IW_IS_SET(cmd) || cmd == SIOCGIWENCODE || cmd == SIOCGIWENCODEEXT)
-+	    && !capable(CAP_NET_ADMIN))
-+		return -EPERM;
++/* entry point from dev ioctl */
++int wext_handle_ioctl(struct ifreq *ifr, unsigned int cmd,
++		      void __user *arg)
++{
++	int ret;
 +
- 	dev_load(ifr->ifr_name);
- 	rtnl_lock();
- 	ret = wireless_process_ioctl(ifr, cmd);
++	/* If command is `set a parameter', or
++	 * `get the encoding parameters', check if
++	 * the user has the right to do it */
++	if (IW_IS_SET(cmd) || cmd == SIOCGIWENCODE || cmd == SIOCGIWENCODEEXT)
++		if (!capable(CAP_NET_ADMIN))
++			return -EPERM;
++	dev_load(ifr->ifr_name);
++	rtnl_lock();
++	ret = wireless_process_ioctl(ifr, cmd);
++	rtnl_unlock();
++	if (IW_IS_GET(cmd) && copy_to_user(arg, ifr, sizeof(struct ifreq)))
++		return -EFAULT;
++	return ret;
++}
+ 
+ /************************* EVENT PROCESSING *************************/
+ /*
 
 --
