@@ -1,185 +1,174 @@
 From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: Net-2.6.22 TCP graphs
-Date: Tue, 24 Apr 2007 14:54:48 -0700
-Message-ID: <20070424145448.46011f08@dxpl.pdx.osdl.net>
-References: <20070424135535.7d9cd884@dxpl.pdx.osdl.net>
-	<462E7470.1000100@redhat.com>
+Subject: Re: [PATCH] Fix build errors on 32bit platforms with new ktime
+Date: Tue, 24 Apr 2007 14:57:54 -0700
+Message-ID: <20070424145754.1a37f666@dxpl.pdx.osdl.net>
+References: <20070425.011028.113320997.yoshfuji@linux-ipv6.org>
+	<20070424183827.adb60ae0.dada1@cosmosbay.com>
+	<20070424100420.2860db68@dxpl.pdx.osdl.net>
+	<20070425.065539.104129657.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="MP_h7OGYguXDqWmOzotZ0/NIGu"
-Cc: netdev@vger.kernel.org, Injong Rhee <rhee@eos.ncsu.edu>,
-	Douglas Leith <doug.leith@nuim.ie>, shaoliu@uiuc.edu,
-	chaitanya_tk@tamu.edu, jgarrison@tamu.edu, srikant@ifp.uiuc.edu,
-	tbasar@control.csl.uiuc.edu, jheffner@psc.edu
-To: Chuck Ebbert <cebbert@redhat.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: dada1@cosmosbay.com, bunk@stusta.de, davem@davemloft.net,
+	netdev@vger.kernel.org, tglx@linutronix.de, yoshfuji@linux-ipv6.org
+To: YOSHIFUJI Hideaki / =?UTF-8?B?5ZCJ6Jek6Iux5piO?=
+	<yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([65.172.181.25]:40145 "EHLO
+Received: from smtp1.linux-foundation.org ([65.172.181.25]:53036 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1423153AbXDXV6s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Apr 2007 17:58:48 -0400
-In-Reply-To: <462E7470.1000100@redhat.com>
+	by vger.kernel.org with ESMTP id S1161490AbXDXWCJ convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Apr 2007 18:02:09 -0400
+In-Reply-To: <20070425.065539.104129657.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---MP_h7OGYguXDqWmOzotZ0/NIGu
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+On Wed, 25 Apr 2007 06:55:39 +0900 (JST)
+YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E  <yoshfuji@lin=
+ux-ipv6.org> wrote:
 
-On Tue, 24 Apr 2007 17:19:44 -0400
-Chuck Ebbert <cebbert@redhat.com> wrote:
+> In article <20070424100420.2860db68@dxpl.pdx.osdl.net> (at Tue, 24 Ap=
+r 2007 10:04:20 -0700), Stephen Hemminger <shemminger@linux-foundation.=
+org> says:
+>=20
+> > Yoshifuji-san had the right idea, but ktime_to_us needs to be defin=
+ed
+> > in a way that works on both 64 and 32bit platforms.
+>=20
+> No, this does not cure.
+> > =20
+> > +#define ktime_to_us(kt)			((kt).tv64 / NSEC_PER_SEC)
+> > +
+>=20
+> NSEC_PER_USEC?
 
-> Stephen Hemminger wrote:
-> > Results of preliminary tests on net-2.6.22 are available at:
-> > 
-> > http://developer.osdl.org/shemminger/tcp/net-2.6.22/
-> 
-> Can you redo the hybla graph with a logarithmic scale?
-> 
+On 64 bit platforms, ktime stores nano-seconds in a 64 bit value, so
+this is correct.
 
-Here it is on a log scale. It looks like a bug that it goes
-to such a huge cwnd before settling down.
+>=20
+> > +static inline s64 ktime_to_us(const ktime_t kt)
+> > +{
+> > +	return (s64) kt.tv_sec * USEC_PER_SEC + kt.tv_nsec / NSEC_PER_USE=
+C;
+> > +}
+> > +
+>=20
+> Please do NOT use division here, which was the source of the
+> linkage error, and the reason why I posted a patch to use
+> ktime_to_timeval().
 
---MP_h7OGYguXDqWmOzotZ0/NIGu
-Content-Type: image/png; name=hybla.png
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename=hybla.png
+On 32 bit platforms, ktime stores as two 32 bit values. Therefore the
+division is only 32bit and therefore okay.
 
-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
+Corrected patch.
+---------------------------
+=46rom 04d3583fbb763deeb9d33c90239a8d35e66e0c1e Mon Sep 17 00:00:00 200=
+1
+=46rom: Stephen Hemminger <shemminger@linux-foundation.org>
+Date: Tue, 24 Apr 2007 12:44:33 -0700
+Subject: [PATCH] ktime_to_us: for TCP usage.
 
---MP_h7OGYguXDqWmOzotZ0/NIGu--
+Argh, Monday sucks.  Sorry, need to build on 32bit every time...
+
+Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+---
+ include/linux/ktime.h   |   13 +++++++++++++
+ net/ipv4/tcp_illinois.c |    2 +-
+ net/ipv4/tcp_lp.c       |    2 +-
+ net/ipv4/tcp_vegas.c    |    2 +-
+ net/ipv4/tcp_veno.c     |    2 +-
+ 5 files changed, 17 insertions(+), 4 deletions(-)
+
+diff --git a/include/linux/ktime.h b/include/linux/ktime.h
+index 248305b..3793490 100644
+--- a/include/linux/ktime.h
++++ b/include/linux/ktime.h
+@@ -121,6 +121,8 @@ static inline ktime_t timeval_to_ktime(struct timev=
+al tv)
+ /* Convert ktime_t to nanoseconds - NOP in the scalar storage format: =
+*/
+ #define ktime_to_ns(kt)			((kt).tv64)
+=20
++#define ktime_to_us(kt)			((kt).tv64 / NSEC_PER_SEC)
++
+ #else
+=20
+ /*
+@@ -257,6 +259,17 @@ static inline s64 ktime_to_ns(const ktime_t kt)
+ 	return (s64) kt.tv.sec * NSEC_PER_SEC + kt.tv.nsec;
+ }
+=20
++/**
++ * ktime_to_us - convert a ktime_t variable to scalar microseconds
++ * @kt:		the ktime_t variable to convert
++ *
++ * Returns the scalar nanoseconds representation of @kt
++ */
++static inline s64 ktime_to_us(const ktime_t kt)
++{
++	return (s64) kt.tv.sec * USEC_PER_SEC + kt.tv.nsec / NSEC_PER_USEC;
++}
++
+ #endif
+=20
+ /*
+diff --git a/net/ipv4/tcp_illinois.c b/net/ipv4/tcp_illinois.c
+index 8e31659..4adc47c 100644
+--- a/net/ipv4/tcp_illinois.c
++++ b/net/ipv4/tcp_illinois.c
+@@ -90,7 +90,7 @@ static void tcp_illinois_acked(struct sock *sk, u32 p=
+kts_acked, ktime_t last)
+=20
+ 	ca->acked =3D pkts_acked;
+=20
+-	rtt =3D ktime_to_ns(net_timedelta(last)) / NSEC_PER_USEC;
++	rtt =3D ktime_to_us(net_timedelta(last));
+=20
+ 	/* ignore bogus values, this prevents wraparound in alpha math */
+ 	if (rtt > RTT_MAX)
+diff --git a/net/ipv4/tcp_lp.c b/net/ipv4/tcp_lp.c
+index b4e062a..43294ad 100644
+--- a/net/ipv4/tcp_lp.c
++++ b/net/ipv4/tcp_lp.c
+@@ -266,7 +266,7 @@ static void tcp_lp_pkts_acked(struct sock *sk, u32 =
+num_acked, ktime_t last)
+ 	struct tcp_sock *tp =3D tcp_sk(sk);
+ 	struct lp *lp =3D inet_csk_ca(sk);
+=20
+-	tcp_lp_rtt_sample(sk,  ktime_to_ns(net_timedelta(last)) / NSEC_PER_US=
+EC);
++	tcp_lp_rtt_sample(sk,  ktime_to_us(net_timedelta(last)));
+=20
+ 	/* calc inference */
+ 	if (tcp_time_stamp > tp->rx_opt.rcv_tsecr)
+diff --git a/net/ipv4/tcp_vegas.c b/net/ipv4/tcp_vegas.c
+index 0f0ee7f..73e19cf 100644
+--- a/net/ipv4/tcp_vegas.c
++++ b/net/ipv4/tcp_vegas.c
+@@ -118,7 +118,7 @@ void tcp_vegas_pkts_acked(struct sock *sk, u32 cnt,=
+ ktime_t last)
+ 	u32 vrtt;
+=20
+ 	/* Never allow zero rtt or baseRTT */
+-	vrtt =3D (ktime_to_ns(net_timedelta(last)) / NSEC_PER_USEC) + 1;
++	vrtt =3D ktime_to_us(net_timedelta(last)) + 1;
+=20
+ 	/* Filter to find propagation delay: */
+ 	if (vrtt < vegas->baseRTT)
+diff --git a/net/ipv4/tcp_veno.c b/net/ipv4/tcp_veno.c
+index 0b50d06..9edb340 100644
+--- a/net/ipv4/tcp_veno.c
++++ b/net/ipv4/tcp_veno.c
+@@ -75,7 +75,7 @@ static void tcp_veno_pkts_acked(struct sock *sk, u32 =
+cnt, ktime_t last)
+ 	u32 vrtt;
+=20
+ 	/* Never allow zero rtt or baseRTT */
+-	vrtt =3D (ktime_to_ns(net_timedelta(last)) / NSEC_PER_USEC) + 1;
++	vrtt =3D ktime_to_us(net_timedelta(last)) + 1;
+=20
+ 	/* Filter to find propagation delay: */
+ 	if (vrtt < veno->basertt)
+--=20
+1.5.0.6
+
