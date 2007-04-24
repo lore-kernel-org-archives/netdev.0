@@ -1,36 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [NET]: Warn about GSO/checksum abuse
-Date: Mon, 23 Apr 2007 22:37:19 -0700 (PDT)
-Message-ID: <20070423.223719.09950805.davem@davemloft.net>
-References: <20070424035542.GA29189@gondor.apana.org.au>
+Subject: Re: [XFRM]: beet: fix pseudo header length value
+Date: Mon, 23 Apr 2007 22:39:27 -0700 (PDT)
+Message-ID: <20070423.223927.98861952.davem@davemloft.net>
+References: <462C98E9.4020504@trash.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+Cc: Diego.Beltrami@hiit.fi, netdev@vger.kernel.org
+To: kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33921
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45819
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1161632AbXDXFhM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Apr 2007 01:37:12 -0400
-In-Reply-To: <20070424035542.GA29189@gondor.apana.org.au>
+	by vger.kernel.org with ESMTP id S1161637AbXDXFjU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Apr 2007 01:39:20 -0400
+In-Reply-To: <462C98E9.4020504@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Tue, 24 Apr 2007 13:55:42 +1000
+From: Patrick McHardy <kaber@trash.net>
+Date: Mon, 23 Apr 2007 13:30:49 +0200
 
-> [NET]: Warn about GSO/checksum abuse
+> [XFRM]: beet: fix pseudo header length value
 > 
-> Now that Patrick has added the code to deal with GSO in netfilter,
-> we no longer need the crutch that computes partial checksums just
-> before transmission.
+> draft-nikander-esp-beet-mode-07.txt is not entirely clear on how the length
+> value of the pseudo header should be calculated, it states "The Header Length
+> field contains the length of the pseudo header, IPv4 options, and padding in
+> 8 octets units.", but also states "Length in octets (Header Len + 1) * 8".
+> draft-nikander-esp-beet-mode-08-pre1.txt [1] clarifies this, the header length
+> should not include the first 8 byte.
 > 
-> This patch turns this into a warning again.  If this goes OK, we
-> can then turn it into a BUG_ON and remove the gso_send_check cruft.
+> This change affects backwards compatibility, but option encapsulation didn't
+> work until very recently anyway.
 > 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> [1] http://users.piuha.net/jmelen/BEET/draft-nikander-esp-beet-mode-08-pre1.txt
+> 
+> Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-Thanks for keeping track of this.
+Applied, thanks Patrick.
 
-Applied, thanks Herbert.
+More fun rejects for the next net-2.6.22 rebase :-)))
