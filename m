@@ -1,145 +1,89 @@
-From: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
-Subject: [PATCH 2/3] ne: MIPS: Use platform_driver for ne on RBTX49XX
-Date: Wed, 25 Apr 2007 01:55:49 +0900 (JST)
-Message-ID: <20070425.015549.108742168.anemo@mba.ocn.ne.jp>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeff@garzik.org, ralf@linux-mips.org,
-	sshtylyov@ru.mvista.com, akpm@linux-foundation.org
-To: linux-mips@linux-mips.org
-Return-path: <linux-mips-bounce@linux-mips.org>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
+From: David Howells <dhowells@redhat.com>
+Subject: Re: Getting the new RxRPC patches upstream
+Date: Tue, 24 Apr 2007 17:58:27 +0100
+Message-ID: <16575.1177433907@redhat.com>
+References: <20070424164001.GA328@tv-sign.ru>  <20070420212835.GA863@tv-sign.ru> <20070420.015838.83621529.davem@davemloft.net> <29341.1176975158@redhat.com> <2969.1176992303@redhat.com> <1101.1177056127@redhat.com> <4713.1177065706@redhat.com> <20070420113805.c4877dc8.akpm@linux-foundation.org> <1355.1177317176@redhat.com> <9767.1177421824@redhat.com> <15160.1177429867@redhat.com>
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>, ebiederm@xmission.com,
+	containers@lists.osdl.org, hch@infradead.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Oleg Nesterov <oleg@tv-sign.ru>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([66.187.233.31]:34022 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754273AbXDXQ7F (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Apr 2007 12:59:05 -0400
+In-Reply-To: <20070424164001.GA328@tv-sign.ru> 
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch lets RBTX49XX boards use generic platform_driver interface
-for the ne driver.
+Oleg Nesterov <oleg@tv-sign.ru> wrote:
 
-* Use platform_device to pass ioaddr and irq to the ne driver.
-* Remove unnecessary ifdefs for RBTX49XX from the ne driver.
-* Make the ne driver selectable on these boards regardless of CONFIG_ISA
-* Add an ifdef for netcard_portlist[] to avoid unnecessary auto-probe.
-  (I'm not sure M32R needs auto-probe but it is current behavior)
+> > > The current code uses del_timer_sync(). It will also return 0. However,
+> > > it will spin waiting for timer->function() to complete. So we are just
+> > > wasting CPU.
+> > 
+> > That's my objection to using cancel_delayed_work() as it stands, although in
+> > most cases it's a relatively minor waste of time.  However, if the timer
+> > expiry routine gets interrupted then it may not be so minor...  So, yes, I'm
+> > in full agreement with you there.
+> 
+> Great. I'll send the s/del_timer_sync/del_timer/ patch.
 
-Signed-off-by: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
----
- .../toshiba_rbtx4927/toshiba_rbtx4927_setup.c      |   19 +++++++++++++++++++
- arch/mips/tx4938/toshiba_rbtx4938/setup.c          |   20 ++++++++++++++++++++
- drivers/net/Kconfig                                |    2 +-
- drivers/net/ne.c                                   |   13 ++++---------
- 4 files changed, 44 insertions(+), 10 deletions(-)
+I didn't say I necessarily agreed that this was a good idea.  I just meant that
+I agree that it will waste CPU.  You must still audit all uses of
+cancel_delayed_work().
 
-diff --git a/arch/mips/tx4927/toshiba_rbtx4927/toshiba_rbtx4927_setup.c b/arch/mips/tx4927/toshiba_rbtx4927/toshiba_rbtx4927_setup.c
-index 0f7576d..7d2c9d0 100644
---- a/arch/mips/tx4927/toshiba_rbtx4927/toshiba_rbtx4927_setup.c
-+++ b/arch/mips/tx4927/toshiba_rbtx4927/toshiba_rbtx4927_setup.c
-@@ -1049,3 +1049,22 @@ static int __init toshiba_rbtx4927_rtc_init(void)
- 	return IS_ERR(dev) ? PTR_ERR(dev) : 0;
- }
- device_initcall(toshiba_rbtx4927_rtc_init);
-+
-+static int __init rbtx4927_ne_init(void)
-+{
-+	struct resource res[] = {
-+		{
-+			.start	= RBTX4927_RTL_8019_BASE,
-+			.end	= RBTX4927_RTL_8019_BASE + 0x20 - 1,
-+			.flags	= IORESOURCE_IO,
-+		}, {
-+			.start	= RBTX4927_RTL_8019_IRQ,
-+			.flags	= IORESOURCE_IRQ,
-+		}
-+	};
-+	struct platform_device *dev =
-+		platform_device_register_simple("ne", -1,
-+						res, ARRAY_SIZE(res));
-+	return IS_ERR(dev) ? PTR_ERR(dev) : 0;
-+}
-+device_initcall(rbtx4927_ne_init);
-diff --git a/arch/mips/tx4938/toshiba_rbtx4938/setup.c b/arch/mips/tx4938/toshiba_rbtx4938/setup.c
-index 66163ba..f5d1ce7 100644
---- a/arch/mips/tx4938/toshiba_rbtx4938/setup.c
-+++ b/arch/mips/tx4938/toshiba_rbtx4938/setup.c
-@@ -20,6 +20,7 @@
- #include <linux/console.h>
- #include <linux/pci.h>
- #include <linux/pm.h>
-+#include <linux/platform_device.h>
- 
- #include <asm/wbflush.h>
- #include <asm/reboot.h>
-@@ -1037,3 +1038,22 @@ static int __init tx4938_spi_proc_setup(void)
- 
- __initcall(tx4938_spi_proc_setup);
- #endif
-+
-+static int __init rbtx4938_ne_init(void)
-+{
-+	struct resource res[] = {
-+		{
-+			.start	= RBTX4938_RTL_8019_BASE,
-+			.end	= RBTX4938_RTL_8019_BASE + 0x20 - 1,
-+			.flags	= IORESOURCE_IO,
-+		}, {
-+			.start	= RBTX4938_RTL_8019_IRQ,
-+			.flags	= IORESOURCE_IRQ,
-+		}
-+	};
-+	struct platform_device *dev =
-+		platform_device_register_simple("ne", -1,
-+						res, ARRAY_SIZE(res));
-+	return IS_ERR(dev) ? PTR_ERR(dev) : 0;
-+}
-+device_initcall(rbtx4938_ne_init);
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index aba0d39..a80e8ce 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -1088,7 +1088,7 @@ config ETH16I
- 
- config NE2000
- 	tristate "NE2000/NE1000 support"
--	depends on NET_ISA || (Q40 && m) || M32R
-+	depends on NET_ISA || (Q40 && m) || M32R || TOSHIBA_RBTX4927 || TOSHIBA_RBTX4938
- 	select CRC32
- 	---help---
- 	  If you have a network (Ethernet) card of this type, say Y and read
-diff --git a/drivers/net/ne.c b/drivers/net/ne.c
-index b8a181f..4e99e7a 100644
---- a/drivers/net/ne.c
-+++ b/drivers/net/ne.c
-@@ -56,10 +56,6 @@ static const char version2[] =
- #include <asm/system.h>
- #include <asm/io.h>
- 
--#if defined(CONFIG_TOSHIBA_RBTX4927) || defined(CONFIG_TOSHIBA_RBTX4938)
--#include <asm/tx4938/rbtx4938.h>
--#endif
--
- #include "8390.h"
- 
- #define DRV_NAME "ne"
-@@ -81,7 +77,10 @@ static const char version2[] =
- /* A zero-terminated list of I/O addresses to be probed at boot. */
- #ifndef MODULE
- static unsigned int netcard_portlist[] __initdata = {
--	0x300, 0x280, 0x320, 0x340, 0x360, 0x380, 0
-+#if defined(CONFIG_ISA) || defined(CONFIG_M32R)
-+	0x300, 0x280, 0x320, 0x340, 0x360, 0x380,
-+#endif
-+	0
- };
- #endif
- 
-@@ -227,10 +226,6 @@ struct net_device * __init ne_probe(int unit)
- 	sprintf(dev->name, "eth%d", unit);
- 	netdev_boot_setup_check(dev);
- 
--#ifdef CONFIG_TOSHIBA_RBTX4938
--	dev->base_addr = RBTX4938_RTL_8019_BASE;
--	dev->irq = RBTX4938_RTL_8019_IRQ;
--#endif
- 	err = do_ne_probe(dev);
- 	if (err)
- 		goto out;
+> Aha, now I see what you mean. However. Why the code above is better then
+> 
+> 	cancel_delayed_work(&afs_server_reaper);
+> 	schedule_delayed_work(&afs_server_reaper, 0);
+> 
+> ? (I assume we already changed cancel_delayed_work() to use del_timer).
+
+Because calling schedule_delayed_work() is a waste of CPU if the timer expiry
+handler is currently running at this time as *that* is going to also schedule
+the delayed work item.
+
+> If delayed_work_timer_fn() is not running - both variants (let's denote them
+> as 1 and 2) do the same.
+
+Yes, but that's not the point.
+
+> Now suppose that delayed_work_timer_fn() is running.
+> 
+> 	1: lock_timer_base(), return -1, skip schedule_delayed_work().
+>
+> 	2: check timer_pending(), return 0, call schedule_delayed_work(),
+> 	   return immediately because test_and_set_bit(WORK_STRUCT_PENDING)
+> 	   fails.
+
+I don't see what you're illustrating here.  Are these meant to be two steps in
+a single process?  Or are they two alternate steps?
+
+> So I still don't think try_to_del_timer_sync() can help in this particular
+> case.
+
+It permits us to avoid the test_and_set_bit() under some circumstances.
+
+> To some extent, try_to_cancel_delayed_work is
+> 
+> 	int try_to_cancel_delayed_work(dwork)
+> 	{
+> 		ret = cancel_delayed_work(dwork);
+> 		if (!ret && work_pending(&dwork->work))
+> 			ret = -1;
+> 		return ret;
+> 	}
+> 
+> iow, work_pending() looks like a more "precise" indication that work->func()
+> is going to run soon.
+
+Ah, but the timer routine may try to set the work item pending flag *after* the
+work_pending() check you have here.  Furthermore, it would be better to avoid
+the work_pending() check entirely because that check involves interacting with
+atomic ops done on other CPUs.  try_to_del_timer_sync() returning -1 tells us
+without a shadow of a doubt that the work item is either scheduled now or will
+be scheduled very shortly, thus allowing us to avoid having to do it ourself.
+
+David
