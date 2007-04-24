@@ -1,470 +1,437 @@
 From: Stephen Hemminger <shemminger@linux-founsation.org>
-Subject: [PATCH 3/4] tcp: congestion control API update
-Date: Mon, 23 Apr 2007 20:31:20 -0700
-Message-ID: <20070424033317.129630701@linux-foundation.org>
+Subject: [PATCH 2/4] TCP Illinois update
+Date: Mon, 23 Apr 2007 20:31:19 -0700
+Message-ID: <20070424033317.042343204@linux-foundation.org>
 References: <20070424033117.873984872@linux-foundation.org>
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([65.172.181.25]:49113 "EHLO
+Received: from smtp1.linux-foundation.org ([65.172.181.25]:42436 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1161568AbXDXDgS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Apr 2007 23:36:18 -0400
-Content-Disposition: inline; filename=tcp-cong-api-update.patch
+	by vger.kernel.org with ESMTP id S1161566AbXDXDgQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Apr 2007 23:36:16 -0400
+Content-Disposition: inline; filename=tcp-illinois-v4.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Do some simple changes to make congestion control API faster/cleaner.
-* use ktime_t rather than timeval
-* merge rtt sampling into existing ack callback
-  this means one indirect call versus two per ack.
-* use flags bits to store options/settings
+This version more closely matches the paper, and fixes several
+math errors. The biggest difference is that it updates alpha/beta
+once per RTT
 
 Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
-
 ---
- include/linux/skbuff.h  |    5 +++++
- include/net/tcp.h       |    9 +++++----
- net/ipv4/tcp_bic.c      |    2 +-
- net/ipv4/tcp_cong.c     |   14 +++++++-------
- net/ipv4/tcp_cubic.c    |    2 +-
- net/ipv4/tcp_htcp.c     |    2 +-
- net/ipv4/tcp_illinois.c |   16 +++++++---------
- net/ipv4/tcp_input.c    |   25 ++++++++-----------------
- net/ipv4/tcp_lp.c       |    8 +++++---
- net/ipv4/tcp_output.c   |    2 +-
- net/ipv4/tcp_vegas.c    |   10 +++++++---
- net/ipv4/tcp_veno.c     |   10 +++++++---
- net/ipv4/tcp_westwood.c |    2 +-
- net/ipv4/tcp_yeah.c     |    6 ++++--
- net/ipv4/tcp_yeah.h     |    7 +++++--
- 15 files changed, 65 insertions(+), 55 deletions(-)
+ net/ipv4/tcp_illinois.c |  298 +++++++++++++++++++++++++++++-------------------
+ 1 file changed, 186 insertions(+), 112 deletions(-)
 
---- net-2.6.22.orig/include/linux/skbuff.h
-+++ net-2.6.22/include/linux/skbuff.h
-@@ -1569,6 +1569,11 @@ static inline void __net_timestamp(struc
- 	skb->tstamp = ktime_get_real();
- }
- 
-+static inline ktime_t net_timedelta(ktime_t t)
-+{
-+	return ktime_sub(ktime_get_real(), t);
-+}
-+
- 
- extern __sum16 __skb_checksum_complete_head(struct sk_buff *skb, int len);
- extern __sum16 __skb_checksum_complete(struct sk_buff *skb);
---- net-2.6.22.orig/include/net/tcp.h
-+++ net-2.6.22/include/net/tcp.h
-@@ -629,9 +629,12 @@ enum tcp_ca_event {
- #define TCP_CA_MAX	128
- #define TCP_CA_BUF_MAX	(TCP_CA_NAME_MAX*TCP_CA_MAX)
- 
-+#define TCP_CONG_NON_RESTRICTED 0x1
-+#define TCP_CONG_RTT_STAMP	0x2
-+
- struct tcp_congestion_ops {
- 	struct list_head	list;
--	int	non_restricted;
-+	unsigned long flags;
- 
- 	/* initialize private data (optional) */
- 	void (*init)(struct sock *sk);
-@@ -645,8 +648,6 @@ struct tcp_congestion_ops {
- 	/* do new cwnd calculation (required) */
- 	void (*cong_avoid)(struct sock *sk, u32 ack,
- 			   u32 rtt, u32 in_flight, int good_ack);
--	/* round trip time sample per acked packet (optional) */
--	void (*rtt_sample)(struct sock *sk, u32 usrtt);
- 	/* call before changing ca_state (optional) */
- 	void (*set_state)(struct sock *sk, u8 new_state);
- 	/* call when cwnd event occurs (optional) */
-@@ -654,7 +655,7 @@ struct tcp_congestion_ops {
- 	/* new value of cwnd after loss (optional) */
- 	u32  (*undo_cwnd)(struct sock *sk);
- 	/* hook for packet ack accounting (optional) */
--	void (*pkts_acked)(struct sock *sk, u32 num_acked);
-+	void (*pkts_acked)(struct sock *sk, u32 num_acked, ktime_t last);
- 	/* get info for inet_diag (optional) */
- 	void (*get_info)(struct sock *sk, u32 ext, struct sk_buff *skb);
- 
---- net-2.6.22.orig/net/ipv4/tcp_bic.c
-+++ net-2.6.22/net/ipv4/tcp_bic.c
-@@ -206,7 +206,7 @@ static void bictcp_state(struct sock *sk
- /* Track delayed acknowledgment ratio using sliding window
-  * ratio = (15*ratio + sample) / 16
-  */
--static void bictcp_acked(struct sock *sk, u32 cnt)
-+static void bictcp_acked(struct sock *sk, u32 cnt, ktime_t last)
- {
- 	const struct inet_connection_sock *icsk = inet_csk(sk);
- 
---- net-2.6.22.orig/net/ipv4/tcp_cong.c
-+++ net-2.6.22/net/ipv4/tcp_cong.c
-@@ -126,7 +126,7 @@ int tcp_set_default_congestion_control(c
- #endif
- 
- 	if (ca) {
--		ca->non_restricted = 1;	/* default is always allowed */
-+		ca->flags |= TCP_CONG_NON_RESTRICTED;	/* default is always allowed */
- 		list_move(&ca->list, &tcp_cong_list);
- 		ret = 0;
- 	}
-@@ -181,7 +181,7 @@ void tcp_get_allowed_congestion_control(
- 	*buf = '\0';
- 	rcu_read_lock();
- 	list_for_each_entry_rcu(ca, &tcp_cong_list, list) {
--		if (!ca->non_restricted)
-+		if (!(ca->flags & TCP_CONG_NON_RESTRICTED))
- 			continue;
- 		offs += snprintf(buf + offs, maxlen - offs,
- 				 "%s%s",
-@@ -212,16 +212,16 @@ int tcp_set_allowed_congestion_control(c
- 		}
- 	}
- 
--	/* pass 2 clear */
-+	/* pass 2 clear old values */
- 	list_for_each_entry_rcu(ca, &tcp_cong_list, list)
--		ca->non_restricted = 0;
-+		ca->flags &= ~TCP_CONG_NON_RESTRICTED;
- 
- 	/* pass 3 mark as allowed */
- 	while ((name = strsep(&val, " ")) && *name) {
- 		ca = tcp_ca_find(name);
- 		WARN_ON(!ca);
- 		if (ca)
--			ca->non_restricted = 1;
-+			ca->flags |= TCP_CONG_NON_RESTRICTED;
- 	}
- out:
- 	spin_unlock(&tcp_cong_list_lock);
-@@ -256,7 +256,7 @@ int tcp_set_congestion_control(struct so
- 	if (!ca)
- 		err = -ENOENT;
- 
--	else if (!(ca->non_restricted || capable(CAP_NET_ADMIN)))
-+	else if (!((ca->flags & TCP_CONG_NON_RESTRICTED) || capable(CAP_NET_ADMIN)))
- 		err = -EPERM;
- 
- 	else if (!try_module_get(ca->owner))
-@@ -371,8 +371,8 @@ u32 tcp_reno_min_cwnd(const struct sock 
- EXPORT_SYMBOL_GPL(tcp_reno_min_cwnd);
- 
- struct tcp_congestion_ops tcp_reno = {
-+	.flags		= TCP_CONG_NON_RESTRICTED,
- 	.name		= "reno",
--	.non_restricted = 1,
- 	.owner		= THIS_MODULE,
- 	.ssthresh	= tcp_reno_ssthresh,
- 	.cong_avoid	= tcp_reno_cong_avoid,
---- net-2.6.22.orig/net/ipv4/tcp_cubic.c
-+++ net-2.6.22/net/ipv4/tcp_cubic.c
-@@ -334,7 +334,7 @@ static void bictcp_state(struct sock *sk
- /* Track delayed acknowledgment ratio using sliding window
-  * ratio = (15*ratio + sample) / 16
-  */
--static void bictcp_acked(struct sock *sk, u32 cnt)
-+static void bictcp_acked(struct sock *sk, u32 cnt, ktime_t last)
- {
- 	const struct inet_connection_sock *icsk = inet_csk(sk);
- 
---- net-2.6.22.orig/net/ipv4/tcp_htcp.c
-+++ net-2.6.22/net/ipv4/tcp_htcp.c
-@@ -98,7 +98,7 @@ static inline void measure_rtt(struct so
- 	}
- }
- 
--static void measure_achieved_throughput(struct sock *sk, u32 pkts_acked)
-+static void measure_achieved_throughput(struct sock *sk, u32 pkts_acked, ktime_t last)
- {
- 	const struct inet_connection_sock *icsk = inet_csk(sk);
- 	const struct tcp_sock *tp = tcp_sk(sk);
 --- net-2.6.22.orig/net/ipv4/tcp_illinois.c
 +++ net-2.6.22/net/ipv4/tcp_illinois.c
-@@ -83,9 +83,14 @@ static void tcp_illinois_init(struct soc
- }
+@@ -23,74 +23,106 @@
+ #define ALPHA_MIN	((3*ALPHA_SCALE)/10)	/* ~0.3 */
+ #define ALPHA_MAX	(10*ALPHA_SCALE)	/* 10.0 */
+ #define ALPHA_BASE	ALPHA_SCALE		/* 1.0 */
++#define U32_MAX		((u32)~0U)
++#define RTT_MAX		(U32_MAX / ALPHA_MAX)	/* 3.3 secs */
  
- /* Measure RTT for each ack. */
--static void tcp_illinois_rtt_sample(struct sock *sk, u32 rtt)
-+static void tcp_illinois_acked(struct sock *sk, u32 pkts_acked, ktime_t last)
+ #define BETA_SHIFT	6
+ #define BETA_SCALE	(1u<<BETA_SHIFT)
+-#define BETA_MIN	(BETA_SCALE/8)		/* 0.8 */
+-#define BETA_MAX	(BETA_SCALE/2)
+-#define BETA_BASE	BETA_MAX		/* 0.5 */
+-
+-#define THETA		5
++#define BETA_MIN	(BETA_SCALE/8)		/* 0.125 */
++#define BETA_MAX	(BETA_SCALE/2)		/* 0.5 */
++#define BETA_BASE	BETA_MAX
+ 
+ static int win_thresh __read_mostly = 15;
+-module_param(win_thresh, int, 0644);
++module_param(win_thresh, int, 0);
+ MODULE_PARM_DESC(win_thresh, "Window threshold for starting adaptive sizing");
+ 
+-#define MAX_RTT		0x7fffffff
++static int theta __read_mostly = 5;
++module_param(theta, int, 0);
++MODULE_PARM_DESC(theta, "# of fast RTT's before full growth");
+ 
+ /* TCP Illinois Parameters */
+-struct tcp_illinois {
+-	u32	last_alpha;
+-	u32	min_rtt;
+-	u32	max_rtt;
+-	u32	rtt_low;
+-	u32	rtt_cnt;
+-	u64	sum_rtt;
++struct illinois {
++	u64	sum_rtt;	/* sum of rtt's measured within last rtt */
++	u16	cnt_rtt;	/* # of rtts measured within last rtt */
++	u32	base_rtt;	/* min of all rtt in usec */
++	u32	max_rtt;	/* max of all rtt in usec */
++	u32	end_seq;	/* right edge of current RTT */
++	u32	alpha;		/* Additive increase */
++	u32	beta;		/* Muliplicative decrease */
++	u16	acked;		/* # packets acked by current ACK */
++	u8	rtt_above;	/* average rtt has gone above threshold */
++	u8	rtt_low;	/* # of rtts measurements below threshold */
+ };
+ 
++static void rtt_reset(struct sock *sk)
++{
++	struct tcp_sock *tp = tcp_sk(sk);
++	struct illinois *ca = inet_csk_ca(sk);
++
++	ca->end_seq = tp->snd_nxt;
++	ca->cnt_rtt = 0;
++	ca->sum_rtt = 0;
++
++	/* TODO: age max_rtt? */
++}
++
+ static void tcp_illinois_init(struct sock *sk)
  {
- 	struct illinois *ca = inet_csk_ca(sk);
-+	u32 rtt;
+-	struct tcp_illinois *ca = inet_csk_ca(sk);
++	struct illinois *ca = inet_csk_ca(sk);
 +
-+	ca->acked = pkts_acked;
-+
-+	rtt = ktime_to_ns(net_timedelta(last)) / NSEC_PER_USEC;
++	ca->alpha = ALPHA_MAX;
++	ca->beta = BETA_BASE;
++	ca->base_rtt = 0x7fffffff;
++	ca->max_rtt = 0;
  
- 	/* ignore bogus values, this prevents wraparound in alpha math */
- 	if (rtt > RTT_MAX)
-@@ -103,13 +108,6 @@ static void tcp_illinois_rtt_sample(stru
- 	ca->sum_rtt += rtt;
+-	ca->last_alpha = ALPHA_BASE;
+-	ca->min_rtt = 0x7fffffff;
++	ca->acked = 0;
++	ca->rtt_low = 0;
++	ca->rtt_above = 0;
++
++	rtt_reset(sk);
  }
  
--/* Capture count of packets covered by ack, to adjust for delayed acks */
--static void tcp_illinois_acked(struct sock *sk, u32 pkts_acked)
--{
--	struct illinois *ca = inet_csk_ca(sk);
--	ca->acked = pkts_acked;
+-/*
+- * Keep track of min, max and average RTT
+- */
+-static void tcp_illinois_rtt_calc(struct sock *sk, u32 rtt)
++/* Measure RTT for each ack. */
++static void tcp_illinois_rtt_sample(struct sock *sk, u32 rtt)
+ {
+-	struct tcp_illinois *ca = inet_csk_ca(sk);
++	struct illinois *ca = inet_csk_ca(sk);
++
++	/* ignore bogus values, this prevents wraparound in alpha math */
++	if (rtt > RTT_MAX)
++		rtt = RTT_MAX;
++
++	/* keep track of minimum RTT seen so far */
++	if (ca->base_rtt > rtt)
++		ca->base_rtt = rtt;
+ 
+-	if (rtt < ca->min_rtt)
+-		ca->min_rtt = rtt;
+-	if (rtt > ca->max_rtt)
++	/* and max */
++	if (ca->max_rtt < rtt)
+ 		ca->max_rtt = rtt;
+ 
+-	if (++ca->rtt_cnt == 1)
+-		ca->sum_rtt = rtt;
+-	else
+-		ca->sum_rtt += rtt;
++	++ca->cnt_rtt;
++	ca->sum_rtt += rtt;
+ }
+ 
+-/* max queuing delay */
+-static inline u32 max_delay(const struct tcp_illinois *ca)
++/* Capture count of packets covered by ack, to adjust for delayed acks */
++static void tcp_illinois_acked(struct sock *sk, u32 pkts_acked)
+ {
+-	return ca->max_rtt - ca->min_rtt;
++	struct illinois *ca = inet_csk_ca(sk);
++	ca->acked = pkts_acked;
+ }
+ 
+-/* average queueing delay */
+-static u32 avg_delay(struct tcp_illinois *ca)
++/* Maximum queuing delay */
++static inline u32 max_delay(const struct illinois *ca)
+ {
+-	u64 avg_rtt = ca->sum_rtt;
+-
+-	do_div(avg_rtt, ca->rtt_cnt);
++	return ca->max_rtt - ca->base_rtt;
++}
+ 
+-	ca->sum_rtt = 0;
+-	ca->rtt_cnt = 0;
++/* Average queuing delay */
++static inline u32 avg_delay(const struct illinois *ca)
++{
++	u64 t = ca->sum_rtt;
+ 
+-	return avg_rtt - ca->min_rtt;
++	do_div(t, ca->cnt_rtt);
++	return t - ca->base_rtt;
+ }
+ 
+ /*
+@@ -101,32 +133,31 @@ static u32 avg_delay(struct tcp_illinois
+  * A. If average delay is at minimum (we are uncongested),
+  *    then use large alpha (10.0) to increase faster.
+  * B. If average delay is at maximum (getting congested)
+- *    then use small alpha (1.0)
++ *    then use small alpha (0.3)
+  *
+  * The result is a convex window growth curve.
+  */
+-static u32 alpha(const struct sock *sk)
++static u32 alpha(struct illinois *ca, u32 da, u32 dm)
+ {
+-	struct tcp_sock *tp = tcp_sk(sk);
+-	struct tcp_illinois *ca = inet_csk_ca(sk);
+-	u32 dm = max_delay(ca);
+-	u32 da = avg_delay(ca);
+-	u32 d1, a;
+-
+-	if (tp->snd_cwnd < win_thresh)
+-		return ALPHA_BASE;	/* same as Reno (1.0) */
++	u32 d1 = dm / 100;	/* Low threshold */
+ 
+-	d1 = dm / 100;
+ 	if (da <= d1) {
+-		/* Don't let noise force agressive response */
+-		if (ca->rtt_low < THETA) {
+-			++ca->rtt_low;
+-			return ca->last_alpha;
+-		} else
++		/* If never got out of low delay zone, then use max */
++		if (!ca->rtt_above)
+ 			return ALPHA_MAX;
++
++		/* Wait for 5 good RTT's before allowing alpha to go alpha max.
++		 * This prevents one good RTT from causing sudden window increase.
++		 */
++		if (++ca->rtt_low < theta)
++			return ca->alpha;
++
++		ca->rtt_low = 0;
++		ca->rtt_above = 0;
++		return ALPHA_MAX;
+ 	}
+ 
+-	ca->rtt_low = 0;
++	ca->rtt_above = 1;
+ 
+ 	/*
+ 	 * Based on:
+@@ -146,37 +177,8 @@ static u32 alpha(const struct sock *sk)
+ 
+ 	dm -= d1;
+ 	da -= d1;
+-
+-	a = (dm * ALPHA_MAX) / (dm - (da  * (ALPHA_MAX - ALPHA_MIN)) / ALPHA_MIN);
+-	ca->last_alpha = a;
+-	return a;
 -}
 -
- /* Maximum queuing delay */
- static inline u32 max_delay(const struct illinois *ca)
- {
-@@ -325,12 +323,12 @@ static void tcp_illinois_info(struct soc
+-/*
+- * Increase window in response to successful acknowledgment.
+- */
+-static void tcp_illinois_cong_avoid(struct sock *sk, u32 ack, u32 rtt,
+-				    u32 in_flight, int flag)
+-{
+-	struct tcp_sock *tp = tcp_sk(sk);
+-
+-	/* RFC2861 only increase cwnd if fully utilized */
+-	if (!tcp_is_cwnd_limited(sk, in_flight))
+-		return;
+-
+-	/* In slow start */
+-	if (tp->snd_cwnd <= tp->snd_ssthresh)
+-		tcp_slow_start(tp);
+-
+-	else {
+-		/* additive increase  cwnd += alpha / cwnd */
+-		if ((tp->snd_cwnd_cnt * alpha(sk)) >> ALPHA_SHIFT >= tp->snd_cwnd) {
+-			if (tp->snd_cwnd < tp->snd_cwnd_clamp)
+-				tp->snd_cwnd++;
+-			tp->snd_cwnd_cnt = 0;
+-		} else
+-			tp->snd_cwnd_cnt++;
+-	}
++	return (dm * ALPHA_MAX) /
++		(dm + (da  * (ALPHA_MAX - ALPHA_MIN)) / ALPHA_MIN);
  }
  
- static struct tcp_congestion_ops tcp_illinois = {
-+	.flags		= TCP_CONG_RTT_STAMP,
- 	.init		= tcp_illinois_init,
+ /*
+@@ -187,20 +189,14 @@ static void tcp_illinois_cong_avoid(stru
+  * If delay is up to 80% of max then beta = 1/2
+  * In between is a linear function
+  */
+-static inline u32 beta(struct sock *sk)
++static u32 beta(u32 da, u32 dm)
+ {
+-	struct tcp_sock *tp = tcp_sk(sk);
+-	struct tcp_illinois *ca = inet_csk_ca(sk);
+-	u32 dm = max_delay(ca);
+-	u32 da = avg_delay(ca);
+ 	u32 d2, d3;
+ 
+-	if (tp->snd_cwnd < win_thresh)
+-		return BETA_BASE;
+-
+ 	d2 = dm / 10;
+ 	if (da <= d2)
+ 		return BETA_MIN;
++
+ 	d3 = (8 * dm) / 10;
+ 	if (da >= d3 || d3 <= d2)
+ 		return BETA_MAX;
+@@ -222,31 +218,107 @@ static inline u32 beta(struct sock *sk)
+ 		/ (d3 - d2);
+ }
+ 
++/* Update alpha and beta values once per RTT */
++static void update_params(struct sock *sk)
++{
++	struct tcp_sock *tp = tcp_sk(sk);
++	struct illinois *ca = inet_csk_ca(sk);
++
++	if (tp->snd_cwnd < win_thresh) {
++		ca->alpha = ALPHA_BASE;
++		ca->beta = BETA_BASE;
++	} else if (ca->cnt_rtt > 0) {
++		u32 dm = max_delay(ca);
++		u32 da = avg_delay(ca);
++
++		ca->alpha = alpha(ca, da, dm);
++		ca->beta = beta(da, dm);
++	}
++
++	rtt_reset(sk);
++}
++
++/*
++ * In case of loss, reset to default values
++ */
++static void tcp_illinois_state(struct sock *sk, u8 new_state)
++{
++	struct illinois *ca = inet_csk_ca(sk);
++
++	if (new_state == TCP_CA_Loss) {
++		ca->alpha = ALPHA_BASE;
++		ca->beta = BETA_BASE;
++		ca->rtt_low = 0;
++		ca->rtt_above = 0;
++		rtt_reset(sk);
++	}
++}
++
++/*
++ * Increase window in response to successful acknowledgment.
++ */
++static void tcp_illinois_cong_avoid(struct sock *sk, u32 ack, u32 rtt,
++				    u32 in_flight, int flag)
++{
++	struct tcp_sock *tp = tcp_sk(sk);
++	struct illinois *ca = inet_csk_ca(sk);
++
++	if (after(ack, ca->end_seq))
++		update_params(sk);
++
++	/* RFC2861 only increase cwnd if fully utilized */
++	if (!tcp_is_cwnd_limited(sk, in_flight))
++		return;
++
++	/* In slow start */
++	if (tp->snd_cwnd <= tp->snd_ssthresh)
++		tcp_slow_start(tp);
++
++	else {
++		u32 delta;
++
++		/* snd_cwnd_cnt is # of packets since last cwnd increment */
++		tp->snd_cwnd_cnt += ca->acked;
++		ca->acked = 1;
++
++		/* This is close approximation of:
++		 * tp->snd_cwnd += alpha/tp->snd_cwnd
++		*/
++		delta = (tp->snd_cwnd_cnt * ca->alpha) >> ALPHA_SHIFT;
++		if (delta >= tp->snd_cwnd) {
++			tp->snd_cwnd = min(tp->snd_cwnd + delta / tp->snd_cwnd,
++				     	   (u32) tp->snd_cwnd_clamp);
++			tp->snd_cwnd_cnt = 0;
++		}
++	}
++}
++
+ static u32 tcp_illinois_ssthresh(struct sock *sk)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
++	struct illinois *ca = inet_csk_ca(sk);
+ 
+ 	/* Multiplicative decrease */
+-	return max((tp->snd_cwnd * beta(sk)) >> BETA_SHIFT, 2U);
++	return max((tp->snd_cwnd * ca->beta) >> BETA_SHIFT, 2U);
+ }
+ 
+-/* Extract info for TCP socket info provided via netlink.
+- * We aren't really doing Vegas, but we can provide RTT info
+- */
+-static void tcp_illinois_get_info(struct sock *sk, u32 ext,
+-			       struct sk_buff *skb)
++
++/* Extract info for Tcp socket info provided via netlink. */
++static void tcp_illinois_info(struct sock *sk, u32 ext,
++			      struct sk_buff *skb)
+ {
+-	const struct tcp_illinois *ca = inet_csk_ca(sk);
++	const struct illinois *ca = inet_csk_ca(sk);
+ 
+ 	if (ext & (1 << (INET_DIAG_VEGASINFO - 1))) {
+ 		struct tcpvegas_info info = {
+ 			.tcpv_enabled = 1,
+-			.tcpv_rttcnt = ca->rtt_cnt,
+-			.tcpv_minrtt = ca->min_rtt,
++			.tcpv_rttcnt = ca->cnt_rtt,
++			.tcpv_minrtt = ca->base_rtt,
+ 		};
+-		u64 avg_rtt = ca->sum_rtt;
+-		do_div(avg_rtt, ca->rtt_cnt);
+-		info.tcpv_rtt = avg_rtt;
++		u64 t = ca->sum_rtt;
++
++		do_div(t, ca->cnt_rtt);
++		info.tcpv_rtt = t;
+ 
+ 		nla_put(skb, INET_DIAG_VEGASINFO, sizeof(info), &info);
+ 	}
+@@ -257,8 +329,10 @@ static struct tcp_congestion_ops tcp_ill
  	.ssthresh	= tcp_illinois_ssthresh,
  	.min_cwnd	= tcp_reno_min_cwnd,
  	.cong_avoid	= tcp_illinois_cong_avoid,
- 	.set_state	= tcp_illinois_state,
--	.rtt_sample	= tcp_illinois_rtt_sample,
- 	.get_info	= tcp_illinois_info,
- 	.pkts_acked	= tcp_illinois_acked,
+-	.rtt_sample	= tcp_illinois_rtt_calc,
+-	.get_info	= tcp_illinois_get_info,
++	.set_state	= tcp_illinois_state,
++	.rtt_sample	= tcp_illinois_rtt_sample,
++	.get_info	= tcp_illinois_info,
++	.pkts_acked	= tcp_illinois_acked,
  
---- net-2.6.22.orig/net/ipv4/tcp_input.c
-+++ net-2.6.22/net/ipv4/tcp_input.c
-@@ -2402,14 +2402,6 @@ static int tcp_tso_acked(struct sock *sk
- 	return acked;
+ 	.owner		= THIS_MODULE,
+ 	.name		= "illinois",
+@@ -266,7 +340,7 @@ static struct tcp_congestion_ops tcp_ill
+ 
+ static int __init tcp_illinois_register(void)
+ {
+-	BUILD_BUG_ON(sizeof(struct tcp_illinois) > ICSK_CA_PRIV_SIZE);
++	BUILD_BUG_ON(sizeof(struct illinois) > ICSK_CA_PRIV_SIZE);
+ 	return tcp_register_congestion_control(&tcp_illinois);
  }
  
--static u32 tcp_usrtt(struct timeval *tv)
--{
--	struct timeval now;
--
--	do_gettimeofday(&now);
--	return (now.tv_sec - tv->tv_sec) * 1000000 + (now.tv_usec - tv->tv_usec);
--}
--
- /* Remove acknowledged frames from the retransmission queue. */
- static int tcp_clean_rtx_queue(struct sock *sk, __s32 *seq_rtt_p)
- {
-@@ -2420,9 +2412,7 @@ static int tcp_clean_rtx_queue(struct so
- 	int acked = 0;
- 	__s32 seq_rtt = -1;
- 	u32 pkts_acked = 0;
--	void (*rtt_sample)(struct sock *sk, u32 usrtt)
--		= icsk->icsk_ca_ops->rtt_sample;
--	struct timeval tv = { .tv_sec = 0, .tv_usec = 0 };
-+	ktime_t last_ackt = ktime_set(0,0);
- 
- 	while ((skb = tcp_write_queue_head(sk)) &&
- 	       skb != tcp_send_head(sk)) {
-@@ -2471,7 +2461,7 @@ static int tcp_clean_rtx_queue(struct so
- 				seq_rtt = -1;
- 			} else if (seq_rtt < 0) {
- 				seq_rtt = now - scb->when;
--				skb_get_timestamp(skb, &tv);
-+				last_ackt = skb->tstamp;
- 			}
- 			if (sacked & TCPCB_SACKED_ACKED)
- 				tp->sacked_out -= tcp_skb_pcount(skb);
-@@ -2484,7 +2474,7 @@ static int tcp_clean_rtx_queue(struct so
- 			}
- 		} else if (seq_rtt < 0) {
- 			seq_rtt = now - scb->when;
--			skb_get_timestamp(skb, &tv);
-+			last_ackt = skb->tstamp;
- 		}
- 		tcp_dec_pcount_approx(&tp->fackets_out, skb);
- 		tcp_packets_out_dec(tp, skb);
-@@ -2494,13 +2484,14 @@ static int tcp_clean_rtx_queue(struct so
- 	}
- 
- 	if (acked&FLAG_ACKED) {
-+		const struct tcp_congestion_ops *ca_ops
-+			= inet_csk(sk)->icsk_ca_ops;
-+
- 		tcp_ack_update_rtt(sk, acked, seq_rtt);
- 		tcp_ack_packets_out(sk);
--		if (rtt_sample && !(acked & FLAG_RETRANS_DATA_ACKED))
--			(*rtt_sample)(sk, tcp_usrtt(&tv));
- 
--		if (icsk->icsk_ca_ops->pkts_acked)
--			icsk->icsk_ca_ops->pkts_acked(sk, pkts_acked);
-+		if (ca_ops->pkts_acked)
-+			ca_ops->pkts_acked(sk, pkts_acked, last_ackt);
- 	}
- 
- #if FASTRETRANS_DEBUG > 0
---- net-2.6.22.orig/net/ipv4/tcp_lp.c
-+++ net-2.6.22/net/ipv4/tcp_lp.c
-@@ -218,7 +218,7 @@ static u32 tcp_lp_owd_calculator(struct 
-  *   3. calc smoothed OWD (SOWD).
-  * Most ideas come from the original TCP-LP implementation.
-  */
--static void tcp_lp_rtt_sample(struct sock *sk, u32 usrtt)
-+static void tcp_lp_rtt_sample(struct sock *sk, u32 rtt)
- {
- 	struct lp *lp = inet_csk_ca(sk);
- 	s64 mowd = tcp_lp_owd_calculator(sk);
-@@ -261,11 +261,13 @@ static void tcp_lp_rtt_sample(struct soc
-  * newReno in increase case.
-  * We work it out by following the idea from TCP-LP's paper directly
-  */
--static void tcp_lp_pkts_acked(struct sock *sk, u32 num_acked)
-+static void tcp_lp_pkts_acked(struct sock *sk, u32 num_acked, ktime_t last)
- {
- 	struct tcp_sock *tp = tcp_sk(sk);
- 	struct lp *lp = inet_csk_ca(sk);
- 
-+	tcp_lp_rtt_sample(sk,  ktime_to_ns(net_timedelta(last)) / NSEC_PER_USEC);
-+
- 	/* calc inference */
- 	if (tcp_time_stamp > tp->rx_opt.rcv_tsecr)
- 		lp->inference = 3 * (tcp_time_stamp - tp->rx_opt.rcv_tsecr);
-@@ -312,11 +314,11 @@ static void tcp_lp_pkts_acked(struct soc
- }
- 
- static struct tcp_congestion_ops tcp_lp = {
-+	.flags = TCP_CONG_RTT_STAMP,
- 	.init = tcp_lp_init,
- 	.ssthresh = tcp_reno_ssthresh,
- 	.cong_avoid = tcp_lp_cong_avoid,
- 	.min_cwnd = tcp_reno_min_cwnd,
--	.rtt_sample = tcp_lp_rtt_sample,
- 	.pkts_acked = tcp_lp_pkts_acked,
- 
- 	.owner = THIS_MODULE,
---- net-2.6.22.orig/net/ipv4/tcp_output.c
-+++ net-2.6.22/net/ipv4/tcp_output.c
-@@ -409,7 +409,7 @@ static int tcp_transmit_skb(struct sock 
- 	/* If congestion control is doing timestamping, we must
- 	 * take such a timestamp before we potentially clone/copy.
- 	 */
--	if (icsk->icsk_ca_ops->rtt_sample)
-+	if (icsk->icsk_ca_ops->flags & TCP_CONG_RTT_STAMP)
- 		__net_timestamp(skb);
- 
- 	if (likely(clone_it)) {
---- net-2.6.22.orig/net/ipv4/tcp_vegas.c
-+++ net-2.6.22/net/ipv4/tcp_vegas.c
-@@ -120,10 +120,13 @@ static void tcp_vegas_init(struct sock *
-  *   o min-filter RTT samples from a much longer window (forever for now)
-  *     to find the propagation delay (baseRTT)
-  */
--static void tcp_vegas_rtt_calc(struct sock *sk, u32 usrtt)
-+static void tcp_vegas_pkts_acked(struct sock *sk, u32 cnt, ktime_t last)
- {
- 	struct vegas *vegas = inet_csk_ca(sk);
--	u32 vrtt = usrtt + 1; /* Never allow zero rtt or baseRTT */
-+	u32 vrtt;
-+
-+	/* Never allow zero rtt or baseRTT */
-+	vrtt = (ktime_to_ns(net_timedelta(last)) / NSEC_PER_USEC) + 1;
- 
- 	/* Filter to find propagation delay: */
- 	if (vrtt < vegas->baseRTT)
-@@ -353,11 +356,12 @@ static void tcp_vegas_get_info(struct so
- }
- 
- static struct tcp_congestion_ops tcp_vegas = {
-+	.flags		= TCP_CONG_RTT_STAMP,
- 	.init		= tcp_vegas_init,
- 	.ssthresh	= tcp_reno_ssthresh,
- 	.cong_avoid	= tcp_vegas_cong_avoid,
- 	.min_cwnd	= tcp_reno_min_cwnd,
--	.rtt_sample	= tcp_vegas_rtt_calc,
-+	.pkts_acked	= tcp_vegas_pkts_acked,
- 	.set_state	= tcp_vegas_state,
- 	.cwnd_event	= tcp_vegas_cwnd_event,
- 	.get_info	= tcp_vegas_get_info,
---- net-2.6.22.orig/net/ipv4/tcp_veno.c
-+++ net-2.6.22/net/ipv4/tcp_veno.c
-@@ -69,10 +69,13 @@ static void tcp_veno_init(struct sock *s
- }
- 
- /* Do rtt sampling needed for Veno. */
--static void tcp_veno_rtt_calc(struct sock *sk, u32 usrtt)
-+static void tcp_veno_pkts_acked(struct sock *sk, u32 cnt, ktime_t last)
- {
- 	struct veno *veno = inet_csk_ca(sk);
--	u32 vrtt = usrtt + 1;	/* Never allow zero rtt or basertt */
-+	u32 vrtt;
-+
-+	/* Never allow zero rtt or baseRTT */
-+	vrtt = (ktime_to_ns(net_timedelta(last)) / NSEC_PER_USEC) + 1;
- 
- 	/* Filter to find propagation delay: */
- 	if (vrtt < veno->basertt)
-@@ -199,10 +202,11 @@ static u32 tcp_veno_ssthresh(struct sock
- }
- 
- static struct tcp_congestion_ops tcp_veno = {
-+	.flags		= TCP_CONG_RTT_STAMP,
- 	.init		= tcp_veno_init,
- 	.ssthresh	= tcp_veno_ssthresh,
- 	.cong_avoid	= tcp_veno_cong_avoid,
--	.rtt_sample	= tcp_veno_rtt_calc,
-+	.pkts_acked	= tcp_veno_pkts_acked,
- 	.set_state	= tcp_veno_state,
- 	.cwnd_event	= tcp_veno_cwnd_event,
- 
---- net-2.6.22.orig/net/ipv4/tcp_westwood.c
-+++ net-2.6.22/net/ipv4/tcp_westwood.c
-@@ -100,7 +100,7 @@ static void westwood_filter(struct westw
-  * Called after processing group of packets.
-  * but all westwood needs is the last sample of srtt.
-  */
--static void tcp_westwood_pkts_acked(struct sock *sk, u32 cnt)
-+static void tcp_westwood_pkts_acked(struct sock *sk, u32 cnt, ktime_t last)
- {
- 	struct westwood *w = inet_csk_ca(sk);
- 	if (cnt > 0)
---- net-2.6.22.orig/net/ipv4/tcp_yeah.c
-+++ net-2.6.22/net/ipv4/tcp_yeah.c
-@@ -64,13 +64,15 @@ static void tcp_yeah_init(struct sock *s
- }
- 
- 
--static void tcp_yeah_pkts_acked(struct sock *sk, u32 pkts_acked)
-+static void tcp_yeah_pkts_acked(struct sock *sk, u32 pkts_acked, ktime_t last)
- {
- 	const struct inet_connection_sock *icsk = inet_csk(sk);
- 	struct yeah *yeah = inet_csk_ca(sk);
- 
- 	if (icsk->icsk_ca_state == TCP_CA_Open)
- 		yeah->pkts_acked = pkts_acked;
-+
-+	tcp_vegas_pkts_acked(sk, pkts_acked, last);
- }
- 
- static void tcp_yeah_cong_avoid(struct sock *sk, u32 ack,
-@@ -237,11 +239,11 @@ static u32 tcp_yeah_ssthresh(struct sock
- }
- 
- static struct tcp_congestion_ops tcp_yeah = {
-+	.flags		= TCP_CONG_RTT_STAMP,
- 	.init		= tcp_yeah_init,
- 	.ssthresh	= tcp_yeah_ssthresh,
- 	.cong_avoid	= tcp_yeah_cong_avoid,
- 	.min_cwnd	= tcp_reno_min_cwnd,
--	.rtt_sample	= tcp_vegas_rtt_calc,
- 	.set_state	= tcp_vegas_state,
- 	.cwnd_event	= tcp_vegas_cwnd_event,
- 	.get_info	= tcp_vegas_get_info,
---- net-2.6.22.orig/net/ipv4/tcp_yeah.h
-+++ net-2.6.22/net/ipv4/tcp_yeah.h
-@@ -81,10 +81,13 @@ static void tcp_vegas_state(struct sock 
-  *   o min-filter RTT samples from a much longer window (forever for now)
-  *     to find the propagation delay (baseRTT)
-  */
--static void tcp_vegas_rtt_calc(struct sock *sk, u32 usrtt)
-+static void tcp_vegas_pkts_acked(struct sock *sk, u32 cnt, ktime_t last)
- {
- 	struct vegas *vegas = inet_csk_ca(sk);
--	u32 vrtt = usrtt + 1; /* Never allow zero rtt or baseRTT */
-+	u32 vrtt;
-+
-+	/* Never allow zero rtt or baseRTT */
-+	vrtt = (ktime_to_ns(net_timedelta(last)) / NSEC_PER_USEC) + 1;
- 
- 	/* Filter to find propagation delay: */
- 	if (vrtt < vegas->baseRTT)
+@@ -281,4 +355,4 @@ module_exit(tcp_illinois_unregister);
+ MODULE_AUTHOR("Stephen Hemminger, Shao Liu");
+ MODULE_LICENSE("GPL");
+ MODULE_DESCRIPTION("TCP Illinois");
+-MODULE_VERSION("0.3");
++MODULE_VERSION("1.0");
 
 -- 
 
