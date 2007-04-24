@@ -1,53 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] bridge: if no STP then forward all BPDU's
-Date: Tue, 24 Apr 2007 16:20:27 -0700 (PDT)
-Message-ID: <20070424.162027.65818763.davem@davemloft.net>
-References: <20070424161226.0372f5e8@dxpl.pdx.osdl.net>
+Subject: Re: [PATCH] Fix build errors on 32bit platforms with new ktime
+Date: Tue, 24 Apr 2007 16:22:03 -0700 (PDT)
+Message-ID: <20070424.162203.41947944.davem@davemloft.net>
+References: <20070424145754.1a37f666@dxpl.pdx.osdl.net>
+	<1177452915.30986.61.camel@localhost.localdomain>
+	<20070425.074932.51286377.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: Text/Plain; charset=iso-2022-jp
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: shemminger@linux-foundation.org
+Cc: tglx@linutronix.de, shemminger@linux-foundation.org,
+	dada1@cosmosbay.com, bunk@stusta.de, netdev@vger.kernel.org
+To: yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35071
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35077
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754649AbXDXXUV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Apr 2007 19:20:21 -0400
-In-Reply-To: <20070424161226.0372f5e8@dxpl.pdx.osdl.net>
+	by vger.kernel.org with ESMTP id S1754650AbXDXXV4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Apr 2007 19:21:56 -0400
+In-Reply-To: <20070425.074932.51286377.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Date: Tue, 24 Apr 2007 16:12:26 -0700
+From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
+Date: Wed, 25 Apr 2007 07:49:32 +0900 (JST)
 
-> The bridge code by default captures all spanning tree packets and
-> doesn't forward them. I propose that this might not be a good idea.
+> [TCP]: Fix linkage errors on i386.
 > 
-> If a bridge is not running STP, then it has no way to detect a cycle
-> in the network (by itself). But if some other machine is running STP,
-> then if STP BPDU's get forwarded to the STP can detect the cycle
-> (and turn off that link).  
+> To avoid raw division, use ktime_to_timeval() to get usec.
 > 
->               +------------+ <-BPDU-  +--------+
->               | transparent|==========| STP    |
->               |  bridge    |==========| bridge |=== ...
->               +------------+ -BPDU->  +--------+
->  
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 
-This makes a lot of sense, but I wonder about something:
+This one looks good to me, patch applied.
 
-old code:
-
-> -	if (unlikely(is_link_local(dest))) {
-> -		skb->pkt_type = PACKET_HOST;
-
-new code:
-
-> +	if (p->br->stp_enabled != BR_NO_STP && is_link_local(dest)) {
-> +		/* skb->pkt_type should already be PACKET_MULTICAST */
-
-So what is the true deal wrt. skb->pkt_type.  The original
-code must have been setting it to PACKET_HOST for a reason,
-won't leaving it at PACKET_MULTICAST break something?
+Thanks.
