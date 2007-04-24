@@ -1,35 +1,46 @@
-From: David Miller <davem@davemloft.net>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
 Subject: Re: [PATCH] Fix build errors on 32bit platforms with new ktime
-Date: Tue, 24 Apr 2007 14:54:38 -0700 (PDT)
-Message-ID: <20070424.145438.78383473.davem@davemloft.net>
-References: <20070424183827.adb60ae0.dada1@cosmosbay.com>
+Date: Wed, 25 Apr 2007 06:55:39 +0900 (JST)
+Message-ID: <20070425.065539.104129657.yoshfuji@linux-ipv6.org>
+References: <20070425.011028.113320997.yoshfuji@linux-ipv6.org>
+	<20070424183827.adb60ae0.dada1@cosmosbay.com>
 	<20070424100420.2860db68@dxpl.pdx.osdl.net>
-	<462E50F6.50700@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: shemminger@linux-foundation.org, yoshfuji@linux-ipv6.org,
-	bunk@stusta.de, netdev@vger.kernel.org, tglx@linutronix.de
-To: dada1@cosmosbay.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: dada1@cosmosbay.com, bunk@stusta.de, davem@davemloft.net,
+	netdev@vger.kernel.org, tglx@linutronix.de, yoshfuji@linux-ipv6.org
+To: shemminger@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33358
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754645AbXDXVyb convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Apr 2007 17:54:31 -0400
-In-Reply-To: <462E50F6.50700@cosmosbay.com>
+Received: from yue.linux-ipv6.org ([203.178.140.15]:32905 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1423127AbXDXVzp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Apr 2007 17:55:45 -0400
+In-Reply-To: <20070424100420.2860db68@dxpl.pdx.osdl.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=46rom: Eric Dumazet <dada1@cosmosbay.com>
-Date: Tue, 24 Apr 2007 20:48:22 +0200
+In article <20070424100420.2860db68@dxpl.pdx.osdl.net> (at Tue, 24 Apr 2007 10:04:20 -0700), Stephen Hemminger <shemminger@linux-foundation.org> says:
 
-> Stephen Hemminger a =E9crit :
-> > =20
-> > +#define ktime_to_us(kt)			((kt).tv64 / NSEC_PER_SEC)
-> > +
-> >  #else
->=20
-> Oh dear... how many bogus patches are going to be posted today ?
+> Yoshifuji-san had the right idea, but ktime_to_us needs to be defined
+> in a way that works on both 64 and 32bit platforms.
 
-Stephen please submit a working patch, thanks :-)
+No, this does not cure.
+>  
+> +#define ktime_to_us(kt)			((kt).tv64 / NSEC_PER_SEC)
+> +
+
+NSEC_PER_USEC?
+
+> +static inline s64 ktime_to_us(const ktime_t kt)
+> +{
+> +	return (s64) kt.tv_sec * USEC_PER_SEC + kt.tv_nsec / NSEC_PER_USEC;
+> +}
+> +
+
+Please do NOT use division here, which was the source of the
+linkage error, and the reason why I posted a patch to use
+ktime_to_timeval().
+
+--yoshfuji
