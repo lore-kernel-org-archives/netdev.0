@@ -1,78 +1,40 @@
-From: "Laurent Chavey" <chavey@google.com>
-Subject: Re: is CONFIG_NET_CLS_ACT always set ?
-Date: Tue, 24 Apr 2007 13:33:49 -0700
-Message-ID: <97949e3e0704241333q3ce1cc88t314cba84fc9f9bab@mail.gmail.com>
-References: <97949e3e0704231419o21062b6cl5b8cf38e1b412b05@mail.gmail.com>
-	 <1177369190.4096.13.camel@localhost>
-	 <97949e3e0704231608n6f43807en1ee6e27265c641ba@mail.gmail.com>
-	 <1177372977.4096.24.camel@localhost>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: [PATCH] cfg80211: update comment for locking
+Date: Tue, 24 Apr 2007 16:28:56 -0400
+Message-ID: <20070424202856.GH22681@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: hadi@cyberus.ca
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.45.13]:10844 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754441AbXDXUeJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Apr 2007 16:34:09 -0400
-Received: from zps77.corp.google.com (zps77.corp.google.com [172.25.146.77])
-	by smtp-out.google.com with ESMTP id l3OKXwKM027309
-	for <netdev@vger.kernel.org>; Tue, 24 Apr 2007 13:33:58 -0700
-Received: from wr-out-0506.google.com (wrai28.prod.google.com [10.54.60.28])
-	by zps77.corp.google.com with ESMTP id l3OKXocl006207
-	for <netdev@vger.kernel.org>; Tue, 24 Apr 2007 13:33:50 -0700
-Received: by wr-out-0506.google.com with SMTP id i28so2117534wra
-        for <netdev@vger.kernel.org>; Tue, 24 Apr 2007 13:33:50 -0700 (PDT)
-In-Reply-To: <1177372977.4096.24.camel@localhost>
+Content-Type: text/plain; charset=us-ascii
+Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 4/23/07, jamal <hadi@cyberus.ca> wrote:
-> On Mon, 2007-23-04 at 16:08 -0700, Laurent Chavey wrote:
-> > sorry for the trick question.
-> >
-> > I was simply making a modification to the skb tap code
-> > to allow tcpdump to work on the slave interface and not
-> > just the bonded one.
->
-> If you dont mind: what is the goal? I am not sure i want to see the
-> packets on a backup interface in a bond active/backup - but you may
-> have some good reason.
-this is for an lacp type bond where packets can come on
-any of the bond links and we need to check for the exact link.
+This patch adds a comment that was part of my rtnl locking patch for
+cfg80211 but which I forgot for the merge.
 
->
-> > The code change requires a change to
-> > the for loop code and it follow on to the call to deliver_skb().
-> >
->
-> Iam assuming you have taken care of the code above that which drops the
-> packet if not destined for master?
-yes
->
-> > In the process of adding the code, I noticed that if (at least
-> > that is how I read the code)
-> > CONFIG_NET_CLS_ACT is not defined then
-> > the last pt_prev is call after the diverter and bridge code
-> > have handled the skb.  This would only occur for bridged skb
-> > that one wanted to tap.
-> >
->
-> The bridge code does the right thing if you follow handle bridge.
-> The old diverter (you must be looking at an old kernel, because it is
-> gone) was supposed to be able to steal packets.
-> I am not sure if that answers your question.
->
-given 2 skb, both bridged (stolen) by the bridge code,
-if CONFIG_NET_CLS_ACT is not defined, then it looks like that
-only the first skb would be taped, the second one never makes
-it to the tap.
+Signed-off-by: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Signed-off-by: John W. Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+---
+ include/net/cfg80211.h |    4 ++++
+ 1 file changed, 4 insertions(+)
 
+--- net-2.6.22.orig/include/net/cfg80211.h	2007-04-24 11:20:47.538813880 +0200
++++ net-2.6.22/include/net/cfg80211.h	2007-04-24 11:21:26.388813880 +0200
+@@ -23,6 +23,10 @@ struct wiphy;
+  * All callbacks except where otherwise noted should return 0
+  * on success or a negative error code.
+  *
++ * All operations are currently invoked under rtnl for consistency with the
++ * wireless extensions but this is subject to reevaluation as soon as this
++ * code is used more widely and we have a first user without wext.
++ *
+  * @add_virtual_intf: create a new virtual interface with the given name
+  *
+  * @del_virtual_intf: remove the virtual interface determined by ifindex.
 
-> cheers,
-> jamal
->
->
->
+-- 
+John W. Linville
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
