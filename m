@@ -1,83 +1,117 @@
-From: Petko Manolov <petkan@nucleusys.com>
-Subject: Re: [PATCH] usb-net/pegasus: simplify carrier detection
-Date: Thu, 26 Apr 2007 12:12:15 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0704261211170.9967@bender.nucleusys.com>
-References: <1177424406.13684.5.camel@localhost.localdomain>
- <462E3508.1030703@garzik.org> <20070424170429.GA13668@kroah.com>
- <58298.85.91.128.158.1177436881.squirrel@nucleusys.com>
- <1177446286.18030.13.camel@localhost.localdomain>
- <Pine.LNX.4.64.0704251648050.16498@bender.nucleusys.com>
- <1177513723.3612.0.camel@localhost.localdomain>
- <Pine.LNX.4.64.0704251808210.16498@bender.nucleusys.com>
- <1177516990.3612.2.camel@localhost.localdomain>  <462F7B9A.2090904@garzik.org>
- <1177551029.1684.2.camel@localhost.localdomain>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: [PATCH 5/9] wext: cleanup early ioctl call path
+Date: Tue, 24 Apr 2007 20:07:37 +0200
+Message-ID: <20070424180848.814070000@sipsolutions.net>
+References: <20070424180732.371620000@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Jeff Garzik <jeff@garzik.org>, Greg KH <greg@kroah.com>,
-	netdev@vger.kernel.org
-To: Dan Williams <dcbw@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from n152-u15.estnet.bg ([89.253.152.15]:4438 "EHLO
-	zztop.nucleusys.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754782AbXDZJKl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2007 05:10:41 -0400
-In-Reply-To: <1177551029.1684.2.camel@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline; filename=wext-cleanup.patch
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Good man, I owe you a beer. :)
+This patch makes the code in wireless_process_ioctl somewhat more readable.
 
+Signed-off-by: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
 
-cheers,
-Petko
+---
+ net/wireless/wext.c |   73 ++++++++++++++++++----------------------------------
+ 1 file changed, 26 insertions(+), 47 deletions(-)
 
+--- net-2.6.22.orig/net/wireless/wext.c	2007-04-24 19:05:57.648804911 +0200
++++ net-2.6.22/net/wireless/wext.c	2007-04-24 19:10:51.038804911 +0200
+@@ -1035,53 +1035,31 @@ static int wireless_process_ioctl(struct
+ 	/* A bunch of special cases, then the generic case...
+ 	 * Note that 'cmd' is already filtered in dev_ioctl() with
+ 	 * (cmd >= SIOCIWFIRST && cmd <= SIOCIWLAST) */
+-	switch (cmd) {
+-	case SIOCGIWSTATS:
+-		/* Get Wireless Stats */
+-		return ioctl_standard_call(dev,
+-					   ifr,
+-					   cmd,
++	if (cmd == SIOCGIWSTATS)
++		return ioctl_standard_call(dev, ifr, cmd,
+ 					   &iw_handler_get_iwstats);
+ 
+-	case SIOCGIWPRIV:
+-		/* Check if we have some wireless handlers defined */
+-		if (dev->wireless_handlers != NULL) {
+-			/* We export to user space the definition of
+-			 * the private handler ourselves */
+-			return ioctl_standard_call(dev,
+-						   ifr,
+-						   cmd,
+-						   &iw_handler_get_private);
+-		}
+-		// ## Fall-through for old API ##
+-	default:
+-		/* Generic IOCTL */
+-		/* Basic check */
+-		if (!netif_device_present(dev))
+-			return -ENODEV;
+-		/* New driver API : try to find the handler */
+-		handler = get_handler(dev, cmd);
+-		if (handler != NULL) {
+-			/* Standard and private are not the same */
+-			if (cmd < SIOCIWFIRSTPRIV)
+-				return ioctl_standard_call(dev,
+-							   ifr,
+-							   cmd,
+-							   handler);
+-			else
+-				return ioctl_private_call(dev,
+-							  ifr,
+-							  cmd,
+-							  handler);
+-		}
+-		/* Old driver API : call driver ioctl handler */
+-		if (dev->do_ioctl) {
+-			return dev->do_ioctl(dev, ifr, cmd);
+-		}
+-		return -EOPNOTSUPP;
++	if (cmd == SIOCGIWPRIV && dev->wireless_handlers)
++		return ioctl_standard_call(dev, ifr, cmd,
++					   &iw_handler_get_private);
++
++	/* Basic check */
++	if (!netif_device_present(dev))
++		return -ENODEV;
++
++	/* New driver API : try to find the handler */
++	handler = get_handler(dev, cmd);
++	if (handler) {
++		/* Standard and private are not the same */
++		if (cmd < SIOCIWFIRSTPRIV)
++			return ioctl_standard_call(dev, ifr, cmd, handler);
++		else
++			return ioctl_private_call(dev, ifr, cmd, handler);
+ 	}
+-	/* Not reached */
+-	return -EINVAL;
++	/* Old driver API : call driver ioctl handler */
++	if (dev->do_ioctl)
++		return dev->do_ioctl(dev, ifr, cmd);
++	return -EOPNOTSUPP;
+ }
+ 
+ /* entry point from dev ioctl */
+@@ -1093,9 +1071,10 @@ int wext_handle_ioctl(struct ifreq *ifr,
+ 	/* If command is `set a parameter', or
+ 	 * `get the encoding parameters', check if
+ 	 * the user has the right to do it */
+-	if (IW_IS_SET(cmd) || cmd == SIOCGIWENCODE || cmd == SIOCGIWENCODEEXT)
+-		if (!capable(CAP_NET_ADMIN))
+-			return -EPERM;
++	if ((IW_IS_SET(cmd) || cmd == SIOCGIWENCODE || cmd == SIOCGIWENCODEEXT)
++	    && !capable(CAP_NET_ADMIN))
++		return -EPERM;
++
+ 	dev_load(ifr->ifr_name);
+ 	rtnl_lock();
+ 	ret = wireless_process_ioctl(ifr, cmd);
 
-
-On Wed, 25 Apr 2007, Dan Williams wrote:
-
-> Simplify pegasus carrier detection; rely only on the periodic MII
-> polling.  Reverts pieces of c43c49bd61fdb9bb085ddafcaadb17d06f95ec43.
->
-> Signed-off-by: Dan Williams <dcbw@redhat.com>
->
-> --- a/drivers/usb/net/pegasus.h	2007-04-25 21:21:00.000000000 -0400
-> +++ b/drivers/usb/net/pegasus.h	2007-04-25 21:21:13.000000000 -0400
-> @@ -11,7 +11,6 @@
->
-> #define	PEGASUS_II		0x80000000
-> #define	HAS_HOME_PNA		0x40000000
-> -#define	TRUST_LINK_STATUS	0x20000000
->
-> #define	PEGASUS_MTU		1536
-> #define	RX_SKBS			4
-> @@ -204,7 +203,7 @@
-> PEGASUS_DEV( "Allied Telesyn Int. AT-USB100", VENDOR_ALLIEDTEL, 0xb100,
-> 		DEFAULT_GPIO_RESET | PEGASUS_II )
-> PEGASUS_DEV( "Belkin F5D5050 USB Ethernet", VENDOR_BELKIN, 0x0121,
-> -		DEFAULT_GPIO_RESET | PEGASUS_II | TRUST_LINK_STATUS )
-> +		DEFAULT_GPIO_RESET | PEGASUS_II )
-> PEGASUS_DEV( "Billionton USB-100", VENDOR_BILLIONTON, 0x0986,
-> 		DEFAULT_GPIO_RESET )
-> PEGASUS_DEV( "Billionton USBLP-100", VENDOR_BILLIONTON, 0x0987,
-> --- a/drivers/usb/net/pegasus.c	2007-04-25 21:20:32.000000000 -0400
-> +++ b/drivers/usb/net/pegasus.c	2007-04-25 21:22:15.000000000 -0400
-> @@ -848,16 +848,6 @@
-> 		 * d[0].NO_CARRIER kicks in only with failed TX.
-> 		 * ... so monitoring with MII may be safest.
-> 		 */
-> -		if (pegasus->features & TRUST_LINK_STATUS) {
-> -			if (d[5] & LINK_STATUS)
-> -				netif_carrier_on(net);
-> -			else
-> -				netif_carrier_off(net);
-> -		} else {
-> -			/* Never set carrier _on_ based on ! NO_CARRIER */
-> -			if (d[0] & NO_CARRIER)
-> -				netif_carrier_off(net);
-> -		}
->
-> 		/* bytes 3-4 == rx_lostpkt, reg 2E/2F */
-> 		pegasus->stats.rx_missed_errors += ((d[3] & 0x7f) << 8) | d[4];
->
->
->
+--
