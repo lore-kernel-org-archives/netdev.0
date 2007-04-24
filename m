@@ -1,66 +1,65 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: PROBLEM: sky2 hangs
-Date: Tue, 24 Apr 2007 08:15:57 -0700
-Message-ID: <20070424081557.1b8f6b31@oldman>
-References: <20070403151908.41E574AC7F@dcn.infos.ru>
-	<20070424082451.25E3C4AC19@dcn.infos.ru>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: [net-2.6.22] [IPV4]: Fix build without procfs.
+Date: Wed, 25 Apr 2007 00:20:48 +0900 (JST)
+Message-ID: <20070425.002048.109830535.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: "Peter Trifonov" <petert@dcn.infos.ru>
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.24]:52531 "EHLO smtp.osdl.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1422721AbXDXPQH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Apr 2007 11:16:07 -0400
-In-Reply-To: <20070424082451.25E3C4AC19@dcn.infos.ru>
+Received: from yue.linux-ipv6.org ([203.178.140.15]:32841 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161798AbXDXPUu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Apr 2007 11:20:50 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 24 Apr 2007 12:24:51 +0400
-"Peter Trifonov" <petert@dcn.infos.ru> wrote:
+Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+---
+ net/ipv4/Makefile |    4 ++--
+ net/ipv4/proc.c   |    2 ++
+ 2 files changed, 4 insertions(+), 2 deletions(-)
 
-> Dear Stephen,
-> 
-> Unfortunately the problems with sky2 started again. 
-> 
-> From time to time NIC stops working. The system log contains the following
-> messages:
-> Apr 24 11:50:43 bullet-lin kernel: sky2 eth0: Link is up at 1000 Mbps, full
-> duplex, flow control both
-> Apr 24 11:51:55 bullet-lin kernel: sky2 0000:04:00.0: pci hw error (0x2010)
-> Apr 24 11:53:32 bullet-lin kernel: sky2 eth0: disabling interface
-> Apr 24 11:53:35 bullet-lin kernel: sky2 eth0: enabling interface
-> Apr 24 11:53:35 bullet-lin kernel: sky2 eth0: ram buffer 0K
-> Apr 24 11:53:37 bullet-lin kernel: sky2 eth0: Link is up at 1000 Mbps, full
-> duplex, flow control both
-> Apr 24 12:06:32 bullet-lin kernel: sky2 eth0: tx timeout
-> Apr 24 12:06:32 bullet-lin kernel: sky2 eth0: transmit ring 1 .. 472
-> report=1 done=1
-> Apr 24 12:06:32 bullet-lin kernel: sky2 hardware hung? flushing
-> Apr 24 12:06:32 bullet-lin kernel: sky2 eth0: transmit descriptor error
-> (hardware problem)
-> Apr 24 12:06:32 bullet-lin kernel: sky2 eth0: Link is down.
-> Apr 24 12:06:38 bullet-lin kernel: sky2 eth0: Link is up at 1000 Mbps, full
-> duplex, flow control both
-> Apr 24 12:06:38 bullet-lin kernel: sky2 eth0: transmit descriptor error
-> (hardware problem)
-> Apr 24 12:06:38 bullet-lin kernel: sky2 eth0: Link is down.
-> Apr 24 12:06:41 bullet-lin kernel: sky2 eth0: Link is up at 1000 Mbps, full
-> duplex, flow control both
-> Apr 24 12:06:41 bullet-lin kernel: sky2 eth0: transmit descriptor error
-> (hardware problem)
-> .....
-> 
-> I am running 2.6.20.4 X86-64 kernel
-> 
-> With best regards,
-> P. Trifonov  
+diff --git a/net/ipv4/Makefile b/net/ipv4/Makefile
+index 4ff6c15..3bd25f5 100644
+--- a/net/ipv4/Makefile
++++ b/net/ipv4/Makefile
+@@ -10,11 +10,11 @@ obj-y     := route.o inetpeer.o protocol.o \
+ 	     tcp_minisocks.o tcp_cong.o \
+ 	     datagram.o raw.o udp.o udplite.o \
+ 	     arp.o icmp.o devinet.o af_inet.o  igmp.o \
+-	     sysctl_net_ipv4.o fib_frontend.o fib_semantics.o
++	     sysctl_net_ipv4.o fib_frontend.o fib_semantics.o \
++	     proc.o
+ 
+ obj-$(CONFIG_IP_FIB_HASH) += fib_hash.o
+ obj-$(CONFIG_IP_FIB_TRIE) += fib_trie.o
+-obj-$(CONFIG_PROC_FS) += proc.o
+ obj-$(CONFIG_IP_MULTIPLE_TABLES) += fib_rules.o
+ obj-$(CONFIG_IP_MROUTE) += ipmr.o
+ obj-$(CONFIG_NET_IPIP) += ipip.o
+diff --git a/net/ipv4/proc.c b/net/ipv4/proc.c
+index 97952d5..a236154 100644
+--- a/net/ipv4/proc.c
++++ b/net/ipv4/proc.c
+@@ -45,6 +45,7 @@
+ #include <net/sock.h>
+ #include <net/raw.h>
+ 
++#ifdef CONFIG_PROC_FS
+ static int fold_prot_inuse(struct proto *proto)
+ {
+ 	int res = 0;
+@@ -390,6 +391,7 @@ out_netstat:
+ 	rc = -ENOMEM;
+ 	goto out;
+ }
++#endif
+ 
+ int snmp_mib_init(void *ptr[2], size_t mibsize, size_t mibalign)
+ {
+-- 
+1.5.1
 
-I bet you have 88e8056 chip.  There is some problem with the bus interface
-and the sky2 driver (and the vendor sk98lin driver), that causes all sorts
-of out of order device access problems.  Still investigating....
-
-For 2.6.21, I ended up blacklisting this version of the chip until the problem
-is resolved.
