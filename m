@@ -1,50 +1,68 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: net-2.6.22 UDP stalls/hangs
-Date: Mon, 23 Apr 2007 17:07:00 -0700 (PDT)
-Message-ID: <20070423.170700.122831331.davem@davemloft.net>
-References: <20070423153714.71b9d99e.akpm@linux-foundation.org>
-	<20070423.154509.116354989.davem@davemloft.net>
-	<20070424000458.GA21838@gondor.apana.org.au>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: 2.6.21-rc7: BUG: sleeping function called from
+	invalid context at net/core/sock.c:1523
+Date: Tue, 24 Apr 2007 13:30:09 +1000
+Message-ID: <E1HgBjF-0007Q9-00@gondolin.me.apana.org.au>
+References: <Pine.LNX.4.64.0704232257090.20657@twin.jikos.cz>
+Reply-To: BlueZ development <bluez-devel@lists.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org, acme@redhat.com
-To: herbert@gondor.apana.org.au
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39093
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1030835AbXDXAGx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Apr 2007 20:06:53 -0400
-In-Reply-To: <20070424000458.GA21838@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
+Cc: jeremy@goop.org, netdev@vger.kernel.org, marcel@holtmann.org,
+	gregkh@suse.de, linux-kernel@vger.kernel.org, clg@fr.ibm.com,
+	bluez-devel@lists.sourceforge.net, maxk@qualcomm.com
+To: jikos@jikos.cz (Jiri Kosina)
+Return-path: <bluez-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <Pine.LNX.4.64.0704232257090.20657@twin.jikos.cz>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/bluez-devel>,
+	<mailto:bluez-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=bluez-devel>
+List-Post: <mailto:bluez-devel@lists.sourceforge.net>
+List-Help: <mailto:bluez-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/bluez-devel>,
+	<mailto:bluez-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: bluez-devel-bounces@lists.sourceforge.net
+Errors-To: bluez-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Tue, 24 Apr 2007 10:04:58 +1000
+Jiri Kosina <jikos@jikos.cz> wrote:
+> 
+> Hmm, *sigh*. I guess the patch below fixes the problem, but it is a 
+> masterpiece in the field of ugliness. And I am not sure whether it is 
+> completely correct either. Are there any immediate ideas for better 
+> solution with respect to how struct sock locking works?
 
-> On Mon, Apr 23, 2007 at 03:45:09PM -0700, David Miller wrote:
-> > 
-> > Either that or some error in Herbert's recent checksum offload
-> > handling changes, such as, in fact I am highly suspicious of
-> > the second change listed below, you may want to try reverting
-> > just that one:
-> 
-> Indeed.  My change depended on drivers correctly using csum_offset
-> instead of the old csum field.  That was wrong anyway since sparse
-> would now warn against that usage.  However, prior to my change it
-> was harmless.
-> 
-> [NETDRV]: Perform missing csum_offset conversions
-> 
-> When csum_offset was introduced we did a conversion from csum to
-> csum_offset where applicable.  A couple of drivers were missed in
-> this process.
-> 
-> It was harmless to begin with since the two fields coincided.  Now
-> that we've made them different with the addition of csum_start, the
-> missed drivers must be converted or they can't send packets out at
-> all that require checksum offload.
->      
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+Please cc such patches to netdev.  Thanks.
 
-Applied, thanks a lot Herbert.
+> diff --git a/net/bluetooth/hci_sock.c b/net/bluetooth/hci_sock.c
+> index 71f5cfb..c5c93cd 100644
+> --- a/net/bluetooth/hci_sock.c
+> +++ b/net/bluetooth/hci_sock.c
+> @@ -656,7 +656,10 @@ static int hci_sock_dev_event(struct notifier_block *this, unsigned long event,
+>                /* Detach sockets from device */
+>                read_lock(&hci_sk_list.lock);
+>                sk_for_each(sk, node, &hci_sk_list.head) {
+> -                       lock_sock(sk);
+> +                       if (in_atomic())
+> +                               bh_lock_sock(sk);
+> +                       else
+> +                               lock_sock(sk);
+
+This doesn't do what you think it does.  bh_lock_sock can still succeed
+even with lock_sock held by someone else.
+
+Does this need to occur immediately when an event occurs? If not I'd
+suggest moving this into a workqueue.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by DB2 Express
+Download DB2 Express C - the FREE version of DB2 express and take
+control of your XML. No limits. Just data. Click to get it now.
+http://sourceforge.net/powerbar/db2/
