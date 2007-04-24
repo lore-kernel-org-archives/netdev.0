@@ -1,51 +1,45 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [RFC][PATCH -mm take4 2/6] support multiple logging
-Date: Tue, 24 Apr 2007 01:29:02 -0700
-Message-ID: <20070424012902.1089bc02.akpm@linux-foundation.org>
-References: <462605DC.2080804@bx.jp.nec.com>
-	<462609D1.50300@bx.jp.nec.com>
-	<20070419210813.a599c54f.akpm@linux-foundation.org>
-	<46288D11.4000801@bx.jp.nec.com>
-	<20070420111526.01ad7f4c.akpm@linux-foundation.org>
-	<462DBC64.9070102@bx.jp.nec.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: [PATCH] cfg80211: update comment for locking
+Date: Tue, 24 Apr 2007 11:22:36 +0200
+Message-ID: <1177406557.3528.19.camel@johannes.berg>
+References: <20070423183334.GC5883@tuxdriver.com>
+	 <20070423183443.GD5883@tuxdriver.com> <20070423183634.GE5883@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: mpm@selenic.com, davem@davemloft.net, linux-kernel@vger.kernel.org,
+Cc: davem@davemloft.net, linux-wireless@vger.kernel.org,
 	netdev@vger.kernel.org
-To: Keiichi KII <k-keiichi@bx.jp.nec.com>
+To: "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([65.172.181.25]:51991 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754590AbXDXI3V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Apr 2007 04:29:21 -0400
-In-Reply-To: <462DBC64.9070102@bx.jp.nec.com>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:36641 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754612AbXDXJTk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Apr 2007 05:19:40 -0400
+In-Reply-To: <20070423183634.GE5883@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 24 Apr 2007 17:14:28 +0900 Keiichi KII <k-keiichi@bx.jp.nec.com> wrote:
+This patch adds a comment that was part of my rtnl locking patch for
+cfg80211 but which I forgot for the merge.
 
-> > On Fri, 20 Apr 2007 18:51:13 +0900
-> > Keiichi KII <k-keiichi@bx.jp.nec.com> wrote:
-> > 
-> >>> I started to do some cleanups and fixups here, but abandoned it when it was
-> >>> all getting a bit large.
-> >>>
-> >>> Here are some fixes against this patch:
-> >> I'm going to fix my patches by following your reviews and send new patches 
-> >> on the LKML and the netdev ML in a few days.
-> >>
-> > 
-> > Well..  before you can finish this work we need to decide upon what the
-> > interface to userspace will be.
-> > 
-> > - The miscdev isn't appropriate
-> > 
-> 
-> Why isn't miscdev appropriate? 
-> We just shouldn't use miscdev for networking conventionally?
-> 
+Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
 
-Yes it's rather odd, especially for networking.
+---
+ include/net/cfg80211.h |    4 ++++
+ 1 file changed, 4 insertions(+)
 
-What does the miscdev _do_ anyway?  Is it purely a target for the ioctls?
+--- net-2.6.22.orig/include/net/cfg80211.h	2007-04-24 11:20:47.538813880 +0200
++++ net-2.6.22/include/net/cfg80211.h	2007-04-24 11:21:26.388813880 +0200
+@@ -23,6 +23,10 @@ struct wiphy;
+  * All callbacks except where otherwise noted should return 0
+  * on success or a negative error code.
+  *
++ * All operations are currently invoked under rtnl for consistency with the
++ * wireless extensions but this is subject to reevaluation as soon as this
++ * code is used more widely and we have a first user without wext.
++ *
+  * @add_virtual_intf: create a new virtual interface with the given name
+  *
+  * @del_virtual_intf: remove the virtual interface determined by ifindex.
+
+
