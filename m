@@ -1,42 +1,114 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: netlink locking warnings in 2.6.21-rc7-mm1
-Date: Wed, 25 Apr 2007 11:06:27 +1000
-Message-ID: <E1HgVxj-0003U6-00@gondolin.me.apana.org.au>
-References: <20070424.142008.35506725.davem@davemloft.net>
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org, kaber@trash.net
-To: davem@davemloft.net (David Miller)
+From: Jon Paul Maloy <jon.maloy@ericsson.com>
+Subject: [PATCH] [TIPC]: Enhancements to msg_set_bits() routine
+Date: Tue, 24 Apr 2007 13:21:40 -0400
+Message-ID: <462E3CA4.6070603@ericsson.com>
+Mime-Version: 1.0
+Content-Type: multipart/mixed;
+ boundary="------------070504030208010606000207"
+To: davem@davemloft.net, netdev@vger.kernel.org,
+	Per Liden <per.liden@ericsson.com>,
+	"Stephens, Allan" <allan.stephens@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:1411 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754669AbXDYBGi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Apr 2007 21:06:38 -0400
-In-Reply-To: <20070424.142008.35506725.davem@davemloft.net>
+Received: from imr2.ericy.com ([198.24.6.3]:59604 "EHLO imr2.ericy.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1030829AbXDYBIl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Apr 2007 21:08:41 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller <davem@davemloft.net> wrote:
-> 
-> Is it illegal to sleep with a mutex held?
+This is a multi-part message in MIME format.
+--------------070504030208010606000207
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Shouldn't be.
+This patch makes two enhancements to msg_set_bits():
+
+1) It now ignores any bits of the new field value that are not
+   covered by the mask being used.  (Previously, if the new value
+   exceeded the size of the mask the extra bits could corrupt
+   other fields in the message header word being updated.)
+
+2) The code has been optimized to minimize the number of run-time
+   endianness conversion operations by leveraging the fact that the
+   mask (and, in some cases, the value as well) is constant and the
+   necessary conversion can be performed by the compiler.
+
+Apply the attached patch, or pull from:
+
+ git://tipc.cslab.ericsson.net/pub/git/tipc.git
+
+ (rebased on linux/kernel/git/davem/net-2.6.git)
+
+Summary:
+
+ net/tipc/msg.h |   11 +++++++----
+ 1 files changed, 7 insertions(+), 4 deletions(-)
+
+
+///Jon
+
+
+--------------070504030208010606000207
+Content-Type: text/x-patch;
+ name="0001-TIPC-Enhancements-to-msg_set_bits-routine.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename*0="0001-TIPC-Enhancements-to-msg_set_bits-routine.patch"
+
+>From 1c3c79c4c79aa8a665ddf41c08b4363cbb946950 Mon Sep 17 00:00:00 2001
+From: Jon Paul Maloy <jon.maloy@ericsson.com>
+Date: Mon, 23 Apr 2007 11:49:07 -0400
+Subject: [PATCH 1/1] [TIPC]: Enhancements to msg_set_bits() routine
+
+This patch makes two enhancements to msg_set_bits():
+
+1) It now ignores any bits of the new field value that are not
+   covered by the mask being used.  (Previously, if the new value
+   exceeded the size of the mask the extra bits could corrupt
+   other fields in the message header word being updated.)
+
+2) The code has been optimized to minimize the number of run-time
+   endianness conversion operations by leveraging the fact that the
+   mask (and, in some cases, the value as well) is constant and the
+   necessary conversion can be performed by the compiler.
+
+Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
+Signed-off-by: Jon Paul Maloy <jon.maloy@ericsson.com>
+---
+ net/tipc/msg.h |   11 +++++++----
+ 1 files changed, 7 insertions(+), 4 deletions(-)
+
+diff --git a/net/tipc/msg.h b/net/tipc/msg.h
+index 62d5490..5c64e55 100644
+--- a/net/tipc/msg.h
++++ b/net/tipc/msg.h
+@@ -1,8 +1,8 @@
+ /*
+  * net/tipc/msg.h: Include file for TIPC message header routines
+  *
+- * Copyright (c) 2000-2006, Ericsson AB
+- * Copyright (c) 2005, Wind River Systems
++ * Copyright (c) 2000-2007, Ericsson AB
++ * Copyright (c) 2005-2007, Wind River Systems
+  * All rights reserved.
+  *
+  * Redistribution and use in source and binary forms, with or without
+@@ -71,8 +71,11 @@ static inline void msg_set_word(struct tipc_msg *m, u32 w, u32 val)
+ static inline void msg_set_bits(struct tipc_msg *m, u32 w,
+ 				u32 pos, u32 mask, u32 val)
+ {
+-	u32 word = msg_word(m,w) & ~(mask << pos);
+-	msg_set_word(m, w, (word |= (val << pos)));
++	val = (val & mask) << pos;
++	val = htonl(val);
++	mask = htonl(mask << pos);
++	m->hdr[w] &= ~mask;
++	m->hdr[w] |= val;
+ }
  
-> I think I see what might be the problem, nlk->cb_mutex is set
-> to "rtnl_mutex" and this is used for other purposes in various
-> code paths here, maybe there is a double mutex_unlock() or
-> similar due to that?
-
-Indeed, the RTNL is held during the processing of all RTNETLINK
-messages so we'd be trying to lock it recursively here which is
-not allowed.
-
-Actually I'm not quite sure what the benefit is for allowing an
-override CB mutex.  Since we still have to take it and we always
-allocate memory for a mutex anyway this would seem to be strictly
-worse than just using our own mutex.
-
-Cheers,
+ /*
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+1.5.0.5
+
+
+--------------070504030208010606000207--
