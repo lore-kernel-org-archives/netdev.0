@@ -1,37 +1,73 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] Fix sparse errors in drivers/net/ibmveth.c
-Date: Tue, 24 Apr 2007 14:02:41 -0400
-Message-ID: <462E4641.6060604@pobox.com>
-References: <20070417031314.BC404DDED4@ozlabs.org>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] netdev: get rid of casts
+Date: Tue, 24 Apr 2007 14:07:32 -0400
+Message-ID: <462E4764.6000107@garzik.org>
+References: <20070424104650.3523479d@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org,
-	santil@us.ibm.com
-To: Michael Ellerman <michael@ellerman.id.au>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:40366 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:40432 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754383AbXDXSCu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Apr 2007 14:02:50 -0400
-In-Reply-To: <20070417031314.BC404DDED4@ozlabs.org>
+	id S1422968AbXDXSHf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Apr 2007 14:07:35 -0400
+In-Reply-To: <20070424104650.3523479d@dxpl.pdx.osdl.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Michael Ellerman wrote:
-> drivers/net/ibmveth.c:96:46: error: marked inline, but without a definition
-> drivers/net/ibmveth.c:96: warning: 'ibmveth_rxq_harvest_buffer' declared inline after being called
-> drivers/net/ibmveth.c:96: warning: previous declaration of 'ibmveth_rxq_harvest_buffer' was here
+Stephen Hemminger wrote:
+> The following casts are unnecessary, just passing void * will do.
 > 
-> Just let the compiler decide, as it happens gcc 4.~ inlines it anyway.
+> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+> ---
+>  net/core/dev.c |   10 +++++-----
+>  1 files changed, 5 insertions(+), 5 deletions(-)
 > 
-> drivers/net/ibmveth.c:957:71: warning: Using plain integer as NULL pointer
-> drivers/net/ibmveth.c:964:85: warning: Using plain integer as NULL pointer
-> 
-> Split the long lines as well, ugly, but < 80 columns.
-> 
-> Signed-off-by: Michael Ellerman <michael@ellerman.id.au>
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index 18c51b4..61e9da2 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -1981,7 +1981,7 @@ int register_gifconf(unsigned int family, gifconf_func_t * gifconf)
+>   *	match.  --pb
+>   */
+>  
+> -static int dev_ifname(struct ifreq __user *arg)
+> +static int dev_ifname(void __user *arg)
+>  {
+>  	struct net_device *dev;
+>  	struct ifreq ifr;
+> @@ -2014,7 +2014,7 @@ static int dev_ifname(struct ifreq __user *arg)
+>   *	Thus we will need a 'compatibility mode'.
+>   */
+>  
+> -static int dev_ifconf(char __user *arg)
+> +static int dev_ifconf(void __user *arg)
+>  {
+>  	struct ifconf ifc;
+>  	struct net_device *dev;
+> @@ -2778,12 +2778,12 @@ int dev_ioctl(unsigned int cmd, void __user *arg)
+>  
+>  	if (cmd == SIOCGIFCONF) {
+>  		rtnl_lock();
+> -		ret = dev_ifconf((char __user *) arg);
+> +		ret = dev_ifconf(arg);
+>  		rtnl_unlock();
+> -		return ret;
+>  	}
+> +
+>  	if (cmd == SIOCGIFNAME)
+> -		return dev_ifname((struct ifreq __user *)arg);
+> +		return dev_ifname(arg);
 
-applied
+Seems like a net loss of information, with your patch.
+
+The casts are adding missing type information, in this case.  Certainly 
+it is more for human consumption than compiler consumption, but 
+nonetheless...
+
+	Jeff
+
 
 
