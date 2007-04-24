@@ -1,73 +1,53 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] netdev: get rid of casts
-Date: Tue, 24 Apr 2007 14:07:32 -0400
-Message-ID: <462E4764.6000107@garzik.org>
-References: <20070424104650.3523479d@dxpl.pdx.osdl.net>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: Re: [net-2.6.22] [TCP]: Fix linkage errors.
+Date: Tue, 24 Apr 2007 20:17:46 +0200
+Message-ID: <20070424181746.GP3468@stusta.de>
+References: <20070425.001743.19811068.yoshfuji@linux-ipv6.org> <20070424155324.GL3468@stusta.de> <20070424180348.2d40fbcb.dada1@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset=utf-8
+Cc: YOSHIFUJI Hideaki / ____________ <yoshfuji@linux-ipv6.org>,
+	davem@davemloft.net, shemminger@osdl.org, netdev@vger.kernel.org,
+	Thomas Gleixner <tglx@linutronix.de>
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:40432 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1422968AbXDXSHf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Apr 2007 14:07:35 -0400
-In-Reply-To: <20070424104650.3523479d@dxpl.pdx.osdl.net>
+Received: from mailout.stusta.mhn.de ([141.84.69.5]:33040 "EHLO
+	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1422823AbXDXSRf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Apr 2007 14:17:35 -0400
+Content-Disposition: inline
+In-Reply-To: <20070424180348.2d40fbcb.dada1@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> The following casts are unnecessary, just passing void * will do.
+On Tue, Apr 24, 2007 at 06:03:48PM +0200, Eric Dumazet wrote:
+> On Tue, 24 Apr 2007 17:53:24 +0200
+> Adrian Bunk <bunk@stusta.de> wrote:
+> > Couldn't this be better solved by adding something like the following 
+> > to include/linux/ktime.h ?
+> > 
+> > static inline s64 ktime_to_us(const ktime_t kt)
+> > {
+> >    return (s64) kt.tv.sec * USEC_PER_SEC + kt.tv.nsec / NSEC_PER_USEC;
+> > }
+> > 
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
-> ---
->  net/core/dev.c |   10 +++++-----
->  1 files changed, 5 insertions(+), 5 deletions(-)
+> Please check again include/linux/ktime.h
 > 
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 18c51b4..61e9da2 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -1981,7 +1981,7 @@ int register_gifconf(unsigned int family, gifconf_func_t * gifconf)
->   *	match.  --pb
->   */
->  
-> -static int dev_ifname(struct ifreq __user *arg)
-> +static int dev_ifname(void __user *arg)
->  {
->  	struct net_device *dev;
->  	struct ifreq ifr;
-> @@ -2014,7 +2014,7 @@ static int dev_ifname(struct ifreq __user *arg)
->   *	Thus we will need a 'compatibility mode'.
->   */
->  
-> -static int dev_ifconf(char __user *arg)
-> +static int dev_ifconf(void __user *arg)
->  {
->  	struct ifconf ifc;
->  	struct net_device *dev;
-> @@ -2778,12 +2778,12 @@ int dev_ioctl(unsigned int cmd, void __user *arg)
->  
->  	if (cmd == SIOCGIFCONF) {
->  		rtnl_lock();
-> -		ret = dev_ifconf((char __user *) arg);
-> +		ret = dev_ifconf(arg);
->  		rtnl_unlock();
-> -		return ret;
->  	}
-> +
->  	if (cmd == SIOCGIFNAME)
-> -		return dev_ifname((struct ifreq __user *)arg);
-> +		return dev_ifname(arg);
+> tv struct is defined inside 'ktime_t' only if BITS_PER_LONG != 64 && !defined(CONFIG_KTIME_SCALAR)
 
-Seems like a net loss of information, with your patch.
+That's the difference between a "what about" suggestion and an actual 
+patch...
 
-The casts are adding missing type information, in this case.  Certainly 
-it is more for human consumption than compiler consumption, but 
-nonetheless...
+I was merely suggesting solvin it through a ktime_to_us(), not 
+presenting a complete and tested patch.
 
-	Jeff
+cu
+Adrian
 
+-- 
 
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
 
