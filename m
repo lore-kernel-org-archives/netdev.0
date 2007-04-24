@@ -1,90 +1,51 @@
-From: "Peter Trifonov" <petert@dcn.infos.ru>
-Subject: RE: PROBLEM: sky2 hangs
-Date: Tue, 24 Apr 2007 12:24:51 +0400
-Message-ID: <20070424082451.25E3C4AC19@dcn.infos.ru>
-References: <20070403151908.41E574AC7F@dcn.infos.ru>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [RFC][PATCH -mm take4 2/6] support multiple logging
+Date: Tue, 24 Apr 2007 01:29:02 -0700
+Message-ID: <20070424012902.1089bc02.akpm@linux-foundation.org>
+References: <462605DC.2080804@bx.jp.nec.com>
+	<462609D1.50300@bx.jp.nec.com>
+	<20070419210813.a599c54f.akpm@linux-foundation.org>
+	<46288D11.4000801@bx.jp.nec.com>
+	<20070420111526.01ad7f4c.akpm@linux-foundation.org>
+	<462DBC64.9070102@bx.jp.nec.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: "'Stephen Hemminger'" <shemminger@linux-foundation.org>
+Cc: mpm@selenic.com, davem@davemloft.net, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Keiichi KII <k-keiichi@bx.jp.nec.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw-9cor.infos.ru ([195.209.229.106]:56715 "EHLO dcn.infos.ru"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1031038AbXDXIY4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Apr 2007 04:24:56 -0400
-In-Reply-To: <20070403151908.41E574AC7F@dcn.infos.ru>
+Received: from smtp1.linux-foundation.org ([65.172.181.25]:51991 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754590AbXDXI3V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Apr 2007 04:29:21 -0400
+In-Reply-To: <462DBC64.9070102@bx.jp.nec.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dear Stephen,
+On Tue, 24 Apr 2007 17:14:28 +0900 Keiichi KII <k-keiichi@bx.jp.nec.com> wrote:
 
-Unfortunately the problems with sky2 started again. 
-
->From time to time NIC stops working. The system log contains the following
-messages:
-Apr 24 11:50:43 bullet-lin kernel: sky2 eth0: Link is up at 1000 Mbps, full
-duplex, flow control both
-Apr 24 11:51:55 bullet-lin kernel: sky2 0000:04:00.0: pci hw error (0x2010)
-Apr 24 11:53:32 bullet-lin kernel: sky2 eth0: disabling interface
-Apr 24 11:53:35 bullet-lin kernel: sky2 eth0: enabling interface
-Apr 24 11:53:35 bullet-lin kernel: sky2 eth0: ram buffer 0K
-Apr 24 11:53:37 bullet-lin kernel: sky2 eth0: Link is up at 1000 Mbps, full
-duplex, flow control both
-Apr 24 12:06:32 bullet-lin kernel: sky2 eth0: tx timeout
-Apr 24 12:06:32 bullet-lin kernel: sky2 eth0: transmit ring 1 .. 472
-report=1 done=1
-Apr 24 12:06:32 bullet-lin kernel: sky2 hardware hung? flushing
-Apr 24 12:06:32 bullet-lin kernel: sky2 eth0: transmit descriptor error
-(hardware problem)
-Apr 24 12:06:32 bullet-lin kernel: sky2 eth0: Link is down.
-Apr 24 12:06:38 bullet-lin kernel: sky2 eth0: Link is up at 1000 Mbps, full
-duplex, flow control both
-Apr 24 12:06:38 bullet-lin kernel: sky2 eth0: transmit descriptor error
-(hardware problem)
-Apr 24 12:06:38 bullet-lin kernel: sky2 eth0: Link is down.
-Apr 24 12:06:41 bullet-lin kernel: sky2 eth0: Link is up at 1000 Mbps, full
-duplex, flow control both
-Apr 24 12:06:41 bullet-lin kernel: sky2 eth0: transmit descriptor error
-(hardware problem)
-.....
-
-I am running 2.6.20.4 X86-64 kernel
-
-With best regards,
-P. Trifonov  
-
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org 
-> [mailto:netdev-owner@vger.kernel.org] On Behalf Of Peter Trifonov
-> Sent: Tuesday, April 03, 2007 7:19 PM
-> To: 'Stephen Hemminger'
-> Cc: netdev@vger.kernel.org
-> Subject: RE: PROBLEM: sky2 hangs
+> > On Fri, 20 Apr 2007 18:51:13 +0900
+> > Keiichi KII <k-keiichi@bx.jp.nec.com> wrote:
+> > 
+> >>> I started to do some cleanups and fixups here, but abandoned it when it was
+> >>> all getting a bit large.
+> >>>
+> >>> Here are some fixes against this patch:
+> >> I'm going to fix my patches by following your reviews and send new patches 
+> >> on the LKML and the netdev ML in a few days.
+> >>
+> > 
+> > Well..  before you can finish this work we need to decide upon what the
+> > interface to userspace will be.
+> > 
+> > - The miscdev isn't appropriate
+> > 
 > 
-> Dear Stephen,
-> > > I have got a PC based on Gigabyte GA-965P-S3 motherboard with an 
-> > > integrated Marvell Yukon 88E8056 PCI-E gigabit ethernet 
-> controller.
-> > There have been several updates since 2.6.18. Please try 
-> and reproduce 
-> > with 2.6.20 or later kernel. Or contact the vendor to update their 
-> > kernel.
-> 
-> Thanks a lot!
-> 
-> After installing 2.6.20 kernel the NIC works perfectly!
-> 
-> 
-> With best regards,
-> P. Trifonov  
-> 
-> 
-> -
-> To unsubscribe from this list: send the line "unsubscribe 
-> netdev" in the body of a message to majordomo@vger.kernel.org 
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Why isn't miscdev appropriate? 
+> We just shouldn't use miscdev for networking conventionally?
 > 
 
+Yes it's rather odd, especially for networking.
 
+What does the miscdev _do_ anyway?  Is it purely a target for the ioctls?
