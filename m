@@ -1,36 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/4] tcp: congestion control initialization
-Date: Mon, 23 Apr 2007 22:34:42 -0700 (PDT)
-Message-ID: <20070423.223442.34760751.davem@davemloft.net>
-References: <20070424033117.873984872@linux-foundation.org>
-	<20070424033316.957480198@linux-foundation.org>
+Subject: Re: [NET]: Warn about GSO/checksum abuse
+Date: Mon, 23 Apr 2007 22:37:19 -0700 (PDT)
+Message-ID: <20070423.223719.09950805.davem@davemloft.net>
+References: <20070424035542.GA29189@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: shemminger@linux-founsation.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33913
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33921
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1161643AbXDXFef (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Apr 2007 01:34:35 -0400
-In-Reply-To: <20070424033316.957480198@linux-foundation.org>
+	by vger.kernel.org with ESMTP id S1161632AbXDXFhM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Apr 2007 01:37:12 -0400
+In-Reply-To: <20070424035542.GA29189@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@linux-founsation.org>
-Date: Mon, 23 Apr 2007 20:31:18 -0700
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Tue, 24 Apr 2007 13:55:42 +1000
 
-> Change to defer congestion control initialization.
+> [NET]: Warn about GSO/checksum abuse
 > 
-> If setsockopt() was used to change TCP_CONGESTION before
-> connection is established, then protocols that use sequence numbers
-> to keep track of one RTT interval (vegas, illinois, ...) get confused.
+> Now that Patrick has added the code to deal with GSO in netfilter,
+> we no longer need the crutch that computes partial checksums just
+> before transmission.
 > 
-> Change the init hook to be called after handshake.
+> This patch turns this into a warning again.  If this goes OK, we
+> can then turn it into a BUG_ON and remove the gso_send_check cruft.
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Applied.
+Thanks for keeping track of this.
 
-I'll look this over for backporting, thanks Stephen.
+Applied, thanks Herbert.
