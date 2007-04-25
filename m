@@ -1,42 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/16] AF_RXRPC socket family and AFS rewrite [try #3]
-Date: Wed, 25 Apr 2007 13:02:21 -0700 (PDT)
-Message-ID: <20070425.130221.102574755.davem@davemloft.net>
-References: <20070425105036.10872.48596.stgit@warthog.cambridge.redhat.com>
-	<13484.1177508312@redhat.com>
-	<32075.1177531007@redhat.com>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [PATCH] infinite recursion in netlink
+Date: Wed, 25 Apr 2007 12:59:41 -0700
+Message-ID: <20070425195941.GA11699@kroah.com>
+References: <20070425183856.GA6028@ms2.inr.ac.ru>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, torvalds@linux-foundation.org,
-	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: dhowells@redhat.com
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, security@kernel.org, netdev@vger.kernel.org,
+	jaco@kroon.co.za
+To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48116
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S2993020AbXDYUCO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Apr 2007 16:02:14 -0400
-In-Reply-To: <32075.1177531007@redhat.com>
+Received: from canuck.infradead.org ([209.217.80.40]:46737 "EHLO
+	canuck.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S2993035AbXDYUDN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Apr 2007 16:03:13 -0400
+Content-Disposition: inline
+In-Reply-To: <20070425183856.GA6028@ms2.inr.ac.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: David Howells <dhowells@redhat.com>
-Date: Wed, 25 Apr 2007 20:56:47 +0100
-
-> David Miller <davem@davemloft.net> wrote:
+On Wed, Apr 25, 2007 at 10:38:56PM +0400, Alexey Kuznetsov wrote:
+> Hello!
 > 
-> > Then please generate your patches against my net-2.6.21 GIT
-> > tree.  Most of your initial patches in the series (the SKB
-> > routine one for example) are already in my tree.
+> Reply to NETLINK_FIB_LOOKUP messages were misrouted back to kernel,
+> which resulted in infinite recursion and stack overflow.
 > 
-> Do you mean your net-2.6.22 GIT tree?
-> 
-> Do you want me to make it available as a GIT tree for you to pull?  Or would
-> you prefer patches?
+> The bug is present in all kernel versions since the feature appeared.
 
-Just patches is perfectly fine.
+Any hint on when this feature appeared so that we can notify the distros
+for older releases?
 
-Also, if it's easier to diff against -mm, that works too
-since Andrew integrates my net-2.6.22 tree into -mm most
-of the time.
+thanks,
+
+greg k-h
