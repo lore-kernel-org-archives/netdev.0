@@ -1,52 +1,37 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: sysctls
-Date: Wed, 25 Apr 2007 14:06:34 -0600
-Message-ID: <m1irbkqkvp.fsf@ebiederm.dsl.xmission.com>
-References: <20070425122924.88391585.akpm@linux-foundation.org>
-	<20070425.130011.21926881.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] infinite recursion in netlink
+Date: Wed, 25 Apr 2007 13:09:32 -0700 (PDT)
+Message-ID: <20070425.130932.70219336.davem@davemloft.net>
+References: <20070425183856.GA6028@ms2.inr.ac.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: security@kernel.org, greg@kroah.com, netdev@vger.kernel.org,
+	jaco@kroon.co.za
+To: kuznet@ms2.inr.ac.ru
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:37498 "EHLO
-	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S2993045AbXDYUHd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Apr 2007 16:07:33 -0400
-In-Reply-To: <20070425.130011.21926881.davem@davemloft.net> (David Miller's
-	message of "Wed, 25 Apr 2007 13:00:11 -0700 (PDT)")
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34846
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S2993052AbXDYUJY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Apr 2007 16:09:24 -0400
+In-Reply-To: <20070425183856.GA6028@ms2.inr.ac.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller <davem@davemloft.net> writes:
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Date: Wed, 25 Apr 2007 22:38:56 +0400
 
-> From: Andrew Morton <akpm@linux-foundation.org>
-> Date: Wed, 25 Apr 2007 12:29:24 -0700
->
->> 
->> I note that the networking tree is adding new sysctls:
->> 
->> <<<<<<< HEAD/include/linux/sysctl.h
->>         NET_IPV6_ACCEPT_SOURCE_ROUTE=25,
->> =======
->>         NET_IPV6_OPTIMISTIC_DAD=24,
->>         NET_IPV6_ACCEPT_SOURCE_ROUTE=25,
->> >>>>>>> /include/linux/sysctl.h
->> 
->> (Well, it's trying to - there are some git rejects in net-2.6.22)
->
-> I knew this was going to happen because of Yoshifuji's
-> security fix, the conflict is trivial to resolve.
->
-> I'll rebase the net-2.6.22 tree later today since all
-> we should have before 2.6.21-final is the netlink
-> OOPS'er fix Alexey just posted.
+> Reply to NETLINK_FIB_LOOKUP messages were misrouted back to kernel,
+> which resulted in infinite recursion and stack overflow.
+> 
+> The bug is present in all kernel versions since the feature appeared.
+> 
+> The patch also makes some minimal cleanup:
+> 
+> 1. Return something consistent (-ENOENT) when fib table is missing
+> 2. Do not crash when queue is empty (does not happen, but yet)
+> 3. Put result of lookup
+> 
+> Signed-off-by: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
 
-David for clarity do you happen to know of anyone using binary
-sysctl values?
-
-In particular is there any reason not to use CTL_UNNUMBERED
-for new networking sysctls?
-
-Eric
-
+Applied, thanks a lot Alexey.
