@@ -1,8 +1,7 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH 02/16] cancel_delayed_work: use del_timer() instead of
-	del_timer_sync() [try #4]
-Date: Wed, 25 Apr 2007 16:49:07 +0100
-Message-ID: <20070425154907.26581.85907.stgit@warthog.cambridge.redhat.com>
+Subject: [PATCH 03/16] AF_RXRPC: Key facility changes for AF_RXRPC [try #4]
+Date: Wed, 25 Apr 2007 16:49:12 +0100
+Message-ID: <20070425154912.26581.22492.stgit@warthog.cambridge.redhat.com>
 References: <20070425154854.26581.97692.stgit@warthog.cambridge.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,71 +9,71 @@ Content-Transfer-Encoding: 7bit
 Cc: linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
 	netdev@vger.kernel.org, dhowells@redhat.com
 To: torvalds@osdl.org, akpm@osdl.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:47881 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1031099AbXDYPtm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Apr 2007 11:49:42 -0400
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1031134AbXDYPuV@vger.kernel.org>
 In-Reply-To: <20070425154854.26581.97692.stgit@warthog.cambridge.redhat.com>
-Sender: netdev-owner@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-del_timer_sync() buys nothing for cancel_delayed_work(), but it is less
-efficient since it locks the timer unconditionally, and may wait for the
-completion of the delayed_work_timer_fn().
+Export the keyring key type definition and document its availability.
 
-cancel_delayed_work() == 0 means:
+Add alternative types into the key's type_data union to make it more useful.
+Not all users necessarily want to use it as a list_head (AF_RXRPC doesn't, for
+example), so make it clear that it can be used in other ways.
 
-	before this patch:
-		work->func may still be running or queued
-
-	after this patch:
-		work->func may still be running or queued, or
-		delayed_work_timer_fn->__queue_work() in progress.
-
-		The latter doesn't differ from the caller's POV,
-		delayed_work_timer_fn() is called with _PENDING
-		bit set.
-
-cancel_delayed_work() == 1 with this patch adds a new possibility:
-
-	delayed_work->work was cancelled, but delayed_work_timer_fn
-	is still running (this is only possible for the re-arming
-	works on single-threaded workqueue).
-
-	In this case the timer was re-started by work->func(), nobody
-	else can do this. This in turn means that delayed_work_timer_fn
-	has already passed __queue_work() (and wont't touch delayed_work)
-	because nobody else can queue delayed_work->work.
-
-Signed-off-by: Oleg Nesterov <oleg@tv-sign.ru>
 Signed-Off-By: David Howells <dhowells@redhat.com>
 ---
 
- include/linux/workqueue.h |    7 ++++---
- 1 files changed, 4 insertions(+), 3 deletions(-)
+ Documentation/keys.txt  |   12 ++++++++++++
+ include/linux/key.h     |    2 ++
+ security/keys/keyring.c |    2 ++
+ 3 files changed, 16 insertions(+), 0 deletions(-)
 
-diff --git a/include/linux/workqueue.h b/include/linux/workqueue.h
-index 2a7b38d..b8abfc7 100644
---- a/include/linux/workqueue.h
-+++ b/include/linux/workqueue.h
-@@ -191,14 +191,15 @@ int execute_in_process_context(work_func_t fn, struct execute_work *);
+diff --git a/Documentation/keys.txt b/Documentation/keys.txt
+index 60c665d..81d9aa0 100644
+--- a/Documentation/keys.txt
++++ b/Documentation/keys.txt
+@@ -859,6 +859,18 @@ payload contents" for more information.
+ 	void unregister_key_type(struct key_type *type);
  
+ 
++Under some circumstances, it may be desirable to desirable to deal with a
++bundle of keys.  The facility provides access to the keyring type for managing
++such a bundle:
++
++	struct key_type key_type_keyring;
++
++This can be used with a function such as request_key() to find a specific
++keyring in a process's keyrings.  A keyring thus found can then be searched
++with keyring_search().  Note that it is not possible to use request_key() to
++search a specific keyring, so using keyrings in this way is of limited utility.
++
++
+ ===================================
+ NOTES ON ACCESSING PAYLOAD CONTENTS
+ ===================================
+diff --git a/include/linux/key.h b/include/linux/key.h
+index 169f05e..a9220e7 100644
+--- a/include/linux/key.h
++++ b/include/linux/key.h
+@@ -160,6 +160,8 @@ struct key {
+ 	 */
+ 	union {
+ 		struct list_head	link;
++		unsigned long		x[2];
++		void			*p[2];
+ 	} type_data;
+ 
+ 	/* key data
+diff --git a/security/keys/keyring.c b/security/keys/keyring.c
+index ad45ce7..88292e3 100644
+--- a/security/keys/keyring.c
++++ b/security/keys/keyring.c
+@@ -66,6 +66,8 @@ struct key_type key_type_keyring = {
+ 	.read		= keyring_read,
+ };
+ 
++EXPORT_SYMBOL(key_type_keyring);
++
  /*
-  * Kill off a pending schedule_delayed_work().  Note that the work callback
-- * function may still be running on return from cancel_delayed_work().  Run
-- * flush_scheduled_work() to wait on it.
-+ * function may still be running on return from cancel_delayed_work(), unless
-+ * it returns 1 and the work doesn't re-arm itself. Run flush_workqueue() or
-+ * cancel_work_sync() to wait on it.
-  */
- static inline int cancel_delayed_work(struct delayed_work *work)
- {
- 	int ret;
- 
--	ret = del_timer_sync(&work->timer);
-+	ret = del_timer(&work->timer);
- 	if (ret)
- 		work_release(&work->work);
- 	return ret;
-
+  * semaphore to serialise link/link calls to prevent two link calls in parallel
+  * introducing a cycle
