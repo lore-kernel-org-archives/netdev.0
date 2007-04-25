@@ -1,44 +1,32 @@
-From: David Howells <dhowells@redhat.com>
-Subject: [PATCH 13/16] commit ad495d7b6cfcd1bc2eaf06c42699be0bb5d84234 [try #4]
-Date: Wed, 25 Apr 2007 16:50:04 +0100
-Message-ID: <20070425155003.26581.31916.stgit@warthog.cambridge.redhat.com>
-References: <20070425154854.26581.97692.stgit@warthog.cambridge.redhat.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH][XFRM] export SAD info
+Date: Wed, 25 Apr 2007 11:54:50 -0400
+Message-ID: <1177516490.9923.7.camel@localhost>
+References: <1177515761.9923.3.camel@localhost>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	netdev@vger.kernel.org, dhowells@redhat.com
-To: torvalds@osdl.org, akpm@osdl.org
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <20070425154854.26581.97692.stgit@warthog.cambridge.redhat.com>
-Sender: linux-fsdevel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wx-out-0506.google.com ([66.249.82.234]:60316 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1031151AbXDYPyy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Apr 2007 11:54:54 -0400
+Received: by wx-out-0506.google.com with SMTP id h31so279745wxd
+        for <netdev@vger.kernel.org>; Wed, 25 Apr 2007 08:54:53 -0700 (PDT)
+In-Reply-To: <1177515761.9923.3.camel@localhost>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[NETLINK]: Mirror UDP MSG_TRUNC semantics.
 
-    If the user passes MSG_TRUNC in via msg_flags, return
-    the full packet size not the truncated size.
+That patch has xfrm_state_num being mucked with; just ignore that bit.
+I need to send a patch against net-2.6.22 and i will clean that up -
+just need some feedback.
 
-    Idea from Herbert Xu and Thomas Graf.
+Would it make sense to have those vars as u32 instead of unsigned int?
 
-    Signed-off-by: David S. Miller <davem@davemloft.net>
----
-
- net/netlink/af_netlink.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
-
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index c48b0f4..5890210 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -1242,6 +1242,9 @@ static int netlink_recvmsg(struct kiocb *kiocb, struct socket *sock,
- 
- 	scm_recv(sock, msg, siocb->scm, flags);
- 
-+	if (flags & MSG_TRUNC)
-+		copied = skb->len;
-+
- out:
- 	netlink_rcv_wake(sk);
- 	return err ? : copied;
+cheers,
+jamal
 
