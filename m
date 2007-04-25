@@ -1,85 +1,49 @@
-From: Ismail =?utf-8?q?D=C3=B6nmez?= <ismail@pardus.org.tr>
-Subject: Re: Problem with commit a0ee18b9b7d3847976c6fb315c06a34fb296de0e
-Date: Wed, 25 Apr 2007 16:50:35 +0300
-Message-ID: <200704251650.36773.ismail@pardus.org.tr>
-References: <200704231506.34410.ismail@pardus.org.tr> <200704240023.13565.ismail@pardus.org.tr> <200704251152.52906.ismail@pardus.org.tr>
-Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart1577899.xjURKT4k6S";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Thomas Graf <tgraf@suug.ch>
+From: David Howells <dhowells@redhat.com>
+Subject: Re: Getting the new RxRPC patches upstream
+Date: Wed, 25 Apr 2007 14:48:39 +0100
+Message-ID: <13634.1177508919@redhat.com>
+References: <20070420.015838.83621529.davem@davemloft.net>  <29341.1176975158@redhat.com> <2969.1176992303@redhat.com> <1101.1177056127@redhat.com>
+Cc: ebiederm@xmission.com, akpm@osdl.org, containers@lists.osdl.org,
+	oleg@tv-sign.ru, hch@infradead.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.uludag.org.tr ([193.140.100.220]:55431 "EHLO uludag.org.tr"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1030332AbXDYNtS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Apr 2007 09:49:18 -0400
-In-Reply-To: <200704251152.52906.ismail@pardus.org.tr>
+Received: from mx1.redhat.com ([66.187.233.31]:55698 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1030877AbXDYNtl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Apr 2007 09:49:41 -0400
+In-Reply-To: <20070420.015838.83621529.davem@davemloft.net> 
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart1577899.xjURKT4k6S
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
 
-On Wednesday 25 April 2007 11:52:52 Ismail D=C3=B6nmez wrote:
-> Hi,
->
-> On Tuesday 24 April 2007 00:23:13 Ismail D=C3=B6nmez wrote:
-> > On Tuesday 24 April 2007 00:17:40 Thomas Graf wrote:
-> > > * Ismail D?nmez <ismail@pardus.org.tr> 2007-04-23 22:09
-> > >
-> > > > Yes I know the fix is in but I wondered why its creating such
-> > > > problems with 2.6.18 kernel, guess it depends on some other commits.
-> > >
-> > > As long as you apply the complete patch including the additional
-> > > sanity check for RTN_MAX it should work perfectly fine on 2.6.18.
-> >
-> > The sanity check part doesn't seem to apply to 2.6.18.
-> >
-> > > I can't think of any connection between the patch and the errors
-> > > you are seeing.
-> > >
-> > > Are you absolutely sure the errors you see are directly connected
-> > > to applying the patch?
-> >
-> > Yes actually I am but I'll re-test and see. Thanks.
->
-> I was able to reproduce the same problem with Linus' GIT tree too. Since I
-> started to see these after I applied the commit
-> a0ee18b9b7d3847976c6fb315c06a34fb296de0e to 2.6.18 tree, there is a big
-> possiblity that the commit is the culprit.
->
-> I attach the relevant dmesg messages. Problem happened after 12 hours of
-> uptime and and net connection gets stable again after 1-2 minutes.
+David Miller <davem@davemloft.net> wrote:
 
-Ignore this my laptop seems to be totally dying now including wireless card=
-=20
-too. Sorry for the noise.
+> Is it possible for your changes to be purely networking
+> and not need those changes outside of the networking?
 
-Regards,
-ismail
+See my latest patchset release.  I've reduced the dependencies on
+non-networking changes to:
 
-=2D-=20
-Life is a game, and if you aren't in it to win,
-what the heck are you still doing here?
+ (1) Oleg Nesterov's patch to change cancel_delayed_work() to use del_timer()
+     rather than del_timer_sync() [patch 02/16].
 
-=2D- Linus Torvalds (talking about open source development)
+     This patch can be discarded without compilation failure at the expense of
+     making AFS slightly less efficient. It also makes AF_RXRPC slightly less
+     efficient, but only in the rmmod path.
 
---nextPart1577899.xjURKT4k6S
-Content-Type: application/pgp-signature; name=signature.asc 
-Content-Description: This is a digitally signed message part.
+ (2) A symbol export in the keyring stuff plus a proliferation of the types
+     available in the struct key::type_data union [patch 03/16].  This does
+     not conflict with any other patches that I know about.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.3 (GNU/Linux)
+ (3) A symbol export in the timer stuff [patch 04/16].
 
-iD8DBQBGL1ysGp0leluI9UwRAgULAJwO9dh/SKkBON9fAkUZD/4dc/N6gACfaOMU
-FX86QUKoEi0tuGV3gWfmZTU=
-=5RCn
------END PGP SIGNATURE-----
+Everything else that remains after the reduction is confined to the AF_RXRPC
+or AFS code, save for a couple of networking patches in my patchset that you
+already have and I just need to make the thing compile.
 
---nextPart1577899.xjURKT4k6S--
+I'm not sure that I can make the AF_RXRPC patches totally independent of the
+AFS patches as the two sets need to interleave since the last AF_RXRPC patch
+deletes the old RxRPC code - which the old AFS code depends on.
+
+David
