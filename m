@@ -1,50 +1,61 @@
-From: Mithlesh Thukral <mithlesh@netxen.com>
-Subject: Re: [PATCH 0/7] NetXen: Make driver use multiple PCI functions
-Date: Wed, 25 Apr 2007 11:24:00 +0530
-Message-ID: <200704251124.00640.mithlesh@netxen.com>
-References: <200704201451.l3KEpGsF004449@dut39.unminc.com> <462E45DE.5030702@garzik.org>
+From: Shani Moideen <shani.moideen@wipro.com>
+Subject: [PATCH]:Replacing with time_before in net/ipv4/ip_gre.c
+Date: Wed, 25 Apr 2007 11:30:17 +0530
+Message-ID: <1177480817.27118.18.camel@shani-win>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, amitkale@netxen.com,
-	netxenproj@linsyssoft.com, rob@netxen.com
-To: Jeff Garzik <jeff@garzik.org>
+Cc: kernel-janitors@lists.osdl.org, netdev@vger.kernel.org
+To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@coreworks.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from svr68.ehostpros.com ([67.15.48.48]:53248 "EHLO
-	svr68.ehostpros.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1423212AbXDYGAx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Apr 2007 02:00:53 -0400
-In-Reply-To: <462E45DE.5030702@garzik.org>
-Content-Disposition: inline
+Received: from wip-cdc-wd.wipro.com ([203.91.201.26]:36785 "EHLO
+	wip-cdc-wd.wipro.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1423217AbXDYGEK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Apr 2007 02:04:10 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 24 April 2007 23:31, Jeff Garzik wrote:
-> Mithlesh Thukral wrote:
-> > hi All,
-> >
-> > Thanks Stephen for your suggestion. I am resending the 7 patches
-> > after incorporating the suggestion.
-> > These patches are with respect to netdev#upstream and we wish their
-> > inclusion in 2.6.22 kernel.
-> >
-> > Out of these the first 2 patches were already accepted into the netdev
-> > tree, but we have requested them to be dropped. So we are resending those
-> > 2. Please see the following thread for more details :
-> > http://www.spinics.net/lists/netdev/msg26805.html
->
-> So what does that mean?
->
-> If the patches were accepted, then you must send further patches
-> cumulative to what is currently in the tree.  If it is already accepted,
-> you cannot "drop" a patch.
-My apologies for the confusion created by my email. 
-We wish inclusion of these 7 patches in the netdev tree. All these patches are 
-cumulative with what is currently present in the tree.
+Hi,
 
-Thanks,
-Mithlesh Thukral
+Replacing with time_before in net/ipv4/ip_gre.c
 
->
-> 	Jeff
+thanks.
+
+Signed-off-by: Shani Moideen <shani.moideen@wipro.com>
+----
+
+diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+index 9151da6..05cd63b 100644
+--- a/net/ipv4/ip_gre.c
++++ b/net/ipv4/ip_gre.c
+@@ -28,6 +28,7 @@
+ #include <linux/igmp.h>
+ #include <linux/netfilter_ipv4.h>
+ #include <linux/if_ether.h>
++#include <linux/jiffies.h>
+ 
+ #include <net/sock.h>
+ #include <net/ip.h>
+@@ -376,7 +377,7 @@ static void ipgre_err(struct sk_buff *skb, u32 info)
+ 	if (t->parms.iph.ttl == 0 && type == ICMP_TIME_EXCEEDED)
+ 		goto out;
+ 
+-	if (jiffies - t->err_time < IPTUNNEL_ERR_TIMEO)
++	if (time_before(jiffies , t->err_time + IPTUNNEL_ERR_TIMEO))
+ 		t->err_count++;
+ 	else
+ 		t->err_count = 1;
+@@ -801,7 +802,7 @@ static int ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
+ #endif
+ 
+ 	if (tunnel->err_count > 0) {
+-		if (jiffies - tunnel->err_time < IPTUNNEL_ERR_TIMEO) {
++		if (time_before(jiffies , tunnel->err_time + IPTUNNEL_ERR_TIMEO)) {
+ 			tunnel->err_count--;
+ 
+ 			dst_link_failure(skb);
+
+----
+Shani
+
