@@ -1,144 +1,327 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [PATCH] usb-net/pegasus: fix pegasus carrier detection
-Date: Wed, 25 Apr 2007 12:03:10 -0400
-Message-ID: <1177516990.3612.2.camel@localhost.localdomain>
-References: <1177424406.13684.5.camel@localhost.localdomain>
-	 <462E3508.1030703@garzik.org> <20070424170429.GA13668@kroah.com>
-	 <58298.85.91.128.158.1177436881.squirrel@nucleusys.com>
-	 <1177446286.18030.13.camel@localhost.localdomain>
-	 <Pine.LNX.4.64.0704251648050.16498@bender.nucleusys.com>
-	 <1177513723.3612.0.camel@localhost.localdomain>
-	 <Pine.LNX.4.64.0704251808210.16498@bender.nucleusys.com>
+From: David Howells <dhowells@redhat.com>
+Subject: [PATCH 12/16] AFS: Update the AFS fs documentation [try #4]
+Date: Wed, 25 Apr 2007 16:49:58 +0100
+Message-ID: <20070425154958.26581.59102.stgit@warthog.cambridge.redhat.com>
+References: <20070425154854.26581.97692.stgit@warthog.cambridge.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Greg KH <greg@kroah.com>, Jeff Garzik <jeff@garzik.org>,
-	netdev@vger.kernel.org
-To: Petko Manolov <petkan@nucleusys.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:52786 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1161865AbXDYP70 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Apr 2007 11:59:26 -0400
-In-Reply-To: <Pine.LNX.4.64.0704251808210.16498@bender.nucleusys.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	netdev@vger.kernel.org, dhowells@redhat.com
+To: torvalds@osdl.org, akpm@osdl.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161740AbXDYP6U@vger.kernel.org>
+In-Reply-To: <20070425154854.26581.97692.stgit@warthog.cambridge.redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2007-04-25 at 18:09 +0300, Petko Manolov wrote:
-> On Wed, 25 Apr 2007, Dan Williams wrote:
-> 
-> > On Wed, 2007-04-25 at 17:58 +0300, Petko Manolov wrote:
-> >> In general i agree with the reasoning below.  However, isn't it better to
-> >> remove the code that sets carrier on/off in intr_callback()?
-> >
-> > I'm fine with this; whatever makes carrier status work makes me happy :)
-> 
-> Great.  Are you going to submit the new patch or this hard labor will lay 
-> on my shoulders? :)
+Update the AFS fs documentation.
 
-Well, it looked like you already had one; but if you'd like I'll whip up
-a new one.
+Signed-Off-By: David Howells <dhowells@redhat.com>
+---
 
-Dan
+ Documentation/filesystems/afs.txt |  214 +++++++++++++++++++++++++++----------
+ 1 files changed, 154 insertions(+), 60 deletions(-)
 
-> 
->  		Petko
-> 
-> 
-> 
-> >> There's a reliable way of getting the link status by reading the MII.
-> >> After correct checking of the return value from read_mii_word(),
-> >> set_carrier() is what is good enough.  If 2 seconds is too long of an
-> >> interval we could reduce it to 1 second or, if needed, less.
-> >>
-> >> I'd like to avoid adding additional flags per device as it will take
-> >> forever to collect information about their "correct" behavior and update
-> >> pegasus.h.  In short i think this part of your patch should be enough:
-> >>
-> >> ---
-> >>
-> >> @@ -847,10 +848,16 @@ static void intr_callback(struct urb *urb)
-> >>  		 * d[0].NO_CARRIER kicks in only with failed TX.
-> >>  		 * ... so monitoring with MII may be safest.
-> >>  		 */
-> >> -		if (d[0] & NO_CARRIER)
-> >> -			netif_carrier_off(net);
-> >> -		else
-> >> -			netif_carrier_on(net);
-> >> -
-> >>  		/* bytes 3-4 == rx_lostpkt, reg 2E/2F */
-> >>  		pegasus->stats.rx_missed_errors += ((d[3] & 0x7f) << 8) | d[4];
-> >> @@ -950,7 +957,7 @@ static void set_carrier(struct net_device *net)
-> >>  	pegasus_t *pegasus = netdev_priv(net);
-> >>  	u16 tmp;
-> >>
-> >> -	if (!read_mii_word(pegasus, pegasus->phy, MII_BMSR, &tmp))
-> >> +	if (read_mii_word(pegasus, pegasus->phy, MII_BMSR, &tmp))
-> >>  		return;
-> >>
-> >> ---
-> >>
-> >>
-> >> cheers,
-> >> Petko
-> >>
-> >>
-> >> On Tue, 24 Apr 2007, Dan Williams wrote:
-> >>
-> >>> On Tue, 2007-04-24 at 20:48 +0300, petkan@nucleusys.com wrote:
-> >>>>> On Tue, Apr 24, 2007 at 12:49:12PM -0400, Jeff Garzik wrote:
-> >>>>>>  Long term, Greg seemed OK with moving the net drivers from
-> >>>>>> drivers/usb/net
-> >>>>>>  to drivers/usb/net, in line with the current policy of placing net
-> >>>>>> drivers
-> >>>>>>  in drivers/net/*, bus agnostic.  After that move, sending to netdev and
-> >>>>>> me
-> >>>>>>  (as you did here) would be the preferred avenue.
-> >>>>>
-> >>>>> Speaking of which, do you want me to do this in the 2.6.22-rc1
-> >>>>> timeframe?  Usually big code moves like this are good to do right after
-> >>>>> rc1 comes out as the major churn is usually completed then.
-> >>>>
-> >>>> Sorry to interfere, but could you guys wait until tomorrow before applying
-> >>>> the patch to your respective GIT trees?  I'd like to check if the code is
-> >>>> doing the right thing and avoid patch reversal.
-> >>>
-> >>> Original problem was that the patch I referenced in the commit message
-> >>> from Jan 6 2006 switched the return value semantics from
-> >>> read_mii_word().  Before the patch, read_mii_word returned 1 on success,
-> >>> 0 on error.  After the patch, it returns the generally accepted 0 on
-> >>> success and !0 on error.
-> >>>
-> >>> That causes set_carrier() to return immediately rather than fiddle with
-> >>> netif_carrier_*.  When the Jan 6 2006 patch went in changing the return
-> >>> values, set_carrier() was not updated for the new return values.
-> >>> Nothing else in the code cares about read_mii_word()'s return value
-> >>> except set_carrier().
-> >>>
-> >>> But when the card is brought up and no cable is plugged in,
-> >>> intr_callback() gets called repeatedly, which itself repeatedly calls
-> >>> netif_carrier_on() due to the NO_CARRIER check.  The comment there about
-> >>> "NO_CARRIER kicks in on TX failure" seems accurate, because even with no
-> >>> cable plugged in, and therefore no packets getting transmitted, the
-> >>> NO_CARRIER check is never true on the Belkin part.  Therefore,
-> >>> netif_carrier_on() is always called as a result of the failure of d[0] &
-> >>> NO_CARRIER, turning carrier back on even if there is no cable plugged
-> >>> in.  This bulldozes over the MII carrier_check routine too.
-> >>>
-> >>> I don't think the intr_callback() code should ever turn the carrier
-> >>> _on_, because there's that 2*HZ MII carrier check which can certainly
-> >>> handle the carrier on/off stuff.
-> >>>
-> >>> LINK_STATUS appears valid on the Belkin part too, so we can add that as
-> >>> a reverse-quirk and use LINK_STATUS on parts where it works.  If you
-> >>> think that the NO_CARRIER check should be in _addition_ to the
-> >>> LINK_STATUS check, that's fine with me, provided that the NO_CARRIER
-> >>> check only turns carrier off.
-> >>>
-> >>> Dan
-> >>>
-> >>>
-> >>>
-> >
-> >
-
+diff --git a/Documentation/filesystems/afs.txt b/Documentation/filesystems/afs.txt
+index 2f4237d..12ad6c7 100644
+--- a/Documentation/filesystems/afs.txt
++++ b/Documentation/filesystems/afs.txt
+@@ -1,31 +1,82 @@
++			     ====================
+ 			     kAFS: AFS FILESYSTEM
+ 			     ====================
+ 
+-ABOUT
+-=====
++Contents:
++
++ - Overview.
++ - Usage.
++ - Mountpoints.
++ - Proc filesystem.
++ - The cell database.
++ - Security.
++ - Examples.
++
++
++========
++OVERVIEW
++========
+ 
+-This filesystem provides a fairly simple AFS filesystem driver. It is under
+-development and only provides very basic facilities. It does not yet support
+-the following AFS features:
++This filesystem provides a fairly simple secure AFS filesystem driver. It is
++under development and does not yet provide the full feature set.  The features
++it does support include:
+ 
+-	(*) Write support.
+-	(*) Communications security.
+-	(*) Local caching.
+-	(*) pioctl() system call.
+-	(*) Automatic mounting of embedded mountpoints.
++ (*) Security (currently only AFS kaserver and KerberosIV tickets).
+ 
++ (*) File reading.
+ 
++ (*) Automounting.
++
++It does not yet support the following AFS features:
++
++ (*) Write support.
++
++ (*) Local caching.
++
++ (*) pioctl() system call.
++
++
++===========
++COMPILATION
++===========
++
++The filesystem should be enabled by turning on the kernel configuration
++options:
++
++	CONFIG_AF_RXRPC		- The RxRPC protocol transport
++	CONFIG_RXKAD		- The RxRPC Kerberos security handler
++	CONFIG_AFS		- The AFS filesystem
++
++Additionally, the following can be turned on to aid debugging:
++
++	CONFIG_AF_RXRPC_DEBUG	- Permit AF_RXRPC debugging to be enabled
++	CONFIG_AFS_DEBUG	- Permit AFS debugging to be enabled
++
++They permit the debugging messages to be turned on dynamically by manipulating
++the masks in the following files:
++
++	/sys/module/af_rxrpc/parameters/debug
++	/sys/module/afs/parameters/debug
++
++
++=====
+ USAGE
+ =====
+ 
+ When inserting the driver modules the root cell must be specified along with a
+ list of volume location server IP addresses:
+ 
+-	insmod rxrpc.o
++	insmod af_rxrpc.o
++	insmod rxkad.o
+ 	insmod kafs.o rootcell=cambridge.redhat.com:172.16.18.73:172.16.18.91
+ 
+-The first module is a driver for the RxRPC remote operation protocol, and the
+-second is the actual filesystem driver for the AFS filesystem.
++The first module is the AF_RXRPC network protocol driver.  This provides the
++RxRPC remote operation protocol and may also be accessed from userspace.  See:
++
++	Documentation/networking/rxrpc.txt
++
++The second module is the kerberos RxRPC security driver, and the third module
++is the actual filesystem driver for the AFS filesystem.
+ 
+ Once the module has been loaded, more modules can be added by the following
+ procedure:
+@@ -33,7 +84,7 @@ procedure:
+ 	echo add grand.central.org 18.7.14.88:128.2.191.224 >/proc/fs/afs/cells
+ 
+ Where the parameters to the "add" command are the name of a cell and a list of
+-volume location servers within that cell.
++volume location servers within that cell, with the latter separated by colons.
+ 
+ Filesystems can be mounted anywhere by commands similar to the following:
+ 
+@@ -42,11 +93,6 @@ Filesystems can be mounted anywhere by commands similar to the following:
+ 	mount -t afs "#root.afs." /afs
+ 	mount -t afs "#root.cell." /afs/cambridge
+ 
+-  NB: When using this on Linux 2.4, the mount command has to be different,
+-      since the filesystem doesn't have access to the device name argument:
+-
+-	mount -t afs none /afs -ovol="#root.afs."
+-
+ Where the initial character is either a hash or a percent symbol depending on
+ whether you definitely want a R/W volume (hash) or whether you'd prefer a R/O
+ volume, but are willing to use a R/W volume instead (percent).
+@@ -60,55 +106,66 @@ named volume will be looked up in the cell specified during insmod.
+ Additional cells can be added through /proc (see later section).
+ 
+ 
++===========
+ MOUNTPOINTS
+ ===========
+ 
+-AFS has a concept of mountpoints. These are specially formatted symbolic links
+-(of the same form as the "device name" passed to mount). kAFS presents these
+-to the user as directories that have special properties:
++AFS has a concept of mountpoints. In AFS terms, these are specially formatted
++symbolic links (of the same form as the "device name" passed to mount).  kAFS
++presents these to the user as directories that have a follow-link capability
++(ie: symbolic link semantics).  If anyone attempts to access them, they will
++automatically cause the target volume to be mounted (if possible) on that site.
+ 
+-  (*) They cannot be listed. Running a program like "ls" on them will incur an
+-      EREMOTE error (Object is remote).
++Automatically mounted filesystems will be automatically unmounted approximately
++twenty minutes after they were last used.  Alternatively they can be unmounted
++directly with the umount() system call.
+ 
+-  (*) Other objects can't be looked up inside of them. This also incurs an
+-      EREMOTE error.
++Manually unmounting an AFS volume will cause any idle submounts upon it to be
++culled first.  If all are culled, then the requested volume will also be
++unmounted, otherwise error EBUSY will be returned.
+ 
+-  (*) They can be queried with the readlink() system call, which will return
+-      the name of the mountpoint to which they point. The "readlink" program
+-      will also work.
++This can be used by the administrator to attempt to unmount the whole AFS tree
++mounted on /afs in one go by doing:
+ 
+-  (*) They can be mounted on (which symbolic links can't).
++	umount /afs
+ 
+ 
++===============
+ PROC FILESYSTEM
+ ===============
+ 
+-The rxrpc module creates a number of files in various places in the /proc
+-filesystem:
+-
+-  (*) Firstly, some information files are made available in a directory called
+-      "/proc/net/rxrpc/". These list the extant transport endpoint, peer,
+-      connection and call records.
+-
+-  (*) Secondly, some control files are made available in a directory called
+-      "/proc/sys/rxrpc/". Currently, all these files can be used for is to
+-      turn on various levels of tracing.
+-
+ The AFS modules creates a "/proc/fs/afs/" directory and populates it:
+ 
+-  (*) A "cells" file that lists cells currently known to the afs module.
++  (*) A "cells" file that lists cells currently known to the afs module and
++      their usage counts:
++
++	[root@andromeda ~]# cat /proc/fs/afs/cells
++	USE NAME
++	  3 cambridge.redhat.com
+ 
+   (*) A directory per cell that contains files that list volume location
+       servers, volumes, and active servers known within that cell.
+ 
++	[root@andromeda ~]# cat /proc/fs/afs/cambridge.redhat.com/servers
++	USE ADDR            STATE
++	  4 172.16.18.91        0
++	[root@andromeda ~]# cat /proc/fs/afs/cambridge.redhat.com/vlservers
++	ADDRESS
++	172.16.18.91
++	[root@andromeda ~]# cat /proc/fs/afs/cambridge.redhat.com/volumes
++	USE STT VLID[0]  VLID[1]  VLID[2]  NAME
++	  1 Val 20000000 20000001 20000002 root.afs
+ 
++
++=================
+ THE CELL DATABASE
+ =================
+ 
+-The filesystem maintains an internal database of all the cells it knows and
+-the IP addresses of the volume location servers for those cells. The cell to
+-which the computer belongs is added to the database when insmod is performed
+-by the "rootcell=" argument.
++The filesystem maintains an internal database of all the cells it knows and the
++IP addresses of the volume location servers for those cells.  The cell to which
++the system belongs is added to the database when insmod is performed by the
++"rootcell=" argument or, if compiled in, using a "kafs.rootcell=" argument on
++the kernel command line.
+ 
+ Further cells can be added by commands similar to the following:
+ 
+@@ -118,20 +175,65 @@ Further cells can be added by commands similar to the following:
+ No other cell database operations are available at this time.
+ 
+ 
++========
++SECURITY
++========
++
++Secure operations are initiated by acquiring a key using the klog program.  A
++very primitive klog program is available at:
++
++	http://people.redhat.com/~dhowells/rxrpc/klog.c
++
++This should be compiled by:
++
++	make klog LDLIBS="-lcrypto -lcrypt -lkrb4 -lkeyutils"
++
++And then run as:
++
++	./klog
++
++Assuming it's successful, this adds a key of type RxRPC, named for the service
++and cell, eg: "afs@<cellname>".  This can be viewed with the keyctl program or
++by cat'ing /proc/keys:
++
++	[root@andromeda ~]# keyctl show
++	Session Keyring
++	       -3 --alswrv      0     0  keyring: _ses.3268
++		2 --alswrv      0     0   \_ keyring: _uid.0
++	111416553 --als--v      0     0   \_ rxrpc: afs@CAMBRIDGE.REDHAT.COM
++
++Currently the username, realm, password and proposed ticket lifetime are
++compiled in to the program.
++
++It is not required to acquire a key before using AFS facilities, but if one is
++not acquired then all operations will be governed by the anonymous user parts
++of the ACLs.
++
++If a key is acquired, then all AFS operations, including mounts and automounts,
++made by a possessor of that key will be secured with that key.
++
++If a file is opened with a particular key and then the file descriptor is
++passed to a process that doesn't have that key (perhaps over an AF_UNIX
++socket), then the operations on the file will be made with key that was used to
++open the file.
++
++
++========
+ EXAMPLES
+ ========
+ 
+-Here's what I use to test this. Some of the names and IP addresses are local
+-to my internal DNS. My "root.afs" partition has a mount point within it for
++Here's what I use to test this.  Some of the names and IP addresses are local
++to my internal DNS.  My "root.afs" partition has a mount point within it for
+ some public volumes volumes.
+ 
+-insmod -S /tmp/rxrpc.o 
+-insmod -S /tmp/kafs.o rootcell=cambridge.redhat.com:172.16.18.73:172.16.18.91
++insmod /tmp/rxrpc.o
++insmod /tmp/rxkad.o
++insmod /tmp/kafs.o rootcell=cambridge.redhat.com:172.16.18.91
+ 
+ mount -t afs \%root.afs. /afs
+ mount -t afs \%cambridge.redhat.com:root.cell. /afs/cambridge.redhat.com/
+ 
+-echo add grand.central.org 18.7.14.88:128.2.191.224 > /proc/fs/afs/cells 
++echo add grand.central.org 18.7.14.88:128.2.191.224 > /proc/fs/afs/cells
+ mount -t afs "#grand.central.org:root.cell." /afs/grand.central.org/
+ mount -t afs "#grand.central.org:root.archive." /afs/grand.central.org/archive
+ mount -t afs "#grand.central.org:root.contrib." /afs/grand.central.org/contrib
+@@ -141,15 +243,7 @@ mount -t afs "#grand.central.org:root.service." /afs/grand.central.org/service
+ mount -t afs "#grand.central.org:root.software." /afs/grand.central.org/software
+ mount -t afs "#grand.central.org:root.user." /afs/grand.central.org/user
+ 
+-umount /afs/grand.central.org/user
+-umount /afs/grand.central.org/software
+-umount /afs/grand.central.org/service
+-umount /afs/grand.central.org/project
+-umount /afs/grand.central.org/doc
+-umount /afs/grand.central.org/contrib
+-umount /afs/grand.central.org/archive
+-umount /afs/grand.central.org
+-umount /afs/cambridge.redhat.com
+ umount /afs
+ rmmod kafs
++rmmod rxkad
+ rmmod rxrpc
