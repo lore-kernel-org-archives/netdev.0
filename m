@@ -1,135 +1,249 @@
-From: Petko Manolov <petkan@nucleusys.com>
-Subject: Re: [PATCH] usb-net/pegasus: fix pegasus carrier detection
-Date: Wed, 25 Apr 2007 18:09:11 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0704251808210.16498@bender.nucleusys.com>
-References: <1177424406.13684.5.camel@localhost.localdomain>
- <462E3508.1030703@garzik.org> <20070424170429.GA13668@kroah.com>
- <58298.85.91.128.158.1177436881.squirrel@nucleusys.com>
- <1177446286.18030.13.camel@localhost.localdomain>
- <Pine.LNX.4.64.0704251648050.16498@bender.nucleusys.com>
- <1177513723.3612.0.camel@localhost.localdomain>
+From: jamal <hadi@cyberus.ca>
+Subject: [PATCH][XFRM] export SAD info
+Date: Wed, 25 Apr 2007 11:42:41 -0400
+Message-ID: <1177515761.9923.3.camel@localhost>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Greg KH <greg@kroah.com>, Jeff Garzik <jeff@garzik.org>,
-	netdev@vger.kernel.org
-To: Dan Williams <dcbw@redhat.com>
+Content-Type: multipart/mixed; boundary="=-SmRQZDKGeQzg0dmZBA3H"
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from n152-u15.estnet.bg ([89.253.152.15]:1929 "EHLO
-	zztop.nucleusys.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1030971AbXDYPHg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Apr 2007 11:07:36 -0400
-In-Reply-To: <1177513723.3612.0.camel@localhost.localdomain>
+Received: from wx-out-0506.google.com ([66.249.82.229]:52040 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1031093AbXDYPmp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Apr 2007 11:42:45 -0400
+Received: by wx-out-0506.google.com with SMTP id h31so275484wxd
+        for <netdev@vger.kernel.org>; Wed, 25 Apr 2007 08:42:45 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 25 Apr 2007, Dan Williams wrote:
 
-> On Wed, 2007-04-25 at 17:58 +0300, Petko Manolov wrote:
->> In general i agree with the reasoning below.  However, isn't it better to
->> remove the code that sets carrier on/off in intr_callback()?
->
-> I'm fine with this; whatever makes carrier status work makes me happy :)
+--=-SmRQZDKGeQzg0dmZBA3H
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 
-Great.  Are you going to submit the new patch or this hard labor will lay 
-on my shoulders? :)
+Dave,
 
+Something ive been meaning to do since you made the hash changes. I will
+be doing one also for policy. Against latest Linus tree because i am
+having strange challenges syncing net-2.6.22.
 
- 		Petko
+cheers,
+jamal
 
+--=-SmRQZDKGeQzg0dmZBA3H
+Content-Disposition: attachment; filename=xfrm_sadinfo
+Content-Type: text/plain; name=xfrm_sadinfo; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 
+[XFRM] export SAD info
 
->> There's a reliable way of getting the link status by reading the MII.
->> After correct checking of the return value from read_mii_word(),
->> set_carrier() is what is good enough.  If 2 seconds is too long of an
->> interval we could reduce it to 1 second or, if needed, less.
->>
->> I'd like to avoid adding additional flags per device as it will take
->> forever to collect information about their "correct" behavior and update
->> pegasus.h.  In short i think this part of your patch should be enough:
->>
->> ---
->>
->> @@ -847,10 +848,16 @@ static void intr_callback(struct urb *urb)
->>  		 * d[0].NO_CARRIER kicks in only with failed TX.
->>  		 * ... so monitoring with MII may be safest.
->>  		 */
->> -		if (d[0] & NO_CARRIER)
->> -			netif_carrier_off(net);
->> -		else
->> -			netif_carrier_on(net);
->> -
->>  		/* bytes 3-4 == rx_lostpkt, reg 2E/2F */
->>  		pegasus->stats.rx_missed_errors += ((d[3] & 0x7f) << 8) | d[4];
->> @@ -950,7 +957,7 @@ static void set_carrier(struct net_device *net)
->>  	pegasus_t *pegasus = netdev_priv(net);
->>  	u16 tmp;
->>
->> -	if (!read_mii_word(pegasus, pegasus->phy, MII_BMSR, &tmp))
->> +	if (read_mii_word(pegasus, pegasus->phy, MII_BMSR, &tmp))
->>  		return;
->>
->> ---
->>
->>
->> cheers,
->> Petko
->>
->>
->> On Tue, 24 Apr 2007, Dan Williams wrote:
->>
->>> On Tue, 2007-04-24 at 20:48 +0300, petkan@nucleusys.com wrote:
->>>>> On Tue, Apr 24, 2007 at 12:49:12PM -0400, Jeff Garzik wrote:
->>>>>>  Long term, Greg seemed OK with moving the net drivers from
->>>>>> drivers/usb/net
->>>>>>  to drivers/usb/net, in line with the current policy of placing net
->>>>>> drivers
->>>>>>  in drivers/net/*, bus agnostic.  After that move, sending to netdev and
->>>>>> me
->>>>>>  (as you did here) would be the preferred avenue.
->>>>>
->>>>> Speaking of which, do you want me to do this in the 2.6.22-rc1
->>>>> timeframe?  Usually big code moves like this are good to do right after
->>>>> rc1 comes out as the major churn is usually completed then.
->>>>
->>>> Sorry to interfere, but could you guys wait until tomorrow before applying
->>>> the patch to your respective GIT trees?  I'd like to check if the code is
->>>> doing the right thing and avoid patch reversal.
->>>
->>> Original problem was that the patch I referenced in the commit message
->>> from Jan 6 2006 switched the return value semantics from
->>> read_mii_word().  Before the patch, read_mii_word returned 1 on success,
->>> 0 on error.  After the patch, it returns the generally accepted 0 on
->>> success and !0 on error.
->>>
->>> That causes set_carrier() to return immediately rather than fiddle with
->>> netif_carrier_*.  When the Jan 6 2006 patch went in changing the return
->>> values, set_carrier() was not updated for the new return values.
->>> Nothing else in the code cares about read_mii_word()'s return value
->>> except set_carrier().
->>>
->>> But when the card is brought up and no cable is plugged in,
->>> intr_callback() gets called repeatedly, which itself repeatedly calls
->>> netif_carrier_on() due to the NO_CARRIER check.  The comment there about
->>> "NO_CARRIER kicks in on TX failure" seems accurate, because even with no
->>> cable plugged in, and therefore no packets getting transmitted, the
->>> NO_CARRIER check is never true on the Belkin part.  Therefore,
->>> netif_carrier_on() is always called as a result of the failure of d[0] &
->>> NO_CARRIER, turning carrier back on even if there is no cable plugged
->>> in.  This bulldozes over the MII carrier_check routine too.
->>>
->>> I don't think the intr_callback() code should ever turn the carrier
->>> _on_, because there's that 2*HZ MII carrier check which can certainly
->>> handle the carrier on/off stuff.
->>>
->>> LINK_STATUS appears valid on the Belkin part too, so we can add that as
->>> a reverse-quirk and use LINK_STATUS on parts where it works.  If you
->>> think that the NO_CARRIER check should be in _addition_ to the
->>> LINK_STATUS check, that's fine with me, provided that the NO_CARRIER
->>> check only turns carrier off.
->>>
->>> Dan
->>>
->>>
->>>
->
->
+On a system with a lot of SAs, counting SAD entries chews useful
+CPU time since you need to dump the whole SAD to user space;
+i.e something like ip xfrm state ls | grep -i src | wc -l
+I have seen taking literally minutes on a 40K SAs when the system
+is swapping.
+With this patch, some of the SAD info (that was already being tracked)
+is exposed to user space. i.e you do:
+ip xfrm state count
+And you get the count; you can also pass -s to the command line and
+get the hash info.
+
+Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
+
+---
+commit 1fb99604e38f27c1ad4cb74b11f148c34d0d3be6
+tree 1bb35db627ac5d3d2f370d0fc993ba6b80392696
+parent 146d97b89c83c9460012185bfd584d21a3b5fe19
+author Jamal Hadi Salim <hadi@cyberus.ca> Wed, 25 Apr 2007 11:30:21 -0400
+committer Jamal Hadi Salim <hadi@cyberus.ca> Wed, 25 Apr 2007 11:30:21 -0400
+
+ include/linux/xfrm.h  |   25 ++++++++++++++++++++++
+ include/net/xfrm.h    |    8 +++++++
+ net/xfrm/xfrm_state.c |   12 ++++++++++-
+ net/xfrm/xfrm_user.c  |   56 +++++++++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 100 insertions(+), 1 deletions(-)
+
+diff --git a/include/linux/xfrm.h b/include/linux/xfrm.h
+index 15ca89e..9c656a5 100644
+--- a/include/linux/xfrm.h
++++ b/include/linux/xfrm.h
+@@ -181,6 +181,10 @@ enum {
+ 	XFRM_MSG_MIGRATE,
+ #define XFRM_MSG_MIGRATE XFRM_MSG_MIGRATE
+ 
++	XFRM_MSG_NEWSADINFO,
++#define XFRM_MSG_NEWSADINFO XFRM_MSG_NEWSADINFO
++	XFRM_MSG_GETSADINFO,
++#define XFRM_MSG_GETSADINFO XFRM_MSG_GETSADINFO
+ 	__XFRM_MSG_MAX
+ };
+ #define XFRM_MSG_MAX (__XFRM_MSG_MAX - 1)
+@@ -234,6 +238,17 @@ enum xfrm_ae_ftype_t {
+ #define XFRM_AE_MAX (__XFRM_AE_MAX - 1)
+ };
+ 
++/* SAD Table filter flags  */
++enum xfrm_sad_ftype_t {
++	XFRM_SAD_UNSPEC,
++	XFRM_SAD_HMASK=1,
++	XFRM_SAD_HMAX=2,
++	XFRM_SAD_CNT=4,
++	__XFRM_SAD_MAX
++
++#define XFRM_SAD_MAX (__XFRM_SAD_MAX - 1)
++};
++
+ struct xfrm_userpolicy_type {
+ 	__u8		type;
+ 	__u16		reserved1;
+@@ -265,6 +280,16 @@ enum xfrm_attr_type_t {
+ #define XFRMA_MAX (__XFRMA_MAX - 1)
+ };
+ 
++enum xfrm_sadattr_type_t {
++	XFRMA_SAD_UNSPEC,
++	XFRMA_SADHMASK,
++	XFRMA_SADHMAX,
++	XFRMA_SADCNT,
++	__XFRMA_SAD_MAX
++
++#define XFRMA_SAD_MAX (__XFRMA_SAD_MAX - 1)
++};
++
+ struct xfrm_usersa_info {
+ 	struct xfrm_selector		sel;
+ 	struct xfrm_id			id;
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index 5a00aa8..4922e9f 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -416,6 +416,13 @@ struct xfrm_audit
+ 	u32	secid;
+ };
+ 
++/* SAD metadata, add more later */
++struct xfrm_sadinfo
++{
++	u32 sadhcnt; /* current hash bkts */
++	u32 sadhmcnt; /* max allowed hash bkts */
++	u32 sadcnt; /* current running count */
++};
+ #ifdef CONFIG_AUDITSYSCALL
+ extern void xfrm_audit_log(uid_t auid, u32 secid, int type, int result,
+ 		    struct xfrm_policy *xp, struct xfrm_state *x);
+@@ -938,6 +945,7 @@ static inline int xfrm_state_sort(struct xfrm_state **dst, struct xfrm_state **s
+ extern struct xfrm_state *xfrm_find_acq_byseq(u32 seq);
+ extern int xfrm_state_delete(struct xfrm_state *x);
+ extern void xfrm_state_flush(u8 proto, struct xfrm_audit *audit_info);
++extern void xfrm_sad_getinfo(struct xfrm_sadinfo *si);
+ extern int xfrm_replay_check(struct xfrm_state *x, __be32 seq);
+ extern void xfrm_replay_advance(struct xfrm_state *x, __be32 seq);
+ extern void xfrm_replay_notify(struct xfrm_state *x, int event);
+diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+index c1581fb..98e5ce3 100644
+--- a/net/xfrm/xfrm_state.c
++++ b/net/xfrm/xfrm_state.c
+@@ -53,7 +53,7 @@ static struct hlist_head *xfrm_state_bysrc __read_mostly;
+ static struct hlist_head *xfrm_state_byspi __read_mostly;
+ static unsigned int xfrm_state_hmask __read_mostly;
+ static unsigned int xfrm_state_hashmax __read_mostly = 1 * 1024 * 1024;
+-static u32 xfrm_state_num;
++static unsigned int xfrm_state_num;
+ static unsigned int xfrm_state_genid;
+ 
+ static inline unsigned int xfrm_dst_hash(xfrm_address_t *daddr,
+@@ -421,6 +421,16 @@ restart:
+ }
+ EXPORT_SYMBOL(xfrm_state_flush);
+ 
++void xfrm_sad_getinfo(struct xfrm_sadinfo *si)
++{
++	spin_lock_bh(&xfrm_state_lock);
++	si->sadcnt = xfrm_state_num;
++	si->sadhcnt = xfrm_state_hmask;
++	si->sadhmcnt = xfrm_state_hashmax;
++	spin_unlock_bh(&xfrm_state_lock);
++}
++EXPORT_SYMBOL(xfrm_sad_getinfo);
++
+ static int
+ xfrm_init_tempsel(struct xfrm_state *x, struct flowi *fl,
+ 		  struct xfrm_tmpl *tmpl,
+diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+index 816e369..089159a 100644
+--- a/net/xfrm/xfrm_user.c
++++ b/net/xfrm/xfrm_user.c
+@@ -672,6 +672,61 @@ static struct sk_buff *xfrm_state_netlink(struct sk_buff *in_skb,
+ 	return skb;
+ }
+ 
++static int build_sadinfo(struct sk_buff *skb, u32 pid, u32 seq, u32 flags)
++{
++	struct xfrm_sadinfo si;
++	struct nlmsghdr *nlh;
++	u32 *f;
++
++	nlh = nlmsg_put(skb, pid, seq, XFRM_MSG_NEWSADINFO, sizeof(u32), 0);
++	if (nlh == NULL) /* shouldnt really happen ... */
++		return -EMSGSIZE;
++
++	f = nlmsg_data(nlh);
++	*f = flags;
++	xfrm_sad_getinfo(&si);
++
++	if (flags & XFRM_SAD_HMASK)
++		NLA_PUT_U32(skb, XFRMA_SADHMASK, si.sadhcnt);
++	if (flags & XFRM_SAD_HMAX)
++		NLA_PUT_U32(skb, XFRMA_SADHMAX, si.sadhmcnt);
++	if (flags & XFRM_SAD_CNT)
++		NLA_PUT_U32(skb, XFRMA_SADCNT, si.sadcnt);
++
++	return nlmsg_end(skb, nlh);
++
++nla_put_failure:
++	nlmsg_cancel(skb, nlh);
++	return -EMSGSIZE;
++}
++
++static int xfrm_get_sadinfo(struct sk_buff *skb, struct nlmsghdr *nlh,
++		struct rtattr **xfrma)
++{
++	struct sk_buff *r_skb;
++	u32 *flags = NLMSG_DATA(nlh);
++	u32 spid = NETLINK_CB(skb).pid;
++	u32 seq = nlh->nlmsg_seq;
++	int len = NLMSG_LENGTH(sizeof(u32));
++
++	if (*flags & XFRM_SAD_HMASK)
++		len += RTA_SPACE(sizeof(u32));
++	if (*flags & XFRM_SAD_HMAX)
++		len += RTA_SPACE(sizeof(u32));
++	if (*flags & XFRM_SAD_CNT)
++		len += RTA_SPACE(sizeof(u32));
++
++	r_skb = alloc_skb(len, GFP_ATOMIC);
++
++	if (r_skb == NULL)
++		return -ENOMEM;
++
++	if (build_sadinfo(r_skb, spid, seq, *flags) < 0)
++		BUG();
++
++	return nlmsg_unicast(xfrm_nl, r_skb, spid);
++}
++
+ static int xfrm_get_sa(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 		struct rtattr **xfrma)
+ {
+@@ -1850,6 +1905,7 @@ static struct xfrm_link {
+ 	[XFRM_MSG_NEWAE       - XFRM_MSG_BASE] = { .doit = xfrm_new_ae  },
+ 	[XFRM_MSG_GETAE       - XFRM_MSG_BASE] = { .doit = xfrm_get_ae  },
+ 	[XFRM_MSG_MIGRATE     - XFRM_MSG_BASE] = { .doit = xfrm_do_migrate    },
++	[XFRM_MSG_GETSADINFO  - XFRM_MSG_BASE] = { .doit = xfrm_get_sadinfo    },
+ };
+ 
+ static int xfrm_user_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh, int *errp)
+
+--=-SmRQZDKGeQzg0dmZBA3H--
+
