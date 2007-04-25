@@ -1,32 +1,45 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [Bugme-new] [Bug 8057] New: slab corruption running ip6sic
-Date: Wed, 25 Apr 2007 10:47:08 +1000
-Message-ID: <E1HgVf2-0001K7-00@gondolin.me.apana.org.au>
-References: <20070424073151.GA2333@ff.dom.local>
-Cc: davem@davemloft.net, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
-	snakebyte@gmx.de
-To: jarkao2@o2.pl (Jarek Poplawski)
+Subject: Re: [PATCH] netdev: get rid of casts
+Date: Wed, 25 Apr 2007 10:56:38 +1000
+Message-ID: <E1HgVoE-00021H-00@gondolin.me.apana.org.au>
+References: <462E4764.6000107@garzik.org>
+Cc: shemminger@linux-foundation.org, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: jeff@garzik.org (Jeff Garzik)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:1324 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:1381 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753493AbXDYArv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Apr 2007 20:47:51 -0400
-In-Reply-To: <20070424073151.GA2333@ff.dom.local>
+	with ESMTP id S1754670AbXDYA45 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Apr 2007 20:56:57 -0400
+In-Reply-To: <462E4764.6000107@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jarek Poplawski <jarkao2@o2.pl> wrote:
+Jeff Garzik <jeff@garzik.org> wrote:
 >
-> My proposal is: maybe Eric could change this in
-> xfrm6_tunnel_rcv() from xfrm6_tunnel.c e.g. like this:
+>> @@ -2778,12 +2778,12 @@ int dev_ioctl(unsigned int cmd, void __user *arg)
+>>  
+>>       if (cmd == SIOCGIFCONF) {
+>>               rtnl_lock();
+>> -             ret = dev_ifconf((char __user *) arg);
+>> +             ret = dev_ifconf(arg);
+>>               rtnl_unlock();
+>> -             return ret;
+>>       }
+>> +
+>>       if (cmd == SIOCGIFNAME)
+>> -             return dev_ifname((struct ifreq __user *)arg);
+>> +             return dev_ifname(arg);
 > 
-> return xfrm6_rcv_spi(skb, spi) > 0 ? : 0;
+> Seems like a net loss of information, with your patch.
 > 
-> and, if no errors in testing, he could resubmit this patch? 
+> The casts are adding missing type information, in this case.  Certainly 
+> it is more for human consumption than compiler consumption, but 
+> nonetheless...
 
-I agree, this is the right fix.
-
+How about just getting rid of the casts? 'arg' is already void * to
+begin with.
+ 
 Cheers,
 -- 
 Visit Openswan at http://www.openswan.org/
