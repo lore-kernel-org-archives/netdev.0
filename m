@@ -1,29 +1,32 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [net-2.6.22] [IPV4]: Fix build without procfs.
-Date: Wed, 25 Apr 2007 15:49:52 +1000
-Message-ID: <20070425054951.GA5505@gondor.apana.org.au>
-References: <20070425.002048.109830535.yoshfuji@linux-ipv6.org> <E1HgXMD-0000LK-00@gondolin.me.apana.org.au> <20070425.114650.93714393.yoshfuji@linux-ipv6.org>
+Subject: Re: [2/2] [IPV6]: Consolidate common SNMP code
+Date: Wed, 25 Apr 2007 15:54:05 +1000
+Message-ID: <20070425055405.GB5505@gondor.apana.org.au>
+References: <20070425040637.GA4838@gondor.apana.org.au> <20070425.132103.129791594.yoshfuji@linux-ipv6.org> <20070424.215429.42460618.davem@davemloft.net> <20070424.221239.00772916.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: "YOSHIFUJI Hideaki / ?$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
+Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:2247 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:2258 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754584AbXDYFt5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Apr 2007 01:49:57 -0400
+	with ESMTP id S1754671AbXDYFyJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Apr 2007 01:54:09 -0400
 Content-Disposition: inline
-In-Reply-To: <20070425.114650.93714393.yoshfuji@linux-ipv6.org>
+In-Reply-To: <20070424.221239.00772916.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 25, 2007 at 11:46:50AM +0900, YOSHIFUJI Hideaki / ?$B5HF#1QL@ wrote:
+On Tue, Apr 24, 2007 at 10:12:39PM -0700, David Miller wrote:
 > 
-> Herbert, as I said before, we could defer that.
-> It was preparation for future development (per-interface statistics
-> and netlink interface.
+> This breaks the build with IPV6 modular:
+> 
+>   LD      .tmp_vmlinux1
+> net/built-in.o: In function `snmp6_seq_show':
+> proc.c:(.text+0x68244): undefined reference to `ipv6_statistics'
 
-OK, but you better make sure that Adrian Bunk doesn't see them :)
+Sorry, got carried away with testing with /proc turned off :)
+Thanks for fixing it up!
 
 Cheers,
 -- 
