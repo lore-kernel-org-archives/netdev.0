@@ -1,146 +1,80 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH 00/16] AF_RXRPC socket family and AFS rewrite [try #4]
-Date: Wed, 25 Apr 2007 16:48:54 +0100
-Message-ID: <20070425154854.26581.97692.stgit@warthog.cambridge.redhat.com>
+Subject: [PATCH 02/16] cancel_delayed_work: use del_timer() instead of
+	del_timer_sync() [try #4]
+Date: Wed, 25 Apr 2007 16:49:07 +0100
+Message-ID: <20070425154907.26581.85907.stgit@warthog.cambridge.redhat.com>
+References: <20070425154854.26581.97692.stgit@warthog.cambridge.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
 	netdev@vger.kernel.org, dhowells@redhat.com
 To: torvalds@osdl.org, akpm@osdl.org
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-Sender: linux-fsdevel-owner@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([66.187.233.31]:47881 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1031099AbXDYPtm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Apr 2007 11:49:42 -0400
+In-Reply-To: <20070425154854.26581.97692.stgit@warthog.cambridge.redhat.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+del_timer_sync() buys nothing for cancel_delayed_work(), but it is less
+efficient since it locks the timer unconditionally, and may wait for the
+completion of the delayed_work_timer_fn().
 
-The first of these patches together provide secure client-side RxRPC
-connectivity as a Linux kernel socket family.  Only the RxRPC transport/session
-side is supplied - the presentation side (marshalling the data) is left to the
-client.  Copies of the patches can be found here:
+cancel_delayed_work() == 0 means:
 
-	http://people.redhat.com/~dhowells/rxrpc/series
-	http://people.redhat.com/~dhowells/rxrpc/01-move-skb-generic.diff
-	http://people.redhat.com/~dhowells/rxrpc/02-cancel_delayed_work.diff
-	http://people.redhat.com/~dhowells/rxrpc/03-keys.diff
-	http://people.redhat.com/~dhowells/rxrpc/04-timer-exports.diff
-	http://people.redhat.com/~dhowells/rxrpc/05-af_rxrpc.diff
+	before this patch:
+		work->func may still be running or queued
 
-Further patches make the in-kernel AFS filesystem use AF_RXRPC and delete the
-old RxRPC implementation:
+	after this patch:
+		work->func may still be running or queued, or
+		delayed_work_timer_fn->__queue_work() in progress.
 
-	http://people.redhat.com/~dhowells/rxrpc/06-afs-cleanup.diff
-	http://people.redhat.com/~dhowells/rxrpc/07-af_rxrpc-kernel.diff
-	http://people.redhat.com/~dhowells/rxrpc/08-af_rxrpc-afs.diff
-	http://people.redhat.com/~dhowells/rxrpc/09-af_rxrpc-delete-old.diff
+		The latter doesn't differ from the caller's POV,
+		delayed_work_timer_fn() is called with _PENDING
+		bit set.
 
-And then the rest of the patches extend AFS to provide automatic unmounting of
-automount trees, security support and directory-level write support (create,
-mkdir, etc.):
+cancel_delayed_work() == 1 with this patch adds a new possibility:
 
-	http://people.redhat.com/~dhowells/rxrpc/10-afs-multimount.diff
-	http://people.redhat.com/~dhowells/rxrpc/11-afs-security.diff
-	http://people.redhat.com/~dhowells/rxrpc/12-afs-doc.diff
-	http://people.redhat.com/~dhowells/rxrpc/13-netlink-support-MSG_TRUNC.diff
-	http://people.redhat.com/~dhowells/rxrpc/14-afs-get-capabilities.diff
-	http://people.redhat.com/~dhowells/rxrpc/15-afs-initcallbackstate3.diff
-	http://people.redhat.com/~dhowells/rxrpc/16-afs-dir-write-support.diff
+	delayed_work->work was cancelled, but delayed_work_timer_fn
+	is still running (this is only possible for the re-arming
+	works on single-threaded workqueue).
 
-Note that file-level write support is not yet complete and so is not included
-in this patch set.
+	In this case the timer was re-started by work->func(), nobody
+	else can do this. This in turn means that delayed_work_timer_fn
+	has already passed __queue_work() (and wont't touch delayed_work)
+	because nobody else can queue delayed_work->work.
 
+Signed-off-by: Oleg Nesterov <oleg@tv-sign.ru>
+Signed-Off-By: David Howells <dhowells@redhat.com>
+---
 
-The userspace access methods make use of the control data passed to/by
-sendmsg() and recvmsg().  See the three simple test programs:
+ include/linux/workqueue.h |    7 ++++---
+ 1 files changed, 4 insertions(+), 3 deletions(-)
 
-	http://people.redhat.com/~dhowells/rxrpc/klog.c
-	http://people.redhat.com/~dhowells/rxrpc/rxrpc.c
-	http://people.redhat.com/~dhowells/rxrpc/listen.c
+diff --git a/include/linux/workqueue.h b/include/linux/workqueue.h
+index 2a7b38d..b8abfc7 100644
+--- a/include/linux/workqueue.h
++++ b/include/linux/workqueue.h
+@@ -191,14 +191,15 @@ int execute_in_process_context(work_func_t fn, struct execute_work *);
+ 
+ /*
+  * Kill off a pending schedule_delayed_work().  Note that the work callback
+- * function may still be running on return from cancel_delayed_work().  Run
+- * flush_scheduled_work() to wait on it.
++ * function may still be running on return from cancel_delayed_work(), unless
++ * it returns 1 and the work doesn't re-arm itself. Run flush_workqueue() or
++ * cancel_work_sync() to wait on it.
+  */
+ static inline int cancel_delayed_work(struct delayed_work *work)
+ {
+ 	int ret;
+ 
+-	ret = del_timer_sync(&work->timer);
++	ret = del_timer(&work->timer);
+ 	if (ret)
+ 		work_release(&work->work);
+ 	return ret;
 
-The klog program is provided to go and get a Kerberos IV key from the AFS
-kaserver.  Currently it must be edited before compiling to note the right
-server IP address and the appropriate credentials.
-
-These programs can be compiled by:
-
-	make klog rxrpc listen CFLAGS="-Wall -g" LDLIBS="-lcrypto -lcrypt -lkrb4 -lkeyutils"
-
-Then a ticket can be obtained by:
-
-	./klog
-
-If a security key is acquired in this way, then all subsequent AFS operations -
-including VL lookups and mounts - performed with that session keyring will be
-authenticated using that key.  The key can be viewed like so:
-
-	[root@andromeda ~]# keyctl show
-	Session Keyring
-	       -3 --alswrv      0     0  keyring: _ses.3268
-		2 --alswrv      0     0   \_ keyring: _uid.0
-	111416553 --als--v      0     0   \_ rxrpc: afs@CAMBRIDGE.REDHAT.COM
-
-TODO:
-
- (*) Make certain parameters (such as connection timeouts) userspace
-     configurable.
-
- (*) Make userspace utilities use it; librxrpc.
-
- (*) Userspace documentation.
-
- (*) KerberosV security.
-
-Changes:
-
- (*) SOCK_RPC has been removed.  SOCK_DGRAM is now used instead.
-
- (*) I've add a facility whereby calls can be made to destinations other than
-     the connect() address of a client socket by making use of msg_name in the
-     msghdr struct when using sendmsg() to send the first data packet of a
-     call.  Indeed, a client socket need not be connected before being used
-     so.
-
- (*) I've also added a facility whereby client calls may also be made on
-     server sockets, again by using msg_name in the msghdr struct.  In such a
-     case, the server's local transport endpoint is used.
-
- (*) I've made the write buffer space check available to various callers
-     (sk_write_space) and implemented poll support.
-
- (*) Rewrote rxrpc_recvmsg().  It now concatenates adjacent data messages from
-     the same call when delivering them.
-
- (*) Updated the documentation to include notes on recvmsg, cover control
-     messages and cover SOL_RXRPC-level socket options.
-
- (*) Provided an in-kernel interface to give in-kernel utilities easier access
-     to the facility.
-
- (*) Made fs/afs/ use it.
-
- (*) Deleted the old contents of net/rxrpc/.
-
- (*) Use the scatterlist interface to the crypto API for now.  The patch that
-     added the direct access interface conflicts with patches Herbert Xu is
-     producing, so I've dropped it for the moment.
-
- (*) Moved a bug fix to make secure connection reuse work from the
-     af_rxrpc-kernel patch to the af_rxrpc main patch.
-
- (*) Make RxRPC use its own private work queues rather than keventd's to avoid
-     deadlocks when AFS tries to use keventd too.  This also puts encryption
-     in the private work queue rather than keventd's queue as that might take
-     a relatively long time to process.
-
- (*) Shorten the dead call timeout to 2 seconds.  Without this, each completed
-     call sits around eating up resources for 10 seconds.  The calls need to
-     hang around for a little while in case duplicate packets appear, but 10
-     seconds is excessive.
-
- (*) Decrement the number of available calls on a connection when a new call is
-     allocated for a connection that doesn't have any calls in progress.
-
- (*) Rename header files with uppercase names to lowercase names.
-
- (*) Make sure include/keys/rxrpc-type.h is included.
-
-David
