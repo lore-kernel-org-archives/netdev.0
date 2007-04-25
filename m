@@ -1,30 +1,51 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: netlink locking warnings in 2.6.21-rc7-mm1
-Date: Wed, 25 Apr 2007 16:48:16 -0700
-Message-ID: <20070425164816.89284b5c.akpm@linux-foundation.org>
-References: <E1HgVxj-0003U6-00@gondolin.me.apana.org.au>
-	<462F54F3.9050306@trash.net>
-	<20070425124449.98bf091c.akpm@linux-foundation.org>
-	<462FBF5F.20909@trash.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: [PATCH 3/4] bridge: if no STP then forward all BPDUs
+Date: Wed, 25 Apr 2007 16:47:40 -0700
+Message-ID: <20070425234950.768857110@linux-foundation.org>
+References: <20070425234737.727790594@linux-foundation.org>
+Cc: netdev@vger.kernel.org, bridge@linux-foundation.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([65.172.181.25]:51134 "EHLO
+Received: from smtp1.linux-foundation.org ([65.172.181.25]:55380 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1422931AbXDYXs4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Apr 2007 19:48:56 -0400
-In-Reply-To: <462FBF5F.20909@trash.net>
+	by vger.kernel.org with ESMTP id S1423407AbXDYXzz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Apr 2007 19:55:55 -0400
+Content-Disposition: inline; filename=bridge-no-stp-bpdu.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 25 Apr 2007 22:51:43 +0200 Patrick McHardy <kaber@trash.net> wrote:
+If a bridge is not running STP, then it has no way to detect a cycle
+in the network. But if it is not running STP and some other machine
+or device is running STP, then if STP BPDU's get forwarded to it can
+detect the cycle.
 
-> I think I found the problem, the rtnl_mutex was reinitialized on every
-> rtnetlink socket creation. This is most likely responsible for both
-> warnings.
+This is how the old 2.4 and early 2.6 code worked.
 
-Yup, no warnings any more, thanks.
+Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+
+---
+ net/bridge/br_input.c |   12 ++++++++++--
+ 1 file changed, 10 insertions(+), 2 deletions(-)
+
+--- bridge-2.6.22.orig/net/bridge/br_input.c
++++ bridge-2.6.22/net/bridge/br_input.c
+@@ -136,8 +136,14 @@ struct sk_buff *br_handle_frame(struct n
+ 		if (skb->protocol == htons(ETH_P_PAUSE))
+ 			goto drop;
+ 
+-		return (NF_HOOK(PF_BRIDGE, NF_BR_LOCAL_IN, skb, skb->dev,
+-				NULL, br_handle_local_finish) == 0) ? skb : NULL;
++		/* Process STP BPDU's through normal netif_receive_skb() path */
++		if (p->br->stp_enabled != BR_NO_STP) {
++			if (NF_HOOK(PF_BRIDGE, NF_BR_LOCAL_IN, skb, skb->dev,
++				    NULL, br_handle_local_finish))
++				return NULL;
++			else
++				return skb;
++		}
+ 	}
+ 
+ 	switch (p->state) {
+
+-- 
+
