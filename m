@@ -1,49 +1,118 @@
-From: "Ristuccia, Brian" <bristuccia@starentnetworks.com>
-Subject: RE: 2.6.20.7 mss negotiation and path mtu discovery mostly broken?
-Date: Wed, 25 Apr 2007 10:31:23 -0400
-Message-ID: <7CCD07160348804497EF29E9EA5560D7020F6206@exchtewks2.starentnetworks.com>
-References: <p73k5w032wv.fsf@bingen.suse.de>
+From: Petko Manolov <petkan@nucleusys.com>
+Subject: Re: [PATCH] usb-net/pegasus: fix pegasus carrier detection
+Date: Wed, 25 Apr 2007 17:58:35 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0704251648050.16498@bender.nucleusys.com>
+References: <1177424406.13684.5.camel@localhost.localdomain>
+ <462E3508.1030703@garzik.org> <20070424170429.GA13668@kroah.com>
+ <58298.85.91.128.158.1177436881.squirrel@nucleusys.com>
+ <1177446286.18030.13.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
-To: "Andi Kleen" <andi@firstfloor.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161126AbXDYObe@vger.kernel.org>
-Content-Class: urn:content-classes:message
-In-Reply-To: <p73k5w032wv.fsf@bingen.suse.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Greg KH <greg@kroah.com>, Jeff Garzik <jeff@garzik.org>,
+	netdev@vger.kernel.org
+To: Dan Williams <dcbw@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from n152-u15.estnet.bg ([89.253.152.15]:1740 "EHLO
+	zztop.nucleusys.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S965661AbXDYO5D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Apr 2007 10:57:03 -0400
+In-Reply-To: <1177446286.18030.13.camel@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+In general i agree with the reasoning below.  However, isn't it better to 
+remove the code that sets carrier on/off in intr_callback()?
 
-> > 08:39:55.493029 IP 12.33.234.69.35026 > 10.2.10.254.22: S 
-> > 2768979373:2768979373(
-> > 0) win 5840 <mss 1460,sackOK,timestamp 3873837730 0,nop,wscale 2>
-> > 08:39:55.493119 IP 10.2.10.254.22 > 12.33.234.69.35026: S
-> > 963242385:963242385(0)
-> >  ack 2768979374 win 17896 <mss 8960,sackOK,timestamp 413751
-> 
-> The MSS clamp for sending to 10.2.10.254.22 is 8960. MSS is 
-> only one way -- each uses what the other tells it.
-> 
+There's a reliable way of getting the link status by reading the MII. 
+After correct checking of the return value from read_mii_word(), 
+set_carrier() is what is good enough.  If 2 seconds is too long of an 
+interval we could reduce it to 1 second or, if needed, less.
 
-Right - except that 10.2.10.254 keeps sending to 12.33.234.69 with an
-increasingly large MSS, even though 12.33.234.69 has asked for no larger
-than 1460.
+I'd like to avoid adding additional flags per device as it will take 
+forever to collect information about their "correct" behavior and update 
+pegasus.h.  In short i think this part of your patch should be enough:
 
-> > In the following dump, the system eventually gets in a 
-> state where it 
-> > oscillates between sendng undeliverable 2896 byte packets and 
-> > deliverable 1448 byte ones.
-> 
-> This should only happen on PMTU expire, which is normally ~15mins.
-> Perhaps you misconfigured it manually using sysctl.
-> 
+---
 
-This is /proc/sys/net/ipv4/route/mtu_expires? It's 600.
+@@ -847,10 +848,16 @@ static void intr_callback(struct urb *urb)
+ 		 * d[0].NO_CARRIER kicks in only with failed TX.
+ 		 * ... so monitoring with MII may be safest.
+ 		 */
+-		if (d[0] & NO_CARRIER)
+-			netif_carrier_off(net);
+-		else
+-			netif_carrier_on(net);
+-
+ 		/* bytes 3-4 == rx_lostpkt, reg 2E/2F */
+ 		pegasus->stats.rx_missed_errors += ((d[3] & 0x7f) << 8) | d[4];
+@@ -950,7 +957,7 @@ static void set_carrier(struct net_device *net)
+ 	pegasus_t *pegasus = netdev_priv(net);
+ 	u16 tmp;
 
--- 
-Brian Ristuccia
+-	if (!read_mii_word(pegasus, pegasus->phy, MII_BMSR, &tmp))
++	if (read_mii_word(pegasus, pegasus->phy, MII_BMSR, &tmp))
+ 		return;
+
+---
 
 
-"This email message and any attachments are confidential information of Starent Networks, Corp. The information transmitted may not be used to create or change any contractual obligations of Starent Networks, Corp.  Any review, retransmission, dissemination or other use of, or taking of any action in reliance upon this e-mail and its attachments by persons or entities other than the intended recipient is prohibited. If you are not the intended recipient, please notify the sender immediately -- by replying to this message or by sending an email to postmaster@starentnetworks.com -- and destroy all copies of this message and any attachments without reading or disclosing their contents. Thank you."
+cheers,
+Petko
+
+
+On Tue, 24 Apr 2007, Dan Williams wrote:
+
+> On Tue, 2007-04-24 at 20:48 +0300, petkan@nucleusys.com wrote:
+>>> On Tue, Apr 24, 2007 at 12:49:12PM -0400, Jeff Garzik wrote:
+>>>>  Long term, Greg seemed OK with moving the net drivers from
+>>>> drivers/usb/net
+>>>>  to drivers/usb/net, in line with the current policy of placing net
+>>>> drivers
+>>>>  in drivers/net/*, bus agnostic.  After that move, sending to netdev and
+>>>> me
+>>>>  (as you did here) would be the preferred avenue.
+>>>
+>>> Speaking of which, do you want me to do this in the 2.6.22-rc1
+>>> timeframe?  Usually big code moves like this are good to do right after
+>>> rc1 comes out as the major churn is usually completed then.
+>>
+>> Sorry to interfere, but could you guys wait until tomorrow before applying
+>> the patch to your respective GIT trees?  I'd like to check if the code is
+>> doing the right thing and avoid patch reversal.
+>
+> Original problem was that the patch I referenced in the commit message
+> from Jan 6 2006 switched the return value semantics from
+> read_mii_word().  Before the patch, read_mii_word returned 1 on success,
+> 0 on error.  After the patch, it returns the generally accepted 0 on
+> success and !0 on error.
+>
+> That causes set_carrier() to return immediately rather than fiddle with
+> netif_carrier_*.  When the Jan 6 2006 patch went in changing the return
+> values, set_carrier() was not updated for the new return values.
+> Nothing else in the code cares about read_mii_word()'s return value
+> except set_carrier().
+>
+> But when the card is brought up and no cable is plugged in,
+> intr_callback() gets called repeatedly, which itself repeatedly calls
+> netif_carrier_on() due to the NO_CARRIER check.  The comment there about
+> "NO_CARRIER kicks in on TX failure" seems accurate, because even with no
+> cable plugged in, and therefore no packets getting transmitted, the
+> NO_CARRIER check is never true on the Belkin part.  Therefore,
+> netif_carrier_on() is always called as a result of the failure of d[0] &
+> NO_CARRIER, turning carrier back on even if there is no cable plugged
+> in.  This bulldozes over the MII carrier_check routine too.
+>
+> I don't think the intr_callback() code should ever turn the carrier
+> _on_, because there's that 2*HZ MII carrier check which can certainly
+> handle the carrier on/off stuff.
+>
+> LINK_STATUS appears valid on the Belkin part too, so we can add that as
+> a reverse-quirk and use LINK_STATUS on parts where it works.  If you
+> think that the NO_CARRIER check should be in _addition_ to the
+> LINK_STATUS check, that's fine with me, provided that the NO_CARRIER
+> check only turns carrier off.
+>
+> Dan
+>
+>
+>
