@@ -1,114 +1,131 @@
-From: Jon Paul Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH] [TIPC]: Enhancements to msg_set_bits() routine
-Date: Tue, 24 Apr 2007 13:21:40 -0400
-Message-ID: <462E3CA4.6070603@ericsson.com>
-Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------070504030208010606000207"
-To: davem@davemloft.net, netdev@vger.kernel.org,
-	Per Liden <per.liden@ericsson.com>,
-	"Stephens, Allan" <allan.stephens@windriver.com>
+From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Subject: [PATCH 1/2] Adding documentation for the new multiqueue API.
+Date: Tue, 24 Apr 2007 18:39:17 -0700
+Message-ID: <20070425013917.6010.92763.stgit@gitlost.site>
+References: <20070425013331.6010.38587.stgit@gitlost.site>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jgarzik@pobox.com, cramerj@intel.com, auke-jan.h.kok@intel.com,
+	christopher.leech@intel.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from imr2.ericy.com ([198.24.6.3]:59604 "EHLO imr2.ericy.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030829AbXDYBIl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Apr 2007 21:08:41 -0400
+Received: from [63.64.152.142] ([63.64.152.142]:1883 "EHLO gitlost.site"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1161811AbXDYBWs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Apr 2007 21:22:48 -0400
+In-Reply-To: <20070425013331.6010.38587.stgit@gitlost.site>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------070504030208010606000207
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
 
-This patch makes two enhancements to msg_set_bits():
-
-1) It now ignores any bits of the new field value that are not
-   covered by the mask being used.  (Previously, if the new value
-   exceeded the size of the mask the extra bits could corrupt
-   other fields in the message header word being updated.)
-
-2) The code has been optimized to minimize the number of run-time
-   endianness conversion operations by leveraging the fact that the
-   mask (and, in some cases, the value as well) is constant and the
-   necessary conversion can be performed by the compiler.
-
-Apply the attached patch, or pull from:
-
- git://tipc.cslab.ericsson.net/pub/git/tipc.git
-
- (rebased on linux/kernel/git/davem/net-2.6.git)
-
-Summary:
-
- net/tipc/msg.h |   11 +++++++----
- 1 files changed, 7 insertions(+), 4 deletions(-)
-
-
-///Jon
-
-
---------------070504030208010606000207
-Content-Type: text/x-patch;
- name="0001-TIPC-Enhancements-to-msg_set_bits-routine.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename*0="0001-TIPC-Enhancements-to-msg_set_bits-routine.patch"
-
->From 1c3c79c4c79aa8a665ddf41c08b4363cbb946950 Mon Sep 17 00:00:00 2001
-From: Jon Paul Maloy <jon.maloy@ericsson.com>
-Date: Mon, 23 Apr 2007 11:49:07 -0400
-Subject: [PATCH 1/1] [TIPC]: Enhancements to msg_set_bits() routine
-
-This patch makes two enhancements to msg_set_bits():
-
-1) It now ignores any bits of the new field value that are not
-   covered by the mask being used.  (Previously, if the new value
-   exceeded the size of the mask the extra bits could corrupt
-   other fields in the message header word being updated.)
-
-2) The code has been optimized to minimize the number of run-time
-   endianness conversion operations by leveraging the fact that the
-   mask (and, in some cases, the value as well) is constant and the
-   necessary conversion can be performed by the compiler.
-
-Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
-Signed-off-by: Jon Paul Maloy <jon.maloy@ericsson.com>
+Signed-off-by: Peter P. Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
 ---
- net/tipc/msg.h |   11 +++++++----
- 1 files changed, 7 insertions(+), 4 deletions(-)
 
-diff --git a/net/tipc/msg.h b/net/tipc/msg.h
-index 62d5490..5c64e55 100644
---- a/net/tipc/msg.h
-+++ b/net/tipc/msg.h
-@@ -1,8 +1,8 @@
- /*
-  * net/tipc/msg.h: Include file for TIPC message header routines
-  *
-- * Copyright (c) 2000-2006, Ericsson AB
-- * Copyright (c) 2005, Wind River Systems
-+ * Copyright (c) 2000-2007, Ericsson AB
-+ * Copyright (c) 2005-2007, Wind River Systems
-  * All rights reserved.
-  *
-  * Redistribution and use in source and binary forms, with or without
-@@ -71,8 +71,11 @@ static inline void msg_set_word(struct tipc_msg *m, u32 w, u32 val)
- static inline void msg_set_bits(struct tipc_msg *m, u32 w,
- 				u32 pos, u32 mask, u32 val)
- {
--	u32 word = msg_word(m,w) & ~(mask << pos);
--	msg_set_word(m, w, (word |= (val << pos)));
-+	val = (val & mask) << pos;
-+	val = htonl(val);
-+	mask = htonl(mask << pos);
-+	m->hdr[w] &= ~mask;
-+	m->hdr[w] |= val;
- }
- 
- /*
--- 
-1.5.0.5
+ Documentation/networking/multiqueue.txt |   97 +++++++++++++++++++++++++++++++
+ 1 files changed, 97 insertions(+), 0 deletions(-)
 
+diff --git a/Documentation/networking/multiqueue.txt b/Documentation/networking/multiqueue.txt
+new file mode 100644
+index 0000000..0bc5222
+--- /dev/null
++++ b/Documentation/networking/multiqueue.txt
+@@ -0,0 +1,97 @@
++
++		HOWTO for multiqueue network device support
++		===========================================
++
++Section 1: Base driver requirements for implementing multiqueue support
++Section 2: Qdisc support for multiqueue devices
++Section 3: Brief howto using PRIO for multiqueue devices
++
++
++Intro: Kernel support for multiqueue devices
++---------------------------------------------------------
++
++Kernel support for multiqueue devices is only an API that is presented to the
++netdevice layer for base drivers to implement.  This feature is part of the
++core networking stack, and all network devices will be running on the
++multiqueue-aware stack.  If a base driver only has one queue, then these
++changes are transparent to that driver.
++
++
++Section 2: Base driver requirements for implementing multiqueue support
++-----------------------------------------------------------------------
++
++Base drivers are required to use the new alloc_etherdev_mq() or
++alloc_netdev_mq() functions to allocate the subqueues for the device.  The
++underlying kernel API will take care of the allocation and deallocation of
++the subqueue memory, as well as netdev configuration of where the queues
++exist in memory.
++
++The base driver will also need to manage the queues as it does the global
++netdev->queue_lock today.  Therefore base drivers should use the
++netif_{start|stop|wake}_subqueue() functions to manage each queue while the
++device is still operational.  netdev->queue_lock is still used when the device
++comes online or when it's completely shut down (unregister_netdev(), etc.).
++
++Finally, the base driver should indicate that it is a multiqueue device.  The
++feature flag NETIF_F_MULTI_QUEUE should be added to the netdev->features
++bitmap on device initialization.  Below is an example from e1000:
++
++#ifdef CONFIG_E1000_MQ
++	if ( (adapter->hw.mac.type == e1000_82571) ||
++	     (adapter->hw.mac.type == e1000_82572) ||
++	     (adapter->hw.mac.type == e1000_80003es2lan))
++		netdev->features |= NETIF_F_MULTI_QUEUE;
++#endif
++
++
++Section 3: Qdisc support for multiqueue devices
++-----------------------------------------------
++
++Currently two qdiscs support multiqueue devices.  The default qdisc, pfifo_fast,
++and the PRIO qdisc.  The qdisc is responsible for classifying the skb's to
++bands and queues, and will store the queue mapping into skb->queue_mapping.
++Use this field in the base driver to determine which queue to send the skb
++to.
++
++pfifo_fast, being the default qdisc when a device is brought online, will not
++assign a queue mapping, therefore the skb will have a value of zero.  We
++cannot assume anything about the device itself, how many queues it really has,
++etc.  Therefore sending all traffic to queue 0 is the safest thing to do here.
++
++The PRIO qdisc naturally plugs into a multiqueue device.  Upon load of the
++qdisc, PRIO will make a best-effort assignment of queue to PRIO band to evenly
++distribute traffic flows.  The algorithm can be found in prio_tune() in
++net/sched/sch_prio.c.  Once the association is made, any skb that is
++classified will have skb->queue_mapping set, which will allow the driver to
++properly queue skb's to multiple queues.
++
++
++Section 4: Brief howto using PRIO for multiqueue devices
++--------------------------------------------------------
++
++The userspace command 'tc,' part of the iproute2 package, is used to configure
++qdiscs.  To add the PRIO qdisc to your network device, assuming the device is
++called eth0, run the following command:
++
++# tc qdisc add dev eth0 root handle 1: prio multiqueue
++
++This will create 3 bands, 0 being highest priority, and associate those bands
++to the queues on your NIC.  Assuming eth0 has 2 Tx queues, the band mapping
++would look like:
++
++band 0 => queue 0
++band 1 => queue 0
++band 2 => queue 1
++
++Traffic will begin flowing through each queue if your TOS values are assigning
++traffic across the various bands.  For example, ssh traffic will always try to
++go out band 0 based on TOS -> Linux priority conversion (realtime traffic),
++so it will be sent out queue 0.  ICMP traffic (pings) fall into the "normal"
++traffic classification, which is band 1.  Therefore pings will be send out
++queue 1 on the NIC.
++
++The behavior of tc filters remains the same, where it will override TOS priority
++classification.
++
++
++Author: Peter P. Waskiewicz Jr. <peter.p.waskiewicz.jr@intel.com>
 
---------------070504030208010606000207--
