@@ -1,125 +1,95 @@
-From: Ismail =?utf-8?q?D=C3=B6nmez?= <ismail@pardus.org.tr>
-Subject: Re: Problem with commit a0ee18b9b7d3847976c6fb315c06a34fb296de0e
-Date: Wed, 25 Apr 2007 11:52:52 +0300
-Message-ID: <200704251152.52906.ismail@pardus.org.tr>
-References: <200704231506.34410.ismail@pardus.org.tr> <20070423211740.GE521@postel.suug.ch> <200704240023.13565.ismail@pardus.org.tr>
+From: weidong <weidong@cn.fujitsu.com>
+Subject: Re: Fix "ipOutNoRoutes" counter error for TCP and UDP
+Date: Wed, 25 Apr 2007 17:04:53 +0800
+Message-ID: <462F19B5.2060005@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: Multipart/Mixed;
-  boundary="Boundary-00=_kbxLG3pJX99dfkW"
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Thomas Graf <tgraf@suug.ch>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.uludag.org.tr ([193.140.100.220]:37977 "EHLO uludag.org.tr"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1423317AbXDYIve (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Apr 2007 04:51:34 -0400
-In-Reply-To: <200704240023.13565.ismail@pardus.org.tr>
+Received: from [222.73.24.84] ([222.73.24.84]:56331 "EHLO song.cn.fujitsu.com"
+	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1423330AbXDYJDR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Apr 2007 05:03:17 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Boundary-00=_kbxLG3pJX99dfkW
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+Hi Mr. David
+     I have modified my patch according to you advice. I think -
+EHOSTUNREACH is only for "input path". In "output" path, we can just
+simply check-ENETUNREACH  (^_^), the patch is shown in the end of this mail.
 
-Hi,
-On Tuesday 24 April 2007 00:23:13 Ismail D=C3=B6nmez wrote:
-> On Tuesday 24 April 2007 00:17:40 Thomas Graf wrote:
-> > * Ismail D?nmez <ismail@pardus.org.tr> 2007-04-23 22:09
+BTW: my E-mail has been changed to weidong@cn.fujitsu.com
+
+
+>>>> >> >> Function need to fix:
+>>>> >> >> tcp_v4_connect(); ip4_datagram_connect(); udp_sendmsg();
+>> >>
+
+>> > > I think we need to make these checks more carefully.
+>> > >
+>> > > Route lookup can fail for several reasons other than
+>> > > no route being available.  Two examples are:
+>> > >
+>> > > 1) Out of memory error while creating route
+>> > > 2) IPSEC disallows communication to that flow ID
+>> > >
+>> > > As a result, we'll probably best limiting the counter
+>> > > increment when the error is either -EHOSTUNREACH or
+>> > > -ENETUNREACH.
 > >
-> > > Yes I know the fix is in but I wondered why its creating such problems
-> > > with 2.6.18 kernel, guess it depends on some other commits.
-> >
-> > As long as you apply the complete patch including the additional
-> > sanity check for RTN_MAX it should work perfectly fine on 2.6.18.
->
-> The sanity check part doesn't seem to apply to 2.6.18.
->
-> > I can't think of any connection between the patch and the errors
-> > you are seeing.
-> >
-> > Are you absolutely sure the errors you see are directly connected
-> > to applying the patch?
->
-> Yes actually I am but I'll re-test and see. Thanks.
 
-I was able to reproduce the same problem with Linus' GIT tree too. Since I=
-=20
-started to see these after I applied the commit=20
-a0ee18b9b7d3847976c6fb315c06a34fb296de0e to 2.6.18 tree, there is a big=20
-possiblity that the commit is the culprit.
-
-I attach the relevant dmesg messages. Problem happened after 12 hours of=20
-uptime and and net connection gets stable again after 1-2 minutes.
-
-Regards,
-ismail
-
-=2D-=20
-Life is a game, and if you aren't in it to win,
-what the heck are you still doing here?
-
-=2D- Linus Torvalds (talking about open source development)
-
---Boundary-00=_kbxLG3pJX99dfkW
-Content-Type: text/plain;
-  charset="utf-8";
-  name="dmesg.txt"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
-	filename="dmesg.txt"
-
-Neighbour table overflow.
-Neighbour table overflow.
-Neighbour table overflow.
-Neighbour table overflow.
-Neighbour table overflow.
-Neighbour table overflow.
-Neighbour table overflow.
-Neighbour table overflow.
-Neighbour table overflow.
-Neighbour table overflow.
-printk: 1 messages suppressed.
-Neighbour table overflow.
-printk: 4 messages suppressed.
-Neighbour table overflow.
-printk: 3 messages suppressed.
-Neighbour table overflow.
-Neighbour table overflow.
-Neighbour table overflow.
-Neighbour table overflow.
-Neighbour table overflow.
-Neighbour table overflow.
-Neighbour table overflow.
-Neighbour table overflow.
-Neighbour table overflow.
-Neighbour table overflow.
-Neighbour table overflow.
-printk: 3 messages suppressed.
-Neighbour table overflow.
-printk: 15 messages suppressed.
-Neighbour table overflow.
-printk: 6 messages suppressed.
-Neighbour table overflow.
-printk: 13 messages suppressed.
-Neighbour table overflow.
-Neighbour table overflow.
-Neighbour table overflow.
-Neighbour table overflow.
-Neighbour table overflow.
-Neighbour table overflow.
-Neighbour table overflow.
-Neighbour table overflow.
-Neighbour table overflow.
-Neighbour table overflow.
-Neighbour table overflow.
-Neighbour table overflow.
-printk: 2 messages suppressed.
-Neighbour table overflow.
-printk: 1 messages suppressed.
-Neighbour table overflow.
-Neighbour table overflow.
+signed-off-by: Wei Dong <weidong@cn.fujitsu.com>
 
 
---Boundary-00=_kbxLG3pJX99dfkW--
+diff -ruNp a/net/ipv4/datagram.c b/net/ipv4/datagram.c
+--- a/net/ipv4/datagram.c	2007-04-25 15:20:19.000000000 +0800
++++ b/net/ipv4/datagram.c	2007-04-25 15:21:42.000000000 +0800
+@@ -50,8 +50,12 @@ int ip4_datagram_connect(struct sock *sk
+  			       RT_CONN_FLAGS(sk), oif,
+  			       sk->sk_protocol,
+  			       inet->sport, usin->sin_port, sk);
+-	if (err)
++	if (err) {
++		if (err == -ENETUNREACH)
++			IP_INC_STATS_BH(IPSTATS_MIB_OUTNOROUTES);
+  		return err;
++	}
++
+  	if ((rt->rt_flags & RTCF_BROADCAST) && !sock_flag(sk, SOCK_BROADCAST)) {
+  		ip_rt_put(rt);
+  		return -EACCES;
+diff -ruNp a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+--- a/net/ipv4/tcp_ipv4.c	2007-04-25 15:20:19.000000000 +0800
++++ b/net/ipv4/tcp_ipv4.c	2007-04-25 15:21:42.000000000 +0800
+@@ -192,8 +192,11 @@ int tcp_v4_connect(struct sock *sk, stru
+  			       RT_CONN_FLAGS(sk), sk->sk_bound_dev_if,
+  			       IPPROTO_TCP,
+  			       inet->sport, usin->sin_port, sk);
+-	if (tmp < 0)
++	if (tmp < 0) {
++		if (tmp == -ENETUNREACH)
++			IP_INC_STATS_BH(IPSTATS_MIB_OUTNOROUTES);
+  		return tmp;
++	}
+
+  	if (rt->rt_flags & (RTCF_MULTICAST | RTCF_BROADCAST)) {
+  		ip_rt_put(rt);
+diff -ruNp a/net/ipv4/udp.c b/net/ipv4/udp.c
+--- a/net/ipv4/udp.c	2007-04-25 15:20:19.000000000 +0800
++++ b/net/ipv4/udp.c	2007-04-25 15:21:42.000000000 +0800
+@@ -630,8 +630,11 @@ int udp_sendmsg(struct kiocb *iocb, stru
+  						 .dport = dport } } };
+  		security_sk_classify_flow(sk, &fl);
+  		err = ip_route_output_flow(&rt, &fl, sk,
+!(msg->msg_flags&MSG_DONTWAIT));
+-		if (err)
++		if (err) {
++			if (err == -ENETUNREACH)
++				IP_INC_STATS_BH(IPSTATS_MIB_OUTNOROUTES);
+  			goto out;
++		}
+
+  		err = -EACCES;
+  		if ((rt->rt_flags & RTCF_BROADCAST) &&
+
