@@ -1,44 +1,105 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Security] [PATCH] infinite recursion in netlink
-Date: Wed, 25 Apr 2007 13:18:47 -0700 (PDT)
-Message-ID: <20070425.131847.26277170.davem@davemloft.net>
-References: <20070425183856.GA6028@ms2.inr.ac.ru>
-	<alpine.LFD.0.98.0704251311270.9964@woody.linux-foundation.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: netlink locking warnings in 2.6.21-rc7-mm1
+Date: Wed, 25 Apr 2007 22:51:43 +0200
+Message-ID: <462FBF5F.20909@trash.net>
+References: <E1HgVxj-0003U6-00@gondolin.me.apana.org.au>	<462F54F3.9050306@trash.net> <20070425124449.98bf091c.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, security@kernel.org, greg@kroah.com,
-	netdev@vger.kernel.org, jaco@kroon.co.za
-To: torvalds@linux-foundation.org
+Content-Type: multipart/mixed;
+ boundary="------------060406050409020007000703"
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38432
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S2993070AbXDYUSj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Apr 2007 16:18:39 -0400
-In-Reply-To: <alpine.LFD.0.98.0704251311270.9964@woody.linux-foundation.org>
+Received: from stinky.trash.net ([213.144.137.162]:40372 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1031123AbXDYUwK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Apr 2007 16:52:10 -0400
+In-Reply-To: <20070425124449.98bf091c.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Date: Wed, 25 Apr 2007 13:15:12 -0700 (PDT)
+This is a multi-part message in MIME format.
+--------------060406050409020007000703
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
 
-> If so, shouldn't we also have some safety-net to make sure it doesn't 
-> still get routed back forever, ie adding something like
+Andrew Morton wrote:
+> I just retested bare net-2.6.22, pulled 30 minutes ago.  I got just one
+> warning:
 > 
-> 	if (!pid) {
-> 		skb_free(skb);
-> 		return -EINVAL;
-> 	}
+> BUG: at kernel/mutex-debug.c:82 debug_mutex_unlock()
+>  [<c012d18a>] debug_mutex_unlock+0x5a/0x134
+>  [<c02d67e2>] __mutex_unlock_slowpath+0x9d/0xcf
+>  [<f8c3618b>] ipw_wx_set_encode+0x0/0x82 [ipw2200]
+>  [<c028b92c>] rtnl_unlock+0xa/0x29
+>  [<c0286651>] dev_ioctl+0x3d0/0x402
+>  [<c014b078>] __handle_mm_fault+0x7c6/0x7e8
+>  [<c01a649b>] selinux_file_alloc_security+0x1f/0x40
+>  [<c027b943>] sock_ioctl+0x0/0x1be
+>  [<c0162925>] do_ioctl+0x19/0x4d
+>  [<c0162b58>] vfs_ioctl+0x1ff/0x216
+>  [<c0162bbb>] sys_ioctl+0x4c/0x65
+>  [<c0103b0c>] syscall_call+0x7/0xb
+>  [<c02d0000>] unix_dgram_sendmsg+0x76/0x400
+>  =======================
 > 
-> or similar? I don't know the netlink layer from a dolphin, but if the old 
-> code could cause infinite recursion, it sounds like the new code could too 
-> with the right pid, since the only change is the choice of pid.
+> It's 100% reproducible here, using
+> http://userweb.kernel.org/~akpm/config-sony.txt
+> 
+> 
+> The weird ASSERT_RTNL warnings aren't there, so something else in -mm
+> (prior to git-net.patch in the series file) would appear to be interacting
+> with net changes.
 
-Netlink pids are more like "port numbers" in the socket sense, do
-not confuse them with process pids or similar.
 
-The kernel explicitly assigns them to sockets, and zero is special.
-The fact that the process pid of the socket creator is used as
-an initial selection heuristic, is just that, a heuristic.
+I think I found the problem, the rtnl_mutex was reinitialized on every
+rtnetlink socket creation. This is most likely responsible for both
+warnings.
 
-Alexey's fix is %100 the right way to go IMHO.
+
+--------------060406050409020007000703
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
+
+[NETLINK]: don't reinitialize callback mutex
+
+Don't reinitialize the callback mutex the netlink_kernel_create caller
+handed in, it is supposed to already be initialized and could already
+be held by someone.
+
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+
+---
+commit 9cc4e9c2d8b022c10ded98610a3cd76a8b89cf49
+tree e53f10a158858e20ef2e9922cabc5bf43980708d
+parent 7255fbb088e3f1b8be97472a38f645a8da595fe2
+author Patrick McHardy <kaber@trash.net> Wed, 25 Apr 2007 22:47:20 +0200
+committer Patrick McHardy <kaber@trash.net> Wed, 25 Apr 2007 22:47:20 +0200
+
+ net/netlink/af_netlink.c |    8 ++++++--
+ 1 files changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index ec16c9b..64d4b27 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -388,8 +388,12 @@ static int __netlink_create(struct socket *sock, struct mutex *cb_mutex,
+ 	sock_init_data(sock, sk);
+ 
+ 	nlk = nlk_sk(sk);
+-	nlk->cb_mutex = cb_mutex ? : &nlk->cb_def_mutex;
+-	mutex_init(nlk->cb_mutex);
++	if (cb_mutex)
++		nlk->cb_mutex = cb_mutex;
++	else {
++		nlk->cb_mutex = &nlk->cb_def_mutex;
++		mutex_init(nlk->cb_mutex);
++	}
+ 	init_waitqueue_head(&nlk->wait);
+ 
+ 	sk->sk_destruct = netlink_sock_destruct;
+
+--------------060406050409020007000703--
