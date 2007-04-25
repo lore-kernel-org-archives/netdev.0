@@ -1,249 +1,146 @@
-From: jamal <hadi@cyberus.ca>
-Subject: [PATCH][XFRM] export SAD info
-Date: Wed, 25 Apr 2007 11:42:41 -0400
-Message-ID: <1177515761.9923.3.camel@localhost>
-Reply-To: hadi@cyberus.ca
+From: David Howells <dhowells@redhat.com>
+Subject: [PATCH 00/16] AF_RXRPC socket family and AFS rewrite [try #4]
+Date: Wed, 25 Apr 2007 16:48:54 +0100
+Message-ID: <20070425154854.26581.97692.stgit@warthog.cambridge.redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-SmRQZDKGeQzg0dmZBA3H"
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.229]:52040 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1031093AbXDYPmp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Apr 2007 11:42:45 -0400
-Received: by wx-out-0506.google.com with SMTP id h31so275484wxd
-        for <netdev@vger.kernel.org>; Wed, 25 Apr 2007 08:42:45 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	netdev@vger.kernel.org, dhowells@redhat.com
+To: torvalds@osdl.org, akpm@osdl.org
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---=-SmRQZDKGeQzg0dmZBA3H
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+The first of these patches together provide secure client-side RxRPC
+connectivity as a Linux kernel socket family.  Only the RxRPC transport/session
+side is supplied - the presentation side (marshalling the data) is left to the
+client.  Copies of the patches can be found here:
 
-Dave,
+	http://people.redhat.com/~dhowells/rxrpc/series
+	http://people.redhat.com/~dhowells/rxrpc/01-move-skb-generic.diff
+	http://people.redhat.com/~dhowells/rxrpc/02-cancel_delayed_work.diff
+	http://people.redhat.com/~dhowells/rxrpc/03-keys.diff
+	http://people.redhat.com/~dhowells/rxrpc/04-timer-exports.diff
+	http://people.redhat.com/~dhowells/rxrpc/05-af_rxrpc.diff
 
-Something ive been meaning to do since you made the hash changes. I will
-be doing one also for policy. Against latest Linus tree because i am
-having strange challenges syncing net-2.6.22.
+Further patches make the in-kernel AFS filesystem use AF_RXRPC and delete the
+old RxRPC implementation:
 
-cheers,
-jamal
+	http://people.redhat.com/~dhowells/rxrpc/06-afs-cleanup.diff
+	http://people.redhat.com/~dhowells/rxrpc/07-af_rxrpc-kernel.diff
+	http://people.redhat.com/~dhowells/rxrpc/08-af_rxrpc-afs.diff
+	http://people.redhat.com/~dhowells/rxrpc/09-af_rxrpc-delete-old.diff
 
---=-SmRQZDKGeQzg0dmZBA3H
-Content-Disposition: attachment; filename=xfrm_sadinfo
-Content-Type: text/plain; name=xfrm_sadinfo; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+And then the rest of the patches extend AFS to provide automatic unmounting of
+automount trees, security support and directory-level write support (create,
+mkdir, etc.):
 
-[XFRM] export SAD info
+	http://people.redhat.com/~dhowells/rxrpc/10-afs-multimount.diff
+	http://people.redhat.com/~dhowells/rxrpc/11-afs-security.diff
+	http://people.redhat.com/~dhowells/rxrpc/12-afs-doc.diff
+	http://people.redhat.com/~dhowells/rxrpc/13-netlink-support-MSG_TRUNC.diff
+	http://people.redhat.com/~dhowells/rxrpc/14-afs-get-capabilities.diff
+	http://people.redhat.com/~dhowells/rxrpc/15-afs-initcallbackstate3.diff
+	http://people.redhat.com/~dhowells/rxrpc/16-afs-dir-write-support.diff
 
-On a system with a lot of SAs, counting SAD entries chews useful
-CPU time since you need to dump the whole SAD to user space;
-i.e something like ip xfrm state ls | grep -i src | wc -l
-I have seen taking literally minutes on a 40K SAs when the system
-is swapping.
-With this patch, some of the SAD info (that was already being tracked)
-is exposed to user space. i.e you do:
-ip xfrm state count
-And you get the count; you can also pass -s to the command line and
-get the hash info.
+Note that file-level write support is not yet complete and so is not included
+in this patch set.
 
-Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
 
----
-commit 1fb99604e38f27c1ad4cb74b11f148c34d0d3be6
-tree 1bb35db627ac5d3d2f370d0fc993ba6b80392696
-parent 146d97b89c83c9460012185bfd584d21a3b5fe19
-author Jamal Hadi Salim <hadi@cyberus.ca> Wed, 25 Apr 2007 11:30:21 -0400
-committer Jamal Hadi Salim <hadi@cyberus.ca> Wed, 25 Apr 2007 11:30:21 -0400
+The userspace access methods make use of the control data passed to/by
+sendmsg() and recvmsg().  See the three simple test programs:
 
- include/linux/xfrm.h  |   25 ++++++++++++++++++++++
- include/net/xfrm.h    |    8 +++++++
- net/xfrm/xfrm_state.c |   12 ++++++++++-
- net/xfrm/xfrm_user.c  |   56 +++++++++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 100 insertions(+), 1 deletions(-)
+	http://people.redhat.com/~dhowells/rxrpc/klog.c
+	http://people.redhat.com/~dhowells/rxrpc/rxrpc.c
+	http://people.redhat.com/~dhowells/rxrpc/listen.c
 
-diff --git a/include/linux/xfrm.h b/include/linux/xfrm.h
-index 15ca89e..9c656a5 100644
---- a/include/linux/xfrm.h
-+++ b/include/linux/xfrm.h
-@@ -181,6 +181,10 @@ enum {
- 	XFRM_MSG_MIGRATE,
- #define XFRM_MSG_MIGRATE XFRM_MSG_MIGRATE
- 
-+	XFRM_MSG_NEWSADINFO,
-+#define XFRM_MSG_NEWSADINFO XFRM_MSG_NEWSADINFO
-+	XFRM_MSG_GETSADINFO,
-+#define XFRM_MSG_GETSADINFO XFRM_MSG_GETSADINFO
- 	__XFRM_MSG_MAX
- };
- #define XFRM_MSG_MAX (__XFRM_MSG_MAX - 1)
-@@ -234,6 +238,17 @@ enum xfrm_ae_ftype_t {
- #define XFRM_AE_MAX (__XFRM_AE_MAX - 1)
- };
- 
-+/* SAD Table filter flags  */
-+enum xfrm_sad_ftype_t {
-+	XFRM_SAD_UNSPEC,
-+	XFRM_SAD_HMASK=1,
-+	XFRM_SAD_HMAX=2,
-+	XFRM_SAD_CNT=4,
-+	__XFRM_SAD_MAX
-+
-+#define XFRM_SAD_MAX (__XFRM_SAD_MAX - 1)
-+};
-+
- struct xfrm_userpolicy_type {
- 	__u8		type;
- 	__u16		reserved1;
-@@ -265,6 +280,16 @@ enum xfrm_attr_type_t {
- #define XFRMA_MAX (__XFRMA_MAX - 1)
- };
- 
-+enum xfrm_sadattr_type_t {
-+	XFRMA_SAD_UNSPEC,
-+	XFRMA_SADHMASK,
-+	XFRMA_SADHMAX,
-+	XFRMA_SADCNT,
-+	__XFRMA_SAD_MAX
-+
-+#define XFRMA_SAD_MAX (__XFRMA_SAD_MAX - 1)
-+};
-+
- struct xfrm_usersa_info {
- 	struct xfrm_selector		sel;
- 	struct xfrm_id			id;
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 5a00aa8..4922e9f 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -416,6 +416,13 @@ struct xfrm_audit
- 	u32	secid;
- };
- 
-+/* SAD metadata, add more later */
-+struct xfrm_sadinfo
-+{
-+	u32 sadhcnt; /* current hash bkts */
-+	u32 sadhmcnt; /* max allowed hash bkts */
-+	u32 sadcnt; /* current running count */
-+};
- #ifdef CONFIG_AUDITSYSCALL
- extern void xfrm_audit_log(uid_t auid, u32 secid, int type, int result,
- 		    struct xfrm_policy *xp, struct xfrm_state *x);
-@@ -938,6 +945,7 @@ static inline int xfrm_state_sort(struct xfrm_state **dst, struct xfrm_state **s
- extern struct xfrm_state *xfrm_find_acq_byseq(u32 seq);
- extern int xfrm_state_delete(struct xfrm_state *x);
- extern void xfrm_state_flush(u8 proto, struct xfrm_audit *audit_info);
-+extern void xfrm_sad_getinfo(struct xfrm_sadinfo *si);
- extern int xfrm_replay_check(struct xfrm_state *x, __be32 seq);
- extern void xfrm_replay_advance(struct xfrm_state *x, __be32 seq);
- extern void xfrm_replay_notify(struct xfrm_state *x, int event);
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index c1581fb..98e5ce3 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -53,7 +53,7 @@ static struct hlist_head *xfrm_state_bysrc __read_mostly;
- static struct hlist_head *xfrm_state_byspi __read_mostly;
- static unsigned int xfrm_state_hmask __read_mostly;
- static unsigned int xfrm_state_hashmax __read_mostly = 1 * 1024 * 1024;
--static u32 xfrm_state_num;
-+static unsigned int xfrm_state_num;
- static unsigned int xfrm_state_genid;
- 
- static inline unsigned int xfrm_dst_hash(xfrm_address_t *daddr,
-@@ -421,6 +421,16 @@ restart:
- }
- EXPORT_SYMBOL(xfrm_state_flush);
- 
-+void xfrm_sad_getinfo(struct xfrm_sadinfo *si)
-+{
-+	spin_lock_bh(&xfrm_state_lock);
-+	si->sadcnt = xfrm_state_num;
-+	si->sadhcnt = xfrm_state_hmask;
-+	si->sadhmcnt = xfrm_state_hashmax;
-+	spin_unlock_bh(&xfrm_state_lock);
-+}
-+EXPORT_SYMBOL(xfrm_sad_getinfo);
-+
- static int
- xfrm_init_tempsel(struct xfrm_state *x, struct flowi *fl,
- 		  struct xfrm_tmpl *tmpl,
-diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-index 816e369..089159a 100644
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -672,6 +672,61 @@ static struct sk_buff *xfrm_state_netlink(struct sk_buff *in_skb,
- 	return skb;
- }
- 
-+static int build_sadinfo(struct sk_buff *skb, u32 pid, u32 seq, u32 flags)
-+{
-+	struct xfrm_sadinfo si;
-+	struct nlmsghdr *nlh;
-+	u32 *f;
-+
-+	nlh = nlmsg_put(skb, pid, seq, XFRM_MSG_NEWSADINFO, sizeof(u32), 0);
-+	if (nlh == NULL) /* shouldnt really happen ... */
-+		return -EMSGSIZE;
-+
-+	f = nlmsg_data(nlh);
-+	*f = flags;
-+	xfrm_sad_getinfo(&si);
-+
-+	if (flags & XFRM_SAD_HMASK)
-+		NLA_PUT_U32(skb, XFRMA_SADHMASK, si.sadhcnt);
-+	if (flags & XFRM_SAD_HMAX)
-+		NLA_PUT_U32(skb, XFRMA_SADHMAX, si.sadhmcnt);
-+	if (flags & XFRM_SAD_CNT)
-+		NLA_PUT_U32(skb, XFRMA_SADCNT, si.sadcnt);
-+
-+	return nlmsg_end(skb, nlh);
-+
-+nla_put_failure:
-+	nlmsg_cancel(skb, nlh);
-+	return -EMSGSIZE;
-+}
-+
-+static int xfrm_get_sadinfo(struct sk_buff *skb, struct nlmsghdr *nlh,
-+		struct rtattr **xfrma)
-+{
-+	struct sk_buff *r_skb;
-+	u32 *flags = NLMSG_DATA(nlh);
-+	u32 spid = NETLINK_CB(skb).pid;
-+	u32 seq = nlh->nlmsg_seq;
-+	int len = NLMSG_LENGTH(sizeof(u32));
-+
-+	if (*flags & XFRM_SAD_HMASK)
-+		len += RTA_SPACE(sizeof(u32));
-+	if (*flags & XFRM_SAD_HMAX)
-+		len += RTA_SPACE(sizeof(u32));
-+	if (*flags & XFRM_SAD_CNT)
-+		len += RTA_SPACE(sizeof(u32));
-+
-+	r_skb = alloc_skb(len, GFP_ATOMIC);
-+
-+	if (r_skb == NULL)
-+		return -ENOMEM;
-+
-+	if (build_sadinfo(r_skb, spid, seq, *flags) < 0)
-+		BUG();
-+
-+	return nlmsg_unicast(xfrm_nl, r_skb, spid);
-+}
-+
- static int xfrm_get_sa(struct sk_buff *skb, struct nlmsghdr *nlh,
- 		struct rtattr **xfrma)
- {
-@@ -1850,6 +1905,7 @@ static struct xfrm_link {
- 	[XFRM_MSG_NEWAE       - XFRM_MSG_BASE] = { .doit = xfrm_new_ae  },
- 	[XFRM_MSG_GETAE       - XFRM_MSG_BASE] = { .doit = xfrm_get_ae  },
- 	[XFRM_MSG_MIGRATE     - XFRM_MSG_BASE] = { .doit = xfrm_do_migrate    },
-+	[XFRM_MSG_GETSADINFO  - XFRM_MSG_BASE] = { .doit = xfrm_get_sadinfo    },
- };
- 
- static int xfrm_user_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh, int *errp)
+The klog program is provided to go and get a Kerberos IV key from the AFS
+kaserver.  Currently it must be edited before compiling to note the right
+server IP address and the appropriate credentials.
 
---=-SmRQZDKGeQzg0dmZBA3H--
+These programs can be compiled by:
 
+	make klog rxrpc listen CFLAGS="-Wall -g" LDLIBS="-lcrypto -lcrypt -lkrb4 -lkeyutils"
+
+Then a ticket can be obtained by:
+
+	./klog
+
+If a security key is acquired in this way, then all subsequent AFS operations -
+including VL lookups and mounts - performed with that session keyring will be
+authenticated using that key.  The key can be viewed like so:
+
+	[root@andromeda ~]# keyctl show
+	Session Keyring
+	       -3 --alswrv      0     0  keyring: _ses.3268
+		2 --alswrv      0     0   \_ keyring: _uid.0
+	111416553 --als--v      0     0   \_ rxrpc: afs@CAMBRIDGE.REDHAT.COM
+
+TODO:
+
+ (*) Make certain parameters (such as connection timeouts) userspace
+     configurable.
+
+ (*) Make userspace utilities use it; librxrpc.
+
+ (*) Userspace documentation.
+
+ (*) KerberosV security.
+
+Changes:
+
+ (*) SOCK_RPC has been removed.  SOCK_DGRAM is now used instead.
+
+ (*) I've add a facility whereby calls can be made to destinations other than
+     the connect() address of a client socket by making use of msg_name in the
+     msghdr struct when using sendmsg() to send the first data packet of a
+     call.  Indeed, a client socket need not be connected before being used
+     so.
+
+ (*) I've also added a facility whereby client calls may also be made on
+     server sockets, again by using msg_name in the msghdr struct.  In such a
+     case, the server's local transport endpoint is used.
+
+ (*) I've made the write buffer space check available to various callers
+     (sk_write_space) and implemented poll support.
+
+ (*) Rewrote rxrpc_recvmsg().  It now concatenates adjacent data messages from
+     the same call when delivering them.
+
+ (*) Updated the documentation to include notes on recvmsg, cover control
+     messages and cover SOL_RXRPC-level socket options.
+
+ (*) Provided an in-kernel interface to give in-kernel utilities easier access
+     to the facility.
+
+ (*) Made fs/afs/ use it.
+
+ (*) Deleted the old contents of net/rxrpc/.
+
+ (*) Use the scatterlist interface to the crypto API for now.  The patch that
+     added the direct access interface conflicts with patches Herbert Xu is
+     producing, so I've dropped it for the moment.
+
+ (*) Moved a bug fix to make secure connection reuse work from the
+     af_rxrpc-kernel patch to the af_rxrpc main patch.
+
+ (*) Make RxRPC use its own private work queues rather than keventd's to avoid
+     deadlocks when AFS tries to use keventd too.  This also puts encryption
+     in the private work queue rather than keventd's queue as that might take
+     a relatively long time to process.
+
+ (*) Shorten the dead call timeout to 2 seconds.  Without this, each completed
+     call sits around eating up resources for 10 seconds.  The calls need to
+     hang around for a little while in case duplicate packets appear, but 10
+     seconds is excessive.
+
+ (*) Decrement the number of available calls on a connection when a new call is
+     allocated for a connection that doesn't have any calls in progress.
+
+ (*) Rename header files with uppercase names to lowercase names.
+
+ (*) Make sure include/keys/rxrpc-type.h is included.
+
+David
