@@ -1,8 +1,7 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH 10/16] AFS: Handle multiple mounts of an AFS superblock
-	correctly [try #3]
-Date: Wed, 25 Apr 2007 11:51:29 +0100
-Message-ID: <20070425105129.10872.1324.stgit@warthog.cambridge.redhat.com>
+Subject: [PATCH 13/16] commit ad495d7b6cfcd1bc2eaf06c42699be0bb5d84234 [try #3]
+Date: Wed, 25 Apr 2007 11:51:44 +0100
+Message-ID: <20070425105144.10872.72648.stgit@warthog.cambridge.redhat.com>
 References: <20070425105036.10872.48596.stgit@warthog.cambridge.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,72 +9,36 @@ Content-Transfer-Encoding: 7bit
 Cc: linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
 	netdev@vger.kernel.org, dhowells@redhat.com
 To: torvalds@osdl.org, akpm@osdl.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:52225 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S2992678AbXDYKvj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Apr 2007 06:51:39 -0400
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
 In-Reply-To: <20070425105036.10872.48596.stgit@warthog.cambridge.redhat.com>
-Sender: netdev-owner@vger.kernel.org
+Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Handle multiple mounts of an AFS superblock correctly, checking to see whether
-the superblock is already initialised after calling sget() rather than just
-unconditionally stamping all over it.
+[NETLINK]: Mirror UDP MSG_TRUNC semantics.
 
-Also delete the "silent" parameter to afs_fill_super() as it's not used and
-can, in any case, be obtained from sb->s_flags.
+    If the user passes MSG_TRUNC in via msg_flags, return
+    the full packet size not the truncated size.
 
-Signed-Off-By: David Howells <dhowells@redhat.com>
+    Idea from Herbert Xu and Thomas Graf.
+
+    Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
 
- fs/afs/super.c |   26 ++++++++++++++++----------
- 1 files changed, 16 insertions(+), 10 deletions(-)
+ net/netlink/af_netlink.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
 
-diff --git a/fs/afs/super.c b/fs/afs/super.c
-index efc4fe6..77e6875 100644
---- a/fs/afs/super.c
-+++ b/fs/afs/super.c
-@@ -212,7 +212,7 @@ static int afs_test_super(struct super_block *sb, void *data)
- /*
-  * fill in the superblock
-  */
--static int afs_fill_super(struct super_block *sb, void *data, int silent)
-+static int afs_fill_super(struct super_block *sb, void *data)
- {
- 	struct afs_mount_params *params = data;
- 	struct afs_super_info *as = NULL;
-@@ -319,17 +319,23 @@ static int afs_get_sb(struct file_system_type *fs_type,
- 		goto error;
- 	}
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index c48b0f4..5890210 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -1242,6 +1242,9 @@ static int netlink_recvmsg(struct kiocb *kiocb, struct socket *sock,
  
--	sb->s_flags = flags;
--
--	ret = afs_fill_super(sb, &params, flags & MS_SILENT ? 1 : 0);
--	if (ret < 0) {
--		up_write(&sb->s_umount);
--		deactivate_super(sb);
--		goto error;
-+	if (!sb->s_root) {
-+		/* initial superblock/root creation */
-+		_debug("create");
-+		sb->s_flags = flags;
-+		ret = afs_fill_super(sb, &params);
-+		if (ret < 0) {
-+			up_write(&sb->s_umount);
-+			deactivate_super(sb);
-+			goto error;
-+		}
-+		sb->s_flags |= MS_ACTIVE;
-+	} else {
-+		_debug("reuse");
-+		ASSERTCMP(sb->s_flags, &, MS_ACTIVE);
- 	}
--	sb->s_flags |= MS_ACTIVE;
--	simple_set_mnt(mnt, sb);
+ 	scm_recv(sock, msg, siocb->scm, flags);
  
-+	simple_set_mnt(mnt, sb);
- 	afs_put_volume(params.volume);
- 	afs_put_cell(params.default_cell);
- 	_leave(" = 0 [%p]", sb);
++	if (flags & MSG_TRUNC)
++		copied = skb->len;
++
+ out:
+ 	netlink_rcv_wake(sk);
+ 	return err ? : copied;
 
