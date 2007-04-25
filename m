@@ -1,61 +1,95 @@
-From: Shani Moideen <shani.moideen@wipro.com>
-Subject: [PATCH]:Replace with time_before in net/ipv4/ipip.c
-Date: Wed, 25 Apr 2007 11:30:13 +0530
-Message-ID: <1177480813.27118.17.camel@shani-win>
+From: weidong <weidong@cn.fujitsu.com>
+Subject: Re: Fix "ipOutNoRoutes" counter error for TCP and UDP
+Date: Wed, 25 Apr 2007 15:39:55 +0800
+Message-ID: <462F05CB.1020103@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=GB2312
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kernel-janitors@lists.osdl.org
-To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@coreworks.de
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wip-cdc-wd.wipro.com ([203.91.201.26]:36779 "EHLO
-	wip-cdc-wd.wipro.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1423217AbXDYGEJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Apr 2007 02:04:09 -0400
+Received: from [222.73.24.84] ([222.73.24.84]:65120 "EHLO song.cn.fujitsu.com"
+	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1161622AbXDYHht (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Apr 2007 03:37:49 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Hi Mr. David
+    I have modified my patch according to you advice. I think -
+EHOSTUNREACH
+is only for "input path". In "output" path, we can just simply check
+-ENETUNREACH  (^_^), the patch is shown in the end of this mail.
 
-Replacing (jiffies - errtime < TIMEOUT) with time_before in net/ipv4/ipip.c
-
-thanks.
-
-Signed-off-by: Shani Moideen <shani.moideen@wipro.com>
-----
+BTW: my E-mail has been changed to weidong@cn.fujitsu.com
 
 
-diff --git a/net/ipv4/ipip.c b/net/ipv4/ipip.c
-index 3ec5ce0..d2bc835 100644
---- a/net/ipv4/ipip.c
-+++ b/net/ipv4/ipip.c
-@@ -108,6 +108,7 @@
- #include <linux/init.h>
- #include <linux/netfilter_ipv4.h>
- #include <linux/if_ether.h>
-+#include <linux/jiffies.h>
- 
- #include <net/sock.h>
- #include <net/ip.h>
-@@ -324,7 +325,7 @@ static int ipip_err(struct sk_buff *skb, u32 info)
- 	if (t->parms.iph.ttl == 0 && type == ICMP_TIME_EXCEEDED)
- 		goto out;
- 
--	if (jiffies - t->err_time < IPTUNNEL_ERR_TIMEO)
-+	if (time_before(jiffies , t->err_time + IPTUNNEL_ERR_TIMEO))
- 		t->err_count++;
- 	else
- 		t->err_count = 1;
-@@ -590,7 +591,7 @@ static int ipip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
- 	}
- 
- 	if (tunnel->err_count > 0) {
--		if (jiffies - tunnel->err_time < IPTUNNEL_ERR_TIMEO) {
-+		if (time_before(jiffies , tunnel->err_time + IPTUNNEL_ERR_TIMEO)) {
- 			tunnel->err_count--;
- 			dst_link_failure(skb);
- 		} else
+>> >> Function need to fix:
+>> >> tcp_v4_connect(); ip4_datagram_connect(); udp_sendmsg();
+>>
 
--- 
-Shani 
+> > I think we need to make these checks more carefully.
+> >
+> > Route lookup can fail for several reasons other than
+> > no route being available.  Two examples are:
+> >
+> > 1) Out of memory error while creating route
+> > 2) IPSEC disallows communication to that flow ID
+> >
+> > As a result, we'll probably best limiting the counter
+> > increment when the error is either -EHOSTUNREACH or
+> > -ENETUNREACH.
+>
+
+signed-off-by: Wei Dong <weidong@cn.fujitsu.com>
+
+
+diff -ruNp a/net/ipv4/datagram.c b/net/ipv4/datagram.c
+--- a/net/ipv4/datagram.c	2007-04-25 15:20:19.000000000 +0800
++++ b/net/ipv4/datagram.c	2007-04-25 15:21:42.000000000 +0800
+@@ -50,8 +50,12 @@ int ip4_datagram_connect(struct sock *sk
+ 			       RT_CONN_FLAGS(sk), oif,
+ 			       sk->sk_protocol,
+ 			       inet->sport, usin->sin_port, sk);
+-	if (err)
++	if (err) {
++		if (err == -ENETUNREACH)
++			IP_INC_STATS_BH(IPSTATS_MIB_OUTNOROUTES);
+ 		return err;
++	}
++
+ 	if ((rt->rt_flags & RTCF_BROADCAST) && !sock_flag(sk, SOCK_BROADCAST)) {
+ 		ip_rt_put(rt);
+ 		return -EACCES;
+diff -ruNp a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+--- a/net/ipv4/tcp_ipv4.c	2007-04-25 15:20:19.000000000 +0800
++++ b/net/ipv4/tcp_ipv4.c	2007-04-25 15:21:42.000000000 +0800
+@@ -192,8 +192,11 @@ int tcp_v4_connect(struct sock *sk, stru
+ 			       RT_CONN_FLAGS(sk), sk->sk_bound_dev_if,
+ 			       IPPROTO_TCP,
+ 			       inet->sport, usin->sin_port, sk);
+-	if (tmp < 0)
++	if (tmp < 0) {
++		if (tmp == -ENETUNREACH)
++			IP_INC_STATS_BH(IPSTATS_MIB_OUTNOROUTES);
+ 		return tmp;
++	}
+
+ 	if (rt->rt_flags & (RTCF_MULTICAST | RTCF_BROADCAST)) {
+ 		ip_rt_put(rt);
+diff -ruNp a/net/ipv4/udp.c b/net/ipv4/udp.c
+--- a/net/ipv4/udp.c	2007-04-25 15:20:19.000000000 +0800
++++ b/net/ipv4/udp.c	2007-04-25 15:21:42.000000000 +0800
+@@ -630,8 +630,11 @@ int udp_sendmsg(struct kiocb *iocb, stru
+ 						 .dport = dport } } };
+ 		security_sk_classify_flow(sk, &fl);
+ 		err = ip_route_output_flow(&rt, &fl, sk, !(msg->msg_flags&MSG_DONTWAIT));
+-		if (err)
++		if (err) {
++			if (err == -ENETUNREACH)
++				IP_INC_STATS_BH(IPSTATS_MIB_OUTNOROUTES);
+ 			goto out;
++		}
+
+ 		err = -EACCES;
+ 		if ((rt->rt_flags & RTCF_BROADCAST) &&
+
