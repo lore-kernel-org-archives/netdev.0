@@ -1,77 +1,44 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: [patch 10/15] ppp_generic: fix lockdep warning
-Date: Thu, 26 Apr 2007 12:49:50 +0200
-Message-ID: <20070426104950.GA3145@ff.dom.local>
-References: <200704260727.l3Q7RTxG023970@shell0.pdx.osdl.net> <20070426.013911.69219176.davem@davemloft.net>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: [PATCH 0/9] various wext cleanups
+Date: Thu, 26 Apr 2007 13:05:21 +0200
+Message-ID: <1177585521.6814.47.camel@johannes.berg>
+References: <20070424180732.371620000@sipsolutions.net>
+	 <1177582513.6814.27.camel@johannes.berg>
+	 <20070426.031842.17863787.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org, jura@netams.com,
-	paulus@samba.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx12.go2.pl ([193.17.41.142]:57620 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1031160AbXDZKoA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Apr 2007 06:44:00 -0400
-Content-Disposition: inline
-In-Reply-To: <20070426.013911.69219176.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-LtyBngnaJw5KO0HuMcCR"
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20070426.031842.17863787.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 26, 2007 at 01:39:11AM -0700, David Miller wrote:
-> From: akpm@linux-foundation.org
-> Date: Thu, 26 Apr 2007 00:27:29 -0700
-> 
-> > lockdep has seen locks "-> #0" - "-> #3" taken in circular order, but IMHO,
-> > lock "-> #3" (&pch->downl) taken after "-> #2" (&ppp->wlock) differs from
-> > &pch->downl lock taken in "-> #0" (before &vlan_netdev_xmit_lock_key) and
-> > lockdep should be notified about this.
-> > 
-> > Reported & tested by: "Yuriy N. Shkandybin" <jura@netams.com>
-> > Signed-off-by: Jarek Poplawski <jarkao2@o2.pl>
-> > Cc: Paul Mackerras <paulus@samba.org>
-> > Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
-> 
-> I believe there were some problems found in this one,
-> so I'm going to hold on it for now.
-> 
 
-This patch should prevent lockdep from reporting one kind
-of possible circular locking error, which in my opinion is
-impossible (lockdep doesn't see the difference in serving
-two types of ppp channels). So, if I'm not wrong, this
-patch is helpful sometime.
+--=-LtyBngnaJw5KO0HuMcCR
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-But there is also a second, very similar lockdep report,
-probably also false (lockdep cannot see the difference
-between locks of two different, I hope, vlan devices),
-which needs more work:
-a) vlan should use different lockdep lock subclasses or
-classes for each device, which would require quite a lot
-of static memory reserved, probably only to silence
-lockdep,
-b) pppoe could change the way of sending packets, so
-the locks of ppp_generic were not seen by lockdep
-with so many variants; I'm not sure the maintainer of
-pppoe likes this idea;
+On Thu, 2007-04-26 at 03:18 -0700, David Miller wrote:
 
-Doing a) should be enough, I guess; doing b) is easier
-but, probably, the similar is possible elsewhere, too.
+> I got the bounce so I have the changelog too :-)
 
-Of course, there is possibility to silence lockdep
-easier, e.g. don't let it know about vlan's lock
-at all, but there is always, a risk lockdep reports
-could be right sometimes...
+Sorry. I should've known and just posted git instructions. You should
+have gotten a copy directly to your inbox too.
 
-Probably this kind of "error" reports could be avoided,
-if vlan's config were started after all their devices
-were up. Here it is probably: netdev1, vlan1, netdev2,
-vlan2... and lockdep isn't able to distinguish them
-enough.
+johannes
 
-Currently I think about some change in lockdep, to track
-something like different vlans with less memory, but I'm
-not sure it'll work, yet.
+--=-LtyBngnaJw5KO0HuMcCR
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
 
-Regards,
-Jarek P.
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iD8DBQBGMIdw/ETPhpq3jKURAsrfAJ0YFQUJElDFUXsBzmUk8NbDMEALKgCfSOHC
+7n07w70QN78mCmtJ58plSrk=
+=enTb
+-----END PGP SIGNATURE-----
+
+--=-LtyBngnaJw5KO0HuMcCR--
