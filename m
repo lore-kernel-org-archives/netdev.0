@@ -1,8 +1,8 @@
 From: Steve Wise <swise@opengridcomputing.com>
-Subject: [ofa-general] [PATCH 2.6.22 2/5] iw_cxgb3: Fail qp creation if the
-	requested max_inline is too large.
-Date: Thu, 26 Apr 2007 15:21:09 -0500
-Message-ID: <20070426202107.24234.91018.stgit@dell3.ogc.int>
+Subject: [ofa-general] [PATCH 2.6.22 3/5] iw_cxgb3: Initialize cpu_idx field
+	in cpl_close_listserv_req message.
+Date: Thu, 26 Apr 2007 15:21:15 -0500
+Message-ID: <20070426202114.24234.18730.stgit@dell3.ogc.int>
 References: <20070426202057.24234.56383.stgit@dell3.ogc.int>
 Content-Type: text/plain; charset=utf-8; format=fixed
 Content-Transfer-Encoding: quoted-printable
@@ -23,41 +23,25 @@ Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
 
-Fail qp creation if the requested max_inline is too large.
+Initialize cpu_idx field in cpl_close_listserv_req message.
 
 Signed-off-by: Steve Wise <swise@opengridcomputing.com>
 ---
 
- drivers/infiniband/hw/cxgb3/cxio_wr.h       |    1 +
- drivers/infiniband/hw/cxgb3/iwch_provider.c |    3 +++
- 2 files changed, 4 insertions(+), 0 deletions(-)
+ drivers/infiniband/hw/cxgb3/iwch_cm.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/infiniband/hw/cxgb3/cxio_wr.h b/drivers/infiniband/h=
-w/cxgb3/cxio_wr.h
-index 90d7b89..ff7290e 100644
---- a/drivers/infiniband/hw/cxgb3/cxio_wr.h
-+++ b/drivers/infiniband/hw/cxgb3/cxio_wr.h
-@@ -38,6 +38,7 @@ #include <linux/timer.h>
- #include "firmware_exports.h"
-=20
- #define T3_MAX_SGE      4
-+#define T3_MAX_INLINE	64
-=20
- #define Q_EMPTY(rptr,wptr) ((rptr)=3D=3D(wptr))
- #define Q_FULL(rptr,wptr,size_log2)  ( (((wptr)-(rptr))>>(size_log2)) &&=
- \
-diff --git a/drivers/infiniband/hw/cxgb3/iwch_provider.c b/drivers/infini=
-band/hw/cxgb3/iwch_provider.c
-index 24e0df0..b1128ec 100644
---- a/drivers/infiniband/hw/cxgb3/iwch_provider.c
-+++ b/drivers/infiniband/hw/cxgb3/iwch_provider.c
-@@ -780,6 +780,9 @@ static struct ib_qp *iwch_create_qp(stru
- 	if (rqsize > T3_MAX_RQ_SIZE)
- 		return ERR_PTR(-EINVAL);
-=20
-+	if (attrs->cap.max_inline_data > T3_MAX_INLINE)
-+		return ERR_PTR(-EINVAL);
-+
- 	/*
- 	 * NOTE: The SQ and total WQ sizes don't need to be
- 	 * a power of two.  However, all the code assumes
+diff --git a/drivers/infiniband/hw/cxgb3/iwch_cm.c b/drivers/infiniband/h=
+w/cxgb3/iwch_cm.c
+index 2d2de9b..a990423 100644
+--- a/drivers/infiniband/hw/cxgb3/iwch_cm.c
++++ b/drivers/infiniband/hw/cxgb3/iwch_cm.c
+@@ -1187,6 +1187,7 @@ static int listen_stop(struct iwch_liste
+ 	}
+ 	req =3D (struct cpl_close_listserv_req *) skb_put(skb, sizeof(*req));
+ 	req->wr.wr_hi =3D htonl(V_WR_OP(FW_WROPCODE_FORWARD));
++	req->cpu_idx =3D 0;
+ 	OPCODE_TID(req) =3D htonl(MK_OPCODE_TID(CPL_CLOSE_LISTSRV_REQ, ep->stid=
+));
+ 	skb->priority =3D 1;
+ 	ep->com.tdev->send(ep->com.tdev, skb);
